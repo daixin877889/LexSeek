@@ -52,15 +52,45 @@ model users {
   /// 用户注册渠道
   registerChannel String?   @map("register_channel") @db.VarChar(100)
   /// 创建时间
-  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamp()
+  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz()
   /// 最后更新时间
-  updatedAt       DateTime? @default(now()) @map("updated_at") @db.Timestamp()
+  updatedAt       DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
   /// 删除时间
-  deletedAt       DateTime? @map("deleted_at") @db.Timestamp()
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz()
 
   @@index([id], map: "idx_users_id")
   @@index([status], map: "idx_users_status")
   @@index([deletedAt], map: "idx_users_deleted_at")
   @@index([role], map: "idx_users_role")
   @@map("users")
+}
+
+/// 短信验证码表
+model smsRecords {
+  /// 短信验证码ID，主键，uuid
+  id        String    @id @default(uuid(7)) @db.Uuid
+  /// 手机号
+  phone     String    @db.VarChar(11)
+  /// 验证码
+  code      String    @db.VarChar(10)
+  /// 验证码类型
+  type      String    @db.VarChar(100)
+  /// 过期时间
+  expiredAt DateTime  @map("expired_at") @db.Timestamptz()
+  /// 创建时间
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  /// 最后更新时间
+  updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
+  /// 删除时间
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz()
+
+  @@unique([phone, type], name: "idx_sms_phone_type")
+  @@index([id], map: "idx_sms_id")
+  @@index([phone], map: "idx_sms_phone")
+  @@index([expiredAt], map: "idx_sms_expired_at")
+  @@index([type], map: "idx_sms_type")
+  @@index([updatedAt], map: "idx_sms_updated_at")
+  @@index([createdAt], map: "idx_sms_created_at")
+  @@index([deletedAt], map: "idx_sms_deleted_at")
+  @@map("sms_records")
 }

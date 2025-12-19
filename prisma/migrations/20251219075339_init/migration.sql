@@ -18,11 +18,25 @@ CREATE TABLE "users" (
     "openid" VARCHAR(100),
     "unionid" VARCHAR(100),
     "register_channel" VARCHAR(100),
-    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    "deleted_at" TIMESTAMP,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "sms_records" (
+    "id" UUID NOT NULL,
+    "phone" VARCHAR(11) NOT NULL,
+    "code" VARCHAR(10) NOT NULL,
+    "type" VARCHAR(100) NOT NULL,
+    "expired_at" TIMESTAMPTZ NOT NULL,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
+
+    CONSTRAINT "sms_records_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -48,3 +62,27 @@ CREATE INDEX "idx_users_deleted_at" ON "users"("deleted_at");
 
 -- CreateIndex
 CREATE INDEX "idx_users_role" ON "users"("role");
+
+-- CreateIndex
+CREATE INDEX "idx_sms_id" ON "sms_records"("id");
+
+-- CreateIndex
+CREATE INDEX "idx_sms_phone" ON "sms_records"("phone");
+
+-- CreateIndex
+CREATE INDEX "idx_sms_expired_at" ON "sms_records"("expired_at");
+
+-- CreateIndex
+CREATE INDEX "idx_sms_type" ON "sms_records"("type");
+
+-- CreateIndex
+CREATE INDEX "idx_sms_updated_at" ON "sms_records"("updated_at");
+
+-- CreateIndex
+CREATE INDEX "idx_sms_created_at" ON "sms_records"("created_at");
+
+-- CreateIndex
+CREATE INDEX "idx_sms_deleted_at" ON "sms_records"("deleted_at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "sms_records_phone_type_key" ON "sms_records"("phone", "type");
