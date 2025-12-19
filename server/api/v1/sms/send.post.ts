@@ -8,7 +8,7 @@ import { z } from "../../../../shared/utils/zod"
 export default defineEventHandler(async (event) => {
     console.log(event)
     try {
-        // 数据验证
+        // 1. 数据验证
         const schema = z.object({
             phone: z.string().regex(/^1[3-9]\d{9}$/, "手机号格式不正确"),
             type: z.enum(SmsType, {
