@@ -1,5 +1,5 @@
 <template>
-  <div class="container mx-auto py-8 px-4 sm:px-6 md:max-w-4xl">
+  <div class="container mx-auto py-8 px-4 sm:px-6">
     <div class="space-y-6">
       <!-- 标题部分 -->
       <div class="text-center mb-8">
