@@ -1,10 +1,19 @@
+import { z } from 'zod'
+import { SmsType } from '#shared/types/sms'
+import { generateSmsCode } from '~~/server/utils/sms'
+import { prisma } from '~~/server/utils/db'
+
+// 频率限制：60秒内只能发送一次
+const RATE_LIMIT_MS = 60 * 1000
+// 验证码有效期：5分钟
+const CODE_EXPIRE_MS = 5 * 60 * 1000
+
 /**
  * 发送短信验证码接口
  * @param event
  * @returns
  */
 export default defineEventHandler(async (event) => {
-
     try {
         // 1. 数据验证
         const schema = z.object({
@@ -17,11 +26,11 @@ export default defineEventHandler(async (event) => {
         const body = await readValidatedBody(event, (payload) => schema.parse(payload))
         const { phone, type } = body
 
-        // 如果用户已经存在且状态为0，则抛出错误
+        // 2. 检查用户状态（如果用户存在）
         const userResult = await prisma.users.findFirst({
             where: { phone, deletedAt: null },
             select: { id: true, status: true }
-        });
+        })
 
         if (userResult && userResult.status === 0) {
             return {
@@ -30,62 +39,73 @@ export default defineEventHandler(async (event) => {
             }
         }
 
-        // 2. 生成验证码
-        const code = generateSmsCode();
-
-        // 4. 检查是否存在过期验证码
-        const smsResult = await prisma.smsRecords.findFirst({
+        // 3. 查询现有验证码记录
+        const existingRecord = await prisma.smsRecords.findFirst({
             where: { phone, type, deletedAt: null }
-        });
+        })
 
-        console.log(smsResult?.expiredAt)
+        const now = new Date()
 
-        // 4.1 如果存在过期验证码，则删除
-        if (smsResult && smsResult.expiredAt < new Date()) {
-            await prisma.smsRecords.delete({
-                where: { id: smsResult.id }
-            });
-        }
+        if (existingRecord) {
+            // Prisma 扩展已自动处理时区转换，可以直接比较
+            const isExpired = existingRecord.expiredAt < now
+            const isWithinRateLimit = existingRecord.createdAt &&
+                existingRecord.createdAt.getTime() > now.getTime() - RATE_LIMIT_MS
 
-        // 4.2 检查验证码获取是否超出频率
-        if (smsResult && smsResult.createdAt && smsResult.createdAt < new Date(Date.now() - 1000 * 60 * 1)) {
-            return {
-                code: 400,
-                message: "验证码获取频率过高，请稍后再试"
-            }
-        }
-
-        // 4.3 如果验证码不存在，则创建
-        if (!smsResult) {
-            await prisma.smsRecords.create({
-                data: {
-                    phone,
-                    code,
-                    type,
-                    expiredAt: new Date(Date.now() + 1000 * 60 * 5),
-                    createdAt: new Date(),
-                    updatedAt: new Date()
+            // 3.1 如果未过期且在频率限制内，拒绝发送
+            if (!isExpired && isWithinRateLimit) {
+                return {
+                    code: 400,
+                    message: "验证码获取频率过高，请稍后再试"
                 }
-            });
+            }
+
+            // 3.2 删除旧记录（无论是否过期，都需要重新生成）
+            await prisma.smsRecords.delete({
+                where: { id: existingRecord.id }
+            })
         }
 
+        // 4. 生成新验证码并创建记录
+        const code = generateSmsCode()
+        const expiredAt = new Date(now.getTime() + CODE_EXPIRE_MS)
 
+        const newRecord = await prisma.smsRecords.create({
+            data: {
+                phone,
+                code,
+                type,
+                expiredAt,
+                createdAt: now,
+                updatedAt: now
+            }
+        })
+
+        // TODO: 调用短信服务商 API 发送验证码
+        // await sendSmsToProvider(phone, code)
+
+        console.log('短信验证码发送成功：', { phone, code })
         return {
             code: 200,
             message: "发送成功",
-            data: { smsResult }
-        }
-    } catch (error: any) {
-        if (JSON.parse(error.message) || JSON.parse(error.message).length > 0) {
-            return {
-                code: 400,
-                message: JSON.parse(error.message).map((error: any) => error.message).join(",")
+            data: {
+                expiredAt: newRecord.expiredAt
             }
         }
+    } catch (error: any) {
+        if (JSON.parse(error.message) && JSON.parse(error.message).length > 0) {
+            return {
+                code: 400,
+                message: JSON.parse(error.message).map((e: any) => e.message).join(", ")
+            }
+        }
+
+        // 记录错误日志
+        console.error('SMS send error:', error)
+
         return {
             code: 500,
             message: "服务器错误"
         }
     }
-
 })
