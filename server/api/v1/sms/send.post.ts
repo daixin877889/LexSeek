@@ -1,12 +1,10 @@
-import { SmsType } from "../../../../shared/types/sms"
-import { z } from "../../../../shared/utils/zod"
 /**
  * 发送短信验证码接口
  * @param event
  * @returns
  */
 export default defineEventHandler(async (event) => {
-    console.log(event)
+
     try {
         // 1. 数据验证
         const schema = z.object({
@@ -32,13 +30,50 @@ export default defineEventHandler(async (event) => {
             }
         }
 
-        // 生成验证码
+        // 2. 生成验证码
         const code = generateSmsCode();
+
+        // 4. 检查是否存在过期验证码
+        const smsResult = await prisma.smsRecords.findFirst({
+            where: { phone, type, deletedAt: null }
+        });
+
+        console.log(smsResult?.expiredAt)
+
+        // 4.1 如果存在过期验证码，则删除
+        if (smsResult && smsResult.expiredAt < new Date()) {
+            await prisma.smsRecords.delete({
+                where: { id: smsResult.id }
+            });
+        }
+
+        // 4.2 检查验证码获取是否超出频率
+        if (smsResult && smsResult.createdAt && smsResult.createdAt < new Date(Date.now() - 1000 * 60 * 1)) {
+            return {
+                code: 400,
+                message: "验证码获取频率过高，请稍后再试"
+            }
+        }
+
+        // 4.3 如果验证码不存在，则创建
+        if (!smsResult) {
+            await prisma.smsRecords.create({
+                data: {
+                    phone,
+                    code,
+                    type,
+                    expiredAt: new Date(Date.now() + 1000 * 60 * 5),
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                }
+            });
+        }
+
 
         return {
             code: 200,
             message: "发送成功",
-            data: { code }
+            data: { smsResult }
         }
     } catch (error: any) {
         if (JSON.parse(error.message) || JSON.parse(error.message).length > 0) {
