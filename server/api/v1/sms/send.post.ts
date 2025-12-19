@@ -4,6 +4,7 @@
  * @returns
  */
 export default defineEventHandler(async (event) => {
+    const logger = createLogger('SMS')
     try {
         const config = useRuntimeConfig()
         // 从配置获取（配置单位为秒，转换为毫秒）
@@ -79,10 +80,10 @@ export default defineEventHandler(async (event) => {
         // 只有启用时才发送短信
         if (config.aliyun.sms.enable) {
             const res = await sendCaptchaSms(phone, code)
-            console.log('短信验证码发送成功：', res)
+            logger.info('短信验证码发送成功：', res)
 
         }
-        console.log('短信验证码发送成功：', { phone, code })
+        logger.info('短信验证码发送成功：', { phone, code })
         return {
             code: 200,
             message: "发送成功",
@@ -99,7 +100,7 @@ export default defineEventHandler(async (event) => {
         }
 
         // 记录错误日志
-        console.error('SMS send error:', error)
+        logger.error('SMS send error:', error)
 
         return {
             code: 500,
