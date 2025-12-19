@@ -1,11 +1,10 @@
 <template>
   <div class="hidden lg:block relative w-0 flex-1">
-    <div class="absolute inset-0 bg-gradient-to-r from-primary to-primary/80">
-      <div class="absolute inset-0 bg-[url('/images/login-bg.jpg')] bg-no-repeat bg-cover opacity-10">
-      </div>
+    <div class="absolute inset-0 bg-linear-to-r from-primary to-primary/80">
+      <div class="absolute inset-0 bg-[url('/images/login-bg.jpg')] bg-no-repeat bg-cover opacity-10"></div>
       <div class="flex flex-col justify-center h-full max-w-lg mx-auto px-8 text-white space-y-6">
         <h2 class="text-3xl font-bold">AI辅助法律分析，助力专业决策</h2>
-        <p class="text-lg">LexSeek 帮助律师精炼案件信息，洞悉复杂案情脉络，提供从概要梳理到策略预判的深度分析，助您高效决策，掌控全局。 </p>
+        <p class="text-lg">LexSeek 帮助律师精炼案件信息，洞悉复杂案情脉络，提供从概要梳理到策略预判的深度分析，助您高效决策，掌控全局。</p>
         <div class="grid grid-cols-2 gap-4 mt-8">
           <div class="bg-white/10 backdrop-blur-sm p-4 rounded-lg">
             <document-chart-icon class="h-6 w-6 mb-2" />
@@ -34,12 +33,8 @@
 </template>
 
 <script setup>
-import {
-  ScaleIcon,
-  ShieldIcon,
-  LightbulbIcon
-} from 'lucide-vue-next';
+import { ScaleIcon, ShieldIcon, LightbulbIcon } from "lucide-vue-next";
 
 // 使用一个自定义图标组件替代没有的DocumentChartIcon
 const DocumentChartIcon = ScaleIcon; // 这里用ScaleIcon代替
-</script> 
+</script>

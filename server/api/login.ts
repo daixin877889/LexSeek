@@ -1,3 +1,8 @@
+/**
+ * 登录接口
+ * @param event
+ * @returns
+ */
 export default defineEventHandler(async (event) => {
     const { phone } = getQuery(event)
     if (!phone) {
