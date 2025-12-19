@@ -1,8 +1,3 @@
-import { z } from 'zod'
-import { SmsType } from '#shared/types/sms'
-import { generateSmsCode } from '~~/server/utils/sms'
-import { prisma } from '~~/server/utils/db'
-
 // 频率限制：60秒内只能发送一次
 const RATE_LIMIT_MS = 60 * 1000
 // 验证码有效期：5分钟
@@ -81,9 +76,12 @@ export default defineEventHandler(async (event) => {
             }
         })
 
-        // TODO: 调用短信服务商 API 发送验证码
-        // await sendSmsToProvider(phone, code)
+        // 只有非开发环境才发送短信
+        if (process.env.NODE_ENV !== 'development') {
+            const res = await sendSms(phone, code)
+            console.log('短信验证码发送成功：', res)
 
+        }
         console.log('短信验证码发送成功：', { phone, code })
         return {
             code: 200,

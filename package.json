@@ -15,6 +15,10 @@
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
+    "@alicloud/dysmsapi20170525": "^4.3.1",
+    "@alicloud/openapi-client": "^0.4.15",
+    "@alicloud/sms-sdk": "^1.1.6",
+    "@alicloud/tea-util": "^1.4.11",
     "@nuxt/image": "^2.0.0",
     "@nuxt/scripts": "^0.13.1",
     "@prisma/adapter-pg": "^7.2.0",
