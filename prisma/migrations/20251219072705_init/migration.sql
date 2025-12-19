@@ -18,9 +18,9 @@ CREATE TABLE "users" (
     "openid" VARCHAR(100),
     "unionid" VARCHAR(100),
     "register_channel" VARCHAR(100),
-    "created_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
-    "deleted_at" TIMESTAMPTZ(6),
+    "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMP,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );

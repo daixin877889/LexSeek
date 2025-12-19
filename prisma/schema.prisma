@@ -33,7 +33,7 @@ model users {
   phone           String    @unique @db.VarChar(11)
   /// 密码，加密存储
   password        String?   @db.VarChar(100)
-  /// 用户角色：user-普通用户，admin-管理员
+  /// 用户角色：user-普通用户，admin-管理
   role            UserRole  @default(USER)
   /// 用户状态：1-启用，0-禁用
   status          Int       @default(1)
@@ -52,11 +52,11 @@ model users {
   /// 用户注册渠道
   registerChannel String?   @map("register_channel") @db.VarChar(100)
   /// 创建时间
-  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamp()
   /// 最后更新时间
-  updatedAt       DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+  updatedAt       DateTime? @default(now()) @map("updated_at") @db.Timestamp()
   /// 删除时间
-  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamp()
 
   @@index([id], map: "idx_users_id")
   @@index([status], map: "idx_users_status")
