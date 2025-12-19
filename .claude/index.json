@@ -1,0 +1,123 @@
+{
+  "timestamp": "2025-12-19T08:47:08Z",
+  "project": {
+    "name": "lexseek",
+    "type": "nuxt-fullstack",
+    "description": "法律服务AI应用",
+    "totalFiles": 100,
+    "scannedFiles": 25,
+    "coverage": "25%"
+  },
+  "modules": [
+    {
+      "path": "/app",
+      "type": "frontend",
+      "language": "TypeScript/Vue",
+      "entries": [
+        "pages/",
+        "layouts/",
+        "components/ui/",
+        "app.vue"
+      ],
+      "apis": [],
+      "tests": [],
+      "coverage": "30%"
+    },
+    {
+      "path": "/server",
+      "type": "backend",
+      "language": "TypeScript",
+      "entries": [
+        "api/v1/login.ts",
+        "api/v1/sms/send.post.ts"
+      ],
+      "apis": [
+        "GET /api/v1/login",
+        "POST /api/v1/sms/send"
+      ],
+      "tests": [],
+      "coverage": "40%"
+    },
+    {
+      "path": "/shared",
+      "type": "common",
+      "language": "TypeScript",
+      "entries": [
+        "types/sms.ts",
+        "utils/phone.ts",
+        "utils/zod.ts"
+      ],
+      "apis": [],
+      "tests": [],
+      "coverage": "100%"
+    },
+    {
+      "path": "/prisma",
+      "type": "database",
+      "language": "Prisma/SQL",
+      "entries": [
+        "schema.prisma",
+        "migrations/"
+      ],
+      "apis": [],
+      "tests": [],
+      "coverage": "100%"
+    }
+  ],
+  "statistics": {
+    "languageDistribution": {
+      "TypeScript": 45,
+      "Vue": 25,
+      "Prisma": 5,
+      "SQL": 5,
+      "CSS": 10,
+      "Other": 10
+    },
+    "directories": {
+      "scanned": 4,
+      "total": 8,
+      "skipped": [
+        "/node_modules",
+        "/.git",
+        "/.output",
+        "/.nuxt",
+        "/dist"
+      ]
+    },
+    "largeFiles": [
+      {
+        "path": "/node_modules",
+        "reason": "依赖目录",
+        "count": 10000
+      }
+    ]
+  },
+  "gaps": [
+    {
+      "module": "/app",
+      "missing": ["测试文件", "组件文档", "路由配置"],
+      "recommendation": "添加 Vitest 单元测试，完善组件文档"
+    },
+    {
+      "module": "/server",
+      "missing": ["API文档", "错误处理中间件", "认证中间件"],
+      "recommendation": "添加 Swagger API文档，实现 JWT 认证"
+    },
+    {
+      "module": "/shared",
+      "missing": ["更多工具函数", "类型测试"],
+      "recommendation": "添加日期处理、加密等工具函数"
+    }
+  ],
+  "nextSteps": [
+    "实现用户注册和密码重置API",
+    "添加 JWT 认证中间件",
+    "创建 AI 法律分析相关接口",
+    "完善前端页面和组件",
+    "添加单元测试和集成测试",
+    "配置 CI/CD 流程"
+  ],
+  "truncated": false,
+  "scanningStrategy": "adaptive",
+  "notes": "项目采用 Nuxt.js 4 全栈架构，使用 Prisma ORM 和 PostgreSQL，已实现基础的用户认证和短信验证功能。"
+}
