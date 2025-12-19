@@ -323,7 +323,6 @@
 definePageMeta({
   layout: "base-layout",
 });
-import { onMounted } from "vue";
 import { UserIcon, QuoteIcon, ZapIcon, ShieldIcon, LockIcon, UsersIcon, SparklesIcon, HeartIcon, CalendarIcon, MailIcon, PhoneIcon, MapPinIcon } from "lucide-vue-next";
 
 onMounted(() => {
