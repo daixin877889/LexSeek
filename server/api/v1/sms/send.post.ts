@@ -1,8 +1,3 @@
-// 频率限制：60秒内只能发送一次
-const RATE_LIMIT_MS = 60 * 1000
-// 验证码有效期：5分钟
-const CODE_EXPIRE_MS = 5 * 60 * 1000
-
 /**
  * 发送短信验证码接口
  * @param event
@@ -10,6 +5,11 @@ const CODE_EXPIRE_MS = 5 * 60 * 1000
  */
 export default defineEventHandler(async (event) => {
     try {
+        const config = useRuntimeConfig()
+        // 从配置获取（配置单位为秒，转换为毫秒）
+        const RATE_LIMIT_MS = config.aliyun.sms.rateLimitMs * 1000
+        const CODE_EXPIRE_MS = config.aliyun.sms.codeExpireMs * 1000
+
         // 1. 数据验证
         const schema = z.object({
             phone: z.string().regex(/^1[3-9]\d{9}$/, "手机号格式不正确"),
@@ -76,9 +76,9 @@ export default defineEventHandler(async (event) => {
             }
         })
 
-        // 只有非开发环境才发送短信
-        if (process.env.NODE_ENV !== 'development') {
-            const res = await sendSms(phone, code)
+        // 只有启用时才发送短信
+        if (config.aliyun.sms.enable) {
+            const res = await sendCaptchaSms(phone, code)
             console.log('短信验证码发送成功：', res)
 
         }

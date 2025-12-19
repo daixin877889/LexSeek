@@ -20,7 +20,14 @@ function getClient() {
     return client
 }
 
-export const sendSms = async (phone: string, code: string) => {
+/**
+ * 发送短信验证码
+ * @param phone 手机号
+ * @param code 验证码
+ * @returns 发送结果
+ * @throws 发送失败时抛出错误
+ */
+export const sendCaptchaSms = async (phone: string, code: string) => {
     try {
         const config = useRuntimeConfig()
         const smsClient = getClient()
@@ -29,7 +36,7 @@ export const sendSms = async (phone: string, code: string) => {
         const request = new SendSmsRequest({
             phoneNumbers: phone,
             signName: config.aliyun.sms.signName || '阿里云短信测试',
-            templateCode: config.aliyun.sms.templateCode,
+            templateCode: config.aliyun.sms.templateCaptchaCode,
             templateParam: JSON.stringify({ code }),
         })
 

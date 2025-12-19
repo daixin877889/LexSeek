@@ -47,10 +47,11 @@ export default defineNuxtConfig({
       accessKeyId: '',
       accessKeySecret: '',
       sms: {
-        enable: false,
-        signName: '',
-        templateCode: '',
-
+        enable: false, // 是否启用短信发送
+        signName: '', // 短信签名
+        templateCaptchaCode: '', // 短信验证码模板ID，用于发送验证码
+        rateLimitMs: 60, // 短信发送频率限制，单位：秒，默认60秒内只能发送一次
+        codeExpireMs: 300, // 短信验证码有效期，单位：秒，默认5分钟 
       }
     }
   }
