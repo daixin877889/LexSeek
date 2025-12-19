@@ -34,5 +34,24 @@ export default defineNuxtConfig({
     compatibilityVersion: 4, // 确保开启 Nuxt 4 模式
   },
   compatibilityDate: '2025-07-15',
-  devtools: { enabled: true }
+  devtools: { enabled: true },
+  nitro: {
+    imports: {
+      dirs: [
+        './server/lib/**',
+      ]
+    }
+  },
+  runtimeConfig: {
+    aliyun: {
+      accessKeyId: '',
+      accessKeySecret: '',
+      sms: {
+        enable: false,
+        signName: '',
+        templateCode: '',
+
+      }
+    }
+  }
 })
