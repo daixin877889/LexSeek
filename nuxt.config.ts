@@ -63,6 +63,12 @@ export default defineNuxtConfig({
     }
   },
   runtimeConfig: {
+    public: {
+      // 日志级别配置（客户端和服务端共用）
+      // 可选值: DEBUG, INFO, WARN, ERROR, SILENT
+      // 通过环境变量 NUXT_PUBLIC_LOG_LEVEL 覆盖
+      logLevel: 'DEBUG',
+    },
     aliyun: {
       accessKeyId: '',
       accessKeySecret: '',
