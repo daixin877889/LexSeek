@@ -2,10 +2,17 @@
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineNuxtConfig({
+  app: {
+    head: {
+      link: [
+        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }
+      ]
+    }
+  },
   css: ['~/assets/css/tailwind.css'],
   vite: {
     plugins: [
-      tailwindcss(),
+      tailwindcss() as any,
     ],
   },
   shadcn: {
@@ -22,7 +29,7 @@ export default defineNuxtConfig({
      */
     componentDir: '@/components/ui'
   },
-  modules: ['@nuxt/image', '@nuxt/scripts', 'shadcn-nuxt', 'shadcn-nuxt'],
+  modules: ['@nuxt/image', '@nuxt/scripts', 'shadcn-nuxt'],
   future: {
     compatibilityVersion: 4, // 确保开启 Nuxt 4 模式
   },
