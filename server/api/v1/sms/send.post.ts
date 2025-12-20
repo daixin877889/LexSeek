@@ -23,12 +23,9 @@ export default defineEventHandler(async (event) => {
         const { phone, type } = body
 
         // 2. 检查用户状态（如果用户存在）
-        const userResult = await prisma.users.findFirst({
-            where: { phone, deletedAt: null },
-            select: { id: true, status: true }
-        })
+        const userResult = await findUserByPhone(phone)
 
-        if (userResult && userResult.status === 0) {
+        if (userResult && userResult.status === UserStatus.INACTIVE) {
             return {
                 code: 400,
                 message: "用户已禁用，无法发送验证码"
@@ -36,9 +33,7 @@ export default defineEventHandler(async (event) => {
         }
 
         // 3. 查询现有验证码记录
-        const existingRecord = await prisma.smsRecords.findFirst({
-            where: { phone, type, deletedAt: null }
-        })
+        const existingRecord = await findSmsRecordByPhoneAndType(phone, type)
 
         const now = new Date()
 
@@ -57,25 +52,12 @@ export default defineEventHandler(async (event) => {
             }
 
             // 3.2 删除旧记录（无论是否过期，都需要重新生成）
-            await prisma.smsRecords.delete({
-                where: { id: existingRecord.id }
-            })
+            await deleteSmsRecordById(existingRecord.id)
         }
 
         // 4. 生成新验证码并创建记录
         const code = generateSmsCode()
-        const expiredAt = new Date(now.getTime() + CODE_EXPIRE_MS)
-
-        const newRecord = await prisma.smsRecords.create({
-            data: {
-                phone,
-                code,
-                type,
-                expiredAt,
-                createdAt: now,
-                updatedAt: now
-            }
-        })
+        const newRecord = await createSmsRecord(phone, type, code, CODE_EXPIRE_MS)
 
         // 只有启用时才发送短信
         if (config.aliyun.sms.enable) {
