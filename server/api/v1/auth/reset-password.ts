@@ -45,13 +45,6 @@ export default defineEventHandler(async (event) => {
         return resSuccess(event, '重置密码成功', {})
     } catch (error: any) {
         logger.error('重置密码失败：', error)
-        try {
-            const parsed = JSON.parse(error.message);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-                return resError(event, 400, parsed.map((e: any) => e.message).join(", "))
-            }
-        } catch {
-            return resError(event, 500, error.message || "重置密码失败")
-        }
+        return resError(event, 400, parseErrorMessage(error, "重置密码失败"))
     }
 })

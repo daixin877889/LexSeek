@@ -54,3 +54,21 @@ export const resError = (event: H3Event, code: number, message: string): ApiBase
         data: null,
     }
 }
+
+/**
+ * 解析错误信息
+ * @param error 错误信息
+ * @returns 错误信息
+ */
+export const parseErrorMessage = (error: any, defaultMessage: string = "未知错误"): string => {
+    try {
+        let msg = ""
+        const parsed = JSON.parse(error.message);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+            msg = parsed.map((e: any) => e.message).join(", ")
+        }
+        return msg || defaultMessage
+    } catch (error: any) {
+        return defaultMessage
+    }
+}

@@ -135,13 +135,6 @@ export default defineEventHandler(async (event) => {
     } catch (error: any) {
         logger.error('注册接口错误：', error)
 
-        try {
-            const parsed = JSON.parse(error.message);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-                return resError(event, 400, parsed.map((e: any) => e.message).join(", "))
-            }
-        } catch {
-            return resError(event, 500, error.message || "注册失败")
-        }
+        return resError(event, 400, parseErrorMessage(error, "注册失败"))
     }
 })

@@ -66,13 +66,6 @@ export default defineEventHandler(async (event) => {
     } catch (error: any) {
         // 记录错误日志
         logger.error('发送短信验证码接口错误：', error)
-        try {
-            const parsed = JSON.parse(error.message);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-                return resError(event, 400, parsed.map((e: any) => e.message).join(", "))
-            }
-        } catch {
-            return resError(event, 500, error.message || "短信发送失败")
-        }
+        return resError(event, 400, parseErrorMessage(error, "短信发送失败"))
     }
 })
