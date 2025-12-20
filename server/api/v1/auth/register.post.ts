@@ -26,35 +26,23 @@ export default defineEventHandler(async (event) => {
         // 验证验证码
         const smsRecord = await findSmsRecordByPhoneAndType(phone, SmsType.REGISTER);
         if (!smsRecord) {
-            return {
-                code: 400,
-                message: '验证码不存在,请先获取验证码!',
-            }
+            return resError(event, 400, '验证码不存在,请先获取验证码!')
         }
         if (smsRecord.expiredAt < new Date()) {
             await prisma.smsRecords.delete({
                 where: { id: smsRecord.id },
             })
-            return {
-                code: 400,
-                message: '验证码已过期',
-            }
+            return resError(event, 400, '验证码已过期')
         }
         if (smsRecord.code !== code) {
-            return {
-                code: 400,
-                message: '验证码不正确',
-            }
+            return resError(event, 400, '验证码不正确')
         }
 
         // 验证用户名是否存在
         if (username) {
             const userByUsername = await findUserByUsername(username);
             if (userByUsername) {
-                return {
-                    code: 400,
-                    message: '用户名已存在,请重新输入!',
-                }
+                return resError(event, 400, '用户名已存在,请重新输入!')
             }
         }
 
@@ -64,18 +52,12 @@ export default defineEventHandler(async (event) => {
         // 查询用户是否存在
         const user = await findUserByPhone(phone)
         if (user && user.status === UserStatus.ACTIVE) {
-            return {
-                code: 400,
-                message: '该手机号已注册，请直接登录',
-            }
+            return resError(event, 400, '该手机号已注册，请直接登录')
         }
 
         // 验证用户是否被禁用
         if (user && user.status === UserStatus.INACTIVE) {
-            return {
-                code: 400,
-                message: '该手机号已禁用，请联系管理员',
-            }
+            return resError(event, 400, '该手机号已禁用，请联系管理员')
         }
 
         // 加密密码
@@ -135,44 +117,31 @@ export default defineEventHandler(async (event) => {
             maxAge: 60 * 60 * 24 * 30 // 30天
         });
 
-        return {
-            code: 200,
-            message: '注册成功',
-            data: {
-                token,
-                user: {
-                    id: newUser.id,
-                    name: newUser.name,
-                    username: newUser.username,
-                    phone: newUser.phone,
-                    email: newUser.email,
-                    role: newUser.role,
-                    status: newUser.status,
-                    company: newUser.company,
-                    profile: newUser.profile,
-                    inviteCode: newUser.inviteCode,
-                }
-            },
-        }
+        return resSuccess(event, '注册成功', {
+            token,
+            user: {
+                id: newUser.id,
+                name: newUser.name,
+                username: newUser.username,
+                phone: newUser.phone,
+                email: newUser.email,
+                role: newUser.role,
+                status: newUser.status,
+                company: newUser.company,
+                profile: newUser.profile,
+                inviteCode: newUser.inviteCode,
+            }
+        })
     } catch (error: any) {
         logger.error('注册接口错误：', error)
 
-        // 尝试解析 Zod 验证错误
         try {
             const parsed = JSON.parse(error.message);
             if (Array.isArray(parsed) && parsed.length > 0) {
-                return {
-                    code: 400,
-                    message: parsed.map((e: any) => e.message).join(", ")
-                }
+                return resError(event, 400, parsed.map((e: any) => e.message).join(", "))
             }
         } catch {
-            // 非 JSON 格式的错误，直接返回原始消息
-        }
-
-        return {
-            code: 500,
-            message: error.message || "注册失败",
+            return resError(event, 500, error.message || "注册失败")
         }
     }
 })

@@ -26,10 +26,7 @@ export default defineEventHandler(async (event) => {
         const userResult = await findUserByPhone(phone)
 
         if (userResult && userResult.status === UserStatus.INACTIVE) {
-            return {
-                code: 400,
-                message: "用户已禁用，无法发送验证码"
-            }
+            return resError(event, 400, '用户已禁用，无法发送验证码')
         }
 
         // 3. 查询现有验证码记录
@@ -45,10 +42,7 @@ export default defineEventHandler(async (event) => {
 
             // 3.1 如果未过期且在频率限制内，拒绝发送
             if (!isExpired && isWithinRateLimit) {
-                return {
-                    code: 400,
-                    message: "验证码获取频率过高，请稍后再试"
-                }
+                return resError(event, 400, '验证码获取频率过高，请稍后再试')
             }
 
             // 3.2 删除旧记录（无论是否过期，都需要重新生成）
@@ -66,25 +60,19 @@ export default defineEventHandler(async (event) => {
 
         }
         logger.info('短信验证码发送成功：', { phone, code })
-        return {
-            code: 200,
-            message: "发送成功",
-            data: {
-                expiredAt: newRecord.expiredAt
-            }
-        }
+        return resSuccess(event, '发送成功', {
+            expiredAt: newRecord.expiredAt
+        })
     } catch (error: any) {
         // 记录错误日志
         logger.error('发送短信验证码接口错误：', error)
-        if (JSON.parse(error.message) && JSON.parse(error.message).length > 0) {
-            return {
-                code: 400,
-                message: JSON.parse(error.message).map((e: any) => e.message).join(", ")
+        try {
+            const parsed = JSON.parse(error.message);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                return resError(event, 400, parsed.map((e: any) => e.message).join(", "))
             }
-        }
-        return {
-            code: 500,
-            message: error.message || "短信发送失败"
+        } catch {
+            return resError(event, 500, error.message || "短信发送失败")
         }
     }
 })

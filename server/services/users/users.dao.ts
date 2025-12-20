@@ -27,7 +27,7 @@ export const createUser = async (data: Prisma.usersCreateInput): Promise<users> 
  */
 export const findUserById = async (id: number): Promise<users | null> => {
     try {
-        const user = await prisma.users.findUnique({ where: { id } })
+        const user = await prisma.users.findUnique({ where: { id, deletedAt: null } })
         if (!user) {
             return null
         }
@@ -67,7 +67,7 @@ export const findUserByPhone = async (phone: string): Promise<users | null> => {
 export const findUserByInviteCode = async (inviteCode: string): Promise<users | null> => {
     try {
         const user = await prisma.users.findFirst({
-            where: { inviteCode }
+            where: { inviteCode, deletedAt: null }
         })
         if (!user) {
             return null
@@ -88,7 +88,7 @@ export const findUserByInviteCode = async (inviteCode: string): Promise<users | 
 export const findUserByUsername = async (username: string): Promise<users | null> => {
     try {
         const user = await prisma.users.findFirst({
-            where: { username }
+            where: { username, deletedAt: null }
         })
         if (!user) {
             return null
@@ -97,6 +97,25 @@ export const findUserByUsername = async (username: string): Promise<users | null
     }
     catch (error) {
         logger.error('通过用户名查询用户失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 更新用户密码
+ * @param id 用户ID
+ * @param password 密码
+ * @returns 用户
+ */
+export const updateUserPassword = async (id: number, password: string): Promise<users> => {
+    try {
+        const user = await prisma.users.update({
+            where: { id, deletedAt: null },
+            data: { password, updatedAt: new Date() }
+        })
+        return user
+    } catch (error) {
+        logger.error('更新用户密码失败：', error)
         throw error
     }
 }
