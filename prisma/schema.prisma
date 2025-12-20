@@ -42,7 +42,7 @@ model users {
   /// 个人简介，可选
   profile         String?
   /// 邀请码，唯一
-  inviteCode      String    @unique @map("invite_code") @db.VarChar(10)
+  inviteCode      String?   @unique @map("invite_code") @db.VarChar(10)
   /// 邀请人用户ID，外键关联用户表
   invitedBy       Int?      @map("invited_by")
   /// 微信小程序openid
