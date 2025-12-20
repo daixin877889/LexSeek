@@ -94,3 +94,29 @@ model smsRecords {
   @@index([deletedAt], map: "idx_sms_deleted_at")
   @@map("sms_records")
 }
+
+/// token 黑名单
+model tokenBlacklist {
+  /// token 黑名单ID，主键，uuid
+  id        String    @id @default(uuid(7)) @db.Uuid
+  /// tokenS
+  token     String?   @db.Text()
+  /// 用户ID
+  userId    Int       @map("user_id")
+  /// 过期时间
+  expiredAt DateTime  @map("expired_at") @db.Timestamptz()
+  /// 创建时间
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  /// 最后更新时间
+  updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
+  /// 删除时间
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz()
+
+  @@index([userId], map: "idx_token_blacklist_user_id")
+  @@index([expiredAt], map: "idx_token_blacklist_expired_at")
+  @@index([token], map: "idx_token_blacklist_token")
+  @@index([createdAt], map: "idx_token_blacklist_created_at")
+  @@index([updatedAt], map: "idx_token_blacklist_updated_at")
+  @@index([deletedAt], map: "idx_token_blacklist_deleted_at")
+  @@map("token_blacklist")
+}
