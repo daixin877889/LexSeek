@@ -10,11 +10,11 @@
  * @param codeExpireMs 验证码过期时间（毫秒）
  * @returns 短信验证码
  */
-export const createSmsRecord = async (phone: string, type: SmsType, code: string, codeExpireMs: number): Promise<smsRecords> => {
+export const createSmsRecordDao = async (phone: string, type: SmsType, code: string, codeExpireMs: number, tx?: any): Promise<smsRecords> => {
     try {
         const now = new Date()
         const expiredAt = new Date(now.getTime() + codeExpireMs)
-        const smsRecord = await prisma.smsRecords.create({
+        const smsRecord = await (tx || prisma).smsRecords.create({
             data: { phone, type, code, expiredAt, createdAt: now, updatedAt: now },
         })
         return smsRecord
@@ -30,9 +30,9 @@ export const createSmsRecord = async (phone: string, type: SmsType, code: string
  * @param type 类型
  * @returns 短信验证码
  */
-export const findSmsRecordByPhoneAndType = async (phone: string, type: SmsType): Promise<smsRecords | null> => {
+export const findSmsRecordByPhoneAndTypeDao = async (phone: string, type: SmsType, tx?: any): Promise<smsRecords | null> => {
     try {
-        const smsRecord = await prisma.smsRecords.findFirst({
+        const smsRecord = await (tx || prisma).smsRecords.findFirst({
             where: { phone, type, deletedAt: null },
         })
         if (!smsRecord) {
@@ -50,9 +50,9 @@ export const findSmsRecordByPhoneAndType = async (phone: string, type: SmsType):
  * @param id 短信验证码ID
  * @returns 是否删除成功
  */
-export const deleteSmsRecordById = async (id: string): Promise<boolean> => {
+export const deleteSmsRecordByIdDao = async (id: string, tx?: any): Promise<boolean> => {
     try {
-        await prisma.smsRecords.delete({
+        await (tx || prisma).smsRecords.delete({
             where: { id, deletedAt: null },
         })
         return true

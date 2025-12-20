@@ -192,7 +192,7 @@ export const verifySmsCode = async (
     }
 
     // 2. 查询验证码记录
-    const smsRecord = await findSmsRecordByPhoneAndType(phone, type)
+    const smsRecord = await findSmsRecordByPhoneAndTypeDao(phone, type)
     if (!smsRecord) {
         return {
             success: false,
@@ -204,7 +204,7 @@ export const verifySmsCode = async (
     // 3. 检查验证码是否过期
     if (smsRecord.expiredAt < new Date()) {
         // 删除过期的验证码记录
-        await deleteSmsRecordById(smsRecord.id)
+        await deleteSmsRecordByIdDao(smsRecord.id)
         return {
             success: false,
             error: '验证码已过期',
@@ -225,7 +225,7 @@ export const verifySmsCode = async (
     }
 
     // 5. 验证成功，删除验证码记录
-    await deleteSmsRecordById(smsRecord.id)
+    await deleteSmsRecordByIdDao(smsRecord.id)
 
     // 6. 重置失败计数
     await resetVerificationFailures(phone, type)

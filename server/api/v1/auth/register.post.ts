@@ -30,14 +30,14 @@ export default defineEventHandler(async (event) => {
 
         // 验证用户名是否存在
         if (username) {
-            const userByUsername = await findUserByUsername(username);
+            const userByUsername = await findUserByUsernameDao(username);
             if (userByUsername) {
                 return resError(event, 400, '用户名已存在,请重新输入!')
             }
         }
 
         // 查询用户是否存在
-        const user = await findUserByPhone(phone)
+        const user = await findUserByPhoneDao(phone)
         if (user && user.status === UserStatus.ACTIVE) {
             return resError(event, 400, '该手机号已注册，请直接登录')
         }
@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
         // 如果有邀请人，则设置邀请人ID
         let invitedById: number | null = null;
         if (invitedBy) {
-            const invitedUser = await findUserByInviteCode(invitedBy);
+            const invitedUser = await findUserByInviteCodeDao(invitedBy);
             if (invitedUser) {
                 invitedById = invitedUser.id;
             }
@@ -74,7 +74,7 @@ export default defineEventHandler(async (event) => {
         const finalUsername = username ?? await generateUniqueUsername(defaultUsername);
 
         // 创建用户
-        const newUser = await createUser({
+        const newUser = await createUserDao({
             name: name ?? `用户${phone.slice(-4)}`,
             username: finalUsername,
             phone,
@@ -99,7 +99,7 @@ export default defineEventHandler(async (event) => {
         // 使用统一的用户信息格式化服务
         return resSuccess(event, '注册成功', {
             token,
-            user: formatUserResponse(newUser)
+            user: formatUserResponseService(newUser)
         })
     } catch (error: any) {
         logger.error('注册接口错误：', error)

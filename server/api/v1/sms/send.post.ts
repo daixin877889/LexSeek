@@ -23,14 +23,14 @@ export default defineEventHandler(async (event) => {
         const { phone, type } = body
 
         // 2. 检查用户状态（如果用户存在）
-        const userResult = await findUserByPhone(phone)
+        const userResult = await findUserByPhoneDao(phone)
 
         if (userResult && userResult.status === UserStatus.INACTIVE) {
             return resError(event, 400, '用户已禁用，无法发送验证码')
         }
 
         // 3. 查询现有验证码记录
-        const existingRecord = await findSmsRecordByPhoneAndType(phone, type)
+        const existingRecord = await findSmsRecordByPhoneAndTypeDao(phone, type)
 
         const now = new Date()
 
@@ -46,12 +46,12 @@ export default defineEventHandler(async (event) => {
             }
 
             // 3.2 删除旧记录（无论是否过期，都需要重新生成）
-            await deleteSmsRecordById(existingRecord.id)
+            await deleteSmsRecordByIdDao(existingRecord.id)
         }
 
         // 4. 生成新验证码并创建记录
         const code = generateSmsCode()
-        const newRecord = await createSmsRecord(phone, type, code, CODE_EXPIRE_MS)
+        const newRecord = await createSmsRecordDao(phone, type, code, CODE_EXPIRE_MS)
 
         // 只有启用时才发送短信
         if (config.aliyun.sms.enable) {

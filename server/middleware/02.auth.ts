@@ -4,7 +4,7 @@ export default defineEventHandler(async (event) => {
     const url = getRequestURL(event);
 
     // 1. 定义公开路径白名单 (不需要鉴权的接口)
-    const publicPaths = ['/api/v1/auth/register', '/api/v1/auth/login', '/api/v1/sms/send'];
+    const publicPaths = ['/api/v1/auth/register', '/api/v1/auth/login', '/api/v1/auth/reset-password', '/api/v1/sms/send'];
     const isApiRequest = url.pathname.startsWith('/api');
     const isPublic = publicPaths.some(path => url.pathname.startsWith(path));
     if (!isApiRequest || isPublic) {
@@ -33,11 +33,7 @@ export default defineEventHandler(async (event) => {
 
     // 3. 如果 token 不存在则返回401
     if (!token) {
-        return {
-            code: 401,
-            message: '未授权',
-            data: null,
-        }
+        return resError(event, 401, '未授权')
     }
 
     // 4. 验证 token
@@ -45,42 +41,33 @@ export default defineEventHandler(async (event) => {
         authenticatedUser = JwtUtil.verifyToken(token);
     } catch (error) {
         // token 无效或已过期
-        return {
-            code: 401,
-            message: '未授权',
-            data: null,
-        }
+        return resError(event, 401, '未授权')
     }
 
     // 4.1 如果验证失败则返回401
     if (!authenticatedUser || !authenticatedUser.id) {
-        return {
-            code: 401,
-            message: '未授权',
-            data: null,
-        }
+        return resError(event, 401, '未授权')
     }
 
-    // 4.2 检查用户是否存在或被禁用
-    const user = await findUserById(authenticatedUser.id);
+    // 4.2 检查 token 是否在黑名单中
+    const tokenBlacklist = await findTokenBlacklistByTokenDao(token);
+    if (tokenBlacklist) {
+        return resError(event, 401, 'token 已失效')
+    }
+
+    // 4.3 检查用户是否存在或被禁用
+    const user = await findUserByIdDao(authenticatedUser.id);
     if (!user) {
-        return {
-            code: 401,
-            message: '用户不存在',
-            data: null,
-        }
+        return resError(event, 401, '用户不存在')
     }
     if (user.status === UserStatus.INACTIVE) {
-        return {
-            code: 401,
-            message: '用户被禁用',
-            data: null,
-        }
+        return resError(event, 401, '用户被禁用')
     }
 
     // 5. 设置上下文，后续 API 可以通过 event.context.auth 获取当前用户
     event.context.auth = {
         user: authenticatedUser,
-        type: authType
+        type: authType,
+        token: token,
     };
 })

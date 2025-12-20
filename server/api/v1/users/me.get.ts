@@ -3,12 +3,14 @@
  */
 export default defineEventHandler(async (event) => {
     const user = event.context.auth.user;
+    console.log(user)
 
     try {
-        const userInfo = await findUserById(user.id);
+        const userInfo = await findUserByIdDao(user.id);
         if (!userInfo) {
             return resError(event, 401, '用户不存在')
         }
+
         return resSuccess(event, "获取当前用户信息成功", {
             id: userInfo.id,
             name: userInfo.name,

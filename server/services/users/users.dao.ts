@@ -8,9 +8,9 @@ import { Prisma } from '#shared/types/prisma'
  * @param data 用户创建数据
  * @returns 用户
  */
-export const createUser = async (data: Prisma.usersCreateInput): Promise<users> => {
+export const createUserDao = async (data: Prisma.usersCreateInput, tx?: any): Promise<users> => {
     try {
-        const user = await prisma.users.create({
+        const user = await (tx || prisma).users.create({
             data: { ...data, createdAt: new Date(), updatedAt: new Date() }
         })
         return user
@@ -25,9 +25,9 @@ export const createUser = async (data: Prisma.usersCreateInput): Promise<users> 
  * @param id 用户 ID
  * @returns 用户
  */
-export const findUserById = async (id: number): Promise<users | null> => {
+export const findUserByIdDao = async (id: number, tx?: any): Promise<users | null> => {
     try {
-        const user = await prisma.users.findUnique({ where: { id, deletedAt: null } })
+        const user = await (tx || prisma).users.findUnique({ where: { id, deletedAt: null } })
         if (!user) {
             return null
         }
@@ -44,9 +44,9 @@ export const findUserById = async (id: number): Promise<users | null> => {
  * @param phone 手机号
  * @returns 用户
  */
-export const findUserByPhone = async (phone: string): Promise<users | null> => {
+export const findUserByPhoneDao = async (phone: string, tx?: any): Promise<users | null> => {
     try {
-        const user = await prisma.users.findFirst({
+        const user = await (tx || prisma).users.findFirst({
             where: { phone, deletedAt: null }
         })
         if (!user) {
@@ -64,9 +64,9 @@ export const findUserByPhone = async (phone: string): Promise<users | null> => {
  * @param inviteCode 邀请码
  * @returns 用户
  */
-export const findUserByInviteCode = async (inviteCode: string): Promise<users | null> => {
+export const findUserByInviteCodeDao = async (inviteCode: string, tx?: any): Promise<users | null> => {
     try {
-        const user = await prisma.users.findFirst({
+        const user = await (tx || prisma).users.findFirst({
             where: { inviteCode, deletedAt: null }
         })
         if (!user) {
@@ -85,9 +85,9 @@ export const findUserByInviteCode = async (inviteCode: string): Promise<users | 
  * @param username 用户名
  * @returns 用户
  */
-export const findUserByUsername = async (username: string): Promise<users | null> => {
+export const findUserByUsernameDao = async (username: string, tx?: any): Promise<users | null> => {
     try {
-        const user = await prisma.users.findFirst({
+        const user = await (tx || prisma).users.findFirst({
             where: { username, deletedAt: null }
         })
         if (!user) {
@@ -107,9 +107,9 @@ export const findUserByUsername = async (username: string): Promise<users | null
  * @param password 密码
  * @returns 用户
  */
-export const updateUserPassword = async (id: number, password: string): Promise<users> => {
+export const updateUserPasswordDao = async (id: number, password: string, tx?: any): Promise<users> => {
     try {
-        const user = await prisma.users.update({
+        const user = await (tx || prisma).users.update({
             where: { id, deletedAt: null },
             data: { password, updatedAt: new Date() }
         })

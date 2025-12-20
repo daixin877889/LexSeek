@@ -43,7 +43,7 @@ export interface SafeUserInfo {
  * @param user 完整用户对象（来自数据库）
  * @returns 安全的用户信息，仅包含可公开的字段
  */
-export const formatUserResponse = (user: users): SafeUserInfo => {
+export const formatUserResponseService = (user: users): SafeUserInfo => {
     return {
         id: user.id,
         name: user.name,

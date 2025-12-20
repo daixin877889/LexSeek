@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
         const { phone, code, newPassword } = body;
 
         // 先查找用户
-        const user = await findUserByPhone(phone);
+        const user = await findUserByPhoneDao(phone);
         if (!user) {
             return resError(event, 401, '用户不存在')
         }
@@ -32,9 +32,14 @@ export default defineEventHandler(async (event) => {
         // 加密新密码
         const hashedPassword = await generatePassword(newPassword);
         // 更新密码
-        await updateUserPassword(user.id, hashedPassword);
+        await updateUserPasswordDao(user.id, hashedPassword);
 
-        // TODO: 旧 token 加入黑名单
+        // 旧 token 加入黑名单
+        const token = event.context.auth?.token;
+        const expiredTimestamp = event.context.auth?.user?.exp;
+        if (token && expiredTimestamp > 0) {
+            await addTokenBlacklistDao(token, user.id, new Date(expiredTimestamp * 1000));
+        }
 
         return resSuccess(event, '重置密码成功', {})
     } catch (error: any) {

@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
         const { phone, password } = body;
 
         // 先查找用户
-        const user = await findUserByPhone(phone);
+        const user = await findUserByPhoneDao(phone);
         if (!user) {
             return resError(event, 401, '用户不存在')
         }
@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
         // 使用统一的用户信息格式化服务
         return resSuccess(event, '登录成功', {
             token,
-            user: formatUserResponse(user),
+            user: formatUserResponseService(user),
         })
     } catch (error: any) {
         logger.error('登录失败：', error)
