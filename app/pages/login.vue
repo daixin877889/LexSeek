@@ -73,20 +73,12 @@ import { ScaleIcon, EyeIcon, EyeOffIcon, Loader2 } from "lucide-vue-next";
 
 const route = useRoute();
 const router = useRouter();
-
-// import { getRememberedAccount, rememberMeHandler } from "@/utils";
-// import { useUserStore } from "@/stores/user";
-
 const userStore = useUserStore();
-
-console.log(userStore);
 
 // 表单数据
 const phone = ref("");
 const password = ref("");
 const showPassword = ref(false);
-// const loading = ref(false);
-// const errorMessage = ref("");
 
 // 记住我
 const rememberMe = ref(false);

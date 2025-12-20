@@ -29,19 +29,15 @@ export default defineNuxtConfig({
      */
     componentDir: '@/components/ui'
   },
-  modules: ['@nuxt/image', '@nuxt/scripts', 'shadcn-nuxt'],
+  modules: ['@nuxt/image', '@nuxt/scripts', 'shadcn-nuxt', '@pinia/nuxt'],
   imports: {
+    // 自动导入 store 目录下的所有 store
+    dirs: ['store'],
     imports: [
       // 导入 logger 便捷函数和默认实例
       // 使用 #shared 别名指向项目根目录的 shared 文件夹
       // { name: 'logger', from: '#shared/utils/logger' },
-      // { name: 'createLogger', from: '#shared/utils/logger' },
-      // { name: 'debug', as: 'logDebug', from: '#shared/utils/logger' },
-      // { name: 'info', as: 'logInfo', from: '#shared/utils/logger' },
-      // { name: 'warn', as: 'logWarn', from: '#shared/utils/logger' },
-      // { name: 'error', as: 'logError', from: '#shared/utils/logger' },
-      // { name: 'setLogLevel', from: '#shared/utils/logger' },
-      // { name: 'LOG_LEVELS', from: '#shared/utils/logger' },
+
     ]
   },
   future: {
@@ -58,8 +54,6 @@ export default defineNuxtConfig({
       imports: [
         // 服务端 logger 自动导入
         // { name: 'logger', from: '#shared/utils/logger' },
-        // { name: 'createLogger', from: '#shared/utils/logger' },
-        // { name: 'LOG_LEVELS', from: '#shared/utils/logger' },
       ]
     }
   },
