@@ -53,6 +53,7 @@ export default defineNuxtConfig({
     imports: {
       dirs: [
         './server/lib/**',
+        './server/services/**/**',
       ],
       imports: [
         // 服务端 logger 自动导入
@@ -79,6 +80,10 @@ export default defineNuxtConfig({
         rateLimitMs: 60, // 短信发送频率限制，单位：秒，默认60秒内只能发送一次
         codeExpireMs: 300, // 短信验证码有效期，单位：秒，默认5分钟 
       }
+    },
+    jwt: {
+      secret: 'lexseek_jwt_secret',
+      expiresIn: '30d',
     }
   }
 })
