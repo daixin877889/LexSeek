@@ -21,6 +21,25 @@ export const createUser = async (data: Prisma.usersCreateInput): Promise<users> 
 }
 
 /**
+ * 通过 ID 查询用户
+ * @param id 用户 ID
+ * @returns 用户
+ */
+export const findUserById = async (id: number): Promise<users | null> => {
+    try {
+        const user = await prisma.users.findUnique({ where: { id } })
+        if (!user) {
+            return null
+        }
+        return user
+    }
+    catch (error) {
+        logger.error('通过 ID 查询用户失败：', error)
+        throw error
+    }
+}
+
+/**
  * 通过手机号查询用户
  * @param phone 手机号
  * @returns 用户
