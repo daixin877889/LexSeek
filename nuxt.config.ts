@@ -78,12 +78,18 @@ export default defineNuxtConfig({
         signName: '', // 短信签名
         templateCaptchaCode: '', // 短信验证码模板ID，用于发送验证码
         rateLimitMs: 60, // 短信发送频率限制，单位：秒，默认60秒内只能发送一次
-        codeExpireMs: 300, // 短信验证码有效期，单位：秒，默认5分钟 
+        codeExpireMs: 300, // 短信验证码有效期，单位：秒，默认5分钟
+        maxFailures: 5, // 验证码最大失败次数，超过后锁定
+        lockDurationMs: 900, // 验证码锁定时间，单位：秒，默认15分钟
       }
     },
     jwt: {
       secret: 'lexseek_jwt_secret', // jwt 的 secret
       expiresIn: '30d', // 过期时间
+    },
+    auth: {
+      cookieName: 'auth_token', // 认证 Cookie 名称
+      cookieMaxAge: 2592000, // Cookie 过期时间，单位：秒，默认30天
     }
   }
 })
