@@ -1,14 +1,13 @@
 /**
  * 手机验证码注册
- * @param event
- * @returns
+ *
+ * 使用短信验证码完成用户注册流程
+ * @param event H3Event 对象
+ * @returns 注册结果，包含 token 和用户信息
  */
 export default defineEventHandler(async (event) => {
     const logger = createLogger('Auth')
     try {
-        const config = useRuntimeConfig()
-        // 从配置获取（配置单位为秒，转换为毫秒）
-        const CODE_EXPIRE_MS = config.aliyun.sms.codeExpireMs * 1000
         // 参数验证规则
         const schema = z.object({
             phone: z.string("手机号不能为空").regex(/^1[3-9]\d{9}$/, "手机号格式不正确"),
@@ -23,19 +22,10 @@ export default defineEventHandler(async (event) => {
         const body = await readValidatedBody(event, (payload) => schema.parse(payload))
         const { phone, code, name, password, username, company, profile, invitedBy } = body;
 
-        // 验证验证码
-        const smsRecord = await findSmsRecordByPhoneAndType(phone, SmsType.REGISTER);
-        if (!smsRecord) {
-            return resError(event, 400, '验证码不存在,请先获取验证码!')
-        }
-        if (smsRecord.expiredAt < new Date()) {
-            await prisma.smsRecords.delete({
-                where: { id: smsRecord.id },
-            })
-            return resError(event, 400, '验证码已过期')
-        }
-        if (smsRecord.code !== code) {
-            return resError(event, 400, '验证码不正确')
+        // 使用统一的验证码验证服务
+        const verificationResult = await verifySmsCode(phone, code, SmsType.REGISTER)
+        if (!verificationResult.success) {
+            return resError(event, verificationResult.errorCode!, verificationResult.error!)
         }
 
         // 验证用户名是否存在
@@ -45,9 +35,6 @@ export default defineEventHandler(async (event) => {
                 return resError(event, 400, '用户名已存在,请重新输入!')
             }
         }
-
-        // 删除验证码
-        await deleteSmsRecordById(smsRecord.id)
 
         // 查询用户是否存在
         const user = await findUserByPhone(phone)
@@ -101,36 +88,18 @@ export default defineEventHandler(async (event) => {
             invitedBy: invitedById,
         })
 
-        // 生成JWT令牌
-        const token = JwtUtil.generateToken({
+        // 使用统一的 token 生成服务
+        const token = generateAuthToken(event, {
             id: newUser.id,
             phone: newUser.phone,
             role: newUser.role,
             status: newUser.status,
         })
 
-        // 设置 HttpOnly Cookie
-        setCookie(event, 'auth_token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 60 * 60 * 24 * 30 // 30天
-        });
-
+        // 使用统一的用户信息格式化服务
         return resSuccess(event, '注册成功', {
             token,
-            user: {
-                id: newUser.id,
-                name: newUser.name,
-                username: newUser.username,
-                phone: newUser.phone,
-                email: newUser.email,
-                role: newUser.role,
-                status: newUser.status,
-                company: newUser.company,
-                profile: newUser.profile,
-                inviteCode: newUser.inviteCode,
-            }
+            user: formatUserResponse(newUser)
         })
     } catch (error: any) {
         logger.error('注册接口错误：', error)

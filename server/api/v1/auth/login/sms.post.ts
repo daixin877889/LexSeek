@@ -1,7 +1,8 @@
 /**
- * 手机号和验证码登录 
+ * 手机号和验证码登录
+ *
+ * 使用短信验证码完成用户登录
  */
-
 export default defineEventHandler(async (event) => {
     const logger = createLogger('Auth')
     try {
@@ -21,50 +22,24 @@ export default defineEventHandler(async (event) => {
             return resError(event, 401, '用户被禁用')
         }
 
-        // 验证验证码
-        const smsRecord = await findSmsRecordByPhoneAndType(phone, SmsType.LOGIN);
-        if (!smsRecord) {
-            return resError(event, 400, '验证码不存在,请先获取验证码!')
+        // 使用统一的验证码验证服务
+        const verificationResult = await verifySmsCode(phone, code, SmsType.LOGIN)
+        if (!verificationResult.success) {
+            return resError(event, verificationResult.errorCode!, verificationResult.error!)
         }
 
-        if (smsRecord.expiredAt < new Date()) {
-            await deleteSmsRecordById(smsRecord.id);
-            return resError(event, 400, '验证码已过期')
-        }
-        if (smsRecord.code !== code) {
-            return resError(event, 400, '验证码不正确')
-        }
-        await deleteSmsRecordById(smsRecord.id);
-        // 生成JWT令牌
-        const token = JwtUtil.generateToken({
+        // 使用统一的 token 生成服务
+        const token = generateAuthToken(event, {
             id: user.id,
             phone: user.phone,
             role: user.role,
             status: user.status,
         })
 
-        // 设置 HttpOnly Cookie
-        setCookie(event, 'auth_token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 60 * 60 * 24 * 30 // 30天
-        });
-
+        // 使用统一的用户信息格式化服务
         return resSuccess(event, '登录成功', {
             token,
-            user: {
-                id: user.id,
-                name: user.name,
-                username: user.username,
-                phone: user.phone,
-                email: user.email,
-                role: user.role,
-                status: user.status,
-                company: user.company,
-                profile: user.profile,
-                inviteCode: user.inviteCode,
-            },
+            user: formatUserResponse(user),
         })
     } catch (error: any) {
         logger.error('登录失败：', error)

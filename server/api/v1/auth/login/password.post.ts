@@ -1,5 +1,7 @@
 /**
- * 手机号和密码登录 
+ * 手机号和密码登录
+ *
+ * 使用手机号和密码完成用户登录
  */
 export default defineEventHandler(async (event) => {
     const logger = createLogger('Auth')
@@ -29,36 +31,18 @@ export default defineEventHandler(async (event) => {
             return resError(event, 401, '密码错误')
         }
 
-        // 生成JWT令牌
-        const token = JwtUtil.generateToken({
+        // 使用统一的 token 生成服务
+        const token = generateAuthToken(event, {
             id: user.id,
             phone: user.phone,
             role: user.role,
             status: user.status,
         })
 
-        // 设置 HttpOnly Cookie
-        setCookie(event, 'auth_token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 60 * 60 * 24 * 30 // 30天
-        });
-
+        // 使用统一的用户信息格式化服务
         return resSuccess(event, '登录成功', {
             token,
-            user: {
-                id: user.id,
-                name: user.name,
-                username: user.username,
-                phone: user.phone,
-                email: user.email,
-                role: user.role,
-                status: user.status,
-                company: user.company,
-                profile: user.profile,
-                inviteCode: user.inviteCode,
-            },
+            user: formatUserResponse(user),
         })
     } catch (error: any) {
         logger.error('登录失败：', error)

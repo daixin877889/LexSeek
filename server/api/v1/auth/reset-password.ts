@@ -1,7 +1,8 @@
 /**
- * 重置密码 
+ * 重置密码
+ *
+ * 使用短信验证码重置用户密码
  */
-
 export default defineEventHandler(async (event) => {
     const logger = createLogger('Auth')
     try {
@@ -21,21 +22,14 @@ export default defineEventHandler(async (event) => {
         if (user.status === UserStatus.INACTIVE) {
             return resError(event, 401, '用户被禁用')
         }
-        // 验证验证码
-        const smsRecord = await findSmsRecordByPhoneAndType(phone, SmsType.RESET_PASSWORD);
-        if (!smsRecord) {
-            return resError(event, 400, '验证码不存在,请先获取验证码!')
+
+        // 使用统一的验证码验证服务
+        const verificationResult = await verifySmsCode(phone, code, SmsType.RESET_PASSWORD)
+        if (!verificationResult.success) {
+            return resError(event, verificationResult.errorCode!, verificationResult.error!)
         }
 
-        if (smsRecord.expiredAt < new Date()) {
-            await deleteSmsRecordById(smsRecord.id);
-            return resError(event, 400, '验证码已过期')
-        }
-        if (smsRecord.code !== code) {
-            return resError(event, 400, '验证码不正确')
-        }
-        await deleteSmsRecordById(smsRecord.id);
-
+        // 加密新密码
         const hashedPassword = await generatePassword(newPassword);
         // 更新密码
         await updateUserPassword(user.id, hashedPassword);

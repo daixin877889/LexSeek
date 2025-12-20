@@ -28,11 +28,11 @@ import type { H3Event } from 'h3'
  */
 export const resSuccess = (event: H3Event, message: string, data: any): ApiBaseResponse => {
     return {
-        requestId: event.context.requestId || uuidv7(),
-        success: true,
         code: 0,
+        success: true,
         message: message || '操作成功',
         timestamp: Date.now(),
+        requestId: event.context.requestId || uuidv7(),
         data: data,
     }
 }
@@ -46,11 +46,11 @@ export const resSuccess = (event: H3Event, message: string, data: any): ApiBaseR
  */
 export const resError = (event: H3Event, code: number, message: string): ApiBaseResponse => {
     return {
-        requestId: event.context.requestId || uuidv7(),
-        success: false,
         code: code,
+        success: false,
         message: message,
         timestamp: Date.now(),
+        requestId: event.context.requestId || uuidv7(),
         data: null,
     }
 }
