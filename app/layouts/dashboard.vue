@@ -2,7 +2,8 @@
   <SidebarProvider>
     <AppSidebar :dashboardRouters="dashboardRouters" />
     <SidebarInset class="overflow-x-hidden">
-      <header class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 fixed bg-white w-full z-50 shadow-sm">
+      <header
+        class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 fixed bg-white w-full z-50 shadow-sm">
         <div class="flex items-center gap-2 px-4">
           <!-- logo -->
           <div class="flex items-center gap-2 md:hidden">
@@ -18,7 +19,8 @@
         </div>
 
         <div class="ml-auto pr-4 flex items-center md:hidden">
-          <button class="p-2 rounded-md hover:bg-gray-100 transition-colors focus:outline-none focus:ring-offset-2" @click="toggleSidebar">
+          <button class="p-2 rounded-md hover:bg-gray-100 transition-colors focus:outline-none focus:ring-offset-2"
+            @click="toggleSidebar">
             <MenuIcon class="h-6 w-6" />
           </button>
           <NavUserRight :userRoutes="userRoutes" />
@@ -32,6 +34,8 @@
 </template>
 
 <script lang="ts" setup>
+import { ref } from 'vue'
+
 const dashboardRouters = ref([]);
 const userRoutes = ref([]);
 const sidebarTriggerRef = ref(null);

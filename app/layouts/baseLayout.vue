@@ -14,16 +14,20 @@
           <nav class="hidden md:block">
             <ul class="flex gap-6">
               <li>
-                <NuxtLink to="/" class="text-sm hover:text-primary transition-colors py-1 block" :class="{ 'text-primary font-medium': $route.path === '/' }"> 首页 </NuxtLink>
+                <NuxtLink to="/" class="text-sm hover:text-primary transition-colors py-1 block"
+                  :class="{ 'text-primary font-medium': $route.path === '/' }"> 首页 </NuxtLink>
               </li>
               <li>
-                <NuxtLink to="/features" class="text-sm hover:text-primary transition-colors py-1 block" :class="{ 'text-primary font-medium': $route.path === '/features' }"> 产品功能 </NuxtLink>
+                <NuxtLink to="/features" class="text-sm hover:text-primary transition-colors py-1 block"
+                  :class="{ 'text-primary font-medium': $route.path === '/features' }"> 产品功能 </NuxtLink>
               </li>
               <li>
-                <NuxtLink to="/pricing" class="text-sm hover:text-primary transition-colors py-1 block" :class="{ 'text-primary font-medium': $route.path === '/pricing' }"> 价格方案 </NuxtLink>
+                <NuxtLink to="/pricing" class="text-sm hover:text-primary transition-colors py-1 block"
+                  :class="{ 'text-primary font-medium': $route.path === '/pricing' }"> 价格方案 </NuxtLink>
               </li>
               <li>
-                <NuxtLink to="/about" class="text-sm hover:text-primary transition-colors py-1 block" :class="{ 'text-primary font-medium': $route.path === '/about' }"> 关于我们 </NuxtLink>
+                <NuxtLink to="/about" class="text-sm hover:text-primary transition-colors py-1 block"
+                  :class="{ 'text-primary font-medium': $route.path === '/about' }"> 关于我们 </NuxtLink>
               </li>
             </ul>
           </nav>
@@ -40,7 +44,9 @@
       <div class="max-w-[1280px] mx-auto px-4">
         <div class="flex flex-col md:flex-row justify-between items-center">
           <div class="mb-4 md:mb-0 text-center md:text-left">
-            <p class="text-sm text-muted-foreground">© 2025 上海盛熙律泓教育科技有限公司｜ <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="hover:text-foreground transition-colors"> 沪ICP备2025118451号 </a></p>
+            <p class="text-sm text-muted-foreground">© 2025 上海盛熙律泓教育科技有限公司｜ <a href="https://beian.miit.gov.cn/"
+                target="_blank" rel="noopener noreferrer" class="hover:text-foreground transition-colors">
+                沪ICP备2025118451号 </a></p>
             <!-- <p class="text-xs text-muted-foreground mt-1">
               <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="hover:text-foreground transition-colors">
                 沪ICP备2025118451号
