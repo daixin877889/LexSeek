@@ -1,4 +1,3 @@
-
 // 鉴权中间件
 export default defineEventHandler(async (event) => {
     // 获取请求 URL
@@ -13,63 +12,73 @@ export default defineEventHandler(async (event) => {
     }
 
     // 2. 初始化鉴权结果上下文
-    let authenticatedUser = null;
-    let authType: 'cookie' | 'token' | 'api-key' | null = null;
+    let authenticatedUser: JwtPayload | null = null;
+    let authType: 'cookie' | 'token' | null = null;
     let token: string | undefined = undefined;
 
-    token = getHeader(event, 'Authorization');
     // 2.1 优先从请求头中获取 token
-    if (token && token.startsWith('Bearer ')) {
-        token = token.split(' ')[1];
+    const authHeader = getHeader(event, 'Authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.slice(7); // 比 split 更高效
         authType = 'token';
     }
 
     // 2.2 如果请求头中没有 token 则从 cookie 中获取 auth_token
     if (!token) {
         token = getCookie(event, 'auth_token');
-        authType = 'cookie';
+        if (token) {
+            authType = 'cookie';
+        }
     }
 
     // 3. 如果 token 不存在则返回401
     if (!token) {
-        return createError({
-            statusCode: 401,
-            statusMessage: '未授权',
-        });
+        return {
+            code: 401,
+            message: '未授权',
+            data: null,
+        }
     }
 
-    // 4. 如果 token 存在则验证 token
-    if (token) {
-        const payload = JwtUtil.verifyToken(token);
-        if (payload) {
-            authenticatedUser = payload;
+    // 4. 验证 token
+    try {
+        authenticatedUser = JwtUtil.verifyToken(token);
+    } catch (error) {
+        // token 无效或已过期
+        return {
+            code: 401,
+            message: '未授权',
+            data: null,
         }
     }
 
     // 4.1 如果验证失败则返回401
     if (!authenticatedUser || !authenticatedUser.id) {
-        return createError({
-            statusCode: 401,
-            statusMessage: '未授权',
-        });
+        return {
+            code: 401,
+            message: '未授权',
+            data: null,
+        }
     }
 
-    // 4.2 如果用户不存在或被禁用
+    // 4.2 检查用户是否存在或被禁用
     const user = await findUserById(authenticatedUser.id);
     if (!user) {
-        return createError({
-            statusCode: 401,
-            statusMessage: '用户不存在',
-        });
+        return {
+            code: 401,
+            message: '用户不存在',
+            data: null,
+        }
     }
-    if (user && user.status === UserStatus.INACTIVE) {
-        return createError({
-            statusCode: 401,
-            statusMessage: '用户被禁用',
-        });
+    if (user.status === UserStatus.INACTIVE) {
+        return {
+            code: 401,
+            message: '用户被禁用',
+            data: null,
+        }
     }
 
-    // 5 如果用户存在且未被禁用则设置上下文,后续 API 可以通过 event.context.user 获取当前用户
+    // 5. 设置上下文，后续 API 可以通过 event.context.auth 获取当前用户
     event.context.auth = {
         user: authenticatedUser,
         type: authType
