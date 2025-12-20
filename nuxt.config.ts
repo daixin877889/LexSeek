@@ -82,8 +82,8 @@ export default defineNuxtConfig({
       }
     },
     jwt: {
-      secret: 'lexseek_jwt_secret',
-      expiresIn: '30d',
+      secret: 'lexseek_jwt_secret', // jwt 的 secret
+      expiresIn: '30d', // 过期时间
     }
   }
 })
