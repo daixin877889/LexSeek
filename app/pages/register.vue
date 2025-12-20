@@ -41,7 +41,7 @@
             </TabsContent>
 
             <!-- 网站注册Tab -->
-            <TabsContent value="website" class="mt-6">
+            <TabsContent value="website">
               <form @submit.prevent="handleRegister" class="space-y-5">
                 <div>
                   <label for="name" class="block text-sm font-medium mb-1"> <span class="text-red-500 ml-0.5">*</span>姓名</label>
@@ -137,10 +137,14 @@
 <script setup>
 // import { useWxSupportStore } from "@/stores/wx-support";
 import { ScaleIcon, EyeIcon, EyeOffIcon, Loader2 } from "lucide-vue-next";
+import { toast } from "vue-sonner";
 // import api from "@/api";
 // import { setToken, validatePhone } from "@/utils";
 
 // const wxSupportStore = useWxSupportStore();
+
+const route = useRoute();
+const router = useRouter();
 
 // Tab 相关状态
 const activeTab = ref("miniprogram");
@@ -222,125 +226,139 @@ let countdownTimer = null;
 
 // 获取URL中的邀请码
 const invitedBy = computed(() => {
-  // return route.query.invitedBy || localStorage.getItem("invitedBy") || "";
-  return "";
+  return route.query.invitedBy || localStorage.getItem("invitedBy") || "";
 });
 
 onMounted(() => {
-  // // 缓存邀请码
-  // if (route.query.invitedBy) {
-  //   localStorage.setItem("invitedBy", route.query.invitedBy);
-  // }
+  // 缓存邀请码
+  if (route.query.invitedBy) {
+    localStorage.setItem("invitedBy", route.query.invitedBy);
+  }
 });
 
 // 表单验证
 const isFormValid = computed(() => {
-  // return getStringLength(formData.name.trim()) >= 2 && formData.verificationCode && formData.password && formData.confirmPassword && formData.password === formData.confirmPassword && formData.password.length >= 8 && formData.agreeTerms && validatePhone(formData.phone);
-  return false;
+  return getStringLength(formData.name.trim()) >= 2 && formData.verificationCode && formData.password && formData.confirmPassword && formData.password === formData.confirmPassword && formData.password.length >= 8 && formData.agreeTerms && validatePhone(formData.phone);
 });
 
-// 获取验证码
 const getVerificationCode = async () => {
-  // if (!validatePhone(formData.phone)) {
-  //   errorMessage.value = "请输入正确的手机号格式";
-  //   return;
-  // }
-  // isGettingCode.value = true;
-  // try {
-  //   // 调用发送验证码接口
-  //   await api.user.getVerifCode({
-  //     phone: formData.phone,
-  //     type: "register",
-  //   });
-  //   // 启动倒计时
-  //   countdown.value = 60;
-  //   countdownTimer = setInterval(() => {
-  //     if (countdown.value > 0) {
-  //       countdown.value--;
-  //     } else {
-  //       clearInterval(countdownTimer);
-  //     }
-  //   }, 1000);
-  // } catch (error) {
-  //   logger.error("获取验证码失败:", error);
-  //   errorMessage.value = error.message || "获取验证码失败，请稍后再试";
-  // } finally {
-  //   isGettingCode.value = false;
-  // }
+  if (!validatePhone(formData.phone)) {
+    errorMessage.value = "请输入正确的手机号格式";
+    return;
+  }
+  isGettingCode.value = true;
+  errorMessage.value = "";
+
+  // 使用封装的 useApiPost
+  const { error, execute } = useApiPost(
+    "/api/v1/sms/send",
+    {
+      phone: formData.phone,
+      type: SmsType.REGISTER,
+    },
+    { showError: false }
+  );
+
+  await execute();
+
+  if (error.value) {
+    errorMessage.value = error.value.message || "获取验证码失败，请稍后再试";
+  } else {
+    toast.success("获取验证码成功");
+    // 发送成功，启动倒计时
+    countdown.value = 60;
+    countdownTimer = setInterval(() => {
+      if (countdown.value > 0) {
+        countdown.value--;
+      } else {
+        clearInterval(countdownTimer);
+      }
+    }, 1000);
+  }
+
+  isGettingCode.value = false;
 };
 
 // 注册处理
 const handleRegister = async () => {
-  // // 清除之前的错误信息
-  // errorMessage.value = "";
-  // // 提交前验证所有字段
-  // validateField();
-  // // 表单验证
-  // if (!isFormValid.value) {
-  //   // 找到第一个错误信息显示
-  //   for (const key in errMsg) {
-  //     if (errMsg[key]) {
-  //       errorMessage.value = errMsg[key];
-  //       return;
-  //     }
-  //   }
-  //   // 如果没有具体错误信息但表单无效，显示通用错误
-  //   if (!errorMessage.value) {
-  //     if (!formData.agreeTerms) {
-  //       errorMessage.value = "请阅读并同意服务条款和隐私政策";
-  //     } else {
-  //       errorMessage.value = "请完成所有必填项";
-  //     }
-  //   }
-  //   return;
-  // }
-  // isLoading.value = true;
-  // try {
-  //   // 构建注册请求参数
-  //   const registerParams = {
-  //     phone: formData.phone,
-  //     code: formData.verificationCode,
-  //     name: formData.name,
-  //     password: formData.password,
-  //   };
-  //   // 如果有邀请码，添加到请求参数中
-  //   if (invitedBy.value) {
-  //     registerParams.invitedBy = invitedBy.value;
-  //   }
-  //   // 调用注册接口
-  //   const response = await api.user.registerByPhone(registerParams);
-  //   // 如果注册成功且返回了token，直接登录
-  //   if (response && response.token) {
-  //     // 存储token
-  //     setToken(response.token);
-  //     // 注册成功后重定向到首页
-  //     if (route.query.redirect) {
-  //       router.replace(route.query.redirect);
-  //     } else {
-  //       router.replace("/dashboard");
-  //     }
-  //   } else {
-  //     // 注册成功但没有自动登录，跳转到登录页
-  //     router.push({
-  //       path: "/login",
-  //       query: { registered: "success", phone: formData.phone },
-  //     });
-  //   }
-  // } catch (error) {
-  //   logger.error("注册失败:", error);
-  //   errorMessage.value = error || "注册失败，请稍后再试";
-  // } finally {
-  //   isLoading.value = false;
-  // }
+  // 清除之前的错误信息
+  errorMessage.value = "";
+  // 提交前验证所有字段
+  validateField();
+  // 表单验证
+  if (!isFormValid.value) {
+    // 找到第一个错误信息显示
+    for (const key in errMsg) {
+      if (errMsg[key]) {
+        errorMessage.value = errMsg[key];
+        return;
+      }
+    }
+    // 如果没有具体错误信息但表单无效，显示通用错误
+    if (!errorMessage.value) {
+      if (!formData.agreeTerms) {
+        errorMessage.value = "请阅读并同意服务条款和隐私政策";
+      } else {
+        errorMessage.value = "请完成所有必填项";
+      }
+    }
+    return;
+  }
+  isLoading.value = true;
+  try {
+    // 构建注册请求参数
+    const registerParams = {
+      phone: formData.phone,
+      code: formData.verificationCode,
+      name: formData.name,
+      password: formData.password,
+    };
+    // 如果有邀请码，添加到请求参数中
+    if (invitedBy.value) {
+      registerParams.invitedBy = invitedBy.value;
+    }
+
+    // 调用注册接口
+    // const response = await api.user.registerByPhone(registerParams);
+    const { data: response, error: registerError, execute: registerExecute } = await useApiPost("/api/v1/auth/register", registerParams);
+    await registerExecute();
+    if (registerError.value) {
+      errorMessage.value = registerError.value.message || "注册失败，请稍后再试";
+      return;
+    }
+
+    // 如果注册成功且返回了token，直接登录
+    if (response && response.value.token) {
+      // 存储token
+      setToken(response.value.token);
+      // 注册成功后重定向到首页
+      if (route.query.redirect) {
+        router.replace(route.query.redirect);
+      } else {
+        router.replace("/dashboard");
+      }
+    } else {
+      // 注册成功但没有自动登录，跳转到登录页
+      router.push({
+        path: "/login",
+        query: { registered: "success", phone: formData.phone },
+      });
+    }
+  } catch (error) {
+    logger.error("注册失败:", error);
+    errorMessage.value = error || "注册失败，请稍后再试";
+  } finally {
+    isLoading.value = false;
+  }
 };
 
 // 跳转登录页面
 const toLogin = () => {
-  // if (route.query.redirect) {
-  //   router.replace(`/login?redirect=${route.query.redirect}`);
-  // } else {
-  //   router.replace("/login");
-  // }
+  if (route.query.redirect) {
+    router.replace(`/login?redirect=${route.query.redirect}`);
+  } else {
+    router.replace("/login");
+  }
 };
 
 // 组件卸载时清除计时器

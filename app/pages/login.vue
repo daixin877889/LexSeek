@@ -71,6 +71,10 @@
 
 <script setup>
 import { ScaleIcon, EyeIcon, EyeOffIcon, Loader2 } from "lucide-vue-next";
+
+const route = useRoute();
+const router = useRouter();
+
 // import { getRememberedAccount, rememberMeHandler } from "@/utils";
 // import { useUserStore } from "@/stores/user";
 
@@ -100,5 +104,12 @@ onMounted(() => {
 const handleLogin = async () => {};
 
 // 跳转注册页面
-const toRegister = () => {};
+const toRegister = () => {
+  // 如果登录页面有redirect参数，则跳转注册页面并携带redirect参数
+  if (route.query.redirect) {
+    router.replace(`/register?redirect=${route.query.redirect}`);
+  } else {
+    router.replace("/register");
+  }
+};
 </script>
