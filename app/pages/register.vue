@@ -53,9 +53,9 @@
                   <label for="phone" class="block text-sm font-medium mb-1"> <span class="text-red-500 ml-0.5">*</span>手机号</label>
                   <div class="relative w-full">
                     <Input id="phone" v-model="formData.phone" type="tel" autocomplete="tel" required @input="phoneMsg" class="h-10 w-full px-3 py-2 border rounded-md text-base" placeholder="请输入您的手机号" />
-                    <!-- <Button type="button" @click="getVerificationCode" :disabled="isGettingCode || countdown > 0 || !validatePhone(formData.phone)" class="absolute right-0 top-0 h-10 px-3 py-2 bg-primary text-primary-foreground rounded-r-md rounded-l-none hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
-                  {{ countdown > 0 ? `${countdown}秒后重试` : '获取验证码' }}
-                </Button> -->
+                    <Button type="button" @click="getVerificationCode" :disabled="isGettingCode || countdown > 0 || !validatePhone(formData.phone)" class="absolute right-0 top-0 h-10 px-3 py-2 bg-primary text-primary-foreground rounded-r-md rounded-l-none hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
+                      {{ countdown > 0 ? `${countdown}秒后重试` : "获取验证码" }}
+                    </Button>
                   </div>
                   <span v-show="errMsg.phone" class="text-red-500 ml-0.5 text-xs">{{ errMsg.phone }}</span>
                 </div>
@@ -64,9 +64,9 @@
                   <label for="verificationCode" class="block text-sm font-medium mb-1"> <span class="text-red-500 ml-0.5">*</span>验证码</label>
                   <div class="relative w-full">
                     <Input id="verificationCode" v-model="formData.verificationCode" type="text" required @input="verificationCodeMsg" class="h-10 w-full px-3 py-2 border rounded-md text-base" placeholder="请输入短信验证码" />
-                    <Button type="button" @click="getVerificationCode" :disabled="isGettingCode || countdown > 0 || !validatePhone(formData.phone)" class="absolute right-0 top-0 h-10 px-3 py-2 bg-primary text-primary-foreground rounded-r-md rounded-l-none hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
+                    <!-- <Button type="button" @click="getVerificationCode" :disabled="isGettingCode || countdown > 0 || !validatePhone(formData.phone)" class="absolute right-0 top-0 h-10 px-3 py-2 bg-primary text-primary-foreground rounded-r-md rounded-l-none hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
                       {{ countdown > 0 ? `${countdown}秒后重试` : "获取验证码" }}
-                    </Button>
+                    </Button> -->
                   </div>
                   <span v-show="errMsg.verificationCode" class="text-red-500 ml-0.5 text-xs">{{ errMsg.verificationCode }}</span>
                   <!-- <div class="text-sm text-muted-foreground mt-2">尝试多次无法接收验证码？请点击 <a href="#" class="text-primary font-semibold underline" @click="wxSupportStore.showQrCode('/images/loginWx.jpg')">联系客服</a> 开通账号。</div> -->
@@ -135,13 +135,7 @@
 </template>
 
 <script setup>
-// import { useWxSupportStore } from "@/stores/wx-support";
 import { ScaleIcon, EyeIcon, EyeOffIcon, Loader2 } from "lucide-vue-next";
-import { toast } from "vue-sonner";
-// import api from "@/api";
-// import { setToken, validatePhone } from "@/utils";
-
-// const wxSupportStore = useWxSupportStore();
 
 const route = useRoute();
 const router = useRouter();
@@ -213,7 +207,7 @@ const verificationCodeMsg = () => validateField("verificationCode");
 const passwordMsg = () => validateField("password");
 const confirmPasswordMsg = () => validateField("confirmPassword");
 
-// 移除冗余的ref变量，统一使用formData
+// 状态管理
 const showPassword = ref(false);
 const showConfirmPassword = ref(false);
 const isLoading = ref(false);
@@ -319,7 +313,6 @@ const handleRegister = async () => {
     }
 
     // 调用注册接口
-    // const response = await api.user.registerByPhone(registerParams);
     const { data: response, error: registerError, execute: registerExecute } = await useApiPost("/api/v1/auth/register", registerParams);
     await registerExecute();
     if (registerError.value) {
