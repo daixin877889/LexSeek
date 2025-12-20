@@ -1,5 +1,8 @@
 -- CreateEnum
-CREATE TYPE "UserRole" AS ENUM ('USER', 'ADMIN');
+CREATE TYPE "UserRole" AS ENUM ('user', 'admin');
+
+-- CreateEnum
+CREATE TYPE "SmsType" AS ENUM ('LOGIN', 'REGISTER', 'RESET_PASSWORD');
 
 -- CreateTable
 CREATE TABLE "users" (
@@ -9,11 +12,11 @@ CREATE TABLE "users" (
     "email" VARCHAR(100),
     "phone" VARCHAR(11) NOT NULL,
     "password" VARCHAR(100),
-    "role" "UserRole" NOT NULL DEFAULT 'USER',
+    "role" "UserRole" NOT NULL DEFAULT 'user',
     "status" INTEGER NOT NULL DEFAULT 1,
     "company" VARCHAR(100),
     "profile" TEXT,
-    "invite_code" VARCHAR(10) NOT NULL,
+    "invite_code" VARCHAR(10),
     "invited_by" INTEGER,
     "openid" VARCHAR(100),
     "unionid" VARCHAR(100),
