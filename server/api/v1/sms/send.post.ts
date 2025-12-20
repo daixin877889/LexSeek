@@ -92,19 +92,17 @@ export default defineEventHandler(async (event) => {
             }
         }
     } catch (error: any) {
+        // 记录错误日志
+        logger.error('发送短信验证码接口错误：', error)
         if (JSON.parse(error.message) && JSON.parse(error.message).length > 0) {
             return {
                 code: 400,
                 message: JSON.parse(error.message).map((e: any) => e.message).join(", ")
             }
         }
-
-        // 记录错误日志
-        logger.error('SMS send error:', error)
-
         return {
             code: 500,
-            message: "服务器错误"
+            message: error.message || "短信发送失败"
         }
     }
 })
