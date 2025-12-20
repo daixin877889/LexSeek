@@ -44,16 +44,15 @@
             </div>
 
             <div>
-              <Button type="submit" :disabled="false" class="h-11 w-full text-base flex justify-center items-center py-2.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium">
-                <loader-2 v-if="false" class="w-4 h-4 mr-2 animate-spin" />
-                <!-- {{ userStore.loading ? "登录中..." : "登录" }} -->
-                登录
+              <Button type="submit" :disabled="userStore.loading" class="h-11 w-full text-base flex justify-center items-center py-2.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium">
+                <loader-2 v-if="userStore.loading" class="w-4 h-4 mr-2 animate-spin" />
+                {{ userStore.loading ? "登录中..." : "登录" }}
               </Button>
             </div>
 
             <!-- 错误信息显示 -->
-            <div v-if="false" class="mt-2 text-center">
-              <p class="text-sm text-red-500">错误信息</p>
+            <div v-if="userStore.error" class="mt-2 text-center">
+              <p class="text-sm text-red-500">{{ userStore.error }}</p>
             </div>
           </form>
 
@@ -78,30 +77,79 @@ const router = useRouter();
 // import { getRememberedAccount, rememberMeHandler } from "@/utils";
 // import { useUserStore } from "@/stores/user";
 
-// const userStore = useUserStore();
+const userStore = useUserStore();
+
+console.log(userStore);
 
 // 表单数据
 const phone = ref("");
 const password = ref("");
 const showPassword = ref(false);
+// const loading = ref(false);
+// const errorMessage = ref("");
 
 // 记住我
 const rememberMe = ref(false);
-// watch(rememberMe, (newVal) => {
-//   rememberMeHandler(newVal, phone.value);
-// });
+watch(rememberMe, (newVal) => {
+  rememberMeHandler(newVal, phone.value);
+});
 
 // 组件挂载时，检查是否有保存的账号信息
 onMounted(() => {
-  // const savedAccount = getRememberedAccount();
-  // if (savedAccount) {
-  //   phone.value = savedAccount;
-  //   rememberMe.value = true; // 如果有保存的账号，默认勾选"记住我"
-  // }
+  const savedAccount = getRememberedAccount();
+  if (savedAccount) {
+    phone.value = savedAccount;
+    rememberMe.value = true; // 如果有保存的账号，默认勾选"记住我"
+  }
 });
 
 // 登录处理
-const handleLogin = async () => {};
+const handleLogin = async () => {
+  // 清除之前的错误信息
+  userStore.error = null;
+
+  // 简单的表单验证
+  if (!phone.value || !password.value) {
+    userStore.error = "请填写手机号和密码";
+    return;
+  }
+
+  userStore.loading = true;
+
+  try {
+    // const { data, error, execute } = await useApiPost("/api/v1/auth/login/password", { phone: phone.value, password: password.value });
+    // await execute();
+    // if (error.value) {
+    //   errorMessage.value = error.value.message || "登录失败，请检查您的手机号和密码";
+    //   return;
+    // }
+    // // 如果注册成功且返回了token，存储token
+    // if (data && data.value.token) {
+    //   setToken(data.value.token);
+    // }
+
+    const isLoginSuccess = await userStore.login({ phone: phone.value, password: password.value });
+    if (!isLoginSuccess) {
+      return;
+    }
+
+    toast.success("登录成功");
+
+    // 登录成功后重定向，使用replace而不是push避免后退到登录页
+    if (route.query.redirect) {
+      router.replace(route.query.redirect);
+    } else {
+      router.replace("/dashboard");
+    }
+    // 记住我
+    rememberMeHandler(rememberMe.value, phone.value);
+  } catch (error) {
+    logger.error("登录失败:", error);
+    userStore.error = error.message || "登录失败，请检查您的手机号和密码";
+  } finally {
+    userStore.loading = false;
+  }
+};
 
 // 跳转注册页面
 const toRegister = () => {
