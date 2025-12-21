@@ -1,0 +1,77 @@
+/// 路由表
+model routers {
+    /// 路由ID，主键，自增
+    id          Int       @id @default(autoincrement())
+    /// 路由名称
+    name        String    @unique @db.VarChar(100)
+    /// 路由标题
+    title       String    @db.VarChar(100)
+    /// 路由描述
+    description String?   @db.VarChar(200)
+    /// 路由路径
+    path        String    @unique @db.VarChar(200)
+    /// 是否在菜单中显示
+    isMenu      Boolean   @default(false) @map("is_menu")
+    /// 父级路由ID，null表示顶级路由
+    parentId    Int?      @map("parent_id")
+    /// 路由图标
+    icon        String?   @db.VarChar(100)
+    /// 路由组ID，外键关联路由组表
+    groupId     Int       @default(0) @map("group_id")
+    /// 路由排序
+    sort        Int       @default(0)
+    /// 路由创建时间
+    createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+    /// 路由更新时间
+    updatedAt   DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
+    /// 路由删除时间
+    deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
+
+    /// 关联路由组
+    routerGroups routerGroups? @relation(fields: [groupId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    /// 父路由（自引用）
+    parent       routers?      @relation("RouterTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    /// 子路由列表（自引用）
+    children     routers[]     @relation("RouterTree")
+    /// 角色路由关联
+    roleRouters  roleRouters[]
+
+    @@index([groupId], map: "idx_routers_group_id")
+    @@index([parentId], map: "idx_routers_parent_id")
+    @@index([createdAt], map: "idx_routers_created_at")
+    @@index([updatedAt], map: "idx_routers_updated_at")
+    @@index([deletedAt], map: "idx_routers_deleted_at")
+    @@map("routers")
+}
+
+/// 路由组表
+model routerGroups {
+    /// 路由组ID，主键，自增
+    id          Int       @id @default(autoincrement())
+    /// 路由组名称
+    name        String    @unique @db.VarChar(100)
+    /// 路由组描述
+    description String?   @db.VarChar(200)
+    /// 路由组排序
+    sort        Int       @default(0)
+    /// 路由组状态
+    status      Int       @default(1)
+    /// 路由组创建时间
+    createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+    /// 路由组更新时间
+    updatedAt   DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
+    /// 路由组删除时间
+    deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
+
+    routers routers[]
+
+    @@index([id], map: "idx_router_groups_id")
+    @@index([name], map: "idx_router_groups_name")
+    @@index([description], map: "idx_router_groups_description")
+    @@index([sort], map: "idx_router_groups_sort")
+    @@index([status], map: "idx_router_groups_status")
+    @@index([createdAt], map: "idx_router_groups_created_at")
+    @@index([updatedAt], map: "idx_router_groups_updated_at")
+    @@index([deletedAt], map: "idx_router_groups_deleted_at")
+    @@map("router_groups")
+}

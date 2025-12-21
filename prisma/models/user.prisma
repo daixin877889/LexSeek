@@ -1,0 +1,71 @@
+/// 用户表
+model users {
+    /// 用户ID，主键，自增
+    id              Int       @id @default(autoincrement())
+    /// 用户姓名
+    name            String    @db.VarChar(100)
+    /// 用户名，可选
+    username        String?   @unique @db.VarChar(100)
+    /// 电子邮箱，可选
+    email           String?   @unique @db.VarChar(100)
+    /// 手机号，唯一标识
+    phone           String    @unique @db.VarChar(11)
+    /// 密码，加密存储
+    password        String?   @db.VarChar(100)
+    /// 用户状态：1-启用，0-禁用
+    status          Int       @default(1)
+    /// 所属公司/律所，可选
+    company         String?   @db.VarChar(100)
+    /// 个人简介，可选
+    profile         String?
+    /// 邀请码，唯一
+    inviteCode      String?   @unique @map("invite_code") @db.VarChar(10)
+    /// 邀请人用户ID，外键关联用户表
+    invitedBy       Int?      @map("invited_by")
+    /// 微信小程序openid
+    openid          String?   @map("openid") @db.VarChar(100)
+    /// 微信小程序unionid
+    unionid         String?   @map("unionid") @db.VarChar(100)
+    /// 用户注册渠道
+    registerChannel String?   @map("register_channel") @db.VarChar(100)
+    /// 创建时间
+    createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+    /// 最后更新时间
+    updatedAt       DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
+    /// 删除时间
+    deletedAt       DateTime? @map("deleted_at") @db.Timestamptz()
+
+    /// 用户角色关联（多对多）
+    userRoles userRoles[]
+
+    @@index([id], map: "idx_users_id")
+    @@index([status], map: "idx_users_status")
+    @@index([deletedAt], map: "idx_users_deleted_at")
+    @@map("users")
+}
+
+/// token 黑名单
+model tokenBlacklist {
+    /// token 黑名单ID，主键，uuid
+    id        String    @id @default(uuid(7)) @db.Uuid
+    /// tokenS
+    token     String?   @db.Text()
+    /// 用户ID
+    userId    Int       @map("user_id")
+    /// 过期时间
+    expiredAt DateTime  @map("expired_at") @db.Timestamptz()
+    /// 创建时间
+    createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+    /// 最后更新时间
+    updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
+    /// 删除时间
+    deletedAt DateTime? @map("deleted_at") @db.Timestamptz()
+
+    @@index([userId], map: "idx_token_blacklist_user_id")
+    @@index([expiredAt], map: "idx_token_blacklist_expired_at")
+    @@index([token], map: "idx_token_blacklist_token")
+    @@index([createdAt], map: "idx_token_blacklist_created_at")
+    @@index([updatedAt], map: "idx_token_blacklist_updated_at")
+    @@index([deletedAt], map: "idx_token_blacklist_deleted_at")
+    @@map("token_blacklist")
+}

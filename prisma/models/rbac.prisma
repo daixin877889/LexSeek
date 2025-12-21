@@ -1,0 +1,93 @@
+/// 角色表
+model roles {
+    /// 角色ID，主键，自增
+    id          Int       @id @default(autoincrement())
+    /// 角色名称
+    name        String    @unique @db.VarChar(100)
+    /// 角色标识
+    code        String    @unique @db.VarChar(100)
+    /// 角色描述
+    description String?   @db.VarChar(200)
+    /// 角色状态
+    status      Int       @default(1)
+    /// 角色创建时间
+    createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+    /// 角色更新时间
+    updatedAt   DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
+    /// 角色删除时间
+    deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
+
+    /// 角色路由关联
+    roleRouters roleRouters[]
+    /// 用户角色关联
+    userRoles   userRoles[]
+
+    @@index([id], map: "idx_roles_id")
+    @@index([name], map: "idx_roles_name")
+    @@index([code], map: "idx_roles_code")
+    @@index([description], map: "idx_roles_description")
+    @@index([status], map: "idx_roles_status")
+    @@index([createdAt], map: "idx_roles_created_at")
+    @@index([updatedAt], map: "idx_roles_updated_at")
+    @@index([deletedAt], map: "idx_roles_deleted_at")
+    @@map("roles")
+}
+
+/// 角色路由关联表（多对多中间表）
+model roleRouters {
+    /// 角色路由ID，主键，自增
+    id        Int       @id @default(autoincrement())
+    /// 角色ID，外键关联角色表
+    roleId    Int       @map("role_id")
+    /// 路由ID，外键关联路由表
+    routerId  Int       @map("router_id")
+    /// 角色路由创建时间
+    createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+    /// 角色路由更新时间
+    updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
+    /// 角色路由删除时间
+    deletedAt DateTime? @map("deleted_at") @db.Timestamptz()
+
+    /// 关联角色
+    role   roles   @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    /// 关联路由
+    router routers @relation(fields: [routerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+    @@unique([roleId, routerId], name: "idx_role_router_unique")
+    @@index([id], map: "idx_role_routers_id")
+    @@index([roleId], map: "idx_role_routers_role_id")
+    @@index([routerId], map: "idx_role_routers_router_id")
+    @@index([createdAt], map: "idx_role_routers_created_at")
+    @@index([updatedAt], map: "idx_role_routers_updated_at")
+    @@index([deletedAt], map: "idx_role_routers_deleted_at")
+    @@map("role_routers")
+}
+
+/// 用户角色关联表（多对多中间表）
+model userRoles {
+    /// 用户角色ID，主键，自增
+    id        Int       @id @default(autoincrement())
+    /// 用户ID，外键关联用户表
+    userId    Int       @map("user_id")
+    /// 角色ID，外键关联角色表
+    roleId    Int       @map("role_id")
+    /// 创建时间
+    createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+    /// 更新时间
+    updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
+    /// 删除时间
+    deletedAt DateTime? @map("deleted_at") @db.Timestamptz()
+
+    /// 关联用户
+    user users @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    /// 关联角色
+    role roles @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+    @@unique([userId, roleId], name: "idx_user_role_unique")
+    @@index([userId], map: "idx_user_roles_user_id")
+    @@index([roleId], map: "idx_user_roles_role_id")
+    @@index([createdAt], map: "idx_user_roles_created_at")
+    @@index([updatedAt], map: "idx_user_roles_updated_at")
+    @@index([deletedAt], map: "idx_user_roles_deleted_at")
+    @@map("user_roles")
+}
