@@ -1,54 +1,79 @@
 <template>
   <SidebarProvider>
-    <AppSidebar :dashboardRouters="dashboardRouters" />
-    <SidebarInset class="overflow-x-hidden">
-      <header class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 fixed bg-white w-full z-50 shadow-sm">
+    <!-- 侧边栏 -->
+    <Sidebar>
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg">
+              <div class="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                <NuxtImg src="/logo-white.svg" class="size-6" />
+              </div>
+              <div class="grid flex-1 text-left text-sm leading-tight">
+                <span class="truncate font-semibold text-primary text-base"> LexSeek ｜ 法索 AI </span>
+              </div>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+      <SidebarContent>
+        <!-- 菜单组 -->
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <template v-for="item in dashboardMenu" :key="item.title">
+                <SidebarMenuItem @click="activeMenu = item.path" :class="item.path === activeMenu ? 'bg-primary/10 rounded-md' : ''">
+                  <SidebarMenuButton as-child :tooltip="item.title" class="p-4 pt-5 pb-5 text-primary text-base">
+                    <NuxtLink :to="item.path">
+                      <component :is="item.icon" />
+                      <span>{{ item.title }}</span>
+                    </NuxtLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </template>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+      <!-- 侧边栏底部 -->
+      <SidebarFooter>
+        <!-- <NavUser class="hidden md:block" /> -->
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+    <SidebarInset>
+      <!-- 头部 -->
+      <header class="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
         <div class="flex items-center gap-2 px-4">
-          <!-- logo -->
-          <div class="flex items-center gap-2 md:hidden">
-            <NuxtLink to="/dashboard" class="flex items-center gap-2">
-              <!-- <ScaleIcon class="h-6 w-6 text-primary" /> -->
-              <img src="/logo.svg" class="h-6 text-primary" />
-              <h1 class="text-xl font-bold">LexSeek｜法索 AI</h1>
-            </NuxtLink>
-          </div>
-
-          <SidebarTrigger ref="sidebarTriggerRef" class="-ml-1 hidden md:flex" />
-          <BreadcrumbNav class="hidden md:flex" />
-        </div>
-
-        <div class="ml-auto pr-4 flex items-center md:hidden">
-          <button class="p-2 rounded-md hover:bg-gray-100 transition-colors focus:outline-none focus:ring-offset-2" @click="toggleSidebar">
-            <MenuIcon class="h-6 w-6" />
-          </button>
-          <NavUserRight :userRoutes="userRoutes" />
+          <SidebarTrigger class="-ml-1" />
         </div>
       </header>
-      <div class="flex flex-1 flex-col gap-4 p-0 pt-12 group-has-data-[collapsible=icon]/sidebar-wrapper:pt-12">
+      <!-- 内容区域 -->
+      <div class="flex flex-1 flex-col gap-4 p-0">
         <slot />
       </div>
     </SidebarInset>
   </SidebarProvider>
 </template>
+<script setup lang="ts">
+const activeMenu = ref("");
+const route = useRoute();
 
-<script lang="ts" setup>
-import { ref } from "vue";
+onMounted(() => {
+  // 初始化激活菜单
+  activeMenu.value = dashboardMenu.value.find((item) => item.path === route.path)?.path ?? "";
+});
 
-const userStore = useUserStore();
-
-console.log(userStore);
-
-const dashboardRouters = ref([]);
-const userRoutes = ref([]);
-const sidebarTriggerRef = ref(null);
-// 模拟点击侧边栏触发器
-const toggleSidebar = () => {
-  // 查找并点击页面中已存在的侧边栏触发器按钮
-  const triggerButton = document.querySelector('button[data-sidebar="trigger"]');
-  if (triggerButton) {
-    (triggerButton as HTMLElement).click();
-  }
-};
+const dashboardMenu = ref([
+  {
+    path: "/dashboard",
+    title: "工作台",
+    icon: lucideIcons.LayoutDashboardIcon,
+  },
+  {
+    path: "/dashboard/cases",
+    title: "我的案件",
+    icon: lucideIcons.FolderIcon,
+  },
+]);
 </script>
-
-<style></style>
