@@ -88,5 +88,97 @@ export const useUserStore = defineStore("user", {
         this.loading = false;
       }
     },
+
+    // 重置密码
+    async resetPassword({ phone, code, newPassword }: { phone: string; code: string; newPassword: string }) {
+      this.loading = true;
+      this.error = null;
+      try {
+        const { data: response, error, execute } = useApiPost("/api/v1/auth/reset-password", { phone, code, newPassword }, { showError: false });
+        await execute();
+
+        if (error.value) {
+          this.error = error.value.message;
+          return false;
+        }
+
+        if (response.value) {
+          this.error = null;
+          return true;
+        } else {
+          this.error = response.value?.error?.message || "重置密码失败";
+          return false;
+        }
+      } catch (err: any) {
+        logger.error("重置密码失败:", err);
+        this.error = err.response?.data?.message || err.message || "重置密码失败";
+        return false;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    // 发送短信验证码
+    async sendSmsCode({ phone, type }: { phone: string; type: string }) {
+      this.error = null;
+      try {
+        const { data: response, error, execute } = useApiPost("/api/v1/sms/send", { phone, type }, { showError: false });
+        await execute();
+
+        if (error.value) {
+          this.error = error.value.message;
+          return false;
+        }
+
+        if (response.value) {
+          this.error = null;
+          return true;
+        } else {
+          this.error = response.value?.error?.message || "发送验证码失败";
+          return false;
+        }
+      } catch (err: any) {
+        logger.error("发送验证码失败:", err);
+        this.error = err.response?.data?.message || err.message || "发送验证码失败";
+        return false;
+      }
+    },
+
+    // 用户注册
+    async register({ phone, code, name, password, invitedBy }: { phone: string; code: string; name: string; password: string; invitedBy?: string }) {
+      this.loading = true;
+      this.error = null;
+      try {
+        const params: Record<string, string> = { phone, code, name, password };
+        if (invitedBy) {
+          params.invitedBy = invitedBy;
+        }
+
+        const { data: response, error, execute } = useApiPost("/api/v1/auth/register", params, { showError: false });
+        await execute();
+
+        if (error.value) {
+          this.error = error.value.message;
+          return false;
+        }
+
+        if (response.value?.token) {
+          // 保存用户信息和认证状态（token 由服务端通过 Set-Cookie 设置）
+          this.userInfo = response.value.user;
+          this.isAuthenticated = true;
+          this.error = null;
+          return true;
+        } else {
+          this.error = response.value?.error?.message || "注册失败";
+          return false;
+        }
+      } catch (err: any) {
+        logger.error("注册失败:", err);
+        this.error = err.response?.data?.message || err.message || "注册失败";
+        return false;
+      } finally {
+        this.loading = false;
+      }
+    },
   },
 });

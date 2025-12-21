@@ -34,12 +34,22 @@ export default defineEventHandler(async (event) => {
         // 更新密码
         await updateUserPasswordDao(user.id, hashedPassword);
 
-        // 旧 token 加入黑名单
-        const token = event.context.auth?.token;
-        const expiredTimestamp = event.context.auth?.user?.exp;
-        if (token && expiredTimestamp > 0) {
-            await addTokenBlacklistDao(token, user.id, new Date(expiredTimestamp * 1000));
+        // 从 cookie 中获取 token 并加入黑名单
+        const config = useRuntimeConfig();
+        const token = getCookie(event, config.auth.cookieName);
+        if (token) {
+            try {
+                const decoded = JwtUtil.verifyToken(token) as JwtPayload & { exp?: number };
+                if (decoded && decoded.exp) {
+                    await addTokenBlacklistDao(token, user.id, new Date(decoded.exp * 1000));
+                }
+            } catch {
+                // token 无效或已过期，忽略
+            }
         }
+
+        // 清除认证 cookie
+        clearAuthCookies(event);
 
         return resSuccess(event, '重置密码成功', {})
     } catch (error: any) {
