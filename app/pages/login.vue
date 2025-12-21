@@ -25,7 +25,7 @@
             <div>
               <div class="flex items-center justify-between mb-1">
                 <label for="password" class="block text-sm font-medium">密码</label>
-                <router-link to="/reset-password" class="text-xs text-primary hover:underline"> 忘记密码? </router-link>
+                <NuxtLink to="/reset-password" class="text-xs text-primary hover:underline"> 忘记密码? </NuxtLink>
               </div>
               <div class="relative">
                 <input id="password" v-model="password" :type="showPassword ? 'text' : 'password'" autocomplete="current-password" required class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary" placeholder="请输入您的密码" />
@@ -109,17 +109,6 @@ const handleLogin = async () => {
   userStore.loading = true;
 
   try {
-    // const { data, error, execute } = await useApiPost("/api/v1/auth/login/password", { phone: phone.value, password: password.value });
-    // await execute();
-    // if (error.value) {
-    //   errorMessage.value = error.value.message || "登录失败，请检查您的手机号和密码";
-    //   return;
-    // }
-    // // 如果注册成功且返回了token，存储token
-    // if (data && data.value.token) {
-    //   setToken(data.value.token);
-    // }
-
     const isLoginSuccess = await userStore.login({ phone: phone.value, password: password.value });
     if (!isLoginSuccess) {
       return;

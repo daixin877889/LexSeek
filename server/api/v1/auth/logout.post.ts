@@ -25,6 +25,9 @@ export default defineEventHandler(async (event) => {
     // 添加 token 黑名单
     await addTokenBlacklistDao(token, user.id, new Date(expiredTimestamp * 1000));
 
+    // 清除认证 cookie
+    clearAuthCookies(event);
+
     return resSuccess(event, '退出登录成功', {})
   } catch (error) {
     logger.error('退出登录失败：', error)
