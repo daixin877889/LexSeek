@@ -7,7 +7,7 @@ export const useUserStore = defineStore("user", () => {
   /**
    * 状态
    */
-  let userInfo = reactive<SafeUserInfo>({
+  const userInfo = reactive<SafeUserInfo>({
     id: 0,
     name: "",
     username: "",
@@ -26,25 +26,51 @@ export const useUserStore = defineStore("user", () => {
    */
   const fetchUserInfo = async (): Promise<SafeUserInfo> => {
     try {
-      const { data: response, error, execute } = useApiGet("/api/v1/users/me");
+      const { data: response, error, execute } = useApiGet("/api/v1/users/me", { lazy: true });
       await execute();
       if (error.value) {
         throw error.value;
       }
       logger.debug("获取用户信息成功:", response.value);
-      return response.value as SafeUserInfo;
+      setUserInfo(response.value as SafeUserInfo);
+      return userInfo;
     } catch (error: any) {
       logger.error("获取用户信息失败:", error);
       throw error;
     }
-
   };
 
+  /**
+   * 设置用户信息
+   */
+  const setUserInfo = (info: SafeUserInfo) => {
+    Object.assign(userInfo, info);
+  };
+
+  /**
+   * 清空用户信息
+   */
+  const clearUserInfo = () => {
+    Object.assign(userInfo, {
+      id: 0,
+      name: "",
+      username: "",
+      phone: "",
+      email: "",
+      roles: [],
+      status: 0,
+      company: "",
+      profile: "",
+      inviteCode: "",
+    });
+  };
   return {
     // 导出状态数据
     userInfo,
 
     // 导出方法
     fetchUserInfo,
+    setUserInfo,
+    clearUserInfo,
   };
 });

@@ -8,8 +8,24 @@
 
 <script setup lang="ts">
 import "vue-sonner/style.css";
-
-// 初始化认证状态
 const authStore = useAuthStore();
+const userStore = useUserStore();
+// 初始化认证状态
+
 authStore.initAuth();
+
+onMounted(() => {
+  if (authStore.isAuthenticated) userStore.fetchUserInfo();
+});
+
+// watch(
+//   () => authStore.isAuthenticated,
+//   (newVal) => {
+//     if (newVal) {
+//       userStore.fetchUserInfo();
+//     } else {
+//       userStore.clearUserInfo();
+//     }
+//   }
+// );
 </script>

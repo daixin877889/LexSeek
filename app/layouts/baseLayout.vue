@@ -48,8 +48,8 @@
               <!-- 用户菜单下拉框 -->
               <div v-if="userMenuOpen" class="absolute right-0 mt-2 w-48 bg-card rounded-md shadow-lg border overflow-hidden">
                 <div class="py-2 px-4 border-b">
-                  <p class="font-medium">{{ authStore.getUserName }}</p>
-                  <p class="text-xs text-muted-foreground">{{ maskTel(authStore.getUserInfo?.phone) || "" }}</p>
+                  <p class="font-medium">{{ userStore.userInfo.name }}</p>
+                  <p class="text-xs text-muted-foreground">{{ maskTel(userStore.userInfo.phone) || "" }}</p>
                 </div>
                 <ul>
                   <li>
@@ -158,6 +158,7 @@ import { ScaleIcon, MenuIcon, XIcon, UserIcon } from "lucide-vue-next";
 const userMenuOpen = ref(false);
 const userMenuRef = ref(null);
 const authStore = useAuthStore();
+const userStore = useUserStore();
 
 // 切换用户菜单
 const toggleUserMenu = () => {
