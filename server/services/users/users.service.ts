@@ -44,15 +44,7 @@ async function executeCreateUser(
     try {
         // 如果指定了角色，先验证角色是否存在
         if (roleIds.length > 0) {
-            const existingRoles = await tx.roles.findMany({
-                where: {
-                    id: { in: roleIds },
-                    deletedAt: null,
-                    status: 1 // 只查询启用状态的角色
-                },
-                select: { id: true }
-            })
-
+            const existingRoles = await findRoleByIdsDao(roleIds)
             const existingRoleIds = existingRoles.map((role: { id: number }) => role.id)
             const invalidRoleIds = roleIds.filter(id => !existingRoleIds.includes(id))
 
@@ -67,19 +59,13 @@ async function executeCreateUser(
         // 创建用户角色关联
         if (roleIds.length > 0) {
             for (const roleId of roleIds) {
-                await tx.userRoles.create({
-                    data: {
-                        userId: user.id,
-                        roleId,
-                        createdAt: new Date(),
-                        updatedAt: new Date()
-                    }
-                })
+                await createUserRoleDao(user.id, roleId, tx)
             }
         }
 
         return user
     } catch (error: any) {
+        logger.error('创建用户失败:', error)
         throw error
     }
 }
