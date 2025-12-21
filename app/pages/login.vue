@@ -44,15 +44,15 @@
             </div>
 
             <div>
-              <Button type="submit" :disabled="userStore.loading" class="h-11 w-full text-base flex justify-center items-center py-2.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium">
-                <loader-2 v-if="userStore.loading" class="w-4 h-4 mr-2 animate-spin" />
-                {{ userStore.loading ? "登录中..." : "登录" }}
+              <Button type="submit" :disabled="authStore.loading" class="h-11 w-full text-base flex justify-center items-center py-2.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium">
+                <loader-2 v-if="authStore.loading" class="w-4 h-4 mr-2 animate-spin" />
+                {{ authStore.loading ? "登录中..." : "登录" }}
               </Button>
             </div>
 
             <!-- 错误信息显示 -->
-            <div v-if="userStore.error" class="mt-2 text-center">
-              <p class="text-sm text-red-500">{{ userStore.error }}</p>
+            <div v-if="authStore.error" class="mt-2 text-center">
+              <p class="text-sm text-red-500">{{ authStore.error }}</p>
             </div>
           </form>
 
@@ -102,14 +102,14 @@ const handleLogin = async () => {
 
   // 简单的表单验证
   if (!phone.value || !password.value) {
-    userStore.error = "请填写手机号和密码";
+    authStore.error = "请填写手机号和密码";
     return;
   }
 
-  userStore.loading = true;
+  authStore.loading = true;
 
   try {
-    const isLoginSuccess = await userStore.login({ phone: phone.value, password: password.value });
+    const isLoginSuccess = await authStore.login({ phone: phone.value, password: password.value });
     if (!isLoginSuccess) {
       return;
     }
@@ -126,9 +126,9 @@ const handleLogin = async () => {
     rememberMeHandler(rememberMe.value, phone.value);
   } catch (error) {
     logger.error("登录失败:", error);
-    userStore.error = error.message || "登录失败，请检查您的手机号和密码";
+    authStore.error = error.message || "登录失败，请检查您的手机号和密码";
   } finally {
-    userStore.loading = false;
+    authStore.loading = false;
   }
 };
 

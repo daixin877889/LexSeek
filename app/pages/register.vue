@@ -109,9 +109,9 @@
                 </div>
 
                 <div>
-                  <Button type="submit" :disabled="userStore.loading || !isFormValid" class="w-full flex h-10 justify-center items-center py-2.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium">
-                    <loader-2 v-if="userStore.loading" class="w-4 h-4 mr-2 animate-spin" />
-                    {{ userStore.loading ? "注册中..." : "注册" }}
+                  <Button type="submit" :disabled="authStore.loading || !isFormValid" class="w-full flex h-10 justify-center items-center py-2.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium">
+                    <loader-2 v-if="authStore.loading" class="w-4 h-4 mr-2 animate-spin" />
+                    {{ authStore.loading ? "注册中..." : "注册" }}
                   </Button>
                 </div>
 
