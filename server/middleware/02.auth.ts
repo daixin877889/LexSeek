@@ -63,6 +63,8 @@ export default defineEventHandler(async (event) => {
     if (user.status === UserStatus.INACTIVE) {
         return resError(event, 401, '用户被禁用')
     }
+    // 4.4 设置用户角色
+    authenticatedUser.roles = user.userRoles.map((role) => role.roleId);
 
     // 5. 设置上下文，后续 API 可以通过 event.context.auth 获取当前用户
     event.context.auth = {
