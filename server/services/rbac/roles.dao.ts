@@ -18,3 +18,23 @@ export const findRoleByIdsDao = async (ids: number[], tx?: any): Promise<roles[]
         throw error;
     }
 }
+
+/**
+ * 获取用户角色列表 通过用户ID
+ * @param userId 用户ID
+ * @returns 用户角色列表
+ */
+export const findUserRolesByUserIdDao = async (userId: number, tx?: any): Promise<(userRoles & { role: roles })[]> => {
+    try {
+        const userRoles = await (tx || prisma).userRoles.findMany({
+            where: { userId, status: 1, deletedAt: null },
+            include: {
+                role: true,
+            },
+        });
+        return userRoles;
+    } catch (error) {
+        logger.error("获取用户角色列表失败:", error);
+        throw error;
+    }
+}

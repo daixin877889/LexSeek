@@ -2,9 +2,8 @@
  * 获取当前用户信息
  */
 export default defineEventHandler(async (event) => {
+    const logger = createLogger('users')
     const user = event.context.auth.user;
-    console.log(user)
-
     try {
         const userInfo = await findUserByIdDao(user.id);
         if (!userInfo) {

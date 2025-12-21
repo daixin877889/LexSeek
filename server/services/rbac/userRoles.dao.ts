@@ -40,3 +40,50 @@ export const findUserRolesByUserIdDao = async (userId: number, tx?: any): Promis
         throw error;
     }
 }
+
+/**
+ * 通过用户ID查询用户角色路由权限
+ * @param userId 用户ID
+ * @returns 用户角色路由权限
+ */
+export const findUserRolesRouterByUserIdDao = async (userId: number, options?: {
+    tx?: any,
+    roleId?: number | number[]
+}):
+    Promise<(
+        userRoles &
+        {
+            role: roles &
+            {
+                roleRouters: roleRouters[]
+                & { router: routers }
+            }
+        })[]> => {
+    try {
+        let where: any = {
+            userId,
+            deletedAt: null,
+        }
+        if (options?.roleId) {
+            where.roleId = { in: Array.isArray(options?.roleId) ? options?.roleId : [options?.roleId] }
+        }
+        const userRoles = await (options?.tx || prisma).userRoles.findMany({
+            where,
+            include: {
+                role: {
+                    include: {
+                        roleRouters: {
+                            include: {
+                                router: true,
+                            },
+                        },
+                    },
+                }
+            }
+        });
+        return userRoles;
+    } catch (error: any) {
+        logger.error("查询用户角色路由权限失败:", error);
+        throw error;
+    }
+}
