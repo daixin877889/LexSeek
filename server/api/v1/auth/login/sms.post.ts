@@ -32,7 +32,7 @@ export default defineEventHandler(async (event) => {
         const token = generateAuthToken(event, {
             id: user.id,
             phone: user.phone,
-            role: user.role,
+            roles: user.userRoles.map((role) => role.roleId),
             status: user.status,
         })
 

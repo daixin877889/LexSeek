@@ -23,7 +23,7 @@ export interface SafeUserInfo {
     /** 电子邮箱 */
     email: string | null
     /** 用户角色 */
-    role: string
+    roles: number[]
     /** 用户状态 */
     status: number
     /** 所属公司/律所 */
@@ -43,14 +43,14 @@ export interface SafeUserInfo {
  * @param user 完整用户对象（来自数据库）
  * @returns 安全的用户信息，仅包含可公开的字段
  */
-export const formatUserResponseService = (user: users): SafeUserInfo => {
+export const formatUserResponseService = (user: users & { userRoles: (userRoles & { roles: roles })[] }): SafeUserInfo => {
     return {
         id: user.id,
         name: user.name,
         username: user.username,
         phone: user.phone,
         email: user.email,
-        role: user.role,
+        roles: user.userRoles.map((role) => role.roleId),
         status: user.status,
         company: user.company,
         profile: user.profile,

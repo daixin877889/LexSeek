@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
             username: userInfo.username,
             phone: userInfo.phone,
             email: userInfo.email,
-            role: userInfo.role,
+            roles: userInfo.userRoles.map((role) => role.roleId),
             status: userInfo.status,
             company: userInfo.company,
             profile: userInfo.profile,

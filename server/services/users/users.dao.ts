@@ -1,17 +1,19 @@
-import { Prisma } from '#shared/types/prisma'
 /**
  * 用户数据访问层
  */
-
+import { Prisma } from '#shared/types/prisma'
 /**
  * 创建用户
  * @param data 用户创建数据
  * @returns 用户
  */
-export const createUserDao = async (data: Prisma.usersCreateInput, tx?: any): Promise<users> => {
+export const createUserDao = async (data: Prisma.usersCreateInput, tx?: any): Promise<users & { userRoles: userRoles[] }> => {
     try {
         const user = await (tx || prisma).users.create({
-            data: { ...data, createdAt: new Date(), updatedAt: new Date() }
+            data: { ...data, createdAt: new Date(), updatedAt: new Date() },
+            include: {
+                userRoles: true
+            }
         })
         return user
     } catch (error) {
@@ -25,9 +27,18 @@ export const createUserDao = async (data: Prisma.usersCreateInput, tx?: any): Pr
  * @param id 用户 ID
  * @returns 用户
  */
-export const findUserByIdDao = async (id: number, tx?: any): Promise<users | null> => {
+export const findUserByIdDao = async (id: number, tx?: any): Promise<users & { userRoles: (userRoles & { roles: roles })[] } | null> => {
     try {
-        const user = await (tx || prisma).users.findUnique({ where: { id, deletedAt: null } })
+        const user = await (tx || prisma).users.findUnique({
+            where: { id, deletedAt: null },
+            include: {
+                userRoles: {
+                    include: {
+                        role: true
+                    }
+                }
+            }
+        })
         if (!user) {
             return null
         }
@@ -44,10 +55,17 @@ export const findUserByIdDao = async (id: number, tx?: any): Promise<users | nul
  * @param phone 手机号
  * @returns 用户
  */
-export const findUserByPhoneDao = async (phone: string, tx?: any): Promise<users | null> => {
+export const findUserByPhoneDao = async (phone: string, tx?: any): Promise<users & { userRoles: (userRoles & { roles: roles })[] } | null> => {
     try {
         const user = await (tx || prisma).users.findFirst({
-            where: { phone, deletedAt: null }
+            where: { phone, deletedAt: null },
+            include: {
+                userRoles: {
+                    include: {
+                        role: true
+                    }
+                },
+            }
         })
         if (!user) {
             return null
@@ -64,10 +82,17 @@ export const findUserByPhoneDao = async (phone: string, tx?: any): Promise<users
  * @param inviteCode 邀请码
  * @returns 用户
  */
-export const findUserByInviteCodeDao = async (inviteCode: string, tx?: any): Promise<users | null> => {
+export const findUserByInviteCodeDao = async (inviteCode: string, tx?: any): Promise<users & { userRoles: (userRoles & { roles: roles })[] } | null> => {
     try {
         const user = await (tx || prisma).users.findFirst({
-            where: { inviteCode, deletedAt: null }
+            where: { inviteCode, deletedAt: null },
+            include: {
+                userRoles: {
+                    include: {
+                        role: true
+                    }
+                }
+            }
         })
         if (!user) {
             return null
@@ -85,10 +110,17 @@ export const findUserByInviteCodeDao = async (inviteCode: string, tx?: any): Pro
  * @param username 用户名
  * @returns 用户
  */
-export const findUserByUsernameDao = async (username: string, tx?: any): Promise<users | null> => {
+export const findUserByUsernameDao = async (username: string, tx?: any): Promise<users & { userRoles: (userRoles & { roles: roles })[] } | null> => {
     try {
         const user = await (tx || prisma).users.findFirst({
-            where: { username, deletedAt: null }
+            where: { username, deletedAt: null },
+            include: {
+                userRoles: {
+                    include: {
+                        role: true
+                    }
+                }
+            }
         })
         if (!user) {
             return null

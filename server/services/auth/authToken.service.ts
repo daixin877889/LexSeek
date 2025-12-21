@@ -17,7 +17,7 @@ export interface TokenUserInfo {
     /** 用户手机号 */
     phone: string
     /** 用户角色 */
-    role: string
+    roles: number[]
     /** 用户状态 */
     status: number
 }
@@ -72,7 +72,7 @@ export const AUTH_STATUS_COOKIE = 'auth_status'
  * 3. 设置一个非 httpOnly 的状态 cookie 供客户端判断登录状态
  *
  * @param event H3Event 对象，用于设置 Cookie
- * @param user 用户信息，包含 id、phone、role、status
+ * @param user 用户信息，包含 id、phone、roles、status
  * @returns 生成的 JWT token 字符串
  */
 export const generateAuthToken = (event: H3Event, user: TokenUserInfo): string => {
@@ -82,7 +82,7 @@ export const generateAuthToken = (event: H3Event, user: TokenUserInfo): string =
     const token = JwtUtil.generateToken({
         id: user.id,
         phone: user.phone,
-        role: user.role,
+        roles: user.roles,
         status: user.status,
     })
 

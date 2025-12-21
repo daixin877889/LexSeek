@@ -16,7 +16,7 @@ export interface JwtPayload {
   /** 用户手机号 */
   phone: string;
   /** 用户角色 */
-  role: string;
+  roles: number[];
   /** 用户状态 */
   status?: number;
 }

@@ -74,32 +74,56 @@ export default defineEventHandler(async (event) => {
         const finalUsername = username ?? await generateUniqueUsername(defaultUsername);
 
         // 创建用户
-        const newUser = await createUserDao({
+        const newUser = await createUserService({
             name: name ?? `用户${phone.slice(-4)}`,
             username: finalUsername,
             phone,
             password: hashedPassword,
-            role: $Enums.UserRole.user,
             status: UserStatus.ACTIVE,
             company: company ?? null,
             profile: profile ?? null,
             inviteCode: await generateUniqueInviteCode(),
             registerChannel: UserRegisterChannel.WEB,
             invitedBy: invitedById,
-        })
+        }, { roleIds: [1] }
+        )
+        if (!newUser) {
+            return resError(event, 400, '创建用户失败')
+        }
+        // const newUser = await createUserDao({
+        //     name: name ?? `用户${phone.slice(-4)}`,
+        //     username: finalUsername,
+        //     phone,
+        //     password: hashedPassword,
+        //     role: $Enums.UserRole.user,
+        //     status: UserStatus.ACTIVE,
+        //     company: company ?? null,
+        //     profile: profile ?? null,
+        //     inviteCode: await generateUniqueInviteCode(),
+        //     registerChannel: UserRegisterChannel.WEB,
+        //     invitedBy: invitedById,
+        // })
+
+        const userInfo = await findUserByIdDao(newUser.id)
+        if (!userInfo) {
+            return resError(event, 400, '用户不存在')
+        }
+
+        // 使用统一的用户信息格式化服务
+        const responseUser = formatUserResponseService(userInfo)
 
         // 使用统一的 token 生成服务
         const token = generateAuthToken(event, {
-            id: newUser.id,
-            phone: newUser.phone,
-            role: newUser.role,
-            status: newUser.status,
+            id: responseUser.id,
+            phone: responseUser.phone,
+            roles: responseUser.roles,
+            status: responseUser.status,
         })
 
         // 使用统一的用户信息格式化服务
         return resSuccess(event, '注册成功', {
             token,
-            user: formatUserResponseService(newUser)
+            user: responseUser
         })
     } catch (error: any) {
         logger.error('注册接口错误：', error)
