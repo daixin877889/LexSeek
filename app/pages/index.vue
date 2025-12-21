@@ -283,5 +283,13 @@ import { GavelIcon } from "@/components/icons/GavelIcon";
 import LitigationIcon from "@/components/icons/Litigation.vue";
 import MoneyBagIcon from "@/components/icons/MoneyBag.vue";
 import MoneyIcon from "@/components/icons/MoneyIcon.vue";
-const btnText = ref("免费分析");
+
+const userStore = useUserStore();
+
+const btnText = computed(() => {
+  if (userStore.isAuthenticated) {
+    return "开始分析";
+  }
+  return "免费体验";
+});
 </script>
