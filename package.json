@@ -25,6 +25,7 @@
     "@pinia/nuxt": "^0.11.3",
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
+    "@vite-pwa/nuxt": "1.1.0",
     "@vueuse/core": "^14.1.0",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
@@ -57,5 +58,8 @@
     "vitest": "^4.0.16",
     "@types/jsonwebtoken": "^9.0.10",
     "jsonwebtoken": "^9.0.3"
+  },
+  "prisma": {
+    "schema": "./prisma"
   }
 }

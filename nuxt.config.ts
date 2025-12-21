@@ -5,7 +5,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       link: [
-        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }
+        { rel: 'icon', type: 'image/x-icon', href: '/logo.svg' }
       ]
     }
   },
@@ -29,7 +29,13 @@ export default defineNuxtConfig({
      */
     componentDir: '@/components/ui'
   },
-  modules: ['@nuxt/image', '@nuxt/scripts', 'shadcn-nuxt', '@pinia/nuxt'],
+  modules: [
+    '@nuxt/image',
+    '@nuxt/scripts',
+    'shadcn-nuxt',
+    '@pinia/nuxt',
+    '@vite-pwa/nuxt'
+  ],
   imports: {
     // 自动导入 store 目录下的所有 store
     dirs: ['store'],
