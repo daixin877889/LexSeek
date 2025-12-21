@@ -1,0 +1,85 @@
+import { Prisma } from '#shared/types/prisma'
+
+/**
+ * 用户服务层
+ */
+
+/**
+ * 创建用户（带角色分配）
+ * @param data 用户创建数据
+ * @param options 可选配置
+ * @param options.roleIds 角色ID数组
+ * @param options.tx 外部事务实例
+ * @returns 创建的用户
+ */
+export const createUserService = async (
+    data: Prisma.usersCreateInput,
+    options?: { roleIds?: number[], tx?: any }
+): Promise<users> => {
+    const { roleIds = [], tx } = options || {}
+
+    // 如果有外部事务，使用外部事务；否则创建新事务
+    if (tx) {
+        return executeCreateUser(data, roleIds, tx)
+    }
+
+    // 使用 Prisma 事务保持操作一致性
+    return prisma.$transaction(async (transaction) => {
+        return executeCreateUser(data, roleIds, transaction)
+    })
+}
+
+/**
+ * 执行创建用户的核心逻辑
+ * @param data 用户创建数据
+ * @param roleIds 角色ID数组
+ * @param tx 事务实例
+ * @returns 创建的用户
+ */
+async function executeCreateUser(
+    data: Prisma.usersCreateInput,
+    roleIds: number[],
+    tx: any
+): Promise<users> {
+    try {
+        // 如果指定了角色，先验证角色是否存在
+        if (roleIds.length > 0) {
+            const existingRoles = await tx.roles.findMany({
+                where: {
+                    id: { in: roleIds },
+                    deletedAt: null,
+                    status: 1 // 只查询启用状态的角色
+                },
+                select: { id: true }
+            })
+
+            const existingRoleIds = existingRoles.map((role: { id: number }) => role.id)
+            const invalidRoleIds = roleIds.filter(id => !existingRoleIds.includes(id))
+
+            if (invalidRoleIds.length > 0) {
+                throw new Error(`角色不存在或已禁用: ${invalidRoleIds.join(', ')}`)
+            }
+        }
+
+        // 创建用户
+        const user = await createUserDao(data, tx)
+
+        // 创建用户角色关联
+        if (roleIds.length > 0) {
+            for (const roleId of roleIds) {
+                await tx.userRoles.create({
+                    data: {
+                        userId: user.id,
+                        roleId,
+                        createdAt: new Date(),
+                        updatedAt: new Date()
+                    }
+                })
+            }
+        }
+
+        return user
+    } catch (error: any) {
+        throw error
+    }
+}
