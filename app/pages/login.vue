@@ -73,7 +73,7 @@ import { ScaleIcon, EyeIcon, EyeOffIcon, Loader2 } from "lucide-vue-next";
 
 const route = useRoute();
 const router = useRouter();
-const userStore = useUserStore();
+const authStore = useAuthStore();
 
 // 表单数据
 const phone = ref("");
@@ -98,7 +98,7 @@ onMounted(() => {
 // 登录处理
 const handleLogin = async () => {
   // 清除之前的错误信息
-  userStore.error = null;
+  authStore.error = null;
 
   // 简单的表单验证
   if (!phone.value || !password.value) {

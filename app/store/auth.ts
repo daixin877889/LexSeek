@@ -5,7 +5,7 @@
 // 登录状态 cookie 名称（非 httpOnly，客户端可读）
 const AUTH_STATUS_COOKIE = "auth_status";
 
-export const useUserStore = defineStore("user", {
+export const useAuthStore = defineStore("auth", {
   state: () => ({
     userInfo: null,
     loading: false,

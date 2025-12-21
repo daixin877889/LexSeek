@@ -284,10 +284,10 @@ import LitigationIcon from "@/components/icons/Litigation.vue";
 import MoneyBagIcon from "@/components/icons/MoneyBag.vue";
 import MoneyIcon from "@/components/icons/MoneyIcon.vue";
 
-const userStore = useUserStore();
+const authStore = useAuthStore();
 
 const btnText = computed(() => {
-  if (userStore.isAuthenticated) {
+  if (authStore.isAuthenticated) {
     return "开始分析";
   }
   return "免费体验";

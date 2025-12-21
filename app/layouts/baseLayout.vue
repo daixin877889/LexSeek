@@ -157,7 +157,7 @@ import { ScaleIcon, MenuIcon, XIcon, UserIcon } from "lucide-vue-next";
 // 用户菜单状态
 const userMenuOpen = ref(false);
 const userMenuRef = ref(null);
-const userStore = useUserStore();
+const authStore = useAuthStore();
 
 // 切换用户菜单
 const toggleUserMenu = () => {
@@ -213,7 +213,7 @@ const handleLogoutClick = async () => {
 const handleLogout = async () => {
   try {
     // 使用 store 登出
-    await userStore.logout();
+    await authStore.logout();
     toast.success("登出成功");
     // 延迟跳转，确保Toast能够显示
     router.replace("/");

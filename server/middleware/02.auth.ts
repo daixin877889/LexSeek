@@ -64,7 +64,7 @@ export default defineEventHandler(async (event) => {
         return resError(event, 401, '用户被禁用')
     }
 
-    // 4.4 设置用户角色
+    // 4.4 将查询的用户角色设置到 authenticatedUser 中
     authenticatedUser.roles = user.userRoles.map((role) => role.roleId);
 
     // 5. 设置上下文，后续 API 可以通过 event.context.auth 获取当前用户

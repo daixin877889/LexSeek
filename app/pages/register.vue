@@ -44,22 +44,16 @@
             <TabsContent value="website">
               <form @submit.prevent="handleRegister" class="space-y-5">
                 <div>
-                  <label for="name" class="block text-sm font-medium mb-1"> <span
-                      class="text-red-500 ml-0.5">*</span>姓名</label>
-                  <Input id="name" v-model="formData.name" type="text" autocomplete="name" required @input="nameMsg"
-                    class="h-10 w-full px-3 py-2 border rounded-md text-base" placeholder="请输入您的姓名" />
+                  <label for="name" class="block text-sm font-medium mb-1"> <span class="text-red-500 ml-0.5">*</span>姓名</label>
+                  <Input id="name" v-model="formData.name" type="text" autocomplete="name" required @input="nameMsg" class="h-10 w-full px-3 py-2 border rounded-md text-base" placeholder="请输入您的姓名" />
                   <span v-show="errMsg.name" class="text-red-500 ml-0.5 text-xs">{{ errMsg.name }}</span>
                 </div>
 
                 <div>
-                  <label for="phone" class="block text-sm font-medium mb-1"> <span
-                      class="text-red-500 ml-0.5">*</span>手机号</label>
+                  <label for="phone" class="block text-sm font-medium mb-1"> <span class="text-red-500 ml-0.5">*</span>手机号</label>
                   <div class="relative w-full">
-                    <Input id="phone" v-model="formData.phone" type="tel" autocomplete="tel" required @input="phoneMsg"
-                      class="h-10 w-full px-3 py-2 border rounded-md text-base" placeholder="请输入您的手机号" />
-                    <Button type="button" @click="getVerificationCode"
-                      :disabled="isGettingCode || countdown > 0 || !validatePhone(formData.phone)"
-                      class="absolute right-0 top-0 h-10 px-3 py-2 bg-primary text-primary-foreground rounded-r-md rounded-l-none hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
+                    <Input id="phone" v-model="formData.phone" type="tel" autocomplete="tel" required @input="phoneMsg" class="h-10 w-full px-3 py-2 border rounded-md text-base" placeholder="请输入您的手机号" />
+                    <Button type="button" @click="getVerificationCode" :disabled="isGettingCode || countdown > 0 || !validatePhone(formData.phone)" class="absolute right-0 top-0 h-10 px-3 py-2 bg-primary text-primary-foreground rounded-r-md rounded-l-none hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
                       {{ countdown > 0 ? `${countdown}秒后重试` : "获取验证码" }}
                     </Button>
                   </div>
@@ -67,33 +61,23 @@
                 </div>
 
                 <div>
-                  <label for="verificationCode" class="block text-sm font-medium mb-1"> <span
-                      class="text-red-500 ml-0.5">*</span>验证码</label>
+                  <label for="verificationCode" class="block text-sm font-medium mb-1"> <span class="text-red-500 ml-0.5">*</span>验证码</label>
                   <div class="relative w-full">
-                    <Input id="verificationCode" v-model="formData.verificationCode" type="text" required
-                      @input="verificationCodeMsg" class="h-10 w-full px-3 py-2 border rounded-md text-base"
-                      placeholder="请输入短信验证码" />
+                    <Input id="verificationCode" v-model="formData.verificationCode" type="text" required @input="verificationCodeMsg" class="h-10 w-full px-3 py-2 border rounded-md text-base" placeholder="请输入短信验证码" />
                     <!-- <Button type="button" @click="getVerificationCode" :disabled="isGettingCode || countdown > 0 || !validatePhone(formData.phone)" class="absolute right-0 top-0 h-10 px-3 py-2 bg-primary text-primary-foreground rounded-r-md rounded-l-none hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
                       {{ countdown > 0 ? `${countdown}秒后重试` : "获取验证码" }}
                     </Button> -->
                   </div>
-                  <span v-show="errMsg.verificationCode" class="text-red-500 ml-0.5 text-xs">{{ errMsg.verificationCode
-                  }}</span>
+                  <span v-show="errMsg.verificationCode" class="text-red-500 ml-0.5 text-xs">{{ errMsg.verificationCode }}</span>
                   <!-- <div class="text-sm text-muted-foreground mt-2">尝试多次无法接收验证码？请点击 <a href="#" class="text-primary font-semibold underline" @click="wxSupportStore.showQrCode('/images/loginWx.jpg')">联系客服</a> 开通账号。</div> -->
-                  <div class="text-sm text-muted-foreground mt-2">尝试多次无法接收验证码？请使用 <a
-                      class="text-primary font-semibold underline" href="#"
-                      @click.prevent="activeTab = 'miniprogram'">小程序注册</a>。</div>
+                  <div class="text-sm text-muted-foreground mt-2">尝试多次无法接收验证码？请使用 <a class="text-primary font-semibold underline" href="#" @click.prevent="activeTab = 'miniprogram'">小程序注册</a>。</div>
                 </div>
 
                 <div>
-                  <label for="password" class="block text-sm font-medium mb-1"> <span
-                      class="text-red-500 ml-0.5">*</span>密码</label>
+                  <label for="password" class="block text-sm font-medium mb-1"> <span class="text-red-500 ml-0.5">*</span>密码</label>
                   <div class="relative">
-                    <Input id="password" v-model="formData.password" :type="showPassword ? 'text' : 'password'"
-                      autocomplete="new-password" required @input="passwordMsg"
-                      class="h-10 w-full px-3 py-2 border rounded-md text-base" placeholder="请设置密码" />
-                    <button type="button" @click="showPassword = !showPassword"
-                      class="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
+                    <Input id="password" v-model="formData.password" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" required @input="passwordMsg" class="h-10 w-full px-3 py-2 border rounded-md text-base" placeholder="请设置密码" />
+                    <button type="button" @click="showPassword = !showPassword" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
                       <eye-icon v-if="!showPassword" class="h-4 w-4" />
                       <eye-off-icon v-else class="h-4 w-4" />
                     </button>
@@ -102,28 +86,21 @@
                 </div>
 
                 <div>
-                  <label for="confirmPassword" class="block text-sm font-medium mb-1"> <span
-                      class="text-red-500 ml-0.5">*</span>确认密码</label>
+                  <label for="confirmPassword" class="block text-sm font-medium mb-1"> <span class="text-red-500 ml-0.5">*</span>确认密码</label>
                   <div class="relative">
-                    <Input id="confirmPassword" v-model="formData.confirmPassword"
-                      :type="showConfirmPassword ? 'text' : 'password'" autocomplete="new-password" required
-                      @input="confirmPasswordMsg" class="h-10 w-full px-3 py-2 border rounded-md text-base"
-                      placeholder="请再次输入密码" />
-                    <button type="button" @click="showConfirmPassword = !showConfirmPassword"
-                      class="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
+                    <Input id="confirmPassword" v-model="formData.confirmPassword" :type="showConfirmPassword ? 'text' : 'password'" autocomplete="new-password" required @input="confirmPasswordMsg" class="h-10 w-full px-3 py-2 border rounded-md text-base" placeholder="请再次输入密码" />
+                    <button type="button" @click="showConfirmPassword = !showConfirmPassword" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
                       <eye-icon v-if="!showConfirmPassword" class="h-4 w-4" />
                       <eye-off-icon v-else class="h-4 w-4" />
                     </button>
                   </div>
-                  <span v-show="errMsg.confirmPassword" class="text-red-500 ml-0.5 text-xs">{{ errMsg.confirmPassword
-                  }}</span>
+                  <span v-show="errMsg.confirmPassword" class="text-red-500 ml-0.5 text-xs">{{ errMsg.confirmPassword }}</span>
                 </div>
 
                 <div class="flex items-center">
                   <div class="flex items-center space-x-2">
                     <Checkbox id="remember-me" v-model="formData.agreeTerms" />
-                    <label for="remember-me"
-                      class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    <label for="remember-me" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                       我已阅读并同意 <a target="_blank" href="/terms-of-use" class="text-primary hover:underline">服务条款</a>
                       和
                       <a target="_blank" href="/privacy-agreement" class="text-primary hover:underline">隐私政策</a>
@@ -132,8 +109,7 @@
                 </div>
 
                 <div>
-                  <Button type="submit" :disabled="userStore.loading || !isFormValid"
-                    class="w-full flex h-10 justify-center items-center py-2.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium">
+                  <Button type="submit" :disabled="userStore.loading || !isFormValid" class="w-full flex h-10 justify-center items-center py-2.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium">
                     <loader-2 v-if="userStore.loading" class="w-4 h-4 mr-2 animate-spin" />
                     {{ userStore.loading ? "注册中..." : "注册" }}
                   </Button>
@@ -235,7 +211,7 @@ const confirmPasswordMsg = () => validateField("confirmPassword");
 const showPassword = ref(false);
 const showConfirmPassword = ref(false);
 const errorMessage = ref("");
-const userStore = useUserStore();
+const authStore = useAuthStore();
 
 // 验证码相关
 const isGettingCode = ref(false);
@@ -268,7 +244,7 @@ const getVerificationCode = async () => {
   isGettingCode.value = true;
   errorMessage.value = "";
 
-  const isSuccess = await userStore.sendSmsCode({
+  const isSuccess = await authStore.sendSmsCode({
     phone: formData.phone,
     type: SmsType.REGISTER,
   });
@@ -285,7 +261,7 @@ const getVerificationCode = async () => {
       }
     }, 1000);
   } else {
-    errorMessage.value = userStore.error || "获取验证码失败，请稍后再试";
+    errorMessage.value = authStore.error || "获取验证码失败，请稍后再试";
   }
 
   isGettingCode.value = false;
@@ -317,7 +293,7 @@ const handleRegister = async () => {
     return;
   }
 
-  const isSuccess = await userStore.register({
+  const isSuccess = await authStore.register({
     phone: formData.phone,
     code: formData.verificationCode,
     name: formData.name,
@@ -334,7 +310,7 @@ const handleRegister = async () => {
       router.replace("/dashboard");
     }
   } else {
-    errorMessage.value = userStore.error || "注册失败，请稍后再试";
+    errorMessage.value = authStore.error || "注册失败，请稍后再试";
   }
 };
 

@@ -19,11 +19,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }
 
     // 客户端：通过 store 状态判断
-    const userStore = useUserStore();
-    userStore.isAuthenticated ? isAuthenticated = true : isAuthenticated = false;
+    const authStore = useAuthStore();
+    authStore.isAuthenticated ? isAuthenticated = true : isAuthenticated = false;
 
     // 执行统一鉴权逻辑
-    await authLogic(to, userStore.isAuthenticated);
+    await authLogic(to, authStore.isAuthenticated);
 });
 
 // 统一服务端和客户端的鉴权逻辑

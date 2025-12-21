@@ -10,6 +10,6 @@
 import "vue-sonner/style.css";
 
 // 初始化认证状态
-const userStore = useUserStore();
-userStore.initAuth();
+const authStore = useAuthStore();
+authStore.initAuth();
 </script>
