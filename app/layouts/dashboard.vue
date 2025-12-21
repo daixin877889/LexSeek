@@ -23,11 +23,11 @@
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              <template v-for="item in dashboardMenu" :key="item.title">
+              <template v-for="item in roleStore.currentRoleRouters.filter((item: any) => item.isMenu)" :key="item.title">
                 <SidebarMenuItem @click="activeMenu = item.path" :class="item.path === activeMenu ? 'bg-primary/10 rounded-md' : ''">
                   <SidebarMenuButton as-child :tooltip="item.title" class="p-4 pt-5 pb-5 text-primary text-base">
                     <NuxtLink :to="item.path">
-                      <component :is="item.icon" />
+                      <component :is="getIcon(item.icon)" />
                       <span>{{ item.title }}</span>
                     </NuxtLink>
                   </SidebarMenuButton>
@@ -57,9 +57,23 @@
     </SidebarInset>
   </SidebarProvider>
 </template>
+
 <script setup lang="ts">
+import type { Component } from 'vue';
+
+const getIcon = (iconName: string): Component | undefined => {
+  if (!iconName) return undefined;
+  // 如果格式是 "lucideIcons.LayoutDashboardIcon"
+  if (iconName.startsWith("lucideIcons.")) {
+    const name = iconName.replace("lucideIcons.", "");
+    return lucideIcons[name as keyof typeof lucideIcons] as Component;
+  }
+  // 如果只是图标名称 "LayoutDashboardIcon"
+  return lucideIcons[iconName as keyof typeof lucideIcons] as Component;
+};
 const activeMenu = ref("");
 const route = useRoute();
+const roleStore = useRoleStore();
 
 onMounted(() => {
   // 初始化激活菜单
