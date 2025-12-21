@@ -27,7 +27,7 @@
                 <SidebarMenuItem @click="activeMenu = item.path" :class="item.path === activeMenu ? 'bg-primary/10 rounded-md' : ''">
                   <SidebarMenuButton as-child :tooltip="item.title" class="p-4 pt-5 pb-5 text-primary text-base">
                     <NuxtLink :to="item.path">
-                      <component :is="getIcon(item.icon)" />
+                      <component v-if="item.icon" :is="getIcon(item.icon)" />
                       <span>{{ item.title }}</span>
                     </NuxtLink>
                   </SidebarMenuButton>
@@ -59,7 +59,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Component } from 'vue';
+import type { Component } from "vue";
 
 const getIcon = (iconName: string): Component | undefined => {
   if (!iconName) return undefined;
