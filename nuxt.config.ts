@@ -34,7 +34,6 @@ export default defineNuxtConfig({
     '@nuxt/scripts',
     'shadcn-nuxt',
     '@pinia/nuxt',
-    '@vite-pwa/nuxt'
   ],
   imports: {
     // 自动导入 store 目录下的所有 store
