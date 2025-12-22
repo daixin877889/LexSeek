@@ -1,7 +1,7 @@
 <template>
   <SidebarProvider>
     <!-- 侧边栏 -->
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <!-- 顶部logo -->
       <DashboardLogoBox />
       <SidebarContent>
@@ -17,15 +17,42 @@
     </Sidebar>
     <SidebarInset>
       <!-- 头部 -->
-      <header class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 fixed bg-white w-full z-500 shadow-sm">
-        <!-- 折叠按钮 -->
-        <div class="flex items-center gap-2 px-4">
-          <SidebarTrigger class="-ml-1" />
+      <header
+        class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 fixed bg-white w-full z-500 shadow-sm">
+        <div class="flex gap-2 px-4">
+          <!-- logo -->
+          <div class="flex items-center gap-2 md:hidden">
+            <NuxtLink to="/dashboard" class="flex items-center gap-2">
+              <img src="/logo.svg" class="h-6 text-primary" />
+              <h1 class="text-xl font-bold">LexSeek｜法索 AI</h1>
+            </NuxtLink>
+          </div>
+
+          <!-- 折叠按钮 -->
+          <SidebarTrigger ref="sidebarTriggerRef" class="-ml-1 hidden md:flex" />
+
           <!-- 面包屑导航 -->
           <DashboardBreadcrumbNav class="hidden md:flex" />
         </div>
+
+        <!-- 移动端用户导航 -->
+        <div class="ml-auto pr-4 flex items-center md:hidden">
+          <button class="p-2 rounded-md hover:bg-gray-100 transition-colors focus:outline-none focus:ring-offset-2"
+            @click="toggleSidebar">
+            <MenuIcon class="h-6 w-6" />
+          </button>
+          <ClientOnly>
+            <DashboardNavUserRight />
+            <template #fallback>
+              <div class="p-2">
+                <User class="h-6 w-6 text-gray-400" />
+              </div>
+            </template>
+          </ClientOnly>
+        </div>
       </header>
       <!-- 内容区域 -->
+
       <div class="flex flex-1 flex-col gap-4 p-0 mt-12">
         <slot />
       </div>
@@ -34,27 +61,15 @@
 </template>
 
 <script setup lang="ts">
-import type { Component } from "vue";
+import { MenuIcon, User } from "lucide-vue-next";
 
-const activeMenu = ref("");
-const route = useRoute();
-const roleStore = useRoleStore();
+const sidebarTriggerRef = ref<InstanceType<typeof import("@/components/ui/sidebar").SidebarTrigger> | null>(null);
 
-onMounted(() => {
-  // 初始化激活菜单
-  activeMenu.value = dashboardMenu.value.find((item) => item.path === route.path)?.path ?? "";
-});
-
-const dashboardMenu = ref([
-  {
-    path: "/dashboard",
-    title: "工作台",
-    icon: lucideIcons.LayoutDashboardIcon,
-  },
-  {
-    path: "/dashboard/cases",
-    title: "我的案件",
-    icon: lucideIcons.FolderIcon,
-  },
-]);
+// 通过组件实例的 $el 获取 DOM 元素并点击
+const toggleSidebar = () => {
+  const el = sidebarTriggerRef.value?.$el;
+  if (el) {
+    el.click();
+  }
+};
 </script>
