@@ -25,6 +25,7 @@
     "@pinia/nuxt": "^0.11.3",
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
+    "@tanstack/vue-table": "^8.21.3",
     "@vueuse/core": "^14.1.0",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
