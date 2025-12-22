@@ -21,7 +21,7 @@ export function calculateDelayInterest(
     endDate: string,
     rate?: number | string
 ): DelayInterestResult {
-    logger.info('迟延履行利息计算开始', { amount, startDate, endDate, rate })
+    logger.debug('迟延履行利息计算开始', { amount, startDate, endDate, rate })
 
     const principal = parseFloat(String(amount))
     const start = new Date(startDate)
@@ -44,7 +44,7 @@ export function calculateDelayInterest(
     // 检查开始日期和结束日期跨越不同利率段的情况
     if (start < policyChangeDate && end > policyChangeDate) {
         // 1. 跨越政策变更日期的情况 - 需分为两大段计算
-        logger.info('跨越政策变更日期的计算')
+        logger.debug('跨越政策变更日期的计算')
 
         // 前段计算 - 使用央行基准利率的1.5倍(2019年8月20日前)
         const periodsBefore = calculateBeforePolicyPeriods(principal, startDate, '2019-08-20', yearDays)
@@ -65,7 +65,7 @@ export function calculateDelayInterest(
 
     } else if (start >= policyChangeDate) {
         // 2. 完全在2019年8月20日后的情况 - 使用LPR的4倍
-        logger.info('完全在政策变更日期后的计算')
+        logger.debug('完全在政策变更日期后的计算')
 
         const periodsAfter = calculateAfterPolicyPeriods(principal, startDate, endDate, yearDays)
         totalInterest = periodsAfter.totalInterest
@@ -79,7 +79,7 @@ export function calculateDelayInterest(
 
     } else {
         // 3. 完全在2019年8月20日前的情况 - 使用央行基准利率的1.5倍
-        logger.info('完全在政策变更日期前的计算')
+        logger.debug('完全在政策变更日期前的计算')
 
         const periodsBefore = calculateBeforePolicyPeriods(principal, startDate, endDate, yearDays)
         totalInterest = periodsBefore.totalInterest
@@ -95,7 +95,7 @@ export function calculateDelayInterest(
     // 四舍五入总利息，保留两位小数
     const roundedInterest = Math.round(totalInterest * 100) / 100
 
-    logger.info('迟延履行利息计算结果', {
+    logger.debug('迟延履行利息计算结果', {
         totalInterest: roundedInterest,
         totalDetails: interestDetails.length,
         firstDetail: interestDetails[0],
@@ -138,7 +138,7 @@ function calculateBeforePolicyPeriods(
     const start = new Date(startDate)
     const end = new Date(endDate)
 
-    logger.info('计算2019年8月20日前的迟延履行利息', { principal, startDate, endDate })
+    logger.debug('计算2019年8月20日前的迟延履行利息', { principal, startDate, endDate })
 
     // 获取所有六个月至一年的基准利率并按日期排序
     const allRates = [...getInterestRates(1, 2)].sort((a, b) => new Date(a.sTime).getTime() - new Date(b.sTime).getTime())
@@ -251,7 +251,7 @@ function calculateAfterPolicyPeriods(
     const start = new Date(startDate)
     const end = new Date(endDate)
 
-    logger.info('计算2019年8月20日后的迟延履行利息', { principal, startDate, endDate })
+    logger.debug('计算2019年8月20日后的迟延履行利息', { principal, startDate, endDate })
 
     // 获取所有一年期LPR并按日期排序
     const allRates = [...getInterestRates(2, 1)].sort((a, b) => new Date(a.sTime).getTime() - new Date(b.sTime).getTime())
