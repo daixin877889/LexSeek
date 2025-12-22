@@ -1,5 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg'
-import { PrismaClient } from '../../app/generated/prisma/client'
+import { PrismaClient } from '../../generated/prisma/client'
 
 // Asia/Shanghai 时区偏移量（毫秒）
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000
