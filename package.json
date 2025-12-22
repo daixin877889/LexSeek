@@ -30,6 +30,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.19",
+    "file-saver": "^2.0.5",
     "lucide-vue-next": "^0.562.0",
     "nuxt": "^4.2.2",
     "pg": "^8.16.3",
@@ -42,6 +43,7 @@
     "vue": "^3.5.25",
     "vue-router": "^4.6.4",
     "vue-sonner": "^2.0.9",
+    "xlsx": "^0.18.5",
     "zod": "^4.2.1"
   },
   "devDependencies": {
