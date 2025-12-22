@@ -2,7 +2,6 @@
  * 用户状态
  */
 
-
 export const useUserStore = defineStore("user", () => {
   /**
    * 状态
@@ -20,19 +19,22 @@ export const useUserStore = defineStore("user", () => {
     inviteCode: "",
   });
 
-
   /**
    * 获取用户信息
    */
   const fetchUserInfo = async (): Promise<SafeUserInfo> => {
     try {
-      const { data: response, error, execute } = useApiGet("/api/v1/users/me", { lazy: true });
+      const { data, error, execute } = useApi<SafeUserInfo>("/api/v1/users/me", {
+        immediate: false,
+      });
       await execute();
       if (error.value) {
         throw error.value;
       }
-      logger.debug("获取用户信息成功:", response.value);
-      setUserInfo(response.value as SafeUserInfo);
+      logger.debug("获取用户信息成功:", data.value);
+      if (data.value) {
+        setUserInfo(data.value);
+      }
       return userInfo;
     } catch (error: any) {
       logger.error("获取用户信息失败:", error);
@@ -64,6 +66,7 @@ export const useUserStore = defineStore("user", () => {
       inviteCode: "",
     });
   };
+
   return {
     // 导出状态数据
     userInfo,

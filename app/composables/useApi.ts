@@ -1,205 +1,82 @@
 /**
  * 封装 useFetch 的 composable
- * 统一处理 API 请求、错误处理和响应格式
+ * 通过拦截器统一处理错误，使用方式与原生 useFetch 一致
  */
 
-// API 错误类型
-export interface ApiError {
-    code: number
-    message: string
-    requestId?: string
-}
-
-// useApi 返回类型
-export interface UseApiReturn<T> {
-    data: Ref<T | null>
-    error: Ref<ApiError | null>
-    pending: Ref<boolean>
-    refresh: () => Promise<void>
-    execute: () => Promise<void>
-}
-
-// HTTP 方法类型
-type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
-
-// useApi 配置选项
-export interface UseApiOptions {
-    method?: HttpMethod
-    body?: any
-    query?: Record<string, any>
-    headers?: Record<string, string>
-    // 是否延迟执行（默认 false，立即执行）
-    lazy?: boolean
+interface UseApiOptions {
     // 是否显示错误提示（默认 true）
     showError?: boolean
 }
 
 /**
- * 封装 useFetch，统一处理 API 响应和错误
+ * 封装 useFetch，通过拦截器统一处理 API 错误
+ * 使用方式与原生 useFetch 完全一致
+ *
  * @param url 请求地址
- * @param options 请求配置
+ * @param options useFetch 配置选项，额外支持 showError 选项
  */
 export function useApi<T = any>(
-    url: string | (() => string),
-    options: UseApiOptions = {}
-): UseApiReturn<T> {
+    url: string | (() => string) | Ref<string>,
+    options: Parameters<typeof useFetch>[1] & UseApiOptions = {}
+) {
     const {
-        method = 'GET',
-        body,
-        query,
-        headers,
-        lazy = false,
         showError = true,
-    } = options
+        onResponse: userOnResponse,
+        onResponseError: userOnResponseError,
+        transform: userTransform,
+        ...restOptions
+    } = options as any
 
-    // 响应数据
-    const data = ref<T | null>(null) as Ref<T | null>
-    // 错误信息
-    const error = ref<ApiError | null>(null) as Ref<ApiError | null>
-    // 加载状态
-    const pending = ref(false)
-
-    // 执行请求
-    const execute = async () => {
-        pending.value = true
-        error.value = null
-
-        try {
-            const urlValue = typeof url === 'function' ? url() : url
-
-            const response = await $fetch<ApiBaseResponse<T>>(urlValue, {
-                method,
-                body,
-                query,
-                headers,
-            })
+    return useFetch(url, {
+        ...restOptions,
+        // 响应拦截器：处理业务逻辑错误
+        onResponse(ctx: any) {
+            const data = ctx.response._data as ApiBaseResponse<T>
 
             // 处理业务逻辑错误（success: false）
-            if (response.success === false) {
-                const apiError: ApiError = {
-                    code: response.code,
-                    message: response.message,
-                    requestId: response.requestId,
-                }
-                error.value = apiError
+            if (showError && data && data.success === false) {
+                toast.error(data.message || '请求失败')
+            }
 
-                if (showError) {
-                    toast.error(response.message)
+            // 调用用户自定义的 onResponse
+            if (typeof userOnResponse === 'function') {
+                userOnResponse(ctx)
+            }
+        },
+        // 响应错误拦截器：处理网络错误或服务器错误
+        onResponseError(ctx: any) {
+            if (!showError) {
+                // 调用用户自定义的 onResponseError
+                if (typeof userOnResponseError === 'function') {
+                    userOnResponseError(ctx)
                 }
                 return
             }
 
-            // 请求成功
-            data.value = response.data as T
-        } catch (err: any) {
-            // 处理网络错误或服务器错误
-            // $fetch 对于非 2xx 状态码会抛出 FetchError，响应体在 err.data 中
-            const responseData = err.data as ApiBaseResponse<T> | undefined
+            const data = ctx.response._data as ApiBaseResponse<T> | undefined
 
             // 如果响应体符合 ApiBaseResponse 格式，使用其中的错误信息
-            if (responseData && responseData.success === false) {
-                const apiError: ApiError = {
-                    code: responseData.code,
-                    message: responseData.message,
-                    requestId: responseData.requestId,
-                }
-                error.value = apiError
-
-                if (showError) {
-                    toast.error(responseData.message)
-                }
+            if (data && data.success === false) {
+                toast.error(data.message || '请求失败')
             } else {
                 // 其他网络错误
-                const apiError: ApiError = {
-                    code: err.statusCode || -1,
-                    message: err.data?.message || err.message || '网络请求失败，请稍后重试',
-                    requestId: err.data?.requestId,
-                }
-                error.value = apiError
-
-                if (showError) {
-                    toast.error(apiError.message)
-                }
+                const message = data?.message || ctx.response.statusText || '网络请求失败，请稍后重试'
+                toast.error(message)
             }
-        } finally {
-            pending.value = false
-        }
-    }
 
-    // 刷新请求
-    const refresh = async () => {
-        await execute()
-    }
-
-    // 如果不是 lazy 模式，立即执行
-    if (!lazy) {
-        execute()
-    }
-
-    return {
-        data,
-        error,
-        pending,
-        refresh,
-        execute,
-    }
-}
-
-/**
- * 封装 POST 请求
- */
-export function useApiPost<T = any>(
-    url: string,
-    body?: any,
-    options: Omit<UseApiOptions, 'method' | 'body'> = {}
-): UseApiReturn<T> {
-    return useApi<T>(url, {
-        method: 'POST',
-        body,
-        lazy: true,
-        ...options,
-    })
-}
-
-/**
- * 封装 GET 请求
- */
-export function useApiGet<T = any>(
-    url: string | (() => string),
-    options: Omit<UseApiOptions, 'method'> = {}
-): UseApiReturn<T> {
-    return useApi<T>(url, {
-        method: 'GET',
-        ...options,
-    })
-}
-
-/**
- * 封装 PUT 请求
- */
-export function useApiPut<T = any>(
-    url: string,
-    body?: any,
-    options: Omit<UseApiOptions, 'method' | 'body'> = {}
-): UseApiReturn<T> {
-    return useApi<T>(url, {
-        method: 'PUT',
-        body,
-        lazy: true,
-        ...options,
-    })
-}
-
-/**
- * 封装 DELETE 请求
- */
-export function useApiDelete<T = any>(
-    url: string,
-    options: Omit<UseApiOptions, 'method'> = {}
-): UseApiReturn<T> {
-    return useApi<T>(url, {
-        method: 'DELETE',
-        lazy: true,
-        ...options,
-    })
+            // 调用用户自定义的 onResponseError
+            if (typeof userOnResponseError === 'function') {
+                userOnResponseError(ctx)
+            }
+        },
+        // 提取 data 字段作为返回数据
+        transform: (response: any): T => {
+            // 如果用户提供了自定义 transform，先执行
+            if (userTransform) {
+                return userTransform(response)
+            }
+            // 默认提取 data 字段
+            return (response as ApiBaseResponse<T>).data as T
+        },
+    }) as ReturnType<typeof useFetch<T>>
 }

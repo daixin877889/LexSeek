@@ -39,11 +39,12 @@ export const useAuthStore = defineStore("auth", () => {
         data: response,
         error: apiError,
         execute,
-      } = useApiPost(
-        "/api/v1/auth/login/password",
-        { phone, password },
-        { showError: false }
-      );
+      } = useApi("/api/v1/auth/login/password", {
+        method: "POST",
+        body: { phone, password },
+        immediate: false,
+        showError: false,
+      });
       await execute();
 
       if (apiError.value) {
@@ -83,7 +84,11 @@ export const useAuthStore = defineStore("auth", () => {
         data: response,
         error: apiError,
         execute,
-      } = useApiPost("/api/v1/auth/logout", {});
+      } = useApi("/api/v1/auth/logout", {
+        method: "POST",
+        body: {},
+        immediate: false,
+      });
       await execute();
 
       if (apiError.value) {
@@ -130,11 +135,12 @@ export const useAuthStore = defineStore("auth", () => {
         data: response,
         error: apiError,
         execute,
-      } = useApiPost(
-        "/api/v1/auth/reset-password",
-        { phone, code, newPassword },
-        { showError: false }
-      );
+      } = useApi("/api/v1/auth/reset-password", {
+        method: "POST",
+        body: { phone, code, newPassword },
+        immediate: false,
+        showError: false,
+      });
       await execute();
 
       if (apiError.value) {
@@ -176,7 +182,12 @@ export const useAuthStore = defineStore("auth", () => {
         data: response,
         error: apiError,
         execute,
-      } = useApiPost("/api/v1/sms/send", { phone, type }, { showError: false });
+      } = useApi("/api/v1/sms/send", {
+        method: "POST",
+        body: { phone, type },
+        immediate: false,
+        showError: false,
+      });
       await execute();
 
       if (apiError.value) {
@@ -228,7 +239,12 @@ export const useAuthStore = defineStore("auth", () => {
         data: response,
         error: apiError,
         execute,
-      } = useApiPost("/api/v1/auth/register", params, { showError: false });
+      } = useApi("/api/v1/auth/register", {
+        method: "POST",
+        body: params,
+        immediate: false,
+        showError: false,
+      });
       await execute();
 
       if (apiError.value) {
