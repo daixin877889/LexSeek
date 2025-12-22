@@ -151,3 +151,22 @@ export const updateUserPasswordDao = async (id: number, password: string, tx?: a
         throw error
     }
 }
+
+/**
+ * 更新用户资料
+ * @param id 用户ID
+ * @param data 用户资料
+ * @returns 用户
+ */
+export const updateUserProfileDao = async (id: number, data: Prisma.usersUpdateInput, tx?: any): Promise<users> => {
+    try {
+        const user = await (tx || prisma).users.update({
+            where: { id, deletedAt: null },
+            data: { ...data, updatedAt: new Date() }
+        })
+        return user
+    } catch (error) {
+        logger.error('更新用户资料失败：', error)
+        throw error
+    }
+}
