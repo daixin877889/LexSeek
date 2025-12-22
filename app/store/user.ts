@@ -19,26 +19,54 @@ export const useUserStore = defineStore("user", () => {
     inviteCode: "",
   });
 
+  const pending = ref(false);
+  const fetchError = ref<Error | null>(null);
+  let refreshFn: (() => Promise<void>) | null = null;
+
   /**
-   * 获取用户信息
+   * 初始化用户信息（利用 useFetch 水合特性）
+   * 返回 Promise，需要 await 以支持 SSR
    */
-  const fetchUserInfo = async (): Promise<SafeUserInfo> => {
-    try {
-      const { data, error, execute } = useApi<SafeUserInfo>("/api/v1/users/me", {
-        immediate: false,
-      });
-      await execute();
-      if (error.value) {
-        throw error.value;
-      }
+  const initUserInfo = async () => {
+    const { data, error, status, refresh } = await useApi<SafeUserInfo>("/api/v1/users/me", {
+      key: "user-info",
+    });
+
+    refreshFn = refresh;
+
+    // 同步数据到 store
+    if (data.value) {
+      setUserInfo(data.value);
       logger.debug("获取用户信息成功:", data.value);
-      if (data.value) {
-        setUserInfo(data.value);
+    }
+
+    if (error.value) {
+      fetchError.value = error.value;
+      logger.error("获取用户信息失败:", error.value);
+    }
+
+    pending.value = status.value === "pending";
+
+    // 监听后续数据变化
+    watch(data, (newData) => {
+      if (newData) {
+        setUserInfo(newData);
       }
-      return userInfo;
-    } catch (error: any) {
-      logger.error("获取用户信息失败:", error);
-      throw error;
+    });
+
+    watch(error, (newError) => {
+      fetchError.value = newError || null;
+    });
+
+    return { data, error, status, refresh };
+  };
+
+  /**
+   * 刷新用户信息（客户端使用）
+   */
+  const refreshUserInfo = async (): Promise<void> => {
+    if (refreshFn) {
+      await refreshFn();
     }
   };
 
@@ -65,14 +93,18 @@ export const useUserStore = defineStore("user", () => {
       profile: "",
       inviteCode: "",
     });
+    fetchError.value = null;
   };
 
   return {
     // 导出状态数据
     userInfo,
+    pending,
+    fetchError,
 
     // 导出方法
-    fetchUserInfo,
+    initUserInfo,
+    refreshUserInfo,
     setUserInfo,
     clearUserInfo,
   };

@@ -10,92 +10,111 @@ export const useRoleStore = defineStore("role", () => {
   const currentRole = computed(() => userRoles.value[currentRoleIndex.value]); // 当前角色
   const currentRoleRouters = ref<any>([]); // 当前角色路由列表
 
-  // 获取用户角色列表
-  const fetchUserRoles = async (): Promise<roles[]> => {
+  let refreshRolesFn: (() => Promise<void>) | null = null;
+
+  /**
+   * 初始化用户角色列表（利用 useFetch 水合特性）
+   * 返回 Promise，需要 await 以支持 SSR
+   */
+  const initUserRoles = async () => {
+    const { data, error: apiError, status, refresh } = await useApi<roles[]>("/api/v1/users/roles", {
+      key: "user-roles",
+    });
+
+    refreshRolesFn = refresh;
+
+    // 同步数据到 store
+    if (data.value) {
+      userRoles.value = data.value;
+      logger.debug("获取用户角色列表成功:", data.value);
+    }
+
+    if (apiError.value) {
+      error.value = apiError.value.message;
+      logger.error("获取用户角色列表失败:", apiError.value);
+    }
+
+    loading.value = status.value === "pending";
+
+    // 监听后续数据变化
+    watch(data, (newData) => {
+      if (newData) {
+        userRoles.value = newData;
+      }
+    });
+
+    watch(apiError, (newError) => {
+      if (newError) {
+        error.value = newError.message;
+      }
+    });
+
+    return { data, error: apiError, status, refresh };
+  };
+
+  /**
+   * 刷新用户角色列表（客户端使用）
+   */
+  const refreshUserRoles = async (): Promise<void> => {
+    if (refreshRolesFn) {
+      await refreshRolesFn();
+    }
+  };
+
+  /**
+   * 初始化用户权限路由（利用 useFetch 水合特性）
+   * 返回 Promise，需要 await 以支持 SSR
+   */
+  const initUserRouters = async (roleId: number) => {
+    const { data, error: apiError, status, refresh } = await useApi<any>("/api/v1/users/routers", {
+      key: `user-routers-${roleId}`,
+      query: { roleId },
+    });
+
+    // 同步数据到 store
+    if (data.value?.[0]?.routers) {
+      currentRoleRouters.value = data.value[0].routers;
+      logger.debug("获取用户权限路由成功:", data.value);
+    }
+
+    if (apiError.value) {
+      error.value = apiError.value.message;
+      logger.error("获取用户权限路由失败:", apiError.value);
+    }
+
+    // 监听后续数据变化
+    watch(data, (newData) => {
+      if (newData?.[0]?.routers) {
+        currentRoleRouters.value = newData[0].routers;
+      }
+    });
+
+    return { data, error: apiError, status, refresh };
+  };
+
+  /**
+   * 获取用户权限路由（客户端按需调用）
+   */
+  const fetchUserRouters = async (roleId: number): Promise<void> => {
     loading.value = true;
     error.value = null;
     try {
-      const { data, error: apiError, execute } = useApi<roles[]>("/api/v1/users/roles", {
-        immediate: false,
+      const { data, error: apiError } = await useApi<any>("/api/v1/users/routers", {
+        key: `user-routers-fetch-${roleId}`,
+        query: { roleId },
       });
-      await execute();
       if (apiError.value) {
         error.value = apiError.value.message;
         throw new Error(apiError.value.message);
       }
-      return data.value || [];
-    } catch (err: any) {
-      logger.error("获取用户角色列表失败:", err);
-      throw err;
-    } finally {
-      loading.value = false;
-    }
-  };
-
-  const getUserRoles = async (): Promise<roles[]> => {
-    try {
-      const roleList = await fetchUserRoles();
-      if (!roleList) {
-        throw new Error("获取用户角色列表为空");
+      if (data.value?.[0]?.routers) {
+        currentRoleRouters.value = data.value[0].routers;
+        logger.debug("获取用户权限路由成功:", data.value);
       }
-      userRoles.value = roleList;
-      return roleList;
-    } catch (err: any) {
-      logger.error(err);
-      return [];
-    }
-  };
-
-  // 获取用户权限路由
-  type RouterData = {
-    routers: routers[];
-    code: string;
-    description: string;
-    name: string;
-    roleId: number;
-  };
-
-  const fetchUserRouters = async (roleId?: number): Promise<RouterData | false> => {
-    loading.value = true;
-    error.value = null;
-    try {
-      const query: any = {};
-      if (roleId) {
-        query.roleId = roleId;
-      }
-      const { data, error: apiError, execute } = useApi<RouterData>("/api/v1/users/routers", {
-        query,
-        immediate: false,
-      });
-      await execute();
-      if (apiError.value) {
-        error.value = apiError.value.message;
-        throw new Error(apiError.value.message);
-      }
-      if (data.value) {
-        return data.value;
-      }
-      return false;
     } catch (err: any) {
       logger.error("获取用户权限路由失败:", err);
-      throw err;
     } finally {
       loading.value = false;
-    }
-  };
-
-  const getUserRouters = async (roleId?: number): Promise<routers[]> => {
-    try {
-      const routerData: any = await fetchUserRouters(roleId);
-      if (!routerData) {
-        throw new Error("获取用户权限路由为空");
-      }
-      logger.debug("获取用户权限路由:", routerData);
-      currentRoleRouters.value = routerData[0].routers;
-      return routerData.routers;
-    } catch (err: any) {
-      logger.error("获取用户权限路由失败:", err);
-      return [];
     }
   };
 
@@ -104,12 +123,21 @@ export const useRoleStore = defineStore("role", () => {
    */
   const setCurrentRoleIndex = async (index: number) => {
     currentRoleIndex.value = index;
-    // 切换角色后获取对应的路由
     if (currentRole.value?.id) {
-      await getUserRouters(currentRole.value.id);
+      await fetchUserRouters(currentRole.value.id);
     } else {
       currentRoleRouters.value = [];
     }
+  };
+
+  /**
+   * 清空角色数据
+   */
+  const clearRoleData = () => {
+    userRoles.value = [];
+    currentRoleIndex.value = 0;
+    currentRoleRouters.value = [];
+    error.value = null;
   };
 
   return {
@@ -122,10 +150,11 @@ export const useRoleStore = defineStore("role", () => {
     loading,
 
     // 导出方法
-    fetchUserRoles,
+    initUserRoles,
+    initUserRouters,
+    refreshUserRoles,
     fetchUserRouters,
-    getUserRoles,
-    getUserRouters,
     setCurrentRoleIndex,
+    clearRoleData,
   };
 });

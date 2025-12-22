@@ -8,40 +8,71 @@
 
 <script setup lang="ts">
 import "vue-sonner/style.css";
+
 const authStore = useAuthStore();
 const userStore = useUserStore();
 const roleStore = useRoleStore();
-// 初始化认证状态
 
+// 同步初始化认证状态（从 cookie 读取，SSR 和客户端都安全执行）
 authStore.initAuth();
 
-onMounted(() => {
-  if (authStore.isAuthenticated) {
-    userStore.fetchUserInfo();
-    roleStore.getUserRoles();
-  }
-  console.log("roleStore.currentRoleIndex", roleStore.currentRoleIndex);
-});
+// 已认证时，初始化用户数据（利用 useFetch 水合特性，await 确保 SSR 等待数据）
+if (authStore.isAuthenticated) {
+  // 并行初始化用户信息和角色列表
+  const [, rolesResult] = await Promise.all([
+    userStore.initUserInfo(),
+    roleStore.initUserRoles()
+  ]);
 
-// 监听当前角色变化,获取当前角色路由
-watch(
-  () => roleStore.currentRole,
-  async (newVal: roles | undefined) => {
-    if (newVal) {
-      await roleStore.getUserRouters(newVal.id);
+  // 角色数据加载完成后，初始化当前角色的路由
+  if (rolesResult.data.value && rolesResult.data.value.length > 0) {
+    const firstRoleId = rolesResult.data.value[0]?.id;
+    if (firstRoleId) {
+      await roleStore.initUserRouters(firstRoleId);
     }
-  },
-  { immediate: true }
+  }
+}
+
+// 监听登录状态变化，客户端按需重新获取数据
+watch(
+  () => authStore.isAuthenticated,
+  async (isAuth, oldIsAuth) => {
+    // 仅在客户端执行
+    if (!import.meta.client) return;
+
+    // 状态从 false 变为 true（登录成功）
+    if (isAuth && !oldIsAuth) {
+      // 登录成功后，初始化用户数据
+      const [, rolesResult] = await Promise.all([
+        userStore.initUserInfo(),
+        roleStore.initUserRoles()
+      ]);
+      // 获取当前角色的路由
+      if (rolesResult.data.value && rolesResult.data.value.length > 0) {
+        const firstRoleId = rolesResult.data.value[0]?.id;
+        if (firstRoleId) {
+          await roleStore.initUserRouters(firstRoleId);
+        }
+      }
+    }
+    // 状态从 true 变为 false（登出）
+    else if (!isAuth && oldIsAuth) {
+      userStore.clearUserInfo();
+      roleStore.clearRoleData();
+    }
+  }
 );
 
-// watch(
-//   () => authStore.isAuthenticated,
-//   (newVal) => {
-//     if (newVal) {
-//       userStore.fetchUserInfo();
-//     } else {
-//       userStore.clearUserInfo();
-//     }
-//   }
-// );
+// 监听当前角色变化，获取对应的权限路由
+watch(
+  () => roleStore.currentRoleIndex,
+  async (newIndex, oldIndex) => {
+    // 仅在客户端且角色索引真正变化时执行
+    if (import.meta.client && oldIndex !== undefined && newIndex !== oldIndex) {
+      if (roleStore.currentRole?.id) {
+        await roleStore.fetchUserRouters(roleStore.currentRole.id);
+      }
+    }
+  }
+);
 </script>
