@@ -6,7 +6,8 @@
 
 <script lang="ts" setup>
 definePageMeta({
-  layout: "dashboard"
+  title: "工作台",
+  layout: "dashboard",
 });
 </script>
 

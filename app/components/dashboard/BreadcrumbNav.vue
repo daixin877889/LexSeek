@@ -23,60 +23,42 @@
 
 <script setup lang="ts">
 // 面包屑项类型
-interface BreadcrumbItem {
+interface BreadcrumbItemType {
   name: string;
   path: string;
   isLast: boolean;
 }
 
-// 路由名称映射表（路径段 -> 显示名称）
-const pathNameMap: Record<string, string> = {
-  dashboard: "工作台",
-  cases: "我的案件",
-  analysis: "案件分析",
-  agent: "AI 分析",
-  settings: "账户设置",
-  membership: "会员中心",
-  "disk-space": "存储空间",
-  tools: "办案工具",
-  interest: "利息计算",
-  "court-fee": "诉讼费用",
-  "lawyer-fee": "律师费用",
-  "delay-interest": "延迟履行利息",
-  "bank-rate": "银行利率查询",
-  "date-calculator": "日期推算",
-  compensation: "赔偿计算器",
-  overtime: "加班计算",
-  "divorce-property": "离婚财产分割",
-  "social-insurance": "社保追缴",
-};
-
+const router = useRouter();
 const route = useRoute();
 
-// 计算面包屑
-const breadcrumbs = computed<BreadcrumbItem[]>(() => {
-  // 获取当前路径，去除开头的斜杠
+// 根据路径查找对应路由的 title
+const getTitleForPath = (path: string): string | undefined => {
+  const routes = router.getRoutes();
+  const matchedRoute = routes.find((r) => r.path === path);
+  return matchedRoute?.meta?.title as string | undefined;
+};
+
+// 计算面包屑 - 基于 URL 路径段构建层级，从路由 meta 获取 title
+const breadcrumbs = computed<BreadcrumbItemType[]>(() => {
+  // 获取当前路径，去除首尾斜杠
   const currentPath = route.path.replace(/^\//, "").replace(/\/$/, "");
 
-  // 如果路径为空或只是根路径，返回空数组
-  if (!currentPath) {
-    return [];
-  }
+  if (!currentPath) return [];
 
   // 分割路径段
   const segments = currentPath.split("/").filter(Boolean);
-
-  // 构建面包屑数组
-  const items: BreadcrumbItem[] = [];
+  const items: BreadcrumbItemType[] = [];
   let accumulatedPath = "";
 
   segments.forEach((segment, index) => {
     accumulatedPath += `/${segment}`;
 
-    // 获取显示名称：优先使用映射表，其次使用路由 meta.title，最后使用路径段本身
-    const matchedRoute = route.matched.find((r) => r.path === accumulatedPath || r.path === accumulatedPath + "/");
-    const metaTitle = matchedRoute?.meta?.title as string | undefined;
-    const name = pathNameMap[segment] || metaTitle || segment;
+    // 优先从路由 meta.title 获取名称
+    const title = getTitleForPath(accumulatedPath);
+
+    // 如果没有 title，使用路径段本身（可以做一些基本格式化）
+    const name = title || segment;
 
     items.push({
       name,
