@@ -67,9 +67,6 @@
 </template>
 
 <script setup lang="ts">
-defineComponent({
-  name: "DashboardLayout",
-});
 import { MenuIcon, User } from "lucide-vue-next";
 import SettingsLayout from "./settingsLayout.vue";
 

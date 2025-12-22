@@ -43,10 +43,6 @@
 
 <script setup>
 import { Loader2Icon, SaveIcon } from "lucide-vue-next";
-// import { Input } from "@/components/ui/input";
-// import { Button } from "@/components/ui/button";
-// import { Textarea } from "@/components/ui/textarea";
-// import { useUserStore, useToastStore } from "@/stores";
 
 definePageMeta({
   layout: "dashboard-layout",
@@ -61,7 +57,7 @@ const props = defineProps({
 });
 
 const userStore = useUserStore();
-// const toastStore = useToastStore();
+
 // 计算属性处理用户信息
 const userForm = computed({
   get: () => ({
