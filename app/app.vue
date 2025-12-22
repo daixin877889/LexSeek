@@ -4,6 +4,8 @@
   </NuxtLayout>
   <!-- 全局 Toast 组件 -->
   <Toaster position="top-center" :duration="3000" rich-colors />
+  <!-- 全局确认对话框 -->
+  <GeneralAlertDialog />
 </template>
 
 <script setup lang="ts">
@@ -19,10 +21,7 @@ authStore.initAuth();
 // 已认证时，初始化用户数据（利用 useFetch 水合特性，await 确保 SSR 等待数据）
 if (authStore.isAuthenticated) {
   // 并行初始化用户信息和角色列表
-  const [, rolesResult] = await Promise.all([
-    userStore.initUserInfo(),
-    roleStore.initUserRoles()
-  ]);
+  const [, rolesResult] = await Promise.all([userStore.initUserInfo(), roleStore.initUserRoles()]);
 
   // 角色数据加载完成后，初始化当前角色的路由
   if (rolesResult.data.value && rolesResult.data.value.length > 0) {
@@ -43,10 +42,7 @@ watch(
     // 状态从 false 变为 true（登录成功）
     if (isAuth && !oldIsAuth) {
       // 登录成功后，初始化用户数据
-      const [, rolesResult] = await Promise.all([
-        userStore.initUserInfo(),
-        roleStore.initUserRoles()
-      ]);
+      const [, rolesResult] = await Promise.all([userStore.initUserInfo(), roleStore.initUserRoles()]);
       // 获取当前角色的路由
       if (rolesResult.data.value && rolesResult.data.value.length > 0) {
         const firstRoleId = rolesResult.data.value[0]?.id;
