@@ -2,40 +2,11 @@
   <SidebarProvider>
     <!-- 侧边栏 -->
     <Sidebar>
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="lg">
-              <NuxtLink to="/" class="flex items-center gap-2">
-                <div class="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <NuxtImg src="/logo-white.svg" class="size-6" />
-                </div>
-                <div class="grid flex-1 text-left text-sm leading-tight">
-                  <span class="truncate font-semibold text-primary text-base"> LexSeek ｜ 法索 AI </span>
-                </div>
-              </NuxtLink>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
+      <!-- 顶部logo -->
+      <DashboardLogoBox />
       <SidebarContent>
         <!-- 菜单组 -->
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <template v-for="item in roleStore.currentRoleRouters.filter((item: any) => item.isMenu)" :key="item.title">
-                <SidebarMenuItem @click="activeMenu = item.path" :class="item.path === activeMenu ? 'bg-primary/10 rounded-md' : ''">
-                  <SidebarMenuButton as-child :tooltip="item.title" class="p-4 pt-5 pb-5 text-primary text-base">
-                    <NuxtLink :to="item.path">
-                      <component v-if="item.icon" :is="getIcon(item.icon)" />
-                      <span>{{ item.title }}</span>
-                    </NuxtLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </template>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <DashboardNavMain />
       </SidebarContent>
       <!-- 侧边栏底部 -->
       <SidebarFooter>
@@ -45,7 +16,8 @@
     </Sidebar>
     <SidebarInset>
       <!-- 头部 -->
-      <header class="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+      <header
+        class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12 fixed bg-white w-full z-50 shadow-sm">
         <div class="flex items-center gap-2 px-4">
           <SidebarTrigger class="-ml-1" />
         </div>
@@ -61,16 +33,6 @@
 <script setup lang="ts">
 import type { Component } from "vue";
 
-const getIcon = (iconName: string): Component | undefined => {
-  if (!iconName) return undefined;
-  // 如果格式是 "lucideIcons.LayoutDashboardIcon"
-  if (iconName.startsWith("lucideIcons.")) {
-    const name = iconName.replace("lucideIcons.", "");
-    return lucideIcons[name as keyof typeof lucideIcons] as Component;
-  }
-  // 如果只是图标名称 "LayoutDashboardIcon"
-  return lucideIcons[iconName as keyof typeof lucideIcons] as Component;
-};
 const activeMenu = ref("");
 const route = useRoute();
 const roleStore = useRoleStore();
