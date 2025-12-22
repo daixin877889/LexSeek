@@ -250,7 +250,7 @@
                   <h3 class="text-base font-semibold">计算过程</h3>
                 </AccordionTrigger>
                 <AccordionContent>
-                  <div class="bg-muted/30 p-4 rounded font-mono text-sm whitespace-pre-wrap break-words">
+                  <div class="bg-muted/30 p-4 rounded font-mono text-sm whitespace-pre-wrap wrap-break-word">
                     {{ result.details.join("\n") }}
                   </div>
                 </AccordionContent>
