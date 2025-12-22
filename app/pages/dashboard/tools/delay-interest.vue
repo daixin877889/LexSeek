@@ -281,25 +281,13 @@
 <script setup>
 definePageMeta({
   title: "延迟履行利息",
-  layout: "dashboard",
+  layout: "dashboard-layout",
 });
-// import { ref, computed, watch, onMounted } from "vue";
-// import logger from "@/utils/logger.js";
+
 import { CalendarIcon, AlertTriangleIcon } from "lucide-vue-next";
-// import { useToastStore } from "@/stores/toast";
 import { calculateDelayInterest } from "#shared/utils/tools/delayInterestService";
 import { formatDate, daysBetween } from "#shared/utils/tools/utils/date";
 import { exportDelayInterestToExcel } from "#shared/utils/tools/utils/excelExport";
-
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// import { Button } from "@/components/ui/button";
-// import { Input } from "@/components/ui/input";
-// import { Alert } from "@/components/ui/alert";
-
-// 全局状态管理
-// const toastStore = useToastStore();
 
 // 状态管理
 const isHelpOpen = ref(false);

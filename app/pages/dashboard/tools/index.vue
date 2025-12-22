@@ -21,7 +21,7 @@
 <script lang="ts" setup>
 definePageMeta({
   title: "办案工具",
-  layout: "dashboard",
+  layout: "dashboard-layout",
 });
 import { Calculator, DollarSign, Scale, Gavel, Clock, BadgePercent, Calendar, CircleDollarSign, Briefcase, HeartHandshake, Shield } from "lucide-vue-next";
 import MoneyBag from "@/components/icons/MoneyBag.vue";

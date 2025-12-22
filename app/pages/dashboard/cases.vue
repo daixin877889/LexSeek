@@ -5,7 +5,7 @@
 <script lang="ts" setup>
 definePageMeta({
   title: "我的案件",
-  layout: "dashboard",
+  layout: "dashboard-layout",
 });
 </script>
 

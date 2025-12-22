@@ -45,10 +45,8 @@
             <div class="space-y-4">
               <div>
                 <label class="text-sm font-medium leading-none">金额（元）</label>
-                <Input type="number" v-model.number="amount" placeholder="请输入争议金额/执行金额" class="mt-1.5"
-                  @input="convertToChinese" />
-                <small class="text-xs text-muted-foreground mt-1 block" v-if="chineseAmount">大写：{{ chineseAmount
-                }}</small>
+                <Input type="number" v-model.number="amount" placeholder="请输入争议金额/执行金额" class="mt-1.5" @input="convertToChinese" />
+                <small class="text-xs text-muted-foreground mt-1 block" v-if="chineseAmount">大写：{{ chineseAmount }}</small>
               </div>
 
               <div>
@@ -128,8 +126,7 @@
               </div>
 
               <!-- 人格权案件特殊设置 -->
-              <div
-                v-if="feeTypeLevel1 === 'caseFee' && caseFeeType === 'nonProperty' && nonPropertyType === 'personality'">
+              <div v-if="feeTypeLevel1 === 'caseFee' && caseFeeType === 'nonProperty' && nonPropertyType === 'personality'">
                 <label class="text-sm font-medium leading-none">是否涉及损害赔偿</label>
                 <div class="flex items-center space-x-2 mt-1.5">
                   <div class="custom-checkbox">
@@ -260,11 +257,8 @@
         <div v-if="!result" class="h-full flex items-center justify-center rounded-lg border border-dashed p-8">
           <div class="text-center">
             <div class="text-muted-foreground mb-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
-                class="mx-auto mb-4 opacity-50">
-                <path
-                  d="M11.7 2C7.5 2 4 5.5 4 9.7v.2C4 14.5 7.5 18 11.7 18h.2c4.2 0 7.7-3.5 7.7-7.7v-.1C19.6 5.6 16.4 2 11.7 2Z" />
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-4 opacity-50">
+                <path d="M11.7 2C7.5 2 4 5.5 4 9.7v.2C4 14.5 7.5 18 11.7 18h.2c4.2 0 7.7-3.5 7.7-7.7v-.1C19.6 5.6 16.4 2 11.7 2Z" />
                 <path d="M12 18v4" />
                 <path d="M8 22h8" />
               </svg>
@@ -294,16 +288,9 @@
 <script setup>
 definePageMeta({
   title: "诉讼费用计算",
-  layout: "dashboard",
+  layout: "dashboard-layout",
 });
 import { calculateCourtFee } from "#shared/utils/tools/courtFeeService";
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-// import { Button } from "@/components/ui/button";
-// import { Input } from "@/components/ui/input";
-// import { Alert } from "@/components/ui/alert";
-// import { Checkbox } from "@/components/ui/checkbox";
-// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // 基本数据
 const amount = ref(10000);

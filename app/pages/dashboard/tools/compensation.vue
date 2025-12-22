@@ -273,24 +273,13 @@
 <script setup>
 definePageMeta({
   title: "赔偿计算器",
-  layout: "dashboard",
+  layout: "dashboard-layout",
 });
 
 import { exportCompensationToExcel } from "#shared/utils/tools/utils/excelExport";
 import { CalendarIcon } from "lucide-vue-next";
-// import { useToastStore } from "@/stores/toast";
-// import { useAlertDialogStore } from "@/stores/alert-dialog";
-// const toastStore = useToastStore();
-const alertDialogStore = useAlertDialogStore();
 
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// import { Button } from "@/components/ui/button";
-// import { Input } from "@/components/ui/input";
-// import { Alert } from "@/components/ui/alert";
-// import { Switch } from "@/components/ui/switch";
-// import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+const alertDialogStore = useAlertDialogStore();
 
 // 状态管理
 const isHelpOpen = ref(false);

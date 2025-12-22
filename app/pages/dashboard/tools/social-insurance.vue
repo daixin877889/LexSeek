@@ -402,17 +402,10 @@
 <script setup>
 definePageMeta({
   title: "社保追缴计算器",
-  layout: "dashboard",
+  layout: "dashboard-layout",
 });
-// import { ref, reactive, computed } from "vue";
+
 import { calculateSocialInsuranceBackpay } from "#shared/utils/tools/socialInsuranceService";
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-// import { Button } from "@/components/ui/button";
-// import { Input } from "@/components/ui/input";
-// import { Alert } from "@/components/ui/alert";
-// import { Separator } from "@/components/ui/separator";
-// import { Checkbox } from "@/components/ui/checkbox";
 
 const monthlySalary = ref(5000);
 const months = ref(12);

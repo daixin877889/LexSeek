@@ -17,8 +17,7 @@
     </Sidebar>
     <SidebarInset>
       <!-- 头部 -->
-      <header
-        class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 fixed bg-white w-full z-500 shadow-sm">
+      <header class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 fixed bg-white w-full z-500 shadow-sm">
         <div class="flex gap-2 px-4">
           <!-- logo -->
           <div class="flex items-center gap-2 md:hidden">
@@ -37,8 +36,7 @@
 
         <!-- 移动端用户导航 -->
         <div class="ml-auto pr-4 flex items-center md:hidden">
-          <button class="p-2 rounded-md hover:bg-gray-100 transition-colors focus:outline-none focus:ring-offset-2"
-            @click="toggleSidebar">
+          <button class="p-2 rounded-md hover:bg-gray-100 transition-colors focus:outline-none focus:ring-offset-2" @click="toggleSidebar">
             <MenuIcon class="h-6 w-6" />
           </button>
           <ClientOnly>
@@ -54,14 +52,26 @@
       <!-- 内容区域 -->
 
       <div class="flex flex-1 flex-col gap-4 p-0 mt-12">
-        <slot />
+        <!-- 嵌套布局：Settings 布局 -->
+        <div v-if="$route.path.startsWith('/dashboard/settings/')">
+          <SettingsLayout>
+            <slot />
+          </SettingsLayout>
+        </div>
+        <div v-else>
+          <slot />
+        </div>
       </div>
     </SidebarInset>
   </SidebarProvider>
 </template>
 
 <script setup lang="ts">
+defineComponent({
+  name: "DashboardLayout",
+});
 import { MenuIcon, User } from "lucide-vue-next";
+import SettingsLayout from "./settingsLayout.vue";
 
 const sidebarTriggerRef = ref<InstanceType<typeof import("@/components/ui/sidebar").SidebarTrigger> | null>(null);
 

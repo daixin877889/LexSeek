@@ -371,23 +371,10 @@
 <script setup>
 definePageMeta({
   title: "离婚财产分割计算器",
-  layout: "dashboard",
+  layout: "dashboard-layout",
 });
 
-// import { ref } from "vue";
 import { calculateDivorceProperty } from "#shared/utils/tools/divorcePropertyService";
-// import { useToastStore } from "@/stores/toast";
-
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// import { Button } from "@/components/ui/button";
-// import { Input } from "@/components/ui/input";
-// import { Separator } from "@/components/ui/separator";
-// import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-
-// 全局状态管理
-// const toastStore = useToastStore();
 
 // 状态管理
 const isHelpOpen = ref(false);

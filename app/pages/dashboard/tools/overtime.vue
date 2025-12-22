@@ -240,23 +240,12 @@
 <script setup>
 definePageMeta({
   title: "加班费/调休计算器",
-  layout: "dashboard",
+  layout: "dashboard-layout",
 });
 
-// import { ref } from "vue";
 import { calculateOvertimePay, calculateCompensatoryTime } from "#shared/utils/tools/overtimePayService";
-// import { useToastStore } from "@/stores/toast";
-// import { useAlertDialogStore } from "@/stores/alert-dialog";
-
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-// import { Button } from "@/components/ui/button";
-// import { Input } from "@/components/ui/input";
-// import { Alert } from "@/components/ui/alert";
-// import { Separator } from "@/components/ui/separator";
 
 // 全局状态管理
-// const toastStore = useToastStore();
 const alertDialogStore = useAlertDialogStore();
 
 // 状态管理

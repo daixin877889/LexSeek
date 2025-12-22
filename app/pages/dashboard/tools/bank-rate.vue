@@ -154,16 +154,10 @@
 <script setup>
 definePageMeta({
   title: "银行利率查询",
-  layout: "dashboard",
+  layout: "dashboard-layout",
 });
-// import { ref, onMounted } from "vue";
-import { getLPRHistory, getLoanRateHistory, getDepositRateHistory } from "#shared/utils/tools/bankRateService";
 
-// import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "#shared/components/ui/card";
-// import { Tabs, TabsList, TabsTrigger, TabsContent } from "#shared/components/ui/tabs";
-// import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "#shared/components/ui/table";
-// import { Button } from "#shared/components/ui/button";
-// import { Alert } from "#shared/components/ui/alert";
+import { getLPRHistory, getLoanRateHistory, getDepositRateHistory } from "#shared/utils/tools/bankRateService";
 
 // 状态管理
 const isHelpOpen = ref(false);

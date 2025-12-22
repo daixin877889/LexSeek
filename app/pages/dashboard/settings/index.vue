@@ -4,8 +4,13 @@
 
 <script lang="ts" setup>
 definePageMeta({
-  title: "智能代理",
   layout: "dashboard-layout",
+  title: "账户设置",
+  middleware: [
+    function () {
+      return navigateTo("/dashboard/settings/profile");
+    },
+  ],
 });
 </script>
 

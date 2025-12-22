@@ -61,8 +61,7 @@
 
               <div>
                 <label class="text-sm font-medium leading-none">本金（元）</label>
-                <Input type="number" v-model="principal" placeholder="请输入本金金额" class="mt-1.5"
-                  @input="convertToChinese" />
+                <Input type="number" v-model="principal" placeholder="请输入本金金额" class="mt-1.5" @input="convertToChinese" />
                 <p v-if="chineseAmount" class="text-xs text-muted-foreground mt-1">大写：{{ chineseAmount }}</p>
               </div>
 
@@ -157,8 +156,7 @@
                     <label class="text-sm font-medium leading-none">
                       {{ lprAdjustmentMethod === "倍率" ? "调整倍率" : "调整值（BP）" }}
                     </label>
-                    <Input type="number" v-model="lprAdjustmentValue"
-                      :placeholder="lprAdjustmentMethod === '倍率' ? '输入倍率，如1.1' : '输入基点数，1BP=0.01%'" class="mt-1.5" />
+                    <Input type="number" v-model="lprAdjustmentValue" :placeholder="lprAdjustmentMethod === '倍率' ? '输入倍率，如1.1' : '输入基点数，1BP=0.01%'" class="mt-1.5" />
                     <p class="text-xs text-muted-foreground mt-1">
                       {{ lprAdjustmentMethod === "倍率" ? "例如：1.1表示按利率的1.1倍计算" : "1个基点(BP)=0.01%，例如加20BP相当于+0.2%" }}
                     </p>
@@ -219,8 +217,7 @@
                     <label class="text-sm font-medium leading-none">
                       {{ pbocAdjustmentMethod === "倍率" ? "调整倍率" : "调整比例（%）" }}
                     </label>
-                    <Input type="number" v-model="pbocAdjustmentValue"
-                      :placeholder="pbocAdjustmentMethod === '倍率' ? '输入倍率，如1.1' : '输入百分比'" class="mt-1.5" />
+                    <Input type="number" v-model="pbocAdjustmentValue" :placeholder="pbocAdjustmentMethod === '倍率' ? '输入倍率，如1.1' : '输入百分比'" class="mt-1.5" />
                     <p class="text-xs text-muted-foreground mt-1">
                       {{ pbocAdjustmentMethod === "倍率" ? "例如：1.1表示按利率的1.1倍计算" : "例如：上浮10%表示按基准利率的1.1倍计算" }}
                     </p>
@@ -233,31 +230,22 @@
                 <label class="text-sm font-medium leading-none">计息开始日期</label>
                 <div class="relative mt-1.5">
                   <div class="date-input-wrapper">
-                    <CalendarIcon
-                      class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                    <Input type="date" v-model="startDate" class="w-full pl-10"
-                      @update:modelValue="autoSelectPeriods" />
+                    <CalendarIcon class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <Input type="date" v-model="startDate" class="w-full pl-10" @update:modelValue="autoSelectPeriods" />
                   </div>
                 </div>
-                <p v-if="startDate && new Date(startDate) < new Date('2014-01-01')"
-                  class="text-xs text-yellow-500 mt-1">
-                  <AlertTriangleIcon class="h-3 w-3 inline-block mr-1" />您选择的日期较早，请确认是否需要从这个日期开始计算。
-                </p>
+                <p v-if="startDate && new Date(startDate) < new Date('2014-01-01')" class="text-xs text-yellow-500 mt-1"><AlertTriangleIcon class="h-3 w-3 inline-block mr-1" />您选择的日期较早，请确认是否需要从这个日期开始计算。</p>
               </div>
 
               <div>
                 <label class="text-sm font-medium leading-none">计息结束日期</label>
                 <div class="relative mt-1.5">
                   <div class="date-input-wrapper">
-                    <CalendarIcon
-                      class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <CalendarIcon class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                     <Input type="date" v-model="endDate" class="w-full pl-10" @update:modelValue="autoSelectPeriods" />
                   </div>
                 </div>
-                <p v-if="endDate && new Date(endDate) > new Date(new Date().setFullYear(new Date().getFullYear() + 3))"
-                  class="text-xs text-yellow-500 mt-1">
-                  <AlertTriangleIcon class="h-3 w-3 inline-block mr-1" />您选择的结束日期较远，系统将使用最新利率进行估算。
-                </p>
+                <p v-if="endDate && new Date(endDate) > new Date(new Date().setFullYear(new Date().getFullYear() + 3))" class="text-xs text-yellow-500 mt-1"><AlertTriangleIcon class="h-3 w-3 inline-block mr-1" />您选择的结束日期较远，系统将使用最新利率进行估算。</p>
               </div>
 
               <div>
@@ -296,7 +284,8 @@
             <!-- 计算说明提示 -->
             <Alert v-if="result.pbocResult && result.lprResult" class="mb-4 block">
               <p class="mb-1">
-                <strong>计算说明：</strong>本次计算从<strong>{{ result.startDate }}</strong>开始，跨越LPR实施日期(2019-08-20)，系统自动分段计算：
+                <strong>计算说明：</strong>本次计算从<strong>{{ result.startDate }}</strong
+                >开始，跨越LPR实施日期(2019-08-20)，系统自动分段计算：
               </p>
               <ul class="list-disc list-inside space-y-1 pl-2">
                 <li>
@@ -309,8 +298,7 @@
 
             <Alert v-else-if="calculationType === 'custom'" class="mb-4 block">
               <p>
-                <strong>计算说明：</strong>本次使用自定义利率({{ customRate }}%)计算 <strong>{{ result.startDate }}</strong> 至 {{
-                  result.endDate }} 期间的利息
+                <strong>计算说明：</strong>本次使用自定义利率({{ customRate }}%)计算 <strong>{{ result.startDate }}</strong> 至 {{ result.endDate }} 期间的利息
               </p>
             </Alert>
 
@@ -363,8 +351,7 @@
                 <!-- 第一阶段：基准利率 -->
                 <AccordionItem value="pboc-stage">
                   <AccordionTrigger>
-                    <h3 class="text-base font-semibold">第一阶段：人民银行基准利率 ({{ result.pbocResult.startDate }} 至 {{
-                      result.pbocResult.endDate }})</h3>
+                    <h3 class="text-base font-semibold">第一阶段：人民银行基准利率 ({{ result.pbocResult.startDate }} 至 {{ result.pbocResult.endDate }})</h3>
                   </AccordionTrigger>
                   <AccordionContent>
                     <div class="overflow-x-auto">
@@ -378,11 +365,9 @@
                           </tr>
                         </thead>
                         <tbody>
-                          <tr v-for="(detail, index) in mergeDetailsByRate(result.pbocResult.interestDetails)"
-                            :key="'pboc-' + index" class="border-b hover:bg-muted/20">
+                          <tr v-for="(detail, index) in mergeDetailsByRate(result.pbocResult.interestDetails)" :key="'pboc-' + index" class="border-b hover:bg-muted/20">
                             <td class="p-2 border">{{ detail.startDate }} 至 {{ detail.endDate }}</td>
-                            <td class="p-2 border">{{ detail.adjustedRate ? detail.adjustedRate.toFixed(2) :
-                              detail.rate.toFixed(2) }}%</td>
+                            <td class="p-2 border">{{ detail.adjustedRate ? detail.adjustedRate.toFixed(2) : detail.rate.toFixed(2) }}%</td>
                             <td class="p-2 border">{{ detail.days }}天</td>
                             <td class="p-2 border">{{ formatCurrency(detail.interest) }}元</td>
                           </tr>
@@ -400,8 +385,7 @@
                 <!-- 第二阶段：LPR利率 -->
                 <AccordionItem value="lpr-stage">
                   <AccordionTrigger>
-                    <h3 class="text-base font-semibold">第二阶段：LPR利率 ({{ result.lprResult.startDate }} 至 {{
-                      result.lprResult.endDate }})</h3>
+                    <h3 class="text-base font-semibold">第二阶段：LPR利率 ({{ result.lprResult.startDate }} 至 {{ result.lprResult.endDate }})</h3>
                   </AccordionTrigger>
                   <AccordionContent>
                     <div class="overflow-x-auto">
@@ -415,11 +399,9 @@
                           </tr>
                         </thead>
                         <tbody>
-                          <tr v-for="(detail, index) in mergeDetailsByRate(result.lprResult.interestDetails)"
-                            :key="'lpr-' + index" class="border-b hover:bg-muted/20">
+                          <tr v-for="(detail, index) in mergeDetailsByRate(result.lprResult.interestDetails)" :key="'lpr-' + index" class="border-b hover:bg-muted/20">
                             <td class="p-2 border">{{ detail.startDate }} 至 {{ detail.endDate }}</td>
-                            <td class="p-2 border">{{ detail.adjustedRate ? detail.adjustedRate.toFixed(2) :
-                              detail.rate.toFixed(2) }}%</td>
+                            <td class="p-2 border">{{ detail.adjustedRate ? detail.adjustedRate.toFixed(2) : detail.rate.toFixed(2) }}%</td>
                             <td class="p-2 border">{{ detail.days }}天</td>
                             <td class="p-2 border">{{ formatCurrency(detail.interest) }}元</td>
                           </tr>
@@ -455,11 +437,9 @@
                           </tr>
                         </thead>
                         <tbody>
-                          <tr v-for="(detail, index) in mergeDetailsByRate(result.interestDetails)" :key="index"
-                            class="border-b hover:bg-muted/20">
+                          <tr v-for="(detail, index) in mergeDetailsByRate(result.interestDetails)" :key="index" class="border-b hover:bg-muted/20">
                             <td class="p-2 border">{{ detail.startDate }} 至 {{ detail.endDate }}</td>
-                            <td class="p-2 border">{{ detail.adjustedRate ? detail.adjustedRate.toFixed(2) : detail.rate
-                            }}%</td>
+                            <td class="p-2 border">{{ detail.adjustedRate ? detail.adjustedRate.toFixed(2) : detail.rate }}%</td>
                             <td class="p-2 border">{{ detail.days }}天</td>
                             <td class="p-2 border">{{ formatCurrency(detail.interest) }}元</td>
                           </tr>
@@ -493,9 +473,7 @@
         <div v-if="!result" class="h-full flex items-center justify-center rounded-lg border border-dashed p-8">
           <div class="text-center">
             <div class="text-muted-foreground mb-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
-                class="mx-auto mb-4 opacity-50">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-4 opacity-50">
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="8 12 12 16 16 12" />
                 <line x1="12" y1="8" x2="12" y2="16" />
@@ -513,10 +491,9 @@
 <script setup>
 definePageMeta({
   title: "利息计算",
-  layout: "dashboard",
+  layout: "dashboard-layout",
 });
 import { AlertTriangleIcon, CalendarIcon } from "lucide-vue-next";
-// import { useToastStore } from "@/stores/toast";
 import { calculateSimpleInterest, calculateCustomRateInterest, calculateLPRInterest, calculatePBOCInterest, getRateForDate, getInterestRates } from "#shared/utils/tools/interestService";
 import { formatDate, daysBetween } from "#shared/utils/tools/utils/date";
 import { exportInterestToExcel } from "#shared/utils/tools/utils/excelExport";

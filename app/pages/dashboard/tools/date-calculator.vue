@@ -188,17 +188,11 @@
 <script setup>
 definePageMeta({
   title: "日期推算",
-  layout: "dashboard",
+  layout: "dashboard-layout",
 });
-// import { ref, onMounted } from 'vue';
 import { calculateDateAfterDays, calculateDateAfterMonths, calculateDateAfterYears, calculateWorkingDays, calculateLimitationPeriod } from "#shared/utils/tools/dateCalculatorService";
 import { formatDate } from "#shared/utils/tools/utils/date";
 import { CalendarIcon } from "lucide-vue-next";
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import { Button } from "@/components/ui/button";
-// import { Input } from "@/components/ui/input";
-// import { Alert } from "@/components/ui/alert";
-// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // 基本数据
 const isHelpOpen = ref(false);
