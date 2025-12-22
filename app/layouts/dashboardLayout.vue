@@ -53,7 +53,7 @@
 
       <div class="flex flex-1 flex-col gap-4 p-0 mt-12">
         <!-- 嵌套布局：Settings 布局 -->
-        <div v-if="$route.path.startsWith('/dashboard/settings/')">
+        <div v-if="$route.path.startsWith('/dashboard/settings')">
           <SettingsLayout>
             <slot />
           </SettingsLayout>

@@ -97,7 +97,7 @@ const saveProfile = async () => {
 
   try {
     // 使用 store 更新用户信息
-    const success = await userStore.updateUserInfo({
+    const success = await userStore.updateUserProfile({
       name: userForm.value.name,
       phone: userForm.value.phone,
       company: userForm.value.company,

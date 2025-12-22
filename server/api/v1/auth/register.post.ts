@@ -90,19 +90,6 @@ export default defineEventHandler(async (event) => {
         if (!newUser) {
             return resError(event, 400, '创建用户失败')
         }
-        // const newUser = await createUserDao({
-        //     name: name ?? `用户${phone.slice(-4)}`,
-        //     username: finalUsername,
-        //     phone,
-        //     password: hashedPassword,
-        //     role: $Enums.UserRole.user,
-        //     status: UserStatus.ACTIVE,
-        //     company: company ?? null,
-        //     profile: profile ?? null,
-        //     inviteCode: await generateUniqueInviteCode(),
-        //     registerChannel: UserRegisterChannel.WEB,
-        //     invitedBy: invitedById,
-        // })
 
         const userInfo = await findUserByIdDao(newUser.id)
         if (!userInfo) {

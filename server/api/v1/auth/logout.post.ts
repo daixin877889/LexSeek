@@ -23,7 +23,9 @@ export default defineEventHandler(async (event) => {
     }
 
     // 添加 token 黑名单
-    await addTokenBlacklistDao(token, user.id, new Date(expiredTimestamp * 1000));
+    if (token && expiredTimestamp) {
+      await addTokenBlacklistDao(token, user.id, new Date(expiredTimestamp * 1000));
+    }
 
     // 清除认证 cookie
     clearAuthCookies(event);

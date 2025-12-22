@@ -3,8 +3,7 @@
     <SidebarMenuItem>
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
-          <SidebarMenuButton size="lg"
-            class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
+          <SidebarMenuButton size="lg" class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
             <Avatar class="h-8 w-8 rounded-lg">
               <!-- <AvatarImage :src="user.avatar" :alt="user.name" /> -->
               <AvatarFallback class="rounded-lg"> LS </AvatarFallback>
@@ -16,8 +15,7 @@
             <ChevronsUpDown class="ml-auto size-4" />
           </SidebarMenuButton>
         </DropdownMenuTrigger>
-        <DropdownMenuContent class="w-[--reka-dropdown-menu-trigger-width] min-w-56 rounded-lg" side="right" align="end"
-          :side-offset="4">
+        <DropdownMenuContent class="w-[--reka-dropdown-menu-trigger-width] min-w-56 rounded-lg" side="right" align="end" :side-offset="4">
           <DropdownMenuLabel class="p-0 font-normal">
             <div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
               <Avatar class="h-8 w-8 rounded-lg">
@@ -41,8 +39,7 @@
             </router-link>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuItem @click="handleLogoutClick"
-            class="text-red-500 data-highlighted:bg-red-50 data-highlighted:text-red-600 group cursor-pointer">
+          <DropdownMenuItem @click="handleLogoutClick" class="text-red-500 data-highlighted:bg-red-50 data-highlighted:text-red-600 group cursor-pointer">
             <LogOut class="mr-2 h-4 w-4 group-hover:text-red-600" />
             <span class="group-hover:text-red-600">退出登录</span>
           </DropdownMenuItem>
@@ -65,6 +62,9 @@ const router = useRouter();
 // 处理退出登录点击
 const handleLogoutClick = async () => {
   await authStore.logout();
-  router.push("/");
+  // 重置所有 store 的状态
+  resetAllStore();
+  // 跳转至登录页面
+  router.push("/login");
 };
 </script>

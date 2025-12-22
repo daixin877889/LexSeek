@@ -47,6 +47,8 @@ const router = useRouter();
 // 处理退出登录点击
 const handleLogoutClick = async () => {
   await authStore.logout();
+  // 重置所有 store 的状态
+  resetAllStore();
   router.push("/");
 };
 </script>

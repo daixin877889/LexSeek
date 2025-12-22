@@ -217,9 +217,12 @@ const handleLogout = async () => {
     await authStore.logout();
     toast.success("登出成功");
     // 延迟跳转，确保Toast能够显示
+    // 重置所有 store 的状态
+    resetAllStore();
     router.replace("/");
   } catch (error) {
     logger.error("登出请求失败:", error);
+    // toast.error("登出失败");
   } finally {
     userMenuOpen.value = false;
     mobileMenuOpen.value = false;
