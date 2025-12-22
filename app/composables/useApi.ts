@@ -33,6 +33,24 @@ export function useApi<T = any>(
         onResponse(ctx: any) {
             const data = ctx.response._data as ApiBaseResponse<T>
 
+            // 处理 401 未授权：重置所有 store 并跳转登录页
+            if (data && data.code === 401) {
+                // 仅在客户端执行
+                if (import.meta.client) {
+                    // 通过 nuxtApp 获取 pinia 和路由
+                    const nuxtApp = useNuxtApp()
+
+                    // 重置所有 store（传入 pinia 实例）
+                    // const pinia = nuxtApp.$pinia
+                    // resetAllStore(pinia)
+
+                    // 使用 window.location 强制跳转（确保在非 setup 上下文中生效）
+                    const currentPath = nuxtApp.$router.currentRoute.value.fullPath
+                    window.location.replace(`/login?redirect=${encodeURIComponent(currentPath)}`)
+                }
+                return
+            }
+
             // 处理业务逻辑错误（success: false）
             if (showError && data && data.success === false) {
                 toast.error(data.message || '请求失败')
