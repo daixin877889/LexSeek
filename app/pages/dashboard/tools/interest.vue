@@ -46,19 +46,23 @@
             <div class="space-y-4">
               <div>
                 <label class="text-sm font-medium leading-none">计算方式</label>
-                <div class="mt-1.5 w-full">
-                  <NativeSelect v-model="calculationType" class="w-full">
-                    <NativeSelectOption value="custom">自定义利率</NativeSelectOption>
-                    <NativeSelectOption value="lpr">全国银行间同业拆借中心公布的贷款市场报价利率(LPR)</NativeSelectOption>
-                    <NativeSelectOption value="pboc">中国人民银行同期贷款基准利率</NativeSelectOption>
-                    <NativeSelectOption value="auto">中国人民银行同期贷款基准利率与LPR自动分段</NativeSelectOption>
-                  </NativeSelect>
-                </div>
+                <Select v-model="calculationType" class="mt-1.5">
+                  <SelectTrigger class="w-full">
+                    <SelectValue placeholder="选择计算方式" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="custom">自定义利率</SelectItem>
+                    <SelectItem value="lpr">全国银行间同业拆借中心公布的贷款市场报价利率(LPR)</SelectItem>
+                    <SelectItem value="pboc">中国人民银行同期贷款基准利率</SelectItem>
+                    <SelectItem value="auto">中国人民银行同期贷款基准利率与LPR自动分段</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
                 <label class="text-sm font-medium leading-none">本金（元）</label>
-                <Input type="number" v-model="principal" placeholder="请输入本金金额" class="mt-1.5" @input="convertToChinese" />
+                <Input type="number" v-model="principal" placeholder="请输入本金金额" class="mt-1.5"
+                  @input="convertToChinese" />
                 <p v-if="chineseAmount" class="text-xs text-muted-foreground mt-1">大写：{{ chineseAmount }}</p>
               </div>
 
@@ -71,13 +75,16 @@
 
                 <div>
                   <label class="text-sm font-medium leading-none">利率周期</label>
-                  <div class="mt-1.5 w-full">
-                    <NativeSelect v-model="rateCalculationCycle" class="w-full">
-                      <NativeSelectOption value="年">年</NativeSelectOption>
-                      <NativeSelectOption value="月">月</NativeSelectOption>
-                      <NativeSelectOption value="日">日</NativeSelectOption>
-                    </NativeSelect>
-                  </div>
+                  <Select v-model="rateCalculationCycle" class="mt-1.5">
+                    <SelectTrigger class="w-full">
+                      <SelectValue placeholder="选择利率周期" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="年">年</SelectItem>
+                      <SelectItem value="月">月</SelectItem>
+                      <SelectItem value="日">日</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -101,23 +108,29 @@
 
                 <div v-if="calculationType === 'lpr'">
                   <label class="text-sm font-medium leading-none">LPR计算方式</label>
-                  <div class="mt-1.5 w-full">
-                    <NativeSelect v-model="lprCalculationMethod" class="w-full">
-                      <NativeSelectOption value="分段利率">分段利率</NativeSelectOption>
-                      <NativeSelectOption value="指定LPR">指定LPR</NativeSelectOption>
-                    </NativeSelect>
-                  </div>
+                  <Select v-model="lprCalculationMethod" class="mt-1.5">
+                    <SelectTrigger class="w-full">
+                      <SelectValue placeholder="选择LPR计算方式" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="分段利率">分段利率</SelectItem>
+                      <SelectItem value="指定LPR">指定LPR</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div v-if="lprCalculationMethod === '指定LPR' && calculationType === 'lpr'">
                   <label class="text-sm font-medium leading-none">指定LPR日期</label>
-                  <div class="mt-1.5 w-full">
-                    <NativeSelect v-model="designatedLprDate" class="w-full" @update:modelValue="updateDesignatedLprRate">
-                      <NativeSelectOption v-for="date in designatedLprTable" :key="date" :value="date">
+                  <Select v-model="designatedLprDate" class="mt-1.5" @update:modelValue="updateDesignatedLprRate">
+                    <SelectTrigger class="w-full">
+                      <SelectValue placeholder="选择LPR日期" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem v-for="date in designatedLprTable" :key="date" :value="date">
                         {{ date }}
-                      </NativeSelectOption>
-                    </NativeSelect>
-                  </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Alert v-if="designatedLprRate" variant="info" class="mt-2 p-2 block">
                     <p class="text-xs">
                       当前指定LPR利率: <strong>{{ designatedLprRate }}%</strong>
@@ -128,20 +141,24 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label class="text-sm font-medium leading-none">LPR调整方式</label>
-                    <div class="mt-1.5 w-full">
-                      <NativeSelect v-model="lprAdjustmentMethod" class="w-full">
-                        <NativeSelectOption value="无">无调整</NativeSelectOption>
-                        <NativeSelectOption value="加点">加点</NativeSelectOption>
-                        <NativeSelectOption value="减点">减点</NativeSelectOption>
-                        <NativeSelectOption value="倍率">倍率</NativeSelectOption>
-                      </NativeSelect>
-                    </div>
+                    <Select v-model="lprAdjustmentMethod" class="mt-1.5">
+                      <SelectTrigger class="w-full">
+                        <SelectValue placeholder="选择调整方式" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="无">无调整</SelectItem>
+                        <SelectItem value="加点">加点</SelectItem>
+                        <SelectItem value="减点">减点</SelectItem>
+                        <SelectItem value="倍率">倍率</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div v-if="lprAdjustmentMethod !== '无'">
                     <label class="text-sm font-medium leading-none">
                       {{ lprAdjustmentMethod === "倍率" ? "调整倍率" : "调整值（BP）" }}
                     </label>
-                    <Input type="number" v-model="lprAdjustmentValue" :placeholder="lprAdjustmentMethod === '倍率' ? '输入倍率，如1.1' : '输入基点数，1BP=0.01%'" class="mt-1.5" />
+                    <Input type="number" v-model="lprAdjustmentValue"
+                      :placeholder="lprAdjustmentMethod === '倍率' ? '输入倍率，如1.1' : '输入基点数，1BP=0.01%'" class="mt-1.5" />
                     <p class="text-xs text-muted-foreground mt-1">
                       {{ lprAdjustmentMethod === "倍率" ? "例如：1.1表示按利率的1.1倍计算" : "1个基点(BP)=0.01%，例如加20BP相当于+0.2%" }}
                     </p>
@@ -153,23 +170,29 @@
               <div v-if="calculationType === 'pboc' || calculationType === 'auto'" class="space-y-4">
                 <div v-if="calculationType === 'pboc'">
                   <label class="text-sm font-medium leading-none">基准利率计算方式</label>
-                  <div class="mt-1.5 w-full">
-                    <NativeSelect v-model="pbocCalculationMethod" class="w-full">
-                      <NativeSelectOption value="分段利率">分段利率</NativeSelectOption>
-                      <NativeSelectOption value="指定利率">指定利率</NativeSelectOption>
-                    </NativeSelect>
-                  </div>
+                  <Select v-model="pbocCalculationMethod" class="mt-1.5">
+                    <SelectTrigger class="w-full">
+                      <SelectValue placeholder="选择基准利率计算方式" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="分段利率">分段利率</SelectItem>
+                      <SelectItem value="指定利率">指定利率</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div v-if="pbocCalculationMethod === '指定利率' && calculationType === 'pboc'">
                   <label class="text-sm font-medium leading-none">指定利率日期</label>
-                  <div class="mt-1.5 w-full">
-                    <NativeSelect v-model="designatedPbocDate" class="w-full" @update:modelValue="updateDesignatedPbocRate">
-                      <NativeSelectOption v-for="date in designatedPbocTable" :key="date" :value="date">
+                  <Select v-model="designatedPbocDate" class="mt-1.5" @update:modelValue="updateDesignatedPbocRate">
+                    <SelectTrigger class="w-full">
+                      <SelectValue placeholder="选择基准利率日期" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem v-for="date in designatedPbocTable" :key="date" :value="date">
                         {{ date }}
-                      </NativeSelectOption>
-                    </NativeSelect>
-                  </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Alert v-if="designatedPbocRate" variant="info" class="mt-2 p-2 block">
                     <p class="text-xs">
                       当前指定基准利率: <strong>{{ designatedPbocRate }}%</strong>
@@ -180,20 +203,24 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label class="text-sm font-medium leading-none">基准利率调整方式</label>
-                    <div class="mt-1.5 w-full">
-                      <NativeSelect v-model="pbocAdjustmentMethod" class="w-full">
-                        <NativeSelectOption value="无">无调整</NativeSelectOption>
-                        <NativeSelectOption value="上浮">上浮</NativeSelectOption>
-                        <NativeSelectOption value="下浮">下浮</NativeSelectOption>
-                        <NativeSelectOption value="倍率">倍率</NativeSelectOption>
-                      </NativeSelect>
-                    </div>
+                    <Select v-model="pbocAdjustmentMethod" class="mt-1.5">
+                      <SelectTrigger class="w-full">
+                        <SelectValue placeholder="选择调整方式" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="无">无调整</SelectItem>
+                        <SelectItem value="上浮">上浮</SelectItem>
+                        <SelectItem value="下浮">下浮</SelectItem>
+                        <SelectItem value="倍率">倍率</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div v-if="pbocAdjustmentMethod !== '无'">
                     <label class="text-sm font-medium leading-none">
                       {{ pbocAdjustmentMethod === "倍率" ? "调整倍率" : "调整比例（%）" }}
                     </label>
-                    <Input type="number" v-model="pbocAdjustmentValue" :placeholder="pbocAdjustmentMethod === '倍率' ? '输入倍率，如1.1' : '输入百分比'" class="mt-1.5" />
+                    <Input type="number" v-model="pbocAdjustmentValue"
+                      :placeholder="pbocAdjustmentMethod === '倍率' ? '输入倍率，如1.1' : '输入百分比'" class="mt-1.5" />
                     <p class="text-xs text-muted-foreground mt-1">
                       {{ pbocAdjustmentMethod === "倍率" ? "例如：1.1表示按利率的1.1倍计算" : "例如：上浮10%表示按基准利率的1.1倍计算" }}
                     </p>
@@ -206,32 +233,44 @@
                 <label class="text-sm font-medium leading-none">计息开始日期</label>
                 <div class="relative mt-1.5">
                   <div class="date-input-wrapper">
-                    <CalendarIcon class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-                    <Input type="date" v-model="startDate" class="w-full pl-10" @update:modelValue="autoSelectPeriods" />
+                    <CalendarIcon
+                      class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <Input type="date" v-model="startDate" class="w-full pl-10"
+                      @update:modelValue="autoSelectPeriods" />
                   </div>
                 </div>
-                <p v-if="startDate && new Date(startDate) < new Date('2014-01-01')" class="text-xs text-yellow-500 mt-1"><AlertTriangleIcon class="h-3 w-3 inline-block mr-1" />您选择的日期较早，请确认是否需要从这个日期开始计算。</p>
+                <p v-if="startDate && new Date(startDate) < new Date('2014-01-01')"
+                  class="text-xs text-yellow-500 mt-1">
+                  <AlertTriangleIcon class="h-3 w-3 inline-block mr-1" />您选择的日期较早，请确认是否需要从这个日期开始计算。
+                </p>
               </div>
 
               <div>
                 <label class="text-sm font-medium leading-none">计息结束日期</label>
                 <div class="relative mt-1.5">
                   <div class="date-input-wrapper">
-                    <CalendarIcon class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <CalendarIcon
+                      class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                     <Input type="date" v-model="endDate" class="w-full pl-10" @update:modelValue="autoSelectPeriods" />
                   </div>
                 </div>
-                <p v-if="endDate && new Date(endDate) > new Date(new Date().setFullYear(new Date().getFullYear() + 3))" class="text-xs text-yellow-500 mt-1"><AlertTriangleIcon class="h-3 w-3 inline-block mr-1" />您选择的结束日期较远，系统将使用最新利率进行估算。</p>
+                <p v-if="endDate && new Date(endDate) > new Date(new Date().setFullYear(new Date().getFullYear() + 3))"
+                  class="text-xs text-yellow-500 mt-1">
+                  <AlertTriangleIcon class="h-3 w-3 inline-block mr-1" />您选择的结束日期较远，系统将使用最新利率进行估算。
+                </p>
               </div>
 
               <div>
                 <label class="text-sm font-medium leading-none">一年天数</label>
-                <div class="mt-1.5 w-full">
-                  <NativeSelect v-model="yearDays" class="w-full">
-                    <NativeSelectOption :value="365">365天</NativeSelectOption>
-                    <NativeSelectOption :value="360">360天</NativeSelectOption>
-                  </NativeSelect>
-                </div>
+                <Select v-model="yearDays" class="mt-1.5">
+                  <SelectTrigger class="w-full">
+                    <SelectValue placeholder="选择一年天数" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem :value="365">365天</SelectItem>
+                    <SelectItem :value="360">360天</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div class="pt-4">
@@ -257,8 +296,7 @@
             <!-- 计算说明提示 -->
             <Alert v-if="result.pbocResult && result.lprResult" class="mb-4 block">
               <p class="mb-1">
-                <strong>计算说明：</strong>本次计算从<strong>{{ result.startDate }}</strong
-                >开始，跨越LPR实施日期(2019-08-20)，系统自动分段计算：
+                <strong>计算说明：</strong>本次计算从<strong>{{ result.startDate }}</strong>开始，跨越LPR实施日期(2019-08-20)，系统自动分段计算：
               </p>
               <ul class="list-disc list-inside space-y-1 pl-2">
                 <li>
@@ -271,7 +309,8 @@
 
             <Alert v-else-if="calculationType === 'custom'" class="mb-4 block">
               <p>
-                <strong>计算说明：</strong>本次使用自定义利率({{ customRate }}%)计算 <strong>{{ result.startDate }}</strong> 至 {{ result.endDate }} 期间的利息
+                <strong>计算说明：</strong>本次使用自定义利率({{ customRate }}%)计算 <strong>{{ result.startDate }}</strong> 至 {{
+                  result.endDate }} 期间的利息
               </p>
             </Alert>
 
@@ -324,7 +363,8 @@
                 <!-- 第一阶段：基准利率 -->
                 <AccordionItem value="pboc-stage">
                   <AccordionTrigger>
-                    <h3 class="text-base font-semibold">第一阶段：人民银行基准利率 ({{ result.pbocResult.startDate }} 至 {{ result.pbocResult.endDate }})</h3>
+                    <h3 class="text-base font-semibold">第一阶段：人民银行基准利率 ({{ result.pbocResult.startDate }} 至 {{
+                      result.pbocResult.endDate }})</h3>
                   </AccordionTrigger>
                   <AccordionContent>
                     <div class="overflow-x-auto">
@@ -338,9 +378,11 @@
                           </tr>
                         </thead>
                         <tbody>
-                          <tr v-for="(detail, index) in mergeDetailsByRate(result.pbocResult.interestDetails)" :key="'pboc-' + index" class="border-b hover:bg-muted/20">
+                          <tr v-for="(detail, index) in mergeDetailsByRate(result.pbocResult.interestDetails)"
+                            :key="'pboc-' + index" class="border-b hover:bg-muted/20">
                             <td class="p-2 border">{{ detail.startDate }} 至 {{ detail.endDate }}</td>
-                            <td class="p-2 border">{{ detail.adjustedRate ? detail.adjustedRate.toFixed(2) : detail.rate.toFixed(2) }}%</td>
+                            <td class="p-2 border">{{ detail.adjustedRate ? detail.adjustedRate.toFixed(2) :
+                              detail.rate.toFixed(2) }}%</td>
                             <td class="p-2 border">{{ detail.days }}天</td>
                             <td class="p-2 border">{{ formatCurrency(detail.interest) }}元</td>
                           </tr>
@@ -358,7 +400,8 @@
                 <!-- 第二阶段：LPR利率 -->
                 <AccordionItem value="lpr-stage">
                   <AccordionTrigger>
-                    <h3 class="text-base font-semibold">第二阶段：LPR利率 ({{ result.lprResult.startDate }} 至 {{ result.lprResult.endDate }})</h3>
+                    <h3 class="text-base font-semibold">第二阶段：LPR利率 ({{ result.lprResult.startDate }} 至 {{
+                      result.lprResult.endDate }})</h3>
                   </AccordionTrigger>
                   <AccordionContent>
                     <div class="overflow-x-auto">
@@ -372,9 +415,11 @@
                           </tr>
                         </thead>
                         <tbody>
-                          <tr v-for="(detail, index) in mergeDetailsByRate(result.lprResult.interestDetails)" :key="'lpr-' + index" class="border-b hover:bg-muted/20">
+                          <tr v-for="(detail, index) in mergeDetailsByRate(result.lprResult.interestDetails)"
+                            :key="'lpr-' + index" class="border-b hover:bg-muted/20">
                             <td class="p-2 border">{{ detail.startDate }} 至 {{ detail.endDate }}</td>
-                            <td class="p-2 border">{{ detail.adjustedRate ? detail.adjustedRate.toFixed(2) : detail.rate.toFixed(2) }}%</td>
+                            <td class="p-2 border">{{ detail.adjustedRate ? detail.adjustedRate.toFixed(2) :
+                              detail.rate.toFixed(2) }}%</td>
                             <td class="p-2 border">{{ detail.days }}天</td>
                             <td class="p-2 border">{{ formatCurrency(detail.interest) }}元</td>
                           </tr>
@@ -410,9 +455,11 @@
                           </tr>
                         </thead>
                         <tbody>
-                          <tr v-for="(detail, index) in mergeDetailsByRate(result.interestDetails)" :key="index" class="border-b hover:bg-muted/20">
+                          <tr v-for="(detail, index) in mergeDetailsByRate(result.interestDetails)" :key="index"
+                            class="border-b hover:bg-muted/20">
                             <td class="p-2 border">{{ detail.startDate }} 至 {{ detail.endDate }}</td>
-                            <td class="p-2 border">{{ detail.adjustedRate ? detail.adjustedRate.toFixed(2) : detail.rate }}%</td>
+                            <td class="p-2 border">{{ detail.adjustedRate ? detail.adjustedRate.toFixed(2) : detail.rate
+                            }}%</td>
                             <td class="p-2 border">{{ detail.days }}天</td>
                             <td class="p-2 border">{{ formatCurrency(detail.interest) }}元</td>
                           </tr>
@@ -446,7 +493,9 @@
         <div v-if="!result" class="h-full flex items-center justify-center rounded-lg border border-dashed p-8">
           <div class="text-center">
             <div class="text-muted-foreground mb-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-4 opacity-50">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+                class="mx-auto mb-4 opacity-50">
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="8 12 12 16 16 12" />
                 <line x1="12" y1="8" x2="12" y2="16" />
@@ -466,24 +515,11 @@ definePageMeta({
   title: "利息计算",
   layout: "dashboard",
 });
-// import { ref, computed, watch, onMounted } from "vue";
-// import logger from "@/utils/logger.js";
 import { AlertTriangleIcon, CalendarIcon } from "lucide-vue-next";
 // import { useToastStore } from "@/stores/toast";
 import { calculateSimpleInterest, calculateCustomRateInterest, calculateLPRInterest, calculatePBOCInterest, getRateForDate, getInterestRates } from "#shared/utils/tools/interestService";
 import { formatDate, daysBetween } from "#shared/utils/tools/utils/date";
 import { exportInterestToExcel } from "#shared/utils/tools/utils/excelExport";
-
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-// import { Button } from "@/components/ui/button";
-// import { Input } from "@/components/ui/input";
-// import { Alert } from "@/components/ui/alert";
-
-// 全局状态管理
-// const toastStore = useToastStore();
 
 // 状态管理
 const isHelpOpen = ref(false);
@@ -1114,10 +1150,5 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   height: 100%;
   opacity: 0;
   cursor: pointer;
-}
-
-/* 强制 NativeSelect 组件全宽 */
-:deep([data-slot="native-select-wrapper"]) {
-  width: 100%;
 }
 </style>
