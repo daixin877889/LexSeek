@@ -14,7 +14,7 @@ function getClient() {
         })
         openApiConfig.endpoint = 'dysmsapi.aliyuncs.com'
         // 处理 ESM default export
-        const Client = Dysmsapi.default || Dysmsapi
+        const Client = (Dysmsapi as any).default || Dysmsapi
         client = new Client(openApiConfig)
     }
     return client

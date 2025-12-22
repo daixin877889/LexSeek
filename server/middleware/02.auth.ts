@@ -33,6 +33,8 @@ export default defineEventHandler(async (event) => {
 
     // 3. 如果 token 不存在则返回401
     if (!token) {
+        // 清除认证 cookie
+        clearAuthCookies(event);
         return resError(event, 401, '未授权')
     }
 
@@ -40,27 +42,37 @@ export default defineEventHandler(async (event) => {
     try {
         authenticatedUser = JwtUtil.verifyToken(token);
     } catch (error) {
-        // token 无效或已过期
+        // token 无效或已过期 
+        // 清除认证 cookie
+        clearAuthCookies(event);
         return resError(event, 401, '未授权')
     }
 
     // 4.1 如果验证失败则返回401
     if (!authenticatedUser || !authenticatedUser.id) {
+        // 清除认证 cookie
+        clearAuthCookies(event);
         return resError(event, 401, '未授权')
     }
 
     // 4.2 检查 token 是否在黑名单中
     const tokenBlacklist = await findTokenBlacklistByTokenDao(token);
     if (tokenBlacklist) {
+        // 清除认证 cookie
+        clearAuthCookies(event);
         return resError(event, 401, 'token 已失效')
     }
 
     // 4.3 检查用户是否存在或被禁用
     const user = await findUserByIdDao(authenticatedUser.id);
     if (!user) {
+        // 清除认证 cookie
+        clearAuthCookies(event);
         return resError(event, 401, '用户不存在')
     }
     if (user.status === UserStatus.INACTIVE) {
+        // 清除认证 cookie
+        clearAuthCookies(event);
         return resError(event, 401, '用户被禁用')
     }
 
