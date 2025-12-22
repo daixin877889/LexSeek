@@ -2,17 +2,6 @@
  * 封装 useFetch 的 composable
  * 统一处理 API 请求、错误处理和响应格式
  */
-import { toast } from 'vue-sonner'
-
-// API 基础响应接口（与服务端保持一致）
-export interface ApiBaseResponse<T = any> {
-    requestId: string
-    success: boolean
-    code: number
-    message: string
-    timestamp: number
-    data?: T
-}
 
 // API 错误类型
 export interface ApiError {

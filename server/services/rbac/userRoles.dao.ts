@@ -1,7 +1,6 @@
 /**
  * 用户角色数据访问层
  */
-import { Prisma } from '#shared/types/prisma'
 
 /**
  * 创建用户角色关联

@@ -9,13 +9,13 @@ import { uuidv7 } from './uuid'
  *
  * 定义API响应的基本结构，包括成功标志、业务码、消息、时间戳和可选的数据字段。
  */
-export type ApiBaseResponse = {
+export interface ApiBaseResponse<T = any> {
     requestId: string;
     success: boolean;
     code: number;
     message: string;
     timestamp: number;
-    data?: any;
+    data?: T;
 }
 
 import type { H3Event } from 'h3'
