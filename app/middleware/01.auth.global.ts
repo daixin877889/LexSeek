@@ -22,10 +22,9 @@ export default defineNuxtRouteMiddleware((to) => {
     }
 
     // 如果用户已登录，访问注册页时重定向到仪表盘
-    if (to.path === '/register' && isAuthenticated) {
+    if (['/register', '/login'].includes(to.path) && isAuthenticated) {
         return navigateTo('/dashboard')
     }
-
     // 如果用户未登录，访问 dashboard 时重定向到登录页
     if (to.path.startsWith('/dashboard') && !isAuthenticated) {
         return navigateTo('/login')

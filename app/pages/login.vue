@@ -114,14 +114,15 @@ const handleLogin = async () => {
       return;
     }
 
-    toast.success("登录成功");
-
     // 登录成功后重定向，使用replace而不是push避免后退到登录页
     if (route.query.redirect) {
-      router.replace(route.query.redirect);
+      router.replace({
+        path: route.query.redirect,
+      });
     } else {
       router.replace("/dashboard");
     }
+    toast.success("登录成功");
     // 记住我
     rememberMeHandler(rememberMe.value, phone.value);
   } catch (error) {
@@ -136,7 +137,12 @@ const handleLogin = async () => {
 const toRegister = () => {
   // 如果登录页面有redirect参数，则跳转注册页面并携带redirect参数
   if (route.query.redirect) {
-    router.replace(`/register?redirect=${route.query.redirect}`);
+    router.replace({
+      path: "/register",
+      query: {
+        redirect: route.query.redirect,
+      },
+    });
   } else {
     router.replace("/register");
   }

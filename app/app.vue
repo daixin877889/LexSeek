@@ -3,7 +3,7 @@
     <NuxtPage />
   </NuxtLayout>
   <!-- 全局 Toast 组件 -->
-  <Toaster position="top-center" :duration="3000" rich-colors />
+  <Toaster position="top-center" :offset="{ top: '60px' }" :duration="3000" rich-colors />
   <!-- 全局确认对话框 -->
   <GeneralAlertDialog />
 </template>

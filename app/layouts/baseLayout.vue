@@ -33,8 +33,8 @@
         <div class="flex items-center">
           <!-- 用户未登录状态 -->
           <div v-if="!authStore.isAuthenticated" class="hidden md:flex items-center gap-3">
-            <NuxtLink to="/login" class="text-sm hover:text-primary transition-colors">登录</NuxtLink>
-            <NuxtLink to="/register" class="px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 transition-colors"> 注册 </NuxtLink>
+            <NuxtLink :to="`/login?redirect=${$route.path}`" class="text-sm hover:text-primary transition-colors">登录</NuxtLink>
+            <NuxtLink :to="`/login?redirect=${$route.path}`" class="px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 transition-colors"> 注册 </NuxtLink>
           </div>
 
           <!-- 用户已登录状态 -->
@@ -99,8 +99,8 @@
 
           <!-- 移动端用户未登录状态 -->
           <div v-if="!authStore.isAuthenticated" class="mt-6 pt-6 border-t flex flex-col gap-3">
-            <NuxtLink to="/login" class="w-full py-2 text-sm text-center hover:bg-muted rounded-md transition-colors"> 登录 </NuxtLink>
-            <NuxtLink to="/register" class="w-full py-2 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 transition-colors text-center"> 注册 </NuxtLink>
+            <NuxtLink :to="`/login?redirect=${$route.path}`" class="w-full py-2 text-sm text-center hover:bg-muted rounded-md transition-colors"> 登录 </NuxtLink>
+            <NuxtLink :to="`/login?redirect=${$route.path}`" class="w-full py-2 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 transition-colors text-center"> 注册 </NuxtLink>
           </div>
 
           <!-- 移动端用户已登录状态 -->

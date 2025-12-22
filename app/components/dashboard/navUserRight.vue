@@ -43,12 +43,20 @@ import { User, HomeIcon, LogOut } from "lucide-vue-next";
 const userStore = useUserStore();
 const authStore = useAuthStore();
 const router = useRouter();
+const route = useRoute();
 
 // 处理退出登录点击
 const handleLogoutClick = async () => {
   await authStore.logout();
+
   // 重置所有 store 的状态
   resetAllStore();
-  router.push("/");
+  // 跳转至登录页面
+  router.replace({
+    path: "/login",
+    query: {
+      redirect: route.path,
+    },
+  });
 };
 </script>

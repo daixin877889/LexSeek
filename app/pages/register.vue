@@ -317,7 +317,12 @@ const handleRegister = async () => {
 // 跳转登录页面
 const toLogin = () => {
   if (route.query.redirect) {
-    router.replace(`/login?redirect=${route.query.redirect}`);
+    router.replace({
+      path: "/login",
+      query: {
+        redirect: route.query.redirect,
+      },
+    });
   } else {
     router.replace("/login");
   }

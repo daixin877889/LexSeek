@@ -56,15 +56,23 @@ import { ChevronsUpDown, LogOut } from "lucide-vue-next";
 const userStore = useUserStore();
 const authStore = useAuthStore();
 const router = useRouter();
+const route = useRoute();
 
 // TODO: 菜单栏需要根据用户角色动态生成
 
 // 处理退出登录点击
 const handleLogoutClick = async () => {
   await authStore.logout();
+
   // 重置所有 store 的状态
   resetAllStore();
+
   // 跳转至登录页面
-  router.push("/login");
+  router.replace({
+    path: "/login",
+    query: {
+      redirect: route.path,
+    },
+  });
 };
 </script>
