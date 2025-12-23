@@ -1,0 +1,37 @@
+/// OSS 文件表
+model ossFiles {
+    /// ID，主键，自增
+    id         Int       @id @default(autoincrement())
+    /// 关联的用户ID，外键关联用户表
+    userId     Int       @map("user_id")
+    /// 存储桶名称 
+    bucketName String    @map("bucket_name") @db.VarChar(100)
+    /// 文件名称
+    fileName   String    @map("file_name") @db.VarChar(255)
+    /// 文件在 OSS 中的路径
+    filePath   String?   @map("file_path") @db.VarChar(500)
+    /// 文件大小(字节)
+    fileSize   Decimal   @map("file_size") @db.Decimal(15, 2)
+    /// 文件MIME类型
+    fileType   String    @map("file_type") @db.VarChar(100)
+    /// 文件的md5值
+    fileMd5    String?   @map("file_md5") @db.VarChar(32)
+    /// 文件来源
+    source     String?
+    /// 文件状态
+    status     Int       @default(0) @map("status")
+    /// 创建时间
+    createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+    /// 最后更新时间
+    updatedAt  DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+    /// 删除时间，为NULL表示未删除
+    deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+    @@index([userId], map: "idx_oss_files_user_id")
+    @@index([bucketName], map: "idx_oss_files_bucket_name")
+    @@index([fileName], map: "idx_oss_files_file_name")
+    @@index([fileType], map: "idx_oss_files_file_type")
+    @@index([status], map: "idx_oss_files_status")
+    @@index([deletedAt], map: "idx_oss_files_deleted_at")
+    @@map("oss_files")
+}
