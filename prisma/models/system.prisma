@@ -1,0 +1,28 @@
+/// 系统配置表
+model systemConfigs {
+    /// 配置ID，主键，自增
+    id          Int       @id @default(autoincrement())
+    /// 配置组
+    configGroup String    @map("config_group") @db.VarChar(50)
+    /// 配置名称
+    key         String    @db.VarChar(100)
+    /// 配置值
+    value       Json
+    /// 配置描述
+    description String?   @db.VarChar(255)
+    /// 状态：1-启用，0-禁用
+    status      Int       @default(1)
+    /// 创建时间
+    createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+    /// 最后更新时间
+    updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+    /// 删除时间，为NULL表示未删除
+    deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+    @@unique([configGroup, key])
+    @@index([configGroup], map: "idx_system_configs_config_group")
+    @@index([key], map: "idx_system_configs_key")
+    @@index([status], map: "idx_system_configs_status")
+    @@index([deletedAt], map: "idx_system_configs_deleted_at")
+    @@map("system_configs")
+}

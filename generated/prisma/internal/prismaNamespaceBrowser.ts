@@ -57,6 +57,7 @@ export const ModelName = {
   routers: 'routers',
   routerGroups: 'routerGroups',
   smsRecords: 'smsRecords',
+  systemConfigs: 'systemConfigs',
   users: 'users',
   tokenBlacklist: 'tokenBlacklist'
 } as const
@@ -162,6 +163,21 @@ export const SmsRecordsScalarFieldEnum = {
 export type SmsRecordsScalarFieldEnum = (typeof SmsRecordsScalarFieldEnum)[keyof typeof SmsRecordsScalarFieldEnum]
 
 
+export const SystemConfigsScalarFieldEnum = {
+  id: 'id',
+  configGroup: 'configGroup',
+  key: 'key',
+  value: 'value',
+  description: 'description',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type SystemConfigsScalarFieldEnum = (typeof SystemConfigsScalarFieldEnum)[keyof typeof SystemConfigsScalarFieldEnum]
+
+
 export const UsersScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -206,6 +222,13 @@ export const SortOrder = {
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
 
 
+export const JsonNullValueInput = {
+  JsonNull: 'JsonNull'
+} as const
+
+export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
+
+
 export const QueryMode = {
   default: 'default',
   insensitive: 'insensitive'
@@ -220,4 +243,13 @@ export const NullsOrder = {
 } as const
 
 export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
+
+
+export const JsonNullValueFilter = {
+  DbNull: 'DbNull',
+  JsonNull: 'JsonNull',
+  AnyNull: 'AnyNull'
+} as const
+
+export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
 

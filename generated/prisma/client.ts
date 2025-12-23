@@ -70,6 +70,11 @@ export type routerGroups = Prisma.routerGroupsModel
  */
 export type smsRecords = Prisma.smsRecordsModel
 /**
+ * Model systemConfigs
+ * 系统配置表
+ */
+export type systemConfigs = Prisma.systemConfigsModel
+/**
  * Model users
  * 用户表
  */

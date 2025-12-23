@@ -390,6 +390,7 @@ export const ModelName = {
   routers: 'routers',
   routerGroups: 'routerGroups',
   smsRecords: 'smsRecords',
+  systemConfigs: 'systemConfigs',
   users: 'users',
   tokenBlacklist: 'tokenBlacklist'
 } as const
@@ -407,7 +408,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "roles" | "roleRouters" | "userRoles" | "routers" | "routerGroups" | "smsRecords" | "users" | "tokenBlacklist"
+    modelProps: "roles" | "roleRouters" | "userRoles" | "routers" | "routerGroups" | "smsRecords" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -855,6 +856,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    systemConfigs: {
+      payload: Prisma.$systemConfigsPayload<ExtArgs>
+      fields: Prisma.systemConfigsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.systemConfigsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$systemConfigsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.systemConfigsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$systemConfigsPayload>
+        }
+        findFirst: {
+          args: Prisma.systemConfigsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$systemConfigsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.systemConfigsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$systemConfigsPayload>
+        }
+        findMany: {
+          args: Prisma.systemConfigsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$systemConfigsPayload>[]
+        }
+        create: {
+          args: Prisma.systemConfigsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$systemConfigsPayload>
+        }
+        createMany: {
+          args: Prisma.systemConfigsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.systemConfigsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$systemConfigsPayload>[]
+        }
+        delete: {
+          args: Prisma.systemConfigsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$systemConfigsPayload>
+        }
+        update: {
+          args: Prisma.systemConfigsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$systemConfigsPayload>
+        }
+        deleteMany: {
+          args: Prisma.systemConfigsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.systemConfigsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.systemConfigsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$systemConfigsPayload>[]
+        }
+        upsert: {
+          args: Prisma.systemConfigsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$systemConfigsPayload>
+        }
+        aggregate: {
+          args: Prisma.SystemConfigsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateSystemConfigs>
+        }
+        groupBy: {
+          args: Prisma.systemConfigsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SystemConfigsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.systemConfigsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SystemConfigsCountAggregateOutputType> | number
+        }
+      }
+    }
     users: {
       payload: Prisma.$usersPayload<ExtArgs>
       fields: Prisma.usersFieldRefs
@@ -1127,6 +1202,21 @@ export const SmsRecordsScalarFieldEnum = {
 export type SmsRecordsScalarFieldEnum = (typeof SmsRecordsScalarFieldEnum)[keyof typeof SmsRecordsScalarFieldEnum]
 
 
+export const SystemConfigsScalarFieldEnum = {
+  id: 'id',
+  configGroup: 'configGroup',
+  key: 'key',
+  value: 'value',
+  description: 'description',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type SystemConfigsScalarFieldEnum = (typeof SystemConfigsScalarFieldEnum)[keyof typeof SystemConfigsScalarFieldEnum]
+
+
 export const UsersScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -1171,6 +1261,13 @@ export const SortOrder = {
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
 
 
+export const JsonNullValueInput = {
+  JsonNull: JsonNull
+} as const
+
+export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
+
+
 export const QueryMode = {
   default: 'default',
   insensitive: 'insensitive'
@@ -1185,6 +1282,15 @@ export const NullsOrder = {
 } as const
 
 export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
+
+
+export const JsonNullValueFilter = {
+  DbNull: DbNull,
+  JsonNull: JsonNull,
+  AnyNull: AnyNull
+} as const
+
+export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
 
 
 
@@ -1239,6 +1345,20 @@ export type ListDateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaM
  * Reference to a field of type 'Boolean'
  */
 export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
+    
+
+
+/**
+ * Reference to a field of type 'Json'
+ */
+export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
+    
+
+
+/**
+ * Reference to a field of type 'QueryMode'
+ */
+export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
     
 
 
@@ -1356,6 +1476,7 @@ export type GlobalOmitConfig = {
   routers?: Prisma.routersOmit
   routerGroups?: Prisma.routerGroupsOmit
   smsRecords?: Prisma.smsRecordsOmit
+  systemConfigs?: Prisma.systemConfigsOmit
   users?: Prisma.usersOmit
   tokenBlacklist?: Prisma.tokenBlacklistOmit
 }
