@@ -33,6 +33,9 @@ export async function generateOssPostSignature(
             }
         }
 
+        logger.info('oss配置：', { bucket: bucket, callbackUrl: callbackUrl });
+
+
         // 生成签名
         const signature = await OSS.generatePostSignature(configWithSts, {
             // 文件目录前缀
