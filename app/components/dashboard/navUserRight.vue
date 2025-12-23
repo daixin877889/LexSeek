@@ -54,9 +54,6 @@ const handleLogoutClick = async () => {
   // 跳转至登录页面
   router.replace({
     path: "/login",
-    query: {
-      redirect: route.path,
-    },
   });
 };
 </script>
