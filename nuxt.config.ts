@@ -83,9 +83,9 @@ export default defineNuxtConfig({
         lockDurationMs: 900, // 验证码锁定时间，单位：秒，默认15分钟
       },
       oss: {
-        callbackUrl: 'http://lsd.lexseek.cn/api/v1/callback/oss',
+        callbackUrl: '',
         main: {
-          bucket: 'lexseek-files'
+          bucket: ''
         }
       }
     },
