@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "nuxt build",
-    "dev": "nuxt dev",
+    "dev": "NUXT_HOST=0.0.0.0 nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "reset": "rm -rf .nuxt node_modules .output && bun install && bun prisma:generate",
@@ -27,6 +27,7 @@
     "@prisma/client": "^7.2.0",
     "@tanstack/vue-table": "^8.21.3",
     "@vueuse/core": "^14.1.0",
+    "ali-oss": "^6.23.0",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
