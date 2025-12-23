@@ -13,15 +13,16 @@
             <AvatarFallback class="rounded-lg"> LS </AvatarFallback>
           </Avatar>
           <div class="grid flex-1 text-left text-sm leading-tight">
-            <span class="truncate font-semibold">{{ userStore.userInfo?.name || "用户" }}</span>
-            <span class="truncate text-xs">{{ maskTel(userStore.userInfo?.phone) }}</span>
+            <span class="truncate font-semibold">{{ displayName }}</span>
+            <span class="truncate text-xs">{{ maskedPhone }}</span>
           </div>
         </div>
       </DropdownMenuLabel>
       <DropdownMenuSeparator />
       <DropdownMenuGroup>
         <!-- TODO: 获取用户菜单 -->
-        <NuxtLink v-for="route in [{ url: '/dashboard', title: '首页', icon: HomeIcon }]" :to="route.url" :key="route.title" class="my-3">
+        <NuxtLink v-for="route in [{ url: '/dashboard', title: '首页', icon: HomeIcon }]" :to="route.url"
+          :key="route.title" class="my-3">
           <DropdownMenuItem>
             <component :is="route.icon" />
             {{ route.title }}
@@ -29,7 +30,8 @@
         </NuxtLink>
       </DropdownMenuGroup>
       <DropdownMenuSeparator />
-      <DropdownMenuItem @click="handleLogoutClick" class="text-red-500 data-highlighted:bg-red-50 data-highlighted:text-red-600 group cursor-pointer">
+      <DropdownMenuItem @click="handleLogout"
+        class="text-red-500 data-highlighted:bg-red-50 data-highlighted:text-red-600 group cursor-pointer">
         <LogOut class="mr-2 h-4 w-4 group-hover:text-red-600" />
         <span class="group-hover:text-red-600">退出登录</span>
       </DropdownMenuItem>
@@ -40,20 +42,8 @@
 <script setup lang="ts">
 import { User, HomeIcon, LogOut } from "lucide-vue-next";
 
-const userStore = useUserStore();
-const authStore = useAuthStore();
-const router = useRouter();
-const route = useRoute();
+// 使用共享的用户导航逻辑
+const { displayName, maskedPhone, handleLogout } = useUserNavigation();
 
-// 处理退出登录点击
-const handleLogoutClick = async () => {
-  await authStore.logout();
-
-  // 重置所有 store 的状态
-  resetAllStore();
-  // 跳转至登录页面
-  router.replace({
-    path: "/login",
-  });
-};
+// TODO: 菜单栏需要根据用户角色动态生成
 </script>
