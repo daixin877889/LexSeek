@@ -51,6 +51,7 @@ export const AnyNull = runtime.AnyNull
 
 
 export const ModelName = {
+  ossFiles: 'ossFiles',
   roles: 'roles',
   roleRouters: 'roleRouters',
   userRoles: 'userRoles',
@@ -76,6 +77,25 @@ export const TransactionIsolationLevel = {
 } as const
 
 export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
+
+
+export const OssFilesScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  bucketName: 'bucketName',
+  fileName: 'fileName',
+  filePath: 'filePath',
+  fileSize: 'fileSize',
+  fileType: 'fileType',
+  fileMd5: 'fileMd5',
+  source: 'source',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type OssFilesScalarFieldEnum = (typeof OssFilesScalarFieldEnum)[keyof typeof OssFilesScalarFieldEnum]
 
 
 export const RolesScalarFieldEnum = {

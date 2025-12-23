@@ -39,13 +39,26 @@ export default defineEventHandler(async (event) => {
     // 获取所有被允许文件的 mimeType
     const allowedMimeTypes = acceptType.accept.map(accept => accept.mime);
 
-    // 生成OSS预签名
+    // 创建文件记录
     const config = useRuntimeConfig();
     const bucket = config.aliyun.oss.main.bucket;
+    const file = await createOssFileDao({
+      userId: user.id,
+      bucketName: bucket,
+      fileName: originalFileName,
+      fileSize: Number(fileSize),
+      fileType: mimeType,
+      source: source as FileSource,
+      status: OssFileStatus.PENDING,
+    });
+
+    // 生成OSS预签名
+
     const signature = await generateOssPostSignature(bucket, originalFileName, maxSize, allowedMimeTypes, {
       userId: user.id,
       source: source,
-      originalFileName: originalFileName
+      originalFileName: originalFileName,
+      fileId: file.id.toString(),
     });
 
     return resSuccess(event, "获取预签名URL成功", signature)

@@ -34,3 +34,37 @@ export type FileSourceAccept = {
     accept: { name: string, mime: string, maxSize: number }[]
 }
 
+
+
+/**
+ * OSS 文件状态
+ */
+export enum OssFileStatus {
+    /** 未上传 */
+    PENDING = 0,
+    /** 已上传 */
+    UPLOADED = 1,
+    /** 上传失败 */
+    FAILED = 2,
+}
+
+/**
+ * 上传文件状态名称
+ */
+export const OssFileStatusName = {
+    [OssFileStatus.PENDING]: "未上传",
+    [OssFileStatus.UPLOADED]: "上传完成",
+    [OssFileStatus.FAILED]: "上传失败",
+}
+
+/**
+ * 文件类型
+ */
+export enum FileType {
+    DOC = "文档",
+    AUDIO = "音频",
+    IMAGE = "图片",
+    VIDEO = "视频",
+    JSON = "JSON文件",
+    OTHER = "其他",
+}

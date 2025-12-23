@@ -18,6 +18,11 @@ export { Prisma }
 export * as $Enums from './enums.js'
 export * from './enums.js';
 /**
+ * Model ossFiles
+ * OSS 文件表
+ */
+export type ossFiles = Prisma.ossFilesModel
+/**
  * Model roles
  * 角色表
  */

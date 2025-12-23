@@ -384,6 +384,7 @@ type FieldRefInputType<Model, FieldType> = Model extends never ? never : FieldRe
 
 
 export const ModelName = {
+  ossFiles: 'ossFiles',
   roles: 'roles',
   roleRouters: 'roleRouters',
   userRoles: 'userRoles',
@@ -408,10 +409,84 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "roles" | "roleRouters" | "userRoles" | "routers" | "routerGroups" | "smsRecords" | "systemConfigs" | "users" | "tokenBlacklist"
+    modelProps: "ossFiles" | "roles" | "roleRouters" | "userRoles" | "routers" | "routerGroups" | "smsRecords" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
+    ossFiles: {
+      payload: Prisma.$ossFilesPayload<ExtArgs>
+      fields: Prisma.ossFilesFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ossFilesFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ossFilesPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ossFilesFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ossFilesPayload>
+        }
+        findFirst: {
+          args: Prisma.ossFilesFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ossFilesPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ossFilesFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ossFilesPayload>
+        }
+        findMany: {
+          args: Prisma.ossFilesFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ossFilesPayload>[]
+        }
+        create: {
+          args: Prisma.ossFilesCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ossFilesPayload>
+        }
+        createMany: {
+          args: Prisma.ossFilesCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ossFilesCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ossFilesPayload>[]
+        }
+        delete: {
+          args: Prisma.ossFilesDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ossFilesPayload>
+        }
+        update: {
+          args: Prisma.ossFilesUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ossFilesPayload>
+        }
+        deleteMany: {
+          args: Prisma.ossFilesDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ossFilesUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ossFilesUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ossFilesPayload>[]
+        }
+        upsert: {
+          args: Prisma.ossFilesUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ossFilesPayload>
+        }
+        aggregate: {
+          args: Prisma.OssFilesAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateOssFiles>
+        }
+        groupBy: {
+          args: Prisma.ossFilesGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.OssFilesGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ossFilesCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.OssFilesCountAggregateOutputType> | number
+        }
+      }
+    }
     roles: {
       payload: Prisma.$rolesPayload<ExtArgs>
       fields: Prisma.rolesFieldRefs
@@ -1117,6 +1192,25 @@ export const TransactionIsolationLevel = runtime.makeStrictEnum({
 export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
 
 
+export const OssFilesScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  bucketName: 'bucketName',
+  fileName: 'fileName',
+  filePath: 'filePath',
+  fileSize: 'fileSize',
+  fileType: 'fileType',
+  fileMd5: 'fileMd5',
+  source: 'source',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type OssFilesScalarFieldEnum = (typeof OssFilesScalarFieldEnum)[keyof typeof OssFilesScalarFieldEnum]
+
+
 export const RolesScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -1328,6 +1422,20 @@ export type ListStringFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaMod
 
 
 /**
+ * Reference to a field of type 'Decimal'
+ */
+export type DecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal'>
+    
+
+
+/**
+ * Reference to a field of type 'Decimal[]'
+ */
+export type ListDecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal[]'>
+    
+
+
+/**
  * Reference to a field of type 'DateTime'
  */
 export type DateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime'>
@@ -1470,6 +1578,7 @@ export type PrismaClientOptions = ({
   comments?: runtime.SqlCommenterPlugin[]
 }
 export type GlobalOmitConfig = {
+  ossFiles?: Prisma.ossFilesOmit
   roles?: Prisma.rolesOmit
   roleRouters?: Prisma.roleRoutersOmit
   userRoles?: Prisma.userRolesOmit

@@ -1,7 +1,6 @@
 /**
  * 角色数据访问层
  */
-import { Prisma } from '#shared/types/prisma'
 
 /**
  * 查询角色列表
