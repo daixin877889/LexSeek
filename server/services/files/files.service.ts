@@ -9,17 +9,18 @@ export async function generateOssPostSignature(
     callbackVar?: Record<string, string>
 ): Promise<PostSignatureResult> {
     try {
+        // 获取回调URL
         const config = useRuntimeConfig();
         const callbackUrl = config.aliyun.oss.callbackUrl;
 
+        // 获取OSS配置
         const ossConfig = await getConfigsByGroupAndKeyDao('ossConfig', bucket);
         if (!ossConfig) {
             throw new Error('OSS配置不存在');
         }
-
         const ossConfigValue = ossConfig.value as unknown as OSSConfig;
 
-
+        // 生成OSS配置
         const configWithSts: OssConfig = {
             accessKeyId: ossConfigValue.accessKeyId,
             accessKeySecret: ossConfigValue.accessKeySecret,
