@@ -1,0 +1,67 @@
+/**
+ * 文件服务
+ */
+export async function generateOssPostSignature(
+    bucket: string,
+    originalFileName: string,
+    maxSize: number,
+    allowedMimeTypes: string[],
+    callbackVar?: Record<string, string>
+): Promise<PostSignatureResult> {
+    try {
+        const config = useRuntimeConfig();
+        const callbackUrl = config.aliyun.oss.callbackUrl;
+
+        const ossConfig = await getConfigsByGroupAndKeyDao('ossConfig', bucket);
+        if (!ossConfig) {
+            throw new Error('OSS配置不存在');
+        }
+
+        const ossConfigValue = ossConfig.value as unknown as OSSConfig;
+
+
+        const configWithSts: OssConfig = {
+            accessKeyId: ossConfigValue.accessKeyId,
+            accessKeySecret: ossConfigValue.accessKeySecret,
+            bucket,
+            region: ossConfigValue.region,
+            sts: {
+                roleArn: ossConfigValue.roleArn ?? '',
+                roleSessionName: ossConfigValue.roleSessionName ?? 'OSS',  // 可选
+                durationSeconds: ossConfigValue.expiration ?? 3600             // 可选，默认 3600
+            }
+        }
+
+        // 生成签名
+        const signature = await OSS.generatePostSignature(configWithSts, {
+            // 文件目录前缀
+            dir: 'uploads/images/',
+            // 文件名生成选项
+            fileKey: {
+                originalFileName,
+                strategy: 'uuid'  // 使用 UUID 生成文件名
+            },
+            // 签名过期时间（分钟），默认 10
+            expirationMinutes: 10,
+            // 回调配置（可选）
+            callback: {
+                callbackUrl: callbackUrl,
+                callbackBody: 'filename=${object}&size=${size}&mimeType=${mimeType}',
+                callbackBodyType: 'application/x-www-form-urlencoded',
+                // 自定义回调参数
+                callbackVar
+            },
+            // 策略条件（可选）
+            conditions: {
+                // 文件大小限制 [最小, 最大]（字节）
+                contentLengthRange: [0, maxSize],  // 最大 10MB
+                // 允许的文件类型
+                contentType: allowedMimeTypes
+            }
+        })
+        return signature;
+
+    } catch (error: any) {
+        throw error;
+    }
+}
