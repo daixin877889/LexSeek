@@ -42,6 +42,7 @@ export default defineEventHandler(async (event) => {
     // 创建文件记录
     const config = useRuntimeConfig();
     const bucket = config.aliyun.oss.main.bucket;
+
     const file = await createOssFileDao({
       userId: user.id,
       bucketName: bucket,
@@ -52,8 +53,8 @@ export default defineEventHandler(async (event) => {
       status: OssFileStatus.PENDING,
     });
 
-    // 生成OSS预签名
 
+    // 生成OSS预签名
     const signature = await generateOssPostSignature(bucket, originalFileName, maxSize, allowedMimeTypes, {
       userId: user.id,
       source: source,

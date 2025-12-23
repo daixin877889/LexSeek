@@ -12,8 +12,10 @@ export default defineEventHandler(async (event) => {
       filename: body?.filename || '',
       size: body?.size || 0,
       mimeType: body?.mimeType || '',
-      width: body?.width || 0,
-      height: body?.height || 0
+      fileId: body?.fileId || '',
+      userId: body?.userId || '',
+      source: body?.source || '',
+      originalFileName: body?.originalFileName || '',
     }
   } catch (error) {
     console.error('OSS 回调处理错误:', error)
