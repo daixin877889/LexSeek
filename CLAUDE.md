@@ -142,6 +142,7 @@ app/
 #### 页面路由
 
 **公共路由**
+
 - `/` - 首页
 - `/features` - 产品功能展示
 - `/privacy-agreement` - 隐私协议
@@ -151,6 +152,7 @@ app/
 - `/login` - 用户登录
 
 **仪表板路由**
+
 - `/dashboard` - 用户仪表板首页
 - `/dashboard/cases` - 案件管理
 - `/dashboard/analysis` - 法律分析工具
@@ -213,17 +215,20 @@ server/
 已实现接口：
 
 **认证接口**
+
 - `POST /api/v1/auth/login/password` - 用户密码登录
 - `POST /api/v1/auth/register` - 用户注册
 - `POST /api/v1/auth/reset-password` - 重置密码
 - `PUT /api/v1/auth/password` - 更新密码
 
 **用户接口**
+
 - `GET /api/v1/users/me` - 获取当前用户信息
 - `PUT /api/v1/users/profile` - 更新用户资料
 - `GET /api/v1/users/routers` - 获取用户权限路由
 
 **短信接口**
+
 - `POST /api/v1/sms/send` - 发送短信验证码
 
 ### Shared 模块
@@ -360,10 +365,11 @@ enum SmsType {
 
 ### 组件开发规范
 
-1. UI组件放在 `components/ui` 目录
-2. 使用 Tailwind CSS 进行样式开发
-3. 响应式设计优先
-4. 组件需支持深色模式
+1. Shadcn-vue UI组件放在 `components/ui` 目录
+2. 自定义组件放在 `components` 目录中，并按照功能模块用文件夹进行分类
+3. 使用 Tailwind CSS 进行样式开发
+4. 响应式设计优先
+5. 组件需支持深色模式
 
 ### 数据库操作规范
 
@@ -472,6 +478,7 @@ BREAKING CHANGE: (可选)
 ```
 
 **type 类型说明：**
+
 - `feat` - 新功能
 - `fix` - 缺陷修复
 - `refactor` - 重构（不新增功能、不修缺陷）
@@ -482,6 +489,7 @@ BREAKING CHANGE: (可选)
 - `docs` - 文档更新
 
 **scope 作用域说明：**
+
 - `ui` - UI组件
 - `api` - API接口
 - `auth` - 认证模块
@@ -530,12 +538,14 @@ git commit -m "style(ui): simplify navigation component styles"
 ### 架构评估 ✅ 良好
 
 **优点：**
+
 - 清晰的分层架构：前端、API、数据层分离
 - 使用 Nuxt 4 的最新特性，支持 SSR
 - Prisma ORM 提供类型安全的数据库操作
 - Pinia 状态管理，代码组织清晰
 
 **改进建议：**
+
 - 考虑添加 API 响应缓存机制
 - 加强错误监控和日志记录
 - 增加单元测试覆盖率
@@ -555,6 +565,7 @@ git commit -m "style(ui): simplify navigation component styles"
 - SQL 注入防护（Prisma ORM）
 
 **改进建议：**
+
 - 增加请求频率限制
 - 加强 XSS 防护
 - 完善安全头设置
