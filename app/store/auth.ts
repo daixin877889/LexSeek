@@ -24,95 +24,68 @@ export const useAuthStore = defineStore("auth", () => {
   /**
    * 用户登录
    */
-  const login = async ({
-    phone,
-    password,
-  }: {
-    phone: string;
-    password: string;
-  }): Promise<boolean> => {
-    const userStore = useUserStore();
+  const login = async ({ phone, password, }: { phone: string; password: string; }): Promise<boolean> => {
     loading.value = true;
     error.value = null;
-    try {
-      const {
-        data: response,
-        error: apiError,
-        execute,
-      } = useApi("/api/v1/auth/login/password", {
-        method: "POST",
-        body: { phone, password },
-        immediate: false,
-        showError: false,
-      });
-      await execute();
 
-      if (apiError.value) {
-        error.value = apiError.value.message;
-        return false;
-      }
+    // 请求登录接口
+    const { data: response, error: apiError, execute, } = useApi("/api/v1/auth/login/password", {
+      method: "POST",
+      body: { phone, password },
+      immediate: false,
+      showError: false,
+    });
 
-      logger.debug("response", response.value);
+    await execute();
+    loading.value = false;
 
-      if (response.value?.token) {
-        // 保存用户信息和认证状态（token 由服务端通过 Set-Cookie 设置）
-        userStore.setUserInfo(response.value.user as SafeUserInfo);
-        isAuthenticated.value = true;
-        error.value = null;
-        return true;
-      } else {
-        error.value = response.value?.error?.message || "登录失败";
-        return false;
-      }
-    } catch (err: any) {
-      logger.error("登录失败:", err);
-      error.value = err.response?.data?.message || err.message || "登录失败";
-      throw err;
-    } finally {
-      loading.value = false;
+    if (apiError.value) {
+      error.value = apiError.value.message;
+      return false;
     }
+
+    logger.debug("response", response.value);
+
+    // 登录不成功，返回错误信息
+    if (!response.value?.token) {
+      error.value = response.value?.error?.message || "登录失败";
+      return false;
+    }
+
+    // 登录成功，保存用户信息和认证状态（token 由服务端通过 Set-Cookie 设置）
+    const userStore = useUserStore();
+    userStore.setUserInfo(response.value.user as SafeUserInfo);
+    isAuthenticated.value = true;
+    return true;
   };
 
   /**
    * 退出登录
    */
   const logout = async (): Promise<boolean> => {
-    const userStore = useUserStore();
+    error.value = null;
     loading.value = true;
-    try {
-      const {
-        data: response,
-        error: apiError,
-        execute,
-      } = useApi("/api/v1/auth/logout", {
-        method: "POST",
-        body: {},
-        immediate: false,
-      });
-      await execute();
 
-      if (apiError.value) {
-        error.value = apiError.value.message;
-        return false;
-      }
+    // 请求登出接口
+    const { data: response, error: apiError, execute, } = useApi("/api/v1/auth/logout", {
+      method: "POST",
+      body: {},
+      immediate: false,
+    });
+    await execute();
 
-      if (response.value) {
-        userStore.clearUserInfo();
-        isAuthenticated.value = false;
-        error.value = null;
-        return true;
-      } else {
-        error.value = response.value?.error?.message || "登出失败";
-        return false;
-      }
-    } catch (err: any) {
-      logger.error("登出失败:", err);
-      error.value =
-        err.response?.data?.message || err.value?.message || "登出失败";
+    loading.value = false;
+    if (apiError.value || !response.value) {
+      error.value = apiError.value?.message || "登出失败";
+
       return false;
-    } finally {
-      loading.value = false;
     }
+
+    // 登出成功，清除用户信息和认证状态
+    const userStore = useUserStore();
+    userStore.clearUserInfo();
+    isAuthenticated.value = false;
+    return true;
   };
 
   /**
