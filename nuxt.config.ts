@@ -53,12 +53,13 @@ export default defineNuxtConfig({
   nitro: {
     imports: {
       dirs: [
-        './server/lib/**',
-        './server/services/**/**',
+        // './server/lib/*',
+        './server/services/*/*',
       ],
       imports: [
         // 服务端 logger 自动导入
         // { name: 'logger', from: '#shared/utils/logger' },
+
       ]
     }
   },
@@ -80,6 +81,12 @@ export default defineNuxtConfig({
         codeExpireMs: 300, // 短信验证码有效期，单位：秒，默认5分钟
         maxFailures: 5, // 验证码最大失败次数，超过后锁定
         lockDurationMs: 900, // 验证码锁定时间，单位：秒，默认15分钟
+      },
+      oss: {
+        callbackUrl: 'http://lsd.lexseek.cn/api/v1/callback/oss',
+        main: {
+          bucket: 'lexseek-files'
+        }
       }
     },
     jwt: {

@@ -55,7 +55,7 @@ export default defineEventHandler(async (event) => {
 
         // 只有启用时才发送短信
         if (config.aliyun.sms.enable) {
-            const res = await sendCaptchaSms(phone, code)
+            const res = await AliSms.sendCaptchaSms(phone, code)
             logger.info('短信验证码发送成功：', res)
 
         }
