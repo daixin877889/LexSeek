@@ -66,6 +66,7 @@ export const useRoleStore = defineStore("role", () => {
    * 返回 Promise，需要 await 以支持 SSR
    */
   const initUserRouters = async (roleId: number) => {
+
     const { data, error: apiError, status, refresh } = await useApi<any>("/api/v1/users/routers", {
       key: `user-routers-${roleId}`,
       query: { roleId },
@@ -95,27 +96,33 @@ export const useRoleStore = defineStore("role", () => {
   /**
    * 获取用户权限路由（客户端按需调用）
    */
-  const fetchUserRouters = async (roleId: number): Promise<void> => {
+  const fetchUserRouters = async (roleId: number): Promise<any> => {
+
     loading.value = true;
     error.value = null;
-    try {
-      const { data, error: apiError } = await useApi<any>("/api/v1/users/routers", {
-        key: `user-routers-fetch-${roleId}`,
-        query: { roleId },
-      });
-      if (apiError.value) {
-        error.value = apiError.value.message;
-        throw new Error(apiError.value.message);
-      }
-      if (data.value?.[0]?.routers) {
-        currentRoleRouters.value = data.value[0].routers;
-        logger.debug("获取用户权限路由成功:", data.value);
-      }
-    } catch (err: any) {
-      logger.error("获取用户权限路由失败:", err);
-    } finally {
-      loading.value = false;
+
+    // 请求用户权限路由接口
+    const { data, error: apiError } = await useApi<any>("/api/v1/users/routers", {
+      key: `user-routers-fetch-${roleId}`,
+      query: { roleId },
+    });
+
+    loading.value = false;
+
+    // 获取用户权限路由失败，返回错误信息
+    if (apiError.value) {
+      error.value = apiError.value?.message || "获取用户权限路由失败";
+      toast.error(error.value);
+      logger.error("获取用户权限路由失败:", apiError.value);
+      return;
     }
+
+    // 获取用户权限路由成功，更新用户权限路由
+    if (data.value?.[0]?.routers) {
+      currentRoleRouters.value = data.value[0].routers;
+      logger.debug("获取用户权限路由成功:", data.value);
+    }
+    return data.value;
   };
 
   /**

@@ -28,6 +28,8 @@ export const useUserStore = defineStore("user", () => {
    * 返回 Promise，需要 await 以支持 SSR
    */
   const initUserInfo = async () => {
+
+    // 请求用户信息接口
     const { data, error, status, refresh } = await useApi<SafeUserInfo>("/api/v1/users/me", {
       key: "user-info",
     });
@@ -81,15 +83,19 @@ export const useUserStore = defineStore("user", () => {
    * 更新用户资料
    */
   const updateUserProfile = async (data: { name: string, company: string, profile: string }) => {
+
+    // 请求更新用户资料接口
     const { data: updatedData, error } = await useApi<SafeUserInfo>("/api/v1/users/profile", {
       key: "update-user-profile",
       method: "PUT",
       body: data,
     });
+
     if (updatedData.value) {
       setUserInfo(updatedData.value);
       logger.debug("更新用户资料成功:", updatedData.value);
     }
+
     if (error.value) {
       fetchError.value = error.value;
       logger.error("更新用户资料失败:", error.value);
@@ -101,11 +107,14 @@ export const useUserStore = defineStore("user", () => {
    * 更新用户密码
    */
   const updateUserPassword = async (data: { currentPassword: string, newPassword: string }) => {
+
+    // 请求更新用户密码接口
     const { data: updatedData, error } = await useApi<SafeUserInfo>("/api/v1/users/password", {
       key: "update-user-password",
       method: "PUT",
       body: data,
     });
+
     if (updatedData.value) {
       logger.debug("更新用户密码成功:", updatedData.value);
     }

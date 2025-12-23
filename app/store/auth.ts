@@ -91,157 +91,98 @@ export const useAuthStore = defineStore("auth", () => {
   /**
    * 重置密码
    */
-  const resetPassword = async ({
-    phone,
-    code,
-    newPassword,
-  }: {
-    phone: string;
-    code: string;
-    newPassword: string;
-  }): Promise<boolean> => {
-    const userStore = useUserStore();
+  const resetPassword = async ({ phone, code, newPassword }: { phone: string; code: string; newPassword: string; }): Promise<boolean> => {
+
     loading.value = true;
     error.value = null;
-    try {
-      const {
-        data: response,
-        error: apiError,
-        execute,
-      } = useApi("/api/v1/auth/reset-password", {
-        method: "POST",
-        body: { phone, code, newPassword },
-        immediate: false,
-        showError: false,
-      });
-      await execute();
 
-      if (apiError.value) {
-        error.value = apiError.value.message;
-        return false;
-      }
+    // 请求重置密码接口
+    const { data: response, error: apiError, execute } = useApi("/api/v1/auth/reset-password", {
+      method: "POST",
+      body: { phone, code, newPassword },
+      immediate: false,
+      showError: false,
+    });
 
-      if (response.value) {
-        error.value = null;
-        userStore.clearUserInfo();
-        return true;
-      } else {
-        error.value = response.value?.error?.message || "重置密码失败";
-        return false;
-      }
-    } catch (err: any) {
-      logger.error("重置密码失败:", err);
-      error.value =
-        err.response?.data?.message || err.message || "重置密码失败";
+    await execute();
+    loading.value = false;
+
+    if (apiError.value || !response.value) {
+      error.value = apiError.value?.message || "重置密码失败";
       return false;
-    } finally {
-      loading.value = false;
     }
+    const userStore = useUserStore();
+    userStore.clearUserInfo();
+    return true;
   };
 
   /**
    * 发送短信验证码
    */
-  const sendSmsCode = async ({
-    phone,
-    type,
-  }: {
-    phone: string;
-    type: string;
-  }): Promise<boolean> => {
+  const sendSmsCode = async ({ phone, type }: { phone: string; type: string; }): Promise<boolean> => {
+
+    loading.value = true;
     error.value = null;
-    try {
-      const {
-        data: response,
-        error: apiError,
-        execute,
-      } = useApi("/api/v1/sms/send", {
-        method: "POST",
-        body: { phone, type },
-        immediate: false,
-        showError: false,
-      });
-      await execute();
 
-      if (apiError.value) {
-        error.value = apiError.value.message;
-        return false;
-      }
+    const { data: response, error: apiError, execute } = useApi("/api/v1/sms/send", {
+      method: "POST",
+      body: { phone, type },
+      immediate: false,
+      showError: false,
+    });
 
-      if (response.value) {
-        error.value = null;
-        return true;
-      } else {
-        error.value = response.value?.error?.message || "发送验证码失败";
-        return false;
-      }
-    } catch (err: any) {
-      logger.error("发送验证码失败:", err);
-      error.value =
-        err.response?.data?.message || err.message || "发送验证码失败";
+    await execute();
+    loading.value = false;
+
+    // 发送验证码失败，返回错误信息
+    if (apiError.value || !response.value) {
+      error.value = apiError.value?.message || "发送验证码失败";
       return false;
     }
+
+    return true;
   };
 
   /**
    * 用户注册
    */
-  const register = async ({
-    phone,
-    code,
-    name,
-    password,
-    invitedBy,
-  }: {
-    phone: string;
-    code: string;
-    name: string;
-    password: string;
-    invitedBy?: string;
-  }): Promise<boolean> => {
-    const userStore = useUserStore();
+  const register = async ({ phone, code, name, password, invitedBy, }: { phone: string; code: string; name: string; password: string; invitedBy?: string; }): Promise<boolean> => {
+
     loading.value = true;
     error.value = null;
-    try {
-      const params: Record<string, string> = { phone, code, name, password };
-      if (invitedBy) {
-        params.invitedBy = invitedBy;
-      }
 
-      const {
-        data: response,
-        error: apiError,
-        execute,
-      } = useApi("/api/v1/auth/register", {
-        method: "POST",
-        body: params,
-        immediate: false,
-        showError: false,
-      });
-      await execute();
-
-      if (apiError.value) {
-        error.value = apiError.value.message;
-        return false;
-      }
-
-      if (response.value?.token) {
-        // 保存用户信息和认证状态（token 由服务端通过 Set-Cookie 设置）
-        userStore.setUserInfo(response.value.user as SafeUserInfo);
-        isAuthenticated.value = true;
-        error.value = null;
-        return true;
-      } else {
-        error.value = response.value?.error?.message || "注册失败";
-        return false;
-      }
-    } catch (err: any) {
-      logger.error("注册失败:", err);
-      error.value = err.response?.data?.message || err.message || "注册失败";
-      return false;
-    } finally {
-      loading.value = false;
+    const params: Record<string, string> = { phone, code, name, password };
+    if (invitedBy) {
+      params.invitedBy = invitedBy;
     }
+
+    const { data: response, error: apiError, execute } = useApi("/api/v1/auth/register", {
+      method: "POST",
+      body: params,
+      immediate: false,
+      showError: false,
+    });
+
+    await execute();
+    loading.value = false;
+
+    if (apiError.value || !response.value) {
+      error.value = apiError.value?.message || "注册失败";
+      return false;
+    }
+
+    // 注册不成功，返回错误信息
+    if (!response.value?.token) {
+      error.value = response.value?.error?.message || "注册失败";
+      return false;
+    }
+
+    // 保存用户信息和认证状态（token 由服务端通过 Set-Cookie 设置）
+    const userStore = useUserStore();
+    userStore.setUserInfo(response.value.user as SafeUserInfo);
+    isAuthenticated.value = true;
+    error.value = null;
+    return true;
   };
 
 
