@@ -8,3 +8,7 @@
 4. UI 组件的用法使用 shadcn 工具查询，
 5. 不语序修改 app/components/ui 中的组件，这是 shadcn 的组件，重新安装可能会被覆盖。
 6. 请注意，必须遵守 CLAUDE.md 中的项目架构文档和编码规范。
+
+## OSS 回调
+
+1. 回调自定义变量需要通过 `callbackVar` 参数传递，格式为 `{ key: value }`，注意 key 不能包含 `:` 字符，变量名不能包含大写。

@@ -58,7 +58,10 @@ const signature = await generatePostSignature(config, {
   // 文件名生成选项（可选）
   fileKey: {
     originalFileName: 'photo.jpg',  // 原始文件名（用于提取扩展名）
-    strategy: 'uuid'                // 'uuid' | 'timestamp' | 'original'
+    strategy: 'uuid'                // 'uuid' | 'timestamp' | 'original' | 'custom'
+    // 或使用自定义文件名：
+    // strategy: 'custom',
+    // customFileName: 'my-file.jpg'
   },
   // 签名过期时间（分钟），默认 10
   expirationMinutes: 10,
@@ -67,9 +70,12 @@ const signature = await generatePostSignature(config, {
     callbackUrl: 'https://your-server.com/api/callback/oss',
     callbackBody: 'filename=${object}&size=${size}&mimeType=${mimeType}',
     callbackBodyType: 'application/x-www-form-urlencoded',
-    // 自定义回调参数
+    // 自定义回调参数（会自动添加 x: 前缀）
+    // ⚠️ 重要：变量名必须全部使用小写字母，不能包含大写字母
     callbackVar: {
-      'x:userId': '12345'
+      'userid': '12345',              // ✅ 正确：全小写，会自动变成 x:userid
+      'originalfilename': 'photo.jpg' // ✅ 正确：全小写
+      // 'userId': '12345'            // ❌ 错误：包含大写字母，OSS 回调时值会为空
     }
   },
   // 策略条件（可选）
@@ -104,6 +110,33 @@ console.log(signature)
 | `uuid` | 使用 UUID 生成文件名（默认） | `550e8400-e29b-41d4-a716-446655440000.jpg` |
 | `timestamp` | 使用时间戳生成文件名 | `1703491200000.jpg` |
 | `original` | 保留原始文件名 | `photo.jpg` |
+| `custom` | 使用自定义文件名 | `my-custom-name.jpg` |
+
+```typescript
+// UUID 策略（默认）
+fileKey: {
+  originalFileName: 'photo.jpg',
+  strategy: 'uuid'
+}
+
+// 时间戳策略
+fileKey: {
+  originalFileName: 'photo.jpg',
+  strategy: 'timestamp'
+}
+
+// 保留原始文件名
+fileKey: {
+  originalFileName: 'photo.jpg',
+  strategy: 'original'
+}
+
+// 自定义文件名（需包含扩展名）
+fileKey: {
+  strategy: 'custom',
+  customFileName: 'my-custom-name.jpg'
+}
+```
 
 #### 前端使用示例
 
@@ -124,6 +157,12 @@ if (signature.securityToken) {
 }
 if (signature.callback) {
   formData.append('callback', signature.callback)
+}
+// 添加回调自定义变量（PostObject 表单上传时，直接作为表单字段传递）
+if (signature.callbackVar) {
+  for (const [key, value] of Object.entries(signature.callbackVar)) {
+    formData.append(key, value)
+  }
 }
 
 formData.append('file', file)
@@ -226,6 +265,36 @@ const result = await deleteFile(config, [
 console.log(result)
 // { deleted: ['path/to/file1.txt', 'path/to/file2.txt', 'path/to/file3.txt'] }
 ```
+
+## 注意事项
+
+### 回调自定义变量命名规则
+
+> ⚠️ **重要**：阿里云 OSS 回调自定义变量名有严格的命名限制！
+
+使用 `callbackVar` 传递自定义变量时，库会自动添加 `x:` 前缀，你只需要传入变量名即可。变量名必须遵守以下规则：
+
+1. **只能使用小写字母**：变量名不能包含大写字母
+2. **建议只使用小写字母和数字**
+
+```typescript
+// ✅ 正确示例（库会自动添加 x: 前缀）
+callbackVar: {
+  'userid': '12345',           // 会变成 x:userid
+  'fileid': '67890',           // 会变成 x:fileid
+  'source': 'avatar',          // 会变成 x:source
+  'originalfilename': 'photo.jpg'  // 会变成 x:originalfilename
+}
+
+// ❌ 错误示例（OSS 回调时这些变量的值会为空）
+callbackVar: {
+  'userId': '12345',           // 包含大写字母 I
+  'fileId': '67890',           // 包含大写字母 I
+  'originalFileName': 'photo.jpg'  // 包含大写字母 F 和 N
+}
+```
+
+如果变量名包含大写字母，OSS 在回调时会返回空值，但不会报错，这可能导致难以排查的问题。
 
 ## 错误处理
 
