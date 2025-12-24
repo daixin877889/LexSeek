@@ -1,14 +1,8 @@
 <template>
   <div class="file-uploader h-full flex flex-col" :class="statusMessage ? 'gap-2' : 'gap-4'">
-    <!-- 场景信息显示（上传中或完成时隐藏） -->
-    <div v-if="currentScene && !isUploading && !isUploadComplete"
-      class="shrink-0 text-sm text-muted-foreground space-y-1">
-      <p><strong>允许的文件类型：</strong> {{ formatAcceptTypes(currentScene.accept || []) }}</p>
-    </div>
-
     <!-- 拖拽上传区域（上传中或完成时隐藏） -->
     <div v-if="!isUploading && !isUploadComplete"
-      class="relative border-2 border-dashed rounded-lg text-center transition-colors overflow-hidden flex-1 flex items-center justify-center"
+      class="relative border-2 border-dashed rounded-lg text-center transition-colors overflow-hidden flex-1 flex flex-col"
       :class="[
         {
           'border-primary bg-primary/5': isDragOver,
@@ -17,26 +11,35 @@
         },
       ]" @dragover.prevent="handleDragOver($event)" @dragleave.prevent="handleDragLeave($event)"
       @drop.prevent="handleDrop($event)" @click="triggerFileInput()">
-      <div class="relative px-4 py-4 w-full max-w-sm mx-auto" :class="statusMessage ? 'space-y-2' : 'space-y-4'">
-        <!-- 上传图标 -->
-        <div class="mx-auto rounded-full bg-muted flex items-center justify-center"
-          :class="statusMessage ? 'w-10 h-10' : 'w-16 h-16'">
-          <UploadIcon :class="statusMessage ? 'h-5 w-5' : 'h-8 w-8'" class="text-muted-foreground" />
-        </div>
+      <!-- 主要内容区域 -->
+      <div class="flex-1 flex items-center justify-center">
+        <div class="relative px-4 py-4 w-full max-w-sm mx-auto" :class="statusMessage ? 'space-y-2' : 'space-y-4'">
+          <!-- 上传图标 -->
+          <div class="mx-auto rounded-full bg-muted flex items-center justify-center"
+            :class="statusMessage ? 'w-10 h-10' : 'w-16 h-16'">
+            <UploadIcon :class="statusMessage ? 'h-5 w-5' : 'h-8 w-8'" class="text-muted-foreground" />
+          </div>
 
-        <!-- 上传文本 -->
-        <div :class="statusMessage ? 'space-y-1' : 'space-y-2'">
-          <p :class="statusMessage ? 'text-sm' : 'text-lg'" class="font-medium leading-tight">
-            {{ uploadAreaText }}
-          </p>
-          <p :class="statusMessage ? 'text-xs' : 'text-sm'" class="text-muted-foreground leading-tight">
-            {{ uploadAreaSubText }}
-          </p>
-        </div>
+          <!-- 上传文本 -->
+          <div :class="statusMessage ? 'space-y-1' : 'space-y-2'">
+            <p :class="statusMessage ? 'text-sm' : 'text-lg'" class="font-medium leading-tight">
+              {{ uploadAreaText }}
+            </p>
+            <p :class="statusMessage ? 'text-xs' : 'text-sm'" class="text-muted-foreground leading-tight">
+              {{ uploadAreaSubText }}
+            </p>
+          </div>
 
-        <!-- 隐藏的文件输入 -->
-        <Input ref="fileInputRef" type="file" @change="handleFileChange" :accept="acceptAttribute"
-          :multiple="props.multiple" :disabled="isUploading" class="hidden" />
+          <!-- 隐藏的文件输入 -->
+          <Input ref="fileInputRef" type="file" @change="handleFileChange" :accept="acceptAttribute"
+            :multiple="props.multiple" :disabled="isUploading" class="hidden" />
+        </div>
+      </div>
+
+      <!-- 允许的文件类型（放在上传框底部） -->
+      <div v-if="currentScene"
+        class="shrink-0 px-4 py-2 border-t border-dashed text-xs text-muted-foreground bg-muted/30">
+        允许的文件类型：{{ formatAcceptTypes(currentScene.accept || []) }}
       </div>
     </div>
 
@@ -45,9 +48,7 @@
       class="shrink-0 space-y-2">
       <div class="flex items-center justify-between text-sm">
         <span class="text-muted-foreground">已选择 {{ selectedFiles.length }} 个文件</span>
-        <Button variant="ghost" size="sm" @click="clearAllFiles">
-          清空
-        </Button>
+        <Button variant="ghost" size="sm" @click="clearAllFiles"> 清空 </Button>
       </div>
       <div class="max-h-40 overflow-y-auto space-y-1">
         <div v-for="(fileItem, index) in fileUploadStates" :key="index"
@@ -69,11 +70,9 @@
     <div v-if="(isUploading || isUploadComplete) && fileUploadStates.length > 0" class="shrink-0 space-y-2 flex-1">
       <div class="flex items-center justify-between text-sm">
         <span class="text-muted-foreground">
-          {{ isUploading ? '正在上传...' : '上传完成' }}
+          {{ isUploading ? "正在上传..." : "上传完成" }}
         </span>
-        <span class="text-xs text-muted-foreground">
-          {{ uploadedCount }}/{{ fileUploadStates.length }} 个文件
-        </span>
+        <span class="text-xs text-muted-foreground"> {{ uploadedCount }}/{{ fileUploadStates.length }} 个文件 </span>
       </div>
       <div class="max-h-60 overflow-y-auto space-y-1">
         <div v-for="(fileItem, index) in fileUploadStates" :key="index" class="p-2 bg-muted/50 rounded-md text-sm">
@@ -98,8 +97,7 @@
               'bg-green-500': fileItem.status === 'success',
               'bg-destructive': fileItem.status === 'error',
               'bg-muted-foreground/30': fileItem.status === 'pending',
-            }" :style="{ width: (fileItem.status === 'success' ? 100 : fileItem.progress) + '%' }">
-            </div>
+            }" :style="{ width: (fileItem.status === 'success' ? 100 : fileItem.progress) + '%' }"></div>
           </div>
           <div class="flex items-center gap-2 text-xs text-muted-foreground mt-1">
             <span>{{ formatByteSize(fileItem.file.size, 2) }}</span>
@@ -151,8 +149,7 @@
     <!-- 上传中显示加载状态 -->
     <Button v-if="isUploading" disabled :loading="true" class="w-full shrink-0"
       :size="statusMessage ? 'sm' : 'default'">
-      上传中...
-    </Button>
+      上传中... </Button>
 
     <!-- 上传完成后显示继续上传按钮 -->
     <Button v-if="isUploadComplete" @click="handleContinueUpload" class="w-full shrink-0"
@@ -242,7 +239,7 @@ const fileStore = useFileStore();
 const currentScene = ref<FileSourceAccept | null>(null);
 const fileInputRef = ref<{ $el: HTMLInputElement } | null>(null);
 const isUploading = ref(false);
-const isUploadComplete = ref(false);  // 新增：上传完成状态
+const isUploadComplete = ref(false); // 新增：上传完成状态
 const uploadProgress = ref(0);
 const statusMessage = ref("");
 const statusType = ref<"error" | "success">("success");
@@ -296,9 +293,7 @@ const canUpload = computed(() => {
  */
 const uploadAreaText = computed(() => {
   if (props.multiple) {
-    return selectedFiles.value.length > 0
-      ? `已选择 ${selectedFiles.value.length} 个文件`
-      : "拖拽文件到此处或点击上传";
+    return selectedFiles.value.length > 0 ? `已选择 ${selectedFiles.value.length} 个文件` : "拖拽文件到此处或点击上传";
   }
   return selectedFile.value ? selectedFile.value.name : "拖拽文件到此处或点击上传";
 });
@@ -308,13 +303,9 @@ const uploadAreaText = computed(() => {
  */
 const uploadAreaSubText = computed(() => {
   if (props.multiple) {
-    return selectedFiles.value.length > 0
-      ? "点击添加更多文件"
-      : "支持拖拽上传或点击选择多个文件";
+    return selectedFiles.value.length > 0 ? "点击添加更多文件" : "支持拖拽上传或点击选择多个文件";
   }
-  return selectedFile.value
-    ? formatByteSize(selectedFile.value.size, 2)
-    : "支持拖拽上传或点击选择文件";
+  return selectedFile.value ? formatByteSize(selectedFile.value.size, 2) : "支持拖拽上传或点击选择文件";
 });
 
 /**
@@ -595,11 +586,7 @@ const clearAllFiles = () => {
 /**
  * 上传单个文件到 OSS
  */
-const uploadToOSS = async (
-  file: File,
-  signature: PostSignatureResult,
-  onProgress?: (progress: number) => void
-): Promise<string> => {
+const uploadToOSS = async (file: File, signature: PostSignatureResult, onProgress?: (progress: number) => void): Promise<string> => {
   const formData = new FormData();
   if (!signature.key) {
     throw new Error("未获取到文件路径");
@@ -688,7 +675,7 @@ const handleSingleUpload = async () => {
     props.onSuccess([data]);
     emit("upload-success", [data]);
     toast.success(`文件 "${selectedFile.value.name}" 上传成功`);
-    isUploadComplete.value = true;  // 设置上传完成状态
+    isUploadComplete.value = true; // 设置上传完成状态
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     logger.error("上传失败:", error);
@@ -788,11 +775,11 @@ const handleBatchUpload = async () => {
       const firstError = new Error(failedFiles[0]?.error || errorMessage);
       props.onError(firstError);
       emit("upload-error", firstError);
-      isUploadComplete.value = true;  // 即使有错误也设置完成状态
+      isUploadComplete.value = true; // 即使有错误也设置完成状态
     } else {
       showStatus(`${successData.length} 个文件上传成功！`);
       toast.success(`${successData.length} 个文件上传成功`);
-      isUploadComplete.value = true;  // 设置上传完成状态
+      isUploadComplete.value = true; // 设置上传完成状态
     }
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
@@ -840,7 +827,7 @@ const resetForm = () => {
   statusMessage.value = "";
   uploadProgress.value = 0;
   isDragOver.value = false;
-  isUploadComplete.value = false;  // 重置上传完成状态
+  isUploadComplete.value = false; // 重置上传完成状态
 
   // 重置文件输入框
   nextTick(() => {

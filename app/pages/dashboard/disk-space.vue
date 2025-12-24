@@ -1,7 +1,6 @@
 <template>
   <div>
-    <GeneralFileUploader :source="FileSource.IMAGE" :multiple="true" :onSuccess="handleUploadSuccess"
-      :onError="handleUploadError" />
+    <GeneralFileUploader :source="FileSource.FILE" :multiple="true" :autoUpload="true" :onSuccess="handleUploadSuccess" :onError="handleUploadError" />
   </div>
 </template>
 
