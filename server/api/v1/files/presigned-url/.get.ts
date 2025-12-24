@@ -42,25 +42,44 @@ export default defineEventHandler(async (event) => {
     // 创建文件记录
     const config = useRuntimeConfig();
     const bucket = config.aliyun.oss.main.bucket;
+    const basePath = config.aliyun.oss.main.basePath;
+
+    // 生成保存名称
+    const saveName = `${uuidv7()}.${mime.getExtension(mimeType) ?? ''}`;
+
+    // 生成保存目录
+
+    const dir = `${basePath}user${user.id}/${source}/`;
 
     const file = await createOssFileDao({
       userId: user.id,
       bucketName: bucket,
       fileName: originalFileName,
+      filePath: `${dir}${saveName}`,
       fileSize: Number(fileSize),
       fileType: mimeType,
       source: source as FileSource,
       status: OssFileStatus.PENDING,
     });
 
-
     // 生成OSS预签名
-    const signature = await generateOssPostSignature(bucket, originalFileName, maxSize, allowedMimeTypes, {
-      userId: user.id,
-      source: source,
-      originalFileName: originalFileName,
-      fileId: file.id.toString(),
+    const signature = await generateOssPostSignature({
+      bucket,
+      originalFileName,
+      maxSize,
+      dir,
+      saveName,
+      allowedMimeTypes,
+      callbackVar: {
+        user_id: user.id,
+        source: source,
+        original_file_name: originalFileName,
+        file_id: file.id.toString(),
+      }
     });
+
+    // 调试日志：检查返回的 callbackVar
+    logger.info('签名结果 callbackVar:', signature.callbackVar);
 
     return resSuccess(event, "获取预签名URL成功", signature)
   } catch (error) {

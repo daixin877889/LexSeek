@@ -129,32 +129,31 @@ export async function createOssFileDao(ossFile: Prisma.ossFilesCreateInput): Pro
 //     }
 // }
 
-// /**
-//  * 更新 OSS 文件记录
-//  */
-// export async function updateOssFileDao(id: number, data: Partial<OssFile>): Promise<OssFile> {
-//     try {
-//         // 排除 id 和关联字段
-//         const { id: _, asrRecords, docRecognitionRecords, imageRecognitionRecords, ...updateData } = data;
-//         const result = await prisma.ossFiles.update({
-//             where: {
-//                 id, deletedAt: null
-//             },
-//             data: {
-//                 ...updateData,
-//                 updatedAt: new Date()
-//             }
-//         });
-//         return {
-//             ...result,
-//             source: result.source as OssFileSource,
-//             fileSize: Number(result.fileSize)
-//         }
-//     } catch (error) {
-//         logger.error(`更新 OSS 文件记录失败: ${error}`)
-//         throw error
-//     }
-// }
+/**
+ * 更新 OSS 文件记录
+ */
+export async function updateOssFileDao(id: number, data: Partial<Prisma.ossFilesUpdateInput>): Promise<ossFiles> {
+    try {
+        // 排除 id 和关联字段
+        const result = await prisma.ossFiles.update({
+            where: {
+                id, deletedAt: null
+            },
+            data: {
+                ...data,
+                updatedAt: new Date()
+            }
+        });
+        return {
+            ...result,
+            source: result.source as FileSource,
+            fileSize: result.fileSize
+        }
+    } catch (error) {
+        logger.error(`更新 OSS 文件记录失败: ${error}`)
+        throw error
+    }
+}
 
 // /**
 //  * 根据用户 ID 获取 OSS 文件列表

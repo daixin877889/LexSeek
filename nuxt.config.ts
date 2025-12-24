@@ -85,7 +85,8 @@ export default defineNuxtConfig({
       oss: {
         callbackUrl: '',
         main: {
-          bucket: ''
+          bucket: '',
+          basePath: ''
         }
       }
     },

@@ -44,8 +44,8 @@ export interface CallbackConfig {
     callbackBody?: string
     /** 回调体类型，默认 'application/x-www-form-urlencoded' */
     callbackBodyType?: 'application/x-www-form-urlencoded' | 'application/json'
-    /** 自定义回调参数 */
-    callbackVar?: Record<string, string>
+    /** 自定义回调参数（值会自动转换为字符串） */
+    callbackVar?: Record<string, string | number>
 }
 
 /**
@@ -62,11 +62,11 @@ export interface PolicyConditions {
  * 文件名生成选项
  */
 export interface FileKeyOptions {
-    /** 原始文件名（用于提取扩展名） */
-    originalFileName: string
+    /** 原始文件名（用于提取扩展名，当 strategy 不为 'custom' 时必填） */
+    originalFileName?: string
     /** 文件名生成策略，默认 'uuid' */
-    strategy?: 'uuid' | 'timestamp' | 'original'
-    /** 自定义文件名（当 strategy 为 'custom' 时使用） */
+    strategy?: 'uuid' | 'timestamp' | 'original' | 'custom'
+    /** 自定义文件名（当 strategy 为 'custom' 时必填，需包含扩展名） */
     customFileName?: string
 }
 
@@ -109,6 +109,10 @@ export interface PostSignatureResult {
     key?: string
     /** Base64 编码的回调配置（可选） */
     callback?: string
+    /** 回调自定义变量（用于调试查看） */
+    callbackVar?: Record<string, string>
+    /** Base64 编码的回调自定义变量（前端需要作为 callback-var 表单字段传递） */
+    callbackVarBase64?: string
     /** STS 安全令牌（使用 STS 时） */
     securityToken?: string
 }

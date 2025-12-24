@@ -1,14 +1,19 @@
 /**
  * 文件服务
  */
-export async function generateOssPostSignature(
+export async function generateOssPostSignature(query: {
     bucket: string,
     originalFileName: string,
     maxSize: number,
+    dir: string,
+    saveName: string,
     allowedMimeTypes: string[],
-    callbackVar?: Record<string, string>
+    callbackVar?: Record<string, string | number>
+},
+
 ): Promise<PostSignatureResult> {
     try {
+        const { bucket, originalFileName, maxSize, dir, saveName, allowedMimeTypes, callbackVar } = query;
         // 获取回调URL
         const config = useRuntimeConfig();
         const callbackUrl = config.aliyun.oss.callbackUrl;
@@ -39,11 +44,12 @@ export async function generateOssPostSignature(
         // 生成签名
         const signature = await OSS.generatePostSignature(configWithSts, {
             // 文件目录前缀
-            dir: 'uploads/images/',
+            dir: dir,
             // 文件名生成选项
             fileKey: {
                 originalFileName,
-                strategy: 'uuid'  // 使用 UUID 生成文件名
+                strategy: 'custom',  // 使用 UUID 生成文件名
+                customFileName: saveName,
             },
             // 签名过期时间（分钟），默认 10
             expirationMinutes: 10,

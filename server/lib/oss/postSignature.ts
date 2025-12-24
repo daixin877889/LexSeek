@@ -19,22 +19,51 @@ import {
 
 /**
  * 构建回调配置的 Base64 编码字符串
+ * 自动将 callbackVar 中的变量添加到 callbackBody 中
+ * 自动为没有 x: 前缀的变量添加前缀
+ * 
+ * 注意：OSS 回调的工作方式：
+ * 1. callback JSON 中只包含 callbackUrl、callbackBody、callbackBodyType
+ * 2. callbackBody 中使用 ${x:varName} 引用自定义变量
+ * 3. 自定义变量的值由前端在 FormData 中传递（key 为 x:varName）
  */
-function buildCallbackString(callback: CallbackConfig): string {
-    const callbackObj: Record<string, string> = {
-        callbackUrl: callback.callbackUrl,
-        callbackBody: callback.callbackBody || 'filename=${object}&size=${size}&mimeType=${mimeType}&etag=${etag}',
-        callbackBodyType: callback.callbackBodyType || 'application/x-www-form-urlencoded'
-    }
+function buildCallbackString(callback: CallbackConfig): { callbackBase64: string, normalizedCallbackVar?: Record<string, string> } {
+    let callbackBody = callback.callbackBody || 'filename=${object}&size=${size}&mimeType=${mimeType}&etag=${etag}'
 
-    // 添加自定义回调参数
+    // 标准化 callbackVar 的键名（自动添加 x: 前缀）
+    let normalizedCallbackVar: Record<string, string> | undefined
     if (callback.callbackVar) {
+        normalizedCallbackVar = {}
         for (const [key, value] of Object.entries(callback.callbackVar)) {
-            callbackObj[`callbackVar.${key}`] = value
+            // 如果键名没有 x: 前缀，自动添加
+            const normalizedKey = key.startsWith('x:') ? key : `x:${key}`
+            normalizedCallbackVar[normalizedKey] = String(value)
         }
     }
 
-    return encodeBase64(JSON.stringify(callbackObj))
+    // 自动将 callbackVar 中的变量添加到 callbackBody
+    if (normalizedCallbackVar) {
+        for (const key of Object.keys(normalizedCallbackVar)) {
+            // 检查 callbackBody 中是否已包含该变量
+            const varRef = `\${${key}}`
+            if (!callbackBody.includes(varRef)) {
+                // 添加变量引用到 callbackBody
+                callbackBody += `&${key}=${varRef}`
+            }
+        }
+    }
+
+    // callback JSON 只包含基本配置，不包含自定义变量的值
+    const callbackObj: Record<string, string> = {
+        callbackUrl: callback.callbackUrl,
+        callbackBody,
+        callbackBodyType: callback.callbackBodyType || 'application/x-www-form-urlencoded'
+    }
+
+    return {
+        callbackBase64: encodeBase64(JSON.stringify(callbackObj)),
+        normalizedCallbackVar
+    }
 }
 
 /**
@@ -43,7 +72,20 @@ function buildCallbackString(callback: CallbackConfig): string {
  * @returns 生成的文件名（不含目录）
  */
 function generateFileName(options: FileKeyOptions): string {
-    const { originalFileName, strategy = 'uuid' } = options
+    const { originalFileName, strategy = 'uuid', customFileName } = options
+
+    // 自定义文件名策略
+    if (strategy === 'custom') {
+        if (!customFileName) {
+            throw new Error('使用 custom 策略时必须提供 customFileName')
+        }
+        return customFileName
+    }
+
+    // 其他策略需要 originalFileName 来提取扩展名
+    if (!originalFileName) {
+        throw new Error('使用 uuid/timestamp/original 策略时必须提供 originalFileName')
+    }
 
     // 提取扩展名
     const lastDotIndex = originalFileName.lastIndexOf('.')
@@ -63,6 +105,7 @@ function generateFileName(options: FileKeyOptions): string {
 
 /**
  * 构建策略条件数组
+ * 注意：PostObject 表单上传时，自定义回调变量直接作为表单字段传递，不需要在 Policy 中声明
  */
 function buildPolicyConditions(
     bucket: string,
@@ -157,6 +200,15 @@ export async function generatePostSignature(
         accessKeyId
     )
 
+    // 先处理回调配置，获取标准化的 callbackVar
+    let callbackBase64: string | undefined
+    let normalizedCallbackVar: Record<string, string> | undefined
+    if (options.callback) {
+        const callbackResult = buildCallbackString(options.callback)
+        callbackBase64 = callbackResult.callbackBase64
+        normalizedCallbackVar = callbackResult.normalizedCallbackVar
+    }
+
     // 构建策略条件
     const policyConditions = buildPolicyConditions(
         config.bucket,
@@ -195,8 +247,15 @@ export async function generatePostSignature(
     }
 
     // 添加回调配置
-    if (options.callback) {
-        result.callback = buildCallbackString(options.callback)
+    if (callbackBase64) {
+        result.callback = callbackBase64
+        // 返回标准化后的自定义变量及其 Base64 编码
+        // 前端需要将 callbackVarBase64 作为 callback-var 表单字段传递
+        // 根据阿里云 OSS 文档，自定义变量必须通过 callback-var 表单字段传递（Base64 编码的 JSON）
+        if (normalizedCallbackVar && Object.keys(normalizedCallbackVar).length > 0) {
+            result.callbackVar = normalizedCallbackVar
+            result.callbackVarBase64 = encodeBase64(JSON.stringify(normalizedCallbackVar))
+        }
     }
 
     // 添加 STS Token
