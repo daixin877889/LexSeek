@@ -1,9 +1,6 @@
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../../generated/prisma/client'
 
-// 检查是否在 serverless 环境中
-const isServerless = process.env.VERCEL || process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.TENCENT_CLOUD
-
 // Asia/Shanghai 时区偏移量（毫秒）
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000
 
@@ -110,107 +107,114 @@ function convertQueryArgs(args: Record<string, unknown>): Record<string, unknown
 
 const prismaClientSingleton = () => {
     // 确保 DATABASE_URL 存在
-    if (!process.env.DATABASE_URL) {
+    const databaseUrl = process.env.DATABASE_URL
+    if (!databaseUrl) {
+        console.error('[Prisma] DATABASE_URL environment variable is not set')
         throw new Error('DATABASE_URL environment variable is not set')
     }
 
-    const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL })
-    const baseClient = new PrismaClient({ adapter: pool })
+    try {
+        const pool = new PrismaPg({ connectionString: databaseUrl })
+        const baseClient = new PrismaClient({ adapter: pool })
 
-    // 使用 $extends 创建带时区转换的客户端
-    const client = baseClient.$extends({
-        query: {
-            $allModels: {
-                // 写入操作：转换 data 和 where 中的 Date
-                async create({ args, query }) {
-                    const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
-                    const result = await query(convertedArgs as typeof args)
-                    return convertDatesForRead(result)
-                },
-                async createMany({ args, query }) {
-                    const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
-                    return query(convertedArgs as typeof args)
-                },
-                async createManyAndReturn({ args, query }) {
-                    const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
-                    const result = await query(convertedArgs as typeof args)
-                    return convertDatesForRead(result)
-                },
-                async update({ args, query }) {
-                    const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
-                    const result = await query(convertedArgs as typeof args)
-                    return convertDatesForRead(result)
-                },
-                async updateMany({ args, query }) {
-                    const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
-                    return query(convertedArgs as typeof args)
-                },
-                async updateManyAndReturn({ args, query }) {
-                    const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
-                    const result = await query(convertedArgs as typeof args)
-                    return convertDatesForRead(result)
-                },
-                async upsert({ args, query }) {
-                    const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
-                    const result = await query(convertedArgs as typeof args)
-                    return convertDatesForRead(result)
-                },
-                // 删除操作：转换 where 中的 Date
-                async delete({ args, query }) {
-                    const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
-                    const result = await query(convertedArgs as typeof args)
-                    return convertDatesForRead(result)
-                },
-                async deleteMany({ args, query }) {
-                    const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
-                    return query(convertedArgs as typeof args)
-                },
-                // 读取操作：转换 where、cursor 中的 Date，并转换返回结果
-                async findFirst({ args, query }) {
-                    const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
-                    const result = await query(convertedArgs as typeof args)
-                    return convertDatesForRead(result)
-                },
-                async findUnique({ args, query }) {
-                    const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
-                    const result = await query(convertedArgs as typeof args)
-                    return convertDatesForRead(result)
-                },
-                async findMany({ args, query }) {
-                    const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
-                    const result = await query(convertedArgs as typeof args)
-                    return convertDatesForRead(result)
-                },
-                async findFirstOrThrow({ args, query }) {
-                    const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
-                    const result = await query(convertedArgs as typeof args)
-                    return convertDatesForRead(result)
-                },
-                async findUniqueOrThrow({ args, query }) {
-                    const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
-                    const result = await query(convertedArgs as typeof args)
-                    return convertDatesForRead(result)
-                },
-                // 聚合操作：转换 where、cursor、having 中的 Date
-                async count({ args, query }) {
-                    const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
-                    return query(convertedArgs as typeof args)
-                },
-                async aggregate({ args, query }) {
-                    const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
-                    const result = await query(convertedArgs as typeof args)
-                    return convertDatesForRead(result)
-                },
-                async groupBy({ args, query }) {
-                    const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
-                    const result = await query(convertedArgs as typeof args)
-                    return convertDatesForRead(result)
+        // 使用 $extends 创建带时区转换的客户端
+        const client = baseClient.$extends({
+            query: {
+                $allModels: {
+                    // 写入操作：转换 data 和 where 中的 Date
+                    async create({ args, query }) {
+                        const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
+                        const result = await query(convertedArgs as typeof args)
+                        return convertDatesForRead(result)
+                    },
+                    async createMany({ args, query }) {
+                        const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
+                        return query(convertedArgs as typeof args)
+                    },
+                    async createManyAndReturn({ args, query }) {
+                        const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
+                        const result = await query(convertedArgs as typeof args)
+                        return convertDatesForRead(result)
+                    },
+                    async update({ args, query }) {
+                        const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
+                        const result = await query(convertedArgs as typeof args)
+                        return convertDatesForRead(result)
+                    },
+                    async updateMany({ args, query }) {
+                        const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
+                        return query(convertedArgs as typeof args)
+                    },
+                    async updateManyAndReturn({ args, query }) {
+                        const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
+                        const result = await query(convertedArgs as typeof args)
+                        return convertDatesForRead(result)
+                    },
+                    async upsert({ args, query }) {
+                        const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
+                        const result = await query(convertedArgs as typeof args)
+                        return convertDatesForRead(result)
+                    },
+                    // 删除操作：转换 where 中的 Date
+                    async delete({ args, query }) {
+                        const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
+                        const result = await query(convertedArgs as typeof args)
+                        return convertDatesForRead(result)
+                    },
+                    async deleteMany({ args, query }) {
+                        const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
+                        return query(convertedArgs as typeof args)
+                    },
+                    // 读取操作：转换 where、cursor 中的 Date，并转换返回结果
+                    async findFirst({ args, query }) {
+                        const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
+                        const result = await query(convertedArgs as typeof args)
+                        return convertDatesForRead(result)
+                    },
+                    async findUnique({ args, query }) {
+                        const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
+                        const result = await query(convertedArgs as typeof args)
+                        return convertDatesForRead(result)
+                    },
+                    async findMany({ args, query }) {
+                        const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
+                        const result = await query(convertedArgs as typeof args)
+                        return convertDatesForRead(result)
+                    },
+                    async findFirstOrThrow({ args, query }) {
+                        const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
+                        const result = await query(convertedArgs as typeof args)
+                        return convertDatesForRead(result)
+                    },
+                    async findUniqueOrThrow({ args, query }) {
+                        const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
+                        const result = await query(convertedArgs as typeof args)
+                        return convertDatesForRead(result)
+                    },
+                    // 聚合操作：转换 where、cursor、having 中的 Date
+                    async count({ args, query }) {
+                        const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
+                        return query(convertedArgs as typeof args)
+                    },
+                    async aggregate({ args, query }) {
+                        const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
+                        const result = await query(convertedArgs as typeof args)
+                        return convertDatesForRead(result)
+                    },
+                    async groupBy({ args, query }) {
+                        const convertedArgs = convertQueryArgs(args as Record<string, unknown>)
+                        const result = await query(convertedArgs as typeof args)
+                        return convertDatesForRead(result)
+                    },
                 },
             },
-        },
-    })
+        })
 
-    return client
+        return client
+    } catch (error) {
+        console.error('[Prisma] Failed to initialize Prisma client:', error)
+        throw error
+    }
 }
 
 type PrismaClientSingleton = ReturnType<typeof prismaClientSingleton>
@@ -220,6 +224,5 @@ const globalForPrisma = globalThis as unknown as {
 }
 
 export const prisma = globalForPrisma.prisma ?? prismaClientSingleton()
-
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma
