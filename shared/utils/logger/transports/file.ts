@@ -53,7 +53,17 @@ export class FileTransport implements Transport {
         if (!this.fs || !this.path) return
 
         try {
-            const fullPath = this.path.resolve(process.cwd(), this.logsDir)
+            // 在 serverless 环境中 process.cwd() 可能失败
+            let cwd: string
+            try {
+                cwd = process.cwd()
+            } catch {
+                // serverless 环境中无法获取工作目录，跳过文件日志
+                this.initError = true
+                return
+            }
+
+            const fullPath = this.path.resolve(cwd, this.logsDir)
             if (!this.fs.existsSync(fullPath)) {
                 this.fs.mkdirSync(fullPath, { recursive: true })
             }
@@ -112,8 +122,17 @@ export class FileTransport implements Transport {
         }
 
         try {
+            // 在 serverless 环境中 process.cwd() 可能失败
+            let cwd: string
+            try {
+                cwd = process.cwd()
+            } catch {
+                console.log(LogFormatter.format(entry))
+                return
+            }
+
             const filePath = this.getLogFilePath(entry.level, entry.timestamp)
-            const fullPath = this.path.resolve(process.cwd(), filePath)
+            const fullPath = this.path.resolve(cwd, filePath)
             const formattedLog = LogFormatter.format(entry)
 
             // Append to file with newline
