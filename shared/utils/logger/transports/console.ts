@@ -73,11 +73,14 @@ export class ConsoleTransport implements Transport {
 
     /**
      * Get the appropriate console method based on log level.
+     * 注意：在 Nitro 服务端环境中，console.debug 的输出会被过滤，
+     * 因此 DEBUG 级别在服务端使用 console.log 代替
      */
     private getConsoleMethod(level: number): (...args: unknown[]) => void {
         switch (level) {
             case LOG_LEVELS.DEBUG:
-                return console.debug.bind(console)
+                // 服务端使用 console.log，因为 Nitro 会过滤 console.debug
+                return this.isBrowser ? console.debug.bind(console) : console.log.bind(console)
             case LOG_LEVELS.INFO:
                 return console.info.bind(console)
             case LOG_LEVELS.WARN:

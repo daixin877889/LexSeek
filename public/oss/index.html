@@ -455,6 +455,9 @@
           })
           .then((resData) => {
             const data = resData.data;
+            console.log('服务端返回的签名数据:', data);
+            console.log('callbackVar:', data.callbackVar);
+
             let formData = new FormData();
             formData.append("success_action_status", "200");
             formData.append("policy", data.policy);
@@ -471,6 +474,16 @@
             // 仅在配置了回调时添加 callback
             if (data.callback) {
               formData.append("callback", data.callback);
+            }
+            // 添加回调自定义变量
+            // 根据阿里云 OSS 官方文档，PostObject 表单上传时，自定义变量直接作为表单字段传递
+            // 例如：formData.append("x:userId", "1")
+            if (data.callbackVar) {
+              console.log('添加 callbackVar 到 FormData:');
+              for (const [key, value] of Object.entries(data.callbackVar)) {
+                console.log(`  ${key} = ${value}`);
+                formData.append(key, String(value));
+              }
             }
             formData.append("file", file);
 
