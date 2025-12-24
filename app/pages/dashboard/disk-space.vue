@@ -1,6 +1,7 @@
 <template>
   <div>
-    <GeneralFileUploader :source="FileSource.IMAGE" :onSuccess="handleUploadSuccess" :onError="handleUploadError" />
+    <GeneralFileUploader :source="FileSource.IMAGE" :multiple="true" :onSuccess="handleUploadSuccess"
+      :onError="handleUploadError" />
   </div>
 </template>
 
@@ -10,10 +11,12 @@ definePageMeta({
   layout: "dashboard-layout",
 });
 
-const handleUploadSuccess = (file: PostSignatureResult) => {
-  console.log("上传成功", file);
+// 上传成功回调
+const handleUploadSuccess = (data: Record<string, unknown>[]) => {
+  console.log("上传成功", data);
 };
 
+// 上传失败回调
 const handleUploadError = (error: Error) => {
   console.log("上传失败", error);
 };

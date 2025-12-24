@@ -7,6 +7,8 @@
 2. 使用 `shared/utils/mime.ts` 进行 MIME 类型判断
 3. 适配 OSS V4 签名方式
 4. 添加完整的 TypeScript 类型定义
+5. **支持单选和多选上传模式**
+6. **实现批量生成签名的 POST 接口**
 
 ## 术语表
 
@@ -17,6 +19,9 @@
 - **Post_Signature**: 客户端直传签名，允许前端直接上传文件到 OSS
 - **useApi**: 项目封装的 API 请求 composable，基于 Nuxt 的 useFetch
 - **mime**: 项目的 MIME 类型工具（`shared/utils/mime.ts`），用于根据文件扩展名获取 MIME 类型
+- **Single_Mode**: 单选上传模式，一次只能选择和上传一个文件
+- **Multiple_Mode**: 多选上传模式，一次可以选择和上传多个文件
+- **Batch_Presigned_URL**: 批量预签名接口，一次请求为多个文件生成签名信息
 
 ## 需求
 
@@ -117,3 +122,39 @@
 2. THE File_Uploader SHALL 移除未使用的 `FILE_TYPE_MAPPINGS` 常量（改用 `shared/utils/mime.ts`）
 3. THE File_Uploader SHALL 使用项目的 logger 工具
 4. THE File_Uploader SHALL 遵循项目的代码规范和命名约定
+
+### 需求 10：单选和多选上传模式
+
+**用户故事：** 作为用户，我希望能够根据场景选择单个文件或多个文件上传，以便满足不同的上传需求。
+
+#### 验收标准
+
+1. THE File_Uploader SHALL 通过 `multiple` prop 支持单选和多选模式，默认为单选模式（`multiple: false`）
+2. WHEN `multiple` 为 `false` 时，THE File_Uploader SHALL 只允许选择和上传一个文件
+3. WHEN `multiple` 为 `true` 时，THE File_Uploader SHALL 允许选择和上传多个文件
+4. WHEN 多选模式下用户选择文件时，THE File_Uploader SHALL 显示已选文件列表和文件数量
+5. WHEN 多选模式下上传时，THE File_Uploader SHALL 批量获取所有文件的签名并依次上传
+6. THE File_Uploader SHALL 在多选模式下显示每个文件的上传进度和状态
+
+### 需求 11：批量预签名接口
+
+**用户故事：** 作为开发者，我希望有一个批量生成签名的接口，以便在多文件上传时减少 API 调用次数。
+
+#### 验收标准
+
+1. THE Server SHALL 在 `server/api/v1/files/presigned-url/.post.ts` 提供批量预签名接口
+2. WHEN 接收到批量签名请求时，THE Server SHALL 验证每个文件的类型和大小
+3. WHEN 所有文件验证通过时，THE Server SHALL 为每个文件生成独立的签名信息
+4. IF 任何文件验证失败，THEN THE Server SHALL 返回具体的错误信息，指明哪个文件验证失败
+5. THE Server SHALL 返回与文件数组对应的签名数组
+
+### 需求 12：Store 批量签名方法
+
+**用户故事：** 作为开发者，我希望 store 提供批量获取签名的方法，以便组件在多选模式下使用。
+
+#### 验收标准
+
+1. THE File_Store SHALL 提供 `getBatchPresignedUrls` 方法调用批量预签名接口
+2. THE `getBatchPresignedUrls` 方法 SHALL 接受文件信息数组作为参数
+3. THE `getBatchPresignedUrls` 方法 SHALL 返回与输入数组对应的签名结果数组
+4. THE File_Store SHALL 正确处理批量请求的 loading 和 error 状态

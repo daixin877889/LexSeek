@@ -8,13 +8,30 @@ import type { FileSource, FileSourceAccept } from '~~/shared/types/file'
 import type { PostSignatureResult } from '~~/shared/types/oss'
 
 /**
- * 预签名 URL 请求参数
+ * 预签名 URL 请求参数（单文件）
  */
 export interface PresignedUrlParams {
   source: FileSource
   originalFileName: string
   fileSize: number
   mimeType: string
+}
+
+/**
+ * 单个文件信息
+ */
+export interface FileInfo {
+  originalFileName: string
+  fileSize: number
+  mimeType: string
+}
+
+/**
+ * 批量预签名 URL 请求参数
+ */
+export interface BatchPresignedUrlParams {
+  source: FileSource
+  files: FileInfo[]
 }
 
 export const useFileStore = defineStore('file', () => {
@@ -58,7 +75,7 @@ export const useFileStore = defineStore('file', () => {
   }
 
   /**
-   * 获取预签名 URL
+   * 获取预签名 URL（单文件）
    * @param params 请求参数
    * @returns 预签名结果或 null
    */
@@ -91,6 +108,38 @@ export const useFileStore = defineStore('file', () => {
     }
   }
 
+  /**
+   * 批量获取预签名 URL（多文件）
+   * @param params 批量请求参数
+   * @returns 预签名结果数组或 null
+   */
+  const getBatchPresignedUrls = async (params: BatchPresignedUrlParams): Promise<PostSignatureResult[] | null> => {
+    loading.value = true
+    error.value = null
+
+    try {
+      const data = await useApiFetch<PostSignatureResult[]>(
+        '/api/v1/files/presigned-url',
+        {
+          method: 'POST',
+          body: {
+            source: params.source,
+            files: params.files,
+          },
+          showError: false,
+        }
+      )
+      loading.value = false
+      return data
+    } catch (err: unknown) {
+      loading.value = false
+      const errorMessage = err instanceof Error ? err.message : '批量获取预签名 URL 失败'
+      error.value = errorMessage
+      logger.error('批量获取预签名 URL 失败:', err)
+      return null
+    }
+  }
+
   return {
     // 状态
     loading,
@@ -99,5 +148,6 @@ export const useFileStore = defineStore('file', () => {
     // 方法
     getUploadConfig,
     getPresignedUrl,
+    getBatchPresignedUrls,
   }
 })
