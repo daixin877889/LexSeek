@@ -31,6 +31,7 @@ export async function generateOssPostSignature(query: {
             accessKeySecret: ossConfigValue.accessKeySecret,
             bucket,
             region: ossConfigValue.region,
+            customDomain: ossConfigValue.domain,  // 使用自定义域名
             sts: {
                 roleArn: ossConfigValue.roleArn ?? '',
                 roleSessionName: ossConfigValue.roleSessionName ?? 'OSS',  // 可选

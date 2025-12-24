@@ -29,12 +29,22 @@ const config: OssConfig = {
   region: 'cn-hangzhou'
 }
 
+// 使用自定义域名的配置
+const configWithCustomDomain: OssConfig = {
+  accessKeyId: 'your-access-key-id',
+  accessKeySecret: 'your-access-key-secret',
+  bucket: 'your-bucket-name',
+  region: 'cn-hangzhou',
+  customDomain: 'https://cdn.example.com'  // 自定义域名（CDN 加速域名）
+}
+
 // 使用 STS 临时凭证的配置
 const configWithSts: OssConfig = {
   accessKeyId: 'your-access-key-id',
   accessKeySecret: 'your-access-key-secret',
   bucket: 'your-bucket-name',
   region: 'cn-hangzhou',
+  customDomain: 'https://cdn.example.com',  // 可选：自定义域名
   sts: {
     roleArn: 'acs:ram::1234567890:role/oss-role',
     roleSessionName: 'session-name',  // 可选
@@ -42,6 +52,21 @@ const configWithSts: OssConfig = {
   }
 }
 ```
+
+### 自定义域名说明
+
+`customDomain` 字段用于配置 CDN 加速域名或自定义域名，配置后：
+
+1. **签名结果的 `host` 字段**会使用自定义域名，前端上传时会直接上传到该域名
+2. 支持以下格式：
+   - `https://cdn.example.com` - 完整 URL
+   - `cdn.example.com` - 会自动添加 `https://` 前缀
+3. 如果不配置，默认使用阿里云 OSS 标准域名：`https://{bucket}.oss-{region}.aliyuncs.com`
+
+**使用场景**：
+- 配置了 CDN 加速的 Bucket
+- 绑定了自定义域名的 Bucket
+- 需要通过特定域名访问 OSS 的场景
 
 ## API 文档
 

@@ -12,6 +12,8 @@ export interface OssBaseConfig {
     bucket: string
     /** 区域，如 'cn-hangzhou' */
     region: string
+    /** 自定义域名（可选），如 'https://cdn.example.com' */
+    customDomain?: string
 }
 
 /**

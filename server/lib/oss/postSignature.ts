@@ -231,7 +231,7 @@ export async function generatePostSignature(
 
     // 构建结果
     const result: PostSignatureResult = {
-        host: getOssHost(config.bucket, config.region),
+        host: getOssHost(config.bucket, config.region, config.customDomain),
         policy: policyBase64,
         signatureVersion: 'OSS4-HMAC-SHA256',
         credential,

@@ -60,8 +60,22 @@ export function decodeBase64(base64: string): string {
 
 /**
  * 获取 OSS 主机地址
+ * @param bucket Bucket 名称
+ * @param region 区域
+ * @param customDomain 自定义域名（可选）
  */
-export function getOssHost(bucket: string, region: string): string {
+export function getOssHost(bucket: string, region: string, customDomain?: string): string {
+    // 如果配置了自定义域名，直接使用
+    if (customDomain) {
+        // 确保域名以 https:// 开头，移除末尾的斜杠
+        let domain = customDomain.trim()
+        if (!domain.startsWith('http://') && !domain.startsWith('https://')) {
+            domain = `https://${domain}`
+        }
+        return domain.replace(/\/+$/, '')
+    }
+
+    // 使用默认的 OSS 域名
     const standardRegion = getStandardRegion(region)
     return `https://${bucket}.oss-${standardRegion}.aliyuncs.com`
 }
