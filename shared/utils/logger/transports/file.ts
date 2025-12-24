@@ -5,7 +5,7 @@
  * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 6.1, 6.2
  */
 
-import { type LogEntry, type LogLevel, type Transport, getLevelName } from '../types'
+import { type LogEntry, type Transport, getLevelName } from '../types'
 import { LogFormatter } from '../formatter'
 
 /**
@@ -25,22 +25,6 @@ export class FileTransport implements Transport {
     }
 
     /**
-     * 检测是否为 serverless 环境（只读文件系统）
-     */
-    private isServerlessEnvironment(): boolean {
-        // 常见的 serverless 环境标识
-        return !!(
-            process.env.VERCEL ||
-            process.env.NETLIFY ||
-            process.env.AWS_LAMBDA_FUNCTION_NAME ||
-            process.env.TENCENT_CLOUD ||
-            process.env.EDGEONE ||
-            // 腾讯云 EdgeOne/Pages 的路径特征
-            process.cwd?.()?.startsWith('/var/user')
-        )
-    }
-
-    /**
      * Dynamically import Node.js modules.
      * This allows the class to be imported in browser without errors.
      */
@@ -50,12 +34,6 @@ export class FileTransport implements Transport {
         try {
             // Only import in Node.js environment
             if (typeof window === 'undefined') {
-                // 在 serverless 环境中禁用文件日志
-                if (this.isServerlessEnvironment()) {
-                    this.initError = true
-                    return
-                }
-
                 this.fs = await import('fs')
                 this.path = await import('path')
                 this.ensureLogsDir()
@@ -63,7 +41,7 @@ export class FileTransport implements Transport {
             }
         } catch (error) {
             this.initError = true
-            // 静默处理，不打印警告
+            console.warn('[FileTransport] Failed to initialize file system modules:', error)
         }
     }
 
@@ -75,16 +53,13 @@ export class FileTransport implements Transport {
         if (!this.fs || !this.path) return
 
         try {
-            const cwd = process.cwd()
-            const fullPath = this.path.resolve(cwd, this.logsDir)
-
-            // 先检查目录是否可写
+            const fullPath = this.path.resolve(process.cwd(), this.logsDir)
             if (!this.fs.existsSync(fullPath)) {
                 this.fs.mkdirSync(fullPath, { recursive: true })
             }
-        } catch {
-            // 静默失败，禁用文件日志
+        } catch (error) {
             this.initError = true
+            console.warn(`[FileTransport] Failed to create logs directory: ${this.logsDir}`, error)
         }
     }
 
@@ -93,7 +68,7 @@ export class FileTransport implements Transport {
      * Pattern: logs/{level}-{YYYY-MM-DD}.log
      * Requirements: 3.3, 3.4
      */
-    getLogFilePath(level: LogLevel, date: Date): string {
+    getLogFilePath(level: number, date: Date): string {
         const levelName = getLevelName(level).toLowerCase()
         const year = date.getFullYear()
         const month = (date.getMonth() + 1).toString().padStart(2, '0')
@@ -111,7 +86,8 @@ export class FileTransport implements Transport {
         // Skip if not in Node.js environment or initialization failed
         if (typeof window !== 'undefined') return
         if (this.initError) {
-            // serverless 环境中静默跳过文件日志，由 ConsoleTransport 处理
+            // Fall back to console output
+            console.log(LogFormatter.format(entry))
             return
         }
 
@@ -131,21 +107,22 @@ export class FileTransport implements Transport {
      */
     private writeToFile(entry: LogEntry): void {
         if (!this.fs || !this.path || this.initError) {
+            console.log(LogFormatter.format(entry))
             return
         }
 
         try {
-            const cwd = process.cwd()
             const filePath = this.getLogFilePath(entry.level, entry.timestamp)
-            const fullPath = this.path.resolve(cwd, filePath)
+            const fullPath = this.path.resolve(process.cwd(), filePath)
             const formattedLog = LogFormatter.format(entry)
 
             // Append to file with newline
             // Requirements: 3.5 - append mode, no overwriting
             this.fs.appendFileSync(fullPath, formattedLog + '\n', { encoding: 'utf-8' })
-        } catch {
-            // 静默失败，禁用后续文件写入
-            this.initError = true
+        } catch (error) {
+            // Requirements: 6.1 - fall back to console on file write failure
+            console.warn('[FileTransport] Failed to write to log file, falling back to console:', error)
+            console.log(LogFormatter.format(entry))
         }
     }
 }
