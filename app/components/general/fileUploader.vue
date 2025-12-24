@@ -15,17 +15,17 @@
           'border-muted-foreground/10 bg-muted/50 cursor-not-allowed': isUploading,
           'cursor-pointer': !isUploading,
         },
-      ]" @dragover.prevent="!isUploading && handleDragOver($event)"
-      @dragleave.prevent="!isUploading && handleDragLeave($event)" @drop.prevent="!isUploading && handleDrop($event)"
+      ]"
+      @dragover.prevent="!isUploading && handleDragOver($event)"
+      @dragleave.prevent="!isUploading && handleDragLeave($event)"
+      @drop.prevent="!isUploading && handleDrop($event)"
       @click="!isUploading && triggerFileInput()">
       <!-- 上传进度背景 -->
-      <div v-if="isUploading" class="absolute inset-0 bg-primary/10 transition-all duration-300"
-        :style="{ width: uploadProgress + '%' }"></div>
+      <div v-if="isUploading" class="absolute inset-0 bg-primary/10 transition-all duration-300" :style="{ width: uploadProgress + '%' }"></div>
 
       <div class="relative px-4 py-4 w-full max-w-sm mx-auto" :class="statusMessage ? 'space-y-2' : 'space-y-4'">
         <!-- 上传图标 -->
-        <div class="mx-auto rounded-full bg-muted flex items-center justify-center"
-          :class="statusMessage ? 'w-10 h-10' : 'w-16 h-16'">
+        <div class="mx-auto rounded-full bg-muted flex items-center justify-center" :class="statusMessage ? 'w-10 h-10' : 'w-16 h-16'">
           <UploadIcon :class="statusMessage ? 'h-5 w-5' : 'h-8 w-8'" class="text-muted-foreground" />
         </div>
 
@@ -35,29 +35,29 @@
             {{ isUploading ? "正在上传..." : selectedFile ? selectedFile.name : "拖拽文件到此处或点击上传" }}
           </p>
           <p :class="statusMessage ? 'text-xs' : 'text-sm'" class="text-muted-foreground leading-tight">
-            {{ isUploading ? `${Math.round(uploadProgress)}% 已完成` : selectedFile ? formatByteSize(selectedFile.size, 2)
-              : "支持拖拽上传或点击选择文件" }}
+            {{ isUploading ? `${Math.round(uploadProgress)}% 已完成` : selectedFile ? formatByteSize(selectedFile.size, 2) : "支持拖拽上传或点击选择文件" }}
           </p>
         </div>
 
         <!-- 隐藏的文件输入 -->
-        <Input ref="fileInputRef" type="file" @change="handleFileChange" :accept="acceptAttribute"
-          :disabled="isUploading" class="hidden" />
+        <Input ref="fileInputRef" type="file" @change="handleFileChange" :accept="acceptAttribute" :disabled="isUploading" class="hidden" />
       </div>
     </div>
 
     <!-- 上传按钮 -->
-    <Button @click="handleUpload" :disabled="!canUpload || isUploading" :loading="isUploading" class="w-full shrink-0"
-      :size="statusMessage ? 'sm' : 'default'">
+    <Button @click="handleUpload" :disabled="!canUpload || isUploading" :loading="isUploading" class="w-full shrink-0" :size="statusMessage ? 'sm' : 'default'">
       <UploadIcon class="h-4 w-4 mr-2" />
       {{ isUploading ? "上传中..." : "上传文件" }}
     </Button>
 
     <!-- 状态消息 -->
-    <div v-if="statusMessage" class="shrink-0 rounded-md p-2 text-xs" :class="{
-      'bg-destructive/15 text-destructive border border-destructive/20': statusType === 'error',
-      'bg-green-50 text-green-700 border border-green-200': statusType === 'success',
-    }">
+    <div
+      v-if="statusMessage"
+      class="shrink-0 rounded-md p-2 text-xs"
+      :class="{
+        'bg-destructive/15 text-destructive border border-destructive/20': statusType === 'error',
+        'bg-green-50 text-green-700 border border-green-200': statusType === 'success',
+      }">
       {{ statusMessage }}
     </div>
   </div>
@@ -89,14 +89,9 @@ interface ValidationResult {
 
 const props = withDefaults(defineProps<FileUploaderProps>(), {
   source: "file" as FileSource,
-  onSuccess: () => { },
-  onError: () => { },
+  onSuccess: () => {},
+  onError: () => {},
 });
-
-const emit = defineEmits<{
-  (e: "upload-success", signature: PostSignatureResult): void;
-  (e: "upload-error", error: Error): void;
-}>();
 
 const fileStore = useFileStore();
 
@@ -327,7 +322,6 @@ const handleUpload = async () => {
     }
     await uploadToOSS(selectedFile.value, signature);
     showStatus("文件上传成功！");
-    emit("upload-success", signature);
     props.onSuccess(signature);
     toast.success(`文件 "${selectedFile.value.name}" 上传成功`);
     // 上传成功后清除已选中的文件
@@ -337,7 +331,6 @@ const handleUpload = async () => {
     logger.error("上传失败:", error);
     const errorMessage = `上传失败: ${error.message || "服务器错误"}`;
     showStatus(errorMessage, true);
-    emit("upload-error", error);
     props.onError(error);
     toast.error(`文件 "${selectedFile.value?.name}" 上传失败: ${error.message || "服务器错误"}`);
   } finally {
