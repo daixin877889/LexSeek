@@ -15,17 +15,17 @@
           'border-muted-foreground/10 bg-muted/50 cursor-not-allowed': isUploading,
           'cursor-pointer': !isUploading,
         },
-      ]"
-      @dragover.prevent="!isUploading && handleDragOver($event)"
-      @dragleave.prevent="!isUploading && handleDragLeave($event)"
-      @drop.prevent="!isUploading && handleDrop($event)"
+      ]" @dragover.prevent="!isUploading && handleDragOver($event)"
+      @dragleave.prevent="!isUploading && handleDragLeave($event)" @drop.prevent="!isUploading && handleDrop($event)"
       @click="!isUploading && triggerFileInput()">
       <!-- 上传进度背景 -->
-      <div v-if="isUploading" class="absolute inset-0 bg-primary/10 transition-all duration-300" :style="{ width: uploadProgress + '%' }"></div>
+      <div v-if="isUploading" class="absolute inset-0 bg-primary/10 transition-all duration-300"
+        :style="{ width: uploadProgress + '%' }"></div>
 
       <div class="relative px-4 py-4 w-full max-w-sm mx-auto" :class="statusMessage ? 'space-y-2' : 'space-y-4'">
         <!-- 上传图标 -->
-        <div class="mx-auto rounded-full bg-muted flex items-center justify-center" :class="statusMessage ? 'w-10 h-10' : 'w-16 h-16'">
+        <div class="mx-auto rounded-full bg-muted flex items-center justify-center"
+          :class="statusMessage ? 'w-10 h-10' : 'w-16 h-16'">
           <UploadIcon :class="statusMessage ? 'h-5 w-5' : 'h-8 w-8'" class="text-muted-foreground" />
         </div>
 
@@ -35,29 +35,29 @@
             {{ isUploading ? "正在上传..." : selectedFile ? selectedFile.name : "拖拽文件到此处或点击上传" }}
           </p>
           <p :class="statusMessage ? 'text-xs' : 'text-sm'" class="text-muted-foreground leading-tight">
-            {{ isUploading ? `${Math.round(uploadProgress)}% 已完成` : selectedFile ? formatByteSize(selectedFile.size, 2) : "支持拖拽上传或点击选择文件" }}
+            {{ isUploading ? `${Math.round(uploadProgress)}% 已完成` : selectedFile ? formatByteSize(selectedFile.size, 2)
+              : "支持拖拽上传或点击选择文件" }}
           </p>
         </div>
 
         <!-- 隐藏的文件输入 -->
-        <Input ref="fileInputRef" type="file" @change="handleFileChange" :accept="acceptAttribute" :disabled="isUploading" class="hidden" />
+        <Input ref="fileInputRef" type="file" @change="handleFileChange" :accept="acceptAttribute"
+          :disabled="isUploading" class="hidden" />
       </div>
     </div>
 
     <!-- 上传按钮 -->
-    <Button @click="handleUpload" :disabled="!canUpload || isUploading" :loading="isUploading" class="w-full shrink-0" :size="statusMessage ? 'sm' : 'default'">
+    <Button @click="handleUpload" :disabled="!canUpload || isUploading" :loading="isUploading" class="w-full shrink-0"
+      :size="statusMessage ? 'sm' : 'default'">
       <UploadIcon class="h-4 w-4 mr-2" />
       {{ isUploading ? "上传中..." : "上传文件" }}
     </Button>
 
     <!-- 状态消息 -->
-    <div
-      v-if="statusMessage"
-      class="shrink-0 rounded-md p-2 text-xs"
-      :class="{
-        'bg-destructive/15 text-destructive border border-destructive/20': statusType === 'error',
-        'bg-green-50 text-green-700 border border-green-200': statusType === 'success',
-      }">
+    <div v-if="statusMessage" class="shrink-0 rounded-md p-2 text-xs" :class="{
+      'bg-destructive/15 text-destructive border border-destructive/20': statusType === 'error',
+      'bg-green-50 text-green-700 border border-green-200': statusType === 'success',
+    }">
       {{ statusMessage }}
     </div>
   </div>
@@ -89,8 +89,8 @@ interface ValidationResult {
 
 const props = withDefaults(defineProps<FileUploaderProps>(), {
   source: "file" as FileSource,
-  onSuccess: () => {},
-  onError: () => {},
+  onSuccess: () => { },
+  onError: () => { },
 });
 
 const fileStore = useFileStore();
@@ -105,6 +105,10 @@ const statusType = ref<"error" | "success">("success");
 const detectedMimeType = ref("");
 const isDragOver = ref(false);
 
+/**
+ * 计算文件输入框的 accept 属性
+ * 根据当前场景配置生成允许的文件类型字符串
+ */
 const acceptAttribute = computed(() => {
   if (!currentScene.value || !currentScene.value.accept || currentScene.value.accept.length === 0) {
     return "";
@@ -120,10 +124,19 @@ const acceptAttribute = computed(() => {
   return acceptItems.join(",");
 });
 
+/**
+ * 计算是否可以上传
+ * 需要选中文件且文件验证通过
+ */
 const canUpload = computed(() => {
   return selectedFile.value && validateFile(selectedFile.value).valid;
 });
 
+/**
+ * 格式化允许的文件类型显示
+ * @param acceptConfig 文件类型配置数组
+ * @returns 格式化后的文件类型字符串，如 ".pdf(50 MB) | .png(10 MB)"
+ */
 const formatAcceptTypes = (acceptConfig: AcceptItem[]): string => {
   if (!acceptConfig || acceptConfig.length === 0) {
     return "所有文件格式";
@@ -136,11 +149,22 @@ const formatAcceptTypes = (acceptConfig: AcceptItem[]): string => {
   return friendlyNames.join(" | ");
 };
 
+/**
+ * 显示状态消息
+ * @param message 消息内容
+ * @param isError 是否为错误消息，默认 false
+ */
 const showStatus = (message: string, isError = false) => {
   statusMessage.value = message;
   statusType.value = isError ? "error" : "success";
 };
 
+/**
+ * 检测文件的 MIME 类型
+ * 优先使用文件自带的 type，如果为空则根据扩展名推断
+ * @param file 文件对象
+ * @returns MIME 类型字符串
+ */
 const detectMimeType = (file: File): string => {
   const fileName = file.name || "";
   const fileExtension = fileName.split(".").pop()?.toLowerCase() || "";
@@ -155,6 +179,12 @@ const detectMimeType = (file: File): string => {
   return mimeType;
 };
 
+/**
+ * 验证文件是否符合当前场景的要求
+ * 检查文件类型和大小是否在允许范围内
+ * @param file 文件对象
+ * @returns 验证结果，包含 valid 和 message 字段
+ */
 const validateFile = (file: File): ValidationResult => {
   if (!currentScene.value) {
     return { valid: false, message: "请选择上传场景" };
@@ -181,6 +211,10 @@ const validateFile = (file: File): ValidationResult => {
   return { valid: true };
 };
 
+/**
+ * 加载上传场景配置
+ * 根据 props.source 获取对应的文件类型和大小限制
+ */
 const loadScenes = async () => {
   try {
     logger.debug("loadScenes 调用，source:", props.source);
@@ -196,6 +230,11 @@ const loadScenes = async () => {
   }
 };
 
+/**
+ * 处理文件选择变化
+ * 当用户通过文件选择器选择文件时触发
+ * @param event 文件选择事件
+ */
 const handleFileChange = (event: Event) => {
   const target = event.target as HTMLInputElement;
   const file = target.files?.[0];
@@ -213,24 +252,41 @@ const handleFileChange = (event: Event) => {
   }
 };
 
+/**
+ * 触发文件选择器
+ * 模拟点击隐藏的文件输入框
+ */
 const triggerFileInput = () => {
   if (fileInputRef.value && fileInputRef.value.$el) {
     fileInputRef.value.$el.click();
   }
 };
 
+/**
+ * 处理拖拽进入事件
+ * @param event 拖拽事件
+ */
 const handleDragOver = (event: DragEvent) => {
   if (isUploading.value) return;
   event.preventDefault();
   isDragOver.value = true;
 };
 
+/**
+ * 处理拖拽离开事件
+ * @param event 拖拽事件
+ */
 const handleDragLeave = (event: DragEvent) => {
   if (isUploading.value) return;
   event.preventDefault();
   isDragOver.value = false;
 };
 
+/**
+ * 处理文件拖放事件
+ * 当用户将文件拖放到上传区域时触发
+ * @param event 拖放事件
+ */
 const handleDrop = (event: DragEvent) => {
   if (isUploading.value) return;
   event.preventDefault();
@@ -251,6 +307,13 @@ const handleDrop = (event: DragEvent) => {
   }
 };
 
+/**
+ * 上传文件到 OSS
+ * 使用 OSS V4 签名方式构建 FormData 并上传
+ * @param file 要上传的文件
+ * @param signature 预签名信息
+ * @returns Promise<string> 上传成功后的响应内容
+ */
 const uploadToOSS = async (file: File, signature: PostSignatureResult): Promise<string> => {
   const formData = new FormData();
   if (!signature.key) {
@@ -297,6 +360,10 @@ const uploadToOSS = async (file: File, signature: PostSignatureResult): Promise<
   });
 };
 
+/**
+ * 处理上传按钮点击
+ * 执行文件验证、获取签名、上传到 OSS 的完整流程
+ */
 const handleUpload = async () => {
   if (!selectedFile.value) {
     showStatus("请选择文件", true);
@@ -338,6 +405,10 @@ const handleUpload = async () => {
   }
 };
 
+/**
+ * 重置表单状态
+ * 清除已选文件、状态消息、上传进度等
+ */
 const resetForm = () => {
   selectedFile.value = null;
   statusMessage.value = "";
