@@ -1,4 +1,3 @@
-import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../../generated/prisma/client'
 
 // Asia/Shanghai 时区偏移量（毫秒）
@@ -114,8 +113,8 @@ const prismaClientSingleton = () => {
     }
 
     try {
-        const pool = new PrismaPg({ connectionString: databaseUrl })
-        const baseClient = new PrismaClient({ adapter: pool })
+        // 使用标准 Prisma 客户端，不使用 adapter
+        const baseClient = new PrismaClient()
 
         // 使用 $extends 创建带时区转换的客户端
         const client = baseClient.$extends({
