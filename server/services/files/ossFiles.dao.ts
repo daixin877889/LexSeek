@@ -132,7 +132,7 @@ export async function createOssFileDao(ossFile: Prisma.ossFilesCreateInput): Pro
 /**
  * 更新 OSS 文件记录
  */
-export async function updateOssFileDao(id: number, data: Partial<Prisma.ossFilesUpdateInput>): Promise<ossFiles> {
+export async function updateOssFileDao(id: number, data: Prisma.ossFilesUpdateInput): Promise<ossFiles> {
     try {
         // 排除 id 和关联字段
         const result = await prisma.ossFiles.update({

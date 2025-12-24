@@ -115,7 +115,7 @@ const handleLogin = async () => {
     }
 
     // 登录成功后重定向，使用replace而不是push避免后退到登录页
-    if (route.query.redirect) {
+    if (route.query.redirect && route.query.redirect !== "/") {
       router.replace({
         path: route.query.redirect,
       });
