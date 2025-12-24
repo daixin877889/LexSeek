@@ -234,6 +234,7 @@ const props = withDefaults(defineProps<FileUploaderProps>(), {
 });
 
 const fileStore = useFileStore();
+const uploadWorker = useFileUploadWorker();
 
 // 基础状态
 const currentScene = ref<FileSourceAccept | null>(null);
@@ -584,52 +585,29 @@ const clearAllFiles = () => {
 };
 
 /**
- * 上传单个文件到 OSS
+ * 上传单个文件到 OSS（使用 Worker）
  */
-const uploadToOSS = async (file: File, signature: PostSignatureResult, onProgress?: (progress: number) => void): Promise<string> => {
-  const formData = new FormData();
+const uploadToOSS = (
+  file: File,
+  signature: PostSignatureResult,
+  onProgress?: (progress: number) => void
+): Promise<Record<string, unknown>> => {
   if (!signature.key) {
-    throw new Error("未获取到文件路径");
+    return Promise.reject(new Error("未获取到文件路径"));
   }
-  formData.append("key", signature.key);
-  formData.append("policy", signature.policy);
-  formData.append("x-oss-signature-version", signature.signatureVersion);
-  formData.append("x-oss-credential", signature.credential);
-  formData.append("x-oss-date", signature.date);
-  formData.append("x-oss-signature", signature.signature);
-  if (signature.securityToken) {
-    formData.append("x-oss-security-token", signature.securityToken);
-  }
-  if (signature.callback) {
-    formData.append("callback", signature.callback);
-  }
-  if (signature.callbackVar) {
-    for (const [key, value] of Object.entries(signature.callbackVar)) {
-      formData.append(key, value);
-    }
-  }
-  formData.append("file", file);
 
   return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.upload.addEventListener("progress", (event) => {
-      if (event.lengthComputable) {
-        const progress = (event.loaded / event.total) * 100;
+    uploadWorker.upload(file, signature, {
+      onProgress: (progress) => {
         onProgress?.(progress);
+      },
+      onSuccess: (data) => {
+        resolve(data);
+      },
+      onError: (error) => {
+        reject(error);
       }
     });
-    xhr.addEventListener("load", () => {
-      if (xhr.status === 200) {
-        resolve(xhr.responseText);
-      } else {
-        reject(new Error(`上传失败: ${xhr.status} ${xhr.statusText}\n${xhr.responseText}`));
-      }
-    });
-    xhr.addEventListener("error", () => {
-      reject(new Error("上传过程中发生错误"));
-    });
-    xhr.open("POST", signature.host);
-    xhr.send(formData);
   });
 };
 
@@ -664,12 +642,10 @@ const handleSingleUpload = async () => {
       throw new Error(fileStore.error || "获取签名失败");
     }
 
-    const responseText = await uploadToOSS(selectedFile.value, signature, (progress) => {
+    // Worker 直接返回解析后的数据
+    const data = await uploadToOSS(selectedFile.value, signature, (progress) => {
       uploadProgress.value = progress;
     });
-
-    // 解析阿里云回调数据
-    const data = JSON.parse(responseText);
 
     showStatus("文件上传成功！");
     props.onSuccess([data]);
@@ -741,13 +717,11 @@ const handleBatchUpload = async () => {
       state.signature = signature;
 
       try {
-        const responseText = await uploadToOSS(state.file, signature, (progress) => {
+        // Worker 直接返回解析后的数据
+        const data = await uploadToOSS(state.file, signature, (progress) => {
           state.progress = progress;
           emit("file-upload-progress", state.file, progress);
         });
-
-        // 解析阿里云回调数据
-        const data = JSON.parse(responseText);
 
         state.status = "success";
         state.progress = 100;
