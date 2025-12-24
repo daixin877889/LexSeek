@@ -1,6 +1,9 @@
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../../generated/prisma/client'
 
+// 检查是否在 serverless 环境中
+const isServerless = process.env.VERCEL || process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.TENCENT_CLOUD
+
 // Asia/Shanghai 时区偏移量（毫秒）
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000
 
@@ -106,7 +109,12 @@ function convertQueryArgs(args: Record<string, unknown>): Record<string, unknown
 }
 
 const prismaClientSingleton = () => {
-    const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
+    // 确保 DATABASE_URL 存在
+    if (!process.env.DATABASE_URL) {
+        throw new Error('DATABASE_URL environment variable is not set')
+    }
+
+    const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL })
     const baseClient = new PrismaClient({ adapter: pool })
 
     // 使用 $extends 创建带时区转换的客户端
