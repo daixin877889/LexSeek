@@ -9,25 +9,29 @@
             </DialogHeader>
 
             <form @submit.prevent="handleSubmit" class="space-y-4">
+                <!-- 隐藏的用户名字段（用于可访问性） -->
+                <input type="text" name="username" autocomplete="username" class="sr-only" tabindex="-1"
+                    aria-hidden="true" />
+
                 <!-- 旧密码 -->
                 <div class="space-y-2">
                     <Label for="oldPassword">当前密码</Label>
                     <Input id="oldPassword" v-model="oldPassword" type="password" placeholder="请输入当前密码"
-                        :disabled="loading" />
+                        :disabled="loading" autocomplete="current-password" />
                 </div>
 
                 <!-- 新密码 -->
                 <div class="space-y-2">
                     <Label for="newPassword">新密码</Label>
                     <Input id="newPassword" v-model="newPassword" type="password" placeholder="请输入新密码"
-                        :disabled="loading" />
+                        :disabled="loading" autocomplete="new-password" />
                 </div>
 
                 <!-- 确认新密码 -->
                 <div class="space-y-2">
                     <Label for="confirmPassword">确认新密码</Label>
                     <Input id="confirmPassword" v-model="confirmPassword" type="password" placeholder="请再次输入新密码"
-                        :disabled="loading" />
+                        :disabled="loading" autocomplete="new-password" />
                 </div>
 
                 <!-- 错误提示 -->
@@ -39,8 +43,8 @@
                     <Button type="button" variant="outline" @click="handleCancel" :disabled="loading">
                         取消
                     </Button>
-                    <Button type="submit" :disabled="!canSubmit" :loading="loading">
-                        确认修改
+                    <Button type="submit" :disabled="!canSubmit || loading" :loading="loading">
+                        {{ loading ? "修改中..." : "确认修改" }}
                     </Button>
                 </DialogFooter>
             </form>

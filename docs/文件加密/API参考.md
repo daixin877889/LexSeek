@@ -180,6 +180,8 @@ unlockIdentity(encryptedId: string, password: string): Promise<void>
 
 解锁私钥（解密并存入内存和 IndexedDB）。
 
+私钥会以 `identity-user-{userId}` 的格式存储在 IndexedDB 中，确保多用户环境下互不干扰。
+
 **参数**：
 - `encryptedId` - Base64 编码的加密后私钥
 - `password` - 用户密码
@@ -205,6 +207,8 @@ lockIdentity(): Promise<void>
 ```
 
 锁定私钥（清除内存和 IndexedDB 中的私钥）。
+
+会自动清除当前用户的私钥存储（`identity-user-{userId}`）。
 
 **示例**：
 ```typescript

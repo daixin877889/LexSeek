@@ -9,11 +9,15 @@
             </DialogHeader>
 
             <form @submit.prevent="handleSubmit" class="space-y-4">
+                <!-- 隐藏的用户名字段（用于可访问性） -->
+                <input type="text" name="username" autocomplete="username" class="sr-only" tabindex="-1"
+                    aria-hidden="true" />
+
                 <!-- 密码输入 -->
                 <div class="space-y-2">
                     <Label for="password">加密密码</Label>
                     <Input id="password" v-model="password" type="password" placeholder="请输入加密密码" :disabled="loading"
-                        autofocus />
+                        autocomplete="current-password" />
                 </div>
 
                 <!-- 错误提示 -->
@@ -26,7 +30,7 @@
                         取消
                     </Button>
                     <Button type="submit" :disabled="!password || loading" :loading="loading">
-                        解锁
+                        {{ loading ? "解锁中..." : "解锁" }}
                     </Button>
                 </DialogFooter>
             </form>

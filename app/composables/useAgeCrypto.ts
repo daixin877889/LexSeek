@@ -398,7 +398,10 @@ export const useAgeCrypto = () => {
         } catch (error: unknown) {
             // age-encryption 密码错误时会抛出异常
             const errorMessage = error instanceof Error ? error.message : String(error)
-            if (errorMessage.includes('passphrase') || errorMessage.includes('incorrect')) {
+            // 密码错误或密钥不匹配都视为密码错误
+            if (errorMessage.includes('passphrase') ||
+                errorMessage.includes('incorrect') ||
+                errorMessage.includes('no identity matched')) {
                 throw new WrongPasswordError()
             }
             throw error
@@ -423,7 +426,8 @@ export const useAgeCrypto = () => {
      * 锁定私钥（清除内存和 IndexedDB）
      */
     const lockIdentity = async () => {
-        const userId = userStore.userInfo.id
+        // 优先使用已记录的用户 ID，因为退出登录时 userStore 可能已被清空
+        const userId = currentUserId.value || userStore.userInfo.id
         identity.value = null
         currentUserId.value = null
         isRestored.value = false

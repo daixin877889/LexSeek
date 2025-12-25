@@ -4,8 +4,6 @@
  * 封装所有与用户加密配置表相关的数据库操作
  */
 
-import type { userEncryptions } from '~~/generated/prisma'
-
 /**
  * 用户加密配置创建参数
  */

@@ -81,10 +81,15 @@ export const useAuthStore = defineStore("auth", () => {
       return false;
     }
 
-    // 登出成功，清除用户信息和认证状态
+    // 登出成功，清除加密配置和 IndexedDB 中的私钥（需要在清除用户信息之前执行）
+    const encryptionStore = useEncryptionStore();
+    await encryptionStore.clearConfig();
+
+    // 清除用户信息和认证状态
     const userStore = useUserStore();
     userStore.clearUserInfo();
     isAuthenticated.value = false;
+
     return true;
   };
 

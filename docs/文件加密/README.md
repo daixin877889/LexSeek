@@ -17,7 +17,8 @@
 - **非对称加密**：使用 X25519 密钥对，公钥加密、私钥解密
 - **密码保护**：私钥使用用户密码加密存储，只有用户能解锁
 - **会话持久化**：解锁状态保存在 IndexedDB，刷新页面无需重新输入密码
-- **多用户隔离**：每个用户的私钥独立存储，互不干扰
+- **多用户隔离**：每个用户的私钥使用 `identity-user-{userId}` 格式独立存储，互不干扰
+- **恢复密钥**：支持生成恢复密钥，用于忘记密码时重置
 
 ## 核心文件
 
@@ -28,14 +29,30 @@ app/
 ├── workers/
 │   └── crypto.worker.ts     # Web Worker 执行加密/解密
 ├── store/
-│   └── encryption.ts        # 加密配置状态管理
+│   ├── encryption.ts        # 加密配置状态管理
+│   └── auth.ts              # 认证状态（登出时清理加密状态）
 ├── components/
+│   ├── encryption/
+│   │   ├── SetupDialog.vue        # 首次设置对话框
+│   │   ├── PasswordDialog.vue     # 密码验证对话框
+│   │   ├── ChangePasswordDialog.vue # 修改密码对话框
+│   │   └── RecoveryKeyDialog.vue  # 恢复密钥对话框
 │   └── general/
 │       └── fileUploader.vue # 支持加密的文件上传组件
 └── pages/
     └── dashboard/
         └── settings/
             └── file-encryption.vue # 加密设置页面
+
+server/
+└── api/
+    └── v1/
+        └── encryption/
+            ├── config.get.ts      # 获取加密配置
+            ├── config.post.ts     # 保存加密配置
+            ├── config.put.ts      # 更新加密配置
+            ├── recovery.post.ts   # 使用恢复密钥重置密码
+            └── recovery-key.get.ts # 获取恢复密钥加密的私钥
 
 shared/
 └── types/
