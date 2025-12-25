@@ -469,6 +469,7 @@ import { refDebounced } from "@vueuse/core";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import "dayjs/locale/zh-cn";
+import heic2any from "heic2any";
 
 // 配置 dayjs
 dayjs.extend(relativeTime);
@@ -529,6 +530,55 @@ const thumbnailErrors = reactive<Record<string, boolean>>({});
  */
 const isImageType = (fileType: string) => {
   return fileType?.includes("image") || false;
+};
+
+/**
+ * 判断是否为 HEIC/HEIF 格式
+ */
+const isHeicFormat = (mimeType: string, fileName: string) => {
+  const heicMimeTypes = ['image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence'];
+  const heicExtensions = ['.heic', '.heif'];
+
+  if (heicMimeTypes.includes(mimeType.toLowerCase())) {
+    return true;
+  }
+
+  const lowerFileName = fileName.toLowerCase();
+  return heicExtensions.some(ext => lowerFileName.endsWith(ext));
+};
+
+/**
+ * 将 HEIC 格式转换为 JPEG
+ * @param objectUrl 原始 Object URL
+ * @returns 转换后的 JPEG Object URL
+ */
+const convertHeicToJpeg = async (objectUrl: string): Promise<string> => {
+  try {
+    // 获取 blob 数据
+    const response = await fetch(objectUrl);
+    const heicBlob = await response.blob();
+
+    // 转换为 JPEG
+    const jpegBlob = await heic2any({
+      blob: heicBlob,
+      toType: 'image/jpeg',
+      quality: 0.9,
+    });
+
+    // 释放原始 URL
+    URL.revokeObjectURL(objectUrl);
+
+    // 创建新的 Object URL
+    const resultBlob = Array.isArray(jpegBlob) ? jpegBlob[0] : jpegBlob;
+    if (!resultBlob) {
+      throw new Error('HEIC 转换结果为空');
+    }
+    return URL.createObjectURL(resultBlob);
+  } catch (err) {
+    console.error('HEIC 转换失败:', err);
+    // 转换失败时返回原始 URL
+    return objectUrl;
+  }
 };
 
 /**
@@ -800,9 +850,10 @@ const loadPreview = async (file: OssFileItem) => {
 
   try {
     const mimeType = file.fileType || "application/octet-stream";
+    const isHeic = isHeicFormat(mimeType, file.fileName);
 
     // 使用统一的方法获取文件（自动判断是否需要解密）
-    previewUrl.value = await fetchAndDecryptToObjectURL(
+    let objectUrl = await fetchAndDecryptToObjectURL(
       file.url,
       mimeType,
       ({ stage }) => {
@@ -820,6 +871,14 @@ const loadPreview = async (file: OssFileItem) => {
         }
       }
     );
+
+    // 如果是 HEIC/HEIF 格式，转换为 JPEG
+    if (isHeic && objectUrl) {
+      previewLoadingText.value = "转换 HEIC 格式...";
+      objectUrl = await convertHeicToJpeg(objectUrl);
+    }
+
+    previewUrl.value = objectUrl;
   } catch (err) {
     console.error("加载预览失败:", err);
     if (err instanceof Error) {
