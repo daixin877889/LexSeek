@@ -1,0 +1,21 @@
+/// 用户加密配置表
+/// 存储用户的端到端加密密钥信息
+model userEncryptions {
+    /// ID，主键，自增
+    id                   Int       @id @default(autoincrement())
+    /// 关联的用户ID，唯一约束
+    userId               Int       @unique @map("user_id")
+    /// 公钥 (age1...)，明文存储
+    recipient            String    @db.VarChar(255)
+    /// 加密后的私钥（使用用户密码加密）
+    encryptedIdentity    String    @map("encrypted_identity") @db.Text
+    /// 恢复密钥加密的私钥（可选）
+    encryptedRecoveryKey String?   @map("encrypted_recovery_key") @db.Text
+    /// 创建时间
+    createdAt            DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+    /// 最后更新时间
+    updatedAt            DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+    @@index([userId], map: "idx_user_encryptions_user_id")
+    @@map("user_encryptions")
+}
