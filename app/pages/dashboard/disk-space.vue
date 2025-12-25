@@ -159,9 +159,17 @@
             <div v-for="file in fileList" :key="file.id"
               class="group bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer"
               @click="openFileDetail(file)">
-              <!-- 文件图标 -->
+              <!-- 文件图标/缩略图 -->
               <div class="flex justify-center mb-3">
-                <div class="w-12 h-12 rounded-lg flex items-center justify-center"
+                <!-- 图片缩略图（仅非加密图片） -->
+                <div v-if="isImageType(file.fileType) && !file.encrypted"
+                  class="w-12 h-12 rounded-lg overflow-hidden bg-purple-100 flex items-center justify-center">
+                  <img v-if="!thumbnailErrors[String(file.id)]" :src="file.url" :alt="file.fileName"
+                    class="w-full h-full object-cover" @error="handleThumbnailError(String(file.id))" />
+                  <ImageIcon v-else class="h-6 w-6 text-purple-600" />
+                </div>
+                <!-- 其他文件类型图标 -->
+                <div v-else class="w-12 h-12 rounded-lg flex items-center justify-center"
                   :class="getFileIconBg(file.fileType)">
                   <component :is="getFileIcon(file.fileType)" class="h-6 w-6"
                     :class="getFileIconColor(file.fileType)" />
@@ -300,12 +308,13 @@
 
     <!-- 文件详情对话框 -->
     <Dialog v-model:open="showFileDetailDialog">
-      <DialogContent class="sm:max-w-2xl file-detail-dialog-content" @interactOutside="(e) => e.preventDefault()">
-        <DialogHeader>
-          <DialogTitle class="flex items-center gap-2">
-            <component :is="getFileIcon(selectedFile?.fileType || '')" class="h-5 w-5"
+      <DialogContent class="sm:max-w-2xl file-detail-dialog-content max-h-[90vh] overflow-y-auto overflow-x-hidden"
+        @interactOutside="(e) => e.preventDefault()">
+        <DialogHeader class="pr-8 overflow-hidden">
+          <DialogTitle class="flex items-center gap-2 overflow-hidden">
+            <component :is="getFileIcon(selectedFile?.fileType || '')" class="h-5 w-5 shrink-0"
               :class="getFileIconColor(selectedFile?.fileType || '')" />
-            <span class="truncate">{{ selectedFile?.fileName }}</span>
+            <span class="truncate block" :title="selectedFile?.fileName">{{ selectedFile?.fileName }}</span>
           </DialogTitle>
           <DialogDescription>文件详情与预览</DialogDescription>
         </DialogHeader>
@@ -318,6 +327,17 @@
               <div v-if="previewLoading" class="flex flex-col items-center gap-2">
                 <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 <span class="text-sm text-gray-500">{{ previewLoadingText }}</span>
+              </div>
+              <!-- 需要解锁密钥的提示 -->
+              <div v-else-if="needsUnlock" class="text-center py-4">
+                <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-amber-100 flex items-center justify-center">
+                  <LockIcon class="h-8 w-8 text-amber-600" />
+                </div>
+                <p class="text-gray-600 text-sm mb-3">请先解锁加密密钥以查看此文件</p>
+                <Button size="sm" @click="showPasswordDialog = true">
+                  <UnlockIcon class="h-4 w-4 mr-1" />
+                  输入密码解锁
+                </Button>
               </div>
               <div v-else-if="previewError" class="text-center text-red-500">
                 <AlertCircleIcon class="h-8 w-8 mx-auto mb-2" />
@@ -332,6 +352,17 @@
               <div v-if="previewLoading" class="flex flex-col items-center gap-2 py-8">
                 <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 <span class="text-sm text-gray-500">{{ previewLoadingText }}</span>
+              </div>
+              <!-- 需要解锁密钥的提示 -->
+              <div v-else-if="needsUnlock" class="text-center py-8">
+                <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-amber-100 flex items-center justify-center">
+                  <LockIcon class="h-8 w-8 text-amber-600" />
+                </div>
+                <p class="text-gray-600 text-sm mb-3">请先解锁加密密钥以查看此文件</p>
+                <Button size="sm" @click="showPasswordDialog = true">
+                  <UnlockIcon class="h-4 w-4 mr-1" />
+                  输入密码解锁
+                </Button>
               </div>
               <div v-else-if="previewError" class="text-center text-red-500 py-8">
                 <AlertCircleIcon class="h-8 w-8 mx-auto mb-2" />
@@ -353,32 +384,49 @@
             </div>
           </div>
 
+          <!-- 加密文件需要解锁（不支持预览的文件类型） -->
+          <div v-else-if="selectedFile?.encrypted && !encryptionStore.isUnlocked"
+            class="border rounded-lg p-6 bg-gray-50 text-center">
+            <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-amber-100 flex items-center justify-center">
+              <LockIcon class="h-8 w-8 text-amber-600" />
+            </div>
+            <p class="text-gray-600 text-sm mb-3">请先解锁加密密钥以下载此文件</p>
+            <Button size="sm" @click="showPasswordDialog = true">
+              <UnlockIcon class="h-4 w-4 mr-1" />
+              输入密码解锁
+            </Button>
+          </div>
+
           <!-- 不支持预览提示 -->
-          <div v-else class="border rounded-lg p-8 bg-gray-50 text-center">
-            <FileIcon class="h-12 w-12 mx-auto mb-3 text-gray-400" />
-            <p class="text-gray-600">此文件类型暂不支持预览</p>
+          <div v-else class="border rounded-lg p-6 bg-gray-50 text-center">
+            <div class="w-16 h-16 mx-auto mb-3 rounded-lg flex items-center justify-center"
+              :class="getFileIconBg(selectedFile?.fileType || '')">
+              <component :is="getFileIcon(selectedFile?.fileType || '')" class="h-8 w-8"
+                :class="getFileIconColor(selectedFile?.fileType || '')" />
+            </div>
+            <p class="text-gray-600 text-sm">此文件类型暂不支持预览</p>
           </div>
 
           <!-- 文件信息 -->
-          <div class="grid grid-cols-2 gap-4 text-sm">
-            <div class="space-y-1">
-              <p class="text-gray-500">文件大小</p>
+          <div class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+            <div>
+              <p class="text-gray-500 text-xs">文件大小</p>
               <p class="font-medium">{{ formatByteSize(selectedFile?.fileSize || 0, 2) }}</p>
             </div>
-            <div class="space-y-1">
-              <p class="text-gray-500">文件类型</p>
-              <p class="font-medium">{{ selectedFile?.fileType || '未知' }}</p>
+            <div>
+              <p class="text-gray-500 text-xs">文件类型</p>
+              <p class="font-medium truncate" :title="selectedFile?.fileType">{{ selectedFile?.fileType || '未知' }}</p>
             </div>
-            <div class="space-y-1">
-              <p class="text-gray-500">来源</p>
+            <div>
+              <p class="text-gray-500 text-xs">来源</p>
               <p class="font-medium">{{ selectedFile?.sourceName }}</p>
             </div>
-            <div class="space-y-1">
-              <p class="text-gray-500">上传时间</p>
+            <div>
+              <p class="text-gray-500 text-xs">上传时间</p>
               <p class="font-medium">{{ formatDateTime(selectedFile?.createdAt) }}</p>
             </div>
-            <div class="space-y-1">
-              <p class="text-gray-500">加密状态</p>
+            <div class="col-span-2">
+              <p class="text-gray-500 text-xs">加密状态</p>
               <p class="font-medium flex items-center gap-1">
                 <LockIcon v-if="selectedFile?.encrypted" class="h-4 w-4 text-green-600" />
                 <UnlockIcon v-else class="h-4 w-4 text-gray-400" />
@@ -390,7 +438,8 @@
           <!-- 下载按钮 -->
           <div class="flex justify-end gap-2 pt-2">
             <Button variant="outline" @click="showFileDetailDialog = false">关闭</Button>
-            <Button @click="downloadFile" :disabled="!selectedFile?.url || downloadLoading">
+            <Button @click="downloadFile"
+              :disabled="!selectedFile?.url || downloadLoading || (selectedFile?.encrypted && !encryptionStore.isUnlocked)">
               <div v-if="downloadLoading" class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
               <DownloadIcon v-else class="h-4 w-4 mr-1" />
               {{ downloadLoading ? '解密中...' : '下载文件' }}
@@ -399,6 +448,10 @@
         </div>
       </DialogContent>
     </Dialog>
+
+    <!-- 密码输入对话框 -->
+    <EncryptionPasswordDialog v-model:open="showPasswordDialog" content-class="password-dialog-content"
+      @success="handleUnlockSuccess" />
   </div>
 </template>
 
@@ -457,9 +510,33 @@ const previewUrl = ref<string | null>(null);
 const previewLoading = ref(false);
 const previewLoadingText = ref("加载中...");
 const previewError = ref<string | null>(null);
+const needsUnlock = ref(false); // 是否需要解锁密钥
+
+// 密码输入对话框
+const showPasswordDialog = ref(false);
+
+// 获取加密 store
+const encryptionStore = useEncryptionStore();
 
 // 获取加密工具
 const { fetchAndDecryptToObjectURL, isEncryptedUrl } = useAgeCrypto();
+
+// 缩略图加载错误记录（用于回退到图标显示）
+const thumbnailErrors = reactive<Record<string, boolean>>({});
+
+/**
+ * 判断文件类型是否为图片（用于卡片缩略图）
+ */
+const isImageType = (fileType: string) => {
+  return fileType?.includes("image") || false;
+};
+
+/**
+ * 处理缩略图加载错误
+ */
+const handleThumbnailError = (fileId: string) => {
+  thumbnailErrors[fileId] = true;
+};
 
 // 判断是否为图片文件
 const isImageFile = computed(() => {
@@ -697,6 +774,7 @@ const openFileDetail = async (file: OssFileItem) => {
   previewUrl.value = null;
   previewError.value = null;
   previewLoading.value = false;
+  needsUnlock.value = false;
   showFileDetailDialog.value = true;
 
   // 如果是可预览的文件类型，加载预览
@@ -746,7 +824,8 @@ const loadPreview = async (file: OssFileItem) => {
     console.error("加载预览失败:", err);
     if (err instanceof Error) {
       if (err.name === "IdentityNotUnlockedError") {
-        previewError.value = "请先在安全设置中解锁加密密钥";
+        needsUnlock.value = true;
+        previewError.value = null; // 清除错误，使用 needsUnlock 状态显示
       } else if (err.name === "IdentityMismatchError") {
         previewError.value = "密钥不匹配，无法解密此文件";
       } else {
@@ -757,6 +836,16 @@ const loadPreview = async (file: OssFileItem) => {
     }
   } finally {
     previewLoading.value = false;
+  }
+};
+
+/**
+ * 解锁成功回调 - 重新加载预览
+ */
+const handleUnlockSuccess = async () => {
+  needsUnlock.value = false;
+  if (selectedFile.value) {
+    await loadPreview(selectedFile.value);
   }
 };
 
@@ -844,5 +933,10 @@ onMounted(() => {
 /* 文件详情对话框样式 */
 .file-detail-dialog-content {
   z-index: 601 !important;
+}
+
+/* 密码输入对话框样式（需要在文件详情弹框之上） */
+.password-dialog-content {
+  z-index: 701 !important;
 }
 </style>

@@ -1,6 +1,6 @@
 <template>
     <Dialog v-model:open="isOpen">
-        <DialogContent class="sm:max-w-md">
+        <DialogContent class="sm:max-w-md" :class="contentClass">
             <DialogHeader>
                 <DialogTitle>输入加密密码</DialogTitle>
                 <DialogDescription>
@@ -48,6 +48,8 @@
 const props = defineProps<{
     /** 是否显示对话框 */
     open?: boolean
+    /** 自定义内容区域的 class */
+    contentClass?: string
 }>()
 
 const emit = defineEmits<{
@@ -77,15 +79,22 @@ const handleSubmit = async () => {
         return
     }
 
-    if (!encryptionStore.config?.encryptedIdentity) {
-        error.value = '未找到加密配置'
-        return
-    }
-
     loading.value = true
     error.value = ''
 
     try {
+        // 如果配置未加载，先加载配置
+        if (!encryptionStore.config?.encryptedIdentity) {
+            await encryptionStore.fetchConfig()
+        }
+
+        // 再次检查配置
+        if (!encryptionStore.config?.encryptedIdentity) {
+            error.value = '未找到加密配置'
+            loading.value = false
+            return
+        }
+
         // 解锁私钥（会自动保存到 IndexedDB）
         await unlockIdentity(encryptionStore.config.encryptedIdentity, password.value)
 
