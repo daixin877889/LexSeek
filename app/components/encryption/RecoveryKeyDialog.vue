@@ -2,10 +2,8 @@
   <Dialog v-model:open="isOpen">
     <DialogContent class="sm:max-w-lg">
       <DialogHeader>
-        <DialogTitle>{{ mode === "generate" ? "生成恢复密钥" : "使用恢复密钥" }}</DialogTitle>
-        <DialogDescription>
-          {{ mode === "generate" ? "恢复密钥可在忘记密码时重置密码，仅能使用一次。" : "输入恢复密钥重置密码，使用后需重新生成。" }}
-        </DialogDescription>
+        <DialogTitle>{{ dialogTitle }}</DialogTitle>
+        <DialogDescription>{{ dialogDescription }}</DialogDescription>
       </DialogHeader>
 
       <!-- 生成恢复密钥模式 -->
@@ -15,15 +13,20 @@
           <!-- 隐藏的用户名字段（用于可访问性） -->
           <input type="text" name="username" autocomplete="username" class="sr-only" tabindex="-1" aria-hidden="true" />
 
+          <!-- 重要提示 -->
+          <div
+            class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-3 flex items-start gap-2">
+            <AlertTriangleIcon class="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <p class="text-sm text-amber-800 dark:text-amber-200">恢复密钥仅能使用一次，使用后将自动失效，如需再次使用请重新生成。</p>
+          </div>
+
           <div class="space-y-2">
             <Label for="currentPassword">当前加密密码</Label>
             <Input id="currentPassword" v-model="currentPassword" type="password" placeholder="请输入当前加密密码"
               :disabled="loading" autocomplete="current-password" />
           </div>
 
-          <div v-if="error" class="text-sm text-destructive">
-            {{ error }}
-          </div>
+          <div v-if="error" class="text-sm text-destructive">{{ error }}</div>
 
           <Button type="submit" :disabled="!currentPassword || loading" :loading="loading" class="w-full">
             {{ loading ? "生成中..." : "生成恢复密钥" }}
@@ -50,58 +53,148 @@
             </Button>
           </div>
 
-          <div class="text-xs text-muted-foreground bg-muted/50 p-3 rounded-md">
-            <p class="font-medium mb-1">重要提示：</p>
-            <ul class="list-disc list-inside space-y-1">
-              <li>恢复密钥仅显示一次，请立即保存</li>
-              <li>恢复密钥仅能使用一次，使用后需重新生成</li>
-              <li>请存储在安全的地方，不要分享给他人</li>
-            </ul>
+          <div
+            class="text-xs bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 rounded-md">
+            <div class="flex items-start gap-2">
+              <AlertTriangleIcon class="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div class="text-amber-800 dark:text-amber-200">
+                <p class="font-medium mb-1">重要提示：</p>
+                <ul class="list-disc list-inside space-y-1">
+                  <li>恢复密钥仅显示一次，请立即保存</li>
+                  <li>恢复密钥仅能使用一次，使用后自动失效</li>
+                  <li>请存储在安全的地方，不要分享给他人</li>
+                </ul>
+              </div>
+            </div>
           </div>
 
-          <Button @click="confirmSaved" class="w-full"> 我已保存恢复密钥 </Button>
+          <Button @click="confirmSaved" class="w-full">我已保存恢复密钥</Button>
         </div>
       </div>
 
       <!-- 使用恢复密钥模式 -->
-      <form v-else @submit.prevent="handleRecover" class="space-y-4">
-        <!-- 隐藏的用户名字段（用于可访问性） -->
-        <input type="text" name="username" autocomplete="username" class="sr-only" tabindex="-1" aria-hidden="true" />
+      <template v-else>
+        <!-- 步骤1：输入恢复密钥和新密码 -->
+        <form v-if="recoverStep === 'input'" @submit.prevent="handleRecover" class="space-y-4">
+          <!-- 隐藏的用户名字段（用于可访问性） -->
+          <input type="text" name="username" autocomplete="username" class="sr-only" tabindex="-1" aria-hidden="true" />
 
-        <!-- 提示信息 -->
-        <div class="text-xs text-muted-foreground bg-muted/50 p-3 rounded-md">
-          <p>恢复密钥仅能使用一次，重置密码后需重新生成。</p>
+          <!-- 重要提示 -->
+          <div
+            class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-3 flex items-start gap-2">
+            <AlertTriangleIcon class="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <p class="text-sm text-amber-800 dark:text-amber-200">恢复密钥仅能使用一次，重置后将自动失效，如需再次使用请重新生成。</p>
+          </div>
+
+          <div class="space-y-2">
+            <Label for="recoveryKeyInput">恢复密钥</Label>
+            <Textarea id="recoveryKeyInput" v-model="recoveryKeyInput" placeholder="请输入恢复密钥" :disabled="loading"
+              rows="3" class="font-mono text-sm" />
+          </div>
+
+          <div class="space-y-2">
+            <Label for="newPassword">新密码</Label>
+            <Input id="newPassword" v-model="newPassword" type="password" placeholder="请输入新密码（至少8位）" :disabled="loading"
+              autocomplete="new-password" />
+          </div>
+
+          <div class="space-y-2">
+            <Label for="confirmNewPassword">确认新密码</Label>
+            <Input id="confirmNewPassword" v-model="confirmNewPassword" type="password" placeholder="请再次输入新密码"
+              :disabled="loading" autocomplete="new-password" />
+          </div>
+
+          <div v-if="error" class="text-sm text-destructive">{{ error }}</div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" @click="handleCancel" :disabled="loading">取消</Button>
+            <Button type="submit" :disabled="!canRecover || loading" :loading="loading">
+              {{ loading ? "重置中..." : "重置密码" }}
+            </Button>
+          </DialogFooter>
+        </form>
+
+        <!-- 步骤2：重置成功，询问是否生成新的恢复密钥 -->
+        <div v-else-if="recoverStep === 'success'" class="space-y-4">
+          <div class="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-md p-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center">
+                <CheckCircleIcon class="h-5 w-5 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <p class="font-medium text-green-800 dark:text-green-200">密码重置成功</p>
+                <p class="text-sm text-green-600 dark:text-green-400">您的加密密码已更新</p>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-3 flex items-start gap-2">
+            <AlertTriangleIcon class="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div class="text-sm text-amber-800 dark:text-amber-200">
+              <p class="font-medium mb-1">恢复密钥已失效</p>
+              <p>原恢复密钥已被使用并自动删除。如果不重新生成恢复密钥，下次忘记密码将无法恢复！</p>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <Button @click="startGenerateNewRecoveryKey" class="w-full">
+              <KeyIcon class="h-4 w-4 mr-2" />
+              立即生成新的恢复密钥
+            </Button>
+            <Button variant="outline" @click="handleSkipGenerate" class="w-full">稍后再说</Button>
+          </div>
         </div>
 
-        <div class="space-y-2">
-          <Label for="recoveryKeyInput">恢复密钥</Label>
-          <Textarea id="recoveryKeyInput" v-model="recoveryKeyInput" placeholder="请输入恢复密钥" :disabled="loading" rows="3"
-            class="font-mono text-sm" />
-        </div>
+        <!-- 步骤3：生成新的恢复密钥 -->
+        <div v-else-if="recoverStep === 'generate'" class="space-y-4">
+          <!-- 未生成 -->
+          <template v-if="!newRecoveryKey">
+            <div v-if="error" class="text-sm text-destructive">{{ error }}</div>
+            <Button @click="generateNewRecoveryKey" :disabled="loading" :loading="loading" class="w-full">
+              {{ loading ? "生成中..." : "生成恢复密钥" }}
+            </Button>
+          </template>
 
-        <div class="space-y-2">
-          <Label for="newPassword">新密码</Label>
-          <Input id="newPassword" v-model="newPassword" type="password" placeholder="请输入新密码（至少8位）" :disabled="loading"
-            autocomplete="new-password" />
-        </div>
+          <!-- 已生成 -->
+          <template v-else>
+            <div class="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-4">
+              <p class="text-sm font-medium text-amber-800 dark:text-amber-200 mb-2">请妥善保存以下恢复密钥：</p>
+              <div class="bg-white dark:bg-gray-900 border rounded p-3 font-mono text-sm break-all select-all">
+                {{ newRecoveryKey }}
+              </div>
+            </div>
 
-        <div class="space-y-2">
-          <Label for="confirmNewPassword">确认新密码</Label>
-          <Input id="confirmNewPassword" v-model="confirmNewPassword" type="password" placeholder="请再次输入新密码"
-            :disabled="loading" autocomplete="new-password" />
-        </div>
+            <div class="flex gap-2">
+              <Button variant="outline" @click="copyNewRecoveryKey" class="flex-1">
+                <CopyIcon class="h-4 w-4 mr-2" />
+                复制
+              </Button>
+              <Button variant="outline" @click="downloadNewRecoveryKey" class="flex-1">
+                <DownloadIcon class="h-4 w-4 mr-2" />
+                下载
+              </Button>
+            </div>
 
-        <div v-if="error" class="text-sm text-destructive">
-          {{ error }}
-        </div>
+            <div
+              class="text-xs bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 rounded-md">
+              <div class="flex items-start gap-2">
+                <AlertTriangleIcon class="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div class="text-amber-800 dark:text-amber-200">
+                  <p class="font-medium mb-1">重要提示：</p>
+                  <ul class="list-disc list-inside space-y-1">
+                    <li>恢复密钥仅显示一次，请立即保存</li>
+                    <li>恢复密钥仅能使用一次，使用后自动失效</li>
+                    <li>请存储在安全的地方，不要分享给他人</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
 
-        <DialogFooter>
-          <Button type="button" variant="outline" @click="handleCancel" :disabled="loading"> 取消 </Button>
-          <Button type="submit" :disabled="!canRecover || loading" :loading="loading">
-            {{ loading ? "重置中..." : "重置密码" }}
-          </Button>
-        </DialogFooter>
-      </form>
+            <Button @click="handleComplete" class="w-full">我已保存恢复密钥</Button>
+          </template>
+        </div>
+      </template>
     </DialogContent>
   </Dialog>
 </template>
@@ -112,10 +205,10 @@
  *
  * 支持两种模式：
  * 1. generate - 生成恢复密钥
- * 2. recover - 使用恢复密钥重置密码（使用后自动删除，需重新生成）
+ * 2. recover - 使用恢复密钥重置密码（使用后自动删除，成功后提示重新生成）
  */
 
-import { CopyIcon, DownloadIcon } from "lucide-vue-next";
+import { CopyIcon, DownloadIcon, AlertTriangleIcon, CheckCircleIcon, KeyIcon } from "lucide-vue-next";
 
 const props = defineProps<{
   /** 是否显示对话框 */
@@ -147,10 +240,29 @@ const recoveryKey = ref("");
 const recoveryKeyInput = ref("");
 const newPassword = ref("");
 const confirmNewPassword = ref("");
+const recoverStep = ref<"input" | "success" | "generate">("input");
+const newRecoveryKey = ref("");
+const recoveredIdentity = ref(""); // 保存解密后的私钥用于生成新恢复密钥
 
 // 通用状态
 const loading = ref(false);
 const error = ref("");
+
+// 计算属性：对话框标题
+const dialogTitle = computed(() => {
+  if (props.mode === "generate") return "生成恢复密钥";
+  if (recoverStep.value === "input") return "使用恢复密钥重置密码";
+  if (recoverStep.value === "success") return "密码重置成功";
+  return "生成新的恢复密钥";
+});
+
+// 计算属性：对话框描述
+const dialogDescription = computed(() => {
+  if (props.mode === "generate") return "恢复密钥可在忘记密码时重置密码，仅能使用一次。";
+  if (recoverStep.value === "input") return "输入恢复密钥重置密码，使用后需重新生成。";
+  if (recoverStep.value === "success") return "建议立即生成新的恢复密钥以备不时之需。";
+  return "请妥善保存恢复密钥。";
+});
 
 // 计算属性：是否可以恢复
 const canRecover = computed(() => {
@@ -158,7 +270,7 @@ const canRecover = computed(() => {
 });
 
 /**
- * 生成恢复密钥
+ * 生成恢复密钥（生成模式）
  */
 const generateRecoveryKey = async () => {
   if (!currentPassword.value) {
@@ -247,7 +359,6 @@ const confirmSaved = () => {
 
 /**
  * 使用恢复密钥重置密码
- * 注意：恢复密钥使用后会被删除，需要重新生成
  */
 const handleRecover = async () => {
   if (!recoveryKeyInput.value) {
@@ -275,10 +386,7 @@ const handleRecover = async () => {
 
   try {
     // 获取恢复密钥加密的私钥
-    const recoveryData = await useApiFetch<{ encryptedRecoveryKey: string }>(
-      '/api/v1/encryption/recovery-key',
-      { method: 'GET', showError: false }
-    );
+    const recoveryData = await useApiFetch<{ encryptedRecoveryKey: string }>("/api/v1/encryption/recovery-key", { method: "GET", showError: false });
 
     if (!recoveryData?.encryptedRecoveryKey) {
       throw new Error("未找到恢复密钥数据");
@@ -286,6 +394,7 @@ const handleRecover = async () => {
 
     // 用恢复密钥解密私钥
     const identity = await decryptIdentity(recoveryData.encryptedRecoveryKey, recoveryKeyInput.value);
+    recoveredIdentity.value = identity; // 保存用于后续生成新恢复密钥
 
     // 用新密码重新加密私钥
     const newEncryptedIdentity = await encryptIdentity(identity, newPassword.value);
@@ -300,16 +409,11 @@ const handleRecover = async () => {
     // 刷新配置以更新 hasRecoveryKey 状态
     await encryptionStore.fetchConfig();
 
-    toast.success("密码重置成功，恢复密钥已失效");
-    emit("success");
-    isOpen.value = false;
-    resetForm();
+    // 进入成功步骤，询问是否生成新恢复密钥
+    recoverStep.value = "success";
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    if (errorMessage.includes("密码错误") ||
-      errorMessage.includes("passphrase") ||
-      errorMessage.includes("incorrect") ||
-      errorMessage.includes("no identity matched")) {
+    if (errorMessage.includes("密码错误") || errorMessage.includes("passphrase") || errorMessage.includes("incorrect") || errorMessage.includes("no identity matched")) {
       error.value = "恢复密钥无效，请检查后重试";
     } else {
       error.value = errorMessage || "重置失败，请重试";
@@ -318,6 +422,99 @@ const handleRecover = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+/**
+ * 开始生成新的恢复密钥
+ */
+const startGenerateNewRecoveryKey = () => {
+  recoverStep.value = "generate";
+  generateNewRecoveryKey();
+};
+
+/**
+ * 生成新的恢复密钥（恢复模式成功后）
+ */
+const generateNewRecoveryKey = async () => {
+  if (!recoveredIdentity.value || !encryptionStore.config?.encryptedIdentity) {
+    error.value = "无法生成恢复密钥，请重新操作";
+    return;
+  }
+
+  loading.value = true;
+  error.value = "";
+
+  try {
+    // 生成随机恢复密钥（32字节，Base64编码）
+    const randomBytes = new Uint8Array(32);
+    crypto.getRandomValues(randomBytes);
+    const generatedRecoveryKey = btoa(String.fromCharCode(...randomBytes));
+
+    // 用恢复密钥加密私钥
+    const encryptedRecoveryKey = await encryptIdentity(recoveredIdentity.value, generatedRecoveryKey);
+
+    // 保存到服务器
+    const success = await encryptionStore.updateConfig(encryptionStore.config.encryptedIdentity, encryptedRecoveryKey);
+
+    if (!success) {
+      throw new Error(encryptionStore.error || "保存恢复密钥失败");
+    }
+
+    newRecoveryKey.value = generatedRecoveryKey;
+    toast.success("恢复密钥生成成功");
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : "生成失败，请重试";
+    logger.error("生成新恢复密钥失败:", err);
+  } finally {
+    loading.value = false;
+  }
+};
+
+/**
+ * 复制新恢复密钥
+ */
+const copyNewRecoveryKey = async () => {
+  try {
+    await navigator.clipboard.writeText(newRecoveryKey.value);
+    toast.success("已复制到剪贴板");
+  } catch {
+    toast.error("复制失败，请手动复制");
+  }
+};
+
+/**
+ * 下载新恢复密钥
+ */
+const downloadNewRecoveryKey = () => {
+  const blob = new Blob([newRecoveryKey.value], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "encryption-recovery-key.txt";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast.success("恢复密钥已下载");
+};
+
+/**
+ * 跳过生成新恢复密钥
+ */
+const handleSkipGenerate = () => {
+  toast.warning("请尽快生成恢复密钥，以防忘记密码无法恢复");
+  emit("success");
+  isOpen.value = false;
+  resetForm();
+};
+
+/**
+ * 完成（保存新恢复密钥后）
+ */
+const handleComplete = () => {
+  emit("success");
+  isOpen.value = false;
+  resetForm();
 };
 
 /**
@@ -338,6 +535,9 @@ const resetForm = () => {
   recoveryKeyInput.value = "";
   newPassword.value = "";
   confirmNewPassword.value = "";
+  recoverStep.value = "input";
+  newRecoveryKey.value = "";
+  recoveredIdentity.value = "";
   error.value = "";
 };
 
