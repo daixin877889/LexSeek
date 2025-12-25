@@ -42,8 +42,10 @@ async function getStsCredentials(config: OssConfig): Promise<StsCredentials> {
 /**
  * 创建 OSS 客户端实例
  * 如果配置了 STS，会自动获取临时凭证
+ * @param config OSS 配置
+ * @param useCname 是否使用自定义域名（用于生成签名 URL）
  */
-export async function createOssClient(config: OssConfig): Promise<OssClientInstance> {
+export async function createOssClient(config: OssConfig, useCname: boolean = false): Promise<OssClientInstance> {
     // 验证配置
     validateConfig(config)
 
@@ -69,6 +71,18 @@ export async function createOssClient(config: OssConfig): Promise<OssClientInsta
             accessKeyId: config.accessKeyId,
             accessKeySecret: config.accessKeySecret
         }
+    }
+
+    // 如果使用自定义域名，配置 cname
+    if (useCname && config.customDomain) {
+        // 移除协议前缀和末尾斜杠
+        const endpoint = config.customDomain
+            .replace(/^https?:\/\//, '')
+            .replace(/\/$/, '')
+        clientConfig.endpoint = endpoint
+        clientConfig.cname = true
+        // 使用 cname 时不需要 region
+        delete clientConfig.region
     }
 
     const client = new OSS(clientConfig)

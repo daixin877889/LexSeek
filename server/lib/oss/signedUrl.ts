@@ -13,7 +13,9 @@ export async function generateSignedUrl(
     objectPath: string,
     options: SignedUrlOptions = {}
 ): Promise<string> {
-    const { client } = await createOssClient(config)
+    // 如果配置了自定义域名，使用 cname 模式创建客户端
+    const useCname = !!config.customDomain
+    const { client, credentials } = await createOssClient(config, useCname)
 
     // 默认过期时间 1 小时（3600 秒）
     const expires = options.expires ?? 3600
@@ -36,7 +38,14 @@ export async function generateSignedUrl(
     }
 
     // 生成签名 URL
-    const url = client.signatureUrl(objectPath, signOptions)
+    let url = client.signatureUrl(objectPath, signOptions)
+
+    // 如果使用 STS 临时凭证，需要手动添加 security-token 参数
+    // ali-oss 的 signatureUrl 方法在某些版本可能不会自动添加
+    if (credentials?.securityToken && !url.includes('security-token')) {
+        const separator = url.includes('?') ? '&' : '?'
+        url = `${url}${separator}security-token=${encodeURIComponent(credentials.securityToken)}`
+    }
 
     return url
 }

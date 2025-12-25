@@ -9,9 +9,11 @@ export default defineEventHandler(async (event) => {
       fileSize: z.string().refine((val) => { return Number(val) > 0 && Number.isInteger(Number(val)) }, { message: '文件大小必须为整数且大于0' }),
       mimeType: z.string({ message: '文件类型不能为空' }),
       originalFileName: z.string({ message: '文件名称不能为空' }).refine((val) => { return val.includes('.') }, { message: '文件名称必须包含扩展名' }),
+      encrypted: z.enum(['true', 'false']).optional().default('false'),  // 新增：是否加密
     }).parse(getQuery(event))
 
-    const { source, fileSize, mimeType, originalFileName } = query
+    const { source, fileSize, mimeType, originalFileName, encrypted } = query
+    const isEncrypted = encrypted === 'true'
 
     const logger = createLogger('files')
     const user = event.context.auth.user;
@@ -44,37 +46,44 @@ export default defineEventHandler(async (event) => {
     const bucket = config.aliyun.oss.main.bucket;
     const basePath = config.aliyun.oss.main.basePath;
 
-    // 生成保存名称
-    const saveName = `${uuidv7()}.${mime.getExtension(mimeType) ?? ''}`;
+    // 如果是加密文件，修改保存名称添加 .age 后缀
+    // 优先从原始文件名提取后缀名，如果没有则使用 mime 库转换
+    const originalExtension = getExtensionFromFileName(originalFileName);
+    const extension = isEncrypted ? 'age' : (originalExtension || mime.getExtension(mimeType) || '')
+    const saveName = `${uuidv7()}.${extension}`
 
     // 生成保存目录
-
     const dir = `${basePath}user${user.id}/${source}/`;
 
+    // 创建文件记录时添加加密相关字段
     const file = await createOssFileDao({
       userId: user.id,
       bucketName: bucket,
       fileName: originalFileName,
       filePath: `${dir}${saveName}`,
       fileSize: Number(fileSize),
-      fileType: mimeType,
+      fileType: mimeType,  // 存储原始 MIME 类型
       source: source as FileSource,
       status: OssFileStatus.PENDING,
+      encrypted: isEncrypted,  // 新增：是否加密
+      originalMimeType: isEncrypted ? mimeType : null,  // 新增：原始 MIME 类型
     });
 
-    // 生成OSS预签名
+    // 生成 OSS 预签名，回调变量中添加加密相关信息
     const signature = await generateOssPostSignature({
       bucket,
-      originalFileName,
+      originalFileName: isEncrypted ? `${originalFileName}.age` : originalFileName,
       maxSize,
       dir,
       saveName,
-      allowedMimeTypes,
+      allowedMimeTypes: isEncrypted ? ['application/octet-stream'] : allowedMimeTypes,
       callbackVar: {
         user_id: user.id,
         source: source,
         original_file_name: originalFileName,
         file_id: file.id.toString(),
+        encrypted: isEncrypted ? '1' : '0',  // 新增：加密标识
+        original_mime_type: mimeType,  // 新增：原始 MIME 类型
       }
     });
 
