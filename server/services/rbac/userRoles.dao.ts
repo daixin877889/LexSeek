@@ -1,11 +1,12 @@
 /**
  * 用户角色数据访问层
  */
+import type { Prisma } from "#shared/types/prisma";
 
 /**
  * 创建用户角色关联
  */
-export const createUserRoleDao = async (userId: number, roleId: number, tx?: any): Promise<userRoles> => {
+export const createUserRoleDao = async (userId: number, roleId: number, tx?: Prisma.TransactionClient): Promise<userRoles> => {
     try {
         const userRole = await (tx || prisma).userRoles.create({
             data: { userId, roleId, createdAt: new Date(), updatedAt: new Date() },
@@ -24,7 +25,7 @@ export const createUserRoleDao = async (userId: number, roleId: number, tx?: any
  * @param userId 用户ID
  * @returns 用户角色
  */
-export const findUserRolesByUserIdDao = async (userId: number, tx?: any): Promise<(userRoles & { role: roles })[]> => {
+export const findUserRolesByUserIdDao = async (userId: number, tx?: Prisma.TransactionClient): Promise<(userRoles & { role: roles })[]> => {
     try {
         const userRoles = await (tx || prisma).userRoles.findMany({
             where: { userId, deletedAt: null },

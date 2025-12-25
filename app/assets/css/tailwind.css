@@ -3,6 +3,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@theme static {
+  /* 扩展背景图像，定义你的自定义渐变 */
+  --background-image-gradient-custom: linear-gradient(97deg, #f2f9fe, #f7f3ff);
+}
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

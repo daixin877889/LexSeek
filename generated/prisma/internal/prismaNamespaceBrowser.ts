@@ -51,6 +51,7 @@ export const AnyNull = runtime.AnyNull
 
 
 export const ModelName = {
+  userEncryptions: 'userEncryptions',
   ossFiles: 'ossFiles',
   roles: 'roles',
   roleRouters: 'roleRouters',
@@ -79,6 +80,19 @@ export const TransactionIsolationLevel = {
 export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
 
 
+export const UserEncryptionsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  recipient: 'recipient',
+  encryptedIdentity: 'encryptedIdentity',
+  encryptedRecoveryKey: 'encryptedRecoveryKey',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type UserEncryptionsScalarFieldEnum = (typeof UserEncryptionsScalarFieldEnum)[keyof typeof UserEncryptionsScalarFieldEnum]
+
+
 export const OssFilesScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -90,6 +104,8 @@ export const OssFilesScalarFieldEnum = {
   fileMd5: 'fileMd5',
   source: 'source',
   status: 'status',
+  encrypted: 'encrypted',
+  originalMimeType: 'originalMimeType',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'

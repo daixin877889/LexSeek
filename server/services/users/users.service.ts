@@ -14,7 +14,7 @@ import { Prisma } from '#shared/types/prisma'
  */
 export const createUserService = async (
     data: Prisma.usersCreateInput,
-    options?: { roleIds?: number[], tx?: any }
+    options?: { roleIds?: number[], tx?: Prisma.TransactionClient }
 ): Promise<users> => {
     const { roleIds = [], tx } = options || {}
 
@@ -25,7 +25,7 @@ export const createUserService = async (
 
     // 使用 Prisma 事务保持操作一致性
     return prisma.$transaction(async (transaction) => {
-        return executeCreateUser(data, roleIds, transaction)
+        return executeCreateUser(data, roleIds, transaction as Prisma.TransactionClient)
     })
 }
 
@@ -39,7 +39,7 @@ export const createUserService = async (
 async function executeCreateUser(
     data: Prisma.usersCreateInput,
     roleIds: number[],
-    tx: any
+    tx: Prisma.TransactionClient
 ): Promise<users> {
     try {
         // 如果指定了角色，先验证角色是否存在

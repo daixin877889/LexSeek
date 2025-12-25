@@ -51,6 +51,8 @@ export type OssFilesMinAggregateOutputType = {
   fileMd5: string | null
   source: string | null
   status: number | null
+  encrypted: boolean | null
+  originalMimeType: string | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -67,6 +69,8 @@ export type OssFilesMaxAggregateOutputType = {
   fileMd5: string | null
   source: string | null
   status: number | null
+  encrypted: boolean | null
+  originalMimeType: string | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -83,6 +87,8 @@ export type OssFilesCountAggregateOutputType = {
   fileMd5: number
   source: number
   status: number
+  encrypted: number
+  originalMimeType: number
   createdAt: number
   updatedAt: number
   deletedAt: number
@@ -115,6 +121,8 @@ export type OssFilesMinAggregateInputType = {
   fileMd5?: true
   source?: true
   status?: true
+  encrypted?: true
+  originalMimeType?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -131,6 +139,8 @@ export type OssFilesMaxAggregateInputType = {
   fileMd5?: true
   source?: true
   status?: true
+  encrypted?: true
+  originalMimeType?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -147,6 +157,8 @@ export type OssFilesCountAggregateInputType = {
   fileMd5?: true
   source?: true
   status?: true
+  encrypted?: true
+  originalMimeType?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -250,6 +262,8 @@ export type OssFilesGroupByOutputType = {
   fileMd5: string | null
   source: string | null
   status: number
+  encrypted: boolean
+  originalMimeType: string | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -289,6 +303,8 @@ export type ossFilesWhereInput = {
   fileMd5?: Prisma.StringNullableFilter<"ossFiles"> | string | null
   source?: Prisma.StringNullableFilter<"ossFiles"> | string | null
   status?: Prisma.IntFilter<"ossFiles"> | number
+  encrypted?: Prisma.BoolFilter<"ossFiles"> | boolean
+  originalMimeType?: Prisma.StringNullableFilter<"ossFiles"> | string | null
   createdAt?: Prisma.DateTimeNullableFilter<"ossFiles"> | Date | string | null
   updatedAt?: Prisma.DateTimeNullableFilter<"ossFiles"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"ossFiles"> | Date | string | null
@@ -305,6 +321,8 @@ export type ossFilesOrderByWithRelationInput = {
   fileMd5?: Prisma.SortOrderInput | Prisma.SortOrder
   source?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
+  encrypted?: Prisma.SortOrder
+  originalMimeType?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrderInput | Prisma.SortOrder
   updatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -324,6 +342,8 @@ export type ossFilesWhereUniqueInput = Prisma.AtLeast<{
   fileMd5?: Prisma.StringNullableFilter<"ossFiles"> | string | null
   source?: Prisma.StringNullableFilter<"ossFiles"> | string | null
   status?: Prisma.IntFilter<"ossFiles"> | number
+  encrypted?: Prisma.BoolFilter<"ossFiles"> | boolean
+  originalMimeType?: Prisma.StringNullableFilter<"ossFiles"> | string | null
   createdAt?: Prisma.DateTimeNullableFilter<"ossFiles"> | Date | string | null
   updatedAt?: Prisma.DateTimeNullableFilter<"ossFiles"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"ossFiles"> | Date | string | null
@@ -340,6 +360,8 @@ export type ossFilesOrderByWithAggregationInput = {
   fileMd5?: Prisma.SortOrderInput | Prisma.SortOrder
   source?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
+  encrypted?: Prisma.SortOrder
+  originalMimeType?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrderInput | Prisma.SortOrder
   updatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -364,6 +386,8 @@ export type ossFilesScalarWhereWithAggregatesInput = {
   fileMd5?: Prisma.StringNullableWithAggregatesFilter<"ossFiles"> | string | null
   source?: Prisma.StringNullableWithAggregatesFilter<"ossFiles"> | string | null
   status?: Prisma.IntWithAggregatesFilter<"ossFiles"> | number
+  encrypted?: Prisma.BoolWithAggregatesFilter<"ossFiles"> | boolean
+  originalMimeType?: Prisma.StringNullableWithAggregatesFilter<"ossFiles"> | string | null
   createdAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ossFiles"> | Date | string | null
   updatedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ossFiles"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ossFiles"> | Date | string | null
@@ -379,6 +403,8 @@ export type ossFilesCreateInput = {
   fileMd5?: string | null
   source?: string | null
   status?: number
+  encrypted?: boolean
+  originalMimeType?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -395,6 +421,8 @@ export type ossFilesUncheckedCreateInput = {
   fileMd5?: string | null
   source?: string | null
   status?: number
+  encrypted?: boolean
+  originalMimeType?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -410,6 +438,8 @@ export type ossFilesUpdateInput = {
   fileMd5?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   source?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  encrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  originalMimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -426,6 +456,8 @@ export type ossFilesUncheckedUpdateInput = {
   fileMd5?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   source?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  encrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  originalMimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -442,6 +474,8 @@ export type ossFilesCreateManyInput = {
   fileMd5?: string | null
   source?: string | null
   status?: number
+  encrypted?: boolean
+  originalMimeType?: string | null
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -457,6 +491,8 @@ export type ossFilesUpdateManyMutationInput = {
   fileMd5?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   source?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  encrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  originalMimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -473,6 +509,8 @@ export type ossFilesUncheckedUpdateManyInput = {
   fileMd5?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   source?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  encrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  originalMimeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -489,6 +527,8 @@ export type ossFilesCountOrderByAggregateInput = {
   fileMd5?: Prisma.SortOrder
   source?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  encrypted?: Prisma.SortOrder
+  originalMimeType?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -512,6 +552,8 @@ export type ossFilesMaxOrderByAggregateInput = {
   fileMd5?: Prisma.SortOrder
   source?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  encrypted?: Prisma.SortOrder
+  originalMimeType?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -528,6 +570,8 @@ export type ossFilesMinOrderByAggregateInput = {
   fileMd5?: Prisma.SortOrder
   source?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  encrypted?: Prisma.SortOrder
+  originalMimeType?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -540,22 +584,6 @@ export type ossFilesSumOrderByAggregateInput = {
   status?: Prisma.SortOrder
 }
 
-export type IntFieldUpdateOperationsInput = {
-  set?: number
-  increment?: number
-  decrement?: number
-  multiply?: number
-  divide?: number
-}
-
-export type StringFieldUpdateOperationsInput = {
-  set?: string
-}
-
-export type NullableStringFieldUpdateOperationsInput = {
-  set?: string | null
-}
-
 export type DecimalFieldUpdateOperationsInput = {
   set?: runtime.Decimal | runtime.DecimalJsLike | number | string
   increment?: runtime.Decimal | runtime.DecimalJsLike | number | string
@@ -564,8 +592,8 @@ export type DecimalFieldUpdateOperationsInput = {
   divide?: runtime.Decimal | runtime.DecimalJsLike | number | string
 }
 
-export type NullableDateTimeFieldUpdateOperationsInput = {
-  set?: Date | string | null
+export type BoolFieldUpdateOperationsInput = {
+  set?: boolean
 }
 
 
@@ -581,6 +609,8 @@ export type ossFilesSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   fileMd5?: boolean
   source?: boolean
   status?: boolean
+  encrypted?: boolean
+  originalMimeType?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -597,6 +627,8 @@ export type ossFilesSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exte
   fileMd5?: boolean
   source?: boolean
   status?: boolean
+  encrypted?: boolean
+  originalMimeType?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -613,6 +645,8 @@ export type ossFilesSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exte
   fileMd5?: boolean
   source?: boolean
   status?: boolean
+  encrypted?: boolean
+  originalMimeType?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -629,12 +663,14 @@ export type ossFilesSelectScalar = {
   fileMd5?: boolean
   source?: boolean
   status?: boolean
+  encrypted?: boolean
+  originalMimeType?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
 }
 
-export type ossFilesOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "bucketName" | "fileName" | "filePath" | "fileSize" | "fileType" | "fileMd5" | "source" | "status" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["ossFiles"]>
+export type ossFilesOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "bucketName" | "fileName" | "filePath" | "fileSize" | "fileType" | "fileMd5" | "source" | "status" | "encrypted" | "originalMimeType" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["ossFiles"]>
 
 export type $ossFilesPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "ossFiles"
@@ -680,6 +716,14 @@ export type $ossFilesPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
      * 文件状态
      */
     status: number
+    /**
+     * 是否加密
+     */
+    encrypted: boolean
+    /**
+     * 原始 MIME 类型（加密文件需要）
+     */
+    originalMimeType: string | null
     /**
      * 创建时间
      */
@@ -1125,6 +1169,8 @@ export interface ossFilesFieldRefs {
   readonly fileMd5: Prisma.FieldRef<"ossFiles", 'String'>
   readonly source: Prisma.FieldRef<"ossFiles", 'String'>
   readonly status: Prisma.FieldRef<"ossFiles", 'Int'>
+  readonly encrypted: Prisma.FieldRef<"ossFiles", 'Boolean'>
+  readonly originalMimeType: Prisma.FieldRef<"ossFiles", 'String'>
   readonly createdAt: Prisma.FieldRef<"ossFiles", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"ossFiles", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"ossFiles", 'DateTime'>

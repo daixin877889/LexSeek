@@ -14,6 +14,16 @@ export default defineNuxtConfig({
     plugins: [
       tailwindcss() as any,
     ],
+    worker: {
+      format: 'es', // 使用 ES 模块格式
+    },
+    optimizeDeps: {
+      // 确保 age-encryption 在 Worker 中可用
+      include: ['age-encryption'],
+    },
+    server: {
+      allowedHosts: true
+    }
   },
   shadcn: {
     /**

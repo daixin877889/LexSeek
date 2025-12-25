@@ -29,8 +29,8 @@ export * from "./enums.js"
  * @example
  * ```
  * const prisma = new PrismaClient()
- * // Fetch zero or more OssFiles
- * const ossFiles = await prisma.ossFiles.findMany()
+ * // Fetch zero or more UserEncryptions
+ * const userEncryptions = await prisma.userEncryptions.findMany()
  * ```
  * 
  * Read more in our [docs](https://pris.ly/d/client).
@@ -39,6 +39,12 @@ export const PrismaClient = $Class.getPrismaClientClass()
 export type PrismaClient<LogOpts extends Prisma.LogLevel = never, OmitOpts extends Prisma.PrismaClientOptions["omit"] = Prisma.PrismaClientOptions["omit"], ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = $Class.PrismaClient<LogOpts, OmitOpts, ExtArgs>
 export { Prisma }
 
+/**
+ * Model userEncryptions
+ * 用户加密配置表
+ * 存储用户的端到端加密密钥信息
+ */
+export type userEncryptions = Prisma.userEncryptionsModel
 /**
  * Model ossFiles
  * OSS 文件表

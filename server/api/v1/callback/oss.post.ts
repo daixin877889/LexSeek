@@ -5,19 +5,25 @@ export default defineEventHandler(async (event) => {
 
     logger.debug('OSS 回调数据:', body)
 
+    // 解析回调变量
+    const fileId = Number(body?.['x:file_id'])
+    const encrypted = body?.['x:encrypted'] === '1'
+    const originalMimeType = body?.['x:original_mime_type'] || ''
+
     const result = {
       success: true,
       filename: body?.filename || '',
       size: body?.size || 0,
       mimeType: body?.mimeType || '',
-      fileId: Number(body?.['x:file_id']),
+      fileId,
       userId: body?.['x:user_id'] || '',
       source: body?.['x:source'] || '',
       originalFileName: body?.['x:original_file_name'] || '',
+      encrypted,
+      originalMimeType: encrypted ? originalMimeType : null,
     }
 
     if (!result.fileId) {
-
       await updateOssFileDao(result.fileId, {
         status: OssFileStatus.FAILED,
       })
@@ -28,9 +34,14 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    // 更新文件记录，包含加密相关字段
     await updateOssFileDao(result.fileId, {
       status: OssFileStatus.UPLOADED,
+      encrypted,
+      originalMimeType: encrypted ? originalMimeType : null,
     })
+
+    logger.info('OSS 回调处理成功', { fileId, encrypted })
 
     // OSS 回调必须返回 JSON 格式，且状态码为 200
     // 返回的内容会透传给客户端

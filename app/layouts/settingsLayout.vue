@@ -32,7 +32,7 @@
 // import { useMenuStore } from "@/stores";
 const router = useRouter();
 // const menuStore = useMenuStore();
-import { UserIcon, LockIcon } from "lucide-vue-next";
+import { UserIcon, LockIcon, FileLockIcon } from "lucide-vue-next";
 const settingsRoutes = ref([
   {
     title: "个人资料",
@@ -43,6 +43,11 @@ const settingsRoutes = ref([
     title: "安全设置",
     url: "/dashboard/settings/security",
     icon: LockIcon,
+  },
+  {
+    title: "文件加密",
+    url: "/dashboard/settings/file-encryption",
+    icon: FileLockIcon,
   },
 ]);
 

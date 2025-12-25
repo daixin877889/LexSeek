@@ -17,7 +17,7 @@
     </Sidebar>
     <SidebarInset>
       <!-- 头部 -->
-      <header class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 fixed bg-white w-full z-500 shadow-sm">
+      <header class="flex h-12 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 fixed bg-white w-full z-50 shadow-sm">
         <div class="flex gap-2 px-4">
           <!-- logo -->
           <div class="flex items-center gap-2 md:hidden">

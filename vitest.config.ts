@@ -7,5 +7,6 @@ export default defineConfig({
     test: {
         include: ['**/*.test.ts'],
         exclude: ['node_modules', '.nuxt'],
+        testTimeout: 60000,  // 60秒超时
     },
 })

@@ -384,6 +384,7 @@ type FieldRefInputType<Model, FieldType> = Model extends never ? never : FieldRe
 
 
 export const ModelName = {
+  userEncryptions: 'userEncryptions',
   ossFiles: 'ossFiles',
   roles: 'roles',
   roleRouters: 'roleRouters',
@@ -409,10 +410,84 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "ossFiles" | "roles" | "roleRouters" | "userRoles" | "routers" | "routerGroups" | "smsRecords" | "systemConfigs" | "users" | "tokenBlacklist"
+    modelProps: "userEncryptions" | "ossFiles" | "roles" | "roleRouters" | "userRoles" | "routers" | "routerGroups" | "smsRecords" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
+    userEncryptions: {
+      payload: Prisma.$userEncryptionsPayload<ExtArgs>
+      fields: Prisma.userEncryptionsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.userEncryptionsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.userEncryptionsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload>
+        }
+        findFirst: {
+          args: Prisma.userEncryptionsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.userEncryptionsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload>
+        }
+        findMany: {
+          args: Prisma.userEncryptionsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload>[]
+        }
+        create: {
+          args: Prisma.userEncryptionsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload>
+        }
+        createMany: {
+          args: Prisma.userEncryptionsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.userEncryptionsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload>[]
+        }
+        delete: {
+          args: Prisma.userEncryptionsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload>
+        }
+        update: {
+          args: Prisma.userEncryptionsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload>
+        }
+        deleteMany: {
+          args: Prisma.userEncryptionsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.userEncryptionsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.userEncryptionsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload>[]
+        }
+        upsert: {
+          args: Prisma.userEncryptionsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload>
+        }
+        aggregate: {
+          args: Prisma.UserEncryptionsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateUserEncryptions>
+        }
+        groupBy: {
+          args: Prisma.userEncryptionsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UserEncryptionsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.userEncryptionsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UserEncryptionsCountAggregateOutputType> | number
+        }
+      }
+    }
     ossFiles: {
       payload: Prisma.$ossFilesPayload<ExtArgs>
       fields: Prisma.ossFilesFieldRefs
@@ -1192,6 +1267,19 @@ export const TransactionIsolationLevel = runtime.makeStrictEnum({
 export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
 
 
+export const UserEncryptionsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  recipient: 'recipient',
+  encryptedIdentity: 'encryptedIdentity',
+  encryptedRecoveryKey: 'encryptedRecoveryKey',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type UserEncryptionsScalarFieldEnum = (typeof UserEncryptionsScalarFieldEnum)[keyof typeof UserEncryptionsScalarFieldEnum]
+
+
 export const OssFilesScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -1203,6 +1291,8 @@ export const OssFilesScalarFieldEnum = {
   fileMd5: 'fileMd5',
   source: 'source',
   status: 'status',
+  encrypted: 'encrypted',
+  originalMimeType: 'originalMimeType',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
@@ -1422,20 +1512,6 @@ export type ListStringFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaMod
 
 
 /**
- * Reference to a field of type 'Decimal'
- */
-export type DecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal'>
-    
-
-
-/**
- * Reference to a field of type 'Decimal[]'
- */
-export type ListDecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal[]'>
-    
-
-
-/**
  * Reference to a field of type 'DateTime'
  */
 export type DateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime'>
@@ -1446,6 +1522,20 @@ export type DateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel
  * Reference to a field of type 'DateTime[]'
  */
 export type ListDateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Decimal'
+ */
+export type DecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal'>
+    
+
+
+/**
+ * Reference to a field of type 'Decimal[]'
+ */
+export type ListDecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Decimal[]'>
     
 
 
@@ -1578,6 +1668,7 @@ export type PrismaClientOptions = ({
   comments?: runtime.SqlCommenterPlugin[]
 }
 export type GlobalOmitConfig = {
+  userEncryptions?: Prisma.userEncryptionsOmit
   ossFiles?: Prisma.ossFilesOmit
   roles?: Prisma.rolesOmit
   roleRouters?: Prisma.roleRoutersOmit

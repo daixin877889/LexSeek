@@ -2,7 +2,7 @@
 /**
  * token 黑名单
  */
-
+import type { Prisma } from "#shared/types/prisma";
 /**
  * 添加 token 黑名单
  * @param token 
@@ -10,7 +10,7 @@
  * @param expiredAt 
  * @returns 
  */
-export const addTokenBlacklistDao = async (token: string, userId: number, expiredAt: Date, tx?: any): Promise<void> => {
+export const addTokenBlacklistDao = async (token: string, userId: number, expiredAt: Date, tx?: Prisma.TransactionClient): Promise<void> => {
     try {
         await (tx || prisma).tokenBlacklist.create({
             data: {
@@ -33,7 +33,7 @@ export const addTokenBlacklistDao = async (token: string, userId: number, expire
  * @param token 
  * @returns 
  */
-export const findTokenBlacklistByTokenDao = async (token: string, tx?: any): Promise<tokenBlacklist | null> => {
+export const findTokenBlacklistByTokenDao = async (token: string, tx?: Prisma.TransactionClient): Promise<tokenBlacklist | null> => {
     try {
         const tokenBlacklist = await (tx || prisma).tokenBlacklist.findFirst({
             where: {
@@ -56,7 +56,7 @@ export const findTokenBlacklistByTokenDao = async (token: string, tx?: any): Pro
  * @param token 
  * @returns 
  */
-export const deleteTokenBlacklistByTokenDao = async (token: string, tx?: any): Promise<void> => {
+export const deleteTokenBlacklistByTokenDao = async (token: string, tx?: Prisma.TransactionClient): Promise<void> => {
     try {
         await (tx || prisma).tokenBlacklist.updateMany({
             where: {
@@ -78,7 +78,7 @@ export const deleteTokenBlacklistByTokenDao = async (token: string, tx?: any): P
  * @param tx 
  * @returns 
  */
-export const deleteExpiredTokenBlacklistDao = async (tx?: any): Promise<void> => {
+export const deleteExpiredTokenBlacklistDao = async (tx?: Prisma.TransactionClient): Promise<void> => {
     try {
 
         await (tx || prisma).tokenBlacklist.deleteMany({

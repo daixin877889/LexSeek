@@ -58,13 +58,42 @@ export const OssFileStatusName = {
 }
 
 /**
- * 文件类型
+ * 文件类型（用于筛选）
  */
 export enum FileType {
-    DOC = "文档",
-    AUDIO = "音频",
-    IMAGE = "图片",
-    VIDEO = "视频",
-    JSON = "JSON文件",
-    OTHER = "其他",
+    DOC = "DOC",
+    AUDIO = "AUDIO",
+    IMAGE = "IMAGE",
+    VIDEO = "VIDEO",
+    JSON = "JSON",
+    OTHER = "OTHER",
+}
+
+/**
+ * 文件类型名称映射
+ */
+export const FileTypeName: Record<FileType, string> = {
+    [FileType.DOC]: "文档",
+    [FileType.AUDIO]: "音频",
+    [FileType.IMAGE]: "图片",
+    [FileType.VIDEO]: "视频",
+    [FileType.JSON]: "JSON文件",
+    [FileType.OTHER]: "其他",
+}
+
+/**
+ * 文件排序字段
+ */
+export enum FileSortField {
+    CREATED_AT = "createdAt",
+    FILE_SIZE = "fileSize",
+    FILE_NAME = "fileName"
+}
+
+/**
+ * 排序方向
+ */
+export enum SortOrder {
+    ASC = "asc",
+    DESC = "desc"
 }

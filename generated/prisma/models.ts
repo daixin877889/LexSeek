@@ -8,6 +8,7 @@
  *
  * 🟢 You can import this file directly.
  */
+export type * from './models/userEncryptions.js'
 export type * from './models/ossFiles.js'
 export type * from './models/roles.js'
 export type * from './models/roleRouters.js'

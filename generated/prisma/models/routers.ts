@@ -612,10 +612,6 @@ export type routersUncheckedCreateNestedManyWithoutParentInput = {
   connect?: Prisma.routersWhereUniqueInput | Prisma.routersWhereUniqueInput[]
 }
 
-export type BoolFieldUpdateOperationsInput = {
-  set?: boolean
-}
-
 export type routersUpdateOneWithoutChildrenNestedInput = {
   create?: Prisma.XOR<Prisma.routersCreateWithoutChildrenInput, Prisma.routersUncheckedCreateWithoutChildrenInput>
   connectOrCreate?: Prisma.routersCreateOrConnectWithoutChildrenInput

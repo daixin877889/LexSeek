@@ -7,7 +7,7 @@ import { Prisma } from '#shared/types/prisma'
  * @param data 用户创建数据
  * @returns 用户
  */
-export const createUserDao = async (data: Prisma.usersCreateInput, tx?: any): Promise<users & { userRoles: userRoles[] }> => {
+export const createUserDao = async (data: Prisma.usersCreateInput, tx?: Prisma.TransactionClient): Promise<users & { userRoles: userRoles[] }> => {
     try {
         const user = await (tx || prisma).users.create({
             data: { ...data, createdAt: new Date(), updatedAt: new Date() },
@@ -139,7 +139,7 @@ export const findUserByUsernameDao = async (username: string, tx?: any): Promise
  * @param password 密码
  * @returns 用户
  */
-export const updateUserPasswordDao = async (id: number, password: string, tx?: any): Promise<users> => {
+export const updateUserPasswordDao = async (id: number, password: string, tx?: Prisma.TransactionClient): Promise<users> => {
     try {
         const user = await (tx || prisma).users.update({
             where: { id, deletedAt: null },
@@ -158,7 +158,7 @@ export const updateUserPasswordDao = async (id: number, password: string, tx?: a
  * @param data 用户资料
  * @returns 用户
  */
-export const updateUserProfileDao = async (id: number, data: Prisma.usersUpdateInput, tx?: any): Promise<users> => {
+export const updateUserProfileDao = async (id: number, data: Prisma.usersUpdateInput, tx?: Prisma.TransactionClient): Promise<users> => {
     try {
         const user = await (tx || prisma).users.update({
             where: { id, deletedAt: null },
