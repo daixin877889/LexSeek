@@ -8,45 +8,45 @@ import type { PostSignatureResult } from '~~/shared/types/oss'
 
 // Worker 响应类型
 interface WorkerResponse {
-    type: 'progress' | 'success' | 'error'
-    id: string
-    progress?: number
-    data?: Record<string, unknown>
-    error?: string
+  type: 'progress' | 'success' | 'error'
+  id: string
+  progress?: number
+  data?: Record<string, unknown>
+  error?: string
 }
 
 // 上传任务回调
 interface UploadCallbacks {
-    onProgress?: (progress: number) => void
-    onSuccess?: (data: Record<string, unknown>) => void
-    onError?: (error: Error) => void
+  onProgress?: (progress: number) => void
+  onSuccess?: (data: Record<string, unknown>) => void
+  onError?: (error: Error) => void
 }
 
 // 上传任务
 interface UploadTask {
-    id: string
-    callbacks: UploadCallbacks
+  id: string
+  callbacks: UploadCallbacks
 }
 
 /**
  * 文件上传 Worker Composable
  */
 export const useFileUploadWorker = () => {
-    // Worker 实例
-    let worker: Worker | null = null
-    // 上传任务映射
-    const tasks = new Map<string, UploadTask>()
-    // 任务 ID 计数器
-    let taskIdCounter = 0
+  // Worker 实例
+  let worker: Worker | null = null
+  // 上传任务映射
+  const tasks = new Map<string, UploadTask>()
+  // 任务 ID 计数器
+  let taskIdCounter = 0
 
-    /**
-     * 初始化 Worker
-     */
-    const initWorker = () => {
-        if (worker) return worker
+  /**
+   * 初始化 Worker
+   */
+  const initWorker = () => {
+    if (worker) return worker
 
-        // 动态创建 Worker
-        const workerCode = `
+    // 动态创建 Worker
+    const workerCode = `
       const uploadTasks = new Map();
 
       const handleUpload = (message) => {
@@ -132,97 +132,108 @@ export const useFileUploadWorker = () => {
       });
     `
 
-        const blob = new Blob([workerCode], { type: 'application/javascript' })
-        worker = new Worker(URL.createObjectURL(blob))
+    const blob = new Blob([workerCode], { type: 'application/javascript' })
+    worker = new Worker(URL.createObjectURL(blob))
 
-        // 监听 Worker 消息
-        worker.addEventListener('message', (event: MessageEvent<WorkerResponse>) => {
-            const response = event.data
-            const task = tasks.get(response.id)
+    // 监听 Worker 消息
+    worker.addEventListener('message', (event: MessageEvent<WorkerResponse>) => {
+      const response = event.data
+      const task = tasks.get(response.id)
 
-            if (!task) return
+      if (!task) return
 
-            switch (response.type) {
-                case 'progress':
-                    task.callbacks.onProgress?.(response.progress || 0)
-                    break
-                case 'success':
-                    task.callbacks.onSuccess?.(response.data || {})
-                    tasks.delete(response.id)
-                    break
-                case 'error':
-                    task.callbacks.onError?.(new Error(response.error || '未知错误'))
-                    tasks.delete(response.id)
-                    break
-            }
-        })
-
-        return worker
-    }
-
-    /**
-     * 上传文件
-     */
-    const upload = (
-        file: File,
-        signature: PostSignatureResult,
-        callbacks: UploadCallbacks
-    ): string => {
-        const w = initWorker()
-        const id = `upload_${++taskIdCounter}_${Date.now()}`
-
-        tasks.set(id, { id, callbacks })
-
-        w.postMessage({
-            type: 'upload',
-            id,
-            file,
-            signature: {
-                host: signature.host,
-                policy: signature.policy,
-                signatureVersion: signature.signatureVersion,
-                credential: signature.credential,
-                date: signature.date,
-                signature: signature.signature,
-                key: signature.key,
-                securityToken: signature.securityToken,
-                callback: signature.callback,
-                callbackVar: signature.callbackVar,
-            }
-        })
-
-        return id
-    }
-
-    /**
-     * 取消上传
-     */
-    const cancel = (id: string) => {
-        if (worker) {
-            worker.postMessage({ type: 'cancel', id })
-        }
-        tasks.delete(id)
-    }
-
-    /**
-     * 销毁 Worker
-     */
-    const destroy = () => {
-        if (worker) {
-            worker.terminate()
-            worker = null
-        }
-        tasks.clear()
-    }
-
-    // 组件卸载时销毁 Worker
-    onUnmounted(() => {
-        destroy()
+      switch (response.type) {
+        case 'progress':
+          task.callbacks.onProgress?.(response.progress || 0)
+          break
+        case 'success':
+          task.callbacks.onSuccess?.(response.data || {})
+          tasks.delete(response.id)
+          break
+        case 'error':
+          task.callbacks.onError?.(new Error(response.error || '未知错误'))
+          tasks.delete(response.id)
+          break
+      }
     })
 
-    return {
-        upload,
-        cancel,
-        destroy
+    return worker
+  }
+
+  /**
+   * 上传文件
+   */
+  const upload = (
+    file: File,
+    signature: PostSignatureResult,
+    callbacks: UploadCallbacks
+  ): string => {
+    const w = initWorker()
+    const id = `upload_${++taskIdCounter}_${Date.now()}`
+
+    tasks.set(id, { id, callbacks })
+
+    // 确保 callbackVar 是纯对象，避免克隆问题
+    const callbackVar: Record<string, string> = {}
+    if (signature.callbackVar) {
+      for (const [key, value] of Object.entries(signature.callbackVar)) {
+        callbackVar[key] = String(value)
+      }
     }
+
+    // 构建可克隆的签名对象
+    const cloneableSignature = {
+      host: signature.host,
+      policy: signature.policy,
+      signatureVersion: signature.signatureVersion,
+      credential: signature.credential,
+      date: signature.date,
+      signature: signature.signature,
+      key: signature.key,
+      securityToken: signature.securityToken || undefined,
+      callback: signature.callback || undefined,
+      callbackVar: Object.keys(callbackVar).length > 0 ? callbackVar : undefined,
+    }
+
+    w.postMessage({
+      type: 'upload',
+      id,
+      file,
+      signature: cloneableSignature
+    })
+
+    return id
+  }
+
+  /**
+   * 取消上传
+   */
+  const cancel = (id: string) => {
+    if (worker) {
+      worker.postMessage({ type: 'cancel', id })
+    }
+    tasks.delete(id)
+  }
+
+  /**
+   * 销毁 Worker
+   */
+  const destroy = () => {
+    if (worker) {
+      worker.terminate()
+      worker = null
+    }
+    tasks.clear()
+  }
+
+  // 组件卸载时销毁 Worker
+  onUnmounted(() => {
+    destroy()
+  })
+
+  return {
+    upload,
+    cancel,
+    destroy
+  }
 }
