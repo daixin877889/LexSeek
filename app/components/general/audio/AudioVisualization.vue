@@ -1,5 +1,5 @@
 <template>
-  <div class="audio-visualization w-full transition-all duration-500 ease-out" :class="{ 'fixed inset-0 z-[9999] bg-background': isFullscreen }" ref="audioVisualizationRef">
+  <div class="audio-visualization w-full transition-all duration-500 ease-out" :class="{ 'fixed inset-0 z-9999 bg-background': isFullscreen }" ref="audioVisualizationRef">
     <!-- 全屏模式下的头部标题栏 -->
     <div v-if="isFullscreen" class="flex items-center justify-between p-4 border-b bg-background fullscreen-header">
       <h3 class="text-lg font-semibold">{{ materialTitle }}</h3>
@@ -20,9 +20,7 @@
         <div class="flex items-center justify-between">
           <div>
             <h3 class="text-lg font-semibold">语音识别结果</h3>
-            <div class="text-sm text-muted-foreground mt-1">
-              共识别到 {{ totalSentences }} 句话，{{ speakerCount }} 个说话人
-            </div>
+            <div class="text-sm text-muted-foreground mt-1">共识别到 {{ totalSentences }} 句话，{{ speakerCount }} 个说话人</div>
           </div>
 
           <!-- 全屏控制按钮 -->
@@ -50,9 +48,17 @@
       <div class="p-4 space-y-4 overflow-y-auto" :class="isFullscreen ? 'max-h-[calc(100vh-280px)]' : 'max-h-[400px]'" ref="asrContainerRef">
         <!-- 按说话人分组显示对话 -->
         <div v-if="processedTranscripts.length > 0 && props.asrData?.status === 2">
-          <div v-for="(item, index) in processedTranscripts" :key="index" class="flex gap-3 mb-4" :ref="el => { if (isSelected(item)) highlightedRef = el; }">
+          <div
+            v-for="(item, index) in processedTranscripts"
+            :key="index"
+            class="flex gap-3 mb-4"
+            :ref="
+              (el) => {
+                if (isSelected(item)) highlightedRef = el;
+              }
+            ">
             <!-- 说话人头像 -->
-            <div class="flex-shrink-0">
+            <div class="shrink-0">
               <div class="relative group">
                 <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium cursor-pointer transition-all duration-200 group-hover:scale-110" :class="getSpeakerColor(item.speaker_id)" @click="openEditSpeakerDialog(item.speaker_id)" :title="`点击编辑说话人：${getSpeakerName(item.speaker_id)}`">
                   {{ getSpeakerAvatarText(item.speaker_id) }}
@@ -65,16 +71,11 @@
             </div>
 
             <!-- 对话内容 -->
-            <div class="flex-1 rounded-lg p-3 cursor-pointer transition-all duration-200" :class="[
-                'bg-muted text-left',
-                isSelected(item) ? `ring-2 ring-opacity-50 shadow-md ${getSpeakerRingColor(item.speaker_id)}` : ''
-              ]" @click="seekToSentence(item)">
+            <div class="flex-1 rounded-lg p-3 cursor-pointer transition-all duration-200" :class="['bg-muted text-left', isSelected(item) ? `ring-2 ring-opacity-50 shadow-md ${getSpeakerRingColor(item.speaker_id)}` : '']" @click="seekToSentence(item)">
               <div class="text-sm leading-relaxed">
                 {{ item.text }}
               </div>
-              <div class="text-xs mt-1 opacity-70 text-muted-foreground">
-                {{ getSpeakerName(item.speaker_id) }} · {{ formatTime(item.begin_time) }} - {{ formatTime(item.end_time) }}
-              </div>
+              <div class="text-xs mt-1 opacity-70 text-muted-foreground">{{ getSpeakerName(item.speaker_id) }} · {{ formatTime(item.begin_time) }} - {{ formatTime(item.end_time) }}</div>
             </div>
           </div>
         </div>
@@ -228,9 +229,7 @@
         </div>
 
         <DialogFooter>
-          <Button @click="showHelpDialog = false" variant="outline">
-            关闭
-          </Button>
+          <Button @click="showHelpDialog = false" variant="outline"> 关闭 </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -243,9 +242,7 @@
             <edit-icon class="h-5 w-5" />
             编辑说话人信息
           </DialogTitle>
-          <DialogDescription>
-            修改该说话人的显示名称
-          </DialogDescription>
+          <DialogDescription> 修改该说话人的显示名称 </DialogDescription>
         </DialogHeader>
 
         <div class="space-y-4 py-4">
@@ -256,20 +253,16 @@
             </div>
 
             <div class="flex-1">
-              <label class="text-sm font-medium text-muted-foreground mb-1 block">
-                说话人姓名
-              </label>
+              <label class="text-sm font-medium text-muted-foreground mb-1 block"> 说话人姓名 </label>
               <Input v-model="editingSpeakerName" placeholder="请输入说话人姓名" :disabled="isEditingSpeaker" @keydown.enter="handleEnterKeyDown" class="w-full" />
             </div>
           </div>
         </div>
 
         <DialogFooter>
-          <Button @click="cancelEditSpeaker" variant="outline" :disabled="isEditingSpeaker">
-            取消
-          </Button>
+          <Button @click="cancelEditSpeaker" variant="outline" :disabled="isEditingSpeaker"> 取消 </Button>
           <Button @click="saveSpeakerName" :disabled="isEditingSpeaker || !editingSpeakerName.trim()">
-            {{ isEditingSpeaker ? '保存中...' : '保存' }}
+            {{ isEditingSpeaker ? "保存中..." : "保存" }}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -278,34 +271,15 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  PlayIcon,
-  PauseIcon,
-  Volume2Icon,
-  MicIcon,
-  MaximizeIcon,
-  MinimizeIcon,
-  XIcon,
-  InfoIcon,
-  EditIcon,
-  DownloadIcon,
-  Loader2Icon
-} from 'lucide-vue-next';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription
-} from '@/components/ui/dialog';
-import asrApi from '@/api/asr';
-import { useToastStore } from '@/stores';
-import AudioPlayer from './AudioPlayer.vue';
-import logger from '@/utils/logger.js'
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from "vue";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { PlayIcon, PauseIcon, Volume2Icon, MicIcon, MaximizeIcon, MinimizeIcon, XIcon, InfoIcon, EditIcon, DownloadIcon, Loader2Icon } from "lucide-vue-next";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import asrApi from "@/api/asr";
+import { useToastStore } from "@/stores";
+import AudioPlayer from "./AudioPlayer.vue";
+import logger from "@/utils/logger.js";
 
 /**
  * Props定义
@@ -316,35 +290,35 @@ const props = defineProps({
    */
   asrData: {
     type: Object,
-    default: () => ({})
+    default: () => ({}),
   },
   /**
    * 音频文件URL
    */
   audioUrl: {
     type: String,
-    default: ''
+    default: "",
   },
   /**
    * 材料标题
    */
   materialTitle: {
     type: String,
-    default: '音频材料'
+    default: "音频材料",
   },
   /**
    * ASR记录ID，用于编辑说话人信息
    */
   asrRecordId: {
     type: [String, Number],
-    default: null
-  }
+    default: null,
+  },
 });
 
 /**
  * 事件定义
  */
-const emit = defineEmits(['speakerUpdated']);
+const emit = defineEmits(["speakerUpdated"]);
 
 // 音频播放器引用
 const audioPlayerRef = ref(null);
@@ -370,7 +344,7 @@ const showHelpDialog = ref(false);
 // 编辑说话人相关状态
 const showEditSpeakerDialog = ref(false);
 const editingSpeakerId = ref(null);
-const editingSpeakerName = ref('');
+const editingSpeakerName = ref("");
 const isEditingSpeaker = ref(false);
 
 // 本地说话人状态，用于在 API 更新后立即反映界面变化
@@ -405,7 +379,7 @@ const processedTranscripts = computed(() => {
 const totalSentences = computed(() => processedTranscripts.value.length);
 
 const speakerCount = computed(() => {
-  const speakers = new Set(processedTranscripts.value.map(item => item.speaker_id));
+  const speakers = new Set(processedTranscripts.value.map((item) => item.speaker_id));
   return speakers.size;
 });
 
@@ -525,15 +499,11 @@ const navigateToPreviousSentence = () => {
 
   // 如果有手动选中的句子，基于选中的句子
   if (selectedSentenceId.value) {
-    currentSentenceIndex = processedTranscripts.value.findIndex(
-      sentence => sentence.sentence_id === selectedSentenceId.value
-    );
+    currentSentenceIndex = processedTranscripts.value.findIndex((sentence) => sentence.sentence_id === selectedSentenceId.value);
   } else {
     // 否则基于当前播放时间找到当前句子
     const currentTimeMs = currentTime.value * 1000;
-    currentSentenceIndex = processedTranscripts.value.findIndex(
-      sentence => currentTimeMs >= sentence.begin_time && currentTimeMs <= sentence.end_time
-    );
+    currentSentenceIndex = processedTranscripts.value.findIndex((sentence) => currentTimeMs >= sentence.begin_time && currentTimeMs <= sentence.end_time);
   }
 
   // 如果找到了当前句子，导航到上一句
@@ -556,15 +526,11 @@ const navigateToNextSentence = () => {
 
   // 如果有手动选中的句子，基于选中的句子
   if (selectedSentenceId.value) {
-    currentSentenceIndex = processedTranscripts.value.findIndex(
-      sentence => sentence.sentence_id === selectedSentenceId.value
-    );
+    currentSentenceIndex = processedTranscripts.value.findIndex((sentence) => sentence.sentence_id === selectedSentenceId.value);
   } else {
     // 否则基于当前播放时间找到当前句子
     const currentTimeMs = currentTime.value * 1000;
-    currentSentenceIndex = processedTranscripts.value.findIndex(
-      sentence => currentTimeMs >= sentence.begin_time && currentTimeMs <= sentence.end_time
-    );
+    currentSentenceIndex = processedTranscripts.value.findIndex((sentence) => currentTimeMs >= sentence.begin_time && currentTimeMs <= sentence.end_time);
   }
 
   // 如果找到了当前句子，导航到下一句
@@ -588,7 +554,7 @@ const formatTime = (timeInMs) => {
   const seconds = Math.floor(timeInMs / 1000);
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
-  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
 };
 
 /**
@@ -597,14 +563,7 @@ const formatTime = (timeInMs) => {
  * @returns {string} CSS类名
  */
 const getSpeakerColor = (speakerId) => {
-  const colors = [
-    'bg-blue-500',
-    'bg-green-500',
-    'bg-purple-500',
-    'bg-orange-500',
-    'bg-pink-500',
-    'bg-indigo-500'
-  ];
+  const colors = ["bg-blue-500", "bg-green-500", "bg-purple-500", "bg-orange-500", "bg-pink-500", "bg-indigo-500"];
   return colors[speakerId % colors.length];
 };
 
@@ -621,7 +580,7 @@ const getSpeakerName = (speakerId) => {
 
   // 然后使用 props 中的说话人信息
   if (props.asrData?.speakers && Array.isArray(props.asrData.speakers)) {
-    const speaker = props.asrData.speakers.find(s => s.id === speakerId);
+    const speaker = props.asrData.speakers.find((s) => s.id === speakerId);
     if (speaker && speaker.name) {
       return speaker.name;
     }
@@ -683,14 +642,7 @@ const isSelected = (sentence) => {
  * @returns {string} CSS类名
  */
 const getSpeakerRingColor = (speakerId) => {
-  const colors = [
-    'ring-blue-500',
-    'ring-green-500',
-    'ring-purple-500',
-    'ring-orange-500',
-    'ring-pink-500',
-    'ring-indigo-500'
-  ];
+  const colors = ["ring-blue-500", "ring-green-500", "ring-purple-500", "ring-orange-500", "ring-pink-500", "ring-indigo-500"];
   return colors[speakerId % colors.length];
 };
 
@@ -700,10 +652,8 @@ const getSpeakerRingColor = (speakerId) => {
  * 检查是否在输入元素中
  */
 const isInputElement = (element) => {
-  const inputElements = ['INPUT', 'TEXTAREA', 'SELECT'];
-  return inputElements.includes(element.tagName) ||
-    element.contentEditable === 'true' ||
-    element.closest('[contenteditable="true"]');
+  const inputElements = ["INPUT", "TEXTAREA", "SELECT"];
+  return inputElements.includes(element.tagName) || element.contentEditable === "true" || element.closest('[contenteditable="true"]');
 };
 
 /**
@@ -713,7 +663,7 @@ const handleKeyPress = (event) => {
   // 只在不在输入框等元素中且有音频URL时响应
   if (!isInputElement(event.target) && props.audioUrl) {
     switch (event.code) {
-      case 'Space':
+      case "Space":
         event.preventDefault(); // 防止页面滚动
         // 主动移除焦点，避免显示焦点边框
         if (document.activeElement && document.activeElement.blur) {
@@ -721,23 +671,23 @@ const handleKeyPress = (event) => {
         }
         togglePlayPause();
         break;
-      case 'ArrowLeft':
+      case "ArrowLeft":
         event.preventDefault();
         seekBackward();
         break;
-      case 'ArrowRight':
+      case "ArrowRight":
         event.preventDefault();
         seekForward();
         break;
-      case 'ArrowUp':
+      case "ArrowUp":
         event.preventDefault();
         navigateToPreviousSentence();
         break;
-      case 'ArrowDown':
+      case "ArrowDown":
         event.preventDefault();
         navigateToNextSentence();
         break;
-      case 'Escape':
+      case "Escape":
         if (isFullscreen.value) {
           event.preventDefault();
           toggleFullscreen();
@@ -770,14 +720,14 @@ const toggleFullscreen = async () => {
       } else {
         // 降级到CSS模拟全屏
         if (audioVisualizationRef.value) {
-          audioVisualizationRef.value.classList.add('fullscreen-enter');
+          audioVisualizationRef.value.classList.add("fullscreen-enter");
         }
         isFullscreen.value = true;
-        document.body.style.overflow = 'hidden';
+        document.body.style.overflow = "hidden";
 
         setTimeout(() => {
           if (audioVisualizationRef.value) {
-            audioVisualizationRef.value.classList.remove('fullscreen-enter');
+            audioVisualizationRef.value.classList.remove("fullscreen-enter");
           }
           isAnimating.value = false;
         }, 500);
@@ -795,15 +745,15 @@ const toggleFullscreen = async () => {
       } else {
         // 降级到CSS模拟全屏
         if (audioVisualizationRef.value) {
-          audioVisualizationRef.value.classList.add('fullscreen-exit');
+          audioVisualizationRef.value.classList.add("fullscreen-exit");
         }
 
         setTimeout(() => {
           isFullscreen.value = false;
-          document.body.style.overflow = '';
+          document.body.style.overflow = "";
 
           if (audioVisualizationRef.value) {
-            audioVisualizationRef.value.classList.remove('fullscreen-exit');
+            audioVisualizationRef.value.classList.remove("fullscreen-exit");
           }
           isAnimating.value = false;
         }, 500);
@@ -813,23 +763,23 @@ const toggleFullscreen = async () => {
 
     isAnimating.value = false;
   } catch (error) {
-    console.error('全屏切换失败:', error);
+    console.error("全屏切换失败:", error);
     // 发生错误时降级到CSS模拟
     if (!isFullscreen.value) {
       if (audioVisualizationRef.value) {
-        audioVisualizationRef.value.classList.add('fullscreen-enter');
+        audioVisualizationRef.value.classList.add("fullscreen-enter");
       }
       isFullscreen.value = true;
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = "hidden";
     } else {
       if (audioVisualizationRef.value) {
-        audioVisualizationRef.value.classList.add('fullscreen-exit');
+        audioVisualizationRef.value.classList.add("fullscreen-exit");
       }
       setTimeout(() => {
         isFullscreen.value = false;
-        document.body.style.overflow = '';
+        document.body.style.overflow = "";
         if (audioVisualizationRef.value) {
-          audioVisualizationRef.value.classList.remove('fullscreen-exit');
+          audioVisualizationRef.value.classList.remove("fullscreen-exit");
         }
       }, 500);
     }
@@ -846,12 +796,7 @@ const toggleFullscreen = async () => {
  * 监听全屏状态变化
  */
 const handleFullscreenChange = () => {
-  const isCurrentlyFullscreen = !!(
-    document.fullscreenElement ||
-    document.webkitFullscreenElement ||
-    document.mozFullScreenElement ||
-    document.msFullscreenElement
-  );
+  const isCurrentlyFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
 
   // 同步状态
   if (isFullscreen.value !== isCurrentlyFullscreen) {
@@ -859,7 +804,7 @@ const handleFullscreenChange = () => {
 
     if (!isCurrentlyFullscreen) {
       // 退出全屏时恢复滚动
-      document.body.style.overflow = '';
+      document.body.style.overflow = "";
     }
   }
 };
@@ -879,7 +824,7 @@ const toggleHelpDialog = () => {
  */
 const openEditSpeakerDialog = (speakerId) => {
   if (!props.asrRecordId) {
-    logger.warn('无法编辑说话人：缺少 asrRecordId');
+    logger.warn("无法编辑说话人：缺少 asrRecordId");
     return;
   }
 
@@ -906,7 +851,7 @@ const handleEnterKeyDown = (event) => {
 const cancelEditSpeaker = () => {
   showEditSpeakerDialog.value = false;
   editingSpeakerId.value = null;
-  editingSpeakerName.value = '';
+  editingSpeakerName.value = "";
   isEditingSpeaker.value = false;
 
   // 确保移除所有焦点，避免出现黑框
@@ -921,8 +866,8 @@ const cancelEditSpeaker = () => {
 const saveSpeakerName = async () => {
   if (!editingSpeakerName.value.trim()) {
     toastStore.showErrorToast({
-      title: '保存失败',
-      message: '说话人名称不能为空'
+      title: "保存失败",
+      message: "说话人名称不能为空",
     });
     return;
   }
@@ -937,10 +882,12 @@ const saveSpeakerName = async () => {
     isEditingSpeaker.value = true;
 
     await asrApi.editSpeakerInfo(props.asrRecordId, {
-      speakers: [{
-        id: editingSpeakerId.value,
-        name: editingSpeakerName.value.trim()
-      }]
+      speakers: [
+        {
+          id: editingSpeakerId.value,
+          name: editingSpeakerName.value.trim(),
+        },
+      ],
     });
 
     // 保存名称用于后续的 Toast 消息
@@ -950,25 +897,24 @@ const saveSpeakerName = async () => {
     localSpeakers.value[editingSpeakerId.value] = savedName;
 
     // 发出事件通知父组件刷新数据
-    emit('speakerUpdated');
+    emit("speakerUpdated");
 
     cancelEditSpeaker();
 
     toastStore.showSuccessToast({
-      title: '保存成功',
-      message: `说话人名称已更新为 "${savedName}"`
+      title: "保存成功",
+      message: `说话人名称已更新为 "${savedName}"`,
     });
   } catch (error) {
-    logger.error('更新说话人名称失败:', error);
+    logger.error("更新说话人名称失败:", error);
     toastStore.showErrorToast({
-      title: '保存失败',
-      message: error.response?.data?.message || error.message || '请稍后重试'
+      title: "保存失败",
+      message: error.response?.data?.message || error.message || "请稍后重试",
     });
   } finally {
     isEditingSpeaker.value = false;
   }
 };
-
 
 /**
  * 下载文档
@@ -976,8 +922,8 @@ const saveSpeakerName = async () => {
 const downloadDocument = async () => {
   if (!props.audioUrl || !processedTranscripts.value.length) {
     toastStore.showErrorToast({
-      title: '错误',
-      message: '缺少音频文件或识别结果'
+      title: "错误",
+      message: "缺少音频文件或识别结果",
     });
     return;
   }
@@ -986,7 +932,7 @@ const downloadDocument = async () => {
 
   try {
     // 动态导入 JSZip
-    const JSZip = (await import('jszip')).default;
+    const JSZip = (await import("jszip")).default;
     const zip = new JSZip();
 
     // 1. 下载音频文件并添加到ZIP
@@ -994,16 +940,16 @@ const downloadDocument = async () => {
     const audioBlob = await audioResponse.blob();
 
     // 从音频URL推断文件扩展名
-    let fileExtension = '.mp3'; // 默认扩展名
+    let fileExtension = ".mp3"; // 默认扩展名
     try {
       const url = new URL(props.audioUrl);
       const pathname = url.pathname;
-      const lastDotIndex = pathname.lastIndexOf('.');
+      const lastDotIndex = pathname.lastIndexOf(".");
       if (lastDotIndex !== -1) {
         fileExtension = pathname.substring(lastDotIndex);
       }
     } catch (error) {
-      warn('无法从URL推断文件扩展名，使用默认扩展名:', error);
+      warn("无法从URL推断文件扩展名，使用默认扩展名:", error);
     }
 
     // 生成音频文件名：材料标题 + 原始后缀名
@@ -1011,8 +957,8 @@ const downloadDocument = async () => {
     zip.file(audioFileName, audioBlob);
 
     // 2. 生成识别结果TXT文件内容
-    let txtContent = '';
-    processedTranscripts.value.forEach(item => {
+    let txtContent = "";
+    processedTranscripts.value.forEach((item) => {
       const speakerName = getSpeakerName(item.speaker_id);
       txtContent += `${speakerName}：${item.text}\n`;
     });
@@ -1022,11 +968,11 @@ const downloadDocument = async () => {
     zip.file(txtFileName, txtContent);
 
     // 3. 生成ZIP文件并下载
-    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const zipBlob = await zip.generateAsync({ type: "blob" });
 
     // 创建下载链接
     const url = URL.createObjectURL(zipBlob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `${props.materialTitle}_文档包.zip`;
     document.body.appendChild(a);
@@ -1036,39 +982,42 @@ const downloadDocument = async () => {
 
     // 使用 toast 提示成功
     toastStore.showSuccessToast({
-      title: '成功',
-      message: '文档下载成功'
+      title: "成功",
+      message: "文档下载成功",
     });
   } catch (error) {
-    logger.error('下载文档失败:', error);
+    logger.error("下载文档失败:", error);
     // 使用 toast 显示错误提示
     toastStore.showErrorToast({
-      title: '错误',
-      message: error.response?.data?.message || error.message || '下载文档失败，请稍后重试'
+      title: "错误",
+      message: error.response?.data?.message || error.message || "下载文档失败，请稍后重试",
     });
   } finally {
     isDownloading.value = false;
   }
 };
 
-
 // 监听器
 
 /**
  * 监听 ASR 数据变化，同步更新本地说话人状态
  */
-watch(() => props.asrData?.speakers, (newSpeakers) => {
-  if (newSpeakers && Array.isArray(newSpeakers)) {
-    // 清空本地状态
-    localSpeakers.value = {};
-    // 将 props 中的 speakers 数据同步到本地状态
-    newSpeakers.forEach(speaker => {
-      if (speaker.id !== undefined && speaker.name) {
-        localSpeakers.value[speaker.id] = speaker.name;
-      }
-    });
-  }
-}, { deep: true, immediate: true });
+watch(
+  () => props.asrData?.speakers,
+  (newSpeakers) => {
+    if (newSpeakers && Array.isArray(newSpeakers)) {
+      // 清空本地状态
+      localSpeakers.value = {};
+      // 将 props 中的 speakers 数据同步到本地状态
+      newSpeakers.forEach((speaker) => {
+        if (speaker.id !== undefined && speaker.name) {
+          localSpeakers.value[speaker.id] = speaker.name;
+        }
+      });
+    }
+  },
+  { deep: true, immediate: true }
+);
 
 /**
  * 监听播放时间变化，实现自动滚动
@@ -1085,16 +1034,14 @@ watch(currentTime, () => {
         const elementRect = highlightedElement.getBoundingClientRect();
 
         // 检查元素是否在容器的可视区域内
-        const isElementVisible =
-          elementRect.top >= containerRect.top &&
-          elementRect.bottom <= containerRect.bottom;
+        const isElementVisible = elementRect.top >= containerRect.top && elementRect.bottom <= containerRect.bottom;
 
         // 如果元素不在可视区域内，则滚动到该元素
         if (!isElementVisible) {
           highlightedElement.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-            inline: 'nearest'
+            behavior: "smooth",
+            block: "center",
+            inline: "nearest",
           });
         }
       }
@@ -1105,16 +1052,19 @@ watch(currentTime, () => {
 /**
  * 监听音频URL变化
  */
-watch(() => props.audioUrl, (newUrl) => {
-  if (audioPlayerRef.value) {
-    // AudioPlayer 内部会处理 URL 变化
-    isPlaying.value = false;
-    currentTime.value = 0;
-    duration.value = 0;
-    // 音频切换时清除选中状态
-    selectedSentenceId.value = null;
+watch(
+  () => props.audioUrl,
+  (newUrl) => {
+    if (audioPlayerRef.value) {
+      // AudioPlayer 内部会处理 URL 变化
+      isPlaying.value = false;
+      currentTime.value = 0;
+      duration.value = 0;
+      // 音频切换时清除选中状态
+      selectedSentenceId.value = null;
+    }
   }
-});
+);
 
 // 生命周期钩子
 
@@ -1123,13 +1073,13 @@ watch(() => props.audioUrl, (newUrl) => {
  */
 onMounted(() => {
   // 添加键盘事件监听
-  document.addEventListener('keydown', handleKeyPress);
+  document.addEventListener("keydown", handleKeyPress);
 
   // 添加全屏状态变化监听
-  document.addEventListener('fullscreenchange', handleFullscreenChange);
-  document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-  document.addEventListener('mozfullscreenchange', handleFullscreenChange);
-  document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+  document.addEventListener("fullscreenchange", handleFullscreenChange);
+  document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+  document.addEventListener("mozfullscreenchange", handleFullscreenChange);
+  document.addEventListener("MSFullscreenChange", handleFullscreenChange);
 });
 
 /**
@@ -1142,7 +1092,7 @@ onUnmounted(() => {
 
   // 清理全屏状态
   if (isFullscreen.value) {
-    document.body.style.overflow = '';
+    document.body.style.overflow = "";
     // 确保退出全屏
     if (document.exitFullscreen) {
       document.exitFullscreen();
@@ -1152,13 +1102,13 @@ onUnmounted(() => {
   }
 
   // 清理键盘事件监听
-  document.removeEventListener('keydown', handleKeyPress);
+  document.removeEventListener("keydown", handleKeyPress);
 
   // 清理全屏事件监听
-  document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-  document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
-  document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+  document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+  document.removeEventListener("mozfullscreenchange", handleFullscreenChange);
+  document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
 });
 </script>
 
@@ -1368,4 +1318,4 @@ input[type="range"]::-moz-range-track {
 .content-scale-transition {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
-</style> 
+</style>
