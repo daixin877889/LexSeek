@@ -1,0 +1,42 @@
+# 依赖目录
+node_modules
+
+# 构建产物
+.output
+.nuxt
+dist
+
+# 开发文件
+.git
+.gitignore
+*.md
+!README.md
+
+# IDE 配置
+.vscode
+.idea
+.cursor
+.claude
+
+# 环境文件（敏感信息）
+.env
+.env.*
+!.env.example
+
+# 日志
+logs
+*.log
+
+# 测试
+tests
+*.test.ts
+*.spec.ts
+vitest.config.ts
+coverage
+
+# Kiro 配置
+.kiro
+
+# 其他
+.DS_Store
+Thumbs.db
