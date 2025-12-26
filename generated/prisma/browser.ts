@@ -74,6 +74,12 @@ export type routerGroups = Prisma.routerGroupsModel
  */
 export type smsRecords = Prisma.smsRecordsModel
 /**
+ * Model storageConfigs
+ * 存储配置表
+ * 用于存储用户自定义的云存储服务配置
+ */
+export type storageConfigs = Prisma.storageConfigsModel
+/**
  * Model systemConfigs
  * 系统配置表
  */

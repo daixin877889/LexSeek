@@ -395,6 +395,7 @@ export const ModelName = {
   routers: 'routers',
   routerGroups: 'routerGroups',
   smsRecords: 'smsRecords',
+  storageConfigs: 'storageConfigs',
   systemConfigs: 'systemConfigs',
   users: 'users',
   tokenBlacklist: 'tokenBlacklist'
@@ -413,7 +414,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "userEncryptions" | "ossFiles" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "roles" | "roleRouters" | "userRoles" | "routers" | "routerGroups" | "smsRecords" | "systemConfigs" | "users" | "tokenBlacklist"
+    modelProps: "userEncryptions" | "ossFiles" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "roles" | "roleRouters" | "userRoles" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1231,6 +1232,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    storageConfigs: {
+      payload: Prisma.$storageConfigsPayload<ExtArgs>
+      fields: Prisma.storageConfigsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.storageConfigsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$storageConfigsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.storageConfigsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$storageConfigsPayload>
+        }
+        findFirst: {
+          args: Prisma.storageConfigsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$storageConfigsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.storageConfigsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$storageConfigsPayload>
+        }
+        findMany: {
+          args: Prisma.storageConfigsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$storageConfigsPayload>[]
+        }
+        create: {
+          args: Prisma.storageConfigsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$storageConfigsPayload>
+        }
+        createMany: {
+          args: Prisma.storageConfigsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.storageConfigsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$storageConfigsPayload>[]
+        }
+        delete: {
+          args: Prisma.storageConfigsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$storageConfigsPayload>
+        }
+        update: {
+          args: Prisma.storageConfigsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$storageConfigsPayload>
+        }
+        deleteMany: {
+          args: Prisma.storageConfigsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.storageConfigsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.storageConfigsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$storageConfigsPayload>[]
+        }
+        upsert: {
+          args: Prisma.storageConfigsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$storageConfigsPayload>
+        }
+        aggregate: {
+          args: Prisma.StorageConfigsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateStorageConfigs>
+        }
+        groupBy: {
+          args: Prisma.storageConfigsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.StorageConfigsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.storageConfigsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.StorageConfigsCountAggregateOutputType> | number
+        }
+      }
+    }
     systemConfigs: {
       payload: Prisma.$systemConfigsPayload<ExtArgs>
       fields: Prisma.systemConfigsFieldRefs
@@ -1667,6 +1742,22 @@ export const SmsRecordsScalarFieldEnum = {
 export type SmsRecordsScalarFieldEnum = (typeof SmsRecordsScalarFieldEnum)[keyof typeof SmsRecordsScalarFieldEnum]
 
 
+export const StorageConfigsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  name: 'name',
+  type: 'type',
+  config: 'config',
+  isDefault: 'isDefault',
+  enabled: 'enabled',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type StorageConfigsScalarFieldEnum = (typeof StorageConfigsScalarFieldEnum)[keyof typeof StorageConfigsScalarFieldEnum]
+
+
 export const SystemConfigsScalarFieldEnum = {
   id: 'id',
   configGroup: 'configGroup',
@@ -1960,6 +2051,7 @@ export type GlobalOmitConfig = {
   routers?: Prisma.routersOmit
   routerGroups?: Prisma.routerGroupsOmit
   smsRecords?: Prisma.smsRecordsOmit
+  storageConfigs?: Prisma.storageConfigsOmit
   systemConfigs?: Prisma.systemConfigsOmit
   users?: Prisma.usersOmit
   tokenBlacklist?: Prisma.tokenBlacklistOmit

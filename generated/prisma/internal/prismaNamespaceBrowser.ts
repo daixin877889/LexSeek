@@ -62,6 +62,7 @@ export const ModelName = {
   routers: 'routers',
   routerGroups: 'routerGroups',
   smsRecords: 'smsRecords',
+  storageConfigs: 'storageConfigs',
   systemConfigs: 'systemConfigs',
   users: 'users',
   tokenBlacklist: 'tokenBlacklist'
@@ -256,6 +257,22 @@ export const SmsRecordsScalarFieldEnum = {
 } as const
 
 export type SmsRecordsScalarFieldEnum = (typeof SmsRecordsScalarFieldEnum)[keyof typeof SmsRecordsScalarFieldEnum]
+
+
+export const StorageConfigsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  name: 'name',
+  type: 'type',
+  config: 'config',
+  isDefault: 'isDefault',
+  enabled: 'enabled',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type StorageConfigsScalarFieldEnum = (typeof StorageConfigsScalarFieldEnum)[keyof typeof StorageConfigsScalarFieldEnum]
 
 
 export const SystemConfigsScalarFieldEnum = {
