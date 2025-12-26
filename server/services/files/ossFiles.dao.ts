@@ -46,8 +46,6 @@ export async function createOssFilesDao(ossFiles: Prisma.ossFilesCreateManyInput
     }
 }
 
-
-
 /**
  * 根据文件 ID 查找 OSS 文件记录
  */
@@ -94,54 +92,77 @@ export async function findOssFileByIdsDao(id: number[], tx?: Prisma.TransactionC
     }
 }
 
-// /**
-//  * 软删除文件记录
-//  */
-// export async function deleteFileDao(id: number, tx?: Prisma.TransactionClient): Promise<void> {
-//     try {
-//         await (tx || prisma).ossFiles.update({
-//             where: { id, deletedAt: null },
-//             data: {
-//                 deletedAt: new Date()
-//             }
-//         })
-//     } catch (error) {
-//         logger.error(`软删除文件记录失败: ${error}`)
-//         throw error
-//     }
-// }
+/**
+ * 软删除文件记录
+ */
+export async function deleteFileDao(id: number, tx?: Prisma.TransactionClient): Promise<boolean> {
+    try {
+        await (tx || prisma).ossFiles.update({
+            where: { id, deletedAt: null },
+            data: {
+                deletedAt: new Date()
+            }
+        })
+        return true
+    } catch (error) {
+        logger.error(`软删除文件记录失败: ${error}`)
+        throw error
+    }
+}
 
-// /**
-//  * 获取用户 OSS 用量
-//  */
-// export async function ossUsageDao(userId: number): Promise<{ fileSize: number, unit: FileSizeUnit, count: number }> {
-//     try {
-//         const fileSize = await prisma.ossFiles.aggregate({
-//             where: {
-//                 userId: userId,
-//                 deletedAt: null
-//             },
-//             _sum: {
-//                 fileSize: true
-//             },
-//             _count: {
-//                 id: true
-//             }
-//         })
+/**
+ * 
+ * @param ossFiles 批量软删除文件记录
+ * @param tx 
+ * @returns 
+ */
+export async function deleteOssFilesDao(ossFilesIds: number[], tx?: Prisma.TransactionClient): Promise<boolean> {
+    try {
+        await (tx || prisma).ossFiles.deleteMany({
+            where: {
+                id: { in: ossFilesIds },
+                deletedAt: null
+            }
+        })
+        return true
+    } catch (error) {
+        logger.error(`批量软删除文件记录失败: ${error}`)
+        throw error
+    }
+}
 
-//         return {
-//             fileSize: Number(fileSize._sum.fileSize),
-//             unit: FileSizeUnit.BYTE,
-//             count: fileSize._count.id
-//         };
-//     } catch (error) {
-//         logger.error('获取用户 OSS 用量失败', {
-//             error: error instanceof Error ? error.message : String(error),
-//             stack: error instanceof Error ? error.stack : undefined,
-//         });
-//         throw error;
-//     }
-// }
+
+/**
+ * 获取用户 OSS 用量
+ */
+export async function ossUsageDao(userId: number, tx?: Prisma.TransactionClient): Promise<{ fileSize: number, unit: FileSizeUnit, count: number }> {
+    try {
+        const fileSize = await (tx || prisma).ossFiles.aggregate({
+            where: {
+                userId: userId,
+                deletedAt: null
+            },
+            _sum: {
+                fileSize: true
+            },
+            _count: {
+                id: true
+            }
+        })
+
+        return {
+            fileSize: Number(fileSize._sum.fileSize),
+            unit: FileSizeUnit.BYTE,
+            count: fileSize._count.id
+        };
+    } catch (error) {
+        logger.error('获取用户 OSS 用量失败', {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+        });
+        throw error;
+    }
+}
 
 /**
  * 更新 OSS 文件记录
