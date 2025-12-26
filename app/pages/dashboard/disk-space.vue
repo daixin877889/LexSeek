@@ -179,7 +179,7 @@
     <DiskSpaceUploadDialog v-model:open="showUploadDialog" @success="handleUploadSuccess" />
 
     <!-- 文件详情对话框 -->
-    <DiskSpaceFileDetailDialog v-model:open="showFileDetailDialog" :file="selectedFile" />
+    <DiskSpaceFileDetailDialog v-model:open="showFileDetailDialog" :file="selectedFile" @deleted="handleFileDeleted" />
   </div>
 </template>
 
@@ -405,6 +405,11 @@ watch(debouncedFileName, (newValue, oldValue) => {
 
 // 上传成功回调
 const handleUploadSuccess = () => {
+  refresh();
+};
+
+// 文件删除成功回调
+const handleFileDeleted = () => {
   refresh();
 };
 

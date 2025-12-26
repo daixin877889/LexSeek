@@ -118,7 +118,10 @@ export async function deleteFileDao(id: number, tx?: Prisma.TransactionClient): 
  */
 export async function deleteOssFilesDao(ossFilesIds: number[], tx?: Prisma.TransactionClient): Promise<boolean> {
     try {
-        await (tx || prisma).ossFiles.deleteMany({
+        await (tx || prisma).ossFiles.updateMany({
+            data: {
+                deletedAt: new Date()
+            },
             where: {
                 id: { in: ossFilesIds },
                 deletedAt: null

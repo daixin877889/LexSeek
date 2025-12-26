@@ -13,34 +13,7 @@
     </div>
 
     <!-- 积分统计卡片 -->
-    <div class="bg-muted/30 rounded-lg p-4 mb-2 pt-2 pl-0">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <!-- 当前可用积分 -->
-        <div>
-          <p class="text-sm text-muted-foreground mb-2">当前可用总积分</p>
-          <p class="text-3xl font-bold mb-1">
-            {{ pointInfo.remaining }}
-          </p>
-          <p class="text-xs text-muted-foreground">可用购买积分+可用赠送积分</p>
-        </div>
-        <!-- 购买积分 -->
-        <div>
-          <p class="text-xs text-muted-foreground mb-2">可用购买积分</p>
-          <p class="text-3xl font-semibold text-muted-foreground mb-1">
-            {{ pointInfo.purchasePoint }}
-          </p>
-          <p class="text-xs text-muted-foreground">购买会员赠送或直接购买</p>
-        </div>
-        <!-- 赠送积分 -->
-        <div>
-          <p class="text-xs text-muted-foreground mb-2">可用赠送积分</p>
-          <p class="text-3xl font-semibold text-muted-foreground mb-1">
-            {{ pointInfo.otherPoint }}
-          </p>
-          <p class="text-xs text-muted-foreground">参与活动或系统赠送</p>
-        </div>
-      </div>
-    </div>
+    <PointsPointSummary :point-info="pointInfo" />
 
     <!-- Tab 切换 -->
     <div class="mb-6">
@@ -52,256 +25,38 @@
 
         <!-- 积分获取记录 Tab -->
         <TabsContent value="history" class="mt-4">
-          <!-- 桌面端表格视图 -->
-          <div class="border rounded-lg overflow-hidden hidden md:block">
-            <table class="w-full">
-              <thead>
-                <tr class="border-b bg-muted/50">
-                  <th class="px-4 py-3 text-left text-sm font-medium">积分来源</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium">积分数量</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium">已使用积分</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium">剩余积分</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium">有效期</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium">状态</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium">是否可用</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium">备注</th>
-                </tr>
-              </thead>
-              <tbody>
-                <!-- 加载中 -->
-                <tr v-if="historyLoading">
-                  <td colspan="8" class="px-4 py-8 text-center">
-                    <div class="flex items-center justify-center">
-                      <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                      <span class="ml-2 text-muted-foreground">加载中...</span>
-                    </div>
-                  </td>
-                </tr>
-                <!-- 空状态 -->
-                <tr v-else-if="historyList.length === 0">
-                  <td colspan="8" class="px-4 py-8 text-center text-muted-foreground">暂无积分获取记录</td>
-                </tr>
-                <!-- 数据列表 -->
-                <template v-else>
-                  <tr v-for="record in historyList" :key="record.id" class="border-b last:border-b-0 hover:bg-muted/30">
-                    <td class="px-4 py-3 text-sm">{{ record.sourceTypeName }}</td>
-                    <td class="px-4 py-3 text-sm">{{ record.pointAmount }}</td>
-                    <td class="px-4 py-3 text-sm">{{ record.used }}</td>
-                    <td class="px-4 py-3 text-sm">{{ record.remaining }}</td>
-                    <td class="px-4 py-3 text-sm">
-                      {{ dayjs(record.effectiveAt).format("YYYY年MM月DD日") }} -
-                      {{ dayjs(record.expiredAt).format("YYYY年MM月DD日") }}
-                    </td>
-                    <td class="px-4 py-3 text-sm">
-                      <span v-if="record.status === 1" class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">有效</span>
-                      <span v-else-if="record.status === 2" class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">已结算</span>
-                      <span v-else-if="record.status === 3" class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">已作废</span>
-                    </td>
-                    <td class="px-4 py-3 text-sm">
-                      <span v-if="isAvailable(record)" class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">可用</span>
-                      <span v-else-if="isNotEffective(record)" class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">未生效</span>
-                      <span v-else class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-400">已过期</span>
-                    </td>
-                    <td class="px-4 py-3 text-sm">{{ record.remark || "-" }}</td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- 移动端卡片视图 -->
-          <div class="md:hidden space-y-4">
-            <div v-if="historyLoading" class="flex justify-center py-8">
-              <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-              <span class="ml-2 text-muted-foreground">加载中...</span>
-            </div>
-            <div v-else-if="historyList.length === 0" class="text-center py-8 text-muted-foreground border rounded-lg">暂无积分获取记录</div>
-            <div v-else v-for="record in historyList" :key="record.id" class="border rounded-lg p-4 space-y-3">
-              <div class="flex justify-between items-start">
-                <div>
-                  <h3 class="font-medium text-sm mb-1">{{ record.sourceTypeName }}</h3>
-                  <p class="text-lg font-bold text-primary">{{ record.pointAmount }} 积分</p>
-                </div>
-                <div class="flex flex-col gap-1">
-                  <span v-if="record.status === 1" class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">有效</span>
-                  <span v-else-if="record.status === 2" class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">已结算</span>
-                  <span v-else-if="record.status === 3" class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">已作废</span>
-                  <span v-if="isAvailable(record)" class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">可用</span>
-                  <span v-else-if="isNotEffective(record)" class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">未生效</span>
-                  <span v-else class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-400">已过期</span>
-                </div>
-              </div>
-              <div class="grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <p class="text-muted-foreground">已使用</p>
-                  <p class="font-medium">{{ record.used }}</p>
-                </div>
-                <div>
-                  <p class="text-muted-foreground">剩余</p>
-                  <p class="font-medium">{{ record.remaining }}</p>
-                </div>
-              </div>
-              <div class="text-sm">
-                <p class="text-muted-foreground mb-1">有效期</p>
-                <p>{{ dayjs(record.effectiveAt).format("YYYY年MM月DD日") }} - {{ dayjs(record.expiredAt).format("YYYY年MM月DD日") }}</p>
-              </div>
-              <div v-if="record.remark" class="text-sm">
-                <p class="text-muted-foreground mb-1">备注</p>
-                <p>{{ record.remark }}</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- 积分获取记录分页 -->
+          <!-- 桌面端表格 -->
+          <PointsPointHistoryTable :list="historyList" :loading="historyLoading" />
+          <!-- 移动端卡片 -->
+          <PointsPointHistoryMobile :list="historyList" :loading="historyLoading" />
+          <!-- 分页 -->
           <GeneralPagination v-model:current-page="historyCurrentPage" :page-size="pageSize" :total="historyPagination.total" class="mt-4" />
         </TabsContent>
 
         <!-- 积分使用记录 Tab -->
         <TabsContent value="usage" class="mt-4">
-          <!-- 桌面端表格视图 -->
-          <div class="border rounded-lg overflow-hidden hidden md:block">
-            <table class="w-full">
-              <thead>
-                <tr class="border-b bg-muted/50">
-                  <th class="px-4 py-3 text-left text-sm font-medium">使用场景</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium">消耗积分</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium">状态</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium">使用时间</th>
-                  <th class="px-4 py-3 text-left text-sm font-medium">备注</th>
-                </tr>
-              </thead>
-              <tbody>
-                <!-- 加载中 -->
-                <tr v-if="usageLoading">
-                  <td colspan="5" class="px-4 py-8 text-center">
-                    <div class="flex items-center justify-center">
-                      <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                      <span class="ml-2 text-muted-foreground">加载中...</span>
-                    </div>
-                  </td>
-                </tr>
-                <!-- 空状态 -->
-                <tr v-else-if="usageList.length === 0">
-                  <td colspan="5" class="px-4 py-8 text-center text-muted-foreground">暂无积分使用记录</td>
-                </tr>
-                <!-- 数据列表 -->
-                <template v-else>
-                  <tr v-for="usage in usageList" :key="usage.id" class="border-b last:border-b-0 hover:bg-muted/30">
-                    <td class="px-4 py-3 text-sm">{{ usage.itemDescription }}</td>
-                    <td class="px-4 py-3 text-sm">{{ usage.pointAmount }}</td>
-                    <td class="px-4 py-3 text-sm">
-                      <span v-if="usage.status === 0" class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">异常</span>
-                      <span v-else-if="usage.status === 1" class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">预扣</span>
-                      <span v-else-if="usage.status === 2" class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">已结算</span>
-                    </td>
-                    <td class="px-4 py-3 text-sm">{{ dayjs(usage.createdAt).format("YYYY年MM月DD日 HH:mm") }}</td>
-                    <td class="px-4 py-3 text-sm">{{ usage.remark || "-" }}</td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- 移动端卡片视图 -->
-          <div class="md:hidden space-y-4">
-            <div v-if="usageLoading" class="flex justify-center py-8">
-              <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-              <span class="ml-2 text-muted-foreground">加载中...</span>
-            </div>
-            <div v-else-if="usageList.length === 0" class="text-center py-8 text-muted-foreground border rounded-lg">暂无积分使用记录</div>
-            <div v-else v-for="usage in usageList" :key="usage.id" class="border rounded-lg p-4 space-y-3">
-              <div class="flex justify-between items-start">
-                <div>
-                  <h3 class="font-medium text-sm mb-1">{{ usage.itemDescription }}</h3>
-                  <p class="text-lg font-bold text-red-600">-{{ usage.pointAmount }} 积分</p>
-                </div>
-                <span v-if="usage.status === 0" class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">异常</span>
-                <span v-else-if="usage.status === 1" class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">预扣</span>
-                <span v-else-if="usage.status === 2" class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">已结算</span>
-              </div>
-              <div class="text-sm">
-                <p class="text-muted-foreground mb-1">使用时间</p>
-                <p>{{ dayjs(usage.createdAt).format("YYYY年MM月DD日 HH:mm") }}</p>
-              </div>
-              <div v-if="usage.remark" class="text-sm">
-                <p class="text-muted-foreground mb-1">备注</p>
-                <p>{{ usage.remark }}</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- 积分使用记录分页 -->
+          <!-- 桌面端表格 -->
+          <PointsPointUsageTable :list="usageList" :loading="usageLoading" />
+          <!-- 移动端卡片 -->
+          <PointsPointUsageMobile :list="usageList" :loading="usageLoading" />
+          <!-- 分页 -->
           <GeneralPagination :current-page="usageCurrentPage" :page-size="pageSize" :total="usagePagination.total" class="mt-4" @change="onUsagePageChange" />
         </TabsContent>
       </Tabs>
     </div>
 
     <!-- 购买积分弹框 -->
-    <Dialog v-model:open="showPointProducts">
-      <DialogContent class="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>购买积分</DialogTitle>
-          <DialogDescription>选择合适的积分套餐，立即购买</DialogDescription>
-        </DialogHeader>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-          <div v-for="product in pointProductList" :key="product.id" class="border rounded-lg p-4 hover:border-primary transition-colors cursor-pointer relative">
-            <div class="flex justify-between items-start mb-2">
-              <h4 class="font-semibold">{{ product.name }}</h4>
-              <Button size="sm" :disabled="!agreeToPurchaseAgreement" class="absolute top-2 right-2" @click.stop="buyPoints(product)"> 购买 </Button>
-            </div>
-            <p class="text-2xl font-bold mb-2">¥{{ product.unitPrice }}</p>
-            <p class="text-xs text-muted-foreground">{{ product.description }}</p>
-          </div>
-        </div>
-        <!-- 购买协议复选框 -->
-        <div class="border-t pt-4">
-          <div class="flex items-start space-x-2">
-            <Checkbox id="purchase-agreement" v-model:checked="agreeToPurchaseAgreement" class="mt-1" />
-            <label for="purchase-agreement" class="text-sm text-muted-foreground leading-5 cursor-pointer">
-              购买即代表您同意
-              <a href="/purchase-agreement" target="_blank" class="text-primary font-bold hover:text-primary/80"> 《LexSeek（法索 AI）服务购买协议》 </a>
-            </label>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <PointsPointPurchaseDialog v-model:open="showPointProducts" :product-list="pointProductList" @buy="buyPoints" />
 
     <!-- 微信支付二维码弹框 -->
-    <Dialog v-model:open="showQRCode">
-      <DialogContent class="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>请使用微信扫码购买</DialogTitle>
-          <DialogDescription>打开微信扫一扫，立即购买积分</DialogDescription>
-        </DialogHeader>
-        <div class="flex justify-center py-4">
-          <img :src="qrCodeUrl" alt="微信支付二维码" class="w-64 h-64" />
-        </div>
-      </DialogContent>
-    </Dialog>
+    <PointsPointQRCodeDialog v-model:open="showQRCode" :qr-code-url="qrCodeUrl" />
 
     <!-- 积分消耗标准弹框 -->
-    <Dialog v-model:open="showConsumptionStandard">
-      <DialogContent class="sm:max-w-[800px] max-h-[80vh] flex flex-col" @openAutoFocus="(e: any) => e.preventDefault()">
-        <DialogHeader class="shrink-0">
-          <DialogTitle>积分消耗标准</DialogTitle>
-          <DialogDescription>查看各功能模块的积分消耗详情</DialogDescription>
-        </DialogHeader>
-        <div class="py-4 overflow-y-auto flex-1">
-          <!-- 使用积分消耗标准组件 -->
-          <PointsConsumptionStandard />
-        </div>
-      </DialogContent>
-    </Dialog>
+    <PointsConsumptionStandardDialog v-model:open="showConsumptionStandard" />
   </div>
 </template>
 
 <script lang="ts" setup>
-import dayjs from "dayjs";
-import "dayjs/locale/zh-cn";
-
-// 配置 dayjs
-dayjs.locale("zh-cn");
-
 // 页面元信息
 definePageMeta({
   layout: "dashboard-layout",
@@ -385,11 +140,7 @@ const pointInfo = computed(
 const historyCurrentPage = ref(1);
 
 // 积分获取记录（SSR 预取）
-const {
-  data: historyData,
-  status: historyStatus,
-  refresh: refreshHistory,
-} = await useApi<{
+const { data: historyData, status: historyStatus } = await useApi<{
   list: Array<{
     id: number;
     sourceType: number;
@@ -489,7 +240,6 @@ const showPointProducts = ref(false);
 const showQRCode = ref(false);
 const showConsumptionStandard = ref(false);
 const qrCodeUrl = ref("");
-const agreeToPurchaseAgreement = ref(true);
 
 // 积分商品列表（模拟数据）
 const pointProductList = ref<PointProduct[]>([
@@ -500,25 +250,6 @@ const pointProductList = ref<PointProduct[]>([
 ]);
 
 // ==================== 工具方法 ====================
-
-/**
- * 判断积分记录是否可用
- */
-const isAvailable = (record: PointHistoryRecord): boolean => {
-  const now = new Date();
-  const effectiveAt = new Date(record.effectiveAt);
-  const expiredAt = new Date(record.expiredAt);
-  return effectiveAt < now && expiredAt > now;
-};
-
-/**
- * 判断积分记录是否未生效
- */
-const isNotEffective = (record: PointHistoryRecord): boolean => {
-  const now = new Date();
-  const effectiveAt = new Date(record.effectiveAt);
-  return effectiveAt > now;
-};
 
 /**
  * 获取来源类型名称
@@ -559,12 +290,4 @@ watch(currentTab, async (newTab) => {
     usageLoaded.value = true;
   }
 });
-
-// ==================== 生命周期 ====================
-
-// SSR 数据已在 setup 阶段预取，无需 onMounted
 </script>
-
-<style scoped>
-/* 积分页面样式 */
-</style>
