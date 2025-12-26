@@ -153,18 +153,7 @@
           </div>
 
           <!-- 积分获取记录分页 -->
-          <div v-if="historyPagination.totalPages > 1" class="mt-4 flex justify-between items-center">
-            <div class="text-sm text-muted-foreground">显示 {{ historyList.length }} 条，共 {{ historyPagination.total }} 条</div>
-            <div class="flex items-center gap-1">
-              <button :disabled="historyCurrentPage <= 1" :class="['p-1 rounded-md', historyCurrentPage <= 1 ? 'text-muted-foreground cursor-not-allowed' : 'hover:bg-muted']" @click="onHistoryPageChange(historyCurrentPage - 1)">
-                <ChevronLeft class="h-5 w-5" />
-              </button>
-              <span class="px-3 py-1">{{ historyCurrentPage }} / {{ historyPagination.totalPages }}</span>
-              <button :disabled="historyCurrentPage >= historyPagination.totalPages" :class="['p-1 rounded-md', historyCurrentPage >= historyPagination.totalPages ? 'text-muted-foreground cursor-not-allowed' : 'hover:bg-muted']" @click="onHistoryPageChange(historyCurrentPage + 1)">
-                <ChevronRight class="h-5 w-5" />
-              </button>
-            </div>
-          </div>
+          <GeneralPagination v-model:current-page="historyCurrentPage" :page-size="pageSize" :total="historyPagination.total" class="mt-4" />
         </TabsContent>
 
         <!-- 积分使用记录 Tab -->
@@ -242,18 +231,7 @@
           </div>
 
           <!-- 积分使用记录分页 -->
-          <div v-if="usagePagination.totalPages > 1" class="mt-4 flex justify-between items-center">
-            <div class="text-sm text-muted-foreground">显示 {{ usageList.length }} 条，共 {{ usagePagination.total }} 条</div>
-            <div class="flex items-center gap-1">
-              <button :disabled="usageCurrentPage <= 1" :class="['p-1 rounded-md', usageCurrentPage <= 1 ? 'text-muted-foreground cursor-not-allowed' : 'hover:bg-muted']" @click="onUsagePageChange(usageCurrentPage - 1)">
-                <ChevronLeft class="h-5 w-5" />
-              </button>
-              <span class="px-3 py-1">{{ usageCurrentPage }} / {{ usagePagination.totalPages }}</span>
-              <button :disabled="usageCurrentPage >= usagePagination.totalPages" :class="['p-1 rounded-md', usageCurrentPage >= usagePagination.totalPages ? 'text-muted-foreground cursor-not-allowed' : 'hover:bg-muted']" @click="onUsagePageChange(usageCurrentPage + 1)">
-                <ChevronRight class="h-5 w-5" />
-              </button>
-            </div>
-          </div>
+          <GeneralPagination :current-page="usageCurrentPage" :page-size="pageSize" :total="usagePagination.total" class="mt-4" @change="onUsagePageChange" />
         </TabsContent>
       </Tabs>
     </div>
@@ -303,7 +281,7 @@
 
     <!-- 积分消耗标准弹框 -->
     <Dialog v-model:open="showConsumptionStandard">
-      <DialogContent class="sm:max-w-[800px] max-h-[80vh] flex flex-col" @openAutoFocus="(e) => e.preventDefault()">
+      <DialogContent class="sm:max-w-[800px] max-h-[80vh] flex flex-col" @openAutoFocus="(e: any) => e.preventDefault()">
         <DialogHeader class="shrink-0">
           <DialogTitle>积分消耗标准</DialogTitle>
           <DialogDescription>查看各功能模块的积分消耗详情</DialogDescription>
@@ -318,7 +296,6 @@
 </template>
 
 <script lang="ts" setup>
-import { ChevronLeft, ChevronRight } from "lucide-vue-next";
 import dayjs from "dayjs";
 import "dayjs/locale/zh-cn";
 
@@ -376,30 +353,136 @@ interface Pagination {
 // 当前 Tab
 const currentTab = ref("history");
 
-// 积分信息（模拟数据）
-const pointInfo = reactive({
-  remaining: 1580,
-  purchasePoint: 1000,
-  otherPoint: 580,
+// 每页数量
+const pageSize = 10;
+
+// ==================== SSR 数据预取 ====================
+
+// 积分汇总信息（SSR 预取）
+const { data: pointInfoData } = await useApi<{
+  pointAmount: number;
+  used: number;
+  remaining: number;
+  purchasePoint: number;
+  otherPoint: number;
+}>("/api/v1/points/info", {
+  key: "point-info",
 });
 
-// 积分获取记录
-const historyLoading = ref(false);
+// 积分信息（响应式）
+const pointInfo = computed(
+  () =>
+    pointInfoData.value || {
+      pointAmount: 0,
+      used: 0,
+      remaining: 0,
+      purchasePoint: 0,
+      otherPoint: 0,
+    }
+);
+
+// 积分获取记录当前页
 const historyCurrentPage = ref(1);
-const historyList = ref<PointHistoryRecord[]>([]);
-const historyPagination = reactive<Pagination>({
-  total: 0,
-  totalPages: 0,
+
+// 积分获取记录（SSR 预取）
+const {
+  data: historyData,
+  status: historyStatus,
+  refresh: refreshHistory,
+} = await useApi<{
+  list: Array<{
+    id: number;
+    sourceType: number;
+    pointAmount: number;
+    used: number;
+    remaining: number;
+    effectiveAt: string;
+    expiredAt: string;
+    status: number;
+    remark?: string;
+  }>;
+  total: number;
+  page: number;
+  pageSize: number;
+}>("/api/v1/points/records", {
+  key: "point-records",
+  query: computed(() => ({
+    page: historyCurrentPage.value,
+    pageSize,
+  })),
 });
 
-// 积分使用记录
-const usageLoading = ref(false);
-const usageCurrentPage = ref(1);
-const usageList = ref<PointUsageRecord[]>([]);
-const usagePagination = reactive<Pagination>({
-  total: 0,
-  totalPages: 0,
+// 积分获取记录加载状态
+const historyLoading = computed(() => historyStatus.value === "pending");
+
+// 积分获取记录列表（转换格式）
+const historyList = computed<PointHistoryRecord[]>(() => {
+  if (!historyData.value?.list) return [];
+  return historyData.value.list.map((item) => ({
+    ...item,
+    sourceTypeName: getSourceTypeName(item.sourceType),
+  }));
 });
+
+// 积分获取记录分页信息
+const historyPagination = computed<Pagination>(() => ({
+  total: historyData.value?.total || 0,
+  totalPages: Math.ceil((historyData.value?.total || 0) / pageSize),
+}));
+
+// 积分使用记录当前页
+const usageCurrentPage = ref(1);
+
+// 积分使用记录（延迟加载，切换 Tab 时才加载）
+const {
+  data: usageData,
+  status: usageStatus,
+  execute: executeUsage,
+} = useApi<{
+  list: Array<{
+    id: number;
+    pointAmount: number;
+    status: number;
+    createdAt: string;
+    remark?: string;
+    pointConsumptionItems: {
+      name: string;
+      description?: string;
+    };
+  }>;
+  total: number;
+  page: number;
+  pageSize: number;
+}>("/api/v1/points/usage", {
+  key: "point-usage",
+  immediate: false,
+  query: computed(() => ({
+    page: usageCurrentPage.value,
+    pageSize,
+  })),
+});
+
+// 积分使用记录加载状态
+const usageLoading = computed(() => usageStatus.value === "pending");
+
+// 积分使用记录列表（转换格式）
+const usageList = computed<PointUsageRecord[]>(() => {
+  if (!usageData.value?.list) return [];
+  return usageData.value.list.map((item) => ({
+    id: item.id,
+    itemDescription: item.pointConsumptionItems?.name || "未知消耗项",
+    pointAmount: item.pointAmount,
+    status: item.status,
+    createdAt: item.createdAt,
+    remark: item.remark,
+  }));
+});
+
+// 积分使用记录分页信息
+const usagePagination = computed<Pagination>(() => ({
+  total: usageData.value?.total || 0,
+  totalPages: Math.ceil((usageData.value?.total || 0) / pageSize),
+}));
 
 // 弹框状态
 const showPointProducts = ref(false);
@@ -444,124 +527,15 @@ const getSourceTypeName = (sourceType: number): string => {
   return PointRecordSourceTypeName[sourceType as keyof typeof PointRecordSourceTypeName] || "其他";
 };
 
-// ==================== 数据加载方法 ====================
-
-/**
- * 加载积分获取记录（模拟数据）
- */
-const loadHistoryList = async () => {
-  historyLoading.value = true;
-  try {
-    // TODO: 替换为实际 API 调用
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    // 模拟数据
-    historyList.value = [
-      {
-        id: 1,
-        sourceType: 1,
-        sourceTypeName: getSourceTypeName(1),
-        pointAmount: 500,
-        used: 120,
-        remaining: 380,
-        effectiveAt: "2024-01-01T00:00:00Z",
-        expiredAt: "2025-12-31T23:59:59Z",
-        status: 1,
-        remark: "购买年度会员赠送",
-      },
-      {
-        id: 2,
-        sourceType: 7,
-        sourceTypeName: getSourceTypeName(7),
-        pointAmount: 100,
-        used: 100,
-        remaining: 0,
-        effectiveAt: "2024-01-15T00:00:00Z",
-        expiredAt: "2024-07-15T23:59:59Z",
-        status: 1,
-        remark: "新用户注册赠送",
-      },
-      {
-        id: 3,
-        sourceType: 8,
-        sourceTypeName: getSourceTypeName(8),
-        pointAmount: 300,
-        used: 0,
-        remaining: 300,
-        effectiveAt: "2024-06-01T00:00:00Z",
-        expiredAt: "2025-06-01T23:59:59Z",
-        status: 1,
-        remark: "邀请好友注册奖励",
-      },
-    ];
-    historyPagination.total = 3;
-    historyPagination.totalPages = 1;
-  } finally {
-    historyLoading.value = false;
-  }
-};
-
-/**
- * 加载积分使用记录（模拟数据）
- */
-const loadUsageList = async () => {
-  usageLoading.value = true;
-  try {
-    // TODO: 替换为实际 API 调用
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    // 模拟数据
-    usageList.value = [
-      {
-        id: 1,
-        itemDescription: "AI 对话 - 深度分析",
-        pointAmount: 5,
-        status: 2,
-        createdAt: "2024-12-20T10:30:00Z",
-        remark: "",
-      },
-      {
-        id: 2,
-        itemDescription: "文档解析 - PDF 文档",
-        pointAmount: 10,
-        status: 2,
-        createdAt: "2024-12-19T14:20:00Z",
-        remark: "合同文档解析",
-      },
-      {
-        id: 3,
-        itemDescription: "案例检索",
-        pointAmount: 3,
-        status: 1,
-        createdAt: "2024-12-18T09:15:00Z",
-        remark: "",
-      },
-    ];
-    usagePagination.total = 3;
-    usagePagination.totalPages = 1;
-  } finally {
-    usageLoading.value = false;
-  }
-};
-
 // ==================== 事件处理 ====================
-
-/**
- * 积分获取记录分页变化
- */
-const onHistoryPageChange = (page: number) => {
-  if (page < 1 || page > historyPagination.totalPages) return;
-  historyCurrentPage.value = page;
-  loadHistoryList();
-};
 
 /**
  * 积分使用记录分页变化
  */
-const onUsagePageChange = (page: number) => {
-  if (page < 1 || page > usagePagination.totalPages) return;
+const onUsagePageChange = async (page: number) => {
+  if (page < 1 || page > usagePagination.value.totalPages) return;
   usageCurrentPage.value = page;
-  loadUsageList();
+  await executeUsage();
 };
 
 /**
@@ -575,18 +549,20 @@ const buyPoints = async (product: PointProduct) => {
 
 // ==================== 监听器 ====================
 
+// 标记使用记录是否已加载
+const usageLoaded = ref(false);
+
 // 监听 Tab 切换，加载对应数据
-watch(currentTab, (newTab) => {
-  if (newTab === "usage" && usageList.value.length === 0) {
-    loadUsageList();
+watch(currentTab, async (newTab) => {
+  if (newTab === "usage" && !usageLoaded.value) {
+    await executeUsage();
+    usageLoaded.value = true;
   }
 });
 
 // ==================== 生命周期 ====================
 
-onMounted(() => {
-  loadHistoryList();
-});
+// SSR 数据已在 setup 阶段预取，无需 onMounted
 </script>
 
 <style scoped>
