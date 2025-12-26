@@ -19,6 +19,22 @@ function isNodeEnvironment(): boolean {
 }
 
 /**
+ * 检测是否为 Serverless 环境（只读文件系统）
+ * 腾讯云 EdgeOne/SCF 等环境的工作目录通常是 /var/user
+ */
+function isServerlessEnvironment(): boolean {
+    if (typeof process === 'undefined') return false
+    const cwd = process.cwd?.()
+    // 腾讯云 Serverless 环境特征
+    if (cwd?.startsWith('/var/user')) return true
+    // AWS Lambda 环境特征
+    if (cwd?.startsWith('/var/task')) return true
+    // 通过环境变量检测
+    if (process.env.SERVERLESS || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.SCF_RUNTIME) return true
+    return false
+}
+
+/**
  * FileTransport class for writing logs to files.
  * Only available in Node.js environment.
  */
@@ -29,13 +45,18 @@ export class FileTransport implements Transport {
     private initialized: boolean = false
     private initError: boolean = false
     private isNode: boolean = false
+    private isServerless: boolean = false
 
     constructor(logsDir: string = 'logs') {
         this.logsDir = logsDir
         this.isNode = isNodeEnvironment()
-        // 只在 Node.js 环境初始化
-        if (this.isNode) {
+        this.isServerless = isServerlessEnvironment()
+        // 只在 Node.js 非 Serverless 环境初始化文件写入
+        if (this.isNode && !this.isServerless) {
             this.initModules()
+        } else if (this.isServerless) {
+            // Serverless 环境下禁用文件日志，静默处理
+            this.initError = true
         }
     }
 
@@ -44,7 +65,7 @@ export class FileTransport implements Transport {
      * This allows the class to be imported in browser without errors.
      */
     private async initModules(): Promise<void> {
-        if (this.initialized || this.initError || !this.isNode) return
+        if (this.initialized || this.initError || !this.isNode || this.isServerless) return
 
         try {
             this.fs = await import('fs')
@@ -53,7 +74,10 @@ export class FileTransport implements Transport {
             this.initialized = true
         } catch (error) {
             this.initError = true
-            console.warn('[FileTransport] Failed to initialize file system modules:', error)
+            // 只在非 Serverless 环境输出警告
+            if (!this.isServerless) {
+                console.warn('[FileTransport] Failed to initialize file system modules:', error)
+            }
         }
     }
 
@@ -62,7 +86,7 @@ export class FileTransport implements Transport {
      * Requirements: 3.2, 6.2
      */
     private ensureLogsDir(): void {
-        if (!this.fs || !this.path || !this.isNode) return
+        if (!this.fs || !this.path || !this.isNode || this.isServerless) return
 
         try {
             const fullPath = this.path.resolve(process.cwd(), this.logsDir)
@@ -71,7 +95,10 @@ export class FileTransport implements Transport {
             }
         } catch (error) {
             this.initError = true
-            console.warn(`[FileTransport] Failed to create logs directory: ${this.logsDir}`, error)
+            // 只在非 Serverless 环境输出警告
+            if (!this.isServerless) {
+                console.warn(`[FileTransport] Failed to create logs directory: ${this.logsDir}`, error)
+            }
         }
     }
 
@@ -95,8 +122,8 @@ export class FileTransport implements Transport {
      * Requirements: 3.1, 3.5, 3.6, 6.1
      */
     write(entry: LogEntry): void {
-        // 非 Node.js 环境直接跳过
-        if (!this.isNode) return
+        // 非 Node.js 环境或 Serverless 环境直接跳过（静默处理，不输出到控制台）
+        if (!this.isNode || this.isServerless) return
 
         if (this.initError) {
             // Fall back to console output
