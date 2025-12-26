@@ -15,7 +15,8 @@
 11. tailwind 的版本是 v4 ,注意使用 v4 的语法和类名。
 12. 临时生成的测试代码和调试信息应该在任务完成后清除掉。
 13. 前后端的日期处理都统一使用 dayjs 处理
-14. API 接口返回成功使用 resSuccess: (event: H3Event<EventHandlerRequest>, message: string, data: any) => ApiBaseResponse 方法，失败使用  resError: (event: H3Event<EventHandlerRequest>, code: number, message: string) => ApiBaseResponse 方法，方法已经在框架中自己导入
+14. API 接口返回成功使用 resSuccess: (event: H3Event<EventHandlerRequest>, message: string, data: any) => ApiBaseResponse 方法，失败使用  resError: (event: H3Event<EventHandlerRequest>, code: number, message: string) => ApiBaseResponse 方法，方法已经在框架中自己导入。
+15. 当你生成的代码超过 500 行时，你应该要考虑将代码拆分成多个文件，避免单个文件代码过长。
 
 
 ## OSS 回调
