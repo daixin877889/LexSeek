@@ -99,10 +99,10 @@
               </Select>
             </div>
             <!-- 移动端文件数量显示 -->
-            <div class="text-sm text-gray-600 text-center sm:hidden">共 {{ pagination.total }} 个文件</div>
+            <!-- <div class="text-sm text-gray-600 text-center sm:hidden">共 {{ pagination.total }} 个文件</div> -->
           </div>
           <!-- 第二行：搜索框和刷新按钮 -->
-          <div class="flex flex-col sm:flex-row gap-4">
+          <div class="flex gap-2 sm:gap-4">
             <div class="flex-1 min-w-0">
               <div class="relative" style="padding-left: 1px">
                 <SearchIcon class="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -114,9 +114,10 @@
                 </button>
               </div>
             </div>
+            <!-- 刷新按钮（PC 和移动端统一样式） -->
             <Button @click="handleRefresh" :disabled="status === 'pending'" variant="outline" class="shrink-0">
               <RefreshCwIcon class="h-4 w-4 mr-2" :class="{ 'animate-spin': status === 'pending' }" />
-              刷新
+              {{ status === "pending" ? "刷新中..." : "刷新" }}
             </Button>
           </div>
         </div>

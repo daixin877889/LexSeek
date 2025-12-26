@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
     } catch (error) {
         // Zod 验证错误
         if (error instanceof z.ZodError) {
-            return resError(event, 400, '参数验证失败：' + error.errors.map(e => e.message).join(', '))
+            return resError(event, 400, '参数验证失败：' + error.issues.map(e => e.message).join(', '))
         }
 
         logger.error('获取积分消耗记录失败：', error)

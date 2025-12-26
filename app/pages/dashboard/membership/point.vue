@@ -28,22 +28,25 @@
         <TabsContent value="history" class="mt-4">
           <!-- 桌面端表格 -->
           <PointsPointHistoryTable :list="historyList" :loading="historyLoading" />
-          <!-- 移动端卡片 -->
-          <PointsPointHistoryMobile :list="historyList" :loading="historyLoading" />
-          <!-- 分页 -->
+          <!-- 移动端卡片（上拉加载） -->
+          <PointsPointHistoryMobile :list="historyMobileList" :loading="historyMobileLoading"
+            :refreshing="historyRefreshing" :has-more="historyHasMore" @load-more="loadMoreHistory"
+            @refresh="refreshHistory" />
+          <!-- 桌面端分页 -->
           <GeneralPagination v-model:current-page="historyCurrentPage" :page-size="pageSize"
-            :total="historyPagination.total" class="mt-4" />
+            :total="historyPagination.total" class="mt-4 hidden md:flex" />
         </TabsContent>
 
         <!-- 积分使用记录 Tab -->
         <TabsContent value="usage" class="mt-4">
           <!-- 桌面端表格 -->
           <PointsPointUsageTable :list="usageList" :loading="usageLoading" />
-          <!-- 移动端卡片 -->
-          <PointsPointUsageMobile :list="usageList" :loading="usageLoading" />
-          <!-- 分页 -->
+          <!-- 移动端卡片（上拉加载） -->
+          <PointsPointUsageMobile :list="usageMobileList" :loading="usageMobileLoading" :refreshing="usageRefreshing"
+            :has-more="usageHasMore" @load-more="loadMoreUsage" @refresh="refreshUsage" />
+          <!-- 桌面端分页 -->
           <GeneralPagination :current-page="usageCurrentPage" :page-size="pageSize" :total="usagePagination.total"
-            class="mt-4" @change="onUsagePageChange" />
+            class="mt-4 hidden md:flex" @change="onUsagePageChange" />
         </TabsContent>
       </Tabs>
     </div>
@@ -106,6 +109,15 @@ interface Pagination {
   totalPages: number;
 }
 
+// ==================== 工具方法 ====================
+
+/**
+ * 获取来源类型名称
+ */
+const getSourceTypeName = (sourceType: number): string => {
+  return PointRecordSourceTypeName[sourceType as keyof typeof PointRecordSourceTypeName] || "其他";
+};
+
 // ==================== 状态定义 ====================
 
 // 当前 Tab
@@ -127,17 +139,16 @@ const { data: pointInfoData } = await useApi<{
   key: "point-info",
 });
 
-// 积分信息（响应式）
-const pointInfo = computed(
-  () =>
-    pointInfoData.value || {
-      pointAmount: 0,
-      used: 0,
-      remaining: 0,
-      purchasePoint: 0,
-      otherPoint: 0,
-    }
-);
+// 积分信息（响应式，确保始终返回对象）
+const pointInfo = computed(() => ({
+  pointAmount: pointInfoData.value?.pointAmount ?? 0,
+  used: pointInfoData.value?.used ?? 0,
+  remaining: pointInfoData.value?.remaining ?? 0,
+  purchasePoint: pointInfoData.value?.purchasePoint ?? 0,
+  otherPoint: pointInfoData.value?.otherPoint ?? 0,
+}));
+
+// ==================== 积分获取记录（桌面端分页） ====================
 
 // 积分获取记录当前页
 const historyCurrentPage = ref(1);
@@ -183,6 +194,124 @@ const historyPagination = computed<Pagination>(() => ({
   total: historyData.value?.total || 0,
   totalPages: Math.ceil((historyData.value?.total || 0) / pageSize),
 }));
+
+// ==================== 积分获取记录（移动端上拉加载） ====================
+
+// 移动端累积列表
+const historyMobileList = ref<PointHistoryRecord[]>([]);
+// 移动端当前页
+const historyMobilePage = ref(1);
+// 移动端加载状态
+const historyMobileLoading = ref(false);
+// 移动端刷新状态
+const historyRefreshing = ref(false);
+// 是否还有更多数据
+const historyHasMore = computed(() => {
+  return historyMobileList.value.length < (historyData.value?.total || 0);
+});
+
+// 初始化移动端列表
+watch(
+  historyList,
+  (newList) => {
+    // 首次加载时同步到移动端列表
+    if (historyMobilePage.value === 1 && newList.length > 0) {
+      historyMobileList.value = [...newList];
+    }
+  },
+  { immediate: true }
+);
+
+/**
+ * 加载更多积分获取记录（移动端）
+ */
+const loadMoreHistory = async () => {
+  if (historyMobileLoading.value || !historyHasMore.value) return;
+
+  historyMobileLoading.value = true;
+  historyMobilePage.value++;
+
+  try {
+    const data = await useApiFetch<{
+      list: Array<{
+        id: number;
+        sourceType: number;
+        pointAmount: number;
+        used: number;
+        remaining: number;
+        effectiveAt: string;
+        expiredAt: string;
+        status: number;
+        remark?: string;
+      }>;
+      total: number;
+    }>("/api/v1/points/records", {
+      query: {
+        page: historyMobilePage.value,
+        pageSize,
+      },
+    });
+
+    if (data?.list) {
+      const newRecords = data.list.map((item) => ({
+        ...item,
+        sourceTypeName: getSourceTypeName(item.sourceType),
+      }));
+      historyMobileList.value = [...historyMobileList.value, ...newRecords];
+    }
+  } catch (error) {
+    // 加载失败，回退页码
+    historyMobilePage.value--;
+    logger.error("加载更多积分获取记录失败:", error);
+  } finally {
+    historyMobileLoading.value = false;
+  }
+};
+
+/**
+ * 刷新积分获取记录（移动端）
+ */
+const refreshHistory = async () => {
+  if (historyRefreshing.value) return;
+
+  historyRefreshing.value = true;
+  historyMobilePage.value = 1;
+
+  try {
+    const data = await useApiFetch<{
+      list: Array<{
+        id: number;
+        sourceType: number;
+        pointAmount: number;
+        used: number;
+        remaining: number;
+        effectiveAt: string;
+        expiredAt: string;
+        status: number;
+        remark?: string;
+      }>;
+      total: number;
+    }>("/api/v1/points/records", {
+      query: {
+        page: 1,
+        pageSize,
+      },
+    });
+
+    if (data?.list) {
+      historyMobileList.value = data.list.map((item) => ({
+        ...item,
+        sourceTypeName: getSourceTypeName(item.sourceType),
+      }));
+    }
+  } catch (error) {
+    logger.error("刷新积分获取记录失败:", error);
+  } finally {
+    historyRefreshing.value = false;
+  }
+};
+
+// ==================== 积分使用记录（桌面端分页） ====================
 
 // 积分使用记录当前页
 const usageCurrentPage = ref(1);
@@ -238,6 +367,130 @@ const usagePagination = computed<Pagination>(() => ({
   totalPages: Math.ceil((usageData.value?.total || 0) / pageSize),
 }));
 
+// ==================== 积分使用记录（移动端上拉加载） ====================
+
+// 移动端累积列表
+const usageMobileList = ref<PointUsageRecord[]>([]);
+// 移动端当前页
+const usageMobilePage = ref(1);
+// 移动端加载状态
+const usageMobileLoading = ref(false);
+// 移动端刷新状态
+const usageRefreshing = ref(false);
+// 是否还有更多数据
+const usageHasMore = computed(() => {
+  return usageMobileList.value.length < (usageData.value?.total || 0);
+});
+
+// 同步桌面端数据到移动端列表
+watch(
+  usageList,
+  (newList) => {
+    // 首次加载时同步到移动端列表
+    if (usageMobilePage.value === 1 && newList.length > 0) {
+      usageMobileList.value = [...newList];
+    }
+  },
+  { immediate: true }
+);
+
+/**
+ * 加载更多积分使用记录（移动端）
+ */
+const loadMoreUsage = async () => {
+  if (usageMobileLoading.value || !usageHasMore.value) return;
+
+  usageMobileLoading.value = true;
+  usageMobilePage.value++;
+
+  try {
+    const data = await useApiFetch<{
+      list: Array<{
+        id: number;
+        pointAmount: number;
+        status: number;
+        createdAt: string;
+        remark?: string;
+        pointConsumptionItems: {
+          name: string;
+          description?: string;
+        };
+      }>;
+      total: number;
+    }>("/api/v1/points/usage", {
+      query: {
+        page: usageMobilePage.value,
+        pageSize,
+      },
+    });
+
+    if (data?.list) {
+      const newRecords = data.list.map((item) => ({
+        id: item.id,
+        itemDescription: item.pointConsumptionItems?.description || item.pointConsumptionItems?.name || "未知消耗项",
+        pointAmount: item.pointAmount,
+        status: item.status,
+        createdAt: item.createdAt,
+        remark: item.remark,
+      }));
+      usageMobileList.value = [...usageMobileList.value, ...newRecords];
+    }
+  } catch (error) {
+    // 加载失败，回退页码
+    usageMobilePage.value--;
+    logger.error("加载更多积分使用记录失败:", error);
+  } finally {
+    usageMobileLoading.value = false;
+  }
+};
+
+/**
+ * 刷新积分使用记录（移动端）
+ */
+const refreshUsage = async () => {
+  if (usageRefreshing.value) return;
+
+  usageRefreshing.value = true;
+  usageMobilePage.value = 1;
+
+  try {
+    const data = await useApiFetch<{
+      list: Array<{
+        id: number;
+        pointAmount: number;
+        status: number;
+        createdAt: string;
+        remark?: string;
+        pointConsumptionItems: {
+          name: string;
+          description?: string;
+        };
+      }>;
+      total: number;
+    }>("/api/v1/points/usage", {
+      query: {
+        page: 1,
+        pageSize,
+      },
+    });
+
+    if (data?.list) {
+      usageMobileList.value = data.list.map((item) => ({
+        id: item.id,
+        itemDescription: item.pointConsumptionItems?.description || item.pointConsumptionItems?.name || "未知消耗项",
+        pointAmount: item.pointAmount,
+        status: item.status,
+        createdAt: item.createdAt,
+        remark: item.remark,
+      }));
+    }
+  } catch (error) {
+    logger.error("刷新积分使用记录失败:", error);
+  } finally {
+    usageRefreshing.value = false;
+  }
+};
+
 // 弹框状态
 const showPointProducts = ref(false);
 const showQRCode = ref(false);
@@ -252,19 +505,10 @@ const pointProductList = ref<PointProduct[]>([
   { id: 4, name: "5000 积分", unitPrice: 350, description: "7折优惠，企业首选" },
 ]);
 
-// ==================== 工具方法 ====================
-
-/**
- * 获取来源类型名称
- */
-const getSourceTypeName = (sourceType: number): string => {
-  return PointRecordSourceTypeName[sourceType as keyof typeof PointRecordSourceTypeName] || "其他";
-};
-
 // ==================== 事件处理 ====================
 
 /**
- * 积分使用记录分页变化
+ * 积分使用记录分页变化（桌面端）
  */
 const onUsagePageChange = async (page: number) => {
   if (page < 1 || page > usagePagination.value.totalPages) return;
