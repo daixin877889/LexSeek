@@ -20,6 +20,10 @@ RUN bun prisma:generate
 # 构建 Nuxt 应用
 RUN bun run build
 
+# 在构建阶段安装 ipx 缺失的依赖到 .output/server/node_modules
+WORKDIR /app/.output/server/node_modules/ipx
+RUN bun add ofetch defu pathe ufo
+
 # 阶段 2: 生产运行阶段
 FROM oven/bun:1-slim AS runner
 
@@ -30,16 +34,8 @@ ENV NODE_ENV=production
 ENV NUXT_HOST=0.0.0.0
 ENV NUXT_PORT=3000
 
-# 从构建阶段复制 Nuxt 构建产物
+# 从构建阶段复制 Nuxt 构建产物（包含已安装的依赖）
 COPY --from=builder /app/.output ./.output
-
-# 在 .output/server 目录安装缺失的运行时依赖
-# ipx 模块需要这些依赖，但 Nuxt 构建时没有完全打包
-WORKDIR /app/.output/server
-RUN bun add ofetch defu pathe ufo
-
-# 切回工作目录
-WORKDIR /app
 
 # 暴露端口
 EXPOSE 3000
