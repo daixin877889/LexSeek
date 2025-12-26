@@ -1,0 +1,121 @@
+/// 积分记录表
+model pointRecords {
+    /// 积分记录ID，主键，自增
+    id               Int       @id @default(autoincrement())
+    /// 关联的用户ID，外键关联用户表
+    userId           Int       @map("user_id")
+    /// 积分数量
+    pointAmount      Int       @map("point_amount")
+    /// 已使用积分数量
+    used             Int       @map("used")
+    /// 剩余积分数量
+    remaining        Int       @map("remaining")
+    /// 积分来源
+    sourceType       Int       @map("source_type")
+    /// 积分来源ID，根据来源类型关联到不同的表
+    sourceId         Int?      @map("source_id")
+    /// 用户会员记录ID
+    userMembershipId Int?      @map("user_membership_id")
+    /// 生效时间
+    effectiveAt      DateTime  @map("effective_at") @db.Timestamptz(6)
+    /// 过期时间
+    expiredAt        DateTime  @map("expired_at") @db.Timestamptz(6)
+    /// 结算时间
+    settlementAt     DateTime? @map("settlement_at") @db.Timestamptz(6)
+    /// 积分状态
+    status           Int       @default(1) @map("status")
+    /// 备注
+    remark           String?   @map("remark")
+    /// 创建时间
+    createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+    /// 最后更新时间
+    updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+    /// 删除时间，为NULL表示未删除
+    deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+    /// 关联的积分消耗记录
+    pointConsumptionRecords pointConsumptionRecords[]
+
+    /// 关联的用户
+    users users @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    @@index([userId], map: "idx_point_records_user_id")
+    @@index([sourceType], map: "idx_point_records_source_type")
+    @@index([sourceId], map: "idx_point_records_source_id")
+    @@index([effectiveAt], map: "idx_point_records_effective_at")
+    @@index([expiredAt], map: "idx_point_records_expired_at")
+    @@index([settlementAt], map: "idx_point_records_settlement_at")
+    @@index([deletedAt], map: "idx_point_records_deleted_at")
+    @@map("point_records")
+}
+
+/// 积分消耗项目表
+model pointConsumptionItems {
+    /// 积分消耗项目ID，主键，自增
+    id                      Int                       @id @default(autoincrement())
+    /// 分组
+    group                   String                    @db.VarChar(100)
+    /// 积分消耗项目名称
+    name                    String                    @db.VarChar(100)
+    /// 积分消耗项目描述
+    description             String?                   @db.VarChar(255)
+    /// 项目计量单位
+    unit                    String                    @db.VarChar(10)
+    /// 积分消耗数量
+    pointAmount             Int                       @map("point_amount")
+    /// 积分消耗项目状态
+    status                  Int                       @default(1)
+    /// 创建时间
+    createdAt               DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+    /// 最后更新时间
+    updatedAt               DateTime                  @default(now()) @map("updated_at") @db.Timestamptz(6)
+    /// 删除时间，为NULL表示未删除
+    deletedAt               DateTime?                 @map("deleted_at") @db.Timestamptz(6)
+    /// 消耗折扣
+    discount                Decimal?                  @default(1) @map("discount") @db.Decimal(3, 2)
+    pointConsumptionRecords pointConsumptionRecords[]
+
+    @@index([name], map: "idx_point_consumption_items_name")
+    @@index([status], map: "idx_point_consumption_items_status")
+    @@index([deletedAt], map: "idx_point_consumption_items_deleted_at")
+    @@map("point_consumption_items")
+}
+
+/// 积分消耗记录表
+model pointConsumptionRecords {
+    /// 积分消耗记录ID，主键，自增
+    id            Int       @id @default(autoincrement())
+    /// 关联的用户ID，外键关联用户表
+    userId        Int       @map("user_id")
+    /// 关联的积分记录ID，外键关联积分记录表
+    pointRecordId Int       @map("point_record_id")
+    /// 积分消耗项目ID，外键关联积分消耗项目表
+    itemId        Int       @map("item_id")
+    /// 积分消耗数量
+    pointAmount   Int       @map("point_amount")
+    /// 积分消耗项目状态
+    status        Int       @default(1)
+    /// 积分消耗对应项目的资源ID，根据来源类型关联到不同的表
+    sourceId      Int?      @map("source_id")
+    /// 备注
+    remark        String?   @map("remark")
+    /// 创建时间
+    createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+    /// 最后更新时间
+    updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+    /// 删除时间，为NULL表示未删除
+    deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+    /// 关联的积分消耗项目
+    pointConsumptionItems pointConsumptionItems @relation(fields: [itemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    /// 关联的积分记录
+    pointRecords          pointRecords          @relation(fields: [pointRecordId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    /// 关联的用户
+    users                 users                 @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    @@index([userId], map: "idx_point_consumption_records_user_id")
+    @@index([itemId], map: "idx_point_consumption_records_item_id")
+    @@index([status], map: "idx_point_consumption_records_status")
+    @@index([deletedAt], map: "idx_point_consumption_records_deleted_at")
+    @@map("point_consumption_records")
+}
