@@ -7,7 +7,8 @@
         <span class="text-xs text-muted-foreground font-normal mt-1"> (不含已过期和未生效积分) </span>
       </h2>
       <div class="flex gap-2 sm:shrink-0">
-        <Button variant="outline" class="h-10 px-4 py-2 flex-1 sm:flex-initial" @click="showConsumptionStandard = true"> 积分消耗标准 </Button>
+        <Button variant="outline" class="h-10 px-4 py-2 flex-1 sm:flex-initial" @click="showConsumptionStandard = true">
+          积分消耗标准 </Button>
         <Button class="h-10 px-4 py-2 flex-1 sm:flex-initial" @click="showPointProducts = true"> 购买积分 </Button>
       </div>
     </div>
@@ -30,7 +31,8 @@
           <!-- 移动端卡片 -->
           <PointsPointHistoryMobile :list="historyList" :loading="historyLoading" />
           <!-- 分页 -->
-          <GeneralPagination v-model:current-page="historyCurrentPage" :page-size="pageSize" :total="historyPagination.total" class="mt-4" />
+          <GeneralPagination v-model:current-page="historyCurrentPage" :page-size="pageSize"
+            :total="historyPagination.total" class="mt-4" />
         </TabsContent>
 
         <!-- 积分使用记录 Tab -->
@@ -40,7 +42,8 @@
           <!-- 移动端卡片 -->
           <PointsPointUsageMobile :list="usageList" :loading="usageLoading" />
           <!-- 分页 -->
-          <GeneralPagination :current-page="usageCurrentPage" :page-size="pageSize" :total="usagePagination.total" class="mt-4" @change="onUsagePageChange" />
+          <GeneralPagination :current-page="usageCurrentPage" :page-size="pageSize" :total="usagePagination.total"
+            class="mt-4" @change="onUsagePageChange" />
         </TabsContent>
       </Tabs>
     </div>
@@ -221,7 +224,7 @@ const usageList = computed<PointUsageRecord[]>(() => {
   if (!usageData.value?.list) return [];
   return usageData.value.list.map((item) => ({
     id: item.id,
-    itemDescription: item.pointConsumptionItems?.name || "未知消耗项",
+    itemDescription: item.pointConsumptionItems?.description || item.pointConsumptionItems?.name || "未知消耗项",
     pointAmount: item.pointAmount,
     status: item.status,
     createdAt: item.createdAt,
