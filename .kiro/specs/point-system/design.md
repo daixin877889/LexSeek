@@ -38,7 +38,8 @@ graph TB
 ```
 lexseek/
 ├── prisma/
-│   └── schema.prisma              # 添加积分相关表定义
+│   └── models/
+│       └── point.prisma           # 积分相关表定义（已存在）
 ├── server/
 │   ├── api/v1/points/
 │   │   ├── info.get.ts            # 获取积分汇总信息
@@ -46,8 +47,11 @@ lexseek/
 │   │   └── usage.get.ts           # 获取积分消耗记录
 │   └── services/
 │       └── point/
-│           ├── pointRecords.service.ts           # 积分记录服务
-│           └── pointConsumptionRecords.service.ts # 积分消耗服务
+│           ├── pointRecords.dao.ts               # 积分记录数据访问层
+│           ├── pointRecords.service.ts           # 积分记录服务层
+│           ├── pointConsumptionItems.dao.ts      # 积分消耗项目数据访问层
+│           ├── pointConsumptionRecords.dao.ts    # 积分消耗记录数据访问层
+│           └── pointConsumptionRecords.service.ts # 积分消耗记录服务层
 └── shared/
     └── types/
         ├── pointRecords.types.ts           # 已存在，需补充接口类型
@@ -135,6 +139,28 @@ interface PointUsageResponse {
 
 ### 服务层接口
 
+#### pointRecords.dao.ts
+
+```typescript
+// 创建积分记录
+async function createPointRecordDao(data: CreatePointRecordInput, tx?: Prisma.TransactionClient): Promise<pointRecords>
+
+// 通过ID查询积分记录
+async function findPointRecordByIdDao(id: number, tx?: Prisma.TransactionClient): Promise<pointRecords | null>
+
+// 查询用户积分记录列表
+async function findPointRecordsByUserIdDao(userId: number, options: QueryOptions, tx?: Prisma.TransactionClient): Promise<pointRecords[]>
+
+// 查询用户有效积分记录（按过期时间升序）
+async function findValidPointRecordsByUserIdDao(userId: number, tx?: Prisma.TransactionClient): Promise<pointRecords[]>
+
+// 更新积分记录
+async function updatePointRecordDao(id: number, data: UpdatePointRecordInput, tx?: Prisma.TransactionClient): Promise<pointRecords>
+
+// 作废积分记录
+async function invalidatePointRecordsDao(userId: number, sourceType: number, sourceId: number, tx?: Prisma.TransactionClient): Promise<void>
+```
+
 #### pointRecords.service.ts
 
 ```typescript
@@ -145,13 +171,30 @@ async function getUserPointSummary(userId: number): Promise<PointSummary>
 async function getUserPointRecords(userId: number, options: QueryOptions): Promise<PaginatedResult<PointRecord>>
 
 // 创建积分记录
-async function createPointRecord(data: CreatePointRecordInput, tx?: PrismaTransaction): Promise<PointRecord>
+async function createPointRecord(data: CreatePointRecordInput, tx?: Prisma.TransactionClient): Promise<PointRecord>
 
 // 消耗积分（FIFO策略）
-async function consumePoints(userId: number, itemId: number, amount: number, sourceId?: number, tx?: PrismaTransaction): Promise<PointConsumptionResult>
+async function consumePoints(userId: number, itemId: number, amount: number, sourceId?: number, tx?: Prisma.TransactionClient): Promise<PointConsumptionResult>
+```
 
-// 作废积分记录
-async function invalidatePointRecords(userId: number, sourceType: number, sourceId: number): Promise<void>
+#### pointConsumptionItems.dao.ts
+
+```typescript
+// 通过ID查询积分消耗项目
+async function findPointConsumptionItemByIdDao(id: number, tx?: Prisma.TransactionClient): Promise<pointConsumptionItems | null>
+
+// 查询启用的积分消耗项目列表
+async function findEnabledPointConsumptionItemsDao(tx?: Prisma.TransactionClient): Promise<pointConsumptionItems[]>
+```
+
+#### pointConsumptionRecords.dao.ts
+
+```typescript
+// 创建积分消耗记录
+async function createPointConsumptionRecordDao(data: CreateConsumptionRecordInput, tx?: Prisma.TransactionClient): Promise<pointConsumptionRecords>
+
+// 查询用户积分消耗记录列表
+async function findPointConsumptionRecordsByUserIdDao(userId: number, options: QueryOptions, tx?: Prisma.TransactionClient): Promise<pointConsumptionRecords[]>
 ```
 
 #### pointConsumptionRecords.service.ts
@@ -161,134 +204,20 @@ async function invalidatePointRecords(userId: number, sourceType: number, source
 async function getUserConsumptionRecords(userId: number, options: QueryOptions): Promise<PaginatedResult<PointConsumptionRecord>>
 
 // 创建积分消耗记录
-async function createConsumptionRecord(data: CreateConsumptionRecordInput, tx?: PrismaTransaction): Promise<PointConsumptionRecord>
+async function createConsumptionRecord(data: CreateConsumptionRecordInput, tx?: Prisma.TransactionClient): Promise<PointConsumptionRecord>
 ```
 
 ## 数据模型
 
 ### Prisma Schema 定义
 
-```prisma
-/// 积分记录表
-model pointRecords {
-  /// 积分记录ID，主键，自增
-  id                      Int                       @id @default(autoincrement())
-  /// 关联的用户ID，外键关联用户表
-  userId                  Int                       @map("user_id")
-  /// 积分数量
-  pointAmount             Int                       @map("point_amount")
-  /// 已使用积分数量
-  used                    Int                       @default(0) @map("used")
-  /// 剩余积分数量
-  remaining               Int                       @map("remaining")
-  /// 积分来源类型
-  sourceType              Int                       @map("source_type")
-  /// 积分来源ID
-  sourceId                Int?                      @map("source_id")
-  /// 用户会员记录ID
-  userMembershipId        Int?                      @map("user_membership_id")
-  /// 生效时间
-  effectiveAt             DateTime                  @map("effective_at") @db.Timestamptz(6)
-  /// 过期时间
-  expiredAt               DateTime                  @map("expired_at") @db.Timestamptz(6)
-  /// 结算时间
-  settlementAt            DateTime?                 @map("settlement_at") @db.Timestamptz(6)
-  /// 积分状态：1-有效，2-会员升级结算，3-已作废
-  status                  Int                       @default(1) @map("status")
-  /// 备注
-  remark                  String?                   @map("remark")
-  /// 创建时间
-  createdAt               DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
-  /// 最后更新时间
-  updatedAt               DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  /// 删除时间
-  deletedAt               DateTime?                 @map("deleted_at") @db.Timestamptz(6)
-  /// 关联用户
-  user                    users                     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  /// 关联消耗记录
-  pointConsumptionRecords pointConsumptionRecords[]
+积分相关的表定义已存在于 `prisma/models/point.prisma` 文件中，包含以下三个表：
 
-  @@index([userId], map: "idx_point_records_user_id")
-  @@index([sourceType], map: "idx_point_records_source_type")
-  @@index([sourceId], map: "idx_point_records_source_id")
-  @@index([effectiveAt], map: "idx_point_records_effective_at")
-  @@index([expiredAt], map: "idx_point_records_expired_at")
-  @@index([settlementAt], map: "idx_point_records_settlement_at")
-  @@index([deletedAt], map: "idx_point_records_deleted_at")
-  @@map("point_records")
-}
+1. **pointRecords** - 积分记录表
+2. **pointConsumptionItems** - 积分消耗项目表
+3. **pointConsumptionRecords** - 积分消耗记录表
 
-/// 积分消耗项目表
-model pointConsumptionItems {
-  /// 积分消耗项目ID，主键，自增
-  id                      Int                       @id @default(autoincrement())
-  /// 分组
-  group                   String                    @db.VarChar(100)
-  /// 项目名称
-  name                    String                    @db.VarChar(100)
-  /// 项目描述
-  description             String?                   @db.VarChar(255)
-  /// 计量单位
-  unit                    String                    @db.VarChar(10)
-  /// 消耗积分数量
-  pointAmount             Int                       @map("point_amount")
-  /// 折扣
-  discount                Decimal?                  @default(1) @map("discount") @db.Decimal(3, 2)
-  /// 状态：1-启用，0-禁用
-  status                  Int                       @default(1)
-  /// 创建时间
-  createdAt               DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
-  /// 最后更新时间
-  updatedAt               DateTime                  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  /// 删除时间
-  deletedAt               DateTime?                 @map("deleted_at") @db.Timestamptz(6)
-  /// 关联消耗记录
-  pointConsumptionRecords pointConsumptionRecords[]
-
-  @@index([name], map: "idx_point_consumption_items_name")
-  @@index([status], map: "idx_point_consumption_items_status")
-  @@index([deletedAt], map: "idx_point_consumption_items_deleted_at")
-  @@map("point_consumption_items")
-}
-
-/// 积分消耗记录表
-model pointConsumptionRecords {
-  /// 积分消耗记录ID，主键，自增
-  id                    Int                   @id @default(autoincrement())
-  /// 关联的用户ID
-  userId                Int                   @map("user_id")
-  /// 关联的积分记录ID
-  pointRecordId         Int                   @map("point_record_id")
-  /// 积分消耗项目ID
-  itemId                Int                   @map("item_id")
-  /// 消耗积分数量
-  pointAmount           Int                   @map("point_amount")
-  /// 状态：0-无效，1-预扣，2-已结算
-  status                Int                   @default(1)
-  /// 资源ID
-  sourceId              Int?                  @map("source_id")
-  /// 备注
-  remark                String?               @map("remark")
-  /// 创建时间
-  createdAt             DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  /// 最后更新时间
-  updatedAt             DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  /// 删除时间
-  deletedAt             DateTime?             @map("deleted_at") @db.Timestamptz(6)
-  /// 关联用户
-  user                  users                 @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  /// 关联积分记录
-  pointRecord           pointRecords          @relation(fields: [pointRecordId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  /// 关联消耗项目
-  pointConsumptionItem  pointConsumptionItems @relation(fields: [itemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([userId], map: "idx_point_consumption_records_user_id")
-  @@index([itemId], map: "idx_point_consumption_records_item_id")
-  @@index([status], map: "idx_point_consumption_records_status")
-  @@index([deletedAt], map: "idx_point_consumption_records_deleted_at")
-  @@map("point_consumption_records")
-}
-```
+表结构与旧项目 lexseekApi 保持一致，便于数据迁移。
 
 ### 类型定义补充
 
