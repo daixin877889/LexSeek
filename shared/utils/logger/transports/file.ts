@@ -5,7 +5,7 @@
  * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 6.1, 6.2
  */
 
-import { type LogEntry, type Transport, getLevelName } from '../types'
+import { type LogEntry, type LogLevel, type Transport, getLevelName } from '../types'
 import { LogFormatter } from '../formatter'
 
 /**
@@ -107,7 +107,7 @@ export class FileTransport implements Transport {
      * Pattern: logs/{level}-{YYYY-MM-DD}.log
      * Requirements: 3.3, 3.4
      */
-    getLogFilePath(level: number, date: Date): string {
+    getLogFilePath(level: LogLevel, date: Date): string {
         const levelName = getLevelName(level).toLowerCase()
         const year = date.getFullYear()
         const month = (date.getMonth() + 1).toString().padStart(2, '0')
