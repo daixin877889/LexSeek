@@ -38,8 +38,7 @@
               <span>{{ storageUsagePercentage }}</span>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-2">
-              <div class="bg-primary h-2 rounded-full transition-all duration-300"
-                :style="{ width: storageUsagePercentage }"></div>
+              <div class="bg-primary h-2 rounded-full transition-all duration-300" :style="{ width: storageUsagePercentage }"></div>
             </div>
           </div>
         </div>
@@ -56,12 +55,10 @@
             <div class="flex items-center gap-4">
               <!-- 视图切换 -->
               <div class="flex bg-gray-100 rounded-lg p-1">
-                <Button variant="ghost" size="sm" :class="{ 'bg-white shadow-sm': viewMode === 'grid' }"
-                  @click="viewMode = 'grid'">
+                <Button variant="ghost" size="sm" :class="{ 'bg-white shadow-sm': viewMode === 'grid' }" @click="viewMode = 'grid'">
                   <GridIcon class="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="sm" :class="{ 'bg-white shadow-sm': viewMode === 'list' }"
-                  @click="viewMode = 'list'">
+                <Button variant="ghost" size="sm" :class="{ 'bg-white shadow-sm': viewMode === 'list' }" @click="viewMode = 'list'">
                   <ListIcon class="h-4 w-4" />
                 </Button>
               </div>
@@ -120,9 +117,7 @@
                 <SearchIcon class="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input v-model="searchForm.fileName" placeholder="搜索文件名..." class="pl-10 pr-8" />
                 <!-- 清除按钮 -->
-                <button v-if="searchForm.fileName" type="button"
-                  class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                  @click="searchForm.fileName = ''">
+                <button v-if="searchForm.fileName" type="button" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors" @click="searchForm.fileName = ''">
                   <XIcon class="h-4 w-4" />
                 </button>
               </div>
@@ -154,25 +149,18 @@
           </div>
 
           <!-- 网格视图 -->
-          <div v-else-if="viewMode === 'grid'"
-            class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            <div v-for="file in fileList" :key="file.id"
-              class="group bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer"
-              @click="openFileDetail(file)">
+          <div v-else-if="viewMode === 'grid'" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            <div v-for="file in fileList" :key="file.id" class="group bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer" @click="openFileDetail(file)">
               <!-- 文件图标/缩略图 -->
               <div class="flex justify-center mb-3">
                 <!-- 图片缩略图（仅非加密图片） -->
-                <div v-if="isImageType(file.fileType) && !file.encrypted"
-                  class="w-12 h-12 rounded-lg overflow-hidden bg-purple-100 flex items-center justify-center">
-                  <img v-if="!thumbnailErrors[String(file.id)]" :src="file.url" :alt="file.fileName"
-                    class="w-full h-full object-cover" @error="handleThumbnailError(String(file.id))" />
+                <div v-if="isImageType(file.fileType) && !file.encrypted" class="w-12 h-12 rounded-lg overflow-hidden bg-purple-100 flex items-center justify-center">
+                  <img v-if="!thumbnailErrors[String(file.id)]" :src="file.url" :alt="file.fileName" class="w-full h-full object-cover" @error="handleThumbnailError(String(file.id))" />
                   <ImageIcon v-else class="h-6 w-6 text-purple-600" />
                 </div>
                 <!-- 其他文件类型图标 -->
-                <div v-else class="w-12 h-12 rounded-lg flex items-center justify-center"
-                  :class="getFileIconBg(file.fileType)">
-                  <component :is="getFileIcon(file.fileType)" class="h-6 w-6"
-                    :class="getFileIconColor(file.fileType)" />
+                <div v-else class="w-12 h-12 rounded-lg flex items-center justify-center" :class="getFileIconBg(file.fileType)">
+                  <component :is="getFileIcon(file.fileType)" class="h-6 w-6" :class="getFileIconColor(file.fileType)" />
                 </div>
               </div>
 
@@ -201,8 +189,7 @@
           <!-- 列表视图 -->
           <div v-else class="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <!-- 表头 -->
-            <div
-              class="grid grid-cols-12 gap-4 px-4 py-3 bg-gray-50 border-b border-gray-200 text-sm font-medium text-gray-600">
+            <div class="grid grid-cols-12 gap-4 px-4 py-3 bg-gray-50 border-b border-gray-200 text-sm font-medium text-gray-600">
               <div class="col-span-5">文件名</div>
               <div class="col-span-2">大小</div>
               <div class="col-span-2">来源</div>
@@ -212,15 +199,11 @@
 
             <!-- 文件列表 -->
             <div class="divide-y divide-gray-100">
-              <div v-for="file in fileList" :key="file.id"
-                class="grid grid-cols-12 gap-4 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer items-center"
-                @click="openFileDetail(file)">
+              <div v-for="file in fileList" :key="file.id" class="grid grid-cols-12 gap-4 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer items-center" @click="openFileDetail(file)">
                 <!-- 文件名 -->
                 <div class="col-span-5 flex items-center gap-3 min-w-0">
-                  <div class="w-8 h-8 rounded flex items-center justify-center shrink-0"
-                    :class="getFileIconBg(file.fileType)">
-                    <component :is="getFileIcon(file.fileType)" class="h-4 w-4"
-                      :class="getFileIconColor(file.fileType)" />
+                  <div class="w-8 h-8 rounded flex items-center justify-center shrink-0" :class="getFileIconBg(file.fileType)">
+                    <component :is="getFileIcon(file.fileType)" class="h-4 w-4" :class="getFileIconColor(file.fileType)" />
                   </div>
                   <span class="text-sm text-gray-900 truncate" :title="file.fileName">{{ file.fileName }}</span>
                 </div>
@@ -257,33 +240,26 @@
         </div>
 
         <!-- 分页导航 -->
-        <div v-if="status !== 'pending' && fileList.length > 0"
-          class="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 border-t border-gray-200 mt-4">
+        <div v-if="status !== 'pending' && fileList.length > 0" class="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 border-t border-gray-200 mt-4">
           <!-- 分页信息 -->
-          <div class="text-sm text-gray-600 text-center sm:text-left">显示第 {{ (pagination.page - 1) * pagination.pageSize
-            + 1 }} - {{ Math.min(pagination.page * pagination.pageSize, pagination.total) }} 条， 共 {{ pagination.total }}
-            条记录</div>
+          <div class="text-sm text-gray-600 text-center sm:text-left">显示第 {{ (pagination.page - 1) * pagination.pageSize + 1 }} - {{ Math.min(pagination.page * pagination.pageSize, pagination.total) }} 条， 共 {{ pagination.total }} 条记录</div>
 
           <!-- 页码导航 -->
           <div class="flex items-center justify-center gap-2">
             <!-- 上一页 -->
-            <Button variant="outline" size="sm" :disabled="pagination.page <= 1"
-              @click="changePage(pagination.page - 1)">
+            <Button variant="outline" size="sm" :disabled="pagination.page <= 1" @click="changePage(pagination.page - 1)">
               <ChevronLeftIcon class="h-4 w-4" />
             </Button>
 
             <!-- 页码按钮 -->
             <div class="flex items-center gap-1">
-              <Button v-for="pageNum in getPageNumbers()" :key="pageNum"
-                :variant="pageNum === pagination.page ? 'default' : 'outline'" size="sm" class="w-8"
-                @click="changePage(pageNum)">
+              <Button v-for="pageNum in getPageNumbers()" :key="pageNum" :variant="pageNum === pagination.page ? 'default' : 'outline'" size="sm" class="w-8" @click="changePage(pageNum)">
                 {{ pageNum }}
               </Button>
             </div>
 
             <!-- 下一页 -->
-            <Button variant="outline" size="sm" :disabled="pagination.page >= pagination.totalPages"
-              @click="changePage(pagination.page + 1)">
+            <Button variant="outline" size="sm" :disabled="pagination.page >= pagination.totalPages" @click="changePage(pagination.page + 1)">
               <ChevronRightIcon class="h-4 w-4" />
             </Button>
           </div>
@@ -293,33 +269,31 @@
 
     <!-- 上传文件对话框 -->
     <Dialog v-model:open="showUploadDialog">
-      <DialogContent class="sm:max-w-2xl upload-dialog-content overflow-hidden"
-        @interactOutside="(e) => e.preventDefault()">
+      <DialogContent class="sm:max-w-2xl upload-dialog-content overflow-hidden" @interactOutside="(e) => e.preventDefault()">
         <DialogHeader>
           <DialogTitle>上传文件</DialogTitle>
           <DialogDescription> 选择要上传的文件，支持多文件上传和客户端加密 </DialogDescription>
         </DialogHeader>
         <div class="py-4 overflow-hidden">
-          <GeneralFileUploader :source="FileSource.FILE" :multiple="true" :autoUpload="true" :enableEncryption="true"
-            :defaultEncrypted="true" :onSuccess="handleUploadSuccess" :onError="handleUploadError" />
+          <GeneralFileUploader :source="FileSource.FILE" :multiple="true" :autoUpload="true" :enableEncryption="true" :defaultEncrypted="true" :onSuccess="handleUploadSuccess" :onError="handleUploadError" />
         </div>
       </DialogContent>
     </Dialog>
 
     <!-- 文件详情对话框 -->
     <Dialog v-model:open="showFileDetailDialog">
-      <DialogContent class="sm:max-w-2xl file-detail-dialog-content max-h-[90vh] overflow-y-auto overflow-x-hidden"
-        @interactOutside="(e) => e.preventDefault()">
-        <DialogHeader class="pr-8 overflow-hidden">
+      <DialogContent class="sm:max-w-2xl file-detail-dialog-content flex flex-col min-w-[80vw] min-h-[80vh] max-h-[90vh] overflow-hidden p-0 gap-0" @interactOutside="(e) => e.preventDefault()">
+        <!-- 固定头部 -->
+        <DialogHeader class="pr-8 overflow-hidden shrink-0 p-4 pb-2 border-b border-gray-100 border-dashed">
           <DialogTitle class="flex items-center gap-2 overflow-hidden">
-            <component :is="getFileIcon(selectedFile?.fileType || '')" class="h-5 w-5 shrink-0"
-              :class="getFileIconColor(selectedFile?.fileType || '')" />
+            <component :is="getFileIcon(selectedFile?.fileType || '')" class="h-5 w-5 shrink-0" :class="getFileIconColor(selectedFile?.fileType || '')" />
             <span class="truncate block" :title="selectedFile?.fileName">{{ selectedFile?.fileName }}</span>
           </DialogTitle>
           <DialogDescription>文件详情与预览</DialogDescription>
         </DialogHeader>
 
-        <div class="py-4 space-y-4">
+        <!-- 可滚动的内容区域 -->
+        <div class="flex-1 overflow-y-auto overflow-x-hidden px-4 py-2 space-y-4">
           <!-- 文件预览区域 -->
           <div v-if="canPreview" class="border rounded-lg overflow-hidden bg-gray-50">
             <!-- 图片预览 -->
@@ -343,8 +317,7 @@
                 <AlertCircleIcon class="h-8 w-8 mx-auto mb-2" />
                 <p class="text-sm">{{ previewError }}</p>
               </div>
-              <img v-else-if="previewUrl" :src="previewUrl" :alt="selectedFile?.fileName"
-                class="max-w-full max-h-[360px] object-contain rounded" />
+              <img v-else-if="previewUrl" :src="previewUrl" :alt="selectedFile?.fileName" class="max-w-full max-h-[360px] object-contain rounded" />
             </div>
 
             <!-- 音频预览 -->
@@ -385,8 +358,7 @@
           </div>
 
           <!-- 加密文件需要解锁（不支持预览的文件类型） -->
-          <div v-else-if="selectedFile?.encrypted && !encryptionStore.isUnlocked"
-            class="border rounded-lg p-6 bg-gray-50 text-center">
+          <div v-else-if="selectedFile?.encrypted && !encryptionStore.isUnlocked" class="border rounded-lg p-6 bg-gray-50 text-center">
             <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-amber-100 flex items-center justify-center">
               <LockIcon class="h-8 w-8 text-amber-600" />
             </div>
@@ -399,10 +371,8 @@
 
           <!-- 不支持预览提示 -->
           <div v-else class="border rounded-lg p-6 bg-gray-50 text-center">
-            <div class="w-16 h-16 mx-auto mb-3 rounded-lg flex items-center justify-center"
-              :class="getFileIconBg(selectedFile?.fileType || '')">
-              <component :is="getFileIcon(selectedFile?.fileType || '')" class="h-8 w-8"
-                :class="getFileIconColor(selectedFile?.fileType || '')" />
+            <div class="w-16 h-16 mx-auto mb-3 rounded-lg flex items-center justify-center" :class="getFileIconBg(selectedFile?.fileType || '')">
+              <component :is="getFileIcon(selectedFile?.fileType || '')" class="h-8 w-8" :class="getFileIconColor(selectedFile?.fileType || '')" />
             </div>
             <p class="text-gray-600 text-sm">此文件类型暂不支持预览</p>
           </div>
@@ -415,7 +385,7 @@
             </div>
             <div>
               <p class="text-gray-500 text-xs">文件类型</p>
-              <p class="font-medium truncate" :title="selectedFile?.fileType">{{ selectedFile?.fileType || '未知' }}</p>
+              <p class="font-medium truncate" :title="selectedFile?.fileType">{{ selectedFile?.fileType || "未知" }}</p>
             </div>
             <div>
               <p class="text-gray-500 text-xs">来源</p>
@@ -430,28 +400,28 @@
               <p class="font-medium flex items-center gap-1">
                 <LockIcon v-if="selectedFile?.encrypted" class="h-4 w-4 text-green-600" />
                 <UnlockIcon v-else class="h-4 w-4 text-gray-400" />
-                {{ selectedFile?.encrypted ? '已加密' : '未加密' }}
+                {{ selectedFile?.encrypted ? "已加密" : "未加密" }}
               </p>
             </div>
           </div>
+        </div>
 
-          <!-- 下载按钮 -->
-          <div class="flex justify-end gap-2 pt-2">
+        <!-- 固定底部按钮 -->
+        <DialogFooter class="shrink-0 border-t border-gray-100 border-dashed px-4 py-4">
+          <div class="flex justify-end gap-2">
             <Button variant="outline" @click="showFileDetailDialog = false">关闭</Button>
-            <Button @click="downloadFile"
-              :disabled="!selectedFile?.url || downloadLoading || (selectedFile?.encrypted && !encryptionStore.isUnlocked)">
+            <Button @click="downloadFile" :disabled="!selectedFile?.url || downloadLoading || (selectedFile?.encrypted && !encryptionStore.isUnlocked)">
               <div v-if="downloadLoading" class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
               <DownloadIcon v-else class="h-4 w-4 mr-1" />
-              {{ downloadLoading ? '解密中...' : '下载文件' }}
+              {{ downloadLoading ? "解密中..." : "下载文件" }}
             </Button>
           </div>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
 
     <!-- 密码输入对话框 -->
-    <EncryptionPasswordDialog v-model:open="showPasswordDialog" content-class="password-dialog-content"
-      @success="handleUnlockSuccess" />
+    <EncryptionPasswordDialog v-model:open="showPasswordDialog" content-class="password-dialog-content" @success="handleUnlockSuccess" />
   </div>
 </template>
 
@@ -469,7 +439,6 @@ import { refDebounced } from "@vueuse/core";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import "dayjs/locale/zh-cn";
-import heic2any from "heic2any";
 
 // 配置 dayjs
 dayjs.extend(relativeTime);
@@ -536,15 +505,15 @@ const isImageType = (fileType: string) => {
  * 判断是否为 HEIC/HEIF 格式
  */
 const isHeicFormat = (mimeType: string, fileName: string) => {
-  const heicMimeTypes = ['image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence'];
-  const heicExtensions = ['.heic', '.heif'];
+  const heicMimeTypes = ["image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"];
+  const heicExtensions = [".heic", ".heif"];
 
   if (heicMimeTypes.includes(mimeType.toLowerCase())) {
     return true;
   }
 
   const lowerFileName = fileName.toLowerCase();
-  return heicExtensions.some(ext => lowerFileName.endsWith(ext));
+  return heicExtensions.some((ext) => lowerFileName.endsWith(ext));
 };
 
 /**
@@ -554,6 +523,9 @@ const isHeicFormat = (mimeType: string, fileName: string) => {
  */
 const convertHeicToJpeg = async (objectUrl: string): Promise<string> => {
   try {
+    // 动态导入 heic2any（仅客户端）
+    const heic2any = (await import("heic2any")).default;
+
     // 获取 blob 数据
     const response = await fetch(objectUrl);
     const heicBlob = await response.blob();
@@ -561,7 +533,7 @@ const convertHeicToJpeg = async (objectUrl: string): Promise<string> => {
     // 转换为 JPEG
     const jpegBlob = await heic2any({
       blob: heicBlob,
-      toType: 'image/jpeg',
+      toType: "image/jpeg",
       quality: 0.9,
     });
 
@@ -571,11 +543,11 @@ const convertHeicToJpeg = async (objectUrl: string): Promise<string> => {
     // 创建新的 Object URL
     const resultBlob = Array.isArray(jpegBlob) ? jpegBlob[0] : jpegBlob;
     if (!resultBlob) {
-      throw new Error('HEIC 转换结果为空');
+      throw new Error("HEIC 转换结果为空");
     }
     return URL.createObjectURL(resultBlob);
   } catch (err) {
-    console.error('HEIC 转换失败:', err);
+    console.error("HEIC 转换失败:", err);
     // 转换失败时返回原始 URL
     return objectUrl;
   }
@@ -853,24 +825,20 @@ const loadPreview = async (file: OssFileItem) => {
     const isHeic = isHeicFormat(mimeType, file.fileName);
 
     // 使用统一的方法获取文件（自动判断是否需要解密）
-    let objectUrl = await fetchAndDecryptToObjectURL(
-      file.url,
-      mimeType,
-      ({ stage }) => {
-        // 更新加载状态文本
-        switch (stage) {
-          case 'check':
-            previewLoadingText.value = "检查加密状态...";
-            break;
-          case 'download':
-            previewLoadingText.value = "下载文件...";
-            break;
-          case 'decrypt':
-            previewLoadingText.value = "解密中...";
-            break;
-        }
+    let objectUrl = await fetchAndDecryptToObjectURL(file.url, mimeType, ({ stage }) => {
+      // 更新加载状态文本
+      switch (stage) {
+        case "check":
+          previewLoadingText.value = "检查加密状态...";
+          break;
+        case "download":
+          previewLoadingText.value = "下载文件...";
+          break;
+        case "decrypt":
+          previewLoadingText.value = "解密中...";
+          break;
       }
-    );
+    });
 
     // 如果是 HEIC/HEIF 格式，转换为 JPEG
     if (isHeic && objectUrl) {
@@ -943,9 +911,7 @@ const downloadFile = async () => {
     const link = document.createElement("a");
     link.href = downloadUrl;
     // 移除 .age 后缀
-    const fileName = file.fileName.endsWith(".age")
-      ? file.fileName.slice(0, -4)
-      : file.fileName;
+    const fileName = file.fileName.endsWith(".age") ? file.fileName.slice(0, -4) : file.fileName;
     link.download = fileName;
     document.body.appendChild(link);
     link.click();
