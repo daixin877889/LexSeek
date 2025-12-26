@@ -16,6 +16,7 @@ export interface PresignedUrlParams {
   fileSize: number
   mimeType: string
   encrypted?: boolean  // 是否加密上传
+  configId?: number    // 存储配置 ID（可选，使用用户自定义存储）
 }
 
 /**
@@ -34,6 +35,7 @@ export interface BatchPresignedUrlParams {
   source: FileSource
   files: FileInfo[]
   encrypted?: boolean  // 是否加密上传
+  configId?: number    // 存储配置 ID（可选，使用用户自定义存储）
 }
 
 /**
@@ -143,28 +145,27 @@ export const useFileStore = defineStore('file', () => {
     loading.value = true
     error.value = null
 
-    const queryParams = source ? { source } : {}
+    try {
+      const queryParams = source ? { source } : {}
 
-    const { data: response, error: apiError, execute } = useApi<FileSourceAccept[]>(
-      '/api/v1/files/presigned-url/config',
-      {
-        method: 'GET',
-        query: queryParams,
-        immediate: false,
-        showError: false,
-      }
-    )
+      const data = await useApiFetch<FileSourceAccept[]>(
+        '/api/v1/storage/presigned-url/config',
+        {
+          method: 'GET',
+          query: queryParams,
+          showError: false,
+        }
+      )
 
-    await execute()
-    loading.value = false
-
-    if (apiError.value || !response.value) {
-      error.value = apiError.value?.message || '获取场景配置失败'
-      logger.error('获取场景配置失败:', apiError.value)
+      loading.value = false
+      return data
+    } catch (err: unknown) {
+      loading.value = false
+      const errorMessage = err instanceof Error ? err.message : '获取场景配置失败'
+      error.value = errorMessage
+      logger.error('获取场景配置失败:', err)
       return null
     }
-
-    return response.value
   }
 
   /**
@@ -178,7 +179,7 @@ export const useFileStore = defineStore('file', () => {
 
     try {
       const data = await useApiFetch<PostSignatureResult>(
-        '/api/v1/files/presigned-url',
+        '/api/v1/storage/presigned-url',
         {
           method: 'GET',
           query: {
@@ -187,6 +188,7 @@ export const useFileStore = defineStore('file', () => {
             fileSize: String(params.fileSize),
             mimeType: params.mimeType,
             encrypted: params.encrypted ? 'true' : 'false',
+            ...(params.configId ? { configId: String(params.configId) } : {}),
           },
           showError: false,
         }
@@ -213,13 +215,14 @@ export const useFileStore = defineStore('file', () => {
 
     try {
       const data = await useApiFetch<PostSignatureResult[]>(
-        '/api/v1/files/presigned-url',
+        '/api/v1/storage/presigned-url',
         {
           method: 'POST',
           body: {
             source: params.source,
             files: params.files,
             encrypted: params.encrypted ?? false,
+            ...(params.configId ? { configId: params.configId } : {}),
           },
           showError: false,
         }

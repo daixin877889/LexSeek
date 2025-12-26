@@ -9,6 +9,16 @@ import { type LogEntry, type Transport, getLevelName } from '../types'
 import { LogFormatter } from '../formatter'
 
 /**
+ * 检测是否为 Node.js 服务端环境
+ * 需要同时满足：没有 window 对象、有 process 对象、process.cwd 是函数
+ */
+function isNodeEnvironment(): boolean {
+    return typeof window === 'undefined' &&
+        typeof process !== 'undefined' &&
+        typeof process.cwd === 'function'
+}
+
+/**
  * FileTransport class for writing logs to files.
  * Only available in Node.js environment.
  */
@@ -18,10 +28,15 @@ export class FileTransport implements Transport {
     private path: typeof import('path') | null = null
     private initialized: boolean = false
     private initError: boolean = false
+    private isNode: boolean = false
 
     constructor(logsDir: string = 'logs') {
         this.logsDir = logsDir
-        this.initModules()
+        this.isNode = isNodeEnvironment()
+        // 只在 Node.js 环境初始化
+        if (this.isNode) {
+            this.initModules()
+        }
     }
 
     /**
@@ -29,16 +44,13 @@ export class FileTransport implements Transport {
      * This allows the class to be imported in browser without errors.
      */
     private async initModules(): Promise<void> {
-        if (this.initialized || this.initError) return
+        if (this.initialized || this.initError || !this.isNode) return
 
         try {
-            // Only import in Node.js environment
-            if (typeof window === 'undefined') {
-                this.fs = await import('fs')
-                this.path = await import('path')
-                this.ensureLogsDir()
-                this.initialized = true
-            }
+            this.fs = await import('fs')
+            this.path = await import('path')
+            this.ensureLogsDir()
+            this.initialized = true
         } catch (error) {
             this.initError = true
             console.warn('[FileTransport] Failed to initialize file system modules:', error)
@@ -50,7 +62,7 @@ export class FileTransport implements Transport {
      * Requirements: 3.2, 6.2
      */
     private ensureLogsDir(): void {
-        if (!this.fs || !this.path) return
+        if (!this.fs || !this.path || !this.isNode) return
 
         try {
             const fullPath = this.path.resolve(process.cwd(), this.logsDir)
@@ -83,8 +95,9 @@ export class FileTransport implements Transport {
      * Requirements: 3.1, 3.5, 3.6, 6.1
      */
     write(entry: LogEntry): void {
-        // Skip if not in Node.js environment or initialization failed
-        if (typeof window !== 'undefined') return
+        // 非 Node.js 环境直接跳过
+        if (!this.isNode) return
+
         if (this.initError) {
             // Fall back to console output
             console.log(LogFormatter.format(entry))
@@ -106,7 +119,7 @@ export class FileTransport implements Transport {
      * Requirements: 3.5, 3.6, 6.1
      */
     private writeToFile(entry: LogEntry): void {
-        if (!this.fs || !this.path || this.initError) {
+        if (!this.fs || !this.path || this.initError || !this.isNode) {
             console.log(LogFormatter.format(entry))
             return
         }

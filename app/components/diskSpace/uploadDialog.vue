@@ -1,15 +1,13 @@
 <template>
   <!-- 上传文件对话框 -->
   <Dialog v-model:open="dialogOpen">
-    <DialogContent class="sm:max-w-2xl upload-dialog-content overflow-hidden"
-      @interactOutside="(e) => e.preventDefault()">
+    <DialogContent class="sm:max-w-2xl upload-dialog-content overflow-hidden" @interactOutside="(e) => e.preventDefault()">
       <DialogHeader>
         <DialogTitle>上传文件</DialogTitle>
         <DialogDescription>选择要上传的文件，支持多文件上传和客户端加密</DialogDescription>
       </DialogHeader>
       <div class="py-4 overflow-hidden">
-        <GeneralFileUploader :source="FileSource.FILE" :multiple="true" :autoUpload="true" :enableEncryption="true"
-          :defaultEncrypted="true" :onSuccess="handleUploadSuccess" :onError="handleUploadError" />
+        <GeneralFileUploader :source="FileSource.FILE" :multiple="true" :autoUpload="true" :enableEncryption="true" :defaultEncrypted="true" :onSuccess="handleUploadSuccess" :onError="handleUploadError" />
       </div>
     </DialogContent>
   </Dialog>

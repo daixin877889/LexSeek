@@ -3,20 +3,15 @@
  */
 
 import { generateSignedUrl } from '~~/server/lib/oss'
+import { generateSignedUrlService, generatePostSignatureService } from '~~/server/services/storage/storage.service'
+import { StorageProviderType } from '~~/server/lib/storage/types'
 import type { ossFiles } from '#shared/types/prisma'
 import type { OssConfig } from '~~/shared/types/oss'
 import type { OSSConfig } from '~~/shared/types/system'
 
 /**
  * 生成 OSS 上传预签名
- * @param bucket 
- * @param originalFileName 
- * @param maxSize 
- * @param dir 
- * @param saveName 
- * @param allowedMimeTypes 
- * @param callbackVar 
- * @returns 
+ * @deprecated 请使用 generatePostSignatureService 替代
  */
 export async function generateOssPostSignatureService(query: {
     bucket: string,

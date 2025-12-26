@@ -107,6 +107,44 @@ export default defineNuxtConfig({
     auth: {
       cookieName: 'auth_token', // 认证 Cookie 名称
       cookieMaxAge: 2592000, // Cookie 过期时间，单位：秒，默认30天
+    },
+    // 存储适配器配置
+    storage: {
+      // 默认存储类型: aliyun_oss, qiniu, tencent_cos
+      defaultType: 'aliyun_oss',
+      // OSS 回调 URL（所有存储服务商共用）
+      callbackUrl: '',
+      // 文件存储基础路径
+      basePath: '',
+      // 阿里云 OSS 配置
+      aliyunOss: {
+        accessKeyId: '',
+        accessKeySecret: '',
+        bucket: '',
+        region: '',
+        customDomain: '',
+        // STS 配置（可选）
+        sts: {
+          roleArn: '',
+          roleSessionName: 'lexseek-oss-session',
+          durationSeconds: 3600
+        }
+      },
+      // 七牛云配置（预留）
+      qiniu: {
+        accessKey: '',
+        secretKey: '',
+        bucket: '',
+        zone: '' // z0, z1, z2, na0, as0
+      },
+      // 腾讯云 COS 配置（预留）
+      tencentCos: {
+        secretId: '',
+        secretKey: '',
+        bucket: '',
+        region: '',
+        appId: ''
+      }
     }
   }
 })
