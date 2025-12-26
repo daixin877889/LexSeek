@@ -1,0 +1,31 @@
+/// 存储配置表
+/// 用于存储用户自定义的云存储服务配置
+model storageConfigs {
+    /// ID，主键，自增
+    id        Int       @id @default(autoincrement())
+    /// 关联的用户ID，NULL 表示系统配置
+    userId    Int?      @map("user_id")
+    /// 配置名称
+    name      String    @db.VarChar(100)
+    /// 服务商类型：aliyun_oss, qiniu, tencent_cos
+    type      String    @db.VarChar(50)
+    /// 加密存储的配置信息（JSON 格式）
+    config    Json
+    /// 是否为默认配置
+    isDefault Boolean   @default(false) @map("is_default")
+    /// 是否启用
+    enabled   Boolean   @default(true)
+    /// 创建时间
+    createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+    /// 最后更新时间
+    updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz(6)
+    /// 删除时间，为 NULL 表示未删除
+    deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+    @@index([userId], map: "idx_storage_configs_user_id")
+    @@index([type], map: "idx_storage_configs_type")
+    @@index([isDefault], map: "idx_storage_configs_is_default")
+    @@index([enabled], map: "idx_storage_configs_enabled")
+    @@index([deletedAt], map: "idx_storage_configs_deleted_at")
+    @@map("storage_configs")
+}
