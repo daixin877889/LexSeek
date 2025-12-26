@@ -51,6 +51,21 @@ export type userEncryptions = Prisma.userEncryptionsModel
  */
 export type ossFiles = Prisma.ossFilesModel
 /**
+ * Model pointRecords
+ * 积分记录表
+ */
+export type pointRecords = Prisma.pointRecordsModel
+/**
+ * Model pointConsumptionItems
+ * 积分消耗项目表
+ */
+export type pointConsumptionItems = Prisma.pointConsumptionItemsModel
+/**
+ * Model pointConsumptionRecords
+ * 积分消耗记录表
+ */
+export type pointConsumptionRecords = Prisma.pointConsumptionRecordsModel
+/**
  * Model roles
  * 角色表
  */

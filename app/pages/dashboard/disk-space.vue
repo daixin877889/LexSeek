@@ -282,7 +282,7 @@
 
     <!-- 文件详情对话框 -->
     <Dialog v-model:open="showFileDetailDialog">
-      <DialogContent class="sm:max-w-2xl file-detail-dialog-content flex flex-col min-w-[80vw] min-h-[80vh] max-h-[90vh] overflow-hidden p-0 gap-0" @interactOutside="(e) => e.preventDefault()">
+      <DialogContent class="sm:max-w-2xl file-detail-dialog-content flex flex-col min-w-[80vw] min-h-[80vh] max-h-[90vh] overflow-hidden p-0 gap-0" @interactOutside="(e) => e.preventDefault()" @openAutoFocus="(e) => e.preventDefault()">
         <!-- 固定头部 -->
         <DialogHeader class="pr-8 overflow-hidden shrink-0 p-4 pb-2 border-b border-gray-100 border-dashed">
           <DialogTitle class="flex items-center gap-2 overflow-hidden">

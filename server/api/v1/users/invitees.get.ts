@@ -41,9 +41,6 @@ export default defineEventHandler(async (event) => {
         })
     } catch (error) {
         logger.error('获取邀请记录失败:', error)
-        throw createError({
-            statusCode: 500,
-            message: '获取邀请记录失败',
-        })
+        return resError(event, 500, '获取邀请记录失败')
     }
 })

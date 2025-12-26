@@ -33,7 +33,7 @@ export const findUserRolesByUserIdDao = async (userId: number, tx?: Prisma.Trans
                 role: true,
             },
         });
-        logger.debug("查询用户角色成功:", userRoles);
+        // logger.debug("查询用户角色成功:", userRoles);
         return userRoles;
     } catch (error) {
         logger.error("查询用户角色失败:", error);

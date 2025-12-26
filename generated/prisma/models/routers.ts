@@ -636,14 +636,6 @@ export type routersUpdateManyWithoutParentNestedInput = {
   deleteMany?: Prisma.routersScalarWhereInput | Prisma.routersScalarWhereInput[]
 }
 
-export type NullableIntFieldUpdateOperationsInput = {
-  set?: number | null
-  increment?: number
-  decrement?: number
-  multiply?: number
-  divide?: number
-}
-
 export type routersUncheckedUpdateManyWithoutParentNestedInput = {
   create?: Prisma.XOR<Prisma.routersCreateWithoutParentInput, Prisma.routersUncheckedCreateWithoutParentInput> | Prisma.routersCreateWithoutParentInput[] | Prisma.routersUncheckedCreateWithoutParentInput[]
   connectOrCreate?: Prisma.routersCreateOrConnectWithoutParentInput | Prisma.routersCreateOrConnectWithoutParentInput[]

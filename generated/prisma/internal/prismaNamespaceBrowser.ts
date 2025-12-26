@@ -53,6 +53,9 @@ export const AnyNull = runtime.AnyNull
 export const ModelName = {
   userEncryptions: 'userEncryptions',
   ossFiles: 'ossFiles',
+  pointRecords: 'pointRecords',
+  pointConsumptionItems: 'pointConsumptionItems',
+  pointConsumptionRecords: 'pointConsumptionRecords',
   roles: 'roles',
   roleRouters: 'roleRouters',
   userRoles: 'userRoles',
@@ -112,6 +115,62 @@ export const OssFilesScalarFieldEnum = {
 } as const
 
 export type OssFilesScalarFieldEnum = (typeof OssFilesScalarFieldEnum)[keyof typeof OssFilesScalarFieldEnum]
+
+
+export const PointRecordsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  pointAmount: 'pointAmount',
+  used: 'used',
+  remaining: 'remaining',
+  sourceType: 'sourceType',
+  sourceId: 'sourceId',
+  userMembershipId: 'userMembershipId',
+  effectiveAt: 'effectiveAt',
+  expiredAt: 'expiredAt',
+  settlementAt: 'settlementAt',
+  status: 'status',
+  remark: 'remark',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type PointRecordsScalarFieldEnum = (typeof PointRecordsScalarFieldEnum)[keyof typeof PointRecordsScalarFieldEnum]
+
+
+export const PointConsumptionItemsScalarFieldEnum = {
+  id: 'id',
+  group: 'group',
+  name: 'name',
+  description: 'description',
+  unit: 'unit',
+  pointAmount: 'pointAmount',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt',
+  discount: 'discount'
+} as const
+
+export type PointConsumptionItemsScalarFieldEnum = (typeof PointConsumptionItemsScalarFieldEnum)[keyof typeof PointConsumptionItemsScalarFieldEnum]
+
+
+export const PointConsumptionRecordsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  pointRecordId: 'pointRecordId',
+  itemId: 'itemId',
+  pointAmount: 'pointAmount',
+  status: 'status',
+  sourceId: 'sourceId',
+  remark: 'remark',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type PointConsumptionRecordsScalarFieldEnum = (typeof PointConsumptionRecordsScalarFieldEnum)[keyof typeof PointConsumptionRecordsScalarFieldEnum]
 
 
 export const RolesScalarFieldEnum = {

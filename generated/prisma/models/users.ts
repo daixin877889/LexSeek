@@ -321,6 +321,8 @@ export type usersWhereInput = {
   updatedAt?: Prisma.DateTimeNullableFilter<"users"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"users"> | Date | string | null
   userRoles?: Prisma.UserRolesListRelationFilter
+  pointRecords?: Prisma.PointRecordsListRelationFilter
+  pointConsumptionRecords?: Prisma.PointConsumptionRecordsListRelationFilter
 }
 
 export type usersOrderByWithRelationInput = {
@@ -342,6 +344,8 @@ export type usersOrderByWithRelationInput = {
   updatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   userRoles?: Prisma.userRolesOrderByRelationAggregateInput
+  pointRecords?: Prisma.pointRecordsOrderByRelationAggregateInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsOrderByRelationAggregateInput
 }
 
 export type usersWhereUniqueInput = Prisma.AtLeast<{
@@ -366,6 +370,8 @@ export type usersWhereUniqueInput = Prisma.AtLeast<{
   updatedAt?: Prisma.DateTimeNullableFilter<"users"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"users"> | Date | string | null
   userRoles?: Prisma.UserRolesListRelationFilter
+  pointRecords?: Prisma.PointRecordsListRelationFilter
+  pointConsumptionRecords?: Prisma.PointConsumptionRecordsListRelationFilter
 }, "id" | "username" | "email" | "phone" | "inviteCode">
 
 export type usersOrderByWithAggregationInput = {
@@ -434,6 +440,8 @@ export type usersCreateInput = {
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
   userRoles?: Prisma.userRolesCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsCreateNestedManyWithoutUsersInput
 }
 
 export type usersUncheckedCreateInput = {
@@ -455,6 +463,8 @@ export type usersUncheckedCreateInput = {
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
   userRoles?: Prisma.userRolesUncheckedCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsUncheckedCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedCreateNestedManyWithoutUsersInput
 }
 
 export type usersUpdateInput = {
@@ -475,6 +485,8 @@ export type usersUpdateInput = {
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userRoles?: Prisma.userRolesUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUpdateManyWithoutUsersNestedInput
 }
 
 export type usersUncheckedUpdateInput = {
@@ -496,6 +508,8 @@ export type usersUncheckedUpdateInput = {
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userRoles?: Prisma.userRolesUncheckedUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedUpdateManyWithoutUsersNestedInput
 }
 
 export type usersCreateManyInput = {
@@ -634,6 +648,34 @@ export type usersSumOrderByAggregateInput = {
   invitedBy?: Prisma.SortOrder
 }
 
+export type usersCreateNestedOneWithoutPointRecordsInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutPointRecordsInput, Prisma.usersUncheckedCreateWithoutPointRecordsInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutPointRecordsInput
+  connect?: Prisma.usersWhereUniqueInput
+}
+
+export type usersUpdateOneRequiredWithoutPointRecordsNestedInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutPointRecordsInput, Prisma.usersUncheckedCreateWithoutPointRecordsInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutPointRecordsInput
+  upsert?: Prisma.usersUpsertWithoutPointRecordsInput
+  connect?: Prisma.usersWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.usersUpdateToOneWithWhereWithoutPointRecordsInput, Prisma.usersUpdateWithoutPointRecordsInput>, Prisma.usersUncheckedUpdateWithoutPointRecordsInput>
+}
+
+export type usersCreateNestedOneWithoutPointConsumptionRecordsInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutPointConsumptionRecordsInput, Prisma.usersUncheckedCreateWithoutPointConsumptionRecordsInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutPointConsumptionRecordsInput
+  connect?: Prisma.usersWhereUniqueInput
+}
+
+export type usersUpdateOneRequiredWithoutPointConsumptionRecordsNestedInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutPointConsumptionRecordsInput, Prisma.usersUncheckedCreateWithoutPointConsumptionRecordsInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutPointConsumptionRecordsInput
+  upsert?: Prisma.usersUpsertWithoutPointConsumptionRecordsInput
+  connect?: Prisma.usersWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.usersUpdateToOneWithWhereWithoutPointConsumptionRecordsInput, Prisma.usersUpdateWithoutPointConsumptionRecordsInput>, Prisma.usersUncheckedUpdateWithoutPointConsumptionRecordsInput>
+}
+
 export type usersCreateNestedOneWithoutUserRolesInput = {
   create?: Prisma.XOR<Prisma.usersCreateWithoutUserRolesInput, Prisma.usersUncheckedCreateWithoutUserRolesInput>
   connectOrCreate?: Prisma.usersCreateOrConnectWithoutUserRolesInput
@@ -646,6 +688,210 @@ export type usersUpdateOneRequiredWithoutUserRolesNestedInput = {
   upsert?: Prisma.usersUpsertWithoutUserRolesInput
   connect?: Prisma.usersWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.usersUpdateToOneWithWhereWithoutUserRolesInput, Prisma.usersUpdateWithoutUserRolesInput>, Prisma.usersUncheckedUpdateWithoutUserRolesInput>
+}
+
+export type usersCreateWithoutPointRecordsInput = {
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesCreateNestedManyWithoutUserInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsCreateNestedManyWithoutUsersInput
+}
+
+export type usersUncheckedCreateWithoutPointRecordsInput = {
+  id?: number
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesUncheckedCreateNestedManyWithoutUserInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedCreateNestedManyWithoutUsersInput
+}
+
+export type usersCreateOrConnectWithoutPointRecordsInput = {
+  where: Prisma.usersWhereUniqueInput
+  create: Prisma.XOR<Prisma.usersCreateWithoutPointRecordsInput, Prisma.usersUncheckedCreateWithoutPointRecordsInput>
+}
+
+export type usersUpsertWithoutPointRecordsInput = {
+  update: Prisma.XOR<Prisma.usersUpdateWithoutPointRecordsInput, Prisma.usersUncheckedUpdateWithoutPointRecordsInput>
+  create: Prisma.XOR<Prisma.usersCreateWithoutPointRecordsInput, Prisma.usersUncheckedCreateWithoutPointRecordsInput>
+  where?: Prisma.usersWhereInput
+}
+
+export type usersUpdateToOneWithWhereWithoutPointRecordsInput = {
+  where?: Prisma.usersWhereInput
+  data: Prisma.XOR<Prisma.usersUpdateWithoutPointRecordsInput, Prisma.usersUncheckedUpdateWithoutPointRecordsInput>
+}
+
+export type usersUpdateWithoutPointRecordsInput = {
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUpdateManyWithoutUserNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUpdateManyWithoutUsersNestedInput
+}
+
+export type usersUncheckedUpdateWithoutPointRecordsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUncheckedUpdateManyWithoutUserNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedUpdateManyWithoutUsersNestedInput
+}
+
+export type usersCreateWithoutPointConsumptionRecordsInput = {
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsCreateNestedManyWithoutUsersInput
+}
+
+export type usersUncheckedCreateWithoutPointConsumptionRecordsInput = {
+  id?: number
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesUncheckedCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsUncheckedCreateNestedManyWithoutUsersInput
+}
+
+export type usersCreateOrConnectWithoutPointConsumptionRecordsInput = {
+  where: Prisma.usersWhereUniqueInput
+  create: Prisma.XOR<Prisma.usersCreateWithoutPointConsumptionRecordsInput, Prisma.usersUncheckedCreateWithoutPointConsumptionRecordsInput>
+}
+
+export type usersUpsertWithoutPointConsumptionRecordsInput = {
+  update: Prisma.XOR<Prisma.usersUpdateWithoutPointConsumptionRecordsInput, Prisma.usersUncheckedUpdateWithoutPointConsumptionRecordsInput>
+  create: Prisma.XOR<Prisma.usersCreateWithoutPointConsumptionRecordsInput, Prisma.usersUncheckedCreateWithoutPointConsumptionRecordsInput>
+  where?: Prisma.usersWhereInput
+}
+
+export type usersUpdateToOneWithWhereWithoutPointConsumptionRecordsInput = {
+  where?: Prisma.usersWhereInput
+  data: Prisma.XOR<Prisma.usersUpdateWithoutPointConsumptionRecordsInput, Prisma.usersUncheckedUpdateWithoutPointConsumptionRecordsInput>
+}
+
+export type usersUpdateWithoutPointConsumptionRecordsInput = {
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUpdateManyWithoutUsersNestedInput
+}
+
+export type usersUncheckedUpdateWithoutPointConsumptionRecordsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUncheckedUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUncheckedUpdateManyWithoutUsersNestedInput
 }
 
 export type usersCreateWithoutUserRolesInput = {
@@ -665,6 +911,8 @@ export type usersCreateWithoutUserRolesInput = {
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
+  pointRecords?: Prisma.pointRecordsCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsCreateNestedManyWithoutUsersInput
 }
 
 export type usersUncheckedCreateWithoutUserRolesInput = {
@@ -685,6 +933,8 @@ export type usersUncheckedCreateWithoutUserRolesInput = {
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
+  pointRecords?: Prisma.pointRecordsUncheckedCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedCreateNestedManyWithoutUsersInput
 }
 
 export type usersCreateOrConnectWithoutUserRolesInput = {
@@ -720,6 +970,8 @@ export type usersUpdateWithoutUserRolesInput = {
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  pointRecords?: Prisma.pointRecordsUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUpdateManyWithoutUsersNestedInput
 }
 
 export type usersUncheckedUpdateWithoutUserRolesInput = {
@@ -740,6 +992,8 @@ export type usersUncheckedUpdateWithoutUserRolesInput = {
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  pointRecords?: Prisma.pointRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedUpdateManyWithoutUsersNestedInput
 }
 
 
@@ -749,10 +1003,14 @@ export type usersUncheckedUpdateWithoutUserRolesInput = {
 
 export type UsersCountOutputType = {
   userRoles: number
+  pointRecords: number
+  pointConsumptionRecords: number
 }
 
 export type UsersCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   userRoles?: boolean | UsersCountOutputTypeCountUserRolesArgs
+  pointRecords?: boolean | UsersCountOutputTypeCountPointRecordsArgs
+  pointConsumptionRecords?: boolean | UsersCountOutputTypeCountPointConsumptionRecordsArgs
 }
 
 /**
@@ -770,6 +1028,20 @@ export type UsersCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extens
  */
 export type UsersCountOutputTypeCountUserRolesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.userRolesWhereInput
+}
+
+/**
+ * UsersCountOutputType without action
+ */
+export type UsersCountOutputTypeCountPointRecordsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.pointRecordsWhereInput
+}
+
+/**
+ * UsersCountOutputType without action
+ */
+export type UsersCountOutputTypeCountPointConsumptionRecordsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.pointConsumptionRecordsWhereInput
 }
 
 
@@ -792,6 +1064,8 @@ export type usersSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   updatedAt?: boolean
   deletedAt?: boolean
   userRoles?: boolean | Prisma.users$userRolesArgs<ExtArgs>
+  pointRecords?: boolean | Prisma.users$pointRecordsArgs<ExtArgs>
+  pointConsumptionRecords?: boolean | Prisma.users$pointConsumptionRecordsArgs<ExtArgs>
   _count?: boolean | Prisma.UsersCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["users"]>
 
@@ -858,6 +1132,8 @@ export type usersSelectScalar = {
 export type usersOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "username" | "email" | "phone" | "password" | "status" | "company" | "profile" | "inviteCode" | "invitedBy" | "openid" | "unionid" | "registerChannel" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["users"]>
 export type usersInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   userRoles?: boolean | Prisma.users$userRolesArgs<ExtArgs>
+  pointRecords?: boolean | Prisma.users$pointRecordsArgs<ExtArgs>
+  pointConsumptionRecords?: boolean | Prisma.users$pointConsumptionRecordsArgs<ExtArgs>
   _count?: boolean | Prisma.UsersCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type usersIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -870,6 +1146,14 @@ export type $usersPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
      * 用户角色关联（多对多）
      */
     userRoles: Prisma.$userRolesPayload<ExtArgs>[]
+    /**
+     * 用户积分记录（一对多）
+     */
+    pointRecords: Prisma.$pointRecordsPayload<ExtArgs>[]
+    /**
+     * 用户积分消耗记录（一对多）
+     */
+    pointConsumptionRecords: Prisma.$pointConsumptionRecordsPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     /**
@@ -1335,6 +1619,8 @@ readonly fields: usersFieldRefs;
 export interface Prisma__usersClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   userRoles<T extends Prisma.users$userRolesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$userRolesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$userRolesPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  pointRecords<T extends Prisma.users$pointRecordsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$pointRecordsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$pointRecordsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  pointConsumptionRecords<T extends Prisma.users$pointConsumptionRecordsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$pointConsumptionRecordsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$pointConsumptionRecordsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1790,6 +2076,54 @@ export type users$userRolesArgs<ExtArgs extends runtime.Types.Extensions.Interna
   take?: number
   skip?: number
   distinct?: Prisma.UserRolesScalarFieldEnum | Prisma.UserRolesScalarFieldEnum[]
+}
+
+/**
+ * users.pointRecords
+ */
+export type users$pointRecordsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the pointRecords
+   */
+  select?: Prisma.pointRecordsSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the pointRecords
+   */
+  omit?: Prisma.pointRecordsOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.pointRecordsInclude<ExtArgs> | null
+  where?: Prisma.pointRecordsWhereInput
+  orderBy?: Prisma.pointRecordsOrderByWithRelationInput | Prisma.pointRecordsOrderByWithRelationInput[]
+  cursor?: Prisma.pointRecordsWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PointRecordsScalarFieldEnum | Prisma.PointRecordsScalarFieldEnum[]
+}
+
+/**
+ * users.pointConsumptionRecords
+ */
+export type users$pointConsumptionRecordsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the pointConsumptionRecords
+   */
+  select?: Prisma.pointConsumptionRecordsSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the pointConsumptionRecords
+   */
+  omit?: Prisma.pointConsumptionRecordsOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.pointConsumptionRecordsInclude<ExtArgs> | null
+  where?: Prisma.pointConsumptionRecordsWhereInput
+  orderBy?: Prisma.pointConsumptionRecordsOrderByWithRelationInput | Prisma.pointConsumptionRecordsOrderByWithRelationInput[]
+  cursor?: Prisma.pointConsumptionRecordsWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PointConsumptionRecordsScalarFieldEnum | Prisma.PointConsumptionRecordsScalarFieldEnum[]
 }
 
 /**

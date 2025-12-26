@@ -39,7 +39,7 @@ export const useUserStore = defineStore("user", () => {
     // 同步数据到 store
     if (data.value) {
       setUserInfo(data.value);
-      logger.debug("获取用户信息成功:", data.value);
+      // logger.debug("获取用户信息成功:", data.value);
     }
 
     if (error.value) {

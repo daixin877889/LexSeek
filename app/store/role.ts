@@ -26,7 +26,7 @@ export const useRoleStore = defineStore("role", () => {
     // 同步数据到 store
     if (data.value) {
       userRoles.value = data.value;
-      logger.debug("获取用户角色列表成功:", data.value);
+      // logger.debug("获取用户角色列表成功:", data.value);
     }
 
     if (apiError.value) {
@@ -75,7 +75,7 @@ export const useRoleStore = defineStore("role", () => {
     // 同步数据到 store
     if (data.value?.[0]?.routers) {
       currentRoleRouters.value = data.value[0].routers;
-      logger.debug("获取用户权限路由成功:", data.value);
+      // logger.debug("获取用户权限路由成功:", data.value);
     }
 
     if (apiError.value) {

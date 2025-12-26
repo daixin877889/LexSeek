@@ -38,6 +38,12 @@ model users {
     /// 用户角色关联（多对多）
     userRoles userRoles[]
 
+    /// 用户积分记录（一对多）
+    pointRecords pointRecords[]
+
+    /// 用户积分消耗记录（一对多）
+    pointConsumptionRecords pointConsumptionRecords[]
+
     @@index([id], map: "idx_users_id")
     @@index([status], map: "idx_users_status")
     @@index([deletedAt], map: "idx_users_deleted_at")
