@@ -42,7 +42,7 @@ const membershipRoutes = ref([
   },
   {
     title: "我的积分",
-    url: "/dashboard/membership/file-point",
+    url: "/dashboard/membership/point",
     icon: Sparkles,
   },
   {
