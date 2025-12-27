@@ -13,7 +13,15 @@
     "prisma:push": "prisma db push",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "test": "vitest run --reporter=verbose",
+    "test:server": "vitest run tests/server --reporter=verbose",
+    "test:membership": "vitest run tests/server/membership --reporter=verbose",
+    "test:storage": "vitest run tests/server/storage --reporter=verbose",
+    "test:payment": "vitest run tests/server/payment --reporter=verbose",
+    "test:crypto": "vitest run tests/server/crypto --reporter=verbose",
+    "test:utils": "vitest run tests/server/utils --reporter=verbose",
+    "prebuild": "vitest run tests/server --reporter=verbose"
   },
   "dependencies": {
     "@alicloud/dysmsapi20170525": "^4.3.1",

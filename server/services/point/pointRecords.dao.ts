@@ -249,3 +249,125 @@ export const sumUserValidPointsDao = async (
         throw error
     }
 }
+
+/**
+ * 查询用户会员关联的积分记录
+ * @param userMembershipId 用户会员记录 ID
+ * @param tx 事务客户端（可选）
+ * @returns 积分记录列表
+ */
+export const findPointRecordsByMembershipIdDao = async (
+    userMembershipId: number,
+    tx?: PrismaClient
+): Promise<pointRecords[]> => {
+    try {
+        const records = await (tx || prisma).pointRecords.findMany({
+            where: {
+                userMembershipId,
+                deletedAt: null,
+            },
+            orderBy: { expiredAt: 'asc' },
+        })
+        return records
+    } catch (error) {
+        logger.error('查询用户会员关联的积分记录失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 转移积分记录到新会员
+ * @param fromMembershipId 原会员记录 ID
+ * @param toMembershipId 新会员记录 ID
+ * @param tx 事务客户端（可选）
+ * @returns 转移的记录数量
+ */
+export const transferPointRecordsDao = async (
+    fromMembershipId: number,
+    toMembershipId: number,
+    tx?: PrismaClient
+): Promise<number> => {
+    try {
+        const result = await (tx || prisma).pointRecords.updateMany({
+            where: {
+                userMembershipId: fromMembershipId,
+                deletedAt: null,
+            },
+            data: {
+                userMembershipId: toMembershipId,
+                updatedAt: new Date(),
+            },
+        })
+        return result.count
+    } catch (error) {
+        logger.error('转移积分记录失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 按来源类型查询用户积分记录
+ * @param userId 用户 ID
+ * @param sourceTypes 来源类型数组
+ * @param tx 事务客户端（可选）
+ * @returns 积分记录列表
+ */
+export const findPointRecordsBySourceTypesDao = async (
+    userId: number,
+    sourceTypes: number[],
+    tx?: PrismaClient
+): Promise<pointRecords[]> => {
+    try {
+        const now = new Date()
+        const records = await (tx || prisma).pointRecords.findMany({
+            where: {
+                userId,
+                sourceType: { in: sourceTypes },
+                status: PointRecordStatus.VALID,
+                remaining: { gt: 0 },
+                expiredAt: { gt: now },
+                deletedAt: null,
+            },
+            orderBy: { expiredAt: 'asc' },
+        })
+        return records
+    } catch (error) {
+        logger.error('按来源类型查询用户积分记录失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 统计用户会员关联的积分汇总
+ * @param userMembershipId 用户会员记录 ID
+ * @param tx 事务客户端（可选）
+ * @returns 积分汇总
+ */
+export const sumPointsByMembershipIdDao = async (
+    userMembershipId: number,
+    tx?: PrismaClient
+): Promise<{ total: number; remaining: number }> => {
+    try {
+        const now = new Date()
+        const records = await (tx || prisma).pointRecords.findMany({
+            where: {
+                userMembershipId,
+                status: PointRecordStatus.VALID,
+                expiredAt: { gt: now },
+                deletedAt: null,
+            },
+            select: {
+                pointAmount: true,
+                remaining: true,
+            },
+        })
+
+        const total = records.reduce((sum, r) => sum + r.pointAmount, 0)
+        const remaining = records.reduce((sum, r) => sum + r.remaining, 0)
+
+        return { total, remaining }
+    } catch (error) {
+        logger.error('统计用户会员关联的积分汇总失败：', error)
+        throw error
+    }
+}

@@ -93,7 +93,8 @@ export const createPointRecord = async (
         remaining: data.pointAmount,
         sourceType: data.sourceType,
         sourceId: data.sourceId,
-        userMembershipId: data.userMembershipId,
+        // 使用 connect 语法关联用户会员记录
+        userMembership: data.userMembershipId ? { connect: { id: data.userMembershipId } } : undefined,
         effectiveAt: data.effectiveAt,
         expiredAt: data.expiredAt,
         status: PointRecordStatus.VALID,
@@ -201,4 +202,57 @@ export const consumePoints = async (
             consumptionRecords,
         }
     })
+}
+
+/**
+ * 转移积分记录到新会员
+ * @param fromMembershipId 原会员记录 ID
+ * @param toMembershipId 新会员记录 ID
+ * @param tx 事务客户端（可选）
+ * @returns 转移结果
+ */
+export const transferPointsToNewMembership = async (
+    fromMembershipId: number,
+    toMembershipId: number,
+    tx?: PrismaClient
+): Promise<{ success: boolean; transferredCount: number }> => {
+    try {
+        const count = await transferPointRecordsDao(fromMembershipId, toMembershipId, tx)
+        logger.info(`积分转移成功：从会员 ${fromMembershipId} 转移到会员 ${toMembershipId}，共 ${count} 条记录`)
+        return { success: true, transferredCount: count }
+    } catch (error) {
+        logger.error('转移积分记录失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 获取用户会员关联的积分汇总
+ * @param userMembershipId 用户会员记录 ID
+ * @returns 积分汇总
+ */
+export const getMembershipPointSummary = async (
+    userMembershipId: number
+): Promise<{ total: number; remaining: number }> => {
+    return await sumPointsByMembershipIdDao(userMembershipId)
+}
+
+/**
+ * 按来源类型获取用户积分
+ * @param userId 用户 ID
+ * @param sourceTypes 来源类型数组
+ * @returns 积分记录列表和汇总
+ */
+export const getPointsBySourceTypes = async (
+    userId: number,
+    sourceTypes: number[]
+): Promise<{
+    records: pointRecords[]
+    total: number
+    remaining: number
+}> => {
+    const records = await findPointRecordsBySourceTypesDao(userId, sourceTypes)
+    const total = records.reduce((sum, r) => sum + r.pointAmount, 0)
+    const remaining = records.reduce((sum, r) => sum + r.remaining, 0)
+    return { records, total, remaining }
 }

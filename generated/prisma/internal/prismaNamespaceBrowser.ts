@@ -51,14 +51,25 @@ export const AnyNull = runtime.AnyNull
 
 
 export const ModelName = {
+  campaigns: 'campaigns',
   userEncryptions: 'userEncryptions',
   ossFiles: 'ossFiles',
+  membershipLevels: 'membershipLevels',
+  userMemberships: 'userMemberships',
+  benefits: 'benefits',
+  membershipBenefits: 'membershipBenefits',
+  orders: 'orders',
+  paymentTransactions: 'paymentTransactions',
+  membershipUpgradeRecords: 'membershipUpgradeRecords',
   pointRecords: 'pointRecords',
   pointConsumptionItems: 'pointConsumptionItems',
   pointConsumptionRecords: 'pointConsumptionRecords',
+  products: 'products',
   roles: 'roles',
   roleRouters: 'roleRouters',
   userRoles: 'userRoles',
+  redemptionCodes: 'redemptionCodes',
+  redemptionRecords: 'redemptionRecords',
   routers: 'routers',
   routerGroups: 'routerGroups',
   smsRecords: 'smsRecords',
@@ -82,6 +93,25 @@ export const TransactionIsolationLevel = {
 } as const
 
 export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
+
+
+export const CampaignsScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  type: 'type',
+  levelId: 'levelId',
+  duration: 'duration',
+  giftPoint: 'giftPoint',
+  startAt: 'startAt',
+  endAt: 'endAt',
+  status: 'status',
+  remark: 'remark',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type CampaignsScalarFieldEnum = (typeof CampaignsScalarFieldEnum)[keyof typeof CampaignsScalarFieldEnum]
 
 
 export const UserEncryptionsScalarFieldEnum = {
@@ -116,6 +146,125 @@ export const OssFilesScalarFieldEnum = {
 } as const
 
 export type OssFilesScalarFieldEnum = (typeof OssFilesScalarFieldEnum)[keyof typeof OssFilesScalarFieldEnum]
+
+
+export const MembershipLevelsScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  description: 'description',
+  sortOrder: 'sortOrder',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type MembershipLevelsScalarFieldEnum = (typeof MembershipLevelsScalarFieldEnum)[keyof typeof MembershipLevelsScalarFieldEnum]
+
+
+export const UserMembershipsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  levelId: 'levelId',
+  startDate: 'startDate',
+  endDate: 'endDate',
+  autoRenew: 'autoRenew',
+  status: 'status',
+  sourceType: 'sourceType',
+  sourceId: 'sourceId',
+  remark: 'remark',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type UserMembershipsScalarFieldEnum = (typeof UserMembershipsScalarFieldEnum)[keyof typeof UserMembershipsScalarFieldEnum]
+
+
+export const BenefitsScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  description: 'description',
+  type: 'type',
+  value: 'value',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type BenefitsScalarFieldEnum = (typeof BenefitsScalarFieldEnum)[keyof typeof BenefitsScalarFieldEnum]
+
+
+export const MembershipBenefitsScalarFieldEnum = {
+  id: 'id',
+  levelId: 'levelId',
+  benefitId: 'benefitId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type MembershipBenefitsScalarFieldEnum = (typeof MembershipBenefitsScalarFieldEnum)[keyof typeof MembershipBenefitsScalarFieldEnum]
+
+
+export const OrdersScalarFieldEnum = {
+  id: 'id',
+  orderNo: 'orderNo',
+  userId: 'userId',
+  productId: 'productId',
+  amount: 'amount',
+  duration: 'duration',
+  durationUnit: 'durationUnit',
+  status: 'status',
+  paidAt: 'paidAt',
+  expiredAt: 'expiredAt',
+  remark: 'remark',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type OrdersScalarFieldEnum = (typeof OrdersScalarFieldEnum)[keyof typeof OrdersScalarFieldEnum]
+
+
+export const PaymentTransactionsScalarFieldEnum = {
+  id: 'id',
+  transactionNo: 'transactionNo',
+  orderId: 'orderId',
+  amount: 'amount',
+  paymentChannel: 'paymentChannel',
+  paymentMethod: 'paymentMethod',
+  outTradeNo: 'outTradeNo',
+  prepayId: 'prepayId',
+  status: 'status',
+  paidAt: 'paidAt',
+  expiredAt: 'expiredAt',
+  callbackData: 'callbackData',
+  errorMessage: 'errorMessage',
+  remark: 'remark',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type PaymentTransactionsScalarFieldEnum = (typeof PaymentTransactionsScalarFieldEnum)[keyof typeof PaymentTransactionsScalarFieldEnum]
+
+
+export const MembershipUpgradeRecordsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  fromMembershipId: 'fromMembershipId',
+  toMembershipId: 'toMembershipId',
+  orderId: 'orderId',
+  upgradePrice: 'upgradePrice',
+  pointCompensation: 'pointCompensation',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type MembershipUpgradeRecordsScalarFieldEnum = (typeof MembershipUpgradeRecordsScalarFieldEnum)[keyof typeof MembershipUpgradeRecordsScalarFieldEnum]
 
 
 export const PointRecordsScalarFieldEnum = {
@@ -174,6 +323,27 @@ export const PointConsumptionRecordsScalarFieldEnum = {
 export type PointConsumptionRecordsScalarFieldEnum = (typeof PointConsumptionRecordsScalarFieldEnum)[keyof typeof PointConsumptionRecordsScalarFieldEnum]
 
 
+export const ProductsScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  type: 'type',
+  levelId: 'levelId',
+  priceMonthly: 'priceMonthly',
+  priceYearly: 'priceYearly',
+  giftPoint: 'giftPoint',
+  unitPrice: 'unitPrice',
+  pointAmount: 'pointAmount',
+  purchaseLimit: 'purchaseLimit',
+  status: 'status',
+  sortOrder: 'sortOrder',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type ProductsScalarFieldEnum = (typeof ProductsScalarFieldEnum)[keyof typeof ProductsScalarFieldEnum]
+
+
 export const RolesScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -210,6 +380,36 @@ export const UserRolesScalarFieldEnum = {
 } as const
 
 export type UserRolesScalarFieldEnum = (typeof UserRolesScalarFieldEnum)[keyof typeof UserRolesScalarFieldEnum]
+
+
+export const RedemptionCodesScalarFieldEnum = {
+  id: 'id',
+  code: 'code',
+  type: 'type',
+  levelId: 'levelId',
+  duration: 'duration',
+  pointAmount: 'pointAmount',
+  expiredAt: 'expiredAt',
+  status: 'status',
+  remark: 'remark',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type RedemptionCodesScalarFieldEnum = (typeof RedemptionCodesScalarFieldEnum)[keyof typeof RedemptionCodesScalarFieldEnum]
+
+
+export const RedemptionRecordsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  codeId: 'codeId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type RedemptionRecordsScalarFieldEnum = (typeof RedemptionRecordsScalarFieldEnum)[keyof typeof RedemptionRecordsScalarFieldEnum]
 
 
 export const RoutersScalarFieldEnum = {
@@ -332,6 +532,14 @@ export const SortOrder = {
 } as const
 
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
+
+
+export const NullableJsonNullValueInput = {
+  DbNull: 'DbNull',
+  JsonNull: 'JsonNull'
+} as const
+
+export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
 
 
 export const JsonNullValueInput = {

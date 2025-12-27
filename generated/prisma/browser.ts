@@ -18,6 +18,11 @@ export { Prisma }
 export * as $Enums from './enums.js'
 export * from './enums.js';
 /**
+ * Model campaigns
+ * 营销活动表
+ */
+export type campaigns = Prisma.campaignsModel
+/**
  * Model userEncryptions
  * 用户加密配置表
  * 存储用户的端到端加密密钥信息
@@ -28,6 +33,41 @@ export type userEncryptions = Prisma.userEncryptionsModel
  * OSS 文件表
  */
 export type ossFiles = Prisma.ossFilesModel
+/**
+ * Model membershipLevels
+ * 会员级别表
+ */
+export type membershipLevels = Prisma.membershipLevelsModel
+/**
+ * Model userMemberships
+ * 用户会员记录表
+ */
+export type userMemberships = Prisma.userMembershipsModel
+/**
+ * Model benefits
+ * 权益表
+ */
+export type benefits = Prisma.benefitsModel
+/**
+ * Model membershipBenefits
+ * 会员权益关联表
+ */
+export type membershipBenefits = Prisma.membershipBenefitsModel
+/**
+ * Model orders
+ * 订单表
+ */
+export type orders = Prisma.ordersModel
+/**
+ * Model paymentTransactions
+ * 支付单表
+ */
+export type paymentTransactions = Prisma.paymentTransactionsModel
+/**
+ * Model membershipUpgradeRecords
+ * 会员升级记录表
+ */
+export type membershipUpgradeRecords = Prisma.membershipUpgradeRecordsModel
 /**
  * Model pointRecords
  * 积分记录表
@@ -44,6 +84,11 @@ export type pointConsumptionItems = Prisma.pointConsumptionItemsModel
  */
 export type pointConsumptionRecords = Prisma.pointConsumptionRecordsModel
 /**
+ * Model products
+ * 商品表
+ */
+export type products = Prisma.productsModel
+/**
  * Model roles
  * 角色表
  */
@@ -58,6 +103,16 @@ export type roleRouters = Prisma.roleRoutersModel
  * 用户角色关联表（多对多中间表）
  */
 export type userRoles = Prisma.userRolesModel
+/**
+ * Model redemptionCodes
+ * 兑换码表
+ */
+export type redemptionCodes = Prisma.redemptionCodesModel
+/**
+ * Model redemptionRecords
+ * 兑换记录表
+ */
+export type redemptionRecords = Prisma.redemptionRecordsModel
 /**
  * Model routers
  * 路由表
