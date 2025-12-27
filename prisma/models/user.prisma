@@ -44,6 +44,18 @@ model users {
     /// 用户积分消耗记录（一对多）
     pointConsumptionRecords pointConsumptionRecords[]
 
+    /// 用户会员记录（一对多）
+    userMemberships userMemberships[]
+
+    /// 用户兑换记录（一对多）
+    redemptionRecords redemptionRecords[]
+
+    /// 用户订单（一对多）
+    orders orders[]
+
+    /// 用户会员升级记录（一对多）
+    membershipUpgradeRecords membershipUpgradeRecords[]
+
     @@index([id], map: "idx_users_id")
     @@index([status], map: "idx_users_status")
     @@index([deletedAt], map: "idx_users_deleted_at")

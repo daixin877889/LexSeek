@@ -39,6 +39,9 @@ model pointRecords {
     /// 关联的用户
     users users @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
+    /// 关联的用户会员记录
+    userMembership userMemberships? @relation(fields: [userMembershipId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
     @@index([userId], map: "idx_point_records_user_id")
     @@index([sourceType], map: "idx_point_records_source_type")
     @@index([sourceId], map: "idx_point_records_source_id")

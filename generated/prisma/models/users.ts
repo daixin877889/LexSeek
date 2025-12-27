@@ -323,6 +323,10 @@ export type usersWhereInput = {
   userRoles?: Prisma.UserRolesListRelationFilter
   pointRecords?: Prisma.PointRecordsListRelationFilter
   pointConsumptionRecords?: Prisma.PointConsumptionRecordsListRelationFilter
+  userMemberships?: Prisma.UserMembershipsListRelationFilter
+  redemptionRecords?: Prisma.RedemptionRecordsListRelationFilter
+  orders?: Prisma.OrdersListRelationFilter
+  membershipUpgradeRecords?: Prisma.MembershipUpgradeRecordsListRelationFilter
 }
 
 export type usersOrderByWithRelationInput = {
@@ -346,6 +350,10 @@ export type usersOrderByWithRelationInput = {
   userRoles?: Prisma.userRolesOrderByRelationAggregateInput
   pointRecords?: Prisma.pointRecordsOrderByRelationAggregateInput
   pointConsumptionRecords?: Prisma.pointConsumptionRecordsOrderByRelationAggregateInput
+  userMemberships?: Prisma.userMembershipsOrderByRelationAggregateInput
+  redemptionRecords?: Prisma.redemptionRecordsOrderByRelationAggregateInput
+  orders?: Prisma.ordersOrderByRelationAggregateInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsOrderByRelationAggregateInput
 }
 
 export type usersWhereUniqueInput = Prisma.AtLeast<{
@@ -372,6 +380,10 @@ export type usersWhereUniqueInput = Prisma.AtLeast<{
   userRoles?: Prisma.UserRolesListRelationFilter
   pointRecords?: Prisma.PointRecordsListRelationFilter
   pointConsumptionRecords?: Prisma.PointConsumptionRecordsListRelationFilter
+  userMemberships?: Prisma.UserMembershipsListRelationFilter
+  redemptionRecords?: Prisma.RedemptionRecordsListRelationFilter
+  orders?: Prisma.OrdersListRelationFilter
+  membershipUpgradeRecords?: Prisma.MembershipUpgradeRecordsListRelationFilter
 }, "id" | "username" | "email" | "phone" | "inviteCode">
 
 export type usersOrderByWithAggregationInput = {
@@ -442,6 +454,10 @@ export type usersCreateInput = {
   userRoles?: Prisma.userRolesCreateNestedManyWithoutUserInput
   pointRecords?: Prisma.pointRecordsCreateNestedManyWithoutUsersInput
   pointConsumptionRecords?: Prisma.pointConsumptionRecordsCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
 }
 
 export type usersUncheckedCreateInput = {
@@ -465,6 +481,10 @@ export type usersUncheckedCreateInput = {
   userRoles?: Prisma.userRolesUncheckedCreateNestedManyWithoutUserInput
   pointRecords?: Prisma.pointRecordsUncheckedCreateNestedManyWithoutUsersInput
   pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsUncheckedCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersUncheckedCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type usersUpdateInput = {
@@ -487,6 +507,10 @@ export type usersUpdateInput = {
   userRoles?: Prisma.userRolesUpdateManyWithoutUserNestedInput
   pointRecords?: Prisma.pointRecordsUpdateManyWithoutUsersNestedInput
   pointConsumptionRecords?: Prisma.pointConsumptionRecordsUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
 }
 
 export type usersUncheckedUpdateInput = {
@@ -510,6 +534,10 @@ export type usersUncheckedUpdateInput = {
   userRoles?: Prisma.userRolesUncheckedUpdateManyWithoutUserNestedInput
   pointRecords?: Prisma.pointRecordsUncheckedUpdateManyWithoutUsersNestedInput
   pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUncheckedUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUncheckedUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type usersCreateManyInput = {
@@ -648,6 +676,48 @@ export type usersSumOrderByAggregateInput = {
   invitedBy?: Prisma.SortOrder
 }
 
+export type usersCreateNestedOneWithoutUserMembershipsInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutUserMembershipsInput, Prisma.usersUncheckedCreateWithoutUserMembershipsInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutUserMembershipsInput
+  connect?: Prisma.usersWhereUniqueInput
+}
+
+export type usersUpdateOneRequiredWithoutUserMembershipsNestedInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutUserMembershipsInput, Prisma.usersUncheckedCreateWithoutUserMembershipsInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutUserMembershipsInput
+  upsert?: Prisma.usersUpsertWithoutUserMembershipsInput
+  connect?: Prisma.usersWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.usersUpdateToOneWithWhereWithoutUserMembershipsInput, Prisma.usersUpdateWithoutUserMembershipsInput>, Prisma.usersUncheckedUpdateWithoutUserMembershipsInput>
+}
+
+export type usersCreateNestedOneWithoutOrdersInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutOrdersInput, Prisma.usersUncheckedCreateWithoutOrdersInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutOrdersInput
+  connect?: Prisma.usersWhereUniqueInput
+}
+
+export type usersUpdateOneRequiredWithoutOrdersNestedInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutOrdersInput, Prisma.usersUncheckedCreateWithoutOrdersInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutOrdersInput
+  upsert?: Prisma.usersUpsertWithoutOrdersInput
+  connect?: Prisma.usersWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.usersUpdateToOneWithWhereWithoutOrdersInput, Prisma.usersUpdateWithoutOrdersInput>, Prisma.usersUncheckedUpdateWithoutOrdersInput>
+}
+
+export type usersCreateNestedOneWithoutMembershipUpgradeRecordsInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutMembershipUpgradeRecordsInput, Prisma.usersUncheckedCreateWithoutMembershipUpgradeRecordsInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutMembershipUpgradeRecordsInput
+  connect?: Prisma.usersWhereUniqueInput
+}
+
+export type usersUpdateOneRequiredWithoutMembershipUpgradeRecordsNestedInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutMembershipUpgradeRecordsInput, Prisma.usersUncheckedCreateWithoutMembershipUpgradeRecordsInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutMembershipUpgradeRecordsInput
+  upsert?: Prisma.usersUpsertWithoutMembershipUpgradeRecordsInput
+  connect?: Prisma.usersWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.usersUpdateToOneWithWhereWithoutMembershipUpgradeRecordsInput, Prisma.usersUpdateWithoutMembershipUpgradeRecordsInput>, Prisma.usersUncheckedUpdateWithoutMembershipUpgradeRecordsInput>
+}
+
 export type usersCreateNestedOneWithoutPointRecordsInput = {
   create?: Prisma.XOR<Prisma.usersCreateWithoutPointRecordsInput, Prisma.usersUncheckedCreateWithoutPointRecordsInput>
   connectOrCreate?: Prisma.usersCreateOrConnectWithoutPointRecordsInput
@@ -690,6 +760,374 @@ export type usersUpdateOneRequiredWithoutUserRolesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.usersUpdateToOneWithWhereWithoutUserRolesInput, Prisma.usersUpdateWithoutUserRolesInput>, Prisma.usersUncheckedUpdateWithoutUserRolesInput>
 }
 
+export type usersCreateNestedOneWithoutRedemptionRecordsInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutRedemptionRecordsInput, Prisma.usersUncheckedCreateWithoutRedemptionRecordsInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutRedemptionRecordsInput
+  connect?: Prisma.usersWhereUniqueInput
+}
+
+export type usersUpdateOneRequiredWithoutRedemptionRecordsNestedInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutRedemptionRecordsInput, Prisma.usersUncheckedCreateWithoutRedemptionRecordsInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutRedemptionRecordsInput
+  upsert?: Prisma.usersUpsertWithoutRedemptionRecordsInput
+  connect?: Prisma.usersWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.usersUpdateToOneWithWhereWithoutRedemptionRecordsInput, Prisma.usersUpdateWithoutRedemptionRecordsInput>, Prisma.usersUncheckedUpdateWithoutRedemptionRecordsInput>
+}
+
+export type usersCreateWithoutUserMembershipsInput = {
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsCreateNestedManyWithoutUsersInput
+  redemptionRecords?: Prisma.redemptionRecordsCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
+}
+
+export type usersUncheckedCreateWithoutUserMembershipsInput = {
+  id?: number
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesUncheckedCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsUncheckedCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedCreateNestedManyWithoutUsersInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersUncheckedCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type usersCreateOrConnectWithoutUserMembershipsInput = {
+  where: Prisma.usersWhereUniqueInput
+  create: Prisma.XOR<Prisma.usersCreateWithoutUserMembershipsInput, Prisma.usersUncheckedCreateWithoutUserMembershipsInput>
+}
+
+export type usersUpsertWithoutUserMembershipsInput = {
+  update: Prisma.XOR<Prisma.usersUpdateWithoutUserMembershipsInput, Prisma.usersUncheckedUpdateWithoutUserMembershipsInput>
+  create: Prisma.XOR<Prisma.usersCreateWithoutUserMembershipsInput, Prisma.usersUncheckedCreateWithoutUserMembershipsInput>
+  where?: Prisma.usersWhereInput
+}
+
+export type usersUpdateToOneWithWhereWithoutUserMembershipsInput = {
+  where?: Prisma.usersWhereInput
+  data: Prisma.XOR<Prisma.usersUpdateWithoutUserMembershipsInput, Prisma.usersUncheckedUpdateWithoutUserMembershipsInput>
+}
+
+export type usersUpdateWithoutUserMembershipsInput = {
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUpdateManyWithoutUsersNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
+}
+
+export type usersUncheckedUpdateWithoutUserMembershipsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUncheckedUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUncheckedUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type usersCreateWithoutOrdersInput = {
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
+}
+
+export type usersUncheckedCreateWithoutOrdersInput = {
+  id?: number
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesUncheckedCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsUncheckedCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsUncheckedCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type usersCreateOrConnectWithoutOrdersInput = {
+  where: Prisma.usersWhereUniqueInput
+  create: Prisma.XOR<Prisma.usersCreateWithoutOrdersInput, Prisma.usersUncheckedCreateWithoutOrdersInput>
+}
+
+export type usersUpsertWithoutOrdersInput = {
+  update: Prisma.XOR<Prisma.usersUpdateWithoutOrdersInput, Prisma.usersUncheckedUpdateWithoutOrdersInput>
+  create: Prisma.XOR<Prisma.usersCreateWithoutOrdersInput, Prisma.usersUncheckedCreateWithoutOrdersInput>
+  where?: Prisma.usersWhereInput
+}
+
+export type usersUpdateToOneWithWhereWithoutOrdersInput = {
+  where?: Prisma.usersWhereInput
+  data: Prisma.XOR<Prisma.usersUpdateWithoutOrdersInput, Prisma.usersUncheckedUpdateWithoutOrdersInput>
+}
+
+export type usersUpdateWithoutOrdersInput = {
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
+}
+
+export type usersUncheckedUpdateWithoutOrdersInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUncheckedUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUncheckedUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type usersCreateWithoutMembershipUpgradeRecordsInput = {
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersCreateNestedManyWithoutUserInput
+}
+
+export type usersUncheckedCreateWithoutMembershipUpgradeRecordsInput = {
+  id?: number
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesUncheckedCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsUncheckedCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsUncheckedCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type usersCreateOrConnectWithoutMembershipUpgradeRecordsInput = {
+  where: Prisma.usersWhereUniqueInput
+  create: Prisma.XOR<Prisma.usersCreateWithoutMembershipUpgradeRecordsInput, Prisma.usersUncheckedCreateWithoutMembershipUpgradeRecordsInput>
+}
+
+export type usersUpsertWithoutMembershipUpgradeRecordsInput = {
+  update: Prisma.XOR<Prisma.usersUpdateWithoutMembershipUpgradeRecordsInput, Prisma.usersUncheckedUpdateWithoutMembershipUpgradeRecordsInput>
+  create: Prisma.XOR<Prisma.usersCreateWithoutMembershipUpgradeRecordsInput, Prisma.usersUncheckedCreateWithoutMembershipUpgradeRecordsInput>
+  where?: Prisma.usersWhereInput
+}
+
+export type usersUpdateToOneWithWhereWithoutMembershipUpgradeRecordsInput = {
+  where?: Prisma.usersWhereInput
+  data: Prisma.XOR<Prisma.usersUpdateWithoutMembershipUpgradeRecordsInput, Prisma.usersUncheckedUpdateWithoutMembershipUpgradeRecordsInput>
+}
+
+export type usersUpdateWithoutMembershipUpgradeRecordsInput = {
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUpdateManyWithoutUserNestedInput
+}
+
+export type usersUncheckedUpdateWithoutMembershipUpgradeRecordsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUncheckedUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUncheckedUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUncheckedUpdateManyWithoutUserNestedInput
+}
+
 export type usersCreateWithoutPointRecordsInput = {
   name: string
   username?: string | null
@@ -709,6 +1147,10 @@ export type usersCreateWithoutPointRecordsInput = {
   deletedAt?: Date | string | null
   userRoles?: Prisma.userRolesCreateNestedManyWithoutUserInput
   pointConsumptionRecords?: Prisma.pointConsumptionRecordsCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
 }
 
 export type usersUncheckedCreateWithoutPointRecordsInput = {
@@ -731,6 +1173,10 @@ export type usersUncheckedCreateWithoutPointRecordsInput = {
   deletedAt?: Date | string | null
   userRoles?: Prisma.userRolesUncheckedCreateNestedManyWithoutUserInput
   pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsUncheckedCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersUncheckedCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type usersCreateOrConnectWithoutPointRecordsInput = {
@@ -768,6 +1214,10 @@ export type usersUpdateWithoutPointRecordsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userRoles?: Prisma.userRolesUpdateManyWithoutUserNestedInput
   pointConsumptionRecords?: Prisma.pointConsumptionRecordsUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutPointRecordsInput = {
@@ -790,6 +1240,10 @@ export type usersUncheckedUpdateWithoutPointRecordsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userRoles?: Prisma.userRolesUncheckedUpdateManyWithoutUserNestedInput
   pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUncheckedUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUncheckedUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type usersCreateWithoutPointConsumptionRecordsInput = {
@@ -811,6 +1265,10 @@ export type usersCreateWithoutPointConsumptionRecordsInput = {
   deletedAt?: Date | string | null
   userRoles?: Prisma.userRolesCreateNestedManyWithoutUserInput
   pointRecords?: Prisma.pointRecordsCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
 }
 
 export type usersUncheckedCreateWithoutPointConsumptionRecordsInput = {
@@ -833,6 +1291,10 @@ export type usersUncheckedCreateWithoutPointConsumptionRecordsInput = {
   deletedAt?: Date | string | null
   userRoles?: Prisma.userRolesUncheckedCreateNestedManyWithoutUserInput
   pointRecords?: Prisma.pointRecordsUncheckedCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsUncheckedCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersUncheckedCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type usersCreateOrConnectWithoutPointConsumptionRecordsInput = {
@@ -870,6 +1332,10 @@ export type usersUpdateWithoutPointConsumptionRecordsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userRoles?: Prisma.userRolesUpdateManyWithoutUserNestedInput
   pointRecords?: Prisma.pointRecordsUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutPointConsumptionRecordsInput = {
@@ -892,6 +1358,10 @@ export type usersUncheckedUpdateWithoutPointConsumptionRecordsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userRoles?: Prisma.userRolesUncheckedUpdateManyWithoutUserNestedInput
   pointRecords?: Prisma.pointRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUncheckedUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUncheckedUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type usersCreateWithoutUserRolesInput = {
@@ -913,6 +1383,10 @@ export type usersCreateWithoutUserRolesInput = {
   deletedAt?: Date | string | null
   pointRecords?: Prisma.pointRecordsCreateNestedManyWithoutUsersInput
   pointConsumptionRecords?: Prisma.pointConsumptionRecordsCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
 }
 
 export type usersUncheckedCreateWithoutUserRolesInput = {
@@ -935,6 +1409,10 @@ export type usersUncheckedCreateWithoutUserRolesInput = {
   deletedAt?: Date | string | null
   pointRecords?: Prisma.pointRecordsUncheckedCreateNestedManyWithoutUsersInput
   pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsUncheckedCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersUncheckedCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type usersCreateOrConnectWithoutUserRolesInput = {
@@ -972,6 +1450,10 @@ export type usersUpdateWithoutUserRolesInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   pointRecords?: Prisma.pointRecordsUpdateManyWithoutUsersNestedInput
   pointConsumptionRecords?: Prisma.pointConsumptionRecordsUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutUserRolesInput = {
@@ -994,6 +1476,128 @@ export type usersUncheckedUpdateWithoutUserRolesInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   pointRecords?: Prisma.pointRecordsUncheckedUpdateManyWithoutUsersNestedInput
   pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUncheckedUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUncheckedUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type usersCreateWithoutRedemptionRecordsInput = {
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
+}
+
+export type usersUncheckedCreateWithoutRedemptionRecordsInput = {
+  id?: number
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesUncheckedCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsUncheckedCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsUncheckedCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersUncheckedCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type usersCreateOrConnectWithoutRedemptionRecordsInput = {
+  where: Prisma.usersWhereUniqueInput
+  create: Prisma.XOR<Prisma.usersCreateWithoutRedemptionRecordsInput, Prisma.usersUncheckedCreateWithoutRedemptionRecordsInput>
+}
+
+export type usersUpsertWithoutRedemptionRecordsInput = {
+  update: Prisma.XOR<Prisma.usersUpdateWithoutRedemptionRecordsInput, Prisma.usersUncheckedUpdateWithoutRedemptionRecordsInput>
+  create: Prisma.XOR<Prisma.usersCreateWithoutRedemptionRecordsInput, Prisma.usersUncheckedCreateWithoutRedemptionRecordsInput>
+  where?: Prisma.usersWhereInput
+}
+
+export type usersUpdateToOneWithWhereWithoutRedemptionRecordsInput = {
+  where?: Prisma.usersWhereInput
+  data: Prisma.XOR<Prisma.usersUpdateWithoutRedemptionRecordsInput, Prisma.usersUncheckedUpdateWithoutRedemptionRecordsInput>
+}
+
+export type usersUpdateWithoutRedemptionRecordsInput = {
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
+}
+
+export type usersUncheckedUpdateWithoutRedemptionRecordsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUncheckedUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUncheckedUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUncheckedUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
 }
 
 
@@ -1005,12 +1609,20 @@ export type UsersCountOutputType = {
   userRoles: number
   pointRecords: number
   pointConsumptionRecords: number
+  userMemberships: number
+  redemptionRecords: number
+  orders: number
+  membershipUpgradeRecords: number
 }
 
 export type UsersCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   userRoles?: boolean | UsersCountOutputTypeCountUserRolesArgs
   pointRecords?: boolean | UsersCountOutputTypeCountPointRecordsArgs
   pointConsumptionRecords?: boolean | UsersCountOutputTypeCountPointConsumptionRecordsArgs
+  userMemberships?: boolean | UsersCountOutputTypeCountUserMembershipsArgs
+  redemptionRecords?: boolean | UsersCountOutputTypeCountRedemptionRecordsArgs
+  orders?: boolean | UsersCountOutputTypeCountOrdersArgs
+  membershipUpgradeRecords?: boolean | UsersCountOutputTypeCountMembershipUpgradeRecordsArgs
 }
 
 /**
@@ -1044,6 +1656,34 @@ export type UsersCountOutputTypeCountPointConsumptionRecordsArgs<ExtArgs extends
   where?: Prisma.pointConsumptionRecordsWhereInput
 }
 
+/**
+ * UsersCountOutputType without action
+ */
+export type UsersCountOutputTypeCountUserMembershipsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.userMembershipsWhereInput
+}
+
+/**
+ * UsersCountOutputType without action
+ */
+export type UsersCountOutputTypeCountRedemptionRecordsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.redemptionRecordsWhereInput
+}
+
+/**
+ * UsersCountOutputType without action
+ */
+export type UsersCountOutputTypeCountOrdersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ordersWhereInput
+}
+
+/**
+ * UsersCountOutputType without action
+ */
+export type UsersCountOutputTypeCountMembershipUpgradeRecordsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.membershipUpgradeRecordsWhereInput
+}
+
 
 export type usersSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1066,6 +1706,10 @@ export type usersSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   userRoles?: boolean | Prisma.users$userRolesArgs<ExtArgs>
   pointRecords?: boolean | Prisma.users$pointRecordsArgs<ExtArgs>
   pointConsumptionRecords?: boolean | Prisma.users$pointConsumptionRecordsArgs<ExtArgs>
+  userMemberships?: boolean | Prisma.users$userMembershipsArgs<ExtArgs>
+  redemptionRecords?: boolean | Prisma.users$redemptionRecordsArgs<ExtArgs>
+  orders?: boolean | Prisma.users$ordersArgs<ExtArgs>
+  membershipUpgradeRecords?: boolean | Prisma.users$membershipUpgradeRecordsArgs<ExtArgs>
   _count?: boolean | Prisma.UsersCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["users"]>
 
@@ -1134,6 +1778,10 @@ export type usersInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   userRoles?: boolean | Prisma.users$userRolesArgs<ExtArgs>
   pointRecords?: boolean | Prisma.users$pointRecordsArgs<ExtArgs>
   pointConsumptionRecords?: boolean | Prisma.users$pointConsumptionRecordsArgs<ExtArgs>
+  userMemberships?: boolean | Prisma.users$userMembershipsArgs<ExtArgs>
+  redemptionRecords?: boolean | Prisma.users$redemptionRecordsArgs<ExtArgs>
+  orders?: boolean | Prisma.users$ordersArgs<ExtArgs>
+  membershipUpgradeRecords?: boolean | Prisma.users$membershipUpgradeRecordsArgs<ExtArgs>
   _count?: boolean | Prisma.UsersCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type usersIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -1154,6 +1802,22 @@ export type $usersPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
      * 用户积分消耗记录（一对多）
      */
     pointConsumptionRecords: Prisma.$pointConsumptionRecordsPayload<ExtArgs>[]
+    /**
+     * 用户会员记录（一对多）
+     */
+    userMemberships: Prisma.$userMembershipsPayload<ExtArgs>[]
+    /**
+     * 用户兑换记录（一对多）
+     */
+    redemptionRecords: Prisma.$redemptionRecordsPayload<ExtArgs>[]
+    /**
+     * 用户订单（一对多）
+     */
+    orders: Prisma.$ordersPayload<ExtArgs>[]
+    /**
+     * 用户会员升级记录（一对多）
+     */
+    membershipUpgradeRecords: Prisma.$membershipUpgradeRecordsPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     /**
@@ -1621,6 +2285,10 @@ export interface Prisma__usersClient<T, Null = never, ExtArgs extends runtime.Ty
   userRoles<T extends Prisma.users$userRolesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$userRolesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$userRolesPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   pointRecords<T extends Prisma.users$pointRecordsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$pointRecordsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$pointRecordsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   pointConsumptionRecords<T extends Prisma.users$pointConsumptionRecordsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$pointConsumptionRecordsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$pointConsumptionRecordsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  userMemberships<T extends Prisma.users$userMembershipsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$userMembershipsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$userMembershipsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  redemptionRecords<T extends Prisma.users$redemptionRecordsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$redemptionRecordsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$redemptionRecordsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  orders<T extends Prisma.users$ordersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$ordersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ordersPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  membershipUpgradeRecords<T extends Prisma.users$membershipUpgradeRecordsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$membershipUpgradeRecordsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$membershipUpgradeRecordsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2124,6 +2792,102 @@ export type users$pointConsumptionRecordsArgs<ExtArgs extends runtime.Types.Exte
   take?: number
   skip?: number
   distinct?: Prisma.PointConsumptionRecordsScalarFieldEnum | Prisma.PointConsumptionRecordsScalarFieldEnum[]
+}
+
+/**
+ * users.userMemberships
+ */
+export type users$userMembershipsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the userMemberships
+   */
+  select?: Prisma.userMembershipsSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the userMemberships
+   */
+  omit?: Prisma.userMembershipsOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.userMembershipsInclude<ExtArgs> | null
+  where?: Prisma.userMembershipsWhereInput
+  orderBy?: Prisma.userMembershipsOrderByWithRelationInput | Prisma.userMembershipsOrderByWithRelationInput[]
+  cursor?: Prisma.userMembershipsWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.UserMembershipsScalarFieldEnum | Prisma.UserMembershipsScalarFieldEnum[]
+}
+
+/**
+ * users.redemptionRecords
+ */
+export type users$redemptionRecordsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the redemptionRecords
+   */
+  select?: Prisma.redemptionRecordsSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the redemptionRecords
+   */
+  omit?: Prisma.redemptionRecordsOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.redemptionRecordsInclude<ExtArgs> | null
+  where?: Prisma.redemptionRecordsWhereInput
+  orderBy?: Prisma.redemptionRecordsOrderByWithRelationInput | Prisma.redemptionRecordsOrderByWithRelationInput[]
+  cursor?: Prisma.redemptionRecordsWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.RedemptionRecordsScalarFieldEnum | Prisma.RedemptionRecordsScalarFieldEnum[]
+}
+
+/**
+ * users.orders
+ */
+export type users$ordersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the orders
+   */
+  select?: Prisma.ordersSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the orders
+   */
+  omit?: Prisma.ordersOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ordersInclude<ExtArgs> | null
+  where?: Prisma.ordersWhereInput
+  orderBy?: Prisma.ordersOrderByWithRelationInput | Prisma.ordersOrderByWithRelationInput[]
+  cursor?: Prisma.ordersWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.OrdersScalarFieldEnum | Prisma.OrdersScalarFieldEnum[]
+}
+
+/**
+ * users.membershipUpgradeRecords
+ */
+export type users$membershipUpgradeRecordsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the membershipUpgradeRecords
+   */
+  select?: Prisma.membershipUpgradeRecordsSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the membershipUpgradeRecords
+   */
+  omit?: Prisma.membershipUpgradeRecordsOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.membershipUpgradeRecordsInclude<ExtArgs> | null
+  where?: Prisma.membershipUpgradeRecordsWhereInput
+  orderBy?: Prisma.membershipUpgradeRecordsOrderByWithRelationInput | Prisma.membershipUpgradeRecordsOrderByWithRelationInput[]
+  cursor?: Prisma.membershipUpgradeRecordsWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.MembershipUpgradeRecordsScalarFieldEnum | Prisma.MembershipUpgradeRecordsScalarFieldEnum[]
 }
 
 /**
