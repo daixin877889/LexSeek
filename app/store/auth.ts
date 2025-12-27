@@ -161,33 +161,34 @@ export const useAuthStore = defineStore("auth", () => {
       params.invitedBy = invitedBy;
     }
 
-    const { data: response, error: apiError, execute } = useApi("/api/v1/auth/register", {
-      method: "POST",
-      body: params,
-      immediate: false,
-      showError: false,
-    });
+    // 使用 $fetch 直接获取完整响应，以便正确处理错误信息
+    try {
+      const response = await $fetch<ApiBaseResponse<{ token: string; user: SafeUserInfo }>>("/api/v1/auth/register", {
+        method: "POST",
+        body: params,
+      });
 
-    await execute();
-    loading.value = false;
+      loading.value = false;
 
-    if (apiError.value || !response.value) {
-      error.value = apiError.value?.message || "注册失败";
+      // 检查业务逻辑错误
+      if (!response.success || !response.data?.token) {
+        error.value = response.message || "注册失败";
+        return false;
+      }
+
+      // 保存用户信息和认证状态（token 由服务端通过 Set-Cookie 设置）
+      const userStore = useUserStore();
+      userStore.setUserInfo(response.data.user);
+      isAuthenticated.value = true;
+      error.value = null;
+      return true;
+    } catch (err: any) {
+      loading.value = false;
+      // 处理 HTTP 错误响应
+      const responseData = err.data as ApiBaseResponse<any> | undefined;
+      error.value = responseData?.message || err.message || "注册失败";
       return false;
     }
-
-    // 注册不成功，返回错误信息
-    if (!response.value?.token) {
-      error.value = response.value?.error?.message || "注册失败";
-      return false;
-    }
-
-    // 保存用户信息和认证状态（token 由服务端通过 Set-Cookie 设置）
-    const userStore = useUserStore();
-    userStore.setUserInfo(response.value.user as SafeUserInfo);
-    isAuthenticated.value = true;
-    error.value = null;
-    return true;
   };
 
 

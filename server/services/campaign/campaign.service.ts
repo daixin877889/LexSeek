@@ -71,7 +71,7 @@ export const executeRegisterGiftService = async (
                 status: MembershipStatus.ACTIVE,
                 sourceType: UserMembershipSourceType.REGISTRATION_AWARD,
                 sourceId: campaign.id,
-                remark: `注册赠送活动：${campaign.name}`,
+                remark: campaign.name,
             },
             tx
         )
@@ -93,7 +93,7 @@ export const executeRegisterGiftService = async (
 
         await createPointRecordDao(
             {
-                user: { connect: { id: userId } },
+                users: { connect: { id: userId } },
                 pointAmount: campaign.giftPoint,
                 used: 0,
                 remaining: campaign.giftPoint,
@@ -102,6 +102,7 @@ export const executeRegisterGiftService = async (
                 effectiveAt,
                 expiredAt,
                 status: PointRecordStatus.VALID,
+                remark: campaign.name,
                 ...(membershipId && { userMembership: { connect: { id: membershipId } } }),
             },
             tx
@@ -132,6 +133,11 @@ export const executeInvitationRewardService = async (
         return false
     }
 
+    // 查询被邀请人信息，用于生成备注
+    const invitee = await findUserByIdDao(inviteeId, tx)
+    const inviteeLabel = invitee ? `${invitee.name}(${invitee.phone.slice(-4)})` : `用户${inviteeId}`
+    const remark = `邀请 ${inviteeLabel} 注册`
+
     let membershipId: number | null = null
 
     // 如果配置了会员赠送
@@ -148,7 +154,7 @@ export const executeInvitationRewardService = async (
                 status: MembershipStatus.ACTIVE,
                 sourceType: UserMembershipSourceType.INVITATION_TO_REGISTER,
                 sourceId: campaign.id,
-                remark: `邀请奖励活动：${campaign.name}，被邀请人 ID：${inviteeId}`,
+                remark,
             },
             tx
         )
@@ -170,7 +176,7 @@ export const executeInvitationRewardService = async (
 
         await createPointRecordDao(
             {
-                user: { connect: { id: inviterId } },
+                users: { connect: { id: inviterId } },
                 pointAmount: campaign.giftPoint,
                 used: 0,
                 remaining: campaign.giftPoint,
@@ -179,6 +185,7 @@ export const executeInvitationRewardService = async (
                 effectiveAt,
                 expiredAt,
                 status: PointRecordStatus.VALID,
+                remark,
                 ...(membershipId && { userMembership: { connect: { id: membershipId } } }),
             },
             tx
