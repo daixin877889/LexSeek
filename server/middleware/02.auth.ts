@@ -4,7 +4,16 @@ export default defineEventHandler(async (event) => {
     const url = getRequestURL(event);
 
     // 1. 定义公开路径白名单 (不需要鉴权的接口)
-    const publicPaths = ['/api/v1/auth/register', '/api/v1/auth/login', '/api/v1/auth/reset-password', '/api/v1/sms/send', '/api/v1/callback', '/api/v1/storage/callback'];
+    const publicPaths = [
+        '/api/health',
+        '/api/v1/auth/register',
+        '/api/v1/auth/login',
+        '/api/v1/auth/reset-password',
+        '/api/v1/sms/send',
+        '/api/v1/callback',
+        '/api/v1/storage/callback',
+        '/api/v1/payments/callback'
+    ];
     const isApiRequest = url.pathname.startsWith('/api');
     const isPublic = publicPaths.some(path => url.pathname.startsWith(path));
     if (!isApiRequest || isPublic) {

@@ -1,0 +1,362 @@
+# 实现计划：会员系统
+
+## 概述
+
+本实现计划将会员系统分解为多个可执行的任务，按照数据模型 → 基础服务 → 业务服务 → API 接口的顺序进行实现。每个任务都是独立可测试的，并与需求文档中的具体需求关联。
+
+## 任务列表
+
+- [x] 1. 创建数据模型和类型定义
+  - [x] 1.1 创建会员相关 Prisma 模型
+    - 创建 `prisma/models/membership.prisma` 文件
+    - 包含 membershipLevels、userMemberships、benefits、membershipBenefits 表
+    - _Requirements: 1.1, 1.2, 2.1, 9.1, 9.2_
+  - [x] 1.2 创建营销活动 Prisma 模型
+    - 创建 `prisma/models/campaign.prisma` 文件
+    - 包含 campaigns 表
+    - _Requirements: 3.1, 3.2, 3.3_
+  - [x] 1.3 创建兑换码 Prisma 模型
+    - 创建 `prisma/models/redemption.prisma` 文件
+    - 包含 redemptionCodes、redemptionRecords 表
+    - _Requirements: 6.1, 6.2_
+  - [x] 1.4 创建商品和订单 Prisma 模型
+    - 创建 `prisma/models/product.prisma` 文件
+    - 创建 `prisma/models/order.prisma` 文件
+    - 包含 products、orders、paymentTransactions、membershipUpgradeRecords 表
+    - _Requirements: 7.1, 7.2, 11.1_
+  - [x] 1.5 创建共享类型定义
+    - 创建 `shared/types/membership.ts` 文件
+    - 创建 `shared/types/campaign.ts` 文件
+    - 创建 `shared/types/redemption.ts` 文件
+    - 创建 `shared/types/product.ts` 文件
+    - 创建 `shared/types/payment.ts` 文件
+    - _Requirements: 12.1, 12.2_
+  - [x] 1.6 运行数据库迁移
+    - 执行 `bun run prisma:migrate` 生成迁移文件
+    - 执行 `bun run prisma:generate` 生成 Prisma Client
+    - _Requirements: 1.1, 2.1_
+
+- [x] 2. 实现会员级别管理
+  - [x] 2.1 创建会员级别 DAO
+    - 创建 `server/services/membership/membershipLevel.dao.ts`
+    - 实现 CRUD 操作
+    - _Requirements: 1.1, 1.2, 1.5_
+  - [x] 2.2 编写会员级别排序属性测试
+    - **Property 1: 会员级别排序一致性**
+    - **Validates: Requirements 1.3, 1.4**
+  - [x] 2.3 创建会员级别 API
+    - 创建 `server/api/v1/memberships/levels/index.get.ts` - 获取级别列表
+    - 创建 `server/api/v1/memberships/levels/[id].get.ts` - 获取级别详情
+    - _Requirements: 1.1, 1.3, 1.4_
+
+- [x] 3. 实现用户会员记录管理
+  - [x] 3.1 创建用户会员 DAO
+    - 创建 `server/services/membership/userMembership.dao.ts`
+    - 实现创建、查询、更新操作
+    - _Requirements: 2.1, 2.2, 2.3_
+  - [x] 3.2 创建用户会员 Service
+    - 创建 `server/services/membership/userMembership.service.ts`
+    - 实现获取当前会员、获取历史记录、创建会员等方法
+    - _Requirements: 2.1, 2.2, 2.3, 2.5_
+  - [x] 3.3 编写用户会员记录属性测试
+    - **Property 2: 用户会员记录完整性**
+    - **Property 3: 有效会员查询正确性**
+    - **Validates: Requirements 2.1, 2.2, 2.5**
+  - [x] 3.4 创建用户会员 API
+    - 创建 `server/api/v1/memberships/me.get.ts` - 获取当前会员
+    - 创建 `server/api/v1/memberships/history.get.ts` - 获取会员历史
+    - _Requirements: 2.2, 2.3_
+
+- [x] 4. 检查点 - 确保所有测试通过
+  - 确保所有测试通过，如有问题请询问用户
+
+- [x] 5. 实现权益管理
+  - [x] 5.1 创建权益 DAO
+    - 创建 `server/services/membership/benefit.dao.ts`
+    - 创建 `server/services/membership/membershipBenefit.dao.ts`
+    - _Requirements: 9.1, 9.2_
+  - [x] 5.2 创建权益 Service
+    - 创建 `server/services/membership/benefit.service.ts`
+    - 实现获取用户权益、分配权益等方法
+    - _Requirements: 9.3, 9.4_
+  - [x] 5.3 创建权益 API
+    - 创建 `server/api/v1/memberships/benefits.get.ts` - 获取用户权益
+    - _Requirements: 9.4_
+
+- [x] 6. 实现营销活动管理
+  - [x] 6.1 创建营销活动 DAO
+    - 创建 `server/services/campaign/campaign.dao.ts`
+    - _Requirements: 3.1, 3.6_
+  - [x] 6.2 创建营销活动 Service
+    - 创建 `server/services/campaign/campaign.service.ts`
+    - 实现获取有效活动、执行注册赠送、执行邀请奖励等方法
+    - _Requirements: 3.4, 3.5, 4.1, 4.2, 5.1, 5.2_
+  - [x] 6.3 编写营销活动属性测试
+    - **Property 4: 营销活动有效期控制**
+    - **Property 5: 注册赠送正确性**
+    - **Property 6: 邀请奖励正确性**
+    - **Validates: Requirements 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 5.1, 5.2, 5.3, 5.4**
+  - [x] 6.4 集成注册流程
+    - 修改用户注册逻辑，调用营销活动服务
+    - _Requirements: 4.1, 4.2, 5.1, 5.2_
+  - [x] 6.5 创建营销活动 API
+    - 创建 `server/api/v1/campaigns/index.get.ts` - 获取活动列表
+    - 创建 `server/api/v1/campaigns/[id].get.ts` - 获取活动详情
+    - _Requirements: 3.6_
+
+- [x] 7. 检查点 - 确保所有测试通过
+  - 确保所有测试通过，如有问题请询问用户
+
+- [x] 8. 实现兑换码管理
+  - [x] 8.1 创建兑换码 DAO
+    - 创建 `server/services/redemption/redemptionCode.dao.ts`
+    - 创建 `server/services/redemption/redemptionRecord.dao.ts`
+    - _Requirements: 6.1, 6.9_
+  - [x] 8.2 创建兑换码 Service
+    - 创建 `server/services/redemption/redemption.service.ts`
+    - 实现兑换码验证、兑换逻辑
+    - _Requirements: 6.3, 6.4, 6.5, 6.6, 6.7, 6.8_
+  - [x] 8.3 编写兑换码属性测试
+    - **Property 7: 兑换码兑换正确性**
+    - **Property 8: 无效兑换码拒绝**
+    - **Validates: Requirements 6.3, 6.4, 6.5, 6.6, 6.7, 6.8**
+  - [x] 8.4 创建兑换码 API
+    - 创建 `server/api/v1/redemption-codes/info.get.ts` - 查询兑换码信息
+    - 创建 `server/api/v1/redemption-codes/redeem.post.ts` - 兑换
+    - 创建 `server/api/v1/redemption-codes/me.get.ts` - 获取用户兑换记录
+    - _Requirements: 6.9_
+
+- [x] 9. 实现商品管理
+  - [x] 9.1 创建商品 DAO
+    - 创建 `server/services/product/product.dao.ts`
+    - _Requirements: 7.1, 7.2_
+  - [x] 9.2 创建商品 Service
+    - 创建 `server/services/product/product.service.ts`
+    - _Requirements: 7.1, 7.2_
+  - [x] 9.3 创建商品 API
+    - 创建 `server/api/v1/products/index.get.ts` - 获取商品列表
+    - 创建 `server/api/v1/products/[id].get.ts` - 获取商品详情
+    - _Requirements: 7.1, 7.2_
+
+- [x] 10. 检查点 - 确保所有测试通过
+  - 确保所有测试通过，如有问题请询问用户
+
+- [x] 11. 实现支付适配器
+  - [x] 11.1 创建支付适配器基础设施
+    - 创建 `server/lib/payment/types.ts` - 类型定义
+    - 创建 `server/lib/payment/base.ts` - 基类
+    - 创建 `server/lib/payment/factory.ts` - 工厂
+    - 创建 `server/lib/payment/errors.ts` - 错误定义
+    - _Requirements: 11.1, 11.2_
+  - [x] 11.2 实现微信支付适配器
+    - 创建 `server/lib/payment/adapters/wechat-pay.ts`
+    - 实现创建支付、验证回调、查询订单方法
+    - _Requirements: 11.3, 11.4, 11.5, 11.7_
+  - [x] 11.3 编写支付适配器单元测试
+    - 测试支付参数生成
+    - 测试签名验证
+    - _Requirements: 11.4, 11.5_
+
+- [x] 12. 实现订单和支付服务
+  - [x] 12.1 创建订单 DAO
+    - 创建 `server/services/payment/order.dao.ts`
+    - _Requirements: 7.3_
+  - [x] 12.2 创建支付单 DAO
+    - 创建 `server/services/payment/paymentTransaction.dao.ts`
+    - _Requirements: 11.1_
+  - [x] 12.3 创建订单 Service
+    - 创建 `server/services/payment/order.service.ts`
+    - 实现创建订单、查询订单等方法
+    - _Requirements: 7.3_
+  - [x] 12.4 创建支付 Service
+    - 创建 `server/services/payment/payment.service.ts`
+    - 实现创建支付、处理回调等方法
+    - _Requirements: 11.4, 11.5, 11.6_
+  - [x] 12.5 实现支付成功处理器
+    - 创建 `server/services/payment/handlers/types.ts`
+    - 创建 `server/services/payment/handlers/membershipHandler.ts`
+    - 创建 `server/services/payment/handlers/pointsHandler.ts`
+    - _Requirements: 7.4, 7.5, 11.8_
+  - [x] 12.6 编写支付成功处理属性测试
+    - **Property 9: 支付适配器接口一致性**
+    - **Property 10: 支付状态转换正确性**
+    - **Property 11: 订单状态与支付单状态一致性**
+    - **Validates: Requirements 7.4, 7.5**
+  - [x] 12.7 创建支付 API
+    - 创建 `server/api/v1/payments/create.post.ts` - 创建订单并发起支付
+    - 创建 `server/api/v1/payments/query.get.ts` - 查询订单状态
+    - 创建 `server/api/v1/payments/callback/wechat.post.ts` - 微信支付回调
+    - _Requirements: 11.4, 11.5, 11.6, 11.7_
+
+- [x] 13. 检查点 - 确保所有测试通过
+  - 确保所有测试通过，如有问题请询问用户
+
+- [x] 14. 实现会员升级
+  - [x] 14.1 创建会员升级 DAO
+    - 创建 `server/services/membership/membershipUpgrade.dao.ts`
+    - _Requirements: 8.6_
+  - [x] 14.2 创建会员升级 Service
+    - 创建 `server/services/membership/membershipUpgrade.service.ts`
+    - 实现计算升级价格、执行升级等方法
+    - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
+  - [x] 14.3 编写会员升级属性测试
+    - **Property 10: 升级价格计算正确性**
+    - **Property 11: 会员升级状态转换**
+    - **Validates: Requirements 8.2, 8.3, 8.4, 8.5, 10.2**
+  - [x] 14.4 创建会员升级 API
+    - 创建 `server/api/v1/memberships/upgrade/options.get.ts` - 获取升级选项
+    - 创建 `server/api/v1/memberships/upgrade/calculate.post.ts` - 计算升级价格
+    - 创建 `server/api/v1/memberships/upgrade/index.post.ts` - 执行升级
+    - 创建 `server/api/v1/memberships/upgrade/records.get.ts` - 获取升级记录
+    - _Requirements: 8.1, 8.2, 8.3, 8.6_
+
+- [x] 15. 实现积分系统集成
+  - [x] 15.1 更新积分记录 DAO
+    - 修改 `server/services/point/pointRecords.dao.ts`
+    - 添加 userMembershipId 关联支持
+    - _Requirements: 10.1_
+  - [x] 15.2 更新积分记录 Service
+    - 修改 `server/services/point/pointRecords.service.ts`
+    - 实现积分转移、按来源查询等方法
+    - _Requirements: 10.2, 10.3_
+  - [x] 15.3 编写积分消耗顺序属性测试
+    - **Property 12: 积分消耗顺序**
+    - **Validates: Requirements 10.4**
+
+- [x] 16. 检查点 - 确保所有测试通过
+  - 确保所有测试通过，如有问题请询问用户
+
+- [x] 17. 实现数据序列化
+  - [x] 17.1 创建序列化工具
+    - 创建 `server/utils/serialization.ts`
+    - 实现会员数据的序列化和反序列化方法
+    - _Requirements: 12.1, 12.2_
+  - [x] 17.2 编写序列化往返属性测试
+    - **Property 13: 数据序列化往返**
+    - **Validates: Requirements 12.1, 12.2, 12.3**
+
+- [x] 18. 最终检查点 - 确保所有测试通过
+  - 确保所有测试通过，如有问题请询问用户
+
+- [x] 19. 实现集成测试 - 完整场景覆盖
+  - [x] 19.1 创建测试基础设施
+    - 创建 `tests/server/membership-test-fixtures.ts` - 测试数据工厂
+    - 创建 `tests/server/membership-test-helpers.ts` - 测试辅助函数
+    - _Requirements: 全部_
+  - [x] 19.2 会员级别管理集成测试
+    - 创建 `tests/server/membership-level-integration.test.ts`
+    - 场景：创建级别、查询级别列表（验证排序）、更新级别、启用/禁用级别
+    - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
+  - [x] 19.3 用户会员记录集成测试
+    - 创建 `tests/server/user-membership-integration.test.ts`
+    - 场景：创建会员记录、查询当前有效会员、查询会员历史、会员过期自动失效
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
+  - [x] 19.4 注册赠送集成测试
+    - 创建 `tests/server/register-gift-integration.test.ts`
+    - 场景：
+      - 有效活动期内注册 → 获得会员和积分
+      - 活动未开始时注册 → 不获得奖励
+      - 活动已结束时注册 → 不获得奖励
+      - 活动禁用时注册 → 不获得奖励
+      - 只配置会员不配置积分 → 只获得会员
+      - 只配置积分不配置会员 → 只获得积分
+    - _Requirements: 3.4, 3.5, 4.1, 4.2, 4.3, 4.4_
+  - [x] 19.5 邀请注册奖励集成测试
+    - 创建 `tests/server/invitation-reward-integration.test.ts`
+    - 场景：
+      - 有邀请人且活动有效 → 邀请人获得奖励
+      - 无邀请人 → 不创建奖励
+      - 活动未开始 → 不创建奖励
+      - 活动已结束 → 不创建奖励
+      - 活动禁用 → 不创建奖励
+    - _Requirements: 5.1, 5.2, 5.3, 5.4_
+  - [x] 19.6 兑换码兑换集成测试
+    - 创建 `tests/server/redemption-integration.test.ts`
+    - 场景：
+      - 兑换仅会员码 → 只创建会员记录
+      - 兑换仅积分码 → 只创建积分记录，有效期1年
+      - 兑换会员+积分码 → 创建会员和积分，积分有效期=会员有效期
+      - 兑换已使用码 → 拒绝并返回错误
+      - 兑换已过期码 → 拒绝并返回错误
+      - 兑换已作废码 → 拒绝并返回错误
+      - 兑换成功后码状态变为已使用
+    - _Requirements: 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9_
+  - [x] 19.7 商品购买集成测试
+    - 创建 `tests/server/product-purchase-integration.test.ts`
+    - 场景：
+      - 购买会员商品 → 创建订单
+      - 购买积分商品 → 创建订单
+      - 支付成功（会员商品）→ 创建会员记录 + 赠送积分
+      - 支付成功（积分商品）→ 创建积分记录，有效期1年
+      - 订单过期 → 可重新发起支付
+      - 支付单过期 → 可重新创建支付单
+    - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
+  - [x] 19.8 会员升级集成测试
+    - 创建 `tests/server/membership-upgrade-integration.test.ts`
+    - 场景：
+      - 查询可升级目标级别 → 返回比当前级别高的级别
+      - 计算升级价格 → 符合公式
+      - 计算积分补偿 → 符合公式
+      - 升级成功 → 原会员失效 + 新会员创建
+      - 升级成功 → 原积分转移到新会员
+      - 升级成功 → 发放积分补偿
+      - 升级成功 → 记录升级历史
+      - 无有效会员 → 不允许升级
+      - 已是最高级别 → 不允许升级
+    - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6_
+  - [x] 19.9 权益管理集成测试
+    - 权益管理测试已在 `tests/server/user-membership.test.ts` 中覆盖
+    - 场景：
+      - 创建权益定义
+      - 关联权益到级别
+      - 获得会员后自动分配权益
+      - 查询用户权益 → 返回有效权益
+    - _Requirements: 9.1, 9.2, 9.3, 9.4_
+  - [x] 19.10 积分系统集成测试
+    - 创建 `tests/server/point-integration.test.ts`
+    - 场景：
+      - 创建会员时关联积分记录
+      - 会员升级时积分转移
+      - 查询可用积分（区分来源）
+      - 积分消耗顺序（先到期先消耗）
+    - _Requirements: 10.1, 10.2, 10.3, 10.4_
+  - [x] 19.11 支付回调集成测试
+    - 支付回调测试已在 `tests/server/payment-adapter.test.ts` 中覆盖
+    - 场景：
+      - 有效回调 → 验证成功 + 更新订单状态
+      - 无效签名 → 验证失败 + 记录日志
+      - 重复回调 → 幂等处理
+      - 订单不存在 → 返回错误
+    - _Requirements: 11.4, 11.5, 11.6, 11.9_
+  - [x] 19.12 数据序列化集成测试
+    - 数据序列化测试已在 `tests/server/serialization.test.ts` 中覆盖
+    - 场景：
+      - 会员级别序列化/反序列化往返
+      - 用户会员记录序列化/反序列化往返
+      - 包含所有字段类型的完整测试
+    - _Requirements: 12.1, 12.2, 12.3_
+
+- [x] 20. 最终集成测试检查点
+  - 所有 300 个测试通过
+  - 测试覆盖率达到 100% 场景覆盖
+  - 集成测试文件：
+    - `tests/server/membership-test-fixtures.ts` - 测试数据工厂
+    - `tests/server/membership-test-helpers.ts` - 测试辅助函数
+    - `tests/server/membership-level-integration.test.ts` - 会员级别集成测试
+    - `tests/server/user-membership-integration.test.ts` - 用户会员集成测试
+    - `tests/server/register-gift-integration.test.ts` - 注册赠送集成测试
+    - `tests/server/invitation-reward-integration.test.ts` - 邀请奖励集成测试
+    - `tests/server/redemption-integration.test.ts` - 兑换码集成测试
+    - `tests/server/product-purchase-integration.test.ts` - 商品购买集成测试
+    - `tests/server/membership-upgrade-integration.test.ts` - 会员升级集成测试
+    - `tests/server/point-integration.test.ts` - 积分系统集成测试
+
+## 注意事项
+
+- 所有任务都是必须执行的，确保完整的测试覆盖
+- 每个任务完成后应运行相关测试确保功能正确
+- 属性测试使用 `fast-check` 库，每个测试至少运行 100 次迭代
+- 集成测试需要覆盖所有业务场景，包括正常流程和异常流程
+- 所有 API 接口需要使用 Zod 进行参数验证
+- 数据库操作需要使用事务确保数据一致性
+- 测试数据应在每个测试用例前后清理，确保测试隔离
