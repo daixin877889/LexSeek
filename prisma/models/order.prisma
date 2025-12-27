@@ -1,0 +1,136 @@
+/// 订单表
+model orders {
+    /// 订单ID，主键，自增
+    id           Int       @id @default(autoincrement())
+    /// 订单号
+    orderNo      String    @unique @map("order_no") @db.VarChar(32)
+    /// 用户ID
+    userId       Int       @map("user_id")
+    /// 商品ID
+    productId    Int       @map("product_id")
+    /// 订单金额
+    amount       Decimal   @db.Decimal(10, 2)
+    /// 购买时长
+    duration     Int
+    /// 时长单位：month/year
+    durationUnit String    @map("duration_unit") @db.VarChar(10)
+    /// 状态：0-待支付，1-已支付，2-已取消，3-已退款
+    status       Int       @default(0)
+    /// 支付时间
+    paidAt       DateTime? @map("paid_at") @db.Timestamptz(6)
+    /// 订单过期时间
+    expiredAt    DateTime  @map("expired_at") @db.Timestamptz(6)
+    /// 备注
+    remark       String?   @db.VarChar(255)
+    /// 创建时间
+    createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+    /// 最后更新时间
+    updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+    /// 删除时间，为NULL表示未删除
+    deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+    /// 关联的用户
+    user                     users                      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    /// 关联的商品
+    product                  products                   @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    /// 关联的支付单
+    paymentTransactions      paymentTransactions[]
+    /// 关联的会员升级记录
+    membershipUpgradeRecords membershipUpgradeRecords[]
+
+    @@index([orderNo], map: "idx_orders_order_no")
+    @@index([userId], map: "idx_orders_user_id")
+    @@index([productId], map: "idx_orders_product_id")
+    @@index([status], map: "idx_orders_status")
+    @@index([expiredAt], map: "idx_orders_expired_at")
+    @@index([deletedAt], map: "idx_orders_deleted_at")
+    @@map("orders")
+}
+
+/// 支付单表
+model paymentTransactions {
+    /// 支付单ID，主键，自增
+    id             Int       @id @default(autoincrement())
+    /// 支付单号
+    transactionNo  String    @unique @map("transaction_no") @db.VarChar(32)
+    /// 关联订单ID
+    orderId        Int       @map("order_id")
+    /// 支付金额
+    amount         Decimal   @db.Decimal(10, 2)
+    /// 支付渠道：wechat/alipay
+    paymentChannel String    @map("payment_channel") @db.VarChar(20)
+    /// 支付方式：mini_program/scan_code/wap/app/pc
+    paymentMethod  String    @map("payment_method") @db.VarChar(20)
+    /// 第三方交易号
+    outTradeNo     String?   @map("out_trade_no") @db.VarChar(64)
+    /// 预支付ID（微信）
+    prepayId       String?   @map("prepay_id") @db.VarChar(64)
+    /// 状态：0-待支付，1-支付成功，2-支付失败，3-已过期，4-已退款
+    status         Int       @default(0)
+    /// 支付时间
+    paidAt         DateTime? @map("paid_at") @db.Timestamptz(6)
+    /// 支付单过期时间
+    expiredAt      DateTime  @map("expired_at") @db.Timestamptz(6)
+    /// 回调原始数据
+    callbackData   Json?     @map("callback_data")
+    /// 错误信息
+    errorMessage   String?   @map("error_message") @db.VarChar(255)
+    /// 备注
+    remark         String?   @db.VarChar(255)
+    /// 创建时间
+    createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+    /// 最后更新时间
+    updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+    /// 删除时间，为NULL表示未删除
+    deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+    /// 关联的订单
+    order orders @relation(fields: [orderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    @@index([transactionNo], map: "idx_payment_transactions_transaction_no")
+    @@index([orderId], map: "idx_payment_transactions_order_id")
+    @@index([outTradeNo], map: "idx_payment_transactions_out_trade_no")
+    @@index([status], map: "idx_payment_transactions_status")
+    @@index([expiredAt], map: "idx_payment_transactions_expired_at")
+    @@index([deletedAt], map: "idx_payment_transactions_deleted_at")
+    @@map("payment_transactions")
+}
+
+/// 会员升级记录表
+model membershipUpgradeRecords {
+    /// 会员升级记录ID，主键，自增
+    id                Int       @id @default(autoincrement())
+    /// 用户ID
+    userId            Int       @map("user_id")
+    /// 原会员记录ID
+    fromMembershipId  Int       @map("from_membership_id")
+    /// 新会员记录ID
+    toMembershipId    Int       @map("to_membership_id")
+    /// 订单ID
+    orderId           Int       @map("order_id")
+    /// 升级价格
+    upgradePrice      Decimal   @map("upgrade_price") @db.Decimal(10, 2)
+    /// 积分补偿
+    pointCompensation Int       @map("point_compensation")
+    /// 创建时间
+    createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+    /// 最后更新时间
+    updatedAt         DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+    /// 删除时间，为NULL表示未删除
+    deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+    /// 关联的用户
+    user           users           @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    /// 原会员记录
+    fromMembership userMemberships @relation("FromMembership", fields: [fromMembershipId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    /// 新会员记录
+    toMembership   userMemberships @relation("ToMembership", fields: [toMembershipId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    /// 关联的订单
+    order          orders          @relation(fields: [orderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    @@index([userId], map: "idx_membership_upgrade_records_user_id")
+    @@index([fromMembershipId], map: "idx_membership_upgrade_records_from_membership_id")
+    @@index([toMembershipId], map: "idx_membership_upgrade_records_to_membership_id")
+    @@index([deletedAt], map: "idx_membership_upgrade_records_deleted_at")
+    @@map("membership_upgrade_records")
+}

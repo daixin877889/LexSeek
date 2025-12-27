@@ -1,0 +1,64 @@
+/// 兑换码表
+model redemptionCodes {
+    /// 兑换码ID，主键，自增
+    id          Int       @id @default(autoincrement())
+    /// 兑换码
+    code        String    @unique @db.VarChar(32)
+    /// 兑换类型：1-仅会员，2-仅积分，3-会员和积分
+    type        Int
+    /// 会员级别ID
+    levelId     Int?      @map("level_id")
+    /// 会员时长（天）
+    duration    Int?
+    /// 积分数量
+    pointAmount Int?      @map("point_amount")
+    /// 过期时间
+    expiredAt   DateTime? @map("expired_at") @db.Timestamptz(6)
+    /// 状态：1-有效，2-已使用，3-已过期，4-已作废
+    status      Int       @default(1)
+    /// 备注
+    remark      String?   @db.VarChar(255)
+    /// 创建时间
+    createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+    /// 最后更新时间
+    updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+    /// 删除时间，为NULL表示未删除
+    deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+    /// 关联的会员级别
+    level             membershipLevels?   @relation(fields: [levelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    /// 关联的兑换记录
+    redemptionRecords redemptionRecords[]
+
+    @@index([code], map: "idx_redemption_codes_code")
+    @@index([status], map: "idx_redemption_codes_status")
+    @@index([expiredAt], map: "idx_redemption_codes_expired_at")
+    @@index([deletedAt], map: "idx_redemption_codes_deleted_at")
+    @@map("redemption_codes")
+}
+
+/// 兑换记录表
+model redemptionRecords {
+    /// 兑换记录ID，主键，自增
+    id        Int       @id @default(autoincrement())
+    /// 用户ID
+    userId    Int       @map("user_id")
+    /// 兑换码ID
+    codeId    Int       @map("code_id")
+    /// 创建时间
+    createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+    /// 最后更新时间
+    updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+    /// 删除时间，为NULL表示未删除
+    deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+    /// 关联的用户
+    user users           @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    /// 关联的兑换码
+    code redemptionCodes @relation(fields: [codeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    @@index([userId], map: "idx_redemption_records_user_id")
+    @@index([codeId], map: "idx_redemption_records_code_id")
+    @@index([deletedAt], map: "idx_redemption_records_deleted_at")
+    @@map("redemption_records")
+}

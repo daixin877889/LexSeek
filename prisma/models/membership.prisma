@@ -1,0 +1,140 @@
+/// 会员级别表
+model membershipLevels {
+    /// 会员级别ID，主键，自增
+    id          Int       @id @default(autoincrement())
+    /// 级别名称
+    name        String    @db.VarChar(50)
+    /// 级别描述
+    description String?   @db.VarChar(255)
+    /// 排序顺序，数字越小级别越高
+    sortOrder   Int       @default(0) @map("sort_order")
+    /// 状态：1-启用，0-禁用
+    status      Int       @default(1)
+    /// 创建时间
+    createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+    /// 最后更新时间
+    updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+    /// 删除时间，为NULL表示未删除
+    deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+    /// 关联的用户会员记录
+    userMemberships    userMemberships[]
+    /// 关联的会员权益
+    membershipBenefits membershipBenefits[]
+    /// 关联的商品
+    products           products[]
+    /// 关联的兑换码
+    redemptionCodes    redemptionCodes[]
+    /// 关联的营销活动
+    campaigns          campaigns[]
+
+    @@index([sortOrder], map: "idx_membership_levels_sort_order")
+    @@index([status], map: "idx_membership_levels_status")
+    @@index([deletedAt], map: "idx_membership_levels_deleted_at")
+    @@map("membership_levels")
+}
+
+/// 用户会员记录表
+model userMemberships {
+    /// 用户会员记录ID，主键，自增
+    id         Int       @id @default(autoincrement())
+    /// 用户ID
+    userId     Int       @map("user_id")
+    /// 会员级别ID
+    levelId    Int       @map("level_id")
+    /// 开始日期
+    startDate  DateTime  @map("start_date") @db.Timestamptz(6)
+    /// 到期日期
+    endDate    DateTime  @map("end_date") @db.Timestamptz(6)
+    /// 是否自动续费
+    autoRenew  Boolean   @default(false) @map("auto_renew")
+    /// 状态：1-有效，0-无效
+    status     Int       @default(1)
+    /// 来源类型：1-兑换码，2-直接购买，3-管理员赠送，4-活动奖励，5-试用，6-注册赠送，7-邀请注册赠送，8-会员升级
+    sourceType Int       @map("source_type")
+    /// 来源ID，根据来源类型关联到不同的表
+    sourceId   Int?      @map("source_id")
+    /// 备注
+    remark     String?   @db.VarChar(255)
+    /// 创建时间
+    createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+    /// 最后更新时间
+    updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+    /// 删除时间，为NULL表示未删除
+    deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+    /// 关联的用户
+    user                         users                      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    /// 关联的会员级别
+    level                        membershipLevels           @relation(fields: [levelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    /// 关联的积分记录
+    pointRecords                 pointRecords[]
+    /// 升级前的会员记录
+    membershipUpgradeRecordsFrom membershipUpgradeRecords[] @relation("FromMembership")
+    /// 升级后的会员记录
+    membershipUpgradeRecordsTo   membershipUpgradeRecords[] @relation("ToMembership")
+
+    @@index([userId], map: "idx_user_memberships_user_id")
+    @@index([levelId], map: "idx_user_memberships_level_id")
+    @@index([status], map: "idx_user_memberships_status")
+    @@index([endDate], map: "idx_user_memberships_end_date")
+    @@index([deletedAt], map: "idx_user_memberships_deleted_at")
+    @@map("user_memberships")
+}
+
+/// 权益表
+model benefits {
+    /// 权益ID，主键，自增
+    id          Int       @id @default(autoincrement())
+    /// 权益名称
+    name        String    @db.VarChar(100)
+    /// 权益描述
+    description String?   @db.VarChar(255)
+    /// 权益类型
+    type        String    @db.VarChar(50)
+    /// 权益值（JSON格式）
+    value       Json?
+    /// 状态：1-启用，0-禁用
+    status      Int       @default(1)
+    /// 创建时间
+    createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+    /// 最后更新时间
+    updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+    /// 删除时间，为NULL表示未删除
+    deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+    /// 关联的会员权益
+    membershipBenefits membershipBenefits[]
+
+    @@index([type], map: "idx_benefits_type")
+    @@index([status], map: "idx_benefits_status")
+    @@index([deletedAt], map: "idx_benefits_deleted_at")
+    @@map("benefits")
+}
+
+/// 会员权益关联表
+model membershipBenefits {
+    /// 会员权益关联ID，主键，自增
+    id        Int       @id @default(autoincrement())
+    /// 会员级别ID
+    levelId   Int       @map("level_id")
+    /// 权益ID
+    benefitId Int       @map("benefit_id")
+    /// 创建时间
+    createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+    /// 最后更新时间
+    updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+    /// 删除时间，为NULL表示未删除
+    deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+    /// 关联的会员级别
+    level   membershipLevels @relation(fields: [levelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    /// 关联的权益
+    benefit benefits         @relation(fields: [benefitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    @@unique([levelId, benefitId])
+    @@index([levelId], map: "idx_membership_benefits_level_id")
+    @@index([benefitId], map: "idx_membership_benefits_benefit_id")
+    @@index([deletedAt], map: "idx_membership_benefits_deleted_at")
+    @@map("membership_benefits")
+}
