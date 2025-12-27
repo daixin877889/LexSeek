@@ -2,6 +2,7 @@
  * 文件上传 Worker Composable
  * 
  * 使用 Web Worker 在后台线程处理文件上传，避免阻塞主线程
+ * Worker 实现位于 app/workers/fileUpload.worker.ts
  */
 
 import type { PostSignatureResult } from '~~/shared/types/oss'
@@ -41,99 +42,16 @@ export const useFileUploadWorker = () => {
 
   /**
    * 初始化 Worker
+   * 使用 app/workers/fileUpload.worker.ts 文件
    */
   const initWorker = () => {
     if (worker) return worker
 
-    // 动态创建 Worker
-    const workerCode = `
-      const uploadTasks = new Map();
-
-      const handleUpload = (message) => {
-        const { id, file, signature } = message;
-
-        const formData = new FormData();
-        formData.append('key', signature.key);
-        formData.append('policy', signature.policy);
-        formData.append('x-oss-signature-version', signature.signatureVersion);
-        formData.append('x-oss-credential', signature.credential);
-        formData.append('x-oss-date', signature.date);
-        formData.append('x-oss-signature', signature.signature);
-
-        if (signature.securityToken) {
-          formData.append('x-oss-security-token', signature.securityToken);
-        }
-        if (signature.callback) {
-          formData.append('callback', signature.callback);
-        }
-        if (signature.callbackVar) {
-          for (const [key, value] of Object.entries(signature.callbackVar)) {
-            formData.append(key, value);
-          }
-        }
-        formData.append('file', file);
-
-        const xhr = new XMLHttpRequest();
-        uploadTasks.set(id, xhr);
-
-        xhr.upload.addEventListener('progress', (event) => {
-          if (event.lengthComputable) {
-            const progress = (event.loaded / event.total) * 100;
-            self.postMessage({ type: 'progress', id, progress });
-          }
-        });
-
-        xhr.addEventListener('load', () => {
-          uploadTasks.delete(id);
-          if (xhr.status === 200) {
-            try {
-              const data = JSON.parse(xhr.responseText);
-              self.postMessage({ type: 'success', id, data });
-            } catch {
-              self.postMessage({ type: 'success', id, data: { raw: xhr.responseText } });
-            }
-          } else {
-            self.postMessage({ type: 'error', id, error: '上传失败: ' + xhr.status + ' ' + xhr.statusText });
-          }
-        });
-
-        xhr.addEventListener('error', () => {
-          uploadTasks.delete(id);
-          self.postMessage({ type: 'error', id, error: '上传过程中发生网络错误' });
-        });
-
-        xhr.addEventListener('abort', () => {
-          uploadTasks.delete(id);
-          self.postMessage({ type: 'error', id, error: '上传已取消' });
-        });
-
-        xhr.open('POST', signature.host);
-        xhr.send(formData);
-      };
-
-      const handleCancel = (message) => {
-        const xhr = uploadTasks.get(message.id);
-        if (xhr) {
-          xhr.abort();
-          uploadTasks.delete(message.id);
-        }
-      };
-
-      self.addEventListener('message', (event) => {
-        const message = event.data;
-        switch (message.type) {
-          case 'upload':
-            handleUpload(message);
-            break;
-          case 'cancel':
-            handleCancel(message);
-            break;
-        }
-      });
-    `
-
-    const blob = new Blob([workerCode], { type: 'application/javascript' })
-    worker = new Worker(URL.createObjectURL(blob))
+    // 使用 Nuxt 的方式创建 Worker，引用 workers 目录下的文件
+    worker = new Worker(
+      new URL('../workers/fileUpload.worker.ts', import.meta.url),
+      { type: 'module' }
+    )
 
     // 监听 Worker 消息
     worker.addEventListener('message', (event: MessageEvent<WorkerResponse>) => {
