@@ -382,3 +382,106 @@ describe('自定义适配器注册', () => {
         expect(adapter.type).toBe(StorageProviderType.ALIYUN_OSS)
     })
 })
+
+
+describe('类型守卫函数', () => {
+    it('isQiniuPostSignatureResult 应正确识别七牛云签名结果', async () => {
+        const { isQiniuPostSignatureResult } = await import('../../../server/lib/storage/types')
+
+        const qiniuResult = {
+            host: 'https://up.qiniup.com',
+            dir: 'test/',
+            uploadToken: 'test-token'
+        }
+
+        const aliyunResult = {
+            host: 'https://bucket.oss-cn-hangzhou.aliyuncs.com',
+            dir: 'test/',
+            policy: 'base64-policy',
+            signatureVersion: 'OSS4-HMAC-SHA256',
+            credential: 'test-credential',
+            date: '20231201T000000Z',
+            signature: 'test-signature'
+        }
+
+        expect(isQiniuPostSignatureResult(qiniuResult)).toBe(true)
+        expect(isQiniuPostSignatureResult(aliyunResult)).toBe(false)
+    })
+
+    it('isTencentPostSignatureResult 应正确识别腾讯云签名结果', async () => {
+        const { isTencentPostSignatureResult } = await import('../../../server/lib/storage/types')
+
+        const tencentResult = {
+            host: 'https://bucket.cos.ap-guangzhou.myqcloud.com',
+            dir: 'test/',
+            tmpSecretId: 'test-secret-id',
+            tmpSecretKey: 'test-secret-key',
+            sessionToken: 'test-session-token',
+            startTime: 1701388800,
+            expiredTime: 1701392400
+        }
+
+        const aliyunResult = {
+            host: 'https://bucket.oss-cn-hangzhou.aliyuncs.com',
+            dir: 'test/',
+            policy: 'base64-policy',
+            signatureVersion: 'OSS4-HMAC-SHA256'
+        }
+
+        expect(isTencentPostSignatureResult(tencentResult)).toBe(true)
+        expect(isTencentPostSignatureResult(aliyunResult)).toBe(false)
+    })
+})
+
+describe('工厂错误处理', () => {
+    beforeEach(() => {
+        StorageFactory.clearCache()
+    })
+
+    it('不支持的存储类型应抛出 StorageConfigError', () => {
+        const invalidConfig = {
+            type: 'invalid_type' as any,
+            name: 'test',
+            bucket: 'test-bucket',
+            region: 'test-region',
+            enabled: true
+        }
+
+        expect(() => {
+            StorageFactory.getAdapter(invalidConfig as StorageConfig)
+        }).toThrow(StorageConfigError)
+    })
+
+    it('clearCache 应支持指定 key 清除', () => {
+        const config1: AliyunOssConfig = {
+            type: StorageProviderType.ALIYUN_OSS,
+            name: 'test1',
+            bucket: 'bucket1',
+            region: 'cn-hangzhou',
+            accessKeyId: 'test-key-id-12345678',
+            accessKeySecret: 'test-key-secret-123456789012345678901234',
+            enabled: true
+        }
+
+        const config2: AliyunOssConfig = {
+            type: StorageProviderType.ALIYUN_OSS,
+            name: 'test2',
+            bucket: 'bucket2',
+            region: 'cn-shanghai',
+            accessKeyId: 'test-key-id-12345678',
+            accessKeySecret: 'test-key-secret-123456789012345678901234',
+            enabled: true
+        }
+
+        // 创建两个适配器
+        StorageFactory.getAdapter(config1)
+        StorageFactory.getAdapter(config2)
+        expect(StorageFactory.getCacheSize()).toBe(2)
+
+        // 清除指定 key
+        StorageFactory.clearCache('aliyun_oss:bucket1:cn-hangzhou')
+        expect(StorageFactory.getCacheSize()).toBe(1)
+        expect(StorageFactory.isCached(config1)).toBe(false)
+        expect(StorageFactory.isCached(config2)).toBe(true)
+    })
+})

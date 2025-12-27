@@ -408,7 +408,8 @@ describe('Property 12: 积分消耗顺序', () => {
                     fc.record({
                         id: fc.integer({ min: 1, max: 10000 }),
                         remaining: fc.integer({ min: 10, max: 100 }),
-                        expiredAt: fc.date({ min: new Date('2025-01-01'), max: new Date('2026-12-31') }),
+                        expiredAt: fc.date({ min: new Date('2025-01-01'), max: new Date('2026-12-31') })
+                            .filter(d => !isNaN(d.getTime())),
                     }),
                     { minLength: 3, maxLength: 6 }
                 ),
