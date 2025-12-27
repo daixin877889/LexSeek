@@ -4,7 +4,7 @@
  * 使用新的存储适配器系统，支持多种云存储服务商
  */
 
-import { generatePostSignatureService } from '~~/server/services/storage/storage.service'
+// import { generatePostSignatureService } from '~~/server/services/storage/storage.service'
 import { StorageProviderType } from '~~/server/lib/storage/types'
 
 export default defineEventHandler(async (event) => {

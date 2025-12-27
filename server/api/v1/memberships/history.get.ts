@@ -6,12 +6,12 @@
  * 返回当前登录用户的会员历史记录（分页）
  */
 import { z } from 'zod'
-import { getMembershipHistoryService } from '~/server/services/membership/userMembership.service'
+// import { getMembershipHistoryService } from '~/server/services/membership/userMembership.service'
 
 // 查询参数验证 schema
 const querySchema = z.object({
-    page: z.string().regex(/^\d+$/).transform(Number).optional().default('1'),
-    pageSize: z.string().regex(/^\d+$/).transform(Number).optional().default('10'),
+    page: z.string().regex(/^\d+$/).transform(Number).optional().default(1),
+    pageSize: z.string().regex(/^\d+$/).transform(Number).optional().default(10),
 })
 
 export default defineEventHandler(async (event) => {
@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
         const result = querySchema.safeParse(query)
 
         if (!result.success) {
-            return resError(event, 400, result.error.errors[0].message)
+            return resError(event, 400, result.error.issues[0].message)
         }
 
         const { page, pageSize } = result.data

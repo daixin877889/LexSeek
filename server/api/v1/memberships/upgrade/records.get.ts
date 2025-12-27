@@ -4,7 +4,7 @@
  * 返回用户的会员升级历史记录
  */
 import { z } from 'zod'
-import { getUserUpgradeRecordsService } from '~/server/services/membership/membershipUpgrade.service'
+// import { getUserUpgradeRecordsService } from '~/server/services/membership/membershipUpgrade.service'
 
 // 查询参数验证
 const querySchema = z.object({
@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
     const parseResult = querySchema.safeParse(query)
 
     if (!parseResult.success) {
-        return resError(event, 400, parseResult.error.errors[0].message)
+        return resError(event, 400, parseResult.error.issues[0].message)
     }
 
     const { page, pageSize } = parseResult.data

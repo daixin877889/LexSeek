@@ -4,7 +4,7 @@
  * GET /api/v1/storage/config
  */
 
-import { getStorageConfigsDao } from '~~/server/services/storage/storage-config.dao'
+// import { getStorageConfigsDao } from '~~/server/services/storage/storage-config.dao'
 import { StorageProviderType } from '~~/server/lib/storage/types'
 
 export default defineEventHandler(async (event) => {

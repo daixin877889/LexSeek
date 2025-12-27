@@ -5,8 +5,8 @@
  *
  * 执行兑换码兑换操作
  */
-import { z } from 'zod'
-import { redeemCodeService } from '~/server/services/redemption/redemption.service'
+// import { z } from 'zod'
+// import { redeemCodeService } from '~/server/services/redemption/redemption.service'
 
 // 请求体验证 schema
 const bodySchema = z.object({
@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
         const result = bodySchema.safeParse(body)
 
         if (!result.success) {
-            return resError(event, 400, result.error.errors[0].message)
+            return resError(event, 400, result.error.issues[0].message)
         }
 
         const { code } = result.data

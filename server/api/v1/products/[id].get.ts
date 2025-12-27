@@ -5,8 +5,8 @@
  *
  * 返回指定 ID 的商品详情
  */
-import { z } from 'zod'
-import { getProductByIdService } from '~/server/services/product/product.service'
+// import { z } from 'zod'
+// import { getProductByIdService } from '~/server/services/product/product.service'
 
 // 参数验证 schema
 const paramsSchema = z.object({
@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
         const result = paramsSchema.safeParse(params)
 
         if (!result.success) {
-            return resError(event, 400, result.error.errors[0].message)
+            return resError(event, 400, result.error.issues[0].message)
         }
 
         const { id } = result.data

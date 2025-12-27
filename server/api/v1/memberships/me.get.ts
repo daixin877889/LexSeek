@@ -5,7 +5,7 @@
  *
  * 返回当前登录用户的有效会员信息
  */
-import { getCurrentMembershipService } from '~/server/services/membership/userMembership.service'
+// import { getCurrentMembershipService } from '~/server/services/membership/userMembership.service'
 
 export default defineEventHandler(async (event) => {
     try {

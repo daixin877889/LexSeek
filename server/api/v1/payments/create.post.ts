@@ -5,10 +5,10 @@
  *
  * 创建订单并发起支付
  */
-import { z } from 'zod'
-import { PaymentChannel, PaymentMethod, DurationUnit } from '#shared/types/payment'
-import { createOrderService } from '../../../services/payment/order.service'
-import { createPaymentService } from '../../../services/payment/payment.service'
+// import { z } from 'zod'
+// import { PaymentChannel, PaymentMethod, DurationUnit } from '#shared/types/payment'
+// import { createOrderService } from '../../../services/payment/order.service'
+// import { createPaymentService } from '../../../services/payment/payment.service'
 
 /** 请求参数验证 */
 const createPaymentSchema = z.object({

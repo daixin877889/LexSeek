@@ -17,7 +17,7 @@ import {
     expirePaymentTransactionsDao,
 } from './paymentTransaction.dao'
 import { findOrderByIdDao, updateOrderStatusDao } from './order.dao'
-import { handlePaymentSuccess } from './handlers'
+import { handlePaymentSuccess } from './handlers/index'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma
@@ -232,12 +232,10 @@ export const handlePaymentCallbackService = async (
 /**
  * 查询支付状态
  * @param transactionNo 支付单号
- * @returns 支付单信息
+ * @returns 支付单信息（包含订单）
  */
-export const queryPaymentStatusService = async (
-    transactionNo: string
-): Promise<paymentTransactions | null> => {
-    return findPaymentTransactionByNoDao(transactionNo).then((t) => t || null)
+export const queryPaymentStatusService = async (transactionNo: string) => {
+    return findPaymentTransactionByNoDao(transactionNo)
 }
 
 /**

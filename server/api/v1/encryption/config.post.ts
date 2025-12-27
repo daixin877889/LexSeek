@@ -4,7 +4,7 @@
  * 保存用户的公钥和加密后的私钥
  */
 
-import { upsertUserEncryptionDao } from '~~/server/services/encryption/encryption.dao'
+// import { upsertUserEncryptionDao } from '~~/server/services/encryption/encryption.dao'
 
 export default defineEventHandler(async (event) => {
     try {

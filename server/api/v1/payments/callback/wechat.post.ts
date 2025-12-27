@@ -5,8 +5,8 @@
  *
  * 接收微信支付异步通知
  */
-import { PaymentChannel } from '#shared/types/payment'
-import { handlePaymentCallbackService } from '../../../../services/payment/payment.service'
+// import { PaymentChannel } from '#shared/types/payment'
+// import { handlePaymentCallbackService } from '../../../../services/payment/payment.service'
 
 export default defineEventHandler(async (event) => {
     try {

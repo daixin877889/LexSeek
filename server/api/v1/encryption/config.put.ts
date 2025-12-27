@@ -4,7 +4,7 @@
  * 用于修改加密密码后更新加密后的私钥
  */
 
-import { getUserEncryptionDao, updateUserEncryptionDao } from '~~/server/services/encryption/encryption.dao'
+// import { getUserEncryptionDao, updateUserEncryptionDao } from '~~/server/services/encryption/encryption.dao'
 
 export default defineEventHandler(async (event) => {
     try {

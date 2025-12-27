@@ -4,7 +4,7 @@
  * 用于使用恢复密钥重置加密密码
  */
 
-import { getUserEncryptionDao, updateUserEncryptionDao } from '~~/server/services/encryption/encryption.dao'
+// import { getUserEncryptionDao, updateUserEncryptionDao } from '~~/server/services/encryption/encryption.dao'
 
 export default defineEventHandler(async (event) => {
     try {

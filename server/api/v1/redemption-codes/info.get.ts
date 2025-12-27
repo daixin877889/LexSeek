@@ -5,8 +5,8 @@
  *
  * 返回兑换码的详细信息（不执行兑换）
  */
-import { z } from 'zod'
-import { getRedemptionCodeInfoService } from '~/server/services/redemption/redemption.service'
+// import { z } from 'zod'
+// import { getRedemptionCodeInfoService } from '~/server/services/redemption/redemption.service'
 
 // 查询参数验证 schema
 const querySchema = z.object({
@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
         const result = querySchema.safeParse(query)
 
         if (!result.success) {
-            return resError(event, 400, result.error.errors[0].message)
+            return resError(event, 400, result.error.issues[0].message)
         }
 
         const { code } = result.data

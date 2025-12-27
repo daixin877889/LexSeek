@@ -5,12 +5,7 @@
  *
  * 查询支付单状态，支持主动查询支付结果
  */
-import { z } from 'zod'
 import { PaymentTransactionStatus } from '#shared/types/payment'
-import {
-    queryPaymentStatusService,
-    queryPaymentResultService,
-} from '../../../services/payment/payment.service'
 
 /** 请求参数验证 */
 const queryPaymentSchema = z.object({
@@ -32,7 +27,7 @@ export default defineEventHandler(async (event) => {
     const parseResult = queryPaymentSchema.safeParse(query)
 
     if (!parseResult.success) {
-        const errorMessage = parseResult.error.errors[0]?.message || '参数错误'
+        const errorMessage = parseResult.error.issues[0]?.message || '参数错误'
         return resError(event, 400, errorMessage)
     }
 

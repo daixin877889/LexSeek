@@ -7,7 +7,7 @@
  */
 import dayjs from 'dayjs'
 import { z } from 'zod'
-import { findCampaignByIdDao } from '~/server/services/campaign/campaign.dao'
+// import { findCampaignByIdDao } from '~/server/services/campaign/campaign.dao'
 import { CampaignType, CampaignStatus, type CampaignInfo } from '#shared/types/campaign'
 
 // 参数验证 schema
@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
         const result = paramsSchema.safeParse(params)
 
         if (!result.success) {
-            return resError(event, 400, result.error.errors[0].message)
+            return resError(event, 400, result.error.issues[0].message)
         }
 
         const { id } = result.data

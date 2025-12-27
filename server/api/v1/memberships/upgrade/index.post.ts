@@ -4,7 +4,7 @@
  * 执行会员升级操作，需要先完成支付
  */
 import { z } from 'zod'
-import { executeMembershipUpgradeService } from '~/server/services/membership/membershipUpgrade.service'
+// import { executeMembershipUpgradeService } from '~/server/services/membership/membershipUpgrade.service'
 
 // 请求参数验证
 const bodySchema = z.object({
@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
     const parseResult = bodySchema.safeParse(body)
 
     if (!parseResult.success) {
-        return resError(event, 400, parseResult.error.errors[0].message)
+        return resError(event, 400, parseResult.error.issues[0].message)
     }
 
     const { targetLevelId, orderId } = parseResult.data

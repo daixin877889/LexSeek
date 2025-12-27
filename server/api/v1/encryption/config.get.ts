@@ -4,7 +4,7 @@
  * 返回用户的公钥、加密后的私钥、是否有恢复密钥
  */
 
-import { getUserEncryptionDao } from '~~/server/services/encryption/encryption.dao'
+// import { getUserEncryptionDao } from '~~/server/services/encryption/encryption.dao'
 
 export default defineEventHandler(async (event) => {
     try {

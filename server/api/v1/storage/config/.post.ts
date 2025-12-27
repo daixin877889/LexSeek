@@ -4,11 +4,11 @@
  * POST /api/v1/storage/config
  */
 
-import {
-    createStorageConfigDao,
-    isConfigNameExistsDao
-} from '~~/server/services/storage/storage-config.dao'
-import { testStorageConnectionService } from '~~/server/services/storage/storage.service'
+// import {
+//     createStorageConfigDao,
+//     isConfigNameExistsDao
+// } from '~~/server/services/storage/storage-config.dao'
+// import { testStorageConnectionService } from '~~/server/services/storage/storage.service'
 import { StorageProviderType } from '~~/server/lib/storage/types'
 
 export default defineEventHandler(async (event) => {

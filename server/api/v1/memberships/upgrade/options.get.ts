@@ -4,7 +4,7 @@
  * 返回用户可升级的目标级别列表及升级价格
  */
 import { z } from 'zod'
-import { getUpgradeOptionsService } from '~/server/services/membership/membershipUpgrade.service'
+// import { getUpgradeOptionsService } from '~/server/services/membership/membershipUpgrade.service'
 
 export default defineEventHandler(async (event) => {
     // 获取当前用户

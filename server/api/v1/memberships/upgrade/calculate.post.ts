@@ -4,7 +4,7 @@
  * 计算升级到指定级别的价格和积分补偿
  */
 import { z } from 'zod'
-import { calculateUpgradePriceService } from '~/server/services/membership/membershipUpgrade.service'
+// import { calculateUpgradePriceService } from '~/server/services/membership/membershipUpgrade.service'
 
 // 请求参数验证
 const bodySchema = z.object({
@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
     const parseResult = bodySchema.safeParse(body)
 
     if (!parseResult.success) {
-        return resError(event, 400, parseResult.error.errors[0].message)
+        return resError(event, 400, parseResult.error.issues[0].message)
     }
 
     const { targetLevelId } = parseResult.data

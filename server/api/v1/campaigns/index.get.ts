@@ -7,13 +7,13 @@
  */
 import dayjs from 'dayjs'
 import { z } from 'zod'
-import { findAllCampaignsDao } from '~/server/services/campaign/campaign.dao'
+// import { findAllCampaignsDao } from '~/server/services/campaign/campaign.dao'
 import { CampaignType, CampaignStatus, type CampaignInfo } from '#shared/types/campaign'
 
 // 查询参数验证 schema
 const querySchema = z.object({
-    page: z.string().regex(/^\d+$/).transform(Number).optional().default('1'),
-    pageSize: z.string().regex(/^\d+$/).transform(Number).optional().default('10'),
+    page: z.string().regex(/^\d+$/).transform(Number).optional().default(1),
+    pageSize: z.string().regex(/^\d+$/).transform(Number).optional().default(10),
     type: z.string().regex(/^\d+$/).transform(Number).optional(),
     status: z.string().regex(/^[01]$/).transform(Number).optional(),
 })
@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
         const result = querySchema.safeParse(query)
 
         if (!result.success) {
-            return resError(event, 400, result.error.errors[0].message)
+            return resError(event, 400, result.error.issues[0].message)
         }
 
         const { page, pageSize, type, status } = result.data

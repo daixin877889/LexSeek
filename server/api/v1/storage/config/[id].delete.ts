@@ -4,8 +4,8 @@
  * DELETE /api/v1/storage/config/:id
  */
 
-import { deleteStorageConfigDao } from '~~/server/services/storage/storage-config.dao'
-import { clearAdapterCache } from '~~/server/services/storage/storage.service'
+// import { deleteStorageConfigDao } from '~~/server/services/storage/storage-config.dao'
+// import { clearAdapterCache } from '~~/server/services/storage/storage.service'
 
 export default defineEventHandler(async (event) => {
     try {

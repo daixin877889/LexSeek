@@ -4,7 +4,7 @@
  * POST /api/v1/storage/config/test
  */
 
-import { testStorageConnectionService } from '~~/server/services/storage/storage.service'
+// import { testStorageConnectionService } from '~~/server/services/storage/storage.service'
 import { StorageProviderType } from '~~/server/lib/storage/types'
 
 export default defineEventHandler(async (event) => {

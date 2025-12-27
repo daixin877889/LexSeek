@@ -167,6 +167,7 @@ export const updatePaymentTransactionDao = async (
     data: {
         status?: PaymentTransactionStatus
         outTradeNo?: string
+        prepayId?: string
         paidAt?: Date
         callbackData?: Prisma.InputJsonValue
         errorMessage?: string

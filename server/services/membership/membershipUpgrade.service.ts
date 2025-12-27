@@ -49,7 +49,7 @@ export interface UpgradeOption {
  */
 export const getUpgradeOptionsService = async (
     userId: number
-): Promise<{ options: UpgradeOption[]; currentMembership: userMemberships | null }> => {
+) => {
     // 获取用户当前有效会员
     const currentMembership = await findCurrentUserMembershipDao(userId)
 
