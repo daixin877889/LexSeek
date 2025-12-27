@@ -19,24 +19,21 @@ const mockConfig = {
     },
 }
 
-// 在导入模块之前设置全局模拟
-beforeAll(() => {
-    // 模拟 useRuntimeConfig
-    vi.stubGlobal('useRuntimeConfig', () => mockConfig)
-
-    // 模拟 logger
-    vi.stubGlobal('logger', {
-        error: vi.fn(),
-        warn: vi.fn(),
-        info: vi.fn(),
-    })
+// 在模块加载前设置全局模拟
+vi.stubGlobal('useRuntimeConfig', () => mockConfig)
+vi.stubGlobal('logger', {
+    error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
 })
 
-// 动态导入被测试的模块（在模拟设置之后）
+// 动态导入被测试的模块
 let JwtUtil: typeof import('../../../server/utils/jwt').JwtUtil
 type JwtPayload = import('../../../server/utils/jwt').JwtPayload
 
 beforeAll(async () => {
+    // 重置模块缓存并重新导入
+    vi.resetModules()
     const module = await import('../../../server/utils/jwt')
     JwtUtil = module.JwtUtil
 })

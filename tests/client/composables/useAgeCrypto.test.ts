@@ -2,6 +2,9 @@
  * useAgeCrypto Composable 属性测试
  * 
  * 使用 fast-check 进行属性测试，验证加密功能的正确性
+ *
+ * **Feature: age-crypto-composable**
+ * **Validates: Requirements 1.2, 1.3, 1.8, 2.6, 3.7, 8.2, 8.3, 8.8**
  */
 
 import { describe, it, expect } from 'vitest'
