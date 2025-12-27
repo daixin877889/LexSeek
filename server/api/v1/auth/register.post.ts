@@ -99,6 +99,22 @@ export default defineEventHandler(async (event) => {
         // 使用统一的用户信息格式化服务
         const responseUser = formatUserResponseService(userInfo)
 
+        // 执行注册赠送活动（异步执行，不影响注册流程）
+        try {
+            const { executeRegisterGiftService, executeInvitationRewardService } = await import('~/server/services/campaign/campaign.service')
+
+            // 执行注册赠送
+            await executeRegisterGiftService(newUser.id)
+
+            // 如果有邀请人，执行邀请奖励
+            if (invitedById) {
+                await executeInvitationRewardService(invitedById, newUser.id)
+            }
+        } catch (campaignError) {
+            // 营销活动执行失败不影响注册流程，仅记录日志
+            logger.error('执行营销活动失败：', campaignError)
+        }
+
         // 使用统一的 token 生成服务
         const token = generateAuthToken(event, {
             id: responseUser.id,
