@@ -10,7 +10,9 @@ export default defineConfig({
             '~~/': resolve(__dirname, './') + '/',
             '~~': resolve(__dirname, './'),
             '@/': resolve(__dirname, './') + '/',
-            '@': resolve(__dirname, './')
+            '@': resolve(__dirname, './'),
+            '#shared': resolve(__dirname, './shared'),
+            '#shared/': resolve(__dirname, './shared/'),
         }
     },
     test: {

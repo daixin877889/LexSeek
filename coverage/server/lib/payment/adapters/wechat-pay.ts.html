@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for server/lib/storage/adapters/aliyun-oss.ts</title>
+    <title>Code coverage report for server/lib/payment/adapters/wechat-pay.ts</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../../../prettify.css" />
     <link rel="stylesheet" href="../../../../base.css" />
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../../../index.html">All files</a> / <a href="index.html">server/lib/storage/adapters</a> aliyun-oss.ts</h1>
+        <h1><a href="../../../../index.html">All files</a> / <a href="index.html">server/lib/payment/adapters</a> wechat-pay.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">93.75% </span>
+                <span class="strong">99.19% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>75/80</span>
+                <span class='fraction'>123/124</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">90.9% </span>
+                <span class="strong">82.45% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>60/66</span>
+                <span class='fraction'>47/57</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>15/15</span>
+                <span class='fraction'>18/18</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">93.75% </span>
+                <span class="strong">99.19% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>75/80</span>
+                <span class='fraction'>123/124</span>
             </div>
         
             
@@ -399,7 +399,107 @@
 <a name='L334'></a><a href='#L334'>334</a>
 <a name='L335'></a><a href='#L335'>335</a>
 <a name='L336'></a><a href='#L336'>336</a>
-<a name='L337'></a><a href='#L337'>337</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L337'></a><a href='#L337'>337</a>
+<a name='L338'></a><a href='#L338'>338</a>
+<a name='L339'></a><a href='#L339'>339</a>
+<a name='L340'></a><a href='#L340'>340</a>
+<a name='L341'></a><a href='#L341'>341</a>
+<a name='L342'></a><a href='#L342'>342</a>
+<a name='L343'></a><a href='#L343'>343</a>
+<a name='L344'></a><a href='#L344'>344</a>
+<a name='L345'></a><a href='#L345'>345</a>
+<a name='L346'></a><a href='#L346'>346</a>
+<a name='L347'></a><a href='#L347'>347</a>
+<a name='L348'></a><a href='#L348'>348</a>
+<a name='L349'></a><a href='#L349'>349</a>
+<a name='L350'></a><a href='#L350'>350</a>
+<a name='L351'></a><a href='#L351'>351</a>
+<a name='L352'></a><a href='#L352'>352</a>
+<a name='L353'></a><a href='#L353'>353</a>
+<a name='L354'></a><a href='#L354'>354</a>
+<a name='L355'></a><a href='#L355'>355</a>
+<a name='L356'></a><a href='#L356'>356</a>
+<a name='L357'></a><a href='#L357'>357</a>
+<a name='L358'></a><a href='#L358'>358</a>
+<a name='L359'></a><a href='#L359'>359</a>
+<a name='L360'></a><a href='#L360'>360</a>
+<a name='L361'></a><a href='#L361'>361</a>
+<a name='L362'></a><a href='#L362'>362</a>
+<a name='L363'></a><a href='#L363'>363</a>
+<a name='L364'></a><a href='#L364'>364</a>
+<a name='L365'></a><a href='#L365'>365</a>
+<a name='L366'></a><a href='#L366'>366</a>
+<a name='L367'></a><a href='#L367'>367</a>
+<a name='L368'></a><a href='#L368'>368</a>
+<a name='L369'></a><a href='#L369'>369</a>
+<a name='L370'></a><a href='#L370'>370</a>
+<a name='L371'></a><a href='#L371'>371</a>
+<a name='L372'></a><a href='#L372'>372</a>
+<a name='L373'></a><a href='#L373'>373</a>
+<a name='L374'></a><a href='#L374'>374</a>
+<a name='L375'></a><a href='#L375'>375</a>
+<a name='L376'></a><a href='#L376'>376</a>
+<a name='L377'></a><a href='#L377'>377</a>
+<a name='L378'></a><a href='#L378'>378</a>
+<a name='L379'></a><a href='#L379'>379</a>
+<a name='L380'></a><a href='#L380'>380</a>
+<a name='L381'></a><a href='#L381'>381</a>
+<a name='L382'></a><a href='#L382'>382</a>
+<a name='L383'></a><a href='#L383'>383</a>
+<a name='L384'></a><a href='#L384'>384</a>
+<a name='L385'></a><a href='#L385'>385</a>
+<a name='L386'></a><a href='#L386'>386</a>
+<a name='L387'></a><a href='#L387'>387</a>
+<a name='L388'></a><a href='#L388'>388</a>
+<a name='L389'></a><a href='#L389'>389</a>
+<a name='L390'></a><a href='#L390'>390</a>
+<a name='L391'></a><a href='#L391'>391</a>
+<a name='L392'></a><a href='#L392'>392</a>
+<a name='L393'></a><a href='#L393'>393</a>
+<a name='L394'></a><a href='#L394'>394</a>
+<a name='L395'></a><a href='#L395'>395</a>
+<a name='L396'></a><a href='#L396'>396</a>
+<a name='L397'></a><a href='#L397'>397</a>
+<a name='L398'></a><a href='#L398'>398</a>
+<a name='L399'></a><a href='#L399'>399</a>
+<a name='L400'></a><a href='#L400'>400</a>
+<a name='L401'></a><a href='#L401'>401</a>
+<a name='L402'></a><a href='#L402'>402</a>
+<a name='L403'></a><a href='#L403'>403</a>
+<a name='L404'></a><a href='#L404'>404</a>
+<a name='L405'></a><a href='#L405'>405</a>
+<a name='L406'></a><a href='#L406'>406</a>
+<a name='L407'></a><a href='#L407'>407</a>
+<a name='L408'></a><a href='#L408'>408</a>
+<a name='L409'></a><a href='#L409'>409</a>
+<a name='L410'></a><a href='#L410'>410</a>
+<a name='L411'></a><a href='#L411'>411</a>
+<a name='L412'></a><a href='#L412'>412</a>
+<a name='L413'></a><a href='#L413'>413</a>
+<a name='L414'></a><a href='#L414'>414</a>
+<a name='L415'></a><a href='#L415'>415</a>
+<a name='L416'></a><a href='#L416'>416</a>
+<a name='L417'></a><a href='#L417'>417</a>
+<a name='L418'></a><a href='#L418'>418</a>
+<a name='L419'></a><a href='#L419'>419</a>
+<a name='L420'></a><a href='#L420'>420</a>
+<a name='L421'></a><a href='#L421'>421</a>
+<a name='L422'></a><a href='#L422'>422</a>
+<a name='L423'></a><a href='#L423'>423</a>
+<a name='L424'></a><a href='#L424'>424</a>
+<a name='L425'></a><a href='#L425'>425</a>
+<a name='L426'></a><a href='#L426'>426</a>
+<a name='L427'></a><a href='#L427'>427</a>
+<a name='L428'></a><a href='#L428'>428</a>
+<a name='L429'></a><a href='#L429'>429</a>
+<a name='L430'></a><a href='#L430'>430</a>
+<a name='L431'></a><a href='#L431'>431</a>
+<a name='L432'></a><a href='#L432'>432</a>
+<a name='L433'></a><a href='#L433'>433</a>
+<a name='L434'></a><a href='#L434'>434</a>
+<a name='L435'></a><a href='#L435'>435</a>
+<a name='L436'></a><a href='#L436'>436</a>
+<a name='L437'></a><a href='#L437'>437</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -407,155 +507,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">591x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">705x</span>
-<span class="cline-any cline-yes">705x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">705x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">705x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">705x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">698x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">695x</span>
-<span class="cline-any cline-yes">695x</span>
-<span class="cline-any cline-yes">101x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">594x</span>
-<span class="cline-any cline-yes">40x</span>
-<span class="cline-any cline-yes">40x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">54x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -566,19 +517,20 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">84x</span>
+<span class="cline-any cline-yes">84x</span>
+<span class="cline-any cline-yes">11x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">52x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">12x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -589,13 +541,87 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -606,18 +632,87 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -629,9 +724,71 @@
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -641,434 +798,577 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-yes">13x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">8x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">21x</span>
-<span class="cline-any cline-yes">21x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">21x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">8x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
- * 阿里云 OSS 存储适配器
+ * 微信支付适配器
  *
- * 复用现有的 server/lib/oss 模块实现
+ * 实现微信支付 V3 API 的各种支付方式
  */
+import { createHash, createSign, createVerify, createDecipheriv } from 'crypto'
+import { PaymentChannel, PaymentMethod } from '#shared/types/payment'
+import { BasePaymentAdapter } from '../base'
+import type { WechatPayConfig, CreatePaymentParams, PaymentResult, CallbackData, CallbackVerifyResult, QueryOrderParams, QueryOrderResult, CloseOrderParams, CloseOrderResult } from '../types'
+import { PaymentConfigError, PaymentRequestError, PaymentSignatureError, PaymentMethodNotSupportedError } from '../errors'
 &nbsp;
-import type { Readable } from 'stream'
-import type {
-    AliyunOssConfig,
-    StorageProviderType,
-    UploadOptions,
-    UploadResult,
-    DownloadOptions,
-    DeleteResult,
-    SignedUrlOptions,
-    PostSignatureOptions,
-    AliyunPostSignatureResult
-} from '../types'
-import { BaseStorageAdapter } from '../base'
-import {
-    StorageConfigError,
-    StorageNotFoundError,
-    StoragePermissionError,
-    StorageNetworkError,
-    convertAliyunError
-} from '../errors'
+/** 微信支付 API 基础地址 */
+const WECHAT_PAY_API_BASE = 'https://api.mch.weixin.qq.com'
 &nbsp;
-// 复用现有的 OSS 模块
-import {
-    createOssClient,
-    generatePostSignature as ossGeneratePostSignature,
-    generateSignedUrl as ossGenerateSignedUrl,
-    uploadFile as ossUploadFile,
-    downloadFile as ossDownloadFile,
-    downloadFileStream as ossDownloadFileStream,
-    deleteFile as ossDeleteFile
-} from '~~/server/lib/oss'
-import type { OssConfig } from '~~/shared/types/oss'
-&nbsp;
-/**
- * 阿里云 OSS 存储适配器
- */
-export class AliyunOssAdapter extends BaseStorageAdapter {
-    readonly type = 'aliyun_oss' as StorageProviderType
-&nbsp;
-    /** 阿里云 OSS 配置 */
-    private readonly ossConfig: AliyunOssConfig
-&nbsp;
-    constructor(config: AliyunOssConfig) {
-        super(config)
-        this.ossConfig = config
+/** 微信支付适配器 */
+export class WechatPayAdapter extends BasePaymentAdapter&lt;WechatPayConfig&gt; {
+    /** 验证配置 */
+    protected validateConfig(): void {
+        const { appId, mchId, apiV3Key, serialNo, privateKey } = this.config
+        if (!appId || !mchId || !apiV3Key || !serialNo || !privateKey) {
+            throw new PaymentConfigError('微信支付配置不完整')
+        }
     }
 &nbsp;
-    /**
-     * 验证配置
-     */
-    protected override validateConfig(): void {
-        super.validateConfig()
+    /** 获取支付渠道 */
+    getChannel(): PaymentChannel {
+        return PaymentChannel.WECHAT
+    }
 &nbsp;
-        const config = this.config as AliyunOssConfig
+    /** 获取支持的支付方式 */
+    getSupportedMethods(): PaymentMethod[] {
+        return [
+            PaymentMethod.MINI_PROGRAM,
+            PaymentMethod.SCAN_CODE,
+            PaymentMethod.WAP,
+            PaymentMethod.APP,
+        ]
+    }
 &nbsp;
-        if (!config.accessKeyId) {
-            throw new StorageConfigError('缺少必填配置: accessKeyId')
+    /** 创建支付 */
+    async createPayment(params: CreatePaymentParams): Promise&lt;PaymentResult&gt; {
+        const { method } = params
+&nbsp;
+        // 检查支付方式是否支持
+        if (!this.getSupportedMethods().includes(method)) {
+            throw new PaymentMethodNotSupportedError(method)
         }
-        if (!config.accessKeySecret) {
-            throw new StorageConfigError('缺少必填配置: accessKeySecret')
+&nbsp;
+        switch (method) {
+            case PaymentMethod.MINI_PROGRAM:
+                return this.createJsapiPayment(params)
+            case PaymentMethod.SCAN_CODE:
+                return this.createNativePayment(params)
+            case PaymentMethod.WAP:
+                return this.createH5Payment(params)
+            case PaymentMethod.APP:
+                return this.createAppPayment(params)
+<span class="branch-4 cbranch-no" title="branch not covered" >            default:</span>
+<span class="cstat-no" title="statement not covered" >                throw new PaymentMethodNotSupportedError(method)</span>
+        }
+    }
+&nbsp;
+    /** 创建 JSAPI 支付（小程序/公众号） */
+    private async createJsapiPayment(params: CreatePaymentParams): Promise&lt;PaymentResult&gt; {
+        const { orderNo, amount, description, openid, notifyUrl, attach, expireMinutes = 30 } = params
+&nbsp;
+        if (!openid) {
+            return { success: false, errorMessage: '小程序支付需要提供 openid' }
         }
 &nbsp;
-        // 验证 region 格式
-        const regionPattern = /^(oss-)?[a-z]+-[a-z0-9]+$/
-        if (!regionPattern.test(config.region)) {
-            throw new StorageConfigError(`无效的 region 格式: ${config.region}`)
+        const requestBody = {
+            appid: this.config.appId,
+            mchid: this.config.mchId,
+            description,
+            out_trade_no: orderNo,
+            notify_url: notifyUrl,
+            time_expire: this.getExpireTime(expireMinutes),
+            attach,
+            amount: { total: amount, currency: 'CNY' },
+            payer: { openid },
         }
 &nbsp;
-        // 如果提供了 STS 配置，验证 roleArn 格式
-        if (config.sts) {
-            const arnPattern = /^acs:ram::\d+:role\/[\w-]+$/
-            if (!arnPattern.test(config.sts.roleArn)) {
-                throw new StorageConfigError('无效的 STS role ARN 格式')
+        try {
+            const response = await this.request&lt;{ prepay_id: string }&gt;(
+                'POST',
+                '/v3/pay/transactions/jsapi',
+                requestBody
+            )
+&nbsp;
+            // 生成小程序调起支付的参数
+            const paymentParams = this.generateJsapiPayParams(response.prepay_id)
+&nbsp;
+            return {
+                success: true,
+                prepayId: response.prepay_id,
+                paymentParams,
+            }
+        } catch (error) {
+            logger.error('创建 JSAPI 支付失败：', error)
+            return {
+                success: false,
+                errorMessage: error instanceof Error ? error.message : <span class="branch-1 cbranch-no" title="branch not covered" >'创建支付失败',</span>
             }
         }
     }
 &nbsp;
-    /**
-     * 转换为 OSS 库的配置格式
-     */
-    private toOssConfig(): OssConfig {
+    /** 创建 Native 支付（扫码） */
+    private async createNativePayment(params: CreatePaymentParams): Promise&lt;PaymentResult&gt; {
+        const { orderNo, amount, description, notifyUrl, attach, expireMinutes = 30 } = params
+&nbsp;
+        const requestBody = {
+            appid: this.config.appId,
+            mchid: this.config.mchId,
+            description,
+            out_trade_no: orderNo,
+            notify_url: notifyUrl,
+            time_expire: this.getExpireTime(expireMinutes),
+            attach,
+            amount: { total: amount, currency: 'CNY' },
+        }
+&nbsp;
+        try {
+            const response = await this.request&lt;{ code_url: string }&gt;(
+                'POST',
+                '/v3/pay/transactions/native',
+                requestBody
+            )
+&nbsp;
+            return {
+                success: true,
+                codeUrl: response.code_url,
+            }
+        } catch (error) {
+            logger.error('创建 Native 支付失败：', error)
+            return {
+                success: false,
+                errorMessage: error instanceof Error ? error.message : <span class="branch-1 cbranch-no" title="branch not covered" >'创建支付失败',</span>
+            }
+        }
+    }
+&nbsp;
+    /** 创建 H5 支付 */
+    private async createH5Payment(params: CreatePaymentParams): Promise&lt;PaymentResult&gt; {
+        const { orderNo, amount, description, notifyUrl, attach, expireMinutes = 30 } = params
+&nbsp;
+        const requestBody = {
+            appid: this.config.appId,
+            mchid: this.config.mchId,
+            description,
+            out_trade_no: orderNo,
+            notify_url: notifyUrl,
+            time_expire: this.getExpireTime(expireMinutes),
+            attach,
+            amount: { total: amount, currency: 'CNY' },
+            scene_info: {
+                payer_client_ip: '127.0.0.1',
+                h5_info: { type: 'Wap' },
+            },
+        }
+&nbsp;
+        try {
+            const response = await this.request&lt;{ h5_url: string }&gt;(
+                'POST',
+                '/v3/pay/transactions/h5',
+                requestBody
+            )
+&nbsp;
+            return {
+                success: true,
+                h5Url: response.h5_url,
+            }
+        } catch (error) {
+            logger.error('创建 H5 支付失败：', error)
+            return {
+                success: false,
+                errorMessage: error instanceof Error ? error.message : <span class="branch-1 cbranch-no" title="branch not covered" >'创建支付失败',</span>
+            }
+        }
+    }
+&nbsp;
+    /** 创建 APP 支付 */
+    private async createAppPayment(params: CreatePaymentParams): Promise&lt;PaymentResult&gt; {
+        const { orderNo, amount, description, notifyUrl, attach, expireMinutes = 30 } = params
+&nbsp;
+        const requestBody = {
+            appid: this.config.appId,
+            mchid: this.config.mchId,
+            description,
+            out_trade_no: orderNo,
+            notify_url: notifyUrl,
+            time_expire: this.getExpireTime(expireMinutes),
+            attach,
+            amount: { total: amount, currency: 'CNY' },
+        }
+&nbsp;
+        try {
+            const response = await this.request&lt;{ prepay_id: string }&gt;(
+                'POST',
+                '/v3/pay/transactions/app',
+                requestBody
+            )
+&nbsp;
+            // 生成 APP 调起支付的参数
+            const paymentParams = this.generateAppPayParams(response.prepay_id)
+&nbsp;
+            return {
+                success: true,
+                prepayId: response.prepay_id,
+                paymentParams,
+            }
+        } catch (error) {
+            logger.error('创建 APP 支付失败：', error)
+            return {
+                success: false,
+                errorMessage: error instanceof Error ? error.message : <span class="branch-1 cbranch-no" title="branch not covered" >'创建支付失败',</span>
+            }
+        }
+    }
+&nbsp;
+    /** 验证回调 */
+    async verifyCallback(data: CallbackData): Promise&lt;CallbackVerifyResult&gt; {
+        try {
+            const { raw, signature, timestamp, nonce, serial } = data
+&nbsp;
+            // 验证签名
+            if (!signature || !timestamp || !nonce) {
+                return { success: false, errorMessage: '回调参数不完整' }
+            }
+&nbsp;
+            const body = typeof raw === 'string' ? raw : <span class="branch-1 cbranch-no" title="branch not covered" >JSON.stringify(raw)</span>
+            const message = `${timestamp}\n${nonce}\n${body}\n`
+&nbsp;
+            // 使用微信支付平台证书验证签名
+            const isValid = this.verifySignature(message, signature)
+            if (!isValid) {
+                return { success: false, errorMessage: '签名验证失败' }
+            }
+&nbsp;
+            // 解密回调数据
+            const callbackBody = typeof raw === 'string' ? JSON.parse(raw) : <span class="branch-1 cbranch-no" title="branch not covered" >raw</span>
+            const resource = (callbackBody as { resource: { ciphertext: string; nonce: string; associated_data: string } }).resource
+            const decrypted = this.decryptCallback(resource.ciphertext, resource.nonce, resource.associated_data)
+            const result = JSON.parse(decrypted) as {
+                out_trade_no: string
+                transaction_id: string
+                amount: { total: number }
+                success_time: string
+                payer: { openid: string }
+                attach?: string
+            }
+&nbsp;
+            return {
+                success: true,
+                orderNo: result.out_trade_no,
+                transactionId: result.transaction_id,
+                amount: result.amount.total,
+                paidAt: new Date(result.success_time),
+                openid: result.payer.openid,
+                attach: result.attach,
+            }
+        } catch (error) {
+            logger.error('验证回调失败：', error)
+            return {
+                success: false,
+                errorMessage: error instanceof Error ? error.message : <span class="branch-1 cbranch-no" title="branch not covered" >'验证回调失败',</span>
+            }
+        }
+    }
+&nbsp;
+    /** 查询订单 */
+    async queryOrder(params: QueryOrderParams): Promise&lt;QueryOrderResult&gt; {
+        const { orderNo, transactionId } = params
+&nbsp;
+        try {
+            let url: string
+            if (transactionId) {
+                url = `/v3/pay/transactions/id/${transactionId}?mchid=${this.config.mchId}`
+            } else if (orderNo) {
+                url = `/v3/pay/transactions/out-trade-no/${orderNo}?mchid=${this.config.mchId}`
+            } else {
+                return { success: false, errorMessage: '需要提供订单号或交易号' }
+            }
+&nbsp;
+            const response = await this.request&lt;{
+                trade_state: 'SUCCESS' | 'NOTPAY' | 'CLOSED' | 'REFUND' | 'PAYERROR'
+                out_trade_no: string
+                transaction_id: string
+                amount: { total: number }
+                success_time?: string
+            }&gt;('GET', url)
+&nbsp;
+            return {
+                success: true,
+                tradeState: response.trade_state,
+                orderNo: response.out_trade_no,
+                transactionId: response.transaction_id,
+                amount: response.amount.total,
+                paidAt: response.success_time ? new Date(response.success_time) : undefined,
+            }
+        } catch (error) {
+            logger.error('查询订单失败：', error)
+            return {
+                success: false,
+                errorMessage: error instanceof Error ? error.message : <span class="branch-1 cbranch-no" title="branch not covered" >'查询订单失败',</span>
+            }
+        }
+    }
+&nbsp;
+    /** 关闭订单 */
+    async closeOrder(params: CloseOrderParams): Promise&lt;CloseOrderResult&gt; {
+        const { orderNo } = params
+&nbsp;
+        try {
+            await this.request(
+                'POST',
+                `/v3/pay/transactions/out-trade-no/${orderNo}/close`,
+                { mchid: this.config.mchId }
+            )
+&nbsp;
+            return { success: true }
+        } catch (error) {
+            logger.error('关闭订单失败：', error)
+            return {
+                success: false,
+                errorMessage: error instanceof Error ? error.message : <span class="branch-1 cbranch-no" title="branch not covered" >'关闭订单失败',</span>
+            }
+        }
+    }
+&nbsp;
+    /** 发送请求 */
+    private async request&lt;T&gt;(method: string, url: string, body?: unknown): Promise&lt;T&gt; {
+        const fullUrl = `${WECHAT_PAY_API_BASE}${url}`
+        const timestamp = this.getTimestamp()
+        const nonceStr = this.generateNonceStr()
+        const bodyStr = body ? JSON.stringify(body) : ''
+&nbsp;
+        // 生成签名
+        const signature = this.generateSignature(method, url, timestamp, nonceStr, bodyStr)
+        const authorization = `WECHATPAY2-SHA256-RSA2048 mchid="${this.config.mchId}",nonce_str="${nonceStr}",signature="${signature}",timestamp="${timestamp}",serial_no="${this.config.serialNo}"`
+&nbsp;
+        const response = await $fetch&lt;T&gt;(fullUrl, {
+            method: method as 'GET' | 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': authorization,
+            },
+            body: body ? bodyStr : undefined,
+        })
+&nbsp;
+        return response
+    }
+&nbsp;
+    /** 生成签名 */
+    private generateSignature(method: string, url: string, timestamp: number, nonceStr: string, body: string): string {
+        const message = `${method}\n${url}\n${timestamp}\n${nonceStr}\n${body}\n`
+        const sign = createSign('RSA-SHA256')
+        sign.update(message)
+        return sign.sign(this.config.privateKey, 'base64')
+    }
+&nbsp;
+    /** 验证签名 */
+    private verifySignature(message: string, signature: string): boolean {
+        if (!this.config.platformCert) {
+            // 如果没有配置平台证书，暂时跳过验证（生产环境必须配置）
+            logger.warn('未配置微信支付平台证书，跳过签名验证')
+            return true
+        }
+&nbsp;
+        const verify = createVerify('RSA-SHA256')
+        verify.update(message)
+        return verify.verify(this.config.platformCert, signature, 'base64')
+    }
+&nbsp;
+    /** 解密回调数据 */
+    private decryptCallback(ciphertext: string, nonce: string, associatedData: string): string {
+        const key = this.config.apiV3Key
+        const ciphertextBuffer = Buffer.from(ciphertext, 'base64')
+        const authTag = ciphertextBuffer.subarray(ciphertextBuffer.length - 16)
+        const data = ciphertextBuffer.subarray(0, ciphertextBuffer.length - 16)
+&nbsp;
+        const decipher = createDecipheriv('aes-256-gcm', key, nonce)
+        decipher.setAuthTag(authTag)
+        decipher.setAAD(Buffer.from(associatedData))
+&nbsp;
+        const decrypted = Buffer.concat([decipher.update(data), decipher.final()])
+        return decrypted.toString('utf8')
+    }
+&nbsp;
+    /** 生成 JSAPI 支付参数 */
+    private generateJsapiPayParams(prepayId: string): Record&lt;string, unknown&gt; {
+        const timestamp = this.getTimestamp().toString()
+        const nonceStr = this.generateNonceStr()
+        const packageStr = `prepay_id=${prepayId}`
+&nbsp;
+        const message = `${this.config.appId}\n${timestamp}\n${nonceStr}\n${packageStr}\n`
+        const sign = createSign('RSA-SHA256')
+        sign.update(message)
+        const paySign = sign.sign(this.config.privateKey, 'base64')
+&nbsp;
         return {
-            accessKeyId: this.ossConfig.accessKeyId,
-            accessKeySecret: this.ossConfig.accessKeySecret,
-            bucket: this.ossConfig.bucket,
-            region: this.ossConfig.region,
-            customDomain: this.ossConfig.customDomain,
-            sts: this.ossConfig.sts
-                ? {
-                    roleArn: this.ossConfig.sts.roleArn,
-                    roleSessionName: this.ossConfig.sts.roleSessionName,
-                    durationSeconds: this.ossConfig.sts.durationSeconds
-                }
-                : undefined
+            timeStamp: timestamp,
+            nonceStr,
+            package: packageStr,
+            signType: 'RSA',
+            paySign,
         }
     }
 &nbsp;
-    /**
-     * 获取存储主机地址
-     */
-    protected getHost(): string {
-        if (this.ossConfig.customDomain) {
-            let domain = this.ossConfig.customDomain.trim()
-            if (!domain.startsWith('http://') &amp;&amp; !domain.startsWith('https://')) {
-                domain = `https://${domain}`
-            }
-            return domain.replace(/\/+$/, '')
-        }
+    /** 生成 APP 支付参数 */
+    private generateAppPayParams(prepayId: string): Record&lt;string, unknown&gt; {
+        const timestamp = this.getTimestamp().toString()
+        const nonceStr = this.generateNonceStr()
 &nbsp;
-        const region = this.ossConfig.region.replace(/^oss-/g, '')
-        return `https://${this.ossConfig.bucket}.oss-${region}.aliyuncs.com`
-    }
+        const message = `${this.config.appId}\n${timestamp}\n${nonceStr}\n${prepayId}\n`
+        const sign = createSign('RSA-SHA256')
+        sign.update(message)
+        const paySign = sign.sign(this.config.privateKey, 'base64')
 &nbsp;
-    /**
-     * 检查是否为文件不存在错误
-     */
-    protected override isNotFoundError(error: unknown): boolean {
-        if (super.isNotFoundError(error)) {
-            return true
-        }
-        if (error &amp;&amp; typeof error === 'object') {
-            const err = error as Record&lt;string, unknown&gt;
-            return err.code === 'NoSuchKey' || err.status === 404
-        }
-        return false
-    }
-&nbsp;
-    /**
-     * 检查是否为权限错误
-     */
-    protected override isPermissionError(error: unknown): boolean {
-        if (super.isPermissionError(error)) {
-            return true
-        }
-        if (error &amp;&amp; typeof error === 'object') {
-            const err = error as Record&lt;string, unknown&gt;
-            return err.code === 'AccessDenied' || err.status === 403
-        }
-        return false
-    }
-&nbsp;
-    /**
-     * 检查是否为配置错误
-     */
-    protected override isConfigError(error: unknown): boolean {
-        if (super.isConfigError(error)) {
-            return true
-        }
-        if (error &amp;&amp; typeof error === 'object') {
-            const err = error as Record&lt;string, unknown&gt;
-            return (
-                err.code === 'InvalidAccessKeyId' ||
-                err.code === 'SignatureDoesNotMatch'
-            )
-        }
-        return false
-    }
-&nbsp;
-    /**
-     * 检查是否为网络错误
-     */
-    protected override isNetworkError(error: unknown): boolean {
-        if (super.isNetworkError(error)) {
-            return true
-        }
-        if (error &amp;&amp; typeof error === 'object') {
-            const err = error as Record&lt;string, unknown&gt;
-            return (
-                err.code === 'NetworkError' ||
-                err.code === 'ConnectionTimeoutError'
-            )
-        }
-        return false
-    }
-&nbsp;
-    /**
-     * 上传文件
-     */
-    async upload(
-        path: string,
-        data: Buffer | Readable,
-        options?: UploadOptions
-    ): Promise&lt;UploadResult&gt; {
-        try {
-            const result = await ossUploadFile(this.toOssConfig(), path, data, {
-                contentType: options?.contentType,
-                meta: options?.meta,
-                storageClass: options?.storageClass
-            })
-&nbsp;
-            return {
-                name: result.name,
-                etag: result.etag,
-                url: result.url
-            }
-        } catch (error) {
-            throw convertAliyunError(error, this.wrapUploadError(error).constructor as any)
+        return {
+            appid: this.config.appId,
+            partnerid: this.config.mchId,
+            prepayid: prepayId,
+            package: 'Sign=WXPay',
+            noncestr: nonceStr,
+            timestamp,
+            sign: paySign,
         }
     }
 &nbsp;
-    /**
-     * 下载文件
-     */
-    async download(path: string, options?: DownloadOptions): Promise&lt;Buffer&gt; {
-        try {
-            return await ossDownloadFile(this.toOssConfig(), path, {
-                range: options?.range
-            })
-        } catch (error) {
-            <span class="missing-if-branch" title="if path not taken" >I</span>if (this.isNotFoundError(error)) {
-<span class="cstat-no" title="statement not covered" >                throw new StorageNotFoundError(path, error instanceof Error ? error : undefined)</span>
-            }
-            throw convertAliyunError(error, this.wrapDownloadError(error).constructor as any)
-        }
-    }
-&nbsp;
-    /**
-     * 流式下载文件
-     */
-    async downloadStream(path: string, options?: DownloadOptions): Promise&lt;Readable&gt; {
-        try {
-            return await ossDownloadFileStream(this.toOssConfig(), path, {
-                range: options?.range
-            })
-        } catch (error) {
-            <span class="missing-if-branch" title="if path not taken" >I</span>if (this.isNotFoundError(error)) {
-<span class="cstat-no" title="statement not covered" >                throw new StorageNotFoundError(path, error instanceof Error ? error : undefined)</span>
-            }
-            throw convertAliyunError(error, this.wrapDownloadError(error).constructor as any)
-        }
-    }
-&nbsp;
-    /**
-     * 删除文件
-     */
-    async delete(paths: string | string[]): Promise&lt;DeleteResult&gt; {
-        try {
-            const result = await ossDeleteFile(this.toOssConfig(), paths)
-            return {
-                deleted: result.deleted
-            }
-        } catch (error) {
-            throw convertAliyunError(error, this.wrapDeleteError(error).constructor as any)
-        }
-    }
-&nbsp;
-    /**
-     * 生成签名 URL
-     */
-    async generateSignedUrl(path: string, options?: SignedUrlOptions): Promise&lt;string&gt; {
-        try {
-            return await ossGenerateSignedUrl(this.toOssConfig(), path, {
-                expires: options?.expires,
-                method: options?.method,
-                response: options?.response
-            })
-        } catch (error) {
-<span class="cstat-no" title="statement not covered" >            throw this.wrapSignatureError(error)</span>
-        }
-    }
-&nbsp;
-    /**
-     * 生成客户端直传签名
-     */
-    async generatePostSignature(
-        options: PostSignatureOptions
-    ): Promise&lt;AliyunPostSignatureResult&gt; {
-        try {
-            const result = await ossGeneratePostSignature(this.toOssConfig(), {
-                dir: options.dir,
-                fileKey: options.fileKey
-                    ? {
-                        originalFileName: options.fileKey.originalFileName,
-                        strategy: options.fileKey.strategy,
-                        customFileName: options.fileKey.customFileName
-                    }
-                    : undefined,
-                expirationMinutes: options.expirationMinutes,
-                callback: options.callback
-                    ? {
-                        callbackUrl: options.callback.callbackUrl,
-                        callbackBody: options.callback.callbackBody,
-                        callbackBodyType: options.callback.callbackBodyType,
-                        callbackVar: options.callback.callbackVar
-                    }
-                    : undefined,
-                conditions: options.conditions
-                    ? {
-                        contentLengthRange: options.conditions.contentLengthRange,
-                        contentType: options.conditions.contentType
-                    }
-                    : undefined
-            })
-&nbsp;
-            return {
-                host: result.host,
-                policy: result.policy,
-                signatureVersion: result.signatureVersion,
-                credential: result.credential,
-                date: result.date,
-                signature: result.signature,
-                dir: result.dir,
-                key: result.key,
-                callback: result.callback,
-                callbackVar: result.callbackVar,
-                securityToken: result.securityToken
-            }
-        } catch (error) {
-<span class="cstat-no" title="statement not covered" >            throw this.wrapSignatureError(error)</span>
-        }
-    }
-&nbsp;
-    /**
-     * 测试连接
-     */
-    async testConnection(): Promise&lt;boolean&gt; {
-        try {
-            const { client } = await createOssClient(this.toOssConfig())
-            // 尝试列出 bucket 中的文件（最多 1 个）来测试连接
-            await client.list({ 'max-keys': 1 })
-<span class="cstat-no" title="statement not covered" >            return true</span>
-        } catch (error) {
-            // 如果是权限错误，说明连接成功但没有列表权限，也算连接成功
-            if (this.isPermissionError(error)) {
-                return true
-            }
-            return false
-        }
+    /** 获取过期时间 */
+    private getExpireTime(minutes: number): string {
+        const expireDate = new Date(Date.now() + minutes * 60 * 1000)
+        return expireDate.toISOString().replace(/\.\d{3}Z$/, '+08:00')
     }
 }
 &nbsp;</pre></td></tr></table></pre>
