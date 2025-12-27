@@ -342,3 +342,205 @@ describe('Property 6: 积分记录数据一致性属性', () => {
         )
     })
 })
+
+/**
+ * Property 12: 积分消耗顺序
+ * 
+ * For any 积分消耗操作，SHALL 按积分记录的 expiredAt 字段升序消耗（先到期先消耗）。
+ * 
+ * **Feature: membership-system, Property 12: 积分消耗顺序**
+ * **Validates: Requirements 10.4**
+ */
+describe('Property 12: 积分消耗顺序', () => {
+    /** 模拟积分记录 */
+    interface MockPointRecord {
+        id: number
+        userId: number
+        remaining: number
+        expiredAt: Date
+        status: number
+    }
+
+    /**
+     * 模拟按过期时间排序的积分消耗
+     */
+    const consumePointsByExpiry = (
+        records: MockPointRecord[],
+        consumeAmount: number
+    ): {
+        success: boolean
+        consumedRecords: { recordId: number; amount: number; expiredAt: Date }[]
+        errorMessage?: string
+    } => {
+        // 过滤有效记录并按过期时间升序排序
+        const validRecords = records
+            .filter((r) => r.status === PointRecordStatus.VALID && r.remaining > 0)
+            .sort((a, b) => a.expiredAt.getTime() - b.expiredAt.getTime())
+
+        const totalRemaining = validRecords.reduce((sum, r) => sum + r.remaining, 0)
+        if (totalRemaining < consumeAmount) {
+            return { success: false, consumedRecords: [], errorMessage: '积分不足' }
+        }
+
+        let remainingToConsume = consumeAmount
+        const consumedRecords: { recordId: number; amount: number; expiredAt: Date }[] = []
+
+        for (const record of validRecords) {
+            if (remainingToConsume <= 0) break
+
+            const consumeFromRecord = Math.min(record.remaining, remainingToConsume)
+            consumedRecords.push({
+                recordId: record.id,
+                amount: consumeFromRecord,
+                expiredAt: record.expiredAt,
+            })
+            remainingToConsume -= consumeFromRecord
+        }
+
+        return { success: true, consumedRecords }
+    }
+
+    it('应优先消耗过期时间最早的积分记录', () => {
+        fc.assert(
+            fc.property(
+                fc.integer({ min: 1, max: 1000 }), // userId
+                fc.array(
+                    fc.record({
+                        id: fc.integer({ min: 1, max: 10000 }),
+                        remaining: fc.integer({ min: 10, max: 100 }),
+                        expiredAt: fc.date({ min: new Date('2025-01-01'), max: new Date('2026-12-31') }),
+                    }),
+                    { minLength: 3, maxLength: 6 }
+                ),
+                fc.integer({ min: 5, max: 50 }),
+                (userId, recordsData, consumeAmount) => {
+                    // 创建唯一 ID 的记录
+                    const records: MockPointRecord[] = recordsData.map((r, i) => ({
+                        id: i + 1,
+                        userId,
+                        remaining: r.remaining,
+                        expiredAt: r.expiredAt,
+                        status: PointRecordStatus.VALID,
+                    }))
+
+                    const result = consumePointsByExpiry(records, consumeAmount)
+
+                    if (result.success && result.consumedRecords.length > 1) {
+                        // 验证消耗顺序：每条记录的过期时间应该 <= 下一条记录的过期时间
+                        for (let i = 0; i < result.consumedRecords.length - 1; i++) {
+                            const current = result.consumedRecords[i]
+                            const next = result.consumedRecords[i + 1]
+                            expect(current.expiredAt.getTime()).toBeLessThanOrEqual(next.expiredAt.getTime())
+                        }
+                    }
+                }
+            ),
+            { numRuns: 100 }
+        )
+    })
+
+    it('消耗完一条记录后才消耗下一条', () => {
+        fc.assert(
+            fc.property(
+                fc.integer({ min: 1, max: 1000 }),
+                (userId) => {
+                    // 创建固定的测试数据
+                    const records: MockPointRecord[] = [
+                        { id: 1, userId, remaining: 50, expiredAt: new Date('2025-03-01'), status: PointRecordStatus.VALID },
+                        { id: 2, userId, remaining: 100, expiredAt: new Date('2025-06-01'), status: PointRecordStatus.VALID },
+                        { id: 3, userId, remaining: 30, expiredAt: new Date('2025-09-01'), status: PointRecordStatus.VALID },
+                    ]
+
+                    // 消耗 80 积分，应该先消耗完第一条（50），再从第二条消耗（30）
+                    const result = consumePointsByExpiry(records, 80)
+
+                    expect(result.success).toBe(true)
+                    expect(result.consumedRecords.length).toBe(2)
+                    expect(result.consumedRecords[0].recordId).toBe(1)
+                    expect(result.consumedRecords[0].amount).toBe(50) // 第一条全部消耗
+                    expect(result.consumedRecords[1].recordId).toBe(2)
+                    expect(result.consumedRecords[1].amount).toBe(30) // 第二条部分消耗
+                }
+            ),
+            { numRuns: 100 }
+        )
+    })
+
+    it('不应消耗无效状态的积分记录', () => {
+        fc.assert(
+            fc.property(
+                fc.integer({ min: 1, max: 1000 }),
+                fc.constantFrom(PointRecordStatus.MEMBERSHIP_UPGRADE_SETTLEMENT, PointRecordStatus.CANCELLED),
+                (userId, invalidStatus) => {
+                    const records: MockPointRecord[] = [
+                        { id: 1, userId, remaining: 100, expiredAt: new Date('2025-03-01'), status: invalidStatus },
+                        { id: 2, userId, remaining: 50, expiredAt: new Date('2025-06-01'), status: PointRecordStatus.VALID },
+                    ]
+
+                    const result = consumePointsByExpiry(records, 30)
+
+                    expect(result.success).toBe(true)
+                    // 应该只消耗有效状态的记录
+                    expect(result.consumedRecords.length).toBe(1)
+                    expect(result.consumedRecords[0].recordId).toBe(2)
+                }
+            ),
+            { numRuns: 100 }
+        )
+    })
+
+    it('不应消耗 remaining 为 0 的记录', () => {
+        fc.assert(
+            fc.property(
+                fc.integer({ min: 1, max: 1000 }),
+                (userId) => {
+                    const records: MockPointRecord[] = [
+                        { id: 1, userId, remaining: 0, expiredAt: new Date('2025-03-01'), status: PointRecordStatus.VALID },
+                        { id: 2, userId, remaining: 50, expiredAt: new Date('2025-06-01'), status: PointRecordStatus.VALID },
+                    ]
+
+                    const result = consumePointsByExpiry(records, 30)
+
+                    expect(result.success).toBe(true)
+                    expect(result.consumedRecords.length).toBe(1)
+                    expect(result.consumedRecords[0].recordId).toBe(2)
+                }
+            ),
+            { numRuns: 100 }
+        )
+    })
+
+    it('消耗总量应精确等于请求量', () => {
+        fc.assert(
+            fc.property(
+                fc.integer({ min: 1, max: 1000 }),
+                fc.array(
+                    fc.record({
+                        remaining: fc.integer({ min: 20, max: 100 }),
+                        expiredAt: fc.date({ min: new Date('2025-01-01'), max: new Date('2026-12-31') }),
+                    }),
+                    { minLength: 2, maxLength: 5 }
+                ),
+                fc.integer({ min: 10, max: 80 }),
+                (userId, recordsData, consumeAmount) => {
+                    const records: MockPointRecord[] = recordsData.map((r, i) => ({
+                        id: i + 1,
+                        userId,
+                        remaining: r.remaining,
+                        expiredAt: r.expiredAt,
+                        status: PointRecordStatus.VALID,
+                    }))
+
+                    const totalAvailable = records.reduce((sum, r) => sum + r.remaining, 0)
+
+                    if (consumeAmount <= totalAvailable) {
+                        const result = consumePointsByExpiry(records, consumeAmount)
+                        const totalConsumed = result.consumedRecords.reduce((sum, r) => sum + r.amount, 0)
+                        expect(totalConsumed).toBe(consumeAmount)
+                    }
+                }
+            ),
+            { numRuns: 100 }
+        )
+    })
+})

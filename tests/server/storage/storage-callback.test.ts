@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from 'vitest'
 import * as fc from 'fast-check'
-import type { CallbackData } from '../../server/lib/storage/callback/types'
+import type { CallbackData } from '../../../server/lib/storage/callback/types'
 
 /**
  * 模拟阿里云回调请求体
@@ -87,10 +87,10 @@ const validMimeTypeArb = fc.constantFrom(
 )
 
 /**
- * 生成自定义变量键（不能包含冒号，不能包含大写）
+ * 生成自定义变量键（不能包含冒号，不能包含大写，排除 JS 保留属性名）
  */
-const customVarKeyArb = fc.stringMatching(/^[a-z0-9_]+$/)
-    .filter(s => s.length > 0 && s.length < 50)
+const customVarKeyArb = fc.stringMatching(/^[a-z][a-z0-9_]*$/)
+    .filter(s => s.length > 0 && s.length < 50 && !['__proto__', 'constructor', 'prototype'].includes(s))
 
 /**
  * 生成自定义变量值

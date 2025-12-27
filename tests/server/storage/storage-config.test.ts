@@ -9,8 +9,8 @@
 
 import { describe, it, expect } from 'vitest'
 import * as fc from 'fast-check'
-import { StorageProviderType } from '../../server/lib/storage/types'
-import { StorageConfigError } from '../../server/lib/storage/errors'
+import { StorageProviderType } from '../../../server/lib/storage/types'
+import { StorageConfigError } from '../../../server/lib/storage/errors'
 
 /**
  * 模拟配置验证逻辑

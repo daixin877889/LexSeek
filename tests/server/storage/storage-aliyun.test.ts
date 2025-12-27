@@ -14,8 +14,8 @@ import {
     type AliyunPostSignatureResult,
     isAliyunPostSignatureResult,
     isAliyunOssConfig
-} from '../../server/lib/storage/types'
-import { StorageConfigError } from '../../server/lib/storage/errors'
+} from '../../../server/lib/storage/types'
+import { StorageConfigError } from '../../../server/lib/storage/errors'
 
 /**
  * 模拟阿里云签名结果生成

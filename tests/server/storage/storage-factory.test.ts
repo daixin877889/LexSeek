@@ -15,9 +15,9 @@ import {
     type StorageConfig,
     type AliyunOssConfig,
     type StorageAdapter
-} from '../../server/lib/storage/types'
-import { StorageConfigError } from '../../server/lib/storage/errors'
-import { StorageFactory } from '../../server/lib/storage/factory'
+} from '../../../server/lib/storage/types'
+import { StorageConfigError } from '../../../server/lib/storage/errors'
+import { StorageFactory } from '../../../server/lib/storage/factory'
 
 /**
  * 生成有效的阿里云 OSS 配置

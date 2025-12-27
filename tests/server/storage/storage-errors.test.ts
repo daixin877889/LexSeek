@@ -28,7 +28,7 @@ import {
     isStorageNotFoundError,
     isStoragePermissionError,
     isStorageNetworkError
-} from '../../server/lib/storage/errors'
+} from '../../../server/lib/storage/errors'
 
 /**
  * Property 3: 统一错误处理
