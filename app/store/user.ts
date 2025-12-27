@@ -83,46 +83,45 @@ export const useUserStore = defineStore("user", () => {
    * 更新用户资料
    */
   const updateUserProfile = async (data: { name: string, company: string, profile: string }) => {
+    try {
+      const updatedData = await useApiFetch<SafeUserInfo>("/api/v1/users/profile", {
+        method: "PUT",
+        body: data,
+        showError: false,
+      });
 
-    // 请求更新用户资料接口
-    const { data: updatedData, error } = await useApi<SafeUserInfo>("/api/v1/users/profile", {
-      key: "update-user-profile",
-      method: "PUT",
-      body: data,
-    });
-
-    if (updatedData.value) {
-      setUserInfo(updatedData.value);
-      logger.debug("更新用户资料成功:", updatedData.value);
+      if (updatedData) {
+        setUserInfo(updatedData);
+        logger.debug("更新用户资料成功:", updatedData);
+      }
+      return updatedData;
+    } catch (error: any) {
+      fetchError.value = error;
+      logger.error("更新用户资料失败:", error);
+      return null;
     }
-
-    if (error.value) {
-      fetchError.value = error.value;
-      logger.error("更新用户资料失败:", error.value);
-    }
-    return updatedData.value;
   };
 
   /**
    * 更新用户密码
    */
   const updateUserPassword = async (data: { currentPassword: string, newPassword: string }) => {
+    try {
+      const updatedData = await useApiFetch<SafeUserInfo>("/api/v1/users/password", {
+        method: "PUT",
+        body: data,
+        showError: false,
+      });
 
-    // 请求更新用户密码接口
-    const { data: updatedData, error } = await useApi<SafeUserInfo>("/api/v1/users/password", {
-      key: "update-user-password",
-      method: "PUT",
-      body: data,
-    });
-
-    if (updatedData.value) {
-      logger.debug("更新用户密码成功:", updatedData.value);
+      if (updatedData) {
+        logger.debug("更新用户密码成功:", updatedData);
+      }
+      return updatedData;
+    } catch (error: any) {
+      fetchError.value = error;
+      logger.error("更新用户密码失败:", error);
+      return null;
     }
-    if (error.value) {
-      fetchError.value = error.value;
-      logger.error("更新用户密码失败:", error.value);
-    }
-    return updatedData.value;
   };
 
   /**

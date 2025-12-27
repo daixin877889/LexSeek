@@ -22,17 +22,22 @@ export function useUserNavigation() {
      * 1. 调用登出 API
      * 2. 重置所有 store 状态
      * 3. 跳转到登录页面
+     * 
+     * 注意：无论 API 调用是否成功，都会清除本地状态并跳转
      */
     const handleLogout = async () => {
+        // 调用登出 API（忽略返回结果，确保本地状态被清除）
         await authStore.logout()
+
+        // 强制设置认证状态为 false（确保中间件不会阻止跳转）
+        authStore.isAuthenticated = false
 
         // 重置所有 store 的状态
         resetAllStore()
 
-        // 跳转至登录页面
-        router.replace({
-            path: '/login',
-        })
+        // 使用 navigateTo 替代 router.replace，确保跳转生效
+        // await navigateTo('/login', { replace: true })
+        window.location.href = '/login'
     }
 
     /**

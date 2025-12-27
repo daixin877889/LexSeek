@@ -97,32 +97,30 @@ export const useRoleStore = defineStore("role", () => {
    * 获取用户权限路由（客户端按需调用）
    */
   const fetchUserRouters = async (roleId: number): Promise<any> => {
-
     loading.value = true;
     error.value = null;
 
-    // 请求用户权限路由接口
-    const { data, error: apiError } = await useApi<any>("/api/v1/users/routers", {
-      key: `user-routers-fetch-${roleId}`,
-      query: { roleId },
-    });
+    try {
+      const data = await useApiFetch<any>("/api/v1/users/routers", {
+        query: { roleId },
+        showError: false,
+      });
 
-    loading.value = false;
+      loading.value = false;
 
-    // 获取用户权限路由失败，返回错误信息
-    if (apiError.value) {
-      error.value = apiError.value?.message || "获取用户权限路由失败";
-      toast.error(error.value);
-      logger.error("获取用户权限路由失败:", apiError.value);
-      return;
+      // 获取用户权限路由成功，更新用户权限路由
+      if (data?.[0]?.routers) {
+        currentRoleRouters.value = data[0].routers;
+        logger.debug("获取用户权限路由成功:", data);
+      }
+      return data;
+    } catch (err: any) {
+      loading.value = false;
+      error.value = err?.message || "获取用户权限路由失败";
+      toast.error(error.value || "获取用户权限路由失败");
+      logger.error("获取用户权限路由失败:", err);
+      return null;
     }
-
-    // 获取用户权限路由成功，更新用户权限路由
-    if (data.value?.[0]?.routers) {
-      currentRoleRouters.value = data.value[0].routers;
-      logger.debug("获取用户权限路由成功:", data.value);
-    }
-    return data.value;
   };
 
   /**
@@ -135,6 +133,13 @@ export const useRoleStore = defineStore("role", () => {
     } else {
       currentRoleRouters.value = [];
     }
+  };
+
+  /**
+   * 设置用户角色列表（客户端登录后使用）
+   */
+  const setUserRoles = (roles: roles[]) => {
+    userRoles.value = roles;
   };
 
   /**
@@ -162,6 +167,7 @@ export const useRoleStore = defineStore("role", () => {
     refreshUserRoles,
     fetchUserRouters,
     setCurrentRoleIndex,
+    setUserRoles,
     clearRoleData,
   };
 });

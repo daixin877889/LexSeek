@@ -28,35 +28,30 @@ export const useAuthStore = defineStore("auth", () => {
     loading.value = true;
     error.value = null;
 
-    // 请求登录接口
-    const { data: response, error: apiError, execute, } = useApi("/api/v1/auth/login/password", {
-      method: "POST",
-      body: { phone, password },
-      immediate: false,
-      showError: false,
-    });
+    try {
+      const response = await $fetch<ApiBaseResponse<{ token: string; user: SafeUserInfo }>>("/api/v1/auth/login/password", {
+        method: "POST",
+        body: { phone, password },
+      });
 
-    await execute();
-    loading.value = false;
+      loading.value = false;
 
-    if (apiError.value) {
-      error.value = apiError.value.message;
+      if (!response.success || !response.data?.token) {
+        error.value = response.message || "登录失败";
+        return false;
+      }
+
+      // 登录成功，保存用户信息和认证状态（token 由服务端通过 Set-Cookie 设置）
+      const userStore = useUserStore();
+      userStore.setUserInfo(response.data.user);
+      isAuthenticated.value = true;
+      return true;
+    } catch (err: any) {
+      loading.value = false;
+      const responseData = err.data as ApiBaseResponse<any> | undefined;
+      error.value = responseData?.message || err.message || "登录失败";
       return false;
     }
-
-    logger.debug("response", response.value);
-
-    // 登录不成功，返回错误信息
-    if (!response.value?.token) {
-      error.value = response.value?.error?.message || "登录失败";
-      return false;
-    }
-
-    // 登录成功，保存用户信息和认证状态（token 由服务端通过 Set-Cookie 设置）
-    const userStore = useUserStore();
-    userStore.setUserInfo(response.value.user as SafeUserInfo);
-    isAuthenticated.value = true;
-    return true;
   };
 
   /**
@@ -66,86 +61,95 @@ export const useAuthStore = defineStore("auth", () => {
     error.value = null;
     loading.value = true;
 
-    // 请求登出接口
-    const { data: response, error: apiError, execute, } = useApi("/api/v1/auth/logout", {
-      method: "POST",
-      body: {},
-      immediate: false,
-    });
-    await execute();
+    try {
+      const response = await $fetch<ApiBaseResponse<any>>("/api/v1/auth/logout", {
+        method: "POST",
+        body: {},
+      });
 
-    loading.value = false;
-    if (apiError.value || !response.value) {
-      error.value = apiError.value?.message || "登出失败";
+      loading.value = false;
 
+      if (!response.success) {
+        error.value = response.message || "登出失败";
+        return false;
+      }
+
+      // 登出成功，清除加密配置和 IndexedDB 中的私钥（需要在清除用户信息之前执行）
+      const encryptionStore = useEncryptionStore();
+      await encryptionStore.clearConfig();
+
+      // 清除用户信息和认证状态
+      const userStore = useUserStore();
+      userStore.clearUserInfo();
+      isAuthenticated.value = false;
+
+      return true;
+    } catch (err: any) {
+      loading.value = false;
+      const responseData = err.data as ApiBaseResponse<any> | undefined;
+      error.value = responseData?.message || err.message || "登出失败";
       return false;
     }
-
-    // 登出成功，清除加密配置和 IndexedDB 中的私钥（需要在清除用户信息之前执行）
-    const encryptionStore = useEncryptionStore();
-    await encryptionStore.clearConfig();
-
-    // 清除用户信息和认证状态
-    const userStore = useUserStore();
-    userStore.clearUserInfo();
-    isAuthenticated.value = false;
-
-    return true;
   };
 
   /**
    * 重置密码
    */
   const resetPassword = async ({ phone, code, newPassword }: { phone: string; code: string; newPassword: string; }): Promise<boolean> => {
-
     loading.value = true;
     error.value = null;
 
-    // 请求重置密码接口
-    const { data: response, error: apiError, execute } = useApi("/api/v1/auth/reset-password", {
-      method: "POST",
-      body: { phone, code, newPassword },
-      immediate: false,
-      showError: false,
-    });
+    try {
+      const response = await $fetch<ApiBaseResponse<any>>("/api/v1/auth/reset-password", {
+        method: "POST",
+        body: { phone, code, newPassword },
+      });
 
-    await execute();
-    loading.value = false;
+      loading.value = false;
 
-    if (apiError.value || !response.value) {
-      error.value = apiError.value?.message || "重置密码失败";
+      if (!response.success) {
+        error.value = response.message || "重置密码失败";
+        return false;
+      }
+
+      const userStore = useUserStore();
+      userStore.clearUserInfo();
+      return true;
+    } catch (err: any) {
+      loading.value = false;
+      const responseData = err.data as ApiBaseResponse<any> | undefined;
+      error.value = responseData?.message || err.message || "重置密码失败";
       return false;
     }
-    const userStore = useUserStore();
-    userStore.clearUserInfo();
-    return true;
   };
 
   /**
    * 发送短信验证码
    */
   const sendSmsCode = async ({ phone, type }: { phone: string; type: string; }): Promise<boolean> => {
-
     loading.value = true;
     error.value = null;
 
-    const { data: response, error: apiError, execute } = useApi("/api/v1/sms/send", {
-      method: "POST",
-      body: { phone, type },
-      immediate: false,
-      showError: false,
-    });
+    try {
+      const response = await $fetch<ApiBaseResponse<any>>("/api/v1/sms/send", {
+        method: "POST",
+        body: { phone, type },
+      });
 
-    await execute();
-    loading.value = false;
+      loading.value = false;
 
-    // 发送验证码失败，返回错误信息
-    if (apiError.value || !response.value) {
-      error.value = apiError.value?.message || "发送验证码失败";
+      if (!response.success) {
+        error.value = response.message || "发送验证码失败";
+        return false;
+      }
+
+      return true;
+    } catch (err: any) {
+      loading.value = false;
+      const responseData = err.data as ApiBaseResponse<any> | undefined;
+      error.value = responseData?.message || err.message || "发送验证码失败";
       return false;
     }
-
-    return true;
   };
 
   /**

@@ -41,14 +41,30 @@ watch(
 
     // 状态从 false 变为 true（登录成功）
     if (isAuth && !oldIsAuth) {
-      // 登录成功后，初始化用户数据
-      const [, rolesResult] = await Promise.all([userStore.initUserInfo(), roleStore.initUserRoles()]);
-      // 获取当前角色的路由
-      if (rolesResult.data.value && rolesResult.data.value.length > 0) {
-        const firstRoleId = rolesResult.data.value[0]?.id;
-        if (firstRoleId) {
-          await roleStore.initUserRouters(firstRoleId);
+      // 登录成功后，使用 $fetch 直接获取用户数据（避免 useFetch 在组件挂载后调用的警告）
+      try {
+        // 并行获取用户信息和角色列表
+        const [userResponse, rolesResponse] = await Promise.all([
+          $fetch<ApiBaseResponse<SafeUserInfo>>("/api/v1/users/me"),
+          $fetch<ApiBaseResponse<roles[]>>("/api/v1/users/roles"),
+        ]);
+
+        // 更新用户信息
+        if (userResponse.success && userResponse.data) {
+          userStore.setUserInfo(userResponse.data);
         }
+
+        // 更新角色列表并获取当前角色的路由
+        if (rolesResponse.success && rolesResponse.data && rolesResponse.data.length > 0) {
+          // 使用 setUserRoles 方法设置角色数据
+          roleStore.setUserRoles(rolesResponse.data);
+          const firstRoleId = rolesResponse.data[0]?.id;
+          if (firstRoleId) {
+            await roleStore.fetchUserRouters(firstRoleId);
+          }
+        }
+      } catch (err) {
+        logger.error("登录后获取用户数据失败:", err);
       }
     }
     // 状态从 true 变为 false（登出）
