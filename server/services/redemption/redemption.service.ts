@@ -4,21 +4,6 @@
  * 提供兑换码相关的业务逻辑
  */
 import dayjs from 'dayjs'
-import {
-    findRedemptionCodeByCodeDao,
-    updateRedemptionCodeStatusDao,
-} from './redemptionCode.dao'
-import { createRedemptionRecordDao } from './redemptionRecord.dao'
-import { createUserMembershipDao } from '../membership/userMembership.dao'
-import { createPointRecordDao } from '../point/pointRecords.dao'
-import {
-    RedemptionCodeType,
-    RedemptionCodeStatus,
-    type RedemptionCodeInfo,
-    type RedemptionResult,
-} from '#shared/types/redemption'
-import { UserMembershipSourceType, MembershipStatus } from '#shared/types/membership'
-import { PointRecordSourceType, PointRecordStatus } from '#shared/types/pointRecords.types'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma

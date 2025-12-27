@@ -3,7 +3,8 @@
  * 
  * 根据 runtimeConfig 中的配置设置日志级别
  */
-import { logger, LOG_LEVELS, type LogLevel } from '#shared/utils/logger'
+
+import { LogLevel } from "~~/shared/utils/logger/index"
 
 export default defineNitroPlugin(() => {
     const config = useRuntimeConfig()

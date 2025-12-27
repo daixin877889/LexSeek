@@ -4,8 +4,6 @@
  * 封装所有与 OSS 文件表相关的数据库操作
  */
 
-import { ossFiles, Prisma } from '#shared/types/prisma'
-
 /**
  * 创建 OSS 文件记录
  */

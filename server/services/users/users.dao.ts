@@ -1,7 +1,7 @@
 /**
  * 用户数据访问层
  */
-import { Prisma } from '#shared/types/prisma'
+
 /**
  * 创建用户
  * @param data 用户创建数据

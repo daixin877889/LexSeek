@@ -4,12 +4,6 @@
  * 提供营销活动相关的业务逻辑，包括注册赠送和邀请奖励
  */
 import dayjs from 'dayjs'
-import { findActiveCampaignByTypeDao } from './campaign.dao'
-import { createUserMembershipDao } from '../membership/userMembership.dao'
-import { createPointRecordDao } from '../point/pointRecords.dao'
-import { CampaignType, type CampaignInfo, CampaignStatus } from '#shared/types/campaign'
-import { UserMembershipSourceType, MembershipStatus } from '#shared/types/membership'
-import { PointRecordSourceType, PointRecordStatus } from '#shared/types/pointRecords.types'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma

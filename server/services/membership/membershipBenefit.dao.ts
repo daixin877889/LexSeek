@@ -3,7 +3,6 @@
  *
  * 提供会员级别与权益关联的 CRUD 操作
  */
-import { Prisma } from '#shared/types/prisma'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma

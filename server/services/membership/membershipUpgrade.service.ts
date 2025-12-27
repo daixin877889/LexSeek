@@ -4,27 +4,7 @@
  * 提供会员升级相关的业务逻辑
  */
 import dayjs from 'dayjs'
-import {
-    createMembershipUpgradeRecordDao,
-    findUserUpgradeRecordsDao,
-} from './membershipUpgrade.dao'
-import {
-    findCurrentUserMembershipDao,
-    findUserMembershipByIdDao,
-    updateUserMembershipDao,
-    createUserMembershipDao,
-} from './userMembership.dao'
-import {
-    findAllActiveMembershipLevelsDao,
-    findMembershipLevelByIdDao,
-} from './membershipLevel.dao'
-import { findProductByIdDao } from '../product/product.dao'
-import {
-    MembershipStatus,
-    UserMembershipSourceType,
-    type UpgradePriceResult,
-} from '#shared/types/membership'
-import { ProductType } from '#shared/types/product'
+import type { UpgradePriceResult } from '#shared/types/membership'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma

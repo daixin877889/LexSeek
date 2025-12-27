@@ -1,5 +1,3 @@
-import { Prisma } from '#shared/types/prisma'
-
 /**
  * 用户服务层
  */

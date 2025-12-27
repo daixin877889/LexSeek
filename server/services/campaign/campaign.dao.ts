@@ -3,8 +3,6 @@
  *
  * 提供营销活动的 CRUD 操作
  */
-import { Prisma } from '#shared/types/prisma'
-import { CampaignType, CampaignStatus } from '#shared/types/campaign'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma

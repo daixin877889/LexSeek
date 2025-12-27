@@ -4,8 +4,6 @@
  * 提供响应式的文件解密功能，用于 Vue 组件中
  */
 
-import type { DecryptionStatus } from '~~/shared/types/encryption'
-import { IdentityNotUnlockedError } from '~~/shared/types/encryption'
 
 /**
  * 文件解密 Composable

@@ -4,8 +4,7 @@
  * 提供商品相关的业务逻辑
  */
 import { Decimal } from 'decimal.js'
-import { findProductByIdDao, findAllActiveProductsDao } from './product.dao'
-import { ProductType, ProductStatus, type ProductInfo } from '#shared/types/product'
+import type { ProductInfo } from '#shared/types/product'
 
 /**
  * 将 Decimal 转换为数字

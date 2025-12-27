@@ -4,7 +4,6 @@
  * 负责存储配置的增删改查操作
  */
 
-import type { storageConfigs, Prisma } from '#shared/types/prisma'
 import { StorageProviderType, type StorageConfig } from '~~/server/lib/storage/types'
 import { StorageConfigError } from '~~/server/lib/storage/errors'
 import crypto from 'crypto'

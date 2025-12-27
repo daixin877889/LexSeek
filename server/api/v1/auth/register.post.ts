@@ -101,7 +101,8 @@ export default defineEventHandler(async (event) => {
 
         // 执行注册赠送活动（异步执行，不影响注册流程）
         try {
-            const { executeRegisterGiftService, executeInvitationRewardService } = await import('~/server/services/campaign/campaign.service')
+            // 注意：Nuxt 4 中 ~ 别名指向 app/ 目录，server 目录在项目根目录，需要使用相对路径
+            const { executeRegisterGiftService, executeInvitationRewardService } = await import('../../../services/campaign/campaign.service')
 
             // 执行注册赠送
             await executeRegisterGiftService(newUser.id)

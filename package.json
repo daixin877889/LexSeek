@@ -24,7 +24,7 @@
     "test:client": "vitest run tests/client --reporter=verbose",
     "test:shared": "vitest run tests/shared --reporter=verbose",
     "prebuild": "vitest run tests/server --reporter=verbose",
-    "coverage": "rm -rf coverage && vitest run --coverage 2>&1 | tail -100"
+    "coverage": "npx vitest run --coverage 2>&1 | tail -100"
   },
   "dependencies": {
     "@alicloud/dysmsapi20170525": "^4.3.1",

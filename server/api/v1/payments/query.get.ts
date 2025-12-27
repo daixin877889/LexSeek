@@ -5,7 +5,7 @@
  *
  * 查询支付单状态，支持主动查询支付结果
  */
-import { PaymentTransactionStatus } from '#shared/types/payment'
+// import { PaymentTransactionStatus } from '#shared/types/payment'
 
 /** 请求参数验证 */
 const queryPaymentSchema = z.object({

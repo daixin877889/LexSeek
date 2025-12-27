@@ -3,9 +3,7 @@
  *
  * 提供权益相关的业务逻辑
  */
-import { findBenefitsByLevelIdDao } from './membershipBenefit.dao'
-import { findCurrentUserMembershipDao } from './userMembership.dao'
-import { type UserBenefitInfo } from '#shared/types/membership'
+import type { UserBenefitInfo } from '#shared/types/membership'
 
 /**
  * 获取用户当前会员的权益列表

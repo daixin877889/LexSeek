@@ -2,7 +2,7 @@
 /**
  * token 黑名单
  */
-import type { Prisma } from "#shared/types/prisma";
+
 /**
  * 添加 token 黑名单
  * @param token 
