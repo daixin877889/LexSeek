@@ -13,12 +13,106 @@
 9. API 接口的参数验证统一使用 zod
 10. Nuxt 有自动导入功能，如果发现实现的方法没有被自动导入，你应该首先执行 bun install 看是否成功导入，如果还是有问题，再排查其他问题。
 11. tailwind 的版本是 v4 ,注意使用 v4 的语法和类名。
-12. 临时生成的测试代码和调试信息应该在任务完成后清除掉。
-13. 前后端的日期处理都统一使用 dayjs 处理
-14. API 接口返回成功使用 resSuccess: (event: H3Event<EventHandlerRequest>, message: string, data: any) => ApiBaseResponse 方法，失败使用  resError: (event: H3Event<EventHandlerRequest>, code: number, message: string) => ApiBaseResponse 方法，方法已经在框架中自己导入。
-15. 当你生成的代码超过 500 行时，你应该要考虑将代码拆分成多个文件，避免单个文件代码过长。
+12. 前后端的日期处理都统一使用 dayjs 处理
+13. API 接口返回成功使用 resSuccess: (event: H3Event<EventHandlerRequest>, message: string, data: any) => ApiBaseResponse 方法，失败使用  resError: (event: H3Event<EventHandlerRequest>, code: number, message: string) => ApiBaseResponse 方法，方法已经在框架中自己导入。
+14. 当你生成的代码超过 500 行时，你应该要考虑将代码拆分成多个文件，避免单个文件代码过长。
 
 
 ## OSS 回调
 
 1. 回调自定义变量需要通过 `callbackVar` 参数传递，格式为 `{ key: value }`，注意 key 不能包含 `:` 字符，变量名不能包含大写。
+
+## 测试规范
+
+### 目录结构
+
+测试文件按功能模块组织在 `tests/server/` 目录下：
+
+```
+tests/server/
+├── membership/     # 会员系统测试（级别、用户会员、积分、兑换码、营销活动）
+├── storage/        # 存储系统测试（阿里云 OSS、签名、回调）
+├── payment/        # 支付系统测试（适配器、状态转换）
+├── crypto/         # 加密系统测试（元数据、解密）
+└── utils/          # 工具函数测试（序列化等）
+```
+
+### 测试框架
+
+- **vitest** - 测试运行器
+- **fast-check** - 属性测试库（用于生成随机测试数据）
+
+### 运行测试命令
+
+```bash
+# 运行所有服务端测试
+bun run test:server
+
+# 运行特定模块测试
+bun run test:membership    # 会员模块
+bun run test:storage       # 存储模块
+bun run test:payment       # 支付模块
+bun run test:crypto        # 加密模块
+bun run test:utils         # 工具模块
+
+# 运行单个测试文件
+npx vitest run tests/server/membership/membership-level.test.ts --reporter=verbose
+```
+
+### 编写测试要求
+
+1. 测试文件命名：`*.test.ts`
+2. 测试描述使用中文
+3. 每个测试文件顶部添加功能说明注释，包含 Feature 和 Validates 标注
+4. 使用 `describe` 分组相关测试
+5. 使用 `it` 描述具体测试用例
+6. 属性测试使用 fast-check，配置 `{ numRuns: 100 }` 运行 100 次
+7. 日期生成器需要过滤无效日期：`.filter(d => !isNaN(d.getTime()))`
+8. 字典键生成器需要排除 JS 保留字：`['__proto__', 'constructor', 'prototype']`
+
+### 测试文件模板
+
+```typescript
+/**
+ * [功能名称]测试
+ *
+ * 使用 fast-check 进行属性测试，验证[功能描述]
+ *
+ * **Feature: [feature-name]**
+ * **Validates: Requirements X.Y, X.Z**
+ */
+
+import { describe, it, expect } from 'vitest'
+import * as fc from 'fast-check'
+
+describe('[功能名称]', () => {
+    it('[测试用例描述]', () => {
+        fc.assert(
+            fc.property(
+                fc.integer({ min: 1, max: 1000 }),
+                (value) => {
+                    // 测试逻辑
+                    expect(value).toBeGreaterThan(0)
+                }
+            ),
+            { numRuns: 100 }
+        )
+    })
+})
+```
+
+### 模块 README 要求
+
+每个测试模块目录下需要有 `README.md` 文件，包含：
+- 模块说明
+- 测试文件列表（表格形式）
+- 测试用例详情
+- 运行命令示例
+
+### 注意事项
+
+1. 每次完成新功能或修改已有功能时，需要创建或更新对应的测试用例
+2. 先查看是否已存在对应测试用例，避免重复创建
+3. 更新测试后需要同步更新模块 README.md
+4. 业务代码中的临时调试代码在任务完成后必须清除
+5. 构建前会自动运行测试（`prebuild` 脚本），确保测试通过后才能构建
