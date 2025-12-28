@@ -4,13 +4,17 @@
  */
 
 interface UseApiOptions {
-    // 是否显示错误提示（默认 true）
+    /** 是否显示错误提示（默认 true） */
     showError?: boolean
 }
 
 /**
  * 封装 useFetch，通过拦截器统一处理 API 错误
  * 使用方式与原生 useFetch 完全一致
+ *
+ * 当 API 返回 success: false 时：
+ * - 自动显示错误 toast（除非 showError: false）
+ * - error 会包含错误信息，可用于判断请求是否成功
  *
  * @param url 请求地址
  * @param options useFetch 配置选项，额外支持 showError 选项
@@ -52,8 +56,19 @@ export function useApi<T = any>(
             }
 
             // 处理业务逻辑错误（success: false）
-            if (showError && data && data.success === false) {
-                toast.error(data.message || '请求失败')
+            if (data && data.success === false) {
+                // 显示错误提示
+                if (showError) {
+                    toast.error(data.message || '请求失败')
+                }
+
+                // 标记响应为错误，让 useFetch 的 error 能够捕获
+                ctx.response.ok = false
+                ctx.response.status = data.code || 400
+                ctx.response._data = {
+                    ...data,
+                    _isBusinessError: true,
+                }
             }
 
             // 调用用户自定义的 onResponse
@@ -63,15 +78,22 @@ export function useApi<T = any>(
         },
         // 响应错误拦截器：处理网络错误或服务器错误
         onResponseError(ctx: any) {
-            if (!showError) {
-                // 调用用户自定义的 onResponseError
+            const data = ctx.response._data as (ApiBaseResponse<T> & { _isBusinessError?: boolean }) | undefined
+
+            // 如果是业务错误，已经在 onResponse 中处理过了
+            if (data?._isBusinessError) {
                 if (typeof userOnResponseError === 'function') {
                     userOnResponseError(ctx)
                 }
                 return
             }
 
-            const data = ctx.response._data as ApiBaseResponse<T> | undefined
+            if (!showError) {
+                if (typeof userOnResponseError === 'function') {
+                    userOnResponseError(ctx)
+                }
+                return
+            }
 
             // 如果响应体符合 ApiBaseResponse 格式，使用其中的错误信息
             if (data && data.success === false) {

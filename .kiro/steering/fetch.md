@@ -51,19 +51,28 @@ await execute()
 - 自动处理 401 未授权跳转
 - 自动提取响应中的 `data` 字段
 - 统一错误提示（可通过 `showError: false` 禁用）
+- **业务错误时返回 `null`**，调用方需要检查返回值
 
 ### 使用示例
 
 ```typescript
-// GET 请求
+// GET 请求：需要检查返回值
 const data = await useApiFetch('/api/v1/users/me')
+if (data) {
+  // 请求成功，处理数据
+}
+// 请求失败时 toast 已自动显示，无需额外处理
 
-// POST 请求
-const data = await useApiFetch('/api/v1/auth/login', {
+// POST 请求：需要在成功时执行特定逻辑
+const result = await useApiFetch('/api/v1/redemption-codes/redeem', {
   method: 'POST',
-  body: { phone, password },
-  showError: false  // 可选：禁用自动错误提示
+  body: { code },
 })
+if (result) {
+  toast.success('兑换成功')
+  // 刷新数据等操作
+}
+// 失败时不会执行 toast.success
 
 // 带类型的请求
 interface UserInfo {
@@ -71,7 +80,40 @@ interface UserInfo {
   name: string
 }
 const user = await useApiFetch<UserInfo>('/api/v1/users/me')
+if (user) {
+  console.log(user.name)
+}
 ```
+
+### 错误处理
+
+`useApiFetch` 在 API 返回 `success: false` 时会：
+1. 自动显示错误 toast（除非 `showError: false`）
+2. 返回 `null`
+
+**重要**：调用方必须检查返回值是否为 `null` 来判断请求是否成功，避免在请求失败时执行成功逻辑。
+
+```typescript
+// ❌ 错误用法：没有检查返回值
+await useApiFetch('/api/v1/action', { method: 'POST' })
+toast.success('操作成功')  // 即使失败也会执行
+
+// ✅ 正确用法：检查返回值
+const result = await useApiFetch('/api/v1/action', { method: 'POST' })
+if (result) {
+  toast.success('操作成功')  // 只有成功才会执行
+}
+```
+
+### 与 useApi 的区别
+
+| 特性 | useApi | useApiFetch |
+|------|--------|-------------|
+| 基于 | useFetch | $fetch |
+| 返回值 | 响应式对象 { data, error, status } | Promise<T \| null> |
+| 错误判断 | 检查 error 是否有值 | 检查返回值是否为 null |
+| SSR 支持 | ✅ | ❌ |
+| 适用场景 | setup 阶段、需要响应式 | 事件处理函数 |
 
 ---
 

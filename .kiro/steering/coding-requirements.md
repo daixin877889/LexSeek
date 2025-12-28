@@ -13,7 +13,7 @@
 9. Nuxt 有自动导入功能，如果发现实现的方法没有被自动导入，你应该首先执行 bun install 看是否成功导入，如果还是有问题，再排查其他问题。
 10. tailwind 的版本是 v4 ,注意使用 v4 的语法和类名。
 11. 前后端的日期处理都统一使用 dayjs 处理
-12. API 接口返回成功使用 resSuccess: (event: H3Event<EventHandlerRequest>, message: string, data: any) => ApiBaseResponse 方法，失败使用  resError: (event: H3Event<EventHandlerRequest>, code: number, message: string) => ApiBaseResponse 方法，方法已经在框架中自己导入。
+12. API 接口返回成功使用 resSuccess: (event: H3Event<EventHandlerRequest>, message: string, data: any) => ApiBaseResponse 方法，失败使用 resError: (event: H3Event<EventHandlerRequest>, code: number, message: string) => ApiBaseResponse 方法，方法已经在框架中自己导入。
 13. 当你生成的代码超过 500 行时，你应该要考虑将代码拆分成多个文件，避免单个文件代码过长。
 
 ## 自动导入
@@ -23,10 +23,12 @@ Nuxt 4 配置了自动导入功能，以下内容无需手动 import：
 ### 服务端自动导入（server/ 目录）
 
 **服务层函数**（`server/services/*/*`）：
+
 - 所有 `server/services/` 子目录下的导出函数自动可用
 - 包括：auth、campaign、encryption、files、membership、payment、point、product、rbac、redemption、sms、storage、system、users
 
 **工具函数**（`server/utils/`）：
+
 - `prisma` - Prisma 客户端实例
 - `logger` - 日志工具
 - `resSuccess(event, message, data)` - API 成功响应
@@ -34,6 +36,7 @@ Nuxt 4 配置了自动导入功能，以下内容无需手动 import：
 - JWT、密码、OSS 等工具函数
 
 **H3 框架函数**：
+
 - `defineEventHandler` - 定义事件处理器
 - `getQuery` - 获取查询参数
 - `readBody` - 读取请求体
@@ -43,6 +46,7 @@ Nuxt 4 配置了自动导入功能，以下内容无需手动 import：
 ### 前端自动导入（app/ 目录）
 
 **Composables**（`app/composables/`）：
+
 - `useApi` - 基于 useFetch 的 API 请求封装（支持 SSR）
 - `useApiFetch` - 基于 $fetch 的 API 请求封装
 - `useAgeCrypto` - Age 加密工具
@@ -52,9 +56,11 @@ Nuxt 4 配置了自动导入功能，以下内容无需手动 import：
 - `useUserNavigation` - 用户导航
 
 **Store**（`store/`）：
+
 - 所有 store 目录下的 Pinia store 自动导入
 
 **Vue/Nuxt 核心**：
+
 - `ref`, `reactive`, `computed`, `watch` 等 Vue 响应式 API
 - `useState`, `useFetch`, `useRuntimeConfig` 等 Nuxt composables
 - `navigateTo`, `useRoute`, `useRouter` 等路由函数
@@ -64,8 +70,8 @@ Nuxt 4 配置了自动导入功能，以下内容无需手动 import：
 类型定义需要手动导入，使用 `#shared` 别名：
 
 ```typescript
-import { PaymentTransactionStatus } from '#shared/types/payment'
-import type { UserMembershipInfo } from '#shared/types/membership'
+import { PaymentTransactionStatus } from "#shared/types/payment";
+import type { UserMembershipInfo } from "#shared/types/membership";
 ```
 
 ### 注意事项
@@ -75,7 +81,6 @@ import type { UserMembershipInfo } from '#shared/types/membership'
 3. **DAO 层关联查询**：如果 DAO 返回包含关联数据（如 `include: { level: true }`），Service 层不要显式声明返回类型
 4. **排查导入问题**：如果自动导入不生效，先执行 `bun install` 重新生成类型声明
 5. **Zod v4 API 变更**：`ZodError` 使用 `.issues` 而不是 `.errors` 访问验证错误列表
-
 
 ## OSS 回调
 
@@ -141,28 +146,26 @@ npx vitest run tests/server/membership/membership-level.test.ts --reporter=verbo
  * **Validates: Requirements X.Y, X.Z**
  */
 
-import { describe, it, expect } from 'vitest'
-import * as fc from 'fast-check'
+import { describe, it, expect } from "vitest";
+import * as fc from "fast-check";
 
-describe('[功能名称]', () => {
-    it('[测试用例描述]', () => {
-        fc.assert(
-            fc.property(
-                fc.integer({ min: 1, max: 1000 }),
-                (value) => {
-                    // 测试逻辑
-                    expect(value).toBeGreaterThan(0)
-                }
-            ),
-            { numRuns: 100 }
-        )
-    })
-})
+describe("[功能名称]", () => {
+  it("[测试用例描述]", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 1, max: 1000 }), (value) => {
+        // 测试逻辑
+        expect(value).toBeGreaterThan(0);
+      }),
+      { numRuns: 100 }
+    );
+  });
+});
 ```
 
 ### 模块 README 要求
 
 每个测试模块目录下需要有 `README.md` 文件，包含：
+
 - 模块说明
 - 测试文件列表（表格形式）
 - 测试用例详情
@@ -175,3 +178,8 @@ describe('[功能名称]', () => {
 3. 更新测试后需要同步更新模块 README.md
 4. 业务代码中的临时调试代码在任务完成后必须清除
 5. 构建前会自动运行测试（`prebuild` 脚本），确保测试通过后才能构建
+
+## 终极规则
+
+**你写的所有测试用例都需要是真正的单元测试，而不是一个模拟测试，涉及到数据库操作和网络请求之类的功能，你必须真实操作数据库和发起网络请求**
+**你需要测试的实际的业务代码，而不是根据测试用例在测试脚本中实现对应功能**

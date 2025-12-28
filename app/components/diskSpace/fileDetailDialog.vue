@@ -382,13 +382,16 @@ const deleteFile = async () => {
     deleteLoading.value = true;
 
     try {
-        await useApiFetch(`/api/v1/files/oss/${props.file.id}`, {
+        const result = await useApiFetch(`/api/v1/files/oss/${props.file.id}`, {
             method: "DELETE",
         });
 
-        // 关闭对话框并通知父组件
-        dialogOpen.value = false;
-        emit("deleted");
+        // 检查返回值，只有成功才执行后续操作
+        if (result !== null) {
+            // 关闭对话框并通知父组件
+            dialogOpen.value = false;
+            emit("deleted");
+        }
     } catch (err) {
         console.error("删除文件失败:", err);
     } finally {
