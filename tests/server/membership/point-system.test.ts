@@ -1,547 +1,447 @@
 /**
- * 积分系统属性测试
- * 
- * 使用 fast-check 进行属性测试，验证积分系统的核心业务逻辑
+ * 积分系统集成测试
+ *
+ * 测试真实的积分 DAO/Service 函数，使用真实数据库操作
+ *
+ * **Feature: point-system**
+ * **Validates: Requirements 3.1, 3.2, 3.3, 3.4**
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import * as fc from 'fast-check'
+import {
+    getTestPrisma,
+    createTestUser,
+    createTestMembershipLevel,
+    createTestUserMembership,
+    createTestPointRecord,
+    cleanupTestData,
+    createEmptyTestIds,
+    disconnectTestDb,
+    isTestDbAvailable,
+    PointRecordStatus,
+    PointSourceType,
+    MembershipStatus,
+    type TestIds,
+} from './test-db-helper'
+import {
+    pointAmountArb,
+    PBT_CONFIG_FAST,
+} from './test-generators'
 
-// 积分记录状态（与 shared/types/pointRecords.types.ts 保持一致）
-const PointRecordStatus = {
-    VALID: 1,
-    MEMBERSHIP_UPGRADE_SETTLEMENT: 2,
-    CANCELLED: 3,
-} as const
+// 导入实际的 DAO 函数
+import {
+    createPointRecordDao,
+    findPointRecordByIdDao,
+    findPointRecordsByUserIdDao,
+    findValidPointRecordsByUserIdDao,
+    updatePointRecordDao,
+    sumUserValidPointsDao,
+    findPointRecordsByMembershipIdDao,
+    transferPointRecordsDao,
+} from '../../../server/services/point/pointRecords.dao'
 
-/**
- * Property 1: 积分记录创建不变量
- * 对于任意新创建的积分记录，remaining 字段应该等于 pointAmount，used 字段应该为 0
- * Validates: Requirements 1.4
- */
-describe('Property 1: 积分记录创建不变量', () => {
-    /**
-     * 模拟积分记录创建逻辑
-     */
-    const createPointRecord = (pointAmount: number) => {
-        return {
-            pointAmount,
-            used: 0,
-            remaining: pointAmount,
-            status: PointRecordStatus.VALID,
+// 注意：Service 函数依赖 Nuxt 自动导入的 DAO 函数，无法在测试环境中直接调用
+// 因此只测试 DAO 函数
+
+// 检查数据库是否可用
+let dbAvailable = false
+
+describe('积分系统集成测试', () => {
+    const testIds: TestIds = createEmptyTestIds()
+    const prisma = getTestPrisma()
+
+    beforeAll(async () => {
+        dbAvailable = await isTestDbAvailable()
+        if (!dbAvailable) {
+            console.warn('数据库不可用，跳过集成测试')
         }
-    }
-
-    it('新创建的积分记录 remaining 应等于 pointAmount', () => {
-        fc.assert(
-            fc.property(
-                fc.integer({ min: 1, max: 1000000 }),
-                (pointAmount) => {
-                    const record = createPointRecord(pointAmount)
-                    expect(record.remaining).toBe(pointAmount)
-                }
-            ),
-            { numRuns: 100 }
-        )
     })
 
-    it('新创建的积分记录 used 应为 0', () => {
-        fc.assert(
-            fc.property(
-                fc.integer({ min: 1, max: 1000000 }),
-                (pointAmount) => {
-                    const record = createPointRecord(pointAmount)
-                    expect(record.used).toBe(0)
-                }
-            ),
-            { numRuns: 100 }
-        )
-    })
-
-    it('新创建的积分记录状态应为 VALID', () => {
-        fc.assert(
-            fc.property(
-                fc.integer({ min: 1, max: 1000000 }),
-                (pointAmount) => {
-                    const record = createPointRecord(pointAmount)
-                    expect(record.status).toBe(PointRecordStatus.VALID)
-                }
-            ),
-            { numRuns: 100 }
-        )
-    })
-})
-
-/**
- * Property 4: FIFO 消耗策略属性
- * 对于任意积分消耗操作，系统应该按照积分记录的 expiredAt 升序依次消耗
- * Validates: Requirements 5.3, 5.4
- */
-describe('Property 4: FIFO 消耗策略属性', () => {
-    /**
-     * 模拟积分记录
-     */
-    interface MockPointRecord {
-        id: number
-        remaining: number
-        used: number
-        expiredAt: Date
-    }
-
-    /**
-     * 模拟 FIFO 消耗逻辑
-     */
-    const consumePointsFIFO = (
-        records: MockPointRecord[],
-        consumeAmount: number
-    ): { consumedRecords: { id: number; consumed: number }[]; success: boolean } => {
-        // 按过期时间升序排序
-        const sortedRecords = [...records].sort(
-            (a, b) => a.expiredAt.getTime() - b.expiredAt.getTime()
-        )
-
-        const totalRemaining = sortedRecords.reduce((sum, r) => sum + r.remaining, 0)
-        if (totalRemaining < consumeAmount) {
-            return { consumedRecords: [], success: false }
-        }
-
-        let remainingToConsume = consumeAmount
-        const consumedRecords: { id: number; consumed: number }[] = []
-
-        for (const record of sortedRecords) {
-            if (remainingToConsume <= 0) break
-
-            const consumeFromRecord = Math.min(record.remaining, remainingToConsume)
-            if (consumeFromRecord > 0) {
-                consumedRecords.push({ id: record.id, consumed: consumeFromRecord })
-                remainingToConsume -= consumeFromRecord
-            }
-        }
-
-        return { consumedRecords, success: true }
-    }
-
-    it('应按过期时间升序消耗积分', () => {
-        fc.assert(
-            fc.property(
-                // 生成 2-5 条积分记录
-                fc.array(
-                    fc.record({
-                        id: fc.integer({ min: 1, max: 1000 }),
-                        remaining: fc.integer({ min: 10, max: 100 }),
-                        used: fc.constant(0),
-                        expiredAt: fc.date({ min: new Date('2025-01-01'), max: new Date('2025-12-31') }),
-                    }),
-                    { minLength: 2, maxLength: 5 }
-                ),
-                fc.integer({ min: 1, max: 50 }),
-                (records, consumeAmount) => {
-                    // 确保记录 ID 唯一
-                    const uniqueRecords = records.map((r, i) => ({ ...r, id: i + 1 }))
-                    const result = consumePointsFIFO(uniqueRecords, consumeAmount)
-
-                    if (result.success && result.consumedRecords.length > 1) {
-                        // 验证消耗顺序：先消耗的记录过期时间应该更早
-                        const sortedByExpiry = [...uniqueRecords].sort(
-                            (a, b) => a.expiredAt.getTime() - b.expiredAt.getTime()
-                        )
-
-                        // 获取被消耗记录的原始顺序
-                        const consumedIds = result.consumedRecords.map(r => r.id)
-                        const expectedOrder = sortedByExpiry
-                            .filter(r => consumedIds.includes(r.id))
-                            .map(r => r.id)
-
-                        expect(consumedIds).toEqual(expectedOrder)
-                    }
-                }
-            ),
-            { numRuns: 100 }
-        )
-    })
-
-    it('积分不足时应返回失败', () => {
-        fc.assert(
-            fc.property(
-                fc.array(
-                    fc.record({
-                        id: fc.integer({ min: 1, max: 1000 }),
-                        remaining: fc.integer({ min: 1, max: 10 }),
-                        used: fc.constant(0),
-                        expiredAt: fc.date({ min: new Date('2025-01-01'), max: new Date('2025-12-31') }),
-                    }),
-                    { minLength: 1, maxLength: 3 }
-                ),
-                (records) => {
-                    const totalRemaining = records.reduce((sum, r) => sum + r.remaining, 0)
-                    const consumeAmount = totalRemaining + 1 // 超过可用积分
-
-                    const result = consumePointsFIFO(records, consumeAmount)
-                    expect(result.success).toBe(false)
-                    expect(result.consumedRecords).toHaveLength(0)
-                }
-            ),
-            { numRuns: 100 }
-        )
-    })
-
-    it('消耗总量应等于请求消耗量', () => {
-        fc.assert(
-            fc.property(
-                fc.array(
-                    fc.record({
-                        id: fc.integer({ min: 1, max: 1000 }),
-                        remaining: fc.integer({ min: 50, max: 100 }),
-                        used: fc.constant(0),
-                        expiredAt: fc.date({ min: new Date('2025-01-01'), max: new Date('2025-12-31') }),
-                    }),
-                    { minLength: 2, maxLength: 5 }
-                ),
-                fc.integer({ min: 1, max: 100 }),
-                (records, consumeAmount) => {
-                    const uniqueRecords = records.map((r, i) => ({ ...r, id: i + 1 }))
-                    const totalRemaining = uniqueRecords.reduce((sum, r) => sum + r.remaining, 0)
-
-                    if (consumeAmount <= totalRemaining) {
-                        const result = consumePointsFIFO(uniqueRecords, consumeAmount)
-                        const totalConsumed = result.consumedRecords.reduce((sum, r) => sum + r.consumed, 0)
-                        expect(totalConsumed).toBe(consumeAmount)
-                    }
-                }
-            ),
-            { numRuns: 100 }
-        )
-    })
-})
-
-/**
- * Property 6: 积分记录数据一致性属性
- * 对于任意积分记录，remaining = pointAmount - used
- * Validates: Requirements 7.3, 7.4
- */
-describe('Property 6: 积分记录数据一致性属性', () => {
-    /**
-     * 模拟积分记录更新逻辑
-     */
-    const updatePointRecord = (
-        record: { pointAmount: number; used: number; remaining: number },
-        consumeAmount: number
-    ) => {
-        return {
-            ...record,
-            used: record.used + consumeAmount,
-            remaining: record.remaining - consumeAmount,
-        }
-    }
-
-    it('remaining 应始终等于 pointAmount - used', () => {
-        fc.assert(
-            fc.property(
-                fc.integer({ min: 100, max: 10000 }),
-                fc.array(fc.integer({ min: 1, max: 20 }), { minLength: 1, maxLength: 10 }),
-                (pointAmount, consumeAmounts) => {
-                    let record = {
-                        pointAmount,
-                        used: 0,
-                        remaining: pointAmount,
-                    }
-
-                    // 模拟多次消耗
-                    for (const amount of consumeAmounts) {
-                        if (record.remaining >= amount) {
-                            record = updatePointRecord(record, amount)
-                            // 验证不变量
-                            expect(record.remaining).toBe(record.pointAmount - record.used)
-                        }
-                    }
-                }
-            ),
-            { numRuns: 100 }
-        )
-    })
-
-    it('used 不应超过 pointAmount', () => {
-        fc.assert(
-            fc.property(
-                fc.integer({ min: 100, max: 10000 }),
-                fc.array(fc.integer({ min: 1, max: 50 }), { minLength: 1, maxLength: 20 }),
-                (pointAmount, consumeAmounts) => {
-                    let record = {
-                        pointAmount,
-                        used: 0,
-                        remaining: pointAmount,
-                    }
-
-                    for (const amount of consumeAmounts) {
-                        if (record.remaining >= amount) {
-                            record = updatePointRecord(record, amount)
-                        }
-                    }
-
-                    // 验证 used 不超过 pointAmount
-                    expect(record.used).toBeLessThanOrEqual(record.pointAmount)
-                }
-            ),
-            { numRuns: 100 }
-        )
-    })
-
-    it('remaining 不应为负数', () => {
-        fc.assert(
-            fc.property(
-                fc.integer({ min: 100, max: 10000 }),
-                fc.array(fc.integer({ min: 1, max: 50 }), { minLength: 1, maxLength: 20 }),
-                (pointAmount, consumeAmounts) => {
-                    let record = {
-                        pointAmount,
-                        used: 0,
-                        remaining: pointAmount,
-                    }
-
-                    for (const amount of consumeAmounts) {
-                        if (record.remaining >= amount) {
-                            record = updatePointRecord(record, amount)
-                        }
-                    }
-
-                    // 验证 remaining 不为负数
-                    expect(record.remaining).toBeGreaterThanOrEqual(0)
-                }
-            ),
-            { numRuns: 100 }
-        )
-    })
-
-    it('消耗记录总和应等于 used 字段', () => {
-        fc.assert(
-            fc.property(
-                fc.integer({ min: 100, max: 10000 }),
-                fc.array(fc.integer({ min: 1, max: 20 }), { minLength: 1, maxLength: 10 }),
-                (pointAmount, consumeAmounts) => {
-                    let record = {
-                        pointAmount,
-                        used: 0,
-                        remaining: pointAmount,
-                    }
-
-                    const consumptionRecords: number[] = []
-
-                    for (const amount of consumeAmounts) {
-                        if (record.remaining >= amount) {
-                            record = updatePointRecord(record, amount)
-                            consumptionRecords.push(amount)
-                        }
-                    }
-
-                    // 验证消耗记录总和等于 used
-                    const totalConsumed = consumptionRecords.reduce((sum, a) => sum + a, 0)
-                    expect(totalConsumed).toBe(record.used)
-                }
-            ),
-            { numRuns: 100 }
-        )
-    })
-})
-
-/**
- * Property 12: 积分消耗顺序
- * 
- * For any 积分消耗操作，SHALL 按积分记录的 expiredAt 字段升序消耗（先到期先消耗）。
- * 
- * **Feature: membership-system, Property 12: 积分消耗顺序**
- * **Validates: Requirements 10.4**
- */
-describe('Property 12: 积分消耗顺序', () => {
-    /** 模拟积分记录 */
-    interface MockPointRecord {
-        id: number
-        userId: number
-        remaining: number
-        expiredAt: Date
-        status: number
-    }
-
-    /**
-     * 模拟按过期时间排序的积分消耗
-     */
-    const consumePointsByExpiry = (
-        records: MockPointRecord[],
-        consumeAmount: number
-    ): {
-        success: boolean
-        consumedRecords: { recordId: number; amount: number; expiredAt: Date }[]
-        errorMessage?: string
-    } => {
-        // 过滤有效记录并按过期时间升序排序
-        const validRecords = records
-            .filter((r) => r.status === PointRecordStatus.VALID && r.remaining > 0)
-            .sort((a, b) => a.expiredAt.getTime() - b.expiredAt.getTime())
-
-        const totalRemaining = validRecords.reduce((sum, r) => sum + r.remaining, 0)
-        if (totalRemaining < consumeAmount) {
-            return { success: false, consumedRecords: [], errorMessage: '积分不足' }
-        }
-
-        let remainingToConsume = consumeAmount
-        const consumedRecords: { recordId: number; amount: number; expiredAt: Date }[] = []
-
-        for (const record of validRecords) {
-            if (remainingToConsume <= 0) break
-
-            const consumeFromRecord = Math.min(record.remaining, remainingToConsume)
-            consumedRecords.push({
-                recordId: record.id,
-                amount: consumeFromRecord,
-                expiredAt: record.expiredAt,
+    afterEach(async () => {
+        if (dbAvailable) {
+            await cleanupTestData(testIds)
+            Object.keys(testIds).forEach(key => {
+                (testIds as any)[key] = []
             })
-            remainingToConsume -= consumeFromRecord
         }
+    })
 
-        return { success: true, consumedRecords }
-    }
+    afterAll(async () => {
+        if (dbAvailable) {
+            await disconnectTestDb()
+        }
+    })
 
-    it('应优先消耗过期时间最早的积分记录', () => {
-        fc.assert(
-            fc.property(
-                fc.integer({ min: 1, max: 1000 }), // userId
-                fc.array(
-                    fc.record({
-                        id: fc.integer({ min: 1, max: 10000 }),
-                        remaining: fc.integer({ min: 10, max: 100 }),
-                        expiredAt: fc.date({ min: new Date('2025-01-01'), max: new Date('2026-12-31') })
-                            .filter(d => !isNaN(d.getTime())),
-                    }),
-                    { minLength: 3, maxLength: 6 }
-                ),
-                fc.integer({ min: 5, max: 50 }),
-                (userId, recordsData, consumeAmount) => {
-                    // 创建唯一 ID 的记录
-                    const records: MockPointRecord[] = recordsData.map((r, i) => ({
-                        id: i + 1,
-                        userId,
-                        remaining: r.remaining,
-                        expiredAt: r.expiredAt,
-                        status: PointRecordStatus.VALID,
-                    }))
+    describe('createPointRecordDao 测试', () => {
+        it('应成功创建积分记录', async () => {
+            if (!dbAvailable) return
 
-                    const result = consumePointsByExpiry(records, consumeAmount)
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
 
-                    if (result.success && result.consumedRecords.length > 1) {
-                        // 验证消耗顺序：每条记录的过期时间应该 <= 下一条记录的过期时间
-                        for (let i = 0; i < result.consumedRecords.length - 1; i++) {
-                            const current = result.consumedRecords[i]
-                            const next = result.consumedRecords[i + 1]
-                            expect(current.expiredAt.getTime()).toBeLessThanOrEqual(next.expiredAt.getTime())
-                        }
+            const now = new Date()
+            const expiredAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
+
+            // 使用实际的 DAO 函数创建
+            const record = await createPointRecordDao({
+                users: { connect: { id: user.id } },
+                pointAmount: 100,
+                used: 0,
+                remaining: 100,
+                sourceType: PointSourceType.DIRECT_PURCHASE,
+                effectiveAt: now,
+                expiredAt,
+                status: PointRecordStatus.VALID,
+            })
+            testIds.pointRecordIds.push(record.id)
+
+            expect(record.id).toBeGreaterThan(0)
+            expect(record.userId).toBe(user.id)
+            expect(record.pointAmount).toBe(100)
+            expect(record.used).toBe(0)
+            expect(record.remaining).toBe(100)
+            expect(record.status).toBe(PointRecordStatus.VALID)
+        })
+
+        it('Property: 新创建的积分记录 remaining 应等于 pointAmount', async () => {
+            if (!dbAvailable) return
+
+            await fc.assert(
+                fc.asyncProperty(
+                    pointAmountArb,
+                    async (pointAmount) => {
+                        const user = await createTestUser()
+                        testIds.userIds.push(user.id)
+
+                        const now = new Date()
+                        const expiredAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
+
+                        // 使用实际的 DAO 函数创建
+                        const record = await createPointRecordDao({
+                            users: { connect: { id: user.id } },
+                            pointAmount,
+                            used: 0,
+                            remaining: pointAmount,
+                            sourceType: PointSourceType.DIRECT_PURCHASE,
+                            effectiveAt: now,
+                            expiredAt,
+                            status: PointRecordStatus.VALID,
+                        })
+                        testIds.pointRecordIds.push(record.id)
+
+                        expect(record.remaining).toBe(pointAmount)
+                        expect(record.used).toBe(0)
+
+                        return true
                     }
-                }
-            ),
-            { numRuns: 100 }
-        )
-    })
-
-    it('消耗完一条记录后才消耗下一条', () => {
-        fc.assert(
-            fc.property(
-                fc.integer({ min: 1, max: 1000 }),
-                (userId) => {
-                    // 创建固定的测试数据
-                    const records: MockPointRecord[] = [
-                        { id: 1, userId, remaining: 50, expiredAt: new Date('2025-03-01'), status: PointRecordStatus.VALID },
-                        { id: 2, userId, remaining: 100, expiredAt: new Date('2025-06-01'), status: PointRecordStatus.VALID },
-                        { id: 3, userId, remaining: 30, expiredAt: new Date('2025-09-01'), status: PointRecordStatus.VALID },
-                    ]
-
-                    // 消耗 80 积分，应该先消耗完第一条（50），再从第二条消耗（30）
-                    const result = consumePointsByExpiry(records, 80)
-
-                    expect(result.success).toBe(true)
-                    expect(result.consumedRecords.length).toBe(2)
-                    expect(result.consumedRecords[0].recordId).toBe(1)
-                    expect(result.consumedRecords[0].amount).toBe(50) // 第一条全部消耗
-                    expect(result.consumedRecords[1].recordId).toBe(2)
-                    expect(result.consumedRecords[1].amount).toBe(30) // 第二条部分消耗
-                }
-            ),
-            { numRuns: 100 }
-        )
-    })
-
-    it('不应消耗无效状态的积分记录', () => {
-        fc.assert(
-            fc.property(
-                fc.integer({ min: 1, max: 1000 }),
-                fc.constantFrom(PointRecordStatus.MEMBERSHIP_UPGRADE_SETTLEMENT, PointRecordStatus.CANCELLED),
-                (userId, invalidStatus) => {
-                    const records: MockPointRecord[] = [
-                        { id: 1, userId, remaining: 100, expiredAt: new Date('2025-03-01'), status: invalidStatus },
-                        { id: 2, userId, remaining: 50, expiredAt: new Date('2025-06-01'), status: PointRecordStatus.VALID },
-                    ]
-
-                    const result = consumePointsByExpiry(records, 30)
-
-                    expect(result.success).toBe(true)
-                    // 应该只消耗有效状态的记录
-                    expect(result.consumedRecords.length).toBe(1)
-                    expect(result.consumedRecords[0].recordId).toBe(2)
-                }
-            ),
-            { numRuns: 100 }
-        )
-    })
-
-    it('不应消耗 remaining 为 0 的记录', () => {
-        fc.assert(
-            fc.property(
-                fc.integer({ min: 1, max: 1000 }),
-                (userId) => {
-                    const records: MockPointRecord[] = [
-                        { id: 1, userId, remaining: 0, expiredAt: new Date('2025-03-01'), status: PointRecordStatus.VALID },
-                        { id: 2, userId, remaining: 50, expiredAt: new Date('2025-06-01'), status: PointRecordStatus.VALID },
-                    ]
-
-                    const result = consumePointsByExpiry(records, 30)
-
-                    expect(result.success).toBe(true)
-                    expect(result.consumedRecords.length).toBe(1)
-                    expect(result.consumedRecords[0].recordId).toBe(2)
-                }
-            ),
-            { numRuns: 100 }
-        )
-    })
-
-    it('消耗总量应精确等于请求量', () => {
-        fc.assert(
-            fc.property(
-                fc.integer({ min: 1, max: 1000 }),
-                fc.array(
-                    fc.record({
-                        remaining: fc.integer({ min: 20, max: 100 }),
-                        expiredAt: fc.date({ min: new Date('2025-01-01'), max: new Date('2026-12-31') }),
-                    }),
-                    { minLength: 2, maxLength: 5 }
                 ),
-                fc.integer({ min: 10, max: 80 }),
-                (userId, recordsData, consumeAmount) => {
-                    const records: MockPointRecord[] = recordsData.map((r, i) => ({
-                        id: i + 1,
-                        userId,
-                        remaining: r.remaining,
-                        expiredAt: r.expiredAt,
-                        status: PointRecordStatus.VALID,
-                    }))
+                PBT_CONFIG_FAST
+            )
+        })
+    })
 
-                    const totalAvailable = records.reduce((sum, r) => sum + r.remaining, 0)
+    describe('findPointRecordByIdDao 测试', () => {
+        it('应成功通过 ID 查询积分记录', async () => {
+            if (!dbAvailable) return
 
-                    if (consumeAmount <= totalAvailable) {
-                        const result = consumePointsByExpiry(records, consumeAmount)
-                        const totalConsumed = result.consumedRecords.reduce((sum, r) => sum + r.amount, 0)
-                        expect(totalConsumed).toBe(consumeAmount)
-                    }
-                }
-            ),
-            { numRuns: 100 }
-        )
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+            const record = await createTestPointRecord(user.id)
+            testIds.pointRecordIds.push(record.id)
+
+            // 使用实际的 DAO 函数查询
+            const found = await findPointRecordByIdDao(record.id)
+
+            expect(found).not.toBeNull()
+            expect(found!.id).toBe(record.id)
+            expect(found!.pointAmount).toBe(record.pointAmount)
+        })
+    })
+
+    describe('findPointRecordsByUserIdDao 测试', () => {
+        it('应正确返回分页结果', async () => {
+            if (!dbAvailable) return
+
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+
+            // 创建 5 条积分记录
+            for (let i = 0; i < 5; i++) {
+                const record = await createTestPointRecord(user.id, {
+                    pointAmount: (i + 1) * 100,
+                })
+                testIds.pointRecordIds.push(record.id)
+            }
+
+            // 使用实际的 DAO 函数查询
+            const page1 = await findPointRecordsByUserIdDao(user.id, { page: 1, pageSize: 2 })
+            const page2 = await findPointRecordsByUserIdDao(user.id, { page: 2, pageSize: 2 })
+
+            expect(page1.list.length).toBe(2)
+            expect(page2.list.length).toBe(2)
+            expect(page1.total).toBe(5)
+        })
+    })
+
+    describe('findValidPointRecordsByUserIdDao 测试', () => {
+        it('应按 expiredAt 升序排列（FIFO 消耗）', async () => {
+            if (!dbAvailable) return
+
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+
+            const now = Date.now()
+            // 创建不同过期时间的积分记录
+            const record1 = await createTestPointRecord(user.id, {
+                expiredAt: new Date(now + 90 * 24 * 60 * 60 * 1000), // 90天后
+            })
+            const record2 = await createTestPointRecord(user.id, {
+                expiredAt: new Date(now + 30 * 24 * 60 * 60 * 1000), // 30天后
+            })
+            const record3 = await createTestPointRecord(user.id, {
+                expiredAt: new Date(now + 60 * 24 * 60 * 60 * 1000), // 60天后
+            })
+            testIds.pointRecordIds.push(record1.id, record2.id, record3.id)
+
+            // 使用实际的 DAO 函数查询
+            const records = await findValidPointRecordsByUserIdDao(user.id)
+
+            // 验证排序：30天 < 60天 < 90天
+            expect(records.length).toBe(3)
+            expect(records[0].id).toBe(record2.id)
+            expect(records[1].id).toBe(record3.id)
+            expect(records[2].id).toBe(record1.id)
+        })
+
+        it('不应返回已过期的积分记录', async () => {
+            if (!dbAvailable) return
+
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+
+            const now = new Date()
+            const futureDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+            const pastDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+            // 创建有效积分记录
+            const validRecord = await createTestPointRecord(user.id, {
+                expiredAt: futureDate,
+                status: PointRecordStatus.VALID,
+            })
+            testIds.pointRecordIds.push(validRecord.id)
+
+            // 创建已过期积分记录
+            const expiredRecord = await createTestPointRecord(user.id, {
+                expiredAt: pastDate,
+                status: PointRecordStatus.VALID,
+            })
+            testIds.pointRecordIds.push(expiredRecord.id)
+
+            // 使用实际的 DAO 函数查询
+            const records = await findValidPointRecordsByUserIdDao(user.id)
+
+            expect(records.length).toBe(1)
+            expect(records[0].id).toBe(validRecord.id)
+        })
+    })
+
+    describe('updatePointRecordDao 测试', () => {
+        it('应成功更新积分记录', async () => {
+            if (!dbAvailable) return
+
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+            const record = await createTestPointRecord(user.id, { pointAmount: 100 })
+            testIds.pointRecordIds.push(record.id)
+
+            // 使用实际的 DAO 函数更新（模拟消耗 30 积分）
+            const updated = await updatePointRecordDao(record.id, {
+                used: 30,
+                remaining: 70,
+            })
+
+            expect(updated.used).toBe(30)
+            expect(updated.remaining).toBe(70)
+        })
+    })
+
+    describe('sumUserValidPointsDao 测试', () => {
+        it('应正确统计用户有效积分汇总', async () => {
+            if (!dbAvailable) return
+
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+
+            const now = new Date()
+            const futureDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
+            const pastDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+            // 创建有效积分记录
+            const validRecord1 = await createTestPointRecord(user.id, {
+                pointAmount: 100,
+                remaining: 80,
+                used: 20,
+                expiredAt: futureDate,
+                status: PointRecordStatus.VALID,
+                sourceType: PointSourceType.MEMBERSHIP_PURCHASE_GIFT,
+            })
+            const validRecord2 = await createTestPointRecord(user.id, {
+                pointAmount: 200,
+                remaining: 200,
+                used: 0,
+                expiredAt: futureDate,
+                status: PointRecordStatus.VALID,
+                sourceType: PointSourceType.DIRECT_PURCHASE,
+            })
+            testIds.pointRecordIds.push(validRecord1.id, validRecord2.id)
+
+            // 创建已过期的积分记录（不应计入）
+            const expiredRecord = await createTestPointRecord(user.id, {
+                pointAmount: 50,
+                remaining: 50,
+                expiredAt: pastDate,
+                status: PointRecordStatus.VALID,
+            })
+            testIds.pointRecordIds.push(expiredRecord.id)
+
+            // 创建已取消的积分记录（不应计入）
+            const cancelledRecord = await createTestPointRecord(user.id, {
+                pointAmount: 30,
+                remaining: 30,
+                expiredAt: futureDate,
+                status: PointRecordStatus.CANCELLED,
+            })
+            testIds.pointRecordIds.push(cancelledRecord.id)
+
+            // 使用实际的 DAO 函数统计
+            const summary = await sumUserValidPointsDao(user.id)
+
+            expect(summary.remaining).toBe(280) // 80 + 200
+            expect(summary.purchasePoint).toBe(280) // 来源类型 1 和 2 的积分
+        })
+    })
+
+    describe('findPointRecordsByMembershipIdDao 测试', () => {
+        it('应正确查询会员关联的积分记录', async () => {
+            if (!dbAvailable) return
+
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+            const level = await createTestMembershipLevel()
+            testIds.membershipLevelIds.push(level.id)
+            const membership = await createTestUserMembership(user.id, level.id)
+            testIds.userMembershipIds.push(membership.id)
+
+            // 创建关联到会员的积分记录
+            const record1 = await createTestPointRecord(user.id, {
+                userMembershipId: membership.id,
+                pointAmount: 100,
+            })
+            const record2 = await createTestPointRecord(user.id, {
+                userMembershipId: membership.id,
+                pointAmount: 200,
+            })
+            // 创建不关联会员的积分记录
+            const record3 = await createTestPointRecord(user.id, {
+                pointAmount: 50,
+            })
+            testIds.pointRecordIds.push(record1.id, record2.id, record3.id)
+
+            // 使用实际的 DAO 函数查询
+            const membershipRecords = await findPointRecordsByMembershipIdDao(membership.id)
+
+            expect(membershipRecords.length).toBe(2)
+            const totalPoints = membershipRecords.reduce((sum, r) => sum + r.pointAmount, 0)
+            expect(totalPoints).toBe(300)
+        })
+    })
+
+    describe('transferPointRecordsDao 测试', () => {
+        it('应正确转移积分记录到新会员', async () => {
+            if (!dbAvailable) return
+
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+            const level1 = await createTestMembershipLevel({ sortOrder: 2 })
+            const level2 = await createTestMembershipLevel({ sortOrder: 1 })
+            testIds.membershipLevelIds.push(level1.id, level2.id)
+
+            const now = new Date()
+            const futureDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+
+            const fromMembership = await createTestUserMembership(user.id, level1.id, {
+                status: MembershipStatus.INACTIVE,
+                endDate: futureDate,
+            })
+            const toMembership = await createTestUserMembership(user.id, level2.id, {
+                status: MembershipStatus.ACTIVE,
+                endDate: futureDate,
+            })
+            testIds.userMembershipIds.push(fromMembership.id, toMembership.id)
+
+            // 创建关联到原会员的积分记录
+            const record1 = await createTestPointRecord(user.id, {
+                userMembershipId: fromMembership.id,
+                pointAmount: 100,
+            })
+            const record2 = await createTestPointRecord(user.id, {
+                userMembershipId: fromMembership.id,
+                pointAmount: 200,
+            })
+            testIds.pointRecordIds.push(record1.id, record2.id)
+
+            // 使用实际的 DAO 函数转移
+            const count = await transferPointRecordsDao(fromMembership.id, toMembership.id)
+
+            expect(count).toBe(2)
+
+            // 验证转移后的关联
+            const newMembershipRecords = await findPointRecordsByMembershipIdDao(toMembership.id)
+            expect(newMembershipRecords.length).toBe(2)
+
+            const oldMembershipRecords = await findPointRecordsByMembershipIdDao(fromMembership.id)
+            expect(oldMembershipRecords.length).toBe(0)
+        })
+    })
+
+    describe('积分数据一致性', () => {
+        it('Property: remaining 应始终等于 pointAmount - used', async () => {
+            if (!dbAvailable) return
+
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+
+            const record = await createTestPointRecord(user.id, { pointAmount: 100 })
+            testIds.pointRecordIds.push(record.id)
+
+            // 多次消费
+            const consumeAmounts = [20, 30, 15]
+            let totalUsed = 0
+
+            for (const amount of consumeAmounts) {
+                totalUsed += amount
+                // 使用实际的 DAO 函数更新
+                await updatePointRecordDao(record.id, {
+                    used: totalUsed,
+                    remaining: 100 - totalUsed,
+                })
+
+                const updated = await findPointRecordByIdDao(record.id)
+
+                // 验证不变量
+                expect(updated!.remaining).toBe(updated!.pointAmount - updated!.used)
+            }
+        })
+    })
+})
+
+describe('数据库连接检查', () => {
+    it('检查数据库是否可用', async () => {
+        const available = await isTestDbAvailable()
+        if (!available) {
+            console.log('请确保数据库已启动并配置正确的连接字符串')
+        }
+        expect(true).toBe(true)
     })
 })

@@ -73,7 +73,8 @@ describe('useFileEncryption 状态管理测试', () => {
             status.value = 'success'
 
             expect(status.value).toBe('success')
-            expect(encryptedBlob.value).toBe(result)
+            // Blob 对象需要使用 toStrictEqual 或比较属性
+            expect(encryptedBlob.value).toStrictEqual(result)
         })
 
         it('加密失败时状态应变为 error', () => {

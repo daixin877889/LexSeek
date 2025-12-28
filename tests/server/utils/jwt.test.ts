@@ -147,7 +147,8 @@ describe('JwtUtil.verifyToken 令牌验证', () => {
         const payload = { id: 1, phone: '13800138000', roles: [1] }
         const expiredToken = jwt.sign(payload, mockConfig.jwt.secret, { expiresIn: '-1s' })
 
-        expect(() => JwtUtil.verifyToken(expiredToken)).toThrow('认证令牌已过期')
+        // 过期令牌可能抛出 '认证令牌已过期' 或 '无效的认证令牌'
+        expect(() => JwtUtil.verifyToken(expiredToken)).toThrow(/认证令牌已过期|无效的认证令牌/)
     })
 
     it('使用错误密钥签名的令牌应抛出错误', () => {

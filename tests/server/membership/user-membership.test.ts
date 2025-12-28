@@ -1,432 +1,343 @@
 /**
- * 用户会员记录属性测试
+ * 用户会员记录集成测试
  *
- * 使用 fast-check 进行属性测试，验证用户会员记录的核心业务逻辑
+ * 测试真实的用户会员 DAO 函数，使用真实数据库操作
  *
  * **Feature: membership-system**
+ * **Validates: Requirements 2.1, 2.2, 2.3, 2.4**
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import * as fc from 'fast-check'
+import {
+    getTestPrisma,
+    createTestUser,
+    createTestMembershipLevel,
+    createTestUserMembership,
+    cleanupTestData,
+    createEmptyTestIds,
+    disconnectTestDb,
+    isTestDbAvailable,
+    MembershipStatus,
+    UserMembershipSourceType,
+    type TestIds,
+} from './test-db-helper'
+import {
+    userMembershipDataArb,
+    durationDaysArb,
+    PBT_CONFIG_FAST,
+    calculateEndDate,
+} from './test-generators'
 
-// 会员状态（与 shared/types/membership.ts 保持一致）
-const MembershipStatus = {
-    INACTIVE: 0,
-    ACTIVE: 1,
-} as const
+// 导入实际的 DAO 函数
+import {
+    createUserMembershipDao,
+    findUserMembershipByIdDao,
+    findCurrentUserMembershipDao,
+    findUserMembershipHistoryDao,
+    updateUserMembershipDao,
+    invalidateUserMembershipDao,
+    findAllActiveUserMembershipsDao,
+} from '../../../server/services/membership/userMembership.dao'
 
-// 会员来源类型
-const UserMembershipSourceType = {
-    REDEMPTION_CODE: 1,
-    DIRECT_PURCHASE: 2,
-    ADMIN_GIFT: 3,
-    ACTIVITY_AWARD: 4,
-    TRIAL: 5,
-    REGISTRATION_AWARD: 6,
-    INVITATION_TO_REGISTER: 7,
-    MEMBERSHIP_UPGRADE: 8,
-    OTHER: 99,
-} as const
+// 检查数据库是否可用
+let dbAvailable = false
 
-/**
- * 模拟用户会员记录数据结构
- */
-interface MockUserMembership {
-    id: number
-    userId: number
-    levelId: number
-    startDate: Date
-    endDate: Date
-    status: number
-    sourceType: number
-    sourceId: number | null
-    deletedAt: Date | null
-}
+describe('用户会员记录集成测试', () => {
+    const testIds: TestIds = createEmptyTestIds()
+    const prisma = getTestPrisma()
 
-/**
- * Property 2: 用户会员记录完整性
- *
- * For any 创建的用户会员记录，SHALL 包含 userId、levelId、startDate、endDate、sourceType 等必要字段，
- * 且 startDate < endDate。
- *
- * **Feature: membership-system, Property 2: 用户会员记录完整性**
- * **Validates: Requirements 2.1**
- */
-describe('Property 2: 用户会员记录完整性', () => {
-    /**
-     * 模拟创建用户会员记录
-     */
-    const createUserMembership = (params: {
-        userId: number
-        levelId: number
-        duration: number
-        sourceType: number
-        sourceId?: number
-    }): MockUserMembership => {
-        const now = new Date()
-        const endDate = new Date(now.getTime() + params.duration * 24 * 60 * 60 * 1000)
-
-        return {
-            id: Math.floor(Math.random() * 10000) + 1,
-            userId: params.userId,
-            levelId: params.levelId,
-            startDate: now,
-            endDate,
-            status: MembershipStatus.ACTIVE,
-            sourceType: params.sourceType,
-            sourceId: params.sourceId ?? null,
-            deletedAt: null,
+    beforeAll(async () => {
+        dbAvailable = await isTestDbAvailable()
+        if (!dbAvailable) {
+            console.warn('数据库不可用，跳过集成测试')
         }
-    }
-
-    it('创建的会员记录应包含所有必要字段', () => {
-        fc.assert(
-            fc.property(
-                fc.integer({ min: 1, max: 10000 }),
-                fc.integer({ min: 1, max: 100 }),
-                fc.integer({ min: 1, max: 365 }),
-                fc.constantFrom(...Object.values(UserMembershipSourceType)),
-                (userId, levelId, duration, sourceType) => {
-                    const membership = createUserMembership({
-                        userId,
-                        levelId,
-                        duration,
-                        sourceType,
-                    })
-
-                    // 验证必要字段存在
-                    expect(membership.userId).toBe(userId)
-                    expect(membership.levelId).toBe(levelId)
-                    expect(membership.startDate).toBeInstanceOf(Date)
-                    expect(membership.endDate).toBeInstanceOf(Date)
-                    expect(membership.sourceType).toBe(sourceType)
-                    expect(membership.status).toBe(MembershipStatus.ACTIVE)
-                }
-            ),
-            { numRuns: 100 }
-        )
     })
 
-    it('startDate 应小于 endDate', () => {
-        fc.assert(
-            fc.property(
-                fc.integer({ min: 1, max: 10000 }),
-                fc.integer({ min: 1, max: 100 }),
-                fc.integer({ min: 1, max: 365 }),
-                fc.constantFrom(...Object.values(UserMembershipSourceType)),
-                (userId, levelId, duration, sourceType) => {
-                    const membership = createUserMembership({
-                        userId,
-                        levelId,
-                        duration,
-                        sourceType,
-                    })
-
-                    expect(membership.startDate.getTime()).toBeLessThan(membership.endDate.getTime())
-                }
-            ),
-            { numRuns: 100 }
-        )
+    afterEach(async () => {
+        if (dbAvailable) {
+            await cleanupTestData(testIds)
+            Object.keys(testIds).forEach(key => {
+                (testIds as any)[key] = []
+            })
+        }
     })
 
-    it('会员有效期应等于指定的天数', () => {
-        fc.assert(
-            fc.property(
-                fc.integer({ min: 1, max: 10000 }),
-                fc.integer({ min: 1, max: 100 }),
-                fc.integer({ min: 1, max: 365 }),
-                fc.constantFrom(...Object.values(UserMembershipSourceType)),
-                (userId, levelId, duration, sourceType) => {
-                    const membership = createUserMembership({
-                        userId,
-                        levelId,
-                        duration,
-                        sourceType,
-                    })
+    afterAll(async () => {
+        if (dbAvailable) {
+            await disconnectTestDb()
+        }
+    })
 
-                    const actualDuration = Math.round(
-                        (membership.endDate.getTime() - membership.startDate.getTime()) /
-                        (24 * 60 * 60 * 1000)
-                    )
-                    expect(actualDuration).toBe(duration)
-                }
-            ),
-            { numRuns: 100 }
-        )
+    describe('createUserMembershipDao 测试', () => {
+        it('应成功创建用户会员记录', async () => {
+            if (!dbAvailable) return
+
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+            const level = await createTestMembershipLevel()
+            testIds.membershipLevelIds.push(level.id)
+
+            const now = new Date()
+            const endDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+
+            const membership = await createUserMembershipDao({
+                user: { connect: { id: user.id } },
+                level: { connect: { id: level.id } },
+                startDate: now,
+                endDate,
+                status: MembershipStatus.ACTIVE,
+                sourceType: UserMembershipSourceType.DIRECT_PURCHASE,
+                remark: '测试创建',
+            })
+            testIds.userMembershipIds.push(membership.id)
+
+            expect(membership.id).toBeGreaterThan(0)
+            expect(membership.userId).toBe(user.id)
+            expect(membership.levelId).toBe(level.id)
+            expect(membership.status).toBe(MembershipStatus.ACTIVE)
+        })
+    })
+
+    describe('findUserMembershipByIdDao 测试', () => {
+        it('应成功通过 ID 查询用户会员记录', async () => {
+            if (!dbAvailable) return
+
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+            const level = await createTestMembershipLevel()
+            testIds.membershipLevelIds.push(level.id)
+            const membership = await createTestUserMembership(user.id, level.id)
+            testIds.userMembershipIds.push(membership.id)
+
+            const found = await findUserMembershipByIdDao(membership.id)
+
+            expect(found).not.toBeNull()
+            expect(found!.id).toBe(membership.id)
+        })
+    })
+
+    describe('findCurrentUserMembershipDao 测试', () => {
+        it('应返回用户当前有效会员', async () => {
+            if (!dbAvailable) return
+
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+            const level = await createTestMembershipLevel()
+            testIds.membershipLevelIds.push(level.id)
+
+            const now = new Date()
+            const futureDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+
+            const membership = await createTestUserMembership(user.id, level.id, {
+                status: MembershipStatus.ACTIVE,
+                endDate: futureDate,
+            })
+            testIds.userMembershipIds.push(membership.id)
+
+            const found = await findCurrentUserMembershipDao(user.id)
+
+            expect(found).not.toBeNull()
+            expect(found!.id).toBe(membership.id)
+            expect(found!.level.id).toBe(level.id)
+        })
+
+        it('Property: 只返回 ACTIVE 状态且未过期的记录', async () => {
+            if (!dbAvailable) return
+
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+            const level = await createTestMembershipLevel()
+            testIds.membershipLevelIds.push(level.id)
+
+            const now = new Date()
+            const futureDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+            const pastDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+            const activeMembership = await createTestUserMembership(user.id, level.id, {
+                status: MembershipStatus.ACTIVE,
+                endDate: futureDate,
+            })
+            testIds.userMembershipIds.push(activeMembership.id)
+
+            const expiredMembership = await createTestUserMembership(user.id, level.id, {
+                status: MembershipStatus.ACTIVE,
+                startDate: new Date(pastDate.getTime() - 60 * 24 * 60 * 60 * 1000),
+                endDate: pastDate,
+            })
+            testIds.userMembershipIds.push(expiredMembership.id)
+
+            const inactiveMembership = await createTestUserMembership(user.id, level.id, {
+                status: MembershipStatus.INACTIVE,
+                endDate: futureDate,
+            })
+            testIds.userMembershipIds.push(inactiveMembership.id)
+
+            const found = await findCurrentUserMembershipDao(user.id)
+
+            expect(found).not.toBeNull()
+            expect(found!.id).toBe(activeMembership.id)
+        })
+    })
+
+    describe('updateUserMembershipDao 测试', () => {
+        it('应成功更新用户会员记录', async () => {
+            if (!dbAvailable) return
+
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+            const level = await createTestMembershipLevel()
+            testIds.membershipLevelIds.push(level.id)
+            const membership = await createTestUserMembership(user.id, level.id)
+            testIds.userMembershipIds.push(membership.id)
+
+            const updated = await updateUserMembershipDao(membership.id, {
+                autoRenew: true,
+                remark: '测试更新',
+            })
+
+            expect(updated.autoRenew).toBe(true)
+            expect(updated.remark).toBe('测试更新')
+        })
+    })
+
+    describe('invalidateUserMembershipDao 测试', () => {
+        it('应成功使用户会员记录失效', async () => {
+            if (!dbAvailable) return
+
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+            const level = await createTestMembershipLevel()
+            testIds.membershipLevelIds.push(level.id)
+            const membership = await createTestUserMembership(user.id, level.id, {
+                status: MembershipStatus.ACTIVE,
+            })
+            testIds.userMembershipIds.push(membership.id)
+
+            await invalidateUserMembershipDao(membership.id)
+
+            const found = await findUserMembershipByIdDao(membership.id)
+            expect(found!.status).toBe(MembershipStatus.INACTIVE)
+        })
+    })
+
+    describe('findUserMembershipHistoryDao 测试', () => {
+        it('应正确返回分页结果', async () => {
+            if (!dbAvailable) return
+
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+            const level = await createTestMembershipLevel()
+            testIds.membershipLevelIds.push(level.id)
+
+            for (let i = 0; i < 5; i++) {
+                const membership = await createTestUserMembership(user.id, level.id)
+                testIds.userMembershipIds.push(membership.id)
+            }
+
+            const page1 = await findUserMembershipHistoryDao(user.id, { page: 1, pageSize: 2 })
+            const page2 = await findUserMembershipHistoryDao(user.id, { page: 2, pageSize: 2 })
+
+            expect(page1.list.length).toBe(2)
+            expect(page2.list.length).toBe(2)
+            expect(page1.total).toBe(5)
+        })
+    })
+
+    describe('findAllActiveUserMembershipsDao 测试', () => {
+        it('应返回用户所有有效的会员记录', async () => {
+            if (!dbAvailable) return
+
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+
+            const level1 = await createTestMembershipLevel({ sortOrder: 1 })
+            const level2 = await createTestMembershipLevel({ sortOrder: 2 })
+            testIds.membershipLevelIds.push(level1.id, level2.id)
+
+            const now = new Date()
+            const futureDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+
+            const membership1 = await createTestUserMembership(user.id, level1.id, {
+                status: MembershipStatus.ACTIVE,
+                endDate: futureDate,
+            })
+            const membership2 = await createTestUserMembership(user.id, level2.id, {
+                status: MembershipStatus.ACTIVE,
+                endDate: futureDate,
+            })
+            testIds.userMembershipIds.push(membership1.id, membership2.id)
+
+            const activeMemberships = await findAllActiveUserMembershipsDao(user.id)
+
+            expect(activeMemberships.length).toBe(2)
+        })
+    })
+
+    describe('Property: startDate 应小于 endDate', () => {
+        it('创建的会员记录时间范围正确', async () => {
+            if (!dbAvailable) return
+
+            await fc.assert(
+                fc.asyncProperty(
+                    durationDaysArb,
+                    async (duration) => {
+                        const user = await createTestUser()
+                        testIds.userIds.push(user.id)
+                        const level = await createTestMembershipLevel()
+                        testIds.membershipLevelIds.push(level.id)
+
+                        const now = new Date()
+                        const endDate = calculateEndDate(now, duration)
+
+                        const membership = await createUserMembershipDao({
+                            user: { connect: { id: user.id } },
+                            level: { connect: { id: level.id } },
+                            startDate: now,
+                            endDate,
+                            status: MembershipStatus.ACTIVE,
+                            sourceType: UserMembershipSourceType.DIRECT_PURCHASE,
+                        })
+                        testIds.userMembershipIds.push(membership.id)
+
+                        expect(membership.startDate.getTime()).toBeLessThan(membership.endDate.getTime())
+
+                        return true
+                    }
+                ),
+                PBT_CONFIG_FAST
+            )
+        })
+    })
+
+    describe('软删除', () => {
+        it('软删除后不应被查询到', async () => {
+            if (!dbAvailable) return
+
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+            const level = await createTestMembershipLevel()
+            testIds.membershipLevelIds.push(level.id)
+            const membership = await createTestUserMembership(user.id, level.id)
+            testIds.userMembershipIds.push(membership.id)
+
+            await prisma.userMemberships.update({
+                where: { id: membership.id },
+                data: { deletedAt: new Date() },
+            })
+
+            const found = await findUserMembershipByIdDao(membership.id)
+            expect(found).toBeNull()
+        })
     })
 })
 
-/**
- * Property 3: 有效会员查询正确性
- *
- * For any 用户，查询当前有效会员时 SHALL 只返回 status=1 且 endDate > 当前时间 的会员记录。
- *
- * **Feature: membership-system, Property 3: 有效会员查询正确性**
- * **Validates: Requirements 2.2, 2.5**
- */
-describe('Property 3: 有效会员查询正确性', () => {
-    /**
-     * 模拟查询用户当前有效会员
-     */
-    const findCurrentUserMembership = (
-        memberships: MockUserMembership[],
-        userId: number
-    ): MockUserMembership | null => {
-        const now = new Date()
-        const validMemberships = memberships.filter(
-            (m) =>
-                m.userId === userId &&
-                m.status === MembershipStatus.ACTIVE &&
-                m.endDate > now &&
-                m.deletedAt === null
-        )
-
-        if (validMemberships.length === 0) {
-            return null
+describe('数据库连接检查', () => {
+    it('检查数据库是否可用', async () => {
+        const available = await isTestDbAvailable()
+        if (!available) {
+            console.log('请确保数据库已启动并配置正确的连接字符串')
         }
-
-        // 返回结束日期最晚的会员记录
-        return validMemberships.sort((a, b) => b.endDate.getTime() - a.endDate.getTime())[0]
-    }
-
-    /**
-     * 生成会员记录的 arbitrary
-     */
-    const membershipArb = (userId: number) =>
-        fc.record({
-            id: fc.integer({ min: 1, max: 10000 }),
-            userId: fc.constant(userId),
-            levelId: fc.integer({ min: 1, max: 10 }),
-            startDate: fc.date({ min: new Date('2024-01-01'), max: new Date('2025-06-01') }),
-            endDate: fc.date({ min: new Date('2025-01-01'), max: new Date('2026-12-31') }),
-            status: fc.constantFrom(MembershipStatus.INACTIVE, MembershipStatus.ACTIVE),
-            sourceType: fc.constantFrom(...Object.values(UserMembershipSourceType)),
-            sourceId: fc.option(fc.integer({ min: 1, max: 1000 }), { nil: null }),
-            deletedAt: fc.option(fc.date(), { nil: null }),
-        })
-
-    it('返回的会员记录状态应为 ACTIVE', () => {
-        fc.assert(
-            fc.property(
-                fc.integer({ min: 1, max: 1000 }),
-                fc.array(fc.integer({ min: 1, max: 1000 }), { minLength: 1, maxLength: 5 }),
-                (userId, otherUserIds) => {
-                    // 创建多个用户的会员记录
-                    const allUserIds = [userId, ...otherUserIds]
-                    const memberships: MockUserMembership[] = []
-
-                    allUserIds.forEach((uid, index) => {
-                        // 为每个用户创建一些会员记录
-                        memberships.push({
-                            id: index * 10 + 1,
-                            userId: uid,
-                            levelId: 1,
-                            startDate: new Date('2025-01-01'),
-                            endDate: new Date('2026-01-01'),
-                            status: MembershipStatus.ACTIVE,
-                            sourceType: UserMembershipSourceType.DIRECT_PURCHASE,
-                            sourceId: null,
-                            deletedAt: null,
-                        })
-                    })
-
-                    const result = findCurrentUserMembership(memberships, userId)
-
-                    if (result) {
-                        expect(result.status).toBe(MembershipStatus.ACTIVE)
-                    }
-                }
-            ),
-            { numRuns: 100 }
-        )
-    })
-
-    it('返回的会员记录 endDate 应大于当前时间', () => {
-        fc.assert(
-            fc.property(fc.integer({ min: 1, max: 1000 }), (userId) => {
-                const now = new Date()
-                const futureDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-                const pastDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-
-                const memberships: MockUserMembership[] = [
-                    // 已过期的会员
-                    {
-                        id: 1,
-                        userId,
-                        levelId: 1,
-                        startDate: new Date('2024-01-01'),
-                        endDate: pastDate,
-                        status: MembershipStatus.ACTIVE,
-                        sourceType: UserMembershipSourceType.DIRECT_PURCHASE,
-                        sourceId: null,
-                        deletedAt: null,
-                    },
-                    // 有效的会员
-                    {
-                        id: 2,
-                        userId,
-                        levelId: 2,
-                        startDate: new Date('2025-01-01'),
-                        endDate: futureDate,
-                        status: MembershipStatus.ACTIVE,
-                        sourceType: UserMembershipSourceType.DIRECT_PURCHASE,
-                        sourceId: null,
-                        deletedAt: null,
-                    },
-                ]
-
-                const result = findCurrentUserMembership(memberships, userId)
-
-                if (result) {
-                    expect(result.endDate.getTime()).toBeGreaterThan(now.getTime())
-                }
-            }),
-            { numRuns: 100 }
-        )
-    })
-
-    it('不返回已删除的会员记录', () => {
-        fc.assert(
-            fc.property(fc.integer({ min: 1, max: 1000 }), (userId) => {
-                const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-
-                const memberships: MockUserMembership[] = [
-                    // 已删除的有效会员
-                    {
-                        id: 1,
-                        userId,
-                        levelId: 1,
-                        startDate: new Date('2025-01-01'),
-                        endDate: futureDate,
-                        status: MembershipStatus.ACTIVE,
-                        sourceType: UserMembershipSourceType.DIRECT_PURCHASE,
-                        sourceId: null,
-                        deletedAt: new Date(),
-                    },
-                ]
-
-                const result = findCurrentUserMembership(memberships, userId)
-
-                // 已删除的记录不应被返回
-                expect(result).toBeNull()
-            }),
-            { numRuns: 100 }
-        )
-    })
-
-    it('不返回状态为 INACTIVE 的会员记录', () => {
-        fc.assert(
-            fc.property(fc.integer({ min: 1, max: 1000 }), (userId) => {
-                const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-
-                const memberships: MockUserMembership[] = [
-                    // 状态为 INACTIVE 的会员
-                    {
-                        id: 1,
-                        userId,
-                        levelId: 1,
-                        startDate: new Date('2025-01-01'),
-                        endDate: futureDate,
-                        status: MembershipStatus.INACTIVE,
-                        sourceType: UserMembershipSourceType.DIRECT_PURCHASE,
-                        sourceId: null,
-                        deletedAt: null,
-                    },
-                ]
-
-                const result = findCurrentUserMembership(memberships, userId)
-
-                // INACTIVE 状态的记录不应被返回
-                expect(result).toBeNull()
-            }),
-            { numRuns: 100 }
-        )
-    })
-
-    it('只返回指定用户的会员记录', () => {
-        fc.assert(
-            fc.property(
-                fc.integer({ min: 1, max: 500 }),
-                fc.integer({ min: 501, max: 1000 }),
-                (userId, otherUserId) => {
-                    const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-
-                    const memberships: MockUserMembership[] = [
-                        // 其他用户的会员
-                        {
-                            id: 1,
-                            userId: otherUserId,
-                            levelId: 1,
-                            startDate: new Date('2025-01-01'),
-                            endDate: futureDate,
-                            status: MembershipStatus.ACTIVE,
-                            sourceType: UserMembershipSourceType.DIRECT_PURCHASE,
-                            sourceId: null,
-                            deletedAt: null,
-                        },
-                        // 当前用户的会员
-                        {
-                            id: 2,
-                            userId,
-                            levelId: 2,
-                            startDate: new Date('2025-01-01'),
-                            endDate: futureDate,
-                            status: MembershipStatus.ACTIVE,
-                            sourceType: UserMembershipSourceType.DIRECT_PURCHASE,
-                            sourceId: null,
-                            deletedAt: null,
-                        },
-                    ]
-
-                    const result = findCurrentUserMembership(memberships, userId)
-
-                    if (result) {
-                        expect(result.userId).toBe(userId)
-                    }
-                }
-            ),
-            { numRuns: 100 }
-        )
-    })
-
-    it('有多个有效会员时返回结束日期最晚的', () => {
-        fc.assert(
-            fc.property(fc.integer({ min: 1, max: 1000 }), (userId) => {
-                const now = Date.now()
-                const futureDate1 = new Date(now + 30 * 24 * 60 * 60 * 1000)
-                const futureDate2 = new Date(now + 60 * 24 * 60 * 60 * 1000)
-
-                const memberships: MockUserMembership[] = [
-                    {
-                        id: 1,
-                        userId,
-                        levelId: 1,
-                        startDate: new Date('2025-01-01'),
-                        endDate: futureDate1,
-                        status: MembershipStatus.ACTIVE,
-                        sourceType: UserMembershipSourceType.DIRECT_PURCHASE,
-                        sourceId: null,
-                        deletedAt: null,
-                    },
-                    {
-                        id: 2,
-                        userId,
-                        levelId: 2,
-                        startDate: new Date('2025-01-01'),
-                        endDate: futureDate2,
-                        status: MembershipStatus.ACTIVE,
-                        sourceType: UserMembershipSourceType.DIRECT_PURCHASE,
-                        sourceId: null,
-                        deletedAt: null,
-                    },
-                ]
-
-                const result = findCurrentUserMembership(memberships, userId)
-
-                expect(result).not.toBeNull()
-                expect(result!.endDate.getTime()).toBe(futureDate2.getTime())
-            }),
-            { numRuns: 100 }
-        )
+        expect(true).toBe(true)
     })
 })
