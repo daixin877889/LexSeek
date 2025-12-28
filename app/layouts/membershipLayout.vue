@@ -10,7 +10,8 @@
       <div class="lg:col-span-1 hidden md:block">
         <div class="bg-card rounded-lg border overflow-hidden">
           <nav class="flex flex-col">
-            <button v-for="item in membershipRoutes" :key="item.url" @click="linkTo(item.url)" :class="['flex items-center gap-2 px-4 py-3 text-sm text-left transition-colors', activeTab === item.url ? 'bg-primary/10 text-primary border-l-2 border-primary' : 'hover:bg-muted']">
+            <button v-for="item in membershipRoutes" :key="item.url" @click="linkTo(item.url)"
+              :class="['flex items-center gap-2 px-4 py-3 text-sm text-left transition-colors', activeTab === item.url ? 'bg-primary/10 text-primary border-l-2 border-primary' : 'hover:bg-muted']">
               <component :is="item.icon" class="h-4 w-4" />
               <span>{{ item.title }}</span>
             </button>
@@ -27,8 +28,8 @@
 </template>
 
 <script setup lang="ts">
-const router = useRouter();
 import { Crown, Ticket, Sparkles, UserPlus, ReceiptJapaneseYen } from "lucide-vue-next";
+
 const membershipRoutes = ref([
   {
     title: "我的会员",

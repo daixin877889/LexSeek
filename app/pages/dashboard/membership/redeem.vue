@@ -14,7 +14,7 @@
             <div class="grid w-full items-center gap-1.5">
               <div class="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
                 <Input v-model="redemptionCode" placeholder="请输入兑换码" class="h-10 w-full mb-2 text-base"
-                  :disabled="redemptionLoading" />
+                  :disabled="redemptionLoading" @keyup.enter="checkRedemptionCode" />
                 <Button class="h-10 w-full sm:w-auto" :disabled="!redemptionCode || redemptionLoading"
                   @click="checkRedemptionCode">
                   <Loader2 v-if="redemptionLoading && !redemptionCodeInfo" class="w-4 h-4 mr-2 animate-spin" />
@@ -29,26 +29,45 @@
       <!-- 兑换码信息区域 -->
       <div class="w-full" v-if="redemptionCodeInfo">
         <!-- 有效兑换码信息 -->
-        <div v-if="redemptionCodeInfo.status === 1" class="bg-white dark:bg-gray-800 p-6 rounded-lg border">
+        <div v-if="redemptionCodeInfo.status === RedemptionCodeStatus.ACTIVE"
+          class="bg-white dark:bg-gray-800 p-6 rounded-lg border">
           <h3 class="text-lg font-semibold mb-4">兑换码信息</h3>
           <div class="space-y-4">
             <div class="grid grid-cols-1 gap-4">
+              <!-- 兑换类型 -->
               <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                <span class="text-muted-foreground">兑换类型</span>
+                <Badge variant="outline" class="font-semibold">{{ getCodeTypeName(redemptionCodeInfo.type) }}</Badge>
+              </div>
+              <!-- 会员等级（如果有） -->
+              <div v-if="redemptionCodeInfo.levelName"
+                class="flex justify-between items-center py-2 border-b border-gray-200">
                 <span class="text-muted-foreground">会员等级</span>
                 <Badge variant="outline" class="font-semibold">{{ redemptionCodeInfo.levelName }}</Badge>
               </div>
-              <div class="flex justify-between items-center py-2 border-b border-gray-200">
-                <span class="text-muted-foreground">有效期</span>
+              <!-- 有效期（如果有） -->
+              <div v-if="redemptionCodeInfo.duration"
+                class="flex justify-between items-center py-2 border-b border-gray-200">
+                <span class="text-muted-foreground">会员有效期</span>
                 <span class="font-semibold">{{ redemptionCodeInfo.duration }} 天</span>
               </div>
-              <div class="flex justify-between items-center py-2 border-b border-gray-200">
+              <!-- 赠送积分（如果有） -->
+              <div v-if="redemptionCodeInfo.pointAmount"
+                class="flex justify-between items-center py-2 border-b border-gray-200">
                 <span class="text-muted-foreground">赠送积分</span>
-                <span class="font-semibold">{{ redemptionCodeInfo.giftPoint }} 积分</span>
+                <span class="font-semibold">{{ redemptionCodeInfo.pointAmount }} 积分</span>
               </div>
+              <!-- 过期时间（如果有） -->
+              <div v-if="redemptionCodeInfo.expiredAt"
+                class="flex justify-between items-center py-2 border-b border-gray-200">
+                <span class="text-muted-foreground">兑换码有效期至</span>
+                <span class="font-semibold">{{ redemptionCodeInfo.expiredAt }}</span>
+              </div>
+              <!-- 状态 -->
               <div class="flex justify-between items-center py-2 border-b border-gray-200">
                 <span class="text-muted-foreground">状态</span>
                 <Badge variant="default" class="bg-green-100 text-green-800 hover:bg-green-100">
-                  {{ redemptionCodeInfo.statusText }}
+                  可用
                 </Badge>
               </div>
             </div>
@@ -62,12 +81,22 @@
                 <AlertDialogHeader>
                   <AlertDialogTitle>确认兑换</AlertDialogTitle>
                   <AlertDialogDescription>
-                    您确定要兑换 {{ redemptionCodeInfo.levelName }} 会员吗？兑换后不可撤销。
+                    <span v-if="redemptionCodeInfo.levelName">
+                      您确定要兑换 {{ redemptionCodeInfo.levelName }} 会员吗？
+                    </span>
+                    <span v-else-if="redemptionCodeInfo.pointAmount">
+                      您确定要兑换 {{ redemptionCodeInfo.pointAmount }} 积分吗？
+                    </span>
+                    <span v-else>
+                      您确定要使用此兑换码吗？
+                    </span>
+                    兑换后不可撤销。
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>取消</AlertDialogCancel>
                   <AlertDialogAction :disabled="redemptionLoading" @click="redeemMembership">
+                    <Loader2 v-if="redemptionLoading" class="w-4 h-4 mr-2 animate-spin" />
                     确认兑换
                   </AlertDialogAction>
                 </AlertDialogFooter>
@@ -81,7 +110,7 @@
           <div class="text-center py-8">
             <IconsIconAlert class="mx-auto h-12 w-12 text-yellow-500 mb-4" />
             <h3 class="text-lg font-medium">无效的兑换码</h3>
-            <p class="text-sm text-muted-foreground mt-2">{{ redemptionCodeInfo.statusText }}</p>
+            <p class="text-sm text-muted-foreground mt-2">{{ getStatusText(redemptionCodeInfo.status) }}</p>
           </div>
         </div>
       </div>
@@ -107,17 +136,18 @@
         <table class="w-full">
           <thead>
             <tr class="border-b bg-muted/50">
-              <th class="px-4 py-3 text-left text-sm font-medium">会员版本</th>
+              <th class="px-4 py-3 text-left text-sm font-medium">兑换码</th>
+              <th class="px-4 py-3 text-left text-sm font-medium">类型</th>
+              <th class="px-4 py-3 text-left text-sm font-medium">会员等级</th>
               <th class="px-4 py-3 text-left text-sm font-medium">有效期</th>
-              <th class="px-4 py-3 text-left text-sm font-medium">赠送积分</th>
-              <th class="px-4 py-3 text-left text-sm font-medium">状态</th>
+              <th class="px-4 py-3 text-left text-sm font-medium">积分</th>
               <th class="px-4 py-3 text-left text-sm font-medium">兑换时间</th>
             </tr>
           </thead>
           <tbody>
             <!-- 加载中 -->
             <tr v-if="historyLoading">
-              <td colspan="5" class="px-4 py-8 text-center">
+              <td colspan="6" class="px-4 py-8 text-center">
                 <div class="flex items-center justify-center">
                   <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                   <span class="ml-2 text-muted-foreground">加载中...</span>
@@ -126,7 +156,7 @@
             </tr>
             <!-- 空状态 -->
             <tr v-else-if="redemptionHistory.length === 0">
-              <td colspan="5" class="px-4 py-8 text-center text-muted-foreground">
+              <td colspan="6" class="px-4 py-8 text-center text-muted-foreground">
                 暂无兑换记录
               </td>
             </tr>
@@ -134,18 +164,12 @@
             <template v-else>
               <tr v-for="record in redemptionHistory" :key="record.id"
                 class="border-b last:border-b-0 hover:bg-muted/30">
-                <td class="px-4 py-3 text-sm">{{ record.levelName }}</td>
-                <td class="px-4 py-3 text-sm">{{ record.startDate }} - {{ record.expiresAt }}</td>
-                <td class="px-4 py-3 text-sm">{{ record.giftPoint }}</td>
-                <td class="px-4 py-3 text-sm">
-                  <span v-if="record.status === 1"
-                    class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">有效</span>
-                  <span v-else-if="record.status === 2"
-                    class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">已过期</span>
-                  <span v-else-if="record.status === 3"
-                    class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">已作废</span>
-                </td>
-                <td class="px-4 py-3 text-sm">{{ formatDate(record.redeemedAt) }}</td>
+                <td class="px-4 py-3 text-sm font-mono">{{ maskCode(record.code) }}</td>
+                <td class="px-4 py-3 text-sm">{{ getCodeTypeName(record.type) }}</td>
+                <td class="px-4 py-3 text-sm">{{ record.levelName || '—' }}</td>
+                <td class="px-4 py-3 text-sm">{{ record.duration ? `${record.duration} 天` : '—' }}</td>
+                <td class="px-4 py-3 text-sm">{{ record.pointAmount || '—' }}</td>
+                <td class="px-4 py-3 text-sm">{{ record.createdAt }}</td>
               </tr>
             </template>
           </tbody>
@@ -165,27 +189,32 @@
         <div v-else v-for="record in redemptionHistory" :key="record.id" class="border rounded-lg p-4 space-y-3">
           <div class="flex justify-between items-start">
             <div>
-              <h4 class="font-medium text-sm mb-1">{{ record.levelName }}</h4>
-              <p class="text-xs text-muted-foreground">{{ record.startDate }} - {{ record.expiresAt }}</p>
+              <h4 class="font-medium text-sm mb-1">{{ getCodeTypeName(record.type) }}</h4>
+              <p class="text-xs text-muted-foreground font-mono">{{ maskCode(record.code) }}</p>
             </div>
-            <span v-if="record.status === 1"
-              class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">有效</span>
-            <span v-else-if="record.status === 2"
-              class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">已过期</span>
-            <span v-else-if="record.status === 3"
-              class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">已作废</span>
+            <Badge v-if="record.levelName" variant="outline">{{ record.levelName }}</Badge>
           </div>
           <div class="grid grid-cols-2 gap-2 text-sm">
-            <div>
-              <p class="text-muted-foreground">赠送积分</p>
-              <p class="font-medium">{{ record.giftPoint }}</p>
+            <div v-if="record.duration">
+              <p class="text-muted-foreground">有效期</p>
+              <p class="font-medium">{{ record.duration }} 天</p>
             </div>
-            <div>
+            <div v-if="record.pointAmount">
+              <p class="text-muted-foreground">积分</p>
+              <p class="font-medium">{{ record.pointAmount }}</p>
+            </div>
+            <div class="col-span-2">
               <p class="text-muted-foreground">兑换时间</p>
-              <p class="font-medium">{{ formatDate(record.redeemedAt) }}</p>
+              <p class="font-medium">{{ record.createdAt }}</p>
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- 分页 -->
+      <div v-if="pagination.total > pagination.pageSize" class="mt-4 flex justify-center">
+        <GeneralPagination :total="pagination.total" :current-page="pagination.page" :page-size="pagination.pageSize"
+          @change="handlePageChange" />
       </div>
     </div>
   </div>
@@ -193,11 +222,7 @@
 
 <script lang="ts" setup>
 import { Loader2 } from "lucide-vue-next";
-import dayjs from "dayjs";
-import "dayjs/locale/zh-cn";
-
-// 配置 dayjs
-dayjs.locale("zh-cn");
+import { RedemptionCodeType, RedemptionCodeStatus, type RedemptionCodeInfo, type RedemptionRecordInfo } from "#shared/types/redemption";
 
 // 页面元信息
 definePageMeta({
@@ -207,25 +232,12 @@ definePageMeta({
 
 // ==================== 类型定义 ====================
 
-/** 兑换码信息 */
-interface RedemptionCodeInfo {
-  code: string;
-  levelName: string;
-  duration: number;
-  giftPoint: number;
-  status: number;
-  statusText: string;
-}
-
-/** 兑换记录 */
-interface RedemptionRecord {
-  id: number;
-  levelName: string;
-  startDate: string;
-  expiresAt: string;
-  giftPoint: number;
-  status: number;
-  redeemedAt: string;
+/** 兑换记录响应 */
+interface RedemptionHistoryResponse {
+  list: RedemptionRecordInfo[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 // ==================== 状态定义 ====================
@@ -235,35 +247,126 @@ const redemptionCode = ref("");
 const redemptionLoading = ref(false);
 const redemptionCodeInfo = ref<RedemptionCodeInfo | null>(null);
 
-// 兑换历史
+// 分页参数
+const currentPage = ref(1);
+const pageSize = ref(10);
+
+// 兑换记录数据
+const redemptionHistory = ref<RedemptionRecordInfo[]>([]);
 const historyLoading = ref(false);
-const redemptionHistory = ref<RedemptionRecord[]>([]);
+const pagination = ref({
+  page: 1,
+  pageSize: 10,
+  total: 0,
+});
+
+/**
+ * 获取兑换记录
+ */
+const fetchHistory = async () => {
+  historyLoading.value = true;
+  try {
+    const data = await useApiFetch<RedemptionHistoryResponse>("/api/v1/redemption-codes/me", {
+      query: {
+        page: currentPage.value,
+        pageSize: pageSize.value,
+      },
+    });
+    if (data) {
+      redemptionHistory.value = data.list || [];
+      pagination.value = {
+        page: data.page || 1,
+        pageSize: data.pageSize || 10,
+        total: data.total || 0,
+      };
+    }
+  } catch (error) {
+    logger.error("获取兑换记录失败:", error);
+  } finally {
+    historyLoading.value = false;
+  }
+};
+
+// 刷新兑换记录的方法
+const refreshHistory = () => fetchHistory();
+
+// 页面加载时获取数据
+onMounted(() => {
+  fetchHistory();
+});
+
+// 监听分页变化
+watch([currentPage, pageSize], () => {
+  fetchHistory();
+});
 
 // ==================== 方法定义 ====================
+
+/**
+ * 获取兑换码类型名称
+ */
+const getCodeTypeName = (type: RedemptionCodeType): string => {
+  switch (type) {
+    case RedemptionCodeType.MEMBERSHIP_ONLY:
+      return "会员兑换";
+    case RedemptionCodeType.POINTS_ONLY:
+      return "积分兑换";
+    case RedemptionCodeType.MEMBERSHIP_AND_POINTS:
+      return "会员+积分";
+    default:
+      return "未知类型";
+  }
+};
+
+/**
+ * 获取兑换码状态文本
+ */
+const getStatusText = (status: RedemptionCodeStatus): string => {
+  switch (status) {
+    case RedemptionCodeStatus.ACTIVE:
+      return "可用";
+    case RedemptionCodeStatus.USED:
+      return "兑换码已被使用";
+    case RedemptionCodeStatus.EXPIRED:
+      return "兑换码已过期";
+    case RedemptionCodeStatus.INVALID:
+      return "兑换码已作废";
+    default:
+      return "未知状态";
+  }
+};
+
+/**
+ * 脱敏兑换码（显示前4位和后4位）
+ */
+const maskCode = (code: string): string => {
+  if (code.length <= 8) return code;
+  return `${code.slice(0, 4)}****${code.slice(-4)}`;
+};
 
 /**
  * 检查兑换码
  */
 const checkRedemptionCode = async () => {
-  if (!redemptionCode.value) return;
+  if (!redemptionCode.value.trim()) {
+    toast.error("请输入兑换码");
+    return;
+  }
 
   redemptionLoading.value = true;
-  try {
-    // TODO: 替换为实际 API 调用
-    await new Promise((resolve) => setTimeout(resolve, 800));
+  redemptionCodeInfo.value = null;
 
-    // 模拟数据
-    redemptionCodeInfo.value = {
-      code: redemptionCode.value,
-      levelName: "专业版会员",
-      duration: 365,
-      giftPoint: 1000,
-      status: 1,
-      statusText: "可用",
-    };
+  try {
+    const data = await useApiFetch<RedemptionCodeInfo>("/api/v1/redemption-codes/info", {
+      query: { code: redemptionCode.value.trim() },
+      showError: true,
+    });
+
+    if (data) {
+      redemptionCodeInfo.value = data;
+    }
   } catch (error) {
     logger.error("检查兑换码失败:", error);
-    toast.error("检查兑换码失败");
   } finally {
     redemptionLoading.value = false;
   }
@@ -273,79 +376,40 @@ const checkRedemptionCode = async () => {
  * 确认兑换会员
  */
 const redeemMembership = async () => {
-  if (!redemptionCode.value) return;
+  if (!redemptionCode.value.trim()) return;
 
   redemptionLoading.value = true;
   try {
-    // TODO: 替换为实际 API 调用
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    const result = await useApiFetch("/api/v1/redemption-codes/redeem", {
+      method: "POST",
+      body: { code: redemptionCode.value.trim() },
+      showError: true,
+    });
 
-    toast.success("兑换成功");
+    // 检查返回值，只有成功才执行后续操作
+    if (result) {
+      toast.success("兑换成功");
 
-    // 重置状态
-    redemptionCode.value = "";
-    redemptionCodeInfo.value = null;
+      // 重置状态
+      redemptionCode.value = "";
+      redemptionCodeInfo.value = null;
 
-    // 刷新兑换记录
-    await loadRedemptionHistory();
+      // 刷新兑换记录
+      await refreshHistory();
+    }
   } catch (error) {
     logger.error("兑换失败:", error);
-    toast.error("兑换失败，请稍后重试");
   } finally {
     redemptionLoading.value = false;
   }
 };
 
 /**
- * 加载兑换历史记录
+ * 处理分页变化
  */
-const loadRedemptionHistory = async () => {
-  historyLoading.value = true;
-  try {
-    // TODO: 替换为实际 API 调用
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    // 模拟数据
-    redemptionHistory.value = [
-      {
-        id: 1,
-        levelName: "专业版会员",
-        startDate: "2024-01-01",
-        expiresAt: "2024-12-31",
-        giftPoint: 1000,
-        status: 1,
-        redeemedAt: "2024-01-01T10:30:00Z",
-      },
-      {
-        id: 2,
-        levelName: "基础版会员",
-        startDate: "2023-06-01",
-        expiresAt: "2023-12-31",
-        giftPoint: 500,
-        status: 2,
-        redeemedAt: "2023-06-01T14:20:00Z",
-      },
-    ];
-  } catch (error) {
-    logger.error("获取兑换记录失败:", error);
-  } finally {
-    historyLoading.value = false;
-  }
+const handlePageChange = (page: number) => {
+  currentPage.value = page;
 };
-
-/**
- * 格式化日期
- */
-const formatDate = (dateString: string) => {
-  if (!dateString) return "—";
-  return dayjs(dateString).format("YYYY年MM月DD日 HH:mm");
-};
-
-// ==================== 生命周期 ====================
-
-onMounted(() => {
-  loadRedemptionHistory();
-});
 </script>
 
 <style scoped>

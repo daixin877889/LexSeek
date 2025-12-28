@@ -5,6 +5,22 @@
  */
 import dayjs from 'dayjs'
 
+// 显式导入 DAO 函数（测试环境需要）
+import { findRedemptionCodeByCodeDao, updateRedemptionCodeStatusDao } from './redemptionCode.dao'
+import { createRedemptionRecordDao } from './redemptionRecord.dao'
+import { createUserMembershipDao } from '../membership/userMembership.dao'
+import { createPointRecordDao } from '../point/pointRecords.dao'
+
+// 显式导入常量
+import { RedemptionCodeStatus, RedemptionCodeType } from '#shared/types/redemption'
+import type { RedemptionCodeInfo, RedemptionResult } from '#shared/types/redemption'
+import { MembershipStatus, UserMembershipSourceType } from '#shared/types/membership'
+import { PointRecordStatus, PointRecordSourceType } from '#shared/types/point.types'
+
+// 显式导入 Prisma 客户端和日志工具
+import { prisma } from '../../utils/db'
+import { logger } from '../../../shared/utils/logger'
+
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma
 
@@ -163,7 +179,7 @@ export const redeemCodeService = async (
 
             const pointRecord = await createPointRecordDao(
                 {
-                    user: { connect: { id: userId } },
+                    users: { connect: { id: userId } },
                     pointAmount: codeInfo.pointAmount,
                     used: 0,
                     remaining: codeInfo.pointAmount,
