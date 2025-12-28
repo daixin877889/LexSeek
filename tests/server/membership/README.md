@@ -1,6 +1,8 @@
 # 会员系统测试模块
 
-本模块包含会员系统相关的所有测试用例，涵盖会员级别管理、用户会员记录、积分系统、兑换码、营销活动等功能。
+本模块包含会员系统相关的所有集成测试用例，涵盖会员级别管理、用户会员记录、积分系统、兑换码、营销活动、会员升级等功能。
+
+**所有测试均使用真实数据库操作，确保测试结果的可靠性。**
 
 ## 测试文件列表
 
@@ -8,129 +10,375 @@
 
 | 文件 | 说明 |
 |------|------|
-| `membership-test-fixtures.ts` | 测试数据工厂，包含状态常量、类型定义、数据生成方法和 fast-check 生成器 |
-| `membership-test-helpers.ts` | 测试辅助函数，包含日期处理、会员验证、升级计算、积分消耗等模拟逻辑 |
+| `test-db-helper.ts` | 测试数据库辅助模块，提供真实数据库操作的测试数据管理功能 |
+| `test-generators.ts` | fast-check 数据生成器，用于属性测试的随机数据生成 |
+| `test-setup.ts` | 测试环境设置，模拟 Nuxt 自动导入的全局变量 |
 
-### 单元测试
+### 测试文件
 
-| 文件 | 说明 | 测试用例 |
+| 文件 | 说明 | 测试数量 |
 |------|------|----------|
-| `membership-level.test.ts` | 会员级别管理 | 级别排序一致性、级别比较逻辑、状态过滤 |
-| `user-membership.test.ts` | 用户会员记录 | 会员状态管理、有效期验证 |
-| `membership-upgrade.test.ts` | 会员升级 | 升级价格计算、状态转换、资格验证 |
-| `point-system.test.ts` | 积分系统 | 积分记录管理、消耗逻辑 |
-| `redemption.test.ts` | 兑换码 | 兑换码验证、兑换流程 |
-| `campaign.test.ts` | 营销活动 | 活动有效期控制、注册赠送、邀请奖励 |
+| `membership-level.test.ts` | 会员级别管理测试 | 17 |
+| `user-membership.test.ts` | 用户会员记录测试 | 11 |
+| `membership-upgrade.test.ts` | 会员升级测试 | 44 |
+| `point-system.test.ts` | 积分系统测试 | 12 |
+| `redemption.test.ts` | 兑换码测试 | 31 |
+| `campaign.test.ts` | 营销活动测试 | 19 |
 
-### 集成测试
+**总计：134 个测试用例**
 
-| 文件 | 说明 | 测试用例 |
-|------|------|----------|
-| `membership-level-integration.test.ts` | 会员级别管理集成测试 | 级别创建、排序、状态管理、获取更高级别 |
-| `user-membership-integration.test.ts` | 用户会员记录集成测试 | 会员创建、状态转换、有效期管理 |
-| `membership-upgrade-integration.test.ts` | 会员升级集成测试 | 升级目标查询、价格计算、资格验证、升级执行 |
-| `point-integration.test.ts` | 积分系统集成测试 | 积分创建、转移、消耗顺序 |
-| `redemption-integration.test.ts` | 兑换码兑换集成测试 | 兑换流程、状态更新 |
-| `register-gift-integration.test.ts` | 注册赠送集成测试 | 新用户注册赠送会员和积分 |
-| `invitation-reward-integration.test.ts` | 邀请奖励集成测试 | 邀请人奖励发放、来源类型验证 |
-| `product-purchase-integration.test.ts` | 商品购买集成测试 | 购买会员、购买积分 |
+## 运行测试命令
+
+```bash
+# 运行所有会员模块测试
+bun run test:membership
+
+# 运行单个测试文件
+npx vitest run tests/server/membership/membership-level.test.ts --reporter=verbose
+npx vitest run tests/server/membership/user-membership.test.ts --reporter=verbose
+npx vitest run tests/server/membership/membership-upgrade.test.ts --reporter=verbose
+npx vitest run tests/server/membership/point-system.test.ts --reporter=verbose
+npx vitest run tests/server/membership/redemption.test.ts --reporter=verbose
+npx vitest run tests/server/membership/campaign.test.ts --reporter=verbose
+
+# 运行带覆盖率的测试
+npx vitest run tests/server/membership --coverage
+```
 
 ## 测试用例详情
 
-### membership-level.test.ts - 会员级别管理
+### membership-level.test.ts - 会员级别管理（17 个测试）
 
-- 查询结果应按 sortOrder 升序排列
-- sortOrder 值越小的级别应排在前面（级别越高）
-- 只返回启用状态的会员级别
-- 不返回已删除的会员级别
-- 相同 sortOrder 的级别应保持稳定排序
-- sortOrder 更小的级别应该更高
-- 相同 sortOrder 的级别应该相等
-- 级别比较应满足传递性
+**createMembershipLevelDao 测试**
+- 应成功创建会员级别
+- Property: 创建后立即查询应返回等价数据
 
-### membership-upgrade.test.ts - 会员升级
+**findMembershipLevelByIdDao 测试**
+- 应成功通过 ID 查询会员级别
+- 查询不存在的 ID 应返回 null
+- 查询已删除的记录应返回 null
 
-- 升级价格应等于目标级别剩余价值减去原级别剩余价值
+**updateMembershipLevelDao 测试**
+- 应成功更新会员级别
+- 更新后查询应返回新数据
+
+**deleteMembershipLevelDao 测试**
+- 应成功软删除会员级别
+
+**findAllActiveMembershipLevelsDao 测试**
+- 应只返回启用状态的会员级别
+- 结果应按 sortOrder 升序排列
+- 不应返回已删除的会员级别
+
+**findAllMembershipLevelsDao 测试**
+- 应正确返回分页结果
+- 应正确按状态筛选
+
+**findHigherMembershipLevelsDao 测试**
+- 应返回比指定级别更高的级别
+- 最高级别应没有更高的级别
+
+**Property: 级别比较传递性**
+- 如果 A > B 且 B > C，则 A > C
+
+**数据库连接检查**
+- 检查数据库是否可用
+
+---
+
+### user-membership.test.ts - 用户会员记录（11 个测试）
+
+**createUserMembershipDao 测试**
+- 应成功创建用户会员记录
+
+**findUserMembershipByIdDao 测试**
+- 应成功通过 ID 查询用户会员记录
+
+**findCurrentUserMembershipDao 测试**
+- 应返回用户当前有效会员
+- Property: 只返回 ACTIVE 状态且未过期的记录
+
+**updateUserMembershipDao 测试**
+- 应成功更新用户会员记录
+
+**invalidateUserMembershipDao 测试**
+- 应成功使用户会员记录失效
+
+**findUserMembershipHistoryDao 测试**
+- 应正确返回分页结果
+
+**findAllActiveUserMembershipsDao 测试**
+- 应返回用户所有有效的会员记录
+
+**Property: startDate 应小于 endDate**
+- 创建的会员记录时间范围正确
+
+**软删除**
+- 软删除后不应被查询到
+
+**数据库连接检查**
+- 检查数据库是否可用
+
+---
+
+### membership-upgrade.test.ts - 会员升级（44 个测试）
+
+**会员级别 DAO 函数测试**
+- findMembershipLevelByIdDao 应正确查询会员级别
+- findAllActiveMembershipLevelsDao 应返回所有启用的会员级别
+- findHigherMembershipLevelsDao 应返回比指定级别更高的级别
+
+**用户会员 DAO 函数测试**
+- findCurrentUserMembershipDao 应返回用户当前有效会员
+- findCurrentUserMembershipDao 不应返回已过期的会员
+- findUserMembershipByIdDao 应正确查询会员记录
+
+**会员升级价格计算测试**
+- calculateUpgradePrice 应正确计算升级价格
+- calculateUpgradePriceService 应验证目标级别必须高于当前级别
+- calculateUpgradePriceService 应验证用户必须有有效会员
+
+**会员升级记录 DAO 函数测试**
+- createMembershipUpgradeRecordDao 应正确创建升级记录
+- findMembershipUpgradeRecordByIdDao 应正确查询升级记录
+- findUserUpgradeRecordsDao 应正确分页查询用户升级记录
+
+**Property: 会员升级级别验证**
+- 只能升级到更高级别（sortOrder 更小）
+
+**Property: 会员升级有效期计算正确性**
+- 升级后会员有效期应继承原会员的结束时间
+
+**Property: 会员升级积分补偿正确性**
 - 积分补偿应等于升级价格乘以10
-- 升级价格不应为负数
+
+**升级价格计算**
+- 升级价格应等于目标级别剩余价值减去原级别剩余价值
 - 剩余天数为0时升级价格应为0
+
+**会员升级状态转换**
 - 升级后原会员状态应变为 INACTIVE
-- 升级后应创建新的会员记录
 - 新会员应继承原会员的结束时间
+
+**积分转移**
 - 升级后积分记录应转移到新会员
 - 转移后积分数量应保持不变
+
+**升级资格验证**
 - 没有有效会员时不能升级
 - 会员已过期时不能升级
 - 目标级别不高于当前级别时不能升级
 - 满足所有条件时可以升级
 
-### campaign.test.ts - 营销活动
+**executeMembershipUpgradeService 完整流程测试**
+- 完整升级流程应正确执行
+- 升级后应创建升级记录
+- 升级后积分应正确转移
 
-- 活动未开始时不应返回有效活动
-- 活动已结束时不应返回有效活动
-- 活动禁用时不应返回有效活动
-- 活动在有效期内且启用时应返回有效
-- 有效活动配置了会员时应创建会员记录
-- 有效活动配置了积分时应创建积分记录
-- 仅积分赠送时积分有效期应为1年
-- 会员+积分赠送时积分有效期应等于会员有效期
-- 邀请奖励应发放给邀请人而非被邀请人
-- 邀请奖励来源类型应为邀请注册赠送
-- 无有效活动时不应创建任何记录
+**Property: 升级后用户应只有一个有效会员**
+**Property: 升级记录应保持完整的历史**
 
-### invitation-reward-integration.test.ts - 邀请奖励集成测试
+---
 
-- 有邀请人且活动有效时邀请人应获得奖励
-- 活动未开始时不应创建奖励
-- 活动已结束时不应创建奖励
-- 活动禁用时不应创建奖励
-- 邀请奖励创建的会员记录来源类型应为邀请注册赠送
-- 有效活动且有邀请人时应为邀请人创建会员和积分记录
-- 只配置会员时只创建会员记录
-- 只配置积分时只创建积分记录
+### point-system.test.ts - 积分系统（12 个测试）
 
-### membership-level-integration.test.ts - 会员级别管理集成测试
+**createPointRecordDao 测试**
+- 应成功创建积分记录
+- Property: 新创建的积分记录 remaining 应等于 pointAmount
 
-- 创建的会员级别应包含所有必要字段
-- 新创建的会员级别默认状态应为启用
-- 查询结果应按 sortOrder 升序排列
-- sortOrder 越小的级别越高
-- 禁用级别后 isLevelActive 应返回 false
-- 软删除级别后 isLevelActive 应返回 false
-- 启用且未删除的级别 isLevelActive 应返回 true
-- 应返回 sortOrder 更小的级别
-- 最高级别应没有更高的级别
-- 应排除禁用的级别
-- 应排除已删除的级别
-- 任意数量的级别排序后顺序应保持一致
-- 排序不应改变原数组
+**findPointRecordByIdDao 测试**
+- 应成功通过 ID 查询积分记录
 
-### membership-upgrade-integration.test.ts - 会员升级集成测试
+**findPointRecordsByUserIdDao 测试**
+- 应正确返回分页结果
 
-- 应返回比当前级别高的级别
-- 最高级别应没有可升级目标
-- 升级价格应等于目标级别剩余价值减去原级别剩余价值
-- 积分补偿应等于升级价格乘以10
-- 升级价格不应为负数
-- 没有有效会员时不允许升级
-- 会员已过期时不允许升级
-- 会员状态无效时不允许升级
-- 目标级别不高于当前级别时不允许升级
-- 满足所有条件时允许升级
-- 升级后原会员状态应变为 INACTIVE
-- 升级后应创建新会员记录
-- 新会员应继承原会员的结束时间
-- 升级后积分记录应转移到新会员
-- 转移后积分数量应保持不变
-- 升级价格计算应符合公式
-- 升级后状态转换应正确
+**findValidPointRecordsByUserIdDao 测试**
+- 应按 expiredAt 升序排列（FIFO 消耗）
+- 不应返回已过期的积分记录
 
-## 运行测试
+**updatePointRecordDao 测试**
+- 应成功更新积分记录
 
-```bash
-# 运行会员模块所有测试
-npx vitest run tests/server/membership --reporter=verbose
+**sumUserValidPointsDao 测试**
+- 应正确统计用户有效积分汇总
 
-# 运行特定测试文件
-npx vitest run tests/server/membership/membership-level.test.ts --reporter=verbose
-```
+**findPointRecordsByMembershipIdDao 测试**
+- 应正确查询会员关联的积分记录
+
+**transferPointRecordsDao 测试**
+- 应正确转移积分记录到新会员
+
+**积分数据一致性**
+- Property: remaining 应始终等于 pointAmount - used
+
+**数据库连接检查**
+- 检查数据库是否可用
+
+---
+
+### redemption.test.ts - 兑换码（31 个测试）
+
+**createRedemptionCodeDao 测试**
+- 应成功创建兑换码
+
+**findRedemptionCodeByCodeDao 测试**
+- 应成功通过兑换码查询
+- 查询不存在的兑换码应返回 null
+
+**findRedemptionCodeByIdDao 测试**
+- 应成功通过 ID 查询兑换码
+
+**updateRedemptionCodeStatusDao 测试**
+- 应成功更新兑换码状态
+
+**findAllRedemptionCodesDao 测试**
+- 应正确返回分页结果
+- 应正确按状态筛选
+
+**createRedemptionRecordDao 测试**
+- 应成功创建兑换记录
+
+**findRedemptionRecordsByUserIdDao 测试**
+- 应正确返回用户兑换记录
+
+**checkUserRedemptionRecordExistsDao 测试**
+- 用户已使用过的兑换码应返回 true
+- 用户未使用过的兑换码应返回 false
+
+**validateRedemptionCodeService 测试**
+- 有效兑换码应返回 valid: true
+- 不存在的兑换码应返回错误
+- 已使用的兑换码应返回错误
+- 已过期的兑换码应返回错误
+- 已作废的兑换码应返回错误
+
+**redeemCodeService 测试**
+- 仅会员类型兑换码应创建会员记录
+- 仅积分类型兑换码应创建积分记录
+- 会员和积分类型兑换码应同时创建会员和积分记录
+- 无效兑换码应返回失败
+
+**Property 5: 兑换码状态变更正确性**
+- 有效兑换码使用后状态应变为 USED
+
+**Property 5.1: 兑换码类型处理正确性 - 仅会员**
+- 仅会员类型兑换码应只创建会员记录
+
+**Property 5.2: 兑换码类型处理正确性 - 仅积分**
+- 仅积分类型兑换码应只创建积分记录
+
+**Property 5.3: 兑换码类型处理正确性 - 会员和积分**
+- 会员和积分类型兑换码应同时创建会员和积分记录
+
+**Property 5.4-5.7: 兑换码验证场景**
+- 已使用的兑换码验证应失败
+- 已过期的兑换码验证应失败
+- 已作废的兑换码验证应失败
+- 不存在的兑换码验证应失败
+
+**Property 5.8: 兑换记录创建正确性**
+- 成功兑换后应创建兑换记录
+
+**数据库连接检查**
+- 检查数据库是否可用
+
+---
+
+### campaign.test.ts - 营销活动（19 个测试）
+
+**createCampaignDao 测试**
+- 应成功创建营销活动
+
+**findCampaignByIdDao 测试**
+- 应成功通过 ID 查询营销活动
+- 查询不存在的 ID 应返回 null
+
+**findActiveCampaignByTypeDao 测试**
+- 应返回指定类型的有效营销活动
+- 活动未开始时不应返回
+- 活动已结束时不应返回
+- 活动禁用时不应返回
+
+**updateCampaignDao 测试**
+- 应成功更新营销活动
+
+**deleteCampaignDao 测试**
+- 应成功软删除营销活动
+
+**findAllCampaignsDao 测试**
+- 应正确返回分页结果
+- 应正确按类型筛选
+- 应正确按状态筛选
+
+**getActiveCampaignService 测试**
+- 应正确返回有效活动信息
+
+**Property 6: 活动时间范围验证**
+- Property 6.1: 活动在有效期内且启用时应返回有效
+- Property 6.2: 活动未开始时不应被查询到
+- Property 6.3: 活动已结束时不应被查询到
+- Property 6.4: 活动禁用时不应被查询到
+- Property 6.5: 有效活动的时间范围验证
+
+**数据库连接检查**
+- 检查数据库是否可用
+
+---
+
+## 测试辅助模块说明
+
+### test-db-helper.ts
+
+提供测试数据的创建和清理功能，直接操作真实数据库。
+
+**主要功能：**
+- `createTestUser()` - 创建测试用户
+- `createTestMembershipLevel()` - 创建测试会员级别
+- `createTestUserMembership()` - 创建测试用户会员记录
+- `createTestPointRecord()` - 创建测试积分记录
+- `createTestRedemptionCode()` - 创建测试兑换码
+- `createTestCampaign()` - 创建测试营销活动
+- `createTestProduct()` - 创建测试产品
+- `createTestOrder()` - 创建测试订单
+- `cleanupTestData()` - 清理测试数据（按外键顺序删除）
+- `cleanupAllTestData()` - 清理所有测试数据（使用测试标记前缀）
+
+**测试数据标记前缀：**
+- 测试用户手机号前缀：`199`
+- 测试会员级别名称前缀：`测试级别_`
+- 测试兑换码前缀：`TEST_`
+- 测试营销活动名称前缀：`测试活动_`
+
+### test-generators.ts
+
+使用 fast-check 生成随机测试数据，用于属性测试。
+
+**主要生成器：**
+- `membershipLevelDataArb` - 会员级别数据生成器
+- `userMembershipDataArb` - 用户会员记录数据生成器
+- `pointRecordDataArb` - 积分记录数据生成器
+- `redemptionCodeDataArb` - 兑换码数据生成器
+- `campaignDataArb` - 营销活动数据生成器
+- `membershipUpgradeScenarioArb` - 会员升级场景生成器
+
+**属性测试配置：**
+- `PBT_CONFIG` - 默认配置（100 次迭代）
+- `PBT_CONFIG_FAST` - 快速配置（5 次迭代，用于耗时较长的测试）
+
+### test-setup.ts
+
+模拟 Nuxt 自动导入的全局变量，使 DAO/Service 函数能在测试环境中运行。
+
+**模拟的全局变量：**
+- `logger` - 日志工具
+- `prisma` - Prisma 客户端实例
+- 各种状态常量（MembershipStatus、RedemptionCodeStatus 等）
+
+---
+
+## 注意事项
+
+1. **数据库连接**：运行测试前请确保数据库已启动并配置正确的 `DATABASE_URL` 环境变量
+2. **测试数据清理**：每个测试用例执行后会自动清理创建的测试数据
+3. **属性测试**：属性测试使用 fast-check 库，默认运行 100 次迭代（耗时较长的测试使用 5 次迭代）
+4. **真实数据库操作**：所有测试均使用真实数据库操作，禁止使用模拟
