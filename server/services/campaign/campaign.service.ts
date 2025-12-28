@@ -5,6 +5,21 @@
  */
 import dayjs from 'dayjs'
 
+// 显式导入 DAO 函数（测试环境需要）
+import { findActiveCampaignByTypeDao } from './campaign.dao'
+import { createUserMembershipDao } from '../membership/userMembership.dao'
+import { createPointRecordDao } from '../point/pointRecords.dao'
+import { findUserByIdDao } from '../users/users.dao'
+
+// 显式导入类型和常量（测试环境需要）
+import { CampaignType, CampaignStatus, type CampaignInfo } from '#shared/types/campaign'
+import { MembershipStatus, UserMembershipSourceType } from '#shared/types/membership'
+import { PointRecordSourceType, PointRecordStatus } from '#shared/types/point.types'
+
+// 显式导入 prisma 和 logger（测试环境需要）
+import { prisma } from '../../utils/db'
+import { logger } from '../../../shared/utils/logger'
+
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma
 

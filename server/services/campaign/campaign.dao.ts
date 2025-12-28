@@ -4,6 +4,14 @@
  * 提供营销活动的 CRUD 操作
  */
 
+// 显式导入 prisma 和 logger（测试环境需要）
+import { prisma } from '../../utils/db'
+import { logger } from '../../../shared/utils/logger'
+
+// 显式导入类型（测试环境需要）
+import { CampaignType, CampaignStatus } from '#shared/types/campaign'
+import type { Prisma, campaigns, membershipLevels } from '@prisma/client'
+
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma
 

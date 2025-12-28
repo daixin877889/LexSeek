@@ -4,7 +4,6 @@
  * 提供用户会员相关的业务逻辑
  */
 import dayjs from 'dayjs'
-import type { CreateMembershipParams, UserMembershipInfo } from '#shared/types/membership'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma

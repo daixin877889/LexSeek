@@ -4,7 +4,19 @@
  * 提供会员升级相关的业务逻辑
  */
 import dayjs from 'dayjs'
-import type { UpgradePriceResult } from '#shared/types/membership'
+
+// 显式导入（测试环境需要）
+import { findCurrentUserMembershipDao, createUserMembershipDao, updateUserMembershipDao } from './userMembership.dao'
+import { findMembershipLevelByIdDao, findAllActiveMembershipLevelsDao } from './membershipLevel.dao'
+import { createMembershipUpgradeRecordDao, findUserUpgradeRecordsDao } from './membershipUpgrade.dao'
+
+// 显式导入常量
+import { MembershipStatus, UserMembershipSourceType } from '#shared/types/membership'
+import { ProductType } from '#shared/types/product'
+
+// 显式导入 Prisma 客户端和日志工具
+import { prisma } from '../../utils/db'
+import { logger } from '../../../shared/utils/logger'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma
