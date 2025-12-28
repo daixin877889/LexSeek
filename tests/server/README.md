@@ -18,6 +18,7 @@
 
 ```
 tests/server/
+├── api/            # API 集成测试（12个文件）
 ├── auth/           # 认证模块测试（1个文件）
 ├── crypto/         # 加密系统测试（1个文件）
 ├── membership/     # 会员系统测试（16个文件）
@@ -34,6 +35,7 @@ tests/server/
 
 | 模块 | 说明 | 测试文件数 |
 |------|------|-----------|
+| [api](./api/README.md) | API 集成测试，发送真实 HTTP 请求测试所有 API 端点 | 12 |
 | [auth](./auth/README.md) | 认证令牌服务、Token 黑名单 | 1 |
 | [crypto](./crypto/README.md) | 文件加密元数据、解密输出格式 | 1 |
 | [membership](./membership/README.md) | 会员级别、用户会员、积分、兑换码、营销活动等 | 16 |
@@ -57,6 +59,7 @@ bun run test:storage
 bun run test:payment
 bun run test:crypto
 bun run test:utils
+bun run test:api
 
 # 运行新增模块测试
 npx vitest run tests/server/auth --reporter=verbose
@@ -64,6 +67,7 @@ npx vitest run tests/server/users --reporter=verbose
 npx vitest run tests/server/sms --reporter=verbose
 npx vitest run tests/server/system --reporter=verbose
 npx vitest run tests/server/rbac --reporter=verbose
+npx vitest run tests/server/api --reporter=verbose
 
 # 运行单个测试文件
 npx vitest run tests/server/membership/membership-level.test.ts --reporter=verbose

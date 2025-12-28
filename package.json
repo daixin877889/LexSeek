@@ -21,6 +21,7 @@
     "test:payment": "vitest run tests/server/payment --reporter=verbose",
     "test:crypto": "vitest run tests/server/crypto --reporter=verbose",
     "test:utils": "vitest run tests/server/utils --reporter=verbose",
+    "test:api": "vitest run tests/server/api --reporter=verbose",
     "test:client": "vitest run tests/client --reporter=verbose",
     "test:shared": "vitest run tests/shared --reporter=verbose",
     "prebuild": "vitest run tests/server --reporter=verbose",

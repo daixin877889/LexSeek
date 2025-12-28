@@ -42,6 +42,29 @@ Nuxt 4 配置了自动导入功能，以下内容无需手动 import：
 - `readBody` - 读取请求体
 - `getHeader` - 获取请求头
 - `setResponseStatus` - 设置响应状态码
+- `getRouterParam` - 获取路由参数
+
+## API 用户认证
+
+在 API 接口中获取当前登录用户，必须使用 `event.context.auth?.user`，而不是 `event.context.user`：
+
+```typescript
+export default defineEventHandler(async (event) => {
+    // ✅ 正确写法
+    const user = event.context.auth?.user
+    if (!user) {
+        return resError(event, 401, '请先登录')
+    }
+    
+    // ❌ 错误写法（user 始终为 undefined）
+    // const user = event.context.user
+    
+    // 使用 user.id 获取用户 ID
+    const userId = user.id
+})
+```
+
+**注意**：使用错误的写法会导致 API 始终返回 401 错误，前端 `useApi` 检测到 401 后会自动跳转到登录页。
 
 ### 前端自动导入（app/ 目录）
 
@@ -87,6 +110,8 @@ import type { UserMembershipInfo } from "#shared/types/membership";
 1. 回调自定义变量需要通过 `callbackVar` 参数传递，格式为 `{ key: value }`，注意 key 不能包含 `:` 字符，变量名不能包含大写。
 
 ## 测试规范
+1. UI 测试使用 vibium 工具调用浏览器测试，如需登录，测试账号: 13046768490 密码: daixin88
+2. 服务端测试使用 vitest 测试框架
 
 ### 目录结构
 

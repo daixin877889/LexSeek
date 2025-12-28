@@ -643,7 +643,21 @@ export const cleanupTestData = async (testIds: TestIds): Promise<void> => {
             })
         }
 
-        // 10. 删除用户
+        // 10. 删除用户相关的所有积分记录（包括系统自动创建的）
+        if (testIds.userIds.length > 0) {
+            await testPrisma.pointRecords.deleteMany({
+                where: { userId: { in: testIds.userIds } },
+            })
+        }
+
+        // 11. 删除用户相关的所有会员记录（包括系统自动创建的）
+        if (testIds.userIds.length > 0) {
+            await testPrisma.userMemberships.deleteMany({
+                where: { userId: { in: testIds.userIds } },
+            })
+        }
+
+        // 12. 删除用户
         if (testIds.userIds.length > 0) {
             await testPrisma.users.deleteMany({
                 where: { id: { in: testIds.userIds } },
