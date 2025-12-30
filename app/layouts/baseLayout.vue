@@ -14,16 +14,20 @@
           <nav class="hidden md:block">
             <ul class="flex gap-6">
               <li>
-                <NuxtLink to="/" class="text-sm hover:text-primary transition-colors py-1 block" :class="{ 'text-primary font-medium': $route.path === '/' }"> 首页 </NuxtLink>
+                <NuxtLink to="/" class="text-sm hover:text-primary transition-colors py-1 block"
+                  :class="{ 'text-primary font-medium': $route.path === '/' }"> 首页 </NuxtLink>
               </li>
               <li>
-                <NuxtLink to="/features" class="text-sm hover:text-primary transition-colors py-1 block" :class="{ 'text-primary font-medium': $route.path === '/features' }"> 产品功能 </NuxtLink>
+                <NuxtLink to="/features" class="text-sm hover:text-primary transition-colors py-1 block"
+                  :class="{ 'text-primary font-medium': $route.path === '/features' }"> 产品功能 </NuxtLink>
               </li>
               <li>
-                <NuxtLink to="/pricing" class="text-sm hover:text-primary transition-colors py-1 block" :class="{ 'text-primary font-medium': $route.path === '/pricing' }"> 价格方案 </NuxtLink>
+                <NuxtLink to="/pricing" class="text-sm hover:text-primary transition-colors py-1 block"
+                  :class="{ 'text-primary font-medium': $route.path === '/pricing' }"> 价格方案 </NuxtLink>
               </li>
               <li>
-                <NuxtLink to="/about" class="text-sm hover:text-primary transition-colors py-1 block" :class="{ 'text-primary font-medium': $route.path === '/about' }"> 关于我们 </NuxtLink>
+                <NuxtLink to="/about" class="text-sm hover:text-primary transition-colors py-1 block"
+                  :class="{ 'text-primary font-medium': $route.path === '/about' }"> 关于我们 </NuxtLink>
               </li>
             </ul>
           </nav>
@@ -33,20 +37,25 @@
         <div class="flex items-center">
           <!-- 用户未登录状态 -->
           <div v-if="!authStore.isAuthenticated" class="hidden md:flex items-center gap-3">
-            <NuxtLink :to="`/login?redirect=${$route.path}`" class="text-sm hover:text-primary transition-colors">登录</NuxtLink>
-            <NuxtLink :to="`/login?redirect=${$route.path}`" class="px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 transition-colors"> 注册 </NuxtLink>
+            <NuxtLink :to="`/login?redirect=${$route.path}`" class="text-sm hover:text-primary transition-colors">登录
+            </NuxtLink>
+            <NuxtLink :to="`/login?redirect=${$route.path}`"
+              class="px-3 py-1.5 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 transition-colors">
+              注册 </NuxtLink>
           </div>
 
           <!-- 用户已登录状态 -->
           <div v-else class="hidden md:flex items-center gap-3">
             <NuxtLink to="/dashboard" class="text-sm hover:text-primary transition-colors">个人中心</NuxtLink>
             <div class="relative" ref="userMenuRef">
-              <button @click="toggleUserMenu" class="flex items-center justify-center h-8 w-8 rounded-full bg-muted hover:bg-muted/80 transition-colors">
+              <button @click="toggleUserMenu"
+                class="flex items-center justify-center h-8 w-8 rounded-full bg-muted hover:bg-muted/80 transition-colors">
                 <user-icon class="h-5 w-5" />
               </button>
 
               <!-- 用户菜单下拉框 -->
-              <div v-if="userMenuOpen" class="absolute right-0 mt-2 w-48 bg-card rounded-md shadow-lg border overflow-hidden">
+              <div v-if="userMenuOpen"
+                class="absolute right-0 mt-2 w-48 bg-card rounded-md shadow-lg border overflow-hidden">
                 <div class="py-2 px-4 border-b">
                   <p class="font-medium">{{ userStore.userInfo.name }}</p>
                   <p class="text-xs text-muted-foreground">{{ maskTel(userStore.userInfo.phone) || "" }}</p>
@@ -62,7 +71,8 @@
                     <NuxtLink to="/dashboard/settings" class="block px-4 py-2 text-sm hover:bg-muted">账户设置</NuxtLink>
                   </li>
                   <li>
-                    <button @click="handleLogoutClick" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-muted">退出登录</button>
+                    <button @click="handleLogoutClick"
+                      class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-muted">退出登录</button>
                   </li>
                 </ul>
               </div>
@@ -70,7 +80,8 @@
           </div>
 
           <!-- 移动端菜单按钮 -->
-          <button @click="toggleMobileMenu" class="md:hidden p-1 rounded-md hover:bg-muted transition-colors" aria-label="打开菜单">
+          <button @click="toggleMobileMenu" class="md:hidden p-1 rounded-md hover:bg-muted transition-colors"
+            aria-label="打开菜单">
             <menu-icon v-if="!mobileMenuOpen" class="h-6 w-6" />
             <x-icon v-else class="h-6 w-6" />
           </button>
@@ -83,37 +94,51 @@
           <nav>
             <ul class="space-y-4">
               <li>
-                <NuxtLink to="/" @click="handleMobileUserMenuClick" class="block py-2 text-sm hover:text-primary transition-colors" :class="{ 'text-primary font-medium': $route.path === '/' }"> 首页 </NuxtLink>
+                <NuxtLink to="/" @click="handleMobileUserMenuClick"
+                  class="block py-2 text-sm hover:text-primary transition-colors"
+                  :class="{ 'text-primary font-medium': $route.path === '/' }"> 首页 </NuxtLink>
               </li>
               <li>
-                <NuxtLink to="/features" @click="handleMobileUserMenuClick" class="block py-2 text-sm hover:text-primary transition-colors" :class="{ 'text-primary font-medium': $route.path === '/features' }"> 产品功能 </NuxtLink>
+                <NuxtLink to="/features" @click="handleMobileUserMenuClick"
+                  class="block py-2 text-sm hover:text-primary transition-colors"
+                  :class="{ 'text-primary font-medium': $route.path === '/features' }"> 产品功能 </NuxtLink>
               </li>
               <li>
-                <NuxtLink to="/pricing" @click="handleMobileUserMenuClick" class="block py-2 text-sm hover:text-primary transition-colors" :class="{ 'text-primary font-medium': $route.path === '/pricing' }"> 价格方案 </NuxtLink>
+                <NuxtLink to="/pricing" @click="handleMobileUserMenuClick"
+                  class="block py-2 text-sm hover:text-primary transition-colors"
+                  :class="{ 'text-primary font-medium': $route.path === '/pricing' }"> 价格方案 </NuxtLink>
               </li>
               <li>
-                <NuxtLink to="/about" @click="handleMobileUserMenuClick" class="block py-2 text-sm hover:text-primary transition-colors" :class="{ 'text-primary font-medium': $route.path === '/about' }"> 关于我们 </NuxtLink>
+                <NuxtLink to="/about" @click="handleMobileUserMenuClick"
+                  class="block py-2 text-sm hover:text-primary transition-colors"
+                  :class="{ 'text-primary font-medium': $route.path === '/about' }"> 关于我们 </NuxtLink>
               </li>
             </ul>
           </nav>
 
           <!-- 移动端用户未登录状态 -->
           <div v-if="!authStore.isAuthenticated" class="mt-6 pt-6 border-t flex flex-col gap-3">
-            <NuxtLink :to="`/login?redirect=${$route.path}`" class="w-full py-2 text-sm text-center hover:bg-muted rounded-md transition-colors"> 登录 </NuxtLink>
-            <NuxtLink :to="`/login?redirect=${$route.path}`" class="w-full py-2 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 transition-colors text-center"> 注册 </NuxtLink>
+            <NuxtLink :to="`/login?redirect=${$route.path}`"
+              class="w-full py-2 text-sm text-center hover:bg-muted rounded-md transition-colors"> 登录 </NuxtLink>
+            <NuxtLink :to="`/login?redirect=${$route.path}`"
+              class="w-full py-2 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 transition-colors text-center">
+              注册 </NuxtLink>
           </div>
 
           <!-- 移动端用户已登录状态 -->
           <div v-else class="mt-6 pt-6 border-t">
             <ul class="space-y-4">
               <li>
-                <NuxtLink to="/dashboard" class="block py-2 text-sm hover:text-primary transition-colors">个人中心</NuxtLink>
+                <NuxtLink to="/dashboard" class="block py-2 text-sm hover:text-primary transition-colors">个人中心
+                </NuxtLink>
               </li>
               <li>
-                <NuxtLink to="/dashboard/cases" class="block py-2 text-sm hover:text-primary transition-colors">我的案件</NuxtLink>
+                <NuxtLink to="/dashboard/cases" class="block py-2 text-sm hover:text-primary transition-colors">我的案件
+                </NuxtLink>
               </li>
               <li>
-                <NuxtLink to="/dashboard/settings" class="block py-2 text-sm hover:text-primary transition-colors">账户设置</NuxtLink>
+                <NuxtLink to="/dashboard/settings" class="block py-2 text-sm hover:text-primary transition-colors">账户设置
+                </NuxtLink>
               </li>
               <li>
                 <button @click="handleLogoutClick" class="w-full text-left py-2 text-sm text-red-500">退出登录</button>
@@ -133,7 +158,9 @@
       <div class="max-w-[1280px] mx-auto px-4">
         <div class="flex flex-col md:flex-row justify-between items-center">
           <div class="mb-4 md:mb-0 text-center md:text-left">
-            <p class="text-sm text-muted-foreground">© 2025 上海盛熙律泓教育科技有限公司｜ <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="hover:text-foreground transition-colors"> 沪ICP备2025118451号 </a></p>
+            <p class="text-sm text-muted-foreground">© 2025 上海盛熙律泓教育科技有限公司｜ <a href="https://beian.miit.gov.cn/"
+                target="_blank" rel="noopener noreferrer" class="hover:text-foreground transition-colors">
+                沪ICP备2025118451号 </a></p>
             <!-- <p class="text-xs text-muted-foreground mt-1">
               <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="hover:text-foreground transition-colors">
                 沪ICP备2025118451号
@@ -159,6 +186,7 @@ const userMenuOpen = ref(false);
 const userMenuRef = ref(null);
 const authStore = useAuthStore();
 const userStore = useUserStore();
+const router = useRouter();
 
 // 切换用户菜单
 const toggleUserMenu = () => {

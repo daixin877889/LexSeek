@@ -81,6 +81,8 @@ export default defineNuxtConfig({
       logLevel: 'DEBUG',
       // 应用基础 URL（用于支付回调等）
       baseUrl: '',
+      // 微信公众号 AppID（用于 OAuth 授权）
+      wechatAppId: '',
     },
     aliyun: {
       accessKeyId: '',
