@@ -115,28 +115,17 @@ export interface CreateOrderParams {
     durationUnit: DurationUnit
 }
 
-/** 创建支付参数 */
-export interface CreatePaymentParams {
+/** 订单项（用于前端展示） */
+export interface OrderItem {
+    id: number
     orderNo: string
+    productName: string
+    productType: number
     amount: number
-    description: string
-    method: PaymentMethod
-    openid?: string
-    notifyUrl: string
-}
-
-/** 支付结果 */
-export interface PaymentResult {
-    success: boolean
-    paymentParams?: Record<string, unknown>
-    errorMessage?: string
-}
-
-/** 回调验证结果 */
-export interface CallbackVerifyResult {
-    success: boolean
-    orderNo?: string
-    transactionId?: string
-    amount?: number
-    errorMessage?: string
+    duration: number
+    durationUnit: DurationUnit
+    status: OrderStatus
+    paidAt: string | null
+    expiredAt: string
+    createdAt: string
 }

@@ -100,3 +100,17 @@ export const PointConsumptionRecordStatusName = {
     [PointConsumptionRecordStatus.PRE_DEDUCT]: "预扣",
     [PointConsumptionRecordStatus.SETTLED]: "已结算",
 }
+
+/** 积分历史记录（用于前端展示） */
+export interface PointHistoryRecord {
+    id: number
+    sourceType: number
+    sourceTypeName: string
+    pointAmount: number
+    used: number
+    remaining: number
+    effectiveAt: string
+    expiredAt: string
+    status: number
+    remark?: string
+}

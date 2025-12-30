@@ -6,6 +6,8 @@
   <Toaster position="top-center" :offset="{ top: '60px' }" :duration="3000" rich-colors />
   <!-- 全局确认对话框 -->
   <GeneralAlertDialog />
+  <!-- 微信客服二维码弹框 -->
+  <GeneralWxSupport />
 </template>
 
 <script setup lang="ts">

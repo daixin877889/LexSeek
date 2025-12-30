@@ -168,3 +168,24 @@ export interface UpgradeDetails {
     oldPointRecords: UpgradeDetailsOldPointRecord[]
     newPointRecords: UpgradeDetailsNewPointRecords
 }
+
+/** 会员记录（用于前端展示） */
+export interface MembershipRecord {
+    id: number
+    levelId: number
+    levelName: string
+    startDate: string
+    endDate: string
+    sourceTypeName: string
+    status: number
+    createdAt: string
+    settlementAt?: string
+    remark?: string
+}
+
+/** 会员级别（用于前端展示） */
+export interface MembershipLevelDisplay {
+    id: number
+    name: string
+    sortOrder: number
+}

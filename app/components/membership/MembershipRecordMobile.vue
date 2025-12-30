@@ -35,77 +35,34 @@
 
             <div class="text-sm">
                 <p class="text-muted-foreground mb-1">创建时间</p>
-                <p>{{ formatDate(record.createdAt) }}</p>
+                <p>{{ formatDateChinese(record.createdAt) }}</p>
             </div>
         </div>
     </div>
 </template>
 
 <script lang="ts" setup>
-import dayjs from "dayjs";
+import type { MembershipRecord, MembershipLevelDisplay } from "#shared/types/membership";
 
-// 类型定义
-interface MembershipRecord {
-    id: number;
-    levelId: number;
-    levelName: string;
-    startDate: string;
-    endDate: string;
-    sourceTypeName: string;
-    status: number;
-    createdAt: string;
-}
+// ==================== Props ====================
 
-interface MembershipLevel {
-    id: number;
-    name: string;
-    sortOrder: number;
-}
-
-// 定义 props
 const props = defineProps<{
     list: MembershipRecord[];
-    membershipLevels: MembershipLevel[];
+    membershipLevels: MembershipLevelDisplay[];
 }>();
 
-// 定义 emits
+// ==================== Emits ====================
+
 const emit = defineEmits<{
     upgrade: [record: MembershipRecord];
 }>();
 
-// 判断是否是最高级别（sortOrder 越大级别越高）
-// 只考虑真正的会员级别（基础版、专业版、旗舰版），排除测试数据
-const isHighestLevel = (levelId: number): boolean => {
-    if (props.membershipLevels.length === 0) return false;
-    // 只考虑真正的会员级别（id 为 1、2、3 或名称为基础版、专业版、旗舰版）
-    const realLevels = props.membershipLevels.filter((l) =>
-        l.id === 1 || l.id === 2 || l.id === 3 ||
-        l.name === '基础版' || l.name === '专业版' || l.name === '旗舰版'
-    );
-    if (realLevels.length === 0) return false;
-    // sortOrder 越大级别越高，找出最大的 sortOrder
-    const maxSortOrder = Math.max(...realLevels.map((l) => l.sortOrder));
-    const currentLevel = props.membershipLevels.find((l) => l.id === levelId);
-    return currentLevel ? currentLevel.sortOrder >= maxSortOrder : false;
-};
+// ==================== Composables ====================
 
-/**
- * 判断会员是否未生效（startDate > now）
- */
-const isNotEffective = (startDate: string): boolean => {
-    if (!startDate) return false;
-    return dayjs(startDate).isAfter(dayjs());
-};
+// 使用格式化工具
+const { formatDateOnly, formatDateChinese } = useFormatters()
 
-// 格式化日期（仅日期，YY/MM/DD 格式）
-const formatDateOnly = (dateString: string): string => {
-    if (!dateString) return "—";
-    return dayjs(dateString).format("YY/MM/DD");
-};
-
-// 格式化日期（含时间）
-const formatDate = (dateString: string): string => {
-    if (!dateString) return "—";
-    return dayjs(dateString).format("YYYY年MM月DD日 HH:mm");
-};
+// 使用会员状态工具
+const membershipLevelsRef = computed(() => props.membershipLevels)
+const { isNotEffective, isHighestLevel } = useMembershipStatus(membershipLevelsRef)
 </script>

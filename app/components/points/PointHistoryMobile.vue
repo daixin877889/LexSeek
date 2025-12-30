@@ -56,8 +56,8 @@
                 <!-- 有效期 -->
                 <div class="text-sm">
                     <p class="text-muted-foreground mb-1">有效期</p>
-                    <p>{{ dayjs(record.effectiveAt).format("YYYY年MM月DD日") }} -
-                        {{ dayjs(record.expiredAt).format("YYYY年MM月DD日") }}</p>
+                    <p>{{ formatDateChinese(record.effectiveAt).split(' ')[0] }} -
+                        {{ formatDateChinese(record.expiredAt).split(' ')[0] }}</p>
                 </div>
                 <!-- 备注 -->
                 <div v-if="record.remark" class="text-sm">
@@ -84,25 +84,9 @@
 </template>
 
 <script lang="ts" setup>
-import dayjs from "dayjs";
 import { RefreshCwIcon } from "lucide-vue-next";
 import { useIntersectionObserver } from "@vueuse/core";
-
-// ==================== 类型定义 ====================
-
-/** 积分获取记录 */
-interface PointHistoryRecord {
-    id: number;
-    sourceType: number;
-    sourceTypeName: string;
-    pointAmount: number;
-    used: number;
-    remaining: number;
-    effectiveAt: string;
-    expiredAt: string;
-    status: number;
-    remark?: string;
-}
+import type { PointHistoryRecord } from "#shared/types/point.types";
 
 // ==================== Props ====================
 
@@ -132,6 +116,14 @@ const emit = defineEmits<{
     (e: "refresh"): void;
 }>();
 
+// ==================== Composables ====================
+
+// 使用格式化工具
+const { formatDateChinese } = useFormatters()
+
+// 使用积分状态工具
+const { isAvailable, isNotEffective } = usePointStatus()
+
 // ==================== 状态 ====================
 
 const loadMoreTriggerRef = ref<HTMLElement | null>(null);
@@ -152,25 +144,4 @@ useIntersectionObserver(
         rootMargin: "100px",
     }
 );
-
-// ==================== 工具方法 ====================
-
-/**
- * 判断积分记录是否可用
- */
-const isAvailable = (record: PointHistoryRecord): boolean => {
-    const now = new Date();
-    const effectiveAt = new Date(record.effectiveAt);
-    const expiredAt = new Date(record.expiredAt);
-    return effectiveAt < now && expiredAt > now;
-};
-
-/**
- * 判断积分记录是否未生效
- */
-const isNotEffective = (record: PointHistoryRecord): boolean => {
-    const now = new Date();
-    const effectiveAt = new Date(record.effectiveAt);
-    return effectiveAt > now;
-};
 </script>

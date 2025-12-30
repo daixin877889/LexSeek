@@ -51,7 +51,7 @@
                                         <span v-else-if="record.status === 0"
                                             class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">已作废</span>
                                     </td>
-                                    <td class="px-4 py-3 text-sm">{{ formatDate(record.createdAt) }}</td>
+                                    <td class="px-4 py-3 text-sm">{{ formatDateChinese(record.createdAt) }}</td>
                                     <!-- 操作列 - 阻止点击事件冒泡 -->
                                     <td class="px-4 py-3 text-sm text-center" @click.stop>
                                         <Button v-if="record.status === 1 && !isHighestLevel(record.levelId)" size="sm"
@@ -75,7 +75,8 @@
                                 <div class="grid grid-cols-2 gap-4 text-sm pl-8">
                                     <div>
                                         <p class="text-muted-foreground mb-1">结算时间</p>
-                                        <p class="font-medium">{{ record.settlementAt ? formatDate(record.settlementAt)
+                                        <p class="font-medium">{{ record.settlementAt ?
+                                            formatDateChinese(record.settlementAt)
                                             : '-' }}</p>
                                     </div>
                                     <div>
@@ -93,37 +94,14 @@
 </template>
 
 <script lang="ts" setup>
-import dayjs from "dayjs";
 import { ChevronRightIcon, ChevronDownIcon } from "lucide-vue-next";
-
-// ==================== 类型定义 ====================
-
-/** 会员记录 */
-interface MembershipRecord {
-    id: number;
-    levelId: number;
-    levelName: string;
-    startDate: string;
-    endDate: string;
-    sourceTypeName: string;
-    status: number;
-    createdAt: string;
-    settlementAt?: string;
-    remark?: string;
-}
-
-/** 会员级别 */
-interface MembershipLevel {
-    id: number;
-    name: string;
-    sortOrder: number;
-}
+import type { MembershipRecord, MembershipLevelDisplay } from "#shared/types/membership";
 
 // ==================== Props ====================
 
 const props = defineProps<{
     list: MembershipRecord[];
-    membershipLevels: MembershipLevel[];
+    membershipLevels: MembershipLevelDisplay[];
 }>();
 
 // ==================== Emits ====================
@@ -131,6 +109,15 @@ const props = defineProps<{
 const emit = defineEmits<{
     upgrade: [record: MembershipRecord];
 }>();
+
+// ==================== Composables ====================
+
+// 使用格式化工具
+const { formatDateOnly, formatDateChinese } = useFormatters()
+
+// 使用会员状态工具
+const membershipLevelsRef = computed(() => props.membershipLevels)
+const { isNotEffective, isHighestLevel } = useMembershipStatus(membershipLevelsRef)
 
 // ==================== 展开状态管理 ====================
 
@@ -148,48 +135,5 @@ const toggleRow = (id: number) => {
     }
     // 触发响应式更新
     expandedRows.value = new Set(expandedRows.value);
-};
-
-// ==================== 工具方法 ====================
-
-/**
- * 判断是否是最高级别（sortOrder 越大级别越高）
- * 只考虑真正的会员级别（基础版、专业版、旗舰版），排除测试数据
- */
-const isHighestLevel = (levelId: number): boolean => {
-    if (props.membershipLevels.length === 0) return false;
-    // 只考虑真正的会员级别
-    const realLevels = props.membershipLevels.filter((l) =>
-        l.id === 1 || l.id === 2 || l.id === 3 ||
-        l.name === '基础版' || l.name === '专业版' || l.name === '旗舰版'
-    );
-    if (realLevels.length === 0) return false;
-    const maxSortOrder = Math.max(...realLevels.map((l) => l.sortOrder));
-    const currentLevel = props.membershipLevels.find((l) => l.id === levelId);
-    return currentLevel ? currentLevel.sortOrder >= maxSortOrder : false;
-};
-
-/**
- * 判断会员是否未生效（startDate > now）
- */
-const isNotEffective = (startDate: string): boolean => {
-    if (!startDate) return false;
-    return dayjs(startDate).isAfter(dayjs());
-};
-
-/**
- * 格式化日期（仅日期，YY/MM/DD 格式）
- */
-const formatDateOnly = (dateString: string): string => {
-    if (!dateString) return "—";
-    return dayjs(dateString).format("YY/MM/DD");
-};
-
-/**
- * 格式化日期（含时间）
- */
-const formatDate = (dateString: string): string => {
-    if (!dateString) return "—";
-    return dayjs(dateString).format("YYYY年MM月DD日 HH:mm");
 };
 </script>

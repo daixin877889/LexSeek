@@ -73,8 +73,8 @@
                                 <div class="text-xs space-y-1">
                                     <p><span class="text-muted-foreground">已使用：</span>{{ record.used }}</p>
                                     <p><span class="text-muted-foreground">有效期：</span>{{
-                                        dayjs(record.effectiveAt).format("YYYY/MM/DD") }} - {{
-                                            dayjs(record.expiredAt).format("YYYY/MM/DD") }}</p>
+                                        formatDateOnly(record.effectiveAt) }} - {{
+                                            formatDateOnly(record.expiredAt) }}</p>
                                     <p v-if="record.remark"><span class="text-muted-foreground">备注：</span>{{
                                         record.remark }}</p>
                                 </div>
@@ -90,8 +90,8 @@
                                     </div>
                                     <div>
                                         <p class="text-muted-foreground mb-1">有效期</p>
-                                        <p>{{ dayjs(record.effectiveAt).format("YYYY/MM/DD") }} -
-                                            {{ dayjs(record.expiredAt).format("YYYY/MM/DD") }}</p>
+                                        <p>{{ formatDateOnly(record.effectiveAt) }} -
+                                            {{ formatDateOnly(record.expiredAt) }}</p>
                                     </div>
                                     <div class="col-span-2">
                                         <p class="text-muted-foreground mb-1">备注</p>
@@ -108,24 +108,8 @@
 </template>
 
 <script lang="ts" setup>
-import dayjs from "dayjs";
-import { ChevronRightIcon, ChevronDownIcon, InfoIcon } from "lucide-vue-next";
-
-// ==================== 类型定义 ====================
-
-/** 积分获取记录 */
-interface PointHistoryRecord {
-    id: number;
-    sourceType: number;
-    sourceTypeName: string;
-    pointAmount: number;
-    used: number;
-    remaining: number;
-    effectiveAt: string;
-    expiredAt: string;
-    status: number;
-    remark?: string;
-}
+import { ChevronRightIcon, ChevronDownIcon } from "lucide-vue-next";
+import type { PointHistoryRecord } from "#shared/types/point.types";
 
 // ==================== Props ====================
 
@@ -137,6 +121,14 @@ interface Props {
 }
 
 defineProps<Props>();
+
+// ==================== Composables ====================
+
+// 使用格式化工具（使用 YY/MM/DD 格式显示日期）
+const { formatDateOnly } = useFormatters()
+
+// 使用积分状态工具
+const { isAvailable, isNotEffective } = usePointStatus()
 
 // ==================== 展开状态管理 ====================
 
@@ -154,26 +146,5 @@ const toggleRow = (id: number) => {
     }
     // 触发响应式更新
     expandedRows.value = new Set(expandedRows.value);
-};
-
-// ==================== 工具方法 ====================
-
-/**
- * 判断积分记录是否可用
- */
-const isAvailable = (record: PointHistoryRecord): boolean => {
-    const now = new Date();
-    const effectiveAt = new Date(record.effectiveAt);
-    const expiredAt = new Date(record.expiredAt);
-    return effectiveAt < now && expiredAt > now;
-};
-
-/**
- * 判断积分记录是否未生效
- */
-const isNotEffective = (record: PointHistoryRecord): boolean => {
-    const now = new Date();
-    const effectiveAt = new Date(record.effectiveAt);
-    return effectiveAt > now;
 };
 </script>
