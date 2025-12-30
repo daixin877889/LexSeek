@@ -14,6 +14,8 @@ model orders {
     duration     Int
     /// 时长单位：month/year
     durationUnit String    @map("duration_unit") @db.VarChar(10)
+    /// 订单类型：purchase-新购，upgrade-升级，renew-续费
+    orderType    String    @default("purchase") @map("order_type") @db.VarChar(20)
     /// 状态：0-待支付，1-已支付，2-已取消，3-已退款
     status       Int       @default(0)
     /// 支付时间
@@ -112,6 +114,10 @@ model membershipUpgradeRecords {
     upgradePrice      Decimal   @map("upgrade_price") @db.Decimal(10, 2)
     /// 积分补偿
     pointCompensation Int       @map("point_compensation")
+    /// 转入积分数量（从旧会员关联积分转入）
+    transferPoints    Int       @default(0) @map("transfer_points")
+    /// 升级详情（JSON，记录旧/新会员和积分记录的关联关系）
+    details           Json?     @map("details")
     /// 创建时间
     createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
     /// 最后更新时间

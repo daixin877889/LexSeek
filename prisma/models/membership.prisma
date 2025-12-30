@@ -6,7 +6,7 @@ model membershipLevels {
     name        String    @db.VarChar(50)
     /// 级别描述
     description String?   @db.VarChar(255)
-    /// 排序顺序，数字越小级别越高
+    /// 排序顺序，数字越大级别越高
     sortOrder   Int       @default(0) @map("sort_order")
     /// 状态：1-启用，0-禁用
     status      Int       @default(1)
@@ -37,31 +37,33 @@ model membershipLevels {
 /// 用户会员记录表
 model userMemberships {
     /// 用户会员记录ID，主键，自增
-    id         Int       @id @default(autoincrement())
+    id           Int       @id @default(autoincrement())
     /// 用户ID
-    userId     Int       @map("user_id")
+    userId       Int       @map("user_id")
     /// 会员级别ID
-    levelId    Int       @map("level_id")
+    levelId      Int       @map("level_id")
     /// 开始日期
-    startDate  DateTime  @map("start_date") @db.Timestamptz(6)
+    startDate    DateTime  @map("start_date") @db.Timestamptz(6)
     /// 到期日期
-    endDate    DateTime  @map("end_date") @db.Timestamptz(6)
+    endDate      DateTime  @map("end_date") @db.Timestamptz(6)
     /// 是否自动续费
-    autoRenew  Boolean   @default(false) @map("auto_renew")
-    /// 状态：1-有效，0-无效
-    status     Int       @default(1)
+    autoRenew    Boolean   @default(false) @map("auto_renew")
+    /// 状态：1-有效，0-无效，2-已结算
+    status       Int       @default(1)
+    /// 结算时间（会员升级时记录）
+    settlementAt DateTime? @map("settlement_at") @db.Timestamptz(6)
     /// 来源类型：1-兑换码，2-直接购买，3-管理员赠送，4-活动奖励，5-试用，6-注册赠送，7-邀请注册赠送，8-会员升级
-    sourceType Int       @map("source_type")
+    sourceType   Int       @map("source_type")
     /// 来源ID，根据来源类型关联到不同的表
-    sourceId   Int?      @map("source_id")
+    sourceId     Int?      @map("source_id")
     /// 备注
-    remark     String?   @db.VarChar(255)
+    remark       String?   @db.VarChar(255)
     /// 创建时间
-    createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+    createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
     /// 最后更新时间
-    updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+    updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
     /// 删除时间，为NULL表示未删除
-    deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(6)
+    deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
 
     /// 关联的用户
     user                         users                      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)

@@ -1,35 +1,51 @@
 /// 商品表
 model products {
     /// 商品ID，主键，自增
-    id            Int       @id @default(autoincrement())
+    id                   Int       @id @default(autoincrement())
     /// 商品名称
-    name          String    @db.VarChar(100)
+    name                 String    @db.VarChar(100)
+    /// 商品描述
+    description          String?   @db.VarChar(500)
     /// 商品类型：1-会员商品，2-积分商品
-    type          Int
+    type                 Int
+    /// 商品分类
+    category             String?   @db.VarChar(50)
     /// 关联会员级别ID
-    levelId       Int?      @map("level_id")
+    levelId              Int?      @map("level_id")
     /// 月度价格
-    priceMonthly  Decimal?  @map("price_monthly") @db.Decimal(10, 2)
+    priceMonthly         Decimal?  @map("price_monthly") @db.Decimal(10, 2)
     /// 年度价格
-    priceYearly   Decimal?  @map("price_yearly") @db.Decimal(10, 2)
-    /// 赠送积分
-    giftPoint     Int?      @map("gift_point")
+    priceYearly          Decimal?  @map("price_yearly") @db.Decimal(10, 2)
+    /// 默认售卖时长（会员专用）：1-月，2-年
+    defaultDuration      Int?      @map("default_duration")
     /// 积分单价
-    unitPrice     Decimal?  @map("unit_price") @db.Decimal(10, 2)
-    /// 积分数量
-    pointAmount   Int?      @map("point_amount")
+    unitPrice            Decimal?  @map("unit_price") @db.Decimal(10, 2)
+    /// 月度价格原价（会员专用，用于显示划线价格）
+    originalPriceMonthly Decimal?  @map("original_price_monthly") @db.Decimal(10, 2)
+    /// 年度价格原价（会员专用，用于显示划线价格）
+    originalPriceYearly  Decimal?  @map("original_price_yearly") @db.Decimal(10, 2)
+    /// 单价原价（积分专用，用于显示划线价格）
+    originalUnitPrice    Decimal?  @map("original_unit_price") @db.Decimal(10, 2)
+    /// 最小购买数量
+    minQuantity          Int?      @default(1) @map("min_quantity")
+    /// 最大购买数量
+    maxQuantity          Int?      @map("max_quantity")
     /// 购买次数限制（0-不限制）
-    purchaseLimit Int?      @default(0) @map("purchase_limit")
+    purchaseLimit        Int?      @default(0) @map("purchase_limit")
+    /// 积分数量
+    pointAmount          Int?      @map("point_amount")
+    /// 赠送积分
+    giftPoint            Int?      @map("gift_point")
     /// 状态：1-上架，0-下架
-    status        Int       @default(1)
+    status               Int       @default(1)
     /// 排序
-    sortOrder     Int       @default(0) @map("sort_order")
+    sortOrder            Int       @default(0) @map("sort_order")
     /// 创建时间
-    createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+    createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
     /// 最后更新时间
-    updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+    updatedAt            DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
     /// 删除时间，为NULL表示未删除
-    deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
+    deletedAt            DateTime? @map("deleted_at") @db.Timestamptz(6)
 
     /// 关联的会员级别
     level  membershipLevels? @relation(fields: [levelId], references: [id], onDelete: NoAction, onUpdate: NoAction)

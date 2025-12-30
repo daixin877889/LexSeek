@@ -1,37 +1,41 @@
 /// 积分记录表
 model pointRecords {
     /// 积分记录ID，主键，自增
-    id               Int       @id @default(autoincrement())
+    id                 Int       @id @default(autoincrement())
     /// 关联的用户ID，外键关联用户表
-    userId           Int       @map("user_id")
+    userId             Int       @map("user_id")
     /// 积分数量
-    pointAmount      Int       @map("point_amount")
+    pointAmount        Int       @map("point_amount")
     /// 已使用积分数量
-    used             Int       @map("used")
+    used               Int       @map("used")
     /// 剩余积分数量
-    remaining        Int       @map("remaining")
+    remaining          Int       @map("remaining")
     /// 积分来源
-    sourceType       Int       @map("source_type")
+    sourceType         Int       @map("source_type")
     /// 积分来源ID，根据来源类型关联到不同的表
-    sourceId         Int?      @map("source_id")
+    sourceId           Int?      @map("source_id")
     /// 用户会员记录ID
-    userMembershipId Int?      @map("user_membership_id")
+    userMembershipId   Int?      @map("user_membership_id")
     /// 生效时间
-    effectiveAt      DateTime  @map("effective_at") @db.Timestamptz(6)
+    effectiveAt        DateTime  @map("effective_at") @db.Timestamptz(6)
     /// 过期时间
-    expiredAt        DateTime  @map("expired_at") @db.Timestamptz(6)
+    expiredAt          DateTime  @map("expired_at") @db.Timestamptz(6)
     /// 结算时间
-    settlementAt     DateTime? @map("settlement_at") @db.Timestamptz(6)
-    /// 积分状态
-    status           Int       @default(1) @map("status")
+    settlementAt       DateTime? @map("settlement_at") @db.Timestamptz(6)
+    /// 积分状态：1-有效，0-无效，2-已结算
+    status             Int       @default(1) @map("status")
+    /// 转出积分数量（会员升级时记录）
+    transferOut        Int?      @default(0) @map("transfer_out")
+    /// 转出目标记录ID（会员升级时指向转入积分记录）
+    transferToRecordId Int?      @map("transfer_to_record_id")
     /// 备注
-    remark           String?   @map("remark")
+    remark             String?   @map("remark")
     /// 创建时间
-    createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+    createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
     /// 最后更新时间
-    updatedAt        DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+    updatedAt          DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
     /// 删除时间，为NULL表示未删除
-    deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+    deletedAt          DateTime? @map("deleted_at") @db.Timestamptz(6)
 
     /// 关联的积分消耗记录
     pointConsumptionRecords pointConsumptionRecords[]
