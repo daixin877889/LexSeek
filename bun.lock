@@ -34,6 +34,7 @@
         "pg": "^8.16.3",
         "pinia": "^3.0.4",
         "qrcode": "^1.5.4",
+        "qrcode.vue": "^3.6.0",
         "reka-ui": "^2.7.0",
         "shadcn-nuxt": "2.4.3",
         "tailwind-merge": "^3.4.0",
@@ -1921,6 +1922,8 @@
     "pure-rand": ["pure-rand@7.0.1", "https://registry.npmmirror.com/pure-rand/-/pure-rand-7.0.1.tgz", {}, "sha512-oTUZM/NAZS8p7ANR3SHh30kXB+zK2r2BPcEn/awJIbOvq82WoMN4p62AWWp3Hhw50G0xMsw1mhIBLqHw64EcNQ=="],
 
     "qrcode": ["qrcode@1.5.4", "https://registry.npmmirror.com/qrcode/-/qrcode-1.5.4.tgz", { "dependencies": { "dijkstrajs": "^1.0.1", "pngjs": "^5.0.0", "yargs": "^15.3.1" }, "bin": { "qrcode": "bin/qrcode" } }, "sha512-1ca71Zgiu6ORjHqFBDpnSMTR2ReToX4l1Au1VFLyVeBTFavzQnv5JxMFr3ukHVKpSrSA2MCk0lNJSykjUfz7Zg=="],
+
+    "qrcode.vue": ["qrcode.vue@3.6.0", "https://registry.npmmirror.com/qrcode.vue/-/qrcode.vue-3.6.0.tgz", { "peerDependencies": { "vue": "^3.0.0" } }, "sha512-vQcl2fyHYHMjDO1GguCldJxepq2izQjBkDEEu9NENgfVKP6mv/e2SU62WbqYHGwTgWXLhxZ1NCD1dAZKHQq1fg=="],
 
     "qs": ["qs@6.14.0", "https://registry.npmmirror.com/qs/-/qs-6.14.0.tgz", { "dependencies": { "side-channel": "^1.1.0" } }, "sha512-YWWTjgABSKcvs/nWBi9PycY/JiPJqOD4JA6o9Sej2AtvSGarXxKC3OQSk4pAarbdQlKAh5D4FCQkJNkW+GAn3w=="],
 

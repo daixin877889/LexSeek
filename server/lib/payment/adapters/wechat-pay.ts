@@ -68,16 +68,23 @@ export class WechatPayAdapter extends BasePaymentAdapter<WechatPayConfig> {
             return { success: false, errorMessage: '小程序支付需要提供 openid' }
         }
 
-        const requestBody = {
-            appid: this.config.appId,
-            mchid: this.config.mchId,
-            description,
+        // 截断描述，微信支付限制最多 127 字节
+        const truncatedDesc = this.truncateDescription(description)
+
+        const requestBody: Record<string, unknown> = {
+            appid: String(this.config.appId),
+            mchid: String(this.config.mchId),
+            description: truncatedDesc,
             out_trade_no: orderNo,
             notify_url: notifyUrl,
             time_expire: this.getExpireTime(expireMinutes),
-            attach,
             amount: { total: amount, currency: 'CNY' },
             payer: { openid },
+        }
+
+        // 只在 attach 有值时添加
+        if (attach) {
+            requestBody.attach = attach
         }
 
         try {
@@ -108,15 +115,22 @@ export class WechatPayAdapter extends BasePaymentAdapter<WechatPayConfig> {
     private async createNativePayment(params: CreatePaymentParams): Promise<PaymentResult> {
         const { orderNo, amount, description, notifyUrl, attach, expireMinutes = 30 } = params
 
-        const requestBody = {
-            appid: this.config.appId,
-            mchid: this.config.mchId,
-            description,
+        // 截断描述，微信支付限制最多 127 字节
+        const truncatedDesc = this.truncateDescription(description)
+
+        const requestBody: Record<string, unknown> = {
+            appid: String(this.config.appId),
+            mchid: String(this.config.mchId),
+            description: truncatedDesc,
             out_trade_no: orderNo,
             notify_url: notifyUrl,
             time_expire: this.getExpireTime(expireMinutes),
-            attach,
             amount: { total: amount, currency: 'CNY' },
+        }
+
+        // 只在 attach 有值时添加
+        if (attach) {
+            requestBody.attach = attach
         }
 
         try {
@@ -143,19 +157,26 @@ export class WechatPayAdapter extends BasePaymentAdapter<WechatPayConfig> {
     private async createH5Payment(params: CreatePaymentParams): Promise<PaymentResult> {
         const { orderNo, amount, description, notifyUrl, attach, expireMinutes = 30 } = params
 
-        const requestBody = {
-            appid: this.config.appId,
-            mchid: this.config.mchId,
-            description,
+        // 截断描述，微信支付限制最多 127 字节
+        const truncatedDesc = this.truncateDescription(description)
+
+        const requestBody: Record<string, unknown> = {
+            appid: String(this.config.appId),
+            mchid: String(this.config.mchId),
+            description: truncatedDesc,
             out_trade_no: orderNo,
             notify_url: notifyUrl,
             time_expire: this.getExpireTime(expireMinutes),
-            attach,
             amount: { total: amount, currency: 'CNY' },
             scene_info: {
                 payer_client_ip: '127.0.0.1',
                 h5_info: { type: 'Wap' },
             },
+        }
+
+        // 只在 attach 有值时添加
+        if (attach) {
+            requestBody.attach = attach
         }
 
         try {
@@ -182,15 +203,22 @@ export class WechatPayAdapter extends BasePaymentAdapter<WechatPayConfig> {
     private async createAppPayment(params: CreatePaymentParams): Promise<PaymentResult> {
         const { orderNo, amount, description, notifyUrl, attach, expireMinutes = 30 } = params
 
-        const requestBody = {
-            appid: this.config.appId,
-            mchid: this.config.mchId,
-            description,
+        // 截断描述，微信支付限制最多 127 字节
+        const truncatedDesc = this.truncateDescription(description)
+
+        const requestBody: Record<string, unknown> = {
+            appid: String(this.config.appId),
+            mchid: String(this.config.mchId),
+            description: truncatedDesc,
             out_trade_no: orderNo,
             notify_url: notifyUrl,
             time_expire: this.getExpireTime(expireMinutes),
-            attach,
             amount: { total: amount, currency: 'CNY' },
+        }
+
+        // 只在 attach 有值时添加
+        if (attach) {
+            requestBody.attach = attach
         }
 
         try {
@@ -314,7 +342,7 @@ export class WechatPayAdapter extends BasePaymentAdapter<WechatPayConfig> {
             await this.request(
                 'POST',
                 `/v3/pay/transactions/out-trade-no/${orderNo}/close`,
-                { mchid: this.config.mchId }
+                { mchid: String(this.config.mchId) }
             )
 
             return { success: true }
@@ -338,17 +366,43 @@ export class WechatPayAdapter extends BasePaymentAdapter<WechatPayConfig> {
         const signature = this.generateSignature(method, url, timestamp, nonceStr, bodyStr)
         const authorization = `WECHATPAY2-SHA256-RSA2048 mchid="${this.config.mchId}",nonce_str="${nonceStr}",signature="${signature}",timestamp="${timestamp}",serial_no="${this.config.serialNo}"`
 
-        const response = await $fetch<T>(fullUrl, {
-            method: method as 'GET' | 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Authorization': authorization,
-            },
-            body: body ? bodyStr : undefined,
+        // 调试日志：打印请求信息
+        logger.debug('微信支付请求：', {
+            url: fullUrl,
+            method,
+            body: bodyStr,
+            authorization: authorization.substring(0, 100) + '...',
         })
 
-        return response
+        try {
+            const response = await $fetch<T>(fullUrl, {
+                method: method as 'GET' | 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': authorization,
+                },
+                body: body ? bodyStr : undefined,
+            })
+
+            return response as T
+        } catch (error: unknown) {
+            // 尝试获取微信支付 API 返回的详细错误信息
+            const fetchError = error as {
+                data?: { code?: string; message?: string; detail?: { field?: string; value?: string; issue?: string; location?: string }[] }
+                response?: { _data?: unknown }
+            }
+
+            // 打印完整的错误信息
+            if (fetchError.data) {
+                logger.error('微信支付 API 错误响应：', JSON.stringify(fetchError.data, null, 2))
+            }
+            if (fetchError.response?._data) {
+                logger.error('微信支付 API 响应数据：', JSON.stringify(fetchError.response._data, null, 2))
+            }
+
+            throw error
+        }
     }
 
     /** 生成签名 */
@@ -428,9 +482,37 @@ export class WechatPayAdapter extends BasePaymentAdapter<WechatPayConfig> {
         }
     }
 
-    /** 获取过期时间 */
+    /** 截断描述（微信支付限制最多 127 字节） */
+    private truncateDescription(description: string): string {
+        const maxBytes = 127
+        let result = ''
+        let byteLength = 0
+
+        for (const char of description) {
+            // 中文字符占 3 字节，其他字符占 1 字节
+            const charBytes = char.charCodeAt(0) > 127 ? 3 : 1
+            if (byteLength + charBytes > maxBytes) {
+                break
+            }
+            result += char
+            byteLength += charBytes
+        }
+
+        return result
+    }
+
+    /** 获取过期时间（RFC 3339 格式） */
     private getExpireTime(minutes: number): string {
         const expireDate = new Date(Date.now() + minutes * 60 * 1000)
-        return expireDate.toISOString().replace(/\.\d{3}Z$/, '+08:00')
+        // 微信支付要求 RFC 3339 格式，例如：2018-06-08T10:34:56+08:00
+        // 使用 toISOString() 获取 UTC 时间，然后转换为北京时间
+        const year = expireDate.getFullYear()
+        const month = String(expireDate.getMonth() + 1).padStart(2, '0')
+        const day = String(expireDate.getDate()).padStart(2, '0')
+        const hours = String(expireDate.getHours()).padStart(2, '0')
+        const mins = String(expireDate.getMinutes()).padStart(2, '0')
+        const secs = String(expireDate.getSeconds()).padStart(2, '0')
+
+        return `${year}-${month}-${day}T${hours}:${mins}:${secs}+08:00`
     }
 }

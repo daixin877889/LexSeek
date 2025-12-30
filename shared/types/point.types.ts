@@ -26,6 +26,8 @@ export enum PointRecordSourceType {
     INVITATION_TO_REGISTER = 8,
     /** 会员升级补偿 */
     MEMBERSHIP_UPGRADE_COMPENSATION = 9,
+    /** 会员升级转入 */
+    MEMBERSHIP_UPGRADE_TRANSFER = 10,
     /** 其他 */
     OTHER = 99,
 }
@@ -43,6 +45,7 @@ export const PointRecordSourceTypeName = {
     [PointRecordSourceType.REGISTER_GIFT]: "注册赠送",
     [PointRecordSourceType.INVITATION_TO_REGISTER]: "邀请注册赠送",
     [PointRecordSourceType.MEMBERSHIP_UPGRADE_COMPENSATION]: "会员升级补偿",
+    [PointRecordSourceType.MEMBERSHIP_UPGRADE_TRANSFER]: "会员升级转入",
     [PointRecordSourceType.OTHER]: "其他",
 }
 

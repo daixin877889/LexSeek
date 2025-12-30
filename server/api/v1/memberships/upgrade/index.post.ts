@@ -10,11 +10,12 @@ import { z } from 'zod'
 const bodySchema = z.object({
     targetLevelId: z.number().int().positive({ message: '目标级别 ID 必须为正整数' }),
     orderId: z.number().int().positive({ message: '订单 ID 必须为正整数' }),
+    membershipId: z.number().int().positive().optional(),
 })
 
 export default defineEventHandler(async (event) => {
     // 获取当前用户
-    const user = event.context.auth.user
+    const user = event.context.auth?.user
     if (!user) {
         return resError(event, 401, '请先登录')
     }
@@ -27,7 +28,7 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, parseResult.error.issues[0].message)
     }
 
-    const { targetLevelId, orderId } = parseResult.data
+    const { targetLevelId, orderId, membershipId } = parseResult.data
 
     try {
         // 使用事务执行升级
@@ -49,11 +50,13 @@ export default defineEventHandler(async (event) => {
                 return { success: false, errorMessage: '订单未支付' }
             }
 
-            // 执行升级
+            // 执行升级（传入订单号和会员记录 ID）
             return await executeMembershipUpgradeService(
                 user.id,
                 targetLevelId,
                 orderId,
+                order.orderNo,
+                membershipId,
                 tx as typeof prisma
             )
         })

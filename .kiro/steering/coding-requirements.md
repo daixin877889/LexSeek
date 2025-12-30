@@ -110,7 +110,7 @@ import type { UserMembershipInfo } from "#shared/types/membership";
 1. 回调自定义变量需要通过 `callbackVar` 参数传递，格式为 `{ key: value }`，注意 key 不能包含 `:` 字符，变量名不能包含大写。
 
 ## 测试规范
-1. UI 测试使用 vibium 工具调用浏览器测试，如需登录，测试账号: 13046768490 密码: daixin88
+1. UI 测试使用 vibium 工具调用浏览器测试，如需登录，测试账号: 13064768490 密码: daixin88
 2. 服务端测试使用 vitest 测试框架
 
 ### 目录结构

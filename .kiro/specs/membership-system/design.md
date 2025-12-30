@@ -275,7 +275,7 @@ model membershipLevels {
     id          Int       @id @default(autoincrement())
     name        String    @db.VarChar(50)           // 级别名称
     description String?   @db.VarChar(255)          // 级别描述
-    sortOrder   Int       @default(0) @map("sort_order")  // 排序，数字越小级别越高
+    sortOrder   Int       @default(0) @map("sort_order")  // 排序，数字越大级别越高
     status      Int       @default(1)               // 状态：1-启用，0-禁用
     createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
     updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
@@ -586,7 +586,7 @@ model membershipUpgradeRecords {
 
 ### Property 1: 会员级别排序一致性
 
-*For any* 会员级别列表，查询返回的结果 SHALL 按 sortOrder 字段升序排列，且 sortOrder 值越小的级别越高。
+*For any* 会员级别列表，查询返回的结果 SHALL 按 sortOrder 字段升序排列，且 sortOrder 值越大的级别越高。
 
 **Validates: Requirements 1.3, 1.4**
 

@@ -17,12 +17,12 @@ const getWechatPayConfig = (): WechatPayConfig => {
     const config = useRuntimeConfig()
     return {
         channel: PaymentChannel.WECHAT,
-        appId: config.wechatPay?.appId || process.env.WECHAT_PAY_APP_ID || '',
-        mchId: config.wechatPay?.mchId || process.env.WECHAT_PAY_MCH_ID || '',
-        apiV3Key: config.wechatPay?.apiV3Key || process.env.WECHAT_PAY_API_V3_KEY || '',
-        serialNo: config.wechatPay?.serialNo || process.env.WECHAT_PAY_SERIAL_NO || '',
-        privateKey: config.wechatPay?.privateKey || process.env.WECHAT_PAY_PRIVATE_KEY || '',
-        platformCert: config.wechatPay?.platformCert || process.env.WECHAT_PAY_PLATFORM_CERT,
+        appId: config.wechatPay?.appId || '',
+        mchId: config.wechatPay?.mchId || '',
+        apiV3Key: config.wechatPay?.apiV3Key || '',
+        serialNo: config.wechatPay?.serialNo || '',
+        privateKey: config.wechatPay?.privateKey || '',
+        platformCert: config.wechatPay?.platformCert || '',
     }
 }
 

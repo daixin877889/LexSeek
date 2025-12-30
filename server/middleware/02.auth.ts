@@ -6,6 +6,7 @@ export default defineEventHandler(async (event) => {
     // 1. 定义公开路径白名单 (不需要鉴权的接口)
     const publicPaths = [
         '/api/health',
+        '/api/public', // 公开调试接口
         '/api/v1/auth/register',
         '/api/v1/auth/login',
         '/api/v1/auth/reset-password',

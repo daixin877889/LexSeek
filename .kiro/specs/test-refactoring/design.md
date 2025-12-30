@@ -336,7 +336,7 @@ export const campaignDataArb = fc.record({
 
 ### Property 10: 会员升级级别验证
 
-*对于任意*会员升级请求，只有当目标级别的 sortOrder 小于当前级别的 sortOrder 时才能升级（sortOrder 越小级别越高）。
+*对于任意*会员升级请求，只有当目标级别的 sortOrder 大于当前级别的 sortOrder 时才能升级（sortOrder 越大级别越高）。
 
 **Validates: Requirements 2.1**
 

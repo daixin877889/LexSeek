@@ -26,7 +26,7 @@
 
 1. THE Membership_System SHALL 支持创建、查询、更新会员级别
 2. WHEN 创建会员级别时，THE Membership_System SHALL 要求提供名称、描述、排序顺序
-3. THE Membership_System SHALL 通过 sortOrder 字段确定级别高低，数字越小级别越高
+3. THE Membership_System SHALL 通过 sortOrder 字段确定级别高低，数字越大级别越高
 4. WHEN 查询会员级别列表时，THE Membership_System SHALL 按 sortOrder 升序返回
 5. THE Membership_System SHALL 支持启用或禁用会员级别
 

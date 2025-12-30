@@ -16,11 +16,12 @@ const querySchema = z.object({
 
 export default defineEventHandler(async (event) => {
     try {
-        // 获取当前用户 ID（从认证中间件获取）
-        const userId = event.context.auth?.userId
-        if (!userId) {
+        // 获取当前用户（从认证中间件获取）
+        const user = event.context.auth?.user
+        if (!user) {
             return resError(event, 401, '请先登录')
         }
+        const userId = user.id
 
         // 验证查询参数
         const query = getQuery(event)

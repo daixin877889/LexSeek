@@ -19,5 +19,7 @@ export default defineVitestConfig({
         exclude: ['node_modules', '.nuxt'],
         testTimeout: 60000,  // 60秒超时
         setupFiles: ['./tests/server/membership/test-setup.ts'],
+        // 文件级别串行执行，避免数据库序列冲突
+        fileParallelism: false,
     },
 })
