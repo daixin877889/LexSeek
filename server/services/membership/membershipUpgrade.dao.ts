@@ -32,6 +32,8 @@ export const createMembershipUpgradeRecordDao = async (
         orderId: number
         upgradePrice: number
         pointCompensation: number
+        transferPoints?: number
+        details?: object
     },
     tx?: PrismaClient
 ): Promise<membershipUpgradeRecords> => {
@@ -44,6 +46,8 @@ export const createMembershipUpgradeRecordDao = async (
                 orderId: data.orderId,
                 upgradePrice: data.upgradePrice,
                 pointCompensation: data.pointCompensation,
+                transferPoints: data.transferPoints ?? 0,
+                details: data.details ?? null,
                 createdAt: new Date(),
                 updatedAt: new Date(),
             },

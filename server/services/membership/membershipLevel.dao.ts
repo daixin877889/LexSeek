@@ -169,7 +169,7 @@ export const deleteMembershipLevelDao = async (
 }
 
 /**
- * 查询比指定级别更高的级别（sortOrder 更小）
+ * 查询比指定级别更高的级别（sortOrder 更大）
  * @param sortOrder 当前级别的排序值
  * @param tx 事务客户端（可选）
  * @returns 更高级别的会员级别列表
@@ -181,7 +181,7 @@ export const findHigherMembershipLevelsDao = async (
     try {
         const levels = await (tx || prisma).membershipLevels.findMany({
             where: {
-                sortOrder: { lt: sortOrder },
+                sortOrder: { gt: sortOrder },
                 status: MembershipLevelStatus.ENABLED,
                 deletedAt: null,
             },

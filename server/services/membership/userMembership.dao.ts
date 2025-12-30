@@ -56,6 +56,7 @@ export const findUserMembershipByIdDao = async (
 
 /**
  * 查询用户当前有效的会员记录
+ * 当前有效：startDate <= now AND endDate > now AND status = ACTIVE
  * @param userId 用户 ID
  * @param tx 事务客户端（可选）
  * @returns 用户当前有效的会员记录或 null
@@ -70,11 +71,12 @@ export const findCurrentUserMembershipDao = async (
             where: {
                 userId,
                 status: MembershipStatus.ACTIVE,
-                endDate: { gt: now },
+                startDate: { lte: now },  // 已开始生效
+                endDate: { gt: now },      // 未过期
                 deletedAt: null,
             },
             include: { level: true },
-            orderBy: { endDate: 'desc' },
+            orderBy: { level: { sortOrder: 'desc' } },  // 按级别排序，返回最高级别
         })
         return membership
     } catch (error) {

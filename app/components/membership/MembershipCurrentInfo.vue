@@ -5,8 +5,11 @@
             <div>
                 <p class="text-sm text-muted-foreground mb-2">当前会员等级</p>
                 <p class="text-3xl font-bold mb-2">{{ membership.levelName }}</p>
-                <p class="text-sm text-muted-foreground">
-                    有效期至：{{ membership.expiresAt }}
+                <p v-if="!isFreeUser" class="text-sm text-muted-foreground">
+                    有效期至：{{ formattedExpiresAt }}
+                </p>
+                <p v-else class="text-sm text-muted-foreground">
+                    暂无会员
                 </p>
             </div>
             <div class="flex flex-col sm:flex-row gap-2">
@@ -23,11 +26,13 @@
 </template>
 
 <script lang="ts" setup>
+import dayjs from 'dayjs'
+
 // 定义 props
 const props = defineProps<{
     membership: {
         levelName: string;
-        expiresAt: string;
+        expiresAt?: string;
         levelId: number;
     };
 }>();
@@ -45,4 +50,12 @@ const isFreeUser = computed(() => {
         props.membership.levelId === 0
     );
 });
+
+// 格式化到期日期
+const formattedExpiresAt = computed(() => {
+    if (!props.membership.expiresAt) {
+        return '暂无会员'
+    }
+    return dayjs(props.membership.expiresAt).format('YYYY-MM-DD')
+})
 </script>

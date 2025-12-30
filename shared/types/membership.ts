@@ -30,7 +30,11 @@ export enum MembershipStatus {
     INACTIVE = 0,
     /** 有效 */
     ACTIVE = 1,
+    /** 已结算（会员升级时旧记录状态） */
+    SETTLED = 2,
 }
+
+
 
 /** 会员级别状态 */
 export enum MembershipLevelStatus {
@@ -68,8 +72,12 @@ export interface UserMembershipInfo {
     autoRenew: boolean
     status: MembershipStatus
     sourceType: UserMembershipSourceType
+    sourceTypeName: string
     sourceId: number | null
     remark: string | null
+    createdAt: string
+    /** 结算时间（会员升级时记录） */
+    settlementAt: string | null
 }
 
 /** 用户权益信息 */
@@ -86,6 +94,8 @@ export interface CreateMembershipParams {
     userId: number
     levelId: number
     duration: number
+    /** 时长单位：day-天，month-月，year-年 */
+    durationUnit?: 'day' | 'month' | 'year'
     sourceType: UserMembershipSourceType
     sourceId?: number
     remark?: string
@@ -101,4 +111,60 @@ export interface UpgradePriceResult {
     upgradePrice: number
     /** 积分补偿 */
     pointCompensation: number
+    /** 计算详情（用于 UI 展示） */
+    calculationDetails: {
+        /** 实付金额 */
+        paidAmount: number
+        /** 套餐总天数 */
+        totalDays: number
+        /** 剩余天数 */
+        remainingDays: number
+        /** 日均价值（实付金额/总天数） */
+        dailyValue: number
+        /** 目标年价 */
+        targetYearlyPrice: number
+        /** 目标日均价值（目标年价/365） */
+        targetDailyValue: number
+    }
+}
+
+/** 升级详情中的旧会员信息 */
+export interface UpgradeDetailsOldMembership {
+    id: number
+    levelId: number
+    levelName: string
+    startDate: string
+    endDate: string
+    settlementDate: string
+}
+
+/** 升级详情中的新会员信息 */
+export interface UpgradeDetailsNewMembership {
+    id: number
+    levelId: number
+    levelName: string
+    startDate: string
+    endDate: string
+}
+
+/** 升级详情中的旧积分记录信息 */
+export interface UpgradeDetailsOldPointRecord {
+    id: number
+    remaining: number
+    transferOut: number
+    transferToRecordId: number
+}
+
+/** 升级详情中的新积分记录信息 */
+export interface UpgradeDetailsNewPointRecords {
+    transferRecordId: number | null
+    compensationRecordId: number | null
+}
+
+/** 会员升级详情（存储在 membership_upgrade_records.details 字段） */
+export interface UpgradeDetails {
+    oldMembership: UpgradeDetailsOldMembership
+    newMembership: UpgradeDetailsNewMembership
+    oldPointRecords: UpgradeDetailsOldPointRecord[]
+    newPointRecords: UpgradeDetailsNewPointRecords
 }

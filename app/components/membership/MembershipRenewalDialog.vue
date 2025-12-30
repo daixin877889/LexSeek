@@ -13,7 +13,7 @@
                     class="border rounded-lg p-4 hover:border-primary transition-colors cursor-pointer">
                     <div class="flex justify-between items-start mb-2">
                         <h4 class="font-semibold">{{ plan.name }}</h4>
-                        <Button size="sm" @click="emit('buy', plan)" :disabled="!agreeToAgreement">
+                        <Button size="sm" @click="emit('buy', plan)" :disabled="!localAgreed">
                             购买
                         </Button>
                     </div>
@@ -33,8 +33,7 @@
             <!-- 购买协议复选框 -->
             <div class="border-t pt-4 mt-4">
                 <div class="flex items-start space-x-2">
-                    <Checkbox id="renewal-agreement" :checked="agreeToAgreement"
-                        @update:checked="emit('update:agreeToAgreement', $event)" class="mt-1" />
+                    <Checkbox id="renewal-agreement" v-model="localAgreed" class="mt-1" />
                     <label for="renewal-agreement" class="text-sm text-muted-foreground leading-5 cursor-pointer">
                         购买即代表您同意
                         <a href="/purchase-agreement" target="_blank"
@@ -64,7 +63,7 @@ interface MembershipPlan {
 }
 
 // 定义 props
-defineProps<{
+const props = defineProps<{
     open: boolean;
     productList: MembershipPlan[];
     agreeToAgreement: boolean;
@@ -76,4 +75,10 @@ const emit = defineEmits<{
     'update:agreeToAgreement': [value: boolean];
     buy: [plan: MembershipPlan];
 }>();
+
+// 本地协议勾选状态（使用 computed 实现双向绑定）
+const localAgreed = computed({
+    get: () => props.agreeToAgreement,
+    set: (val) => emit('update:agreeToAgreement', val),
+});
 </script>

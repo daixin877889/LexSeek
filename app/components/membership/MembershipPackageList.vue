@@ -9,30 +9,53 @@
                 <div class="flex justify-between items-start mb-2">
                     <h4 class="font-semibold">{{ plan.name }}</h4>
                     <!-- 免费用户显示购买按钮 -->
-                    <Button v-if="isFreeUser" size="sm" @click.stop="emit('buy', plan)" class="absolute top-2 right-2">
+                    <Button v-if="isFreeUser" size="sm" :disabled="!agreeToAgreement" @click.stop="emit('buy', plan)"
+                        class="absolute top-2 right-2">
+                        购买
+                    </Button>
+                    <!-- 限购商品显示购买按钮（不能升级） -->
+                    <Button v-else-if="isLimitedPurchasePlan(plan)" size="sm" :disabled="!agreeToAgreement"
+                        @click.stop="emit('buy', plan)" class="absolute top-2 right-2">
                         购买
                     </Button>
                     <!-- 付费用户显示升级按钮 -->
-                    <Button v-else-if="canUpgradeToPlan(plan)" size="sm" @click.stop="emit('upgrade', plan)"
-                        class="absolute top-2 right-2">
+                    <Button v-else-if="canUpgradeToPlan(plan)" size="sm" :disabled="!agreeToAgreement"
+                        @click.stop="emit('upgrade', plan)" class="absolute top-2 right-2">
                         升级
                     </Button>
                 </div>
                 <p class="text-2xl font-bold mb-2">
                     <template v-if="plan.defaultDuration === 1">
                         ¥{{ plan.priceMonthly }}/月
-                        <span class="text-base line-through text-muted-foreground mr-2">{{ plan.originalPriceMonthly
-                        }}/月</span>
+                        <span v-if="plan.originalPriceMonthly && plan.originalPriceMonthly > plan.priceMonthly"
+                            class="text-base line-through text-muted-foreground ml-2">
+                            ¥{{ plan.originalPriceMonthly }}
+                        </span>
                     </template>
                     <template v-else>
                         ¥{{ plan.priceYearly }}/年
-                        <span class="text-base line-through text-muted-foreground mr-2">{{ plan.originalPriceYearly
-                        }}/年</span>
+                        <span v-if="plan.originalPriceYearly && plan.originalPriceYearly > plan.priceYearly"
+                            class="text-base line-through text-muted-foreground ml-2">
+                            ¥{{ plan.originalPriceYearly }}
+                        </span>
                     </template>
-                    <br>
-                    <span class="text-base mb-2">赠送{{ plan.giftPoint }}积分</span>
                 </p>
+                <p class="text-sm text-muted-foreground mb-2">赠送{{ plan.giftPoint }}积分</p>
                 <p class="text-xs text-muted-foreground">{{ plan.description }}</p>
+            </div>
+        </div>
+
+        <!-- 购买协议复选框 -->
+        <div class="border-t pt-4 mt-4">
+            <div class="flex items-start space-x-2">
+                <Checkbox id="package-agreement" v-model="localAgreed" class="mt-1" />
+                <label for="package-agreement" class="text-sm text-muted-foreground leading-5 cursor-pointer">
+                    购买即代表您同意
+                    <NuxtLink to="/purchase-agreement" target="_blank"
+                        class="text-primary hover:text-primary/80 font-bold">
+                        《LexSeek（法索 AI）服务购买协议》
+                    </NuxtLink>
+                </label>
             </div>
         </div>
     </div>
@@ -51,6 +74,7 @@ interface MembershipPlan {
     giftPoint: number;
     description: string;
     defaultDuration: number;
+    purchaseLimit?: number | null;
 }
 
 interface MembershipLevel {
@@ -69,6 +93,7 @@ const props = defineProps<{
     };
     membershipLevels: MembershipLevel[];
     isFreeUser: boolean;
+    agreeToAgreement?: boolean;
 }>();
 
 // 定义 emits
@@ -76,13 +101,38 @@ const emit = defineEmits<{
     select: [plan: MembershipPlan];
     buy: [plan: MembershipPlan];
     upgrade: [plan: MembershipPlan];
+    'update:agreeToAgreement': [value: boolean];
 }>();
+
+// 本地协议勾选状态（使用 computed 实现双向绑定，避免循环更新）
+const localAgreed = computed({
+    get: () => props.agreeToAgreement ?? true,
+    set: (val) => emit('update:agreeToAgreement', val),
+});
+
+// 判断是否是限购商品（有购买限制且级别高于当前）
+const isLimitedPurchasePlan = (plan: MembershipPlan): boolean => {
+    if (props.isFreeUser) return false;
+    if (!plan.purchaseLimit || plan.purchaseLimit <= 0) return false;
+
+    const currentLevel = props.membershipLevels.find(
+        (l) => l.id === props.currentMembership.levelId
+    );
+    const targetLevel = props.membershipLevels.find((l) => l.id === plan.levelId);
+
+    if (!currentLevel || !targetLevel) return false;
+    // 限购商品且级别高于当前，显示购买按钮
+    return targetLevel.sortOrder > currentLevel.sortOrder;
+};
 
 // 判断是否可以升级到某个套餐
 const canUpgradeToPlan = (plan: MembershipPlan): boolean => {
     if (props.isFreeUser) return false;
     if (props.currentMembership.levelName === plan.name) return false;
     if (isHighestLevel(props.currentMembership.levelId)) return false;
+
+    // 有购买限制的商品不能作为升级目标（如新手促销套餐）
+    if (plan.purchaseLimit && plan.purchaseLimit > 0) return false;
 
     const currentLevel = props.membershipLevels.find(
         (l) => l.id === props.currentMembership.levelId
