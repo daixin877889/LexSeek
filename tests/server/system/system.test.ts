@@ -37,13 +37,14 @@ const TEST_CONFIG_GROUP_PREFIX = 'TEST_GROUP_'
 // 测试数据追踪
 const createdConfigIds: number[] = []
 
-// 生成唯一的配置组和键
+// 生成唯一的配置组和键，避免与已有数据冲突
 const generateUniqueGroupKey = () => {
     const timestamp = Date.now()
     const random = Math.floor(Math.random() * 1000000)
+    const uuid = crypto.randomUUID().replace(/-/g, '').substring(0, 8)
     return {
-        configGroup: `${TEST_CONFIG_GROUP_PREFIX}${timestamp}_${random}`,
-        key: `test_key_${timestamp}_${random}`,
+        configGroup: `${TEST_CONFIG_GROUP_PREFIX}${timestamp}_${random}_${uuid}`,
+        key: `test_key_${timestamp}_${random}_${uuid}`,
     }
 }
 

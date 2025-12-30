@@ -34,6 +34,7 @@ export type MembershipUpgradeRecordsAvgAggregateOutputType = {
   orderId: number | null
   upgradePrice: runtime.Decimal | null
   pointCompensation: number | null
+  transferPoints: number | null
 }
 
 export type MembershipUpgradeRecordsSumAggregateOutputType = {
@@ -44,6 +45,7 @@ export type MembershipUpgradeRecordsSumAggregateOutputType = {
   orderId: number | null
   upgradePrice: runtime.Decimal | null
   pointCompensation: number | null
+  transferPoints: number | null
 }
 
 export type MembershipUpgradeRecordsMinAggregateOutputType = {
@@ -54,6 +56,7 @@ export type MembershipUpgradeRecordsMinAggregateOutputType = {
   orderId: number | null
   upgradePrice: runtime.Decimal | null
   pointCompensation: number | null
+  transferPoints: number | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -67,6 +70,7 @@ export type MembershipUpgradeRecordsMaxAggregateOutputType = {
   orderId: number | null
   upgradePrice: runtime.Decimal | null
   pointCompensation: number | null
+  transferPoints: number | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -80,6 +84,8 @@ export type MembershipUpgradeRecordsCountAggregateOutputType = {
   orderId: number
   upgradePrice: number
   pointCompensation: number
+  transferPoints: number
+  details: number
   createdAt: number
   updatedAt: number
   deletedAt: number
@@ -95,6 +101,7 @@ export type MembershipUpgradeRecordsAvgAggregateInputType = {
   orderId?: true
   upgradePrice?: true
   pointCompensation?: true
+  transferPoints?: true
 }
 
 export type MembershipUpgradeRecordsSumAggregateInputType = {
@@ -105,6 +112,7 @@ export type MembershipUpgradeRecordsSumAggregateInputType = {
   orderId?: true
   upgradePrice?: true
   pointCompensation?: true
+  transferPoints?: true
 }
 
 export type MembershipUpgradeRecordsMinAggregateInputType = {
@@ -115,6 +123,7 @@ export type MembershipUpgradeRecordsMinAggregateInputType = {
   orderId?: true
   upgradePrice?: true
   pointCompensation?: true
+  transferPoints?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -128,6 +137,7 @@ export type MembershipUpgradeRecordsMaxAggregateInputType = {
   orderId?: true
   upgradePrice?: true
   pointCompensation?: true
+  transferPoints?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -141,6 +151,8 @@ export type MembershipUpgradeRecordsCountAggregateInputType = {
   orderId?: true
   upgradePrice?: true
   pointCompensation?: true
+  transferPoints?: true
+  details?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -241,6 +253,8 @@ export type MembershipUpgradeRecordsGroupByOutputType = {
   orderId: number
   upgradePrice: runtime.Decimal
   pointCompensation: number
+  transferPoints: number
+  details: runtime.JsonValue | null
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
@@ -277,6 +291,8 @@ export type membershipUpgradeRecordsWhereInput = {
   orderId?: Prisma.IntFilter<"membershipUpgradeRecords"> | number
   upgradePrice?: Prisma.DecimalFilter<"membershipUpgradeRecords"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation?: Prisma.IntFilter<"membershipUpgradeRecords"> | number
+  transferPoints?: Prisma.IntFilter<"membershipUpgradeRecords"> | number
+  details?: Prisma.JsonNullableFilter<"membershipUpgradeRecords">
   createdAt?: Prisma.DateTimeFilter<"membershipUpgradeRecords"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"membershipUpgradeRecords"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"membershipUpgradeRecords"> | Date | string | null
@@ -294,6 +310,8 @@ export type membershipUpgradeRecordsOrderByWithRelationInput = {
   orderId?: Prisma.SortOrder
   upgradePrice?: Prisma.SortOrder
   pointCompensation?: Prisma.SortOrder
+  transferPoints?: Prisma.SortOrder
+  details?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -314,6 +332,8 @@ export type membershipUpgradeRecordsWhereUniqueInput = Prisma.AtLeast<{
   orderId?: Prisma.IntFilter<"membershipUpgradeRecords"> | number
   upgradePrice?: Prisma.DecimalFilter<"membershipUpgradeRecords"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation?: Prisma.IntFilter<"membershipUpgradeRecords"> | number
+  transferPoints?: Prisma.IntFilter<"membershipUpgradeRecords"> | number
+  details?: Prisma.JsonNullableFilter<"membershipUpgradeRecords">
   createdAt?: Prisma.DateTimeFilter<"membershipUpgradeRecords"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"membershipUpgradeRecords"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"membershipUpgradeRecords"> | Date | string | null
@@ -331,6 +351,8 @@ export type membershipUpgradeRecordsOrderByWithAggregationInput = {
   orderId?: Prisma.SortOrder
   upgradePrice?: Prisma.SortOrder
   pointCompensation?: Prisma.SortOrder
+  transferPoints?: Prisma.SortOrder
+  details?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -352,6 +374,8 @@ export type membershipUpgradeRecordsScalarWhereWithAggregatesInput = {
   orderId?: Prisma.IntWithAggregatesFilter<"membershipUpgradeRecords"> | number
   upgradePrice?: Prisma.DecimalWithAggregatesFilter<"membershipUpgradeRecords"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation?: Prisma.IntWithAggregatesFilter<"membershipUpgradeRecords"> | number
+  transferPoints?: Prisma.IntWithAggregatesFilter<"membershipUpgradeRecords"> | number
+  details?: Prisma.JsonNullableWithAggregatesFilter<"membershipUpgradeRecords">
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"membershipUpgradeRecords"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"membershipUpgradeRecords"> | Date | string
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"membershipUpgradeRecords"> | Date | string | null
@@ -360,6 +384,8 @@ export type membershipUpgradeRecordsScalarWhereWithAggregatesInput = {
 export type membershipUpgradeRecordsCreateInput = {
   upgradePrice: runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation: number
+  transferPoints?: number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -377,6 +403,8 @@ export type membershipUpgradeRecordsUncheckedCreateInput = {
   orderId: number
   upgradePrice: runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation: number
+  transferPoints?: number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -385,6 +413,8 @@ export type membershipUpgradeRecordsUncheckedCreateInput = {
 export type membershipUpgradeRecordsUpdateInput = {
   upgradePrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation?: Prisma.IntFieldUpdateOperationsInput | number
+  transferPoints?: Prisma.IntFieldUpdateOperationsInput | number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -402,6 +432,8 @@ export type membershipUpgradeRecordsUncheckedUpdateInput = {
   orderId?: Prisma.IntFieldUpdateOperationsInput | number
   upgradePrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation?: Prisma.IntFieldUpdateOperationsInput | number
+  transferPoints?: Prisma.IntFieldUpdateOperationsInput | number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -415,6 +447,8 @@ export type membershipUpgradeRecordsCreateManyInput = {
   orderId: number
   upgradePrice: runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation: number
+  transferPoints?: number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -423,6 +457,8 @@ export type membershipUpgradeRecordsCreateManyInput = {
 export type membershipUpgradeRecordsUpdateManyMutationInput = {
   upgradePrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation?: Prisma.IntFieldUpdateOperationsInput | number
+  transferPoints?: Prisma.IntFieldUpdateOperationsInput | number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -436,6 +472,8 @@ export type membershipUpgradeRecordsUncheckedUpdateManyInput = {
   orderId?: Prisma.IntFieldUpdateOperationsInput | number
   upgradePrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation?: Prisma.IntFieldUpdateOperationsInput | number
+  transferPoints?: Prisma.IntFieldUpdateOperationsInput | number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -459,6 +497,8 @@ export type membershipUpgradeRecordsCountOrderByAggregateInput = {
   orderId?: Prisma.SortOrder
   upgradePrice?: Prisma.SortOrder
   pointCompensation?: Prisma.SortOrder
+  transferPoints?: Prisma.SortOrder
+  details?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -472,6 +512,7 @@ export type membershipUpgradeRecordsAvgOrderByAggregateInput = {
   orderId?: Prisma.SortOrder
   upgradePrice?: Prisma.SortOrder
   pointCompensation?: Prisma.SortOrder
+  transferPoints?: Prisma.SortOrder
 }
 
 export type membershipUpgradeRecordsMaxOrderByAggregateInput = {
@@ -482,6 +523,7 @@ export type membershipUpgradeRecordsMaxOrderByAggregateInput = {
   orderId?: Prisma.SortOrder
   upgradePrice?: Prisma.SortOrder
   pointCompensation?: Prisma.SortOrder
+  transferPoints?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -495,6 +537,7 @@ export type membershipUpgradeRecordsMinOrderByAggregateInput = {
   orderId?: Prisma.SortOrder
   upgradePrice?: Prisma.SortOrder
   pointCompensation?: Prisma.SortOrder
+  transferPoints?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -508,6 +551,7 @@ export type membershipUpgradeRecordsSumOrderByAggregateInput = {
   orderId?: Prisma.SortOrder
   upgradePrice?: Prisma.SortOrder
   pointCompensation?: Prisma.SortOrder
+  transferPoints?: Prisma.SortOrder
 }
 
 export type membershipUpgradeRecordsCreateNestedManyWithoutFromMembershipInput = {
@@ -681,6 +725,8 @@ export type membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput = 
 export type membershipUpgradeRecordsCreateWithoutFromMembershipInput = {
   upgradePrice: runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation: number
+  transferPoints?: number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -696,6 +742,8 @@ export type membershipUpgradeRecordsUncheckedCreateWithoutFromMembershipInput = 
   orderId: number
   upgradePrice: runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation: number
+  transferPoints?: number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -714,6 +762,8 @@ export type membershipUpgradeRecordsCreateManyFromMembershipInputEnvelope = {
 export type membershipUpgradeRecordsCreateWithoutToMembershipInput = {
   upgradePrice: runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation: number
+  transferPoints?: number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -729,6 +779,8 @@ export type membershipUpgradeRecordsUncheckedCreateWithoutToMembershipInput = {
   orderId: number
   upgradePrice: runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation: number
+  transferPoints?: number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -771,6 +823,8 @@ export type membershipUpgradeRecordsScalarWhereInput = {
   orderId?: Prisma.IntFilter<"membershipUpgradeRecords"> | number
   upgradePrice?: Prisma.DecimalFilter<"membershipUpgradeRecords"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation?: Prisma.IntFilter<"membershipUpgradeRecords"> | number
+  transferPoints?: Prisma.IntFilter<"membershipUpgradeRecords"> | number
+  details?: Prisma.JsonNullableFilter<"membershipUpgradeRecords">
   createdAt?: Prisma.DateTimeFilter<"membershipUpgradeRecords"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"membershipUpgradeRecords"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"membershipUpgradeRecords"> | Date | string | null
@@ -795,6 +849,8 @@ export type membershipUpgradeRecordsUpdateManyWithWhereWithoutToMembershipInput 
 export type membershipUpgradeRecordsCreateWithoutOrderInput = {
   upgradePrice: runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation: number
+  transferPoints?: number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -810,6 +866,8 @@ export type membershipUpgradeRecordsUncheckedCreateWithoutOrderInput = {
   toMembershipId: number
   upgradePrice: runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation: number
+  transferPoints?: number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -844,6 +902,8 @@ export type membershipUpgradeRecordsUpdateManyWithWhereWithoutOrderInput = {
 export type membershipUpgradeRecordsCreateWithoutUserInput = {
   upgradePrice: runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation: number
+  transferPoints?: number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -859,6 +919,8 @@ export type membershipUpgradeRecordsUncheckedCreateWithoutUserInput = {
   orderId: number
   upgradePrice: runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation: number
+  transferPoints?: number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -897,6 +959,8 @@ export type membershipUpgradeRecordsCreateManyFromMembershipInput = {
   orderId: number
   upgradePrice: runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation: number
+  transferPoints?: number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -909,6 +973,8 @@ export type membershipUpgradeRecordsCreateManyToMembershipInput = {
   orderId: number
   upgradePrice: runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation: number
+  transferPoints?: number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -917,6 +983,8 @@ export type membershipUpgradeRecordsCreateManyToMembershipInput = {
 export type membershipUpgradeRecordsUpdateWithoutFromMembershipInput = {
   upgradePrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation?: Prisma.IntFieldUpdateOperationsInput | number
+  transferPoints?: Prisma.IntFieldUpdateOperationsInput | number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -932,6 +1000,8 @@ export type membershipUpgradeRecordsUncheckedUpdateWithoutFromMembershipInput = 
   orderId?: Prisma.IntFieldUpdateOperationsInput | number
   upgradePrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation?: Prisma.IntFieldUpdateOperationsInput | number
+  transferPoints?: Prisma.IntFieldUpdateOperationsInput | number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -944,6 +1014,8 @@ export type membershipUpgradeRecordsUncheckedUpdateManyWithoutFromMembershipInpu
   orderId?: Prisma.IntFieldUpdateOperationsInput | number
   upgradePrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation?: Prisma.IntFieldUpdateOperationsInput | number
+  transferPoints?: Prisma.IntFieldUpdateOperationsInput | number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -952,6 +1024,8 @@ export type membershipUpgradeRecordsUncheckedUpdateManyWithoutFromMembershipInpu
 export type membershipUpgradeRecordsUpdateWithoutToMembershipInput = {
   upgradePrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation?: Prisma.IntFieldUpdateOperationsInput | number
+  transferPoints?: Prisma.IntFieldUpdateOperationsInput | number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -967,6 +1041,8 @@ export type membershipUpgradeRecordsUncheckedUpdateWithoutToMembershipInput = {
   orderId?: Prisma.IntFieldUpdateOperationsInput | number
   upgradePrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation?: Prisma.IntFieldUpdateOperationsInput | number
+  transferPoints?: Prisma.IntFieldUpdateOperationsInput | number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -979,6 +1055,8 @@ export type membershipUpgradeRecordsUncheckedUpdateManyWithoutToMembershipInput 
   orderId?: Prisma.IntFieldUpdateOperationsInput | number
   upgradePrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation?: Prisma.IntFieldUpdateOperationsInput | number
+  transferPoints?: Prisma.IntFieldUpdateOperationsInput | number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -991,6 +1069,8 @@ export type membershipUpgradeRecordsCreateManyOrderInput = {
   toMembershipId: number
   upgradePrice: runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation: number
+  transferPoints?: number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -999,6 +1079,8 @@ export type membershipUpgradeRecordsCreateManyOrderInput = {
 export type membershipUpgradeRecordsUpdateWithoutOrderInput = {
   upgradePrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation?: Prisma.IntFieldUpdateOperationsInput | number
+  transferPoints?: Prisma.IntFieldUpdateOperationsInput | number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1014,6 +1096,8 @@ export type membershipUpgradeRecordsUncheckedUpdateWithoutOrderInput = {
   toMembershipId?: Prisma.IntFieldUpdateOperationsInput | number
   upgradePrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation?: Prisma.IntFieldUpdateOperationsInput | number
+  transferPoints?: Prisma.IntFieldUpdateOperationsInput | number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1026,6 +1110,8 @@ export type membershipUpgradeRecordsUncheckedUpdateManyWithoutOrderInput = {
   toMembershipId?: Prisma.IntFieldUpdateOperationsInput | number
   upgradePrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation?: Prisma.IntFieldUpdateOperationsInput | number
+  transferPoints?: Prisma.IntFieldUpdateOperationsInput | number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1038,6 +1124,8 @@ export type membershipUpgradeRecordsCreateManyUserInput = {
   orderId: number
   upgradePrice: runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation: number
+  transferPoints?: number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1046,6 +1134,8 @@ export type membershipUpgradeRecordsCreateManyUserInput = {
 export type membershipUpgradeRecordsUpdateWithoutUserInput = {
   upgradePrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation?: Prisma.IntFieldUpdateOperationsInput | number
+  transferPoints?: Prisma.IntFieldUpdateOperationsInput | number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1061,6 +1151,8 @@ export type membershipUpgradeRecordsUncheckedUpdateWithoutUserInput = {
   orderId?: Prisma.IntFieldUpdateOperationsInput | number
   upgradePrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation?: Prisma.IntFieldUpdateOperationsInput | number
+  transferPoints?: Prisma.IntFieldUpdateOperationsInput | number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1073,6 +1165,8 @@ export type membershipUpgradeRecordsUncheckedUpdateManyWithoutUserInput = {
   orderId?: Prisma.IntFieldUpdateOperationsInput | number
   upgradePrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   pointCompensation?: Prisma.IntFieldUpdateOperationsInput | number
+  transferPoints?: Prisma.IntFieldUpdateOperationsInput | number
+  details?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1088,6 +1182,8 @@ export type membershipUpgradeRecordsSelect<ExtArgs extends runtime.Types.Extensi
   orderId?: boolean
   upgradePrice?: boolean
   pointCompensation?: boolean
+  transferPoints?: boolean
+  details?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1105,6 +1201,8 @@ export type membershipUpgradeRecordsSelectCreateManyAndReturn<ExtArgs extends ru
   orderId?: boolean
   upgradePrice?: boolean
   pointCompensation?: boolean
+  transferPoints?: boolean
+  details?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1122,6 +1220,8 @@ export type membershipUpgradeRecordsSelectUpdateManyAndReturn<ExtArgs extends ru
   orderId?: boolean
   upgradePrice?: boolean
   pointCompensation?: boolean
+  transferPoints?: boolean
+  details?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1139,12 +1239,14 @@ export type membershipUpgradeRecordsSelectScalar = {
   orderId?: boolean
   upgradePrice?: boolean
   pointCompensation?: boolean
+  transferPoints?: boolean
+  details?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
 }
 
-export type membershipUpgradeRecordsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "fromMembershipId" | "toMembershipId" | "orderId" | "upgradePrice" | "pointCompensation" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["membershipUpgradeRecords"]>
+export type membershipUpgradeRecordsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "fromMembershipId" | "toMembershipId" | "orderId" | "upgradePrice" | "pointCompensation" | "transferPoints" | "details" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["membershipUpgradeRecords"]>
 export type membershipUpgradeRecordsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
   fromMembership?: boolean | Prisma.userMembershipsDefaultArgs<ExtArgs>
@@ -1213,6 +1315,14 @@ export type $membershipUpgradeRecordsPayload<ExtArgs extends runtime.Types.Exten
      * 积分补偿
      */
     pointCompensation: number
+    /**
+     * 转入积分数量（从旧会员关联积分转入）
+     */
+    transferPoints: number
+    /**
+     * 升级详情（JSON，记录旧/新会员和积分记录的关联关系）
+     */
+    details: runtime.JsonValue | null
     /**
      * 创建时间
      */
@@ -1659,6 +1769,8 @@ export interface membershipUpgradeRecordsFieldRefs {
   readonly orderId: Prisma.FieldRef<"membershipUpgradeRecords", 'Int'>
   readonly upgradePrice: Prisma.FieldRef<"membershipUpgradeRecords", 'Decimal'>
   readonly pointCompensation: Prisma.FieldRef<"membershipUpgradeRecords", 'Int'>
+  readonly transferPoints: Prisma.FieldRef<"membershipUpgradeRecords", 'Int'>
+  readonly details: Prisma.FieldRef<"membershipUpgradeRecords", 'Json'>
   readonly createdAt: Prisma.FieldRef<"membershipUpgradeRecords", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"membershipUpgradeRecords", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"membershipUpgradeRecords", 'DateTime'>

@@ -28,7 +28,7 @@ const createPaymentSchema = z.object({
 
 export default defineEventHandler(async (event) => {
     // 获取当前用户
-    const user = event.context.user
+    const user = event.context.auth?.user
     if (!user) {
         return resError(event, 401, '请先登录')
     }
@@ -61,9 +61,9 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, orderResult.errorMessage || '创建订单失败')
     }
 
-    // 获取回调地址
+    // 获取回调地址（优先使用配置的 notifyUrl，否则自动拼接）
     const config = useRuntimeConfig()
-    const notifyUrl = `${config.public.baseUrl}/api/v1/payments/callback/${paymentChannel}`
+    const notifyUrl = config.wechatPay?.notifyUrl || `${config.public.baseUrl}/api/v1/payments/callback/${paymentChannel}`
 
     // 创建支付
     const paymentResult = await createPaymentService({

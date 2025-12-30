@@ -16,6 +16,7 @@ import {
     cleanupTestData,
     connectTestDb,
     disconnectTestDb,
+    resetDatabaseSequences,
     type TestIds,
 } from '../membership/test-db-helper'
 
@@ -37,9 +38,19 @@ let testIds: TestIds
 const createdRoleIds: number[] = []
 const createdUserRoleIds: number[] = []
 
+// 生成唯一标识符，避免与已有数据冲突
+const generateUniqueId = () => {
+    const timestamp = Date.now()
+    const random = Math.floor(Math.random() * 1000000)
+    const uuid = crypto.randomUUID().replace(/-/g, '').substring(0, 8)
+    return `${timestamp}_${random}_${uuid}`
+}
+
 describe('RBAC 权限模块测试', () => {
     beforeAll(async () => {
         await connectTestDb()
+        // 重置数据库序列，避免与种子数据冲突
+        await resetDatabaseSequences()
     })
 
     afterAll(async () => {
@@ -73,13 +84,13 @@ describe('RBAC 权限模块测试', () => {
     describe('角色 DAO 测试', () => {
         describe('findRoleByIdsDao - 通过 ID 列表查询角色', () => {
             it('应能通过 ID 列表查询到角色', async () => {
-                const timestamp = Date.now()
+                const uniqueId = generateUniqueId()
 
                 // 创建测试角色
                 const role1 = await testPrisma.roles.create({
                     data: {
-                        name: `测试角色1_${timestamp}`,
-                        code: `TEST_ROLE_1_${timestamp}`,
+                        name: `测试角色1_${uniqueId}`,
+                        code: `TEST_ROLE_1_${uniqueId}`,
                         description: '测试角色1描述',
                         status: 1,
                         createdAt: new Date(),
@@ -90,8 +101,8 @@ describe('RBAC 权限模块测试', () => {
 
                 const role2 = await testPrisma.roles.create({
                     data: {
-                        name: `测试角色2_${timestamp}`,
-                        code: `TEST_ROLE_2_${timestamp}`,
+                        name: `测试角色2_${uniqueId}`,
+                        code: `TEST_ROLE_2_${uniqueId}`,
                         description: '测试角色2描述',
                         status: 1,
                         createdAt: new Date(),
@@ -114,13 +125,13 @@ describe('RBAC 权限模块测试', () => {
             })
 
             it('不应返回禁用状态的角色', async () => {
-                const timestamp = Date.now()
+                const uniqueId = generateUniqueId()
 
                 // 创建禁用状态的角色
                 const disabledRole = await testPrisma.roles.create({
                     data: {
-                        name: `禁用角色_${timestamp}`,
-                        code: `DISABLED_ROLE_${timestamp}`,
+                        name: `禁用角色_${uniqueId}`,
+                        code: `DISABLED_ROLE_${uniqueId}`,
                         description: '禁用角色描述',
                         status: 0, // 禁用
                         createdAt: new Date(),
@@ -136,12 +147,12 @@ describe('RBAC 权限模块测试', () => {
             })
 
             it('部分 ID 存在时应只返回存在的角色', async () => {
-                const timestamp = Date.now()
+                const uniqueId = generateUniqueId()
 
                 const role = await testPrisma.roles.create({
                     data: {
-                        name: `部分测试角色_${timestamp}`,
-                        code: `PARTIAL_ROLE_${timestamp}`,
+                        name: `部分测试角色_${uniqueId}`,
+                        code: `PARTIAL_ROLE_${uniqueId}`,
                         description: '部分测试角色描述',
                         status: 1,
                         createdAt: new Date(),
@@ -165,11 +176,11 @@ describe('RBAC 权限模块测试', () => {
                 const user = await createTestUser()
                 testIds.userIds.push(user.id)
 
-                const timestamp = Date.now()
+                const uniqueId = generateUniqueId()
                 const role = await testPrisma.roles.create({
                     data: {
-                        name: `关联测试角色_${timestamp}`,
-                        code: `LINK_ROLE_${timestamp}`,
+                        name: `关联测试角色_${uniqueId}`,
+                        code: `LINK_ROLE_${uniqueId}`,
                         description: '关联测试角色描述',
                         status: 1,
                         createdAt: new Date(),
@@ -193,13 +204,13 @@ describe('RBAC 权限模块测试', () => {
                 const user = await createTestUser()
                 testIds.userIds.push(user.id)
 
-                const timestamp = Date.now()
+                const uniqueId = generateUniqueId()
 
                 // 创建两个角色
                 const role1 = await testPrisma.roles.create({
                     data: {
-                        name: `用户角色1_${timestamp}`,
-                        code: `USER_ROLE_1_${timestamp}`,
+                        name: `用户角色1_${uniqueId}`,
+                        code: `USER_ROLE_1_${uniqueId}`,
                         status: 1,
                         createdAt: new Date(),
                         updatedAt: new Date(),
@@ -209,8 +220,8 @@ describe('RBAC 权限模块测试', () => {
 
                 const role2 = await testPrisma.roles.create({
                     data: {
-                        name: `用户角色2_${timestamp}`,
-                        code: `USER_ROLE_2_${timestamp}`,
+                        name: `用户角色2_${uniqueId}`,
+                        code: `USER_ROLE_2_${uniqueId}`,
                         status: 1,
                         createdAt: new Date(),
                         updatedAt: new Date(),
@@ -237,11 +248,11 @@ describe('RBAC 权限模块测试', () => {
                 const user = await createTestUser()
                 testIds.userIds.push(user.id)
 
-                const timestamp = Date.now()
+                const uniqueId = generateUniqueId()
                 const role = await testPrisma.roles.create({
                     data: {
-                        name: `详情测试角色_${timestamp}`,
-                        code: `DETAIL_ROLE_${timestamp}`,
+                        name: `详情测试角色_${uniqueId}`,
+                        code: `DETAIL_ROLE_${uniqueId}`,
                         description: '详情测试描述',
                         status: 1,
                         createdAt: new Date(),
@@ -258,7 +269,7 @@ describe('RBAC 权限模块测试', () => {
 
                 expect(userRoles.length).toBe(1)
                 expect(userRoles[0].role).toBeDefined()
-                expect(userRoles[0].role.name).toBe(`详情测试角色_${timestamp}`)
+                expect(userRoles[0].role.name).toBe(`详情测试角色_${uniqueId}`)
             })
 
             it('没有角色的用户应返回空数组', async () => {
@@ -276,11 +287,11 @@ describe('RBAC 权限模块测试', () => {
                 const user = await createTestUser()
                 testIds.userIds.push(user.id)
 
-                const timestamp = Date.now()
+                const uniqueId = generateUniqueId()
                 const role = await testPrisma.roles.create({
                     data: {
-                        name: `路由测试角色_${timestamp}`,
-                        code: `ROUTER_ROLE_${timestamp}`,
+                        name: `路由测试角色_${uniqueId}`,
+                        code: `ROUTER_ROLE_${uniqueId}`,
                         status: 1,
                         createdAt: new Date(),
                         updatedAt: new Date(),
@@ -303,12 +314,12 @@ describe('RBAC 权限模块测试', () => {
                 const user = await createTestUser()
                 testIds.userIds.push(user.id)
 
-                const timestamp = Date.now()
+                const uniqueId = generateUniqueId()
 
                 const role1 = await testPrisma.roles.create({
                     data: {
-                        name: `筛选角色1_${timestamp}`,
-                        code: `FILTER_ROLE_1_${timestamp}`,
+                        name: `筛选角色1_${uniqueId}`,
+                        code: `FILTER_ROLE_1_${uniqueId}`,
                         status: 1,
                         createdAt: new Date(),
                         updatedAt: new Date(),
@@ -318,8 +329,8 @@ describe('RBAC 权限模块测试', () => {
 
                 const role2 = await testPrisma.roles.create({
                     data: {
-                        name: `筛选角色2_${timestamp}`,
-                        code: `FILTER_ROLE_2_${timestamp}`,
+                        name: `筛选角色2_${uniqueId}`,
+                        code: `FILTER_ROLE_2_${uniqueId}`,
                         status: 1,
                         createdAt: new Date(),
                         updatedAt: new Date(),
@@ -351,16 +362,15 @@ describe('RBAC 权限模块测试', () => {
                         const user = await createTestUser()
                         testIds.userIds.push(user.id)
 
-                        const timestamp = Date.now()
-                        const random = Math.floor(Math.random() * 10000)
+                        const uniqueId = generateUniqueId()
                         const roleIds: number[] = []
 
                         // 创建角色
                         for (let i = 0; i < roleCount; i++) {
                             const role = await testPrisma.roles.create({
                                 data: {
-                                    name: `属性测试角色_${timestamp}_${random}_${i}`,
-                                    code: `PROP_ROLE_${timestamp}_${random}_${i}`,
+                                    name: `属性测试角色_${uniqueId}_${i}`,
+                                    code: `PROP_ROLE_${uniqueId}_${i}`,
                                     status: 1,
                                     createdAt: new Date(),
                                     updatedAt: new Date(),

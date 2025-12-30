@@ -220,11 +220,11 @@ export const campaignTimeRangeArb = fc.record({
 /** 会员升级场景生成器 */
 export const membershipUpgradeScenarioArb = fc.record({
     originalDaysRemaining: fc.integer({ min: 1, max: 365 }),
-    originalLevelSortOrder: fc.integer({ min: 2, max: 10 }),
-    targetLevelSortOrder: fc.integer({ min: 1, max: 9 }),
+    originalLevelSortOrder: fc.integer({ min: 1, max: 9 }),
+    targetLevelSortOrder: fc.integer({ min: 2, max: 10 }),
 }).filter(({ originalLevelSortOrder, targetLevelSortOrder }) =>
-    // 确保目标级别比原级别高（sortOrder 更小）
-    targetLevelSortOrder < originalLevelSortOrder
+    // 确保目标级别比原级别高（sortOrder 越大级别越高）
+    targetLevelSortOrder > originalLevelSortOrder
 )
 
 /** 会员升级价格计算输入生成器 */

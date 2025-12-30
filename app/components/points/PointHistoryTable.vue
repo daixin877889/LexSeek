@@ -6,10 +6,10 @@
                 <tr class="border-b bg-muted/50">
                     <th class="w-10 px-2 py-3"></th>
                     <th class="px-4 py-3 text-left text-sm font-medium">积分来源</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium">积分数量</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium">剩余积分</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium">状态</th>
-                    <th class="px-4 py-3 text-left text-sm font-medium">是否可用</th>
+                    <th class="px-4 py-3 text-right text-sm font-medium">积分数量</th>
+                    <th class="px-4 py-3 text-right text-sm font-medium">剩余积分</th>
+                    <th class="px-4 py-3 text-center text-sm font-medium">状态</th>
+                    <th class="px-4 py-3 text-center text-sm font-medium">是否可用</th>
                 </tr>
             </thead>
             <tbody>
@@ -45,18 +45,21 @@
                                         </div>
                                     </td>
                                     <td class="px-4 py-3 text-sm font-medium">{{ record.sourceTypeName }}</td>
-                                    <td class="px-4 py-3 text-sm">{{ record.pointAmount }}</td>
-                                    <td class="px-4 py-3 text-sm">{{ record.remaining }}</td>
-                                    <td class="px-4 py-3 text-sm">
+                                    <td class="px-4 py-3 text-sm text-right">{{ record.pointAmount }}</td>
+                                    <td class="px-4 py-3 text-sm text-right">{{ record.remaining }}</td>
+                                    <td class="px-4 py-3 text-sm text-center">
                                         <span v-if="record.status === 1"
                                             class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">有效</span>
                                         <span v-else-if="record.status === 2"
-                                            class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">已结算</span>
+                                            class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">已结算</span>
                                         <span v-else-if="record.status === 3"
                                             class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">已作废</span>
                                     </td>
-                                    <td class="px-4 py-3 text-sm">
-                                        <span v-if="isAvailable(record)"
+                                    <td class="px-4 py-3 text-sm text-center">
+                                        <!-- 已结算或已作废的积分直接显示 - -->
+                                        <span v-if="record.status === 2 || record.status === 3"
+                                            class="text-muted-foreground">-</span>
+                                        <span v-else-if="isAvailable(record)"
                                             class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">可用</span>
                                         <span v-else-if="isNotEffective(record)"
                                             class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">未生效</span>

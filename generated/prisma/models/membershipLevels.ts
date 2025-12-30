@@ -1082,7 +1082,7 @@ export type $membershipLevelsPayload<ExtArgs extends runtime.Types.Extensions.In
      */
     description: string | null
     /**
-     * 排序顺序，数字越小级别越高
+     * 排序顺序，数字越大级别越高
      */
     sortOrder: number
     /**

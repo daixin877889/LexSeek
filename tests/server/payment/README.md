@@ -10,6 +10,8 @@
 | `payment-base.test.ts` | 支付基类测试 | 100% |
 | `payment-errors.test.ts` | 支付错误类测试 | 100% |
 | `wechat-pay.test.ts` | 微信支付适配器测试 | 99.19% |
+| `wechat-pay-utils.test.ts` | 微信支付工具函数测试 | - |
+| `order-service.test.ts` | 订单服务层测试 | - |
 
 ## 测试用例详情
 

@@ -4,6 +4,8 @@
  * 提供积分记录的 CRUD 操作
  */
 
+import { Prisma } from "~~/generated/prisma/client"
+
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma
 
@@ -192,6 +194,10 @@ export const invalidatePointRecordsDao = async (
  * @param userId 用户 ID
  * @param tx 事务客户端（可选）
  * @returns 积分汇总信息
+ * 
+ * 注意：purchasePoint 和 otherPoint 只统计已生效且未过期的积分
+ * - 已生效：effectiveAt <= now
+ * - 未过期：expiredAt > now
  */
 export const sumUserValidPointsDao = async (
     userId: number,
@@ -202,11 +208,12 @@ export const sumUserValidPointsDao = async (
     remaining: number
     purchasePoint: number
     otherPoint: number
+    pendingPoint: number
 }> => {
     try {
         const now = new Date()
 
-        // 查询所有有效且未过期的积分记录
+        // 查询所有有效且未过期的积分记录（包含 effectiveAt 用于判断是否已生效）
         const records = await (tx || prisma).pointRecords.findMany({
             where: {
                 userId,
@@ -219,6 +226,7 @@ export const sumUserValidPointsDao = async (
                 used: true,
                 remaining: true,
                 sourceType: true,
+                effectiveAt: true,
             },
         })
 
@@ -228,21 +236,39 @@ export const sumUserValidPointsDao = async (
         let remaining = 0
         let purchasePoint = 0
         let otherPoint = 0
+        let pendingPoint = 0
 
         for (const record of records) {
+            // 总积分和已使用积分统计所有未过期记录
             pointAmount += record.pointAmount
             used += record.used
-            remaining += record.remaining
 
-            // 购买获得的积分（来源类型 1-购买会员赠送，2-直接购买）
-            if (record.sourceType === 1 || record.sourceType === 2) {
-                purchasePoint += record.remaining
+            // 判断是否已生效
+            const isEffective = record.effectiveAt <= now
+
+            if (isEffective) {
+                // 已生效的积分计入可用积分
+                remaining += record.remaining
+
+                // 购买获得的积分（来源类型：1-购买会员赠送，2-直接购买，9-会员升级补偿，10-会员升级转入）
+                // 这些都是用户付费购买会员后获得的积分
+                if (
+                    record.sourceType === PointRecordSourceType.MEMBERSHIP_GIFT ||
+                    record.sourceType === PointRecordSourceType.DIRECT_PURCHASE ||
+                    record.sourceType === PointRecordSourceType.MEMBERSHIP_UPGRADE_COMPENSATION ||
+                    record.sourceType === PointRecordSourceType.MEMBERSHIP_UPGRADE_TRANSFER
+                ) {
+                    purchasePoint += record.remaining
+                } else {
+                    otherPoint += record.remaining
+                }
             } else {
-                otherPoint += record.remaining
+                // 未生效的积分计入待生效积分
+                pendingPoint += record.remaining
             }
         }
 
-        return { pointAmount, used, remaining, purchasePoint, otherPoint }
+        return { pointAmount, used, remaining, purchasePoint, otherPoint, pendingPoint }
     } catch (error) {
         logger.error('统计用户有效积分汇总失败：', error)
         throw error
@@ -252,11 +278,14 @@ export const sumUserValidPointsDao = async (
 /**
  * 查询用户会员关联的积分记录
  * @param userMembershipId 用户会员记录 ID
+ * @param options 查询选项
+ * @param options.status 积分状态过滤（可选，不传则返回所有状态）
  * @param tx 事务客户端（可选）
  * @returns 积分记录列表
  */
 export const findPointRecordsByMembershipIdDao = async (
     userMembershipId: number,
+    options?: { status?: number },
     tx?: PrismaClient
 ): Promise<pointRecords[]> => {
     try {
@@ -264,6 +293,7 @@ export const findPointRecordsByMembershipIdDao = async (
             where: {
                 userMembershipId,
                 deletedAt: null,
+                ...(options?.status !== undefined && { status: options.status }),
             },
             orderBy: { expiredAt: 'asc' },
         })

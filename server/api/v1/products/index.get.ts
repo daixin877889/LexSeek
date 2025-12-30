@@ -16,6 +16,9 @@ const querySchema = z.object({
 
 export default defineEventHandler(async (event) => {
     try {
+        // 获取当前登录用户（可选）
+        const user = event.context.auth?.user
+
         // 验证查询参数
         const query = getQuery(event)
         const result = querySchema.safeParse(query)
@@ -27,7 +30,12 @@ export default defineEventHandler(async (event) => {
         const { type } = result.data
 
         // 获取商品列表
-        const products = await getActiveProductsService(type as ProductType)
+        let products = await getActiveProductsService(type as ProductType)
+
+        // 如果用户已登录，过滤掉已达购买限制的商品
+        if (user) {
+            products = await filterProductsByPurchaseLimitService(user.id, products)
+        }
 
         return resSuccess(event, '获取商品列表成功', products)
     } catch (error) {

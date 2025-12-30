@@ -34,7 +34,7 @@
                     <tr v-for="order in list" :key="order.id" class="border-b last:border-b-0 hover:bg-muted/30">
                         <td class="px-4 py-3 text-sm font-mono">{{ order.orderNo }}</td>
                         <td class="px-4 py-3 text-sm">{{ order.productName }}</td>
-                        <td class="px-4 py-3 text-sm font-medium">¥{{ order.amount.toFixed(2) }}</td>
+                        <td class="px-4 py-3 text-sm font-medium">¥{{ (order.amount ?? 0).toFixed(2) }}</td>
                         <td class="px-4 py-3 text-sm">{{ formatDuration(order.duration, order.durationUnit) }}</td>
                         <td class="px-4 py-3 text-sm">
                             <Badge :variant="getStatusVariant(order.status)" :class="getStatusClass(order.status)">

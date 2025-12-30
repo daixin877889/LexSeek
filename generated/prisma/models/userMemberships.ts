@@ -52,6 +52,7 @@ export type UserMembershipsMinAggregateOutputType = {
   endDate: Date | null
   autoRenew: boolean | null
   status: number | null
+  settlementAt: Date | null
   sourceType: number | null
   sourceId: number | null
   remark: string | null
@@ -68,6 +69,7 @@ export type UserMembershipsMaxAggregateOutputType = {
   endDate: Date | null
   autoRenew: boolean | null
   status: number | null
+  settlementAt: Date | null
   sourceType: number | null
   sourceId: number | null
   remark: string | null
@@ -84,6 +86,7 @@ export type UserMembershipsCountAggregateOutputType = {
   endDate: number
   autoRenew: number
   status: number
+  settlementAt: number
   sourceType: number
   sourceId: number
   remark: number
@@ -120,6 +123,7 @@ export type UserMembershipsMinAggregateInputType = {
   endDate?: true
   autoRenew?: true
   status?: true
+  settlementAt?: true
   sourceType?: true
   sourceId?: true
   remark?: true
@@ -136,6 +140,7 @@ export type UserMembershipsMaxAggregateInputType = {
   endDate?: true
   autoRenew?: true
   status?: true
+  settlementAt?: true
   sourceType?: true
   sourceId?: true
   remark?: true
@@ -152,6 +157,7 @@ export type UserMembershipsCountAggregateInputType = {
   endDate?: true
   autoRenew?: true
   status?: true
+  settlementAt?: true
   sourceType?: true
   sourceId?: true
   remark?: true
@@ -255,6 +261,7 @@ export type UserMembershipsGroupByOutputType = {
   endDate: Date
   autoRenew: boolean
   status: number
+  settlementAt: Date | null
   sourceType: number
   sourceId: number | null
   remark: string | null
@@ -294,6 +301,7 @@ export type userMembershipsWhereInput = {
   endDate?: Prisma.DateTimeFilter<"userMemberships"> | Date | string
   autoRenew?: Prisma.BoolFilter<"userMemberships"> | boolean
   status?: Prisma.IntFilter<"userMemberships"> | number
+  settlementAt?: Prisma.DateTimeNullableFilter<"userMemberships"> | Date | string | null
   sourceType?: Prisma.IntFilter<"userMemberships"> | number
   sourceId?: Prisma.IntNullableFilter<"userMemberships"> | number | null
   remark?: Prisma.StringNullableFilter<"userMemberships"> | string | null
@@ -315,6 +323,7 @@ export type userMembershipsOrderByWithRelationInput = {
   endDate?: Prisma.SortOrder
   autoRenew?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  settlementAt?: Prisma.SortOrderInput | Prisma.SortOrder
   sourceType?: Prisma.SortOrder
   sourceId?: Prisma.SortOrderInput | Prisma.SortOrder
   remark?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -339,6 +348,7 @@ export type userMembershipsWhereUniqueInput = Prisma.AtLeast<{
   endDate?: Prisma.DateTimeFilter<"userMemberships"> | Date | string
   autoRenew?: Prisma.BoolFilter<"userMemberships"> | boolean
   status?: Prisma.IntFilter<"userMemberships"> | number
+  settlementAt?: Prisma.DateTimeNullableFilter<"userMemberships"> | Date | string | null
   sourceType?: Prisma.IntFilter<"userMemberships"> | number
   sourceId?: Prisma.IntNullableFilter<"userMemberships"> | number | null
   remark?: Prisma.StringNullableFilter<"userMemberships"> | string | null
@@ -360,6 +370,7 @@ export type userMembershipsOrderByWithAggregationInput = {
   endDate?: Prisma.SortOrder
   autoRenew?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  settlementAt?: Prisma.SortOrderInput | Prisma.SortOrder
   sourceType?: Prisma.SortOrder
   sourceId?: Prisma.SortOrderInput | Prisma.SortOrder
   remark?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -384,6 +395,7 @@ export type userMembershipsScalarWhereWithAggregatesInput = {
   endDate?: Prisma.DateTimeWithAggregatesFilter<"userMemberships"> | Date | string
   autoRenew?: Prisma.BoolWithAggregatesFilter<"userMemberships"> | boolean
   status?: Prisma.IntWithAggregatesFilter<"userMemberships"> | number
+  settlementAt?: Prisma.DateTimeNullableWithAggregatesFilter<"userMemberships"> | Date | string | null
   sourceType?: Prisma.IntWithAggregatesFilter<"userMemberships"> | number
   sourceId?: Prisma.IntNullableWithAggregatesFilter<"userMemberships"> | number | null
   remark?: Prisma.StringNullableWithAggregatesFilter<"userMemberships"> | string | null
@@ -397,6 +409,7 @@ export type userMembershipsCreateInput = {
   endDate: Date | string
   autoRenew?: boolean
   status?: number
+  settlementAt?: Date | string | null
   sourceType: number
   sourceId?: number | null
   remark?: string | null
@@ -418,6 +431,7 @@ export type userMembershipsUncheckedCreateInput = {
   endDate: Date | string
   autoRenew?: boolean
   status?: number
+  settlementAt?: Date | string | null
   sourceType: number
   sourceId?: number | null
   remark?: string | null
@@ -434,6 +448,7 @@ export type userMembershipsUpdateInput = {
   endDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sourceType?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -455,6 +470,7 @@ export type userMembershipsUncheckedUpdateInput = {
   endDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sourceType?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -474,6 +490,7 @@ export type userMembershipsCreateManyInput = {
   endDate: Date | string
   autoRenew?: boolean
   status?: number
+  settlementAt?: Date | string | null
   sourceType: number
   sourceId?: number | null
   remark?: string | null
@@ -487,6 +504,7 @@ export type userMembershipsUpdateManyMutationInput = {
   endDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sourceType?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -503,6 +521,7 @@ export type userMembershipsUncheckedUpdateManyInput = {
   endDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sourceType?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -529,6 +548,7 @@ export type userMembershipsCountOrderByAggregateInput = {
   endDate?: Prisma.SortOrder
   autoRenew?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  settlementAt?: Prisma.SortOrder
   sourceType?: Prisma.SortOrder
   sourceId?: Prisma.SortOrder
   remark?: Prisma.SortOrder
@@ -554,6 +574,7 @@ export type userMembershipsMaxOrderByAggregateInput = {
   endDate?: Prisma.SortOrder
   autoRenew?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  settlementAt?: Prisma.SortOrder
   sourceType?: Prisma.SortOrder
   sourceId?: Prisma.SortOrder
   remark?: Prisma.SortOrder
@@ -570,6 +591,7 @@ export type userMembershipsMinOrderByAggregateInput = {
   endDate?: Prisma.SortOrder
   autoRenew?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  settlementAt?: Prisma.SortOrder
   sourceType?: Prisma.SortOrder
   sourceId?: Prisma.SortOrder
   remark?: Prisma.SortOrder
@@ -730,6 +752,7 @@ export type userMembershipsCreateWithoutLevelInput = {
   endDate: Date | string
   autoRenew?: boolean
   status?: number
+  settlementAt?: Date | string | null
   sourceType: number
   sourceId?: number | null
   remark?: string | null
@@ -749,6 +772,7 @@ export type userMembershipsUncheckedCreateWithoutLevelInput = {
   endDate: Date | string
   autoRenew?: boolean
   status?: number
+  settlementAt?: Date | string | null
   sourceType: number
   sourceId?: number | null
   remark?: string | null
@@ -797,6 +821,7 @@ export type userMembershipsScalarWhereInput = {
   endDate?: Prisma.DateTimeFilter<"userMemberships"> | Date | string
   autoRenew?: Prisma.BoolFilter<"userMemberships"> | boolean
   status?: Prisma.IntFilter<"userMemberships"> | number
+  settlementAt?: Prisma.DateTimeNullableFilter<"userMemberships"> | Date | string | null
   sourceType?: Prisma.IntFilter<"userMemberships"> | number
   sourceId?: Prisma.IntNullableFilter<"userMemberships"> | number | null
   remark?: Prisma.StringNullableFilter<"userMemberships"> | string | null
@@ -810,6 +835,7 @@ export type userMembershipsCreateWithoutMembershipUpgradeRecordsFromInput = {
   endDate: Date | string
   autoRenew?: boolean
   status?: number
+  settlementAt?: Date | string | null
   sourceType: number
   sourceId?: number | null
   remark?: string | null
@@ -830,6 +856,7 @@ export type userMembershipsUncheckedCreateWithoutMembershipUpgradeRecordsFromInp
   endDate: Date | string
   autoRenew?: boolean
   status?: number
+  settlementAt?: Date | string | null
   sourceType: number
   sourceId?: number | null
   remark?: string | null
@@ -850,6 +877,7 @@ export type userMembershipsCreateWithoutMembershipUpgradeRecordsToInput = {
   endDate: Date | string
   autoRenew?: boolean
   status?: number
+  settlementAt?: Date | string | null
   sourceType: number
   sourceId?: number | null
   remark?: string | null
@@ -870,6 +898,7 @@ export type userMembershipsUncheckedCreateWithoutMembershipUpgradeRecordsToInput
   endDate: Date | string
   autoRenew?: boolean
   status?: number
+  settlementAt?: Date | string | null
   sourceType: number
   sourceId?: number | null
   remark?: string | null
@@ -901,6 +930,7 @@ export type userMembershipsUpdateWithoutMembershipUpgradeRecordsFromInput = {
   endDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sourceType?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -921,6 +951,7 @@ export type userMembershipsUncheckedUpdateWithoutMembershipUpgradeRecordsFromInp
   endDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sourceType?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -947,6 +978,7 @@ export type userMembershipsUpdateWithoutMembershipUpgradeRecordsToInput = {
   endDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sourceType?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -967,6 +999,7 @@ export type userMembershipsUncheckedUpdateWithoutMembershipUpgradeRecordsToInput
   endDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sourceType?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -982,6 +1015,7 @@ export type userMembershipsCreateWithoutPointRecordsInput = {
   endDate: Date | string
   autoRenew?: boolean
   status?: number
+  settlementAt?: Date | string | null
   sourceType: number
   sourceId?: number | null
   remark?: string | null
@@ -1002,6 +1036,7 @@ export type userMembershipsUncheckedCreateWithoutPointRecordsInput = {
   endDate: Date | string
   autoRenew?: boolean
   status?: number
+  settlementAt?: Date | string | null
   sourceType: number
   sourceId?: number | null
   remark?: string | null
@@ -1033,6 +1068,7 @@ export type userMembershipsUpdateWithoutPointRecordsInput = {
   endDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sourceType?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1053,6 +1089,7 @@ export type userMembershipsUncheckedUpdateWithoutPointRecordsInput = {
   endDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sourceType?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1068,6 +1105,7 @@ export type userMembershipsCreateWithoutUserInput = {
   endDate: Date | string
   autoRenew?: boolean
   status?: number
+  settlementAt?: Date | string | null
   sourceType: number
   sourceId?: number | null
   remark?: string | null
@@ -1087,6 +1125,7 @@ export type userMembershipsUncheckedCreateWithoutUserInput = {
   endDate: Date | string
   autoRenew?: boolean
   status?: number
+  settlementAt?: Date | string | null
   sourceType: number
   sourceId?: number | null
   remark?: string | null
@@ -1131,6 +1170,7 @@ export type userMembershipsCreateManyLevelInput = {
   endDate: Date | string
   autoRenew?: boolean
   status?: number
+  settlementAt?: Date | string | null
   sourceType: number
   sourceId?: number | null
   remark?: string | null
@@ -1144,6 +1184,7 @@ export type userMembershipsUpdateWithoutLevelInput = {
   endDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sourceType?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1163,6 +1204,7 @@ export type userMembershipsUncheckedUpdateWithoutLevelInput = {
   endDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sourceType?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1181,6 +1223,7 @@ export type userMembershipsUncheckedUpdateManyWithoutLevelInput = {
   endDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sourceType?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1196,6 +1239,7 @@ export type userMembershipsCreateManyUserInput = {
   endDate: Date | string
   autoRenew?: boolean
   status?: number
+  settlementAt?: Date | string | null
   sourceType: number
   sourceId?: number | null
   remark?: string | null
@@ -1209,6 +1253,7 @@ export type userMembershipsUpdateWithoutUserInput = {
   endDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sourceType?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1228,6 +1273,7 @@ export type userMembershipsUncheckedUpdateWithoutUserInput = {
   endDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sourceType?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1246,6 +1292,7 @@ export type userMembershipsUncheckedUpdateManyWithoutUserInput = {
   endDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   autoRenew?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   sourceType?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1311,6 +1358,7 @@ export type userMembershipsSelect<ExtArgs extends runtime.Types.Extensions.Inter
   endDate?: boolean
   autoRenew?: boolean
   status?: boolean
+  settlementAt?: boolean
   sourceType?: boolean
   sourceId?: boolean
   remark?: boolean
@@ -1333,6 +1381,7 @@ export type userMembershipsSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   endDate?: boolean
   autoRenew?: boolean
   status?: boolean
+  settlementAt?: boolean
   sourceType?: boolean
   sourceId?: boolean
   remark?: boolean
@@ -1351,6 +1400,7 @@ export type userMembershipsSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   endDate?: boolean
   autoRenew?: boolean
   status?: boolean
+  settlementAt?: boolean
   sourceType?: boolean
   sourceId?: boolean
   remark?: boolean
@@ -1369,6 +1419,7 @@ export type userMembershipsSelectScalar = {
   endDate?: boolean
   autoRenew?: boolean
   status?: boolean
+  settlementAt?: boolean
   sourceType?: boolean
   sourceId?: boolean
   remark?: boolean
@@ -1377,7 +1428,7 @@ export type userMembershipsSelectScalar = {
   deletedAt?: boolean
 }
 
-export type userMembershipsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "levelId" | "startDate" | "endDate" | "autoRenew" | "status" | "sourceType" | "sourceId" | "remark" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["userMemberships"]>
+export type userMembershipsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "levelId" | "startDate" | "endDate" | "autoRenew" | "status" | "settlementAt" | "sourceType" | "sourceId" | "remark" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["userMemberships"]>
 export type userMembershipsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
   level?: boolean | Prisma.membershipLevelsDefaultArgs<ExtArgs>
@@ -1445,9 +1496,13 @@ export type $userMembershipsPayload<ExtArgs extends runtime.Types.Extensions.Int
      */
     autoRenew: boolean
     /**
-     * 状态：1-有效，0-无效
+     * 状态：1-有效，0-无效，2-已结算
      */
     status: number
+    /**
+     * 结算时间（会员升级时记录）
+     */
+    settlementAt: Date | null
     /**
      * 来源类型：1-兑换码，2-直接购买，3-管理员赠送，4-活动奖励，5-试用，6-注册赠送，7-邀请注册赠送，8-会员升级
      */
@@ -1907,6 +1962,7 @@ export interface userMembershipsFieldRefs {
   readonly endDate: Prisma.FieldRef<"userMemberships", 'DateTime'>
   readonly autoRenew: Prisma.FieldRef<"userMemberships", 'Boolean'>
   readonly status: Prisma.FieldRef<"userMemberships", 'Int'>
+  readonly settlementAt: Prisma.FieldRef<"userMemberships", 'DateTime'>
   readonly sourceType: Prisma.FieldRef<"userMemberships", 'Int'>
   readonly sourceId: Prisma.FieldRef<"userMemberships", 'Int'>
   readonly remark: Prisma.FieldRef<"userMemberships", 'String'>

@@ -36,6 +36,8 @@ export type PointRecordsAvgAggregateOutputType = {
   sourceId: number | null
   userMembershipId: number | null
   status: number | null
+  transferOut: number | null
+  transferToRecordId: number | null
 }
 
 export type PointRecordsSumAggregateOutputType = {
@@ -48,6 +50,8 @@ export type PointRecordsSumAggregateOutputType = {
   sourceId: number | null
   userMembershipId: number | null
   status: number | null
+  transferOut: number | null
+  transferToRecordId: number | null
 }
 
 export type PointRecordsMinAggregateOutputType = {
@@ -63,6 +67,8 @@ export type PointRecordsMinAggregateOutputType = {
   expiredAt: Date | null
   settlementAt: Date | null
   status: number | null
+  transferOut: number | null
+  transferToRecordId: number | null
   remark: string | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -82,6 +88,8 @@ export type PointRecordsMaxAggregateOutputType = {
   expiredAt: Date | null
   settlementAt: Date | null
   status: number | null
+  transferOut: number | null
+  transferToRecordId: number | null
   remark: string | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -101,6 +109,8 @@ export type PointRecordsCountAggregateOutputType = {
   expiredAt: number
   settlementAt: number
   status: number
+  transferOut: number
+  transferToRecordId: number
   remark: number
   createdAt: number
   updatedAt: number
@@ -119,6 +129,8 @@ export type PointRecordsAvgAggregateInputType = {
   sourceId?: true
   userMembershipId?: true
   status?: true
+  transferOut?: true
+  transferToRecordId?: true
 }
 
 export type PointRecordsSumAggregateInputType = {
@@ -131,6 +143,8 @@ export type PointRecordsSumAggregateInputType = {
   sourceId?: true
   userMembershipId?: true
   status?: true
+  transferOut?: true
+  transferToRecordId?: true
 }
 
 export type PointRecordsMinAggregateInputType = {
@@ -146,6 +160,8 @@ export type PointRecordsMinAggregateInputType = {
   expiredAt?: true
   settlementAt?: true
   status?: true
+  transferOut?: true
+  transferToRecordId?: true
   remark?: true
   createdAt?: true
   updatedAt?: true
@@ -165,6 +181,8 @@ export type PointRecordsMaxAggregateInputType = {
   expiredAt?: true
   settlementAt?: true
   status?: true
+  transferOut?: true
+  transferToRecordId?: true
   remark?: true
   createdAt?: true
   updatedAt?: true
@@ -184,6 +202,8 @@ export type PointRecordsCountAggregateInputType = {
   expiredAt?: true
   settlementAt?: true
   status?: true
+  transferOut?: true
+  transferToRecordId?: true
   remark?: true
   createdAt?: true
   updatedAt?: true
@@ -290,6 +310,8 @@ export type PointRecordsGroupByOutputType = {
   expiredAt: Date
   settlementAt: Date | null
   status: number
+  transferOut: number | null
+  transferToRecordId: number | null
   remark: string | null
   createdAt: Date
   updatedAt: Date
@@ -332,6 +354,8 @@ export type pointRecordsWhereInput = {
   expiredAt?: Prisma.DateTimeFilter<"pointRecords"> | Date | string
   settlementAt?: Prisma.DateTimeNullableFilter<"pointRecords"> | Date | string | null
   status?: Prisma.IntFilter<"pointRecords"> | number
+  transferOut?: Prisma.IntNullableFilter<"pointRecords"> | number | null
+  transferToRecordId?: Prisma.IntNullableFilter<"pointRecords"> | number | null
   remark?: Prisma.StringNullableFilter<"pointRecords"> | string | null
   createdAt?: Prisma.DateTimeFilter<"pointRecords"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"pointRecords"> | Date | string
@@ -354,6 +378,8 @@ export type pointRecordsOrderByWithRelationInput = {
   expiredAt?: Prisma.SortOrder
   settlementAt?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
+  transferOut?: Prisma.SortOrderInput | Prisma.SortOrder
+  transferToRecordId?: Prisma.SortOrderInput | Prisma.SortOrder
   remark?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -379,6 +405,8 @@ export type pointRecordsWhereUniqueInput = Prisma.AtLeast<{
   expiredAt?: Prisma.DateTimeFilter<"pointRecords"> | Date | string
   settlementAt?: Prisma.DateTimeNullableFilter<"pointRecords"> | Date | string | null
   status?: Prisma.IntFilter<"pointRecords"> | number
+  transferOut?: Prisma.IntNullableFilter<"pointRecords"> | number | null
+  transferToRecordId?: Prisma.IntNullableFilter<"pointRecords"> | number | null
   remark?: Prisma.StringNullableFilter<"pointRecords"> | string | null
   createdAt?: Prisma.DateTimeFilter<"pointRecords"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"pointRecords"> | Date | string
@@ -401,6 +429,8 @@ export type pointRecordsOrderByWithAggregationInput = {
   expiredAt?: Prisma.SortOrder
   settlementAt?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
+  transferOut?: Prisma.SortOrderInput | Prisma.SortOrder
+  transferToRecordId?: Prisma.SortOrderInput | Prisma.SortOrder
   remark?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -428,6 +458,8 @@ export type pointRecordsScalarWhereWithAggregatesInput = {
   expiredAt?: Prisma.DateTimeWithAggregatesFilter<"pointRecords"> | Date | string
   settlementAt?: Prisma.DateTimeNullableWithAggregatesFilter<"pointRecords"> | Date | string | null
   status?: Prisma.IntWithAggregatesFilter<"pointRecords"> | number
+  transferOut?: Prisma.IntNullableWithAggregatesFilter<"pointRecords"> | number | null
+  transferToRecordId?: Prisma.IntNullableWithAggregatesFilter<"pointRecords"> | number | null
   remark?: Prisma.StringNullableWithAggregatesFilter<"pointRecords"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"pointRecords"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"pointRecords"> | Date | string
@@ -444,6 +476,8 @@ export type pointRecordsCreateInput = {
   expiredAt: Date | string
   settlementAt?: Date | string | null
   status?: number
+  transferOut?: number | null
+  transferToRecordId?: number | null
   remark?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -466,6 +500,8 @@ export type pointRecordsUncheckedCreateInput = {
   expiredAt: Date | string
   settlementAt?: Date | string | null
   status?: number
+  transferOut?: number | null
+  transferToRecordId?: number | null
   remark?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -483,6 +519,8 @@ export type pointRecordsUpdateInput = {
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  transferOut?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  transferToRecordId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -505,6 +543,8 @@ export type pointRecordsUncheckedUpdateInput = {
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  transferOut?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  transferToRecordId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -525,6 +565,8 @@ export type pointRecordsCreateManyInput = {
   expiredAt: Date | string
   settlementAt?: Date | string | null
   status?: number
+  transferOut?: number | null
+  transferToRecordId?: number | null
   remark?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -541,6 +583,8 @@ export type pointRecordsUpdateManyMutationInput = {
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  transferOut?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  transferToRecordId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -560,6 +604,8 @@ export type pointRecordsUncheckedUpdateManyInput = {
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  transferOut?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  transferToRecordId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -589,6 +635,8 @@ export type pointRecordsCountOrderByAggregateInput = {
   expiredAt?: Prisma.SortOrder
   settlementAt?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  transferOut?: Prisma.SortOrder
+  transferToRecordId?: Prisma.SortOrder
   remark?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -605,6 +653,8 @@ export type pointRecordsAvgOrderByAggregateInput = {
   sourceId?: Prisma.SortOrder
   userMembershipId?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  transferOut?: Prisma.SortOrder
+  transferToRecordId?: Prisma.SortOrder
 }
 
 export type pointRecordsMaxOrderByAggregateInput = {
@@ -620,6 +670,8 @@ export type pointRecordsMaxOrderByAggregateInput = {
   expiredAt?: Prisma.SortOrder
   settlementAt?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  transferOut?: Prisma.SortOrder
+  transferToRecordId?: Prisma.SortOrder
   remark?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -639,6 +691,8 @@ export type pointRecordsMinOrderByAggregateInput = {
   expiredAt?: Prisma.SortOrder
   settlementAt?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  transferOut?: Prisma.SortOrder
+  transferToRecordId?: Prisma.SortOrder
   remark?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -655,6 +709,8 @@ export type pointRecordsSumOrderByAggregateInput = {
   sourceId?: Prisma.SortOrder
   userMembershipId?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  transferOut?: Prisma.SortOrder
+  transferToRecordId?: Prisma.SortOrder
 }
 
 export type PointRecordsScalarRelationFilter = {
@@ -770,6 +826,8 @@ export type pointRecordsCreateWithoutUserMembershipInput = {
   expiredAt: Date | string
   settlementAt?: Date | string | null
   status?: number
+  transferOut?: number | null
+  transferToRecordId?: number | null
   remark?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -790,6 +848,8 @@ export type pointRecordsUncheckedCreateWithoutUserMembershipInput = {
   expiredAt: Date | string
   settlementAt?: Date | string | null
   status?: number
+  transferOut?: number | null
+  transferToRecordId?: number | null
   remark?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -839,6 +899,8 @@ export type pointRecordsScalarWhereInput = {
   expiredAt?: Prisma.DateTimeFilter<"pointRecords"> | Date | string
   settlementAt?: Prisma.DateTimeNullableFilter<"pointRecords"> | Date | string | null
   status?: Prisma.IntFilter<"pointRecords"> | number
+  transferOut?: Prisma.IntNullableFilter<"pointRecords"> | number | null
+  transferToRecordId?: Prisma.IntNullableFilter<"pointRecords"> | number | null
   remark?: Prisma.StringNullableFilter<"pointRecords"> | string | null
   createdAt?: Prisma.DateTimeFilter<"pointRecords"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"pointRecords"> | Date | string
@@ -855,6 +917,8 @@ export type pointRecordsCreateWithoutPointConsumptionRecordsInput = {
   expiredAt: Date | string
   settlementAt?: Date | string | null
   status?: number
+  transferOut?: number | null
+  transferToRecordId?: number | null
   remark?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -876,6 +940,8 @@ export type pointRecordsUncheckedCreateWithoutPointConsumptionRecordsInput = {
   expiredAt: Date | string
   settlementAt?: Date | string | null
   status?: number
+  transferOut?: number | null
+  transferToRecordId?: number | null
   remark?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -908,6 +974,8 @@ export type pointRecordsUpdateWithoutPointConsumptionRecordsInput = {
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  transferOut?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  transferToRecordId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -929,6 +997,8 @@ export type pointRecordsUncheckedUpdateWithoutPointConsumptionRecordsInput = {
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  transferOut?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  transferToRecordId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -945,6 +1015,8 @@ export type pointRecordsCreateWithoutUsersInput = {
   expiredAt: Date | string
   settlementAt?: Date | string | null
   status?: number
+  transferOut?: number | null
+  transferToRecordId?: number | null
   remark?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -965,6 +1037,8 @@ export type pointRecordsUncheckedCreateWithoutUsersInput = {
   expiredAt: Date | string
   settlementAt?: Date | string | null
   status?: number
+  transferOut?: number | null
+  transferToRecordId?: number | null
   remark?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1010,6 +1084,8 @@ export type pointRecordsCreateManyUserMembershipInput = {
   expiredAt: Date | string
   settlementAt?: Date | string | null
   status?: number
+  transferOut?: number | null
+  transferToRecordId?: number | null
   remark?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1026,6 +1102,8 @@ export type pointRecordsUpdateWithoutUserMembershipInput = {
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  transferOut?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  transferToRecordId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1046,6 +1124,8 @@ export type pointRecordsUncheckedUpdateWithoutUserMembershipInput = {
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  transferOut?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  transferToRecordId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1065,6 +1145,8 @@ export type pointRecordsUncheckedUpdateManyWithoutUserMembershipInput = {
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  transferOut?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  transferToRecordId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1083,6 +1165,8 @@ export type pointRecordsCreateManyUsersInput = {
   expiredAt: Date | string
   settlementAt?: Date | string | null
   status?: number
+  transferOut?: number | null
+  transferToRecordId?: number | null
   remark?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1099,6 +1183,8 @@ export type pointRecordsUpdateWithoutUsersInput = {
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  transferOut?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  transferToRecordId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1119,6 +1205,8 @@ export type pointRecordsUncheckedUpdateWithoutUsersInput = {
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  transferOut?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  transferToRecordId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1138,6 +1226,8 @@ export type pointRecordsUncheckedUpdateManyWithoutUsersInput = {
   expiredAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   settlementAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  transferOut?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  transferToRecordId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1188,6 +1278,8 @@ export type pointRecordsSelect<ExtArgs extends runtime.Types.Extensions.Internal
   expiredAt?: boolean
   settlementAt?: boolean
   status?: boolean
+  transferOut?: boolean
+  transferToRecordId?: boolean
   remark?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -1211,6 +1303,8 @@ export type pointRecordsSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   expiredAt?: boolean
   settlementAt?: boolean
   status?: boolean
+  transferOut?: boolean
+  transferToRecordId?: boolean
   remark?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -1232,6 +1326,8 @@ export type pointRecordsSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   expiredAt?: boolean
   settlementAt?: boolean
   status?: boolean
+  transferOut?: boolean
+  transferToRecordId?: boolean
   remark?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -1253,13 +1349,15 @@ export type pointRecordsSelectScalar = {
   expiredAt?: boolean
   settlementAt?: boolean
   status?: boolean
+  transferOut?: boolean
+  transferToRecordId?: boolean
   remark?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
 }
 
-export type pointRecordsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "pointAmount" | "used" | "remaining" | "sourceType" | "sourceId" | "userMembershipId" | "effectiveAt" | "expiredAt" | "settlementAt" | "status" | "remark" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["pointRecords"]>
+export type pointRecordsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "pointAmount" | "used" | "remaining" | "sourceType" | "sourceId" | "userMembershipId" | "effectiveAt" | "expiredAt" | "settlementAt" | "status" | "transferOut" | "transferToRecordId" | "remark" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["pointRecords"]>
 export type pointRecordsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   pointConsumptionRecords?: boolean | Prisma.pointRecords$pointConsumptionRecordsArgs<ExtArgs>
   users?: boolean | Prisma.usersDefaultArgs<ExtArgs>
@@ -1337,9 +1435,17 @@ export type $pointRecordsPayload<ExtArgs extends runtime.Types.Extensions.Intern
      */
     settlementAt: Date | null
     /**
-     * 积分状态
+     * 积分状态：1-有效，0-无效，2-已结算
      */
     status: number
+    /**
+     * 转出积分数量（会员升级时记录）
+     */
+    transferOut: number | null
+    /**
+     * 转出目标记录ID（会员升级时指向转入积分记录）
+     */
+    transferToRecordId: number | null
     /**
      * 备注
      */
@@ -1794,6 +1900,8 @@ export interface pointRecordsFieldRefs {
   readonly expiredAt: Prisma.FieldRef<"pointRecords", 'DateTime'>
   readonly settlementAt: Prisma.FieldRef<"pointRecords", 'DateTime'>
   readonly status: Prisma.FieldRef<"pointRecords", 'Int'>
+  readonly transferOut: Prisma.FieldRef<"pointRecords", 'Int'>
+  readonly transferToRecordId: Prisma.FieldRef<"pointRecords", 'Int'>
   readonly remark: Prisma.FieldRef<"pointRecords", 'String'>
   readonly createdAt: Prisma.FieldRef<"pointRecords", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"pointRecords", 'DateTime'>

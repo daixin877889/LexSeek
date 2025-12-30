@@ -4,7 +4,7 @@
  * 模拟 Nuxt 自动导入的全局变量，使 DAO/Service 函数能在测试环境中运行
  */
 
-import { getTestPrisma } from './test-db-helper'
+import { getTestPrisma, resetDatabaseSequences } from './test-db-helper'
 
 // 创建一个简单的 logger 模拟
 const mockLogger = {
@@ -17,6 +17,11 @@ const mockLogger = {
     // 设置全局变量
     ; (globalThis as any).logger = mockLogger
     ; (globalThis as any).prisma = getTestPrisma()
+
+// 在测试开始前重置数据库序列（全局只执行一次）
+resetDatabaseSequences().catch(err => {
+    console.warn('全局序列重置失败：', err)
+})
 
     // 导出状态常量（模拟 Nuxt 自动导入）
     ; (globalThis as any).MembershipStatus = {

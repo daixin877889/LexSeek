@@ -5,6 +5,7 @@
  *
  * 获取当前用户的订单列表
  */
+import { decimalToNumberUtils } from '#shared/utils/decimalToNumber'
 
 /** 请求参数验证 */
 const queryOrdersSchema = z.object({
@@ -51,7 +52,7 @@ export default defineEventHandler(async (event) => {
         orderNo: order.orderNo,
         productName: order.product?.name || '未知商品',
         productType: order.product?.type || 0,
-        amount: Number(order.amount),
+        amount: decimalToNumberUtils(order.amount),
         duration: order.duration,
         durationUnit: order.durationUnit,
         status: order.status,

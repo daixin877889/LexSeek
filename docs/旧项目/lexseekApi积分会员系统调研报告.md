@@ -36,7 +36,7 @@ lexseekApi 项目实现了一套完整的会员和积分管理系统，支持多
 
 会员级别定义了不同等级的会员，包含：
 - 级别名称、描述
-- 排序顺序（sortOrder，数字越小级别越高）
+- 排序顺序（sortOrder，数字大）
 - 状态（启用/禁用）
 
 **注意**：价格字段（priceMonthly、priceYearly、giftPoint）已废弃，改用 `products` 表管理。

@@ -12,7 +12,7 @@
 | 02-auth.test.ts | 认证流程测试 | 注册、登录、登出、重置密码 |
 | 03-sms.test.ts | 短信验证码测试 | 发送验证码、频率限制 |
 | 04-users.test.ts | 用户信息测试 | 获取/更新用户信息 |
-| 05-memberships.test.ts | 会员系统测试 | 等级、权益、升级 |
+| 05-memberships.test.ts | 会员系统测试 | 等级、权益、升级、升级支付、执行升级 |
 | 06-points.test.ts | 积分系统测试 | 积分信息和记录 |
 | 07-redemption.test.ts | 兑换码测试 | 查询和使用兑换码 |
 | 08-campaigns.test.ts | 营销活动测试 | 活动列表、邀请奖励 |

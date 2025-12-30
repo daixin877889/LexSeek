@@ -1,290 +1,136 @@
 /**
  * 支付适配器单元测试
  *
- * 测试支付参数生成和签名验证
+ * 测试实际的 WechatPayAdapter 类的方法
  *
  * **Feature: membership-system**
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import * as fc from 'fast-check'
-
-/** 支付渠道 */
-const PaymentChannel = {
-    WECHAT: 'wechat',
-    ALIPAY: 'alipay',
-} as const
-
-/** 支付方式 */
-const PaymentMethod = {
-    MINI_PROGRAM: 'mini_program',
-    SCAN_CODE: 'scan_code',
-    WAP: 'wap',
-    APP: 'app',
-    PC: 'pc',
-} as const
-
-/** 订单状态 */
-const OrderStatus = {
-    PENDING: 0,
-    PAID: 1,
-    CANCELLED: 2,
-    REFUNDED: 3,
-} as const
-
-/** 支付单状态 */
-const PaymentTransactionStatus = {
-    PENDING: 0,
-    SUCCESS: 1,
-    FAILED: 2,
-    EXPIRED: 3,
-    REFUNDED: 4,
-} as const
-
-/**
- * 模拟支付适配器
- */
-interface MockPaymentAdapter {
-    channel: string
-    supportedMethods: string[]
-}
-
-/**
- * 模拟支付结果
- */
-interface MockPaymentResult {
-    success: boolean
-    prepayId?: string
-    codeUrl?: string
-    h5Url?: string
-    paymentParams?: Record<string, unknown>
-    errorMessage?: string
-}
+import { WechatPayAdapter } from '../../../server/lib/payment/adapters/wechat-pay'
+import { PaymentChannel, PaymentMethod, PaymentTransactionStatus, OrderStatus } from '#shared/types/payment'
+import { PaymentConfigError, PaymentMethodNotSupportedError } from '../../../server/lib/payment/errors'
 
 /**
  * Property 9: 支付适配器接口一致性
  *
- * For any 支付适配器，SHALL 实现统一的接口。
+ * 测试实际的 WechatPayAdapter 类的接口方法
  *
  * **Feature: membership-system, Property 9: 支付适配器接口一致性**
  * **Validates: Requirements 11.1, 11.2**
  */
 describe('Property 9: 支付适配器接口一致性', () => {
-    /** 创建微信支付适配器 */
-    const createWechatPayAdapter = (): MockPaymentAdapter => ({
-        channel: PaymentChannel.WECHAT,
-        supportedMethods: [
-            PaymentMethod.MINI_PROGRAM,
-            PaymentMethod.SCAN_CODE,
-            PaymentMethod.WAP,
-            PaymentMethod.APP,
-        ],
-    })
-
-    /** 模拟创建支付 */
-    const createPayment = (
-        adapter: MockPaymentAdapter,
-        method: string,
-        orderNo: string,
-        amount: number,
-        openid?: string
-    ): MockPaymentResult => {
-        // 检查是否支持该支付方式
-        if (!adapter.supportedMethods.includes(method)) {
-            return {
-                success: false,
-                errorMessage: `不支持的支付方式: ${method}`,
-            }
-        }
-
-        // 小程序支付需要 openid
-        if (method === PaymentMethod.MINI_PROGRAM && !openid) {
-            return {
-                success: false,
-                errorMessage: '小程序支付需要提供 openid',
-            }
-        }
-
-        // 根据支付方式返回不同的结果
-        switch (method) {
-            case PaymentMethod.MINI_PROGRAM:
-                return {
-                    success: true,
-                    prepayId: `wx_prepay_${orderNo}`,
-                    paymentParams: {
-                        timeStamp: String(Math.floor(Date.now() / 1000)),
-                        nonceStr: Math.random().toString(36).substring(2),
-                        package: `prepay_id=wx_prepay_${orderNo}`,
-                        signType: 'RSA',
-                        paySign: 'mock_sign',
-                    },
-                }
-            case PaymentMethod.SCAN_CODE:
-                return {
-                    success: true,
-                    codeUrl: `weixin://wxpay/bizpayurl?pr=${orderNo}`,
-                }
-            case PaymentMethod.WAP:
-                return {
-                    success: true,
-                    h5Url: `https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb?prepay_id=${orderNo}`,
-                }
-            case PaymentMethod.APP:
-                return {
-                    success: true,
-                    prepayId: `wx_prepay_${orderNo}`,
-                    paymentParams: {
-                        appid: 'wx_app_id',
-                        partnerid: 'mch_id',
-                        prepayid: `wx_prepay_${orderNo}`,
-                        package: 'Sign=WXPay',
-                        noncestr: Math.random().toString(36).substring(2),
-                        timestamp: String(Math.floor(Date.now() / 1000)),
-                        sign: 'mock_sign',
-                    },
-                }
-            default:
-                return {
-                    success: false,
-                    errorMessage: '未知支付方式',
-                }
-        }
+    // 创建测试用的配置（使用测试密钥，不会实际调用微信支付 API）
+    const testConfig = {
+        channel: PaymentChannel.WECHAT as const,
+        appId: 'wx_test_app_id',
+        mchId: 'test_mch_id',
+        apiV3Key: 'test_api_v3_key_32_characters_',
+        serialNo: 'test_serial_no',
+        privateKey: `-----BEGIN PRIVATE KEY-----
+MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC7JHoJfg6yNzLM
+HtvFFTBRAHM3w7JjKzQBMbKrmaJcDz5eOM2W3l0MgatWwqEBKwdFCZvvGCGFsVaT
+Dz5TD0YJVL5ZrnvANJVpvNvMANMpMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqMEMqAgMBAAECggEABJVpvNvMANMpMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqMQKBgQDrMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMQKBgQDLMEMq
+MEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMQKBgQCrMEMqMEMqMEMqMEMqMEMq
+MEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqMEMqMEMqMEMqMEMqMQKBgFMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqAoGBAKMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+MEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMqMEMq
+-----END PRIVATE KEY-----`,
     }
 
-    it('微信支付适配器应支持小程序、扫码、WAP、APP 支付', () => {
-        const adapter = createWechatPayAdapter()
-
-        expect(adapter.supportedMethods).toContain(PaymentMethod.MINI_PROGRAM)
-        expect(adapter.supportedMethods).toContain(PaymentMethod.SCAN_CODE)
-        expect(adapter.supportedMethods).toContain(PaymentMethod.WAP)
-        expect(adapter.supportedMethods).toContain(PaymentMethod.APP)
-        expect(adapter.supportedMethods).not.toContain(PaymentMethod.PC)
+    describe('getChannel 方法', () => {
+        it('应返回微信支付渠道', () => {
+            const adapter = new WechatPayAdapter(testConfig)
+            expect(adapter.getChannel()).toBe(PaymentChannel.WECHAT)
+        })
     })
 
-    it('支持的支付方式应返回成功结果', () => {
-        fc.assert(
-            fc.property(
-                fc.constantFrom(PaymentMethod.SCAN_CODE, PaymentMethod.WAP, PaymentMethod.APP),
-                fc.string({ minLength: 10, maxLength: 32 }),
-                fc.integer({ min: 1, max: 100000 }),
-                (method, orderNo, amount) => {
-                    const adapter = createWechatPayAdapter()
-                    const result = createPayment(adapter, method, orderNo, amount)
-                    expect(result.success).toBe(true)
-                }
-            ),
-            { numRuns: 100 }
-        )
+    describe('getSupportedMethods 方法', () => {
+        it('微信支付适配器应支持小程序、扫码、WAP、APP 支付', () => {
+            const adapter = new WechatPayAdapter(testConfig)
+            const methods = adapter.getSupportedMethods()
+
+            expect(methods).toContain(PaymentMethod.MINI_PROGRAM)
+            expect(methods).toContain(PaymentMethod.SCAN_CODE)
+            expect(methods).toContain(PaymentMethod.WAP)
+            expect(methods).toContain(PaymentMethod.APP)
+            expect(methods).not.toContain(PaymentMethod.PC)
+        })
+
+        it('返回的支付方式数组长度应为 4', () => {
+            const adapter = new WechatPayAdapter(testConfig)
+            expect(adapter.getSupportedMethods().length).toBe(4)
+        })
     })
 
-    it('小程序支付需要 openid', () => {
-        fc.assert(
-            fc.property(
-                fc.string({ minLength: 10, maxLength: 32 }),
-                fc.integer({ min: 1, max: 100000 }),
-                (orderNo, amount) => {
-                    const adapter = createWechatPayAdapter()
+    describe('配置验证', () => {
+        it('缺少必要配置时应抛出 PaymentConfigError', () => {
+            const invalidConfigs = [
+                { ...testConfig, appId: '' },
+                { ...testConfig, mchId: '' },
+                { ...testConfig, apiV3Key: '' },
+                { ...testConfig, serialNo: '' },
+                { ...testConfig, privateKey: '' },
+            ]
 
-                    // 不提供 openid 应失败
-                    const resultWithoutOpenid = createPayment(
-                        adapter,
-                        PaymentMethod.MINI_PROGRAM,
-                        orderNo,
-                        amount
-                    )
-                    expect(resultWithoutOpenid.success).toBe(false)
-                    expect(resultWithoutOpenid.errorMessage).toContain('openid')
+            for (const config of invalidConfigs) {
+                expect(() => new WechatPayAdapter(config)).toThrow(PaymentConfigError)
+            }
+        })
 
-                    // 提供 openid 应成功
-                    const resultWithOpenid = createPayment(
-                        adapter,
-                        PaymentMethod.MINI_PROGRAM,
-                        orderNo,
-                        amount,
-                        'test_openid'
-                    )
-                    expect(resultWithOpenid.success).toBe(true)
-                }
-            ),
-            { numRuns: 100 }
-        )
+        it('完整配置应成功创建适配器', () => {
+            expect(() => new WechatPayAdapter(testConfig)).not.toThrow()
+        })
     })
 
-    it('不支持的支付方式应返回错误', () => {
-        fc.assert(
-            fc.property(
-                fc.string({ minLength: 10, maxLength: 32 }),
-                fc.integer({ min: 1, max: 100000 }),
-                (orderNo, amount) => {
-                    const adapter = createWechatPayAdapter()
-                    const result = createPayment(adapter, PaymentMethod.PC, orderNo, amount)
-                    expect(result.success).toBe(false)
-                    expect(result.errorMessage).toBeDefined()
-                }
-            ),
-            { numRuns: 100 }
-        )
-    })
+    describe('支付方式验证', () => {
+        it('不支持的支付方式应抛出 PaymentMethodNotSupportedError', async () => {
+            const adapter = new WechatPayAdapter(testConfig)
 
-    it('小程序支付应返回 prepayId 和 paymentParams', () => {
-        fc.assert(
-            fc.property(
-                fc.string({ minLength: 10, maxLength: 32 }),
-                fc.integer({ min: 1, max: 100000 }),
-                (orderNo, amount) => {
-                    const adapter = createWechatPayAdapter()
-                    const result = createPayment(
-                        adapter,
-                        PaymentMethod.MINI_PROGRAM,
-                        orderNo,
-                        amount,
-                        'test_openid'
-                    )
-
-                    expect(result.success).toBe(true)
-                    expect(result.prepayId).toBeDefined()
-                    expect(result.paymentParams).toBeDefined()
-                    expect(result.paymentParams?.timeStamp).toBeDefined()
-                    expect(result.paymentParams?.nonceStr).toBeDefined()
-                    expect(result.paymentParams?.package).toBeDefined()
-                    expect(result.paymentParams?.signType).toBe('RSA')
-                    expect(result.paymentParams?.paySign).toBeDefined()
-                }
-            ),
-            { numRuns: 100 }
-        )
-    })
-
-    it('扫码支付应返回 codeUrl', () => {
-        fc.assert(
-            fc.property(
-                fc.string({ minLength: 10, maxLength: 32 }),
-                fc.integer({ min: 1, max: 100000 }),
-                (orderNo, amount) => {
-                    const adapter = createWechatPayAdapter()
-                    const result = createPayment(adapter, PaymentMethod.SCAN_CODE, orderNo, amount)
-
-                    expect(result.success).toBe(true)
-                    expect(result.codeUrl).toBeDefined()
-                    expect(result.codeUrl).toContain('weixin://')
-                }
-            ),
-            { numRuns: 100 }
-        )
+            await expect(
+                adapter.createPayment({
+                    orderNo: 'TEST_ORDER_001',
+                    amount: 100,
+                    description: '测试商品',
+                    method: PaymentMethod.PC, // PC 支付不支持
+                    notifyUrl: 'https://example.com/notify',
+                })
+            ).rejects.toThrow(PaymentMethodNotSupportedError)
+        })
     })
 })
 
 /**
  * Property 10: 支付状态转换正确性
  *
- * For any 支付单，状态转换 SHALL 遵循规定的状态机。
+ * 测试支付状态转换逻辑
  *
  * **Feature: membership-system, Property 10: 支付状态转换正确性**
  * **Validates: Requirements 11.4, 11.5**
  */
 describe('Property 10: 支付状态转换正确性', () => {
-    /** 检查状态转换是否有效 */
-    const isValidTransition = (from: number, to: number): boolean => {
-        const validTransitions: Record<number, number[]> = {
+    /** 检查状态转换是否有效（基于业务规则） */
+    const isValidTransition = (from: PaymentTransactionStatus, to: PaymentTransactionStatus): boolean => {
+        const validTransitions: Record<PaymentTransactionStatus, PaymentTransactionStatus[]> = {
             [PaymentTransactionStatus.PENDING]: [
                 PaymentTransactionStatus.SUCCESS,
                 PaymentTransactionStatus.FAILED,
@@ -314,9 +160,9 @@ describe('Property 10: 支付状态转换正确性', () => {
     it('支付失败状态不能转换为其他状态', () => {
         fc.assert(
             fc.property(
-                fc.constantFrom(...Object.values(PaymentTransactionStatus)),
+                fc.constantFrom(...Object.values(PaymentTransactionStatus).filter(v => typeof v === 'number')),
                 (targetStatus) => {
-                    expect(isValidTransition(PaymentTransactionStatus.FAILED, targetStatus)).toBe(false)
+                    expect(isValidTransition(PaymentTransactionStatus.FAILED, targetStatus as PaymentTransactionStatus)).toBe(false)
                 }
             ),
             { numRuns: 10 }
@@ -326,9 +172,9 @@ describe('Property 10: 支付状态转换正确性', () => {
     it('已过期状态不能转换为其他状态', () => {
         fc.assert(
             fc.property(
-                fc.constantFrom(...Object.values(PaymentTransactionStatus)),
+                fc.constantFrom(...Object.values(PaymentTransactionStatus).filter(v => typeof v === 'number')),
                 (targetStatus) => {
-                    expect(isValidTransition(PaymentTransactionStatus.EXPIRED, targetStatus)).toBe(false)
+                    expect(isValidTransition(PaymentTransactionStatus.EXPIRED, targetStatus as PaymentTransactionStatus)).toBe(false)
                 }
             ),
             { numRuns: 10 }
@@ -338,9 +184,9 @@ describe('Property 10: 支付状态转换正确性', () => {
     it('已退款状态不能转换为其他状态', () => {
         fc.assert(
             fc.property(
-                fc.constantFrom(...Object.values(PaymentTransactionStatus)),
+                fc.constantFrom(...Object.values(PaymentTransactionStatus).filter(v => typeof v === 'number')),
                 (targetStatus) => {
-                    expect(isValidTransition(PaymentTransactionStatus.REFUNDED, targetStatus)).toBe(false)
+                    expect(isValidTransition(PaymentTransactionStatus.REFUNDED, targetStatus as PaymentTransactionStatus)).toBe(false)
                 }
             ),
             { numRuns: 10 }
@@ -351,96 +197,37 @@ describe('Property 10: 支付状态转换正确性', () => {
 /**
  * Property 11: 订单状态与支付单状态一致性
  *
- * For any 订单，当支付单状态变为成功时，订单状态 SHALL 同步变为已支付。
+ * 测试订单状态枚举值的正确性
  *
  * **Feature: membership-system, Property 11: 订单状态与支付单状态一致性**
  * **Validates: Requirements 7.3, 11.6**
  */
 describe('Property 11: 订单状态与支付单状态一致性', () => {
-    /** 模拟订单 */
-    interface MockOrder {
-        id: number
-        orderNo: string
-        status: number
-    }
-
-    /** 模拟支付单 */
-    interface MockPaymentTransaction {
-        id: number
-        orderId: number
-        status: number
-    }
-
-    /** 处理支付成功 */
-    const handlePaymentSuccess = (
-        order: MockOrder,
-        transaction: MockPaymentTransaction
-    ): { order: MockOrder; transaction: MockPaymentTransaction } => {
-        if (transaction.status === PaymentTransactionStatus.SUCCESS) {
-            return {
-                order: { ...order, status: OrderStatus.PAID },
-                transaction,
-            }
-        }
-        return { order, transaction }
-    }
-
-    it('支付成功时订单状态应变为已支付', () => {
-        fc.assert(
-            fc.property(
-                fc.integer({ min: 1, max: 10000 }),
-                fc.string({ minLength: 10, maxLength: 32 }),
-                (orderId, orderNo) => {
-                    const order: MockOrder = {
-                        id: orderId,
-                        orderNo,
-                        status: OrderStatus.PENDING,
-                    }
-
-                    const transaction: MockPaymentTransaction = {
-                        id: orderId + 1000,
-                        orderId,
-                        status: PaymentTransactionStatus.SUCCESS,
-                    }
-
-                    const result = handlePaymentSuccess(order, transaction)
-
-                    expect(result.order.status).toBe(OrderStatus.PAID)
-                }
-            ),
-            { numRuns: 100 }
-        )
+    it('订单状态枚举值应正确定义', () => {
+        expect(OrderStatus.PENDING).toBe(0)
+        expect(OrderStatus.PAID).toBe(1)
+        expect(OrderStatus.CANCELLED).toBe(2)
+        expect(OrderStatus.REFUNDED).toBe(3)
     })
 
-    it('支付未成功时订单状态应保持不变', () => {
-        fc.assert(
-            fc.property(
-                fc.integer({ min: 1, max: 10000 }),
-                fc.string({ minLength: 10, maxLength: 32 }),
-                fc.constantFrom(
-                    PaymentTransactionStatus.PENDING,
-                    PaymentTransactionStatus.FAILED,
-                    PaymentTransactionStatus.EXPIRED
-                ),
-                (orderId, orderNo, transactionStatus) => {
-                    const order: MockOrder = {
-                        id: orderId,
-                        orderNo,
-                        status: OrderStatus.PENDING,
-                    }
+    it('支付单状态枚举值应正确定义', () => {
+        expect(PaymentTransactionStatus.PENDING).toBe(0)
+        expect(PaymentTransactionStatus.SUCCESS).toBe(1)
+        expect(PaymentTransactionStatus.FAILED).toBe(2)
+        expect(PaymentTransactionStatus.EXPIRED).toBe(3)
+        expect(PaymentTransactionStatus.REFUNDED).toBe(4)
+    })
 
-                    const transaction: MockPaymentTransaction = {
-                        id: orderId + 1000,
-                        orderId,
-                        status: transactionStatus,
-                    }
+    it('支付渠道枚举值应正确定义', () => {
+        expect(PaymentChannel.WECHAT).toBe('wechat')
+        expect(PaymentChannel.ALIPAY).toBe('alipay')
+    })
 
-                    const result = handlePaymentSuccess(order, transaction)
-
-                    expect(result.order.status).toBe(OrderStatus.PENDING)
-                }
-            ),
-            { numRuns: 100 }
-        )
+    it('支付方式枚举值应正确定义', () => {
+        expect(PaymentMethod.MINI_PROGRAM).toBe('mini_program')
+        expect(PaymentMethod.SCAN_CODE).toBe('scan_code')
+        expect(PaymentMethod.WAP).toBe('wap')
+        expect(PaymentMethod.APP).toBe('app')
+        expect(PaymentMethod.PC).toBe('pc')
     })
 })

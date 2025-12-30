@@ -16,20 +16,27 @@
                             购买
                         </Button>
                     </div>
-                    <p class="text-2xl font-bold mb-2">¥{{ product.unitPrice }}</p>
+                    <p class="text-2xl font-bold mb-2">
+                        ¥{{ product.unitPrice }}
+                        <span v-if="product.originalUnitPrice && product.originalUnitPrice > product.unitPrice"
+                            class="text-base line-through text-muted-foreground ml-2">
+                            ¥{{ product.originalUnitPrice }}
+                        </span>
+                    </p>
+                    <p class="text-sm text-muted-foreground mb-2">{{ product.pointAmount }}积分</p>
                     <p class="text-xs text-muted-foreground">{{ product.description }}</p>
                 </div>
             </div>
             <!-- 购买协议复选框 -->
             <div class="border-t pt-4">
                 <div class="flex items-start space-x-2">
-                    <Checkbox id="purchase-agreement" v-model:checked="agreeToAgreement" class="mt-1" />
+                    <Checkbox id="purchase-agreement" v-model="agreeToAgreement" class="mt-1" />
                     <label for="purchase-agreement" class="text-sm text-muted-foreground leading-5 cursor-pointer">
                         购买即代表您同意
-                        <a href="/purchase-agreement" target="_blank"
+                        <NuxtLink to="/purchase-agreement" target="_blank"
                             class="text-primary font-bold hover:text-primary/80">
                             《LexSeek（法索 AI）服务购买协议》
-                        </a>
+                        </NuxtLink>
                     </label>
                 </div>
             </div>
@@ -45,6 +52,8 @@ interface PointProduct {
     id: number;
     name: string;
     unitPrice: number;
+    originalUnitPrice?: number;
+    pointAmount: number;
     description: string;
 }
 

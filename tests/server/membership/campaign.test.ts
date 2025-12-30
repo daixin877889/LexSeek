@@ -17,6 +17,7 @@ import {
     createEmptyTestIds,
     disconnectTestDb,
     isTestDbAvailable,
+    resetDatabaseSequences,
     CampaignType,
     type TestIds,
 } from './test-db-helper'
@@ -54,6 +55,9 @@ describe('营销活动集成测试', () => {
         dbAvailable = await isTestDbAvailable()
         if (!dbAvailable) {
             console.warn('数据库不可用，跳过集成测试')
+        } else {
+            // 重置数据库序列，避免与种子数据冲突
+            await resetDatabaseSequences()
         }
     })
 

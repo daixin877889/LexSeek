@@ -16,6 +16,7 @@ import {
     createEmptyTestIds,
     disconnectTestDb,
     isTestDbAvailable,
+    resetDatabaseSequences,
     MembershipLevelStatus,
     type TestIds,
 } from './test-db-helper'
@@ -46,6 +47,9 @@ describe('会员级别集成测试', () => {
         dbAvailable = await isTestDbAvailable()
         if (!dbAvailable) {
             console.warn('数据库不可用，跳过集成测试')
+        } else {
+            // 重置数据库序列，避免与种子数据冲突
+            await resetDatabaseSequences()
         }
     })
 
@@ -329,33 +333,34 @@ describe('会员级别集成测试', () => {
         it('应返回比指定级别更高的级别', async () => {
             if (!dbAvailable) return
 
-            // 创建三个级别（sortOrder 越小级别越高）
+            // 创建三个级别（sortOrder 越大级别越高）
             const level1 = await createTestMembershipLevel({ sortOrder: 301, status: MembershipLevelStatus.ENABLED })
             const level2 = await createTestMembershipLevel({ sortOrder: 302, status: MembershipLevelStatus.ENABLED })
             const level3 = await createTestMembershipLevel({ sortOrder: 303, status: MembershipLevelStatus.ENABLED })
             testIds.membershipLevelIds.push(level1.id, level2.id, level3.id)
 
-            // 使用实际的 DAO 函数查询比 level3 更高的级别
-            const higherLevels = await findHigherMembershipLevelsDao(level3.sortOrder)
+            // 使用实际的 DAO 函数查询比 level1（最低级别）更高的级别
+            const higherLevels = await findHigherMembershipLevelsDao(level1.sortOrder)
 
-            // 验证返回的级别
+            // 验证返回的级别（应该包含 level2 和 level3，不包含 level1）
             const higherIds = higherLevels.map(l => l.id)
-            expect(higherIds).toContain(level1.id)
+            expect(higherIds).not.toContain(level1.id)
             expect(higherIds).toContain(level2.id)
-            expect(higherIds).not.toContain(level3.id)
+            expect(higherIds).toContain(level3.id)
         })
 
-        it('最高级别应没有更高的级别', async () => {
+        it('最低级别应没有更低的级别', async () => {
             if (!dbAvailable) return
 
-            const highestLevel = await createTestMembershipLevel({ sortOrder: 1, status: MembershipLevelStatus.ENABLED })
-            testIds.membershipLevelIds.push(highestLevel.id)
+            const lowestLevel = await createTestMembershipLevel({ sortOrder: 1, status: MembershipLevelStatus.ENABLED })
+            testIds.membershipLevelIds.push(lowestLevel.id)
 
             // 使用实际的 DAO 函数查询
-            const higherLevels = await findHigherMembershipLevelsDao(highestLevel.sortOrder)
+            const higherLevels = await findHigherMembershipLevelsDao(lowestLevel.sortOrder)
 
-            // sortOrder = 1 是最高级别，不应有更高的
-            const found = higherLevels.find(l => l.id === highestLevel.id)
+            // sortOrder = 1 是最低级别，应该有更高的级别（如果存在的话）
+            // 但这里只创建了一个级别，所以不应该找到自己
+            const found = higherLevels.find(l => l.id === lowestLevel.id)
             expect(found).toBeUndefined()
         })
     })

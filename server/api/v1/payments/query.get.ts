@@ -17,7 +17,7 @@ const queryPaymentSchema = z.object({
 
 export default defineEventHandler(async (event) => {
     // 获取当前用户
-    const user = event.context.user
+    const user = event.context.auth?.user
     if (!user) {
         return resError(event, 401, '请先登录')
     }

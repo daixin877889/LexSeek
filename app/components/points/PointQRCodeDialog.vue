@@ -1,42 +1,22 @@
 <template>
-    <!-- 微信支付二维码弹框 -->
-    <Dialog v-model:open="dialogOpen">
-        <DialogContent class="sm:max-w-[425px]">
-            <DialogHeader>
-                <DialogTitle>请使用微信扫码购买</DialogTitle>
-                <DialogDescription>打开微信扫一扫，立即购买积分</DialogDescription>
-            </DialogHeader>
-            <div class="flex justify-center py-4">
-                <img :src="qrCodeUrl" alt="微信支付二维码" class="w-64 h-64" />
-            </div>
-        </DialogContent>
-    </Dialog>
+    <!-- 积分支付二维码弹框（基于通用组件） -->
+    <PaymentQRCodeDialog :open="open" :qr-code-url="qrCodeUrl" :loading="loading" :paid="paid" title="请使用微信扫码购买"
+        description="打开微信扫一扫，立即购买积分" success-description="积分已到账，感谢您的支持！" success-message="积分已到账"
+        @update:open="emit('update:open', $event)" @close="emit('close')" />
 </template>
 
 <script lang="ts" setup>
-// ==================== Props ====================
-
-interface Props {
-    /** 是否显示对话框 */
+// 定义 props
+defineProps<{
     open: boolean;
-    /** 二维码 URL */
     qrCodeUrl: string;
-}
-
-const props = defineProps<Props>();
-
-// ==================== Emits ====================
-
-const emit = defineEmits<{
-    /** 更新显示状态 */
-    (e: "update:open", value: boolean): void;
+    loading?: boolean;
+    paid?: boolean;
 }>();
 
-// ==================== 状态 ====================
-
-// 对话框显示状态（双向绑定）
-const dialogOpen = computed({
-    get: () => props.open,
-    set: (value) => emit("update:open", value),
-});
+// 定义 emits
+const emit = defineEmits<{
+    "update:open": [value: boolean];
+    close: [];
+}>();
 </script>

@@ -107,7 +107,12 @@ describe('产品信息 API 测试', () => {
             expect(response.success).toBe(true)
             expect(response.data.id).toBe(productId)
             expect(response.data).toHaveProperty('name')
-            expect(response.data).toHaveProperty('price')
+            // 产品价格字段：会员产品使用 priceMonthly/priceYearly，积分产品使用 unitPrice
+            expect(
+                response.data.priceMonthly !== undefined ||
+                response.data.priceYearly !== undefined ||
+                response.data.unitPrice !== undefined
+            ).toBe(true)
         })
 
         it('获取不存在的产品应返回错误', async () => {

@@ -21,6 +21,7 @@ import {
     createEmptyTestIds,
     disconnectTestDb,
     isTestDbAvailable,
+    resetDatabaseSequences,
     MembershipStatus,
     MembershipLevelStatus,
     UserMembershipSourceType,
@@ -81,6 +82,9 @@ describe('会员升级集成测试', () => {
         dbAvailable = await isTestDbAvailable()
         if (!dbAvailable) {
             console.warn('数据库不可用，跳过集成测试')
+        } else {
+            // 重置数据库序列，避免与种子数据冲突
+            await resetDatabaseSequences()
         }
     })
 
@@ -148,20 +152,20 @@ describe('会员升级集成测试', () => {
         it('findHigherMembershipLevelsDao 应返回比指定级别更高的级别', async () => {
             if (!dbAvailable) return
 
-            // 创建三个级别（sortOrder 越小级别越高）
+            // 创建三个级别（sortOrder 越大级别越高）
             const level1 = await createTestMembershipLevel({ sortOrder: 1, status: MembershipLevelStatus.ENABLED })
             const level2 = await createTestMembershipLevel({ sortOrder: 2, status: MembershipLevelStatus.ENABLED })
             const level3 = await createTestMembershipLevel({ sortOrder: 3, status: MembershipLevelStatus.ENABLED })
             testIds.membershipLevelIds.push(level1.id, level2.id, level3.id)
 
-            // 查询比 level3 更高的级别
-            const higherLevels = await findHigherMembershipLevelsDao(level3.sortOrder)
+            // 查询比 level1（最低级别）更高的级别
+            const higherLevels = await findHigherMembershipLevelsDao(level1.sortOrder)
 
-            // 验证返回的级别
+            // 验证返回的级别（应该包含 level2 和 level3，不包含 level1）
             const higherIds = higherLevels.map(l => l.id)
-            expect(higherIds).toContain(level1.id)
             expect(higherIds).toContain(level2.id)
-            expect(higherIds).not.toContain(level3.id)
+            expect(higherIds).toContain(level3.id)
+            expect(higherIds).not.toContain(level1.id)
         })
     })
 
@@ -262,21 +266,31 @@ describe('会员升级集成测试', () => {
             const currentMembership = await findCurrentUserMembershipDao(user.id)
             expect(currentMembership).not.toBeNull()
 
+            // 创建当前商品（模拟）
+            const currentProduct = {
+                id: 1,
+                priceMonthly: 50,
+                priceYearly: 500,
+            } as any
+
             // 创建目标商品（模拟）
             const targetProduct = {
-                id: 1,
+                id: 2,
                 priceMonthly: 99,
                 priceYearly: 999,
             } as any
 
             const remainingDays = 180
+            const paidAmount = 500 // 模拟用户实付金额
 
             // 调用实际的计算函数
             const result = calculateUpgradePrice(
                 currentMembership!,
                 targetLevel,
+                currentProduct,
                 targetProduct,
-                remainingDays
+                remainingDays,
+                paidAmount
             )
 
             // 验证返回结果结构
@@ -297,9 +311,9 @@ describe('会员升级集成测试', () => {
             const user = await createTestUser()
             testIds.userIds.push(user.id)
 
-            // 创建两个级别（sortOrder 越小级别越高）
-            const higherLevel = await createTestMembershipLevel({ sortOrder: 1 })
-            const lowerLevel = await createTestMembershipLevel({ sortOrder: 2 })
+            // 创建两个级别（sortOrder 越大级别越高）
+            const lowerLevel = await createTestMembershipLevel({ sortOrder: 1 })
+            const higherLevel = await createTestMembershipLevel({ sortOrder: 2 })
             testIds.membershipLevelIds.push(higherLevel.id, lowerLevel.id)
 
             const now = new Date()
@@ -607,17 +621,17 @@ describe('升级价格计算', () => {
         const user = await createTestUser()
         testIds.userIds.push(user.id)
 
-        // 创建两个会员级别（普通和高级）
+        // 创建两个会员级别（普通 sortOrder=1，高级 sortOrder=2，sortOrder 越大级别越高）
         const normalLevel = await createTestMembershipLevel({
             name: '测试级别_普通',
-            sortOrder: 2,
+            sortOrder: 1,
             status: MembershipLevelStatus.ENABLED,
         })
         testIds.membershipLevelIds.push(normalLevel.id)
 
         const premiumLevel = await createTestMembershipLevel({
             name: '测试级别_高级',
-            sortOrder: 1,
+            sortOrder: 2,
             status: MembershipLevelStatus.ENABLED,
         })
         testIds.membershipLevelIds.push(premiumLevel.id)
@@ -638,8 +652,8 @@ describe('升级价格计算', () => {
         expect(savedMembership!.levelId).toBe(normalLevel.id)
         expect(savedMembership!.status).toBe(MembershipStatus.ACTIVE)
 
-        // 验证目标级别比当前级别高（sortOrder 更小）
-        expect(premiumLevel.sortOrder).toBeLessThan(normalLevel.sortOrder)
+        // 验证目标级别比当前级别高（sortOrder 越大级别越高）
+        expect(premiumLevel.sortOrder).toBeGreaterThan(normalLevel.sortOrder)
     })
 
     it('剩余天数为0时升级价格应为0', async () => {
@@ -684,16 +698,16 @@ describe('会员升级状态转换', () => {
         const user = await createTestUser()
         testIds.userIds.push(user.id)
 
-        // 创建两个会员级别
+        // 创建两个会员级别（普通 sortOrder=1，高级 sortOrder=2，sortOrder 越大级别越高）
         const normalLevel = await createTestMembershipLevel({
             name: '测试级别_普通_状态',
-            sortOrder: 2,
+            sortOrder: 1,
         })
         testIds.membershipLevelIds.push(normalLevel.id)
 
         const premiumLevel = await createTestMembershipLevel({
             name: '测试级别_高级_状态',
-            sortOrder: 1,
+            sortOrder: 2,
         })
         testIds.membershipLevelIds.push(premiumLevel.id)
 
@@ -733,16 +747,16 @@ describe('会员升级状态转换', () => {
         const user = await createTestUser()
         testIds.userIds.push(user.id)
 
-        // 创建会员级别
+        // 创建会员级别（普通 sortOrder=1，高级 sortOrder=2，sortOrder 越大级别越高）
         const normalLevel = await createTestMembershipLevel({
             name: '测试级别_普通_继承',
-            sortOrder: 2,
+            sortOrder: 1,
         })
         testIds.membershipLevelIds.push(normalLevel.id)
 
         const premiumLevel = await createTestMembershipLevel({
             name: '测试级别_高级_继承',
-            sortOrder: 1,
+            sortOrder: 2,
         })
         testIds.membershipLevelIds.push(premiumLevel.id)
 
@@ -779,16 +793,16 @@ describe('积分转移', () => {
         const user = await createTestUser()
         testIds.userIds.push(user.id)
 
-        // 创建会员级别
+        // 创建会员级别（普通 sortOrder=1，高级 sortOrder=2，sortOrder 越大级别越高）
         const normalLevel = await createTestMembershipLevel({
             name: '测试级别_普通_积分',
-            sortOrder: 2,
+            sortOrder: 1,
         })
         testIds.membershipLevelIds.push(normalLevel.id)
 
         const premiumLevel = await createTestMembershipLevel({
             name: '测试级别_高级_积分',
-            sortOrder: 1,
+            sortOrder: 2,
         })
         testIds.membershipLevelIds.push(premiumLevel.id)
 
@@ -947,31 +961,32 @@ describe('升级资格验证', () => {
         const user = await createTestUser()
         testIds.userIds.push(user.id)
 
-        // 创建会员级别（高级 sortOrder=1，普通 sortOrder=2）
-        const premiumLevel = await createTestMembershipLevel({
-            name: '测试级别_高级_资格',
-            sortOrder: 1,
-        })
-        testIds.membershipLevelIds.push(premiumLevel.id)
-
+        // 创建会员级别（普通 sortOrder=1，高级 sortOrder=2，sortOrder 越大级别越高）
         const normalLevel = await createTestMembershipLevel({
             name: '测试级别_普通_资格',
-            sortOrder: 2,
+            sortOrder: 1,
         })
         testIds.membershipLevelIds.push(normalLevel.id)
 
-        // 创建高级会员记录
+        const premiumLevel = await createTestMembershipLevel({
+            name: '测试级别_高级_资格',
+            sortOrder: 2,
+        })
+        testIds.membershipLevelIds.push(premiumLevel.id)
+
+        // 创建高级会员记录（用户当前是高级会员）
         const membership = await createTestUserMembership(user.id, premiumLevel.id, {
             status: MembershipStatus.ACTIVE,
         })
         testIds.userMembershipIds.push(membership.id)
 
         // 验证目标级别（普通）不高于当前级别（高级）
-        // sortOrder 越小级别越高，所以 normalLevel.sortOrder > premiumLevel.sortOrder
-        expect(normalLevel.sortOrder).toBeGreaterThan(premiumLevel.sortOrder)
+        // sortOrder 越大级别越高，所以 normalLevel.sortOrder < premiumLevel.sortOrder
+        expect(normalLevel.sortOrder).toBeLessThan(premiumLevel.sortOrder)
 
-        // 这意味着不能从高级降级到普通
-        const canUpgrade = normalLevel.sortOrder < premiumLevel.sortOrder
+        // 升级条件：目标级别 sortOrder > 当前级别 sortOrder
+        // 这里目标是普通级别(1)，当前是高级(2)，1 > 2 为 false，所以不能升级
+        const canUpgrade = normalLevel.sortOrder > premiumLevel.sortOrder
         expect(canUpgrade).toBe(false)
     })
 
@@ -980,20 +995,20 @@ describe('升级资格验证', () => {
         const user = await createTestUser()
         testIds.userIds.push(user.id)
 
-        // 创建会员级别
+        // 创建会员级别（普通 sortOrder=1，高级 sortOrder=2，sortOrder 越大级别越高）
         const normalLevel = await createTestMembershipLevel({
             name: '测试级别_普通_可升级',
-            sortOrder: 2,
+            sortOrder: 1,
         })
         testIds.membershipLevelIds.push(normalLevel.id)
 
         const premiumLevel = await createTestMembershipLevel({
             name: '测试级别_高级_可升级',
-            sortOrder: 1,
+            sortOrder: 2,
         })
         testIds.membershipLevelIds.push(premiumLevel.id)
 
-        // 创建有效的普通会员记录
+        // 创建有效的普通会员记录（用户当前是普通会员）
         const endDate = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)
         const membership = await createTestUserMembership(user.id, normalLevel.id, {
             startDate: new Date(),
@@ -1008,7 +1023,9 @@ describe('升级资格验证', () => {
         expect(currentMembership).not.toBeNull()
 
         // 验证可以升级到更高级别
-        const canUpgrade = premiumLevel.sortOrder < currentMembership!.level.sortOrder
+        // 升级条件：目标级别 sortOrder > 当前级别 sortOrder
+        // 这里目标是高级(2)，当前是普通(1)，2 > 1 为 true，所以可以升级
+        const canUpgrade = premiumLevel.sortOrder > currentMembership!.level.sortOrder
         expect(canUpgrade).toBe(true)
     })
 })
@@ -1146,17 +1163,17 @@ describe('executeMembershipUpgradeService 完整流程测试', () => {
         const user = await createTestUser()
         testIds.userIds.push(user.id)
 
-        // 创建两个会员级别（普通和高级）
+        // 创建两个会员级别（普通 sortOrder=1，高级 sortOrder=2，sortOrder 越大级别越高）
         const normalLevel = await createTestMembershipLevel({
             name: '测试级别_普通_完整流程',
-            sortOrder: 2,
+            sortOrder: 1,
             status: MembershipLevelStatus.ENABLED,
         })
         testIds.membershipLevelIds.push(normalLevel.id)
 
         const premiumLevel = await createTestMembershipLevel({
             name: '测试级别_高级_完整流程',
-            sortOrder: 1,
+            sortOrder: 2,
             status: MembershipLevelStatus.ENABLED,
         })
         testIds.membershipLevelIds.push(premiumLevel.id)
@@ -1203,7 +1220,7 @@ describe('executeMembershipUpgradeService 完整流程测试', () => {
         testIds.orderIds.push(order.id)
 
         // 执行会员升级服务
-        const result = await executeMembershipUpgradeService(user.id, premiumLevel.id, order.id)
+        const result = await executeMembershipUpgradeService(user.id, premiumLevel.id, order.id, order.orderNo)
 
         // 验证升级成功
         expect(result.success).toBe(true)
@@ -1214,9 +1231,9 @@ describe('executeMembershipUpgradeService 完整流程测试', () => {
             testIds.userMembershipIds.push(result.newMembership.id)
         }
 
-        // 验证原会员已失效
+        // 验证原会员已结算（升级后状态为 SETTLED）
         const oldMembership = await findUserMembershipByIdDao(currentMembership.id)
-        expect(oldMembership!.status).toBe(MembershipStatus.INACTIVE)
+        expect(oldMembership!.status).toBe(MembershipStatus.SETTLED)
 
         // 验证新会员状态正确
         const newMembership = await findUserMembershipByIdDao(result.newMembership!.id)
@@ -1253,7 +1270,7 @@ describe('executeMembershipUpgradeService 完整流程测试', () => {
         testIds.membershipLevelIds.push(level.id)
 
         // 执行升级服务
-        const result = await executeMembershipUpgradeService(user.id, level.id, 1)
+        const result = await executeMembershipUpgradeService(user.id, level.id, 1, 'TEST_ORDER')
 
         expect(result.success).toBe(false)
         expect(result.errorMessage).toBe('用户没有有效会员')
@@ -1275,7 +1292,7 @@ describe('executeMembershipUpgradeService 完整流程测试', () => {
         testIds.userMembershipIds.push(membership.id)
 
         // 使用不存在的级别 ID 执行升级
-        const result = await executeMembershipUpgradeService(user.id, 999999, 1)
+        const result = await executeMembershipUpgradeService(user.id, 999999, 1, 'TEST_ORDER')
 
         expect(result.success).toBe(false)
         expect(result.errorMessage).toBe('目标级别不存在')
@@ -1286,9 +1303,9 @@ describe('executeMembershipUpgradeService 完整流程测试', () => {
         const user = await createTestUser()
         testIds.userIds.push(user.id)
 
-        // 创建两个级别（高级 sortOrder=1，普通 sortOrder=2）
-        const premiumLevel = await createTestMembershipLevel({ sortOrder: 1 })
-        const normalLevel = await createTestMembershipLevel({ sortOrder: 2 })
+        // 创建两个级别（普通 sortOrder=1，高级 sortOrder=2，sortOrder 越大级别越高）
+        const normalLevel = await createTestMembershipLevel({ sortOrder: 1 })
+        const premiumLevel = await createTestMembershipLevel({ sortOrder: 2 })
         testIds.membershipLevelIds.push(premiumLevel.id, normalLevel.id)
 
         // 用户当前是高级会员
@@ -1298,8 +1315,8 @@ describe('executeMembershipUpgradeService 完整流程测试', () => {
         })
         testIds.userMembershipIds.push(membership.id)
 
-        // 尝试"升级"到低级别
-        const result = await executeMembershipUpgradeService(user.id, normalLevel.id, 1)
+        // 尝试"升级"到低级别（应该失败）
+        const result = await executeMembershipUpgradeService(user.id, normalLevel.id, 1, 'TEST_ORDER')
 
         expect(result.success).toBe(false)
         expect(result.errorMessage).toBe('目标级别必须高于当前级别')
@@ -1314,9 +1331,9 @@ describe('executeMembershipUpgradeService 完整流程测试', () => {
                     const user = await createTestUser()
                     testIds.userIds.push(user.id)
 
-                    // 创建两个级别
-                    const normalLevel = await createTestMembershipLevel({ sortOrder: 2 })
-                    const premiumLevel = await createTestMembershipLevel({ sortOrder: 1 })
+                    // 创建两个级别（普通 sortOrder=1，高级 sortOrder=2，sortOrder 越大级别越高）
+                    const normalLevel = await createTestMembershipLevel({ sortOrder: 1 })
+                    const premiumLevel = await createTestMembershipLevel({ sortOrder: 2 })
                     testIds.membershipLevelIds.push(normalLevel.id, premiumLevel.id)
 
                     // 创建商品
@@ -1336,7 +1353,7 @@ describe('executeMembershipUpgradeService 完整流程测试', () => {
                     testIds.orderIds.push(order.id)
 
                     // 执行升级
-                    const result = await executeMembershipUpgradeService(user.id, premiumLevel.id, order.id)
+                    const result = await executeMembershipUpgradeService(user.id, premiumLevel.id, order.id, order.orderNo)
 
                     if (result.success && result.newMembership) {
                         testIds.userMembershipIds.push(result.newMembership.id)
@@ -1376,9 +1393,9 @@ describe('Property 8: 会员升级积分转移正确性', () => {
                     const user = await createTestUser()
                     testIds.userIds.push(user.id)
 
-                    // 创建两个会员级别
-                    const normalLevel = await createTestMembershipLevel({ sortOrder: 2 })
-                    const premiumLevel = await createTestMembershipLevel({ sortOrder: 1 })
+                    // 创建两个会员级别（普通 sortOrder=1，高级 sortOrder=2，sortOrder 越大级别越高）
+                    const normalLevel = await createTestMembershipLevel({ sortOrder: 1 })
+                    const premiumLevel = await createTestMembershipLevel({ sortOrder: 2 })
                     testIds.membershipLevelIds.push(normalLevel.id, premiumLevel.id)
 
                     // 创建原会员
@@ -1440,9 +1457,9 @@ describe('Property 8: 会员升级积分转移正确性', () => {
                     const user = await createTestUser()
                     testIds.userIds.push(user.id)
 
-                    // 创建会员级别
-                    const normalLevel = await createTestMembershipLevel({ sortOrder: 2 })
-                    const premiumLevel = await createTestMembershipLevel({ sortOrder: 1 })
+                    // 创建会员级别（普通 sortOrder=1，高级 sortOrder=2，sortOrder 越大级别越高）
+                    const normalLevel = await createTestMembershipLevel({ sortOrder: 1 })
+                    const premiumLevel = await createTestMembershipLevel({ sortOrder: 2 })
                     testIds.membershipLevelIds.push(normalLevel.id, premiumLevel.id)
 
                     // 创建原会员
@@ -1508,22 +1525,25 @@ describe('Property 9: 会员升级价格计算正确性', () => {
     it('升级价格应为非负数', async () => {
         await fc.assert(
             fc.asyncProperty(
-                fc.integer({ min: 1, max: 365 }), // 剩余天数
+                fc.integer({ min: 30, max: 365 }), // 剩余天数（至少30天，确保有足够的总天数）
                 fc.integer({ min: 100, max: 2000 }), // 目标年价
                 async (remainingDays, targetYearlyPrice) => {
                     // 创建测试用户
                     const user = await createTestUser()
                     testIds.userIds.push(user.id)
 
-                    // 创建会员级别
-                    const normalLevel = await createTestMembershipLevel({ sortOrder: 2 })
-                    const premiumLevel = await createTestMembershipLevel({ sortOrder: 1 })
+                    // 创建会员级别（普通 sortOrder=1，高级 sortOrder=2，sortOrder 越大级别越高）
+                    const normalLevel = await createTestMembershipLevel({ sortOrder: 1 })
+                    const premiumLevel = await createTestMembershipLevel({ sortOrder: 2 })
                     testIds.membershipLevelIds.push(normalLevel.id, premiumLevel.id)
 
-                    // 创建原会员
-                    const endDate = new Date(Date.now() + remainingDays * 24 * 60 * 60 * 1000)
+                    // 创建原会员（确保 startDate 在 endDate 之前）
+                    const now = new Date()
+                    const startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) // 30天前开始
+                    const endDate = new Date(now.getTime() + remainingDays * 24 * 60 * 60 * 1000)
                     const membership = await createTestUserMembership(user.id, normalLevel.id, {
                         status: MembershipStatus.ACTIVE,
+                        startDate,
                         endDate,
                     })
                     testIds.userMembershipIds.push(membership.id)
@@ -1532,19 +1552,21 @@ describe('Property 9: 会员升级价格计算正确性', () => {
                     const currentMembership = await findCurrentUserMembershipDao(user.id)
                     expect(currentMembership).not.toBeNull()
 
-                    // 创建目标商品
+                    // 创建目标商品（模拟 Prisma 返回的 Decimal 类型）
                     const targetProduct = {
                         id: 1,
                         priceMonthly: Math.round(targetYearlyPrice / 12),
                         priceYearly: targetYearlyPrice,
                     } as any
 
-                    // 计算升级价格
+                    // 计算升级价格（使用正确的参数签名）
                     const result = calculateUpgradePrice(
                         currentMembership!,
                         premiumLevel,
+                        null, // currentProduct
                         targetProduct,
-                        remainingDays
+                        remainingDays,
+                        0 // paidAmount
                     )
 
                     // 验证升级价格非负
@@ -1567,15 +1589,18 @@ describe('Property 9: 会员升级价格计算正确性', () => {
                     const user = await createTestUser()
                     testIds.userIds.push(user.id)
 
-                    // 创建会员级别
-                    const normalLevel = await createTestMembershipLevel({ sortOrder: 2 })
-                    const premiumLevel = await createTestMembershipLevel({ sortOrder: 1 })
+                    // 创建会员级别（普通 sortOrder=1，高级 sortOrder=2，sortOrder 越大级别越高）
+                    const normalLevel = await createTestMembershipLevel({ sortOrder: 1 })
+                    const premiumLevel = await createTestMembershipLevel({ sortOrder: 2 })
                     testIds.membershipLevelIds.push(normalLevel.id, premiumLevel.id)
 
-                    // 创建原会员
-                    const endDate = new Date(Date.now() + remainingDays * 24 * 60 * 60 * 1000)
+                    // 创建原会员（确保 startDate 在 endDate 之前）
+                    const now = new Date()
+                    const startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) // 30天前开始
+                    const endDate = new Date(now.getTime() + remainingDays * 24 * 60 * 60 * 1000)
                     const membership = await createTestUserMembership(user.id, normalLevel.id, {
                         status: MembershipStatus.ACTIVE,
+                        startDate,
                         endDate,
                     })
                     testIds.userMembershipIds.push(membership.id)
@@ -1590,12 +1615,14 @@ describe('Property 9: 会员升级价格计算正确性', () => {
                         priceYearly: targetYearlyPrice,
                     } as any
 
-                    // 计算升级价格
+                    // 计算升级价格（使用正确的参数签名）
                     const result = calculateUpgradePrice(
                         currentMembership!,
                         premiumLevel,
+                        null, // currentProduct
                         targetProduct,
-                        remainingDays
+                        remainingDays,
+                        0 // paidAmount
                     )
 
                     // 验证积分补偿 = 升级价格 × 10
@@ -1623,8 +1650,8 @@ describe('Property 9: 会员升级价格计算正确性', () => {
                     const targetLevel = await createTestMembershipLevel({ sortOrder: targetOrder })
                     testIds.membershipLevelIds.push(currentLevel.id, targetLevel.id)
 
-                    // 创建商品（仅当目标级别更高时需要）
-                    if (targetOrder < currentOrder) {
+                    // 创建商品（仅当目标级别更高时需要，sortOrder 越大级别越高）
+                    if (targetOrder > currentOrder) {
                         const product = await createTestProduct(targetLevel.id)
                         testIds.productIds.push(product.id)
                     }
@@ -1640,8 +1667,8 @@ describe('Property 9: 会员升级价格计算正确性', () => {
                     // 调用服务计算升级价格
                     const result = await calculateUpgradePriceService(user.id, targetLevel.id)
 
-                    // 验证结果
-                    if (targetOrder < currentOrder) {
+                    // 验证结果（sortOrder 越大级别越高）
+                    if (targetOrder > currentOrder) {
                         // 目标级别更高，应该成功（如果有商品）
                         // 注意：可能因为没有商品而失败
                         if (result.success) {
@@ -1671,14 +1698,14 @@ describe('Property 10: 会员升级级别验证', () => {
      * **Validates: Requirements 2.1**
      *
      * 验证升级级别的限制：
-     * 1. 只能升级到更高级别（sortOrder 更小）
+     * 1. 只能升级到更高级别（sortOrder 越大级别越高）
      * 2. 不能降级或平级转换
      * 3. 目标级别必须存在且启用
      */
-    it('只能升级到 sortOrder 更小的级别', async () => {
+    it('只能升级到 sortOrder 更大的级别', async () => {
         await fc.assert(
             fc.asyncProperty(
-                fc.integer({ min: 2, max: 10 }), // 当前级别 sortOrder
+                fc.integer({ min: 1, max: 9 }), // 当前级别 sortOrder
                 async (currentOrder) => {
                     // 创建测试用户
                     const user = await createTestUser()
@@ -1688,8 +1715,8 @@ describe('Property 10: 会员升级级别验证', () => {
                     const currentLevel = await createTestMembershipLevel({ sortOrder: currentOrder })
                     testIds.membershipLevelIds.push(currentLevel.id)
 
-                    // 创建更高级别（sortOrder 更小）
-                    const higherLevel = await createTestMembershipLevel({ sortOrder: currentOrder - 1 })
+                    // 创建更高级别（sortOrder 更大，级别更高）
+                    const higherLevel = await createTestMembershipLevel({ sortOrder: currentOrder + 1 })
                     testIds.membershipLevelIds.push(higherLevel.id)
 
                     // 创建商品
@@ -1719,24 +1746,24 @@ describe('Property 10: 会员升级级别验证', () => {
         )
     })
 
-    it('不能降级到 sortOrder 更大的级别', async () => {
+    it('不能降级到 sortOrder 更小的级别', async () => {
         await fc.assert(
             fc.asyncProperty(
-                fc.integer({ min: 1, max: 9 }), // 当前级别 sortOrder
+                fc.integer({ min: 2, max: 10 }), // 当前级别 sortOrder（至少为2，这样可以创建更低的级别）
                 async (currentOrder) => {
                     // 创建测试用户
                     const user = await createTestUser()
                     testIds.userIds.push(user.id)
 
-                    // 创建当前级别
+                    // 创建当前级别（较高级别）
                     const currentLevel = await createTestMembershipLevel({ sortOrder: currentOrder })
                     testIds.membershipLevelIds.push(currentLevel.id)
 
-                    // 创建更低级别（sortOrder 更大）
-                    const lowerLevel = await createTestMembershipLevel({ sortOrder: currentOrder + 1 })
+                    // 创建更低级别（sortOrder 更小，级别更低）
+                    const lowerLevel = await createTestMembershipLevel({ sortOrder: currentOrder - 1 })
                     testIds.membershipLevelIds.push(lowerLevel.id)
 
-                    // 创建当前会员
+                    // 创建当前会员（用户当前是较高级别）
                     const endDate = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)
                     const membership = await createTestUserMembership(user.id, currentLevel.id, {
                         status: MembershipStatus.ACTIVE,
@@ -1744,7 +1771,7 @@ describe('Property 10: 会员升级级别验证', () => {
                     })
                     testIds.userMembershipIds.push(membership.id)
 
-                    // 验证不能降级
+                    // 验证不能降级到更低级别
                     const result = await calculateUpgradePriceService(user.id, lowerLevel.id)
 
                     expect(result.success).toBe(false)
@@ -1815,9 +1842,9 @@ describe('Property 16: 会员升级记录完整性', () => {
                     const user = await createTestUser()
                     testIds.userIds.push(user.id)
 
-                    // 创建会员级别
-                    const normalLevel = await createTestMembershipLevel({ sortOrder: 2 })
-                    const premiumLevel = await createTestMembershipLevel({ sortOrder: 1 })
+                    // 创建会员级别（普通 sortOrder=1，高级 sortOrder=2，sortOrder 越大级别越高）
+                    const normalLevel = await createTestMembershipLevel({ sortOrder: 1 })
+                    const premiumLevel = await createTestMembershipLevel({ sortOrder: 2 })
                     testIds.membershipLevelIds.push(normalLevel.id, premiumLevel.id)
 
                     // 创建商品
@@ -1837,7 +1864,7 @@ describe('Property 16: 会员升级记录完整性', () => {
                     testIds.orderIds.push(order.id)
 
                     // 执行升级
-                    const result = await executeMembershipUpgradeService(user.id, premiumLevel.id, order.id)
+                    const result = await executeMembershipUpgradeService(user.id, premiumLevel.id, order.id, order.orderNo)
 
                     if (result.success && result.newMembership) {
                         testIds.userMembershipIds.push(result.newMembership.id)
@@ -1867,9 +1894,9 @@ describe('Property 16: 会员升级记录完整性', () => {
         const user = await createTestUser()
         testIds.userIds.push(user.id)
 
-        // 创建会员级别
-        const normalLevel = await createTestMembershipLevel({ sortOrder: 2 })
-        const premiumLevel = await createTestMembershipLevel({ sortOrder: 1 })
+        // 创建会员级别（普通 sortOrder=1，高级 sortOrder=2，sortOrder 越大级别越高）
+        const normalLevel = await createTestMembershipLevel({ sortOrder: 1 })
+        const premiumLevel = await createTestMembershipLevel({ sortOrder: 2 })
         testIds.membershipLevelIds.push(normalLevel.id, premiumLevel.id)
 
         // 创建商品
@@ -1889,7 +1916,7 @@ describe('Property 16: 会员升级记录完整性', () => {
         testIds.orderIds.push(order.id)
 
         // 执行升级
-        const result = await executeMembershipUpgradeService(user.id, premiumLevel.id, order.id)
+        const result = await executeMembershipUpgradeService(user.id, premiumLevel.id, order.id, order.orderNo)
 
         expect(result.success).toBe(true)
         if (result.newMembership) {
@@ -1921,23 +1948,23 @@ describe('Property 16: 会员升级记录完整性', () => {
                     const user = await createTestUser()
                     testIds.userIds.push(user.id)
 
-                    // 创建多个会员级别（从低到高）
+                    // 创建多个会员级别（从低到高，sortOrder 递增）
                     const levels: Awaited<ReturnType<typeof createTestMembershipLevel>>[] = []
                     for (let i = 0; i <= upgradeCount; i++) {
                         const level = await createTestMembershipLevel({
-                            sortOrder: upgradeCount - i + 1, // 级别从低到高
+                            sortOrder: i + 1, // sortOrder 从 1 开始递增，级别从低到高
                         })
                         testIds.membershipLevelIds.push(level.id)
                         levels.push(level)
                     }
 
-                    // 为每个目标级别创建商品
+                    // 为每个目标级别创建商品（从 levels[1] 开始，因为 levels[0] 是初始级别）
                     for (let i = 1; i <= upgradeCount; i++) {
                         const product = await createTestProduct(levels[i].id)
                         testIds.productIds.push(product.id)
                     }
 
-                    // 创建初始会员
+                    // 创建初始会员（最低级别 levels[0]）
                     const endDate = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
                     let currentMembership = await createTestUserMembership(user.id, levels[0].id, {
                         status: MembershipStatus.ACTIVE,
@@ -1945,7 +1972,7 @@ describe('Property 16: 会员升级记录完整性', () => {
                     })
                     testIds.userMembershipIds.push(currentMembership.id)
 
-                    // 执行多次升级
+                    // 执行多次升级（从 levels[0] 升级到 levels[1]，再到 levels[2]...）
                     for (let i = 1; i <= upgradeCount; i++) {
                         // 查找目标级别的商品
                         const products = await getTestPrisma().products.findMany({
@@ -1958,7 +1985,7 @@ describe('Property 16: 会员升级记录完整性', () => {
                         testIds.orderIds.push(order.id)
 
                         // 执行升级
-                        const result = await executeMembershipUpgradeService(user.id, levels[i].id, order.id)
+                        const result = await executeMembershipUpgradeService(user.id, levels[i].id, order.id, order.orderNo)
 
                         if (result.success && result.newMembership) {
                             testIds.userMembershipIds.push(result.newMembership.id)

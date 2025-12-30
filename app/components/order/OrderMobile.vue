@@ -21,7 +21,7 @@
             <div class="grid grid-cols-2 gap-2 text-sm">
                 <div>
                     <p class="text-muted-foreground">金额</p>
-                    <p class="font-medium">¥{{ order.amount.toFixed(2) }}</p>
+                    <p class="font-medium">¥{{ (order.amount ?? 0).toFixed(2) }}</p>
                 </div>
                 <div>
                     <p class="text-muted-foreground">时长</p>

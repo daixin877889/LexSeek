@@ -106,6 +106,7 @@ export const resetTestIds = (testIds: TestIds): void => {
 export const MembershipStatus = {
     INACTIVE: 0,
     ACTIVE: 1,
+    SETTLED: 2,
 } as const
 
 /** 会员级别状态 */
@@ -456,6 +457,7 @@ export interface TestOrderInput {
     amount?: number
     duration?: number
     durationUnit?: string
+    orderType?: string
     status?: number
     expiredAt?: Date
     remark?: string
@@ -483,10 +485,11 @@ export const createTestProduct = async (
     data: TestProductInput = {}
 ): Promise<Prisma.productsGetPayload<{}>> => {
     const timestamp = Date.now()
+    const random = Math.floor(Math.random() * 10000)
 
     const product = await getTestPrisma().products.create({
         data: {
-            name: data.name || `测试产品_${timestamp}`,
+            name: data.name || `测试产品_${timestamp}_${random}`,
             type: data.type ?? 1, // 1-会员商品
             levelId: levelId ?? data.levelId ?? null,
             priceMonthly: data.priceMonthly ?? 99,
@@ -524,6 +527,7 @@ export const createTestOrder = async (
             amount: data.amount ?? 100,
             duration: data.duration ?? 1,
             durationUnit: data.durationUnit ?? 'year',
+            orderType: data.orderType ?? 'purchase',
             status: data.status ?? 1,
             expiredAt: data.expiredAt ?? defaultExpiredAt,
             remark: data.remark ?? '测试订单',
@@ -580,84 +584,91 @@ export const createTestMembershipUpgradeRecord = async (
  */
 export const cleanupTestData = async (testIds: TestIds): Promise<void> => {
     try {
-        // 1. 删除会员升级记录
+        // 1. 删除用户相关的所有会员升级记录（包括系统自动创建的）- 必须先删除，因为有外键引用 userMemberships
+        if (testIds.userIds.length > 0) {
+            await testPrisma.membershipUpgradeRecords.deleteMany({
+                where: { userId: { in: testIds.userIds } },
+            })
+        }
+
+        // 2. 删除会员升级记录（按 ID）
         if (testIds.membershipUpgradeRecordIds.length > 0) {
             await testPrisma.membershipUpgradeRecords.deleteMany({
                 where: { id: { in: testIds.membershipUpgradeRecordIds } },
             })
         }
 
-        // 2. 删除兑换记录
+        // 3. 删除兑换记录
         if (testIds.redemptionRecordIds.length > 0) {
             await testPrisma.redemptionRecords.deleteMany({
                 where: { id: { in: testIds.redemptionRecordIds } },
             })
         }
 
-        // 3. 删除积分记录
+        // 4. 删除用户相关的所有积分记录（包括系统自动创建的）
+        if (testIds.userIds.length > 0) {
+            await testPrisma.pointRecords.deleteMany({
+                where: { userId: { in: testIds.userIds } },
+            })
+        }
+
+        // 5. 删除积分记录（按 ID）
         if (testIds.pointRecordIds.length > 0) {
             await testPrisma.pointRecords.deleteMany({
                 where: { id: { in: testIds.pointRecordIds } },
             })
         }
 
-        // 4. 删除用户会员记录
+        // 6. 删除用户相关的所有会员记录（包括系统自动创建的）
+        if (testIds.userIds.length > 0) {
+            await testPrisma.userMemberships.deleteMany({
+                where: { userId: { in: testIds.userIds } },
+            })
+        }
+
+        // 7. 删除用户会员记录（按 ID）
         if (testIds.userMembershipIds.length > 0) {
             await testPrisma.userMemberships.deleteMany({
                 where: { id: { in: testIds.userMembershipIds } },
             })
         }
 
-        // 5. 删除订单
+        // 8. 删除订单
         if (testIds.orderIds.length > 0) {
             await testPrisma.orders.deleteMany({
                 where: { id: { in: testIds.orderIds } },
             })
         }
 
-        // 6. 删除产品
+        // 9. 删除产品
         if (testIds.productIds.length > 0) {
             await testPrisma.products.deleteMany({
                 where: { id: { in: testIds.productIds } },
             })
         }
 
-        // 7. 删除兑换码
+        // 10. 删除兑换码
         if (testIds.redemptionCodeIds.length > 0) {
             await testPrisma.redemptionCodes.deleteMany({
                 where: { id: { in: testIds.redemptionCodeIds } },
             })
         }
 
-        // 8. 删除营销活动
+        // 11. 删除营销活动
         if (testIds.campaignIds.length > 0) {
             await testPrisma.campaigns.deleteMany({
                 where: { id: { in: testIds.campaignIds } },
             })
         }
 
-        // 9. 删除会员级别
+        // 12. 删除会员级别
         if (testIds.membershipLevelIds.length > 0) {
             await testPrisma.membershipLevels.deleteMany({
                 where: { id: { in: testIds.membershipLevelIds } },
             })
         }
 
-        // 10. 删除用户相关的所有积分记录（包括系统自动创建的）
-        if (testIds.userIds.length > 0) {
-            await testPrisma.pointRecords.deleteMany({
-                where: { userId: { in: testIds.userIds } },
-            })
-        }
-
-        // 11. 删除用户相关的所有会员记录（包括系统自动创建的）
-        if (testIds.userIds.length > 0) {
-            await testPrisma.userMemberships.deleteMany({
-                where: { userId: { in: testIds.userIds } },
-            })
-        }
-
-        // 12. 删除用户
+        // 13. 删除用户
         if (testIds.userIds.length > 0) {
             await testPrisma.users.deleteMany({
                 where: { id: { in: testIds.userIds } },
@@ -685,7 +696,7 @@ export const cleanupAllTestData = async (): Promise<void> => {
             })
         }
 
-        // 2. 删除测试用户的积分记录
+        // 2. 删除测试用户的相关记录
         const testUsers = await testPrisma.users.findMany({
             where: { phone: { startsWith: TEST_USER_PHONE_PREFIX } },
             select: { id: true },
@@ -707,24 +718,34 @@ export const cleanupAllTestData = async (): Promise<void> => {
             await testPrisma.userMemberships.deleteMany({
                 where: { userId: { in: userIds } },
             })
+
+            // 删除订单
+            await testPrisma.orders.deleteMany({
+                where: { userId: { in: userIds } },
+            })
         }
 
-        // 3. 删除测试兑换码
+        // 3. 删除测试产品
+        await testPrisma.products.deleteMany({
+            where: { name: { startsWith: '测试产品_' } },
+        })
+
+        // 4. 删除测试兑换码
         await testPrisma.redemptionCodes.deleteMany({
             where: { code: { startsWith: TEST_CODE_PREFIX } },
         })
 
-        // 4. 删除测试营销活动
+        // 5. 删除测试营销活动
         await testPrisma.campaigns.deleteMany({
             where: { name: { startsWith: TEST_CAMPAIGN_NAME_PREFIX } },
         })
 
-        // 5. 删除测试会员级别
+        // 6. 删除测试会员级别
         await testPrisma.membershipLevels.deleteMany({
             where: { name: { startsWith: TEST_LEVEL_NAME_PREFIX } },
         })
 
-        // 6. 删除测试用户
+        // 7. 删除测试用户
         await testPrisma.users.deleteMany({
             where: { phone: { startsWith: TEST_USER_PHONE_PREFIX } },
         })
@@ -766,5 +787,41 @@ export const isTestDbAvailable = async (): Promise<boolean> => {
     } catch (error) {
         console.warn('数据库连接检查失败：', error)
         return false
+    }
+}
+
+/**
+ * 重置数据库序列
+ * 确保测试创建的记录不会与种子数据冲突
+ */
+export const resetDatabaseSequences = async (): Promise<void> => {
+    try {
+        const prisma = getTestPrisma()
+        // 重置 products 表的序列，从 1000 开始避免与种子数据冲突
+        await prisma.$executeRaw`SELECT setval('products_id_seq', GREATEST((SELECT MAX(id) FROM products), 1000))`
+        // 重置 orders 表的序列
+        await prisma.$executeRaw`SELECT setval('orders_id_seq', GREATEST((SELECT MAX(id) FROM orders), 1000))`
+        // 重置 membership_levels 表的序列
+        await prisma.$executeRaw`SELECT setval('membership_levels_id_seq', GREATEST((SELECT MAX(id) FROM membership_levels), 1000))`
+        // 重置 users 表的序列
+        await prisma.$executeRaw`SELECT setval('users_id_seq', GREATEST((SELECT MAX(id) FROM users), 1000))`
+        // 重置 user_memberships 表的序列
+        await prisma.$executeRaw`SELECT setval('user_memberships_id_seq', GREATEST((SELECT MAX(id) FROM user_memberships), 1000))`
+        // 重置 point_records 表的序列
+        await prisma.$executeRaw`SELECT setval('point_records_id_seq', GREATEST((SELECT MAX(id) FROM point_records), 1000))`
+        // 重置 membership_upgrade_records 表的序列
+        await prisma.$executeRaw`SELECT setval('membership_upgrade_records_id_seq', GREATEST((SELECT MAX(id) FROM membership_upgrade_records), 1000))`
+        // 重置 roles 表的序列
+        await prisma.$executeRaw`SELECT setval('roles_id_seq', GREATEST((SELECT MAX(id) FROM roles), 1000))`
+        // 重置 user_roles 表的序列
+        await prisma.$executeRaw`SELECT setval('user_roles_id_seq', GREATEST((SELECT MAX(id) FROM user_roles), 1000))`
+        // 重置 campaigns 表的序列
+        await prisma.$executeRaw`SELECT setval('campaigns_id_seq', GREATEST((SELECT MAX(id) FROM campaigns), 1000))`
+        // 重置 redemption_codes 表的序列
+        await prisma.$executeRaw`SELECT setval('redemption_codes_id_seq', GREATEST((SELECT MAX(id) FROM redemption_codes), 1000))`
+        // 重置 redemption_records 表的序列
+        await prisma.$executeRaw`SELECT setval('redemption_records_id_seq', GREATEST((SELECT MAX(id) FROM redemption_records), 1000))`
+    } catch (error) {
+        console.warn('重置数据库序列时出错：', error)
     }
 }

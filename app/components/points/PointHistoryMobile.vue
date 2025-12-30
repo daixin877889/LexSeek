@@ -28,16 +28,18 @@
                         <span v-if="record.status === 1"
                             class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">有效</span>
                         <span v-else-if="record.status === 2"
-                            class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">已结算</span>
+                            class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">已结算</span>
                         <span v-else-if="record.status === 3"
                             class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">已作废</span>
-                        <!-- 可用状态标签 -->
-                        <span v-if="isAvailable(record)"
-                            class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">可用</span>
-                        <span v-else-if="isNotEffective(record)"
-                            class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">未生效</span>
-                        <span v-else
-                            class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-400">已过期</span>
+                        <!-- 可用状态标签（已结算或已作废的不显示） -->
+                        <template v-if="record.status === 1">
+                            <span v-if="isAvailable(record)"
+                                class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">可用</span>
+                            <span v-else-if="isNotEffective(record)"
+                                class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">未生效</span>
+                            <span v-else
+                                class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-400">已过期</span>
+                        </template>
                     </div>
                 </div>
                 <!-- 使用情况 -->

@@ -202,5 +202,150 @@ describe('会员系统 API 测试', () => {
                 console.log('升级记录 API 返回错误:', response.message)
             }
         })
+
+        it('未认证用户计算升级费用应返回 401', async () => {
+            const unauthClient = createApiClient()
+
+            const response = await unauthClient.post('/api/v1/memberships/upgrade/calculate', {
+                targetLevelId: 1,
+            })
+
+            expect(response.success).toBe(false)
+            expect(response.code).toBe(401)
+        })
+
+        it('计算升级费用缺少参数应返回错误', async () => {
+            await helper.createAndLoginUser()
+
+            const response = await client.post('/api/v1/memberships/upgrade/calculate', {})
+
+            expect(response.success).toBe(false)
+            // 参数验证失败应返回 400
+            expect(response.code).toBe(400)
+        })
+
+        it('计算升级费用使用无效级别 ID 应返回错误', async () => {
+            await helper.createAndLoginUser()
+
+            const response = await client.post('/api/v1/memberships/upgrade/calculate', {
+                targetLevelId: -1,
+            })
+
+            expect(response.success).toBe(false)
+            expect(response.code).toBe(400)
+        })
+    })
+
+    describe('会员升级支付测试', () => {
+        it('未认证用户创建升级支付应返回 401', async () => {
+            const unauthClient = createApiClient()
+
+            const response = await unauthClient.post('/api/v1/memberships/upgrade/pay', {
+                targetLevelId: 1,
+                paymentChannel: 1,
+                paymentMethod: 1,
+            })
+
+            expect(response.success).toBe(false)
+            expect(response.code).toBe(401)
+        })
+
+        it('创建升级支付缺少参数应返回错误', async () => {
+            await helper.createAndLoginUser()
+
+            const response = await client.post('/api/v1/memberships/upgrade/pay', {
+                targetLevelId: 1,
+                // 缺少 paymentChannel 和 paymentMethod
+            })
+
+            expect(response.success).toBe(false)
+            expect(response.code).toBe(400)
+        })
+
+        it('创建升级支付使用无效支付渠道应返回错误', async () => {
+            await helper.createAndLoginUser()
+
+            const response = await client.post('/api/v1/memberships/upgrade/pay', {
+                targetLevelId: 1,
+                paymentChannel: 999, // 无效的支付渠道
+                paymentMethod: 1,
+            })
+
+            expect(response.success).toBe(false)
+            expect(response.code).toBe(400)
+        })
+
+        it('没有有效会员时创建升级支付应返回错误', async () => {
+            // 新注册用户没有会员
+            await helper.createAndLoginUser()
+
+            // 获取一个有效的目标级别
+            const levelsResponse = await client.get('/api/v1/memberships/levels')
+            if (!levelsResponse.data || levelsResponse.data.length === 0) {
+                console.log('没有会员等级数据，跳过测试')
+                return
+            }
+
+            const targetLevelId = levelsResponse.data[0].id
+            const response = await client.post('/api/v1/memberships/upgrade/pay', {
+                targetLevelId,
+                paymentChannel: 1, // 微信
+                paymentMethod: 1, // 扫码
+            })
+
+            // 没有有效会员应返回错误
+            expect(response.success).toBe(false)
+        })
+    })
+
+    describe('执行会员升级测试', () => {
+        it('未认证用户执行升级应返回 401', async () => {
+            const unauthClient = createApiClient()
+
+            const response = await unauthClient.post('/api/v1/memberships/upgrade', {
+                targetLevelId: 1,
+                orderId: 1,
+            })
+
+            expect(response.success).toBe(false)
+            expect(response.code).toBe(401)
+        })
+
+        it('执行升级缺少参数应返回错误', async () => {
+            await helper.createAndLoginUser()
+
+            const response = await client.post('/api/v1/memberships/upgrade', {
+                targetLevelId: 1,
+                // 缺少 orderId
+            })
+
+            expect(response.success).toBe(false)
+            expect(response.code).toBe(400)
+        })
+
+        it('执行升级使用无效订单 ID 应返回错误', async () => {
+            await helper.createAndLoginUser()
+
+            const response = await client.post('/api/v1/memberships/upgrade', {
+                targetLevelId: 1,
+                orderId: -1,
+            })
+
+            expect(response.success).toBe(false)
+            expect(response.code).toBe(400)
+        })
+
+        it('没有有效会员时执行升级应返回错误', async () => {
+            // 新注册用户没有会员
+            await helper.createAndLoginUser()
+
+            const response = await client.post('/api/v1/memberships/upgrade', {
+                targetLevelId: 1,
+                orderId: 99999, // 不存在的订单
+            })
+
+            // 没有有效会员应返回错误
+            expect(response.success).toBe(false)
+        })
     })
 })

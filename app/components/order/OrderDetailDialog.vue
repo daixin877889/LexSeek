@@ -27,7 +27,7 @@
                 <!-- 订单金额 -->
                 <div class="flex justify-between items-center py-2 border-b">
                     <span class="text-muted-foreground">订单金额</span>
-                    <span class="font-medium text-primary">¥{{ order.amount.toFixed(2) }}</span>
+                    <span class="font-medium text-primary">¥{{ (order.amount ?? 0).toFixed(2) }}</span>
                 </div>
 
                 <!-- 购买时长 -->

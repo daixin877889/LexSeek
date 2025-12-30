@@ -21,11 +21,12 @@
 | `membership-level.test.ts` | 会员级别管理测试 | 17 |
 | `user-membership.test.ts` | 用户会员记录测试 | 11 |
 | `membership-upgrade.test.ts` | 会员升级测试 | 44 |
+| `membership-upgrade-settlement.test.ts` | 会员升级结算测试 | 10 |
 | `point-system.test.ts` | 积分系统测试 | 12 |
 | `redemption.test.ts` | 兑换码测试 | 31 |
 | `campaign.test.ts` | 营销活动测试 | 19 |
 
-**总计：134 个测试用例**
+**总计：144 个测试用例**
 
 ## 运行测试命令
 
@@ -37,6 +38,7 @@ bun run test:membership
 npx vitest run tests/server/membership/membership-level.test.ts --reporter=verbose
 npx vitest run tests/server/membership/user-membership.test.ts --reporter=verbose
 npx vitest run tests/server/membership/membership-upgrade.test.ts --reporter=verbose
+npx vitest run tests/server/membership/membership-upgrade-settlement.test.ts --reporter=verbose
 npx vitest run tests/server/membership/point-system.test.ts --reporter=verbose
 npx vitest run tests/server/membership/redemption.test.ts --reporter=verbose
 npx vitest run tests/server/membership/campaign.test.ts --reporter=verbose
@@ -177,6 +179,36 @@ npx vitest run tests/server/membership --coverage
 
 **Property: 升级后用户应只有一个有效会员**
 **Property: 升级记录应保持完整的历史**
+
+---
+
+### membership-upgrade-settlement.test.ts - 会员升级结算（10 个测试）
+
+**Property 1: 会员记录结算正确性**
+- 旧会员 endDate 应等于结算日期，status 应为 2（已结算）
+- 新会员 startDate 应等于结算日期，endDate 应等于旧会员原 endDate
+
+**Property 2: 积分记录结算正确性**
+- 旧积分记录 status 应为 2，remaining 应为 0，transferOut 应等于结算前的 remaining
+
+**Property 3: 转入积分记录正确性**
+- 转入积分记录 pointAmount 应等于旧积分 remaining 之和
+
+**Property 4: 补偿积分记录正确性**
+- 补偿积分记录 remark 应包含订单号
+
+**Property 5: 升级记录正确性**
+- 升级记录应包含正确的 transferPoints 和 details JSON
+
+**Property 6: 积分总量守恒**
+- 旧积分记录的 transferOut 之和应等于转入积分记录的 pointAmount
+
+**Property 7: 状态过滤正确性**
+- 查询有效积分时应只返回 status = 1 的记录
+
+**边界情况测试**
+- 旧会员没有积分记录时应正常升级
+- 积分 remaining 为 0 的记录不应被转移
 
 ---
 

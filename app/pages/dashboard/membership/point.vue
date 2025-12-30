@@ -55,7 +55,8 @@
     <PointsPointPurchaseDialog v-model:open="showPointProducts" :product-list="pointProductList" @buy="buyPoints" />
 
     <!-- 微信支付二维码弹框 -->
-    <PointsPointQRCodeDialog v-model:open="showQRCode" :qr-code-url="qrCodeUrl" />
+    <PointsPointQRCodeDialog v-model:open="showQRCode" :qr-code-url="qrCodeUrl" :loading="paymentLoading"
+      :paid="paymentPaid" @close="closeQRCodeDialog" />
 
     <!-- 积分消耗标准弹框 -->
     <PointsConsumptionStandardDialog v-model:open="showConsumptionStandard" />
@@ -63,6 +64,8 @@
 </template>
 
 <script lang="ts" setup>
+import { PaymentChannel, PaymentMethod, DurationUnit } from "#shared/types/payment";
+
 // 页面元信息
 definePageMeta({
   layout: "dashboard-layout",
@@ -100,6 +103,8 @@ interface PointProduct {
   id: number;
   name: string;
   unitPrice: number;
+  originalUnitPrice?: number;
+  pointAmount: number;
   description: string;
 }
 
@@ -135,6 +140,7 @@ const { data: pointInfoData } = await useApi<{
   remaining: number;
   purchasePoint: number;
   otherPoint: number;
+  pendingPoint: number;
 }>("/api/v1/points/info", {
   key: "point-info",
 });
@@ -146,6 +152,7 @@ const pointInfo = computed(() => ({
   remaining: pointInfoData.value?.remaining ?? 0,
   purchasePoint: pointInfoData.value?.purchasePoint ?? 0,
   otherPoint: pointInfoData.value?.otherPoint ?? 0,
+  pendingPoint: pointInfoData.value?.pendingPoint ?? 0,
 }));
 
 // ==================== 积分获取记录（桌面端分页） ====================
@@ -497,13 +504,41 @@ const showQRCode = ref(false);
 const showConsumptionStandard = ref(false);
 const qrCodeUrl = ref("");
 
-// 积分商品列表（模拟数据）
-const pointProductList = ref<PointProduct[]>([
-  { id: 1, name: "100 积分", unitPrice: 10, description: "适合轻度使用" },
-  { id: 2, name: "500 积分", unitPrice: 45, description: "9折优惠，推荐购买" },
-  { id: 3, name: "1000 积分", unitPrice: 80, description: "8折优惠，超值之选" },
-  { id: 4, name: "5000 积分", unitPrice: 350, description: "7折优惠，企业首选" },
-]);
+// 支付相关状态
+const paymentLoading = ref(false);
+const paymentPaid = ref(false);
+const currentTransactionNo = ref("");
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+// ==================== SSR 数据预取：积分商品列表 ====================
+
+// 获取积分商品列表（type=2 为积分商品）
+const { data: pointProductsData } = await useApi<
+  Array<{
+    id: number;
+    name: string;
+    unitPrice: number;
+    originalUnitPrice?: number;
+    pointAmount: number;
+    description?: string;
+  }>
+>("/api/v1/products", {
+  key: "point-products",
+  query: { type: 2 },
+});
+
+// 积分商品列表（响应式）
+const pointProductList = computed<PointProduct[]>(() => {
+  if (!pointProductsData.value) return [];
+  return pointProductsData.value.map((p) => ({
+    id: p.id,
+    name: p.name,
+    unitPrice: p.unitPrice ?? 0,
+    originalUnitPrice: p.originalUnitPrice,
+    pointAmount: p.pointAmount ?? 0,
+    description: p.description ?? "",
+  }));
+});
 
 // ==================== 事件处理 ====================
 
@@ -520,9 +555,96 @@ const onUsagePageChange = async (page: number) => {
  * 购买积分
  */
 const buyPoints = async (product: PointProduct) => {
-  // TODO: 实现购买逻辑
-  logger.info("购买积分:", product);
-  toast.info(`购买 ${product.name} 功能开发中`);
+  // 关闭商品列表弹框
+  showPointProducts.value = false;
+
+  // 创建订单并发起支付
+  const result = await useApiFetch<{
+    orderNo: string;
+    transactionNo: string;
+    amount: number;
+    codeUrl: string;
+    h5Url: string;
+  }>("/api/v1/payments/create", {
+    method: "POST",
+    body: {
+      productId: product.id,
+      duration: 1, // 积分商品数量为 1
+      durationUnit: DurationUnit.MONTH, // 积分商品不需要时长单位，但 API 需要
+      paymentChannel: PaymentChannel.WECHAT,
+      paymentMethod: PaymentMethod.SCAN_CODE,
+    },
+  });
+
+  if (!result) return;
+
+  // 保存支付单号，用于轮询
+  currentTransactionNo.value = result.transactionNo;
+  qrCodeUrl.value = result.codeUrl;
+  paymentPaid.value = false;
+  paymentLoading.value = false;
+
+  // 显示二维码弹框
+  showQRCode.value = true;
+
+  // 开始轮询支付状态
+  startPollingPaymentStatus();
+};
+
+/**
+ * 开始轮询支付状态
+ */
+const startPollingPaymentStatus = () => {
+  // 清除之前的定时器
+  stopPollingPaymentStatus();
+
+  // 每 2 秒查询一次支付状态
+  pollTimer = setInterval(async () => {
+    if (!currentTransactionNo.value) {
+      stopPollingPaymentStatus();
+      return;
+    }
+
+    const result = await useApiFetch<{ paid: boolean }>(
+      `/api/v1/payments/query?transactionNo=${currentTransactionNo.value}&sync=true`,
+      { showError: false }
+    );
+
+    if (result?.paid) {
+      // 支付成功
+      paymentPaid.value = true;
+      stopPollingPaymentStatus();
+      toast.success("支付成功！积分已到账");
+
+      // 2 秒后关闭弹框并刷新页面
+      setTimeout(() => {
+        closeQRCodeDialog();
+        // 刷新页面以更新积分信息
+        window.location.reload();
+      }, 2000);
+    }
+  }, 2000);
+};
+
+/**
+ * 停止轮询支付状态
+ */
+const stopPollingPaymentStatus = () => {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+};
+
+/**
+ * 关闭二维码弹框
+ */
+const closeQRCodeDialog = () => {
+  showQRCode.value = false;
+  stopPollingPaymentStatus();
+  currentTransactionNo.value = "";
+  qrCodeUrl.value = "";
+  paymentPaid.value = false;
 };
 
 // ==================== 监听器 ====================
@@ -536,5 +658,10 @@ watch(currentTab, async (newTab) => {
     await executeUsage();
     usageLoaded.value = true;
   }
+});
+
+// 组件卸载时清理定时器
+onUnmounted(() => {
+  stopPollingPaymentStatus();
 });
 </script>
