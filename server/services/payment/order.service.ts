@@ -3,7 +3,7 @@
  *
  * 提供订单的业务逻辑处理
  */
-import { OrderStatus, DurationUnit } from '#shared/types/payment'
+import { OrderStatus, DurationUnit, OrderType } from '#shared/types/payment'
 import {
     createOrderDao,
     findOrderByIdDao,
@@ -12,8 +12,10 @@ import {
     updateOrderStatusDao,
     findExpiredPendingOrdersDao,
     cancelExpiredOrdersDao,
+    countUserProductOrdersDao,
 } from './order.dao'
 import { findProductByIdDao } from '../product/product.dao'
+import { decimalToNumberUtils } from '#shared/utils/decimalToNumber'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma
@@ -24,6 +26,12 @@ interface CreateOrderParams {
     productId: number
     duration: number
     durationUnit: DurationUnit
+    /** 订单类型（默认为新购） */
+    orderType?: OrderType
+    /** 自定义金额（用于升级等场景，单位：元） */
+    customAmount?: number
+    /** 订单备注 */
+    remark?: string
 }
 
 /** 创建订单结果 */
@@ -44,7 +52,7 @@ export const createOrderService = async (
     tx?: PrismaClient
 ): Promise<CreateOrderResult> => {
     try {
-        const { userId, productId, duration, durationUnit } = params
+        const { userId, productId, duration, durationUnit, orderType, customAmount, remark } = params
 
         // 查询商品
         const product = await findProductByIdDao(productId, tx)
@@ -57,8 +65,33 @@ export const createOrderService = async (
             return { success: false, errorMessage: '商品已下架' }
         }
 
+        // 检查购买限制（0 表示不限制）
+        // 注意：升级订单（有 customAmount）不受购买限制
+        if (!customAmount && product.purchaseLimit && product.purchaseLimit > 0) {
+            const purchasedCount = await countUserProductOrdersDao(userId, productId, tx)
+            if (purchasedCount >= product.purchaseLimit) {
+                return {
+                    success: false,
+                    errorMessage: `该商品限购 ${product.purchaseLimit} 次，您已达到购买上限`,
+                }
+            }
+        }
+
         // 计算订单金额
-        const amount = Number(product.price) * duration
+        let amount: number
+        if (customAmount !== undefined) {
+            // 使用自定义金额（升级场景）
+            amount = customAmount
+        } else if (product.type === 1) {
+            // 会员套餐：根据时长单位选择月价或年价
+            const unitPrice = durationUnit === DurationUnit.MONTH
+                ? decimalToNumberUtils(product.priceMonthly)
+                : decimalToNumberUtils(product.priceYearly)
+            amount = unitPrice * duration
+        } else {
+            // 积分包：直接使用单价（积分包是一次性购买，duration 表示购买数量）
+            amount = decimalToNumberUtils(product.unitPrice) * duration
+        }
 
         // 计算订单过期时间（30分钟）
         const expiredAt = new Date(Date.now() + 30 * 60 * 1000)
@@ -71,7 +104,9 @@ export const createOrderService = async (
                 amount,
                 duration,
                 durationUnit,
+                orderType: orderType || OrderType.PURCHASE,
                 expiredAt,
+                remark,
             },
             tx
         )

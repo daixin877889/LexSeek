@@ -4,7 +4,7 @@
  * 提供订单的 CRUD 操作
  */
 import { Prisma } from '#shared/types/prisma'
-import { OrderStatus } from '#shared/types/payment'
+import { OrderStatus, OrderType } from '#shared/types/payment'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma
@@ -13,19 +13,19 @@ type PrismaClient = typeof prisma
 const orderInclude = {
     product: true,
     user: {
-        select: { id: true, phone: true, nickname: true },
+        select: { id: true, phone: true, name: true },
     },
 } as const
 
 /**
  * 生成订单号
- * @returns 订单号（格式：ORD + 年月日时分秒 + 6位随机数）
+ * @returns 订单号（格式：LSD + 年月日时分秒 + 6位随机数）
  */
 export const generateOrderNo = (): string => {
     const now = new Date()
     const dateStr = now.toISOString().replace(/[-:T.Z]/g, '').slice(0, 14)
     const random = Math.floor(Math.random() * 1000000).toString().padStart(6, '0')
-    return `ORD${dateStr}${random}`
+    return `LSD${dateStr}${random}`
 }
 
 /**
@@ -41,6 +41,7 @@ export const createOrderDao = async (
         amount: number
         duration: number
         durationUnit: string
+        orderType?: string
         expiredAt: Date
         remark?: string
     },
@@ -56,6 +57,7 @@ export const createOrderDao = async (
                 amount: data.amount,
                 duration: data.duration,
                 durationUnit: data.durationUnit,
+                orderType: data.orderType || 'purchase',
                 status: OrderStatus.PENDING,
                 expiredAt: data.expiredAt,
                 remark: data.remark,
@@ -79,7 +81,7 @@ export const createOrderDao = async (
 export const findOrderByIdDao = async (
     id: number,
     tx?: PrismaClient
-): Promise<(orders & { product: products; user: { id: number; phone: string; nickname: string | null } }) | null> => {
+): Promise<(orders & { product: products; user: { id: number; phone: string; name: string } }) | null> => {
     try {
         const order = await (tx || prisma).orders.findUnique({
             where: { id, deletedAt: null },
@@ -101,7 +103,7 @@ export const findOrderByIdDao = async (
 export const findOrderByOrderNoDao = async (
     orderNo: string,
     tx?: PrismaClient
-): Promise<(orders & { product: products; user: { id: number; phone: string; nickname: string | null } }) | null> => {
+): Promise<(orders & { product: products; user: { id: number; phone: string; name: string } }) | null> => {
     try {
         const order = await (tx || prisma).orders.findUnique({
             where: { orderNo, deletedAt: null },
@@ -232,6 +234,78 @@ export const cancelExpiredOrdersDao = async (
         return result.count
     } catch (error) {
         logger.error('批量取消过期订单失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 统计用户购买某个商品的次数（已支付的新购订单）
+ * 注意：只统计 orderType = 'purchase' 的订单，升级和续费订单不计入限购次数
+ * @param userId 用户ID
+ * @param productId 商品ID
+ * @param tx 事务客户端（可选）
+ * @returns 购买次数
+ */
+export const countUserProductOrdersDao = async (
+    userId: number,
+    productId: number,
+    tx?: PrismaClient
+): Promise<number> => {
+    try {
+        const count = await (tx || prisma).orders.count({
+            where: {
+                userId,
+                productId,
+                status: OrderStatus.PAID,
+                orderType: OrderType.PURCHASE, // 只统计新购订单，升级和续费不计入限购
+                deletedAt: null,
+            },
+        })
+        return count
+    } catch (error) {
+        logger.error('统计用户购买商品次数失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 批量统计用户购买多个商品的次数（已支付的新购订单）
+ * 注意：只统计 orderType = 'purchase' 的订单，升级和续费订单不计入限购次数
+ * @param userId 用户ID
+ * @param productIds 商品ID列表
+ * @param tx 事务客户端（可选）
+ * @returns 商品ID到购买次数的映射
+ */
+export const countUserProductsOrdersDao = async (
+    userId: number,
+    productIds: number[],
+    tx?: PrismaClient
+): Promise<Map<number, number>> => {
+    try {
+        // 查询用户购买这些商品的所有已支付新购订单
+        const orders = await (tx || prisma).orders.findMany({
+            where: {
+                userId,
+                productId: { in: productIds },
+                status: OrderStatus.PAID,
+                orderType: OrderType.PURCHASE, // 只统计新购订单，升级和续费不计入限购
+                deletedAt: null,
+            },
+            select: {
+                productId: true,
+            },
+        })
+
+        // 统计每个商品的购买次数
+        const countMap = new Map<number, number>()
+        for (const order of orders) {
+            const count = countMap.get(order.productId) || 0
+            countMap.set(order.productId, count + 1)
+        }
+
+        return countMap
+    } catch (error) {
+        logger.error('批量统计用户购买商品次数失败：', error)
         throw error
     }
 }

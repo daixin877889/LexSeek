@@ -58,6 +58,24 @@ export enum DurationUnit {
     YEAR = 'year',
 }
 
+/** 订单类型 */
+export enum OrderType {
+    /** 新购 */
+    PURCHASE = 'purchase',
+    /** 升级 */
+    UPGRADE = 'upgrade',
+    /** 续费 */
+    RENEW = 'renew',
+}
+
+/** 支付单位（用于会员商品） */
+export enum PaymentUnit {
+    /** 按月 */
+    MONTH = 1,
+    /** 按年 */
+    YEAR = 2,
+}
+
 /** 订单信息 */
 export interface OrderInfo {
     id: number

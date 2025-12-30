@@ -16,8 +16,9 @@ import {
     findExpiredPendingTransactionsDao,
     expirePaymentTransactionsDao,
 } from './paymentTransaction.dao'
-import { findOrderByIdDao, updateOrderStatusDao } from './order.dao'
+import { findOrderByIdDao, findOrderByOrderNoDao, updateOrderStatusDao } from './order.dao'
 import { handlePaymentSuccess } from './handlers/index'
+import { decimalToNumberUtils } from '#shared/utils/decimalToNumber'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma
@@ -94,19 +95,22 @@ export const createPaymentService = async (
         // 计算支付单过期时间（30分钟）
         const expiredAt = new Date(Date.now() + 30 * 60 * 1000)
 
+        // 获取订单金额（转换 Prisma Decimal 为数字）
+        const orderAmount = decimalToNumberUtils(order.amount)
+
         // 创建支付单
         const transaction = await createPaymentTransactionDao({
             orderId,
-            amount: Number(order.amount),
+            amount: orderAmount,
             paymentChannel,
             paymentMethod,
             expiredAt,
         })
 
-        // 调用支付适配器创建支付
+        // 调用支付适配器创建支付（使用订单号而不是支付单号）
         const paymentResult = await adapter.createPayment({
-            orderNo: transaction.transactionNo,
-            amount: Math.round(Number(order.amount) * 100), // 转换为分
+            orderNo: order.orderNo, // 使用 LSD 开头的订单号，方便用户和客服排查问题
+            amount: Math.round(orderAmount * 100), // 转换为分
             description: order.product.name,
             method: paymentMethod,
             openid,
@@ -172,10 +176,17 @@ export const handlePaymentCallbackService = async (
 
         const { orderNo, transactionId, amount, paidAt } = verifyResult
 
-        // 查询支付单
-        const transaction = await findPaymentTransactionByNoDao(orderNo!)
+        // 通过订单号查询订单（orderNo 现在是 LSD 开头的订单号）
+        const order = await findOrderByOrderNoDao(orderNo!)
+        if (!order) {
+            logger.error('订单不存在：', orderNo)
+            return { success: false, errorMessage: '订单不存在' }
+        }
+
+        // 查询该订单的待支付支付单
+        const transaction = await findPendingTransactionByOrderIdDao(order.id)
         if (!transaction) {
-            logger.error('支付单不存在：', orderNo)
+            logger.error('未找到待支付的支付单，订单号：', orderNo)
             return { success: false, errorMessage: '支付单不存在' }
         }
 
@@ -186,7 +197,7 @@ export const handlePaymentCallbackService = async (
         }
 
         // 检查金额是否匹配
-        const expectedAmount = Math.round(Number(transaction.amount) * 100)
+        const expectedAmount = Math.round(decimalToNumberUtils(transaction.amount) * 100)
         if (amount !== expectedAmount) {
             logger.error('支付金额不匹配：', { expected: expectedAmount, actual: amount })
             return { success: false, errorMessage: '支付金额不匹配' }
@@ -194,6 +205,17 @@ export const handlePaymentCallbackService = async (
 
         // 使用事务处理支付成功
         await prisma.$transaction(async (tx) => {
+            // 在事务内再次检查状态，防止并发重复处理
+            const currentTransaction = await tx.paymentTransactions.findUnique({
+                where: { id: transaction.id },
+                select: { status: true },
+            })
+
+            if (currentTransaction?.status === PaymentTransactionStatus.SUCCESS) {
+                logger.info(`支付单已被其他请求处理，跳过：${orderNo}`)
+                return
+            }
+
             // 更新支付单状态
             await updatePaymentTransactionDao(
                 transaction.id,
@@ -208,14 +230,14 @@ export const handlePaymentCallbackService = async (
 
             // 更新订单状态
             await updateOrderStatusDao(
-                transaction.orderId,
+                order.id,
                 OrderStatus.PAID,
                 paidAt || new Date(),
                 tx as unknown as PrismaClient
             )
 
-            // 处理支付成功后的业务逻辑
-            await handlePaymentSuccess(transaction.order, tx as unknown as PrismaClient)
+            // 处理支付成功后的业务逻辑（使用 order，它已包含 product）
+            await handlePaymentSuccess(order, tx as unknown as PrismaClient)
         })
 
         logger.info('支付回调处理成功：', orderNo)
@@ -262,9 +284,9 @@ export const queryPaymentResultService = async (
             return { success: true, paid: false }
         }
 
-        // 调用支付适配器查询订单
+        // 调用支付适配器查询订单（使用订单号查询）
         const adapter = getPaymentAdapter(transaction.paymentChannel as PaymentChannel)
-        const queryResult = await adapter.queryOrder({ orderNo: transactionNo })
+        const queryResult = await adapter.queryOrder({ orderNo: transaction.order.orderNo })
 
         if (!queryResult.success) {
             return { success: false, paid: false, errorMessage: queryResult.errorMessage }
@@ -273,6 +295,17 @@ export const queryPaymentResultService = async (
         // 如果支付成功，处理支付成功逻辑
         if (queryResult.tradeState === 'SUCCESS') {
             await prisma.$transaction(async (tx) => {
+                // 在事务内再次检查状态，防止并发重复处理
+                const currentTransaction = await tx.paymentTransactions.findUnique({
+                    where: { id: transaction.id },
+                    select: { status: true },
+                })
+
+                if (currentTransaction?.status === PaymentTransactionStatus.SUCCESS) {
+                    logger.info(`支付单 ${transactionNo} 已被其他请求处理，跳过`)
+                    return
+                }
+
                 await updatePaymentTransactionDao(
                     transaction.id,
                     {

@@ -43,7 +43,7 @@ export const createPaymentTransactionDao = async (
         const transaction = await (tx || prisma).paymentTransactions.create({
             data: {
                 transactionNo,
-                orderId: data.orderId,
+                order: { connect: { id: data.orderId } },
                 amount: data.amount,
                 paymentChannel: data.paymentChannel,
                 paymentMethod: data.paymentMethod,
@@ -93,11 +93,15 @@ export const findPaymentTransactionByIdDao = async (
 export const findPaymentTransactionByNoDao = async (
     transactionNo: string,
     tx?: PrismaClient
-): Promise<(paymentTransactions & { order: orders }) | null> => {
+): Promise<(paymentTransactions & { order: orders & { product: products } }) | null> => {
     try {
         const transaction = await (tx || prisma).paymentTransactions.findUnique({
             where: { transactionNo, deletedAt: null },
-            include: { order: true },
+            include: {
+                order: {
+                    include: { product: true },
+                },
+            },
         })
         return transaction
     } catch (error) {
