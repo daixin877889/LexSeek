@@ -36,11 +36,15 @@
     <!-- 取消订单确认弹框 -->
     <OrderCancelDialog v-model:open="showCancelDialog" :order="selectedOrder" :loading="cancelLoading"
       @confirm="handleCancelOrder" />
+
+    <!-- 支付二维码弹框 -->
+    <PaymentQRCodeDialog v-model:open="showQRCodeDialog" :qr-code-url="qrCodeUrl" :loading="paymentLoading"
+      :paid="paymentPaid" @close="closeQRCodeDialog" />
   </div>
 </template>
 
 <script lang="ts" setup>
-import { OrderStatus, DurationUnit } from "#shared/types/payment";
+import { OrderStatus, DurationUnit, PaymentChannel, PaymentMethod } from "#shared/types/payment";
 
 // 页面元信息
 definePageMeta({
@@ -63,6 +67,15 @@ interface OrderItem {
   paidAt: string | null;
   expiredAt: string;
   createdAt: string;
+}
+
+/** 支付响应 */
+interface PaymentResponse {
+  orderNo: string;
+  transactionNo: string;
+  amount: number;
+  codeUrl: string;
+  h5Url: string;
 }
 
 /** 订单列表响应 */
@@ -130,8 +143,16 @@ const pagination = computed(() => ({
 // 弹框状态
 const showDetailDialog = ref(false);
 const showCancelDialog = ref(false);
+const showQRCodeDialog = ref(false);
 const selectedOrder = ref<OrderItem | null>(null);
 const cancelLoading = ref(false);
+
+// 支付相关状态
+const qrCodeUrl = ref("");
+const paymentLoading = ref(false);
+const paymentPaid = ref(false);
+const currentTransactionNo = ref("");
+let pollTimer: ReturnType<typeof setInterval> | null = null;
 
 // ==================== 方法定义 ====================
 
@@ -175,9 +196,88 @@ const openCancelDialog = (order: OrderItem) => {
  * 处理支付
  */
 const handlePay = async (order: OrderItem) => {
-  // TODO: 实现支付逻辑
-  toast.info(`支付订单 ${order.orderNo}`);
   showDetailDialog.value = false;
+  blurActiveElement();
+
+  // 调用支付 API
+  const result = await useApiFetch<PaymentResponse>(`/api/v1/payments/orders/${order.id}/pay`, {
+    method: "POST",
+    body: {
+      paymentChannel: PaymentChannel.WECHAT,
+      paymentMethod: PaymentMethod.SCAN_CODE,
+    },
+  });
+
+  if (!result) return;
+
+  // 保存支付单号，用于轮询
+  currentTransactionNo.value = result.transactionNo;
+  qrCodeUrl.value = result.codeUrl;
+  paymentPaid.value = false;
+  paymentLoading.value = false;
+
+  // 显示二维码弹框
+  showQRCodeDialog.value = true;
+
+  // 开始轮询支付状态
+  startPollingPaymentStatus();
+};
+
+/**
+ * 开始轮询支付状态
+ */
+const startPollingPaymentStatus = () => {
+  // 清除之前的定时器
+  stopPollingPaymentStatus();
+
+  // 每 2 秒查询一次支付状态
+  pollTimer = setInterval(async () => {
+    if (!currentTransactionNo.value) {
+      stopPollingPaymentStatus();
+      return;
+    }
+
+    const result = await useApiFetch<{ paid: boolean }>(
+      `/api/v1/payments/query?transactionNo=${currentTransactionNo.value}&sync=true`,
+      { showError: false }
+    );
+
+    if (result?.paid) {
+      // 支付成功
+      paymentPaid.value = true;
+      stopPollingPaymentStatus();
+      toast.success("支付成功！");
+
+      // 刷新订单列表
+      await refreshOrders();
+
+      // 2 秒后关闭弹框
+      setTimeout(() => {
+        closeQRCodeDialog();
+      }, 2000);
+    }
+  }, 2000);
+};
+
+/**
+ * 停止轮询支付状态
+ */
+const stopPollingPaymentStatus = () => {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+};
+
+/**
+ * 关闭二维码弹框
+ */
+const closeQRCodeDialog = () => {
+  showQRCodeDialog.value = false;
+  stopPollingPaymentStatus();
+  currentTransactionNo.value = "";
+  qrCodeUrl.value = "";
+  paymentPaid.value = false;
 };
 
 /**
@@ -205,4 +305,11 @@ const handleCancelOrder = async () => {
     cancelLoading.value = false;
   }
 };
+
+// ==================== 生命周期 ====================
+
+// 组件卸载时清理定时器
+onUnmounted(() => {
+  stopPollingPaymentStatus();
+});
 </script>

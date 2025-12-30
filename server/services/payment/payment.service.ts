@@ -69,18 +69,44 @@ export const createPaymentService = async (
             return { success: false, errorMessage: '订单已过期' }
         }
 
+        // 获取支付适配器
+        const adapter = getPaymentAdapter(paymentChannel)
+
+        // 获取订单金额（转换 Prisma Decimal 为数字）
+        const orderAmount = decimalToNumberUtils(order.amount)
+
         // 检查是否有未过期的待支付支付单
         const pendingTransaction = await findPendingTransactionByOrderIdDao(orderId)
         if (pendingTransaction) {
-            // 如果支付渠道和方式相同，返回已有的支付单
+            // 如果支付渠道和方式相同，重新获取支付参数
             if (
                 pendingTransaction.paymentChannel === paymentChannel &&
                 pendingTransaction.paymentMethod === paymentMethod
             ) {
+                // 重新调用支付适配器获取支付参数
+                const paymentResult = await adapter.createPayment({
+                    orderNo: order.orderNo,
+                    amount: Math.round(orderAmount * 100),
+                    description: order.product.name,
+                    method: paymentMethod,
+                    openid,
+                    notifyUrl,
+                    expireMinutes: 30,
+                })
+
+                if (!paymentResult.success) {
+                    return {
+                        success: false,
+                        errorMessage: paymentResult.errorMessage || '获取支付参数失败',
+                    }
+                }
+
                 return {
                     success: true,
                     transactionNo: pendingTransaction.transactionNo,
-                    // 需要重新获取支付参数
+                    paymentParams: paymentResult.paymentParams,
+                    codeUrl: paymentResult.codeUrl,
+                    h5Url: paymentResult.h5Url,
                 }
             }
             // 否则将旧支付单设为过期
@@ -89,14 +115,11 @@ export const createPaymentService = async (
             })
         }
 
-        // 获取支付适配器
-        const adapter = getPaymentAdapter(paymentChannel)
+        // 获取支付适配器（如果还没有获取）
+        // 注意：adapter 和 orderAmount 已在前面定义
 
         // 计算支付单过期时间（30分钟）
         const expiredAt = new Date(Date.now() + 30 * 60 * 1000)
-
-        // 获取订单金额（转换 Prisma Decimal 为数字）
-        const orderAmount = decimalToNumberUtils(order.amount)
 
         // 创建支付单
         const transaction = await createPaymentTransactionDao({
