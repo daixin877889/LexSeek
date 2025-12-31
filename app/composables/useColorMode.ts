@@ -9,7 +9,7 @@ const COLOR_MODE_KEY = "color-mode";
 
 export function useColorMode() {
     // 当前颜色模式（用户选择的）
-    const colorMode = useState<ColorMode>("color-mode", () => "system");
+    const colorMode = useState<ColorMode>("color-mode", () => "light");
 
     // 实际应用的模式（考虑系统偏好）
     const resolvedMode = computed<"light" | "dark">(() => {
