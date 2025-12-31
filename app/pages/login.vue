@@ -83,6 +83,10 @@
   </div>
 </template>
 
+definePageMeta({
+title: "登录",
+});
+
 <script setup>
 import { ScaleIcon, EyeIcon, EyeOffIcon, Loader2 } from "lucide-vue-next";
 

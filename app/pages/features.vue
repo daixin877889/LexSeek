@@ -293,6 +293,7 @@
 <script setup lang="ts">
 definePageMeta({
   layout: "base-layout",
+  title: "产品功能",
 });
 import { FileTextIcon, CalendarIcon, ClipboardListIcon, ShieldIcon, HistoryIcon, CheckIcon, CpuIcon, DatabaseIcon, KeyIcon, BuildingIcon, Building2Icon, UserIcon, LayersIcon, UsersIcon } from "lucide-vue-next";
 import { GavelIcon } from "@/components/icons/GavelIcon";

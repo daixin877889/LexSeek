@@ -312,6 +312,7 @@
 <script setup lang="ts">
 definePageMeta({
   layout: "base-layout",
+  title: "首页",
 });
 import { FileTextIcon, CalendarIcon, ClipboardListIcon, ShieldIcon, HistoryIcon, FilePlusIcon, CpuIcon, CheckCircleIcon, Calculator as CalculatorIcon, Clock as ClockIcon, BadgePercent as BadgePercentIcon, Plus as PlusIcon, Briefcase as BriefcaseIcon, HeartHandshake as HeartHandshakeIcon, Shield } from "lucide-vue-next";
 import { GavelIcon } from "@/components/icons/GavelIcon";

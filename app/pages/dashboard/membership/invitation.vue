@@ -22,8 +22,7 @@
               <div>
                 <Label class="text-sm font-medium">邀请链接</Label>
                 <div class="flex items-center space-x-2 mt-1">
-                  <Input :model-value="inviteLink" readonly class="flex-1"
-                    :placeholder="inviteLink ? '' : '正在获取邀请链接...'" />
+                  <Input :model-value="inviteLink" readonly class="flex-1" :placeholder="inviteLink ? '' : '正在获取邀请链接...'" />
                   <Button variant="outline" size="sm" @click="copyInviteLink" :disabled="!inviteLink">
                     <Copy class="h-4 w-4 mr-1" />
                     复制
@@ -98,8 +97,7 @@
               共邀请了 <span class="font-medium text-foreground">{{ invitees.length }}</span> 位用户
             </div>
             <div class="space-y-2">
-              <div v-for="invitee in invitees" :key="invitee.id"
-                class="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+              <div v-for="invitee in invitees" :key="invitee.id" class="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
                 <div class="flex items-center space-x-3">
                   <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                     <User class="h-4 w-4 text-primary" />
@@ -113,9 +111,7 @@
                   </div>
                 </div>
                 <div class="text-sm">
-                  <span
-                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    已注册 </span>
+                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"> 已注册 </span>
                 </div>
               </div>
             </div>
@@ -154,14 +150,14 @@ let cachedQRCodeCanvas: HTMLCanvasElement | null = null;
 
 // 二维码配置：高清晰度，适合印刷
 const QR_CODE_CONFIG = {
-  displayWidth: 128,  // 显示尺寸
-  exportWidth: 512,   // 导出尺寸（4倍，适合印刷）
+  displayWidth: 128, // 显示尺寸
+  exportWidth: 512, // 导出尺寸（4倍，适合印刷）
   color: {
     dark: "#000000",
     light: "#FFFFFF",
   },
-  margin: 2,          // 边距
-  errorCorrectionLevel: 'H' as const,  // 最高纠错级别
+  margin: 2, // 边距
+  errorCorrectionLevel: "H" as const, // 最高纠错级别
 };
 
 // 邀请记录类型
@@ -178,7 +174,8 @@ const inviteCode = computed(() => userStore.userInfo.inviteCode || "");
 const inviteLink = computed(() => {
   if (!inviteCode.value) return "";
   const baseUrl = import.meta.client ? window.location.origin : "";
-  return `${baseUrl}/register?invitedBy=${inviteCode.value}`;
+  // return `${baseUrl}/register?invitedBy=${inviteCode.value}`;
+  return `${baseUrl}/landing/${inviteCode.value}`;
 });
 
 // 生成二维码
@@ -241,7 +238,7 @@ const generateQRCode = async (forceRegenerate = false) => {
 // 重新生成二维码
 const regenerateQRCode = async () => {
   qrCodeGenerated.value = false;
-  cachedQRCodeCanvas = null;  // 清除缓存
+  cachedQRCodeCanvas = null; // 清除缓存
   if (qrcodeContainer.value) {
     qrcodeContainer.value.innerHTML = '<div class="text-muted-foreground text-sm">生成中...</div>';
   }
@@ -284,10 +281,10 @@ const fetchInvitees = async () => {
   loading.value = true;
   try {
     // 使用 useApiFetch，适用于组件挂载后的事件处理
-    const data = await useApiFetch<{ invitees: Invitee[] }>('/api/v1/users/invitees');
+    const data = await useApiFetch<{ invitees: Invitee[] }>("/api/v1/users/invitees");
     invitees.value = data?.invitees || [];
   } catch (error) {
-    logger.error('获取邀请记录失败:', error);
+    logger.error("获取邀请记录失败:", error);
   } finally {
     loading.value = false;
   }
@@ -327,7 +324,7 @@ watch(qrcodeContainer, (newContainer) => {
 // 监听邀请链接变化（邀请码变化时需要重新生成）
 watch(inviteLink, (newLink, oldLink) => {
   if (newLink !== oldLink && activeTab.value === "invite-link") {
-    cachedQRCodeCanvas = null;  // 清除旧缓存
+    cachedQRCodeCanvas = null; // 清除旧缓存
     nextTick(() => generateQRCode(true));
   }
 });

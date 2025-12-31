@@ -4,7 +4,8 @@
       <SidebarMenuItem>
         <SidebarMenuButton size="lg">
           <NuxtLink to="/" class="flex items-center gap-2">
-            <div class="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+            <div
+              class="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
               <img src="/logo-white.svg" class="size-6" />
             </div>
             <div class="grid flex-1 text-left text-sm leading-tight">

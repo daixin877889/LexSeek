@@ -261,6 +261,7 @@ import {
 // 设置页面不使用默认 layout
 definePageMeta({
   layout: false,
+  title: "邀请注册",
 });
 
 const route = useRoute();

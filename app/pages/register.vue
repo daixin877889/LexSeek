@@ -84,7 +84,7 @@
                     </Button> -->
                   </div>
                   <span v-show="errMsg.verificationCode" class="text-red-500 ml-0.5 text-xs">{{ errMsg.verificationCode
-                  }}</span>
+                    }}</span>
                   <!-- <div class="text-sm text-muted-foreground mt-2">尝试多次无法接收验证码？请点击 <a href="#" class="text-primary font-semibold underline" @click="wxSupportStore.showQrCode('/images/loginWx.jpg')">联系客服</a> 开通账号。</div> -->
                   <div class="text-sm text-muted-foreground mt-2">尝试多次无法接收验证码？请使用 <a
                       class="text-primary font-semibold underline" href="#"
@@ -122,7 +122,7 @@
                     </button>
                   </div>
                   <span v-show="errMsg.confirmPassword" class="text-red-500 ml-0.5 text-xs">{{ errMsg.confirmPassword
-                  }}</span>
+                    }}</span>
                 </div>
 
                 <div class="flex items-center">
@@ -163,6 +163,10 @@
     </div>
   </div>
 </template>
+
+definePageMeta({
+title: "注册",
+});
 
 <script setup>
 import { ScaleIcon, EyeIcon, EyeOffIcon, Loader2 } from "lucide-vue-next";

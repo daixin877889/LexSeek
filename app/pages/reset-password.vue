@@ -44,7 +44,7 @@
                 @input="verificationCodeMsg" class="h-10 w-full px-3 py-2 border rounded-md text-base"
                 placeholder="请输入短信验证码" />
               <span v-show="errMsg.verificationCode" class="text-red-500 ml-0.5 text-xs">{{ errMsg.verificationCode
-                }}</span>
+              }}</span>
             </div>
 
             <div>
@@ -78,7 +78,7 @@
                 </button>
               </div>
               <span v-show="errMsg.confirmPassword" class="text-red-500 ml-0.5 text-xs">{{ errMsg.confirmPassword
-                }}</span>
+              }}</span>
             </div>
 
             <div>
@@ -106,6 +106,10 @@
     </div>
   </div>
 </template>
+
+definePageMeta({
+title: "重置密码",
+});
 
 <script setup>
 import { ScaleIcon, EyeIcon, EyeOffIcon, Loader2 } from "lucide-vue-next";

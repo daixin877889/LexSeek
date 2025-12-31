@@ -775,6 +775,7 @@
 <script setup>
 definePageMeta({
   layout: "base-layout",
+  title: "价格方案",
 });
 import { CheckIcon, XIcon, CoinsIcon, ShieldX, UserRoundCheck } from "lucide-vue-next";
 

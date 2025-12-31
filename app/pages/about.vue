@@ -323,6 +323,7 @@
 <script setup lang="ts">
 definePageMeta({
   layout: "base-layout",
+  title: "关于我们",
 });
 import { UserIcon, QuoteIcon, ZapIcon, ShieldIcon, LockIcon, UsersIcon, SparklesIcon, HeartIcon, CalendarIcon, MailIcon, PhoneIcon, MapPinIcon } from "lucide-vue-next";
 
