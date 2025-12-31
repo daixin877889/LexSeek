@@ -1,0 +1,132 @@
+/// API 权限分组表
+model apiPermissionGroups {
+    /// 分组ID，主键，自增
+    id          Int       @id @default(autoincrement())
+    /// 分组名称
+    name        String    @unique @db.VarChar(100)
+    /// 分组描述
+    description String?   @db.VarChar(200)
+    /// 排序
+    sort        Int       @default(0)
+    /// 状态：1-启用，0-禁用
+    status      Int       @default(1)
+    /// 创建时间
+    createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+    /// 更新时间
+    updatedAt   DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
+    /// 删除时间
+    deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
+
+    /// 关联的 API 权限
+    apiPermissions apiPermissions[]
+
+    @@index([name], map: "idx_api_permission_groups_name")
+    @@index([sort], map: "idx_api_permission_groups_sort")
+    @@index([status], map: "idx_api_permission_groups_status")
+    @@index([createdAt], map: "idx_api_permission_groups_created_at")
+    @@index([deletedAt], map: "idx_api_permission_groups_deleted_at")
+    @@map("api_permission_groups")
+}
+
+/// API 权限表
+model apiPermissions {
+    /// 权限ID，主键，自增
+    id          Int       @id @default(autoincrement())
+    /// API 路径，如 /api/v1/users
+    path        String    @db.VarChar(200)
+    /// 请求方法：GET, POST, PUT, DELETE, PATCH, *
+    method      String    @db.VarChar(10)
+    /// 权限名称
+    name        String    @db.VarChar(100)
+    /// 权限描述
+    description String?   @db.VarChar(200)
+    /// 是否公开（无需登录即可访问）
+    isPublic    Boolean   @default(false) @map("is_public")
+    /// 权限分组ID
+    groupId     Int?      @map("group_id")
+    /// 状态：1-启用，0-禁用
+    status      Int       @default(1)
+    /// 创建时间
+    createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+    /// 更新时间
+    updatedAt   DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
+    /// 删除时间
+    deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
+
+    /// 关联权限分组
+    group              apiPermissionGroups? @relation(fields: [groupId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+    /// 角色 API 权限关联
+    roleApiPermissions roleApiPermissions[]
+
+    @@unique([path, method], name: "idx_api_permission_unique")
+    @@index([path], map: "idx_api_permissions_path")
+    @@index([method], map: "idx_api_permissions_method")
+    @@index([isPublic], map: "idx_api_permissions_is_public")
+    @@index([groupId], map: "idx_api_permissions_group_id")
+    @@index([status], map: "idx_api_permissions_status")
+    @@index([createdAt], map: "idx_api_permissions_created_at")
+    @@index([deletedAt], map: "idx_api_permissions_deleted_at")
+    @@map("api_permissions")
+}
+
+/// 角色 API 权限关联表（多对多中间表）
+model roleApiPermissions {
+    /// 关联ID，主键，自增
+    id           Int       @id @default(autoincrement())
+    /// 角色ID
+    roleId       Int       @map("role_id")
+    /// API 权限ID
+    permissionId Int       @map("permission_id")
+    /// 创建时间
+    createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+    /// 更新时间
+    updatedAt    DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
+    /// 删除时间
+    deletedAt    DateTime? @map("deleted_at") @db.Timestamptz()
+
+    /// 关联角色
+    role       roles          @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+    /// 关联 API 权限
+    permission apiPermissions @relation(fields: [permissionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+    @@unique([roleId, permissionId], name: "idx_role_api_permission_unique")
+    @@index([roleId], map: "idx_role_api_permissions_role_id")
+    @@index([permissionId], map: "idx_role_api_permissions_permission_id")
+    @@index([createdAt], map: "idx_role_api_permissions_created_at")
+    @@index([deletedAt], map: "idx_role_api_permissions_deleted_at")
+    @@map("role_api_permissions")
+}
+
+/// 权限审计日志表
+model permissionAuditLogs {
+    /// 日志ID，主键，自增
+    id         Int       @id @default(autoincrement())
+    /// 操作人ID
+    operatorId Int       @map("operator_id")
+    /// 操作类型：create, update, delete, assign, revoke
+    action     String    @db.VarChar(50)
+    /// 目标类型：role, api_permission, route_permission, user_role, role_permission
+    targetType String    @map("target_type") @db.VarChar(50)
+    /// 目标ID
+    targetId   Int?      @map("target_id")
+    /// 变更前值（JSON）
+    oldValue   Json?     @map("old_value")
+    /// 变更后值（JSON）
+    newValue   Json?     @map("new_value")
+    /// 操作 IP
+    ip         String?   @db.VarChar(50)
+    /// User Agent
+    userAgent  String?   @map("user_agent") @db.VarChar(500)
+    /// 创建时间
+    createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+
+    /// 关联操作人
+    operator users @relation(fields: [operatorId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+    @@index([operatorId], map: "idx_permission_audit_logs_operator_id")
+    @@index([action], map: "idx_permission_audit_logs_action")
+    @@index([targetType], map: "idx_permission_audit_logs_target_type")
+    @@index([targetId], map: "idx_permission_audit_logs_target_id")
+    @@index([createdAt], map: "idx_permission_audit_logs_created_at")
+    @@map("permission_audit_logs")
+}
