@@ -18,6 +18,26 @@ export { Prisma }
 export * as $Enums from './enums.js'
 export * from './enums.js';
 /**
+ * Model apiPermissionGroups
+ * API 权限分组表
+ */
+export type apiPermissionGroups = Prisma.apiPermissionGroupsModel
+/**
+ * Model apiPermissions
+ * API 权限表
+ */
+export type apiPermissions = Prisma.apiPermissionsModel
+/**
+ * Model roleApiPermissions
+ * 角色 API 权限关联表（多对多中间表）
+ */
+export type roleApiPermissions = Prisma.roleApiPermissionsModel
+/**
+ * Model permissionAuditLogs
+ * 权限审计日志表
+ */
+export type permissionAuditLogs = Prisma.permissionAuditLogsModel
+/**
  * Model campaigns
  * 营销活动表
  */

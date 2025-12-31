@@ -1,4 +1,63 @@
 -- CreateTable
+CREATE TABLE "api_permission_groups" (
+    "id" SERIAL NOT NULL,
+    "name" VARCHAR(100) NOT NULL,
+    "description" VARCHAR(200),
+    "sort" INTEGER NOT NULL DEFAULT 0,
+    "status" INTEGER NOT NULL DEFAULT 1,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
+
+    CONSTRAINT "api_permission_groups_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "api_permissions" (
+    "id" SERIAL NOT NULL,
+    "path" VARCHAR(200) NOT NULL,
+    "method" VARCHAR(10) NOT NULL,
+    "name" VARCHAR(100) NOT NULL,
+    "description" VARCHAR(200),
+    "is_public" BOOLEAN NOT NULL DEFAULT false,
+    "group_id" INTEGER,
+    "status" INTEGER NOT NULL DEFAULT 1,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
+
+    CONSTRAINT "api_permissions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "role_api_permissions" (
+    "id" SERIAL NOT NULL,
+    "role_id" INTEGER NOT NULL,
+    "permission_id" INTEGER NOT NULL,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ,
+
+    CONSTRAINT "role_api_permissions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "permission_audit_logs" (
+    "id" SERIAL NOT NULL,
+    "operator_id" INTEGER NOT NULL,
+    "action" VARCHAR(50) NOT NULL,
+    "target_type" VARCHAR(50) NOT NULL,
+    "target_id" INTEGER,
+    "old_value" JSONB,
+    "new_value" JSONB,
+    "ip" VARCHAR(50),
+    "user_agent" VARCHAR(500),
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "permission_audit_logs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "campaigns" (
     "id" SERIAL NOT NULL,
     "name" VARCHAR(100) NOT NULL,
@@ -444,6 +503,78 @@ CREATE TABLE "token_blacklist" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "api_permission_groups_name_key" ON "api_permission_groups"("name");
+
+-- CreateIndex
+CREATE INDEX "idx_api_permission_groups_name" ON "api_permission_groups"("name");
+
+-- CreateIndex
+CREATE INDEX "idx_api_permission_groups_sort" ON "api_permission_groups"("sort");
+
+-- CreateIndex
+CREATE INDEX "idx_api_permission_groups_status" ON "api_permission_groups"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_api_permission_groups_created_at" ON "api_permission_groups"("created_at");
+
+-- CreateIndex
+CREATE INDEX "idx_api_permission_groups_deleted_at" ON "api_permission_groups"("deleted_at");
+
+-- CreateIndex
+CREATE INDEX "idx_api_permissions_path" ON "api_permissions"("path");
+
+-- CreateIndex
+CREATE INDEX "idx_api_permissions_method" ON "api_permissions"("method");
+
+-- CreateIndex
+CREATE INDEX "idx_api_permissions_is_public" ON "api_permissions"("is_public");
+
+-- CreateIndex
+CREATE INDEX "idx_api_permissions_group_id" ON "api_permissions"("group_id");
+
+-- CreateIndex
+CREATE INDEX "idx_api_permissions_status" ON "api_permissions"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_api_permissions_created_at" ON "api_permissions"("created_at");
+
+-- CreateIndex
+CREATE INDEX "idx_api_permissions_deleted_at" ON "api_permissions"("deleted_at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "api_permissions_path_method_key" ON "api_permissions"("path", "method");
+
+-- CreateIndex
+CREATE INDEX "idx_role_api_permissions_role_id" ON "role_api_permissions"("role_id");
+
+-- CreateIndex
+CREATE INDEX "idx_role_api_permissions_permission_id" ON "role_api_permissions"("permission_id");
+
+-- CreateIndex
+CREATE INDEX "idx_role_api_permissions_created_at" ON "role_api_permissions"("created_at");
+
+-- CreateIndex
+CREATE INDEX "idx_role_api_permissions_deleted_at" ON "role_api_permissions"("deleted_at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "role_api_permissions_role_id_permission_id_key" ON "role_api_permissions"("role_id", "permission_id");
+
+-- CreateIndex
+CREATE INDEX "idx_permission_audit_logs_operator_id" ON "permission_audit_logs"("operator_id");
+
+-- CreateIndex
+CREATE INDEX "idx_permission_audit_logs_action" ON "permission_audit_logs"("action");
+
+-- CreateIndex
+CREATE INDEX "idx_permission_audit_logs_target_type" ON "permission_audit_logs"("target_type");
+
+-- CreateIndex
+CREATE INDEX "idx_permission_audit_logs_target_id" ON "permission_audit_logs"("target_id");
+
+-- CreateIndex
+CREATE INDEX "idx_permission_audit_logs_created_at" ON "permission_audit_logs"("created_at");
+
+-- CreateIndex
 CREATE INDEX "idx_campaigns_type" ON "campaigns"("type");
 
 -- CreateIndex
@@ -874,6 +1005,18 @@ CREATE INDEX "idx_token_blacklist_updated_at" ON "token_blacklist"("updated_at")
 
 -- CreateIndex
 CREATE INDEX "idx_token_blacklist_deleted_at" ON "token_blacklist"("deleted_at");
+
+-- AddForeignKey
+ALTER TABLE "api_permissions" ADD CONSTRAINT "api_permissions_group_id_fkey" FOREIGN KEY ("group_id") REFERENCES "api_permission_groups"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "role_api_permissions" ADD CONSTRAINT "role_api_permissions_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "roles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "role_api_permissions" ADD CONSTRAINT "role_api_permissions_permission_id_fkey" FOREIGN KEY ("permission_id") REFERENCES "api_permissions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "permission_audit_logs" ADD CONSTRAINT "permission_audit_logs_operator_id_fkey" FOREIGN KEY ("operator_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "campaigns" ADD CONSTRAINT "campaigns_level_id_fkey" FOREIGN KEY ("level_id") REFERENCES "membership_levels"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;

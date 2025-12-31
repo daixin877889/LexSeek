@@ -29,8 +29,8 @@ export * from "./enums.js"
  * @example
  * ```
  * const prisma = new PrismaClient()
- * // Fetch zero or more Campaigns
- * const campaigns = await prisma.campaigns.findMany()
+ * // Fetch zero or more ApiPermissionGroups
+ * const apiPermissionGroups = await prisma.apiPermissionGroups.findMany()
  * ```
  * 
  * Read more in our [docs](https://pris.ly/d/client).
@@ -39,6 +39,26 @@ export const PrismaClient = $Class.getPrismaClientClass()
 export type PrismaClient<LogOpts extends Prisma.LogLevel = never, OmitOpts extends Prisma.PrismaClientOptions["omit"] = Prisma.PrismaClientOptions["omit"], ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = $Class.PrismaClient<LogOpts, OmitOpts, ExtArgs>
 export { Prisma }
 
+/**
+ * Model apiPermissionGroups
+ * API 权限分组表
+ */
+export type apiPermissionGroups = Prisma.apiPermissionGroupsModel
+/**
+ * Model apiPermissions
+ * API 权限表
+ */
+export type apiPermissions = Prisma.apiPermissionsModel
+/**
+ * Model roleApiPermissions
+ * 角色 API 权限关联表（多对多中间表）
+ */
+export type roleApiPermissions = Prisma.roleApiPermissionsModel
+/**
+ * Model permissionAuditLogs
+ * 权限审计日志表
+ */
+export type permissionAuditLogs = Prisma.permissionAuditLogsModel
 /**
  * Model campaigns
  * 营销活动表

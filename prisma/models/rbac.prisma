@@ -18,9 +18,11 @@ model roles {
     deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
 
     /// 角色路由关联
-    roleRouters roleRouters[]
+    roleRouters        roleRouters[]
     /// 用户角色关联
-    userRoles   userRoles[]
+    userRoles          userRoles[]
+    /// 角色 API 权限关联
+    roleApiPermissions roleApiPermissions[]
 
     @@index([id], map: "idx_roles_id")
     @@index([name], map: "idx_roles_name")

@@ -8,6 +8,10 @@
  *
  * 🟢 You can import this file directly.
  */
+export type * from './models/apiPermissionGroups.js'
+export type * from './models/apiPermissions.js'
+export type * from './models/roleApiPermissions.js'
+export type * from './models/permissionAuditLogs.js'
 export type * from './models/campaigns.js'
 export type * from './models/userEncryptions.js'
 export type * from './models/ossFiles.js'

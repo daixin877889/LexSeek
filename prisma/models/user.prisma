@@ -56,6 +56,9 @@ model users {
     /// 用户会员升级记录（一对多）
     membershipUpgradeRecords membershipUpgradeRecords[]
 
+    /// 权限审计日志（一对多）
+    permissionAuditLogs permissionAuditLogs[]
+
     @@index([id], map: "idx_users_id")
     @@index([status], map: "idx_users_status")
     @@index([deletedAt], map: "idx_users_deleted_at")

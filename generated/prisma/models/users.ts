@@ -327,6 +327,7 @@ export type usersWhereInput = {
   redemptionRecords?: Prisma.RedemptionRecordsListRelationFilter
   orders?: Prisma.OrdersListRelationFilter
   membershipUpgradeRecords?: Prisma.MembershipUpgradeRecordsListRelationFilter
+  permissionAuditLogs?: Prisma.PermissionAuditLogsListRelationFilter
 }
 
 export type usersOrderByWithRelationInput = {
@@ -354,6 +355,7 @@ export type usersOrderByWithRelationInput = {
   redemptionRecords?: Prisma.redemptionRecordsOrderByRelationAggregateInput
   orders?: Prisma.ordersOrderByRelationAggregateInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsOrderByRelationAggregateInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsOrderByRelationAggregateInput
 }
 
 export type usersWhereUniqueInput = Prisma.AtLeast<{
@@ -384,6 +386,7 @@ export type usersWhereUniqueInput = Prisma.AtLeast<{
   redemptionRecords?: Prisma.RedemptionRecordsListRelationFilter
   orders?: Prisma.OrdersListRelationFilter
   membershipUpgradeRecords?: Prisma.MembershipUpgradeRecordsListRelationFilter
+  permissionAuditLogs?: Prisma.PermissionAuditLogsListRelationFilter
 }, "id" | "username" | "email" | "phone" | "inviteCode">
 
 export type usersOrderByWithAggregationInput = {
@@ -458,6 +461,7 @@ export type usersCreateInput = {
   redemptionRecords?: Prisma.redemptionRecordsCreateNestedManyWithoutUserInput
   orders?: Prisma.ordersCreateNestedManyWithoutUserInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
 }
 
 export type usersUncheckedCreateInput = {
@@ -485,6 +489,7 @@ export type usersUncheckedCreateInput = {
   redemptionRecords?: Prisma.redemptionRecordsUncheckedCreateNestedManyWithoutUserInput
   orders?: Prisma.ordersUncheckedCreateNestedManyWithoutUserInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
 }
 
 export type usersUpdateInput = {
@@ -511,6 +516,7 @@ export type usersUpdateInput = {
   redemptionRecords?: Prisma.redemptionRecordsUpdateManyWithoutUserNestedInput
   orders?: Prisma.ordersUpdateManyWithoutUserNestedInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
 }
 
 export type usersUncheckedUpdateInput = {
@@ -538,6 +544,7 @@ export type usersUncheckedUpdateInput = {
   redemptionRecords?: Prisma.redemptionRecordsUncheckedUpdateManyWithoutUserNestedInput
   orders?: Prisma.ordersUncheckedUpdateManyWithoutUserNestedInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
 }
 
 export type usersCreateManyInput = {
@@ -676,6 +683,20 @@ export type usersSumOrderByAggregateInput = {
   invitedBy?: Prisma.SortOrder
 }
 
+export type usersCreateNestedOneWithoutPermissionAuditLogsInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutPermissionAuditLogsInput, Prisma.usersUncheckedCreateWithoutPermissionAuditLogsInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutPermissionAuditLogsInput
+  connect?: Prisma.usersWhereUniqueInput
+}
+
+export type usersUpdateOneRequiredWithoutPermissionAuditLogsNestedInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutPermissionAuditLogsInput, Prisma.usersUncheckedCreateWithoutPermissionAuditLogsInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutPermissionAuditLogsInput
+  upsert?: Prisma.usersUpsertWithoutPermissionAuditLogsInput
+  connect?: Prisma.usersWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.usersUpdateToOneWithWhereWithoutPermissionAuditLogsInput, Prisma.usersUpdateWithoutPermissionAuditLogsInput>, Prisma.usersUncheckedUpdateWithoutPermissionAuditLogsInput>
+}
+
 export type usersCreateNestedOneWithoutUserMembershipsInput = {
   create?: Prisma.XOR<Prisma.usersCreateWithoutUserMembershipsInput, Prisma.usersUncheckedCreateWithoutUserMembershipsInput>
   connectOrCreate?: Prisma.usersCreateOrConnectWithoutUserMembershipsInput
@@ -774,6 +795,128 @@ export type usersUpdateOneRequiredWithoutRedemptionRecordsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.usersUpdateToOneWithWhereWithoutRedemptionRecordsInput, Prisma.usersUpdateWithoutRedemptionRecordsInput>, Prisma.usersUncheckedUpdateWithoutRedemptionRecordsInput>
 }
 
+export type usersCreateWithoutPermissionAuditLogsInput = {
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
+}
+
+export type usersUncheckedCreateWithoutPermissionAuditLogsInput = {
+  id?: number
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesUncheckedCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsUncheckedCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsUncheckedCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersUncheckedCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type usersCreateOrConnectWithoutPermissionAuditLogsInput = {
+  where: Prisma.usersWhereUniqueInput
+  create: Prisma.XOR<Prisma.usersCreateWithoutPermissionAuditLogsInput, Prisma.usersUncheckedCreateWithoutPermissionAuditLogsInput>
+}
+
+export type usersUpsertWithoutPermissionAuditLogsInput = {
+  update: Prisma.XOR<Prisma.usersUpdateWithoutPermissionAuditLogsInput, Prisma.usersUncheckedUpdateWithoutPermissionAuditLogsInput>
+  create: Prisma.XOR<Prisma.usersCreateWithoutPermissionAuditLogsInput, Prisma.usersUncheckedCreateWithoutPermissionAuditLogsInput>
+  where?: Prisma.usersWhereInput
+}
+
+export type usersUpdateToOneWithWhereWithoutPermissionAuditLogsInput = {
+  where?: Prisma.usersWhereInput
+  data: Prisma.XOR<Prisma.usersUpdateWithoutPermissionAuditLogsInput, Prisma.usersUncheckedUpdateWithoutPermissionAuditLogsInput>
+}
+
+export type usersUpdateWithoutPermissionAuditLogsInput = {
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
+}
+
+export type usersUncheckedUpdateWithoutPermissionAuditLogsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUncheckedUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUncheckedUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUncheckedUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
+}
+
 export type usersCreateWithoutUserMembershipsInput = {
   name: string
   username?: string | null
@@ -797,6 +940,7 @@ export type usersCreateWithoutUserMembershipsInput = {
   redemptionRecords?: Prisma.redemptionRecordsCreateNestedManyWithoutUserInput
   orders?: Prisma.ordersCreateNestedManyWithoutUserInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
 }
 
 export type usersUncheckedCreateWithoutUserMembershipsInput = {
@@ -823,6 +967,7 @@ export type usersUncheckedCreateWithoutUserMembershipsInput = {
   redemptionRecords?: Prisma.redemptionRecordsUncheckedCreateNestedManyWithoutUserInput
   orders?: Prisma.ordersUncheckedCreateNestedManyWithoutUserInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
 }
 
 export type usersCreateOrConnectWithoutUserMembershipsInput = {
@@ -864,6 +1009,7 @@ export type usersUpdateWithoutUserMembershipsInput = {
   redemptionRecords?: Prisma.redemptionRecordsUpdateManyWithoutUserNestedInput
   orders?: Prisma.ordersUpdateManyWithoutUserNestedInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
 }
 
 export type usersUncheckedUpdateWithoutUserMembershipsInput = {
@@ -890,6 +1036,7 @@ export type usersUncheckedUpdateWithoutUserMembershipsInput = {
   redemptionRecords?: Prisma.redemptionRecordsUncheckedUpdateManyWithoutUserNestedInput
   orders?: Prisma.ordersUncheckedUpdateManyWithoutUserNestedInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
 }
 
 export type usersCreateWithoutOrdersInput = {
@@ -915,6 +1062,7 @@ export type usersCreateWithoutOrdersInput = {
   userMemberships?: Prisma.userMembershipsCreateNestedManyWithoutUserInput
   redemptionRecords?: Prisma.redemptionRecordsCreateNestedManyWithoutUserInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
 }
 
 export type usersUncheckedCreateWithoutOrdersInput = {
@@ -941,6 +1089,7 @@ export type usersUncheckedCreateWithoutOrdersInput = {
   userMemberships?: Prisma.userMembershipsUncheckedCreateNestedManyWithoutUserInput
   redemptionRecords?: Prisma.redemptionRecordsUncheckedCreateNestedManyWithoutUserInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
 }
 
 export type usersCreateOrConnectWithoutOrdersInput = {
@@ -982,6 +1131,7 @@ export type usersUpdateWithoutOrdersInput = {
   userMemberships?: Prisma.userMembershipsUpdateManyWithoutUserNestedInput
   redemptionRecords?: Prisma.redemptionRecordsUpdateManyWithoutUserNestedInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
 }
 
 export type usersUncheckedUpdateWithoutOrdersInput = {
@@ -1008,6 +1158,7 @@ export type usersUncheckedUpdateWithoutOrdersInput = {
   userMemberships?: Prisma.userMembershipsUncheckedUpdateManyWithoutUserNestedInput
   redemptionRecords?: Prisma.redemptionRecordsUncheckedUpdateManyWithoutUserNestedInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
 }
 
 export type usersCreateWithoutMembershipUpgradeRecordsInput = {
@@ -1033,6 +1184,7 @@ export type usersCreateWithoutMembershipUpgradeRecordsInput = {
   userMemberships?: Prisma.userMembershipsCreateNestedManyWithoutUserInput
   redemptionRecords?: Prisma.redemptionRecordsCreateNestedManyWithoutUserInput
   orders?: Prisma.ordersCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
 }
 
 export type usersUncheckedCreateWithoutMembershipUpgradeRecordsInput = {
@@ -1059,6 +1211,7 @@ export type usersUncheckedCreateWithoutMembershipUpgradeRecordsInput = {
   userMemberships?: Prisma.userMembershipsUncheckedCreateNestedManyWithoutUserInput
   redemptionRecords?: Prisma.redemptionRecordsUncheckedCreateNestedManyWithoutUserInput
   orders?: Prisma.ordersUncheckedCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
 }
 
 export type usersCreateOrConnectWithoutMembershipUpgradeRecordsInput = {
@@ -1100,6 +1253,7 @@ export type usersUpdateWithoutMembershipUpgradeRecordsInput = {
   userMemberships?: Prisma.userMembershipsUpdateManyWithoutUserNestedInput
   redemptionRecords?: Prisma.redemptionRecordsUpdateManyWithoutUserNestedInput
   orders?: Prisma.ordersUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
 }
 
 export type usersUncheckedUpdateWithoutMembershipUpgradeRecordsInput = {
@@ -1126,6 +1280,7 @@ export type usersUncheckedUpdateWithoutMembershipUpgradeRecordsInput = {
   userMemberships?: Prisma.userMembershipsUncheckedUpdateManyWithoutUserNestedInput
   redemptionRecords?: Prisma.redemptionRecordsUncheckedUpdateManyWithoutUserNestedInput
   orders?: Prisma.ordersUncheckedUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
 }
 
 export type usersCreateWithoutPointRecordsInput = {
@@ -1151,6 +1306,7 @@ export type usersCreateWithoutPointRecordsInput = {
   redemptionRecords?: Prisma.redemptionRecordsCreateNestedManyWithoutUserInput
   orders?: Prisma.ordersCreateNestedManyWithoutUserInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
 }
 
 export type usersUncheckedCreateWithoutPointRecordsInput = {
@@ -1177,6 +1333,7 @@ export type usersUncheckedCreateWithoutPointRecordsInput = {
   redemptionRecords?: Prisma.redemptionRecordsUncheckedCreateNestedManyWithoutUserInput
   orders?: Prisma.ordersUncheckedCreateNestedManyWithoutUserInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
 }
 
 export type usersCreateOrConnectWithoutPointRecordsInput = {
@@ -1218,6 +1375,7 @@ export type usersUpdateWithoutPointRecordsInput = {
   redemptionRecords?: Prisma.redemptionRecordsUpdateManyWithoutUserNestedInput
   orders?: Prisma.ordersUpdateManyWithoutUserNestedInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
 }
 
 export type usersUncheckedUpdateWithoutPointRecordsInput = {
@@ -1244,6 +1402,7 @@ export type usersUncheckedUpdateWithoutPointRecordsInput = {
   redemptionRecords?: Prisma.redemptionRecordsUncheckedUpdateManyWithoutUserNestedInput
   orders?: Prisma.ordersUncheckedUpdateManyWithoutUserNestedInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
 }
 
 export type usersCreateWithoutPointConsumptionRecordsInput = {
@@ -1269,6 +1428,7 @@ export type usersCreateWithoutPointConsumptionRecordsInput = {
   redemptionRecords?: Prisma.redemptionRecordsCreateNestedManyWithoutUserInput
   orders?: Prisma.ordersCreateNestedManyWithoutUserInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
 }
 
 export type usersUncheckedCreateWithoutPointConsumptionRecordsInput = {
@@ -1295,6 +1455,7 @@ export type usersUncheckedCreateWithoutPointConsumptionRecordsInput = {
   redemptionRecords?: Prisma.redemptionRecordsUncheckedCreateNestedManyWithoutUserInput
   orders?: Prisma.ordersUncheckedCreateNestedManyWithoutUserInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
 }
 
 export type usersCreateOrConnectWithoutPointConsumptionRecordsInput = {
@@ -1336,6 +1497,7 @@ export type usersUpdateWithoutPointConsumptionRecordsInput = {
   redemptionRecords?: Prisma.redemptionRecordsUpdateManyWithoutUserNestedInput
   orders?: Prisma.ordersUpdateManyWithoutUserNestedInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
 }
 
 export type usersUncheckedUpdateWithoutPointConsumptionRecordsInput = {
@@ -1362,6 +1524,7 @@ export type usersUncheckedUpdateWithoutPointConsumptionRecordsInput = {
   redemptionRecords?: Prisma.redemptionRecordsUncheckedUpdateManyWithoutUserNestedInput
   orders?: Prisma.ordersUncheckedUpdateManyWithoutUserNestedInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
 }
 
 export type usersCreateWithoutUserRolesInput = {
@@ -1387,6 +1550,7 @@ export type usersCreateWithoutUserRolesInput = {
   redemptionRecords?: Prisma.redemptionRecordsCreateNestedManyWithoutUserInput
   orders?: Prisma.ordersCreateNestedManyWithoutUserInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
 }
 
 export type usersUncheckedCreateWithoutUserRolesInput = {
@@ -1413,6 +1577,7 @@ export type usersUncheckedCreateWithoutUserRolesInput = {
   redemptionRecords?: Prisma.redemptionRecordsUncheckedCreateNestedManyWithoutUserInput
   orders?: Prisma.ordersUncheckedCreateNestedManyWithoutUserInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
 }
 
 export type usersCreateOrConnectWithoutUserRolesInput = {
@@ -1454,6 +1619,7 @@ export type usersUpdateWithoutUserRolesInput = {
   redemptionRecords?: Prisma.redemptionRecordsUpdateManyWithoutUserNestedInput
   orders?: Prisma.ordersUpdateManyWithoutUserNestedInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
 }
 
 export type usersUncheckedUpdateWithoutUserRolesInput = {
@@ -1480,6 +1646,7 @@ export type usersUncheckedUpdateWithoutUserRolesInput = {
   redemptionRecords?: Prisma.redemptionRecordsUncheckedUpdateManyWithoutUserNestedInput
   orders?: Prisma.ordersUncheckedUpdateManyWithoutUserNestedInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
 }
 
 export type usersCreateWithoutRedemptionRecordsInput = {
@@ -1505,6 +1672,7 @@ export type usersCreateWithoutRedemptionRecordsInput = {
   userMemberships?: Prisma.userMembershipsCreateNestedManyWithoutUserInput
   orders?: Prisma.ordersCreateNestedManyWithoutUserInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
 }
 
 export type usersUncheckedCreateWithoutRedemptionRecordsInput = {
@@ -1531,6 +1699,7 @@ export type usersUncheckedCreateWithoutRedemptionRecordsInput = {
   userMemberships?: Prisma.userMembershipsUncheckedCreateNestedManyWithoutUserInput
   orders?: Prisma.ordersUncheckedCreateNestedManyWithoutUserInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
 }
 
 export type usersCreateOrConnectWithoutRedemptionRecordsInput = {
@@ -1572,6 +1741,7 @@ export type usersUpdateWithoutRedemptionRecordsInput = {
   userMemberships?: Prisma.userMembershipsUpdateManyWithoutUserNestedInput
   orders?: Prisma.ordersUpdateManyWithoutUserNestedInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
 }
 
 export type usersUncheckedUpdateWithoutRedemptionRecordsInput = {
@@ -1598,6 +1768,7 @@ export type usersUncheckedUpdateWithoutRedemptionRecordsInput = {
   userMemberships?: Prisma.userMembershipsUncheckedUpdateManyWithoutUserNestedInput
   orders?: Prisma.ordersUncheckedUpdateManyWithoutUserNestedInput
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
 }
 
 
@@ -1613,6 +1784,7 @@ export type UsersCountOutputType = {
   redemptionRecords: number
   orders: number
   membershipUpgradeRecords: number
+  permissionAuditLogs: number
 }
 
 export type UsersCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1623,6 +1795,7 @@ export type UsersCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.
   redemptionRecords?: boolean | UsersCountOutputTypeCountRedemptionRecordsArgs
   orders?: boolean | UsersCountOutputTypeCountOrdersArgs
   membershipUpgradeRecords?: boolean | UsersCountOutputTypeCountMembershipUpgradeRecordsArgs
+  permissionAuditLogs?: boolean | UsersCountOutputTypeCountPermissionAuditLogsArgs
 }
 
 /**
@@ -1684,6 +1857,13 @@ export type UsersCountOutputTypeCountMembershipUpgradeRecordsArgs<ExtArgs extend
   where?: Prisma.membershipUpgradeRecordsWhereInput
 }
 
+/**
+ * UsersCountOutputType without action
+ */
+export type UsersCountOutputTypeCountPermissionAuditLogsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.permissionAuditLogsWhereInput
+}
+
 
 export type usersSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1710,6 +1890,7 @@ export type usersSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   redemptionRecords?: boolean | Prisma.users$redemptionRecordsArgs<ExtArgs>
   orders?: boolean | Prisma.users$ordersArgs<ExtArgs>
   membershipUpgradeRecords?: boolean | Prisma.users$membershipUpgradeRecordsArgs<ExtArgs>
+  permissionAuditLogs?: boolean | Prisma.users$permissionAuditLogsArgs<ExtArgs>
   _count?: boolean | Prisma.UsersCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["users"]>
 
@@ -1782,6 +1963,7 @@ export type usersInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   redemptionRecords?: boolean | Prisma.users$redemptionRecordsArgs<ExtArgs>
   orders?: boolean | Prisma.users$ordersArgs<ExtArgs>
   membershipUpgradeRecords?: boolean | Prisma.users$membershipUpgradeRecordsArgs<ExtArgs>
+  permissionAuditLogs?: boolean | Prisma.users$permissionAuditLogsArgs<ExtArgs>
   _count?: boolean | Prisma.UsersCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type usersIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -1818,6 +2000,10 @@ export type $usersPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
      * 用户会员升级记录（一对多）
      */
     membershipUpgradeRecords: Prisma.$membershipUpgradeRecordsPayload<ExtArgs>[]
+    /**
+     * 权限审计日志（一对多）
+     */
+    permissionAuditLogs: Prisma.$permissionAuditLogsPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     /**
@@ -2289,6 +2475,7 @@ export interface Prisma__usersClient<T, Null = never, ExtArgs extends runtime.Ty
   redemptionRecords<T extends Prisma.users$redemptionRecordsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$redemptionRecordsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$redemptionRecordsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   orders<T extends Prisma.users$ordersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$ordersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ordersPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   membershipUpgradeRecords<T extends Prisma.users$membershipUpgradeRecordsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$membershipUpgradeRecordsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$membershipUpgradeRecordsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  permissionAuditLogs<T extends Prisma.users$permissionAuditLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$permissionAuditLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$permissionAuditLogsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2888,6 +3075,30 @@ export type users$membershipUpgradeRecordsArgs<ExtArgs extends runtime.Types.Ext
   take?: number
   skip?: number
   distinct?: Prisma.MembershipUpgradeRecordsScalarFieldEnum | Prisma.MembershipUpgradeRecordsScalarFieldEnum[]
+}
+
+/**
+ * users.permissionAuditLogs
+ */
+export type users$permissionAuditLogsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the permissionAuditLogs
+   */
+  select?: Prisma.permissionAuditLogsSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the permissionAuditLogs
+   */
+  omit?: Prisma.permissionAuditLogsOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.permissionAuditLogsInclude<ExtArgs> | null
+  where?: Prisma.permissionAuditLogsWhereInput
+  orderBy?: Prisma.permissionAuditLogsOrderByWithRelationInput | Prisma.permissionAuditLogsOrderByWithRelationInput[]
+  cursor?: Prisma.permissionAuditLogsWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PermissionAuditLogsScalarFieldEnum | Prisma.PermissionAuditLogsScalarFieldEnum[]
 }
 
 /**

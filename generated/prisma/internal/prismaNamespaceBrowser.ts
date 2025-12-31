@@ -51,6 +51,10 @@ export const AnyNull = runtime.AnyNull
 
 
 export const ModelName = {
+  apiPermissionGroups: 'apiPermissionGroups',
+  apiPermissions: 'apiPermissions',
+  roleApiPermissions: 'roleApiPermissions',
+  permissionAuditLogs: 'permissionAuditLogs',
   campaigns: 'campaigns',
   userEncryptions: 'userEncryptions',
   ossFiles: 'ossFiles',
@@ -93,6 +97,65 @@ export const TransactionIsolationLevel = {
 } as const
 
 export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
+
+
+export const ApiPermissionGroupsScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  description: 'description',
+  sort: 'sort',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type ApiPermissionGroupsScalarFieldEnum = (typeof ApiPermissionGroupsScalarFieldEnum)[keyof typeof ApiPermissionGroupsScalarFieldEnum]
+
+
+export const ApiPermissionsScalarFieldEnum = {
+  id: 'id',
+  path: 'path',
+  method: 'method',
+  name: 'name',
+  description: 'description',
+  isPublic: 'isPublic',
+  groupId: 'groupId',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type ApiPermissionsScalarFieldEnum = (typeof ApiPermissionsScalarFieldEnum)[keyof typeof ApiPermissionsScalarFieldEnum]
+
+
+export const RoleApiPermissionsScalarFieldEnum = {
+  id: 'id',
+  roleId: 'roleId',
+  permissionId: 'permissionId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type RoleApiPermissionsScalarFieldEnum = (typeof RoleApiPermissionsScalarFieldEnum)[keyof typeof RoleApiPermissionsScalarFieldEnum]
+
+
+export const PermissionAuditLogsScalarFieldEnum = {
+  id: 'id',
+  operatorId: 'operatorId',
+  action: 'action',
+  targetType: 'targetType',
+  targetId: 'targetId',
+  oldValue: 'oldValue',
+  newValue: 'newValue',
+  ip: 'ip',
+  userAgent: 'userAgent',
+  createdAt: 'createdAt'
+} as const
+
+export type PermissionAuditLogsScalarFieldEnum = (typeof PermissionAuditLogsScalarFieldEnum)[keyof typeof PermissionAuditLogsScalarFieldEnum]
 
 
 export const CampaignsScalarFieldEnum = {
