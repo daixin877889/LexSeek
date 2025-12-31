@@ -104,6 +104,36 @@ export interface BatchDownloadSignatureResult {
 }
 
 /**
+ * 从 runtimeConfig 获取 OSS 保底配置
+ * @param bucket bucket 名称
+ * @returns OssConfig 或 null
+ */
+function getFallbackOssConfig(bucket: string): OssConfig | null {
+    try {
+        const runtimeConfig = useRuntimeConfig();
+        const storageConfig = runtimeConfig.storage?.aliyunOss;
+
+        // 检查 runtimeConfig 中是否有配置，且 bucket 匹配
+        if (storageConfig?.accessKeyId && storageConfig?.accessKeySecret) {
+            // 如果配置的 bucket 与请求的 bucket 匹配，或者没有配置 bucket（使用默认）
+            if (!storageConfig.bucket || storageConfig.bucket === bucket) {
+                return {
+                    accessKeyId: storageConfig.accessKeyId,
+                    accessKeySecret: storageConfig.accessKeySecret,
+                    bucket: storageConfig.bucket || bucket,
+                    region: storageConfig.region || '',
+                    customDomain: storageConfig.customDomain || '',
+                };
+            }
+        }
+        return null;
+    } catch (err) {
+        logger.warn('获取 runtimeConfig OSS 配置失败:', err);
+        return null;
+    }
+}
+
+/**
  * 批量生成 OSS 下载预签名
  * @param ossFiles 文件列表
  * @param expires URL 过期时间（秒），默认 3600
@@ -142,22 +172,31 @@ export async function generateOssDownloadSignaturesService(query: {
         for (let i = 0; i < bucketNames.length; i++) {
             const bucket = bucketNames[i];
             const ossConfig = configs[i];
-            if (!ossConfig) {
-                logger.warn(`OSS 配置不存在: ${bucket}`);
-                continue;
+
+            if (ossConfig) {
+                // 数据库中有配置，使用数据库配置
+                const ossConfigValue = ossConfig.value as unknown as OSSConfig;
+                // 下载签名不使用 STS，直接使用 AK/SK
+                // 因为 STS 临时凭证生成的签名 URL 需要额外的权限配置
+                const config: OssConfig = {
+                    accessKeyId: ossConfigValue.accessKeyId,
+                    accessKeySecret: ossConfigValue.accessKeySecret,
+                    bucket,
+                    region: ossConfigValue.region,
+                    customDomain: ossConfigValue.domain,
+                    // 不使用 STS
+                };
+                bucketConfigMap.set(bucket, config);
+            } else {
+                // 数据库中没有配置，尝试使用 runtimeConfig 保底配置
+                const fallbackConfig = getFallbackOssConfig(bucket);
+                if (fallbackConfig) {
+                    logger.info(`使用 runtimeConfig 保底配置: ${bucket}`);
+                    bucketConfigMap.set(bucket, fallbackConfig);
+                } else {
+                    logger.warn(`OSS 配置不存在且无保底配置: ${bucket}`);
+                }
             }
-            const ossConfigValue = ossConfig.value as unknown as OSSConfig;
-            // 下载签名不使用 STS，直接使用 AK/SK
-            // 因为 STS 临时凭证生成的签名 URL 需要额外的权限配置
-            const config: OssConfig = {
-                accessKeyId: ossConfigValue.accessKeyId,
-                accessKeySecret: ossConfigValue.accessKeySecret,
-                bucket,
-                region: ossConfigValue.region,
-                customDomain: ossConfigValue.domain,
-                // 不使用 STS
-            };
-            bucketConfigMap.set(bucket, config);
         }
 
         // 并行生成所有文件的下载签名

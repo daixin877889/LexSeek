@@ -62,13 +62,19 @@ export function useApi<T = any>(
                     toast.error(data.message || '请求失败')
                 }
 
-                // 标记响应为错误，让 useFetch 的 error 能够捕获
-                ctx.response.ok = false
-                ctx.response.status = data.code || 400
+                // 标记响应为业务错误，通过 _data 传递错误标记
+                // 注意：Response.ok 是只读属性，不能直接修改
                 ctx.response._data = {
                     ...data,
                     _isBusinessError: true,
                 }
+
+                // 抛出错误让 useFetch 的 error 能够捕获
+                throw createError({
+                    statusCode: data.code || 400,
+                    statusMessage: data.message || '请求失败',
+                    data: ctx.response._data,
+                })
             }
 
             // 调用用户自定义的 onResponse
