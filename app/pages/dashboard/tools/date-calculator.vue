@@ -4,14 +4,14 @@
       <h1 class="text-[22px] font-bold truncate">日期推算</h1>
       <div class="relative">
         <Button variant="ghost" size="icon" @click="isHelpOpen = !isHelpOpen" class="rounded-full">
-          <img src="@/assets/icon/help.svg" alt="帮助" class="h-5 w-5" />
+          <HelpIcon class="h-5 w-5" />
           <span class="sr-only">帮助</span>
         </Button>
-        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-white rounded-lg border shadow-lg">
+        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-card rounded-lg border shadow-lg">
           <div class="flex justify-between items-center mb-3">
             <h3 class="font-semibold text-base">日期推算指引</h3>
             <Button variant="ghost" size="icon" @click="isHelpOpen = false" class="h-6 w-6">
-              <img src="@/assets/icon/close.svg" alt="关闭" class="h-5 w-5" />
+              <CloseIcon class="h-5 w-5" />
               <span class="sr-only">关闭</span>
             </Button>
           </div>
@@ -64,7 +64,8 @@
                 <label class="text-sm font-medium leading-none">起始日期</label>
                 <div class="relative mt-1.5">
                   <div class="date-input-wrapper">
-                    <CalendarIcon class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <CalendarIcon
+                      class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                     <Input type="date" v-model="startDate" class="w-full pl-10" />
                   </div>
                 </div>
@@ -97,7 +98,8 @@
                 <label class="text-sm font-medium leading-none">结束日期</label>
                 <div class="relative mt-1.5">
                   <div class="date-input-wrapper">
-                    <CalendarIcon class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <CalendarIcon
+                      class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                     <Input type="date" v-model="endDate" class="w-full pl-10" />
                   </div>
                 </div>
@@ -169,7 +171,9 @@
         <div v-if="!result" class="h-full flex items-center justify-center rounded-lg border border-dashed p-8">
           <div class="text-center">
             <div class="text-muted-foreground mb-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-4 opacity-50">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+                class="mx-auto mb-4 opacity-50">
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
                 <line x1="16" y1="2" x2="16" y2="6"></line>
                 <line x1="8" y1="2" x2="8" y2="6"></line>

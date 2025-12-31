@@ -4,7 +4,13 @@
     <general-auth-sidebar />
 
     <!-- 右侧登录区域 -->
-    <div class="flex-1 flex flex-col justify-center items-center px-4 sm:px-6 lg:flex-none lg:w-1/2">
+    <div class="flex-1 flex flex-col justify-center items-center px-4 sm:px-6 lg:flex-none lg:w-1/2 relative">
+      <!-- 主题切换按钮 -->
+      <div class="absolute top-4 right-4">
+        <ClientOnly>
+          <GeneralThemeToggle />
+        </ClientOnly>
+      </div>
       <div class="mx-auto w-full max-w-sm lg:w-96">
         <div class="text-center mb-8">
           <div class="flex justify-center items-center gap-2 mb-2">
@@ -19,7 +25,9 @@
           <form @submit.prevent="handleLogin" class="space-y-5">
             <div>
               <label for="phone" class="block text-sm font-medium mb-1">手机号</label>
-              <input id="phone" v-model="phone" type="tel" autocomplete="tel" required class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary" placeholder="请输入您的手机号码" />
+              <input id="phone" v-model="phone" type="tel" autocomplete="tel" required
+                class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="请输入您的手机号码" />
             </div>
 
             <div>
@@ -28,8 +36,12 @@
                 <NuxtLink to="/reset-password" class="text-xs text-primary hover:underline"> 忘记密码? </NuxtLink>
               </div>
               <div class="relative">
-                <input id="password" v-model="password" :type="showPassword ? 'text' : 'password'" autocomplete="current-password" required class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary" placeholder="请输入您的密码" />
-                <button type="button" @click="showPassword = !showPassword" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
+                <input id="password" v-model="password" :type="showPassword ? 'text' : 'password'"
+                  autocomplete="current-password" required
+                  class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="请输入您的密码" />
+                <button type="button" @click="showPassword = !showPassword"
+                  class="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
                   <eye-icon v-if="!showPassword" class="h-4 w-4" />
                   <eye-off-icon v-else class="h-4 w-4" />
                 </button>
@@ -39,12 +51,15 @@
             <div class="flex items-center">
               <div class="flex items-center space-x-2">
                 <Checkbox id="remember-me" v-model="rememberMe" />
-                <label for="remember-me" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"> 记住我 </label>
+                <label for="remember-me"
+                  class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  记住我 </label>
               </div>
             </div>
 
             <div>
-              <Button type="submit" :disabled="authStore.loading" class="h-11 w-full text-base flex justify-center items-center py-2.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium">
+              <Button type="submit" :disabled="authStore.loading"
+                class="h-11 w-full text-base flex justify-center items-center py-2.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium">
                 <loader-2 v-if="authStore.loading" class="w-4 h-4 mr-2 animate-spin" />
                 {{ authStore.loading ? "登录中..." : "登录" }}
               </Button>

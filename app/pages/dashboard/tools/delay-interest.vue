@@ -4,14 +4,14 @@
       <h1 class="text-[22px] font-bold truncate">迟延履行利息计算器</h1>
       <div class="relative">
         <Button variant="ghost" size="icon" @click="isHelpOpen = !isHelpOpen" class="rounded-full">
-          <img src="@/assets/icon/help.svg" alt="帮助" class="h-5 w-5" />
+          <HelpIcon class="h-5 w-5" />
           <span class="sr-only">帮助</span>
         </Button>
-        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-white rounded-lg border shadow-lg">
+        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-card rounded-lg border shadow-lg">
           <div class="flex justify-between items-center mb-3">
             <h3 class="font-semibold text-base">功能说明</h3>
             <Button variant="ghost" size="icon" @click="isHelpOpen = false" class="h-6 w-6">
-              <img src="@/assets/icon/close.svg" alt="关闭" class="h-5 w-5" />
+              <CloseIcon class="h-5 w-5" />
               <span class="sr-only">关闭</span>
             </Button>
           </div>
@@ -27,7 +27,8 @@
             </div>
 
             <div class="bg-destructive/10 p-2 rounded text-destructive">
-              <p><strong>注意：</strong>根据《最高人民法院关于审理民间借贷案件适用法律若干问题的规定》，2019年8月20日前后的迟延履行利息计算标准有所不同。系统会自动判断日期并应用相应的计算标准。</p>
+              <p><strong>注意：</strong>根据《最高人民法院关于审理民间借贷案件适用法律若干问题的规定》，2019年8月20日前后的迟延履行利息计算标准有所不同。系统会自动判断日期并应用相应的计算标准。
+              </p>
             </div>
           </div>
         </div>
@@ -46,7 +47,8 @@
               <!-- 本金输入 -->
               <div>
                 <label class="text-sm font-medium leading-none">本金（元）</label>
-                <Input type="number" v-model="principal" placeholder="请输入本金金额" class="mt-1.5" @input="convertToChinese" />
+                <Input type="number" v-model="principal" placeholder="请输入本金金额" class="mt-1.5"
+                  @input="convertToChinese" />
                 <p v-if="chineseAmount" class="text-xs text-muted-foreground mt-1">大写：{{ chineseAmount }}</p>
               </div>
 
@@ -55,22 +57,30 @@
                 <label class="text-sm font-medium leading-none">计息开始日期</label>
                 <div class="relative mt-1.5">
                   <div class="date-input-wrapper">
-                    <CalendarIcon class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <CalendarIcon
+                      class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                     <Input type="date" v-model="startDate" class="w-full pl-10" />
                   </div>
                 </div>
-                <p v-if="startDate && new Date(startDate) < new Date('2014-01-01')" class="text-xs text-yellow-500 mt-1"><AlertTriangleIcon class="h-3 w-3 inline-block mr-1" />您选择的日期较早，请确认是否需要从这个日期开始计算。</p>
+                <p v-if="startDate && new Date(startDate) < new Date('2014-01-01')"
+                  class="text-xs text-yellow-500 mt-1">
+                  <AlertTriangleIcon class="h-3 w-3 inline-block mr-1" />您选择的日期较早，请确认是否需要从这个日期开始计算。
+                </p>
               </div>
 
               <div>
                 <label class="text-sm font-medium leading-none">计息结束日期</label>
                 <div class="relative mt-1.5">
                   <div class="date-input-wrapper">
-                    <CalendarIcon class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <CalendarIcon
+                      class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                     <Input type="date" v-model="endDate" class="w-full pl-10" />
                   </div>
                 </div>
-                <p v-if="endDate && new Date(endDate) > new Date(new Date().setFullYear(new Date().getFullYear() + 3))" class="text-xs text-yellow-500 mt-1"><AlertTriangleIcon class="h-3 w-3 inline-block mr-1" />您选择的结束日期较远，系统将使用最新利率进行估算。</p>
+                <p v-if="endDate && new Date(endDate) > new Date(new Date().setFullYear(new Date().getFullYear() + 3))"
+                  class="text-xs text-yellow-500 mt-1">
+                  <AlertTriangleIcon class="h-3 w-3 inline-block mr-1" />您选择的结束日期较远，系统将使用最新利率进行估算。
+                </p>
               </div>
 
               <!-- 年天数选择 -->
@@ -108,10 +118,10 @@
           </CardHeader>
           <CardContent>
             <!-- 计算说明提示 -->
-            <Alert v-if="result.details && result.details.length > 0 && result.details[2]?.includes('跨越')" class="mb-4 block">
+            <Alert v-if="result.details && result.details.length > 0 && result.details[2]?.includes('跨越')"
+              class="mb-4 block">
               <p class="mb-1">
-                <strong>计算说明：</strong>本次计算从<strong>{{ result.startDate }}</strong
-                >开始，跨越了2019年8月20日的利率政策变更点，系统自动分段计算：
+                <strong>计算说明：</strong>本次计算从<strong>{{ result.startDate }}</strong>开始，跨越了2019年8月20日的利率政策变更点，系统自动分段计算：
               </p>
               <ul class="list-disc list-inside space-y-1 pl-2">
                 <li>
@@ -182,7 +192,8 @@
                       <tbody>
                         <!-- 使用interestDetails字段显示明细，按照相同利率合并 -->
                         <template v-if="result && result.interestDetails && result.interestDetails.length > 0">
-                          <tr v-for="(detail, index) in mergeDetailsByRate(result.interestDetails)" :key="index" class="border-b hover:bg-muted/20">
+                          <tr v-for="(detail, index) in mergeDetailsByRate(result.interestDetails)" :key="index"
+                            class="border-b hover:bg-muted/20">
                             <td class="p-2 border">{{ detail.startDate }} 至 {{ detail.endDate }}</td>
                             <td class="p-2 border">{{ detail.rate.toFixed(2) }}%</td>
                             <td class="p-2 border">{{ detail.adjustedRate.toFixed(2) }}%</td>
@@ -263,8 +274,11 @@
         <div v-if="!result" class="h-full flex items-center justify-center rounded-lg border border-dashed p-8">
           <div class="text-center">
             <div class="text-muted-foreground mb-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-4 opacity-50">
-                <path d="M11.7 2C7.5 2 4 5.5 4 9.7v.2C4 14.5 7.5 18 11.7 18h.2c4.2 0 7.7-3.5 7.7-7.7v-.1C19.6 5.6 16.4 2 11.7 2Z" />
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+                class="mx-auto mb-4 opacity-50">
+                <path
+                  d="M11.7 2C7.5 2 4 5.5 4 9.7v.2C4 14.5 7.5 18 11.7 18h.2c4.2 0 7.7-3.5 7.7-7.7v-.1C19.6 5.6 16.4 2 11.7 2Z" />
                 <path d="M12 18v4" />
                 <path d="M8 22h8" />
               </svg>

@@ -17,6 +17,12 @@ const authStore = useAuthStore();
 const userStore = useUserStore();
 const roleStore = useRoleStore();
 
+// 初始化主题色
+const { initTheme } = useTheme();
+onMounted(() => {
+  initTheme();
+});
+
 // 同步初始化认证状态（从 cookie 读取，SSR 和客户端都安全执行）
 authStore.initAuth();
 

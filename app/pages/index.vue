@@ -11,13 +11,18 @@
             </h1>
             <p class="text-xl text-muted-foreground mb-8">LexSeek 帮助律师精炼案件信息，洞悉复杂案情脉络，提供从概要梳理到策略预判的深度分析，助您高效决策，掌控全局。</p>
             <div class="flex flex-col sm:flex-row gap-4">
-              <NuxtLink to="/dashboard/analysis" class="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors">{{ btnText }}</NuxtLink>
-              <NuxtLink to="/features" class="inline-flex items-center justify-center px-6 py-3 bg-muted text-foreground font-medium rounded-md hover:bg-muted/80 transition-colors">了解更多</NuxtLink>
+              <NuxtLink to="/dashboard/analysis"
+                class="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors">
+                {{ btnText }}</NuxtLink>
+              <NuxtLink to="/features"
+                class="inline-flex items-center justify-center px-6 py-3 bg-muted text-foreground font-medium rounded-md hover:bg-muted/80 transition-colors">
+                了解更多</NuxtLink>
             </div>
           </div>
           <div class="relative">
             <div class="bg-linear-to-r from-primary/20 to-primary/10 rounded-lg">
-              <video class="w-full h-full object-cover rounded-xl shadow-lg" src="https://lexseek.cn/video/vcr.mp4" webkit-playsinline playsinline poster="https://lexseek.cn/video/cover.png" controls></video>
+              <video class="w-full h-full object-cover rounded-xl shadow-lg" src="https://lexseek.cn/video/vcr.mp4"
+                webkit-playsinline playsinline poster="https://lexseek.cn/video/cover.png" controls></video>
             </div>
           </div>
         </div>
@@ -80,7 +85,9 @@
         </div>
 
         <div class="flex justify-center mt-10">
-          <NuxtLink to="/dashboard/analysis" class="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors">{{ btnText }}</NuxtLink>
+          <NuxtLink to="/dashboard/analysis"
+            class="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors">
+            {{ btnText }}</NuxtLink>
         </div>
       </div>
     </section>
@@ -125,12 +132,12 @@
           </div>
 
           <div class="bg-card rounded-lg p-6 shadow-sm flex flex-col items-center text-center">
-            <img src="/images/module_icon/evidence.svg" class="h-10 w-10 text-primary mb-4" />
+            <EvidenceIcon class="h-10 w-10 text-primary mb-4" />
             <h3 class="text-xl font-semibold mb-2">证据清单</h3>
             <p class="text-muted-foreground">分析并整理案件所需证据清单建议，让您胸有成竹。</p>
           </div>
           <div class="bg-card rounded-lg p-6 shadow-sm flex flex-col items-center text-center">
-            <img src="/images/module_icon/trend.svg" class="h-10 w-10 text-primary mb-4" />
+            <TrendIcon class="h-10 w-10 text-primary mb-4" />
             <h3 class="text-xl font-semibold mb-2">法律合理性审查和判决趋势预测</h3>
             <p class="text-muted-foreground">案件法律合理性审查、预测判决趋势，助您及时调整诉讼策略。</p>
           </div>
@@ -143,7 +150,9 @@
         </div>
 
         <div class="flex justify-center mt-10">
-          <NuxtLink to="/dashboard/analysis" class="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors">{{ btnText }}</NuxtLink>
+          <NuxtLink to="/dashboard/analysis"
+            class="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors">
+            {{ btnText }}</NuxtLink>
         </div>
       </div>
     </section>
@@ -158,7 +167,8 @@
 
         <div class="grid md:grid-cols-3 gap-8">
           <div class="text-center">
-            <div class="bg-primary/10 text-primary h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div
+              class="bg-primary/10 text-primary h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
               <file-plus-icon class="h-8 w-8" />
             </div>
             <h3 class="text-xl font-semibold mb-2">1. 输入案情</h3>
@@ -166,7 +176,8 @@
           </div>
 
           <div class="text-center">
-            <div class="bg-primary/10 text-primary h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div
+              class="bg-primary/10 text-primary h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
               <cpu-icon class="h-8 w-8" />
             </div>
             <h3 class="text-xl font-semibold mb-2">2. AI 分析</h3>
@@ -174,7 +185,8 @@
           </div>
 
           <div class="text-center">
-            <div class="bg-primary/10 text-primary h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div
+              class="bg-primary/10 text-primary h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
               <check-circle-icon class="h-8 w-8" />
             </div>
             <h3 class="text-xl font-semibold mb-2">3. 获取结果</h3>
@@ -183,7 +195,9 @@
         </div>
 
         <div class="flex justify-center mt-10">
-          <NuxtLink to="/dashboard/analysis" class="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors">{{ btnText }}</NuxtLink>
+          <NuxtLink to="/dashboard/analysis"
+            class="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors">
+            {{ btnText }}</NuxtLink>
         </div>
       </div>
     </section>
@@ -197,61 +211,78 @@
         </div>
 
         <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-          <NuxtLink to="/dashboard/tools/interest" class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
-            <calculator-icon class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
+          <NuxtLink to="/dashboard/tools/interest"
+            class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
+            <calculator-icon
+              class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
             <h3 class="text-lg font-semibold mb-2">利息计算</h3>
             <p class="text-muted-foreground text-sm">计算各类借款、欠款的利息</p>
           </NuxtLink>
 
-          <NuxtLink to="/dashboard/tools/court-fee" class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
-            <litigation-icon class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
+          <NuxtLink to="/dashboard/tools/court-fee"
+            class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
+            <litigation-icon
+              class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
             <h3 class="text-lg font-semibold mb-2">诉讼费用</h3>
             <p class="text-muted-foreground text-sm">计算诉讼案件的诉讼费用</p>
           </NuxtLink>
 
-          <NuxtLink to="/dashboard/tools/lawyer-fee" class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
-            <money-bag-icon class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
+          <NuxtLink to="/dashboard/tools/lawyer-fee"
+            class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
+            <money-bag-icon
+              class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
             <h3 class="text-lg font-semibold mb-2">律师费计算</h3>
             <p class="text-muted-foreground text-sm">计算律师费用</p>
           </NuxtLink>
 
-          <NuxtLink to="/dashboard/tools/delay-interest" class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
+          <NuxtLink to="/dashboard/tools/delay-interest"
+            class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
             <clock-icon class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
             <h3 class="text-lg font-semibold mb-2">延迟履行利息</h3>
             <p class="text-muted-foreground text-sm">计算延迟履行的利息</p>
           </NuxtLink>
 
-          <NuxtLink to="/dashboard/tools/bank-rate" class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
-            <badge-percent-icon class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
+          <NuxtLink to="/dashboard/tools/bank-rate"
+            class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
+            <badge-percent-icon
+              class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
             <h3 class="text-lg font-semibold mb-2">银行利率查询</h3>
             <p class="text-muted-foreground text-sm">查询银行的最新利率</p>
           </NuxtLink>
 
-          <NuxtLink to="/dashboard/tools/date-calculator" class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
-            <calendar-icon class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
+          <NuxtLink to="/dashboard/tools/date-calculator"
+            class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
+            <calendar-icon
+              class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
             <h3 class="text-lg font-semibold mb-2">日期推算</h3>
             <p class="text-muted-foreground text-sm">计算特定日期间隔或推算日期</p>
           </NuxtLink>
 
-          <NuxtLink to="/dashboard/tools/compensation" class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
+          <NuxtLink to="/dashboard/tools/compensation"
+            class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
             <money-icon class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
             <h3 class="text-lg font-semibold mb-2">赔偿计算器</h3>
             <p class="text-muted-foreground text-sm">计算各类赔偿金额</p>
           </NuxtLink>
 
-          <NuxtLink to="/dashboard/tools/overtime" class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
-            <briefcase-icon class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
+          <NuxtLink to="/dashboard/tools/overtime"
+            class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
+            <briefcase-icon
+              class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
             <h3 class="text-lg font-semibold mb-2">加班计算</h3>
             <p class="text-muted-foreground text-sm">计算加班费用</p>
           </NuxtLink>
 
-          <NuxtLink to="/dashboard/tools/divorce-property" class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
-            <heart-handshake-icon class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
+          <NuxtLink to="/dashboard/tools/divorce-property"
+            class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
+            <heart-handshake-icon
+              class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
             <h3 class="text-lg font-semibold mb-2">离婚财产分割</h3>
             <p class="text-muted-foreground text-sm">离婚财产分割计算</p>
           </NuxtLink>
 
-          <NuxtLink to="/dashboard/tools/social-insurance" class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
+          <NuxtLink to="/dashboard/tools/social-insurance"
+            class="bg-card rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col items-center text-center group">
             <ShieldIcon class="h-12 w-12 text-primary mb-4 group-hover:scale-110 transition-transform duration-300" />
             <h3 class="text-lg font-semibold mb-2">社保追缴</h3>
             <p class="text-muted-foreground text-sm">计算社保追缴金额</p>
@@ -266,8 +297,12 @@
         <h2 class="text-3xl font-bold mb-4">立即开始使用 LexSeek</h2>
         <p class="text-xl mb-8 max-w-2xl mx-auto opacity-90">加入成千上万的法律专业人士，体验法律 AI 辅助案件分析带来的效率提升</p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <NuxtLink to="/dashboard/analysis" class="inline-flex items-center justify-center px-6 py-3 bg-white text-primary font-medium rounded-md hover:bg-white/90 transition-colors">{{ btnText }}</NuxtLink>
-          <NuxtLink to="/features" class="inline-flex items-center justify-center px-6 py-3 bg-primary-foreground/10 text-primary-foreground border border-primary-foreground/20 font-medium rounded-md hover:bg-primary-foreground/20 transition-colors">了解更多</NuxtLink>
+          <NuxtLink to="/dashboard/analysis"
+            class="inline-flex items-center justify-center px-6 py-3 bg-background text-foreground font-medium rounded-md hover:bg-background/90 transition-colors">
+            {{ btnText }}</NuxtLink>
+          <NuxtLink to="/features"
+            class="inline-flex items-center justify-center px-6 py-3 bg-white/15 text-primary-foreground border border-white/30 font-medium rounded-md hover:bg-white/25 transition-colors">
+            了解更多</NuxtLink>
         </div>
       </div>
     </section>
@@ -283,6 +318,8 @@ import { GavelIcon } from "@/components/icons/GavelIcon";
 import LitigationIcon from "@/components/icons/Litigation.vue";
 import MoneyBagIcon from "@/components/icons/MoneyBag.vue";
 import MoneyIcon from "@/components/icons/MoneyIcon.vue";
+import EvidenceIcon from "@/components/icons/EvidenceIcon.vue";
+import TrendIcon from "@/components/icons/TrendIcon.vue";
 
 const authStore = useAuthStore();
 

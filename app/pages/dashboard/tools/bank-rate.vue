@@ -4,14 +4,14 @@
       <h1 class="text-[22px] font-bold truncate">银行利率查询</h1>
       <div class="relative">
         <Button variant="ghost" size="icon" @click="isHelpOpen = !isHelpOpen" class="rounded-full">
-          <img src="@/assets/icon/help.svg" alt="帮助" class="h-5 w-5" />
+          <HelpIcon class="h-5 w-5" />
           <span class="sr-only">帮助</span>
         </Button>
-        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-white rounded-lg border shadow-lg">
+        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-card rounded-lg border shadow-lg">
           <div class="flex justify-between items-center mb-3">
             <h3 class="font-semibold text-base">功能说明</h3>
             <Button variant="ghost" size="icon" @click="isHelpOpen = false" class="h-6 w-6">
-              <img src="@/assets/icon/close.svg" alt="关闭" class="h-5 w-5" />
+              <CloseIcon class="h-5 w-5" />
               <span class="sr-only">关闭</span>
             </Button>
           </div>

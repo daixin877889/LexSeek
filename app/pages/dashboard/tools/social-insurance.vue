@@ -4,14 +4,14 @@
       <h1 class="text-[22px] font-bold truncate">社保追缴计算</h1>
       <div class="relative">
         <Button variant="ghost" size="icon" @click="isHelpOpen = !isHelpOpen" class="rounded-full">
-          <img src="@/assets/icon/help.svg" alt="帮助" class="h-5 w-5" />
+          <HelpIcon class="h-5 w-5" />
           <span class="sr-only">帮助</span>
         </Button>
-        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-white rounded-lg border shadow-lg">
+        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-card rounded-lg border shadow-lg">
           <div class="flex justify-between items-center mb-3">
             <h3 class="font-semibold text-base">社保追缴计算指引</h3>
             <Button variant="ghost" size="icon" @click="isHelpOpen = false" class="h-6 w-6">
-              <img src="@/assets/icon/close.svg" alt="关闭" class="h-5 w-5" />
+              <CloseIcon class="h-5 w-5" />
               <span class="sr-only">关闭</span>
             </Button>
           </div>
@@ -87,18 +87,21 @@
                 <AccordionTrigger>
                   <div class="flex items-center gap-2">
                     <span>养老保险费率</span>
-                    <span class="text-sm text-muted-foreground">(个人: {{ rates.pension.employee }}% 单位: {{ rates.pension.employer }}%)</span>
+                    <span class="text-sm text-muted-foreground">(个人: {{ rates.pension.employee }}% 单位: {{
+                      rates.pension.employer }}%)</span>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
                   <div class="grid grid-cols-2 gap-4">
                     <div>
                       <label class="text-sm font-medium leading-none">个人缴纳比例（%）</label>
-                      <Input type="number" v-model.number="rates.pension.employee" step="0.1" min="0" max="100" class="mt-1.5" />
+                      <Input type="number" v-model.number="rates.pension.employee" step="0.1" min="0" max="100"
+                        class="mt-1.5" />
                     </div>
                     <div>
                       <label class="text-sm font-medium leading-none">单位缴纳比例（%）</label>
-                      <Input type="number" v-model.number="rates.pension.employer" step="0.1" min="0" max="100" class="mt-1.5" />
+                      <Input type="number" v-model.number="rates.pension.employer" step="0.1" min="0" max="100"
+                        class="mt-1.5" />
                     </div>
                   </div>
                 </AccordionContent>
@@ -109,18 +112,21 @@
                 <AccordionTrigger>
                   <div class="flex items-center gap-2">
                     <span>医疗保险费率</span>
-                    <span class="text-sm text-muted-foreground">(个人: {{ rates.medical.employee }}% 单位: {{ rates.medical.employer }}%)</span>
+                    <span class="text-sm text-muted-foreground">(个人: {{ rates.medical.employee }}% 单位: {{
+                      rates.medical.employer }}%)</span>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
                   <div class="grid grid-cols-2 gap-4">
                     <div>
                       <label class="text-sm font-medium leading-none">个人缴纳比例（%）</label>
-                      <Input type="number" v-model.number="rates.medical.employee" step="0.1" min="0" max="100" class="mt-1.5" />
+                      <Input type="number" v-model.number="rates.medical.employee" step="0.1" min="0" max="100"
+                        class="mt-1.5" />
                     </div>
                     <div>
                       <label class="text-sm font-medium leading-none">单位缴纳比例（%）</label>
-                      <Input type="number" v-model.number="rates.medical.employer" step="0.1" min="0" max="100" class="mt-1.5" />
+                      <Input type="number" v-model.number="rates.medical.employer" step="0.1" min="0" max="100"
+                        class="mt-1.5" />
                     </div>
                   </div>
                 </AccordionContent>
@@ -131,18 +137,21 @@
                 <AccordionTrigger>
                   <div class="flex items-center gap-2">
                     <span>失业保险费率</span>
-                    <span class="text-sm text-muted-foreground">(个人: {{ rates.unemployment.employee }}% 单位: {{ rates.unemployment.employer }}%)</span>
+                    <span class="text-sm text-muted-foreground">(个人: {{ rates.unemployment.employee }}% 单位: {{
+                      rates.unemployment.employer }}%)</span>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
                   <div class="grid grid-cols-2 gap-4">
                     <div>
                       <label class="text-sm font-medium leading-none">个人缴纳比例（%）</label>
-                      <Input type="number" v-model.number="rates.unemployment.employee" step="0.1" min="0" max="100" class="mt-1.5" />
+                      <Input type="number" v-model.number="rates.unemployment.employee" step="0.1" min="0" max="100"
+                        class="mt-1.5" />
                     </div>
                     <div>
                       <label class="text-sm font-medium leading-none">单位缴纳比例（%）</label>
-                      <Input type="number" v-model.number="rates.unemployment.employer" step="0.1" min="0" max="100" class="mt-1.5" />
+                      <Input type="number" v-model.number="rates.unemployment.employer" step="0.1" min="0" max="100"
+                        class="mt-1.5" />
                     </div>
                   </div>
                 </AccordionContent>
@@ -153,18 +162,21 @@
                 <AccordionTrigger>
                   <div class="flex items-center gap-2">
                     <span>工伤保险费率</span>
-                    <span class="text-sm text-muted-foreground">(个人: {{ rates.injury.employee }}% 单位: {{ rates.injury.employer }}%)</span>
+                    <span class="text-sm text-muted-foreground">(个人: {{ rates.injury.employee }}% 单位: {{
+                      rates.injury.employer }}%)</span>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
                   <div class="grid grid-cols-2 gap-4">
                     <div>
                       <label class="text-sm font-medium leading-none">个人缴纳比例（%）</label>
-                      <Input type="number" v-model.number="rates.injury.employee" step="0.1" min="0" max="100" class="mt-1.5" />
+                      <Input type="number" v-model.number="rates.injury.employee" step="0.1" min="0" max="100"
+                        class="mt-1.5" />
                     </div>
                     <div>
                       <label class="text-sm font-medium leading-none">单位缴纳比例（%）</label>
-                      <Input type="number" v-model.number="rates.injury.employer" step="0.1" min="0" max="100" class="mt-1.5" />
+                      <Input type="number" v-model.number="rates.injury.employer" step="0.1" min="0" max="100"
+                        class="mt-1.5" />
                     </div>
                   </div>
                 </AccordionContent>
@@ -175,18 +187,21 @@
                 <AccordionTrigger>
                   <div class="flex items-center gap-2">
                     <span>生育保险费率</span>
-                    <span class="text-sm text-muted-foreground">(个人: {{ rates.maternity.employee }}% 单位: {{ rates.maternity.employer }}%)</span>
+                    <span class="text-sm text-muted-foreground">(个人: {{ rates.maternity.employee }}% 单位: {{
+                      rates.maternity.employer }}%)</span>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
                   <div class="grid grid-cols-2 gap-4">
                     <div>
                       <label class="text-sm font-medium leading-none">个人缴纳比例（%）</label>
-                      <Input type="number" v-model.number="rates.maternity.employee" step="0.1" min="0" max="100" class="mt-1.5" />
+                      <Input type="number" v-model.number="rates.maternity.employee" step="0.1" min="0" max="100"
+                        class="mt-1.5" />
                     </div>
                     <div>
                       <label class="text-sm font-medium leading-none">单位缴纳比例（%）</label>
-                      <Input type="number" v-model.number="rates.maternity.employer" step="0.1" min="0" max="100" class="mt-1.5" />
+                      <Input type="number" v-model.number="rates.maternity.employer" step="0.1" min="0" max="100"
+                        class="mt-1.5" />
                     </div>
                   </div>
                 </AccordionContent>
@@ -197,18 +212,21 @@
                 <AccordionTrigger>
                   <div class="flex items-center gap-2">
                     <span>住房公积金费率</span>
-                    <span class="text-sm text-muted-foreground">(个人: {{ rates.housing.employee }}% 单位: {{ rates.housing.employer }}%)</span>
+                    <span class="text-sm text-muted-foreground">(个人: {{ rates.housing.employee }}% 单位: {{
+                      rates.housing.employer }}%)</span>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
                   <div class="grid grid-cols-2 gap-4">
                     <div>
                       <label class="text-sm font-medium leading-none">个人缴纳比例（%）</label>
-                      <Input type="number" v-model.number="rates.housing.employee" step="0.1" min="0" max="100" class="mt-1.5" />
+                      <Input type="number" v-model.number="rates.housing.employee" step="0.1" min="0" max="100"
+                        class="mt-1.5" />
                     </div>
                     <div>
                       <label class="text-sm font-medium leading-none">单位缴纳比例（%）</label>
-                      <Input type="number" v-model.number="rates.housing.employer" step="0.1" min="0" max="100" class="mt-1.5" />
+                      <Input type="number" v-model.number="rates.housing.employer" step="0.1" min="0" max="100"
+                        class="mt-1.5" />
                     </div>
                   </div>
                 </AccordionContent>
@@ -350,24 +368,43 @@
 
                     <!-- 个人缴纳部分 -->
                     <div class="mb-1">个人缴纳部分：</div>
-                    <div class="mb-1" v-if="rates.pension.employee > 0">- 养老保险：{{ monthlySalary }}元 × {{ rates.pension.employee }}% × {{ months }}个月 = {{ result.employeePart.pension.toFixed(2) }}元</div>
-                    <div class="mb-1" v-if="rates.medical.employee > 0">- 医疗保险：{{ monthlySalary }}元 × {{ rates.medical.employee }}% × {{ months }}个月 = {{ result.employeePart.medical.toFixed(2) }}元</div>
-                    <div class="mb-1" v-if="rates.unemployment.employee > 0">- 失业保险：{{ monthlySalary }}元 × {{ rates.unemployment.employee }}% × {{ months }}个月 = {{ result.employeePart.unemployment.toFixed(2) }}元</div>
-                    <div class="mb-1" v-if="rates.injury.employee > 0">- 工伤保险：{{ monthlySalary }}元 × {{ rates.injury.employee }}% × {{ months }}个月 = {{ result.employeePart.injury.toFixed(2) }}元</div>
-                    <div class="mb-1" v-if="rates.maternity.employee > 0">- 生育保险：{{ monthlySalary }}元 × {{ rates.maternity.employee }}% × {{ months }}个月 = {{ result.employeePart.maternity.toFixed(2) }}元</div>
-                    <div class="mb-1" v-if="rates.housing.employee > 0">- 住房公积金：{{ monthlySalary }}元 × {{ rates.housing.employee }}% × {{ months }}个月 = {{ result.employeePart.housing.toFixed(2) }}元</div>
+                    <div class="mb-1" v-if="rates.pension.employee > 0">- 养老保险：{{ monthlySalary }}元 × {{
+                      rates.pension.employee }}% × {{ months }}个月 = {{ result.employeePart.pension.toFixed(2) }}元</div>
+                    <div class="mb-1" v-if="rates.medical.employee > 0">- 医疗保险：{{ monthlySalary }}元 × {{
+                      rates.medical.employee }}% × {{ months }}个月 = {{ result.employeePart.medical.toFixed(2) }}元</div>
+                    <div class="mb-1" v-if="rates.unemployment.employee > 0">- 失业保险：{{ monthlySalary }}元 × {{
+                      rates.unemployment.employee }}% × {{ months }}个月 = {{ result.employeePart.unemployment.toFixed(2)
+                      }}元</div>
+                    <div class="mb-1" v-if="rates.injury.employee > 0">- 工伤保险：{{ monthlySalary }}元 × {{
+                      rates.injury.employee }}% × {{ months }}个月 = {{ result.employeePart.injury.toFixed(2) }}元</div>
+                    <div class="mb-1" v-if="rates.maternity.employee > 0">- 生育保险：{{ monthlySalary }}元 × {{
+                      rates.maternity.employee }}% × {{ months }}个月 = {{ result.employeePart.maternity.toFixed(2) }}元
+                    </div>
+                    <div class="mb-1" v-if="rates.housing.employee > 0">- 住房公积金：{{ monthlySalary }}元 × {{
+                      rates.housing.employee }}% × {{ months }}个月 = {{ result.employeePart.housing.toFixed(2) }}元</div>
                     <div class="mb-1">个人缴纳总额：{{ result.employeePart.total.toFixed(2) }}元</div>
 
                     <!-- 单位缴纳部分（如果包含） -->
                     <template v-if="calculatedWithEmployerPart">
                       <div class="mb-1"></div>
                       <div class="mb-1">单位缴纳部分：</div>
-                      <div class="mb-1" v-if="rates.pension.employer > 0">- 养老保险：{{ monthlySalary }}元 × {{ rates.pension.employer }}% × {{ months }}个月 = {{ result.employerPart.pension.toFixed(2) }}元</div>
-                      <div class="mb-1" v-if="rates.medical.employer > 0">- 医疗保险：{{ monthlySalary }}元 × {{ rates.medical.employer }}% × {{ months }}个月 = {{ result.employerPart.medical.toFixed(2) }}元</div>
-                      <div class="mb-1" v-if="rates.unemployment.employer > 0">- 失业保险：{{ monthlySalary }}元 × {{ rates.unemployment.employer }}% × {{ months }}个月 = {{ result.employerPart.unemployment.toFixed(2) }}元</div>
-                      <div class="mb-1" v-if="rates.injury.employer > 0">- 工伤保险：{{ monthlySalary }}元 × {{ rates.injury.employer }}% × {{ months }}个月 = {{ result.employerPart.injury.toFixed(2) }}元</div>
-                      <div class="mb-1" v-if="rates.maternity.employer > 0">- 生育保险：{{ monthlySalary }}元 × {{ rates.maternity.employer }}% × {{ months }}个月 = {{ result.employerPart.maternity.toFixed(2) }}元</div>
-                      <div class="mb-1" v-if="rates.housing.employer > 0">- 住房公积金：{{ monthlySalary }}元 × {{ rates.housing.employer }}% × {{ months }}个月 = {{ result.employerPart.housing.toFixed(2) }}元</div>
+                      <div class="mb-1" v-if="rates.pension.employer > 0">- 养老保险：{{ monthlySalary }}元 × {{
+                        rates.pension.employer }}% × {{ months }}个月 = {{ result.employerPart.pension.toFixed(2) }}元
+                      </div>
+                      <div class="mb-1" v-if="rates.medical.employer > 0">- 医疗保险：{{ monthlySalary }}元 × {{
+                        rates.medical.employer }}% × {{ months }}个月 = {{ result.employerPart.medical.toFixed(2) }}元
+                      </div>
+                      <div class="mb-1" v-if="rates.unemployment.employer > 0">- 失业保险：{{ monthlySalary }}元 × {{
+                        rates.unemployment.employer }}% × {{ months }}个月 = {{
+                          result.employerPart.unemployment.toFixed(2) }}元</div>
+                      <div class="mb-1" v-if="rates.injury.employer > 0">- 工伤保险：{{ monthlySalary }}元 × {{
+                        rates.injury.employer }}% × {{ months }}个月 = {{ result.employerPart.injury.toFixed(2) }}元</div>
+                      <div class="mb-1" v-if="rates.maternity.employer > 0">- 生育保险：{{ monthlySalary }}元 × {{
+                        rates.maternity.employer }}% × {{ months }}个月 = {{ result.employerPart.maternity.toFixed(2) }}元
+                      </div>
+                      <div class="mb-1" v-if="rates.housing.employer > 0">- 住房公积金：{{ monthlySalary }}元 × {{
+                        rates.housing.employer }}% × {{ months }}个月 = {{ result.employerPart.housing.toFixed(2) }}元
+                      </div>
                       <div class="mb-1">单位缴纳总额：{{ result.employerPart.total.toFixed(2) }}元</div>
                     </template>
 
@@ -384,8 +421,11 @@
         <div v-if="!result" class="h-full flex items-center justify-center rounded-lg border border-dashed p-8">
           <div class="text-center">
             <div class="text-muted-foreground mb-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-4 opacity-50">
-                <path d="M11.7 2C7.5 2 4 5.5 4 9.7v.2C4 14.5 7.5 18 11.7 18h.2c4.2 0 7.7-3.5 7.7-7.7v-.1C19.6 5.6 16.4 2 11.7 2Z" />
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+                class="mx-auto mb-4 opacity-50">
+                <path
+                  d="M11.7 2C7.5 2 4 5.5 4 9.7v.2C4 14.5 7.5 18 11.7 18h.2c4.2 0 7.7-3.5 7.7-7.7v-.1C19.6 5.6 16.4 2 11.7 2Z" />
                 <path d="M12 18v4" />
                 <path d="M8 22h8" />
               </svg>
@@ -520,12 +560,12 @@ function formatCurrency(value) {
   transition: all 0.2s ease;
 }
 
-.custom-checkbox input:checked + .checkbox-indicator {
+.custom-checkbox input:checked+.checkbox-indicator {
   background-color: hsl(var(--primary));
   border-color: hsl(var(--primary));
 }
 
-.custom-checkbox input:checked + .checkbox-indicator::after {
+.custom-checkbox input:checked+.checkbox-indicator::after {
   content: "";
   position: absolute;
   left: 6px;
@@ -537,7 +577,7 @@ function formatCurrency(value) {
   transform: rotate(45deg);
 }
 
-.custom-checkbox input:focus + .checkbox-indicator {
+.custom-checkbox input:focus+.checkbox-indicator {
   box-shadow: 0 0 0 2px hsla(var(--primary), 0.2);
 }
 </style>

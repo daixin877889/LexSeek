@@ -5,8 +5,13 @@
       <div class="max-w-[1280px] mx-auto px-4 py-4 flex items-center justify-between">
         <div class="flex items-center gap-6">
           <NuxtLink to="/" class="flex items-center gap-2">
-            <!-- <scale-icon class="h-8 w-8 text-primary" /> -->
-            <img src="/logo.svg" class="h-6 text-primary" />
+            <!-- Logo 根据主题切换，使用 ClientOnly 避免 SSR 水合不匹配 -->
+            <ClientOnly>
+              <img :src="resolvedMode === 'dark' ? '/logo-white.svg' : '/logo.svg'" class="h-6" />
+              <template #fallback>
+                <img src="/logo.svg" class="h-6" />
+              </template>
+            </ClientOnly>
             <h1 class="text-xl font-bold">LexSeek｜法索 AI</h1>
           </NuxtLink>
 
@@ -34,7 +39,12 @@
         </div>
 
         <!-- 用户操作区域 -->
-        <div class="flex items-center">
+        <div class="flex items-center gap-2">
+          <!-- 主题切换按钮（使用 ClientOnly 避免 SSR 水合不匹配） -->
+          <ClientOnly>
+            <GeneralThemeToggle />
+          </ClientOnly>
+
           <!-- 用户未登录状态 -->
           <div v-if="!authStore.isAuthenticated" class="hidden md:flex items-center gap-3">
             <NuxtLink :to="`/login?redirect=${$route.path}`" class="text-sm hover:text-primary transition-colors">登录
@@ -180,6 +190,9 @@
 
 <script setup>
 import { ScaleIcon, MenuIcon, XIcon, UserIcon } from "lucide-vue-next";
+
+// 颜色模式
+const { resolvedMode } = useColorMode();
 
 // 用户菜单状态
 const userMenuOpen = ref(false);

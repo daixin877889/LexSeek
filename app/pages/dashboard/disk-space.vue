@@ -1,11 +1,11 @@
 <template>
   <div class="h-full flex flex-col p-4">
     <!-- 顶部标题和存储使用情况 -->
-    <div class="bg-white shrink-0 mb-6">
+    <div class="bg-background shrink-0 mb-6">
       <div class="mx-auto">
         <div class="flex items-center justify-between mb-6">
           <div>
-            <h1 class="text-3xl font-bold mb-2">云盘空间</h1>
+            <h1 class="text-3xl font-bold mb-2 text-foreground">云盘空间</h1>
             <p class="text-muted-foreground">管理您上传的文件资源</p>
           </div>
           <!-- 上传文件按钮 -->
@@ -18,24 +18,24 @@
         </div>
 
         <!-- 存储空间显示 -->
-        <div class="rounded-lg p-4 bg-gradient-custom">
+        <div class="rounded-lg p-4 bg-gradient-custom dark:bg-gradient-custom-dark">
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-sm text-gray-600">已使用空间</p>
-              <p class="text-2xl font-bold text-gray-900">{{ storageInfo.formatted || "0 B" }}</p>
+              <p class="text-sm text-muted-foreground">已使用空间</p>
+              <p class="text-2xl font-bold text-foreground">{{ storageInfo.formatted || "0 B" }}</p>
             </div>
             <div class="text-right">
-              <p class="text-sm text-gray-600">总容量</p>
-              <p class="text-lg font-semibold text-gray-700">{{ storageQuota.formatted || "-- GB" }}</p>
+              <p class="text-sm text-muted-foreground">总容量</p>
+              <p class="text-lg font-semibold text-foreground">{{ storageQuota.formatted || "-- GB" }}</p>
             </div>
           </div>
           <!-- 进度条 -->
           <div class="mt-4">
-            <div class="flex justify-between text-sm text-gray-600 mb-2">
+            <div class="flex justify-between text-sm text-muted-foreground mb-2">
               <span>存储使用率</span>
               <span>{{ storageUsagePercentage }}</span>
             </div>
-            <div class="w-full bg-gray-200 rounded-full h-2">
+            <div class="w-full bg-muted rounded-full h-2">
               <div class="bg-primary h-2 rounded-full transition-all duration-300"
                 :style="{ width: storageUsagePercentage }"></div>
             </div>
@@ -53,17 +53,17 @@
           <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div class="flex items-center gap-4">
               <!-- 视图切换（仅 PC 端显示） -->
-              <div class="hidden md:flex bg-gray-100 rounded-lg p-1">
-                <Button variant="ghost" size="sm" :class="{ 'bg-white shadow-sm': viewMode === 'grid' }"
+              <div class="hidden md:flex bg-muted rounded-lg p-1">
+                <Button variant="ghost" size="sm" :class="{ 'bg-background shadow-sm': viewMode === 'grid' }"
                   @click="viewMode = 'grid'">
                   <GridIcon class="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="sm" :class="{ 'bg-white shadow-sm': viewMode === 'list' }"
+                <Button variant="ghost" size="sm" :class="{ 'bg-background shadow-sm': viewMode === 'list' }"
                   @click="viewMode = 'list'">
                   <ListIcon class="h-4 w-4" />
                 </Button>
               </div>
-              <div class="text-sm text-gray-600 hidden sm:block">共 {{ pagination.total }} 个文件</div>
+              <div class="text-sm text-muted-foreground hidden sm:block">共 {{ pagination.total }} 个文件</div>
             </div>
             <!-- 筛选和排序区域 -->
             <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
@@ -105,10 +105,10 @@
           <div class="flex gap-2 sm:gap-4">
             <div class="flex-1 min-w-0">
               <div class="relative" style="padding-left: 1px">
-                <SearchIcon class="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <SearchIcon class="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input v-model="searchForm.fileName" placeholder="搜索文件名..." class="pl-10 pr-8" />
                 <button v-if="searchForm.fileName" type="button"
-                  class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  class="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                   @click="searchForm.fileName = ''">
                   <XIcon class="h-4 w-4" />
                 </button>
@@ -128,13 +128,14 @@
           <div v-if="status === 'pending' && !fileList.length" class="flex items-center justify-center h-64">
             <div class="text-center">
               <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-              <p class="text-gray-600">正在加载文件...</p>
+              <p class="text-muted-foreground">正在加载文件...</p>
             </div>
           </div>
 
           <!-- 空状态 -->
-          <div v-else-if="!fileList.length" class="flex flex-col items-center justify-center h-64 text-gray-500">
-            <FolderOpenIcon class="h-16 w-16 mb-4 text-gray-300" />
+          <div v-else-if="!fileList.length"
+            class="flex flex-col items-center justify-center h-64 text-muted-foreground">
+            <FolderOpenIcon class="h-16 w-16 mb-4 text-muted-foreground/50" />
             <p class="text-lg font-medium mb-2">暂无文件</p>
             <p class="text-sm">您还没有上传任何文件</p>
           </div>
@@ -161,7 +162,7 @@
                 <div class="md:hidden h-full flex items-center justify-center">
                   <div class="text-center">
                     <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
-                    <p class="text-sm text-gray-500">加载中...</p>
+                    <p class="text-sm text-muted-foreground">加载中...</p>
                   </div>
                 </div>
               </template>
@@ -172,7 +173,7 @@
         <!-- PC 端分页导航 -->
         <GeneralPagination v-if="status !== 'pending' && fileList.length > 0" :current-page="pagination.page"
           :page-size="pagination.pageSize" :total="pagination.total"
-          class="shrink-0 pt-4 border-t border-gray-200 mt-4 hidden md:flex" @change="changePage" />
+          class="shrink-0 pt-4 border-t border-border mt-4 hidden md:flex" @change="changePage" />
       </div>
     </div>
 

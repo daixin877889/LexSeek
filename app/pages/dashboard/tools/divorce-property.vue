@@ -4,14 +4,14 @@
       <h1 class="text-[22px] font-bold truncate">财产分割计算器</h1>
       <div class="relative">
         <Button variant="ghost" size="icon" @click="isHelpOpen = !isHelpOpen" class="rounded-full">
-          <img src="@/assets/icon/help.svg" alt="帮助" class="h-5 w-5" />
+          <HelpIcon class="h-5 w-5" />
           <span class="sr-only">帮助</span>
         </Button>
-        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-white rounded-lg border shadow-lg">
+        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-card rounded-lg border shadow-lg">
           <div class="flex justify-between items-center mb-3">
             <h3 class="font-semibold text-base">适用情况说明</h3>
             <Button variant="ghost" size="icon" @click="isHelpOpen = false" class="h-6 w-6">
-              <img src="@/assets/icon/close.svg" alt="关闭" class="h-5 w-5" />
+              <CloseIcon class="h-5 w-5" />
               <span class="sr-only">关闭</span>
             </Button>
           </div>
@@ -197,7 +197,8 @@
               <div>
                 <label class="text-sm font-medium leading-none">丈夫分割比例</label>
                 <div class="relative mt-1.5">
-                  <Input type="number" v-model="options.husbandRatio" min="0" max="1" step="0.05" placeholder="0.5" class="pr-20" />
+                  <Input type="number" v-model="options.husbandRatio" min="0" max="1" step="0.05" placeholder="0.5"
+                    class="pr-20" />
                   <div class="absolute inset-y-0 right-0 flex items-center p-0">
                     <span class="py-2 px-3 text-sm text-muted-foreground">（0-1）</span>
                   </div>
@@ -207,7 +208,8 @@
               <div>
                 <label class="text-sm font-medium leading-none">妻子分割比例</label>
                 <div class="relative mt-1.5">
-                  <Input type="number" v-model="options.wifeRatio" min="0" max="1" step="0.05" placeholder="0.5" class="pr-20" />
+                  <Input type="number" v-model="options.wifeRatio" min="0" max="1" step="0.05" placeholder="0.5"
+                    class="pr-20" />
                   <div class="absolute inset-y-0 right-0 flex items-center p-0">
                     <span class="py-2 px-3 text-sm text-muted-foreground">（0-1）</span>
                   </div>
@@ -216,7 +218,8 @@
 
               <div>
                 <label class="text-sm font-medium leading-none mb-1.5 block">是否有子女</label>
-                <RadioGroup :model-value="options.hasChildren ? 'true' : 'false'" @update:model-value="(value) => (options.hasChildren = value === 'true')">
+                <RadioGroup :model-value="options.hasChildren ? 'true' : 'false'"
+                  @update:model-value="(value) => (options.hasChildren = value === 'true')">
                   <div class="flex items-center space-x-4">
                     <div class="flex items-center space-x-2">
                       <RadioGroupItem value="true" id="hasChildrenYes" />
@@ -352,7 +355,9 @@
         <div v-if="!result" class="h-full flex items-center justify-center rounded-lg border border-dashed p-8">
           <div class="text-center">
             <div class="text-muted-foreground mb-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-4 opacity-50">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+                class="mx-auto mb-4 opacity-50">
                 <circle cx="12" cy="12" r="10" />
                 <path d="M8 14s1.5 2 4 2 4-2 4-2" />
                 <line x1="9" y1="9" x2="9.01" y2="9" />

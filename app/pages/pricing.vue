@@ -15,7 +15,8 @@
       <div class="max-w-[1200px] mx-auto">
         <div class="grid md:grid-cols-4 gap-8">
           <!-- 新手旗舰套餐 -->
-          <div class="bg-card rounded-lg border-2 border-amber-600 overflow-hidden relative hover:shadow-md transition-shadow flex flex-col">
+          <div
+            class="bg-card rounded-lg border-2 border-amber-600 overflow-hidden relative hover:shadow-md transition-shadow flex flex-col">
             <div class="absolute top-0 right-0">
               <div class="bg-amber-600 text-white px-3 py-1 text-sm font-medium">新手专享</div>
             </div>
@@ -48,8 +49,7 @@
                 </li>
                 <li class="flex items-start gap-2">
                   <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span
-                    >起诉状答辩状撰写
+                  <span>起诉状答辩状撰写
                     <!-- <span class="text-sm text-muted-foreground">(即将上线)</span> -->
                   </span>
                 </li>
@@ -68,7 +68,8 @@
                   <span>专属客服服务 <span class="text-sm text-muted-foreground"></span></span>
                 </li>
               </ul>
-              <button @click="buy(10)" class="w-full py-2 bg-amber-600 text-white font-medium rounded-md hover:bg-amber-700 transition-colors">立即抢购</button>
+              <button @click="buy(10)"
+                class="w-full py-2 bg-amber-600 text-white font-medium rounded-md hover:bg-amber-700 transition-colors">立即抢购</button>
             </div>
             <div class="p-4 bg-amber-50 border-t mt-auto">
               <p class="text-sm text-center text-amber-700">每人限购一次</p>
@@ -76,7 +77,8 @@
           </div>
 
           <!-- 基础方案 -->
-          <div class="bg-card rounded-lg border overflow-hidden hover:shadow-md transition-shadow relative flex flex-col">
+          <div
+            class="bg-card rounded-lg border overflow-hidden hover:shadow-md transition-shadow relative flex flex-col">
             <!-- <div class="absolute top-0 right-0">
               <div class="bg-muted-foreground text-primary-foreground px-3 py-1 text-sm font-medium">
                 限时免费
@@ -88,7 +90,8 @@
                 <!-- <h3 class="text-lg font-medium text-muted-foreground">基础版</h3> -->
                 <p class="text-3xl font-bold mt-2">
                   ¥365
-                  <span class="text-base font-normal text-muted-foreground"> <span class="line-through">780</span>/年</span>
+                  <span class="text-base font-normal text-muted-foreground"> <span
+                      class="line-through">780</span>/年</span>
                   <span class="text-sm font-bold mt-2 ml-2">赠送 3650 积分</span>
                 </p>
               </div>
@@ -134,7 +137,8 @@
               <!-- <button @click="wxSupportStore.showQrCode()" disabled class="w-full py-2 border border-primary text-primary font-medium rounded-md hover:bg-primary/5 transition-colors">
                 内测期间暂不开放购买
               </button> -->
-              <button @click="buy(1)" class="w-full py-2 border border-primary text-primary font-medium rounded-md hover:bg-primary/5 transition-colors">订阅基础版会员</button>
+              <button @click="buy(1)"
+                class="w-full py-2 border border-primary text-primary font-medium rounded-md hover:bg-primary/5 transition-colors">订阅基础版会员</button>
             </div>
             <div class="p-4 bg-muted/20 border-t mt-auto">
               <p class="text-sm text-center text-muted-foreground">功能存在部份限制</p>
@@ -142,7 +146,8 @@
           </div>
 
           <!-- 专业方案 (推荐) -->
-          <div class="bg-card rounded-lg border-2 border-primary overflow-hidden relative hover:shadow-md transition-shadow flex flex-col">
+          <div
+            class="bg-card rounded-lg border-2 border-primary overflow-hidden relative hover:shadow-md transition-shadow flex flex-col">
             <div class="absolute top-0 right-0">
               <div class="bg-primary text-primary-foreground px-3 py-1 text-sm font-medium">推荐方案</div>
             </div>
@@ -152,7 +157,8 @@
                 <!-- <h3 class="text-lg font-medium text-muted-foreground">专业版</h3> -->
                 <p class="text-3xl font-bold mt-2">
                   ¥680
-                  <span class="text-base font-normal text-muted-foreground"> <span class="line-through">1280</span>/年</span>
+                  <span class="text-base font-normal text-muted-foreground"> <span
+                      class="line-through">1280</span>/年</span>
                   <span class="text-sm font-bold mt-2 ml-2">赠送 6800 积分</span>
                 </p>
               </div>
@@ -192,7 +198,8 @@
                   <span>试用新功能的机会</span>
                 </li>
               </ul>
-              <button @click="buy(2)" class="w-full py-2 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors">订阅专业版会员</button>
+              <button @click="buy(2)"
+                class="w-full py-2 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors">订阅专业版会员</button>
               <!-- <button @click="wxSupportStore.showQrCode()" class="w-full py-2 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors">
                 内测期间联系客服免费试用
               </button> -->
@@ -210,7 +217,8 @@
                 <!-- <h3 class="text-lg font-medium text-muted-foreground">旗舰版</h3> -->
                 <p class="text-3xl font-bold mt-2">
                   ¥1280
-                  <span class="text-base font-normal text-muted-foreground"> <span class="line-through">2480</span>/年</span>
+                  <span class="text-base font-normal text-muted-foreground"> <span
+                      class="line-through">2480</span>/年</span>
                   <span class="text-sm font-bold mt-2 ml-2">赠送 12800 积分</span>
                 </p>
               </div>
@@ -234,8 +242,7 @@
                 </li>
                 <li class="flex items-start gap-2">
                   <check-icon class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
-                  <span
-                    >起诉状答辩状撰写
+                  <span>起诉状答辩状撰写
                     <!-- <span class="text-sm text-muted-foreground">(即将上线)</span> -->
                   </span>
                 </li>
@@ -254,7 +261,8 @@
                   <span>专属客服服务 <span class="text-sm text-muted-foreground"></span></span>
                 </li>
               </ul>
-              <button @click="buy(3)" class="w-full py-2 border border-primary text-primary font-medium rounded-md hover:bg-primary/5 transition-colors">订阅旗舰版会员</button>
+              <button @click="buy(3)"
+                class="w-full py-2 border border-primary text-primary font-medium rounded-md hover:bg-primary/5 transition-colors">订阅旗舰版会员</button>
               <!-- <button @click="wxSupportStore.showQrCode()" disabled class="w-full py-2 border border-primary text-primary font-medium rounded-md hover:bg-primary/5 transition-colors">
                 内测期间暂不开放购买
               </button> -->
@@ -267,7 +275,8 @@
 
         <!-- 年付折扣提示 -->
         <div class="mt-8 text-center">
-          <p class="text-muted-foreground">注册享7天全功能免费试用，<NuxtLink to="/register" class="text-primary font-bold hover:underline">立即注册</NuxtLink>体验</p>
+          <p class="text-muted-foreground">注册享7天全功能免费试用，<NuxtLink to="/register"
+              class="text-primary font-bold hover:underline">立即注册</NuxtLink>体验</p>
         </div>
       </div>
     </section>
@@ -743,14 +752,23 @@
         <h2 class="text-3xl font-bold mb-4">开始免费试用</h2>
         <p class="text-xl mb-8 max-w-2xl mx-auto opacity-90">立即注册并获得7天免费试用</p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <NuxtLink to="/register" class="inline-flex items-center justify-center px-6 py-3 bg-white text-primary font-medium rounded-md hover:bg-white/90 transition-colors"> 免费注册 </NuxtLink>
-          <a href="#" @click="wxSupportStore.showQrCode()" class="inline-flex items-center justify-center px-6 py-3 bg-primary-foreground/10 text-primary-foreground border border-primary-foreground/20 font-medium rounded-md hover:bg-primary-foreground/20 transition-colors"> 联系客服 </a>
+          <NuxtLink to="/register"
+            class="inline-flex items-center justify-center px-6 py-3 bg-background text-foreground font-medium rounded-md hover:bg-background/90 transition-colors">
+            免费注册 </NuxtLink>
+          <a href="#" @click="wxSupportStore.showQrCode()"
+            class="inline-flex items-center justify-center px-6 py-3 bg-white/15 text-primary-foreground border border-white/30 font-medium rounded-md hover:bg-white/25 transition-colors">
+            联系客服 </a>
         </div>
       </div>
     </section>
 
     <!-- 购买流程组件（包含认证弹框和支付二维码弹框） -->
-    <PurchaseFlow v-model:show-auth-modal="purchaseFlow.showAuthModal.value" :auth-modal-tab="purchaseFlow.authModalTab.value" v-model:show-q-r-code-dialog="purchaseFlow.showQRCodeDialog.value" :qr-code-url="purchaseFlow.qrCodeUrl.value" :payment-loading="purchaseFlow.paymentLoading.value" :payment-paid="purchaseFlow.paymentPaid.value" @auth-success="purchaseFlow.handleAuthSuccess" @auth-cancel="purchaseFlow.handleAuthCancel" @close-q-r-code="purchaseFlow.closeQRCodeDialog" />
+    <PurchaseFlow v-model:show-auth-modal="purchaseFlow.showAuthModal.value"
+      :auth-modal-tab="purchaseFlow.authModalTab.value"
+      v-model:show-q-r-code-dialog="purchaseFlow.showQRCodeDialog.value" :qr-code-url="purchaseFlow.qrCodeUrl.value"
+      :payment-loading="purchaseFlow.paymentLoading.value" :payment-paid="purchaseFlow.paymentPaid.value"
+      @auth-success="purchaseFlow.handleAuthSuccess" @auth-cancel="purchaseFlow.handleAuthCancel"
+      @close-q-r-code="purchaseFlow.closeQRCodeDialog" />
   </div>
 </template>
 

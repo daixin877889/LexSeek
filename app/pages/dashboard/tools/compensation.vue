@@ -4,14 +4,14 @@
       <h1 class="text-[22px] font-bold truncate">经济补偿金/赔偿金计算</h1>
       <div class="relative">
         <Button variant="ghost" size="icon" @click="isHelpOpen = !isHelpOpen" class="rounded-full">
-          <img src="@/assets/icon/help.svg" alt="帮助" class="h-5 w-5" />
+          <HelpIcon class="h-5 w-5" />
           <span class="sr-only">帮助</span>
         </Button>
-        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-white rounded-lg border shadow-lg">
+        <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-card rounded-lg border shadow-lg">
           <div class="flex justify-between items-center mb-3">
             <h3 class="font-semibold text-base">功能说明</h3>
             <Button variant="ghost" size="icon" @click="isHelpOpen = false" class="h-6 w-6">
-              <img src="@/assets/icon/close.svg" alt="关闭" class="h-5 w-5" />
+              <CloseIcon class="h-5 w-5" />
               <span class="sr-only">关闭</span>
             </Button>
           </div>
@@ -78,11 +78,13 @@
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button variant="ghost" size="icon" class="h-5 w-5 p-0">
-                            <img src="@/assets/icon/help.svg" alt="信息" class="h-4 w-4" />
+                            <HelpIcon class="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent class="max-w-80 p-4">
-                          <p>劳动者月工资高于用人单位所在直辖市、设区的市级人民政府公布的本地区上年度职工月平均工资三倍的，向其支付经济补偿的标准按职工月平均工资三倍的数额支付，向其支付经济补偿的年限最高不超过十二年。</p>
+                          <p>
+                            劳动者月工资高于用人单位所在直辖市、设区的市级人民政府公布的本地区上年度职工月平均工资三倍的，向其支付经济补偿的标准按职工月平均工资三倍的数额支付，向其支付经济补偿的年限最高不超过十二年。
+                          </p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -94,7 +96,8 @@
               <!-- 社会平均工资 - 仅在超过时显示 -->
               <div v-if="isWageExceed">
                 <label class="text-sm font-medium leading-none">社会平均工资（元）</label>
-                <Input type="number" v-model="socialAverageWage" placeholder="广州13193元，深圳14553元，珠海11156元" class="mt-1.5" />
+                <Input type="number" v-model="socialAverageWage" placeholder="广州13193元，深圳14553元，珠海11156元"
+                  class="mt-1.5" />
                 <p class="text-xs text-muted-foreground mt-1">
                   最高计算基数为社会平均工资的3倍（{{ (parseFloat(socialAverageWage) * 3).toFixed(2) }}元）。<br />
                   参考数值：广州13193元，深圳14553元，珠海11156元
@@ -105,7 +108,8 @@
               <!-- 月工资输入 -->
               <div>
                 <label class="text-sm font-medium leading-none">离职前12个月平均工资（元）</label>
-                <Input type="number" v-model="monthlyWage" :placeholder="isWageExceed ? '社会平均三倍工资' : '月平均工资（未超社平3倍）'" class="mt-1.5" />
+                <Input type="number" v-model="monthlyWage" :placeholder="isWageExceed ? '社会平均三倍工资' : '月平均工资（未超社平3倍）'"
+                  class="mt-1.5" />
               </div>
 
               <!-- 起始时间和结束时间 -->
@@ -113,7 +117,8 @@
                 <label class="text-sm font-medium leading-none">入职日期</label>
                 <div class="relative mt-1.5">
                   <div class="date-input-wrapper">
-                    <CalendarIcon class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <CalendarIcon
+                      class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                     <Input type="date" v-model="startDate" class="w-full pl-10" />
                   </div>
                 </div>
@@ -123,7 +128,8 @@
                 <label class="text-sm font-medium leading-none">离职日期</label>
                 <div class="relative mt-1.5">
                   <div class="date-input-wrapper">
-                    <CalendarIcon class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <CalendarIcon
+                      class="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                     <Input type="date" v-model="endDate" class="w-full pl-10" />
                   </div>
                 </div>
@@ -138,7 +144,7 @@
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button variant="ghost" size="icon" class="h-5 w-5 p-0">
-                            <img src="@/assets/icon/help.svg" alt="信息" class="h-4 w-4" />
+                            <HelpIcon class="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent class="max-w-80 p-4">
@@ -255,8 +261,11 @@
         <div v-if="!showResult" class="h-full flex items-center justify-center rounded-lg border border-dashed p-8">
           <div class="text-center">
             <div class="text-muted-foreground mb-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-4 opacity-50">
-                <path d="M11.7 2C7.5 2 4 5.5 4 9.7v.2C4 14.5 7.5 18 11.7 18h.2c4.2 0 7.7-3.5 7.7-7.7v-.1C19.6 5.6 16.4 2 11.7 2Z" />
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+                class="mx-auto mb-4 opacity-50">
+                <path
+                  d="M11.7 2C7.5 2 4 5.5 4 9.7v.2C4 14.5 7.5 18 11.7 18h.2c4.2 0 7.7-3.5 7.7-7.7v-.1C19.6 5.6 16.4 2 11.7 2Z" />
                 <path d="M12 18v4" />
                 <path d="M8 22h8" />
               </svg>

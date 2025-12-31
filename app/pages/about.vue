@@ -90,7 +90,8 @@
       <div class="max-w-[1200px] mx-auto">
         <div class="text-center mb-12">
           <h2 class="text-3xl font-bold mb-4">我们的团队</h2>
-          <p class="text-lg text-muted-foreground max-w-2xl mx-auto">LexSeek由法律专家、AI研究人员和产品设计师组成的多元化团队，致力于创造最好的法律AI产品</p>
+          <p class="text-lg text-muted-foreground max-w-2xl mx-auto">LexSeek由法律专家、AI研究人员和产品设计师组成的多元化团队，致力于创造最好的法律AI产品
+          </p>
         </div>
 
         <!-- <div class="grid md:grid-cols-3 gap-8">
@@ -311,7 +312,7 @@
       <div class="max-w-[1200px] mx-auto text-center">
         <h2 class="text-3xl font-bold mb-4">加入LexSeek团队</h2>
         <p class="text-xl mb-8 max-w-2xl mx-auto opacity-90">我们正在寻找对法律科技充满热情的人才加入我们的团队，一起打造未来的法律AI工具</p>
-        <!-- <a href="mailto:careers@lexseek.com" class="inline-flex items-center justify-center px-6 py-3 bg-white text-primary font-medium rounded-md hover:bg-white/90 transition-colors">
+        <!-- <a href="mailto:careers@lexseek.com" class="inline-flex items-center justify-center px-6 py-3 bg-background text-foreground font-medium rounded-md hover:bg-background/90 transition-colors">
           查看职位机会
         </a> -->
       </div>

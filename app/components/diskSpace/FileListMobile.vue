@@ -4,43 +4,48 @@
     <!-- 下拉刷新指示器 -->
     <div v-if="refreshing" class="flex items-center justify-center py-4">
       <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mr-2"></div>
-      <span class="text-sm text-gray-500">刷新中...</span>
+      <span class="text-sm text-muted-foreground">刷新中...</span>
     </div>
 
     <!-- 文件卡片列表 -->
     <div class="space-y-3 px-1">
-      <div v-for="file in files" :key="file.id" class="bg-white rounded-lg border border-gray-200 p-3 active:bg-gray-50 transition-colors" @click="$emit('click', file)">
+      <div v-for="file in files" :key="file.id"
+        class="bg-card rounded-lg border border-border p-3 active:bg-muted/50 transition-colors"
+        @click="$emit('click', file)">
         <div class="flex items-start gap-3">
           <!-- 文件图标/缩略图 -->
           <div class="shrink-0">
             <!-- 图片缩略图（仅非加密图片） -->
-            <div v-if="isImageType(file.fileType) && !file.encrypted" class="w-12 h-12 rounded-lg overflow-hidden bg-purple-100 flex items-center justify-center">
-              <img v-if="!thumbnailErrors[String(file.id)]" :src="file.url" :alt="file.fileName" class="w-full h-full object-cover" @error="handleThumbnailError(String(file.id))" />
-              <ImageIcon v-else class="h-6 w-6 text-purple-600" />
+            <div v-if="isImageType(file.fileType) && !file.encrypted"
+              class="w-12 h-12 rounded-lg overflow-hidden bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+              <img v-if="!thumbnailErrors[String(file.id)]" :src="file.url" :alt="file.fileName"
+                class="w-full h-full object-cover" @error="handleThumbnailError(String(file.id))" />
+              <ImageIcon v-else class="h-6 w-6 text-purple-600 dark:text-purple-400" />
             </div>
             <!-- 其他文件类型图标 -->
-            <div v-else class="w-12 h-12 rounded-lg flex items-center justify-center" :class="getFileIconBg(file.fileType)">
+            <div v-else class="w-12 h-12 rounded-lg flex items-center justify-center"
+              :class="getFileIconBg(file.fileType)">
               <component :is="getFileIcon(file.fileType)" class="h-6 w-6" :class="getFileIconColor(file.fileType)" />
             </div>
           </div>
 
           <!-- 文件信息 -->
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-900 truncate" :title="file.fileName">
+            <p class="text-sm font-medium text-foreground truncate" :title="file.fileName">
               {{ file.fileName }}
             </p>
-            <div class="flex items-center gap-2 mt-1 text-xs text-gray-500">
+            <div class="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
               <span>{{ formatByteSize(file.fileSize, 2) }}</span>
               <span>·</span>
               <span>{{ file.sourceName }}</span>
-              <span v-if="file.encrypted" class="text-green-600 flex items-center gap-0.5">
+              <span v-if="file.encrypted" class="text-green-600 dark:text-green-400 flex items-center gap-0.5">
                 <LockIcon class="h-3 w-3" />
               </span>
             </div>
           </div>
 
           <!-- 右侧箭头 -->
-          <ChevronRightIcon class="h-5 w-5 text-gray-400 shrink-0 self-center" />
+          <ChevronRightIcon class="h-5 w-5 text-muted-foreground shrink-0 self-center" />
         </div>
       </div>
     </div>
@@ -49,12 +54,12 @@
     <div ref="loadMoreTriggerRef" class="py-4 text-center">
       <div v-if="loading" class="flex items-center justify-center">
         <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mr-2"></div>
-        <span class="text-sm text-gray-500">加载中...</span>
+        <span class="text-sm text-muted-foreground">加载中...</span>
       </div>
-      <div v-else-if="!hasMore" class="text-sm text-gray-400">
+      <div v-else-if="!hasMore" class="text-sm text-muted-foreground">
         {{ files.length > 0 ? "没有更多了" : "" }}
       </div>
-      <div v-else class="text-sm text-gray-400">上拉加载更多</div>
+      <div v-else class="text-sm text-muted-foreground">上拉加载更多</div>
     </div>
   </div>
 </template>
