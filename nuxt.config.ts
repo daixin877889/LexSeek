@@ -13,7 +13,7 @@ export default defineNuxtConfig({
           innerHTML: `
             (function() {
               const saved = localStorage.getItem('color-mode');
-              const isDark = saved === 'dark' || (saved !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+              const isDark = saved === 'dark';
               if (isDark) document.documentElement.classList.add('dark');
             })();
           `,
