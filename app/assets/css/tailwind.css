@@ -4,8 +4,10 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme static {
-  /* 扩展背景图像，定义你的自定义渐变 */
+  /* 扩展背景图像，定义你的自定义渐变（亮色模式） */
   --background-image-gradient-custom: linear-gradient(97deg, #f2f9fe, #f7f3ff);
+  /* 暗色模式渐变 */
+  --background-image-gradient-custom-dark: linear-gradient(97deg, #1e293b, #312e4a);
 }
 
 @theme inline {
@@ -46,6 +48,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* ==================== 默认主题（Zinc） ==================== */
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);
@@ -107,12 +110,124 @@
   --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary: oklch(0.45 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+}
+
+/* ==================== Rose 主题 ==================== */
+.theme-rose {
+  --primary: oklch(0.645 0.246 16.439);
+  --primary-foreground: oklch(0.985 0.003 247.858);
+  --ring: oklch(0.645 0.246 16.439);
+  --sidebar-primary: oklch(0.645 0.246 16.439);
+  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+}
+.theme-rose.dark {
+  --primary: oklch(0.645 0.246 16.439);
+  --primary-foreground: oklch(0.985 0.003 247.858);
+  --ring: oklch(0.645 0.246 16.439);
+  --sidebar-primary: oklch(0.645 0.246 16.439);
+  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+}
+
+/* ==================== Blue 主题 ==================== */
+.theme-blue {
+  --primary: oklch(0.546 0.245 262.881);
+  --primary-foreground: oklch(0.985 0.003 247.858);
+  --ring: oklch(0.546 0.245 262.881);
+  --sidebar-primary: oklch(0.546 0.245 262.881);
+  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+}
+.theme-blue.dark {
+  --primary: oklch(0.546 0.245 262.881);
+  --primary-foreground: oklch(0.985 0.003 247.858);
+  --ring: oklch(0.546 0.245 262.881);
+  --sidebar-primary: oklch(0.546 0.245 262.881);
+  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+}
+
+/* ==================== Green 主题 ==================== */
+.theme-green {
+  --primary: oklch(0.627 0.194 149.214);
+  --primary-foreground: oklch(0.985 0.003 247.858);
+  --ring: oklch(0.627 0.194 149.214);
+  --sidebar-primary: oklch(0.627 0.194 149.214);
+  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+}
+.theme-green.dark {
+  --primary: oklch(0.627 0.194 149.214);
+  --primary-foreground: oklch(0.985 0.003 247.858);
+  --ring: oklch(0.627 0.194 149.214);
+  --sidebar-primary: oklch(0.627 0.194 149.214);
+  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+}
+
+/* ==================== Orange 主题 ==================== */
+.theme-orange {
+  --primary: oklch(0.705 0.213 47.604);
+  --primary-foreground: oklch(0.985 0.003 247.858);
+  --ring: oklch(0.705 0.213 47.604);
+  --sidebar-primary: oklch(0.705 0.213 47.604);
+  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+}
+.theme-orange.dark {
+  --primary: oklch(0.705 0.213 47.604);
+  --primary-foreground: oklch(0.985 0.003 247.858);
+  --ring: oklch(0.705 0.213 47.604);
+  --sidebar-primary: oklch(0.705 0.213 47.604);
+  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+}
+
+/* ==================== Red 主题 ==================== */
+.theme-red {
+  --primary: oklch(0.577 0.245 27.325);
+  --primary-foreground: oklch(0.985 0.003 247.858);
+  --ring: oklch(0.577 0.245 27.325);
+  --sidebar-primary: oklch(0.577 0.245 27.325);
+  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+}
+.theme-red.dark {
+  --primary: oklch(0.577 0.245 27.325);
+  --primary-foreground: oklch(0.985 0.003 247.858);
+  --ring: oklch(0.577 0.245 27.325);
+  --sidebar-primary: oklch(0.577 0.245 27.325);
+  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+}
+
+/* ==================== Violet 主题 ==================== */
+.theme-violet {
+  --primary: oklch(0.606 0.25 292.717);
+  --primary-foreground: oklch(0.985 0.003 247.858);
+  --ring: oklch(0.606 0.25 292.717);
+  --sidebar-primary: oklch(0.606 0.25 292.717);
+  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+}
+.theme-violet.dark {
+  --primary: oklch(0.606 0.25 292.717);
+  --primary-foreground: oklch(0.985 0.003 247.858);
+  --ring: oklch(0.606 0.25 292.717);
+  --sidebar-primary: oklch(0.606 0.25 292.717);
+  --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+}
+
+/* ==================== Yellow 主题 ==================== */
+.theme-yellow {
+  --primary: oklch(0.795 0.184 86.047);
+  --primary-foreground: oklch(0.253 0.029 58.044);
+  --ring: oklch(0.795 0.184 86.047);
+  --sidebar-primary: oklch(0.795 0.184 86.047);
+  --sidebar-primary-foreground: oklch(0.253 0.029 58.044);
+}
+.theme-yellow.dark {
+  --primary: oklch(0.795 0.184 86.047);
+  --primary-foreground: oklch(0.253 0.029 58.044);
+  --ring: oklch(0.795 0.184 86.047);
+  --sidebar-primary: oklch(0.795 0.184 86.047);
+  --sidebar-primary-foreground: oklch(0.253 0.029 58.044);
 }
 
 @layer base {

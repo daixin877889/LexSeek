@@ -6,6 +6,19 @@ export default defineNuxtConfig({
     head: {
       link: [
         { rel: 'icon', type: 'image/x-icon', href: '/logo.svg' }
+      ],
+      // 内联脚本：在页面渲染前应用颜色模式，避免闪烁
+      script: [
+        {
+          innerHTML: `
+            (function() {
+              const saved = localStorage.getItem('color-mode');
+              const isDark = saved === 'dark' || (saved !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+              if (isDark) document.documentElement.classList.add('dark');
+            })();
+          `,
+          type: 'text/javascript',
+        }
       ]
     }
   },
