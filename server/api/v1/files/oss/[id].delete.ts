@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
         // 软删除文件
         await deleteFileDao(fileId)
 
-        return resSuccess(event, '删除文件成功', null)
+        return resSuccess(event, '删除文件成功', { id: fileId })
     } catch (error) {
         return resError(event, 400, parseErrorMessage(error, '删除文件失败'))
     }

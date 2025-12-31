@@ -27,7 +27,7 @@ export async function generateSignedUrl(
         method
     }
 
-    // 添加响应头设置
+    // 添加响应头设置（作为 URL 查询参数）
     if (options.response) {
         if (options.response.contentType) {
             signOptions['response-content-type'] = options.response.contentType
@@ -38,6 +38,7 @@ export async function generateSignedUrl(
     }
 
     // 生成签名 URL
+    // ali-oss 的 signatureUrl 方法会将 signOptions 中的 response-* 参数添加到 URL 查询字符串中
     let url = client.signatureUrl(objectPath, signOptions)
 
     // 如果使用 STS 临时凭证，需要手动添加 security-token 参数
