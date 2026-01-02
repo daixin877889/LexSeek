@@ -186,11 +186,11 @@ INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "descrip
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (24, '/api/v1/admin/routers/scan', 'POST', 'POST admin / routers / scan', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.258+08', '2025-12-31 12:16:59.258+08', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (25, '/api/v1/admin/users', 'GET', 'GET admin / users', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.26+08', '2025-12-31 12:16:59.26+08', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (26, '/api/v1/admin/users/[id]/roles', 'PUT', 'PUT admin / users / [id] / roles', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.262+08', '2025-12-31 12:16:59.262+08', NULL);
-INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (27, '/api/v1/auth/login/password', 'POST', 'POST auth / login / password', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.263+08', '2025-12-31 12:16:59.263+08', NULL);
-INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (28, '/api/v1/auth/login/sms', 'POST', 'POST auth / login / sms', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.264+08', '2025-12-31 12:16:59.264+08', NULL);
-INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (29, '/api/v1/auth/logout', 'POST', 'POST auth / logout', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.266+08', '2025-12-31 12:16:59.266+08', NULL);
-INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (30, '/api/v1/auth/register', 'POST', 'POST auth / register', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.268+08', '2025-12-31 12:16:59.268+08', NULL);
-INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (31, '/api/v1/auth/reset-password', '*', '* auth / reset password', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.269+08', '2025-12-31 12:16:59.269+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (27, '/api/v1/auth/login/password', 'POST', 'POST auth / login / password', NULL, 't', NULL, 1, '2025-12-31 12:16:59.263+08', '2025-12-31 22:06:02.997+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (28, '/api/v1/auth/login/sms', 'POST', 'POST auth / login / sms', NULL, 't', NULL, 1, '2025-12-31 12:16:59.264+08', '2025-12-31 22:06:02.363+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (29, '/api/v1/auth/logout', 'POST', 'POST auth / logout', NULL, 't', NULL, 1, '2025-12-31 12:16:59.266+08', '2025-12-31 22:06:00.903+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (30, '/api/v1/auth/register', 'POST', 'POST auth / register', NULL, 't', NULL, 1, '2025-12-31 12:16:59.268+08', '2025-12-31 22:06:00.184+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (31, '/api/v1/auth/reset-password', '*', '* auth / reset password', NULL, 't', NULL, 1, '2025-12-31 12:16:59.269+08', '2025-12-31 22:05:57.801+08', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (32, '/api/v1/campaigns', 'GET', 'GET campaigns', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.271+08', '2025-12-31 12:16:59.271+08', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (33, '/api/v1/campaigns/:id', 'GET', 'GET campaigns / [id]', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.272+08', '2025-12-31 12:16:59.272+08', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (34, '/api/v1/encryption/config', 'GET', 'GET encryption / config', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.274+08', '2025-12-31 12:16:59.274+08', NULL);
@@ -358,3 +358,20 @@ INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (112, 2, 80, '2025-12-31 12:17:29.402+08', '2025-12-31 12:17:29.402+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (113, 2, 81, '2025-12-31 12:17:29.402+08', '2025-12-31 12:17:29.402+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (114, 2, 82, '2025-12-31 12:17:29.402+08', '2025-12-31 12:17:29.402+08', NULL);
+
+
+-- 重置所有序列，确保新插入的记录不会与种子数据冲突
+-- Reset all sequences to avoid ID conflicts with seed data
+SELECT setval('users_id_seq', (SELECT COALESCE(MAX(id), 0) FROM users) + 1, false);
+SELECT setval('roles_id_seq', (SELECT COALESCE(MAX(id), 0) FROM roles) + 1, false);
+SELECT setval('user_roles_id_seq', (SELECT COALESCE(MAX(id), 0) FROM user_roles) + 1, false);
+SELECT setval('user_encryptions_id_seq', (SELECT COALESCE(MAX(id), 0) FROM user_encryptions) + 1, false);
+SELECT setval('router_groups_id_seq', (SELECT COALESCE(MAX(id), 0) FROM router_groups) + 1, false);
+SELECT setval('routers_id_seq', (SELECT COALESCE(MAX(id), 0) FROM routers) + 1, false);
+SELECT setval('role_routers_id_seq', (SELECT COALESCE(MAX(id), 0) FROM role_routers) + 1, false);
+SELECT setval('membership_levels_id_seq', (SELECT COALESCE(MAX(id), 0) FROM membership_levels) + 1, false);
+SELECT setval('products_id_seq', (SELECT COALESCE(MAX(id), 0) FROM products) + 1, false);
+SELECT setval('campaigns_id_seq', (SELECT COALESCE(MAX(id), 0) FROM campaigns) + 1, false);
+SELECT setval('api_permission_groups_id_seq', (SELECT COALESCE(MAX(id), 0) FROM api_permission_groups) + 1, false);
+SELECT setval('api_permissions_id_seq', (SELECT COALESCE(MAX(id), 0) FROM api_permissions) + 1, false);
+SELECT setval('role_api_permissions_id_seq', (SELECT COALESCE(MAX(id), 0) FROM role_api_permissions) + 1, false);

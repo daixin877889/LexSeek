@@ -59,6 +59,16 @@ const API_PERMISSION_GROUPS = [
     { name: '支付管理', description: '支付订单相关接口', sort: 4 },
     { name: '存储管理', description: '文件存储相关接口', sort: 5 },
     { name: '系统管理', description: '系统配置相关接口', sort: 6 },
+    { name: '兑换码管理', description: '兑换码管理相关接口', sort: 7 },
+]
+
+// 兑换码管理 API 权限（需要登录和权限验证）
+const REDEMPTION_CODE_API_PERMISSIONS = [
+    { path: '/api/v1/admin/redemption-codes', method: 'GET', name: '查看兑换码列表', description: '获取兑换码列表', isPublic: false },
+    { path: '/api/v1/admin/redemption-codes', method: 'POST', name: '生成兑换码', description: '批量生成兑换码', isPublic: false },
+    { path: '/api/v1/admin/redemption-codes/:id/invalidate', method: 'PUT', name: '作废兑换码', description: '作废指定兑换码', isPublic: false },
+    { path: '/api/v1/admin/redemption-codes/records', method: 'GET', name: '查看兑换记录', description: '获取兑换记录列表', isPublic: false },
+    { path: '/api/v1/admin/redemption-codes/export', method: 'GET', name: '导出兑换码', description: '导出兑换码 CSV', isPublic: false },
 ]
 
 async function main() {
@@ -105,6 +115,34 @@ async function main() {
             data: permission,
         })
         console.log(`✓ 公共权限已创建: ${permission.method} ${permission.path} (ID: ${created.id})`)
+    }
+
+    // 4. 创建兑换码管理 API 权限
+    console.log('创建兑换码管理 API 权限...')
+    const redemptionGroup = await prisma.apiPermissionGroups.findFirst({
+        where: { name: '兑换码管理' },
+    })
+    for (const permission of REDEMPTION_CODE_API_PERMISSIONS) {
+        const existing = await prisma.apiPermissions.findFirst({
+            where: {
+                path: permission.path,
+                method: permission.method,
+                deletedAt: null,
+            },
+        })
+
+        if (existing) {
+            console.log(`- 权限已存在，跳过: ${permission.method} ${permission.path}`)
+            continue
+        }
+
+        const created = await prisma.apiPermissions.create({
+            data: {
+                ...permission,
+                groupId: redemptionGroup?.id || null,
+            },
+        })
+        console.log(`✓ 兑换码权限已创建: ${permission.method} ${permission.path} (ID: ${created.id})`)
     }
 
     console.log('\n✅ RBAC 种子数据初始化完成!')
