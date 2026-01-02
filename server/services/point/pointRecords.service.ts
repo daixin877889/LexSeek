@@ -3,7 +3,22 @@
  * 
  * 提供积分记录的业务逻辑处理
  */
+import dayjs from 'dayjs'
 import { Prisma } from '#shared/types/prisma'
+
+// 显式导入（测试环境需要）
+import {
+    createPointRecordDao,
+    findPointRecordsByUserIdDao,
+    sumUserValidPointsDao,
+    findValidPointRecordsByUserIdDao,
+    updatePointRecordDao,
+} from './pointRecords.dao'
+import { findPointConsumptionItemByIdDao } from './pointConsumption.dao'
+import { PointRecordSourceType, PointRecordStatus } from '#shared/types/point.types'
+import type { pointRecords, pointConsumptionRecords } from '../../../generated/prisma/client'
+import { prisma } from '../../utils/db'
+import { logger } from '../../../shared/utils/logger'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma
@@ -26,6 +41,27 @@ export interface PointConsumptionResult {
     success: boolean
     consumedAmount: number
     consumptionRecords: pointConsumptionRecords[]
+}
+
+/**
+ * 创建积分记录参数
+ */
+export interface CreatePointRecordParams {
+    userId: number
+    pointAmount: number
+    sourceType: PointRecordSourceType
+    sourceId?: number | null
+    /** 关联的会员记录 ID（会员赠送积分时使用） */
+    userMembershipId?: number | null
+    /** 生效时间（可选，默认当天） */
+    effectiveAt?: Date
+    /** 过期时间（可选，默认 1 年后） */
+    expiredAt?: Date
+    /** 时长（用于计算过期时间，与 durationUnit 配合使用） */
+    duration?: number
+    /** 时长单位：day-天，month-月，year-年 */
+    durationUnit?: 'day' | 'month' | 'year'
+    remark?: string | null
 }
 
 /**
@@ -67,10 +103,81 @@ export const getUserPointRecords = async (
 
 
 /**
- * 创建积分记录
- * @param data 创建数据
+ * 创建积分记录（统一入口）
+ * 
+ * 支持多种场景：
+ * - 购买积分：传入 duration + durationUnit
+ * - 会员赠送积分：传入 effectiveAt + expiredAt（跟随会员日期）
+ * - 兑换码积分：传入 duration（按天计算）或 effectiveAt + expiredAt
+ * 
+ * @param params 创建参数
  * @param tx 事务客户端（可选）
  * @returns 创建的积分记录
+ */
+export const createPointRecordService = async (
+    params: CreatePointRecordParams,
+    tx?: PrismaClient
+): Promise<pointRecords> => {
+    const {
+        userId,
+        pointAmount,
+        sourceType,
+        sourceId,
+        userMembershipId,
+        effectiveAt,
+        expiredAt,
+        duration,
+        durationUnit = 'day',
+        remark,
+    } = params
+
+    // 计算生效时间（默认当天）
+    const finalEffectiveAt = effectiveAt || dayjs().startOf('day').toDate()
+
+    // 计算过期时间
+    let finalExpiredAt: Date
+    if (expiredAt) {
+        // 直接使用传入的过期时间
+        finalExpiredAt = expiredAt
+    } else if (duration) {
+        // 根据时长计算过期时间
+        // 规则：生效日期 + duration - 1 天
+        const effectiveDayjs = dayjs(finalEffectiveAt)
+        if (durationUnit === 'month') {
+            finalExpiredAt = effectiveDayjs.add(duration, 'month').subtract(1, 'day').endOf('day').toDate()
+        } else if (durationUnit === 'year') {
+            finalExpiredAt = effectiveDayjs.add(duration, 'year').subtract(1, 'day').endOf('day').toDate()
+        } else {
+            finalExpiredAt = effectiveDayjs.add(duration, 'day').subtract(1, 'day').endOf('day').toDate()
+        }
+    } else {
+        // 默认 1 年有效期
+        finalExpiredAt = dayjs(finalEffectiveAt).add(1, 'year').subtract(1, 'day').endOf('day').toDate()
+    }
+
+    logger.info(`创建积分记录：用户 ${userId}，积分 ${pointAmount}，生效 ${dayjs(finalEffectiveAt).format('YYYY-MM-DD')}，过期 ${dayjs(finalExpiredAt).format('YYYY-MM-DD')}`)
+
+    // 创建时自动设置 remaining = pointAmount, used = 0
+    const createData: Prisma.pointRecordsCreateInput = {
+        users: { connect: { id: userId } },
+        pointAmount,
+        used: 0,
+        remaining: pointAmount,
+        sourceType,
+        sourceId,
+        userMembership: userMembershipId ? { connect: { id: userMembershipId } } : undefined,
+        effectiveAt: finalEffectiveAt,
+        expiredAt: finalExpiredAt,
+        status: PointRecordStatus.VALID,
+        remark,
+    }
+
+    return await createPointRecordDao(createData, tx)
+}
+
+/**
+ * 创建积分记录（旧接口，保持兼容）
+ * @deprecated 请使用 createPointRecordService
  */
 export const createPointRecord = async (
     data: {
@@ -85,23 +192,16 @@ export const createPointRecord = async (
     },
     tx?: PrismaClient
 ): Promise<pointRecords> => {
-    // 创建时自动设置 remaining = pointAmount, used = 0
-    const createData: Prisma.pointRecordsCreateInput = {
-        users: { connect: { id: data.userId } },
+    return createPointRecordService({
+        userId: data.userId,
         pointAmount: data.pointAmount,
-        used: 0,
-        remaining: data.pointAmount,
         sourceType: data.sourceType,
         sourceId: data.sourceId,
-        // 使用 connect 语法关联用户会员记录
-        userMembership: data.userMembershipId ? { connect: { id: data.userMembershipId } } : undefined,
+        userMembershipId: data.userMembershipId,
         effectiveAt: data.effectiveAt,
         expiredAt: data.expiredAt,
-        status: PointRecordStatus.VALID,
         remark: data.remark,
-    }
-
-    return await createPointRecordDao(createData, tx)
+    }, tx)
 }
 
 /**

@@ -24,8 +24,10 @@ import {
     findAuditLogsDao,
     findAuditLogByIdDao,
     findAuditLogsByTargetDao,
-    AuditLogAction,
 } from '../../../server/services/rbac/auditLog.dao'
+
+// 从共享类型导入 AuditLogAction 枚举
+import { AuditLogAction } from '../../../shared/types/rbac'
 
 // ==================== 测试数据追踪 ====================
 

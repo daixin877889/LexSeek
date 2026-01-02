@@ -8,14 +8,16 @@ import dayjs from 'dayjs'
 // 显式导入 DAO 函数（测试环境需要）
 import { findRedemptionCodeByCodeDao, updateRedemptionCodeStatusDao } from './redemptionCode.dao'
 import { createRedemptionRecordDao } from './redemptionRecord.dao'
-import { createUserMembershipDao } from '../membership/userMembership.dao'
-import { createPointRecordDao } from '../point/pointRecords.dao'
+
+// 导入会员和积分服务
+import { createMembershipService } from '../membership/userMembership.service'
+import { createPointRecordService } from '../point/pointRecords.service'
 
 // 显式导入常量
 import { RedemptionCodeStatus, RedemptionCodeType } from '#shared/types/redemption'
 import type { RedemptionCodeInfo, RedemptionResult } from '#shared/types/redemption'
-import { MembershipStatus, UserMembershipSourceType } from '#shared/types/membership'
-import { PointRecordStatus, PointRecordSourceType } from '#shared/types/point.types'
+import { UserMembershipSourceType } from '#shared/types/membership'
+import { PointRecordSourceType } from '#shared/types/point.types'
 
 // 显式导入 Prisma 客户端和日志工具
 import { prisma } from '../../utils/db'
@@ -132,6 +134,19 @@ export const redeemCodeService = async (
         // 根据兑换类型处理
         const codeType = codeInfo.type
 
+        logger.info(`兑换码兑换开始`, {
+            userId,
+            code,
+            codeType,
+            levelId: codeInfo.levelId,
+            duration: codeInfo.duration,
+            pointAmount: codeInfo.pointAmount,
+        })
+
+        // 会员开始和结束日期（用于积分跟随）
+        let membershipStartDate: Date | undefined
+        let membershipEndDate: Date | undefined
+
         // 处理会员兑换（仅会员 或 会员和积分）
         if (
             (codeType === RedemptionCodeType.MEMBERSHIP_ONLY ||
@@ -139,60 +154,63 @@ export const redeemCodeService = async (
             codeInfo.levelId &&
             codeInfo.duration
         ) {
-            const startDate = dayjs().toDate()
-            const endDate = dayjs().add(codeInfo.duration, 'day').toDate()
+            logger.info(`创建会员记录`, { userId, levelId: codeInfo.levelId, duration: codeInfo.duration })
 
-            const membership = await createUserMembershipDao(
+            // 复用会员购买的创建逻辑
+            const membership = await createMembershipService(
                 {
-                    user: { connect: { id: userId } },
-                    level: { connect: { id: codeInfo.levelId } },
-                    startDate,
-                    endDate,
-                    status: MembershipStatus.ACTIVE,
+                    userId,
+                    levelId: codeInfo.levelId,
+                    duration: codeInfo.duration,
+                    durationUnit: 'day', // 兑换码按天计算
                     sourceType: UserMembershipSourceType.REDEMPTION_CODE,
                     sourceId: codeInfo.id,
                     remark: `兑换码兑换：${code}`,
                 },
                 tx as unknown as PrismaClient
             )
+
             membershipId = membership.id
+            membershipStartDate = membership.startDate
+            membershipEndDate = membership.endDate
+            logger.info(`会员记录创建成功`, {
+                membershipId,
+                startDate: dayjs(membershipStartDate).format('YYYY-MM-DD'),
+                endDate: dayjs(membershipEndDate).format('YYYY-MM-DD'),
+            })
         }
 
         // 处理积分兑换（仅积分 或 会员和积分）
-        if (
+        const shouldCreatePointRecord = (
             (codeType === RedemptionCodeType.POINTS_ONLY ||
                 codeType === RedemptionCodeType.MEMBERSHIP_AND_POINTS) &&
             codeInfo.pointAmount &&
             codeInfo.pointAmount > 0
-        ) {
-            const effectiveAt = dayjs().toDate()
-            let expiredAt: Date
+        )
 
-            // 积分有效期规则：
-            // - 仅积分：1年有效期
-            // - 会员和积分：跟随会员有效期
-            if (codeType === RedemptionCodeType.MEMBERSHIP_AND_POINTS && codeInfo.duration) {
-                expiredAt = dayjs().add(codeInfo.duration, 'day').toDate()
-            } else {
-                expiredAt = dayjs().add(1, 'year').toDate()
-            }
+        if (shouldCreatePointRecord) {
+            logger.info(`创建积分记录`, { userId, pointAmount: codeInfo.pointAmount })
 
-            const pointRecord = await createPointRecordDao(
+            // 复用积分创建的统一逻辑
+            // - 会员和积分：跟随会员日期
+            // - 仅积分：当天生效，1 年后过期
+            const pointRecord = await createPointRecordService(
                 {
-                    users: { connect: { id: userId } },
-                    pointAmount: codeInfo.pointAmount,
-                    used: 0,
-                    remaining: codeInfo.pointAmount,
+                    userId,
+                    pointAmount: codeInfo.pointAmount!,
                     sourceType: PointRecordSourceType.EXCHANGE_CODE_GIFT,
                     sourceId: codeInfo.id,
-                    effectiveAt,
-                    expiredAt,
-                    status: PointRecordStatus.VALID,
-                    ...(membershipId && { userMembership: { connect: { id: membershipId } } }),
+                    userMembershipId: membershipId,
+                    // 会员和积分时跟随会员日期，仅积分时使用默认值（当天生效，1年后过期）
+                    effectiveAt: membershipStartDate,
+                    expiredAt: membershipEndDate,
+                    remark: `兑换码兑换：${code}`,
                 },
                 tx as unknown as PrismaClient
             )
+
             pointRecordId = pointRecord.id
+            logger.info(`积分记录创建成功`, { pointRecordId })
         }
 
         // 创建兑换记录

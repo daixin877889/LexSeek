@@ -5,6 +5,21 @@
  */
 import dayjs from 'dayjs'
 
+// 显式导入（测试环境需要）
+import { findMembershipLevelByIdDao } from './membershipLevel.dao'
+import {
+    findCurrentUserMembershipDao,
+    findUserMembershipHistoryDao,
+    findAllActiveUserMembershipsDao,
+    createUserMembershipDao,
+    findUserMembershipByIdDao,
+} from './userMembership.dao'
+import { MembershipStatus, UserMembershipSourceType } from '#shared/types/membership'
+import type { UserMembershipInfo, CreateMembershipParams } from '#shared/types/membership'
+import type { userMemberships } from '../../../generated/prisma/client'
+import { prisma } from '../../utils/db'
+import { logger } from '../../../shared/utils/logger'
+
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma
 

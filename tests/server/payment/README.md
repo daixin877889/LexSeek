@@ -12,6 +12,11 @@
 | `wechat-pay.test.ts` | 微信支付适配器测试 | 99.19% |
 | `wechat-pay-utils.test.ts` | 微信支付工具函数测试 | - |
 | `order-service.test.ts` | 订单服务层测试 | - |
+| `membership-handler.test.ts` | 会员商品支付处理器测试 | - |
+| `points-handler.test.ts` | 积分商品支付处理器测试 | - |
+| `upgrade-handler.test.ts` | 会员升级处理器测试 | - |
+| `order-purchase-limit.test.ts` | 订单购买限制测试 | - |
+| `gift-points-effective-date.test.ts` | 赠送积分生效日期测试 | - |
 
 ## 测试用例详情
 

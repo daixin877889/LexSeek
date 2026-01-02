@@ -7,13 +7,9 @@ import type { IPaymentSuccessHandler, OrderWithProduct } from './types'
 import { ProductType } from '#shared/types/product'
 import { OrderType } from '#shared/types/payment'
 import { UserMembershipSourceType } from '#shared/types/membership'
+import { PointRecordSourceType } from '#shared/types/point.types'
 import { createMembershipService } from '../../membership/userMembership.service'
-
-/** 积分来源类型 */
-const PointSourceType = {
-    /** 购买会员赠送 */
-    MEMBERSHIP_GIFT: 1,
-} as const
+import { createPointRecordService } from '../../point/pointRecords.service'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma
@@ -33,6 +29,7 @@ export const membershipHandler: IPaymentSuccessHandler = {
     /** 处理支付成功 */
     async handle(order: OrderWithProduct, tx: unknown): Promise<void> {
         const product = order.product
+        const prismaClient = tx as PrismaClient
 
         if (!product.levelId) {
             throw new Error('会员商品未关联会员级别')
@@ -49,68 +46,30 @@ export const membershipHandler: IPaymentSuccessHandler = {
                 sourceId: order.id,
                 remark: `购买商品：${product.name}`,
             },
-            tx as PrismaClient
+            prismaClient
         )
 
         logger.info(`会员记录创建成功：用户 ${order.userId}，会员 ID ${membership.id}`)
 
         // 处理赠送积分（生效时间与会员开始时间同步）
         if (product.giftPoint && product.giftPoint > 0) {
-            await handleGiftPoints(
-                order.userId,
-                membership.id,
-                product.giftPoint,
-                membership.startDate,
-                membership.endDate,
-                order.orderNo,
-                tx as PrismaClient
+            // 复用积分创建的统一逻辑
+            await createPointRecordService(
+                {
+                    userId: order.userId,
+                    pointAmount: product.giftPoint,
+                    sourceType: PointRecordSourceType.MEMBERSHIP_GIFT,
+                    sourceId: membership.id,
+                    userMembershipId: membership.id,
+                    // 跟随会员日期
+                    effectiveAt: membership.startDate,
+                    expiredAt: membership.endDate,
+                    remark: `购买会员赠送积分，订单号：${order.orderNo}`,
+                },
+                prismaClient
             )
+
+            logger.info(`赠送积分成功：用户 ${order.userId}，积分 ${product.giftPoint}`)
         }
     },
-}
-
-/**
- * 处理赠送积分
- * @param userId 用户 ID
- * @param membershipId 会员记录 ID
- * @param points 积分数量
- * @param effectiveAt 生效时间（与会员开始时间同步）
- * @param expiredAt 过期时间（与会员结束时间同步）
- * @param orderNo 订单号
- * @param tx 事务客户端
- */
-async function handleGiftPoints(
-    userId: number,
-    membershipId: number,
-    points: number,
-    effectiveAt: Date,
-    expiredAt: Date,
-    orderNo: string,
-    tx: PrismaClient
-): Promise<void> {
-    try {
-        // 创建积分记录（生效时间与会员开始时间同步）
-        await tx.pointRecords.create({
-            data: {
-                userId,
-                userMembershipId: membershipId,
-                pointAmount: points,
-                used: 0,
-                remaining: points,
-                sourceType: PointSourceType.MEMBERSHIP_GIFT,
-                sourceId: membershipId,
-                effectiveAt,
-                expiredAt,
-                status: 1,
-                remark: `购买会员赠送积分，订单号：${orderNo}`,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            },
-        })
-
-        logger.info(`赠送积分成功：用户 ${userId}，积分 ${points}`)
-    } catch (error) {
-        logger.error('赠送积分失败：', error)
-        throw error
-    }
 }

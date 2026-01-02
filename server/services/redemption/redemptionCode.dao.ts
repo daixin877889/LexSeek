@@ -143,3 +143,117 @@ export const findAllRedemptionCodesDao = async (
         throw error
     }
 }
+
+
+// ==================== 管理员专用 DAO 方法 ====================
+
+/**
+ * 批量创建兑换码
+ * @param codes 兑换码数据数组
+ * @param tx 事务客户端（可选）
+ * @returns 创建的数量
+ */
+export const bulkCreateRedemptionCodesDao = async (
+    codes: Prisma.redemptionCodesCreateManyInput[],
+    tx?: PrismaClient
+): Promise<number> => {
+    try {
+        const result = await (tx || prisma).redemptionCodes.createMany({
+            data: codes,
+        })
+        return result.count
+    } catch (error) {
+        logger.error('批量创建兑换码失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 查询兑换码列表（支持更多筛选条件）
+ * @param options 查询选项
+ * @param tx 事务客户端（可选）
+ * @returns 兑换码列表和总数
+ */
+export const findRedemptionCodesWithFiltersDao = async (
+    options: {
+        page?: number
+        pageSize?: number
+        status?: RedemptionCodeStatus
+        type?: RedemptionCodeType
+        code?: string
+        remark?: string
+    } = {},
+    tx?: PrismaClient
+): Promise<{ list: (redemptionCodes & { level: membershipLevels | null })[]; total: number }> => {
+    try {
+        const { page = 1, pageSize = 20, status, type, code, remark } = options
+        const skip = (page - 1) * pageSize
+
+        const where: Prisma.redemptionCodesWhereInput = {
+            deletedAt: null,
+            ...(status !== undefined && { status }),
+            ...(type !== undefined && { type }),
+            ...(code && { code: { contains: code } }),
+            ...(remark && { remark: { contains: remark } }),
+        }
+
+        const [list, total] = await Promise.all([
+            (tx || prisma).redemptionCodes.findMany({
+                where,
+                include: { level: true },
+                skip,
+                take: pageSize,
+                orderBy: { createdAt: 'desc' },
+            }),
+            (tx || prisma).redemptionCodes.count({ where }),
+        ])
+
+        return { list, total }
+    } catch (error) {
+        logger.error('查询兑换码列表失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 查询兑换码列表（不分页，用于导出）
+ * @param options 查询选项
+ * @param tx 事务客户端（可选）
+ * @returns 兑换码列表
+ */
+export const findRedemptionCodesForExportDao = async (
+    options: {
+        status?: RedemptionCodeStatus
+        type?: RedemptionCodeType
+        code?: string
+        remark?: string
+        ids?: number[]
+        limit?: number
+    } = {},
+    tx?: PrismaClient
+): Promise<(redemptionCodes & { level: membershipLevels | null })[]> => {
+    try {
+        const { status, type, code, remark, ids, limit = 10000 } = options
+
+        const where: Prisma.redemptionCodesWhereInput = {
+            deletedAt: null,
+            ...(status !== undefined && { status }),
+            ...(type !== undefined && { type }),
+            ...(code && { code: { contains: code } }),
+            ...(remark && { remark: { contains: remark } }),
+            ...(ids && ids.length > 0 && { id: { in: ids } }),
+        }
+
+        const list = await (tx || prisma).redemptionCodes.findMany({
+            where,
+            include: { level: true },
+            take: limit,
+            orderBy: { createdAt: 'desc' },
+        })
+
+        return list
+    } catch (error) {
+        logger.error('查询兑换码列表（导出）失败：', error)
+        throw error
+    }
+}

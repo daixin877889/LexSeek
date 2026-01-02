@@ -3,15 +3,10 @@
  *
  * 处理积分商品购买成功后的业务逻辑
  */
-import dayjs from 'dayjs'
 import type { IPaymentSuccessHandler, OrderWithProduct } from './types'
 import { ProductType } from '#shared/types/product'
-
-/** 积分来源类型 */
-const PointSourceType = {
-    /** 直接购买 */
-    DIRECT_PURCHASE: 2,
-} as const
+import { PointRecordSourceType } from '#shared/types/point.types'
+import { createPointRecordService } from '../../point/pointRecords.service'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma
@@ -37,40 +32,19 @@ export const pointsHandler: IPaymentSuccessHandler = {
         // 计算总积分
         const totalPoints = product.pointAmount * order.duration
 
-        // 积分有效期：根据购买时长计算
-        // 规则：购买日期的次月/次年相同日期的前一天
-        // 例如：2025-01-15 购买 1 年积分 → 到期 2026-01-14
-        const now = dayjs()
-        let expiredAt: Date
-
-        if (order.durationUnit === 'month') {
-            // 按月计算
-            expiredAt = now.add(order.duration, 'month').subtract(1, 'day').endOf('day').toDate()
-        } else if (order.durationUnit === 'year') {
-            // 按年计算
-            expiredAt = now.add(order.duration, 'year').subtract(1, 'day').endOf('day').toDate()
-        } else {
-            // 按天计算（兼容旧逻辑）
-            expiredAt = now.add(order.duration, 'day').subtract(1, 'day').endOf('day').toDate()
-        }
-
-        // 创建积分记录
-        await prismaClient.pointRecords.create({
-            data: {
+        // 复用积分创建的统一逻辑
+        await createPointRecordService(
+            {
                 userId: order.userId,
                 pointAmount: totalPoints,
-                used: 0,
-                remaining: totalPoints,
-                sourceType: PointSourceType.DIRECT_PURCHASE,
+                sourceType: PointRecordSourceType.DIRECT_PURCHASE,
                 sourceId: order.id,
-                effectiveAt: new Date(),
-                expiredAt,
-                status: 1,
+                duration: order.duration,
+                durationUnit: order.durationUnit as 'day' | 'month' | 'year',
                 remark: `购买积分商品：${product.name}`,
-                createdAt: new Date(),
-                updatedAt: new Date(),
             },
-        })
+            prismaClient
+        )
 
         logger.info(`积分购买成功：用户 ${order.userId}，积分 ${totalPoints}`)
     },
