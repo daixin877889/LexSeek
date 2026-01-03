@@ -87,28 +87,34 @@ model userMemberships {
 /// 权益表
 model benefits {
     /// 权益ID，主键，自增
-    id          Int       @id @default(autoincrement())
+    id              Int       @id @default(autoincrement())
+    /// 权益唯一标识码（如 storage_space）
+    code            String    @unique @db.VarChar(50)
     /// 权益名称
-    name        String    @db.VarChar(100)
+    name            String    @db.VarChar(100)
     /// 权益描述
-    description String?   @db.VarChar(255)
-    /// 权益类型
-    type        String    @db.VarChar(50)
-    /// 权益值（JSON格式）
-    value       Json?
+    description     String?   @db.VarChar(255)
+    /// 单位类型（byte-字节, count-次数）
+    unitType        String    @map("unit_type") @db.VarChar(20)
+    /// 计算模式（sum-累加, max-取最大值）
+    consumptionMode String    @map("consumption_mode") @db.VarChar(20)
+    /// 默认值（无会员用户的权益值）
+    defaultValue    BigInt    @default(0) @map("default_value")
     /// 状态：1-启用，0-禁用
-    status      Int       @default(1)
+    status          Int       @default(1)
     /// 创建时间
-    createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+    createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
     /// 最后更新时间
-    updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+    updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
     /// 删除时间，为NULL表示未删除
-    deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+    deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
 
     /// 关联的会员权益
     membershipBenefits membershipBenefits[]
+    /// 关联的用户权益
+    userBenefits       userBenefits[]
 
-    @@index([type], map: "idx_benefits_type")
+    @@index([code], map: "idx_benefits_code")
     @@index([status], map: "idx_benefits_status")
     @@index([deletedAt], map: "idx_benefits_deleted_at")
     @@map("benefits")
@@ -117,17 +123,19 @@ model benefits {
 /// 会员权益关联表
 model membershipBenefits {
     /// 会员权益关联ID，主键，自增
-    id        Int       @id @default(autoincrement())
+    id           Int       @id @default(autoincrement())
     /// 会员级别ID
-    levelId   Int       @map("level_id")
+    levelId      Int       @map("level_id")
     /// 权益ID
-    benefitId Int       @map("benefit_id")
+    benefitId    Int       @map("benefit_id")
+    /// 权益值
+    benefitValue BigInt    @map("benefit_value")
     /// 创建时间
-    createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+    createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
     /// 最后更新时间
-    updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+    updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
     /// 删除时间，为NULL表示未删除
-    deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+    deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
 
     /// 关联的会员级别
     level   membershipLevels @relation(fields: [levelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -139,4 +147,48 @@ model membershipBenefits {
     @@index([benefitId], map: "idx_membership_benefits_benefit_id")
     @@index([deletedAt], map: "idx_membership_benefits_deleted_at")
     @@map("membership_benefits")
+}
+
+/// 用户权益记录表
+model userBenefits {
+    /// 用户权益记录ID，主键，自增
+    id           Int       @id @default(autoincrement())
+    /// 用户ID
+    userId       Int       @map("user_id")
+    /// 权益ID
+    benefitId    Int       @map("benefit_id")
+    /// 权益值
+    benefitValue BigInt    @map("benefit_value")
+    /// 来源类型：membership_gift-会员赠送, benefit_package-权益包购买, redemption_code-兑换码, admin_gift-管理员赠送
+    sourceType   String    @map("source_type") @db.VarChar(50)
+    /// 来源ID（关联到具体的会员记录、订单、兑换码等）
+    sourceId     Int?      @map("source_id")
+    /// 生效时间
+    effectiveAt  DateTime  @map("effective_at") @db.Timestamptz(6)
+    /// 过期时间
+    expiredAt    DateTime  @map("expired_at") @db.Timestamptz(6)
+    /// 状态：1-有效，0-无效
+    status       Int       @default(1)
+    /// 备注
+    remark       String?   @db.VarChar(255)
+    /// 创建时间
+    createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+    /// 最后更新时间
+    updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+    /// 删除时间，为NULL表示未删除
+    deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+    /// 关联的用户
+    user    users    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    /// 关联的权益
+    benefit benefits @relation(fields: [benefitId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    @@index([userId], map: "idx_user_benefits_user_id")
+    @@index([benefitId], map: "idx_user_benefits_benefit_id")
+    @@index([sourceType], map: "idx_user_benefits_source_type")
+    @@index([effectiveAt], map: "idx_user_benefits_effective_at")
+    @@index([expiredAt], map: "idx_user_benefits_expired_at")
+    @@index([status], map: "idx_user_benefits_status")
+    @@index([deletedAt], map: "idx_user_benefits_deleted_at")
+    @@map("user_benefits")
 }

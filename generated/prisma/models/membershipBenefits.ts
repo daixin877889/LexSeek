@@ -30,18 +30,21 @@ export type MembershipBenefitsAvgAggregateOutputType = {
   id: number | null
   levelId: number | null
   benefitId: number | null
+  benefitValue: number | null
 }
 
 export type MembershipBenefitsSumAggregateOutputType = {
   id: number | null
   levelId: number | null
   benefitId: number | null
+  benefitValue: bigint | null
 }
 
 export type MembershipBenefitsMinAggregateOutputType = {
   id: number | null
   levelId: number | null
   benefitId: number | null
+  benefitValue: bigint | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -51,6 +54,7 @@ export type MembershipBenefitsMaxAggregateOutputType = {
   id: number | null
   levelId: number | null
   benefitId: number | null
+  benefitValue: bigint | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -60,6 +64,7 @@ export type MembershipBenefitsCountAggregateOutputType = {
   id: number
   levelId: number
   benefitId: number
+  benefitValue: number
   createdAt: number
   updatedAt: number
   deletedAt: number
@@ -71,18 +76,21 @@ export type MembershipBenefitsAvgAggregateInputType = {
   id?: true
   levelId?: true
   benefitId?: true
+  benefitValue?: true
 }
 
 export type MembershipBenefitsSumAggregateInputType = {
   id?: true
   levelId?: true
   benefitId?: true
+  benefitValue?: true
 }
 
 export type MembershipBenefitsMinAggregateInputType = {
   id?: true
   levelId?: true
   benefitId?: true
+  benefitValue?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -92,6 +100,7 @@ export type MembershipBenefitsMaxAggregateInputType = {
   id?: true
   levelId?: true
   benefitId?: true
+  benefitValue?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -101,6 +110,7 @@ export type MembershipBenefitsCountAggregateInputType = {
   id?: true
   levelId?: true
   benefitId?: true
+  benefitValue?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -197,6 +207,7 @@ export type MembershipBenefitsGroupByOutputType = {
   id: number
   levelId: number
   benefitId: number
+  benefitValue: bigint
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
@@ -229,6 +240,7 @@ export type membershipBenefitsWhereInput = {
   id?: Prisma.IntFilter<"membershipBenefits"> | number
   levelId?: Prisma.IntFilter<"membershipBenefits"> | number
   benefitId?: Prisma.IntFilter<"membershipBenefits"> | number
+  benefitValue?: Prisma.BigIntFilter<"membershipBenefits"> | bigint | number
   createdAt?: Prisma.DateTimeFilter<"membershipBenefits"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"membershipBenefits"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"membershipBenefits"> | Date | string | null
@@ -240,6 +252,7 @@ export type membershipBenefitsOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   levelId?: Prisma.SortOrder
   benefitId?: Prisma.SortOrder
+  benefitValue?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -255,6 +268,7 @@ export type membershipBenefitsWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.membershipBenefitsWhereInput | Prisma.membershipBenefitsWhereInput[]
   levelId?: Prisma.IntFilter<"membershipBenefits"> | number
   benefitId?: Prisma.IntFilter<"membershipBenefits"> | number
+  benefitValue?: Prisma.BigIntFilter<"membershipBenefits"> | bigint | number
   createdAt?: Prisma.DateTimeFilter<"membershipBenefits"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"membershipBenefits"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"membershipBenefits"> | Date | string | null
@@ -266,6 +280,7 @@ export type membershipBenefitsOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   levelId?: Prisma.SortOrder
   benefitId?: Prisma.SortOrder
+  benefitValue?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -283,12 +298,14 @@ export type membershipBenefitsScalarWhereWithAggregatesInput = {
   id?: Prisma.IntWithAggregatesFilter<"membershipBenefits"> | number
   levelId?: Prisma.IntWithAggregatesFilter<"membershipBenefits"> | number
   benefitId?: Prisma.IntWithAggregatesFilter<"membershipBenefits"> | number
+  benefitValue?: Prisma.BigIntWithAggregatesFilter<"membershipBenefits"> | bigint | number
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"membershipBenefits"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"membershipBenefits"> | Date | string
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"membershipBenefits"> | Date | string | null
 }
 
 export type membershipBenefitsCreateInput = {
+  benefitValue: bigint | number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -300,12 +317,14 @@ export type membershipBenefitsUncheckedCreateInput = {
   id?: number
   levelId: number
   benefitId: number
+  benefitValue: bigint | number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
 }
 
 export type membershipBenefitsUpdateInput = {
+  benefitValue?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -317,6 +336,7 @@ export type membershipBenefitsUncheckedUpdateInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   levelId?: Prisma.IntFieldUpdateOperationsInput | number
   benefitId?: Prisma.IntFieldUpdateOperationsInput | number
+  benefitValue?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -326,12 +346,14 @@ export type membershipBenefitsCreateManyInput = {
   id?: number
   levelId: number
   benefitId: number
+  benefitValue: bigint | number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
 }
 
 export type membershipBenefitsUpdateManyMutationInput = {
+  benefitValue?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -341,6 +363,7 @@ export type membershipBenefitsUncheckedUpdateManyInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   levelId?: Prisma.IntFieldUpdateOperationsInput | number
   benefitId?: Prisma.IntFieldUpdateOperationsInput | number
+  benefitValue?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -365,6 +388,7 @@ export type membershipBenefitsCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   levelId?: Prisma.SortOrder
   benefitId?: Prisma.SortOrder
+  benefitValue?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -374,12 +398,14 @@ export type membershipBenefitsAvgOrderByAggregateInput = {
   id?: Prisma.SortOrder
   levelId?: Prisma.SortOrder
   benefitId?: Prisma.SortOrder
+  benefitValue?: Prisma.SortOrder
 }
 
 export type membershipBenefitsMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   levelId?: Prisma.SortOrder
   benefitId?: Prisma.SortOrder
+  benefitValue?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -389,6 +415,7 @@ export type membershipBenefitsMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   levelId?: Prisma.SortOrder
   benefitId?: Prisma.SortOrder
+  benefitValue?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -398,6 +425,7 @@ export type membershipBenefitsSumOrderByAggregateInput = {
   id?: Prisma.SortOrder
   levelId?: Prisma.SortOrder
   benefitId?: Prisma.SortOrder
+  benefitValue?: Prisma.SortOrder
 }
 
 export type membershipBenefitsCreateNestedManyWithoutLevelInput = {
@@ -485,6 +513,7 @@ export type membershipBenefitsUncheckedUpdateManyWithoutBenefitNestedInput = {
 }
 
 export type membershipBenefitsCreateWithoutLevelInput = {
+  benefitValue: bigint | number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -494,6 +523,7 @@ export type membershipBenefitsCreateWithoutLevelInput = {
 export type membershipBenefitsUncheckedCreateWithoutLevelInput = {
   id?: number
   benefitId: number
+  benefitValue: bigint | number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -532,12 +562,14 @@ export type membershipBenefitsScalarWhereInput = {
   id?: Prisma.IntFilter<"membershipBenefits"> | number
   levelId?: Prisma.IntFilter<"membershipBenefits"> | number
   benefitId?: Prisma.IntFilter<"membershipBenefits"> | number
+  benefitValue?: Prisma.BigIntFilter<"membershipBenefits"> | bigint | number
   createdAt?: Prisma.DateTimeFilter<"membershipBenefits"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"membershipBenefits"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"membershipBenefits"> | Date | string | null
 }
 
 export type membershipBenefitsCreateWithoutBenefitInput = {
+  benefitValue: bigint | number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -547,6 +579,7 @@ export type membershipBenefitsCreateWithoutBenefitInput = {
 export type membershipBenefitsUncheckedCreateWithoutBenefitInput = {
   id?: number
   levelId: number
+  benefitValue: bigint | number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -581,12 +614,14 @@ export type membershipBenefitsUpdateManyWithWhereWithoutBenefitInput = {
 export type membershipBenefitsCreateManyLevelInput = {
   id?: number
   benefitId: number
+  benefitValue: bigint | number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
 }
 
 export type membershipBenefitsUpdateWithoutLevelInput = {
+  benefitValue?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -596,6 +631,7 @@ export type membershipBenefitsUpdateWithoutLevelInput = {
 export type membershipBenefitsUncheckedUpdateWithoutLevelInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   benefitId?: Prisma.IntFieldUpdateOperationsInput | number
+  benefitValue?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -604,6 +640,7 @@ export type membershipBenefitsUncheckedUpdateWithoutLevelInput = {
 export type membershipBenefitsUncheckedUpdateManyWithoutLevelInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   benefitId?: Prisma.IntFieldUpdateOperationsInput | number
+  benefitValue?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -612,12 +649,14 @@ export type membershipBenefitsUncheckedUpdateManyWithoutLevelInput = {
 export type membershipBenefitsCreateManyBenefitInput = {
   id?: number
   levelId: number
+  benefitValue: bigint | number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
 }
 
 export type membershipBenefitsUpdateWithoutBenefitInput = {
+  benefitValue?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -627,6 +666,7 @@ export type membershipBenefitsUpdateWithoutBenefitInput = {
 export type membershipBenefitsUncheckedUpdateWithoutBenefitInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   levelId?: Prisma.IntFieldUpdateOperationsInput | number
+  benefitValue?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -635,6 +675,7 @@ export type membershipBenefitsUncheckedUpdateWithoutBenefitInput = {
 export type membershipBenefitsUncheckedUpdateManyWithoutBenefitInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   levelId?: Prisma.IntFieldUpdateOperationsInput | number
+  benefitValue?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -646,6 +687,7 @@ export type membershipBenefitsSelect<ExtArgs extends runtime.Types.Extensions.In
   id?: boolean
   levelId?: boolean
   benefitId?: boolean
+  benefitValue?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -657,6 +699,7 @@ export type membershipBenefitsSelectCreateManyAndReturn<ExtArgs extends runtime.
   id?: boolean
   levelId?: boolean
   benefitId?: boolean
+  benefitValue?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -668,6 +711,7 @@ export type membershipBenefitsSelectUpdateManyAndReturn<ExtArgs extends runtime.
   id?: boolean
   levelId?: boolean
   benefitId?: boolean
+  benefitValue?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -679,12 +723,13 @@ export type membershipBenefitsSelectScalar = {
   id?: boolean
   levelId?: boolean
   benefitId?: boolean
+  benefitValue?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
 }
 
-export type membershipBenefitsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "levelId" | "benefitId" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["membershipBenefits"]>
+export type membershipBenefitsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "levelId" | "benefitId" | "benefitValue" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["membershipBenefits"]>
 export type membershipBenefitsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   level?: boolean | Prisma.membershipLevelsDefaultArgs<ExtArgs>
   benefit?: boolean | Prisma.benefitsDefaultArgs<ExtArgs>
@@ -723,6 +768,10 @@ export type $membershipBenefitsPayload<ExtArgs extends runtime.Types.Extensions.
      * 权益ID
      */
     benefitId: number
+    /**
+     * 权益值
+     */
+    benefitValue: bigint
     /**
      * 创建时间
      */
@@ -1163,6 +1212,7 @@ export interface membershipBenefitsFieldRefs {
   readonly id: Prisma.FieldRef<"membershipBenefits", 'Int'>
   readonly levelId: Prisma.FieldRef<"membershipBenefits", 'Int'>
   readonly benefitId: Prisma.FieldRef<"membershipBenefits", 'Int'>
+  readonly benefitValue: Prisma.FieldRef<"membershipBenefits", 'BigInt'>
   readonly createdAt: Prisma.FieldRef<"membershipBenefits", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"membershipBenefits", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"membershipBenefits", 'DateTime'>

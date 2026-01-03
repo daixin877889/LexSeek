@@ -62,6 +62,7 @@ export const ModelName = {
   userMemberships: 'userMemberships',
   benefits: 'benefits',
   membershipBenefits: 'membershipBenefits',
+  userBenefits: 'userBenefits',
   orders: 'orders',
   paymentTransactions: 'paymentTransactions',
   membershipUpgradeRecords: 'membershipUpgradeRecords',
@@ -247,10 +248,12 @@ export type UserMembershipsScalarFieldEnum = (typeof UserMembershipsScalarFieldE
 
 export const BenefitsScalarFieldEnum = {
   id: 'id',
+  code: 'code',
   name: 'name',
   description: 'description',
-  type: 'type',
-  value: 'value',
+  unitType: 'unitType',
+  consumptionMode: 'consumptionMode',
+  defaultValue: 'defaultValue',
   status: 'status',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
@@ -264,12 +267,32 @@ export const MembershipBenefitsScalarFieldEnum = {
   id: 'id',
   levelId: 'levelId',
   benefitId: 'benefitId',
+  benefitValue: 'benefitValue',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
 } as const
 
 export type MembershipBenefitsScalarFieldEnum = (typeof MembershipBenefitsScalarFieldEnum)[keyof typeof MembershipBenefitsScalarFieldEnum]
+
+
+export const UserBenefitsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  benefitId: 'benefitId',
+  benefitValue: 'benefitValue',
+  sourceType: 'sourceType',
+  sourceId: 'sourceId',
+  effectiveAt: 'effectiveAt',
+  expiredAt: 'expiredAt',
+  status: 'status',
+  remark: 'remark',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type UserBenefitsScalarFieldEnum = (typeof UserBenefitsScalarFieldEnum)[keyof typeof UserBenefitsScalarFieldEnum]
 
 
 export const OrdersScalarFieldEnum = {

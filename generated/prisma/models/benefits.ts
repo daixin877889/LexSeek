@@ -28,19 +28,24 @@ export type AggregateBenefits = {
 
 export type BenefitsAvgAggregateOutputType = {
   id: number | null
+  defaultValue: number | null
   status: number | null
 }
 
 export type BenefitsSumAggregateOutputType = {
   id: number | null
+  defaultValue: bigint | null
   status: number | null
 }
 
 export type BenefitsMinAggregateOutputType = {
   id: number | null
+  code: string | null
   name: string | null
   description: string | null
-  type: string | null
+  unitType: string | null
+  consumptionMode: string | null
+  defaultValue: bigint | null
   status: number | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -49,9 +54,12 @@ export type BenefitsMinAggregateOutputType = {
 
 export type BenefitsMaxAggregateOutputType = {
   id: number | null
+  code: string | null
   name: string | null
   description: string | null
-  type: string | null
+  unitType: string | null
+  consumptionMode: string | null
+  defaultValue: bigint | null
   status: number | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -60,10 +68,12 @@ export type BenefitsMaxAggregateOutputType = {
 
 export type BenefitsCountAggregateOutputType = {
   id: number
+  code: number
   name: number
   description: number
-  type: number
-  value: number
+  unitType: number
+  consumptionMode: number
+  defaultValue: number
   status: number
   createdAt: number
   updatedAt: number
@@ -74,19 +84,24 @@ export type BenefitsCountAggregateOutputType = {
 
 export type BenefitsAvgAggregateInputType = {
   id?: true
+  defaultValue?: true
   status?: true
 }
 
 export type BenefitsSumAggregateInputType = {
   id?: true
+  defaultValue?: true
   status?: true
 }
 
 export type BenefitsMinAggregateInputType = {
   id?: true
+  code?: true
   name?: true
   description?: true
-  type?: true
+  unitType?: true
+  consumptionMode?: true
+  defaultValue?: true
   status?: true
   createdAt?: true
   updatedAt?: true
@@ -95,9 +110,12 @@ export type BenefitsMinAggregateInputType = {
 
 export type BenefitsMaxAggregateInputType = {
   id?: true
+  code?: true
   name?: true
   description?: true
-  type?: true
+  unitType?: true
+  consumptionMode?: true
+  defaultValue?: true
   status?: true
   createdAt?: true
   updatedAt?: true
@@ -106,10 +124,12 @@ export type BenefitsMaxAggregateInputType = {
 
 export type BenefitsCountAggregateInputType = {
   id?: true
+  code?: true
   name?: true
   description?: true
-  type?: true
-  value?: true
+  unitType?: true
+  consumptionMode?: true
+  defaultValue?: true
   status?: true
   createdAt?: true
   updatedAt?: true
@@ -205,10 +225,12 @@ export type benefitsGroupByArgs<ExtArgs extends runtime.Types.Extensions.Interna
 
 export type BenefitsGroupByOutputType = {
   id: number
+  code: string
   name: string
   description: string | null
-  type: string
-  value: runtime.JsonValue | null
+  unitType: string
+  consumptionMode: string
+  defaultValue: bigint
   status: number
   createdAt: Date
   updatedAt: Date
@@ -240,52 +262,63 @@ export type benefitsWhereInput = {
   OR?: Prisma.benefitsWhereInput[]
   NOT?: Prisma.benefitsWhereInput | Prisma.benefitsWhereInput[]
   id?: Prisma.IntFilter<"benefits"> | number
+  code?: Prisma.StringFilter<"benefits"> | string
   name?: Prisma.StringFilter<"benefits"> | string
   description?: Prisma.StringNullableFilter<"benefits"> | string | null
-  type?: Prisma.StringFilter<"benefits"> | string
-  value?: Prisma.JsonNullableFilter<"benefits">
+  unitType?: Prisma.StringFilter<"benefits"> | string
+  consumptionMode?: Prisma.StringFilter<"benefits"> | string
+  defaultValue?: Prisma.BigIntFilter<"benefits"> | bigint | number
   status?: Prisma.IntFilter<"benefits"> | number
   createdAt?: Prisma.DateTimeFilter<"benefits"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"benefits"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"benefits"> | Date | string | null
   membershipBenefits?: Prisma.MembershipBenefitsListRelationFilter
+  userBenefits?: Prisma.UserBenefitsListRelationFilter
 }
 
 export type benefitsOrderByWithRelationInput = {
   id?: Prisma.SortOrder
+  code?: Prisma.SortOrder
   name?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
-  type?: Prisma.SortOrder
-  value?: Prisma.SortOrderInput | Prisma.SortOrder
+  unitType?: Prisma.SortOrder
+  consumptionMode?: Prisma.SortOrder
+  defaultValue?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   membershipBenefits?: Prisma.membershipBenefitsOrderByRelationAggregateInput
+  userBenefits?: Prisma.userBenefitsOrderByRelationAggregateInput
 }
 
 export type benefitsWhereUniqueInput = Prisma.AtLeast<{
   id?: number
+  code?: string
   AND?: Prisma.benefitsWhereInput | Prisma.benefitsWhereInput[]
   OR?: Prisma.benefitsWhereInput[]
   NOT?: Prisma.benefitsWhereInput | Prisma.benefitsWhereInput[]
   name?: Prisma.StringFilter<"benefits"> | string
   description?: Prisma.StringNullableFilter<"benefits"> | string | null
-  type?: Prisma.StringFilter<"benefits"> | string
-  value?: Prisma.JsonNullableFilter<"benefits">
+  unitType?: Prisma.StringFilter<"benefits"> | string
+  consumptionMode?: Prisma.StringFilter<"benefits"> | string
+  defaultValue?: Prisma.BigIntFilter<"benefits"> | bigint | number
   status?: Prisma.IntFilter<"benefits"> | number
   createdAt?: Prisma.DateTimeFilter<"benefits"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"benefits"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"benefits"> | Date | string | null
   membershipBenefits?: Prisma.MembershipBenefitsListRelationFilter
-}, "id">
+  userBenefits?: Prisma.UserBenefitsListRelationFilter
+}, "id" | "code">
 
 export type benefitsOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
+  code?: Prisma.SortOrder
   name?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
-  type?: Prisma.SortOrder
-  value?: Prisma.SortOrderInput | Prisma.SortOrder
+  unitType?: Prisma.SortOrder
+  consumptionMode?: Prisma.SortOrder
+  defaultValue?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -302,10 +335,12 @@ export type benefitsScalarWhereWithAggregatesInput = {
   OR?: Prisma.benefitsScalarWhereWithAggregatesInput[]
   NOT?: Prisma.benefitsScalarWhereWithAggregatesInput | Prisma.benefitsScalarWhereWithAggregatesInput[]
   id?: Prisma.IntWithAggregatesFilter<"benefits"> | number
+  code?: Prisma.StringWithAggregatesFilter<"benefits"> | string
   name?: Prisma.StringWithAggregatesFilter<"benefits"> | string
   description?: Prisma.StringNullableWithAggregatesFilter<"benefits"> | string | null
-  type?: Prisma.StringWithAggregatesFilter<"benefits"> | string
-  value?: Prisma.JsonNullableWithAggregatesFilter<"benefits">
+  unitType?: Prisma.StringWithAggregatesFilter<"benefits"> | string
+  consumptionMode?: Prisma.StringWithAggregatesFilter<"benefits"> | string
+  defaultValue?: Prisma.BigIntWithAggregatesFilter<"benefits"> | bigint | number
   status?: Prisma.IntWithAggregatesFilter<"benefits"> | number
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"benefits"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"benefits"> | Date | string
@@ -313,61 +348,75 @@ export type benefitsScalarWhereWithAggregatesInput = {
 }
 
 export type benefitsCreateInput = {
+  code: string
   name: string
   description?: string | null
-  type: string
-  value?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  unitType: string
+  consumptionMode: string
+  defaultValue?: bigint | number
   status?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   membershipBenefits?: Prisma.membershipBenefitsCreateNestedManyWithoutBenefitInput
+  userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutBenefitInput
 }
 
 export type benefitsUncheckedCreateInput = {
   id?: number
+  code: string
   name: string
   description?: string | null
-  type: string
-  value?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  unitType: string
+  consumptionMode: string
+  defaultValue?: bigint | number
   status?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   membershipBenefits?: Prisma.membershipBenefitsUncheckedCreateNestedManyWithoutBenefitInput
+  userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutBenefitInput
 }
 
 export type benefitsUpdateInput = {
+  code?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  type?: Prisma.StringFieldUpdateOperationsInput | string
-  value?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  unitType?: Prisma.StringFieldUpdateOperationsInput | string
+  consumptionMode?: Prisma.StringFieldUpdateOperationsInput | string
+  defaultValue?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   membershipBenefits?: Prisma.membershipBenefitsUpdateManyWithoutBenefitNestedInput
+  userBenefits?: Prisma.userBenefitsUpdateManyWithoutBenefitNestedInput
 }
 
 export type benefitsUncheckedUpdateInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
+  code?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  type?: Prisma.StringFieldUpdateOperationsInput | string
-  value?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  unitType?: Prisma.StringFieldUpdateOperationsInput | string
+  consumptionMode?: Prisma.StringFieldUpdateOperationsInput | string
+  defaultValue?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   membershipBenefits?: Prisma.membershipBenefitsUncheckedUpdateManyWithoutBenefitNestedInput
+  userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutBenefitNestedInput
 }
 
 export type benefitsCreateManyInput = {
   id?: number
+  code: string
   name: string
   description?: string | null
-  type: string
-  value?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  unitType: string
+  consumptionMode: string
+  defaultValue?: bigint | number
   status?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -375,10 +424,12 @@ export type benefitsCreateManyInput = {
 }
 
 export type benefitsUpdateManyMutationInput = {
+  code?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  type?: Prisma.StringFieldUpdateOperationsInput | string
-  value?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  unitType?: Prisma.StringFieldUpdateOperationsInput | string
+  consumptionMode?: Prisma.StringFieldUpdateOperationsInput | string
+  defaultValue?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -387,10 +438,12 @@ export type benefitsUpdateManyMutationInput = {
 
 export type benefitsUncheckedUpdateManyInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
+  code?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  type?: Prisma.StringFieldUpdateOperationsInput | string
-  value?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  unitType?: Prisma.StringFieldUpdateOperationsInput | string
+  consumptionMode?: Prisma.StringFieldUpdateOperationsInput | string
+  defaultValue?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -399,10 +452,12 @@ export type benefitsUncheckedUpdateManyInput = {
 
 export type benefitsCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  code?: Prisma.SortOrder
   name?: Prisma.SortOrder
   description?: Prisma.SortOrder
-  type?: Prisma.SortOrder
-  value?: Prisma.SortOrder
+  unitType?: Prisma.SortOrder
+  consumptionMode?: Prisma.SortOrder
+  defaultValue?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -411,14 +466,18 @@ export type benefitsCountOrderByAggregateInput = {
 
 export type benefitsAvgOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  defaultValue?: Prisma.SortOrder
   status?: Prisma.SortOrder
 }
 
 export type benefitsMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  code?: Prisma.SortOrder
   name?: Prisma.SortOrder
   description?: Prisma.SortOrder
-  type?: Prisma.SortOrder
+  unitType?: Prisma.SortOrder
+  consumptionMode?: Prisma.SortOrder
+  defaultValue?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -427,9 +486,12 @@ export type benefitsMaxOrderByAggregateInput = {
 
 export type benefitsMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  code?: Prisma.SortOrder
   name?: Prisma.SortOrder
   description?: Prisma.SortOrder
-  type?: Prisma.SortOrder
+  unitType?: Prisma.SortOrder
+  consumptionMode?: Prisma.SortOrder
+  defaultValue?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -438,12 +500,21 @@ export type benefitsMinOrderByAggregateInput = {
 
 export type benefitsSumOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  defaultValue?: Prisma.SortOrder
   status?: Prisma.SortOrder
 }
 
 export type BenefitsScalarRelationFilter = {
   is?: Prisma.benefitsWhereInput
   isNot?: Prisma.benefitsWhereInput
+}
+
+export type BigIntFieldUpdateOperationsInput = {
+  set?: bigint | number
+  increment?: bigint | number
+  decrement?: bigint | number
+  multiply?: bigint | number
+  divide?: bigint | number
 }
 
 export type benefitsCreateNestedOneWithoutMembershipBenefitsInput = {
@@ -460,27 +531,47 @@ export type benefitsUpdateOneRequiredWithoutMembershipBenefitsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.benefitsUpdateToOneWithWhereWithoutMembershipBenefitsInput, Prisma.benefitsUpdateWithoutMembershipBenefitsInput>, Prisma.benefitsUncheckedUpdateWithoutMembershipBenefitsInput>
 }
 
+export type benefitsCreateNestedOneWithoutUserBenefitsInput = {
+  create?: Prisma.XOR<Prisma.benefitsCreateWithoutUserBenefitsInput, Prisma.benefitsUncheckedCreateWithoutUserBenefitsInput>
+  connectOrCreate?: Prisma.benefitsCreateOrConnectWithoutUserBenefitsInput
+  connect?: Prisma.benefitsWhereUniqueInput
+}
+
+export type benefitsUpdateOneRequiredWithoutUserBenefitsNestedInput = {
+  create?: Prisma.XOR<Prisma.benefitsCreateWithoutUserBenefitsInput, Prisma.benefitsUncheckedCreateWithoutUserBenefitsInput>
+  connectOrCreate?: Prisma.benefitsCreateOrConnectWithoutUserBenefitsInput
+  upsert?: Prisma.benefitsUpsertWithoutUserBenefitsInput
+  connect?: Prisma.benefitsWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.benefitsUpdateToOneWithWhereWithoutUserBenefitsInput, Prisma.benefitsUpdateWithoutUserBenefitsInput>, Prisma.benefitsUncheckedUpdateWithoutUserBenefitsInput>
+}
+
 export type benefitsCreateWithoutMembershipBenefitsInput = {
+  code: string
   name: string
   description?: string | null
-  type: string
-  value?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  unitType: string
+  consumptionMode: string
+  defaultValue?: bigint | number
   status?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
+  userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutBenefitInput
 }
 
 export type benefitsUncheckedCreateWithoutMembershipBenefitsInput = {
   id?: number
+  code: string
   name: string
   description?: string | null
-  type: string
-  value?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  unitType: string
+  consumptionMode: string
+  defaultValue?: bigint | number
   status?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
+  userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutBenefitInput
 }
 
 export type benefitsCreateOrConnectWithoutMembershipBenefitsInput = {
@@ -500,26 +591,106 @@ export type benefitsUpdateToOneWithWhereWithoutMembershipBenefitsInput = {
 }
 
 export type benefitsUpdateWithoutMembershipBenefitsInput = {
+  code?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  type?: Prisma.StringFieldUpdateOperationsInput | string
-  value?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  unitType?: Prisma.StringFieldUpdateOperationsInput | string
+  consumptionMode?: Prisma.StringFieldUpdateOperationsInput | string
+  defaultValue?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userBenefits?: Prisma.userBenefitsUpdateManyWithoutBenefitNestedInput
 }
 
 export type benefitsUncheckedUpdateWithoutMembershipBenefitsInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
+  code?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  type?: Prisma.StringFieldUpdateOperationsInput | string
-  value?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  unitType?: Prisma.StringFieldUpdateOperationsInput | string
+  consumptionMode?: Prisma.StringFieldUpdateOperationsInput | string
+  defaultValue?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutBenefitNestedInput
+}
+
+export type benefitsCreateWithoutUserBenefitsInput = {
+  code: string
+  name: string
+  description?: string | null
+  unitType: string
+  consumptionMode: string
+  defaultValue?: bigint | number
+  status?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  membershipBenefits?: Prisma.membershipBenefitsCreateNestedManyWithoutBenefitInput
+}
+
+export type benefitsUncheckedCreateWithoutUserBenefitsInput = {
+  id?: number
+  code: string
+  name: string
+  description?: string | null
+  unitType: string
+  consumptionMode: string
+  defaultValue?: bigint | number
+  status?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  membershipBenefits?: Prisma.membershipBenefitsUncheckedCreateNestedManyWithoutBenefitInput
+}
+
+export type benefitsCreateOrConnectWithoutUserBenefitsInput = {
+  where: Prisma.benefitsWhereUniqueInput
+  create: Prisma.XOR<Prisma.benefitsCreateWithoutUserBenefitsInput, Prisma.benefitsUncheckedCreateWithoutUserBenefitsInput>
+}
+
+export type benefitsUpsertWithoutUserBenefitsInput = {
+  update: Prisma.XOR<Prisma.benefitsUpdateWithoutUserBenefitsInput, Prisma.benefitsUncheckedUpdateWithoutUserBenefitsInput>
+  create: Prisma.XOR<Prisma.benefitsCreateWithoutUserBenefitsInput, Prisma.benefitsUncheckedCreateWithoutUserBenefitsInput>
+  where?: Prisma.benefitsWhereInput
+}
+
+export type benefitsUpdateToOneWithWhereWithoutUserBenefitsInput = {
+  where?: Prisma.benefitsWhereInput
+  data: Prisma.XOR<Prisma.benefitsUpdateWithoutUserBenefitsInput, Prisma.benefitsUncheckedUpdateWithoutUserBenefitsInput>
+}
+
+export type benefitsUpdateWithoutUserBenefitsInput = {
+  code?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unitType?: Prisma.StringFieldUpdateOperationsInput | string
+  consumptionMode?: Prisma.StringFieldUpdateOperationsInput | string
+  defaultValue?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  membershipBenefits?: Prisma.membershipBenefitsUpdateManyWithoutBenefitNestedInput
+}
+
+export type benefitsUncheckedUpdateWithoutUserBenefitsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  code?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unitType?: Prisma.StringFieldUpdateOperationsInput | string
+  consumptionMode?: Prisma.StringFieldUpdateOperationsInput | string
+  defaultValue?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  membershipBenefits?: Prisma.membershipBenefitsUncheckedUpdateManyWithoutBenefitNestedInput
 }
 
 
@@ -529,10 +700,12 @@ export type benefitsUncheckedUpdateWithoutMembershipBenefitsInput = {
 
 export type BenefitsCountOutputType = {
   membershipBenefits: number
+  userBenefits: number
 }
 
 export type BenefitsCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   membershipBenefits?: boolean | BenefitsCountOutputTypeCountMembershipBenefitsArgs
+  userBenefits?: boolean | BenefitsCountOutputTypeCountUserBenefitsArgs
 }
 
 /**
@@ -552,27 +725,39 @@ export type BenefitsCountOutputTypeCountMembershipBenefitsArgs<ExtArgs extends r
   where?: Prisma.membershipBenefitsWhereInput
 }
 
+/**
+ * BenefitsCountOutputType without action
+ */
+export type BenefitsCountOutputTypeCountUserBenefitsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.userBenefitsWhereInput
+}
+
 
 export type benefitsSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  code?: boolean
   name?: boolean
   description?: boolean
-  type?: boolean
-  value?: boolean
+  unitType?: boolean
+  consumptionMode?: boolean
+  defaultValue?: boolean
   status?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
   membershipBenefits?: boolean | Prisma.benefits$membershipBenefitsArgs<ExtArgs>
+  userBenefits?: boolean | Prisma.benefits$userBenefitsArgs<ExtArgs>
   _count?: boolean | Prisma.BenefitsCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["benefits"]>
 
 export type benefitsSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  code?: boolean
   name?: boolean
   description?: boolean
-  type?: boolean
-  value?: boolean
+  unitType?: boolean
+  consumptionMode?: boolean
+  defaultValue?: boolean
   status?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -581,10 +766,12 @@ export type benefitsSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exte
 
 export type benefitsSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  code?: boolean
   name?: boolean
   description?: boolean
-  type?: boolean
-  value?: boolean
+  unitType?: boolean
+  consumptionMode?: boolean
+  defaultValue?: boolean
   status?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -593,19 +780,22 @@ export type benefitsSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exte
 
 export type benefitsSelectScalar = {
   id?: boolean
+  code?: boolean
   name?: boolean
   description?: boolean
-  type?: boolean
-  value?: boolean
+  unitType?: boolean
+  consumptionMode?: boolean
+  defaultValue?: boolean
   status?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
 }
 
-export type benefitsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "description" | "type" | "value" | "status" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["benefits"]>
+export type benefitsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "code" | "name" | "description" | "unitType" | "consumptionMode" | "defaultValue" | "status" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["benefits"]>
 export type benefitsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   membershipBenefits?: boolean | Prisma.benefits$membershipBenefitsArgs<ExtArgs>
+  userBenefits?: boolean | Prisma.benefits$userBenefitsArgs<ExtArgs>
   _count?: boolean | Prisma.BenefitsCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type benefitsIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -618,12 +808,20 @@ export type $benefitsPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
      * 关联的会员权益
      */
     membershipBenefits: Prisma.$membershipBenefitsPayload<ExtArgs>[]
+    /**
+     * 关联的用户权益
+     */
+    userBenefits: Prisma.$userBenefitsPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     /**
      * 权益ID，主键，自增
      */
     id: number
+    /**
+     * 权益唯一标识码（如 storage_space）
+     */
+    code: string
     /**
      * 权益名称
      */
@@ -633,13 +831,17 @@ export type $benefitsPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
      */
     description: string | null
     /**
-     * 权益类型
+     * 单位类型（byte-字节, count-次数）
      */
-    type: string
+    unitType: string
     /**
-     * 权益值（JSON格式）
+     * 计算模式（sum-累加, max-取最大值）
      */
-    value: runtime.JsonValue | null
+    consumptionMode: string
+    /**
+     * 默认值（无会员用户的权益值）
+     */
+    defaultValue: bigint
     /**
      * 状态：1-启用，0-禁用
      */
@@ -1051,6 +1253,7 @@ readonly fields: benefitsFieldRefs;
 export interface Prisma__benefitsClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   membershipBenefits<T extends Prisma.benefits$membershipBenefitsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.benefits$membershipBenefitsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$membershipBenefitsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  userBenefits<T extends Prisma.benefits$userBenefitsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.benefits$userBenefitsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$userBenefitsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1081,10 +1284,12 @@ export interface Prisma__benefitsClient<T, Null = never, ExtArgs extends runtime
  */
 export interface benefitsFieldRefs {
   readonly id: Prisma.FieldRef<"benefits", 'Int'>
+  readonly code: Prisma.FieldRef<"benefits", 'String'>
   readonly name: Prisma.FieldRef<"benefits", 'String'>
   readonly description: Prisma.FieldRef<"benefits", 'String'>
-  readonly type: Prisma.FieldRef<"benefits", 'String'>
-  readonly value: Prisma.FieldRef<"benefits", 'Json'>
+  readonly unitType: Prisma.FieldRef<"benefits", 'String'>
+  readonly consumptionMode: Prisma.FieldRef<"benefits", 'String'>
+  readonly defaultValue: Prisma.FieldRef<"benefits", 'BigInt'>
   readonly status: Prisma.FieldRef<"benefits", 'Int'>
   readonly createdAt: Prisma.FieldRef<"benefits", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"benefits", 'DateTime'>
@@ -1498,6 +1703,30 @@ export type benefits$membershipBenefitsArgs<ExtArgs extends runtime.Types.Extens
   take?: number
   skip?: number
   distinct?: Prisma.MembershipBenefitsScalarFieldEnum | Prisma.MembershipBenefitsScalarFieldEnum[]
+}
+
+/**
+ * benefits.userBenefits
+ */
+export type benefits$userBenefitsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the userBenefits
+   */
+  select?: Prisma.userBenefitsSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the userBenefits
+   */
+  omit?: Prisma.userBenefitsOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.userBenefitsInclude<ExtArgs> | null
+  where?: Prisma.userBenefitsWhereInput
+  orderBy?: Prisma.userBenefitsOrderByWithRelationInput | Prisma.userBenefitsOrderByWithRelationInput[]
+  cursor?: Prisma.userBenefitsWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.UserBenefitsScalarFieldEnum | Prisma.UserBenefitsScalarFieldEnum[]
 }
 
 /**

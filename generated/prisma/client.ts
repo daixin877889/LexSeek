@@ -96,6 +96,11 @@ export type benefits = Prisma.benefitsModel
  */
 export type membershipBenefits = Prisma.membershipBenefitsModel
 /**
+ * Model userBenefits
+ * 用户权益记录表
+ */
+export type userBenefits = Prisma.userBenefitsModel
+/**
  * Model orders
  * 订单表
  */

@@ -395,6 +395,7 @@ export const ModelName = {
   userMemberships: 'userMemberships',
   benefits: 'benefits',
   membershipBenefits: 'membershipBenefits',
+  userBenefits: 'userBenefits',
   orders: 'orders',
   paymentTransactions: 'paymentTransactions',
   membershipUpgradeRecords: 'membershipUpgradeRecords',
@@ -429,7 +430,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "campaigns" | "userEncryptions" | "ossFiles" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
+    modelProps: "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "campaigns" | "userEncryptions" | "ossFiles" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1244,6 +1245,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.membershipBenefitsCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.MembershipBenefitsCountAggregateOutputType> | number
+        }
+      }
+    }
+    userBenefits: {
+      payload: Prisma.$userBenefitsPayload<ExtArgs>
+      fields: Prisma.userBenefitsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.userBenefitsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userBenefitsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.userBenefitsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userBenefitsPayload>
+        }
+        findFirst: {
+          args: Prisma.userBenefitsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userBenefitsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.userBenefitsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userBenefitsPayload>
+        }
+        findMany: {
+          args: Prisma.userBenefitsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userBenefitsPayload>[]
+        }
+        create: {
+          args: Prisma.userBenefitsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userBenefitsPayload>
+        }
+        createMany: {
+          args: Prisma.userBenefitsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.userBenefitsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userBenefitsPayload>[]
+        }
+        delete: {
+          args: Prisma.userBenefitsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userBenefitsPayload>
+        }
+        update: {
+          args: Prisma.userBenefitsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userBenefitsPayload>
+        }
+        deleteMany: {
+          args: Prisma.userBenefitsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.userBenefitsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.userBenefitsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userBenefitsPayload>[]
+        }
+        upsert: {
+          args: Prisma.userBenefitsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$userBenefitsPayload>
+        }
+        aggregate: {
+          args: Prisma.UserBenefitsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateUserBenefits>
+        }
+        groupBy: {
+          args: Prisma.userBenefitsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UserBenefitsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.userBenefitsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UserBenefitsCountAggregateOutputType> | number
         }
       }
     }
@@ -2840,10 +2915,12 @@ export type UserMembershipsScalarFieldEnum = (typeof UserMembershipsScalarFieldE
 
 export const BenefitsScalarFieldEnum = {
   id: 'id',
+  code: 'code',
   name: 'name',
   description: 'description',
-  type: 'type',
-  value: 'value',
+  unitType: 'unitType',
+  consumptionMode: 'consumptionMode',
+  defaultValue: 'defaultValue',
   status: 'status',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
@@ -2857,12 +2934,32 @@ export const MembershipBenefitsScalarFieldEnum = {
   id: 'id',
   levelId: 'levelId',
   benefitId: 'benefitId',
+  benefitValue: 'benefitValue',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
 } as const
 
 export type MembershipBenefitsScalarFieldEnum = (typeof MembershipBenefitsScalarFieldEnum)[keyof typeof MembershipBenefitsScalarFieldEnum]
+
+
+export const UserBenefitsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  benefitId: 'benefitId',
+  benefitValue: 'benefitValue',
+  sourceType: 'sourceType',
+  sourceId: 'sourceId',
+  effectiveAt: 'effectiveAt',
+  expiredAt: 'expiredAt',
+  status: 'status',
+  remark: 'remark',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type UserBenefitsScalarFieldEnum = (typeof UserBenefitsScalarFieldEnum)[keyof typeof UserBenefitsScalarFieldEnum]
 
 
 export const OrdersScalarFieldEnum = {
@@ -3328,6 +3425,20 @@ export type ListDecimalFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaMo
 
 
 /**
+ * Reference to a field of type 'BigInt'
+ */
+export type BigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BigInt'>
+    
+
+
+/**
+ * Reference to a field of type 'BigInt[]'
+ */
+export type ListBigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BigInt[]'>
+    
+
+
+/**
  * Reference to a field of type 'Float'
  */
 export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
@@ -3446,6 +3557,7 @@ export type GlobalOmitConfig = {
   userMemberships?: Prisma.userMembershipsOmit
   benefits?: Prisma.benefitsOmit
   membershipBenefits?: Prisma.membershipBenefitsOmit
+  userBenefits?: Prisma.userBenefitsOmit
   orders?: Prisma.ordersOmit
   paymentTransactions?: Prisma.paymentTransactionsOmit
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsOmit

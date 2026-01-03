@@ -59,6 +59,9 @@ model users {
     /// 权限审计日志（一对多）
     permissionAuditLogs permissionAuditLogs[]
 
+    /// 用户权益记录（一对多）
+    userBenefits userBenefits[]
+
     @@index([id], map: "idx_users_id")
     @@index([status], map: "idx_users_status")
     @@index([deletedAt], map: "idx_users_deleted_at")

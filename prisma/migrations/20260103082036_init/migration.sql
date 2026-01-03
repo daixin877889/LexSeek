@@ -147,10 +147,12 @@ CREATE TABLE "user_memberships" (
 -- CreateTable
 CREATE TABLE "benefits" (
     "id" SERIAL NOT NULL,
+    "code" VARCHAR(50) NOT NULL,
     "name" VARCHAR(100) NOT NULL,
     "description" VARCHAR(255),
-    "type" VARCHAR(50) NOT NULL,
-    "value" JSONB,
+    "unit_type" VARCHAR(20) NOT NULL,
+    "consumption_mode" VARCHAR(20) NOT NULL,
+    "default_value" BIGINT NOT NULL DEFAULT 0,
     "status" INTEGER NOT NULL DEFAULT 1,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -164,11 +166,31 @@ CREATE TABLE "membership_benefits" (
     "id" SERIAL NOT NULL,
     "level_id" INTEGER NOT NULL,
     "benefit_id" INTEGER NOT NULL,
+    "benefit_value" BIGINT NOT NULL,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "deleted_at" TIMESTAMPTZ(6),
 
     CONSTRAINT "membership_benefits_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "user_benefits" (
+    "id" SERIAL NOT NULL,
+    "user_id" INTEGER NOT NULL,
+    "benefit_id" INTEGER NOT NULL,
+    "benefit_value" BIGINT NOT NULL,
+    "source_type" VARCHAR(50) NOT NULL,
+    "source_id" INTEGER,
+    "effective_at" TIMESTAMPTZ(6) NOT NULL,
+    "expired_at" TIMESTAMPTZ(6) NOT NULL,
+    "status" INTEGER NOT NULL DEFAULT 1,
+    "remark" VARCHAR(255),
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "user_benefits_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -641,7 +663,10 @@ CREATE INDEX "idx_user_memberships_end_date" ON "user_memberships"("end_date");
 CREATE INDEX "idx_user_memberships_deleted_at" ON "user_memberships"("deleted_at");
 
 -- CreateIndex
-CREATE INDEX "idx_benefits_type" ON "benefits"("type");
+CREATE UNIQUE INDEX "benefits_code_key" ON "benefits"("code");
+
+-- CreateIndex
+CREATE INDEX "idx_benefits_code" ON "benefits"("code");
 
 -- CreateIndex
 CREATE INDEX "idx_benefits_status" ON "benefits"("status");
@@ -660,6 +685,27 @@ CREATE INDEX "idx_membership_benefits_deleted_at" ON "membership_benefits"("dele
 
 -- CreateIndex
 CREATE UNIQUE INDEX "membership_benefits_level_id_benefit_id_key" ON "membership_benefits"("level_id", "benefit_id");
+
+-- CreateIndex
+CREATE INDEX "idx_user_benefits_user_id" ON "user_benefits"("user_id");
+
+-- CreateIndex
+CREATE INDEX "idx_user_benefits_benefit_id" ON "user_benefits"("benefit_id");
+
+-- CreateIndex
+CREATE INDEX "idx_user_benefits_source_type" ON "user_benefits"("source_type");
+
+-- CreateIndex
+CREATE INDEX "idx_user_benefits_effective_at" ON "user_benefits"("effective_at");
+
+-- CreateIndex
+CREATE INDEX "idx_user_benefits_expired_at" ON "user_benefits"("expired_at");
+
+-- CreateIndex
+CREATE INDEX "idx_user_benefits_status" ON "user_benefits"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_user_benefits_deleted_at" ON "user_benefits"("deleted_at");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "orders_order_no_key" ON "orders"("order_no");
@@ -1032,6 +1078,12 @@ ALTER TABLE "membership_benefits" ADD CONSTRAINT "membership_benefits_level_id_f
 
 -- AddForeignKey
 ALTER TABLE "membership_benefits" ADD CONSTRAINT "membership_benefits_benefit_id_fkey" FOREIGN KEY ("benefit_id") REFERENCES "benefits"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "user_benefits" ADD CONSTRAINT "user_benefits_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "user_benefits" ADD CONSTRAINT "user_benefits_benefit_id_fkey" FOREIGN KEY ("benefit_id") REFERENCES "benefits"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
 ALTER TABLE "orders" ADD CONSTRAINT "orders_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;

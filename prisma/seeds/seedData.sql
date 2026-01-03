@@ -230,7 +230,7 @@ INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "descrip
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (64, '/api/v1/redemption-codes/me', 'GET', 'GET redemption codes / me', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.32+08', '2025-12-31 12:16:59.32+08', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (65, '/api/v1/redemption-codes/redeem', 'POST', 'POST redemption codes / redeem', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.321+08', '2025-12-31 12:16:59.321+08', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (66, '/api/v1/sms/send', 'POST', 'POST sms / send', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.323+08', '2025-12-31 12:16:59.323+08', NULL);
-INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (67, '/api/v1/storage/callback', 'POST', 'POST storage / callback', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.324+08', '2025-12-31 12:16:59.324+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (67, '/api/v1/storage/callback', 'POST', 'POST storage / callback', NULL, 't', NULL, 1, '2025-12-31 12:16:59.324+08', '2025-12-31 12:16:59.324+08', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (68, '/api/v1/storage/config', 'GET', 'GET storage / config', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.326+08', '2025-12-31 12:16:59.326+08', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (69, '/api/v1/storage/config', 'POST', 'POST storage / config', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.327+08', '2025-12-31 12:16:59.327+08', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (70, '/api/v1/storage/config/:id', 'DELETE', 'DELETE storage / config / [id]', NULL, 'f', NULL, 1, '2025-12-31 12:16:59.328+08', '2025-12-31 12:16:59.328+08', NULL);
@@ -253,6 +253,8 @@ INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "descrip
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (87, '/api/v1/admin/redemption-codes/records', 'GET', 'GET admin / redemption codes / records', NULL, 'f', NULL, 1, '2026-01-02 04:08:22.107+08', '2026-01-02 04:08:22.107+08', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (88, '/api/v1/wechat/auth-callback', 'GET', 'GET wechat / auth callback', NULL, 't', NULL, 1, '2026-01-02 04:08:22.108+08', '2026-01-02 04:08:22.108+08', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (89, '/api/v1/wechat/openid', 'POST', 'POST wechat / openid', NULL, 't', NULL, 1, '2026-01-02 04:08:22.109+08', '2026-01-02 04:08:22.109+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (90, '/api/v1/users/benefits', 'GET', 'GET users / benefits', NULL, 'f', NULL, 1, '2026-01-03 08:08:03.584+08', '2026-01-03 08:08:03.584+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (91, '/api/v1/users/benefits/:benefitCode', 'GET', 'GET users / benefits / [benefitCode]', NULL, 'f', NULL, 1, '2026-01-03 08:08:03.594+08', '2026-01-03 08:08:03.594+08', NULL);
 
 -- 角色 API
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (1, 1, 82, '2025-12-31 12:18:01.178+08', '2025-12-31 12:18:01.178+08', NULL);
@@ -374,7 +376,18 @@ INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (117, 2, 85, '2025-12-31 12:17:29.402+08', '2025-12-31 12:17:29.402+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (118, 2, 86, '2025-12-31 12:17:29.402+08', '2025-12-31 12:17:29.402+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (119, 2, 87, '2025-12-31 12:17:29.402+08', '2025-12-31 12:17:29.402+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (120, 1, 90, '2026-01-03 08:09:25.69+08', '2026-01-03 08:09:25.69+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (121, 1, 91, '2026-01-03 08:09:25.69+08', '2026-01-03 08:09:25.69+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (122, 2, 90, '2026-01-03 08:09:25.69+08', '2026-01-03 08:09:25.69+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (123, 2, 91, '2026-01-03 08:09:25.69+08', '2026-01-03 08:09:25.69+08', NULL);
 
+-- 权益
+INSERT INTO "public"."benefits" ("id", "name", "description", "status", "created_at", "updated_at", "deleted_at", "code", "consumption_mode", "default_value", "unit_type") VALUES (1, '云盘空间', '用户可用的云盘存储空间', 1, '2026-01-03 15:16:52.495291+08', '2026-01-03 15:16:52.495291+08', NULL, 'storage_space', 'sum', 104857600, 'byte');
+
+-- 会员权益
+INSERT INTO "public"."membership_benefits" ("id", "level_id", "benefit_id", "created_at", "updated_at", "deleted_at", "benefit_value") VALUES (1, 1, 1, '2026-01-03 15:16:52.502893+08', '2026-01-03 15:16:52.502893+08', NULL, 104857600);
+INSERT INTO "public"."membership_benefits" ("id", "level_id", "benefit_id", "created_at", "updated_at", "deleted_at", "benefit_value") VALUES (2, 2, 1, '2026-01-03 15:16:52.502893+08', '2026-01-03 15:16:52.502893+08', NULL, 1073741824);
+INSERT INTO "public"."membership_benefits" ("id", "level_id", "benefit_id", "created_at", "updated_at", "deleted_at", "benefit_value") VALUES (3, 3, 1, '2026-01-03 15:16:52.502893+08', '2026-01-03 15:16:52.502893+08', NULL, 5368709120);
 
 -- 重置所有序列，确保新插入的记录不会与种子数据冲突
 -- Reset all sequences to avoid ID conflicts with seed data
@@ -391,3 +404,5 @@ SELECT setval('campaigns_id_seq', (SELECT COALESCE(MAX(id), 0) FROM campaigns) +
 SELECT setval('api_permission_groups_id_seq', (SELECT COALESCE(MAX(id), 0) FROM api_permission_groups) + 1, false);
 SELECT setval('api_permissions_id_seq', (SELECT COALESCE(MAX(id), 0) FROM api_permissions) + 1, false);
 SELECT setval('role_api_permissions_id_seq', (SELECT COALESCE(MAX(id), 0) FROM role_api_permissions) + 1, false);
+SELECT setval('benefits_id_seq', (SELECT COALESCE(MAX(id), 0) FROM benefits) + 1, false);
+SELECT setval('membership_benefits_id_seq', (SELECT COALESCE(MAX(id), 0) FROM membership_benefits) + 1, false);
