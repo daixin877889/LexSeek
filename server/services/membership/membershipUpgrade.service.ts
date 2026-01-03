@@ -9,6 +9,7 @@ import dayjs from 'dayjs'
 import { findCurrentUserMembershipDao, createUserMembershipDao, updateUserMembershipDao, findUserMembershipByIdDao } from './userMembership.dao'
 import { findMembershipLevelByIdDao, findAllActiveMembershipLevelsDao } from './membershipLevel.dao'
 import { createMembershipUpgradeRecordDao, findUserUpgradeRecordsDao } from './membershipUpgrade.dao'
+import { grantMembershipBenefitsService, expireMembershipBenefitsService } from './userBenefit.service'
 
 // 显式导入常量
 import { MembershipStatus, UserMembershipSourceType } from '#shared/types/membership'
@@ -565,6 +566,9 @@ export const executeMembershipUpgradeService = async (
             client
         )
 
+        // 1.1 作废旧会员的权益
+        await expireMembershipBenefitsService(userId, currentMembership.id, client)
+
         // 2. 创建新会员记录
         const newMembership = await createUserMembershipDao(
             {
@@ -579,6 +583,9 @@ export const executeMembershipUpgradeService = async (
             },
             client
         )
+
+        // 2.1 发放新会员级别的权益
+        await grantMembershipBenefitsService(userId, newMembership.id, targetLevelId, newMembershipStartDate, originalEndDate, client)
 
         // 3. 查询旧会员关联的积分记录（只查询有效的，status = 1）
         const oldPointRecords = await client.pointRecords.findMany({

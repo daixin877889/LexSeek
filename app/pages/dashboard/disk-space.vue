@@ -22,22 +22,22 @@
           <div class="flex items-center justify-between">
             <div>
               <p class="text-sm text-muted-foreground">已使用空间</p>
-              <p class="text-2xl font-bold text-foreground">{{ storageInfo.formatted || "0 B" }}</p>
+              <p class="text-2xl font-bold text-foreground">{{ storageQuotaData?.formatted?.used || "0 B" }}</p>
             </div>
             <div class="text-right">
               <p class="text-sm text-muted-foreground">总容量</p>
-              <p class="text-lg font-semibold text-foreground">{{ storageQuota.formatted || "-- GB" }}</p>
+              <p class="text-lg font-semibold text-foreground">{{ storageQuotaData?.formatted?.total || "-- GB" }}</p>
             </div>
           </div>
           <!-- 进度条 -->
           <div class="mt-4">
             <div class="flex justify-between text-sm text-muted-foreground mb-2">
               <span>存储使用率</span>
-              <span>{{ storageUsagePercentage }}</span>
+              <span>{{ storageQuotaData?.formatted?.percentage || 0 }}%</span>
             </div>
             <div class="w-full bg-muted rounded-full h-2">
-              <div class="bg-primary h-2 rounded-full transition-all duration-300"
-                :style="{ width: storageUsagePercentage }"></div>
+              <div :class="progressBarColor" class="h-2 rounded-full transition-all duration-300"
+                :style="{ width: `${storageQuotaData?.formatted?.percentage || 0}%` }"></div>
             </div>
           </div>
         </div>
@@ -94,7 +94,7 @@
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem v-for="option in sortOptionsMap" :key="option.value" :value="option.value">{{ option.label
-                    }}</SelectItem>
+                  }}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -222,10 +222,45 @@ const currentPage = ref(1);
 // 节流后的搜索关键词
 const debouncedFileName = refDebounced(toRef(searchForm, "fileName"), 300);
 
-// 存储空间信息
-const storageInfo = ref({ formatted: "0 B" });
-const storageQuota = ref({ formatted: "-- GB" });
-const storageUsagePercentage = ref("0%");
+// ==================== 云盘空间权益数据 ====================
+
+// 云盘空间权益详情响应类型
+interface StorageQuotaResponse {
+  code: string;
+  name: string;
+  totalValue: number;
+  usedValue: number;
+  remainingValue: number;
+  unitType: string;
+  formatted: {
+    total: string;
+    used: string;
+    remaining: string;
+    percentage: number;
+  };
+  records: Array<{
+    id: number;
+    benefitValue: number;
+    sourceType: string;
+    sourceTypeName: string;
+    effectiveAt: string;
+    expiredAt: string;
+    status: number;
+  }>;
+}
+
+// 获取云盘空间权益数据
+const { data: storageQuotaData, refresh: refreshStorageQuota } = await useApi<StorageQuotaResponse>(
+  "/api/v1/users/benefits/storage_space"
+);
+
+// 计算进度条颜色（根据使用率）
+const progressBarColor = computed(() => {
+  const percentage = storageQuotaData.value?.formatted?.percentage || 0;
+  if (percentage >= 95) return "bg-red-500"; // 危险色
+  if (percentage >= 80) return "bg-yellow-500"; // 警告色
+  return "bg-primary"; // 正常色
+});
 
 // 上传文件对话框
 const showUploadDialog = ref(false);
@@ -408,11 +443,13 @@ watch(debouncedFileName, (newValue, oldValue) => {
 // 上传成功回调
 const handleUploadSuccess = () => {
   refresh();
+  refreshStorageQuota(); // 刷新云盘空间数据
 };
 
 // 文件删除成功回调
 const handleFileDeleted = () => {
   refresh();
+  refreshStorageQuota(); // 刷新云盘空间数据
 };
 
 // ==================== 文件详情 ====================

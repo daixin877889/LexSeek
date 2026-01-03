@@ -54,6 +54,20 @@ export default defineEventHandler(async (event) => {
         const body = bodySchema.parse(await readBody(event)) as BatchPresignedUrlRequest
         const { source, files, encrypted, configId } = body
 
+        // 计算本次上传的总文件大小
+        const totalUploadSize = files.reduce((sum, file) => sum + file.fileSize, 0)
+
+        // 校验云盘空间是否足够
+        const quotaCheck = await checkStorageQuotaService(user.id, totalUploadSize)
+        if (!quotaCheck.allowed) {
+            log.warn('云盘空间不足', {
+                user,
+                totalUploadSize,
+                quota: quotaCheck.quota,
+            })
+            return resError(event, 400, quotaCheck.message || '云盘空间不足')
+        }
+
         // 获取场景配置
         const sourceConfig = getFileSourceAccept(source as FileSource)
         if (!sourceConfig) {

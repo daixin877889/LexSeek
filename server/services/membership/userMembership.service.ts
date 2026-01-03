@@ -14,6 +14,7 @@ import {
     createUserMembershipDao,
     findUserMembershipByIdDao,
 } from './userMembership.dao'
+import { grantMembershipBenefitsService } from './userBenefit.service'
 import { MembershipStatus, UserMembershipSourceType } from '#shared/types/membership'
 import type { UserMembershipInfo, CreateMembershipParams } from '#shared/types/membership'
 import type { userMemberships } from '../../../generated/prisma/client'
@@ -189,6 +190,9 @@ export const createMembershipService = async (
         },
         tx
     )
+
+    // 发放会员权益
+    await grantMembershipBenefitsService(userId, membership.id, levelId, startDate, endDate, tx)
 
     return membership
 }

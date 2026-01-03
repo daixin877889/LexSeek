@@ -145,27 +145,24 @@ export const useFileStore = defineStore('file', () => {
     loading.value = true
     error.value = null
 
-    try {
-      const queryParams = source ? { source } : {}
+    const queryParams = source ? { source } : {}
 
-      const data = await useApiFetch<FileSourceAccept[]>(
-        '/api/v1/storage/presigned-url/config',
-        {
-          method: 'GET',
-          query: queryParams,
-          showError: false,
-        }
-      )
+    const data = await useApiFetch<FileSourceAccept[]>(
+      '/api/v1/storage/presigned-url/config',
+      {
+        method: 'GET',
+        query: queryParams,
+        showError: false,
+      }
+    )
 
-      loading.value = false
-      return data
-    } catch (err: unknown) {
-      loading.value = false
-      const errorMessage = err instanceof Error ? err.message : '获取场景配置失败'
-      error.value = errorMessage
-      logger.error('获取场景配置失败:', err)
-      return null
+    loading.value = false
+
+    if (!data) {
+      error.value = '获取场景配置失败'
     }
+
+    return data
   }
 
   /**
@@ -177,31 +174,29 @@ export const useFileStore = defineStore('file', () => {
     loading.value = true
     error.value = null
 
-    try {
-      const data = await useApiFetch<PostSignatureResult>(
-        '/api/v1/storage/presigned-url',
-        {
-          method: 'GET',
-          query: {
-            source: params.source,
-            originalFileName: params.originalFileName,
-            fileSize: String(params.fileSize),
-            mimeType: params.mimeType,
-            encrypted: params.encrypted ? 'true' : 'false',
-            ...(params.configId ? { configId: String(params.configId) } : {}),
-          },
-          showError: false,
-        }
-      )
-      loading.value = false
-      return data
-    } catch (err: unknown) {
-      loading.value = false
-      const errorMessage = err instanceof Error ? err.message : '获取预签名 URL 失败'
-      error.value = errorMessage
-      logger.error('获取预签名 URL 失败:', err)
-      return null
+    const data = await useApiFetch<PostSignatureResult>(
+      '/api/v1/storage/presigned-url',
+      {
+        method: 'GET',
+        query: {
+          source: params.source,
+          originalFileName: params.originalFileName,
+          fileSize: String(params.fileSize),
+          mimeType: params.mimeType,
+          encrypted: params.encrypted ? 'true' : 'false',
+          ...(params.configId ? { configId: String(params.configId) } : {}),
+        },
+        showError: false,
+      }
+    )
+
+    loading.value = false
+
+    if (!data) {
+      error.value = '获取预签名 URL 失败'
     }
+
+    return data
   }
 
   /**
@@ -213,29 +208,35 @@ export const useFileStore = defineStore('file', () => {
     loading.value = true
     error.value = null
 
-    try {
-      const data = await useApiFetch<PostSignatureResult[]>(
-        '/api/v1/storage/presigned-url',
-        {
-          method: 'POST',
-          body: {
-            source: params.source,
-            files: params.files,
-            encrypted: params.encrypted ?? false,
-            ...(params.configId ? { configId: params.configId } : {}),
-          },
-          showError: false,
-        }
-      )
-      loading.value = false
-      return data
-    } catch (err: unknown) {
-      loading.value = false
-      const errorMessage = err instanceof Error ? err.message : '批量获取预签名 URL 失败'
-      error.value = errorMessage
-      logger.error('批量获取预签名 URL 失败:', err)
+    const data = await useApiFetch<PostSignatureResult[]>(
+      '/api/v1/storage/presigned-url',
+      {
+        method: 'POST',
+        body: {
+          source: params.source,
+          files: params.files,
+          encrypted: params.encrypted ?? false,
+          ...(params.configId ? { configId: params.configId } : {}),
+        },
+        showError: false,
+        // 使用 onError 回调获取业务错误信息
+        onError: (message) => {
+          error.value = message
+        },
+      }
+    )
+
+    loading.value = false
+
+    if (!data) {
+      // 如果 onError 没有设置错误信息，使用默认错误
+      if (!error.value) {
+        error.value = '批量获取预签名 URL 失败'
+      }
       return null
     }
+
+    return data
   }
 
   /**
@@ -248,29 +249,26 @@ export const useFileStore = defineStore('file', () => {
     loading.value = true
     error.value = null
 
-    try {
-      const query = buildFileListQuery(params)
+    const query = buildFileListQuery(params)
 
-      const data = await useApiFetch<FileListResponse>(
-        FILE_LIST_API,
-        {
-          method: 'GET',
-          query,
-          showError: true,
-        }
-      )
+    const data = await useApiFetch<FileListResponse>(
+      FILE_LIST_API,
+      {
+        method: 'GET',
+        query,
+        showError: true,
+      }
+    )
 
-      loading.value = false
-      syncFileListData(data)
-      return true
-    } catch (err: unknown) {
-      loading.value = false
-      const errorMessage = err instanceof Error ? err.message : '获取文件列表失败'
-      error.value = errorMessage
-      logger.error('获取文件列表失败:', err)
-      syncFileListData(null)
+    loading.value = false
+    syncFileListData(data)
+
+    if (!data) {
+      error.value = '获取文件列表失败'
       return false
     }
+
+    return true
   }
 
   /**

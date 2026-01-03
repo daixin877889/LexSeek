@@ -41,32 +41,24 @@ export const useEncryptionStore = defineStore('encryption', () => {
         loading.value = true
         error.value = null
 
-        try {
-            const data = await useApiFetch<UserEncryptionConfig | null>(
-                '/api/v1/encryption/config',
-                {
-                    method: 'GET',
-                    showError: false,
-                }
-            )
-            loading.value = false
-            config.value = data
-            logger.debug('encryptionStore.fetchConfig: 获取到配置', data)
-            logger.debug('encryptionStore.fetchConfig: hasEncryption =', !!data?.recipient)
-
-            // 尝试从 IndexedDB 恢复私钥解锁状态
-            if (data?.recipient) {
-                await restoreIdentity()
+        const data = await useApiFetch<UserEncryptionConfig | null>(
+            '/api/v1/encryption/config',
+            {
+                method: 'GET',
+                showError: false,
             }
+        )
+        loading.value = false
+        config.value = data
+        logger.debug('encryptionStore.fetchConfig: 获取到配置', data)
+        logger.debug('encryptionStore.fetchConfig: hasEncryption =', !!data?.recipient)
 
-            return data
-        } catch (err: unknown) {
-            loading.value = false
-            const errorMessage = err instanceof Error ? err.message : '获取加密配置失败'
-            error.value = errorMessage
-            logger.error('获取加密配置失败:', err)
-            return null
+        // 尝试从 IndexedDB 恢复私钥解锁状态
+        if (data?.recipient) {
+            await restoreIdentity()
         }
+
+        return data
     }
 
     /**
@@ -84,38 +76,30 @@ export const useEncryptionStore = defineStore('encryption', () => {
         loading.value = true
         error.value = null
 
-        try {
-            const result = await useApiFetch<{ success: boolean }>(
-                '/api/v1/encryption/config',
-                {
-                    method: 'POST',
-                    body: {
-                        recipient,
-                        encryptedIdentity,
-                        encryptedRecoveryKey,
-                    },
-                    showError: false,
-                }
-            )
-            loading.value = false
-
-            // 检查返回值，只有成功才更新本地配置
-            if (result) {
-                config.value = {
+        const result = await useApiFetch<{ success: boolean }>(
+            '/api/v1/encryption/config',
+            {
+                method: 'POST',
+                body: {
                     recipient,
                     encryptedIdentity,
-                    hasRecoveryKey: !!encryptedRecoveryKey,
-                }
-                return true
+                    encryptedRecoveryKey,
+                },
+                showError: false,
             }
-            return false
-        } catch (err: unknown) {
-            loading.value = false
-            const errorMessage = err instanceof Error ? err.message : '保存加密配置失败'
-            error.value = errorMessage
-            logger.error('保存加密配置失败:', err)
-            return false
+        )
+        loading.value = false
+
+        // 检查返回值，只有成功才更新本地配置
+        if (result) {
+            config.value = {
+                recipient,
+                encryptedIdentity,
+                hasRecoveryKey: !!encryptedRecoveryKey,
+            }
+            return true
         }
+        return false
     }
 
     /**
@@ -131,36 +115,28 @@ export const useEncryptionStore = defineStore('encryption', () => {
         loading.value = true
         error.value = null
 
-        try {
-            const result = await useApiFetch<{ success: boolean }>(
-                '/api/v1/encryption/config',
-                {
-                    method: 'PUT',
-                    body: {
-                        encryptedIdentity,
-                        encryptedRecoveryKey,
-                    },
-                    showError: false,
-                }
-            )
-            loading.value = false
-
-            // 检查返回值，只有成功才更新本地配置
-            if (result) {
-                if (config.value) {
-                    config.value.encryptedIdentity = encryptedIdentity
-                    config.value.hasRecoveryKey = !!encryptedRecoveryKey
-                }
-                return true
+        const result = await useApiFetch<{ success: boolean }>(
+            '/api/v1/encryption/config',
+            {
+                method: 'PUT',
+                body: {
+                    encryptedIdentity,
+                    encryptedRecoveryKey,
+                },
+                showError: false,
             }
-            return false
-        } catch (err: unknown) {
-            loading.value = false
-            const errorMessage = err instanceof Error ? err.message : '更新加密配置失败'
-            error.value = errorMessage
-            logger.error('更新加密配置失败:', err)
-            return false
+        )
+        loading.value = false
+
+        // 检查返回值，只有成功才更新本地配置
+        if (result) {
+            if (config.value) {
+                config.value.encryptedIdentity = encryptedIdentity
+                config.value.hasRecoveryKey = !!encryptedRecoveryKey
+            }
+            return true
         }
+        return false
     }
 
     /**
@@ -176,36 +152,28 @@ export const useEncryptionStore = defineStore('encryption', () => {
         loading.value = true
         error.value = null
 
-        try {
-            const result = await useApiFetch<{ success: boolean }>(
-                '/api/v1/encryption/recovery',
-                {
-                    method: 'POST',
-                    body: {
-                        newEncryptedIdentity,
-                        newEncryptedRecoveryKey,
-                    },
-                    showError: false,
-                }
-            )
-            loading.value = false
-
-            // 检查返回值，只有成功才更新本地配置
-            if (result) {
-                if (config.value) {
-                    config.value.encryptedIdentity = newEncryptedIdentity
-                    config.value.hasRecoveryKey = !!newEncryptedRecoveryKey
-                }
-                return true
+        const result = await useApiFetch<{ success: boolean }>(
+            '/api/v1/encryption/recovery',
+            {
+                method: 'POST',
+                body: {
+                    newEncryptedIdentity,
+                    newEncryptedRecoveryKey,
+                },
+                showError: false,
             }
-            return false
-        } catch (err: unknown) {
-            loading.value = false
-            const errorMessage = err instanceof Error ? err.message : '密码重置失败'
-            error.value = errorMessage
-            logger.error('密码重置失败:', err)
-            return false
+        )
+        loading.value = false
+
+        // 检查返回值，只有成功才更新本地配置
+        if (result) {
+            if (config.value) {
+                config.value.encryptedIdentity = newEncryptedIdentity
+                config.value.hasRecoveryKey = !!newEncryptedRecoveryKey
+            }
+            return true
         }
+        return false
     }
 
     /**

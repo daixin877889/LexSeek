@@ -83,45 +83,33 @@ export const useUserStore = defineStore("user", () => {
    * 更新用户资料
    */
   const updateUserProfile = async (data: { name: string, company: string, profile: string }) => {
-    try {
-      const updatedData = await useApiFetch<SafeUserInfo>("/api/v1/users/profile", {
-        method: "PUT",
-        body: data,
-        showError: false,
-      });
+    const updatedData = await useApiFetch<SafeUserInfo>("/api/v1/users/profile", {
+      method: "PUT",
+      body: data,
+      showError: false,
+    });
 
-      if (updatedData) {
-        setUserInfo(updatedData);
-        logger.debug("更新用户资料成功:", updatedData);
-      }
-      return updatedData;
-    } catch (error: any) {
-      fetchError.value = error;
-      logger.error("更新用户资料失败:", error);
-      return null;
+    if (updatedData) {
+      setUserInfo(updatedData);
+      logger.debug("更新用户资料成功:", updatedData);
     }
+    return updatedData;
   };
 
   /**
    * 更新用户密码
    */
   const updateUserPassword = async (data: { currentPassword: string, newPassword: string }) => {
-    try {
-      const updatedData = await useApiFetch<SafeUserInfo>("/api/v1/users/password", {
-        method: "PUT",
-        body: data,
-        showError: false,
-      });
+    const updatedData = await useApiFetch<SafeUserInfo>("/api/v1/users/password", {
+      method: "PUT",
+      body: data,
+      showError: false,
+    });
 
-      if (updatedData) {
-        logger.debug("更新用户密码成功:", updatedData);
-      }
-      return updatedData;
-    } catch (error: any) {
-      fetchError.value = error;
-      logger.error("更新用户密码失败:", error);
-      return null;
+    if (updatedData) {
+      logger.debug("更新用户密码成功:", updatedData);
     }
+    return updatedData;
   };
 
   /**

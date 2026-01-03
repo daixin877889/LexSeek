@@ -167,3 +167,51 @@ export const deleteBenefitDao = async (
         throw error
     }
 }
+
+/**
+ * 通过权益标识码查询权益
+ * @param code 权益标识码
+ * @param tx 事务客户端（可选）
+ * @returns 权益或 null
+ */
+export const findBenefitByCodeDao = async (
+    code: string,
+    tx?: PrismaClient
+): Promise<benefits | null> => {
+    try {
+        const benefit = await (tx || prisma).benefits.findFirst({
+            where: { code, deletedAt: null },
+        })
+        return benefit
+    } catch (error) {
+        logger.error('通过权益标识码查询权益失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 查询会员级别的所有权益配置
+ * @param levelId 会员级别 ID
+ * @param tx 事务客户端（可选）
+ * @returns 会员权益配置列表
+ */
+export const findMembershipBenefitsByLevelIdDao = async (
+    levelId: number,
+    tx?: PrismaClient
+): Promise<(membershipBenefits & { benefit: benefits })[]> => {
+    try {
+        const membershipBenefits = await (tx || prisma).membershipBenefits.findMany({
+            where: {
+                levelId,
+                deletedAt: null,
+            },
+            include: {
+                benefit: true,
+            },
+        })
+        return membershipBenefits
+    } catch (error) {
+        logger.error('查询会员级别权益配置失败：', error)
+        throw error
+    }
+}

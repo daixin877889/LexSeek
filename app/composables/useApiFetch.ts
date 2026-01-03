@@ -16,6 +16,8 @@ interface UseApiFetchOptions<T> extends Omit<FetchOptions, 'onResponse' | 'onRes
     showError?: boolean
     /** 自定义数据转换 */
     transform?: (response: ApiBaseResponse<T>) => T
+    /** 错误回调，用于获取错误信息 */
+    onError?: (message: string) => void
 }
 
 /**
@@ -58,6 +60,7 @@ export async function useApiFetch<T = unknown>(
     const {
         showError = true,
         transform: userTransform,
+        onError,
         ...restOptions
     } = options
 
@@ -103,10 +106,13 @@ export async function useApiFetch<T = unknown>(
 
     // 检查业务逻辑错误（success: false）
     if (response && response.success === false) {
+        const errorMessage = response.message || '请求失败'
         // 显示错误提示
         if (showError) {
-            toast.error(response.message || '请求失败')
+            toast.error(errorMessage)
         }
+        // 调用错误回调
+        onError?.(errorMessage)
         // 返回 null 表示请求失败
         return null
     }

@@ -3,7 +3,8 @@
     <Dialog v-model:open="dialogOpen">
         <DialogContent
             class="sm:max-w-2xl file-detail-dialog-content flex flex-col min-w-[80vw] min-h-[80vh] max-h-[90vh] overflow-hidden p-0 gap-0"
-            @interactOutside="(e) => e.preventDefault()" @openAutoFocus="(e) => e.preventDefault()">
+            @interactOutside="(e) => e.preventDefault()" @openAutoFocus="(e) => e.preventDefault()"
+            @closeAutoFocus="(e) => e.preventDefault()">
             <!-- 固定头部 -->
             <DialogHeader class="pr-8 overflow-hidden shrink-0 p-4 pb-2 border-b border-border border-dashed">
                 <DialogTitle class="flex items-center gap-2 overflow-hidden pr-8">
@@ -73,7 +74,7 @@
                                 <div class="flex-1 min-w-0">
                                     <p class="text-sm font-medium truncate">{{ file?.fileName }}</p>
                                     <p class="text-xs text-muted-foreground">{{ formatByteSize(file?.fileSize || 0, 2)
-                                        }}</p>
+                                    }}</p>
                                 </div>
                             </div>
                             <GeneralAudioPlayer :audio-url="previewUrl" />

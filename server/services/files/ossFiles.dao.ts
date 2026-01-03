@@ -135,14 +135,23 @@ export async function deleteOssFilesDao(ossFilesIds: number[], tx?: Prisma.Trans
 
 /**
  * 获取用户 OSS 用量
+ * @param userId 用户 ID
+ * @param includeAllStatus 是否包含所有状态的文件（默认只统计已上传成功的文件）
  */
-export async function ossUsageDao(userId: number, tx?: Prisma.TransactionClient): Promise<{ fileSize: number, unit: FileSizeUnit, count: number }> {
+export async function ossUsageDao(userId: number, includeAllStatus: boolean = false, tx?: Prisma.TransactionClient): Promise<{ fileSize: number, unit: FileSizeUnit, count: number }> {
     try {
-        const fileSize = await (tx || prisma).ossFiles.aggregate({
-            where: {
-                userId: userId,
-                deletedAt: null
-            },
+        const where: Prisma.ossFilesWhereInput = {
+            userId: userId,
+            deletedAt: null,
+        }
+
+        // 默认只统计已上传成功的文件，除非明确指定包含所有状态
+        if (!includeAllStatus) {
+            where.status = OssFileStatus.UPLOADED
+        }
+
+        const result = await (tx || prisma).ossFiles.aggregate({
+            where,
             _sum: {
                 fileSize: true
             },
@@ -151,10 +160,13 @@ export async function ossUsageDao(userId: number, tx?: Prisma.TransactionClient)
             }
         })
 
+        // 使用项目统一的 Decimal 转换工具
+        const fileSizeValue = decimalToNumberUtils(result._sum.fileSize)
+
         return {
-            fileSize: Number(fileSize._sum.fileSize),
+            fileSize: fileSizeValue,
             unit: FileSizeUnit.BYTE,
-            count: fileSize._count.id
+            count: result._count.id
         };
     } catch (error) {
         logger.error('获取用户 OSS 用量失败', {
