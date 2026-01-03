@@ -24,7 +24,7 @@
 </template>
 
 <script setup lang="ts">
-import { Shield, Key, Users, FileText } from 'lucide-vue-next'
+import { Shield, Key, Users, FileText, Gift } from 'lucide-vue-next'
 
 definePageMeta({
   layout: false,
@@ -56,6 +56,12 @@ const quickLinks = [
     title: '审计日志',
     description: '查看权限变更记录',
     icon: FileText,
+  },
+  {
+    path: '/admin/benefits',
+    title: '权益管理',
+    description: '管理系统权益类型和配置',
+    icon: Gift,
   },
 ]
 </script>

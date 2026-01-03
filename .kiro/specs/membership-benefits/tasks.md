@@ -109,10 +109,10 @@
     - _需求: 2.1, 2.2_
 
 - [ ] 11. 会员权益发放集成（可选）
-  - [ ]* 11.1 修改会员购买流程
+  - [x] 11.1 修改会员购买流程
     - 在会员购买成功后调用 `grantMembershipBenefitsService`
     - _需求: 8.1, 8.2_
-  - [ ]* 11.2 修改兑换码兑换流程
+  - [x] 11.2 修改兑换码兑换流程
     - 在兑换码兑换成功后调用 `grantMembershipBenefitsService`
     - _需求: 8.1, 8.2_
 
@@ -120,6 +120,94 @@
   - 确保所有测试通过
   - 确认云盘上传时空间校验正常工作
   - 确认云盘空间页面正确显示使用情况
+
+- [x] 13. 后台权益类型管理
+  - [x] 13.1 创建权益类型管理 API
+    - 实现 `GET /api/v1/admin/benefits` 获取权益列表
+    - 实现 `POST /api/v1/admin/benefits` 创建权益类型
+    - 实现 `PUT /api/v1/admin/benefits/:id` 更新权益类型
+    - 实现 `DELETE /api/v1/admin/benefits/:id` 删除权益类型
+    - 实现 `PUT /api/v1/admin/benefits/:id/status` 切换状态
+    - _需求: 11.1, 11.5, 11.7, 11.8_
+  - [x] 13.2 创建权益类型管理页面
+    - 创建 `/admin/benefits/index.vue` 页面
+    - 实现权益列表展示（表格形式）
+    - 实现搜索和状态筛选功能
+    - 实现分页功能
+    - _需求: 11.1, 11.2_
+  - [x] 13.3 实现权益类型新增/编辑功能
+    - 创建新增/编辑对话框组件
+    - 实现表单验证（标识码唯一性）
+    - 实现单位转换提示功能
+    - _需求: 11.3, 11.4, 11.5, 11.6_
+  - [x] 13.4 实现权益类型删除和状态切换
+    - 实现删除确认对话框
+    - 实现启用/禁用状态切换
+    - _需求: 11.7, 11.8_
+
+- [x] 14. 后台会员级别权益配置
+  - [x] 14.1 创建会员级别权益配置 API
+    - 实现 `GET /api/v1/admin/membership-benefits` 获取配置列表
+    - 实现 `PUT /api/v1/admin/membership-benefits/:levelId` 更新配置
+    - _需求: 12.1, 12.6_
+  - [x] 14.2 创建会员级别权益配置页面
+    - 创建 `/admin/benefits/membership.vue` 页面
+    - 实现会员级别权益配置表格展示
+    - _需求: 12.1, 12.2_
+  - [x] 14.3 实现权益配置编辑功能
+    - 创建配置编辑对话框组件
+    - 实现单位转换提示和预览
+    - 实现批量配置保存
+    - _需求: 12.3, 12.4, 12.5, 12.6, 12.7_
+
+- [x] 15. 后台用户权益发放
+  - [x] 15.1 创建用户权益管理 API
+    - 实现 `GET /api/v1/admin/users/search` 搜索用户
+    - 实现 `GET /api/v1/admin/users/:userId/benefits` 获取用户权益
+    - 实现 `POST /api/v1/admin/users/:userId/benefits` 发放权益
+    - 实现 `PUT /api/v1/admin/users/:userId/benefits/:id/disable` 禁用权益
+    - _需求: 13.2, 13.3, 13.5, 14.5_
+  - [x] 15.2 创建用户权益发放页面
+    - 创建 `/admin/benefits/grant.vue` 页面
+    - 实现用户搜索功能
+    - 实现用户信息和权益状态展示
+    - _需求: 13.1, 13.2, 13.3_
+  - [x] 15.3 实现权益发放表单
+    - 创建权益发放表单组件
+    - 实现日期选择器（生效时间、过期时间）
+    - 实现单位转换输入
+    - _需求: 13.4, 13.5, 13.6_
+  - [x] 15.4 实现用户权益记录展示
+    - 实现权益记录列表展示
+    - 实现按权益类型和状态筛选
+    - 实现禁用权益功能
+    - _需求: 14.1, 14.2, 14.3, 14.4, 14.5_
+
+- [x] 16. 后台导航菜单更新
+  - [x] 16.1 更新后台管理首页
+    - 在 `/admin/index.vue` 添加权益管理快捷入口
+    - _需求: 11.1_
+  - [x] 16.2 更新后台侧边栏菜单
+    - 在侧边栏添加权益管理菜单项
+    - 包含：权益类型、会员权益、用户权益发放
+    - _需求: 11.1_
+
+- [x] 17. 类型定义扩展
+  - [x] 17.1 扩展 shared/types/benefit.ts
+    - 添加 BenefitSourceTypeNames 映射
+    - 添加 BenefitStatusNames 映射
+    - 添加 BenefitUnitTypeNames 映射
+    - 添加 BenefitConsumptionModeNames 映射
+    - 添加 BenefitAdminInfo 接口
+    - 添加 MembershipBenefitConfig 接口
+    - 添加 UserBenefitRecordAdmin 接口
+    - _需求: 11.2, 12.2, 14.2_
+
+- [x] 18. 后台管理最终检查点
+  - 确保所有后台管理 API 正常工作
+  - 确认权益类型管理页面功能完整
+  - 确认会员级别权益配置功能正常
+  - 确认用户权益发放功能正常
 
 ## 备注
 

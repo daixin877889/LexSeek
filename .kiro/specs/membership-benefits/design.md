@@ -564,3 +564,348 @@ const progressColor = computed(() => {
 ### 属性测试
 - 使用 fast-check 验证权益计算的正确性属性
 - 验证边界条件（空间刚好用完、刚好超出等）
+
+## 后台管理 API 设计
+
+### 1. 权益类型管理 API
+
+#### 获取权益类型列表
+**接口：** `GET /api/v1/admin/benefits`
+
+**查询参数：**
+- `page`: 页码，默认 1
+- `pageSize`: 每页数量，默认 20
+- `status`: 状态筛选（可选）
+- `keyword`: 关键词搜索（可选）
+
+**响应：**
+```typescript
+interface BenefitListResponse {
+  items: {
+    id: number
+    code: string
+    name: string
+    description: string | null
+    unitType: string
+    consumptionMode: string
+    defaultValue: string  // BigInt 转字符串
+    status: number
+    createdAt: string
+    updatedAt: string
+  }[]
+  total: number
+  totalPages: number
+}
+```
+
+#### 创建权益类型
+**接口：** `POST /api/v1/admin/benefits`
+
+**请求体：**
+```typescript
+interface CreateBenefitRequest {
+  code: string           // 唯一标识码
+  name: string           // 权益名称
+  description?: string   // 描述
+  unitType: string       // 单位类型：byte | count
+  consumptionMode: string // 计算模式：sum | max
+  defaultValue: string   // 默认值（字符串形式的数字）
+}
+```
+
+#### 更新权益类型
+**接口：** `PUT /api/v1/admin/benefits/:id`
+
+**请求体：** 同创建接口（code 不可修改）
+
+#### 删除权益类型
+**接口：** `DELETE /api/v1/admin/benefits/:id`
+
+软删除，设置 deletedAt 字段
+
+#### 切换权益状态
+**接口：** `PUT /api/v1/admin/benefits/:id/status`
+
+**请求体：**
+```typescript
+interface UpdateBenefitStatusRequest {
+  status: number  // 1-启用，0-禁用
+}
+```
+
+### 2. 会员级别权益配置 API
+
+#### 获取会员级别权益配置
+**接口：** `GET /api/v1/admin/membership-benefits`
+
+**响应：**
+```typescript
+interface MembershipBenefitsResponse {
+  levels: {
+    id: number
+    name: string
+    benefits: {
+      benefitId: number
+      benefitCode: string
+      benefitName: string
+      benefitValue: string  // BigInt 转字符串
+      unitType: string
+      formattedValue: string  // 格式化后的值，如 "10 GB"
+    }[]
+  }[]
+  availableBenefits: {
+    id: number
+    code: string
+    name: string
+    unitType: string
+  }[]
+}
+```
+
+#### 配置会员级别权益
+**接口：** `PUT /api/v1/admin/membership-benefits/:levelId`
+
+**请求体：**
+```typescript
+interface UpdateMembershipBenefitsRequest {
+  benefits: {
+    benefitId: number
+    benefitValue: string  // BigInt 字符串
+  }[]
+}
+```
+
+### 3. 用户权益发放 API
+
+#### 搜索用户
+**接口：** `GET /api/v1/admin/users/search`
+
+**查询参数：**
+- `keyword`: 用户ID或手机号
+
+**响应：**
+```typescript
+interface UserSearchResponse {
+  users: {
+    id: number
+    phone: string
+    nickname: string | null
+    avatar: string | null
+  }[]
+}
+```
+
+#### 获取用户权益详情
+**接口：** `GET /api/v1/admin/users/:userId/benefits`
+
+**响应：**
+```typescript
+interface UserBenefitsAdminResponse {
+  user: {
+    id: number
+    phone: string
+    nickname: string | null
+  }
+  summary: UserBenefitSummary[]  // 权益汇总
+  records: {
+    id: number
+    benefitId: number
+    benefitName: string
+    benefitCode: string
+    benefitValue: string
+    formattedValue: string
+    sourceType: string
+    sourceTypeName: string
+    effectiveAt: string
+    expiredAt: string
+    status: number
+    statusName: string
+    remark: string | null
+    createdAt: string
+  }[]
+}
+```
+
+#### 发放用户权益
+**接口：** `POST /api/v1/admin/users/:userId/benefits`
+
+**请求体：**
+```typescript
+interface GrantUserBenefitRequest {
+  benefitId: number
+  benefitValue: string    // BigInt 字符串
+  effectiveAt: string     // ISO 日期字符串
+  expiredAt: string       // ISO 日期字符串
+  remark?: string
+}
+```
+
+#### 禁用用户权益记录
+**接口：** `PUT /api/v1/admin/users/:userId/benefits/:benefitRecordId/disable`
+
+## 后台管理页面设计
+
+### 1. 权益类型管理页面 `/admin/benefits`
+
+**页面结构：**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  权益类型管理                                    [+ 新增权益]    │
+├─────────────────────────────────────────────────────────────────┤
+│  [搜索框] [状态筛选]                                            │
+├─────────────────────────────────────────────────────────────────┤
+│  表格：                                                         │
+│  | 名称 | 标识码 | 单位类型 | 计算模式 | 默认值 | 状态 | 操作 | │
+│  |------|--------|----------|----------|--------|------|------| │
+│  | 云盘 | storage| byte     | sum      | 1 GB   | 启用 | 编辑 | │
+│  | 空间 | _space |          |          |        |      | 删除 | │
+├─────────────────────────────────────────────────────────────────┤
+│  分页组件                                                       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**新增/编辑对话框：**
+- 权益名称（必填）
+- 标识码（必填，仅新增时可编辑）
+- 描述（可选）
+- 单位类型（下拉选择：字节/次数）
+- 计算模式（下拉选择：累加/取最大值）
+- 默认值（数字输入，带单位转换提示）
+
+### 2. 会员级别权益配置页面 `/admin/benefits/membership`
+
+**页面结构：**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  会员级别权益配置                                               │
+├─────────────────────────────────────────────────────────────────┤
+│  表格：                                                         │
+│  | 会员级别 | 云盘空间 | 其他权益... | 操作     |               │
+│  |----------|----------|-------------|----------|               │
+│  | 普通会员 | 5 GB     | -           | [配置]   |               │
+│  | 高级会员 | 20 GB    | -           | [配置]   |               │
+│  | 专业会员 | 100 GB   | -           | [配置]   |               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**配置对话框：**
+- 会员级别名称（只读）
+- 权益配置列表（每个权益一行）
+  - 权益名称
+  - 权益值输入框
+  - 单位提示（如 "GB"）
+  - 转换后的值预览（如 "= 5368709120 字节"）
+
+### 3. 用户权益发放页面 `/admin/benefits/grant`
+
+**页面结构：**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  用户权益发放                                                   │
+├─────────────────────────────────────────────────────────────────┤
+│  用户搜索：[输入用户ID或手机号] [搜索]                          │
+├─────────────────────────────────────────────────────────────────┤
+│  用户信息卡片（选中用户后显示）：                               │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ 头像  用户名                                            │   │
+│  │       手机号: 138****8888                               │   │
+│  │       当前权益: 云盘空间 5GB / 已用 1.2GB               │   │
+│  └─────────────────────────────────────────────────────────┘   │
+├─────────────────────────────────────────────────────────────────┤
+│  发放权益表单：                                                 │
+│  - 权益类型（下拉选择）                                         │
+│  - 权益值（数字输入 + 单位选择）                                │
+│  - 生效时间（日期选择器）                                       │
+│  - 过期时间（日期选择器）                                       │
+│  - 备注（文本输入）                                             │
+│                                              [发放权益]         │
+├─────────────────────────────────────────────────────────────────┤
+│  用户权益记录：                                                 │
+│  | 权益名称 | 权益值 | 来源 | 生效时间 | 过期时间 | 状态 | 操作│
+│  |----------|--------|------|----------|----------|------|-----|
+│  | 云盘空间 | 5 GB   | 会员 | 2024-01  | 2025-01  | 有效 | 禁用│
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## 类型定义扩展
+
+### shared/types/benefit.ts 新增类型
+
+```typescript
+/** 权益来源类型名称映射 */
+export const BenefitSourceTypeNames: Record<string, string> = {
+  membership_gift: '会员赠送',
+  benefit_package: '权益包购买',
+  redemption_code: '兑换码兑换',
+  admin_gift: '管理员赠送',
+  system_default: '系统默认',
+}
+
+/** 权益状态名称映射 */
+export const BenefitStatusNames: Record<number, string> = {
+  1: '有效',
+  0: '无效',
+}
+
+/** 单位类型名称映射 */
+export const BenefitUnitTypeNames: Record<string, string> = {
+  byte: '字节',
+  count: '次数',
+}
+
+/** 计算模式名称映射 */
+export const BenefitConsumptionModeNames: Record<string, string> = {
+  sum: '累加',
+  max: '取最大值',
+}
+
+/** 后台权益类型信息 */
+export interface BenefitAdminInfo {
+  id: number
+  code: string
+  name: string
+  description: string | null
+  unitType: string
+  unitTypeName: string
+  consumptionMode: string
+  consumptionModeName: string
+  defaultValue: string
+  formattedDefaultValue: string
+  status: number
+  statusName: string
+  createdAt: string
+  updatedAt: string
+}
+
+/** 会员级别权益配置信息 */
+export interface MembershipBenefitConfig {
+  levelId: number
+  levelName: string
+  benefits: {
+    benefitId: number
+    benefitCode: string
+    benefitName: string
+    benefitValue: string
+    formattedValue: string
+    unitType: string
+  }[]
+}
+
+/** 用户权益记录（管理员视图） */
+export interface UserBenefitRecordAdmin {
+  id: number
+  benefitId: number
+  benefitName: string
+  benefitCode: string
+  benefitValue: string
+  formattedValue: string
+  sourceType: string
+  sourceTypeName: string
+  effectiveAt: string
+  expiredAt: string
+  status: number
+  statusName: string
+  remark: string | null
+  createdAt: string
+}
+```

@@ -15,6 +15,9 @@
 11. 前后端的日期处理都统一使用 dayjs 处理
 12. API 接口返回成功使用 resSuccess: (event: H3Event<EventHandlerRequest>, message: string, data: any) => ApiBaseResponse 方法，失败使用 resError: (event: H3Event<EventHandlerRequest>, code: number, message: string) => ApiBaseResponse 方法，方法已经在框架中自己导入。
 13. 当你生成的代码超过 500 行时，你应该要考虑将代码拆分成多个文件，避免单个文件代码过长。
+14. 使用 shared/utils/decimalToNumber.ts 转换 prisma 的 decimal 类型。
+15. 在生成代码时，你使用的方法、数据模型、字段等资源都需要确认存在，不能杜撰不存在的资源。
+16. 尽量使用 prisma 官方文档中的类型，避免使用自定义的类型。
 
 ## 自动导入
 

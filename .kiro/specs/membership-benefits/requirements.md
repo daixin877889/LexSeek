@@ -133,3 +133,58 @@
 6. WHEN 使用率超过 80% 时，THE System SHALL 将进度条颜色变为警告色（黄色）
 7. WHEN 使用率超过 95% 时，THE System SHALL 将进度条颜色变为危险色（红色）
 8. THE System SHALL 在页面加载时调用权益查询 API 获取最新的空间使用数据
+
+### 需求 11：后台权益类型管理
+
+**用户故事：** 作为系统管理员，我希望能够在后台管理界面管理系统中的权益类型，以便灵活定义和调整系统的权益配置。
+
+#### 验收标准
+
+1. THE System SHALL 提供 `/admin/benefits` 页面展示所有权益类型列表
+2. THE System SHALL 在权益列表中展示：权益名称、标识码、单位类型、计算模式、默认值、状态
+3. WHEN 管理员点击新增按钮时，THE System SHALL 显示权益类型创建表单
+4. THE System SHALL 在创建表单中包含：名称、标识码、描述、单位类型、计算模式、默认值字段
+5. WHEN 管理员提交创建表单时，THE System SHALL 验证标识码的唯一性
+6. WHEN 管理员点击编辑按钮时，THE System SHALL 显示权益类型编辑表单，并预填充现有数据
+7. WHEN 管理员点击删除按钮时，THE System SHALL 显示确认对话框，确认后软删除该权益类型
+8. THE System SHALL 提供权益类型的启用/禁用功能
+
+### 需求 12：后台会员级别权益配置
+
+**用户故事：** 作为系统管理员，我希望能够为每个会员级别配置不同的权益值，以便区分不同级别会员的服务。
+
+#### 验收标准
+
+1. THE System SHALL 提供 `/admin/benefits/membership` 页面展示会员级别权益配置
+2. THE System SHALL 以表格形式展示：会员级别名称、各权益类型的配置值
+3. WHEN 管理员点击配置按钮时，THE System SHALL 显示该会员级别的权益配置表单
+4. THE System SHALL 在配置表单中列出所有启用的权益类型，并允许输入权益值
+5. THE System SHALL 提供单位转换提示（如输入 GB 自动转换为 Byte）
+6. WHEN 管理员保存配置时，THE System SHALL 验证权益值的有效性（非负数）
+7. THE System SHALL 支持批量配置多个权益类型的值
+
+### 需求 13：后台用户权益发放
+
+**用户故事：** 作为系统管理员，我希望能够手动给用户发放权益，以便处理特殊情况或进行运营活动。
+
+#### 验收标准
+
+1. THE System SHALL 提供 `/admin/benefits/grant` 页面用于给用户发放权益
+2. THE System SHALL 支持通过用户ID或手机号搜索用户
+3. WHEN 管理员选择用户后，THE System SHALL 显示该用户当前的权益状态
+4. THE System SHALL 提供权益发放表单，包含：权益类型、权益值、生效时间、过期时间、备注
+5. WHEN 管理员提交发放表单时，THE System SHALL 创建用户权益记录，来源类型为 admin_gift
+6. THE System SHALL 在发放成功后显示成功提示，并刷新用户权益状态
+7. THE System SHALL 记录发放操作的审计日志
+
+### 需求 14：后台用户权益查询
+
+**用户故事：** 作为系统管理员，我希望能够查看用户的权益记录，以便了解用户的权益状态和来源。
+
+#### 验收标准
+
+1. THE System SHALL 在用户权益发放页面展示用户的权益记录列表
+2. THE System SHALL 在权益记录中展示：权益名称、权益值、来源类型、生效时间、过期时间、状态
+3. THE System SHALL 支持按权益类型筛选权益记录
+4. THE System SHALL 支持按状态筛选权益记录（有效/已过期/已禁用）
+5. WHEN 管理员点击禁用按钮时，THE System SHALL 将该权益记录标记为无效

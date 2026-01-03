@@ -9,16 +9,7 @@ export default defineNuxtConfig({
       ],
       // 内联脚本：在页面渲染前应用颜色模式，避免闪烁
       script: [
-        {
-          innerHTML: `
-            (function() {
-              const saved = localStorage.getItem('color-mode');
-              const isDark = saved === 'dark';
-              if (isDark) document.documentElement.classList.add('dark');
-            })();
-          `,
-          type: 'text/javascript',
-        }
+
       ]
     }
   },

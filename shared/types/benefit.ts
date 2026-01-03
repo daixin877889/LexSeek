@@ -151,3 +151,145 @@ export const BenefitSourceTypeName: Record<string, string> = {
     [BenefitSourceType.REDEMPTION_CODE]: '兑换码兑换',
     [BenefitSourceType.ADMIN_GIFT]: '管理员赠送',
 }
+
+// ==================== 后台管理类型定义 ====================
+
+/** 权益状态名称映射 */
+export const BenefitStatusNames: Record<number, string> = {
+    1: '启用',
+    0: '禁用',
+}
+
+/** 用户权益状态名称映射 */
+export const UserBenefitStatusNames: Record<number, string> = {
+    1: '有效',
+    0: '无效',
+}
+
+/** 单位类型名称映射 */
+export const BenefitUnitTypeNames: Record<string, string> = {
+    [BenefitUnitType.BYTE]: '字节',
+    [BenefitUnitType.COUNT]: '次数',
+}
+
+/** 计算模式名称映射 */
+export const BenefitConsumptionModeNames: Record<string, string> = {
+    [BenefitConsumptionMode.SUM]: '累加',
+    [BenefitConsumptionMode.MAX]: '取最大值',
+}
+
+/** 后台权益类型信息 */
+export interface BenefitAdminInfo {
+    /** 权益ID */
+    id: number
+    /** 权益标识码 */
+    code: string
+    /** 权益名称 */
+    name: string
+    /** 权益描述 */
+    description: string | null
+    /** 单位类型 */
+    unitType: string
+    /** 单位类型名称 */
+    unitTypeName: string
+    /** 计算模式 */
+    consumptionMode: string
+    /** 计算模式名称 */
+    consumptionModeName: string
+    /** 默认值（字符串形式） */
+    defaultValue: string
+    /** 格式化后的默认值 */
+    formattedDefaultValue: string
+    /** 状态：1-启用，0-禁用 */
+    status: number
+    /** 状态名称 */
+    statusName: string
+    /** 创建时间 */
+    createdAt: string
+    /** 更新时间 */
+    updatedAt: string
+}
+
+/** 会员级别权益配置项 */
+export interface MembershipBenefitItem {
+    /** 权益ID */
+    benefitId: number
+    /** 权益标识码 */
+    benefitCode: string
+    /** 权益名称 */
+    benefitName: string
+    /** 权益值（字符串形式） */
+    benefitValue: string
+    /** 格式化后的权益值 */
+    formattedValue: string
+    /** 单位类型 */
+    unitType: string
+}
+
+/** 会员级别权益配置信息 */
+export interface MembershipBenefitConfig {
+    /** 会员级别ID */
+    levelId: number
+    /** 会员级别名称 */
+    levelName: string
+    /** 权益配置列表 */
+    benefits: MembershipBenefitItem[]
+}
+
+/** 用户权益记录（管理员视图） */
+export interface UserBenefitRecordAdmin {
+    /** 记录ID */
+    id: number
+    /** 权益ID */
+    benefitId: number
+    /** 权益名称 */
+    benefitName: string
+    /** 权益标识码 */
+    benefitCode: string
+    /** 权益值（字符串形式） */
+    benefitValue: string
+    /** 格式化后的权益值 */
+    formattedValue: string
+    /** 来源类型 */
+    sourceType: string
+    /** 来源类型名称 */
+    sourceTypeName: string
+    /** 生效时间 */
+    effectiveAt: string
+    /** 过期时间 */
+    expiredAt: string
+    /** 状态：1-有效，0-无效 */
+    status: number
+    /** 状态名称 */
+    statusName: string
+    /** 备注 */
+    remark: string | null
+    /** 创建时间 */
+    createdAt: string
+}
+
+/** 用户权益管理响应（管理员视图） */
+export interface UserBenefitsAdminResponse {
+    /** 用户信息 */
+    user: {
+        id: number
+        phone: string
+        nickname: string | null
+    }
+    /** 权益汇总 */
+    summary: UserBenefitSummary[]
+    /** 权益记录列表 */
+    records: UserBenefitRecordAdmin[]
+}
+
+/** 可用权益类型（用于下拉选择） */
+export interface AvailableBenefit {
+    /** 权益ID */
+    id: number
+    /** 权益标识码 */
+    code: string
+    /** 权益名称 */
+    name: string
+    /** 单位类型 */
+    unitType: string
+}

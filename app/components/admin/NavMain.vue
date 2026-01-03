@@ -16,6 +16,23 @@
     </SidebarGroupContent>
   </SidebarGroup>
 
+  <!-- 权益管理菜单组 -->
+  <SidebarGroup>
+    <SidebarGroupLabel>权益管理</SidebarGroupLabel>
+    <SidebarGroupContent>
+      <SidebarMenu>
+        <SidebarMenuItem v-for="item in benefitMenuItems" :key="item.path">
+          <SidebarMenuButton as-child :tooltip="item.title" :class="isActive(item.path) ? 'bg-primary/10' : ''">
+            <NuxtLink :to="item.path">
+              <component :is="item.icon" class="h-4 w-4" />
+              <span>{{ item.title }}</span>
+            </NuxtLink>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    </SidebarGroupContent>
+  </SidebarGroup>
+
   <!-- 运营管理菜单组 -->
   <SidebarGroup>
     <SidebarGroupLabel>运营管理</SidebarGroupLabel>
@@ -35,7 +52,7 @@
 </template>
 
 <script setup lang="ts">
-import { Users, Shield, Key, FileText, Settings, Ticket, History } from 'lucide-vue-next'
+import { Users, Shield, Key, FileText, Settings, Ticket, History, Gift, Crown, UserPlus } from 'lucide-vue-next'
 
 const route = useRoute()
 
@@ -46,6 +63,13 @@ const permissionMenuItems = [
   { path: '/admin/permissions/routes', title: '路由权限', icon: Settings },
   { path: '/admin/users', title: '用户管理', icon: Users },
   { path: '/admin/audit', title: '审计日志', icon: FileText },
+]
+
+/** 权益管理菜单项 */
+const benefitMenuItems = [
+  { path: '/admin/benefits', title: '权益类型', icon: Gift },
+  { path: '/admin/benefits/membership', title: '会员权益', icon: Crown },
+  { path: '/admin/benefits/grant', title: '用户权益发放', icon: UserPlus },
 ]
 
 /** 运营管理菜单项 */
@@ -61,7 +85,7 @@ const isActive = (path: string) => {
   // 子路由匹配：当前路径以 path/ 开头（注意末尾斜杠，避免 /admin/redemption-codes 匹配 /admin/redemption-codes/records）
   if (route.path.startsWith(path + '/')) {
     // 检查是否有更精确的菜单项匹配当前路径
-    const allPaths = [...permissionMenuItems, ...operationMenuItems].map(item => item.path)
+    const allPaths = [...permissionMenuItems, ...benefitMenuItems, ...operationMenuItems].map(item => item.path)
     const hasMoreSpecificMatch = allPaths.some(p => p !== path && route.path.startsWith(p))
     return !hasMoreSpecificMatch
   }

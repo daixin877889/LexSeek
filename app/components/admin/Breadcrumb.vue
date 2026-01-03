@@ -33,6 +33,9 @@ const routeTitles: Record<string, string> = {
   '/admin/audit': '审计日志',
   '/admin/redemption-codes': '兑换码管理',
   '/admin/redemption-codes/records': '兑换记录',
+  '/admin/benefits': '权益类型',
+  '/admin/benefits/membership': '会员权益',
+  '/admin/benefits/grant': '用户权益发放',
 }
 
 /** 计算面包屑 */
