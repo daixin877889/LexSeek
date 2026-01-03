@@ -37,14 +37,16 @@
     <OrderCancelDialog v-model:open="showCancelDialog" :order="selectedOrder" :loading="cancelLoading"
       @confirm="handleCancelOrder" />
 
-    <!-- 支付二维码弹框 -->
+    <!-- 支付弹框（支持扫码和 JSAPI） -->
     <PaymentQRCodeDialog v-model:open="showQRCodeDialog" :qr-code-url="qrCodeUrl" :loading="paymentLoading"
-      :paid="paymentPaid" @close="closeQRCodeDialog" />
+      :paid="paymentPaid" :use-jsapi="useJsapiPayment" :jsapi-params="jsapiParams" @close="closeQRCodeDialog"
+      @jsapi-result="handleJsapiResult" />
   </div>
 </template>
 
 <script lang="ts" setup>
 import { OrderStatus, DurationUnit, PaymentChannel, PaymentMethod } from "#shared/types/payment";
+import type { WechatPaymentParams, WechatPaymentResult } from "~/composables/useWechatPayment";
 
 // 页面元信息
 definePageMeta({
@@ -154,6 +156,11 @@ const paymentPaid = ref(false);
 const currentTransactionNo = ref("");
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
+// JSAPI 支付相关状态
+const { isInWechat, openId, ensureOpenId, redirectToAuth } = useWechatPayment();
+const useJsapiPayment = ref(false);
+const jsapiParams = ref<WechatPaymentParams | undefined>(undefined);
+
 // ==================== 方法定义 ====================
 
 /**
@@ -199,28 +206,63 @@ const handlePay = async (order: OrderItem) => {
   showDetailDialog.value = false;
   blurActiveElement();
 
-  // 调用支付 API
-  const result = await useApiFetch<PaymentResponse>(`/api/v1/payments/orders/${order.id}/pay`, {
-    method: "POST",
-    body: {
-      paymentChannel: PaymentChannel.WECHAT,
-      paymentMethod: PaymentMethod.SCAN_CODE,
-    },
-  });
+  // 判断是否使用 JSAPI 支付
+  const shouldUseJsapi = isInWechat.value;
 
-  if (!result) return;
+  if (shouldUseJsapi) {
+    // 微信环境：确保有 OpenID
+    const currentOpenId = await ensureOpenId();
+    if (!currentOpenId) {
+      redirectToAuth();
+      return;
+    }
 
-  // 保存支付单号，用于轮询
-  currentTransactionNo.value = result.transactionNo;
-  qrCodeUrl.value = result.codeUrl;
-  paymentPaid.value = false;
-  paymentLoading.value = false;
+    // 创建 JSAPI 支付订单
+    const result = await useApiFetch<{
+      orderNo: string;
+      transactionNo: string;
+      amount: number;
+      paymentParams: WechatPaymentParams;
+    }>(`/api/v1/payments/orders/${order.id}/pay`, {
+      method: "POST",
+      body: {
+        paymentChannel: PaymentChannel.WECHAT,
+        paymentMethod: PaymentMethod.MINI_PROGRAM,
+        openid: currentOpenId,
+      },
+    });
 
-  // 显示二维码弹框
-  showQRCodeDialog.value = true;
+    if (!result) return;
 
-  // 开始轮询支付状态
-  startPollingPaymentStatus();
+    currentTransactionNo.value = result.transactionNo;
+    useJsapiPayment.value = true;
+    jsapiParams.value = result.paymentParams;
+    paymentPaid.value = false;
+    paymentLoading.value = false;
+
+    showQRCodeDialog.value = true;
+  } else {
+    // 非微信环境：扫码支付
+    const result = await useApiFetch<PaymentResponse>(`/api/v1/payments/orders/${order.id}/pay`, {
+      method: "POST",
+      body: {
+        paymentChannel: PaymentChannel.WECHAT,
+        paymentMethod: PaymentMethod.SCAN_CODE,
+      },
+    });
+
+    if (!result) return;
+
+    currentTransactionNo.value = result.transactionNo;
+    qrCodeUrl.value = result.codeUrl;
+    useJsapiPayment.value = false;
+    jsapiParams.value = undefined;
+    paymentPaid.value = false;
+    paymentLoading.value = false;
+
+    showQRCodeDialog.value = true;
+    startPollingPaymentStatus();
+  }
 };
 
 /**
@@ -278,6 +320,40 @@ const closeQRCodeDialog = () => {
   currentTransactionNo.value = "";
   qrCodeUrl.value = "";
   paymentPaid.value = false;
+  useJsapiPayment.value = false;
+  jsapiParams.value = undefined;
+};
+
+/**
+ * 处理 JSAPI 支付结果
+ */
+const handleJsapiResult = async (result: WechatPaymentResult) => {
+  if (result === 'ok') {
+    paymentLoading.value = true;
+    const queryResult = await useApiFetch<{ paid: boolean }>(
+      `/api/v1/payments/query?transactionNo=${currentTransactionNo.value}&sync=true`,
+      { showError: false }
+    );
+
+    if (queryResult?.paid) {
+      paymentPaid.value = true;
+      toast.success("支付成功！");
+
+      await refreshOrders();
+
+      setTimeout(() => {
+        closeQRCodeDialog();
+      }, 2000);
+    } else {
+      paymentLoading.value = false;
+      toast.info("支付处理中，请稍候...");
+      startPollingPaymentStatus();
+    }
+  } else if (result === 'cancel') {
+    toast.info("支付已取消");
+  } else {
+    toast.error("支付失败，请重试");
+  }
 };
 
 /**

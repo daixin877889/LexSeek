@@ -54,9 +54,10 @@
     <!-- 购买积分弹框 -->
     <PointsPointPurchaseDialog v-model:open="showPointProducts" :product-list="pointProductList" @buy="buyPoints" />
 
-    <!-- 微信支付二维码弹框 -->
+    <!-- 微信支付弹框（支持扫码和 JSAPI） -->
     <PointsPointQRCodeDialog v-model:open="showQRCode" :qr-code-url="qrCodeUrl" :loading="paymentLoading"
-      :paid="paymentPaid" @close="closeQRCodeDialog" />
+      :paid="paymentPaid" :use-jsapi="useJsapiPayment" :jsapi-params="jsapiParams" @close="closeQRCodeDialog"
+      @jsapi-result="handleJsapiResult" />
 
     <!-- 积分消耗标准弹框 -->
     <PointsConsumptionStandardDialog v-model:open="showConsumptionStandard" />
@@ -65,6 +66,7 @@
 
 <script lang="ts" setup>
 import { PaymentChannel, PaymentMethod, DurationUnit } from "#shared/types/payment";
+import type { WechatPaymentParams, WechatPaymentResult } from "~/composables/useWechatPayment";
 
 // 页面元信息
 definePageMeta({
@@ -510,6 +512,11 @@ const paymentPaid = ref(false);
 const currentTransactionNo = ref("");
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
+// JSAPI 支付相关状态
+const { isInWechat, openId, ensureOpenId, redirectToAuth } = useWechatPayment();
+const useJsapiPayment = ref(false);
+const jsapiParams = ref<WechatPaymentParams | undefined>(undefined);
+
 // ==================== SSR 数据预取：积分商品列表 ====================
 
 // 获取积分商品列表（type=2 为积分商品）
@@ -558,37 +565,75 @@ const buyPoints = async (product: PointProduct) => {
   // 关闭商品列表弹框
   showPointProducts.value = false;
 
-  // 创建订单并发起支付
-  const result = await useApiFetch<{
-    orderNo: string;
-    transactionNo: string;
-    amount: number;
-    codeUrl: string;
-    h5Url: string;
-  }>("/api/v1/payments/create", {
-    method: "POST",
-    body: {
-      productId: product.id,
-      duration: 1, // 积分商品数量为 1
-      durationUnit: DurationUnit.MONTH, // 积分商品不需要时长单位，但 API 需要
-      paymentChannel: PaymentChannel.WECHAT,
-      paymentMethod: PaymentMethod.SCAN_CODE,
-    },
-  });
+  // 判断是否使用 JSAPI 支付
+  const shouldUseJsapi = isInWechat.value;
 
-  if (!result) return;
+  if (shouldUseJsapi) {
+    // 微信环境：确保有 OpenID
+    const currentOpenId = await ensureOpenId();
+    if (!currentOpenId) {
+      redirectToAuth();
+      return;
+    }
 
-  // 保存支付单号，用于轮询
-  currentTransactionNo.value = result.transactionNo;
-  qrCodeUrl.value = result.codeUrl;
-  paymentPaid.value = false;
-  paymentLoading.value = false;
+    // 创建 JSAPI 支付订单
+    const result = await useApiFetch<{
+      orderNo: string;
+      transactionNo: string;
+      amount: number;
+      paymentParams: WechatPaymentParams;
+    }>("/api/v1/payments/create", {
+      method: "POST",
+      body: {
+        productId: product.id,
+        duration: 1,
+        durationUnit: DurationUnit.MONTH,
+        paymentChannel: PaymentChannel.WECHAT,
+        paymentMethod: PaymentMethod.MINI_PROGRAM,
+        openid: currentOpenId,
+      },
+    });
 
-  // 显示二维码弹框
-  showQRCode.value = true;
+    if (!result) return;
 
-  // 开始轮询支付状态
-  startPollingPaymentStatus();
+    currentTransactionNo.value = result.transactionNo;
+    useJsapiPayment.value = true;
+    jsapiParams.value = result.paymentParams;
+    paymentPaid.value = false;
+    paymentLoading.value = false;
+
+    showQRCode.value = true;
+  } else {
+    // 非微信环境：使用扫码支付
+    const result = await useApiFetch<{
+      orderNo: string;
+      transactionNo: string;
+      amount: number;
+      codeUrl: string;
+      h5Url: string;
+    }>("/api/v1/payments/create", {
+      method: "POST",
+      body: {
+        productId: product.id,
+        duration: 1,
+        durationUnit: DurationUnit.MONTH,
+        paymentChannel: PaymentChannel.WECHAT,
+        paymentMethod: PaymentMethod.SCAN_CODE,
+      },
+    });
+
+    if (!result) return;
+
+    currentTransactionNo.value = result.transactionNo;
+    qrCodeUrl.value = result.codeUrl;
+    useJsapiPayment.value = false;
+    jsapiParams.value = undefined;
+    paymentPaid.value = false;
+    paymentLoading.value = false;
+
+    showQRCode.value = true;
+    startPollingPaymentStatus();
+  }
 };
 
 /**
@@ -645,6 +690,39 @@ const closeQRCodeDialog = () => {
   currentTransactionNo.value = "";
   qrCodeUrl.value = "";
   paymentPaid.value = false;
+  useJsapiPayment.value = false;
+  jsapiParams.value = undefined;
+};
+
+/**
+ * 处理 JSAPI 支付结果
+ */
+const handleJsapiResult = async (result: WechatPaymentResult) => {
+  if (result === 'ok') {
+    paymentLoading.value = true;
+    const queryResult = await useApiFetch<{ paid: boolean }>(
+      `/api/v1/payments/query?transactionNo=${currentTransactionNo.value}&sync=true`,
+      { showError: false }
+    );
+
+    if (queryResult?.paid) {
+      paymentPaid.value = true;
+      toast.success("支付成功！积分已到账");
+
+      setTimeout(() => {
+        closeQRCodeDialog();
+        window.location.reload();
+      }, 2000);
+    } else {
+      paymentLoading.value = false;
+      toast.info("支付处理中，请稍候...");
+      startPollingPaymentStatus();
+    }
+  } else if (result === 'cancel') {
+    toast.info("支付已取消");
+  } else {
+    toast.error("支付失败，请重试");
+  }
 };
 
 // ==================== 监听器 ====================

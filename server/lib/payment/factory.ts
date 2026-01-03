@@ -17,7 +17,8 @@ const getWechatPayConfig = (): WechatPayConfig => {
     const config = useRuntimeConfig()
     return {
         channel: PaymentChannel.WECHAT,
-        appId: config.wechatPay?.appId || '',
+        // AppID 统一从 public.wechatAppId 获取，避免重复配置
+        appId: config.public.wechatAppId || '',
         mchId: config.wechatPay?.mchId || '',
         apiV3Key: config.wechatPay?.apiV3Key || '',
         serialNo: config.wechatPay?.serialNo || '',

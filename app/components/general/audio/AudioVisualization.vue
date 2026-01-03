@@ -277,7 +277,7 @@ import { Input } from "@/components/ui/input";
 import { PlayIcon, PauseIcon, Volume2Icon, MicIcon, MaximizeIcon, MinimizeIcon, XIcon, InfoIcon, EditIcon, DownloadIcon, Loader2Icon } from "lucide-vue-next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import asrApi from "@/api/asr";
-import { useToastStore } from "@/stores";
+// import { useToastStore } from "@/stores";
 import AudioPlayer from "./AudioPlayer.vue";
 import logger from "@/utils/logger.js";
 
@@ -355,7 +355,7 @@ const isAnimating = ref(false);
 const audioVisualizationRef = ref(null);
 
 // Toast 提示
-const toastStore = useToastStore();
+// const toastStore = useToastStore();
 
 // 下载状态
 const isDownloading = ref(false);
@@ -865,10 +865,11 @@ const cancelEditSpeaker = () => {
  */
 const saveSpeakerName = async () => {
   if (!editingSpeakerName.value.trim()) {
-    toastStore.showErrorToast({
-      title: "保存失败",
-      message: "说话人名称不能为空",
-    });
+    toast.error("说话人名称不能为空");
+    // toastStore.showErrorToast({
+    //   title: "保存失败",
+    //   message: "说话人名称不能为空",
+    // });
     return;
   }
 
@@ -900,17 +901,15 @@ const saveSpeakerName = async () => {
     emit("speakerUpdated");
 
     cancelEditSpeaker();
+    toast.success(`说话人名称已更新为 "${savedName}"`);
 
-    toastStore.showSuccessToast({
-      title: "保存成功",
-      message: `说话人名称已更新为 "${savedName}"`,
-    });
+    // toastStore.showSuccessToast({
+    //   title: "保存成功",
+    //   message: `说话人名称已更新为 "${savedName}"`,
+    // });
   } catch (error) {
     logger.error("更新说话人名称失败:", error);
-    toastStore.showErrorToast({
-      title: "保存失败",
-      message: error.response?.data?.message || error.message || "请稍后重试",
-    });
+    toast.error(error.response?.data?.message || error.message || "请稍后重试");
   } finally {
     isEditingSpeaker.value = false;
   }
@@ -921,10 +920,7 @@ const saveSpeakerName = async () => {
  */
 const downloadDocument = async () => {
   if (!props.audioUrl || !processedTranscripts.value.length) {
-    toastStore.showErrorToast({
-      title: "错误",
-      message: "缺少音频文件或识别结果",
-    });
+    toast.error("缺少音频文件或识别结果");
     return;
   }
 
@@ -981,17 +977,11 @@ const downloadDocument = async () => {
     URL.revokeObjectURL(url);
 
     // 使用 toast 提示成功
-    toastStore.showSuccessToast({
-      title: "成功",
-      message: "文档下载成功",
-    });
+    toast.success("文档下载成功");
   } catch (error) {
     logger.error("下载文档失败:", error);
     // 使用 toast 显示错误提示
-    toastStore.showErrorToast({
-      title: "错误",
-      message: error.response?.data?.message || error.message || "下载文档失败，请稍后重试",
-    });
+    toast.error(error.response?.data?.message || error.message || "下载文档失败，请稍后重试");
   } finally {
     isDownloading.value = false;
   }
@@ -1218,7 +1208,8 @@ input[type="range"]::-moz-range-track {
 /* 原生全屏模式下的样式优化 */
 .audio-visualization:fullscreen {
   background: hsl(var(--background));
-  z-index: 2147483647; /* 最高层级 */
+  z-index: 2147483647;
+  /* 最高层级 */
   position: fixed;
   top: 0;
   left: 0;
@@ -1273,10 +1264,12 @@ input[type="range"]::-moz-range-track {
     transform: scale(0.9) translateY(20px);
     opacity: 0;
   }
+
   50% {
     transform: scale(1.02) translateY(-5px);
     opacity: 0.8;
   }
+
   100% {
     transform: scale(1) translateY(0);
     opacity: 1;
@@ -1288,10 +1281,12 @@ input[type="range"]::-moz-range-track {
     transform: scale(1) translateY(0);
     opacity: 1;
   }
+
   50% {
     transform: scale(1.02) translateY(-10px);
     opacity: 0.8;
   }
+
   100% {
     transform: scale(0.9) translateY(20px);
     opacity: 0;
@@ -1308,6 +1303,7 @@ input[type="range"]::-moz-range-track {
     transform: translateY(-20px);
     opacity: 0;
   }
+
   100% {
     transform: translateY(0);
     opacity: 1;

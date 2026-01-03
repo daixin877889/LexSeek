@@ -3,6 +3,16 @@
  */
 
 /**
+ * 授权回调 state 参数结构
+ */
+export interface AuthCallbackState {
+    /** 目标重定向 URL（完整 URL） */
+    targetUrl: string
+    /** 可选：来源标识 */
+    source?: string
+}
+
+/**
  * 检测是否在微信浏览器中
  * @returns 是否在微信浏览器中
  */
@@ -62,4 +72,68 @@ export function getWechatAuthUrlWithUserInfo(redirectPath: string): string {
 
     // scope=snsapi_userinfo: 需要用户确认，可获取用户信息
     return `https://open.weixin.qq.com/connect/oauth2/authorize?appid=${appId}&redirect_uri=${redirectUri}&response_type=code&scope=snsapi_userinfo&state=STATE#wechat_redirect`;
+}
+
+/**
+ * 编码 state 参数
+ * @param state state 对象
+ * @returns base64 编码的字符串
+ */
+export function encodeAuthState(state: AuthCallbackState): string {
+    return btoa(JSON.stringify(state));
+}
+
+/**
+ * 解码 state 参数
+ * @param encoded base64 编码的字符串
+ * @returns 解码后的 state 对象，解析失败返回 null
+ */
+export function decodeAuthState(encoded: string): AuthCallbackState | null {
+    try {
+        const decoded = atob(encoded);
+        const parsed = JSON.parse(decoded);
+
+        if (!parsed.targetUrl || typeof parsed.targetUrl !== 'string') {
+            return null;
+        }
+
+        return parsed as AuthCallbackState;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * 获取微信 OAuth 授权 URL（通用回调模式）
+ * 支持多公众号、多环境共用同一个回调地址
+ * @param targetUrl - 授权后重定向的完整目标 URL
+ * @param source - 可选的来源标识
+ * @returns 微信授权 URL
+ */
+export function getWechatAuthUrlWithCallback(targetUrl: string, source?: string): string {
+    const config = useRuntimeConfig();
+    const appId = config.public.wechatAppId || '';
+    const authCallbackUrl = config.public.wechatAuthCallbackUrl || '';
+
+    if (!appId) {
+        console.warn('[wechat] 未配置微信公众号 appId');
+        return '';
+    }
+
+    if (!authCallbackUrl) {
+        console.warn('[wechat] 未配置微信授权回调地址 wechatAuthCallbackUrl');
+        return '';
+    }
+
+    // 构建 state 参数（JSON + base64 编码）
+    const stateObj: AuthCallbackState = { targetUrl };
+    if (source) {
+        stateObj.source = source;
+    }
+    const state = encodeAuthState(stateObj);
+
+    // 回调地址指向通用回调接口
+    const redirectUri = encodeURIComponent(authCallbackUrl);
+
+    return `https://open.weixin.qq.com/connect/oauth2/authorize?appid=${appId}&redirect_uri=${redirectUri}&response_type=code&scope=snsapi_base&state=${state}#wechat_redirect`;
 }

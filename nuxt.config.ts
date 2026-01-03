@@ -94,8 +94,17 @@ export default defineNuxtConfig({
       logLevel: 'DEBUG',
       // 应用基础 URL（用于支付回调等）
       baseUrl: '',
-      // 微信公众号 AppID（用于 OAuth 授权）
+      // 微信公众号 AppID（前端 OAuth 授权 + 后端支付共用）
       wechatAppId: '',
+      // 微信授权回调地址（通用回调，支持多环境）
+      wechatAuthCallbackUrl: '',
+    },
+    // 微信公众号配置（服务端私密配置）
+    wechat: {
+      // 公众号 AppSecret（用于 OAuth 获取 OpenID）
+      mpSecret: '',
+      // 授权回调重定向白名单（逗号分隔）
+      authRedirectWhitelist: '',
     },
     aliyun: {
       accessKeyId: '',
@@ -125,9 +134,8 @@ export default defineNuxtConfig({
       cookieName: 'auth_token', // 认证 Cookie 名称
       cookieMaxAge: 2592000, // Cookie 过期时间，单位：秒，默认30天
     },
-    // 微信支付配置
+    // 微信支付配置（注意：AppID 使用 public.wechatAppId，避免重复配置）
     wechatPay: {
-      appId: '',           // 微信公众号/小程序 AppID
       mchId: '',           // 微信支付商户号
       apiV3Key: '',        // API v3 密钥
       serialNo: '',        // 商户证书序列号

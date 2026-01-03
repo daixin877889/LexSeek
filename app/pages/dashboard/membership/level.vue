@@ -42,9 +42,10 @@
       </TabsContent>
     </Tabs>
 
-    <!-- 支付二维码弹框 -->
+    <!-- 支付弹框（支持扫码和 JSAPI） -->
     <MembershipQRCodeDialog v-model:open="showQRCode" :qr-code-url="qrCodeUrl" :loading="paymentLoading"
-      :paid="paymentPaid" @close="closeQRCodeDialog" />
+      :paid="paymentPaid" :use-jsapi="useJsapiPayment" :jsapi-params="jsapiParams" @close="closeQRCodeDialog"
+      @jsapi-result="handleJsapiResult" />
 
     <!-- 升级弹框 -->
     <MembershipUpgradeDialog v-model:open="showUpgradeDialog" :loading="upgradeOptionsLoading" :options="upgradeOptions"
@@ -60,6 +61,7 @@
 <script lang="ts" setup>
 import { PaymentChannel, PaymentMethod, DurationUnit } from "#shared/types/payment";
 import type { ProductInfo } from "#shared/types/product";
+import type { WechatPaymentParams, WechatPaymentResult } from "~/composables/useWechatPayment";
 
 // 页面元信息
 definePageMeta({
@@ -201,6 +203,11 @@ const paymentPaid = ref(false);
 const currentTransactionNo = ref("");
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
+// JSAPI 支付相关状态
+const { isInWechat, openId, ensureOpenId, redirectToAuth } = useWechatPayment();
+const useJsapiPayment = ref(false);
+const jsapiParams = ref<WechatPaymentParams | undefined>(undefined);
+
 // 升级相关
 const upgradeOptionsLoading = ref(false);
 const upgradeOptions = ref<UpgradeOption[]>([]);
@@ -265,37 +272,82 @@ const buy = async (plan: MembershipPlan) => {
   // defaultDuration: 1-按月, 2-按年
   const durationUnit = plan.defaultDuration === 1 ? DurationUnit.MONTH : DurationUnit.YEAR;
 
-  // 创建订单并发起支付
-  const result = await useApiFetch<{
-    orderNo: string;
-    transactionNo: string;
-    amount: number;
-    codeUrl: string;
-    h5Url: string;
-  }>("/api/v1/payments/create", {
-    method: "POST",
-    body: {
-      productId: plan.id,
-      duration: 1, // 购买 1 个单位（1个月或1年）
-      durationUnit, // 使用商品配置的时长单位
-      paymentChannel: PaymentChannel.WECHAT,
-      paymentMethod: PaymentMethod.SCAN_CODE,
-    },
-  });
+  // 判断是否使用 JSAPI 支付
+  const shouldUseJsapi = isInWechat.value;
 
-  if (!result) return;
+  if (shouldUseJsapi) {
+    // 微信环境：确保有 OpenID
+    const currentOpenId = await ensureOpenId();
+    if (!currentOpenId) {
+      // 没有 OpenID，需要授权
+      redirectToAuth();
+      return;
+    }
 
-  // 保存支付单号，用于轮询
-  currentTransactionNo.value = result.transactionNo;
-  qrCodeUrl.value = result.codeUrl;
-  paymentPaid.value = false;
-  paymentLoading.value = false;
+    // 创建 JSAPI 支付订单
+    const result = await useApiFetch<{
+      orderNo: string;
+      transactionNo: string;
+      amount: number;
+      paymentParams: WechatPaymentParams;
+    }>("/api/v1/payments/create", {
+      method: "POST",
+      body: {
+        productId: plan.id,
+        duration: 1,
+        durationUnit,
+        paymentChannel: PaymentChannel.WECHAT,
+        paymentMethod: PaymentMethod.MINI_PROGRAM,
+        openid: currentOpenId,
+      },
+    });
 
-  // 显示二维码弹框
-  showQRCode.value = true;
+    if (!result) return;
 
-  // 开始轮询支付状态
-  startPollingPaymentStatus();
+    // 设置 JSAPI 支付参数
+    currentTransactionNo.value = result.transactionNo;
+    useJsapiPayment.value = true;
+    jsapiParams.value = result.paymentParams;
+    paymentPaid.value = false;
+    paymentLoading.value = false;
+
+    // 显示支付弹框
+    showQRCode.value = true;
+  } else {
+    // 非微信环境：使用扫码支付
+    const result = await useApiFetch<{
+      orderNo: string;
+      transactionNo: string;
+      amount: number;
+      codeUrl: string;
+      h5Url: string;
+    }>("/api/v1/payments/create", {
+      method: "POST",
+      body: {
+        productId: plan.id,
+        duration: 1,
+        durationUnit,
+        paymentChannel: PaymentChannel.WECHAT,
+        paymentMethod: PaymentMethod.SCAN_CODE,
+      },
+    });
+
+    if (!result) return;
+
+    // 保存支付单号，用于轮询
+    currentTransactionNo.value = result.transactionNo;
+    qrCodeUrl.value = result.codeUrl;
+    useJsapiPayment.value = false;
+    jsapiParams.value = undefined;
+    paymentPaid.value = false;
+    paymentLoading.value = false;
+
+    // 显示二维码弹框
+    showQRCode.value = true;
+
+    // 开始轮询支付状态
+    startPollingPaymentStatus();
+  }
 };
 
 /**
@@ -353,6 +405,44 @@ const closeQRCodeDialog = () => {
   currentTransactionNo.value = "";
   qrCodeUrl.value = "";
   paymentPaid.value = false;
+  useJsapiPayment.value = false;
+  jsapiParams.value = undefined;
+};
+
+/**
+ * 处理 JSAPI 支付结果
+ */
+const handleJsapiResult = async (result: WechatPaymentResult) => {
+  if (result === 'ok') {
+    // 支付成功，查询后端确认
+    paymentLoading.value = true;
+    const queryResult = await useApiFetch<{ paid: boolean }>(
+      `/api/v1/payments/query?transactionNo=${currentTransactionNo.value}&sync=true`,
+      { showError: false }
+    );
+
+    if (queryResult?.paid) {
+      paymentPaid.value = true;
+      toast.success("支付成功！");
+
+      // 刷新会员信息和历史记录
+      await Promise.all([refreshMembership(), refreshHistory()]);
+
+      // 2 秒后关闭弹框
+      setTimeout(() => {
+        closeQRCodeDialog();
+      }, 2000);
+    } else {
+      paymentLoading.value = false;
+      toast.info("支付处理中，请稍候...");
+      // 开始轮询
+      startPollingPaymentStatus();
+    }
+  } else if (result === 'cancel') {
+    toast.info("支付已取消");
+  } else {
+    toast.error("支付失败，请重试");
+  }
 };
 
 /**
@@ -481,40 +571,80 @@ const confirmUpgrade = async () => {
   // 关闭升级弹框
   showUpgradeDialog.value = false;
 
+  // 判断是否使用 JSAPI 支付
+  const shouldUseJsapi = isInWechat.value;
+
   try {
-    // 调用升级支付接口（使用计算出的升级差价，传入会员记录 ID）
-    const result = await useApiFetch<{
-      orderNo: string;
-      transactionNo: string;
-      amount: number;
-      codeUrl: string;
-      h5Url: string;
-    }>("/api/v1/memberships/upgrade/pay", {
-      method: "POST",
-      body: {
-        targetLevelId: selectedUpgradeOption.value.levelId,
-        membershipId: currentUpgradeRecord.value.id,
-        paymentChannel: PaymentChannel.WECHAT,
-        paymentMethod: PaymentMethod.SCAN_CODE,
-      },
-    });
+    if (shouldUseJsapi) {
+      // 微信环境：确保有 OpenID
+      const currentOpenId = await ensureOpenId();
+      if (!currentOpenId) {
+        redirectToAuth();
+        return;
+      }
 
-    if (!result) {
-      toast.error("创建升级订单失败");
-      return;
+      // 创建 JSAPI 升级支付订单
+      const result = await useApiFetch<{
+        orderNo: string;
+        transactionNo: string;
+        amount: number;
+        paymentParams: WechatPaymentParams;
+      }>("/api/v1/memberships/upgrade/pay", {
+        method: "POST",
+        body: {
+          targetLevelId: selectedUpgradeOption.value.levelId,
+          membershipId: currentUpgradeRecord.value.id,
+          paymentChannel: PaymentChannel.WECHAT,
+          paymentMethod: PaymentMethod.MINI_PROGRAM,
+          openid: currentOpenId,
+        },
+      });
+
+      if (!result) {
+        toast.error("创建升级订单失败");
+        return;
+      }
+
+      currentTransactionNo.value = result.transactionNo;
+      useJsapiPayment.value = true;
+      jsapiParams.value = result.paymentParams;
+      paymentPaid.value = false;
+      paymentLoading.value = false;
+
+      showQRCode.value = true;
+    } else {
+      // 非微信环境：扫码支付
+      const result = await useApiFetch<{
+        orderNo: string;
+        transactionNo: string;
+        amount: number;
+        codeUrl: string;
+        h5Url: string;
+      }>("/api/v1/memberships/upgrade/pay", {
+        method: "POST",
+        body: {
+          targetLevelId: selectedUpgradeOption.value.levelId,
+          membershipId: currentUpgradeRecord.value.id,
+          paymentChannel: PaymentChannel.WECHAT,
+          paymentMethod: PaymentMethod.SCAN_CODE,
+        },
+      });
+
+      if (!result) {
+        toast.error("创建升级订单失败");
+        return;
+      }
+
+      currentTransactionNo.value = result.transactionNo;
+      qrCodeUrl.value = result.codeUrl;
+      useJsapiPayment.value = false;
+      jsapiParams.value = undefined;
+      paymentPaid.value = false;
+      paymentLoading.value = false;
+
+      showQRCode.value = true;
+      startPollingPaymentStatus();
     }
-
-    // 保存支付单号，用于轮询
-    currentTransactionNo.value = result.transactionNo;
-    qrCodeUrl.value = result.codeUrl;
-    paymentPaid.value = false;
-    paymentLoading.value = false;
-
-    // 显示二维码弹框
-    showQRCode.value = true;
-
-    // 开始轮询支付状态
-    startPollingPaymentStatus();
   } catch (error) {
     logger.error("升级失败：", error);
     toast.error("升级失败，请重试");

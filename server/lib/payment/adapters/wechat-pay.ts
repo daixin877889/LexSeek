@@ -453,6 +453,7 @@ export class WechatPayAdapter extends BasePaymentAdapter<WechatPayConfig> {
         const paySign = sign.sign(this.config.privateKey, 'base64')
 
         return {
+            appId: this.config.appId,  // 微信 JSAPI 支付需要 appId
             timeStamp: timestamp,
             nonceStr,
             package: packageStr,
