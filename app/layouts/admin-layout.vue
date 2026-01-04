@@ -4,7 +4,8 @@
     <Sidebar collapsible="icon">
       <!-- 顶部logo -->
       <SidebarHeader class="border-b">
-        <div class="flex items-center py-3 px-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+        <div
+          class="flex items-center py-3 px-4 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
           <NuxtLink to="/admin" class="flex items-center gap-2">
             <img src="/logo.svg" alt="Logo" class="h-6 w-6 dark:invert" />
             <span class="font-semibold text-lg group-data-[collapsible=icon]:hidden">管理后台</span>

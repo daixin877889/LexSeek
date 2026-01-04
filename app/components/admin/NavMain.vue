@@ -49,10 +49,27 @@
       </SidebarMenu>
     </SidebarGroupContent>
   </SidebarGroup>
+
+  <!-- 知识库管理菜单组 -->
+  <SidebarGroup>
+    <SidebarGroupLabel>知识库管理</SidebarGroupLabel>
+    <SidebarGroupContent>
+      <SidebarMenu>
+        <SidebarMenuItem v-for="item in knowledgeMenuItems" :key="item.path">
+          <SidebarMenuButton as-child :tooltip="item.title" :class="isActive(item.path) ? 'bg-primary/10' : ''">
+            <NuxtLink :to="item.path">
+              <component :is="item.icon" class="h-4 w-4" />
+              <span>{{ item.title }}</span>
+            </NuxtLink>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    </SidebarGroupContent>
+  </SidebarGroup>
 </template>
 
 <script setup lang="ts">
-import { Users, Shield, Key, FileText, Settings, Ticket, History, Gift, Crown, UserPlus } from 'lucide-vue-next'
+import { Users, Shield, Key, FileText, Settings, Ticket, History, Gift, Crown, UserPlus, Scale } from 'lucide-vue-next'
 
 const route = useRoute()
 
@@ -78,6 +95,11 @@ const operationMenuItems = [
   { path: '/admin/redemption-codes/records', title: '兑换记录', icon: History },
 ]
 
+/** 知识库管理菜单项 */
+const knowledgeMenuItems = [
+  { path: '/admin/legal-main', title: '法律法规', icon: Scale },
+]
+
 /** 判断菜单是否激活（精确匹配或子路由匹配） */
 const isActive = (path: string) => {
   // 精确匹配当前路径
@@ -85,7 +107,7 @@ const isActive = (path: string) => {
   // 子路由匹配：当前路径以 path/ 开头（注意末尾斜杠，避免 /admin/redemption-codes 匹配 /admin/redemption-codes/records）
   if (route.path.startsWith(path + '/')) {
     // 检查是否有更精确的菜单项匹配当前路径
-    const allPaths = [...permissionMenuItems, ...benefitMenuItems, ...operationMenuItems].map(item => item.path)
+    const allPaths = [...permissionMenuItems, ...benefitMenuItems, ...operationMenuItems, ...knowledgeMenuItems].map(item => item.path)
     const hasMoreSpecificMatch = allPaths.some(p => p !== path && route.path.startsWith(p))
     return !hasMoreSpecificMatch
   }
