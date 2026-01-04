@@ -391,6 +391,9 @@ export const ModelName = {
   campaigns: 'campaigns',
   userEncryptions: 'userEncryptions',
   ossFiles: 'ossFiles',
+  legalMain: 'legalMain',
+  legalArticles: 'legalArticles',
+  lawEmbeddings: 'lawEmbeddings',
   membershipLevels: 'membershipLevels',
   userMemberships: 'userMemberships',
   benefits: 'benefits',
@@ -430,7 +433,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "campaigns" | "userEncryptions" | "ossFiles" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
+    modelProps: "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "campaigns" | "userEncryptions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -949,6 +952,228 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.ossFilesCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.OssFilesCountAggregateOutputType> | number
+        }
+      }
+    }
+    legalMain: {
+      payload: Prisma.$legalMainPayload<ExtArgs>
+      fields: Prisma.legalMainFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.legalMainFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalMainPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.legalMainFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalMainPayload>
+        }
+        findFirst: {
+          args: Prisma.legalMainFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalMainPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.legalMainFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalMainPayload>
+        }
+        findMany: {
+          args: Prisma.legalMainFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalMainPayload>[]
+        }
+        create: {
+          args: Prisma.legalMainCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalMainPayload>
+        }
+        createMany: {
+          args: Prisma.legalMainCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.legalMainCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalMainPayload>[]
+        }
+        delete: {
+          args: Prisma.legalMainDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalMainPayload>
+        }
+        update: {
+          args: Prisma.legalMainUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalMainPayload>
+        }
+        deleteMany: {
+          args: Prisma.legalMainDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.legalMainUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.legalMainUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalMainPayload>[]
+        }
+        upsert: {
+          args: Prisma.legalMainUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalMainPayload>
+        }
+        aggregate: {
+          args: Prisma.LegalMainAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateLegalMain>
+        }
+        groupBy: {
+          args: Prisma.legalMainGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LegalMainGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.legalMainCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LegalMainCountAggregateOutputType> | number
+        }
+      }
+    }
+    legalArticles: {
+      payload: Prisma.$legalArticlesPayload<ExtArgs>
+      fields: Prisma.legalArticlesFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.legalArticlesFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalArticlesPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.legalArticlesFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalArticlesPayload>
+        }
+        findFirst: {
+          args: Prisma.legalArticlesFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalArticlesPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.legalArticlesFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalArticlesPayload>
+        }
+        findMany: {
+          args: Prisma.legalArticlesFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalArticlesPayload>[]
+        }
+        create: {
+          args: Prisma.legalArticlesCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalArticlesPayload>
+        }
+        createMany: {
+          args: Prisma.legalArticlesCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.legalArticlesCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalArticlesPayload>[]
+        }
+        delete: {
+          args: Prisma.legalArticlesDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalArticlesPayload>
+        }
+        update: {
+          args: Prisma.legalArticlesUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalArticlesPayload>
+        }
+        deleteMany: {
+          args: Prisma.legalArticlesDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.legalArticlesUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.legalArticlesUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalArticlesPayload>[]
+        }
+        upsert: {
+          args: Prisma.legalArticlesUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$legalArticlesPayload>
+        }
+        aggregate: {
+          args: Prisma.LegalArticlesAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateLegalArticles>
+        }
+        groupBy: {
+          args: Prisma.legalArticlesGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LegalArticlesGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.legalArticlesCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LegalArticlesCountAggregateOutputType> | number
+        }
+      }
+    }
+    lawEmbeddings: {
+      payload: Prisma.$lawEmbeddingsPayload<ExtArgs>
+      fields: Prisma.lawEmbeddingsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.lawEmbeddingsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lawEmbeddingsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.lawEmbeddingsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lawEmbeddingsPayload>
+        }
+        findFirst: {
+          args: Prisma.lawEmbeddingsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lawEmbeddingsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.lawEmbeddingsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lawEmbeddingsPayload>
+        }
+        findMany: {
+          args: Prisma.lawEmbeddingsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lawEmbeddingsPayload>[]
+        }
+        create: {
+          args: Prisma.lawEmbeddingsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lawEmbeddingsPayload>
+        }
+        createMany: {
+          args: Prisma.lawEmbeddingsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.lawEmbeddingsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lawEmbeddingsPayload>[]
+        }
+        delete: {
+          args: Prisma.lawEmbeddingsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lawEmbeddingsPayload>
+        }
+        update: {
+          args: Prisma.lawEmbeddingsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lawEmbeddingsPayload>
+        }
+        deleteMany: {
+          args: Prisma.lawEmbeddingsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.lawEmbeddingsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.lawEmbeddingsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lawEmbeddingsPayload>[]
+        }
+        upsert: {
+          args: Prisma.lawEmbeddingsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$lawEmbeddingsPayload>
+        }
+        aggregate: {
+          args: Prisma.LawEmbeddingsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateLawEmbeddings>
+        }
+        groupBy: {
+          args: Prisma.lawEmbeddingsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LawEmbeddingsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.lawEmbeddingsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LawEmbeddingsCountAggregateOutputType> | number
         }
       }
     }
@@ -2879,6 +3104,66 @@ export const OssFilesScalarFieldEnum = {
 export type OssFilesScalarFieldEnum = (typeof OssFilesScalarFieldEnum)[keyof typeof OssFilesScalarFieldEnum]
 
 
+export const LegalMainScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  code: 'code',
+  type: 'type',
+  category: 'category',
+  content: 'content',
+  issuingAuthority: 'issuingAuthority',
+  documentNumber: 'documentNumber',
+  publishDate: 'publishDate',
+  effectiveDate: 'effectiveDate',
+  invalidDate: 'invalidDate',
+  lastEditedAt: 'lastEditedAt',
+  lastEmbeddingAt: 'lastEmbeddingAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type LegalMainScalarFieldEnum = (typeof LegalMainScalarFieldEnum)[keyof typeof LegalMainScalarFieldEnum]
+
+
+export const LegalArticlesScalarFieldEnum = {
+  id: 'id',
+  legalId: 'legalId',
+  type: 'type',
+  l1: 'l1',
+  l1I: 'l1I',
+  l2: 'l2',
+  l2I: 'l2I',
+  l3: 'l3',
+  l3I: 'l3I',
+  l4: 'l4',
+  l4I: 'l4I',
+  l5: 'l5',
+  l5I: 'l5I',
+  order: 'order',
+  content: 'content',
+  publishDate: 'publishDate',
+  effectiveDate: 'effectiveDate',
+  invalidDate: 'invalidDate',
+  lastEditedAt: 'lastEditedAt',
+  lastEmbeddingAt: 'lastEmbeddingAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type LegalArticlesScalarFieldEnum = (typeof LegalArticlesScalarFieldEnum)[keyof typeof LegalArticlesScalarFieldEnum]
+
+
+export const LawEmbeddingsScalarFieldEnum = {
+  id: 'id',
+  text: 'text',
+  metadata: 'metadata'
+} as const
+
+export type LawEmbeddingsScalarFieldEnum = (typeof LawEmbeddingsScalarFieldEnum)[keyof typeof LawEmbeddingsScalarFieldEnum]
+
+
 export const MembershipLevelsScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -3553,6 +3838,9 @@ export type GlobalOmitConfig = {
   campaigns?: Prisma.campaignsOmit
   userEncryptions?: Prisma.userEncryptionsOmit
   ossFiles?: Prisma.ossFilesOmit
+  legalMain?: Prisma.legalMainOmit
+  legalArticles?: Prisma.legalArticlesOmit
+  lawEmbeddings?: Prisma.lawEmbeddingsOmit
   membershipLevels?: Prisma.membershipLevelsOmit
   userMemberships?: Prisma.userMembershipsOmit
   benefits?: Prisma.benefitsOmit

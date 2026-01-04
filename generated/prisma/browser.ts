@@ -54,6 +54,22 @@ export type userEncryptions = Prisma.userEncryptionsModel
  */
 export type ossFiles = Prisma.ossFilesModel
 /**
+ * Model legalMain
+ * 法律主表 - 存储法律法规的基本信息
+ */
+export type legalMain = Prisma.legalMainModel
+/**
+ * Model legalArticles
+ * 法律条文表 - 存储法律法规对应的具体条款内容
+ */
+export type legalArticles = Prisma.legalArticlesModel
+/**
+ * Model lawEmbeddings
+ * 法条内容嵌入表 - 存储法律条文的向量化数据用于语义检索
+ * 注意：此表结构不允许修改，必须保持原有设计
+ */
+export type lawEmbeddings = Prisma.lawEmbeddingsModel
+/**
  * Model membershipLevels
  * 会员级别表
  */

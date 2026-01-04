@@ -58,6 +58,9 @@ export const ModelName = {
   campaigns: 'campaigns',
   userEncryptions: 'userEncryptions',
   ossFiles: 'ossFiles',
+  legalMain: 'legalMain',
+  legalArticles: 'legalArticles',
+  lawEmbeddings: 'lawEmbeddings',
   membershipLevels: 'membershipLevels',
   userMemberships: 'userMemberships',
   benefits: 'benefits',
@@ -210,6 +213,66 @@ export const OssFilesScalarFieldEnum = {
 } as const
 
 export type OssFilesScalarFieldEnum = (typeof OssFilesScalarFieldEnum)[keyof typeof OssFilesScalarFieldEnum]
+
+
+export const LegalMainScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  code: 'code',
+  type: 'type',
+  category: 'category',
+  content: 'content',
+  issuingAuthority: 'issuingAuthority',
+  documentNumber: 'documentNumber',
+  publishDate: 'publishDate',
+  effectiveDate: 'effectiveDate',
+  invalidDate: 'invalidDate',
+  lastEditedAt: 'lastEditedAt',
+  lastEmbeddingAt: 'lastEmbeddingAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type LegalMainScalarFieldEnum = (typeof LegalMainScalarFieldEnum)[keyof typeof LegalMainScalarFieldEnum]
+
+
+export const LegalArticlesScalarFieldEnum = {
+  id: 'id',
+  legalId: 'legalId',
+  type: 'type',
+  l1: 'l1',
+  l1I: 'l1I',
+  l2: 'l2',
+  l2I: 'l2I',
+  l3: 'l3',
+  l3I: 'l3I',
+  l4: 'l4',
+  l4I: 'l4I',
+  l5: 'l5',
+  l5I: 'l5I',
+  order: 'order',
+  content: 'content',
+  publishDate: 'publishDate',
+  effectiveDate: 'effectiveDate',
+  invalidDate: 'invalidDate',
+  lastEditedAt: 'lastEditedAt',
+  lastEmbeddingAt: 'lastEmbeddingAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type LegalArticlesScalarFieldEnum = (typeof LegalArticlesScalarFieldEnum)[keyof typeof LegalArticlesScalarFieldEnum]
+
+
+export const LawEmbeddingsScalarFieldEnum = {
+  id: 'id',
+  text: 'text',
+  metadata: 'metadata'
+} as const
+
+export type LawEmbeddingsScalarFieldEnum = (typeof LawEmbeddingsScalarFieldEnum)[keyof typeof LawEmbeddingsScalarFieldEnum]
 
 
 export const MembershipLevelsScalarFieldEnum = {
