@@ -18,6 +18,7 @@
 14. 使用 shared/utils/decimalToNumber.ts 转换 prisma 的 decimal 类型。
 15. 在生成代码时，你使用的方法、数据模型、字段等资源都需要确认存在，不能杜撰不存在的资源。
 16. 尽量使用 prisma 官方文档中的类型，避免使用自定义的类型。
+17. 不允许出现 /admin/legal-main/:id/articles 这样的路由， 路由 params 参数必须在最末尾
 
 ## 自动导入
 

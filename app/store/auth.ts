@@ -75,6 +75,10 @@ export const useAuthStore = defineStore("auth", () => {
     const encryptionStore = useEncryptionStore();
     await encryptionStore.clearConfig();
 
+    // 清除法律编辑器的所有草稿缓存
+    const { clearAllDraftCaches } = useLegalEditorCache();
+    clearAllDraftCaches();
+
     // 清除用户信息和认证状态
     const userStore = useUserStore();
     userStore.clearUserInfo();

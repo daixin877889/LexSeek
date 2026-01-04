@@ -1,7 +1,7 @@
 <template>
   <!-- 全局确认对话框 -->
   <Dialog :open="alertDialogStore.isVisible" @update:open="updateVisibility">
-    <DialogContent class="sm:max-w-lg alert-dialog-content" :show-close-button="false">
+    <DialogContent class="sm:max-w-lg alert-dialog-content [&>button:last-child]:hidden">
       <DialogHeader>
         <DialogTitle class="flex items-center mb-2">
           <check-circle-icon v-if="alertDialogStore.type === 'success'" class="h-5 w-5 text-primary mr-2" />
