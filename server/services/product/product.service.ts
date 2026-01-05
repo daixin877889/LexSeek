@@ -3,10 +3,10 @@
  *
  * 提供商品相关的业务逻辑
  */
-import type { ProductInfo, PriceCalculateParams, PriceCalculateResult } from '#shared/types/product'
+import type { ProductInfo, PriceCalculateParams, PriceCalculateResult, CreateProductParams, UpdateProductParams } from '#shared/types/product'
 import { ProductType, ProductStatus } from '#shared/types/product'
 import { decimalToNumberUtils } from '#shared/utils/decimalToNumber'
-import { findProductByIdDao, findAllActiveProductsDao } from './product.dao'
+import { findProductByIdDao, findAllActiveProductsDao, findAllProductsDao, createProductDao, updateProductDao, deleteProductDao } from './product.dao'
 import { countUserProductOrdersDao, countUserProductsOrdersDao } from '../payment/order.dao'
 
 /**
@@ -239,4 +239,170 @@ export const filterProductsByPurchaseLimitService = async (
     })
 
     return filteredProducts
+}
+
+
+/**
+ * 将产品数据库记录转换为 ProductInfo
+ */
+const toProductInfo = (product: any): ProductInfo => ({
+    id: product.id,
+    name: product.name,
+    description: product.description,
+    type: product.type as ProductType,
+    category: product.category,
+    levelId: product.levelId,
+    levelName: product.level?.name || null,
+    priceMonthly: decimalToNumber(product.priceMonthly),
+    priceYearly: decimalToNumber(product.priceYearly),
+    defaultDuration: product.defaultDuration,
+    unitPrice: decimalToNumber(product.unitPrice),
+    originalPriceMonthly: decimalToNumber(product.originalPriceMonthly),
+    originalPriceYearly: decimalToNumber(product.originalPriceYearly),
+    originalUnitPrice: decimalToNumber(product.originalUnitPrice),
+    minQuantity: product.minQuantity,
+    maxQuantity: product.maxQuantity,
+    purchaseLimit: product.purchaseLimit,
+    pointAmount: product.pointAmount,
+    giftPoint: product.giftPoint,
+    status: product.status as ProductStatus,
+    sortOrder: product.sortOrder,
+})
+
+/**
+ * 获取产品列表（管理后台用）
+ * @param options 查询选项
+ * @returns 产品列表和总数
+ */
+export const getProductsForAdminService = async (
+    options: {
+        page?: number
+        pageSize?: number
+        type?: ProductType
+        status?: ProductStatus
+    } = {}
+): Promise<{ list: ProductInfo[]; total: number }> => {
+    const { list, total } = await findAllProductsDao(options)
+    return {
+        list: list.map(toProductInfo),
+        total,
+    }
+}
+
+/**
+ * 创建产品
+ * @param data 创建参数
+ * @returns 创建的产品信息
+ */
+export const createProductService = async (
+    data: CreateProductParams
+): Promise<ProductInfo> => {
+    const product = await createProductDao({
+        name: data.name,
+        description: data.description,
+        type: data.type,
+        category: data.category,
+        ...(data.levelId && { level: { connect: { id: data.levelId } } }),
+        priceMonthly: data.priceMonthly,
+        priceYearly: data.priceYearly,
+        defaultDuration: data.defaultDuration,
+        unitPrice: data.unitPrice,
+        originalPriceMonthly: data.originalPriceMonthly,
+        originalPriceYearly: data.originalPriceYearly,
+        originalUnitPrice: data.originalUnitPrice,
+        minQuantity: data.minQuantity,
+        maxQuantity: data.maxQuantity,
+        purchaseLimit: data.purchaseLimit,
+        pointAmount: data.pointAmount,
+        giftPoint: data.giftPoint,
+        status: data.status ?? ProductStatus.ON_SHELF,
+        sortOrder: data.sortOrder ?? 0,
+    })
+
+    // 重新查询以获取关联数据
+    const result = await findProductByIdDao(product.id)
+    return toProductInfo(result!)
+}
+
+/**
+ * 更新产品
+ * @param id 产品 ID
+ * @param data 更新参数
+ * @returns 更新后的产品信息
+ */
+export const updateProductService = async (
+    id: number,
+    data: UpdateProductParams
+): Promise<ProductInfo> => {
+    // 检查产品是否存在
+    const existing = await findProductByIdDao(id)
+    if (!existing) {
+        throw new Error('产品不存在')
+    }
+
+    // 构建更新数据
+    const updateData: any = {}
+    if (data.name !== undefined) updateData.name = data.name
+    if (data.description !== undefined) updateData.description = data.description
+    if (data.category !== undefined) updateData.category = data.category
+    if (data.priceMonthly !== undefined) updateData.priceMonthly = data.priceMonthly
+    if (data.priceYearly !== undefined) updateData.priceYearly = data.priceYearly
+    if (data.defaultDuration !== undefined) updateData.defaultDuration = data.defaultDuration
+    if (data.unitPrice !== undefined) updateData.unitPrice = data.unitPrice
+    if (data.originalPriceMonthly !== undefined) updateData.originalPriceMonthly = data.originalPriceMonthly
+    if (data.originalPriceYearly !== undefined) updateData.originalPriceYearly = data.originalPriceYearly
+    if (data.originalUnitPrice !== undefined) updateData.originalUnitPrice = data.originalUnitPrice
+    if (data.minQuantity !== undefined) updateData.minQuantity = data.minQuantity
+    if (data.maxQuantity !== undefined) updateData.maxQuantity = data.maxQuantity
+    if (data.purchaseLimit !== undefined) updateData.purchaseLimit = data.purchaseLimit
+    if (data.pointAmount !== undefined) updateData.pointAmount = data.pointAmount
+    if (data.giftPoint !== undefined) updateData.giftPoint = data.giftPoint
+    if (data.status !== undefined) updateData.status = data.status
+    if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder
+
+    await updateProductDao(id, updateData)
+
+    // 重新查询以获取关联数据
+    const result = await findProductByIdDao(id)
+    return toProductInfo(result!)
+}
+
+/**
+ * 切换产品状态
+ * @param id 产品 ID
+ * @returns 更新后的产品信息
+ */
+export const toggleProductStatusService = async (
+    id: number
+): Promise<ProductInfo> => {
+    // 检查产品是否存在
+    const existing = await findProductByIdDao(id)
+    if (!existing) {
+        throw new Error('产品不存在')
+    }
+
+    // 切换状态
+    const newStatus = existing.status === ProductStatus.ON_SHELF
+        ? ProductStatus.OFF_SHELF
+        : ProductStatus.ON_SHELF
+
+    await updateProductDao(id, { status: newStatus })
+
+    // 重新查询以获取关联数据
+    const result = await findProductByIdDao(id)
+    return toProductInfo(result!)
+}
+
+/**
+ * 删除产品（软删除）
+ * @param id 产品 ID
+ */
+export const deleteProductService = async (id: number): Promise<void> => {
+    // 检查产品是否存在
+    const existing = await findProductByIdDao(id)
+    if (!existing) {
+        throw new Error('产品不存在')
+    }
+
+    await deleteProductDao(id)
 }
