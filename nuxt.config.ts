@@ -4,12 +4,26 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineNuxtConfig({
   app: {
     head: {
+      htmlAttrs: {
+        // 服务端默认渲染 light 主题，客户端脚本会立即修正
+        class: ''
+      },
+      // 内联样式：在任何 CSS 加载前隐藏页面，防止主题闪烁
+      style: [
+        {
+          innerHTML: 'html:not(.theme-ready){background:#fff}html.dark:not(.theme-ready){background:#171717}',
+          tagPosition: 'head'
+        }
+      ],
       link: [
         { rel: 'icon', type: 'image/x-icon', href: '/logo.svg' }
       ],
       // 内联脚本：在页面渲染前应用颜色模式，避免闪烁
       script: [
-
+        {
+          innerHTML: `(function(){try{var s=localStorage.getItem('color-mode');var m=s&&['light','dark','system'].includes(s)?s:'light';var d=m==='dark'||(m==='system'&&window.matchMedia('(prefers-color-scheme:dark)').matches);document.documentElement.classList.toggle('dark',d);var t=localStorage.getItem('theme-color');if(t&&t!=='zinc')document.documentElement.classList.add('theme-'+t);document.documentElement.classList.add('theme-ready')}catch(e){document.documentElement.classList.add('theme-ready')}})()`,
+          tagPosition: 'head'
+        }
       ]
     }
   },

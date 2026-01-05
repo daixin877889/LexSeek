@@ -9,7 +9,16 @@ const COLOR_MODE_KEY = "color-mode";
 
 export function useColorMode() {
     // 当前颜色模式（用户选择的）
-    const colorMode = useState<ColorMode>("color-mode", () => "light");
+    // 初始值从 localStorage 读取（如果在客户端）
+    const colorMode = useState<ColorMode>("color-mode", () => {
+        if (import.meta.client) {
+            const saved = localStorage.getItem(COLOR_MODE_KEY) as ColorMode | null;
+            if (saved && ["light", "dark", "system"].includes(saved)) {
+                return saved;
+            }
+        }
+        return "light";
+    });
 
     // 实际应用的模式（考虑系统偏好）
     const resolvedMode = computed<"light" | "dark">(() => {
@@ -65,18 +74,10 @@ export function useColorMode() {
 
     /**
      * 初始化颜色模式
+     * 注意：主题已在 nuxt.config.ts 的内联脚本中初始化，这里只需要监听系统主题变化
      */
     const initColorMode = () => {
         if (import.meta.server) return;
-
-        // 从 localStorage 读取保存的模式
-        const saved = localStorage.getItem(COLOR_MODE_KEY) as ColorMode | null;
-        if (saved && ["light", "dark", "system"].includes(saved)) {
-            colorMode.value = saved;
-        }
-
-        // 应用颜色模式
-        applyColorMode(colorMode.value);
 
         // 监听系统主题变化
         const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
