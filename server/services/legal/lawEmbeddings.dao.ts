@@ -35,12 +35,12 @@ export async function findEmbeddingsByLegalIdDao(
     const pool = getPool()
     const offset = (page - 1) * pageSize
 
-    // 构建查询条件（元数据字段使用驼峰命名）
-    let whereClause = `metadata->>'legalId' = $1`
+    // 构建查询条件（元数据字段使用 snake_case 命名）
+    let whereClause = `metadata->>'legal_id' = $1`
     const params: (string | number)[] = [legalId]
 
     if (articleId) {
-        whereClause += ` AND metadata->>'articleId' = $2`
+        whereClause += ` AND metadata->>'articles_id' = $2`
         params.push(articleId)
     }
 
@@ -54,7 +54,7 @@ export async function findEmbeddingsByLegalIdDao(
         SELECT id, text, metadata 
         FROM law_embeddings 
         WHERE ${whereClause}
-        ORDER BY metadata->>'hierarchyPath' ASC, id ASC
+        ORDER BY metadata->>'chapter_hierarchy' ASC, id ASC
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `
     const listResult = await pool.query(listQuery, [...params, pageSize, offset])
@@ -136,7 +136,7 @@ export async function deleteEmbeddingByIdDao(id: string): Promise<boolean> {
  */
 export async function countEmbeddingsByLegalIdDao(legalId: string): Promise<number> {
     const pool = getPool()
-    const query = `SELECT COUNT(*) as count FROM law_embeddings WHERE metadata->>'legalId' = $1`
+    const query = `SELECT COUNT(*) as count FROM law_embeddings WHERE metadata->>'legal_id' = $1`
     const result = await pool.query(query, [legalId])
     return parseInt(result.rows[0]?.count || '0', 10)
 }

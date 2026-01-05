@@ -111,11 +111,11 @@ export default defineEventHandler(async (event) => {
             const pool = getPool()
             const articleIdsToCheck = articlesWithContent.map(a => a.id)
 
-            // 查询已存在嵌入记录的条文 ID（元数据使用驼峰命名）
+            // 查询已存在嵌入记录的条文 ID（元数据使用蛇形命名 articles_id）
             const embeddedResult = await pool.query(
-                `SELECT DISTINCT metadata->>'articleId' as article_id 
+                `SELECT DISTINCT metadata->>'articles_id' as article_id 
                  FROM law_embeddings 
-                 WHERE metadata->>'articleId' = ANY($1)`,
+                 WHERE metadata->>'articles_id' = ANY($1)`,
                 [articleIdsToCheck]
             )
             const embeddedArticleIds = new Set(embeddedResult.rows.map(r => r.article_id))

@@ -174,19 +174,20 @@ export async function searchLaw(params: SearchLawParams): Promise<SearchResultIt
             tableName: 'law_embeddings',
         })
 
+        // 构建过滤器（使用 snake_case 字段名）
         const filter: Record<string, string | number | boolean> = {}
 
         if (params.legalId) {
-            filter.legalId = params.legalId
+            filter.legal_id = params.legalId
         }
         if (params.legalName) {
-            filter.legalName = params.legalName
+            filter.legal_name = params.legalName
         }
         if (params.legalType) {
-            filter.legalType = params.legalType
+            filter.legal_type = params.legalType
         }
         if (params.articleType) {
-            filter.articleType = params.articleType
+            filter.article_type = params.articleType
         }
 
         // 执行向量搜索
@@ -205,11 +206,11 @@ export async function searchLaw(params: SearchLawParams): Promise<SearchResultIt
         // 按 score 排序
         result.sort((a, b) => b.score - a.score)
 
-        // 应用日期过滤
+        // 应用日期过滤（使用 snake_case 字段名）
         const dateFilters = {
-            invalidDate: params.invalidDateFilter,
-            publishDate: params.publishDateFilter,
-            effectiveDate: params.effectiveDateFilter,
+            invalid_date: params.invalidDateFilter,
+            publish_date: params.publishDateFilter,
+            effective_date: params.effectiveDateFilter,
         }
 
         let filteredResults = applyDateFilter(result, dateFilters)
@@ -218,8 +219,8 @@ export async function searchLaw(params: SearchLawParams): Promise<SearchResultIt
         if (params.isEffective !== undefined) {
             filteredResults = filteredResults.filter(item => {
                 const isEffective = isLawEffective(
-                    item.metadata.effectiveDate as string | null,
-                    item.metadata.invalidDate as string | null
+                    item.metadata.effective_date as string | null,
+                    item.metadata.invalid_date as string | null
                 )
                 return isEffective === params.isEffective
             })
@@ -238,31 +239,31 @@ export async function searchLaw(params: SearchLawParams): Promise<SearchResultIt
         `
         const queryParams: unknown[] = []
 
-        // 添加过滤条件
+        // 添加过滤条件（使用 snake_case 字段名）
         if (params.legalId) {
             queryParams.push(params.legalId)
-            sqlQuery += ` AND metadata->>'legalId' = $${queryParams.length}`
+            sqlQuery += ` AND metadata->>'legal_id' = $${queryParams.length}`
         }
 
         if (params.legalName) {
             queryParams.push(params.legalName)
-            sqlQuery += ` AND metadata->>'legalName' = $${queryParams.length}`
+            sqlQuery += ` AND metadata->>'legal_name' = $${queryParams.length}`
         }
 
         if (params.legalType) {
             queryParams.push(params.legalType)
-            sqlQuery += ` AND metadata->>'legalType' = $${queryParams.length}`
+            sqlQuery += ` AND metadata->>'legal_type' = $${queryParams.length}`
         }
 
         if (params.articleType) {
             queryParams.push(params.articleType)
-            sqlQuery += ` AND metadata->>'articleType' = $${queryParams.length}`
+            sqlQuery += ` AND metadata->>'article_type' = $${queryParams.length}`
         }
 
-        // 添加日期过滤条件
-        sqlQuery += buildSQLDateFilter('invalidDate', params.invalidDateFilter, queryParams)
-        sqlQuery += buildSQLDateFilter('publishDate', params.publishDateFilter, queryParams)
-        sqlQuery += buildSQLDateFilter('effectiveDate', params.effectiveDateFilter, queryParams)
+        // 添加日期过滤条件（使用 snake_case 字段名）
+        sqlQuery += buildSQLDateFilter('invalid_date', params.invalidDateFilter, queryParams)
+        sqlQuery += buildSQLDateFilter('publish_date', params.publishDateFilter, queryParams)
+        sqlQuery += buildSQLDateFilter('effective_date', params.effectiveDateFilter, queryParams)
 
         // 处理分页参数
         const pageSize = params.k || 5
@@ -289,8 +290,8 @@ export async function searchLaw(params: SearchLawParams): Promise<SearchResultIt
         if (params.isEffective !== undefined) {
             results = results.filter(item => {
                 const isEffective = isLawEffective(
-                    item.metadata.effectiveDate as string | null,
-                    item.metadata.invalidDate as string | null
+                    item.metadata.effective_date as string | null,
+                    item.metadata.invalid_date as string | null
                 )
                 return isEffective === params.isEffective
             })
@@ -299,6 +300,7 @@ export async function searchLaw(params: SearchLawParams): Promise<SearchResultIt
         return results
     }
 }
+
 
 /**
  * 法律搜索工具（用于 LangChain/LangGraph）
@@ -319,17 +321,17 @@ export const searchLawTool = tool(
             effectiveDateFilter: input.effectiveDateFilter,
         })
 
+        // 格式化返回结果（使用 snake_case 字段名）
         const formattedResults = results.map(item => ({
             score: item.score,
             content: item.content,
             metadata: {
-                legalName: item.metadata.legalName,
-                legalCode: item.metadata.legalCode,
-                hierarchyPath: item.metadata.hierarchyPath,
-                publishDate: item.metadata.publishDate,
-                effectiveDate: item.metadata.effectiveDate,
-                invalidDate: item.metadata.invalidDate,
-                isValid: item.metadata.isValid,
+                legal_name: item.metadata.legal_name,
+                document_number: item.metadata.document_number,
+                chapter_hierarchy: item.metadata.chapter_hierarchy,
+                publish_date: item.metadata.publish_date,
+                effective_date: item.metadata.effective_date,
+                invalid_date: item.metadata.invalid_date,
             },
         }))
 
@@ -380,13 +382,15 @@ export async function searchLawService(params: LawSearchParams): Promise<LawSear
         } : undefined,
     })
 
+    // 映射返回结果（从 snake_case 字段读取）
     const items: LawSearchResultItem[] = results.map(item => ({
-        articleId: item.metadata.articleId as string,
-        legalId: item.metadata.legalId as string,
-        legalName: item.metadata.legalName as string,
-        legalCode: item.metadata.legalCode as string,
+        articles_id: item.metadata.articles_id as string,
+        legal_id: item.metadata.legal_id as string,
+        legal_name: item.metadata.legal_name as string,
         content: item.content,
-        hierarchyPath: item.metadata.hierarchyPath as string,
+        chapter_hierarchy: Array.isArray(item.metadata.chapter_hierarchy)
+            ? (item.metadata.chapter_hierarchy as string[])
+            : [],
         score: item.score,
         metadata: item.metadata as unknown as LawEmbeddingMetadata,
     }))

@@ -236,30 +236,44 @@ export interface PaginatedResponse<T> {
     totalPages: number
 }
 
-/** 法律嵌入元数据 */
+/** 文本位置信息 */
+export interface TextLocation {
+    lines: {
+        from: number
+        to: number
+    }
+}
+
+/** 法律嵌入元数据（与旧项目兼容，使用 snake_case 命名） */
 export interface LawEmbeddingMetadata {
     /** 条文 ID */
-    articleId: string
+    articles_id: string
     /** 法律 ID */
-    legalId: string
+    legal_id: string
     /** 法律名称 */
-    legalName: string
-    /** 法律代码 */
-    legalCode: string
-    /** 法律类型 */
-    legalType: LegalType
+    legal_name: string
+    /** 法律类型（中文：法律、法规、司法解释、指导意见） */
+    legal_type: string
     /** 条文类型 */
-    articleType: ArticleType
-    /** 层级路径 */
-    hierarchyPath: string
-    /** 发布日期 */
-    publishDate: string | null
-    /** 生效日期 */
-    effectiveDate: string | null
-    /** 失效日期 */
-    invalidDate: string | null
-    /** 是否有效 */
-    isValid: boolean
+    article_type: string
+    /** 章节层级数组 */
+    chapter_hierarchy: string[]
+    /** 发文机关 */
+    issuing_authority: string
+    /** 文号 */
+    document_number: string
+    /** 发布日期（ISO 8601 格式） */
+    publish_date: string | null
+    /** 生效日期（ISO 8601 格式） */
+    effective_date: string | null
+    /** 失效日期（ISO 8601 格式） */
+    invalid_date: string | null
+    /** 最后编辑时间（ISO 8601 格式） */
+    last_edited_at: string | null
+    /** 最后嵌入时间（ISO 8601 格式） */
+    last_embedding_at: string
+    /** 文本位置信息 */
+    loc?: TextLocation
 }
 
 /** 法律搜索参数 */
@@ -287,17 +301,15 @@ export interface LawSearchParams {
 /** 法律搜索结果项 */
 export interface LawSearchResultItem {
     /** 条文 ID */
-    articleId: string
+    articles_id: string
     /** 法律 ID */
-    legalId: string
+    legal_id: string
     /** 法律名称 */
-    legalName: string
-    /** 法律代码 */
-    legalCode: string
+    legal_name: string
     /** 条文内容 */
     content: string
-    /** 层级路径 */
-    hierarchyPath: string
+    /** 章节层级 */
+    chapter_hierarchy: string[]
     /** 相似度分数（向量搜索时） */
     score?: number
     /** 元数据 */
@@ -385,10 +397,8 @@ export interface LawEmbeddingListQuery {
 
 /** 更新嵌入元数据请求 */
 export interface UpdateEmbeddingMetadataRequest {
-    /** 是否有效 */
-    isValid?: boolean
     /** 失效日期 */
-    invalidDate?: string | null
+    invalid_date?: string | null
 }
 
 /** 法律法规统计信息 */

@@ -73,7 +73,7 @@
                                         <div class="flex items-center gap-2 mb-1">
                                             <span class="font-mono text-xs text-muted-foreground truncate">{{
                                                 embedding.id }}</span>
-                                            <span v-if="embedding.metadata?.isValid"
+                                            <span v-if="!embedding.metadata?.invalid_date"
                                                 class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
                                                 有效
                                             </span>
@@ -83,7 +83,7 @@
                                             </span>
                                         </div>
                                         <p class="text-sm text-muted-foreground truncate">
-                                            {{ embedding.metadata?.hierarchyPath || '无层级路径' }}
+                                            {{ getHierarchyPath(embedding.metadata?.chapter_hierarchy) || '无层级路径' }}
                                         </p>
                                     </div>
                                 </div>
@@ -118,33 +118,36 @@
                                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                     <div>
                                         <p class="text-muted-foreground mb-1">条文 ID</p>
-                                        <p class="font-mono text-xs truncate">{{ embedding.metadata?.articleId || '-' }}
+                                        <p class="font-mono text-xs truncate">{{ embedding.metadata?.articles_id || '-'
+                                            }}
                                         </p>
                                     </div>
                                     <div>
                                         <p class="text-muted-foreground mb-1">法律名称</p>
-                                        <p class="font-medium truncate">{{ embedding.metadata?.legalName || '-' }}</p>
+                                        <p class="font-medium truncate">{{ embedding.metadata?.legal_name || '-' }}</p>
                                     </div>
                                     <div>
                                         <p class="text-muted-foreground mb-1">法律代码</p>
-                                        <p class="font-mono text-xs">{{ embedding.metadata?.legalCode || '-' }}</p>
+                                        <p class="font-mono text-xs">{{ embedding.metadata?.document_number || '-' }}
+                                        </p>
                                     </div>
                                     <div>
                                         <p class="text-muted-foreground mb-1">条文类型</p>
-                                        <p class="font-medium">{{ getArticleTypeName(embedding.metadata?.articleType) }}
+                                        <p class="font-medium">{{ getArticleTypeName(embedding.metadata?.article_type)
+                                            }}
                                         </p>
                                     </div>
                                     <div>
                                         <p class="text-muted-foreground mb-1">发布日期</p>
-                                        <p class="font-medium">{{ embedding.metadata?.publishDate || '-' }}</p>
+                                        <p class="font-medium">{{ formatDate(embedding.metadata?.publish_date) }}</p>
                                     </div>
                                     <div>
                                         <p class="text-muted-foreground mb-1">生效日期</p>
-                                        <p class="font-medium">{{ embedding.metadata?.effectiveDate || '-' }}</p>
+                                        <p class="font-medium">{{ formatDate(embedding.metadata?.effective_date) }}</p>
                                     </div>
                                     <div>
                                         <p class="text-muted-foreground mb-1">失效日期</p>
-                                        <p class="font-medium">{{ embedding.metadata?.invalidDate || '-' }}</p>
+                                        <p class="font-medium">{{ formatDate(embedding.metadata?.invalid_date) }}</p>
                                     </div>
                                     <div>
                                         <p class="text-muted-foreground mb-1">最后嵌入时间</p>
@@ -347,8 +350,8 @@ const changePage = (page: number) => {
 const handleEdit = (embedding: LawEmbeddingInfo) => {
     editingEmbedding.value = embedding
     editForm.value = {
-        isValid: embedding.metadata?.isValid ?? true,
-        invalidDate: embedding.metadata?.invalidDate || null,
+        isValid: embedding.metadata?.invalid_date === null,
+        invalidDate: embedding.metadata?.invalid_date || null,
     }
     showEditDialog.value = true
 }
@@ -396,9 +399,21 @@ const confirmDelete = async () => {
 }
 
 /** 获取条文类型名称 */
-const getArticleTypeName = (type?: ArticleType) => {
+const getArticleTypeName = (type?: string) => {
     if (!type) return '-'
-    return ArticleTypeLabels[type] || type
+    return ArticleTypeLabels[type as ArticleType] || type
+}
+
+/** 获取层级路径字符串 */
+const getHierarchyPath = (hierarchy?: string[]) => {
+    if (!hierarchy || !Array.isArray(hierarchy) || hierarchy.length === 0) return ''
+    return hierarchy.join(' > ')
+}
+
+/** 格式化日期 */
+const formatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return '-'
+    return dayjs(dateStr).format('YYYY-MM-DD')
 }
 
 /** 格式化日期时间 */

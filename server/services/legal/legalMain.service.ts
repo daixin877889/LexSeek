@@ -343,11 +343,11 @@ export async function getLegalStatisticsService(
         }),
     ])
 
-    // 通过原生 SQL 查询已向量化条文数（metadata 中的 legalId 字段）
+    // 通过原生 SQL 查询已向量化条文数（metadata 中的 legal_id 字段）
     const embeddedCountResult = await prisma.$queryRaw<{ count: bigint }[]>`
-        SELECT COUNT(DISTINCT metadata->>'articleId') as count
+        SELECT COUNT(DISTINCT metadata->>'articles_id') as count
         FROM law_embeddings
-        WHERE metadata->>'legalId' = ${legalId}
+        WHERE metadata->>'legal_id' = ${legalId}
     `
     const embeddedResult = Number(embeddedCountResult[0]?.count || 0)
 

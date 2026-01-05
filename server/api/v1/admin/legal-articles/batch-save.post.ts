@@ -4,13 +4,16 @@
  * POST /api/v1/admin/legal-articles/batch-save
  * 
  * 功能：
- * 1. 更新法律法规的 content 字段
- * 2. 删除该法律法规的所有旧条文（软删除）
- * 3. 批量创建新条文
- * 4. 触发向量化任务
+ * 1. 删除该法律法规的所有旧嵌入记录
+ * 2. 更新法律法规的 content 字段
+ * 3. 删除该法律法规的所有旧条文（软删除）
+ * 4. 批量创建新条文
+ * 5. 触发向量化任务
  */
 
 import { z } from 'zod'
+import { deleteEmbeddingsByMetadata } from '~~/server/services/legal/vectorStore.service'
+import { updateLegalEmbeddings } from '~~/server/services/legal/lawEmbedding.service'
 
 /**
  * 请求参数验证 Schema
@@ -69,6 +72,15 @@ export default defineEventHandler(async (event) => {
             return resError(event, 400, '解析结果为空，请检查内容格式')
         }
 
+        // 删除该法律下所有旧条文的嵌入记录（在保存新条文前执行）
+        try {
+            const deletedCount = await deleteEmbeddingsByMetadata('legal_id', legalId, 'law_embeddings')
+            logger.info(`已删除法律 ${legalId} 的 ${deletedCount} 个旧嵌入记录`)
+        } catch (error) {
+            // 删除嵌入记录失败不影响保存流程，只记录日志
+            logger.error('删除旧嵌入记录失败', { legalId, error })
+        }
+
         // 批量保存条文（事务操作）
         try {
             await batchSaveArticles({
@@ -84,23 +96,18 @@ export default defineEventHandler(async (event) => {
             return resError(event, 500, `批量保存条文失败: ${error instanceof Error ? error.message : '未知错误'}`)
         }
 
-        // 触发向量化任务（异步执行，失败不影响保存结果）
-        try {
-            // 调用批量向量化 API
-            await $fetch('/api/v1/admin/legal-articles/batch-embed', {
-                method: 'POST',
-                body: { legalId },
-                // 使用内部请求，不需要认证
-                headers: {
-                    'x-internal-request': 'true',
-                },
-            })
-
-            logger.info('触发向量化任务成功', { legalId })
-        } catch (error) {
-            // 向量化失败不影响保存结果，只记录日志
-            logger.error('触发向量化任务失败', { legalId, error })
-        }
+        // 触发向量化任务（异步执行，不等待完成，避免前端超时）
+        // 使用 void 表示有意不等待 Promise
+        void (async () => {
+            try {
+                logger.info('开始异步向量化任务', { legalId })
+                await updateLegalEmbeddings(legalId)
+                logger.info('向量化任务完成', { legalId })
+            } catch (error) {
+                // 向量化失败不影响保存结果，只记录日志
+                logger.error('向量化任务失败', { legalId, error })
+            }
+        })()
 
         return resSuccess(event, '保存成功', {
             legalId,

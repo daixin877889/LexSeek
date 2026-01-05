@@ -14,8 +14,7 @@ import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters'
 import { v4 as uuidv4 } from 'uuid'
 import dayjs from 'dayjs'
 import type { legalMain, legalArticles } from '~~/generated/prisma/client'
-import type { LawEmbeddingMetadata, LegalType, ArticleType } from '#shared/types/legal'
-import { LegalTypeLabels } from '#shared/types/legal'
+import type { LawEmbeddingMetadata } from '#shared/types/legal'
 import {
     getVectorStore,
     deleteEmbeddingsByMetadata,
@@ -27,27 +26,46 @@ const TEXT_CHUNK_SIZE = 2000
 const TEXT_CHUNK_OVERLAP = 200
 
 /**
- * 获取法律类型的中文名称
- * @param type 法律类型
- * @returns 中文名称
+ * 法律类型转换映射（英文枚举 → 中文名称）
  */
-function getLegalTypeName(type: string): string {
-    return LegalTypeLabels[type as LegalType] || '其他'
+const LEGAL_TYPE_MAP: Record<string, string> = {
+    'law': '法律',
+    'regulation': '法规',
+    'judicial_interp': '司法解释',
+    'guideline': '指导意见',
 }
 
 /**
- * 构建层级路径
+ * 获取法律类型的中文名称
+ * @param type 法律类型枚举值
+ * @returns 中文名称
+ */
+export function getLegalTypeName(type: string): string {
+    return LEGAL_TYPE_MAP[type] || '其他'
+}
+
+/**
+ * 构建章节层级数组
+ * @param article 法律条文
+ * @returns 章节层级数组
+ */
+export function buildChapterHierarchy(article: legalArticles): string[] {
+    const hierarchy: string[] = []
+    if (article.l1) hierarchy.push(article.l1)
+    if (article.l2) hierarchy.push(article.l2)
+    if (article.l3) hierarchy.push(article.l3)
+    if (article.l4) hierarchy.push(article.l4)
+    if (article.l5) hierarchy.push(article.l5)
+    return hierarchy
+}
+
+/**
+ * 构建层级路径字符串（用于显示）
  * @param article 法律条文
  * @returns 层级路径字符串
  */
 export function buildHierarchyPath(article: legalArticles): string {
-    const parts: string[] = []
-    if (article.l1) parts.push(article.l1)
-    if (article.l2) parts.push(article.l2)
-    if (article.l3) parts.push(article.l3)
-    if (article.l4) parts.push(article.l4)
-    if (article.l5) parts.push(article.l5)
-    return parts.join(' > ')
+    return buildChapterHierarchy(article).join(' > ')
 }
 
 /**
@@ -88,7 +106,17 @@ export function buildEmbeddingText(legal: legalMain, article: legalArticles): st
 }
 
 /**
- * 构建嵌入元数据
+ * 格式化日期为 ISO 8601 带时区格式
+ * @param date 日期对象
+ * @returns ISO 8601 格式字符串或 null
+ */
+function formatDateISO(date: Date | null | undefined): string | null {
+    if (!date) return null
+    return dayjs(date).format('YYYY-MM-DDTHH:mm:ss+08:00')
+}
+
+/**
+ * 构建嵌入元数据（与旧项目兼容，使用 snake_case 命名）
  * @param legal 法律法规
  * @param article 法律条文
  * @returns 嵌入元数据
@@ -97,30 +125,23 @@ export function buildEmbeddingMetadata(
     legal: legalMain,
     article: legalArticles
 ): LawEmbeddingMetadata {
-    const hierarchyPath = buildHierarchyPath(article)
-    const now = new Date()
-
-    // 判断是否有效（未设置失效日期或失效日期在未来）
-    const isValid = !article.invalidDate || new Date(article.invalidDate) > now
+    // 构建章节层级数组
+    const chapter_hierarchy = buildChapterHierarchy(article)
 
     return {
-        articleId: article.id,
-        legalId: legal.id,
-        legalName: legal.name,
-        legalCode: legal.code,
-        legalType: legal.type as LegalType,
-        articleType: article.type as ArticleType,
-        hierarchyPath,
-        publishDate: article.publishDate
-            ? dayjs(article.publishDate).format('YYYY-MM-DD')
-            : null,
-        effectiveDate: article.effectiveDate
-            ? dayjs(article.effectiveDate).format('YYYY-MM-DD')
-            : null,
-        invalidDate: article.invalidDate
-            ? dayjs(article.invalidDate).format('YYYY-MM-DD')
-            : null,
-        isValid,
+        articles_id: article.id,
+        legal_id: legal.id,
+        legal_name: legal.name,
+        legal_type: getLegalTypeName(legal.type),
+        article_type: article.type,
+        chapter_hierarchy,
+        issuing_authority: legal.issuingAuthority || '',
+        document_number: legal.documentNumber || '',
+        publish_date: formatDateISO(article.publishDate),
+        effective_date: formatDateISO(article.effectiveDate),
+        invalid_date: formatDateISO(article.invalidDate),
+        last_edited_at: formatDateISO(article.lastEditedAt),
+        last_embedding_at: dayjs().format('YYYY-MM-DDTHH:mm:ss+08:00'),
     }
 }
 
@@ -172,18 +193,14 @@ export async function embedLawArticle(
         return undefined
     }
 
-    // 构建元数据
+    // 构建元数据（已包含 last_embedding_at）
     const metadata = buildEmbeddingMetadata(legal, article)
-    const embeddingTime = dayjs().format('YYYY-MM-DDTHH:mm:ss+08:00')
 
     // 为每个文档设置元数据和 ID
     const ids: string[] = []
     validDocuments.forEach(doc => {
         ids.push(uuidv4())
-        doc.metadata = {
-            ...metadata,
-            last_embedding_at: embeddingTime,
-        }
+        doc.metadata = metadata
     })
 
     // 获取向量存储并添加文档
@@ -197,7 +214,7 @@ export async function embedLawArticle(
     await store.addDocuments(validDocuments, { ids })
     logger.info(`已嵌入法条 ${article.id}，生成 ${validDocuments.length} 个向量`)
 
-    return embeddingTime
+    return metadata.last_embedding_at
 }
 
 /**
@@ -206,7 +223,7 @@ export async function embedLawArticle(
  * @returns 删除的记录数
  */
 export async function deleteEmbeddingsByArticleId(articleId: string): Promise<number> {
-    return await deleteEmbeddingsByMetadata('articleId', articleId, 'law_embeddings')
+    return await deleteEmbeddingsByMetadata('articles_id', articleId, 'law_embeddings')
 }
 
 /**
@@ -281,7 +298,7 @@ async function checkArticleNeedsEmbedding(article: legalArticles): Promise<boole
     const query = `
         SELECT COUNT(*) as count 
         FROM law_embeddings 
-        WHERE metadata->>'articleId' = $1
+        WHERE metadata->>'articles_id' = $1
     `
     const result = await pool.query(query, [article.id])
     const count = parseInt(result.rows[0]?.count || '0', 10)
@@ -291,7 +308,7 @@ async function checkArticleNeedsEmbedding(article: legalArticles): Promise<boole
 }
 
 /**
- * 更新法律条文的失效状态到嵌入元数据
+ * 更新法律条文的失效日期到嵌入元数据
  * @param legalId 法律 ID
  * @param invalidDate 失效日期
  */
@@ -300,28 +317,23 @@ export async function updateEmbeddingsValidStatus(
     invalidDate: Date | null
 ): Promise<void> {
     const pool = getPool()
-    const isValid = !invalidDate || invalidDate > new Date()
 
-    // 更新所有相关嵌入记录的 isValid 字段
+    // 更新所有相关嵌入记录的 invalid_date 字段
     const query = `
         UPDATE law_embeddings 
         SET metadata = jsonb_set(
-            jsonb_set(
-                metadata,
-                '{isValid}',
-                $2::jsonb
-            ),
-            '{invalidDate}',
-            $3::jsonb
+            metadata,
+            '{invalid_date}',
+            $2::jsonb
         )
-        WHERE metadata->>'legalId' = $1
+        WHERE metadata->>'legal_id' = $1
     `
     const invalidDateStr = invalidDate
-        ? `"${dayjs(invalidDate).format('YYYY-MM-DD')}"`
+        ? `"${dayjs(invalidDate).format('YYYY-MM-DDTHH:mm:ss+08:00')}"`
         : 'null'
 
-    await pool.query(query, [legalId, isValid.toString(), invalidDateStr])
-    logger.info(`已更新法律 ${legalId} 的嵌入有效状态: isValid=${isValid}`)
+    await pool.query(query, [legalId, invalidDateStr])
+    logger.info(`已更新法律 ${legalId} 的嵌入失效日期`)
 }
 
 /**

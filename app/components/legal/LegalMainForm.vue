@@ -211,11 +211,27 @@ const handleSubmit = async () => {
             ...(form.value.category?.trim() && { category: form.value.category.trim() }),
             ...(form.value.issuingAuthority?.trim() && { issuingAuthority: form.value.issuingAuthority.trim() }),
             ...(form.value.documentNumber?.trim() && { documentNumber: form.value.documentNumber.trim() }),
-            // 日期字段：有值时发送，无值时不发送
-            ...(form.value.publishDate && { publishDate: form.value.publishDate }),
-            ...(form.value.effectiveDate && { effectiveDate: form.value.effectiveDate }),
-            ...(form.value.invalidDate && { invalidDate: form.value.invalidDate }),
         } as CreateLegalMainRequest | UpdateLegalMainRequest
+
+        // 日期字段：编辑模式下始终发送（有值发送值，无值发送 null 以清除）
+        // 创建模式下只在有值时发送
+        if (props.initialData) {
+            // 编辑模式：始终发送日期字段，允许清空
+            ; (data as UpdateLegalMainRequest).publishDate = form.value.publishDate || null
+                ; (data as UpdateLegalMainRequest).effectiveDate = form.value.effectiveDate || null
+                ; (data as UpdateLegalMainRequest).invalidDate = form.value.invalidDate || null
+        } else {
+            // 创建模式：只在有值时发送
+            if (form.value.publishDate) {
+                (data as CreateLegalMainRequest).publishDate = form.value.publishDate
+            }
+            if (form.value.effectiveDate) {
+                (data as CreateLegalMainRequest).effectiveDate = form.value.effectiveDate
+            }
+            if (form.value.invalidDate) {
+                (data as CreateLegalMainRequest).invalidDate = form.value.invalidDate
+            }
+        }
 
         emit('submit', data)
     } finally {

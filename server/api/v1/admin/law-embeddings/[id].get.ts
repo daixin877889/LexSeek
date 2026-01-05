@@ -24,25 +24,12 @@ export default defineEventHandler(async (event) => {
             return resError(event, 404, '嵌入记录不存在')
         }
 
-        // 转换为前端需要的格式（数据库使用下划线命名，前端使用驼峰命名）
-        const dbMetadata = row.metadata as any
+        // 直接返回数据库中的 snake_case 格式数据
         const info: LawEmbeddingInfo = {
             id: row.id,
             text: row.text,
-            metadata: dbMetadata ? {
-                articleId: dbMetadata.articles_id,
-                legalId: dbMetadata.legal_id,
-                legalName: dbMetadata.legal_name,
-                legalCode: dbMetadata.document_number,
-                legalType: dbMetadata.legal_type,
-                articleType: dbMetadata.article_type,
-                hierarchyPath: dbMetadata.chapter_hierarchy?.join(' > ') || '',
-                publishDate: dbMetadata.publish_date,
-                effectiveDate: dbMetadata.effective_date,
-                invalidDate: dbMetadata.invalid_date,
-                isValid: dbMetadata.invalid_date === null,
-            } : null,
-            lastEmbeddingAt: dbMetadata?.last_embedding_at || null,
+            metadata: row.metadata,
+            lastEmbeddingAt: row.metadata?.last_embedding_at || null,
         }
 
         return resSuccess(event, '获取成功', info)

@@ -33,28 +33,13 @@ export default defineEventHandler(async (event) => {
     try {
         const { list, total } = await findEmbeddingsByLegalIdDao(legalId, articleId, page, pageSize)
 
-        // 转换为前端需要的格式
-        const items: LawEmbeddingInfo[] = list.map(row => {
-            const metadata = row.metadata
-            return {
-                id: row.id,
-                text: row.text,
-                metadata: metadata ? {
-                    articleId: metadata.articleId,
-                    legalId: metadata.legalId,
-                    legalName: metadata.legalName,
-                    legalCode: metadata.legalCode,
-                    legalType: metadata.legalType,
-                    articleType: metadata.articleType,
-                    hierarchyPath: metadata.hierarchyPath || '',
-                    publishDate: metadata.publishDate,
-                    effectiveDate: metadata.effectiveDate,
-                    invalidDate: metadata.invalidDate,
-                    isValid: metadata.isValid ?? (metadata.invalidDate === null),
-                } : null,
-                lastEmbeddingAt: (metadata as any)?.last_embedding_at || null,
-            }
-        })
+        // 直接返回数据库中的 snake_case 格式数据
+        const items: LawEmbeddingInfo[] = list.map(row => ({
+            id: row.id,
+            text: row.text,
+            metadata: row.metadata,
+            lastEmbeddingAt: row.metadata?.last_embedding_at || null,
+        }))
 
         return resSuccess(event, '获取成功', {
             items,
