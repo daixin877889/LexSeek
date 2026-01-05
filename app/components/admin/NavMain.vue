@@ -1,147 +1,35 @@
 <template>
-  <!-- 权限管理菜单组 -->
-  <SidebarGroup>
-    <SidebarGroupLabel>权限管理</SidebarGroupLabel>
-    <SidebarGroupContent>
-      <SidebarMenu>
-        <SidebarMenuItem v-for="item in permissionMenuItems" :key="item.path">
-          <SidebarMenuButton as-child :tooltip="item.title"
-            :class="isActive(item.path) ? 'bg-primary/10 text-primary' : ''">
-            <NuxtLink :to="item.path">
-              <component :is="item.icon" class="h-4 w-4" />
-              <span>{{ item.title }}</span>
-            </NuxtLink>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
-    </SidebarGroupContent>
-  </SidebarGroup>
+  <!-- 动态渲染菜单分组 -->
+  <template v-for="group in menuGroups" :key="group.name">
+    <SidebarGroup>
+      <SidebarGroupLabel>{{ group.name }}</SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          <SidebarMenuItem v-for="item in group.items" :key="item.id">
+            <SidebarMenuButton as-child :tooltip="item.title"
+              :class="isActive(item.path) ? 'bg-primary/10 text-primary' : ''">
+              <NuxtLink :to="item.path">
+                <component v-if="item.icon" :is="item.icon" class="h-4 w-4" />
+                <span>{{ item.title }}</span>
+              </NuxtLink>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  </template>
 
-  <!-- 权益管理菜单组 -->
-  <SidebarGroup>
-    <SidebarGroupLabel>权益管理</SidebarGroupLabel>
-    <SidebarGroupContent>
-      <SidebarMenu>
-        <SidebarMenuItem v-for="item in benefitMenuItems" :key="item.path">
-          <SidebarMenuButton as-child :tooltip="item.title"
-            :class="isActive(item.path) ? 'bg-primary/10 text-primary' : ''">
-            <NuxtLink :to="item.path">
-              <component :is="item.icon" class="h-4 w-4" />
-              <span>{{ item.title }}</span>
-            </NuxtLink>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
-    </SidebarGroupContent>
-  </SidebarGroup>
+  <!-- 加载状态 -->
+  <div v-if="isLoading" class="p-4 text-center text-muted-foreground">
+    加载中...
+  </div>
 
-  <!-- 运营管理菜单组 -->
-  <SidebarGroup>
-    <SidebarGroupLabel>运营管理</SidebarGroupLabel>
-    <SidebarGroupContent>
-      <SidebarMenu>
-        <SidebarMenuItem v-for="item in operationMenuItems" :key="item.path">
-          <SidebarMenuButton as-child :tooltip="item.title"
-            :class="isActive(item.path) ? 'bg-primary/10 text-primary' : ''">
-            <NuxtLink :to="item.path">
-              <component :is="item.icon" class="h-4 w-4" />
-              <span>{{ item.title }}</span>
-            </NuxtLink>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
-    </SidebarGroupContent>
-  </SidebarGroup>
-
-  <!-- 知识库管理菜单组 -->
-  <SidebarGroup>
-    <SidebarGroupLabel>知识库管理</SidebarGroupLabel>
-    <SidebarGroupContent>
-      <SidebarMenu>
-        <SidebarMenuItem v-for="item in knowledgeMenuItems" :key="item.path">
-          <SidebarMenuButton as-child :tooltip="item.title"
-            :class="isActive(item.path) ? 'bg-primary/10 text-primary' : ''">
-            <NuxtLink :to="item.path">
-              <component :is="item.icon" class="h-4 w-4" />
-              <span>{{ item.title }}</span>
-            </NuxtLink>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
-    </SidebarGroupContent>
-  </SidebarGroup>
-
-  <!-- 模型管理菜单组 -->
-  <SidebarGroup>
-    <SidebarGroupLabel>模型管理</SidebarGroupLabel>
-    <SidebarGroupContent>
-      <SidebarMenu>
-        <SidebarMenuItem v-for="item in modelMenuItems" :key="item.path">
-          <SidebarMenuButton as-child :tooltip="item.title"
-            :class="isActive(item.path) ? 'bg-primary/10 text-primary' : ''">
-            <NuxtLink :to="item.path">
-              <component :is="item.icon" class="h-4 w-4" />
-              <span>{{ item.title }}</span>
-            </NuxtLink>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
-    </SidebarGroupContent>
-  </SidebarGroup>
+  <!-- 空状态 -->
+  <div v-else-if="menuGroups.length === 0" class="p-4 text-center text-muted-foreground">
+    暂无可访问的菜单
+  </div>
 </template>
 
 <script setup lang="ts">
-import { Users, Shield, Key, FileText, Settings, Ticket, History, Gift, Crown, UserPlus, Scale, Package, Megaphone, Server, KeyRound, Bot } from 'lucide-vue-next'
-
-const route = useRoute()
-
-/** 权限管理菜单项 */
-const permissionMenuItems = [
-  { path: '/admin/roles', title: '角色管理', icon: Shield },
-  { path: '/admin/permissions/api', title: 'API 权限', icon: Key },
-  { path: '/admin/permissions/routes', title: '路由权限', icon: Settings },
-  { path: '/admin/users', title: '用户管理', icon: Users },
-  { path: '/admin/audit', title: '审计日志', icon: FileText },
-]
-
-/** 权益管理菜单项 */
-const benefitMenuItems = [
-  { path: '/admin/benefits', title: '权益类型', icon: Gift },
-  { path: '/admin/benefits/membership', title: '会员权益', icon: Crown },
-  { path: '/admin/benefits/grant', title: '用户权益发放', icon: UserPlus },
-]
-
-/** 运营管理菜单项 */
-const operationMenuItems = [
-  { path: '/admin/products', title: '产品管理', icon: Package },
-  { path: '/admin/campaigns', title: '营销活动', icon: Megaphone },
-  { path: '/admin/redemption-codes', title: '兑换码管理', icon: Ticket },
-  { path: '/admin/redemption-codes/records', title: '兑换记录', icon: History },
-]
-
-/** 知识库管理菜单项 */
-const knowledgeMenuItems = [
-  { path: '/admin/legal-main', title: '法律法规', icon: Scale },
-]
-
-/** 模型管理菜单项 */
-const modelMenuItems = [
-  { path: '/admin/model-providers', title: '模型提供商', icon: Server },
-  { path: '/admin/model-api-keys', title: 'API 密钥', icon: KeyRound },
-  { path: '/admin/models', title: '模型配置', icon: Bot },
-]
-
-/** 判断菜单是否激活（精确匹配或子路由匹配） */
-const isActive = (path: string) => {
-  // 精确匹配当前路径
-  if (route.path === path) return true
-  // 子路由匹配：当前路径以 path/ 开头（注意末尾斜杠，避免 /admin/redemption-codes 匹配 /admin/redemption-codes/records）
-  if (route.path.startsWith(path + '/')) {
-    // 检查是否有更精确的菜单项匹配当前路径
-    const allPaths = [...permissionMenuItems, ...benefitMenuItems, ...operationMenuItems, ...knowledgeMenuItems, ...modelMenuItems].map(item => item.path)
-    const hasMoreSpecificMatch = allPaths.some(p => p !== path && route.path.startsWith(p))
-    return !hasMoreSpecificMatch
-  }
-  return false
-}
+const { menuGroups, isLoading, isActive } = useAdminMenu()
 </script>

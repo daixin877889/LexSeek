@@ -3753,6 +3753,8 @@ export const RoutersScalarFieldEnum = {
   icon: 'icon',
   groupId: 'groupId',
   sort: 'sort',
+  menuGroup: 'menuGroup',
+  menuGroupSort: 'menuGroupSort',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'

@@ -11,6 +11,9 @@ export default defineEventHandler(async (event) => {
     const query = getQuery(event);
     const roleId = query.roleId;
 
+    // 检查是否为超级管理员
+    const isSuperAdmin = await checkIsSuperAdmin(user.id);
+
     const userRoles = await findUserRolesRouterByUserIdDao(user.id, {
       roleId: Number(roleId) || undefined
     });
@@ -18,17 +21,31 @@ export default defineEventHandler(async (event) => {
       return resError(event, 401, '用户角色不存在')
     }
 
+    // 超级管理员获取所有路由
+    let allRouters: any[] = [];
+    if (isSuperAdmin) {
+      const routers = await prisma.routers.findMany({
+        where: { deletedAt: null },
+        orderBy: [{ menuGroupSort: 'asc' }, { sort: 'asc' }]
+      });
+      allRouters = routers.map(({ createdAt, updatedAt, deletedAt, ...router }) => router);
+    }
+
     const userRouters = userRoles.map((userRole) => {
       const role = userRole.role
+      // 超级管理员使用所有路由，否则使用角色关联的路由
+      const routers = isSuperAdmin && role.code === 'super_admin'
+        ? allRouters
+        : role.roleRouters.map((item: any) => {
+          const { createdAt, updatedAt, deletedAt, ...router } = item.router;
+          return router;
+        });
       return {
         roleId: role.id,
         name: role.name,
         code: role.code,
         description: role.description,
-        routers: role.roleRouters.map((item: any) => {
-          const { createdAt, updatedAt, deletedAt, ...router } = item.router;
-          return router;
-        })
+        routers
       }
     });
 
