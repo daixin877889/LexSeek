@@ -58,11 +58,12 @@ import { Textarea } from '~/components/ui/textarea'
 import {
     Tooltip,
     TooltipContent,
-    TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip'
 // 引入 github-markdown-css 样式（浅色和深色模式）
 import 'github-markdown-css/github-markdown.css'
+// 引入 front matter 解析工具
+import { extractFrontMatter, mergeFrontMatter } from '#shared/utils/markdownFrontMatter'
 
 /** 输出格式类型 */
 type OutputFormat = 'html' | 'markdown'
@@ -104,6 +105,20 @@ const emit = defineEmits<{
 const isSourceMode = ref(false)
 const sourceContent = ref('')
 
+/**
+ * Front Matter 状态
+ * 用于存储从 Markdown 内容中提取的 YAML front matter
+ * 在编辑器处理时分离保存，输出时再拼接回去
+ */
+const frontMatter = ref<string | null>(null)
+
+/**
+ * 原始正文内容
+ * 用于在源码模式切换时保持正文的原始格式
+ * 避免 Markdown → HTML → Markdown 转换导致的符号转义
+ */
+const originalBodyContent = ref<string>('')
+
 /** 字数统计 */
 const wordCount = computed(() => {
     if (!editor.value || !editor.value.isEditable) {
@@ -116,19 +131,44 @@ const wordCount = computed(() => {
     }
 })
 
-/** 获取编辑器内容（根据输出格式） */
+/**
+ * 获取编辑器内容（根据输出格式）
+ * 如果是 markdown 格式且有 front matter，自动拼接
+ * 使用原始正文内容，避免符号被转义
+ */
 function getEditorContent(editorInstance: any): string {
     if (!editorInstance) return ''
+
     if (props.outputFormat === 'markdown') {
-        // tiptap-markdown 扩展将 getMarkdown 方法存储在 storage.markdown 中
-        return editorInstance.storage?.markdown?.getMarkdown?.() || ''
+        // 使用原始正文内容，避免 getMarkdown() 转义符号
+        const bodyContent = originalBodyContent.value
+        // 如果有 front matter，拼接回去
+        if (frontMatter.value) {
+            return mergeFrontMatter(frontMatter.value, bodyContent)
+        }
+        return bodyContent
     }
     return editorInstance.getHTML()
 }
 
+/**
+ * 获取编辑器初始内容
+ * 如果是 markdown 格式，提取 front matter 后返回正文
+ */
+function getInitialContent(content: string): string {
+    if (props.outputFormat === 'markdown' && content) {
+        const result = extractFrontMatter(content)
+        frontMatter.value = result.frontMatter
+        originalBodyContent.value = result.content
+        return result.content
+    }
+    return content
+}
+
 /** 创建编辑器实例 */
 const editor = useEditor({
-    content: props.modelValue,
+    // 使用 getInitialContent 处理初始内容，提取 front matter
+    content: getInitialContent(props.modelValue),
     editable: props.editable,
     extensions: [
         StarterKit,
@@ -153,6 +193,10 @@ const editor = useEditor({
     ],
     onUpdate: ({ editor }) => {
         if (!isSourceMode.value) {
+            // 当用户在所见即所得模式下编辑时，更新原始正文内容
+            if (props.outputFormat === 'markdown') {
+                originalBodyContent.value = (editor.storage as any)?.markdown?.getMarkdown?.() || ''
+            }
             emit('update:modelValue', getEditorContent(editor))
         }
     },
@@ -170,14 +214,26 @@ function toggleSourceMode() {
 
     if (isSourceMode.value) {
         // 从源码模式切换到所见即所得模式
-        // 将源码内容同步到编辑器
-        editor.value.commands.setContent(sourceContent.value, { emitUpdate: false })
-        emit('update:modelValue', getEditorContent(editor.value))
+        // 重新解析 front matter
+        if (props.outputFormat === 'markdown') {
+            const result = extractFrontMatter(sourceContent.value)
+            frontMatter.value = result.frontMatter
+            originalBodyContent.value = result.content
+            editor.value.commands.setContent(result.content, { emitUpdate: false })
+            emit('update:modelValue', mergeFrontMatter(frontMatter.value, result.content))
+        } else {
+            editor.value.commands.setContent(sourceContent.value, { emitUpdate: false })
+            emit('update:modelValue', getEditorContent(editor.value))
+        }
         isSourceMode.value = false
     } else {
         // 从所见即所得模式切换到源码模式
-        // 将编辑器内容同步到源码
-        sourceContent.value = getEditorContent(editor.value)
+        // 使用原始正文内容，避免 Markdown → HTML → Markdown 转换导致的符号转义
+        if (props.outputFormat === 'markdown') {
+            sourceContent.value = mergeFrontMatter(frontMatter.value, originalBodyContent.value)
+        } else {
+            sourceContent.value = getEditorContent(editor.value)
+        }
         isSourceMode.value = true
     }
 }
@@ -196,10 +252,26 @@ watch(() => props.modelValue, (newValue) => {
                 sourceContent.value = newValue || ''
             }
         } else {
-            // 所见即所得模式：更新编辑器内容
-            const currentContent = getEditorContent(editor.value)
-            if (currentContent !== newValue) {
-                editor.value.commands.setContent(newValue || '', { emitUpdate: false })
+            // 所见即所得模式
+            if (props.outputFormat === 'markdown') {
+                // 提取 front matter 后更新编辑器
+                const result = extractFrontMatter(newValue || '')
+                const currentBody = originalBodyContent.value
+
+                // 更新 front matter 和原始正文内容
+                frontMatter.value = result.frontMatter
+                originalBodyContent.value = result.content
+
+                // 只有正文内容变化时才更新编辑器
+                if (currentBody !== result.content) {
+                    editor.value.commands.setContent(result.content, { emitUpdate: false })
+                }
+            } else {
+                // HTML 格式：直接更新
+                const currentContent = getEditorContent(editor.value)
+                if (currentContent !== newValue) {
+                    editor.value.commands.setContent(newValue || '', { emitUpdate: false })
+                }
             }
         }
     }
