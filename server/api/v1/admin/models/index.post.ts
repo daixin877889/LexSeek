@@ -1,0 +1,87 @@
+/**
+ * 创建模型
+ *
+ * POST /api/v1/admin/models
+ */
+
+import { z } from 'zod'
+
+/** 请求体验证 */
+const bodySchema = z.object({
+    providerId: z.number({ required_error: '提供商ID不能为空' })
+        .int('提供商ID必须是整数')
+        .positive('提供商ID必须是正整数'),
+    name: z.string({ required_error: '模型名称不能为空' })
+        .min(1, '模型名称不能为空')
+        .max(100, '模型名称不能超过100个字符'),
+    displayName: z.string({ required_error: '显示名称不能为空' })
+        .min(1, '显示名称不能为空')
+        .max(100, '显示名称不能超过100个字符'),
+    modelType: z.enum(['chat', 'embedding', 'asr'], {
+        required_error: '模型类型不能为空',
+        invalid_type_error: '模型类型必须是 chat、embedding 或 asr',
+    }),
+    modelVersion: z.string()
+        .max(50, '版本号不能超过50个字符')
+        .optional()
+        .nullable(),
+    contextWindow: z.number()
+        .int('上下文窗口必须是整数')
+        .positive('上下文窗口必须是正整数')
+        .optional()
+        .nullable(),
+    dimensions: z.number()
+        .int('嵌入维度必须是整数')
+        .positive('嵌入维度必须是正整数')
+        .optional()
+        .nullable(),
+    batchSize: z.number()
+        .int('批处理大小必须是整数')
+        .positive('批处理大小必须是正整数')
+        .optional()
+        .nullable(),
+    isDefault: z.boolean().optional(),
+    status: z.number()
+        .int('状态必须是整数')
+        .min(0, '状态值无效')
+        .max(1, '状态值无效')
+        .optional(),
+    priority: z.number()
+        .int('优先级必须是整数')
+        .min(1, '优先级最小为1')
+        .optional(),
+    inputCostPerMillionTokens: z.number()
+        .positive('输入成本必须是正数')
+        .optional()
+        .nullable(),
+    outputCostPerMillionTokens: z.number()
+        .positive('输出成本必须是正数')
+        .optional()
+        .nullable(),
+})
+
+export default defineEventHandler(async (event) => {
+    const body = await readBody(event)
+    const result = bodySchema.safeParse(body)
+    if (!result.success) {
+        return resError(event, 400, '参数错误：' + result.error.issues[0].message)
+    }
+
+    try {
+        // 检查提供商是否存在
+        const provider = await findModelProviderByIdDao(result.data.providerId)
+        if (!provider) {
+            return resError(event, 400, '关联的提供商不存在')
+        }
+
+        const model = await createModelDao(result.data)
+        return resSuccess(event, '创建模型成功', model)
+    } catch (error: any) {
+        // 处理唯一性约束错误
+        if (error.code === 'P2002') {
+            return resError(event, 409, '该提供商下已存在同名模型')
+        }
+        logger.error('创建模型失败：', error)
+        return resError(event, 500, '创建模型失败')
+    }
+})
