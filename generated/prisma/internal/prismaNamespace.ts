@@ -399,6 +399,9 @@ export const ModelName = {
   benefits: 'benefits',
   membershipBenefits: 'membershipBenefits',
   userBenefits: 'userBenefits',
+  modelProviders: 'modelProviders',
+  modelApiKeys: 'modelApiKeys',
+  models: 'models',
   orders: 'orders',
   paymentTransactions: 'paymentTransactions',
   membershipUpgradeRecords: 'membershipUpgradeRecords',
@@ -433,7 +436,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "campaigns" | "userEncryptions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
+    modelProps: "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "campaigns" | "userEncryptions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1544,6 +1547,228 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.userBenefitsCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.UserBenefitsCountAggregateOutputType> | number
+        }
+      }
+    }
+    modelProviders: {
+      payload: Prisma.$modelProvidersPayload<ExtArgs>
+      fields: Prisma.modelProvidersFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.modelProvidersFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelProvidersPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.modelProvidersFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelProvidersPayload>
+        }
+        findFirst: {
+          args: Prisma.modelProvidersFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelProvidersPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.modelProvidersFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelProvidersPayload>
+        }
+        findMany: {
+          args: Prisma.modelProvidersFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelProvidersPayload>[]
+        }
+        create: {
+          args: Prisma.modelProvidersCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelProvidersPayload>
+        }
+        createMany: {
+          args: Prisma.modelProvidersCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.modelProvidersCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelProvidersPayload>[]
+        }
+        delete: {
+          args: Prisma.modelProvidersDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelProvidersPayload>
+        }
+        update: {
+          args: Prisma.modelProvidersUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelProvidersPayload>
+        }
+        deleteMany: {
+          args: Prisma.modelProvidersDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.modelProvidersUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.modelProvidersUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelProvidersPayload>[]
+        }
+        upsert: {
+          args: Prisma.modelProvidersUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelProvidersPayload>
+        }
+        aggregate: {
+          args: Prisma.ModelProvidersAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateModelProviders>
+        }
+        groupBy: {
+          args: Prisma.modelProvidersGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ModelProvidersGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.modelProvidersCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ModelProvidersCountAggregateOutputType> | number
+        }
+      }
+    }
+    modelApiKeys: {
+      payload: Prisma.$modelApiKeysPayload<ExtArgs>
+      fields: Prisma.modelApiKeysFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.modelApiKeysFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelApiKeysPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.modelApiKeysFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelApiKeysPayload>
+        }
+        findFirst: {
+          args: Prisma.modelApiKeysFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelApiKeysPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.modelApiKeysFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelApiKeysPayload>
+        }
+        findMany: {
+          args: Prisma.modelApiKeysFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelApiKeysPayload>[]
+        }
+        create: {
+          args: Prisma.modelApiKeysCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelApiKeysPayload>
+        }
+        createMany: {
+          args: Prisma.modelApiKeysCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.modelApiKeysCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelApiKeysPayload>[]
+        }
+        delete: {
+          args: Prisma.modelApiKeysDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelApiKeysPayload>
+        }
+        update: {
+          args: Prisma.modelApiKeysUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelApiKeysPayload>
+        }
+        deleteMany: {
+          args: Prisma.modelApiKeysDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.modelApiKeysUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.modelApiKeysUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelApiKeysPayload>[]
+        }
+        upsert: {
+          args: Prisma.modelApiKeysUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelApiKeysPayload>
+        }
+        aggregate: {
+          args: Prisma.ModelApiKeysAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateModelApiKeys>
+        }
+        groupBy: {
+          args: Prisma.modelApiKeysGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ModelApiKeysGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.modelApiKeysCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ModelApiKeysCountAggregateOutputType> | number
+        }
+      }
+    }
+    models: {
+      payload: Prisma.$modelsPayload<ExtArgs>
+      fields: Prisma.modelsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.modelsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.modelsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelsPayload>
+        }
+        findFirst: {
+          args: Prisma.modelsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.modelsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelsPayload>
+        }
+        findMany: {
+          args: Prisma.modelsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelsPayload>[]
+        }
+        create: {
+          args: Prisma.modelsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelsPayload>
+        }
+        createMany: {
+          args: Prisma.modelsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.modelsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelsPayload>[]
+        }
+        delete: {
+          args: Prisma.modelsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelsPayload>
+        }
+        update: {
+          args: Prisma.modelsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelsPayload>
+        }
+        deleteMany: {
+          args: Prisma.modelsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.modelsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.modelsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelsPayload>[]
+        }
+        upsert: {
+          args: Prisma.modelsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$modelsPayload>
+        }
+        aggregate: {
+          args: Prisma.ModelsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateModels>
+        }
+        groupBy: {
+          args: Prisma.modelsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ModelsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.modelsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ModelsCountAggregateOutputType> | number
         }
       }
     }
@@ -3247,6 +3472,59 @@ export const UserBenefitsScalarFieldEnum = {
 export type UserBenefitsScalarFieldEnum = (typeof UserBenefitsScalarFieldEnum)[keyof typeof UserBenefitsScalarFieldEnum]
 
 
+export const ModelProvidersScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  baseUrl: 'baseUrl',
+  description: 'description',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type ModelProvidersScalarFieldEnum = (typeof ModelProvidersScalarFieldEnum)[keyof typeof ModelProvidersScalarFieldEnum]
+
+
+export const ModelApiKeysScalarFieldEnum = {
+  id: 'id',
+  providerId: 'providerId',
+  name: 'name',
+  apiKey: 'apiKey',
+  isDefault: 'isDefault',
+  status: 'status',
+  dailyLimit: 'dailyLimit',
+  monthlyLimit: 'monthlyLimit',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type ModelApiKeysScalarFieldEnum = (typeof ModelApiKeysScalarFieldEnum)[keyof typeof ModelApiKeysScalarFieldEnum]
+
+
+export const ModelsScalarFieldEnum = {
+  id: 'id',
+  providerId: 'providerId',
+  name: 'name',
+  displayName: 'displayName',
+  modelType: 'modelType',
+  modelVersion: 'modelVersion',
+  contextWindow: 'contextWindow',
+  dimensions: 'dimensions',
+  batchSize: 'batchSize',
+  isDefault: 'isDefault',
+  status: 'status',
+  priority: 'priority',
+  inputCostPerMillionTokens: 'inputCostPerMillionTokens',
+  outputCostPerMillionTokens: 'outputCostPerMillionTokens',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type ModelsScalarFieldEnum = (typeof ModelsScalarFieldEnum)[keyof typeof ModelsScalarFieldEnum]
+
+
 export const OrdersScalarFieldEnum = {
   id: 'id',
   orderNo: 'orderNo',
@@ -3846,6 +4124,9 @@ export type GlobalOmitConfig = {
   benefits?: Prisma.benefitsOmit
   membershipBenefits?: Prisma.membershipBenefitsOmit
   userBenefits?: Prisma.userBenefitsOmit
+  modelProviders?: Prisma.modelProvidersOmit
+  modelApiKeys?: Prisma.modelApiKeysOmit
+  models?: Prisma.modelsOmit
   orders?: Prisma.ordersOmit
   paymentTransactions?: Prisma.paymentTransactionsOmit
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsOmit

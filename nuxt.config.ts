@@ -148,6 +148,14 @@ export default defineNuxtConfig({
       platformCert: '',    // 微信支付平台证书（可选，用于验证回调签名）
       notifyUrl: '',       // 支付回调通知地址（完整 URL，如 https://example.com/api/v1/payments/callback/wechat）
     },
+    // 嵌入模型配置（环境变量保底）
+    embedding: {
+      apiKey: '',           // NUXT_EMBEDDING_API_KEY
+      baseUrl: '',          // NUXT_EMBEDDING_BASE_URL
+      model: 'text-embedding-v3',  // NUXT_EMBEDDING_MODEL
+      dimensions: 1536,     // NUXT_EMBEDDING_DIMENSIONS
+      batchSize: 5,         // NUXT_EMBEDDING_BATCH_SIZE
+    },
     // 存储适配器配置
     storage: {
       // 默认存储类型: aliyun_oss, qiniu, tencent_cos

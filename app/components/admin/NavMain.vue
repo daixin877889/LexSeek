@@ -70,10 +70,28 @@
       </SidebarMenu>
     </SidebarGroupContent>
   </SidebarGroup>
+
+  <!-- 模型管理菜单组 -->
+  <SidebarGroup>
+    <SidebarGroupLabel>模型管理</SidebarGroupLabel>
+    <SidebarGroupContent>
+      <SidebarMenu>
+        <SidebarMenuItem v-for="item in modelMenuItems" :key="item.path">
+          <SidebarMenuButton as-child :tooltip="item.title"
+            :class="isActive(item.path) ? 'bg-primary/10 text-primary' : ''">
+            <NuxtLink :to="item.path">
+              <component :is="item.icon" class="h-4 w-4" />
+              <span>{{ item.title }}</span>
+            </NuxtLink>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    </SidebarGroupContent>
+  </SidebarGroup>
 </template>
 
 <script setup lang="ts">
-import { Users, Shield, Key, FileText, Settings, Ticket, History, Gift, Crown, UserPlus, Scale, Package, Megaphone } from 'lucide-vue-next'
+import { Users, Shield, Key, FileText, Settings, Ticket, History, Gift, Crown, UserPlus, Scale, Package, Megaphone, Server, KeyRound, Bot } from 'lucide-vue-next'
 
 const route = useRoute()
 
@@ -106,6 +124,13 @@ const knowledgeMenuItems = [
   { path: '/admin/legal-main', title: '法律法规', icon: Scale },
 ]
 
+/** 模型管理菜单项 */
+const modelMenuItems = [
+  { path: '/admin/model-providers', title: '模型提供商', icon: Server },
+  { path: '/admin/model-api-keys', title: 'API 密钥', icon: KeyRound },
+  { path: '/admin/models', title: '模型配置', icon: Bot },
+]
+
 /** 判断菜单是否激活（精确匹配或子路由匹配） */
 const isActive = (path: string) => {
   // 精确匹配当前路径
@@ -113,7 +138,7 @@ const isActive = (path: string) => {
   // 子路由匹配：当前路径以 path/ 开头（注意末尾斜杠，避免 /admin/redemption-codes 匹配 /admin/redemption-codes/records）
   if (route.path.startsWith(path + '/')) {
     // 检查是否有更精确的菜单项匹配当前路径
-    const allPaths = [...permissionMenuItems, ...benefitMenuItems, ...operationMenuItems, ...knowledgeMenuItems].map(item => item.path)
+    const allPaths = [...permissionMenuItems, ...benefitMenuItems, ...operationMenuItems, ...knowledgeMenuItems, ...modelMenuItems].map(item => item.path)
     const hasMoreSpecificMatch = allPaths.some(p => p !== path && route.path.startsWith(p))
     return !hasMoreSpecificMatch
   }

@@ -51,6 +51,28 @@ export function buildHierarchyPath(article: legalArticles): string {
 }
 
 /**
+ * 获取条文的可嵌入文本内容
+ * 优先使用 content，如果为空则使用 L5 → L4 → L3 → L2 → L1 中最后一级存在的标题
+ * @param article 法律条文
+ * @returns 可嵌入的文本内容
+ */
+export function getEmbeddableContent(article: legalArticles): string {
+    // 如果有 content，直接返回
+    if (article.content && article.content.trim()) {
+        return article.content
+    }
+
+    // 否则使用最后一级存在的标题（L5 优先级最高，L1 最低）
+    if (article.l5 && article.l5.trim()) return article.l5
+    if (article.l4 && article.l4.trim()) return article.l4
+    if (article.l3 && article.l3.trim()) return article.l3
+    if (article.l2 && article.l2.trim()) return article.l2
+    if (article.l1 && article.l1.trim()) return article.l1
+
+    return ''
+}
+
+/**
  * 构建嵌入文本
  * @param legal 法律法规
  * @param article 法律条文
@@ -58,10 +80,11 @@ export function buildHierarchyPath(article: legalArticles): string {
  */
 export function buildEmbeddingText(legal: legalMain, article: legalArticles): string {
     const hierarchyPath = buildHierarchyPath(article)
+    const embeddableContent = getEmbeddableContent(article)
     return `文件：${legal.name}
 类型：${getLegalTypeName(legal.type)}
 章节：${hierarchyPath}
-内容：${article.content || ''}`
+内容：${embeddableContent}`
 }
 
 /**
@@ -129,16 +152,10 @@ export async function embedLawArticle(
     // 构建嵌入文本
     const text = buildEmbeddingText(legal, article)
 
-    // 检查内容是否为空
-    if (!text || text.trim().length === 0) {
-        logger.warn(`法条 ${article.id} 内容为空，跳过嵌入`)
-        return undefined
-    }
-
-    // 检查内容是否包含有效的文本（排除只有标题没有实际内容的情况）
-    const contentPart = text.replace(/文件：.*\n类型：.*\n章节：.*\n内容：/, '').trim()
-    if (!contentPart || contentPart.length === 0) {
-        logger.warn(`法条 ${article.id} 内容无效，跳过嵌入`)
+    // 检查是否有可嵌入的内容（content 或层级标题）
+    const embeddableContent = getEmbeddableContent(article)
+    if (!embeddableContent || embeddableContent.trim().length === 0) {
+        logger.warn(`法条 ${article.id} 无可嵌入内容（content 和层级标题均为空），跳过嵌入`)
         return undefined
     }
 

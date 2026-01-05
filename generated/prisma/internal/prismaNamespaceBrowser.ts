@@ -66,6 +66,9 @@ export const ModelName = {
   benefits: 'benefits',
   membershipBenefits: 'membershipBenefits',
   userBenefits: 'userBenefits',
+  modelProviders: 'modelProviders',
+  modelApiKeys: 'modelApiKeys',
+  models: 'models',
   orders: 'orders',
   paymentTransactions: 'paymentTransactions',
   membershipUpgradeRecords: 'membershipUpgradeRecords',
@@ -356,6 +359,59 @@ export const UserBenefitsScalarFieldEnum = {
 } as const
 
 export type UserBenefitsScalarFieldEnum = (typeof UserBenefitsScalarFieldEnum)[keyof typeof UserBenefitsScalarFieldEnum]
+
+
+export const ModelProvidersScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  baseUrl: 'baseUrl',
+  description: 'description',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type ModelProvidersScalarFieldEnum = (typeof ModelProvidersScalarFieldEnum)[keyof typeof ModelProvidersScalarFieldEnum]
+
+
+export const ModelApiKeysScalarFieldEnum = {
+  id: 'id',
+  providerId: 'providerId',
+  name: 'name',
+  apiKey: 'apiKey',
+  isDefault: 'isDefault',
+  status: 'status',
+  dailyLimit: 'dailyLimit',
+  monthlyLimit: 'monthlyLimit',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type ModelApiKeysScalarFieldEnum = (typeof ModelApiKeysScalarFieldEnum)[keyof typeof ModelApiKeysScalarFieldEnum]
+
+
+export const ModelsScalarFieldEnum = {
+  id: 'id',
+  providerId: 'providerId',
+  name: 'name',
+  displayName: 'displayName',
+  modelType: 'modelType',
+  modelVersion: 'modelVersion',
+  contextWindow: 'contextWindow',
+  dimensions: 'dimensions',
+  batchSize: 'batchSize',
+  isDefault: 'isDefault',
+  status: 'status',
+  priority: 'priority',
+  inputCostPerMillionTokens: 'inputCostPerMillionTokens',
+  outputCostPerMillionTokens: 'outputCostPerMillionTokens',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type ModelsScalarFieldEnum = (typeof ModelsScalarFieldEnum)[keyof typeof ModelsScalarFieldEnum]
 
 
 export const OrdersScalarFieldEnum = {

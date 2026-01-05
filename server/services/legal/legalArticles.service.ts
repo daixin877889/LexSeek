@@ -342,9 +342,13 @@ export async function triggerArticleEmbeddingService(id: string): Promise<void> 
         throw new Error(`条文 ${id} 不存在`)
     }
 
-    // 检查是否有内容
-    if (!article.content) {
-        throw new Error(`条文 ${id} 没有内容，无法嵌入`)
+    // 检查是否有可嵌入的内容（content 或层级标题）
+    const hasEmbeddableContent = !!(
+        (article.content && article.content.trim()) ||
+        article.l1 || article.l2 || article.l3 || article.l4 || article.l5
+    )
+    if (!hasEmbeddableContent) {
+        throw new Error(`条文 ${id} 没有可嵌入的内容（content 和层级标题均为空）`)
     }
 
     // 触发嵌入

@@ -117,6 +117,21 @@ export type membershipBenefits = Prisma.membershipBenefitsModel
  */
 export type userBenefits = Prisma.userBenefitsModel
 /**
+ * Model modelProviders
+ * 模型提供商表
+ */
+export type modelProviders = Prisma.modelProvidersModel
+/**
+ * Model modelApiKeys
+ * 模型API密钥表
+ */
+export type modelApiKeys = Prisma.modelApiKeysModel
+/**
+ * Model models
+ * 模型配置表
+ */
+export type models = Prisma.modelsModel
+/**
  * Model orders
  * 订单表
  */

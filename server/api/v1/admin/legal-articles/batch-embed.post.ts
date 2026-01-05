@@ -40,7 +40,17 @@ export default defineEventHandler(async (event) => {
 
     try {
         // 获取条文列表
-        let articles: { id: string; content: string | null; lastEditedAt: Date | null; lastEmbeddingAt: Date | null }[] = []
+        let articles: {
+            id: string
+            content: string | null
+            l1: string | null
+            l2: string | null
+            l3: string | null
+            l4: string | null
+            l5: string | null
+            lastEditedAt: Date | null
+            lastEmbeddingAt: Date | null
+        }[] = []
 
         if (legalId) {
             articles = await prisma.legalArticles.findMany({
@@ -51,6 +61,11 @@ export default defineEventHandler(async (event) => {
                 select: {
                     id: true,
                     content: true,
+                    l1: true,
+                    l2: true,
+                    l3: true,
+                    l4: true,
+                    l5: true,
                     lastEditedAt: true,
                     lastEmbeddingAt: true,
                 },
@@ -64,14 +79,24 @@ export default defineEventHandler(async (event) => {
                 select: {
                     id: true,
                     content: true,
+                    l1: true,
+                    l2: true,
+                    l3: true,
+                    l4: true,
+                    l5: true,
                     lastEditedAt: true,
                     lastEmbeddingAt: true,
                 },
             })
         }
 
-        // 过滤掉没有内容的条文
-        const articlesWithContent = articles.filter(a => a.content && a.content.trim())
+        // 过滤掉没有可嵌入内容的条文（content 和层级标题都为空）
+        const articlesWithContent = articles.filter(a => {
+            // 有 content 则可嵌入
+            if (a.content && a.content.trim()) return true
+            // 没有 content 但有层级标题也可嵌入（章节标题需要被检索）
+            return !!(a.l1 || a.l2 || a.l3 || a.l4 || a.l5)
+        })
         const noContentCount = articles.length - articlesWithContent.length
 
         // 如果不是强制全部重新嵌入，需要智能判断

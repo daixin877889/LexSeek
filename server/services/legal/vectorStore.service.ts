@@ -3,18 +3,14 @@
  *
  * 提供 PGVectorStore 的初始化、实例缓存和基本操作
  * 使用 OpenAI 兼容的嵌入模型（如阿里云通义千问）
+ * 支持从数据库动态获取配置，环境变量作为回退
  */
 
 import { PGVectorStore } from '@langchain/community/vectorstores/pgvector'
 import { OpenAIEmbeddings } from '@langchain/openai'
 import type { Document } from '@langchain/core/documents'
+import type { EmbeddingConfig } from '#shared/types/model'
 import pg from 'pg'
-
-// 嵌入维度（text-embedding-v3 模型）
-const EMBEDDING_DIMENSIONS = 1536
-
-// 嵌入批处理并发数
-const EMBEDDING_BATCH_SIZE = 5
 
 // 全局 PGVectorStore 实例映射表，按 tableName 缓存实例
 const vectorStores = new Map<string, PGVectorStore>()
@@ -24,6 +20,9 @@ const initializingTables = new Set<string>()
 
 // 全局嵌入模型实例（延迟加载）
 let embeddingsInstance: OpenAIEmbeddings | null = null
+
+// 当前嵌入配置缓存（用于检测配置变更）
+let currentEmbeddingConfig: EmbeddingConfig | null = null
 
 // 全局数据库连接池
 let pgPool: pg.Pool | null = null
@@ -60,34 +59,93 @@ function getPgPool(): pg.Pool {
 }
 
 /**
- * 获取嵌入模型实例
+ * 获取嵌入模型实例（优先从数据库获取配置，回退到环境变量）
+ * @returns OpenAIEmbeddings 实例
+ */
+export async function getEmbeddingsAsync(): Promise<OpenAIEmbeddings> {
+    try {
+        // 从数据库或环境变量获取配置
+        const config = await getEmbeddingConfigWithFallbackService()
+
+        // 检查配置是否变更，如果变更则重新创建实例
+        if (embeddingsInstance && currentEmbeddingConfig) {
+            const configChanged =
+                currentEmbeddingConfig.apiKey !== config.apiKey ||
+                currentEmbeddingConfig.baseUrl !== config.baseUrl ||
+                currentEmbeddingConfig.model !== config.model ||
+                currentEmbeddingConfig.dimensions !== config.dimensions ||
+                currentEmbeddingConfig.batchSize !== config.batchSize
+
+            if (configChanged) {
+                logger.info('嵌入模型配置已变更，重新初始化实例')
+                embeddingsInstance = null
+            }
+        }
+
+        if (!embeddingsInstance) {
+            embeddingsInstance = new OpenAIEmbeddings({
+                apiKey: config.apiKey,
+                model: config.model,
+                dimensions: config.dimensions,
+                batchSize: config.batchSize,
+                configuration: {
+                    baseURL: config.baseUrl,
+                },
+            })
+
+            currentEmbeddingConfig = config
+            logger.info(`嵌入模型初始化完成: ${config.model} (来源: ${config.source})`)
+        }
+
+        return embeddingsInstance
+    } catch (error) {
+        logger.error('获取嵌入模型配置失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 获取嵌入模型实例（同步版本，仅使用环境变量，用于兼容旧代码）
+ * @deprecated 请使用 getEmbeddingsAsync 替代
  * @returns OpenAIEmbeddings 实例
  */
 export function getEmbeddings(): OpenAIEmbeddings {
     if (!embeddingsInstance) {
         // 从环境变量获取配置
-        const apiKey = process.env.NUXT_EMBEDDING_API_KEY
-        const baseUrl = process.env.NUXT_EMBEDDING_BASE_URL
-        const modelName = process.env.NUXT_EMBEDDING_MODEL || 'text-embedding-v3'
+        const runtimeConfig = useRuntimeConfig()
+        const apiKey = runtimeConfig.embedding?.apiKey || process.env.NUXT_EMBEDDING_API_KEY
+        const baseUrl = runtimeConfig.embedding?.baseUrl || process.env.NUXT_EMBEDDING_BASE_URL
+        const modelName = runtimeConfig.embedding?.model || process.env.NUXT_EMBEDDING_MODEL || 'text-embedding-v3'
+        const dimensions = runtimeConfig.embedding?.dimensions || 1536
+        const batchSize = runtimeConfig.embedding?.batchSize || 5
 
         if (!apiKey) {
-            throw new Error('NUXT_EMBEDDING_API_KEY 环境变量未设置')
+            throw new Error('嵌入模型 API 密钥未配置')
         }
         if (!baseUrl) {
-            throw new Error('NUXT_EMBEDDING_BASE_URL 环境变量未设置')
+            throw new Error('嵌入模型基础 URL 未配置')
         }
 
         embeddingsInstance = new OpenAIEmbeddings({
             apiKey,
             model: modelName,
-            dimensions: EMBEDDING_DIMENSIONS,
-            batchSize: EMBEDDING_BATCH_SIZE,
+            dimensions,
+            batchSize,
             configuration: {
                 baseURL: baseUrl,
             },
         })
 
-        logger.info(`嵌入模型初始化完成: ${modelName}`)
+        currentEmbeddingConfig = {
+            apiKey,
+            baseUrl,
+            model: modelName,
+            dimensions,
+            batchSize,
+            source: 'environment',
+        }
+
+        logger.info(`嵌入模型初始化完成: ${modelName} (来源: environment)`)
     }
     return embeddingsInstance
 }
@@ -121,7 +179,8 @@ export async function getVectorStore(config: VectorStoreConfig = {}): Promise<PG
         initializingTables.add(tableName)
         logger.info(`初始化向量存储实例 [表: ${tableName}]...`)
 
-        const embeddings = getEmbeddings()
+        // 使用异步方法获取嵌入模型（支持数据库配置）
+        const embeddings = await getEmbeddingsAsync()
         const pool = getPgPool()
 
         const newVectorStore = await PGVectorStore.initialize(embeddings, {
