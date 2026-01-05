@@ -34,7 +34,22 @@ let _testPrisma: ReturnType<typeof createTestPrismaClient> | null = null
 /**
  * 获取测试用 Prisma 客户端
  */
+export const getTestPrisma = () => {
+    if (!_testPrisma) {
+        _testPrisma = createTestPrismaClient()
+    }
+    return _testPrisma
+}
 
+/**
+ * 断开测试数据库连接
+ */
+export const disconnectTestDb = async (): Promise<void> => {
+    if (_testPrisma) {
+        await _testPrisma.$disconnect()
+        _testPrisma = null
+    }
+}
 
 /**
  * 检查数据库是否可用
@@ -76,24 +91,49 @@ export const cleanupTestData = async (testIds: TestIds): Promise<void> => {
     const prisma = getTestPrisma()
 
     // 按依赖顺序删除
+    // 1. 先删除与测试兑换码相关的所有兑换记录
+    if (testIds.redemptionCodeIds.length > 0) {
+        await prisma.redemptionRecords.deleteMany({
+            where: { codeId: { in: testIds.redemptionCodeIds } },
+        })
+    }
+
+    // 2. 删除显式追踪的兑换记录
     if (testIds.redemptionRecordIds.length > 0) {
         await prisma.redemptionRecords.deleteMany({
             where: { id: { in: testIds.redemptionRecordIds } },
         })
     }
 
+    // 3. 删除与测试用户相关的积分记录（必须在会员记录之前删除）
+    if (testIds.userIds.length > 0) {
+        await prisma.pointRecords.deleteMany({
+            where: { userId: { in: testIds.userIds } },
+        })
+    }
+
+    // 4. 删除与测试用户相关的会员记录
+    if (testIds.userIds.length > 0) {
+        await prisma.userMemberships.deleteMany({
+            where: { userId: { in: testIds.userIds } },
+        })
+    }
+
+    // 5. 删除兑换码
     if (testIds.redemptionCodeIds.length > 0) {
         await prisma.redemptionCodes.deleteMany({
             where: { id: { in: testIds.redemptionCodeIds } },
         })
     }
 
+    // 6. 删除用户
     if (testIds.userIds.length > 0) {
         await prisma.users.deleteMany({
             where: { id: { in: testIds.userIds } },
         })
     }
 
+    // 7. 删除会员级别
     if (testIds.membershipLevelIds.length > 0) {
         await prisma.membershipLevels.deleteMany({
             where: { id: { in: testIds.membershipLevelIds } },

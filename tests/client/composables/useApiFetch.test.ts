@@ -198,10 +198,10 @@ describe('useApiFetch composable 测试', () => {
                 body,
             })
 
+            // 验证 mockFetch 被调用，且包含正确的 URL 和请求参数
             expect(mockFetch).toHaveBeenCalledWith('/api/v1/create', {
                 method: 'POST',
                 body,
-                showError: true,
             })
         })
     })

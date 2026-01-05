@@ -5,6 +5,10 @@
  */
 import type { UserBenefitInfo } from '#shared/types/membership'
 
+// 显式导入 DAO 函数（测试环境需要）
+import { findCurrentUserMembershipDao } from './userMembership.dao'
+import { findBenefitsByLevelIdDao } from './membershipBenefit.dao'
+
 /**
  * 获取用户当前会员的权益列表
  * @param userId 用户 ID
@@ -28,8 +32,8 @@ export const getUserBenefitsService = async (
         id: mb.benefit.id,
         name: mb.benefit.name,
         description: mb.benefit.description,
-        type: mb.benefit.type,
-        value: mb.benefit.value,
+        type: mb.benefit.unitType,
+        value: mb.benefitValue,
     }))
 }
 
@@ -47,7 +51,7 @@ export const getBenefitsByLevelIdService = async (
         id: mb.benefit.id,
         name: mb.benefit.name,
         description: mb.benefit.description,
-        type: mb.benefit.type,
-        value: mb.benefit.value,
+        type: mb.benefit.unitType,
+        value: mb.benefitValue,
     }))
 }

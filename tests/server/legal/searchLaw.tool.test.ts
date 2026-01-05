@@ -109,11 +109,11 @@ function applyDateFilter(
     return filteredResults
 }
 
-// 生成有效日期字符串的 arbitrary
+// 生成有效日期字符串的 arbitrary（过滤无效日期）
 const dateStringArb = fc.date({
     min: new Date('2000-01-01'),
     max: new Date('2030-12-31'),
-}).map(d => dayjs(d).format('YYYY-MM-DD'))
+}).filter(d => !isNaN(d.getTime())).map(d => dayjs(d).format('YYYY-MM-DD'))
 
 // 生成法律类型的 arbitrary
 const legalTypeArb = fc.constantFrom('law', 'regulation', 'judicial_interp', 'guideline')
