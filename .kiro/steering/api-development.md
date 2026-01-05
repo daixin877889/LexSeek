@@ -1,0 +1,79 @@
+---
+inclusion: fileMatch
+fileMatchPattern: "**/server/**"
+---
+# API 接口开发规范
+
+## 响应格式
+```typescript
+// 成功响应
+return resSuccess(event, '操作成功', data)
+
+// 错误响应
+return resError(event, 400, '参数错误')
+```
+
+## 用户认证
+```typescript
+export default defineEventHandler(async (event) => {
+  // ✅ 正确写法
+  const user = event.context.auth?.user
+  if (!user) {
+    return resError(event, 401, '请先登录')
+  }
+  
+  // ❌ 错误写法（user 始终为 undefined）
+  // const user = event.context.user
+  
+  const userId = user.id
+})
+```
+
+## 参数验证
+使用 zod 进行参数验证：
+```typescript
+import { z } from 'zod'
+
+const schema = z.object({
+  name: z.string().min(1),
+  age: z.number().int().positive()
+})
+
+const body = await readBody(event)
+const result = schema.safeParse(body)
+if (!result.success) {
+  return resError(event, 400, result.error.issues[0].message)
+}
+```
+
+## 服务端自动导入
+以下无需手动 import：
+
+**服务层函数**（`server/services/*/*`）：
+- auth、campaign、encryption、files、membership
+- payment、point、product、rbac、redemption
+- sms、storage、system、users
+
+**工具函数**（`server/utils/`）：
+- `prisma` - Prisma 客户端
+- `logger` - 日志工具
+- `resSuccess` / `resError` - 响应函数
+- JWT、密码、OSS 等工具
+
+**H3 框架函数**：
+- `defineEventHandler` - 定义处理器
+- `getQuery` - 获取查询参数
+- `readBody` - 读取请求体
+- `getHeader` - 获取请求头
+- `setResponseStatus` - 设置状态码
+- `getRouterParam` - 获取路由参数
+
+## 路由规范
+- 路由 params 参数必须在最末尾
+- ❌ `/admin/legal-main/:id/articles`
+- ✅ `/admin/legal-main/articles/:id`
+
+## OSS 回调
+回调自定义变量通过 `callbackVar` 传递：
+- key 不能包含 `:` 字符
+- 变量名不能包含大写

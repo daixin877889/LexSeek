@@ -27,6 +27,7 @@ const dynamicBreadcrumbTitle = useState<string | null>('breadcrumb-dynamic-title
 
 /** 路由标题映射（作为备用） */
 const routeTitles: Record<string, string> = {
+  // 角色权限
   '/admin/roles': '角色管理',
   '/admin/roles/create': '创建角色',
   '/admin/permissions': '权限管理',
@@ -34,17 +35,29 @@ const routeTitles: Record<string, string> = {
   '/admin/permissions/routes': '路由权限',
   '/admin/users': '用户管理',
   '/admin/audit': '审计日志',
+  // 兑换码
   '/admin/redemption-codes': '兑换码管理',
   '/admin/redemption-codes/records': '兑换记录',
+  // 权益
   '/admin/benefits': '权益类型',
   '/admin/benefits/membership': '会员权益',
   '/admin/benefits/grant': '用户权益发放',
+  // 法律法规
   '/admin/legal-main': '法律法规',
   '/admin/legal-main/create': '添加法律法规',
   '/admin/legal-main/edit': '编辑法律法规',
+  '/admin/legal-main/detail': '法规详情',
   '/admin/legal-main/articles': '条文列表',
   '/admin/legal-main/embeddings': '向量化',
   '/admin/legal-main/full-update': '全量更新',
+  // 模型管理
+  '/admin/model-providers': '模型提供商',
+  '/admin/model-api-keys': 'API 密钥管理',
+  '/admin/models': '模型列表',
+  // 营销活动
+  '/admin/campaigns': '营销活动',
+  // 商品管理
+  '/admin/products': '商品管理',
 }
 
 /** 计算面包屑 */

@@ -1,147 +1,63 @@
-# 数据请求封装说明
+---
+inclusion: fileMatch
+fileMatchPattern: "**/app/composables/**,**/app/pages/**,**/app/components/**"
+---
+# 数据请求封装
 
-项目封装了两个数据请求 composable，用于不同场景：
-
-## useApi - 基于 useFetch 的封装
-
-适用于组件 setup 阶段或需要 SSR 支持的场景。
-
-### 特性
-- 基于 Nuxt 的 `useFetch` 封装
-- 支持 SSR 数据预取
-- 自动处理 401 未授权跳转
-- 自动提取响应中的 `data` 字段
-- 统一错误提示（可通过 `showError: false` 禁用）
-
-### 使用示例
+## useApi - SSR 支持
+适用于组件 setup 阶段或需要 SSR 的场景。
 
 ```typescript
-// GET 请求（组件 setup 阶段）
+// setup 阶段
 const { data, error, status, refresh } = await useApi('/api/v1/users/me')
 
 // POST 请求
-const { data, error, status } = await useApi('/api/v1/auth/login', {
+const { data } = await useApi('/api/v1/auth/login', {
   method: 'POST',
   body: { phone, password },
-  showError: false  // 可选：禁用自动错误提示
+  showError: false
 })
 
-// 延迟执行（组件挂载后调用，如事件处理函数中）
-const { data, error, execute } = useApi('/api/v1/sms/send', {
+// 事件处理函数中（必须 immediate: false）
+const { data, execute } = useApi('/api/v1/sms/send', {
   method: 'POST',
   body: { phone, type },
-  immediate: false  // 必须设置，避免 "Component is already mounted" 警告
+  immediate: false
 })
 await execute()
 ```
 
-### 重要提示
-- 在组件 setup 阶段直接调用时，可以使用 `await useApi()`
-- 在组件挂载后（如 `onMounted`、事件处理函数、`watch` 回调中）调用时，**必须**使用 `immediate: false` 配合 `execute()` 延迟执行，否则会出现警告：`[nuxt] [useFetch] Component is already mounted, please use $fetch instead`
-
----
-
-## useApiFetch - 基于 $fetch 的封装
-
-适用于组件挂载后的事件处理函数中调用 API，不需要 SSR 支持的场景。
-
-### 特性
-- 基于 Nuxt 的 `$fetch` 封装
-- 返回 Promise，使用更简洁
-- 自动处理 401 未授权跳转
-- 自动提取响应中的 `data` 字段
-- 统一错误提示（可通过 `showError: false` 禁用）
-- **业务错误时返回 `null`**，调用方需要检查返回值
-
-### 使用示例
+## useApiFetch - 简洁请求
+适用于事件处理函数，不需要 SSR。
 
 ```typescript
-// GET 请求：需要检查返回值
+// 必须检查返回值
 const data = await useApiFetch('/api/v1/users/me')
 if (data) {
-  // 请求成功，处理数据
+  // 成功处理
 }
-// 请求失败时 toast 已自动显示，无需额外处理
 
-// POST 请求：需要在成功时执行特定逻辑
-const result = await useApiFetch('/api/v1/redemption-codes/redeem', {
+// POST 请求
+const result = await useApiFetch('/api/v1/action', {
   method: 'POST',
-  body: { code },
+  body: { code }
 })
 if (result) {
-  toast.success('兑换成功')
-  // 刷新数据等操作
-}
-// 失败时不会执行 toast.success
-
-// 带类型的请求
-interface UserInfo {
-  id: number
-  name: string
-}
-const user = await useApiFetch<UserInfo>('/api/v1/users/me')
-if (user) {
-  console.log(user.name)
+  toast.success('操作成功')
 }
 ```
 
-### 错误处理
-
-`useApiFetch` 在 API 返回 `success: false` 时会：
-1. 自动显示错误 toast（除非 `showError: false`）
-2. 返回 `null`
-
-**重要**：调用方必须检查返回值是否为 `null` 来判断请求是否成功，避免在请求失败时执行成功逻辑。
-
-```typescript
-// ❌ 错误用法：没有检查返回值
-await useApiFetch('/api/v1/action', { method: 'POST' })
-toast.success('操作成功')  // 即使失败也会执行
-
-// ✅ 正确用法：检查返回值
-const result = await useApiFetch('/api/v1/action', { method: 'POST' })
-if (result) {
-  toast.success('操作成功')  // 只有成功才会执行
-}
-```
-
-### 与 useApi 的区别
+## 对比
 
 | 特性 | useApi | useApiFetch |
 |------|--------|-------------|
 | 基于 | useFetch | $fetch |
-| 返回值 | 响应式对象 { data, error, status } | Promise<T \| null> |
-| 错误判断 | 检查 error 是否有值 | 检查返回值是否为 null |
-| SSR 支持 | ✅ | ❌ |
-| 适用场景 | setup 阶段、需要响应式 | 事件处理函数 |
-
----
+| 返回值 | { data, error, status } | Promise<T \| null> |
+| SSR | ✅ | ❌ |
+| 适用 | setup 阶段 | 事件处理 |
 
 ## 选择指南
-
-| 场景 | 推荐使用 |
-|------|---------|
-| 组件 setup 阶段获取数据 | `useApi` |
-| 需要 SSR 数据预取 | `useApi` |
-| 需要响应式数据（data, error, status） | `useApi` |
-| 需要 refresh 刷新功能 | `useApi` |
-| 事件处理函数中调用 | `useApiFetch` 或 `useApi` + `immediate: false` |
-| 简单的一次性请求 | `useApiFetch` |
-
----
-
-## 配置选项
-
-### 通用选项
-- `showError`: boolean - 是否显示错误提示，默认 `true`
-- `method`: string - 请求方法，默认 `GET`
-- `body`: object - 请求体（POST/PUT/PATCH）
-- `query`: object - URL 查询参数
-
-### useApi 特有选项
-- `immediate`: boolean - 是否立即执行，默认 `true`。设为 `false` 时需手动调用 `execute()`
-- `key`: string - 请求的唯一标识，用于缓存和去重
-- `transform`: function - 自定义数据转换函数
-
-### useApiFetch 特有选项
-- `transform`: function - 自定义数据转换函数
+- setup 阶段 → `useApi`
+- 需要 SSR → `useApi`
+- 需要响应式 → `useApi`
+- 事件处理 → `useApiFetch` 或 `useApi` + `immediate: false`
