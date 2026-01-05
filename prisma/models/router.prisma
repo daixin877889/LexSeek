@@ -1,31 +1,35 @@
 /// 路由表
 model routers {
     /// 路由ID，主键，自增
-    id          Int       @id @default(autoincrement())
+    id            Int       @id @default(autoincrement())
     /// 路由名称
-    name        String    @unique @db.VarChar(100)
+    name          String    @unique @db.VarChar(100)
     /// 路由标题
-    title       String    @db.VarChar(100)
+    title         String    @db.VarChar(100)
     /// 路由描述
-    description String?   @db.VarChar(200)
+    description   String?   @db.VarChar(200)
     /// 路由路径
-    path        String    @unique @db.VarChar(200)
+    path          String    @unique @db.VarChar(200)
     /// 是否在菜单中显示
-    isMenu      Boolean   @default(false) @map("is_menu")
+    isMenu        Boolean   @default(false) @map("is_menu")
     /// 父级路由ID，null表示顶级路由
-    parentId    Int?      @map("parent_id")
+    parentId      Int?      @map("parent_id")
     /// 路由图标
-    icon        String?   @db.VarChar(100)
+    icon          String?   @db.VarChar(100)
     /// 路由组ID，外键关联路由组表
-    groupId     Int       @default(0) @map("group_id")
+    groupId       Int       @default(0) @map("group_id")
     /// 路由排序
-    sort        Int       @default(0)
+    sort          Int       @default(0)
+    /// 菜单分组名称（如"权限管理"、"运营管理"）
+    menuGroup     String?   @map("menu_group") @db.VarChar(100)
+    /// 菜单分组排序
+    menuGroupSort Int       @default(0) @map("menu_group_sort")
     /// 路由创建时间
-    createdAt   DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+    createdAt     DateTime? @default(now()) @map("created_at") @db.Timestamptz()
     /// 路由更新时间
-    updatedAt   DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
+    updatedAt     DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
     /// 路由删除时间
-    deletedAt   DateTime? @map("deleted_at") @db.Timestamptz()
+    deletedAt     DateTime? @map("deleted_at") @db.Timestamptz()
 
     /// 关联路由组
     routerGroups routerGroups? @relation(fields: [groupId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -38,6 +42,8 @@ model routers {
 
     @@index([groupId], map: "idx_routers_group_id")
     @@index([parentId], map: "idx_routers_parent_id")
+    @@index([menuGroup], map: "idx_routers_menu_group")
+    @@index([menuGroupSort], map: "idx_routers_menu_group_sort")
     @@index([createdAt], map: "idx_routers_created_at")
     @@index([updatedAt], map: "idx_routers_updated_at")
     @@index([deletedAt], map: "idx_routers_deleted_at")

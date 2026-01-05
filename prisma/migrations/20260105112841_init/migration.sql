@@ -258,6 +258,59 @@ CREATE TABLE "user_benefits" (
 );
 
 -- CreateTable
+CREATE TABLE "model_providers" (
+    "id" SERIAL NOT NULL,
+    "name" VARCHAR(100) NOT NULL,
+    "base_url" VARCHAR(255) NOT NULL,
+    "description" TEXT,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "model_providers_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "model_api_keys" (
+    "id" SERIAL NOT NULL,
+    "provider_id" INTEGER NOT NULL,
+    "name" VARCHAR(100) NOT NULL,
+    "api_key" VARCHAR(255) NOT NULL,
+    "is_default" BOOLEAN NOT NULL DEFAULT false,
+    "status" INTEGER NOT NULL DEFAULT 1,
+    "daily_limit" INTEGER,
+    "monthly_limit" INTEGER,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "model_api_keys_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "models" (
+    "id" SERIAL NOT NULL,
+    "provider_id" INTEGER NOT NULL,
+    "name" VARCHAR(100) NOT NULL,
+    "display_name" VARCHAR(100) NOT NULL,
+    "model_type" VARCHAR(20) NOT NULL,
+    "model_version" VARCHAR(50),
+    "context_window" INTEGER,
+    "dimensions" INTEGER,
+    "batch_size" INTEGER,
+    "is_default" BOOLEAN NOT NULL DEFAULT false,
+    "status" INTEGER NOT NULL DEFAULT 1,
+    "priority" INTEGER NOT NULL DEFAULT 10,
+    "input_cost_per_million_tokens" DECIMAL(12,4),
+    "output_cost_per_million_tokens" DECIMAL(12,4),
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "models_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "orders" (
     "id" SERIAL NOT NULL,
     "order_no" VARCHAR(32) NOT NULL,
@@ -486,6 +539,8 @@ CREATE TABLE "routers" (
     "icon" VARCHAR(100),
     "group_id" INTEGER NOT NULL DEFAULT 0,
     "sort" INTEGER NOT NULL DEFAULT 0,
+    "menu_group" VARCHAR(100),
+    "menu_group_sort" INTEGER NOT NULL DEFAULT 0,
     "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "deleted_at" TIMESTAMPTZ,
@@ -790,6 +845,51 @@ CREATE INDEX "idx_user_benefits_status" ON "user_benefits"("status");
 CREATE INDEX "idx_user_benefits_deleted_at" ON "user_benefits"("deleted_at");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "model_providers_name_key" ON "model_providers"("name");
+
+-- CreateIndex
+CREATE INDEX "idx_model_providers_deleted_at" ON "model_providers"("deleted_at");
+
+-- CreateIndex
+CREATE INDEX "idx_model_providers_name" ON "model_providers"("name");
+
+-- CreateIndex
+CREATE INDEX "idx_model_api_keys_provider_id" ON "model_api_keys"("provider_id");
+
+-- CreateIndex
+CREATE INDEX "idx_model_api_keys_is_default" ON "model_api_keys"("is_default");
+
+-- CreateIndex
+CREATE INDEX "idx_model_api_keys_status" ON "model_api_keys"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_model_api_keys_deleted_at" ON "model_api_keys"("deleted_at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "model_api_keys_provider_id_name_key" ON "model_api_keys"("provider_id", "name");
+
+-- CreateIndex
+CREATE INDEX "idx_models_provider_id" ON "models"("provider_id");
+
+-- CreateIndex
+CREATE INDEX "idx_models_model_type" ON "models"("model_type");
+
+-- CreateIndex
+CREATE INDEX "idx_models_is_default" ON "models"("is_default");
+
+-- CreateIndex
+CREATE INDEX "idx_models_status" ON "models"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_models_priority" ON "models"("priority");
+
+-- CreateIndex
+CREATE INDEX "idx_models_deleted_at" ON "models"("deleted_at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "models_provider_id_name_key" ON "models"("provider_id", "name");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "orders_order_no_key" ON "orders"("order_no");
 
 -- CreateIndex
@@ -1006,6 +1106,12 @@ CREATE INDEX "idx_routers_group_id" ON "routers"("group_id");
 CREATE INDEX "idx_routers_parent_id" ON "routers"("parent_id");
 
 -- CreateIndex
+CREATE INDEX "idx_routers_menu_group" ON "routers"("menu_group");
+
+-- CreateIndex
+CREATE INDEX "idx_routers_menu_group_sort" ON "routers"("menu_group_sort");
+
+-- CreateIndex
 CREATE INDEX "idx_routers_created_at" ON "routers"("created_at");
 
 -- CreateIndex
@@ -1169,6 +1275,12 @@ ALTER TABLE "user_benefits" ADD CONSTRAINT "user_benefits_user_id_fkey" FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE "user_benefits" ADD CONSTRAINT "user_benefits_benefit_id_fkey" FOREIGN KEY ("benefit_id") REFERENCES "benefits"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "model_api_keys" ADD CONSTRAINT "model_api_keys_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "model_providers"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "models" ADD CONSTRAINT "models_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "model_providers"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
 ALTER TABLE "orders" ADD CONSTRAINT "orders_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;

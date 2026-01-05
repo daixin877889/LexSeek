@@ -31,6 +31,7 @@ export type RoutersAvgAggregateOutputType = {
   parentId: number | null
   groupId: number | null
   sort: number | null
+  menuGroupSort: number | null
 }
 
 export type RoutersSumAggregateOutputType = {
@@ -38,6 +39,7 @@ export type RoutersSumAggregateOutputType = {
   parentId: number | null
   groupId: number | null
   sort: number | null
+  menuGroupSort: number | null
 }
 
 export type RoutersMinAggregateOutputType = {
@@ -51,6 +53,8 @@ export type RoutersMinAggregateOutputType = {
   icon: string | null
   groupId: number | null
   sort: number | null
+  menuGroup: string | null
+  menuGroupSort: number | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -67,6 +71,8 @@ export type RoutersMaxAggregateOutputType = {
   icon: string | null
   groupId: number | null
   sort: number | null
+  menuGroup: string | null
+  menuGroupSort: number | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -83,6 +89,8 @@ export type RoutersCountAggregateOutputType = {
   icon: number
   groupId: number
   sort: number
+  menuGroup: number
+  menuGroupSort: number
   createdAt: number
   updatedAt: number
   deletedAt: number
@@ -95,6 +103,7 @@ export type RoutersAvgAggregateInputType = {
   parentId?: true
   groupId?: true
   sort?: true
+  menuGroupSort?: true
 }
 
 export type RoutersSumAggregateInputType = {
@@ -102,6 +111,7 @@ export type RoutersSumAggregateInputType = {
   parentId?: true
   groupId?: true
   sort?: true
+  menuGroupSort?: true
 }
 
 export type RoutersMinAggregateInputType = {
@@ -115,6 +125,8 @@ export type RoutersMinAggregateInputType = {
   icon?: true
   groupId?: true
   sort?: true
+  menuGroup?: true
+  menuGroupSort?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -131,6 +143,8 @@ export type RoutersMaxAggregateInputType = {
   icon?: true
   groupId?: true
   sort?: true
+  menuGroup?: true
+  menuGroupSort?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -147,6 +161,8 @@ export type RoutersCountAggregateInputType = {
   icon?: true
   groupId?: true
   sort?: true
+  menuGroup?: true
+  menuGroupSort?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -250,6 +266,8 @@ export type RoutersGroupByOutputType = {
   icon: string | null
   groupId: number
   sort: number
+  menuGroup: string | null
+  menuGroupSort: number
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -289,6 +307,8 @@ export type routersWhereInput = {
   icon?: Prisma.StringNullableFilter<"routers"> | string | null
   groupId?: Prisma.IntFilter<"routers"> | number
   sort?: Prisma.IntFilter<"routers"> | number
+  menuGroup?: Prisma.StringNullableFilter<"routers"> | string | null
+  menuGroupSort?: Prisma.IntFilter<"routers"> | number
   createdAt?: Prisma.DateTimeNullableFilter<"routers"> | Date | string | null
   updatedAt?: Prisma.DateTimeNullableFilter<"routers"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"routers"> | Date | string | null
@@ -309,6 +329,8 @@ export type routersOrderByWithRelationInput = {
   icon?: Prisma.SortOrderInput | Prisma.SortOrder
   groupId?: Prisma.SortOrder
   sort?: Prisma.SortOrder
+  menuGroup?: Prisma.SortOrderInput | Prisma.SortOrder
+  menuGroupSort?: Prisma.SortOrder
   createdAt?: Prisma.SortOrderInput | Prisma.SortOrder
   updatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -332,6 +354,8 @@ export type routersWhereUniqueInput = Prisma.AtLeast<{
   icon?: Prisma.StringNullableFilter<"routers"> | string | null
   groupId?: Prisma.IntFilter<"routers"> | number
   sort?: Prisma.IntFilter<"routers"> | number
+  menuGroup?: Prisma.StringNullableFilter<"routers"> | string | null
+  menuGroupSort?: Prisma.IntFilter<"routers"> | number
   createdAt?: Prisma.DateTimeNullableFilter<"routers"> | Date | string | null
   updatedAt?: Prisma.DateTimeNullableFilter<"routers"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"routers"> | Date | string | null
@@ -352,6 +376,8 @@ export type routersOrderByWithAggregationInput = {
   icon?: Prisma.SortOrderInput | Prisma.SortOrder
   groupId?: Prisma.SortOrder
   sort?: Prisma.SortOrder
+  menuGroup?: Prisma.SortOrderInput | Prisma.SortOrder
+  menuGroupSort?: Prisma.SortOrder
   createdAt?: Prisma.SortOrderInput | Prisma.SortOrder
   updatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -376,6 +402,8 @@ export type routersScalarWhereWithAggregatesInput = {
   icon?: Prisma.StringNullableWithAggregatesFilter<"routers"> | string | null
   groupId?: Prisma.IntWithAggregatesFilter<"routers"> | number
   sort?: Prisma.IntWithAggregatesFilter<"routers"> | number
+  menuGroup?: Prisma.StringNullableWithAggregatesFilter<"routers"> | string | null
+  menuGroupSort?: Prisma.IntWithAggregatesFilter<"routers"> | number
   createdAt?: Prisma.DateTimeNullableWithAggregatesFilter<"routers"> | Date | string | null
   updatedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"routers"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"routers"> | Date | string | null
@@ -389,6 +417,8 @@ export type routersCreateInput = {
   isMenu?: boolean
   icon?: string | null
   sort?: number
+  menuGroup?: string | null
+  menuGroupSort?: number
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -409,6 +439,8 @@ export type routersUncheckedCreateInput = {
   icon?: string | null
   groupId?: number
   sort?: number
+  menuGroup?: string | null
+  menuGroupSort?: number
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -424,6 +456,8 @@ export type routersUpdateInput = {
   isMenu?: Prisma.BoolFieldUpdateOperationsInput | boolean
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sort?: Prisma.IntFieldUpdateOperationsInput | number
+  menuGroup?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  menuGroupSort?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -444,6 +478,8 @@ export type routersUncheckedUpdateInput = {
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   groupId?: Prisma.IntFieldUpdateOperationsInput | number
   sort?: Prisma.IntFieldUpdateOperationsInput | number
+  menuGroup?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  menuGroupSort?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -462,6 +498,8 @@ export type routersCreateManyInput = {
   icon?: string | null
   groupId?: number
   sort?: number
+  menuGroup?: string | null
+  menuGroupSort?: number
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -475,6 +513,8 @@ export type routersUpdateManyMutationInput = {
   isMenu?: Prisma.BoolFieldUpdateOperationsInput | boolean
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sort?: Prisma.IntFieldUpdateOperationsInput | number
+  menuGroup?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  menuGroupSort?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -491,6 +531,8 @@ export type routersUncheckedUpdateManyInput = {
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   groupId?: Prisma.IntFieldUpdateOperationsInput | number
   sort?: Prisma.IntFieldUpdateOperationsInput | number
+  menuGroup?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  menuGroupSort?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -527,6 +569,8 @@ export type routersCountOrderByAggregateInput = {
   icon?: Prisma.SortOrder
   groupId?: Prisma.SortOrder
   sort?: Prisma.SortOrder
+  menuGroup?: Prisma.SortOrder
+  menuGroupSort?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -537,6 +581,7 @@ export type routersAvgOrderByAggregateInput = {
   parentId?: Prisma.SortOrder
   groupId?: Prisma.SortOrder
   sort?: Prisma.SortOrder
+  menuGroupSort?: Prisma.SortOrder
 }
 
 export type routersMaxOrderByAggregateInput = {
@@ -550,6 +595,8 @@ export type routersMaxOrderByAggregateInput = {
   icon?: Prisma.SortOrder
   groupId?: Prisma.SortOrder
   sort?: Prisma.SortOrder
+  menuGroup?: Prisma.SortOrder
+  menuGroupSort?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -566,6 +613,8 @@ export type routersMinOrderByAggregateInput = {
   icon?: Prisma.SortOrder
   groupId?: Prisma.SortOrder
   sort?: Prisma.SortOrder
+  menuGroup?: Prisma.SortOrder
+  menuGroupSort?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -576,6 +625,7 @@ export type routersSumOrderByAggregateInput = {
   parentId?: Prisma.SortOrder
   groupId?: Prisma.SortOrder
   sort?: Prisma.SortOrder
+  menuGroupSort?: Prisma.SortOrder
 }
 
 export type routersCreateNestedOneWithoutRoleRoutersInput = {
@@ -700,6 +750,8 @@ export type routersCreateWithoutRoleRoutersInput = {
   isMenu?: boolean
   icon?: string | null
   sort?: number
+  menuGroup?: string | null
+  menuGroupSort?: number
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -719,6 +771,8 @@ export type routersUncheckedCreateWithoutRoleRoutersInput = {
   icon?: string | null
   groupId?: number
   sort?: number
+  menuGroup?: string | null
+  menuGroupSort?: number
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -749,6 +803,8 @@ export type routersUpdateWithoutRoleRoutersInput = {
   isMenu?: Prisma.BoolFieldUpdateOperationsInput | boolean
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sort?: Prisma.IntFieldUpdateOperationsInput | number
+  menuGroup?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  menuGroupSort?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -768,6 +824,8 @@ export type routersUncheckedUpdateWithoutRoleRoutersInput = {
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   groupId?: Prisma.IntFieldUpdateOperationsInput | number
   sort?: Prisma.IntFieldUpdateOperationsInput | number
+  menuGroup?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  menuGroupSort?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -782,6 +840,8 @@ export type routersCreateWithoutChildrenInput = {
   isMenu?: boolean
   icon?: string | null
   sort?: number
+  menuGroup?: string | null
+  menuGroupSort?: number
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -801,6 +861,8 @@ export type routersUncheckedCreateWithoutChildrenInput = {
   icon?: string | null
   groupId?: number
   sort?: number
+  menuGroup?: string | null
+  menuGroupSort?: number
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -820,6 +882,8 @@ export type routersCreateWithoutParentInput = {
   isMenu?: boolean
   icon?: string | null
   sort?: number
+  menuGroup?: string | null
+  menuGroupSort?: number
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -838,6 +902,8 @@ export type routersUncheckedCreateWithoutParentInput = {
   icon?: string | null
   groupId?: number
   sort?: number
+  menuGroup?: string | null
+  menuGroupSort?: number
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -874,6 +940,8 @@ export type routersUpdateWithoutChildrenInput = {
   isMenu?: Prisma.BoolFieldUpdateOperationsInput | boolean
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sort?: Prisma.IntFieldUpdateOperationsInput | number
+  menuGroup?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  menuGroupSort?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -893,6 +961,8 @@ export type routersUncheckedUpdateWithoutChildrenInput = {
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   groupId?: Prisma.IntFieldUpdateOperationsInput | number
   sort?: Prisma.IntFieldUpdateOperationsInput | number
+  menuGroup?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  menuGroupSort?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -929,6 +999,8 @@ export type routersScalarWhereInput = {
   icon?: Prisma.StringNullableFilter<"routers"> | string | null
   groupId?: Prisma.IntFilter<"routers"> | number
   sort?: Prisma.IntFilter<"routers"> | number
+  menuGroup?: Prisma.StringNullableFilter<"routers"> | string | null
+  menuGroupSort?: Prisma.IntFilter<"routers"> | number
   createdAt?: Prisma.DateTimeNullableFilter<"routers"> | Date | string | null
   updatedAt?: Prisma.DateTimeNullableFilter<"routers"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"routers"> | Date | string | null
@@ -942,6 +1014,8 @@ export type routersCreateWithoutRouterGroupsInput = {
   isMenu?: boolean
   icon?: string | null
   sort?: number
+  menuGroup?: string | null
+  menuGroupSort?: number
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -960,6 +1034,8 @@ export type routersUncheckedCreateWithoutRouterGroupsInput = {
   parentId?: number | null
   icon?: string | null
   sort?: number
+  menuGroup?: string | null
+  menuGroupSort?: number
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1003,6 +1079,8 @@ export type routersCreateManyParentInput = {
   icon?: string | null
   groupId?: number
   sort?: number
+  menuGroup?: string | null
+  menuGroupSort?: number
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1016,6 +1094,8 @@ export type routersUpdateWithoutParentInput = {
   isMenu?: Prisma.BoolFieldUpdateOperationsInput | boolean
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sort?: Prisma.IntFieldUpdateOperationsInput | number
+  menuGroup?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  menuGroupSort?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1034,6 +1114,8 @@ export type routersUncheckedUpdateWithoutParentInput = {
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   groupId?: Prisma.IntFieldUpdateOperationsInput | number
   sort?: Prisma.IntFieldUpdateOperationsInput | number
+  menuGroup?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  menuGroupSort?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1051,6 +1133,8 @@ export type routersUncheckedUpdateManyWithoutParentInput = {
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   groupId?: Prisma.IntFieldUpdateOperationsInput | number
   sort?: Prisma.IntFieldUpdateOperationsInput | number
+  menuGroup?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  menuGroupSort?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1066,6 +1150,8 @@ export type routersCreateManyRouterGroupsInput = {
   parentId?: number | null
   icon?: string | null
   sort?: number
+  menuGroup?: string | null
+  menuGroupSort?: number
   createdAt?: Date | string | null
   updatedAt?: Date | string | null
   deletedAt?: Date | string | null
@@ -1079,6 +1165,8 @@ export type routersUpdateWithoutRouterGroupsInput = {
   isMenu?: Prisma.BoolFieldUpdateOperationsInput | boolean
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sort?: Prisma.IntFieldUpdateOperationsInput | number
+  menuGroup?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  menuGroupSort?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1097,6 +1185,8 @@ export type routersUncheckedUpdateWithoutRouterGroupsInput = {
   parentId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sort?: Prisma.IntFieldUpdateOperationsInput | number
+  menuGroup?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  menuGroupSort?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1114,6 +1204,8 @@ export type routersUncheckedUpdateManyWithoutRouterGroupsInput = {
   parentId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sort?: Prisma.IntFieldUpdateOperationsInput | number
+  menuGroup?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  menuGroupSort?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1170,6 +1262,8 @@ export type routersSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   icon?: boolean
   groupId?: boolean
   sort?: boolean
+  menuGroup?: boolean
+  menuGroupSort?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1191,6 +1285,8 @@ export type routersSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   icon?: boolean
   groupId?: boolean
   sort?: boolean
+  menuGroup?: boolean
+  menuGroupSort?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1209,6 +1305,8 @@ export type routersSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   icon?: boolean
   groupId?: boolean
   sort?: boolean
+  menuGroup?: boolean
+  menuGroupSort?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1227,12 +1325,14 @@ export type routersSelectScalar = {
   icon?: boolean
   groupId?: boolean
   sort?: boolean
+  menuGroup?: boolean
+  menuGroupSort?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
 }
 
-export type routersOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "title" | "description" | "path" | "isMenu" | "parentId" | "icon" | "groupId" | "sort" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["routers"]>
+export type routersOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "title" | "description" | "path" | "isMenu" | "parentId" | "icon" | "groupId" | "sort" | "menuGroup" | "menuGroupSort" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["routers"]>
 export type routersInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   routerGroups?: boolean | Prisma.routers$routerGroupsArgs<ExtArgs>
   parent?: boolean | Prisma.routers$parentArgs<ExtArgs>
@@ -1310,6 +1410,14 @@ export type $routersPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
      * 路由排序
      */
     sort: number
+    /**
+     * 菜单分组名称（如"权限管理"、"运营管理"）
+     */
+    menuGroup: string | null
+    /**
+     * 菜单分组排序
+     */
+    menuGroupSort: number
     /**
      * 路由创建时间
      */
@@ -1759,6 +1867,8 @@ export interface routersFieldRefs {
   readonly icon: Prisma.FieldRef<"routers", 'String'>
   readonly groupId: Prisma.FieldRef<"routers", 'Int'>
   readonly sort: Prisma.FieldRef<"routers", 'Int'>
+  readonly menuGroup: Prisma.FieldRef<"routers", 'String'>
+  readonly menuGroupSort: Prisma.FieldRef<"routers", 'Int'>
   readonly createdAt: Prisma.FieldRef<"routers", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"routers", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"routers", 'DateTime'>
