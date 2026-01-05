@@ -69,7 +69,8 @@
                   <th class="px-4 py-3 text-left text-sm font-medium">路径</th>
                   <th class="px-4 py-3 text-left text-sm font-medium w-24">分组</th>
                   <th class="px-4 py-3 text-center text-sm font-medium w-20">菜单</th>
-                  <th class="px-4 py-3 text-center text-sm font-medium w-20">排序</th>
+                  <th class="px-4 py-3 text-center text-sm font-medium w-24">排序</th>
+                  <th class="px-4 py-3 text-center text-sm font-medium w-20">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -89,9 +90,19 @@
                     <Badge variant="outline">{{ router.routerGroups?.name || '-' }}</Badge>
                   </td>
                   <td class="px-4 py-3 text-center">
-                    <span :class="getMenuClass(router.isMenu)">{{ router.isMenu ? '是' : '否' }}</span>
+                    <Switch :model-value="router.isMenu"
+                      @update:model-value="(checked: boolean) => handleToggleMenu(router, checked)" />
                   </td>
-                  <td class="px-4 py-3 text-center text-muted-foreground">{{ router.sort }}</td>
+                  <td class="px-4 py-3 text-center">
+                    <Input type="number" :model-value="router.sort" min="0" class="w-16 h-8 text-center text-sm"
+                      @change="(e: Event) => handleUpdateSort(router, (e.target as HTMLInputElement).value)" />
+                  </td>
+                  <td class="px-4 py-3 text-center">
+                    <Button variant="ghost" size="icon" class="h-8 w-8 text-destructive hover:text-destructive"
+                      @click="handleDelete(router)">
+                      <Trash2 class="h-4 w-4" />
+                    </Button>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -190,12 +201,28 @@
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <!-- 删除确认对话框 -->
+    <AlertDialog v-model:open="deleteDialogOpen">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>确认删除</AlertDialogTitle>
+          <AlertDialogDescription>确定要删除路由「{{ routerToDelete?.path }}」吗？此操作不可撤销。</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>取消</AlertDialogCancel>
+          <AlertDialogAction @click="confirmDelete" class="bg-destructive text-white hover:bg-destructive/90">删除
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </NuxtLayout>
 </template>
 
 <script setup lang="ts">
-import { Search, Loader2, FileText, Route, ScanLine } from 'lucide-vue-next'
+import { Search, Loader2, FileText, Route, ScanLine, Trash2 } from 'lucide-vue-next'
 import * as icons from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 
 definePageMeta({
   layout: false,
@@ -255,6 +282,10 @@ const importing = ref(false)
 const scanResults = ref<ScannedRouter[]>([])
 const scanStats = ref({ total: 0, existing: 0, new: 0 })
 const selectedPaths = ref(new Set<string>())
+
+// 删除相关状态
+const deleteDialogOpen = ref(false)
+const routerToDelete = ref<Router | null>(null)
 
 // ==================== 计算属性 ====================
 
@@ -399,6 +430,62 @@ const handleImport = async () => {
   } finally {
     importing.value = false
   }
+}
+
+/** 切换菜单状态 */
+const handleToggleMenu = async (router: Router, isMenu: boolean) => {
+  const result = await useApiFetch(`/api/v1/admin/routers/${router.id}`, {
+    method: 'PUT',
+    body: { isMenu },
+  })
+  if (result) {
+    router.isMenu = isMenu
+    toast.success('更新成功')
+  }
+}
+
+/** 更新排序 */
+const handleUpdateSort = async (router: Router, sortValue: string) => {
+  const sort = parseInt(sortValue)
+  if (isNaN(sort) || sort < 0) {
+    toast.error('排序值必须为非负整数')
+    return
+  }
+  if (sort === router.sort) return
+
+  const oldSort = router.sort
+  router.sort = sort // 乐观更新
+
+  const result = await useApiFetch(`/api/v1/admin/routers/${router.id}`, {
+    method: 'PUT',
+    body: { sort },
+  })
+  if (result) {
+    toast.success('更新成功')
+  } else {
+    router.sort = oldSort // 恢复原值
+  }
+}
+
+/** 打开删除确认对话框 */
+const handleDelete = (router: Router) => {
+  routerToDelete.value = router
+  deleteDialogOpen.value = true
+}
+
+/** 确认删除 */
+const confirmDelete = async () => {
+  if (!routerToDelete.value) return
+
+  const result = await useApiFetch(`/api/v1/admin/routers/${routerToDelete.value.id}`, {
+    method: 'DELETE',
+  })
+  if (result !== null) {
+    toast.success('删除成功')
+    loadRouters()
+  }
+  deleteDialogOpen.value = false
+  routerToDelete.value = null
 }
 
 // ==================== 生命周期 ====================
