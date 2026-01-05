@@ -5,7 +5,8 @@
     <SidebarGroupContent>
       <SidebarMenu>
         <SidebarMenuItem v-for="item in permissionMenuItems" :key="item.path">
-          <SidebarMenuButton as-child :tooltip="item.title" :class="isActive(item.path) ? 'bg-primary/10' : ''">
+          <SidebarMenuButton as-child :tooltip="item.title"
+            :class="isActive(item.path) ? 'bg-primary/10 text-primary' : ''">
             <NuxtLink :to="item.path">
               <component :is="item.icon" class="h-4 w-4" />
               <span>{{ item.title }}</span>
@@ -22,7 +23,8 @@
     <SidebarGroupContent>
       <SidebarMenu>
         <SidebarMenuItem v-for="item in benefitMenuItems" :key="item.path">
-          <SidebarMenuButton as-child :tooltip="item.title" :class="isActive(item.path) ? 'bg-primary/10' : ''">
+          <SidebarMenuButton as-child :tooltip="item.title"
+            :class="isActive(item.path) ? 'bg-primary/10 text-primary' : ''">
             <NuxtLink :to="item.path">
               <component :is="item.icon" class="h-4 w-4" />
               <span>{{ item.title }}</span>
@@ -39,7 +41,8 @@
     <SidebarGroupContent>
       <SidebarMenu>
         <SidebarMenuItem v-for="item in operationMenuItems" :key="item.path">
-          <SidebarMenuButton as-child :tooltip="item.title" :class="isActive(item.path) ? 'bg-primary/10' : ''">
+          <SidebarMenuButton as-child :tooltip="item.title"
+            :class="isActive(item.path) ? 'bg-primary/10 text-primary' : ''">
             <NuxtLink :to="item.path">
               <component :is="item.icon" class="h-4 w-4" />
               <span>{{ item.title }}</span>
@@ -56,7 +59,8 @@
     <SidebarGroupContent>
       <SidebarMenu>
         <SidebarMenuItem v-for="item in knowledgeMenuItems" :key="item.path">
-          <SidebarMenuButton as-child :tooltip="item.title" :class="isActive(item.path) ? 'bg-primary/10' : ''">
+          <SidebarMenuButton as-child :tooltip="item.title"
+            :class="isActive(item.path) ? 'bg-primary/10 text-primary' : ''">
             <NuxtLink :to="item.path">
               <component :is="item.icon" class="h-4 w-4" />
               <span>{{ item.title }}</span>
@@ -69,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { Users, Shield, Key, FileText, Settings, Ticket, History, Gift, Crown, UserPlus, Scale } from 'lucide-vue-next'
+import { Users, Shield, Key, FileText, Settings, Ticket, History, Gift, Crown, UserPlus, Scale, Package, Megaphone } from 'lucide-vue-next'
 
 const route = useRoute()
 
@@ -91,6 +95,8 @@ const benefitMenuItems = [
 
 /** 运营管理菜单项 */
 const operationMenuItems = [
+  { path: '/admin/products', title: '产品管理', icon: Package },
+  { path: '/admin/campaigns', title: '营销活动', icon: Megaphone },
   { path: '/admin/redemption-codes', title: '兑换码管理', icon: Ticket },
   { path: '/admin/redemption-codes/records', title: '兑换记录', icon: History },
 ]

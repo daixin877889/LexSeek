@@ -9,10 +9,8 @@
           <BreadcrumbItem>
             <!-- 最后一项显示为当前页面文本，其他显示为可点击链接 -->
             <BreadcrumbPage v-if="item.isLast">{{ item.name }}</BreadcrumbPage>
-            <BreadcrumbLink v-else as-child>
-              <NuxtLink :to="item.path" class="transition-colors hover:text-foreground">
-                {{ item.name }}
-              </NuxtLink>
+            <BreadcrumbLink v-else :href="item.path">
+              {{ item.name }}
             </BreadcrumbLink>
           </BreadcrumbItem>
         </template>

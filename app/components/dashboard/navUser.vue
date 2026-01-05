@@ -10,7 +10,7 @@
               <AvatarFallback class="rounded-lg"> LS </AvatarFallback>
             </Avatar>
             <div class="grid flex-1 text-left text-sm leading-tight">
-              <span class="truncate font-semibold text-primary">{{ displayName }}</span>
+              <span class="truncate font-semibold">{{ displayName }}</span>
               <span class="truncate text-xs">{{ maskedPhone }}</span>
             </div>
             <ChevronsUpDown class="ml-auto size-4" />

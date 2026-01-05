@@ -1,21 +1,19 @@
 <script lang="ts" setup>
-import type { PrimitiveProps } from "reka-ui"
 import type { HTMLAttributes } from "vue"
-import { Primitive } from "reka-ui"
 import { cn } from "@/lib/utils"
 
-const props = withDefaults(defineProps<PrimitiveProps & { class?: HTMLAttributes["class"] }>(), {
-  as: "a",
-})
+const props = defineProps<{
+  class?: HTMLAttributes["class"]
+  href?: string
+}>()
 </script>
 
 <template>
-  <Primitive
-    data-slot="breadcrumb-link"
-    :as="as"
-    :as-child="asChild"
-    :class="cn('hover:text-foreground transition-colors', props.class)"
-  >
+  <NuxtLink v-if="href" data-slot="breadcrumb-link" :to="href"
+    :class="cn('hover:text-foreground transition-colors', props.class)">
     <slot />
-  </Primitive>
+  </NuxtLink>
+  <span v-else data-slot="breadcrumb-link" :class="cn('hover:text-foreground transition-colors', props.class)">
+    <slot />
+  </span>
 </template>

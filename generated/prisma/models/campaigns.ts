@@ -255,7 +255,7 @@ export type CampaignsGroupByOutputType = {
   duration: number | null
   giftPoint: number | null
   startAt: Date
-  endAt: Date
+  endAt: Date | null
   status: number
   remark: string | null
   createdAt: Date
@@ -294,7 +294,7 @@ export type campaignsWhereInput = {
   duration?: Prisma.IntNullableFilter<"campaigns"> | number | null
   giftPoint?: Prisma.IntNullableFilter<"campaigns"> | number | null
   startAt?: Prisma.DateTimeFilter<"campaigns"> | Date | string
-  endAt?: Prisma.DateTimeFilter<"campaigns"> | Date | string
+  endAt?: Prisma.DateTimeNullableFilter<"campaigns"> | Date | string | null
   status?: Prisma.IntFilter<"campaigns"> | number
   remark?: Prisma.StringNullableFilter<"campaigns"> | string | null
   createdAt?: Prisma.DateTimeFilter<"campaigns"> | Date | string
@@ -311,7 +311,7 @@ export type campaignsOrderByWithRelationInput = {
   duration?: Prisma.SortOrderInput | Prisma.SortOrder
   giftPoint?: Prisma.SortOrderInput | Prisma.SortOrder
   startAt?: Prisma.SortOrder
-  endAt?: Prisma.SortOrder
+  endAt?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   remark?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -331,7 +331,7 @@ export type campaignsWhereUniqueInput = Prisma.AtLeast<{
   duration?: Prisma.IntNullableFilter<"campaigns"> | number | null
   giftPoint?: Prisma.IntNullableFilter<"campaigns"> | number | null
   startAt?: Prisma.DateTimeFilter<"campaigns"> | Date | string
-  endAt?: Prisma.DateTimeFilter<"campaigns"> | Date | string
+  endAt?: Prisma.DateTimeNullableFilter<"campaigns"> | Date | string | null
   status?: Prisma.IntFilter<"campaigns"> | number
   remark?: Prisma.StringNullableFilter<"campaigns"> | string | null
   createdAt?: Prisma.DateTimeFilter<"campaigns"> | Date | string
@@ -348,7 +348,7 @@ export type campaignsOrderByWithAggregationInput = {
   duration?: Prisma.SortOrderInput | Prisma.SortOrder
   giftPoint?: Prisma.SortOrderInput | Prisma.SortOrder
   startAt?: Prisma.SortOrder
-  endAt?: Prisma.SortOrder
+  endAt?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   remark?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -372,7 +372,7 @@ export type campaignsScalarWhereWithAggregatesInput = {
   duration?: Prisma.IntNullableWithAggregatesFilter<"campaigns"> | number | null
   giftPoint?: Prisma.IntNullableWithAggregatesFilter<"campaigns"> | number | null
   startAt?: Prisma.DateTimeWithAggregatesFilter<"campaigns"> | Date | string
-  endAt?: Prisma.DateTimeWithAggregatesFilter<"campaigns"> | Date | string
+  endAt?: Prisma.DateTimeNullableWithAggregatesFilter<"campaigns"> | Date | string | null
   status?: Prisma.IntWithAggregatesFilter<"campaigns"> | number
   remark?: Prisma.StringNullableWithAggregatesFilter<"campaigns"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"campaigns"> | Date | string
@@ -386,7 +386,7 @@ export type campaignsCreateInput = {
   duration?: number | null
   giftPoint?: number | null
   startAt: Date | string
-  endAt: Date | string
+  endAt?: Date | string | null
   status?: number
   remark?: string | null
   createdAt?: Date | string
@@ -403,7 +403,7 @@ export type campaignsUncheckedCreateInput = {
   duration?: number | null
   giftPoint?: number | null
   startAt: Date | string
-  endAt: Date | string
+  endAt?: Date | string | null
   status?: number
   remark?: string | null
   createdAt?: Date | string
@@ -417,7 +417,7 @@ export type campaignsUpdateInput = {
   duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   giftPoint?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   startAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  endAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -434,7 +434,7 @@ export type campaignsUncheckedUpdateInput = {
   duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   giftPoint?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   startAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  endAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -450,7 +450,7 @@ export type campaignsCreateManyInput = {
   duration?: number | null
   giftPoint?: number | null
   startAt: Date | string
-  endAt: Date | string
+  endAt?: Date | string | null
   status?: number
   remark?: string | null
   createdAt?: Date | string
@@ -464,7 +464,7 @@ export type campaignsUpdateManyMutationInput = {
   duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   giftPoint?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   startAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  endAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -480,7 +480,7 @@ export type campaignsUncheckedUpdateManyInput = {
   duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   giftPoint?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   startAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  endAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -616,7 +616,7 @@ export type campaignsCreateWithoutLevelInput = {
   duration?: number | null
   giftPoint?: number | null
   startAt: Date | string
-  endAt: Date | string
+  endAt?: Date | string | null
   status?: number
   remark?: string | null
   createdAt?: Date | string
@@ -631,7 +631,7 @@ export type campaignsUncheckedCreateWithoutLevelInput = {
   duration?: number | null
   giftPoint?: number | null
   startAt: Date | string
-  endAt: Date | string
+  endAt?: Date | string | null
   status?: number
   remark?: string | null
   createdAt?: Date | string
@@ -676,7 +676,7 @@ export type campaignsScalarWhereInput = {
   duration?: Prisma.IntNullableFilter<"campaigns"> | number | null
   giftPoint?: Prisma.IntNullableFilter<"campaigns"> | number | null
   startAt?: Prisma.DateTimeFilter<"campaigns"> | Date | string
-  endAt?: Prisma.DateTimeFilter<"campaigns"> | Date | string
+  endAt?: Prisma.DateTimeNullableFilter<"campaigns"> | Date | string | null
   status?: Prisma.IntFilter<"campaigns"> | number
   remark?: Prisma.StringNullableFilter<"campaigns"> | string | null
   createdAt?: Prisma.DateTimeFilter<"campaigns"> | Date | string
@@ -691,7 +691,7 @@ export type campaignsCreateManyLevelInput = {
   duration?: number | null
   giftPoint?: number | null
   startAt: Date | string
-  endAt: Date | string
+  endAt?: Date | string | null
   status?: number
   remark?: string | null
   createdAt?: Date | string
@@ -705,7 +705,7 @@ export type campaignsUpdateWithoutLevelInput = {
   duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   giftPoint?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   startAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  endAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -720,7 +720,7 @@ export type campaignsUncheckedUpdateWithoutLevelInput = {
   duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   giftPoint?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   startAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  endAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -735,7 +735,7 @@ export type campaignsUncheckedUpdateManyWithoutLevelInput = {
   duration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   giftPoint?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   startAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  endAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  endAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   remark?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -863,7 +863,7 @@ export type $campaignsPayload<ExtArgs extends runtime.Types.Extensions.InternalA
     /**
      * 活动结束时间
      */
-    endAt: Date
+    endAt: Date | null
     /**
      * 状态：1-启用，0-禁用
      */
