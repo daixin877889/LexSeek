@@ -30,7 +30,7 @@ export interface CampaignInfo {
     duration: number | null
     giftPoint: number | null
     startAt: string
-    endAt: string
+    endAt: string | null  // null 代表长期活动
     status: CampaignStatus
     remark: string | null
 }
@@ -39,11 +39,24 @@ export interface CampaignInfo {
 export interface CreateCampaignParams {
     name: string
     type: CampaignType
-    levelId?: number
-    duration?: number
-    giftPoint?: number
+    levelId?: number | null
+    duration?: number | null
+    giftPoint?: number | null
     startAt: Date
-    endAt: Date
+    endAt?: Date | null  // 可选，null 代表长期活动
     status?: CampaignStatus
-    remark?: string
+    remark?: string | null
+}
+
+/** 更新营销活动参数 */
+export interface UpdateCampaignParams {
+    name?: string
+    type?: CampaignType
+    levelId?: number | null
+    duration?: number | null
+    giftPoint?: number | null
+    startAt?: Date
+    endAt?: Date | null  // null 代表长期活动
+    status?: CampaignStatus
+    remark?: string | null
 }
