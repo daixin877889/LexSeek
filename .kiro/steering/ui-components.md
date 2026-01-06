@@ -13,6 +13,7 @@ fileMatchPattern: "**/app/components/**,**/app/pages/**"
 1. 使用 shadcn 工具查询组件用法
 2. **禁止修改** `app/components/ui` 中的组件（重新安装会被覆盖）
 3. 自定义组件放在 `app/components/` 其他目录
+4. 由于 shadcn 库经过了多轮更新，组件的使用可能变更，需要调用 shadcn 工具查询组件的使用方式。
 
 ## Tailwind v4 注意事项
 - 使用 v4 语法和类名
@@ -42,3 +43,5 @@ fileMatchPattern: "**/app/components/**,**/app/pages/**"
 ```typescript
 import type { UserInfo } from "#shared/types/user";
 ```
+
+**特别注意：app/components/ 中的组件是自动导入的，在使用时注意要按组件的文件路径驼峰命名使用组件**
