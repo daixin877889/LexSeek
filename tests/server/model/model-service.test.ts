@@ -256,15 +256,21 @@ describe('模型管理服务层集成测试', () => {
             const apiKey = await createTestModelApiKey(provider.id, { isDefault: true })
             testIds.apiKeyIds.push(apiKey.id)
 
+            // 创建模型时不设置 isDefault，通过 setDefaultModelDao 设置
+            // 这样可以确保同类型只有一个默认模型
             const chatModel = await createTestModel(provider.id, {
                 modelType: ModelType.CHAT,
-                isDefault: true,
+                isDefault: false,
             })
             const embeddingModel = await createTestModel(provider.id, {
                 modelType: ModelType.EMBEDDING,
-                isDefault: true,
+                isDefault: false,
             })
             testIds.modelIds.push(chatModel.id, embeddingModel.id)
+
+            // 使用 setDefaultModelDao 设置默认模型，确保唯一性
+            await setDefaultModelDao(chatModel.id, 'chat')
+            await setDefaultModelDao(embeddingModel.id, 'embedding')
 
             const defaultChat = await getDefaultChatConfig()
             const defaultEmbedding = await getDefaultEmbeddingConfig()

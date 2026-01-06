@@ -144,6 +144,8 @@ export const findDefaultModelByTypeDao = async (
                 deletedAt: null,
             },
             include: { modelProvider: true },
+            // 按优先级升序、创建时间降序排序，确保返回最新设置的高优先级默认模型
+            orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
         })
         return model
     } catch (error) {

@@ -89,6 +89,10 @@ export default defineNuxtConfig({
         // { name: 'logger', from: '#shared/utils/logger' },
 
       ]
+    },
+    // 解决 dayjs ESM 模块解析问题
+    externals: {
+      inline: ['dayjs']
     }
   },
   runtimeConfig: {

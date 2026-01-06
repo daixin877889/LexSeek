@@ -17,8 +17,8 @@ COPY . .
 # 生成 Prisma Client
 RUN bun prisma:generate
 
-# 构建 Nuxt 应用
-RUN bun run build
+# 构建 Nuxt 应用（跳过 prebuild 测试，因为测试文件被 .dockerignore 排除）
+RUN bun nuxt build
 
 # 在构建阶段安装 ipx 缺失的依赖到 .output/server/node_modules
 WORKDIR /app/.output/server/node_modules/ipx
