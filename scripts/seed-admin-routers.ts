@@ -52,6 +52,14 @@ const ADMIN_ROUTERS = [
     { path: '/admin/model-providers', name: 'admin-model-providers', title: '模型提供商', icon: 'ServerIcon', menuGroup: '模型管理', menuGroupSort: 5, sort: 1, isMenu: true },
     { path: '/admin/model-api-keys', name: 'admin-model-api-keys', title: 'API 密钥', icon: 'KeyRoundIcon', menuGroup: '模型管理', menuGroupSort: 5, sort: 2, isMenu: true },
     { path: '/admin/models', name: 'admin-models', title: '模型配置', icon: 'BotIcon', menuGroup: '模型管理', menuGroupSort: 5, sort: 3, isMenu: true },
+
+    // 案件分析分组
+    { path: '/admin/nodes', name: 'admin-nodes', title: '节点管理', icon: 'NetworkIcon', menuGroup: '案件分析', menuGroupSort: 6, sort: 1, isMenu: true },
+    { path: '/admin/node-groups', name: 'admin-node-groups', title: '节点分组', icon: 'FolderIcon', menuGroup: '案件分析', menuGroupSort: 6, sort: 2, isMenu: true },
+    { path: '/admin/prompts', name: 'admin-prompts', title: '提示词管理', icon: 'MessageSquareTextIcon', menuGroup: '案件分析', menuGroupSort: 6, sort: 3, isMenu: true },
+    { path: '/admin/access', name: 'admin-access', title: '权限配置', icon: 'LockIcon', menuGroup: '案件分析', menuGroupSort: 6, sort: 4, isMenu: true },
+    { path: '/admin/point-items', name: 'admin-point-items', title: '积分消耗项目', icon: 'CoinsIcon', menuGroup: '案件分析', menuGroupSort: 6, sort: 5, isMenu: true },
+    { path: '/admin/demo-cases', name: 'admin-demo-cases', title: '示范案例', icon: 'FileTextIcon', menuGroup: '案件分析', menuGroupSort: 6, sort: 6, isMenu: true },
 ]
 
 async function main() {

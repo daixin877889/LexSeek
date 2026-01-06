@@ -345,6 +345,7 @@ export type modelsWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"models"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"models"> | Date | string | null
   modelProvider?: Prisma.XOR<Prisma.ModelProvidersScalarRelationFilter, Prisma.modelProvidersWhereInput>
+  nodes?: Prisma.NodesListRelationFilter
 }
 
 export type modelsOrderByWithRelationInput = {
@@ -366,6 +367,7 @@ export type modelsOrderByWithRelationInput = {
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   modelProvider?: Prisma.modelProvidersOrderByWithRelationInput
+  nodes?: Prisma.nodesOrderByRelationAggregateInput
 }
 
 export type modelsWhereUniqueInput = Prisma.AtLeast<{
@@ -391,6 +393,7 @@ export type modelsWhereUniqueInput = Prisma.AtLeast<{
   updatedAt?: Prisma.DateTimeFilter<"models"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"models"> | Date | string | null
   modelProvider?: Prisma.XOR<Prisma.ModelProvidersScalarRelationFilter, Prisma.modelProvidersWhereInput>
+  nodes?: Prisma.NodesListRelationFilter
 }, "id" | "providerId_name">
 
 export type modelsOrderByWithAggregationInput = {
@@ -458,6 +461,7 @@ export type modelsCreateInput = {
   updatedAt?: Date | string
   deletedAt?: Date | string | null
   modelProvider: Prisma.modelProvidersCreateNestedOneWithoutModelsInput
+  nodes?: Prisma.nodesCreateNestedManyWithoutModelInput
 }
 
 export type modelsUncheckedCreateInput = {
@@ -478,6 +482,7 @@ export type modelsUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
+  nodes?: Prisma.nodesUncheckedCreateNestedManyWithoutModelInput
 }
 
 export type modelsUpdateInput = {
@@ -497,6 +502,7 @@ export type modelsUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   modelProvider?: Prisma.modelProvidersUpdateOneRequiredWithoutModelsNestedInput
+  nodes?: Prisma.nodesUpdateManyWithoutModelNestedInput
 }
 
 export type modelsUncheckedUpdateInput = {
@@ -517,6 +523,7 @@ export type modelsUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  nodes?: Prisma.nodesUncheckedUpdateManyWithoutModelNestedInput
 }
 
 export type modelsCreateManyInput = {
@@ -676,6 +683,11 @@ export type modelsSumOrderByAggregateInput = {
   outputCostPerMillionTokens?: Prisma.SortOrder
 }
 
+export type ModelsScalarRelationFilter = {
+  is?: Prisma.modelsWhereInput
+  isNot?: Prisma.modelsWhereInput
+}
+
 export type modelsCreateNestedManyWithoutModelProviderInput = {
   create?: Prisma.XOR<Prisma.modelsCreateWithoutModelProviderInput, Prisma.modelsUncheckedCreateWithoutModelProviderInput> | Prisma.modelsCreateWithoutModelProviderInput[] | Prisma.modelsUncheckedCreateWithoutModelProviderInput[]
   connectOrCreate?: Prisma.modelsCreateOrConnectWithoutModelProviderInput | Prisma.modelsCreateOrConnectWithoutModelProviderInput[]
@@ -726,6 +738,20 @@ export type NullableDecimalFieldUpdateOperationsInput = {
   divide?: runtime.Decimal | runtime.DecimalJsLike | number | string
 }
 
+export type modelsCreateNestedOneWithoutNodesInput = {
+  create?: Prisma.XOR<Prisma.modelsCreateWithoutNodesInput, Prisma.modelsUncheckedCreateWithoutNodesInput>
+  connectOrCreate?: Prisma.modelsCreateOrConnectWithoutNodesInput
+  connect?: Prisma.modelsWhereUniqueInput
+}
+
+export type modelsUpdateOneRequiredWithoutNodesNestedInput = {
+  create?: Prisma.XOR<Prisma.modelsCreateWithoutNodesInput, Prisma.modelsUncheckedCreateWithoutNodesInput>
+  connectOrCreate?: Prisma.modelsCreateOrConnectWithoutNodesInput
+  upsert?: Prisma.modelsUpsertWithoutNodesInput
+  connect?: Prisma.modelsWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.modelsUpdateToOneWithWhereWithoutNodesInput, Prisma.modelsUpdateWithoutNodesInput>, Prisma.modelsUncheckedUpdateWithoutNodesInput>
+}
+
 export type modelsCreateWithoutModelProviderInput = {
   name: string
   displayName: string
@@ -742,6 +768,7 @@ export type modelsCreateWithoutModelProviderInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
+  nodes?: Prisma.nodesCreateNestedManyWithoutModelInput
 }
 
 export type modelsUncheckedCreateWithoutModelProviderInput = {
@@ -761,6 +788,7 @@ export type modelsUncheckedCreateWithoutModelProviderInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
+  nodes?: Prisma.nodesUncheckedCreateNestedManyWithoutModelInput
 }
 
 export type modelsCreateOrConnectWithoutModelProviderInput = {
@@ -812,6 +840,100 @@ export type modelsScalarWhereInput = {
   deletedAt?: Prisma.DateTimeNullableFilter<"models"> | Date | string | null
 }
 
+export type modelsCreateWithoutNodesInput = {
+  name: string
+  displayName: string
+  modelType: string
+  modelVersion?: string | null
+  contextWindow?: number | null
+  dimensions?: number | null
+  batchSize?: number | null
+  isDefault?: boolean
+  status?: number
+  priority?: number
+  inputCostPerMillionTokens?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  outputCostPerMillionTokens?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  modelProvider: Prisma.modelProvidersCreateNestedOneWithoutModelsInput
+}
+
+export type modelsUncheckedCreateWithoutNodesInput = {
+  id?: number
+  providerId: number
+  name: string
+  displayName: string
+  modelType: string
+  modelVersion?: string | null
+  contextWindow?: number | null
+  dimensions?: number | null
+  batchSize?: number | null
+  isDefault?: boolean
+  status?: number
+  priority?: number
+  inputCostPerMillionTokens?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  outputCostPerMillionTokens?: runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+}
+
+export type modelsCreateOrConnectWithoutNodesInput = {
+  where: Prisma.modelsWhereUniqueInput
+  create: Prisma.XOR<Prisma.modelsCreateWithoutNodesInput, Prisma.modelsUncheckedCreateWithoutNodesInput>
+}
+
+export type modelsUpsertWithoutNodesInput = {
+  update: Prisma.XOR<Prisma.modelsUpdateWithoutNodesInput, Prisma.modelsUncheckedUpdateWithoutNodesInput>
+  create: Prisma.XOR<Prisma.modelsCreateWithoutNodesInput, Prisma.modelsUncheckedCreateWithoutNodesInput>
+  where?: Prisma.modelsWhereInput
+}
+
+export type modelsUpdateToOneWithWhereWithoutNodesInput = {
+  where?: Prisma.modelsWhereInput
+  data: Prisma.XOR<Prisma.modelsUpdateWithoutNodesInput, Prisma.modelsUncheckedUpdateWithoutNodesInput>
+}
+
+export type modelsUpdateWithoutNodesInput = {
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  displayName?: Prisma.StringFieldUpdateOperationsInput | string
+  modelType?: Prisma.StringFieldUpdateOperationsInput | string
+  modelVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextWindow?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  dimensions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  batchSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  priority?: Prisma.IntFieldUpdateOperationsInput | number
+  inputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  outputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  modelProvider?: Prisma.modelProvidersUpdateOneRequiredWithoutModelsNestedInput
+}
+
+export type modelsUncheckedUpdateWithoutNodesInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  providerId?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  displayName?: Prisma.StringFieldUpdateOperationsInput | string
+  modelType?: Prisma.StringFieldUpdateOperationsInput | string
+  modelVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contextWindow?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  dimensions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  batchSize?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  isDefault?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  priority?: Prisma.IntFieldUpdateOperationsInput | number
+  inputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  outputCostPerMillionTokens?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+}
+
 export type modelsCreateManyModelProviderInput = {
   id?: number
   name: string
@@ -847,6 +969,7 @@ export type modelsUpdateWithoutModelProviderInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  nodes?: Prisma.nodesUpdateManyWithoutModelNestedInput
 }
 
 export type modelsUncheckedUpdateWithoutModelProviderInput = {
@@ -866,6 +989,7 @@ export type modelsUncheckedUpdateWithoutModelProviderInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  nodes?: Prisma.nodesUncheckedUpdateManyWithoutModelNestedInput
 }
 
 export type modelsUncheckedUpdateManyWithoutModelProviderInput = {
@@ -888,6 +1012,35 @@ export type modelsUncheckedUpdateManyWithoutModelProviderInput = {
 }
 
 
+/**
+ * Count Type ModelsCountOutputType
+ */
+
+export type ModelsCountOutputType = {
+  nodes: number
+}
+
+export type ModelsCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  nodes?: boolean | ModelsCountOutputTypeCountNodesArgs
+}
+
+/**
+ * ModelsCountOutputType without action
+ */
+export type ModelsCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ModelsCountOutputType
+   */
+  select?: Prisma.ModelsCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * ModelsCountOutputType without action
+ */
+export type ModelsCountOutputTypeCountNodesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.nodesWhereInput
+}
+
 
 export type modelsSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -908,6 +1061,8 @@ export type modelsSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   updatedAt?: boolean
   deletedAt?: boolean
   modelProvider?: boolean | Prisma.modelProvidersDefaultArgs<ExtArgs>
+  nodes?: boolean | Prisma.models$nodesArgs<ExtArgs>
+  _count?: boolean | Prisma.ModelsCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["models"]>
 
 export type modelsSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -975,6 +1130,8 @@ export type modelsSelectScalar = {
 export type modelsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "providerId" | "name" | "displayName" | "modelType" | "modelVersion" | "contextWindow" | "dimensions" | "batchSize" | "isDefault" | "status" | "priority" | "inputCostPerMillionTokens" | "outputCostPerMillionTokens" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["models"]>
 export type modelsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   modelProvider?: boolean | Prisma.modelProvidersDefaultArgs<ExtArgs>
+  nodes?: boolean | Prisma.models$nodesArgs<ExtArgs>
+  _count?: boolean | Prisma.ModelsCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type modelsIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   modelProvider?: boolean | Prisma.modelProvidersDefaultArgs<ExtArgs>
@@ -990,6 +1147,10 @@ export type $modelsPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
      * 关联的提供商
      */
     modelProvider: Prisma.$modelProvidersPayload<ExtArgs>
+    /**
+     * 关联的节点
+     */
+    nodes: Prisma.$nodesPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     /**
@@ -1455,6 +1616,7 @@ readonly fields: modelsFieldRefs;
 export interface Prisma__modelsClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   modelProvider<T extends Prisma.modelProvidersDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.modelProvidersDefaultArgs<ExtArgs>>): Prisma.Prisma__modelProvidersClient<runtime.Types.Result.GetResult<Prisma.$modelProvidersPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  nodes<T extends Prisma.models$nodesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.models$nodesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$nodesPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1894,6 +2056,30 @@ export type modelsDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Intern
    * Limit how many models to delete.
    */
   limit?: number
+}
+
+/**
+ * models.nodes
+ */
+export type models$nodesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the nodes
+   */
+  select?: Prisma.nodesSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the nodes
+   */
+  omit?: Prisma.nodesOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.nodesInclude<ExtArgs> | null
+  where?: Prisma.nodesWhereInput
+  orderBy?: Prisma.nodesOrderByWithRelationInput | Prisma.nodesOrderByWithRelationInput[]
+  cursor?: Prisma.nodesWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.NodesScalarFieldEnum | Prisma.NodesScalarFieldEnum[]
 }
 
 /**

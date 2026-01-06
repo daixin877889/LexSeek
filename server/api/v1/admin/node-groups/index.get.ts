@@ -1,0 +1,57 @@
+/**
+ * 获取节点分组列表
+ *
+ * GET /api/v1/admin/node-groups
+ * Requirements: 14.6
+ */
+
+import { z } from 'zod'
+
+/** 查询参数验证 */
+const querySchema = z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    keyword: z.string().optional(),
+    orderBy: z.enum(['priority', 'name', 'createdAt']).default('priority'),
+    orderDir: z.enum(['asc', 'desc']).default('asc'),
+    // 是否获取全部（不分页）
+    all: z.coerce.boolean().optional().default(false),
+})
+
+export default defineEventHandler(async (event) => {
+    const query = getQuery(event)
+    const result = querySchema.safeParse(query)
+    if (!result.success) {
+        return resError(event, 400, '参数错误：' + result.error.issues[0].message)
+    }
+
+    const { page, pageSize, keyword, orderBy, orderDir, all } = result.data
+
+    try {
+        // 如果请求全部数据（不分页）
+        if (all) {
+            const list = await getAllNodeGroupsService()
+            return resSuccess(event, '获取节点分组列表成功', {
+                items: list,
+                total: list.length,
+            })
+        }
+
+        // 分页查询
+        const data = await getNodeGroupsService({
+            page,
+            pageSize,
+            keyword,
+            orderBy,
+            orderDir,
+        })
+        return resSuccess(event, '获取节点分组列表成功', {
+            items: data.list,
+            total: data.total,
+            totalPages: Math.ceil(data.total / pageSize),
+        })
+    } catch (error) {
+        logger.error('获取节点分组列表失败：', error)
+        return resError(event, 500, '获取节点分组列表失败')
+    }
+})

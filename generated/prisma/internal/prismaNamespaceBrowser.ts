@@ -56,6 +56,12 @@ export const ModelName = {
   roleApiPermissions: 'roleApiPermissions',
   permissionAuditLogs: 'permissionAuditLogs',
   campaigns: 'campaigns',
+  cases: 'cases',
+  caseSessions: 'caseSessions',
+  caseMaterials: 'caseMaterials',
+  caseAnalyses: 'caseAnalyses',
+  demoCases: 'demoCases',
+  caseMaterialEmbeddings: 'caseMaterialEmbeddings',
   userEncryptions: 'userEncryptions',
   ossFiles: 'ossFiles',
   legalMain: 'legalMain',
@@ -69,6 +75,10 @@ export const ModelName = {
   modelProviders: 'modelProviders',
   modelApiKeys: 'modelApiKeys',
   models: 'models',
+  nodeGroups: 'nodeGroups',
+  nodes: 'nodes',
+  prompts: 'prompts',
+  levelNodeAccess: 'levelNodeAccess',
   orders: 'orders',
   paymentTransactions: 'paymentTransactions',
   membershipUpgradeRecords: 'membershipUpgradeRecords',
@@ -182,6 +192,99 @@ export const CampaignsScalarFieldEnum = {
 } as const
 
 export type CampaignsScalarFieldEnum = (typeof CampaignsScalarFieldEnum)[keyof typeof CampaignsScalarFieldEnum]
+
+
+export const CasesScalarFieldEnum = {
+  id: 'id',
+  title: 'title',
+  content: 'content',
+  userId: 'userId',
+  caseTypeId: 'caseTypeId',
+  plaintiff: 'plaintiff',
+  defendant: 'defendant',
+  status: 'status',
+  isDemo: 'isDemo',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type CasesScalarFieldEnum = (typeof CasesScalarFieldEnum)[keyof typeof CasesScalarFieldEnum]
+
+
+export const CaseSessionsScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  caseId: 'caseId',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type CaseSessionsScalarFieldEnum = (typeof CaseSessionsScalarFieldEnum)[keyof typeof CaseSessionsScalarFieldEnum]
+
+
+export const CaseMaterialsScalarFieldEnum = {
+  id: 'id',
+  caseId: 'caseId',
+  name: 'name',
+  type: 'type',
+  content: 'content',
+  originalContent: 'originalContent',
+  ossFileId: 'ossFileId',
+  isEncrypted: 'isEncrypted',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type CaseMaterialsScalarFieldEnum = (typeof CaseMaterialsScalarFieldEnum)[keyof typeof CaseMaterialsScalarFieldEnum]
+
+
+export const CaseAnalysesScalarFieldEnum = {
+  id: 'id',
+  caseId: 'caseId',
+  sessionId: 'sessionId',
+  nodeId: 'nodeId',
+  analysisType: 'analysisType',
+  analysisResult: 'analysisResult',
+  originalResult: 'originalResult',
+  version: 'version',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type CaseAnalysesScalarFieldEnum = (typeof CaseAnalysesScalarFieldEnum)[keyof typeof CaseAnalysesScalarFieldEnum]
+
+
+export const DemoCasesScalarFieldEnum = {
+  id: 'id',
+  title: 'title',
+  description: 'description',
+  caseTypeId: 'caseTypeId',
+  materials: 'materials',
+  coverImage: 'coverImage',
+  priority: 'priority',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type DemoCasesScalarFieldEnum = (typeof DemoCasesScalarFieldEnum)[keyof typeof DemoCasesScalarFieldEnum]
+
+
+export const CaseMaterialEmbeddingsScalarFieldEnum = {
+  id: 'id',
+  text: 'text',
+  metadata: 'metadata'
+} as const
+
+export type CaseMaterialEmbeddingsScalarFieldEnum = (typeof CaseMaterialEmbeddingsScalarFieldEnum)[keyof typeof CaseMaterialEmbeddingsScalarFieldEnum]
 
 
 export const UserEncryptionsScalarFieldEnum = {
@@ -412,6 +515,68 @@ export const ModelsScalarFieldEnum = {
 } as const
 
 export type ModelsScalarFieldEnum = (typeof ModelsScalarFieldEnum)[keyof typeof ModelsScalarFieldEnum]
+
+
+export const NodeGroupsScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  description: 'description',
+  priority: 'priority',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type NodeGroupsScalarFieldEnum = (typeof NodeGroupsScalarFieldEnum)[keyof typeof NodeGroupsScalarFieldEnum]
+
+
+export const NodesScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  title: 'title',
+  description: 'description',
+  type: 'type',
+  priority: 'priority',
+  modelId: 'modelId',
+  tools: 'tools',
+  groupId: 'groupId',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type NodesScalarFieldEnum = (typeof NodesScalarFieldEnum)[keyof typeof NodesScalarFieldEnum]
+
+
+export const PromptsScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  title: 'title',
+  content: 'content',
+  variables: 'variables',
+  version: 'version',
+  type: 'type',
+  status: 'status',
+  nodeId: 'nodeId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type PromptsScalarFieldEnum = (typeof PromptsScalarFieldEnum)[keyof typeof PromptsScalarFieldEnum]
+
+
+export const LevelNodeAccessScalarFieldEnum = {
+  id: 'id',
+  levelId: 'levelId',
+  nodeId: 'nodeId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type LevelNodeAccessScalarFieldEnum = (typeof LevelNodeAccessScalarFieldEnum)[keyof typeof LevelNodeAccessScalarFieldEnum]
 
 
 export const OrdersScalarFieldEnum = {

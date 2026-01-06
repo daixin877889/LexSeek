@@ -27,6 +27,8 @@ model membershipLevels {
     redemptionCodes    redemptionCodes[]
     /// 关联的营销活动
     campaigns          campaigns[]
+    /// 关联的会员节点权限
+    levelNodeAccess    levelNodeAccess[]
 
     @@index([sortOrder], map: "idx_membership_levels_sort_order")
     @@index([status], map: "idx_membership_levels_status")

@@ -253,6 +253,7 @@ export type membershipLevelsWhereInput = {
   products?: Prisma.ProductsListRelationFilter
   redemptionCodes?: Prisma.RedemptionCodesListRelationFilter
   campaigns?: Prisma.CampaignsListRelationFilter
+  levelNodeAccess?: Prisma.LevelNodeAccessListRelationFilter
 }
 
 export type membershipLevelsOrderByWithRelationInput = {
@@ -269,6 +270,7 @@ export type membershipLevelsOrderByWithRelationInput = {
   products?: Prisma.productsOrderByRelationAggregateInput
   redemptionCodes?: Prisma.redemptionCodesOrderByRelationAggregateInput
   campaigns?: Prisma.campaignsOrderByRelationAggregateInput
+  levelNodeAccess?: Prisma.levelNodeAccessOrderByRelationAggregateInput
 }
 
 export type membershipLevelsWhereUniqueInput = Prisma.AtLeast<{
@@ -288,6 +290,7 @@ export type membershipLevelsWhereUniqueInput = Prisma.AtLeast<{
   products?: Prisma.ProductsListRelationFilter
   redemptionCodes?: Prisma.RedemptionCodesListRelationFilter
   campaigns?: Prisma.CampaignsListRelationFilter
+  levelNodeAccess?: Prisma.LevelNodeAccessListRelationFilter
 }, "id">
 
 export type membershipLevelsOrderByWithAggregationInput = {
@@ -333,6 +336,7 @@ export type membershipLevelsCreateInput = {
   products?: Prisma.productsCreateNestedManyWithoutLevelInput
   redemptionCodes?: Prisma.redemptionCodesCreateNestedManyWithoutLevelInput
   campaigns?: Prisma.campaignsCreateNestedManyWithoutLevelInput
+  levelNodeAccess?: Prisma.levelNodeAccessCreateNestedManyWithoutLevelInput
 }
 
 export type membershipLevelsUncheckedCreateInput = {
@@ -349,6 +353,7 @@ export type membershipLevelsUncheckedCreateInput = {
   products?: Prisma.productsUncheckedCreateNestedManyWithoutLevelInput
   redemptionCodes?: Prisma.redemptionCodesUncheckedCreateNestedManyWithoutLevelInput
   campaigns?: Prisma.campaignsUncheckedCreateNestedManyWithoutLevelInput
+  levelNodeAccess?: Prisma.levelNodeAccessUncheckedCreateNestedManyWithoutLevelInput
 }
 
 export type membershipLevelsUpdateInput = {
@@ -364,6 +369,7 @@ export type membershipLevelsUpdateInput = {
   products?: Prisma.productsUpdateManyWithoutLevelNestedInput
   redemptionCodes?: Prisma.redemptionCodesUpdateManyWithoutLevelNestedInput
   campaigns?: Prisma.campaignsUpdateManyWithoutLevelNestedInput
+  levelNodeAccess?: Prisma.levelNodeAccessUpdateManyWithoutLevelNestedInput
 }
 
 export type membershipLevelsUncheckedUpdateInput = {
@@ -380,6 +386,7 @@ export type membershipLevelsUncheckedUpdateInput = {
   products?: Prisma.productsUncheckedUpdateManyWithoutLevelNestedInput
   redemptionCodes?: Prisma.redemptionCodesUncheckedUpdateManyWithoutLevelNestedInput
   campaigns?: Prisma.campaignsUncheckedUpdateManyWithoutLevelNestedInput
+  levelNodeAccess?: Prisma.levelNodeAccessUncheckedUpdateManyWithoutLevelNestedInput
 }
 
 export type membershipLevelsCreateManyInput = {
@@ -513,6 +520,20 @@ export type membershipLevelsUpdateOneRequiredWithoutMembershipBenefitsNestedInpu
   update?: Prisma.XOR<Prisma.XOR<Prisma.membershipLevelsUpdateToOneWithWhereWithoutMembershipBenefitsInput, Prisma.membershipLevelsUpdateWithoutMembershipBenefitsInput>, Prisma.membershipLevelsUncheckedUpdateWithoutMembershipBenefitsInput>
 }
 
+export type membershipLevelsCreateNestedOneWithoutLevelNodeAccessInput = {
+  create?: Prisma.XOR<Prisma.membershipLevelsCreateWithoutLevelNodeAccessInput, Prisma.membershipLevelsUncheckedCreateWithoutLevelNodeAccessInput>
+  connectOrCreate?: Prisma.membershipLevelsCreateOrConnectWithoutLevelNodeAccessInput
+  connect?: Prisma.membershipLevelsWhereUniqueInput
+}
+
+export type membershipLevelsUpdateOneRequiredWithoutLevelNodeAccessNestedInput = {
+  create?: Prisma.XOR<Prisma.membershipLevelsCreateWithoutLevelNodeAccessInput, Prisma.membershipLevelsUncheckedCreateWithoutLevelNodeAccessInput>
+  connectOrCreate?: Prisma.membershipLevelsCreateOrConnectWithoutLevelNodeAccessInput
+  upsert?: Prisma.membershipLevelsUpsertWithoutLevelNodeAccessInput
+  connect?: Prisma.membershipLevelsWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.membershipLevelsUpdateToOneWithWhereWithoutLevelNodeAccessInput, Prisma.membershipLevelsUpdateWithoutLevelNodeAccessInput>, Prisma.membershipLevelsUncheckedUpdateWithoutLevelNodeAccessInput>
+}
+
 export type membershipLevelsCreateNestedOneWithoutProductsInput = {
   create?: Prisma.XOR<Prisma.membershipLevelsCreateWithoutProductsInput, Prisma.membershipLevelsUncheckedCreateWithoutProductsInput>
   connectOrCreate?: Prisma.membershipLevelsCreateOrConnectWithoutProductsInput
@@ -557,6 +578,7 @@ export type membershipLevelsCreateWithoutCampaignsInput = {
   membershipBenefits?: Prisma.membershipBenefitsCreateNestedManyWithoutLevelInput
   products?: Prisma.productsCreateNestedManyWithoutLevelInput
   redemptionCodes?: Prisma.redemptionCodesCreateNestedManyWithoutLevelInput
+  levelNodeAccess?: Prisma.levelNodeAccessCreateNestedManyWithoutLevelInput
 }
 
 export type membershipLevelsUncheckedCreateWithoutCampaignsInput = {
@@ -572,6 +594,7 @@ export type membershipLevelsUncheckedCreateWithoutCampaignsInput = {
   membershipBenefits?: Prisma.membershipBenefitsUncheckedCreateNestedManyWithoutLevelInput
   products?: Prisma.productsUncheckedCreateNestedManyWithoutLevelInput
   redemptionCodes?: Prisma.redemptionCodesUncheckedCreateNestedManyWithoutLevelInput
+  levelNodeAccess?: Prisma.levelNodeAccessUncheckedCreateNestedManyWithoutLevelInput
 }
 
 export type membershipLevelsCreateOrConnectWithoutCampaignsInput = {
@@ -602,6 +625,7 @@ export type membershipLevelsUpdateWithoutCampaignsInput = {
   membershipBenefits?: Prisma.membershipBenefitsUpdateManyWithoutLevelNestedInput
   products?: Prisma.productsUpdateManyWithoutLevelNestedInput
   redemptionCodes?: Prisma.redemptionCodesUpdateManyWithoutLevelNestedInput
+  levelNodeAccess?: Prisma.levelNodeAccessUpdateManyWithoutLevelNestedInput
 }
 
 export type membershipLevelsUncheckedUpdateWithoutCampaignsInput = {
@@ -617,6 +641,7 @@ export type membershipLevelsUncheckedUpdateWithoutCampaignsInput = {
   membershipBenefits?: Prisma.membershipBenefitsUncheckedUpdateManyWithoutLevelNestedInput
   products?: Prisma.productsUncheckedUpdateManyWithoutLevelNestedInput
   redemptionCodes?: Prisma.redemptionCodesUncheckedUpdateManyWithoutLevelNestedInput
+  levelNodeAccess?: Prisma.levelNodeAccessUncheckedUpdateManyWithoutLevelNestedInput
 }
 
 export type membershipLevelsCreateWithoutUserMembershipsInput = {
@@ -631,6 +656,7 @@ export type membershipLevelsCreateWithoutUserMembershipsInput = {
   products?: Prisma.productsCreateNestedManyWithoutLevelInput
   redemptionCodes?: Prisma.redemptionCodesCreateNestedManyWithoutLevelInput
   campaigns?: Prisma.campaignsCreateNestedManyWithoutLevelInput
+  levelNodeAccess?: Prisma.levelNodeAccessCreateNestedManyWithoutLevelInput
 }
 
 export type membershipLevelsUncheckedCreateWithoutUserMembershipsInput = {
@@ -646,6 +672,7 @@ export type membershipLevelsUncheckedCreateWithoutUserMembershipsInput = {
   products?: Prisma.productsUncheckedCreateNestedManyWithoutLevelInput
   redemptionCodes?: Prisma.redemptionCodesUncheckedCreateNestedManyWithoutLevelInput
   campaigns?: Prisma.campaignsUncheckedCreateNestedManyWithoutLevelInput
+  levelNodeAccess?: Prisma.levelNodeAccessUncheckedCreateNestedManyWithoutLevelInput
 }
 
 export type membershipLevelsCreateOrConnectWithoutUserMembershipsInput = {
@@ -676,6 +703,7 @@ export type membershipLevelsUpdateWithoutUserMembershipsInput = {
   products?: Prisma.productsUpdateManyWithoutLevelNestedInput
   redemptionCodes?: Prisma.redemptionCodesUpdateManyWithoutLevelNestedInput
   campaigns?: Prisma.campaignsUpdateManyWithoutLevelNestedInput
+  levelNodeAccess?: Prisma.levelNodeAccessUpdateManyWithoutLevelNestedInput
 }
 
 export type membershipLevelsUncheckedUpdateWithoutUserMembershipsInput = {
@@ -691,6 +719,7 @@ export type membershipLevelsUncheckedUpdateWithoutUserMembershipsInput = {
   products?: Prisma.productsUncheckedUpdateManyWithoutLevelNestedInput
   redemptionCodes?: Prisma.redemptionCodesUncheckedUpdateManyWithoutLevelNestedInput
   campaigns?: Prisma.campaignsUncheckedUpdateManyWithoutLevelNestedInput
+  levelNodeAccess?: Prisma.levelNodeAccessUncheckedUpdateManyWithoutLevelNestedInput
 }
 
 export type membershipLevelsCreateWithoutMembershipBenefitsInput = {
@@ -705,6 +734,7 @@ export type membershipLevelsCreateWithoutMembershipBenefitsInput = {
   products?: Prisma.productsCreateNestedManyWithoutLevelInput
   redemptionCodes?: Prisma.redemptionCodesCreateNestedManyWithoutLevelInput
   campaigns?: Prisma.campaignsCreateNestedManyWithoutLevelInput
+  levelNodeAccess?: Prisma.levelNodeAccessCreateNestedManyWithoutLevelInput
 }
 
 export type membershipLevelsUncheckedCreateWithoutMembershipBenefitsInput = {
@@ -720,6 +750,7 @@ export type membershipLevelsUncheckedCreateWithoutMembershipBenefitsInput = {
   products?: Prisma.productsUncheckedCreateNestedManyWithoutLevelInput
   redemptionCodes?: Prisma.redemptionCodesUncheckedCreateNestedManyWithoutLevelInput
   campaigns?: Prisma.campaignsUncheckedCreateNestedManyWithoutLevelInput
+  levelNodeAccess?: Prisma.levelNodeAccessUncheckedCreateNestedManyWithoutLevelInput
 }
 
 export type membershipLevelsCreateOrConnectWithoutMembershipBenefitsInput = {
@@ -750,6 +781,7 @@ export type membershipLevelsUpdateWithoutMembershipBenefitsInput = {
   products?: Prisma.productsUpdateManyWithoutLevelNestedInput
   redemptionCodes?: Prisma.redemptionCodesUpdateManyWithoutLevelNestedInput
   campaigns?: Prisma.campaignsUpdateManyWithoutLevelNestedInput
+  levelNodeAccess?: Prisma.levelNodeAccessUpdateManyWithoutLevelNestedInput
 }
 
 export type membershipLevelsUncheckedUpdateWithoutMembershipBenefitsInput = {
@@ -762,6 +794,85 @@ export type membershipLevelsUncheckedUpdateWithoutMembershipBenefitsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   userMemberships?: Prisma.userMembershipsUncheckedUpdateManyWithoutLevelNestedInput
+  products?: Prisma.productsUncheckedUpdateManyWithoutLevelNestedInput
+  redemptionCodes?: Prisma.redemptionCodesUncheckedUpdateManyWithoutLevelNestedInput
+  campaigns?: Prisma.campaignsUncheckedUpdateManyWithoutLevelNestedInput
+  levelNodeAccess?: Prisma.levelNodeAccessUncheckedUpdateManyWithoutLevelNestedInput
+}
+
+export type membershipLevelsCreateWithoutLevelNodeAccessInput = {
+  name: string
+  description?: string | null
+  sortOrder?: number
+  status?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  userMemberships?: Prisma.userMembershipsCreateNestedManyWithoutLevelInput
+  membershipBenefits?: Prisma.membershipBenefitsCreateNestedManyWithoutLevelInput
+  products?: Prisma.productsCreateNestedManyWithoutLevelInput
+  redemptionCodes?: Prisma.redemptionCodesCreateNestedManyWithoutLevelInput
+  campaigns?: Prisma.campaignsCreateNestedManyWithoutLevelInput
+}
+
+export type membershipLevelsUncheckedCreateWithoutLevelNodeAccessInput = {
+  id?: number
+  name: string
+  description?: string | null
+  sortOrder?: number
+  status?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  userMemberships?: Prisma.userMembershipsUncheckedCreateNestedManyWithoutLevelInput
+  membershipBenefits?: Prisma.membershipBenefitsUncheckedCreateNestedManyWithoutLevelInput
+  products?: Prisma.productsUncheckedCreateNestedManyWithoutLevelInput
+  redemptionCodes?: Prisma.redemptionCodesUncheckedCreateNestedManyWithoutLevelInput
+  campaigns?: Prisma.campaignsUncheckedCreateNestedManyWithoutLevelInput
+}
+
+export type membershipLevelsCreateOrConnectWithoutLevelNodeAccessInput = {
+  where: Prisma.membershipLevelsWhereUniqueInput
+  create: Prisma.XOR<Prisma.membershipLevelsCreateWithoutLevelNodeAccessInput, Prisma.membershipLevelsUncheckedCreateWithoutLevelNodeAccessInput>
+}
+
+export type membershipLevelsUpsertWithoutLevelNodeAccessInput = {
+  update: Prisma.XOR<Prisma.membershipLevelsUpdateWithoutLevelNodeAccessInput, Prisma.membershipLevelsUncheckedUpdateWithoutLevelNodeAccessInput>
+  create: Prisma.XOR<Prisma.membershipLevelsCreateWithoutLevelNodeAccessInput, Prisma.membershipLevelsUncheckedCreateWithoutLevelNodeAccessInput>
+  where?: Prisma.membershipLevelsWhereInput
+}
+
+export type membershipLevelsUpdateToOneWithWhereWithoutLevelNodeAccessInput = {
+  where?: Prisma.membershipLevelsWhereInput
+  data: Prisma.XOR<Prisma.membershipLevelsUpdateWithoutLevelNodeAccessInput, Prisma.membershipLevelsUncheckedUpdateWithoutLevelNodeAccessInput>
+}
+
+export type membershipLevelsUpdateWithoutLevelNodeAccessInput = {
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userMemberships?: Prisma.userMembershipsUpdateManyWithoutLevelNestedInput
+  membershipBenefits?: Prisma.membershipBenefitsUpdateManyWithoutLevelNestedInput
+  products?: Prisma.productsUpdateManyWithoutLevelNestedInput
+  redemptionCodes?: Prisma.redemptionCodesUpdateManyWithoutLevelNestedInput
+  campaigns?: Prisma.campaignsUpdateManyWithoutLevelNestedInput
+}
+
+export type membershipLevelsUncheckedUpdateWithoutLevelNodeAccessInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  sortOrder?: Prisma.IntFieldUpdateOperationsInput | number
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userMemberships?: Prisma.userMembershipsUncheckedUpdateManyWithoutLevelNestedInput
+  membershipBenefits?: Prisma.membershipBenefitsUncheckedUpdateManyWithoutLevelNestedInput
   products?: Prisma.productsUncheckedUpdateManyWithoutLevelNestedInput
   redemptionCodes?: Prisma.redemptionCodesUncheckedUpdateManyWithoutLevelNestedInput
   campaigns?: Prisma.campaignsUncheckedUpdateManyWithoutLevelNestedInput
@@ -779,6 +890,7 @@ export type membershipLevelsCreateWithoutProductsInput = {
   membershipBenefits?: Prisma.membershipBenefitsCreateNestedManyWithoutLevelInput
   redemptionCodes?: Prisma.redemptionCodesCreateNestedManyWithoutLevelInput
   campaigns?: Prisma.campaignsCreateNestedManyWithoutLevelInput
+  levelNodeAccess?: Prisma.levelNodeAccessCreateNestedManyWithoutLevelInput
 }
 
 export type membershipLevelsUncheckedCreateWithoutProductsInput = {
@@ -794,6 +906,7 @@ export type membershipLevelsUncheckedCreateWithoutProductsInput = {
   membershipBenefits?: Prisma.membershipBenefitsUncheckedCreateNestedManyWithoutLevelInput
   redemptionCodes?: Prisma.redemptionCodesUncheckedCreateNestedManyWithoutLevelInput
   campaigns?: Prisma.campaignsUncheckedCreateNestedManyWithoutLevelInput
+  levelNodeAccess?: Prisma.levelNodeAccessUncheckedCreateNestedManyWithoutLevelInput
 }
 
 export type membershipLevelsCreateOrConnectWithoutProductsInput = {
@@ -824,6 +937,7 @@ export type membershipLevelsUpdateWithoutProductsInput = {
   membershipBenefits?: Prisma.membershipBenefitsUpdateManyWithoutLevelNestedInput
   redemptionCodes?: Prisma.redemptionCodesUpdateManyWithoutLevelNestedInput
   campaigns?: Prisma.campaignsUpdateManyWithoutLevelNestedInput
+  levelNodeAccess?: Prisma.levelNodeAccessUpdateManyWithoutLevelNestedInput
 }
 
 export type membershipLevelsUncheckedUpdateWithoutProductsInput = {
@@ -839,6 +953,7 @@ export type membershipLevelsUncheckedUpdateWithoutProductsInput = {
   membershipBenefits?: Prisma.membershipBenefitsUncheckedUpdateManyWithoutLevelNestedInput
   redemptionCodes?: Prisma.redemptionCodesUncheckedUpdateManyWithoutLevelNestedInput
   campaigns?: Prisma.campaignsUncheckedUpdateManyWithoutLevelNestedInput
+  levelNodeAccess?: Prisma.levelNodeAccessUncheckedUpdateManyWithoutLevelNestedInput
 }
 
 export type membershipLevelsCreateWithoutRedemptionCodesInput = {
@@ -853,6 +968,7 @@ export type membershipLevelsCreateWithoutRedemptionCodesInput = {
   membershipBenefits?: Prisma.membershipBenefitsCreateNestedManyWithoutLevelInput
   products?: Prisma.productsCreateNestedManyWithoutLevelInput
   campaigns?: Prisma.campaignsCreateNestedManyWithoutLevelInput
+  levelNodeAccess?: Prisma.levelNodeAccessCreateNestedManyWithoutLevelInput
 }
 
 export type membershipLevelsUncheckedCreateWithoutRedemptionCodesInput = {
@@ -868,6 +984,7 @@ export type membershipLevelsUncheckedCreateWithoutRedemptionCodesInput = {
   membershipBenefits?: Prisma.membershipBenefitsUncheckedCreateNestedManyWithoutLevelInput
   products?: Prisma.productsUncheckedCreateNestedManyWithoutLevelInput
   campaigns?: Prisma.campaignsUncheckedCreateNestedManyWithoutLevelInput
+  levelNodeAccess?: Prisma.levelNodeAccessUncheckedCreateNestedManyWithoutLevelInput
 }
 
 export type membershipLevelsCreateOrConnectWithoutRedemptionCodesInput = {
@@ -898,6 +1015,7 @@ export type membershipLevelsUpdateWithoutRedemptionCodesInput = {
   membershipBenefits?: Prisma.membershipBenefitsUpdateManyWithoutLevelNestedInput
   products?: Prisma.productsUpdateManyWithoutLevelNestedInput
   campaigns?: Prisma.campaignsUpdateManyWithoutLevelNestedInput
+  levelNodeAccess?: Prisma.levelNodeAccessUpdateManyWithoutLevelNestedInput
 }
 
 export type membershipLevelsUncheckedUpdateWithoutRedemptionCodesInput = {
@@ -913,6 +1031,7 @@ export type membershipLevelsUncheckedUpdateWithoutRedemptionCodesInput = {
   membershipBenefits?: Prisma.membershipBenefitsUncheckedUpdateManyWithoutLevelNestedInput
   products?: Prisma.productsUncheckedUpdateManyWithoutLevelNestedInput
   campaigns?: Prisma.campaignsUncheckedUpdateManyWithoutLevelNestedInput
+  levelNodeAccess?: Prisma.levelNodeAccessUncheckedUpdateManyWithoutLevelNestedInput
 }
 
 
@@ -926,6 +1045,7 @@ export type MembershipLevelsCountOutputType = {
   products: number
   redemptionCodes: number
   campaigns: number
+  levelNodeAccess: number
 }
 
 export type MembershipLevelsCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -934,6 +1054,7 @@ export type MembershipLevelsCountOutputTypeSelect<ExtArgs extends runtime.Types.
   products?: boolean | MembershipLevelsCountOutputTypeCountProductsArgs
   redemptionCodes?: boolean | MembershipLevelsCountOutputTypeCountRedemptionCodesArgs
   campaigns?: boolean | MembershipLevelsCountOutputTypeCountCampaignsArgs
+  levelNodeAccess?: boolean | MembershipLevelsCountOutputTypeCountLevelNodeAccessArgs
 }
 
 /**
@@ -981,6 +1102,13 @@ export type MembershipLevelsCountOutputTypeCountCampaignsArgs<ExtArgs extends ru
   where?: Prisma.campaignsWhereInput
 }
 
+/**
+ * MembershipLevelsCountOutputType without action
+ */
+export type MembershipLevelsCountOutputTypeCountLevelNodeAccessArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.levelNodeAccessWhereInput
+}
+
 
 export type membershipLevelsSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -996,6 +1124,7 @@ export type membershipLevelsSelect<ExtArgs extends runtime.Types.Extensions.Inte
   products?: boolean | Prisma.membershipLevels$productsArgs<ExtArgs>
   redemptionCodes?: boolean | Prisma.membershipLevels$redemptionCodesArgs<ExtArgs>
   campaigns?: boolean | Prisma.membershipLevels$campaignsArgs<ExtArgs>
+  levelNodeAccess?: boolean | Prisma.membershipLevels$levelNodeAccessArgs<ExtArgs>
   _count?: boolean | Prisma.MembershipLevelsCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["membershipLevels"]>
 
@@ -1039,6 +1168,7 @@ export type membershipLevelsInclude<ExtArgs extends runtime.Types.Extensions.Int
   products?: boolean | Prisma.membershipLevels$productsArgs<ExtArgs>
   redemptionCodes?: boolean | Prisma.membershipLevels$redemptionCodesArgs<ExtArgs>
   campaigns?: boolean | Prisma.membershipLevels$campaignsArgs<ExtArgs>
+  levelNodeAccess?: boolean | Prisma.membershipLevels$levelNodeAccessArgs<ExtArgs>
   _count?: boolean | Prisma.MembershipLevelsCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type membershipLevelsIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -1067,6 +1197,10 @@ export type $membershipLevelsPayload<ExtArgs extends runtime.Types.Extensions.In
      * 关联的营销活动
      */
     campaigns: Prisma.$campaignsPayload<ExtArgs>[]
+    /**
+     * 关联的会员节点权限
+     */
+    levelNodeAccess: Prisma.$levelNodeAccessPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     /**
@@ -1500,6 +1634,7 @@ export interface Prisma__membershipLevelsClient<T, Null = never, ExtArgs extends
   products<T extends Prisma.membershipLevels$productsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.membershipLevels$productsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$productsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   redemptionCodes<T extends Prisma.membershipLevels$redemptionCodesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.membershipLevels$redemptionCodesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$redemptionCodesPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   campaigns<T extends Prisma.membershipLevels$campaignsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.membershipLevels$campaignsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$campaignsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  levelNodeAccess<T extends Prisma.membershipLevels$levelNodeAccessArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.membershipLevels$levelNodeAccessArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$levelNodeAccessPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2042,6 +2177,30 @@ export type membershipLevels$campaignsArgs<ExtArgs extends runtime.Types.Extensi
   take?: number
   skip?: number
   distinct?: Prisma.CampaignsScalarFieldEnum | Prisma.CampaignsScalarFieldEnum[]
+}
+
+/**
+ * membershipLevels.levelNodeAccess
+ */
+export type membershipLevels$levelNodeAccessArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the levelNodeAccess
+   */
+  select?: Prisma.levelNodeAccessSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the levelNodeAccess
+   */
+  omit?: Prisma.levelNodeAccessOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.levelNodeAccessInclude<ExtArgs> | null
+  where?: Prisma.levelNodeAccessWhereInput
+  orderBy?: Prisma.levelNodeAccessOrderByWithRelationInput | Prisma.levelNodeAccessOrderByWithRelationInput[]
+  cursor?: Prisma.levelNodeAccessWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.LevelNodeAccessScalarFieldEnum | Prisma.LevelNodeAccessScalarFieldEnum[]
 }
 
 /**

@@ -101,6 +101,9 @@ model models {
     /// 关联的提供商
     modelProvider modelProviders @relation(fields: [providerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
+    /// 关联的节点
+    nodes nodes[]
+
     @@unique([providerId, name])
     @@index([providerId], map: "idx_models_provider_id")
     @@index([modelType], map: "idx_models_model_type")

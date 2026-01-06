@@ -65,6 +65,38 @@ export type permissionAuditLogs = Prisma.permissionAuditLogsModel
  */
 export type campaigns = Prisma.campaignsModel
 /**
+ * Model cases
+ * 案件表 - 存储用户创建的法律案件实体
+ */
+export type cases = Prisma.casesModel
+/**
+ * Model caseSessions
+ * 案件会话表 - 存储案件分析的会话上下文，对应 LangGraph 的 thread_id
+ */
+export type caseSessions = Prisma.caseSessionsModel
+/**
+ * Model caseMaterials
+ * 案件材料表 - 存储案件相关的输入材料
+ */
+export type caseMaterials = Prisma.caseMaterialsModel
+/**
+ * Model caseAnalyses
+ * 案件分析结果表 - 存储各分析模块的分析结果
+ */
+export type caseAnalyses = Prisma.caseAnalysesModel
+/**
+ * Model demoCases
+ * 示范案例表 - 存储预设的示范案例，供用户快速体验分析流程
+ */
+export type demoCases = Prisma.demoCasesModel
+/**
+ * Model caseMaterialEmbeddings
+ * 案件材料向量表 - 存储案件材料的向量化数据用于语义检索
+ * 使用 pgvector 扩展进行向量存储和相似度搜索
+ * 注意：此表结构不允许修改，必须保持原有设计
+ */
+export type caseMaterialEmbeddings = Prisma.caseMaterialEmbeddingsModel
+/**
  * Model userEncryptions
  * 用户加密配置表
  * 存储用户的端到端加密密钥信息
@@ -131,6 +163,26 @@ export type modelApiKeys = Prisma.modelApiKeysModel
  * 模型配置表
  */
 export type models = Prisma.modelsModel
+/**
+ * Model nodeGroups
+ * 节点分组表 - 用于组织和管理相关节点
+ */
+export type nodeGroups = Prisma.nodeGroupsModel
+/**
+ * Model nodes
+ * 节点表 - 工作流中的分析节点，定义分析任务的配置和行为
+ */
+export type nodes = Prisma.nodesModel
+/**
+ * Model prompts
+ * 提示词表 - 节点使用的 AI 提示词模板，支持版本管理
+ */
+export type prompts = Prisma.promptsModel
+/**
+ * Model levelNodeAccess
+ * 会员节点权限表 - 控制不同会员级别可以访问哪些分析节点
+ */
+export type levelNodeAccess = Prisma.levelNodeAccessModel
 /**
  * Model orders
  * 订单表

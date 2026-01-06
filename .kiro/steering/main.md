@@ -12,7 +12,7 @@
 - API 参数验证使用 zod
 - 日期处理使用 dayjs
 - 代码超过 500 行需拆分文件
-- 路由 params 参数必须在最末尾
+- API 和 路由的 params 参数必须在最末尾
 
 ## 框架约定
 - Nuxt 4 + Vue 3 + Tailwind v4

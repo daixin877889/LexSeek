@@ -538,3 +538,23 @@ SELECT setval('membership_benefits_id_seq', (SELECT COALESCE(MAX(id), 0) FROM me
 SELECT setval('model_providers_id_seq', (SELECT COALESCE(MAX(id), 0) FROM model_providers) + 1, false);
 SELECT setval('model_api_keys_id_seq', (SELECT COALESCE(MAX(id), 0) FROM model_api_keys) + 1, false);
 SELECT setval('models_id_seq', (SELECT COALESCE(MAX(id), 0) FROM models) + 1, false);
+
+
+-- 积分消耗项目（案件分析相关）
+-- 材料处理分组
+INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (1, 'material', 'pdf_parse', 'PDF 文档解析', '页', 1, 1, 1.00, NOW(), NOW(), NULL);
+INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (2, 'material', 'asr_transcribe', '语音识别转录', '分钟', 1, 1, 0.30, NOW(), NOW(), NULL);
+INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (3, 'material', 'ocr_recognize', '图片文字识别', '张', 1, 1, 1.00, NOW(), NOW(), NULL);
+
+-- 分析模块分组
+INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (4, 'analysisModules', 'title', '提取案件标题', '次', 0, 1, 1.00, NOW(), NOW(), NULL);
+INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (5, 'analysisModules', 'summary', '生成案件概要', '次', 3, 1, 1.00, NOW(), NOW(), NULL);
+INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (6, 'analysisModules', 'chronicle', '提取案件大事记', '次', 2, 1, 1.00, NOW(), NOW(), NULL);
+INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (7, 'analysisModules', 'claim', '预分析案件请求权', '次', 9, 1, 0.70, NOW(), NOW(), NULL);
+INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (8, 'analysisModules', 'cause', '预选案由', '次', 9, 1, 0.70, NOW(), NOW(), NULL);
+INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (9, 'analysisModules', 'trend', '法律合理性审查和判决趋势预测', '次', 9, 1, 0.70, NOW(), NOW(), NULL);
+INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (10, 'analysisModules', 'defense', '抗辩分析及应对策略预测', '次', 5, 1, 1.00, NOW(), NOW(), NULL);
+INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (11, 'analysisModules', 'evidence', '证据清单预梳理', '次', 7, 1, 0.70, NOW(), NOW(), NULL);
+
+-- 重置序列
+SELECT setval('point_consumption_items_id_seq', (SELECT MAX(id) FROM point_consumption_items));

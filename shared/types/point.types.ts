@@ -114,3 +114,17 @@ export interface PointHistoryRecord {
     status: number
     remark?: string
 }
+
+/** 积分消耗项目（用于前端展示） */
+export interface PointConsumptionItem {
+    id: number
+    group: string
+    name: string
+    description: string | null
+    unit: string
+    pointAmount: number
+    discount: number | string | null
+    status: number
+    createdAt: string
+    updatedAt: string
+}
