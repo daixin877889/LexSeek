@@ -88,10 +88,11 @@ const internalStatus = computed({
 
 // ==================== 状态选项 ====================
 
+// 状态值：1-进行中，2-已完成，3-已关闭
 const statusOptions = [
     { value: "all", label: "全部状态" },
+    { value: "1", label: "进行中" },
     { value: "2", label: "已完成" },
-    { value: "1", label: "分析中" },
-    { value: "0", label: "待分析" },
+    { value: "3", label: "已关闭" },
 ];
 </script>

@@ -26,7 +26,7 @@
                         <td class="px-4 py-3">
                             <div class="flex items-center">
                                 <FileText class="h-4 w-4 text-muted-foreground mr-2 shrink-0" />
-                                <NuxtLink :to="`/dashboard/cases/${item.id}`"
+                                <NuxtLink :to="`/case/analysis/${item.id}`"
                                     class="font-medium hover:underline hover:text-primary truncate max-w-[200px]">
                                     {{ item.title }}
                                 </NuxtLink>
@@ -49,7 +49,7 @@
                         <!-- 操作 -->
                         <td class="px-4 py-3 text-center">
                             <div class="flex items-center justify-center gap-2">
-                                <NuxtLink :to="`/dashboard/cases/${item.id}`">
+                                <NuxtLink :to="`/case/analysis/${item.id}`">
                                     <Button variant="ghost" size="icon" class="h-8 w-8">
                                         <Eye class="h-4 w-4" />
                                     </Button>
@@ -117,15 +117,16 @@ const getCaseTypeName = (typeId: number): string => {
 
 /**
  * 获取状态文本
+ * 状态值：1-进行中，2-已完成，3-已关闭
  */
 const getStatusText = (status: number): string => {
     switch (status) {
+        case 1:
+            return "进行中";
         case 2:
             return "已完成";
-        case 1:
-            return "分析中";
-        case 0:
-            return "待分析";
+        case 3:
+            return "已关闭";
         default:
             return "未知";
     }
@@ -133,16 +134,17 @@ const getStatusText = (status: number): string => {
 
 /**
  * 获取状态样式类
+ * 状态值：1-进行中，2-已完成，3-已关闭
  */
 const getStatusClass = (status: number): string => {
     const baseClass = "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium";
     switch (status) {
-        case 2:
-            return `${baseClass} bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400`;
         case 1:
             return `${baseClass} bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400`;
-        case 0:
-            return `${baseClass} bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400`;
+        case 2:
+            return `${baseClass} bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400`;
+        case 3:
+            return `${baseClass} bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400`;
         default:
             return `${baseClass} bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400`;
     }

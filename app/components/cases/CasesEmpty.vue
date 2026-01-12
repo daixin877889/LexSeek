@@ -11,7 +11,7 @@
                 <RotateCcw class="h-4 w-4 mr-2" />
                 重置筛选
             </Button>
-            <NuxtLink to="/dashboard/analysis">
+            <NuxtLink to="/case/analysis/0">
                 <Button>
                     <Plus class="h-4 w-4 mr-2" />
                     新建分析
