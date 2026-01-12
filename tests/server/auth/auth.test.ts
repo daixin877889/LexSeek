@@ -28,7 +28,7 @@ import {
 } from '../../../server/services/users/tokenBlacklist.dao'
 
 import {
-    getCookieConfig,
+    getCookieConfigService,
     AUTH_STATUS_COOKIE,
     type TokenUserInfo,
     type CookieConfig,

@@ -32,11 +32,19 @@ const createTestPrisma = () => {
 
 const prisma = createTestPrisma()
 
+// 设置全局变量（服务层依赖）
+// @ts-expect-error 全局变量注入
+globalThis.prisma = prisma
+// @ts-expect-error 全局变量注入
+globalThis.logger = { info: console.log, error: console.error, warn: console.warn, debug: console.debug }
+// @ts-expect-error 全局变量注入
+globalThis.PointConsumptionItemStatus = { ENABLED: 1, DISABLED: 0 }
+// @ts-expect-error 全局变量注入
+globalThis.PointConsumptionRecordStatus = { INVALID: 0, PRE_DEDUCT: 1, SETTLED: 2 }
+
 // 导入服务函数
-import {
-    consumePoints,
-    getUserPointSummary,
-} from '../../../server/services/point/pointRecords.service'
+import { getUserPointSummary } from '../../../server/services/point/pointRecords.service'
+import { consumePointsService } from '../../../server/services/point/pointConsumption.service'
 import { PointRecordSourceType, PointRecordStatus, PointConsumptionItemStatus } from '../../../shared/types/point.types'
 
 // 测试数据 ID 追踪
@@ -92,15 +100,17 @@ const createTestPointRecord = async (
     return record
 }
 
-// 创建测试积分消耗项目
+// 创建测试积分消耗项目（带 key 字段，用于新 API）
 const createTestPointConsumptionItem = async (options: {
     name?: string
     pointAmount?: number
     discount?: number
 } = {}) => {
     const testId = generateTestId()
+    const itemKey = `test_item_${testId}`
     const item = await prisma.pointConsumptionItems.create({
         data: {
+            key: itemKey,
             name: options.name ?? `测试消耗项目_${testId}`,
             description: '测试用积分消耗项目',
             group: 'test_group',
@@ -113,7 +123,7 @@ const createTestPointConsumptionItem = async (options: {
         },
     })
     testIds.pointConsumptionItemIds.push(item.id)
-    return item
+    return { ...item, itemKey }
 }
 
 // 清理测试数据
@@ -218,8 +228,8 @@ describe('积分扣减属性测试', () => {
                         const summaryBefore = await getUserPointSummary(user.id)
                         const remainingBefore = summaryBefore.remaining
 
-                        // 执行扣减
-                        const result = await consumePoints(user.id, item.id)
+                        // 执行扣减（使用新的 consumePointsService，quantity=1 表示消耗 1 次）
+                        const result = await consumePointsService(user.id, item.itemKey, 1)
 
                         // 获取扣减后的积分汇总
                         const summaryAfter = await getUserPointSummary(user.id)
@@ -281,8 +291,8 @@ describe('积分扣减属性测试', () => {
                         // 创建消耗项目
                         const item = await createTestPointConsumptionItem({ pointAmount: deductAmount })
 
-                        // 执行扣减
-                        await consumePoints(user.id, item.id)
+                        // 执行扣减（使用新的 consumePointsService，quantity=1 表示消耗 1 次）
+                        await consumePointsService(user.id, item.itemKey, 1)
 
                         // 查询扣减后的积分记录
                         const updatedRecords = await prisma.pointRecords.findMany({
@@ -357,13 +367,13 @@ describe('积分扣减属性测试', () => {
                         // 获取扣减前的积分汇总
                         const summaryBefore = await getUserPointSummary(user.id)
 
-                        // 执行扣减，应抛出错误
+                        // 执行扣减，应抛出错误（使用新的 consumePointsService）
                         let errorThrown = false
                         try {
-                            await consumePoints(user.id, item.id)
+                            await consumePointsService(user.id, item.itemKey, 1)
                         } catch (error: any) {
                             errorThrown = true
-                            expect(error.message).toBe('积分不足')
+                            expect(error.message).toContain('积分不足')
                         }
 
                         // 验证错误被抛出

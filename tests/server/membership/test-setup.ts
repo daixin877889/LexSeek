@@ -97,9 +97,9 @@ resetDatabaseSequences().catch(err => {
     }
 
     ; (globalThis as any).PointConsumptionRecordStatus = {
-        PENDING: 0,
-        SETTLED: 1,
-        CANCELLED: 2,
+        INVALID: 0,
+        PRE_DEDUCT: 1,
+        SETTLED: 2,
     }
 
 export { mockLogger }

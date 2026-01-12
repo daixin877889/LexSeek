@@ -24,11 +24,11 @@ import {
 } from '../../../server/services/sms/smsRecord.dao'
 
 import {
-    verifySmsCode,
+    verifySmsCodeService,
     timingSafeEqual,
-    isVerificationLocked,
-    recordVerificationFailure,
-    resetVerificationFailures,
+    isVerificationLockedService,
+    recordVerificationFailureService,
+    resetVerificationFailuresService,
     getVerificationFailureRecord,
     clearAllVerificationFailures,
 } from '../../../server/services/sms/smsVerification.service'
@@ -192,14 +192,14 @@ describe('短信验证码模块测试', () => {
     describe('验证失败锁定机制测试', () => {
         it('初始状态不应被锁定', async () => {
             const phone = `${TEST_USER_PHONE_PREFIX}00000001`
-            const locked = await isVerificationLocked(phone, SmsType.LOGIN)
+            const locked = await isVerificationLockedService(phone, SmsType.LOGIN)
             expect(locked).toBe(false)
         })
 
         it('记录验证失败应增加失败计数', async () => {
             const phone = `${TEST_USER_PHONE_PREFIX}00000002`
 
-            await recordVerificationFailure(phone, SmsType.LOGIN)
+            await recordVerificationFailureService(phone, SmsType.LOGIN)
 
             const record = getVerificationFailureRecord(phone, SmsType.LOGIN)
             expect(record).toBeDefined()
@@ -209,13 +209,13 @@ describe('短信验证码模块测试', () => {
         it('重置失败计数应清除记录', async () => {
             const phone = `${TEST_USER_PHONE_PREFIX}00000003`
 
-            await recordVerificationFailure(phone, SmsType.LOGIN)
-            await recordVerificationFailure(phone, SmsType.LOGIN)
+            await recordVerificationFailureService(phone, SmsType.LOGIN)
+            await recordVerificationFailureService(phone, SmsType.LOGIN)
 
             let record = getVerificationFailureRecord(phone, SmsType.LOGIN)
             expect(record?.count).toBe(2)
 
-            await resetVerificationFailures(phone, SmsType.LOGIN)
+            await resetVerificationFailuresService(phone, SmsType.LOGIN)
 
             record = getVerificationFailureRecord(phone, SmsType.LOGIN)
             expect(record).toBeUndefined()
