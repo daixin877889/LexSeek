@@ -2,6 +2,17 @@
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineNuxtConfig({
+  // 组件配置：排除 index.ts 文件避免与 .vue 组件名称冲突
+  components: {
+    dirs: [
+      {
+        path: '~/components',
+        // 排除 index.ts 文件，避免与同名 .vue 组件冲突
+        // 例如：artifact/index.ts 和 artifact/Artifact.vue 都会被解析为 AiElementsArtifact
+        ignore: ['**/index.ts', '**/context.ts'],
+      },
+    ],
+  },
   app: {
     head: {
       htmlAttrs: {
