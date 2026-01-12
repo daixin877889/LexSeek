@@ -13,17 +13,23 @@
 - 日期处理使用 dayjs
 - 代码超过 500 行需拆分文件
 - API 和 路由的 params 参数必须在最末尾
+- 文件 mimetype 请使用项目已经配置好的 `mime` 方法
+- **请注意：你需要编写的是生产级别的代码，不是 demo ，所以代码实现必须使用简洁且健壮的方案，严禁使用 demo 级别的简单实现。**
 
 ## 框架约定
 - Nuxt 4 + Vue 3 + Tailwind v4
 - Prisma ORM（Decimal 类型使用 `shared/utils/decimalToNumber.ts` 转换）
-- 遵守 CLAUDE.md 中的项目架构文档
+<!-- - 遵守 CLAUDE.md 中的项目架构文档 -->
+- 在定义数据类型、方法、UI 组件时，需先查看项目中是否已有实现，如果有不要重复造轮子。公共数据结构放在 `shared/types` 目录，公共方法放在 `shared/utils` 目录。
 
 ## 自动导入
 Nuxt 配置了自动导入，无需手动 import：
 - 服务端：`prisma`、`logger`、`resSuccess`、`resError`、H3 函数
 - 前端：Vue 响应式 API、Nuxt composables、Pinia stores
 - 类型需手动导入：`import type { X } from "#shared/types/xxx"`
+
+## 数据读取
+- 如果要验证数据库的数据，你需要查找 postgres 的 docker 容器，进入容器后执行查询命令。
 
 ## API 用户认证
 ```typescript

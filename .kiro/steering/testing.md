@@ -1,6 +1,6 @@
 ---
 inclusion: fileMatch
-fileMatchPattern: "**/tests/**"
+fileMatchPattern: "tests/**"
 ---
 # 测试规范
 

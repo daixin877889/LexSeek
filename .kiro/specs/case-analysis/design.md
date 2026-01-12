@@ -215,22 +215,178 @@ interface MaterialSearchResult {
 }
 ```
 
-#### 2.1 MaterialSearchTool（材料检索工具）
+#### 2.1 ToolRegistry（工具注册表服务）
 
 ```typescript
-// LangGraph 工具定义
-interface MaterialSearchTool {
-  name: 'search_case_materials'
-  description: '检索当前案件的材料内容，用于查找与分析相关的材料片段'
+// 工具元信息定义
+interface ToolMeta {
+  name: string              // 工具名称（唯一标识）
+  description: string       // 工具描述
+  parameters: {             // 参数定义
+    name: string
+    type: string
+    description: string
+    required: boolean
+    default?: any
+  }[]
+}
+
+// 工具注册表服务
+interface ToolRegistryService {
+  // 获取所有已注册工具的元信息
+  getAllTools(): ToolMeta[]
   
-  // 输入参数
-  input: {
-    query: string           // 查询内容
-    k?: number              // 返回结果数量，默认 5
-  }
+  // 根据名称获取工具元信息
+  getToolMeta(name: string): ToolMeta | null
   
-  // 输出结果
-  output: MaterialSearchResult[]
+  // 根据名称列表获取工具实例（用于工作流执行）
+  getToolInstances(names: string[], context: ToolContext): Tool[]
+}
+
+// 工具上下文（运行时注入）
+interface ToolContext {
+  userId: number
+  caseId: number
+  sessionId: string
+}
+```
+
+#### 2.2 工作流工具架构设计
+
+采用分层架构，将查询逻辑与工具定义分离：
+
+```
+# 模块服务层 - 定义具体的查询逻辑
+server/services/material/
+├── materialSearch.service.ts   # 材料检索服务（查询逻辑）
+└── ...
+
+server/services/legal/
+├── searchLaw.service.ts        # 法律检索服务（查询逻辑，从 searchLaw.tool.ts 重构）
+└── ...
+
+# 工作流工具层 - 定义 LangGraph 工具
+server/services/workflow/tools/
+├── index.ts                    # 工具注册表，导出所有工具
+├── types.ts                    # 工具类型定义
+├── searchCaseMaterials.tool.ts # 案件材料检索工具（调用 material 服务）
+├── searchLaw.tool.ts           # 法律检索工具（调用 legal 服务）
+└── ... (其他工具)
+```
+
+**设计原则**：
+- **模块服务层**：负责具体的查询逻辑，可被 API 和工作流工具共同使用
+- **工作流工具层**：负责定义 LangGraph 工具元信息和工厂函数，调用模块服务层的查询逻辑
+- 这种设计确保查询逻辑的复用性，同时保持工作流工具的统一管理
+
+#### 2.3 工具实现规范
+
+每个工具文件需要导出以下内容：
+
+```typescript
+// 工具元信息（用于注册表和 API）
+export const toolMeta: ToolMeta = {
+  name: 'search_case_materials',
+  description: '检索当前案件的材料内容',
+  parameters: [
+    { name: 'query', type: 'string', description: '查询内容', required: true },
+    { name: 'k', type: 'number', description: '返回数量', required: false, default: 5 }
+  ]
+}
+
+// 工具工厂函数（用于创建带上下文的工具实例）
+export function createTool(context: ToolContext): Tool {
+  // 返回 LangChain tool 实例
+}
+```
+
+#### 2.4 工具实现示例
+
+**材料检索工具示例**：
+
+```typescript
+// server/services/workflow/tools/searchCaseMaterials.tool.ts
+// 工作流工具 - 调用 material 服务层的查询逻辑
+
+import { tool } from '@langchain/core/tools'
+import { z } from 'zod'
+import { searchCaseMaterialsService } from '../../material/materialSearch.service'
+import type { ToolMeta, ToolContext } from './types'
+
+// 工具元信息
+export const toolMeta: ToolMeta = {
+  name: 'search_case_materials',
+  description: '检索当前案件的材料内容',
+  parameters: [
+    { name: 'query', type: 'string', description: '查询内容', required: true },
+    { name: 'k', type: 'number', description: '返回数量', required: false, default: 5 }
+  ]
+}
+
+// 工具工厂函数
+export function createTool(context: ToolContext) {
+  const { userId, caseId } = context
+  
+  return tool(
+    async (input) => {
+      // 调用模块服务层的查询逻辑
+      const results = await searchCaseMaterialsService(userId, caseId, input.query, input.k)
+      return JSON.stringify(results)
+    },
+    {
+      name: toolMeta.name,
+      description: toolMeta.description,
+      schema: z.object({
+        query: z.string().describe('查询内容'),
+        k: z.number().optional().default(5).describe('返回数量'),
+      }),
+    }
+  )
+}
+```
+
+**法律检索工具示例**：
+
+```typescript
+// server/services/workflow/tools/searchLaw.tool.ts
+// 工作流工具 - 调用 legal 服务层的查询逻辑
+
+import { tool } from '@langchain/core/tools'
+import { z } from 'zod'
+import { searchLaw } from '../../legal/searchLaw.service'
+import type { ToolMeta, ToolContext } from './types'
+
+// 工具元信息
+export const toolMeta: ToolMeta = {
+  name: 'search_law',
+  description: '搜索法律条文内容，支持语义搜索和元数据筛选',
+  parameters: [
+    { name: 'query', type: 'string', description: '搜索关键词', required: false },
+    { name: 'k', type: 'number', description: '返回数量', required: false, default: 5 },
+    { name: 'legalType', type: 'string', description: '法律类型', required: false },
+    { name: 'isEffective', type: 'boolean', description: '是否有效', required: false },
+  ]
+}
+
+// 工具工厂函数
+export function createTool(context: ToolContext) {
+  return tool(
+    async (input) => {
+      // 调用模块服务层的查询逻辑
+      const results = await searchLaw(input)
+      return JSON.stringify(results)
+    },
+    {
+      name: toolMeta.name,
+      description: toolMeta.description,
+      schema: z.object({
+        query: z.string().optional().describe('搜索关键词'),
+        k: z.number().optional().default(5).describe('返回数量'),
+        legalType: z.string().optional().describe('法律类型'),
+        isEffective: z.boolean().optional().describe('是否有效'),
+      }),
+    }
+  )
 }
 ```
 
@@ -294,6 +450,223 @@ interface AccessService {
   
   // 批量更新权限
   batchUpdateAccess(levelId: number, nodeIds: number[]): Promise<void>
+}
+```
+
+#### 6. MineruTokenService（MinerU Token 服务）
+
+```typescript
+interface MineruTokenService {
+  // 获取 Token 列表
+  getTokens(options?: PaginationOptions): Promise<PaginatedResult<MineruToken>>
+  
+  // 创建 Token
+  createToken(data: CreateMineruTokenInput): Promise<MineruToken>
+  
+  // 更新 Token
+  updateToken(id: number, data: UpdateMineruTokenInput): Promise<MineruToken>
+  
+  // 删除 Token
+  deleteToken(id: number): Promise<void>
+  
+  // 切换 Token 状态
+  toggleStatus(id: number): Promise<MineruToken>
+  
+  // 获取当前启用的 Token
+  getActiveToken(): Promise<MineruToken | null>
+}
+```
+
+#### 7. MineruTaskService（MinerU 任务服务）
+
+```typescript
+interface MineruTaskService {
+  // 获取任务列表
+  getTasks(options?: TaskQueryOptions): Promise<PaginatedResult<MineruTask>>
+  
+  // 获取任务详情
+  getTask(id: number): Promise<MineruTask>
+  
+  // 查询单个任务状态（调用 MinerU API）
+  queryTaskStatus(id: number): Promise<MineruTask>
+  
+  // 批量查询任务状态
+  queryTaskStatusBatch(ids: number[]): Promise<BatchQueryResult>
+  
+  // 重试任务
+  retryTask(id: number): Promise<MineruTask>
+  
+  // 创建任务记录
+  createTask(data: CreateMineruTaskInput): Promise<MineruTask>
+  
+  // 更新任务状态
+  updateTaskStatus(taskId: string, status: number, result?: TaskResult): Promise<MineruTask>
+}
+
+interface TaskQueryOptions {
+  status?: number
+  startDate?: Date
+  endDate?: Date
+  keyword?: string
+  page?: number
+  pageSize?: number
+}
+
+interface BatchQueryResult {
+  total: number
+  success: number
+  failed: number
+  changed: number
+  results: Array<{ id: number; status: number; changed: boolean; error?: string }>
+}
+```
+
+#### 8. AsrTaskService（ASR 任务服务）
+
+```typescript
+interface AsrTaskService {
+  // 获取任务列表
+  getTasks(options?: TaskQueryOptions): Promise<PaginatedResult<AsrTask>>
+  
+  // 获取任务详情
+  getTask(id: number): Promise<AsrTask>
+  
+  // 查询单个任务状态（调用 ASR API）
+  queryTaskStatus(id: number): Promise<AsrTask>
+  
+  // 批量查询任务状态
+  queryTaskStatusBatch(ids: number[]): Promise<BatchQueryResult>
+  
+  // 重试任务
+  retryTask(id: number): Promise<AsrTask>
+  
+  // 创建任务记录
+  createTask(data: CreateAsrTaskInput): Promise<AsrTask>
+  
+  // 更新任务状态
+  updateTaskStatus(taskId: string, status: number, result?: TaskResult): Promise<AsrTask>
+}
+```
+
+#### 9. OcrService（图片识别服务）
+
+```typescript
+// 支持的图片类型
+const supportImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif']
+
+interface OcrService {
+  // 创建图片识别记录（仅识别）
+  createImageConversion(ossFileId: number, userId: number): Promise<ImageRecognitionRecord>
+  
+  // 创建图片识别记录（包含向量化）
+  createImageRecognition(ossFileId: number, userId: number): Promise<ImageRecognitionRecord>
+  
+  // 编辑图片识别记录
+  updateImageRecognition(id: number, markdownContent: string, userId: number): Promise<ImageRecognitionRecord>
+  
+  // 根据 ossFileId 查询识别记录
+  findByOssFileId(ossFileId: number): Promise<ImageRecognitionRecord | null>
+  
+  // 根据 ossFileId 集合查询识别记录
+  findByOssFileIds(fileIds: number[]): Promise<ImageRecognitionRecord[]>
+}
+
+interface ImageRecognitionRecord {
+  id: number
+  userId: number
+  ossFileId: number
+  status: number           // 0-待处理，1-处理中，2-成功，3-失败
+  imageType?: string       // doc-文档，photo-照片
+  htmlContent?: string
+  markdownContent?: string
+  keywords?: any
+  summary?: string
+  vectorIds?: string[]
+  lastEmbeddingAt?: Date
+  lastEditAt?: Date
+  createdAt: Date
+  updatedAt: Date
+  deletedAt?: Date
+}
+```
+
+#### 10. DocRecognitionService（文档识别服务）
+
+```typescript
+interface DocRecognitionService {
+  // 创建文档识别记录
+  createDocRecognition(ossFileId: number, userId: number): Promise<DocRecognitionRecord>
+  
+  // 编辑文档识别记录
+  updateDocRecognition(id: number, markdownContent: string, userId: number): Promise<DocRecognitionRecord>
+  
+  // 根据 ossFileId 查询识别记录
+  findByOssFileId(ossFileId: number): Promise<DocRecognitionRecord | null>
+  
+  // 根据 ossFileId 集合查询识别记录
+  findByOssFileIds(fileIds: number[]): Promise<DocRecognitionRecord[]>
+}
+
+interface DocRecognitionRecord {
+  id: number
+  userId: number
+  ossFileId: number
+  status: number           // 0-待处理，1-处理中，2-成功，3-失败
+  htmlContent?: string
+  markdownContent?: string
+  keywords?: any
+  summary?: string
+  vectorIds?: string[]
+  lastEmbeddingAt?: Date
+  lastEditAt?: Date
+  createdAt: Date
+  updatedAt: Date
+  deletedAt?: Date
+}
+```
+
+#### 11. AsrRecordService（ASR 识别记录服务）
+
+```typescript
+interface AsrRecordService {
+  // 创建 ASR 识别记录
+  createAsrRecord(ossFileId: number, userId: number, asrTasksId?: number): Promise<AsrRecord>
+  
+  // 更新 ASR 识别记录
+  updateAsrRecord(id: number, data: UpdateAsrRecordInput): Promise<AsrRecord>
+  
+  // 根据 ossFileId 查询识别记录
+  findByOssFileId(ossFileId: number): Promise<AsrRecord | null>
+  
+  // 根据 ossFileId 集合查询识别记录
+  findByOssFileIds(fileIds: number[]): Promise<AsrRecord[]>
+}
+
+interface AsrRecord {
+  id: number
+  userId: number
+  ossFileId: number
+  asrTasksId?: number
+  status: number           // 0-待处理，1-处理中，2-成功，3-失败
+  audioUrl?: string
+  audioDuration?: number
+  result?: any
+  jsonOssFileId?: number
+  speakers?: AsrRecordSpeaker[]
+  keywords?: any
+  summary?: string
+  vectorIds?: string[]
+  lastEmbeddingAt?: Date
+  lastEditAt?: Date
+  createdAt: Date
+  updatedAt: Date
+  deletedAt?: Date
+}
+
+interface AsrRecordSpeaker {
+  id: number
+  name: string
+  color?: string
 }
 ```
 
@@ -423,6 +796,9 @@ interface ApiBaseResponse<T = any> {
 // GET /api/v1/case/[caseId] - 获取案件信息
 // POST /api/v1/case/analysis/stream/[caseId] - SSE 流式分析
 
+// GET /api/v1/cases - 获取用户案件列表（支持分页、状态筛选）
+// GET /api/v1/cases/[caseId]/history - 获取案件分析历史版本
+
 // POST /api/v1/material/upload - 上传材料
 // POST /api/v1/material/process/[id] - 处理材料
 // GET /api/v1/material/content/[id] - 获取材料内容
@@ -450,10 +826,23 @@ interface ApiBaseResponse<T = any> {
 // PUT /api/v1/admin/nodes/[id] - 更新节点
 // DELETE /api/v1/admin/nodes/[id] - 删除节点
 
+// 工作流工具 API（待实现）
+// GET /api/v1/admin/workflow-tools - 获取可用工具列表（供节点配置时选择）
+
 // 节点分组（待实现）
 // GET /api/v1/admin/node-groups - 获取分组列表
 // POST /api/v1/admin/node-groups - 创建分组
 // PUT /api/v1/admin/node-groups/[id] - 更新分组
+
+// 案件类型管理（待实现）
+// GET /api/v1/admin/case-types - 获取类型列表
+// POST /api/v1/admin/case-types - 创建类型
+// PUT /api/v1/admin/case-types/[id] - 更新类型
+// DELETE /api/v1/admin/case-types/[id] - 删除类型
+// PUT /api/v1/admin/case-types/status/[id] - 切换状态
+
+// 案件类型前台 API（待实现）
+// GET /api/v1/case-types - 获取启用的案件类型列表
 
 // 提示词管理（待实现）
 // GET /api/v1/admin/prompts - 获取提示词列表
@@ -481,6 +870,30 @@ interface ApiBaseResponse<T = any> {
 // PUT /api/v1/admin/demo-cases/[id] - 更新示范案例
 // DELETE /api/v1/admin/demo-cases/[id] - 删除示范案例
 // PUT /api/v1/admin/demo-cases/status/[id] - 切换状态
+
+// MinerU Token 管理（待实现）
+// GET /api/v1/admin/mineru-tokens - 获取 Token 列表
+// POST /api/v1/admin/mineru-tokens - 创建 Token
+// PUT /api/v1/admin/mineru-tokens/[id] - 更新 Token
+// DELETE /api/v1/admin/mineru-tokens/[id] - 删除 Token
+// PUT /api/v1/admin/mineru-tokens/status/[id] - 切换状态
+
+// MinerU 任务管理（待实现）
+// GET /api/v1/admin/mineru-tasks - 获取任务列表
+// GET /api/v1/admin/mineru-tasks/[id] - 获取任务详情
+// POST /api/v1/admin/mineru-tasks/query/[id] - 查询单个任务状态
+// POST /api/v1/admin/mineru-tasks/query-batch - 批量查询任务状态
+// POST /api/v1/admin/mineru-tasks/retry/[id] - 重试任务
+
+// MinerU 回调接口（待实现）
+// POST /api/v1/callback/mineru - MinerU 转换完成回调
+
+// ASR 任务管理（待实现）
+// GET /api/v1/admin/asr-tasks - 获取任务列表
+// GET /api/v1/admin/asr-tasks/[id] - 获取任务详情
+// POST /api/v1/admin/asr-tasks/query/[id] - 查询单个任务状态
+// POST /api/v1/admin/asr-tasks/query-batch - 批量查询任务状态
+// POST /api/v1/admin/asr-tasks/retry/[id] - 重试任务
 ```
 
 
@@ -511,6 +924,19 @@ interface ApiBaseResponse<T = any> {
 #### 1. 案件相关表
 
 ```prisma
+// 案件类型表
+model caseTypes {
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(100)   // 类型名称
+  description String?   @db.VarChar(255)   // 类型描述
+  icon        String?   @db.VarChar(100)   // 图标
+  priority    Int       @default(100)      // 排序优先级
+  status      Int       @default(1)        // 1-启用，0-禁用
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now())
+  deletedAt   DateTime?
+}
+
 // 案件表
 model cases {
   id          Int       @id @default(autoincrement())
@@ -690,6 +1116,130 @@ model demoCases {
   coverImage  String?   @db.VarChar(500)   // 封面图片
   priority    Int       @default(100)      // 排序优先级
   status      Int       @default(1)        // 1-启用，0-禁用
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now())
+  deletedAt   DateTime?
+}
+```
+
+#### 6. 文档识别记录表（参考旧项目 docRecognitionRecords）
+
+```prisma
+// 文档识别记录表（PDF 转换结果）
+model docRecognitionRecords {
+  id              Int       @id @default(autoincrement())
+  userId          Int       @map("user_id")           // 关联用户
+  ossFileId       Int       @map("oss_file_id")       // 关联 OSS 文件
+  status          Int       @default(0)               // 0-待处理，1-处理中，2-成功，3-失败
+  htmlContent     String?   @db.Text                  // HTML 内容
+  markdownContent String?   @db.Text                  // Markdown 内容
+  keywords        Json?     @default("[]")            // 关键词
+  summary         String?   @db.Text                  // 摘要
+  vectorIds       Json?     @default("[]")            // 向量存储 ID 集合
+  lastEmbeddingAt DateTime?                           // 最后嵌入时间
+  lastEditAt      DateTime?                           // 最后编辑时间
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now())
+  deletedAt       DateTime?
+}
+```
+
+#### 7. 图片识别记录表（参考旧项目 imageRecognitionRecords）
+
+```prisma
+// 图片识别记录表（OCR 识别结果）
+model imageRecognitionRecords {
+  id              Int       @id @default(autoincrement())
+  userId          Int       @map("user_id")           // 关联用户
+  ossFileId       Int       @map("oss_file_id")       // 关联 OSS 文件
+  status          Int       @default(0)               // 0-待处理，1-处理中，2-成功，3-失败
+  imageType       String?   @db.VarChar(50)           // 图片类型：doc-文档，photo-照片
+  htmlContent     String?   @db.Text                  // HTML 内容
+  markdownContent String?   @db.Text                  // Markdown 内容
+  keywords        Json?     @default("[]")            // 关键词
+  summary         String?   @db.Text                  // 摘要
+  vectorIds       Json?     @default("[]")            // 向量存储 ID 集合
+  lastEmbeddingAt DateTime?                           // 最后嵌入时间
+  lastEditAt      DateTime?                           // 最后编辑时间
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now())
+  deletedAt       DateTime?
+}
+```
+
+#### 8. 语音识别任务表（参考旧项目 asrTasks）
+
+```prisma
+// 语音识别任务表（ASR 任务记录）
+model asrTasks {
+  id          Int       @id @default(autoincrement())
+  taskId      String?   @db.VarChar(100)          // ASR 服务返回的任务ID
+  status      Int       @default(0)               // 0-待处理，1-处理中，2-成功，3-失败
+  taskRawData Json?     @default("{}")            // 任务原始数据
+  result      Json?     @default("{}")            // 识别结果
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now())
+  deletedAt   DateTime?
+}
+```
+
+#### 9. 语音识别记录表（参考旧项目 asrRecords）
+
+```prisma
+// 语音识别记录表（ASR 识别结果）
+model asrRecords {
+  id              Int       @id @default(autoincrement())
+  userId          Int       @map("user_id")           // 关联用户
+  ossFileId       Int       @map("oss_file_id")       // 关联 OSS 文件
+  asrTasksId      Int?      @map("asr_tasks_id")      // 关联 ASR 任务
+  status          Int       @default(0)               // 0-待处理，1-处理中，2-成功，3-失败
+  audioUrl        String?   @db.VarChar(500)          // 提交的音频 URL
+  audioDuration   Int?                                // 音频时长（秒）
+  result          Json?     @default("{}")            // 识别结果
+  jsonOssFileId   Int?      @map("json_oss_file_id")  // 转录原始 JSON 的 OSS 文件 ID
+  speakers        Json?     @default("[]")            // 说话人列表
+  keywords        Json?     @default("[]")            // 关键词
+  summary         String?   @db.Text                  // 摘要
+  vectorIds       Json?     @default("[]")            // 向量存储 ID 集合
+  lastEmbeddingAt DateTime?                           // 最后嵌入时间
+  lastEditAt      DateTime?                           // 最后编辑时间
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now())
+  deletedAt       DateTime?
+}
+```
+
+#### 10. MinerU Token 表
+
+```prisma
+// MinerU Token 表
+model mineruTokens {
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(100)   // Token 名称
+  token       String    @db.VarChar(500)   // Token 值（加密存储）
+  remark      String?   @db.VarChar(255)   // 备注
+  status      Int       @default(1)        // 1-启用，0-禁用
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now())
+  deletedAt   DateTime?
+}
+```
+
+#### 11. MinerU 任务表
+
+```prisma
+// MinerU 任务表（PDF 转换任务记录）
+model mineruTasks {
+  id          Int       @id @default(autoincrement())
+  taskId      String?   @db.VarChar(100)          // MinerU 服务返回的任务ID
+  ossFileId   Int       @map("oss_file_id")       // 关联 OSS 文件
+  userId      Int       @map("user_id")           // 关联用户
+  status      Int       @default(0)               // 0-待处理，1-处理中，2-成功，3-失败
+  taskRawData Json?     @default("{}")            // 任务原始数据（提交参数等）
+  result      Json?     @default("{}")            // 转换结果
+  errorMsg    String?   @db.Text                  // 错误信息
+  retryCount  Int       @default(0)               // 重试次数
+  completedAt DateTime?                           // 完成时间
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @default(now())
   deletedAt   DateTime?

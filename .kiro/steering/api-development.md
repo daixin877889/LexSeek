@@ -1,6 +1,6 @@
 ---
 inclusion: fileMatch
-fileMatchPattern: "**/server/**"
+fileMatchPattern: "server/**"
 ---
 # API 接口开发规范
 
@@ -12,6 +12,7 @@ return resSuccess(event, '操作成功', data)
 // 错误响应
 return resError(event, 400, '参数错误')
 ```
+API 永远返回 200 的 http 状态码，错误码码通过 resError 的 `code` 字段返回。
 
 ## 用户认证
 ```typescript
@@ -77,3 +78,6 @@ if (!result.success) {
 回调自定义变量通过 `callbackVar` 传递：
 - key 不能包含 `:` 字符
 - 变量名不能包含大写
+
+## 代码架构
+- 在 `server/services` 目录中编写的服务函数需要将 server 层和 dao 层分开，命名规则为: server 层 `模块名称.service.ts`，文件内方法要以 Service  为结尾命名。dao 层 `模块名称.dao.ts`,文件内方法要以 DAO 为结尾命名。

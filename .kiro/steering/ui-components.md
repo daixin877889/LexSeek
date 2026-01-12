@@ -1,6 +1,6 @@
 ---
 inclusion: fileMatch
-fileMatchPattern: "**/app/components/**,**/app/pages/**"
+fileMatchPattern: "app/**/*.vue"
 ---
 # UI 组件开发规范
 
@@ -43,5 +43,16 @@ fileMatchPattern: "**/app/components/**,**/app/pages/**"
 ```typescript
 import type { UserInfo } from "#shared/types/user";
 ```
+
+## definePageMeta 信息
+每个页面都需要定义 definePageMeta , 但是在 app.vue 中定义的页面不需要定义 definePageMeta，如下：
+
+```typescript
+definePageMeta({ 
+    layout: false,  // 使用的布局名称
+    title: 'ASR 任务管理', // 页面标题，标题栏和面包屑需要，必须定义。
+    icon:'MicIcon' // 导航菜单需要
+     })
+···
 
 **特别注意：app/components/ 中的组件是自动导入的，在使用时注意要按组件的文件路径驼峰命名使用组件**

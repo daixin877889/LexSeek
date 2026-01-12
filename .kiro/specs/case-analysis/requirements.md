@@ -37,6 +37,11 @@
 - **PointRecord（积分记录）**: 用户的积分获取记录，包含积分数量、来源、有效期等
 - **PointConsumptionItem（积分消耗项目）**: 定义各功能消耗积分的配置，包含分组、名称、积分数量、折扣等
 - **PointConsumptionRecord（积分消耗记录）**: 用户积分消耗的明细记录，关联积分记录和消耗项目
+- **MinerU_Token（MinerU Token）**: MinerU API 的访问凭证，支持多 Token 管理和切换
+- **MinerU_Task（MinerU 任务）**: PDF 转换任务记录，包含任务状态、文件信息、转换结果等
+- **ASR_Task（ASR 任务）**: 音频转录任务记录，包含任务状态、文件信息、转录结果等
+- **Tool_Registry（工具注册表）**: 管理工作流中可用工具的注册表，提供工具元信息查询
+- **Workflow_Tool（工作流工具）**: 工作流中可调用的工具，如材料检索、法律检索等
 
 ## 需求
 
@@ -130,6 +135,65 @@
 18. WHEN 扣减积分 THEN Point_Service SHALL 使用 pdf_parse 消耗项目
 19. IF PDF 转换失败 THEN Point_Service SHALL 不扣减积分
 
+### 需求 3.1.1：MinerU Token 后台管理
+
+**用户故事:** 作为管理员，我需要在后台管理 MinerU 的 Token 配置，以便灵活切换和管理 API 凭证。
+
+#### 验收标准
+
+**Token 管理：**
+1. WHEN 管理员访问 MinerU Token 管理页面 THEN Admin_UI SHALL 展示所有 Token 列表，包含名称、Token（脱敏显示）、状态、创建时间
+2. WHEN 管理员创建 Token THEN MinerU_Token_Service SHALL 保存 Token 信息到数据库
+3. WHEN 管理员编辑 Token THEN MinerU_Token_Service SHALL 更新 Token 的名称、Token 值、备注等
+4. WHEN 管理员删除 Token THEN MinerU_Token_Service SHALL 软删除 Token（设置 deletedAt）
+5. WHEN 管理员启用/禁用 Token THEN MinerU_Token_Service SHALL 切换 Token 状态
+6. WHEN 系统调用 MinerU API THEN MinerU_Service SHALL 使用当前启用的 Token
+7. IF 没有启用的 Token THEN MinerU_Service SHALL 返回错误并阻止任务提交
+
+### 需求 3.1.2：MinerU 任务状态后台管理
+
+**用户故事:** 作为管理员，我需要在后台查看和管理 MinerU 转换任务的状态，以便监控任务执行情况和手动处理异常任务。
+
+#### 验收标准
+
+**任务列表：**
+1. WHEN 管理员访问 MinerU 任务管理页面 THEN Admin_UI SHALL 展示所有任务列表，包含任务ID、文件名、状态、创建时间、完成时间
+2. WHEN 管理员查看任务列表 THEN Admin_UI SHALL 支持按状态、时间范围筛选
+3. WHEN 管理员查看任务列表 THEN Admin_UI SHALL 支持分页和关键词搜索
+
+**单个任务状态查询：**
+4. WHEN 管理员点击查询单个任务状态 THEN MinerU_Service SHALL 调用 MinerU API 查询最新状态
+5. WHEN 查询完成 THEN MinerU_Service SHALL 更新本地任务状态并返回结果
+6. WHEN 查询发现任务已完成 THEN MinerU_Service SHALL 触发结果处理流程
+
+**批量任务状态查询：**
+7. WHEN 管理员选择多个任务并点击批量查询 THEN MinerU_Service SHALL 依次查询所有选中任务的状态
+8. WHEN 批量查询进行中 THEN Admin_UI SHALL 展示查询进度
+9. WHEN 批量查询完成 THEN Admin_UI SHALL 展示查询结果汇总（成功数、失败数、状态变更数）
+
+**任务详情：**
+10. WHEN 管理员点击任务详情 THEN Admin_UI SHALL 展示任务的完整信息，包含原始文件、转换参数、状态历史、错误信息
+11. WHEN 任务状态为失败 THEN Admin_UI SHALL 显示重试按钮
+12. WHEN 管理员点击重试 THEN MinerU_Service SHALL 重新提交转换任务
+
+### 需求 3.1.3：MinerU 回调接口
+
+**用户故事:** 作为系统，我需要提供 MinerU 转换完成的回调接口，以便 MinerU 服务能够主动通知转换结果。
+
+#### 验收标准
+
+1. WHEN MinerU 转换完成 THEN MinerU_Service SHALL 通过回调接口 `/api/v1/callback/mineru` 接收通知
+2. WHEN 收到回调请求 THEN MinerU_Service SHALL 验证回调签名或来源合法性
+3. WHEN 回调验证通过 THEN MinerU_Service SHALL 根据任务ID查找本地任务记录
+4. IF 任务记录不存在 THEN MinerU_Service SHALL 返回错误响应
+5. WHEN 任务记录存在 THEN MinerU_Service SHALL 下载并解压结果 ZIP 文件
+6. WHEN 解压完成 THEN MinerU_Service SHALL 读取 full.md 文件获取 Markdown 内容
+7. WHEN Markdown 包含图片 THEN MinerU_Service SHALL 将图片上传到 OSS 并替换路径
+8. WHEN 处理完成 THEN MinerU_Service SHALL 更新任务状态为成功并保存结果内容
+9. IF 处理失败 THEN MinerU_Service SHALL 更新任务状态为失败并记录错误信息
+10. WHEN 回调和轮询同时触发 THEN MinerU_Service SHALL 使用幂等机制避免重复处理
+11. FOR ALL 回调请求 THEN MinerU_Service SHALL 返回标准响应格式
+
 ### 需求 3.2：ASR 音频转录服务
 
 **用户故事:** 作为系统，我需要集成 ASR 服务进行音频转录，以便提取音频内容。
@@ -137,16 +201,63 @@
 #### 验收标准
 
 1. WHEN 提交音频转录任务 THEN ASR_Service SHALL 调用 ASR API 提交转录请求
-2. WHEN 转录完成 THEN ASR_Service SHALL 获取转录文本结果
-3. WHEN 处理完成 THEN ASR_Service SHALL 更新任务状态
-4. IF 转录失败 THEN ASR_Service SHALL 记录错误信息并通知调用方
+2. WHEN 任务提交成功 THEN ASR_Service SHALL 保存任务记录到 `asrTasks` 表
+3. WHEN 转录完成 THEN ASR_Service SHALL 获取转录文本结果
+4. WHEN 处理完成 THEN ASR_Service SHALL 更新任务状态并保存结果到 `asrRecords` 表
+5. IF 转录失败 THEN ASR_Service SHALL 记录错误信息并通知调用方
 
 **积分扣减：**
-5. WHEN 用户提交音频转录任务 THEN Point_Service SHALL 检查用户积分是否足够
-6. IF 用户积分不足 THEN ASR_Service SHALL 返回错误并阻止任务提交
-7. WHEN 音频转录成功完成 THEN Point_Service SHALL 扣减对应的积分
-8. WHEN 扣减积分 THEN Point_Service SHALL 使用 asr_transcribe 消耗项目
-9. IF 音频转录失败 THEN Point_Service SHALL 不扣减积分
+6. WHEN 用户提交音频转录任务 THEN Point_Service SHALL 检查用户积分是否足够
+7. IF 用户积分不足 THEN ASR_Service SHALL 返回错误并阻止任务提交
+8. WHEN 音频转录成功完成 THEN Point_Service SHALL 扣减对应的积分
+9. WHEN 扣减积分 THEN Point_Service SHALL 使用 asr_transcribe 消耗项目
+10. IF 音频转录失败 THEN Point_Service SHALL 不扣减积分
+
+### 需求 3.2.1：ASR 任务状态后台管理
+
+**用户故事:** 作为管理员，我需要在后台查看和管理 ASR 转录任务的状态，以便监控任务执行情况和手动处理异常任务。
+
+#### 验收标准
+
+**任务列表：**
+1. WHEN 管理员访问 ASR 任务管理页面 THEN Admin_UI SHALL 展示所有任务列表，包含任务ID、文件名、状态、创建时间、完成时间
+2. WHEN 管理员查看任务列表 THEN Admin_UI SHALL 支持按状态、时间范围筛选
+3. WHEN 管理员查看任务列表 THEN Admin_UI SHALL 支持分页和关键词搜索
+
+**单个任务状态查询：**
+4. WHEN 管理员点击查询单个任务状态 THEN ASR_Service SHALL 调用 ASR API 查询最新状态
+5. WHEN 查询完成 THEN ASR_Service SHALL 更新本地任务状态并返回结果
+6. WHEN 查询发现任务已完成 THEN ASR_Service SHALL 触发结果处理流程
+
+**批量任务状态查询：**
+7. WHEN 管理员选择多个任务并点击批量查询 THEN ASR_Service SHALL 依次查询所有选中任务的状态
+8. WHEN 批量查询进行中 THEN Admin_UI SHALL 展示查询进度
+9. WHEN 批量查询完成 THEN Admin_UI SHALL 展示查询结果汇总（成功数、失败数、状态变更数）
+
+**任务详情：**
+10. WHEN 管理员点击任务详情 THEN Admin_UI SHALL 展示任务的完整信息，包含原始文件、转录参数、状态历史、错误信息
+11. WHEN 任务状态为失败 THEN Admin_UI SHALL 显示重试按钮
+12. WHEN 管理员点击重试 THEN ASR_Service SHALL 重新提交转录任务
+
+### 需求 3.3：图片识别服务（OCR）
+
+**用户故事:** 作为系统，我需要集成图片识别服务进行 OCR 识别，以便提取图片中的文字内容。
+
+#### 验收标准
+
+1. WHEN 提交图片识别任务 THEN OCR_Service SHALL 验证图片类型是否支持（jpeg/png/gif/webp/heic/heif）
+2. IF 图片类型不支持 THEN OCR_Service SHALL 返回错误信息
+3. WHEN 图片类型支持 THEN OCR_Service SHALL 获取 OSS 私有文件下载 URL
+4. WHEN 获取 URL 成功 THEN OCR_Service SHALL 调用 AI 服务识别图片内容
+5. WHEN 识别完成 THEN OCR_Service SHALL 将 Markdown 内容转换为 HTML
+6. WHEN 转换完成 THEN OCR_Service SHALL 保存识别结果到 `imageRecognitionRecords` 表
+7. WHEN 保存结果 THEN OCR_Service SHALL 记录图片类型（doc-文档/photo-照片）
+8. IF 识别失败 THEN OCR_Service SHALL 记录错误信息并通知调用方
+
+**向量化存储（可选）：**
+9. WHEN 需要向量化 THEN OCR_Service SHALL 提取图片摘要和关键词
+10. WHEN 提取完成 THEN OCR_Service SHALL 将识别结果进行向量化
+11. WHEN 向量化完成 THEN OCR_Service SHALL 更新记录的 vectorIds、lastEmbeddingAt 字段
 
 ### 需求 4：案情信息检查（中断点 1）
 
@@ -307,7 +418,24 @@
 6. WHEN 流程出错 THEN LangGraph_Workflow SHALL 捕获错误并通过流式响应通知前端
 7. FOR ALL 分析结果 THEN LangGraph_Workflow SHALL 以 Markdown 格式输出
 
-### 需求 12.1：案件材料检索工具
+### 需求 12.1：工作流工具管理
+
+**用户故事:** 作为系统，我需要统一管理工作流中可用的工具，以便在创建节点时可以选择需要的工具。
+
+#### 验收标准
+
+**工具注册与管理：**
+1. WHEN 系统启动 THEN Tool_Registry SHALL 自动注册所有 `server/services/workflow/tools` 目录下的工具
+2. WHEN 注册工具 THEN Tool_Registry SHALL 记录工具的名称、描述、参数定义
+3. WHEN 管理员创建/编辑节点 THEN Admin_UI SHALL 从工具注册表获取可用工具列表供选择
+4. WHEN 管理员选择工具 THEN Node_Service SHALL 将工具名称列表保存到节点的 tools 字段
+5. FOR ALL 工具 THEN Tool_Registry SHALL 提供统一的工具元信息接口
+
+**工具列表 API：**
+6. WHEN 请求工具列表 THEN Tool_API SHALL 返回所有已注册工具的元信息
+7. WHEN 返回工具信息 THEN Tool_API SHALL 包含工具名称、描述、参数定义
+
+### 需求 12.2：案件材料检索工具
 
 **用户故事:** 作为系统，我需要提供案件材料检索工具，以便 AI 在分析过程中能够检索相关材料内容。
 
@@ -318,6 +446,16 @@
 2. WHEN 检索材料 THEN Material_Search_Tool SHALL 仅在当前案件的材料范围内搜索
 3. WHEN 返回检索结果 THEN Material_Search_Tool SHALL 返回材料内容片段
 4. FOR ALL 检索结果 THEN Material_Search_Tool SHALL 包含材料来源信息（materialId、materialName）
+
+### 需求 12.3：法律检索工具
+
+**用户故事:** 作为系统，我需要提供法律检索工具，以便 AI 在分析过程中能够检索相关法律条文。
+
+#### 验收标准
+
+1. WHEN 执行法律检索 THEN Law_Search_Tool SHALL 支持语义搜索和元数据筛选两种模式
+2. WHEN 返回检索结果 THEN Law_Search_Tool SHALL 包含法律名称、条文内容、生效状态等信息
+3. FOR ALL 检索结果 THEN Law_Search_Tool SHALL 支持按有效性过滤
 
 ### 需求 13：工作流节点管理
 

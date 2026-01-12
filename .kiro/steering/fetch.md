@@ -1,6 +1,6 @@
 ---
 inclusion: fileMatch
-fileMatchPattern: "**/app/composables/**,**/app/pages/**,**/app/components/**"
+fileMatchPattern: "app/**/*.vue"
 ---
 # 数据请求封装
 
