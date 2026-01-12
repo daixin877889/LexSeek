@@ -564,3 +564,97 @@ export const batchUpdateNodeGroupDao = async (
         throw error
     }
 }
+
+/**
+ * 获取节点完整配置（包括模型、提供商、API 密钥和生效的提示词）
+ * @param name 节点名称
+ * @param tx 事务客户端（可选）
+ * @returns 节点完整配置或 null
+ */
+export const getNodeConfigDao = async (
+    name: string,
+    tx?: PrismaClient
+) => {
+    try {
+        const node = await (tx || prisma).nodes.findFirst({
+            where: { name, deletedAt: null, status: 1 },
+            include: {
+                group: true,
+                model: {
+                    include: {
+                        modelProvider: {
+                            include: {
+                                modelApiKeys: {
+                                    where: {
+                                        deletedAt: null,
+                                        status: 1,
+                                        isDefault: true,
+                                    },
+                                    take: 1,
+                                },
+                            },
+                        },
+                    },
+                },
+                prompts: {
+                    where: {
+                        status: 1,
+                        deletedAt: null,
+                    },
+                    orderBy: [{ type: 'asc' }, { version: 'desc' }],
+                },
+            },
+        })
+        return node
+    } catch (error) {
+        logger.error('获取节点完整配置失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 通过 ID 获取节点完整配置（包括模型、提供商、API 密钥和生效的提示词）
+ * @param id 节点 ID
+ * @param tx 事务客户端（可选）
+ * @returns 节点完整配置或 null
+ */
+export const getNodeConfigByIdDao = async (
+    id: number,
+    tx?: PrismaClient
+) => {
+    try {
+        const node = await (tx || prisma).nodes.findFirst({
+            where: { id, deletedAt: null, status: 1 },
+            include: {
+                group: true,
+                model: {
+                    include: {
+                        modelProvider: {
+                            include: {
+                                modelApiKeys: {
+                                    where: {
+                                        deletedAt: null,
+                                        status: 1,
+                                        isDefault: true,
+                                    },
+                                    take: 1,
+                                },
+                            },
+                        },
+                    },
+                },
+                prompts: {
+                    where: {
+                        status: 1,
+                        deletedAt: null,
+                    },
+                    orderBy: [{ type: 'asc' }, { version: 'desc' }],
+                },
+            },
+        })
+        return node
+    } catch (error) {
+        logger.error('通过 ID 获取节点完整配置失败：', error)
+        throw error
+    }
+}

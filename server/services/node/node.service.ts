@@ -32,8 +32,65 @@ import {
     updateNodeStatusDao,
     softDeleteNodeDao,
     batchUpdateNodeGroupDao,
+    getNodeConfigDao,
+    getNodeConfigByIdDao,
 } from './node.dao'
 import { findModelByIdDao } from '../model/models.dao'
+
+// ==================== 节点配置类型定义 ====================
+
+/** 节点配置中的提示词信息 */
+export interface NodePromptConfig {
+    id: number
+    name: string
+    content: string
+    version: string
+    type: string
+    status: number
+}
+
+/** 节点配置中的 API 密钥信息 */
+export interface NodeApiKeyConfig {
+    id: number
+    apiKey: string
+    status: number
+}
+
+/** 节点完整配置 */
+export interface NodeConfig {
+    /** 节点 ID */
+    id: number
+    /** 节点名称（唯一标识） */
+    name: string
+    /** 节点标题 */
+    title: string
+    /** 节点描述 */
+    description: string
+    /** 节点类型 */
+    type: string
+    /** 生效的提示词列表 */
+    prompts: NodePromptConfig[]
+    /** 模型 ID */
+    modelId: number
+    /** 模型名称 */
+    modelName: string
+    /** 模型类型 */
+    modelType: string
+    /** 模型状态 */
+    modelStatus: number
+    /** 模型提供商 ID */
+    modelProviderId: number
+    /** 模型提供商名称 */
+    modelProviderName: string
+    /** 模型提供商 API 基础 URL */
+    modelProviderBaseUrl: string
+    /** 模型提供商描述 */
+    modelProviderDescription: string
+    /** API 密钥列表 */
+    modelApiKeys: NodeApiKeyConfig[]
+    /** 节点工具列表 */
+    tools: string[]
+}
 
 // ==================== 节点分组服务 ====================
 
@@ -289,4 +346,142 @@ export const batchUpdateNodeGroupService = async (
     }
 
     await batchUpdateNodeGroupDao(nodeIds, groupId)
+}
+
+// ==================== 节点配置服务 ====================
+
+/**
+ * 通过节点名称获取完整配置
+ * 包括模型、提供商、API 密钥和生效的提示词
+ * @param name 节点名称
+ * @returns 节点完整配置或 null
+ */
+export const getNodeConfigService = async (name: string): Promise<NodeConfig | null> => {
+    try {
+        const nodeConfig = await getNodeConfigDao(name)
+        if (!nodeConfig) {
+            logger.warn('节点配置不存在', { name })
+            return null
+        }
+
+        // 验证模型配置
+        if (!nodeConfig.model) {
+            logger.error('节点未关联模型', { name, nodeId: nodeConfig.id })
+            return null
+        }
+
+        // 验证提供商配置
+        if (!nodeConfig.model.modelProvider) {
+            logger.error('节点模型未关联提供商', { name, modelId: nodeConfig.modelId })
+            return null
+        }
+
+        // 构建节点配置
+        const config: NodeConfig = {
+            id: nodeConfig.id,
+            name: nodeConfig.name,
+            title: nodeConfig.title || nodeConfig.name,
+            description: nodeConfig.description || '',
+            type: nodeConfig.type,
+            prompts: nodeConfig.prompts.map((prompt) => ({
+                id: prompt.id,
+                name: prompt.name,
+                content: prompt.content,
+                version: prompt.version,
+                type: prompt.type,
+                status: prompt.status,
+            })),
+            modelId: nodeConfig.modelId,
+            modelName: nodeConfig.model.name,
+            modelType: nodeConfig.model.modelType,
+            modelStatus: nodeConfig.model.status ?? 0,
+            modelProviderId: nodeConfig.model.modelProvider.id,
+            modelProviderName: nodeConfig.model.modelProvider.name,
+            modelProviderBaseUrl: nodeConfig.model.modelProvider.baseUrl,
+            modelProviderDescription: nodeConfig.model.modelProvider.description || '',
+            modelApiKeys: nodeConfig.model.modelProvider.modelApiKeys.map((apiKey) => ({
+                id: apiKey.id,
+                apiKey: apiKey.apiKey,
+                status: apiKey.status ?? 0,
+            })),
+            tools: (nodeConfig.tools as string[]) || [],
+        }
+
+        return config
+    } catch (error: any) {
+        logger.error('获取节点配置失败', {
+            error: error.message,
+            stack: error.stack,
+            name,
+        })
+        throw new Error(`获取节点配置失败: ${error.message}`)
+    }
+}
+
+/**
+ * 通过节点 ID 获取完整配置
+ * 包括模型、提供商、API 密钥和生效的提示词
+ * @param id 节点 ID
+ * @returns 节点完整配置或 null
+ */
+export const getNodeConfigByIdService = async (id: number): Promise<NodeConfig | null> => {
+    try {
+        const nodeConfig = await getNodeConfigByIdDao(id)
+        if (!nodeConfig) {
+            logger.warn('节点配置不存在', { id })
+            return null
+        }
+
+        // 验证模型配置
+        if (!nodeConfig.model) {
+            logger.error('节点未关联模型', { id, nodeId: nodeConfig.id })
+            return null
+        }
+
+        // 验证提供商配置
+        if (!nodeConfig.model.modelProvider) {
+            logger.error('节点模型未关联提供商', { id, modelId: nodeConfig.modelId })
+            return null
+        }
+
+        // 构建节点配置
+        const config: NodeConfig = {
+            id: nodeConfig.id,
+            name: nodeConfig.name,
+            title: nodeConfig.title || nodeConfig.name,
+            description: nodeConfig.description || '',
+            type: nodeConfig.type,
+            prompts: nodeConfig.prompts.map((prompt) => ({
+                id: prompt.id,
+                name: prompt.name,
+                content: prompt.content,
+                version: prompt.version,
+                type: prompt.type,
+                status: prompt.status,
+            })),
+            modelId: nodeConfig.modelId,
+            modelName: nodeConfig.model.name,
+            modelType: nodeConfig.model.modelType,
+            modelStatus: nodeConfig.model.status ?? 0,
+            modelProviderId: nodeConfig.model.modelProvider.id,
+            modelProviderName: nodeConfig.model.modelProvider.name,
+            modelProviderBaseUrl: nodeConfig.model.modelProvider.baseUrl,
+            modelProviderDescription: nodeConfig.model.modelProvider.description || '',
+            modelApiKeys: nodeConfig.model.modelProvider.modelApiKeys.map((apiKey) => ({
+                id: apiKey.id,
+                apiKey: apiKey.apiKey,
+                status: apiKey.status ?? 0,
+            })),
+            tools: (nodeConfig.tools as string[]) || [],
+        }
+
+        return config
+    } catch (error: any) {
+        logger.error('通过 ID 获取节点配置失败', {
+            error: error.message,
+            stack: error.stack,
+            id,
+        })
+        throw new Error(`获取节点配置失败: ${error.message}`)
+    }
 }
