@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
 
         // 验证请求体
         const bodySchema = z.object({
-            name: z.string().min(1).max(100).optional(),
+            name: z.string().min(1, '配置名称不能为空').max(100, '配置名称不能超过100个字符').optional(),
             config: z.object({
                 bucket: z.string().optional(),
                 region: z.string().optional(),
@@ -55,7 +55,7 @@ export default defineEventHandler(async (event) => {
         }
 
         // 清除适配器缓存
-        clearAdapterCache(id)
+        clearAdapterCacheService(id)
 
         return resSuccess(event, '更新存储配置成功', {
             id: config.id,

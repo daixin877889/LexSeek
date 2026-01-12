@@ -12,10 +12,10 @@ import { z } from 'zod'
 
 // 请求体验证
 const bodySchema = z.object({
-    legalId: z.string().min(1, '法律 ID 不能为空'),
+    legalId: z.string({ message: '法律 ID 不能为空' }).min(1, '法律 ID 不能为空'),
     items: z.array(z.object({
-        id: z.string().min(1, '条文 ID 不能为空'),
-        order: z.number().int('排序序号必须是整数'),
+        id: z.string({ message: '条文 ID 不能为空' }).min(1, '条文 ID 不能为空'),
+        order: z.number({ message: '排序序号必须是数字' }).int('排序序号必须是整数'),
     })).min(1, '排序项不能为空'),
 })
 

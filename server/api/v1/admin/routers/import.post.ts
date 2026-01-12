@@ -8,9 +8,9 @@ import { z } from 'zod'
 
 const importSchema = z.object({
     items: z.array(z.object({
-        path: z.string().min(1),
-        name: z.string().min(1),
-        title: z.string().min(1),
+        path: z.string({ message: '路径不能为空' }).min(1, '路径不能为空'),
+        name: z.string({ message: '名称不能为空' }).min(1, '名称不能为空'),
+        title: z.string({ message: '标题不能为空' }).min(1, '标题不能为空'),
         group: z.string().optional(),
         isMenu: z.boolean().optional().default(false),
     })).min(1, '至少选择一个路由'),

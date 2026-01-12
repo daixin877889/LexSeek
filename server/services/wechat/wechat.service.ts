@@ -26,7 +26,7 @@ interface WechatAccessTokenResult extends WechatBaseResult {
  * @param code 微信授权 code
  * @returns openid 和 unionid
  */
-export async function getMpOpenid(code: string): Promise<{
+export async function getMpOpenidService(code: string): Promise<{
     openid: string
     unionid?: string
 }> {

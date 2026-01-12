@@ -8,7 +8,7 @@ import { z } from 'zod'
 
 /** 请求体验证 */
 const bodySchema = z.object({
-    status: z.number().int().min(0).max(1),
+    status: z.number({ message: '状态必须是数字' }).int('状态必须是整数').min(0, '状态值无效').max(1, '状态值无效'),
 })
 
 export default defineEventHandler(async (event) => {

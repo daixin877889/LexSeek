@@ -32,7 +32,7 @@ export default defineEventHandler(async (event) => {
         }
 
         // 使用统一的 token 生成服务
-        const token = generateAuthToken(event, {
+        const token = generateAuthTokenService(event, {
             id: user.id,
             phone: user.phone,
             roles: user.userRoles.map((role) => role.roleId),

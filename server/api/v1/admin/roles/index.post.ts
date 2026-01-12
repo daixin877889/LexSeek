@@ -5,10 +5,10 @@
 import { z } from 'zod'
 
 const bodySchema = z.object({
-    name: z.string().min(1, '角色名称不能为空').max(50),
-    code: z.string().min(1, '角色代码不能为空').max(50).regex(/^[a-z_]+$/, '角色代码只能包含小写字母和下划线'),
-    description: z.string().max(200).optional(),
-    status: z.number().int().min(0).max(1).default(1),
+    name: z.string({ message: '角色名称不能为空' }).min(1, '角色名称不能为空').max(50, '角色名称不能超过50个字符'),
+    code: z.string({ message: '角色代码不能为空' }).min(1, '角色代码不能为空').max(50, '角色代码不能超过50个字符').regex(/^[a-z_]+$/, '角色代码只能包含小写字母和下划线'),
+    description: z.string().max(200, '描述不能超过200个字符').optional(),
+    status: z.number({ message: '状态必须是数字' }).int('状态必须是整数').min(0, '状态值无效').max(1, '状态值无效').default(1),
 })
 
 export default defineEventHandler(async (event) => {

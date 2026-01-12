@@ -7,22 +7,22 @@ import { ArticleType, type UpdateLegalArticleRequest } from '#shared/types/legal
 
 // 请求体验证
 const bodySchema = z.object({
-    type: z.nativeEnum(ArticleType).optional(),
-    l1: z.string().max(100).nullable().optional(),
-    l1I: z.number().int().nullable().optional(),
-    l2: z.string().max(100).nullable().optional(),
-    l2I: z.number().int().nullable().optional(),
-    l3: z.string().max(100).nullable().optional(),
-    l3I: z.number().int().nullable().optional(),
-    l4: z.string().max(100).nullable().optional(),
-    l4I: z.number().int().nullable().optional(),
-    l5: z.string().max(100).nullable().optional(),
-    l5I: z.number().int().nullable().optional(),
-    order: z.number().int().nullable().optional(),
+    type: z.nativeEnum(ArticleType, { message: '无效的条文类型' }).optional(),
+    l1: z.string().max(100, '层级1标题不能超过100个字符').nullable().optional(),
+    l1I: z.number({ message: '层级1序号必须是数字' }).int('层级1序号必须是整数').nullable().optional(),
+    l2: z.string().max(100, '层级2标题不能超过100个字符').nullable().optional(),
+    l2I: z.number({ message: '层级2序号必须是数字' }).int('层级2序号必须是整数').nullable().optional(),
+    l3: z.string().max(100, '层级3标题不能超过100个字符').nullable().optional(),
+    l3I: z.number({ message: '层级3序号必须是数字' }).int('层级3序号必须是整数').nullable().optional(),
+    l4: z.string().max(100, '层级4标题不能超过100个字符').nullable().optional(),
+    l4I: z.number({ message: '层级4序号必须是数字' }).int('层级4序号必须是整数').nullable().optional(),
+    l5: z.string().max(100, '层级5标题不能超过100个字符').nullable().optional(),
+    l5I: z.number({ message: '层级5序号必须是数字' }).int('层级5序号必须是整数').nullable().optional(),
+    order: z.number({ message: '排序序号必须是数字' }).int('排序序号必须是整数').nullable().optional(),
     content: z.string().nullable().optional(),
-    publishDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
-    effectiveDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
-    invalidDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+    publishDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '发布日期格式错误').nullable().optional(),
+    effectiveDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '生效日期格式错误').nullable().optional(),
+    invalidDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '失效日期格式错误').nullable().optional(),
 })
 
 export default defineEventHandler(async (event) => {

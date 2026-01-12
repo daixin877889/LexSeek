@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
         }
 
         // 使用统一的验证码验证服务
-        const verificationResult = await verifySmsCode(phone, code, SmsType.RESET_PASSWORD)
+        const verificationResult = await verifySmsCodeService(phone, code, SmsType.RESET_PASSWORD)
         if (!verificationResult.success) {
             return resError(event, verificationResult.errorCode!, verificationResult.error!)
         }
@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
         }
 
         // 清除认证 cookie
-        clearAuthCookies(event);
+        clearAuthCookiesService(event);
 
         return resSuccess(event, '重置密码成功', {})
     } catch (error: any) {

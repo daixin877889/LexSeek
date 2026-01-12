@@ -9,8 +9,8 @@ import { z } from 'zod'
 /** 请求体验证 */
 const bodySchema = z.object({
     benefits: z.array(z.object({
-        benefitId: z.number().int().positive(),
-        benefitValue: z.string().refine((val) => {
+        benefitId: z.number({ message: '权益ID必须是数字' }).int('权益ID必须是整数').positive('权益ID必须是正整数'),
+        benefitValue: z.string({ message: '权益值不能为空' }).refine((val) => {
             try {
                 const num = BigInt(val)
                 return num >= 0

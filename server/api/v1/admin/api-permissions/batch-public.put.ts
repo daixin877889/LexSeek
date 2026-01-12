@@ -5,8 +5,10 @@
 import { z } from 'zod'
 
 const bodySchema = z.object({
-    ids: z.array(z.number().int()).min(1, '请选择至少一个权限'),
-    isPublic: z.boolean(),
+    ids: z.array(
+        z.number({ message: '权限ID必须是数字' }).int('权限ID必须是整数')
+    ).min(1, '请选择至少一个权限'),
+    isPublic: z.boolean({ message: '公开状态必须是布尔值' }),
 })
 
 export default defineEventHandler(async (event) => {

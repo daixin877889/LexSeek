@@ -5,7 +5,10 @@
 import { z } from 'zod'
 
 const bodySchema = z.object({
-    permissionIds: z.array(z.number().int()),
+    permissionIds: z.array(
+        z.number({ message: '权限ID必须是数字' })
+            .int('权限ID必须是整数')
+    ),
 })
 
 export default defineEventHandler(async (event) => {

@@ -10,7 +10,7 @@
 /** 请求参数验证 */
 const queryPaymentSchema = z.object({
     /** 支付单号 */
-    transactionNo: z.string().min(1, '支付单号不能为空'),
+    transactionNo: z.string({ message: '支付单号必须是字符串' }).min(1, '支付单号不能为空'),
     /** 是否主动查询支付结果 */
     sync: z.string().optional().transform((v) => v === 'true'),
 })

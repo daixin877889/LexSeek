@@ -14,6 +14,7 @@ import {
 
 /** 创建积分消耗项目输入 */
 export interface CreatePointConsumptionItemInput {
+    key: string
     group: string
     name: string
     description?: string | null
@@ -56,6 +57,7 @@ const createPointConsumptionItemDao = async (
     try {
         const item = await prisma.pointConsumptionItems.create({
             data: {
+                key: data.key,
                 group: data.group,
                 name: data.name,
                 description: data.description,
@@ -85,6 +87,23 @@ const findPointConsumptionItemByNameDao = async (
         return item
     } catch (error) {
         logger.error('通过名称查询积分消耗项目失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 通过 Key 查询积分消耗项目
+ */
+const findPointConsumptionItemByKeyDao = async (
+    key: string
+): Promise<pointConsumptionItems | null> => {
+    try {
+        const item = await prisma.pointConsumptionItems.findFirst({
+            where: { key, deletedAt: null },
+        })
+        return item
+    } catch (error) {
+        logger.error('通过 Key 查询积分消耗项目失败：', error)
         throw error
     }
 }
@@ -208,6 +227,12 @@ export const createPointConsumptionItemService = async (
     const existing = await findPointConsumptionItemByNameDao(data.name)
     if (existing) {
         throw new Error('积分消耗项目名称已存在')
+    }
+
+    // 检查 Key 是否已存在
+    const keyExists = await findPointConsumptionItemByKeyDao(data.key)
+    if (keyExists) {
+        throw new Error('积分消耗项目 Key 已存在')
     }
 
     // 验证折扣值

@@ -13,19 +13,19 @@ export default defineEventHandler(async (event) => {
 
     if (!token) {
       // 即使没有 token，也清除 cookie 并返回成功
-      clearAuthCookies(event)
+      clearAuthCookiesService(event)
       return resSuccess(event, '退出登录成功', {})
     }
 
     if (!user) {
       // 即使没有用户信息，也清除 cookie 并返回成功
-      clearAuthCookies(event)
+      clearAuthCookiesService(event)
       return resSuccess(event, '退出登录成功', {})
     }
 
     // 检查 token 是否已过期
     if (expiredTimestamp && new Date(expiredTimestamp * 1000) < new Date()) {
-      clearAuthCookies(event)
+      clearAuthCookiesService(event)
       return resSuccess(event, '退出登录成功', {})
     }
 
@@ -35,13 +35,13 @@ export default defineEventHandler(async (event) => {
     }
 
     // 清除认证 cookie
-    clearAuthCookies(event)
+    clearAuthCookiesService(event)
 
     return resSuccess(event, '退出登录成功', {})
   } catch (error) {
     logger.error('退出登录失败：', error)
     // 即使出错也尝试清除 cookie
-    clearAuthCookies(event)
+    clearAuthCookiesService(event)
     return resError(event, 400, parseErrorMessage(error, '退出登录失败'))
   }
 })

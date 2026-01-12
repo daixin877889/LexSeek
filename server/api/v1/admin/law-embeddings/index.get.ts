@@ -8,10 +8,10 @@ import type { LawEmbeddingInfo } from '#shared/types/legal'
 
 // 查询参数验证
 const querySchema = z.object({
-    legalId: z.string().min(1, '法律 ID 不能为空'),
-    articleId: z.string().optional(),
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    legalId: z.string({ message: '法律 ID 必须是字符串' }).min(1, '法律 ID 不能为空'),
+    articleId: z.string({ message: '条文 ID 必须是字符串' }).optional(),
+    page: z.coerce.number({ message: '页码必须是数字' }).int('页码必须是整数').min(1, '页码最小为1').default(1),
+    pageSize: z.coerce.number({ message: '每页数量必须是数字' }).int('每页数量必须是整数').min(1, '每页数量最小为1').max(100, '每页数量最大为100').default(20),
 })
 
 export default defineEventHandler(async (event) => {

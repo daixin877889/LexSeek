@@ -5,7 +5,10 @@
 import { z } from 'zod'
 
 const bodySchema = z.object({
-    routerIds: z.array(z.number().int()),
+    routerIds: z.array(
+        z.number({ message: '路由ID必须是数字' })
+            .int('路由ID必须是整数')
+    ),
 })
 
 export default defineEventHandler(async (event) => {

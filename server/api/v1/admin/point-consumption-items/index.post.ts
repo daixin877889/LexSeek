@@ -9,6 +9,10 @@ import { z } from 'zod'
 
 /** 请求体验证 */
 const bodySchema = z.object({
+    key: z.string({ required_error: 'Key不能为空' })
+        .min(1, 'Key不能为空')
+        .max(50, 'Key不能超过50个字符')
+        .regex(/^[a-z][a-z0-9_]*$/, 'Key只能包含小写字母、数字和下划线，且必须以字母开头'),
     group: z.string({ required_error: '分组不能为空' })
         .min(1, '分组不能为空')
         .max(100, '分组不能超过100个字符'),
@@ -49,6 +53,9 @@ export default defineEventHandler(async (event) => {
     } catch (error: any) {
         // 处理业务逻辑错误
         if (error.message === '积分消耗项目名称已存在') {
+            return resError(event, 409, error.message)
+        }
+        if (error.message === '积分消耗项目 Key 已存在') {
             return resError(event, 409, error.message)
         }
         if (error.message === '折扣值必须在 0-1 之间') {

@@ -23,13 +23,13 @@ export default defineEventHandler(async (event) => {
         }
 
         // 使用统一的验证码验证服务
-        const verificationResult = await verifySmsCode(phone, code, SmsType.LOGIN)
+        const verificationResult = await verifySmsCodeService(phone, code, SmsType.LOGIN)
         if (!verificationResult.success) {
             return resError(event, verificationResult.errorCode!, verificationResult.error!)
         }
 
         // 使用统一的 token 生成服务
-        const token = generateAuthToken(event, {
+        const token = generateAuthTokenService(event, {
             id: user.id,
             phone: user.phone,
             roles: user.userRoles.map((role) => role.roleId),

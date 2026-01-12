@@ -47,7 +47,7 @@ export interface CookieConfig {
  *
  * @returns Cookie 配置对象
  */
-export const getCookieConfig = (): CookieConfig => {
+export const getCookieConfigService = (): CookieConfig => {
     const config = useRuntimeConfig()
 
     return {
@@ -75,7 +75,7 @@ export const AUTH_STATUS_COOKIE = 'auth_status'
  * @param user 用户信息，包含 id、phone、roles、status
  * @returns 生成的 JWT token 字符串
  */
-export const generateAuthToken = (event: H3Event, user: TokenUserInfo): string => {
+export const generateAuthTokenService = (event: H3Event, user: TokenUserInfo): string => {
     const config = useRuntimeConfig()
 
     // 生成 JWT token
@@ -87,7 +87,7 @@ export const generateAuthToken = (event: H3Event, user: TokenUserInfo): string =
     })
 
     // 获取 Cookie 配置
-    const cookieConfig = getCookieConfig()
+    const cookieConfig = getCookieConfigService()
 
     // 设置 HttpOnly Cookie（用于服务端验证）
     setCookie(event, config.auth.cookieName, token, cookieConfig)
@@ -106,7 +106,7 @@ export const generateAuthToken = (event: H3Event, user: TokenUserInfo): string =
  *
  * @param event H3Event 对象
  */
-export const clearAuthCookies = (event: H3Event): void => {
+export const clearAuthCookiesService = (event: H3Event): void => {
     const config = useRuntimeConfig()
 
     // 清除 token cookie

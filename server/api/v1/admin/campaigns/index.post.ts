@@ -17,7 +17,7 @@ const bodySchema = z.object({
     giftPoint: z.number().int().min(0, '赠送积分不能为负').nullable().optional(),
     startAt: z.string().refine((val) => dayjs(val).isValid(), '开始时间格式无效'),
     endAt: z.string().refine((val) => dayjs(val).isValid(), '结束时间格式无效').nullable().optional(),
-    status: z.nativeEnum(CampaignStatus).optional(),
+    status: z.nativeEnum(CampaignStatus, { message: '活动状态无效' }).optional(),
     remark: z.string().max(500, '备注最多500个字符').nullable().optional(),
 }).refine((data) => {
     // 如果有结束时间，验证结束时间必须晚于开始时间

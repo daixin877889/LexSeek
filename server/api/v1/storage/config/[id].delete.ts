@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
         }
 
         // 清除适配器缓存
-        clearAdapterCache(id)
+        clearAdapterCacheService(id)
 
         return resSuccess(event, '删除存储配置成功', { id })
     } catch (error) {

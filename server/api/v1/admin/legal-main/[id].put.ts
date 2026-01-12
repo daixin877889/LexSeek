@@ -7,16 +7,16 @@ import { LegalType } from '#shared/types/legal'
 
 // 请求体验证
 const bodySchema = z.object({
-    name: z.string().min(1).max(200).optional(),
-    code: z.string().min(1).max(100).optional(),
-    type: z.nativeEnum(LegalType).optional(),
-    category: z.string().max(100).nullable().optional(),
-    content: z.string().min(1).optional(),
-    issuingAuthority: z.string().max(200).nullable().optional(),
-    documentNumber: z.string().max(100).nullable().optional(),
-    publishDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal('')).nullable().optional(),
-    effectiveDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal('')).nullable().optional(),
-    invalidDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal('')).nullable().optional(),
+    name: z.string().min(1, '法律名称不能为空').max(200, '法律名称不能超过200个字符').optional(),
+    code: z.string().min(1, '法律代码不能为空').max(100, '法律代码不能超过100个字符').optional(),
+    type: z.nativeEnum(LegalType, { message: '法律类型无效' }).optional(),
+    category: z.string().max(100, '分类不能超过100个字符').nullable().optional(),
+    content: z.string().min(1, '法律内容不能为空').optional(),
+    issuingAuthority: z.string().max(200, '发文机关不能超过200个字符').nullable().optional(),
+    documentNumber: z.string().max(100, '文号不能超过100个字符').nullable().optional(),
+    publishDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '发布日期格式错误').or(z.literal('')).nullable().optional(),
+    effectiveDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '生效日期格式错误').or(z.literal('')).nullable().optional(),
+    invalidDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '失效日期格式错误').or(z.literal('')).nullable().optional(),
 })
 
 export default defineEventHandler(async (event) => {

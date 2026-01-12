@@ -6,9 +6,9 @@ import { z } from 'zod'
 
 const bodySchema = z.object({
     isMenu: z.boolean().optional(),
-    sort: z.number().int().min(0, '排序值必须为非负整数').optional(),
-    title: z.string().min(1).max(100).optional(),
-    icon: z.string().max(100).nullable().optional(),
+    sort: z.number({ message: '排序值必须是数字' }).int('排序值必须是整数').min(0, '排序值必须为非负整数').optional(),
+    title: z.string().min(1, '标题不能为空').max(100, '标题不能超过100个字符').optional(),
+    icon: z.string().max(100, '图标不能超过100个字符').nullable().optional(),
 })
 
 export default defineEventHandler(async (event) => {

@@ -7,9 +7,9 @@
 import { z } from 'zod'
 
 const itemSchema = z.object({
-    path: z.string().min(1),
-    method: z.string().min(1),
-    name: z.string().min(1),
+    path: z.string({ message: '路径不能为空' }).min(1, '路径不能为空'),
+    method: z.string({ message: '方法不能为空' }).min(1, '方法不能为空'),
+    name: z.string({ message: '名称不能为空' }).min(1, '名称不能为空'),
 })
 
 const bodySchema = z.object({

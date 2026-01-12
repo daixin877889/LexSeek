@@ -11,9 +11,9 @@ import { PaymentChannel, PaymentMethod, DurationUnit, OrderType } from '#shared/
 /** 请求参数验证 */
 const upgradePaySchema = z.object({
     /** 目标级别 ID */
-    targetLevelId: z.number().int().positive('目标级别 ID 必须为正整数'),
+    targetLevelId: z.number({ message: '目标级别 ID 必须是数字' }).int('目标级别 ID 必须是整数').positive('目标级别 ID 必须为正整数'),
     /** 指定的会员记录 ID（可选） */
-    membershipId: z.number().int().positive().optional(),
+    membershipId: z.number({ message: '会员记录 ID 必须是数字' }).int('会员记录 ID 必须是整数').positive('会员记录 ID 必须为正整数').optional(),
     /** 支付渠道 */
     paymentChannel: z.nativeEnum(PaymentChannel, { message: '无效的支付渠道' }),
     /** 支付方式 */

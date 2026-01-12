@@ -89,7 +89,7 @@ export const timingSafeEqual = (a: string, b: string): boolean => {
  * @param type 验证码类型
  * @returns 是否被锁定
  */
-export const isVerificationLocked = async (phone: string, type: SmsType): Promise<boolean> => {
+export const isVerificationLockedService = async (phone: string, type: SmsType): Promise<boolean> => {
     const key = getFailureKey(phone, type)
     const record = verificationFailures.get(key)
 
@@ -116,7 +116,7 @@ export const isVerificationLocked = async (phone: string, type: SmsType): Promis
  * @param phone 手机号
  * @param type 验证码类型
  */
-export const recordVerificationFailure = async (phone: string, type: SmsType): Promise<void> => {
+export const recordVerificationFailureService = async (phone: string, type: SmsType): Promise<void> => {
     const config = useRuntimeConfig()
     const maxFailures = config.aliyun.sms.maxFailures
     // 配置单位为秒，转换为毫秒
@@ -154,7 +154,7 @@ export const recordVerificationFailure = async (phone: string, type: SmsType): P
  * @param phone 手机号
  * @param type 验证码类型
  */
-export const resetVerificationFailures = async (phone: string, type: SmsType): Promise<void> => {
+export const resetVerificationFailuresService = async (phone: string, type: SmsType): Promise<void> => {
     const key = getFailureKey(phone, type)
     verificationFailures.delete(key)
 }
@@ -176,13 +176,13 @@ export const resetVerificationFailures = async (phone: string, type: SmsType): P
  * @param type 验证码类型（登录、注册、重置密码）
  * @returns 验证结果，包含成功状态、错误信息和验证码记录
  */
-export const verifySmsCode = async (
+export const verifySmsCodeService = async (
     phone: string,
     code: string,
     type: SmsType
 ): Promise<VerificationResult> => {
     // 1. 检查是否被锁定
-    const locked = await isVerificationLocked(phone, type)
+    const locked = await isVerificationLockedService(phone, type)
     if (locked) {
         return {
             success: false,
@@ -216,7 +216,7 @@ export const verifySmsCode = async (
     const isCodeValid = timingSafeEqual(smsRecord.code, code)
     if (!isCodeValid) {
         // 记录验证失败
-        await recordVerificationFailure(phone, type)
+        await recordVerificationFailureService(phone, type)
         return {
             success: false,
             error: '验证码不正确',
@@ -228,7 +228,7 @@ export const verifySmsCode = async (
     await deleteSmsRecordByIdDao(smsRecord.id)
 
     // 6. 重置失败计数
-    await resetVerificationFailures(phone, type)
+    await resetVerificationFailuresService(phone, type)
 
     return {
         success: true,

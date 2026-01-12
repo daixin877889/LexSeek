@@ -13,9 +13,9 @@ import { z } from 'zod'
 
 // 查询参数验证
 const querySchema = z.object({
-    legalId: z.string().min(1, '法律 ID 不能为空'),
-    parentPath: z.string().optional(),
-    parentType: z.enum(['l1', 'l2', 'l3', 'l4']).optional(),
+    legalId: z.string({ message: '法律 ID 必须是字符串' }).min(1, '法律 ID 不能为空'),
+    parentPath: z.string({ message: '父级路径必须是字符串' }).optional(),
+    parentType: z.enum(['l1', 'l2', 'l3', 'l4'], { message: '父级类型无效，必须是 l1、l2、l3 或 l4' }).optional(),
 })
 
 export default defineEventHandler(async (event) => {

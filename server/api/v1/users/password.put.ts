@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // 清除认证 cookie
-    clearAuthCookies(event);
+    clearAuthCookiesService(event);
 
     return resSuccess(event, "更新用户密码成功", true)
   } catch (error) {

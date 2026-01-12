@@ -5,9 +5,9 @@
 import { z } from 'zod'
 
 const bodySchema = z.object({
-    name: z.string().min(1).max(50).optional(),
-    description: z.string().max(200).optional(),
-    status: z.number().int().min(0).max(1).optional(),
+    name: z.string().min(1, '角色名称不能为空').max(50, '角色名称不能超过50个字符').optional(),
+    description: z.string().max(200, '描述不能超过200个字符').optional(),
+    status: z.number({ message: '状态必须是数字' }).int('状态必须是整数').min(0, '状态值无效').max(1, '状态值无效').optional(),
 })
 
 export default defineEventHandler(async (event) => {

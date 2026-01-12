@@ -13,9 +13,9 @@
 /** 请求参数验证 */
 const createPaymentSchema = z.object({
     /** 商品 ID */
-    productId: z.number().int().positive('商品 ID 必须为正整数'),
+    productId: z.number({ message: '商品 ID 必须是数字' }).int('商品 ID 必须是整数').positive('商品 ID 必须为正整数'),
     /** 购买时长 */
-    duration: z.number().int().min(1, '购买时长至少为 1'),
+    duration: z.number({ message: '购买时长必须是数字' }).int('购买时长必须是整数').min(1, '购买时长至少为 1'),
     /** 时长单位 */
     durationUnit: z.nativeEnum(DurationUnit, { message: '无效的时长单位' }),
     /** 支付渠道 */

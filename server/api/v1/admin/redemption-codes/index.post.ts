@@ -10,13 +10,13 @@ import { RedemptionCodeType } from '#shared/types/redemption'
 
 // 请求体验证
 const bodySchema = z.object({
-    type: z.nativeEnum(RedemptionCodeType),
-    quantity: z.number().int().min(1).max(1000),
-    levelId: z.number().int().optional(),
-    duration: z.number().int().min(1).optional(),
-    pointAmount: z.number().int().min(1).optional(),
-    expiredAt: z.string().datetime().optional(),
-    remark: z.string().max(500).optional(),
+    type: z.nativeEnum(RedemptionCodeType, { message: '兑换码类型无效' }),
+    quantity: z.number({ message: '数量必须是数字' }).int('数量必须是整数').min(1, '数量至少为1').max(1000, '数量最多为1000'),
+    levelId: z.number({ message: '会员级别ID必须是数字' }).int('会员级别ID必须是整数').optional(),
+    duration: z.number({ message: '时长必须是数字' }).int('时长必须是整数').min(1, '时长至少为1天').optional(),
+    pointAmount: z.number({ message: '积分数量必须是数字' }).int('积分数量必须是整数').min(1, '积分数量至少为1').optional(),
+    expiredAt: z.string().datetime('过期时间格式无效').optional(),
+    remark: z.string().max(500, '备注最多500个字符').optional(),
 })
 
 export default defineEventHandler(async (event) => {

@@ -6,17 +6,17 @@ import { z } from 'zod'
 
 // 查询参数验证
 const querySchema = z.object({
-    legalId: z.string().min(1, '法律 ID 不能为空'),
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(500).default(100),
+    legalId: z.string({ message: '法律 ID 必须是字符串' }).min(1, '法律 ID 不能为空'),
+    page: z.coerce.number({ message: '页码必须是数字' }).int('页码必须是整数').min(1, '页码最小为1').default(1),
+    pageSize: z.coerce.number({ message: '每页数量必须是数字' }).int('每页数量必须是整数').min(1, '每页数量最小为1').max(500, '每页数量最大为500').default(100),
     // 筛选参数
-    type: z.string().optional(),
-    keyword: z.string().optional(),
-    l1: z.string().optional(),
-    l2: z.string().optional(),
-    l3: z.string().optional(),
-    l4: z.string().optional(),
-    l5: z.string().optional(),
+    type: z.string({ message: '类型必须是字符串' }).optional(),
+    keyword: z.string({ message: '关键词必须是字符串' }).optional(),
+    l1: z.string({ message: 'l1 必须是字符串' }).optional(),
+    l2: z.string({ message: 'l2 必须是字符串' }).optional(),
+    l3: z.string({ message: 'l3 必须是字符串' }).optional(),
+    l4: z.string({ message: 'l4 必须是字符串' }).optional(),
+    l5: z.string({ message: 'l5 必须是字符串' }).optional(),
 })
 
 export default defineEventHandler(async (event) => {

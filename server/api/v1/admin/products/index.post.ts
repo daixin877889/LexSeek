@@ -26,7 +26,7 @@ const bodySchema = z.object({
     purchaseLimit: z.number().int().min(0, '购买限制不能为负').optional(),
     pointAmount: z.number().int().min(0, '积分数量不能为负').optional(),
     giftPoint: z.number().int().min(0, '赠送积分不能为负').optional(),
-    status: z.nativeEnum(ProductStatus).optional(),
+    status: z.nativeEnum(ProductStatus, { message: '产品状态无效' }).optional(),
     sortOrder: z.number().int().min(0, '排序值不能为负').optional(),
 })
 

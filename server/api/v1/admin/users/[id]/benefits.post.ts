@@ -9,8 +9,8 @@ import { BenefitSourceType } from '#shared/types/benefit'
 
 /** 请求体验证 */
 const bodySchema = z.object({
-    benefitId: z.number().int().positive('请选择权益类型'),
-    benefitValue: z.string().refine((val) => {
+    benefitId: z.number({ message: '权益ID必须是数字' }).int('权益ID必须是整数').positive('请选择权益类型'),
+    benefitValue: z.string({ message: '权益值不能为空' }).refine((val) => {
         try {
             const num = BigInt(val)
             return num > 0
@@ -18,8 +18,8 @@ const bodySchema = z.object({
             return false
         }
     }, '权益值必须是正整数'),
-    effectiveAt: z.string().refine((val) => !isNaN(Date.parse(val)), '生效时间格式无效'),
-    expiredAt: z.string().refine((val) => !isNaN(Date.parse(val)), '过期时间格式无效'),
+    effectiveAt: z.string({ message: '生效时间不能为空' }).refine((val) => !isNaN(Date.parse(val)), '生效时间格式无效'),
+    expiredAt: z.string({ message: '过期时间不能为空' }).refine((val) => !isNaN(Date.parse(val)), '过期时间格式无效'),
     remark: z.string().max(255, '备注最多255个字符').optional(),
 })
 

@@ -21,7 +21,7 @@ import {
 import {
     getDefaultStorageConfigDao,
     getStorageConfigByIdDao
-} from './storage-config.dao'
+} from './storageConfig.dao'
 import { StorageConfigError } from '~~/server/lib/storage/errors'
 
 /**
@@ -165,7 +165,7 @@ export async function testStorageConnectionService(options: {
  * 清除指定配置的适配器缓存
  * 当配置更新或删除时调用
  */
-export function clearAdapterCache(configId?: number): void {
+export function clearAdapterCacheService(configId?: number): void {
     if (configId) {
         StorageFactory.clearCacheByConfigId(configId)
     } else {

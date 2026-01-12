@@ -5,13 +5,13 @@
 import { z } from 'zod'
 
 const bodySchema = z.object({
-    path: z.string().min(1).max(200).optional(),
-    method: z.string().min(1).max(10).optional(),
-    name: z.string().min(1).max(100).optional(),
-    description: z.string().max(500).nullable().optional(),
-    groupId: z.number().int().nullable().optional(),
+    path: z.string().min(1, '路径不能为空').max(200, '路径不能超过200个字符').optional(),
+    method: z.string().min(1, '方法不能为空').max(10, '方法不能超过10个字符').optional(),
+    name: z.string().min(1, '名称不能为空').max(100, '名称不能超过100个字符').optional(),
+    description: z.string().max(500, '描述不能超过500个字符').nullable().optional(),
+    groupId: z.number({ message: '分组ID必须是数字' }).int('分组ID必须是整数').nullable().optional(),
     isPublic: z.boolean().optional(),
-    status: z.number().int().min(0).max(1).optional(),
+    status: z.number({ message: '状态必须是数字' }).int('状态必须是整数').min(0, '状态值无效').max(1, '状态值无效').optional(),
 })
 
 export default defineEventHandler(async (event) => {

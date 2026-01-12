@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
         const { phone, code, name, password, username, company, profile, invitedBy } = body;
 
         // 使用统一的验证码验证服务
-        const verificationResult = await verifySmsCode(phone, code, SmsType.REGISTER)
+        const verificationResult = await verifySmsCodeService(phone, code, SmsType.REGISTER)
         if (!verificationResult.success) {
             return resError(event, verificationResult.errorCode!, verificationResult.error!)
         }
@@ -117,7 +117,7 @@ export default defineEventHandler(async (event) => {
         }
 
         // 使用统一的 token 生成服务
-        const token = generateAuthToken(event, {
+        const token = generateAuthTokenService(event, {
             id: responseUser.id,
             phone: responseUser.phone,
             roles: responseUser.roles,

@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
 
         // 1. 数据验证
         const schema = z.object({
-            phone: z.string().regex(/^1[3-9]\d{9}$/, "手机号格式不正确"),
+            phone: z.string({ message: '手机号不能为空' }).regex(/^1[3-9]\d{9}$/, "手机号格式不正确"),
             type: z.enum(SmsType, {
                 message: "验证码类型不正确"
             })

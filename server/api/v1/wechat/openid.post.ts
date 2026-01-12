@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
 
     try {
         // 调用微信服务获取 OpenID
-        const { openid, unionid } = await getMpOpenid(code)
+        const { openid, unionid } = await getMpOpenidService(code)
 
         return resSuccess(event, '获取成功', {
             openid,
