@@ -60,6 +60,8 @@ model pointRecords {
 model pointConsumptionItems {
     /// 积分消耗项目ID，主键，自增
     id                      Int                       @id @default(autoincrement())
+    /// 消耗项目标识符，用于代码中引用，避免硬编码 ID
+    key                     String?                   @unique @db.VarChar(50)
     /// 分组
     group                   String                    @db.VarChar(100)
     /// 积分消耗项目名称
@@ -82,6 +84,7 @@ model pointConsumptionItems {
     discount                Decimal?                  @default(1) @map("discount") @db.Decimal(3, 2)
     pointConsumptionRecords pointConsumptionRecords[]
 
+    @@index([key], map: "idx_point_consumption_items_key")
     @@index([name], map: "idx_point_consumption_items_name")
     @@index([status], map: "idx_point_consumption_items_status")
     @@index([deletedAt], map: "idx_point_consumption_items_deleted_at")
@@ -98,9 +101,11 @@ model pointConsumptionRecords {
     pointRecordId Int       @map("point_record_id")
     /// 积分消耗项目ID，外键关联积分消耗项目表
     itemId        Int       @map("item_id")
+    /// 预扣批次 ID，用于关联同一次预扣操作的多条记录
+    batchId       String?   @map("batch_id") @db.VarChar(36)
     /// 积分消耗数量
     pointAmount   Int       @map("point_amount")
-    /// 积分消耗项目状态
+    /// 积分消耗记录状态：0-无效，1-预扣，2-已结算
     status        Int       @default(1)
     /// 积分消耗对应项目的资源ID，根据来源类型关联到不同的表
     sourceId      Int?      @map("source_id")
@@ -122,6 +127,7 @@ model pointConsumptionRecords {
 
     @@index([userId], map: "idx_point_consumption_records_user_id")
     @@index([itemId], map: "idx_point_consumption_records_item_id")
+    @@index([batchId], map: "idx_point_consumption_records_batch_id")
     @@index([status], map: "idx_point_consumption_records_status")
     @@index([deletedAt], map: "idx_point_consumption_records_deleted_at")
     @@map("point_consumption_records")

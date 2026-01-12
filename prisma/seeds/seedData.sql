@@ -102,6 +102,12 @@ INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "i
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "created_at", "updated_at", "deleted_at", "menu_group", "menu_group_sort") VALUES (75, 'admin-access', '节点权限', NULL, '/admin/access', 't', NULL, 'ShieldCheckIcon', 3, 4, '2026-01-06 10:00:00+08', '2026-01-06 10:00:00+08', NULL, '分析模块', 6);
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (76, 'admin-demo-cases', '示范案例', NULL, '/admin/demo-cases', 't', NULL, 'FileTextIcon', 3, 5, '分析模块', 0, '2026-01-06 16:06:33.405+08', '2026-01-06 16:06:33.405+08', NULL);
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "created_at", "updated_at", "deleted_at", "menu_group", "menu_group_sort") VALUES (77, 'admin-point-items', '积分消耗项目', NULL, '/admin/point-items', 't', NULL, 'CoinsIcon', 3, 5, '2026-01-06 10:00:00+08', '2026-01-06 10:00:00+08', NULL, '积分管理', 6);
+INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "created_at", "updated_at", "deleted_at", "menu_group", "menu_group_sort") VALUES (78, 'admin-case-types', '案件类型管理', NULL, '/admin/case-types', 't', NULL, 'FolderIcon', 3, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL, '案件管理', 7);
+INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "created_at", "updated_at", "deleted_at", "menu_group", "menu_group_sort") VALUES (79, 'admin-asr-tasks', 'ASR 任务管理', NULL, '/admin/asr-tasks', 't', NULL, 'MicIcon', 3, 3, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL, '材料处理', 8);
+INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "created_at", "updated_at", "deleted_at", "menu_group", "menu_group_sort") VALUES (80, 'admin-mineru-tasks', 'MinerU 任务管理', NULL, '/admin/mineru-tasks', 't', NULL, 'FileTextIcon', 3, 2, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL, '材料处理', 8);
+INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "created_at", "updated_at", "deleted_at", "menu_group", "menu_group_sort") VALUES (81, 'admin-mineru-tokens', 'MinerU Token 管理', NULL, '/admin/mineru-tokens', 't', NULL, 'KeyIcon', 3, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL, '材料处理', 8);
+
+
 
 -- 角色路由
 INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (1, 1, 1, '2025-12-31 09:53:05.425+08', '2025-12-31 09:53:05.425+08', NULL);
@@ -526,35 +532,10 @@ INSERT INTO "public"."models" ("id", "provider_id", "name", "display_name", "mod
 INSERT INTO "public"."models" ("id", "provider_id", "name", "display_name", "model_type", "model_version", "context_window", "dimensions", "batch_size", "is_default", "status", "priority", "input_cost_per_million_tokens", "output_cost_per_million_tokens", "created_at", "updated_at", "deleted_at") VALUES (14, 7, 'kimi-k2-0711-preview', 'kimi-k2-0711-preview', 'chat', NULL, NULL, NULL, NULL, 'f', 1, 140, NULL, NULL, '2026-01-05 15:18:33+08', '2026-01-05 15:18:33+08', NULL);
 INSERT INTO "public"."models" ("id", "provider_id", "name", "display_name", "model_type", "model_version", "context_window", "dimensions", "batch_size", "is_default", "status", "priority", "input_cost_per_million_tokens", "output_cost_per_million_tokens", "created_at", "updated_at", "deleted_at") VALUES (15, 5, 'doubao-seed-1-6-thinking-250715', 'doubao-seed-1-6-thinking-250715', 'chat', NULL, NULL, NULL, NULL, 'f', 1, 150, NULL, NULL, '2026-01-05 15:18:33+08', '2026-01-05 15:18:33+08', NULL);
 
--- 重置所有序列，确保新插入的记录不会与种子数据冲突
--- Reset all sequences to avoid ID conflicts with seed data
-SELECT setval('users_id_seq', (SELECT COALESCE(MAX(id), 0) FROM users) + 1, false);
-SELECT setval('roles_id_seq', (SELECT COALESCE(MAX(id), 0) FROM roles) + 1, false);
-SELECT setval('user_roles_id_seq', (SELECT COALESCE(MAX(id), 0) FROM user_roles) + 1, false);
-SELECT setval('user_encryptions_id_seq', (SELECT COALESCE(MAX(id), 0) FROM user_encryptions) + 1, false);
-SELECT setval('router_groups_id_seq', (SELECT COALESCE(MAX(id), 0) FROM router_groups) + 1, false);
-SELECT setval('routers_id_seq', (SELECT COALESCE(MAX(id), 0) FROM routers) + 1, false);
-SELECT setval('role_routers_id_seq', (SELECT COALESCE(MAX(id), 0) FROM role_routers) + 1, false);
-SELECT setval('membership_levels_id_seq', (SELECT COALESCE(MAX(id), 0) FROM membership_levels) + 1, false);
-SELECT setval('products_id_seq', (SELECT COALESCE(MAX(id), 0) FROM products) + 1, false);
-SELECT setval('campaigns_id_seq', (SELECT COALESCE(MAX(id), 0) FROM campaigns) + 1, false);
-SELECT setval('api_permission_groups_id_seq', (SELECT COALESCE(MAX(id), 0) FROM api_permission_groups) + 1, false);
-SELECT setval('api_permissions_id_seq', (SELECT COALESCE(MAX(id), 0) FROM api_permissions) + 1, false);
-SELECT setval('role_api_permissions_id_seq', (SELECT COALESCE(MAX(id), 0) FROM role_api_permissions) + 1, false);
-SELECT setval('benefits_id_seq', (SELECT COALESCE(MAX(id), 0) FROM benefits) + 1, false);
-SELECT setval('membership_benefits_id_seq', (SELECT COALESCE(MAX(id), 0) FROM membership_benefits) + 1, false);
-SELECT setval('model_providers_id_seq', (SELECT COALESCE(MAX(id), 0) FROM model_providers) + 1, false);
-SELECT setval('model_api_keys_id_seq', (SELECT COALESCE(MAX(id), 0) FROM model_api_keys) + 1, false);
-SELECT setval('models_id_seq', (SELECT COALESCE(MAX(id), 0) FROM models) + 1, false);
-
-
--- 积分消耗项目（案件分析相关）
--- 材料处理分组
-INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (1, 'material', 'pdf_parse', 'PDF 文档解析', '页', 1, 1, 1.00, NOW(), NOW(), NULL);
+-- 积分消耗项目
+INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (1, 'material', 'doc_parse', 'PDF 文档解析', '页', 1, 1, 1.00, NOW(), NOW(), NULL);
 INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (2, 'material', 'asr_transcribe', '语音识别转录', '分钟', 1, 1, 0.30, NOW(), NOW(), NULL);
 INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (3, 'material', 'ocr_recognize', '图片文字识别', '张', 1, 1, 1.00, NOW(), NOW(), NULL);
-
--- 分析模块分组
 INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (4, 'analysisModules', 'title', '提取案件标题', '次', 0, 1, 1.00, NOW(), NOW(), NULL);
 INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (5, 'analysisModules', 'summary', '生成案件概要', '次', 3, 1, 1.00, NOW(), NOW(), NULL);
 INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (6, 'analysisModules', 'chronicle', '提取案件大事记', '次', 2, 1, 1.00, NOW(), NOW(), NULL);
@@ -564,5 +545,250 @@ INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "descript
 INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (10, 'analysisModules', 'defense', '抗辩分析及应对策略预测', '次', 5, 1, 1.00, NOW(), NOW(), NULL);
 INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (11, 'analysisModules', 'evidence', '证据清单预梳理', '次', 7, 1, 0.70, NOW(), NOW(), NULL);
 
--- 重置序列
-SELECT setval('point_consumption_items_id_seq', (SELECT MAX(id) FROM point_consumption_items));
+-- ==================== 案件类型种子数据 ====================
+INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (1, '民事纠纷', '包括合同纠纷、侵权纠纷、婚姻家庭纠纷等民事案件', 'ScaleIcon', 10, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (2, '刑事案件', '包括盗窃、诈骗、故意伤害等刑事犯罪案件', 'ShieldAlertIcon', 20, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (3, '行政诉讼', '包括行政处罚、行政许可、行政强制等行政案件', 'BuildingIcon', 30, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (4, '劳动争议', '包括劳动合同纠纷、工伤赔偿、社保争议等劳动案件', 'BriefcaseIcon', 40, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (5, '知识产权', '包括专利侵权、商标侵权、著作权纠纷等知识产权案件', 'LightbulbIcon', 50, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (6, '公司商事', '包括股权纠纷、公司治理、商业合同等商事案件', 'Building2Icon', 60, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (7, '房产纠纷', '包括房屋买卖、租赁纠纷、物业管理等房产案件', 'HomeIcon', 70, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (8, '交通事故', '包括机动车交通事故责任纠纷、保险理赔等案件', 'CarIcon', 80, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (9, '医疗纠纷', '包括医疗损害责任纠纷、医疗服务合同纠纷等案件', 'HeartPulseIcon', 90, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (10, '其他案件', '其他类型的法律案件', 'FileQuestionIcon', 100, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+
+-- ==================== MinerU Token 种子数据 ====================
+INSERT INTO "public"."mineru_tokens" ("id", "name", "token", "remark", "status", "created_at", "updated_at", "deleted_at") VALUES (1, 'daixin', 'eyJ0eXBlIjoiSldUIiwiYWxnIjoiSFM1MTIifQ.eyJqdGkiOiI0MzMwNTE1MSIsInJvbCI6IlJPTEVfUkVHSVNURVIiLCJpc3MiOiJPcGVuWExhYiIsImlhdCI6MTc2Njg5NTU5MywiY2xpZW50SWQiOiJsa3pkeDU3bnZ5MjJqa3BxOXgydyIsInBob25lIjoiIiwib3BlbklkIjpudWxsLCJ1dWlkIjoiOGViNzgyNTItZjZkYi00MGIzLTgwY2QtMjA5M2ViM2VlODE0IiwiZW1haWwiOiJkYWl4aW5tYWlsQHFxLmNvbSIsImV4cCI6MTc2ODEwNTE5M30.g75tZorWiidW_WssEMYvdK2rMLfwfXpyYZLhLtw7zymKsaQjQTT2aRzYkMs_aoZHbXCvALYAr1eU5FujDrV7Uw', '过期时间 2026-01-11 12:19', 0, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+
+-- ==================== 节点分组种子数据 ====================
+INSERT INTO "public"."node_groups" ("id", "name", "description", "priority", "created_at", "updated_at", "deleted_at") VALUES (1, '工作流节点', '案件分析工作流中的核心节点，包括案情检查、信息提取等', 10, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."node_groups" ("id", "name", "description", "priority", "created_at", "updated_at", "deleted_at") VALUES (2, '分析模块', '案件分析模块，包括案件概要、大事记、诉讼请求等', 20, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."node_groups" ("id", "name", "description", "priority", "created_at", "updated_at", "deleted_at") VALUES (3, '文书模块', '法律文书生成模块，包括起诉状、答辩状等', 30, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+
+-- ==================== 节点种子数据 ====================
+-- 案情信息检查节点（中断点1）- 关联 DeepSeek V3 模型（ID=1）
+INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (1, 'caseInfoCheck', '案情信息检查', '检查案件材料中是否包含足够的案情信息，如果不足则提示用户补充', 'workflow', 10, 1, '[]', 1, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+
+-- 基本信息提取节点（中断点2）- 关联 DeepSeek V3 模型（ID=1）
+INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (2, 'extractInfo', '基本信息提取', '从案件材料中自动提取案件基本信息，包括标题、原告、被告、案件摘要等', 'workflow', 20, 1, '[]', 1, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+
+-- 图片识别节点（OCR）- 关联 DeepSeek V3 模型（ID=1）
+INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (3, 'extractImageInfo', '图片识别', '识别图片中的文字内容，支持文档类图片和照片类图片', 'material', 30, 1, '[]', 1, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+
+-- ==================== 提示词种子数据 ====================
+-- 案情信息检查节点 - 系统提示词
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (1, 'caseInfoCheck_system', '案情信息检查-系统提示词', '你是一位专业的法律案件分析助手，专门负责评估案件材料中的案情信息是否充足。
+
+## 你的任务
+
+分析用户提供的案件材料，判断其中是否包含足够的案情信息以进行后续的法律分析。
+
+## 评估标准
+
+案情信息充足需要满足以下条件：
+1. **当事人信息**：能够识别出原告和被告（或申请人和被申请人）
+2. **案件事实**：有明确的事件经过描述，包括时间、地点、人物、事件
+3. **争议焦点**：能够识别出双方的主要争议点或诉求
+4. **法律关系**：能够初步判断涉及的法律关系类型（如合同纠纷、侵权纠纷等）
+
+## 输出格式
+
+你必须以 JSON 格式输出评估结果，格式如下：
+```json
+{
+  "sufficient": true/false,
+  "message": "评估结果说明",
+  "missingInfo": ["缺失的信息类型1", "缺失的信息类型2"],
+  "suggestions": ["建议补充的内容1", "建议补充的内容2"]
+}
+```
+
+## 注意事项
+
+- 如果材料中完全没有案情相关内容，`sufficient` 必须为 `false`
+- `missingInfo` 应具体列出缺失的信息类型
+- `suggestions` 应给出具体、可操作的补充建议
+- 评估时要考虑材料的完整性和可分析性', '[]', '1.0.0', 'system', 1, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+
+-- 案情信息检查节点 - 用户提示词
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (2, 'caseInfoCheck_user', '案情信息检查-用户提示词', '请分析以下案件材料，评估其中的案情信息是否充足。
+
+## 案件材料内容
+
+{{materials}}
+{{supplementedInfo}}
+
+## 要求
+
+1. 仔细阅读上述材料内容
+2. 根据系统提示词中的评估标准进行判断
+3. 以 JSON 格式输出评估结果', '["materials", "supplementedInfo"]', '1.0.0', 'user', 1, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+
+-- 基本信息提取节点 - 系统提示词
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (3, 'extractInfo_system', '基本信息提取-系统提示词', '你是一位专业的法律案件分析助手，专门负责从案件材料中提取关键信息。
+
+## 你的任务
+
+从用户提供的案件材料中提取案件的基本信息，包括但不限于：
+- 案件标题
+- 原告（可能有多个）
+- 被告（可能有多个）
+- 案件摘要
+- 案由
+- 诉讼标的金额
+- 案件发生时间
+- 案件发生地点
+
+## 提取规则
+
+1. **案件标题**：根据案件内容生成一个简洁明了的标题，格式建议为"原告 vs 被告 + 案由"
+2. **原告/被告**：提取所有当事人信息，如果是公司需要提取完整公司名称
+3. **案件摘要**：用 200-500 字概括案件的主要事实和争议焦点
+4. **案由**：根据案件内容判断案由类型（如合同纠纷、侵权责任纠纷等）
+5. **金额**：如果涉及金钱诉求，提取具体金额
+6. **时间/地点**：提取案件发生的时间和地点
+
+## 输出格式
+
+你必须以 JSON 格式输出提取结果，格式如下：
+```json
+{
+  "title": "案件标题",
+  "plaintiff": ["原告1", "原告2"],
+  "defendant": ["被告1", "被告2"],
+  "summary": "案件摘要",
+  "caseTypeName": "案件类型",
+  "causeOfAction": "案由",
+  "amount": "诉讼标的金额",
+  "caseDate": "案件发生时间",
+  "caseLocation": "案件发生地点"
+}
+```
+
+## 注意事项
+
+- 如果某项信息无法从材料中提取，对应字段可以省略或设为空
+- 原告和被告必须是数组格式，即使只有一个当事人
+- 提取的信息要准确，不要臆测或编造
+- 案件摘要要客观中立，不带主观判断', '[]', '1.0.0', 'system', 1, 2, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+
+-- 基本信息提取节点 - 用户提示词
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (4, 'extractInfo_user', '基本信息提取-用户提示词', '请从以下案件材料中提取基本信息。
+
+## 案件类型
+
+{{caseTypeName}}
+
+## 案件材料内容
+
+{{materials}}
+
+## 要求
+
+1. 仔细阅读上述材料内容
+2. 根据系统提示词中的提取规则进行信息提取
+3. 以 JSON 格式输出提取结果
+4. 确保提取的信息准确、完整', '["materials", "caseTypeName"]', '1.0.0', 'user', 1, 2, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+
+-- 图片识别节点 - 系统提示词
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (5, 'extractImageInfo_system', '图片识别-系统提示词', '你是一位专业的图片内容识别助手，专门负责识别和提取图片中的文字和信息内容。
+
+## 你的任务
+
+分析用户提供的图片，识别图片类型并提取其中的内容信息。
+
+## 图片类型判断标准
+
+### doc（文档类图片）
+- 扫描的文档、合同、协议
+- 打印的表格、报表
+- 书籍、报纸、杂志的页面
+- 证件、证书、执照
+- 法律文书、判决书、起诉状
+- 任何以文字为主要内容的图片
+
+### photo（照片类图片）
+- 现场照片、证据照片
+- 人物照片、场景照片
+- 物品照片、实物照片
+- 截图（聊天记录、网页等）
+- 任何以图像为主要内容的图片
+
+## 内容提取规则
+
+1. **文档类图片**：
+   - 完整提取文档中的所有文字内容
+   - 保持原文档的结构和格式
+   - 使用 Markdown 格式组织内容
+   - 表格使用 Markdown 表格语法
+   - 保留标题、段落、列表等结构
+
+2. **照片类图片**：
+   - 描述照片中的主要内容和场景
+   - 提取照片中可见的文字信息
+   - 说明照片的拍摄角度和重点
+   - 如有时间戳或水印，一并提取
+
+## 输出格式
+
+使用 Markdown 格式输出提取的内容，确保：
+- 结构清晰，层次分明
+- 文字准确，不遗漏重要信息
+- 格式规范，便于后续处理
+
+## 注意事项
+
+- 如果图片模糊或部分内容无法识别，在对应位置标注 [无法识别]
+- 不要添加原图中没有的内容
+- 保持客观，不做主观推测
+- 敏感信息（如身份证号、银行卡号）正常提取，不做脱敏处理', '[]', '1.0.0', 'system', 1, 3, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+
+
+-- 重置所有序列，确保新插入的记录不会与种子数据冲突
+-- Reset all sequences to avoid ID conflicts with seed data
+DO $$
+DECLARE
+    row record;
+BEGIN
+    FOR row IN 
+        SELECT 'SELECT SETVAL(' ||
+               quote_literal(quote_ident(n.nspname) || '.' || quote_ident(s.relname)) ||
+               ', COALESCE(MAX(' || quote_ident(a.attname) || '), 1) ) FROM ' ||
+               quote_ident(n.nspname) || '.' || quote_ident(t.relname) || ';' AS reset_sql
+        FROM pg_class s
+        JOIN pg_depend d ON d.objid = s.oid
+        JOIN pg_class t ON d.refobjid = t.oid
+        JOIN pg_attribute a ON (d.refobjid, d.refobjsubid) = (a.attrelid, a.attnum)
+        JOIN pg_namespace n ON n.oid = s.relnamespace
+        WHERE s.relkind = 'S'
+          AND n.nspname = 'public'
+        GROUP BY s.relname, n.nspname, t.relname, a.attname
+        ORDER BY s.relname
+    LOOP
+        EXECUTE row.reset_sql;
+    END LOOP;
+END;
+$$;
+
+-- SELECT setval('users_id_seq', (SELECT COALESCE(MAX(id), 0) FROM users) + 1, false);
+-- SELECT setval('roles_id_seq', (SELECT COALESCE(MAX(id), 0) FROM roles) + 1, false);
+-- SELECT setval('user_roles_id_seq', (SELECT COALESCE(MAX(id), 0) FROM user_roles) + 1, false);
+-- SELECT setval('user_encryptions_id_seq', (SELECT COALESCE(MAX(id), 0) FROM user_encryptions) + 1, false);
+-- SELECT setval('router_groups_id_seq', (SELECT COALESCE(MAX(id), 0) FROM router_groups) + 1, false);
+-- SELECT setval('routers_id_seq', (SELECT COALESCE(MAX(id), 0) FROM routers) + 1, false);
+-- SELECT setval('role_routers_id_seq', (SELECT COALESCE(MAX(id), 0) FROM role_routers) + 1, false);
+-- SELECT setval('membership_levels_id_seq', (SELECT COALESCE(MAX(id), 0) FROM membership_levels) + 1, false);
+-- SELECT setval('products_id_seq', (SELECT COALESCE(MAX(id), 0) FROM products) + 1, false);
+-- SELECT setval('campaigns_id_seq', (SELECT COALESCE(MAX(id), 0) FROM campaigns) + 1, false);
+-- SELECT setval('api_permission_groups_id_seq', (SELECT COALESCE(MAX(id), 0) FROM api_permission_groups) + 1, false);
+-- SELECT setval('api_permissions_id_seq', (SELECT COALESCE(MAX(id), 0) FROM api_permissions) + 1, false);
+-- SELECT setval('role_api_permissions_id_seq', (SELECT COALESCE(MAX(id), 0) FROM role_api_permissions) + 1, false);
+-- SELECT setval('benefits_id_seq', (SELECT COALESCE(MAX(id), 0) FROM benefits) + 1, false);
+-- SELECT setval('membership_benefits_id_seq', (SELECT COALESCE(MAX(id), 0) FROM membership_benefits) + 1, false);
+-- SELECT setval('model_providers_id_seq', (SELECT COALESCE(MAX(id), 0) FROM model_providers) + 1, false);
+-- SELECT setval('model_api_keys_id_seq', (SELECT COALESCE(MAX(id), 0) FROM model_api_keys) + 1, false);
+-- SELECT setval('models_id_seq', (SELECT COALESCE(MAX(id), 0) FROM models) + 1, false);
+-- SELECT setval('point_consumption_items_id_seq', (SELECT COALESCE(MAX(id), 0) FROM point_consumption_items) + 1, false);
+-- SELECT setval('case_types_id_seq',(SELECT COALESCE(MAX(id), 0) FROM case_types) + 1, false);
+-- SELECT setval('mineru_tokens_id_seq',(SELECT COALESCE(MAX(id), 0) FROM mineru_tokens) + 1, false);
+

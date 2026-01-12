@@ -65,6 +65,18 @@ model users {
     /// 用户案件（一对多）
     cases cases[]
 
+    /// 用户文档识别记录（一对多）
+    docRecognitionRecords docRecognitionRecords[]
+
+    /// 用户图片识别记录（一对多）
+    imageRecognitionRecords imageRecognitionRecords[]
+
+    /// 用户 ASR 识别记录（一对多）
+    asrRecords asrRecords[]
+
+    /// 用户 MinerU 任务（一对多）
+    mineruTasks mineruTasks[]
+
     @@index([id], map: "idx_users_id")
     @@index([status], map: "idx_users_status")
     @@index([deletedAt], map: "idx_users_deleted_at")

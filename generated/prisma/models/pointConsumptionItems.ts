@@ -42,6 +42,7 @@ export type PointConsumptionItemsSumAggregateOutputType = {
 
 export type PointConsumptionItemsMinAggregateOutputType = {
   id: number | null
+  key: string | null
   group: string | null
   name: string | null
   description: string | null
@@ -56,6 +57,7 @@ export type PointConsumptionItemsMinAggregateOutputType = {
 
 export type PointConsumptionItemsMaxAggregateOutputType = {
   id: number | null
+  key: string | null
   group: string | null
   name: string | null
   description: string | null
@@ -70,6 +72,7 @@ export type PointConsumptionItemsMaxAggregateOutputType = {
 
 export type PointConsumptionItemsCountAggregateOutputType = {
   id: number
+  key: number
   group: number
   name: number
   description: number
@@ -100,6 +103,7 @@ export type PointConsumptionItemsSumAggregateInputType = {
 
 export type PointConsumptionItemsMinAggregateInputType = {
   id?: true
+  key?: true
   group?: true
   name?: true
   description?: true
@@ -114,6 +118,7 @@ export type PointConsumptionItemsMinAggregateInputType = {
 
 export type PointConsumptionItemsMaxAggregateInputType = {
   id?: true
+  key?: true
   group?: true
   name?: true
   description?: true
@@ -128,6 +133,7 @@ export type PointConsumptionItemsMaxAggregateInputType = {
 
 export type PointConsumptionItemsCountAggregateInputType = {
   id?: true
+  key?: true
   group?: true
   name?: true
   description?: true
@@ -229,6 +235,7 @@ export type pointConsumptionItemsGroupByArgs<ExtArgs extends runtime.Types.Exten
 
 export type PointConsumptionItemsGroupByOutputType = {
   id: number
+  key: string | null
   group: string
   name: string
   description: string | null
@@ -266,6 +273,7 @@ export type pointConsumptionItemsWhereInput = {
   OR?: Prisma.pointConsumptionItemsWhereInput[]
   NOT?: Prisma.pointConsumptionItemsWhereInput | Prisma.pointConsumptionItemsWhereInput[]
   id?: Prisma.IntFilter<"pointConsumptionItems"> | number
+  key?: Prisma.StringNullableFilter<"pointConsumptionItems"> | string | null
   group?: Prisma.StringFilter<"pointConsumptionItems"> | string
   name?: Prisma.StringFilter<"pointConsumptionItems"> | string
   description?: Prisma.StringNullableFilter<"pointConsumptionItems"> | string | null
@@ -281,6 +289,7 @@ export type pointConsumptionItemsWhereInput = {
 
 export type pointConsumptionItemsOrderByWithRelationInput = {
   id?: Prisma.SortOrder
+  key?: Prisma.SortOrderInput | Prisma.SortOrder
   group?: Prisma.SortOrder
   name?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -296,6 +305,7 @@ export type pointConsumptionItemsOrderByWithRelationInput = {
 
 export type pointConsumptionItemsWhereUniqueInput = Prisma.AtLeast<{
   id?: number
+  key?: string
   AND?: Prisma.pointConsumptionItemsWhereInput | Prisma.pointConsumptionItemsWhereInput[]
   OR?: Prisma.pointConsumptionItemsWhereInput[]
   NOT?: Prisma.pointConsumptionItemsWhereInput | Prisma.pointConsumptionItemsWhereInput[]
@@ -310,10 +320,11 @@ export type pointConsumptionItemsWhereUniqueInput = Prisma.AtLeast<{
   deletedAt?: Prisma.DateTimeNullableFilter<"pointConsumptionItems"> | Date | string | null
   discount?: Prisma.DecimalNullableFilter<"pointConsumptionItems"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null
   pointConsumptionRecords?: Prisma.PointConsumptionRecordsListRelationFilter
-}, "id">
+}, "id" | "key">
 
 export type pointConsumptionItemsOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
+  key?: Prisma.SortOrderInput | Prisma.SortOrder
   group?: Prisma.SortOrder
   name?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -336,6 +347,7 @@ export type pointConsumptionItemsScalarWhereWithAggregatesInput = {
   OR?: Prisma.pointConsumptionItemsScalarWhereWithAggregatesInput[]
   NOT?: Prisma.pointConsumptionItemsScalarWhereWithAggregatesInput | Prisma.pointConsumptionItemsScalarWhereWithAggregatesInput[]
   id?: Prisma.IntWithAggregatesFilter<"pointConsumptionItems"> | number
+  key?: Prisma.StringNullableWithAggregatesFilter<"pointConsumptionItems"> | string | null
   group?: Prisma.StringWithAggregatesFilter<"pointConsumptionItems"> | string
   name?: Prisma.StringWithAggregatesFilter<"pointConsumptionItems"> | string
   description?: Prisma.StringNullableWithAggregatesFilter<"pointConsumptionItems"> | string | null
@@ -349,6 +361,7 @@ export type pointConsumptionItemsScalarWhereWithAggregatesInput = {
 }
 
 export type pointConsumptionItemsCreateInput = {
+  key?: string | null
   group: string
   name: string
   description?: string | null
@@ -364,6 +377,7 @@ export type pointConsumptionItemsCreateInput = {
 
 export type pointConsumptionItemsUncheckedCreateInput = {
   id?: number
+  key?: string | null
   group: string
   name: string
   description?: string | null
@@ -378,6 +392,7 @@ export type pointConsumptionItemsUncheckedCreateInput = {
 }
 
 export type pointConsumptionItemsUpdateInput = {
+  key?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   group?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -393,6 +408,7 @@ export type pointConsumptionItemsUpdateInput = {
 
 export type pointConsumptionItemsUncheckedUpdateInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
+  key?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   group?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -408,6 +424,7 @@ export type pointConsumptionItemsUncheckedUpdateInput = {
 
 export type pointConsumptionItemsCreateManyInput = {
   id?: number
+  key?: string | null
   group: string
   name: string
   description?: string | null
@@ -421,6 +438,7 @@ export type pointConsumptionItemsCreateManyInput = {
 }
 
 export type pointConsumptionItemsUpdateManyMutationInput = {
+  key?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   group?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -435,6 +453,7 @@ export type pointConsumptionItemsUpdateManyMutationInput = {
 
 export type pointConsumptionItemsUncheckedUpdateManyInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
+  key?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   group?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -449,6 +468,7 @@ export type pointConsumptionItemsUncheckedUpdateManyInput = {
 
 export type pointConsumptionItemsCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  key?: Prisma.SortOrder
   group?: Prisma.SortOrder
   name?: Prisma.SortOrder
   description?: Prisma.SortOrder
@@ -470,6 +490,7 @@ export type pointConsumptionItemsAvgOrderByAggregateInput = {
 
 export type pointConsumptionItemsMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  key?: Prisma.SortOrder
   group?: Prisma.SortOrder
   name?: Prisma.SortOrder
   description?: Prisma.SortOrder
@@ -484,6 +505,7 @@ export type pointConsumptionItemsMaxOrderByAggregateInput = {
 
 export type pointConsumptionItemsMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
+  key?: Prisma.SortOrder
   group?: Prisma.SortOrder
   name?: Prisma.SortOrder
   description?: Prisma.SortOrder
@@ -523,6 +545,7 @@ export type pointConsumptionItemsUpdateOneRequiredWithoutPointConsumptionRecords
 }
 
 export type pointConsumptionItemsCreateWithoutPointConsumptionRecordsInput = {
+  key?: string | null
   group: string
   name: string
   description?: string | null
@@ -537,6 +560,7 @@ export type pointConsumptionItemsCreateWithoutPointConsumptionRecordsInput = {
 
 export type pointConsumptionItemsUncheckedCreateWithoutPointConsumptionRecordsInput = {
   id?: number
+  key?: string | null
   group: string
   name: string
   description?: string | null
@@ -566,6 +590,7 @@ export type pointConsumptionItemsUpdateToOneWithWhereWithoutPointConsumptionReco
 }
 
 export type pointConsumptionItemsUpdateWithoutPointConsumptionRecordsInput = {
+  key?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   group?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -580,6 +605,7 @@ export type pointConsumptionItemsUpdateWithoutPointConsumptionRecordsInput = {
 
 export type pointConsumptionItemsUncheckedUpdateWithoutPointConsumptionRecordsInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
+  key?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   group?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -625,6 +651,7 @@ export type PointConsumptionItemsCountOutputTypeCountPointConsumptionRecordsArgs
 
 export type pointConsumptionItemsSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  key?: boolean
   group?: boolean
   name?: boolean
   description?: boolean
@@ -641,6 +668,7 @@ export type pointConsumptionItemsSelect<ExtArgs extends runtime.Types.Extensions
 
 export type pointConsumptionItemsSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  key?: boolean
   group?: boolean
   name?: boolean
   description?: boolean
@@ -655,6 +683,7 @@ export type pointConsumptionItemsSelectCreateManyAndReturn<ExtArgs extends runti
 
 export type pointConsumptionItemsSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
+  key?: boolean
   group?: boolean
   name?: boolean
   description?: boolean
@@ -669,6 +698,7 @@ export type pointConsumptionItemsSelectUpdateManyAndReturn<ExtArgs extends runti
 
 export type pointConsumptionItemsSelectScalar = {
   id?: boolean
+  key?: boolean
   group?: boolean
   name?: boolean
   description?: boolean
@@ -681,7 +711,7 @@ export type pointConsumptionItemsSelectScalar = {
   discount?: boolean
 }
 
-export type pointConsumptionItemsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "group" | "name" | "description" | "unit" | "pointAmount" | "status" | "createdAt" | "updatedAt" | "deletedAt" | "discount", ExtArgs["result"]["pointConsumptionItems"]>
+export type pointConsumptionItemsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "key" | "group" | "name" | "description" | "unit" | "pointAmount" | "status" | "createdAt" | "updatedAt" | "deletedAt" | "discount", ExtArgs["result"]["pointConsumptionItems"]>
 export type pointConsumptionItemsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   pointConsumptionRecords?: boolean | Prisma.pointConsumptionItems$pointConsumptionRecordsArgs<ExtArgs>
   _count?: boolean | Prisma.PointConsumptionItemsCountOutputTypeDefaultArgs<ExtArgs>
@@ -699,6 +729,10 @@ export type $pointConsumptionItemsPayload<ExtArgs extends runtime.Types.Extensio
      * 积分消耗项目ID，主键，自增
      */
     id: number
+    /**
+     * 消耗项目标识符，用于代码中引用，避免硬编码 ID
+     */
+    key: string | null
     /**
      * 分组
      */
@@ -1164,6 +1198,7 @@ export interface Prisma__pointConsumptionItemsClient<T, Null = never, ExtArgs ex
  */
 export interface pointConsumptionItemsFieldRefs {
   readonly id: Prisma.FieldRef<"pointConsumptionItems", 'Int'>
+  readonly key: Prisma.FieldRef<"pointConsumptionItems", 'String'>
   readonly group: Prisma.FieldRef<"pointConsumptionItems", 'String'>
   readonly name: Prisma.FieldRef<"pointConsumptionItems", 'String'>
   readonly description: Prisma.FieldRef<"pointConsumptionItems", 'String'>

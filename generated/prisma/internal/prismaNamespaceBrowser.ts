@@ -56,6 +56,7 @@ export const ModelName = {
   roleApiPermissions: 'roleApiPermissions',
   permissionAuditLogs: 'permissionAuditLogs',
   campaigns: 'campaigns',
+  caseTypes: 'caseTypes',
   cases: 'cases',
   caseSessions: 'caseSessions',
   caseMaterials: 'caseMaterials',
@@ -89,6 +90,12 @@ export const ModelName = {
   roles: 'roles',
   roleRouters: 'roleRouters',
   userRoles: 'userRoles',
+  docRecognitionRecords: 'docRecognitionRecords',
+  imageRecognitionRecords: 'imageRecognitionRecords',
+  asrTasks: 'asrTasks',
+  asrRecords: 'asrRecords',
+  mineruTokens: 'mineruTokens',
+  mineruTasks: 'mineruTasks',
   redemptionCodes: 'redemptionCodes',
   redemptionRecords: 'redemptionRecords',
   routers: 'routers',
@@ -192,6 +199,21 @@ export const CampaignsScalarFieldEnum = {
 } as const
 
 export type CampaignsScalarFieldEnum = (typeof CampaignsScalarFieldEnum)[keyof typeof CampaignsScalarFieldEnum]
+
+
+export const CaseTypesScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  description: 'description',
+  icon: 'icon',
+  priority: 'priority',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type CaseTypesScalarFieldEnum = (typeof CaseTypesScalarFieldEnum)[keyof typeof CaseTypesScalarFieldEnum]
 
 
 export const CasesScalarFieldEnum = {
@@ -667,6 +689,7 @@ export type PointRecordsScalarFieldEnum = (typeof PointRecordsScalarFieldEnum)[k
 
 export const PointConsumptionItemsScalarFieldEnum = {
   id: 'id',
+  key: 'key',
   group: 'group',
   name: 'name',
   description: 'description',
@@ -687,6 +710,7 @@ export const PointConsumptionRecordsScalarFieldEnum = {
   userId: 'userId',
   pointRecordId: 'pointRecordId',
   itemId: 'itemId',
+  batchId: 'batchId',
   pointAmount: 'pointAmount',
   status: 'status',
   sourceId: 'sourceId',
@@ -764,6 +788,118 @@ export const UserRolesScalarFieldEnum = {
 } as const
 
 export type UserRolesScalarFieldEnum = (typeof UserRolesScalarFieldEnum)[keyof typeof UserRolesScalarFieldEnum]
+
+
+export const DocRecognitionRecordsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  ossFileId: 'ossFileId',
+  status: 'status',
+  htmlContent: 'htmlContent',
+  markdownContent: 'markdownContent',
+  keywords: 'keywords',
+  summary: 'summary',
+  vectorIds: 'vectorIds',
+  lastEmbeddingAt: 'lastEmbeddingAt',
+  lastEditAt: 'lastEditAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type DocRecognitionRecordsScalarFieldEnum = (typeof DocRecognitionRecordsScalarFieldEnum)[keyof typeof DocRecognitionRecordsScalarFieldEnum]
+
+
+export const ImageRecognitionRecordsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  ossFileId: 'ossFileId',
+  status: 'status',
+  imageType: 'imageType',
+  htmlContent: 'htmlContent',
+  markdownContent: 'markdownContent',
+  keywords: 'keywords',
+  summary: 'summary',
+  vectorIds: 'vectorIds',
+  lastEmbeddingAt: 'lastEmbeddingAt',
+  lastEditAt: 'lastEditAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type ImageRecognitionRecordsScalarFieldEnum = (typeof ImageRecognitionRecordsScalarFieldEnum)[keyof typeof ImageRecognitionRecordsScalarFieldEnum]
+
+
+export const AsrTasksScalarFieldEnum = {
+  id: 'id',
+  taskId: 'taskId',
+  status: 'status',
+  taskRawData: 'taskRawData',
+  result: 'result',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type AsrTasksScalarFieldEnum = (typeof AsrTasksScalarFieldEnum)[keyof typeof AsrTasksScalarFieldEnum]
+
+
+export const AsrRecordsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  ossFileId: 'ossFileId',
+  asrTasksId: 'asrTasksId',
+  status: 'status',
+  audioUrl: 'audioUrl',
+  audioDuration: 'audioDuration',
+  result: 'result',
+  jsonOssFileId: 'jsonOssFileId',
+  speakers: 'speakers',
+  keywords: 'keywords',
+  summary: 'summary',
+  vectorIds: 'vectorIds',
+  lastEmbeddingAt: 'lastEmbeddingAt',
+  lastEditAt: 'lastEditAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type AsrRecordsScalarFieldEnum = (typeof AsrRecordsScalarFieldEnum)[keyof typeof AsrRecordsScalarFieldEnum]
+
+
+export const MineruTokensScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  token: 'token',
+  remark: 'remark',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type MineruTokensScalarFieldEnum = (typeof MineruTokensScalarFieldEnum)[keyof typeof MineruTokensScalarFieldEnum]
+
+
+export const MineruTasksScalarFieldEnum = {
+  id: 'id',
+  taskId: 'taskId',
+  ossFileId: 'ossFileId',
+  userId: 'userId',
+  status: 'status',
+  taskRawData: 'taskRawData',
+  result: 'result',
+  errorMsg: 'errorMsg',
+  retryCount: 'retryCount',
+  completedAt: 'completedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type MineruTasksScalarFieldEnum = (typeof MineruTasksScalarFieldEnum)[keyof typeof MineruTasksScalarFieldEnum]
 
 
 export const RedemptionCodesScalarFieldEnum = {

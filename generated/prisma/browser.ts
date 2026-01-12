@@ -43,6 +43,11 @@ export type permissionAuditLogs = Prisma.permissionAuditLogsModel
  */
 export type campaigns = Prisma.campaignsModel
 /**
+ * Model caseTypes
+ * 案件类型表 - 存储案件的分类类型
+ */
+export type caseTypes = Prisma.caseTypesModel
+/**
  * Model cases
  * 案件表 - 存储用户创建的法律案件实体
  */
@@ -211,6 +216,36 @@ export type roleRouters = Prisma.roleRoutersModel
  * 用户角色关联表（多对多中间表）
  */
 export type userRoles = Prisma.userRolesModel
+/**
+ * Model docRecognitionRecords
+ * 文档识别记录表 - 存储 PDF 转换结果
+ */
+export type docRecognitionRecords = Prisma.docRecognitionRecordsModel
+/**
+ * Model imageRecognitionRecords
+ * 图片识别记录表 - 存储 OCR 识别结果
+ */
+export type imageRecognitionRecords = Prisma.imageRecognitionRecordsModel
+/**
+ * Model asrTasks
+ * ASR 任务表 - 存储语音识别任务记录
+ */
+export type asrTasks = Prisma.asrTasksModel
+/**
+ * Model asrRecords
+ * ASR 识别记录表 - 存储语音识别结果
+ */
+export type asrRecords = Prisma.asrRecordsModel
+/**
+ * Model mineruTokens
+ * MinerU Token 表 - 存储 MinerU API 访问凭证
+ */
+export type mineruTokens = Prisma.mineruTokensModel
+/**
+ * Model mineruTasks
+ * MinerU 任务表 - 存储 PDF 转换任务记录
+ */
+export type mineruTasks = Prisma.mineruTasksModel
 /**
  * Model redemptionCodes
  * 兑换码表

@@ -51,6 +51,7 @@ export type PointConsumptionRecordsMinAggregateOutputType = {
   userId: number | null
   pointRecordId: number | null
   itemId: number | null
+  batchId: string | null
   pointAmount: number | null
   status: number | null
   sourceId: number | null
@@ -65,6 +66,7 @@ export type PointConsumptionRecordsMaxAggregateOutputType = {
   userId: number | null
   pointRecordId: number | null
   itemId: number | null
+  batchId: string | null
   pointAmount: number | null
   status: number | null
   sourceId: number | null
@@ -79,6 +81,7 @@ export type PointConsumptionRecordsCountAggregateOutputType = {
   userId: number
   pointRecordId: number
   itemId: number
+  batchId: number
   pointAmount: number
   status: number
   sourceId: number
@@ -115,6 +118,7 @@ export type PointConsumptionRecordsMinAggregateInputType = {
   userId?: true
   pointRecordId?: true
   itemId?: true
+  batchId?: true
   pointAmount?: true
   status?: true
   sourceId?: true
@@ -129,6 +133,7 @@ export type PointConsumptionRecordsMaxAggregateInputType = {
   userId?: true
   pointRecordId?: true
   itemId?: true
+  batchId?: true
   pointAmount?: true
   status?: true
   sourceId?: true
@@ -143,6 +148,7 @@ export type PointConsumptionRecordsCountAggregateInputType = {
   userId?: true
   pointRecordId?: true
   itemId?: true
+  batchId?: true
   pointAmount?: true
   status?: true
   sourceId?: true
@@ -244,6 +250,7 @@ export type PointConsumptionRecordsGroupByOutputType = {
   userId: number
   pointRecordId: number
   itemId: number
+  batchId: string | null
   pointAmount: number
   status: number
   sourceId: number | null
@@ -281,6 +288,7 @@ export type pointConsumptionRecordsWhereInput = {
   userId?: Prisma.IntFilter<"pointConsumptionRecords"> | number
   pointRecordId?: Prisma.IntFilter<"pointConsumptionRecords"> | number
   itemId?: Prisma.IntFilter<"pointConsumptionRecords"> | number
+  batchId?: Prisma.StringNullableFilter<"pointConsumptionRecords"> | string | null
   pointAmount?: Prisma.IntFilter<"pointConsumptionRecords"> | number
   status?: Prisma.IntFilter<"pointConsumptionRecords"> | number
   sourceId?: Prisma.IntNullableFilter<"pointConsumptionRecords"> | number | null
@@ -298,6 +306,7 @@ export type pointConsumptionRecordsOrderByWithRelationInput = {
   userId?: Prisma.SortOrder
   pointRecordId?: Prisma.SortOrder
   itemId?: Prisma.SortOrder
+  batchId?: Prisma.SortOrderInput | Prisma.SortOrder
   pointAmount?: Prisma.SortOrder
   status?: Prisma.SortOrder
   sourceId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -318,6 +327,7 @@ export type pointConsumptionRecordsWhereUniqueInput = Prisma.AtLeast<{
   userId?: Prisma.IntFilter<"pointConsumptionRecords"> | number
   pointRecordId?: Prisma.IntFilter<"pointConsumptionRecords"> | number
   itemId?: Prisma.IntFilter<"pointConsumptionRecords"> | number
+  batchId?: Prisma.StringNullableFilter<"pointConsumptionRecords"> | string | null
   pointAmount?: Prisma.IntFilter<"pointConsumptionRecords"> | number
   status?: Prisma.IntFilter<"pointConsumptionRecords"> | number
   sourceId?: Prisma.IntNullableFilter<"pointConsumptionRecords"> | number | null
@@ -335,6 +345,7 @@ export type pointConsumptionRecordsOrderByWithAggregationInput = {
   userId?: Prisma.SortOrder
   pointRecordId?: Prisma.SortOrder
   itemId?: Prisma.SortOrder
+  batchId?: Prisma.SortOrderInput | Prisma.SortOrder
   pointAmount?: Prisma.SortOrder
   status?: Prisma.SortOrder
   sourceId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -357,6 +368,7 @@ export type pointConsumptionRecordsScalarWhereWithAggregatesInput = {
   userId?: Prisma.IntWithAggregatesFilter<"pointConsumptionRecords"> | number
   pointRecordId?: Prisma.IntWithAggregatesFilter<"pointConsumptionRecords"> | number
   itemId?: Prisma.IntWithAggregatesFilter<"pointConsumptionRecords"> | number
+  batchId?: Prisma.StringNullableWithAggregatesFilter<"pointConsumptionRecords"> | string | null
   pointAmount?: Prisma.IntWithAggregatesFilter<"pointConsumptionRecords"> | number
   status?: Prisma.IntWithAggregatesFilter<"pointConsumptionRecords"> | number
   sourceId?: Prisma.IntNullableWithAggregatesFilter<"pointConsumptionRecords"> | number | null
@@ -367,6 +379,7 @@ export type pointConsumptionRecordsScalarWhereWithAggregatesInput = {
 }
 
 export type pointConsumptionRecordsCreateInput = {
+  batchId?: string | null
   pointAmount: number
   status?: number
   sourceId?: number | null
@@ -384,6 +397,7 @@ export type pointConsumptionRecordsUncheckedCreateInput = {
   userId: number
   pointRecordId: number
   itemId: number
+  batchId?: string | null
   pointAmount: number
   status?: number
   sourceId?: number | null
@@ -394,6 +408,7 @@ export type pointConsumptionRecordsUncheckedCreateInput = {
 }
 
 export type pointConsumptionRecordsUpdateInput = {
+  batchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pointAmount?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -411,6 +426,7 @@ export type pointConsumptionRecordsUncheckedUpdateInput = {
   userId?: Prisma.IntFieldUpdateOperationsInput | number
   pointRecordId?: Prisma.IntFieldUpdateOperationsInput | number
   itemId?: Prisma.IntFieldUpdateOperationsInput | number
+  batchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pointAmount?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -425,6 +441,7 @@ export type pointConsumptionRecordsCreateManyInput = {
   userId: number
   pointRecordId: number
   itemId: number
+  batchId?: string | null
   pointAmount: number
   status?: number
   sourceId?: number | null
@@ -435,6 +452,7 @@ export type pointConsumptionRecordsCreateManyInput = {
 }
 
 export type pointConsumptionRecordsUpdateManyMutationInput = {
+  batchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pointAmount?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -449,6 +467,7 @@ export type pointConsumptionRecordsUncheckedUpdateManyInput = {
   userId?: Prisma.IntFieldUpdateOperationsInput | number
   pointRecordId?: Prisma.IntFieldUpdateOperationsInput | number
   itemId?: Prisma.IntFieldUpdateOperationsInput | number
+  batchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pointAmount?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -473,6 +492,7 @@ export type pointConsumptionRecordsCountOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   pointRecordId?: Prisma.SortOrder
   itemId?: Prisma.SortOrder
+  batchId?: Prisma.SortOrder
   pointAmount?: Prisma.SortOrder
   status?: Prisma.SortOrder
   sourceId?: Prisma.SortOrder
@@ -497,6 +517,7 @@ export type pointConsumptionRecordsMaxOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   pointRecordId?: Prisma.SortOrder
   itemId?: Prisma.SortOrder
+  batchId?: Prisma.SortOrder
   pointAmount?: Prisma.SortOrder
   status?: Prisma.SortOrder
   sourceId?: Prisma.SortOrder
@@ -511,6 +532,7 @@ export type pointConsumptionRecordsMinOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   pointRecordId?: Prisma.SortOrder
   itemId?: Prisma.SortOrder
+  batchId?: Prisma.SortOrder
   pointAmount?: Prisma.SortOrder
   status?: Prisma.SortOrder
   sourceId?: Prisma.SortOrder
@@ -657,6 +679,7 @@ export type pointConsumptionRecordsUncheckedUpdateManyWithoutUsersNestedInput = 
 }
 
 export type pointConsumptionRecordsCreateWithoutPointRecordsInput = {
+  batchId?: string | null
   pointAmount: number
   status?: number
   sourceId?: number | null
@@ -672,6 +695,7 @@ export type pointConsumptionRecordsUncheckedCreateWithoutPointRecordsInput = {
   id?: number
   userId: number
   itemId: number
+  batchId?: string | null
   pointAmount: number
   status?: number
   sourceId?: number | null
@@ -715,6 +739,7 @@ export type pointConsumptionRecordsScalarWhereInput = {
   userId?: Prisma.IntFilter<"pointConsumptionRecords"> | number
   pointRecordId?: Prisma.IntFilter<"pointConsumptionRecords"> | number
   itemId?: Prisma.IntFilter<"pointConsumptionRecords"> | number
+  batchId?: Prisma.StringNullableFilter<"pointConsumptionRecords"> | string | null
   pointAmount?: Prisma.IntFilter<"pointConsumptionRecords"> | number
   status?: Prisma.IntFilter<"pointConsumptionRecords"> | number
   sourceId?: Prisma.IntNullableFilter<"pointConsumptionRecords"> | number | null
@@ -725,6 +750,7 @@ export type pointConsumptionRecordsScalarWhereInput = {
 }
 
 export type pointConsumptionRecordsCreateWithoutPointConsumptionItemsInput = {
+  batchId?: string | null
   pointAmount: number
   status?: number
   sourceId?: number | null
@@ -740,6 +766,7 @@ export type pointConsumptionRecordsUncheckedCreateWithoutPointConsumptionItemsIn
   id?: number
   userId: number
   pointRecordId: number
+  batchId?: string | null
   pointAmount: number
   status?: number
   sourceId?: number | null
@@ -776,6 +803,7 @@ export type pointConsumptionRecordsUpdateManyWithWhereWithoutPointConsumptionIte
 }
 
 export type pointConsumptionRecordsCreateWithoutUsersInput = {
+  batchId?: string | null
   pointAmount: number
   status?: number
   sourceId?: number | null
@@ -791,6 +819,7 @@ export type pointConsumptionRecordsUncheckedCreateWithoutUsersInput = {
   id?: number
   pointRecordId: number
   itemId: number
+  batchId?: string | null
   pointAmount: number
   status?: number
   sourceId?: number | null
@@ -830,6 +859,7 @@ export type pointConsumptionRecordsCreateManyPointRecordsInput = {
   id?: number
   userId: number
   itemId: number
+  batchId?: string | null
   pointAmount: number
   status?: number
   sourceId?: number | null
@@ -840,6 +870,7 @@ export type pointConsumptionRecordsCreateManyPointRecordsInput = {
 }
 
 export type pointConsumptionRecordsUpdateWithoutPointRecordsInput = {
+  batchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pointAmount?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -855,6 +886,7 @@ export type pointConsumptionRecordsUncheckedUpdateWithoutPointRecordsInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   userId?: Prisma.IntFieldUpdateOperationsInput | number
   itemId?: Prisma.IntFieldUpdateOperationsInput | number
+  batchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pointAmount?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -868,6 +900,7 @@ export type pointConsumptionRecordsUncheckedUpdateManyWithoutPointRecordsInput =
   id?: Prisma.IntFieldUpdateOperationsInput | number
   userId?: Prisma.IntFieldUpdateOperationsInput | number
   itemId?: Prisma.IntFieldUpdateOperationsInput | number
+  batchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pointAmount?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -881,6 +914,7 @@ export type pointConsumptionRecordsCreateManyPointConsumptionItemsInput = {
   id?: number
   userId: number
   pointRecordId: number
+  batchId?: string | null
   pointAmount: number
   status?: number
   sourceId?: number | null
@@ -891,6 +925,7 @@ export type pointConsumptionRecordsCreateManyPointConsumptionItemsInput = {
 }
 
 export type pointConsumptionRecordsUpdateWithoutPointConsumptionItemsInput = {
+  batchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pointAmount?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -906,6 +941,7 @@ export type pointConsumptionRecordsUncheckedUpdateWithoutPointConsumptionItemsIn
   id?: Prisma.IntFieldUpdateOperationsInput | number
   userId?: Prisma.IntFieldUpdateOperationsInput | number
   pointRecordId?: Prisma.IntFieldUpdateOperationsInput | number
+  batchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pointAmount?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -919,6 +955,7 @@ export type pointConsumptionRecordsUncheckedUpdateManyWithoutPointConsumptionIte
   id?: Prisma.IntFieldUpdateOperationsInput | number
   userId?: Prisma.IntFieldUpdateOperationsInput | number
   pointRecordId?: Prisma.IntFieldUpdateOperationsInput | number
+  batchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pointAmount?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -932,6 +969,7 @@ export type pointConsumptionRecordsCreateManyUsersInput = {
   id?: number
   pointRecordId: number
   itemId: number
+  batchId?: string | null
   pointAmount: number
   status?: number
   sourceId?: number | null
@@ -942,6 +980,7 @@ export type pointConsumptionRecordsCreateManyUsersInput = {
 }
 
 export type pointConsumptionRecordsUpdateWithoutUsersInput = {
+  batchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pointAmount?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -957,6 +996,7 @@ export type pointConsumptionRecordsUncheckedUpdateWithoutUsersInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   pointRecordId?: Prisma.IntFieldUpdateOperationsInput | number
   itemId?: Prisma.IntFieldUpdateOperationsInput | number
+  batchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pointAmount?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -970,6 +1010,7 @@ export type pointConsumptionRecordsUncheckedUpdateManyWithoutUsersInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   pointRecordId?: Prisma.IntFieldUpdateOperationsInput | number
   itemId?: Prisma.IntFieldUpdateOperationsInput | number
+  batchId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   pointAmount?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   sourceId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -986,6 +1027,7 @@ export type pointConsumptionRecordsSelect<ExtArgs extends runtime.Types.Extensio
   userId?: boolean
   pointRecordId?: boolean
   itemId?: boolean
+  batchId?: boolean
   pointAmount?: boolean
   status?: boolean
   sourceId?: boolean
@@ -1003,6 +1045,7 @@ export type pointConsumptionRecordsSelectCreateManyAndReturn<ExtArgs extends run
   userId?: boolean
   pointRecordId?: boolean
   itemId?: boolean
+  batchId?: boolean
   pointAmount?: boolean
   status?: boolean
   sourceId?: boolean
@@ -1020,6 +1063,7 @@ export type pointConsumptionRecordsSelectUpdateManyAndReturn<ExtArgs extends run
   userId?: boolean
   pointRecordId?: boolean
   itemId?: boolean
+  batchId?: boolean
   pointAmount?: boolean
   status?: boolean
   sourceId?: boolean
@@ -1037,6 +1081,7 @@ export type pointConsumptionRecordsSelectScalar = {
   userId?: boolean
   pointRecordId?: boolean
   itemId?: boolean
+  batchId?: boolean
   pointAmount?: boolean
   status?: boolean
   sourceId?: boolean
@@ -1046,7 +1091,7 @@ export type pointConsumptionRecordsSelectScalar = {
   deletedAt?: boolean
 }
 
-export type pointConsumptionRecordsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "pointRecordId" | "itemId" | "pointAmount" | "status" | "sourceId" | "remark" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["pointConsumptionRecords"]>
+export type pointConsumptionRecordsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "pointRecordId" | "itemId" | "batchId" | "pointAmount" | "status" | "sourceId" | "remark" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["pointConsumptionRecords"]>
 export type pointConsumptionRecordsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   pointConsumptionItems?: boolean | Prisma.pointConsumptionItemsDefaultArgs<ExtArgs>
   pointRecords?: boolean | Prisma.pointRecordsDefaultArgs<ExtArgs>
@@ -1097,11 +1142,15 @@ export type $pointConsumptionRecordsPayload<ExtArgs extends runtime.Types.Extens
      */
     itemId: number
     /**
+     * 预扣批次 ID，用于关联同一次预扣操作的多条记录
+     */
+    batchId: string | null
+    /**
      * 积分消耗数量
      */
     pointAmount: number
     /**
-     * 积分消耗项目状态
+     * 积分消耗记录状态：0-无效，1-预扣，2-已结算
      */
     status: number
     /**
@@ -1554,6 +1603,7 @@ export interface pointConsumptionRecordsFieldRefs {
   readonly userId: Prisma.FieldRef<"pointConsumptionRecords", 'Int'>
   readonly pointRecordId: Prisma.FieldRef<"pointConsumptionRecords", 'Int'>
   readonly itemId: Prisma.FieldRef<"pointConsumptionRecords", 'Int'>
+  readonly batchId: Prisma.FieldRef<"pointConsumptionRecords", 'String'>
   readonly pointAmount: Prisma.FieldRef<"pointConsumptionRecords", 'Int'>
   readonly status: Prisma.FieldRef<"pointConsumptionRecords", 'Int'>
   readonly sourceId: Prisma.FieldRef<"pointConsumptionRecords", 'Int'>

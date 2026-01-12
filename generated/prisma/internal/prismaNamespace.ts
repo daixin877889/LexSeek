@@ -389,6 +389,7 @@ export const ModelName = {
   roleApiPermissions: 'roleApiPermissions',
   permissionAuditLogs: 'permissionAuditLogs',
   campaigns: 'campaigns',
+  caseTypes: 'caseTypes',
   cases: 'cases',
   caseSessions: 'caseSessions',
   caseMaterials: 'caseMaterials',
@@ -422,6 +423,12 @@ export const ModelName = {
   roles: 'roles',
   roleRouters: 'roleRouters',
   userRoles: 'userRoles',
+  docRecognitionRecords: 'docRecognitionRecords',
+  imageRecognitionRecords: 'imageRecognitionRecords',
+  asrTasks: 'asrTasks',
+  asrRecords: 'asrRecords',
+  mineruTokens: 'mineruTokens',
+  mineruTasks: 'mineruTasks',
   redemptionCodes: 'redemptionCodes',
   redemptionRecords: 'redemptionRecords',
   routers: 'routers',
@@ -446,7 +453,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "campaigns" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "userEncryptions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
+    modelProps: "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "userEncryptions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -817,6 +824,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.campaignsCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.CampaignsCountAggregateOutputType> | number
+        }
+      }
+    }
+    caseTypes: {
+      payload: Prisma.$caseTypesPayload<ExtArgs>
+      fields: Prisma.caseTypesFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.caseTypesFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseTypesPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.caseTypesFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseTypesPayload>
+        }
+        findFirst: {
+          args: Prisma.caseTypesFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseTypesPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.caseTypesFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseTypesPayload>
+        }
+        findMany: {
+          args: Prisma.caseTypesFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseTypesPayload>[]
+        }
+        create: {
+          args: Prisma.caseTypesCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseTypesPayload>
+        }
+        createMany: {
+          args: Prisma.caseTypesCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.caseTypesCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseTypesPayload>[]
+        }
+        delete: {
+          args: Prisma.caseTypesDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseTypesPayload>
+        }
+        update: {
+          args: Prisma.caseTypesUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseTypesPayload>
+        }
+        deleteMany: {
+          args: Prisma.caseTypesDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.caseTypesUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.caseTypesUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseTypesPayload>[]
+        }
+        upsert: {
+          args: Prisma.caseTypesUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseTypesPayload>
+        }
+        aggregate: {
+          args: Prisma.CaseTypesAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateCaseTypes>
+        }
+        groupBy: {
+          args: Prisma.caseTypesGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CaseTypesGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.caseTypesCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CaseTypesCountAggregateOutputType> | number
         }
       }
     }
@@ -3262,6 +3343,450 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    docRecognitionRecords: {
+      payload: Prisma.$docRecognitionRecordsPayload<ExtArgs>
+      fields: Prisma.docRecognitionRecordsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.docRecognitionRecordsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$docRecognitionRecordsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.docRecognitionRecordsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$docRecognitionRecordsPayload>
+        }
+        findFirst: {
+          args: Prisma.docRecognitionRecordsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$docRecognitionRecordsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.docRecognitionRecordsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$docRecognitionRecordsPayload>
+        }
+        findMany: {
+          args: Prisma.docRecognitionRecordsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$docRecognitionRecordsPayload>[]
+        }
+        create: {
+          args: Prisma.docRecognitionRecordsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$docRecognitionRecordsPayload>
+        }
+        createMany: {
+          args: Prisma.docRecognitionRecordsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.docRecognitionRecordsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$docRecognitionRecordsPayload>[]
+        }
+        delete: {
+          args: Prisma.docRecognitionRecordsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$docRecognitionRecordsPayload>
+        }
+        update: {
+          args: Prisma.docRecognitionRecordsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$docRecognitionRecordsPayload>
+        }
+        deleteMany: {
+          args: Prisma.docRecognitionRecordsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.docRecognitionRecordsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.docRecognitionRecordsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$docRecognitionRecordsPayload>[]
+        }
+        upsert: {
+          args: Prisma.docRecognitionRecordsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$docRecognitionRecordsPayload>
+        }
+        aggregate: {
+          args: Prisma.DocRecognitionRecordsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateDocRecognitionRecords>
+        }
+        groupBy: {
+          args: Prisma.docRecognitionRecordsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DocRecognitionRecordsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.docRecognitionRecordsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DocRecognitionRecordsCountAggregateOutputType> | number
+        }
+      }
+    }
+    imageRecognitionRecords: {
+      payload: Prisma.$imageRecognitionRecordsPayload<ExtArgs>
+      fields: Prisma.imageRecognitionRecordsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.imageRecognitionRecordsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$imageRecognitionRecordsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.imageRecognitionRecordsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$imageRecognitionRecordsPayload>
+        }
+        findFirst: {
+          args: Prisma.imageRecognitionRecordsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$imageRecognitionRecordsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.imageRecognitionRecordsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$imageRecognitionRecordsPayload>
+        }
+        findMany: {
+          args: Prisma.imageRecognitionRecordsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$imageRecognitionRecordsPayload>[]
+        }
+        create: {
+          args: Prisma.imageRecognitionRecordsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$imageRecognitionRecordsPayload>
+        }
+        createMany: {
+          args: Prisma.imageRecognitionRecordsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.imageRecognitionRecordsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$imageRecognitionRecordsPayload>[]
+        }
+        delete: {
+          args: Prisma.imageRecognitionRecordsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$imageRecognitionRecordsPayload>
+        }
+        update: {
+          args: Prisma.imageRecognitionRecordsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$imageRecognitionRecordsPayload>
+        }
+        deleteMany: {
+          args: Prisma.imageRecognitionRecordsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.imageRecognitionRecordsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.imageRecognitionRecordsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$imageRecognitionRecordsPayload>[]
+        }
+        upsert: {
+          args: Prisma.imageRecognitionRecordsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$imageRecognitionRecordsPayload>
+        }
+        aggregate: {
+          args: Prisma.ImageRecognitionRecordsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateImageRecognitionRecords>
+        }
+        groupBy: {
+          args: Prisma.imageRecognitionRecordsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ImageRecognitionRecordsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.imageRecognitionRecordsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ImageRecognitionRecordsCountAggregateOutputType> | number
+        }
+      }
+    }
+    asrTasks: {
+      payload: Prisma.$asrTasksPayload<ExtArgs>
+      fields: Prisma.asrTasksFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.asrTasksFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrTasksPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.asrTasksFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrTasksPayload>
+        }
+        findFirst: {
+          args: Prisma.asrTasksFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrTasksPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.asrTasksFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrTasksPayload>
+        }
+        findMany: {
+          args: Prisma.asrTasksFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrTasksPayload>[]
+        }
+        create: {
+          args: Prisma.asrTasksCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrTasksPayload>
+        }
+        createMany: {
+          args: Prisma.asrTasksCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.asrTasksCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrTasksPayload>[]
+        }
+        delete: {
+          args: Prisma.asrTasksDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrTasksPayload>
+        }
+        update: {
+          args: Prisma.asrTasksUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrTasksPayload>
+        }
+        deleteMany: {
+          args: Prisma.asrTasksDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.asrTasksUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.asrTasksUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrTasksPayload>[]
+        }
+        upsert: {
+          args: Prisma.asrTasksUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrTasksPayload>
+        }
+        aggregate: {
+          args: Prisma.AsrTasksAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAsrTasks>
+        }
+        groupBy: {
+          args: Prisma.asrTasksGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AsrTasksGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.asrTasksCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AsrTasksCountAggregateOutputType> | number
+        }
+      }
+    }
+    asrRecords: {
+      payload: Prisma.$asrRecordsPayload<ExtArgs>
+      fields: Prisma.asrRecordsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.asrRecordsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrRecordsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.asrRecordsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrRecordsPayload>
+        }
+        findFirst: {
+          args: Prisma.asrRecordsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrRecordsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.asrRecordsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrRecordsPayload>
+        }
+        findMany: {
+          args: Prisma.asrRecordsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrRecordsPayload>[]
+        }
+        create: {
+          args: Prisma.asrRecordsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrRecordsPayload>
+        }
+        createMany: {
+          args: Prisma.asrRecordsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.asrRecordsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrRecordsPayload>[]
+        }
+        delete: {
+          args: Prisma.asrRecordsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrRecordsPayload>
+        }
+        update: {
+          args: Prisma.asrRecordsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrRecordsPayload>
+        }
+        deleteMany: {
+          args: Prisma.asrRecordsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.asrRecordsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.asrRecordsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrRecordsPayload>[]
+        }
+        upsert: {
+          args: Prisma.asrRecordsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$asrRecordsPayload>
+        }
+        aggregate: {
+          args: Prisma.AsrRecordsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAsrRecords>
+        }
+        groupBy: {
+          args: Prisma.asrRecordsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AsrRecordsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.asrRecordsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AsrRecordsCountAggregateOutputType> | number
+        }
+      }
+    }
+    mineruTokens: {
+      payload: Prisma.$mineruTokensPayload<ExtArgs>
+      fields: Prisma.mineruTokensFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.mineruTokensFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTokensPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.mineruTokensFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTokensPayload>
+        }
+        findFirst: {
+          args: Prisma.mineruTokensFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTokensPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.mineruTokensFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTokensPayload>
+        }
+        findMany: {
+          args: Prisma.mineruTokensFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTokensPayload>[]
+        }
+        create: {
+          args: Prisma.mineruTokensCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTokensPayload>
+        }
+        createMany: {
+          args: Prisma.mineruTokensCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.mineruTokensCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTokensPayload>[]
+        }
+        delete: {
+          args: Prisma.mineruTokensDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTokensPayload>
+        }
+        update: {
+          args: Prisma.mineruTokensUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTokensPayload>
+        }
+        deleteMany: {
+          args: Prisma.mineruTokensDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.mineruTokensUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.mineruTokensUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTokensPayload>[]
+        }
+        upsert: {
+          args: Prisma.mineruTokensUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTokensPayload>
+        }
+        aggregate: {
+          args: Prisma.MineruTokensAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateMineruTokens>
+        }
+        groupBy: {
+          args: Prisma.mineruTokensGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MineruTokensGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.mineruTokensCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MineruTokensCountAggregateOutputType> | number
+        }
+      }
+    }
+    mineruTasks: {
+      payload: Prisma.$mineruTasksPayload<ExtArgs>
+      fields: Prisma.mineruTasksFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.mineruTasksFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTasksPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.mineruTasksFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTasksPayload>
+        }
+        findFirst: {
+          args: Prisma.mineruTasksFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTasksPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.mineruTasksFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTasksPayload>
+        }
+        findMany: {
+          args: Prisma.mineruTasksFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTasksPayload>[]
+        }
+        create: {
+          args: Prisma.mineruTasksCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTasksPayload>
+        }
+        createMany: {
+          args: Prisma.mineruTasksCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.mineruTasksCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTasksPayload>[]
+        }
+        delete: {
+          args: Prisma.mineruTasksDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTasksPayload>
+        }
+        update: {
+          args: Prisma.mineruTasksUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTasksPayload>
+        }
+        deleteMany: {
+          args: Prisma.mineruTasksDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.mineruTasksUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.mineruTasksUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTasksPayload>[]
+        }
+        upsert: {
+          args: Prisma.mineruTasksUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$mineruTasksPayload>
+        }
+        aggregate: {
+          args: Prisma.MineruTasksAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateMineruTasks>
+        }
+        groupBy: {
+          args: Prisma.mineruTasksGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MineruTasksGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.mineruTasksCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MineruTasksCountAggregateOutputType> | number
+        }
+      }
+    }
     redemptionCodes: {
       payload: Prisma.$redemptionCodesPayload<ExtArgs>
       fields: Prisma.redemptionCodesFieldRefs
@@ -4045,6 +4570,21 @@ export const CampaignsScalarFieldEnum = {
 export type CampaignsScalarFieldEnum = (typeof CampaignsScalarFieldEnum)[keyof typeof CampaignsScalarFieldEnum]
 
 
+export const CaseTypesScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  description: 'description',
+  icon: 'icon',
+  priority: 'priority',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type CaseTypesScalarFieldEnum = (typeof CaseTypesScalarFieldEnum)[keyof typeof CaseTypesScalarFieldEnum]
+
+
 export const CasesScalarFieldEnum = {
   id: 'id',
   title: 'title',
@@ -4518,6 +5058,7 @@ export type PointRecordsScalarFieldEnum = (typeof PointRecordsScalarFieldEnum)[k
 
 export const PointConsumptionItemsScalarFieldEnum = {
   id: 'id',
+  key: 'key',
   group: 'group',
   name: 'name',
   description: 'description',
@@ -4538,6 +5079,7 @@ export const PointConsumptionRecordsScalarFieldEnum = {
   userId: 'userId',
   pointRecordId: 'pointRecordId',
   itemId: 'itemId',
+  batchId: 'batchId',
   pointAmount: 'pointAmount',
   status: 'status',
   sourceId: 'sourceId',
@@ -4615,6 +5157,118 @@ export const UserRolesScalarFieldEnum = {
 } as const
 
 export type UserRolesScalarFieldEnum = (typeof UserRolesScalarFieldEnum)[keyof typeof UserRolesScalarFieldEnum]
+
+
+export const DocRecognitionRecordsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  ossFileId: 'ossFileId',
+  status: 'status',
+  htmlContent: 'htmlContent',
+  markdownContent: 'markdownContent',
+  keywords: 'keywords',
+  summary: 'summary',
+  vectorIds: 'vectorIds',
+  lastEmbeddingAt: 'lastEmbeddingAt',
+  lastEditAt: 'lastEditAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type DocRecognitionRecordsScalarFieldEnum = (typeof DocRecognitionRecordsScalarFieldEnum)[keyof typeof DocRecognitionRecordsScalarFieldEnum]
+
+
+export const ImageRecognitionRecordsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  ossFileId: 'ossFileId',
+  status: 'status',
+  imageType: 'imageType',
+  htmlContent: 'htmlContent',
+  markdownContent: 'markdownContent',
+  keywords: 'keywords',
+  summary: 'summary',
+  vectorIds: 'vectorIds',
+  lastEmbeddingAt: 'lastEmbeddingAt',
+  lastEditAt: 'lastEditAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type ImageRecognitionRecordsScalarFieldEnum = (typeof ImageRecognitionRecordsScalarFieldEnum)[keyof typeof ImageRecognitionRecordsScalarFieldEnum]
+
+
+export const AsrTasksScalarFieldEnum = {
+  id: 'id',
+  taskId: 'taskId',
+  status: 'status',
+  taskRawData: 'taskRawData',
+  result: 'result',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type AsrTasksScalarFieldEnum = (typeof AsrTasksScalarFieldEnum)[keyof typeof AsrTasksScalarFieldEnum]
+
+
+export const AsrRecordsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  ossFileId: 'ossFileId',
+  asrTasksId: 'asrTasksId',
+  status: 'status',
+  audioUrl: 'audioUrl',
+  audioDuration: 'audioDuration',
+  result: 'result',
+  jsonOssFileId: 'jsonOssFileId',
+  speakers: 'speakers',
+  keywords: 'keywords',
+  summary: 'summary',
+  vectorIds: 'vectorIds',
+  lastEmbeddingAt: 'lastEmbeddingAt',
+  lastEditAt: 'lastEditAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type AsrRecordsScalarFieldEnum = (typeof AsrRecordsScalarFieldEnum)[keyof typeof AsrRecordsScalarFieldEnum]
+
+
+export const MineruTokensScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  token: 'token',
+  remark: 'remark',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type MineruTokensScalarFieldEnum = (typeof MineruTokensScalarFieldEnum)[keyof typeof MineruTokensScalarFieldEnum]
+
+
+export const MineruTasksScalarFieldEnum = {
+  id: 'id',
+  taskId: 'taskId',
+  ossFileId: 'ossFileId',
+  userId: 'userId',
+  status: 'status',
+  taskRawData: 'taskRawData',
+  result: 'result',
+  errorMsg: 'errorMsg',
+  retryCount: 'retryCount',
+  completedAt: 'completedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type MineruTasksScalarFieldEnum = (typeof MineruTasksScalarFieldEnum)[keyof typeof MineruTasksScalarFieldEnum]
 
 
 export const RedemptionCodesScalarFieldEnum = {
@@ -5021,6 +5675,7 @@ export type GlobalOmitConfig = {
   roleApiPermissions?: Prisma.roleApiPermissionsOmit
   permissionAuditLogs?: Prisma.permissionAuditLogsOmit
   campaigns?: Prisma.campaignsOmit
+  caseTypes?: Prisma.caseTypesOmit
   cases?: Prisma.casesOmit
   caseSessions?: Prisma.caseSessionsOmit
   caseMaterials?: Prisma.caseMaterialsOmit
@@ -5054,6 +5709,12 @@ export type GlobalOmitConfig = {
   roles?: Prisma.rolesOmit
   roleRouters?: Prisma.roleRoutersOmit
   userRoles?: Prisma.userRolesOmit
+  docRecognitionRecords?: Prisma.docRecognitionRecordsOmit
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsOmit
+  asrTasks?: Prisma.asrTasksOmit
+  asrRecords?: Prisma.asrRecordsOmit
+  mineruTokens?: Prisma.mineruTokensOmit
+  mineruTasks?: Prisma.mineruTasksOmit
   redemptionCodes?: Prisma.redemptionCodesOmit
   redemptionRecords?: Prisma.redemptionRecordsOmit
   routers?: Prisma.routersOmit

@@ -272,6 +272,7 @@ export type demoCasesWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"demoCases"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"demoCases"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"demoCases"> | Date | string | null
+  caseType?: Prisma.XOR<Prisma.CaseTypesScalarRelationFilter, Prisma.caseTypesWhereInput>
 }
 
 export type demoCasesOrderByWithRelationInput = {
@@ -286,6 +287,7 @@ export type demoCasesOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  caseType?: Prisma.caseTypesOrderByWithRelationInput
 }
 
 export type demoCasesWhereUniqueInput = Prisma.AtLeast<{
@@ -303,6 +305,7 @@ export type demoCasesWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"demoCases"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"demoCases"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"demoCases"> | Date | string | null
+  caseType?: Prisma.XOR<Prisma.CaseTypesScalarRelationFilter, Prisma.caseTypesWhereInput>
 }, "id">
 
 export type demoCasesOrderByWithAggregationInput = {
@@ -344,7 +347,6 @@ export type demoCasesScalarWhereWithAggregatesInput = {
 export type demoCasesCreateInput = {
   title: string
   description?: string | null
-  caseTypeId: number
   materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   coverImage?: string | null
   priority?: number
@@ -352,6 +354,7 @@ export type demoCasesCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
+  caseType: Prisma.caseTypesCreateNestedOneWithoutDemoCasesInput
 }
 
 export type demoCasesUncheckedCreateInput = {
@@ -371,7 +374,6 @@ export type demoCasesUncheckedCreateInput = {
 export type demoCasesUpdateInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  caseTypeId?: Prisma.IntFieldUpdateOperationsInput | number
   materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   coverImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   priority?: Prisma.IntFieldUpdateOperationsInput | number
@@ -379,6 +381,7 @@ export type demoCasesUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  caseType?: Prisma.caseTypesUpdateOneRequiredWithoutDemoCasesNestedInput
 }
 
 export type demoCasesUncheckedUpdateInput = {
@@ -412,7 +415,6 @@ export type demoCasesCreateManyInput = {
 export type demoCasesUpdateManyMutationInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  caseTypeId?: Prisma.IntFieldUpdateOperationsInput | number
   materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   coverImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   priority?: Prisma.IntFieldUpdateOperationsInput | number
@@ -434,6 +436,16 @@ export type demoCasesUncheckedUpdateManyInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+}
+
+export type DemoCasesListRelationFilter = {
+  every?: Prisma.demoCasesWhereInput
+  some?: Prisma.demoCasesWhereInput
+  none?: Prisma.demoCasesWhereInput
+}
+
+export type demoCasesOrderByRelationAggregateInput = {
+  _count?: Prisma.SortOrder
 }
 
 export type demoCasesCountOrderByAggregateInput = {
@@ -490,6 +502,167 @@ export type demoCasesSumOrderByAggregateInput = {
   status?: Prisma.SortOrder
 }
 
+export type demoCasesCreateNestedManyWithoutCaseTypeInput = {
+  create?: Prisma.XOR<Prisma.demoCasesCreateWithoutCaseTypeInput, Prisma.demoCasesUncheckedCreateWithoutCaseTypeInput> | Prisma.demoCasesCreateWithoutCaseTypeInput[] | Prisma.demoCasesUncheckedCreateWithoutCaseTypeInput[]
+  connectOrCreate?: Prisma.demoCasesCreateOrConnectWithoutCaseTypeInput | Prisma.demoCasesCreateOrConnectWithoutCaseTypeInput[]
+  createMany?: Prisma.demoCasesCreateManyCaseTypeInputEnvelope
+  connect?: Prisma.demoCasesWhereUniqueInput | Prisma.demoCasesWhereUniqueInput[]
+}
+
+export type demoCasesUncheckedCreateNestedManyWithoutCaseTypeInput = {
+  create?: Prisma.XOR<Prisma.demoCasesCreateWithoutCaseTypeInput, Prisma.demoCasesUncheckedCreateWithoutCaseTypeInput> | Prisma.demoCasesCreateWithoutCaseTypeInput[] | Prisma.demoCasesUncheckedCreateWithoutCaseTypeInput[]
+  connectOrCreate?: Prisma.demoCasesCreateOrConnectWithoutCaseTypeInput | Prisma.demoCasesCreateOrConnectWithoutCaseTypeInput[]
+  createMany?: Prisma.demoCasesCreateManyCaseTypeInputEnvelope
+  connect?: Prisma.demoCasesWhereUniqueInput | Prisma.demoCasesWhereUniqueInput[]
+}
+
+export type demoCasesUpdateManyWithoutCaseTypeNestedInput = {
+  create?: Prisma.XOR<Prisma.demoCasesCreateWithoutCaseTypeInput, Prisma.demoCasesUncheckedCreateWithoutCaseTypeInput> | Prisma.demoCasesCreateWithoutCaseTypeInput[] | Prisma.demoCasesUncheckedCreateWithoutCaseTypeInput[]
+  connectOrCreate?: Prisma.demoCasesCreateOrConnectWithoutCaseTypeInput | Prisma.demoCasesCreateOrConnectWithoutCaseTypeInput[]
+  upsert?: Prisma.demoCasesUpsertWithWhereUniqueWithoutCaseTypeInput | Prisma.demoCasesUpsertWithWhereUniqueWithoutCaseTypeInput[]
+  createMany?: Prisma.demoCasesCreateManyCaseTypeInputEnvelope
+  set?: Prisma.demoCasesWhereUniqueInput | Prisma.demoCasesWhereUniqueInput[]
+  disconnect?: Prisma.demoCasesWhereUniqueInput | Prisma.demoCasesWhereUniqueInput[]
+  delete?: Prisma.demoCasesWhereUniqueInput | Prisma.demoCasesWhereUniqueInput[]
+  connect?: Prisma.demoCasesWhereUniqueInput | Prisma.demoCasesWhereUniqueInput[]
+  update?: Prisma.demoCasesUpdateWithWhereUniqueWithoutCaseTypeInput | Prisma.demoCasesUpdateWithWhereUniqueWithoutCaseTypeInput[]
+  updateMany?: Prisma.demoCasesUpdateManyWithWhereWithoutCaseTypeInput | Prisma.demoCasesUpdateManyWithWhereWithoutCaseTypeInput[]
+  deleteMany?: Prisma.demoCasesScalarWhereInput | Prisma.demoCasesScalarWhereInput[]
+}
+
+export type demoCasesUncheckedUpdateManyWithoutCaseTypeNestedInput = {
+  create?: Prisma.XOR<Prisma.demoCasesCreateWithoutCaseTypeInput, Prisma.demoCasesUncheckedCreateWithoutCaseTypeInput> | Prisma.demoCasesCreateWithoutCaseTypeInput[] | Prisma.demoCasesUncheckedCreateWithoutCaseTypeInput[]
+  connectOrCreate?: Prisma.demoCasesCreateOrConnectWithoutCaseTypeInput | Prisma.demoCasesCreateOrConnectWithoutCaseTypeInput[]
+  upsert?: Prisma.demoCasesUpsertWithWhereUniqueWithoutCaseTypeInput | Prisma.demoCasesUpsertWithWhereUniqueWithoutCaseTypeInput[]
+  createMany?: Prisma.demoCasesCreateManyCaseTypeInputEnvelope
+  set?: Prisma.demoCasesWhereUniqueInput | Prisma.demoCasesWhereUniqueInput[]
+  disconnect?: Prisma.demoCasesWhereUniqueInput | Prisma.demoCasesWhereUniqueInput[]
+  delete?: Prisma.demoCasesWhereUniqueInput | Prisma.demoCasesWhereUniqueInput[]
+  connect?: Prisma.demoCasesWhereUniqueInput | Prisma.demoCasesWhereUniqueInput[]
+  update?: Prisma.demoCasesUpdateWithWhereUniqueWithoutCaseTypeInput | Prisma.demoCasesUpdateWithWhereUniqueWithoutCaseTypeInput[]
+  updateMany?: Prisma.demoCasesUpdateManyWithWhereWithoutCaseTypeInput | Prisma.demoCasesUpdateManyWithWhereWithoutCaseTypeInput[]
+  deleteMany?: Prisma.demoCasesScalarWhereInput | Prisma.demoCasesScalarWhereInput[]
+}
+
+export type demoCasesCreateWithoutCaseTypeInput = {
+  title: string
+  description?: string | null
+  materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  coverImage?: string | null
+  priority?: number
+  status?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+}
+
+export type demoCasesUncheckedCreateWithoutCaseTypeInput = {
+  id?: number
+  title: string
+  description?: string | null
+  materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  coverImage?: string | null
+  priority?: number
+  status?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+}
+
+export type demoCasesCreateOrConnectWithoutCaseTypeInput = {
+  where: Prisma.demoCasesWhereUniqueInput
+  create: Prisma.XOR<Prisma.demoCasesCreateWithoutCaseTypeInput, Prisma.demoCasesUncheckedCreateWithoutCaseTypeInput>
+}
+
+export type demoCasesCreateManyCaseTypeInputEnvelope = {
+  data: Prisma.demoCasesCreateManyCaseTypeInput | Prisma.demoCasesCreateManyCaseTypeInput[]
+  skipDuplicates?: boolean
+}
+
+export type demoCasesUpsertWithWhereUniqueWithoutCaseTypeInput = {
+  where: Prisma.demoCasesWhereUniqueInput
+  update: Prisma.XOR<Prisma.demoCasesUpdateWithoutCaseTypeInput, Prisma.demoCasesUncheckedUpdateWithoutCaseTypeInput>
+  create: Prisma.XOR<Prisma.demoCasesCreateWithoutCaseTypeInput, Prisma.demoCasesUncheckedCreateWithoutCaseTypeInput>
+}
+
+export type demoCasesUpdateWithWhereUniqueWithoutCaseTypeInput = {
+  where: Prisma.demoCasesWhereUniqueInput
+  data: Prisma.XOR<Prisma.demoCasesUpdateWithoutCaseTypeInput, Prisma.demoCasesUncheckedUpdateWithoutCaseTypeInput>
+}
+
+export type demoCasesUpdateManyWithWhereWithoutCaseTypeInput = {
+  where: Prisma.demoCasesScalarWhereInput
+  data: Prisma.XOR<Prisma.demoCasesUpdateManyMutationInput, Prisma.demoCasesUncheckedUpdateManyWithoutCaseTypeInput>
+}
+
+export type demoCasesScalarWhereInput = {
+  AND?: Prisma.demoCasesScalarWhereInput | Prisma.demoCasesScalarWhereInput[]
+  OR?: Prisma.demoCasesScalarWhereInput[]
+  NOT?: Prisma.demoCasesScalarWhereInput | Prisma.demoCasesScalarWhereInput[]
+  id?: Prisma.IntFilter<"demoCases"> | number
+  title?: Prisma.StringFilter<"demoCases"> | string
+  description?: Prisma.StringNullableFilter<"demoCases"> | string | null
+  caseTypeId?: Prisma.IntFilter<"demoCases"> | number
+  materials?: Prisma.JsonFilter<"demoCases">
+  coverImage?: Prisma.StringNullableFilter<"demoCases"> | string | null
+  priority?: Prisma.IntFilter<"demoCases"> | number
+  status?: Prisma.IntFilter<"demoCases"> | number
+  createdAt?: Prisma.DateTimeFilter<"demoCases"> | Date | string
+  updatedAt?: Prisma.DateTimeFilter<"demoCases"> | Date | string
+  deletedAt?: Prisma.DateTimeNullableFilter<"demoCases"> | Date | string | null
+}
+
+export type demoCasesCreateManyCaseTypeInput = {
+  id?: number
+  title: string
+  description?: string | null
+  materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  coverImage?: string | null
+  priority?: number
+  status?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+}
+
+export type demoCasesUpdateWithoutCaseTypeInput = {
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  coverImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  priority?: Prisma.IntFieldUpdateOperationsInput | number
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+}
+
+export type demoCasesUncheckedUpdateWithoutCaseTypeInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  coverImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  priority?: Prisma.IntFieldUpdateOperationsInput | number
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+}
+
+export type demoCasesUncheckedUpdateManyWithoutCaseTypeInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  coverImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  priority?: Prisma.IntFieldUpdateOperationsInput | number
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+}
+
 
 
 export type demoCasesSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -504,6 +677,7 @@ export type demoCasesSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
+  caseType?: boolean | Prisma.caseTypesDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["demoCases"]>
 
 export type demoCasesSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -518,6 +692,7 @@ export type demoCasesSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
+  caseType?: boolean | Prisma.caseTypesDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["demoCases"]>
 
 export type demoCasesSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -532,6 +707,7 @@ export type demoCasesSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
+  caseType?: boolean | Prisma.caseTypesDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["demoCases"]>
 
 export type demoCasesSelectScalar = {
@@ -549,10 +725,24 @@ export type demoCasesSelectScalar = {
 }
 
 export type demoCasesOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "description" | "caseTypeId" | "materials" | "coverImage" | "priority" | "status" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["demoCases"]>
+export type demoCasesInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  caseType?: boolean | Prisma.caseTypesDefaultArgs<ExtArgs>
+}
+export type demoCasesIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  caseType?: boolean | Prisma.caseTypesDefaultArgs<ExtArgs>
+}
+export type demoCasesIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  caseType?: boolean | Prisma.caseTypesDefaultArgs<ExtArgs>
+}
 
 export type $demoCasesPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "demoCases"
-  objects: {}
+  objects: {
+    /**
+     * 关联的案件类型
+     */
+    caseType: Prisma.$caseTypesPayload<ExtArgs>
+  }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     /**
      * 示范案例ID，主键，自增
@@ -992,6 +1182,7 @@ readonly fields: demoCasesFieldRefs;
  */
 export interface Prisma__demoCasesClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
+  caseType<T extends Prisma.caseTypesDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.caseTypesDefaultArgs<ExtArgs>>): Prisma.Prisma__caseTypesClient<runtime.Types.Result.GetResult<Prisma.$caseTypesPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1049,6 +1240,10 @@ export type demoCasesFindUniqueArgs<ExtArgs extends runtime.Types.Extensions.Int
    */
   omit?: Prisma.demoCasesOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.demoCasesInclude<ExtArgs> | null
+  /**
    * Filter, which demoCases to fetch.
    */
   where: Prisma.demoCasesWhereUniqueInput
@@ -1067,6 +1262,10 @@ export type demoCasesFindUniqueOrThrowArgs<ExtArgs extends runtime.Types.Extensi
    */
   omit?: Prisma.demoCasesOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.demoCasesInclude<ExtArgs> | null
+  /**
    * Filter, which demoCases to fetch.
    */
   where: Prisma.demoCasesWhereUniqueInput
@@ -1084,6 +1283,10 @@ export type demoCasesFindFirstArgs<ExtArgs extends runtime.Types.Extensions.Inte
    * Omit specific fields from the demoCases
    */
   omit?: Prisma.demoCasesOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.demoCasesInclude<ExtArgs> | null
   /**
    * Filter, which demoCases to fetch.
    */
@@ -1133,6 +1336,10 @@ export type demoCasesFindFirstOrThrowArgs<ExtArgs extends runtime.Types.Extensio
    */
   omit?: Prisma.demoCasesOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.demoCasesInclude<ExtArgs> | null
+  /**
    * Filter, which demoCases to fetch.
    */
   where?: Prisma.demoCasesWhereInput
@@ -1181,6 +1388,10 @@ export type demoCasesFindManyArgs<ExtArgs extends runtime.Types.Extensions.Inter
    */
   omit?: Prisma.demoCasesOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.demoCasesInclude<ExtArgs> | null
+  /**
    * Filter, which demoCases to fetch.
    */
   where?: Prisma.demoCasesWhereInput
@@ -1224,6 +1435,10 @@ export type demoCasesCreateArgs<ExtArgs extends runtime.Types.Extensions.Interna
    */
   omit?: Prisma.demoCasesOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.demoCasesInclude<ExtArgs> | null
+  /**
    * The data needed to create a demoCases.
    */
   data: Prisma.XOR<Prisma.demoCasesCreateInput, Prisma.demoCasesUncheckedCreateInput>
@@ -1257,6 +1472,10 @@ export type demoCasesCreateManyAndReturnArgs<ExtArgs extends runtime.Types.Exten
    */
   data: Prisma.demoCasesCreateManyInput | Prisma.demoCasesCreateManyInput[]
   skipDuplicates?: boolean
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.demoCasesIncludeCreateManyAndReturn<ExtArgs> | null
 }
 
 /**
@@ -1271,6 +1490,10 @@ export type demoCasesUpdateArgs<ExtArgs extends runtime.Types.Extensions.Interna
    * Omit specific fields from the demoCases
    */
   omit?: Prisma.demoCasesOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.demoCasesInclude<ExtArgs> | null
   /**
    * The data needed to update a demoCases.
    */
@@ -1323,6 +1546,10 @@ export type demoCasesUpdateManyAndReturnArgs<ExtArgs extends runtime.Types.Exten
    * Limit how many demoCases to update.
    */
   limit?: number
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.demoCasesIncludeUpdateManyAndReturn<ExtArgs> | null
 }
 
 /**
@@ -1337,6 +1564,10 @@ export type demoCasesUpsertArgs<ExtArgs extends runtime.Types.Extensions.Interna
    * Omit specific fields from the demoCases
    */
   omit?: Prisma.demoCasesOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.demoCasesInclude<ExtArgs> | null
   /**
    * The filter to search for the demoCases to update in case it exists.
    */
@@ -1363,6 +1594,10 @@ export type demoCasesDeleteArgs<ExtArgs extends runtime.Types.Extensions.Interna
    * Omit specific fields from the demoCases
    */
   omit?: Prisma.demoCasesOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.demoCasesInclude<ExtArgs> | null
   /**
    * Filter which demoCases to delete.
    */
@@ -1395,4 +1630,8 @@ export type demoCasesDefaultArgs<ExtArgs extends runtime.Types.Extensions.Intern
    * Omit specific fields from the demoCases
    */
   omit?: Prisma.demoCasesOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.demoCasesInclude<ExtArgs> | null
 }

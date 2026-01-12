@@ -118,6 +118,8 @@ export interface PointHistoryRecord {
 /** 积分消耗项目（用于前端展示） */
 export interface PointConsumptionItem {
     id: number
+    /** 消耗项目标识符，用于代码中引用 */
+    key: string | null
     group: string
     name: string
     description: string | null
