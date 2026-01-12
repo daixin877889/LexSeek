@@ -65,6 +65,7 @@
                         <TableHeader>
                             <TableRow>
                                 <TableHead class="w-[60px]">ID</TableHead>
+                                <TableHead>Key</TableHead>
                                 <TableHead>分组</TableHead>
                                 <TableHead>项目名称</TableHead>
                                 <TableHead>描述</TableHead>
@@ -78,6 +79,8 @@
                         <TableBody>
                             <TableRow v-for="item in items" :key="item.id">
                                 <TableCell class="font-medium">{{ item.id }}</TableCell>
+                                <TableCell class="font-mono text-sm text-muted-foreground">{{ item.key || '-' }}
+                                </TableCell>
                                 <TableCell>
                                     <Badge variant="outline">{{ getGroupLabel(item.group) }}</Badge>
                                 </TableCell>

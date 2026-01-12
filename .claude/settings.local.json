@@ -3,7 +3,9 @@
     "allow": [
       "Bash(cd:*)",
       "Bash(ls:*)",
-      "Edit"
+      "Edit",
+      "Bash(find:*)",
+      "Read(/tmp/api_results.json)"
     ]
   }
 }

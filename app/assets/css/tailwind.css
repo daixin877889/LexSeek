@@ -4,10 +4,33 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme static {
-  /* 扩展背景图像，定义你的自定义渐变（亮色模式） */
+  /* 默认主题（Zinc）和 Violet 主题：蓝紫梦幻渐变 */
   --background-image-gradient-custom: linear-gradient(97deg, #f2f9fe, #f7f3ff);
-  /* 暗色模式渐变 */
   --background-image-gradient-custom-dark: linear-gradient(97deg, #1e293b, #312e4a);
+  
+  /* Rose 主题：玫瑰金到樱花粉渐变 */
+  --background-image-gradient-custom-rose: linear-gradient(97deg, #fff0f3, #ffe9f5);
+  --background-image-gradient-custom-rose-dark: linear-gradient(97deg, #2d1a22, #3d1f32);
+  
+  /* Blue 主题：冰蓝到深海蓝渐变 */
+  --background-image-gradient-custom-blue: linear-gradient(97deg, #e8f4ff, #e0e7ff);
+  --background-image-gradient-custom-blue-dark: linear-gradient(97deg, #1a2942, #1e2550);
+  
+  /* Green 主题：晨露绿到翡翠绿渐变 */
+  --background-image-gradient-custom-green: linear-gradient(97deg, #ecfdf5, #d1fae5);
+  --background-image-gradient-custom-green-dark: linear-gradient(97deg, #1a2e23, #1f3d2e);
+  
+  /* Orange 主题：日出橙到琥珀金渐变 */
+  --background-image-gradient-custom-orange: linear-gradient(97deg, #fff4ed, #ffedd5);
+  --background-image-gradient-custom-orange-dark: linear-gradient(97deg, #2d2318, #3d2d1a);
+  
+  /* Red 主题：晚霞红到珊瑚橙渐变 */
+  --background-image-gradient-custom-red: linear-gradient(97deg, #ffefef, #ffe8e8);
+  --background-image-gradient-custom-red-dark: linear-gradient(97deg, #2d1e1e, #3d2626);
+  
+  /* Yellow 主题：晨光黄到蜜桃金渐变 */
+  --background-image-gradient-custom-yellow: linear-gradient(97deg, #fffbeb, #fef3c7);
+  --background-image-gradient-custom-yellow-dark: linear-gradient(97deg, #2d2a18, #3d341d);
 }
 
 @theme inline {
@@ -125,6 +148,7 @@
   --ring: oklch(0.645 0.246 16.439);
   --sidebar-primary: oklch(0.645 0.246 16.439);
   --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+  --background-image-gradient-custom: var(--background-image-gradient-custom-rose);
 }
 .theme-rose.dark {
   --primary: oklch(0.645 0.246 16.439);
@@ -132,6 +156,7 @@
   --ring: oklch(0.645 0.246 16.439);
   --sidebar-primary: oklch(0.645 0.246 16.439);
   --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+  --background-image-gradient-custom-dark: var(--background-image-gradient-custom-rose-dark);
 }
 
 /* ==================== Blue 主题 ==================== */
@@ -141,6 +166,7 @@
   --ring: oklch(0.546 0.245 262.881);
   --sidebar-primary: oklch(0.546 0.245 262.881);
   --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+  --background-image-gradient-custom: var(--background-image-gradient-custom-blue);
 }
 .theme-blue.dark {
   --primary: oklch(0.546 0.245 262.881);
@@ -148,6 +174,7 @@
   --ring: oklch(0.546 0.245 262.881);
   --sidebar-primary: oklch(0.546 0.245 262.881);
   --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+  --background-image-gradient-custom-dark: var(--background-image-gradient-custom-blue-dark);
 }
 
 /* ==================== Green 主题 ==================== */
@@ -157,6 +184,7 @@
   --ring: oklch(0.627 0.194 149.214);
   --sidebar-primary: oklch(0.627 0.194 149.214);
   --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+  --background-image-gradient-custom: var(--background-image-gradient-custom-green);
 }
 .theme-green.dark {
   --primary: oklch(0.627 0.194 149.214);
@@ -164,6 +192,7 @@
   --ring: oklch(0.627 0.194 149.214);
   --sidebar-primary: oklch(0.627 0.194 149.214);
   --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+  --background-image-gradient-custom-dark: var(--background-image-gradient-custom-green-dark);
 }
 
 /* ==================== Orange 主题 ==================== */
@@ -173,6 +202,7 @@
   --ring: oklch(0.705 0.213 47.604);
   --sidebar-primary: oklch(0.705 0.213 47.604);
   --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+  --background-image-gradient-custom: var(--background-image-gradient-custom-orange);
 }
 .theme-orange.dark {
   --primary: oklch(0.705 0.213 47.604);
@@ -180,6 +210,7 @@
   --ring: oklch(0.705 0.213 47.604);
   --sidebar-primary: oklch(0.705 0.213 47.604);
   --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+  --background-image-gradient-custom-dark: var(--background-image-gradient-custom-orange-dark);
 }
 
 /* ==================== Red 主题 ==================== */
@@ -189,6 +220,7 @@
   --ring: oklch(0.577 0.245 27.325);
   --sidebar-primary: oklch(0.577 0.245 27.325);
   --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+  --background-image-gradient-custom: var(--background-image-gradient-custom-red);
 }
 .theme-red.dark {
   --primary: oklch(0.577 0.245 27.325);
@@ -196,6 +228,7 @@
   --ring: oklch(0.577 0.245 27.325);
   --sidebar-primary: oklch(0.577 0.245 27.325);
   --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+  --background-image-gradient-custom-dark: var(--background-image-gradient-custom-red-dark);
 }
 
 /* ==================== Violet 主题 ==================== */
@@ -205,6 +238,7 @@
   --ring: oklch(0.606 0.25 292.717);
   --sidebar-primary: oklch(0.606 0.25 292.717);
   --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+  /* Violet 主题使用默认的蓝紫渐变 */
 }
 .theme-violet.dark {
   --primary: oklch(0.606 0.25 292.717);
@@ -212,6 +246,7 @@
   --ring: oklch(0.606 0.25 292.717);
   --sidebar-primary: oklch(0.606 0.25 292.717);
   --sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+  /* Violet 主题使用默认的蓝紫渐变 */
 }
 
 /* ==================== Yellow 主题 ==================== */
@@ -221,6 +256,7 @@
   --ring: oklch(0.795 0.184 86.047);
   --sidebar-primary: oklch(0.795 0.184 86.047);
   --sidebar-primary-foreground: oklch(0.253 0.029 58.044);
+  --background-image-gradient-custom: var(--background-image-gradient-custom-yellow);
 }
 .theme-yellow.dark {
   --primary: oklch(0.795 0.184 86.047);
@@ -228,6 +264,7 @@
   --ring: oklch(0.795 0.184 86.047);
   --sidebar-primary: oklch(0.795 0.184 86.047);
   --sidebar-primary-foreground: oklch(0.253 0.029 58.044);
+  --background-image-gradient-custom-dark: var(--background-image-gradient-custom-yellow-dark);
 }
 
 @layer base {

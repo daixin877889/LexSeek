@@ -82,20 +82,39 @@
                 <!-- 工具列表 -->
                 <div class="space-y-2">
                     <Label>工具列表</Label>
-                    <div class="flex gap-2">
-                        <Input v-model="newTool" placeholder="输入工具名称" @keyup.enter="addTool" />
-                        <Button type="button" variant="outline" size="icon" @click="addTool">
-                            <Plus class="h-4 w-4" />
-                        </Button>
+                    <div v-if="toolsLoading" class="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 class="h-4 w-4 animate-spin" />
+                        加载工具列表...
                     </div>
-                    <div v-if="form.tools.length" class="flex flex-wrap gap-2 mt-2">
-                        <Badge v-for="(tool, index) in form.tools" :key="index" variant="secondary"
-                            class="cursor-pointer" @click="removeTool(index)">
-                            {{ tool }}
-                            <X class="h-3 w-3 ml-1" />
-                        </Badge>
+                    <div v-else-if="availableTools.length === 0" class="text-sm text-muted-foreground">
+                        暂无可用工具
                     </div>
-                    <p class="text-xs text-muted-foreground">节点可调用的工具，如：search_law、search_case_materials</p>
+                    <div v-else class="space-y-2">
+                        <!-- 已选工具展示 -->
+                        <div v-if="form.tools.length" class="flex flex-wrap gap-2">
+                            <Badge v-for="toolName in form.tools" :key="toolName" variant="secondary"
+                                class="cursor-pointer" @click="toggleTool(toolName)">
+                                {{ toolName }}
+                                <X class="h-3 w-3 ml-1" />
+                            </Badge>
+                        </div>
+                        <!-- 工具选择列表 -->
+                        <div class="border rounded-md max-h-48 overflow-y-auto">
+                            <div v-for="tool in availableTools" :key="tool.name"
+                                class="flex items-start gap-3 p-3 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
+                                @click="toggleTool(tool.name)">
+                                <div class="size-4 shrink-0 mt-0.5 flex items-center justify-center rounded border"
+                                    :class="form.tools.includes(tool.name) ? 'bg-primary border-primary text-primary-foreground' : 'border-input'">
+                                    <Check v-if="form.tools.includes(tool.name)" class="size-3" />
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="font-medium text-sm">{{ tool.name }}</div>
+                                    <div class="text-xs text-muted-foreground line-clamp-2">{{ tool.description }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-xs text-muted-foreground">选择节点可调用的工具</p>
                 </div>
 
                 <!-- 状态 -->
@@ -124,10 +143,22 @@
 </template>
 
 <script setup lang="ts">
-import { Loader2, Plus, X } from 'lucide-vue-next'
+import { Check, Loader2, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { NodeGroup, NodeWithRelations } from '#shared/types/node'
 import type { Model } from '#shared/types/model'
+
+/** 工具元信息类型 */
+interface ToolMeta {
+    name: string
+    description: string
+    parameters: Array<{
+        name: string
+        type: string
+        description: string
+        required: boolean
+    }>
+}
 
 // 定义 props
 const props = defineProps<{
@@ -150,8 +181,9 @@ const selectedNode = ref<NodeWithRelations | null>(null)
 const groups = ref<NodeGroup[]>([])
 const models = ref<Model[]>([])
 
-// 新工具输入
-const newTool = ref('')
+// 工具列表
+const availableTools = ref<ToolMeta[]>([])
+const toolsLoading = ref(false)
 
 // 表单数据
 const form = ref(getDefaultForm())
@@ -174,7 +206,6 @@ function getDefaultForm() {
 // 重置表单
 const resetForm = () => {
     form.value = getDefaultForm()
-    newTool.value = ''
 }
 
 // 加载分组列表
@@ -201,18 +232,27 @@ const loadModels = async () => {
     if (data) models.value = data.items
 }
 
-// 添加工具
-const addTool = () => {
-    const tool = newTool.value.trim()
-    if (tool && !form.value.tools.includes(tool)) {
-        form.value.tools.push(tool)
-        newTool.value = ''
+// 加载工具列表
+const loadTools = async () => {
+    toolsLoading.value = true
+    try {
+        const data = await useApiFetch<{ items: ToolMeta[] }>('/api/v1/admin/workflow-tools')
+        if (data) {
+            availableTools.value = data.items
+        }
+    } finally {
+        toolsLoading.value = false
     }
 }
 
-// 移除工具
-const removeTool = (index: number) => {
-    form.value.tools.splice(index, 1)
+// 切换工具选择状态
+const toggleTool = (toolName: string) => {
+    const index = form.value.tools.indexOf(toolName)
+    if (index === -1) {
+        form.value.tools.push(toolName)
+    } else {
+        form.value.tools.splice(index, 1)
+    }
 }
 
 // 打开创建对话框
@@ -222,6 +262,7 @@ const openCreate = () => {
     resetForm()
     loadGroups()
     loadModels()
+    loadTools()
     open.value = true
 }
 
@@ -247,6 +288,7 @@ const openEdit = (node: NodeWithRelations) => {
     }
     loadGroups()
     loadModels()
+    loadTools()
     open.value = true
 }
 

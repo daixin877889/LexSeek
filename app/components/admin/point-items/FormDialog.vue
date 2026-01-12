@@ -7,11 +7,18 @@
                 <DialogDescription>{{ isEdit ? '修改积分消耗项目配置' : '创建新的积分消耗项目' }}</DialogDescription>
             </DialogHeader>
             <div class="flex-1 overflow-y-auto space-y-4 py-4 px-1">
+                <!-- Key（必填，用于代码引用） -->
+                <div v-if="!isEdit" class="space-y-2">
+                    <Label>Key <span class="text-destructive">*</span></Label>
+                    <Input v-model="form.key" placeholder="如：pdf_parse" />
+                    <p class="text-xs text-muted-foreground">用于代码中引用的唯一标识符，只能包含小写字母、数字和下划线，创建后不可修改</p>
+                </div>
+
                 <!-- 项目名称（创建时必填，编辑时不可修改） -->
                 <div v-if="!isEdit" class="space-y-2">
                     <Label>项目名称 <span class="text-destructive">*</span></Label>
-                    <Input v-model="form.name" placeholder="如：pdf_parse" />
-                    <p class="text-xs text-muted-foreground">唯一标识符，创建后不可修改</p>
+                    <Input v-model="form.name" placeholder="如：PDF 解析" />
+                    <p class="text-xs text-muted-foreground">显示名称，创建后不可修改</p>
                 </div>
 
                 <!-- 分组 -->
@@ -128,6 +135,7 @@ const form = ref(getDefaultForm())
 // 获取默认表单值
 function getDefaultForm() {
     return {
+        key: '',
         name: '',
         group: '',
         description: '',
@@ -162,6 +170,7 @@ const openEdit = (item: PointConsumptionItem) => {
         discountPercent = Math.round(num * 100)
     }
     form.value = {
+        key: item.key || '',
         name: item.name,
         group: item.group,
         description: item.description || '',
@@ -176,6 +185,14 @@ const openEdit = (item: PointConsumptionItem) => {
 // 提交表单
 const handleSubmit = async () => {
     // 验证必填字段
+    if (!isEdit.value && !form.value.key) {
+        toast.error('请输入 Key')
+        return
+    }
+    if (!isEdit.value && !/^[a-z][a-z0-9_]*$/.test(form.value.key)) {
+        toast.error('Key 只能包含小写字母、数字和下划线，且必须以字母开头')
+        return
+    }
     if (!isEdit.value && !form.value.name) {
         toast.error('请输入项目名称')
         return
@@ -211,6 +228,7 @@ const handleSubmit = async () => {
                 body,
             })
         } else {
+            body.key = form.value.key
             body.name = form.value.name
             result = await useApiFetch('/api/v1/admin/point-consumption-items', {
                 method: 'POST',
