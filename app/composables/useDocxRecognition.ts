@@ -1,13 +1,15 @@
 /**
- * Docx 识别 Composable
+ * 文档识别 Composable
  *
- * 浏览器端 docx 文件识别核心逻辑，整合文件读取、图片上传、结果保存
+ * 浏览器端文档文件识别核心逻辑，支持 docx、markdown 和 txt 文件
+ * 整合文件读取、图片上传、结果保存
  *
  * @requirements 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3, 2.4, 3.1, 3.2, 4.1, 6.2, 6.3, 6.4
  */
 
-import type { DocxExtractResult, ExtractedImage } from './useFileReader'
+import type { DocxExtractResult, ExtractedImage, MarkdownExtractResult } from './useFileReader'
 import { FileSource } from '#shared/types/file'
+import { getExtensionFromFileName } from '~~/shared/utils/file'
 
 /** 识别状态类型 */
 export type RecognitionStatusType =
@@ -35,7 +37,7 @@ export interface RecognitionStatus {
 export interface DocxRecognitionOptions {
     /** OSS 文件 ID */
     ossFileId: number
-    /** 原始文件名（用于图片命名前缀） */
+    /** 原始文件名（用于图片命名前缀和文件类型判断） */
     fileName?: string
     /** 本地文件（如果是刚上传的） */
     localFile?: File
@@ -47,6 +49,35 @@ export interface DocxRecognitionOptions {
     mimeType?: string
     /** bucket 名称 */
     bucket?: string
+}
+
+/** 支持的文档扩展名 */
+const DOCX_EXTENSIONS = ['docx', 'doc']
+const MARKDOWN_EXTENSIONS = ['md', 'mkd', 'markdown']
+const TXT_EXTENSIONS = ['txt']
+
+/**
+ * 判断是否为 docx 文件
+ */
+const isDocxFile = (fileName: string): boolean => {
+    const ext = getExtensionFromFileName(fileName)
+    return DOCX_EXTENSIONS.includes(ext)
+}
+
+/**
+ * 判断是否为 markdown 文件
+ */
+const isMarkdownFile = (fileName: string): boolean => {
+    const ext = getExtensionFromFileName(fileName)
+    return MARKDOWN_EXTENSIONS.includes(ext)
+}
+
+/**
+ * 判断是否为 txt 文件
+ */
+const isTxtFile = (fileName: string): boolean => {
+    const ext = getExtensionFromFileName(fileName)
+    return TXT_EXTENSIONS.includes(ext)
 }
 
 /** 识别结果 */
@@ -89,6 +120,7 @@ const createImagePlaceholder = (bucket: string, ossFileId: number): string => {
 
 /**
  * 将内部图片占位符转换为 OSS 图片占位符
+ * 同时处理普通占位符和各种 URL 编码的占位符（HTML 中的 src 属性可能被部分编码）
  */
 const replaceImagePlaceholders = (
     content: string,
@@ -98,16 +130,27 @@ const replaceImagePlaceholders = (
     for (const [placeholderId, ossInfo] of imageMap) {
         const internalPlaceholder = `{{IMAGE_PLACEHOLDER:${placeholderId}}}`
         const ossPlaceholder = createImagePlaceholder(ossInfo.bucket, ossInfo.ossFileId)
+
+        // 替换普通占位符（Markdown 中）
         result = result.replaceAll(internalPlaceholder, ossPlaceholder)
+
+        // 替换部分编码的占位符（HTML 中，只有花括号被编码）
+        // %7B = {, %7D = }
+        const partialEncodedPlaceholder = `%7B%7BIMAGE_PLACEHOLDER:${placeholderId}%7D%7D`
+        result = result.replaceAll(partialEncodedPlaceholder, ossPlaceholder)
+
+        // 替换完全编码的占位符（以防万一）
+        const fullyEncodedPlaceholder = encodeURIComponent(internalPlaceholder)
+        result = result.replaceAll(fullyEncodedPlaceholder, ossPlaceholder)
     }
     return result
 }
 
 /**
- * Docx 识别 Composable
+ * 文档识别 Composable
  */
 export const useDocxRecognition = () => {
-    const { extractDocx } = useFileReader()
+    const { extractDocx, extractMarkdown } = useFileReader()
     const { cacheFile, getCachedFile } = useLocalFileCache()
     const ageCrypto = useAgeCrypto()
     const fileStore = useFileStore()
@@ -170,6 +213,7 @@ export const useDocxRecognition = () => {
     /**
      * 获取文件内容
      * 优先从缓存读取，否则从 OSS 下载
+     * @returns ArrayBuffer 格式的文件内容
      */
     const getFileContent = async (
         options: DocxRecognitionOptions
@@ -223,6 +267,18 @@ export const useDocxRecognition = () => {
         await cacheFile(ossFileId, file)
 
         return content
+    }
+
+    /**
+     * 获取文件文本内容（用于 markdown 文件）
+     * @returns 文本格式的文件内容
+     */
+    const getFileTextContent = async (
+        options: DocxRecognitionOptions
+    ): Promise<string> => {
+        const arrayBuffer = await getFileContent(options)
+        const decoder = new TextDecoder('utf-8')
+        return decoder.decode(arrayBuffer)
     }
 
     /**
@@ -366,7 +422,8 @@ export const useDocxRecognition = () => {
     const saveRecognitionResult = async (
         ossFileId: number,
         htmlContent: string,
-        markdownContent: string
+        markdownContent: string,
+        fileName?: string
     ): Promise<SaveRecognitionResponse | null> => {
         updateStatus('submitting', 90)
 
@@ -379,6 +436,7 @@ export const useDocxRecognition = () => {
                         ossFileId,
                         htmlContent,
                         markdownContent,
+                        fileName,
                     },
                     showError: true,
                 }
@@ -392,7 +450,7 @@ export const useDocxRecognition = () => {
     }
 
     /**
-     * 执行 docx 识别
+     * 执行文档识别（支持 docx 和 markdown）
      * @param options 识别选项
      * @returns 识别结果
      */
@@ -420,25 +478,59 @@ export const useDocxRecognition = () => {
                 throw new Error('文件正在识别中，请稍后再试')
             }
 
-            // 2. 获取文件内容
-            const fileContent = await getFileContent(options)
+            // 2. 根据文件类型选择处理方式
+            let images: ExtractedImage[] = []
+            let htmlContent = ''
+            let markdownContent = ''
 
-            // 3. 提取 docx 内容
-            updateStatus('recognizing', 40)
-            const extractResult: DocxExtractResult = await extractDocx(fileContent)
+            if (fileName && isTxtFile(fileName)) {
+                // TXT 文件处理：直接读取文本内容，无图片
+                const textContent = await getFileTextContent(options)
 
-            // 4. 上传图片到 OSS（传递文件名用于图片命名）
-            const imageMap = await uploadImages(extractResult.images, bucket, fileName)
+                updateStatus('recognizing', 40)
 
-            // 5. 替换图片占位符
-            const htmlContent = replaceImagePlaceholders(extractResult.html, imageMap)
-            const markdownContent = replaceImagePlaceholders(extractResult.markdown, imageMap)
+                // txt 文件内容直接作为 markdown（纯文本）
+                markdownContent = textContent
+                // HTML 内容：将换行转换为 <br> 或 <p> 标签
+                htmlContent = `<pre>${textContent.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`
+                // txt 文件没有图片
+                images = []
+            } else if (fileName && isMarkdownFile(fileName)) {
+                // Markdown 文件处理
+                const textContent = await getFileTextContent(options)
 
-            // 6. 保存识别结果（会自动执行向量嵌入）
+                updateStatus('recognizing', 40)
+                const extractResult: MarkdownExtractResult = await extractMarkdown(textContent)
+
+                images = extractResult.images
+                markdownContent = extractResult.markdown
+                // 使用 marked 转换后的 HTML
+                htmlContent = extractResult.html
+            } else {
+                // Docx 文件处理（默认）
+                const fileContent = await getFileContent(options)
+
+                updateStatus('recognizing', 40)
+                const extractResult: DocxExtractResult = await extractDocx(fileContent)
+
+                images = extractResult.images
+                htmlContent = extractResult.html
+                markdownContent = extractResult.markdown
+            }
+
+            // 3. 上传图片到 OSS（传递文件名用于图片命名）
+            const imageMap = await uploadImages(images, bucket, fileName)
+
+            // 4. 替换图片占位符
+            htmlContent = replaceImagePlaceholders(htmlContent, imageMap)
+            markdownContent = replaceImagePlaceholders(markdownContent, imageMap)
+
+            // 5. 保存识别结果（会自动执行向量嵌入，传递文件名用于元数据）
             await saveRecognitionResult(
                 ossFileId,
                 htmlContent,
-                markdownContent
+                markdownContent,
+                fileName
             )
 
             updateStatus('success', 100)

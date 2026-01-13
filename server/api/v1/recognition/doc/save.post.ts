@@ -21,6 +21,8 @@ const bodySchema = z.object({
     htmlContent: z.string().min(1, 'htmlContent 不能为空'),
     /** Markdown 内容 */
     markdownContent: z.string().min(1, 'markdownContent 不能为空'),
+    /** 原始文件名（用于嵌入元数据） */
+    fileName: z.string().optional(),
 })
 
 /**
@@ -49,7 +51,7 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, bodyResult.error.issues[0]?.message || '参数错误')
     }
 
-    const { ossFileId, htmlContent, markdownContent } = bodyResult.data
+    const { ossFileId, htmlContent, markdownContent, fileName } = bodyResult.data
 
     try {
         // 查询 OSS 文件信息
@@ -60,6 +62,9 @@ export default defineEventHandler(async (event) => {
         if (!ossFile) {
             return resError(event, 404, '文件不存在')
         }
+
+        // 使用传入的文件名或从 OSS 文件记录获取
+        const actualFileName = fileName || ossFile.fileName
 
         // 查询是否已有识别记录
         let record = await findDocRecognitionByOssFileIdDao(ossFileId)
@@ -95,6 +100,7 @@ export default defineEventHandler(async (event) => {
                 content: markdownContent,
                 userId: user.id,
                 ossFileId,
+                fileName: actualFileName,
             })
 
             vectorIds = embeddingResult.ids

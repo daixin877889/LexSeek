@@ -9,7 +9,8 @@
         <PromptInputHeader>
           <div v-if="selectedFiles.length > 0" class="flex flex-wrap items-center gap-2 p-3 w-full">
             <div v-for="file in selectedFiles" :key="file.id"
-              class="group relative flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-md border border-border px-1.5 font-medium text-sm transition-all hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50">
+              class="group relative flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-md border border-border px-1.5 font-medium text-sm transition-all hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50"
+              @click="openPreview(file)">
               <!-- 文件图标 -->
               <div class="relative size-5 shrink-0 flex items-center justify-center">
                 <component :is="getFileIcon(file.fileType)" :class="['size-4', getFileIconColor(file.fileType)]" />
@@ -63,7 +64,7 @@
               <Paperclip class="text-muted-foreground" :size="16" />
               案情材料
               <span v-if="selectedFiles.length > 0" class="ml-1 text-xs text-primary">({{ selectedFiles.length
-              }})</span>
+                }})</span>
             </PromptInputButton>
             <span class="text-muted-foreground text-xs"> </span>
           </PromptInputTools>
@@ -78,15 +79,21 @@
         </PromptInputFooter>
       </PromptInput>
     </PromptInputProvider>
+
+    <!-- 文件选择弹框 -->
     <CaseAnalysisMaterialSelector ref="materialSelectorRef" :disabled-file-ids="selectedFileIds"
       @filesSelected="handleFilesSelected" />
+
+    <!-- 文档预览弹框 -->
+    <CaseAnalysisDocPreviewDialog v-if="previewFile" v-model:open="previewDialogOpen" :oss-file-id="previewFile.id"
+      :file-name="previewFile.fileName" :file-type="previewFile.fileType" />
   </div>
 </template>
 
 <script lang="ts" setup>
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { PromptInput, PromptInputBody, PromptInputButton, PromptInputFooter, PromptInputHeader, PromptInputProvider, PromptInputSubmit, PromptInputTextarea, PromptInputTools } from "@/components/ai-elements/prompt-input";
-import { Paperclip, SendHorizontal, XIcon, LockIcon, Loader2Icon, CheckIcon, AlertCircleIcon } from "lucide-vue-next";
+import { Paperclip, SendHorizontal, XIcon, LockIcon, Loader2Icon, CheckIcon, AlertCircleIcon, EyeIcon } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 import type { OssFileItem } from "~/store/file";
 import { getFileIcon, getFileIconColor } from "~/utils/file";
@@ -103,6 +110,10 @@ const selectedFiles = ref<OssFileItem[]>([]);
 
 // 文件识别状态映射：ossFileId -> 状态
 const fileRecognitionStatus = ref<Map<number, 'idle' | 'recognizing' | 'success' | 'error'>>(new Map());
+
+// 预览弹框状态
+const previewDialogOpen = ref(false);
+const previewFile = ref<OssFileItem | null>(null);
 
 // docx 识别 composable
 const { recognize, checkRecognitionStatus } = useDocxRecognition();
@@ -121,18 +132,19 @@ function getRecognitionStatus(fileId: number): 'idle' | 'recognizing' | 'success
 }
 
 /**
- * 检查文件是否为 docx 文件
+ * 检查文件是否为需要识别的文档文件（docx、markdown 或 txt）
  */
-function isDocxFile(fileName: string): boolean {
+function isRecognizableDocFile(fileName: string): boolean {
   const ext = fileName.split('.').pop()?.toLowerCase();
-  return ext === 'docx' || ext === 'doc';
+  // 支持 docx、doc、md、mkd、markdown、txt 文件
+  return ['docx', 'doc', 'md', 'mkd', 'markdown', 'txt'].includes(ext || '');
 }
 
 /**
- * 触发 docx 文件识别
+ * 触发文档文件识别（支持 docx、markdown 和 txt）
  */
-async function triggerDocxRecognition(file: OssFileItem) {
-  if (!isDocxFile(file.fileName)) {
+async function triggerDocRecognition(file: OssFileItem) {
+  if (!isRecognizableDocFile(file.fileName)) {
     return;
   }
 
@@ -142,7 +154,6 @@ async function triggerDocxRecognition(file: OssFileItem) {
   try {
     // 先检查是否已识别
     const statusCheck = await checkRecognitionStatus(file.id);
-
     if (statusCheck.recognized) {
       // 已识别，直接标记成功
       fileRecognitionStatus.value.set(file.id, 'success');
@@ -172,7 +183,7 @@ async function triggerDocxRecognition(file: OssFileItem) {
     fileRecognitionStatus.value.set(file.id, 'success');
     toast.success(`文件 ${file.fileName} 识别完成`);
   } catch (error) {
-    console.error('docx 识别失败:', error);
+    console.error('文档识别失败:', error);
     fileRecognitionStatus.value.set(file.id, 'error');
     const errorMessage = error instanceof Error ? error.message : '识别失败';
     toast.error(`文件 ${file.fileName} 识别失败: ${errorMessage}`);
@@ -183,7 +194,34 @@ async function triggerDocxRecognition(file: OssFileItem) {
  * 重试识别
  */
 async function retryRecognition(file: OssFileItem) {
-  await triggerDocxRecognition(file);
+  await triggerDocRecognition(file);
+}
+
+/**
+ * 打开文件预览弹框
+ * 只有已识别的文档文件才能预览
+ */
+function openPreview(file: OssFileItem) {
+  // 只有可识别的文档文件才能预览
+  if (!isRecognizableDocFile(file.fileName)) {
+    return;
+  }
+
+  // 只有已识别成功的文件才能预览
+  const status = getRecognitionStatus(file.id);
+  if (status !== 'success') {
+    if (status === 'recognizing') {
+      toast.info('文件正在识别中，请稍后再试');
+    } else if (status === 'error') {
+      toast.warning('文件识别失败，请重试');
+    } else {
+      toast.info('文件尚未识别');
+    }
+    return;
+  }
+
+  previewFile.value = file;
+  previewDialogOpen.value = true;
 }
 
 /**
@@ -203,11 +241,12 @@ async function handleFilesSelected(files: OssFileItem[]) {
   const newFiles = files.filter(f => !selectedFileIds.value.includes(f.id))
   selectedFiles.value = [...selectedFiles.value, ...newFiles]
 
-  // 对新添加的 docx 文件触发识别
+  // 对新添加的文档文件触发识别（docx、markdown 和 txt）
   for (const file of newFiles) {
-    if (isDocxFile(file.fileName)) {
+    console.log('检查文件是否需要识别:', file.fileName, 'isRecognizable:', isRecognizableDocFile(file.fileName))
+    if (isRecognizableDocFile(file.fileName)) {
       // 异步触发识别，不阻塞
-      triggerDocxRecognition(file);
+      triggerDocRecognition(file);
     }
   }
 }
@@ -226,9 +265,9 @@ async function handleSubmit(message: PromptInputMessage) {
     return;
   }
 
-  // 检查是否有正在识别的文件
+  // 检查是否有正在识别的文件（docx、markdown 和 txt）
   const recognizingFiles = selectedFiles.value.filter(f =>
-    isDocxFile(f.fileName) && getRecognitionStatus(f.id) === 'recognizing'
+    isRecognizableDocFile(f.fileName) && getRecognitionStatus(f.id) === 'recognizing'
   );
   if (recognizingFiles.length > 0) {
     toast.warning("请等待文件识别完成后再提交");

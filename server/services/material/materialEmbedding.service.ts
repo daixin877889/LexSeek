@@ -57,6 +57,8 @@ export interface ContentEmbeddingMetadata {
     userId: number
     /** 来源 ID（如 ossFileId） */
     sourceId: number
+    /** 来源名称（原始文件名） */
+    sourceName: string
     /** 最后嵌入时间 */
     last_embedding_at: string
     /** 分块索引 */
@@ -457,6 +459,8 @@ export interface EmbedDocumentInput {
     userId: number
     /** OSS 文件 ID */
     ossFileId: number
+    /** 原始文件名 */
+    fileName: string
 }
 
 /** 文档嵌入结果 */
@@ -543,6 +547,7 @@ async function splitDocumentContent(
  *   "source": "doc",
  *   "userId": 137,
  *   "sourceId": 431,  // ossFileId
+ *   "sourceName": "证据材料.docx",  // 原始文件名
  *   "last_embedding_at": "2025-12-16T22:47:29+08:00",
  *   "chunkIndex": 0
  * }
@@ -555,11 +560,12 @@ export async function embedDocumentService(
     input: EmbedDocumentInput,
     config: TextSplitterConfig = defaultSplitterConfig
 ): Promise<EmbedDocumentResult> {
-    const { content, userId, ossFileId } = input
+    const { content, userId, ossFileId, fileName } = input
 
     logger.info('开始向量化文档', {
         ossFileId,
         userId,
+        fileName,
         contentLength: content.length,
     })
 
@@ -575,6 +581,7 @@ export async function embedDocumentService(
             source: 'doc',
             userId,
             sourceId: ossFileId,
+            sourceName: fileName,
             last_embedding_at: lastEmbeddingAt,
         }
 
