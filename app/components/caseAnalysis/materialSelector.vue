@@ -54,7 +54,7 @@
               <component :is="isUploadMode ? ArrowLeftIcon : UploadIcon"
                 :class="['size-4', isSearchExpanded ? '' : 'md:mr-1.5', 'lg:mr-1.5']" />
               <span :class="['hidden', isSearchExpanded ? 'lg:inline' : 'md:inline']">{{ isUploadMode ? "返回列表" : "上传文件"
-              }}</span>
+                }}</span>
             </Button>
           </div>
 
@@ -69,9 +69,9 @@
         </div>
 
         <!-- 文件列表或上传器 -->
-        <div class="flex-1 overflow-y-auto border rounded-md min-h-0">
-          <!-- 加载状态 -->
-          <div v-if="loading && !isUploadMode" class="flex items-center justify-center py-12">
+        <div ref="scrollContainerRef" class="flex-1 overflow-y-auto border rounded-md min-h-0" @scroll="handleScroll">
+          <!-- 加载状态（首次加载） -->
+          <div v-if="loading && allFiles.length === 0 && !isUploadMode" class="flex items-center justify-center py-12">
             <Loader2Icon class="size-8 animate-spin text-muted-foreground" />
           </div>
 
@@ -84,7 +84,8 @@
           <!-- 文件列表模式 -->
           <div v-else class="divide-y">
             <!-- 空状态 -->
-            <div v-if="filteredFiles.length === 0" class="flex flex-col items-center justify-center py-12 text-center">
+            <div v-if="filteredFiles.length === 0 && !loading"
+              class="flex flex-col items-center justify-center py-12 text-center">
               <FileIcon class="size-12 text-muted-foreground/50 mb-4" />
               <p class="text-sm text-muted-foreground mb-2">
                 {{ searchQuery ? "未找到匹配的文件" : "暂无案情材料" }}
@@ -134,6 +135,17 @@
                   <span>{{ formatDateRelative(file.createdAt) }}</span>
                 </div>
               </div>
+            </div>
+
+            <!-- 加载更多状态 -->
+            <div v-if="loadingMore" class="flex items-center justify-center py-4">
+              <Loader2Icon class="size-5 animate-spin text-muted-foreground mr-2" />
+              <span class="text-sm text-muted-foreground">加载更多...</span>
+            </div>
+
+            <!-- 没有更多数据 -->
+            <div v-else-if="!hasMore && allFiles.length > 0" class="flex items-center justify-center py-4">
+              <span class="text-sm text-muted-foreground">已加载全部 {{ allFiles.length }} 个文件</span>
             </div>
           </div>
         </div>
@@ -208,6 +220,9 @@ const isSearchExpanded = ref(false);
 // 搜索框 ref（Input 组件实例）
 const searchInputRef = ref<any>(null);
 
+// 滚动容器 ref
+const scrollContainerRef = ref<HTMLElement | null>(null);
+
 // 文件类型筛选
 const selectedFileType = ref<string>("all");
 
@@ -228,6 +243,18 @@ const currentPage = ref(1);
 // 每页数量
 const pageSize = ref(20);
 
+// 所有已加载的文件（累积）
+const allFiles = ref<OssFileItem[]>([]);
+
+// 总数
+const totalFiles = ref(0);
+
+// 是否正在加载更多
+const loadingMore = ref(false);
+
+// 是否还有更多数据
+const hasMore = computed(() => allFiles.value.length < totalFiles.value);
+
 // 构建查询参数
 const queryParams = computed<FileListParams>(() => ({
   page: currentPage.value,
@@ -238,47 +265,61 @@ const queryParams = computed<FileListParams>(() => ({
   sortOrder: "desc",
 }));
 
-// 使用 useApi 获取文件列表（支持 SSR）
-// 注意：不使用 await，避免组件变成异步组件
-const {
-  data: fileListData,
-  refresh: refreshFileList,
-  status,
-} = useApi<{
-  list: OssFileItem[];
-  pagination: {
-    page: number;
-    pageSize: number;
-    total: number;
-    totalPages: number;
-  };
-}>(fileStore.FILE_LIST_API, {
-  method: "GET",
-  query: computed(() => fileStore.buildFileListQuery(queryParams.value)),
-  immediate: false,
-  watch: false,
-});
+// 首次加载状态
+const loading = ref(false);
 
-// 文件列表
-const files = computed(() => fileListData.value?.list || []);
+/**
+ * 加载文件列表
+ * @param append 是否追加到现有列表（用于加载更多）
+ */
+async function loadFiles(append = false) {
+  if (!append) {
+    loading.value = true;
+  } else {
+    loadingMore.value = true;
+  }
 
-// 分页信息
-const pagination = computed(
-  () =>
-    fileListData.value?.pagination || {
-      page: 1,
-      pageSize: 20,
-      total: 0,
-      totalPages: 0,
+  try {
+    const query = fileStore.buildFileListQuery(queryParams.value);
+    const response = await useApiFetch<{
+      list: OssFileItem[];
+      pagination: {
+        page: number;
+        pageSize: number;
+        total: number;
+        totalPages: number;
+      };
+    }>(fileStore.FILE_LIST_API, {
+      method: "GET",
+      query,
+      showError: true,
+    });
+
+    if (response) {
+      if (append) {
+        // 追加到现有列表，去重
+        const existingIds = new Set(allFiles.value.map(f => f.id));
+        const newFiles = response.list.filter(f => !existingIds.has(f.id));
+        allFiles.value = [...allFiles.value, ...newFiles];
+      } else {
+        // 替换列表
+        allFiles.value = response.list;
+      }
+      totalFiles.value = response.pagination.total;
+
+      // 等待 DOM 更新后检查是否需要继续加载
+      await nextTick();
+      checkAndLoadMore();
     }
-);
-
-// 加载状态
-const loading = computed(() => status.value === "pending");
+  } finally {
+    loading.value = false;
+    loadingMore.value = false;
+  }
+}
 
 // 过滤后的文件列表
 const filteredFiles = computed(() => {
-  let result = files.value;
+  let result = allFiles.value;
 
   // 按文件类型筛选
   if (selectedFileType.value !== "all") {
@@ -310,12 +351,54 @@ const isAllSelected = computed(() => {
   return selectableFiles.value.length > 0 && selectableFiles.value.every((file) => selectedFiles.value.includes(file.id));
 });
 
+/**
+ * 处理滚动事件，实现无限滚动加载
+ */
+function handleScroll(event: Event) {
+  const target = event.target as HTMLElement;
+  if (!target) return;
+
+  // 距离底部 100px 时触发加载
+  const threshold = 100;
+  const isNearBottom = target.scrollHeight - target.scrollTop - target.clientHeight < threshold;
+
+  // 调试日志
+  // console.log('滚动检测:', { isNearBottom, hasMore: hasMore.value, loadingMore: loadingMore.value, loading: loading.value, allFilesCount: allFiles.value.length, totalFiles: totalFiles.value })
+
+  if (isNearBottom && hasMore.value && !loadingMore.value && !loading.value) {
+    loadMoreFiles();
+  }
+}
+
+/**
+ * 检查是否需要自动加载更多（当内容不足以填满容器时）
+ */
+function checkAndLoadMore() {
+  const container = scrollContainerRef.value;
+  if (!container) return;
+
+  // 如果内容高度小于容器高度，且还有更多数据，自动加载
+  if (container.scrollHeight <= container.clientHeight && hasMore.value && !loadingMore.value && !loading.value) {
+    loadMoreFiles();
+  }
+}
+
+/**
+ * 加载更多文件
+ */
+async function loadMoreFiles() {
+  if (!hasMore.value || loadingMore.value) return;
+
+  currentPage.value += 1;
+  await loadFiles(true);
+}
+
 // 切换上传模式
 const toggleUploadMode = () => {
   isUploadMode.value = !isUploadMode.value;
   if (!isUploadMode.value) {
-    // 返回列表时刷新数据
-    refreshFileList();
+    // 返回列表时重新加载数据
+    resetAndLoad();
   }
 };
 
@@ -332,8 +415,8 @@ const handleFileUploadSuccess = async (uploadedFiles: Record<string, unknown>[])
   // 切换回文件选择模式
   isUploadMode.value = false;
 
-  // 刷新文件列表
-  await refreshFileList();
+  // 重新加载文件列表
+  await resetAndLoad();
 
   // 等待DOM更新
   await nextTick();
@@ -372,34 +455,39 @@ const toggleSelectAll = () => {
   }
 };
 
-// 清除选择
+// 清除选择（保留以备将来使用）
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const clearSelection = () => {
   selectedFiles.value = [];
 };
 
 // 确认选择
 const confirmSelection = () => {
-  const selectedFileObjects = files.value.filter((file) => selectedFiles.value.includes(file.id));
+  const selectedFileObjects = allFiles.value.filter((file) => selectedFiles.value.includes(file.id));
   // 触发事件，将选中的文件传递给父组件
   emit("filesSelected", selectedFileObjects);
 
   closeDialog();
 };
 
+/**
+ * 重置并加载（用于搜索、筛选变化时）
+ */
+async function resetAndLoad() {
+  currentPage.value = 1;
+  allFiles.value = [];
+  totalFiles.value = 0;
+  await loadFiles(false);
+}
+
 // 搜索防抖
 const debouncedSearch = useDebounceFn(() => {
-  currentPage.value = 1;
-  refreshFileList();
+  resetAndLoad();
 }, 500);
 
 // 监听搜索关键词变化
 watch(searchQuery, () => {
   debouncedSearch();
-});
-
-// 监听页码变化
-watch(currentPage, () => {
-  refreshFileList();
 });
 
 // 监听搜索框展开状态
@@ -425,12 +513,14 @@ const openDialog = () => {
   open.value = true;
   isUploadMode.value = false;
   searchQuery.value = "";
-  isSearchExpanded.value = false; // 重置搜索框展开状态
-  selectedFileType.value = "all"; // 重置文件类型筛选
+  isSearchExpanded.value = false;
+  selectedFileType.value = "all";
   selectedFiles.value = [];
   currentPage.value = 1;
+  allFiles.value = [];
+  totalFiles.value = 0;
   // 加载文件列表
-  refreshFileList();
+  loadFiles(false);
 };
 
 // 关闭对话框
