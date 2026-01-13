@@ -135,6 +135,10 @@ export async function materialProcessNode(
 /**
  * 处理案件材料
  *
+ * 支持两种输入方式：
+ * 1. 上传的材料文件（存储在 materials 表中）
+ * 2. 直接输入的文本案情信息（存储在 cases.content 字段中）
+ *
  * @param caseId 案件 ID
  * @returns 材料处理结果
  */
@@ -142,13 +146,48 @@ async function processMaterials(caseId: number): Promise<MaterialProcessResult> 
     // 获取材料统计信息
     const stats = await getMaterialsStatsService(caseId)
 
-    // 检查是否有材料
+    // 如果没有上传材料，检查案件是否有直接输入的文本内容
     if (stats.total === 0) {
+        // 获取案件信息，检查 content 字段
+        const caseRecord = await prisma.cases.findUnique({
+            where: { id: caseId },
+            select: { id: true, title: true, content: true },
+        })
+
+        if (caseRecord?.content && caseRecord.content.trim()) {
+            // 有直接输入的文本内容，将其作为虚拟材料处理
+            const textContent = caseRecord.content.trim()
+            const virtualMaterial: MaterialInfo = {
+                id: 0, // 虚拟材料 ID
+                name: '案情描述',
+                type: MaterialType.TEXT, // 文本类型
+                content: textContent,
+            }
+
+            logger.info('使用案件文本内容作为材料', {
+                caseId,
+                contentLength: textContent.length,
+            })
+
+            return {
+                success: true,
+                aggregatedContent: `## 案情描述\n\n${textContent}`,
+                materials: [virtualMaterial],
+                stats: {
+                    total: 1,
+                    completed: 1,
+                    failed: 0,
+                    pending: 0,
+                },
+            }
+        }
+
+        // 既没有上传材料，也没有文本内容
         return {
             success: false,
             aggregatedContent: '',
             materials: [],
-            error: '案件没有上传任何材料，请先上传案件相关材料',
+            error: '案件没有上传任何材料，也没有输入案情信息，请先上传案件相关材料或输入案情描述',
             stats: {
                 total: 0,
                 completed: 0,
@@ -305,6 +344,7 @@ function formatErrorMessage(result: MaterialProcessResult): string {
  * 检查材料是否准备就绪
  *
  * 用于在启动工作流前检查材料状态
+ * 支持两种输入方式：上传的材料文件或直接输入的文本内容
  *
  * @param caseId 案件 ID
  * @returns 是否准备就绪及相关信息
@@ -322,10 +362,30 @@ export async function checkMaterialsReady(caseId: number): Promise<{
     const stats = await getMaterialsStatsService(caseId)
     const pendingCount = stats.pending + stats.processing
 
+    // 如果没有上传材料，检查案件是否有直接输入的文本内容
     if (stats.total === 0) {
+        const caseRecord = await prisma.cases.findUnique({
+            where: { id: caseId },
+            select: { content: true },
+        })
+
+        if (caseRecord?.content && caseRecord.content.trim()) {
+            // 有直接输入的文本内容
+            return {
+                ready: true,
+                message: '案情描述已准备就绪',
+                stats: {
+                    total: 1,
+                    completed: 1,
+                    failed: 0,
+                    pending: 0,
+                },
+            }
+        }
+
         return {
             ready: false,
-            message: '请先上传案件相关材料',
+            message: '请先上传案件相关材料或输入案情描述',
             stats: {
                 total: 0,
                 completed: 0,

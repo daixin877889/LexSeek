@@ -26,7 +26,7 @@ export const caseMaterialVectorConfig: VectorStoreConfig = {
     metadataColumnName: 'metadata',
 }
 
-/** 材料向量化元数据 */
+/** 材料向量化元数据（旧版，用于案件材料） */
 export interface MaterialEmbeddingMetadata {
     /** 用户 ID */
     userId: number
@@ -44,6 +44,23 @@ export interface MaterialEmbeddingMetadata {
     chunkIndex: number
     /** 最后嵌入时间 */
     lastEmbeddingAt: string
+}
+
+/**
+ * 通用内容嵌入元数据（新版）
+ * 支持多种来源类型：doc（文档）、audio（音频）、image（图片）等
+ */
+export interface ContentEmbeddingMetadata {
+    /** 来源类型：doc=文档, audio=音频, image=图片 */
+    source: 'doc' | 'audio' | 'image'
+    /** 用户 ID */
+    userId: number
+    /** 来源 ID（如 ossFileId） */
+    sourceId: number
+    /** 最后嵌入时间 */
+    last_embedding_at: string
+    /** 分块索引 */
+    chunkIndex: number
 }
 
 /** 材料向量化输入 */
@@ -425,4 +442,251 @@ export async function isMaterialEmbedded(materialId: number): Promise<boolean> {
     `
     const result = await pool.query(query, [materialId.toString()])
     return result.rows[0]?.exists === true
+}
+
+
+// ============================================
+// 通用内容嵌入服务（新版，支持多种来源类型）
+// ============================================
+
+/** 文档嵌入输入参数 */
+export interface EmbedDocumentInput {
+    /** 文档内容（Markdown 格式） */
+    content: string
+    /** 用户 ID */
+    userId: number
+    /** OSS 文件 ID */
+    ossFileId: number
+}
+
+/** 文档嵌入结果 */
+export interface EmbedDocumentResult {
+    /** 生成的向量 ID 列表 */
+    ids: string[]
+    /** 最后嵌入时间 */
+    lastEmbeddingAt: string
+    /** 分块数量 */
+    chunkCount: number
+}
+
+/**
+ * 删除文档的现有向量数据
+ * @param source 来源类型
+ * @param sourceId 来源 ID（如 ossFileId）
+ * @returns 删除的记录数
+ */
+export async function deleteContentEmbeddings(
+    source: 'doc' | 'audio' | 'image',
+    sourceId: number
+): Promise<number> {
+    const pool = getPool()
+    const query = `
+        DELETE FROM ${caseMaterialVectorConfig.tableName} 
+        WHERE metadata->>'source' = $1 AND metadata->>'sourceId' = $2
+        RETURNING id
+    `
+    const result = await pool.query(query, [source, sourceId.toString()])
+    const count = result.rowCount || 0
+
+    if (count > 0) {
+        logger.info(`已删除 ${source}:${sourceId} 的 ${count} 条向量记录`)
+    }
+
+    return count
+}
+
+/**
+ * 将文档内容分块（用于通用内容嵌入）
+ * @param content 文档内容
+ * @param metadata 元数据（不含 chunkIndex）
+ * @param config 分块配置
+ * @returns 分块后的文档列表和 ID 列表
+ */
+async function splitDocumentContent(
+    content: string,
+    metadata: Omit<ContentEmbeddingMetadata, 'chunkIndex'>,
+    config: TextSplitterConfig = defaultSplitterConfig
+): Promise<{ documents: Document[]; ids: string[] }> {
+    const splitter = createTextSplitter(config)
+
+    // 分割文本
+    const texts = await splitter.splitText(content)
+
+    // 创建文档和 ID
+    const documents: Document[] = []
+    const ids: string[] = []
+
+    texts.forEach((text, index) => {
+        const docMetadata: ContentEmbeddingMetadata = {
+            ...metadata,
+            chunkIndex: index,
+        }
+
+        documents.push(
+            new Document({
+                pageContent: text,
+                metadata: docMetadata,
+            })
+        )
+
+        ids.push(uuidv7())
+    })
+
+    return { documents, ids }
+}
+
+/**
+ * 向量化文档内容（新版，不需要 caseId 和 sessionId）
+ *
+ * 元数据结构：
+ * {
+ *   "source": "doc",
+ *   "userId": 137,
+ *   "sourceId": 431,  // ossFileId
+ *   "last_embedding_at": "2025-12-16T22:47:29+08:00",
+ *   "chunkIndex": 0
+ * }
+ *
+ * @param input 文档嵌入输入
+ * @param config 分块配置（可选）
+ * @returns 嵌入结果
+ */
+export async function embedDocumentService(
+    input: EmbedDocumentInput,
+    config: TextSplitterConfig = defaultSplitterConfig
+): Promise<EmbedDocumentResult> {
+    const { content, userId, ossFileId } = input
+
+    logger.info('开始向量化文档', {
+        ossFileId,
+        userId,
+        contentLength: content.length,
+    })
+
+    try {
+        // 删除该文档的现有向量数据（避免重复）
+        await deleteContentEmbeddings('doc', ossFileId)
+
+        // 记录嵌入时间
+        const lastEmbeddingAt = dayjs().format('YYYY-MM-DDTHH:mm:ss+08:00')
+
+        // 准备元数据
+        const metadata: Omit<ContentEmbeddingMetadata, 'chunkIndex'> = {
+            source: 'doc',
+            userId,
+            sourceId: ossFileId,
+            last_embedding_at: lastEmbeddingAt,
+        }
+
+        // 分块
+        const { documents, ids } = await splitDocumentContent(content, metadata, config)
+
+        if (documents.length === 0) {
+            logger.warn(`文档 ${ossFileId} 内容为空，跳过向量化`)
+            return {
+                ids: [],
+                lastEmbeddingAt,
+                chunkCount: 0,
+            }
+        }
+
+        // 添加到向量存储
+        await addDocumentsToVectorStore(documents, ids, caseMaterialVectorConfig)
+
+        logger.info(`文档 ${ossFileId} 向量化完成`, {
+            chunkCount: documents.length,
+            ids,
+        })
+
+        return {
+            ids,
+            lastEmbeddingAt,
+            chunkCount: documents.length,
+        }
+    } catch (error) {
+        logger.error(`文档 ${ossFileId} 向量化失败:`, error)
+        throw error
+    }
+}
+
+/**
+ * 检查文档是否已向量化
+ * @param ossFileId OSS 文件 ID
+ * @returns 是否已向量化
+ */
+export async function isDocumentEmbedded(ossFileId: number): Promise<boolean> {
+    const pool = getPool()
+    const query = `
+        SELECT EXISTS(
+            SELECT 1 FROM ${caseMaterialVectorConfig.tableName} 
+            WHERE metadata->>'source' = 'doc' AND metadata->>'sourceId' = $1
+            LIMIT 1
+        ) as exists
+    `
+    const result = await pool.query(query, [ossFileId.toString()])
+    return result.rows[0]?.exists === true
+}
+
+/**
+ * 获取文档的向量 ID 列表
+ * @param ossFileId OSS 文件 ID
+ * @returns 向量 ID 列表
+ */
+export async function getDocumentEmbeddingIds(ossFileId: number): Promise<string[]> {
+    const pool = getPool()
+    const query = `
+        SELECT id FROM ${caseMaterialVectorConfig.tableName} 
+        WHERE metadata->>'source' = 'doc' AND metadata->>'sourceId' = $1
+        ORDER BY (metadata->>'chunkIndex')::int ASC
+    `
+    const result = await pool.query(query, [ossFileId.toString()])
+    return result.rows.map((row: { id: string }) => row.id)
+}
+
+/**
+ * 检索用户的文档内容
+ * @param userId 用户 ID
+ * @param query 查询文本
+ * @param k 返回结果数量（默认 5）
+ * @returns 检索结果列表
+ */
+export async function searchUserDocumentsService(
+    userId: number,
+    query: string,
+    k: number = 5
+): Promise<Array<{
+    content: string
+    sourceId: number
+    score: number
+    chunkIndex: number
+}>> {
+    logger.info('检索用户文档', { userId, query, k })
+
+    try {
+        // 使用 userId 和 source 作为过滤条件
+        const filter = { userId, source: 'doc' }
+
+        // 执行向量相似度搜索
+        const results = await similaritySearchWithScore(query, k, filter, caseMaterialVectorConfig)
+
+        // 转换结果格式
+        const searchResults = results.map(([doc, score]: [Document, number]) => {
+            const metadata = doc.metadata as ContentEmbeddingMetadata
+            return {
+                content: doc.pageContent,
+                sourceId: metadata.sourceId,
+                score,
+                chunkIndex: metadata.chunkIndex,
+            }
+        })
+
+        logger.info(`用户 ${userId} 文档检索完成`, {
+            resultCount: searchResults.length,
+        })
+
+        return searchResults
+    } catch (error) {
+        logger.error(`用户 ${userId} 文档检索失败:`, error)
+        throw error
+    }
 }
