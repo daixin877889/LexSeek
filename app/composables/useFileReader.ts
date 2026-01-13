@@ -3,12 +3,13 @@
  *
  * 提供浏览器端文件内容读取功能，支持：
  * - md/txt 文件：直接读取文本内容
- * - docx/doc 文件：使用 mammoth.js 提取文本内容
+ * - docx/doc 文件：使用 mammoth.js 提取文本内容和 HTML 内容
  *
- * @requirements 3.6, 3.7
+ * @requirements 3.6, 3.7, 2.1, 2.2, 2.3, 2.4
  */
 
 import mammoth from 'mammoth'
+import TurndownService from 'turndown'
 import { getExtensionFromFileName } from '~~/shared/utils/file'
 
 /**
@@ -28,6 +29,34 @@ export interface FileReadResult {
     fileType: string
     /** 文件大小（字节） */
     fileSize: number
+}
+
+/**
+ * 提取的图片信息
+ */
+export interface ExtractedImage {
+    /** 图片 base64 数据（不含 data:xxx;base64, 前缀） */
+    base64: string
+    /** 图片 MIME 类型 */
+    mimeType: string
+    /** 图片替代文本 */
+    altText?: string
+    /** 图片在内容中的占位符 ID */
+    placeholderId: string
+}
+
+/**
+ * docx 文件提取结果
+ */
+export interface DocxExtractResult {
+    /** 纯文本内容 */
+    text: string
+    /** HTML 内容（图片已替换为占位符） */
+    html: string
+    /** Markdown 内容（图片已替换为占位符） */
+    markdown: string
+    /** 提取的图片列表 */
+    images: ExtractedImage[]
 }
 
 /**
@@ -91,6 +120,90 @@ const readWordFile = async (file: File): Promise<string> => {
     }
 
     return result.value
+}
+
+/**
+ * 生成图片占位符 ID
+ */
+const generateImagePlaceholderId = (): string => {
+    return `IMG_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
+}
+
+/**
+ * 提取 docx 文件内容（HTML、Markdown 和图片）
+ * 使用 mammoth.js 提取 HTML，并将图片替换为占位符
+ * @param fileOrBuffer 文件对象或 ArrayBuffer
+ * @returns 提取结果，包含 HTML、Markdown 和图片列表
+ */
+const extractDocxContent = async (fileOrBuffer: File | ArrayBuffer): Promise<DocxExtractResult> => {
+    const arrayBuffer = fileOrBuffer instanceof File
+        ? await fileOrBuffer.arrayBuffer()
+        : fileOrBuffer
+
+    // 存储提取的图片
+    const images: ExtractedImage[] = []
+
+    // 配置 mammoth 的图片转换器，将图片替换为占位符
+    const options = {
+        convertImage: mammoth.images.imgElement((image) => {
+            return image.read('base64').then((base64Data) => {
+                const placeholderId = generateImagePlaceholderId()
+                const mimeType = image.contentType || 'image/png'
+
+                // 保存图片信息
+                images.push({
+                    base64: base64Data,
+                    mimeType,
+                    placeholderId,
+                })
+
+                // 返回带占位符的 img 标签，后续会被替换
+                return {
+                    src: `{{IMAGE_PLACEHOLDER:${placeholderId}}}`,
+                }
+            })
+        }),
+    }
+
+    // 提取 HTML 内容
+    const htmlResult = await mammoth.convertToHtml({ arrayBuffer }, options)
+
+    if (htmlResult.messages.length > 0) {
+        console.warn('mammoth HTML 转换警告:', htmlResult.messages)
+    }
+
+    // 提取纯文本内容
+    const textResult = await mammoth.extractRawText({ arrayBuffer })
+
+    // 将 HTML 转换为 Markdown
+    const turndownService = new TurndownService({
+        headingStyle: 'atx',
+        codeBlockStyle: 'fenced',
+        bulletListMarker: '-',
+    })
+
+    // 自定义图片规则，保留占位符格式
+    turndownService.addRule('imagePlaceholder', {
+        filter: (node) => {
+            return node.nodeName === 'IMG' &&
+                (node as HTMLImageElement).src.startsWith('{{IMAGE_PLACEHOLDER:')
+        },
+        replacement: (_content, node) => {
+            const src = (node as HTMLImageElement).src
+            const alt = (node as HTMLImageElement).alt || ''
+            // 转换为 Markdown 图片格式，保留占位符
+            return `![${alt}](${src})`
+        },
+    })
+
+    const markdown = turndownService.turndown(htmlResult.value)
+
+    return {
+        text: textResult.value,
+        html: htmlResult.value,
+        markdown,
+        images,
+    }
 }
 
 /**
@@ -219,6 +332,30 @@ export const useFileReader = () => {
         result.value = null
     }
 
+    /**
+     * 提取 docx 文件内容（HTML、Markdown 和图片）
+     * 这是识别 docx 文件的核心方法
+     * @param fileOrBuffer 文件对象或 ArrayBuffer
+     * @returns 提取结果，包含 HTML、Markdown 和图片列表
+     */
+    const extractDocx = async (fileOrBuffer: File | ArrayBuffer): Promise<DocxExtractResult> => {
+        status.value = 'reading'
+        progress.value = 0
+        error.value = null
+
+        try {
+            progress.value = 20
+            const extractResult = await extractDocxContent(fileOrBuffer)
+            progress.value = 100
+            status.value = 'success'
+            return extractResult
+        } catch (e) {
+            error.value = e instanceof Error ? e : new Error(String(e))
+            status.value = 'error'
+            throw e
+        }
+    }
+
     return {
         // 状态
         status: readonly(status),
@@ -229,6 +366,7 @@ export const useFileReader = () => {
         // 方法
         readFile,
         readFiles,
+        extractDocx,
         reset,
 
         // 工具函数

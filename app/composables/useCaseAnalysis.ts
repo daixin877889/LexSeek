@@ -175,7 +175,15 @@ export function useCaseAnalysis(): UseCaseAnalysisReturn {
      */
     function parseSSEMessage(data: string): SSEMessage | null {
         try {
-            return JSON.parse(data) as SSEMessage
+            // SSE 消息格式可能是 "data: {...}" 或直接是 "{...}"
+            let jsonStr = data
+            if (data.startsWith('data:')) {
+                jsonStr = data.slice(5).trim()
+            }
+            if (!jsonStr || jsonStr === '[DONE]') {
+                return null
+            }
+            return JSON.parse(jsonStr) as SSEMessage
         } catch {
             console.warn('解析 SSE 消息失败:', data)
             return null
@@ -504,6 +512,10 @@ export function useCaseAnalysis(): UseCaseAnalysisReturn {
 
                 if (done) {
                     state.value.isConnected = false
+                    // 如果流结束时仍在加载状态，说明没有收到完成或错误消息
+                    if (state.value.isLoading && !state.value.isComplete && !state.value.isInterrupted) {
+                        state.value.isLoading = false
+                    }
                     break
                 }
 

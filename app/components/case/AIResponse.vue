@@ -127,36 +127,36 @@ function formatToolTitle(toolName: string): string {
 <template>
     <div :class="cn('flex flex-col gap-3', props.class)">
         <!-- 推理过程 -->
-        <AiElementsReasoningReasoning v-if="showReasoning" :is-streaming="isReasoningStreaming"
-            :duration="reasoningDuration" :default-open="defaultReasoningOpen">
-            <AiElementsReasoningReasoningTrigger />
-            <AiElementsReasoningReasoningContent :content="reasoning" />
-        </AiElementsReasoningReasoning>
+        <AiElementsReasoning v-if="showReasoning" :is-streaming="isReasoningStreaming" :duration="reasoningDuration"
+            :default-open="defaultReasoningOpen">
+            <AiElementsReasoningTrigger />
+            <AiElementsReasoningContent :content="reasoning" />
+        </AiElementsReasoning>
 
         <!-- 工具调用列表 -->
         <div v-if="showToolCalls" class="flex flex-col gap-2">
-            <AiElementsToolTool v-for="toolCall in toolCalls" :key="toolCall.toolCallId"
+            <AiElementsTool v-for="toolCall in toolCalls" :key="toolCall.toolCallId"
                 :default-open="showToolDetails && toolCall.status !== 'calling'">
-                <AiElementsToolToolHeader :title="formatToolTitle(toolCall.toolName)" type="tool-invocation"
+                <AiElementsToolHeader :title="formatToolTitle(toolCall.toolName)" type="tool-invocation"
                     :state="getToolState(toolCall.status)" />
-                <AiElementsToolToolContent v-if="showToolDetails">
+                <AiElementsToolContent v-if="showToolDetails">
                     <!-- 工具输入参数 -->
-                    <AiElementsToolToolInput v-if="getToolInput(toolCall)" :input="getToolInput(toolCall)" />
+                    <AiElementsToolInput v-if="getToolInput(toolCall)" :input="getToolInput(toolCall)" />
                     <!-- 工具输出结果 -->
-                    <AiElementsToolToolOutput v-if="toolCall.status !== 'calling'" :output="getToolOutput(toolCall)"
+                    <AiElementsToolOutput v-if="toolCall.status !== 'calling'" :output="getToolOutput(toolCall)"
                         :error-text="getToolError(toolCall)" />
-                </AiElementsToolToolContent>
-            </AiElementsToolTool>
+                </AiElementsToolContent>
+            </AiElementsTool>
         </div>
 
         <!-- AI 响应内容 -->
         <div v-if="showContent" class="relative">
             <!-- Markdown 渲染内容 -->
-            <AiElementsMessageMessageResponse v-if="content" :content="content"
+            <AiElementsMessageResponse v-if="content" :content="content"
                 class="prose prose-sm dark:prose-invert max-w-none" />
             <!-- 流式输出加载状态 -->
             <div v-else-if="isStreaming" class="flex items-center gap-2 text-muted-foreground">
-                <AiElementsLoaderLoader :size="14" />
+                <AiElementsLoader :size="14" />
                 <span class="text-sm">正在生成...</span>
             </div>
         </div>

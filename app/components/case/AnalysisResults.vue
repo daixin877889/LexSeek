@@ -11,7 +11,7 @@
  * @see design.md - 分析结果展示与重新生成
  */
 import type { HTMLAttributes } from 'vue'
-import type { AnalysisResult } from '@/composables/useCaseAnalysis'
+import type { AnalysisResult } from '#shared/types/case'
 import { cn } from '@/lib/utils'
 import {
     RefreshCwIcon,
@@ -20,6 +20,7 @@ import {
     FileTextIcon,
     ChevronLeftIcon,
     ChevronRightIcon,
+    Loader2Icon,
 } from 'lucide-vue-next'
 
 /**
@@ -42,6 +43,8 @@ interface Props {
     emptyTitle?: string
     /** 空状态描述 */
     emptyDescription?: string
+    /** 是否正在分析中 */
+    isAnalyzing?: boolean
     /** 自定义类名 */
     class?: HTMLAttributes['class']
 }
@@ -55,6 +58,7 @@ const props = withDefaults(defineProps<Props>(), {
     showCopy: true,
     emptyTitle: '暂无分析结果',
     emptyDescription: '完成分析后，结果将在此处展示',
+    isAnalyzing: false,
 })
 
 const emit = defineEmits<{
@@ -177,9 +181,18 @@ function formatAnalyzedAt(dateStr: string): string {
     <div :class="cn('flex flex-col h-full', props.class)">
         <!-- 空状态 -->
         <div v-if="!hasResults" class="flex flex-col items-center justify-center h-full text-center p-8">
-            <FileTextIcon class="size-12 text-muted-foreground/50 mb-4" />
-            <h3 class="text-lg font-medium text-foreground mb-2">{{ emptyTitle }}</h3>
-            <p class="text-sm text-muted-foreground max-w-sm">{{ emptyDescription }}</p>
+            <!-- 分析中状态 -->
+            <template v-if="isAnalyzing">
+                <Loader2Icon class="size-12 text-primary animate-spin mb-4" />
+                <h3 class="text-lg font-medium text-foreground mb-2">正在分析中</h3>
+                <p class="text-sm text-muted-foreground max-w-sm">AI 正在处理案件信息，分析结果将在此处展示</p>
+            </template>
+            <!-- 等待状态 -->
+            <template v-else>
+                <FileTextIcon class="size-12 text-muted-foreground/50 mb-4" />
+                <h3 class="text-lg font-medium text-foreground mb-2">{{ emptyTitle }}</h3>
+                <p class="text-sm text-muted-foreground max-w-sm">{{ emptyDescription }}</p>
+            </template>
         </div>
 
         <!-- 有结果时的展示 -->
@@ -212,48 +225,48 @@ function formatAnalyzedAt(dateStr: string): string {
 
             <!-- 结果内容区域 -->
             <div class="flex-1 overflow-hidden">
-                <AiElementsArtifactArtifact v-if="currentResult" class="h-full border-0 rounded-none shadow-none">
+                <AiElementsArtifact v-if="currentResult" class="h-full border-0 rounded-none shadow-none">
                     <!-- 头部：标题和操作按钮 -->
-                    <AiElementsArtifactArtifactHeader>
+                    <AiElementsArtifactHeader>
                         <div class="flex flex-col gap-0.5">
-                            <AiElementsArtifactArtifactTitle>
+                            <AiElementsArtifactTitle>
                                 {{ currentResult.moduleTitle || currentResult.moduleName }}
-                            </AiElementsArtifactArtifactTitle>
+                            </AiElementsArtifactTitle>
                             <span class="text-xs text-muted-foreground">
                                 分析于 {{ formatAnalyzedAt(currentResult.analyzedAt) }}
                             </span>
                         </div>
 
-                        <AiElementsArtifactArtifactActions>
+                        <AiElementsArtifactActions>
                             <!-- 复制按钮 -->
-                            <AiElementsArtifactArtifactAction v-if="showCopy" tooltip="复制内容" @click="handleCopy">
+                            <AiElementsArtifactAction v-if="showCopy" tooltip="复制内容" @click="handleCopy">
                                 <CheckIcon v-if="isCurrentCopied" class="size-4 text-green-500" />
                                 <CopyIcon v-else class="size-4" />
-                            </AiElementsArtifactArtifactAction>
+                            </AiElementsArtifactAction>
 
                             <!-- 重新生成按钮 -->
-                            <AiElementsArtifactArtifactAction v-if="showRegenerate" tooltip="重新生成"
+                            <AiElementsArtifactAction v-if="showRegenerate" tooltip="重新生成"
                                 :disabled="isCurrentRegenerating" @click="handleRegenerate">
                                 <RefreshCwIcon class="size-4" :class="{ 'animate-spin': isCurrentRegenerating }" />
-                            </AiElementsArtifactArtifactAction>
-                        </AiElementsArtifactArtifactActions>
-                    </AiElementsArtifactArtifactHeader>
+                            </AiElementsArtifactAction>
+                        </AiElementsArtifactActions>
+                    </AiElementsArtifactHeader>
 
                     <!-- 内容区域 -->
-                    <AiElementsArtifactArtifactContent class="overflow-y-auto">
+                    <AiElementsArtifactContent class="overflow-y-auto">
                         <!-- 重新生成中的加载状态 -->
                         <div v-if="isCurrentRegenerating" class="flex items-center justify-center py-12">
                             <div class="flex flex-col items-center gap-3">
-                                <AiElementsLoaderLoader :size="24" />
+                                <AiElementsLoader :size="24" />
                                 <span class="text-sm text-muted-foreground">正在重新生成...</span>
                             </div>
                         </div>
 
                         <!-- Markdown 内容渲染 -->
-                        <AiElementsMessageMessageResponse v-else :content="currentResult.content"
+                        <AiElementsMessageResponse v-else :content="currentResult.content"
                             class="prose prose-sm dark:prose-invert max-w-none" />
-                    </AiElementsArtifactArtifactContent>
-                </AiElementsArtifactArtifact>
+                    </AiElementsArtifactContent>
+                </AiElementsArtifact>
             </div>
 
             <!-- 底部：模块指示器 -->

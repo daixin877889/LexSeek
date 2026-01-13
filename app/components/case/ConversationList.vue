@@ -146,49 +146,49 @@ function isAssistantMessage(message: MessageItem): boolean {
 </script>
 
 <template>
-    <AiElementsConversationConversation :class="cn('h-full', props.class)">
+    <AiElementsConversation :class="cn('h-full', props.class)">
         <!-- 空状态 -->
-        <AiElementsConversationConversationEmptyState v-if="isEmpty" :title="props.emptyTitle"
+        <AiElementsConversationEmptyState v-if="isEmpty" :title="props.emptyTitle"
             :description="props.emptyDescription">
             <template #icon>
                 <BotIcon class="size-12 text-muted-foreground/50" />
             </template>
-        </AiElementsConversationConversationEmptyState>
+        </AiElementsConversationEmptyState>
 
         <!-- 消息列表 -->
-        <AiElementsConversationConversationContent v-else>
+        <AiElementsConversationContent v-else>
             <!-- 历史消息 -->
             <template v-for="message in messages" :key="message.id">
                 <!-- 用户消息 -->
-                <AiElementsMessageMessage v-if="isUserMessage(message)" from="user">
-                    <AiElementsMessageMessageContent>
+                <AiElementsMessage v-if="isUserMessage(message)" from="user">
+                    <AiElementsMessageContent>
                         <p class="whitespace-pre-wrap">{{ message.content }}</p>
-                    </AiElementsMessageMessageContent>
-                    <AiElementsMessageMessageAvatar name="用户">
+                    </AiElementsMessageContent>
+                    <AiElementsMessageAvatar name="用户">
                         <UserIcon class="size-4" />
-                    </AiElementsMessageMessageAvatar>
-                </AiElementsMessageMessage>
+                    </AiElementsMessageAvatar>
+                </AiElementsMessage>
 
                 <!-- AI 消息 -->
-                <AiElementsMessageMessage v-else-if="isAssistantMessage(message)" from="assistant">
-                    <AiElementsMessageMessageAvatar name="AI">
+                <AiElementsMessage v-else-if="isAssistantMessage(message)" from="assistant">
+                    <AiElementsMessageAvatar name="AI">
                         <BotIcon class="size-4" />
-                    </AiElementsMessageMessageAvatar>
+                    </AiElementsMessageAvatar>
                     <div class="flex flex-col gap-2 flex-1 min-w-0">
                         <!-- 推理过程（可折叠） -->
-                        <UiCollapsible v-if="message.reasoning" class="w-full">
-                            <UiCollapsibleTrigger
+                        <Collapsible v-if="message.reasoning" class="w-full">
+                            <CollapsibleTrigger
                                 class="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
                                 <span>查看推理过程</span>
-                            </UiCollapsibleTrigger>
-                            <UiCollapsibleContent>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
                                 <div class="mt-2 p-3 bg-muted/50 rounded-lg text-xs text-muted-foreground">
                                     <pre class="whitespace-pre-wrap font-mono">{{
                                         message.reasoning
                                     }}</pre>
                                 </div>
-                            </UiCollapsibleContent>
-                        </UiCollapsible>
+                            </CollapsibleContent>
+                        </Collapsible>
 
                         <!-- 工具调用 -->
                         <div v-if="message.toolCalls && message.toolCalls.length > 0" class="flex flex-col gap-2">
@@ -205,71 +205,71 @@ function isAssistantMessage(message: MessageItem): boolean {
                         </div>
 
                         <!-- 消息内容 -->
-                        <AiElementsMessageMessageContent>
-                            <AiElementsMessageMessageResponse v-if="message.content" :content="message.content"
+                        <AiElementsMessageContent>
+                            <AiElementsMessageResponse v-if="message.content" :content="message.content"
                                 class="prose prose-sm dark:prose-invert max-w-none" />
                             <!-- 流式输出中的加载状态 -->
                             <div v-else-if="message.isStreaming" class="flex items-center gap-2 text-muted-foreground">
                                 <span class="animate-pulse">正在思考...</span>
                             </div>
-                        </AiElementsMessageMessageContent>
+                        </AiElementsMessageContent>
 
                         <!-- 消息工具栏 -->
-                        <AiElementsMessageMessageToolbar v-if="message.content && !message.isStreaming"
+                        <AiElementsMessageToolbar v-if="message.content && !message.isStreaming"
                             class="opacity-0 group-hover:opacity-100 transition-opacity">
-                            <AiElementsMessageMessageActions>
-                                <AiElementsMessageMessageAction tooltip="复制" @click="handleCopy(message)">
+                            <AiElementsMessageActions>
+                                <AiElementsMessageAction tooltip="复制" @click="handleCopy(message)">
                                     <CheckIcon v-if="copiedId === message.id" class="size-4 text-green-500" />
                                     <CopyIcon v-else class="size-4" />
-                                </AiElementsMessageMessageAction>
-                                <AiElementsMessageMessageAction tooltip="重新生成" @click="handleRegenerate(message)">
+                                </AiElementsMessageAction>
+                                <AiElementsMessageAction tooltip="重新生成" @click="handleRegenerate(message)">
                                     <RefreshCwIcon class="size-4" />
-                                </AiElementsMessageMessageAction>
-                            </AiElementsMessageMessageActions>
+                                </AiElementsMessageAction>
+                            </AiElementsMessageActions>
                             <span v-if="message.timestamp" class="text-xs text-muted-foreground">
                                 {{ formatTimestamp(message.timestamp) }}
                             </span>
-                        </AiElementsMessageMessageToolbar>
+                        </AiElementsMessageToolbar>
                     </div>
-                </AiElementsMessageMessage>
+                </AiElementsMessage>
             </template>
 
             <!-- 当前流式输出 -->
-            <AiElementsMessageMessage v-if="showStreamingMessage" from="assistant">
-                <AiElementsMessageMessageAvatar name="AI">
+            <AiElementsMessage v-if="showStreamingMessage" from="assistant">
+                <AiElementsMessageAvatar name="AI">
                     <BotIcon class="size-4" />
-                </AiElementsMessageMessageAvatar>
+                </AiElementsMessageAvatar>
                 <div class="flex flex-col gap-2 flex-1 min-w-0">
                     <!-- 推理过程 -->
-                    <UiCollapsible v-if="reasoningText" class="w-full" :default-open="true">
-                        <UiCollapsibleTrigger
+                    <Collapsible v-if="reasoningText" class="w-full" :default-open="true">
+                        <CollapsibleTrigger
                             class="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
                             <span class="animate-pulse">正在推理...</span>
-                        </UiCollapsibleTrigger>
-                        <UiCollapsibleContent>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
                             <div class="mt-2 p-3 bg-muted/50 rounded-lg text-xs text-muted-foreground">
                                 <pre class="whitespace-pre-wrap font-mono">{{ reasoningText }}</pre>
                             </div>
-                        </UiCollapsibleContent>
-                    </UiCollapsible>
+                        </CollapsibleContent>
+                    </Collapsible>
 
                     <!-- 流式内容 -->
-                    <AiElementsMessageMessageContent>
-                        <AiElementsMessageMessageResponse v-if="streamingText" :content="streamingText"
+                    <AiElementsMessageContent>
+                        <AiElementsMessageResponse v-if="streamingText" :content="streamingText"
                             class="prose prose-sm dark:prose-invert max-w-none" />
                         <div v-else class="flex items-center gap-2 text-muted-foreground">
                             <span class="animate-pulse">正在生成...</span>
                         </div>
-                    </AiElementsMessageMessageContent>
+                    </AiElementsMessageContent>
                 </div>
-            </AiElementsMessageMessage>
+            </AiElementsMessage>
 
             <!-- 加载状态（无流式内容时） -->
-            <AiElementsMessageMessage v-else-if="isLoading && !streamingText && !reasoningText" from="assistant">
-                <AiElementsMessageMessageAvatar name="AI">
+            <AiElementsMessage v-else-if="isLoading && !streamingText && !reasoningText" from="assistant">
+                <AiElementsMessageAvatar name="AI">
                     <BotIcon class="size-4" />
-                </AiElementsMessageMessageAvatar>
-                <AiElementsMessageMessageContent>
+                </AiElementsMessageAvatar>
+                <AiElementsMessageContent>
                     <div class="flex items-center gap-2 text-muted-foreground">
                         <div class="flex gap-1">
                             <span class="size-2 bg-current rounded-full animate-bounce" />
@@ -278,11 +278,11 @@ function isAssistantMessage(message: MessageItem): boolean {
                         </div>
                         <span>AI 正在思考...</span>
                     </div>
-                </AiElementsMessageMessageContent>
-            </AiElementsMessageMessage>
-        </AiElementsConversationConversationContent>
+                </AiElementsMessageContent>
+            </AiElementsMessage>
+        </AiElementsConversationContent>
 
         <!-- 滚动到底部按钮 -->
-        <AiElementsConversationConversationScrollButton />
-    </AiElementsConversationConversation>
+        <AiElementsConversationScrollButton />
+    </AiElementsConversation>
 </template>

@@ -54,7 +54,7 @@
               <component :is="isUploadMode ? ArrowLeftIcon : UploadIcon"
                 :class="['size-4', isSearchExpanded ? '' : 'md:mr-1.5', 'lg:mr-1.5']" />
               <span :class="['hidden', isSearchExpanded ? 'lg:inline' : 'md:inline']">{{ isUploadMode ? "返回列表" : "上传文件"
-                }}</span>
+              }}</span>
             </Button>
           </div>
 
@@ -96,12 +96,16 @@
             </div>
 
             <!-- 文件列表 -->
-            <div v-for="file in filteredFiles" :key="file.id"
-              class="flex items-center gap-3 p-4 hover:bg-accent/50 transition-colors cursor-pointer"
-              @click="toggleFileSelection(file.id)">
+            <div v-for="file in filteredFiles" :key="file.id" :class="[
+              'flex items-center gap-3 p-4 transition-colors',
+              isFileDisabled(file.id)
+                ? 'opacity-60 cursor-not-allowed bg-muted/30'
+                : 'hover:bg-accent/50 cursor-pointer'
+            ]" @click="!isFileDisabled(file.id) && toggleFileSelection(file.id)">
               <!-- 复选框 -->
               <Checkbox :id="`file-${file.id}`" :model-value="selectedFiles.includes(file.id)"
-                @update:model-value="() => toggleFileSelection(file.id)" />
+                :disabled="isFileDisabled(file.id)"
+                @update:model-value="() => !isFileDisabled(file.id) && toggleFileSelection(file.id)" />
 
               <!-- 文件图标 -->
               <div class="flex items-center justify-center size-10 rounded-md bg-muted">
@@ -111,12 +115,17 @@
               <!-- 文件信息 -->
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
-                  <label :for="`file-${file.id}`" class="text-sm font-medium truncate cursor-pointer">
+                  <label :for="`file-${file.id}`"
+                    :class="['text-sm font-medium truncate', isFileDisabled(file.id) ? 'cursor-not-allowed' : 'cursor-pointer']">
                     {{ file.fileName }}
                   </label>
                   <Badge v-if="file.encrypted" variant="secondary" class="text-xs">
                     <LockIcon class="size-3 mr-1" />
                     已加密
+                  </Badge>
+                  <!-- 已添加标识 -->
+                  <Badge v-if="isFileDisabled(file.id)" variant="outline" class="text-xs">
+                    已添加
                   </Badge>
                 </div>
                 <div class="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
@@ -140,7 +149,7 @@
       <!-- 底部操作栏（上传模式下隐藏） -->
       <DialogFooter v-if="!isUploadMode" class="flex-shrink-0 flex-row items-center justify-start gap-2 border-t pt-3">
         <!-- 桌面端全选按钮 -->
-        <Button variant="outline" size="sm" @click="toggleSelectAll" :disabled="filteredFiles.length === 0"
+        <Button variant="outline" size="sm" @click="toggleSelectAll" :disabled="selectableFiles.length === 0"
           class="md:flex h-9">
           <CheckSquareIcon class="size-4 mr-1.5" />
           {{ isAllSelected ? "取消全选" : "全选" }}
@@ -165,8 +174,21 @@ import type { OssFileItem, FileListParams } from "~/store/file";
 import { formatByteSize } from "#shared/utils/unitConverision";
 import { getFileIcon, getFileIconColor } from "~/utils/file";
 
+// 组件 Props
+const props = defineProps<{
+  // 禁止选择的文件 ID 列表（已添加到父组件的文件）
+  disabledFileIds?: number[]
+}>()
+
 // 使用格式化工具
 const { formatDateRelative } = useFormatters();
+
+/**
+ * 判断文件是否被禁用（已添加到父组件）
+ */
+function isFileDisabled(fileId: number): boolean {
+  return props.disabledFileIds?.includes(fileId) ?? false
+}
 
 // 对话框状态
 const open = defineModel<boolean>("open", { default: false });
@@ -278,9 +300,14 @@ const filteredFiles = computed(() => {
   return result;
 });
 
-// 是否全选
+// 可选择的文件列表（排除已禁用的文件）
+const selectableFiles = computed(() => {
+  return filteredFiles.value.filter(file => !isFileDisabled(file.id))
+})
+
+// 是否全选（只考虑可选择的文件）
 const isAllSelected = computed(() => {
-  return filteredFiles.value.length > 0 && filteredFiles.value.every((file) => selectedFiles.value.includes(file.id));
+  return selectableFiles.value.length > 0 && selectableFiles.value.every((file) => selectedFiles.value.includes(file.id));
 });
 
 // 切换上传模式
@@ -332,12 +359,16 @@ const toggleFileSelection = (fileId: number) => {
   }
 };
 
-// 全选/取消全选
+// 全选/取消全选（只操作可选择的文件）
 const toggleSelectAll = () => {
   if (isAllSelected.value) {
-    selectedFiles.value = [];
+    // 取消全选：移除所有可选择文件的选中状态
+    const selectableIds = selectableFiles.value.map(file => file.id)
+    selectedFiles.value = selectedFiles.value.filter(id => !selectableIds.includes(id))
   } else {
-    selectedFiles.value = filteredFiles.value.map((file) => file.id);
+    // 全选：添加所有可选择文件
+    const selectableIds = selectableFiles.value.map(file => file.id)
+    selectedFiles.value = [...new Set([...selectedFiles.value, ...selectableIds])]
   }
 };
 
