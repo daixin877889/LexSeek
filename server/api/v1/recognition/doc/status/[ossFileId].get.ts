@@ -1,18 +1,20 @@
 /**
- * 检查文档识别状态 API
+ * 检查文档/图像识别状态 API
  *
  * GET /api/v1/recognition/doc/status/:ossFileId
  *
  * 检查指定 OSS 文件的识别状态，返回是否已识别及识别记录详情
+ * 支持文档识别记录（docRecognitionRecords）和图像识别记录（imageRecognitionRecords）
  * 返回的 htmlContent 和 markdownContent 中的图片占位符会被替换为 OSS 签名 URL
  * 同时返回关联的 MinerU 任务信息（如果存在）
  *
- * @requirements 1.1, 1.2, 1.3, 1.4, 5.3
+ * @requirements 1.1, 1.2, 1.3, 1.4, 5.3, 5.6
  */
 
 import { z } from 'zod'
 import { DocRecognitionStatus } from '~~/server/services/material/mineru.service'
 import { generateOssDownloadSignaturesService } from '~~/server/services/files/files.service'
+import { findImageRecognitionByOssFileIdDao } from '~~/server/services/material/ocr.dao'
 
 /** 图片占位符正则表达式 */
 const IMAGE_PLACEHOLDER_REGEX = /\{\{OSS_IMAGE:([^:}]+):(\d+)\}\}/g
@@ -46,9 +48,12 @@ interface CheckStatusResponse {
     recognized: boolean
     /** 识别状态：0-待处理，1-处理中，2-成功，3-失败 */
     status?: number
+    /** 识别记录类型：doc-文档识别，image-图像识别 */
+    recordType?: 'doc' | 'image'
     /** 识别记录（如果存在） */
     record?: {
         id: number
+        imageType?: 'doc' | 'photo' // 仅图像识别有此字段
         htmlContent?: string | null
         markdownContent?: string | null
         vectorIds?: string[]
@@ -114,23 +119,32 @@ export default defineEventHandler(async (event) => {
     const { ossFileId } = paramsResult.data
 
     try {
-        // 查询识别记录
-        const record = await findDocRecognitionByOssFileIdDao(ossFileId)
+        // 先查询文档识别记录
+        let docRecord = await findDocRecognitionByOssFileIdDao(ossFileId)
 
-        // 如果不存在记录
+        // 如果没有文档识别记录，查询图像识别记录
+        let imageRecord = null
+        if (!docRecord) {
+            imageRecord = await findImageRecognitionByOssFileIdDao(ossFileId)
+        }
+
+        const record = docRecord || imageRecord
+
+        // 如果两种记录都不存在
         if (!record) {
             return resSuccess(event, '查询成功', {
                 recognized: false,
             } as CheckStatusResponse)
         }
 
-        // 根据状态判断是否已识别
+        // 根据状态判断是否已识别（状态 2 表示成功）
         const isRecognized = record.status === DocRecognitionStatus.SUCCESS
 
         // 构建响应
         const response: CheckStatusResponse = {
             recognized: isRecognized,
             status: record.status,
+            recordType: docRecord ? 'doc' : 'image',
         }
 
         // 如果存在记录，返回详情
@@ -188,6 +202,7 @@ export default defineEventHandler(async (event) => {
 
             response.record = {
                 id: record.id,
+                imageType: imageRecord ? (imageRecord.imageType as 'doc' | 'photo') : undefined,
                 htmlContent,
                 markdownContent,
                 vectorIds: (record.vectorIds as string[]) || [],

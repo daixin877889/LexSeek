@@ -103,7 +103,7 @@
                     <!-- 内容预览（编辑模式） - 不滚动 -->
                     <div v-if="initialData" class="border rounded-lg p-6 bg-muted/30">
                         <ClientOnly>
-                            <MarkstreamVue v-if="form.content" :content="form.content" />
+                            <MarkstreamVue v-if="form.content" :content="form.content" :is-dark="isDark" />
                             <p v-else class="text-muted-foreground">暂无内容</p>
                             <template #fallback>
                                 <div class="flex items-center justify-center py-8">
@@ -137,9 +137,25 @@
 <script setup lang="ts">
 import { Loader2, FileEdit } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import MarkstreamVue from 'markstream-vue'
+import MarkstreamVue, { enableMermaid, setDefaultI18nMap } from 'markstream-vue'
 import 'markstream-vue/index.css'
 import type { LegalMainInfo, CreateLegalMainRequest, UpdateLegalMainRequest, LegalType } from '#shared/types/legal'
+
+// 启用 Mermaid 渲染（传入 mermaid 模块的动态导入函数）
+enableMermaid(() => import('mermaid'))
+
+// 配置中文国际化
+setDefaultI18nMap({
+    'common.copy': '复制',
+    'common.copied': '已复制',
+    'common.expand': '展开',
+    'common.collapse': '收起',
+    'common.preview': '预览',
+    'common.source': '源码',
+})
+
+// 获取当前主题是否为暗色模式
+const { isDark } = useColorMode()
 
 /** Props */
 const props = defineProps<{

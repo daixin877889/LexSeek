@@ -697,3 +697,189 @@ export async function searchUserDocumentsService(
         throw error
     }
 }
+
+
+// ============================================
+// 图像内容嵌入服务
+// ============================================
+
+/** 图像嵌入输入参数 */
+export interface EmbedImageInput {
+    /** 图像识别内容（Markdown 格式） */
+    content: string
+    /** 用户 ID */
+    userId: number
+    /** OSS 文件 ID */
+    ossFileId: number
+    /** 原始文件名 */
+    fileName: string
+}
+
+/** 图像嵌入结果 */
+export interface EmbedImageResult {
+    /** 生成的向量 ID 列表 */
+    ids: string[]
+    /** 最后嵌入时间 */
+    lastEmbeddingAt: string
+    /** 分块数量 */
+    chunkCount: number
+}
+
+/**
+ * 向量化图像识别内容
+ *
+ * 元数据结构：
+ * {
+ *   "source": "image",
+ *   "userId": 137,
+ *   "sourceId": 431,  // ossFileId
+ *   "sourceName": "证据照片.jpg",  // 原始文件名
+ *   "last_embedding_at": "2025-12-16T22:47:29+08:00",
+ *   "chunkIndex": 0
+ * }
+ *
+ * @param input 图像嵌入输入
+ * @param config 分块配置（可选）
+ * @returns 嵌入结果
+ */
+export async function embedImageService(
+    input: EmbedImageInput,
+    config: TextSplitterConfig = defaultSplitterConfig
+): Promise<EmbedImageResult> {
+    const { content, userId, ossFileId, fileName } = input
+
+    logger.info('开始向量化图像识别内容', {
+        ossFileId,
+        userId,
+        fileName,
+        contentLength: content.length,
+    })
+
+    try {
+        // 删除该图像的现有向量数据（避免重复）
+        await deleteContentEmbeddings('image', ossFileId)
+
+        // 记录嵌入时间
+        const lastEmbeddingAt = dayjs().format('YYYY-MM-DDTHH:mm:ss+08:00')
+
+        // 准备元数据
+        const metadata: Omit<ContentEmbeddingMetadata, 'chunkIndex'> = {
+            source: 'image',
+            userId,
+            sourceId: ossFileId,
+            sourceName: fileName,
+            last_embedding_at: lastEmbeddingAt,
+        }
+
+        // 分块
+        const { documents, ids } = await splitDocumentContent(content, metadata, config)
+
+        if (documents.length === 0) {
+            logger.warn(`图像 ${ossFileId} 识别内容为空，跳过向量化`)
+            return {
+                ids: [],
+                lastEmbeddingAt,
+                chunkCount: 0,
+            }
+        }
+
+        // 添加到向量存储
+        await addDocumentsToVectorStore(documents, ids, caseMaterialVectorConfig)
+
+        logger.info(`图像 ${ossFileId} 向量化完成`, {
+            chunkCount: documents.length,
+            ids,
+        })
+
+        return {
+            ids,
+            lastEmbeddingAt,
+            chunkCount: documents.length,
+        }
+    } catch (error) {
+        logger.error(`图像 ${ossFileId} 向量化失败:`, error)
+        throw error
+    }
+}
+
+/**
+ * 检查图像是否已向量化
+ * @param ossFileId OSS 文件 ID
+ * @returns 是否已向量化
+ */
+export async function isImageEmbedded(ossFileId: number): Promise<boolean> {
+    const pool = getPool()
+    const query = `
+        SELECT EXISTS(
+            SELECT 1 FROM ${caseMaterialVectorConfig.tableName} 
+            WHERE metadata->>'source' = 'image' AND metadata->>'sourceId' = $1
+            LIMIT 1
+        ) as exists
+    `
+    const result = await pool.query(query, [ossFileId.toString()])
+    return result.rows[0]?.exists === true
+}
+
+/**
+ * 获取图像的向量 ID 列表
+ * @param ossFileId OSS 文件 ID
+ * @returns 向量 ID 列表
+ */
+export async function getImageEmbeddingIds(ossFileId: number): Promise<string[]> {
+    const pool = getPool()
+    const query = `
+        SELECT id FROM ${caseMaterialVectorConfig.tableName} 
+        WHERE metadata->>'source' = 'image' AND metadata->>'sourceId' = $1
+        ORDER BY (metadata->>'chunkIndex')::int ASC
+    `
+    const result = await pool.query(query, [ossFileId.toString()])
+    return result.rows.map((row: { id: string }) => row.id)
+}
+
+/**
+ * 检索用户的图像内容
+ * @param userId 用户 ID
+ * @param query 查询文本
+ * @param k 返回结果数量（默认 5）
+ * @returns 检索结果列表
+ */
+export async function searchUserImagesService(
+    userId: number,
+    query: string,
+    k: number = 5
+): Promise<Array<{
+    content: string
+    sourceId: number
+    score: number
+    chunkIndex: number
+}>> {
+    logger.info('检索用户图像', { userId, query, k })
+
+    try {
+        // 使用 userId 和 source 作为过滤条件
+        const filter = { userId, source: 'image' }
+
+        // 执行向量相似度搜索
+        const results = await similaritySearchWithScore(query, k, filter, caseMaterialVectorConfig)
+
+        // 转换结果格式
+        const searchResults = results.map(([doc, score]: [Document, number]) => {
+            const metadata = doc.metadata as ContentEmbeddingMetadata
+            return {
+                content: doc.pageContent,
+                sourceId: metadata.sourceId,
+                score,
+                chunkIndex: metadata.chunkIndex,
+            }
+        })
+
+        logger.info(`用户 ${userId} 图像检索完成`, {
+            resultCount: searchResults.length,
+        })
+
+        return searchResults
+    } catch (error) {
+        logger.error(`用户 ${userId} 图像检索失败:`, error)
+        throw error
+    }
+}

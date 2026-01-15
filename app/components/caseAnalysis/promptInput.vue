@@ -86,14 +86,14 @@
 
     <!-- 文档预览弹框 -->
     <CaseAnalysisDocPreviewDialog v-if="previewFile" v-model:open="previewDialogOpen" :oss-file-id="previewFile.id"
-      :file-name="previewFile.fileName" :file-type="previewFile.fileType" />
+      :file-name="previewFile.fileName" :file-type="previewFile.fileType" :encrypted="previewFile.encrypted" />
   </div>
 </template>
 
 <script lang="ts" setup>
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { PromptInput, PromptInputBody, PromptInputButton, PromptInputFooter, PromptInputHeader, PromptInputProvider, PromptInputSubmit, PromptInputTextarea, PromptInputTools } from "@/components/ai-elements/prompt-input";
-import { Paperclip, SendHorizontal, XIcon, LockIcon, Loader2Icon, CheckIcon, AlertCircleIcon, EyeIcon } from "lucide-vue-next";
+import { Paperclip, SendHorizontal, XIcon, LockIcon, Loader2Icon, CheckIcon, AlertCircleIcon } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 import type { OssFileItem } from "~/store/file";
 import { getFileIcon, getFileIconColor } from "~/utils/file";
@@ -118,6 +118,9 @@ const previewFile = ref<OssFileItem | null>(null);
 // docx 识别 composable
 const { recognize, checkRecognitionStatus } = useDocxRecognition();
 
+// 图像识别 composable
+const { recognize: recognizeImage, checkRecognitionStatus: checkImageRecognitionStatus, isImageFile } = useImageRecognition();
+
 // 计算已选文件 ID 列表（传递给 MaterialSelector）
 const selectedFileIds = computed(() => selectedFiles.value.map(f => f.id))
 
@@ -138,6 +141,58 @@ function isRecognizableDocFile(fileName: string): boolean {
   const ext = fileName.split('.').pop()?.toLowerCase();
   // 支持 docx、doc、pdf、md、mkd、markdown、txt 文件
   return ['docx', 'doc', 'pdf', 'md', 'mkd', 'markdown', 'txt'].includes(ext || '');
+}
+
+/**
+ * 触发图像识别
+ */
+async function triggerImageRecognition(file: OssFileItem) {
+  console.log('[triggerImageRecognition] ========== 函数开始 ==========');
+  console.log('[triggerImageRecognition] 文件信息:', JSON.stringify({ id: file.id, fileName: file.fileName }));
+
+  if (!isImageFile(file.fileName)) {
+    console.log('[triggerImageRecognition] 文件不是图片类型');
+    return;
+  }
+
+  // 设置识别中状态
+  fileRecognitionStatus.value.set(file.id, 'recognizing');
+  console.log('[triggerImageRecognition] 设置状态为 recognizing');
+
+  try {
+    // 先检查是否已识别
+    console.log('[triggerImageRecognition] 开始检查识别状态...');
+    const statusCheck = await checkImageRecognitionStatus(file.id);
+    console.log('[triggerImageRecognition] 状态检查结果:', statusCheck);
+
+    if (statusCheck.recognized) {
+      // 已识别，直接标记成功
+      console.log('[triggerImageRecognition] 图片已识别，标记成功');
+      fileRecognitionStatus.value.set(file.id, 'success');
+      return;
+    }
+
+    // 需要识别，获取下载 URL
+    const downloadUrl = file.url;
+    console.log('[triggerImageRecognition] 开始识别，downloadUrl:', downloadUrl);
+
+    // 执行识别
+    await recognizeImage({
+      ossFileId: file.id,
+      fileName: file.fileName,
+      encrypted: file.encrypted,
+      downloadUrl,
+    });
+
+    console.log('[triggerImageRecognition] 识别完成');
+    fileRecognitionStatus.value.set(file.id, 'success');
+    toast.success(`图片 ${file.fileName} 识别完成`);
+  } catch (error) {
+    console.error('图像识别失败:', error);
+    fileRecognitionStatus.value.set(file.id, 'error');
+    const errorMessage = error instanceof Error ? error.message : '识别失败';
+    toast.error(`图片 ${file.fileName} 识别失败: ${errorMessage}`);
+  }
 }
 
 /**
@@ -199,16 +254,26 @@ async function triggerDocRecognition(file: OssFileItem) {
  * 重试识别
  */
 async function retryRecognition(file: OssFileItem) {
-  await triggerDocRecognition(file);
+  const isDoc = isRecognizableDocFile(file.fileName);
+  const isImage = isImageFile(file.fileName);
+  
+  if (isDoc) {
+    await triggerDocRecognition(file);
+  } else if (isImage) {
+    await triggerImageRecognition(file);
+  }
 }
 
 /**
  * 打开文件预览弹框
- * 只有已识别的文档文件才能预览
+ * 只有已识别的文档文件和图片才能预览
  */
 function openPreview(file: OssFileItem) {
-  // 只有可识别的文档文件才能预览
-  if (!isRecognizableDocFile(file.fileName)) {
+  // 只有可识别的文档文件或图片才能预览
+  const isDoc = isRecognizableDocFile(file.fileName);
+  const isImage = isImageFile(file.fileName);
+  
+  if (!isDoc && !isImage) {
     return;
   }
 
@@ -246,16 +311,27 @@ async function handleFilesSelected(files: OssFileItem[]) {
   const newFiles = files.filter(f => !selectedFileIds.value.includes(f.id))
   selectedFiles.value = [...selectedFiles.value, ...newFiles]
 
-  // 对新添加的文档文件触发识别（docx、markdown 和 txt）
+  // 对新添加的文件触发识别
   for (const file of newFiles) {
-    console.log('检查文件是否需要识别:', file.fileName, 'isRecognizable:', isRecognizableDocFile(file.fileName))
-    if (isRecognizableDocFile(file.fileName)) {
-      // 异步触发识别，不阻塞，但捕获异常避免静默失败
-      console.log('[handleFilesSelected] 准备调用 triggerDocRecognition:', file.fileName)
+    const isDoc = isRecognizableDocFile(file.fileName);
+    const isImage = isImageFile(file.fileName);
+    
+    console.log('检查文件是否需要识别:', file.fileName, 'isDoc:', isDoc, 'isImage:', isImage);
+    
+    if (isDoc) {
+      // 文档文件识别（docx、markdown 和 txt）
+      console.log('[handleFilesSelected] 准备调用 triggerDocRecognition:', file.fileName);
       triggerDocRecognition(file).catch((err) => {
-        console.error('[handleFilesSelected] triggerDocRecognition 异常:', err)
+        console.error('[handleFilesSelected] triggerDocRecognition 异常:', err);
       });
-      console.log('[handleFilesSelected] triggerDocRecognition 已调用（异步）')
+      console.log('[handleFilesSelected] triggerDocRecognition 已调用（异步）');
+    } else if (isImage) {
+      // 图像文件识别
+      console.log('[handleFilesSelected] 准备调用 triggerImageRecognition:', file.fileName);
+      triggerImageRecognition(file).catch((err) => {
+        console.error('[handleFilesSelected] triggerImageRecognition 异常:', err);
+      });
+      console.log('[handleFilesSelected] triggerImageRecognition 已调用（异步）');
     }
   }
 }
@@ -274,10 +350,11 @@ async function handleSubmit(message: PromptInputMessage) {
     return;
   }
 
-  // 检查是否有正在识别的文件（docx、markdown 和 txt）
-  const recognizingFiles = selectedFiles.value.filter(f =>
-    isRecognizableDocFile(f.fileName) && getRecognitionStatus(f.id) === 'recognizing'
-  );
+  // 检查是否有正在识别的文件（文档或图片）
+  const recognizingFiles = selectedFiles.value.filter(f => {
+    const isRecognizable = isRecognizableDocFile(f.fileName) || isImageFile(f.fileName);
+    return isRecognizable && getRecognitionStatus(f.id) === 'recognizing';
+  });
   if (recognizingFiles.length > 0) {
     toast.warning("请等待文件识别完成后再提交");
     return;
