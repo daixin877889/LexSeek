@@ -5,8 +5,9 @@
  *
  * 检查指定 OSS 文件的识别状态，返回是否已识别及识别记录详情
  * 返回的 htmlContent 和 markdownContent 中的图片占位符会被替换为 OSS 签名 URL
+ * 同时返回关联的 MinerU 任务信息（如果存在）
  *
- * @requirements 1.1, 1.2, 1.3, 1.4
+ * @requirements 1.1, 1.2, 1.3, 1.4, 5.3
  */
 
 import { z } from 'zod'
@@ -20,6 +21,22 @@ const IMAGE_PLACEHOLDER_REGEX = /\{\{OSS_IMAGE:([^:}]+):(\d+)\}\}/g
 const paramsSchema = z.object({
     ossFileId: z.string().regex(/^\d+$/, 'ossFileId 必须是数字').transform(Number),
 })
+
+/**
+ * MinerU 任务信息
+ */
+interface MineruTaskInfo {
+    /** MinerU 任务 ID */
+    taskId?: string
+    /** 批量任务 ID */
+    batchId?: string
+    /** 任务状态：0-待处理，1-处理中，2-成功，3-失败 */
+    status: number
+    /** 结果下载链接（识别成功时） */
+    downloadUrl?: string
+    /** 错误信息（识别失败时） */
+    errorMsg?: string
+}
 
 /**
  * 识别状态响应
@@ -37,6 +54,8 @@ interface CheckStatusResponse {
         vectorIds?: string[]
         lastEmbeddingAt?: string | null
     }
+    /** MinerU 任务信息（如果存在） */
+    mineruTask?: MineruTaskInfo
 }
 
 /**
@@ -173,6 +192,28 @@ export default defineEventHandler(async (event) => {
                 markdownContent,
                 vectorIds: (record.vectorIds as string[]) || [],
                 lastEmbeddingAt: record.lastEmbeddingAt?.toISOString() || null,
+            }
+        }
+
+        // 查询关联的 MinerU 任务（最近一条）
+        const mineruTask = await prisma.mineruTasks.findFirst({
+            where: {
+                ossFileId,
+                deletedAt: null,
+            },
+            orderBy: { createdAt: 'desc' },
+        })
+
+        if (mineruTask) {
+            const taskRawData = mineruTask.taskRawData as Record<string, any> | null
+            const taskResult = mineruTask.result as Record<string, any> | null
+
+            response.mineruTask = {
+                taskId: mineruTask.taskId || undefined,
+                batchId: taskRawData?.batchId || undefined,
+                status: mineruTask.status,
+                downloadUrl: taskResult?.downloadUrl || undefined,
+                errorMsg: mineruTask.errorMsg || undefined,
             }
         }
 

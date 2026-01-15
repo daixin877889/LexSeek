@@ -64,7 +64,7 @@
               <Paperclip class="text-muted-foreground" :size="16" />
               案情材料
               <span v-if="selectedFiles.length > 0" class="ml-1 text-xs text-primary">({{ selectedFiles.length
-                }})</span>
+              }})</span>
             </PromptInputButton>
             <span class="text-muted-foreground text-xs"> </span>
           </PromptInputTools>
@@ -132,46 +132,50 @@ function getRecognitionStatus(fileId: number): 'idle' | 'recognizing' | 'success
 }
 
 /**
- * 检查文件是否为需要识别的文档文件（docx、markdown 或 txt）
+ * 检查文件是否为需要识别的文档文件（docx、doc、pdf、markdown 或 txt）
  */
 function isRecognizableDocFile(fileName: string): boolean {
   const ext = fileName.split('.').pop()?.toLowerCase();
-  // 支持 docx、doc、md、mkd、markdown、txt 文件
-  return ['docx', 'doc', 'md', 'mkd', 'markdown', 'txt'].includes(ext || '');
+  // 支持 docx、doc、pdf、md、mkd、markdown、txt 文件
+  return ['docx', 'doc', 'pdf', 'md', 'mkd', 'markdown', 'txt'].includes(ext || '');
 }
 
 /**
  * 触发文档文件识别（支持 docx、markdown 和 txt）
  */
 async function triggerDocRecognition(file: OssFileItem) {
+  console.log('[triggerDocRecognition] ========== 函数开始 ==========');
+  console.log('[triggerDocRecognition] 文件信息:', JSON.stringify({ id: file.id, fileName: file.fileName, url: file.url?.substring(0, 50) }));
+
   if (!isRecognizableDocFile(file.fileName)) {
+    console.log('[triggerDocRecognition] 文件不需要识别');
     return;
   }
 
   // 设置识别中状态
   fileRecognitionStatus.value.set(file.id, 'recognizing');
+  console.log('[triggerDocRecognition] 设置状态为 recognizing');
 
   try {
     // 先检查是否已识别
+    console.log('[triggerDocRecognition] 开始检查识别状态...');
     const statusCheck = await checkRecognitionStatus(file.id);
+    console.log('[triggerDocRecognition] 状态检查结果:', statusCheck);
+
     if (statusCheck.recognized) {
       // 已识别，直接标记成功
+      console.log('[triggerDocRecognition] 文件已识别，标记成功');
       fileRecognitionStatus.value.set(file.id, 'success');
-      return;
-    }
-
-    if (statusCheck.processing) {
-      // 正在处理中，等待
-      toast.info(`文件 ${file.fileName} 正在识别中，请稍后`);
-      fileRecognitionStatus.value.set(file.id, 'recognizing');
       return;
     }
 
     // 需要识别，获取下载 URL
     // 注意：这里需要获取文件的下载 URL，如果文件有 url 字段则使用
     const downloadUrl = file.url;
+    console.log('[triggerDocRecognition] 开始识别，downloadUrl:', downloadUrl);
 
     // 执行识别（传递文件名用于图片命名）
+    // 如果正在处理中，recognize 内部会轮询等待
     await recognize({
       ossFileId: file.id,
       fileName: file.fileName,
@@ -180,6 +184,7 @@ async function triggerDocRecognition(file: OssFileItem) {
       bucket: 'lexseek-files', // 默认 bucket
     });
 
+    console.log('[triggerDocRecognition] 识别完成');
     fileRecognitionStatus.value.set(file.id, 'success');
     toast.success(`文件 ${file.fileName} 识别完成`);
   } catch (error) {
@@ -245,8 +250,12 @@ async function handleFilesSelected(files: OssFileItem[]) {
   for (const file of newFiles) {
     console.log('检查文件是否需要识别:', file.fileName, 'isRecognizable:', isRecognizableDocFile(file.fileName))
     if (isRecognizableDocFile(file.fileName)) {
-      // 异步触发识别，不阻塞
-      triggerDocRecognition(file);
+      // 异步触发识别，不阻塞，但捕获异常避免静默失败
+      console.log('[handleFilesSelected] 准备调用 triggerDocRecognition:', file.fileName)
+      triggerDocRecognition(file).catch((err) => {
+        console.error('[handleFilesSelected] triggerDocRecognition 异常:', err)
+      });
+      console.log('[handleFilesSelected] triggerDocRecognition 已调用（异步）')
     }
   }
 }

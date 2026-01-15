@@ -52,16 +52,41 @@ export interface DocxRecognitionOptions {
 }
 
 /** 支持的文档扩展名 */
-const DOCX_EXTENSIONS = ['docx', 'doc']
+const DOCX_EXTENSIONS = ['docx']
+const DOC_EXTENSIONS = ['doc']
+const PDF_EXTENSIONS = ['pdf']
 const MARKDOWN_EXTENSIONS = ['md', 'mkd', 'markdown']
 const TXT_EXTENSIONS = ['txt']
 
 /**
- * 判断是否为 docx 文件
+ * 判断是否为 docx 文件（使用 mammoth.js 浏览器端识别）
  */
 const isDocxFile = (fileName: string): boolean => {
     const ext = getExtensionFromFileName(fileName)
     return DOCX_EXTENSIONS.includes(ext)
+}
+
+/**
+ * 判断是否为 doc 文件（使用 MinerU 识别）
+ */
+const isDocFile = (fileName: string): boolean => {
+    const ext = getExtensionFromFileName(fileName)
+    return DOC_EXTENSIONS.includes(ext)
+}
+
+/**
+ * 判断是否为 pdf 文件（使用 MinerU 识别）
+ */
+const isPdfFile = (fileName: string): boolean => {
+    const ext = getExtensionFromFileName(fileName)
+    return PDF_EXTENSIONS.includes(ext)
+}
+
+/**
+ * 判断是否需要使用 MinerU 识别（doc 或 pdf 文件）
+ */
+const needsMineruRecognition = (fileName: string): boolean => {
+    return isDocFile(fileName) || isPdfFile(fileName)
 }
 
 /**
@@ -450,11 +475,84 @@ export const useDocxRecognition = () => {
     }
 
     /**
-     * 执行文档识别（支持 docx 和 markdown）
+     * 执行文档识别（支持 docx、doc、pdf、markdown 和 txt）
+     * 根据文件类型自动路由到不同的识别方式
      * @param options 识别选项
      * @returns 识别结果
      */
     const recognize = async (
+        options: DocxRecognitionOptions
+    ): Promise<DocxRecognitionResult> => {
+        const { ossFileId, bucket = 'lexseek-files', fileName } = options
+
+        try {
+            // 根据文件类型路由到不同的识别方式
+            if (fileName && needsMineruRecognition(fileName)) {
+                // doc/pdf 文件使用 MinerU 识别
+                return await recognizeWithMineru(options)
+            }
+
+            // 其他文件类型使用浏览器端识别
+            return await recognizeInBrowser(options)
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : '识别失败'
+            updateStatus('error', 0, errorMessage)
+            throw error
+        }
+    }
+
+    /**
+     * 使用 MinerU 识别 doc/pdf 文件
+     */
+    const recognizeWithMineru = async (
+        options: DocxRecognitionOptions
+    ): Promise<DocxRecognitionResult> => {
+        const mineruRecognition = useMineruRecognition()
+
+        // 监听 MinerU 识别状态并同步到本 composable 的状态
+        watch(
+            () => mineruRecognition.status.value,
+            (mineruStatus) => {
+                // 映射 MinerU 状态到通用状态
+                const statusMap: Record<string, RecognitionStatusType> = {
+                    idle: 'idle',
+                    checking: 'checking',
+                    requesting: 'recognizing',
+                    downloading: 'downloading',
+                    decrypting: 'decrypting',
+                    uploading: 'uploading',
+                    processing: 'recognizing',
+                    downloading_result: 'downloading',
+                    extracting: 'recognizing',
+                    uploading_images: 'uploading',
+                    converting: 'recognizing',
+                    submitting: 'submitting',
+                    success: 'success',
+                    error: 'error',
+                }
+                const mappedStatus = statusMap[mineruStatus.status] || 'recognizing'
+                updateStatus(mappedStatus, mineruStatus.progress, mineruStatus.error)
+            },
+            { immediate: true }
+        )
+
+        // 调用 MinerU 识别
+        const result = await mineruRecognition.recognize({
+            ossFileId: options.ossFileId,
+            fileName: options.fileName || '',
+            localFile: options.localFile,
+            encrypted: options.encrypted,
+            downloadUrl: options.downloadUrl,
+            bucket: options.bucket,
+        })
+
+        return result
+    }
+
+    /**
+     * 浏览器端识别（docx、markdown、txt）
+     */
+    const recognizeInBrowser = async (
         options: DocxRecognitionOptions
     ): Promise<DocxRecognitionResult> => {
         const { ossFileId, bucket = 'lexseek-files', fileName } = options
@@ -547,6 +645,7 @@ export const useDocxRecognition = () => {
         }
     }
 
+
     /**
      * 重置状态
      */
@@ -562,5 +661,13 @@ export const useDocxRecognition = () => {
         checkRecognitionStatus,
         recognize,
         reset,
+
+        // 工具函数（供外部使用）
+        isDocxFile,
+        isDocFile,
+        isPdfFile,
+        isMarkdownFile,
+        isTxtFile,
+        needsMineruRecognition,
     }
 }
