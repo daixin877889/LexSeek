@@ -1,14 +1,14 @@
 <template>
     <!-- 续期弹框 -->
     <Dialog :open="open" @update:open="emit('update:open', $event)">
-        <DialogContent class="sm:max-w-[960px]" @open-auto-focus.prevent>
-            <DialogHeader>
+        <DialogContent class="sm:max-w-[960px] max-h-[85vh] flex flex-col" @open-auto-focus.prevent>
+            <DialogHeader class="flex-shrink-0">
                 <DialogTitle>会员续期</DialogTitle>
                 <DialogDescription>
                     选择要续期的会员级别
                 </DialogDescription>
             </DialogHeader>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <div class="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                 <div v-for="plan in productList" :key="plan.id"
                     class="border rounded-lg p-4 hover:border-primary transition-colors cursor-pointer">
                     <div class="flex justify-between items-start mb-2">
@@ -31,7 +31,7 @@
             </div>
 
             <!-- 购买协议复选框 -->
-            <div class="border-t pt-4 mt-4">
+            <div class="flex-shrink-0 border-t pt-4 mt-4">
                 <div class="flex items-start space-x-2">
                     <Checkbox id="renewal-agreement" v-model="localAgreed" class="mt-1" />
                     <label for="renewal-agreement" class="text-sm text-muted-foreground leading-5 cursor-pointer">

@@ -100,11 +100,11 @@
 
     <!-- 详情对话框 -->
     <Dialog v-model:open="detailDialogOpen">
-      <DialogContent class="max-w-2xl">
-        <DialogHeader>
+      <DialogContent class="max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogHeader class="flex-shrink-0">
           <DialogTitle>审计日志详情</DialogTitle>
         </DialogHeader>
-        <div v-if="selectedLog" class="space-y-4">
+        <div v-if="selectedLog" class="flex-1 overflow-y-auto space-y-4 py-4">
           <div class="grid grid-cols-2 gap-4">
             <div>
               <Label class="text-muted-foreground">操作类型</Label>
@@ -146,7 +146,7 @@
               null, 2) }}</pre>
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter class="flex-shrink-0">
           <Button variant="outline" @click="detailDialogOpen = false">关闭</Button>
         </DialogFooter>
       </DialogContent>

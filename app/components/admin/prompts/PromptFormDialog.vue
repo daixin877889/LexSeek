@@ -2,7 +2,7 @@
     <!-- 提示词创建/编辑对话框 -->
     <Dialog v-model:open="open">
         <DialogContent
-            class="!w-full !h-full !max-w-none !max-h-none md:!w-[60vw] md:!h-auto md:max-h-[90vh] flex flex-col !rounded-none md:!rounded-lg"
+            class="!w-full !h-full !max-w-none !max-h-none md:!w-[80vw] md:!max-h-[90vh] flex flex-col !rounded-none md:!rounded-lg"
             @interactOutside="(e) => e.preventDefault()">
             <DialogHeader class="flex-shrink-0">
                 <DialogTitle>{{ isEdit ? '编辑提示词' : '新增提示词' }}</DialogTitle>

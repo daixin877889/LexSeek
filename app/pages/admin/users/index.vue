@@ -118,12 +118,12 @@
 
     <!-- 角色分配对话框 -->
     <Dialog v-model:open="roleDialogOpen">
-      <DialogContent>
-        <DialogHeader>
+      <DialogContent class="max-h-[85vh] flex flex-col">
+        <DialogHeader class="flex-shrink-0">
           <DialogTitle>分配角色</DialogTitle>
           <DialogDescription>为用户「{{ selectedUser?.name || selectedUser?.phone }}」分配角色</DialogDescription>
         </DialogHeader>
-        <div class="space-y-4 py-4">
+        <div class="flex-1 overflow-y-auto space-y-4 py-4">
           <div class="space-y-2">
             <Label>选择角色</Label>
             <div class="border rounded-md p-4 max-h-60 overflow-y-auto space-y-2">
@@ -138,7 +138,7 @@
             </div>
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter class="flex-shrink-0">
           <Button variant="outline" @click="roleDialogOpen = false">取消</Button>
           <Button @click="saveUserRoles" :disabled="savingRoles">
             <Loader2 v-if="savingRoles" class="h-4 w-4 mr-2 animate-spin" />

@@ -1,12 +1,12 @@
 <template>
     <!-- 购买积分弹框 -->
     <Dialog v-model:open="dialogOpen">
-        <DialogContent class="sm:max-w-[600px]">
-            <DialogHeader>
+        <DialogContent class="sm:max-w-[600px] max-h-[85vh] flex flex-col">
+            <DialogHeader class="flex-shrink-0">
                 <DialogTitle>购买积分</DialogTitle>
                 <DialogDescription>选择合适的积分套餐，立即购买</DialogDescription>
             </DialogHeader>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+            <div class="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
                 <div v-for="product in productList" :key="product.id"
                     class="border rounded-lg p-4 hover:border-primary transition-colors cursor-pointer relative">
                     <div class="flex justify-between items-start mb-2">
@@ -28,7 +28,7 @@
                 </div>
             </div>
             <!-- 购买协议复选框 -->
-            <div class="border-t pt-4">
+            <div class="flex-shrink-0 border-t pt-4">
                 <div class="flex items-start space-x-2">
                     <Checkbox id="purchase-agreement" v-model="agreeToAgreement" class="mt-1" />
                     <label for="purchase-agreement" class="text-sm text-muted-foreground leading-5 cursor-pointer">

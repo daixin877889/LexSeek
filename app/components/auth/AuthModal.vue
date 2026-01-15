@@ -1,21 +1,21 @@
 <template>
     <!-- 认证弹框：支持登录和注册 -->
     <Dialog :open="open" @update:open="handleClose">
-        <DialogContent class="sm:max-w-[425px]" @open-auto-focus.prevent>
-            <DialogHeader>
+        <DialogContent class="sm:max-w-[425px] max-h-[85vh] flex flex-col" @open-auto-focus.prevent>
+            <DialogHeader class="flex-shrink-0">
                 <DialogTitle>{{ title }}</DialogTitle>
                 <DialogDescription>{{ description }}</DialogDescription>
             </DialogHeader>
 
             <!-- Tab 切换 -->
-            <Tabs v-model="activeTab" class="w-full">
-                <TabsList class="grid w-full grid-cols-2">
+            <Tabs v-model="activeTab" class="w-full flex-1 overflow-hidden flex flex-col">
+                <TabsList class="grid w-full grid-cols-2 flex-shrink-0">
                     <TabsTrigger value="login">登录</TabsTrigger>
                     <TabsTrigger value="register">注册</TabsTrigger>
                 </TabsList>
 
                 <!-- 登录 Tab -->
-                <TabsContent value="login" class="mt-4">
+                <TabsContent value="login" class="mt-4 flex-1 overflow-y-auto">
                     <form @submit.prevent="handleLogin" class="space-y-4">
                         <!-- 手机号 -->
                         <div>
@@ -51,7 +51,7 @@
                 </TabsContent>
 
                 <!-- 注册 Tab -->
-                <TabsContent value="register" class="mt-4">
+                <TabsContent value="register" class="mt-4 flex-1 overflow-y-auto">
                     <form @submit.prevent="handleRegister" class="space-y-4">
                         <!-- 姓名 -->
                         <div>

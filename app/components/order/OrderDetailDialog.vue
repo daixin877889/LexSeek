@@ -1,15 +1,15 @@
 <template>
     <!-- 订单详情弹框 -->
     <Dialog :open="open" @update:open="emit('update:open', $event)">
-        <DialogContent class="sm:max-w-[500px]" @open-auto-focus.prevent>
-            <DialogHeader>
+        <DialogContent class="sm:max-w-[500px] max-h-[85vh] flex flex-col" @open-auto-focus.prevent>
+            <DialogHeader class="flex-shrink-0">
                 <DialogTitle>订单详情</DialogTitle>
                 <DialogDescription>
                     订单号：{{ order?.orderNo }}
                 </DialogDescription>
             </DialogHeader>
 
-            <div v-if="order" class="space-y-4">
+            <div v-if="order" class="flex-1 overflow-y-auto space-y-4">
                 <!-- 订单状态 -->
                 <div class="flex justify-between items-center py-2 border-b">
                     <span class="text-muted-foreground">订单状态</span>
@@ -56,7 +56,7 @@
                 </div>
 
                 <!-- 操作按钮 -->
-                <div class="flex gap-2 pt-4">
+                <div class="flex-shrink-0 flex gap-2 pt-4">
                     <Button v-if="order.status === OrderStatus.PENDING" class="flex-1" @click="emit('pay', order)">
                         立即支付
                     </Button>
