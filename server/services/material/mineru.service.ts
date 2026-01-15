@@ -464,9 +464,38 @@ export const completeConversionService = async (
                 markdownContent,
                 htmlContent,
             })
+
+            // 4. 进行向量化嵌入
+            try {
+                // 获取 OSS 文件信息用于嵌入元数据
+                const ossFile = await prisma.ossFiles.findUnique({
+                    where: { id: task.ossFileId },
+                    select: { fileName: true },
+                })
+                const fileName = ossFile?.fileName || `document_${task.ossFileId}`
+
+                const { embedDocumentService } = await import('./materialEmbedding.service')
+                const embeddingResult = await embedDocumentService({
+                    content: markdownContent,
+                    userId: task.userId,
+                    ossFileId: task.ossFileId,
+                    fileName,
+                })
+
+                // 更新识别记录的向量信息
+                await updateDocRecognitionRecordDao(docRecord.id, {
+                    vectorIds: embeddingResult.ids,
+                    lastEmbeddingAt: new Date(embeddingResult.lastEmbeddingAt),
+                })
+
+                logger.info(`PDF 转换向量化嵌入完成：taskId=${taskId}, chunkCount=${embeddingResult.chunkCount}`)
+            } catch (embeddingError) {
+                // 嵌入失败不影响转换结果，只记录日志
+                logger.error('PDF 转换向量化嵌入失败：', embeddingError)
+            }
         }
 
-        // 4. 扣减积分
+        // 5. 扣减积分
         // Requirements: 3.1.17, 3.1.18
         try {
             await consumePointsService(task.userId, PDF_PARSE_ITEM_KEY, pageCount, { sourceId: task.id })
