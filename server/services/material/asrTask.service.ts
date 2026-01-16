@@ -17,6 +17,7 @@ import {
     findPendingAsrTasksDao,
 } from './asrTask.dao'
 import { getNodeConfigService, type NodeConfig } from '../node/node.service'
+import type { AsrTaskStatus as AsrTaskStatusType } from '#shared/types/recognition'
 
 /** 音频识别节点名称 */
 const ASR_NODE_NAME = 'audioRecognition'
@@ -37,26 +38,6 @@ async function getAsrNodeConfig(): Promise<NodeConfig> {
     }
 
     return config
-}
-
-/** ASR 任务状态枚举 */
-export enum AsrTaskStatus {
-    /** 待处理 */
-    PENDING = 0,
-    /** 处理中 */
-    PROCESSING = 1,
-    /** 成功 */
-    SUCCESS = 2,
-    /** 失败 */
-    FAILED = 3,
-}
-
-/** ASR 任务状态文本映射 */
-export const AsrTaskStatusText: Record<AsrTaskStatus, string> = {
-    [AsrTaskStatus.PENDING]: '待处理',
-    [AsrTaskStatus.PROCESSING]: '处理中',
-    [AsrTaskStatus.SUCCESS]: '成功',
-    [AsrTaskStatus.FAILED]: '失败',
 }
 
 /** ASR 任务查询参数 */

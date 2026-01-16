@@ -11,10 +11,6 @@
 
 import { z } from 'zod'
 import crypto from 'crypto'
-import { DocRecognitionStatus } from '~~/server/services/material/mineru.service'
-import {
-    MineruTaskStatus,
-} from '~~/server/services/material/mineruTask.service'
 import { processMineruResultService } from '~~/server/services/material/mineruResult.service'
 
 /** MinerU 批量回调请求体验证 Schema */

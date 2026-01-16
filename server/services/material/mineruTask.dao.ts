@@ -6,7 +6,7 @@
  */
 
 import type { mineruTasks, Prisma } from '~~/generated/prisma/client'
-import { MineruTaskStatus, type MineruTaskQueryOptions, type CreateMineruTaskInput, type UpdateMineruTaskInput } from './mineruTask.service'
+import type { MineruTaskQueryOptions, CreateMineruTaskInput, UpdateMineruTaskInput } from './mineruTask.service'
 
 /**
  * 创建 MinerU 任务

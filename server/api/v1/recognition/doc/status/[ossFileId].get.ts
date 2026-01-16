@@ -12,7 +12,6 @@
  */
 
 import { z } from 'zod'
-import { DocRecognitionStatus } from '~~/server/services/material/mineru.service'
 import { generateOssDownloadSignaturesService } from '~~/server/services/files/files.service'
 import { findImageRecognitionByOssFileIdDao } from '~~/server/services/material/ocr.dao'
 

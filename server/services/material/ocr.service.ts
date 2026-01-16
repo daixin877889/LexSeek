@@ -13,8 +13,6 @@ import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { createChatModel } from '../node/chatModelFactory'
 import { marked } from 'marked'
 import {
-    ImageRecognitionStatus,
-    ImageType,
     createImageRecognitionRecordDao,
     findImageRecognitionByOssFileIdDao,
     findImageRecognitionByIdDao,

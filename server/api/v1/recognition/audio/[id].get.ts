@@ -11,7 +11,6 @@ import { z } from 'zod'
 import {
     getAsrRecordByIdService,
 } from '~~/server/services/material/asr.service'
-import { AsrRecordStatus } from '~~/server/services/material/asr.dao'
 import { generateSignedUrlService } from '~~/server/services/storage/storage.service'
 
 // 路由参数验证 Schema

@@ -16,7 +16,6 @@ import {
     transcribeAudioService,
     SUPPORTED_AUDIO_TYPES,
 } from '~~/server/services/material/asr.service'
-import { AsrRecordStatus } from '~~/server/services/material/asr.dao'
 
 // 请求体验证 Schema
 const bodySchema = z.object({

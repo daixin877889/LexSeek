@@ -13,7 +13,6 @@ import {
     getMineruTaskByTaskIdService,
     getPendingMineruTasksService,
     isMineruTaskProcessedService,
-    MineruTaskStatus,
 } from './mineruTask.service'
 import {
     createDocRecognitionRecordDao,
@@ -23,23 +22,15 @@ import {
 } from './mineru.dao'
 import { generateSignedUrlService, uploadFileService } from '../storage/storage.service'
 import { checkPointsService, consumePointsService } from '../point/pointConsumption.service'
+import {
+    findOssFileByIdDao,
+    findOssFileByIdIncludeDeletedDao,
+} from '../files/ossFiles.dao'
 import JSZip from 'jszip'
 import { v4 as uuidv4 } from 'uuid'
 
 /** PDF 解析积分消耗项目标识符 */
 const PDF_PARSE_ITEM_KEY = 'pdf_parse'
-
-/** 文档识别状态枚举 */
-export enum DocRecognitionStatus {
-    /** 待处理 */
-    PENDING = 0,
-    /** 处理中 */
-    PROCESSING = 1,
-    /** 成功 */
-    SUCCESS = 2,
-    /** 失败 */
-    FAILED = 3,
-}
 
 
 /** MinerU 任务提交选项 */
@@ -268,10 +259,8 @@ export const submitPdfConversionService = async (
             return { success: false, error: '获取 MinerU Token 失败' }
         }
 
-        // 2. 获取文件信息
-        const ossFile = await prisma.ossFiles.findFirst({
-            where: { id: ossFileId, deletedAt: null },
-        })
+        // 2. 获取文件信息（通过 DAO 层）
+        const ossFile = await findOssFileByIdDao(ossFileId)
         if (!ossFile) {
             return { success: false, error: '文件不存在' }
         }
@@ -467,11 +456,8 @@ export const completeConversionService = async (
 
             // 4. 进行向量化嵌入
             try {
-                // 获取 OSS 文件信息用于嵌入元数据
-                const ossFile = await prisma.ossFiles.findUnique({
-                    where: { id: task.ossFileId },
-                    select: { fileName: true },
-                })
+                // 获取 OSS 文件信息用于嵌入元数据（包含已删除的文件）
+                const ossFile = await findOssFileByIdIncludeDeletedDao(task.ossFileId)
                 const fileName = ossFile?.fileName || `document_${task.ossFileId}`
 
                 const { embedDocumentService } = await import('./materialEmbedding.service')

@@ -71,21 +71,21 @@
         <!-- 文件列表或上传器 -->
         <div ref="scrollContainerRef" class="flex-1 overflow-y-auto border rounded-md min-h-0" @scroll="handleScroll">
           <!-- 加载状态（首次加载） -->
-          <div v-if="loading && allFiles.length === 0 && !isUploadMode" class="flex items-center justify-center py-12">
+          <div v-if="loading && allFiles.length === 0 && !isUploadMode" class="flex items-center justify-center h-full">
             <Loader2Icon class="size-8 animate-spin text-muted-foreground" />
           </div>
 
           <!-- 上传模式 -->
-          <div v-else-if="isUploadMode" class="p-4">
+          <div v-else-if="isUploadMode" class="h-full p-4">
             <GeneralFileUploader :source="FileSource.CASE_ANALYSIS" :multiple="true" :autoUpload="true"
-              :enableEncryption="true" :defaultEncrypted="true" :onSuccess="handleFileUploadSuccess" />
+              :enableEncryption="true" :defaultEncrypted="true" :onSuccess="handleFileUploadSuccess" class="h-full" />
           </div>
 
           <!-- 文件列表模式 -->
-          <div v-else class="divide-y">
+          <div v-else :class="['divide-y', filteredFiles.length === 0 && !loading ? 'h-full' : '']">
             <!-- 空状态 -->
             <div v-if="filteredFiles.length === 0 && !loading"
-              class="flex flex-col items-center justify-center py-12 text-center">
+              class="flex flex-col items-center justify-center h-full text-center">
               <FileIcon class="size-12 text-muted-foreground/50 mb-4" />
               <p class="text-sm text-muted-foreground mb-2">
                 {{ searchQuery ? "未找到匹配的文件" : "暂无案情材料" }}

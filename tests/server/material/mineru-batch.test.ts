@@ -20,8 +20,7 @@ import {
 import { PBT_CONFIG } from './test-generators'
 
 // 导入被测试的服务
-import { DocRecognitionStatus } from '../../../server/services/material/mineru.service'
-import { MineruTaskStatus } from '../../../server/services/material/mineruTask.service'
+import { DocRecognitionStatus, MineruTaskStatus } from '#shared/types/recognition'
 
 describe('MinerU 批量上传功能', () => {
     let testIds: CaseTestIds

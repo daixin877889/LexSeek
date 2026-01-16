@@ -6,7 +6,7 @@
  */
 
 import type { docRecognitionRecords, Prisma } from '~~/generated/prisma/client'
-import { DocRecognitionStatus } from './mineru.service'
+import { DocRecognitionStatus } from '#shared/types/recognition'
 
 /**
  * 创建文档识别记录

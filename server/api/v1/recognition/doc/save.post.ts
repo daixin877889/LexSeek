@@ -10,7 +10,6 @@
  */
 
 import { z } from 'zod'
-import { DocRecognitionStatus } from '~~/server/services/material/mineru.service'
 import { embedDocumentService } from '~~/server/services/material/materialEmbedding.service'
 
 // 请求体验证

@@ -8,7 +8,7 @@
  */
 
 import { z } from 'zod'
-import { findAsrRecordByOssFileIdDao, AsrRecordStatus } from '~~/server/services/material/asr.dao'
+import { findAsrRecordByOssFileIdDao } from '~~/server/services/material/asr.dao'
 import { generateSignedUrlService } from '~~/server/services/storage/storage.service'
 
 // 路由参数验证 Schema

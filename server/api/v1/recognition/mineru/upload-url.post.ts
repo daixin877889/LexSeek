@@ -11,10 +11,8 @@
 
 import { z } from 'zod'
 import crypto from 'crypto'
-import { DocRecognitionStatus } from '~~/server/services/material/mineru.service'
 import {
     createMineruTaskService,
-    MineruTaskStatus,
 } from '~~/server/services/material/mineruTask.service'
 import {
     getActiveTokenValueService,

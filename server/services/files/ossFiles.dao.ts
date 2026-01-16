@@ -67,6 +67,26 @@ export async function findOssFileByIdDao(id: number, tx?: Prisma.TransactionClie
     }
 }
 
+/**
+ * 根据文件 ID 查找 OSS 文件记录（包含已删除）
+ * 用于需要查询所有状态文件的场景，如获取文件元数据
+ */
+export async function findOssFileByIdIncludeDeletedDao(id: number, tx?: Prisma.TransactionClient): Promise<ossFiles | null> {
+    try {
+        const result = await (tx || prisma).ossFiles.findUnique({
+            where: { id }
+        })
+
+        if (!result) return null;
+        return {
+            ...result,
+            source: result.source as FileSource,
+        };
+    } catch (error) {
+        logger.error(`根据文件 ID 查找 OSS 文件记录（包含已删除）失败: ${error}`)
+        throw error
+    }
+}
 
 /**
  * 根据文件 ID 批量查找 OSS 文件记录

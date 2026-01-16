@@ -13,6 +13,7 @@
 
 import type { OssFileItem } from '~~/app/store/file'
 import type { PostSignatureResult } from '~~/shared/types/oss'
+import { AsrRecordStatus, AsrRecordStatusText } from '#shared/types/recognition'
 
 /** 支持的音频扩展名 */
 const AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'webm', 'amr', 'opus']
@@ -45,26 +46,6 @@ const getMimeTypeFromFileName = (fileName: string): string | null => {
 export const isAudioFile = (fileName: string): boolean => {
     const ext = fileName.split('.').pop()?.toLowerCase()
     return AUDIO_EXTENSIONS.includes(ext || '')
-}
-
-/** ASR 识别状态枚举 */
-export enum AsrRecordStatus {
-    /** 待处理 */
-    PENDING = 0,
-    /** 处理中 */
-    PROCESSING = 1,
-    /** 成功 */
-    SUCCESS = 2,
-    /** 失败 */
-    FAILED = 3,
-}
-
-/** ASR 识别状态文本映射 */
-export const AsrRecordStatusText: Record<AsrRecordStatus, string> = {
-    [AsrRecordStatus.PENDING]: '待处理',
-    [AsrRecordStatus.PROCESSING]: '处理中',
-    [AsrRecordStatus.SUCCESS]: '成功',
-    [AsrRecordStatus.FAILED]: '失败',
 }
 
 /** ASR 任务提交选项 */

@@ -6,7 +6,7 @@
  */
 
 import type { asrTasks, Prisma } from '~~/generated/prisma/client'
-import { AsrTaskStatus, type AsrTaskQueryOptions, type CreateAsrTaskInput, type UpdateAsrTaskInput } from './asrTask.service'
+import type { AsrTaskQueryOptions, CreateAsrTaskInput, UpdateAsrTaskInput } from './asrTask.service'
 
 /**
  * 创建 ASR 任务

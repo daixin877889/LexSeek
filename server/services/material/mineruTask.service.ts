@@ -6,6 +6,7 @@
  */
 
 import type { mineruTasks, Prisma } from '~~/generated/prisma/client'
+import type { MineruTaskStatus as MineruTaskStatusType } from '#shared/types/recognition'
 import { getActiveTokenValueService } from './mineruToken.service'
 import {
     createMineruTaskDao,
@@ -17,26 +18,6 @@ import {
     updateMineruTaskByTaskIdDao,
     findPendingMineruTasksDao,
 } from './mineruTask.dao'
-
-/** MinerU 任务状态枚举 */
-export enum MineruTaskStatus {
-    /** 待处理 */
-    PENDING = 0,
-    /** 处理中 */
-    PROCESSING = 1,
-    /** 成功 */
-    SUCCESS = 2,
-    /** 失败 */
-    FAILED = 3,
-}
-
-/** MinerU 任务状态文本映射 */
-export const MineruTaskStatusText: Record<MineruTaskStatus, string> = {
-    [MineruTaskStatus.PENDING]: '待处理',
-    [MineruTaskStatus.PROCESSING]: '处理中',
-    [MineruTaskStatus.SUCCESS]: '成功',
-    [MineruTaskStatus.FAILED]: '失败',
-}
 
 /** MinerU 任务查询参数 */
 export interface MineruTaskQueryOptions {

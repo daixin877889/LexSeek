@@ -13,10 +13,8 @@ import {
     getAsrTaskByTaskIdService,
     getPendingAsrTasksService,
     isAsrTaskProcessedService,
-    AsrTaskStatus,
 } from './asrTask.service'
 import {
-    AsrRecordStatus,
     createAsrRecordDao,
     findAsrRecordByOssFileIdDao,
     findAsrRecordByIdDao,

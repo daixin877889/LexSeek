@@ -6,26 +6,7 @@
  */
 
 import type { imageRecognitionRecords, Prisma } from '~~/generated/prisma/client'
-
-/** 图片识别状态枚举 */
-export enum ImageRecognitionStatus {
-    /** 待处理 */
-    PENDING = 0,
-    /** 处理中 */
-    PROCESSING = 1,
-    /** 已完成 */
-    COMPLETED = 2,
-    /** 失败 */
-    FAILED = 3,
-}
-
-/** 图片类型枚举 */
-export enum ImageType {
-    /** 文档 */
-    DOC = 'doc',
-    /** 照片 */
-    PHOTO = 'photo',
-}
+import type { ImageRecognitionStatus as ImageRecognitionStatusType, ImageType as ImageTypeType } from '#shared/types/recognition'
 
 /**
  * 创建图片识别记录

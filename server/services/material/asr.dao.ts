@@ -6,26 +6,7 @@
  */
 
 import type { asrRecords, Prisma } from '~~/generated/prisma/client'
-
-/** ASR 识别状态枚举 */
-export enum AsrRecordStatus {
-    /** 待处理 */
-    PENDING = 0,
-    /** 处理中 */
-    PROCESSING = 1,
-    /** 成功 */
-    SUCCESS = 2,
-    /** 失败 */
-    FAILED = 3,
-}
-
-/** ASR 识别状态文本映射 */
-export const AsrRecordStatusText: Record<AsrRecordStatus, string> = {
-    [AsrRecordStatus.PENDING]: '待处理',
-    [AsrRecordStatus.PROCESSING]: '处理中',
-    [AsrRecordStatus.SUCCESS]: '成功',
-    [AsrRecordStatus.FAILED]: '失败',
-}
+import type { AsrRecordStatus as AsrRecordStatusType } from '#shared/types/recognition'
 
 /** 创建 ASR 识别记录输入 */
 export interface CreateAsrRecordInput {
