@@ -81,6 +81,8 @@ export async function createOssClient(config: OssConfig, useCname: boolean = fal
             .replace(/\/$/, '')
         clientConfig.endpoint = endpoint
         clientConfig.cname = true
+        // 强制使用 HTTPS 协议
+        clientConfig.secure = true
         // 使用 cname 时不需要 region
         delete clientConfig.region
     }

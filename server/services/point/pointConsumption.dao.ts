@@ -21,9 +21,12 @@ export const findConsumptionItemByKeyDao = async (
     tx?: TxClient
 ): Promise<pointConsumptionItems | null> => {
     try {
-        const item = await (tx || prisma).pointConsumptionItems.findUnique({
+        logger.debug('查询消耗项目', { key })
+        // 使用 findFirst 而不是 findUnique，因为需要同时检查 deletedAt
+        const item = await (tx || prisma).pointConsumptionItems.findFirst({
             where: { key, deletedAt: null },
         })
+        logger.debug('查询消耗项目结果', { key, found: !!item, itemId: item?.id, itemStatus: item?.status })
         return item
     } catch (error) {
         logger.error('通过 key 查询消耗项目失败：', error)
@@ -199,6 +202,7 @@ export const findValidPointRecordsForConsumeDao = async (
 ): Promise<pointRecords[]> => {
     try {
         const now = new Date()
+        logger.debug('查询用户有效积分记录', { userId, now: now.toISOString() })
         const records = await (tx || prisma).pointRecords.findMany({
             where: {
                 userId,
@@ -209,6 +213,11 @@ export const findValidPointRecordsForConsumeDao = async (
                 deletedAt: null,
             },
             orderBy: { expiredAt: 'asc' },
+        })
+        logger.debug('查询用户有效积分记录结果', {
+            userId,
+            count: records.length,
+            totalRemaining: records.reduce((sum, r) => sum + r.remaining, 0),
         })
         return records
     } catch (error) {

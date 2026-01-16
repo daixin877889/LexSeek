@@ -16,6 +16,7 @@ import {
     updatePointRecordUsageDao,
     findValidPointRecordsForConsumeDao,
 } from './pointConsumption.dao'
+import { decimalToNumberUtils } from '#shared/utils/decimalToNumber'
 
 // 事务客户端类型（兼容扩展后的 prisma 客户端）
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -95,7 +96,8 @@ export interface PreDeductOptions {
  * 计算实际消耗积分（考虑折扣，向上取整）
  */
 const calculateConsumeAmount = (item: pointConsumptionItems, quantity: number): number => {
-    const discount = item.discount ? Number(item.discount) : 1
+    // 使用 decimalToNumberUtils 处理 Prisma Decimal 类型
+    const discount = item.discount ? decimalToNumberUtils(item.discount) : 1
     return Math.ceil(item.pointAmount * quantity * discount)
 }
 
@@ -156,15 +158,21 @@ export const checkPointsService = async (
     quantity: number = 1,
     tx?: TxClient
 ): Promise<PointCheckResult> => {
+    logger.debug('开始检查积分', { userId, itemKey, quantity })
+
     // 获取消耗项目配置
     const item = await getConsumptionItemByKeyService(itemKey, tx)
+    logger.debug('获取消耗项目成功', { itemId: item.id, pointAmount: item.pointAmount, discount: item.discount })
 
     // 计算所需积分
     const required = calculateConsumeAmount(item, quantity)
+    logger.debug('计算所需积分', { required })
 
     // 查询用户可用积分
     const validRecords = await findValidPointRecordsForConsumeDao(userId, tx)
     const available = validRecords.reduce((sum, r) => sum + r.remaining, 0)
+
+    logger.debug('积分检查结果', { userId, required, available, sufficient: available >= required })
 
     return {
         sufficient: available >= required,

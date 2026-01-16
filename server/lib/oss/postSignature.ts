@@ -186,7 +186,8 @@ export async function generatePostSignature(
     expirationDate.setMinutes(date.getMinutes() + expirationMinutes)
 
     // 格式化日期
-    const formattedDate = formatDateToUTC(expirationDate)
+    // 注意：x-oss-date 应该使用当前时间（签名生成时间），而不是过期时间
+    const formattedDate = formatDateToUTC(date)
     const dateStr = formattedDate.split('T')[0]
 
     // 获取凭证信息
