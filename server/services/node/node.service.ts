@@ -13,6 +13,8 @@ import type {
     NodeListParams,
     NodeGroupListParams,
 } from '#shared/types/node'
+import type { SdkType } from '#shared/types/model'
+import { DEFAULT_SDK_TYPE } from '#shared/types/model'
 import {
     // 节点分组 DAO
     createNodeGroupDao,
@@ -78,6 +80,8 @@ export interface NodeConfig {
     modelType: string
     /** 模型状态 */
     modelStatus: number
+    /** 模型 SDK 类型，用于指定使用的 LangChain 包，默认为 'openai' */
+    modelSdkType: SdkType
     /** 模型提供商 ID */
     modelProviderId: number
     /** 模型提供商名称 */
@@ -395,6 +399,8 @@ export const getNodeConfigService = async (name: string): Promise<NodeConfig | n
             modelName: nodeConfig.model.name,
             modelType: nodeConfig.model.modelType,
             modelStatus: nodeConfig.model.status ?? 0,
+            // 获取模型的 SDK 类型，如果未设置则使用默认值 'openai' 以保持向后兼容
+            modelSdkType: (nodeConfig.model.sdkType as SdkType) || DEFAULT_SDK_TYPE,
             modelProviderId: nodeConfig.model.modelProvider.id,
             modelProviderName: nodeConfig.model.modelProvider.name,
             modelProviderBaseUrl: nodeConfig.model.modelProvider.baseUrl,
@@ -463,6 +469,8 @@ export const getNodeConfigByIdService = async (id: number): Promise<NodeConfig |
             modelName: nodeConfig.model.name,
             modelType: nodeConfig.model.modelType,
             modelStatus: nodeConfig.model.status ?? 0,
+            // 获取模型的 SDK 类型，如果未设置则使用默认值 'openai' 以保持向后兼容
+            modelSdkType: (nodeConfig.model.sdkType as SdkType) || DEFAULT_SDK_TYPE,
             modelProviderId: nodeConfig.model.modelProvider.id,
             modelProviderName: nodeConfig.model.modelProvider.name,
             modelProviderBaseUrl: nodeConfig.model.modelProvider.baseUrl,

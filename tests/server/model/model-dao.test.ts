@@ -21,12 +21,14 @@ import {
     resetModelDatabaseSequences,
     ModelStatus,
     ModelType,
+    SdkType,
     type ModelTestIds,
 } from './test-db-helper'
 import {
     providerDataArb,
     apiKeyDataArb,
     modelDataArb,
+    sdkTypeArb,
     PBT_CONFIG_FAST,
 } from './test-generators'
 
@@ -321,6 +323,55 @@ describe('模型管理 DAO 层集成测试', () => {
                 expect(model.name).toBe('测试模型_DAO创建')
                 expect(model.modelType).toBe('chat')
             })
+
+            /**
+             * **Validates: Requirements 3.2**
+             * 创建模型时未指定 sdkType，应使用默认值 'openai'
+             */
+            it('创建模型时未指定 sdkType 应使用默认值 openai', async () => {
+                if (!dbAvailable) return
+
+                const provider = await createTestModelProvider()
+                testIds.providerIds.push(provider.id)
+
+                const model = await createModelDao({
+                    providerId: provider.id,
+                    name: '测试模型_默认SDK类型',
+                    displayName: '测试模型显示名',
+                    modelType: 'chat',
+                })
+                testIds.modelIds.push(model.id)
+
+                expect(model.sdkType).toBe('openai')
+            })
+
+            /**
+             * **Validates: Requirements 3.4**
+             * 创建模型时可以指定 sdkType
+             */
+            it('创建模型时可以指定 sdkType', async () => {
+                if (!dbAvailable) return
+
+                await fc.assert(
+                    fc.asyncProperty(sdkTypeArb, async (sdkType) => {
+                        const provider = await createTestModelProvider()
+                        testIds.providerIds.push(provider.id)
+
+                        const model = await createModelDao({
+                            providerId: provider.id,
+                            name: `测试模型_SDK类型_${sdkType}_${Date.now()}`,
+                            displayName: '测试模型显示名',
+                            modelType: 'chat',
+                            sdkType: sdkType,
+                        })
+                        testIds.modelIds.push(model.id)
+
+                        expect(model.sdkType).toBe(sdkType)
+                        return true
+                    }),
+                    PBT_CONFIG_FAST
+                )
+            })
         })
 
         describe('Property 2: 同一提供商下模型名称唯一', () => {
@@ -455,6 +506,62 @@ describe('模型管理 DAO 层集成测试', () => {
                 })
                 expect(foundWithDeleted).not.toBeNull()
                 expect(foundWithDeleted!.deletedAt).not.toBeNull()
+            })
+        })
+
+        /**
+         * **Validates: Requirements 3.5**
+         * 编辑模型时可以修改 sdkType
+         */
+        describe('updateModelDao sdkType 测试', () => {
+            it('更新模型时可以修改 sdkType', async () => {
+                if (!dbAvailable) return
+
+                const provider = await createTestModelProvider()
+                testIds.providerIds.push(provider.id)
+
+                // 创建模型，默认 sdkType 为 openai
+                const model = await createTestModel(provider.id, {
+                    sdkType: SdkType.OPENAI,
+                })
+                testIds.modelIds.push(model.id)
+
+                expect(model.sdkType).toBe('openai')
+
+                // 更新为 deepseek
+                const updated = await updateModelDao(model.id, {
+                    sdkType: 'deepseek',
+                })
+
+                expect(updated.sdkType).toBe('deepseek')
+
+                // 验证数据库中的值
+                const found = await findModelByIdDao(model.id)
+                expect(found!.sdkType).toBe('deepseek')
+            })
+
+            it('属性测试：更新 sdkType 应正确保存', async () => {
+                if (!dbAvailable) return
+
+                await fc.assert(
+                    fc.asyncProperty(sdkTypeArb, sdkTypeArb, async (initialType, newType) => {
+                        const provider = await createTestModelProvider()
+                        testIds.providerIds.push(provider.id)
+
+                        const model = await createTestModel(provider.id, {
+                            sdkType: initialType,
+                        })
+                        testIds.modelIds.push(model.id)
+
+                        const updated = await updateModelDao(model.id, {
+                            sdkType: newType,
+                        })
+
+                        expect(updated.sdkType).toBe(newType)
+                        return true
+                    }),
+                    PBT_CONFIG_FAST
+                )
             })
         })
     })

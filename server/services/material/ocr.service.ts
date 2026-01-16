@@ -9,8 +9,8 @@
 
 import type { imageRecognitionRecords, Prisma } from '~~/generated/prisma/client'
 import { z } from 'zod'
-import { ChatOpenAI } from '@langchain/openai'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
+import { createChatModel } from '../node/chatModelFactory'
 import { marked } from 'marked'
 import {
     ImageRecognitionStatus,
@@ -119,21 +119,28 @@ function getSystemPromptFromConfig(config: NodeConfig): string {
 
 /**
  * 根据节点配置创建 AI 模型实例
+ *
+ * 使用 chatModelFactory 根据节点配置的 SDK 类型动态创建对应的 LangChain 模型实例
+ * 支持 OpenAI、DeepSeek、Gemini、Anthropic 四种 SDK 类型
+ *
  * @param config 节点配置
- * @returns ChatOpenAI 实例
+ * @returns BaseChatModel 实例
+ * @see Requirements 5.1, 5.2, 5.3, 5.4 - 动态模型实例化
  */
-function createAiModelFromConfig(config: NodeConfig): ChatOpenAI {
+function createAiModelFromConfig(config: NodeConfig) {
     const apiKey = config.modelApiKeys[0]?.apiKey
     if (!apiKey) {
         throw new Error('模型 API 密钥未配置')
     }
 
-    return new ChatOpenAI({
-        model: config.modelName,
+    // 使用 chatModelFactory 根据 SDK 类型创建对应的模型实例
+    return createChatModel({
+        sdkType: config.modelSdkType,
+        modelName: config.modelName,
         apiKey: apiKey,
-        configuration: {
-            baseURL: config.modelProviderBaseUrl,
-        },
+        baseUrl: config.modelProviderBaseUrl,
+        temperature: 0.7,
+        streaming: false,
     })
 }
 

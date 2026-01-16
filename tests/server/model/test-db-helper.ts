@@ -143,11 +143,21 @@ export const createTestModelApiKey = async (
     return apiKey
 }
 
+/** SDK 类型常量 */
+export const SdkType = {
+    OPENAI: 'openai',
+    DEEPSEEK: 'deepseek',
+    GEMINI: 'gemini',
+    ANTHROPIC: 'anthropic',
+} as const
+
 /** 模型创建输入类型 */
 export interface TestModelInput {
     name?: string
     displayName?: string
     modelType?: string
+    /** LangChain SDK 类型 */
+    sdkType?: string
     modelVersion?: string | null
     contextWindow?: number | null
     dimensions?: number | null
@@ -178,6 +188,7 @@ export const createTestModel = async (
             name: data.name || `${TEST_MODEL_NAME_PREFIX}${timestamp}_${random}`,
             displayName: data.displayName || `测试模型显示名_${timestamp}`,
             modelType: data.modelType || ModelType.CHAT,
+            sdkType: data.sdkType || SdkType.OPENAI,
             modelVersion: data.modelVersion,
             contextWindow: data.contextWindow,
             dimensions: data.dimensions,

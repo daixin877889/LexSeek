@@ -8,7 +8,7 @@
  */
 
 import * as fc from 'fast-check'
-import { ModelStatus, ModelType } from './test-db-helper'
+import { ModelStatus, ModelType, SdkType } from './test-db-helper'
 
 // ==================== 属性测试配置 ====================
 
@@ -99,12 +99,30 @@ export const modelTypeArb = fc.constantFrom(
 )
 
 /**
+ * 生成 SDK 类型
+ * 用于测试 LangChain SDK 类型功能
+ */
+export const sdkTypeArb = fc.constantFrom(
+    SdkType.OPENAI,
+    SdkType.DEEPSEEK,
+    SdkType.GEMINI,
+    SdkType.ANTHROPIC
+)
+
+/**
+ * 生成无效的 SDK 类型（用于测试验证逻辑）
+ */
+export const invalidSdkTypeArb = fc.string({ minLength: 1, maxLength: 20 })
+    .filter(s => !['openai', 'deepseek', 'gemini', 'anthropic'].includes(s))
+
+/**
  * 生成模型创建数据
  */
 export const modelDataArb = fc.record({
     name: modelNameArb,
     displayName: displayNameArb,
     modelType: modelTypeArb,
+    sdkType: sdkTypeArb,
     modelVersion: fc.option(fc.string({ minLength: 1, maxLength: 20 }), { nil: null }),
     contextWindow: fc.option(fc.integer({ min: 1024, max: 128000 }), { nil: null }),
     dimensions: fc.option(fc.integer({ min: 128, max: 4096 }), { nil: null }),

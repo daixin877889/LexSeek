@@ -14,7 +14,7 @@
 
 import { Command } from '@langchain/langgraph'
 import { AIMessage, HumanMessage, SystemMessage } from '@langchain/core/messages'
-import { ChatOpenAI } from '@langchain/openai'
+import { createChatModel } from '../../node/chatModelFactory'
 import {
     type CaseAnalysisState,
     type CaseAnalysisStateUpdate,
@@ -439,7 +439,7 @@ async function executeAnalysis(
     const { systemPrompt, userPrompt } = buildPrompts(nodeConfig, context)
 
     // 创建 AI 模型
-    const model = createChatModel(nodeConfig)
+    const model = createChatModelFromConfig(nodeConfig)
 
     // Requirements 12.5: 根据节点配置的 tools 字段动态加载工具
     const tools = nodeConfig.tools.length > 0
@@ -590,19 +590,23 @@ function buildPrompts(
 /**
  * 创建聊天模型
  *
+ * 使用 chatModelFactory 根据节点配置的 SDK 类型动态创建对应的 LangChain 模型实例
+ * 支持 OpenAI、DeepSeek、Gemini、Anthropic 四种 SDK 类型
+ *
  * @param nodeConfig 节点配置
- * @returns ChatOpenAI 实例
+ * @returns BaseChatModel 实例
+ * @see Requirements 5.1, 5.2, 5.3, 5.4 - 动态模型实例化
  */
-function createChatModel(nodeConfig: NodeConfig): ChatOpenAI {
+function createChatModelFromConfig(nodeConfig: NodeConfig) {
     // 获取可用的 API 密钥（已在 validateNodeConfig 中验证存在）
     const activeApiKey = nodeConfig.modelApiKeys.find((k) => k.status === 1)!
 
-    return new ChatOpenAI({
-        model: nodeConfig.modelName,
+    // 使用 chatModelFactory 根据 SDK 类型创建对应的模型实例
+    return createChatModel({
+        sdkType: nodeConfig.modelSdkType,
+        modelName: nodeConfig.modelName,
         apiKey: activeApiKey.apiKey,
-        configuration: {
-            baseURL: nodeConfig.modelProviderBaseUrl,
-        },
+        baseUrl: nodeConfig.modelProviderBaseUrl,
         temperature: 0.7,
         streaming: true,
     })
