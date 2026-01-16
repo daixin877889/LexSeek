@@ -522,6 +522,7 @@ export const ModelsScalarFieldEnum = {
   name: 'name',
   displayName: 'displayName',
   modelType: 'modelType',
+  sdkType: 'sdkType',
   modelVersion: 'modelVersion',
   contextWindow: 'contextWindow',
   dimensions: 'dimensions',

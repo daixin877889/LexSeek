@@ -27,6 +27,8 @@ export const createModelDao = async (
                 name: data.name,
                 displayName: data.displayName,
                 modelType: data.modelType,
+                // sdkType 字段：指定模型使用的 LangChain SDK 类型，默认为 'openai'
+                sdkType: data.sdkType ?? 'openai',
                 modelVersion: data.modelVersion,
                 contextWindow: data.contextWindow,
                 dimensions: data.dimensions,
@@ -230,6 +232,8 @@ export const updateModelDao = async (
                 ...(data.name !== undefined && { name: data.name }),
                 ...(data.displayName !== undefined && { displayName: data.displayName }),
                 ...(data.modelType !== undefined && { modelType: data.modelType }),
+                // sdkType 字段：支持更新模型使用的 LangChain SDK 类型
+                ...(data.sdkType !== undefined && { sdkType: data.sdkType }),
                 ...(data.modelVersion !== undefined && { modelVersion: data.modelVersion }),
                 ...(data.contextWindow !== undefined && { contextWindow: data.contextWindow }),
                 ...(data.dimensions !== undefined && { dimensions: data.dimensions }),

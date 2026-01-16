@@ -56,6 +56,7 @@ export type ModelsMinAggregateOutputType = {
   name: string | null
   displayName: string | null
   modelType: string | null
+  sdkType: string | null
   modelVersion: string | null
   contextWindow: number | null
   dimensions: number | null
@@ -76,6 +77,7 @@ export type ModelsMaxAggregateOutputType = {
   name: string | null
   displayName: string | null
   modelType: string | null
+  sdkType: string | null
   modelVersion: string | null
   contextWindow: number | null
   dimensions: number | null
@@ -96,6 +98,7 @@ export type ModelsCountAggregateOutputType = {
   name: number
   displayName: number
   modelType: number
+  sdkType: number
   modelVersion: number
   contextWindow: number
   dimensions: number
@@ -142,6 +145,7 @@ export type ModelsMinAggregateInputType = {
   name?: true
   displayName?: true
   modelType?: true
+  sdkType?: true
   modelVersion?: true
   contextWindow?: true
   dimensions?: true
@@ -162,6 +166,7 @@ export type ModelsMaxAggregateInputType = {
   name?: true
   displayName?: true
   modelType?: true
+  sdkType?: true
   modelVersion?: true
   contextWindow?: true
   dimensions?: true
@@ -182,6 +187,7 @@ export type ModelsCountAggregateInputType = {
   name?: true
   displayName?: true
   modelType?: true
+  sdkType?: true
   modelVersion?: true
   contextWindow?: true
   dimensions?: true
@@ -289,6 +295,7 @@ export type ModelsGroupByOutputType = {
   name: string
   displayName: string
   modelType: string
+  sdkType: string
   modelVersion: string | null
   contextWindow: number | null
   dimensions: number | null
@@ -332,6 +339,7 @@ export type modelsWhereInput = {
   name?: Prisma.StringFilter<"models"> | string
   displayName?: Prisma.StringFilter<"models"> | string
   modelType?: Prisma.StringFilter<"models"> | string
+  sdkType?: Prisma.StringFilter<"models"> | string
   modelVersion?: Prisma.StringNullableFilter<"models"> | string | null
   contextWindow?: Prisma.IntNullableFilter<"models"> | number | null
   dimensions?: Prisma.IntNullableFilter<"models"> | number | null
@@ -354,6 +362,7 @@ export type modelsOrderByWithRelationInput = {
   name?: Prisma.SortOrder
   displayName?: Prisma.SortOrder
   modelType?: Prisma.SortOrder
+  sdkType?: Prisma.SortOrder
   modelVersion?: Prisma.SortOrderInput | Prisma.SortOrder
   contextWindow?: Prisma.SortOrderInput | Prisma.SortOrder
   dimensions?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -380,6 +389,7 @@ export type modelsWhereUniqueInput = Prisma.AtLeast<{
   name?: Prisma.StringFilter<"models"> | string
   displayName?: Prisma.StringFilter<"models"> | string
   modelType?: Prisma.StringFilter<"models"> | string
+  sdkType?: Prisma.StringFilter<"models"> | string
   modelVersion?: Prisma.StringNullableFilter<"models"> | string | null
   contextWindow?: Prisma.IntNullableFilter<"models"> | number | null
   dimensions?: Prisma.IntNullableFilter<"models"> | number | null
@@ -402,6 +412,7 @@ export type modelsOrderByWithAggregationInput = {
   name?: Prisma.SortOrder
   displayName?: Prisma.SortOrder
   modelType?: Prisma.SortOrder
+  sdkType?: Prisma.SortOrder
   modelVersion?: Prisma.SortOrderInput | Prisma.SortOrder
   contextWindow?: Prisma.SortOrderInput | Prisma.SortOrder
   dimensions?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -430,6 +441,7 @@ export type modelsScalarWhereWithAggregatesInput = {
   name?: Prisma.StringWithAggregatesFilter<"models"> | string
   displayName?: Prisma.StringWithAggregatesFilter<"models"> | string
   modelType?: Prisma.StringWithAggregatesFilter<"models"> | string
+  sdkType?: Prisma.StringWithAggregatesFilter<"models"> | string
   modelVersion?: Prisma.StringNullableWithAggregatesFilter<"models"> | string | null
   contextWindow?: Prisma.IntNullableWithAggregatesFilter<"models"> | number | null
   dimensions?: Prisma.IntNullableWithAggregatesFilter<"models"> | number | null
@@ -448,6 +460,7 @@ export type modelsCreateInput = {
   name: string
   displayName: string
   modelType: string
+  sdkType?: string
   modelVersion?: string | null
   contextWindow?: number | null
   dimensions?: number | null
@@ -470,6 +483,7 @@ export type modelsUncheckedCreateInput = {
   name: string
   displayName: string
   modelType: string
+  sdkType?: string
   modelVersion?: string | null
   contextWindow?: number | null
   dimensions?: number | null
@@ -489,6 +503,7 @@ export type modelsUpdateInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   modelType?: Prisma.StringFieldUpdateOperationsInput | string
+  sdkType?: Prisma.StringFieldUpdateOperationsInput | string
   modelVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contextWindow?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dimensions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -511,6 +526,7 @@ export type modelsUncheckedUpdateInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   modelType?: Prisma.StringFieldUpdateOperationsInput | string
+  sdkType?: Prisma.StringFieldUpdateOperationsInput | string
   modelVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contextWindow?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dimensions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -532,6 +548,7 @@ export type modelsCreateManyInput = {
   name: string
   displayName: string
   modelType: string
+  sdkType?: string
   modelVersion?: string | null
   contextWindow?: number | null
   dimensions?: number | null
@@ -550,6 +567,7 @@ export type modelsUpdateManyMutationInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   modelType?: Prisma.StringFieldUpdateOperationsInput | string
+  sdkType?: Prisma.StringFieldUpdateOperationsInput | string
   modelVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contextWindow?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dimensions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -570,6 +588,7 @@ export type modelsUncheckedUpdateManyInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   modelType?: Prisma.StringFieldUpdateOperationsInput | string
+  sdkType?: Prisma.StringFieldUpdateOperationsInput | string
   modelVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contextWindow?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dimensions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -605,6 +624,7 @@ export type modelsCountOrderByAggregateInput = {
   name?: Prisma.SortOrder
   displayName?: Prisma.SortOrder
   modelType?: Prisma.SortOrder
+  sdkType?: Prisma.SortOrder
   modelVersion?: Prisma.SortOrder
   contextWindow?: Prisma.SortOrder
   dimensions?: Prisma.SortOrder
@@ -637,6 +657,7 @@ export type modelsMaxOrderByAggregateInput = {
   name?: Prisma.SortOrder
   displayName?: Prisma.SortOrder
   modelType?: Prisma.SortOrder
+  sdkType?: Prisma.SortOrder
   modelVersion?: Prisma.SortOrder
   contextWindow?: Prisma.SortOrder
   dimensions?: Prisma.SortOrder
@@ -657,6 +678,7 @@ export type modelsMinOrderByAggregateInput = {
   name?: Prisma.SortOrder
   displayName?: Prisma.SortOrder
   modelType?: Prisma.SortOrder
+  sdkType?: Prisma.SortOrder
   modelVersion?: Prisma.SortOrder
   contextWindow?: Prisma.SortOrder
   dimensions?: Prisma.SortOrder
@@ -756,6 +778,7 @@ export type modelsCreateWithoutModelProviderInput = {
   name: string
   displayName: string
   modelType: string
+  sdkType?: string
   modelVersion?: string | null
   contextWindow?: number | null
   dimensions?: number | null
@@ -776,6 +799,7 @@ export type modelsUncheckedCreateWithoutModelProviderInput = {
   name: string
   displayName: string
   modelType: string
+  sdkType?: string
   modelVersion?: string | null
   contextWindow?: number | null
   dimensions?: number | null
@@ -826,6 +850,7 @@ export type modelsScalarWhereInput = {
   name?: Prisma.StringFilter<"models"> | string
   displayName?: Prisma.StringFilter<"models"> | string
   modelType?: Prisma.StringFilter<"models"> | string
+  sdkType?: Prisma.StringFilter<"models"> | string
   modelVersion?: Prisma.StringNullableFilter<"models"> | string | null
   contextWindow?: Prisma.IntNullableFilter<"models"> | number | null
   dimensions?: Prisma.IntNullableFilter<"models"> | number | null
@@ -844,6 +869,7 @@ export type modelsCreateWithoutNodesInput = {
   name: string
   displayName: string
   modelType: string
+  sdkType?: string
   modelVersion?: string | null
   contextWindow?: number | null
   dimensions?: number | null
@@ -865,6 +891,7 @@ export type modelsUncheckedCreateWithoutNodesInput = {
   name: string
   displayName: string
   modelType: string
+  sdkType?: string
   modelVersion?: string | null
   contextWindow?: number | null
   dimensions?: number | null
@@ -899,6 +926,7 @@ export type modelsUpdateWithoutNodesInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   modelType?: Prisma.StringFieldUpdateOperationsInput | string
+  sdkType?: Prisma.StringFieldUpdateOperationsInput | string
   modelVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contextWindow?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dimensions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -920,6 +948,7 @@ export type modelsUncheckedUpdateWithoutNodesInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   modelType?: Prisma.StringFieldUpdateOperationsInput | string
+  sdkType?: Prisma.StringFieldUpdateOperationsInput | string
   modelVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contextWindow?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dimensions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -939,6 +968,7 @@ export type modelsCreateManyModelProviderInput = {
   name: string
   displayName: string
   modelType: string
+  sdkType?: string
   modelVersion?: string | null
   contextWindow?: number | null
   dimensions?: number | null
@@ -957,6 +987,7 @@ export type modelsUpdateWithoutModelProviderInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   modelType?: Prisma.StringFieldUpdateOperationsInput | string
+  sdkType?: Prisma.StringFieldUpdateOperationsInput | string
   modelVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contextWindow?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dimensions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -977,6 +1008,7 @@ export type modelsUncheckedUpdateWithoutModelProviderInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   modelType?: Prisma.StringFieldUpdateOperationsInput | string
+  sdkType?: Prisma.StringFieldUpdateOperationsInput | string
   modelVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contextWindow?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dimensions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -997,6 +1029,7 @@ export type modelsUncheckedUpdateManyWithoutModelProviderInput = {
   name?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.StringFieldUpdateOperationsInput | string
   modelType?: Prisma.StringFieldUpdateOperationsInput | string
+  sdkType?: Prisma.StringFieldUpdateOperationsInput | string
   modelVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contextWindow?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   dimensions?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
@@ -1048,6 +1081,7 @@ export type modelsSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   name?: boolean
   displayName?: boolean
   modelType?: boolean
+  sdkType?: boolean
   modelVersion?: boolean
   contextWindow?: boolean
   dimensions?: boolean
@@ -1071,6 +1105,7 @@ export type modelsSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extens
   name?: boolean
   displayName?: boolean
   modelType?: boolean
+  sdkType?: boolean
   modelVersion?: boolean
   contextWindow?: boolean
   dimensions?: boolean
@@ -1092,6 +1127,7 @@ export type modelsSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extens
   name?: boolean
   displayName?: boolean
   modelType?: boolean
+  sdkType?: boolean
   modelVersion?: boolean
   contextWindow?: boolean
   dimensions?: boolean
@@ -1113,6 +1149,7 @@ export type modelsSelectScalar = {
   name?: boolean
   displayName?: boolean
   modelType?: boolean
+  sdkType?: boolean
   modelVersion?: boolean
   contextWindow?: boolean
   dimensions?: boolean
@@ -1127,7 +1164,7 @@ export type modelsSelectScalar = {
   deletedAt?: boolean
 }
 
-export type modelsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "providerId" | "name" | "displayName" | "modelType" | "modelVersion" | "contextWindow" | "dimensions" | "batchSize" | "isDefault" | "status" | "priority" | "inputCostPerMillionTokens" | "outputCostPerMillionTokens" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["models"]>
+export type modelsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "providerId" | "name" | "displayName" | "modelType" | "sdkType" | "modelVersion" | "contextWindow" | "dimensions" | "batchSize" | "isDefault" | "status" | "priority" | "inputCostPerMillionTokens" | "outputCostPerMillionTokens" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["models"]>
 export type modelsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   modelProvider?: boolean | Prisma.modelProvidersDefaultArgs<ExtArgs>
   nodes?: boolean | Prisma.models$nodesArgs<ExtArgs>
@@ -1173,6 +1210,10 @@ export type $modelsPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
      * 模型类型：chat-对话模型，embedding-嵌入模型，asr-音频识别模型
      */
     modelType: string
+    /**
+     * LangChain SDK 类型：openai、deepseek、gemini、anthropic
+     */
+    sdkType: string
     /**
      * 模型版本
      */
@@ -1651,6 +1692,7 @@ export interface modelsFieldRefs {
   readonly name: Prisma.FieldRef<"models", 'String'>
   readonly displayName: Prisma.FieldRef<"models", 'String'>
   readonly modelType: Prisma.FieldRef<"models", 'String'>
+  readonly sdkType: Prisma.FieldRef<"models", 'String'>
   readonly modelVersion: Prisma.FieldRef<"models", 'String'>
   readonly contextWindow: Prisma.FieldRef<"models", 'Int'>
   readonly dimensions: Prisma.FieldRef<"models", 'Int'>

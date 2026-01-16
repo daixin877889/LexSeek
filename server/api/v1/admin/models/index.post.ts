@@ -6,7 +6,10 @@
 
 import { z } from 'zod'
 
-/** 请求体验证 */
+/**
+ * 请求体验证
+ * 包含 sdkType 字段用于指定 LangChain SDK 类型
+ */
 const bodySchema = z.object({
     providerId: z.number({ required_error: '提供商ID不能为空' })
         .int('提供商ID必须是整数')
@@ -21,6 +24,15 @@ const bodySchema = z.object({
         required_error: '模型类型不能为空',
         invalid_type_error: '模型类型必须是 chat、embedding 或 asr',
     }),
+    /**
+     * LangChain SDK 类型
+     * 用于指定模型使用的 LangChain 包
+     * 可选字段，默认值为 'openai'（在数据库层设置）
+     * 支持的枚举值：openai、deepseek、gemini、anthropic
+     */
+    sdkType: z.enum(['openai', 'deepseek', 'gemini', 'anthropic'], {
+        message: 'SDK 类型必须是 openai、deepseek、gemini 或 anthropic',
+    }).optional(),
     modelVersion: z.string()
         .max(50, '版本号不能超过50个字符')
         .optional()

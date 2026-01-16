@@ -8,6 +8,54 @@ import type {
     models,
 } from '~~/generated/prisma/client'
 
+// ============================================================================
+// SDK 类型相关定义
+// ============================================================================
+
+/**
+ * LangChain SDK 类型枚举
+ * 用于标识模型应使用的 LangChain 包
+ */
+export type SdkType = 'openai' | 'deepseek' | 'gemini' | 'anthropic'
+
+/**
+ * 所有支持的 SDK 类型数组
+ * 方便遍历和验证
+ */
+export const SDK_TYPES: readonly SdkType[] = ['openai', 'deepseek', 'gemini', 'anthropic'] as const
+
+/**
+ * SDK 类型标签映射
+ * 用于前端显示用户友好的标签
+ */
+export const SdkTypeLabels: Record<SdkType, string> = {
+    openai: 'OpenAI',
+    deepseek: 'DeepSeek',
+    gemini: 'Gemini',
+    anthropic: 'Anthropic',
+}
+
+/**
+ * SDK 类型对应的 LangChain 包映射
+ * 用于后端确定使用的 LangChain 包
+ */
+export const SdkTypePackages: Record<SdkType, string> = {
+    openai: '@langchain/openai',
+    deepseek: '@langchain/deepseek',
+    gemini: '@langchain/google-genai',
+    anthropic: '@langchain/anthropic',
+}
+
+/**
+ * 默认 SDK 类型
+ * 用于向后兼容，未设置 sdkType 时使用此默认值
+ */
+export const DEFAULT_SDK_TYPE: SdkType = 'openai'
+
+// ============================================================================
+// 模型类型相关定义
+// ============================================================================
+
 /** 模型类型枚举 */
 export type ModelType = 'chat' | 'embedding' | 'asr'
 
@@ -84,6 +132,8 @@ export interface CreateModelInput {
     name: string
     displayName: string
     modelType: ModelType
+    /** LangChain SDK 类型，用于指定模型使用的 LangChain 包，默认为 'openai' */
+    sdkType?: SdkType
     modelVersion?: string | null
     contextWindow?: number | null
     dimensions?: number | null
@@ -96,7 +146,22 @@ export interface CreateModelInput {
 }
 
 /** 更新模型输入类型 */
-export type UpdateModelInput = Partial<Omit<CreateModelInput, 'providerId'>>
+export interface UpdateModelInput {
+    name?: string
+    displayName?: string
+    modelType?: ModelType
+    /** LangChain SDK 类型，用于指定模型使用的 LangChain 包 */
+    sdkType?: SdkType
+    modelVersion?: string | null
+    contextWindow?: number | null
+    dimensions?: number | null
+    batchSize?: number | null
+    isDefault?: boolean
+    status?: number
+    priority?: number
+    inputCostPerMillionTokens?: number | null
+    outputCostPerMillionTokens?: number | null
+}
 
 /** 模型列表查询参数 */
 export interface ModelListParams {

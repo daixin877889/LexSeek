@@ -11,7 +11,10 @@ const paramsSchema = z.object({
     id: z.coerce.number().int().positive('ID必须是正整数'),
 })
 
-/** 请求体验证 */
+/**
+ * 请求体验证
+ * 包含 sdkType 字段用于指定 LangChain SDK 类型
+ */
 const bodySchema = z.object({
     name: z.string()
         .min(1, '模型名称不能为空')
@@ -22,7 +25,16 @@ const bodySchema = z.object({
         .max(100, '显示名称不能超过100个字符')
         .optional(),
     modelType: z.enum(['chat', 'embedding', 'asr'], {
-        invalid_type_error: '模型类型必须是 chat、embedding 或 asr',
+        message: '模型类型必须是 chat、embedding 或 asr',
+    }).optional(),
+    /**
+     * LangChain SDK 类型
+     * 用于指定模型使用的 LangChain 包
+     * 可选字段，支持的枚举值：openai、deepseek、gemini、anthropic
+     * 验证: 需求 3.3, 3.5
+     */
+    sdkType: z.enum(['openai', 'deepseek', 'gemini', 'anthropic'], {
+        message: 'SDK 类型必须是 openai、deepseek、gemini 或 anthropic',
     }).optional(),
     modelVersion: z.string()
         .max(50, '版本号不能超过50个字符')

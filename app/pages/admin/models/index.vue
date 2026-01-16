@@ -76,6 +76,7 @@
                                 <TableHead>模型名称</TableHead>
                                 <TableHead>提供商</TableHead>
                                 <TableHead class="w-[100px]">类型</TableHead>
+                                <TableHead class="w-[100px]">SDK 类型</TableHead>
                                 <TableHead class="w-[80px]">默认</TableHead>
                                 <TableHead class="w-[80px]">状态</TableHead>
                                 <TableHead class="w-[100px] text-right">操作</TableHead>
@@ -90,6 +91,11 @@
                                 <TableCell>
                                     <Badge :variant="getTypeVariant(model.modelType)">
                                         {{ getTypeLabel(model.modelType) }}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell>
+                                    <Badge variant="outline">
+                                        {{ SdkTypeLabels[model.sdkType as SdkType] || model.sdkType || '-' }}
                                     </Badge>
                                 </TableCell>
                                 <TableCell>
@@ -162,7 +168,8 @@
 <script setup lang="ts">
 import { Plus, Loader2, Bot, Search, MoreHorizontal, Pencil, Trash2, Star } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import type { ModelProvider, Model } from '#shared/types/model'
+import type { ModelProvider, Model, SdkType } from '#shared/types/model'
+import { SdkTypeLabels } from '#shared/types/model'
 
 definePageMeta({ layout: false, title: '模型管理' })
 

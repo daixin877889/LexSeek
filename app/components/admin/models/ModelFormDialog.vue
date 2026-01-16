@@ -43,6 +43,21 @@
                         </SelectContent>
                     </Select>
                 </div>
+                <!-- SDK 类型选择器 -->
+                <div class="space-y-2">
+                    <Label>SDK 类型 <span class="text-destructive">*</span></Label>
+                    <Select v-model="form.sdkType">
+                        <SelectTrigger class="w-full">
+                            <SelectValue placeholder="选择 SDK 类型" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem v-for="option in sdkTypeOptions" :key="option.value" :value="option.value">
+                                {{ option.label }}
+                            </SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <p class="text-xs text-muted-foreground">选择模型使用的 LangChain SDK 包</p>
+                </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-2">
                         <Label>模型版本</Label>
@@ -118,7 +133,14 @@
 <script setup lang="ts">
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import type { ModelProvider, Model } from '#shared/types/model'
+import type { ModelProvider, Model, SdkType } from '#shared/types/model'
+import { SDK_TYPES, SdkTypeLabels, DEFAULT_SDK_TYPE } from '#shared/types/model'
+
+// SDK 类型选项列表
+const sdkTypeOptions = SDK_TYPES.map(type => ({
+    value: type,
+    label: SdkTypeLabels[type]
+}))
 
 // 定义 props
 const props = defineProps<{
@@ -167,6 +189,7 @@ function getDefaultForm() {
         name: '',
         displayName: '',
         modelType: '',
+        sdkType: DEFAULT_SDK_TYPE as SdkType, // SDK 类型，默认为 openai
         modelVersion: '',
         contextWindow: undefined as number | undefined,
         dimensions: undefined as number | undefined,
@@ -202,6 +225,7 @@ const openEdit = (model: Model) => {
         name: model.name,
         displayName: model.displayName,
         modelType: model.modelType,
+        sdkType: (model.sdkType as SdkType) || DEFAULT_SDK_TYPE, // 编辑时加载当前模型的 SDK 类型
         modelVersion: model.modelVersion || '',
         contextWindow: model.contextWindow ?? undefined,
         dimensions: model.dimensions ?? undefined,
@@ -240,6 +264,7 @@ const handleSubmit = async () => {
         const body: Record<string, any> = {
             name: form.value.name,
             displayName: form.value.displayName,
+            sdkType: form.value.sdkType, // 提交时包含 SDK 类型
             modelVersion: form.value.modelVersion || null,
             contextWindow: form.value.contextWindow || null,
             dimensions: form.value.dimensions || null,

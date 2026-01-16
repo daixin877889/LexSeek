@@ -4,7 +4,19 @@
  * 提供模型配置的业务逻辑封装
  */
 
-import type { CreateModelInput, UpdateModelInput, ModelType } from '#shared/types/model'
+import type { CreateModelInput, UpdateModelInput, ModelType, SdkType } from '#shared/types/model'
+import { SDK_TYPES } from '#shared/types/model'
+
+/**
+ * 验证 SDK 类型是否有效
+ * @param sdkType SDK 类型
+ * @throws Error 当 sdkType 不是有效的枚举值时
+ */
+const validateSdkType = (sdkType: string | undefined): void => {
+    if (sdkType && !SDK_TYPES.includes(sdkType as SdkType)) {
+        throw new Error(`不支持的 SDK 类型: ${sdkType}，支持的类型: ${SDK_TYPES.join(', ')}`)
+    }
+}
 
 /**
  * 创建模型
@@ -17,6 +29,9 @@ export const createModelService = async (data: CreateModelInput) => {
     if (!provider) {
         throw new Error('提供商不存在')
     }
+
+    // 验证 sdkType 字段（需求 3.3, 3.4）
+    validateSdkType(data.sdkType)
 
     // 如果设置为默认，先取消同类型下其他默认模型
     if (data.isDefault) {
@@ -109,6 +124,9 @@ export const updateModelService = async (
     if (!existing) {
         throw new Error('模型不存在')
     }
+
+    // 验证 sdkType 字段（需求 3.3, 3.5）
+    validateSdkType(data.sdkType)
 
     // 如果设置为默认，先取消同类型下其他默认模型
     if (data.isDefault) {

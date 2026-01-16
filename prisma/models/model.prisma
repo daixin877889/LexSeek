@@ -73,6 +73,8 @@ model models {
     displayName                String    @map("display_name") @db.VarChar(100)
     /// 模型类型：chat-对话模型，embedding-嵌入模型，asr-音频识别模型
     modelType                  String    @map("model_type") @db.VarChar(20)
+    /// LangChain SDK 类型：openai、deepseek、gemini、anthropic
+    sdkType                    String    @default("openai") @map("sdk_type") @db.VarChar(20)
     /// 模型版本
     modelVersion               String?   @map("model_version") @db.VarChar(50)
     /// 上下文窗口大小
