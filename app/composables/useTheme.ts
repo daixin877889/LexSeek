@@ -24,23 +24,21 @@ const THEME_COLOR_KEY = 'theme-color'
  * 主题管理 composable
  */
 export function useTheme() {
-    // 当前主题色（初始值从 localStorage 读取）
-    const themeColor = useState<ThemeColor>('theme-color', () => {
-        if (import.meta.client) {
-            const saved = localStorage.getItem(THEME_COLOR_KEY) as ThemeColor | null
-            if (saved && themeColors.some(t => t.name === saved)) {
-                return saved
-            }
-        }
-        return 'zinc'
-    })
+    // 当前主题色（SSR 期间使用默认值，客户端会在 initTheme 中同步）
+    const themeColor = useState<ThemeColor>('theme-color', () => 'zinc')
 
     /**
      * 初始化主题
-     * 注意：主题已在 nuxt.config.ts 的内联脚本中初始化，这里不需要再次应用
+     * 从 localStorage 读取保存的主题色并同步到状态
+     * 注意：DOM 上的主题类已在 nuxt.config.ts 的内联脚本中初始化
      */
     const initTheme = () => {
-        // 主题已在内联脚本中初始化，这里只需要确保状态同步
+        if (import.meta.client) {
+            const saved = localStorage.getItem(THEME_COLOR_KEY) as ThemeColor | null
+            if (saved && themeColors.some(t => t.name === saved)) {
+                themeColor.value = saved
+            }
+        }
     }
 
     /**
