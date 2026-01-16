@@ -505,6 +505,7 @@ INSERT INTO "public"."model_providers" ("id", "name", "base_url", "description",
 INSERT INTO "public"."model_providers" ("id", "name", "base_url", "description", "created_at", "updated_at", "deleted_at") VALUES (5, 'huoshan', 'https://ark.cn-beijing.volces.com/api/v3', '火山引擎', '2026-01-05 07:07:09.459+08', '2026-01-05 07:07:09.459+08', NULL);
 INSERT INTO "public"."model_providers" ("id", "name", "base_url", "description", "created_at", "updated_at", "deleted_at") VALUES (6, 'zhipu', 'https://open.bigmodel.cn/api/paas/v4', '智谱', '2026-01-05 07:07:24.412+08', '2026-01-05 07:07:24.412+08', NULL);
 INSERT INTO "public"."model_providers" ("id", "name", "base_url", "description", "created_at", "updated_at", "deleted_at") VALUES (7, 'moonshot', 'https://api.moonshot.cn/v1', '月之暗面', '2026-01-05 07:07:39.292+08', '2026-01-05 07:07:39.292+08', NULL);
+INSERT INTO "public"."model_providers" ("id", "name", "base_url", "description", "created_at", "updated_at", "deleted_at") VALUES (8, 'dashscope', 'https://dashscope.aliyuncs.com/api/v1', '阿里云百炼（DashScope ASR）', '2026-01-05 07:08:00.000+08', '2026-01-05 07:08:00.000+08', NULL);
 
 -- 模型 apikey
 INSERT INTO "public"."model_api_keys" ("id", "provider_id", "name", "api_key", "is_default", "status", "daily_limit", "monthly_limit", "created_at", "updated_at", "deleted_at") VALUES (1, 1, 'DeepSeek', 'sk-62418816f329463b8608cab7851fe4da', 't', 1, NULL, NULL, '2026-01-05 07:09:05.368+08', '2026-01-05 07:09:05.368+08', NULL);
@@ -514,6 +515,8 @@ INSERT INTO "public"."model_api_keys" ("id", "provider_id", "name", "api_key", "
 INSERT INTO "public"."model_api_keys" ("id", "provider_id", "name", "api_key", "is_default", "status", "daily_limit", "monthly_limit", "created_at", "updated_at", "deleted_at") VALUES (5, 5, '火山', '8fb1db12-3b98-4bb7-94d2-2a1a66f71a19', 't', 1, NULL, NULL, '2026-01-05 07:10:43.589+08', '2026-01-05 07:10:43.589+08', NULL);
 INSERT INTO "public"."model_api_keys" ("id", "provider_id", "name", "api_key", "is_default", "status", "daily_limit", "monthly_limit", "created_at", "updated_at", "deleted_at") VALUES (6, 6, '智谱', 'e68ad43b23f54120aec20330555497ff.GyyJ6YCAhfkz2FpA', 't', 1, NULL, NULL, '2026-01-05 07:11:02.157+08', '2026-01-05 07:11:02.157+08', NULL);
 INSERT INTO "public"."model_api_keys" ("id", "provider_id", "name", "api_key", "is_default", "status", "daily_limit", "monthly_limit", "created_at", "updated_at", "deleted_at") VALUES (7, 7, '月之暗面', 'sk-l3j8vDrK49b69TLDbPCdjcsDeiYbg0Qk1D7KOYEKT6CZKfzD', 't', 1, NULL, NULL, '2026-01-05 07:11:14.385+08', '2026-01-05 07:11:14.385+08', NULL);
+-- DashScope ASR API Key（用于 paraformer-v2 语音识别）
+INSERT INTO "public"."model_api_keys" ("id", "provider_id", "name", "api_key", "is_default", "status", "daily_limit", "monthly_limit", "created_at", "updated_at", "deleted_at") VALUES (8, 8, 'DashScope ASR', 'sk-e6bf4c958f0743b09d4dac074211a8be', 't', 1, NULL, NULL, '2026-01-05 07:11:30.000+08', '2026-01-05 07:11:30.000+08', NULL);
 
 -- 模型
 INSERT INTO "public"."models" ("id", "provider_id", "name", "display_name", "model_type", "model_version", "context_window", "dimensions", "batch_size", "is_default", "status", "priority", "input_cost_per_million_tokens", "output_cost_per_million_tokens", "created_at", "updated_at", "deleted_at", "sdk_type") VALUES (1, 1, 'deepseek-chat', 'DeepSeek V3', 'chat', NULL, NULL, NULL, NULL, 't', 1, 10, NULL, NULL, '2026-01-05 15:18:33+08', '2026-01-16 02:58:49.449+08', NULL, 'deepseek');
@@ -531,6 +534,8 @@ INSERT INTO "public"."models" ("id", "provider_id", "name", "display_name", "mod
 INSERT INTO "public"."models" ("id", "provider_id", "name", "display_name", "model_type", "model_version", "context_window", "dimensions", "batch_size", "is_default", "status", "priority", "input_cost_per_million_tokens", "output_cost_per_million_tokens", "created_at", "updated_at", "deleted_at", "sdk_type") VALUES (13, 5, 'doubao-seed-1-6-flash-250715', 'doubao-seed-1-6-flash-250715', 'chat', NULL, NULL, NULL, NULL, 'f', 1, 130, NULL, NULL, '2026-01-05 15:18:33+08', '2026-01-05 15:18:33+08', NULL, 'openai');
 INSERT INTO "public"."models" ("id", "provider_id", "name", "display_name", "model_type", "model_version", "context_window", "dimensions", "batch_size", "is_default", "status", "priority", "input_cost_per_million_tokens", "output_cost_per_million_tokens", "created_at", "updated_at", "deleted_at", "sdk_type") VALUES (14, 7, 'kimi-k2-0711-preview', 'kimi-k2-0711-preview', 'chat', NULL, NULL, NULL, NULL, 'f', 1, 140, NULL, NULL, '2026-01-05 15:18:33+08', '2026-01-05 15:18:33+08', NULL, 'openai');
 INSERT INTO "public"."models" ("id", "provider_id", "name", "display_name", "model_type", "model_version", "context_window", "dimensions", "batch_size", "is_default", "status", "priority", "input_cost_per_million_tokens", "output_cost_per_million_tokens", "created_at", "updated_at", "deleted_at", "sdk_type") VALUES (15, 5, 'doubao-seed-1-6-thinking-250715', 'doubao-seed-1-6-thinking-250715', 'chat', NULL, NULL, NULL, NULL, 'f', 1, 150, NULL, NULL, '2026-01-05 15:18:33+08', '2026-01-05 15:18:33+08', NULL, 'openai');
+-- paraformer-v2 语音识别模型（ASR），关联到 dashscope 提供商（ID=8）
+INSERT INTO "public"."models" ("id", "provider_id", "name", "display_name", "model_type", "model_version", "context_window", "dimensions", "batch_size", "is_default", "status", "priority", "input_cost_per_million_tokens", "output_cost_per_million_tokens", "created_at", "updated_at", "deleted_at", "sdk_type") VALUES (16, 8, 'paraformer-v2', 'Paraformer V2 语音识别', 'asr', NULL, NULL, NULL, 100, 't', 1, 10, NULL, NULL, '2026-01-05 15:18:33+08', '2026-01-05 15:18:33+08', NULL, 'openai');
 
 -- 积分消耗项目
 INSERT INTO "public"."point_consumption_items" ("id", "group", "name", "description", "unit", "point_amount", "status", "discount", "created_at", "updated_at", "deleted_at") VALUES (1, 'material', 'doc_parse', 'PDF 文档解析', '页', 1, 1, 1.00, NOW(), NOW(), NULL);
@@ -574,6 +579,10 @@ INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "pri
 
 -- 图片识别节点（OCR）- 关联 DeepSeek V3 模型（ID=1）
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (3, 'extractImageInfo', '图片识别', '识别图片中的文字内容，支持文档类图片和照片类图片', 'material', 30, 1, '[]', 1, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+
+-- 音频识别节点（ASR）- 关联 paraformer-v2 模型
+-- 注意：实际数据库中 paraformer-v2 模型的 ID 可能不同，需要根据实际情况调整
+INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (4, 'audioRecognition', '音频识别', '使用阿里云百炼 paraformer-v2 模型进行语音识别，支持中英文混合识别和说话人分离', 'material', 40, 16, '[]', 1, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
 
 -- ==================== 提示词种子数据 ====================
 -- 案情信息检查节点 - 系统提示词

@@ -55,6 +55,7 @@ export type AsrRecordsMinAggregateOutputType = {
   audioUrl: string | null
   audioDuration: number | null
   jsonOssFileId: number | null
+  tempFilePath: string | null
   summary: string | null
   lastEmbeddingAt: Date | null
   lastEditAt: Date | null
@@ -72,6 +73,7 @@ export type AsrRecordsMaxAggregateOutputType = {
   audioUrl: string | null
   audioDuration: number | null
   jsonOssFileId: number | null
+  tempFilePath: string | null
   summary: string | null
   lastEmbeddingAt: Date | null
   lastEditAt: Date | null
@@ -90,6 +92,7 @@ export type AsrRecordsCountAggregateOutputType = {
   audioDuration: number
   result: number
   jsonOssFileId: number
+  tempFilePath: number
   speakers: number
   keywords: number
   summary: number
@@ -132,6 +135,7 @@ export type AsrRecordsMinAggregateInputType = {
   audioUrl?: true
   audioDuration?: true
   jsonOssFileId?: true
+  tempFilePath?: true
   summary?: true
   lastEmbeddingAt?: true
   lastEditAt?: true
@@ -149,6 +153,7 @@ export type AsrRecordsMaxAggregateInputType = {
   audioUrl?: true
   audioDuration?: true
   jsonOssFileId?: true
+  tempFilePath?: true
   summary?: true
   lastEmbeddingAt?: true
   lastEditAt?: true
@@ -167,6 +172,7 @@ export type AsrRecordsCountAggregateInputType = {
   audioDuration?: true
   result?: true
   jsonOssFileId?: true
+  tempFilePath?: true
   speakers?: true
   keywords?: true
   summary?: true
@@ -275,6 +281,7 @@ export type AsrRecordsGroupByOutputType = {
   audioDuration: number | null
   result: runtime.JsonValue | null
   jsonOssFileId: number | null
+  tempFilePath: string | null
   speakers: runtime.JsonValue | null
   keywords: runtime.JsonValue | null
   summary: string | null
@@ -319,6 +326,7 @@ export type asrRecordsWhereInput = {
   audioDuration?: Prisma.IntNullableFilter<"asrRecords"> | number | null
   result?: Prisma.JsonNullableFilter<"asrRecords">
   jsonOssFileId?: Prisma.IntNullableFilter<"asrRecords"> | number | null
+  tempFilePath?: Prisma.StringNullableFilter<"asrRecords"> | string | null
   speakers?: Prisma.JsonNullableFilter<"asrRecords">
   keywords?: Prisma.JsonNullableFilter<"asrRecords">
   summary?: Prisma.StringNullableFilter<"asrRecords"> | string | null
@@ -342,6 +350,7 @@ export type asrRecordsOrderByWithRelationInput = {
   audioDuration?: Prisma.SortOrderInput | Prisma.SortOrder
   result?: Prisma.SortOrderInput | Prisma.SortOrder
   jsonOssFileId?: Prisma.SortOrderInput | Prisma.SortOrder
+  tempFilePath?: Prisma.SortOrderInput | Prisma.SortOrder
   speakers?: Prisma.SortOrderInput | Prisma.SortOrder
   keywords?: Prisma.SortOrderInput | Prisma.SortOrder
   summary?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -368,6 +377,7 @@ export type asrRecordsWhereUniqueInput = Prisma.AtLeast<{
   audioDuration?: Prisma.IntNullableFilter<"asrRecords"> | number | null
   result?: Prisma.JsonNullableFilter<"asrRecords">
   jsonOssFileId?: Prisma.IntNullableFilter<"asrRecords"> | number | null
+  tempFilePath?: Prisma.StringNullableFilter<"asrRecords"> | string | null
   speakers?: Prisma.JsonNullableFilter<"asrRecords">
   keywords?: Prisma.JsonNullableFilter<"asrRecords">
   summary?: Prisma.StringNullableFilter<"asrRecords"> | string | null
@@ -391,6 +401,7 @@ export type asrRecordsOrderByWithAggregationInput = {
   audioDuration?: Prisma.SortOrderInput | Prisma.SortOrder
   result?: Prisma.SortOrderInput | Prisma.SortOrder
   jsonOssFileId?: Prisma.SortOrderInput | Prisma.SortOrder
+  tempFilePath?: Prisma.SortOrderInput | Prisma.SortOrder
   speakers?: Prisma.SortOrderInput | Prisma.SortOrder
   keywords?: Prisma.SortOrderInput | Prisma.SortOrder
   summary?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -420,6 +431,7 @@ export type asrRecordsScalarWhereWithAggregatesInput = {
   audioDuration?: Prisma.IntNullableWithAggregatesFilter<"asrRecords"> | number | null
   result?: Prisma.JsonNullableWithAggregatesFilter<"asrRecords">
   jsonOssFileId?: Prisma.IntNullableWithAggregatesFilter<"asrRecords"> | number | null
+  tempFilePath?: Prisma.StringNullableWithAggregatesFilter<"asrRecords"> | string | null
   speakers?: Prisma.JsonNullableWithAggregatesFilter<"asrRecords">
   keywords?: Prisma.JsonNullableWithAggregatesFilter<"asrRecords">
   summary?: Prisma.StringNullableWithAggregatesFilter<"asrRecords"> | string | null
@@ -438,6 +450,7 @@ export type asrRecordsCreateInput = {
   audioDuration?: number | null
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   jsonOssFileId?: number | null
+  tempFilePath?: string | null
   speakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   keywords?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: string | null
@@ -461,6 +474,7 @@ export type asrRecordsUncheckedCreateInput = {
   audioDuration?: number | null
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   jsonOssFileId?: number | null
+  tempFilePath?: string | null
   speakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   keywords?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: string | null
@@ -479,6 +493,7 @@ export type asrRecordsUpdateInput = {
   audioDuration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   jsonOssFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  tempFilePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   keywords?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -502,6 +517,7 @@ export type asrRecordsUncheckedUpdateInput = {
   audioDuration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   jsonOssFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  tempFilePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   keywords?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -523,6 +539,7 @@ export type asrRecordsCreateManyInput = {
   audioDuration?: number | null
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   jsonOssFileId?: number | null
+  tempFilePath?: string | null
   speakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   keywords?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: string | null
@@ -541,6 +558,7 @@ export type asrRecordsUpdateManyMutationInput = {
   audioDuration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   jsonOssFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  tempFilePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   keywords?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -562,6 +580,7 @@ export type asrRecordsUncheckedUpdateManyInput = {
   audioDuration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   jsonOssFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  tempFilePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   keywords?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -593,6 +612,7 @@ export type asrRecordsCountOrderByAggregateInput = {
   audioDuration?: Prisma.SortOrder
   result?: Prisma.SortOrder
   jsonOssFileId?: Prisma.SortOrder
+  tempFilePath?: Prisma.SortOrder
   speakers?: Prisma.SortOrder
   keywords?: Prisma.SortOrder
   summary?: Prisma.SortOrder
@@ -623,6 +643,7 @@ export type asrRecordsMaxOrderByAggregateInput = {
   audioUrl?: Prisma.SortOrder
   audioDuration?: Prisma.SortOrder
   jsonOssFileId?: Prisma.SortOrder
+  tempFilePath?: Prisma.SortOrder
   summary?: Prisma.SortOrder
   lastEmbeddingAt?: Prisma.SortOrder
   lastEditAt?: Prisma.SortOrder
@@ -640,6 +661,7 @@ export type asrRecordsMinOrderByAggregateInput = {
   audioUrl?: Prisma.SortOrder
   audioDuration?: Prisma.SortOrder
   jsonOssFileId?: Prisma.SortOrder
+  tempFilePath?: Prisma.SortOrder
   summary?: Prisma.SortOrder
   lastEmbeddingAt?: Prisma.SortOrder
   lastEditAt?: Prisma.SortOrder
@@ -749,6 +771,7 @@ export type asrRecordsCreateWithoutAsrTaskInput = {
   audioDuration?: number | null
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   jsonOssFileId?: number | null
+  tempFilePath?: string | null
   speakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   keywords?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: string | null
@@ -770,6 +793,7 @@ export type asrRecordsUncheckedCreateWithoutAsrTaskInput = {
   audioDuration?: number | null
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   jsonOssFileId?: number | null
+  tempFilePath?: string | null
   speakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   keywords?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: string | null
@@ -820,6 +844,7 @@ export type asrRecordsScalarWhereInput = {
   audioDuration?: Prisma.IntNullableFilter<"asrRecords"> | number | null
   result?: Prisma.JsonNullableFilter<"asrRecords">
   jsonOssFileId?: Prisma.IntNullableFilter<"asrRecords"> | number | null
+  tempFilePath?: Prisma.StringNullableFilter<"asrRecords"> | string | null
   speakers?: Prisma.JsonNullableFilter<"asrRecords">
   keywords?: Prisma.JsonNullableFilter<"asrRecords">
   summary?: Prisma.StringNullableFilter<"asrRecords"> | string | null
@@ -838,6 +863,7 @@ export type asrRecordsCreateWithoutUserInput = {
   audioDuration?: number | null
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   jsonOssFileId?: number | null
+  tempFilePath?: string | null
   speakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   keywords?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: string | null
@@ -859,6 +885,7 @@ export type asrRecordsUncheckedCreateWithoutUserInput = {
   audioDuration?: number | null
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   jsonOssFileId?: number | null
+  tempFilePath?: string | null
   speakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   keywords?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: string | null
@@ -905,6 +932,7 @@ export type asrRecordsCreateManyAsrTaskInput = {
   audioDuration?: number | null
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   jsonOssFileId?: number | null
+  tempFilePath?: string | null
   speakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   keywords?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: string | null
@@ -923,6 +951,7 @@ export type asrRecordsUpdateWithoutAsrTaskInput = {
   audioDuration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   jsonOssFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  tempFilePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   keywords?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -944,6 +973,7 @@ export type asrRecordsUncheckedUpdateWithoutAsrTaskInput = {
   audioDuration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   jsonOssFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  tempFilePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   keywords?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -964,6 +994,7 @@ export type asrRecordsUncheckedUpdateManyWithoutAsrTaskInput = {
   audioDuration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   jsonOssFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  tempFilePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   keywords?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -984,6 +1015,7 @@ export type asrRecordsCreateManyUserInput = {
   audioDuration?: number | null
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   jsonOssFileId?: number | null
+  tempFilePath?: string | null
   speakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   keywords?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: string | null
@@ -1002,6 +1034,7 @@ export type asrRecordsUpdateWithoutUserInput = {
   audioDuration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   jsonOssFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  tempFilePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   keywords?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1023,6 +1056,7 @@ export type asrRecordsUncheckedUpdateWithoutUserInput = {
   audioDuration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   jsonOssFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  tempFilePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   keywords?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1043,6 +1077,7 @@ export type asrRecordsUncheckedUpdateManyWithoutUserInput = {
   audioDuration?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   jsonOssFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  tempFilePath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   speakers?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   keywords?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1066,6 +1101,7 @@ export type asrRecordsSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   audioDuration?: boolean
   result?: boolean
   jsonOssFileId?: boolean
+  tempFilePath?: boolean
   speakers?: boolean
   keywords?: boolean
   summary?: boolean
@@ -1089,6 +1125,7 @@ export type asrRecordsSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   audioDuration?: boolean
   result?: boolean
   jsonOssFileId?: boolean
+  tempFilePath?: boolean
   speakers?: boolean
   keywords?: boolean
   summary?: boolean
@@ -1112,6 +1149,7 @@ export type asrRecordsSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   audioDuration?: boolean
   result?: boolean
   jsonOssFileId?: boolean
+  tempFilePath?: boolean
   speakers?: boolean
   keywords?: boolean
   summary?: boolean
@@ -1135,6 +1173,7 @@ export type asrRecordsSelectScalar = {
   audioDuration?: boolean
   result?: boolean
   jsonOssFileId?: boolean
+  tempFilePath?: boolean
   speakers?: boolean
   keywords?: boolean
   summary?: boolean
@@ -1146,7 +1185,7 @@ export type asrRecordsSelectScalar = {
   deletedAt?: boolean
 }
 
-export type asrRecordsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "ossFileId" | "asrTasksId" | "status" | "audioUrl" | "audioDuration" | "result" | "jsonOssFileId" | "speakers" | "keywords" | "summary" | "vectorIds" | "lastEmbeddingAt" | "lastEditAt" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["asrRecords"]>
+export type asrRecordsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "ossFileId" | "asrTasksId" | "status" | "audioUrl" | "audioDuration" | "result" | "jsonOssFileId" | "tempFilePath" | "speakers" | "keywords" | "summary" | "vectorIds" | "lastEmbeddingAt" | "lastEditAt" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["asrRecords"]>
 export type asrRecordsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
   asrTask?: boolean | Prisma.asrRecords$asrTaskArgs<ExtArgs>
@@ -1194,7 +1233,7 @@ export type $asrRecordsPayload<ExtArgs extends runtime.Types.Extensions.Internal
      */
     status: number
     /**
-     * 提交的音频 URL
+     * 提交的音频 URL（签名 URL 可能很长，使用 Text 类型）
      */
     audioUrl: string | null
     /**
@@ -1209,6 +1248,10 @@ export type $asrRecordsPayload<ExtArgs extends runtime.Types.Extensions.Internal
      * 转录原始 JSON 的 OSS 文件 ID
      */
     jsonOssFileId: number | null
+    /**
+     * 临时文件路径（加密文件解密后上传的路径，识别完成后需清理）
+     */
+    tempFilePath: string | null
     /**
      * 说话人列表（JSON 数组）
      */
@@ -1679,6 +1722,7 @@ export interface asrRecordsFieldRefs {
   readonly audioDuration: Prisma.FieldRef<"asrRecords", 'Int'>
   readonly result: Prisma.FieldRef<"asrRecords", 'Json'>
   readonly jsonOssFileId: Prisma.FieldRef<"asrRecords", 'Int'>
+  readonly tempFilePath: Prisma.FieldRef<"asrRecords", 'String'>
   readonly speakers: Prisma.FieldRef<"asrRecords", 'Json'>
   readonly keywords: Prisma.FieldRef<"asrRecords", 'Json'>
   readonly summary: Prisma.FieldRef<"asrRecords", 'String'>

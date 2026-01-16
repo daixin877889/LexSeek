@@ -123,14 +123,16 @@ model asrRecords {
     asrTasksId      Int?      @map("asr_tasks_id")
     /// 识别状态：0-待处理，1-处理中，2-成功，3-失败
     status          Int       @default(0)
-    /// 提交的音频 URL
-    audioUrl        String?   @map("audio_url") @db.VarChar(500)
+    /// 提交的音频 URL（签名 URL 可能很长，使用 Text 类型）
+    audioUrl        String?   @map("audio_url") @db.Text
     /// 音频时长（秒）
     audioDuration   Int?      @map("audio_duration")
     /// 识别结果
     result          Json?     @default("{}")
     /// 转录原始 JSON 的 OSS 文件 ID
     jsonOssFileId   Int?      @map("json_oss_file_id")
+    /// 临时文件路径（加密文件解密后上传的路径，识别完成后需清理）
+    tempFilePath    String?   @map("temp_file_path") @db.VarChar(500)
     /// 说话人列表（JSON 数组）
     speakers        Json?     @default("[]")
     /// 关键词（JSON 数组）

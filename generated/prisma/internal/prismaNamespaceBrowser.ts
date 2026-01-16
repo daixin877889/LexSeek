@@ -856,6 +856,7 @@ export const AsrRecordsScalarFieldEnum = {
   audioDuration: 'audioDuration',
   result: 'result',
   jsonOssFileId: 'jsonOssFileId',
+  tempFilePath: 'tempFilePath',
   speakers: 'speakers',
   keywords: 'keywords',
   summary: 'summary',
