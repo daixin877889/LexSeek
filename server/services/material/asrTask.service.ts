@@ -16,6 +16,28 @@ import {
     updateAsrTaskByTaskIdDao,
     findPendingAsrTasksDao,
 } from './asrTask.dao'
+import { getNodeConfigService, type NodeConfig } from '../node/node.service'
+
+/** 音频识别节点名称 */
+const ASR_NODE_NAME = 'audioRecognition'
+
+/**
+ * 获取 ASR 节点配置
+ * 从 node 系统获取音频识别相关的模型和 API Key 配置
+ */
+async function getAsrNodeConfig(): Promise<NodeConfig> {
+    const config = await getNodeConfigService(ASR_NODE_NAME)
+
+    if (!config) {
+        throw new Error(`ASR 节点 "${ASR_NODE_NAME}" 未配置或未启用，请在后台管理中配置该节点`)
+    }
+
+    if (config.modelApiKeys.length === 0) {
+        throw new Error(`ASR 节点 "${ASR_NODE_NAME}" 的模型提供商未配置 API 密钥`)
+    }
+
+    return config
+}
 
 /** ASR 任务状态枚举 */
 export enum AsrTaskStatus {
@@ -244,11 +266,9 @@ export const queryAsrTaskStatusService = async (
         throw new Error('任务尚未提交到 ASR 服务')
     }
 
-    // 获取 ASR API Token（从环境变量获取）
-    const asrToken = process.env.DASHSCOPE_API_KEY
-    if (!asrToken) {
-        throw new Error('未配置 ASR API Token')
-    }
+    // 获取 ASR 节点配置（从模型管理获取 API Key）
+    const nodeConfig = await getAsrNodeConfig()
+    const asrToken = nodeConfig.modelApiKeys[0].apiKey
 
     try {
         // 调用阿里云百炼 ASR API 查询任务状态
@@ -265,7 +285,7 @@ export const queryAsrTaskStatusService = async (
             }
             code?: string
             message?: string
-        }>(`https://dashscope.aliyuncs.com/api/v1/tasks/${task.taskId}`, {
+        }>(`${nodeConfig.modelProviderBaseUrl}/tasks/${task.taskId}`, {
             method: 'POST',
             headers: {
                 Authorization: `Bearer ${asrToken}`,
@@ -414,11 +434,9 @@ export const retryAsrTaskService = async (
         throw new Error('只有失败的任务才能重试')
     }
 
-    // 获取 ASR API Token
-    const asrToken = process.env.DASHSCOPE_API_KEY
-    if (!asrToken) {
-        throw new Error('未配置 ASR API Token')
-    }
+    // 获取 ASR 节点配置（从模型管理获取 API Key）
+    const nodeConfig = await getAsrNodeConfig()
+    const asrToken = nodeConfig.modelApiKeys[0].apiKey
 
     // 获取关联的 ASR 记录
     const records = await prisma.asrRecords.findMany({
@@ -440,7 +458,7 @@ export const retryAsrTaskService = async (
     }
 
     try {
-        // 重新提交任务到 ASR 服务
+        // 重新提交任务到 ASR 服务（使用节点配置中的模型名称和 API 地址）
         const response = await $fetch<{
             request_id?: string
             output?: {
@@ -449,7 +467,7 @@ export const retryAsrTaskService = async (
             }
             code?: string
             message?: string
-        }>('https://dashscope.aliyuncs.com/api/v1/services/audio/asr/transcription', {
+        }>(`${nodeConfig.modelProviderBaseUrl}/services/audio/asr/transcription`, {
             method: 'POST',
             headers: {
                 Authorization: `Bearer ${asrToken}`,
@@ -457,7 +475,7 @@ export const retryAsrTaskService = async (
                 'X-DashScope-Async': 'enable',
             },
             body: {
-                model: 'paraformer-v2',
+                model: nodeConfig.modelName,
                 input: {
                     file_urls: audioUrls,
                 },

@@ -45,6 +45,8 @@ export interface CreateAsrRecordInput {
     result?: Record<string, any>
     /** 说话人列表 */
     speakers?: Array<{ id: number; name: string; color?: string }>
+    /** 临时文件路径（加密文件解密后上传的路径） */
+    tempFilePath?: string
 }
 
 /** 更新 ASR 识别记录输入 */
@@ -71,6 +73,8 @@ export interface UpdateAsrRecordInput {
     lastEmbeddingAt?: Date
     /** 最后编辑时间 */
     lastEditAt?: Date
+    /** 临时文件路径（加密文件解密后上传的路径） */
+    tempFilePath?: string | null
 }
 
 /**
@@ -91,6 +95,7 @@ export const createAsrRecordDao = async (
                 audioDuration: data.audioDuration,
                 result: data.result ?? {},
                 speakers: data.speakers ?? [],
+                tempFilePath: data.tempFilePath,
             },
         })
         return record

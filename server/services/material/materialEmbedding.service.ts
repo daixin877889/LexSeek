@@ -883,3 +883,271 @@ export async function searchUserImagesService(
         throw error
     }
 }
+
+
+// ============================================
+// 音频内容嵌入服务
+// ============================================
+
+/** ASR 识别结果句子信息 */
+interface AsrSentence {
+    /** 句子文本 */
+    text: string
+    /** 开始时间（毫秒） */
+    begin_time: number
+    /** 结束时间（毫秒） */
+    end_time: number
+    /** 说话人 ID */
+    speaker_id: number
+    /** 句子 ID */
+    sentence_id?: number
+}
+
+/** ASR 说话人信息 */
+interface AsrSpeaker {
+    /** 说话人 ID */
+    id: number
+    /** 说话人名称 */
+    name: string
+}
+
+/**
+ * 格式化时间戳（毫秒转 MM:SS 格式）
+ * @param timeMs 毫秒时间
+ * @returns 格式化的时间字符串，如 "01:03"
+ */
+function formatTimestamp(timeMs: number): string {
+    const totalSeconds = Math.floor(timeMs / 1000)
+    const minutes = Math.floor(totalSeconds / 60)
+    const seconds = totalSeconds % 60
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+}
+
+/**
+ * 将 ASR 识别结果转换为向量化所需的文本格式
+ *
+ * 输出格式示例：
+ * [00:00-00:03]说话人1：我家里的情况是，我的母亲他一手操持我们的这个家庭。
+ * [00:03-00:11]说话人1：我父亲他目前是欠债一百多W的状态，我是已经已婚了...
+ *
+ * @param sentences ASR 识别结果句子列表
+ * @param speakers 说话人信息列表（可选，用于获取说话人名称）
+ * @returns 格式化后的文本内容
+ */
+export function formatAsrResultForEmbedding(
+    sentences: AsrSentence[],
+    speakers?: AsrSpeaker[]
+): string {
+    if (!sentences || sentences.length === 0) {
+        return ''
+    }
+
+    // 构建说话人 ID 到名称的映射
+    const speakerNameMap = new Map<number, string>()
+    if (speakers && speakers.length > 0) {
+        speakers.forEach(speaker => {
+            speakerNameMap.set(speaker.id, speaker.name)
+        })
+    }
+
+    // 获取说话人名称
+    const getSpeakerName = (speakerId: number): string => {
+        return speakerNameMap.get(speakerId) || `说话人${speakerId + 1}`
+    }
+
+    // 按开始时间排序
+    const sortedSentences = [...sentences].sort((a, b) => a.begin_time - b.begin_time)
+
+    // 格式化每个句子
+    const formattedLines = sortedSentences.map(sentence => {
+        const startTime = formatTimestamp(sentence.begin_time)
+        const endTime = formatTimestamp(sentence.end_time)
+        const speakerName = getSpeakerName(sentence.speaker_id)
+        return `[${startTime}-${endTime}]${speakerName}：${sentence.text}`
+    })
+
+    return formattedLines.join('\n')
+}
+
+/** 音频嵌入输入参数 */
+export interface EmbedAudioInput {
+    /** 音频识别内容（转录文本） */
+    content: string
+    /** 用户 ID */
+    userId: number
+    /** OSS 文件 ID */
+    ossFileId: number
+    /** 原始文件名 */
+    fileName: string
+}
+
+/** 音频嵌入结果 */
+export interface EmbedAudioResult {
+    /** 生成的向量 ID 列表 */
+    ids: string[]
+    /** 最后嵌入时间 */
+    lastEmbeddingAt: string
+    /** 分块数量 */
+    chunkCount: number
+}
+
+/**
+ * 向量化音频识别内容
+ *
+ * 元数据结构：
+ * {
+ *   "source": "audio",
+ *   "userId": 137,
+ *   "sourceId": 431,  // ossFileId
+ *   "sourceName": "录音证据.mp3",  // 原始文件名
+ *   "last_embedding_at": "2025-12-16T22:47:29+08:00",
+ *   "chunkIndex": 0
+ * }
+ *
+ * Requirements: 6.5（音频识别向量化嵌入）
+ *
+ * @param input 音频嵌入输入
+ * @param config 分块配置（可选）
+ * @returns 嵌入结果
+ */
+export async function embedAudioService(
+    input: EmbedAudioInput,
+    config: TextSplitterConfig = defaultSplitterConfig
+): Promise<EmbedAudioResult> {
+    const { content, userId, ossFileId, fileName } = input
+
+    logger.info('开始向量化音频识别内容', {
+        ossFileId,
+        userId,
+        fileName,
+        contentLength: content.length,
+    })
+
+    try {
+        // 删除该音频的现有向量数据（避免重复）
+        await deleteContentEmbeddings('audio', ossFileId)
+
+        // 记录嵌入时间
+        const lastEmbeddingAt = dayjs().format('YYYY-MM-DDTHH:mm:ss+08:00')
+
+        // 准备元数据
+        const metadata: Omit<ContentEmbeddingMetadata, 'chunkIndex'> = {
+            source: 'audio',
+            userId,
+            sourceId: ossFileId,
+            sourceName: fileName,
+            last_embedding_at: lastEmbeddingAt,
+        }
+
+        // 分块
+        const { documents, ids } = await splitDocumentContent(content, metadata, config)
+
+        if (documents.length === 0) {
+            logger.warn(`音频 ${ossFileId} 识别内容为空，跳过向量化`)
+            return {
+                ids: [],
+                lastEmbeddingAt,
+                chunkCount: 0,
+            }
+        }
+
+        // 添加到向量存储
+        await addDocumentsToVectorStore(documents, ids, caseMaterialVectorConfig)
+
+        logger.info(`音频 ${ossFileId} 向量化完成`, {
+            chunkCount: documents.length,
+            ids,
+        })
+
+        return {
+            ids,
+            lastEmbeddingAt,
+            chunkCount: documents.length,
+        }
+    } catch (error) {
+        logger.error(`音频 ${ossFileId} 向量化失败:`, error)
+        throw error
+    }
+}
+
+/**
+ * 检查音频是否已向量化
+ * @param ossFileId OSS 文件 ID
+ * @returns 是否已向量化
+ */
+export async function isAudioEmbedded(ossFileId: number): Promise<boolean> {
+    const pool = getPool()
+    const query = `
+        SELECT EXISTS(
+            SELECT 1 FROM ${caseMaterialVectorConfig.tableName} 
+            WHERE metadata->>'source' = 'audio' AND metadata->>'sourceId' = $1
+            LIMIT 1
+        ) as exists
+    `
+    const result = await pool.query(query, [ossFileId.toString()])
+    return result.rows[0]?.exists === true
+}
+
+/**
+ * 获取音频的向量 ID 列表
+ * @param ossFileId OSS 文件 ID
+ * @returns 向量 ID 列表
+ */
+export async function getAudioEmbeddingIds(ossFileId: number): Promise<string[]> {
+    const pool = getPool()
+    const query = `
+        SELECT id FROM ${caseMaterialVectorConfig.tableName} 
+        WHERE metadata->>'source' = 'audio' AND metadata->>'sourceId' = $1
+        ORDER BY (metadata->>'chunkIndex')::int ASC
+    `
+    const result = await pool.query(query, [ossFileId.toString()])
+    return result.rows.map((row: { id: string }) => row.id)
+}
+
+/**
+ * 检索用户的音频内容
+ * @param userId 用户 ID
+ * @param query 查询文本
+ * @param k 返回结果数量（默认 5）
+ * @returns 检索结果列表
+ */
+export async function searchUserAudiosService(
+    userId: number,
+    query: string,
+    k: number = 5
+): Promise<Array<{
+    content: string
+    sourceId: number
+    score: number
+    chunkIndex: number
+}>> {
+    logger.info('检索用户音频', { userId, query, k })
+
+    try {
+        // 使用 userId 和 source 作为过滤条件
+        const filter = { userId, source: 'audio' }
+
+        // 执行向量相似度搜索
+        const results = await similaritySearchWithScore(query, k, filter, caseMaterialVectorConfig)
+
+        // 转换结果格式
+        const searchResults = results.map(([doc, score]: [Document, number]) => {
+            const metadata = doc.metadata as ContentEmbeddingMetadata
+            return {
+                content: doc.pageContent,
+                sourceId: metadata.sourceId,
+                score,
+                chunkIndex: metadata.chunkIndex,
+            }
+        })
+
+        logger.info(`用户 ${userId} 音频检索完成`, {
+            resultCount: searchResults.length,
+        })
+
+        return searchResults
+    } catch (error) {
+        logger.error(`用户 ${userId} 音频检索失败:`, error)
+        throw error
+    }
+}

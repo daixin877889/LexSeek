@@ -25,8 +25,15 @@ import {
     updateAsrRecordDao,
     updateAsrRecordsByTaskIdDao,
 } from './asr.dao'
-import { generateSignedUrlService, uploadFileService } from '../storage/storage.service'
+import { generateSignedUrlService, uploadFileService, deleteFileService } from '../storage/storage.service'
+import { v7 as uuidv7 } from 'uuid'
+import dayjs from 'dayjs'
 import { checkPointsService, consumePointsService } from '../point/pointConsumption.service'
+import { getNodeConfigService, type NodeConfig } from '../node/node.service'
+import { embedAudioService as embedAudioToVectorStore, formatAsrResultForEmbedding } from './materialEmbedding.service'
+
+/** 音频识别节点名称 */
+const ASR_NODE_NAME = 'audioRecognition'
 
 /** ASR 转录积分消耗项目标识符 */
 const ASR_TRANSCRIBE_ITEM_KEY = 'asr_transcribe'
@@ -83,8 +90,12 @@ export interface AsrTranscriptionResult {
     speakers?: Array<{ id: number; name: string; color?: string }>
     /** 音频时长（秒） */
     duration?: number
-    /** 详细结果 */
+    /** 详细结果（精简后的结果，存入数据库） */
     result?: Record<string, any>
+    /** 原始结果（包含词级别时间戳，用于上传 OSS） */
+    rawResult?: Record<string, any>
+    /** 原始 JSON 的 OSS 文件 ID */
+    jsonOssFileId?: number
     /** 错误信息 */
     error?: string
 }
@@ -122,6 +133,24 @@ const SPEAKER_COLORS = [
 ]
 
 // ==================== 工具函数 ====================
+
+/**
+ * 获取 ASR 节点配置
+ * 从 node 系统获取音频识别相关的模型和 API Key 配置
+ */
+async function getAsrNodeConfig(): Promise<NodeConfig> {
+    const config = await getNodeConfigService(ASR_NODE_NAME)
+
+    if (!config) {
+        throw new Error(`ASR 节点 "${ASR_NODE_NAME}" 未配置或未启用，请在后台管理中配置该节点`)
+    }
+
+    if (config.modelApiKeys.length === 0) {
+        throw new Error(`ASR 节点 "${ASR_NODE_NAME}" 的模型提供商未配置 API 密钥`)
+    }
+
+    return config
+}
 
 /**
  * 验证音频类型是否支持
@@ -221,6 +250,210 @@ function extractSpeakerCount(transcription: any): number {
     return speakerIds.size || 1
 }
 
+/** ASR 原始结果中的句子信息 */
+interface AsrRawSentence {
+    /** 句子开始时间（毫秒） */
+    begin_time: number
+    /** 句子结束时间（毫秒） */
+    end_time: number
+    /** 句子文本内容 */
+    text: string
+    /** 句子 ID */
+    sentence_id: number
+    /** 说话人 ID */
+    speaker_id: number
+    /** 词级别时间戳（精简时移除） */
+    words?: any[]
+    /** 其他可能的字段 */
+    [key: string]: any
+}
+
+/** ASR 原始结果中的转录通道信息 */
+interface AsrRawTranscript {
+    /** 通道 ID */
+    channel_id: number
+    /** 内容时长（毫秒） */
+    content_duration_in_milliseconds: number
+    /** 句子列表 */
+    sentences: AsrRawSentence[]
+    /** 其他可能的字段 */
+    [key: string]: any
+}
+
+/** ASR 原始结果结构 */
+interface AsrRawResult {
+    /** 音频文件 URL */
+    file_url: string
+    /** 音频属性信息 */
+    properties: {
+        /** 音频格式 */
+        audio_format?: string
+        /** 原始采样率 */
+        original_sampling_rate?: number
+        /** 原始时长（毫秒） */
+        original_duration_in_milliseconds?: number
+        /** 其他属性 */
+        [key: string]: any
+    }
+    /** 转录结果列表 */
+    transcripts: AsrRawTranscript[]
+}
+
+/** 精简后的句子信息（仅保留必要字段） */
+interface SimplifiedSentence {
+    /** 句子开始时间（毫秒） */
+    begin_time: number
+    /** 句子结束时间（毫秒） */
+    end_time: number
+    /** 句子文本内容 */
+    text: string
+    /** 句子 ID */
+    sentence_id: number
+    /** 说话人 ID */
+    speaker_id: number
+}
+
+/** 精简后的转录通道信息 */
+interface SimplifiedTranscript {
+    /** 通道 ID */
+    channel_id: number
+    /** 内容时长（毫秒） */
+    content_duration_in_milliseconds: number
+    /** 句子列表（精简后） */
+    sentences: SimplifiedSentence[]
+}
+
+/** 精简后的 ASR 结果结构 */
+export interface SimplifiedAsrResult {
+    /** 音频文件 URL */
+    file_url: string
+    /** 音频属性信息 */
+    properties: AsrRawResult['properties']
+    /** 转录结果列表（精简后） */
+    transcripts: SimplifiedTranscript[]
+}
+
+/**
+ * 精简 ASR 识别结果
+ * 
+ * 移除词级别时间戳，仅保留句子级别信息，减少数据存储量
+ * 原始结果包含词级别时间戳（words 数组），数据量较大
+ * 精简后仅保留句子级别信息：begin_time、end_time、text、sentence_id、speaker_id
+ * 
+ * Requirements: 6.12（结果精简策略）
+ * 
+ * @param rawResult 原始 ASR 识别结果
+ * @returns 精简后的识别结果
+ */
+export function simplifyAsrResultService(rawResult: AsrRawResult): SimplifiedAsrResult {
+    // 处理空结果或无效结果
+    if (!rawResult) {
+        return {
+            file_url: '',
+            properties: {},
+            transcripts: [],
+        }
+    }
+
+    return {
+        file_url: rawResult.file_url || '',
+        properties: rawResult.properties || {},
+        transcripts: (rawResult.transcripts || []).map((transcript: AsrRawTranscript): SimplifiedTranscript => ({
+            channel_id: transcript.channel_id,
+            content_duration_in_milliseconds: transcript.content_duration_in_milliseconds,
+            sentences: (transcript.sentences || []).map((sentence: AsrRawSentence): SimplifiedSentence => ({
+                // 仅保留句子级别的必要字段，移除 words 等词级别信息
+                begin_time: sentence.begin_time,
+                end_time: sentence.end_time,
+                text: sentence.text,
+                sentence_id: sentence.sentence_id,
+                speaker_id: sentence.speaker_id,
+            })),
+        })),
+    }
+}
+
+/** 上传原始 JSON 到 OSS 的结果 */
+export interface UploadRawJsonResult {
+    /** 是否成功 */
+    success: boolean
+    /** OSS 文件 ID（成功时返回） */
+    ossFileId?: number
+    /** OSS 文件路径（成功时返回） */
+    filePath?: string
+    /** 错误信息（失败时返回） */
+    error?: string
+}
+
+/**
+ * 上传原始 ASR 识别结果 JSON 到 OSS
+ * 
+ * 将原始识别结果（包含词级别时间戳）上传到 OSS 保存，用于后续需要时查看完整数据
+ * 文件路径格式：asr/raw/{年}/{月}/{日}/{uuid}.json
+ * 
+ * Requirements: 6.3.2（上传原始 JSON 到 OSS 保存）
+ * 
+ * @param rawResult 原始 ASR 识别结果
+ * @param userId 用户 ID（用于关联 OSS 文件记录）
+ * @returns 上传结果，包含 OSS 文件 ID
+ */
+export async function uploadRawAsrJsonToOssService(
+    rawResult: AsrRawResult,
+    userId: number
+): Promise<UploadRawJsonResult> {
+    try {
+        // 1. 获取存储配置
+        const config = useRuntimeConfig()
+        const storageConfig = config.storage
+        const ossConfig = storageConfig.aliyunOss
+        const bucket = ossConfig.bucket
+
+        // 2. 生成文件路径：asr/raw/{年}/{月}/{日}/{uuid}.json
+        const now = dayjs()
+        const year = now.format('YYYY')
+        const month = now.format('MM')
+        const day = now.format('DD')
+        const uuid = uuidv7()
+        const filePath = `asr/raw/${year}/${month}/${day}/${uuid}.json`
+
+        // 3. 将原始结果转换为 JSON 字符串
+        const jsonContent = JSON.stringify(rawResult, null, 2)
+        const buffer = Buffer.from(jsonContent, 'utf-8')
+
+        // 4. 上传到 OSS
+        const uploadResult = await uploadFileService(filePath, buffer, {
+            contentType: 'application/json',
+        })
+
+        // 5. 创建 OSS 文件记录
+        const ossFile = await prisma.ossFiles.create({
+            data: {
+                userId,
+                bucketName: bucket,
+                fileName: `${uuid}.json`,
+                filePath,
+                fileSize: buffer.length,
+                fileType: 'application/json',
+                status: 1, // 已上传
+            },
+        })
+
+        logger.info(`原始 ASR JSON 上传成功：ossFileId=${ossFile.id}, filePath=${filePath}, etag=${uploadResult.etag}`)
+
+        return {
+            success: true,
+            ossFileId: ossFile.id,
+            filePath,
+        }
+    } catch (error) {
+        logger.error('上传原始 ASR JSON 到 OSS 异常：', error)
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : '上传异常',
+        }
+    }
+}
+
 // ==================== 服务层 ====================
 
 /**
@@ -255,19 +488,24 @@ export const checkUserPointsForAsrService = async (
  * @param ossFileId OSS 文件 ID
  * @param userId 用户 ID
  * @param options 转录选项
+ * @param tempFilePath 临时文件路径（加密文件解密后上传的路径，可选）
  * @returns 提交结果
  */
 export const submitAsrTaskService = async (
     ossFileId: number,
     userId: number,
-    options: AsrSubmitOptions = {}
+    options: AsrSubmitOptions = {},
+    tempFilePath?: string
 ): Promise<AsrSubmitResult> => {
     try {
-        // 1. 获取 ASR API Token（从环境变量获取）
-        const asrToken = process.env.DASHSCOPE_API_KEY
-        if (!asrToken) {
-            return { success: false, error: '未配置 ASR API Token（DASHSCOPE_API_KEY）' }
+        // 1. 获取 ASR 节点配置（从模型管理获取 API Key）
+        let nodeConfig: NodeConfig
+        try {
+            nodeConfig = await getAsrNodeConfig()
+        } catch (configError: any) {
+            return { success: false, error: configError.message }
         }
+        const asrToken = nodeConfig.modelApiKeys[0].apiKey
 
         // 2. 获取文件信息
         const ossFile = await prisma.ossFiles.findFirst({
@@ -305,13 +543,35 @@ export const submitAsrTaskService = async (
         }
 
         // 6. 生成签名 URL
-        const audioUrl = await generateSignedUrlService(ossFile.filePath, {
-            expires: 7200, // 2 小时有效期（音频转录可能需要较长时间）
-        })
+        // 如果提供了临时文件路径（加密文件解密后上传的路径），使用临时文件路径
+        // 否则使用原始文件路径
+        let audioUrl: string
+        if (tempFilePath) {
+            // 使用临时文件路径生成签名 URL
+            audioUrl = await generateSignedUrlService(tempFilePath, {
+                expires: 7200, // 2 小时有效期（音频转录可能需要较长时间）
+            })
+            logger.info(`使用临时文件路径生成签名 URL：tempFilePath=${tempFilePath}`)
+            logger.info(`临时文件签名 URL：${audioUrl}`)
 
-        // 7. 构建请求参数
+            // 验证 URL 是否可访问（HEAD 请求检查）
+            try {
+                const headResponse = await fetch(audioUrl, { method: 'HEAD' })
+                logger.info(`临时文件 URL 验证成功：status=${headResponse.status}, content-length=${headResponse.headers.get('content-length')}, content-type=${headResponse.headers.get('content-type')}`)
+            } catch (headError: any) {
+                logger.error(`临时文件 URL 验证失败：${headError.message}`)
+            }
+        } else {
+            // 使用原始文件路径生成签名 URL
+            audioUrl = await generateSignedUrlService(ossFile.filePath, {
+                expires: 7200, // 2 小时有效期（音频转录可能需要较长时间）
+            })
+            logger.debug(`原始文件签名 URL：${audioUrl}`)
+        }
+
+        // 7. 构建请求参数（使用节点配置中的模型名称）
         const requestBody = {
-            model: 'paraformer-v2',
+            model: nodeConfig.modelName,
             input: {
                 file_urls: [audioUrl],
             },
@@ -333,7 +593,7 @@ export const submitAsrTaskService = async (
             }
             code?: string
             message?: string
-        }>('https://dashscope.aliyuncs.com/api/v1/services/audio/asr/transcription', {
+        }>(`${nodeConfig.modelProviderBaseUrl}/services/audio/asr/transcription`, {
             method: 'POST',
             headers: {
                 Authorization: `Bearer ${asrToken}`,
@@ -366,7 +626,7 @@ export const submitAsrTaskService = async (
             },
         })
 
-        // 10. 创建 ASR 识别记录
+        // 10. 创建 ASR 识别记录（包含临时文件路径，用于后续清理）
         // Requirements: 3.2.4
         const record = await createAsrRecordDao({
             userId,
@@ -374,9 +634,10 @@ export const submitAsrTaskService = async (
             asrTasksId: task.id,
             status: AsrRecordStatus.PROCESSING,
             audioUrl,
+            tempFilePath: tempFilePath || undefined,
         })
 
-        logger.info(`ASR 任务提交成功：taskId=${taskId}, ossFileId=${ossFileId}`)
+        logger.info(`ASR 任务提交成功：taskId=${taskId}, ossFileId=${ossFileId}, tempFilePath=${tempFilePath || 'N/A'}`)
 
         return { success: true, task, record }
     } catch (error) {
@@ -390,37 +651,70 @@ export const submitAsrTaskService = async (
 
 /**
  * 处理转录结果
- * Requirements: 3.2.3, 3.2.4
+ * 
+ * 1. 下载原始转录结果 JSON
+ * 2. 调用 uploadRawAsrJsonToOssService 上传原始 JSON 到 OSS
+ * 3. 调用 simplifyAsrResultService 精简结果
+ * 4. 返回精简后的结果用于存入数据库
+ * 
+ * Requirements: 3.2.3, 3.2.4, 6.3.3
  *
  * @param taskId ASR 任务 ID
  * @param transcriptionUrl 转录结果 URL
+ * @param userId 用户 ID（用于上传 OSS 文件记录）
  * @returns 处理结果
  */
 export const processTranscriptionResultService = async (
     taskId: string,
-    transcriptionUrl: string
+    transcriptionUrl: string,
+    userId?: number
 ): Promise<AsrTranscriptionResult> => {
     try {
-        // 1. 下载转录结果 JSON
-        const response = await $fetch<any>(transcriptionUrl)
+        // 1. 下载原始转录结果 JSON
+        const rawResponse = await $fetch<any>(transcriptionUrl)
 
-        if (!response) {
+        if (!rawResponse) {
             return { success: false, error: '转录结果为空' }
         }
 
-        // 2. 提取转录文本
-        const text = extractTextFromTranscription(response)
+        // 2. 上传原始 JSON 到 OSS（如果提供了 userId）
+        // 原始 JSON 上传失败不影响主流程
+        let jsonOssFileId: number | undefined
+        if (userId) {
+            try {
+                const uploadResult = await uploadRawAsrJsonToOssService(rawResponse, userId)
+                if (uploadResult.success && uploadResult.ossFileId) {
+                    jsonOssFileId = uploadResult.ossFileId
+                    logger.info(`原始 ASR JSON 上传成功：taskId=${taskId}, ossFileId=${jsonOssFileId}`)
+                } else {
+                    // 上传失败只记录日志，不影响主流程
+                    logger.warn(`原始 ASR JSON 上传失败：taskId=${taskId}, error=${uploadResult.error}`)
+                }
+            } catch (uploadError) {
+                // 上传异常只记录日志，不影响主流程
+                logger.warn(`原始 ASR JSON 上传异常：taskId=${taskId}`, uploadError)
+            }
+        }
 
-        // 3. 提取说话人数量并生成说话人信息
-        const speakerCount = extractSpeakerCount(response)
+        // 3. 调用精简逻辑，移除词级别时间戳
+        const simplifiedResult = simplifyAsrResultService(rawResponse)
+
+        // 4. 提取转录文本
+        const text = extractTextFromTranscription(simplifiedResult)
+
+        // 5. 提取说话人数量并生成说话人信息
+        const speakerCount = extractSpeakerCount(simplifiedResult)
         const speakers = generateSpeakers(speakerCount)
 
-        // 4. 提取音频时长（如果有）
+        // 6. 提取音频时长（如果有）
         let duration: number | undefined
-        if (response.duration) {
-            duration = Math.ceil(response.duration / 1000) // 转换为秒
-        } else if (response.audio_duration) {
-            duration = Math.ceil(response.audio_duration)
+        if (rawResponse.properties?.original_duration_in_milliseconds) {
+            // 从 properties 中获取原始时长（毫秒转秒）
+            duration = Math.ceil(rawResponse.properties.original_duration_in_milliseconds / 1000)
+        } else if (rawResponse.duration) {
+            duration = Math.ceil(rawResponse.duration / 1000) // 转换为秒
+        } else if (rawResponse.audio_duration) {
+            duration = Math.ceil(rawResponse.audio_duration)
         }
 
         return {
@@ -428,7 +722,9 @@ export const processTranscriptionResultService = async (
             text,
             speakers,
             duration,
-            result: response,
+            result: simplifiedResult,      // 精简后的结果，存入数据库
+            rawResult: rawResponse,        // 原始结果（已上传到 OSS）
+            jsonOssFileId,                 // 原始 JSON 的 OSS 文件 ID
         }
     } catch (error) {
         logger.error('处理转录结果失败：', error)
@@ -441,7 +737,10 @@ export const processTranscriptionResultService = async (
 
 /**
  * 完成转录并保存结果
- * Requirements: 3.2.4, 3.2.8, 3.2.9
+ * 
+ * 将精简后的结果存入数据库，并更新 jsonOssFileId 字段
+ * 
+ * Requirements: 3.2.4, 3.2.8, 3.2.9, 6.3.3, 6.5.2
  *
  * @param taskId ASR 任务 ID（外部任务 ID）
  * @param transcriptionResult 转录结果
@@ -464,18 +763,19 @@ export const completeTranscriptionService = async (
                 text: transcriptionResult.text,
                 speakers: transcriptionResult.speakers,
                 duration: transcriptionResult.duration,
-                raw_result: transcriptionResult.result,
+                raw_result: transcriptionResult.result, // 存储精简后的结果
                 completed_at: new Date().toISOString(),
             },
         })
 
-        // 3. 更新 ASR 识别记录
+        // 3. 更新 ASR 识别记录（包含精简后的结果和 jsonOssFileId）
         const records = await findAsrRecordsByTaskIdDao(task.id)
         for (const record of records) {
             await updateAsrRecordDao(record.id, {
                 status: AsrRecordStatus.SUCCESS,
                 audioDuration: transcriptionResult.duration,
-                result: transcriptionResult.result,
+                result: transcriptionResult.result,      // 精简后的结果
+                jsonOssFileId: transcriptionResult.jsonOssFileId, // 原始 JSON 的 OSS 文件 ID
                 speakers: transcriptionResult.speakers,
             })
 
@@ -492,13 +792,58 @@ export const completeTranscriptionService = async (
                 // 积分扣减失败不影响转录结果，但需要记录日志
                 logger.error('ASR 转录积分扣减失败：', pointError)
             }
+
+            // 5. 异步触发向量化嵌入（失败不影响主流程）
+            // Requirements: 6.5.2
+            triggerAudioEmbeddingAsync(record.id, record.userId)
+
+            // 6. 清理临时文件（加密文件解密后上传的临时文件）
+            // Requirements: 6.7.3
+            if (record.tempFilePath) {
+                try {
+                    await deleteFileService(record.tempFilePath)
+                    logger.info(`临时音频文件已删除：${record.tempFilePath}`)
+                    // 清空记录中的临时文件路径
+                    await updateAsrRecordDao(record.id, { tempFilePath: null })
+                } catch (deleteError) {
+                    // 删除失败只记录日志，不影响主流程
+                    logger.warn(`临时音频文件删除失败：${record.tempFilePath}`, deleteError)
+                }
+            }
         }
 
-        logger.info(`ASR 转录完成：taskId=${taskId}`)
+        logger.info(`ASR 转录完成：taskId=${taskId}, jsonOssFileId=${transcriptionResult.jsonOssFileId || 'N/A'}`)
     } catch (error) {
         logger.error('完成转录失败：', error)
         throw error
     }
+}
+
+/**
+ * 异步触发音频识别结果向量化
+ * 
+ * 在识别完成后异步调用向量化服务，失败不影响主流程
+ * 
+ * Requirements: 6.5.2
+ * 
+ * @param recordId ASR 识别记录 ID
+ * @param userId 用户 ID
+ */
+function triggerAudioEmbeddingAsync(recordId: number, userId: number): void {
+    // 使用 Promise 异步执行，不阻塞主流程
+    embedAsrRecordService(recordId, userId)
+        .then((result) => {
+            if (result.success) {
+                logger.info(`音频向量化成功：recordId=${recordId}, vectorIds=${result.vectorIds?.length || 0}, chunkCount=${result.chunkCount || 0}`)
+            } else {
+                // 向量化失败只记录警告日志，不影响主流程
+                logger.warn(`音频向量化失败：recordId=${recordId}, error=${result.error}`)
+            }
+        })
+        .catch((error) => {
+            // 向量化异常只记录错误日志，不影响主流程
+            logger.error(`音频向量化异常：recordId=${recordId}`, error)
+        })
 }
 
 /**
@@ -532,7 +877,24 @@ export const failTranscriptionService = async (
         // 3. 更新 ASR 识别记录状态
         await updateAsrRecordsByTaskIdDao(task.id, AsrRecordStatus.FAILED)
 
-        // 4. 不扣减积分
+        // 4. 清理临时文件（加密文件解密后上传的临时文件）
+        // Requirements: 6.7.3
+        const records = await findAsrRecordsByTaskIdDao(task.id)
+        for (const record of records) {
+            if (record.tempFilePath) {
+                try {
+                    await deleteFileService(record.tempFilePath)
+                    logger.info(`临时音频文件已删除：${record.tempFilePath}`)
+                    // 清空记录中的临时文件路径
+                    await updateAsrRecordDao(record.id, { tempFilePath: null })
+                } catch (deleteError) {
+                    // 删除失败只记录日志，不影响主流程
+                    logger.warn(`临时音频文件删除失败：${record.tempFilePath}`, deleteError)
+                }
+            }
+        }
+
+        // 5. 不扣减积分
         // Requirements: 3.2.10
         logger.info(`ASR 转录失败，不扣减积分：taskId=${taskId}, error=${errorMsg}`)
     } catch (error) {
@@ -555,12 +917,15 @@ export const pollAsrTaskStatusService = async (taskId: string): Promise<boolean>
             return true
         }
 
-        // 获取 ASR API Token
-        const asrToken = process.env.DASHSCOPE_API_KEY
-        if (!asrToken) {
-            logger.error('轮询任务状态失败：未配置 ASR API Token')
+        // 获取 ASR 节点配置（从模型管理获取 API Key）
+        let nodeConfig: NodeConfig
+        try {
+            nodeConfig = await getAsrNodeConfig()
+        } catch (configError: any) {
+            logger.error('轮询任务状态失败：', configError.message)
             return false
         }
+        const asrToken = nodeConfig.modelApiKeys[0].apiKey
 
         // 调用阿里云百炼 ASR API 查询状态
         const response = await $fetch<{
@@ -576,12 +941,15 @@ export const pollAsrTaskStatusService = async (taskId: string): Promise<boolean>
             }
             code?: string
             message?: string
-        }>(`https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`, {
+        }>(`${nodeConfig.modelProviderBaseUrl}/tasks/${taskId}`, {
             method: 'GET',
             headers: {
                 Authorization: `Bearer ${asrToken}`,
             },
         })
+
+        // 记录完整的 API 响应用于调试
+        logger.debug(`ASR 任务状态查询响应：taskId=${taskId}, response=${JSON.stringify(response)}`)
 
         if (response.code) {
             logger.error(`轮询 ASR 任务状态失败：${response.message}`)
@@ -601,9 +969,20 @@ export const pollAsrTaskStatusService = async (taskId: string): Promise<boolean>
                 if (results && results.length > 0) {
                     const firstResult = results[0]
                     if (firstResult.transcription_url) {
+                        // 获取关联的 ASR 任务记录，以获取 userId 用于上传原始 JSON
+                        const task = await getAsrTaskByTaskIdService(taskId)
+                        let userId: number | undefined
+                        if (task) {
+                            const records = await findAsrRecordsByTaskIdDao(task.id)
+                            if (records.length > 0) {
+                                userId = records[0].userId
+                            }
+                        }
+
                         const transcriptionResult = await processTranscriptionResultService(
                             taskId,
-                            firstResult.transcription_url
+                            firstResult.transcription_url,
+                            userId  // 传入 userId 用于上传原始 JSON 到 OSS
                         )
                         if (transcriptionResult.success) {
                             await completeTranscriptionService(taskId, transcriptionResult)
@@ -620,8 +999,17 @@ export const pollAsrTaskStatusService = async (taskId: string): Promise<boolean>
 
             case 'FAILED':
             case 'UNKNOWN':
-                // 任务失败
-                await failTranscriptionService(taskId, response.message || '转录失败')
+                // 任务失败，提取详细错误信息
+                // DashScope API 的错误详情在 output.results 数组中
+                let detailedError = response.message || '转录失败'
+                if (output.results && output.results.length > 0) {
+                    const firstResult = output.results[0] as any
+                    if (firstResult.code || firstResult.message) {
+                        detailedError = `${firstResult.code || 'ERROR'}: ${firstResult.message || '未知错误'}`
+                    }
+                }
+                logger.error(`ASR 任务失败：taskId=${taskId}, status=${output.task_status}, error=${detailedError}, results=${JSON.stringify(output.results)}`)
+                await failTranscriptionService(taskId, detailedError)
                 return true
 
             default:
@@ -741,15 +1129,17 @@ export const pollPendingAsrTasksService = async (): Promise<{
  * @param ossFileId OSS 文件 ID
  * @param userId 用户 ID
  * @param options 转录选项
+ * @param tempFilePath 临时文件路径（加密文件解密后上传的路径，可选）
  * @returns 提交结果
  */
 export const transcribeAudioService = async (
     ossFileId: number,
     userId: number,
-    options: AsrSubmitOptions = {}
+    options: AsrSubmitOptions = {},
+    tempFilePath?: string
 ): Promise<AsrSubmitResult> => {
     // 1. 提交任务
-    const submitResult = await submitAsrTaskService(ossFileId, userId, options)
+    const submitResult = await submitAsrTaskService(ossFileId, userId, options, tempFilePath)
 
     if (!submitResult.success || !submitResult.task) {
         return submitResult
@@ -803,4 +1193,168 @@ export const updateAsrRecordService = async (
     tx?: Prisma.TransactionClient
 ): Promise<asrRecords> => {
     return await updateAsrRecordDao(id, data, tx)
+}
+
+
+/** 音频嵌入结果 */
+export interface AudioEmbeddingResult {
+    /** 是否成功 */
+    success: boolean
+    /** 生成的向量 ID 列表 */
+    vectorIds?: string[]
+    /** 最后嵌入时间 */
+    lastEmbeddingAt?: string
+    /** 分块数量 */
+    chunkCount?: number
+    /** 错误信息 */
+    error?: string
+}
+
+/**
+ * 从精简后的 ASR 结果中提取格式化文本
+ * 
+ * 将所有句子转换为带时间戳和说话人信息的格式，用于向量化嵌入
+ * 输出格式：[MM:SS-MM:SS]说话人X：文本内容
+ * 
+ * @param result 精简后的 ASR 识别结果
+ * @param speakers 说话人信息列表（可选）
+ * @returns 格式化后的文本
+ */
+function extractTextFromSimplifiedResult(
+    result: SimplifiedAsrResult | Record<string, any>,
+    speakers?: Array<{ id: number; name: string }>
+): string {
+    if (!result || !result.transcripts) {
+        return ''
+    }
+
+    // 收集所有句子
+    const allSentences: Array<{
+        text: string
+        begin_time: number
+        end_time: number
+        speaker_id: number
+        sentence_id?: number
+    }> = []
+
+    for (const transcript of result.transcripts) {
+        if (transcript.sentences && Array.isArray(transcript.sentences)) {
+            for (const sentence of transcript.sentences) {
+                if (sentence.text) {
+                    allSentences.push({
+                        text: sentence.text,
+                        begin_time: sentence.begin_time || 0,
+                        end_time: sentence.end_time || 0,
+                        speaker_id: sentence.speaker_id ?? 0,
+                        sentence_id: sentence.sentence_id,
+                    })
+                }
+            }
+        }
+    }
+
+    // 使用 formatAsrResultForEmbedding 格式化输出
+    return formatAsrResultForEmbedding(allSentences, speakers)
+}
+
+/**
+ * 音频识别结果向量化嵌入
+ * 
+ * 将音频识别结果进行向量化嵌入，用于后续的语义检索
+ * 
+ * 功能：
+ * 1. 提取识别文本（从精简后的结果中提取所有句子文本）
+ * 2. 调用 materialEmbedding.service.ts 进行向量化
+ * 3. 更新 asrRecords 的 vectorIds 和 lastEmbeddingAt 字段
+ * 4. 嵌入失败不影响主流程（仅记录日志）
+ * 
+ * Requirements: 6.5（音频识别向量化嵌入）
+ * 
+ * @param recordId ASR 识别记录 ID
+ * @param userId 用户 ID
+ * @param tx 可选的事务客户端
+ * @returns 嵌入结果
+ */
+export const embedAsrRecordService = async (
+    recordId: number,
+    userId: number,
+    tx?: Prisma.TransactionClient
+): Promise<AudioEmbeddingResult> => {
+    try {
+        // 1. 获取 ASR 识别记录
+        const record = await findAsrRecordByIdDao(recordId, tx)
+        if (!record) {
+            return {
+                success: false,
+                error: 'ASR 识别记录不存在',
+            }
+        }
+
+        // 2. 检查识别状态
+        if (record.status !== AsrRecordStatus.SUCCESS) {
+            return {
+                success: false,
+                error: `ASR 识别记录状态不正确：${record.status}，需要状态为成功(${AsrRecordStatus.SUCCESS})`,
+            }
+        }
+
+        // 3. 检查是否有识别结果
+        const result = record.result as SimplifiedAsrResult | Record<string, any> | null
+        if (!result) {
+            return {
+                success: false,
+                error: 'ASR 识别记录没有识别结果',
+            }
+        }
+
+        // 4. 获取说话人信息
+        const speakers = record.speakers as Array<{ id: number; name: string }> | null
+
+        // 5. 提取识别文本（带时间戳和说话人信息）
+        const text = extractTextFromSimplifiedResult(result, speakers || undefined)
+        if (!text || text.trim().length === 0) {
+            logger.warn(`ASR 识别记录 ${recordId} 的识别文本为空，跳过向量化`)
+            return {
+                success: true,
+                vectorIds: [],
+                chunkCount: 0,
+            }
+        }
+
+        // 6. 获取 OSS 文件信息（用于获取文件名）
+        const ossFile = await (tx || prisma).ossFiles.findFirst({
+            where: { id: record.ossFileId, deletedAt: null },
+        })
+        const fileName = ossFile?.fileName || `audio_${record.ossFileId}`
+
+        // 7. 调用向量化服务
+        const embeddingResult = await embedAudioToVectorStore({
+            content: text,
+            userId,
+            ossFileId: record.ossFileId,
+            fileName,
+        })
+
+        // 8. 更新 ASR 识别记录的向量信息
+        await updateAsrRecordDao(recordId, {
+            vectorIds: embeddingResult.ids,
+            lastEmbeddingAt: new Date(embeddingResult.lastEmbeddingAt),
+        }, tx)
+
+        logger.info(`音频识别结果向量化完成：recordId=${recordId}, ossFileId=${record.ossFileId}, chunkCount=${embeddingResult.chunkCount}`)
+
+        return {
+            success: true,
+            vectorIds: embeddingResult.ids,
+            lastEmbeddingAt: embeddingResult.lastEmbeddingAt,
+            chunkCount: embeddingResult.chunkCount,
+        }
+    } catch (error) {
+        // 嵌入失败不影响主流程，仅记录日志
+        logger.error(`音频识别结果向量化失败：recordId=${recordId}`, error)
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : '向量化失败',
+        }
+    }
 }
