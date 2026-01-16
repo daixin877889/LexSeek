@@ -68,6 +68,11 @@ const handleUpload = (message: UploadMessage) => {
     formData.append('x-oss-date', signature.date)
     formData.append('x-oss-signature', signature.signature)
 
+    // 添加 Content-Type，OSS PostObject 需要显式设置文件的 MIME 类型
+    if (file.type) {
+        formData.append('Content-Type', file.type)
+    }
+
     if (signature.securityToken) {
         formData.append('x-oss-security-token', signature.securityToken)
     }
@@ -96,8 +101,15 @@ const handleUpload = (message: UploadMessage) => {
     // 上传完成
     xhr.addEventListener('load', () => {
         uploadTasks.delete(id)
-        if (xhr.status === 200) {
+        // OSS 上传成功返回 200（有回调）或 204（无回调）
+        if (xhr.status === 200 || xhr.status === 204) {
             try {
+                // 204 No Content 没有响应体
+                if (xhr.status === 204 || !xhr.responseText) {
+                    const response: SuccessResponse = { type: 'success', id, data: {} }
+                    self.postMessage(response)
+                    return
+                }
                 const data = JSON.parse(xhr.responseText)
                 const response: SuccessResponse = { type: 'success', id, data }
                 self.postMessage(response)
