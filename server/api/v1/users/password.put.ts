@@ -1,3 +1,8 @@
+/**
+ * 修改用户密码
+ *
+ * 修改当前登录用户的密码，需要提供原密码（如果有）和新密码
+ */
 export default defineEventHandler(async (event) => {
   const logger = createLogger('users')
   try {
