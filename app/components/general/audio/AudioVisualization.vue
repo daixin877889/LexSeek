@@ -1,5 +1,6 @@
 <template>
-  <div class="audio-visualization w-full transition-all duration-500 ease-out" :class="{ 'fixed inset-0 z-9999 bg-background': isFullscreen }" ref="audioVisualizationRef">
+  <div class="audio-visualization w-full transition-all duration-500 ease-out"
+    :class="{ 'fixed inset-0 z-9999 bg-background': isFullscreen }" ref="audioVisualizationRef">
     <!-- 全屏模式下的头部标题栏 -->
     <div v-if="isFullscreen" class="flex items-center justify-between p-4 border-b bg-background fullscreen-header">
       <h3 class="text-lg font-semibold">{{ materialTitle }}</h3>
@@ -11,11 +12,12 @@
 
     <!-- 音频播放器 -->
     <div class="content-scale-transition" :class="{ 'mt-0': isFullscreen }">
-      <AudioPlayer ref="audioPlayerRef" :audio-url="audioUrl" :disabled="false" :disable-keyboard="true" @play="onPlay" @pause="onPause" @ended="onAudioEnded" @timeupdate="onTimeUpdate" />
+      <AudioPlayer ref="audioPlayerRef" :audio-url="audioUrl" :disabled="false" :disable-keyboard="true" @play="onPlay"
+        @pause="onPause" @ended="onAudioEnded" @timeupdate="onTimeUpdate" />
     </div>
 
     <!-- ASR对话记录 -->
-    <div class="asr-content bg-white border rounded-lg content-scale-transition mt-4">
+    <div class="asr-content bg-background border rounded-lg content-scale-transition mt-4">
       <div class="p-4 border-b">
         <div class="flex items-center justify-between">
           <div>
@@ -31,13 +33,15 @@
             </Button>
 
             <!-- 下载文档按钮 -->
-            <Button @click="downloadDocument" size="sm" variant="outline" class="h-8 w-8 rounded-full p-0" title="下载文档" :disabled="isDownloading">
+            <Button @click="downloadDocument" size="sm" variant="outline" class="h-8 w-8 rounded-full p-0" title="下载文档"
+              :disabled="isDownloading">
               <download-icon v-if="!isDownloading" class="h-4 w-4" />
               <loader-2-icon v-else class="h-4 w-4 animate-spin" />
             </Button>
 
             <!-- 全屏控制按钮 -->
-            <Button @click="toggleFullscreen" size="sm" variant="outline" class="h-8 w-8 rounded-full p-0" title="全屏/退出全屏">
+            <Button @click="toggleFullscreen" size="sm" variant="outline" class="h-8 w-8 rounded-full p-0"
+              title="全屏/退出全屏">
               <maximize-icon v-if="!isFullscreen" class="h-4 w-4" />
               <minimize-icon v-else class="h-4 w-4" />
             </Button>
@@ -45,37 +49,40 @@
         </div>
       </div>
 
-      <div class="p-4 space-y-4 overflow-y-auto" :class="isFullscreen ? 'max-h-[calc(100vh-280px)]' : 'max-h-[400px]'" ref="asrContainerRef">
+      <div class="p-4 space-y-4 overflow-y-auto" :class="isFullscreen ? 'max-h-[calc(100vh-280px)]' : 'max-h-[400px]'"
+        ref="asrContainerRef">
         <!-- 按说话人分组显示对话 -->
         <div v-if="processedTranscripts.length > 0 && props.asrData?.status === 2">
-          <div
-            v-for="(item, index) in processedTranscripts"
-            :key="index"
-            class="flex gap-3 mb-4"
-            :ref="
-              (el) => {
-                if (isSelected(item)) highlightedRef = el;
-              }
+          <div v-for="(item, index) in processedTranscripts" :key="index" class="flex gap-3 mb-4" :ref="(el) => {
+            if (isSelected(item)) highlightedRef = el;
+          }
             ">
             <!-- 说话人头像 -->
             <div class="shrink-0">
               <div class="relative group">
-                <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium cursor-pointer transition-all duration-200 group-hover:scale-110" :class="getSpeakerColor(item.speaker_id)" @click="openEditSpeakerDialog(item.speaker_id)" :title="`点击编辑说话人：${getSpeakerName(item.speaker_id)}`">
+                <div
+                  class="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium cursor-pointer transition-all duration-200 group-hover:scale-110"
+                  :class="getSpeakerColor(item.speaker_id)" @click="openEditSpeakerDialog(item.speaker_id)"
+                  :title="`点击编辑说话人：${getSpeakerName(item.speaker_id)}`">
                   {{ getSpeakerAvatarText(item.speaker_id) }}
                 </div>
                 <!-- 编辑图标 -->
-                <div class="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                <div
+                  class="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
                   <edit-icon class="w-2.5 h-2.5 text-muted-foreground" />
                 </div>
               </div>
             </div>
 
             <!-- 对话内容 -->
-            <div class="flex-1 rounded-lg p-3 cursor-pointer transition-all duration-200" :class="['bg-muted text-left', isSelected(item) ? `ring-2 ring-opacity-50 shadow-md ${getSpeakerRingColor(item.speaker_id)}` : '']" @click="seekToSentence(item)">
+            <div class="flex-1 rounded-lg p-3 cursor-pointer transition-all duration-200"
+              :class="['bg-muted text-left', isSelected(item) ? `ring-2 ring-opacity-50 shadow-md ${getSpeakerRingColor(item.speaker_id)}` : '']"
+              @click="seekToSentence(item)">
               <div class="text-sm leading-relaxed">
                 {{ item.text }}
               </div>
-              <div class="text-xs mt-1 opacity-70 text-muted-foreground">{{ getSpeakerName(item.speaker_id) }} · {{ formatTime(item.begin_time) }} - {{ formatTime(item.end_time) }}</div>
+              <div class="text-xs mt-1 opacity-70 text-muted-foreground">{{ getSpeakerName(item.speaker_id) }} · {{
+                formatTime(item.begin_time) }} - {{ formatTime(item.end_time) }}</div>
             </div>
           </div>
         </div>
@@ -248,13 +255,15 @@
         <div class="space-y-4 py-4">
           <div class="flex items-center gap-3">
             <!-- 说话人头像预览 -->
-            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium" :class="getSpeakerColor(editingSpeakerId)">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium"
+              :class="getSpeakerColor(editingSpeakerId)">
               {{ getSpeakerAvatarText(editingSpeakerId) }}
             </div>
 
             <div class="flex-1">
               <label class="text-sm font-medium text-muted-foreground mb-1 block"> 说话人姓名 </label>
-              <Input v-model="editingSpeakerName" placeholder="请输入说话人姓名" :disabled="isEditingSpeaker" @keydown.enter="handleEnterKeyDown" class="w-full" />
+              <Input v-model="editingSpeakerName" placeholder="请输入说话人姓名" :disabled="isEditingSpeaker"
+                @keydown.enter="handleEnterKeyDown" class="w-full" />
             </div>
           </div>
         </div>
@@ -276,10 +285,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PlayIcon, PauseIcon, Volume2Icon, MicIcon, MaximizeIcon, MinimizeIcon, XIcon, InfoIcon, EditIcon, DownloadIcon, Loader2Icon } from "lucide-vue-next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import asrApi from "@/api/asr";
-// import { useToastStore } from "@/stores";
 import AudioPlayer from "./AudioPlayer.vue";
-import logger from "@/utils/logger.js";
+
+// 使用 Nuxt 自动导入的 composable
+const { updateSpeakers } = useAudioRecognition();
 
 /**
  * Props定义
@@ -824,7 +833,7 @@ const toggleHelpDialog = () => {
  */
 const openEditSpeakerDialog = (speakerId) => {
   if (!props.asrRecordId) {
-    logger.warn("无法编辑说话人：缺少 asrRecordId");
+    console.warn("无法编辑说话人：缺少 asrRecordId");
     return;
   }
 
@@ -866,10 +875,6 @@ const cancelEditSpeaker = () => {
 const saveSpeakerName = async () => {
   if (!editingSpeakerName.value.trim()) {
     toast.error("说话人名称不能为空");
-    // toastStore.showErrorToast({
-    //   title: "保存失败",
-    //   message: "说话人名称不能为空",
-    // });
     return;
   }
 
@@ -882,14 +887,29 @@ const saveSpeakerName = async () => {
   try {
     isEditingSpeaker.value = true;
 
-    await asrApi.editSpeakerInfo(props.asrRecordId, {
-      speakers: [
-        {
-          id: editingSpeakerId.value,
-          name: editingSpeakerName.value.trim(),
-        },
-      ],
+    // 构建完整的 speakers 数组（保留现有说话人，更新目标说话人）
+    const currentSpeakers = props.asrData?.speakers || [];
+    const updatedSpeakers = currentSpeakers.map(speaker => {
+      if (speaker.id === editingSpeakerId.value) {
+        return { ...speaker, name: editingSpeakerName.value.trim() };
+      }
+      return speaker;
     });
+
+    // 如果目标说话人不在现有列表中，添加新的
+    if (!currentSpeakers.find(s => s.id === editingSpeakerId.value)) {
+      updatedSpeakers.push({
+        id: editingSpeakerId.value,
+        name: editingSpeakerName.value.trim(),
+      });
+    }
+
+    // 使用 composable 的 updateSpeakers 方法
+    const result = await updateSpeakers(props.asrRecordId, updatedSpeakers);
+
+    if (!result) {
+      throw new Error("更新失败");
+    }
 
     // 保存名称用于后续的 Toast 消息
     const savedName = editingSpeakerName.value.trim();
@@ -902,14 +922,9 @@ const saveSpeakerName = async () => {
 
     cancelEditSpeaker();
     toast.success(`说话人名称已更新为 "${savedName}"`);
-
-    // toastStore.showSuccessToast({
-    //   title: "保存成功",
-    //   message: `说话人名称已更新为 "${savedName}"`,
-    // });
   } catch (error) {
-    logger.error("更新说话人名称失败:", error);
-    toast.error(error.response?.data?.message || error.message || "请稍后重试");
+    console.error("更新说话人名称失败:", error);
+    toast.error(error.message || "更新失败，请稍后重试");
   } finally {
     isEditingSpeaker.value = false;
   }
@@ -945,7 +960,7 @@ const downloadDocument = async () => {
         fileExtension = pathname.substring(lastDotIndex);
       }
     } catch (error) {
-      warn("无法从URL推断文件扩展名，使用默认扩展名:", error);
+      console.warn("无法从URL推断文件扩展名，使用默认扩展名:", error);
     }
 
     // 生成音频文件名：材料标题 + 原始后缀名
@@ -979,9 +994,9 @@ const downloadDocument = async () => {
     // 使用 toast 提示成功
     toast.success("文档下载成功");
   } catch (error) {
-    logger.error("下载文档失败:", error);
+    console.error("下载文档失败:", error);
     // 使用 toast 显示错误提示
-    toast.error(error.response?.data?.message || error.message || "下载文档失败，请稍后重试");
+    toast.error(error.message || "下载文档失败，请稍后重试");
   } finally {
     isDownloading.value = false;
   }

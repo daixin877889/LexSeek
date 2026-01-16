@@ -64,7 +64,7 @@
               <Paperclip class="text-muted-foreground" :size="16" />
               案情材料
               <span v-if="selectedFiles.length > 0" class="ml-1 text-xs text-primary">({{ selectedFiles.length
-              }})</span>
+                }})</span>
             </PromptInputButton>
             <span class="text-muted-foreground text-xs"> </span>
           </PromptInputTools>
@@ -85,8 +85,14 @@
       @filesSelected="handleFilesSelected" />
 
     <!-- 文档预览弹框 -->
-    <CaseAnalysisDocPreviewDialog v-if="previewFile" v-model:open="previewDialogOpen" :oss-file-id="previewFile.id"
-      :file-name="previewFile.fileName" :file-type="previewFile.fileType" :encrypted="previewFile.encrypted" />
+    <CaseAnalysisDocPreviewDialog v-if="previewFile && !isAudioFile(previewFile.fileName)"
+      v-model:open="previewDialogOpen" :oss-file-id="previewFile.id" :file-name="previewFile.fileName"
+      :file-type="previewFile.fileType" :encrypted="previewFile.encrypted" />
+
+    <!-- 音频预览弹框 -->
+    <CaseAnalysisAudioPreviewDialog v-if="previewFile && isAudioFile(previewFile.fileName)"
+      v-model:open="audioPreviewDialogOpen" :oss-file-id="previewFile.id" :file-name="previewFile.fileName"
+      :encrypted="previewFile.encrypted" />
   </div>
 </template>
 
@@ -113,6 +119,7 @@ const fileRecognitionStatus = ref<Map<number, 'idle' | 'recognizing' | 'success'
 
 // 预览弹框状态
 const previewDialogOpen = ref(false);
+const audioPreviewDialogOpen = ref(false);
 const previewFile = ref<OssFileItem | null>(null);
 
 // docx 识别 composable
@@ -120,6 +127,16 @@ const { recognize, checkRecognitionStatus } = useDocxRecognition();
 
 // 图像识别 composable
 const { recognize: recognizeImage, checkRecognitionStatus: checkImageRecognitionStatus, isImageFile } = useImageRecognition();
+
+// 音频识别 composable
+const {
+  submitRecognition: submitAudioRecognition,
+  submitEncryptedAudioRecognition,
+  pollTaskStatus: pollAudioTaskStatus,
+  checkRecognitionStatus: checkAudioRecognitionStatus,
+  AsrRecordStatus,
+  isAudioFile
+} = useAudioRecognition();
 
 // 计算已选文件 ID 列表（传递给 MaterialSelector）
 const selectedFileIds = computed(() => selectedFiles.value.map(f => f.id))
@@ -196,6 +213,148 @@ async function triggerImageRecognition(file: OssFileItem) {
 }
 
 /**
+ * 触发音频识别
+ * 支持格式：MP3、WAV、M4A、AAC、FLAC、OGG、WEBM、AMR、OPUS
+ * 支持加密文件：自动检测并使用前端解密流程
+ *
+ * 优化：先检查是否已有识别记录，避免重复上传和识别
+ */
+async function triggerAudioRecognition(file: OssFileItem) {
+  console.log('[triggerAudioRecognition] ========== 函数开始 ==========');
+  console.log('[triggerAudioRecognition] 文件信息:', JSON.stringify({ id: file.id, fileName: file.fileName, encrypted: file.encrypted }));
+
+  if (!isAudioFile(file.fileName)) {
+    console.log('[triggerAudioRecognition] 文件不是音频类型');
+    return;
+  }
+
+  // 设置识别中状态
+  fileRecognitionStatus.value.set(file.id, 'recognizing');
+  console.log('[triggerAudioRecognition] 设置状态为 recognizing');
+
+  try {
+    // 先检查是否已有识别记录（不会触发新任务）
+    console.log('[triggerAudioRecognition] 检查是否已有识别记录...');
+    const existingRecord = await checkAudioRecognitionStatus(file.id);
+    console.log('[triggerAudioRecognition] 检查结果:', existingRecord);
+
+    if (existingRecord.hasRecord && existingRecord.recordId) {
+      // 已有识别记录，根据状态处理
+      if (existingRecord.status === AsrRecordStatus.SUCCESS) {
+        // 已识别成功，直接标记成功
+        console.log('[triggerAudioRecognition] 音频已识别成功，无需重新识别');
+        fileRecognitionStatus.value.set(file.id, 'success');
+        toast.success(`音频 ${file.fileName} 已识别`);
+        return;
+      }
+
+      if (existingRecord.status === AsrRecordStatus.FAILED) {
+        // 之前识别失败，需要重新提交
+        console.log('[triggerAudioRecognition] 之前识别失败，将重新提交');
+        // 继续执行下面的提交逻辑
+      } else if (existingRecord.status === AsrRecordStatus.PROCESSING || existingRecord.status === AsrRecordStatus.PENDING) {
+        // 正在处理中，直接开始轮询
+        console.log('[triggerAudioRecognition] 识别任务正在处理中，开始轮询...');
+        const finalStatus = await pollAudioTaskStatus(
+          existingRecord.recordId,
+          (status) => {
+            console.log('[triggerAudioRecognition] 轮询状态:', status);
+          }
+        );
+
+        if (finalStatus === AsrRecordStatus.SUCCESS) {
+          console.log('[triggerAudioRecognition] 识别完成');
+          fileRecognitionStatus.value.set(file.id, 'success');
+          toast.success(`音频 ${file.fileName} 识别完成`);
+        } else {
+          console.log('[triggerAudioRecognition] 识别失败，最终状态:', finalStatus);
+          fileRecognitionStatus.value.set(file.id, 'error');
+          toast.error(`音频 ${file.fileName} 识别失败`);
+        }
+        return;
+      }
+    }
+
+    // 没有识别记录或之前失败，需要提交新任务
+    let submitResult: { taskId: string | null; recordId: number | null; status: number } | null;
+
+    if (file.encrypted) {
+      // 加密文件：前端解密后上传临时文件
+      console.log('[triggerAudioRecognition] 检测到加密文件，开始解密流程...');
+      submitResult = await submitEncryptedAudioRecognition(
+        file,
+        undefined,
+        (progress) => {
+          console.log(`[triggerAudioRecognition] ${progress.stage}: ${progress.progress}%`);
+        }
+      );
+    } else {
+      // 未加密文件：直接提交
+      console.log('[triggerAudioRecognition] 提交识别任务...');
+      submitResult = await submitAudioRecognition(file.id);
+    }
+
+    console.log('[triggerAudioRecognition] 提交结果:', submitResult);
+
+    if (!submitResult) {
+      // useApiFetch 已经显示了错误 toast，这里只需要设置状态
+      console.log('[triggerAudioRecognition] 提交失败，useApiFetch 已显示错误提示');
+      fileRecognitionStatus.value.set(file.id, 'error');
+      return;
+    }
+
+    // 检查是否已经识别成功（可能是之前已识别的记录）
+    if (submitResult.status === AsrRecordStatus.SUCCESS) {
+      console.log('[triggerAudioRecognition] 音频已识别，标记成功');
+      fileRecognitionStatus.value.set(file.id, 'success');
+      toast.success(`音频 ${file.fileName} 已识别`);
+      return;
+    }
+
+    // 如果任务已失败，直接标记错误
+    if (submitResult.status === AsrRecordStatus.FAILED) {
+      console.log('[triggerAudioRecognition] 音频识别失败');
+      fileRecognitionStatus.value.set(file.id, 'error');
+      toast.error(`音频 ${file.fileName} 识别失败`);
+      return;
+    }
+
+    // 需要轮询等待识别完成
+    if (submitResult.recordId) {
+      console.log('[triggerAudioRecognition] 开始轮询任务状态，recordId:', submitResult.recordId);
+
+      // 轮询任务状态
+      const finalStatus = await pollAudioTaskStatus(
+        submitResult.recordId,
+        (status) => {
+          console.log('[triggerAudioRecognition] 轮询状态:', status);
+        }
+      );
+
+      if (finalStatus === AsrRecordStatus.SUCCESS) {
+        console.log('[triggerAudioRecognition] 识别完成');
+        fileRecognitionStatus.value.set(file.id, 'success');
+        toast.success(`音频 ${file.fileName} 识别完成`);
+      } else {
+        console.log('[triggerAudioRecognition] 识别失败，最终状态:', finalStatus);
+        fileRecognitionStatus.value.set(file.id, 'error');
+        toast.error(`音频 ${file.fileName} 识别失败`);
+      }
+    } else {
+      // 没有 recordId，标记错误
+      console.log('[triggerAudioRecognition] 未获取到 recordId');
+      fileRecognitionStatus.value.set(file.id, 'error');
+      toast.error(`音频 ${file.fileName} 识别失败：未获取到识别记录`);
+    }
+  } catch (error) {
+    console.error('音频识别失败:', error);
+    fileRecognitionStatus.value.set(file.id, 'error');
+    const errorMessage = error instanceof Error ? error.message : '识别失败';
+    toast.error(`音频 ${file.fileName} 识别失败: ${errorMessage}`);
+  }
+}
+
+/**
  * 触发文档文件识别（支持 docx、markdown 和 txt）
  */
 async function triggerDocRecognition(file: OssFileItem) {
@@ -256,24 +415,28 @@ async function triggerDocRecognition(file: OssFileItem) {
 async function retryRecognition(file: OssFileItem) {
   const isDoc = isRecognizableDocFile(file.fileName);
   const isImage = isImageFile(file.fileName);
-  
+  const isAudio = isAudioFile(file.fileName);
+
   if (isDoc) {
     await triggerDocRecognition(file);
   } else if (isImage) {
     await triggerImageRecognition(file);
+  } else if (isAudio) {
+    await triggerAudioRecognition(file);
   }
 }
 
 /**
  * 打开文件预览弹框
- * 只有已识别的文档文件和图片才能预览
+ * 支持文档文件、图片和音频的预览
  */
 function openPreview(file: OssFileItem) {
-  // 只有可识别的文档文件或图片才能预览
+  // 检查文件类型
   const isDoc = isRecognizableDocFile(file.fileName);
   const isImage = isImageFile(file.fileName);
-  
-  if (!isDoc && !isImage) {
+  const isAudio = isAudioFile(file.fileName);
+
+  if (!isDoc && !isImage && !isAudio) {
     return;
   }
 
@@ -291,7 +454,13 @@ function openPreview(file: OssFileItem) {
   }
 
   previewFile.value = file;
-  previewDialogOpen.value = true;
+
+  // 根据文件类型打开对应的预览弹框
+  if (isAudio) {
+    audioPreviewDialogOpen.value = true;
+  } else {
+    previewDialogOpen.value = true;
+  }
 }
 
 /**
@@ -315,9 +484,10 @@ async function handleFilesSelected(files: OssFileItem[]) {
   for (const file of newFiles) {
     const isDoc = isRecognizableDocFile(file.fileName);
     const isImage = isImageFile(file.fileName);
-    
-    console.log('检查文件是否需要识别:', file.fileName, 'isDoc:', isDoc, 'isImage:', isImage);
-    
+    const isAudio = isAudioFile(file.fileName);
+
+    console.log('检查文件是否需要识别:', file.fileName, 'isDoc:', isDoc, 'isImage:', isImage, 'isAudio:', isAudio);
+
     if (isDoc) {
       // 文档文件识别（docx、markdown 和 txt）
       console.log('[handleFilesSelected] 准备调用 triggerDocRecognition:', file.fileName);
@@ -332,6 +502,13 @@ async function handleFilesSelected(files: OssFileItem[]) {
         console.error('[handleFilesSelected] triggerImageRecognition 异常:', err);
       });
       console.log('[handleFilesSelected] triggerImageRecognition 已调用（异步）');
+    } else if (isAudio) {
+      // 音频文件识别
+      console.log('[handleFilesSelected] 准备调用 triggerAudioRecognition:', file.fileName);
+      triggerAudioRecognition(file).catch((err) => {
+        console.error('[handleFilesSelected] triggerAudioRecognition 异常:', err);
+      });
+      console.log('[handleFilesSelected] triggerAudioRecognition 已调用（异步）');
     }
   }
 }
@@ -350,9 +527,9 @@ async function handleSubmit(message: PromptInputMessage) {
     return;
   }
 
-  // 检查是否有正在识别的文件（文档或图片）
+  // 检查是否有正在识别的文件（文档、图片或音频）
   const recognizingFiles = selectedFiles.value.filter(f => {
-    const isRecognizable = isRecognizableDocFile(f.fileName) || isImageFile(f.fileName);
+    const isRecognizable = isRecognizableDocFile(f.fileName) || isImageFile(f.fileName) || isAudioFile(f.fileName);
     return isRecognizable && getRecognitionStatus(f.id) === 'recognizing';
   });
   if (recognizingFiles.length > 0) {

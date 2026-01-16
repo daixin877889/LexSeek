@@ -1,5 +1,5 @@
 <template>
-  <div class="audio-player bg-white border rounded-lg p-4">
+  <div class="audio-player bg-background border rounded-lg p-4">
     <div class="flex items-center gap-4">
       <!-- 播放/暂停按钮 -->
       <Button @click="togglePlayPause" size="sm" class="h-10 w-10 rounded-full p-0" :disabled="!audioUrl || disabled">
@@ -13,22 +13,27 @@
           <span>{{ formatAudioTime(currentTime) }}</span>
           <span>{{ formatAudioTime(duration) }}</span>
         </div>
-        <div class="w-full bg-muted rounded-full h-2 cursor-pointer" @click="seekTo" ref="progressBarRef" :class="{ 'cursor-not-allowed opacity-50': !audioUrl || disabled }">
-          <div class="bg-primary h-2 rounded-full transition-all duration-100" :style="{ width: progressPercentage + '%' }"></div>
+        <div class="w-full bg-muted rounded-full h-2 cursor-pointer" @click="seekTo" ref="progressBarRef"
+          :class="{ 'cursor-not-allowed opacity-50': !audioUrl || disabled }">
+          <div class="bg-primary h-2 rounded-full transition-all duration-100"
+            :style="{ width: progressPercentage + '%' }"></div>
         </div>
       </div>
 
       <!-- 音量控制 -->
       <div class="relative" ref="volumeControlRef">
-        <Button @click="toggleVolumePanel" size="sm" variant="outline" class="h-8 w-8 rounded-full p-0" title="音量控制" :disabled="!audioUrl || disabled">
+        <Button @click="toggleVolumePanel" size="sm" variant="outline" class="h-8 w-8 rounded-full p-0" title="音量控制"
+          :disabled="!audioUrl || disabled">
           <Volume2Icon class="h-4 w-4" />
         </Button>
 
         <!-- 音量调节面板 -->
-        <div v-if="showVolumePanel" class="absolute right-0 bottom-full mb-2 bg-white border rounded-lg shadow-lg p-3 min-w-[120px]">
+        <div v-if="showVolumePanel"
+          class="absolute right-0 bottom-full mb-2 bg-popover border rounded-lg shadow-lg p-3 min-w-[120px]">
           <div class="flex items-center gap-2">
             <Volume2Icon class="h-4 w-4 text-muted-foreground shrink-0" />
-            <input type="range" min="0" max="1" step="0.1" v-model="volume" @input="updateVolume" class="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer" />
+            <input type="range" min="0" max="1" step="0.1" v-model="volume" @input="updateVolume"
+              class="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer" />
           </div>
           <div class="text-xs text-muted-foreground text-center mt-1">{{ Math.round(volume * 100) }}%</div>
         </div>
@@ -36,7 +41,8 @@
     </div>
 
     <!-- 隐藏的音频元素 -->
-    <audio ref="audioRef" @loadedmetadata="onAudioLoaded" @timeupdate="onTimeUpdate" @ended="onAudioEnded" :src="audioUrl" preload="metadata"></audio>
+    <audio ref="audioRef" @loadedmetadata="onAudioLoaded" @timeupdate="onTimeUpdate" @ended="onAudioEnded"
+      :src="audioUrl" preload="metadata"></audio>
   </div>
 </template>
 

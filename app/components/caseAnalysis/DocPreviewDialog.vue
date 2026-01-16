@@ -1,6 +1,7 @@
 <template>
     <Dialog v-model:open="open">
-        <DialogContent class="w-full h-full md:min-w-[70vw] md:h-[80vh] flex flex-col">
+        <DialogContent class="w-full h-full md:min-w-[70vw] md:h-[80vh] flex flex-col"
+            @interactOutside="(e) => e.preventDefault()">
             <DialogHeader>
                 <DialogTitle class="flex items-center gap-2">
                     <component :is="getFileIcon(fileType)" :class="['size-5', getFileIconColor(fileType)]" />
@@ -42,7 +43,7 @@
                             <TabsTrigger value="recognition">识别结果</TabsTrigger>
                             <TabsTrigger value="original">原始图片</TabsTrigger>
                         </TabsList>
-                        
+
                         <!-- 识别结果标签页 -->
                         <TabsContent value="recognition" class="flex-1 overflow-y-auto px-4 mt-2">
                             <ClientOnly>
@@ -54,16 +55,12 @@
                                 </template>
                             </ClientOnly>
                         </TabsContent>
-                        
+
                         <!-- 原始图片标签页 -->
                         <TabsContent value="original" class="flex-1 overflow-y-auto px-4 mt-2">
                             <div class="flex items-center justify-center min-h-full py-4">
-                                <img 
-                                    v-if="originalImageUrl" 
-                                    :src="originalImageUrl" 
-                                    :alt="fileName"
-                                    class="max-w-full h-auto rounded-md shadow-lg"
-                                />
+                                <img v-if="originalImageUrl" :src="originalImageUrl" :alt="fileName"
+                                    class="max-w-full h-auto rounded-md shadow-lg" />
                                 <div v-else class="text-sm text-muted-foreground">
                                     无法加载原始图片
                                 </div>
@@ -285,7 +282,7 @@ async function loadContent() {
 
         // 直接使用服务端返回的内容（已替换图片占位符）
         renderedMarkdown.value = response.record.markdownContent || ''
-        
+
         // 如果是图像识别，保存图像类型
         if (response.recordType === 'image' && response.record.imageType) {
             imageType.value = response.record.imageType
