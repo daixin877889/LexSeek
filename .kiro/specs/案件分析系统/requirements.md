@@ -186,11 +186,175 @@
 - 音频可视化组件：`app/components/general/audio/AudioVisualization.vue`
 - 支持多说话人显示、时间同步高亮、点击跳转、说话人编辑等功能
 
+### 需求 7：案件创建增强
+
+**用户故事：** 作为用户，我希望在创建案件时能够同时上传案件材料，以便一次性完成案件的初始化。
+
+#### 验收标准
+
+1. THE System SHALL 支持在创建案件时同时提交案件材料
+2. THE System SHALL 支持多种材料类型（文本内容、文档、图片、音频）
+3. THE System SHALL 验证材料的有效性和权限
+4. THE System SHALL 使用事务确保案件和材料的原子性创建
+5. THE System SHALL 返回完整的案件和材料信息
+
+#### 技术方案
+
+**材料类型**：
+- **CASE_CONTENT**（文本内容）：直接保存文本内容
+- **DOCUMENT**（文档）：关联 OSS 文件 ID
+- **IMAGE**（图片）：关联 OSS 文件 ID
+- **AUDIO**（音频）：关联 OSS 文件 ID
+
+**数据流**：
+1. 客户端提交案件信息和材料列表
+2. 服务端验证案件类型、材料格式和文件权限
+3. 使用数据库事务创建案件和材料记录
+4. 返回完整的案件和材料信息
+
+**验证规则**：
+- 案件类型必须存在且已启用
+- 文件材料必须验证 OSS 文件存在且用户有权限
+- 文本材料必须包含内容
+- 所有材料必须指定类型和名称
+
+### 需求 8：文本材料向量化嵌入
+
+**用户故事：** 作为用户，我希望文本材料能够被向量化，以便在案件分析中进行语义搜索和相关性匹配。
+
+#### 验收标准
+
+1. THE System SHALL 对 CASE_CONTENT 类型的材料进行向量化嵌入
+2. THE System SHALL 在材料创建后自动触发向量化
+3. THE System SHALL 支持批量向量化处理
+4. THE System SHALL 将向量存储到 materialEmbeddings 表
+5. THE System SHALL 支持向量化失败的重试机制
+
+#### 技术方案
+
+**向量化时机**：
+- 材料创建后立即触发（异步处理）
+- 支持手动触发重新向量化
+
+**数据流**：
+1. 创建 CASE_CONTENT 材料 → 保存到 caseMaterials 表
+2. 触发向量化任务 → 调用嵌入模型
+3. 生成向量 → 保存到 materialEmbeddings 表
+4. 更新材料状态 → 标记为已向量化
+
+**向量化服务**：
+- 复用现有的 `materialEmbedding.service.ts`
+- 使用项目配置的嵌入模型
+- 支持批量处理以提高效率
+
+### 需求 9：前端页面对接新版创建案件 API
+
+**用户故事：** 作为用户，我希望在案件分析页面提交案情信息和材料时，能够使用新版创建案件 API，以便同时创建案件和上传材料。
+
+#### 验收标准
+
+1. THE System SHALL 在提交案情信息时调用新版创建案件 API
+2. THE System SHALL 支持同时提交文本内容和文件材料
+3. THE System SHALL 将已识别的文件材料转换为 API 所需的格式
+4. THE System SHALL 在创建案件成功后跳转到分析页面
+5. THE System SHALL 在创建失败时显示友好的错误提示
+6. THE System SHALL 在提交前验证必填字段（content 或 materials 至少一个）
+7. THE System SHALL 在提交前检查文件识别状态（不允许提交识别中的文件）
+
+#### 技术方案
+
+**API 调用**：
+- 使用 `useApiFetch` 调用 `POST /api/v1/case/create`
+- 请求体包含：`title`、`content`、`caseTypeId`、`materials`
+
+**材料转换**：
+- 文本内容：转换为 `CASE_CONTENT` 类型材料（通过 API 的 `content` 字段）
+- 文件材料：根据 MIME 类型转换为对应的材料类型
+  - 图片文件（通过 `isImageType(mimeType)` 判断）→ `IMAGE`
+  - 音频文件（通过 `isAudioType(mimeType)` 判断）→ `AUDIO`
+  - 其他文件 → `DOCUMENT`
+
+**注意**：项目中已在 `shared/utils/file.ts` 定义了允许上传的文件类型（`ASR_ACCEPT`、`DOC_ACCEPT`、`IMAGE_ACCEPT`），通过 MIME 类型判断自动生效，无需手动维护文件类型列表。
+
+**数据流**：
+1. 用户输入案情信息和选择材料
+2. 点击"法索一下"按钮
+3. 验证输入（文本或材料至少一个）
+4. 检查文件识别状态（不允许识别中的文件）
+5. 构建 API 请求参数
+6. 调用创建案件 API
+7. 创建成功后跳转到分析页面
+8. 创建失败时显示错误提示
+
+**错误处理**：
+- 参数验证失败：显示具体的错误信息
+- 网络错误：显示"网络错误，请重试"
+- 服务器错误：显示服务器返回的错误信息
+
+### 需求 10：修复图片识别记录创建时机
+
+**用户故事：** 作为系统，我希望只在图片识别成功后才创建识别记录，以避免失败记录污染数据库，与音频识别和 MinerU 识别保持一致。
+
+#### 背景
+
+根据深度 review 报告（`docs/recognition-flow-deep-review.md`），项目中的四种识别流程存在不一致：
+
+- **音频识别 (ASR)** - ✅ 正确：只在识别成功时创建识别记录
+- **MinerU 识别** - ✅ 正确：只在识别成功时创建识别记录
+- **图片识别 (OCR)** - ❌ 错误：在提交时就创建识别记录，失败时不删除
+
+当前图片识别流程（`server/services/material/ocr.service.ts` 中的 `createImageRecognitionByBase64Service` 方法）在识别开始时就创建识别记录，如果识别失败，已创建的记录不会被删除，这导致数据库中会留下失败的识别记录，污染数据。
+
+#### 验收标准
+
+1. WHEN 图片识别成功 THEN OCR_Service SHALL 创建识别记录
+2. WHEN 图片识别失败 THEN OCR_Service SHALL NOT 创建识别记录
+3. THE OCR_Service SHALL 在 AI 服务返回识别结果后才创建识别记录
+4. THE OCR_Service SHALL 确保识别记录的 status 字段为 COMPLETED
+5. WHEN 创建识别记录时 THEN OCR_Service SHALL 同时保存 Markdown 和 HTML 内容
+6. WHEN 同一文件已有成功的识别记录 THEN OCR_Service SHALL 直接返回现有记录
+7. WHEN 同一文件已有失败或处理中的识别记录 THEN OCR_Service SHALL 删除旧记录并重新识别
+8. THE OCR_Service SHALL 在创建新记录前检查是否存在旧记录
+9. WHEN 删除旧记录时 THEN OCR_Service SHALL 使用软删除（设置 deletedAt 字段）
+10. WHEN 识别记录创建成功 THEN OCR_Service SHALL 触发向量化嵌入
+11. WHEN 向量化嵌入成功 THEN OCR_Service SHALL 更新识别记录的 vectorIds 和 lastEmbeddingAt 字段
+12. WHEN 向量化嵌入失败 THEN OCR_Service SHALL 记录警告日志但不影响识别结果
+13. THE OCR_Service SHALL 在向量化嵌入后更新 case_materials 表的 embedding_status 字段
+14. WHEN 向量化嵌入失败 THEN OCR_Service SHALL 将 case_materials 的 embedding_status 设置为 failed
+15. THE OCR_Service SHALL 参考 ASR_Service 的 `completeTranscriptionService` 方法实现
+16. THE API SHALL 保持现有的响应格式不变
+17. THE API SHALL 保持现有的错误码不变
+18. WHEN 识别成功 THEN API SHALL 返回包含 id、imageType、markdownContent、htmlContent 的记录
+19. THE `useImageRecognition.ts` SHALL 保持现有的方法签名不变
+20. THE `useImageRecognition.ts` SHALL 保持现有的状态管理逻辑不变
+
+#### 技术方案
+
+**参考实现**：
+- 参考音频识别的 `completeTranscriptionService` 方法（`server/services/material/asr.service.ts`）
+- 音频识别在识别成功时才创建识别记录，失败时不创建任何记录
+
+**修改方案**：
+1. 修改 `createImageRecognitionByBase64Service` 方法
+2. 将识别记录创建逻辑移到 AI 识别成功之后
+3. 识别失败时直接返回错误，不创建记录
+4. 保持向量化嵌入逻辑不变
+5. 保持 API 接口和前端 composable 不变
+
+**涉及的文件**：
+- `server/services/material/ocr.service.ts` - 主要修改文件
+- `server/api/v1/recognition/image.post.ts` - API 接口（无需修改）
+- `app/composables/useImageRecognition.ts` - 前端 composable（无需修改）
+
 ## 实现状态
 
 - 案件分析：✅ 已完成
-- DOCX 浏览器端识别：🔄 进行中
+- DOCX 浏览器端识别：✅ 已完成
 - MinerU 批量上传：✅ 已完成
 - 本地文件识别：✅ 已完成
-- 图像识别：🔄 进行中
-- 音频识别：🔄 进行中（服务层已完成，API 和前端待实现）
+- 图像识别：✅ 已完成
+- 音频识别：✅ 已完成
+- 案件创建增强：✅ 已完成
+- 文本材料向量化嵌入：✅ 已完成
+- 前端页面对接新版创建案件 API：⏳ 进行中
+- 修复图片识别记录创建时机：❌ 待实现
