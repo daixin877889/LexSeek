@@ -16,7 +16,8 @@ import {
     deleteMaterialDao,
 } from './material.dao'
 import type { CreateMaterialInput, UpdateMaterialInput, MaterialQueryOptions } from '#shared/types/material'
-import { MaterialType, MaterialStatus } from '#shared/types/material'
+import { MaterialStatus } from '#shared/types/material'
+import { CaseMaterialType } from '#shared/types/case'
 
 /** 材料（包含文件信息） */
 export interface MaterialWithFile extends caseMaterials {
@@ -312,7 +313,7 @@ export const getMaterialsByIdsService = async (
  */
 export const getCompletedMaterialsContentService = async (
     caseId: number
-): Promise<{ materialId: number; name: string; type: MaterialType; content: string }[]> => {
+): Promise<{ materialId: number; name: string; type: CaseMaterialType; content: string }[]> => {
     const materials = await prisma.caseMaterials.findMany({
         where: {
             caseId,
@@ -334,7 +335,7 @@ export const getCompletedMaterialsContentService = async (
         .map((m) => ({
             materialId: m.id,
             name: m.name,
-            type: m.type as MaterialType,
+            type: m.type as CaseMaterialType,
             content: m.content as string,
         }))
 }

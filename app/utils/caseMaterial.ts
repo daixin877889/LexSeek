@@ -2,8 +2,7 @@
  * 案件材料相关工具函数
  */
 
-import type { CaseMaterialType } from '../../shared/types/case'
-import { CaseMaterialType as MaterialType } from '../../shared/types/case'
+import { CaseMaterialType } from '#shared/types/case'
 
 /**
  * 根据 MIME 类型确定材料类型
@@ -24,14 +23,14 @@ import { CaseMaterialType as MaterialType } from '../../shared/types/case'
 export function getMaterialType(mimeType: string): CaseMaterialType {
     // 判断是否为图片类型
     if (mimeType?.includes('image')) {
-        return MaterialType.IMAGE
+        return CaseMaterialType.IMAGE
     }
 
     // 判断是否为音频类型
     if (mimeType?.includes('audio')) {
-        return MaterialType.AUDIO
+        return CaseMaterialType.AUDIO
     }
 
     // 其他文件默认为文档类型
-    return MaterialType.DOCUMENT
+    return CaseMaterialType.DOCUMENT
 }

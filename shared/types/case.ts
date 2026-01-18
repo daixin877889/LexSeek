@@ -17,7 +17,12 @@ export enum CaseStatus {
     CLOSED = 3,
 }
 
-/** 案件材料类型枚举 */
+/** 
+ * 案件材料类型枚举
+ * 
+ * 注意：这是项目中统一使用的材料类型枚举
+ * shared/types/material.ts 中的 MaterialType 是此枚举的别名，为了向后兼容而保留
+ */
 export enum CaseMaterialType {
     /** 文本内容 */
     CASE_CONTENT = 1,

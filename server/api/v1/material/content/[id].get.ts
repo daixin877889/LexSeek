@@ -15,9 +15,8 @@ import {
 import {
     MaterialStatus,
     MaterialStatusText,
-    MaterialType,
-    MaterialTypeText,
 } from '#shared/types/material'
+import { CaseMaterialType, CaseMaterialTypeText } from '#shared/types/case'
 
 // 路径参数验证
 const paramsSchema = z.object({
@@ -103,7 +102,7 @@ export default defineEventHandler(async (event) => {
             responseData.caseId = material.caseId
             responseData.name = material.name
             responseData.type = material.type
-            responseData.typeText = MaterialTypeText[material.type as MaterialType]
+            responseData.typeText = CaseMaterialTypeText[material.type as CaseMaterialType]
             responseData.ossFileId = material.ossFileId
             responseData.isEncrypted = material.isEncrypted
             responseData.createdAt = material.createdAt

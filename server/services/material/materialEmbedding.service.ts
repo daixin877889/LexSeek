@@ -16,7 +16,7 @@ import {
     getPool,
     type VectorStoreConfig,
 } from '~~/server/services/legal/vectorStore.service'
-import { MaterialType } from '#shared/types/material'
+import { CaseMaterialType } from '#shared/types/material'
 
 /** 材料向量存储配置 */
 export const caseMaterialVectorConfig: VectorStoreConfig = {
@@ -80,7 +80,7 @@ export interface EmbedMaterialInput {
     /** 材料名称 */
     materialName: string
     /** 材料类型 */
-    materialType: MaterialType
+    materialType: CaseMaterialType
 }
 
 /** 材料向量化结果 */

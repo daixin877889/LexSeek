@@ -47,8 +47,8 @@ resetDatabaseSequences().catch(err => {
         FAILED: 4,
     }
 
-    ; (globalThis as any).MaterialType = {
-        TEXT: 1,
+    ; (globalThis as any).CaseMaterialType = {
+        CASE_CONTENT: 1,
         DOCUMENT: 2,
         IMAGE: 3,
         AUDIO: 4,

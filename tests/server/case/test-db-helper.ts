@@ -12,8 +12,8 @@ import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient, Prisma } from '../../../generated/prisma/client'
 import { config } from 'dotenv'
 import { v7 as uuidv7 } from 'uuid'
-import { CaseStatus, SessionStatus } from '../../../shared/types/case'
-import { MaterialStatus, MaterialType } from '../../../shared/types/material'
+import { CaseStatus, SessionStatus, CaseMaterialType } from '../../../shared/types/case'
+import { MaterialStatus } from '../../../shared/types/material'
 
 // 加载环境变量
 config()
@@ -254,7 +254,7 @@ export const createTestMaterial = async (
         data: {
             caseId: data.caseId,
             name: data.name || `${TEST_MATERIAL_PREFIX}${timestamp}`,
-            type: data.type ?? MaterialType.TEXT,
+            type: data.type ?? CaseMaterialType.CASE_CONTENT,
             content: data.content ?? '测试材料内容',
             originalContent: data.originalContent ?? null,
             ossFileId: data.ossFileId ?? null,

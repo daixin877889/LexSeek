@@ -21,7 +21,7 @@ import {
     getCompletedMaterialsContentService,
     getMaterialsStatsService,
 } from '../../material/material.service'
-import { MaterialType, MaterialTypeText } from '#shared/types/material'
+import { CaseMaterialType, CaseMaterialTypeText } from '#shared/types/case'
 import { logger } from '#shared/utils/logger'
 
 /** 材料处理节点名称 */
@@ -160,7 +160,7 @@ async function processMaterials(caseId: number): Promise<MaterialProcessResult> 
             const virtualMaterial: MaterialInfo = {
                 id: 0, // 虚拟材料 ID
                 name: '案情描述',
-                type: MaterialType.TEXT, // 文本类型
+                type: CaseMaterialType.CASE_CONTENT, // 文本类型
                 content: textContent,
             }
 
@@ -295,7 +295,7 @@ function aggregateMaterialsContent(materials: MaterialInfo[]): string {
     }
 
     const sections = materials.map((material, index) => {
-        const typeText = MaterialTypeText[material.type as MaterialType] || '未知类型'
+        const typeText = CaseMaterialTypeText[material.type as CaseMaterialType] || '未知类型'
         const header = `## 材料${index + 1}：${material.name}（${typeText}）`
         return `${header}\n\n${material.content}`
     })
@@ -314,7 +314,7 @@ function formatSuccessMessage(result: MaterialProcessResult): string {
 
     const materialList = materials
         .map((m, i) => {
-            const typeText = MaterialTypeText[m.type as MaterialType] || '未知类型'
+            const typeText = CaseMaterialTypeText[m.type as CaseMaterialType] || '未知类型'
             return `${i + 1}. ${m.name}（${typeText}）`
         })
         .join('\n')

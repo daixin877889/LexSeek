@@ -2,26 +2,15 @@
  * 材料相关类型定义
  */
 
-/**
- * 材料类型枚举
- */
-export enum MaterialType {
-    /** 文本（直接输入） */
-    TEXT = 1,
-    /** 文档（md/txt/docx/doc/pdf） */
-    DOCUMENT = 2,
-    /** 图片 */
-    IMAGE = 3,
-    /** 音频 */
-    AUDIO = 4,
-}
+// 导入案件材料类型枚举（统一使用，避免重复定义）
+import { CaseMaterialType } from './case'
 
 /** 材料类型文本映射 */
-export const MaterialTypeText: Record<MaterialType, string> = {
-    [MaterialType.TEXT]: '文本',
-    [MaterialType.DOCUMENT]: '文档',
-    [MaterialType.IMAGE]: '图片',
-    [MaterialType.AUDIO]: '音频',
+export const MaterialTypeText: Record<CaseMaterialType, string> = {
+    [CaseMaterialType.CASE_CONTENT]: '文本',
+    [CaseMaterialType.DOCUMENT]: '文档',
+    [CaseMaterialType.IMAGE]: '图片',
+    [CaseMaterialType.AUDIO]: '音频',
 }
 
 /**
@@ -58,7 +47,7 @@ export interface MaterialItem {
     /** 材料名称 */
     name: string
     /** 材料类型 */
-    type: MaterialType
+    type: CaseMaterialType
     /** 文件大小（字节） */
     size: number
     /** 原始文件（如果有） */
@@ -99,7 +88,7 @@ export interface CreateMaterialInput {
     /** 材料名称 */
     name: string
     /** 材料类型 */
-    type: number | MaterialType
+    type: number | CaseMaterialType
     /** 材料内容（处理后的文本内容） */
     content?: string
     /** 原始内容（加密存储时使用） */
@@ -133,7 +122,7 @@ export interface MaterialQueryOptions {
     /** 案件ID */
     caseId?: number
     /** 材料类型 */
-    type?: number | MaterialType
+    type?: number | CaseMaterialType
     /** 材料状态 */
     status?: MaterialStatus
     /** 页码 */

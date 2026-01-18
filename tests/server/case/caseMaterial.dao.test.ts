@@ -22,7 +22,8 @@ import {
     batchAddCaseMaterialsDAO,
     findByCaseIdDAO,
 } from '../../../server/services/case/caseMaterial.dao'
-import { MaterialType, MaterialStatus } from '../../../shared/types/material'
+import { MaterialStatus } from '../../../shared/types/material'
+import { CaseMaterialType } from '../../../shared/types/case'
 
 describe('案件材料 DAO 层', () => {
     let testIds: CaseTestIds
@@ -70,7 +71,7 @@ describe('案件材料 DAO 层', () => {
             const materials = [
                 {
                     name: '案情描述',
-                    type: MaterialType.TEXT,
+                    type: CaseMaterialType.CASE_CONTENT,
                     content: '这是案情描述内容',
                     originalContent: null,
                     ossFileId: null,
@@ -79,7 +80,7 @@ describe('案件材料 DAO 层', () => {
                 },
                 {
                     name: '补充说明',
-                    type: MaterialType.TEXT,
+                    type: CaseMaterialType.CASE_CONTENT,
                     content: '这是补充说明内容',
                     originalContent: null,
                     ossFileId: null,
@@ -94,7 +95,7 @@ describe('案件材料 DAO 层', () => {
             const savedMaterials = await findByCaseIdDAO(testCase.id)
             expect(savedMaterials.length).toBe(2)
             expect(savedMaterials[0].name).toBe('案情描述')
-            expect(savedMaterials[0].type).toBe(MaterialType.TEXT)
+            expect(savedMaterials[0].type).toBe(CaseMaterialType.CASE_CONTENT)
             expect(savedMaterials[0].content).toBe('这是案情描述内容')
             expect(savedMaterials[1].name).toBe('补充说明')
 
@@ -119,7 +120,7 @@ describe('案件材料 DAO 层', () => {
             const materials = [
                 {
                     name: '证据文档',
-                    type: MaterialType.DOCUMENT,
+                    type: CaseMaterialType.DOCUMENT,
                     content: null,
                     originalContent: null,
                     ossFileId: ossFile1.id,
@@ -128,7 +129,7 @@ describe('案件材料 DAO 层', () => {
                 },
                 {
                     name: '证据图片',
-                    type: MaterialType.IMAGE,
+                    type: CaseMaterialType.IMAGE,
                     content: null,
                     originalContent: null,
                     ossFileId: ossFile2.id,
@@ -142,9 +143,9 @@ describe('案件材料 DAO 层', () => {
             // 查询验证
             const savedMaterials = await findByCaseIdDAO(testCase.id)
             expect(savedMaterials.length).toBe(2)
-            expect(savedMaterials[0].type).toBe(MaterialType.DOCUMENT)
+            expect(savedMaterials[0].type).toBe(CaseMaterialType.DOCUMENT)
             expect(savedMaterials[0].ossFileId).toBe(ossFile1.id)
-            expect(savedMaterials[1].type).toBe(MaterialType.IMAGE)
+            expect(savedMaterials[1].type).toBe(CaseMaterialType.IMAGE)
             expect(savedMaterials[1].ossFileId).toBe(ossFile2.id)
 
             // 记录 ID 以便清理
@@ -155,7 +156,7 @@ describe('案件材料 DAO 层', () => {
             const materials = [
                 {
                     name: '加密内容',
-                    type: MaterialType.TEXT,
+                    type: CaseMaterialType.CASE_CONTENT,
                     content: '加密后的内容',
                     originalContent: '原始内容',
                     ossFileId: null,
@@ -181,7 +182,7 @@ describe('案件材料 DAO 层', () => {
             const materials = [
                 {
                     name: '待处理材料',
-                    type: MaterialType.TEXT,
+                    type: CaseMaterialType.CASE_CONTENT,
                     content: '内容',
                     originalContent: null,
                     ossFileId: null,
@@ -190,7 +191,7 @@ describe('案件材料 DAO 层', () => {
                 },
                 {
                     name: '处理中材料',
-                    type: MaterialType.TEXT,
+                    type: CaseMaterialType.CASE_CONTENT,
                     content: '内容',
                     originalContent: null,
                     ossFileId: null,
@@ -225,7 +226,7 @@ describe('案件材料 DAO 层', () => {
             const materials = [
                 {
                     name: '时间戳测试',
-                    type: MaterialType.TEXT,
+                    type: CaseMaterialType.CASE_CONTENT,
                     content: '内容',
                     originalContent: null,
                     ossFileId: null,
@@ -257,7 +258,7 @@ describe('案件材料 DAO 层', () => {
             const materials = [
                 {
                     name: '材料1',
-                    type: MaterialType.TEXT,
+                    type: CaseMaterialType.CASE_CONTENT,
                     content: '内容1',
                     originalContent: null,
                     ossFileId: null,
@@ -266,7 +267,7 @@ describe('案件材料 DAO 层', () => {
                 },
                 {
                     name: '材料2',
-                    type: MaterialType.TEXT,
+                    type: CaseMaterialType.CASE_CONTENT,
                     content: '内容2',
                     originalContent: null,
                     ossFileId: null,
@@ -275,7 +276,7 @@ describe('案件材料 DAO 层', () => {
                 },
                 {
                     name: '材料3',
-                    type: MaterialType.TEXT,
+                    type: CaseMaterialType.CASE_CONTENT,
                     content: '内容3',
                     originalContent: null,
                     ossFileId: null,
@@ -302,7 +303,7 @@ describe('案件材料 DAO 层', () => {
             const materials1 = [
                 {
                     name: '第一个材料',
-                    type: MaterialType.TEXT,
+                    type: CaseMaterialType.CASE_CONTENT,
                     content: '内容',
                     originalContent: null,
                     ossFileId: null,
@@ -318,7 +319,7 @@ describe('案件材料 DAO 层', () => {
             const materials2 = [
                 {
                     name: '第二个材料',
-                    type: MaterialType.TEXT,
+                    type: CaseMaterialType.CASE_CONTENT,
                     content: '内容',
                     originalContent: null,
                     ossFileId: null,
@@ -367,10 +368,10 @@ describe('案件材料 DAO 层', () => {
                 const materialArbitrary = fc.record({
                     name: fc.string({ minLength: 1, maxLength: 50 }),
                     type: fc.constantFrom(
-                        MaterialType.TEXT,
-                        MaterialType.DOCUMENT,
-                        MaterialType.IMAGE,
-                        MaterialType.AUDIO
+                        CaseMaterialType.CASE_CONTENT,
+                        CaseMaterialType.DOCUMENT,
+                        CaseMaterialType.IMAGE,
+                        CaseMaterialType.AUDIO
                     ),
                     content: fc.option(fc.string({ maxLength: 200 }), { nil: null }),
                     isEncrypted: fc.boolean(),
@@ -449,7 +450,7 @@ describe('案件材料 DAO 层', () => {
 
                             const materials = names.map(name => ({
                                 name,
-                                type: MaterialType.TEXT,
+                                type: CaseMaterialType.CASE_CONTENT,
                                 content: `内容_${name}`,
                                 originalContent: null,
                                 ossFileId: null,
@@ -510,7 +511,7 @@ describe('案件材料 DAO 层', () => {
                             // 为第一个案件创建材料
                             const materials1 = names1.map(name => ({
                                 name: `案件1_${name}`,
-                                type: MaterialType.TEXT,
+                                type: CaseMaterialType.CASE_CONTENT,
                                 content: '内容',
                                 originalContent: null,
                                 ossFileId: null,
@@ -522,7 +523,7 @@ describe('案件材料 DAO 层', () => {
                             // 为第二个案件创建材料
                             const materials2 = names2.map(name => ({
                                 name: `案件2_${name}`,
-                                type: MaterialType.TEXT,
+                                type: CaseMaterialType.CASE_CONTENT,
                                 content: '内容',
                                 originalContent: null,
                                 ossFileId: null,

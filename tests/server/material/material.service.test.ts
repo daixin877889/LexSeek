@@ -35,7 +35,8 @@ import {
     hasPendingMaterialsService,
     getMaterialsStatsService,
 } from '../../../server/services/material/material.service'
-import { MaterialStatus, MaterialType } from '../../../shared/types/material'
+import { MaterialStatus } from '../../../shared/types/material'
+import { CaseMaterialType } from '../../../shared/types/case'
 
 describe('材料服务层', () => {
     let testIds: CaseTestIds
@@ -74,7 +75,7 @@ describe('材料服务层', () => {
             const material = await createMaterialService({
                 caseId: testCase.id,
                 name: '测试材料_服务层创建',
-                type: MaterialType.TEXT,
+                type: CaseMaterialType.CASE_CONTENT,
                 content: '测试内容',
             })
             testIds.materialIds.push(material.id)
@@ -90,7 +91,7 @@ describe('材料服务层', () => {
                 createMaterialService({
                     caseId: 999999,
                     name: '测试材料',
-                    type: MaterialType.TEXT,
+                    type: CaseMaterialType.CASE_CONTENT,
                 })
             ).rejects.toThrow('案件不存在')
         })

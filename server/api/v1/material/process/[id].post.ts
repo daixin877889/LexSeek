@@ -16,7 +16,7 @@ import {
     updateMaterialStatusService,
     updateMaterialContentService,
 } from '~~/server/services/material/material.service'
-import { MaterialType, MaterialStatus } from '#shared/types/material'
+import { CaseMaterialType, MaterialStatus } from '#shared/types/material'
 import { convertPdfService } from '~~/server/services/material/mineru.service'
 import { createImageConversionService } from '~~/server/services/material/ocr.service'
 import { transcribeAudioService } from '~~/server/services/material/asr.service'

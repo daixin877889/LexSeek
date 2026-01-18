@@ -141,7 +141,7 @@ import {
 import { toast } from 'vue-sonner'
 import { FileSource } from '~~/shared/types/file'
 import type { PostSignatureResult } from '~~/shared/types/oss'
-import { MaterialType, type MaterialItem, type MaterialStatus, type UploadResult } from '~~/shared/types/material'
+import { CaseMaterialType, type MaterialItem, type MaterialStatus, type UploadResult } from '~~/shared/types/material'
 
 /**
  * 组件 Props
@@ -230,15 +230,15 @@ const canProcess = computed(() => {
 /**
  * 获取文件图标
  */
-const getFileIcon = (type: MaterialType) => {
+const getFileIcon = (type: CaseMaterialType) => {
   switch (type) {
-    case MaterialType.TEXT:
+    case CaseMaterialType.CASE_CONTENT:
       return FileTextIcon
-    case MaterialType.DOCUMENT:
+    case CaseMaterialType.DOCUMENT:
       return FileIcon
-    case MaterialType.IMAGE:
+    case CaseMaterialType.IMAGE:
       return ImageIcon
-    case MaterialType.AUDIO:
+    case CaseMaterialType.AUDIO:
       return MusicIcon
     default:
       return FileIcon
@@ -248,15 +248,15 @@ const getFileIcon = (type: MaterialType) => {
 /**
  * 获取材料类型名称
  */
-const getMaterialTypeName = (type: MaterialType): string => {
+const getMaterialTypeName = (type: CaseMaterialType): string => {
   switch (type) {
-    case MaterialType.TEXT:
+    case CaseMaterialType.CASE_CONTENT:
       return '文本'
-    case MaterialType.DOCUMENT:
+    case CaseMaterialType.DOCUMENT:
       return '文档'
-    case MaterialType.IMAGE:
+    case CaseMaterialType.IMAGE:
       return '图片'
-    case MaterialType.AUDIO:
+    case CaseMaterialType.AUDIO:
       return '音频'
     default:
       return '未知'
@@ -286,22 +286,22 @@ const getStatusText = (status: MaterialStatus): string => {
 /**
  * 检测文件的材料类型
  */
-const detectMaterialType = (file: File): MaterialType => {
+const detectMaterialType = (file: File): CaseMaterialType => {
   const mimeType = file.type.toLowerCase()
   const ext = file.name.split('.').pop()?.toLowerCase() || ''
 
   // 图片类型
   if (mimeType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif'].includes(ext)) {
-    return MaterialType.IMAGE
+    return CaseMaterialType.IMAGE
   }
 
   // 音频类型
   if (mimeType.startsWith('audio/') || ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac'].includes(ext)) {
-    return MaterialType.AUDIO
+    return CaseMaterialType.AUDIO
   }
 
   // 文档类型（包括 PDF 和可浏览器端处理的文档）
-  return MaterialType.DOCUMENT
+  return CaseMaterialType.DOCUMENT
 }
 
 /**
@@ -415,7 +415,7 @@ const addTextMaterial = () => {
 
   const material: MaterialItem = {
     name: `文本材料_${Date.now()}`,
-    type: MaterialType.TEXT,
+    type: CaseMaterialType.CASE_CONTENT,
     size: new Blob([textContent.value]).size,
     content: textContent.value,
     status: 'ready',

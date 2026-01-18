@@ -28,7 +28,8 @@ import {
     updateMaterialDao,
     deleteMaterialDao,
 } from '../../../server/services/material/material.dao'
-import { MaterialStatus, MaterialType } from '../../../shared/types/material'
+import { MaterialStatus } from '../../../shared/types/material'
+import { CaseMaterialType } from '../../../shared/types/case'
 
 describe('材料 DAO 层', () => {
     let testIds: CaseTestIds
@@ -67,7 +68,7 @@ describe('材料 DAO 层', () => {
             const material = await createMaterialDao({
                 caseId: testCase.id,
                 name: '测试材料_创建测试',
-                type: MaterialType.TEXT,
+                type: CaseMaterialType.CASE_CONTENT,
                 content: '测试内容',
             })
             testIds.materialIds.push(material.id)
@@ -76,7 +77,7 @@ describe('材料 DAO 层', () => {
             expect(material.id).toBeGreaterThan(0)
             expect(material.caseId).toBe(testCase.id)
             expect(material.name).toBe('测试材料_创建测试')
-            expect(material.type).toBe(MaterialType.TEXT)
+            expect(material.type).toBe(CaseMaterialType.CASE_CONTENT)
             expect(material.status).toBe(MaterialStatus.PENDING)
         })
 
@@ -87,7 +88,7 @@ describe('材料 DAO 层', () => {
             const material = await createMaterialDao({
                 caseId: testCase.id,
                 name: '测试材料_OSS关联',
-                type: MaterialType.DOCUMENT,
+                type: CaseMaterialType.DOCUMENT,
                 ossFileId: ossFile.id,
             })
             testIds.materialIds.push(material.id)
@@ -99,7 +100,7 @@ describe('材料 DAO 层', () => {
             const material = await createMaterialDao({
                 caseId: testCase.id,
                 name: '测试材料_加密',
-                type: MaterialType.TEXT,
+                type: CaseMaterialType.CASE_CONTENT,
                 content: '加密内容',
                 isEncrypted: true,
             })
@@ -177,22 +178,22 @@ describe('材料 DAO 层', () => {
         it('应该支持按类型筛选', async () => {
             const textMaterial = await createTestMaterial({
                 caseId: testCase.id,
-                type: MaterialType.TEXT,
+                type: CaseMaterialType.CASE_CONTENT,
             })
             testIds.materialIds.push(textMaterial.id)
 
             const docMaterial = await createTestMaterial({
                 caseId: testCase.id,
-                type: MaterialType.DOCUMENT,
+                type: CaseMaterialType.DOCUMENT,
             })
             testIds.materialIds.push(docMaterial.id)
 
             const result = await findManyMaterialsDao({
                 caseId: testCase.id,
-                type: MaterialType.TEXT,
+                type: CaseMaterialType.CASE_CONTENT,
             })
 
-            expect(result.list.every(m => m.type === MaterialType.TEXT)).toBe(true)
+            expect(result.list.every(m => m.type === CaseMaterialType.CASE_CONTENT)).toBe(true)
         })
 
         it('应该支持按状态筛选', async () => {

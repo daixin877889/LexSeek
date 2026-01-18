@@ -10,7 +10,7 @@
 
 import { z } from 'zod'
 import { createMaterialService } from '~~/server/services/material/material.service'
-import { MaterialType, MaterialStatus } from '#shared/types/material'
+import { CaseMaterialType, MaterialStatus } from '#shared/types/material'
 
 // 请求体验证
 const uploadMaterialSchema = z.object({

@@ -8,8 +8,8 @@
  */
 
 import * as fc from 'fast-check'
-import { CaseStatus, SessionStatus } from '../../../shared/types/case'
-import { MaterialStatus, MaterialType } from '../../../shared/types/material'
+import { CaseStatus, SessionStatus, CaseMaterialType } from '../../../shared/types/case'
+import { MaterialStatus } from '../../../shared/types/material'
 
 // ==================== 属性测试配置 ====================
 
@@ -119,10 +119,10 @@ export const sessionDataArbitrary = fc.record({
 
 /** 材料类型生成器 */
 export const materialTypeArb = fc.constantFrom(
-    MaterialType.TEXT,
-    MaterialType.DOCUMENT,
-    MaterialType.IMAGE,
-    MaterialType.AUDIO
+    CaseMaterialType.CASE_CONTENT,
+    CaseMaterialType.DOCUMENT,
+    CaseMaterialType.IMAGE,
+    CaseMaterialType.AUDIO
 )
 
 /** 材料状态生成器 */

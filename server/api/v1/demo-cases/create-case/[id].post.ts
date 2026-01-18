@@ -9,7 +9,7 @@
 
 import { z } from 'zod'
 import type { DemoCaseMaterial } from '~~/server/services/case/demoCase.dao'
-import { MaterialType, MaterialStatus } from '#shared/types/material'
+import { CaseMaterialType, MaterialStatus } from '#shared/types/material'
 
 /** 路径参数验证 */
 const paramsSchema = z.object({
