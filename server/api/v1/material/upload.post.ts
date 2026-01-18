@@ -10,7 +10,8 @@
 
 import { z } from 'zod'
 import { createMaterialService } from '~~/server/services/material/material.service'
-import { CaseMaterialType, MaterialStatus } from '#shared/types/material'
+import { CaseMaterialType } from '#shared/types/case'
+import { MaterialStatus } from '#shared/types/material'
 
 // 请求体验证
 const uploadMaterialSchema = z.object({
@@ -19,7 +20,7 @@ const uploadMaterialSchema = z.object({
     /** 材料名称 */
     name: z.string({ message: '材料名称不能为空' }).min(1, { message: '材料名称不能为空' }).max(255, { message: '材料名称不能超过 255 个字符' }),
     /** 材料类型：1-文本，2-文档，3-图片，4-音频 */
-    type: z.nativeEnum(MaterialType, { message: '材料类型无效' }),
+    type: z.nativeEnum(CaseMaterialType, { message: '材料类型无效' }),
     /** 材料内容（文本类型或浏览器端处理后的内容） */
     content: z.string().optional(),
     /** 关联的 OSS 文件 ID（文档/图片/音频类型必填） */
@@ -29,11 +30,11 @@ const uploadMaterialSchema = z.object({
 }).refine(
     (data) => {
         // 文本类型必须有内容
-        if (data.type === MaterialType.TEXT && !data.content) {
+        if (data.type === CaseMaterialType.CASE_CONTENT && !data.content) {
             return false
         }
         // 文档/图片/音频类型必须有 OSS 文件 ID 或内容
-        if ([MaterialType.DOCUMENT, MaterialType.IMAGE, MaterialType.AUDIO].includes(data.type)) {
+        if ([CaseMaterialType.DOCUMENT, CaseMaterialType.IMAGE, CaseMaterialType.AUDIO].includes(data.type)) {
             return data.ossFileId !== undefined || data.content !== undefined
         }
         return true

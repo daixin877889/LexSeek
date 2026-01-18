@@ -16,7 +16,8 @@ import {
     updateMaterialStatusService,
     updateMaterialContentService,
 } from '~~/server/services/material/material.service'
-import { CaseMaterialType, MaterialStatus } from '#shared/types/material'
+import { CaseMaterialType } from '#shared/types/case'
+import { MaterialStatus } from '#shared/types/material'
 import { convertPdfService } from '~~/server/services/material/mineru.service'
 import { createImageConversionService } from '~~/server/services/material/ocr.service'
 import { transcribeAudioService } from '~~/server/services/material/asr.service'
@@ -129,17 +130,17 @@ export default defineEventHandler(async (event) => {
         let processResult: { success: boolean; content?: string; error?: string }
 
         switch (material.type) {
-            case MaterialType.DOCUMENT:
+            case CaseMaterialType.DOCUMENT:
                 // PDF 文档处理
                 processResult = await processPdfMaterial(ossFile.id, user.id, options.mineruOptions)
                 break
 
-            case MaterialType.IMAGE:
+            case CaseMaterialType.IMAGE:
                 // 图片 OCR 处理
                 processResult = await processImageMaterial(ossFile.id, user.id)
                 break
 
-            case MaterialType.AUDIO:
+            case CaseMaterialType.AUDIO:
                 // 音频 ASR 处理
                 processResult = await processAudioMaterial(ossFile.id, user.id, options.asrOptions)
                 break
@@ -176,7 +177,7 @@ export default defineEventHandler(async (event) => {
                         materialId: material.id,
                         sessionId: session?.sessionId || '',
                         materialName: material.name,
-                        materialType: material.type as MaterialType,
+                        materialType: material.type as CaseMaterialType,
                     }
 
                     await embedMaterialService(embedInput)

@@ -21,7 +21,6 @@ export enum CaseStatus {
  * 案件材料类型枚举
  * 
  * 注意：这是项目中统一使用的材料类型枚举
- * shared/types/material.ts 中的 MaterialType 是此枚举的别名，为了向后兼容而保留
  */
 export enum CaseMaterialType {
     /** 文本内容 */
@@ -32,6 +31,14 @@ export enum CaseMaterialType {
     IMAGE = 3,
     /** 音频 */
     AUDIO = 4,
+}
+
+/** 案件材料类型文本映射 */
+export const CaseMaterialTypeText: Record<CaseMaterialType, string> = {
+    [CaseMaterialType.CASE_CONTENT]: '文本',
+    [CaseMaterialType.DOCUMENT]: '文档',
+    [CaseMaterialType.IMAGE]: '图片',
+    [CaseMaterialType.AUDIO]: '音频',
 }
 
 /**

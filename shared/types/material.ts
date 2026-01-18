@@ -3,15 +3,9 @@
  */
 
 // 导入案件材料类型枚举（统一使用，避免重复定义）
-import { CaseMaterialType } from './case'
-
-/** 材料类型文本映射 */
-export const MaterialTypeText: Record<CaseMaterialType, string> = {
-    [CaseMaterialType.CASE_CONTENT]: '文本',
-    [CaseMaterialType.DOCUMENT]: '文档',
-    [CaseMaterialType.IMAGE]: '图片',
-    [CaseMaterialType.AUDIO]: '音频',
-}
+// 注意：CaseMaterialType 和 CaseMaterialTypeText 在 case.ts 中定义
+// 这里不重新导出，避免 Nuxt 自动导入的重复警告
+import type { CaseMaterialType } from './case'
 
 /**
  * 材料状态枚举（数据库存储值）

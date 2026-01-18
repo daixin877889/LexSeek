@@ -60,7 +60,7 @@ export default defineEventHandler(async (event) => {
             await createMaterialService({
                 caseId: caseResult.caseId,
                 name: material.name,
-                type: material.type as MaterialType,
+                type: material.type as CaseMaterialType,
                 content: material.content,
                 status: material.content ? MaterialStatus.COMPLETED : MaterialStatus.PENDING,
             })
