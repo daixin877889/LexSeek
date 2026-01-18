@@ -18,6 +18,19 @@ const mockLogger = {
     ; (globalThis as any).logger = mockLogger
     ; (globalThis as any).prisma = getTestPrisma()
 
+    // Mock localStorage for tests
+    if (typeof localStorage === 'undefined') {
+        const storage: Record<string, string> = {}
+        ;(globalThis as any).localStorage = {
+            getItem: (key: string) => storage[key] || null,
+            setItem: (key: string, value: string) => { storage[key] = value },
+            removeItem: (key: string) => { delete storage[key] },
+            clear: () => { for (const key in storage) delete storage[key] },
+            length: 0,
+            key: (index: number) => Object.keys(storage)[index] || null,
+        }
+    }
+
 // 在测试开始前重置数据库序列（全局只执行一次）
 resetDatabaseSequences().catch(err => {
     console.warn('全局序列重置失败：', err)

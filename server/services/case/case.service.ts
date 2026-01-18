@@ -55,7 +55,7 @@ export interface CreateCaseResult {
  * @returns 创建结果，包含 caseId 和 sessionId
  */
 export const createCaseService = async (
-    data: import('./case.dao').CreateCaseInput
+    data: CreateCaseInput
 ): Promise<CreateCaseResult> => {
     // 验证案件类型是否存在且启用
     const caseType = await getCaseTypeByIdService(data.caseTypeId)
@@ -200,8 +200,8 @@ export const getSessionByIdService = async (
  */
 export const getUserCasesService = async (
     userId: number,
-    options: Omit<import('./case.dao').CaseListParams, 'userId'> = {}
-): Promise<{ list: import('./case.dao').CaseWithRelations[]; total: number }> => {
+    options: Omit<CaseListParams, 'userId'> = {}
+): Promise<{ list: CaseWithRelations[]; total: number }> => {
     return await findManyCasesDao({ ...options, userId })
 }
 
@@ -212,7 +212,7 @@ export const getUserCasesService = async (
  * @returns 案件列表和总数
  */
 export const getCasesService = async (
-    options: import('./case.dao').CaseListParams = {}
+    options: CaseListParams = {}
 ): Promise<{ list: import('./case.dao').CaseWithRelations[]; total: number }> => {
     return await findManyCasesDao(options)
 }
@@ -227,7 +227,7 @@ export const getCasesService = async (
  */
 export const updateCaseService = async (
     caseId: number,
-    data: import('./case.dao').UpdateCaseInput
+    data: UpdateCaseInput
 ): Promise<cases> => {
     // 检查案件是否存在
     const existing = await findCaseByIdDao(caseId)
