@@ -102,7 +102,9 @@ import { PromptInput, PromptInputBody, PromptInputButton, PromptInputFooter, Pro
 import { Paperclip, SendHorizontal, XIcon, LockIcon, Loader2Icon, CheckIcon, AlertCircleIcon } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 import type { OssFileItem } from "~/store/file";
+import type { CaseMaterialParam, CaseMaterialType } from "#shared/types/case";
 import { getFileIcon, getFileIconColor } from "~/utils/file";
+import { getMaterialType } from "~/utils/caseMaterial";
 
 
 // 路由
@@ -132,9 +134,12 @@ const { recognize: recognizeImage, checkRecognitionStatus: checkImageRecognition
 const {
   submitRecognition: submitAudioRecognition,
   submitEncryptedAudioRecognition,
+  getTaskStatus,
   pollTaskStatus: pollAudioTaskStatus,
+  getResult: getAudioResult,
   checkRecognitionStatus: checkAudioRecognitionStatus,
   AsrRecordStatus,
+  AsrTaskStatus,
   isAudioFile
 } = useAudioRecognition();
 
@@ -162,10 +167,12 @@ function isRecognizableDocFile(fileName: string): boolean {
 
 /**
  * 触发图像识别
+ * @param file 文件信息
+ * @param forceRetry 是否强制重试（跳过状态检查）
  */
-async function triggerImageRecognition(file: OssFileItem) {
+async function triggerImageRecognition(file: OssFileItem, forceRetry = false) {
   console.log('[triggerImageRecognition] ========== 函数开始 ==========');
-  console.log('[triggerImageRecognition] 文件信息:', JSON.stringify({ id: file.id, fileName: file.fileName }));
+  console.log('[triggerImageRecognition] 文件信息:', JSON.stringify({ id: file.id, fileName: file.fileName, forceRetry }));
 
   if (!isImageFile(file.fileName)) {
     console.log('[triggerImageRecognition] 文件不是图片类型');
@@ -177,21 +184,25 @@ async function triggerImageRecognition(file: OssFileItem) {
   console.log('[triggerImageRecognition] 设置状态为 recognizing');
 
   try {
-    // 先检查是否已识别
-    console.log('[triggerImageRecognition] 开始检查识别状态...');
-    const statusCheck = await checkImageRecognitionStatus(file.id);
-    console.log('[triggerImageRecognition] 状态检查结果:', statusCheck);
+    // 如果不是强制重试，先检查是否已识别
+    if (!forceRetry) {
+      console.log('[triggerImageRecognition] 开始检查识别状态...');
+      const statusCheck = await checkImageRecognitionStatus(file.id);
+      console.log('[triggerImageRecognition] 状态检查结果:', statusCheck);
 
-    if (statusCheck.recognized) {
-      // 已识别，直接标记成功
-      console.log('[triggerImageRecognition] 图片已识别，标记成功');
-      fileRecognitionStatus.value.set(file.id, 'success');
-      return;
+      if (statusCheck.recognized) {
+        // 已识别，直接标记成功
+        console.log('[triggerImageRecognition] 图片已识别，标记成功');
+        fileRecognitionStatus.value.set(file.id, 'success');
+        return;
+      }
+    } else {
+      console.log('[triggerImageRecognition] 强制重试，跳过状态检查');
     }
 
     // 需要识别，获取下载 URL
     const downloadUrl = file.url;
-    console.log('[triggerImageRecognition] 开始识别，downloadUrl:', downloadUrl);
+    console.log('[triggerImageRecognition] 开始识别，ossFileId:', file.id, 'fileName:', file.fileName);
 
     // 执行识别
     await recognizeImage({
@@ -199,6 +210,8 @@ async function triggerImageRecognition(file: OssFileItem) {
       fileName: file.fileName,
       encrypted: file.encrypted,
       downloadUrl,
+      mimeType: file.fileType,
+      forceRetry, // 传递 forceRetry 参数
     });
 
     console.log('[triggerImageRecognition] 识别完成');
@@ -253,30 +266,17 @@ async function triggerAudioRecognition(file: OssFileItem) {
         console.log('[triggerAudioRecognition] 之前识别失败，将重新提交');
         // 继续执行下面的提交逻辑
       } else if (existingRecord.status === AsrRecordStatus.PROCESSING || existingRecord.status === AsrRecordStatus.PENDING) {
-        // 正在处理中，直接开始轮询
-        console.log('[triggerAudioRecognition] 识别任务正在处理中，开始轮询...');
-        const finalStatus = await pollAudioTaskStatus(
-          existingRecord.recordId,
-          (status) => {
-            console.log('[triggerAudioRecognition] 轮询状态:', status);
-          }
-        );
-
-        if (finalStatus === AsrRecordStatus.SUCCESS) {
-          console.log('[triggerAudioRecognition] 识别完成');
-          fileRecognitionStatus.value.set(file.id, 'success');
-          toast.success(`音频 ${file.fileName} 识别完成`);
-        } else {
-          console.log('[triggerAudioRecognition] 识别失败，最终状态:', finalStatus);
-          fileRecognitionStatus.value.set(file.id, 'error');
-          toast.error(`音频 ${file.fileName} 识别失败`);
-        }
+        // 正在处理中，无法轮询（因为没有 taskId）
+        // 只能等待后端轮询完成，或者提示用户稍后查看
+        console.log('[triggerAudioRecognition] 识别任务正在处理中，请稍后查看');
+        fileRecognitionStatus.value.set(file.id, 'recognizing');
+        toast.info(`音频 ${file.fileName} 正在识别中，请稍后查看`);
         return;
       }
     }
 
     // 没有识别记录或之前失败，需要提交新任务
-    let submitResult: { taskId: string | null; recordId: number | null; status: number } | null;
+    let submitResult: { taskId: string | null; taskStatus: number } | null;
 
     if (file.encrypted) {
       // 加密文件：前端解密后上传临时文件
@@ -296,55 +296,33 @@ async function triggerAudioRecognition(file: OssFileItem) {
 
     console.log('[triggerAudioRecognition] 提交结果:', submitResult);
 
-    if (!submitResult) {
+    if (!submitResult || !submitResult.taskId) {
       // useApiFetch 已经显示了错误 toast，这里只需要设置状态
-      console.log('[triggerAudioRecognition] 提交失败，useApiFetch 已显示错误提示');
+      console.log('[triggerAudioRecognition] 提交失败或未获取到 taskId');
       fileRecognitionStatus.value.set(file.id, 'error');
       return;
     }
 
-    // 检查是否已经识别成功（可能是之前已识别的记录）
-    if (submitResult.status === AsrRecordStatus.SUCCESS) {
-      console.log('[triggerAudioRecognition] 音频已识别，标记成功');
-      fileRecognitionStatus.value.set(file.id, 'success');
-      toast.success(`音频 ${file.fileName} 已识别`);
-      return;
-    }
+    // 使用 taskId 轮询任务状态
+    console.log('[triggerAudioRecognition] 开始轮询任务状态，taskId:', submitResult.taskId);
 
-    // 如果任务已失败，直接标记错误
-    if (submitResult.status === AsrRecordStatus.FAILED) {
-      console.log('[triggerAudioRecognition] 音频识别失败');
+    const recordId = await pollAudioTaskStatus(
+      submitResult.taskId,
+      (status) => {
+        console.log('[triggerAudioRecognition] 任务状态:', status);
+      }
+    );
+
+    if (recordId) {
+      // 任务成功，获取到了识别记录 ID
+      console.log('[triggerAudioRecognition] 识别完成，recordId:', recordId);
+      fileRecognitionStatus.value.set(file.id, 'success');
+      toast.success(`音频 ${file.fileName} 识别完成`);
+    } else {
+      // 任务失败
+      console.log('[triggerAudioRecognition] 识别失败');
       fileRecognitionStatus.value.set(file.id, 'error');
       toast.error(`音频 ${file.fileName} 识别失败`);
-      return;
-    }
-
-    // 需要轮询等待识别完成
-    if (submitResult.recordId) {
-      console.log('[triggerAudioRecognition] 开始轮询任务状态，recordId:', submitResult.recordId);
-
-      // 轮询任务状态
-      const finalStatus = await pollAudioTaskStatus(
-        submitResult.recordId,
-        (status) => {
-          console.log('[triggerAudioRecognition] 轮询状态:', status);
-        }
-      );
-
-      if (finalStatus === AsrRecordStatus.SUCCESS) {
-        console.log('[triggerAudioRecognition] 识别完成');
-        fileRecognitionStatus.value.set(file.id, 'success');
-        toast.success(`音频 ${file.fileName} 识别完成`);
-      } else {
-        console.log('[triggerAudioRecognition] 识别失败，最终状态:', finalStatus);
-        fileRecognitionStatus.value.set(file.id, 'error');
-        toast.error(`音频 ${file.fileName} 识别失败`);
-      }
-    } else {
-      // 没有 recordId，标记错误
-      console.log('[triggerAudioRecognition] 未获取到 recordId');
-      fileRecognitionStatus.value.set(file.id, 'error');
-      toast.error(`音频 ${file.fileName} 识别失败：未获取到识别记录`);
     }
   } catch (error) {
     console.error('音频识别失败:', error);
@@ -387,13 +365,21 @@ async function triggerDocRecognition(file: OssFileItem) {
     // 注意：这里需要获取文件的下载 URL，如果文件有 url 字段则使用
     const downloadUrl = file.url;
     console.log('[triggerDocRecognition] 开始识别，downloadUrl:', downloadUrl);
+    console.log('[triggerDocRecognition] 文件加密状态:', file.encrypted);
+    console.log('[triggerDocRecognition] 完整文件对象:', JSON.stringify(file, null, 2));
+
+    // 临时修复：如果 URL 包含 .age 扩展名，说明文件是加密的
+    const isEncrypted = !!file.encrypted || (downloadUrl && downloadUrl.includes('.age'));
+    if (isEncrypted !== !!file.encrypted) {
+      console.warn('[triggerDocRecognition] 检测到加密状态不一致，URL 包含 .age 但 encrypted 字段为 false');
+    }
 
     // 执行识别（传递文件名用于图片命名）
     // 如果正在处理中，recognize 内部会轮询等待
     await recognize({
       ossFileId: file.id,
       fileName: file.fileName,
-      encrypted: file.encrypted,
+      encrypted: isEncrypted ? true : undefined,
       downloadUrl,
       bucket: 'lexseek-files', // 默认 bucket
     });
@@ -420,7 +406,8 @@ async function retryRecognition(file: OssFileItem) {
   if (isDoc) {
     await triggerDocRecognition(file);
   } else if (isImage) {
-    await triggerImageRecognition(file);
+    // 重试时强制跳过状态检查，直接重新识别
+    await triggerImageRecognition(file, true);
   } else if (isAudio) {
     await triggerAudioRecognition(file);
   }
@@ -543,6 +530,13 @@ async function handleSubmit(message: PromptInputMessage) {
     // 生成案件标题：使用文本内容的前 50 个字符，或使用第一个文件名
     const title = message.text?.trim() ? message.text.trim().slice(0, 50) + (message.text.trim().length > 50 ? "..." : "") : selectedFiles.value[0]?.fileName || "新案件";
 
+    // 构建材料参数数组
+    const materials: CaseMaterialParam[] = selectedFiles.value.map(file => ({
+      type: getMaterialType(file.fileType),
+      name: file.fileName,
+      ossFileId: file.id,
+    }));
+
     // 创建案件（使用默认案件类型 ID = 1）
     const createResult = await useApiFetch<{
       caseId: number;
@@ -553,26 +547,18 @@ async function handleSubmit(message: PromptInputMessage) {
         title,
         content: message.text?.trim() || undefined,
         caseTypeId: 1, // 默认案件类型
+        materials: materials.length > 0 ? materials : undefined,
       },
     });
 
     if (!createResult) {
-      throw new Error("创建案件失败");
+      // useApiFetch 已经显示了错误提示，这里只需要恢复状态
+      status.value = "error";
+      setTimeout(() => {
+        status.value = "ready";
+      }, 3000);
+      return;
     }
-
-    // 将材料数据存储到 sessionStorage，供分析页面使用
-    const materialData = {
-      text: message.text?.trim() || "",
-      fileIds: selectedFiles.value.map((f) => f.id),
-      files: selectedFiles.value.map((f) => ({
-        id: f.id,
-        fileName: f.fileName,
-        fileType: f.fileType,
-        fileSize: f.fileSize,
-        encrypted: f.encrypted,
-      })),
-    };
-    sessionStorage.setItem(`analysis_materials_${createResult.sessionId}`, JSON.stringify(materialData));
 
     // 提交成功后清空已选文件列表和识别状态
     selectedFiles.value = []
@@ -581,8 +567,9 @@ async function handleSubmit(message: PromptInputMessage) {
     // 跳转到分析页面
     await router.push(`/dashboard/analysis/${createResult.sessionId}`);
   } catch (error) {
+    // 捕获其他未预期的错误（如网络异常、路由跳转失败等）
     status.value = "error";
-    const errorMessage = error instanceof Error ? error.message : "提交失败";
+    const errorMessage = error instanceof Error ? error.message : "操作失败，请重试";
     toast.error(errorMessage);
 
     // 3 秒后恢复状态

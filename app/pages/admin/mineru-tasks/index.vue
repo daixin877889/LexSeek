@@ -135,11 +135,7 @@
                                                 <RefreshCw class="h-4 w-4 mr-2" />
                                                 查询状态
                                             </DropdownMenuItem>
-                                            <DropdownMenuSeparator v-if="item.status === 3" />
-                                            <DropdownMenuItem v-if="item.status === 3" @click="handleRetry(item)">
-                                                <RotateCcw class="h-4 w-4 mr-2" />
-                                                重试任务
-                                            </DropdownMenuItem>
+                                            <!-- MinerU 任务无法后台重试（文件是前端直传的） -->
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
@@ -229,9 +225,7 @@
                 <DialogFooter>
                     <Button variant="outline" @click="detailDialogOpen = false">关闭</Button>
                     <Button v-if="selectedItem?.status === 3" @click="handleRetry(selectedItem!)" :disabled="retrying">
-                        <Loader2 v-if="retrying" class="h-4 w-4 mr-2 animate-spin" />
-                        <RotateCcw v-else class="h-4 w-4 mr-2" />
-                        重试任务
+                        重试
                     </Button>
                 </DialogFooter>
             </DialogContent>

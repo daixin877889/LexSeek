@@ -493,15 +493,8 @@ async function loadCaseInfo() {
     initializeTasks();
     isLoading.value = false;
 
-    // 检查 sessionStorage 中的材料数据
-    const storedMaterials = sessionStorage.getItem(`analysis_materials_${sessionId.value}`);
-    if (storedMaterials) {
-      sessionStorage.removeItem(`analysis_materials_${sessionId.value}`);
-      const materialData = JSON.parse(storedMaterials);
-      await startAnalysis({ resumeData: materialData });
-    } else {
-      await startAnalysis();
-    }
+    // 直接启动分析（材料数据已在创建案件时保存）
+    await startAnalysis();
   } catch (error) {
     const message = error instanceof Error ? error.message : "加载案件信息失败";
     loadError.value = message;
