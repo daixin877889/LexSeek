@@ -10,6 +10,7 @@ import { PGVectorStore } from '@langchain/community/vectorstores/pgvector'
 import { OpenAIEmbeddings } from '@langchain/openai'
 import type { Document } from '@langchain/core/documents'
 import type { EmbeddingConfig } from '#shared/types/model'
+import { getEmbeddingConfigWithFallbackService } from '../model/modelConfig.service'
 import pg from 'pg'
 
 // 全局 PGVectorStore 实例映射表，按 tableName 缓存实例

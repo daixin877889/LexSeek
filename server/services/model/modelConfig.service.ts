@@ -5,6 +5,14 @@
  */
 
 import type { FullModelConfig, EmbeddingConfig, ModelType } from '#shared/types/model'
+import {
+    findModelByIdDao,
+    findModelsByTypeDao,
+    findModelsByProviderIdDao,
+    findDefaultModelByTypeDao,
+} from './models.dao'
+import { findModelProviderByIdDao } from './modelProviders.dao'
+import { findDefaultModelApiKeyByProviderIdDao } from './modelApiKeys.dao'
 
 /**
  * 通过 ID 获取完整模型配置

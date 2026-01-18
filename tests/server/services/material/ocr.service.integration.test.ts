@@ -23,8 +23,8 @@ const TEST_USER_ID = 1
 const testOssFileIds: number[] = []
 const testRecordIds: number[] = []
 
-// 测试图片 base64 数据（10x10 像素的有效 PNG 图片，来自 mammoth 测试数据）
-const TEST_IMAGE_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAIAAAACUFjqAAAAAXNSR0IArs4c6QAAAAlwSFlzAAAOvgAADr4B6kKxwAAAABNJREFUKFNj/M+ADzDhlWUYqdIAQSwBE8U+X40AAAAASUVORK5CYII='
+// 测试图片 base64 数据（20x20 像素的有效 PNG 图片，满足 AI 服务最小 14x14 的限制）
+const TEST_IMAGE_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAAAXNSR0IArs4c6QAAAB1JREFUOE9j/P///38GPgMqZiQ0o2E4GkajYTAaBgA2bQ/1f4GqzwAAAABJRU5ErkJggg=='
 const TEST_IMAGE_MIME_TYPE = 'image/png'
 
 describe('图片识别服务集成测试', () => {
