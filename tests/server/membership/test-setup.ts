@@ -102,4 +102,17 @@ resetDatabaseSequences().catch(err => {
         SETTLED: 2,
     }
 
+    // 图片识别状态枚举
+    ; (globalThis as any).ImageRecognitionStatus = {
+        PENDING: 1,
+        COMPLETED: 2,
+        FAILED: 3,
+    }
+
+    // 图片类型枚举
+    ; (globalThis as any).ImageType = {
+        DOC: 'doc',
+        PHOTO: 'photo',
+    }
+
 export { mockLogger }
