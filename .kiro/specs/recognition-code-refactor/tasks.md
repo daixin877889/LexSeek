@@ -6,7 +6,7 @@
 
 ## 任务
 
-- [ ] 1. 创建共享类型定义文件
+- [x] 1. 创建共享类型定义文件
   - [x] 1.1 创建 `shared/types/recognition.ts` 文件
     - 定义 `DocRecognitionStatus` 枚举和 `DocRecognitionStatusText` 映射
     - 定义 `ImageRecognitionStatus` 枚举和 `ImageRecognitionStatusText` 映射
@@ -28,13 +28,13 @@
   - 运行类型检查和测试，确保新创建的类型文件无错误
   - 如有问题请询问用户
 
-- [ ] 3. 创建 OSS 文件 DAO 函数
+- [x] 3. 创建 OSS 文件 DAO 函数
   - [x] 3.1 创建 `server/services/storage/ossFile.dao.ts` 文件
     - 实现 `findOssFileByIdDao` 函数
     - 实现 `findOssFileByIdIncludeDeletedDao` 函数（如需要）
     - _需求: 4.4, 4.5_
 
-- [ ] 4. 重构服务端 DAO 文件
+- [x] 4. 重构服务端 DAO 文件
   - [x] 4.1 重构 `ocr.dao.ts`
     - 从 `#shared/types/recognition` 导入 `ImageRecognitionStatus`、`ImageType`
     - 删除本地枚举定义
@@ -52,7 +52,7 @@
     - 删除从 `mineru.service.ts` 的导入
     - _需求: 2.7_
 
-- [ ] 5. 重构服务端 Service 文件
+- [x] 5. 重构服务端 Service 文件
   - [x] 5.1 重构 `mineru.service.ts`
     - 从 `#shared/types/recognition` 导入 `DocRecognitionStatus`
     - 删除本地枚举定义
