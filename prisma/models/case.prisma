@@ -127,6 +127,8 @@ model caseMaterials {
     isEncrypted     Boolean   @default(false) @map("is_encrypted")
     /// 材料状态：1-待处理，2-处理中，3-已完成，4-处理失败
     status          Int       @default(1)
+    /// 向量化状态：pending-待处理，processing-处理中，completed-已完成，failed-失败
+    embeddingStatus String?   @default("pending") @map("embedding_status") @db.VarChar(20)
     /// 创建时间
     createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
     /// 最后更新时间

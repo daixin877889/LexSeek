@@ -52,6 +52,7 @@ export type CaseMaterialsMinAggregateOutputType = {
   ossFileId: number | null
   isEncrypted: boolean | null
   status: number | null
+  embeddingStatus: string | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -67,6 +68,7 @@ export type CaseMaterialsMaxAggregateOutputType = {
   ossFileId: number | null
   isEncrypted: boolean | null
   status: number | null
+  embeddingStatus: string | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -82,6 +84,7 @@ export type CaseMaterialsCountAggregateOutputType = {
   ossFileId: number
   isEncrypted: number
   status: number
+  embeddingStatus: number
   createdAt: number
   updatedAt: number
   deletedAt: number
@@ -115,6 +118,7 @@ export type CaseMaterialsMinAggregateInputType = {
   ossFileId?: true
   isEncrypted?: true
   status?: true
+  embeddingStatus?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -130,6 +134,7 @@ export type CaseMaterialsMaxAggregateInputType = {
   ossFileId?: true
   isEncrypted?: true
   status?: true
+  embeddingStatus?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -145,6 +150,7 @@ export type CaseMaterialsCountAggregateInputType = {
   ossFileId?: true
   isEncrypted?: true
   status?: true
+  embeddingStatus?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -247,6 +253,7 @@ export type CaseMaterialsGroupByOutputType = {
   ossFileId: number | null
   isEncrypted: boolean
   status: number
+  embeddingStatus: string | null
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
@@ -285,6 +292,7 @@ export type caseMaterialsWhereInput = {
   ossFileId?: Prisma.IntNullableFilter<"caseMaterials"> | number | null
   isEncrypted?: Prisma.BoolFilter<"caseMaterials"> | boolean
   status?: Prisma.IntFilter<"caseMaterials"> | number
+  embeddingStatus?: Prisma.StringNullableFilter<"caseMaterials"> | string | null
   createdAt?: Prisma.DateTimeFilter<"caseMaterials"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"caseMaterials"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"caseMaterials"> | Date | string | null
@@ -301,6 +309,7 @@ export type caseMaterialsOrderByWithRelationInput = {
   ossFileId?: Prisma.SortOrderInput | Prisma.SortOrder
   isEncrypted?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  embeddingStatus?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -320,6 +329,7 @@ export type caseMaterialsWhereUniqueInput = Prisma.AtLeast<{
   ossFileId?: Prisma.IntNullableFilter<"caseMaterials"> | number | null
   isEncrypted?: Prisma.BoolFilter<"caseMaterials"> | boolean
   status?: Prisma.IntFilter<"caseMaterials"> | number
+  embeddingStatus?: Prisma.StringNullableFilter<"caseMaterials"> | string | null
   createdAt?: Prisma.DateTimeFilter<"caseMaterials"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"caseMaterials"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"caseMaterials"> | Date | string | null
@@ -336,6 +346,7 @@ export type caseMaterialsOrderByWithAggregationInput = {
   ossFileId?: Prisma.SortOrderInput | Prisma.SortOrder
   isEncrypted?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  embeddingStatus?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -359,6 +370,7 @@ export type caseMaterialsScalarWhereWithAggregatesInput = {
   ossFileId?: Prisma.IntNullableWithAggregatesFilter<"caseMaterials"> | number | null
   isEncrypted?: Prisma.BoolWithAggregatesFilter<"caseMaterials"> | boolean
   status?: Prisma.IntWithAggregatesFilter<"caseMaterials"> | number
+  embeddingStatus?: Prisma.StringNullableWithAggregatesFilter<"caseMaterials"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"caseMaterials"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"caseMaterials"> | Date | string
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"caseMaterials"> | Date | string | null
@@ -372,6 +384,7 @@ export type caseMaterialsCreateInput = {
   ossFileId?: number | null
   isEncrypted?: boolean
   status?: number
+  embeddingStatus?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -388,6 +401,7 @@ export type caseMaterialsUncheckedCreateInput = {
   ossFileId?: number | null
   isEncrypted?: boolean
   status?: number
+  embeddingStatus?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -401,6 +415,7 @@ export type caseMaterialsUpdateInput = {
   ossFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  embeddingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -417,6 +432,7 @@ export type caseMaterialsUncheckedUpdateInput = {
   ossFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  embeddingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -432,6 +448,7 @@ export type caseMaterialsCreateManyInput = {
   ossFileId?: number | null
   isEncrypted?: boolean
   status?: number
+  embeddingStatus?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -445,6 +462,7 @@ export type caseMaterialsUpdateManyMutationInput = {
   ossFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  embeddingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -460,6 +478,7 @@ export type caseMaterialsUncheckedUpdateManyInput = {
   ossFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  embeddingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -485,6 +504,7 @@ export type caseMaterialsCountOrderByAggregateInput = {
   ossFileId?: Prisma.SortOrder
   isEncrypted?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  embeddingStatus?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -508,6 +528,7 @@ export type caseMaterialsMaxOrderByAggregateInput = {
   ossFileId?: Prisma.SortOrder
   isEncrypted?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  embeddingStatus?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -523,6 +544,7 @@ export type caseMaterialsMinOrderByAggregateInput = {
   ossFileId?: Prisma.SortOrder
   isEncrypted?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  embeddingStatus?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -586,6 +608,7 @@ export type caseMaterialsCreateWithoutCaseInput = {
   ossFileId?: number | null
   isEncrypted?: boolean
   status?: number
+  embeddingStatus?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -600,6 +623,7 @@ export type caseMaterialsUncheckedCreateWithoutCaseInput = {
   ossFileId?: number | null
   isEncrypted?: boolean
   status?: number
+  embeddingStatus?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -644,6 +668,7 @@ export type caseMaterialsScalarWhereInput = {
   ossFileId?: Prisma.IntNullableFilter<"caseMaterials"> | number | null
   isEncrypted?: Prisma.BoolFilter<"caseMaterials"> | boolean
   status?: Prisma.IntFilter<"caseMaterials"> | number
+  embeddingStatus?: Prisma.StringNullableFilter<"caseMaterials"> | string | null
   createdAt?: Prisma.DateTimeFilter<"caseMaterials"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"caseMaterials"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"caseMaterials"> | Date | string | null
@@ -658,6 +683,7 @@ export type caseMaterialsCreateManyCaseInput = {
   ossFileId?: number | null
   isEncrypted?: boolean
   status?: number
+  embeddingStatus?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -671,6 +697,7 @@ export type caseMaterialsUpdateWithoutCaseInput = {
   ossFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  embeddingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -685,6 +712,7 @@ export type caseMaterialsUncheckedUpdateWithoutCaseInput = {
   ossFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  embeddingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -699,6 +727,7 @@ export type caseMaterialsUncheckedUpdateManyWithoutCaseInput = {
   ossFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  embeddingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -716,6 +745,7 @@ export type caseMaterialsSelect<ExtArgs extends runtime.Types.Extensions.Interna
   ossFileId?: boolean
   isEncrypted?: boolean
   status?: boolean
+  embeddingStatus?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -732,6 +762,7 @@ export type caseMaterialsSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   ossFileId?: boolean
   isEncrypted?: boolean
   status?: boolean
+  embeddingStatus?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -748,6 +779,7 @@ export type caseMaterialsSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   ossFileId?: boolean
   isEncrypted?: boolean
   status?: boolean
+  embeddingStatus?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -764,12 +796,13 @@ export type caseMaterialsSelectScalar = {
   ossFileId?: boolean
   isEncrypted?: boolean
   status?: boolean
+  embeddingStatus?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
 }
 
-export type caseMaterialsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "caseId" | "name" | "type" | "content" | "originalContent" | "ossFileId" | "isEncrypted" | "status" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["caseMaterials"]>
+export type caseMaterialsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "caseId" | "name" | "type" | "content" | "originalContent" | "ossFileId" | "isEncrypted" | "status" | "embeddingStatus" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["caseMaterials"]>
 export type caseMaterialsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   case?: boolean | Prisma.casesDefaultArgs<ExtArgs>
 }
@@ -825,6 +858,10 @@ export type $caseMaterialsPayload<ExtArgs extends runtime.Types.Extensions.Inter
      * 材料状态：1-待处理，2-处理中，3-已完成，4-处理失败
      */
     status: number
+    /**
+     * 向量化状态：pending-待处理，processing-处理中，completed-已完成，failed-失败
+     */
+    embeddingStatus: string | null
     /**
      * 创建时间
      */
@@ -1270,6 +1307,7 @@ export interface caseMaterialsFieldRefs {
   readonly ossFileId: Prisma.FieldRef<"caseMaterials", 'Int'>
   readonly isEncrypted: Prisma.FieldRef<"caseMaterials", 'Boolean'>
   readonly status: Prisma.FieldRef<"caseMaterials", 'Int'>
+  readonly embeddingStatus: Prisma.FieldRef<"caseMaterials", 'String'>
   readonly createdAt: Prisma.FieldRef<"caseMaterials", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"caseMaterials", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"caseMaterials", 'DateTime'>

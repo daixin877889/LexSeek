@@ -48,6 +48,7 @@ export type MineruTasksMinAggregateOutputType = {
   ossFileId: number | null
   userId: number | null
   status: number | null
+  isEncrypted: boolean | null
   errorMsg: string | null
   retryCount: number | null
   completedAt: Date | null
@@ -62,6 +63,7 @@ export type MineruTasksMaxAggregateOutputType = {
   ossFileId: number | null
   userId: number | null
   status: number | null
+  isEncrypted: boolean | null
   errorMsg: string | null
   retryCount: number | null
   completedAt: Date | null
@@ -76,6 +78,7 @@ export type MineruTasksCountAggregateOutputType = {
   ossFileId: number
   userId: number
   status: number
+  isEncrypted: number
   taskRawData: number
   result: number
   errorMsg: number
@@ -110,6 +113,7 @@ export type MineruTasksMinAggregateInputType = {
   ossFileId?: true
   userId?: true
   status?: true
+  isEncrypted?: true
   errorMsg?: true
   retryCount?: true
   completedAt?: true
@@ -124,6 +128,7 @@ export type MineruTasksMaxAggregateInputType = {
   ossFileId?: true
   userId?: true
   status?: true
+  isEncrypted?: true
   errorMsg?: true
   retryCount?: true
   completedAt?: true
@@ -138,6 +143,7 @@ export type MineruTasksCountAggregateInputType = {
   ossFileId?: true
   userId?: true
   status?: true
+  isEncrypted?: true
   taskRawData?: true
   result?: true
   errorMsg?: true
@@ -241,6 +247,7 @@ export type MineruTasksGroupByOutputType = {
   ossFileId: number
   userId: number
   status: number
+  isEncrypted: boolean
   taskRawData: runtime.JsonValue | null
   result: runtime.JsonValue | null
   errorMsg: string | null
@@ -280,6 +287,7 @@ export type mineruTasksWhereInput = {
   ossFileId?: Prisma.IntFilter<"mineruTasks"> | number
   userId?: Prisma.IntFilter<"mineruTasks"> | number
   status?: Prisma.IntFilter<"mineruTasks"> | number
+  isEncrypted?: Prisma.BoolFilter<"mineruTasks"> | boolean
   taskRawData?: Prisma.JsonNullableFilter<"mineruTasks">
   result?: Prisma.JsonNullableFilter<"mineruTasks">
   errorMsg?: Prisma.StringNullableFilter<"mineruTasks"> | string | null
@@ -297,6 +305,7 @@ export type mineruTasksOrderByWithRelationInput = {
   ossFileId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  isEncrypted?: Prisma.SortOrder
   taskRawData?: Prisma.SortOrderInput | Prisma.SortOrder
   result?: Prisma.SortOrderInput | Prisma.SortOrder
   errorMsg?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -317,6 +326,7 @@ export type mineruTasksWhereUniqueInput = Prisma.AtLeast<{
   ossFileId?: Prisma.IntFilter<"mineruTasks"> | number
   userId?: Prisma.IntFilter<"mineruTasks"> | number
   status?: Prisma.IntFilter<"mineruTasks"> | number
+  isEncrypted?: Prisma.BoolFilter<"mineruTasks"> | boolean
   taskRawData?: Prisma.JsonNullableFilter<"mineruTasks">
   result?: Prisma.JsonNullableFilter<"mineruTasks">
   errorMsg?: Prisma.StringNullableFilter<"mineruTasks"> | string | null
@@ -334,6 +344,7 @@ export type mineruTasksOrderByWithAggregationInput = {
   ossFileId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  isEncrypted?: Prisma.SortOrder
   taskRawData?: Prisma.SortOrderInput | Prisma.SortOrder
   result?: Prisma.SortOrderInput | Prisma.SortOrder
   errorMsg?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -358,6 +369,7 @@ export type mineruTasksScalarWhereWithAggregatesInput = {
   ossFileId?: Prisma.IntWithAggregatesFilter<"mineruTasks"> | number
   userId?: Prisma.IntWithAggregatesFilter<"mineruTasks"> | number
   status?: Prisma.IntWithAggregatesFilter<"mineruTasks"> | number
+  isEncrypted?: Prisma.BoolWithAggregatesFilter<"mineruTasks"> | boolean
   taskRawData?: Prisma.JsonNullableWithAggregatesFilter<"mineruTasks">
   result?: Prisma.JsonNullableWithAggregatesFilter<"mineruTasks">
   errorMsg?: Prisma.StringNullableWithAggregatesFilter<"mineruTasks"> | string | null
@@ -372,6 +384,7 @@ export type mineruTasksCreateInput = {
   taskId?: string | null
   ossFileId: number
   status?: number
+  isEncrypted?: boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMsg?: string | null
@@ -389,6 +402,7 @@ export type mineruTasksUncheckedCreateInput = {
   ossFileId: number
   userId: number
   status?: number
+  isEncrypted?: boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMsg?: string | null
@@ -403,6 +417,7 @@ export type mineruTasksUpdateInput = {
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ossFileId?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMsg?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -420,6 +435,7 @@ export type mineruTasksUncheckedUpdateInput = {
   ossFileId?: Prisma.IntFieldUpdateOperationsInput | number
   userId?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMsg?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -436,6 +452,7 @@ export type mineruTasksCreateManyInput = {
   ossFileId: number
   userId: number
   status?: number
+  isEncrypted?: boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMsg?: string | null
@@ -450,6 +467,7 @@ export type mineruTasksUpdateManyMutationInput = {
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ossFileId?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMsg?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -466,6 +484,7 @@ export type mineruTasksUncheckedUpdateManyInput = {
   ossFileId?: Prisma.IntFieldUpdateOperationsInput | number
   userId?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMsg?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -482,6 +501,7 @@ export type mineruTasksCountOrderByAggregateInput = {
   ossFileId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  isEncrypted?: Prisma.SortOrder
   taskRawData?: Prisma.SortOrder
   result?: Prisma.SortOrder
   errorMsg?: Prisma.SortOrder
@@ -506,6 +526,7 @@ export type mineruTasksMaxOrderByAggregateInput = {
   ossFileId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  isEncrypted?: Prisma.SortOrder
   errorMsg?: Prisma.SortOrder
   retryCount?: Prisma.SortOrder
   completedAt?: Prisma.SortOrder
@@ -520,6 +541,7 @@ export type mineruTasksMinOrderByAggregateInput = {
   ossFileId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  isEncrypted?: Prisma.SortOrder
   errorMsg?: Prisma.SortOrder
   retryCount?: Prisma.SortOrder
   completedAt?: Prisma.SortOrder
@@ -592,6 +614,7 @@ export type mineruTasksCreateWithoutUserInput = {
   taskId?: string | null
   ossFileId: number
   status?: number
+  isEncrypted?: boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMsg?: string | null
@@ -607,6 +630,7 @@ export type mineruTasksUncheckedCreateWithoutUserInput = {
   taskId?: string | null
   ossFileId: number
   status?: number
+  isEncrypted?: boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMsg?: string | null
@@ -652,6 +676,7 @@ export type mineruTasksScalarWhereInput = {
   ossFileId?: Prisma.IntFilter<"mineruTasks"> | number
   userId?: Prisma.IntFilter<"mineruTasks"> | number
   status?: Prisma.IntFilter<"mineruTasks"> | number
+  isEncrypted?: Prisma.BoolFilter<"mineruTasks"> | boolean
   taskRawData?: Prisma.JsonNullableFilter<"mineruTasks">
   result?: Prisma.JsonNullableFilter<"mineruTasks">
   errorMsg?: Prisma.StringNullableFilter<"mineruTasks"> | string | null
@@ -667,6 +692,7 @@ export type mineruTasksCreateManyUserInput = {
   taskId?: string | null
   ossFileId: number
   status?: number
+  isEncrypted?: boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMsg?: string | null
@@ -681,6 +707,7 @@ export type mineruTasksUpdateWithoutUserInput = {
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ossFileId?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMsg?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -696,6 +723,7 @@ export type mineruTasksUncheckedUpdateWithoutUserInput = {
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ossFileId?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMsg?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -711,6 +739,7 @@ export type mineruTasksUncheckedUpdateManyWithoutUserInput = {
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ossFileId?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   errorMsg?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -729,6 +758,7 @@ export type mineruTasksSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   ossFileId?: boolean
   userId?: boolean
   status?: boolean
+  isEncrypted?: boolean
   taskRawData?: boolean
   result?: boolean
   errorMsg?: boolean
@@ -746,6 +776,7 @@ export type mineruTasksSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   ossFileId?: boolean
   userId?: boolean
   status?: boolean
+  isEncrypted?: boolean
   taskRawData?: boolean
   result?: boolean
   errorMsg?: boolean
@@ -763,6 +794,7 @@ export type mineruTasksSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   ossFileId?: boolean
   userId?: boolean
   status?: boolean
+  isEncrypted?: boolean
   taskRawData?: boolean
   result?: boolean
   errorMsg?: boolean
@@ -780,6 +812,7 @@ export type mineruTasksSelectScalar = {
   ossFileId?: boolean
   userId?: boolean
   status?: boolean
+  isEncrypted?: boolean
   taskRawData?: boolean
   result?: boolean
   errorMsg?: boolean
@@ -790,7 +823,7 @@ export type mineruTasksSelectScalar = {
   deletedAt?: boolean
 }
 
-export type mineruTasksOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "taskId" | "ossFileId" | "userId" | "status" | "taskRawData" | "result" | "errorMsg" | "retryCount" | "completedAt" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["mineruTasks"]>
+export type mineruTasksOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "taskId" | "ossFileId" | "userId" | "status" | "isEncrypted" | "taskRawData" | "result" | "errorMsg" | "retryCount" | "completedAt" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["mineruTasks"]>
 export type mineruTasksInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
 }
@@ -830,6 +863,10 @@ export type $mineruTasksPayload<ExtArgs extends runtime.Types.Extensions.Interna
      * 任务状态：0-待处理，1-处理中，2-成功，3-失败
      */
     status: number
+    /**
+     * 是否为加密文件
+     */
+    isEncrypted: boolean
     /**
      * 任务原始数据（提交参数等）
      */
@@ -1291,6 +1328,7 @@ export interface mineruTasksFieldRefs {
   readonly ossFileId: Prisma.FieldRef<"mineruTasks", 'Int'>
   readonly userId: Prisma.FieldRef<"mineruTasks", 'Int'>
   readonly status: Prisma.FieldRef<"mineruTasks", 'Int'>
+  readonly isEncrypted: Prisma.FieldRef<"mineruTasks", 'Boolean'>
   readonly taskRawData: Prisma.FieldRef<"mineruTasks", 'Json'>
   readonly result: Prisma.FieldRef<"mineruTasks", 'Json'>
   readonly errorMsg: Prisma.FieldRef<"mineruTasks", 'String'>

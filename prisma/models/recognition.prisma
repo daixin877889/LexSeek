@@ -91,6 +91,8 @@ model asrTasks {
     taskId      String?   @map("task_id") @db.VarChar(100)
     /// 任务状态：0-待处理，1-处理中，2-成功，3-失败
     status      Int       @default(0)
+    /// 是否为加密文件
+    isEncrypted Boolean   @default(false) @map("is_encrypted")
     /// 任务原始数据（提交参数等）
     taskRawData Json?     @default("{}") @map("task_raw_data")
     /// 识别结果
@@ -202,6 +204,8 @@ model mineruTasks {
     userId      Int       @map("user_id")
     /// 任务状态：0-待处理，1-处理中，2-成功，3-失败
     status      Int       @default(0)
+    /// 是否为加密文件
+    isEncrypted Boolean   @default(false) @map("is_encrypted")
     /// 任务原始数据（提交参数等）
     taskRawData Json?     @default("{}") @map("task_raw_data")
     /// 转换结果

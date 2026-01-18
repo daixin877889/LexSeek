@@ -40,6 +40,7 @@ export type AsrTasksMinAggregateOutputType = {
   id: number | null
   taskId: string | null
   status: number | null
+  isEncrypted: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -49,6 +50,7 @@ export type AsrTasksMaxAggregateOutputType = {
   id: number | null
   taskId: string | null
   status: number | null
+  isEncrypted: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -58,6 +60,7 @@ export type AsrTasksCountAggregateOutputType = {
   id: number
   taskId: number
   status: number
+  isEncrypted: number
   taskRawData: number
   result: number
   createdAt: number
@@ -81,6 +84,7 @@ export type AsrTasksMinAggregateInputType = {
   id?: true
   taskId?: true
   status?: true
+  isEncrypted?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -90,6 +94,7 @@ export type AsrTasksMaxAggregateInputType = {
   id?: true
   taskId?: true
   status?: true
+  isEncrypted?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -99,6 +104,7 @@ export type AsrTasksCountAggregateInputType = {
   id?: true
   taskId?: true
   status?: true
+  isEncrypted?: true
   taskRawData?: true
   result?: true
   createdAt?: true
@@ -197,6 +203,7 @@ export type AsrTasksGroupByOutputType = {
   id: number
   taskId: string | null
   status: number
+  isEncrypted: boolean
   taskRawData: runtime.JsonValue | null
   result: runtime.JsonValue | null
   createdAt: Date
@@ -231,6 +238,7 @@ export type asrTasksWhereInput = {
   id?: Prisma.IntFilter<"asrTasks"> | number
   taskId?: Prisma.StringNullableFilter<"asrTasks"> | string | null
   status?: Prisma.IntFilter<"asrTasks"> | number
+  isEncrypted?: Prisma.BoolFilter<"asrTasks"> | boolean
   taskRawData?: Prisma.JsonNullableFilter<"asrTasks">
   result?: Prisma.JsonNullableFilter<"asrTasks">
   createdAt?: Prisma.DateTimeFilter<"asrTasks"> | Date | string
@@ -243,6 +251,7 @@ export type asrTasksOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   taskId?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
+  isEncrypted?: Prisma.SortOrder
   taskRawData?: Prisma.SortOrderInput | Prisma.SortOrder
   result?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -258,6 +267,7 @@ export type asrTasksWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.asrTasksWhereInput | Prisma.asrTasksWhereInput[]
   taskId?: Prisma.StringNullableFilter<"asrTasks"> | string | null
   status?: Prisma.IntFilter<"asrTasks"> | number
+  isEncrypted?: Prisma.BoolFilter<"asrTasks"> | boolean
   taskRawData?: Prisma.JsonNullableFilter<"asrTasks">
   result?: Prisma.JsonNullableFilter<"asrTasks">
   createdAt?: Prisma.DateTimeFilter<"asrTasks"> | Date | string
@@ -270,6 +280,7 @@ export type asrTasksOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   taskId?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
+  isEncrypted?: Prisma.SortOrder
   taskRawData?: Prisma.SortOrderInput | Prisma.SortOrder
   result?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -289,6 +300,7 @@ export type asrTasksScalarWhereWithAggregatesInput = {
   id?: Prisma.IntWithAggregatesFilter<"asrTasks"> | number
   taskId?: Prisma.StringNullableWithAggregatesFilter<"asrTasks"> | string | null
   status?: Prisma.IntWithAggregatesFilter<"asrTasks"> | number
+  isEncrypted?: Prisma.BoolWithAggregatesFilter<"asrTasks"> | boolean
   taskRawData?: Prisma.JsonNullableWithAggregatesFilter<"asrTasks">
   result?: Prisma.JsonNullableWithAggregatesFilter<"asrTasks">
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"asrTasks"> | Date | string
@@ -299,6 +311,7 @@ export type asrTasksScalarWhereWithAggregatesInput = {
 export type asrTasksCreateInput = {
   taskId?: string | null
   status?: number
+  isEncrypted?: boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
@@ -311,6 +324,7 @@ export type asrTasksUncheckedCreateInput = {
   id?: number
   taskId?: string | null
   status?: number
+  isEncrypted?: boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
@@ -322,6 +336,7 @@ export type asrTasksUncheckedCreateInput = {
 export type asrTasksUpdateInput = {
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -334,6 +349,7 @@ export type asrTasksUncheckedUpdateInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -346,6 +362,7 @@ export type asrTasksCreateManyInput = {
   id?: number
   taskId?: string | null
   status?: number
+  isEncrypted?: boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
@@ -356,6 +373,7 @@ export type asrTasksCreateManyInput = {
 export type asrTasksUpdateManyMutationInput = {
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -367,6 +385,7 @@ export type asrTasksUncheckedUpdateManyInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -378,6 +397,7 @@ export type asrTasksCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   taskId?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  isEncrypted?: Prisma.SortOrder
   taskRawData?: Prisma.SortOrder
   result?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -394,6 +414,7 @@ export type asrTasksMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   taskId?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  isEncrypted?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -403,6 +424,7 @@ export type asrTasksMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   taskId?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  isEncrypted?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -437,6 +459,7 @@ export type asrTasksUpdateOneWithoutAsrRecordsNestedInput = {
 export type asrTasksCreateWithoutAsrRecordsInput = {
   taskId?: string | null
   status?: number
+  isEncrypted?: boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
@@ -448,6 +471,7 @@ export type asrTasksUncheckedCreateWithoutAsrRecordsInput = {
   id?: number
   taskId?: string | null
   status?: number
+  isEncrypted?: boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
@@ -474,6 +498,7 @@ export type asrTasksUpdateToOneWithWhereWithoutAsrRecordsInput = {
 export type asrTasksUpdateWithoutAsrRecordsInput = {
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -485,6 +510,7 @@ export type asrTasksUncheckedUpdateWithoutAsrRecordsInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   taskId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isEncrypted?: Prisma.BoolFieldUpdateOperationsInput | boolean
   taskRawData?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   result?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -527,6 +553,7 @@ export type asrTasksSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   id?: boolean
   taskId?: boolean
   status?: boolean
+  isEncrypted?: boolean
   taskRawData?: boolean
   result?: boolean
   createdAt?: boolean
@@ -540,6 +567,7 @@ export type asrTasksSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exte
   id?: boolean
   taskId?: boolean
   status?: boolean
+  isEncrypted?: boolean
   taskRawData?: boolean
   result?: boolean
   createdAt?: boolean
@@ -551,6 +579,7 @@ export type asrTasksSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exte
   id?: boolean
   taskId?: boolean
   status?: boolean
+  isEncrypted?: boolean
   taskRawData?: boolean
   result?: boolean
   createdAt?: boolean
@@ -562,6 +591,7 @@ export type asrTasksSelectScalar = {
   id?: boolean
   taskId?: boolean
   status?: boolean
+  isEncrypted?: boolean
   taskRawData?: boolean
   result?: boolean
   createdAt?: boolean
@@ -569,7 +599,7 @@ export type asrTasksSelectScalar = {
   deletedAt?: boolean
 }
 
-export type asrTasksOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "taskId" | "status" | "taskRawData" | "result" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["asrTasks"]>
+export type asrTasksOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "taskId" | "status" | "isEncrypted" | "taskRawData" | "result" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["asrTasks"]>
 export type asrTasksInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   asrRecords?: boolean | Prisma.asrTasks$asrRecordsArgs<ExtArgs>
   _count?: boolean | Prisma.AsrTasksCountOutputTypeDefaultArgs<ExtArgs>
@@ -598,6 +628,10 @@ export type $asrTasksPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
      * 任务状态：0-待处理，1-处理中，2-成功，3-失败
      */
     status: number
+    /**
+     * 是否为加密文件
+     */
+    isEncrypted: boolean
     /**
      * 任务原始数据（提交参数等）
      */
@@ -1045,6 +1079,7 @@ export interface asrTasksFieldRefs {
   readonly id: Prisma.FieldRef<"asrTasks", 'Int'>
   readonly taskId: Prisma.FieldRef<"asrTasks", 'String'>
   readonly status: Prisma.FieldRef<"asrTasks", 'Int'>
+  readonly isEncrypted: Prisma.FieldRef<"asrTasks", 'Boolean'>
   readonly taskRawData: Prisma.FieldRef<"asrTasks", 'Json'>
   readonly result: Prisma.FieldRef<"asrTasks", 'Json'>
   readonly createdAt: Prisma.FieldRef<"asrTasks", 'DateTime'>

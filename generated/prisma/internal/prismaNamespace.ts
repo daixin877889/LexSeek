@@ -4626,6 +4626,7 @@ export const CaseMaterialsScalarFieldEnum = {
   ossFileId: 'ossFileId',
   isEncrypted: 'isEncrypted',
   status: 'status',
+  embeddingStatus: 'embeddingStatus',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
@@ -5205,6 +5206,7 @@ export const AsrTasksScalarFieldEnum = {
   id: 'id',
   taskId: 'taskId',
   status: 'status',
+  isEncrypted: 'isEncrypted',
   taskRawData: 'taskRawData',
   result: 'result',
   createdAt: 'createdAt',
@@ -5260,6 +5262,7 @@ export const MineruTasksScalarFieldEnum = {
   ossFileId: 'ossFileId',
   userId: 'userId',
   status: 'status',
+  isEncrypted: 'isEncrypted',
   taskRawData: 'taskRawData',
   result: 'result',
   errorMsg: 'errorMsg',
