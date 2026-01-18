@@ -252,10 +252,11 @@ export const useDocxRecognition = () => {
             return localFile.arrayBuffer()
         }
 
-        // 2. 尝试从缓存读取
+        // 2. 尝试从缓存读取（所有文件都使用缓存，缓存存储的是解密后的内容）
         updateStatus('downloading', 20)
         const cached = await getCachedFile(ossFileId)
         if (cached) {
+            console.log(`[getFileContent] 文件 ${ossFileId} 从缓存读取`)
             return cached
         }
 
@@ -264,6 +265,7 @@ export const useDocxRecognition = () => {
             throw new Error('无法获取文件：缺少下载 URL')
         }
 
+        console.log(`[getFileContent] 文件 ${ossFileId} 缓存未命中，从 OSS 下载`)
         const response = await fetch(downloadUrl)
         if (!response.ok) {
             throw new Error(`下载文件失败: ${response.status}`)
@@ -275,21 +277,37 @@ export const useDocxRecognition = () => {
         if (encrypted) {
             updateStatus('decrypting', 30)
 
+            console.log(`[getFileContent] 文件 ${ossFileId} 需要解密，当前解锁状态:`, ageCrypto.isUnlocked.value)
+
             // 先尝试恢复私钥状态（从 IndexedDB）
             await ageCrypto.restoreIdentity()
 
-            // 检查解锁状态
+            console.log(`[getFileContent] 文件 ${ossFileId} restoreIdentity 完成，解锁状态:`, ageCrypto.isUnlocked.value)
+
+            // 检查解锁状态，如果未解锁则等待一小段时间后重试
             if (!ageCrypto.isUnlocked.value) {
-                throw new Error('文件已加密，请先解锁私钥')
+                console.warn(`[getFileContent] 文件 ${ossFileId} 首次检查未解锁，等待 500ms 后重试...`)
+                await new Promise(resolve => setTimeout(resolve, 500))
+
+                // 再次检查
+                if (!ageCrypto.isUnlocked.value) {
+                    console.error(`[getFileContent] 文件 ${ossFileId} 重试后仍未解锁`)
+                    throw new Error('文件已加密，请先解锁私钥')
+                }
+
+                console.log(`[getFileContent] 文件 ${ossFileId} 重试后解锁成功`)
             }
 
+            console.log(`[getFileContent] 文件 ${ossFileId} 开始解密...`)
             content = await ageCrypto.decryptFile(content)
+            console.log(`[getFileContent] 文件 ${ossFileId} 解密完成`)
         }
 
-        // 5. 缓存下载的文件
+        // 5. 缓存解密后的文件内容
         const blob = new Blob([content], { type: mimeType || 'application/octet-stream' })
         const file = new File([blob], `file_${ossFileId}`, { type: blob.type })
         await cacheFile(ossFileId, file)
+        console.log(`[getFileContent] 文件 ${ossFileId} 已缓存（${encrypted ? '解密后' : '原始'}内容）`)
 
         return content
     }

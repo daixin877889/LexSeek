@@ -83,13 +83,22 @@ interface CheckStatusResponse {
         vectorIds?: string[]
         lastEmbeddingAt?: string | null
     }
-    mineruTask?: {
-        taskId?: string
-        batchId?: string
-        status: number
-        downloadUrl?: string
-        errorMsg?: string
-    }
+}
+
+/** 任务状态响应 */
+interface TaskStatusResponse {
+    taskId: string
+    status: number
+    recordId: number | null
+    errorMsg: string | null
+}
+
+/** 提交响应 */
+interface SubmitResponse {
+    taskId: string
+    taskStatus: number
+    uploadUrl: string
+    batchId: string
 }
 
 /** 轮询配置 */
@@ -170,8 +179,6 @@ export const useMineruRecognition = () => {
     ): Promise<{
         recognized: boolean
         processing: boolean
-        mineruCompleted: boolean
-        downloadUrl?: string
         record?: CheckStatusResponse['record']
     }> => {
         updateStatus('checking', 5)
@@ -183,24 +190,15 @@ export const useMineruRecognition = () => {
             )
 
             if (!response) {
-                return { recognized: false, processing: false, mineruCompleted: false }
+                return { recognized: false, processing: false }
             }
 
-            // 检查 MinerU 任务状态
-            const mineruTask = response.mineruTask
-            const mineruCompleted = mineruTask?.status === MineruTaskStatus.SUCCESS
-            const mineruFailed = mineruTask?.status === MineruTaskStatus.FAILED
-
-            // 如果 MinerU 任务失败，抛出错误
-            if (mineruFailed) {
-                throw new Error(mineruTask?.errorMsg || 'MinerU 识别失败')
-            }
+            // 状态 1 表示处理中
+            const processing = response.status === 1
 
             return {
                 recognized: response.recognized,
-                processing: response.status === 1 && !mineruCompleted,
-                mineruCompleted,
-                downloadUrl: mineruTask?.downloadUrl,
+                processing,
                 record: response.record,
             }
         } catch (error) {
@@ -210,20 +208,31 @@ export const useMineruRecognition = () => {
     }
 
     /**
-     * 申请 MinerU 上传链接
+     * 查询任务状态
      */
-    const requestUploadUrl = async (
-        ossFileId: number,
-        fileName: string
-    ): Promise<{ uploadUrl: string; batchId: string; dataId: string }> => {
+    const getTaskStatus = async (taskId: string): Promise<TaskStatusResponse | null> => {
+        return await useApiFetch<TaskStatusResponse>(
+            `/api/v1/recognition/mineru/task/${taskId}`,
+            { showError: false }
+        )
+    }
+
+    /**
+     * 提交识别任务
+     */
+    const submitRecognition = async (
+        options: MineruRecognitionOptions
+    ): Promise<SubmitResponse | null> => {
         updateStatus('requesting', 10)
 
-        const response = await useApiFetch<ApplyUploadUrlResponse>(
-            '/api/v1/recognition/mineru/upload-url',
+        const response = await useApiFetch<SubmitResponse>(
+            '/api/v1/recognition/mineru/submit',
             {
                 method: 'POST',
                 body: {
-                    files: [{ ossFileId, fileName }],
+                    ossFileId: options.ossFileId,
+                    fileName: options.fileName,
+                    encrypted: options.encrypted || false,
                     modelVersion: 'vlm',
                     enableOcr: true,
                     enableFormula: true,
@@ -233,16 +242,7 @@ export const useMineruRecognition = () => {
             }
         )
 
-        if (!response || !response.files[0]) {
-            throw new Error('申请上传链接失败')
-        }
-
-        const fileInfo = response.files[0]
-        return {
-            uploadUrl: fileInfo.uploadUrl,
-            batchId: response.batchId,
-            dataId: fileInfo.dataId,
-        }
+        return response
     }
 
     /**
@@ -335,25 +335,33 @@ export const useMineruRecognition = () => {
     }
 
     /**
-     * 轮询识别状态
-     * 服务端会在 MinerU 回调时自动处理 ZIP 文件并保存结果
-     * 浏览器只需要轮询等待 recognized 状态变为 true
+     * 轮询任务状态
+     * 使用 taskId 轮询任务状态，成功时返回 recordId
      */
-    const pollStatus = async (
-        ossFileId: number,
+    const pollTaskStatus = async (
+        taskId: string,
         config: PollingConfig = DEFAULT_POLLING_CONFIG
-    ): Promise<void> => {
+    ): Promise<number | null> => {
         updateStatus('processing', 30)
 
         let retryCount = 0
 
         while (retryCount < config.maxRetries) {
-            // 检查状态
-            const statusResult = await checkRecognitionStatus(ossFileId)
+            // 查询任务状态
+            const result = await getTaskStatus(taskId)
 
-            // 如果已识别成功，直接返回
-            if (statusResult.recognized) {
-                return
+            if (!result) {
+                throw new Error('查询任务状态失败')
+            }
+
+            // 任务成功
+            if (result.status === MineruTaskStatus.SUCCESS) {
+                return result.recordId
+            }
+
+            // 任务失败
+            if (result.status === MineruTaskStatus.FAILED) {
+                throw new Error(result.errorMsg || 'MinerU 识别失败')
             }
 
             // 计算下次轮询延迟
@@ -373,8 +381,7 @@ export const useMineruRecognition = () => {
 
     /**
      * 执行 MinerU 识别
-     * 服务端会在 MinerU 回调时自动处理 ZIP 文件并保存结果
-     * 浏览器只需要上传文件并轮询等待结果
+     * 新流程：提交任务 → 上传文件 → 轮询任务状态 → 获取识别记录
      */
     const recognize = async (
         options: MineruRecognitionOptions
@@ -395,37 +402,34 @@ export const useMineruRecognition = () => {
                 }
             }
 
-            // 2. 如果正在处理中，轮询等待服务端处理完成
-            if (statusCheck.processing || statusCheck.mineruCompleted) {
-                await pollStatus(ossFileId)
-
-                // 轮询完成后获取最终结果
-                const finalStatus = await checkRecognitionStatus(ossFileId)
-                if (finalStatus.recognized && finalStatus.record) {
-                    updateStatus('success', 100)
-                    return {
-                        htmlContent: finalStatus.record.htmlContent || '',
-                        markdownContent: finalStatus.record.markdownContent || '',
-                        imageCount: 0,
-                    }
-                }
-                throw new Error('识别结果获取失败')
+            // 2. 如果正在处理中，等待
+            if (statusCheck.processing) {
+                throw new Error('文件正在识别中，请稍后再试')
             }
 
             // 3. 开始新的识别流程
             // 3.1 获取文件内容
             const fileContent = await getFileContent(options)
 
-            // 3.2 申请上传链接
-            const { uploadUrl } = await requestUploadUrl(ossFileId, fileName)
+            // 3.2 提交任务（获取 taskId 和 uploadUrl）
+            const submitResult = await submitRecognition(options)
+            if (!submitResult) {
+                throw new Error('提交任务失败')
+            }
+
+            const { taskId, uploadUrl } = submitResult
 
             // 3.3 上传到 MinerU
             await uploadToMineru(uploadUrl, fileContent, fileName)
 
-            // 3.4 轮询等待服务端处理完成（服务端会在回调时自动处理 ZIP）
-            await pollStatus(ossFileId)
+            // 3.4 使用 taskId 轮询任务状态
+            const recordId = await pollTaskStatus(taskId)
 
-            // 3.5 获取最终结果
+            if (!recordId) {
+                throw new Error('识别失败')
+            }
+
+            // 3.5 使用 ossFileId 获取识别记录
             const finalStatus = await checkRecognitionStatus(ossFileId)
             if (finalStatus.recognized && finalStatus.record) {
                 updateStatus('success', 100)

@@ -70,6 +70,10 @@ export interface CreateAsrTaskInput {
     taskRawData?: Record<string, any>
     /** 识别结果 */
     result?: Record<string, any>
+    /** 重试来源任务ID（如果是重试任务） */
+    retrySourceId?: number
+    /** 是否为加密文件（用于判断能否后台重试） */
+    isEncrypted?: boolean
 }
 
 /** 更新 ASR 任务输入 */
@@ -82,6 +86,8 @@ export interface UpdateAsrTaskInput {
     taskRawData?: Record<string, any>
     /** 识别结果 */
     result?: Record<string, any>
+    /** 被哪个任务替代（重试后的新任务ID） */
+    supersededById?: number
 }
 
 /** ASR 批量查询结果 */
@@ -410,9 +416,14 @@ export const retryAsrTaskService = async (
         throw new Error('任务不存在')
     }
 
-    // 只有失败的任务才能重试
-    if (task.status !== AsrTaskStatus.FAILED) {
-        throw new Error('只有失败的任务才能重试')
+    // 只有失败或已被替代的任务才能重试
+    if (task.status !== AsrTaskStatus.FAILED && task.status !== AsrTaskStatus.SUPERSEDED) {
+        throw new Error('只有失败或已被替代的任务才能重试')
+    }
+
+    // 检查是否为加密文件
+    if (task.isEncrypted) {
+        throw new Error('加密文件无法在后台重试，请在前端重新提交')
     }
 
     // 获取 ASR 节点配置（从模型管理获取 API Key）
@@ -482,8 +493,8 @@ export const retryAsrTaskService = async (
         const taskRawData = (task.taskRawData as Record<string, any>) || {}
         const retryCount = (taskRawData.retryCount || 0) + 1
 
-        // 更新任务状态
-        const updatedTask = await updateAsrTaskDao(id, {
+        // 创建新任务记录
+        const newTask = await createAsrTaskService({
             taskId: newTaskId,
             status: AsrTaskStatus.PROCESSING,
             taskRawData: {
@@ -493,6 +504,14 @@ export const retryAsrTaskService = async (
                 originalResponse: response,
             },
             result: {},
+            retrySourceId: task.id,
+            isEncrypted: false, // 后台重试的都是非加密文件
+        })
+
+        // 更新旧任务状态为 SUPERSEDED
+        await updateAsrTaskDao(id, {
+            status: AsrTaskStatus.SUPERSEDED,
+            supersededById: newTask.id,
         })
 
         // 更新关联的 ASR 记录状态
@@ -500,9 +519,12 @@ export const retryAsrTaskService = async (
             where: { asrTasksId: task.id, deletedAt: null },
             data: {
                 status: AsrTaskStatus.PROCESSING,
+                asrTasksId: newTask.id, // 关联到新任务
                 updatedAt: new Date(),
             },
         })
+
+        logger.info(`ASR 任务重试成功：oldTaskId=${task.taskId}, newTaskId=${newTaskId}, oldId=${id}, newId=${newTask.id}`)
 
         // 获取文件名
         let fileNames: string[] = []
@@ -516,7 +538,7 @@ export const retryAsrTaskService = async (
         }
 
         return {
-            ...updatedTask,
+            ...newTask,
             recordCount: records.length,
             fileNames,
         }

@@ -84,10 +84,20 @@ export interface SentenceResult {
 interface SubmitRecognitionResponse {
     /** 任务 ID */
     taskId: string | null
-    /** 识别记录 ID */
+    /** 任务状态 */
+    taskStatus: number
+}
+
+/** 查询任务状态响应 */
+interface TaskStatusResponse {
+    /** 任务 ID */
+    taskId: string
+    /** 任务状态 */
+    status: number
+    /** 识别记录 ID（成功时返回） */
     recordId: number | null
-    /** 状态 */
-    status: AsrRecordStatus
+    /** 识别记录状态（成功时返回） */
+    recordStatus: number | null
 }
 
 /** 获取识别结果响应 */
@@ -203,16 +213,72 @@ export const useAudioRecognition = () => {
     }
 
     /**
+     * 查询任务状态
+     *
+     * @param taskId 任务 ID
+     * @returns 任务状态，失败返回 null
+     */
+    const getTaskStatus = async (taskId: string): Promise<TaskStatusResponse | null> => {
+        return await useApiFetch<TaskStatusResponse>(`/api/v1/recognition/audio/task/${taskId}`)
+    }
+
+    /**
      * 轮询任务状态
      *
      * 每隔指定时间查询一次任务状态，直到任务完成（成功或失败）或达到最大轮询次数
      *
-     * @param recordId 识别记录 ID
+     * @param taskId 任务 ID
      * @param onProgress 进度回调，每次轮询时调用
      * @param config 轮询配置
-     * @returns 最终状态
+     * @returns 最终的识别记录 ID（成功时返回）或 null（失败时）
      */
     const pollTaskStatus = async (
+        taskId: string,
+        onProgress?: (status: number) => void,
+        config: PollingConfig = DEFAULT_POLLING_CONFIG
+    ): Promise<number | null> => {
+        let retryCount = 0
+
+        while (retryCount < config.maxRetries) {
+            // 查询当前任务状态
+            const result = await getTaskStatus(taskId)
+
+            if (!result) {
+                // 查询失败，继续轮询
+                retryCount++
+                await sleep(config.interval)
+                continue
+            }
+
+            // 回调通知当前状态
+            onProgress?.(result.status)
+
+            // 检查是否已完成（成功或失败）
+            if (result.status === AsrTaskStatus.SUCCESS) {
+                // 任务成功，返回识别记录 ID
+                return result.recordId
+            }
+
+            if (result.status === AsrTaskStatus.FAILED) {
+                // 任务失败，返回 null
+                return null
+            }
+
+            // 继续轮询
+            retryCount++
+            await sleep(config.interval)
+        }
+
+        // 超过最大轮询次数，返回 null
+        return null
+    }
+
+    /**
+     * 轮询任务状态（旧版本，兼容性保留）
+     *
+     * @deprecated 请使用 pollTaskStatus(taskId) 代替
+     */
+    const pollTaskStatusOld = async (
         recordId: number,
         onProgress?: (status: AsrRecordStatus) => void,
         config: PollingConfig = DEFAULT_POLLING_CONFIG
@@ -370,6 +436,50 @@ export const useAudioRecognition = () => {
     }
 
     /**
+     * 从 ArrayBuffer 获取音频时长
+     * 
+     * @param audioData 音频数据
+     * @param mimeType 音频 MIME 类型
+     * @returns 音频时长（秒），失败返回 null
+     */
+    const getAudioDurationFromBuffer = async (audioData: ArrayBuffer, mimeType: string): Promise<number | null> => {
+        return new Promise((resolve) => {
+            try {
+                const blob = new Blob([audioData], { type: mimeType })
+                const url = URL.createObjectURL(blob)
+                const audio = new Audio()
+
+                // 设置超时，避免无限等待
+                const timeout = setTimeout(() => {
+                    URL.revokeObjectURL(url)
+                    logger.warn('[getAudioDurationFromBuffer] 获取音频时长超时')
+                    resolve(null)
+                }, 5000) // 5 秒超时
+
+                audio.onloadedmetadata = () => {
+                    clearTimeout(timeout)
+                    URL.revokeObjectURL(url)
+                    const duration = Math.ceil(audio.duration)
+                    logger.info(`[getAudioDurationFromBuffer] 音频时长：${duration} 秒`)
+                    resolve(duration)
+                }
+
+                audio.onerror = (error) => {
+                    clearTimeout(timeout)
+                    URL.revokeObjectURL(url)
+                    logger.warn('[getAudioDurationFromBuffer] 无法获取音频时长', error)
+                    resolve(null)
+                }
+
+                audio.src = url
+            } catch (error) {
+                logger.error('[getAudioDurationFromBuffer] 获取音频时长失败', error)
+                resolve(null)
+            }
+        })
+    }
+
+    /**
      * 提交加密音频识别任务
      *
      * 处理加密音频文件的完整识别流程：
@@ -440,10 +550,7 @@ export const useAudioRecognition = () => {
 
             onProgress?.({ stage: 'decrypting', progress: 100 })
 
-            // 3. 获取临时上传签名
-            onProgress?.({ stage: 'preparing', progress: 0 })
-
-            // 获取原始文件名（移除 .age 后缀）
+            // 2.5. 获取原始文件名和 MIME 类型
             const originalFileName = file.fileName.endsWith('.age')
                 ? file.fileName.slice(0, -4)
                 : file.fileName
@@ -452,12 +559,24 @@ export const useAudioRecognition = () => {
             // 对于加密文件，file.fileType 可能是 application/octet-stream，需要从文件名推断
             const mimeType = getMimeTypeFromFileName(originalFileName) || 'audio/mpeg'
 
+            // 2.6. 获取音频时长（解密后）
+            const audioDuration = await getAudioDurationFromBuffer(decryptedData, mimeType)
+            if (audioDuration) {
+                logger.info(`[submitEncryptedAudioRecognition] 音频时长：${audioDuration} 秒`)
+            } else {
+                logger.warn(`[submitEncryptedAudioRecognition] 无法获取音频时长，将使用默认值`)
+            }
+
+            // 3. 获取临时上传签名
+            onProgress?.({ stage: 'preparing', progress: 0 })
+
             // 调试日志：输出解密后的文件信息
             logger.info(`[submitEncryptedAudioRecognition] 解密完成`, {
                 originalFileName,
                 decryptedSize: decryptedData.byteLength,
                 inferredMimeType: mimeType,
                 fileType: file.fileType,
+                audioDuration,
             })
 
             // 验证解密后的数据是否为有效的音频文件（检查文件头）
@@ -528,23 +647,6 @@ export const useAudioRecognition = () => {
                 }
 
                 logger.info(`[submitEncryptedAudioRecognition] 上传成功，状态码：${uploadResponse.status}`)
-
-                // 验证上传后的文件大小
-                // 构建文件的公开 URL（不带签名）用于 HEAD 请求
-                const fileUrl = `${signature.host}/${signature.key}`
-                try {
-                    const headResponse = await fetch(fileUrl, { method: 'HEAD' })
-                    const contentLength = headResponse.headers.get('content-length')
-                    logger.info(`[submitEncryptedAudioRecognition] 上传后验证`, {
-                        fileUrl,
-                        status: headResponse.status,
-                        contentLength,
-                        expectedSize: decryptedBlob.size,
-                        match: contentLength === String(decryptedBlob.size),
-                    })
-                } catch (headError: any) {
-                    logger.warn(`[submitEncryptedAudioRecognition] 上传后验证失败：${headError.message}`)
-                }
             } catch (uploadError: any) {
                 logger.error('[submitEncryptedAudioRecognition] 上传异常', {
                     fileId: file.id,
@@ -562,6 +664,7 @@ export const useAudioRecognition = () => {
                 method: 'POST',
                 body: {
                     ossFileId: file.id,
+                    ...(audioDuration ? { audioDuration } : {}),  // 只在有时长时传递
                     tempFilePath: signature.key,
                     options,
                 },
@@ -573,7 +676,11 @@ export const useAudioRecognition = () => {
         } catch (error) {
             logger.error('[submitEncryptedAudioRecognition] 处理加密音频识别失败', {
                 fileId: file.id,
-                error,
+                error: error instanceof Error ? {
+                    message: error.message,
+                    stack: error.stack,
+                    name: error.name,
+                } : String(error),
             })
             return null
         }
@@ -582,6 +689,7 @@ export const useAudioRecognition = () => {
     return {
         // 核心方法
         submitRecognition,
+        getTaskStatus,
         pollTaskStatus,
         getResult,
         updateSpeakers,
@@ -601,5 +709,6 @@ export const useAudioRecognition = () => {
         // 常量导出
         AsrRecordStatus,
         AsrRecordStatusText,
+        AsrTaskStatus,
     }
 }

@@ -51,6 +51,10 @@ export interface CreateMineruTaskInput {
     status?: number
     /** 任务原始数据（提交参数等） */
     taskRawData?: Record<string, any>
+    /** 重试来源任务ID（如果是重试任务） */
+    retrySourceId?: number
+    /** 是否为加密文件（用于判断能否后台重试） */
+    isEncrypted?: boolean
 }
 
 /** 更新 MinerU 任务输入 */
@@ -69,6 +73,8 @@ export interface UpdateMineruTaskInput {
     retryCount?: number
     /** 完成时间 */
     completedAt?: Date
+    /** 被哪个任务替代（重试后的新任务ID） */
+    supersededById?: number
 }
 
 /** MinerU 批量查询结果 */
@@ -355,103 +361,15 @@ export const queryMineruTaskStatusBatchService = async (
 /**
  * 重试任务
  * Requirements: 3.1.2.11, 3.1.2.12
+ * 
+ * 注意：MinerU 任务无法在后台重试，因为文件是前端直传到 MinerU 服务的，
+ * 后台没有文件内容，无法重新生成文件 URL。
+ * 如需重试，请在前端重新提交识别任务。
  */
 export const retryMineruTaskService = async (
     id: number
 ): Promise<MineruTaskWithFile> => {
-    // 获取任务
-    const task = await findMineruTaskByIdDao(id)
-    if (!task) {
-        throw new Error('任务不存在')
-    }
-
-    // 只有失败的任务才能重试
-    if (task.status !== MineruTaskStatus.FAILED) {
-        throw new Error('只有失败的任务才能重试')
-    }
-
-    // 获取当前启用的 Token
-    const token = await getActiveTokenValueService()
-    if (!token) {
-        throw new Error('没有可用的 MinerU Token')
-    }
-
-    // 获取文件信息
-    const ossFile = await prisma.ossFiles.findFirst({
-        where: { id: task.ossFileId, deletedAt: null },
-    })
-    if (!ossFile) {
-        throw new Error('关联的文件不存在')
-    }
-
-    try {
-        // 重新提交任务到 MinerU
-        // 从 taskRawData 中获取原始提交参数
-        const taskRawData = task.taskRawData as Record<string, any> || {}
-
-        // 如果没有保存的 fileUrl，需要重新生成签名 URL
-        let fileUrl = taskRawData.fileUrl
-        if (!fileUrl && ossFile.filePath) {
-            // 动态导入 storage 服务以避免循环依赖
-            const { generateSignedUrlService } = await import('../storage/storage.service')
-            fileUrl = await generateSignedUrlService(ossFile.filePath, {
-                expires: 3600, // 1小时有效期
-            })
-        }
-
-        if (!fileUrl) {
-            throw new Error('无法获取文件 URL')
-        }
-
-        const response = await $fetch<{
-            code: number
-            msg: string
-            data?: {
-                task_id: string
-            }
-        }>('https://mineru.net/api/v4/extract/task', {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-            body: {
-                file_url: fileUrl,
-                ...taskRawData.options,
-            },
-        })
-
-        if (response.code !== 0) {
-            throw new Error(response.msg || '重新提交任务失败')
-        }
-
-        const newTaskId = response.data?.task_id
-        if (!newTaskId) {
-            throw new Error('未获取到新的任务ID')
-        }
-
-        // 更新任务状态
-        const updatedTask = await updateMineruTaskDao(id, {
-            taskId: newTaskId,
-            status: MineruTaskStatus.PROCESSING,
-            retryCount: task.retryCount + 1,
-            errorMsg: undefined,
-            completedAt: undefined,
-            taskRawData: {
-                ...taskRawData,
-                retryAt: new Date().toISOString(),
-            },
-        })
-
-        return {
-            ...updatedTask,
-            fileName: ossFile.fileName,
-            fileSize: ossFile.fileSize ? Number(ossFile.fileSize) : undefined,
-        }
-    } catch (error) {
-        logger.error('重试 MinerU 任务失败：', error)
-        throw error
-    }
+    throw new Error('MinerU 任务无法在后台重试。原因：文件是前端直传到 MinerU 服务的，后台没有文件内容。请在前端重新提交识别任务。')
 }
 
 /**

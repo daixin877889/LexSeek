@@ -324,7 +324,25 @@ export const submitPdfConversionService = async (
             return { success: false, error: '未获取到任务 ID' }
         }
 
-        // 7. 创建任务记录
+        // 7. 检查是否已有成功的识别记录
+        // 如果已有成功的识别记录，说明文件已经识别过了，直接返回
+        const existingRecord = await findDocRecognitionByOssFileIdDao(ossFileId)
+        if (existingRecord && existingRecord.status === DocRecognitionStatus.SUCCESS) {
+            logger.info(`文档已存在成功的识别记录，直接返回：ossFileId=${ossFileId}, recordId=${existingRecord.id}`)
+            return {
+                success: true,
+                // 返回一个虚拟的 task 对象，表示任务已完成
+                task: {
+                    id: 0,
+                    taskId: 'existing',
+                    ossFileId,
+                    userId,
+                    status: MineruTaskStatus.SUCCESS,
+                } as any,
+            }
+        }
+
+        // 8. 创建任务记录
         // Requirements: 3.1.3
         const task = await createMineruTaskService({
             taskId,
@@ -336,14 +354,11 @@ export const submitPdfConversionService = async (
                 options: requestBody,
                 submittedAt: new Date().toISOString(),
             },
+            isEncrypted: false,
         })
 
-        // 8. 创建文档识别记录
-        await createDocRecognitionRecordDao({
-            userId,
-            ossFileId,
-            status: DocRecognitionStatus.PROCESSING,
-        })
+        // 9. 不在提交时创建识别记录，只在识别成功时创建
+        // 识别记录将在 completeConversionService 中创建或更新
 
         logger.info(`MinerU 任务提交成功：taskId=${taskId}, ossFileId=${ossFileId}`)
 
@@ -445,16 +460,28 @@ export const completeConversionService = async (
             completedAt: new Date(),
         })
 
-        // 3. 更新文档识别记录
-        const docRecord = await findDocRecognitionByOssFileIdDao(task.ossFileId)
+        // 3. 创建或更新文档识别记录（只在识别成功时创建）
+        let docRecord = await findDocRecognitionByOssFileIdDao(task.ossFileId)
         if (docRecord) {
+            // 如果已存在识别记录，更新它
             await updateDocRecognitionRecordDao(docRecord.id, {
                 status: DocRecognitionStatus.SUCCESS,
                 markdownContent,
                 htmlContent,
             })
+        } else {
+            // 如果不存在识别记录，创建新记录（识别成功时才创建）
+            docRecord = await createDocRecognitionRecordDao({
+                userId: task.userId,
+                ossFileId: task.ossFileId,
+                status: DocRecognitionStatus.SUCCESS,
+                markdownContent,
+                htmlContent,
+            })
+        }
 
-            // 4. 进行向量化嵌入
+        // 4. 进行向量化嵌入
+        if (docRecord) {
             try {
                 // 获取 OSS 文件信息用于嵌入元数据（包含已删除的文件）
                 const ossFile = await findOssFileByIdIncludeDeletedDao(task.ossFileId)
@@ -475,9 +502,39 @@ export const completeConversionService = async (
                 })
 
                 logger.info(`PDF 转换向量化嵌入完成：taskId=${taskId}, chunkCount=${embeddingResult.chunkCount}`)
+
+                // 更新 case_materials 表的 embedding_status
+                try {
+                    const { findMaterialsByOssFileIdDAO, updateMaterialEmbeddingStatusDAO } = await import('../case/caseMaterial.dao')
+                    const materials = await findMaterialsByOssFileIdDAO(task.ossFileId)
+                    for (const material of materials) {
+                        await updateMaterialEmbeddingStatusDAO(material.id, 'completed')
+                        logger.info(`更新材料 ${material.id} 的 embedding_status 为 completed`)
+                    }
+                } catch (updateError: any) {
+                    // 更新失败不影响主流程
+                    logger.warn('更新 case_materials embedding_status 失败', {
+                        ossFileId: task.ossFileId,
+                        error: updateError.message,
+                    })
+                }
             } catch (embeddingError) {
                 // 嵌入失败不影响转换结果，只记录日志
                 logger.error('PDF 转换向量化嵌入失败：', embeddingError)
+
+                // 更新 case_materials 表的 embedding_status 为 failed
+                try {
+                    const { findMaterialsByOssFileIdDAO, updateMaterialEmbeddingStatusDAO } = await import('../case/caseMaterial.dao')
+                    const materials = await findMaterialsByOssFileIdDAO(task.ossFileId)
+                    for (const material of materials) {
+                        await updateMaterialEmbeddingStatusDAO(material.id, 'failed')
+                    }
+                } catch (updateError: any) {
+                    logger.warn('更新 case_materials embedding_status 失败', {
+                        ossFileId: task.ossFileId,
+                        error: updateError.message,
+                    })
+                }
             }
         }
 
@@ -488,7 +545,9 @@ export const completeConversionService = async (
             logger.info(`PDF 转换积分扣减成功：userId=${task.userId}, pages=${pageCount}`)
         } catch (pointError) {
             // 积分扣减失败不影响转换结果，但需要记录日志
+            // 识别已经完成，结果已经保存，不应该因为积分问题而标记为失败
             logger.error('PDF 转换积分扣减失败：', pointError)
+            // TODO: 可以考虑创建一个"待支付"记录，让用户充值后补扣积分
         }
 
         logger.info(`PDF 转换完成：taskId=${taskId}`)
@@ -525,13 +584,8 @@ export const failConversionService = async (
             completedAt: new Date(),
         })
 
-        // 3. 更新文档识别记录
-        const docRecord = await findDocRecognitionByOssFileIdDao(task.ossFileId)
-        if (docRecord) {
-            await updateDocRecognitionRecordDao(docRecord.id, {
-                status: DocRecognitionStatus.FAILED,
-            })
-        }
+        // 3. 识别失败时不创建/更新识别记录
+        // 识别记录只在识别成功时创建
 
         // 4. 不扣减积分
         // Requirements: 3.1.19

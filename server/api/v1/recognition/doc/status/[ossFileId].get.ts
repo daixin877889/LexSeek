@@ -24,22 +24,6 @@ const paramsSchema = z.object({
 })
 
 /**
- * MinerU 任务信息
- */
-interface MineruTaskInfo {
-    /** MinerU 任务 ID */
-    taskId?: string
-    /** 批量任务 ID */
-    batchId?: string
-    /** 任务状态：0-待处理，1-处理中，2-成功，3-失败 */
-    status: number
-    /** 结果下载链接（识别成功时） */
-    downloadUrl?: string
-    /** 错误信息（识别失败时） */
-    errorMsg?: string
-}
-
-/**
  * 识别状态响应
  */
 interface CheckStatusResponse {
@@ -58,8 +42,6 @@ interface CheckStatusResponse {
         vectorIds?: string[]
         lastEmbeddingAt?: string | null
     }
-    /** MinerU 任务信息（如果存在） */
-    mineruTask?: MineruTaskInfo
 }
 
 /**
@@ -206,28 +188,6 @@ export default defineEventHandler(async (event) => {
                 markdownContent,
                 vectorIds: (record.vectorIds as string[]) || [],
                 lastEmbeddingAt: record.lastEmbeddingAt?.toISOString() || null,
-            }
-        }
-
-        // 查询关联的 MinerU 任务（最近一条）
-        const mineruTask = await prisma.mineruTasks.findFirst({
-            where: {
-                ossFileId,
-                deletedAt: null,
-            },
-            orderBy: { createdAt: 'desc' },
-        })
-
-        if (mineruTask) {
-            const taskRawData = mineruTask.taskRawData as Record<string, any> | null
-            const taskResult = mineruTask.result as Record<string, any> | null
-
-            response.mineruTask = {
-                taskId: mineruTask.taskId || undefined,
-                batchId: taskRawData?.batchId || undefined,
-                status: mineruTask.status,
-                downloadUrl: taskResult?.downloadUrl || undefined,
-                errorMsg: mineruTask.errorMsg || undefined,
             }
         }
 

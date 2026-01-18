@@ -23,6 +23,11 @@ const bodySchema = z.object({
         .int()
         .positive('ossFileId 必须为正整数')
         .describe('OSS 文件 ID'),
+    audioDuration: z.number()
+        .int()
+        .positive('audioDuration 必须为正整数')
+        .optional()
+        .describe('音频时长（秒），如果未提供则使用预估值'),
     tempFilePath: z.string()
         .optional()
         .describe('临时文件路径（加密文件解密后上传的路径）'),
@@ -56,7 +61,11 @@ export default defineEventHandler(async (event) => {
             return resError(event, 400, result.error.issues[0].message)
         }
 
-        const { ossFileId, tempFilePath, options } = result.data
+        const { ossFileId, audioDuration, tempFilePath, options } = result.data
+
+        // 如果前端没有传递音频时长，使用预估值（60 分钟）
+        // TODO: 前端应该传递实际的音频时长以进行准确的积分检查
+        const estimatedDuration = audioDuration || 3600 // 默认 60 分钟（3600 秒）
 
         // 3. 验证 OSS 文件是否存在且属于当前用户
         const ossFile = await prisma.ossFiles.findFirst({
@@ -103,11 +112,14 @@ export default defineEventHandler(async (event) => {
         logger.info('音频识别 API 开始提交任务', {
             ossFileId,
             userId: user.id,
+            audioDuration: estimatedDuration,
+            audioDurationProvided: !!audioDuration,
             tempFilePath: tempFilePath || 'N/A',
         })
         const submitResult = await transcribeAudioService(
             ossFileId,
             user.id,
+            estimatedDuration,
             {
                 languageHints: options.languageHints,
                 diarizationEnabled: options.diarizationEnabled,
@@ -123,14 +135,13 @@ export default defineEventHandler(async (event) => {
 
         logger.info('音频识别 API 任务提交成功', {
             taskId: submitResult.task?.taskId,
-            recordId: submitResult.record?.id,
+            taskStatus: submitResult.task?.status,
             tempFilePath: tempFilePath || 'N/A',
         })
 
         return resSuccess(event, '任务已提交', {
             taskId: submitResult.task?.taskId || null,
-            recordId: submitResult.record?.id || null,
-            status: submitResult.record?.status ?? AsrRecordStatus.PENDING,
+            taskStatus: submitResult.task?.status || AsrTaskStatus.PROCESSING,
         })
     } catch (error: any) {
         logger.error('音频识别任务提交 API 错误', {

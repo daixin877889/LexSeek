@@ -23,6 +23,8 @@ export const createMineruTaskDao = async (
                 userId: data.userId,
                 status: data.status ?? MineruTaskStatus.PENDING,
                 taskRawData: data.taskRawData ?? {},
+                retrySourceId: data.retrySourceId,
+                isEncrypted: data.isEncrypted ?? false,
             },
         })
         return task
@@ -87,9 +89,13 @@ export const findManyMineruTasksDao = async (
     } = options
 
     try {
-        const where: Prisma.mineruTasksWhereInput = { deletedAt: null }
+        const where: Prisma.mineruTasksWhereInput = {
+            deletedAt: null,
+            // 默认不显示已被替代的任务
+            status: { not: MineruTaskStatus.SUPERSEDED },
+        }
 
-        // 状态筛选
+        // 状态筛选（如果明确指定了状态，则覆盖默认过滤）
         if (status !== undefined) {
             where.status = status
         }

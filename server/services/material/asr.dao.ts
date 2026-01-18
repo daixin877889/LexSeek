@@ -24,6 +24,8 @@ export interface CreateAsrRecordInput {
     audioDuration?: number
     /** 识别结果 */
     result?: Record<string, any>
+    /** 转录原始 JSON 的 OSS 文件 ID */
+    jsonOssFileId?: number
     /** 说话人列表 */
     speakers?: Array<{ id: number; name: string; color?: string }>
     /** 临时文件路径（加密文件解密后上传的路径） */
@@ -32,6 +34,8 @@ export interface CreateAsrRecordInput {
 
 /** 更新 ASR 识别记录输入 */
 export interface UpdateAsrRecordInput {
+    /** ASR 任务 ID */
+    asrTasksId?: number
     /** 状态 */
     status?: number
     /** 音频 URL */
@@ -75,6 +79,7 @@ export const createAsrRecordDao = async (
                 audioUrl: data.audioUrl,
                 audioDuration: data.audioDuration,
                 result: data.result ?? {},
+                jsonOssFileId: data.jsonOssFileId,
                 speakers: data.speakers ?? [],
                 tempFilePath: data.tempFilePath,
             },
@@ -113,7 +118,10 @@ export const findAsrRecordByOssFileIdDao = async (
 ): Promise<asrRecords | null> => {
     try {
         const record = await (tx || prisma).asrRecords.findFirst({
-            where: { ossFileId, deletedAt: null },
+            where: {
+                ossFileId,
+                deletedAt: null
+            },
         })
         return record
     } catch (error) {

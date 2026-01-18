@@ -88,6 +88,8 @@ export enum AsrTaskStatus {
     SUCCESS = 2,
     /** 失败 */
     FAILED = 3,
+    /** 已被替代（重试后的旧任务） */
+    SUPERSEDED = 4,
 }
 
 /** ASR 任务状态文本映射 */
@@ -96,6 +98,7 @@ export const AsrTaskStatusText: Record<AsrTaskStatus, string> = {
     [AsrTaskStatus.PROCESSING]: '处理中',
     [AsrTaskStatus.SUCCESS]: '成功',
     [AsrTaskStatus.FAILED]: '失败',
+    [AsrTaskStatus.SUPERSEDED]: '已被替代',
 }
 
 // ==================== MinerU 任务 ====================
@@ -110,6 +113,8 @@ export enum MineruTaskStatus {
     SUCCESS = 2,
     /** 失败 */
     FAILED = 3,
+    /** 已被替代（重试后的旧任务） */
+    SUPERSEDED = 4,
 }
 
 /** MinerU 任务状态文本映射 */
@@ -118,4 +123,5 @@ export const MineruTaskStatusText: Record<MineruTaskStatus, string> = {
     [MineruTaskStatus.PROCESSING]: '处理中',
     [MineruTaskStatus.SUCCESS]: '成功',
     [MineruTaskStatus.FAILED]: '失败',
+    [MineruTaskStatus.SUPERSEDED]: '已被替代',
 }

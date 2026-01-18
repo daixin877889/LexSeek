@@ -40,6 +40,8 @@ export interface ImageRecognitionOptions {
     downloadUrl?: string
     /** 文件 MIME 类型 */
     mimeType?: string
+    /** 是否强制重试（跳过状态检查） */
+    forceRetry?: boolean
 }
 
 /** 图像识别结果 */
@@ -58,6 +60,47 @@ export interface ImageRecognitionResult {
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'heif']
 
 /**
+ * 根据文件内容的魔数检测实际文件类型
+ * @param buffer 文件内容的前几个字节
+ * @returns 检测到的 MIME 类型，如果无法识别则返回 null
+ */
+const detectMimeTypeFromBuffer = (buffer: ArrayBuffer): string | null => {
+    const bytes = new Uint8Array(buffer.slice(0, 16))
+    const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
+
+    // PNG: 89 50 4E 47 0D 0A 1A 0A
+    if (hex.startsWith('89504e470d0a1a0a')) {
+        return 'image/png'
+    }
+
+    // JPEG: FF D8 FF
+    if (hex.startsWith('ffd8ff')) {
+        return 'image/jpeg'
+    }
+
+    // GIF: 47 49 46 38
+    if (hex.startsWith('47494638')) {
+        return 'image/gif'
+    }
+
+    // WebP: 52 49 46 46 ... 57 45 42 50
+    if (hex.startsWith('52494646') && hex.substring(16, 24) === '57454250') {
+        return 'image/webp'
+    }
+
+    // M4A/MP4: 00 00 00 xx 66 74 79 70 (ftyp)
+    if (hex.substring(8, 16) === '66747970') {
+        // 检查是否是 M4A
+        if (hex.substring(16, 22) === '4d3441') { // M4A
+            return 'audio/m4a'
+        }
+        return 'video/mp4'
+    }
+
+    return null
+}
+
+/**
  * 判断是否为图片文件
  */
 export const isImageFile = (fileName: string): boolean => {
@@ -69,7 +112,9 @@ export const isImageFile = (fileName: string): boolean => {
  * 获取图片的 MIME 类型
  */
 const getImageMimeType = (fileName: string): string => {
-    const ext = fileName.split('.').pop()?.toLowerCase()
+    // 移除 .age 后缀（如果存在）
+    const cleanFileName = fileName.replace(/\.age$/i, '')
+    const ext = cleanFileName.split('.').pop()?.toLowerCase()
     const mimeMap: Record<string, string> = {
         png: 'image/png',
         jpg: 'image/jpeg',
@@ -204,8 +249,12 @@ export const useImageRecognition = () => {
 
         let content = await response.arrayBuffer()
 
+        console.log('[getFileContent] 下载完成，byteLength:', content.byteLength)
+        console.log('[getFileContent] 下载后前16字节:', Array.from(new Uint8Array(content.slice(0, 16))).map(b => b.toString(16).padStart(2, '0')).join(''))
+
         // 4. 如果文件加密，需要解密
         if (encrypted) {
+            console.log('[getFileContent] 文件已加密，开始解密...')
             await ageCrypto.restoreIdentity()
 
             if (!ageCrypto.isUnlocked.value) {
@@ -213,11 +262,28 @@ export const useImageRecognition = () => {
             }
 
             content = await ageCrypto.decryptFile(content)
+            console.log('[getFileContent] 解密完成，byteLength:', content.byteLength)
+            console.log('[getFileContent] 解密后前16字节:', Array.from(new Uint8Array(content.slice(0, 16))).map(b => b.toString(16).padStart(2, '0')).join(''))
         }
 
-        // 5. 创建 File 对象并缓存
-        const blob = new Blob([content], { type: mimeType || getImageMimeType(fileName) })
+        // 5. 验证文件类型（检查魔数）
+        const detectedMimeType = detectMimeTypeFromBuffer(content)
+        console.log('[getFileContent] 检测到的实际文件类型:', detectedMimeType)
+        console.log('[getFileContent] 传入的 mimeType:', mimeType)
+
+        if (detectedMimeType && !detectedMimeType.startsWith('image/')) {
+            throw new Error(`文件类型错误：文件名显示为图片 (${fileName})，但实际内容是 ${detectedMimeType}`)
+        }
+
+        // 使用检测到的 MIME 类型（如果有），否则使用传入的或从文件名推断的
+        const finalMimeType = detectedMimeType || mimeType || getImageMimeType(fileName)
+        console.log('[getFileContent] 最终使用的 mimeType:', finalMimeType)
+
+        // 6. 创建 File 对象并缓存
+        const blob = new Blob([content], { type: finalMimeType })
+        console.log('[getFileContent] 创建 Blob，type:', blob.type, 'size:', blob.size)
         const file = new File([blob], fileName, { type: blob.type })
+        console.log('[getFileContent] 创建 File，type:', file.type, 'size:', file.size)
         await cacheFile(ossFileId, file)
 
         return file
@@ -229,16 +295,20 @@ export const useImageRecognition = () => {
     const recognize = async (
         options: ImageRecognitionOptions
     ): Promise<ImageRecognitionResult> => {
-        const { ossFileId, fileName } = options
+        const { ossFileId, fileName, forceRetry = false } = options
 
         try {
-            // 1. 检查是否已识别
-            const statusCheck = await checkRecognitionStatus(ossFileId)
+            // 1. 检查是否已识别（除非强制重试）
+            if (!forceRetry) {
+                const statusCheck = await checkRecognitionStatus(ossFileId)
 
-            if (statusCheck.recognized && statusCheck.record) {
-                // 已识别，直接返回结果
-                updateStatus('success', 100)
-                return statusCheck.record
+                if (statusCheck.recognized && statusCheck.record) {
+                    // 已识别，直接返回结果
+                    updateStatus('success', 100)
+                    return statusCheck.record
+                }
+            } else {
+                console.log('[recognize] 强制重试，跳过状态检查')
             }
 
             // 2. 获取文件内容
@@ -248,10 +318,15 @@ export const useImageRecognition = () => {
             // 3. 转换为 base64
             updateStatus('reading', 40)
             const base64Data = await fileToBase64(file)
+            console.log('[recognize] base64 length:', base64Data.length)
+            console.log('[recognize] base64 前100字符:', base64Data.substring(0, 100))
 
             // 4. 调用识别 API
             updateStatus('recognizing', 60)
             const mimeType = options.mimeType || getImageMimeType(fileName)
+            console.log('[recognize] 使用的 mimeType:', mimeType)
+            console.log('[recognize] options.mimeType:', options.mimeType)
+            console.log('[recognize] fileName:', fileName)
 
             const response = await useApiFetch<{
                 id: number

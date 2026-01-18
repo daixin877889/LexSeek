@@ -22,6 +22,8 @@ export const createAsrTaskDao = async (
                 status: data.status ?? AsrTaskStatus.PENDING,
                 taskRawData: data.taskRawData ?? {},
                 result: data.result ?? {},
+                retrySourceId: data.retrySourceId,
+                isEncrypted: data.isEncrypted ?? false,
             },
         })
         return task
@@ -86,9 +88,13 @@ export const findManyAsrTasksDao = async (
     } = options
 
     try {
-        const where: Prisma.asrTasksWhereInput = { deletedAt: null }
+        const where: Prisma.asrTasksWhereInput = {
+            deletedAt: null,
+            // 默认不显示已被替代的任务
+            status: { not: AsrTaskStatus.SUPERSEDED },
+        }
 
-        // 状态筛选
+        // 状态筛选（如果明确指定了状态，则覆盖默认过滤）
         if (status !== undefined) {
             where.status = status
         }

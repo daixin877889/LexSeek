@@ -150,6 +150,43 @@ async function extractImageInfo(imageUrl: string): Promise<ImageInfoResult> {
     try {
         logger.info('开始识别图片内容', { imageUrl: imageUrl.substring(0, 100) + '...' })
 
+        // 如果是 data URL，需要先压缩
+        let processedImageUrl = imageUrl
+        if (imageUrl.startsWith('data:')) {
+            const { compressImageFromBase64 } = await import('../../utils/imageCompression')
+
+            // 解析 data URL
+            const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/)
+            if (matches) {
+                const [, mimeType, base64Data] = matches
+
+                // 压缩图片（限制为 9MB，留一些余量）
+                const compressed = await compressImageFromBase64(base64Data, mimeType, {
+                    maxSizeBytes: 9 * 1024 * 1024, // 9MB
+                })
+
+                // 重新构建 data URL
+                processedImageUrl = `data:${compressed.mimeType};base64,${compressed.base64Data}`
+                logger.info('图片已压缩', {
+                    originalSize: base64Data.length,
+                    compressedSize: compressed.base64Data.length,
+                })
+            }
+        } else {
+            // 如果是普通 URL，下载并压缩
+            const { compressImageFromUrl } = await import('../../utils/imageCompression')
+            const compressed = await compressImageFromUrl(imageUrl, {
+                maxSizeBytes: 9 * 1024 * 1024, // 9MB
+            })
+
+            // 转换为 data URL
+            processedImageUrl = `data:${compressed.mimeType};base64,${compressed.buffer.toString('base64')}`
+            logger.info('图片已下载并压缩', {
+                originalUrl: imageUrl.substring(0, 100),
+                compressedSize: compressed.buffer.length,
+            })
+        }
+
         // 获取 OCR 节点配置
         const nodeConfig = await getOcrNodeConfig()
 
@@ -166,7 +203,7 @@ async function extractImageInfo(imageUrl: string): Promise<ImageInfoResult> {
                 {
                     type: 'image_url',
                     image_url: {
-                        url: imageUrl,
+                        url: processedImageUrl,
                     },
                 },
             ]),
@@ -206,9 +243,60 @@ async function extractImageInfo(imageUrl: string): Promise<ImageInfoResult> {
  * @param mimeType 图片 MIME 类型（如 image/jpeg）
  */
 async function extractImageInfoByBase64(base64Data: string, mimeType: string): Promise<ImageInfoResult> {
-    // 构建 data URL 格式
-    const dataUrl = `data:${mimeType};base64,${base64Data}`
-    return extractImageInfo(dataUrl)
+    try {
+        logger.info('开始识别图片内容（base64）', { mimeType, dataLength: base64Data.length })
+
+        // 构建 data URL 格式（不需要压缩，因为前端已经处理过了）
+        const dataUrl = `data:${mimeType};base64,${base64Data}`
+
+        // 获取 OCR 节点配置
+        const nodeConfig = await getOcrNodeConfig()
+
+        // 创建 AI 模型实例
+        const model = createAiModelFromConfig(nodeConfig)
+        const modelWithStructure = model.withStructuredOutput(imageInfoSchema)
+
+        // 获取系统提示词
+        const systemPrompt = getSystemPromptFromConfig(nodeConfig)
+
+        const result = await modelWithStructure.invoke([
+            new SystemMessage(systemPrompt),
+            new HumanMessage([
+                {
+                    type: 'image_url',
+                    image_url: {
+                        url: dataUrl,
+                    },
+                },
+            ]),
+        ])
+
+        // 验证返回结果
+        if (!result || !result.imgType || !result.imageInfo) {
+            throw new Error('AI 返回的图片信息格式不正确或缺少必要字段')
+        }
+
+        // 清理内容
+        result.imageInfo = result.imageInfo.trim()
+
+        logger.info('图片识别成功（base64）', {
+            imgType: result.imgType,
+            contentLength: result.imageInfo.length,
+            nodeName: nodeConfig.name,
+            modelName: nodeConfig.modelName,
+        })
+
+        return {
+            imgType: result.imgType as ImageType,
+            imageInfo: result.imageInfo,
+        }
+    } catch (error: any) {
+        logger.error('图片识别失败（base64）', {
+            error: error.message,
+            stack: error.stack,
+        })
+        throw new Error(`图片识别失败: ${error.message}`)
+    }
 }
 
 /**
@@ -296,27 +384,11 @@ export async function createImageConversionService(
             error: error.message,
         })
 
-        // 尝试创建失败记录
-        try {
-            const failedRecord = await createImageRecognitionRecordDao(
-                {
-                    userId,
-                    ossFileId,
-                    status: ImageRecognitionStatus.FAILED,
-                },
-                tx
-            )
-            return {
-                record: failedRecord,
-                success: false,
-                error: error.message,
-            }
-        } catch {
-            return {
-                record: null as any,
-                success: false,
-                error: error.message,
-            }
+        // 识别失败时不创建识别记录
+        return {
+            record: null as any,
+            success: false,
+            error: error.message,
         }
     }
 }
@@ -365,6 +437,22 @@ export async function createImageRecognitionService(
                     ossFileId,
                     chunkCount: embeddingResult.chunkCount,
                 })
+
+                // 更新 case_materials 表的 embedding_status
+                try {
+                    const { findMaterialsByOssFileIdDAO, updateMaterialEmbeddingStatusDAO } = await import('../case/caseMaterial.dao')
+                    const materials = await findMaterialsByOssFileIdDAO(ossFileId, tx)
+                    for (const material of materials) {
+                        await updateMaterialEmbeddingStatusDAO(material.id, 'completed', tx)
+                        logger.info(`更新材料 ${material.id} 的 embedding_status 为 completed`)
+                    }
+                } catch (updateError: any) {
+                    // 更新失败不影响主流程
+                    logger.warn('更新 case_materials embedding_status 失败', {
+                        ossFileId,
+                        error: updateError.message,
+                    })
+                }
             }
         } catch (embedError: any) {
             // 向量化失败不影响识别结果
@@ -372,6 +460,20 @@ export async function createImageRecognitionService(
                 ossFileId,
                 error: embedError.message,
             })
+
+            // 更新 case_materials 表的 embedding_status 为 failed
+            try {
+                const { findMaterialsByOssFileIdDAO, updateMaterialEmbeddingStatusDAO } = await import('../case/caseMaterial.dao')
+                const materials = await findMaterialsByOssFileIdDAO(ossFileId, tx)
+                for (const material of materials) {
+                    await updateMaterialEmbeddingStatusDAO(material.id, 'failed', tx)
+                }
+            } catch (updateError: any) {
+                logger.warn('更新 case_materials embedding_status 失败', {
+                    ossFileId,
+                    error: updateError.message,
+                })
+            }
         }
 
         return conversionResult
@@ -469,11 +571,20 @@ export async function findByIdService(
 
 /**
  * 通过 base64 数据创建图片识别记录
+ * 
+ * 参考 ASR 服务的 completeTranscriptionService 方法实现
+ * 只在识别成功后才创建识别记录，识别失败时不创建记录
+ * 
  * 用于客户端直接上传 base64 图片数据的场景
+ * 
+ * Requirements: 10.1, 10.2, 10.3, 10.6, 10.7, 10.8, 10.9
+ * 
  * @param base64Data 图片 base64 数据（不含 data:image/xxx;base64, 前缀）
  * @param mimeType 图片 MIME 类型（如 image/jpeg）
  * @param ossFileId 关联的 OSS 文件 ID
  * @param userId 用户 ID
+ * @param tx 事务对象（可选）
+ * @returns 识别结果
  */
 export async function createImageRecognitionByBase64Service(
     base64Data: string,
@@ -484,7 +595,9 @@ export async function createImageRecognitionByBase64Service(
 ): Promise<OcrResult> {
     try {
         // 1. 验证图片类型是否支持
+        // Requirements: 10.1
         if (!validateImageType(mimeType)) {
+            logger.error('图片类型不支持识别', { mimeType, ossFileId })
             return {
                 record: null as any,
                 success: false,
@@ -492,22 +605,14 @@ export async function createImageRecognitionByBase64Service(
             }
         }
 
-        // 2. 检查是否已有识别记录
-        const existingRecord = await findImageRecognitionByOssFileIdDao(ossFileId, tx)
-        if (existingRecord) {
-            return {
-                record: existingRecord,
-                success: true,
-                error: '图片已存在识别记录',
-            }
-        }
-
-        // 3. 验证 OSS 文件是否存在
+        // 2. 验证 OSS 文件是否存在
+        // Requirements: 10.1
         const ossFile = await (tx || prisma).ossFiles.findFirst({
             where: { id: ossFileId, deletedAt: null },
         })
 
         if (!ossFile) {
+            logger.error('OSS 文件不存在', { ossFileId })
             return {
                 record: null as any,
                 success: false,
@@ -515,13 +620,64 @@ export async function createImageRecognitionByBase64Service(
             }
         }
 
+        // 3. 检查是否已有识别记录
+        // Requirements: 10.6, 10.7, 10.8
+        const existingRecord = await findImageRecognitionByOssFileIdDao(ossFileId, tx)
+        if (existingRecord) {
+            // 如果已有成功的识别记录，直接返回
+            // Requirements: 10.6
+            if (existingRecord.status === ImageRecognitionStatus.COMPLETED) {
+                logger.info('图片已存在成功的识别记录，直接返回', {
+                    recordId: existingRecord.id,
+                    ossFileId,
+                })
+                return {
+                    record: existingRecord,
+                    success: true,
+                }
+            }
+
+            // 如果是失败或处理中的记录，软删除旧记录后重新识别
+            // Requirements: 10.7, 10.9
+            logger.info('检测到失败或处理中的识别记录，将软删除并重新识别', {
+                recordId: existingRecord.id,
+                ossFileId,
+                oldStatus: existingRecord.status,
+            })
+
+            // 软删除旧记录
+            await (tx || prisma).imageRecognitionRecords.update({
+                where: { id: existingRecord.id },
+                data: { deletedAt: new Date() },
+            })
+        }
+
         // 4. 调用 AI 服务识别图片内容（使用 base64）
-        const extractResult = await extractImageInfoByBase64(base64Data, mimeType)
+        // Requirements: 10.1, 10.2
+        let extractResult: ImageInfoResult
+        try {
+            extractResult = await extractImageInfoByBase64(base64Data, mimeType)
+        } catch (aiError: any) {
+            // AI 识别失败时不创建记录，直接返回错误
+            // Requirements: 10.2
+            logger.error('AI 图片识别失败', {
+                ossFileId,
+                mimeType,
+                error: aiError.message,
+            })
+            return {
+                record: null as any,
+                success: false,
+                error: `图片识别失败: ${aiError.message}`,
+            }
+        }
 
         // 5. 将 Markdown 转换为 HTML
+        // Requirements: 10.5
         const htmlContent = await markdownToHtml(extractResult.imageInfo)
 
-        // 6. 创建图片识别记录
+        // 6. 识别成功后才创建图片识别记录
+        // Requirements: 10.1, 10.4, 10.5
         const record = await createImageRecognitionRecordDao(
             {
                 userId,
@@ -534,75 +690,184 @@ export async function createImageRecognitionByBase64Service(
             tx
         )
 
-        logger.info('图片识别记录创建成功（base64）', {
+        logger.info('图片识别成功，记录已创建', {
             recordId: record.id,
             ossFileId,
             imageType: extractResult.imgType,
+            contentLength: extractResult.imageInfo.length,
         })
 
-        // 7. 向量化处理
-        try {
-            if (record.markdownContent) {
-                const embeddingResult = await embedImageService({
-                    content: record.markdownContent,
-                    userId,
-                    ossFileId,
-                    fileName: ossFile.fileName || `image_${ossFileId}`,
-                })
-
-                // 更新记录的向量信息
-                await updateImageRecognitionRecordDao(record.id, {
-                    vectorIds: embeddingResult.ids,
-                    lastEmbeddingAt: new Date(embeddingResult.lastEmbeddingAt),
-                }, tx)
-
-                logger.info('图片向量化完成（base64）', {
-                    recordId: record.id,
-                    ossFileId,
-                    chunkCount: embeddingResult.chunkCount,
-                })
-            }
-        } catch (embedError: any) {
-            // 向量化失败不影响识别结果
-            logger.warn('图片向量化失败，但识别结果已保存（base64）', {
-                ossFileId,
-                error: embedError.message,
-            })
-        }
+        // 7. 异步触发向量化嵌入（失败不影响主流程）
+        // Requirements: 10.10, 10.11, 10.12, 10.13, 10.14
+        triggerImageEmbeddingAsync(record.id, ossFileId, userId, ossFile.fileName || `image_${ossFileId}`, tx)
 
         return {
             record,
             success: true,
         }
     } catch (error: any) {
-        logger.error('创建图片识别记录失败（base64）', {
+        // 识别失败时不创建识别记录
+        // Requirements: 10.2
+        logger.error('创建图片识别记录失败', {
             ossFileId,
             userId,
             mimeType,
             error: error.message,
+            stack: error.stack,
         })
 
-        // 尝试创建失败记录
-        try {
-            const failedRecord = await createImageRecognitionRecordDao(
-                {
-                    userId,
+        return {
+            record: null as any,
+            success: false,
+            error: error.message,
+        }
+    }
+}
+
+/**
+ * 异步触发图片识别结果向量化
+ * 
+ * 在识别完成后异步调用向量化服务，失败不影响主流程
+ * 参考 ASR 服务的 triggerAudioEmbeddingAsync 实现
+ * 
+ * Requirements: 10.10, 10.11, 10.12, 10.13, 10.14
+ * 
+ * @param recordId 图片识别记录 ID
+ * @param ossFileId OSS 文件 ID
+ * @param userId 用户 ID
+ * @param fileName 文件名
+ * @param tx 事务对象（可选）
+ */
+function triggerImageEmbeddingAsync(
+    recordId: number,
+    ossFileId: number,
+    userId: number,
+    fileName: string,
+    tx?: Prisma.TransactionClient
+): void {
+    // 使用 Promise 异步执行，不阻塞主流程
+    embedImageRecordService(recordId, ossFileId, userId, fileName, tx)
+        .then((result) => {
+            if (result.success) {
+                logger.info('图片向量化成功', {
+                    recordId,
                     ossFileId,
-                    status: ImageRecognitionStatus.FAILED,
-                },
-                tx
-            )
-            return {
-                record: failedRecord,
-                success: false,
-                error: error.message,
+                    vectorIds: result.vectorIds?.length || 0,
+                    chunkCount: result.chunkCount || 0,
+                })
+            } else {
+                // 向量化失败只记录警告日志，不影响主流程
+                // Requirements: 10.12
+                logger.warn('图片向量化失败', {
+                    recordId,
+                    ossFileId,
+                    error: result.error,
+                })
             }
-        } catch {
-            return {
-                record: null as any,
-                success: false,
+        })
+        .catch((error) => {
+            // 向量化异常只记录错误日志，不影响主流程
+            // Requirements: 10.12
+            logger.error('图片向量化异常', {
+                recordId,
+                ossFileId,
                 error: error.message,
+            })
+        })
+}
+
+/**
+ * 为图片识别记录执行向量化嵌入
+ * 
+ * Requirements: 10.10, 10.11, 10.13, 10.14
+ * 
+ * @param recordId 图片识别记录 ID
+ * @param ossFileId OSS 文件 ID
+ * @param userId 用户 ID
+ * @param fileName 文件名
+ * @param tx 事务对象（可选）
+ * @returns 向量化结果
+ */
+async function embedImageRecordService(
+    recordId: number,
+    ossFileId: number,
+    userId: number,
+    fileName: string,
+    tx?: Prisma.TransactionClient
+): Promise<{
+    success: boolean
+    vectorIds?: string[]
+    chunkCount?: number
+    error?: string
+}> {
+    try {
+        // 1. 获取识别记录
+        const record = await findImageRecognitionByIdDao(recordId, tx)
+        if (!record || !record.markdownContent) {
+            return {
+                success: false,
+                error: '识别记录不存在或内容为空',
             }
+        }
+
+        // 2. 调用向量化服务
+        // Requirements: 10.10
+        const embeddingResult = await embedImageService({
+            content: record.markdownContent,
+            userId,
+            ossFileId,
+            fileName,
+        })
+
+        // 3. 更新记录的向量信息
+        // Requirements: 10.11
+        await updateImageRecognitionRecordDao(recordId, {
+            vectorIds: embeddingResult.ids,
+            lastEmbeddingAt: new Date(embeddingResult.lastEmbeddingAt),
+        }, tx)
+
+        // 4. 更新 case_materials 表的 embedding_status 为 completed
+        // Requirements: 10.13
+        try {
+            const { findMaterialsByOssFileIdDAO, updateMaterialEmbeddingStatusDAO } = await import('../case/caseMaterial.dao')
+            const materials = await findMaterialsByOssFileIdDAO(ossFileId, tx)
+            for (const material of materials) {
+                await updateMaterialEmbeddingStatusDAO(material.id, 'completed', tx)
+                logger.info(`更新材料 ${material.id} 的 embedding_status 为 completed`)
+            }
+        } catch (updateError: any) {
+            // 更新失败不影响主流程
+            logger.warn('更新 case_materials embedding_status 失败', {
+                ossFileId,
+                error: updateError.message,
+            })
+        }
+
+        return {
+            success: true,
+            vectorIds: embeddingResult.ids,
+            chunkCount: embeddingResult.chunkCount,
+        }
+    } catch (embedError: any) {
+        // 向量化失败，更新 case_materials 表的 embedding_status 为 failed
+        // Requirements: 10.14
+        try {
+            const { findMaterialsByOssFileIdDAO, updateMaterialEmbeddingStatusDAO } = await import('../case/caseMaterial.dao')
+            const materials = await findMaterialsByOssFileIdDAO(ossFileId, tx)
+            for (const material of materials) {
+                await updateMaterialEmbeddingStatusDAO(material.id, 'failed', tx)
+                logger.info(`更新材料 ${material.id} 的 embedding_status 为 failed`)
+            }
+        } catch (updateError: any) {
+            logger.warn('更新 case_materials embedding_status 失败', {
+                ossFileId,
+                error: updateError.message,
+            })
+        }
+
+        return {
+            success: false,
+            error: embedError.message,
         }
     }
 }

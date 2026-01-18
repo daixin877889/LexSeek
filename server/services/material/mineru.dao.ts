@@ -16,6 +16,8 @@ export const createDocRecognitionRecordDao = async (
         userId: number
         ossFileId: number
         status?: number
+        markdownContent?: string
+        htmlContent?: string
     },
     tx?: Prisma.TransactionClient
 ): Promise<docRecognitionRecords> => {
@@ -25,6 +27,8 @@ export const createDocRecognitionRecordDao = async (
                 userId: data.userId,
                 ossFileId: data.ossFileId,
                 status: data.status ?? DocRecognitionStatus.PENDING,
+                markdownContent: data.markdownContent,
+                htmlContent: data.htmlContent,
             },
         })
         return record
@@ -43,7 +47,10 @@ export const findDocRecognitionByOssFileIdDao = async (
 ): Promise<docRecognitionRecords | null> => {
     try {
         const record = await (tx || prisma).docRecognitionRecords.findFirst({
-            where: { ossFileId, deletedAt: null },
+            where: {
+                ossFileId,
+                deletedAt: null
+            },
         })
         return record
     } catch (error) {

@@ -48,16 +48,16 @@ export interface MaterialEmbeddingMetadata {
 
 /**
  * 通用内容嵌入元数据（新版）
- * 支持多种来源类型：doc（文档）、audio（音频）、image（图片）等
+ * 支持多种来源类型：doc（文档）、audio（音频）、image（图片）、text（文本材料）
  */
 export interface ContentEmbeddingMetadata {
-    /** 来源类型：doc=文档, audio=音频, image=图片 */
-    source: 'doc' | 'audio' | 'image'
+    /** 来源类型：doc=文档, audio=音频, image=图片, text=文本材料 */
+    source: 'doc' | 'audio' | 'image' | 'text'
     /** 用户 ID */
     userId: number
-    /** 来源 ID（如 ossFileId） */
+    /** 来源 ID（如 ossFileId 或 materialId） */
     sourceId: number
-    /** 来源名称（原始文件名） */
+    /** 来源名称（原始文件名或材料名称） */
     sourceName: string
     /** 最后嵌入时间 */
     last_embedding_at: string
@@ -448,6 +448,144 @@ export async function isMaterialEmbedded(materialId: number): Promise<boolean> {
 
 
 // ============================================
+// 文本内容嵌入服务（用于 CASE_CONTENT 类型材料）
+// ============================================
+
+/** 文本嵌入输入参数 */
+export interface EmbedTextInput {
+    /** 文本内容 */
+    content: string
+    /** 用户 ID */
+    userId: number
+    /** 材料 ID（case_materials 表中的 ID） */
+    materialId: number
+    /** 材料名称 */
+    materialName: string
+}
+
+/** 文本嵌入结果 */
+export interface EmbedTextResult {
+    /** 生成的向量 ID 列表 */
+    ids: string[]
+    /** 最后嵌入时间 */
+    lastEmbeddingAt: string
+    /** 分块数量 */
+    chunkCount: number
+}
+
+/**
+ * 向量化文本内容（用于 CASE_CONTENT 类型材料）
+ *
+ * 元数据结构：
+ * {
+ *   "source": "text",
+ *   "userId": 137,
+ *   "sourceId": 123,  // materialId（case_materials 表中的 ID）
+ *   "sourceName": "案情描述",  // 材料名称
+ *   "last_embedding_at": "2025-12-16T22:47:29+08:00",
+ *   "chunkIndex": 0
+ * }
+ *
+ * @param input 文本嵌入输入
+ * @param config 分块配置（可选）
+ * @returns 嵌入结果
+ */
+export async function embedTextService(
+    input: EmbedTextInput,
+    config: TextSplitterConfig = defaultSplitterConfig
+): Promise<EmbedTextResult> {
+    const { content, userId, materialId, materialName } = input
+
+    logger.info('开始向量化文本材料', {
+        materialId,
+        userId,
+        materialName,
+        contentLength: content.length,
+    })
+
+    try {
+        // 删除该文本材料的现有向量数据（避免重复）
+        await deleteContentEmbeddings('text', materialId)
+
+        // 记录嵌入时间
+        const lastEmbeddingAt = dayjs().format('YYYY-MM-DDTHH:mm:ss+08:00')
+
+        // 准备元数据
+        const metadata: Omit<ContentEmbeddingMetadata, 'chunkIndex'> = {
+            source: 'text',
+            userId,
+            sourceId: materialId,
+            sourceName: materialName,
+            last_embedding_at: lastEmbeddingAt,
+        }
+
+        // 分块
+        const { documents, ids } = await splitDocumentContent(content, metadata, config)
+
+        if (documents.length === 0) {
+            logger.warn(`文本材料 ${materialId} 内容为空，跳过向量化`)
+            return {
+                ids: [],
+                lastEmbeddingAt,
+                chunkCount: 0,
+            }
+        }
+
+        // 添加到向量存储
+        await addDocumentsToVectorStore(documents, ids, caseMaterialVectorConfig)
+
+        logger.info(`文本材料 ${materialId} 向量化完成`, {
+            chunkCount: documents.length,
+            ids,
+        })
+
+        return {
+            ids,
+            lastEmbeddingAt,
+            chunkCount: documents.length,
+        }
+    } catch (error) {
+        logger.error(`文本材料 ${materialId} 向量化失败:`, error)
+        throw error
+    }
+}
+
+/**
+ * 检查文本材料是否已向量化
+ * @param materialId 材料 ID（case_materials 表中的 ID）
+ * @returns 是否已向量化
+ */
+export async function isTextEmbedded(materialId: number): Promise<boolean> {
+    const pool = getPool()
+    const query = `
+        SELECT EXISTS(
+            SELECT 1 FROM ${caseMaterialVectorConfig.tableName} 
+            WHERE metadata->>'source' = 'text' AND metadata->>'sourceId' = $1
+            LIMIT 1
+        ) as exists
+    `
+    const result = await pool.query(query, [materialId.toString()])
+    return result.rows[0]?.exists === true
+}
+
+/**
+ * 获取文本材料的向量 ID 列表
+ * @param materialId 材料 ID（case_materials 表中的 ID）
+ * @returns 向量 ID 列表
+ */
+export async function getTextEmbeddingIds(materialId: number): Promise<string[]> {
+    const pool = getPool()
+    const query = `
+        SELECT id FROM ${caseMaterialVectorConfig.tableName} 
+        WHERE metadata->>'source' = 'text' AND metadata->>'sourceId' = $1
+        ORDER BY (metadata->>'chunkIndex')::int ASC
+    `
+    const result = await pool.query(query, [materialId.toString()])
+    return result.rows.map((row: { id: string }) => row.id)
+}
+
+
+// ============================================
 // 通用内容嵌入服务（新版，支持多种来源类型）
 // ============================================
 
@@ -476,11 +614,11 @@ export interface EmbedDocumentResult {
 /**
  * 删除文档的现有向量数据
  * @param source 来源类型
- * @param sourceId 来源 ID（如 ossFileId）
+ * @param sourceId 来源 ID（如 ossFileId 或 materialId）
  * @returns 删除的记录数
  */
 export async function deleteContentEmbeddings(
-    source: 'doc' | 'audio' | 'image',
+    source: 'doc' | 'audio' | 'image' | 'text',
     sourceId: number
 ): Promise<number> {
     const pool = getPool()

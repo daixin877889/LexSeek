@@ -26,7 +26,7 @@ import {
 import { generateSignedUrlService, uploadFileService, deleteFileService } from '../storage/storage.service'
 import { v7 as uuidv7 } from 'uuid'
 import dayjs from 'dayjs'
-import { checkPointsService, consumePointsService } from '../point/pointConsumption.service'
+import { checkPointsService, consumePointsService, preDeductPointsService, settlePointsService, rollbackPreDeductService } from '../point/pointConsumption.service'
 import { getNodeConfigService, type NodeConfig } from '../node/node.service'
 import { embedAudioService as embedAudioToVectorStore, formatAsrResultForEmbedding } from './materialEmbedding.service'
 
@@ -485,6 +485,7 @@ export const checkUserPointsForAsrService = async (
  *
  * @param ossFileId OSS 文件 ID
  * @param userId 用户 ID
+ * @param audioDuration 音频时长（秒）
  * @param options 转录选项
  * @param tempFilePath 临时文件路径（加密文件解密后上传的路径，可选）
  * @returns 提交结果
@@ -492,6 +493,7 @@ export const checkUserPointsForAsrService = async (
 export const submitAsrTaskService = async (
     ossFileId: number,
     userId: number,
+    audioDuration: number,
     options: AsrSubmitOptions = {},
     tempFilePath?: string
 ): Promise<AsrSubmitResult> => {
@@ -524,20 +526,38 @@ export const submitAsrTaskService = async (
             }
         }
 
-        // 4. 检查是否已有识别记录
+        // 4. 检查是否已有成功的识别记录
+        // 如果已有成功的识别记录，直接返回
         const existingRecord = await findAsrRecordByOssFileIdDao(ossFileId)
-        if (existingRecord) {
+        if (existingRecord && existingRecord.status === AsrRecordStatus.SUCCESS) {
+            logger.info(`音频已存在成功的识别记录，直接返回：ossFileId=${ossFileId}, recordId=${existingRecord.id}`)
             return {
-                success: false,
-                error: '该音频已存在识别记录，请勿重复提交',
+                success: true,
+                // 返回一个虚拟的 task 对象，表示任务已完成
+                task: {
+                    id: existingRecord.asrTasksId || 0,
+                    taskId: 'existing',
+                    status: AsrTaskStatus.SUCCESS,
+                } as any,
             }
         }
 
-        // 5. 检查用户积分（暂时按 1 分钟计算，实际时长在转录完成后确定）
+        // 5. 预扣积分（使用实际音频时长）
         // Requirements: 3.2.6, 3.2.7
-        const pointCheck = await checkUserPointsForAsrService(userId, 1)
-        if (!pointCheck.sufficient) {
-            return { success: false, error: '积分不足，请先充值' }
+        const durationMinutes = Math.ceil(audioDuration / 60)
+        let preDeductBatchId: string | null = null
+
+        try {
+            const preDeductResult = await preDeductPointsService(userId, ASR_TRANSCRIBE_ITEM_KEY, durationMinutes)
+            preDeductBatchId = preDeductResult.batchId
+            logger.info(`ASR 任务积分预扣成功：userId=${userId}, minutes=${durationMinutes}, batchId=${preDeductBatchId}`)
+        } catch (preDeductError) {
+            const errorMsg = preDeductError instanceof Error ? preDeductError.message : '积分预扣失败'
+            logger.error('ASR 任务积分预扣失败：', preDeductError)
+            return {
+                success: false,
+                error: errorMsg
+            }
         }
 
         // 6. 生成签名 URL
@@ -621,23 +641,26 @@ export const submitAsrTaskService = async (
                 options: requestBody,
                 submittedAt: new Date().toISOString(),
                 originalResponse: response,
+                // 存储 ossFileId 和 userId，用于识别成功时创建识别记录
+                ossFileId,
+                userId,
+                // 存储临时文件路径，用于识别成功后清理
+                tempFilePath: tempFilePath || null,
+                // 存储预扣批次 ID，用于识别完成后结算或回滚
+                preDeductBatchId,
+                // 存储音频时长，用于结算时计算实际消耗
+                audioDuration,
             },
+            // 标记是否为加密文件
+            isEncrypted: !!tempFilePath,
         })
 
-        // 10. 创建 ASR 识别记录（包含临时文件路径，用于后续清理）
-        // Requirements: 3.2.4
-        const record = await createAsrRecordDao({
-            userId,
-            ossFileId,
-            asrTasksId: task.id,
-            status: AsrRecordStatus.PROCESSING,
-            audioUrl,
-            tempFilePath: tempFilePath || undefined,
-        })
+        // 10. 不在提交时创建识别记录，只在识别成功时创建
+        // 识别记录将在 completeTranscriptionService 中创建
 
         logger.info(`ASR 任务提交成功：taskId=${taskId}, ossFileId=${ossFileId}, tempFilePath=${tempFilePath || 'N/A'}`)
 
-        return { success: true, task, record }
+        return { success: true, task }
     } catch (error) {
         logger.error('提交 ASR 转录任务失败：', error)
         return {
@@ -754,7 +777,20 @@ export const completeTranscriptionService = async (
             throw new Error('任务不存在')
         }
 
-        // 2. 更新任务状态
+        // 2. 从 taskRawData 中提取 ossFileId、userId、tempFilePath 和 preDeductBatchId
+        const taskRawData = task.taskRawData as Record<string, any> | null
+        if (!taskRawData || !taskRawData.ossFileId || !taskRawData.userId) {
+            throw new Error('任务数据不完整，缺少 ossFileId 或 userId')
+        }
+
+        const ossFileId = taskRawData.ossFileId as number
+        const userId = taskRawData.userId as number
+        const audioUrl = taskRawData.audioUrl as string
+        const tempFilePath = taskRawData.tempFilePath as string | null
+        const preDeductBatchId = taskRawData.preDeductBatchId as string | null
+        const submittedAudioDuration = taskRawData.audioDuration as number | null
+
+        // 3. 更新任务状态
         await updateAsrTaskService(task.id, {
             status: AsrTaskStatus.SUCCESS,
             result: {
@@ -766,47 +802,80 @@ export const completeTranscriptionService = async (
             },
         })
 
-        // 3. 更新 ASR 识别记录（包含精简后的结果和 jsonOssFileId）
-        const records = await findAsrRecordsByTaskIdDao(task.id)
-        for (const record of records) {
+        // 4. 创建或更新 ASR 识别记录（只在识别成功时创建）
+        let record = await findAsrRecordByOssFileIdDao(ossFileId)
+        if (record) {
+            // 如果已存在识别记录，更新它
             await updateAsrRecordDao(record.id, {
                 status: AsrRecordStatus.SUCCESS,
                 audioDuration: transcriptionResult.duration,
                 result: transcriptionResult.result,      // 精简后的结果
                 jsonOssFileId: transcriptionResult.jsonOssFileId, // 原始 JSON 的 OSS 文件 ID
                 speakers: transcriptionResult.speakers,
+                asrTasksId: task.id,
+                audioUrl,
+                tempFilePath: tempFilePath || undefined,
             })
+        } else {
+            // 如果不存在识别记录，创建新记录（识别成功时才创建）
+            record = await createAsrRecordDao({
+                userId,
+                ossFileId,
+                asrTasksId: task.id,
+                status: AsrRecordStatus.SUCCESS,
+                audioUrl,
+                audioDuration: transcriptionResult.duration,
+                result: transcriptionResult.result,
+                jsonOssFileId: transcriptionResult.jsonOssFileId,
+                speakers: transcriptionResult.speakers,
+                tempFilePath: tempFilePath || undefined,
+            })
+        }
 
-            // 4. 扣减积分（按分钟计费）
-            // Requirements: 3.2.8, 3.2.9
+        // 5. 结算预扣积分（按实际时长计费）
+        // Requirements: 3.2.8, 3.2.9
+        if (preDeductBatchId) {
+            const actualDurationMinutes = transcriptionResult.duration
+                ? Math.ceil(transcriptionResult.duration / 60)
+                : (submittedAudioDuration ? Math.ceil(submittedAudioDuration / 60) : 1)
+
+            try {
+                await settlePointsService(preDeductBatchId, actualDurationMinutes)
+                logger.info(`ASR 转录积分结算成功：userId=${userId}, actualMinutes=${actualDurationMinutes}, batchId=${preDeductBatchId}`)
+            } catch (settleError) {
+                // 结算失败不影响转录结果，但需要记录日志
+                logger.error('ASR 转录积分结算失败：', settleError)
+                // TODO: 可以考虑创建一个"待支付"记录，让用户充值后补扣积分
+            }
+        } else {
+            // 兼容旧数据：如果没有预扣批次 ID，使用直接扣减
             const durationMinutes = transcriptionResult.duration
                 ? Math.ceil(transcriptionResult.duration / 60)
                 : 1
 
             try {
-                await consumePointsService(record.userId, ASR_TRANSCRIBE_ITEM_KEY, durationMinutes, { sourceId: record.id })
-                logger.info(`ASR 转录积分扣减成功：userId=${record.userId}, minutes=${durationMinutes}`)
+                await consumePointsService(userId, ASR_TRANSCRIBE_ITEM_KEY, durationMinutes, { sourceId: record.id })
+                logger.info(`ASR 转录积分扣减成功（兼容模式）：userId=${userId}, minutes=${durationMinutes}`)
             } catch (pointError) {
-                // 积分扣减失败不影响转录结果，但需要记录日志
-                logger.error('ASR 转录积分扣减失败：', pointError)
+                logger.error('ASR 转录积分扣减失败（兼容模式）：', pointError)
             }
+        }
 
-            // 5. 异步触发向量化嵌入（失败不影响主流程）
-            // Requirements: 6.5.2
-            triggerAudioEmbeddingAsync(record.id, record.userId)
+        // 6. 异步触发向量化嵌入（失败不影响主流程）
+        // Requirements: 6.5.2
+        triggerAudioEmbeddingAsync(record.id, userId)
 
-            // 6. 清理临时文件（加密文件解密后上传的临时文件）
-            // Requirements: 6.7.3
-            if (record.tempFilePath) {
-                try {
-                    await deleteFileService(record.tempFilePath)
-                    logger.info(`临时音频文件已删除：${record.tempFilePath}`)
-                    // 清空记录中的临时文件路径
-                    await updateAsrRecordDao(record.id, { tempFilePath: null })
-                } catch (deleteError) {
-                    // 删除失败只记录日志，不影响主流程
-                    logger.warn(`临时音频文件删除失败：${record.tempFilePath}`, deleteError)
-                }
+        // 7. 清理临时文件（加密文件解密后上传的临时文件）
+        // Requirements: 6.7.3
+        if (tempFilePath) {
+            try {
+                await deleteFileService(tempFilePath)
+                logger.info(`临时音频文件已删除：${tempFilePath}`)
+                // 清空记录中的临时文件路径
+                await updateAsrRecordDao(record.id, { tempFilePath: null })
+            } catch (deleteError) {
+                // 删除失败只记录日志，不影响主流程
+                logger.warn(`临时音频文件删除失败：${tempFilePath}`, deleteError)
             }
         }
 
@@ -872,29 +941,40 @@ export const failTranscriptionService = async (
             },
         })
 
-        // 3. 更新 ASR 识别记录状态
-        await updateAsrRecordsByTaskIdDao(task.id, AsrRecordStatus.FAILED)
+        // 3. 从 taskRawData 中提取必要信息
+        const taskRawData = task.taskRawData as Record<string, any> | null
 
-        // 4. 清理临时文件（加密文件解密后上传的临时文件）
-        // Requirements: 6.7.3
-        const records = await findAsrRecordsByTaskIdDao(task.id)
-        for (const record of records) {
-            if (record.tempFilePath) {
-                try {
-                    await deleteFileService(record.tempFilePath)
-                    logger.info(`临时音频文件已删除：${record.tempFilePath}`)
-                    // 清空记录中的临时文件路径
-                    await updateAsrRecordDao(record.id, { tempFilePath: null })
-                } catch (deleteError) {
-                    // 删除失败只记录日志，不影响主流程
-                    logger.warn(`临时音频文件删除失败：${record.tempFilePath}`, deleteError)
-                }
+        // 4. 回滚预扣积分
+        // Requirements: 3.2.10
+        const preDeductBatchId = taskRawData?.preDeductBatchId as string | null
+        if (preDeductBatchId) {
+            try {
+                await rollbackPreDeductService(preDeductBatchId)
+                logger.info(`ASR 转录积分回滚成功：batchId=${preDeductBatchId}`)
+            } catch (rollbackError) {
+                logger.error('ASR 转录积分回滚失败：', rollbackError)
             }
         }
 
-        // 5. 不扣减积分
+        // 5. 识别失败时不创建/更新识别记录
+        // 识别记录只在识别成功时创建
+
+        // 6. 清理临时文件（加密文件解密后上传的临时文件）
+        // Requirements: 6.7.3
+        const tempFilePath = taskRawData?.tempFilePath as string | null
+        if (tempFilePath) {
+            try {
+                await deleteFileService(tempFilePath)
+                logger.info(`临时音频文件已删除：${tempFilePath}`)
+            } catch (deleteError) {
+                // 删除失败只记录日志，不影响主流程
+                logger.warn(`临时音频文件删除失败：${tempFilePath}`, deleteError)
+            }
+        }
+
+        // 7. 不扣减积分（已回滚预扣）
         // Requirements: 3.2.10
-        logger.info(`ASR 转录失败，不扣减积分：taskId=${taskId}, error=${errorMsg}`)
+        logger.info(`ASR 转录失败，积分已回滚：taskId=${taskId}, error=${errorMsg}`)
     } catch (error) {
         logger.error('标记转录失败时出错：', error)
         throw error
@@ -1126,6 +1206,7 @@ export const pollPendingAsrTasksService = async (): Promise<{
  *
  * @param ossFileId OSS 文件 ID
  * @param userId 用户 ID
+ * @param audioDuration 音频时长（秒）
  * @param options 转录选项
  * @param tempFilePath 临时文件路径（加密文件解密后上传的路径，可选）
  * @returns 提交结果
@@ -1133,11 +1214,12 @@ export const pollPendingAsrTasksService = async (): Promise<{
 export const transcribeAudioService = async (
     ossFileId: number,
     userId: number,
+    audioDuration: number,
     options: AsrSubmitOptions = {},
     tempFilePath?: string
 ): Promise<AsrSubmitResult> => {
     // 1. 提交任务
-    const submitResult = await submitAsrTaskService(ossFileId, userId, options, tempFilePath)
+    const submitResult = await submitAsrTaskService(ossFileId, userId, audioDuration, options, tempFilePath)
 
     if (!submitResult.success || !submitResult.task) {
         return submitResult
@@ -1341,6 +1423,22 @@ export const embedAsrRecordService = async (
 
         logger.info(`音频识别结果向量化完成：recordId=${recordId}, ossFileId=${record.ossFileId}, chunkCount=${embeddingResult.chunkCount}`)
 
+        // 9. 更新 case_materials 表的 embedding_status
+        try {
+            const { findMaterialsByOssFileIdDAO, updateMaterialEmbeddingStatusDAO } = await import('../case/caseMaterial.dao')
+            const materials = await findMaterialsByOssFileIdDAO(record.ossFileId, tx)
+            for (const material of materials) {
+                await updateMaterialEmbeddingStatusDAO(material.id, 'completed', tx)
+                logger.info(`更新材料 ${material.id} 的 embedding_status 为 completed`)
+            }
+        } catch (updateError: any) {
+            // 更新失败不影响主流程
+            logger.warn('更新 case_materials embedding_status 失败', {
+                ossFileId: record.ossFileId,
+                error: updateError.message,
+            })
+        }
+
         return {
             success: true,
             vectorIds: embeddingResult.ids,
@@ -1350,6 +1448,24 @@ export const embedAsrRecordService = async (
     } catch (error) {
         // 嵌入失败不影响主流程，仅记录日志
         logger.error(`音频识别结果向量化失败：recordId=${recordId}`, error)
+
+        // 更新 case_materials 表的 embedding_status 为 failed
+        try {
+            const record = await findAsrRecordByIdDao(recordId, tx)
+            if (record) {
+                const { findMaterialsByOssFileIdDAO, updateMaterialEmbeddingStatusDAO } = await import('../case/caseMaterial.dao')
+                const materials = await findMaterialsByOssFileIdDAO(record.ossFileId, tx)
+                for (const material of materials) {
+                    await updateMaterialEmbeddingStatusDAO(material.id, 'failed', tx)
+                }
+            }
+        } catch (updateError: any) {
+            logger.warn('更新 case_materials embedding_status 失败', {
+                recordId,
+                error: updateError.message,
+            })
+        }
+
         return {
             success: false,
             error: error instanceof Error ? error.message : '向量化失败',
