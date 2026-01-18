@@ -22,10 +22,14 @@ import {
     findLatestSessionByCaseIdDao,
     checkCaseOwnershipDao,
 } from './case.dao'
-import { CaseStatus, SessionStatus } from '#shared/types/case'
+import { findByCaseIdDAO } from './caseMaterial.dao'
+import { CaseStatus, SessionStatus, CaseMaterialType } from '#shared/types/case'
 
 // 导入案件类型服务
 import { getCaseTypeByIdService } from './caseType.service'
+
+// 导入案件材料服务
+import { batchAddCaseMaterialsService } from './caseMaterial.service'
 
 // 注意：类型和枚举请直接从 './case.dao' 导入
 // 避免 Nuxt 自动导入时产生重复警告
@@ -44,8 +48,8 @@ export interface CreateCaseResult {
 
 /**
  * 创建案件
- * 同时创建案件记录和会话记录，生成唯一的 sessionId 作为 LangGraph thread_id
- * Requirements: 3.1
+ * 同时创建案件记录、会话记录和材料记录，使用事务确保原子性
+ * Requirements: 3.1, 7.4
  *
  * @param data 创建数据
  * @returns 创建结果，包含 caseId 和 sessionId
@@ -62,13 +66,28 @@ export const createCaseService = async (
         throw new Error('案件类型已禁用')
     }
 
+    // 如果未提供标题，生成默认标题
+    const title = data.title || `待分析的${caseType.name}`
+
     // 生成唯一的 sessionId（使用 UUID v7，时间有序）
     const sessionId = uuidv7()
 
-    // 使用事务创建案件和会话
+    // 准备材料列表
+    const materials = [...(data.materials || [])]
+
+    // 如果提供了 content，将其作为 CASE_CONTENT 类型材料添加到材料列表
+    if (data.content && data.content.trim().length > 0) {
+        materials.unshift({
+            type: CaseMaterialType.CASE_CONTENT,
+            name: '案件描述',
+            content: data.content,
+        })
+    }
+
+    // 使用事务创建案件、会话和材料
     const result = await prisma.$transaction(async (tx) => {
-        // 创建案件
-        const caseRecord = await createCaseDao(data, tx as any)
+        // 创建案件（不再保存 content 到案件表）
+        const caseRecord = await createCaseDao({ ...data, title, content: null }, tx as any)
 
         // 创建会话
         const session = await createSessionDao({
@@ -77,8 +96,52 @@ export const createCaseService = async (
             status: SessionStatus.IN_PROGRESS,
         }, tx as any)
 
+        // 创建材料（包含从 content 转换的材料）
+        if (materials.length > 0) {
+            await batchAddCaseMaterialsService(
+                caseRecord.id,
+                data.userId,
+                materials,
+                tx as any
+            )
+        }
+
         return { caseRecord, session }
     })
+
+    // 异步触发文本材料向量化（不阻塞事务）
+    // Requirements: 8.3
+    if (materials.length > 0) {
+        // 获取创建的材料
+        const createdMaterials = await findByCaseIdDAO(result.caseRecord.id)
+
+        // 筛选出文本材料
+        const textMaterialIds = createdMaterials
+            .filter(m => m.type === CaseMaterialType.CASE_CONTENT)
+            .map(m => m.id)
+
+        // 如果有文本材料，异步触发向量化
+        if (textMaterialIds.length > 0) {
+            // 使用 Promise.resolve 确保异步执行，不阻塞响应
+            Promise.resolve().then(async () => {
+                try {
+                    const { batchEmbedTextMaterialsService } = await import('./caseMaterial.service')
+                    await batchEmbedTextMaterialsService(
+                        textMaterialIds,
+                        data.userId,
+                        result.caseRecord.id,
+                        sessionId
+                    )
+                } catch (error) {
+                    logger.error('文本材料向量化失败', {
+                        error,
+                        materialIds: textMaterialIds,
+                        caseId: result.caseRecord.id,
+                    })
+                }
+            })
+        }
+    }
 
     return {
         caseId: result.caseRecord.id,

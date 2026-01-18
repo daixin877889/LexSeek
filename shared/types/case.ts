@@ -17,6 +17,35 @@ export enum CaseStatus {
     CLOSED = 3,
 }
 
+/** 案件材料类型枚举 */
+export enum CaseMaterialType {
+    /** 文本内容 */
+    CASE_CONTENT = 1,
+    /** 文档 */
+    DOCUMENT = 2,
+    /** 图片 */
+    IMAGE = 3,
+    /** 音频 */
+    AUDIO = 4,
+}
+
+/**
+ * 案件材料参数接口
+ * 用于创建案件时提交材料信息
+ */
+export interface CaseMaterialParam {
+    /** 材料类型 */
+    type: CaseMaterialType
+    /** 材料名称（可选，默认使用文件名） */
+    name?: string
+    /** 文本内容（type=CASE_CONTENT 时必填） */
+    content?: string
+    /** OSS 文件 ID（type!=CASE_CONTENT 时必填） */
+    ossFileId?: number
+    /** 材料分组（可选） */
+    materialGroup?: string
+}
+
 /** 案件状态文本映射 */
 export const CaseStatusText: Record<CaseStatus, string> = {
     [CaseStatus.IN_PROGRESS]: '进行中',
@@ -286,8 +315,8 @@ export interface AnalysisResult {
 
 /** 创建案件输入 */
 export interface CreateCaseInput {
-    /** 案件标题 */
-    title: string
+    /** 案件标题（可选，未提供时自动生成） */
+    title?: string
     /** 案件内容/描述 */
     content?: string | null
     /** 用户 ID */
@@ -300,6 +329,8 @@ export interface CreateCaseInput {
     defendant?: PartyInfo[] | null
     /** 是否为示范案件 */
     isDemo?: boolean
+    /** 案件材料（可选） */
+    materials?: CaseMaterialParam[]
 }
 
 /** 更新案件输入 */

@@ -9,7 +9,8 @@
 
 import { z } from 'zod'
 import { createCaseService } from '~~/server/services/case/case.service'
-import type { PartyInfo } from '#shared/types/case'
+import type { PartyInfo, CaseMaterialParam } from '#shared/types/case'
+import { CaseMaterialType } from '#shared/types/case'
 
 // 当事人信息验证
 const partyInfoSchema = z.object({
@@ -25,12 +26,58 @@ const partyInfoSchema = z.object({
     extra: z.record(z.string(), z.any()).optional(),
 })
 
+// 案件材料验证
+const caseMaterialSchema = z.object({
+    /** 材料类型 */
+    type: z.number()
+        .int({ message: '材料类型必须为整数' })
+        .refine(
+            (val) => [
+                CaseMaterialType.CASE_CONTENT,
+                CaseMaterialType.DOCUMENT,
+                CaseMaterialType.IMAGE,
+                CaseMaterialType.AUDIO,
+            ].includes(val),
+            { message: '无效的材料类型，必须是 1-4 之间的整数' }
+        ),
+    /** 材料名称（可选） */
+    name: z.string().optional(),
+    /** 文本内容（type=CASE_CONTENT 时必填） */
+    content: z.string().optional(),
+    /** OSS 文件 ID（type!=CASE_CONTENT 时必填） */
+    ossFileId: z.number().int().positive().optional(),
+    /** 材料分组（可选） */
+    materialGroup: z.string().optional(),
+}).superRefine((data, ctx) => {
+    // 验证文本材料必须有 content
+    if (data.type === CaseMaterialType.CASE_CONTENT) {
+        if (!data.content || data.content.trim() === '') {
+            ctx.addIssue({
+                code: 'custom',
+                message: '文本材料必须包含 content 字段且不能为空',
+                path: ['content'],
+            })
+        }
+    }
+    // 验证文件材料必须有 ossFileId
+    else {
+        if (!data.ossFileId) {
+            ctx.addIssue({
+                code: 'custom',
+                message: '文件材料必须包含 ossFileId 字段',
+                path: ['ossFileId'],
+            })
+        }
+    }
+})
+
 // 请求体验证
 const createCaseSchema = z.object({
     /** 案件标题 */
     title: z.string()
         .min(1, { message: '案件标题不能为空' })
-        .max(500, { message: '案件标题不能超过 500 个字符' }),
+        .max(500, { message: '案件标题不能超过 500 个字符' })
+        .optional(),
     /** 案件内容/描述 */
     content: z.string().max(10000, { message: '案件内容不能超过 10000 个字符' }).optional(),
     /** 案件类型 ID */
@@ -41,6 +88,20 @@ const createCaseSchema = z.object({
     plaintiff: z.array(partyInfoSchema).optional(),
     /** 被告信息 */
     defendant: z.array(partyInfoSchema).optional(),
+    /** 案件材料（可选） */
+    materials: z.array(caseMaterialSchema).optional(),
+}).superRefine((data, ctx) => {
+    // 验证 content 和 materials 至少提供一个
+    const hasContent = data.content && data.content.trim().length > 0
+    const hasMaterials = data.materials && data.materials.length > 0
+
+    if (!hasContent && !hasMaterials) {
+        ctx.addIssue({
+            code: 'custom',
+            message: '案件内容（content）和案件材料（materials）至少需要提供一个',
+            path: ['content'],
+        })
+    }
 })
 
 export default defineEventHandler(async (event) => {
@@ -50,15 +111,18 @@ export default defineEventHandler(async (event) => {
         return resError(event, 401, '请先登录')
     }
 
+
     // 解析请求体
     const body = await readBody(event)
     const result = createCaseSchema.safeParse(body)
+
+    console.log(result)
 
     if (!result.success) {
         return resError(event, 400, parseErrorMessage(result.error, '参数验证失败'))
     }
 
-    const { title, content, caseTypeId, plaintiff, defendant } = result.data
+    const { title, content, caseTypeId, plaintiff, defendant, materials } = result.data
 
     try {
         // 创建案件
@@ -69,6 +133,7 @@ export default defineEventHandler(async (event) => {
             caseTypeId,
             plaintiff: plaintiff as PartyInfo[] | undefined,
             defendant: defendant as PartyInfo[] | undefined,
+            materials: materials as CaseMaterialParam[] | undefined,
         })
 
         logger.info('案件创建成功', {
