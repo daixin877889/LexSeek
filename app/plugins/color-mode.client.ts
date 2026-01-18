@@ -12,7 +12,7 @@
 export default defineNuxtPlugin(() => {
     // 立即执行，不等待 Vue 挂载
     const COLOR_MODE_KEY = "color-mode";
-    if (typeof localStorage === "undefined") return;
+    if (typeof localStorage === "undefined" || typeof localStorage.getItem !== "function") return;
     const saved = localStorage.getItem(COLOR_MODE_KEY);
     const root = document.documentElement;
 
