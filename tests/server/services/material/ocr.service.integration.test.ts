@@ -30,6 +30,9 @@ const TEST_IMAGE_MIME_TYPE = 'image/png'
 describe('图片识别服务集成测试', () => {
     let dbAvailable = false
 
+    // 增加测试超时时间，因为 AI 服务响应可能较慢
+    const TEST_TIMEOUT = 120000
+
     beforeAll(async () => {
         // 检查数据库是否可用
         try {
@@ -101,7 +104,7 @@ describe('图片识别服务集成测试', () => {
             if (result.record) {
                 testRecordIds.push(result.record.id)
             }
-        })
+        }, TEST_TIMEOUT)
 
         it('识别成功时记录的 status 应为 COMPLETED', async () => {
             if (!dbAvailable) {
@@ -141,7 +144,7 @@ describe('图片识别服务集成测试', () => {
             if (result.record) {
                 testRecordIds.push(result.record.id)
             }
-        })
+        }, TEST_TIMEOUT)
 
         it('识别成功时记录应包含 markdownContent 和 htmlContent', async () => {
             if (!dbAvailable) {
@@ -184,7 +187,7 @@ describe('图片识别服务集成测试', () => {
             if (result.record) {
                 testRecordIds.push(result.record.id)
             }
-        })
+        }, TEST_TIMEOUT)
     })
 
     describe('10.2.2 测试识别失败场景', () => {
