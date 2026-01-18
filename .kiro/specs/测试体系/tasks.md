@@ -7,12 +7,12 @@
 - [x] 3. 编写集成测试
 - [x] 4. 编写属性测试
 - [x] 5. 提高测试覆盖率
-- [ ] 6. 测试质量保证与清理
-  - [ ] 6.1 删除占位符测试文件 `ocr-logic.test.ts`
-  - [ ] 6.2 删除 ORM 测试文件 `caseMaterialEmbedding.simple.test.ts`
-  - [ ] 6.3 删除或重构脚本式测试文件 `test-embedding-status-on-create.ts`
-  - [ ] 6.4 审查其他测试文件，确保没有类似问题
-  - [ ] 6.5 更新测试文档，添加测试质量标准
+- [x] 6. 测试质量保证与清理
+  - [x] 6.1 删除占位符测试文件 `ocr-logic.test.ts`
+  - [x] 6.2 删除 ORM 测试文件 `caseMaterialEmbedding.simple.test.ts`
+  - [x] 6.3 删除或重构脚本式测试文件 `test-embedding-status-on-create.ts`
+  - [x] 6.4 审查其他测试文件，确保没有类似问题
+  - [x] 6.5 更新测试文档，添加测试质量标准
 
 ## 任务详情
 

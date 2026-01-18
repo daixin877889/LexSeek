@@ -14,12 +14,14 @@ UI 测试登录账号：`13064768490` 密码：`daixin88`
 
 ## 目录结构
 ```
-tests/server/
-├── membership/     # 会员系统测试
-├── storage/        # 存储系统测试
-├── payment/        # 支付系统测试
-├── crypto/         # 加密系统测试
-└── utils/          # 工具函数测试
+tests/
+├── server/
+│   ├── membership/     # 会员系统测试
+│   ├── storage/        # 存储系统测试
+│   ├── payment/        # 支付系统测试
+│   ├── crypto/         # 加密系统测试
+│   ├── utils/          # 工具函数测试
+│   └── services/       # 业务服务测试
 ```
 
 ## 运行命令
@@ -66,6 +68,58 @@ describe("[功能名称]", () => {
 });
 ```
 
+## 测试质量标准 (Quality Standards)
+
+### 反模式 (Anti-Patterns) - 禁止出现
+
+#### ❌ 占位符测试 (The Placeholder)
+**现象**：测试文件中只包含 `expect(true).toBe(true)`。
+**问题**：提供虚假的测试覆盖率，掩盖未测试的功能。
+**修正**：要么编写真实的测试用例，要么删除测试文件（或使用 `.todo` 标记）。
+
+```typescript
+// ❌ 错误示例
+it('should work', () => {
+  expect(true).toBe(true)
+})
+
+// ✅ 正确示例
+it.todo('should calculate price correctly')
+```
+
+#### ❌ ORM 代理测试 (The ORM Proxy)
+**现象**：测试用例仅仅验证 Prisma 是否能存取数据，没有业务逻辑。
+**问题**：Prisma 已经被充分测试过，我们不需要测试 ORM 本身。
+**修正**：测试 Service 层或 DAO 层中包含的**自定义逻辑**（如事务、数据转换、复杂查询条件）。
+
+```typescript
+// ❌ 错误示例
+it('should save user', async () => {
+  const user = await prisma.user.create({ data: ... })
+  expect(user.id).toBeDefined()
+})
+
+// ✅ 正确示例
+it('should hash password before saving', async () => {
+  const user = await userService.createUser(...)
+  expect(user.password).not.toBe('plain_password')
+})
+```
+
+#### ❌ 脚本式测试 (The Script)
+**现象**：使用 `process.exit()`、`console.log` 驱动的独立 TS 文件，不使用 `vitest` 结构。
+**问题**：无法被测试运行器管理，无法生成报告，难以维护。
+**修正**：重构为标准的 Vitest 测试文件（`describe`, `it`, `expect`）。
+
+### 测试质量检查清单 (Checklist)
+
+在提交代码前，请检查：
+
+- [ ] **独立性**：测试用例是否相互独立？（不依赖执行顺序）
+- [ ] **清理**：测试产生的副作用（数据库记录、临时文件）是否在 `afterEach` 或 `afterAll` 中清理？
+- [ ] **断言**：是否验证了核心业务结果，而不仅仅是"不报错"？
+- [ ] **覆盖**：是否覆盖了快乐路径（Happy Path）和边缘情况（Edge Cases）？
+- [ ] **描述**：`it` 的描述是否清晰表达了预期行为？
 
 ## 终极规则
 - **必须是真正的单元测试**，不是模拟测试
