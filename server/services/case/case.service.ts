@@ -109,36 +109,27 @@ export const createCaseService = async (
         return { caseRecord, session }
     })
 
-    // 异步触发文本材料向量化（不阻塞事务）
+    // 异步触发文本材料向量化（使用后台任务队列，不阻塞事务）
     // Requirements: 8.3
     if (materials.length > 0) {
-        // 获取创建的材料
         const createdMaterials = await findByCaseIdDAO(result.caseRecord.id)
-
-        // 筛选出文本材料
         const textMaterialIds = createdMaterials
             .filter(m => m.type === CaseMaterialType.CASE_CONTENT)
             .map(m => m.id)
 
-        // 如果有文本材料，异步触发向量化
         if (textMaterialIds.length > 0) {
-            // 使用 Promise.resolve 确保异步执行，不阻塞响应
-            Promise.resolve().then(async () => {
-                try {
-                    const { batchEmbedTextMaterialsService } = await import('./caseMaterial.service')
-                    await batchEmbedTextMaterialsService(
-                        textMaterialIds,
-                        data.userId,
-                        result.caseRecord.id,
-                        sessionId
-                    )
-                } catch (error) {
-                    logger.error('文本材料向量化失败', {
-                        error,
-                        materialIds: textMaterialIds,
-                        caseId: result.caseRecord.id,
-                    })
-                }
+            const vectorizePromise = batchEmbedTextMaterialsService(
+                textMaterialIds,
+                data.userId,
+                result.caseRecord.id,
+                sessionId
+            )
+            vectorizePromise.catch(error => {
+                logger.error('文本材料向量化失败', {
+                    error: error instanceof Error ? error.message : String(error),
+                    materialIds: textMaterialIds,
+                    caseId: result.caseRecord.id,
+                })
             })
         }
     }

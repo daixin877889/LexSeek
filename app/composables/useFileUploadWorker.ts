@@ -3,6 +3,8 @@
  * 
  * 使用 Web Worker 在后台线程处理文件上传，避免阻塞主线程
  * Worker 实现位于 app/workers/fileUpload.worker.ts
+ * 
+ * 使用引用计数管理 Worker 生命周期，支持多个组件共享同一个 Worker
  */
 
 import type { PostSignatureResult } from '~~/shared/types/oss'
@@ -29,32 +31,47 @@ interface UploadTask {
   callbacks: UploadCallbacks
 }
 
+// Worker 实例管理
+interface WorkerInstance {
+  worker: Worker
+  refCount: number
+}
+
+const workerInstanceMap = new Map<string, WorkerInstance>()
+
+/**
+ * 获取共享 Worker 实例
+ * 使用文件路径作为 key，支持不同路径的 Worker 实例
+ */
+function getSharedWorker(workerUrl: string): WorkerInstance {
+  let instance = workerInstanceMap.get(workerUrl)
+  if (!instance) {
+    const worker = new Worker(new URL(workerUrl, import.meta.url), { type: 'module' })
+    instance = { worker, refCount: 0 }
+    workerInstanceMap.set(workerUrl, instance)
+  }
+  return instance
+}
+
 /**
  * 文件上传 Worker Composable
  */
 export const useFileUploadWorker = () => {
-  // Worker 实例
-  let worker: Worker | null = null
+  // 当前 Worker 实例
+  let currentInstance: WorkerInstance | null = null
   // 上传任务映射
   const tasks = new Map<string, UploadTask>()
-  // 任务 ID 计数器
-  let taskIdCounter = 0
 
   /**
-   * 初始化 Worker
-   * 使用 app/workers/fileUpload.worker.ts 文件
+   * 初始化 Worker（使用引用计数）
    */
   const initWorker = () => {
-    if (worker) return worker
-
-    // 使用 Nuxt 的方式创建 Worker，引用 workers 目录下的文件
-    worker = new Worker(
-      new URL('../workers/fileUpload.worker.ts', import.meta.url),
-      { type: 'module' }
-    )
+    const workerPath = '../workers/fileUpload.worker.ts'
+    currentInstance = getSharedWorker(workerPath)
+    currentInstance.refCount++
 
     // 监听 Worker 消息
-    worker.addEventListener('message', (event: MessageEvent<WorkerResponse>) => {
+    currentInstance.worker.addEventListener('message', (event: MessageEvent<WorkerResponse>) => {
       const response = event.data
       const task = tasks.get(response.id)
 
@@ -75,7 +92,7 @@ export const useFileUploadWorker = () => {
       }
     })
 
-    return worker
+    return currentInstance.worker
   }
 
   /**
@@ -87,11 +104,10 @@ export const useFileUploadWorker = () => {
     callbacks: UploadCallbacks
   ): string => {
     const w = initWorker()
-    const id = `upload_${++taskIdCounter}_${Date.now()}`
+    const id = `upload_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 
     tasks.set(id, { id, callbacks })
 
-    // 确保 callbackVar 是纯对象，避免克隆问题
     const callbackVar: Record<string, string> = {}
     if (signature.callbackVar) {
       for (const [key, value] of Object.entries(signature.callbackVar)) {
@@ -99,7 +115,6 @@ export const useFileUploadWorker = () => {
       }
     }
 
-    // 构建可克隆的签名对象
     const cloneableSignature = {
       host: signature.host,
       policy: signature.policy,
@@ -127,31 +142,39 @@ export const useFileUploadWorker = () => {
    * 取消上传
    */
   const cancel = (id: string) => {
-    if (worker) {
-      worker.postMessage({ type: 'cancel', id })
+    if (currentInstance?.worker) {
+      currentInstance.worker.postMessage({ type: 'cancel', id })
     }
     tasks.delete(id)
   }
 
   /**
-   * 销毁 Worker
+   * 释放 Worker 引用（减少引用计数）
    */
-  const destroy = () => {
-    if (worker) {
-      worker.terminate()
-      worker = null
+  const releaseWorker = () => {
+    if (currentInstance) {
+      currentInstance.refCount--
+      if (currentInstance.refCount <= 0) {
+        const workerUrl = '../workers/fileUpload.worker.ts'
+        const instance = workerInstanceMap.get(workerUrl)
+        if (instance) {
+          instance.worker.terminate()
+          workerInstanceMap.delete(workerUrl)
+        }
+      }
+      currentInstance = null
     }
     tasks.clear()
   }
 
-  // 组件卸载时销毁 Worker
+  // 组件卸载时释放 Worker 引用
   onUnmounted(() => {
-    destroy()
+    releaseWorker()
   })
 
   return {
     upload,
     cancel,
-    destroy
+    destroy: releaseWorker
   }
 }

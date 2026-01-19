@@ -40,7 +40,7 @@ export const createCaseDao = async (
     try {
         const caseRecord = await client.cases.create({
             data: {
-                title: data.title,
+                title: data.title ?? '',
                 content: data.content,
                 userId: data.userId,
                 caseTypeId: data.caseTypeId,

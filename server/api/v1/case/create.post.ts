@@ -116,8 +116,6 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const result = createCaseSchema.safeParse(body)
 
-    console.log(result)
-
     if (!result.success) {
         return resError(event, 400, parseErrorMessage(result.error, '参数验证失败'))
     }

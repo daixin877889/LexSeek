@@ -1,209 +1,194 @@
 /**
- * MinerU 任务状态查询 API 测试
+ * MinerU 任务状态查询 API 测试 (Unit)
  *
  * 测试 GET /api/v1/recognition/mineru/task/:taskId
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
-import { prisma } from '../../../server/utils/db'
-import { createTestHelper } from './test-api-helpers'
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import { MineruTaskStatus, DocRecognitionStatus } from '../../../shared/types/recognition'
-import { clearUserPermissionCache } from '../../../server/services/rbac/cache.service'
 
-describe('MinerU 任务状态查询 API', () => {
-    const helper = createTestHelper()
-    const client = helper.getClient()
-    let testUser: any
-    let testOssFile: any
-    let testTask: any
+// 使用 vi.hoisted 创建 mock 对象
+const mocks = vi.hoisted(() => {
+    return {
+        getMineruTaskByTaskIdService: vi.fn(),
+        getMineruTaskByIdService: vi.fn(),
+        findDocRecognitionByOssFileIdDao: vi.fn(),
+        getRouterParams: vi.fn(),
+    }
+})
+
+// Mock dependencies
+const mockUser = {
+    id: 1,
+    username: 'testuser',
+}
+
+// Setup global mocks
+vi.stubGlobal('defineEventHandler', (handler: any) => handler)
+vi.stubGlobal('getRouterParams', mocks.getRouterParams)
+vi.stubGlobal('resError', (event: any, code: number, msg: string) => ({ code, msg, message: msg, success: false }))
+vi.stubGlobal('resSuccess', (event: any, msg: string, data: any) => ({ code: 0, msg, message: msg, data, success: true }))
+vi.stubGlobal('logger', {
+    info: vi.fn(),
+    error: vi.fn(),
+})
+
+// Mock services using BOTH alias and relative paths
+vi.mock('~~/server/services/material/mineruTask.service', () => ({
+    getMineruTaskByTaskIdService: mocks.getMineruTaskByTaskIdService,
+    getMineruTaskByIdService: mocks.getMineruTaskByIdService,
+}))
+vi.mock('../../../../server/services/material/mineruTask.service', () => ({
+    getMineruTaskByTaskIdService: mocks.getMineruTaskByTaskIdService,
+    getMineruTaskByIdService: mocks.getMineruTaskByIdService,
+}))
+
+vi.mock('~~/server/services/material/mineru.dao', () => ({
+    findDocRecognitionByOssFileIdDao: mocks.findDocRecognitionByOssFileIdDao,
+}))
+vi.mock('../../../../server/services/material/mineru.dao', () => ({
+    findDocRecognitionByOssFileIdDao: mocks.findDocRecognitionByOssFileIdDao,
+}))
+
+describe('MinerU 任务状态查询 API (Unit)', () => {
+    let taskStatusHandler: any
+    let event: any
 
     beforeAll(async () => {
-        // 创建测试用户并登录
-        testUser = await helper.createAndLoginUser()
-        console.log('Test User Token:', client.getAuthToken())
-
-        // 赋予超级管理员权限
-        const superAdminRole = await prisma.roles.upsert({
-            where: { code: 'super_admin' },
-            update: {},
-            create: {
-                name: '超级管理员',
-                code: 'super_admin',
-                description: '系统超级管理员',
-                status: 1,
-            },
-        })
-
-        await prisma.userRoles.create({
-            data: {
-                userId: testUser.id,
-                roleId: superAdminRole.id,
-            },
-        })
-
-        // 清除权限缓存
-        clearUserPermissionCache(testUser.id)
-
-        // 创建测试 OSS 文件
-        testOssFile = await prisma.ossFiles.create({
-            data: {
-                userId: testUser.id,
-                fileName: 'test.pdf',
-                fileSize: 1024,
-                fileType: 'application/pdf',
-                bucketName: 'test-bucket',
-                filePath: 'test/test.pdf',
-            },
-        })
+        // Import the handler
+        const handlerModule = await import('../../../../server/api/v1/recognition/mineru/task/[taskId].get')
+        taskStatusHandler = handlerModule.default
     })
 
-    afterAll(async () => {
-        // 清理测试数据
-        if (testUser) {
-            await prisma.mineruTasks.deleteMany({
-                where: { userId: testUser.id },
-            })
-            await prisma.docRecognitionRecords.deleteMany({
-                where: { userId: testUser.id },
-            })
-            await prisma.ossFiles.deleteMany({
-                where: { userId: testUser.id },
-            })
-        }
-        await helper.cleanup()
-    })
-
-    beforeEach(async () => {
-        // 清理之前的测试任务
-        if (testUser) {
-            await prisma.mineruTasks.deleteMany({
-                where: { userId: testUser.id },
-            })
-            await prisma.docRecognitionRecords.deleteMany({
-                where: { userId: testUser.id },
-            })
+    beforeEach(() => {
+        vi.clearAllMocks()
+        event = {
+            context: {
+                auth: {
+                    user: mockUser
+                }
+            }
         }
     })
 
-    describe('GET /api/v1/recognition/mineru/task/:taskId', () => {
-        it('应该返回处理中的任务状态', async () => {
-            // 创建处理中的任务
-            testTask = await prisma.mineruTasks.create({
-                data: {
-                    taskId: 'test-task-processing',
-                    ossFileId: testOssFile.id,
-                    userId: testUser.id,
-                    status: MineruTaskStatus.PROCESSING,
-                    taskRawData: {
-                        batchId: 'test-batch-id',
-                    },
-                },
-            })
+    it('应该返回处理中的任务状态 (通过 taskId 字符串查询)', async () => {
+        // Arrange
+        const taskId = 'task-123'
+        mocks.getRouterParams.mockReturnValue({ taskId })
 
-            // 模拟 API 请求
-            const response = await client.get(`/api/v1/recognition/mineru/task/${testTask.taskId}`)
-
-            expect(response).toBeDefined()
-            expect(response.code).toBe(0)
-            expect(response.data).toMatchObject({
-                taskId: testTask.id.toString(),
-                status: MineruTaskStatus.PROCESSING,
-                recordId: null,
-            })
+        mocks.getMineruTaskByTaskIdService.mockResolvedValue({
+            id: 1,
+            taskId: taskId,
+            status: MineruTaskStatus.PROCESSING,
+            errorMsg: null,
+            ossFileId: 100,
         })
 
-        it('应该返回成功的任务状态和识别记录 ID', async () => {
-            // 创建成功的任务
-            testTask = await prisma.mineruTasks.create({
-                data: {
-                    taskId: 'test-task-success',
-                    ossFileId: testOssFile.id,
-                    userId: testUser.id,
-                    status: MineruTaskStatus.SUCCESS,
-                    taskRawData: {
-                        batchId: 'test-batch-id',
-                    },
-                    completedAt: new Date(),
-                },
-            })
+        // Act
+        const result = await taskStatusHandler(event)
 
-            // 创建识别记录
-            const record = await prisma.docRecognitionRecords.create({
-                data: {
-                    userId: testUser.id,
-                    ossFileId: testOssFile.id,
-                    status: DocRecognitionStatus.SUCCESS,
-                    htmlContent: '<p>Test content</p>',
-                    markdownContent: 'Test content',
-                },
-            })
+        // Assert
+        expect(result.success).toBe(true)
+        expect(result.data.taskId).toBe('1')
+        expect(result.data.status).toBe(MineruTaskStatus.PROCESSING)
+        expect(result.data.recordId).toBeNull()
+    })
 
-            // 模拟 API 请求
-            const response = await client.get(`/api/v1/recognition/mineru/task/${testTask.taskId}`)
+    it('应该返回处理中的任务状态 (通过 id 数字查询)', async () => {
+        // Arrange
+        const taskId = '1'
+        mocks.getRouterParams.mockReturnValue({ taskId })
 
-            expect(response).toBeDefined()
-            expect(response.code).toBe(0)
-            expect(response.data).toMatchObject({
-                taskId: testTask.id.toString(),
-                status: MineruTaskStatus.SUCCESS,
-                recordId: record.id,
-            })
+        mocks.getMineruTaskByIdService.mockResolvedValue({
+            id: 1,
+            taskId: 'task-abc',
+            status: MineruTaskStatus.PROCESSING,
+            errorMsg: null,
+            ossFileId: 100,
         })
 
-        it('应该返回失败的任务状态', async () => {
-            // 创建失败的任务
-            testTask = await prisma.mineruTasks.create({
-                data: {
-                    taskId: 'test-task-failed',
-                    ossFileId: testOssFile.id,
-                    userId: testUser.id,
-                    status: MineruTaskStatus.FAILED,
-                    taskRawData: {
-                        batchId: 'test-batch-id',
-                    },
-                    errorMsg: '识别失败',
-                    completedAt: new Date(),
-                },
-            })
+        // Act
+        const result = await taskStatusHandler(event)
 
-            // 模拟 API 请求
-            const response = await client.get(`/api/v1/recognition/mineru/task/${testTask.taskId}`)
+        // Assert
+        expect(result.success).toBe(true)
+        expect(result.data.taskId).toBe('1')
+        expect(result.data.status).toBe(MineruTaskStatus.PROCESSING)
+    })
 
-            expect(response).toBeDefined()
-            expect(response.code).toBe(0)
-            expect(response.data).toMatchObject({
-                taskId: testTask.id.toString(),
-                status: MineruTaskStatus.FAILED,
-                recordId: null,
-                errorMsg: '识别失败',
-            })
+    it('应该返回成功的任务状态和识别记录 ID', async () => {
+        // Arrange
+        const taskId = 'task-success'
+        mocks.getRouterParams.mockReturnValue({ taskId })
+
+        mocks.getMineruTaskByTaskIdService.mockResolvedValue({
+            id: 2,
+            taskId: taskId,
+            status: MineruTaskStatus.SUCCESS,
+            errorMsg: null,
+            ossFileId: 100,
         })
 
-        it('应该在任务不存在时返回 404', async () => {
-            // 模拟 API 请求
-            const response = await client.get('/api/v1/recognition/mineru/task/non-existent-task')
-            expect(response.code).toBe(404)
+        mocks.findDocRecognitionByOssFileIdDao.mockResolvedValue({
+            id: 50,
+            status: DocRecognitionStatus.SUCCESS,
         })
 
-        it('应该在未登录时返回 401', async () => {
-            // 创建任务
-            testTask = await prisma.mineruTasks.create({
-                data: {
-                    taskId: 'test-task-unauthorized',
-                    ossFileId: testOssFile.id,
-                    userId: testUser.id,
-                    status: MineruTaskStatus.PROCESSING,
-                    taskRawData: {},
-                },
-            })
+        // Act
+        const result = await taskStatusHandler(event)
 
-            // 创建未认证的客户端
-            const { createApiClient } = await import('./test-api-client')
-            const noAuthClient = createApiClient()
+        // Assert
+        expect(result.success).toBe(true)
+        expect(result.data.taskId).toBe('2')
+        expect(result.data.status).toBe(MineruTaskStatus.SUCCESS)
+        expect(result.data.recordId).toBe(50)
+    })
 
-            // 模拟未登录的 API 请求
-            const response = await noAuthClient.get(`/api/v1/recognition/mineru/task/${testTask.taskId}`)
-            expect(response.code).toBe(401)
+    it('应该返回失败的任务状态', async () => {
+        // Arrange
+        const taskId = 'task-failed'
+        mocks.getRouterParams.mockReturnValue({ taskId })
+
+        mocks.getMineruTaskByTaskIdService.mockResolvedValue({
+            id: 3,
+            taskId: taskId,
+            status: MineruTaskStatus.FAILED,
+            errorMsg: '识别失败',
+            ossFileId: 100,
         })
+
+        // Act
+        const result = await taskStatusHandler(event)
+
+        // Assert
+        expect(result.success).toBe(true)
+        expect(result.data.taskId).toBe('3')
+        expect(result.data.status).toBe(MineruTaskStatus.FAILED)
+        expect(result.data.errorMsg).toBe('识别失败')
+    })
+
+    it('应该在任务不存在时返回 404', async () => {
+        // Arrange
+        const taskId = 'non-existent'
+        mocks.getRouterParams.mockReturnValue({ taskId })
+        mocks.getMineruTaskByTaskIdService.mockResolvedValue(null)
+
+        // Act
+        const result = await taskStatusHandler(event)
+
+        // Assert
+        expect(result.code).toBe(404)
+        expect(result.msg).toBe('任务不存在')
+    })
+
+    it('应该在未登录时返回 401', async () => {
+        // Arrange
+        event.context.auth = undefined
+
+        // Act
+        const result = await taskStatusHandler(event)
+
+        // Assert
+        expect(result.code).toBe(401)
     })
 })

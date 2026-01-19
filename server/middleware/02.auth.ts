@@ -18,11 +18,22 @@ const isPublicApi = (
     requestMethod: string
 ): boolean => {
     return publicApis.some(api => {
-        // 路径匹配（支持前缀匹配）
-        const pathMatch = requestPath === api.path || requestPath.startsWith(api.path + '/')
-        // 方法匹配（* 表示所有方法）
-        const methodMatch = api.method === '*' || api.method === requestMethod
-        return pathMatch && methodMatch
+        const normalizedPath = requestPath.replace(/\/+/g, '/')
+        const normalizedApiPath = api.path.replace(/\/+/g, '/')
+
+        // 精确匹配
+        if (normalizedPath === normalizedApiPath) {
+            const methodMatch = api.method === '*' || api.method === requestMethod
+            return methodMatch
+        }
+
+        // 前缀匹配（仅当 api.path 以 / 结尾时才进行前缀匹配）
+        if (normalizedApiPath.endsWith('/') && normalizedPath.startsWith(normalizedApiPath)) {
+            const methodMatch = api.method === '*' || api.method === requestMethod
+            return methodMatch
+        }
+
+        return false
     })
 }
 

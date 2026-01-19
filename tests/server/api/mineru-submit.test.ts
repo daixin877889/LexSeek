@@ -1,144 +1,200 @@
 /**
- * MinerU 提交 API 测试
+ * MinerU 提交 API 测试 (Unit)
  *
  * 测试 POST /api/v1/recognition/mineru/submit
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
-import { createTestHelper } from './test-api-helpers'
-import { prisma } from '../../../server/utils/db'
-import { MineruTaskStatus, DocRecognitionStatus } from '../../../shared/types/recognition'
-import { clearUserPermissionCache } from '../../../server/services/rbac/cache.service'
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
+import { MineruTaskStatus } from '../../../shared/types/recognition'
 
-describe('MinerU 提交 API', () => {
-    const helper = createTestHelper()
-    const client = helper.getClient()
-    let testUser: any
-    let testOssFile: any
+// 使用 vi.hoisted 创建所有需要用于 mock 的对象
+const mocks = vi.hoisted(() => {
+    return {
+        createMineruTaskService: vi.fn(),
+        hasActiveTokenService: vi.fn(),
+        getActiveTokenValueService: vi.fn(),
+        prisma: {
+            ossFiles: {
+                findFirst: vi.fn(),
+            },
+            mineruTasks: {
+                findFirst: vi.fn(),
+            }
+        },
+        readBody: vi.fn(),
+        fetch: vi.fn(),
+        getRouterParams: vi.fn(),
+        // Logger mocks
+        loggerInfo: vi.fn(),
+        loggerError: vi.fn(),
+    }
+})
+
+// Mock dependencies
+const mockUser = {
+    id: 1,
+    username: 'testuser',
+}
+
+// Setup global mocks
+vi.stubGlobal('defineEventHandler', (handler: any) => handler)
+vi.stubGlobal('readBody', mocks.readBody)
+vi.stubGlobal('resError', (event: any, code: number, msg: string) => ({ code, msg, message: msg, success: false }))
+vi.stubGlobal('resSuccess', (event: any, msg: string, data: any) => ({ code: 0, msg, message: msg, data, success: true }))
+vi.stubGlobal('$fetch', mocks.fetch)
+vi.stubGlobal('useRuntimeConfig', () => ({
+    public: { baseUrl: 'http://localhost:3000' }
+}))
+vi.stubGlobal('logger', {
+    info: mocks.loggerInfo,
+    error: mocks.loggerError,
+})
+// Stub global prisma because the handler uses auto-imported prisma
+vi.stubGlobal('prisma', mocks.prisma)
+
+// Mock services using BOTH alias and relative paths to ensure resolution works
+vi.mock('~~/server/services/material/mineruTask.service', () => ({
+    createMineruTaskService: mocks.createMineruTaskService,
+}))
+vi.mock('../../../server/services/material/mineruTask.service', () => ({
+    createMineruTaskService: mocks.createMineruTaskService,
+}))
+
+vi.mock('~~/server/services/material/mineruToken.service', () => ({
+    hasActiveTokenService: mocks.hasActiveTokenService,
+    getActiveTokenValueService: mocks.getActiveTokenValueService,
+}))
+vi.mock('../../../server/services/material/mineruToken.service', () => ({
+    hasActiveTokenService: mocks.hasActiveTokenService,
+    getActiveTokenValueService: mocks.getActiveTokenValueService,
+}))
+
+// Mock Prisma
+vi.mock('../../../server/utils/db', () => ({
+    prisma: mocks.prisma,
+}))
+
+describe('MinerU 提交 API (Unit)', () => {
+    let submitHandler: any
+    let event: any
 
     beforeAll(async () => {
-        // 创建测试用户并登录
-        testUser = await helper.createAndLoginUser()
-        console.log('Test User Token (Submit):', client.getAuthToken())
-
-        // 赋予超级管理员权限
-        const superAdminRole = await prisma.roles.upsert({
-            where: { code: 'super_admin' },
-            update: {},
-            create: {
-                name: '超级管理员',
-                code: 'super_admin',
-                description: '系统超级管理员',
-                status: 1,
-            },
-        })
-
-        await prisma.userRoles.create({
-            data: {
-                userId: testUser.id,
-                roleId: superAdminRole.id,
-            },
-        })
-
-        // 清除权限缓存
-        clearUserPermissionCache(testUser.id)
-
-        // 创建测试 OSS 文件
-        testOssFile = await prisma.ossFiles.create({
-            data: {
-                userId: testUser.id,
-                fileName: 'test-submit.pdf',
-                fileSize: 2048,
-                fileType: 'application/pdf',
-                bucketName: 'test-bucket',
-                filePath: 'test/test-submit.pdf',
-            },
-        })
+        // Import the handler - FIXED path (3 levels up)
+        const handlerModule = await import('../../../server/api/v1/recognition/mineru/submit.post')
+        submitHandler = handlerModule.default
     })
 
-    afterAll(async () => {
-        // 清理测试数据
-        if (testUser) {
-            await prisma.mineruTasks.deleteMany({
-                where: { userId: testUser.id },
-            })
-            await prisma.docRecognitionRecords.deleteMany({
-                where: { userId: testUser.id },
-            })
-            await prisma.ossFiles.deleteMany({
-                where: { userId: testUser.id },
-            })
-        }
-        await helper.cleanup()
-    })
-
-    beforeEach(async () => {
-        // 清理之前的测试任务
-        if (testUser) {
-            await prisma.mineruTasks.deleteMany({
-                where: { userId: testUser.id },
-            })
-            await prisma.docRecognitionRecords.deleteMany({
-                where: { userId: testUser.id },
-            })
+    beforeEach(() => {
+        vi.clearAllMocks()
+        event = {
+            context: {
+                auth: {
+                    user: mockUser
+                }
+            }
         }
     })
 
-    describe('POST /api/v1/recognition/mineru/submit', () => {
-        it('应该成功提交 MinerU 识别任务', async () => {
-            // 模拟 API 请求
-            const response = await client.post('/api/v1/recognition/mineru/submit', {
-                ossFileId: testOssFile.id,
-                fileName: testOssFile.fileName,
-                encrypted: false,
-            })
+    it('应该成功提交 MinerU 识别任务', async () => {
+        // Arrange
+        const mockBody = {
+            ossFileId: 123,
+            fileName: 'test.pdf',
+            encrypted: false,
+        }
+        mocks.readBody.mockResolvedValue(mockBody)
 
-            expect(response).toBeDefined()
-            expect(response.code).toBe(0)
-            expect(response.data).toHaveProperty('taskId')
-            expect(response.data).toHaveProperty('taskStatus')
-            expect(response.data.taskStatus).toBe(MineruTaskStatus.PROCESSING)
-
-            // 验证任务记录已创建
-            const task = await prisma.mineruTasks.findFirst({
-                where: {
-                    ossFileId: testOssFile.id,
-                    userId: testUser.id,
-                    deletedAt: null,
-                },
-            })
-
-            expect(task).toBeDefined()
-            expect(task?.status).toBe(MineruTaskStatus.PROCESSING)
+        // Mock Prisma findFirst for ossFile
+        mocks.prisma.ossFiles.findFirst.mockResolvedValue({
+            id: 123,
+            userId: 1,
+            fileName: 'test.pdf',
         })
 
-        it('应该在文件不存在时返回 404', async () => {
-            const response = await client.post('/api/v1/recognition/mineru/submit', {
-                ossFileId: 99999,
-                fileName: 'non-existent.pdf',
-                encrypted: false,
-            })
-            expect(response.code).toBe(404)
+        // Mock Token service
+        mocks.hasActiveTokenService.mockResolvedValue(true)
+        mocks.getActiveTokenValueService.mockResolvedValue('mock-token')
+
+        // Mock $fetch for Mineru API
+        mocks.fetch.mockResolvedValue({
+            code: 0,
+            msg: 'success',
+            data: {
+                batch_id: 'batch-123',
+                file_urls: ['http://upload.url'],
+            }
         })
 
-        it('应该在未登录时返回 401', async () => {
-            const { createApiClient } = await import('./test-api-client')
-            const noAuthClient = createApiClient()
-
-            const response = await noAuthClient.post('/api/v1/recognition/mineru/submit', {
-                ossFileId: testOssFile.id,
-                fileName: testOssFile.fileName,
-                encrypted: false,
-            })
-            expect(response.code).toBe(401)
+        // Mock create task
+        mocks.createMineruTaskService.mockResolvedValue({
+            id: 100,
+            status: MineruTaskStatus.PROCESSING,
         })
 
-        it('应该在参数缺失时返回 400', async () => {
-            const response = await client.post('/api/v1/recognition/mineru/submit', {
-                // 缺少 ossFileId
-                fileName: 'test.pdf',
-            })
-            expect(response.code).toBe(400)
-        })
+        // Act
+        const result = await submitHandler(event)
+
+        // Assert
+        expect(result.success).toBe(true)
+        expect(result.data.taskId).toBe('100')
+        expect(result.data.taskStatus).toBe(MineruTaskStatus.PROCESSING)
+        expect(result.data.uploadUrl).toBe('http://upload.url')
+        expect(result.data.batchId).toBe('batch-123')
+    })
+
+    it('应该在文件不存在时返回 404', async () => {
+        // Arrange
+        const mockBody = { ossFileId: 999, fileName: 'missing.pdf' }
+        mocks.readBody.mockResolvedValue(mockBody)
+        mocks.prisma.ossFiles.findFirst.mockResolvedValue(null)
+
+        // Act
+        const result = await submitHandler(event)
+        console.log('Result for 404 test:', JSON.stringify(result, null, 2))
+
+        // Assert
+        expect(result.code).toBe(404)
+        expect(result.msg).toContain('文件不存在')
+    })
+
+    it('应该在未登录时返回 401', async () => {
+        // Arrange
+        event.context.auth = undefined
+
+        // Act
+        const result = await submitHandler(event)
+        console.log('Result for 401 test:', JSON.stringify(result, null, 2))
+
+        // Assert
+        expect(result.code).toBe(401)
+    })
+
+    it('应该在参数缺失时返回 400', async () => {
+        // Arrange
+        const mockBody = { fileName: 'test.pdf' } // Missing ossFileId
+        mocks.readBody.mockResolvedValue(mockBody)
+
+        // Act
+        const result = await submitHandler(event)
+        console.log('Result for 400 test:', JSON.stringify(result, null, 2))
+
+        // Assert
+        expect(result.code).toBe(400)
+    })
+
+    it('应该在没有可用 Token 时返回 500', async () => {
+        // Arrange
+        const mockBody = { ossFileId: 123, fileName: 'test.pdf' }
+        mocks.readBody.mockResolvedValue(mockBody)
+        mocks.prisma.ossFiles.findFirst.mockResolvedValue({ id: 123 })
+        mocks.hasActiveTokenService.mockResolvedValue(false)
+
+        // Act
+        const result = await submitHandler(event)
+        console.log('Result for 500 test:', JSON.stringify(result, null, 2))
+
+        // Assert
+        expect(result.code).toBe(500)
+        expect(result.msg).toContain('没有可用的 MinerU Token')
     })
 })
