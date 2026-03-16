@@ -149,7 +149,6 @@ const fileToBase64 = (file: File): Promise<string> => {
  */
 export const useImageRecognition = () => {
     const { cacheFile, getCachedFile } = useLocalFileCache()
-    const ageCrypto = useAgeCrypto()
 
     // 识别状态
     const status = ref<ImageRecognitionStatus>({
@@ -222,7 +221,7 @@ export const useImageRecognition = () => {
     const getFileContent = async (
         options: ImageRecognitionOptions
     ): Promise<File> => {
-        const { ossFileId, localFile, encrypted, downloadUrl, fileName, mimeType } = options
+        const { ossFileId, localFile, downloadUrl, fileName, mimeType } = options
 
         // 1. 如果有本地文件，直接使用
         if (localFile) {
@@ -247,26 +246,11 @@ export const useImageRecognition = () => {
             throw new Error(`下载文件失败: ${response.status}`)
         }
 
-        let content = await response.arrayBuffer()
+        const content = await response.arrayBuffer()
 
         console.log('[getFileContent] 下载完成，byteLength:', content.byteLength)
-        console.log('[getFileContent] 下载后前16字节:', Array.from(new Uint8Array(content.slice(0, 16))).map(b => b.toString(16).padStart(2, '0')).join(''))
 
-        // 4. 如果文件加密，需要解密
-        if (encrypted) {
-            console.log('[getFileContent] 文件已加密，开始解密...')
-            await ageCrypto.restoreIdentity()
-
-            if (!ageCrypto.isUnlocked.value) {
-                throw new Error('文件已加密，请先解锁私钥')
-            }
-
-            content = await ageCrypto.decryptFile(content)
-            console.log('[getFileContent] 解密完成，byteLength:', content.byteLength)
-            console.log('[getFileContent] 解密后前16字节:', Array.from(new Uint8Array(content.slice(0, 16))).map(b => b.toString(16).padStart(2, '0')).join(''))
-        }
-
-        // 5. 验证文件类型（检查魔数）
+        // 4. 验证文件类型（检查魔数）
         const detectedMimeType = detectMimeTypeFromBuffer(content)
         console.log('[getFileContent] 检测到的实际文件类型:', detectedMimeType)
         console.log('[getFileContent] 传入的 mimeType:', mimeType)
@@ -279,7 +263,7 @@ export const useImageRecognition = () => {
         const finalMimeType = detectedMimeType || mimeType || getImageMimeType(fileName)
         console.log('[getFileContent] 最终使用的 mimeType:', finalMimeType)
 
-        // 6. 创建 File 对象并缓存
+        // 5. 创建 File 对象并缓存
         const blob = new Blob([content], { type: finalMimeType })
         console.log('[getFileContent] 创建 Blob，type:', blob.type, 'size:', blob.size)
         const file = new File([blob], fileName, { type: blob.type })

@@ -192,9 +192,6 @@ const sleep = (ms: number): Promise<void> => {
  * ```
  */
 export const useAudioRecognition = () => {
-    // 在 composable 顶层初始化，确保能正确访问全局状态和生命周期钩子
-    const ageCrypto = useAgeCrypto()
-
     /**
      * 提交音频识别任务
      *
@@ -416,26 +413,6 @@ export const useAudioRecognition = () => {
     }
 
     /**
-     * 获取临时文件上传签名
-     *
-     * 用于加密音频文件解密后上传到临时目录
-     *
-     * @param params 签名请求参数
-     * @returns 临时上传签名，失败返回 null
-     */
-    const getTempUploadSignature = async (params: {
-        ossFileId: number
-        fileName: string
-        fileSize: number
-        mimeType: string
-    }): Promise<TempUploadSignature | null> => {
-        return await useApiFetch<TempUploadSignature>('/api/v1/recognition/audio/temp-upload', {
-            method: 'POST',
-            body: params,
-        })
-    }
-
-    /**
      * 从 ArrayBuffer 获取音频时长
      * 
      * @param audioData 音频数据
@@ -479,213 +456,6 @@ export const useAudioRecognition = () => {
         })
     }
 
-    /**
-     * 提交加密音频识别任务
-     *
-     * 处理加密音频文件的完整识别流程：
-     * 0. 检查并恢复私钥状态
-     * 1. 下载加密文件
-     * 2. 解密文件
-     * 3. 获取临时上传签名
-     * 4. 上传解密后的文件到临时目录
-     * 5. 提交识别任务（带 tempFilePath）
-     *
-     * @param file OSS 文件信息
-     * @param options 识别选项
-     * @param onProgress 进度回调
-     * @returns 提交结果，失败返回 null
-     */
-    const submitEncryptedAudioRecognition = async (
-        file: OssFileItem,
-        options?: AsrSubmitOptions,
-        onProgress?: (progress: EncryptedAudioProgress) => void
-    ): Promise<SubmitRecognitionResponse | null> => {
-        // 使用顶层初始化的 fileUploadWorker，确保生命周期钩子正确注册
-
-        try {
-            // 0. 检查并恢复私钥状态
-            // 尝试从 IndexedDB 恢复私钥，如果未解锁则提示用户
-            await ageCrypto.restoreIdentity()
-            if (!ageCrypto.isUnlocked.value) {
-                logger.error('[submitEncryptedAudioRecognition] 私钥未解锁', { fileId: file.id })
-                toast.error('请先解锁加密密钥后再识别加密文件')
-                return null
-            }
-
-            // 1. 下载加密文件
-            onProgress?.({ stage: 'downloading', progress: 0 })
-
-            if (!file.url) {
-                logger.error('[submitEncryptedAudioRecognition] 文件 URL 不存在', { fileId: file.id })
-                return null
-            }
-
-            const response = await fetch(file.url)
-            if (!response.ok) {
-                logger.error('[submitEncryptedAudioRecognition] 下载文件失败', {
-                    fileId: file.id,
-                    status: response.status,
-                })
-                return null
-            }
-
-            const encryptedData = await response.arrayBuffer()
-            onProgress?.({ stage: 'downloading', progress: 100 })
-
-            // 2. 解密文件
-            onProgress?.({ stage: 'decrypting', progress: 0 })
-
-            let decryptedData: ArrayBuffer
-            try {
-                decryptedData = await ageCrypto.decryptFile(encryptedData, (p) => {
-                    onProgress?.({ stage: 'decrypting', progress: p })
-                })
-            } catch (decryptError) {
-                logger.error('[submitEncryptedAudioRecognition] 解密文件失败', {
-                    fileId: file.id,
-                    error: decryptError,
-                })
-                return null
-            }
-
-            onProgress?.({ stage: 'decrypting', progress: 100 })
-
-            // 2.5. 获取原始文件名和 MIME 类型
-            const originalFileName = file.fileName.endsWith('.age')
-                ? file.fileName.slice(0, -4)
-                : file.fileName
-
-            // 根据原始文件名推断 MIME 类型
-            // 对于加密文件，file.fileType 可能是 application/octet-stream，需要从文件名推断
-            const mimeType = getMimeTypeFromFileName(originalFileName) || 'audio/mpeg'
-
-            // 2.6. 获取音频时长（解密后）
-            const audioDuration = await getAudioDurationFromBuffer(decryptedData, mimeType)
-            if (audioDuration) {
-                logger.info(`[submitEncryptedAudioRecognition] 音频时长：${audioDuration} 秒`)
-            } else {
-                logger.warn(`[submitEncryptedAudioRecognition] 无法获取音频时长，将使用默认值`)
-            }
-
-            // 3. 获取临时上传签名
-            onProgress?.({ stage: 'preparing', progress: 0 })
-
-            // 调试日志：输出解密后的文件信息
-            logger.info(`[submitEncryptedAudioRecognition] 解密完成`, {
-                originalFileName,
-                decryptedSize: decryptedData.byteLength,
-                inferredMimeType: mimeType,
-                fileType: file.fileType,
-                audioDuration,
-            })
-
-            // 验证解密后的数据是否为有效的音频文件（检查文件头）
-            const header = new Uint8Array(decryptedData.slice(0, 12))
-            const headerHex = Array.from(header).map(b => b.toString(16).padStart(2, '0')).join(' ')
-            logger.info(`[submitEncryptedAudioRecognition] 文件头（前12字节）: ${headerHex}`)
-
-            const signature = await getTempUploadSignature({
-                ossFileId: file.id,
-                fileName: originalFileName,
-                fileSize: decryptedData.byteLength,
-                mimeType,
-            })
-
-            if (!signature) {
-                logger.error('[submitEncryptedAudioRecognition] 获取临时上传签名失败', {
-                    fileId: file.id,
-                })
-                return null
-            }
-
-            onProgress?.({ stage: 'preparing', progress: 100 })
-
-            // 4. 上传解密后的文件到临时目录
-            onProgress?.({ stage: 'uploading', progress: 0 })
-
-            // 使用服务端返回的 mimeType（从数据库 originalMimeType 获取的真实音频类型）
-            const actualMimeType = signature.mimeType
-            logger.info(`[submitEncryptedAudioRecognition] 使用服务端返回的 MIME 类型：${actualMimeType}`)
-
-            // 直接使用 fetch 上传，避免 Worker 传递 File 对象时可能的问题
-            const formData = new FormData()
-            formData.append('key', signature.key)
-            formData.append('policy', signature.policy)
-            formData.append('x-oss-signature-version', signature.signatureVersion)
-            formData.append('x-oss-credential', signature.credential)
-            formData.append('x-oss-date', signature.date)
-            formData.append('x-oss-signature', signature.signature)
-            formData.append('Content-Type', actualMimeType)
-            if (signature.securityToken) {
-                formData.append('x-oss-security-token', signature.securityToken)
-            }
-            // 直接使用 Blob，不创建 File 对象
-            const decryptedBlob = new Blob([decryptedData], { type: actualMimeType })
-            formData.append('file', decryptedBlob, originalFileName)
-
-            logger.info(`[submitEncryptedAudioRecognition] 开始上传`, {
-                fileSize: decryptedBlob.size,
-                key: signature.key,
-                host: signature.host,
-            })
-
-            try {
-                const uploadResponse = await fetch(signature.host, {
-                    method: 'POST',
-                    body: formData,
-                })
-
-                // OSS 上传成功返回 200（有回调）或 204（无回调）
-                if (uploadResponse.status !== 200 && uploadResponse.status !== 204) {
-                    const errorText = await uploadResponse.text()
-                    logger.error('[submitEncryptedAudioRecognition] 上传失败', {
-                        fileId: file.id,
-                        status: uploadResponse.status,
-                        error: errorText,
-                    })
-                    return null
-                }
-
-                logger.info(`[submitEncryptedAudioRecognition] 上传成功，状态码：${uploadResponse.status}`)
-            } catch (uploadError: any) {
-                logger.error('[submitEncryptedAudioRecognition] 上传异常', {
-                    fileId: file.id,
-                    error: uploadError.message,
-                })
-                return null
-            }
-
-            onProgress?.({ stage: 'uploading', progress: 100 })
-
-            // 5. 提交识别任务
-            onProgress?.({ stage: 'submitting', progress: 0 })
-
-            const submitResult = await useApiFetch<SubmitRecognitionResponse>('/api/v1/recognition/audio', {
-                method: 'POST',
-                body: {
-                    ossFileId: file.id,
-                    ...(audioDuration ? { audioDuration } : {}),  // 只在有时长时传递
-                    tempFilePath: signature.key,
-                    options,
-                },
-            })
-
-            onProgress?.({ stage: 'submitting', progress: 100 })
-
-            return submitResult
-        } catch (error) {
-            logger.error('[submitEncryptedAudioRecognition] 处理加密音频识别失败', {
-                fileId: file.id,
-                error: error instanceof Error ? {
-                    message: error.message,
-                    stack: error.stack,
-                    name: error.name,
-                } : String(error),
-            })
-            return null
-        }
-    }
-
     return {
         // 核心方法
         submitRecognition,
@@ -694,10 +464,6 @@ export const useAudioRecognition = () => {
         getResult,
         updateSpeakers,
         updateRecord,
-
-        // 加密文件处理方法
-        getTempUploadSignature,
-        submitEncryptedAudioRecognition,
 
         // 辅助方法
         checkRecognitionStatus,

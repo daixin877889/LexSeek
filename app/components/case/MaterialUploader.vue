@@ -72,32 +72,6 @@
         :disabled="isProcessing" />
     </div>
 
-    <!-- 加密选项 -->
-    <div v-if="enableEncryption" class="flex items-center justify-between px-1">
-      <div class="flex items-center gap-2">
-        <LockIcon class="h-4 w-4 text-muted-foreground" />
-        <span class="text-sm text-muted-foreground">加密上传</span>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger>
-              <HelpCircleIcon class="h-4 w-4 text-muted-foreground" />
-            </TooltipTrigger>
-            <TooltipContent>
-              <p class="max-w-xs text-xs">
-                启用后，文件将在浏览器端加密后上传，确保数据安全。需要先配置加密密钥。
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-      <div class="flex items-center gap-2">
-        <span v-if="!encryptionStore.hasEncryption" class="text-xs text-amber-600">
-          请先配置加密密钥
-        </span>
-        <Switch v-model="isEncrypted" :disabled="!encryptionStore.hasEncryption" />
-      </div>
-    </div>
-
     <!-- 文本输入区域（可选） -->
     <div v-if="showTextInput" class="space-y-2">
       <div class="flex items-center justify-between">
@@ -130,7 +104,6 @@
 import {
   UploadIcon,
   XIcon,
-  LockIcon,
   HelpCircleIcon,
   PlusIcon,
   FileTextIcon,
@@ -147,10 +120,6 @@ import { CaseMaterialType, type MaterialItem, type MaterialStatus, type UploadRe
  * 组件 Props
  */
 interface Props {
-  /** 是否启用加密功能 */
-  enableEncryption?: boolean
-  /** 默认是否加密 */
-  defaultEncrypted?: boolean
   /** 是否显示文本输入区域 */
   showTextInput?: boolean
   /** 是否自动处理文件 */
@@ -170,25 +139,20 @@ const emit = defineEmits<{
 }>()
 
 const props = withDefaults(defineProps<Props>(), {
-  enableEncryption: true,
-  defaultEncrypted: false,
   showTextInput: true,
   autoProcess: true,
 })
 
 // Stores
 const fileStore = useFileStore()
-const encryptionStore = useEncryptionStore()
 
 // Composables
 const { readFile } = useFileReader()
-const { encryptFile } = useAgeCrypto()
 const uploadWorker = useFileUploadWorker()
 
 // 状态
 const materials = ref<MaterialItem[]>([])
 const textContent = ref('')
-const isEncrypted = ref(props.defaultEncrypted)
 const isProcessing = ref(false)
 const isDragOver = ref(false)
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -494,20 +458,8 @@ const uploadFileToOSS = async (
     throw new Error('文件不存在')
   }
 
-  let fileToUpload: File | Blob = material.file
-
-  // 如果启用加密，先加密文件
-  if (isEncrypted.value && encryptionStore.config?.recipient) {
-    fileToUpload = await encryptFile(material.file, encryptionStore.config.recipient)
-  }
-
-  // 创建上传文件
-  const uploadFile = fileToUpload instanceof File
-    ? fileToUpload
-    : new File([fileToUpload], material.name, { type: 'application/octet-stream' })
-
   return new Promise((resolve, reject) => {
-    uploadWorker.upload(uploadFile, signature, {
+    uploadWorker.upload(material.file, signature, {
       onProgress: () => {
         // 可以在这里更新进度
       },
@@ -555,7 +507,7 @@ const processAndUpload = async () => {
       const signatures = await fileStore.getBatchPresignedUrls({
         source: FileSource.CASE_ANALYSIS,
         files: filesInfo,
-        encrypted: isEncrypted.value,
+        encrypted: false,
       })
 
       if (!signatures || signatures.length !== filesToUpload.length) {
@@ -590,7 +542,6 @@ const processAndUpload = async () => {
     // 4. 发送完成事件
     emit('upload-complete', {
       materials: materials.value,
-      encrypted: isEncrypted.value,
     })
 
     toast.success('材料上传成功')
@@ -616,24 +567,6 @@ const reset = () => {
   textContent.value = ''
   isProcessing.value = false
 }
-
-// 初始化加密配置
-onMounted(async () => {
-  if (props.enableEncryption) {
-    await encryptionStore.fetchConfig()
-    isEncrypted.value = props.defaultEncrypted && encryptionStore.hasEncryption
-  }
-})
-
-// 监听加密配置变化
-watch(
-  () => encryptionStore.hasEncryption,
-  (hasEncryption) => {
-    if (props.enableEncryption && !hasEncryption) {
-      isEncrypted.value = false
-    }
-  }
-)
 
 // 暴露方法
 defineExpose({

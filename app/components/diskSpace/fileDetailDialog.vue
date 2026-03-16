@@ -25,17 +25,6 @@
                             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                             <span class="text-sm text-muted-foreground">{{ previewLoadingText }}</span>
                         </div>
-                        <div v-else-if="needsUnlock" class="text-center py-4">
-                            <div
-                                class="w-16 h-16 mx-auto mb-3 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                                <LockIcon class="h-8 w-8 text-amber-600 dark:text-amber-400" />
-                            </div>
-                            <p class="text-muted-foreground text-sm mb-3">请先解锁加密密钥以查看此文件</p>
-                            <Button size="sm" @click="showPasswordDialog = true">
-                                <UnlockIcon class="h-4 w-4 mr-1" />
-                                输入密码解锁
-                            </Button>
-                        </div>
                         <div v-else-if="previewError" class="text-center text-red-500 dark:text-red-400">
                             <AlertCircleIcon class="h-8 w-8 mx-auto mb-2" />
                             <p class="text-sm">{{ previewError }}</p>
@@ -49,17 +38,6 @@
                         <div v-if="previewLoading" class="flex flex-col items-center gap-2 py-8">
                             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                             <span class="text-sm text-muted-foreground">{{ previewLoadingText }}</span>
-                        </div>
-                        <div v-else-if="needsUnlock" class="text-center py-8">
-                            <div
-                                class="w-16 h-16 mx-auto mb-3 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                                <LockIcon class="h-8 w-8 text-amber-600 dark:text-amber-400" />
-                            </div>
-                            <p class="text-muted-foreground text-sm mb-3">请先解锁加密密钥以查看此文件</p>
-                            <Button size="sm" @click="showPasswordDialog = true">
-                                <UnlockIcon class="h-4 w-4 mr-1" />
-                                输入密码解锁
-                            </Button>
                         </div>
                         <div v-else-if="previewError" class="text-center text-red-500 dark:text-red-400 py-8">
                             <AlertCircleIcon class="h-8 w-8 mx-auto mb-2" />
@@ -80,20 +58,6 @@
                             <GeneralAudioPlayer :audio-url="previewUrl" />
                         </div>
                     </div>
-                </div>
-
-                <!-- 加密文件需要解锁 -->
-                <div v-else-if="file?.encrypted && !encryptionStore.isUnlocked"
-                    class="border rounded-lg p-6 bg-muted text-center">
-                    <div
-                        class="w-16 h-16 mx-auto mb-3 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                        <LockIcon class="h-8 w-8 text-amber-600 dark:text-amber-400" />
-                    </div>
-                    <p class="text-muted-foreground text-sm mb-3">请先解锁加密密钥以下载此文件</p>
-                    <Button size="sm" @click="showPasswordDialog = true">
-                        <UnlockIcon class="h-4 w-4 mr-1" />
-                        输入密码解锁
-                    </Button>
                 </div>
 
                 <!-- 不支持预览提示 -->
@@ -124,14 +88,6 @@
                         <p class="text-muted-foreground text-xs">上传时间</p>
                         <p class="font-medium">{{ formatDateTime(file?.createdAt) }}</p>
                     </div>
-                    <div class="col-span-2">
-                        <p class="text-muted-foreground text-xs">加密状态</p>
-                        <p class="font-medium flex items-center gap-1">
-                            <LockIcon v-if="file?.encrypted" class="h-4 w-4 text-green-600 dark:text-green-400" />
-                            <UnlockIcon v-else class="h-4 w-4 text-muted-foreground" />
-                            {{ file?.encrypted ? "已加密" : "未加密" }}
-                        </p>
-                    </div>
                 </div>
             </div>
 
@@ -152,17 +108,13 @@
                             <div v-if="downloadLoading"
                                 class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-1"></div>
                             <DownloadIcon v-else class="h-4 w-4 mr-1" />
-                            {{ downloadLoading ? "解密中..." : "下载" }}
+                            {{ downloadLoading ? "下载中..." : "下载" }}
                         </Button>
                     </div>
                 </div>
             </DialogFooter>
         </DialogContent>
     </Dialog>
-
-    <!-- 密码输入对话框 -->
-    <EncryptionPasswordDialog v-model:open="showPasswordDialog" content-class="password-dialog-content"
-        @success="handleUnlockSuccess" />
 </template>
 
 <script lang="ts" setup>
@@ -202,24 +154,14 @@ const previewUrl = ref<string | null>(null);
 const previewLoading = ref(false);
 const previewLoadingText = ref("加载中...");
 const previewError = ref<string | null>(null);
-const needsUnlock = ref(false);
 const downloadLoading = ref(false);
 const deleteLoading = ref(false);
-
-// 密码输入对话框
-const showPasswordDialog = ref(false);
 
 // 删除确认对话框
 const showDeleteConfirm = ref(false);
 
 // 获取 alertDialog store
 const alertDialogStore = useAlertDialogStore();
-
-// 获取加密 store
-const encryptionStore = useEncryptionStore();
-
-// 获取加密工具
-const { fetchAndDecryptToObjectURL, isEncryptedUrl } = useAgeCrypto();
 
 // ==================== 计算属性 ====================
 
@@ -264,55 +206,12 @@ const loadPreview = async (file: OssFileItem) => {
     previewError.value = null;
 
     try {
-        const mimeType = file.fileType || "application/octet-stream";
-        const isHeic = isHeicFormat(mimeType, file.fileName);
-
-        let objectUrl = await fetchAndDecryptToObjectURL(file.url, mimeType, ({ stage }) => {
-            switch (stage) {
-                case "check":
-                    previewLoadingText.value = "检查加密状态...";
-                    break;
-                case "download":
-                    previewLoadingText.value = "下载文件...";
-                    break;
-                case "decrypt":
-                    previewLoadingText.value = "解密中...";
-                    break;
-            }
-        });
-
-        if (isHeic && objectUrl) {
-            previewLoadingText.value = "转换 HEIC 格式...";
-            objectUrl = await convertHeicToJpeg(objectUrl);
-        }
-
-        previewUrl.value = objectUrl;
+        previewUrl.value = file.url;
     } catch (err) {
         console.error("加载预览失败:", err);
-        if (err instanceof Error) {
-            if (err.name === "IdentityNotUnlockedError") {
-                needsUnlock.value = true;
-                previewError.value = null;
-            } else if (err.name === "IdentityMismatchError") {
-                previewError.value = "密钥不匹配，无法解密此文件";
-            } else {
-                previewError.value = err.message || "加载预览失败";
-            }
-        } else {
-            previewError.value = "加载预览失败";
-        }
+        previewError.value = err instanceof Error ? err.message : "加载预览失败";
     } finally {
         previewLoading.value = false;
-    }
-};
-
-/**
- * 解锁成功回调
- */
-const handleUnlockSuccess = async () => {
-    needsUnlock.value = false;
-    if (props.file) {
-        await loadPreview(props.file);
     }
 };
 
@@ -326,65 +225,30 @@ const downloadFile = async () => {
         return;
     }
 
-    // 检查加密文件是否已解锁
-    if (props.file.encrypted && !encryptionStore.isUnlocked) {
-        showPasswordDialog.value = true;
-        return;
-    }
+    downloadLoading.value = true;
 
-    const file = props.file;
-    const fileUrl = file.url!;
-
-    if (isEncryptedUrl(fileUrl)) {
-        // 加密文件：解密后下载
-        let downloadUrl = previewUrl.value;
-        if (!downloadUrl || !downloadUrl.startsWith("blob:")) {
-            downloadLoading.value = true;
-            try {
-                const mimeType = file.fileType || "application/octet-stream";
-                downloadUrl = await fetchAndDecryptToObjectURL(fileUrl, mimeType);
-            } catch (err) {
-                console.error("下载解密失败:", err);
-                downloadLoading.value = false;
-                return;
-            }
-            downloadLoading.value = false;
+    try {
+        const response = await fetch(props.file.url);
+        if (!response.ok) {
+            throw new Error("下载失败");
         }
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
 
         const link = document.createElement("a");
-        link.href = downloadUrl;
-        // 移除 .age 后缀
-        const fileName = file.fileName.endsWith(".age") ? file.fileName.slice(0, -4) : file.fileName;
-        link.download = fileName;
+        link.href = blobUrl;
+        link.download = props.file.fileName;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-    } else {
-        // 非加密文件：先下载到本地创建 blob，再使用原始文件名保存
-        downloadLoading.value = true;
-        try {
-            const response = await fetch(fileUrl);
-            if (!response.ok) {
-                throw new Error("下载失败");
-            }
-            const blob = await response.blob();
-            const blobUrl = URL.createObjectURL(blob);
 
-            const link = document.createElement("a");
-            link.href = blobUrl;
-            link.download = file.fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            // 释放 blob URL
-            URL.revokeObjectURL(blobUrl);
-        } catch (err) {
-            console.error("下载失败:", err);
-            toast.error("下载失败");
-        } finally {
-            downloadLoading.value = false;
-        }
+        // 释放 blob URL
+        URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+        console.error("下载失败:", err);
+        toast.error("下载失败");
+    } finally {
+        downloadLoading.value = false;
     }
 };
 
@@ -443,7 +307,6 @@ watch(
         previewUrl.value = null;
         previewError.value = null;
         previewLoading.value = false;
-        needsUnlock.value = false;
 
         // 如果有文件且可预览，加载预览
         if (newFile && canPreviewFile(newFile.fileType || "") && newFile.url) {

@@ -6,11 +6,6 @@
                 <DialogTitle class="flex items-center gap-2">
                     <FileAudioIcon class="size-5 text-purple-500" />
                     {{ fileName }}
-                    <!-- 加密徽章 -->
-                    <Badge v-if="encrypted" variant="secondary" class="ml-2">
-                        <LockIcon class="size-3 mr-1" />
-                        已加密
-                    </Badge>
                 </DialogTitle>
                 <DialogDescription>音频识别结果预览</DialogDescription>
             </DialogHeader>
@@ -48,7 +43,7 @@
 </template>
 
 <script lang="ts" setup>
-import { Loader2Icon, AlertCircleIcon, FileAudioIcon, LockIcon } from 'lucide-vue-next'
+import { Loader2Icon, AlertCircleIcon, FileAudioIcon } from 'lucide-vue-next'
 import AudioVisualization from '~/components/general/audio/AudioVisualization.vue'
 
 // Props
@@ -79,9 +74,6 @@ const hasContent = computed(() => !!asrData.value && asrData.value.status === 2)
 // 本地文件缓存
 const { getCachedFile, cacheFile } = useLocalFileCache()
 
-// Age 加密解密
-const ageCrypto = useAgeCrypto()
-
 /**
  * 获取音频的 MIME 类型
  */
@@ -102,14 +94,13 @@ const getAudioMimeType = (fileName: string): string => {
 }
 
 /**
- * 加载音频 URL（支持加密文件）
+ * 加载音频 URL
  */
 async function loadAudioUrl(): Promise<string | null> {
     try {
         // 1. 先尝试从本地缓存获取
         const cached = await getCachedFile(props.ossFileId)
         if (cached) {
-            // 缓存中的数据已经是解密后的
             const mimeType = getAudioMimeType(props.fileName)
             const blob = new Blob([cached], { type: mimeType })
             return URL.createObjectURL(blob)
@@ -136,36 +127,7 @@ async function loadAudioUrl(): Promise<string | null> {
             return null
         }
 
-        // 3. 如果是加密文件，需要下载并解密
-        if (props.encrypted) {
-            // 确保私钥已解锁
-            await ageCrypto.restoreIdentity()
-            if (!ageCrypto.isUnlocked.value) {
-                throw new Error('文件已加密，请先解锁私钥')
-            }
-
-            // 下载加密文件
-            const response = await fetch(downloadUrl)
-            if (!response.ok) {
-                throw new Error(`下载文件失败: ${response.status}`)
-            }
-
-            const encryptedData = await response.arrayBuffer()
-
-            // 解密文件
-            const decryptedData = await ageCrypto.decryptFile(encryptedData)
-
-            // 缓存解密后的数据
-            const mimeType = getAudioMimeType(props.fileName)
-            const file = new File([decryptedData], props.fileName, { type: mimeType })
-            await cacheFile(props.ossFileId, file)
-
-            // 创建 Object URL
-            const blob = new Blob([decryptedData], { type: mimeType })
-            return URL.createObjectURL(blob)
-        }
-
-        // 4. 非加密文件，直接返回下载 URL
+        // 3. 直接返回下载 URL
         return downloadUrl
     } catch (e) {
         console.error('加载音频文件失败:', e)

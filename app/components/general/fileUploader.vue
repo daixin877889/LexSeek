@@ -78,14 +78,12 @@
             <span
               class="text-xs shrink-0 whitespace-nowrap"
               :class="{
-                'text-amber-600': fileItem.status === 'encrypting',
                 'text-primary': fileItem.status === 'uploading',
                 'text-green-600': fileItem.status === 'success',
                 'text-destructive': fileItem.status === 'error',
                 'text-muted-foreground': fileItem.status === 'pending',
               }">
-              <template v-if="fileItem.status === 'encrypting'">加密中...</template>
-              <template v-else-if="fileItem.status === 'uploading'">{{ Math.round(fileItem.progress) }}%</template>
+              <template v-if="fileItem.status === 'uploading'">{{ Math.round(fileItem.progress) }}%</template>
               <template v-else-if="fileItem.status === 'success'">✓ 完成</template>
               <template v-else-if="fileItem.status === 'error'">✗ 失败</template>
               <template v-else>等待中</template>
@@ -93,11 +91,7 @@
           </div>
           <!-- 进度条 -->
           <div class="h-1.5 bg-muted rounded-full overflow-hidden">
-            <!-- 加密阶段显示动画进度条 -->
-            <div v-if="fileItem.status === 'encrypting'" class="h-full bg-amber-500 rounded-full animate-pulse" style="width: 100%"></div>
-            <!-- 其他状态显示实际进度 -->
             <div
-              v-else
               class="h-full transition-all duration-300 rounded-full"
               :class="{
                 'bg-primary': fileItem.status === 'uploading',
@@ -109,7 +103,6 @@
           </div>
           <div class="flex items-center gap-2 text-xs text-muted-foreground mt-1">
             <span>{{ formatByteSize(fileItem.file.size, 2) }}</span>
-            <span v-if="fileItem.status === 'encrypting'" class="text-amber-600">正在加密...</span>
             <span v-if="fileItem.error" class="text-destructive">{{ fileItem.error }}</span>
           </div>
         </div>
@@ -121,22 +114,15 @@
       <div class="p-4 bg-muted/50 rounded-lg">
         <div class="flex items-center justify-between mb-2">
           <p class="truncate font-medium text-sm">{{ selectedFile.name }}</p>
-          <span class="text-xs shrink-0" :class="isEncrypting ? 'text-amber-600' : 'text-primary'">
-            <template v-if="isEncrypting">加密中...</template>
-            <template v-else>{{ Math.round(uploadProgress) }}%</template>
+          <span class="text-xs shrink-0 text-primary">
+            {{ Math.round(uploadProgress) }}%
           </span>
         </div>
         <div class="h-2 bg-muted rounded-full overflow-hidden">
-          <!-- 加密阶段显示动画进度条 -->
-          <div v-if="isEncrypting" class="h-full bg-amber-500 rounded-full animate-pulse" style="width: 100%"></div>
-          <!-- 上传阶段显示实际进度 -->
-          <div v-else class="h-full transition-all duration-300 rounded-full bg-primary" :style="{ width: uploadProgress + '%' }"></div>
+          <div class="h-full transition-all duration-300 rounded-full bg-primary" :style="{ width: uploadProgress + '%' }"></div>
         </div>
         <div class="flex items-center justify-between mt-2">
           <p class="text-xs text-muted-foreground">{{ formatByteSize(selectedFile.size, 2) }}</p>
-          <p v-if="enableEncrypt" class="text-xs text-muted-foreground">
-            {{ isEncrypting ? "正在加密文件..." : "正在上传加密文件..." }}
-          </p>
         </div>
       </div>
     </div>
@@ -157,18 +143,6 @@
 
     <!-- 上传按钮（上传前显示） -->
     <div v-if="!isUploading && !isUploadComplete" class="shrink-0 space-y-2">
-      <!-- 加密开关（仅在启用加密功能时显示） -->
-      <div v-if="props.enableEncryption" class="flex items-center justify-between px-1">
-        <div class="flex items-center gap-2">
-          <LockIcon class="h-4 w-4 text-muted-foreground" />
-          <span class="text-sm text-muted-foreground">加密上传</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <span v-if="!encryptionStore.hasEncryption" class="text-xs text-amber-600"> 请先配置加密密钥 </span>
-          <Switch v-model="enableEncrypt" :disabled="!encryptionStore.hasEncryption" />
-        </div>
-      </div>
-
       <Button @click="handleUpload" :disabled="!canUpload" class="w-full" :size="statusMessage ? 'sm' : 'default'">
         <UploadIcon class="h-4 w-4" />
         {{ uploadButtonText }}
@@ -198,7 +172,7 @@
 </template>
 
 <script setup lang="ts">
-import { UploadIcon, XIcon, LockIcon } from "lucide-vue-next";
+import { UploadIcon, XIcon } from "lucide-vue-next";
 
 /**
  * 文件上传组件 Props
@@ -210,10 +184,6 @@ interface FileUploaderProps {
   multiple?: boolean;
   /** 是否自动上传（选中文件后自动开始上传） */
   autoUpload?: boolean;
-  /** 是否启用加密功能 */
-  enableEncryption?: boolean;
-  /** 默认是否加密上传 */
-  defaultEncrypted?: boolean;
   /** 上传成功回调（返回阿里云回调数据数组） */
   onSuccess?: (data: Record<string, unknown>[]) => void;
   /** 上传失败回调 */
@@ -243,7 +213,7 @@ interface ValidationResult {
 interface FileUploadState {
   file: File;
   mimeType: string;
-  status: "pending" | "encrypting" | "uploading" | "success" | "error";
+  status: "pending" | "uploading" | "success" | "error";
   progress: number;
   error?: string;
   signature?: PostSignatureResult;
@@ -262,16 +232,12 @@ const props = withDefaults(defineProps<FileUploaderProps>(), {
   source: "file" as FileSource,
   multiple: false,
   autoUpload: false,
-  enableEncryption: false,
-  defaultEncrypted: false,
   onSuccess: () => {},
   onError: () => {},
 });
 
 const fileStore = useFileStore();
-const encryptionStore = useEncryptionStore();
 const uploadWorker = useFileUploadWorker();
-const { encryptFile } = useAgeCrypto();
 
 // 基础状态
 const currentScene = ref<FileSourceAccept | null>(null);
@@ -290,10 +256,6 @@ const detectedMimeType = ref("");
 // 多选模式状态
 const selectedFiles = ref<File[]>([]);
 const fileUploadStates = ref<FileUploadState[]>([]);
-
-// 加密相关状态
-const enableEncrypt = ref(false); // 是否启用加密上传
-const isEncrypting = ref(false); // 是否正在加密
 
 /**
  * 计算已上传完成的文件数量
@@ -665,54 +627,23 @@ const handleSingleUpload = async () => {
 
   try {
     isUploading.value = true;
-    isEncrypting.value = false;
     statusMessage.value = "";
     uploadProgress.value = 0;
-
-    let fileToUpload: File | Blob = selectedFile.value;
-    let mimeTypeToUse = detectedMimeType.value;
-
-    // 如果启用加密，先加密文件
-    if (enableEncrypt.value && encryptionStore.config?.recipient) {
-      isEncrypting.value = true;
-      logger.debug("开始加密文件:", selectedFile.value.name);
-      logger.debug("使用公钥:", encryptionStore.config.recipient);
-      try {
-        fileToUpload = await encryptFile(selectedFile.value, encryptionStore.config.recipient);
-        logger.debug("文件加密完成，加密后大小:", fileToUpload.size);
-        // 加密后 MIME 类型变为 application/octet-stream
-        mimeTypeToUse = "application/octet-stream";
-      } catch (err) {
-        logger.error("文件加密失败:", err);
-        throw new Error(`加密失败: ${err instanceof Error ? err.message : "未知错误"}`);
-      } finally {
-        isEncrypting.value = false;
-      }
-    } else {
-      logger.debug("未启用加密上传:");
-      logger.debug("  - enableEncrypt:", enableEncrypt.value);
-      logger.debug("  - hasEncryption:", encryptionStore.hasEncryption);
-      logger.debug("  - config:", encryptionStore.config);
-      logger.debug("  - recipient:", encryptionStore.config?.recipient);
-    }
 
     const signature = await fileStore.getPresignedUrl({
       source: props.source as FileSource,
       originalFileName: selectedFile.value.name,
-      fileSize: fileToUpload.size,
-      mimeType: detectedMimeType.value, // 传递原始 MIME 类型
-      encrypted: enableEncrypt.value,
+      fileSize: selectedFile.value.size,
+      mimeType: detectedMimeType.value,
+      encrypted: false,
     });
 
     if (!signature) {
       throw new Error(fileStore.error || "获取签名失败");
     }
 
-    // 创建一个 File 对象用于上传（如果是加密后的 Blob）
-    const uploadFile = fileToUpload instanceof File ? fileToUpload : new File([fileToUpload], selectedFile.value.name, { type: mimeTypeToUse });
-
     // Worker 直接返回解析后的数据
-    const data = await uploadToOSS(uploadFile, signature, (progress) => {
+    const data = await uploadToOSS(selectedFile.value, signature, (progress) => {
       uploadProgress.value = progress;
     });
 
@@ -766,7 +697,7 @@ const handleBatchUpload = async () => {
     const signatures = await fileStore.getBatchPresignedUrls({
       source: props.source as FileSource,
       files: filesInfo,
-      encrypted: enableEncrypt.value,
+      encrypted: false,
     });
 
     if (!signatures || signatures.length !== fileUploadStates.value.length) {
@@ -789,28 +720,10 @@ const handleBatchUpload = async () => {
       if (!state.signature) return null;
 
       try {
-        let fileToUpload: File | Blob = state.file;
-
-        // 如果启用加密，先加密文件
-        if (enableEncrypt.value && encryptionStore.config?.recipient) {
-          state.status = "encrypting";
-          logger.debug("开始加密文件:", state.file.name);
-          try {
-            fileToUpload = await encryptFile(state.file, encryptionStore.config.recipient);
-            logger.debug("文件加密完成:", state.file.name, "加密后大小:", fileToUpload.size);
-          } catch (err) {
-            logger.error("文件加密失败:", state.file.name, err);
-            throw new Error(`加密失败: ${err instanceof Error ? err.message : "未知错误"}`);
-          }
-        }
-
         state.status = "uploading";
 
-        // 创建一个 File 对象用于上传（如果是加密后的 Blob）
-        const uploadFile = fileToUpload instanceof File ? fileToUpload : new File([fileToUpload], state.file.name, { type: "application/octet-stream" });
-
         // Worker 直接返回解析后的数据
-        const data = await uploadToOSS(uploadFile, state.signature, (progress) => {
+        const data = await uploadToOSS(state.file, state.signature, (progress) => {
           state.progress = progress;
           emit("file-upload-progress", state.file, progress);
         });
@@ -914,37 +827,9 @@ const resetForm = () => {
 defineExpose({ resetForm, loadScenes });
 
 onMounted(async () => {
-  // 如果启用加密功能，先获取加密配置
-  if (props.enableEncryption) {
-    logger.debug("fileUploader: 开始获取加密配置");
-    await encryptionStore.fetchConfig();
-    logger.debug("fileUploader: 加密配置获取完成, hasEncryption:", encryptionStore.hasEncryption);
-    logger.debug("fileUploader: 加密配置:", encryptionStore.config);
-    // 初始化加密开关状态：默认加密且已配置加密密钥时启用
-    enableEncrypt.value = props.defaultEncrypted && encryptionStore.hasEncryption;
-    logger.debug("fileUploader: 加密开关初始状态:", enableEncrypt.value, "defaultEncrypted:", props.defaultEncrypted);
-  }
   // 加载上传场景配置
   await loadScenes();
 });
-
-// 监听加密配置变化，更新加密开关状态
-watch(
-  () => encryptionStore.hasEncryption,
-  (hasEncryption) => {
-    if (props.enableEncryption) {
-      if (hasEncryption && props.defaultEncrypted) {
-        // 如果加密配置可用且默认启用加密，则启用加密开关
-        enableEncrypt.value = true;
-        logger.debug("fileUploader: 加密配置可用，启用加密开关, enableEncrypt:", enableEncrypt.value);
-      } else if (!hasEncryption) {
-        // 如果加密配置被清除，禁用加密开关
-        enableEncrypt.value = false;
-        logger.debug("fileUploader: 加密配置不可用，禁用加密开关");
-      }
-    }
-  }
-);
 </script>
 
 <style scoped>

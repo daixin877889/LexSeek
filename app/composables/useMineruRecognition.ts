@@ -152,7 +152,6 @@ const sleep = (ms: number): Promise<void> => {
  */
 export const useMineruRecognition = () => {
     const { cacheFile, getCachedFile } = useLocalFileCache()
-    const ageCrypto = useAgeCrypto()
 
     // 识别状态
     const status = ref<MineruRecognitionStatus>({
@@ -232,7 +231,7 @@ export const useMineruRecognition = () => {
                 body: {
                     ossFileId: options.ossFileId,
                     fileName: options.fileName,
-                    encrypted: options.encrypted || false,
+                    encrypted: false,
                     modelVersion: 'vlm',
                     enableOcr: true,
                     enableFormula: true,
@@ -251,7 +250,7 @@ export const useMineruRecognition = () => {
     const getFileContent = async (
         options: MineruRecognitionOptions
     ): Promise<ArrayBuffer> => {
-        const { ossFileId, localFile, encrypted, downloadUrl, fileName } = options
+        const { ossFileId, localFile, downloadUrl, fileName } = options
 
         // 1. 如果有本地文件，直接使用
         if (localFile) {
@@ -276,22 +275,9 @@ export const useMineruRecognition = () => {
             throw new Error(`下载文件失败: ${response.status}`)
         }
 
-        let content = await response.arrayBuffer()
+        const content = await response.arrayBuffer()
 
-        // 4. 如果文件加密，需要解密
-        if (encrypted) {
-            updateStatus('decrypting', 20)
-
-            await ageCrypto.restoreIdentity()
-
-            if (!ageCrypto.isUnlocked.value) {
-                throw new Error('文件已加密，请先解锁私钥')
-            }
-
-            content = await ageCrypto.decryptFile(content)
-        }
-
-        // 5. 缓存下载的文件
+        // 4. 缓存下载的文件
         const mimeType = fileName.endsWith('.pdf') ? 'application/pdf' : 'application/msword'
         const blob = new Blob([content], { type: mimeType })
         const file = new File([blob], fileName, { type: mimeType })
