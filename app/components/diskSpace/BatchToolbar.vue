@@ -8,7 +8,7 @@
       leave-from-class="translate-y-0 opacity-100"
       leave-to-class="translate-y-full opacity-0"
     >
-      <div v-if="visible" class="fixed bottom-0 left-0 right-0 z-[100]">
+      <div v-if="visible" class="fixed bottom-0 left-0 right-0 z-100">
         <div class="bg-card border-t border-border shadow-lg">
           <div class="w-full px-4 py-3 flex items-center justify-between">
             <!-- 左侧：选择和计数 -->

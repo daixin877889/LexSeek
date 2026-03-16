@@ -27,3 +27,5 @@ logs
 
 .claude/wroktrees
 .claude/*.html
+
+.playwright-mcp

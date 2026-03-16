@@ -2,7 +2,7 @@
     <!-- 续期弹框 -->
     <Dialog :open="open" @update:open="emit('update:open', $event)">
         <DialogContent class="sm:max-w-[960px] max-h-[85vh] flex flex-col" @open-auto-focus.prevent>
-            <DialogHeader class="flex-shrink-0">
+            <DialogHeader class="shrink-0">
                 <DialogTitle>会员续期</DialogTitle>
                 <DialogDescription>
                     选择要续期的会员级别
@@ -31,7 +31,7 @@
             </div>
 
             <!-- 购买协议复选框 -->
-            <div class="flex-shrink-0 border-t pt-4 mt-4">
+            <div class="shrink-0 border-t pt-4 mt-4">
                 <div class="flex items-start space-x-2">
                     <Checkbox id="renewal-agreement" v-model="localAgreed" class="mt-1" />
                     <label for="renewal-agreement" class="text-sm text-muted-foreground leading-5 cursor-pointer">
