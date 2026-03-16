@@ -1,0 +1,98 @@
+---
+paths:
+  - "tests/**"
+---
+
+# 测试规范
+
+## 测试框架
+
+- **vitest** - 测试运行器
+- **fast-check** - 属性测试库
+- **vibium** - UI 浏览器测试工具
+
+## 测试目录
+
+```
+tests/
+├── server/
+│   ├── membership/     # 会员系统测试
+│   ├── storage/        # 存储系统测试
+│   ├── payment/        # 支付系统测试
+│   ├── crypto/         # 加密系统测试
+│   ├── utils/          # 工具函数测试
+│   └── services/       # 业务服务测试
+```
+
+## 测试模板
+
+```typescript
+/**
+ * [功能名称]测试
+ *
+ * **Feature: [feature-name]**
+ * **Validates: Requirements X.Y, X.Z**
+ */
+import { describe, it, expect } from "vitest";
+import * as fc from "fast-check";
+
+describe("[功能名称]", () => {
+  it("[测试用例描述]", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 1, max: 1000 }), (value) => {
+        expect(value).toBeGreaterThan(0);
+      }),
+      { numRuns: 100 }
+    );
+  });
+});
+```
+
+## 编写要求
+
+1. 文件命名：`*.test.ts`
+2. 测试描述使用中文
+3. 属性测试配置 `{ numRuns: 100 }`
+4. 日期生成器过滤无效日期：`.filter(d => !isNaN(d.getTime()))`
+5. 字典键排除保留字：`['__proto__', 'constructor', 'prototype']`
+
+## 禁止模式
+
+### ❌ 占位符测试
+```typescript
+// ❌ 错误
+it('should work', () => {
+  expect(true).toBe(true)
+})
+```
+
+### ❌ ORM 代理测试
+```typescript
+// ❌ 错误 - Prisma 已被充分测试
+it('should save user', async () => {
+  const user = await prisma.user.create({ data: ... })
+  expect(user.id).toBeDefined()
+})
+
+// ✅ 正确 - 测试自定义业务逻辑
+it('should hash password before saving', async () => {
+  const user = await userService.createUser(...)
+  expect(user.password).not.toBe('plain_password')
+})
+```
+
+### ❌ 脚本式测试
+不使用 `process.exit()`、`console.log` 驱动的独立文件。
+
+## 质量检查清单
+
+- [ ] **独立性**：测试用例相互独立
+- [ ] **清理**：副作用在 `afterEach` 或 `afterAll` 中清理
+- [ ] **断言**：验证核心业务结果
+- [ ] **覆盖**：覆盖快乐路径和边缘情况
+
+## 终极规则
+
+- 必须是真正的单元测试，不是模拟测试
+- 涉及数据库操作和网络请求必须真实执行
+- 测试实际业务代码，不在测试脚本中重新实现功能

@@ -1,10 +1,12 @@
 ---
-inclusion: fileMatch
-fileMatchPattern: "server/**"
+paths:
+  - "server/**"
 ---
-# API 接口开发规范
+
+# API 开发规范
 
 ## 响应格式
+
 ```typescript
 // 成功响应
 return resSuccess(event, '操作成功', data)
@@ -12,26 +14,13 @@ return resSuccess(event, '操作成功', data)
 // 错误响应
 return resError(event, 400, '参数错误')
 ```
-API 永远返回 200 的 http 状态码，错误码码通过 resError 的 `code` 字段返回。
 
-## 用户认证
-```typescript
-export default defineEventHandler(async (event) => {
-  // ✅ 正确写法
-  const user = event.context.auth?.user
-  if (!user) {
-    return resError(event, 401, '请先登录')
-  }
-  
-  // ❌ 错误写法（user 始终为 undefined）
-  // const user = event.context.user
-  
-  const userId = user.id
-})
-```
+API 永远返回 200 的 HTTP 状态码，错误码通过 `resError` 的 `code` 字段返回。
 
 ## 参数验证
+
 使用 zod 进行参数验证：
+
 ```typescript
 import { z } from 'zod'
 
@@ -48,6 +37,7 @@ if (!result.success) {
 ```
 
 ## 服务端自动导入
+
 以下无需手动 import：
 
 **服务层函数**（`server/services/*/*`）：
@@ -59,7 +49,6 @@ if (!result.success) {
 - `prisma` - Prisma 客户端
 - `logger` - 日志工具
 - `resSuccess` / `resError` - 响应函数
-- JWT、密码、OSS 等工具
 
 **H3 框架函数**：
 - `defineEventHandler` - 定义处理器
@@ -69,15 +58,14 @@ if (!result.success) {
 - `setResponseStatus` - 设置状态码
 - `getRouterParam` - 获取路由参数
 
-## 路由规范
-- 路由 params 参数必须在最末尾
-- ❌ `/admin/legal-main/:id/articles`
-- ✅ `/admin/legal-main/articles/:id`
-
 ## OSS 回调
+
 回调自定义变量通过 `callbackVar` 传递：
 - key 不能包含 `:` 字符
 - 变量名不能包含大写
 
 ## 代码架构
-- 在 `server/services` 目录中编写的服务函数需要将 server 层和 dao 层分开，命名规则为: server 层 `模块名称.service.ts`，文件内方法要以 Service  为结尾命名。dao 层 `模块名称.dao.ts`,文件内方法要以 DAO 为结尾命名。
+
+在 `server/services` 目录中：
+- 服务层：`模块名称.service.ts`，方法要以 `Service` 结尾
+- DAO 层：`模块名称.dao.ts`，方法要以 `DAO` 结尾

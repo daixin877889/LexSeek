@@ -1,10 +1,13 @@
 ---
-inclusion: fileMatch
-fileMatchPattern: "app/**/*.vue"
+paths:
+  - "app/composables/**"
+  - "app/**/useApi*.ts"
 ---
-# 数据请求封装
+
+# 数据请求规范
 
 ## useApi - SSR 支持
+
 适用于组件 setup 阶段或需要 SSR 的场景。
 
 ```typescript
@@ -28,6 +31,7 @@ await execute()
 ```
 
 ## useApiFetch - 简洁请求
+
 适用于事件处理函数，不需要 SSR。
 
 ```typescript
@@ -57,6 +61,7 @@ if (result) {
 | 适用 | setup 阶段 | 事件处理 |
 
 ## 选择指南
+
 - setup 阶段 → `useApi`
 - 需要 SSR → `useApi`
 - 需要响应式 → `useApi`
