@@ -121,7 +121,7 @@
 
             <!-- 固定在底部的操作按钮 -->
             <div
-                class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-2 border-t bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+                class="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-2 border-t bg-card/95 backdrop-blur supports-backdrop-filter:bg-card/80">
                 <Button type="button" variant="outline" size="sm" @click="$emit('cancel')">
                     取消
                 </Button>

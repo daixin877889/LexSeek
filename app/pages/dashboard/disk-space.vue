@@ -320,7 +320,7 @@ const selectAllOnCurrentPage = () => {
   if (isCurrentPageAllSelected.value) {
     selectedFileIds.value = [];
   } else {
-    selectedFileIds.value = fileList.value.map(file => file.id);
+    selectedFileIds.value = fileList.value.map((file: OssFileItem) => file.id);
   }
 };
 
@@ -364,7 +364,7 @@ const executeBatchDelete = async () => {
     });
 
     if (result) {
-      toast.success(`成功删除 ${selectedFileIds.value.size} 个文件`);
+      toast.success(`成功删除 ${selectedFileIds.value.length} 个文件`);
       clearSelection();
       handleRefresh();
       refreshStorageQuota();
