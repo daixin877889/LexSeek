@@ -10,11 +10,33 @@
     <!-- 文件卡片列表 -->
     <div class="space-y-3 px-1">
       <div v-for="file in files" :key="file.id"
-        class="bg-card rounded-lg border border-border p-3 active:bg-muted/50 transition-colors"
-        @click="$emit('click', file)">
+        :class="[
+          'bg-card rounded-lg border p-3 active:bg-muted/50 transition-colors',
+          props.selectedFileIds.includes(file.id)
+            ? 'border-primary bg-primary/5'
+            : 'border-border'
+        ]"
+      >
         <div class="flex items-start gap-3">
+          <!-- 复选框 -->
+          <div class="shrink-0 pt-1">
+            <div
+              :class="[
+                'w-5 h-5 rounded border-2 cursor-pointer flex items-center justify-center transition-colors',
+                props.selectedFileIds.includes(file.id)
+                  ? 'bg-primary border-primary'
+                  : 'bg-white border-gray-300 dark:bg-gray-600 dark:border-gray-400'
+              ]"
+              @click="emit('toggleSelect', file.id)"
+            >
+              <svg v-if="props.selectedFileIds.includes(file.id)" class="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
+                <path d="M2 6L5 9L10 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </div>
+
           <!-- 文件图标/缩略图 -->
-          <div class="shrink-0">
+          <div class="shrink-0" @click="emit('toggleSelect', file.id)">
             <!-- 图片缩略图（仅非加密图片） -->
             <div v-if="isImageType(file.fileType) && !file.encrypted"
               class="w-12 h-12 rounded-lg overflow-hidden bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
@@ -30,7 +52,7 @@
           </div>
 
           <!-- 文件信息 -->
-          <div class="flex-1 min-w-0">
+          <div class="flex-1 min-w-0" @click="emit('toggleSelect', file.id)">
             <p class="text-sm font-medium text-foreground truncate" :title="file.fileName">
               {{ file.fileName }}
             </p>
@@ -45,7 +67,7 @@
           </div>
 
           <!-- 右侧箭头 -->
-          <ChevronRightIcon class="h-5 w-5 text-muted-foreground shrink-0 self-center" />
+          <ChevronRightIcon class="h-5 w-5 text-muted-foreground shrink-0 self-center" @click.stop="emit('toggleSelect', file.id)" />
         </div>
       </div>
     </div>
@@ -73,6 +95,8 @@ import { useIntersectionObserver } from "@vueuse/core";
 interface Props {
   /** 文件列表 */
   files: OssFileItem[];
+  /** 选中的文件 ID 数组 */
+  selectedFileIds: number[];
   /** 是否正在加载 */
   loading?: boolean;
   /** 是否正在刷新 */
@@ -92,6 +116,8 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   /** 点击文件 */
   (e: "click", file: OssFileItem): void;
+  /** 切换选择 */
+  (e: "toggleSelect", fileId: number): void;
   /** 加载更多 */
   (e: "loadMore"): void;
   /** 下拉刷新 */

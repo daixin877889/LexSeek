@@ -145,16 +145,16 @@
             <!-- PC 端视图 -->
             <div class="hidden md:block h-full overflow-auto">
               <!-- 网格视图 -->
-              <DiskSpaceFileListGrid v-if="viewMode === 'grid'" :files="fileList" @click="openFileDetail" />
+              <DiskSpaceFileListGrid v-if="viewMode === 'grid'" :files="fileList" :selected-file-ids="selectedFileIds" @click="openFileDetail" @toggle-select="toggleSelect" />
               <!-- 列表视图 -->
-              <DiskSpaceFileListTable v-else :files="fileList" @click="openFileDetail" />
+              <DiskSpaceFileListTable v-else :files="fileList" :selected-file-ids="selectedFileIds" @click="openFileDetail" @toggle-select="toggleSelect" />
             </div>
 
             <!-- 移动端：无限滚动列表（使用 ClientOnly 避免 SSR 水合不匹配） -->
             <ClientOnly>
               <div class="md:hidden h-full">
-                <DiskSpaceFileListMobile :files="mobileFileList" :loading="mobileLoading" :refreshing="mobileRefreshing"
-                  :has-more="mobileHasMore" @click="openFileDetail" @load-more="loadMoreMobile"
+                <DiskSpaceFileListMobile :files="mobileFileList" :selected-file-ids="selectedFileIds" :loading="mobileLoading" :refreshing="mobileRefreshing"
+                  :has-more="mobileHasMore" @click="openFileDetail" @toggle-select="toggleSelect" @load-more="loadMoreMobile"
                   @refresh="refreshMobile" />
               </div>
               <!-- SSR 占位符 -->
@@ -180,6 +180,18 @@
     <!-- 上传文件对话框 -->
     <DiskSpaceUploadDialog v-model:open="showUploadDialog" @success="handleUploadSuccess" />
 
+    <!-- 批量删除工具栏 -->
+    <DiskSpaceBatchToolbar
+      :selected-count="selectedCount"
+      :total-count="fileList.length"
+      :is-all-selected="isCurrentPageAllSelected"
+      :visible="hasSelected"
+      :deleting="batchDeleting"
+      @select-all="selectAllOnCurrentPage"
+      @clear-selection="clearSelection"
+      @batch-delete="batchDelete"
+    />
+
     <!-- 文件详情对话框 -->
     <DiskSpaceFileDetailDialog v-model:open="showFileDetailDialog" :file="selectedFile" @deleted="handleFileDeleted" />
   </div>
@@ -191,11 +203,13 @@ definePageMeta({
   layout: "dashboard-layout",
 });
 
-import { UploadIcon, GridIcon, ListIcon, RefreshCwIcon, SearchIcon, FolderOpenIcon, XIcon } from "lucide-vue-next";
+import { ref, reactive } from 'vue';
+import { UploadIcon, GridIcon, ListIcon, RefreshCwIcon, SearchIcon, FolderOpenIcon, XIcon, Trash2Icon } from "lucide-vue-next";
 import { refDebounced } from "@vueuse/core";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import "dayjs/locale/zh-cn";
+import { useAlertDialogStore } from "@/store/alertDialog";
 
 // 配置 dayjs
 dayjs.extend(relativeTime);
@@ -268,6 +282,116 @@ const showUploadDialog = ref(false);
 // 文件详情对话框
 const showFileDetailDialog = ref(false);
 const selectedFile = ref<OssFileItem | null>(null);
+
+// ==================== 批量删除状态管理 ====================
+
+// 选中的文件 ID 集合（使用数组确保响应性）
+const selectedFileIds = ref<number[]>([]);
+
+// alertDialog store
+const alertDialogStore = useAlertDialogStore();
+
+// 计算属性
+const hasSelected = computed(() => selectedFileIds.value.length > 0);
+const selectedCount = computed(() => selectedFileIds.value.length);
+const isCurrentPageAllSelected = computed(() =>
+  selectedFileIds.value.length === fileList.value.length && fileList.value.length > 0
+);
+
+// 批量删除状态
+const batchDeleting = ref(false);
+
+/**
+ * 切换文件选择状态
+ */
+const toggleSelect = (fileId: number) => {
+  const index = selectedFileIds.value.indexOf(fileId);
+  if (index > -1) {
+    selectedFileIds.value.splice(index, 1);
+  } else {
+    selectedFileIds.value.push(fileId);
+  }
+};
+
+/**
+ * 全选当前页
+ */
+const selectAllOnCurrentPage = () => {
+  if (isCurrentPageAllSelected.value) {
+    selectedFileIds.value = [];
+  } else {
+    selectedFileIds.value = fileList.value.map(file => file.id);
+  }
+};
+
+/**
+ * 清空选择
+ */
+const clearSelection = () => {
+  selectedFileIds.value = [];
+};
+
+/**
+ * 批量删除（显示确认对话框）
+ */
+const batchDelete = () => {
+  if (selectedFileIds.value.length === 0) return;
+
+  alertDialogStore.showDialog({
+    title: "确认删除",
+    message: `确定要删除选中的 ${selectedFileIds.value.length} 个文件吗？此操作不可恢复。`,
+    confirmText: "删除",
+    cancelText: "取消",
+    type: "error",
+    showCancel: true,
+    onConfirm: () => { executeBatchDelete(); },
+    onCancel: () => {},
+  });
+};
+
+/**
+ * 执行批量删除
+ */
+const executeBatchDelete = async () => {
+  batchDeleting.value = true;
+
+  try {
+    const result = await useApiFetch("/api/v1/files/oss/batch-delete", {
+      method: "POST",
+      body: {
+        fileIds: selectedFileIds.value,
+      },
+    });
+
+    if (result) {
+      toast.success(`成功删除 ${selectedFileIds.value.size} 个文件`);
+      clearSelection();
+      handleRefresh();
+      refreshStorageQuota();
+    }
+  } catch (err) {
+    console.error("批量删除失败:", err);
+    toast.error("批量删除失败，请重试");
+  } finally {
+    batchDeleting.value = false;
+  }
+};
+
+// 监听分页变化清空选择
+watch(
+  () => currentPage.value,
+  () => {
+    clearSelection();
+  }
+);
+
+// 监听筛选/排序变化清空选择
+watch(
+  () => [searchForm.fileType, searchForm.source, sortBy.value],
+  () => {
+    clearSelection();
+  }
+);
 
 // 动态筛选选项
 const fileTypeOptions = FileTypeName;
