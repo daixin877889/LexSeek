@@ -1,6 +1,3 @@
--- 安装 vector 扩展
-CREATE EXTENSION IF NOT EXISTS vector;
-
 -- CreateTable
 CREATE TABLE "api_permission_groups" (
     "id" SERIAL NOT NULL,
@@ -80,16 +77,113 @@ CREATE TABLE "campaigns" (
 );
 
 -- CreateTable
-CREATE TABLE "user_encryptions" (
+CREATE TABLE "case_types" (
     "id" SERIAL NOT NULL,
-    "user_id" INTEGER NOT NULL,
-    "recipient" VARCHAR(255) NOT NULL,
-    "encrypted_identity" TEXT NOT NULL,
-    "encrypted_recovery_key" TEXT,
-    "created_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
-    "updated_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
+    "name" VARCHAR(100) NOT NULL,
+    "description" VARCHAR(255),
+    "icon" VARCHAR(100),
+    "priority" INTEGER NOT NULL DEFAULT 100,
+    "status" INTEGER NOT NULL DEFAULT 1,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
 
-    CONSTRAINT "user_encryptions_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "case_types_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cases" (
+    "id" SERIAL NOT NULL,
+    "title" VARCHAR(500) NOT NULL,
+    "content" TEXT,
+    "user_id" INTEGER NOT NULL,
+    "case_type_id" INTEGER NOT NULL,
+    "plaintiff" JSONB,
+    "defendant" JSONB,
+    "status" INTEGER NOT NULL DEFAULT 1,
+    "is_demo" BOOLEAN NOT NULL DEFAULT false,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "cases_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "case_sessions" (
+    "id" SERIAL NOT NULL,
+    "session_id" VARCHAR(100) NOT NULL,
+    "case_id" INTEGER NOT NULL,
+    "status" INTEGER NOT NULL DEFAULT 1,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "case_sessions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "case_materials" (
+    "id" SERIAL NOT NULL,
+    "case_id" INTEGER NOT NULL,
+    "name" VARCHAR(255) NOT NULL,
+    "type" INTEGER NOT NULL,
+    "content" TEXT,
+    "original_content" TEXT,
+    "oss_file_id" INTEGER,
+    "is_encrypted" BOOLEAN NOT NULL DEFAULT false,
+    "status" INTEGER NOT NULL DEFAULT 1,
+    "embedding_status" VARCHAR(20) DEFAULT 'pending',
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "case_materials_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "case_analyses" (
+    "id" SERIAL NOT NULL,
+    "case_id" INTEGER NOT NULL,
+    "session_id" VARCHAR(100) NOT NULL,
+    "node_id" INTEGER NOT NULL,
+    "analysis_type" VARCHAR(100) NOT NULL,
+    "analysis_result" TEXT,
+    "original_result" TEXT,
+    "version" INTEGER NOT NULL DEFAULT 1,
+    "status" INTEGER NOT NULL DEFAULT 1,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "case_analyses_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "demo_cases" (
+    "id" SERIAL NOT NULL,
+    "title" VARCHAR(200) NOT NULL,
+    "description" VARCHAR(500),
+    "case_type_id" INTEGER NOT NULL,
+    "materials" JSONB NOT NULL DEFAULT '[]',
+    "cover_image" VARCHAR(500),
+    "priority" INTEGER NOT NULL DEFAULT 100,
+    "status" INTEGER NOT NULL DEFAULT 1,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "demo_cases_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "case_material_embeddings" (
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "text" TEXT,
+    "metadata" JSONB,
+    "embedding" vector,
+
+    CONSTRAINT "case_material_embeddings_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -294,6 +388,7 @@ CREATE TABLE "models" (
     "name" VARCHAR(100) NOT NULL,
     "display_name" VARCHAR(100) NOT NULL,
     "model_type" VARCHAR(20) NOT NULL,
+    "sdk_type" VARCHAR(20) NOT NULL DEFAULT 'openai',
     "model_version" VARCHAR(50),
     "context_window" INTEGER,
     "dimensions" INTEGER,
@@ -308,6 +403,68 @@ CREATE TABLE "models" (
     "deleted_at" TIMESTAMPTZ(6),
 
     CONSTRAINT "models_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "node_groups" (
+    "id" SERIAL NOT NULL,
+    "name" VARCHAR(100) NOT NULL,
+    "description" VARCHAR(255),
+    "priority" INTEGER NOT NULL DEFAULT 100,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "node_groups_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "nodes" (
+    "id" SERIAL NOT NULL,
+    "name" VARCHAR(100) NOT NULL,
+    "title" VARCHAR(100),
+    "description" VARCHAR(255),
+    "type" VARCHAR(100) NOT NULL,
+    "priority" INTEGER NOT NULL DEFAULT 100,
+    "model_id" INTEGER NOT NULL,
+    "tools" JSONB NOT NULL DEFAULT '[]',
+    "group_id" INTEGER,
+    "status" INTEGER NOT NULL DEFAULT 1,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "nodes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "prompts" (
+    "id" SERIAL NOT NULL,
+    "name" VARCHAR(100) NOT NULL,
+    "title" VARCHAR(100),
+    "content" TEXT NOT NULL,
+    "variables" JSONB NOT NULL DEFAULT '[]',
+    "version" VARCHAR(100) NOT NULL,
+    "type" VARCHAR(100) NOT NULL,
+    "status" INTEGER NOT NULL DEFAULT 0,
+    "node_id" INTEGER NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "prompts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "level_node_access" (
+    "id" SERIAL NOT NULL,
+    "level_id" INTEGER NOT NULL,
+    "node_id" INTEGER NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "level_node_access_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -399,6 +556,7 @@ CREATE TABLE "point_records" (
 -- CreateTable
 CREATE TABLE "point_consumption_items" (
     "id" SERIAL NOT NULL,
+    "key" VARCHAR(50),
     "group" VARCHAR(100) NOT NULL,
     "name" VARCHAR(100) NOT NULL,
     "description" VARCHAR(255),
@@ -419,6 +577,7 @@ CREATE TABLE "point_consumption_records" (
     "user_id" INTEGER NOT NULL,
     "point_record_id" INTEGER NOT NULL,
     "item_id" INTEGER NOT NULL,
+    "batch_id" VARCHAR(36),
     "point_amount" INTEGER NOT NULL,
     "status" INTEGER NOT NULL DEFAULT 1,
     "source_id" INTEGER,
@@ -495,6 +654,121 @@ CREATE TABLE "user_roles" (
     "deleted_at" TIMESTAMPTZ,
 
     CONSTRAINT "user_roles_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "doc_recognition_records" (
+    "id" SERIAL NOT NULL,
+    "user_id" INTEGER NOT NULL,
+    "oss_file_id" INTEGER NOT NULL,
+    "status" INTEGER NOT NULL DEFAULT 0,
+    "html_content" TEXT,
+    "markdown_content" TEXT,
+    "keywords" JSONB DEFAULT '[]',
+    "summary" TEXT,
+    "vector_ids" JSONB DEFAULT '[]',
+    "last_embedding_at" TIMESTAMPTZ(6),
+    "last_edit_at" TIMESTAMPTZ(6),
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "doc_recognition_records_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "image_recognition_records" (
+    "id" SERIAL NOT NULL,
+    "user_id" INTEGER NOT NULL,
+    "oss_file_id" INTEGER NOT NULL,
+    "status" INTEGER NOT NULL DEFAULT 0,
+    "image_type" VARCHAR(50),
+    "html_content" TEXT,
+    "markdown_content" TEXT,
+    "keywords" JSONB DEFAULT '[]',
+    "summary" TEXT,
+    "vector_ids" JSONB DEFAULT '[]',
+    "last_embedding_at" TIMESTAMPTZ(6),
+    "last_edit_at" TIMESTAMPTZ(6),
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "image_recognition_records_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "asr_tasks" (
+    "id" SERIAL NOT NULL,
+    "task_id" VARCHAR(100),
+    "status" INTEGER NOT NULL DEFAULT 0,
+    "is_encrypted" BOOLEAN NOT NULL DEFAULT false,
+    "task_raw_data" JSONB DEFAULT '{}',
+    "result" JSONB DEFAULT '{}',
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "asr_tasks_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "asr_records" (
+    "id" SERIAL NOT NULL,
+    "user_id" INTEGER NOT NULL,
+    "oss_file_id" INTEGER NOT NULL,
+    "asr_tasks_id" INTEGER,
+    "status" INTEGER NOT NULL DEFAULT 0,
+    "audio_url" TEXT,
+    "audio_duration" INTEGER,
+    "result" JSONB DEFAULT '{}',
+    "json_oss_file_id" INTEGER,
+    "temp_file_path" VARCHAR(500),
+    "speakers" JSONB DEFAULT '[]',
+    "keywords" JSONB DEFAULT '[]',
+    "summary" TEXT,
+    "vector_ids" JSONB DEFAULT '[]',
+    "last_embedding_at" TIMESTAMPTZ(6),
+    "last_edit_at" TIMESTAMPTZ(6),
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "asr_records_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "mineru_tokens" (
+    "id" SERIAL NOT NULL,
+    "name" VARCHAR(100) NOT NULL,
+    "token" VARCHAR(500) NOT NULL,
+    "remark" VARCHAR(255),
+    "status" INTEGER NOT NULL DEFAULT 1,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "mineru_tokens_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "mineru_tasks" (
+    "id" SERIAL NOT NULL,
+    "task_id" VARCHAR(100),
+    "oss_file_id" INTEGER NOT NULL,
+    "user_id" INTEGER NOT NULL,
+    "status" INTEGER NOT NULL DEFAULT 0,
+    "is_encrypted" BOOLEAN NOT NULL DEFAULT false,
+    "task_raw_data" JSONB DEFAULT '{}',
+    "result" JSONB DEFAULT '{}',
+    "error_msg" TEXT,
+    "retry_count" INTEGER NOT NULL DEFAULT 0,
+    "completed_at" TIMESTAMPTZ(6),
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "mineru_tasks_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -731,10 +1005,82 @@ CREATE INDEX "idx_campaigns_end_at" ON "campaigns"("end_at");
 CREATE INDEX "idx_campaigns_deleted_at" ON "campaigns"("deleted_at");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "user_encryptions_user_id_key" ON "user_encryptions"("user_id");
+CREATE INDEX "idx_case_types_priority" ON "case_types"("priority");
 
 -- CreateIndex
-CREATE INDEX "idx_user_encryptions_user_id" ON "user_encryptions"("user_id");
+CREATE INDEX "idx_case_types_status" ON "case_types"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_case_types_deleted_at" ON "case_types"("deleted_at");
+
+-- CreateIndex
+CREATE INDEX "idx_cases_user_id" ON "cases"("user_id");
+
+-- CreateIndex
+CREATE INDEX "idx_cases_case_type_id" ON "cases"("case_type_id");
+
+-- CreateIndex
+CREATE INDEX "idx_cases_status" ON "cases"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_cases_is_demo" ON "cases"("is_demo");
+
+-- CreateIndex
+CREATE INDEX "idx_cases_deleted_at" ON "cases"("deleted_at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "case_sessions_session_id_key" ON "case_sessions"("session_id");
+
+-- CreateIndex
+CREATE INDEX "idx_case_sessions_case_id" ON "case_sessions"("case_id");
+
+-- CreateIndex
+CREATE INDEX "idx_case_sessions_status" ON "case_sessions"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_case_sessions_deleted_at" ON "case_sessions"("deleted_at");
+
+-- CreateIndex
+CREATE INDEX "idx_case_materials_case_id" ON "case_materials"("case_id");
+
+-- CreateIndex
+CREATE INDEX "idx_case_materials_type" ON "case_materials"("type");
+
+-- CreateIndex
+CREATE INDEX "idx_case_materials_status" ON "case_materials"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_case_materials_deleted_at" ON "case_materials"("deleted_at");
+
+-- CreateIndex
+CREATE INDEX "idx_case_analyses_case_id" ON "case_analyses"("case_id");
+
+-- CreateIndex
+CREATE INDEX "idx_case_analyses_session_id" ON "case_analyses"("session_id");
+
+-- CreateIndex
+CREATE INDEX "idx_case_analyses_node_id" ON "case_analyses"("node_id");
+
+-- CreateIndex
+CREATE INDEX "idx_case_analyses_analysis_type" ON "case_analyses"("analysis_type");
+
+-- CreateIndex
+CREATE INDEX "idx_case_analyses_status" ON "case_analyses"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_case_analyses_deleted_at" ON "case_analyses"("deleted_at");
+
+-- CreateIndex
+CREATE INDEX "idx_demo_cases_case_type_id" ON "demo_cases"("case_type_id");
+
+-- CreateIndex
+CREATE INDEX "idx_demo_cases_priority" ON "demo_cases"("priority");
+
+-- CreateIndex
+CREATE INDEX "idx_demo_cases_status" ON "demo_cases"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_demo_cases_deleted_at" ON "demo_cases"("deleted_at");
 
 -- CreateIndex
 CREATE INDEX "idx_oss_files_user_id" ON "oss_files"("user_id");
@@ -890,6 +1236,63 @@ CREATE INDEX "idx_models_deleted_at" ON "models"("deleted_at");
 CREATE UNIQUE INDEX "models_provider_id_name_key" ON "models"("provider_id", "name");
 
 -- CreateIndex
+CREATE INDEX "idx_node_groups_priority" ON "node_groups"("priority");
+
+-- CreateIndex
+CREATE INDEX "idx_node_groups_deleted_at" ON "node_groups"("deleted_at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "nodes_name_key" ON "nodes"("name");
+
+-- CreateIndex
+CREATE INDEX "idx_nodes_name" ON "nodes"("name");
+
+-- CreateIndex
+CREATE INDEX "idx_nodes_type" ON "nodes"("type");
+
+-- CreateIndex
+CREATE INDEX "idx_nodes_priority" ON "nodes"("priority");
+
+-- CreateIndex
+CREATE INDEX "idx_nodes_group_id" ON "nodes"("group_id");
+
+-- CreateIndex
+CREATE INDEX "idx_nodes_model_id" ON "nodes"("model_id");
+
+-- CreateIndex
+CREATE INDEX "idx_nodes_status" ON "nodes"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_nodes_deleted_at" ON "nodes"("deleted_at");
+
+-- CreateIndex
+CREATE INDEX "idx_prompts_name" ON "prompts"("name");
+
+-- CreateIndex
+CREATE INDEX "idx_prompts_node_id" ON "prompts"("node_id");
+
+-- CreateIndex
+CREATE INDEX "idx_prompts_type" ON "prompts"("type");
+
+-- CreateIndex
+CREATE INDEX "idx_prompts_status" ON "prompts"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_prompts_deleted_at" ON "prompts"("deleted_at");
+
+-- CreateIndex
+CREATE INDEX "idx_level_node_access_level_id" ON "level_node_access"("level_id");
+
+-- CreateIndex
+CREATE INDEX "idx_level_node_access_node_id" ON "level_node_access"("node_id");
+
+-- CreateIndex
+CREATE INDEX "idx_level_node_access_deleted_at" ON "level_node_access"("deleted_at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "level_node_access_level_id_node_id_key" ON "level_node_access"("level_id", "node_id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "orders_order_no_key" ON "orders"("order_no");
 
 -- CreateIndex
@@ -965,6 +1368,12 @@ CREATE INDEX "idx_point_records_settlement_at" ON "point_records"("settlement_at
 CREATE INDEX "idx_point_records_deleted_at" ON "point_records"("deleted_at");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "point_consumption_items_key_key" ON "point_consumption_items"("key");
+
+-- CreateIndex
+CREATE INDEX "idx_point_consumption_items_key" ON "point_consumption_items"("key");
+
+-- CreateIndex
 CREATE INDEX "idx_point_consumption_items_name" ON "point_consumption_items"("name");
 
 -- CreateIndex
@@ -978,6 +1387,9 @@ CREATE INDEX "idx_point_consumption_records_user_id" ON "point_consumption_recor
 
 -- CreateIndex
 CREATE INDEX "idx_point_consumption_records_item_id" ON "point_consumption_records"("item_id");
+
+-- CreateIndex
+CREATE INDEX "idx_point_consumption_records_batch_id" ON "point_consumption_records"("batch_id");
 
 -- CreateIndex
 CREATE INDEX "idx_point_consumption_records_status" ON "point_consumption_records"("status");
@@ -1068,6 +1480,78 @@ CREATE INDEX "idx_user_roles_deleted_at" ON "user_roles"("deleted_at");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "user_roles_user_id_role_id_key" ON "user_roles"("user_id", "role_id");
+
+-- CreateIndex
+CREATE INDEX "idx_doc_recognition_records_user_id" ON "doc_recognition_records"("user_id");
+
+-- CreateIndex
+CREATE INDEX "idx_doc_recognition_records_oss_file_id" ON "doc_recognition_records"("oss_file_id");
+
+-- CreateIndex
+CREATE INDEX "idx_doc_recognition_records_status" ON "doc_recognition_records"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_doc_recognition_records_deleted_at" ON "doc_recognition_records"("deleted_at");
+
+-- CreateIndex
+CREATE INDEX "idx_image_recognition_records_user_id" ON "image_recognition_records"("user_id");
+
+-- CreateIndex
+CREATE INDEX "idx_image_recognition_records_oss_file_id" ON "image_recognition_records"("oss_file_id");
+
+-- CreateIndex
+CREATE INDEX "idx_image_recognition_records_status" ON "image_recognition_records"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_image_recognition_records_image_type" ON "image_recognition_records"("image_type");
+
+-- CreateIndex
+CREATE INDEX "idx_image_recognition_records_deleted_at" ON "image_recognition_records"("deleted_at");
+
+-- CreateIndex
+CREATE INDEX "idx_asr_tasks_task_id" ON "asr_tasks"("task_id");
+
+-- CreateIndex
+CREATE INDEX "idx_asr_tasks_status" ON "asr_tasks"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_asr_tasks_deleted_at" ON "asr_tasks"("deleted_at");
+
+-- CreateIndex
+CREATE INDEX "idx_asr_records_user_id" ON "asr_records"("user_id");
+
+-- CreateIndex
+CREATE INDEX "idx_asr_records_oss_file_id" ON "asr_records"("oss_file_id");
+
+-- CreateIndex
+CREATE INDEX "idx_asr_records_asr_tasks_id" ON "asr_records"("asr_tasks_id");
+
+-- CreateIndex
+CREATE INDEX "idx_asr_records_status" ON "asr_records"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_asr_records_deleted_at" ON "asr_records"("deleted_at");
+
+-- CreateIndex
+CREATE INDEX "idx_mineru_tokens_status" ON "mineru_tokens"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_mineru_tokens_deleted_at" ON "mineru_tokens"("deleted_at");
+
+-- CreateIndex
+CREATE INDEX "idx_mineru_tasks_task_id" ON "mineru_tasks"("task_id");
+
+-- CreateIndex
+CREATE INDEX "idx_mineru_tasks_oss_file_id" ON "mineru_tasks"("oss_file_id");
+
+-- CreateIndex
+CREATE INDEX "idx_mineru_tasks_user_id" ON "mineru_tasks"("user_id");
+
+-- CreateIndex
+CREATE INDEX "idx_mineru_tasks_status" ON "mineru_tasks"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_mineru_tasks_deleted_at" ON "mineru_tasks"("deleted_at");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "redemption_codes_code_key" ON "redemption_codes"("code");
@@ -1256,6 +1740,30 @@ ALTER TABLE "permission_audit_logs" ADD CONSTRAINT "permission_audit_logs_operat
 ALTER TABLE "campaigns" ADD CONSTRAINT "campaigns_level_id_fkey" FOREIGN KEY ("level_id") REFERENCES "membership_levels"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
+ALTER TABLE "cases" ADD CONSTRAINT "cases_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "cases" ADD CONSTRAINT "cases_case_type_id_fkey" FOREIGN KEY ("case_type_id") REFERENCES "case_types"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "case_sessions" ADD CONSTRAINT "case_sessions_case_id_fkey" FOREIGN KEY ("case_id") REFERENCES "cases"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "case_materials" ADD CONSTRAINT "case_materials_case_id_fkey" FOREIGN KEY ("case_id") REFERENCES "cases"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "case_analyses" ADD CONSTRAINT "case_analyses_case_id_fkey" FOREIGN KEY ("case_id") REFERENCES "cases"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "case_analyses" ADD CONSTRAINT "case_analyses_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "case_sessions"("session_id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "case_analyses" ADD CONSTRAINT "case_analyses_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "nodes"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "demo_cases" ADD CONSTRAINT "demo_cases_case_type_id_fkey" FOREIGN KEY ("case_type_id") REFERENCES "case_types"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
 ALTER TABLE "legal_articles" ADD CONSTRAINT "legal_articles_legal_id_fkey" FOREIGN KEY ("legal_id") REFERENCES "legal_main"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
@@ -1281,6 +1789,21 @@ ALTER TABLE "model_api_keys" ADD CONSTRAINT "model_api_keys_provider_id_fkey" FO
 
 -- AddForeignKey
 ALTER TABLE "models" ADD CONSTRAINT "models_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "model_providers"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "nodes" ADD CONSTRAINT "nodes_group_id_fkey" FOREIGN KEY ("group_id") REFERENCES "node_groups"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "nodes" ADD CONSTRAINT "nodes_model_id_fkey" FOREIGN KEY ("model_id") REFERENCES "models"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "prompts" ADD CONSTRAINT "prompts_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "nodes"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "level_node_access" ADD CONSTRAINT "level_node_access_level_id_fkey" FOREIGN KEY ("level_id") REFERENCES "membership_levels"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "level_node_access" ADD CONSTRAINT "level_node_access_node_id_fkey" FOREIGN KEY ("node_id") REFERENCES "nodes"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
 ALTER TABLE "orders" ADD CONSTRAINT "orders_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
@@ -1332,6 +1855,21 @@ ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_user_id_fkey" FOREIGN KEY ("
 
 -- AddForeignKey
 ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "roles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "doc_recognition_records" ADD CONSTRAINT "doc_recognition_records_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "image_recognition_records" ADD CONSTRAINT "image_recognition_records_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "asr_records" ADD CONSTRAINT "asr_records_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "asr_records" ADD CONSTRAINT "asr_records_asr_tasks_id_fkey" FOREIGN KEY ("asr_tasks_id") REFERENCES "asr_tasks"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "mineru_tasks" ADD CONSTRAINT "mineru_tasks_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
 ALTER TABLE "redemption_codes" ADD CONSTRAINT "redemption_codes_level_id_fkey" FOREIGN KEY ("level_id") REFERENCES "membership_levels"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;

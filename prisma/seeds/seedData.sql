@@ -14,9 +14,6 @@ INSERT INTO "public"."user_roles" ("id", "user_id", "role_id", "created_at", "up
 INSERT INTO "public"."user_roles" ("id", "user_id", "role_id", "created_at", "updated_at", "deleted_at") VALUES (2, 1, 2, '2025-12-21 17:56:01.06414+08', '2025-12-21 17:56:02.06414+08', NULL);
 INSERT INTO "public"."user_roles" ("id", "user_id", "role_id", "created_at", "updated_at", "deleted_at") VALUES (3, 1, 3, '2025-12-31 03:34:57.866+08', '2025-12-31 03:34:57.866+08', NULL);
 
--- 用户文件加密密钥
-INSERT INTO "public"."user_encryptions" ("id", "user_id", "recipient", "encrypted_identity", "encrypted_recovery_key", "created_at", "updated_at") VALUES (1, 1, 'age1jx62jxea8znprsyudzkyamqhj6znts2zx254lk48ry7td3kesqmsxdyxkt', 'YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IHNjcnlwdCBqTE5OaXFjVHRpU1JhWWdmR1gwOUJBIDE4CllBbzk1YWR5cXdYUDY1SUpnb3pUaDFXczlINTRQNWE1Q3dnL2taWnhDV00KLS0tIEVUNzRMVHFhK2JjY1BVQzUyWUl3NzRwT0VjUWV6T0ZGVFBzR0RsWTlzSFkKM7+9q5bNTRH940me68z+ujG/h91ZDwKQALBXBievQ1zLz5tLuDiBDO6B9dhm6rOYN2aicU6FdQpkP+88oWXS2cvFiYFPBaTB5ZQ9ychXlHYGhzTLQ1EeYofYTn5MFLMciQhZ7WiqXhleNg==', 'YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IHNjcnlwdCBMV3lBeWFDSDQydTVrVEF3YkdXK1ZnIDE4CmtIa2g3aXJrZSthZ2l2QWRCU2hEeW9yMHJRWFZhc1NtZ0pXcDRqZU1Xdm8KLS0tIEJabDUzK0NGeUF1YmpibUlxVkRtaldINm1aM3Y2bVN4cDY0Uk1ycnNMUm8KcyGJWjLvvpDk2LnzLa2ECGBRLFRQUc+gzl6+D5mbBTopI+pyY0Mc3/8cQRPx/c9E32rB9eP3Bq+mxIq784O4s+daE0qpTy3JM3yqgASb3a2eu4uyzq5tFsukyfEEsYzvb9e7gIEUdQKDsQ==', '2025-12-24 23:30:34.655+08', '2025-12-26 07:25:30.704+08');
-
 -- 路由组
 INSERT INTO "public"."router_groups" ("id", "name", "description", "sort", "status", "created_at", "updated_at", "deleted_at") VALUES (1, 'dashboard', '工作台路由', 0, 1, '2025-12-21 16:40:47.288706+08', '2025-12-21 16:40:47.288706+08', NULL);
 INSERT INTO "public"."router_groups" ("id", "name", "description", "sort", "status", "created_at", "updated_at", "deleted_at") VALUES (2, '公共页面', '公共页面', 0, 1, '2025-12-31 11:08:01.992+08', '2025-12-31 11:08:01.992+08', NULL);
