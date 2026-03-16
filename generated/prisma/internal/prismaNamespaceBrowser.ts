@@ -63,7 +63,6 @@ export const ModelName = {
   caseAnalyses: 'caseAnalyses',
   demoCases: 'demoCases',
   caseMaterialEmbeddings: 'caseMaterialEmbeddings',
-  userEncryptions: 'userEncryptions',
   ossFiles: 'ossFiles',
   legalMain: 'legalMain',
   legalArticles: 'legalArticles',
@@ -308,19 +307,6 @@ export const CaseMaterialEmbeddingsScalarFieldEnum = {
 } as const
 
 export type CaseMaterialEmbeddingsScalarFieldEnum = (typeof CaseMaterialEmbeddingsScalarFieldEnum)[keyof typeof CaseMaterialEmbeddingsScalarFieldEnum]
-
-
-export const UserEncryptionsScalarFieldEnum = {
-  id: 'id',
-  userId: 'userId',
-  recipient: 'recipient',
-  encryptedIdentity: 'encryptedIdentity',
-  encryptedRecoveryKey: 'encryptedRecoveryKey',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type UserEncryptionsScalarFieldEnum = (typeof UserEncryptionsScalarFieldEnum)[keyof typeof UserEncryptionsScalarFieldEnum]
 
 
 export const OssFilesScalarFieldEnum = {

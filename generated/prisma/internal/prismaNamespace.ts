@@ -396,7 +396,6 @@ export const ModelName = {
   caseAnalyses: 'caseAnalyses',
   demoCases: 'demoCases',
   caseMaterialEmbeddings: 'caseMaterialEmbeddings',
-  userEncryptions: 'userEncryptions',
   ossFiles: 'ossFiles',
   legalMain: 'legalMain',
   legalArticles: 'legalArticles',
@@ -453,7 +452,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "userEncryptions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
+    modelProps: "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1342,80 +1341,6 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.caseMaterialEmbeddingsCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.CaseMaterialEmbeddingsCountAggregateOutputType> | number
-        }
-      }
-    }
-    userEncryptions: {
-      payload: Prisma.$userEncryptionsPayload<ExtArgs>
-      fields: Prisma.userEncryptionsFieldRefs
-      operations: {
-        findUnique: {
-          args: Prisma.userEncryptionsFindUniqueArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload> | null
-        }
-        findUniqueOrThrow: {
-          args: Prisma.userEncryptionsFindUniqueOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload>
-        }
-        findFirst: {
-          args: Prisma.userEncryptionsFindFirstArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload> | null
-        }
-        findFirstOrThrow: {
-          args: Prisma.userEncryptionsFindFirstOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload>
-        }
-        findMany: {
-          args: Prisma.userEncryptionsFindManyArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload>[]
-        }
-        create: {
-          args: Prisma.userEncryptionsCreateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload>
-        }
-        createMany: {
-          args: Prisma.userEncryptionsCreateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        createManyAndReturn: {
-          args: Prisma.userEncryptionsCreateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload>[]
-        }
-        delete: {
-          args: Prisma.userEncryptionsDeleteArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload>
-        }
-        update: {
-          args: Prisma.userEncryptionsUpdateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload>
-        }
-        deleteMany: {
-          args: Prisma.userEncryptionsDeleteManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        updateMany: {
-          args: Prisma.userEncryptionsUpdateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        updateManyAndReturn: {
-          args: Prisma.userEncryptionsUpdateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload>[]
-        }
-        upsert: {
-          args: Prisma.userEncryptionsUpsertArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$userEncryptionsPayload>
-        }
-        aggregate: {
-          args: Prisma.UserEncryptionsAggregateArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.AggregateUserEncryptions>
-        }
-        groupBy: {
-          args: Prisma.userEncryptionsGroupByArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.UserEncryptionsGroupByOutputType>[]
-        }
-        count: {
-          args: Prisma.userEncryptionsCountArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.UserEncryptionsCountAggregateOutputType> | number
         }
       }
     }
@@ -4679,19 +4604,6 @@ export const CaseMaterialEmbeddingsScalarFieldEnum = {
 export type CaseMaterialEmbeddingsScalarFieldEnum = (typeof CaseMaterialEmbeddingsScalarFieldEnum)[keyof typeof CaseMaterialEmbeddingsScalarFieldEnum]
 
 
-export const UserEncryptionsScalarFieldEnum = {
-  id: 'id',
-  userId: 'userId',
-  recipient: 'recipient',
-  encryptedIdentity: 'encryptedIdentity',
-  encryptedRecoveryKey: 'encryptedRecoveryKey',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type UserEncryptionsScalarFieldEnum = (typeof UserEncryptionsScalarFieldEnum)[keyof typeof UserEncryptionsScalarFieldEnum]
-
-
 export const OssFilesScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -5687,7 +5599,6 @@ export type GlobalOmitConfig = {
   caseAnalyses?: Prisma.caseAnalysesOmit
   demoCases?: Prisma.demoCasesOmit
   caseMaterialEmbeddings?: Prisma.caseMaterialEmbeddingsOmit
-  userEncryptions?: Prisma.userEncryptionsOmit
   ossFiles?: Prisma.ossFilesOmit
   legalMain?: Prisma.legalMainOmit
   legalArticles?: Prisma.legalArticlesOmit

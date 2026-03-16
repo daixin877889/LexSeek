@@ -102,12 +102,6 @@ export type demoCases = Prisma.demoCasesModel
  */
 export type caseMaterialEmbeddings = Prisma.caseMaterialEmbeddingsModel
 /**
- * Model userEncryptions
- * 用户加密配置表
- * 存储用户的端到端加密密钥信息
- */
-export type userEncryptions = Prisma.userEncryptionsModel
-/**
  * Model ossFiles
  * OSS 文件表
  */
