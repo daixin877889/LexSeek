@@ -34,12 +34,24 @@ export default defineEventHandler(async (event) => {
     const userRouters = userRoles.map((userRole) => {
       const role = userRole.role
       // 超级管理员使用所有路由，否则使用角色关联的路由
-      const routers = isSuperAdmin && role.code === 'super_admin'
+      let routers = isSuperAdmin && role.code === 'super_admin'
         ? allRouters
         : role.roleRouters.map((item: any) => {
           const { createdAt, updatedAt, deletedAt, ...router } = item.router;
           return router;
         });
+
+      // 对路由进行排序（先按 menuGroupSort 排序，再按 sort 排序）
+      if (!isSuperAdmin || role.code !== 'super_admin') {
+        routers = routers.sort((a: any, b: any) => {
+          // 先按菜单分组排序
+          if (a.menuGroupSort !== b.menuGroupSort) {
+            return (a.menuGroupSort || 0) - (b.menuGroupSort || 0);
+          }
+          // 再按路由排序
+          return (a.sort || 0) - (b.sort || 0);
+        });
+      }
       return {
         roleId: role.id,
         name: role.name,
