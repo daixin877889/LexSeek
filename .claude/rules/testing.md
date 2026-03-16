@@ -11,6 +11,24 @@ paths:
 - **fast-check** - 属性测试库
 - **vibium** - UI 浏览器测试工具
 
+## 环境配置
+
+测试使用独立的测试数据库，配置如下：
+
+- **环境变量文件**：`.env.testing`
+- **测试数据库**：`ls_new_testing`（`postgresql://daixin:daixin88@localhost:5432/ls_new_testing`）
+- **全局配置**：`vitest.config.ts` 中通过 `dotenv` 加载 `.env.testing`
+
+新模块添加测试时，需在对应的 `test-db-helper.ts` 中加载测试环境变量：
+
+```typescript
+import { config } from 'dotenv'
+import { resolve } from 'node:path'
+
+// 加载测试环境变量
+config({ path: resolve(__dirname, '../../../../.env.testing') })
+```
+
 ## 测试目录
 
 ```

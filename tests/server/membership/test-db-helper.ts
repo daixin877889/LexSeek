@@ -12,7 +12,7 @@ import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient, Prisma } from '../../../generated/prisma/client'
 import { config } from 'dotenv'
 
-// 加载环境变量
+// 加载环境变量（vitest.config.ts 已全局配置加载 .env.testing）
 config()
 
 // 创建 Prisma 客户端实例（使用 pg 适配器）

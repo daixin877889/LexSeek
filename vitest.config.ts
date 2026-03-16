@@ -1,5 +1,10 @@
 import { defineVitestConfig } from '@nuxt/test-utils/config'
 import { fileURLToPath } from 'node:url'
+import { config } from 'dotenv'
+import { resolve } from 'node:path'
+
+// 全局加载测试环境变量
+config({ path: resolve(__dirname, '.env.testing') })
 
 export default defineVitestConfig({
     test: {
