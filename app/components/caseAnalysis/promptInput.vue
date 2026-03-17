@@ -173,6 +173,7 @@ async function retryRecognition(file: OssFileItem) {
       results: Array<{
         ossFileId: number;
         status: 'processing' | 'completed' | 'failed';
+        error?: string;
       }>;
     }>('/api/v1/recognition/start', {
       method: 'POST',
@@ -264,6 +265,7 @@ async function handleFilesSelected(files: OssFileItem[]) {
         results: Array<{
           ossFileId: number;
           status: 'processing' | 'completed' | 'failed';
+          error?: string;
         }>;
       }>('/api/v1/recognition/start', {
         method: 'POST',
