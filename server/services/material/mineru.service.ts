@@ -302,7 +302,25 @@ export const submitPdfConversionService = async (
     options: MineruSubmitOptions = {}
 ): Promise<MineruSubmitResult> => {
     try {
-        // 1. 检查是否有可用的 Token
+        // 1. 检查是否已有成功的识别记录（优先检查，避免不必要的 API 调用）
+        // 如果已有成功的识别记录，说明文件已经识别过了，直接返回
+        const existingRecord = await findDocRecognitionByOssFileIdDao(ossFileId)
+        if (existingRecord && existingRecord.status === DocRecognitionStatus.SUCCESS) {
+            logger.info(`文档已存在成功的识别记录，直接返回：ossFileId=${ossFileId}, recordId=${existingRecord.id}`)
+            return {
+                success: true,
+                // 返回一个虚拟的 task 对象，表示任务已完成
+                task: {
+                    id: 0,
+                    taskId: 'existing',
+                    ossFileId,
+                    userId,
+                    status: MineruTaskStatus.SUCCESS,
+                } as any,
+            }
+        }
+
+        // 2. 检查是否有可用的 Token
         // Requirements: 3.1.1.6, 3.1.1.7
         const hasToken = await hasActiveTokenService()
         if (!hasToken) {
@@ -314,7 +332,7 @@ export const submitPdfConversionService = async (
             return { success: false, error: '获取 MinerU Token 失败' }
         }
 
-        // 2. 获取文件信息（通过 DAO 层）
+        // 3. 获取文件信息（通过 DAO 层）
         const ossFile = await findOssFileByIdDao(ossFileId)
         if (!ossFile) {
             return { success: false, error: '文件不存在' }
@@ -323,19 +341,19 @@ export const submitPdfConversionService = async (
             return { success: false, error: '文件路径不存在' }
         }
 
-        // 3. 检查用户积分（暂时按 1 页计算，实际页数在转换完成后确定）
+        // 4. 检查用户积分（暂时按 1 页计算，实际页数在转换完成后确定）
         // Requirements: 3.1.15, 3.1.16
         const pointCheck = await checkUserPointsService(userId, 1)
         if (!pointCheck.sufficient) {
             return { success: false, error: '积分不足，请先充值' }
         }
 
-        // 4. 生成签名 URL
+        // 5. 生成签名 URL
         const fileUrl = await generateSignedUrlService(ossFile.filePath, {
             expires: 3600, // 1 小时有效期
         })
 
-        // 5. 构建请求参数
+        // 6. 构建请求参数
         const requestBody: Record<string, any> = {
             url: fileUrl,
             enable_ocr: options.enableOcr ?? true,
@@ -387,25 +405,7 @@ export const submitPdfConversionService = async (
             return { success: false, error: '未获取到任务 ID' }
         }
 
-        // 7. 检查是否已有成功的识别记录
-        // 如果已有成功的识别记录，说明文件已经识别过了，直接返回
-        const existingRecord = await findDocRecognitionByOssFileIdDao(ossFileId)
-        if (existingRecord && existingRecord.status === DocRecognitionStatus.SUCCESS) {
-            logger.info(`文档已存在成功的识别记录，直接返回：ossFileId=${ossFileId}, recordId=${existingRecord.id}`)
-            return {
-                success: true,
-                // 返回一个虚拟的 task 对象，表示任务已完成
-                task: {
-                    id: 0,
-                    taskId: 'existing',
-                    ossFileId,
-                    userId,
-                    status: MineruTaskStatus.SUCCESS,
-                } as any,
-            }
-        }
-
-        // 8. 创建任务记录
+        // 7. 创建任务记录
         // Requirements: 3.1.3
         const task = await createMineruTaskService({
             taskId,

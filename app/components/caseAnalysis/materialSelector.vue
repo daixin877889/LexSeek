@@ -104,10 +104,11 @@
                 : 'hover:bg-accent/50 cursor-pointer'
             ]" @click="!isFileDisabled(file.id) && toggleFileSelection(file.id)">
               <!-- 复选框 -->
-              <Checkbox :id="`file-${file.id}`" :model-value="selectedFiles.includes(file.id)"
+              <Checkbox :id="`file-${file.id}`" :checked="selectedFiles.includes(file.id)"
                 :disabled="isFileDisabled(file.id)"
                 class="cursor-pointer"
-                @click.stop />
+                @click.stop
+                @update:checked="handleCheckboxChange(file.id, $event)" />
 
               <!-- 文件图标 -->
               <div class="flex items-center justify-center size-10 rounded-md bg-muted">
@@ -440,6 +441,18 @@ const toggleFileSelection = (fileId: number) => {
     selectedFiles.value.splice(index, 1);
   } else {
     selectedFiles.value.push(fileId);
+  }
+};
+
+// 处理 checkbox 状态变化
+const handleCheckboxChange = (fileId: number, checked: boolean) => {
+  if (isFileDisabled(fileId)) return;
+
+  const index = selectedFiles.value.indexOf(fileId);
+  if (checked && index === -1) {
+    selectedFiles.value.push(fileId);
+  } else if (!checked && index > -1) {
+    selectedFiles.value.splice(index, 1);
   }
 };
 
