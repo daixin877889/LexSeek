@@ -84,9 +84,10 @@ export default defineEventHandler(async (event) => {
         const ext = ossFile.fileName.split('.').pop()?.toLowerCase() || ''
 
         // 根据文件类型调用对应的识别服务
-        let processResult: { success: boolean; error?: string }
         // 标记是否为同步处理（md/txt/docx 是同步处理，图片/音频/pdf 是异步处理）
+        // 已有成功记录的文件也视为同步处理（直接返回 completed）
         let isSyncProcessing = false
+        let processResult: { success: boolean; error?: string; task?: { taskId?: string } }
 
         switch (fileType) {
             case CaseMaterialType.IMAGE:
@@ -113,6 +114,11 @@ export default defineEventHandler(async (event) => {
             default:
                 // 未知类型，默认使用 MinerU 服务
                 processResult = await convertPdfService(ossFileId, user.id)
+        }
+
+        // 检查是否已有成功的识别记录（taskId === 'existing' 表示已有成功记录）
+        if (processResult.success && processResult.task?.taskId === 'existing') {
+            isSyncProcessing = true
         }
 
         // 同步处理的服务直接返回 completed，异步处理的服务返回 processing

@@ -239,7 +239,11 @@ export const findPendingMineruTasksDao = async (
                 status: {
                     in: [MineruTaskStatus.PENDING, MineruTaskStatus.PROCESSING],
                 },
-                taskId: { not: null },
+                // 过滤掉 taskId 为 null 或 'existing' 的记录
+                taskId: {
+                    not: null,
+                    notIn: ['existing'],
+                },
             },
             orderBy: { createdAt: 'asc' },
             take: limit,

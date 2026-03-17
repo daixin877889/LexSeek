@@ -106,7 +106,8 @@
               <!-- 复选框 -->
               <Checkbox :id="`file-${file.id}`" :model-value="selectedFiles.includes(file.id)"
                 :disabled="isFileDisabled(file.id)"
-                @update:model-value="() => !isFileDisabled(file.id) && toggleFileSelection(file.id)" />
+                class="cursor-pointer"
+                @click.stop />
 
               <!-- 文件图标 -->
               <div class="flex items-center justify-center size-10 rounded-md bg-muted">
