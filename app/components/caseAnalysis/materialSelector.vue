@@ -109,7 +109,6 @@
                 :model-value="selectedFiles.includes(file.id)"
                 :disabled="isFileDisabled(file.id)"
                 class="cursor-pointer"
-                @click.stop
                 @update:model-value="handleCheckboxChange(file.id, $event)" />
 
               <!-- 文件图标 -->
@@ -120,7 +119,8 @@
               <!-- 文件信息 -->
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
-                  <label :for="`file-${file.id}`"
+                  <label
+                    :for="`file-${file.id}`"
                     :class="['text-sm font-medium truncate', isFileDisabled(file.id) ? 'cursor-not-allowed' : 'cursor-pointer']">
                     {{ file.fileName }}
                   </label>
