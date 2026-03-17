@@ -11,15 +11,14 @@ bun preview         # 预览生产版本
 
 ## 测试命令
 
+**重要**: 使用 `npx vitest run` 而非 `bun test`，因为 Nuxt 自动导入在 vitest 环境下才能正确解析。
+
 ```bash
-bun test            # 运行所有测试
-bun test:ui        # UI 模式运行测试
-bun test:server    # 所有服务端测试
-bun test:membership # 会员模块
-bun test:storage   # 存储模块
-bun test:payment   # 支付模块
-bun test:crypto    # 加密模块
-bun test:utils     # 工具模块
+npx vitest run           # 运行所有测试
+npx vitest run tests/server/membership  # 会员模块
+npx vitest run tests/server/storage     # 存储模块
+npx vitest run tests/server/payment    # 支付模块
+npx vitest run tests/server/rbac       # RBAC 模块
 ```
 
 ## Prisma 命令

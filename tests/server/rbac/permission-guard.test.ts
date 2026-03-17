@@ -16,6 +16,7 @@ import {
     disconnectTestDb,
     resetDatabaseSequences,
 } from '../membership/test-db-helper'
+import { mockLogger } from '../membership/test-setup'
 
 // 导入权限验证服务
 import {
@@ -25,6 +26,12 @@ import {
 import { clearAllCache } from '../../../server/services/rbac/cache.service'
 import { assignApiPermissionsToRoleDao } from '../../../server/services/rbac/roleApiPermission.dao'
 import { createApiPermissionDao } from '../../../server/services/rbac/apiPermission.dao'
+
+// 在模块加载时设置全局 prisma 和 logger（仅在测试环境中）
+if (typeof window === 'undefined' && process.env.NODE_ENV === 'test') {
+    ;(globalThis as any).prisma = testPrisma
+    ;(globalThis as any).logger = mockLogger
+}
 
 // ==================== 测试数据追踪 ====================
 

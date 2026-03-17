@@ -16,6 +16,7 @@ import {
     disconnectTestDb,
     resetDatabaseSequences,
 } from '../membership/test-db-helper'
+import { mockLogger } from '../membership/test-setup'
 
 // 导入 API 权限 DAO 函数
 import {
@@ -28,6 +29,24 @@ import {
     checkApiPermissionExistsDao,
     updateApiPermissionsPublicStatusDao,
 } from '../../../server/services/rbac/apiPermission.dao'
+
+// 设置全局 prisma 变量，供 DAO 函数在测试环境中使用
+// 注意：需要在导入 DAO 函数之后、测试运行之前设置
+import { getCurrentInstance } from 'vue'
+import { vi } from 'vitest'
+
+// 使用 Proxy 来动态提供 prisma
+const prismaProxy = new Proxy({}, {
+    get() {
+        return testPrisma
+    }
+})
+
+// 在模块加载时设置全局 prisma 和 logger（仅在测试环境中）
+if (typeof window === 'undefined' && process.env.NODE_ENV === 'test') {
+    ;(globalThis as any).prisma = testPrisma
+    ;(globalThis as any).logger = mockLogger
+}
 
 // ==================== 测试数据追踪 ====================
 

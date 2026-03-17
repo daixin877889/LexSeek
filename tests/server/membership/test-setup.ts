@@ -5,6 +5,33 @@
  */
 
 import { getTestPrisma, resetDatabaseSequences } from './test-db-helper'
+import { resolve } from 'node:path'
+
+// 项目根目录
+const rootDir = resolve(__dirname, '../../..')
+const appDir = resolve(rootDir, 'app')
+const sharedDir = resolve(rootDir, 'shared')
+
+// 设置 Nuxt 路径别名到 Node.js 模块系统
+import { createRequire } from 'node:module'
+const testRequire = createRequire(import.meta.url)
+
+// 添加路径别名解析
+testRequire.resolve.define = function(id) {
+    if (id === '#shared' || id.startsWith('#shared/')) {
+        const path = id === '#shared' ? '' : id.slice('#shared'.length)
+        return resolve(sharedDir, path)
+    }
+    if (id === '~~' || id.startsWith('~~/')) {
+        const path = id === '~~' ? '' : id.slice('~~'.length)
+        return resolve(rootDir, path)
+    }
+    if (id === '~' || id.startsWith('~/')) {
+        const path = id === '~' ? '' : id.slice('~'.length)
+        return resolve(appDir, path)
+    }
+    return id
+}
 
 // 创建一个简单的 logger 模拟
 const mockLogger = {
@@ -14,9 +41,9 @@ const mockLogger = {
     debug: (...args: any[]) => console.debug('[DEBUG]', ...args),
 }
 
-    // 设置全局变量
-    ; (globalThis as any).logger = mockLogger
-    ; (globalThis as any).prisma = getTestPrisma()
+// 设置全局变量
+;(globalThis as any).logger = mockLogger
+;(globalThis as any).prisma = getTestPrisma()
 
     // Mock localStorage for tests
     if (typeof localStorage === 'undefined') {

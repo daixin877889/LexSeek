@@ -122,7 +122,7 @@ describe('Property 1: 枚举值正确性', () => {
             )
         })
 
-        it('对于任意识别状态枚举，应恰好包含 4 个数值成员', () => {
+        it('对于任意识别状态枚举，应恰好包含 4 或 5 个数值成员', () => {
             fc.assert(
                 fc.property(
                     fc.constantFrom(...recognitionStatusEnums),
@@ -132,14 +132,16 @@ describe('Property 1: 枚举值正确性', () => {
                         const numericValues = Object.values(enumObj).filter(
                             (v) => typeof v === 'number'
                         )
-                        expect(numericValues.length).toBe(4)
+                        // 有些枚举有 4 个状态，有些有 5 个（包含 SUPERSEDED）
+                        expect(numericValues.length).toBeGreaterThanOrEqual(4)
+                        expect(numericValues.length).toBeLessThanOrEqual(5)
                     }
                 ),
                 { numRuns: 100 }
             )
         })
 
-        it('对于任意识别状态枚举，所有数值应在 [0, 3] 范围内', () => {
+        it('对于任意识别状态枚举，所有数值应在 [0, 4] 范围内', () => {
             fc.assert(
                 fc.property(
                     fc.constantFrom(...recognitionStatusEnums),
@@ -151,7 +153,7 @@ describe('Property 1: 枚举值正确性', () => {
 
                         numericValues.forEach((value) => {
                             expect(value).toBeGreaterThanOrEqual(0)
-                            expect(value).toBeLessThanOrEqual(3)
+                            expect(value).toBeLessThanOrEqual(4)
                         })
                     }
                 ),
@@ -169,8 +171,11 @@ describe('Property 1: 枚举值正确性', () => {
                             .filter((v) => typeof v === 'number')
                             .sort((a, b) => (a as number) - (b as number)) as number[]
 
-                        // 验证数值连续：0, 1, 2, 3
-                        expect(numericValues).toEqual([0, 1, 2, 3])
+                        // 验证数值连续：4 个状态为 [0,1,2,3]，5 个状态为 [0,1,2,3,4]
+                        const expected = numericValues.length === 5
+                            ? [0, 1, 2, 3, 4]
+                            : [0, 1, 2, 3]
+                        expect(numericValues).toEqual(expected)
                     }
                 ),
                 { numRuns: 100 }
