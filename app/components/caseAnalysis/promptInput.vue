@@ -467,35 +467,46 @@ async function handleFilesSelected(files: OssFileItem[]) {
   const newFiles = files.filter(f => !selectedFileIds.value.includes(f.id))
   selectedFiles.value = [...selectedFiles.value, ...newFiles]
 
-  // 对新添加的文件触发识别
-  for (const file of newFiles) {
-    const isDoc = isRecognizableDocFile(file.fileName);
-    const isImage = isImageFile(file.fileName);
-    const isAudio = isAudioFile(file.fileName);
+  // 收集需要识别的文件 ID（文档、图片、音频）
+  const fileIdsToRecognize = newFiles
+    .filter(f => {
+      const isDoc = isRecognizableDocFile(f.fileName);
+      const isImage = isImageFile(f.fileName);
+      const isAudio = isAudioFile(f.fileName);
+      return isDoc || isImage || isAudio;
+    })
+    .map(f => f.id);
 
-    console.log('检查文件是否需要识别:', file.fileName, 'isDoc:', isDoc, 'isImage:', isImage, 'isAudio:', isAudio);
+  // 调用统一的识别 API
+  if (fileIdsToRecognize.length > 0) {
+    console.log('[handleFilesSelected] 开始批量识别，文件 IDs:', fileIdsToRecognize);
 
-    if (isDoc) {
-      // 文档文件识别（docx、markdown 和 txt）
-      console.log('[handleFilesSelected] 准备调用 triggerDocRecognition:', file.fileName);
-      triggerDocRecognition(file).catch((err) => {
-        console.error('[handleFilesSelected] triggerDocRecognition 异常:', err);
+    try {
+      const response = await useApiFetch<{
+        results: Array<{
+          ossFileId: number;
+          status: 'processing' | 'completed' | 'failed';
+        }>;
+      }>('/api/v1/recognition/start', {
+        method: 'POST',
+        body: { ossFileIds: fileIdsToRecognize }
       });
-      console.log('[handleFilesSelected] triggerDocRecognition 已调用（异步）');
-    } else if (isImage) {
-      // 图像文件识别
-      console.log('[handleFilesSelected] 准备调用 triggerImageRecognition:', file.fileName);
-      triggerImageRecognition(file).catch((err) => {
-        console.error('[handleFilesSelected] triggerImageRecognition 异常:', err);
-      });
-      console.log('[handleFilesSelected] triggerImageRecognition 已调用（异步）');
-    } else if (isAudio) {
-      // 音频文件识别
-      console.log('[handleFilesSelected] 准备调用 triggerAudioRecognition:', file.fileName);
-      triggerAudioRecognition(file).catch((err) => {
-        console.error('[handleFilesSelected] triggerAudioRecognition 异常:', err);
-      });
-      console.log('[handleFilesSelected] triggerAudioRecognition 已调用（异步）');
+
+      if (response?.results) {
+        for (const result of response.results) {
+          const status = result.status === 'processing' ? 'recognizing'
+            : result.status === 'completed' ? 'success'
+              : 'error';
+          fileRecognitionStatus.value.set(result.ossFileId, status);
+          console.log(`[handleFilesSelected] 文件 ${result.ossFileId} 识别状态: ${status}`);
+        }
+      }
+    } catch (error) {
+      console.error('[handleFilesSelected] 批量识别失败:', error);
+      // 识别失败时设置错误状态
+      for (const fileId of fileIdsToRecognize) {
+        fileRecognitionStatus.value.set(fileId, 'error');
+      }
     }
   }
 }
