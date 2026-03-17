@@ -4,7 +4,9 @@
  * 根据文件类型自动调用对应的识别服务
  * - 图片 -> 图片识别服务（OCR）
  * - 音频 -> 音频识别服务（ASR）
- * - 文档 -> 文档识别服务（MinerU）
+ * - 文档(md/txt) -> 直接读取服务
+ * - 文档(docx) -> DOCX 识别服务
+ * - 文档(doc/pdf) -> MinerU 识别服务
  */
 
 import { z } from 'zod'
@@ -12,6 +14,8 @@ import { detectFileTypeService } from '~~/server/services/material/fileDetect.se
 import { createImageConversionService } from '~~/server/services/material/ocr.service'
 import { convertPdfService } from '~~/server/services/material/mineru.service'
 import { transcribeAudioService } from '~~/server/services/material/asr.service'
+import { readTextFileService } from '~~/server/services/material/textReader.service'
+import { recognizeDocxService } from '~~/server/services/material/docxRecognition.service'
 import { CaseMaterialType } from '#shared/types/case'
 
 /** 请求参数校验 */
@@ -43,16 +47,26 @@ export default defineEventHandler(async (event) => {
     const { ossFileIds } = result.data
     const results: Array<{
         ossFileId: number
-        status: 'processing' | 'failed'
+        status: 'processing' | 'completed' | 'failed'
         error?: string
     }> = []
 
-    // 遍历处理每个文件
+    // 1. 批量查询所有 OSS 文件（一次数据库查询）
+    const ossFiles = await prisma.ossFiles.findMany({
+        where: {
+            id: { in: ossFileIds },
+            userId: user.id,
+            deletedAt: null
+        }
+    })
+
+    // 2. 创建 ID 到文件的映射
+    const fileMap = new Map(ossFiles.map(f => [f.id, f]))
+
+    // 3. 遍历处理每个文件
     for (const ossFileId of ossFileIds) {
-        // 查询 OSS 文件是否存在
-        const ossFile = await prisma.ossFiles.findFirst({
-            where: { id: ossFileId, userId: user.id, deletedAt: null }
-        })
+        // 从映射中获取文件（O(1) 查找）
+        const ossFile = fileMap.get(ossFileId)
 
         if (!ossFile) {
             results.push({
@@ -66,24 +80,49 @@ export default defineEventHandler(async (event) => {
         // 根据文件扩展名识别类型
         const fileType = detectFileTypeService(ossFile.fileName)
 
+        // 获取文件扩展名
+        const ext = ossFile.fileName.split('.').pop()?.toLowerCase() || ''
+
         // 根据文件类型调用对应的识别服务
         let processResult: { success: boolean; error?: string }
+        // 标记是否为同步处理（md/txt/docx 是同步处理，图片/音频/pdf 是异步处理）
+        let isSyncProcessing = false
 
         switch (fileType) {
             case CaseMaterialType.IMAGE:
-                processResult = await createImageConversionService(ossFileId, user.id)
+                processResult = await createImageRecognitionService(ossFileId, user.id)
                 break
             case CaseMaterialType.AUDIO:
                 processResult = await transcribeAudioService(ossFileId, user.id)
                 break
+            case CaseMaterialType.DOCUMENT:
+                // 文档类型需要进一步根据扩展名判断
+                if (ext === 'md' || ext === 'txt') {
+                    // md/txt 文件直接读取（同步处理）
+                    isSyncProcessing = true
+                    processResult = await readTextFileService(ossFileId, user.id)
+                } else if (ext === 'docx') {
+                    // docx 文件使用 mammoth 解析（同步处理）
+                    isSyncProcessing = true
+                    processResult = await recognizeDocxService(ossFileId, user.id)
+                } else {
+                    // doc/pdf 等其他文档使用 MinerU 服务（异步处理）
+                    processResult = await convertPdfService(ossFileId, user.id)
+                }
+                break
             default:
-                // 文档类型（PDF、DOC、DOCX、MD、TXT 等）
+                // 未知类型，默认使用 MinerU 服务
                 processResult = await convertPdfService(ossFileId, user.id)
         }
 
+        // 同步处理的服务直接返回 completed，异步处理的服务返回 processing
+        const resultStatus = processResult.success
+            ? (isSyncProcessing ? 'completed' : 'processing')
+            : 'failed'
+
         results.push({
             ossFileId,
-            status: processResult.success ? 'processing' : 'failed',
+            status: resultStatus,
             error: processResult.error
         })
     }

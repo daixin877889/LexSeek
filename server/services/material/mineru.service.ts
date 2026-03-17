@@ -28,9 +28,15 @@ import {
 } from '../files/ossFiles.dao'
 import JSZip from 'jszip'
 import { v4 as uuidv4 } from 'uuid'
+import { $fetch as ofetch } from 'ofetch'
+import { processUrlImagesInMarkdown } from './imageProcessor'
+import { FileSource, OssFileStatus } from '#shared/types/file'
 
 /** PDF 解析积分消耗项目标识符 */
-const PDF_PARSE_ITEM_KEY = 'pdf_parse'
+const DOC_PARSE_ITEM_KEY = 'doc_parse'
+
+/** MinerU API 基础 URL */
+const MINERU_API_BASE = 'https://mineru.net/api/v4/extract'
 
 
 /** MinerU 任务提交选项 */
@@ -125,51 +131,100 @@ async function extractMarkdownFromZip(zipBuffer: Buffer): Promise<{
 }
 
 /**
- * 上传图片到 OSS 并返回新的 URL
+ * 上传图片到 OSS 并返回 OSS 信息（用于生成占位符）
+ * 返回 ossFileId 和 bucket，而不是直接返回 URL
  */
 async function uploadImageToOss(
     imageName: string,
     imageBuffer: Buffer,
-    taskId: string
-): Promise<string> {
+    taskId: string,
+    userId: number
+): Promise<{ bucket: string; ossFileId: number } | null> {
     const ext = imageName.split('.').pop() || 'png'
     const uniqueName = `${uuidv4()}.${ext}`
     const ossPath = `mineru/${taskId}/${uniqueName}`
 
-    const result = await uploadFileService(ossPath, imageBuffer, {
-        contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
-    })
+    const config = useRuntimeConfig()
+    const storageConfig = config.storage
+    const ossConfig = storageConfig.aliyunOss
+    const bucket = ossConfig.bucket
 
-    return result.url
+    try {
+        // 先创建 OSS 文件记录
+        const ossFile = await prisma.ossFiles.create({
+            data: {
+                userId,
+                bucketName: bucket,
+                fileName: imageName,
+                filePath: ossPath,
+                fileSize: imageBuffer.length,
+                fileType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+                source: FileSource.CASE_ANALYSIS,
+                status: OssFileStatus.UPLOADED,
+                encrypted: false,
+            },
+        })
+
+        // 上传文件
+        await uploadFileService(ossPath, imageBuffer, {
+            contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+        })
+
+        return {
+            bucket,
+            ossFileId: ossFile.id,
+        }
+    } catch (error) {
+        logger.error(`上传图片失败: ${imageName}, buffer大小: ${imageBuffer?.length}, 错误:`, error)
+        return null
+    }
 }
 
 
 /**
- * 替换 Markdown 中的图片路径
+ * 替换 Markdown 中的图片路径为 OSS 占位符
  */
 async function replaceImagePaths(
     markdown: string,
     images: Map<string, Buffer>,
-    taskId: string
+    taskId: string,
+    userId: number
 ): Promise<string> {
     let result = markdown
 
-    for (const [imageName, imageBuffer] of images) {
-        try {
-            const newUrl = await uploadImageToOss(imageName, imageBuffer, taskId)
-            // 替换 Markdown 中的图片引用
-            const escapedName = escapeRegExp(imageName)
-            const regex = new RegExp(`(!\\[[^\\]]*\\]\\()([^)]*${escapedName})\\)`, 'g')
-            result = result.replace(regex, `$1${newUrl})`)
+    // 1. 并行上传所有图片
+    const uploadResults = await Promise.all(
+        Array.from(images.entries()).map(async ([imageName, imageBuffer]) => {
+            try {
+                const ossInfo = await uploadImageToOss(imageName, imageBuffer, taskId, userId)
+                return { imageName, ossInfo, success: !!ossInfo }
+            } catch (error) {
+                logger.error(`上传图片失败: ${imageName}`, error)
+                return { imageName, ossInfo: null, success: false }
+            }
+        })
+    )
 
-            // 同时处理相对路径的情况
-            const baseName = imageName.split('/').pop() || imageName
-            const escapedBaseName = escapeRegExp(baseName)
-            const baseRegex = new RegExp(`(!\\[[^\\]]*\\]\\()([^)]*${escapedBaseName})\\)`, 'g')
-            result = result.replace(baseRegex, `$1${newUrl})`)
-        } catch (error) {
-            logger.error(`上传图片失败: ${imageName}`, error)
+    // 2. 串行替换 Markdown 中的图片引用（因为需要保持 result 的状态）
+    for (const { imageName, ossInfo, success } of uploadResults) {
+        if (!success || !ossInfo) {
+            logger.error(`上传图片失败，跳过: ${imageName}`)
+            continue
         }
+
+        // 生成占位符
+        const placeholder = `{{OSS_IMAGE:${ossInfo.bucket}:${ossInfo.ossFileId}}}`
+
+        // 替换 Markdown 中的图片引用
+        const escapedName = escapeRegExp(imageName)
+        const regex = new RegExp(`(!\\[[^\\]]*\\]\\()([^)]*${escapedName})\\)`, 'g')
+        result = result.replace(regex, `$1${placeholder})`)
+
+        // 同时处理相对路径的情况
+        const baseName = imageName.split('/').pop() || imageName
+        const escapedBaseName = escapeRegExp(baseName)
+        const baseRegex = new RegExp(`(!\\[[^\\]]*\\]\\()([^)]*${escapedBaseName})\\)`, 'g')
+        result = result.replace(baseRegex, `$1${placeholder})`)
     }
 
     return result
@@ -212,14 +267,14 @@ function calculateBackoffDelay(
  * 检查用户积分是否足够进行 PDF 转换
  * Requirements: 3.1.15, 3.1.16
  * 
- * @deprecated 请使用 checkPointsService('pdf_parse', pageCount)
+ * @deprecated 请使用 checkPointsService('doc_parse', pageCount)
  */
 export const checkUserPointsService = async (
     userId: number,
     pageCount: number = 1
 ): Promise<{ sufficient: boolean; required: number; available: number }> => {
     try {
-        const result = await checkPointsService(userId, PDF_PARSE_ITEM_KEY, pageCount)
+        const result = await checkPointsService(userId, DOC_PARSE_ITEM_KEY, pageCount)
         return {
             sufficient: result.sufficient,
             required: result.required,
@@ -282,7 +337,7 @@ export const submitPdfConversionService = async (
 
         // 5. 构建请求参数
         const requestBody: Record<string, any> = {
-            file_url: fileUrl,
+            url: fileUrl,
             enable_ocr: options.enableOcr ?? true,
             enable_formula: options.enableFormula ?? true,
             enable_table: options.enableTable ?? true,
@@ -299,13 +354,18 @@ export const submitPdfConversionService = async (
 
         // 6. 调用 MinerU API 提交任务
         // Requirements: 3.1.1
-        const response = await $fetch<{
+        //
+        // 说明：对外部 URL 使用 ofetch，避免 Nuxt/Nitro $fetch 进行路由/条件类型深层推导，
+        // 在某些 TS 版本下会报 “类型实例化过深，且可能无限”。
+        type MineruSubmitTaskResponse = {
             code: number
             msg: string
             data?: {
                 task_id: string
             }
-        }>('https://mineru.net/api/v4/extract/task', {
+        }
+
+        const response = await ofetch<MineruSubmitTaskResponse>(`${MINERU_API_BASE}/task`, {
             method: 'POST',
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -313,6 +373,9 @@ export const submitPdfConversionService = async (
             },
             body: requestBody,
         })
+
+        // 添加日志查看 MinerU 提交任务的响应
+        logger.info(`MinerU 任务提交响应：ossFileId=${ossFileId}, response=${JSON.stringify(response)}`)
 
         if (response.code !== 0) {
             logger.error('MinerU 任务提交失败：', response.msg)
@@ -379,18 +442,20 @@ export const submitPdfConversionService = async (
  *
  * @param taskId MinerU 任务 ID
  * @param downloadUrl 结果下载 URL
+ * @param userId 用户 ID（用于上传图片到 OSS）
  * @returns 处理结果
  */
 export const processConversionResultService = async (
     taskId: string,
-    downloadUrl: string
+    downloadUrl: string,
+    userId: number
 ): Promise<MineruConversionResult> => {
     try {
         // 1. 下载 ZIP 文件
         // Requirements: 3.1.5
-        const response = await $fetch<ArrayBuffer>(downloadUrl, {
+        const response = await ofetch<ArrayBuffer>(downloadUrl, {
             responseType: 'arrayBuffer',
-        })
+        } as any)
         const zipBuffer = Buffer.from(response)
 
         // 2. 解压并提取内容
@@ -401,14 +466,22 @@ export const processConversionResultService = async (
             return { success: false, error: 'ZIP 文件中未找到 full.md 文件' }
         }
 
-        // 3. 如果有图片，上传到 OSS 并替换路径
+        // 3. 如果有图片，上传到 OSS 并替换路径为占位符
         // Requirements: 3.1.7
         let processedMarkdown = markdown
         if (images.size > 0) {
-            processedMarkdown = await replaceImagePaths(markdown, images, taskId)
+            processedMarkdown = await replaceImagePaths(markdown, images, taskId, userId)
         }
 
-        // 4. 转换为 HTML
+        // 4. 处理 Markdown 中的外部 URL 图片
+        // 获取任务信息以获取文件名
+        const task = await getMineruTaskByTaskIdService(taskId)
+        const ossFile = task ? await findOssFileByIdDao(task.ossFileId) : null
+        const docFileName = ossFile?.fileName?.replace(/\.[^.]+$/, '') || `document_${taskId}`
+
+        processedMarkdown = await processUrlImagesInMarkdown(processedMarkdown, userId, docFileName)
+
+        // 5. 转换为 HTML
         const htmlContent = await markdownToHtml(processedMarkdown)
 
         return {
@@ -541,7 +614,7 @@ export const completeConversionService = async (
         // 5. 扣减积分
         // Requirements: 3.1.17, 3.1.18
         try {
-            await consumePointsService(task.userId, PDF_PARSE_ITEM_KEY, pageCount, { sourceId: task.id })
+            await consumePointsService(task.userId, DOC_PARSE_ITEM_KEY, pageCount, { sourceId: task.id })
             logger.info(`PDF 转换积分扣减成功：userId=${task.userId}, pages=${pageCount}`)
         } catch (pointError) {
             // 积分扣减失败不影响转换结果，但需要记录日志
@@ -622,23 +695,33 @@ export const pollTaskStatusService = async (taskId: string): Promise<boolean> =>
         }
 
         // 调用 MinerU API 查询状态
-        const response = await $fetch<{
+        type MineruPollTaskResponse = {
             code: number
             msg: string
+            trace_id?: string
             data?: {
+                task_id: string
                 state: string
-                progress?: number
-                result?: {
-                    download_url?: string
-                }
                 err_msg?: string
+                progress?: number
+                full_zip_url?: string
+                extract_progress?: {
+                    extracted_pages: number
+                    total_pages: number
+                    start_time: string
+                }
             }
-        }>(`https://mineru.net/api/v4/extract/task/${taskId}`, {
+        }
+
+        const response = await ofetch<MineruPollTaskResponse>(`${MINERU_API_BASE}/task/${taskId}`, {
             method: 'GET',
             headers: {
                 Authorization: `Bearer ${token}`,
             },
         })
+
+        // 添加日志查看 MinerU 返回的完整数据
+        logger.info(`MinerU 轮询响应：taskId=${taskId}, response=${JSON.stringify(response)}`)
 
         if (response.code !== 0) {
             logger.error(`轮询任务状态失败：${response.msg}`)
@@ -655,9 +738,13 @@ export const pollTaskStatusService = async (taskId: string): Promise<boolean> =>
             case 'done':
                 // 任务完成，处理结果
                 // Requirements: 3.1.11
-                const downloadUrl = data.result?.download_url
+                const downloadUrl = data.full_zip_url
                 if (downloadUrl) {
-                    const result = await processConversionResultService(taskId, downloadUrl)
+                    // 获取任务信息以获取 userId
+                    const task = await getMineruTaskByTaskIdService(taskId)
+                    const userId = task?.userId || 0
+
+                    const result = await processConversionResultService(taskId, downloadUrl, userId)
                     if (result.success && result.markdownContent && result.htmlContent) {
                         await completeConversionService(
                             taskId,

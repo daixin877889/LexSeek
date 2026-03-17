@@ -12,23 +12,36 @@ const querySchema = z.object({
     keyword: z.string().min(1, '请输入搜索关键词'),
 })
 
+/** int32 最大值 */
+const MAX_INT32 = 2147483647
+
+/** 验证是否为用户 ID（正整数且在安全范围内） */
+function isValidUserId(value: string): boolean {
+    // 必须是纯数字字符串
+    if (!/^\d+$/.test(value)) return false
+    const num = Number(value)
+    // 检查是否为有效数字且在 int32 范围内
+    return !isNaN(num) && num > 0 && num <= MAX_INT32 && String(num) === value
+}
+
 export default defineEventHandler(async (event) => {
     // 验证查询参数
     const query = getQuery(event)
     const result = querySchema.safeParse(query)
     if (!result.success) {
-        return resError(event, 400, '参数错误：' + result.error.issues[0].message)
+        const firstError = result.error.issues[0]
+        return resError(event, 400, '参数错误：' + (firstError?.message || '未知错误'))
     }
 
     const { keyword } = result.data
 
     try {
-        // 构建查询条件：支持用户ID、手机号或姓名搜索
+        // 构建查询条件：支持用户 ID、手机号或姓名搜索
         const where: Prisma.usersWhereInput = {
             deletedAt: null,
             OR: [
-                // 如果是数字，按ID搜索
-                ...(isNaN(parseInt(keyword)) ? [] : [{ id: parseInt(keyword) }]),
+                // 如果是有效的数字 ID（且在安全范围内），按 ID 搜索
+                ...(isValidUserId(keyword) ? [{ id: Number(keyword) }] : []),
                 // 按手机号搜索
                 { phone: { contains: keyword } },
                 // 按姓名模糊搜索
@@ -36,7 +49,7 @@ export default defineEventHandler(async (event) => {
             ],
         }
 
-        // 查询用户（最多返回10条）
+        // 查询用户（最多返回 10 条）
         const users = await prisma.users.findMany({
             where,
             take: 10,

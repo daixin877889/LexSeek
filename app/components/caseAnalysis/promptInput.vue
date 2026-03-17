@@ -4,7 +4,7 @@
       <!-- 输入状态监听器，同步状态到 store -->
       <CaseAnalysisPromptInputWatcher />
       <PromptInput ref="promptInputRef" global-drop multiple
-        class="[&_[data-slot=input-group]]:shadow-none [&_[data-slot=input-group]]:border-primary [&_[data-slot=input-group]]:rounded-md">
+        class="**:data-[slot=input-group]:shadow-none **:data-[slot=input-group]:border-primary **:data-[slot=input-group]:rounded-md">
         <!-- 头部：自定义文件列表 -->
         <PromptInputHeader>
           <div v-if="selectedFiles.length > 0" class="flex flex-wrap items-center gap-2 p-3 w-full">
@@ -119,6 +119,14 @@ const selectedFiles = ref<OssFileItem[]>([]);
 // 文件识别状态映射：ossFileId -> 状态
 const fileRecognitionStatus = ref<Map<number, 'idle' | 'recognizing' | 'success' | 'error'>>(new Map());
 
+// 轮询定时器引用
+const pollingTimers = ref<Map<number, NodeJS.Timeout>>(new Map());
+
+// 轮询间隔（毫秒）
+const POLLING_INTERVAL = 2000;
+// 最大轮询次数（避免无限轮询）
+const MAX_POLLING_ATTEMPTS = 60; // 60 * 2s = 120s
+
 // 预览弹框状态
 const previewDialogOpen = ref(false);
 const audioPreviewDialogOpen = ref(false);
@@ -135,6 +143,98 @@ const status = ref<"submitted" | "streaming" | "ready" | "error">("ready");
  */
 function getRecognitionStatus(fileId: number): 'idle' | 'recognizing' | 'success' | 'error' | null {
   return fileRecognitionStatus.value.get(fileId) || null;
+}
+
+/**
+ * 轮询检查文件识别状态
+ * 用于异步识别任务（图片、音频、pdf）
+ * @param ossFileId OSS 文件 ID
+ * @param attemptCount 当前尝试次数
+ */
+async function pollFileStatus(ossFileId: number, attemptCount = 0) {
+  // 超过最大次数，停止轮询
+  if (attemptCount >= MAX_POLLING_ATTEMPTS) {
+    console.warn(`文件 ${ossFileId} 识别超时`);
+    fileRecognitionStatus.value.set(ossFileId, 'error');
+    pollingTimers.value.delete(ossFileId);
+    return;
+  }
+
+  try {
+    // 调用统一的识别状态查询 API
+    // useApiFetch 会自动提取 response.data，所以直接使用返回的对象
+    const response = await useApiFetch<{
+      recognized: boolean;
+      status: number;
+      recordType: 'doc' | 'image' | 'audio' | 'unknown';
+    }>(`/api/v1/recognition/status/${ossFileId}`, {
+      method: 'GET',
+      showError: false,
+    });
+
+    // useApiFetch 返回 null 表示请求失败
+    if (!response) {
+      // 继续轮询
+      const timer = setTimeout(() => {
+        pollFileStatus(ossFileId, attemptCount + 1);
+      }, POLLING_INTERVAL);
+      pollingTimers.value.set(ossFileId, timer);
+      return;
+    }
+
+    // 统一 API 返回格式：{ recognized: boolean, status: number, recordType: 'doc'|'image'|'audio'|'unknown' }
+    // recognized === true 或 status === 2 表示识别成功
+    const recognized = response.recognized === true || response.status === 2;
+
+    if (recognized) {
+      // 识别成功
+      fileRecognitionStatus.value.set(ossFileId, 'success');
+      pollingTimers.value.delete(ossFileId);
+      console.log(`文件 ${ossFileId} 识别成功`);
+    } else {
+      // 检查是否失败（status === 3）
+      if (response.status === 3) {
+        fileRecognitionStatus.value.set(ossFileId, 'error');
+        pollingTimers.value.delete(ossFileId);
+        console.log(`文件 ${ossFileId} 识别失败`);
+        return;
+      }
+
+      // 继续轮询
+      const timer = setTimeout(() => {
+        pollFileStatus(ossFileId, attemptCount + 1);
+      }, POLLING_INTERVAL);
+      pollingTimers.value.set(ossFileId, timer);
+    }
+  } catch (error) {
+    console.error(`轮询文件 ${ossFileId} 状态失败:`, error);
+    // 继续尝试
+    const timer = setTimeout(() => {
+      pollFileStatus(ossFileId, attemptCount + 1);
+    }, POLLING_INTERVAL);
+    pollingTimers.value.set(ossFileId, timer);
+  }
+}
+
+/**
+ * 停止文件识别状态轮询
+ */
+function stopPolling(ossFileId: number) {
+  const timer = pollingTimers.value.get(ossFileId);
+  if (timer) {
+    clearTimeout(timer);
+    pollingTimers.value.delete(ossFileId);
+  }
+}
+
+/**
+ * 停止所有轮询
+ */
+function stopAllPolling() {
+  pollingTimers.value.forEach((timer) => {
+    clearTimeout(timer);
+  });
+  pollingTimers.value.clear();
 }
 
 /**
@@ -182,7 +282,20 @@ async function retryRecognition(file: OssFileItem) {
 
     if (response?.results) {
       for (const result of response.results) {
-        const status = result.status === 'processing' ? 'recognizing' : result.status === 'completed' ? 'success' : 'error';
+        // 处理状态映射
+        let status: 'recognizing' | 'success' | 'error'
+        if (result.status === 'completed') {
+          status = 'success'
+        } else if (result.status === 'processing') {
+          status = 'recognizing'
+          // 启动轮询
+          pollFileStatus(result.ossFileId)
+        } else {
+          status = 'error'
+          if (result.error) {
+            console.error(`文件 ${result.ossFileId} 识别失败: ${result.error}`)
+          }
+        }
         fileRecognitionStatus.value.set(result.ossFileId, status);
       }
     }
@@ -236,6 +349,8 @@ function removeFile(fileId: number) {
   selectedFiles.value = selectedFiles.value.filter(f => f.id !== fileId)
   // 清除识别状态
   fileRecognitionStatus.value.delete(fileId);
+  // 停止轮询
+  stopPolling(fileId);
 }
 
 /**
@@ -247,18 +362,24 @@ async function handleFilesSelected(files: OssFileItem[]) {
   selectedFiles.value = [...selectedFiles.value, ...newFiles]
 
   // 收集需要识别的文件 ID（文档、图片、音频）
-  const fileIdsToRecognize = newFiles
+  const filesToRecognize = newFiles
     .filter(f => {
       const isDoc = isRecognizableDocFile(f.fileName);
       const isImage = isImageFile(f.fileName);
       const isAudio = isAudioFile(f.fileName);
       return isDoc || isImage || isAudio;
-    })
-    .map(f => f.id);
+    });
+
+  const fileIdsToRecognize = filesToRecognize.map(f => f.id);
 
   // 调用统一的识别 API
   if (fileIdsToRecognize.length > 0) {
     console.log('[handleFilesSelected] 开始批量识别，文件 IDs:', fileIdsToRecognize);
+
+    // 修复：在 API 调用前先设置状态为 'recognizing'，让用户立即看到识别中状态
+    for (const fileId of fileIdsToRecognize) {
+      fileRecognitionStatus.value.set(fileId, 'recognizing');
+    }
 
     try {
       const response = await useApiFetch<{
@@ -269,14 +390,43 @@ async function handleFilesSelected(files: OssFileItem[]) {
         }>;
       }>('/api/v1/recognition/start', {
         method: 'POST',
-        body: { ossFileIds: fileIdsToRecognize }
+        body: { ossFileIds: fileIdsToRecognize },
+        showError: false  // 禁用自动错误提示，我们手动处理
       });
+
+      // response 为 null 表示 API 调用失败（如网络错误、401 等）
+      if (!response) {
+        console.error('[handleFilesSelected] API 调用失败');
+        for (const fileId of fileIdsToRecognize) {
+          fileRecognitionStatus.value.set(fileId, 'error');
+        }
+        toast.error('识别服务调用失败，请稍后重试');
+        return;
+      }
 
       if (response?.results) {
         for (const result of response.results) {
-          const status = result.status === 'processing' ? 'recognizing' : 'error'
-          if (result.status === 'failed' && result.error) {
-            console.error(`文件 ${result.ossFileId} 识别失败: ${result.error}`)
+          // 处理状态映射：completed/processing -> recognizing/success, failed -> error
+          let status: 'recognizing' | 'success' | 'error'
+          if (result.status === 'completed') {
+            // 同步处理的文件，状态直接为 success
+            status = 'success'
+          } else if (result.status === 'processing') {
+            // 异步处理的文件，状态为 recognizing，启动轮询
+            status = 'recognizing'
+            pollFileStatus(result.ossFileId)
+          } else {
+            status = 'error'
+            // 显示友好的错误提示
+            if (result.error) {
+              console.error(`文件 ${result.ossFileId} 识别失败：${result.error}`)
+              // 积分不足的特殊提示
+              if (result.error.includes('积分不足')) {
+                toast.error('文件识别失败：积分不足，请充值后重试')
+              } else {
+                toast.error(`文件识别失败：${result.error}`)
+              }
+            }
           }
           fileRecognitionStatus.value.set(result.ossFileId, status);
           console.log(`[handleFilesSelected] 文件 ${result.ossFileId} 识别状态: ${status}`);
@@ -355,6 +505,8 @@ async function handleSubmit(message: PromptInputMessage) {
     // 提交成功后清空已选文件列表和识别状态
     selectedFiles.value = []
     fileRecognitionStatus.value.clear();
+    // 停止所有轮询
+    stopAllPolling();
 
     // 跳转到分析页面
     await router.push(`/dashboard/analysis/${createResult.sessionId}`);
@@ -383,6 +535,11 @@ onMounted(() => {
   // nextTick(() => {
   //   selectMaterial();
   // });
+});
+
+// 组件卸载时停止所有轮询
+onUnmounted(() => {
+  stopAllPolling();
 });
 </script>
 
