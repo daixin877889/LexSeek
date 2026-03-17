@@ -494,9 +494,10 @@ async function handleFilesSelected(files: OssFileItem[]) {
 
       if (response?.results) {
         for (const result of response.results) {
-          const status = result.status === 'processing' ? 'recognizing'
-            : result.status === 'completed' ? 'success'
-              : 'error';
+          const status = result.status === 'processing' ? 'recognizing' : 'error'
+          if (result.status === 'failed' && result.error) {
+            console.error(`文件 ${result.ossFileId} 识别失败: ${result.error}`)
+          }
           fileRecognitionStatus.value.set(result.ossFileId, status);
           console.log(`[handleFilesSelected] 文件 ${result.ossFileId} 识别状态: ${status}`);
         }
