@@ -1276,7 +1276,8 @@ export const transcribeAudioService = async (
     }
 
     // 2. 启动轮询保底机制
-    if (submitResult.task.taskId) {
+    // 排除 existing（已有成功记录的情况不需要轮询）
+    if (submitResult.task.taskId && submitResult.task.taskId !== 'existing') {
         startAsrTaskPollingService(submitResult.task.taskId)
     }
 

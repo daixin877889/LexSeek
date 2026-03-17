@@ -53,6 +53,10 @@ export interface OcrResult {
     success: boolean
     /** 错误信息 */
     error?: string
+    /** 任务信息（用于标识已有成功记录） */
+    task?: {
+        taskId: string
+    }
 }
 
 // 结构化输出定义
@@ -331,6 +335,7 @@ export async function createImageConversionService(
                 return {
                     record: existingRecord,
                     success: true,
+                    task: { taskId: 'existing' }
                 }
             }
             // 如果是其他状态（处理中、失败等），返回失败
@@ -419,7 +424,16 @@ export async function createImageRecognitionService(
             return conversionResult
         }
 
-        // 2. 向量化处理
+        // 2. 如果已有成功的识别记录（taskId === 'existing'），跳过向量化处理
+        if (conversionResult.task?.taskId === 'existing') {
+            logger.info('图片已存在成功的识别记录，跳过向量化处理', {
+                ossFileId,
+                recordId: conversionResult.record.id,
+            })
+            return conversionResult
+        }
+
+        // 3. 向量化处理
         try {
             const record = conversionResult.record
             if (record.markdownContent) {
@@ -643,6 +657,7 @@ export async function createImageRecognitionByBase64Service(
                 return {
                     record: existingRecord,
                     success: true,
+                    task: { taskId: 'existing' }
                 }
             }
 
