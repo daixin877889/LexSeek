@@ -12,6 +12,7 @@ import {
     createMineruTaskDao,
     findMineruTaskByIdDao,
     findMineruTaskByTaskIdDao,
+    findMineruTaskByOssFileIdDao,
     findManyMineruTasksDao,
     findMineruTasksByIdsDao,
     updateMineruTaskDao,
@@ -149,6 +150,15 @@ export const getMineruTaskByTaskIdService = async (
     taskId: string
 ): Promise<mineruTasks | null> => {
     return await findMineruTaskByTaskIdDao(taskId)
+}
+
+/**
+ * 通过 ossFileId 获取最新的 MinerU 任务
+ */
+export const getMineruTaskByOssFileIdService = async (
+    ossFileId: number
+): Promise<mineruTasks | null> => {
+    return await findMineruTaskByOssFileIdDao(ossFileId)
 }
 
 /**

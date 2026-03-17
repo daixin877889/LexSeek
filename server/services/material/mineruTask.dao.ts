@@ -71,6 +71,25 @@ export const findMineruTaskByTaskIdDao = async (
 }
 
 /**
+ * 通过 ossFileId 查询最新的 MinerU 任务
+ */
+export const findMineruTaskByOssFileIdDao = async (
+    ossFileId: number,
+    tx?: Prisma.TransactionClient
+): Promise<mineruTasks | null> => {
+    try {
+        const task = await (tx || prisma).mineruTasks.findFirst({
+            where: { ossFileId, deletedAt: null },
+            orderBy: { createdAt: 'desc' },
+        })
+        return task
+    } catch (error) {
+        logger.error('通过 ossFileId 查询 MinerU 任务失败：', error)
+        throw error
+    }
+}
+
+/**
  * 查询 MinerU 任务列表（分页）
  */
 export const findManyMineruTasksDao = async (

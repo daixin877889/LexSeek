@@ -12,6 +12,7 @@ import { z } from 'zod'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { createChatModel } from '../node/chatModelFactory'
 import { marked } from 'marked'
+import { ImageRecognitionStatus } from '#shared/types/recognition'
 import {
     createImageRecognitionRecordDao,
     findImageRecognitionByOssFileIdDao,
@@ -325,6 +326,14 @@ export async function createImageConversionService(
         // 2. 检查是否已有识别记录
         const existingRecord = await findImageRecognitionByOssFileIdDao(ossFileId, tx)
         if (existingRecord) {
+            // 如果已存在的记录是已完成状态，直接返回成功
+            if (existingRecord.status === ImageRecognitionStatus.COMPLETED) {
+                return {
+                    record: existingRecord,
+                    success: true,
+                }
+            }
+            // 如果是其他状态（处理中、失败等），返回失败
             return {
                 record: existingRecord,
                 success: false,

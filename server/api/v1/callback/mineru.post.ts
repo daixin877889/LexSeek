@@ -88,7 +88,7 @@ export default defineEventHandler(async (event): Promise<CallbackResponse> => {
 
             try {
                 // 下载并处理转换结果
-                const conversionResult = await processConversionResultService(task_id, downloadUrl)
+                const conversionResult = await processConversionResultService(task_id, downloadUrl, task.userId)
 
                 if (conversionResult.success && conversionResult.markdownContent && conversionResult.htmlContent) {
                     // 完成转换并保存结果（包括积分扣减和保存到 docRecognitionRecords）

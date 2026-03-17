@@ -22,15 +22,13 @@ export {
     type PostSignatureResult,
     type AliyunPostSignatureResult,
     type QiniuPostSignatureResult,
-    type TencentCosPostSignatureResult,
-    type CallbackOptions,
+    type TencentPostSignatureResult,
     // 类型守卫
     isAliyunOssConfig,
     isQiniuConfig,
     isTencentCosConfig,
     isAliyunPostSignatureResult,
     isQiniuPostSignatureResult,
-    isTencentCosPostSignatureResult
 } from './types'
 
 // 导出错误类型

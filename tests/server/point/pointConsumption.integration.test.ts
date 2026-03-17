@@ -139,24 +139,24 @@ describe('统一积分服务集成测试', () => {
         await testPrisma.$disconnect()
     })
 
-    describe('MinerU 服务集成测试 (pdf_parse)', () => {
-        it('应能通过 pdf_parse key 检查用户积分', async () => {
+    describe('MinerU 服务集成测试 (doc_parse)', () => {
+        it('应能通过 doc_parse key 检查用户积分', async () => {
             if (!dbAvailable) return
 
             const user = await createTestUser()
             await createTestPointRecord(user.id, 100)
 
-            // 检查是否有 pdf_parse 消耗项目
+            // 检查是否有 doc_parse 消耗项目
             const pdfItem = await testPrisma.pointConsumptionItems.findUnique({
-                where: { key: 'pdf_parse' },
+                where: { key: 'doc_parse' },
             })
 
             if (!pdfItem) {
-                console.warn('pdf_parse 消耗项目不存在，跳过测试')
+                console.warn('doc_parse 消耗项目不存在，跳过测试')
                 return
             }
 
-            const result = await checkPointsService(user.id, 'pdf_parse', 10)
+            const result = await checkPointsService(user.id, 'doc_parse', 10)
 
             expect(result.sufficient).toBeDefined()
             expect(result.required).toBeDefined()
@@ -164,18 +164,18 @@ describe('统一积分服务集成测试', () => {
             expect(result.itemName).toBeDefined()
         })
 
-        it('应能通过 pdf_parse key 扣减用户积分', async () => {
+        it('应能通过 doc_parse key 扣减用户积分', async () => {
             if (!dbAvailable) return
 
             const user = await createTestUser()
             await createTestPointRecord(user.id, 100)
 
             const pdfItem = await testPrisma.pointConsumptionItems.findUnique({
-                where: { key: 'pdf_parse' },
+                where: { key: 'doc_parse' },
             })
 
             if (!pdfItem) {
-                console.warn('pdf_parse 消耗项目不存在，跳过测试')
+                console.warn('doc_parse 消耗项目不存在，跳过测试')
                 return
             }
 
@@ -187,7 +187,7 @@ describe('统一积分服务集成测试', () => {
                 return
             }
 
-            const result = await consumePointsService(user.id, 'pdf_parse', pageCount, {
+            const result = await consumePointsService(user.id, 'doc_parse', pageCount, {
                 remark: 'MinerU PDF 解析测试',
             })
 
@@ -274,7 +274,7 @@ describe('统一积分服务集成测试', () => {
             await createTestPointRecord(user.id, 500)
 
             const pdfItem = await testPrisma.pointConsumptionItems.findUnique({
-                where: { key: 'pdf_parse' },
+                where: { key: 'doc_parse' },
             })
             const asrItem = await testPrisma.pointConsumptionItems.findUnique({
                 where: { key: 'asr_transcribe' },
@@ -287,7 +287,7 @@ describe('统一积分服务集成测试', () => {
 
             // 第一次扣减：PDF 解析
             const pdfConsume = pdfItem.pointAmount * 3
-            await consumePointsService(user.id, 'pdf_parse', 3)
+            await consumePointsService(user.id, 'doc_parse', 3)
 
             // 第二次扣减：ASR 转录
             const asrConsume = asrItem.pointAmount * 2

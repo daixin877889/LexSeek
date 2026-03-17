@@ -26,6 +26,7 @@ import {
 import { generateSignedUrlService, uploadFileService, deleteFileService } from '../storage/storage.service'
 import { v7 as uuidv7 } from 'uuid'
 import dayjs from 'dayjs'
+import { $fetch as ofetch } from 'ofetch'
 import { checkPointsService, consumePointsService, preDeductPointsService, settlePointsService, rollbackPreDeductService } from '../point/pointConsumption.service'
 import { getNodeConfigService, type NodeConfig } from '../node/node.service'
 import { embedAudioService as embedAudioToVectorStore, formatAsrResultForEmbedding } from './materialEmbedding.service'
@@ -295,6 +296,13 @@ interface AsrRawResult {
     }
     /** 转录结果列表 */
     transcripts: AsrRawTranscript[]
+    /**
+     * 某些返回格式会把时长放在顶层字段（不同版本/供应商兼容）
+     * - duration: 毫秒
+     * - audio_duration: 秒
+     */
+    duration?: number
+    audio_duration?: number
 }
 
 /** 精简后的句子信息（仅保留必要字段） */
@@ -493,11 +501,14 @@ export const checkUserPointsForAsrService = async (
 export const submitAsrTaskService = async (
     ossFileId: number,
     userId: number,
-    audioDuration: number,
     options: AsrSubmitOptions = {},
     tempFilePath?: string
 ): Promise<AsrSubmitResult> => {
     try {
+
+        let audioDuration: number = 0
+
+
         // 1. 获取 ASR 节点配置（从模型管理获取 API Key）
         let nodeConfig: NodeConfig
         try {
@@ -542,8 +553,21 @@ export const submitAsrTaskService = async (
             }
         }
 
-        // 5. 预扣积分（使用实际音频时长）
-        // Requirements: 3.2.6, 3.2.7
+        // 5. 生成签名 URL
+        const audioUrl = await generateSignedUrlService(ossFile.filePath, {
+            expires: 3600, // 1 小时有效期
+            method: 'GET',
+        })
+
+        logger.debug(`原始文件签名 URL：${audioUrl}`)
+
+        // 6. 获取音频时长
+        audioDuration = await getAudioDuration(audioUrl) || 0
+        if (audioDuration <= 0) {
+            return { success: false, error: '音频时长获取失败' }
+        }
+
+        // 7. 预扣积分（使用实际音频时长）
         const durationMinutes = Math.ceil(audioDuration / 60)
         let preDeductBatchId: string | null = null
 
@@ -560,32 +584,32 @@ export const submitAsrTaskService = async (
             }
         }
 
-        // 6. 生成签名 URL
-        // 如果提供了临时文件路径（加密文件解密后上传的路径），使用临时文件路径
-        // 否则使用原始文件路径
-        let audioUrl: string
-        if (tempFilePath) {
-            // 使用临时文件路径生成签名 URL
-            audioUrl = await generateSignedUrlService(tempFilePath, {
-                expires: 7200, // 2 小时有效期（音频转录可能需要较长时间）
-            })
-            logger.info(`使用临时文件路径生成签名 URL：tempFilePath=${tempFilePath}`)
-            logger.info(`临时文件签名 URL：${audioUrl}`)
+        // // 6. 生成签名 URL
+        // // 如果提供了临时文件路径（加密文件解密后上传的路径），使用临时文件路径
+        // // 否则使用原始文件路径
+        // let audioUrl: string
+        // if (tempFilePath) {
+        //     // 使用临时文件路径生成签名 URL
+        //     audioUrl = await generateSignedUrlService(tempFilePath, {
+        //         expires: 7200, // 2 小时有效期（音频转录可能需要较长时间）
+        //     })
+        //     logger.info(`使用临时文件路径生成签名 URL：tempFilePath=${tempFilePath}`)
+        //     logger.info(`临时文件签名 URL：${audioUrl}`)
 
-            // 验证 URL 是否可访问（HEAD 请求检查）
-            try {
-                const headResponse = await fetch(audioUrl, { method: 'HEAD' })
-                logger.info(`临时文件 URL 验证成功：status=${headResponse.status}, content-length=${headResponse.headers.get('content-length')}, content-type=${headResponse.headers.get('content-type')}`)
-            } catch (headError: any) {
-                logger.error(`临时文件 URL 验证失败：${headError.message}`)
-            }
-        } else {
-            // 使用原始文件路径生成签名 URL
-            audioUrl = await generateSignedUrlService(ossFile.filePath, {
-                expires: 7200, // 2 小时有效期（音频转录可能需要较长时间）
-            })
-            logger.debug(`原始文件签名 URL：${audioUrl}`)
-        }
+        //     // 验证 URL 是否可访问（HEAD 请求检查）
+        //     try {
+        //         const headResponse = await fetch(audioUrl, { method: 'HEAD' })
+        //         logger.info(`临时文件 URL 验证成功：status=${headResponse.status}, content-length=${headResponse.headers.get('content-length')}, content-type=${headResponse.headers.get('content-type')}`)
+        //     } catch (headError: any) {
+        //         logger.error(`临时文件 URL 验证失败：${headError.message}`)
+        //     }
+        // } else {
+        //     // 使用原始文件路径生成签名 URL
+        //     audioUrl = await generateSignedUrlService(ossFile.filePath, {
+        //         expires: 7200, // 2 小时有效期（音频转录可能需要较长时间）
+        //     })
+        //     logger.debug(`原始文件签名 URL：${audioUrl}`)
+        // }
 
         // 7. 构建请求参数（使用节点配置中的模型名称）
         const requestBody = {
@@ -603,7 +627,11 @@ export const submitAsrTaskService = async (
 
         // 8. 调用阿里云百炼 ASR API 提交任务
         // Requirements: 3.2.1
-        const response = await $fetch<{
+        //
+        // 说明：Nuxt/Nitro 的 $fetch 类型在推导 URL + options 时会触发非常深的条件类型，
+        // 在某些 TS 版本/配置下会报 “类型实例化过深，且可能无限”。
+        // 这里用显式响应类型 + 将 options 断言为 any 来避免深层推导（运行时行为不变）。
+        type DashScopeAsrSubmitResponse = {
             request_id?: string
             output?: {
                 task_id: string
@@ -611,15 +639,20 @@ export const submitAsrTaskService = async (
             }
             code?: string
             message?: string
-        }>(`${nodeConfig.modelProviderBaseUrl}/services/audio/asr/transcription`, {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${asrToken}`,
-                'Content-Type': 'application/json',
-                'X-DashScope-Async': 'enable',
-            },
-            body: requestBody,
-        })
+        }
+
+        const response = await ofetch<DashScopeAsrSubmitResponse>(
+            `${nodeConfig.modelProviderBaseUrl}/services/audio/asr/transcription`,
+            {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${asrToken}`,
+                    'Content-Type': 'application/json',
+                    'X-DashScope-Async': 'enable',
+                },
+                body: requestBody,
+            }
+        )
 
         if (response.code) {
             logger.error('ASR 任务提交失败：', response.message)
@@ -692,7 +725,8 @@ export const processTranscriptionResultService = async (
 ): Promise<AsrTranscriptionResult> => {
     try {
         // 1. 下载原始转录结果 JSON
-        const rawResponse = await $fetch<any>(transcriptionUrl)
+        // 使用 ofetch 避免 Nuxt/Nitro $fetch 对路由的深层类型推导（外部 URL 不需要该推导）
+        const rawResponse = await ofetch<AsrRawResult>(transcriptionUrl)
 
         if (!rawResponse) {
             return { success: false, error: '转录结果为空' }
@@ -842,10 +876,21 @@ export const completeTranscriptionService = async (
             try {
                 await settlePointsService(preDeductBatchId, actualDurationMinutes)
                 logger.info(`ASR 转录积分结算成功：userId=${userId}, actualMinutes=${actualDurationMinutes}, batchId=${preDeductBatchId}`)
-            } catch (settleError) {
+            } catch (settleError: any) {
                 // 结算失败不影响转录结果，但需要记录日志
-                logger.error('ASR 转录积分结算失败：', settleError)
-                // TODO: 可以考虑创建一个"待支付"记录，让用户充值后补扣积分
+                // 如果是"预扣批次不存在"错误，回退到直接扣减模式
+                if (settleError.message?.includes('预扣批次不存在')) {
+                    logger.warn(`预扣批次不存在，回退到直接扣减模式：batchId=${preDeductBatchId}`)
+                    try {
+                        await consumePointsService(userId, ASR_TRANSCRIBE_ITEM_KEY, actualDurationMinutes, { sourceId: record.id })
+                        logger.info(`ASR 转录积分扣减成功（回退模式）：userId=${userId}, minutes=${actualDurationMinutes}`)
+                    } catch (pointError) {
+                        logger.error('ASR 转录积分扣减失败（回退模式）：', pointError)
+                    }
+                } else {
+                    logger.error('ASR 转录积分结算失败：', settleError)
+                    // TODO: 可以考虑创建一个"待支付"记录，让用户充值后补扣积分
+                }
             }
         } else {
             // 兼容旧数据：如果没有预扣批次 ID，使用直接扣减
@@ -1006,7 +1051,8 @@ export const pollAsrTaskStatusService = async (taskId: string): Promise<boolean>
         const asrToken = nodeConfig.modelApiKeys[0].apiKey
 
         // 调用阿里云百炼 ASR API 查询状态
-        const response = await $fetch<{
+        // 同上：避免 $fetch 深层类型推导导致 TS “类型实例化过深” 报错。
+        type DashScopeAsrTaskStatusResponse = {
             request_id?: string
             output?: {
                 task_id: string
@@ -1019,12 +1065,17 @@ export const pollAsrTaskStatusService = async (taskId: string): Promise<boolean>
             }
             code?: string
             message?: string
-        }>(`${nodeConfig.modelProviderBaseUrl}/tasks/${taskId}`, {
-            method: 'GET',
-            headers: {
-                Authorization: `Bearer ${asrToken}`,
-            },
-        })
+        }
+
+        const response = await ofetch<DashScopeAsrTaskStatusResponse>(
+            `${nodeConfig.modelProviderBaseUrl}/tasks/${taskId}`,
+            {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${asrToken}`,
+                },
+            }
+        )
 
         // 记录完整的 API 响应用于调试
         logger.debug(`ASR 任务状态查询响应：taskId=${taskId}, response=${JSON.stringify(response)}`)
@@ -1214,12 +1265,11 @@ export const pollPendingAsrTasksService = async (): Promise<{
 export const transcribeAudioService = async (
     ossFileId: number,
     userId: number,
-    audioDuration: number,
-    options: AsrSubmitOptions = {},
+    options?: AsrSubmitOptions,
     tempFilePath?: string
 ): Promise<AsrSubmitResult> => {
     // 1. 提交任务
-    const submitResult = await submitAsrTaskService(ossFileId, userId, audioDuration, options, tempFilePath)
+    const submitResult = await submitAsrTaskService(ossFileId, userId, options, tempFilePath)
 
     if (!submitResult.success || !submitResult.task) {
         return submitResult
