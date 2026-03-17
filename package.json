@@ -87,6 +87,7 @@
     "mermaid": "^11.12.2",
     "mime": "^4.1.0",
     "motion-v": "^1.7.6",
+    "music-metadata": "^11.12.3",
     "nanoid": "^5.1.6",
     "nuxt": "^4.2.2",
     "ofetch": "^1.5.1",

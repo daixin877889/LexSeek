@@ -287,9 +287,6 @@ import { PlayIcon, PauseIcon, Volume2Icon, MicIcon, MaximizeIcon, MinimizeIcon, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import AudioPlayer from "./AudioPlayer.vue";
 
-// 使用 Nuxt 自动导入的 composable
-const { updateSpeakers } = useAudioRecognition();
-
 /**
  * Props定义
  */
@@ -904,8 +901,11 @@ const saveSpeakerName = async () => {
       });
     }
 
-    // 使用 composable 的 updateSpeakers 方法
-    const result = await updateSpeakers(props.asrRecordId, updatedSpeakers);
+    // 直接调用 API 更新说话人信息
+    const result = await useApiFetch(`/api/v1/recognition/audio/${props.asrRecordId}`, {
+      method: 'PUT',
+      body: { speakers: updatedSpeakers },
+    });
 
     if (!result) {
       throw new Error("更新失败");

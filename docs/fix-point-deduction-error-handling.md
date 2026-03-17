@@ -208,7 +208,7 @@ try {
 
 ```typescript
 try {
-    await consumePointsService(task.userId, PDF_PARSE_ITEM_KEY, pageCount, { sourceId: task.id })
+    await consumePointsService(task.userId, DOC_PARSE_ITEM_KEY, pageCount, { sourceId: task.id })
     logger.info(`PDF 转换积分扣减成功：userId=${task.userId}, pages=${pageCount}`)
 } catch (pointError) {
     // ✅ 积分扣减失败，标记任务和识别记录为失败

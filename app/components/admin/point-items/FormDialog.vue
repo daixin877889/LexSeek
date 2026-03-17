@@ -2,7 +2,7 @@
     <!-- 积分消耗项目创建/编辑对话框 -->
     <Dialog v-model:open="open">
         <DialogContent class="max-w-lg max-h-[85vh] flex flex-col" @interactOutside="(e) => e.preventDefault()">
-            <DialogHeader class="flex-shrink-0">
+            <DialogHeader class="shrink-0">
                 <DialogTitle>{{ isEdit ? '编辑积分消耗项目' : '新增积分消耗项目' }}</DialogTitle>
                 <DialogDescription>{{ isEdit ? '修改积分消耗项目配置' : '创建新的积分消耗项目' }}</DialogDescription>
             </DialogHeader>
@@ -10,7 +10,7 @@
                 <!-- Key（必填，用于代码引用） -->
                 <div v-if="!isEdit" class="space-y-2">
                     <Label>Key <span class="text-destructive">*</span></Label>
-                    <Input v-model="form.key" placeholder="如：pdf_parse" />
+                    <Input v-model="form.key" placeholder="如：doc_parse" />
                     <p class="text-xs text-muted-foreground">用于代码中引用的唯一标识符，只能包含小写字母、数字和下划线，创建后不可修改</p>
                 </div>
 
@@ -79,7 +79,7 @@
                     </Select>
                 </div>
             </div>
-            <DialogFooter class="flex-shrink-0">
+            <DialogFooter class="shrink-0">
                 <Button variant="outline" @click="open = false">取消</Button>
                 <Button @click="handleSubmit" :disabled="submitting">
                     <Loader2 v-if="submitting" class="h-4 w-4 mr-2 animate-spin" />

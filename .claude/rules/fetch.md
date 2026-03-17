@@ -1,6 +1,6 @@
 ---
 paths:
-  - "app/composables/**"
+  - "app/**/**"
   - "app/**/useApi*.ts"
 ---
 
@@ -49,6 +49,39 @@ const result = await useApiFetch('/api/v1/action', {
 if (result) {
   toast.success('操作成功')
 }
+```
+
+### ⚠️ 重要：返回值自动提取 data 字段
+
+**`useApiFetch` 会自动提取响应中的 `data` 字段返回**：
+
+```typescript
+// 假设 API 返回：{ code: 0, success: true, data: { id: 1, name: 'test' } }
+
+// ❌ 错误：不要再次访问 .data
+const wrong = await useApiFetch('/api/xxx')
+wrong?.data?.id // 永远是 undefined！
+
+// ✅ 正确：直接使用返回值
+const correct = await useApiFetch('/api/xxx')
+correct?.id // 正确获取到值
+```
+
+**关键原则**：定义类型时直接使用实际数据类型，不要包装外层 `data` 字段。
+
+```typescript
+// ❌ 错误：类型多嵌套了一层 data
+const response = await useApiFetch<{
+  code: number;
+  data?: { recognized: boolean };
+}>(`/api/xxx`)
+response?.data?.recognized // 永远是 undefined！
+
+// ✅ 正确：类型直接对应实际返回
+const response = await useApiFetch<{
+  recognized: boolean;
+}>(`/api/xxx`)
+response?.recognized // 正确获取到值
 ```
 
 ## 对比
