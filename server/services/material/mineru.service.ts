@@ -793,7 +793,8 @@ export const pollPendingTasksService = async (): Promise<{
         const pendingTasks = await getPendingMineruTasksService(50)
 
         for (const task of pendingTasks) {
-            if (!task.taskId) continue
+            // 跳过无效的 taskId（包括 'existing'）
+            if (!task.taskId || task.taskId === 'existing') continue
 
             result.checked++
 
@@ -906,7 +907,8 @@ export const convertPdfService = async (
 
     // 2. 如果没有配置回调 URL，启动轮询保底机制
     // Requirements: 3.1.10
-    if (!options.callbackUrl && submitResult.task.taskId) {
+    // 只有当 taskId 不是 'existing' 时才启动轮询（已有成功记录的情况）
+    if (!options.callbackUrl && submitResult.task.taskId && submitResult.task.taskId !== 'existing') {
         startTaskPollingService(submitResult.task.taskId)
     }
 

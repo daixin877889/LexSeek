@@ -104,11 +104,13 @@
                 : 'hover:bg-accent/50 cursor-pointer'
             ]" @click="!isFileDisabled(file.id) && toggleFileSelection(file.id)">
               <!-- 复选框 -->
-              <Checkbox :id="`file-${file.id}`" :checked="selectedFiles.includes(file.id)"
+              <Checkbox
+                :id="`file-${file.id}`"
+                :model-value="selectedFiles.includes(file.id)"
                 :disabled="isFileDisabled(file.id)"
                 class="cursor-pointer"
                 @click.stop
-                @update:checked="handleCheckboxChange(file.id, $event)" />
+                @update:model-value="handleCheckboxChange(file.id, $event)" />
 
               <!-- 文件图标 -->
               <div class="flex items-center justify-center size-10 rounded-md bg-muted">
