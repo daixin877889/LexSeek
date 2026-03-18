@@ -162,16 +162,13 @@ ${markdownContent
 
             logger.info(`文本文件向量化嵌入完成：ossFileId=${ossFileId}, chunkCount=${embeddingResult.chunkCount}`)
 
-            // 更新 case_materials 表的 embedding_status
+            // 批量更新 case_materials 表的 embedding_status
             try {
-                const { findMaterialsByOssFileIdDAO, updateMaterialEmbeddingStatusDAO } = await import('../case/caseMaterial.dao')
-                const materials = await findMaterialsByOssFileIdDAO(ossFileId)
-                for (const material of materials) {
-                    await updateMaterialEmbeddingStatusDAO(material.id, 'completed')
-                    logger.info(`更新材料 ${material.id} 的 embedding_status 为 completed`)
-                }
+                const { batchUpdateMaterialEmbeddingStatusByOssFileIdDAO } = await import('../case/caseMaterial.dao')
+                await batchUpdateMaterialEmbeddingStatusByOssFileIdDAO(ossFileId, 'completed')
+                logger.info(`批量更新材料 embedding_status 为 completed: ossFileId=${ossFileId}`)
             } catch (updateError: any) {
-                logger.warn('更新 case_materials embedding_status 失败', {
+                logger.warn('批量更新 case_materials embedding_status 失败', {
                     ossFileId,
                     error: updateError.message,
                 })
@@ -180,15 +177,13 @@ ${markdownContent
             // 嵌入失败不影响主流程，只记录日志
             logger.error('文本文件向量化嵌入失败：', embeddingError)
 
-            // 更新 case_materials 表的 embedding_status 为 failed
+            // 批量更新 case_materials 表的 embedding_status 为 failed
             try {
-                const { findMaterialsByOssFileIdDAO, updateMaterialEmbeddingStatusDAO } = await import('../case/caseMaterial.dao')
-                const materials = await findMaterialsByOssFileIdDAO(ossFileId)
-                for (const material of materials) {
-                    await updateMaterialEmbeddingStatusDAO(material.id, 'failed')
-                }
+                const { batchUpdateMaterialEmbeddingStatusByOssFileIdDAO } = await import('../case/caseMaterial.dao')
+                await batchUpdateMaterialEmbeddingStatusByOssFileIdDAO(ossFileId, 'failed')
+                logger.info(`批量更新材料 embedding_status 为 failed: ossFileId=${ossFileId}`)
             } catch (updateError: any) {
-                logger.warn('更新 case_materials embedding_status 失败', {
+                logger.warn('批量更新 case_materials embedding_status 失败', {
                     ossFileId,
                     error: updateError.message,
                 })
