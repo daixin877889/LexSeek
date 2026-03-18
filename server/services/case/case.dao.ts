@@ -44,8 +44,8 @@ export const createCaseDao = async (
                 content: data.content,
                 userId: data.userId,
                 caseTypeId: data.caseTypeId,
-                plaintiff: (data.plaintiff ?? null) as any,
-                defendant: (data.defendant ?? null) as any,
+                plaintiff: (data.plaintiff ?? undefined) as any,
+                defendant: (data.defendant ?? undefined) as any,
                 isDemo: data.isDemo ?? false,
                 status: CaseStatus.IN_PROGRESS,
             },
@@ -126,6 +126,7 @@ export const findCaseBySessionIdDao = async (
     sessionId: string
 ): Promise<CaseWithRelations | null> => {
     try {
+
         const session = await prisma.caseSessions.findFirst({
             where: { sessionId, deletedAt: null },
             include: {
@@ -142,9 +143,11 @@ export const findCaseBySessionIdDao = async (
                 },
             },
         })
+
         if (!session || session.case.deletedAt) {
             return null
         }
+
         return {
             ...session.case,
             caseSessions: [session],

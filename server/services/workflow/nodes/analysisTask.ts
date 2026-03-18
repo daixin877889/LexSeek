@@ -453,7 +453,7 @@ async function executeAnalysis(
     })
 
     // 如果有工具，绑定到模型
-    const modelWithTools = tools.length > 0 ? model.bindTools(tools) : model
+    const modelWithTools = tools.length > 0 && model.bindTools ? model.bindTools(tools) : model
 
     // 导入 ToolMessage 类型
     const { ToolMessage } = await import('@langchain/core/messages')
