@@ -21,7 +21,7 @@ import {
     findImageRecognitionsByOssFileIdsDao,
 } from './ocr.dao'
 import { generateSignedUrlService } from '../storage/storage.service'
-import { getNodeConfigService, type NodeConfig } from '../node/node.service'
+import { getValidNodeConfig, getNodeConfigService, type NodeConfig } from '../node/node.service'
 import { embedImageService } from './materialEmbedding.service'
 import { markdownToHtmlService } from './mineruResult.service'
 
@@ -72,24 +72,6 @@ const imageInfoSchema = z.object({
  */
 export function validateImageType(mimeType: string): boolean {
     return SUPPORTED_IMAGE_TYPES.includes(mimeType.toLowerCase())
-}
-
-/**
- * 获取 OCR 节点配置
- * 从 node 系统获取 OCR 相关的模型和提示词配置
- */
-async function getOcrNodeConfig(): Promise<NodeConfig> {
-    const config = await getNodeConfigService(OCR_NODE_NAME)
-
-    if (!config) {
-        throw new Error(`OCR 节点 "${OCR_NODE_NAME}" 未配置或未启用`)
-    }
-
-    if (config.modelApiKeys.length === 0) {
-        throw new Error(`OCR 节点 "${OCR_NODE_NAME}" 的模型提供商未配置 API 密钥`)
-    }
-
-    return config
 }
 
 /**
@@ -180,7 +162,7 @@ async function extractImageInfo(imageUrl: string): Promise<ImageInfoResult> {
         }
 
         // 获取 OCR 节点配置
-        const nodeConfig = await getOcrNodeConfig()
+        const nodeConfig = await getValidNodeConfig(OCR_NODE_NAME, 'OCR')
 
         // 创建 AI 模型实例
         const model = createAiModelFromConfig(nodeConfig)
@@ -242,7 +224,7 @@ async function extractImageInfoByBase64(base64Data: string, mimeType: string): P
         const dataUrl = `data:${mimeType};base64,${base64Data}`
 
         // 获取 OCR 节点配置
-        const nodeConfig = await getOcrNodeConfig()
+        const nodeConfig = await getValidNodeConfig(OCR_NODE_NAME, 'OCR')
 
         // 创建 AI 模型实例
         const model = createAiModelFromConfig(nodeConfig)

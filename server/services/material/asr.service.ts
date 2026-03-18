@@ -28,7 +28,7 @@ import { v7 as uuidv7 } from 'uuid'
 import dayjs from 'dayjs'
 import { $fetch as ofetch } from 'ofetch'
 import { checkPointsService, consumePointsService, preDeductPointsService, settlePointsService, rollbackPreDeductService } from '../point/pointConsumption.service'
-import { getNodeConfigService, type NodeConfig } from '../node/node.service'
+import { getValidNodeConfig, getNodeConfigService, type NodeConfig } from '../node/node.service'
 import { embedAudioService as embedAudioToVectorStore, formatAsrResultForEmbedding } from './materialEmbedding.service'
 import { PollingConfig, DEFAULT_POLLING_CONFIG, calculateBackoffDelay } from './materialConstants'
 
@@ -124,24 +124,6 @@ const SPEAKER_COLORS = [
 ]
 
 // ==================== 工具函数 ====================
-
-/**
- * 获取 ASR 节点配置
- * 从 node 系统获取音频识别相关的模型和 API Key 配置
- */
-async function getAsrNodeConfig(): Promise<NodeConfig> {
-    const config = await getNodeConfigService(ASR_NODE_NAME)
-
-    if (!config) {
-        throw new Error(`ASR 节点 "${ASR_NODE_NAME}" 未配置或未启用，请在后台管理中配置该节点`)
-    }
-
-    if (config.modelApiKeys.length === 0) {
-        throw new Error(`ASR 节点 "${ASR_NODE_NAME}" 的模型提供商未配置 API 密钥`)
-    }
-
-    return config
-}
 
 /**
  * 验证音频类型是否支持
@@ -493,7 +475,7 @@ export const submitAsrTaskService = async (
         // 1. 获取 ASR 节点配置（从模型管理获取 API Key）
         let nodeConfig: NodeConfig
         try {
-            nodeConfig = await getAsrNodeConfig()
+            nodeConfig = await getValidNodeConfig(ASR_NODE_NAME, 'ASR')
         } catch (configError: any) {
             return { success: false, error: configError.message }
         }
@@ -1024,7 +1006,7 @@ export const pollAsrTaskStatusService = async (taskId: string): Promise<boolean>
         // 获取 ASR 节点配置（从模型管理获取 API Key）
         let nodeConfig: NodeConfig
         try {
-            nodeConfig = await getAsrNodeConfig()
+            nodeConfig = await getValidNodeConfig(ASR_NODE_NAME, 'ASR')
         } catch (configError: any) {
             logger.error('轮询任务状态失败：', configError.message)
             return false

@@ -425,6 +425,32 @@ export const getNodeConfigService = async (name: string): Promise<NodeConfig | n
 }
 
 /**
+ * 获取节点配置（带验证）
+ *
+ * 封装通用验证逻辑：检查节点是否存在、是否启用、是否有 API 密钥
+ * @param nodeName 节点名称
+ * @param nodeTitle 节点显示名称（用于错误信息）
+ * @returns 验证后的节点配置
+ * @throws 如果节点未配置、未启用或未配置 API 密钥
+ */
+export const getValidNodeConfig = async (
+    nodeName: string,
+    nodeTitle: string
+): Promise<NodeConfig> => {
+    const config = await getNodeConfigService(nodeName)
+
+    if (!config) {
+        throw new Error(`${nodeTitle} 节点未配置或未启用`)
+    }
+
+    if (config.modelApiKeys.length === 0) {
+        throw new Error(`${nodeTitle} 节点的模型提供商未配置 API 密钥`)
+    }
+
+    return config
+}
+
+/**
  * 通过节点 ID 获取完整配置
  * 包括模型、提供商、API 密钥和生效的提示词
  * @param id 节点 ID

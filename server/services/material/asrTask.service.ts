@@ -16,29 +16,11 @@ import {
     updateAsrTaskByTaskIdDao,
     findPendingAsrTasksDao,
 } from './asrTask.dao'
-import { getNodeConfigService, type NodeConfig } from '../node/node.service'
+import { getValidNodeConfig, getNodeConfigService, type NodeConfig } from '../node/node.service'
 import type { AsrTaskStatus as AsrTaskStatusType } from '#shared/types/recognition'
 
 /** 音频识别节点名称 */
 const ASR_NODE_NAME = 'audioRecognition'
-
-/**
- * 获取 ASR 节点配置
- * 从 node 系统获取音频识别相关的模型和 API Key 配置
- */
-async function getAsrNodeConfig(): Promise<NodeConfig> {
-    const config = await getNodeConfigService(ASR_NODE_NAME)
-
-    if (!config) {
-        throw new Error(`ASR 节点 "${ASR_NODE_NAME}" 未配置或未启用，请在后台管理中配置该节点`)
-    }
-
-    if (config.modelApiKeys.length === 0) {
-        throw new Error(`ASR 节点 "${ASR_NODE_NAME}" 的模型提供商未配置 API 密钥`)
-    }
-
-    return config
-}
 
 /** ASR 任务查询参数 */
 export interface AsrTaskQueryOptions {
@@ -254,7 +236,7 @@ export const queryAsrTaskStatusService = async (
     }
 
     // 获取 ASR 节点配置（从模型管理获取 API Key）
-    const nodeConfig = await getAsrNodeConfig()
+    const nodeConfig = await getValidNodeConfig(ASR_NODE_NAME, 'ASR')
     const asrToken = nodeConfig.modelApiKeys[0].apiKey
 
     try {
@@ -427,7 +409,7 @@ export const retryAsrTaskService = async (
     }
 
     // 获取 ASR 节点配置（从模型管理获取 API Key）
-    const nodeConfig = await getAsrNodeConfig()
+    const nodeConfig = await getValidNodeConfig(ASR_NODE_NAME, 'ASR')
     const asrToken = nodeConfig.modelApiKeys[0].apiKey
 
     // 获取关联的 ASR 记录
