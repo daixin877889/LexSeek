@@ -8,6 +8,15 @@
  * - 深度优先遍历
  */
 
+/** 开发环境日志工具 */
+const devLogger = {
+    warn: (message: string, ...args: any[]) => {
+        if (process.env.NODE_ENV !== 'production') {
+            console.warn(`[articleSorting] ${message}`, ...args)
+        }
+    },
+}
+
 /**
  * 条文类型
  */
@@ -235,10 +244,7 @@ export function sortArticlesByHierarchy(articles: Article[]): Article[] {
         const hasType = !!article.type
 
         if (!hasId || !hasType) {
-            // 在开发环境输出警告
-            if (process.env.NODE_ENV !== 'production') {
-                console.warn('跳过无效条文：缺少 id 或 type 字段', { hasId, hasType, article })
-            }
+            devLogger.warn('跳过无效条文：缺少 id 或 type 字段', { hasId, hasType, article })
             return false
         }
 
@@ -246,10 +252,7 @@ export function sortArticlesByHierarchy(articles: Article[]): Article[] {
         const isValidType = validTypes.includes(article.type as ArticleType)
 
         if (!isValidType) {
-            // 在开发环境输出警告
-            if (process.env.NODE_ENV !== 'production') {
-                console.warn(`跳过无效条文：未知类型 ${article.type}`, article)
-            }
+            devLogger.warn(`跳过无效条文：未知类型 ${article.type}`, article)
             return false
         }
 

@@ -1,5 +1,10 @@
 import { parseWebStream } from 'music-metadata';
 
+/** 解析音频时长工具 */
+const logger = {
+    error: (message: string, ...args: any[]) => console.error(`[getAudioDuration] ${message}`, ...args),
+}
+
 
 /**
  * 使用 fetch 和 music-metadata 获取远程音频时长
@@ -36,7 +41,7 @@ export async function getAudioDuration(url: string): Promise<number | undefined>
     if (response.body && !response.body.locked) {
       await response.body.cancel();
     }
-    console.error('解析元数据失败:', error.message);
+    logger.error('解析元数据失败:', error.message);
     throw error;
   }
 }

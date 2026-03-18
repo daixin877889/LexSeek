@@ -86,7 +86,7 @@ export default defineEventHandler(async (event) => {
             skipped: items.length - newItems.length,
         })
     } catch (error) {
-        console.error('导入路由失败:', error)
+        logger.error('导入路由失败:', error)
         return resError(event, 500, '导入失败')
     }
 })

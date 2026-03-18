@@ -136,7 +136,7 @@ const scanDirectory = (dir: string, basePath: string = ''): ScannedRouterItem[] 
                     title = meta.title
                     layout = meta.layout
                 } catch (err) {
-                    console.error(`读取文件失败: ${fullPath}`, err)
+                    logger.error(`读取文件失败: ${fullPath}`, err)
                 }
 
                 results.push({
@@ -150,7 +150,7 @@ const scanDirectory = (dir: string, basePath: string = ''): ScannedRouterItem[] 
             }
         }
     } catch (error) {
-        console.error(`扫描目录失败: ${dir}`, error)
+        logger.error(`扫描目录失败: ${dir}`, error)
     }
 
     return results
@@ -203,7 +203,7 @@ export default defineEventHandler(async (event) => {
 
         return resSuccess(event, '扫描完成', { items: results, stats })
     } catch (error) {
-        console.error('扫描路由失败:', error)
+        logger.error('扫描路由失败:', error)
         return resError(event, 500, '扫描失败')
     }
 })
