@@ -305,6 +305,35 @@ export const softDeleteAccessByLevelAndNodeDao = async (
 }
 
 /**
+ * 批量软删除会员级别的多个节点权限
+ * @param levelId 会员级别 ID
+ * @param nodeIds 节点 ID 列表
+ * @param tx 事务客户端（可选）
+ */
+export const softDeleteAccessByLevelAndNodesDao = async (
+    levelId: number,
+    nodeIds: number[],
+    tx?: PrismaClient
+): Promise<void> => {
+    try {
+        await (tx || prisma).levelNodeAccess.updateMany({
+            where: {
+                levelId,
+                nodeId: { in: nodeIds },
+                deletedAt: null,
+            },
+            data: {
+                deletedAt: new Date(),
+                updatedAt: new Date(),
+            },
+        })
+    } catch (error) {
+        logger.error('批量软删除权限记录失败：', error)
+        throw error
+    }
+}
+
+/**
  * 批量软删除会员级别的所有权限
  * @param levelId 会员级别 ID
  * @param tx 事务客户端（可选）

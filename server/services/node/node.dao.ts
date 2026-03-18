@@ -275,6 +275,30 @@ export const findNodeByIdDao = async (
 }
 
 /**
+ * 批量通过 ID 查询节点
+ * @param ids 节点 ID 列表
+ * @param tx 事务客户端（可选）
+ * @returns 节点列表
+ */
+export const findNodesByIdsDao = async (
+    ids: number[],
+    tx?: PrismaClient
+) => {
+    try {
+        const nodes = await (tx || prisma).nodes.findMany({
+            where: {
+                id: { in: ids },
+                deletedAt: null,
+            },
+        })
+        return nodes
+    } catch (error) {
+        logger.error('批量查询节点失败：', error)
+        throw error
+    }
+}
+
+/**
  * 通过名称查询节点
  * @param name 节点名称
  * @param tx 事务客户端（可选）

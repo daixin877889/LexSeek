@@ -16,11 +16,12 @@ import {
     createManyAccessDao,
     softDeleteAccessDao,
     softDeleteAccessByLevelAndNodeDao,
+    softDeleteAccessByLevelAndNodesDao,
     softDeleteAccessByLevelIdDao,
     findDeletedAccessDao,
     restoreAccessDao,
 } from './access.dao'
-import { findNodeByIdDao, findAllNodesDao } from './node.dao'
+import { findNodeByIdDao, findNodesByIdsDao, findAllNodesDao } from './node.dao'
 import { findMembershipLevelByIdDao, findAllActiveMembershipLevelsDao } from '../membership/membershipLevel.dao'
 import { findCurrentUserMembershipDao } from '../membership/userMembership.dao'
 
@@ -171,12 +172,12 @@ export const batchGrantAccessService = async (
         throw new Error('会员级别不存在')
     }
 
-    // 验证所有节点是否存在
-    for (const nodeId of nodeIds) {
-        const node = await findNodeByIdDao(nodeId)
-        if (!node) {
-            throw new Error(`节点 ${nodeId} 不存在`)
-        }
+    // 批量验证所有节点是否存在
+    const nodes = await findNodesByIdsDao(nodeIds)
+    if (nodes.length !== nodeIds.length) {
+        const foundNodeIds = new Set(nodes.map((n) => n.id))
+        const missingNodeId = nodeIds.find((id) => !foundNodeIds.has(id))
+        throw new Error(`节点 ${missingNodeId} 不存在`)
     }
 
     // 获取当前已有的权限
@@ -226,9 +227,7 @@ export const batchRevokeAccessService = async (
     levelId: number,
     nodeIds: number[]
 ): Promise<void> => {
-    for (const nodeId of nodeIds) {
-        await softDeleteAccessByLevelAndNodeDao(levelId, nodeId)
-    }
+    await softDeleteAccessByLevelAndNodesDao(levelId, nodeIds)
 }
 
 // ==================== 批量更新服务 ====================
@@ -249,12 +248,12 @@ export const batchUpdateAccessService = async (
         throw new Error('会员级别不存在')
     }
 
-    // 验证所有节点是否存在
-    for (const nodeId of nodeIds) {
-        const node = await findNodeByIdDao(nodeId)
-        if (!node) {
-            throw new Error(`节点 ${nodeId} 不存在`)
-        }
+    // 批量验证所有节点是否存在
+    const nodes = await findNodesByIdsDao(nodeIds)
+    if (nodes.length !== nodeIds.length) {
+        const foundNodeIds = new Set(nodes.map((n) => n.id))
+        const missingNodeId = nodeIds.find((id) => !foundNodeIds.has(id))
+        throw new Error(`节点 ${missingNodeId} 不存在`)
     }
 
     // 使用事务处理
