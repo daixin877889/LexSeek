@@ -115,6 +115,7 @@ import { toast } from 'vue-sonner'
 import { FileSource } from '~~/shared/types/file'
 import type { PostSignatureResult } from '~~/shared/types/oss'
 import { CaseMaterialType, type MaterialItem, type MaterialStatus, type UploadResult } from '~~/shared/types/material'
+import { getExtensionFromFileName } from '~~/shared/utils/file'
 
 /**
  * 组件 Props
@@ -252,7 +253,7 @@ const getStatusText = (status: MaterialStatus): string => {
  */
 const detectMaterialType = (file: File): CaseMaterialType => {
   const mimeType = file.type.toLowerCase()
-  const ext = file.name.split('.').pop()?.toLowerCase() || ''
+  const ext = getExtensionFromFileName(file.name)
 
   // 图片类型
   if (mimeType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif'].includes(ext)) {
@@ -274,7 +275,7 @@ const detectMaterialType = (file: File): CaseMaterialType => {
  * md/txt/docx/doc 可以在浏览器端处理
  */
 const needsServerProcessing = (file: File): boolean => {
-  const ext = file.name.split('.').pop()?.toLowerCase() || ''
+  const ext = getExtensionFromFileName(file.name)
   const mimeType = file.type.toLowerCase()
 
   // 浏览器端可处理的文件类型

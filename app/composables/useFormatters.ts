@@ -77,11 +77,22 @@ export const useFormatters = () => {
         return amount.toFixed(2)
     }
 
+    /**
+     * 格式化数字（千分位分隔符）
+     * @param value 数字
+     * @returns 格式化后的数字字符串，如 1,234.56
+     */
+    const formatNumber = (value: number | null | undefined): string => {
+        if (value === null || value === undefined || isNaN(value)) return '0'
+        return new Intl.NumberFormat('zh-CN').format(value)
+    }
+
     return {
         formatDate,
         formatDateOnly,
         formatDateChinese,
         formatDateRelative,
         formatAmount,
+        formatNumber,
     }
 }

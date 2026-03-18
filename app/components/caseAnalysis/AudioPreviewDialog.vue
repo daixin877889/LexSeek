@@ -45,6 +45,7 @@
 <script lang="ts" setup>
 import { Loader2Icon, AlertCircleIcon, FileAudioIcon } from 'lucide-vue-next'
 import AudioVisualization from '~/components/general/audio/AudioVisualization.vue'
+import { getExtensionFromFileName } from '~~/shared/utils/file'
 
 // Props
 const props = defineProps<{
@@ -78,7 +79,7 @@ const { getCachedFile, cacheFile } = useLocalFileCache()
  * 获取音频的 MIME 类型
  */
 const getAudioMimeType = (fileName: string): string => {
-    const ext = fileName.split('.').pop()?.toLowerCase()
+    const ext = getExtensionFromFileName(fileName)
     const mimeMap: Record<string, string> = {
         mp3: 'audio/mpeg',
         wav: 'audio/wav',
@@ -90,7 +91,7 @@ const getAudioMimeType = (fileName: string): string => {
         amr: 'audio/amr',
         opus: 'audio/opus',
     }
-    return mimeMap[ext || ''] || 'audio/mpeg'
+    return mimeMap[ext] || 'audio/mpeg'
 }
 
 /**

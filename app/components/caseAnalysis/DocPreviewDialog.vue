@@ -94,6 +94,7 @@ import { Loader2Icon, AlertCircleIcon, FileTextIcon } from 'lucide-vue-next'
 import MarkstreamVue, { enableMermaid, setDefaultI18nMap } from 'markstream-vue'
 import 'markstream-vue/index.css'
 import { getFileIcon, getFileIconColor } from '~/utils/file'
+import { getExtensionFromFileName, IMAGE_EXTENSIONS } from '~~/shared/utils/file'
 
 // 启用 Mermaid 渲染（传入 mermaid 模块的动态导入函数）
 enableMermaid(() => import('mermaid'))
@@ -141,21 +142,15 @@ const hasContent = computed(() => !!renderedMarkdown.value)
 
 // 判断是否为图片文件
 const isImageFile = computed(() => {
-    const ext = props.fileName.split('.').pop()?.toLowerCase()
-    return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'heif'].includes(ext || '')
+    const ext = getExtensionFromFileName(props.fileName)
+    return IMAGE_EXTENSIONS.includes(ext)
 })
-
-// 获取当前主题是否为暗色模式
-const { isDark } = useColorMode()
-
-// 本地文件缓存
-const { getCachedFile, cacheFile } = useLocalFileCache()
 
 /**
  * 获取图片的 MIME 类型
  */
 const getImageMimeType = (fileName: string): string => {
-    const ext = fileName.split('.').pop()?.toLowerCase()
+    const ext = getExtensionFromFileName(fileName)
     const mimeMap: Record<string, string> = {
         png: 'image/png',
         jpg: 'image/jpeg',
@@ -165,8 +160,14 @@ const getImageMimeType = (fileName: string): string => {
         heic: 'image/heic',
         heif: 'image/heif',
     }
-    return mimeMap[ext || ''] || 'image/jpeg'
+    return mimeMap[ext] || 'image/jpeg'
 }
+
+// 获取当前主题是否为暗色模式
+const { isDark } = useColorMode()
+
+// 本地文件缓存
+const { getCachedFile, cacheFile } = useLocalFileCache()
 
 /**
  * 加载原始图片

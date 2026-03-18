@@ -105,6 +105,7 @@ import type { OssFileItem } from "~/store/file";
 import type { CaseMaterialParam, CaseMaterialType } from "#shared/types/case";
 import { getFileIcon, getFileIconColor } from "~/utils/file";
 import { getMaterialType } from "~/utils/caseMaterial";
+import { getExtensionFromFileName } from "~~/shared/utils/file";
 
 
 // 路由
@@ -241,25 +242,25 @@ function stopAllPolling() {
  * 检查文件是否为需要识别的文档文件（docx、doc、pdf、markdown 或 txt）
  */
 function isRecognizableDocFile(fileName: string): boolean {
-  const ext = fileName.split('.').pop()?.toLowerCase();
+  const ext = getExtensionFromFileName(fileName);
   // 支持 docx、doc、pdf、md、mkd、markdown、txt 文件
-  return ['docx', 'doc', 'pdf', 'md', 'mkd', 'markdown', 'txt'].includes(ext || '');
+  return ['docx', 'doc', 'pdf', 'md', 'mkd', 'markdown', 'txt'].includes(ext);
 }
 
 /**
  * 检查文件是否为图片文件
  */
 function isImageFile(fileName: string): boolean {
-  const ext = fileName.split('.').pop()?.toLowerCase();
-  return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico'].includes(ext || '');
+  const ext = getExtensionFromFileName(fileName);
+  return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico'].includes(ext);
 }
 
 /**
  * 检查文件是否为音频文件
  */
 function isAudioFile(fileName: string): boolean {
-  const ext = fileName.split('.').pop()?.toLowerCase();
-  return ['mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'webm', 'amr', 'opus'].includes(ext || '');
+  const ext = getExtensionFromFileName(fileName);
+  return ['mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'webm', 'amr', 'opus'].includes(ext);
 }
 
 /**

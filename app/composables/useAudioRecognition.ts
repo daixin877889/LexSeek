@@ -7,6 +7,7 @@
  * @requirements 6.6.1, 6.6.2, 6.7.4
  */
 
+import { getExtensionFromFileName } from '~~/shared/utils/file'
 import { AsrRecordStatus, AsrRecordStatusText } from '#shared/types/recognition'
 
 /** 支持的音频扩展名 */
@@ -17,6 +18,6 @@ const AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'webm', 'am
  * 支持格式：MP3、WAV、M4A、AAC、FLAC、OGG、WEBM、AMR、OPUS
  */
 export const isAudioFile = (fileName: string): boolean => {
-    const ext = fileName.split('.').pop()?.toLowerCase()
-    return AUDIO_EXTENSIONS.includes(ext || '')
+    const ext = getExtensionFromFileName(fileName)
+    return AUDIO_EXTENSIONS.includes(ext)
 }

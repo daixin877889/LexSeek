@@ -176,10 +176,7 @@ const keyword = ref('')
 const deleteDialogOpen = ref(false)
 const selectedItem = ref<CaseType | null>(null)
 
-// 格式化日期
-const formatDate = (date: Date | string) => {
-    return dayjs(date).format('YYYY-MM-DD HH:mm')
-}
+const { formatDate } = useFormatters()
 
 // 加载类型列表
 const loadItems = async () => {

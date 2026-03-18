@@ -183,7 +183,7 @@ const roleDialogOpen = ref(false)
 const selectedUser = ref<UserItem | null>(null)
 const selectedRoleIds = ref<number[]>([])
 
-const formatDate = (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm')
+const { formatDate } = useFormatters()
 
 const getStatusClass = (status: number): string => {
   const baseClass = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium'

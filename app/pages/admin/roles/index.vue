@@ -225,10 +225,7 @@ const roles = ref<Role[]>([])
 const deleteDialogOpen = ref(false)
 const roleToDelete = ref<Role | null>(null)
 
-/** 格式化日期 */
-const formatDate = (date: string) => {
-  return dayjs(date).format('YYYY-MM-DD HH:mm')
-}
+const { formatDate } = useFormatters()
 
 /** 获取状态样式类 */
 const getStatusClass = (status: number): string => {

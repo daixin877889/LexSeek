@@ -30,9 +30,21 @@ import { $fetch as ofetch } from 'ofetch'
 import { checkPointsService, consumePointsService, preDeductPointsService, settlePointsService, rollbackPreDeductService } from '../point/pointConsumption.service'
 import { getNodeConfigService, type NodeConfig } from '../node/node.service'
 import { embedAudioService as embedAudioToVectorStore, formatAsrResultForEmbedding } from './materialEmbedding.service'
+import { PollingConfig, DEFAULT_POLLING_CONFIG, calculateBackoffDelay } from './materialConstants'
 
 /** 音频识别节点名称 */
 const ASR_NODE_NAME = 'audioRecognition'
+
+/**
+ * ASR 音频转录专用轮询配置
+ * 音频处理通常耗时较长，使用更宽松的轮询策略
+ */
+const ASR_POLLING_CONFIG: PollingConfig = {
+    initialDelay: 5000,      // 5 秒初始延迟
+    backoffFactor: 1.5,      // 1.5 倍退避因子
+    maxDelay: 300000,        // 5 分钟最大延迟
+    maxRetries: 30,          // 最多 30 次重试
+}
 
 /** ASR 转录积分消耗项目标识符 */
 const ASR_TRANSCRIBE_ITEM_KEY = 'asr_transcribe'
@@ -99,26 +111,6 @@ export interface AsrTranscriptionResult {
     error?: string
 }
 
-/** 轮询配置 */
-interface PollingConfig {
-    /** 初始延迟（毫秒） */
-    initialDelay: number
-    /** 最大延迟（毫秒） */
-    maxDelay: number
-    /** 最大重试次数 */
-    maxRetries: number
-    /** 退避因子 */
-    backoffFactor: number
-}
-
-/** 默认轮询配置 */
-const DEFAULT_POLLING_CONFIG: PollingConfig = {
-    initialDelay: 5000,      // 5 秒
-    maxDelay: 300000,        // 5 分钟
-    maxRetries: 30,          // 最多 30 次（音频转录可能需要更长时间）
-    backoffFactor: 1.5,      // 每次延迟增加 1.5 倍
-}
-
 /** 说话人颜色列表 */
 const SPEAKER_COLORS = [
     '#3B82F6', // 蓝色
@@ -157,17 +149,6 @@ async function getAsrNodeConfig(): Promise<NodeConfig> {
  */
 export function validateAudioType(mimeType: string): boolean {
     return SUPPORTED_AUDIO_TYPES.includes(mimeType.toLowerCase())
-}
-
-/**
- * 计算指数退避延迟
- */
-function calculateBackoffDelay(
-    retryCount: number,
-    config: PollingConfig = DEFAULT_POLLING_CONFIG
-): number {
-    const delay = config.initialDelay * Math.pow(config.backoffFactor, retryCount)
-    return Math.min(delay, config.maxDelay)
 }
 
 /**
@@ -1278,7 +1259,7 @@ export const transcribeAudioService = async (
     // 2. 启动轮询保底机制
     // 排除 existing（已有成功记录的情况不需要轮询）
     if (submitResult.task.taskId && submitResult.task.taskId !== 'existing') {
-        startAsrTaskPollingService(submitResult.task.taskId)
+        startAsrTaskPollingService(submitResult.task.taskId, ASR_POLLING_CONFIG)
     }
 
     return submitResult

@@ -195,7 +195,7 @@ const logs = ref<AuditLog[]>([])
 const detailDialogOpen = ref(false)
 const selectedLog = ref<AuditLog | null>(null)
 
-const formatDate = (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm:ss')
+const { formatDate } = useFormatters()
 
 const getActionLabel = (action: string) => {
   const option = actionOptions.find(o => o.value === action)

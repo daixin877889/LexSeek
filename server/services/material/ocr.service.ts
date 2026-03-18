@@ -23,6 +23,7 @@ import {
 import { generateSignedUrlService } from '../storage/storage.service'
 import { getNodeConfigService, type NodeConfig } from '../node/node.service'
 import { embedImageService } from './materialEmbedding.service'
+import { markdownToHtmlService } from './mineruResult.service'
 
 /** OCR 节点名称 */
 const OCR_NODE_NAME = 'extractImageInfo'
@@ -64,20 +65,6 @@ const imageInfoSchema = z.object({
     imgType: z.enum(['doc', 'photo']).describe('图片的类型：doc-文档类图片，photo-照片类图片'),
     imageInfo: z.string().describe('图片包含的内容信息，使用 Markdown 格式'),
 })
-
-/**
- * Markdown 转 HTML
- * 使用 marked 库进行专业的 Markdown 解析
- */
-async function markdownToHtml(markdown: string): Promise<string> {
-    // 配置 marked 选项
-    marked.setOptions({
-        gfm: true,        // 启用 GitHub Flavored Markdown
-        breaks: true,     // 将换行符转换为 <br>
-    })
-
-    return marked.parse(markdown)
-}
 
 /**
  * 验证图片类型是否支持
@@ -366,7 +353,7 @@ export async function createImageConversionService(
         const extractResult = await extractImageInfo(downloadUrl)
 
         // 6. 将 Markdown 转换为 HTML
-        const htmlContent = await markdownToHtml(extractResult.imageInfo)
+        const htmlContent = await markdownToHtmlService(extractResult.imageInfo)
 
         // 7. 创建图片识别记录
         const record = await createImageRecognitionRecordDao(
@@ -461,14 +448,10 @@ export async function createImageRecognitionService(
                     chunkCount: embeddingResult.chunkCount,
                 })
 
-                // 更新 case_materials 表的 embedding_status
+                // 更新 case_materials 表的 embedding_status（批量更新）
                 try {
-                    const { findMaterialsByOssFileIdDAO, updateMaterialEmbeddingStatusDAO } = await import('../case/caseMaterial.dao')
-                    const materials = await findMaterialsByOssFileIdDAO(ossFileId, tx)
-                    for (const material of materials) {
-                        await updateMaterialEmbeddingStatusDAO(material.id, 'completed', tx)
-                        logger.info(`更新材料 ${material.id} 的 embedding_status 为 completed`)
-                    }
+                    const { batchUpdateMaterialEmbeddingStatusByOssFileIdDAO } = await import('../case/caseMaterial.dao')
+                    await batchUpdateMaterialEmbeddingStatusByOssFileIdDAO(ossFileId, 'completed', tx)
                 } catch (updateError: any) {
                     // 更新失败不影响主流程
                     logger.warn('更新 case_materials embedding_status 失败', {
@@ -484,13 +467,10 @@ export async function createImageRecognitionService(
                 error: embedError.message,
             })
 
-            // 更新 case_materials 表的 embedding_status 为 failed
+            // 更新 case_materials 表的 embedding_status 为 failed（批量更新）
             try {
-                const { findMaterialsByOssFileIdDAO, updateMaterialEmbeddingStatusDAO } = await import('../case/caseMaterial.dao')
-                const materials = await findMaterialsByOssFileIdDAO(ossFileId, tx)
-                for (const material of materials) {
-                    await updateMaterialEmbeddingStatusDAO(material.id, 'failed', tx)
-                }
+                const { batchUpdateMaterialEmbeddingStatusByOssFileIdDAO } = await import('../case/caseMaterial.dao')
+                await batchUpdateMaterialEmbeddingStatusByOssFileIdDAO(ossFileId, 'failed', tx)
             } catch (updateError: any) {
                 logger.warn('更新 case_materials embedding_status 失败', {
                     ossFileId,
@@ -537,7 +517,7 @@ export async function updateImageRecognitionService(
         }
 
         // 3. 将 Markdown 转换为 HTML
-        const htmlContent = await markdownToHtml(markdownContent)
+        const htmlContent = await markdownToHtmlService(markdownContent)
 
         // 4. 更新记录
         const updatedRecord = await updateImageRecognitionRecordDao(
@@ -698,7 +678,7 @@ export async function createImageRecognitionByBase64Service(
 
         // 5. 将 Markdown 转换为 HTML
         // Requirements: 10.5
-        const htmlContent = await markdownToHtml(extractResult.imageInfo)
+        const htmlContent = await markdownToHtmlService(extractResult.imageInfo)
 
         // 6. 识别成功后才创建图片识别记录
         // Requirements: 10.1, 10.4, 10.5

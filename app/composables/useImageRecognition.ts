@@ -7,13 +7,12 @@
  * @requirements 5.1-5.6
  */
 
-/** 支持的图片扩展名 */
-const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'heif']
+import { getExtensionFromFileName, IMAGE_EXTENSIONS } from '~~/shared/utils/file'
 
 /**
  * 判断是否为图片文件
  */
 export const isImageFile = (fileName: string): boolean => {
-    const ext = fileName.split('.').pop()?.toLowerCase()
-    return IMAGE_EXTENSIONS.includes(ext || '')
+    const ext = getExtensionFromFileName(fileName)
+    return IMAGE_EXTENSIONS.includes(ext)
 }

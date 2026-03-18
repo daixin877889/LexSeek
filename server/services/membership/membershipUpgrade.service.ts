@@ -115,23 +115,30 @@ export const getUpgradeOptionsService = async (
     const currentYearlyPrice = decimalToNumberUtils(currentProduct?.priceYearly)
 
     // 为每个更高级别计算升级价格
+    // 优化：一次性查询所有级别的商品，避免 N+1 查询
+    const allProducts = await prisma.products.findMany({
+        where: {
+            levelId: { in: higherLevels.map(level => level.id) },
+            type: ProductType.MEMBERSHIP,
+            status: 1,
+            deletedAt: null,
+        },
+        orderBy: { sortOrder: 'asc' },
+    })
+
+    // 按 levelId 分组，每个级别只取第一个商品
+    const productsByLevel = new Map<number, products>()
+    for (const product of allProducts) {
+        if (!productsByLevel.has(product.levelId)) {
+            productsByLevel.set(product.levelId, product)
+        }
+    }
+
     const options: UpgradeOption[] = []
 
     for (const level of higherLevels) {
-        // 查找该级别对应的商品
-        const products = await prisma.products.findMany({
-            where: {
-                levelId: level.id,
-                type: ProductType.MEMBERSHIP,
-                status: 1,
-                deletedAt: null,
-            },
-            orderBy: { sortOrder: 'asc' },
-        })
-
-        if (products.length === 0) continue
-
-        const product = products[0]
+        const product = productsByLevel.get(level.id)
+        if (!product) continue
 
         // 计算升级价格（传入累计实付金额和原始总天数）
         const priceResult = calculateUpgradePrice(

@@ -20,6 +20,7 @@ import {
 import { embedDocumentService } from './materialEmbedding.service'
 import { v4 as uuidv4 } from 'uuid'
 import { processAllImagesInMarkdown } from './imageProcessor'
+import { getExtensionFromFileName } from '~~/shared/utils/file'
 
 /** 文本文件读取结果 */
 export interface TextReaderResult {
@@ -83,7 +84,7 @@ export const readTextFileService = async (
 
         // 5. 简单处理：将纯文本内容作为 Markdown
         // 对于 txt 文件，直接将内容作为 Markdown；对于 md 文件，保持原样
-        const ext = ossFile.fileName.split('.').pop()?.toLowerCase()
+        const ext = getExtensionFromFileName(ossFile.fileName)
         let markdownContent = ext === 'md' ? content : `# ${ossFile.fileName}\n\n${content}`
 
         // 6. 如果是 md 文件，处理图片

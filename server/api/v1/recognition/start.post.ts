@@ -17,6 +17,7 @@ import { transcribeAudioService } from '~~/server/services/material/asr.service'
 import { readTextFileService } from '~~/server/services/material/textReader.service'
 import { recognizeDocxService } from '~~/server/services/material/docxRecognition.service'
 import { CaseMaterialType } from '#shared/types/case'
+import { getExtensionFromFileName } from '~~/shared/utils/file'
 
 /** 请求参数校验 */
 const schema = z.object({
@@ -81,7 +82,7 @@ export default defineEventHandler(async (event) => {
         const fileType = detectFileTypeService(ossFile.fileName)
 
         // 获取文件扩展名
-        const ext = ossFile.fileName.split('.').pop()?.toLowerCase() || ''
+        const ext = getExtensionFromFileName(ossFile.fileName) || ''
 
         // 根据文件类型调用对应的识别服务
         // 标记是否为同步处理（md/txt/docx 是同步处理，图片/音频/pdf 是异步处理）

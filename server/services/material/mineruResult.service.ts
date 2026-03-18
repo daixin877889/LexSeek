@@ -13,6 +13,7 @@ import { v7 as uuidv7 } from 'uuid'
 import { FileSource, OssFileStatus } from '#shared/types/file'
 import { StorageProviderType, type AliyunPostSignatureResult } from '~~/server/lib/storage/types'
 import { embedDocumentService } from '~~/server/services/material/materialEmbedding.service'
+import { getExtensionFromFileName } from '~~/shared/utils/file'
 
 /** ZIP 中提取的图片信息 */
 interface ExtractedImage {
@@ -57,19 +58,10 @@ const MIME_TYPE_MAP: Record<string, string> = {
 }
 
 /**
- * 获取文件扩展名（小写）
- */
-const getExtension = (filename: string): string => {
-    const lastDot = filename.lastIndexOf('.')
-    if (lastDot === -1) return ''
-    return filename.slice(lastDot + 1).toLowerCase()
-}
-
-/**
  * 判断是否为图片文件
  */
 const isImageFile = (filename: string): boolean => {
-    const ext = getExtension(filename)
+    const ext = getExtensionFromFileName(filename)
     return IMAGE_EXTENSIONS.includes(ext)
 }
 
@@ -77,7 +69,7 @@ const isImageFile = (filename: string): boolean => {
  * 获取图片 MIME 类型
  */
 const getImageMimeType = (filename: string): string => {
-    const ext = getExtension(filename)
+    const ext = getExtensionFromFileName(filename)
     return MIME_TYPE_MAP[ext] || 'application/octet-stream'
 }
 
@@ -164,7 +156,7 @@ async function uploadSingleImageToOssService(
     const dir = `${basePath}user${userId}/${FileSource.CASE_ANALYSIS}/`
     const callbackUrl = storageConfig.callbackUrl
 
-    const saveName = `${uuidv7()}.${getExtension(fileName) || 'png'}`
+    const saveName = `${uuidv7()}.${getExtensionFromFileName(fileName) || 'png'}`
 
     try {
         // 创建文件记录
@@ -278,7 +270,7 @@ export async function uploadImagesToOssService(
     for (let i = 0; i < images.length; i++) {
         const img = images[i]!
         try {
-            const ext = getExtension(img.fileName) || 'png'
+            const ext = getExtensionFromFileName(img.fileName) || 'png'
             const ossFileName = `${filePrefix}_mineru_${i + 1}.${ext}`
 
             const fileId = await uploadSingleImageToOssService(

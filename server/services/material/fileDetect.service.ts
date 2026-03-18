@@ -5,14 +5,7 @@
  */
 
 import { CaseMaterialType } from '#shared/types/case'
-
-/**
- * 从文件名获取文件扩展名
- */
-function getExtensionFromFileName(fileName: string): string {
-    const parts = fileName.split('.')
-    return parts.length > 1 ? parts[parts.length - 1] : ''
-}
+import { getExtensionFromFileName } from '~~/shared/utils/file'
 
 /**
  * 根据文件扩展名识别材料类型

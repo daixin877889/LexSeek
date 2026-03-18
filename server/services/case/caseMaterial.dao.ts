@@ -135,7 +135,7 @@ export const findMaterialByIdDAO = async (
 
 /**
  * 根据 OSS 文件 ID 查询材料
- * 
+ *
  * @param ossFileId OSS 文件 ID
  * @param tx 事务对象（可选）
  * @returns 材料记录列表
@@ -155,6 +155,33 @@ export const findMaterialsByOssFileIdDAO = async (
         return materials
     } catch (error) {
         logger.error('根据 OSS 文件 ID 查询材料失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 批量更新材料向量化状态（根据 ossFileId）
+ *
+ * @param ossFileId OSS 文件 ID
+ * @param status 向量化状态
+ * @param tx 事务对象（可选）
+ */
+export const batchUpdateMaterialEmbeddingStatusByOssFileIdDAO = async (
+    ossFileId: number,
+    status: 'pending' | 'processing' | 'completed' | 'failed',
+    tx?: Prisma.TransactionClient
+): Promise<void> => {
+    const client = tx || prisma
+    try {
+        await client.caseMaterials.updateMany({
+            where: {
+                ossFileId,
+                deletedAt: null,
+            },
+            data: { embeddingStatus: status },
+        })
+    } catch (error) {
+        logger.error('批量更新材料向量化状态失败：', error)
         throw error
     }
 }

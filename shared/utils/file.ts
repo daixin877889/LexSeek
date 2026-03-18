@@ -43,6 +43,11 @@ export const DOC_ACCEPT = {
 }
 
 /**
+ * 图片文件扩展名列表
+ */
+export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'heif']
+
+/**
  * 图片识别允许的文件类型及最大大小
  */
 export const IMAGE_ACCEPT = {

@@ -31,6 +31,19 @@ import { v4 as uuidv4 } from 'uuid'
 import { $fetch as ofetch } from 'ofetch'
 import { processUrlImagesInMarkdown } from './imageProcessor'
 import { FileSource, OssFileStatus } from '#shared/types/file'
+import { getExtensionFromFileName } from '~~/shared/utils/file'
+import { PollingConfig, calculateBackoffDelay, DEFAULT_POLLING_CONFIG } from './materialConstants'
+
+/**
+ * MinerU PDF 转换专用轮询配置
+ * PDF 处理耗时较长，使用适中的轮询策略
+ */
+const MINERU_POLLING_CONFIG: PollingConfig = {
+    initialDelay: 5000,      // 5 秒初始延迟
+    backoffFactor: 1.5,      // 1.5 倍退避因子
+    maxDelay: 300000,        // 5 分钟最大延迟
+    maxRetries: 20,          // 最多 20 次重试（比默认值少，因为 PDF 处理通常更快完成）
+}
 
 /** PDF 解析积分消耗项目标识符 */
 const DOC_PARSE_ITEM_KEY = 'doc_parse'
@@ -75,25 +88,7 @@ export interface MineruConversionResult {
     error?: string
 }
 
-/** 轮询配置 */
-interface PollingConfig {
-    /** 初始延迟（毫秒） */
-    initialDelay: number
-    /** 最大延迟（毫秒） */
-    maxDelay: number
-    /** 最大重试次数 */
-    maxRetries: number
-    /** 退避因子 */
-    backoffFactor: number
-}
-
-/** 默认轮询配置 */
-const DEFAULT_POLLING_CONFIG: PollingConfig = {
-    initialDelay: 5000,      // 5 秒
-    maxDelay: 300000,        // 5 分钟
-    maxRetries: 20,          // 最多 20 次
-    backoffFactor: 1.5,      // 每次延迟增加 1.5 倍
-}
+// 使用共享的默认轮询配置，定义在 materialConstants.ts 中
 
 
 // ==================== 工具函数 ====================
@@ -140,7 +135,7 @@ async function uploadImageToOss(
     taskId: string,
     userId: number
 ): Promise<{ bucket: string; ossFileId: number } | null> {
-    const ext = imageName.split('.').pop() || 'png'
+    const ext = getExtensionFromFileName(imageName) || 'png'
     const uniqueName = `${uuidv4()}.${ext}`
     const ossPath = `mineru/${taskId}/${uniqueName}`
 
@@ -245,19 +240,6 @@ async function markdownToHtml(markdown: string): Promise<string> {
 
     return marked.parse(markdown)
 }
-
-
-/**
- * 计算指数退避延迟
- */
-function calculateBackoffDelay(
-    retryCount: number,
-    config: PollingConfig = DEFAULT_POLLING_CONFIG
-): number {
-    const delay = config.initialDelay * Math.pow(config.backoffFactor, retryCount)
-    return Math.min(delay, config.maxDelay)
-}
-
 
 // ==================== 服务层 ====================
 
@@ -576,14 +558,11 @@ export const completeConversionService = async (
 
                 logger.info(`PDF 转换向量化嵌入完成：taskId=${taskId}, chunkCount=${embeddingResult.chunkCount}`)
 
-                // 更新 case_materials 表的 embedding_status
+                // 更新 case_materials 表的 embedding_status（批量更新）
                 try {
-                    const { findMaterialsByOssFileIdDAO, updateMaterialEmbeddingStatusDAO } = await import('../case/caseMaterial.dao')
-                    const materials = await findMaterialsByOssFileIdDAO(task.ossFileId)
-                    for (const material of materials) {
-                        await updateMaterialEmbeddingStatusDAO(material.id, 'completed')
-                        logger.info(`更新材料 ${material.id} 的 embedding_status 为 completed`)
-                    }
+                    const { batchUpdateMaterialEmbeddingStatusByOssFileIdDAO } = await import('../case/caseMaterial.dao')
+                    await batchUpdateMaterialEmbeddingStatusByOssFileIdDAO(task.ossFileId, 'completed')
+                    logger.info(`批量更新材料 ${task.ossFileId} 的 embedding_status 为 completed`)
                 } catch (updateError: any) {
                     // 更新失败不影响主流程
                     logger.warn('更新 case_materials embedding_status 失败', {
@@ -595,13 +574,10 @@ export const completeConversionService = async (
                 // 嵌入失败不影响转换结果，只记录日志
                 logger.error('PDF 转换向量化嵌入失败：', embeddingError)
 
-                // 更新 case_materials 表的 embedding_status 为 failed
+                // 更新 case_materials 表的 embedding_status 为 failed（批量更新）
                 try {
-                    const { findMaterialsByOssFileIdDAO, updateMaterialEmbeddingStatusDAO } = await import('../case/caseMaterial.dao')
-                    const materials = await findMaterialsByOssFileIdDAO(task.ossFileId)
-                    for (const material of materials) {
-                        await updateMaterialEmbeddingStatusDAO(material.id, 'failed')
-                    }
+                    const { batchUpdateMaterialEmbeddingStatusByOssFileIdDAO } = await import('../case/caseMaterial.dao')
+                    await batchUpdateMaterialEmbeddingStatusByOssFileIdDAO(task.ossFileId, 'failed')
                 } catch (updateError: any) {
                     logger.warn('更新 case_materials embedding_status 失败', {
                         ossFileId: task.ossFileId,
@@ -832,7 +808,7 @@ export const pollPendingTasksService = async (): Promise<{
  */
 export const startTaskPollingService = async (
     taskId: string,
-    config: PollingConfig = DEFAULT_POLLING_CONFIG
+    config: PollingConfig = MINERU_POLLING_CONFIG
 ): Promise<void> => {
     let retryCount = 0
 
