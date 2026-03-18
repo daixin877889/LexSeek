@@ -20,6 +20,7 @@ import {
     updateImageRecognitionRecordDao,
     findImageRecognitionsByOssFileIdsDao,
 } from './ocr.dao'
+import { batchUpdateMaterialEmbeddingStatus } from './material.dao'
 import { generateSignedUrlService } from '../storage/storage.service'
 import { getValidNodeConfig, getNodeConfigService, type NodeConfig } from '../node/node.service'
 import { embedImageService } from './materialEmbedding.service'
@@ -431,16 +432,7 @@ export async function createImageRecognitionService(
                 })
 
                 // 更新 case_materials 表的 embedding_status（批量更新）
-                try {
-                    const { batchUpdateMaterialEmbeddingStatusByOssFileIdDAO } = await import('../case/caseMaterial.dao')
-                    await batchUpdateMaterialEmbeddingStatusByOssFileIdDAO(ossFileId, 'completed', tx)
-                } catch (updateError: any) {
-                    // 更新失败不影响主流程
-                    logger.warn('更新 case_materials embedding_status 失败', {
-                        ossFileId,
-                        error: updateError.message,
-                    })
-                }
+                await batchUpdateMaterialEmbeddingStatus(ossFileId, 'completed', tx)
             }
         } catch (embedError: any) {
             // 向量化失败不影响识别结果
@@ -450,15 +442,7 @@ export async function createImageRecognitionService(
             })
 
             // 更新 case_materials 表的 embedding_status 为 failed（批量更新）
-            try {
-                const { batchUpdateMaterialEmbeddingStatusByOssFileIdDAO } = await import('../case/caseMaterial.dao')
-                await batchUpdateMaterialEmbeddingStatusByOssFileIdDAO(ossFileId, 'failed', tx)
-            } catch (updateError: any) {
-                logger.warn('更新 case_materials embedding_status 失败', {
-                    ossFileId,
-                    error: updateError.message,
-                })
-            }
+            await batchUpdateMaterialEmbeddingStatus(ossFileId, 'failed', tx)
         }
 
         return conversionResult
@@ -814,17 +798,7 @@ async function embedImageRecordService(
 
         // 4. 批量更新 case_materials 表的 embedding_status 为 completed
         // Requirements: 10.13
-        try {
-            const { batchUpdateMaterialEmbeddingStatusByOssFileIdDAO } = await import('../case/caseMaterial.dao')
-            await batchUpdateMaterialEmbeddingStatusByOssFileIdDAO(ossFileId, 'completed', tx)
-            logger.info(`批量更新材料 embedding_status 为 completed: ossFileId=${ossFileId}`)
-        } catch (updateError: any) {
-            // 更新失败不影响主流程
-            logger.warn('批量更新 case_materials embedding_status 失败', {
-                ossFileId,
-                error: updateError.message,
-            })
-        }
+        await batchUpdateMaterialEmbeddingStatus(ossFileId, 'completed', tx)
 
         return {
             success: true,
@@ -834,16 +808,7 @@ async function embedImageRecordService(
     } catch (embedError: any) {
         // 向量化失败，批量更新 case_materials 表的 embedding_status 为 failed
         // Requirements: 10.14
-        try {
-            const { batchUpdateMaterialEmbeddingStatusByOssFileIdDAO } = await import('../case/caseMaterial.dao')
-            await batchUpdateMaterialEmbeddingStatusByOssFileIdDAO(ossFileId, 'failed', tx)
-            logger.info(`批量更新材料 embedding_status 为 failed: ossFileId=${ossFileId}`)
-        } catch (updateError: any) {
-            logger.warn('批量更新 case_materials embedding_status 失败', {
-                ossFileId,
-                error: updateError.message,
-            })
-        }
+        await batchUpdateMaterialEmbeddingStatus(ossFileId, 'failed', tx)
 
         return {
             success: false,

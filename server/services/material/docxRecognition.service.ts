@@ -18,8 +18,8 @@ import {
     findOssFileByIdIncludeDeletedDao,
 } from '../files/ossFiles.dao'
 import { embedDocumentService } from './materialEmbedding.service'
+import { batchUpdateMaterialEmbeddingStatus } from './material.dao'
 import mammoth from 'mammoth'
-import { v4 as uuidv4 } from 'uuid'
 import { processAllImagesInMarkdown } from './imageProcessor'
 
 /** DOCX 识别结果 */
@@ -30,40 +30,6 @@ export interface DocxRecognitionResult {
     record?: docRecognitionRecords
     /** 错误信息 */
     error?: string
-}
-
-/** 图片信息 */
-interface DocxImageInfo {
-    /** 图片 buffer */
-    buffer: Buffer
-    /** MIME 类型 */
-    mimeType: string
-    /** 图片在文档中的索引 */
-    index: number
-}
-
-/**
- * 从 DOCX 中提取所有图片
- */
-async function extractImagesFromDocx(fileBuffer: Buffer): Promise<DocxImageInfo[]> {
-    const images: DocxImageInfo[] = []
-
-    // 使用 mammoth.extractRawImage 来提取图片
-    const imageBufferIterable = mammoth.extractRawImage({ buffer: fileBuffer })
-
-    let index = 0
-    for await (const imageResult of imageBufferIterable) {
-        if (imageResult.buffer) {
-            images.push({
-                buffer: imageResult.buffer,
-                mimeType: imageResult.contentType || 'image/png',
-                index: index++,
-            })
-        }
-    }
-
-    logger.info(`从 DOCX 中提取到 ${images.length} 张图片`)
-    return images
 }
 
 /**
@@ -156,10 +122,6 @@ export const recognizeDocxService = async (
         // 4. 使用 mammoth 解析 docx 文件
         const mammothResult = await mammoth.convertToMarkdown({ buffer: fileBuffer })
 
-        if (mammothResult.errors && mammothResult.errors.length > 0) {
-            logger.warn(`DOCX 解析存在警告：ossFileId=${ossFileId}`, mammothResult.errors)
-        }
-
         let markdownContent = mammothResult.value
 
         if (!markdownContent || markdownContent.trim() === '') {
@@ -221,31 +183,13 @@ export const recognizeDocxService = async (
             logger.info(`DOCX 文件向量化嵌入完成：ossFileId=${ossFileId}, chunkCount=${embeddingResult.chunkCount}`)
 
             // 批量更新 case_materials 表的 embedding_status
-            try {
-                const { batchUpdateMaterialEmbeddingStatusByOssFileIdDAO } = await import('../case/caseMaterial.dao')
-                await batchUpdateMaterialEmbeddingStatusByOssFileIdDAO(ossFileId, 'completed')
-                logger.info(`批量更新材料 embedding_status 为 completed: ossFileId=${ossFileId}`)
-            } catch (updateError: any) {
-                logger.warn('批量更新 case_materials embedding_status 失败', {
-                    ossFileId,
-                    error: updateError.message,
-                })
-            }
+            await batchUpdateMaterialEmbeddingStatus(ossFileId, 'completed')
         } catch (embeddingError) {
             // 嵌入失败不影响主流程，只记录日志
             logger.error('DOCX 文件向量化嵌入失败：', embeddingError)
 
             // 批量更新 case_materials 表的 embedding_status 为 failed
-            try {
-                const { batchUpdateMaterialEmbeddingStatusByOssFileIdDAO } = await import('../case/caseMaterial.dao')
-                await batchUpdateMaterialEmbeddingStatusByOssFileIdDAO(ossFileId, 'failed')
-                logger.info(`批量更新材料 embedding_status 为 failed: ossFileId=${ossFileId}`)
-            } catch (updateError: any) {
-                logger.warn('批量更新 case_materials embedding_status 失败', {
-                    ossFileId,
-                    error: updateError.message,
-                })
-            }
+            await batchUpdateMaterialEmbeddingStatus(ossFileId, 'failed')
         }
 
         logger.info(`DOCX 文件识别完成：ossFileId=${ossFileId}`)
