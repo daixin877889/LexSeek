@@ -14,22 +14,26 @@ export const mainAgent = async (sessionId: string, prompt: string) => {
 
 
 
-    const model = new ChatDeepSeek({
+    const model = new ChatAnthropic({
         model: "deepseek-reasoner",
         apiKey: "sk-62418816f329463b8608cab7851fe4da",
         anthropicApiUrl: "https://api.deepseek.com/anthropic",
 
     } as any);
 
-    const agent = createDeepAgent({
+    const agent: any = createDeepAgent({
         model,
         systemPrompt: "你是一个专业的律师，请根据用户的问题，给出专业的回答。",
         checkpointer,
-        // backend: (config) => new CompositeBackend(
-        //     new StateBackend(config),
-        //     { "/memories/": new StoreBackend(config) }
-        // ),
     });
+
+    const streamConfig: any = {
+        configurable: {
+            thread_id: sessionId,
+        },
+        streamMode: ["updates", "messages", "custom"],
+        subgraphs: true
+    };
 
     const result = await agent.stream(
         {
@@ -40,13 +44,7 @@ export const mainAgent = async (sessionId: string, prompt: string) => {
                 },
             ],
         },
-        {
-
-            configurable: {
-                thread_id: sessionId,
-            },
-            streamMode: ["updates", "messages", "custom"], subgraphs: true
-        }
+        streamConfig
     );
 
     return result;
