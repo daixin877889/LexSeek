@@ -48,6 +48,16 @@ export const DOC_ACCEPT = {
 export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'heif']
 
 /**
+ * 音频文件扩展名列表
+ */
+export const AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'webm', 'amr', 'opus']
+
+/**
+ * 文档文件扩展名列表（支持识别的类型）
+ */
+export const DOC_EXTENSIONS = ['docx', 'doc', 'pdf', 'md', 'mkd', 'markdown', 'txt']
+
+/**
  * 图片识别允许的文件类型及最大大小
  */
 export const IMAGE_ACCEPT = {
