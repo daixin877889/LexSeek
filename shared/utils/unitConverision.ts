@@ -16,7 +16,7 @@ export function timeUnitToMs(inputValue: number, inputUnit: TimeUnit, outputUnit
     [TimeUnit.MINUTE]: 60000,
     [TimeUnit.HOUR]: 3600000,
     [TimeUnit.DAY]: 86400000,
-    [TimeUnit.MONTH]: 259200000,
+    [TimeUnit.MONTH]: 2592000000,
   }
   // 先转换成毫秒
   const ms = inputValue * unitMap[inputUnit];
