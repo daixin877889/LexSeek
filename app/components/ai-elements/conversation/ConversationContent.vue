@@ -9,7 +9,7 @@ interface Props {
 const props = defineProps<Props>()
 
 const classes = computed(() => [
-  'flex flex-col gap-8 p-4',
+  'flex flex-col gap-2 p-4',
   props.class,
 ])
 </script>
