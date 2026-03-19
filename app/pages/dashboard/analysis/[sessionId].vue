@@ -75,31 +75,56 @@
 
 
           </div>
-          <!-- 任务进度（可折叠） -->
-          <Collapsible v-model:open="showTaskList" class="shrink-0 border-t">
-            <CollapsibleTrigger
-              class="flex items-center justify-between w-full px-4 py-2 hover:bg-muted/50 transition-colors">
-              <span class="text-sm font-medium">分析进度</span>
-              <Badge variant="outline" class="text-xs">
-                {{Todos.filter(todo => todo.status === 'completed').length}}/{{ Todos.length }}
-              </Badge>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <div class="px-4 pb-3">
+          <!-- 任务进度（可折叠，有 todo 时才显示） -->
+          <Transition @enter="onProgressEnter" @after-enter="onProgressAfterEnter" @leave="onProgressLeave"
+            @after-leave="onProgressAfterLeave">
+            <Collapsible v-if="allTodos.length > 0" v-model:open="showTaskList" class="shrink-0 border-t">
+              <CollapsibleTrigger
+                class="flex items-center justify-between w-full px-4 py-2 hover:bg-muted/50 transition-colors">
+                <span class="text-sm font-medium">任务进度</span>
+                <div class="flex items-center gap-2">
+                  <Badge variant="outline" class="text-xs">
+                    {{allTodos.filter(todo => todo.status === 'completed').length}}/{{ allTodos.length }}
+                  </Badge>
+                  <ChevronUpIcon class="size-4 text-muted-foreground transition-transform duration-200"
+                    :class="{ 'rotate-180': !showTaskList }" />
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div ref="todoListRef" class="px-4 pb-3 max-h-[200px] overflow-y-auto">
 
-                <AiElementsQueue>
-                  <AiElementsQueueSection>
-                    <AiElementsQueueItem v-for="todo in Todos" :key="todo.id">
-                      <AiElementsQueueItemContent :completed="todo.status === 'completed'">
-                        <AiElementsQueueItemIndicator :completed="todo.status === 'completed'" />
-                        {{ todo.title }}
-                      </AiElementsQueueItemContent>
-                    </AiElementsQueueItem>
-                  </AiElementsQueueSection>
-                </AiElementsQueue>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
+                  <AiElementsQueue>
+                    <template v-if="orderedTodoGroups.length === 1">
+                      <AiElementsQueueSection>
+                        <AiElementsQueueItem v-for="todo in orderedTodoGroups[0]!.todos" :key="todo.id">
+                          <AiElementsQueueItemContent :completed="todo.status === 'completed'">
+                            <AiElementsQueueItemIndicator :completed="todo.status === 'completed'" />
+                            {{ todo.title }}
+                          </AiElementsQueueItemContent>
+                        </AiElementsQueueItem>
+                      </AiElementsQueueSection>
+                    </template>
+                    <template v-else>
+                      <AiElementsQueueSection v-for="group in orderedTodoGroups" :key="group.messageId">
+                        <AiElementsQueueSectionTrigger>
+                          <AiElementsQueueSectionLabel :label="group.label"
+                            :count="group.todos.filter(t => t.status === 'completed').length" />
+                        </AiElementsQueueSectionTrigger>
+                        <AiElementsQueueSectionContent>
+                          <AiElementsQueueItem v-for="todo in group.todos" :key="todo.id">
+                            <AiElementsQueueItemContent :completed="todo.status === 'completed'">
+                              <AiElementsQueueItemIndicator :completed="todo.status === 'completed'" />
+                              {{ todo.title }}
+                            </AiElementsQueueItemContent>
+                          </AiElementsQueueItem>
+                        </AiElementsQueueSectionContent>
+                      </AiElementsQueueSection>
+                    </template>
+                  </AiElementsQueue>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </Transition>
 
           <!-- 底部输入区域（固定） -->
           <div class="shrink-0 border-t p-3 bg-background">
@@ -138,7 +163,7 @@
 
 <script lang="ts" setup>
 import type { AnalysisResult, InterruptData } from "#shared/types/case";
-import { ArrowLeftIcon, Loader2Icon, AlertCircleIcon, SendIcon } from "lucide-vue-next";
+import { ArrowLeftIcon, Loader2Icon, AlertCircleIcon, SendIcon, ChevronUpIcon } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 import { Chat } from '@ai-sdk/vue'
 import type { UIMessage } from 'ai'
@@ -184,34 +209,17 @@ const getTodosFromPart = (part: WriteTodos): TodoItem[] => {
   return part.output?.update?.todos ?? part.input?.todos ?? []
 }
 
-const Todos: QueueTodo[] = reactive([])
-
-// 跟踪当前处理的 todos 所在消息 ID，用于多轮对话时清空旧列表
-let lastTodosMessageId: string | null = null
-
-// 防抖：避免 deep watch 每个 token 都触发列表更新
-let updatePending = false
-let pendingWriteTodos: WriteTodos | null = null
-let pendingMessageId: string | null = null
-
-const updateTodos = (inputTodos: WriteTodos) => {
-  getTodosFromPart(inputTodos).forEach((item, index) => {
-    if (index < Todos.length) {
-      // 原地更新属性，避免替换整个对象触发列表重新渲染
-      const todo = Todos[index]
-      if (todo) {
-        todo.title = item.content
-        todo.status = item.status
-      }
-    } else {
-      Todos.push({
-        id: String(index),
-        title: item.content,
-        status: item.status
-      })
-    }
-  })
+interface TodoGroup {
+  messageId: string
+  label: string
+  todos: QueueTodo[]
 }
+
+const todoGroups: Map<string, TodoGroup> = reactive(new Map())
+
+const orderedTodoGroups = computed<TodoGroup[]>(() => Array.from(todoGroups.values()))
+
+const allTodos = computed<QueueTodo[]>(() => orderedTodoGroups.value.flatMap(g => g.todos))
 
 // 派生状态
 const isAnalyzing = ref(false)
@@ -224,7 +232,7 @@ const chat = new Chat<UIMessage>({
   transport: new DefaultChatTransport({
     api: '/api/v1/case/analysis/stream/' + sessionId.value,
   }),
-  onFinish: () => {},
+  onFinish: () => { },
   onError: (error) => {
     toast.error('分析失败：' + error.message)
     console.error('[analysis] stream error', error)
@@ -235,39 +243,83 @@ const chat = new Chat<UIMessage>({
 // const messages = chat.messages
 const sendMessage = (msg: { text: string }) => chat.sendMessage(msg)
 
-// 监听 messages 变化，只处理最后一个 write_todos（防抖减少更新频率）
-watch(() => chat.messages, (newMessages) => {
-  // 找到最后一个 write_todos part 及其所在 message
-  let lastWriteTodos: WriteTodos | null = null
-  let messageId: string | null = null
+// 防抖标记
+let updatePending = false
 
-  for (const message of newMessages) {
-    for (const part of (message as any).parts ?? []) {
-      if (part.type === 'dynamic-tool' && part.toolName === 'write_todos') {
-        lastWriteTodos = part as WriteTodos
-        messageId = (message as any).id
+// 监听 messages 变化，按 messageId 分组收集所有 write_todos
+watch(() => chat.messages, (newMessages) => {
+  if (updatePending) return
+  updatePending = true
+
+  nextTick(() => {
+    // 收集所有含 write_todos 的 message，按 messageId 分组
+    const seenIds = new Set<string>()
+    let groupIndex = 0
+
+    for (const message of newMessages) {
+      const msgId = (message as any).id as string
+      // 找到该 message 中最后一个 write_todos part（同一消息中多次调用取最新）
+      let lastWriteTodos: WriteTodos | null = null
+      for (const part of (message as any).parts ?? []) {
+        if (part.type === 'dynamic-tool' && part.toolName === 'write_todos') {
+          lastWriteTodos = part as WriteTodos
+        }
+      }
+
+      if (!lastWriteTodos) continue
+
+      const items = getTodosFromPart(lastWriteTodos)
+      if (!items.length) continue
+
+      seenIds.add(msgId)
+      groupIndex++
+
+      const existing = todoGroups.get(msgId)
+      if (existing) {
+        // 原地更新已有分组
+        items.forEach((item, index) => {
+          if (index < existing.todos.length) {
+            const todo = existing.todos[index]
+            if (todo) {
+              todo.title = item.content
+              todo.status = item.status
+            }
+          } else {
+            existing.todos.push({
+              id: `${msgId}-${index}`,
+              title: item.content,
+              status: item.status,
+            })
+          }
+        })
+        // 截断多余项
+        if (existing.todos.length > items.length) {
+          existing.todos.splice(items.length)
+        }
+        existing.label = `第${groupIndex}轮分析`
+      } else {
+        // 新分组
+        todoGroups.set(msgId, {
+          messageId: msgId,
+          label: `第${groupIndex}轮分析`,
+          todos: items.map((item, index) => ({
+            id: `${msgId}-${index}`,
+            title: item.content,
+            status: item.status,
+          })),
+        })
       }
     }
-  }
 
-  if (!lastWriteTodos || !getTodosFromPart(lastWriteTodos).length) return
-
-  pendingWriteTodos = lastWriteTodos
-  pendingMessageId = messageId
-
-  if (!updatePending) {
-    updatePending = true
-    nextTick(() => {
-      if (!pendingWriteTodos) return
-      // 新消息的 todos → 清空旧列表（多轮对话场景）
-      if (pendingMessageId !== lastTodosMessageId) {
-        lastTodosMessageId = pendingMessageId
-        Todos.splice(0, Todos.length)
+    // 清理已不存在的分组
+    for (const key of todoGroups.keys()) {
+      if (!seenIds.has(key)) {
+        todoGroups.delete(key)
       }
-      updateTodos(pendingWriteTodos)
-      updatePending = false
-    })
-  }
+    }
+
+    updatePending = false
+  })
 }, { deep: true })
 
 
@@ -276,6 +328,7 @@ const isLoading = ref(false);
 const loadError = ref<string | null>(null);
 const isSubmittingInterrupt = ref(false);
 const showTaskList = ref(false);
+const todoListRef = ref<HTMLElement | null>(null);
 const userInput = ref('');
 
 // 案件信息
@@ -311,11 +364,57 @@ const goBack = () => {
   router.push({ name: "dashboard-analysis" });
 }
 
+// 自动展开：仅首次出现 todos 时展开一次
+let hasAutoExpanded = false
+watch(() => allTodos.value.length, (newLen, oldLen) => {
+  if (!hasAutoExpanded && oldLen === 0 && newLen > 0) {
+    hasAutoExpanded = true
+    showTaskList.value = true
+  }
+})
+
+// Transition JS hooks：平滑的滑入/滑出动画
+function onProgressEnter(el: Element) {
+  const htmlEl = el as HTMLElement
+  htmlEl.style.overflow = 'hidden'
+  htmlEl.style.height = '0'
+  htmlEl.style.opacity = '0'
+  void htmlEl.offsetHeight
+  htmlEl.style.transition = 'height 0.3s ease, opacity 0.3s ease'
+  htmlEl.style.height = htmlEl.scrollHeight + 'px'
+  htmlEl.style.opacity = '1'
+}
+
+function onProgressAfterEnter(el: Element) {
+  const htmlEl = el as HTMLElement
+  htmlEl.style.transition = ''
+  htmlEl.style.height = ''
+  htmlEl.style.overflow = ''
+}
+
+function onProgressLeave(el: Element) {
+  const htmlEl = el as HTMLElement
+  htmlEl.style.overflow = 'hidden'
+  htmlEl.style.height = htmlEl.scrollHeight + 'px'
+  htmlEl.style.opacity = '1'
+  void htmlEl.offsetHeight
+  htmlEl.style.transition = 'height 0.3s ease, opacity 0.3s ease'
+  htmlEl.style.height = '0'
+  htmlEl.style.opacity = '0'
+}
+
+function onProgressAfterLeave(el: Element) {
+  const htmlEl = el as HTMLElement
+  htmlEl.style.transition = ''
+  htmlEl.style.height = ''
+  htmlEl.style.overflow = ''
+}
+
 onMounted(() => {
 });
 
 onUnmounted(() => {
-  lastTodosMessageId = null
+  todoGroups.clear()
 });
 </script>
 
