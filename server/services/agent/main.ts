@@ -1,25 +1,19 @@
 import { createDeepAgent, CompositeBackend, StateBackend, StoreBackend } from "deepagents";
-import { MemorySaver } from "@langchain/langgraph";
 import { ChatAnthropic } from "@langchain/anthropic";
-import { ChatDeepSeek } from "@langchain/deepseek";
-import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 import { getCheckpointer } from "../workflow/checkpointer";
-
-
 
 
 export const mainAgent = async (sessionId: string, prompt: string) => {
 
     const checkpointer = await getCheckpointer();
 
-
-
     const model = new ChatAnthropic({
         model: "deepseek-reasoner",
         apiKey: "sk-62418816f329463b8608cab7851fe4da",
         anthropicApiUrl: "https://api.deepseek.com/anthropic",
-
+        thinking: { type: "enabled" },
     } as any);
+
 
     const agent: any = createDeepAgent({
         model,
@@ -29,7 +23,7 @@ export const mainAgent = async (sessionId: string, prompt: string) => {
 
     const streamConfig: any = {
         configurable: {
-            thread_id: sessionId,
+            thread_id: sessionId
         },
         streamMode: ["updates", "messages", "custom"],
         subgraphs: true
