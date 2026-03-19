@@ -157,14 +157,20 @@ const submitStatus = computed<"submitted" | "streaming" | "ready" | "error">(() 
   return 'ready'
 })
 
-// 通过 usePromptInput 获取清空方法（需延迟到 onMounted，PromptInputProvider context 就绪后）
+// 通过 usePromptInput 获取清空方法（SSR 时 inject 返回 null，需捕获）
 const clearInput = ref<(() => void) | null>(null)
 const clearFiles = ref<(() => void) | null>(null)
 
-onMounted(() => {
-  const ctx = usePromptInput()
-  clearInput.value = ctx.clearInput
-  clearFiles.value = ctx.clearFiles
+// SSR 和客户端都需要，watchPostEffect 在两者都会执行
+watchPostEffect(() => {
+  try {
+    const ctx = usePromptInput()
+    clearInput.value = ctx.clearInput
+    clearFiles.value = ctx.clearFiles
+  }
+  catch {
+    // SSR 时 inject 为 null，忽略
+  }
 })
 
 /**
