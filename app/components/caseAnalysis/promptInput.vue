@@ -3,8 +3,6 @@
     <PromptInputProvider @submit="handleSubmit">
       <!-- 输入状态监听器，同步状态到 store -->
       <CaseAnalysisPromptInputWatcher v-if="enableWatcher" />
-      <!-- 在 Provider 内部调用 usePromptInput 并暴露 clear 方法，供父组件通过 ref 调用 -->
-      <PromptInputActions ref="promptInputActionsRef" />
       <PromptInput global-drop multiple
         class="**:data-[slot=input-group]:shadow-none **:data-[slot=input-group]:border-primary **:data-[slot=input-group]:rounded-md">
         <!-- 头部：自定义文件列表 -->
@@ -101,7 +99,7 @@
 <script lang="ts" setup>
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { PromptInput, PromptInputBody, PromptInputButton, PromptInputFooter, PromptInputHeader, PromptInputProvider, PromptInputSubmit, PromptInputTextarea, PromptInputTools } from "@/components/ai-elements/prompt-input";
-import { PromptInputActions } from "@/components/ai-elements/prompt-input";
+import { usePromptInput } from "@/components/ai-elements/prompt-input/context";
 import { Paperclip, SendHorizontal, XIcon, LockIcon, Loader2Icon, CheckIcon, AlertCircleIcon } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 import type { OssFileItem } from "~/store/file";
@@ -159,10 +157,15 @@ const submitStatus = computed<"submitted" | "streaming" | "ready" | "error">(() 
   return 'ready'
 })
 
-// PromptInputActions ref：用于调用 Provider 内部的 clear 方法
-const promptInputActionsRef = ref<{ clearInput: () => void; clearFiles: () => void } | null>(null)
+// 通过 usePromptInput 获取清空方法（需延迟到 onMounted，PromptInputProvider context 就绪后）
+const clearInput = ref<(() => void) | null>(null)
+const clearFiles = ref<(() => void) | null>(null)
 
-// 通过 template ref 调用 clear（而非 composable，因 usePromptInput 必须在 Provider 内部调用）
+onMounted(() => {
+  const ctx = usePromptInput()
+  clearInput.value = ctx.clearInput
+  clearFiles.value = ctx.clearFiles
+})
 
 /**
  * 重置组件状态：清空文本、文件、识别状态、轮询
@@ -171,8 +174,8 @@ function reset() {
   selectedFiles.value = []
   fileRecognitionStatus.value.clear()
   stopAllPolling()
-  promptInputActionsRef.value?.clearInput()
-  promptInputActionsRef.value?.clearFiles()
+  clearInput.value?.()
+  clearFiles.value?.()
 }
 
 defineExpose({ reset })
