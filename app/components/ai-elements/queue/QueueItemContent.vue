@@ -16,17 +16,14 @@ const props = withDefaults(
 </script>
 
 <template>
-  <span
-    :class="
-      cn(
-        'line-clamp-1 grow break-words',
-        props.completed
-          ? 'text-muted-foreground/50 line-through'
-          : 'text-muted-foreground',
-        props.class,
-      )
-    "
-  >
+  <span :class="cn(
+    'line-clamp-1 grow wrap-break-word',
+    props.completed
+      ? 'text-muted-foreground/50 line-through'
+      : 'text-muted-foreground',
+    props.class,
+  )
+    ">
     <slot />
   </span>
 </template>
