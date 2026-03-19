@@ -11,7 +11,6 @@ export const mainAgent = async (sessionId: string, prompt: string) => {
         model: "deepseek-reasoner",
         apiKey: "sk-62418816f329463b8608cab7851fe4da",
         anthropicApiUrl: "https://api.deepseek.com/anthropic",
-        temperature: 0,
         thinking: { type: "enabled" },
     } as any);
 
@@ -26,7 +25,7 @@ export const mainAgent = async (sessionId: string, prompt: string) => {
         configurable: {
             thread_id: sessionId
         },
-        // streamMode: ["values", "messages", "custom"],
+        streamMode: ["values", "messages", "custom"],
         version: 'v2',
         subgraphs: true
     };

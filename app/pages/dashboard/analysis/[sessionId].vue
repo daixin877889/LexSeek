@@ -552,7 +552,7 @@ const chat = new Chat<UIMessage>({
   }),
   onData: (data) => {
     console.log('onData 触发:', data)
-    console.log('onData - messages:', chat.messages)
+
   },
   onFinish: (data) => {
     console.log('onFinish 触发:', data)
