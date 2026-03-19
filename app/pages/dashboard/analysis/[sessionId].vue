@@ -52,13 +52,22 @@
                       </AiElementsReasoning>
 
                       <!-- 文本消息 - 使用 MessageResponse 来渲染 markdown -->
-                      <AiElementsMessageContent v-if="part.type === 'text'">
+                      <AiElementsMessageContent v-else-if="part.type === 'text'">
                         <AiElementsMessageResponse :content="part.text" />
                       </AiElementsMessageContent>
+
+                      <!-- 工具消息 -->
+                      <AiElementsTool v-else-if="part.type === 'dynamic-tool' && part.toolName === 'write_todos'">
+                        <AiElementsToolHeader :state="part.state" :title="'待办事项'" :type="`tool-${part.toolName}`" />
+                        <AiElementsToolContent>
+                          <AiElementsToolOutput v-if="part.state === 'output-available'"
+                            :output="getTodosFromPart(part as WriteTodos)" />
+                        </AiElementsToolContent>
+                      </AiElementsTool>
+
                     </AiElementsMessage>
                   </template>
                 </template>
-
 
               </AiElementsConversationContent>
               <AiElementsConversationScrollButton />
@@ -81,21 +90,13 @@
                 <AiElementsQueue>
                   <AiElementsQueueSection>
                     <AiElementsQueueItem v-for="todo in Todos" :key="todo.id">
-                      <!-- <AiElementsQueueItemIndicator :completed="todo.status === 'completed'" />
-                      <AiElementsQueueItemContent>{{ todo.title }}</AiElementsQueueItemContent> -->
                       <AiElementsQueueItemContent :completed="todo.status === 'completed'">
                         <AiElementsQueueItemIndicator :completed="todo.status === 'completed'" />
                         {{ todo.title }}
                       </AiElementsQueueItemContent>
-
                     </AiElementsQueueItem>
                   </AiElementsQueueSection>
                 </AiElementsQueue>
-
-
-
-                <!-- <CaseTaskList :tasks="tasks" :show-title="false" :show-progress="true" max-height="150px"
-                  @task-click="handleTaskClick" /> -->
               </div>
             </CollapsibleContent>
           </Collapsible>
@@ -120,9 +121,6 @@
               <Loader2Icon class="size-4 animate-spin text-primary mr-2" />
               <span class="text-xs text-muted-foreground">AI 正在分析中...</span>
             </div>
-            <!-- <div v-else-if="isComplete" class="text-center mt-2">
-              <span class="text-xs text-muted-foreground">分析已完成</span>
-            </div> -->
           </div>
         </div>
       </ResizablePanel>
@@ -139,8 +137,7 @@
 </template>
 
 <script lang="ts" setup>
-import type { TaskItem, AnalysisResult, InterruptData } from "#shared/types/case";
-import { CHECKPOINT_TASKS, InterruptType } from "#shared/types/case";
+import type { AnalysisResult, InterruptData } from "#shared/types/case";
 import { ArrowLeftIcon, Loader2Icon, AlertCircleIcon, SendIcon } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 import { Chat } from '@ai-sdk/vue'
@@ -216,8 +213,6 @@ const updateTodos = (inputTodos: WriteTodos) => {
   })
 }
 
-
-
 // 派生状态
 const isAnalyzing = ref(false)
 const isComplete = ref(false)
@@ -229,14 +224,7 @@ const chat = new Chat<UIMessage>({
   transport: new DefaultChatTransport({
     api: '/api/v1/case/analysis/stream/' + sessionId.value,
   }),
-  onData: (data) => {
-    console.log('onData 触发:', data)
-
-  },
-  onFinish: (data) => {
-    console.log('onFinish 触发:', data)
-    console.log('onFinish - messages:', chat.messages)
-  },
+  onFinish: () => {},
   onError: (error) => {
     toast.error('分析失败：' + error.message)
     console.error('[analysis] stream error', error)
@@ -252,9 +240,6 @@ watch(() => chat.messages, (newMessages) => {
   // 找到最后一个 write_todos part 及其所在 message
   let lastWriteTodos: WriteTodos | null = null
   let messageId: string | null = null
-
-
-  console.log(newMessages)
 
   for (const message of newMessages) {
     for (const part of (message as any).parts ?? []) {
@@ -302,8 +287,7 @@ const caseInfo = ref<{
   caseTypeName?: string;
 } | null>(null);
 
-// 任务清单
-const tasks = ref<TaskItem[]>([]);
+// 任务清单（未来扩展用）
 
 // 分析结果
 const analysisResults = ref<AnalysisResult[]>([]);
@@ -313,29 +297,21 @@ const activeResultIndex = ref(0);
 const currentInterrupt = ref<InterruptData | null>(null);
 const showInterruptConfirmation = computed(() => currentInterrupt.value !== null);
 
-const completedTaskCount = computed(() => tasks.value.filter((t) => t.status === "completed").length);
-
 function getStatusText(status: number): string {
   const statusMap: Record<number, string> = { 1: "进行中", 2: "已完成", 3: "已关闭" };
   return statusMap[status] || "未知";
 }
 
-
-
 const handleRegenerate = () => { }
 const handleSendMessage = () => { sendMessage({ text: "开始分析" }) }
 const handleInterruptSubmit = () => { }
 const handleInterruptCancel = () => { }
-const handleTaskClick = () => { }
 const loadCaseInfo = () => { }
 const goBack = () => {
   router.push({ name: "dashboard-analysis" });
 }
 
-
-
 onMounted(() => {
-
 });
 
 onUnmounted(() => {
