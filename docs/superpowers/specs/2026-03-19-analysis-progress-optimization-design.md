@@ -18,7 +18,7 @@
 
 ### 1. 显隐控制
 
-用 `<Transition>` 包裹 Collapsible，配合 `v-if="Todos.length > 0"` 控制渲染：
+用 `<Transition>` 包裹 Collapsible，配合 `v-if="Todos.length > 0"` 控制渲染。`v-if` 会在 Todos 清空时销毁组件——这是有意为之，确保新一轮分析时组件从干净状态开始。
 
 ```vue
 <Transition name="slide-up">
@@ -30,7 +30,7 @@
 
 ### 2. 自动展开
 
-监听 Todos 长度变化，从 0 变为 >0 时自动展开：
+监听 Todos 长度变化（`Todos` 是 `reactive` 数组，`.length` 可被追踪），从 0 变为 >0 时自动展开：
 
 ```typescript
 watch(() => Todos.length, (newLen, oldLen) => {
@@ -40,41 +40,84 @@ watch(() => Todos.length, (newLen, oldLen) => {
 })
 ```
 
+**交互行为**：
+- 首次出现 todo 时自动展开
+- 用户手动折叠后，新 todo 追加不会再自动展开（尊重用户操作）
+- 多轮对话时 Todos 被清空再填充，会再次触发自动展开
+
 ### 3. 固定高度滚动
 
-列表容器添加最大高度和滚动：
+列表容器添加最大高度和滚动，新 todo 追加时自动滚动到底部：
 
 ```vue
-<div class="px-4 pb-3 max-h-[200px] overflow-y-auto">
+<div ref="todoListRef" class="px-4 pb-3 max-h-[200px] overflow-y-auto">
+```
+
+自动滚动逻辑：
+
+```typescript
+const todoListRef = ref<HTMLElement | null>(null)
+
+watch(() => Todos.length, () => {
+  nextTick(() => {
+    if (todoListRef.value) {
+      todoListRef.value.scrollTop = todoListRef.value.scrollHeight
+    }
+  })
+})
 ```
 
 ### 4. CSS 动画
 
-使用 `slide-up` transition，基于 `max-height` + `opacity`：
+使用 Vue `<Transition>` 的 JS hooks 动态获取实际高度，避免 `max-height` 硬编码导致的动画时序问题：
 
-```css
-.slide-up-enter-active,
-.slide-up-leave-active {
-  transition: max-height 0.3s ease, opacity 0.3s ease;
-  overflow: hidden;
+```typescript
+function onEnter(el: Element) {
+  const htmlEl = el as HTMLElement
+  htmlEl.style.overflow = 'hidden'
+  htmlEl.style.height = '0'
+  htmlEl.style.opacity = '0'
+  // 强制 reflow
+  void htmlEl.offsetHeight
+  htmlEl.style.transition = 'height 0.3s ease, opacity 0.3s ease'
+  htmlEl.style.height = htmlEl.scrollHeight + 'px'
+  htmlEl.style.opacity = '1'
 }
 
-.slide-up-enter-from,
-.slide-up-leave-to {
-  max-height: 0;
-  opacity: 0;
+function onAfterEnter(el: Element) {
+  const htmlEl = el as HTMLElement
+  htmlEl.style.transition = ''
+  htmlEl.style.height = ''
+  htmlEl.style.overflow = ''
 }
 
-.slide-up-enter-to,
-.slide-up-leave-from {
-  max-height: 300px;
-  opacity: 1;
+function onLeave(el: Element) {
+  const htmlEl = el as HTMLElement
+  htmlEl.style.overflow = 'hidden'
+  htmlEl.style.height = htmlEl.scrollHeight + 'px'
+  htmlEl.style.opacity = '1'
+  void htmlEl.offsetHeight
+  htmlEl.style.transition = 'height 0.3s ease, opacity 0.3s ease'
+  htmlEl.style.height = '0'
+  htmlEl.style.opacity = '0'
 }
+
+function onAfterLeave(el: Element) {
+  const htmlEl = el as HTMLElement
+  htmlEl.style.transition = ''
+  htmlEl.style.height = ''
+  htmlEl.style.overflow = ''
+}
+```
+
+```vue
+<Transition @enter="onEnter" @after-enter="onAfterEnter" @leave="onLeave" @after-leave="onAfterLeave">
+  <Collapsible v-if="Todos.length > 0" ...>
 ```
 
 ## 改动范围
 
 - 仅修改 `app/pages/dashboard/analysis/[sessionId].vue`
-- 模板：3 处改动（Transition 包裹、列表容器高度）
-- 脚本：1 处改动（添加 watch）
-- 样式：1 处改动（添加 transition CSS）
+- 模板：Transition 包裹 Collapsible、列表容器添加 ref 和 max-h/overflow 类
+- 脚本：添加 todoListRef、自动展开 watch、自动滚动 watch、Transition JS hooks
+- 无额外 CSS（动画通过 JS hooks 实现）
