@@ -58,6 +58,18 @@ export interface CaseMaterialParam {
     materialGroup?: string
 }
 
+/**
+ * promptInput 提交的标准化数据
+ * 由调用方决定如何处理（创建案件 or 发送补充消息）
+ * text 为空字符串时表示纯附件提交，调用方应使用 data.text.trim() 判断
+ */
+export interface PromptSubmitData {
+    /** 用户输入的文本 */
+    text: string
+    /** 已选材料列表 */
+    materials: CaseMaterialParam[]
+}
+
 /** 案件状态文本映射 */
 export const CaseStatusText: Record<CaseStatus, string> = {
     [CaseStatus.IN_PROGRESS]: '进行中',
