@@ -127,22 +127,19 @@
           </Transition>
 
           <!-- 底部输入区域（固定） -->
-          <div class="shrink-0 border-t p-3 bg-background">
-            <!-- 中断确认组件 -->
-            <CaseInterruptConfirmation v-if="showInterruptConfirmation" :interrupt="currentInterrupt"
-              :is-submitting="isSubmittingInterrupt" @submit="handleInterruptSubmit" @cancel="handleInterruptCancel" />
-
-            <!-- 输入框 -->
-            <div v-else class="flex items-center gap-2">
-              <Textarea v-model="userInput" placeholder="输入补充信息或问题..." class="min-h-[40px] max-h-[120px] resize-none"
-                :disabled="isAnalyzing || isComplete" @keydown.enter.exact.prevent="handleSendMessage" />
-              <Button size="icon" :disabled="!userInput.trim() || isAnalyzing || isComplete" @click="handleSendMessage">
-                <SendIcon class="size-4" />
-              </Button>
-            </div>
+          <div class="shrink-0 border-t bg-background">
+            <CaseAnalysisPromptInput
+              ref="promptInputRef"
+              placeholder="输入补充信息或问题..."
+              submit-label="发送"
+              :loading="isAnalyzing"
+              :disabled="isComplete"
+              :enable-watcher="false"
+              @submit="handlePromptSubmit"
+            />
 
             <!-- 状态提示 -->
-            <div v-if="isAnalyzing" class="flex items-center justify-center mt-2">
+            <div v-if="isAnalyzing" class="flex items-center justify-center pb-2">
               <Loader2Icon class="size-4 animate-spin text-primary mr-2" />
               <span class="text-xs text-muted-foreground">AI 正在分析中...</span>
             </div>
@@ -162,8 +159,8 @@
 </template>
 
 <script lang="ts" setup>
-import type { AnalysisResult, InterruptData } from "#shared/types/case";
-import { ArrowLeftIcon, Loader2Icon, AlertCircleIcon, SendIcon, ChevronUpIcon } from "lucide-vue-next";
+import type { AnalysisResult, PromptSubmitData } from "#shared/types/case";
+import { ArrowLeftIcon, Loader2Icon, AlertCircleIcon, ChevronUpIcon } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 import { Chat } from '@ai-sdk/vue'
 import type { UIMessage } from 'ai'
@@ -326,10 +323,8 @@ watch(() => chat.messages, (newMessages) => {
 // 页面状态
 const isLoading = ref(false);
 const loadError = ref<string | null>(null);
-const isSubmittingInterrupt = ref(false);
 const showTaskList = ref(false);
 const todoListRef = ref<HTMLElement | null>(null);
-const userInput = ref('');
 
 // 案件信息
 const caseInfo = ref<{
@@ -346,9 +341,21 @@ const caseInfo = ref<{
 const analysisResults = ref<AnalysisResult[]>([]);
 const activeResultIndex = ref(0);
 
-// 中断状态
-const currentInterrupt = ref<InterruptData | null>(null);
-const showInterruptConfirmation = computed(() => currentInterrupt.value !== null);
+// promptInput 组件引用
+const promptInputRef = ref<{ reset: () => void } | null>(null)
+
+/**
+ * 处理 promptInput 提交：发送补充消息和追加材料
+ */
+async function handlePromptSubmit(data: PromptSubmitData) {
+  if (isAnalyzing.value || isComplete.value) return
+
+  // 发送消息继续分析（materials 暂不传递，当前 stream API 不支持追加材料）
+  sendMessage({ text: data.text || '开始分析' })
+
+  // 重置输入组件
+  promptInputRef.value?.reset()
+}
 
 function getStatusText(status: number): string {
   const statusMap: Record<number, string> = { 1: "进行中", 2: "已完成", 3: "已关闭" };
@@ -356,9 +363,6 @@ function getStatusText(status: number): string {
 }
 
 const handleRegenerate = () => { }
-const handleSendMessage = () => { sendMessage({ text: "开始分析" }) }
-const handleInterruptSubmit = () => { }
-const handleInterruptCancel = () => { }
 const loadCaseInfo = () => { }
 const goBack = () => {
   router.push({ name: "dashboard-analysis" });
