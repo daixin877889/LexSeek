@@ -36,7 +36,7 @@ const thinkingMessage = computed(() => {
 
       <template v-if="thinkingMessage === 'thinking'">
         <Shimmer :duration="1">
-          思考中，已思考 {{ duration }} 秒 ...
+          思考中...
         </Shimmer>
       </template>
 
