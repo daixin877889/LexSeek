@@ -1,25 +1,20 @@
-# LexSeek 开发规范
+# LexSeek 开发规范索引
 
-## 项目
+> 注意：所有规范文件通过 `.claude/rules/` 自动加载（带 paths 限定），无需手动引用。
 
-- 目录结构和技术栈：@architecture.md
-- 运行命令：@commands.md
-- Git 提交规范：@git.md
+## 通用规范（所有文件触发）
 
-## 核心规范
+- **commands.md** - 开发、测试、Prisma 命令
+- **architecture.md** - 目录结构和技术栈
+- **main.md** - 语言要求、TDD 模式、框架约定、自动导入
+- **git.md** - Git 提交规范
+- **types.md** - shared/types 组织、导入规范
 
-- 语言要求、TDD 模式、框架约定、自动导入：@main.md
-- API 开发：响应格式、认证、zod 验证：@api.md
-- 类型定义：shared/types 组织、导入规范：@types.md
-- UI 组件：shadcn-vue、Tailwind v4：@ui.md
-- 测试规范：vitest、质量标准：@testing.md
-- 数据请求：useApi vs useApiFetch：@fetch.md
+## 范围限定规范
 
-## 专项场景
-
-| 场景 | 文档 |
-|------|------|
-| 编写测试 | @testing.md |
-| UI 组件开发 | @ui.md |
-| API 接口开发 | @api.md |
-| 数据请求封装 | @fetch.md |
+| 规范 | 触发路径 |
+|------|---------|
+| api.md | server/** |
+| ui.md | app/components/**, app/**/*.vue |
+| testing.md | tests/** |
+| fetch.md | app/** |
