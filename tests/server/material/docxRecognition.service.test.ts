@@ -97,12 +97,10 @@ vi.mock('~~/server/services/material/materialEmbedding.service', () => ({
 vi.mock('../../../server/services/case/caseMaterial.dao', () => ({
     findMaterialsByOssFileIdDAO: vi.fn().mockResolvedValue([]),
     updateMaterialEmbeddingStatusDAO: vi.fn().mockResolvedValue(undefined),
-    batchUpdateMaterialEmbeddingStatusByOssFileIdDAO: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock('~~/server/services/case/caseMaterial.dao', () => ({
     findMaterialsByOssFileIdDAO: vi.fn().mockResolvedValue([]),
     updateMaterialEmbeddingStatusDAO: vi.fn().mockResolvedValue(undefined),
-    batchUpdateMaterialEmbeddingStatusByOssFileIdDAO: vi.fn().mockResolvedValue(undefined),
 }))
 
 describe('DOCX 文件识别服务', () => {

@@ -18,7 +18,6 @@ import {
     findOssFileByIdIncludeDeletedDao,
 } from '../files/ossFiles.dao'
 import { embedDocumentService } from './materialEmbedding.service'
-import { batchUpdateMaterialEmbeddingStatus } from './material.dao'
 import mammoth from 'mammoth'
 import { processAllImagesInMarkdown } from './imageProcessor'
 
@@ -182,14 +181,10 @@ export const recognizeDocxService = async (
 
             logger.info(`DOCX 文件向量化嵌入完成：ossFileId=${ossFileId}, chunkCount=${embeddingResult.chunkCount}`)
 
-            // 批量更新 case_materials 表的 embedding_status
-            await batchUpdateMaterialEmbeddingStatus(ossFileId, 'completed')
         } catch (embeddingError) {
             // 嵌入失败不影响主流程，只记录日志
             logger.error('DOCX 文件向量化嵌入失败：', embeddingError)
 
-            // 批量更新 case_materials 表的 embedding_status 为 failed
-            await batchUpdateMaterialEmbeddingStatus(ossFileId, 'failed')
         }
 
         logger.info(`DOCX 文件识别完成：ossFileId=${ossFileId}`)

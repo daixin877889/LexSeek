@@ -193,27 +193,3 @@ export const deleteMaterialDao = async (
     }
 }
 
-/**
- * 批量更新材料的 embedding 状态
- *
- * 统一处理动态导入和错误，避免在多个服务中重复代码
- * @param ossFileId OSS 文件 ID
- * @param status embedding 状态：'completed' | 'failed' | 'pending'
- * @param tx 事务对象（可选）
- */
-export const batchUpdateMaterialEmbeddingStatus = async (
-    ossFileId: number,
-    status: 'completed' | 'failed' | 'pending',
-    tx?: Prisma.TransactionClient
-): Promise<void> => {
-    try {
-        const { batchUpdateMaterialEmbeddingStatusByOssFileIdDAO } = await import('../case/caseMaterial.dao')
-        await batchUpdateMaterialEmbeddingStatusByOssFileIdDAO(ossFileId, status, tx)
-        logger.info(`批量更新材料 embedding_status 为 ${status}: ossFileId=${ossFileId}`)
-    } catch (error: any) {
-        logger.warn('批量更新 case_materials embedding_status 失败', {
-            ossFileId,
-            error: error.message,
-        })
-    }
-}

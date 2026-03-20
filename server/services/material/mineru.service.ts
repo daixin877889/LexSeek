@@ -33,7 +33,6 @@ import { processUrlImagesInMarkdown } from './imageProcessor'
 import { FileSource, OssFileStatus } from '#shared/types/file'
 import { getExtensionFromFileName } from '~~/shared/utils/file'
 import { PollingConfig, calculateBackoffDelay, DEFAULT_POLLING_CONFIG } from './materialConstants'
-import { batchUpdateMaterialEmbeddingStatus } from './material.dao'
 
 /**
  * MinerU PDF 转换专用轮询配置
@@ -559,14 +558,10 @@ export const completeConversionService = async (
 
                 logger.info(`PDF 转换向量化嵌入完成：taskId=${taskId}, chunkCount=${embeddingResult.chunkCount}`)
 
-                // 更新 case_materials 表的 embedding_status（批量更新）
-                await batchUpdateMaterialEmbeddingStatus(task.ossFileId, 'completed')
             } catch (embeddingError) {
                 // 嵌入失败不影响转换结果，只记录日志
                 logger.error('PDF 转换向量化嵌入失败：', embeddingError)
 
-                // 更新 case_materials 表的 embedding_status 为 failed（批量更新）
-                await batchUpdateMaterialEmbeddingStatus(task.ossFileId, 'failed')
             }
         }
 
