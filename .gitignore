@@ -1,4 +1,4 @@
-# Nuxt dev/build outputs
+# Nuxt 输出
 .output
 .data
 .nuxt
@@ -6,7 +6,7 @@
 .cache
 dist
 
-# Node dependencies
+# 依赖
 node_modules
 
 # Logs
@@ -18,14 +18,18 @@ logs
 .fleet
 .idea
 
-# Local env files
+# 环境变量
 .env
 .env.*
 !.env.example
 
 /app/generated/prisma
 
+# Claude 
+scheduled_tasks.lock
 .claude/wroktrees
 .claude/*.html
 
+# playwright
 .playwright-mcp
+

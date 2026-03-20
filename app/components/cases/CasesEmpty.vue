@@ -20,7 +20,7 @@
                     <RotateCcw class="h-4 w-4 mr-2" />
                     清空筛选
                 </Button>
-                <NuxtLink to="/case/analysis/0">
+                <NuxtLink to="/dashboard/analysis">
                     <Button class="rounded-full px-8 shadow-lg shadow-primary/20">
                         <Plus class="h-4 w-4 mr-2" />
                         立即创建新分析
