@@ -166,35 +166,82 @@ const createTestUserMembership = async (
 
 // 清理测试数据
 const cleanupTestData = async () => {
-    // 按依赖顺序删除
-    if (testIds.pointRecordIds.length > 0) {
-        await prisma.pointRecords.deleteMany({ where: { id: { in: testIds.pointRecordIds } } })
-        testIds.pointRecordIds = []
+    try {
+        // 1. 按 userId 兜底删除会员升级记录（handler 自动创建）
+        if (testIds.userIds.length > 0) {
+            await prisma.membershipUpgradeRecords.deleteMany({
+                where: { userId: { in: testIds.userIds } },
+            })
+        }
+        if (testIds.membershipUpgradeRecordIds.length > 0) {
+            await prisma.membershipUpgradeRecords.deleteMany({
+                where: { id: { in: testIds.membershipUpgradeRecordIds } },
+            })
+        }
+
+        // 2. 按 userId 兜底删除积分记录（handler 自动创建）
+        if (testIds.userIds.length > 0) {
+            await prisma.pointRecords.deleteMany({
+                where: { userId: { in: testIds.userIds } },
+            })
+        }
+        if (testIds.pointRecordIds.length > 0) {
+            await prisma.pointRecords.deleteMany({
+                where: { id: { in: testIds.pointRecordIds } },
+            })
+        }
+
+        // 3. 按 userId 兜底删除会员记录（handler 自动创建）
+        if (testIds.userIds.length > 0) {
+            await prisma.userMemberships.deleteMany({
+                where: { userId: { in: testIds.userIds } },
+            })
+        }
+        if (testIds.userMembershipIds.length > 0) {
+            await prisma.userMemberships.deleteMany({
+                where: { id: { in: testIds.userMembershipIds } },
+            })
+        }
+
+        // 4. 删除订单
+        if (testIds.orderIds.length > 0) {
+            await prisma.orders.deleteMany({
+                where: { id: { in: testIds.orderIds } },
+            })
+        }
+
+        // 5. 删除商品
+        if (testIds.productIds.length > 0) {
+            await prisma.products.deleteMany({
+                where: { id: { in: testIds.productIds } },
+            })
+        }
+
+        // 6. 删除会员级别
+        if (testIds.membershipLevelIds.length > 0) {
+            await prisma.membershipLevels.deleteMany({
+                where: { id: { in: testIds.membershipLevelIds } },
+            })
+        }
+
+        // 7. 删除用户
+        if (testIds.userIds.length > 0) {
+            await prisma.users.deleteMany({
+                where: { id: { in: testIds.userIds } },
+            })
+        }
+    } catch (error) {
+        console.warn('清理测试数据时出错：', error)
     }
-    if (testIds.membershipUpgradeRecordIds.length > 0) {
-        await prisma.membershipUpgradeRecords.deleteMany({ where: { id: { in: testIds.membershipUpgradeRecordIds } } })
-        testIds.membershipUpgradeRecordIds = []
-    }
-    if (testIds.orderIds.length > 0) {
-        await prisma.orders.deleteMany({ where: { id: { in: testIds.orderIds } } })
-        testIds.orderIds = []
-    }
-    if (testIds.userMembershipIds.length > 0) {
-        await prisma.userMemberships.deleteMany({ where: { id: { in: testIds.userMembershipIds } } })
-        testIds.userMembershipIds = []
-    }
-    if (testIds.productIds.length > 0) {
-        await prisma.products.deleteMany({ where: { id: { in: testIds.productIds } } })
-        testIds.productIds = []
-    }
-    if (testIds.membershipLevelIds.length > 0) {
-        await prisma.membershipLevels.deleteMany({ where: { id: { in: testIds.membershipLevelIds } } })
-        testIds.membershipLevelIds = []
-    }
-    if (testIds.userIds.length > 0) {
-        await prisma.users.deleteMany({ where: { id: { in: testIds.userIds } } })
-        testIds.userIds = []
-    }
+
+    // 重置追踪数组
+    testIds.userIds = []
+    testIds.productIds = []
+    testIds.orderIds = []
+    testIds.membershipLevelIds = []
+    testIds.userMembershipIds = []
+    testIds.membershipUpgradeRecordIds = []
+    testIds.pointRecordIds = []
 }
 
 describe('会员升级处理器测试', () => {
@@ -281,19 +328,6 @@ describe('会员升级处理器测试', () => {
                 where: { userId: user.id, fromMembershipId: membership.id },
             })
             expect(upgradeRecords.length).toBe(1)
-            testIds.membershipUpgradeRecordIds.push(upgradeRecords[0].id)
-
-            // 清理新创建的会员记录
-            const newMemberships = await prisma.userMemberships.findMany({
-                where: { userId: user.id, id: { not: membership.id } },
-            })
-            newMemberships.forEach(m => testIds.userMembershipIds.push(m.id))
-
-            // 清理新创建的积分记录
-            const newPointRecords = await prisma.pointRecords.findMany({
-                where: { userId: user.id },
-            })
-            newPointRecords.forEach(r => testIds.pointRecordIds.push(r.id))
         })
 
         it('remark 为 null 时应使用当前生效的会员', async () => {
@@ -321,18 +355,6 @@ describe('会员升级处理器测试', () => {
                 where: { userId: user.id, fromMembershipId: membership.id },
             })
             expect(upgradeRecords.length).toBe(1)
-            testIds.membershipUpgradeRecordIds.push(upgradeRecords[0].id)
-
-            // 清理
-            const newMemberships = await prisma.userMemberships.findMany({
-                where: { userId: user.id, id: { not: membership.id } },
-            })
-            newMemberships.forEach(m => testIds.userMembershipIds.push(m.id))
-
-            const newPointRecords = await prisma.pointRecords.findMany({
-                where: { userId: user.id },
-            })
-            newPointRecords.forEach(r => testIds.pointRecordIds.push(r.id))
         })
 
         it('remark 为非 JSON 字符串时应使用当前生效的会员', async () => {
@@ -360,18 +382,6 @@ describe('会员升级处理器测试', () => {
                 where: { userId: user.id, fromMembershipId: membership.id },
             })
             expect(upgradeRecords.length).toBe(1)
-            testIds.membershipUpgradeRecordIds.push(upgradeRecords[0].id)
-
-            // 清理
-            const newMemberships = await prisma.userMemberships.findMany({
-                where: { userId: user.id, id: { not: membership.id } },
-            })
-            newMemberships.forEach(m => testIds.userMembershipIds.push(m.id))
-
-            const newPointRecords = await prisma.pointRecords.findMany({
-                where: { userId: user.id },
-            })
-            newPointRecords.forEach(r => testIds.pointRecordIds.push(r.id))
         })
     })
 
@@ -428,25 +438,12 @@ describe('会员升级处理器测试', () => {
                 },
             })
             expect(newMembership).not.toBeNull()
-            testIds.userMembershipIds.push(newMembership!.id)
 
             // 验证旧会员记录已结算
             const oldMembership = await prisma.userMemberships.findUnique({
                 where: { id: membership.id },
             })
             expect(oldMembership!.status).toBe(MembershipStatus.SETTLED)
-
-            // 清理升级记录
-            const upgradeRecords = await prisma.membershipUpgradeRecords.findMany({
-                where: { userId: user.id },
-            })
-            upgradeRecords.forEach(r => testIds.membershipUpgradeRecordIds.push(r.id))
-
-            // 清理积分记录
-            const pointRecords = await prisma.pointRecords.findMany({
-                where: { userId: user.id },
-            })
-            pointRecords.forEach(r => testIds.pointRecordIds.push(r.id))
         })
     })
 })

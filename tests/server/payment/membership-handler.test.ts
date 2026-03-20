@@ -136,39 +136,76 @@ const createTestOrder = async (
 
 // 清理测试数据
 const cleanupTestData = async () => {
-    // 按依赖顺序删除
-    if (testIds.pointRecordIds.length > 0) {
-        await prisma.pointRecords.deleteMany({ where: { id: { in: testIds.pointRecordIds } } })
-        testIds.pointRecordIds = []
+    try {
+        // 1. 按 userId 兜底删除会员升级记录（handler 可能自动创建）
+        if (testIds.userIds.length > 0) {
+            await prisma.membershipUpgradeRecords.deleteMany({
+                where: { userId: { in: testIds.userIds } },
+            })
+        }
+
+        // 2. 按 userId 兜底删除积分记录（handler 可能自动创建）
+        if (testIds.userIds.length > 0) {
+            await prisma.pointRecords.deleteMany({
+                where: { userId: { in: testIds.userIds } },
+            })
+        }
+        if (testIds.pointRecordIds.length > 0) {
+            await prisma.pointRecords.deleteMany({
+                where: { id: { in: testIds.pointRecordIds } },
+            })
+        }
+
+        // 3. 按 userId 兜底删除会员记录（handler 可能自动创建）
+        if (testIds.userIds.length > 0) {
+            await prisma.userMemberships.deleteMany({
+                where: { userId: { in: testIds.userIds } },
+            })
+        }
+        if (testIds.userMembershipIds.length > 0) {
+            await prisma.userMemberships.deleteMany({
+                where: { id: { in: testIds.userMembershipIds } },
+            })
+        }
+
+        // 4. 删除订单
+        if (testIds.orderIds.length > 0) {
+            await prisma.orders.deleteMany({
+                where: { id: { in: testIds.orderIds } },
+            })
+        }
+
+        // 5. 删除商品
+        if (testIds.productIds.length > 0) {
+            await prisma.products.deleteMany({
+                where: { id: { in: testIds.productIds } },
+            })
+        }
+
+        // 6. 删除会员级别
+        if (testIds.membershipLevelIds.length > 0) {
+            await prisma.membershipLevels.deleteMany({
+                where: { id: { in: testIds.membershipLevelIds } },
+            })
+        }
+
+        // 7. 删除用户
+        if (testIds.userIds.length > 0) {
+            await prisma.users.deleteMany({
+                where: { id: { in: testIds.userIds } },
+            })
+        }
+    } catch (error) {
+        console.warn('清理测试数据时出错：', error)
     }
-    // 清理用户相关的积分记录
-    if (testIds.userIds.length > 0) {
-        await prisma.pointRecords.deleteMany({ where: { userId: { in: testIds.userIds } } })
-    }
-    if (testIds.userMembershipIds.length > 0) {
-        await prisma.userMemberships.deleteMany({ where: { id: { in: testIds.userMembershipIds } } })
-        testIds.userMembershipIds = []
-    }
-    // 清理用户相关的会员记录
-    if (testIds.userIds.length > 0) {
-        await prisma.userMemberships.deleteMany({ where: { userId: { in: testIds.userIds } } })
-    }
-    if (testIds.orderIds.length > 0) {
-        await prisma.orders.deleteMany({ where: { id: { in: testIds.orderIds } } })
-        testIds.orderIds = []
-    }
-    if (testIds.productIds.length > 0) {
-        await prisma.products.deleteMany({ where: { id: { in: testIds.productIds } } })
-        testIds.productIds = []
-    }
-    if (testIds.membershipLevelIds.length > 0) {
-        await prisma.membershipLevels.deleteMany({ where: { id: { in: testIds.membershipLevelIds } } })
-        testIds.membershipLevelIds = []
-    }
-    if (testIds.userIds.length > 0) {
-        await prisma.users.deleteMany({ where: { id: { in: testIds.userIds } } })
-        testIds.userIds = []
-    }
+
+    // 重置追踪数组
+    testIds.userIds = []
+    testIds.productIds = []
+    testIds.orderIds = []
+    testIds.membershipLevelIds = []
+    testIds.userMembershipIds = []
+    testIds.pointRecordIds = []
 }
 
 describe('会员商品支付处理器测试', () => {
