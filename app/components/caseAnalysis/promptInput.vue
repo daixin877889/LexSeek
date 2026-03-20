@@ -1,102 +1,132 @@
 <template>
-  <div class="px-4 flex size-full flex-col justify-end relative" ref="dropZoneRef">
-    <!-- 全屏拖拽覆盖层 -->
-    <Transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 scale-95"
-      enter-to-class="opacity-100 scale-100" leave-active-class="transition duration-150 ease-in"
-      leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
-      <div v-if="isOverDropZone"
-        class="absolute inset-0 z-50 flex items-center justify-center p-4 bg-primary/10 backdrop-blur-sm border-2 border-dashed border-primary rounded-xl m-4">
-        <div class="flex flex-col items-center gap-4 text-primary animate-pulse">
-          <div class="p-4 bg-primary/20 rounded-full">
-            <UploadIcon class="size-12" />
+  <div class="flex size-full flex-col justify-end relative" ref="dropZoneRef">
+    <div class="px-4 relative">
+      <!-- 全屏拖拽覆盖层 -->
+      <Transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 scale-95"
+        enter-to-class="opacity-100 scale-100" leave-active-class="transition duration-150 ease-in"
+        leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
+        <div v-if="isOverDropZone"
+          class="absolute inset-x-4 inset-y-0 z-50 flex items-center justify-center p-4 bg-primary/10 backdrop-blur-sm border-2 border-dashed border-primary rounded-md">
+          <div class="flex flex-col items-center gap-4 text-primary animate-pulse">            <div class="p-4 bg-primary/20 rounded-full">
+              <UploadIcon class="size-12" />
+            </div>
+            <p class="text-xl font-bold">释放以添加案情材料</p>
+            <p class="text-sm opacity-80">支持 文本、文档、音频、图片</p>
           </div>
-          <p class="text-xl font-bold">释放以添加案情材料</p>
-          <p class="text-sm opacity-80">支持 文本、文档、音频、图片</p>
         </div>
-      </div>
-    </Transition>
+      </Transition>
 
-    <PromptInputProvider @submit="handleSubmit">
-      <!-- 输入状态监听器，同步状态到 store -->
-      <CaseAnalysisPromptInputWatcher v-if="enableWatcher" />
-      <PromptInput global-drop multiple
-        class="**:data-[slot=input-group]:shadow-none **:data-[slot=input-group]:border-primary **:data-[slot=input-group]:rounded-md transition-all">
-        <!-- 头部：自定义文件列表 -->
-        <PromptInputHeader v-if="selectedFiles.length > 0">
-          <div class="flex flex-wrap items-center gap-2 pt-3 pb-1 px-1 w-full">
-            <div v-for="file in selectedFiles" :key="file.id"
-              class="group relative flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-md border border-border px-1.5 font-medium text-sm transition-all hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50"
-              @click="openPreview(file)">
-              <!-- 文件图标 -->
-              <div class="relative size-5 shrink-0 flex items-center justify-center">
-                <component :is="getFileIcon(file.fileType)" :class="['size-4', getFileIconColor(file.fileType)]" />
+      <PromptInputProvider @submit="handleSubmit">
+        <!-- 输入状态监听器，同步状态到 store -->
+        <CaseAnalysisPromptInputWatcher v-if="enableWatcher" />
+        <PromptInput global-drop multiple
+          class="**:data-[slot=input-group]:shadow-none **:data-[slot=input-group]:border-primary **:data-[slot=input-group]:rounded-md transition-all">
+          <!-- 头部：自定义文件列表 -->
+          <PromptInputHeader v-if="selectedFiles.length > 0 || uploadingFiles.length > 0">
+            <div class="flex flex-wrap items-center gap-2 pt-3 pb-1 px-1 w-full">
+              <!-- 正在上传的文件 -->
+              <div v-for="fileState in uploadingFiles" :key="fileState.id"
+                class="group relative flex h-8 cursor-default select-none items-center gap-1.5 rounded-md border border-border px-1.5 font-medium text-sm transition-all bg-muted/30">
+                <div class="relative size-5 shrink-0 flex items-center justify-center">
+                  <Loader2Icon class="size-3.5 animate-spin text-primary"
+                    v-if="fileState.status === 'uploading' || fileState.status === 'pending'" />
+                  <AlertCircleIcon class="size-3.5 text-destructive" v-else-if="fileState.status === 'error'" />
+                  <CheckIcon class="size-3.5 text-green-500" v-else />
+                </div>
+                <span class="flex-1 truncate max-w-[120px]"
+                  :class="{ 'text-destructive': fileState.status === 'error' }">{{ fileState.file.name }}</span>
+                <!-- 进度条 -->
+                <div class="w-12 h-1 bg-muted-foreground/20 rounded-full overflow-hidden ml-1"
+                  v-if="fileState.status === 'uploading'">
+                  <div class="h-full bg-primary transition-all duration-300" :style="{ width: fileState.progress + '%' }">
+                  </div>
+                </div>
+                <span class="text-[10px] text-destructive ml-1" v-if="fileState.status === 'error'"
+                  :title="fileState.error">失败</span>
+
+                <!-- 移除出错的任务 -->
+                <Button v-if="fileState.status === 'error'" type="button" variant="ghost" size="icon"
+                  class="size-5 p-0 ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  @click.stop="removeUploadingFile(fileState.id)">
+                  <XIcon class="size-3" />
+                </Button>
               </div>
 
-              <!-- 文件名 -->
-              <span class="flex-1 truncate max-w-[120px]">{{ file.fileName }}</span>
+              <div v-for="file in selectedFiles" :key="file.id"
+                class="group relative flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-md border border-border px-1.5 font-medium text-sm transition-all hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50"
+                @click="openPreview(file)">
+                <!-- 文件图标 -->
+                <div class="relative size-5 shrink-0 flex items-center justify-center">
+                  <component :is="getFileIcon(file.fileType)" :class="['size-4', getFileIconColor(file.fileType)]" />
+                </div>
 
-              <!-- 识别状态徽章 -->
-              <Badge v-if="getRecognitionStatus(file.id) === 'recognizing'" variant="outline"
-                class="text-xs px-1 h-5 text-blue-500 border-blue-500 animate-pulse bg-blue-50/50 dark:bg-blue-500/10">
-                <Loader2Icon class="size-3 animate-spin mr-0.5" />
-                识别中
-              </Badge>
-              <Badge v-else-if="getRecognitionStatus(file.id) === 'success'" variant="outline"
-                class="text-xs px-1 h-5 text-green-500 border-green-500 bg-green-50/50 dark:bg-green-500/10 transition-colors">
-                <CheckIcon class="size-3 mr-0.5" />
-                已识别
-              </Badge>
-              <Badge v-else-if="getRecognitionStatus(file.id) === 'error'" variant="outline"
-                class="text-xs px-1 h-5 text-red-500 border-red-500 cursor-pointer bg-red-50/50 dark:bg-red-500/10"
-                @click.stop="retryRecognition(file)">
-                <AlertCircleIcon class="size-3 mr-0.5" />
-                重试
-              </Badge>
+                <!-- 文件名 -->
+                <span class="flex-1 truncate max-w-[120px]">{{ file.fileName }}</span>
 
-              <!-- 加密徽章 -->
-              <Badge v-if="file.encrypted" variant="secondary" class="text-xs px-1 h-5">
-                <LockIcon class="size-3" />
-              </Badge>
+                <!-- 识别状态徽章 -->
+                <Badge v-if="getRecognitionStatus(file.id) === 'recognizing'" variant="outline"
+                  class="text-xs px-1 h-5 text-blue-500 border-blue-500 animate-pulse bg-blue-50/50 dark:bg-blue-500/10">
+                  <Loader2Icon class="size-3 animate-spin mr-0.5" />
+                  识别中
+                </Badge>
+                <Badge v-else-if="getRecognitionStatus(file.id) === 'success'" variant="outline"
+                  class="text-xs px-1 h-5 text-green-500 border-green-500 bg-green-50/50 dark:bg-green-500/10 transition-colors">
+                  <CheckIcon class="size-3 mr-0.5" />
+                  已识别
+                </Badge>
+                <Badge v-else-if="getRecognitionStatus(file.id) === 'error'" variant="outline"
+                  class="text-xs px-1 h-5 text-red-500 border-red-500 cursor-pointer bg-red-50/50 dark:bg-red-500/10"
+                  @click.stop="retryRecognition(file)">
+                  <AlertCircleIcon class="size-3 mr-0.5" />
+                  重试
+                </Badge>
 
-              <!-- 移除按钮 -->
-              <Button type="button" variant="ghost" size="icon"
-                class="size-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                @click.stop="removeFile(file.id)">
-                <XIcon class="size-3" />
-                <span class="sr-only">移除</span>
-              </Button>
+                <!-- 加密徽章 -->
+                <Badge v-if="file.encrypted" variant="secondary" class="text-xs px-1 h-5">
+                  <LockIcon class="size-3" />
+                </Badge>
+
+                <!-- 移除按钮 -->
+                <Button type="button" variant="ghost" size="icon"
+                  class="size-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  @click.stop="removeFile(file.id)">
+                  <XIcon class="size-3" />
+                  <span class="sr-only">移除</span>
+                </Button>
+              </div>
             </div>
-          </div>
-        </PromptInputHeader>
-        <!-- 中间部分 -->
-        <PromptInputBody>
-          <PromptInputTextarea :placeholder="placeholder" :min-rows="minRows" :max-rows="maxRows"
-            :class="['px-4', selectedFiles.length > 0 ? 'pt-0' : 'pt-6']" />
-        </PromptInputBody>
-        <!-- 底部 -->
-        <PromptInputFooter class="border-t border-muted-foreground/20 border-dashed px-4">
-          <!-- 工具栏 -->
-          <PromptInputTools class="px-0">
-            <PromptInputButton variant="ghost" @click="selectMaterial"
-              class="ml-[-8px] hover:bg-primary/5 transition-colors">
-              <Paperclip class="text-muted-foreground" :size="16" />
-              案情材料
-              <span v-if="selectedFiles.length > 0" class="ml-1 text-xs text-primary font-bold">({{ selectedFiles.length
-              }})</span>
-            </PromptInputButton>
-            <span class="text-muted-foreground text-xs"> </span>
-          </PromptInputTools>
-          <!-- 附件上传 -->
-          <div class="flex items-center gap-2 mr-[-8px]"> <!-- 提交按钮 -->
-            <PromptInputSubmit class="h-9 px-4! rounded-md shadow-lg shadow-primary/20 active:scale-95 transition-all"
-              :status="submitStatus" :disabled="disabled || isAllRecognizing" size="xs">
-              <SendHorizontal class="size-4" />
-              <span class="ml-1.5">{{ submitLabel }}</span>
-            </PromptInputSubmit>
-          </div>
-        </PromptInputFooter>
-      </PromptInput>
-    </PromptInputProvider>
+          </PromptInputHeader>
+          <!-- 中间部分 -->
+          <PromptInputBody>
+            <PromptInputTextarea :placeholder="placeholder" :min-rows="minRows" :max-rows="maxRows"
+              :class="['px-4', selectedFiles.length > 0 ? 'pt-0' : 'pt-6']" />
+          </PromptInputBody>
+          <!-- 底部 -->
+          <PromptInputFooter class="border-t border-muted-foreground/20 border-dashed px-4">
+            <!-- 工具栏 -->
+            <PromptInputTools class="px-0">
+              <PromptInputButton variant="ghost" @click="selectMaterial"
+                class="ml-[-8px] hover:bg-primary/5 transition-colors">
+                <Paperclip class="text-muted-foreground" :size="16" />
+                案情材料
+                <span v-if="selectedFiles.length > 0" class="ml-1 text-xs text-primary font-bold">({{
+                  selectedFiles.length
+                }})</span>
+              </PromptInputButton>
+              <span class="text-muted-foreground text-xs"> </span>
+            </PromptInputTools>
+            <!-- 附件上传 -->
+            <div class="flex items-center gap-2 mr-[-8px]"> <!-- 提交按钮 -->
+              <PromptInputSubmit class="h-9 px-4! rounded-md shadow-lg shadow-primary/20 active:scale-95 transition-all"
+                :status="submitStatus" :disabled="disabled || isAllRecognizing" size="xs">
+                <SendHorizontal class="size-4" />
+                <span class="ml-1.5">{{ submitLabel }}</span>
+              </PromptInputSubmit>
+            </div>
+          </PromptInputFooter>
+        </PromptInput>
+      </PromptInputProvider>
+    </div>
 
     <!-- 文件选择弹框 -->
     <CaseAnalysisMaterialSelector ref="materialSelectorRef" :disabled-file-ids="selectedFileIds"
@@ -126,6 +156,8 @@ import type { CaseMaterialParam, PromptSubmitData } from "#shared/types/case";
 import { getFileIcon, getFileIconColor } from "~/utils/file";
 import { getMaterialType } from "~/utils/caseMaterial";
 import { isImageFile, isAudioFile, isRecognizableDocFile } from "~~/shared/utils/fileType";
+import { FileSource } from "#shared/types/file";
+import { useBatchUpload, type FileUploadState } from '~/composables/useBatchUpload';
 
 const props = withDefaults(defineProps<{
   placeholder?: string
@@ -148,6 +180,16 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   submit: [data: PromptSubmitData]
 }>()
+
+const fileStore = useFileStore();
+const { detectMimeType, validateFile, uploadToOSS } = useBatchUpload();
+
+// 本地正在上传的文件列表
+const uploadingFiles = ref<FileUploadState[]>([]);
+
+function removeUploadingFile(id: string) {
+  uploadingFiles.value = uploadingFiles.value.filter(f => f.id !== id);
+}
 
 // 案情材料选择器引用
 const materialSelectorRef = ref<{ openDialog: () => void; closeDialog: () => void } | null>(null);
@@ -188,12 +230,117 @@ const submitStatus = computed<"submitted" | "streaming" | "ready" | "error">(() 
 // 拖拽上传支持
 const dropZoneRef = ref<HTMLDivElement | null>(null);
 const { isOverDropZone } = useDropZone(dropZoneRef, {
-  onDrop: (files) => {
-    // 触发材料选择器的上传逻辑或直接处理
-    if (files && files.length > 0) {
-      toast.info(`检测到 ${files.length} 个文件，请在材料选择器中完成上传`);
-      materialSelectorRef.value?.openDialog();
-      // 注意：这里需要进一步优化以支持直接透传文件到上传组件
+  onDrop: async (files) => {
+    if (!files || files.length === 0) return;
+
+    try {
+      const scenes = await fileStore.getUploadConfig(FileSource.CASE_ANALYSIS)
+      const currentScene = scenes?.[0] ?? null
+
+      const validFilesToUpload: FileUploadState[] = []
+      
+      for (const file of files) {
+        const validation = validateFile(file, currentScene)
+        if (!validation.valid) {
+          toast.error(`文件 "${file.name}" ${validation.message}`)
+          continue;
+        }
+        
+        // 查重
+        const isDuplicate = 
+          selectedFiles.value.some(f => f.fileName === file.name && f.fileSize === file.size) ||
+          uploadingFiles.value.some(f => f.file.name === file.name && f.file.size === file.size)
+          
+        if (isDuplicate) {
+          toast.warning(`文件 "${file.name}" 已在列表中`)
+          continue;
+        }
+        
+        const id = `upload_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+        validFilesToUpload.push({
+          id,
+          file,
+          mimeType: detectMimeType(file),
+          status: 'pending',
+          progress: 0
+        })
+      }
+
+      if (validFilesToUpload.length === 0) return
+
+      // 将合法文件加入正在上传列表
+      uploadingFiles.value.push(...validFilesToUpload)
+      
+      // 批量获取签名
+      const filesInfo = validFilesToUpload.map((state) => ({
+        originalFileName: state.file.name,
+        fileSize: state.file.size,
+        mimeType: state.mimeType,
+      }));
+
+      const signatures = await fileStore.getBatchPresignedUrls({
+        source: FileSource.CASE_ANALYSIS,
+        files: filesInfo,
+        encrypted: false, // 案情材料不再加密
+      });
+
+      if (!signatures || signatures.length !== validFilesToUpload.length) {
+        throw new Error(fileStore.error || "批量获取签名失败");
+      }
+
+      // 开始并发上传
+      const uploadPromises = validFilesToUpload.map(async (state, index) => {
+        const signature = signatures[index]
+        if (!signature) {
+          state.status = 'error'
+          state.error = '无签名'
+          return null
+        }
+        
+        state.signature = signature
+        state.status = 'uploading'
+        
+        try {
+          const data = await uploadToOSS(state.file, signature, (progress) => {
+            state.progress = progress
+          }) // 不再需要强制 'application/octet-stream'，使用文件原始类型
+          state.status = 'success'
+          state.progress = 100
+          state.result = data
+          
+          // 延迟移除成功的状态并将其转为已选文件
+          setTimeout(() => {
+            removeUploadingFile(state.id)
+            
+            // 构建伪造的 OssFileItem 加入列表并触发识别
+            const newFileObject: OssFileItem = {
+              id: (data.fileId || data.id) as number,
+              fileName: state.file.name,
+              fileSize: state.file.size,
+              fileType: state.mimeType,
+              source: FileSource.CASE_ANALYSIS,
+              sourceName: '案件分析',
+              status: 1,
+              statusName: '正常',
+              encrypted: false,
+              createdAt: new Date().toISOString()
+            }
+            
+            handleFilesSelected([newFileObject])
+          }, 1000)
+          
+          return { state, data }
+        } catch (err) {
+          state.status = 'error'
+          state.error = err instanceof Error ? err.message : '上传失败'
+          return null
+        }
+      })
+      
+      await Promise.all(uploadPromises)
+      
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '上传配置获取失败')
     }
   }
 });
