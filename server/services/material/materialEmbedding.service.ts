@@ -1292,6 +1292,120 @@ export async function searchUserAudiosService(
 
 
 // ============================================
+// 统一材料嵌入入口
+// ============================================
+
+/**
+ * 统一材料嵌入入口
+ *
+ * 根据材料类型分发到对应嵌入服务，自动管理识别记录的 lastEmbeddingAt。
+ *
+ * @param materialId case_materials.id
+ * @param userId 用户 ID
+ * @returns 嵌入结果
+ */
+export async function embedMaterialUnifiedService(
+    materialId: number,
+    userId: number,
+): Promise<{ success: boolean; chunkCount?: number; error?: string }> {
+    // 1. 查询材料信息
+    const material = await prisma.caseMaterials.findFirst({
+        where: { id: materialId, deletedAt: null },
+    })
+
+    if (!material) {
+        return { success: false, error: '材料不存在' }
+    }
+
+    // 2. 按类型分发（使用动态 import 确保可测试性）
+    switch (material.type) {
+        case 1: { // CASE_CONTENT
+            const { embedTextContentByMaterialIdService } = await import('./textContentRecords.service')
+            return embedTextContentByMaterialIdService(materialId, userId)
+        }
+
+        case 2: { // DOCUMENT
+            if (!material.ossFileId) {
+                return { success: false, error: '文档材料缺少 ossFileId' }
+            }
+            const docRecord = await prisma.docRecognitionRecords.findFirst({
+                where: { ossFileId: material.ossFileId, deletedAt: null },
+                select: { markdownContent: true },
+                orderBy: { createdAt: 'desc' },
+            })
+            if (!docRecord?.markdownContent) {
+                return { success: false, error: '文档识别记录内容为空' }
+            }
+            const docResult = await embedDocumentService({
+                content: docRecord.markdownContent,
+                userId,
+                ossFileId: material.ossFileId,
+                fileName: material.name,
+            })
+            await prisma.docRecognitionRecords.updateMany({
+                where: { ossFileId: material.ossFileId, deletedAt: null },
+                data: { lastEmbeddingAt: new Date() },
+            })
+            return { success: true, chunkCount: docResult.chunkCount }
+        }
+
+        case 3: { // IMAGE
+            if (!material.ossFileId) {
+                return { success: false, error: '图片材料缺少 ossFileId' }
+            }
+            const imgRecord = await prisma.imageRecognitionRecords.findFirst({
+                where: { ossFileId: material.ossFileId, deletedAt: null },
+                select: { markdownContent: true },
+                orderBy: { createdAt: 'desc' },
+            })
+            if (!imgRecord?.markdownContent) {
+                return { success: false, error: '图片识别记录内容为空' }
+            }
+            const imgResult = await embedImageService({
+                content: imgRecord.markdownContent,
+                userId,
+                ossFileId: material.ossFileId,
+                fileName: material.name,
+            })
+            await prisma.imageRecognitionRecords.updateMany({
+                where: { ossFileId: material.ossFileId, deletedAt: null },
+                data: { lastEmbeddingAt: new Date() },
+            })
+            return { success: true, chunkCount: imgResult.chunkCount }
+        }
+
+        case 4: { // AUDIO
+            if (!material.ossFileId) {
+                return { success: false, error: '音频材料缺少 ossFileId' }
+            }
+            const asrRecord = await prisma.asrRecords.findFirst({
+                where: { ossFileId: material.ossFileId, deletedAt: null },
+                select: { summary: true },
+                orderBy: { createdAt: 'desc' },
+            })
+            if (!asrRecord?.summary) {
+                return { success: false, error: '音频识别记录内容为空' }
+            }
+            const audioResult = await embedAudioService({
+                content: asrRecord.summary,
+                userId,
+                ossFileId: material.ossFileId,
+                fileName: material.name,
+            })
+            await prisma.asrRecords.updateMany({
+                where: { ossFileId: material.ossFileId, deletedAt: null },
+                data: { lastEmbeddingAt: new Date() },
+            })
+            return { success: true, chunkCount: audioResult.chunkCount }
+        }
+
+        default:
+            return { success: false, error: `不支持的材料类型: ${material.type}` }
+    }
+}
+
+
+// ============================================
 // 统一嵌入状态查询
 // ============================================
 
