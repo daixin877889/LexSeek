@@ -1,64 +1,73 @@
 <template>
     <!-- 桌面端表格视图 -->
-    <div class="bg-card rounded-lg border overflow-hidden hidden md:block">
+    <div class="bg-card rounded-xl border overflow-hidden hidden md:block shadow-sm">
         <div class="overflow-x-auto">
-            <table class="w-full">
+            <table class="w-full border-collapse">
                 <thead>
-                    <tr class="border-b bg-muted/50">
-                        <th class="px-4 py-3 text-left text-sm font-medium">案件标题</th>
-                        <th class="px-4 py-3 text-left text-sm font-medium">类型</th>
-                        <th class="px-4 py-3 text-left text-sm font-medium">创建时间</th>
-                        <th class="px-4 py-3 text-center text-sm font-medium">状态</th>
-                        <th class="px-4 py-3 text-center text-sm font-medium">操作</th>
+                    <tr class="border-b bg-muted/30">
+                        <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground/80">案件信息</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground/80">案件类型</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground/80">创建时间</th>
+                        <th class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-muted-foreground/80">当前状态</th>
+                        <th class="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-muted-foreground/80">操作</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody class="divide-y divide-border/50">
                     <!-- 空状态 -->
                     <tr v-if="list.length === 0">
-                        <td colspan="5" class="px-4 py-8 text-center text-muted-foreground">
-                            暂无案件数据
+                        <td colspan="5" class="px-6 py-12 text-center text-muted-foreground italic">
+                            没有找到匹配的案件记录
                         </td>
                     </tr>
                     <!-- 数据列表 -->
                     <tr v-else v-for="item in list" :key="item.id"
-                        class="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
+                        class="group hover:bg-muted/40 transition-all duration-200">
                         <!-- 案件标题 -->
-                        <td class="px-4 py-3">
-                            <div class="flex items-center">
-                                <FileText class="h-4 w-4 text-muted-foreground mr-2 shrink-0" />
-                                <NuxtLink :to="`/case/analysis/${item.id}`"
-                                    class="font-medium hover:underline hover:text-primary truncate max-w-[200px]">
-                                    {{ item.title }}
-                                </NuxtLink>
+                        <td class="px-6 py-4">
+                            <div class="flex flex-col min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <NuxtLink :to="`/case/analysis/${item.id}`"
+                                        class="font-semibold text-foreground hover:text-primary transition-colors truncate max-w-[400px]">
+                                        {{ item.title }}
+                                    </NuxtLink>
+                                    <UiBadge v-if="item.isDemo" variant="secondary" class="rounded-md h-4 text-[10px] px-1.5 font-normal bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800">
+                                        演示
+                                    </UiBadge>
+                                </div>
+                                <span class="text-[10px] font-mono text-muted-foreground/60 mt-1 uppercase tracking-tighter">Ref: #{{ item.id }}</span>
                             </div>
                         </td>
                         <!-- 类型 -->
-                        <td class="px-4 py-3 text-sm">
-                            {{ getCaseTypeName(item.caseTypeId) }}
+                        <td class="px-6 py-4">
+                            <div class="text-sm text-foreground/80 font-medium">
+                                {{ getCaseTypeName(item.caseTypeId) }}
+                            </div>
                         </td>
                         <!-- 创建时间 -->
-                        <td class="px-4 py-3 text-sm text-muted-foreground">
-                            {{ formatDate(item.createdAt) }}
+                        <td class="px-6 py-4">
+                            <div class="text-sm text-muted-foreground">
+                                {{ formatDate(item.createdAt, 'YYYY-MM-DD') }}
+                            </div>
                         </td>
                         <!-- 状态 -->
-                        <td class="px-4 py-3 text-center">
-                            <span :class="getStatusClass(item.status)">
+                        <td class="px-6 py-4 text-center">
+                            <UiBadge :class="getStatusBadgeClass(item.status)" variant="outline" class="rounded-md border-transparent px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider">
                                 {{ getStatusText(item.status) }}
-                            </span>
+                            </UiBadge>
                         </td>
                         <!-- 操作 -->
-                        <td class="px-4 py-3 text-center">
-                            <div class="flex items-center justify-center gap-2">
+                        <td class="px-6 py-4 text-right">
+                            <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button variant="ghost" size="icon"
+                                    class="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    @click="emit('delete', item.id)" title="删除案件">
+                                    <Trash2 class="h-4 w-4" />
+                                </Button>
                                 <NuxtLink :to="`/case/analysis/${item.id}`">
-                                    <Button variant="ghost" size="icon" class="h-8 w-8">
+                                    <Button variant="ghost" size="icon" class="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary" title="查看详情">
                                         <Eye class="h-4 w-4" />
                                     </Button>
                                 </NuxtLink>
-                                <Button variant="ghost" size="icon"
-                                    class="h-8 w-8 text-destructive hover:text-destructive"
-                                    @click="emit('delete', item.id)">
-                                    <Trash2 class="h-4 w-4" />
-                                </Button>
                             </div>
                         </td>
                     </tr>
@@ -69,20 +78,19 @@
 </template>
 
 <script lang="ts" setup>
-import { FileText, Eye, Trash2 } from "lucide-vue-next";
+import { Eye, Trash2 } from "lucide-vue-next";
 
 // ==================== 类型定义 ====================
 
-/** 案件项 */
 interface CaseItem {
     id: number;
     title: string;
     caseTypeId: number;
     status: number;
+    isDemo: boolean;
     createdAt: string;
 }
 
-/** 案件类型 */
 interface CaseType {
     id: number;
     name: string;
@@ -107,46 +115,26 @@ const { formatDate } = useFormatters();
 
 // ==================== 方法 ====================
 
-/**
- * 获取案件类型名称
- */
 const getCaseTypeName = (typeId: number): string => {
     const type = props.caseTypes.find((t) => t.id === typeId);
     return type?.name ?? "未知类型";
 };
 
-/**
- * 获取状态文本
- * 状态值：1-进行中，2-已完成，3-已关闭
- */
 const getStatusText = (status: number): string => {
     switch (status) {
-        case 1:
-            return "进行中";
-        case 2:
-            return "已完成";
-        case 3:
-            return "已关闭";
-        default:
-            return "未知";
+        case 1: return "进行中";
+        case 2: return "已完成";
+        case 3: return "已关闭";
+        default: return "未知";
     }
 };
 
-/**
- * 获取状态样式类
- * 状态值：1-进行中，2-已完成，3-已关闭
- */
-const getStatusClass = (status: number): string => {
-    const baseClass = "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium";
+const getStatusBadgeClass = (status: number): string => {
     switch (status) {
-        case 1:
-            return `${baseClass} bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400`;
-        case 2:
-            return `${baseClass} bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400`;
-        case 3:
-            return `${baseClass} bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400`;
-        default:
-            return `${baseClass} bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400`;
+        case 1: return "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400";
+        case 2: return "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary";
+        case 3: return "bg-muted text-muted-foreground dark:bg-muted/50";
+        default: return "bg-muted text-muted-foreground";
     }
 };
 </script>

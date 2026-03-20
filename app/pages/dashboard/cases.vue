@@ -1,26 +1,85 @@
 <template>
-  <div class="p-4 md:p-6">
+  <div class="p-4 md:p-6 space-y-6 relative">
+    <!-- 装饰性背景 (右上角渐变) -->
+    <div class="absolute top-0 right-0 -z-10 w-1/3 h-1/4 bg-primary/5 blur-[100px] pointer-events-none"></div>
+
     <!-- 页面头部 -->
-    <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-      <div>
-        <h1 class="text-2xl md:text-3xl font-bold mb-1">我的案件</h1>
-        <p class="text-muted-foreground text-sm">查看和管理您的所有案件分析记录</p>
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+      <div class="space-y-1">
+        <h1 class="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">我的案件</h1>
+        <p class="text-muted-foreground text-sm md:text-base">这里记录了您的法律探索足迹，随时回顾和继续分析</p>
       </div>
-      <NuxtLink to="/case/analysis/0">
-        <Button class="w-full md:w-auto">
-          <Plus class="h-4 w-4 mr-2" />
-          新建分析
-        </Button>
-      </NuxtLink>
+      <div class="flex items-center gap-3">
+        <!-- 视图切换 (仅 PC) -->
+        <div class="hidden md:flex items-center bg-muted/50 rounded-lg p-1 border">
+          <Button variant="ghost" size="sm" :class="['h-8 w-8 p-0 rounded-md transition-all', viewMode === 'list' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground']" @click="viewMode = 'list'" title="列表视图">
+            <List class="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" :class="['h-8 w-8 p-0 rounded-md transition-all', viewMode === 'grid' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground']" @click="viewMode = 'grid'" title="卡片视图">
+            <LayoutGrid class="h-4 w-4" />
+          </Button>
+        </div>
+
+        <NuxtLink to="/case/analysis/0">
+          <Button class="w-full md:w-auto shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95">
+            <Plus class="h-4 w-4 mr-2" />
+            新建分析
+          </Button>
+        </NuxtLink>
+      </div>
+    </div>
+
+    <!-- 快速统计卡片 -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <UiCard class="bg-card/50 backdrop-blur border-primary/10 hover:border-primary/30 transition-colors">
+        <div class="p-4 flex items-center gap-4">
+          <div class="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+            <Briefcase class="h-5 w-5" />
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground uppercase font-medium">累计案件</p>
+            <p class="text-2xl font-bold">{{ pagination.total }}</p>
+          </div>
+        </div>
+      </UiCard>
+      
+      <UiCard class="bg-card/50 backdrop-blur border-primary/10 hover:border-primary/30 transition-colors">
+        <div class="p-4 flex items-center gap-4">
+          <div class="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
+            <Clock class="h-5 w-5" />
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground uppercase font-medium">进行中</p>
+            <p class="text-2xl font-bold">{{ cases.filter(c => c.status === 1).length }}<span class="text-sm font-normal text-muted-foreground ml-1">(当前页)</span></p>
+          </div>
+        </div>
+      </UiCard>
+
+      <UiCard class="bg-card/50 backdrop-blur border-primary/10 hover:border-primary/30 transition-colors">
+        <div class="p-4 flex items-center gap-4">
+          <div class="h-10 w-10 rounded-full bg-green-500/10 flex items-center justify-center text-green-500">
+            <CheckCircle class="h-5 w-5" />
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground uppercase font-medium">已完成</p>
+            <p class="text-2xl font-bold">{{ cases.filter(c => c.status === 2).length }}<span class="text-sm font-normal text-muted-foreground ml-1">(当前页)</span></p>
+          </div>
+        </div>
+      </UiCard>
     </div>
 
     <!-- 筛选区域 -->
-    <CasesFilter :case-types="caseTypes" v-model:case-type-id="filters.caseTypeId" v-model:status="filters.status"
-      v-model:title="filters.title" />
+    <div class="bg-card/50 backdrop-blur border rounded-xl overflow-hidden shadow-sm">
+      <CasesFilter :case-types="caseTypes" v-model:case-type-id="filters.caseTypeId" v-model:status="filters.status"
+        v-model:title="filters.title" />
+    </div>
 
     <!-- 加载状态 -->
-    <div v-if="loading" class="flex justify-center py-12">
-      <Loader2 class="h-10 w-10 animate-spin text-muted-foreground" />
+    <div v-if="loading" class="flex justify-center py-24">
+      <div class="relative">
+        <Loader2 class="h-12 w-12 animate-spin text-primary" />
+        <div class="absolute inset-0 blur-xl bg-primary/20 -z-10 animate-pulse"></div>
+      </div>
     </div>
 
     <!-- 空状态 -->
@@ -28,14 +87,20 @@
 
     <!-- 案件列表 -->
     <template v-else>
-      <!-- 桌面端表格 -->
-      <CasesTable :list="cases" :case-types="caseTypes" @delete="confirmDelete" />
+      <!-- 列表内容 -->
+      <div class="space-y-4">
+        <!-- 桌面端 -->
+        <div class="hidden md:block">
+          <CasesTable v-if="viewMode === 'list'" :list="cases" :case-types="caseTypes" @delete="confirmDelete" />
+          <CasesGrid v-else :list="cases" :case-types="caseTypes" @delete="confirmDelete" />
+        </div>
 
-      <!-- 移动端卡片 -->
-      <CasesMobile :list="cases" :case-types="caseTypes" @delete="confirmDelete" />
+        <!-- 移动端卡片 -->
+        <CasesMobile :list="cases" :case-types="caseTypes" @delete="confirmDelete" />
+      </div>
 
       <!-- 分页 -->
-      <div class="mt-4">
+      <div class="mt-8 flex justify-center md:justify-end">
         <GeneralPagination v-model:current-page="pagination.page" :page-size="pagination.pageSize"
           :total="pagination.total" @change="handlePageChange" />
       </div>
@@ -56,7 +121,7 @@
  *
  * @see Requirements 9.1, 9.2, 9.4
  */
-import { Plus, Loader2 } from "lucide-vue-next";
+import { Plus, Loader2, Briefcase, Clock, CheckCircle, List, LayoutGrid } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 
 // 页面元信息
@@ -65,44 +130,10 @@ definePageMeta({
   layout: "dashboard-layout",
 });
 
-// ==================== 类型定义 ====================
-
-/** 案件项（匹配 API 返回格式） */
-interface CaseItem {
-  id: number;
-  title: string;
-  content: string | null;
-  caseTypeId: number;
-  status: number; // 1-进行中，2-已完成，3-已关闭
-  isDemo: boolean;
-  createdAt: string;
-  updatedAt: string;
-  caseType: {
-    id: number;
-    name: string;
-  } | null;
-  latestSession: {
-    sessionId: string;
-    status: number;
-    createdAt: string;
-  } | null;
-}
-
-/** 案件类型 */
-interface CaseType {
-  id: number;
-  name: string;
-}
-
-/** 分页信息 */
-interface PaginationInfo {
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-}
-
 // ==================== 状态定义 ====================
+
+/** 视图模式 */
+const viewMode = ref<"list" | "grid">("list");
 
 // 加载状态
 const loading = ref(true);
