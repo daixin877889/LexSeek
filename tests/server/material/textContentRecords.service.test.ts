@@ -37,6 +37,7 @@ vi.mock('~~/server/services/material/materialEmbedding.service', () => ({
 
 import {
     embedTextContentService,
+    embedTextContentByMaterialIdService,
 } from '../../../server/services/material/textContentRecords.service'
 
 describe('embedTextContentService', () => {
@@ -103,5 +104,38 @@ describe('embedTextContentService', () => {
             1,
             expect.objectContaining({ status: 3 })
         )
+    })
+})
+
+describe('embedTextContentByMaterialIdService', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('materialId 找不到对应记录时应返回失败', async () => {
+        mocks.findTextContentRecordByMaterialIdDAO.mockResolvedValue(null)
+
+        const result = await embedTextContentByMaterialIdService(999, 1)
+
+        expect(result.success).toBe(false)
+        expect(result.error).toContain('不存在')
+    })
+
+    it('找到记录时应委托 embedTextContentService 处理', async () => {
+        mocks.findTextContentRecordByMaterialIdDAO.mockResolvedValue({
+            id: 42, materialId: 10, content: '测试内容', status: 0,
+        })
+        mocks.findTextContentRecordByIdDAO.mockResolvedValue({
+            id: 42, content: '测试内容', materialId: 10, status: 0,
+        })
+        mocks.embedTextService.mockResolvedValue({
+            ids: ['v1'], lastEmbeddingAt: '2026-03-20T12:00:00+08:00', chunkCount: 1,
+        })
+        mocks.updateTextContentRecordEmbeddingDAO.mockResolvedValue(undefined)
+
+        const result = await embedTextContentByMaterialIdService(10, 1)
+
+        expect(result.success).toBe(true)
+        expect(result.chunkCount).toBe(1)
     })
 })
