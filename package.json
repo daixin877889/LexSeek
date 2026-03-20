@@ -26,7 +26,8 @@
     "test:client": "vitest run tests/client --reporter=verbose",
     "test:shared": "vitest run tests/shared --reporter=verbose",
     "prebuild": "vitest run tests/server --reporter=verbose",
-    "coverage": "npx vitest run --coverage 2>&1 | tail -100"
+    "coverage": "npx vitest run --coverage 2>&1 | tail -100",
+    "kanban": "npx vibe-kanban"
   },
   "dependencies": {
     "@ai-sdk/langchain": "^2.0.122",

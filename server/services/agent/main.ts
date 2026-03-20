@@ -42,18 +42,5 @@ export const mainAgent = async (sessionId: string, prompt: string) => {
         streamConfig
     );
 
-
-    // const result = await agent.stream(
-    //     {
-    //         messages: [
-    //             {
-    //                 role: "user",
-    //                 content: prompt,
-    //             },
-    //         ],
-    //     },
-    //     streamConfig
-    // );
-
     return result;
 }
