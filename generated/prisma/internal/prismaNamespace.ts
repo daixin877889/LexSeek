@@ -400,6 +400,7 @@ export const ModelName = {
   legalMain: 'legalMain',
   legalArticles: 'legalArticles',
   lawEmbeddings: 'lawEmbeddings',
+  textContentRecords: 'textContentRecords',
   membershipLevels: 'membershipLevels',
   userMemberships: 'userMemberships',
   benefits: 'benefits',
@@ -452,7 +453,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
+    modelProps: "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1637,6 +1638,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.lawEmbeddingsCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.LawEmbeddingsCountAggregateOutputType> | number
+        }
+      }
+    }
+    textContentRecords: {
+      payload: Prisma.$textContentRecordsPayload<ExtArgs>
+      fields: Prisma.textContentRecordsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.textContentRecordsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$textContentRecordsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.textContentRecordsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$textContentRecordsPayload>
+        }
+        findFirst: {
+          args: Prisma.textContentRecordsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$textContentRecordsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.textContentRecordsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$textContentRecordsPayload>
+        }
+        findMany: {
+          args: Prisma.textContentRecordsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$textContentRecordsPayload>[]
+        }
+        create: {
+          args: Prisma.textContentRecordsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$textContentRecordsPayload>
+        }
+        createMany: {
+          args: Prisma.textContentRecordsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.textContentRecordsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$textContentRecordsPayload>[]
+        }
+        delete: {
+          args: Prisma.textContentRecordsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$textContentRecordsPayload>
+        }
+        update: {
+          args: Prisma.textContentRecordsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$textContentRecordsPayload>
+        }
+        deleteMany: {
+          args: Prisma.textContentRecordsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.textContentRecordsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.textContentRecordsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$textContentRecordsPayload>[]
+        }
+        upsert: {
+          args: Prisma.textContentRecordsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$textContentRecordsPayload>
+        }
+        aggregate: {
+          args: Prisma.TextContentRecordsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateTextContentRecords>
+        }
+        groupBy: {
+          args: Prisma.textContentRecordsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TextContentRecordsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.textContentRecordsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.TextContentRecordsCountAggregateOutputType> | number
         }
       }
     }
@@ -4546,12 +4621,9 @@ export const CaseMaterialsScalarFieldEnum = {
   caseId: 'caseId',
   name: 'name',
   type: 'type',
-  content: 'content',
-  originalContent: 'originalContent',
   ossFileId: 'ossFileId',
   isEncrypted: 'isEncrypted',
   status: 'status',
-  embeddingStatus: 'embeddingStatus',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
@@ -4683,6 +4755,24 @@ export const LawEmbeddingsScalarFieldEnum = {
 } as const
 
 export type LawEmbeddingsScalarFieldEnum = (typeof LawEmbeddingsScalarFieldEnum)[keyof typeof LawEmbeddingsScalarFieldEnum]
+
+
+export const TextContentRecordsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  caseId: 'caseId',
+  materialId: 'materialId',
+  content: 'content',
+  htmlContent: 'htmlContent',
+  status: 'status',
+  vectorIds: 'vectorIds',
+  lastEmbeddingAt: 'lastEmbeddingAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type TextContentRecordsScalarFieldEnum = (typeof TextContentRecordsScalarFieldEnum)[keyof typeof TextContentRecordsScalarFieldEnum]
 
 
 export const MembershipLevelsScalarFieldEnum = {
@@ -5603,6 +5693,7 @@ export type GlobalOmitConfig = {
   legalMain?: Prisma.legalMainOmit
   legalArticles?: Prisma.legalArticlesOmit
   lawEmbeddings?: Prisma.lawEmbeddingsOmit
+  textContentRecords?: Prisma.textContentRecordsOmit
   membershipLevels?: Prisma.membershipLevelsOmit
   userMemberships?: Prisma.userMembershipsOmit
   benefits?: Prisma.benefitsOmit

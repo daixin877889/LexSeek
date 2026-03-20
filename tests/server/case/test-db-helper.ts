@@ -235,8 +235,6 @@ export interface TestMaterialInput {
     caseId: number
     name?: string
     type?: number
-    content?: string | null
-    originalContent?: string | null
     ossFileId?: number | null
     isEncrypted?: boolean
     status?: number
@@ -255,8 +253,6 @@ export const createTestMaterial = async (
             caseId: data.caseId,
             name: data.name || `${TEST_MATERIAL_PREFIX}${timestamp}`,
             type: data.type ?? CaseMaterialType.CASE_CONTENT,
-            content: data.content ?? '测试材料内容',
-            originalContent: data.originalContent ?? null,
             ossFileId: data.ossFileId ?? null,
             isEncrypted: data.isEncrypted ?? false,
             status: data.status ?? MaterialStatus.PENDING,

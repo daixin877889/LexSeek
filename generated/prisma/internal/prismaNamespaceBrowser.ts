@@ -67,6 +67,7 @@ export const ModelName = {
   legalMain: 'legalMain',
   legalArticles: 'legalArticles',
   lawEmbeddings: 'lawEmbeddings',
+  textContentRecords: 'textContentRecords',
   membershipLevels: 'membershipLevels',
   userMemberships: 'userMemberships',
   benefits: 'benefits',
@@ -251,12 +252,9 @@ export const CaseMaterialsScalarFieldEnum = {
   caseId: 'caseId',
   name: 'name',
   type: 'type',
-  content: 'content',
-  originalContent: 'originalContent',
   ossFileId: 'ossFileId',
   isEncrypted: 'isEncrypted',
   status: 'status',
-  embeddingStatus: 'embeddingStatus',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
@@ -388,6 +386,24 @@ export const LawEmbeddingsScalarFieldEnum = {
 } as const
 
 export type LawEmbeddingsScalarFieldEnum = (typeof LawEmbeddingsScalarFieldEnum)[keyof typeof LawEmbeddingsScalarFieldEnum]
+
+
+export const TextContentRecordsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  caseId: 'caseId',
+  materialId: 'materialId',
+  content: 'content',
+  htmlContent: 'htmlContent',
+  status: 'status',
+  vectorIds: 'vectorIds',
+  lastEmbeddingAt: 'lastEmbeddingAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type TextContentRecordsScalarFieldEnum = (typeof TextContentRecordsScalarFieldEnum)[keyof typeof TextContentRecordsScalarFieldEnum]
 
 
 export const MembershipLevelsScalarFieldEnum = {

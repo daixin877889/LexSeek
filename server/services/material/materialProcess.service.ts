@@ -17,11 +17,7 @@ import { MaterialStatus } from '#shared/types/material'
 import { convertPdfService } from './mineru.service'
 import { createImageConversionService } from './ocr.service'
 import { transcribeAudioService } from './asr.service'
-import {
-    embedMaterialService,
-    type EmbedMaterialInput,
-} from './materialEmbedding.service'
-import { updateMaterialEmbeddingStatusDAO } from '../case/caseMaterial.dao'
+import { embedMaterialUnifiedService } from './materialEmbedding.service'
 
 /**
  * 材料处理业务错误
@@ -164,27 +160,12 @@ export const processMaterialService = async (
 
         // 10. 有内容则更新材料
         if (processResult.content) {
-            await updateMaterialContentService(materialId, processResult.content)
+            await updateMaterialContentService(materialId)
 
             // 11. 向量化处理
             if (options.enableEmbedding !== false) {
                 try {
-                    const session = await prisma.caseSessions.findFirst({
-                        where: { caseId: material.caseId, deletedAt: null },
-                        orderBy: { createdAt: 'desc' },
-                    })
-
-                    const embedInput: EmbedMaterialInput = {
-                        content: processResult.content,
-                        userId,
-                        caseId: material.caseId,
-                        materialId: material.id,
-                        sessionId: session?.sessionId || '',
-                        materialName: material.name,
-                        materialType: material.type as CaseMaterialType,
-                    }
-
-                    await embedMaterialService(embedInput)
+                    await embedMaterialUnifiedService(material.id, userId)
                     logger.info('材料向量化完成', { materialId })
                 } catch (embedError: any) {
                     // 向量化失败不影响主流程
@@ -209,94 +190,70 @@ export const processMaterialService = async (
             status: MaterialStatus.PROCESSING,
         }
     } catch (error: any) {
-        // 状态回退（MaterialProcessError 中部分已处理状态，这里兜底）
-        if (!(error instanceof MaterialProcessError)) {
-            logger.error('处理材料失败', {
-                materialId,
-                userId,
-                error: error.message,
-            })
-            try {
-                await updateMaterialStatusService(materialId, MaterialStatus.FAILED)
-            } catch {
-                // 忽略状态更新失败
-            }
+        // 异常时回退状态为 pending
+        try {
+            await updateMaterialStatusService(materialId, MaterialStatus.PENDING)
+        } catch {
+            // 忽略状态回退失败
         }
-        throw error
+        throw new MaterialProcessError(error.message || '材料处理失败', 500)
     }
 }
 
+// ============================================
+// 内部处理函数
+// ============================================
+
 /**
- * 处理 PDF 材料
+ * 处理 PDF 材料（调用 MinerU 服务）
  */
 async function processPdfMaterial(
     ossFileId: number,
     userId: number,
-    options?: {
-        enableOcr?: boolean
-        enableFormula?: boolean
-        enableTable?: boolean
-        pageRange?: string
-    }
-): Promise<InternalProcessResult> {
+    options?: ProcessMaterialOptions['mineruOptions'],
+) {
     try {
         const result = await convertPdfService(ossFileId, userId, {
-            enableOcr: options?.enableOcr,
-            enableFormula: options?.enableFormula,
-            enableTable: options?.enableTable,
+            enableOcr: options?.enableOcr ?? false,
+            enableFormula: options?.enableFormula ?? false,
+            enableTable: options?.enableTable ?? false,
             pageRange: options?.pageRange,
         })
-
         if (!result.success) {
             return { success: false, error: result.error }
         }
-
-        // MinerU 是异步处理，返回成功但没有内容
-        // 内容会在回调或轮询完成后更新
-        return { success: true }
+        return { success: true, content: result.content }
     } catch (error: any) {
         return { success: false, error: error.message }
     }
 }
 
 /**
- * 处理图片材料
+ * 处理图片材料（调用 OCR 服务）
  */
-async function processImageMaterial(
-    ossFileId: number,
-    userId: number
-): Promise<InternalProcessResult> {
+async function processImageMaterial(ossFileId: number, userId: number) {
     try {
         const result = await createImageConversionService(ossFileId, userId)
-
         if (!result.success) {
             return { success: false, error: result.error }
         }
-
-        // OCR 是同步处理，直接返回内容
-        const content = result.record?.markdownContent || result.record?.htmlContent || undefined
-        return { success: true, content }
+        return { success: true, content: result.content }
     } catch (error: any) {
         return { success: false, error: error.message }
     }
 }
 
 /**
- * 处理音频材料
+ * 处理音频材料（调用 ASR 服务）
  */
 async function processAudioMaterial(
     ossFileId: number,
     userId: number,
-    options?: {
-        timestampAlignmentEnabled?: boolean
-        languageHints?: string[]
-        disfluencyRemovalEnabled?: boolean
-        diarizationEnabled?: boolean
-    }
-): Promise<InternalProcessResult> {
+    options?: ProcessMaterialOptions['asrOptions'],
+) {
     try {
         const result = await transcribeAudioService(ossFileId, userId, {
-            timestampAlignmentEnabled: options?.timestampAlignmentEnabled,
+            timestampAlignmentEnabled: options?.timestampAlignmentEnabled ?? false,
             languageHints: options?.languageHints,
             disfluencyRemovalEnabled: options?.disfluencyRemovalEnabled,
             diarizationEnabled: options?.diarizationEnabled,
@@ -314,23 +271,47 @@ async function processAudioMaterial(
     }
 }
 
+// ============================================
+// 嵌入服务
+// ============================================
+
 /**
- * 确保材料列表全部完成嵌入
+ * 嵌入单个材料（内部辅助函数）
+ */
+async function embedSingleMaterial(
+    material: MaterialWithFile,
+    userId: number,
+): Promise<'success' | 'failed' | 'skipped'> {
+    try {
+        const result = await embedMaterialUnifiedService(material.id, userId)
+        if (result.success) {
+            return 'success'
+        }
+        // 如果返回的 error 包含"内容为空"类信息，视为 skipped
+        if (result.error?.includes('内容为空') || result.error?.includes('不存在')) {
+            logger.warn('材料嵌入跳过', { materialId: material.id, reason: result.error })
+            return 'skipped'
+        }
+        logger.error('材料嵌入失败', { materialId: material.id, error: result.error })
+        return 'failed'
+    } catch (error: any) {
+        logger.error('材料嵌入异常', { materialId: material.id, error: error.message })
+        return 'failed'
+    }
+}
+
+/**
+ * 批量确保材料已嵌入
  *
- * 对未嵌入的材料按类型分类，全并行调用对应的嵌入服务。
- * 失败的材料记录日志但不阻断流程。
+ * 并行处理所有未嵌入的材料，返回统计结果
  *
- * @param materials 需要嵌入的材料列表
- * @param userId 用户 ID
- * @param caseId 案件 ID
- * @param sessionId 会话 ID
- * @returns 嵌入统计结果
+ * @param materials 待嵌入的材料列表
+ * @param userId 当前用户 ID
+ * @returns 处理统计 { total, success, failed, skipped }
  */
 export async function ensureMaterialsEmbeddedService(
     materials: MaterialWithFile[],
     userId: number,
-    caseId: number,
-    sessionId: string
 ): Promise<{
     total: number
     success: number
@@ -342,7 +323,7 @@ export async function ensureMaterialsEmbeddedService(
     }
 
     const results = await Promise.allSettled(
-        materials.map(material => embedSingleMaterial(material, userId, caseId, sessionId))
+        materials.map(material => embedSingleMaterial(material, userId))
     )
 
     let success = 0
@@ -362,66 +343,4 @@ export async function ensureMaterialsEmbeddedService(
     }
 
     return { total: materials.length, success, failed, skipped }
-}
-
-/**
- * 嵌入单个材料（内部辅助函数）
- * 按材料类型分发到对应的嵌入服务
- */
-async function embedSingleMaterial(
-    material: MaterialWithFile,
-    userId: number,
-    caseId: number,
-    sessionId: string
-): Promise<'success' | 'failed' | 'skipped'> {
-    try {
-        if (material.type === CaseMaterialType.CASE_CONTENT) {
-            // 文本材料：使用 embedTextMaterialService（含完整状态管理）
-            const { embedTextMaterialService } = await import('../case/caseMaterial.service')
-            const result = await embedTextMaterialService(material.id, userId, caseId, sessionId)
-            return result.success ? 'success' : 'failed'
-        }
-
-        // 非文本材料：校验 content
-        if (!material.content || material.content.trim() === '') {
-            logger.warn('材料内容为空，跳过嵌入', { materialId: material.id, type: material.type })
-            return 'skipped'
-        }
-
-        // 更新状态为 processing
-        await updateMaterialEmbeddingStatusDAO(material.id, 'processing')
-
-        // 构造输入并调用 embedMaterialService
-        const input: EmbedMaterialInput = {
-            content: material.content,
-            userId,
-            caseId,
-            materialId: material.id,
-            sessionId,
-            materialName: material.name,
-            materialType: material.type as CaseMaterialType,
-        }
-        await embedMaterialService(input)
-
-        // 更新状态为 completed
-        await updateMaterialEmbeddingStatusDAO(material.id, 'completed')
-        return 'success'
-    } catch (error: any) {
-        logger.error('材料嵌入失败', {
-            materialId: material.id,
-            type: material.type,
-            error: error.message,
-        })
-
-        // 非文本材料尝试更新状态为 failed（文本材料由 embedTextMaterialService 内部管理状态）
-        if (material.type !== CaseMaterialType.CASE_CONTENT) {
-            try {
-                await updateMaterialEmbeddingStatusDAO(material.id, 'failed')
-            } catch {
-                // 状态更新失败不阻断
-            }
-        }
-
-        return 'failed'
-    }
 }

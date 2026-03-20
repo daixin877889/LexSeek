@@ -22,9 +22,7 @@ export const createMaterialDao = async (
                 caseId: data.caseId,
                 name: data.name,
                 type: data.type,
-                content: data.content,
-                originalContent: data.originalContent,
-                ossFileId: data.ossFileId,
+                ossFileId: data.ossFileId ?? null,
                 isEncrypted: data.isEncrypted ?? false,
                 status: data.status ?? MaterialStatus.PENDING,
             },
@@ -155,12 +153,16 @@ export const updateMaterialDao = async (
     tx?: Prisma.TransactionClient
 ): Promise<caseMaterials> => {
     try {
+        // 只更新 caseMaterials 表支持的字段（content/originalContent 已迁移到 textContentRecords）
+        const updateData: Prisma.caseMaterialsUpdateInput = {
+            updatedAt: new Date(),
+        }
+        if (data.name !== undefined) updateData.name = data.name
+        if (data.status !== undefined) updateData.status = data.status
+
         const material = await (tx || prisma).caseMaterials.update({
             where: { id },
-            data: {
-                ...data,
-                updatedAt: new Date(),
-            },
+            data: updateData,
         })
         return material
     } catch (error) {
@@ -191,27 +193,3 @@ export const deleteMaterialDao = async (
     }
 }
 
-/**
- * 批量更新材料的 embedding 状态
- *
- * 统一处理动态导入和错误，避免在多个服务中重复代码
- * @param ossFileId OSS 文件 ID
- * @param status embedding 状态：'completed' | 'failed' | 'pending'
- * @param tx 事务对象（可选）
- */
-export const batchUpdateMaterialEmbeddingStatus = async (
-    ossFileId: number,
-    status: 'completed' | 'failed' | 'pending',
-    tx?: Prisma.TransactionClient
-): Promise<void> => {
-    try {
-        const { batchUpdateMaterialEmbeddingStatusByOssFileIdDAO } = await import('../case/caseMaterial.dao')
-        await batchUpdateMaterialEmbeddingStatusByOssFileIdDAO(ossFileId, status, tx)
-        logger.info(`批量更新材料 embedding_status 为 ${status}: ossFileId=${ossFileId}`)
-    } catch (error: any) {
-        logger.warn('批量更新 case_materials embedding_status 失败', {
-            ossFileId,
-            error: error.message,
-        })
-    }
-}

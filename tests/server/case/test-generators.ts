@@ -137,8 +137,6 @@ export const materialStatusArb = fc.constantFrom(
 export const materialDataArbitrary = fc.record({
     name: fc.string({ minLength: 2, maxLength: 100 }).map(s => `测试材料_${s.trim() || Date.now()}`),
     type: materialTypeArb,
-    content: fc.option(fc.string({ minLength: 1, maxLength: 1000 }), { nil: null }),
-    originalContent: fc.option(fc.string({ minLength: 1, maxLength: 1000 }), { nil: null }),
     isEncrypted: fc.boolean(),
     status: materialStatusArb,
 })
@@ -146,7 +144,6 @@ export const materialDataArbitrary = fc.record({
 /** 材料更新数据生成器 */
 export const materialUpdateDataArb = fc.record({
     name: fc.option(fc.string({ minLength: 2, maxLength: 100 }).map(s => `测试材料_${s.trim()}`), { nil: undefined }),
-    content: fc.option(fc.string({ minLength: 1, maxLength: 1000 }), { nil: undefined }),
     status: fc.option(materialStatusArb, { nil: undefined }),
 })
 

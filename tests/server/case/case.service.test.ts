@@ -8,7 +8,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { createCaseService } from '../../../server/services/case/case.service'
 import { findByCaseIdDAO } from '../../../server/services/case/caseMaterial.dao'
-import { batchEmbedTextMaterialsService } from '../../../server/services/case/caseMaterial.service'
 import { CaseMaterialType } from '../../../shared/types/case'
 import type { CaseMaterialParam } from '../../../shared/types/case'
 

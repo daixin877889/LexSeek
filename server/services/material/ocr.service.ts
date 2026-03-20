@@ -20,7 +20,6 @@ import {
     updateImageRecognitionRecordDao,
     findImageRecognitionsByOssFileIdsDao,
 } from './ocr.dao'
-import { batchUpdateMaterialEmbeddingStatus } from './material.dao'
 import { generateSignedUrlService } from '../storage/storage.service'
 import { getValidNodeConfig, getNodeConfigService, type NodeConfig } from '../node/node.service'
 import { embedImageService } from './materialEmbedding.service'
@@ -431,8 +430,6 @@ export async function createImageRecognitionService(
                     chunkCount: embeddingResult.chunkCount,
                 })
 
-                // 更新 case_materials 表的 embedding_status（批量更新）
-                await batchUpdateMaterialEmbeddingStatus(ossFileId, 'completed', tx)
             }
         } catch (embedError: any) {
             // 向量化失败不影响识别结果
@@ -441,8 +438,6 @@ export async function createImageRecognitionService(
                 error: embedError.message,
             })
 
-            // 更新 case_materials 表的 embedding_status 为 failed（批量更新）
-            await batchUpdateMaterialEmbeddingStatus(ossFileId, 'failed', tx)
         }
 
         return conversionResult
@@ -796,19 +791,12 @@ async function embedImageRecordService(
             lastEmbeddingAt: new Date(embeddingResult.lastEmbeddingAt),
         }, tx)
 
-        // 4. 批量更新 case_materials 表的 embedding_status 为 completed
-        // Requirements: 10.13
-        await batchUpdateMaterialEmbeddingStatus(ossFileId, 'completed', tx)
-
         return {
             success: true,
             vectorIds: embeddingResult.ids,
             chunkCount: embeddingResult.chunkCount,
         }
     } catch (embedError: any) {
-        // 向量化失败，批量更新 case_materials 表的 embedding_status 为 failed
-        // Requirements: 10.14
-        await batchUpdateMaterialEmbeddingStatus(ossFileId, 'failed', tx)
 
         return {
             success: false,

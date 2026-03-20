@@ -72,8 +72,6 @@ describe('案件材料 DAO 层', () => {
                 {
                     name: '案情描述',
                     type: CaseMaterialType.CASE_CONTENT,
-                    content: '这是案情描述内容',
-                    originalContent: null,
                     ossFileId: null,
                     isEncrypted: false,
                     status: MaterialStatus.PENDING,
@@ -81,8 +79,6 @@ describe('案件材料 DAO 层', () => {
                 {
                     name: '补充说明',
                     type: CaseMaterialType.CASE_CONTENT,
-                    content: '这是补充说明内容',
-                    originalContent: null,
                     ossFileId: null,
                     isEncrypted: false,
                     status: MaterialStatus.PENDING,
@@ -96,7 +92,6 @@ describe('案件材料 DAO 层', () => {
             expect(savedMaterials.length).toBe(2)
             expect(savedMaterials[0].name).toBe('案情描述')
             expect(savedMaterials[0].type).toBe(CaseMaterialType.CASE_CONTENT)
-            expect(savedMaterials[0].content).toBe('这是案情描述内容')
             expect(savedMaterials[1].name).toBe('补充说明')
 
             // 记录 ID 以便清理
@@ -121,8 +116,6 @@ describe('案件材料 DAO 层', () => {
                 {
                     name: '证据文档',
                     type: CaseMaterialType.DOCUMENT,
-                    content: null,
-                    originalContent: null,
                     ossFileId: ossFile1.id,
                     isEncrypted: false,
                     status: MaterialStatus.PENDING,
@@ -130,8 +123,6 @@ describe('案件材料 DAO 层', () => {
                 {
                     name: '证据图片',
                     type: CaseMaterialType.IMAGE,
-                    content: null,
-                    originalContent: null,
                     ossFileId: ossFile2.id,
                     isEncrypted: false,
                     status: MaterialStatus.PENDING,
@@ -157,8 +148,6 @@ describe('案件材料 DAO 层', () => {
                 {
                     name: '加密内容',
                     type: CaseMaterialType.CASE_CONTENT,
-                    content: '加密后的内容',
-                    originalContent: '原始内容',
                     ossFileId: null,
                     isEncrypted: true,
                     status: MaterialStatus.PENDING,
@@ -171,8 +160,6 @@ describe('案件材料 DAO 层', () => {
             const savedMaterials = await findByCaseIdDAO(testCase.id)
             expect(savedMaterials.length).toBe(1)
             expect(savedMaterials[0].isEncrypted).toBe(true)
-            expect(savedMaterials[0].content).toBe('加密后的内容')
-            expect(savedMaterials[0].originalContent).toBe('原始内容')
 
             // 记录 ID 以便清理
             testIds.materialIds.push(...savedMaterials.map(m => m.id))
@@ -183,8 +170,6 @@ describe('案件材料 DAO 层', () => {
                 {
                     name: '待处理材料',
                     type: CaseMaterialType.CASE_CONTENT,
-                    content: '内容',
-                    originalContent: null,
                     ossFileId: null,
                     isEncrypted: false,
                     status: MaterialStatus.PENDING,
@@ -192,8 +177,6 @@ describe('案件材料 DAO 层', () => {
                 {
                     name: '处理中材料',
                     type: CaseMaterialType.CASE_CONTENT,
-                    content: '内容',
-                    originalContent: null,
                     ossFileId: null,
                     isEncrypted: false,
                     status: MaterialStatus.PROCESSING,
@@ -227,8 +210,6 @@ describe('案件材料 DAO 层', () => {
                 {
                     name: '时间戳测试',
                     type: CaseMaterialType.CASE_CONTENT,
-                    content: '内容',
-                    originalContent: null,
                     ossFileId: null,
                     isEncrypted: false,
                     status: MaterialStatus.PENDING,
@@ -259,8 +240,6 @@ describe('案件材料 DAO 层', () => {
                 {
                     name: '材料1',
                     type: CaseMaterialType.CASE_CONTENT,
-                    content: '内容1',
-                    originalContent: null,
                     ossFileId: null,
                     isEncrypted: false,
                     status: MaterialStatus.PENDING,
@@ -268,8 +247,6 @@ describe('案件材料 DAO 层', () => {
                 {
                     name: '材料2',
                     type: CaseMaterialType.CASE_CONTENT,
-                    content: '内容2',
-                    originalContent: null,
                     ossFileId: null,
                     isEncrypted: false,
                     status: MaterialStatus.PENDING,
@@ -277,8 +254,6 @@ describe('案件材料 DAO 层', () => {
                 {
                     name: '材料3',
                     type: CaseMaterialType.CASE_CONTENT,
-                    content: '内容3',
-                    originalContent: null,
                     ossFileId: null,
                     isEncrypted: false,
                     status: MaterialStatus.PENDING,
@@ -304,8 +279,6 @@ describe('案件材料 DAO 层', () => {
                 {
                     name: '第一个材料',
                     type: CaseMaterialType.CASE_CONTENT,
-                    content: '内容',
-                    originalContent: null,
                     ossFileId: null,
                     isEncrypted: false,
                     status: MaterialStatus.PENDING,
@@ -320,8 +293,6 @@ describe('案件材料 DAO 层', () => {
                 {
                     name: '第二个材料',
                     type: CaseMaterialType.CASE_CONTENT,
-                    content: '内容',
-                    originalContent: null,
                     ossFileId: null,
                     isEncrypted: false,
                     status: MaterialStatus.PENDING,
@@ -373,7 +344,6 @@ describe('案件材料 DAO 层', () => {
                         CaseMaterialType.IMAGE,
                         CaseMaterialType.AUDIO
                     ),
-                    content: fc.option(fc.string({ maxLength: 200 }), { nil: null }),
                     isEncrypted: fc.boolean(),
                     status: fc.constantFrom(
                         MaterialStatus.PENDING,
@@ -397,8 +367,6 @@ describe('案件材料 DAO 层', () => {
                             const materials = materialsData.map(m => ({
                                 name: m.name,
                                 type: m.type,
-                                content: m.content,
-                                originalContent: null,
                                 ossFileId: null,
                                 isEncrypted: m.isEncrypted,
                                 status: m.status,
@@ -415,7 +383,6 @@ describe('案件材料 DAO 层', () => {
                             for (let i = 0; i < materials.length; i++) {
                                 expect(savedMaterials[i].name).toBe(materials[i].name)
                                 expect(savedMaterials[i].type).toBe(materials[i].type)
-                                expect(savedMaterials[i].content).toBe(materials[i].content)
                                 expect(savedMaterials[i].isEncrypted).toBe(materials[i].isEncrypted)
                                 expect(savedMaterials[i].status).toBe(materials[i].status)
                                 expect(savedMaterials[i].caseId).toBe(propertyTestCase.id)
@@ -451,8 +418,6 @@ describe('案件材料 DAO 层', () => {
                             const materials = names.map(name => ({
                                 name,
                                 type: CaseMaterialType.CASE_CONTENT,
-                                content: `内容_${name}`,
-                                originalContent: null,
                                 ossFileId: null,
                                 isEncrypted: false,
                                 status: MaterialStatus.PENDING,
@@ -512,8 +477,6 @@ describe('案件材料 DAO 层', () => {
                             const materials1 = names1.map(name => ({
                                 name: `案件1_${name}`,
                                 type: CaseMaterialType.CASE_CONTENT,
-                                content: '内容',
-                                originalContent: null,
                                 ossFileId: null,
                                 isEncrypted: false,
                                 status: MaterialStatus.PENDING,
@@ -524,8 +487,6 @@ describe('案件材料 DAO 层', () => {
                             const materials2 = names2.map(name => ({
                                 name: `案件2_${name}`,
                                 type: CaseMaterialType.CASE_CONTENT,
-                                content: '内容',
-                                originalContent: null,
                                 ossFileId: null,
                                 isEncrypted: false,
                                 status: MaterialStatus.PENDING,
