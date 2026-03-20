@@ -123,6 +123,12 @@ export type legalArticles = Prisma.legalArticlesModel
  */
 export type lawEmbeddings = Prisma.lawEmbeddingsModel
 /**
+ * Model textContentRecords
+ * 文本内容记录表
+ * 对齐 docRecognitionRecords 结构，为 CASE_CONTENT 类型材料提供独立存储
+ */
+export type textContentRecords = Prisma.textContentRecordsModel
+/**
  * Model membershipLevels
  * 会员级别表
  */
