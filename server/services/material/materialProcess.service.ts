@@ -190,94 +190,70 @@ export const processMaterialService = async (
             status: MaterialStatus.PROCESSING,
         }
     } catch (error: any) {
-        // 状态回退（MaterialProcessError 中部分已处理状态，这里兜底）
-        if (!(error instanceof MaterialProcessError)) {
-            logger.error('处理材料失败', {
-                materialId,
-                userId,
-                error: error.message,
-            })
-            try {
-                await updateMaterialStatusService(materialId, MaterialStatus.FAILED)
-            } catch {
-                // 忽略状态更新失败
-            }
+        // 异常时回退状态为 pending
+        try {
+            await updateMaterialStatusService(materialId, MaterialStatus.PENDING)
+        } catch {
+            // 忽略状态回退失败
         }
-        throw error
+        throw new MaterialProcessError(error.message || '材料处理失败', 500)
     }
 }
 
+// ============================================
+// 内部处理函数
+// ============================================
+
 /**
- * 处理 PDF 材料
+ * 处理 PDF 材料（调用 MinerU 服务）
  */
 async function processPdfMaterial(
     ossFileId: number,
     userId: number,
-    options?: {
-        enableOcr?: boolean
-        enableFormula?: boolean
-        enableTable?: boolean
-        pageRange?: string
-    }
-): Promise<InternalProcessResult> {
+    options?: ProcessMaterialOptions['mineruOptions'],
+) {
     try {
         const result = await convertPdfService(ossFileId, userId, {
-            enableOcr: options?.enableOcr,
-            enableFormula: options?.enableFormula,
-            enableTable: options?.enableTable,
+            enableOcr: options?.enableOcr ?? false,
+            enableFormula: options?.enableFormula ?? false,
+            enableTable: options?.enableTable ?? false,
             pageRange: options?.pageRange,
         })
-
         if (!result.success) {
             return { success: false, error: result.error }
         }
-
-        // MinerU 是异步处理，返回成功但没有内容
-        // 内容会在回调或轮询完成后更新
-        return { success: true }
+        return { success: true, content: result.content }
     } catch (error: any) {
         return { success: false, error: error.message }
     }
 }
 
 /**
- * 处理图片材料
+ * 处理图片材料（调用 OCR 服务）
  */
-async function processImageMaterial(
-    ossFileId: number,
-    userId: number
-): Promise<InternalProcessResult> {
+async function processImageMaterial(ossFileId: number, userId: number) {
     try {
         const result = await createImageConversionService(ossFileId, userId)
-
         if (!result.success) {
             return { success: false, error: result.error }
         }
-
-        // OCR 是同步处理，直接返回内容
-        const content = result.record?.markdownContent || result.record?.htmlContent || undefined
-        return { success: true, content }
+        return { success: true, content: result.content }
     } catch (error: any) {
         return { success: false, error: error.message }
     }
 }
 
 /**
- * 处理音频材料
+ * 处理音频材料（调用 ASR 服务）
  */
 async function processAudioMaterial(
     ossFileId: number,
     userId: number,
-    options?: {
-        timestampAlignmentEnabled?: boolean
-        languageHints?: string[]
-        disfluencyRemovalEnabled?: boolean
-        diarizationEnabled?: boolean
-    }
-): Promise<InternalProcessResult> {
+    options?: ProcessMaterialOptions['asrOptions'],
+) {
     try {
         const result = await transcribeAudioService(ossFileId, userId, {
-            timestampAlignmentEnabled: options?.timestampAlignmentEnabled,
+            timestampAlignmentEnabled: options?.timestampAlignmentEnabled ?? false,
             languageHints: options?.languageHints,
             disfluencyRemovalEnabled: options?.disfluencyRemovalEnabled,
             diarizationEnabled: options?.diarizationEnabled,
@@ -294,6 +270,10 @@ async function processAudioMaterial(
         return { success: false, error: error.message }
     }
 }
+
+// ============================================
+// 嵌入服务
+// ============================================
 
 /**
  * 嵌入单个材料（内部辅助函数）

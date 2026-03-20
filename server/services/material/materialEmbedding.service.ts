@@ -16,7 +16,7 @@ import {
     getPool,
     type VectorStoreConfig,
 } from '~~/server/services/legal/vectorStore.service'
-import { CaseMaterialType } from '#shared/types/material'
+import { CaseMaterialType } from '#shared/types/case'
 
 /** 材料向量存储配置 */
 export const caseMaterialVectorConfig: VectorStoreConfig = {
