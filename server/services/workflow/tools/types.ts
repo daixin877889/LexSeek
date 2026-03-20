@@ -6,7 +6,7 @@
  */
 
 import type { StructuredToolInterface } from '@langchain/core/tools'
-import type { ZodObject, ZodTypeAny } from 'zod'
+import type { ZodObject, ZodType } from 'zod'
 
 /** 工具参数定义（用于 API 返回） */
 export interface ToolParameter {
@@ -43,7 +43,7 @@ export interface ToolContext {
 }
 
 /** 工具定义（单一数据源） */
-export interface ToolDefinition<T extends ZodObject<Record<string, ZodTypeAny>>> {
+export interface ToolDefinition<T extends ZodObject<Record<string, ZodType>>> {
     /** 工具名称 */
     name: string
     /** 工具描述 */
@@ -55,7 +55,7 @@ export interface ToolDefinition<T extends ZodObject<Record<string, ZodTypeAny>>>
 /** 工具模块接口 */
 export interface ToolModule {
     /** 工具定义（包含 name、description、schema） */
-    toolDefinition: ToolDefinition<ZodObject<Record<string, ZodTypeAny>>>
+    toolDefinition: ToolDefinition<ZodObject<Record<string, ZodType>>>
     /** 工具工厂函数 */
     createTool: (context: ToolContext) => StructuredToolInterface
 }
@@ -66,13 +66,13 @@ export interface ToolModule {
  * @param schema zod object schema
  * @returns 参数定义列表
  */
-export function extractParametersFromSchema(schema: ZodObject<Record<string, ZodTypeAny>>): ToolParameter[] {
+export function extractParametersFromSchema(schema: ZodObject<Record<string, ZodType>>): ToolParameter[] {
     const shape = schema.shape
     const parameters: ToolParameter[] = []
 
     for (const [name, fieldSchema] of Object.entries(shape)) {
-        const zodSchema = fieldSchema as ZodTypeAny
-        const description = zodSchema._def.description || ''
+        const zodSchema = fieldSchema as ZodType
+        const description = zodSchema.description || ''
 
         // 判断是否必填（检查是否有 optional 包装）
         const isOptional = zodSchema.isOptional()
@@ -81,35 +81,36 @@ export function extractParametersFromSchema(schema: ZodObject<Record<string, Zod
         let type = 'string'
         let defaultValue: unknown = undefined
 
-        // 解包 optional 和 default
-        let innerSchema = zodSchema
-        if (innerSchema._def.typeName === 'ZodOptional') {
-            innerSchema = innerSchema._def.innerType
+        // 解包 optional 和 default（Zod v4 使用 _zod.def 内部结构）
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let innerDef: any = (zodSchema as any)._zod.def
+        if (innerDef.type === 'optional') {
+            innerDef = innerDef.innerType._zod.def
         }
-        if (innerSchema._def.typeName === 'ZodDefault') {
-            defaultValue = innerSchema._def.defaultValue()
-            innerSchema = innerSchema._def.innerType
+        if (innerDef.type === 'default') {
+            defaultValue = innerDef.defaultValue
+            innerDef = innerDef.innerType._zod.def
         }
 
-        // 获取类型名称
-        const typeName = innerSchema._def.typeName
+        // 获取类型名称（Zod v4 使用小写类型名）
+        const typeName = innerDef.type as string
         switch (typeName) {
-            case 'ZodString':
+            case 'string':
                 type = 'string'
                 break
-            case 'ZodNumber':
+            case 'number':
                 type = 'number'
                 break
-            case 'ZodBoolean':
+            case 'boolean':
                 type = 'boolean'
                 break
-            case 'ZodArray':
+            case 'array':
                 type = 'array'
                 break
-            case 'ZodObject':
+            case 'object':
                 type = 'object'
                 break
-            case 'ZodEnum':
+            case 'enum':
                 type = 'string'
                 break
             default:
@@ -134,7 +135,7 @@ export function extractParametersFromSchema(schema: ZodObject<Record<string, Zod
  * @param definition 工具定义
  * @returns 工具元信息
  */
-export function getToolMetaFromDefinition(definition: ToolDefinition<ZodObject<Record<string, ZodTypeAny>>>): ToolMeta {
+export function getToolMetaFromDefinition(definition: ToolDefinition<ZodObject<Record<string, ZodType>>>): ToolMeta {
     return {
         name: definition.name,
         description: definition.description,
