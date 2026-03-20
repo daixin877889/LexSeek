@@ -5,14 +5,18 @@
 <script lang="ts" setup>
 import { usePromptInput } from "@/components/ai-elements/prompt-input";
 
+const props = defineProps<{
+  filesCount?: number
+}>();
+
 const store = useCaseAnalysisStore();
-const { textInput, files } = usePromptInput();
+const { textInput } = usePromptInput();
 
 // 监听输入变化，同步到 store
 watch(
-  [textInput, files],
-  ([text, fileList]) => {
-    store.updatePromptState(text, fileList.length);
+  [textInput, () => props.filesCount],
+  ([text, count]) => {
+    store.updatePromptState(text, count || 0);
   },
   { deep: true, immediate: true }
 );

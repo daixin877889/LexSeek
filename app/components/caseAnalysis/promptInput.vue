@@ -6,21 +6,21 @@
         enter-to-class="opacity-100 scale-100" leave-active-class="transition duration-150 ease-in"
         leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
         <div v-if="isOverDropZone"
-          class="absolute inset-x-4 inset-y-0 z-50 flex items-center justify-center p-4 bg-primary/10 backdrop-blur-sm border-2 border-dashed border-primary rounded-md">
-          <div class="flex flex-col items-center gap-4 text-primary animate-pulse">            <div class="p-4 bg-primary/20 rounded-full">
-              <UploadIcon class="size-12" />
+          class="absolute inset-x-4 inset-y-0 z-50 flex items-center justify-center p-2 bg-primary/10 backdrop-blur-sm border-2 border-dashed border-primary rounded-md overflow-hidden">
+          <div class="flex flex-col items-center gap-2 text-primary animate-pulse">
+            <div class="p-2 bg-primary/20 rounded-full shrink-0">
+              <UploadIcon class="size-8" />
             </div>
-            <p class="text-xl font-bold">释放以添加案情材料</p>
-            <p class="text-sm opacity-80">支持 文本、文档、音频、图片</p>
+            <p class="text-sm font-bold whitespace-nowrap">释放以添加案情材料</p>
           </div>
         </div>
       </Transition>
 
       <PromptInputProvider @submit="handleSubmit">
         <!-- 输入状态监听器，同步状态到 store -->
-        <CaseAnalysisPromptInputWatcher v-if="enableWatcher" />
-        <PromptInput global-drop multiple
-          class="**:data-[slot=input-group]:shadow-none **:data-[slot=input-group]:border-primary **:data-[slot=input-group]:rounded-md transition-all">
+        <CaseAnalysisPromptInputWatcher v-if="enableWatcher"
+          :files-count="selectedFiles.length + uploadingFiles.length" />
+        <PromptInput global-drop multiple          class="**:data-[slot=input-group]:shadow-none **:data-[slot=input-group]:border-primary **:data-[slot=input-group]:rounded-md transition-all">
           <!-- 头部：自定义文件列表 -->
           <PromptInputHeader v-if="selectedFiles.length > 0 || uploadingFiles.length > 0">
             <div class="flex flex-wrap items-center gap-2 pt-3 pb-1 px-1 w-full">
@@ -119,12 +119,11 @@
             <!-- 附件上传 -->
             <div class="flex items-center gap-2 mr-[-8px]"> <!-- 提交按钮 -->
               <PromptInputSubmit class="h-9 px-4! rounded-md shadow-lg shadow-primary/20 active:scale-95 transition-all"
-                :status="submitStatus" :disabled="disabled || isAllRecognizing" size="xs">
+                :status="submitStatus" :disabled="isSubmitDisabled" size="xs">
                 <SendHorizontal class="size-4" />
                 <span class="ml-1.5">{{ submitLabel }}</span>
               </PromptInputSubmit>
-            </div>
-          </PromptInputFooter>
+            </div>          </PromptInputFooter>
         </PromptInput>
       </PromptInputProvider>
     </div>
@@ -183,6 +182,7 @@ const emit = defineEmits<{
 }>()
 
 const fileStore = useFileStore();
+const caseAnalysisStore = useCaseAnalysisStore();
 const { detectMimeType, validateFile, uploadToOSS } = useBatchUpload();
 
 // 本地正在上传的文件列表
@@ -220,6 +220,16 @@ const selectedFileIds = computed(() => selectedFiles.value.map(f => f.id))
 // 检查是否所有文件都在识别中
 const isAllRecognizing = computed(() => {
   return selectedFiles.value.some(f => getRecognitionStatus(f.id) === 'recognizing');
+})
+
+// 计算是否禁用提交
+const isSubmitDisabled = computed(() => {
+  const hasText = !!caseAnalysisStore.promptText?.trim();
+  const hasFiles = selectedFiles.value.length > 0;
+  const isUploading = uploadingFiles.value.length > 0;
+  
+  // 基础禁用：无文本且无文件，或者正在上传，或者有文件正在识别
+  return (!hasText && !hasFiles) || isUploading || isAllRecognizing.value || props.disabled;
 })
 
 // 提交状态：由外部 loading prop 派生
