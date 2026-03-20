@@ -41,9 +41,7 @@ vi.mock('~~/server/services/case/caseMaterial.dao', () => ({
 
 import { ensureMaterialsEmbeddedService } from '../../../server/services/material/materialProcess.service'
 
-const embedTextMaterialService = mocks.embedTextMaterialService
-const embedMaterialService = mocks.embedMaterialService
-const updateMaterialEmbeddingStatusDAO = mocks.updateMaterialEmbeddingStatusDAO
+const { embedTextMaterialService, embedMaterialService, updateMaterialEmbeddingStatusDAO } = mocks
 
 // 辅助：创建测试材料
 function makeMaterial(overrides: Partial<MaterialWithFile> & { id: number; type: number; name: string }): MaterialWithFile {
