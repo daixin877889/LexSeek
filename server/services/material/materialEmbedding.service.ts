@@ -1289,3 +1289,155 @@ export async function searchUserAudiosService(
         throw error
     }
 }
+
+
+// ============================================
+// 统一嵌入状态查询
+// ============================================
+
+/**
+ * 批量查询材料的嵌入状态
+ *
+ * 按材料类型查对应识别记录表的 lastEmbeddingAt：
+ * - CASE_CONTENT (1) → textContentRecords.lastEmbeddingAt
+ * - DOCUMENT (2) → docRecognitionRecords.lastEmbeddingAt
+ * - IMAGE (3) → imageRecognitionRecords.lastEmbeddingAt
+ * - AUDIO (4) → asrRecords.lastEmbeddingAt
+ *
+ * @param materialIds case_materials.id[]
+ * @returns Map<materialId, isEmbedded>
+ */
+export async function batchCheckMaterialEmbeddedService(
+    materialIds: number[]
+): Promise<Map<number, boolean>> {
+    const result = new Map<number, boolean>()
+    if (materialIds.length === 0) return result
+
+    // 1. 查询所有材料的类型和 ossFileId
+    const materials = await prisma.caseMaterials.findMany({
+        where: { id: { in: materialIds }, deletedAt: null },
+        select: { id: true, type: true, ossFileId: true },
+    })
+
+    // 初始化所有 materialIds 为 false
+    for (const id of materialIds) {
+        result.set(id, false)
+    }
+
+    // 2. 按类型分组
+    const textMaterialIds: number[] = []
+    const docOssFileMap = new Map<number, number>()     // ossFileId -> materialId
+    const imageOssFileMap = new Map<number, number>()
+    const audioOssFileMap = new Map<number, number>()
+
+    for (const m of materials) {
+        switch (m.type) {
+            case 1: // CASE_CONTENT
+                textMaterialIds.push(m.id)
+                break
+            case 2: // DOCUMENT
+                if (m.ossFileId) docOssFileMap.set(m.ossFileId, m.id)
+                break
+            case 3: // IMAGE
+                if (m.ossFileId) imageOssFileMap.set(m.ossFileId, m.id)
+                break
+            case 4: // AUDIO
+                if (m.ossFileId) audioOssFileMap.set(m.ossFileId, m.id)
+                break
+        }
+    }
+
+    // 3. 并行查询各类型的嵌入状态
+    const queries: Promise<void>[] = []
+
+    if (textMaterialIds.length > 0) {
+        queries.push(
+            prisma.textContentRecords.findMany({
+                where: {
+                    materialId: { in: textMaterialIds },
+                    deletedAt: null,
+                },
+                select: { materialId: true, lastEmbeddingAt: true },
+            }).then(records => {
+                for (const r of records) {
+                    if (r.materialId && r.lastEmbeddingAt) {
+                        result.set(r.materialId, true)
+                    }
+                }
+            })
+        )
+    }
+
+    if (docOssFileMap.size > 0) {
+        queries.push(
+            prisma.docRecognitionRecords.findMany({
+                where: {
+                    ossFileId: { in: [...docOssFileMap.keys()] },
+                    deletedAt: null,
+                },
+                select: { ossFileId: true, lastEmbeddingAt: true },
+            }).then(records => {
+                for (const r of records) {
+                    const materialId = docOssFileMap.get(r.ossFileId)
+                    if (materialId && r.lastEmbeddingAt) {
+                        result.set(materialId, true)
+                    }
+                }
+            })
+        )
+    }
+
+    if (imageOssFileMap.size > 0) {
+        queries.push(
+            prisma.imageRecognitionRecords.findMany({
+                where: {
+                    ossFileId: { in: [...imageOssFileMap.keys()] },
+                    deletedAt: null,
+                },
+                select: { ossFileId: true, lastEmbeddingAt: true },
+            }).then(records => {
+                for (const r of records) {
+                    const materialId = imageOssFileMap.get(r.ossFileId)
+                    if (materialId && r.lastEmbeddingAt) {
+                        result.set(materialId, true)
+                    }
+                }
+            })
+        )
+    }
+
+    if (audioOssFileMap.size > 0) {
+        queries.push(
+            prisma.asrRecords.findMany({
+                where: {
+                    ossFileId: { in: [...audioOssFileMap.keys()] },
+                    deletedAt: null,
+                },
+                select: { ossFileId: true, lastEmbeddingAt: true },
+            }).then(records => {
+                for (const r of records) {
+                    const materialId = audioOssFileMap.get(r.ossFileId)
+                    if (materialId && r.lastEmbeddingAt) {
+                        result.set(materialId, true)
+                    }
+                }
+            })
+        )
+    }
+
+    await Promise.all(queries)
+    return result
+}
+
+/**
+ * 查询单个材料的嵌入状态
+ *
+ * @param materialId case_materials.id
+ * @returns 是否已嵌入
+ */
+export async function isMaterialEmbeddedService(
+    materialId: number
+): Promise<boolean> {
+    const result = await batchCheckMaterialEmbeddedService([materialId])
+    return result.get(materialId) ?? false
+}
