@@ -325,6 +325,11 @@
 - `tests/server/rbac/user-role.test.ts`
 - `tests/server/rbac/permission-service.test.ts`
 - `tests/server/rbac/permission-guard.test.ts`
+- `tests/server/rbac/api-permission.test.ts`
+- `tests/server/rbac/audit-log.test.ts`
+- `tests/server/rbac/batch-permission.test.ts`
+- `tests/server/rbac/router-permission.test.ts`
+- `tests/server/rbac/public-resource.test.ts`
 
 ### 3.10 响应中字段清理方式优化
 
