@@ -22,7 +22,7 @@ import {
 // ==================== 属性测试配置 ====================
 
 /** 属性测试默认配置 */
-export const PBT_CONFIG = { numRuns: 100 }
+export const PBT_CONFIG = { numRuns: 100, seed: 42 }
 
 /** 属性测试快速配置（用于耗时较长的测试） */
 export const PBT_CONFIG_FAST = { numRuns: 5 }

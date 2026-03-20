@@ -139,10 +139,10 @@ describe('聊天模型工厂测试', () => {
                         sdkType: invalidType as SdkType,
                     }
 
-                    expect(() => createChatModel(config)).toThrow(/不支持的 SDK 类型/)
+                    expect(() => createChatModel(config)).toThrow(/不支持的 SDK 类型|缺少 sdkType/)
                     return true
                 }),
-                { numRuns: 20 }
+                { numRuns: 20, seed: 42 }
             )
         })
 

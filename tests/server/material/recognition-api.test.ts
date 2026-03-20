@@ -14,13 +14,13 @@ const mocks = vi.hoisted(() => {
         // 工具函数
         detectFileTypeService: vi.fn(),
         // 识别服务
-        createImageConversionService: vi.fn(),
+        createImageRecognitionService: vi.fn(),
         transcribeAudioService: vi.fn(),
         convertPdfService: vi.fn(),
         // Prisma
         prisma: {
             ossFiles: {
-                findFirst: vi.fn(),
+                findMany: vi.fn(),
             },
         },
         // Logger mocks
@@ -46,6 +46,8 @@ vi.stubGlobal('logger', {
 })
 // Stub global prisma because the handler uses auto-imported prisma
 vi.stubGlobal('prisma', mocks.prisma)
+// Stub global createImageRecognitionService (auto-imported in server)
+vi.stubGlobal('createImageRecognitionService', mocks.createImageRecognitionService)
 
 // Mock fileDetect.service.ts
 vi.mock('../../../server/services/material/fileDetect.service', () => ({
@@ -57,10 +59,10 @@ vi.mock('~~/server/services/material/fileDetect.service', () => ({
 
 // Mock ocr.service.ts
 vi.mock('../../../server/services/material/ocr.service', () => ({
-    createImageConversionService: mocks.createImageConversionService,
+    createImageRecognitionService: mocks.createImageRecognitionService,
 }))
 vi.mock('~~/server/services/material/ocr.service', () => ({
-    createImageConversionService: mocks.createImageConversionService,
+    createImageRecognitionService: mocks.createImageRecognitionService,
 }))
 
 // Mock asr.service.ts
@@ -145,7 +147,7 @@ describe('统一识别入口 API', () => {
             const mockReadBody = vi.fn().mockResolvedValue({ ossFileIds: [999] })
             vi.stubGlobal('readBody', mockReadBody)
 
-            mocks.prisma.ossFiles.findFirst.mockResolvedValue(null)
+            mocks.prisma.ossFiles.findMany.mockResolvedValue([])
 
             // Act
             const result = await startHandler(event)
@@ -167,15 +169,15 @@ describe('统一识别入口 API', () => {
             const mockReadBody = vi.fn().mockResolvedValue({ ossFileIds: [123] })
             vi.stubGlobal('readBody', mockReadBody)
 
-            mocks.prisma.ossFiles.findFirst.mockResolvedValue({
+            mocks.prisma.ossFiles.findMany.mockResolvedValue([{
                 id: 123,
                 userId: 1,
                 fileName: 'test.jpg',
                 filePath: 'test.jpg',
-            })
+            }])
 
             mocks.detectFileTypeService.mockReturnValue(CaseMaterialType.IMAGE)
-            mocks.createImageConversionService.mockResolvedValue({
+            mocks.createImageRecognitionService.mockResolvedValue({
                 success: true,
                 record: { id: 1 }
             })
@@ -186,7 +188,7 @@ describe('统一识别入口 API', () => {
             // Assert
             expect(result.success).toBe(true)
             expect(result.data.results[0].status).toBe('processing')
-            expect(mocks.createImageConversionService).toHaveBeenCalledWith(123, 1)
+            expect(mocks.createImageRecognitionService).toHaveBeenCalledWith(123, 1)
         })
 
         it('应该正确处理音频类型文件', async () => {
@@ -194,12 +196,12 @@ describe('统一识别入口 API', () => {
             const mockReadBody = vi.fn().mockResolvedValue({ ossFileIds: [124] })
             vi.stubGlobal('readBody', mockReadBody)
 
-            mocks.prisma.ossFiles.findFirst.mockResolvedValue({
+            mocks.prisma.ossFiles.findMany.mockResolvedValue([{
                 id: 124,
                 userId: 1,
                 fileName: 'test.mp3',
                 filePath: 'test.mp3',
-            })
+            }])
 
             mocks.detectFileTypeService.mockReturnValue(CaseMaterialType.AUDIO)
             mocks.transcribeAudioService.mockResolvedValue({
@@ -221,12 +223,12 @@ describe('统一识别入口 API', () => {
             const mockReadBody = vi.fn().mockResolvedValue({ ossFileIds: [125] })
             vi.stubGlobal('readBody', mockReadBody)
 
-            mocks.prisma.ossFiles.findFirst.mockResolvedValue({
+            mocks.prisma.ossFiles.findMany.mockResolvedValue([{
                 id: 125,
                 userId: 1,
                 fileName: 'test.pdf',
                 filePath: 'test.pdf',
-            })
+            }])
 
             mocks.detectFileTypeService.mockReturnValue(CaseMaterialType.DOCUMENT)
             mocks.convertPdfService.mockResolvedValue({
@@ -250,15 +252,15 @@ describe('统一识别入口 API', () => {
             const mockReadBody = vi.fn().mockResolvedValue({ ossFileIds: [126] })
             vi.stubGlobal('readBody', mockReadBody)
 
-            mocks.prisma.ossFiles.findFirst.mockResolvedValue({
+            mocks.prisma.ossFiles.findMany.mockResolvedValue([{
                 id: 126,
                 userId: 1,
                 fileName: 'test.jpg',
                 filePath: 'test.jpg',
-            })
+            }])
 
             mocks.detectFileTypeService.mockReturnValue(CaseMaterialType.IMAGE)
-            mocks.createImageConversionService.mockResolvedValue({
+            mocks.createImageRecognitionService.mockResolvedValue({
                 success: false,
                 error: 'OCR 识别失败'
             })
