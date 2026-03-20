@@ -16,6 +16,11 @@
 | Phase 2 - 性能与一致性 | 缓存优化、性能改进、分层统一 | ~15 个 |
 | Phase 3 - 代码质量 | 死代码清理、类型整理、测试重构 | ~20 个 |
 
+### 跨阶段依赖
+
+- **Phase 1.3 → Phase 3.1**：Phase 3.1 删除 `checkUserHasApiPermissionByPathDao`（该函数内置了 `status: 1, deletedAt: null` 过滤）。删除后系统完全依赖 `findRolesApiPermissionsDao` 的查询结果进行权限匹配。因此 Phase 1.3 的软删除/状态过滤修复**必须**在 Phase 3.1 之前完成。
+- **Phase 2.3 → Phase 3.6**：Phase 2.3 清理冗余索引时会修改与 Phase 3.6 相同的 Prisma 文件。建议在同一次迁移中处理，或确保 Phase 3.6 基于 Phase 2.3 的 schema 进行。
+
 ---
 
 ## Phase 1：安全修复
@@ -25,6 +30,8 @@
 **问题**：`02.auth.ts` 的 `isPublicApi()` 使用精确/前缀匹配，而 `03.permission.ts` 通过 `validateUserApiPermission` 使用 `pathMatcher.ts` 的通配符匹配（支持 `:param`、`*`、`**`）。同一公开 API 在两个中间件中可能产生不同匹配结果，导致安全漏洞。
 
 **方案**：删除 `02.auth.ts` 中自定义的 `isPublicApi()` 函数，改为调用 `pathMatcher.ts` 的 `findMatchingPermission`。
+
+**注意**：替换后 `02.auth.ts` 和 `03.permission.ts`（通过 `validateUserApiPermission`）均会调用 `getPublicApiPermissions()`，但由于该函数内置缓存，第二次调用直接命中缓存，无性能开销。
 
 **涉及文件**：
 - `server/middleware/02.auth.ts` — 替换 `isPublicApi` 实现
@@ -36,6 +43,8 @@
 **方案**：
 1. 创建 `server/utils/adminGuard.ts`，提供 `requireAdmin(event)` 工具函数，内部调用 `checkIsSuperAdmin` 验证
 2. 在所有 `server/api/v1/admin/**` 写操作端点（POST/PUT/DELETE）的 handler 开头调用 `await requireAdmin(event)`
+
+**覆盖范围说明**：本阶段仅覆盖 RBAC 相关的 admin 写端点（角色管理、权限管理、用户角色分配）。其他 admin 模块（如 `/admin/benefits/`、`/admin/campaigns/`、`/admin/products/` 等）的管理员校验需在后续迭代中单独处理，不在本次优化范围内。
 
 **涉及文件**：
 - `server/utils/adminGuard.ts` — 新建
@@ -105,7 +114,7 @@
 
 **方案**：
 - 设置 `MAX_CACHE_SIZE = 1000` 容量上限
-- 超出容量时淘汰最早过期的条目
+- 超出容量时优先淘汰已过期条目；若所有条目均未过期，淘汰最早写入的条目（FIFO）
 - 添加 10 分钟定期清理定时器，移除已过期条目
 - 在 `getCacheStats` 中增加缓存命中率等统计信息
 
@@ -138,7 +147,7 @@
 | `roleApiPermissions` | `idx_role_api_permissions_created_at` |
 | `routers` | `idx_routers_created_at`、`idx_routers_updated_at` |
 
-保留有查询价值的索引（`status`、`deletedAt`、外键、唯一约束等）。
+保留有查询价值的索引（`status`、`deletedAt`、外键、唯一约束等）。明确保留的索引包括各表的 `deletedAt` 索引（用于软删除过滤查询）。
 
 **涉及文件**：
 - `prisma/models/rbac.prisma`
@@ -238,10 +247,12 @@
 
 **问题**：`onDelete: Cascade` 导致删除用户时审计记录也被删除，违反审计不可篡改原则。
 
-**方案**：将 `operatorId` 改为 `Int?`（可空），级联策略改为 `onDelete: SetNull`。
+**方案**：将 `operatorId` 改为 `Int?`（可空），级联策略改为 `onDelete: SetNull`。同步修改 `auditLog.dao.ts` 中的 `CreateAuditLogInput` 类型（`operatorId` 改为 `number | null`），以及 `auditLog.service.ts` 中所有 `logXxx` 函数签名适配可空类型。
 
 **涉及文件**：
 - `prisma/models/apiPermission.prisma`
+- `server/services/rbac/auditLog.dao.ts` — 修改 `CreateAuditLogInput` 类型
+- `server/services/rbac/auditLog.service.ts` — 适配可空 operatorId
 
 ### 3.4 `routers.groupId` 默认值修正
 
@@ -262,12 +273,12 @@
 - `server/api/v1/admin/roles/[id]/api-permissions.put.ts`
 - `server/api/v1/admin/roles/[id]/route-permissions.put.ts`
 
-### 3.6 中间表改用硬删除
+### 3.6 中间表清理冗余 `deletedAt` 字段
 
-**问题**：`roleRouters`、`userRoles`、`roleApiPermissions` 使用软删除但联合唯一约束未排除已删除记录，先删后建会冲突。
+**问题**：`roleRouters`、`userRoles`、`roleApiPermissions` 三个中间表虽然定义了 `deletedAt` 字段，但实际代码中的操作（`deleteMany`、`removeApiPermissionsFromRoleDao` 等）均使用硬删除。`deletedAt` 字段从未被写入，完全冗余。同时联合唯一约束未排除 `deletedAt`，若未来误用软删除会产生冲突。
 
-**方案**：这三个中间表移除 `deletedAt` 字段和相关索引。理由：
-- 中间表软删除价值低（关联关系无业务含义需保留）
+**方案**：移除这三个中间表的 `deletedAt`、`updatedAt` 字段和相关索引，与实际使用方式保持一致。理由：
+- 中间表已在使用硬删除，`deletedAt` 字段未被使用
 - 审计日志已覆盖变更追踪
 
 **涉及文件**：
@@ -312,8 +323,8 @@
 - `tests/server/rbac/role-protection.test.ts`
 - `tests/server/rbac/role-api-permission.test.ts`
 - `tests/server/rbac/user-role.test.ts`
-- `tests/server/rbac/permission-service.test.ts`（如存在）
-- `tests/server/rbac/permission-guard.test.ts`（如存在）
+- `tests/server/rbac/permission-service.test.ts`
+- `tests/server/rbac/permission-guard.test.ts`
 
 ### 3.10 响应中字段清理方式优化
 
