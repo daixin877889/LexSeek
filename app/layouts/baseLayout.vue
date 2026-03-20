@@ -40,7 +40,7 @@
 
         <!-- 用户操作区域 -->
         <div class="flex items-center gap-2">
-          <!-- 主题切换按钮（使用 ClientOnly 避免 SSR 水合不匹配） -->
+          <!-- 主题切换按钮 -->
           <ClientOnly>
             <GeneralThemeToggle />
           </ClientOnly>
@@ -54,43 +54,43 @@
               注册 </NuxtLink>
           </div>
 
-          <!-- 用户已登录状态 -->
+          <!-- 用户已登录状态 (使用 Shadcn DropdownMenu) -->
           <div v-else class="hidden md:flex items-center gap-3">
             <NuxtLink to="/dashboard" class="text-sm hover:text-primary transition-colors">个人中心</NuxtLink>
-            <div class="relative" ref="userMenuRef">
-              <button @click="toggleUserMenu"
-                class="flex items-center justify-center h-8 w-8 rounded-full bg-muted hover:bg-muted/80 transition-colors">
-                <user-icon class="h-5 w-5" />
-              </button>
-
-              <!-- 用户菜单下拉框 -->
-              <div v-if="userMenuOpen"
-                class="absolute right-0 mt-2 w-48 bg-card rounded-md shadow-lg border overflow-hidden">
-                <div class="py-2 px-4 border-b">
-                  <p class="font-medium">{{ userStore.userInfo.name }}</p>
-                  <p class="text-xs text-muted-foreground">{{ maskTel(userStore.userInfo.phone) || "" }}</p>
-                </div>
-                <ul>
-                  <li>
-                    <NuxtLink to="/dashboard" class="block px-4 py-2 text-sm hover:bg-muted">个人中心</NuxtLink>
-                  </li>
-                  <li>
-                    <NuxtLink to="/dashboard/cases" class="block px-4 py-2 text-sm hover:bg-muted">我的案件</NuxtLink>
-                  </li>
-                  <li>
-                    <NuxtLink to="/dashboard/settings" class="block px-4 py-2 text-sm hover:bg-muted">账户设置</NuxtLink>
-                  </li>
-                  <li>
-                    <button @click="handleLogoutClick"
-                      class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-muted">退出登录</button>
-                  </li>
-                </ul>
-              </div>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger as-child>
+                <button
+                  class="flex items-center justify-center h-8 w-8 rounded-full bg-muted hover:bg-muted/80 transition-colors outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                  <user-icon class="h-5 w-5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" class="w-56">
+                <DropdownMenuLabel class="font-normal">
+                  <div class="flex flex-col space-y-1">
+                    <p class="text-sm font-medium leading-none">{{ userStore.userInfo.name }}</p>
+                    <p class="text-xs leading-none text-muted-foreground">{{ maskTel(userStore.userInfo.phone) || "" }}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem as-child>
+                  <NuxtLink to="/dashboard" class="cursor-pointer w-full">个人中心</NuxtLink>
+                </DropdownMenuItem>
+                <DropdownMenuItem as-child>
+                  <NuxtLink to="/dashboard/cases" class="cursor-pointer w-full">我的案件</NuxtLink>
+                </DropdownMenuItem>
+                <DropdownMenuItem as-child>
+                  <NuxtLink to="/dashboard/settings" class="cursor-pointer w-full">账户设置</NuxtLink>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem @click="handleLogoutClick" class="text-red-500 cursor-pointer focus:text-red-500">
+                  退出登录
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <!-- 移动端菜单按钮 -->
-          <button @click="toggleMobileMenu" class="md:hidden p-1 rounded-md hover:bg-muted transition-colors"
+          <button @click="toggleMobileMenu" class="md:hidden p-1 rounded-md hover:bg-muted transition-colors relative z-20"
             aria-label="打开菜单">
             <menu-icon v-if="!mobileMenuOpen" class="h-6 w-6" />
             <x-icon v-else class="h-6 w-6" />
@@ -98,65 +98,74 @@
         </div>
       </div>
 
-      <!-- 移动端菜单 -->
-      <div v-if="mobileMenuOpen" class="md:hidden bg-background border-t">
-        <div class="w-full mx-auto px-4 py-4">
-          <nav>
-            <ul class="space-y-4">
-              <li>
-                <NuxtLink to="/" @click="handleMobileUserMenuClick"
-                  class="block py-2 text-sm hover:text-primary transition-colors"
-                  :class="{ 'text-primary font-medium': $route.path === '/' }"> 首页 </NuxtLink>
-              </li>
-              <li>
-                <NuxtLink to="/features" @click="handleMobileUserMenuClick"
-                  class="block py-2 text-sm hover:text-primary transition-colors"
-                  :class="{ 'text-primary font-medium': $route.path === '/features' }"> 产品功能 </NuxtLink>
-              </li>
-              <li>
-                <NuxtLink to="/pricing" @click="handleMobileUserMenuClick"
-                  class="block py-2 text-sm hover:text-primary transition-colors"
-                  :class="{ 'text-primary font-medium': $route.path === '/pricing' }"> 价格方案 </NuxtLink>
-              </li>
-              <li>
-                <NuxtLink to="/about" @click="handleMobileUserMenuClick"
-                  class="block py-2 text-sm hover:text-primary transition-colors"
-                  :class="{ 'text-primary font-medium': $route.path === '/about' }"> 关于我们 </NuxtLink>
-              </li>
-            </ul>
-          </nav>
+      <!-- 移动端菜单 (增加动画) -->
+      <Transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="transform -translate-y-4 opacity-0"
+        enter-to-class="transform translate-y-0 opacity-100"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="transform translate-y-0 opacity-100"
+        leave-to-class="transform -translate-y-4 opacity-0"
+      >
+        <div v-if="mobileMenuOpen" class="md:hidden bg-background border-t absolute top-full left-0 w-full shadow-lg z-10">
+          <div class="w-full mx-auto px-4 py-6">
+            <nav>
+              <ul class="space-y-4">
+                <li>
+                  <NuxtLink to="/" @click="handleMobileUserMenuClick"
+                    class="block py-2 text-base hover:text-primary transition-colors"
+                    :class="{ 'text-primary font-medium': $route.path === '/' }"> 首页 </NuxtLink>
+                </li>
+                <li>
+                  <NuxtLink to="/features" @click="handleMobileUserMenuClick"
+                    class="block py-2 text-base hover:text-primary transition-colors"
+                    :class="{ 'text-primary font-medium': $route.path === '/features' }"> 产品功能 </NuxtLink>
+                </li>
+                <li>
+                  <NuxtLink to="/pricing" @click="handleMobileUserMenuClick"
+                    class="block py-2 text-base hover:text-primary transition-colors"
+                    :class="{ 'text-primary font-medium': $route.path === '/pricing' }"> 价格方案 </NuxtLink>
+                </li>
+                <li>
+                  <NuxtLink to="/about" @click="handleMobileUserMenuClick"
+                    class="block py-2 text-base hover:text-primary transition-colors"
+                    :class="{ 'text-primary font-medium': $route.path === '/about' }"> 关于我们 </NuxtLink>
+                </li>
+              </ul>
+            </nav>
 
-          <!-- 移动端用户未登录状态 -->
-          <div v-if="!authStore.isAuthenticated" class="mt-6 pt-6 border-t flex flex-col gap-3">
-            <NuxtLink :to="`/login?redirect=${$route.path}`"
-              class="w-full py-2 text-sm text-center hover:bg-muted rounded-md transition-colors"> 登录 </NuxtLink>
-            <NuxtLink :to="`/login?redirect=${$route.path}`"
-              class="w-full py-2 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 transition-colors text-center">
-              注册 </NuxtLink>
-          </div>
+            <!-- 移动端用户未登录状态 -->
+            <div v-if="!authStore.isAuthenticated" class="mt-8 pt-6 border-t flex flex-col gap-3">
+              <NuxtLink :to="`/login?redirect=${$route.path}`" @click="handleMobileUserMenuClick"
+                class="w-full py-3 text-base text-center hover:bg-muted rounded-md transition-colors border"> 登录 </NuxtLink>
+              <NuxtLink :to="`/login?redirect=${$route.path}`" @click="handleMobileUserMenuClick"
+                class="w-full py-3 bg-primary text-primary-foreground text-base rounded-md hover:bg-primary/90 transition-colors text-center font-medium">
+                注册 </NuxtLink>
+            </div>
 
-          <!-- 移动端用户已登录状态 -->
-          <div v-else class="mt-6 pt-6 border-t">
-            <ul class="space-y-4">
-              <li>
-                <NuxtLink to="/dashboard" class="block py-2 text-sm hover:text-primary transition-colors">个人中心
-                </NuxtLink>
-              </li>
-              <li>
-                <NuxtLink to="/dashboard/cases" class="block py-2 text-sm hover:text-primary transition-colors">我的案件
-                </NuxtLink>
-              </li>
-              <li>
-                <NuxtLink to="/dashboard/settings" class="block py-2 text-sm hover:text-primary transition-colors">账户设置
-                </NuxtLink>
-              </li>
-              <li>
-                <button @click="handleLogoutClick" class="w-full text-left py-2 text-sm text-red-500">退出登录</button>
-              </li>
-            </ul>
+            <!-- 移动端用户已登录状态 -->
+            <div v-else class="mt-8 pt-6 border-t">
+              <ul class="space-y-4">
+                <li>
+                  <NuxtLink to="/dashboard" @click="handleMobileUserMenuClick" class="block py-2 text-base hover:text-primary transition-colors">个人中心
+                  </NuxtLink>
+                </li>
+                <li>
+                  <NuxtLink to="/dashboard/cases" @click="handleMobileUserMenuClick" class="block py-2 text-base hover:text-primary transition-colors">我的案件
+                  </NuxtLink>
+                </li>
+                <li>
+                  <NuxtLink to="/dashboard/settings" @click="handleMobileUserMenuClick" class="block py-2 text-base hover:text-primary transition-colors">账户设置
+                  </NuxtLink>
+                </li>
+                <li>
+                  <button @click="handleLogoutClick" class="w-full text-left py-2 text-base text-red-500 font-medium">退出登录</button>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
-      </div>
+      </Transition>
     </header>
 
     <!-- 路由视图区域 -->
