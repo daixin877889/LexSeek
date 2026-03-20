@@ -1,13 +1,29 @@
 <template>
-  <div class="px-4 flex size-full flex-col justify-end">
+  <div class="px-4 flex size-full flex-col justify-end relative" ref="dropZoneRef">
+    <!-- 全屏拖拽覆盖层 -->
+    <Transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 scale-95"
+      enter-to-class="opacity-100 scale-100" leave-active-class="transition duration-150 ease-in"
+      leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
+      <div v-if="isOverDropZone"
+        class="absolute inset-0 z-50 flex items-center justify-center p-4 bg-primary/10 backdrop-blur-sm border-2 border-dashed border-primary rounded-xl m-4">
+        <div class="flex flex-col items-center gap-4 text-primary animate-pulse">
+          <div class="p-4 bg-primary/20 rounded-full">
+            <UploadIcon class="size-12" />
+          </div>
+          <p class="text-xl font-bold">释放以添加案情材料</p>
+          <p class="text-sm opacity-80">支持 文本、文档、音频、图片</p>
+        </div>
+      </div>
+    </Transition>
+
     <PromptInputProvider @submit="handleSubmit">
       <!-- 输入状态监听器，同步状态到 store -->
       <CaseAnalysisPromptInputWatcher v-if="enableWatcher" />
       <PromptInput global-drop multiple
-        class="**:data-[slot=input-group]:shadow-none **:data-[slot=input-group]:border-primary **:data-[slot=input-group]:rounded-md">
+        class="**:data-[slot=input-group]:shadow-none **:data-[slot=input-group]:border-primary **:data-[slot=input-group]:rounded-md transition-all">
         <!-- 头部：自定义文件列表 -->
-        <PromptInputHeader>
-          <div v-if="selectedFiles.length > 0" class="flex flex-wrap items-center gap-2 p-3 w-full">
+        <PromptInputHeader v-if="selectedFiles.length > 0">
+          <div class="flex flex-wrap items-center gap-2 pt-3 pb-1 px-1 w-full">
             <div v-for="file in selectedFiles" :key="file.id"
               class="group relative flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-md border border-border px-1.5 font-medium text-sm transition-all hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50"
               @click="openPreview(file)">
@@ -21,17 +37,17 @@
 
               <!-- 识别状态徽章 -->
               <Badge v-if="getRecognitionStatus(file.id) === 'recognizing'" variant="outline"
-                class="text-xs px-1 h-5 text-blue-500 border-blue-500">
+                class="text-xs px-1 h-5 text-blue-500 border-blue-500 animate-pulse bg-blue-50/50 dark:bg-blue-500/10">
                 <Loader2Icon class="size-3 animate-spin mr-0.5" />
                 识别中
               </Badge>
               <Badge v-else-if="getRecognitionStatus(file.id) === 'success'" variant="outline"
-                class="text-xs px-1 h-5 text-green-500 border-green-500">
+                class="text-xs px-1 h-5 text-green-500 border-green-500 bg-green-50/50 dark:bg-green-500/10 transition-colors">
                 <CheckIcon class="size-3 mr-0.5" />
                 已识别
               </Badge>
               <Badge v-else-if="getRecognitionStatus(file.id) === 'error'" variant="outline"
-                class="text-xs px-1 h-5 text-red-500 border-red-500 cursor-pointer"
+                class="text-xs px-1 h-5 text-red-500 border-red-500 cursor-pointer bg-red-50/50 dark:bg-red-500/10"
                 @click.stop="retryRecognition(file)">
                 <AlertCircleIcon class="size-3 mr-0.5" />
                 重试
@@ -54,24 +70,26 @@
         </PromptInputHeader>
         <!-- 中间部分 -->
         <PromptInputBody>
-          <PromptInputTextarea :placeholder="placeholder" class="min-h-32" />
+          <PromptInputTextarea :placeholder="placeholder" :min-rows="minRows" :max-rows="maxRows"
+            :class="['px-4', selectedFiles.length > 0 ? 'pt-0' : 'pt-6']" />
         </PromptInputBody>
         <!-- 底部 -->
-        <PromptInputFooter class="border-t border-muted-foreground/20 border-dashed">
+        <PromptInputFooter class="border-t border-muted-foreground/20 border-dashed px-4">
           <!-- 工具栏 -->
-          <PromptInputTools>
-            <PromptInputButton variant="ghost" @click="selectMaterial">
+          <PromptInputTools class="px-0">
+            <PromptInputButton variant="ghost" @click="selectMaterial"
+              class="ml-[-8px] hover:bg-primary/5 transition-colors">
               <Paperclip class="text-muted-foreground" :size="16" />
               案情材料
-              <span v-if="selectedFiles.length > 0" class="ml-1 text-xs text-primary">({{ selectedFiles.length
-                }})</span>
+              <span v-if="selectedFiles.length > 0" class="ml-1 text-xs text-primary font-bold">({{ selectedFiles.length
+              }})</span>
             </PromptInputButton>
             <span class="text-muted-foreground text-xs"> </span>
           </PromptInputTools>
           <!-- 附件上传 -->
-          <div class="flex items-center gap-2">
-            <!-- 提交按钮 -->
-            <PromptInputSubmit class="h-9 px-4! rounded-md" :status="submitStatus" :disabled="disabled" size="xs">
+          <div class="flex items-center gap-2 mr-[-8px]"> <!-- 提交按钮 -->
+            <PromptInputSubmit class="h-9 px-4! rounded-md shadow-lg shadow-primary/20 active:scale-95 transition-all"
+              :status="submitStatus" :disabled="disabled || isAllRecognizing" size="xs">
               <SendHorizontal class="size-4" />
               <span class="ml-1.5">{{ submitLabel }}</span>
             </PromptInputSubmit>
@@ -100,8 +118,9 @@
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { PromptInput, PromptInputBody, PromptInputButton, PromptInputFooter, PromptInputHeader, PromptInputProvider, PromptInputSubmit, PromptInputTextarea, PromptInputTools } from "@/components/ai-elements/prompt-input";
 import { usePromptInput } from "@/components/ai-elements/prompt-input/context";
-import { Paperclip, SendHorizontal, XIcon, LockIcon, Loader2Icon, CheckIcon, AlertCircleIcon } from "lucide-vue-next";
+import { Paperclip, SendHorizontal, XIcon, LockIcon, Loader2Icon, CheckIcon, AlertCircleIcon, UploadIcon } from "lucide-vue-next";
 import { toast } from "vue-sonner";
+import { useDocumentVisibility, useDropZone } from '@vueuse/core';
 import type { OssFileItem } from "~/store/file";
 import type { CaseMaterialParam, PromptSubmitData } from "#shared/types/case";
 import { getFileIcon, getFileIconColor } from "~/utils/file";
@@ -114,12 +133,16 @@ const props = withDefaults(defineProps<{
   loading?: boolean
   disabled?: boolean
   enableWatcher?: boolean
+  minRows?: number
+  maxRows?: number
 }>(), {
   placeholder: '请输入案情信息或者上传案情材料，支持上传 文本、文档、音频、图片 四种材料。',
   submitLabel: '法索一下',
   loading: false,
   disabled: false,
   enableWatcher: true,
+  minRows: 4,
+  maxRows: 12,
 })
 
 const emit = defineEmits<{
@@ -151,31 +174,59 @@ const previewFile = ref<OssFileItem | null>(null);
 // 计算已选文件 ID 列表（传递给 MaterialSelector）
 const selectedFileIds = computed(() => selectedFiles.value.map(f => f.id))
 
+// 检查是否所有文件都在识别中
+const isAllRecognizing = computed(() => {
+  return selectedFiles.value.some(f => getRecognitionStatus(f.id) === 'recognizing');
+})
+
 // 提交状态：由外部 loading prop 派生
 const submitStatus = computed<"submitted" | "streaming" | "ready" | "error">(() => {
   if (props.loading) return 'streaming'
   return 'ready'
 })
 
-// 通过 usePromptInput 获取清空方法（SSR 时 inject 返回 null，需捕获）
+// 拖拽上传支持
+const dropZoneRef = ref<HTMLDivElement | null>(null);
+const { isOverDropZone } = useDropZone(dropZoneRef, {
+  onDrop: (files) => {
+    // 触发材料选择器的上传逻辑或直接处理
+    if (files && files.length > 0) {
+      toast.info(`检测到 ${files.length} 个文件，请在材料选择器中完成上传`);
+      materialSelectorRef.value?.openDialog();
+      // 注意：这里需要进一步优化以支持直接透传文件到上传组件
+    }
+  }
+});
+
+// Visibility API 优化轮询
+const visibility = useDocumentVisibility();
+watch(visibility, (state) => {
+  if (state === 'visible') {
+    // 恢复所有轮询
+    fileRecognitionStatus.value.forEach((status, id) => {
+      if (status === 'recognizing' && !pollingTimers.value.has(id)) {
+        pollFileStatus(id);
+      }
+    });
+  } else {
+    // 暂停所有轮询
+    stopAllPolling();
+  }
+});
+
+// 通过 usePromptInput 获取清空方法
 const clearInput = ref<(() => void) | null>(null)
 const clearFiles = ref<(() => void) | null>(null)
 
-// SSR 和客户端都需要，watchPostEffect 在两者都会执行
 watchPostEffect(() => {
   try {
     const ctx = usePromptInput()
     clearInput.value = ctx.clearInput
     clearFiles.value = ctx.clearFiles
   }
-  catch {
-    // SSR 时 inject 为 null，忽略
-  }
+  catch { }
 })
 
-/**
- * 重置组件状态：清空文本、文件、识别状态、轮询
- */
 function reset() {
   selectedFiles.value = []
   fileRecognitionStatus.value.clear()
@@ -186,87 +237,50 @@ function reset() {
 
 defineExpose({ reset })
 
-/**
- * 获取文件的识别状态
- */
 function getRecognitionStatus(fileId: number): 'idle' | 'recognizing' | 'success' | 'error' | null {
   return fileRecognitionStatus.value.get(fileId) || null;
 }
 
-/**
- * 轮询检查文件识别状态
- * 用于异步识别任务（图片、音频、pdf）
- * @param ossFileId OSS 文件 ID
- * @param attemptCount 当前尝试次数
- */
 async function pollFileStatus(ossFileId: number, attemptCount = 0) {
-  // 超过最大次数，停止轮询
+  if (visibility.value !== 'visible') return;
   if (attemptCount >= MAX_POLLING_ATTEMPTS) {
-    console.warn(`文件 ${ossFileId} 识别超时`);
     fileRecognitionStatus.value.set(ossFileId, 'error');
     pollingTimers.value.delete(ossFileId);
     return;
   }
 
   try {
-    // 调用统一的识别状态查询 API
-    // useApiFetch 会自动提取 response.data，所以直接使用返回的对象
     const response = await useApiFetch<{
       recognized: boolean;
       status: number;
-      recordType: 'doc' | 'image' | 'audio' | 'unknown';
     }>(`/api/v1/recognition/status/${ossFileId}`, {
       method: 'GET',
       showError: false,
     });
 
-    // useApiFetch 返回 null 表示请求失败
     if (!response) {
-      // 继续轮询
-      const timer = setTimeout(() => {
-        pollFileStatus(ossFileId, attemptCount + 1);
-      }, POLLING_INTERVAL);
+      const timer = setTimeout(() => pollFileStatus(ossFileId, attemptCount + 1), POLLING_INTERVAL);
       pollingTimers.value.set(ossFileId, timer);
       return;
     }
 
-    // 统一 API 返回格式：{ recognized: boolean, status: number, recordType: 'doc'|'image'|'audio'|'unknown' }
-    // recognized === true 或 status === 2 表示识别成功
     const recognized = response.recognized === true || response.status === 2;
-
     if (recognized) {
-      // 识别成功
       fileRecognitionStatus.value.set(ossFileId, 'success');
       pollingTimers.value.delete(ossFileId);
-      console.log(`文件 ${ossFileId} 识别成功`);
+    } else if (response.status === 3) {
+      fileRecognitionStatus.value.set(ossFileId, 'error');
+      pollingTimers.value.delete(ossFileId);
     } else {
-      // 检查是否失败（status === 3）
-      if (response.status === 3) {
-        fileRecognitionStatus.value.set(ossFileId, 'error');
-        pollingTimers.value.delete(ossFileId);
-        console.log(`文件 ${ossFileId} 识别失败`);
-        return;
-      }
-
-      // 继续轮询
-      const timer = setTimeout(() => {
-        pollFileStatus(ossFileId, attemptCount + 1);
-      }, POLLING_INTERVAL);
+      const timer = setTimeout(() => pollFileStatus(ossFileId, attemptCount + 1), POLLING_INTERVAL);
       pollingTimers.value.set(ossFileId, timer);
     }
   } catch (error) {
-    console.error(`轮询文件 ${ossFileId} 状态失败:`, error);
-    // 继续尝试
-    const timer = setTimeout(() => {
-      pollFileStatus(ossFileId, attemptCount + 1);
-    }, POLLING_INTERVAL);
+    const timer = setTimeout(() => pollFileStatus(ossFileId, attemptCount + 1), POLLING_INTERVAL);
     pollingTimers.value.set(ossFileId, timer);
   }
 }
 
-/**
- * 停止文件识别状态轮询
- */
 function stopPolling(ossFileId: number) {
   const timer = pollingTimers.value.get(ossFileId);
   if (timer) {
@@ -275,244 +289,125 @@ function stopPolling(ossFileId: number) {
   }
 }
 
-/**
- * 停止所有轮询
- */
 function stopAllPolling() {
-  pollingTimers.value.forEach((timer) => {
-    clearTimeout(timer);
-  });
+  pollingTimers.value.forEach(clearTimeout);
   pollingTimers.value.clear();
 }
 
-/**
- * 重试识别
- */
 async function retryRecognition(file: OssFileItem) {
-  // 重新触发批量识别
-  const fileIdsToRecognize = [file.id];
+  fileRecognitionStatus.value.set(file.id, 'recognizing');
   try {
     const response = await useApiFetch<{
-      results: Array<{
-        ossFileId: number;
-        status: 'processing' | 'completed' | 'failed';
-        error?: string;
-      }>;
+      results: Array<{ ossFileId: number; status: 'processing' | 'completed' | 'failed' }>;
     }>('/api/v1/recognition/start', {
       method: 'POST',
-      body: { ossFileIds: fileIdsToRecognize }
+      body: { ossFileIds: [file.id] }
     });
 
     if (response?.results) {
       for (const result of response.results) {
-        // 处理状态映射
-        let mappedStatus: 'recognizing' | 'success' | 'error'
         if (result.status === 'completed') {
-          mappedStatus = 'success'
+          fileRecognitionStatus.value.set(result.ossFileId, 'success');
         } else if (result.status === 'processing') {
-          mappedStatus = 'recognizing'
-          // 启动轮询
-          pollFileStatus(result.ossFileId)
+          pollFileStatus(result.ossFileId);
         } else {
-          mappedStatus = 'error'
-          if (result.error) {
-            console.error(`文件 ${result.ossFileId} 识别失败: ${result.error}`)
-          }
+          fileRecognitionStatus.value.set(result.ossFileId, 'error');
         }
-        fileRecognitionStatus.value.set(result.ossFileId, mappedStatus);
       }
     }
   } catch (error) {
-    console.error('重试识别失败:', error);
     fileRecognitionStatus.value.set(file.id, 'error');
   }
 }
 
-/**
- * 打开文件预览弹框
- * 支持文档文件、图片和音频的预览
- */
 function openPreview(file: OssFileItem) {
-  // 检查文件类型
   const isDoc = isRecognizableDocFile(file.fileName);
   const isImage = isImageFile(file.fileName);
   const isAudio = isAudioFile(file.fileName);
+  if (!isDoc && !isImage && !isAudio) return;
 
-  if (!isDoc && !isImage && !isAudio) {
-    return;
-  }
-
-  // 只有已识别成功的文件才能预览
   const recognitionStatus = getRecognitionStatus(file.id);
   if (recognitionStatus !== 'success') {
-    if (recognitionStatus === 'recognizing') {
-      toast.info('文件正在识别中，请稍后再试');
-    } else if (recognitionStatus === 'error') {
-      toast.warning('文件识别失败，请重试');
-    } else {
-      toast.info('文件尚未识别');
-    }
+    toast.info(recognitionStatus === 'recognizing' ? '文件正在识别中' : '文件识别未就绪');
     return;
   }
 
   previewFile.value = file;
-
-  // 根据文件类型打开对应的预览弹框
-  if (isAudio) {
-    audioPreviewDialogOpen.value = true;
-  } else {
-    previewDialogOpen.value = true;
-  }
+  if (isAudio) audioPreviewDialogOpen.value = true;
+  else previewDialogOpen.value = true;
 }
 
-/**
- * 移除已选文件
- */
 function removeFile(fileId: number) {
   selectedFiles.value = selectedFiles.value.filter(f => f.id !== fileId)
-  // 清除识别状态
   fileRecognitionStatus.value.delete(fileId);
-  // 停止轮询
   stopPolling(fileId);
 }
 
-/**
- * 处理文件选择（追加模式）
- */
 async function handleFilesSelected(files: OssFileItem[]) {
-  // 过滤掉已存在的文件，只添加新文件
   const newFiles = files.filter(f => !selectedFileIds.value.includes(f.id))
   selectedFiles.value = [...selectedFiles.value, ...newFiles]
 
-  // 收集需要识别的文件 ID（文档、图片、音频）
-  const filesToRecognize = newFiles
-    .filter(f => {
-      const isDoc = isRecognizableDocFile(f.fileName);
-      const isImage = isImageFile(f.fileName);
-      const isAudio = isAudioFile(f.fileName);
-      return isDoc || isImage || isAudio;
-    });
+  const fileIdsToRecognize = newFiles
+    .filter(f => isRecognizableDocFile(f.fileName) || isImageFile(f.fileName) || isAudioFile(f.fileName))
+    .map(f => f.id);
 
-  const fileIdsToRecognize = filesToRecognize.map(f => f.id);
-
-  // 调用统一的识别 API
   if (fileIdsToRecognize.length > 0) {
-    console.log('[handleFilesSelected] 开始批量识别，文件 IDs:', fileIdsToRecognize);
-
-    // 在 API 调用前先设置状态为 'recognizing'，让用户立即看到识别中状态
-    for (const fileId of fileIdsToRecognize) {
-      fileRecognitionStatus.value.set(fileId, 'recognizing');
-    }
-
+    fileIdsToRecognize.forEach(id => fileRecognitionStatus.value.set(id, 'recognizing'));
     try {
       const response = await useApiFetch<{
-        results: Array<{
-          ossFileId: number;
-          status: 'processing' | 'completed' | 'failed';
-          error?: string;
-        }>;
+        results: Array<{ ossFileId: number; status: 'processing' | 'completed' | 'failed'; error?: string }>;
       }>('/api/v1/recognition/start', {
         method: 'POST',
         body: { ossFileIds: fileIdsToRecognize },
-        showError: false  // 禁用自动错误提示，我们手动处理
+        showError: false
       });
 
-      // response 为 null 表示 API 调用失败（如网络错误、401 等）
       if (!response) {
-        console.error('[handleFilesSelected] API 调用失败');
-        for (const fileId of fileIdsToRecognize) {
-          fileRecognitionStatus.value.set(fileId, 'error');
-        }
-        toast.error('识别服务调用失败，请稍后重试');
+        fileIdsToRecognize.forEach(id => fileRecognitionStatus.value.set(id, 'error'));
         return;
       }
 
-      if (response?.results) {
-        for (const result of response.results) {
-          // 处理状态映射：completed/processing -> recognizing/success, failed -> error
-          let mappedStatus: 'recognizing' | 'success' | 'error'
-          if (result.status === 'completed') {
-            // 同步处理的文件，状态直接为 success
-            mappedStatus = 'success'
-          } else if (result.status === 'processing') {
-            // 异步处理的文件，状态为 recognizing，启动轮询
-            mappedStatus = 'recognizing'
-            pollFileStatus(result.ossFileId)
-          } else {
-            mappedStatus = 'error'
-            // 显示友好的错误提示
-            if (result.error) {
-              console.error(`文件 ${result.ossFileId} 识别失败：${result.error}`)
-              // 积分不足的特殊提示
-              if (result.error.includes('积分不足')) {
-                toast.error('文件识别失败：积分不足，请充值后重试')
-              } else {
-                toast.error(`文件识别失败：${result.error}`)
-              }
-            }
-          }
-          fileRecognitionStatus.value.set(result.ossFileId, mappedStatus);
-          console.log(`[handleFilesSelected] 文件 ${result.ossFileId} 识别状态: ${mappedStatus}`);
+      response.results.forEach(result => {
+        if (result.status === 'completed') fileRecognitionStatus.value.set(result.ossFileId, 'success');
+        else if (result.status === 'processing') {
+          fileRecognitionStatus.value.set(result.ossFileId, 'recognizing');
+          pollFileStatus(result.ossFileId);
+        } else {
+          fileRecognitionStatus.value.set(result.ossFileId, 'error');
+          if (result.error) toast.error(`文件识别失败：${result.error}`);
         }
-      }
+      });
     } catch (error) {
-      console.error('[handleFilesSelected] 批量识别失败:', error);
-      // 识别失败时设置错误状态
-      for (const fileId of fileIdsToRecognize) {
-        fileRecognitionStatus.value.set(fileId, 'error');
-      }
+      fileIdsToRecognize.forEach(id => fileRecognitionStatus.value.set(id, 'error'));
     }
   }
 }
 
-/**
- * 处理提交
- * 校验输入 → 构建标准化数据 → emit submit 事件
- */
 async function handleSubmit(message: PromptInputMessage) {
   const hasText = !!message.text?.trim();
   const hasAttachments = selectedFiles.value.length > 0;
-
-  // 验证：必须有文本或附件
   if (!hasText && !hasAttachments) {
     toast.warning("请输入案情信息或选择案情材料");
     return;
   }
-
-  // 检查是否有正在识别的文件（文档、图片或音频）
-  const recognizingFiles = selectedFiles.value.filter(f => {
-    const isRecognizable = isRecognizableDocFile(f.fileName) || isImageFile(f.fileName) || isAudioFile(f.fileName);
-    return isRecognizable && getRecognitionStatus(f.id) === 'recognizing';
-  });
-  if (recognizingFiles.length > 0) {
+  if (isAllRecognizing.value) {
     toast.warning("请等待文件识别完成后再提交");
     return;
   }
 
-  // 构建标准化数据
-  const materials: CaseMaterialParam[] = selectedFiles.value.map(file => ({
-    type: getMaterialType(file.fileType),
-    name: file.fileName,
-    ossFileId: file.id,
-  }));
-
   emit('submit', {
     text: message.text?.trim() || '',
-    materials,
+    materials: selectedFiles.value.map(file => ({
+      type: getMaterialType(file.fileType),
+      name: file.fileName,
+      ossFileId: file.id,
+    })),
   })
 }
 
-/**
- * 打开材料选择器
- */
 function selectMaterial() {
   materialSelectorRef.value?.openDialog();
 }
 
-// 组件卸载时停止所有轮询
-onUnmounted(() => {
-  stopAllPolling();
-});
+onUnmounted(stopAllPolling);
 </script>
-
-<style></style>
