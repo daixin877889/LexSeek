@@ -22,7 +22,6 @@ import {
     findLatestSessionByCaseIdDao,
     checkCaseOwnershipDao,
 } from './case.dao'
-import { findByCaseIdDAO } from './caseMaterial.dao'
 import { CaseStatus, SessionStatus, CaseMaterialType } from '#shared/types/case'
 
 // 导入案件类型服务
@@ -109,25 +108,18 @@ export const createCaseService = async (
         return { caseRecord, session }
     })
 
-    // 异步触发文本材料向量化（使用后台任务队列，不阻塞事务）
-    // Requirements: 8.3
+    // 异步向量化文本材料（fire-and-forget）
     if (materials.length > 0) {
-        const createdMaterials = await findByCaseIdDAO(result.caseRecord.id)
-        const textMaterialIds = createdMaterials
-            .filter(m => m.type === CaseMaterialType.CASE_CONTENT)
-            .map(m => m.id)
-
-        if (textMaterialIds.length > 0) {
-            const vectorizePromise = batchEmbedTextMaterialsService(
-                textMaterialIds,
-                data.userId,
-                result.caseRecord.id,
-                sessionId
-            )
+        const { ensureMaterialsEmbeddedService } = await import('../material/materialProcess.service')
+        const { getMaterialsByCaseIdService } = await import('../material/material.service')
+        const allMaterials = await getMaterialsByCaseIdService(result.caseRecord.id)
+        const textMaterialsForEmbedding = allMaterials.filter(m => m.type === CaseMaterialType.CASE_CONTENT)
+        if (textMaterialsForEmbedding.length > 0) {
+            const vectorizePromise = ensureMaterialsEmbeddedService(textMaterialsForEmbedding, data.userId)
             vectorizePromise.catch(error => {
                 logger.error('文本材料向量化失败', {
                     error: error instanceof Error ? error.message : String(error),
-                    materialIds: textMaterialIds,
+                    materialIds: textMaterialsForEmbedding.map(m => m.id),
                     caseId: result.caseRecord.id,
                 })
             })
