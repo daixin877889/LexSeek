@@ -1,8 +1,7 @@
 <template>
   <div class="file-uploader h-full flex flex-col w-full overflow-hidden" :class="statusMessage ? 'gap-2' : 'gap-4'">
     <!-- 拖拽上传区域（上传中或完成时隐藏） -->
-    <div
-      v-if="!isUploading && !isUploadComplete"
+    <div v-if="!isUploading && !isUploadComplete"
       class="relative border-2 border-dashed rounded-lg text-center transition-colors overflow-hidden flex-1 flex flex-col"
       :class="[
         {
@@ -10,16 +9,14 @@
           'border-muted-foreground/25 hover:border-muted-foreground/50': !isDragOver,
           'cursor-pointer': true,
         },
-      ]"
-      @dragover.prevent="handleDragOver($event)"
-      @dragleave.prevent="handleDragLeave($event)"
-      @drop.prevent="handleDrop($event)"
-      @click="triggerFileInput()">
+      ]" @dragover.prevent="handleDragOver($event)" @dragleave.prevent="handleDragLeave($event)"
+      @drop.prevent="handleDrop($event)" @click="triggerFileInput()">
       <!-- 主要内容区域 -->
       <div class="flex-1 flex items-center justify-center">
         <div class="relative px-4 py-4 w-full max-w-sm mx-auto" :class="statusMessage ? 'space-y-2' : 'space-y-4'">
           <!-- 上传图标 -->
-          <div class="mx-auto rounded-full bg-muted flex items-center justify-center" :class="statusMessage ? 'w-10 h-10' : 'w-16 h-16'">
+          <div class="mx-auto rounded-full bg-muted flex items-center justify-center"
+            :class="statusMessage ? 'w-10 h-10' : 'w-16 h-16'">
             <UploadIcon :class="statusMessage ? 'h-5 w-5' : 'h-8 w-8'" class="text-muted-foreground" />
           </div>
 
@@ -34,22 +31,27 @@
           </div>
 
           <!-- 隐藏的文件输入 -->
-          <Input ref="fileInputRef" type="file" @change="handleFileChange" :accept="acceptAttribute" :multiple="props.multiple" :disabled="isUploading" class="hidden" />
+          <Input ref="fileInputRef" type="file" @change="handleFileChange" :accept="acceptAttribute"
+            :multiple="props.multiple" :disabled="isUploading" class="hidden" />
         </div>
       </div>
 
       <!-- 允许的文件类型（放在上传框底部） -->
-      <div v-if="currentScene" class="shrink-0 px-4 py-2 border-t border-dashed text-xs text-muted-foreground bg-muted/30">允许的文件类型：{{ formatAcceptTypes(currentScene.accept || []) }}</div>
+      <div v-if="currentScene"
+        class="shrink-0 px-4 py-2 border-t border-dashed text-xs text-muted-foreground bg-muted/30">允许的文件类型：{{
+          formatAcceptTypes(currentScene.accept || []) }}</div>
     </div>
 
     <!-- 多选模式：已选文件列表（上传前显示清空和删除按钮） -->
-    <div v-if="props.multiple && selectedFiles.length > 0 && !isUploading && !isUploadComplete" class="shrink-0 space-y-2">
+    <div v-if="props.multiple && selectedFiles.length > 0 && !isUploading && !isUploadComplete"
+      class="shrink-0 space-y-2">
       <div class="flex items-center justify-between text-sm">
         <span class="text-muted-foreground">已选择 {{ selectedFiles.length }} 个文件</span>
         <Button variant="ghost" size="sm" @click="clearAllFiles"> 清空 </Button>
       </div>
       <div class="max-h-40 overflow-y-auto space-y-1">
-        <div v-for="(fileItem, index) in fileUploadStates" :key="index" class="flex items-center justify-between p-2 bg-muted/50 rounded-md text-sm">
+        <div v-for="(fileItem, index) in fileUploadStates" :key="index"
+          class="flex items-center justify-between p-2 bg-muted/50 rounded-md text-sm">
           <div class="flex-1 min-w-0 mr-2">
             <p class="truncate font-medium">{{ fileItem.file.name }}</p>
             <div class="flex items-center gap-2 text-xs text-muted-foreground">
@@ -64,7 +66,8 @@
     </div>
 
     <!-- 上传中/完成时的文件列表（显示进度，无删除按钮） -->
-    <div v-if="(isUploading || isUploadComplete) && fileUploadStates.length > 0" class="shrink-0 space-y-2 flex-1 overflow-hidden">
+    <div v-if="(isUploading || isUploadComplete) && fileUploadStates.length > 0"
+      class="shrink-0 space-y-2 flex-1 overflow-hidden">
       <div class="flex items-center justify-between text-sm">
         <span class="text-muted-foreground">
           {{ isUploading ? "正在上传..." : "上传完成" }}
@@ -72,17 +75,16 @@
         <span class="text-xs text-muted-foreground"> {{ uploadedCount }}/{{ fileUploadStates.length }} 个文件 </span>
       </div>
       <div class="max-h-60 overflow-y-auto space-y-1">
-        <div v-for="(fileItem, index) in fileUploadStates" :key="index" class="p-2 bg-muted/50 rounded-md text-sm overflow-hidden">
+        <div v-for="(fileItem, index) in fileUploadStates" :key="index"
+          class="p-2 bg-muted/50 rounded-md text-sm overflow-hidden">
           <div class="flex items-center justify-between mb-1 gap-2">
             <p class="truncate font-medium flex-1 min-w-0">{{ fileItem.file.name }}</p>
-            <span
-              class="text-xs shrink-0 whitespace-nowrap"
-              :class="{
-                'text-primary': fileItem.status === 'uploading',
-                'text-green-600': fileItem.status === 'success',
-                'text-destructive': fileItem.status === 'error',
-                'text-muted-foreground': fileItem.status === 'pending',
-              }">
+            <span class="text-xs shrink-0 whitespace-nowrap" :class="{
+              'text-primary': fileItem.status === 'uploading',
+              'text-green-600': fileItem.status === 'success',
+              'text-destructive': fileItem.status === 'error',
+              'text-muted-foreground': fileItem.status === 'pending',
+            }">
               <template v-if="fileItem.status === 'uploading'">{{ Math.round(fileItem.progress) }}%</template>
               <template v-else-if="fileItem.status === 'success'">✓ 完成</template>
               <template v-else-if="fileItem.status === 'error'">✗ 失败</template>
@@ -91,15 +93,12 @@
           </div>
           <!-- 进度条 -->
           <div class="h-1.5 bg-muted rounded-full overflow-hidden">
-            <div
-              class="h-full transition-all duration-300 rounded-full"
-              :class="{
-                'bg-primary': fileItem.status === 'uploading',
-                'bg-green-500': fileItem.status === 'success',
-                'bg-destructive': fileItem.status === 'error',
-                'bg-muted-foreground/30': fileItem.status === 'pending',
-              }"
-              :style="{ width: (fileItem.status === 'success' ? 100 : fileItem.progress) + '%' }"></div>
+            <div class="h-full transition-all duration-300 rounded-full" :class="{
+              'bg-primary': fileItem.status === 'uploading',
+              'bg-green-500': fileItem.status === 'success',
+              'bg-destructive': fileItem.status === 'error',
+              'bg-muted-foreground/30': fileItem.status === 'pending',
+            }" :style="{ width: (fileItem.status === 'success' ? 100 : fileItem.progress) + '%' }"></div>
           </div>
           <div class="flex items-center gap-2 text-xs text-muted-foreground mt-1">
             <span>{{ formatByteSize(fileItem.file.size, 2) }}</span>
@@ -110,7 +109,8 @@
     </div>
 
     <!-- 单选模式：上传中显示进度 -->
-    <div v-if="!props.multiple && isUploading && selectedFile" class="shrink-0 space-y-2 flex-1 flex flex-col justify-center">
+    <div v-if="!props.multiple && isUploading && selectedFile"
+      class="shrink-0 space-y-2 flex-1 flex flex-col justify-center">
       <div class="p-4 bg-muted/50 rounded-lg">
         <div class="flex items-center justify-between mb-2">
           <p class="truncate font-medium text-sm">{{ selectedFile.name }}</p>
@@ -119,7 +119,9 @@
           </span>
         </div>
         <div class="h-2 bg-muted rounded-full overflow-hidden">
-          <div class="h-full transition-all duration-300 rounded-full bg-primary" :style="{ width: uploadProgress + '%' }"></div>
+          <div class="h-full transition-all duration-300 rounded-full bg-primary"
+            :style="{ width: uploadProgress + '%' }">
+          </div>
         </div>
         <div class="flex items-center justify-between mt-2">
           <p class="text-xs text-muted-foreground">{{ formatByteSize(selectedFile.size, 2) }}</p>
@@ -128,7 +130,8 @@
     </div>
 
     <!-- 单选模式：上传完成显示 -->
-    <div v-if="!props.multiple && isUploadComplete && selectedFile" class="shrink-0 space-y-2 flex-1 flex flex-col justify-center">
+    <div v-if="!props.multiple && isUploadComplete && selectedFile"
+      class="shrink-0 space-y-2 flex-1 flex flex-col justify-center">
       <div class="p-4 bg-green-50 border border-green-200 rounded-lg">
         <div class="flex items-center justify-between mb-2">
           <p class="truncate font-medium text-sm">{{ selectedFile.name }}</p>
@@ -150,22 +153,22 @@
     </div>
 
     <!-- 上传中显示加载状态 -->
-    <Button v-if="isUploading" disabled :loading="true" class="w-full shrink-0" :size="statusMessage ? 'sm' : 'default'"> 上传中... </Button>
+    <Button v-if="isUploading" disabled :loading="true" class="w-full shrink-0"
+      :size="statusMessage ? 'sm' : 'default'">
+      上传中... </Button>
 
     <!-- 上传完成后显示继续上传按钮 -->
-    <Button v-if="isUploadComplete" @click="handleContinueUpload" class="w-full shrink-0" :size="statusMessage ? 'sm' : 'default'">
+    <Button v-if="isUploadComplete" @click="handleContinueUpload" class="w-full shrink-0"
+      :size="statusMessage ? 'sm' : 'default'">
       <UploadIcon class="h-4 w-4 mr-2" />
       继续上传其他文件
     </Button>
 
     <!-- 状态消息 -->
-    <div
-      v-if="statusMessage"
-      class="shrink-0 rounded-md p-2 text-xs"
-      :class="{
-        'bg-destructive/15 text-destructive border border-destructive/20': statusType === 'error',
-        'bg-green-50 text-green-700 border border-green-200': statusType === 'success',
-      }">
+    <div v-if="statusMessage" class="shrink-0 rounded-md p-2 text-xs" :class="{
+      'bg-destructive/15 text-destructive border border-destructive/20': statusType === 'error',
+      'bg-green-50 text-green-700 border border-green-200': statusType === 'success',
+    }">
       {{ statusMessage }}
     </div>
   </div>
@@ -173,6 +176,7 @@
 
 <script setup lang="ts">
 import { UploadIcon, XIcon } from "lucide-vue-next";
+import { useBatchUpload } from "~/composables/useBatchUpload";
 
 /**
  * 文件上传组件 Props
@@ -188,23 +192,6 @@ interface FileUploaderProps {
   onSuccess?: (data: Record<string, unknown>[]) => void;
   /** 上传失败回调 */
   onError?: (error: Error) => void;
-}
-
-/**
- * 文件类型配置项
- */
-interface AcceptItem {
-  name: string;
-  mime: string;
-  maxSize: number;
-}
-
-/**
- * 文件验证结果
- */
-interface ValidationResult {
-  valid: boolean;
-  message?: string;
 }
 
 /**
@@ -232,12 +219,12 @@ const props = withDefaults(defineProps<FileUploaderProps>(), {
   source: "file" as FileSource,
   multiple: false,
   autoUpload: false,
-  onSuccess: () => {},
-  onError: () => {},
+  onSuccess: () => { },
+  onError: () => { },
 });
 
 const fileStore = useFileStore();
-const uploadWorker = useFileUploadWorker();
+const { detectMimeType, validateFile, uploadToOSS } = useBatchUpload();
 
 // 基础状态
 const currentScene = ref<FileSourceAccept | null>(null);
@@ -287,9 +274,9 @@ const acceptAttribute = computed(() => {
  */
 const canUpload = computed(() => {
   if (props.multiple) {
-    return selectedFiles.value.length > 0 && fileUploadStates.value.every((f) => f.status === "pending" && validateFile(f.file).valid);
+    return selectedFiles.value.length > 0 && fileUploadStates.value.every((f) => f.status === "pending" && validateFile(f.file, currentScene.value as FileSourceAccept).valid);
   }
-  return selectedFile.value && validateFile(selectedFile.value).valid;
+  return selectedFile.value && validateFile(selectedFile.value, currentScene.value as FileSourceAccept).valid;
 });
 
 /**
@@ -348,56 +335,7 @@ const showStatus = (message: string, isError = false) => {
   statusType.value = isError ? "error" : "success";
 };
 
-/**
- * 检测文件的 MIME 类型
- */
-const detectMimeType = (file: File): string => {
-  const fileName = file.name || "";
-  const fileExtension = fileName.split(".").pop()?.toLowerCase() || "";
-  let mimeType = file.type || "";
-  if (!mimeType || mimeType.trim() === "") {
-    mimeType = mime.getType(fileExtension) || "";
-  }
-  if (fileExtension === "md" && file.type === "text/x-markdown") {
-    mimeType = "text/markdown";
-  }
-  return mimeType;
-};
 
-/**
- * 验证文件是否符合当前场景的要求
- */
-const validateFile = (file: File): ValidationResult => {
-  if (!currentScene.value) {
-    return { valid: false, message: "请选择上传场景" };
-  }
-  if (currentScene.value.accept && currentScene.value.accept.length > 0) {
-    const fileName = file.name || "";
-    const fileExtension = fileName.split(".").pop()?.toLowerCase() || "";
-    const fileMimeType = detectMimeType(file);
-    const acceptedMimeType = currentScene.value.accept.find((item: AcceptItem) => item.mime === fileMimeType);
-    if (!acceptedMimeType) {
-      const acceptedByExtension = currentScene.value.accept.find((item: AcceptItem) => item.name === fileExtension);
-      if (!acceptedByExtension) {
-        return { valid: false, message: `不支持的文件格式：${fileExtension || "未知"}` };
-      }
-      if (file.size > acceptedByExtension.maxSize) {
-        return {
-          valid: false,
-          message: `文件大小超出限制: ${formatByteSize(file.size, 2)}，最大允许: ${formatByteSize(acceptedByExtension.maxSize, 2)}`,
-        };
-      }
-      return { valid: true };
-    }
-    if (file.size > acceptedMimeType.maxSize) {
-      return {
-        valid: false,
-        message: `文件大小超出限制: ${formatByteSize(file.size, 2)}，${acceptedMimeType.mime}最大允许: ${formatByteSize(acceptedMimeType.maxSize, 2)}`,
-      };
-    }
-  }
-  return { valid: true };
-};
 
 /**
  * 加载上传场景配置
@@ -434,7 +372,7 @@ const handleFileChange = (event: Event) => {
     // 多选模式：添加到文件列表
     const newFiles = Array.from(files);
     for (const file of newFiles) {
-      const validation = validateFile(file);
+      const validation = validateFile(file, currentScene.value as FileSourceAccept);
       if (!validation.valid) {
         showStatus(`文件 "${file.name}" ${validation.message}`, true);
         continue;
@@ -460,7 +398,7 @@ const handleFileChange = (event: Event) => {
     if (file) {
       selectedFile.value = file;
       detectedMimeType.value = detectMimeType(file);
-      const validation = validateFile(file);
+      const validation = validateFile(file, currentScene.value as FileSourceAccept);
       if (!validation.valid) {
         showStatus(validation.message || "文件验证失败", true);
       } else {
@@ -527,7 +465,7 @@ const handleDrop = (event: DragEvent) => {
     // 多选模式：添加所有文件
     const newFiles = Array.from(files);
     for (const file of newFiles) {
-      const validation = validateFile(file);
+      const validation = validateFile(file, currentScene.value as FileSourceAccept);
       if (!validation.valid) {
         showStatus(`文件 "${file.name}" ${validation.message}`, true);
         continue;
@@ -552,7 +490,7 @@ const handleDrop = (event: DragEvent) => {
     if (file) {
       selectedFile.value = file;
       detectedMimeType.value = detectMimeType(file);
-      const validation = validateFile(file);
+      const validation = validateFile(file, currentScene.value as FileSourceAccept);
       if (!validation.valid) {
         showStatus(validation.message || "文件验证失败", true);
       } else {
@@ -587,28 +525,6 @@ const clearAllFiles = () => {
   statusMessage.value = "";
 };
 
-/**
- * 上传单个文件到 OSS（使用 Worker）
- */
-const uploadToOSS = (file: File, signature: PostSignatureResult, onProgress?: (progress: number) => void): Promise<Record<string, unknown>> => {
-  if (!signature.key) {
-    return Promise.reject(new Error("未获取到文件路径"));
-  }
-
-  return new Promise((resolve, reject) => {
-    uploadWorker.upload(file, signature, {
-      onProgress: (progress) => {
-        onProgress?.(progress);
-      },
-      onSuccess: (data) => {
-        resolve(data);
-      },
-      onError: (error) => {
-        reject(error);
-      },
-    });
-  });
-};
 
 /**
  * 处理单文件上传
@@ -619,7 +535,7 @@ const handleSingleUpload = async () => {
     return;
   }
 
-  const validation = validateFile(selectedFile.value);
+  const validation = validateFile(selectedFile.value, currentScene.value as FileSourceAccept);
   if (!validation.valid) {
     showStatus(validation.message || "文件验证失败", true);
     return;
@@ -676,7 +592,7 @@ const handleBatchUpload = async () => {
 
   // 验证所有文件
   for (const state of fileUploadStates.value) {
-    const validation = validateFile(state.file);
+    const validation = validateFile(state.file, currentScene.value as FileSourceAccept);
     if (!validation.valid) {
       showStatus(`文件 "${state.file.name}" ${validation.message}`, true);
       return;
