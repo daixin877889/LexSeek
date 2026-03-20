@@ -67,11 +67,7 @@ const createTestModel = async () => {
         provider = await testPrisma.modelProviders.create({
             data: {
                 name: `test_provider_${generateTestId()}`,
-                displayName: '测试提供商',
                 baseUrl: 'https://api.test.com',
-                status: 1,
-                createdAt: new Date(),
-                updatedAt: new Date(),
             },
         })
     }
