@@ -44,18 +44,25 @@ export default defineEventHandler(async (event) => {
         return resError(event, 403, '不能修改超级管理员角色的权限')
     }
 
-    // 使用事务更新路由权限
+    // 使用 upsert 模式：利用 (roleId, routerId) 唯一约束直接创建/更新，
+    // 避免 deleteMany + createMany 在 PostgreSQL 序列不同步时产生 ID 冲突
     await prisma.$transaction(async (tx) => {
-        // 删除现有路由权限
-        await tx.roleRouters.deleteMany({
-            where: { roleId: id },
-        })
-
-        // 创建新路由权限
-        if (routerIds.length > 0) {
-            await tx.roleRouters.createMany({
-                data: routerIds.map(routerId => ({ roleId: id, routerId })),
+        // 对每个路由：存在则跳过，不存在则创建
+        for (const routerId of routerIds) {
+            await tx.roleRouters.upsert({
+                where: { idx_role_router_unique: { roleId: id, routerId } },
+                create: { roleId: id, routerId },
+                update: {},
             })
+        }
+
+        // 删除不在列表中的旧路由关联（只保留本次授权的）
+        if (routerIds.length > 0) {
+            await tx.roleRouters.deleteMany({
+                where: { roleId: id, routerId: { notIn: routerIds } },
+            })
+        } else {
+            await tx.roleRouters.deleteMany({ where: { roleId: id } })
         }
     })
 
