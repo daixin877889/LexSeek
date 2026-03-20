@@ -35,20 +35,20 @@
           <h2 class="text-3xl font-bold mb-4">资源受限的“大多数”</h2>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-center">
-          <div class="bg-card rounded-lg p-6 shadow-sm flex flex-col items-center text-center">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+          <div class="bg-card rounded-xl p-8 shadow-sm border border-border/50 dark:border-white/5 dark:shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center text-center transition-all hover:shadow-md hover:-translate-y-1">
             <div class="text-6xl font-bold text-primary mb-4">50%</div>
             <h3 class="text-xl font-semibold mb-2">时间浪费</h3>
             <p class="text-muted-foreground">法律专业人士高达一半的工作时间被耗费在重复性的文书审阅和信息检索上。</p>
           </div>
 
-          <div class="bg-card rounded-lg p-6 shadow-sm flex flex-col items-center text-center">
+          <div class="bg-card rounded-xl p-8 shadow-sm border border-border/50 dark:border-white/5 dark:shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center text-center transition-all hover:shadow-md hover:-translate-y-1">
             <div class="text-6xl font-bold text-primary mb-4">75%</div>
             <h3 class="text-xl font-semibold mb-2">经验鸿沟</h3>
             <p class="text-muted-foreground">青年律师的成长和办案质量高度受限于个人经验，行业知识难以标准化传承。</p>
           </div>
 
-          <div class="bg-card rounded-lg p-6 shadow-sm flex flex-col items-center text-center">
+          <div class="bg-card rounded-xl p-8 shadow-sm border border-border/50 dark:border-white/5 dark:shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center text-center transition-all hover:shadow-md hover:-translate-y-1">
             <div class="text-6xl font-bold text-primary mb-4">50%</div>
             <h3 class="text-xl font-semibold mb-2">人才困局</h3>
             <p class="text-muted-foreground">一半的小型律所难以吸引和留住人才，高强度的重复性工作是职业倦怠的主要原因。</p>
@@ -64,20 +64,20 @@
           <p class="text-lg text-muted-foreground max-w-2xl mx-auto">我们用一个平台，三大支柱，彻底解决行业痛点，将法律工作化繁为简。</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-center">
-          <div class="bg-card rounded-lg p-6 shadow-sm flex flex-col items-center text-center">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+          <div class="bg-card rounded-xl p-8 shadow-sm border border-border/50 dark:border-white/5 dark:shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center text-center transition-all hover:shadow-md">
             <file-text-icon class="h-10 w-10 text-primary mb-4" />
             <h3 class="text-xl font-semibold mb-2">分析引擎</h3>
             <p class="text-muted-foreground">多模态AI驱动，深度分析案情与合同，提供数据驱动的决策洞见。</p>
           </div>
 
-          <div class="bg-card rounded-lg p-6 shadow-sm flex flex-col items-center text-center">
+          <div class="bg-card rounded-xl p-8 shadow-sm border border-border/50 dark:border-white/5 dark:shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center text-center transition-all hover:shadow-md">
             <calendar-icon class="h-10 w-10 text-primary mb-4" />
             <h3 class="text-xl font-semibold mb-2">智能生成系统</h3>
             <p class="text-muted-foreground">一键生成标准化法律文书，将律师从重复性写作中解放，效率倍增。</p>
           </div>
 
-          <div class="bg-card rounded-lg p-6 shadow-sm flex flex-col items-center text-center">
+          <div class="bg-card rounded-xl p-8 shadow-sm border border-border/50 dark:border-white/5 dark:shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center text-center transition-all hover:shadow-md">
             <calendar-icon class="h-10 w-10 text-primary mb-4" />
             <h3 class="text-xl font-semibold mb-2">协同管理平台</h3>
             <p class="text-muted-foreground">案件、文档、任务云端管理，打破团队信息壁垒，实现无缝协同。(即将上线)</p>
@@ -86,7 +86,7 @@
 
         <div class="flex justify-center mt-10">
           <NuxtLink to="/dashboard/analysis"
-            class="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors">
+            class="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 active:scale-95 transition-all shadow-lg shadow-primary/20">
             {{ btnText }}</NuxtLink>
         </div>
       </div>
