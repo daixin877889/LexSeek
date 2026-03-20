@@ -248,7 +248,7 @@ describe('材料服务层', () => {
             testIds.materialIds.push(material.id)
 
             const newContent = '更新后的内容'
-            const updated = await updateMaterialContentService(material.id, newContent)
+            const updated = await updateMaterialContentService(material.id)
 
             // content 已迁移到 textContentRecords，caseMaterials 只更新状态
             expect(updated.status).toBe(MaterialStatus.COMPLETED)

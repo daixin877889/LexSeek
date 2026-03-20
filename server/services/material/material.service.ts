@@ -227,12 +227,11 @@ export const updateMaterialStatusService = async (
 }
 
 /**
- * 更新材料内容
- * 更新 caseMaterials.status 为已完成，content 已迁移到 textContentRecords 表
+ * 更新材料状态为已完成
+ * content 已迁移到 textContentRecords/docRecognitionRecords 等识别记录表
  */
 export const updateMaterialContentService = async (
     id: number,
-    _content: string,
     tx?: Prisma.TransactionClient
 ): Promise<caseMaterials> => {
     return await updateMaterialDao(

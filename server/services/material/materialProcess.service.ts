@@ -160,7 +160,7 @@ export const processMaterialService = async (
 
         // 10. 有内容则更新材料
         if (processResult.content) {
-            await updateMaterialContentService(materialId, processResult.content)
+            await updateMaterialContentService(materialId)
 
             // 11. 向量化处理
             if (options.enableEmbedding !== false) {
