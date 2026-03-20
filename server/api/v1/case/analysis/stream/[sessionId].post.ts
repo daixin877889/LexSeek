@@ -13,6 +13,8 @@ import { createUIMessageStreamResponse } from 'ai'
 import { findCaseBySessionIdService } from '~~/server/services/case/caseSession.service'
 import { mainAgent } from '~~/server/services/agent/main'
 import { getMaterialsByCaseIdService } from '~~/server/services/material/material.service'
+import { batchCheckMaterialEmbeddedService } from '~~/server/services/material/materialEmbedding.service'
+import { ensureMaterialsEmbeddedService } from '~~/server/services/material/materialProcess.service'
 
 
 export default defineEventHandler(async (event) => {
@@ -42,16 +44,12 @@ export default defineEventHandler(async (event) => {
     const materials = await getMaterialsByCaseIdService(caseInfo.id)
 
 
-    console.log(JSON.stringify(materials, null, 2))
-
-    // 判断材料是否全部嵌入完成
-    const noEmbeddedMaterials = materials.filter(material => material.embeddingStatus !== 'completed')
+    // 使用统一嵌入状态查询替代 embeddingStatus 字段判断
+    const embeddedMap = await batchCheckMaterialEmbeddedService(materials.map(m => m.id))
+    const noEmbeddedMaterials = materials.filter(m => !embeddedMap.get(m.id))
     if (noEmbeddedMaterials.length > 0) {
-        await batchEmbedMaterials(noEmbeddedMaterials)
+        await ensureMaterialsEmbeddedService(noEmbeddedMaterials, user.id)
     }
-
-
-
 
 
 
@@ -76,8 +74,3 @@ export default defineEventHandler(async (event) => {
     //     },
     // })
 })
-
-// 批量向量化材料
-async function batchEmbedMaterials(materials: globalThis.MaterialWithFile[]) {
-
-}
