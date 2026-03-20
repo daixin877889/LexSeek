@@ -10,16 +10,14 @@ import {
     getMaterialByIdService,
     updateMaterialStatusService,
     updateMaterialContentService,
+    type MaterialWithFile,
 } from './material.service'
 import { CaseMaterialType } from '#shared/types/case'
 import { MaterialStatus } from '#shared/types/material'
 import { convertPdfService } from './mineru.service'
 import { createImageConversionService } from './ocr.service'
 import { transcribeAudioService } from './asr.service'
-import {
-    embedMaterialService,
-    type EmbedMaterialInput,
-} from './materialEmbedding.service'
+import { embedMaterialUnifiedService } from './materialEmbedding.service'
 
 /**
  * 材料处理业务错误
@@ -167,22 +165,7 @@ export const processMaterialService = async (
             // 11. 向量化处理
             if (options.enableEmbedding !== false) {
                 try {
-                    const session = await prisma.caseSessions.findFirst({
-                        where: { caseId: material.caseId, deletedAt: null },
-                        orderBy: { createdAt: 'desc' },
-                    })
-
-                    const embedInput: EmbedMaterialInput = {
-                        content: processResult.content,
-                        userId,
-                        caseId: material.caseId,
-                        materialId: material.id,
-                        sessionId: session?.sessionId || '',
-                        materialName: material.name,
-                        materialType: material.type as CaseMaterialType,
-                    }
-
-                    await embedMaterialService(embedInput)
+                    await embedMaterialUnifiedService(material.id, userId)
                     logger.info('材料向量化完成', { materialId })
                 } catch (embedError: any) {
                     // 向量化失败不影响主流程
@@ -310,4 +293,74 @@ async function processAudioMaterial(
     } catch (error: any) {
         return { success: false, error: error.message }
     }
+}
+
+/**
+ * 嵌入单个材料（内部辅助函数）
+ */
+async function embedSingleMaterial(
+    material: MaterialWithFile,
+    userId: number,
+): Promise<'success' | 'failed' | 'skipped'> {
+    try {
+        const result = await embedMaterialUnifiedService(material.id, userId)
+        if (result.success) {
+            return 'success'
+        }
+        // 如果返回的 error 包含"内容为空"类信息，视为 skipped
+        if (result.error?.includes('内容为空') || result.error?.includes('不存在')) {
+            logger.warn('材料嵌入跳过', { materialId: material.id, reason: result.error })
+            return 'skipped'
+        }
+        logger.error('材料嵌入失败', { materialId: material.id, error: result.error })
+        return 'failed'
+    } catch (error: any) {
+        logger.error('材料嵌入异常', { materialId: material.id, error: error.message })
+        return 'failed'
+    }
+}
+
+/**
+ * 批量确保材料已嵌入
+ *
+ * 并行处理所有未嵌入的材料，返回统计结果
+ *
+ * @param materials 待嵌入的材料列表
+ * @param userId 当前用户 ID
+ * @returns 处理统计 { total, success, failed, skipped }
+ */
+export async function ensureMaterialsEmbeddedService(
+    materials: MaterialWithFile[],
+    userId: number,
+): Promise<{
+    total: number
+    success: number
+    failed: number
+    skipped: number
+}> {
+    if (materials.length === 0) {
+        return { total: 0, success: 0, failed: 0, skipped: 0 }
+    }
+
+    const results = await Promise.allSettled(
+        materials.map(material => embedSingleMaterial(material, userId))
+    )
+
+    let success = 0
+    let failed = 0
+    let skipped = 0
+
+    for (const result of results) {
+        if (result.status === 'fulfilled') {
+            switch (result.value) {
+                case 'success': success++; break
+                case 'failed': failed++; break
+                case 'skipped': skipped++; break
+            }
+        } else {
+            failed++
+        }
+    }
+
+    return { total: materials.length, success, failed, skipped }
 }
