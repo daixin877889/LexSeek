@@ -63,18 +63,23 @@ export const createSingleCaseMaterialDAO = async (
     tx?: Prisma.TransactionClient
 ): Promise<caseMaterials> => {
     const client = tx || prisma
-    return client.caseMaterials.create({
-        data: {
-            caseId,
-            name: material.name,
-            type: material.type,
-            ossFileId: material.ossFileId ?? null,
-            isEncrypted: material.isEncrypted ?? false,
-            status: material.status ?? 1,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        },
-    })
+    try {
+        return await client.caseMaterials.create({
+            data: {
+                caseId,
+                name: material.name,
+                type: material.type,
+                ossFileId: material.ossFileId ?? null,
+                isEncrypted: material.isEncrypted ?? false,
+                status: material.status ?? 1,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+        })
+    } catch (error) {
+        logger.error('创建单条案件材料失败：', error)
+        throw error
+    }
 }
 
 /**

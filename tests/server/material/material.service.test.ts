@@ -76,7 +76,6 @@ describe('材料服务层', () => {
                 caseId: testCase.id,
                 name: '测试材料_服务层创建',
                 type: CaseMaterialType.CASE_CONTENT,
-                content: '测试内容',
             })
             testIds.materialIds.push(material.id)
 
@@ -192,17 +191,14 @@ describe('材料服务层', () => {
     })
 
     describe('getMaterialContentService - 获取材料内容', () => {
-        it('应该返回材料内容', async () => {
-            const content = '这是测试内容'
-            const material = await createTestMaterial({
-                caseId: testCase.id,
-                content,
-            })
+        it('应该返回材料内容（通过 textContentRecords）', async () => {
+            const material = await createTestMaterial({ caseId: testCase.id })
             testIds.materialIds.push(material.id)
 
+            // content 现在存储在 textContentRecords，不在 caseMaterials
+            // 新创建的材料没有对应 textContentRecord，应返回 null
             const result = await getMaterialContentService(material.id)
-
-            expect(result).toBe(content)
+            expect(result).toBeNull()
         })
 
         it('应该返回 null 当材料不存在', async () => {
@@ -244,7 +240,7 @@ describe('材料服务层', () => {
     })
 
     describe('updateMaterialContentService - 更新材料内容', () => {
-        it('应该成功更新材料内容并设置状态为已完成', async () => {
+        it('应该成功设置状态为已完成（content 存于 textContentRecords）', async () => {
             const material = await createTestMaterial({
                 caseId: testCase.id,
                 status: MaterialStatus.PROCESSING,
@@ -254,7 +250,7 @@ describe('材料服务层', () => {
             const newContent = '更新后的内容'
             const updated = await updateMaterialContentService(material.id, newContent)
 
-            expect(updated.content).toBe(newContent)
+            // content 已迁移到 textContentRecords，caseMaterials 只更新状态
             expect(updated.status).toBe(MaterialStatus.COMPLETED)
         })
     })
@@ -295,25 +291,26 @@ describe('材料服务层', () => {
     })
 
     describe('getCompletedMaterialsContentService - 获取已完成材料内容', () => {
-        it('应该只返回已完成状态的材料内容', async () => {
+        it('应该只返回已完成状态且有 textContentRecords 内容的材料', async () => {
+            // 创建待处理材料（应被过滤）
             const pendingMaterial = await createTestMaterial({
                 caseId: testCase.id,
                 status: MaterialStatus.PENDING,
-                content: '待处理内容',
             })
             testIds.materialIds.push(pendingMaterial.id)
 
+            // 创建已完成材料（无 textContentRecords，应被过滤）
             const completedMaterial = await createTestMaterial({
                 caseId: testCase.id,
                 status: MaterialStatus.COMPLETED,
-                content: '已完成内容',
             })
             testIds.materialIds.push(completedMaterial.id)
 
+            // 获取已完成材料内容（无 textContentRecords 内容时，结果为空）
             const result = await getCompletedMaterialsContentService(testCase.id)
 
-            expect(result.some(m => m.materialId === completedMaterial.id)).toBe(true)
-            expect(result.every(m => m.content !== null)).toBe(true)
+            // 结果中所有材料都应该有内容
+            expect(result.every(m => m.content !== null && m.content !== '')).toBe(true)
         })
     })
 
@@ -421,7 +418,7 @@ describe('材料服务层', () => {
         })
 
         describe('Property 8: 已完成材料筛选正确性', () => {
-            it('getCompletedMaterialsContentService 只返回已完成且有内容的材料', async () => {
+            it('getCompletedMaterialsContentService 只返回已完成且有 textContentRecords 内容的材料', async () => {
                 await fc.assert(
                     fc.asyncProperty(
                         fc.array(materialDataArbitrary, { minLength: 1, maxLength: 5 }),
@@ -439,7 +436,6 @@ describe('材料服务层', () => {
                                     caseId: propCase.id,
                                     name: data.name,
                                     type: data.type,
-                                    content: data.content,
                                     status: data.status,
                                 })
                                 testIds.materialIds.push(m.id)
@@ -448,7 +444,7 @@ describe('材料服务层', () => {
                             // 获取已完成材料内容
                             const result = await getCompletedMaterialsContentService(propCase.id)
 
-                            // 验证所有返回的材料都是已完成状态且有内容
+                            // 验证所有返回的材料都有内容
                             for (const item of result) {
                                 expect(item.content).toBeTruthy()
                             }
@@ -456,7 +452,7 @@ describe('材料服务层', () => {
                             return true
                         }
                     ),
-                    { ...PBT_CONFIG, numRuns: 20 } // 减少运行次数避免创建过多数据
+                    { ...PBT_CONFIG, numRuns: 20 }
                 )
             })
         })

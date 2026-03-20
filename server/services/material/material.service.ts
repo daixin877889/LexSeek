@@ -15,6 +15,9 @@ import {
     updateMaterialDao,
     deleteMaterialDao,
 } from './material.dao'
+import {
+    findTextContentRecordByMaterialIdDAO,
+} from './textContentRecords.dao'
 import type { CreateMaterialInput, UpdateMaterialInput, MaterialQueryOptions } from '#shared/types/material'
 import { MaterialStatus } from '#shared/types/material'
 import { CaseMaterialType } from '#shared/types/case'
@@ -190,12 +193,9 @@ export const getMaterialContentService = async (
         return null
     }
 
-    // 如果材料已有处理后的内容，直接返回
-    if (material.content) {
-        return material.content
-    }
-
-    return null
+    // 从 textContentRecords 获取内容（content 已迁移到该表）
+    const record = await findTextContentRecordByMaterialIdDAO(id)
+    return record?.content ?? null
 }
 
 /**
@@ -228,18 +228,16 @@ export const updateMaterialStatusService = async (
 
 /**
  * 更新材料内容
+ * 更新 caseMaterials.status 为已完成，content 已迁移到 textContentRecords 表
  */
 export const updateMaterialContentService = async (
     id: number,
-    content: string,
+    _content: string,
     tx?: Prisma.TransactionClient
 ): Promise<caseMaterials> => {
     return await updateMaterialDao(
         id,
-        {
-            content,
-            status: MaterialStatus.COMPLETED,
-        },
+        { status: MaterialStatus.COMPLETED },
         tx
     )
 }
@@ -310,33 +308,56 @@ export const getMaterialsByIdsService = async (
 /**
  * 获取案件已完成处理的材料内容（聚合）
  * 用于工作流中获取所有材料的文本内容
+ * content 已迁移到 textContentRecords 表
  */
 export const getCompletedMaterialsContentService = async (
     caseId: number
 ): Promise<{ materialId: number; name: string; type: CaseMaterialType; content: string }[]> => {
+    // 获取已完成状态的材料
     const materials = await prisma.caseMaterials.findMany({
         where: {
             caseId,
             status: MaterialStatus.COMPLETED,
-            content: { not: null },
             deletedAt: null,
         },
         select: {
             id: true,
             name: true,
             type: true,
-            content: true,
         },
         orderBy: { createdAt: 'asc' },
     })
 
+    if (materials.length === 0) {
+        return []
+    }
+
+    // 从 textContentRecords 获取内容
+    const textRecords = await prisma.textContentRecords.findMany({
+        where: {
+            materialId: { in: materials.map(m => m.id) },
+            content: { not: null },
+            deletedAt: null,
+        },
+        select: {
+            materialId: true,
+            content: true,
+        },
+    })
+
+    const contentMap = new Map(
+        textRecords
+            .filter(r => r.materialId !== null && r.content !== null)
+            .map(r => [r.materialId as number, r.content as string])
+    )
+
     return materials
-        .filter((m) => m.content !== null)
-        .map((m) => ({
+        .filter(m => contentMap.has(m.id))
+        .map(m => ({
             materialId: m.id,
             name: m.name,
             type: m.type as CaseMaterialType,
-            content: m.content as string,
+            content: contentMap.get(m.id) as string,
         }))
 }
 

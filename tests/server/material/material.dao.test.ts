@@ -19,7 +19,7 @@ import {
     disconnectTestDb,
     type CaseTestIds,
 } from './test-db-helper'
-import { PBT_CONFIG, materialDataArbitrary, materialStatusArb } from './test-generators'
+import { PBT_CONFIG, materialDataArbitrary } from './test-generators'
 import {
     createMaterialDao,
     findMaterialByIdDao,
@@ -69,7 +69,6 @@ describe('材料 DAO 层', () => {
                 caseId: testCase.id,
                 name: '测试材料_创建测试',
                 type: CaseMaterialType.CASE_CONTENT,
-                content: '测试内容',
             })
             testIds.materialIds.push(material.id)
 
@@ -101,7 +100,6 @@ describe('材料 DAO 层', () => {
                 caseId: testCase.id,
                 name: '测试材料_加密',
                 type: CaseMaterialType.CASE_CONTENT,
-                content: '加密内容',
                 isEncrypted: true,
             })
             testIds.materialIds.push(material.id)
@@ -270,16 +268,6 @@ describe('材料 DAO 层', () => {
 
             expect(updated.status).toBe(MaterialStatus.COMPLETED)
         })
-
-        it('应该成功更新材料内容', async () => {
-            const material = await createTestMaterial({ caseId: testCase.id })
-            testIds.materialIds.push(material.id)
-
-            const newContent = '更新后的内容'
-            const updated = await updateMaterialDao(material.id, { content: newContent })
-
-            expect(updated.content).toBe(newContent)
-        })
     })
 
     describe('deleteMaterialDao - 软删除材料', () => {
@@ -305,7 +293,6 @@ describe('材料 DAO 层', () => {
                             caseId: testCase.id,
                             name: data.name,
                             type: data.type,
-                            content: data.content,
                             isEncrypted: data.isEncrypted,
                             status: data.status,
                         })
@@ -316,7 +303,6 @@ describe('材料 DAO 层', () => {
                         expect(found).not.toBeNull()
                         expect(found?.name).toBe(data.name)
                         expect(found?.type).toBe(data.type)
-                        expect(found?.content).toBe(data.content)
                         expect(found?.isEncrypted).toBe(data.isEncrypted)
                         expect(found?.status).toBe(data.status)
 

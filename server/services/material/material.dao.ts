@@ -22,9 +22,7 @@ export const createMaterialDao = async (
                 caseId: data.caseId,
                 name: data.name,
                 type: data.type,
-                content: data.content,
-                originalContent: data.originalContent,
-                ossFileId: data.ossFileId,
+                ossFileId: data.ossFileId ?? null,
                 isEncrypted: data.isEncrypted ?? false,
                 status: data.status ?? MaterialStatus.PENDING,
             },
@@ -155,12 +153,16 @@ export const updateMaterialDao = async (
     tx?: Prisma.TransactionClient
 ): Promise<caseMaterials> => {
     try {
+        // 只更新 caseMaterials 表支持的字段（content/originalContent 已迁移到 textContentRecords）
+        const updateData: Prisma.caseMaterialsUpdateInput = {
+            updatedAt: new Date(),
+        }
+        if (data.name !== undefined) updateData.name = data.name
+        if (data.status !== undefined) updateData.status = data.status
+
         const material = await (tx || prisma).caseMaterials.update({
             where: { id },
-            data: {
-                ...data,
-                updatedAt: new Date(),
-            },
+            data: updateData,
         })
         return material
     } catch (error) {
