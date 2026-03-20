@@ -24,34 +24,7 @@
           <!-- 头部：自定义文件列表 -->
           <PromptInputHeader v-if="selectedFiles.length > 0 || uploadingFiles.length > 0">
             <div class="flex flex-wrap items-center gap-2 pt-3 pb-1 px-1 w-full">
-              <!-- 正在上传的文件 -->
-              <div v-for="fileState in uploadingFiles" :key="fileState.id"
-                class="group relative flex h-8 cursor-default select-none items-center gap-1.5 rounded-md border border-border px-1.5 font-medium text-sm transition-all bg-muted/30">
-                <div class="relative size-5 shrink-0 flex items-center justify-center">
-                  <Loader2Icon class="size-3.5 animate-spin text-primary"
-                    v-if="fileState.status === 'uploading' || fileState.status === 'pending'" />
-                  <AlertCircleIcon class="size-3.5 text-destructive" v-else-if="fileState.status === 'error'" />
-                  <CheckIcon class="size-3.5 text-green-500" v-else />
-                </div>
-                <span class="flex-1 truncate max-w-[120px]"
-                  :class="{ 'text-destructive': fileState.status === 'error' }">{{ fileState.file.name }}</span>
-                <!-- 进度条 -->
-                <div class="w-12 h-1 bg-muted-foreground/20 rounded-full overflow-hidden ml-1"
-                  v-if="fileState.status === 'uploading'">
-                  <div class="h-full bg-primary transition-all duration-300" :style="{ width: fileState.progress + '%' }">
-                  </div>
-                </div>
-                <span class="text-[10px] text-destructive ml-1" v-if="fileState.status === 'error'"
-                  :title="fileState.error">失败</span>
-
-                <!-- 移除出错的任务 -->
-                <Button v-if="fileState.status === 'error'" type="button" variant="ghost" size="icon"
-                  class="size-5 p-0 ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                  @click.stop="removeUploadingFile(fileState.id)">
-                  <XIcon class="size-3" />
-                </Button>
-              </div>
-
+              <!-- 已选文件 -->
               <div v-for="file in selectedFiles" :key="file.id"
                 class="group relative flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-md border border-border px-1.5 font-medium text-sm transition-all hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50"
                 @click="openPreview(file)">
@@ -92,6 +65,34 @@
                   @click.stop="removeFile(file.id)">
                   <XIcon class="size-3" />
                   <span class="sr-only">移除</span>
+                </Button>
+              </div>
+
+              <!-- 正在上传的文件 -->
+              <div v-for="fileState in uploadingFiles" :key="fileState.id"
+                class="group relative flex h-8 cursor-default select-none items-center gap-1.5 rounded-md border border-border px-1.5 font-medium text-sm transition-all bg-muted/30">
+                <div class="relative size-5 shrink-0 flex items-center justify-center">
+                  <Loader2Icon class="size-3.5 animate-spin text-primary"
+                    v-if="fileState.status === 'uploading' || fileState.status === 'pending'" />
+                  <AlertCircleIcon class="size-3.5 text-destructive" v-else-if="fileState.status === 'error'" />
+                  <CheckIcon class="size-3.5 text-green-500" v-else />
+                </div>
+                <span class="flex-1 truncate max-w-[120px]"
+                  :class="{ 'text-destructive': fileState.status === 'error' }">{{ fileState.file.name }}</span>
+                <!-- 进度条 -->
+                <div class="w-12 h-1 bg-muted-foreground/20 rounded-full overflow-hidden ml-1"
+                  v-if="fileState.status === 'uploading'">
+                  <div class="h-full bg-primary transition-all duration-300" :style="{ width: fileState.progress + '%' }">
+                  </div>
+                </div>
+                <span class="text-[10px] text-destructive ml-1" v-if="fileState.status === 'error'"
+                  :title="fileState.error">失败</span>
+
+                <!-- 移除出错的任务 -->
+                <Button v-if="fileState.status === 'error'" type="button" variant="ghost" size="icon"
+                  class="size-5 p-0 ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  @click.stop="removeUploadingFile(fileState.id)">
+                  <XIcon class="size-3" />
                 </Button>
               </div>
             </div>
