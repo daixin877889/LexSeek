@@ -16,7 +16,7 @@ import {
     getPool,
     type VectorStoreConfig,
 } from '~~/server/services/legal/vectorStore.service'
-import { CaseMaterialType } from '#shared/types/material'
+import { CaseMaterialType } from '#shared/types/case'
 
 /** 材料向量存储配置 */
 export const caseMaterialVectorConfig: VectorStoreConfig = {
@@ -1289,3 +1289,7 @@ export async function searchUserAudiosService(
         throw error
     }
 }
+
+
+// re-export ensureMaterialsEmbeddedService（实现在 materialProcess.service 避免自引用）
+export { ensureMaterialsEmbeddedService } from './materialProcess.service'

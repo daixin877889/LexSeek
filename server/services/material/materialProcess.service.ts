@@ -10,16 +10,15 @@ import {
     getMaterialByIdService,
     updateMaterialStatusService,
     updateMaterialContentService,
+    type MaterialWithFile,
 } from './material.service'
 import { CaseMaterialType } from '#shared/types/case'
 import { MaterialStatus } from '#shared/types/material'
 import { convertPdfService } from './mineru.service'
 import { createImageConversionService } from './ocr.service'
 import { transcribeAudioService } from './asr.service'
-import {
-    embedMaterialService,
-    type EmbedMaterialInput,
-} from './materialEmbedding.service'
+import type { EmbedMaterialInput } from './materialEmbedding.service'
+import { updateMaterialEmbeddingStatusDAO } from '../case/caseMaterial.dao'
 
 /**
  * 材料处理业务错误
@@ -182,6 +181,7 @@ export const processMaterialService = async (
                         materialType: material.type as CaseMaterialType,
                     }
 
+                    const { embedMaterialService } = await import('./materialEmbedding.service')
                     await embedMaterialService(embedInput)
                     logger.info('材料向量化完成', { materialId })
                 } catch (embedError: any) {
@@ -309,5 +309,119 @@ async function processAudioMaterial(
         return { success: true }
     } catch (error: any) {
         return { success: false, error: error.message }
+    }
+}
+
+
+/**
+ * 确保材料列表全部完成嵌入
+ *
+ * 对未嵌入的材料按类型分类，全并行调用对应的嵌入服务。
+ * 失败的材料记录日志但不阻断流程。
+ *
+ * @param materials 需要嵌入的材料列表
+ * @param userId 用户 ID
+ * @param caseId 案件 ID
+ * @param sessionId 会话 ID
+ * @returns 嵌入统计结果
+ */
+export async function ensureMaterialsEmbeddedService(
+    materials: MaterialWithFile[],
+    userId: number,
+    caseId: number,
+    sessionId: string
+): Promise<{
+    total: number
+    success: number
+    failed: number
+    skipped: number
+}> {
+    if (materials.length === 0) {
+        return { total: 0, success: 0, failed: 0, skipped: 0 }
+    }
+
+    const results = await Promise.allSettled(
+        materials.map(material => embedSingleMaterial(material, userId, caseId, sessionId))
+    )
+
+    let success = 0
+    let failed = 0
+    let skipped = 0
+
+    for (const result of results) {
+        if (result.status === 'fulfilled') {
+            switch (result.value) {
+                case 'success': success++; break
+                case 'failed': failed++; break
+                case 'skipped': skipped++; break
+            }
+        } else {
+            // Promise.allSettled rejected 不应发生（内部已 try-catch），但以防万一
+            failed++
+        }
+    }
+
+    return { total: materials.length, success, failed, skipped }
+}
+
+/**
+ * 嵌入单个材料（内部辅助函数）
+ * 按材料类型分发到对应的嵌入服务
+ */
+async function embedSingleMaterial(
+    material: MaterialWithFile,
+    userId: number,
+    caseId: number,
+    sessionId: string
+): Promise<'success' | 'failed' | 'skipped'> {
+    try {
+        if (material.type === CaseMaterialType.CASE_CONTENT) {
+            // 文本材料：使用 embedTextMaterialService（含完整状态管理）
+            const { embedTextMaterialService } = await import('../case/caseMaterial.service')
+            const result = await embedTextMaterialService(material.id, userId, caseId, sessionId)
+            return result.success ? 'success' : 'failed'
+        }
+
+        // 非文本材料：校验 content
+        if (!material.content || material.content.trim() === '') {
+            logger.warn('材料内容为空，跳过嵌入', { materialId: material.id, type: material.type })
+            return 'skipped'
+        }
+
+        // 更新状态为 processing
+        await updateMaterialEmbeddingStatusDAO(material.id, 'processing')
+
+        // 构造输入并调用 embedMaterialService（Nuxt 自动导入的全局版本，可通过 vi.stubGlobal mock）
+        const input: EmbedMaterialInput = {
+            content: material.content,
+            userId,
+            caseId,
+            materialId: material.id,
+            sessionId,
+            materialName: material.name,
+            materialType: material.type as CaseMaterialType,
+        }
+        await embedMaterialService(input)
+
+        // 更新状态为 completed
+        await updateMaterialEmbeddingStatusDAO(material.id, 'completed')
+        return 'success'
+    } catch (error: any) {
+        logger.error('材料嵌入失败', {
+            materialId: material.id,
+            type: material.type,
+            error: error.message,
+        })
+
+        // 非文本材料尝试更新状态为 failed（文本材料由 embedTextMaterialService 内部管理状态）
+        if (material.type !== CaseMaterialType.CASE_CONTENT) {
+            try {
+                await updateMaterialEmbeddingStatusDAO(material.id, 'failed')
+            } catch {
+                // 状态更新失败不阻断
+            }
+        }
+
+        return 'failed'
     }
 }
