@@ -135,6 +135,8 @@
               :loading="isAnalyzing"
               :disabled="isComplete"
               :enable-watcher="false"
+              :min-rows="1"
+              :max-rows="4"
               @submit="handlePromptSubmit"
             />
 

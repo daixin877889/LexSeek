@@ -9,9 +9,14 @@ type PromptInputTextareaProps = InstanceType<typeof InputGroupTextarea>['$props'
 
 interface Props extends /* @vue-ignore */ PromptInputTextareaProps {
   class?: HTMLAttributes['class']
+  minRows?: number
+  maxRows?: number
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  minRows: 1,
+  maxRows: 4
+})
 
 const { textInput, setTextInput, submitForm, addFiles, files, removeFile } = usePromptInput()
 const isComposing = ref(false)
@@ -57,6 +62,11 @@ const modelValue = computed({
   get: () => textInput.value,
   set: val => setTextInput(val),
 })
+
+const computedStyles = computed(() => ({
+  '--min-rows': props.minRows,
+  '--max-rows': props.maxRows,
+}))
 </script>
 
 <template>
@@ -64,7 +74,11 @@ const modelValue = computed({
     v-model="modelValue"
     placeholder="What would you like to know?"
     name="message"
-    :class="cn('field-sizing-content max-h-48 min-h-16', props.class)"
+    :class="cn(
+      'field-sizing-content resize-none min-h-[calc(var(--min-rows)*1.5rem+1.5rem)] max-h-[calc(var(--max-rows)*1.5rem+1.5rem)]', 
+      props.class
+    )"
+    :style="computedStyles"
     v-bind="props"
     @keydown="handleKeyDown"
     @paste="handlePaste"

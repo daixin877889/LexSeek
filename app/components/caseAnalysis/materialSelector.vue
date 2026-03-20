@@ -70,9 +70,16 @@
 
         <!-- 文件列表或上传器 -->
         <div ref="scrollContainerRef" class="flex-1 overflow-y-auto border rounded-md min-h-0" @scroll="handleScroll">
-          <!-- 加载状态（首次加载） -->
-          <div v-if="loading && allFiles.length === 0 && !isUploadMode" class="flex items-center justify-center h-full">
-            <Loader2Icon class="size-8 animate-spin text-muted-foreground" />
+          <!-- 加载状态（骨架屏） -->
+          <div v-if="loading && allFiles.length === 0 && !isUploadMode" class="p-4 space-y-4">
+            <div v-for="i in 5" :key="i" class="flex items-center gap-3">
+              <Skeleton class="size-5 rounded" />
+              <Skeleton class="size-10 rounded-md" />
+              <div class="flex-1 space-y-2">
+                <Skeleton class="h-4 w-[60%]" />
+                <Skeleton class="h-3 w-[40%]" />
+              </div>
+            </div>
           </div>
 
           <!-- 上传模式 -->
@@ -408,7 +415,7 @@ const toggleUploadMode = () => {
 
 // 处理文件上传成功
 const handleFileUploadSuccess = async (uploadedFiles: Record<string, unknown>[]) => {
-  // 从上传结果中提取文件ID（注意：上传返回的字段是 fileId，不是 id）
+  // 从上传结果中提取文件ID（注意：上传返回的字段 is fileId, not id）
   const uploadedFileIds = uploadedFiles
     .map((file) => (file.fileId || file.id) as number)
     .filter((id) => id !== undefined && id !== null);
@@ -499,7 +506,7 @@ async function resetAndLoad() {
 // 搜索防抖
 const debouncedSearch = useDebounceFn(() => {
   resetAndLoad();
-}, 500);
+}, 300);
 
 // 监听搜索关键词变化
 watch(searchQuery, () => {
