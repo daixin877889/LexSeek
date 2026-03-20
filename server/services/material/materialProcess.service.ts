@@ -17,7 +17,10 @@ import { MaterialStatus } from '#shared/types/material'
 import { convertPdfService } from './mineru.service'
 import { createImageConversionService } from './ocr.service'
 import { transcribeAudioService } from './asr.service'
-import type { EmbedMaterialInput } from './materialEmbedding.service'
+import {
+    embedMaterialService,
+    type EmbedMaterialInput,
+} from './materialEmbedding.service'
 import { updateMaterialEmbeddingStatusDAO } from '../case/caseMaterial.dao'
 
 /**
@@ -181,7 +184,6 @@ export const processMaterialService = async (
                         materialType: material.type as CaseMaterialType,
                     }
 
-                    const { embedMaterialService } = await import('./materialEmbedding.service')
                     await embedMaterialService(embedInput)
                     logger.info('材料向量化完成', { materialId })
                 } catch (embedError: any) {
@@ -312,7 +314,6 @@ async function processAudioMaterial(
     }
 }
 
-
 /**
  * 确保材料列表全部完成嵌入
  *
@@ -356,7 +357,6 @@ export async function ensureMaterialsEmbeddedService(
                 case 'skipped': skipped++; break
             }
         } else {
-            // Promise.allSettled rejected 不应发生（内部已 try-catch），但以防万一
             failed++
         }
     }
@@ -391,7 +391,7 @@ async function embedSingleMaterial(
         // 更新状态为 processing
         await updateMaterialEmbeddingStatusDAO(material.id, 'processing')
 
-        // 构造输入并调用 embedMaterialService（Nuxt 自动导入的全局版本，可通过 vi.stubGlobal mock）
+        // 构造输入并调用 embedMaterialService
         const input: EmbedMaterialInput = {
             content: material.content,
             userId,

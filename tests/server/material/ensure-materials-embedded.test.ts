@@ -15,27 +15,23 @@ const mocks = vi.hoisted(() => ({
     updateMaterialEmbeddingStatusDAO: vi.fn(),
 }))
 
-// mock 依赖服务（同时 mock 相对路径和 ~~ 路径，适配 Nuxt vitest 双路径模块系统）
+// mock caseMaterial.service（embedTextMaterialService 通过动态 import 加载）
 vi.mock('../../../server/services/case/caseMaterial.service', () => ({
     embedTextMaterialService: mocks.embedTextMaterialService,
 }))
 vi.mock('~~/server/services/case/caseMaterial.service', () => ({
     embedTextMaterialService: mocks.embedTextMaterialService,
 }))
-vi.mock('../../../server/services/material/materialEmbedding.service', async (importOriginal) => {
-    const original = await importOriginal<typeof import('../../../server/services/material/materialEmbedding.service')>()
-    return {
-        ...original,
-        embedMaterialService: mocks.embedMaterialService,
-    }
-})
-vi.mock('~~/server/services/material/materialEmbedding.service', async (importOriginal) => {
-    const original = await importOriginal<typeof import('../../../server/services/material/materialEmbedding.service')>()
-    return {
-        ...original,
-        embedMaterialService: mocks.embedMaterialService,
-    }
-})
+
+// mock materialEmbedding.service（embedMaterialService 通过静态 import 被 materialProcess.service 使用）
+vi.mock('../../../server/services/material/materialEmbedding.service', () => ({
+    embedMaterialService: mocks.embedMaterialService,
+}))
+vi.mock('~~/server/services/material/materialEmbedding.service', () => ({
+    embedMaterialService: mocks.embedMaterialService,
+}))
+
+// mock caseMaterial.dao（updateMaterialEmbeddingStatusDAO）
 vi.mock('../../../server/services/case/caseMaterial.dao', () => ({
     updateMaterialEmbeddingStatusDAO: mocks.updateMaterialEmbeddingStatusDAO,
 }))
@@ -43,7 +39,7 @@ vi.mock('~~/server/services/case/caseMaterial.dao', () => ({
     updateMaterialEmbeddingStatusDAO: mocks.updateMaterialEmbeddingStatusDAO,
 }))
 
-import { ensureMaterialsEmbeddedService } from '../../../server/services/material/materialEmbedding.service'
+import { ensureMaterialsEmbeddedService } from '../../../server/services/material/materialProcess.service'
 
 const embedTextMaterialService = mocks.embedTextMaterialService
 const embedMaterialService = mocks.embedMaterialService
@@ -73,10 +69,6 @@ describe('ensureMaterialsEmbeddedService', () => {
 
     beforeEach(() => {
         vi.clearAllMocks()
-        // 通过 stubGlobal 确保 Nuxt 自动导入的全局版本也被 mock
-        vi.stubGlobal('embedMaterialService', mocks.embedMaterialService)
-        vi.stubGlobal('updateMaterialEmbeddingStatusDAO', mocks.updateMaterialEmbeddingStatusDAO)
-        vi.stubGlobal('embedTextMaterialService', mocks.embedTextMaterialService)
     })
 
     it('空数组应返回全零统计', async () => {
@@ -180,5 +172,18 @@ describe('ensureMaterialsEmbeddedService', () => {
         const result = await ensureMaterialsEmbeddedService(materials, userId, caseId, sessionId)
 
         expect(result.failed).toBe(1)
+    })
+
+    it('状态更新失败不应阻断流程，仍返回 failed', async () => {
+        vi.mocked(embedMaterialService).mockRejectedValue(new Error('向量化失败'))
+        vi.mocked(updateMaterialEmbeddingStatusDAO)
+            .mockResolvedValueOnce(undefined) // processing 成功
+            .mockRejectedValueOnce(new Error('数据库连接失败')) // failed 状态更新失败
+
+        const materials = [makeMaterial({ id: 2, type: 2, name: '合同.pdf', content: 'PDF' })]
+        const result = await ensureMaterialsEmbeddedService(materials, userId, caseId, sessionId)
+
+        expect(result.failed).toBe(1)
+        expect(result.success).toBe(0)
     })
 })

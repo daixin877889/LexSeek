@@ -1289,7 +1289,3 @@ export async function searchUserAudiosService(
         throw error
     }
 }
-
-
-// re-export ensureMaterialsEmbeddedService（实现在 materialProcess.service 避免自引用）
-export { ensureMaterialsEmbeddedService } from './materialProcess.service'
