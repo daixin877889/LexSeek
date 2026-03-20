@@ -20,7 +20,8 @@
         <!-- 输入状态监听器，同步状态到 store -->
         <CaseAnalysisPromptInputWatcher v-if="enableWatcher"
           :files-count="selectedFiles.length + uploadingFiles.length" />
-        <PromptInput global-drop multiple          class="**:data-[slot=input-group]:shadow-none **:data-[slot=input-group]:border-primary **:data-[slot=input-group]:rounded-md transition-all">
+        <PromptInput global-drop multiple
+          class="**:data-[slot=input-group]:shadow-none **:data-[slot=input-group]:border-primary **:data-[slot=input-group]:rounded-md transition-all">
           <!-- 头部：自定义文件列表 -->
           <PromptInputHeader v-if="selectedFiles.length > 0 || uploadingFiles.length > 0">
             <div class="flex flex-wrap items-center gap-2 pt-3 pb-1 px-1 w-full">
@@ -123,7 +124,8 @@
                 <SendHorizontal class="size-4" />
                 <span class="ml-1.5">{{ submitLabel }}</span>
               </PromptInputSubmit>
-            </div>          </PromptInputFooter>
+            </div>
+          </PromptInputFooter>
         </PromptInput>
       </PromptInputProvider>
     </div>
@@ -224,12 +226,10 @@ const isAllRecognizing = computed(() => {
 
 // 计算是否禁用提交
 const isSubmitDisabled = computed(() => {
-  const hasText = !!caseAnalysisStore.promptText?.trim();
-  const hasFiles = selectedFiles.value.length > 0;
-  const isUploading = uploadingFiles.value.length > 0;
-  
-  // 基础禁用：无文本且无文件，或者正在上传，或者有文件正在识别
-  return (!hasText && !hasFiles) || isUploading || isAllRecognizing.value || props.disabled;
+  return !caseAnalysisStore.hasPromptInput
+    || uploadingFiles.value.length > 0
+    || isAllRecognizing.value
+    || props.disabled;
 })
 
 // 提交状态：由外部 loading prop 派生

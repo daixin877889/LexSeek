@@ -18,7 +18,7 @@ watch(
   ([text, count]) => {
     store.updatePromptState(text, count || 0);
   },
-  { deep: true, immediate: true }
+  { immediate: true }
 );
 
 // 组件卸载时重置状态
