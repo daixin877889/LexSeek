@@ -1437,22 +1437,6 @@ export const embedAsrRecordService = async (
 
         logger.info(`音频识别结果向量化完成：recordId=${recordId}, ossFileId=${record.ossFileId}, chunkCount=${embeddingResult.chunkCount}`)
 
-        // 9. 更新 case_materials 表的 embedding_status
-        try {
-            const { findMaterialsByOssFileIdDAO, updateMaterialEmbeddingStatusDAO } = await import('../case/caseMaterial.dao')
-            const materials = await findMaterialsByOssFileIdDAO(record.ossFileId, tx)
-            for (const material of materials) {
-                await updateMaterialEmbeddingStatusDAO(material.id, 'completed', tx)
-                logger.info(`更新材料 ${material.id} 的 embedding_status 为 completed`)
-            }
-        } catch (updateError: any) {
-            // 更新失败不影响主流程
-            logger.warn('更新 case_materials embedding_status 失败', {
-                ossFileId: record.ossFileId,
-                error: updateError.message,
-            })
-        }
-
         return {
             success: true,
             vectorIds: embeddingResult.ids,
@@ -1462,23 +1446,6 @@ export const embedAsrRecordService = async (
     } catch (error) {
         // 嵌入失败不影响主流程，仅记录日志
         logger.error(`音频识别结果向量化失败：recordId=${recordId}`, error)
-
-        // 更新 case_materials 表的 embedding_status 为 failed
-        try {
-            const record = await findAsrRecordByIdDao(recordId, tx)
-            if (record) {
-                const { findMaterialsByOssFileIdDAO, updateMaterialEmbeddingStatusDAO } = await import('../case/caseMaterial.dao')
-                const materials = await findMaterialsByOssFileIdDAO(record.ossFileId, tx)
-                for (const material of materials) {
-                    await updateMaterialEmbeddingStatusDAO(material.id, 'failed', tx)
-                }
-            }
-        } catch (updateError: any) {
-            logger.warn('更新 case_materials embedding_status 失败', {
-                recordId,
-                error: updateError.message,
-            })
-        }
 
         return {
             success: false,

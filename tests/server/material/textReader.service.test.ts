@@ -73,16 +73,6 @@ vi.mock('~~/server/services/material/materialEmbedding.service', () => ({
     embedDocumentService: mocks.embedDocumentService,
 }))
 
-// Mock caseMaterial.dao
-vi.mock('../../../server/services/case/caseMaterial.dao', () => ({
-    findMaterialsByOssFileIdDAO: vi.fn().mockResolvedValue([]),
-    updateMaterialEmbeddingStatusDAO: vi.fn().mockResolvedValue(undefined),
-}))
-vi.mock('~~/server/services/case/caseMaterial.dao', () => ({
-    findMaterialsByOssFileIdDAO: vi.fn().mockResolvedValue([]),
-    updateMaterialEmbeddingStatusDAO: vi.fn().mockResolvedValue(undefined),
-}))
-
 describe('文本文件读取服务', () => {
     let readTextFileService: any
 

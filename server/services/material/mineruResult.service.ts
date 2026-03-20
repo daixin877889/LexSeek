@@ -449,37 +449,8 @@ async function saveDocRecognitionResultService(
             vectorIds: embeddingResult.ids.length,
         })
 
-        // 更新 case_materials 表的 embedding_status
-        try {
-            const { findMaterialsByOssFileIdDAO, updateMaterialEmbeddingStatusDAO } = await import('../case/caseMaterial.dao')
-            const materials = await findMaterialsByOssFileIdDAO(ossFileId)
-            for (const material of materials) {
-                await updateMaterialEmbeddingStatusDAO(material.id, 'completed')
-                logger.info(`更新材料 ${material.id} 的 embedding_status 为 completed`)
-            }
-        } catch (updateError: any) {
-            // 更新失败不影响主流程
-            logger.warn('更新 case_materials embedding_status 失败', {
-                ossFileId,
-                error: updateError.message,
-            })
-        }
     } catch (embeddingError) {
         // 嵌入失败不影响识别结果保存，只记录错误
         logger.error('文档向量化嵌入失败', { ossFileId, error: embeddingError })
-
-        // 更新 case_materials 表的 embedding_status 为 failed
-        try {
-            const { findMaterialsByOssFileIdDAO, updateMaterialEmbeddingStatusDAO } = await import('../case/caseMaterial.dao')
-            const materials = await findMaterialsByOssFileIdDAO(ossFileId)
-            for (const material of materials) {
-                await updateMaterialEmbeddingStatusDAO(material.id, 'failed')
-            }
-        } catch (updateError: any) {
-            logger.warn('更新 case_materials embedding_status 失败', {
-                ossFileId,
-                error: updateError.message,
-            })
-        }
     }
 }
