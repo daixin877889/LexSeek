@@ -209,11 +209,93 @@ describe('聊天模型工厂测试', () => {
             expect(model).toBeInstanceOf(ChatOpenAI)
         })
 
+        it('baseUrl 应正确传递给 Gemini 模型', () => {
+            const config: ChatModelConfig = {
+                sdkType: 'gemini',
+                modelName: 'gemini-pro',
+                apiKey: 'test-key',
+                baseUrl: 'https://custom-gemini.api.com',
+            }
+
+            const model = createChatModel(config)
+            expect(model).toBeInstanceOf(ChatGoogleGenerativeAI)
+        })
+
+        it('baseUrl 应通过 anthropicApiUrl 传递给 Anthropic 模型', () => {
+            const config: ChatModelConfig = {
+                sdkType: 'anthropic',
+                modelName: 'claude-3-opus',
+                apiKey: 'sk-ant-test-key',
+                baseUrl: 'https://custom-anthropic.api.com',
+            }
+
+            const model = createChatModel(config)
+            expect(model).toBeInstanceOf(ChatAnthropic)
+        })
+
         it('temperature 和 streaming 应使用默认值', () => {
             const config: ChatModelConfig = {
                 sdkType: 'openai',
                 modelName: 'gpt-4',
                 apiKey: 'sk-test-key',
+            }
+
+            const model = createChatModel(config)
+            expect(model).toBeInstanceOf(ChatOpenAI)
+        })
+    })
+
+    // ==================== Thinking 配置测试 ====================
+
+    describe('Thinking 配置测试', () => {
+        it('thinking 为 true 时 Anthropic 模型应配置 thinking 参数', () => {
+            const config: ChatModelConfig = {
+                sdkType: 'anthropic',
+                modelName: 'claude-sonnet-4-20250514',
+                apiKey: 'sk-ant-test-key',
+                thinking: true,
+            }
+
+            const model = createChatModel(config)
+            expect(model).toBeInstanceOf(ChatAnthropic)
+            // thinking 启用时 temperature 必须为 1
+            const anthropicModel = model as InstanceType<typeof ChatAnthropic>
+            expect(anthropicModel.temperature).toBe(1)
+        })
+
+        it('thinking 为 false 时 Anthropic 模型不应配置 thinking 参数', () => {
+            const config: ChatModelConfig = {
+                sdkType: 'anthropic',
+                modelName: 'claude-sonnet-4-20250514',
+                apiKey: 'sk-ant-test-key',
+                thinking: false,
+                temperature: 0.5,
+            }
+
+            const model = createChatModel(config)
+            expect(model).toBeInstanceOf(ChatAnthropic)
+            const anthropicModel = model as InstanceType<typeof ChatAnthropic>
+            expect(anthropicModel.temperature).toBe(0.5)
+        })
+
+        it('thinking 未设置时 Anthropic 模型使用默认温度', () => {
+            const config: ChatModelConfig = {
+                sdkType: 'anthropic',
+                modelName: 'claude-sonnet-4-20250514',
+                apiKey: 'sk-ant-test-key',
+            }
+
+            const model = createChatModel(config)
+            const anthropicModel = model as InstanceType<typeof ChatAnthropic>
+            expect(anthropicModel.temperature).toBe(0.7)
+        })
+
+        it('thinking 对非 Anthropic SDK 类型不产生影响', () => {
+            const config: ChatModelConfig = {
+                sdkType: 'openai',
+                modelName: 'gpt-4',
+                apiKey: 'sk-test-key',
+                thinking: true,
             }
 
             const model = createChatModel(config)

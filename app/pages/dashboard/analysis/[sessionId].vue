@@ -130,6 +130,7 @@
           <div class="shrink-0 border-t bg-background">
             <CaseAnalysisPromptInput
               ref="promptInputRef"
+              v-model:thinking="thinkingEnabled"
               placeholder="输入补充信息或问题..."
               submit-label="发送"
               :loading="isAnalyzing"
@@ -223,6 +224,7 @@ const allTodos = computed<QueueTodo[]>(() => orderedTodoGroups.value.flatMap(g =
 // 派生状态
 const isAnalyzing = ref(false)
 const isComplete = ref(false)
+const thinkingEnabled = ref(route.query.thinking !== 'false')
 
 // 正确的用法：直接使用 chat 实例
 const chat = new Chat<UIMessage>({
@@ -230,6 +232,7 @@ const chat = new Chat<UIMessage>({
   generateId,
   transport: new DefaultChatTransport({
     api: '/api/v1/case/analysis/stream/' + sessionId.value,
+    body: { get thinking() { return thinkingEnabled.value } },
   }),
   onFinish: () => {
     isAnalyzing.value = false

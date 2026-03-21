@@ -1,7 +1,7 @@
 <template>
   <div>
     <CaseAnalysisWelcome />
-    <CaseAnalysisPromptInput ref="promptInputRef" :loading="isCreating" @submit="handleCreate" />
+    <CaseAnalysisPromptInput ref="promptInputRef" v-model:thinking="thinkingEnabled" :loading="isCreating" @submit="handleCreate" />
     <CaseAnalysisExample v-if="!hasPromptInput" />
     <CaseAnalysisModuleSelector v-else id="analysis-module-selector" />
   </div>
@@ -22,6 +22,7 @@ const { hasPromptInput } = storeToRefs(store)
 
 const promptInputRef = ref<{ reset: () => void } | null>(null)
 const isCreating = ref(false)
+const thinkingEnabled = ref(true)
 
 async function handleCreate(data: PromptSubmitData) {
   isCreating.value = true
@@ -47,7 +48,10 @@ async function handleCreate(data: PromptSubmitData) {
     if (!createResult) return
 
     promptInputRef.value?.reset()
-    await router.push(`/dashboard/analysis/${createResult.sessionId}`)
+    await router.push({
+      path: `/dashboard/analysis/${createResult.sessionId}`,
+      query: thinkingEnabled.value ? undefined : { thinking: 'false' },
+    })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '操作失败，请重试'
     toast.error(errorMessage)

@@ -17,6 +17,7 @@
       </Transition>
 
       <PromptInputProvider @submit="handleSubmit">
+        <InternalStateSync />
         <!-- 输入状态监听器，同步状态到 store -->
         <CaseAnalysisPromptInputWatcher v-if="enableWatcher"
           :files-count="selectedFiles.length + uploadingFiles.length" />
@@ -115,7 +116,23 @@
                   selectedFiles.length
                 }})</span>
               </PromptInputButton>
-              <span class="text-muted-foreground text-xs"> </span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger as-child>
+                    <PromptInputButton
+                      variant="ghost"
+                      :class="['transition-colors', thinking ? 'text-primary hover:bg-primary/5' : 'text-muted-foreground hover:bg-muted/50']"
+                      @click="thinking = !thinking"
+                    >
+                      <BrainIcon :size="16" />
+                      深度思考
+                    </PromptInputButton>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{{ thinking ? '深度思考已开启，AI 将展示推理过程' : '深度思考已关闭' }}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </PromptInputTools>
             <!-- 附件上传 -->
             <div class="flex items-center gap-2 mr-[-8px]"> <!-- 提交按钮 -->
@@ -150,7 +167,7 @@
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { PromptInput, PromptInputBody, PromptInputButton, PromptInputFooter, PromptInputHeader, PromptInputProvider, PromptInputSubmit, PromptInputTextarea, PromptInputTools } from "@/components/ai-elements/prompt-input";
 import { usePromptInput } from "@/components/ai-elements/prompt-input/context";
-import { Paperclip, SendHorizontal, XIcon, LockIcon, Loader2Icon, CheckIcon, AlertCircleIcon, UploadIcon } from "lucide-vue-next";
+import { Paperclip, SendHorizontal, XIcon, LockIcon, Loader2Icon, CheckIcon, AlertCircleIcon, UploadIcon, BrainIcon } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 import { useDocumentVisibility, useDropZone } from '@vueuse/core';
 import type { OssFileItem } from "~/store/file";
@@ -183,6 +200,7 @@ const emit = defineEmits<{
   submit: [data: PromptSubmitData]
 }>()
 
+const thinking = defineModel<boolean>('thinking', { default: true })
 const fileStore = useFileStore();
 const caseAnalysisStore = useCaseAnalysisStore();
 const { detectMimeType, validateFile, uploadToOSS } = useBatchUpload();
@@ -224,10 +242,33 @@ const isAllRecognizing = computed(() => {
   return selectedFiles.value.some(f => getRecognitionStatus(f.id) === 'recognizing');
 })
 
+// 局部状态，用于追踪输入框内容（不依赖 store）
+const internalPromptText = ref('')
+
+/**
+ * 内部状态同步组件
+ * 必须放在 PromptInputProvider 内部才能使用 usePromptInput
+ */
+const InternalStateSync = defineComponent({
+  setup() {
+    const { textInput } = usePromptInput()
+    watch(textInput, (val) => {
+      internalPromptText.value = val || ''
+    }, { immediate: true })
+    return () => null
+  }
+})
+
 // 计算是否禁用提交
 const isSubmitDisabled = computed(() => {
-  return !caseAnalysisStore.hasPromptInput
-    || uploadingFiles.value.length > 0
+  const hasText = !!internalPromptText.value?.trim();
+  const hasAttachments = selectedFiles.value.length > 0;
+  
+  // 没有输入内容（文本或附件）时禁用
+  if (!hasText && !hasAttachments) return true;
+  
+  // 正在上传文件、正在识别文件或组件本身被禁用时禁用按钮
+  return uploadingFiles.value.length > 0
     || isAllRecognizing.value
     || props.disabled;
 })

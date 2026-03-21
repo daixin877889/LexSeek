@@ -37,6 +37,8 @@ export interface ChatModelConfig {
     temperature?: number
     /** 是否启用流式输出（可选，默认 true） */
     streaming?: boolean
+    /** 是否启用 extended thinking（仅 anthropic SDK 生效） */
+    thinking?: boolean
 }
 
 // ============================================================================
@@ -88,6 +90,7 @@ const modelCreators: Record<SdkType, (config: ChatModelConfig) => BaseChatModel>
         return new ChatGoogleGenerativeAI({
             model: config.modelName,
             apiKey: config.apiKey,
+            baseUrl: config.baseUrl,
             temperature: config.temperature ?? 0.7,
             streaming: config.streaming ?? true,
         })
@@ -102,8 +105,12 @@ const modelCreators: Record<SdkType, (config: ChatModelConfig) => BaseChatModel>
         return new ChatAnthropic({
             model: config.modelName,
             apiKey: config.apiKey,
-            temperature: config.temperature ?? 0.7,
+            anthropicApiUrl: config.baseUrl,
+            temperature: config.thinking ? 1 : (config.temperature ?? 0.7),
             streaming: config.streaming ?? true,
+            ...(config.thinking && {
+                thinking: { type: 'enabled' as const, budget_tokens: 10_000 },
+            }),
         })
     },
 }
