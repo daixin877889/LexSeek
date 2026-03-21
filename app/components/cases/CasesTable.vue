@@ -30,9 +30,9 @@
                                         class="font-semibold text-foreground hover:text-primary transition-colors truncate max-w-[400px]">
                                         {{ item.title }}
                                     </NuxtLink>
-                                    <UiBadge v-if="item.isDemo" variant="secondary" class="rounded-md h-4 text-[10px] px-1.5 font-normal bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800">
+                                    <Badge v-if="item.isDemo" variant="secondary" class="rounded-md h-4 text-[10px] px-1.5 font-normal bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800">
                                         演示
-                                    </UiBadge>
+                                    </Badge>
                                 </div>
                                 <span class="text-[10px] font-mono text-muted-foreground/60 mt-1 uppercase tracking-tighter">Ref: #{{ item.id }}</span>
                             </div>
@@ -51,9 +51,9 @@
                         </td>
                         <!-- 状态 -->
                         <td class="px-6 py-4 text-center">
-                            <UiBadge :class="getStatusBadgeClass(item.status)" variant="outline" class="rounded-md border-transparent px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider">
+                            <Badge :class="getStatusBadgeClass(item.status)" variant="outline" class="rounded-md border-transparent px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider">
                                 {{ getStatusText(item.status) }}
-                            </UiBadge>
+                            </Badge>
                         </td>
                         <!-- 操作 -->
                         <td class="px-6 py-4 text-right">
