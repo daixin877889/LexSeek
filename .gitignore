@@ -33,3 +33,6 @@ scheduled_tasks.lock
 # playwright
 .playwright-mcp
 
+
+
+app/coverage
