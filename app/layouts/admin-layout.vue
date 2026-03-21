@@ -57,18 +57,39 @@
 import { ArrowLeft } from 'lucide-vue-next'
 
 const store = useAdminMenuStore()
+const permissionStore = usePermissionStore()
 
-// Layout 挂载时加载菜单数据（后续页面切换不再重复请求）
+// SSR: 并行获取菜单数据和权限数据（useFetch 自动转发 cookie）
+if (store.rawRouters.length === 0 || !permissionStore.initialized) {
+  const [menuResult, permResult] = await Promise.all([
+    store.rawRouters.length === 0
+      ? useFetch<any>('/api/v1/admin/menu-routers', { key: 'admin-menu-routers' })
+      : Promise.resolve(null),
+    !permissionStore.initialized
+      ? useFetch<any>('/api/v1/users/permissions', { key: 'admin-user-permissions' })
+      : Promise.resolve(null),
+  ])
+
+  if (menuResult?.data?.value?.success && menuResult.data.value.data) {
+    store.setRawRouters(menuResult.data.value.data)
+  }
+
+  if (permResult?.data?.value?.success && permResult.data.value.data) {
+    const permData = permResult.data.value.data
+    permissionStore.apiPermissions = permData.apiPermissions
+    permissionStore.routePermissions = permData.routePermissions
+    permissionStore.isSuperAdmin = permData.isSuperAdmin
+    permissionStore.initialized = true
+  }
+}
+
+// 客户端: 恢复和监听滚动位置（仅浏览器有 DOM）
 onMounted(() => {
-  store.fetchMenuData()
-
-  // 恢复滚动位置
   const contentEl = document.querySelector('[data-sidebar-content]') as HTMLElement
   if (contentEl) {
     if (store.scrollPosition > 0) {
       contentEl.scrollTop = store.scrollPosition
     }
-    // 监听滚动位置变化
     const handleScroll = () => {
       store.setScrollPosition(contentEl.scrollTop)
     }

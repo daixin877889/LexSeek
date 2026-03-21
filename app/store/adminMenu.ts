@@ -18,6 +18,7 @@ export interface AdminMenuStoreReturn {
   scrollPosition: number
   menuGroups: ComputedRef<AdminMenuGroup[]>
   fetchMenuData: () => Promise<void>
+  setRawRouters: (data: any[]) => void
   toggleSubmenu: (id: number) => void
   setActive: (path: string) => void
   setScrollPosition: (pos: number) => void
@@ -36,10 +37,14 @@ export const useAdminMenuStore = defineStore('adminMenu', (): AdminMenuStoreRetu
   const activeId = ref<string>('')
   const scrollPosition = ref<number>(0)
 
-  /** 加载菜单数据（有缓存则不重复请求） */
+  /** 设置菜单原始数据（由外部 useAsyncData 调用后写入） */
+  function setRawRouters(data: any[]) {
+    rawRouters.value = data
+  }
+
+  /** 加载菜单数据（客户端回退，有缓存则不重复请求） */
   async function fetchMenuData() {
     if (rawRouters.value.length > 0) return
-    if (isLoading.value) return
 
     isLoading.value = true
     error.value = null
@@ -137,6 +142,7 @@ export const useAdminMenuStore = defineStore('adminMenu', (): AdminMenuStoreRetu
     scrollPosition,
     menuGroups,
     fetchMenuData,
+    setRawRouters,
     toggleSubmenu,
     setActive,
     setScrollPosition,
