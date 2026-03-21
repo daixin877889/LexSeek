@@ -12,7 +12,7 @@
           </NuxtLink>
         </div>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent data-sidebar-content>
         <!-- 菜单组 -->
         <AdminNavMain />
       </SidebarContent>
@@ -55,4 +55,25 @@
 
 <script setup lang="ts">
 import { ArrowLeft } from 'lucide-vue-next'
+
+const store = useAdminMenuStore()
+
+// Layout 挂载时加载菜单数据（后续页面切换不再重复请求）
+onMounted(() => {
+  store.fetchMenuData()
+
+  // 恢复滚动位置
+  const contentEl = document.querySelector('[data-sidebar-content]') as HTMLElement
+  if (contentEl) {
+    if (store.scrollPosition > 0) {
+      contentEl.scrollTop = store.scrollPosition
+    }
+    // 监听滚动位置变化
+    const handleScroll = () => {
+      store.setScrollPosition(contentEl.scrollTop)
+    }
+    contentEl.addEventListener('scroll', handleScroll, { passive: true })
+    onUnmounted(() => contentEl.removeEventListener('scroll', handleScroll))
+  }
+})
 </script>
