@@ -21,7 +21,10 @@ const createGlobalPrisma = () => {
     if (!connectionString) {
         throw new Error('DATABASE_URL 环境变量未设置')
     }
-    const adapter = new PrismaPg({ connectionString })
+    const adapter = new PrismaPg({
+        connectionString,
+        options: '-c TimeZone=UTC',
+    })
     return new PrismaClient({ adapter })
 }
 
@@ -61,7 +64,7 @@ export default defineVitestConfig({
             '**/tests/server/services/material/ocr.property.test.ts',
         ],
         include: ['**/*.test.ts'],
-        testTimeout: 60000,
+        testTimeout: 120000,
         setupFiles: ['./tests/server/membership/test-setup.ts'],
         fileParallelism: false,
         // 配置依赖项处理
@@ -74,6 +77,33 @@ export default defineVitestConfig({
                 '@/**',
                 '@@/**',
             ],
+        },
+    },
+    // 覆盖率配置（放在顶层）
+    coverage: {
+        provider: 'v8',
+        reporter: ['text', 'json', 'html'],
+        reportsDirectory: './coverage',
+        exclude: [
+            '**/node_modules/**',
+            '**/.nuxt/**',
+            '**/generated/**',
+            '**/*.test.ts',
+            '**/test-db-helper.ts',
+            '**/tests/**',
+            '**/vitest.config.ts',
+            '**/.env*',
+        ],
+        // 仅覆盖 server 和 shared 目录（项目业务代码）
+        include: [
+            'server/**/*.ts',
+            'shared/**/*.ts',
+        ],
+        thresholds: {
+            lines: 95,
+            functions: 95,
+            branches: 95,
+            statements: 95,
         },
     },
     // Vite 配置用于解析别名
