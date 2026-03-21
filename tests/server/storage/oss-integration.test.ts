@@ -314,12 +314,14 @@ describeIfConfigured('阿里云 OSS 集成测试', () => {
 
     describe('文件上传下载', () => {
         const testDir = 'test-integration/'
+        // 使用固定文件名确保上下传测试使用同一路径
+        const testFileName = `test-${Date.now()}.txt`
         let testFilePath: string
         const testContent = 'Hello, OSS Integration Test!'
 
         it('应成功上传文件', async () => {
-            // 每次测试生成唯一文件名
-            testFilePath = `${testDir}test-${Date.now()}.txt`
+            // 生成唯一文件名
+            testFilePath = `${testDir}${testFileName}`
             const result = await uploadFile(
                 ossConfig,
                 testFilePath,

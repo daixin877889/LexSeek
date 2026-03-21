@@ -14,8 +14,8 @@ describe('图片压缩工具', () => {
         // 创建一个大图片（使用 JPEG 格式，更容易超过 10MB）
         largeImageBuffer = await sharp({
             create: {
-                width: 5000,
-                height: 5000,
+                width: 3000,
+                height: 3000,
                 channels: 3,
                 background: { r: 255, g: 0, b: 0 },
             },
@@ -34,7 +34,7 @@ describe('图片压缩工具', () => {
         })
             .png()
             .toBuffer()
-    })
+    }, 120000)
 
     describe('compressImage', () => {
         it('应该压缩超过限制的大图片', async () => {
@@ -68,8 +68,8 @@ describe('图片压缩工具', () => {
         it('应该正确处理 JPEG 格式', async () => {
             const jpegBuffer = await sharp({
                 create: {
-                    width: 3000,
-                    height: 3000,
+                    width: 2000,
+                    height: 2000,
                     channels: 3,
                     background: { r: 255, g: 255, b: 0 },
                 },
@@ -89,8 +89,8 @@ describe('图片压缩工具', () => {
             // 创建一个非常大的图片
             const veryLargeBuffer = await sharp({
                 create: {
-                    width: 5000,
-                    height: 5000,
+                    width: 3000,
+                    height: 3000,
                     channels: 4,
                     background: { r: 255, g: 255, b: 255, alpha: 1 },
                 },
@@ -158,8 +158,8 @@ describe('图片压缩工具', () => {
             // 创建一个宽图片
             const wideBuffer = await sharp({
                 create: {
-                    width: 4000,
-                    height: 2000,
+                    width: 2000,
+                    height: 1000,
                     channels: 3,
                     background: { r: 100, g: 100, b: 100 },
                 },

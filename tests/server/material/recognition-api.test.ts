@@ -8,7 +8,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 import { CaseMaterialType } from '../../../shared/types/case'
 
-// 使用 vi.hoisted 创建所有需要用于 mock 的对象
+// 使用 vi.hoisted 在文件顶部创建所有 mock 对象（确保 vi.mock 能正确访问）
 const mocks = vi.hoisted(() => {
     return {
         // 工具函数
@@ -35,7 +35,7 @@ const mockUser = {
     username: 'testuser',
 }
 
-// Setup global mocks
+// Setup global mocks（这些在 vi.mock 之前执行，所以能正确工作）
 vi.stubGlobal('defineEventHandler', (handler: any) => handler)
 vi.stubGlobal('readBody', vi.fn())
 vi.stubGlobal('resError', (event: any, code: number, msg: string) => ({ code, message: msg, success: false }))
@@ -86,10 +86,10 @@ describe('统一识别入口 API', () => {
     let event: any
 
     beforeAll(async () => {
-        // Import the handler
+        // Import the handler（覆盖率收集会增加导入延迟，需要更长超时）
         const handlerModule = await import('../../../server/api/v1/recognition/start.post')
         startHandler = handlerModule.default
-    })
+    }, 60000)
 
     beforeEach(() => {
         vi.clearAllMocks()

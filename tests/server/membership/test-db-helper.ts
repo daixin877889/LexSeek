@@ -187,9 +187,11 @@ export const createTestUser = async (
     data: TestUserInput = {}
 ): Promise<Prisma.usersGetPayload<{}>> => {
     const timestamp = Date.now()
+    // 使用 performance.now() 获取亚毫秒精度，确保同一毫秒内的多次调用也唯一
+    const perf = Math.floor(performance.now() % 1000)
     const random = Math.floor(Math.random() * 10000)
-    // 生成 11 位手机号：199 + 4位时间戳后缀 + 4位随机数
-    const suffix = String(timestamp).slice(-4) + String(random).padStart(4, '0')
+    // 生成 11 位手机号：199 + 3位亚毫秒 + 4位随机数
+    const suffix = String(perf).padStart(3, '0') + String(random).padStart(4, '0')
     const phone = data.phone || `199${suffix}`
 
     const user = await getTestPrisma().users.create({

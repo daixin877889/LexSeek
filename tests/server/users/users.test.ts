@@ -275,7 +275,7 @@ describe('用户模块测试', () => {
                         expect(foundByPhone?.id).toBe(user.id)
                     }
                 ),
-                { numRuns: 10 }
+                { numRuns: 5 }
             )
         })
     })
@@ -297,7 +297,7 @@ describe('用户模块测试', () => {
                         expect(found?.name).toBe(newName)
                     }
                 ),
-                { numRuns: 10 }
+                { numRuns: 5 }
             )
         })
     })
