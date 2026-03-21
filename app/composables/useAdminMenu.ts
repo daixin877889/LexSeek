@@ -1,8 +1,6 @@
 /**
  * Admin 菜单 Composable
- * 
- * 从 Role Store 获取路由数据，按 menuGroup 分组并排序
- * 复用 Dashboard 的图标映射逻辑
+ * 读写 adminMenuStore，为组件提供响应式菜单数据
  */
 
 import type { Component } from 'vue'
@@ -29,6 +27,8 @@ export interface UseAdminMenuReturn {
     isLoading: ComputedRef<boolean>
     error: ComputedRef<string | null>
     isActive: (path: string) => boolean
+    isSubmenuCollapsed: (id: number) => boolean
+    toggleSubmenu: (id: number) => void
 }
 
 /**
@@ -37,118 +37,44 @@ export interface UseAdminMenuReturn {
  */
 export const getAdminIcon = (iconName: string | null): Component | null => {
     if (!iconName) return null
-    // 如果格式是 "lucideIcons.LayoutDashboardIcon"
     if (iconName.startsWith('lucideIcons.')) {
         const name = iconName.replace('lucideIcons.', '')
         return (lucideIcons[name as keyof typeof lucideIcons] as Component) || null
     }
-    // 如果只是图标名称 "LayoutDashboardIcon"
     return (lucideIcons[iconName as keyof typeof lucideIcons] as Component) || null
 }
 
 /**
  * Admin 菜单 Composable
- * 
- * 从权限 Store 获取路由权限，按 menuGroup 分组并排序
- * 超级管理员直接获取所有 Admin 路由
+ * 委托给 adminMenuStore，组件层无需感知 Store 细节
  */
 export function useAdminMenu(): UseAdminMenuReturn {
-    const permissionStore = usePermissionStore()
+    const store = useAdminMenuStore()
     const route = useRoute()
 
-    // Admin 路由数据
-    const adminRouters = ref<any[]>([])
-    const isLoading = ref(false)
-    const error = ref<string | null>(null)
-
-    // 获取 Admin 路由数据
-    const fetchAdminRouters = async () => {
-        isLoading.value = true
-        error.value = null
-        try {
-            // 直接从数据库获取所有 Admin 菜单路由
-            const data = await $fetch<any>('/api/v1/admin/menu-routers')
-            if (data.success && data.data) {
-                adminRouters.value = data.data
+    // 路由变化时更新激活状态
+    watch(() => route.path, (path) => {
+        const matchedRouter = store.rawRouters.find((r: any) => {
+            if (r.path === path) return true
+            if (path.startsWith(r.path + '/')) {
+                const moreSpecific = store.rawRouters.some((r2: any) =>
+                    r2.path !== r.path && r2.path !== path && path.startsWith(r2.path + '/')
+                )
+                return !moreSpecific
             }
-        } catch (err: any) {
-            error.value = err?.message || '获取菜单失败'
-            console.error('获取 Admin 菜单失败:', err)
-        } finally {
-            isLoading.value = false
+            return false
+        })
+        if (matchedRouter) {
+            store.setActive(matchedRouter.path)
         }
-    }
-
-    // 初始化时获取数据
-    onMounted(() => {
-        // 只有超级管理员或有 Admin 路由权限的用户才获取菜单
-        if (permissionStore.isSuperAdmin || permissionStore.routePermissions.some(p => p.startsWith('/admin'))) {
-            fetchAdminRouters()
-        }
-    })
-
-    // 将路由数据按 menuGroup 分组
-    const menuGroups = computed<AdminMenuGroup[]>(() => {
-        const routers = adminRouters.value
-            .filter((r: any) => r.isMenu && r.path?.startsWith('/admin'))
-            // 超级管理员显示所有菜单，否则根据权限过滤
-            .filter((r: any) => permissionStore.isSuperAdmin || permissionStore.hasRoutePermission(r.path))
-
-        // 按 menuGroup 分组
-        const groupMap = new Map<string, AdminMenuItem[]>()
-        const groupSortMap = new Map<string, number>()
-
-        for (const router of routers) {
-            const groupName = router.menuGroup || '其他'
-            const groupSort = router.menuGroupSort ?? 999
-
-            if (!groupMap.has(groupName)) {
-                groupMap.set(groupName, [])
-                groupSortMap.set(groupName, groupSort)
-            }
-
-            groupMap.get(groupName)!.push({
-                id: router.id,
-                path: router.path,
-                title: router.title,
-                icon: getAdminIcon(router.icon),
-                sort: router.sort ?? 0,
-            })
-        }
-
-        // 转换为数组并排序
-        return Array.from(groupMap.entries())
-            .map(([name, items]) => ({
-                name,
-                sort: groupSortMap.get(name) ?? 999,
-                items: items.sort((a, b) => a.sort - b.sort),
-            }))
-            .filter(group => group.items.length > 0)
-            .sort((a, b) => a.sort - b.sort)
-    })
-
-    /**
-     * 判断菜单是否激活（精确匹配或子路由匹配）
-     */
-    const isActive = (path: string): boolean => {
-        // 精确匹配当前路径
-        if (route.path === path) return true
-        // 子路由匹配：当前路径以 path/ 开头
-        if (route.path.startsWith(path + '/')) {
-            // 检查是否有更精确的菜单项匹配当前路径
-            const allPaths = adminRouters.value
-                .filter((r: any) => r.isMenu)
-                .map((r: any) => r.path)
-            const hasMoreSpecificMatch = allPaths.some((p: string) => p !== path && route.path.startsWith(p))
-            return !hasMoreSpecificMatch
-        }
-        return false
-    }
+    }, { immediate: true })
 
     return {
-        menuGroups,
-        isLoading: computed(() => isLoading.value),
-        error: computed(() => error.value),
-        isActive,
+        menuGroups: computed(() => store.menuGroups),
+        isLoading: computed(() => store.isLoading),
+        error: store.error,
+        isActive: store.isActive,
+        isSubmenuCollapsed: store.isSubmenuCollapsed,
+        toggleSubmenu: store.toggleSubmenu,
     }
 }
