@@ -1,3 +1,10 @@
+/**
+ * Admin 菜单 Pinia Store
+ *
+ * 管理 Admin 侧边栏的菜单数据和 UI 状态（折叠、激活、滚动位置）
+ * 缓存菜单数据避免重复请求，配合路由级 Layout 实现侧边栏持久化
+ */
+
 import { defineStore } from 'pinia'
 import type { AdminMenuItem, AdminMenuGroup } from '~/composables/useAdminMenu'
 
@@ -138,3 +145,18 @@ export const useAdminMenuStore = defineStore('adminMenu', (): AdminMenuStoreRetu
     isActive,
   }
 })
+
+/**
+ * 获取图标组件
+ * 复用 Dashboard 的图标映射逻辑
+ */
+function getAdminIcon(iconName: string | null): Component | null {
+  if (!iconName) return null
+  // 如果格式是 "lucideIcons.LayoutDashboardIcon"
+  if (iconName.startsWith('lucideIcons.')) {
+    const name = iconName.replace('lucideIcons.', '')
+    return (lucideIcons[name as keyof typeof lucideIcons] as Component) || null
+  }
+  // 如果只是图标名称 "LayoutDashboardIcon"
+  return (lucideIcons[iconName as keyof typeof lucideIcons] as Component) || null
+}
