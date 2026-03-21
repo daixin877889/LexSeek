@@ -22,35 +22,65 @@ workaround 又加了一次 8h，导致写入的数据多了 8h。读取时减 8h
 
 ## 解决方案
 
-移除 `server/utils/db.ts` 中的所有时区处理逻辑，恢复为普通的 Prisma client。
+通过 `options: '-c TimeZone=UTC'` 参数将 PostgreSQL 会话时区设置为 UTC，让 pg driver 发送的时间戳被正确解释为 UTC 而非 Asia/Shanghai。
+
+相关 issue: https://github.com/prisma/prisma/issues/26786
 
 ## 改动详情
 
 ### `server/utils/db.ts`
 
-删除所有时区处理代码：
+```typescript
+import { PrismaPg } from '@prisma/adapter-pg'
+import { PrismaClient } from '../../generated/prisma/client'
 
-- 删除 `SHANGHAI_OFFSET_MS` 常量
-- 删除 `toShanghaiDate()` 函数
-- 删除 `fromShanghaiDate()` 函数
-- 删除 `convertDatesForWrite()` 函数
-- 删除 `convertDatesForRead()` 函数
-- 删除 `convertQueryArgs()` 函数
-- 删除 `$extends` 扩展，简化为普通 Prisma client
+const prismaClientSingleton = () => {
+    // Fix: Set PG session timezone to UTC via connection options
+    // @prisma/adapter-pg sends Date values as UTC strings without timezone suffix,
+    // and PG interprets these in the session timezone. By setting TimeZone=UTC,
+    // PG treats the bare timestamps as UTC, ensuring correct storage and retrieval.
+    // Related: https://github.com/prisma/prisma/issues/26786
+    const pool = new PrismaPg({
+        connectionString: process.env.DATABASE_URL!,
+        options: '-c TimeZone=UTC',
+    })
+    return new PrismaClient({ adapter: pool })
+}
+
+type PrismaClientSingleton = ReturnType<typeof prismaClientSingleton>
+
+const globalForPrisma = globalThis as unknown as {
+    prisma: PrismaClientSingleton | undefined
+}
+
+export const prisma = globalForPrisma.prisma ?? prismaClientSingleton()
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+```
 
 ### `vitest.config.ts`
 
-保持不变。测试环境的 Prisma client 本来就没有 workaround 扩展，行为与修复后的生产环境一致。
+同步应用 `TimeZone=UTC` 到测试 Prisma client：
+```typescript
+const adapter = new PrismaPg({
+    connectionString,
+    options: '-c TimeZone=UTC',
+})
+```
+
+### `tests/server/utils/tz-verify.test.ts`（新增）
+
+时区验证测试，导入 `db.ts` 直接测试生产代码。
 
 ## 原理说明
 
 修复后的时间流程：
 
 1. **应用层**: `new Date()` 创建 UTC 时间（如 `2026-03-21T01:14:53.310Z`）
-2. **pg driver**: 在 Shanghai 时区下，序列化时使用 `date.getHours()` 等本地组件，输出 `2026-03-21T09:14:53.310+08:00`
-3. **PostgreSQL**: 收到 `+08:00` 字符串，正确转换为 UTC `2026-03-21T01:14:53.310Z` 存储
-4. **读取**: pg driver 反解析数据库返回的字符串为 JavaScript `Date`（UTC）
-5. **前端**: `toISOString()` 显示 UTC 时间
+2. **pg adapter**: 发送裸时间戳字符串（如 `2026-03-21T01:14:53.310`）到 PG
+3. **PostgreSQL**: 会话时区为 UTC，将裸时间戳正确解释为 UTC 并存储
+4. **读取**: pg adapter 将数据库返回的 UTC 时间转换为 JavaScript `Date`（UTC）
+5. **前端**: `dayjs` 解析 UTC 字符串，输出浏览器本地时区时间
 
 ## 验证方式
 

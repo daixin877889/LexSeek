@@ -2,27 +2,36 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 移除 `server/utils/db.ts` 中的错误时区 workaround，恢复为普通的 Prisma client
+**Goal:** 修复 Prisma 时区问题，通过 `TimeZone=UTC` 确保时间正确存储
 
-**Architecture:** 删除所有时区处理逻辑（offset 常量、toShanghaiDate、fromShanghaiDate、convertDatesForWrite、convertDatesForRead、convertQueryArgs、$extends 扩展），让 pg driver 和 PostgreSQL 的默认行为处理时区转换
+**Architecture:** 在 `PrismaPg` 连接中通过 `options: '-c TimeZone=UTC'` 参数将 PG 会话时区设为 UTC，移除原有的手动偏移 workaround，让 pg adapter 发送的时间戳被正确解释为 UTC
 
 **Tech Stack:** Node.js pg driver、PostgreSQL Asia/Shanghai 时区、Prisma ORM
 
 ---
 
-## Task 1: 简化 `server/utils/db.ts`
+## Task 1: 修复 `server/utils/db.ts` 和 `vitest.config.ts`
 
 **Files:**
-- Modify: `server/utils/db.ts:1-218`
+- Modify: `server/utils/db.ts`
+- Modify: `vitest.config.ts`
 
-- [ ] **Step 1: 备份并重写 db.ts**
+- [ ] **Step 1: 重写 db.ts**
 
 ```typescript
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../../generated/prisma/client'
 
 const prismaClientSingleton = () => {
-    const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
+    // Fix: Set PG session timezone to UTC via connection options
+    // @prisma/adapter-pg sends Date values as UTC strings without timezone suffix,
+    // and PG interprets these in the session timezone. By setting TimeZone=UTC,
+    // PG treats the bare timestamps as UTC, ensuring correct storage and retrieval.
+    // Related: https://github.com/prisma/prisma/issues/26786
+    const pool = new PrismaPg({
+        connectionString: process.env.DATABASE_URL!,
+        options: '-c TimeZone=UTC',
+    })
     return new PrismaClient({ adapter: pool })
 }
 
@@ -34,30 +43,43 @@ const globalForPrisma = globalThis as unknown as {
 
 export const prisma = globalForPrisma.prisma ?? prismaClientSingleton()
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 ```
 
-**改动说明**: 将原来的 218 行简化到约 20 行，删除所有时区处理代码
+**改动说明**: 删除所有时区处理代码（218行 → 25行），使用 `TimeZone=UTC` 替代
 
-- [ ] **Step 2: 运行测试确保通过**
+- [ ] **Step 2: 更新 vitest.config.ts**
+
+在 `createGlobalPrisma` 的 `PrismaPg` 构造函数中添加 `options: '-c TimeZone=UTC'`
+
+- [ ] **Step 3: 新增时区验证测试**
+
+创建 `tests/server/utils/tz-verify.test.ts`，导入 `db.ts` 的 `prisma` 直接测试读写一致性
+
+- [ ] **Step 4: 运行测试确保通过**
 
 Run: `npx vitest run --reporter=dot`
-Expected: 所有测试通过（107 个测试文件）
+Expected: 所有测试通过（119 个测试文件，1586 个测试）
 
-- [ ] **Step 3: 提交**
+- [ ] **Step 5: 提交**
 
 ```bash
-git add server/utils/db.ts
-git commit -m "fix(db): 移除错误的时区 workaround，恢复 pg driver 默认行为
+git add server/utils/db.ts vitest.config.ts tests/server/utils/tz-verify.test.ts
+git commit -m "fix(db): 修复 Prisma 时区问题，正确处理 UTC 时间存储
 
-PostgreSQL session timezone 为 Asia/Shanghai，pg driver 在该时区下
-已自动附加 +08:00 后缀，PostgreSQL 正确转换为 UTC 存储。
-原有 workaround 在写入时多加 8h，导致数据库存储的 UTC 时间
-比正确值多 8 小时。读取时减 8h 抵消了写入错误，应用层
-看到的时间是对的，但数据库原始值错误。
+问题根因：PostgreSQL session timezone 为 Asia/Shanghai，@prisma/adapter-pg
+发送 Date 值时不带时区后缀，导致 PG 将其解释为 Asia/Shanghai 并错误地
+加上 +08:00 偏移。
 
-修复后让 pg driver + PostgreSQL 的默认行为处理时区转换。"
+修复方案：在连接字符串中通过 options 参数设置 PG 会话时区为 UTC，
+使 pg 发送的时间戳被正确解释为 UTC。
 
+同时：
+- 移除原有的错误 workaround（手动 +8h/-8h 偏移逻辑）
+- vitest.config.ts 的测试 Prisma client 同步应用 TimeZone=UTC
+- 新增时区验证测试 tests/server/utils/tz-verify.test.ts
+
+相关 issue: https://github.com/prisma/prisma/issues/26786"
 ```
 
 ---
@@ -72,15 +94,14 @@ PostgreSQL session timezone 为 Asia/Shanghai，pg driver 在该时区下
 Run: `bun dev &`
 Expected: 服务器启动成功
 
-- [ ] **Step 2: 通过 API 创建一条记录，验证时间正确**
-
-通过浏览器或 curl 调用任意会写入 createdAt/updatedAt 的 API（如注册用户、创建案件），然后：
+- [ ] **Step 2: 验证数据库时间正确**
 
 ```bash
-# 连接数据库查看
+# 检查 PG 会话时区
+docker exec postgres-postgres-1 psql -U daixin -d ls_new -c "SHOW TimeZone;"
+
+# 检查当前时间
 docker exec postgres-postgres-1 psql -U daixin -d ls_new -c "SELECT NOW() AT TIME ZONE 'UTC' as utc_now, NOW() AT TIME ZONE 'Asia/Shanghai' as shanghai_now;"
 ```
-
-验证数据库当前时间与实际时间一致。
 
 - [ ] **Step 3: 停止开发服务器**
