@@ -1,5 +1,4 @@
 <template>
-  <NuxtLayout name="admin-layout">
     <div class="space-y-6">
       <!-- 页面标题 -->
       <div>
@@ -151,14 +150,13 @@
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  </NuxtLayout>
 </template>
 
 <script setup lang="ts">
 import { Search, RotateCcw, Eye, Loader2, FileText } from 'lucide-vue-next'
 import dayjs from 'dayjs'
 
-definePageMeta({ layout: false, title: "审计日志" })
+definePageMeta({ layout: 'admin-layout', title: "审计日志" })
 
 interface AuditLog {
   id: number

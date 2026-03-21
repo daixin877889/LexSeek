@@ -1,5 +1,4 @@
 <template>
-    <NuxtLayout name="admin-layout">
         <div class="space-y-6">
             <!-- 页面标题 -->
             <div>
@@ -105,14 +104,13 @@
                     :total="pagination.total" @change="changePage" />
             </template>
         </div>
-    </NuxtLayout>
 </template>
 
 <script setup lang="ts">
 import { Search, Loader2, FileText, User } from 'lucide-vue-next'
 import type { RedemptionRecordAdminInfo } from '#shared/types/redemption'
 
-definePageMeta({ layout: false, title: '兑换记录' })
+definePageMeta({ layout: 'admin-layout', title: '兑换记录' })
 
 // 状态
 const loading = ref(false)

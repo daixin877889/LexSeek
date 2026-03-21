@@ -1,5 +1,4 @@
 <template>
-    <NuxtLayout name="admin-layout">
         <div class="space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -141,7 +140,6 @@
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-    </NuxtLayout>
 </template>
 
 <script setup lang="ts">
@@ -149,7 +147,7 @@ import { Search, Plus, Download, Loader2, Ticket } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { RedemptionCodeAdminInfo } from '#shared/types/redemption'
 
-definePageMeta({ layout: false, title: '兑换码管理' })
+definePageMeta({ layout: 'admin-layout', title: '兑换码管理' })
 
 // 状态
 const loading = ref(false)

@@ -1,5 +1,4 @@
 <template>
-    <NuxtLayout name="admin-layout">
         <div class="space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -151,9 +150,7 @@
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-    </NuxtLayout>
 </template>
-
 
 <script setup lang="ts">
 import { Plus, Loader2, FileText, Search, MoreHorizontal, Pencil, Trash2, Power } from 'lucide-vue-next'
@@ -177,7 +174,7 @@ interface CaseType {
     name: string
 }
 
-definePageMeta({ layout: false, title: '示范案例' })
+definePageMeta({ layout: 'admin-layout', title: '示范案例' })
 
 // 组件引用
 const formDialogRef = ref<InstanceType<typeof import('~/components/admin/demo-cases/FormDialog.vue').default> | null>(null)

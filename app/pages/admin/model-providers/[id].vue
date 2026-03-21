@@ -1,5 +1,4 @@
 <template>
-    <NuxtLayout name="admin-layout">
         <div class="space-y-6">
             <!-- 面包屑导航 -->
             <Breadcrumb>
@@ -78,7 +77,6 @@
 
         <!-- 编辑提供商对话框 -->
         <ProviderFormDialog ref="formDialogRef" @success="loadProvider" />
-    </NuxtLayout>
 </template>
 
 <script setup lang="ts">
@@ -92,7 +90,7 @@ import ApiKeySection from '~/components/admin/model-providers/ApiKeySection.vue'
 import AdminModelProvidersModelSection from '~/components/admin/model-providers/ModelSection.vue'
 import ProviderFormDialog from '~/components/admin/model-providers/ProviderFormDialog.vue'
 
-definePageMeta({ layout: false, title: '提供商详情' })
+definePageMeta({ layout: 'admin-layout', title: '提供商详情' })
 
 // 路由参数
 const route = useRoute()

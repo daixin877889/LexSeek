@@ -1,5 +1,4 @@
 <template>
-  <NuxtLayout name="admin-layout">
     <div class="space-y-6 max-w-2xl">
       <!-- 页面标题 -->
       <div>
@@ -63,7 +62,6 @@
         </CardContent>
       </Card>
     </div>
-  </NuxtLayout>
 </template>
 
 <script setup lang="ts">
@@ -71,7 +69,7 @@ import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 
 definePageMeta({
-  layout: false,
+  layout: 'admin-layout',
   title: "权限分配"
 })
 

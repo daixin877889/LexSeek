@@ -1,5 +1,4 @@
 <template>
-  <NuxtLayout name="admin-layout">
     <div class="space-y-6">
       <!-- 页面标题 -->
       <div class="flex items-center justify-between">
@@ -216,7 +215,6 @@
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  </NuxtLayout>
 </template>
 
 <script setup lang="ts">
@@ -225,7 +223,7 @@ import * as icons from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 
 definePageMeta({
-  layout: false,
+  layout: 'admin-layout',
   title: "路由权限管理"
 })
 

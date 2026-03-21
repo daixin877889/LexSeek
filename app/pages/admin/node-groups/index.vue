@@ -1,5 +1,4 @@
 <template>
-    <NuxtLayout name="admin-layout">
         <div class="space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -125,7 +124,6 @@
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-    </NuxtLayout>
 </template>
 
 <script setup lang="ts">
@@ -134,7 +132,7 @@ import { toast } from 'vue-sonner'
 import dayjs from 'dayjs'
 import type { NodeGroupWithCount } from '#shared/types/node'
 
-definePageMeta({ layout: false, title: '节点分组' })
+definePageMeta({ layout: 'admin-layout', title: '节点分组' })
 
 // 组件引用
 const formDialogRef = ref<InstanceType<typeof import('~/components/admin/node-groups/NodeGroupFormDialog.vue').default> | null>(null)

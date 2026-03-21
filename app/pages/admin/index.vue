@@ -1,6 +1,5 @@
 <template>
-  <NuxtLayout name="admin-layout">
-    <div class="space-y-6">
+  <div class="space-y-6">
       <div>
         <h1 class="text-2xl font-bold">管理后台</h1>
         <p class="text-muted-foreground">RBAC 权限管理系统</p>
@@ -20,14 +19,13 @@
         </Card>
       </div>
     </div>
-  </NuxtLayout>
 </template>
 
 <script setup lang="ts">
 import { Shield, Key, Users, FileText, Gift } from 'lucide-vue-next'
 
 definePageMeta({
-  layout: false,
+  layout: 'admin-layout',
   title: "管理后台"
 })
 

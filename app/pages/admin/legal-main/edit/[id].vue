@@ -1,5 +1,4 @@
 <template>
-    <NuxtLayout name="admin-layout">
         <div class="space-y-6">
             <!-- 页面标题 -->
             <div class="flex items-center gap-4">
@@ -31,7 +30,6 @@
                 </Button>
             </div>
         </div>
-    </NuxtLayout>
 </template>
 
 <script setup lang="ts">
@@ -40,7 +38,7 @@ import { toast } from 'vue-sonner'
 import type { LegalMainInfo, UpdateLegalMainRequest } from '#shared/types/legal'
 
 definePageMeta({
-    layout: false,
+    layout: 'admin-layout',
     title: "编辑法律法规",
 })
 

@@ -1,5 +1,4 @@
 <template>
-  <NuxtLayout name="admin-layout">
     <div class="space-y-6">
       <!-- 页面标题 -->
       <div>
@@ -147,7 +146,6 @@
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  </NuxtLayout>
 </template>
 
 <script setup lang="ts">
@@ -155,7 +153,7 @@ import { Search, Shield, Loader2, Users, User } from 'lucide-vue-next'
 import dayjs from 'dayjs'
 import { toast } from 'vue-sonner'
 
-definePageMeta({ layout: false, title: "用户角色管理" })
+definePageMeta({ layout: 'admin-layout', title: "用户角色管理" })
 
 interface UserItem {
   id: number

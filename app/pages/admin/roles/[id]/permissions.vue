@@ -1,5 +1,4 @@
 <template>
-  <NuxtLayout name="admin-layout">
     <div class="space-y-6">
       <!-- 页面标题 -->
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -128,14 +127,13 @@
         角色不存在
       </div>
     </div>
-  </NuxtLayout>
 </template>
 
 <script setup lang="ts">
 import { ArrowLeft, Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 
-definePageMeta({ layout: false, title: "权限分配" })
+definePageMeta({ layout: 'admin-layout', title: "权限分配" })
 
 const route = useRoute()
 const roleId = computed(() => Number(route.params.id))

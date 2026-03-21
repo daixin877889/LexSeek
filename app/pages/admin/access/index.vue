@@ -1,5 +1,4 @@
 <template>
-    <NuxtLayout name="admin-layout">
         <div class="space-y-6">
             <!-- 页面标题 -->
             <div>
@@ -113,14 +112,13 @@
                 </div>
             </template>
         </div>
-    </NuxtLayout>
 </template>
 
 <script setup lang="ts">
 import { Loader2, Shield, CheckSquare, Square, Search, Users } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 
-definePageMeta({ layout: false, title: '节点权限配置' })
+definePageMeta({ layout: 'admin-layout', title: '节点权限配置' })
 
 // 权限矩阵数据类型
 interface AccessMatrix {

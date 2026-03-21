@@ -1,5 +1,4 @@
 <template>
-    <NuxtLayout name="admin-layout">
         <div class="space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -150,7 +149,6 @@
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-    </NuxtLayout>
 </template>
 
 <script setup lang="ts">
@@ -158,7 +156,7 @@ import { Plus, Loader2, Coins, Search, MoreHorizontal, Pencil, Trash2, Power } f
 import { toast } from 'vue-sonner'
 import type { PointConsumptionItem } from '#shared/types/point.types'
 
-definePageMeta({ layout: false, title: '积分消耗项目' })
+definePageMeta({ layout: 'admin-layout', title: '积分消耗项目' })
 
 // 组件引用
 const formDialogRef = ref<InstanceType<typeof import('~/components/admin/point-items/FormDialog.vue').default> | null>(null)

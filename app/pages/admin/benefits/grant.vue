@@ -1,5 +1,4 @@
 <template>
-    <NuxtLayout name="admin-layout">
         <div class="space-y-6">
             <!-- 页面标题 -->
             <div>
@@ -281,7 +280,6 @@
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-    </NuxtLayout>
 </template>
 
 <script setup lang="ts">
@@ -300,7 +298,7 @@ import type {
 } from '#shared/types/benefit'
 import { formatByteSize } from '#shared/utils/unitConverision'
 
-definePageMeta({ layout: false, title: '用户权益发放' })
+definePageMeta({ layout: 'admin-layout', title: '用户权益发放' })
 
 // 用户搜索
 const searchKeyword = ref('')

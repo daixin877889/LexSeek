@@ -1,5 +1,4 @@
 <template>
-    <NuxtLayout name="admin-layout">
         <div class="space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -92,7 +91,6 @@
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-    </NuxtLayout>
 </template>
 
 <script setup lang="ts">
@@ -100,7 +98,7 @@ import { Search, Plus, Loader2, Megaphone } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { CampaignInfo } from '#shared/types/campaign'
 
-definePageMeta({ layout: false, title: '营销活动管理' })
+definePageMeta({ layout: 'admin-layout', title: '营销活动管理' })
 
 // 组件引用
 const formDialogRef = ref<InstanceType<typeof import('~/components/admin/campaigns/CampaignFormDialog.vue').default> | null>(null)

@@ -1,5 +1,4 @@
 <template>
-    <NuxtLayout name="admin-layout">
         <div class="space-y-6">
             <!-- 页面头部 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -176,7 +175,6 @@
                 </div>
             </template>
         </div>
-    </NuxtLayout>
 </template>
 
 <script setup lang="ts">
@@ -196,7 +194,7 @@ import dayjs from 'dayjs'
 import type { LegalMainInfo, LegalStatistics } from '#shared/types/legal'
 
 definePageMeta({
-    layout: false,
+    layout: 'admin-layout',
     title: "法律法规详情",
 })
 

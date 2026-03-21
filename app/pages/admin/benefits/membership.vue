@@ -1,5 +1,4 @@
 <template>
-    <NuxtLayout name="admin-layout">
         <div class="space-y-6">
             <!-- 页面标题 -->
             <div>
@@ -95,7 +94,6 @@
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-    </NuxtLayout>
 </template>
 
 <script setup lang="ts">
@@ -104,7 +102,7 @@ import { toast } from 'vue-sonner'
 import type { MembershipBenefitConfig, AvailableBenefit } from '#shared/types/benefit'
 import { formatByteSize } from '#shared/utils/unitConverision'
 
-definePageMeta({ layout: false, title: '会员级别权益配置' })
+definePageMeta({ layout: 'admin-layout', title: '会员级别权益配置' })
 
 // 状态
 const loading = ref(false)

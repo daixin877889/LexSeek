@@ -1,5 +1,4 @@
 <template>
-    <NuxtLayout name="admin-layout">
         <div class="space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -276,7 +275,6 @@
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-    </NuxtLayout>
 </template>
 
 <script setup lang="ts">
@@ -324,7 +322,7 @@ interface BatchQueryResult {
     }>
 }
 
-definePageMeta({ layout: false, title: 'MinerU 任务管理' })
+definePageMeta({ layout: 'admin-layout', title: 'MinerU 任务管理' })
 
 // 状态
 const loading = ref(false)

@@ -1,5 +1,4 @@
 <template>
-    <NuxtLayout name="admin-layout">
         <div class="space-y-6">
             <!-- 页面标题 -->
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -226,7 +225,6 @@
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-    </NuxtLayout>
 </template>
 
 <script setup lang="ts">
@@ -237,7 +235,7 @@ import type { LawEmbeddingInfo, ArticleType, PaginatedResponse } from '#shared/t
 import { ArticleTypeLabels } from '#shared/types/legal'
 
 definePageMeta({
-    layout: false,
+    layout: 'admin-layout',
     title: "嵌入记录管理",
 })
 

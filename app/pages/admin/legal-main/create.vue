@@ -1,5 +1,4 @@
 <template>
-    <NuxtLayout name="admin-layout">
         <div class="space-y-6">
             <!-- 页面标题 -->
             <div class="flex items-center gap-4">
@@ -15,7 +14,6 @@
             <!-- 表单 -->
             <LegalMainForm @submit="handleSubmit" @cancel="navigateTo('/admin/legal-main')" />
         </div>
-    </NuxtLayout>
 </template>
 
 <script setup lang="ts">
@@ -24,7 +22,7 @@ import { toast } from 'vue-sonner'
 import type { CreateLegalMainRequest } from '#shared/types/legal'
 
 definePageMeta({
-    layout: false,
+    layout: 'admin-layout',
     title: "添加法律法规",
 })
 

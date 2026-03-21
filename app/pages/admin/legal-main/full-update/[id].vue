@@ -138,7 +138,7 @@ import { toast } from 'vue-sonner'
  * 页面元数据
  */
 definePageMeta({
-    layout: false,
+    layout: 'admin-layout',
 })
 
 /**
