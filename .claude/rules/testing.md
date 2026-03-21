@@ -116,3 +116,4 @@ it('should hash password before saving', async () => {
 - 涉及数据库操作和网络请求必须真实执行
 - 测试实际业务代码，不在测试脚本中重新实现功能
 - 测试完成必须清除测试数据，不允许残留测试数据
+- 测试命令使用 `bun run test` 执行

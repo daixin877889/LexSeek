@@ -243,7 +243,8 @@ describe('统一积分服务集成测试', () => {
             }
 
             const durationMinutes = 5
-            const expectedConsume = asrItem.pointAmount * durationMinutes
+            const discount = asrItem.discount ? Number(asrItem.discount) : 1
+            const expectedConsume = Math.ceil(asrItem.pointAmount * durationMinutes * discount)
 
             if (expectedConsume > 100) {
                 console.warn('积分不足，跳过测试')
@@ -286,11 +287,13 @@ describe('统一积分服务集成测试', () => {
             }
 
             // 第一次扣减：PDF 解析
-            const pdfConsume = pdfItem.pointAmount * 3
+            const pdfDiscount = pdfItem.discount ? Number(pdfItem.discount) : 1
+            const pdfConsume = Math.ceil(pdfItem.pointAmount * 3 * pdfDiscount)
             await consumePointsService(user.id, 'doc_parse', 3)
 
             // 第二次扣减：ASR 转录
-            const asrConsume = asrItem.pointAmount * 2
+            const asrDiscount = asrItem.discount ? Number(asrItem.discount) : 1
+            const asrConsume = Math.ceil(asrItem.pointAmount * 2 * asrDiscount)
             await consumePointsService(user.id, 'asr_transcribe', 2)
 
             // 验证总扣减
