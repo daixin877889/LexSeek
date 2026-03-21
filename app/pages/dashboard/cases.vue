@@ -31,7 +31,7 @@
 
     <!-- 快速统计卡片 -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      <UiCard class="bg-card/50 backdrop-blur border-primary/10 hover:border-primary/30 transition-colors">
+      <Card class="bg-card/50 backdrop-blur border-primary/10 hover:border-primary/30 transition-colors">
         <div class="p-4 flex items-center gap-4">
           <div class="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
             <Briefcase class="h-5 w-5" />
@@ -41,9 +41,9 @@
             <p class="text-2xl font-bold">{{ pagination.total }}</p>
           </div>
         </div>
-      </UiCard>
-      
-      <UiCard class="bg-card/50 backdrop-blur border-primary/10 hover:border-primary/30 transition-colors">
+      </Card>
+
+      <Card class="bg-card/50 backdrop-blur border-primary/10 hover:border-primary/30 transition-colors">
         <div class="p-4 flex items-center gap-4">
           <div class="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
             <Clock class="h-5 w-5" />
@@ -53,9 +53,9 @@
             <p class="text-2xl font-bold">{{ cases.filter(c => c.status === 1).length }}<span class="text-sm font-normal text-muted-foreground ml-1">(当前页)</span></p>
           </div>
         </div>
-      </UiCard>
+      </Card>
 
-      <UiCard class="bg-card/50 backdrop-blur border-primary/10 hover:border-primary/30 transition-colors">
+      <Card class="bg-card/50 backdrop-blur border-primary/10 hover:border-primary/30 transition-colors">
         <div class="p-4 flex items-center gap-4">
           <div class="h-10 w-10 rounded-full bg-green-500/10 flex items-center justify-center text-green-500">
             <CheckCircle class="h-5 w-5" />
@@ -65,7 +65,7 @@
             <p class="text-2xl font-bold">{{ cases.filter(c => c.status === 2).length }}<span class="text-sm font-normal text-muted-foreground ml-1">(当前页)</span></p>
           </div>
         </div>
-      </UiCard>
+      </Card>
     </div>
 
     <!-- 筛选区域 -->

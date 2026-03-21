@@ -45,8 +45,7 @@ export const useAdminMenuStore = defineStore('adminMenu', (): AdminMenuStoreRetu
     error.value = null
     try {
       const data = await $fetch<any>('/api/v1/admin/menu-routers')
-      // API 返回 resSuccess 格式：{ code, message, data }
-      if (data.code === 200 && data.data) {
+      if (data.success && data.data) {
         rawRouters.value = data.data
       }
     }
