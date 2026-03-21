@@ -14,7 +14,7 @@ import {
 } from './material.service'
 import { CaseMaterialType } from '#shared/types/case'
 import { MaterialStatus } from '#shared/types/material'
-import { convertPdfService } from './mineru.service'
+import { convertPdfService, getDocRecognitionByOssFileIdService } from './mineru.service'
 import { createImageConversionService } from './ocr.service'
 import { transcribeAudioService } from './asr.service'
 import { embedMaterialUnifiedService } from './materialEmbedding.service'
@@ -105,9 +105,12 @@ export const processMaterialService = async (
         throw new MaterialProcessError('材料正在处理中，请稍后', 400)
     }
 
-    // 4. OSS 文件检查
+    // 4. OSS 文件检查：无 OSS 文件的材料，检查是否已有文本内容（CASE_CONTENT 类型）
     if (!material.ossFileId) {
-        if (material.content) {
+        const existingTextContent = await prisma.textContentRecords.findFirst({
+            where: { materialId: material.id, deletedAt: null },
+        })
+        if (existingTextContent?.content) {
             return {
                 id: material.id,
                 status: MaterialStatus.COMPLETED,
@@ -222,7 +225,19 @@ async function processPdfMaterial(
         if (!result.success) {
             return { success: false, error: result.error }
         }
-        return { success: true, content: result.content }
+
+        // 已有成功记录：直接获取内容（同步返回）
+        if (result.task?.taskId === 'existing') {
+            const record = await getDocRecognitionByOssFileIdService(ossFileId)
+            if (record?.markdownContent) {
+                return { success: true, content: record.markdownContent }
+            }
+            // 有记录但无内容（理论上不会发生），视为成功但无内容
+            return { success: true }
+        }
+
+        // 新任务：异步处理，内容通过回调/轮询后更新到 docRecognitionRecords
+        return { success: true }
     } catch (error: any) {
         return { success: false, error: error.message }
     }
@@ -237,7 +252,7 @@ async function processImageMaterial(ossFileId: number, userId: number) {
         if (!result.success) {
             return { success: false, error: result.error }
         }
-        return { success: true, content: result.content }
+        return { success: true, content: result.record.markdownContent ?? undefined }
     } catch (error: any) {
         return { success: false, error: error.message }
     }
