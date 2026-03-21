@@ -67,16 +67,17 @@ export default defineVitestConfig({
         testTimeout: 120000,
         setupFiles: ['./tests/server/membership/test-setup.ts'],
         fileParallelism: false,
-        // 配置依赖项处理
-        deps: {
-            // 将 Nuxt 别名模块内联处理
-            inline: [
-                '#shared/**',
-                '~~/**',
-                '~/**',
-                '@/**',
-                '@@/**',
-            ],
+        // 配置依赖项处理（inline 移到 server.deps 下）
+        server: {
+            deps: {
+                inline: [
+                    '#shared/**',
+                    '~~/**',
+                    '~/**',
+                    '@/**',
+                    '@@/**',
+                ],
+            },
         },
     },
     // 覆盖率配置（放在顶层）
