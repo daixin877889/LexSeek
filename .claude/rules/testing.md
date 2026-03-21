@@ -5,6 +5,8 @@ paths:
 
 # 测试规范
 
+本项目使用 Vitest（非 Jest）。不要使用 jest.setTimeout() 或其他 Jest 专属 API。在 vitest.config.ts 中配置超时。
+
 ## 测试框架
 
 - **vitest** - 测试运行器
@@ -117,3 +119,4 @@ it('should hash password before saving', async () => {
 - 测试实际业务代码，不在测试脚本中重新实现功能
 - 测试完成必须清除测试数据，不允许残留测试数据
 - 全量测试命令使用 `bun run test` 执行，不要使用 `bun test` 执行
+- 修复 bug 时，应用修复后运行全量测试套件（vitest），所有 1586+ 测试必须通过后才能视为完成。

@@ -8,6 +8,8 @@ type(scope): subject
 body (可选)
 ```
 
+提交应使用 conventional commit 格式和中文提交信息。当涉及多个关注点时，将变更拆分为逻辑性的原子提交。
+
 ## Type 类型
 
 | 类型 | 说明 |

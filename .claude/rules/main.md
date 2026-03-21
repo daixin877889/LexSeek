@@ -72,3 +72,4 @@ const user = event.context.user  // 始终 undefined
 - 避免代码多层嵌套
 - 代码实现必须使用简洁且健壮的方案，严禁 demo 级别实现
 - 需要验证数据库数据时，查找 postgres docker 容器执行查询
+- 不要使用 sed 进行批量文件迁移或模板修改。逐文件编辑以避免破坏 Vue 模板语法（标签不平衡）。

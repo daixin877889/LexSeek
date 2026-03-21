@@ -1,8 +1,11 @@
 # LexSeek - 法律服务AI应用
 
+
 ## 项目
 
-LexSeek 是一个基于 Nuxt.js 4 的全栈法律服务AI应用，旨在通过人工智能技术赋能法律分析，为律师提供全面的案件分析工具，提升工作效率。
+LexSeek 是一个全栈法律服务AI应用，旨在通过人工智能技术赋能法律分析，为律师提供全面的案件分析工具，提升工作效率。
+这是一个 Nuxt/Vue 3 + NestJS + Prisma + PostgreSQL 项目，使用 TypeScript。数据库时区为 Asia/Shanghai。Prisma 连接使用 TimeZone=UTC 以避免双偏移 bug。
+
 
 ## 技术栈
 
