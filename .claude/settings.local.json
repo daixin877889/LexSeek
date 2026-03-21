@@ -5,7 +5,20 @@
       "Bash(ls:*)",
       "Edit",
       "Bash(find:*)",
-      "Read(/tmp/api_results.json)"
+      "Read(/tmp/api_results.json)",
+      "Bash(PGPASSWORD=daixin88 psql -h localhost -p 5432 -U daixin -d ls_new -c \"SHOW timezone;\")",
+      "Bash(PGPASSWORD=daixin88 psql -h localhost -p 5432 -U daixin -d ls_new -c \"SELECT NOW\\(\\), NOW\\(\\) AT TIME ZONE ''Asia/Shanghai'', NOW\\(\\) AT TIME ZONE ''UTC'';\")",
+      "Bash(grep -r \"createdAt\\\\|updatedAt\\\\|created_at\\\\|updated_at\" /Users/daixin/work/dev/LexSeek/LexSeek/prisma/models/*.prisma)",
+      "Bash(docker ps:*)",
+      "Bash(PGPASSWORD=daixin88 psql -h localhost -p 5432 -U daixin -d ls_new -c \"SELECT NOW\\(\\) as db_now, NOW\\(\\) AT TIME ZONE 'Asia/Shanghai' as shanghai_time, NOW\\(\\) AT TIME ZONE 'UTC' as utc_time;\" 2>/dev/null)",
+      "Bash(docker exec:*)",
+      "Bash(grep -r \"connectionString\\\\|DATABASE_URL\\\\|prisma/adapter-pg\" /Users/daixin/work/dev/LexSeek/LexSeek/.env*)",
+      "Bash(psql -U daixin -d ls_new -c \"SHOW timezone;\")",
+      "Bash(echo \"TZ is: $TZ\")",
+      "Bash(node:*)",
+      "Bash(pg_lsclusters)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
