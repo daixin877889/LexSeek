@@ -51,10 +51,14 @@ const { status, size, variant, class: _, ...restProps } = props
     :size="size"
     :variant="variant"
     type="submit"
+    :disabled="status === 'streaming' || status === 'submitted' || $attrs.disabled === true"
     v-bind="restProps"
   >
-    <slot>
-      <component :is="icon" :class="iconClass" />
-    </slot>
+    <div class="flex items-center justify-center">
+      <Loader2Icon v-if="status === 'streaming' || status === 'submitted'" class="size-4 animate-spin shrink-0" />
+      <slot v-else>
+        <component :is="icon" :class="iconClass" />
+      </slot>
+    </div>
   </InputGroupButton>
 </template>

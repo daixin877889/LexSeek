@@ -231,8 +231,11 @@ const chat = new Chat<UIMessage>({
   transport: new DefaultChatTransport({
     api: '/api/v1/case/analysis/stream/' + sessionId.value,
   }),
-  onFinish: () => { },
+  onFinish: () => {
+    isAnalyzing.value = false
+  },
   onError: (error) => {
+    isAnalyzing.value = false
     toast.error('分析失败：' + error.message)
     console.error('[analysis] stream error', error)
   }
@@ -351,6 +354,8 @@ const promptInputRef = ref<{ reset: () => void } | null>(null)
  */
 async function handlePromptSubmit(data: PromptSubmitData) {
   if (isAnalyzing.value || isComplete.value) return
+
+  isAnalyzing.value = true
 
   // 发送消息继续分析（materials 暂不传递，当前 stream API 不支持追加材料）
   sendMessage({ text: data.text || '开始分析' })
