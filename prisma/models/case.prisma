@@ -129,6 +129,8 @@ model caseMaterials {
     updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
     /// 删除时间，为 NULL 表示未删除
     deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+    /// 材料摘要缓存（首次生成后缓存，复用时不重复提取）
+    summary         String?   @db.Text
 
     /// 关联的案件
     case cases @relation(fields: [caseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
