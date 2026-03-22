@@ -1,5 +1,13 @@
 <template>
-  <div class="h-full flex flex-col" style="height: calc(100vh - 48px)">
+  <!-- 新版对话式分析（通过 ?v=2 切换） -->
+  <CaseAnalysisChatContainer
+    v-if="useNewVersion"
+    :session-id="sessionId"
+    :thinking="thinkingEnabled"
+  />
+
+  <!-- 旧版分析界面 -->
+  <div v-else class="h-full flex flex-col" style="height: calc(100vh - 48px)">
     <!-- Header 区域 -->
     <div class="h-12 shrink-0 border-b bg-muted/30 text-base font-semibold flex items-center px-4 gap-2">
       <Button variant="ghost" size="icon" class="size-8" @click="goBack">
@@ -177,6 +185,7 @@ definePageMeta({
 const route = useRoute();
 const router = useRouter();
 const sessionId = computed(() => route.params.sessionId as string);
+const useNewVersion = computed(() => route.query.v === '2');
 
 interface QueueTodo {
   id: string
