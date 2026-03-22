@@ -519,3 +519,82 @@ export const getNodeConfigByIdService = async (id: number): Promise<NodeConfig |
         throw new Error(`获取节点配置失败: ${error.message}`)
     }
 }
+
+/**
+ * 获取子代理配置列表
+ *
+ * 查询 type IN ('analysis', 'document') 的节点配置，按 priority 升序排列
+ * 用于 DeepAgent 构建子代理列表
+ *
+ * @param types 节点类型列表，默认 ['analysis', 'document']
+ * @returns NodeConfig 列表，按 priority 排序
+ */
+export const getSubagentConfigsService = async (
+    types: string[] = ['analysis', 'document']
+): Promise<NodeConfig[]> => {
+    const nodes = await prisma.nodes.findMany({
+        where: {
+            type: { in: types },
+            status: 1,
+            deletedAt: null,
+        },
+        include: {
+            model: {
+                include: {
+                    modelProvider: {
+                        include: {
+                            modelApiKeys: {
+                                where: {
+                                    deletedAt: null,
+                                    status: 1,
+                                    isDefault: true,
+                                },
+                                take: 1,
+                            },
+                        },
+                    },
+                },
+            },
+            prompts: {
+                where: {
+                    status: 1,
+                    deletedAt: null,
+                },
+            },
+        },
+        orderBy: { priority: 'asc' },
+    })
+
+    return nodes
+        .filter(node => node.model && node.model.modelProvider)
+        .map(node => ({
+            id: node.id,
+            name: node.name,
+            title: node.title || node.name,
+            description: node.description || '',
+            type: node.type,
+            prompts: node.prompts.map(prompt => ({
+                id: prompt.id,
+                name: prompt.name,
+                content: prompt.content,
+                version: prompt.version,
+                type: prompt.type,
+                status: prompt.status,
+            })),
+            modelId: node.modelId,
+            modelName: node.model!.name,
+            modelType: node.model!.modelType,
+            modelStatus: node.model!.status ?? 0,
+            modelSdkType: (node.model!.sdkType as SdkType) || DEFAULT_SDK_TYPE,
+            modelProviderId: node.model!.modelProvider!.id,
+            modelProviderName: node.model!.modelProvider!.name,
+            modelProviderBaseUrl: node.model!.modelProvider!.baseUrl,
+            modelProviderDescription: node.model!.modelProvider!.description || '',
+            modelApiKeys: node.model!.modelProvider!.modelApiKeys.map(apiKey => ({
+                id: apiKey.id,
+                apiKey: apiKey.apiKey,
+                status: apiKey.status ?? 0,
+            })),
+            tools: (node.tools as string[]) || [],
+        }))
+}
