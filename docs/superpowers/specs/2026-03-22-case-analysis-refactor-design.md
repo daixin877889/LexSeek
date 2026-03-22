@@ -10,7 +10,7 @@
 
 当前项目中案件分析模块存在**两套并行的 Agent 架构**：
 
-1. **LangGraph 工作流** (`caseAnalysis.workflow.ts`) — 完整的 StateGraph，包含 5 个节点和 3 个中断点
+1. **LangGraph 工作流** (`caseAnalysis.workflow.ts`) — 完整的 StateGraph，包含 5 个节点（materialProcess、caseInfoCheck、extractInfo、moduleSelect、analysisTask），中断通过节点内部 `interrupt()` 调用实现
 2. **DeepAgent 主代理** (`agent/main.ts`) — 独立的流式对话代理
 
 两套架构未完全整合，增加了维护复杂度。前端使用 ai-sdk (Vercel) 做流管理，与 LangChain 生态缺乏原生集成。
@@ -116,8 +116,8 @@
   │   └─ 返回结构化信息 {title, plaintiff, defendant, ...}
   │   └─ interruptOn → 用户确认/修改基础信息
   │
-  ├─ 输出模块列表 + 积分消耗信息
-  │   └─ interruptOn → 用户选择分析模块
+  ├─ 主代理输出模块列表 + 积分消耗信息（System Prompt 驱动）
+  │   └─ 调用 interrupt() → 用户选择分析模块
   │
   ├─ 判断材料是否满足最低分析标准
   │   ├─ 不足 → 引导补充，但提供"直接分析"选项
@@ -126,13 +126,13 @@
   ├─ 调用工具: reserve_points(modules)
   │   └─ 预扣积分（用户选择即代表接受）
   │
-  └─ 按优先级串行委派子代理执行分析
-      ├─ task("summary", ...)
-      ├─ task("chronicle", ...)
-      ├─ task("claim", ...)
+  └─ 按优先级串行委派子代理执行分析（Deep Agents SDK 内置子代理委派机制）
+      ├─ 委派 summary 子代理
+      ├─ 委派 chronicle 子代理
+      ├─ 委派 claim 子代理
       └─ ... 流式输出进度和结果
-          ├─ 成功 → confirm_points(reservationId)
-          └─ 失败 → rollback_points(reservationId)
+          ├─ 成功 → confirm_points(batchId, itemId)
+          └─ 失败 → rollback_points(batchId, itemId)
 ```
 
 ### 3.3 后续多轮对话
@@ -208,9 +208,11 @@ async function createCaseAgent(sessionId: string, options: CaseAgentOptions) {
       new StateBackend(cfg),
       { '/memories/': new StoreBackend(cfg) }
     ),
+    // 中断机制：
+    // - extract_case_info 工具通过 interruptOn 声明式中断
+    // - 模块选择通过 System Prompt 指导 Agent 调用 interrupt() 实现
     interruptOn: {
       extract_case_info: { allowed_decisions: ['approve', 'edit'] },
-      select_modules: { allowed_decisions: ['approve', 'edit'] },
     },
   })
 }
@@ -240,9 +242,11 @@ interface ChatRequest {
 
 | 工具 | 调用时机 | 职责 | 数据库操作 |
 |------|---------|------|-----------|
-| `reserve_points` | 用户选择模块后 | 预扣积分，返回 batchId | 创建 status=1 的消耗记录，生成 batchId |
-| `confirm_points` | 单个子代理成功后 | 确认该模块积分实扣 | 将 batchId 对应记录 status 更新为 2 |
-| `rollback_points` | 子代理失败时 | 回滚该模块积分预扣 | 将 batchId 对应记录 status 更新为 0，恢复积分余额 |
+| `reserve_points` | 用户选择模块后 | 按模块批量预扣积分，返回 batchId | 为每个模块创建一条 status=1 的记录，共享同一个 batchId |
+| `confirm_points` | 单个子代理成功后 | 确认该模块积分实扣 | 按 batchId + itemId 定位单条记录，更新 status 为 2 |
+| `rollback_points` | 子代理失败时 | 回滚该模块积分预扣 | 按 batchId + itemId 定位单条记录，更新 status 为 0，恢复余额 |
+
+每个模块在 `pointConsumptionItems` 表中有对应的 `key`（如 `analysis_summary`、`analysis_defense`），通过 `itemId` 关联。`batchId` 标识同一次预扣操作，`itemId` 区分不同模块，实现"批次预扣、逐模块确认/回滚"。
 
 **超时保护**：预扣记录超过 30 分钟未确认/回滚的，由定时任务自动回滚（status 1 → 0），防止积分永久冻结。
 
@@ -269,7 +273,7 @@ interface ChatRequest {
 │   └── user_preferences.txt  — 用户分析偏好
 ```
 
-Agent 通过 read_file/write_file 工具自然地读写记忆文件，无需特殊 API。`/memories/` 路径自动路由到 PostgresStore 持久化。
+Agent 通过 Deep Agents SDK 内置的 `manage_memory` 工具自然地读写记忆文件（SDK 自动注入，无需在工具集中显式声明）。`/memories/` 路径自动路由到 PostgresStore 持久化。
 
 ### 4.6 NodeConfig 配置结构
 
@@ -319,7 +323,7 @@ nodes 表:
 - ai-sdk (vercel ai sdk) → 被 @langchain/vue 替代
 
 保留:
-- ai-elements-vue (完整 AI 交互 UI 组件库)
+- ai-element-vue (完整 AI 交互 UI 组件库)
 
 新增:
 - @langchain/vue v0.3.0 (useStream composable)
@@ -383,7 +387,9 @@ nodes 表:
 - ConfirmationAccepted: 确认后的只读信息展示
 - ConfirmationActions: "确认信息" / "修改后确认"
 
-#### 模块选择 (select_modules) — 带中断
+#### 模块选择 — 中断交互（非工具）
+
+模块选择由主代理 System Prompt 驱动：Agent 输出模块列表后调用 `interrupt()` 暂停，前端展示选择界面，用户选择后通过 `Command({ resume })` 恢复。
 
 - 使用 Confirmation 包装
 - ConfirmationRequest: Suggestions 组件展示可选模块（含积分消耗、会员限制标识）
@@ -449,7 +455,7 @@ app/components/caseAnalysis/
 
 ### 6.3 保持不变的表
 
-cases, caseSessions, caseAnalyses, caseMaterialEmbeddings, nodes, prompts, nodeGroups, levelNodeAccess, checkpoints 系列表, pointRecords, pointConsumptionItems, pointConsumptionRecords
+cases, caseSessions, caseAnalyses, caseMaterialEmbeddings, prompts, nodeGroups, levelNodeAccess, checkpoints 系列表, pointRecords, pointConsumptionItems, pointConsumptionRecords
 
 ## 7. 复用模块清单
 
@@ -492,7 +498,7 @@ app/composables/useCaseChat.ts                     — 基于 @langchain/vue use
 
 | 阶段 | 内容 | 回滚方式 |
 |------|------|---------|
-| Phase 1: 基础设施 | 安装依赖、建 caseMain 节点、实现 caseAgent.ts 和新 API 端点 | 删除新代码，旧端点不受影响 |
+| Phase 1: 基础设施 | 安装依赖、Prisma migration（caseMaterials.summary 字段、caseMain 节点数据）、实现 caseAgent.ts 和新 API 端点 | 删除新代码，旧端点不受影响 |
 | Phase 2: 前端适配 | 实现 useCaseChat.ts、新组件；通过路由参数 `?v=2` 切换新旧版本 | 移除路由参数回退到旧版 |
 | Phase 3: 功能验证 | 内部测试新流程，修复问题 | 路由参数回退 |
 | Phase 4: 切换 | 新版本设为默认，旧版本通过 `?v=1` 保留 | 路由参数回退 |
@@ -536,7 +542,7 @@ app/composables/useCaseChat.ts                     — 基于 @langchain/vue use
 
 - 预扣积分设置 30 分钟超时自动回滚
 - 每个子代理完成后立即确认/回滚对应积分，不等待全部完成
-- 异常中断（服务器崩溃等）→ 定时任务扫描超时预扣记录并回滚
+- 异常中断（服务器崩溃等）→ 定时任务扫描超时预扣记录并回滚（使用 Nitro scheduled tasks 或 node-cron 实现）
 
 ## 11. 测试策略
 
@@ -552,7 +558,7 @@ app/composables/useCaseChat.ts                     — 基于 @langchain/vue use
 
 - 积分预扣/确认/回滚事务完整性
 - 材料全量/摘要模式切换（边界值: 32,000 tokens）
-- 中断恢复（extract_case_info 和 select_modules）
+- 中断恢复（extract_case_info 工具中断 和 模块选择 interrupt() 中断）
 - 子代理串行执行顺序和错误隔离
 - 提示词防火墙（注入攻击、非法律需求、正常请求）
 - SSE 流式输出的完整性和断线重连
