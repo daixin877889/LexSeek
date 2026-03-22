@@ -6,9 +6,11 @@
  */
 
 import { createDeepAgent } from 'deepagents'
+import { HumanMessage } from '@langchain/core/messages'
 import { getCheckpointer } from '../workflow/checkpointer'
 import { getValidNodeConfig } from '../node/node.service'
 import { createChatModel } from '../node/chatModelFactory'
+import { getToolInstancesService } from '../workflow/tools'
 import { logger } from '#shared/utils/logger'
 
 /** Agent 节点配置名称（必须在后台管理中配置） */
@@ -17,10 +19,14 @@ const CASE_MAIN_NODE_NAME = 'caseMain'
 interface MainAgentOptions {
     /** 是否启用 extended thinking（默认 true） */
     thinking?: boolean
+    /** 用户 ID（工具加载需要） */
+    userId?: number
+    /** 案件 ID（工具加载需要） */
+    caseId?: number
 }
 
 export const mainAgent = async (sessionId: string, prompt: string, options: MainAgentOptions = {}) => {
-    const { thinking = true } = options
+    const { thinking = true, userId, caseId } = options
     const checkpointer = await getCheckpointer()
 
     // 从数据库获取节点配置
@@ -45,20 +51,26 @@ export const mainAgent = async (sessionId: string, prompt: string, options: Main
 
     // 获取系统提示词（优先使用数据库配置，否则使用默认值）
     const systemPromptConfig = nodeConfig.prompts.find((p) => p.type === 'system' && p.status === 1)
-    const systemPrompt = systemPromptConfig?.content
-        ?? '你是一个专业的律师，请根据用户的问题，给出专业的回答。'
+    const systemPrompt = systemPromptConfig?.content;
+
+    // 从节点配置动态加载工具
+    const tools = nodeConfig.tools.length > 0 && userId && caseId
+        ? getToolInstancesService(nodeConfig.tools, { userId, caseId, sessionId })
+        : []
 
     logger.info('案件主Agent创建', {
         sessionId,
         model: nodeConfig.modelName,
         sdkType: nodeConfig.modelSdkType,
         provider: nodeConfig.modelProviderName,
+        toolsCount: tools.length,
     })
 
     const agent: any = createDeepAgent({
         model,
         systemPrompt,
         checkpointer,
+        tools,
     })
 
     const streamConfig: any = {
@@ -72,12 +84,7 @@ export const mainAgent = async (sessionId: string, prompt: string, options: Main
 
     const result = await agent.streamEvents(
         {
-            messages: [
-                {
-                    role: 'user',
-                    content: prompt,
-                },
-            ],
+            messages: [new HumanMessage(prompt)],
         },
         streamConfig,
     )
