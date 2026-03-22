@@ -449,9 +449,9 @@ app/components/caseAnalysis/
 - `sourceId` — 关联到 `caseAnalyses` 的记录 ID
 
 工具映射：
-- `reserve_points` → 创建 status=1 的记录，生成 UUID 作为 batchId
-- `confirm_points` → 按 batchId 更新 status 为 2
-- `rollback_points` → 按 batchId 更新 status 为 0，恢复 pointRecords.remaining
+- `reserve_points` → 复用现有积分扣减逻辑（按 pointRecords 过期时间升序选择），创建 status=1 的记录，生成 UUID 作为 batchId
+- `confirm_points` → 按 batchId + itemId 定位单条记录，更新 status 为 2
+- `rollback_points` → 按 batchId + itemId 定位单条记录，更新 status 为 0，恢复 pointRecords.remaining
 
 ### 6.3 保持不变的表
 
