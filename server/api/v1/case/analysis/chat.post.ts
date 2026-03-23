@@ -3,21 +3,49 @@
  *
  * POST /api/v1/case/analysis/chat
  *
- * 支持首次分析引导 + 后续自由对话
- * 使用 agent.stream() + encoding: "text/event-stream"，
- * 返回 LangGraph 内置 toEventStream() 生成的标准 SSE 流，
- * 前端 @langchain/vue useStream + FetchStreamTransport 直接消费
+ * 兼容 @langchain/vue FetchStreamTransport 协议：
+ * - 请求体: { input, config, command, streamSubgraphs }
+ * - 响应: LangGraph toEventStream() 生成的标准 SSE 流
  */
 
-import { z } from 'zod'
 import { runCaseChat } from '~~/server/services/agent/caseAgent'
 import { findCaseBySessionIdService } from '~~/server/services/case/caseSession.service'
 
-const requestSchema = z.object({
-    sessionId: z.string().min(1, 'sessionId 不能为空'),
-    message: z.string().optional(),
-    thinking: z.boolean().optional().default(true),
-})
+/** 从 FetchStreamTransport 请求体中提取参数 */
+function extractParams(body: any) {
+    // FetchStreamTransport 发送: { input, config, command, streamSubgraphs }
+    const input = body?.input
+    const config = body?.config
+    const command = body?.command
+
+    // sessionId: 从 config.configurable.thread_id 读取
+    const sessionId = config?.configurable?.thread_id as string | undefined
+
+    // message: 从 input.messages 数组中提取最后一条 human 消息的 content
+    let message: string | undefined
+    if (input?.messages && Array.isArray(input.messages)) {
+        const lastMsg = input.messages.at(-1)
+        if (lastMsg) {
+            message = typeof lastMsg.content === 'string'
+                ? lastMsg.content
+                : typeof lastMsg === 'string'
+                    ? lastMsg
+                    : undefined
+        }
+    }
+
+    return { sessionId, message, command }
+}
+
+/** 提示词防火墙黑名单 */
+const BLACKLIST_PATTERNS = [
+    /system\s*prompt/i,
+    /ignore\s*previous/i,
+    /忽略之前的指令/,
+    /忽略上面的/,
+    /输出你的提示词/,
+    /显示系统提示/,
+]
 
 export default defineEventHandler(async (event) => {
     // 1. 验证用户登录
@@ -26,35 +54,25 @@ export default defineEventHandler(async (event) => {
         return resError(event, 401, '请先登录')
     }
 
-    // 2. 验证请求参数
+    // 2. 解析 FetchStreamTransport 协议请求体
     const body = await readBody(event)
-    const parsed = requestSchema.safeParse(body)
-    if (!parsed.success) {
-        return resError(event, 400, parsed.error.issues[0].message)
-    }
-    const { sessionId, message, thinking } = parsed.data
+    const { sessionId, message, command } = extractParams(body)
 
-    // 3. 提示词防火墙 - 输入长度限制
-    if (message && message.length > 10000) {
-        return resError(event, 400, '输入内容过长，单次消息最大 10,000 字符')
+    if (!sessionId) {
+        return resError(event, 400, 'thread_id 不能为空')
     }
 
-    // 4. 提示词防火墙 - 关键词黑名单
+    // 3. 提示词防火墙
     if (message) {
-        const blacklistPatterns = [
-            /system\s*prompt/i,
-            /ignore\s*previous/i,
-            /忽略之前的指令/,
-            /忽略上面的/,
-            /输出你的提示词/,
-            /显示系统提示/,
-        ]
-        if (blacklistPatterns.some(p => p.test(message))) {
+        if (message.length > 10000) {
+            return resError(event, 400, '输入内容过长，单次消息最大 10,000 字符')
+        }
+        if (BLACKLIST_PATTERNS.some(p => p.test(message))) {
             return resError(event, 400, '检测到不安全的输入内容')
         }
     }
 
-    // 5. 验证案件权限
+    // 4. 验证案件权限
     const caseInfo = await findCaseBySessionIdService(sessionId)
     if (!caseInfo) {
         return resError(event, 404, '案件不存在')
@@ -63,18 +81,17 @@ export default defineEventHandler(async (event) => {
         return resError(event, 403, '您没有权限访问该案件')
     }
 
-    // 6. 构建用户消息
+    // 5. 构建用户消息
     const userMessage = message || '请开始分析案件'
 
-    // 7. 获取 SSE 流（encoding: "text/event-stream" 使 LangGraph 内置
-    //    toEventStream() 将 [namespace, streamMode, data] 三元组转为标准 SSE）
+    // 6. 获取 SSE 流
     const sseStream = await runCaseChat(sessionId, userMessage, {
         userId: user.id,
         caseId: caseInfo.id,
-        thinking,
+        thinking: true,
     })
 
-    // 8. 直接返回 ReadableStream，内容已是标准 SSE 格式
+    // 7. 直接返回 toEventStream 生成的标准 SSE ReadableStream
     return new Response(sseStream, {
         headers: {
             'Content-Type': 'text/event-stream',

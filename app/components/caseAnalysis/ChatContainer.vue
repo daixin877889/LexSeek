@@ -17,8 +17,6 @@ const props = defineProps<{
 
 const router = useRouter()
 
-// 新版数据源
-const thinkingEnabled = ref(props.thinking ?? true)
 const {
     messages,
     isLoading: isStreaming,
@@ -27,38 +25,21 @@ const {
     stopGeneration,
 } = useCaseChat({
     sessionId: props.sessionId,
-    thinking: thinkingEnabled.value,
 })
 
-// 页面状态（复用旧版逻辑）
+// 页面状态
 const isLoading = ref(false)
 const loadError = ref<string | null>(null)
 const isAnalyzing = ref(false)
 const isComplete = ref(false)
+const thinkingEnabled = ref(props.thinking ?? true)
 const analysisResults = ref<AnalysisResult[]>([])
 const activeResultIndex = ref(0)
 const promptInputRef = ref<{ reset: () => void } | null>(null)
 
-// 同步 streaming 状态到 isAnalyzing
 watch(isStreaming, (val) => {
     isAnalyzing.value = val
 })
-
-// 调试：监控 messages 变化
-watch(messages, (msgs) => {
-    console.log('[ChatContainer] messages 更新:', {
-        count: msgs?.length ?? 0,
-        isRef: isRef(messages),
-        isComputed: isReadonly(messages),
-        raw: msgs?.slice(0, 2).map((m: any) => ({
-            type: typeof m,
-            hasGetType: typeof m?.getType === 'function',
-            has_getType: typeof m?._getType === 'function',
-            id: m?.id,
-            content: typeof m?.content === 'string' ? m.content.substring(0, 50) : typeof m?.content,
-        })),
-    })
-}, { deep: true, immediate: true })
 
 watch(streamError, (err) => {
     if (err) {
@@ -67,6 +48,30 @@ watch(streamError, (err) => {
     }
 })
 
+/** 提取消息文本内容（兼容 string 和 content block 数组） */
+function getMessageText(msg: any): string {
+    const content = msg?.content
+    if (typeof content === 'string') return content
+    if (Array.isArray(content)) {
+        return content
+            .filter((block: any) => block.type === 'text')
+            .map((block: any) => block.text)
+            .join('')
+    }
+    return ''
+}
+
+/** 获取消息角色 */
+function getMessageRole(msg: any): 'user' | 'assistant' {
+    if (typeof msg?.getType === 'function') {
+        return msg.getType() === 'human' ? 'user' : 'assistant'
+    }
+    if (typeof msg?._getType === 'function') {
+        return msg._getType() === 'human' ? 'user' : 'assistant'
+    }
+    return 'assistant'
+}
+
 async function handlePromptSubmit(data: PromptSubmitData) {
     if (isAnalyzing.value || isComplete.value) return
     isAnalyzing.value = true
@@ -74,19 +79,13 @@ async function handlePromptSubmit(data: PromptSubmitData) {
     promptInputRef.value?.reset()
 }
 
-function getStatusText(status: number): string {
-    const statusMap: Record<number, string> = { 1: '进行中', 2: '已完成', 3: '已关闭' }
-    return statusMap[status] || '未知'
-}
-
 const goBack = () => router.push({ name: 'dashboard-analysis' })
 const handleRegenerate = () => {}
-const loadCaseInfo = () => {}
 </script>
 
 <template>
     <div class="h-full flex flex-col" style="height: calc(100vh - 48px)">
-        <!-- Header 区域 -->
+        <!-- Header -->
         <div class="h-12 shrink-0 border-b bg-muted/30 text-base font-semibold flex items-center px-4 gap-2">
             <Button variant="ghost" size="icon" class="size-8" @click="goBack">
                 <ArrowLeftIcon class="size-4" />
@@ -97,40 +96,22 @@ const loadCaseInfo = () => {}
 
         <!-- 加载状态 -->
         <div v-if="isLoading" class="flex-1 flex items-center justify-center">
-            <div class="flex flex-col items-center gap-3">
-                <Loader2Icon class="size-8 animate-spin text-primary" />
-                <span class="text-sm text-muted-foreground">加载案件信息...</span>
-            </div>
-        </div>
-
-        <!-- 错误状态 -->
-        <div v-else-if="loadError" class="flex-1 flex items-center justify-center">
-            <div class="flex flex-col items-center gap-3 text-center">
-                <AlertCircleIcon class="size-12 text-destructive" />
-                <p class="text-sm text-muted-foreground">{{ loadError }}</p>
-                <Button variant="outline" size="sm" @click="loadCaseInfo">
-                    重新加载
-                </Button>
-            </div>
+            <Loader2Icon class="size-8 animate-spin text-primary" />
         </div>
 
         <!-- 主内容区域：左右分栏 -->
         <ResizablePanelGroup v-else direction="horizontal" class="flex-1 min-h-0">
-            <!-- 左侧面板：对话区域 -->
+            <!-- 左侧：对话 -->
             <ResizablePanel :default-size="50" :min-size="30" class="bg-muted/20">
                 <div class="flex flex-col h-full overflow-hidden">
-                    <!-- 对话消息列表 -->
                     <div class="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
                         <AiElementsConversation>
                             <AiElementsConversationContent>
                                 <template v-for="msg in messages" :key="msg.id">
-                                    <AiElementsMessage
-                                        :from="msg._getType?.() === 'human' ? 'user' : 'assistant'"
-                                    >
+                                    <AiElementsMessage :from="getMessageRole(msg)">
                                         <AiElementsMessageContent>
                                             <AiElementsMessageResponse
-                                                v-if="typeof msg.content === 'string'"
-                                                :content="msg.content"
+                                                :content="getMessageText(msg)"
                                             />
                                         </AiElementsMessageContent>
                                     </AiElementsMessage>
@@ -140,7 +121,7 @@ const loadCaseInfo = () => {}
                         </AiElementsConversation>
                     </div>
 
-                    <!-- 底部输入区域 -->
+                    <!-- 输入区域 -->
                     <div class="shrink-0 border-t bg-background">
                         <CaseAnalysisPromptInput
                             ref="promptInputRef"
@@ -164,7 +145,7 @@ const loadCaseInfo = () => {}
 
             <ResizableHandle with-handle />
 
-            <!-- 右侧面板：分析结果 -->
+            <!-- 右侧：分析结果 -->
             <ResizablePanel :default-size="50" :min-size="30">
                 <CaseAnalysisResults
                     :results="analysisResults"
