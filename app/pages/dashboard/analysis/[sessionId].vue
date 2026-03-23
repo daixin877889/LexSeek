@@ -25,14 +25,14 @@
 
                 <template v-for="(message, msgIndex) in stream.messages.value" :key="message.id ?? msgIndex">
                   <!-- 用户消息 -->
-                  <AiElementsMessage v-if="HumanMessage.isInstance(message)" from="user">
+                  <AiElementsMessage v-if="isHumanMessage(message)" from="user">
                     <AiElementsMessageContent>
                       {{ message.text }}
                     </AiElementsMessageContent>
                   </AiElementsMessage>
 
                   <!-- AI 消息 -->
-                  <AiElementsMessage v-else-if="AIMessage.isInstance(message)" from="assistant">
+                  <AiElementsMessage v-else-if="isAIMessage(message)" from="assistant">
                     <AiElementsMessageContent>
                       <!-- 推理块 -->
                       <AiElementsReasoning v-if="getReasoningText(message)"
@@ -42,8 +42,7 @@
                       </AiElementsReasoning>
 
                       <!-- 工具调用 -->
-                      <AiElementsTool v-for="tc in getToolCallsForMessage(message, stream.messages.value)"
-                        :key="tc.call.id">
+                      <AiElementsTool v-for="tc in getToolCallsForMessage(message)" :key="tc.call.id">
                         <AiElementsToolHeader :type="`tool-${tc.call.name}`" :state="tc.state" />
                         <AiElementsToolContent>
                           <AiElementsToolInput :input="tc.call.args" />
@@ -88,32 +87,14 @@
                 <div ref="todoListRef" class="px-4 pb-3 max-h-[200px] overflow-y-auto">
 
                   <AiElementsQueue>
-                    <template v-if="orderedTodoGroups.length === 1">
-                      <AiElementsQueueSection>
-                        <AiElementsQueueItem v-for="todo in orderedTodoGroups[0]!.todos" :key="todo.id">
-                          <AiElementsQueueItemContent :completed="todo.status === 'completed'">
-                            <AiElementsQueueItemIndicator :completed="todo.status === 'completed'" />
-                            {{ todo.title }}
-                          </AiElementsQueueItemContent>
-                        </AiElementsQueueItem>
-                      </AiElementsQueueSection>
-                    </template>
-                    <template v-else>
-                      <AiElementsQueueSection v-for="group in orderedTodoGroups" :key="group.messageId">
-                        <AiElementsQueueSectionTrigger>
-                          <AiElementsQueueSectionLabel :label="group.label"
-                            :count="group.todos.filter(t => t.status === 'completed').length" />
-                        </AiElementsQueueSectionTrigger>
-                        <AiElementsQueueSectionContent>
-                          <AiElementsQueueItem v-for="todo in group.todos" :key="todo.id">
-                            <AiElementsQueueItemContent :completed="todo.status === 'completed'">
-                              <AiElementsQueueItemIndicator :completed="todo.status === 'completed'" />
-                              {{ todo.title }}
-                            </AiElementsQueueItemContent>
-                          </AiElementsQueueItem>
-                        </AiElementsQueueSectionContent>
-                      </AiElementsQueueSection>
-                    </template>
+                    <AiElementsQueueSection>
+                      <AiElementsQueueItem v-for="todo in allTodos" :key="todo.id">
+                        <AiElementsQueueItemContent :completed="todo.status === 'completed'">
+                          <AiElementsQueueItemIndicator :completed="todo.status === 'completed'" />
+                          {{ todo.title }}
+                        </AiElementsQueueItemContent>
+                      </AiElementsQueueItem>
+                    </AiElementsQueueSection>
                   </AiElementsQueue>
                 </div>
               </CollapsibleContent>
@@ -150,7 +131,7 @@
 import type { AnalysisResult, PromptSubmitData } from "#shared/types/case";
 import { ArrowLeftIcon, Loader2Icon, ChevronUpIcon } from "lucide-vue-next";
 import { useStream } from "@langchain/vue";
-import { AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
+import { isAIMessage, isHumanMessage, isToolMessage } from "@langchain/core/messages";
 
 definePageMeta({
   title: "案件分析",
@@ -164,26 +145,12 @@ const sessionId = computed(() => route.params.sessionId as string);
 interface QueueTodo {
   id: string
   title: string
-  description?: string
-  status?: 'pending' | 'in_progress' | 'completed'
-}
-
-interface TodoItem {
-  content: string
   status: 'pending' | 'in_progress' | 'completed'
 }
 
-interface TodoGroup {
-  messageId: string
-  label: string
-  todos: QueueTodo[]
-}
-
-const todoGroups: Map<string, TodoGroup> = reactive(new Map())
-
-const orderedTodoGroups = computed<TodoGroup[]>(() => Array.from(todoGroups.values()))
-
-const allTodos = computed<QueueTodo[]>(() => orderedTodoGroups.value.flatMap(g => g.todos))
+// 单一 todo 列表：write_todos 多次调用是对同一列表的状态更新
+// 使用 reactive 数组，原地 diff 更新避免整个列表重渲染
+const allTodos = reactive<QueueTodo[]>([])
 
 // 派生状态
 const isAnalyzing = ref(false)
@@ -207,104 +174,84 @@ const stream = useStream({
 // stream.messages / stream.isLoading 是 getter，不能解构，需通过 stream.xxx 访问
 const { submit } = stream
 
-// 防抖标记
-let updatePending = false
-
-// 监听 messages 变化，从 write_todos 工具调用中提取 todo 数据
-watch(() => stream.messages.value, (newMessages) => {
-  if (updatePending) return
-  updatePending = true
-
-  nextTick(() => {
-    // 收集所有 ToolMessage 结果，按 tool_call_id 索引
-    const toolResults = new Map<string, InstanceType<typeof ToolMessage>>()
-    for (const msg of newMessages) {
-      if (ToolMessage.isInstance(msg)) {
-        toolResults.set(msg.tool_call_id, msg)
+/** 从 write_todos 工具的参数或返回值中提取原始 todo 数据 */
+function extractTodoItems(args: any, resultContent: any): Array<{ title: string; status: string }> {
+  // 优先从工具返回值解析
+  if (resultContent != null) {
+    try {
+      const parsed = typeof resultContent === 'string' ? JSON.parse(resultContent) : resultContent
+      const items = parsed?.update?.todos ?? parsed?.todos
+      if (Array.isArray(items) && items.length > 0) {
+        return items.map((item: any) => ({
+          title: item.content ?? item.title ?? '',
+          status: item.status ?? 'pending',
+        }))
       }
+    } catch { /* 解析失败，降级到 args */ }
+  }
+
+  // 降级从工具调用参数解析
+  const argTodos = args?.todos
+  if (Array.isArray(argTodos) && argTodos.length > 0) {
+    return argTodos.map((item: any) => ({
+      title: item.content ?? item.title ?? '',
+      status: item.status ?? 'pending',
+    }))
+  }
+
+  return []
+}
+
+// 监听 messages 变化，提取最新的 write_todos 数据
+// 关键设计：只处理已完成的工具调用（有 ToolMessage 结果），跳过正在流式传输的不完整调用
+// 这样可以避免流式 args 逐 token 到达导致列表逐项重渲染
+watch(() => stream.messages.value, (messages) => {
+  // Pass 1: 收集所有 ToolMessage 结果（ToolMessage 在消息数组中位于 AIMessage 之后，必须先收集）
+  const toolResultMap = new Map<string, any>()
+  for (const msg of messages) {
+    if (isToolMessage(msg)) {
+      toolResultMap.set((msg as any).tool_call_id, msg)
     }
+  }
 
-    const seenIds = new Set<string>()
-    let groupIndex = 0
+  // Pass 2: 找到最新的已完成 write_todos 调用
+  let latestTodos: Array<{ title: string; status: string }> | null = null
 
-    for (const message of newMessages) {
-      if (!AIMessage.isInstance(message)) continue
-
-      const toolCalls = message.tool_calls ?? []
-      // 找到该消息中最后一个 write_todos 调用
-      const writeTodosCall = [...toolCalls].reverse().find((tc: any) => tc.name === 'write_todos')
-      if (!writeTodosCall) continue
-
-      const msgId = message.id ?? `msg-${groupIndex}`
-      seenIds.add(msgId)
-      groupIndex++
-
-      // 优先从 ToolMessage 结果获取 todos，其次从工具调用参数获取
-      const result = toolResults.get(writeTodosCall.id ?? '')
-      let items: TodoItem[] = []
-
-      if (result) {
-        try {
-          const parsed = typeof result.content === 'string' ? JSON.parse(result.content) : result.content
-          items = parsed?.update?.todos ?? parsed?.todos ?? []
-        } catch {
-          items = []
-        }
-      } else {
-        items = (writeTodosCall.args as any)?.todos ?? []
-      }
-
-      if (!items.length) continue
-
-      const existing = todoGroups.get(msgId)
-      if (existing) {
-        items.forEach((item, index) => {
-          if (index < existing.todos.length) {
-            const todo = existing.todos[index]
-            if (todo) {
-              todo.title = item.content
-              todo.status = item.status
-            }
-          } else {
-            existing.todos.push({
-              id: `${msgId}-${index}`,
-              title: item.content,
-              status: item.status,
-            })
-          }
-        })
-        if (existing.todos.length > items.length) {
-          existing.todos.splice(items.length)
-        }
-        existing.label = `第${groupIndex}轮分析`
-      } else {
-        todoGroups.set(msgId, {
-          messageId: msgId,
-          label: `第${groupIndex}轮分析`,
-          todos: items.map((item, index) => ({
-            id: `${msgId}-${index}`,
-            title: item.content,
-            status: item.status,
-          })),
-        })
-      }
+  for (const msg of messages) {
+    if (!isAIMessage(msg)) continue
+    const toolCalls: any[] = (msg as any).tool_calls ?? []
+    for (const tc of toolCalls) {
+      if (tc.name !== 'write_todos') continue
+      const result = toolResultMap.get(tc.id ?? '')
+      // 跳过尚未完成的工具调用（无 ToolMessage 结果）
+      // 这是防止流式重渲染的关键：不完整的 args 不会被处理
+      if (!result) continue
+      const parsed = extractTodoItems(tc.args, result.content)
+      if (parsed.length > 0) latestTodos = parsed
     }
+  }
 
-    // 清理已不存在的分组
-    for (const key of todoGroups.keys()) {
-      if (!seenIds.has(key)) {
-        todoGroups.delete(key)
-      }
+  if (!latestTodos) return
+
+  // 原地 diff：只修改变化的字段，避免替换数组引用触发全量重渲染
+  for (let i = 0; i < latestTodos.length; i++) {
+    const incoming = latestTodos[i]
+    if (i < allTodos.length) {
+      if (allTodos[i]?.title !== incoming?.title) allTodos[i]!.title = incoming!.title
+      if (allTodos[i]?.status !== incoming?.status) allTodos[i]!.status = incoming!.status as QueueTodo['status']
+    } else {
+      allTodos.push({ id: `todo-${i}`, title: incoming!.title, status: incoming!.status as QueueTodo['status'] })
     }
-
-    updatePending = false
-  })
+  }
+  if (allTodos.length > latestTodos.length) {
+    allTodos.splice(latestTodos.length)
+  }
 }, { deep: true })
 
 /** 提取 AIMessage 中的推理文本 */
-function getReasoningText(message: InstanceType<typeof AIMessage>): string {
+function getReasoningText(message: any): string {
   if (!('contentBlocks' in message)) return ''
-  return (message as any).contentBlocks
+  return message.contentBlocks
     .filter((b: any) => b.type === 'reasoning')
     .map((b: any) => b.reasoning)
     .join('')
@@ -315,28 +262,28 @@ type ToolState = 'input-available' | 'output-available' | 'output-error'
 
 interface ToolCallWithResult {
   call: { id: string; name: string; args: Record<string, unknown> }
-  result: InstanceType<typeof ToolMessage> | undefined
+  result: any
   state: ToolState
 }
 
-function getToolCallsForMessage(
-  message: InstanceType<typeof AIMessage>,
-  messages: readonly any[],
-): ToolCallWithResult[] {
+// 预计算 ToolMessage 索引，避免模板中每个 AI 消息都重复遍历
+const toolResultsMap = computed(() => {
+  const map = new Map<string, any>()
+  for (const msg of stream.messages.value) {
+    if (isToolMessage(msg)) {
+      map.set((msg as any).tool_call_id, msg)
+    }
+  }
+  return map
+})
+
+function getToolCallsForMessage(message: any): ToolCallWithResult[] {
   const toolCalls = message.tool_calls ?? []
   if (toolCalls.length === 0) return []
 
-  // 收集消息列表中所有 ToolMessage，按 tool_call_id 索引
-  const toolResults = new Map<string, InstanceType<typeof ToolMessage>>()
-  for (const msg of messages) {
-    if (ToolMessage.isInstance(msg)) {
-      toolResults.set(msg.tool_call_id, msg)
-    }
-  }
-
-  return toolCalls.map((tc) => {
-    const result = toolResults.get(tc.id ?? '')
-    const hasError = result && (result as any).status === 'error'
+  return toolCalls.map((tc: any) => {
+    const result = toolResultsMap.value.get(tc.id ?? '')
+    const hasError = result && result.status === 'error'
     return {
       call: { id: tc.id ?? '', name: tc.name, args: tc.args as Record<string, unknown> },
       result,
@@ -380,7 +327,7 @@ const goBack = () => {
 
 // 自动展开：仅首次出现 todos 时展开一次
 let hasAutoExpanded = false
-watch(() => allTodos.value.length, (newLen, oldLen) => {
+watch(() => allTodos.length, (newLen, oldLen) => {
   if (!hasAutoExpanded && oldLen === 0 && newLen > 0) {
     hasAutoExpanded = true
     showTaskList.value = true
@@ -425,7 +372,7 @@ function onProgressAfterLeave(el: Element) {
 }
 
 onUnmounted(() => {
-  todoGroups.clear()
+  allTodos.splice(0)
 });
 </script>
 
