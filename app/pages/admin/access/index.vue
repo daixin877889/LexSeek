@@ -1,122 +1,121 @@
 <template>
-        <div class="space-y-6">
-            <!-- 页面标题 -->
-            <div>
-                <h1 class="text-2xl md:text-3xl font-bold mb-1">节点权限配置</h1>
-                <p class="text-muted-foreground text-sm">配置不同会员级别可访问的分析节点</p>
-            </div>
+    <div class="space-y-6">
+        <!-- 页面标题 -->
+        <div>
+            <h1 class="text-2xl md:text-3xl font-bold mb-1">节点权限配置</h1>
+            <p class="text-muted-foreground text-sm">配置不同会员级别可访问的分析节点</p>
+        </div>
 
-            <!-- 加载状态 -->
-            <div v-if="loading" class="flex justify-center py-12">
-                <Loader2 class="h-10 w-10 animate-spin text-muted-foreground" />
-            </div>
+        <!-- 加载状态 -->
+        <div v-if="loading" class="flex justify-center py-12">
+            <Loader2 class="h-10 w-10 animate-spin text-muted-foreground" />
+        </div>
 
-            <!-- 空状态 -->
-            <div v-else-if="!matrix.levels.length || !matrix.nodes.length"
-                class="flex flex-col items-center justify-center py-12 text-center">
-                <Shield class="h-12 w-12 text-muted-foreground/50 mb-4" />
-                <h3 class="text-lg font-medium mb-1">暂无数据</h3>
-                <p class="text-muted-foreground text-sm">请先创建会员级别和分析节点</p>
-            </div>
+        <!-- 空状态 -->
+        <div v-else-if="!matrix.levels.length || !matrix.nodes.length"
+            class="flex flex-col items-center justify-center py-12 text-center">
+            <Shield class="h-12 w-12 text-muted-foreground/50 mb-4" />
+            <h3 class="text-lg font-medium mb-1">暂无数据</h3>
+            <p class="text-muted-foreground text-sm">请先创建会员级别和分析节点</p>
+        </div>
 
-            <!-- 权限配置 -->
-            <template v-else>
-                <!-- 会员级别选择 + 筛选 -->
-                <div class="flex flex-col md:flex-row gap-4">
-                    <Select v-model="selectedLevelId">
-                        <SelectTrigger class="w-full md:w-48">
-                            <SelectValue placeholder="选择会员级别" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem v-for="level in matrix.levels" :key="level.id" :value="String(level.id)">
-                                {{ level.name }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
+        <!-- 权限配置 -->
+        <template v-else>
+            <!-- 会员级别选择 + 筛选 -->
+            <div class="flex flex-col md:flex-row gap-4">
+                <Select v-model="selectedLevelId">
+                    <SelectTrigger class="w-full md:w-48">
+                        <SelectValue placeholder="选择会员级别" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem v-for="level in matrix.levels" :key="level.id" :value="String(level.id)">
+                            {{ level.name }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
 
-                    <Select v-model="typeFilter">
-                        <SelectTrigger class="w-full md:w-40">
-                            <SelectValue placeholder="节点类型" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">全部类型</SelectItem>
-                            <SelectItem value="analysis">分析模块</SelectItem>
-                            <SelectItem value="document">文书模块</SelectItem>
-                            <SelectItem value="extraction">数据提取</SelectItem>
-                        </SelectContent>
-                    </Select>
+                <Select v-model="typeFilter">
+                    <SelectTrigger class="w-full md:w-40">
+                        <SelectValue placeholder="节点类型" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">全部类型</SelectItem>
+                        <SelectItem v-for="(label, value) in NodeTypeLabels" :key="value" :value="value">
+                            {{ label }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
 
-                    <div class="flex-1">
-                        <Input v-model="keyword" placeholder="搜索节点名称/标题..." class="w-full md:w-64" />
-                    </div>
-
-                    <div class="flex gap-2">
-                        <Button variant="outline" size="sm" @click="handleSelectAll"
-                            :disabled="!selectedLevelId || batchUpdating">
-                            <CheckSquare class="h-4 w-4 mr-1" />
-                            全选
-                        </Button>
-                        <Button variant="outline" size="sm" @click="handleDeselectAll"
-                            :disabled="!selectedLevelId || batchUpdating">
-                            <Square class="h-4 w-4 mr-1" />
-                            全不选
-                        </Button>
-                    </div>
+                <div class="flex-1">
+                    <Input v-model="keyword" placeholder="搜索节点名称/标题..." class="w-full md:w-64" />
                 </div>
 
-                <!-- 统计信息 -->
-                <div v-if="selectedLevelId" class="flex items-center gap-4 text-sm text-muted-foreground">
-                    <span>已授权: {{ accessCount }} / {{ filteredNodes.length }} 个节点</span>
-                    <span class="text-xs">（点击复选框切换权限，修改自动保存）</span>
+                <div class="flex gap-2">
+                    <Button variant="outline" size="sm" @click="handleSelectAll"
+                        :disabled="!selectedLevelId || batchUpdating">
+                        <CheckSquare class="h-4 w-4 mr-1" />
+                        全选
+                    </Button>
+                    <Button variant="outline" size="sm" @click="handleDeselectAll"
+                        :disabled="!selectedLevelId || batchUpdating">
+                        <Square class="h-4 w-4 mr-1" />
+                        全不选
+                    </Button>
+                </div>
+            </div>
+
+            <!-- 统计信息 -->
+            <div v-if="selectedLevelId" class="flex items-center gap-4 text-sm text-muted-foreground">
+                <span>已授权: {{ accessCount }} / {{ filteredNodes.length }} 个节点</span>
+                <span class="text-xs">（点击复选框切换权限，修改自动保存）</span>
+            </div>
+
+            <!-- 节点列表 -->
+            <div v-if="selectedLevelId" class="bg-card rounded-lg border">
+                <div v-if="!filteredNodes.length" class="flex flex-col items-center justify-center py-12 text-center">
+                    <Search class="h-8 w-8 text-muted-foreground/50 mb-2" />
+                    <p class="text-muted-foreground text-sm">没有匹配的节点</p>
                 </div>
 
-                <!-- 节点列表 -->
-                <div v-if="selectedLevelId" class="bg-card rounded-lg border">
-                    <div v-if="!filteredNodes.length"
-                        class="flex flex-col items-center justify-center py-12 text-center">
-                        <Search class="h-8 w-8 text-muted-foreground/50 mb-2" />
-                        <p class="text-muted-foreground text-sm">没有匹配的节点</p>
-                    </div>
-
-                    <div v-else class="divide-y">
-                        <div v-for="node in filteredNodes" :key="node.nodeId"
-                            class="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
-                            <div class="flex items-center gap-3 flex-1 min-w-0">
-                                <Checkbox :checked="node.hasAccess"
-                                    :disabled="updating[`${selectedLevelId}-${node.nodeId}`]"
-                                    @update:checked="(checked: boolean) => handleToggleAccess(node.nodeId, checked)" />
-                                <div class="flex-1 min-w-0">
-                                    <div class="flex items-center gap-2">
-                                        <span class="font-medium truncate">{{ node.nodeTitle || node.nodeName }}</span>
-                                        <Badge :variant="getTypeVariant(node.nodeType)" class="text-xs shrink-0">
-                                            {{ getTypeLabel(node.nodeType) }}
-                                        </Badge>
-                                    </div>
-                                    <p class="text-xs text-muted-foreground font-mono truncate">{{ node.nodeName }}</p>
+                <div v-else class="divide-y">
+                    <div v-for="node in filteredNodes" :key="node.nodeId"
+                        class="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
+                        <div class="flex items-center gap-3 flex-1 min-w-0">
+                            <Checkbox :checked="node.hasAccess"
+                                :disabled="updating[`${selectedLevelId}-${node.nodeId}`]"
+                                @update:checked="(checked: boolean) => handleToggleAccess(node.nodeId, checked)" />
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-medium truncate">{{ node.nodeTitle || node.nodeName }}</span>
+                                    <Badge :variant="NodeTypeVariants[node.nodeType as keyof typeof NodeTypeVariants] || 'default'" class="text-xs shrink-0">
+                                        {{ NodeTypeLabels[node.nodeType as keyof typeof NodeTypeLabels] || node.nodeType }}
+                                    </Badge>
                                 </div>
+                                <p class="text-xs text-muted-foreground font-mono truncate">{{ node.nodeName }}</p>
                             </div>
-                            <div class="shrink-0 ml-4">
-                                <Badge v-if="node.hasAccess" variant="default" class="text-xs">已授权</Badge>
-                                <Badge v-else variant="outline" class="text-xs">未授权</Badge>
-                            </div>
+                        </div>
+                        <div class="shrink-0 ml-4">
+                            <Badge v-if="node.hasAccess" variant="default" class="text-xs">已授权</Badge>
+                            <Badge v-else variant="outline" class="text-xs">未授权</Badge>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- 未选择会员级别提示 -->
-                <div v-else
-                    class="flex flex-col items-center justify-center py-12 text-center bg-card rounded-lg border">
-                    <Users class="h-12 w-12 text-muted-foreground/50 mb-4" />
-                    <h3 class="text-lg font-medium mb-1">请选择会员级别</h3>
-                    <p class="text-muted-foreground text-sm">选择一个会员级别后，可配置其节点访问权限</p>
-                </div>
-            </template>
-        </div>
+            <!-- 未选择会员级别提示 -->
+            <div v-else class="flex flex-col items-center justify-center py-12 text-center bg-card rounded-lg border">
+                <Users class="h-12 w-12 text-muted-foreground/50 mb-4" />
+                <h3 class="text-lg font-medium mb-1">请选择会员级别</h3>
+                <p class="text-muted-foreground text-sm">选择一个会员级别后，可配置其节点访问权限</p>
+            </div>
+        </template>
+    </div>
 </template>
 
 <script setup lang="ts">
 import { Loader2, Shield, CheckSquare, Square, Search, Users } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { NodeTypeLabels, NodeTypeVariants } from '#shared/types/node'
 
 definePageMeta({ layout: 'admin-layout', title: '节点权限配置' })
 
@@ -184,26 +183,6 @@ const filteredNodes = computed(() => {
 const accessCount = computed(() => {
     return filteredNodes.value.filter((n) => n.hasAccess).length
 })
-
-// 节点类型标签
-const getTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-        analysis: '分析模块',
-        document: '文书模块',
-        extraction: '数据提取',
-    }
-    return labels[type] || type
-}
-
-// 节点类型样式
-const getTypeVariant = (type: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'outline'> = {
-        analysis: 'default',
-        document: 'secondary',
-        extraction: 'outline',
-    }
-    return variants[type] || 'default'
-}
 
 // 加载权限矩阵
 const loadMatrix = async () => {

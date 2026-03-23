@@ -33,7 +33,7 @@ model nodes {
     title       String?   @db.VarChar(100)
     /// 节点描述
     description String?   @db.VarChar(255)
-    /// 节点类型：analysis-分析模块，document-文书模块
+    /// 节点类型：analysis-分析模块，document-文书模块，extraction-数据提取，agent-主代理
     type        String    @db.VarChar(100)
     /// 排序优先级，数字越小越靠前
     priority    Int       @default(100)

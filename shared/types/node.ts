@@ -9,14 +9,26 @@ import type {
     levelNodeAccess,
 } from '~~/generated/prisma/client'
 
+/** 节点类型枚举值数组（真相源） */
+export const NODE_TYPES = ['analysis', 'document', 'extraction', 'agent'] as const
+
 /** 节点类型枚举 */
-export type NodeType = 'analysis' | 'document' | 'extraction'
+export type NodeType = (typeof NODE_TYPES)[number]
 
 /** 节点类型标签映射 */
 export const NodeTypeLabels: Record<NodeType, string> = {
     analysis: '分析模块',
     document: '文书模块',
     extraction: '数据提取',
+    agent: '主代理',
+}
+
+/** 节点类型徽章变体映射 */
+export const NodeTypeVariants: Record<NodeType, 'default' | 'secondary' | 'outline'> = {
+    analysis: 'default',
+    document: 'secondary',
+    extraction: 'outline',
+    agent: 'outline',
 }
 
 /** 节点状态枚举 */

@@ -6,13 +6,13 @@
  */
 
 import { z } from 'zod'
-import type { NodeType } from '#shared/types/node'
+import { NODE_TYPES } from '#shared/types/node'
 
 /** 查询参数验证 */
 const querySchema = z.object({
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
-    type: z.enum(['analysis', 'document', 'extraction']).optional(),
+    type: z.enum(NODE_TYPES).optional(),
     groupId: z.coerce.number().int().positive().optional(),
     status: z.coerce.number().int().min(0).max(1).optional(),
     keyword: z.string().optional(),
@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
         const data = await getNodesService({
             page,
             pageSize,
-            type: type as NodeType | undefined,
+            type,
             groupId,
             status,
             keyword,

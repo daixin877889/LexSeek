@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { NODE_TYPES } from '#shared/types/node'
 
 /** 请求体验证 */
 const bodySchema = z.object({
@@ -20,9 +21,8 @@ const bodySchema = z.object({
         .max(255, '节点描述不能超过255个字符')
         .optional()
         .nullable(),
-    type: z.enum(['analysis', 'document', 'extraction'], {
-        required_error: '节点类型不能为空',
-        invalid_type_error: '节点类型必须是 analysis、document 或 extraction',
+    type: z.enum(NODE_TYPES, {
+        errorMap: () => ({ message: `节点类型必须是 ${NODE_TYPES.join('、')}` }),
     }),
     priority: z.number()
         .int('优先级必须是整数')
