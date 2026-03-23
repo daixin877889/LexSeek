@@ -38,6 +38,45 @@ const debugInfo = computed(() => ({
     valuesMessagesCount: (values.value as any)?.messages?.length ?? 'no messages in values',
 }))
 
+// 原生 SSE 测试（绕过 useStream）
+const rawSseLog = ref('')
+async function testRawFetch() {
+    rawSseLog.value = '开始请求...\n'
+    try {
+        const res = await fetch('/api/v1/case/analysis/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                input: { messages: [{ type: 'human', content: '你好' }] },
+                config: { configurable: { thread_id: props.sessionId } },
+            }),
+        })
+        rawSseLog.value += `状态: ${res.status} ${res.statusText}\n`
+        rawSseLog.value += `Content-Type: ${res.headers.get('content-type')}\n`
+
+        if (!res.body) {
+            rawSseLog.value += '无 response body!\n'
+            return
+        }
+
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let eventCount = 0
+        while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            const text = decoder.decode(value, { stream: true })
+            eventCount++
+            if (eventCount <= 5) {
+                rawSseLog.value += `[${eventCount}] ${text.substring(0, 200)}\n`
+            }
+        }
+        rawSseLog.value += `完成，共 ${eventCount} 个 chunk\n`
+    } catch (e) {
+        rawSseLog.value += `错误: ${e}\n`
+    }
+}
+
 // 页面状态
 const isLoading = ref(false)
 const loadError = ref<string | null>(null)
@@ -120,6 +159,15 @@ const handleRegenerate = () => {}
                         <div class="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs font-mono">
                             <div class="font-bold text-yellow-800 mb-1">DEBUG useStream</div>
                             <pre>{{ JSON.stringify(debugInfo, null, 2) }}</pre>
+                            <div class="mt-2">
+                                <button class="bg-blue-500 text-white px-2 py-1 rounded text-xs" @click="testRawFetch">
+                                    手动测试 SSE 连接
+                                </button>
+                            </div>
+                            <div v-if="rawSseLog" class="mt-2 border-t pt-2 max-h-40 overflow-y-auto">
+                                <div class="font-bold">Raw SSE 日志:</div>
+                                <pre class="whitespace-pre-wrap">{{ rawSseLog }}</pre>
+                            </div>
                             <div v-if="messages?.length" class="mt-2 border-t pt-2">
                                 <div class="font-bold">First message raw:</div>
                                 <pre>{{ JSON.stringify(messages[0], null, 2).substring(0, 500) }}</pre>
