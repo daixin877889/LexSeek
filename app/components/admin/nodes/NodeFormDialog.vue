@@ -1,7 +1,9 @@
 <template>
     <!-- 节点创建/编辑对话框 -->
     <Dialog v-model:open="open">
-        <DialogContent class="max-w-lg max-h-[85vh] flex flex-col" @interactOutside="(e) => e.preventDefault()">
+        <DialogContent
+            class="top-0 left-0 right-0 bottom-0 max-w-none sm:max-w-none translate-x-0 translate-y-0 rounded-none p-4 md:top-[50%] md:left-[50%] md:right-auto md:bottom-auto md:translate-x-[-50%] md:translate-y-[-50%] md:max-w-4xl md:max-h-[85vh] md:rounded-lg md:p-6 flex flex-col overflow-hidden"
+            @interactOutside="(e) => e.preventDefault()">
             <DialogHeader class="shrink-0">
                 <DialogTitle>{{ isEdit ? '编辑节点' : '新增节点' }}</DialogTitle>
                 <DialogDescription>{{ isEdit ? '修改节点配置信息' : '创建新的工作流节点' }}</DialogDescription>
@@ -35,9 +37,9 @@
                                 <SelectValue placeholder="选择类型" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="analysis">分析模块</SelectItem>
-                                <SelectItem value="document">文书模块</SelectItem>
-                                <SelectItem value="extraction">数据提取</SelectItem>
+                                <SelectItem v-for="(label, value) in NodeTypeLabels" :key="value" :value="value">
+                                    {{ label }}
+                                </SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -99,7 +101,7 @@
                             </Badge>
                         </div>
                         <!-- 工具选择列表 -->
-                        <div class="border rounded-md max-h-48 overflow-y-auto">
+                        <div class="border rounded-md max-h-64 overflow-y-auto">
                             <div v-for="tool in availableTools" :key="tool.name"
                                 class="flex items-start gap-3 p-3 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
                                 @click="toggleTool(tool.name)">
@@ -145,6 +147,7 @@
 <script setup lang="ts">
 import { Check, Loader2, X } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { NodeTypeLabels } from '#shared/types/node'
 import type { NodeGroup, NodeWithRelations } from '#shared/types/node'
 import type { Model } from '#shared/types/model'
 
