@@ -2,8 +2,8 @@
 /**
  * 新版案件分析容器（v=2）
  *
- * 复用旧版布局（Header + 左右分栏 + PromptInput），
- * 数据源：useCaseChat（@langchain/vue useStream）
+ * LangChain BaseMessage → ai-elements parts 适配层
+ * 将 useStream 的 BaseMessage[] 转换为旧版 parts 结构渲染
  */
 import type { AnalysisResult, PromptSubmitData } from '#shared/types/case'
 import { ArrowLeftIcon, Loader2Icon } from 'lucide-vue-next'
@@ -27,7 +27,140 @@ const {
     sessionId: props.sessionId,
 })
 
-// 页面状态
+// ─── 适配层：BaseMessage → RenderMessage ───
+
+interface RenderPart {
+    type: 'reasoning' | 'text' | 'tool-call' | 'tool-result'
+    content?: string
+    isStreaming?: boolean
+    text?: string
+    toolName?: string
+    toolArgs?: Record<string, any>
+    toolCallId?: string
+    toolOutput?: any
+}
+
+interface RenderMessage {
+    id: string
+    role: 'user' | 'assistant'
+    parts: RenderPart[]
+}
+
+const TOOL_TITLES: Record<string, string> = {
+    process_materials: '材料处理',
+    extract_case_info: '信息提取',
+    search_case_materials: '材料检索',
+    search_law: '法律检索',
+    reserve_points: '积分预扣',
+    confirm_points: '积分确认',
+    rollback_points: '积分回滚',
+    write_todos: '待办事项',
+}
+
+function convertMessages(msgs: any[]): RenderMessage[] {
+    if (!msgs?.length) return []
+    const result: RenderMessage[] = []
+
+    for (const msg of msgs) {
+        const msgType = typeof msg.getType === 'function'
+            ? msg.getType()
+            : typeof msg._getType === 'function'
+                ? msg._getType()
+                : msg.type
+
+        // ToolMessage → 合并到上一个 assistant 消息
+        if (msgType === 'tool') {
+            const toolCallId = msg.tool_call_id
+            const lastAssistant = result.findLast(m => m.role === 'assistant')
+            if (lastAssistant && toolCallId) {
+                const callPart = lastAssistant.parts.find(
+                    p => p.type === 'tool-call' && p.toolCallId === toolCallId
+                )
+                const insertIdx = callPart
+                    ? lastAssistant.parts.indexOf(callPart) + 1
+                    : lastAssistant.parts.length
+                lastAssistant.parts.splice(insertIdx, 0, {
+                    type: 'tool-result',
+                    toolName: callPart?.toolName,
+                    toolCallId,
+                    toolOutput: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
+                })
+            }
+            continue
+        }
+
+        const role = msgType === 'human' ? 'user' as const : 'assistant' as const
+        const parts: RenderPart[] = []
+        const content = msg.content
+
+        if (typeof content === 'string') {
+            if (content.length > 0) {
+                parts.push({ type: 'text', text: content })
+            }
+        } else if (Array.isArray(content)) {
+            for (const block of content) {
+                if (block.type === 'text' && block.text) {
+                    parts.push({ type: 'text', text: block.text })
+                } else if (block.type === 'reasoning' || block.type === 'thinking') {
+                    parts.push({
+                        type: 'reasoning',
+                        content: block.reasoning || block.thinking || '',
+                        isStreaming: false,
+                    })
+                } else if (block.type === 'tool_use' || block.type === 'tool_call') {
+                    parts.push({
+                        type: 'tool-call',
+                        toolName: block.name,
+                        toolArgs: block.args || block.input,
+                        toolCallId: block.id,
+                    })
+                }
+            }
+        }
+
+        // 也处理 msg.tool_calls（AI 消息可能有独立的 tool_calls 数组）
+        if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
+            for (const tc of msg.tool_calls) {
+                if (!parts.some(p => p.toolCallId === tc.id)) {
+                    parts.push({
+                        type: 'tool-call',
+                        toolName: tc.name,
+                        toolArgs: tc.args,
+                        toolCallId: tc.id,
+                    })
+                }
+            }
+        }
+
+        if (parts.length > 0) {
+            result.push({
+                id: msg.id || String(result.length),
+                role,
+                parts,
+            })
+        }
+    }
+
+    return result
+}
+
+const renderMessages = computed(() => convertMessages(messages.value || []))
+
+function getToolTitle(name?: string): string {
+    return name ? (TOOL_TITLES[name] || name) : '工具调用'
+}
+
+function tryParseToolOutput(output: any): string {
+    if (typeof output !== 'string') return JSON.stringify(output, null, 2)
+    try {
+        return JSON.stringify(JSON.parse(output), null, 2)
+    } catch {
+        return output
+    }
+}
+
+// ─── 页面状态 ───
+
 const isAnalyzing = ref(false)
 const isComplete = ref(false)
 const thinkingEnabled = ref(props.thinking ?? true)
@@ -45,34 +178,6 @@ watch(streamError, (err) => {
         toast.error('分析失败：' + String(err))
     }
 })
-
-/** 提取消息文本内容 */
-function getMessageText(msg: any): string {
-    const content = msg?.content
-    if (typeof content === 'string') return content
-    if (Array.isArray(content)) {
-        return content
-            .filter((block: any) => block.type === 'text')
-            .map((block: any) => block.text ?? '')
-            .join('')
-    }
-    return ''
-}
-
-/** 获取消息角色 */
-function getMessageRole(msg: any): 'user' | 'assistant' {
-    const type = typeof msg?.getType === 'function'
-        ? msg.getType()
-        : typeof msg?._getType === 'function'
-            ? msg._getType()
-            : msg?.type
-    return type === 'human' ? 'user' : 'assistant'
-}
-
-/** 判断消息是否有文本内容 */
-function hasTextContent(msg: any): boolean {
-    return getMessageText(msg).length > 0
-}
 
 async function handlePromptSubmit(data: PromptSubmitData) {
     if (isAnalyzing.value || isComplete.value) return
@@ -104,36 +209,61 @@ const handleRegenerate = () => {}
                     <div class="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
                         <AiElementsConversation>
                             <AiElementsConversationContent>
-                                <template v-for="msg in messages" :key="msg.id">
-                                    <AiElementsMessage
-                                        v-if="hasTextContent(msg)"
-                                        :from="getMessageRole(msg)"
-                                    >
-                                        <!-- 思考过程 -->
-                                        <template v-if="Array.isArray(msg.content)">
-                                            <template v-for="(block, i) in msg.content" :key="i">
-                                                <AiElementsReasoning
-                                                    v-if="block.type === 'thinking'"
-                                                    :is-streaming="false"
-                                                >
-                                                    <AiElementsReasoningTrigger />
-                                                    <AiElementsReasoningContent :content="block.thinking || ''" />
-                                                </AiElementsReasoning>
-                                            </template>
-                                        </template>
+                                <template v-for="msg in renderMessages" :key="msg.id">
+                                    <template v-for="(part, i) in msg.parts" :key="msg.id + ':' + i">
+                                        <AiElementsMessage :from="msg.role">
 
-                                        <!-- 文本内容 -->
-                                        <AiElementsMessageContent>
-                                            <AiElementsMessageResponse :content="getMessageText(msg)" />
-                                        </AiElementsMessageContent>
-                                    </AiElementsMessage>
+                                            <!-- 思考过程 -->
+                                            <AiElementsReasoning
+                                                v-if="part.type === 'reasoning'"
+                                                :is-streaming="part.isStreaming ?? false"
+                                            >
+                                                <AiElementsReasoningTrigger />
+                                                <AiElementsReasoningContent :content="part.content || ''" />
+                                            </AiElementsReasoning>
+
+                                            <!-- 文本消息 -->
+                                            <AiElementsMessageContent v-else-if="part.type === 'text'">
+                                                <AiElementsMessageResponse :content="part.text || ''" />
+                                            </AiElementsMessageContent>
+
+                                            <!-- 工具调用 -->
+                                            <AiElementsTool v-else-if="part.type === 'tool-call'">
+                                                <AiElementsToolHeader
+                                                    state="call"
+                                                    :title="getToolTitle(part.toolName)"
+                                                    :type="`tool-${part.toolName}`"
+                                                />
+                                                <AiElementsToolContent v-if="part.toolArgs">
+                                                    <AiElementsToolInput>
+                                                        <pre class="text-xs whitespace-pre-wrap">{{ JSON.stringify(part.toolArgs, null, 2) }}</pre>
+                                                    </AiElementsToolInput>
+                                                </AiElementsToolContent>
+                                            </AiElementsTool>
+
+                                            <!-- 工具结果 -->
+                                            <AiElementsTool v-else-if="part.type === 'tool-result'">
+                                                <AiElementsToolHeader
+                                                    state="result"
+                                                    :title="getToolTitle(part.toolName)"
+                                                    :type="`tool-${part.toolName}`"
+                                                />
+                                                <AiElementsToolContent>
+                                                    <AiElementsToolOutput>
+                                                        <pre class="text-xs whitespace-pre-wrap max-h-60 overflow-y-auto">{{ tryParseToolOutput(part.toolOutput) }}</pre>
+                                                    </AiElementsToolOutput>
+                                                </AiElementsToolContent>
+                                            </AiElementsTool>
+
+                                        </AiElementsMessage>
+                                    </template>
                                 </template>
                             </AiElementsConversationContent>
                             <AiElementsConversationScrollButton />
                         </AiElementsConversation>
 
                         <!-- 空状态 -->
-                        <div v-if="!messages?.length && !isAnalyzing" class="flex items-center justify-center h-full text-muted-foreground text-sm">
+                        <div v-if="!renderMessages.length && !isAnalyzing" class="flex items-center justify-center h-full text-muted-foreground text-sm">
                             输入案情开始分析
                         </div>
                     </div>
