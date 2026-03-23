@@ -137,19 +137,19 @@ export async function createCaseAgent(sessionId: string, options: CaseAgentOptio
 /**
  * 执行案件分析对话
  *
- * 使用 agent.stream() 配合多 streamMode + version:'v2'。
- * 返回 [streamMode, data] 元组的异步迭代器，例如：
- *   ['values', { messages: [...] }]
- *   ['messages', [messageChunk, metadata]]
- *   ['updates', { nodeId: { messages: [...] } }]
+ * 使用 agent.stream() + encoding: "text/event-stream"，
+ * 返回的 ReadableStream 内容已是 LangGraph Platform API 兼容的 SSE 格式：
+ *   event: values\ndata: {...}\n\n
+ *   event: messages\ndata: [...]\n\n
+ *   event: messages|model_request:xxx\ndata: [...]\n\n
  *
- * 后端 API 端点将 streamMode 作为 SSE event 名称发送，
- * 使 @langchain/vue useStream 的 FetchStreamTransport 能正确解析。
+ * 由 @langchain/langgraph 内置的 toEventStream() 负责格式转换，
+ * 前端 @langchain/vue useStream + FetchStreamTransport 可直接消费。
  *
  * @param sessionId 会话 ID
  * @param message 用户消息
  * @param options Agent 选项
- * @returns 流式 [streamMode, data] 元组迭代器
+ * @returns ReadableStream（SSE 格式）
  */
 export async function runCaseChat(
     sessionId: string,
@@ -158,17 +158,16 @@ export async function runCaseChat(
 ) {
     const agent = await createCaseAgent(sessionId, options)
 
-    const streamConfig: any = {
-        configurable: {
-            thread_id: sessionId,
-        },
-        streamMode: ['values', 'messages', 'updates'],
-        version: 'v2',
-        subgraphs: true,
-    }
-
     return agent.stream(
         { messages: [new HumanMessage(message)] },
-        streamConfig,
+        {
+            configurable: {
+                thread_id: sessionId,
+            },
+            streamMode: ['values', 'messages', 'updates'],
+            version: 'v2' as const,
+            subgraphs: true,
+            encoding: 'text/event-stream',
+        },
     )
 }

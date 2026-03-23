@@ -4,7 +4,9 @@
  * POST /api/v1/case/analysis/chat
  *
  * 支持首次分析引导 + 后续自由对话
- * 返回 LangGraph 原生 SSE 流（不再使用 @ai-sdk/langchain 桥接）
+ * 使用 agent.stream() + encoding: "text/event-stream"，
+ * 返回 LangGraph 内置 toEventStream() 生成的标准 SSE 流，
+ * 前端 @langchain/vue useStream + FetchStreamTransport 直接消费
  */
 
 import { z } from 'zod'
@@ -64,71 +66,16 @@ export default defineEventHandler(async (event) => {
     // 6. 构建用户消息
     const userMessage = message || '请开始分析案件'
 
-    // 7. 获取 LangGraph 原生流
-    const agentStream = await runCaseChat(sessionId, userMessage, {
+    // 7. 获取 SSE 流（encoding: "text/event-stream" 使 LangGraph 内置
+    //    toEventStream() 将 [namespace, streamMode, data] 三元组转为标准 SSE）
+    const sseStream = await runCaseChat(sessionId, userMessage, {
         userId: user.id,
         caseId: caseInfo.id,
         thinking,
     })
 
-    // 8. 返回 LangGraph Platform API 兼容的 SSE 流
-    // agent.stream() + subgraphs:true + version:'v2' 返回 [namespace, streamMode, data] 三元组
-    // namespace: string[] — 根级为 []，子图为 ["model_request:xxx"]
-    // streamMode: string — "values" | "updates" | "messages"
-    // data: unknown — 实际数据
-    //
-    // useStream 的 manager 期望 SSE event 名格式:
-    //   根级: "values", "updates", "messages"
-    //   子图: "values|ns_part1|ns_part2", "messages|model_request:xxx"
-    setResponseHeaders(event, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'X-Accel-Buffering': 'no',
-    })
-
-    const encoder = new TextEncoder()
-    const readable = new ReadableStream({
-        async start(controller) {
-            try {
-                for await (const chunk of agentStream) {
-                    let eventName: string
-                    let eventData: unknown
-
-                    if (Array.isArray(chunk) && chunk.length === 3) {
-                        // [namespace, streamMode, data] 三元组
-                        const [namespace, streamMode, data] = chunk
-                        const nsParts = Array.isArray(namespace) ? namespace : []
-                        // 拼接事件名：streamMode 或 streamMode|ns_part1|ns_part2
-                        eventName = nsParts.length > 0
-                            ? `${streamMode}|${nsParts.join('|')}`
-                            : streamMode as string
-                        eventData = data
-                    } else if (Array.isArray(chunk) && chunk.length === 2) {
-                        // [streamMode, data] 二元组（无子图）
-                        eventName = chunk[0] as string
-                        eventData = chunk[1]
-                    } else {
-                        eventName = 'values'
-                        eventData = chunk
-                    }
-
-                    const sseEvent = `event: ${eventName}\ndata: ${JSON.stringify(eventData)}\n\n`
-                    controller.enqueue(encoder.encode(sseEvent))
-                }
-                controller.close()
-            } catch (error) {
-                logger.error('SSE 流错误:', error)
-                const errorEvent = `event: error\ndata: ${JSON.stringify({
-                    message: error instanceof Error ? error.message : '流处理错误'
-                })}\n\n`
-                controller.enqueue(encoder.encode(errorEvent))
-                controller.close()
-            }
-        },
-    })
-
-    return new Response(readable, {
+    // 8. 直接返回 ReadableStream，内容已是标准 SSE 格式
+    return new Response(sseStream, {
         headers: {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
