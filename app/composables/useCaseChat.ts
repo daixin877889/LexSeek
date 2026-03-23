@@ -3,9 +3,9 @@
  *
  * 使用 @langchain/vue useStream + FetchStreamTransport
  *
- * FetchStreamTransport 会自动发送标准格式：
- * - body: { input, config: { configurable: { thread_id } }, command }
- * - 后端 chat.post.ts 从这些标准字段中提取参数
+ * 重要：useStream 返回的 messages/values/interrupts 等是 getter（非 Ref），
+ * 不能解构赋值，必须保持对 stream 对象的引用。
+ * 用 computed() 包装 getter 使其成为响应式 Ref。
  */
 
 import { useStream, FetchStreamTransport } from '@langchain/vue'
@@ -36,19 +36,14 @@ export function useCaseChat(options: CaseChatOptions) {
         },
     })
 
-    // 调试：打印 useStream 返回值的所有 key
-    console.log('[useCaseChat] stream keys:', Object.keys(stream))
-    console.log('[useCaseChat] stream.messages type:', typeof stream.messages)
-    console.log('[useCaseChat] stream.messages value:', stream.messages)
-    console.log('[useCaseChat] stream.isLoading type:', typeof stream.isLoading)
-    console.log('[useCaseChat] stream:', stream)
-
+    // stream.messages / stream.values / stream.interrupt 是 getter（非 Ref），
+    // 必须用 computed 包装才能在 Vue 模板中响应式更新
     return {
-        messages: stream.messages,
-        values: stream.values,
-        isLoading: stream.isLoading,
-        error: stream.error,
-        interrupt: stream.interrupt,
+        messages: computed(() => stream.messages),
+        values: computed(() => stream.values),
+        isLoading: stream.isLoading,  // 这个是 shallowRef，可以直接用
+        error: stream.error,          // shallowRef
+        interrupt: computed(() => stream.interrupt),
 
         sendMessage: (message: string) => {
             stream.submit({
@@ -60,7 +55,8 @@ export function useCaseChat(options: CaseChatOptions) {
                 command: { resume: data },
             })
         },
-        stopGeneration: stream.stop,
-        getMessagesMetadata: stream.getMessagesMetadata,
+        stopGeneration: () => stream.stop(),
+        getMessagesMetadata: (message: any, index?: number) =>
+            stream.getMessagesMetadata(message, index),
     }
 }
