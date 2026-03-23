@@ -36,6 +36,13 @@ export function useCaseChat(options: CaseChatOptions) {
         },
     })
 
+    // 调试：打印 useStream 返回值的所有 key
+    console.log('[useCaseChat] stream keys:', Object.keys(stream))
+    console.log('[useCaseChat] stream.messages type:', typeof stream.messages)
+    console.log('[useCaseChat] stream.messages value:', stream.messages)
+    console.log('[useCaseChat] stream.isLoading type:', typeof stream.isLoading)
+    console.log('[useCaseChat] stream:', stream)
+
     return {
         messages: stream.messages,
         values: stream.values,
