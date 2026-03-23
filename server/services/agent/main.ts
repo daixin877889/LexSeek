@@ -77,17 +77,12 @@ export const mainAgent = async (sessionId: string, prompt: string, options: Main
         configurable: {
             thread_id: sessionId,
         },
-        streamMode: ['values', 'messages', 'custom'],
+        streamMode: ['values', 'messages'],
         version: 'v2',
-        subgraphs: true,
     }
 
-    const result = await agent.streamEvents(
-        {
-            messages: [new HumanMessage(prompt)],
-        },
+    return agent.stream(
+        { messages: [new HumanMessage(prompt)] },
         streamConfig,
     )
-
-    return result
 }

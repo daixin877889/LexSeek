@@ -1,87 +1,72 @@
 <template>
-  <!-- 新版对话式分析（通过 ?v=2 切换，仅客户端渲染以避免 SSR 与 useStream 冲突） -->
-  <ClientOnly v-if="useNewVersion">
-    <CaseAnalysisChatContainer
-      :session-id="sessionId"
-      :thinking="thinkingEnabled"
-    />
-  </ClientOnly>
 
   <!-- 旧版分析界面 -->
-  <div v-else class="h-full flex flex-col" style="height: calc(100vh - 48px)">
+  <div class="h-full flex flex-col" style="height: calc(100vh - 48px)">
     <!-- Header 区域 -->
     <div class="h-12 shrink-0 border-b bg-muted/30 text-base font-semibold flex items-center px-4 gap-2">
       <Button variant="ghost" size="icon" class="size-8" @click="goBack">
         <ArrowLeftIcon class="size-4" />
       </Button>
       <div class="flex-1 truncate">{{ "案件分析" }}</div>
-      <Badge v-if="caseInfo?.status" variant="secondary" class="text-xs">
-        {{ getStatusText(1) }}
-      </Badge>
-    </div>
-
-    <!-- 加载状态 -->
-    <div v-if="isLoading" class="flex-1 flex items-center justify-center">
-      <div class="flex flex-col items-center gap-3">
-        <Loader2Icon class="size-8 animate-spin text-primary" />
-        <span class="text-sm text-muted-foreground">加载案件信息...</span>
-      </div>
-    </div>
-
-    <!-- 错误状态 -->
-    <div v-else-if="loadError" class="flex-1 flex items-center justify-center">
-      <div class="flex flex-col items-center gap-3 text-center">
-        <AlertCircleIcon class="size-12 text-destructive" />
-        <p class="text-sm text-muted-foreground">{{ loadError }}</p>
-        <Button variant="outline" size="sm" @click="loadCaseInfo">
-          重新加载
-        </Button>
-      </div>
     </div>
 
     <!-- 主内容区域 -->
-    <ResizablePanelGroup v-else direction="horizontal" class="flex-1 min-h-0">
+    <ResizablePanelGroup direction="horizontal" class="flex-1 min-h-0">
       <!-- 左侧面板：对话区域 -->
       <ResizablePanel :default-size="50" :min-size="30" class="bg-muted/20">
         <div class="flex flex-col h-full overflow-hidden">
           <!-- 对话消息列表（占据剩余空间） -->
-          <div class="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+          <div class="flex-1 min-h-0">
+            <AiElementsConversation class="h-full">
+              <AiElementsConversationContent>
+                <!-- 空状态 -->
+                <AiElementsConversationEmptyState v-if="stream.messages.value.length === 0 && !stream.isLoading.value"
+                  title="开始案件分析" description="输入补充信息或点击发送开始 AI 分析" />
 
-            <AiElementsConversation>
-              <AiElementsConversationContent class="">
+                <template v-for="(message, msgIndex) in stream.messages.value" :key="message.id ?? msgIndex">
+                  <!-- 用户消息 -->
+                  <AiElementsMessage v-if="HumanMessage.isInstance(message)" from="user">
+                    <AiElementsMessageContent>
+                      {{ message.text }}
+                    </AiElementsMessageContent>
+                  </AiElementsMessage>
 
-                <template v-for="(message, msgIndex) in chat.messages" :key="message.id">
-                  <template v-for="(part, partIndex) in message.parts" :key="message.id + ':' + partIndex">
-                    <AiElementsMessage :from="message.role">
-
-                      <!-- 思考消息 -->
-                      <AiElementsReasoning v-if="part.type === 'reasoning'" :is-streaming="part.state === 'streaming'">
+                  <!-- AI 消息 -->
+                  <AiElementsMessage v-else-if="AIMessage.isInstance(message)" from="assistant">
+                    <AiElementsMessageContent>
+                      <!-- 推理块 -->
+                      <AiElementsReasoning v-if="getReasoningText(message)"
+                        :is-streaming="stream.isLoading.value && msgIndex === stream.messages.value.length - 1">
                         <AiElementsReasoningTrigger />
-                        <AiElementsReasoningContent :content="part.text" />
+                        <AiElementsReasoningContent :content="getReasoningText(message)" />
                       </AiElementsReasoning>
 
-                      <!-- 文本消息 - 使用 MessageResponse 来渲染 markdown -->
-                      <AiElementsMessageContent v-else-if="part.type === 'text'">
-                        <AiElementsMessageResponse :content="part.text" />
-                      </AiElementsMessageContent>
-
-                      <!-- 工具消息 -->
-                      <AiElementsTool v-else-if="part.type === 'dynamic-tool' && part.toolName === 'write_todos'">
-                        <AiElementsToolHeader :state="part.state" :title="'待办事项'" :type="`tool-${part.toolName}`" />
+                      <!-- 工具调用 -->
+                      <AiElementsTool v-for="tc in getToolCallsForMessage(message, stream.messages.value)"
+                        :key="tc.call.id">
+                        <AiElementsToolHeader :type="`tool-${tc.call.name}`" :state="tc.state" />
                         <AiElementsToolContent>
-                          <AiElementsToolOutput v-if="part.state === 'output-available'"
-                            :output="getTodosFromPart(part as WriteTodos)" />
+                          <AiElementsToolInput :input="tc.call.args" />
+                          <AiElementsToolOutput v-if="tc.result" :output="tc.result.content"
+                            :error-text="tc.state === 'output-error' ? String(tc.result.content) : undefined" />
                         </AiElementsToolContent>
                       </AiElementsTool>
 
-                    </AiElementsMessage>
-                  </template>
+                      <!-- 文本回复 -->
+                      <AiElementsMessageResponse v-if="message.text" :content="message.text" />
+                    </AiElementsMessageContent>
+                  </AiElementsMessage>
                 </template>
 
+                <!-- 加载中指示器 -->
+                <!-- <AiElementsMessage v-if="stream.isLoading.value" from="assistant">
+                  <AiElementsMessageContent>
+                    <AiElementsLoader />
+                  </AiElementsMessageContent>
+                </AiElementsMessage> -->
               </AiElementsConversationContent>
               <AiElementsConversationScrollButton />
             </AiElementsConversation>
-
 
           </div>
           <!-- 任务进度（可折叠，有 todo 时才显示） -->
@@ -137,18 +122,9 @@
 
           <!-- 底部输入区域（固定） -->
           <div class="shrink-0 border-t bg-background">
-            <CaseAnalysisPromptInput
-              ref="promptInputRef"
-              v-model:thinking="thinkingEnabled"
-              placeholder="输入补充信息或问题..."
-              submit-label="发送"
-              :loading="isAnalyzing"
-              :disabled="isComplete"
-              :enable-watcher="false"
-              :min-rows="1"
-              :max-rows="4"
-              @submit="handlePromptSubmit"
-            />
+            <CaseAnalysisPromptInput ref="promptInputRef" v-model:thinking="thinkingEnabled" placeholder="输入补充信息或问题..."
+              submit-label="发送" :loading="isAnalyzing" :disabled="isComplete" :enable-watcher="false" :min-rows="1"
+              :max-rows="4" @submit="handlePromptSubmit" />
 
             <!-- 状态提示 -->
             <div v-if="isAnalyzing" class="flex items-center justify-center pb-2">
@@ -172,11 +148,9 @@
 
 <script lang="ts" setup>
 import type { AnalysisResult, PromptSubmitData } from "#shared/types/case";
-import { ArrowLeftIcon, Loader2Icon, AlertCircleIcon, ChevronUpIcon } from "lucide-vue-next";
-import { toast } from "vue-sonner";
-import { Chat } from '@ai-sdk/vue'
-import type { UIMessage } from 'ai'
-import { DefaultChatTransport, generateId } from 'ai'
+import { ArrowLeftIcon, Loader2Icon, ChevronUpIcon } from "lucide-vue-next";
+import { useStream } from "@langchain/vue";
+import { AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 
 definePageMeta({
   title: "案件分析",
@@ -186,7 +160,6 @@ definePageMeta({
 const route = useRoute();
 const router = useRouter();
 const sessionId = computed(() => route.params.sessionId as string);
-const useNewVersion = computed(() => route.query.v === '2');
 
 interface QueueTodo {
   id: string
@@ -198,25 +171,6 @@ interface QueueTodo {
 interface TodoItem {
   content: string
   status: 'pending' | 'in_progress' | 'completed'
-}
-
-interface WriteTodos {
-  type: string
-  toolName: string
-  toolCallId: string
-  state: string
-  // 旧格式（input-streaming）
-  input?: { todos: TodoItem[] }
-  // 新格式（output-available）
-  output?: {
-    update: {
-      todos: TodoItem[]
-    }
-  }
-}
-
-const getTodosFromPart = (part: WriteTodos): TodoItem[] => {
-  return part.output?.update?.todos ?? part.input?.todos ?? []
 }
 
 interface TodoGroup {
@@ -236,62 +190,74 @@ const isAnalyzing = ref(false)
 const isComplete = ref(false)
 const thinkingEnabled = ref(route.query.thinking !== 'false')
 
-// 正确的用法：直接使用 chat 实例
-const chat = new Chat<UIMessage>({
-  id: sessionId.value,
-  generateId,
-  transport: new DefaultChatTransport({
-    api: '/api/v1/case/analysis/stream/' + sessionId.value,
-    body: { get thinking() { return thinkingEnabled.value } },
-  }),
-  onFinish: () => {
-    isAnalyzing.value = false
-  },
+const stream = useStream({
+  apiUrl: "http://localhost:2024/",
+  assistantId: "mainAgent",
+  // transport,
+  // threadId: sessionId.value,
+  // messagesKey: 'messages',
   onError: (error) => {
-    isAnalyzing.value = false
-    toast.error('分析失败：' + error.message)
-    console.error('[analysis] stream error', error)
-  }
-})
+    console.error('[useStream] 流错误:', error);
+  },
+  onFinish: (state, error) => {
+    console.log('[useStream] 流完成:', state, error);
+  },
+});
 
-// 从 chat 实例访问属性
-// const messages = chat.messages
-const sendMessage = (msg: { text: string }) => chat.sendMessage(msg)
+// stream.messages / stream.isLoading 是 getter，不能解构，需通过 stream.xxx 访问
+const { submit } = stream
 
 // 防抖标记
 let updatePending = false
 
-// 监听 messages 变化，按 messageId 分组收集所有 write_todos
-watch(() => chat.messages, (newMessages) => {
+// 监听 messages 变化，从 write_todos 工具调用中提取 todo 数据
+watch(() => stream.messages.value, (newMessages) => {
   if (updatePending) return
   updatePending = true
 
   nextTick(() => {
-    // 收集所有含 write_todos 的 message，按 messageId 分组
+    // 收集所有 ToolMessage 结果，按 tool_call_id 索引
+    const toolResults = new Map<string, InstanceType<typeof ToolMessage>>()
+    for (const msg of newMessages) {
+      if (ToolMessage.isInstance(msg)) {
+        toolResults.set(msg.tool_call_id, msg)
+      }
+    }
+
     const seenIds = new Set<string>()
     let groupIndex = 0
 
     for (const message of newMessages) {
-      const msgId = (message as any).id as string
-      // 找到该 message 中最后一个 write_todos part（同一消息中多次调用取最新）
-      let lastWriteTodos: WriteTodos | null = null
-      for (const part of (message as any).parts ?? []) {
-        if (part.type === 'dynamic-tool' && part.toolName === 'write_todos') {
-          lastWriteTodos = part as WriteTodos
-        }
-      }
+      if (!AIMessage.isInstance(message)) continue
 
-      if (!lastWriteTodos) continue
+      const toolCalls = message.tool_calls ?? []
+      // 找到该消息中最后一个 write_todos 调用
+      const writeTodosCall = [...toolCalls].reverse().find((tc: any) => tc.name === 'write_todos')
+      if (!writeTodosCall) continue
 
-      const items = getTodosFromPart(lastWriteTodos)
-      if (!items.length) continue
-
+      const msgId = message.id ?? `msg-${groupIndex}`
       seenIds.add(msgId)
       groupIndex++
 
+      // 优先从 ToolMessage 结果获取 todos，其次从工具调用参数获取
+      const result = toolResults.get(writeTodosCall.id ?? '')
+      let items: TodoItem[] = []
+
+      if (result) {
+        try {
+          const parsed = typeof result.content === 'string' ? JSON.parse(result.content) : result.content
+          items = parsed?.update?.todos ?? parsed?.todos ?? []
+        } catch {
+          items = []
+        }
+      } else {
+        items = (writeTodosCall.args as any)?.todos ?? []
+      }
+
+      if (!items.length) continue
+
       const existing = todoGroups.get(msgId)
       if (existing) {
-        // 原地更新已有分组
         items.forEach((item, index) => {
           if (index < existing.todos.length) {
             const todo = existing.todos[index]
@@ -307,13 +273,11 @@ watch(() => chat.messages, (newMessages) => {
             })
           }
         })
-        // 截断多余项
         if (existing.todos.length > items.length) {
           existing.todos.splice(items.length)
         }
         existing.label = `第${groupIndex}轮分析`
       } else {
-        // 新分组
         todoGroups.set(msgId, {
           messageId: msgId,
           label: `第${groupIndex}轮分析`,
@@ -337,23 +301,54 @@ watch(() => chat.messages, (newMessages) => {
   })
 }, { deep: true })
 
+/** 提取 AIMessage 中的推理文本 */
+function getReasoningText(message: InstanceType<typeof AIMessage>): string {
+  if (!('contentBlocks' in message)) return ''
+  return (message as any).contentBlocks
+    .filter((b: any) => b.type === 'reasoning')
+    .map((b: any) => b.reasoning)
+    .join('')
+}
+
+/** LangChain tool state → AI Elements ToolUIPart state */
+type ToolState = 'input-available' | 'output-available' | 'output-error'
+
+interface ToolCallWithResult {
+  call: { id: string; name: string; args: Record<string, unknown> }
+  result: InstanceType<typeof ToolMessage> | undefined
+  state: ToolState
+}
+
+function getToolCallsForMessage(
+  message: InstanceType<typeof AIMessage>,
+  messages: readonly any[],
+): ToolCallWithResult[] {
+  const toolCalls = message.tool_calls ?? []
+  if (toolCalls.length === 0) return []
+
+  // 收集消息列表中所有 ToolMessage，按 tool_call_id 索引
+  const toolResults = new Map<string, InstanceType<typeof ToolMessage>>()
+  for (const msg of messages) {
+    if (ToolMessage.isInstance(msg)) {
+      toolResults.set(msg.tool_call_id, msg)
+    }
+  }
+
+  return toolCalls.map((tc) => {
+    const result = toolResults.get(tc.id ?? '')
+    const hasError = result && (result as any).status === 'error'
+    return {
+      call: { id: tc.id ?? '', name: tc.name, args: tc.args as Record<string, unknown> },
+      result,
+      state: (hasError ? 'output-error' : result ? 'output-available' : 'input-available') as ToolState,
+    }
+  })
+}
+
 
 // 页面状态
-const isLoading = ref(false);
-const loadError = ref<string | null>(null);
-const showTaskList = ref(false);
-const todoListRef = ref<HTMLElement | null>(null);
-
-// 案件信息
-const caseInfo = ref<{
-  id: number;
-  title: string;
-  status: number;
-  caseTypeId: number;
-  caseTypeName?: string;
-} | null>(null);
-
-// 任务清单（未来扩展用）
+const showTaskList = ref(false)
+const todoListRef = ref<HTMLElement | null>(null)
 
 // 分析结果
 const analysisResults = ref<AnalysisResult[]>([]);
@@ -370,20 +365,15 @@ async function handlePromptSubmit(data: PromptSubmitData) {
 
   isAnalyzing.value = true
 
-  // 发送消息继续分析（materials 暂不传递，当前 stream API 不支持追加材料）
-  sendMessage({ text: data.text || '开始分析' })
+  // // 发送消息继续分析（materials 暂不传递，当前 stream API 不支持追加材料）
+  // sendMessage({ text: data.text || '开始分析' })
+  submit({ messages: [{ type: 'human', content: data.text || '开始分析' }] })
 
   // 重置输入组件
   promptInputRef.value?.reset()
 }
 
-function getStatusText(status: number): string {
-  const statusMap: Record<number, string> = { 1: "进行中", 2: "已完成", 3: "已关闭" };
-  return statusMap[status] || "未知";
-}
-
 const handleRegenerate = () => { }
-const loadCaseInfo = () => { }
 const goBack = () => {
   router.push({ name: "dashboard-analysis" });
 }
@@ -433,9 +423,6 @@ function onProgressAfterLeave(el: Element) {
   htmlEl.style.height = ''
   htmlEl.style.overflow = ''
 }
-
-onMounted(() => {
-});
 
 onUnmounted(() => {
   todoGroups.clear()
