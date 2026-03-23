@@ -44,6 +44,22 @@ watch(isStreaming, (val) => {
     isAnalyzing.value = val
 })
 
+// 调试：监控 messages 变化
+watch(messages, (msgs) => {
+    console.log('[ChatContainer] messages 更新:', {
+        count: msgs?.length ?? 0,
+        isRef: isRef(messages),
+        isComputed: isReadonly(messages),
+        raw: msgs?.slice(0, 2).map((m: any) => ({
+            type: typeof m,
+            hasGetType: typeof m?.getType === 'function',
+            has_getType: typeof m?._getType === 'function',
+            id: m?.id,
+            content: typeof m?.content === 'string' ? m.content.substring(0, 50) : typeof m?.content,
+        })),
+    })
+}, { deep: true, immediate: true })
+
 watch(streamError, (err) => {
     if (err) {
         isAnalyzing.value = false
