@@ -54,7 +54,7 @@
               <component :is="isUploadMode ? ArrowLeftIcon : UploadIcon"
                 :class="['size-4', isSearchExpanded ? '' : 'md:mr-1.5', 'lg:mr-1.5']" />
               <span :class="['hidden', isSearchExpanded ? 'lg:inline' : 'md:inline']">{{ isUploadMode ? "返回列表" : "上传文件"
-                }}</span>
+              }}</span>
             </Button>
           </div>
 
@@ -111,12 +111,9 @@
                 : 'hover:bg-accent/50 cursor-pointer'
             ]" @click="!isFileDisabled(file.id) && toggleFileSelection(file.id)">
               <!-- 复选框 -->
-              <Checkbox
-                :id="`file-${file.id}`"
-                :model-value="selectedFiles.includes(file.id)"
-                :disabled="isFileDisabled(file.id)"
-                class="cursor-pointer"
-                @update:model-value="handleCheckboxChange(file.id, $event)" />
+              <Checkbox :id="`file-${file.id}`" :model-value="selectedFiles.includes(file.id)"
+                :disabled="isFileDisabled(file.id)" class="cursor-pointer"
+                @update:model-value="handleCheckboxChange(file.id, $event as boolean)" />
 
               <!-- 文件图标 -->
               <div class="flex items-center justify-center size-10 rounded-md bg-muted">
@@ -126,8 +123,7 @@
               <!-- 文件信息 -->
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
-                  <label
-                    :for="`file-${file.id}`"
+                  <label :for="`file-${file.id}`"
                     :class="['text-sm font-medium truncate', isFileDisabled(file.id) ? 'cursor-not-allowed' : 'cursor-pointer']">
                     {{ file.fileName }}
                   </label>
@@ -170,7 +166,7 @@
       </div>
 
       <!-- 底部操作栏（上传模式下隐藏） -->
-      <DialogFooter v-if="!isUploadMode" class="flex-shrink-0 flex-row items-center justify-start gap-2 border-t pt-3">
+      <DialogFooter v-if="!isUploadMode" class="shrink-0 flex-row items-center justify-start gap-2 border-t pt-3">
         <!-- 桌面端全选按钮 -->
         <Button variant="outline" size="sm" @click="toggleSelectAll" :disabled="selectableFiles.length === 0"
           class="md:flex h-9">

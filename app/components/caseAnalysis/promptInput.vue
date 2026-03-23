@@ -1,6 +1,6 @@
 <template>
   <div class="flex size-full flex-col justify-end relative" ref="dropZoneRef">
-    <div class="px-4 relative">
+    <div class="px-0 relative">
       <!-- 全屏拖拽覆盖层 -->
       <Transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 scale-95"
         enter-to-class="opacity-100 scale-100" leave-active-class="transition duration-150 ease-in"
@@ -84,7 +84,8 @@
                 <!-- 进度条 -->
                 <div class="w-12 h-1 bg-muted-foreground/20 rounded-full overflow-hidden ml-1"
                   v-if="fileState.status === 'uploading'">
-                  <div class="h-full bg-primary transition-all duration-300" :style="{ width: fileState.progress + '%' }">
+                  <div class="h-full bg-primary transition-all duration-300"
+                    :style="{ width: fileState.progress + '%' }">
                   </div>
                 </div>
                 <span class="text-[10px] text-destructive ml-1" v-if="fileState.status === 'error'"
@@ -114,16 +115,14 @@
                 案情材料
                 <span v-if="selectedFiles.length > 0" class="ml-1 text-xs text-primary font-bold">({{
                   selectedFiles.length
-                }})</span>
+                  }})</span>
               </PromptInputButton>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger as-child>
-                    <PromptInputButton
-                      variant="ghost"
+                    <PromptInputButton variant="ghost"
                       :class="['transition-colors', thinking ? 'text-primary hover:bg-primary/5' : 'text-muted-foreground hover:bg-muted/50']"
-                      @click="thinking = !thinking"
-                    >
+                      @click="thinking = !thinking">
                       <BrainIcon :size="16" />
                       深度思考
                     </PromptInputButton>
@@ -263,10 +262,10 @@ const InternalStateSync = defineComponent({
 const isSubmitDisabled = computed(() => {
   const hasText = !!internalPromptText.value?.trim();
   const hasAttachments = selectedFiles.value.length > 0;
-  
+
   // 没有输入内容（文本或附件）时禁用
   if (!hasText && !hasAttachments) return true;
-  
+
   // 正在上传文件、正在识别文件或组件本身被禁用时禁用按钮
   return uploadingFiles.value.length > 0
     || isAllRecognizing.value
@@ -290,24 +289,24 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
       const currentScene = scenes?.[0] ?? null
 
       const validFilesToUpload: FileUploadState[] = []
-      
+
       for (const file of files) {
         const validation = validateFile(file, currentScene)
         if (!validation.valid) {
           toast.error(`文件 "${file.name}" ${validation.message}`)
           continue;
         }
-        
+
         // 查重
-        const isDuplicate = 
+        const isDuplicate =
           selectedFiles.value.some(f => f.fileName === file.name && f.fileSize === file.size) ||
           uploadingFiles.value.some(f => f.file.name === file.name && f.file.size === file.size)
-          
+
         if (isDuplicate) {
           toast.warning(`文件 "${file.name}" 已在列表中`)
           continue;
         }
-        
+
         const id = `upload_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
         validFilesToUpload.push({
           id,
@@ -322,7 +321,7 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
 
       // 将合法文件加入正在上传列表
       uploadingFiles.value.push(...validFilesToUpload)
-      
+
       // 批量获取签名
       const filesInfo = validFilesToUpload.map((state) => ({
         originalFileName: state.file.name,
@@ -348,10 +347,10 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
           state.error = '无签名'
           return null
         }
-        
+
         state.signature = signature
         state.status = 'uploading'
-        
+
         try {
           const data = await uploadToOSS(state.file, signature, (progress) => {
             state.progress = progress
@@ -359,11 +358,11 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
           state.status = 'success'
           state.progress = 100
           state.result = data
-          
+
           // 延迟移除成功的状态并将其转为已选文件
           setTimeout(() => {
             removeUploadingFile(state.id)
-            
+
             // 构建伪造的 OssFileItem 加入列表并触发识别
             const newFileObject: OssFileItem = {
               id: (data.fileId || data.id) as number,
@@ -377,10 +376,10 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
               encrypted: false,
               createdAt: new Date().toISOString()
             }
-            
+
             handleFilesSelected([newFileObject])
           }, 1000)
-          
+
           return { state, data }
         } catch (err) {
           state.status = 'error'
@@ -388,9 +387,9 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
           return null
         }
       })
-      
+
       await Promise.all(uploadPromises)
-      
+
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '上传配置获取失败')
     }

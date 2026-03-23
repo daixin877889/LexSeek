@@ -53,7 +53,7 @@
         <!-- 错误提示 - 超紧凑版 -->
         <div v-if="error" class="px-3 py-1.5 bg-destructive/10 border-b border-destructive/20">
             <div class="flex items-start gap-1.5">
-                <AlertCircle class="h-3.5 w-3.5 text-destructive flex-shrink-0 mt-0.5" />
+                <AlertCircle class="h-3.5 w-3.5 text-destructive shrink-0 mt-0.5" />
                 <p class="text-xs text-destructive">{{ error }}</p>
             </div>
         </div>

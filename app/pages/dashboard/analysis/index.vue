@@ -1,7 +1,8 @@
 <template>
   <div>
     <CaseAnalysisWelcome />
-    <CaseAnalysisPromptInput ref="promptInputRef" v-model:thinking="thinkingEnabled" :loading="isCreating" @submit="handleCreate" />
+    <CaseAnalysisPromptInput ref="promptInputRef" v-model:thinking="thinkingEnabled" :loading="isCreating"
+      @submit="handleCreate" class="p-4 pt-2" />
     <CaseAnalysisExample v-if="!hasPromptInput" />
     <CaseAnalysisModuleSelector v-else id="analysis-module-selector" />
   </div>

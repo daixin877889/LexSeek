@@ -156,24 +156,17 @@ function handleDelete(event) {
 </script>
 
 <template>
-  <TreeItem
-    ref="elRef"
-    :value="item.value"
-    :level="item.level"
-    class="outline-node group relative w-full border-none py-2 px-3 rounded-md cursor-pointer"
-    :class="{
+  <TreeItem ref="elRef" :value="item.value" :level="item.level"
+    class="outline-node group relative w-full border-none py-2 px-3 rounded-md cursor-pointer" :class="{
       'opacity-50': isDragging,
       'bg-accent text-accent-foreground font-medium': node.selected,
       'hover:bg-accent hover:text-accent-foreground': !node.selected,
       'text-muted-foreground': !node.selected,
-    }"
-    @click="handleClick"
-    @select.prevent
-  >
+    }" @click="handleClick" @select.prevent>
     <div class="flex items-center gap-2 w-full">
       <!-- Icon and name -->
       <div class="flex-1 flex items-center gap-2 overflow-hidden">
-        <Icon :name="node.icon" class="h-4 w-4 flex-shrink-0" />
+        <Icon :name="node.icon" class="h-4 w-4 shrink-0" />
         <span class="truncate">{{ node.name }}</span>
         <span v-if="node.content" class="text-xs text-muted-foreground truncate">
           {{ node.content }}
@@ -185,12 +178,7 @@ function handleDelete(event) {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger as-child>
-              <Button
-                size="icon"
-                variant="ghost"
-                class="h-6 w-6"
-                @click.stop="handleDuplicate"
-              >
+              <Button size="icon" variant="ghost" class="h-6 w-6" @click.stop="handleDuplicate">
                 <Icon name="mdi:content-copy" class="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
@@ -199,12 +187,8 @@ function handleDelete(event) {
 
           <Tooltip>
             <TooltipTrigger as-child>
-              <Button
-                size="icon"
-                variant="ghost"
-                class="h-6 w-6 text-destructive hover:text-destructive"
-                @click.stop="handleDelete"
-              >
+              <Button size="icon" variant="ghost" class="h-6 w-6 text-destructive hover:text-destructive"
+                @click.stop="handleDelete">
                 <Icon name="mdi:delete" class="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
@@ -215,15 +199,13 @@ function handleDelete(event) {
     </div>
 
     <!-- Drag indicator -->
-    <div
-      v-if="instruction" class="absolute h-full w-full top-0 border-primary" :style="{
-        left: `${instruction?.currentLevel * instruction?.indentPerLevel}px`,
-        width: `calc(100% - ${instruction?.currentLevel * instruction?.indentPerLevel}px)`,
-      }" :class="{
+    <div v-if="instruction" class="absolute h-full w-full top-0 border-primary" :style="{
+      left: `${instruction?.currentLevel * instruction?.indentPerLevel}px`,
+      width: `calc(100% - ${instruction?.currentLevel * instruction?.indentPerLevel}px)`,
+    }" :class="{
         '!border-b-2': instruction?.type === 'reorder-below',
         '!border-t-2': instruction?.type === 'reorder-above',
         '!border-2 rounded': instruction?.type === 'make-child',
-      }"
-    />
+      }" />
   </TreeItem>
 </template>
