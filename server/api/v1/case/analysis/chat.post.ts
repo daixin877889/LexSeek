@@ -85,7 +85,22 @@ export default defineEventHandler(async (event) => {
     const readable = new ReadableStream({
         async start(controller) {
             try {
+                let chunkIndex = 0
                 for await (const chunk of agentStream) {
+                    // 调试：打印前 5 个 chunk 的实际结构
+                    if (chunkIndex < 5) {
+                        logger.info('SSE chunk 结构', {
+                            index: chunkIndex,
+                            isArray: Array.isArray(chunk),
+                            type: typeof chunk,
+                            keys: chunk && typeof chunk === 'object' && !Array.isArray(chunk) ? Object.keys(chunk) : undefined,
+                            arrayLength: Array.isArray(chunk) ? chunk.length : undefined,
+                            firstElement: Array.isArray(chunk) ? typeof chunk[0] : undefined,
+                            firstElementValue: Array.isArray(chunk) ? (typeof chunk[0] === 'string' ? chunk[0] : typeof chunk[0]) : undefined,
+                            raw: JSON.stringify(chunk).substring(0, 300),
+                        })
+                    }
+                    chunkIndex++
                     // agent.stream() 配合 version:'v2' + 多 streamMode 返回 [mode, data] 元组
                     // 例如: ['values', { messages: [...] }] 或 ['messages', [msg, metadata]]
                     let eventName: string
