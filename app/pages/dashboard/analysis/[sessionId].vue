@@ -25,14 +25,14 @@
 
                 <template v-for="(message, msgIndex) in stream.messages.value" :key="message.id ?? msgIndex">
                   <!-- 用户消息 -->
-                  <AiElementsMessage v-if="isHumanMessage(message)" from="user">
+                  <AiElementsMessage v-if="HumanMessage.isInstance(message)" from="user">
                     <AiElementsMessageContent>
                       {{ message.text }}
                     </AiElementsMessageContent>
                   </AiElementsMessage>
 
                   <!-- AI 消息 -->
-                  <AiElementsMessage v-else-if="isAIMessage(message)" from="assistant">
+                  <AiElementsMessage v-else-if="AIMessage.isInstance(message)" from="assistant">
                     <AiElementsMessageContent>
                       <!-- 推理块 -->
                       <AiElementsReasoning v-if="getReasoningText(message)"
@@ -131,7 +131,7 @@
 import type { AnalysisResult, PromptSubmitData } from "#shared/types/case";
 import { ArrowLeftIcon, Loader2Icon, ChevronUpIcon } from "lucide-vue-next";
 import { useStream } from "@langchain/vue";
-import { isAIMessage, isHumanMessage, isToolMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 
 definePageMeta({
   title: "案件分析",
@@ -209,7 +209,7 @@ watch(() => stream.messages.value, (messages) => {
   // Pass 1: 收集所有 ToolMessage 结果（ToolMessage 在消息数组中位于 AIMessage 之后，必须先收集）
   const toolResultMap = new Map<string, any>()
   for (const msg of messages) {
-    if (isToolMessage(msg)) {
+    if (ToolMessage.isInstance(msg)) {
       toolResultMap.set((msg as any).tool_call_id, msg)
     }
   }
@@ -218,7 +218,7 @@ watch(() => stream.messages.value, (messages) => {
   let latestTodos: Array<{ title: string; status: string }> | null = null
 
   for (const msg of messages) {
-    if (!isAIMessage(msg)) continue
+    if (!AIMessage.isInstance(msg)) continue
     const toolCalls: any[] = (msg as any).tool_calls ?? []
     for (const tc of toolCalls) {
       if (tc.name !== 'write_todos') continue
@@ -270,7 +270,7 @@ interface ToolCallWithResult {
 const toolResultsMap = computed(() => {
   const map = new Map<string, any>()
   for (const msg of stream.messages.value) {
-    if (isToolMessage(msg)) {
+    if (ToolMessage.isInstance(msg)) {
       map.set((msg as any).tool_call_id, msg)
     }
   }
