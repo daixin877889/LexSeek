@@ -1,10 +1,11 @@
 <template>
-  <!-- 新版对话式分析（通过 ?v=2 切换） -->
-  <CaseAnalysisChatContainer
-    v-if="useNewVersion"
-    :session-id="sessionId"
-    :thinking="thinkingEnabled"
-  />
+  <!-- 新版对话式分析（通过 ?v=2 切换，仅客户端渲染以避免 SSR 与 useStream 冲突） -->
+  <ClientOnly v-if="useNewVersion">
+    <CaseAnalysisChatContainer
+      :session-id="sessionId"
+      :thinking="thinkingEnabled"
+    />
+  </ClientOnly>
 
   <!-- 旧版分析界面 -->
   <div v-else class="h-full flex flex-col" style="height: calc(100vh - 48px)">
