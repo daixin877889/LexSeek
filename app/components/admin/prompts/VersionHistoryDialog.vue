@@ -2,7 +2,7 @@
     <!-- 版本历史对话框 -->
     <Dialog v-model:open="dialogOpen">
         <DialogContent class="max-w-2xl max-h-[85vh] flex flex-col">
-            <DialogHeader class="flex-shrink-0">
+            <DialogHeader class="shrink-0">
                 <DialogTitle>版本历史</DialogTitle>
                 <DialogDescription>
                     查看提示词的所有历史版本，可激活任意版本
@@ -43,7 +43,7 @@
                                     更新时间：{{ formatDate(version.updatedAt) }}
                                 </div>
                             </div>
-                            <div class="flex gap-2 flex-shrink-0">
+                            <div class="flex gap-2 shrink-0">
                                 <Button variant="ghost" size="sm" @click="handleViewContent(version)">
                                     <Eye class="h-4 w-4 mr-1" />
                                     查看
@@ -58,7 +58,7 @@
                     </div>
                 </div>
             </div>
-            <DialogFooter class="flex-shrink-0">
+            <DialogFooter class="shrink-0">
                 <Button variant="outline" @click="dialogOpen = false">关闭</Button>
             </DialogFooter>
         </DialogContent>
@@ -67,7 +67,7 @@
     <!-- 内容查看对话框 -->
     <Dialog v-model:open="contentDialogOpen">
         <DialogContent class="max-w-2xl max-h-[85vh] flex flex-col">
-            <DialogHeader class="flex-shrink-0">
+            <DialogHeader class="shrink-0">
                 <DialogTitle>
                     {{ selectedVersion?.title || selectedVersion?.name }}
                     <span class="font-mono text-muted-foreground ml-2">{{ selectedVersion?.version }}</span>
@@ -89,7 +89,7 @@
                     </div>
                 </div>
             </div>
-            <DialogFooter class="flex-shrink-0">
+            <DialogFooter class="shrink-0">
                 <Button variant="outline" @click="contentDialogOpen = false">关闭</Button>
                 <Button v-if="selectedVersion?.status !== 1" @click="handleActivateFromContent">
                     <CheckCircle class="h-4 w-4 mr-2" />

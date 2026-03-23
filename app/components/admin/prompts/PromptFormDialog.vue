@@ -4,7 +4,7 @@
         <DialogContent
             class="!w-full !h-full !max-w-none !max-h-none md:!w-[80vw] md:!max-h-[90vh] flex flex-col !rounded-none md:!rounded-lg"
             @interactOutside="(e) => e.preventDefault()">
-            <DialogHeader class="flex-shrink-0">
+            <DialogHeader class="shrink-0">
                 <DialogTitle>{{ isEdit ? '编辑提示词' : '新增提示词' }}</DialogTitle>
                 <DialogDescription>
                     {{ isEdit ? '修改提示词内容将创建新版本，不会覆盖当前版本' : '创建新的提示词配置' }}
@@ -80,7 +80,7 @@
                     </div>
                 </div>
             </div>
-            <DialogFooter class="flex-shrink-0">
+            <DialogFooter class="shrink-0">
                 <Button variant="outline" @click="open = false">取消</Button>
                 <Button @click="handleSubmit" :disabled="submitting">
                     <Loader2 v-if="submitting" class="h-4 w-4 mr-2 animate-spin" />

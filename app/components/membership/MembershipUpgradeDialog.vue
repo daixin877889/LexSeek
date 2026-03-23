@@ -3,7 +3,7 @@
     <Dialog :open="open" @update:open="handleOpenChange">
         <DialogContent class="sm:max-w-[560px] max-h-[85vh] flex flex-col" @open-auto-focus.prevent>
             <!-- 固定头部 -->
-            <DialogHeader class="flex-shrink-0">
+            <DialogHeader class="shrink-0">
                 <DialogTitle>会员升级</DialogTitle>
                 <DialogDescription>
                     选择要升级到的会员级别
@@ -107,7 +107,7 @@
                 </div>
 
                 <!-- 固定底部（协议和按钮） -->
-                <div class="flex-shrink-0 border-t pt-4 mt-4 space-y-4">
+                <div class="shrink-0 border-t pt-4 mt-4 space-y-4">
                     <!-- 购买协议复选框 -->
                     <div class="flex items-start space-x-2">
                         <Checkbox id="upgrade-agreement" v-model="localAgreed" class="mt-1" />

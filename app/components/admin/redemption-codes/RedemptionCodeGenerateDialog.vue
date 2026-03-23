@@ -2,7 +2,7 @@
     <!-- 生成兑换码对话框 -->
     <Dialog :open="open" @update:open="$emit('update:open', $event)">
         <DialogContent class="max-w-md max-h-[85vh] flex flex-col">
-            <DialogHeader class="flex-shrink-0">
+            <DialogHeader class="shrink-0">
                 <DialogTitle>生成兑换码</DialogTitle>
                 <DialogDescription>批量生成兑换码，最多一次生成 1000 个</DialogDescription>
             </DialogHeader>
@@ -67,7 +67,7 @@
                     <Input v-model="form.remark" placeholder="可选备注，方便后续搜索" />
                 </div>
             </div>
-            <DialogFooter class="flex-shrink-0">
+            <DialogFooter class="shrink-0">
                 <Button variant="outline" @click="$emit('update:open', false)">取消</Button>
                 <Button @click="handleSubmit" :disabled="generating">
                     <Loader2 v-if="generating" class="h-4 w-4 mr-2 animate-spin" />

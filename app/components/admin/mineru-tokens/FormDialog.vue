@@ -2,7 +2,7 @@
     <!-- MinerU Token 创建/编辑对话框 -->
     <Dialog v-model:open="open">
         <DialogContent class="max-w-lg max-h-[85vh] flex flex-col" @interactOutside="(e) => e.preventDefault()">
-            <DialogHeader class="flex-shrink-0">
+            <DialogHeader class="shrink-0">
                 <DialogTitle>{{ isEdit ? '编辑 MinerU Token' : '新增 MinerU Token' }}</DialogTitle>
                 <DialogDescription>{{ isEdit ? '修改 Token 配置' : '创建新的 MinerU API Token' }}</DialogDescription>
             </DialogHeader>
@@ -51,7 +51,7 @@
                     <p class="text-xs text-muted-foreground">系统会使用最新创建的启用状态 Token</p>
                 </div>
             </div>
-            <DialogFooter class="flex-shrink-0">
+            <DialogFooter class="shrink-0">
                 <Button variant="outline" @click="open = false">取消</Button>
                 <Button @click="handleSubmit" :disabled="submitting">
                     <Loader2 v-if="submitting" class="h-4 w-4 mr-2 animate-spin" />

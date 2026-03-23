@@ -211,21 +211,21 @@
             <h3 class="text-lg font-semibold mb-3">💡 使用技巧</h3>
             <div class="space-y-2 text-sm">
               <div class="flex items-start gap-2 p-2">
-                <div class="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
+                <div class="w-2 h-2 bg-primary rounded-full mt-2 shrink-0"></div>
                 <div>
                   <div class="font-medium">精确定位</div>
                   <div class="text-muted-foreground">使用左右箭头键进行5秒精确跳转，快速定位关键内容</div>
                 </div>
               </div>
               <div class="flex items-start gap-2 p-2">
-                <div class="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
+                <div class="w-2 h-2 bg-primary rounded-full mt-2 shrink-0"></div>
                 <div>
                   <div class="font-medium">逐句分析</div>
                   <div class="text-muted-foreground">使用上下箭头键逐句浏览，便于详细分析对话内容</div>
                 </div>
               </div>
               <div class="flex items-start gap-2 p-2">
-                <div class="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
+                <div class="w-2 h-2 bg-primary rounded-full mt-2 shrink-0"></div>
                 <div>
                   <div class="font-medium">无干扰操作</div>
                   <div class="text-muted-foreground">在输入框中输入时，快捷键自动禁用，避免误操作</div>

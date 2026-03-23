@@ -2,7 +2,7 @@
     <!-- 购买积分弹框 -->
     <Dialog v-model:open="dialogOpen">
         <DialogContent class="sm:max-w-[600px] max-h-[85vh] flex flex-col">
-            <DialogHeader class="flex-shrink-0">
+            <DialogHeader class="shrink-0">
                 <DialogTitle>购买积分</DialogTitle>
                 <DialogDescription>选择合适的积分套餐，立即购买</DialogDescription>
             </DialogHeader>
@@ -28,7 +28,7 @@
                 </div>
             </div>
             <!-- 购买协议复选框 -->
-            <div class="flex-shrink-0 border-t pt-4">
+            <div class="shrink-0 border-t pt-4">
                 <div class="flex items-start space-x-2">
                     <Checkbox id="purchase-agreement" v-model="agreeToAgreement" class="mt-1" />
                     <label for="purchase-agreement" class="text-sm text-muted-foreground leading-5 cursor-pointer">

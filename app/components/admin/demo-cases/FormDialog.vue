@@ -2,7 +2,7 @@
     <!-- 示范案例创建/编辑对话框 -->
     <Dialog v-model:open="open">
         <DialogContent class="max-w-2xl max-h-[85vh] flex flex-col" @interactOutside="(e) => e.preventDefault()">
-            <DialogHeader class="flex-shrink-0">
+            <DialogHeader class="shrink-0">
                 <DialogTitle>{{ isEdit ? '编辑示范案例' : '新增示范案例' }}</DialogTitle>
                 <DialogDescription>{{ isEdit ? '修改示范案例配置' : '创建新的示范案例' }}</DialogDescription>
             </DialogHeader>
@@ -117,7 +117,7 @@
                     </div>
                 </div>
             </div>
-            <DialogFooter class="flex-shrink-0">
+            <DialogFooter class="shrink-0">
                 <Button variant="outline" @click="open = false">取消</Button>
                 <Button @click="handleSubmit" :disabled="submitting">
                     <Loader2 v-if="submitting" class="h-4 w-4 mr-2 animate-spin" />
