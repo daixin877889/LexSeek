@@ -24,7 +24,7 @@ const bodySchema = z.object({
         .optional()
         .nullable(),
     type: z.enum(NODE_TYPES, {
-        errorMap: () => ({ message: `节点类型必须是 ${NODE_TYPES.join('、')}` }),
+        error: `节点类型必须是 ${NODE_TYPES.map(type => `'${type}'`).join('、')}`,
     }).optional(),
     priority: z.number()
         .int('优先级必须是整数')

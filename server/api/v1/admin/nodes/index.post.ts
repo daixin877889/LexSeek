@@ -10,7 +10,7 @@ import { NODE_TYPES } from '#shared/types/node'
 
 /** 请求体验证 */
 const bodySchema = z.object({
-    name: z.string({ required_error: '节点名称不能为空' })
+    name: z.string({ error: '节点名称不能为空' })
         .min(1, '节点名称不能为空')
         .max(100, '节点名称不能超过100个字符'),
     title: z.string()
@@ -22,13 +22,13 @@ const bodySchema = z.object({
         .optional()
         .nullable(),
     type: z.enum(NODE_TYPES, {
-        errorMap: () => ({ message: `节点类型必须是 ${NODE_TYPES.join('、')}` }),
+        error: `节点类型必须是 ${NODE_TYPES.join('、')}`,
     }),
     priority: z.number()
         .int('优先级必须是整数')
         .min(1, '优先级最小为1')
         .default(100),
-    modelId: z.number({ required_error: '模型ID不能为空' })
+    modelId: z.number({ error: '模型ID不能为空' })
         .int('模型ID必须是整数')
         .positive('模型ID必须是正整数'),
     tools: z.array(z.string()).optional().default([]),
