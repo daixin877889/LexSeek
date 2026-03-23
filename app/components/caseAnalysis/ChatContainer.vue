@@ -3,10 +3,10 @@
  * 新版案件分析容器（v=2）
  *
  * 复用旧版布局（Header + 左右分栏 + PromptInput），
- * 数据源从 ai-sdk Chat 切换为 useCaseChat（@langchain/vue useStream）
+ * 数据源：useCaseChat（@langchain/vue useStream）
  */
 import type { AnalysisResult, PromptSubmitData } from '#shared/types/case'
-import { ArrowLeftIcon, Loader2Icon, AlertCircleIcon } from 'lucide-vue-next'
+import { ArrowLeftIcon, Loader2Icon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useCaseChat } from '~/composables/useCaseChat'
 
@@ -19,7 +19,6 @@ const router = useRouter()
 
 const {
     messages,
-    values,
     isLoading: isStreaming,
     error: streamError,
     sendMessage,
@@ -28,58 +27,7 @@ const {
     sessionId: props.sessionId,
 })
 
-// 调试信息
-const debugInfo = computed(() => ({
-    messagesCount: messages.value?.length ?? 'null',
-    messagesType: typeof messages.value,
-    isLoading: isStreaming.value,
-    error: streamError.value ? String(streamError.value) : null,
-    valuesKeys: values.value ? Object.keys(values.value) : null,
-    valuesMessagesCount: (values.value as any)?.messages?.length ?? 'no messages in values',
-}))
-
-// 原生 SSE 测试（绕过 useStream）
-const rawSseLog = ref('')
-async function testRawFetch() {
-    rawSseLog.value = '开始请求...\n'
-    try {
-        const res = await fetch('/api/v1/case/analysis/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                input: { messages: [{ type: 'human', content: '你好' }] },
-                config: { configurable: { thread_id: props.sessionId } },
-            }),
-        })
-        rawSseLog.value += `状态: ${res.status} ${res.statusText}\n`
-        rawSseLog.value += `Content-Type: ${res.headers.get('content-type')}\n`
-
-        if (!res.body) {
-            rawSseLog.value += '无 response body!\n'
-            return
-        }
-
-        const reader = res.body.getReader()
-        const decoder = new TextDecoder()
-        let eventCount = 0
-        while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            const text = decoder.decode(value, { stream: true })
-            eventCount++
-            if (eventCount <= 5) {
-                rawSseLog.value += `[${eventCount}] ${text.substring(0, 200)}\n`
-            }
-        }
-        rawSseLog.value += `完成，共 ${eventCount} 个 chunk\n`
-    } catch (e) {
-        rawSseLog.value += `错误: ${e}\n`
-    }
-}
-
 // 页面状态
-const isLoading = ref(false)
-const loadError = ref<string | null>(null)
 const isAnalyzing = ref(false)
 const isComplete = ref(false)
 const thinkingEnabled = ref(props.thinking ?? true)
@@ -98,14 +46,14 @@ watch(streamError, (err) => {
     }
 })
 
-/** 提取消息文本内容（兼容 string 和 content block 数组） */
+/** 提取消息文本内容 */
 function getMessageText(msg: any): string {
     const content = msg?.content
     if (typeof content === 'string') return content
     if (Array.isArray(content)) {
         return content
             .filter((block: any) => block.type === 'text')
-            .map((block: any) => block.text)
+            .map((block: any) => block.text ?? '')
             .join('')
     }
     return ''
@@ -113,13 +61,17 @@ function getMessageText(msg: any): string {
 
 /** 获取消息角色 */
 function getMessageRole(msg: any): 'user' | 'assistant' {
-    if (typeof msg?.getType === 'function') {
-        return msg.getType() === 'human' ? 'user' : 'assistant'
-    }
-    if (typeof msg?._getType === 'function') {
-        return msg._getType() === 'human' ? 'user' : 'assistant'
-    }
-    return 'assistant'
+    const type = typeof msg?.getType === 'function'
+        ? msg.getType()
+        : typeof msg?._getType === 'function'
+            ? msg._getType()
+            : msg?.type
+    return type === 'human' ? 'user' : 'assistant'
+}
+
+/** 判断消息是否有文本内容 */
+function hasTextContent(msg: any): boolean {
+    return getMessageText(msg).length > 0
 }
 
 async function handlePromptSubmit(data: PromptSubmitData) {
@@ -144,50 +96,46 @@ const handleRegenerate = () => {}
             <Badge variant="outline" class="text-xs">新版</Badge>
         </div>
 
-        <!-- 加载状态 -->
-        <div v-if="isLoading" class="flex-1 flex items-center justify-center">
-            <Loader2Icon class="size-8 animate-spin text-primary" />
-        </div>
-
         <!-- 主内容区域：左右分栏 -->
-        <ResizablePanelGroup v-else direction="horizontal" class="flex-1 min-h-0">
+        <ResizablePanelGroup direction="horizontal" class="flex-1 min-h-0">
             <!-- 左侧：对话 -->
             <ResizablePanel :default-size="50" :min-size="30" class="bg-muted/20">
                 <div class="flex flex-col h-full overflow-hidden">
                     <div class="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-                        <!-- 调试面板 -->
-                        <div class="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs font-mono">
-                            <div class="font-bold text-yellow-800 mb-1">DEBUG useStream</div>
-                            <pre>{{ JSON.stringify(debugInfo, null, 2) }}</pre>
-                            <div class="mt-2">
-                                <button class="bg-blue-500 text-white px-2 py-1 rounded text-xs" @click="testRawFetch">
-                                    手动测试 SSE 连接
-                                </button>
-                            </div>
-                            <div v-if="rawSseLog" class="mt-2 border-t pt-2 max-h-40 overflow-y-auto">
-                                <div class="font-bold">Raw SSE 日志:</div>
-                                <pre class="whitespace-pre-wrap">{{ rawSseLog }}</pre>
-                            </div>
-                            <div v-if="messages?.length" class="mt-2 border-t pt-2">
-                                <div class="font-bold">First message raw:</div>
-                                <pre>{{ JSON.stringify(messages[0], null, 2).substring(0, 500) }}</pre>
-                            </div>
-                        </div>
-
                         <AiElementsConversation>
                             <AiElementsConversationContent>
                                 <template v-for="msg in messages" :key="msg.id">
-                                    <AiElementsMessage :from="getMessageRole(msg)">
+                                    <AiElementsMessage
+                                        v-if="hasTextContent(msg)"
+                                        :from="getMessageRole(msg)"
+                                    >
+                                        <!-- 思考过程 -->
+                                        <template v-if="Array.isArray(msg.content)">
+                                            <template v-for="(block, i) in msg.content" :key="i">
+                                                <AiElementsReasoning
+                                                    v-if="block.type === 'thinking'"
+                                                    :is-streaming="false"
+                                                >
+                                                    <AiElementsReasoningTrigger />
+                                                    <AiElementsReasoningContent :content="block.thinking || ''" />
+                                                </AiElementsReasoning>
+                                            </template>
+                                        </template>
+
+                                        <!-- 文本内容 -->
                                         <AiElementsMessageContent>
-                                            <AiElementsMessageResponse
-                                                :content="getMessageText(msg)"
-                                            />
+                                            <AiElementsMessageResponse :content="getMessageText(msg)" />
                                         </AiElementsMessageContent>
                                     </AiElementsMessage>
                                 </template>
                             </AiElementsConversationContent>
                             <AiElementsConversationScrollButton />
                         </AiElementsConversation>
+
+                        <!-- 空状态 -->
+                        <div v-if="!messages?.length && !isAnalyzing" class="flex items-center justify-center h-full text-muted-foreground text-sm">
+                            输入案情开始分析
+                        </div>
                     </div>
 
                     <!-- 输入区域 -->
