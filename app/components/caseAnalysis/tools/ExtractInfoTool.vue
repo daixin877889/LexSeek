@@ -8,12 +8,12 @@ const props = defineProps<{
 </script>
 
 <template>
-    <AiElementsToolTool>
-        <AiElementsToolToolHeader name="信息提取" :state="state" />
-        <AiElementsToolToolContent v-if="output">
-            <AiElementsToolToolOutput>
+    <AiElementsTool>
+        <AiElementsToolHeader name="信息提取" :state="state" />
+        <AiElementsToolContent v-if="output">
+            <AiElementsToolOutput>
                 <pre class="text-xs whitespace-pre-wrap">{{ typeof output === 'string' ? output : JSON.stringify(output, null, 2) }}</pre>
-            </AiElementsToolToolOutput>
-        </AiElementsToolToolContent>
-    </AiElementsToolTool>
+            </AiElementsToolOutput>
+        </AiElementsToolContent>
+    </AiElementsTool>
 </template>

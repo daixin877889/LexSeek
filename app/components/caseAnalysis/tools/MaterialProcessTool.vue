@@ -29,10 +29,10 @@ const props = defineProps<{
 </script>
 
 <template>
-    <AiElementsToolTool>
-        <AiElementsToolToolHeader name="材料处理" :state="state" />
-        <AiElementsToolToolContent v-if="output">
-            <AiElementsToolToolOutput>
+    <AiElementsTool>
+        <AiElementsToolHeader name="材料处理" :state="state" />
+        <AiElementsToolContent v-if="output">
+            <AiElementsToolOutput>
                 <div class="space-y-2">
                     <Badge :variant="mode === 'full' ? 'default' : 'secondary'">
                         {{ mode === 'full' ? '全量模式' : mode === 'summary' ? '摘要模式' : mode }}
@@ -43,7 +43,7 @@ const props = defineProps<{
                         <span v-if="m.embedded" class="text-green-500 text-xs">已嵌入</span>
                     </div>
                 </div>
-            </AiElementsToolToolOutput>
-        </AiElementsToolToolContent>
-    </AiElementsToolTool>
+            </AiElementsToolOutput>
+        </AiElementsToolContent>
+    </AiElementsTool>
 </template>

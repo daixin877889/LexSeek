@@ -14,12 +14,12 @@ const props = defineProps<{
     <CaseAnalysisToolsLawSearchTool v-else-if="toolName === 'search_law'" v-bind="props" />
     <CaseAnalysisToolsExtractInfoTool v-else-if="toolName === 'extract_case_info'" v-bind="props" />
     <!-- 默认工具展示 -->
-    <AiElementsToolTool v-else>
-        <AiElementsToolToolHeader :name="toolName" :state="state" />
-        <AiElementsToolToolContent v-if="output">
-            <AiElementsToolToolOutput>
+    <AiElementsTool v-else>
+        <AiElementsToolHeader :name="toolName" :state="state" />
+        <AiElementsToolContent v-if="output">
+            <AiElementsToolOutput>
                 <pre class="text-xs whitespace-pre-wrap">{{ JSON.stringify(output, null, 2) }}</pre>
-            </AiElementsToolToolOutput>
-        </AiElementsToolToolContent>
-    </AiElementsToolTool>
+            </AiElementsToolOutput>
+        </AiElementsToolContent>
+    </AiElementsTool>
 </template>

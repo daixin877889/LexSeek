@@ -26,8 +26,8 @@ function handleConfirm() {
 </script>
 
 <template>
-    <AiElementsConfirmationConfirmation>
-        <AiElementsConfirmationConfirmationRequest>
+    <AiElementsConfirmation>
+        <AiElementsConfirmationRequest>
             <div class="space-y-3">
                 <h3 class="font-medium">案件基础信息确认</h3>
                 <div class="grid grid-cols-2 gap-3 text-sm">
@@ -53,10 +53,10 @@ function handleConfirm() {
                     </div>
                 </div>
             </div>
-        </AiElementsConfirmationConfirmationRequest>
-        <AiElementsConfirmationConfirmationActions>
+        </AiElementsConfirmationRequest>
+        <AiElementsConfirmationActions>
             <Button variant="outline" @click="emit('reject')">取消</Button>
             <Button @click="handleConfirm">确认信息</Button>
-        </AiElementsConfirmationConfirmationActions>
-    </AiElementsConfirmationConfirmation>
+        </AiElementsConfirmationActions>
+    </AiElementsConfirmation>
 </template>

@@ -37,8 +37,8 @@ const totalPoints = computed(() =>
 </script>
 
 <template>
-    <AiElementsConfirmationConfirmation>
-        <AiElementsConfirmationConfirmationRequest>
+    <AiElementsConfirmation>
+        <AiElementsConfirmationRequest>
             <div class="space-y-3">
                 <h3 class="font-medium">选择分析模块</h3>
                 <div class="space-y-2">
@@ -61,12 +61,12 @@ const totalPoints = computed(() =>
                     已选 {{ selectedModules.length }} 个模块，共需 {{ totalPoints }} 积分
                 </div>
             </div>
-        </AiElementsConfirmationConfirmationRequest>
-        <AiElementsConfirmationConfirmationActions>
+        </AiElementsConfirmationRequest>
+        <AiElementsConfirmationActions>
             <Button variant="outline" @click="emit('reject')">取消</Button>
             <Button :disabled="selectedModules.length === 0" @click="emit('confirm', selectedModules)">
                 开始分析
             </Button>
-        </AiElementsConfirmationConfirmationActions>
-    </AiElementsConfirmationConfirmation>
+        </AiElementsConfirmationActions>
+    </AiElementsConfirmation>
 </template>

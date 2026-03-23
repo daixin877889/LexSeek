@@ -6,12 +6,12 @@ defineProps<{
 </script>
 
 <template>
-    <AiElementsArtifactArtifact>
-        <AiElementsArtifactArtifactHeader>
+    <AiElementsArtifact>
+        <AiElementsArtifactHeader>
             {{ name }}
-        </AiElementsArtifactArtifactHeader>
-        <AiElementsArtifactArtifactContent>
+        </AiElementsArtifactHeader>
+        <AiElementsArtifactContent>
             <div class="prose prose-sm max-w-none" v-html="result" />
-        </AiElementsArtifactArtifactContent>
-    </AiElementsArtifactArtifact>
+        </AiElementsArtifactContent>
+    </AiElementsArtifact>
 </template>

@@ -22,10 +22,10 @@ const totalAmount = computed(() => {
 </script>
 
 <template>
-    <AiElementsToolTool>
-        <AiElementsToolToolHeader name="积分预扣" :state="state" />
-        <AiElementsToolToolContent v-if="output">
-            <AiElementsToolToolOutput>
+    <AiElementsTool>
+        <AiElementsToolHeader name="积分预扣" :state="state" />
+        <AiElementsToolContent v-if="output">
+            <AiElementsToolOutput>
                 <div class="space-y-2">
                     <div v-for="r in reservations" :key="r.batchId" class="flex items-center justify-between text-sm">
                         <span>{{ r.itemName || r.module }}</span>
@@ -37,7 +37,7 @@ const totalAmount = computed(() => {
                         <span>{{ totalAmount }} 积分</span>
                     </div>
                 </div>
-            </AiElementsToolToolOutput>
-        </AiElementsToolToolContent>
-    </AiElementsToolTool>
+            </AiElementsToolOutput>
+        </AiElementsToolContent>
+    </AiElementsTool>
 </template>

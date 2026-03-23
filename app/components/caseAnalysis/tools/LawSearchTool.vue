@@ -8,15 +8,15 @@ const props = defineProps<{
 </script>
 
 <template>
-    <AiElementsToolTool>
-        <AiElementsToolToolHeader name="法律检索" :state="state" />
-        <AiElementsToolToolInput v-if="input">
+    <AiElementsTool>
+        <AiElementsToolHeader name="法律检索" :state="state" />
+        <AiElementsToolInput v-if="input">
             <Badge variant="secondary">{{ input.query || input.keyword }}</Badge>
-        </AiElementsToolToolInput>
-        <AiElementsToolToolContent v-if="output">
-            <AiElementsToolToolOutput>
+        </AiElementsToolInput>
+        <AiElementsToolContent v-if="output">
+            <AiElementsToolOutput>
                 <pre class="text-xs whitespace-pre-wrap">{{ typeof output === 'string' ? output : JSON.stringify(output, null, 2) }}</pre>
-            </AiElementsToolToolOutput>
-        </AiElementsToolToolContent>
-    </AiElementsToolTool>
+            </AiElementsToolOutput>
+        </AiElementsToolContent>
+    </AiElementsTool>
 </template>
