@@ -72,8 +72,14 @@ export default defineEventHandler(async (event) => {
     })
 
     // 8. 返回 LangGraph Platform API 兼容的 SSE 流
-    // useStream (FetchStreamTransport → SSEDecoder) 期望事件名称为:
-    // values, updates, messages, custom, error, metadata 等
+    // agent.stream() + subgraphs:true + version:'v2' 返回 [namespace, streamMode, data] 三元组
+    // namespace: string[] — 根级为 []，子图为 ["model_request:xxx"]
+    // streamMode: string — "values" | "updates" | "messages"
+    // data: unknown — 实际数据
+    //
+    // useStream 的 manager 期望 SSE event 名格式:
+    //   根级: "values", "updates", "messages"
+    //   子图: "values|ns_part1|ns_part2", "messages|model_request:xxx"
     setResponseHeaders(event, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -85,32 +91,24 @@ export default defineEventHandler(async (event) => {
     const readable = new ReadableStream({
         async start(controller) {
             try {
-                let chunkIndex = 0
                 for await (const chunk of agentStream) {
-                    // 调试：打印前 5 个 chunk 的实际结构
-                    if (chunkIndex < 5) {
-                        logger.info('SSE chunk 结构', {
-                            index: chunkIndex,
-                            isArray: Array.isArray(chunk),
-                            type: typeof chunk,
-                            keys: chunk && typeof chunk === 'object' && !Array.isArray(chunk) ? Object.keys(chunk) : undefined,
-                            arrayLength: Array.isArray(chunk) ? chunk.length : undefined,
-                            firstElement: Array.isArray(chunk) ? typeof chunk[0] : undefined,
-                            firstElementValue: Array.isArray(chunk) ? (typeof chunk[0] === 'string' ? chunk[0] : typeof chunk[0]) : undefined,
-                            raw: JSON.stringify(chunk).substring(0, 300),
-                        })
-                    }
-                    chunkIndex++
-                    // agent.stream() 配合 version:'v2' + 多 streamMode 返回 [mode, data] 元组
-                    // 例如: ['values', { messages: [...] }] 或 ['messages', [msg, metadata]]
                     let eventName: string
                     let eventData: unknown
 
-                    if (Array.isArray(chunk) && chunk.length >= 2) {
+                    if (Array.isArray(chunk) && chunk.length === 3) {
+                        // [namespace, streamMode, data] 三元组
+                        const [namespace, streamMode, data] = chunk
+                        const nsParts = Array.isArray(namespace) ? namespace : []
+                        // 拼接事件名：streamMode 或 streamMode|ns_part1|ns_part2
+                        eventName = nsParts.length > 0
+                            ? `${streamMode}|${nsParts.join('|')}`
+                            : streamMode as string
+                        eventData = data
+                    } else if (Array.isArray(chunk) && chunk.length === 2) {
+                        // [streamMode, data] 二元组（无子图）
                         eventName = chunk[0] as string
                         eventData = chunk[1]
                     } else {
-                        // 单 streamMode 模式直接返回 data
                         eventName = 'values'
                         eventData = chunk
                     }
