@@ -19,6 +19,7 @@ const router = useRouter()
 
 const {
     messages,
+    values,
     isLoading: isStreaming,
     error: streamError,
     sendMessage,
@@ -26,6 +27,16 @@ const {
 } = useCaseChat({
     sessionId: props.sessionId,
 })
+
+// 调试信息
+const debugInfo = computed(() => ({
+    messagesCount: messages.value?.length ?? 'null',
+    messagesType: typeof messages.value,
+    isLoading: isStreaming.value,
+    error: streamError.value ? String(streamError.value) : null,
+    valuesKeys: values.value ? Object.keys(values.value) : null,
+    valuesMessagesCount: (values.value as any)?.messages?.length ?? 'no messages in values',
+}))
 
 // 页面状态
 const isLoading = ref(false)
@@ -105,6 +116,16 @@ const handleRegenerate = () => {}
             <ResizablePanel :default-size="50" :min-size="30" class="bg-muted/20">
                 <div class="flex flex-col h-full overflow-hidden">
                     <div class="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+                        <!-- 调试面板 -->
+                        <div class="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs font-mono">
+                            <div class="font-bold text-yellow-800 mb-1">DEBUG useStream</div>
+                            <pre>{{ JSON.stringify(debugInfo, null, 2) }}</pre>
+                            <div v-if="messages?.length" class="mt-2 border-t pt-2">
+                                <div class="font-bold">First message raw:</div>
+                                <pre>{{ JSON.stringify(messages[0], null, 2).substring(0, 500) }}</pre>
+                            </div>
+                        </div>
+
                         <AiElementsConversation>
                             <AiElementsConversationContent>
                                 <template v-for="msg in messages" :key="msg.id">
