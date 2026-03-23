@@ -71,7 +71,9 @@ export default defineEventHandler(async (event) => {
         thinking,
     })
 
-    // 8. 返回 LangGraph 原生 SSE 流
+    // 8. 返回 LangGraph Platform API 兼容的 SSE 流
+    // useStream (FetchStreamTransport → SSEDecoder) 期望事件名称为:
+    // values, updates, messages, custom, error, metadata 等
     setResponseHeaders(event, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -84,15 +86,28 @@ export default defineEventHandler(async (event) => {
         async start(controller) {
             try {
                 for await (const chunk of agentStream) {
-                    const sseEvent = `event: data\ndata: ${JSON.stringify(chunk)}\n\n`
+                    // agent.stream() 配合 version:'v2' + 多 streamMode 返回 [mode, data] 元组
+                    // 例如: ['values', { messages: [...] }] 或 ['messages', [msg, metadata]]
+                    let eventName: string
+                    let eventData: unknown
+
+                    if (Array.isArray(chunk) && chunk.length >= 2) {
+                        eventName = chunk[0] as string
+                        eventData = chunk[1]
+                    } else {
+                        // 单 streamMode 模式直接返回 data
+                        eventName = 'values'
+                        eventData = chunk
+                    }
+
+                    const sseEvent = `event: ${eventName}\ndata: ${JSON.stringify(eventData)}\n\n`
                     controller.enqueue(encoder.encode(sseEvent))
                 }
-                controller.enqueue(encoder.encode('event: end\ndata: {}\n\n'))
                 controller.close()
             } catch (error) {
                 logger.error('SSE 流错误:', error)
                 const errorEvent = `event: error\ndata: ${JSON.stringify({
-                    error: error instanceof Error ? error.message : '流处理错误'
+                    message: error instanceof Error ? error.message : '流处理错误'
                 })}\n\n`
                 controller.enqueue(encoder.encode(errorEvent))
                 controller.close()

@@ -137,10 +137,19 @@ export async function createCaseAgent(sessionId: string, options: CaseAgentOptio
 /**
  * 执行案件分析对话
  *
+ * 使用 agent.stream() 配合多 streamMode + version:'v2'。
+ * 返回 [streamMode, data] 元组的异步迭代器，例如：
+ *   ['values', { messages: [...] }]
+ *   ['messages', [messageChunk, metadata]]
+ *   ['updates', { nodeId: { messages: [...] } }]
+ *
+ * 后端 API 端点将 streamMode 作为 SSE event 名称发送，
+ * 使 @langchain/vue useStream 的 FetchStreamTransport 能正确解析。
+ *
  * @param sessionId 会话 ID
  * @param message 用户消息
  * @param options Agent 选项
- * @returns 流式事件迭代器
+ * @returns 流式 [streamMode, data] 元组迭代器
  */
 export async function runCaseChat(
     sessionId: string,
@@ -153,12 +162,12 @@ export async function runCaseChat(
         configurable: {
             thread_id: sessionId,
         },
-        streamMode: ['values', 'messages', 'custom'],
+        streamMode: ['values', 'messages', 'updates'],
         version: 'v2',
         subgraphs: true,
     }
 
-    return agent.streamEvents(
+    return agent.stream(
         { messages: [new HumanMessage(message)] },
         streamConfig,
     )
