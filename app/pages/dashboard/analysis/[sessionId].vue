@@ -88,9 +88,9 @@
 
                   <AiElementsQueue>
                     <AiElementsQueueSection>
-                      <AiElementsQueueItem v-for="todo in allTodos" :key="todo.id">
+                      <AiElementsQueueItem v-for="todo in sortedTodos" :key="todo.id">
                         <AiElementsQueueItemContent :completed="todo.status === 'completed'">
-                          <AiElementsQueueItemIndicator :completed="todo.status === 'completed'" />
+                          <AiElementsQueueItemIndicator :status="todo.status" />
                           {{ todo.title }}
                         </AiElementsQueueItemContent>
                       </AiElementsQueueItem>
@@ -151,6 +151,15 @@ interface QueueTodo {
 // 单一 todo 列表：write_todos 多次调用是对同一列表的状态更新
 // 使用 reactive 数组，原地 diff 更新避免整个列表重渲染
 const allTodos = reactive<QueueTodo[]>([])
+
+// 三段式排序：in_progress > pending > completed
+const statusOrder: Record<string, number> = { in_progress: 0, pending: 1, completed: 2 }
+
+const sortedTodos = computed(() =>
+  [...allTodos].sort((a, b) =>
+    (statusOrder[a.status] ?? 1) - (statusOrder[b.status] ?? 1)
+  )
+)
 
 // 派生状态
 const isComplete = ref(false)
@@ -375,6 +384,16 @@ watch(() => allTodos.length, (newLen, oldLen) => {
     showTaskList.value = true
   }
 })
+
+// 自动滚动：任务状态变化时滚动到底部
+watch(allTodos, () => {
+  nextTick(() => {
+    const el = todoListRef.value
+    if (el && el.scrollHeight > 0) {
+      el.scrollTop = el.scrollHeight
+    }
+  })
+}, { deep: true })
 
 // Transition JS hooks：平滑的滑入/滑出动画
 function onProgressEnter(el: Element) {
