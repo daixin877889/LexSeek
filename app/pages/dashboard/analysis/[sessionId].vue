@@ -387,12 +387,12 @@ watch(() => allTodos.length, (newLen, oldLen) => {
   }
 })
 
-// 状态变化时滚动到底部（只追踪 status 字段，避免 title 变化触发无意义滚动）
+// 状态变化时滚动到顶部（in_progress 排最前，方便用户跟踪当前任务）
 watch(() => allTodos.map(t => t.status).join(), () => {
   nextTick(() => {
     const el = todoListRef.value
-    if (el && el.scrollHeight > 0) {
-      el.scrollTop = el.scrollHeight
+    if (el) {
+      el.scrollTop = 0
     }
   })
 })
