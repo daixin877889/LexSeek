@@ -20,10 +20,11 @@
             <AiElementsConversation class="h-full">
               <AiElementsConversationContent>
                 <!-- 空状态 -->
-                <AiElementsConversationEmptyState v-if="stream.messages.value.length === 0 && !stream.isLoading.value"
-                  title="开始案件分析" description="输入补充信息或点击发送开始 AI 分析" />
+                <AiElementsConversationEmptyState
+                  v-if="stream.messages.length === 0 && !stream.isLoading" title="开始案件分析"
+                  description="输入补充信息或点击发送开始 AI 分析" />
 
-                <template v-for="(message, msgIndex) in stream.messages.value" :key="message.id ?? msgIndex">
+                <template v-for="(message, msgIndex) in stream.messages" :key="message.id ?? msgIndex">
                   <!-- 用户消息 -->
                   <AiElementsMessage v-if="HumanMessage.isInstance(message)" from="user">
                     <AiElementsMessageContent>
@@ -36,7 +37,7 @@
                     <AiElementsMessageContent>
                       <!-- 推理块 -->
                       <AiElementsReasoning v-if="getReasoningText(message)"
-                        :is-streaming="stream.isLoading.value && msgIndex === stream.messages.value.length - 1">
+                        :is-streaming="stream.isLoading && msgIndex === stream.messages.length - 1">
                         <AiElementsReasoningTrigger />
                         <AiElementsReasoningContent :content="getReasoningText(message)" />
                       </AiElementsReasoning>
@@ -58,7 +59,7 @@
                 </template>
 
                 <!-- 加载中指示器 -->
-                <!-- <AiElementsMessage v-if="stream.isLoading.value" from="assistant">
+                <!-- <AiElementsMessage v-if="isLoading" from="assistant">
                   <AiElementsMessageContent>
                     <AiElementsLoader />
                   </AiElementsMessageContent>
@@ -130,7 +131,7 @@
 <script lang="ts" setup>
 import type { AnalysisResult, PromptSubmitData } from "#shared/types/case";
 import { ArrowLeftIcon, Loader2Icon, ChevronUpIcon } from "lucide-vue-next";
-import { useStream } from "@langchain/vue";
+import { useStream, FetchStreamTransport } from "@langchain/vue";
 import { AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 
 definePageMeta({
@@ -157,22 +158,19 @@ const isAnalyzing = ref(false)
 const isComplete = ref(false)
 const thinkingEnabled = ref(route.query.thinking !== 'false')
 
-const stream = useStream({
-  apiUrl: "http://localhost:2024/",
-  assistantId: "mainAgent",
-  // transport,
-  // threadId: sessionId.value,
-  // messagesKey: 'messages',
+// reactive() 包装让 getter（如 messages）通过 Proxy 被 Vue 响应式追踪
+// 模板中直接用 stream.messages，Vue 自动追踪并在数据变化时重渲染
+const stream = reactive(useStream({
+  transport: new FetchStreamTransport({
+    apiUrl: '/api/v1/case/analysis/stream/' + sessionId.value,
+  }),
   onError: (error) => {
     console.error('[useStream] 流错误:', error);
   },
   onFinish: (state, error) => {
     console.log('[useStream] 流完成:', state, error);
   },
-});
-
-// stream.messages / stream.isLoading 是 getter，不能解构，需通过 stream.xxx 访问
-const { submit } = stream
+}));
 
 /** 从 write_todos 工具的参数或返回值中提取原始 todo 数据 */
 function extractTodoItems(args: any, resultContent: any): Array<{ title: string; status: string }> {
@@ -205,10 +203,11 @@ function extractTodoItems(args: any, resultContent: any): Array<{ title: string;
 // 监听 messages 变化，提取最新的 write_todos 数据
 // 关键设计：只处理已完成的工具调用（有 ToolMessage 结果），跳过正在流式传输的不完整调用
 // 这样可以避免流式 args 逐 token 到达导致列表逐项重渲染
-watch(() => stream.messages.value, (messages) => {
+watch(() => stream.messages, (msgs) => {
+  if (!msgs) return
   // Pass 1: 收集所有 ToolMessage 结果（ToolMessage 在消息数组中位于 AIMessage 之后，必须先收集）
   const toolResultMap = new Map<string, any>()
-  for (const msg of messages) {
+  for (const msg of msgs) {
     if (ToolMessage.isInstance(msg)) {
       toolResultMap.set((msg as any).tool_call_id, msg)
     }
@@ -217,7 +216,7 @@ watch(() => stream.messages.value, (messages) => {
   // Pass 2: 找到最新的已完成 write_todos 调用
   let latestTodos: Array<{ title: string; status: string }> | null = null
 
-  for (const msg of messages) {
+  for (const msg of msgs) {
     if (!AIMessage.isInstance(msg)) continue
     const toolCalls: any[] = (msg as any).tool_calls ?? []
     for (const tc of toolCalls) {
@@ -250,10 +249,19 @@ watch(() => stream.messages.value, (messages) => {
 
 /** 提取 AIMessage 中的推理文本 */
 function getReasoningText(message: any): string {
-  if (!('contentBlocks' in message)) return ''
-  return message.contentBlocks
-    .filter((b: any) => b.type === 'reasoning')
-    .map((b: any) => b.reasoning)
+  // 优先使用 contentBlocks（LGP transport 路径）
+  if ('contentBlocks' in message) {
+    return message.contentBlocks
+      .filter((b: any) => b.type === 'reasoning')
+      .map((b: any) => b.reasoning)
+      .join('')
+  }
+  // FetchStreamTransport 路径：直接从 content 数组提取 thinking 块
+  const content = message.content
+  if (!Array.isArray(content)) return ''
+  return content
+    .filter((b: any) => b.type === 'thinking')
+    .map((b: any) => b.thinking)
     .join('')
 }
 
@@ -269,7 +277,7 @@ interface ToolCallWithResult {
 // 预计算 ToolMessage 索引，避免模板中每个 AI 消息都重复遍历
 const toolResultsMap = computed(() => {
   const map = new Map<string, any>()
-  for (const msg of stream.messages.value) {
+  for (const msg of stream.messages) {
     if (ToolMessage.isInstance(msg)) {
       map.set((msg as any).tool_call_id, msg)
     }
@@ -314,7 +322,7 @@ async function handlePromptSubmit(data: PromptSubmitData) {
 
   // // 发送消息继续分析（materials 暂不传递，当前 stream API 不支持追加材料）
   // sendMessage({ text: data.text || '开始分析' })
-  submit({ messages: [{ type: 'human', content: data.text || '开始分析' }] })
+  stream.submit({ messages: [{ type: 'human', content: data.text || '开始分析' }] })
 
   // 重置输入组件
   promptInputRef.value?.reset()

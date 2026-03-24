@@ -78,7 +78,7 @@ export const mainAgent = async (sessionId: string, prompt: string, options: Main
             thread_id: sessionId,
         },
         streamMode: ['values', 'messages'],
-        version: 'v2',
+        encoding: 'text/event-stream',
     }
 
     return agent.stream(
