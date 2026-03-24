@@ -171,3 +171,42 @@ export async function runCaseChat(
         },
     )
 }
+
+/**
+ * Worker 使用的 Agent 执行入口，返回结构化事件流
+ *
+ * 与 runCaseChat 的区别：
+ * - 不使用 SSE 编码（encoding: 'text/event-stream'）
+ * - 返回 AsyncGenerator<{ event, data }> 结构化对象
+ * - 支持 AbortSignal 取消
+ *
+ * @param sessionId 会话 ID
+ * @param message 用户消息
+ * @param options Agent 选项（含可选 signal）
+ */
+export async function* runCaseChatStream(
+    sessionId: string,
+    message: string,
+    options: CaseAgentOptions & { signal?: AbortSignal },
+): AsyncGenerator<{ event: string; data: unknown }> {
+    const { signal, ...agentOptions } = options
+    const agent = await createCaseAgent(sessionId, agentOptions)
+
+    const stream = await agent.stream(
+        { messages: [new HumanMessage(message)] },
+        {
+            configurable: {
+                thread_id: sessionId,
+            },
+            streamMode: ['values', 'messages', 'updates'],
+            version: 'v2' as const,
+            subgraphs: true,
+            signal,
+        },
+    )
+
+    for await (const [eventType, data] of stream) {
+        if (signal?.aborted) break
+        yield { event: eventType as string, data }
+    }
+}
