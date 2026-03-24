@@ -142,10 +142,12 @@ const route = useRoute();
 const router = useRouter();
 const sessionId = computed(() => route.params.sessionId as string);
 
+type TodoStatus = 'pending' | 'in_progress' | 'completed'
+
 interface QueueTodo {
   id: string
   title: string
-  status: 'pending' | 'in_progress' | 'completed'
+  status: TodoStatus
 }
 
 // 单一 todo 列表：write_todos 多次调用是对同一列表的状态更新
@@ -153,7 +155,7 @@ interface QueueTodo {
 const allTodos = reactive<QueueTodo[]>([])
 
 // 三段式排序：in_progress > pending > completed
-const statusOrder: Record<string, number> = { in_progress: 0, pending: 1, completed: 2 }
+const statusOrder: Record<TodoStatus, number> = { in_progress: 0, pending: 1, completed: 2 }
 
 const sortedTodos = computed(() =>
   [...allTodos].sort((a, b) =>
@@ -376,7 +378,7 @@ const goBack = () => {
   router.push({ name: "dashboard-analysis" });
 }
 
-// 自动展开：仅首次出现 todos 时展开一次
+// 自动展开 + 自动滚动
 let hasAutoExpanded = false
 watch(() => allTodos.length, (newLen, oldLen) => {
   if (!hasAutoExpanded && oldLen === 0 && newLen > 0) {
@@ -385,15 +387,15 @@ watch(() => allTodos.length, (newLen, oldLen) => {
   }
 })
 
-// 自动滚动：任务状态变化时滚动到底部
-watch(allTodos, () => {
+// 状态变化时滚动到底部（只追踪 status 字段，避免 title 变化触发无意义滚动）
+watch(() => allTodos.map(t => t.status).join(), () => {
   nextTick(() => {
     const el = todoListRef.value
     if (el && el.scrollHeight > 0) {
       el.scrollTop = el.scrollHeight
     }
   })
-}, { deep: true })
+})
 
 // Transition JS hooks：平滑的滑入/滑出动画
 function onProgressEnter(el: Element) {
