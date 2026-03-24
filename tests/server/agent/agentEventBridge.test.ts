@@ -186,10 +186,14 @@ describe('AgentEventBridge', () => {
       const controller = new AbortController()
       const gen = bridge.createEventSubscription('run-123', controller.signal)
 
-      // 立即 abort
+      // 启动 generator（让它进入 await 循环）
+      const resultPromise = gen.next()
+
+      // 等待 subscribe 完成后再 abort
+      await new Promise(r => setTimeout(r, 10))
       controller.abort()
 
-      const result = await gen.next()
+      const result = await resultPromise
       expect(result.done).toBe(true)
     })
   })
