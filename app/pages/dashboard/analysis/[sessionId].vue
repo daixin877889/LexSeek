@@ -17,56 +17,51 @@
         <div class="flex flex-col h-full overflow-hidden">
           <!-- 对话消息列表（占据剩余空间） -->
           <div class="flex-1 min-h-0">
-            <AiElementsConversation class="h-full">
-              <AiElementsConversationContent>
-                <!-- 空状态 -->
-                <AiElementsConversationEmptyState v-if="displayMessages.length === 0 && !stream.isLoading"
-                  title="开始案件分析" description="输入补充信息或点击发送开始 AI 分析" />
+            <ClientOnly>
+              <AiElementsConversation class="h-full">
+                <AiElementsConversationContent>
+                  <AiElementsConversationEmptyState v-if="displayMessages.length === 0 && !stream.isLoading"
+                    title="开始案件分析" description="输入补充信息或点击发送开始 AI 分析" />
 
-                <template v-for="(message, msgIndex) in displayMessages" :key="message.id ?? msgIndex">
-                  <!-- 用户消息 -->
-                  <AiElementsMessage v-if="HumanMessage.isInstance(message)" from="user" class="max-w-full">
-                    <AiElementsMessageContent>
-                      {{ message.text }}
-                    </AiElementsMessageContent>
-                  </AiElementsMessage>
+                  <template v-for="(message, msgIndex) in displayMessages" :key="message.id ?? msgIndex">
+                    <AiElementsMessage v-if="HumanMessage.isInstance(message)" from="user" class="max-w-full">
+                      <AiElementsMessageContent>
+                        {{ message.text }}
+                      </AiElementsMessageContent>
+                    </AiElementsMessage>
 
-                  <!-- AI 消息 -->
-                  <AiElementsMessage v-else-if="AIMessage.isInstance(message)" from="assistant" class="max-w-full">
-                    <AiElementsMessageContent>
-                      <!-- 推理块 -->
-                      <AiElementsReasoning v-if="getReasoningText(message)"
-                        :is-streaming="stream.isLoading && msgIndex === displayMessages.length - 1">
-                        <AiElementsReasoningTrigger />
-                        <AiElementsReasoningContent :content="getReasoningText(message)" />
-                      </AiElementsReasoning>
+                    <AiElementsMessage v-else-if="AIMessage.isInstance(message)" from="assistant" class="max-w-full">
+                      <AiElementsMessageContent>
+                        <AiElementsReasoning v-if="getReasoningText(message)"
+                          :is-streaming="stream.isLoading && msgIndex === displayMessages.length - 1">
+                          <AiElementsReasoningTrigger />
+                          <AiElementsReasoningContent :content="getReasoningText(message)" />
+                        </AiElementsReasoning>
 
-                      <!-- 工具调用 -->
-                      <AiElementsTool v-for="tc in getToolCallsForMessage(message)" :key="tc.call.id">
-                        <AiElementsToolHeader :type="`tool-${tc.call.name}`" :state="tc.state" />
-                        <AiElementsToolContent>
-                          <AiElementsToolInput :input="tc.call.args" />
-                          <AiElementsToolOutput v-if="tc.result" :output="tc.result.content"
-                            :error-text="tc.state === 'output-error' ? String(tc.result.content) : undefined" />
-                        </AiElementsToolContent>
-                      </AiElementsTool>
+                        <AiElementsTool v-for="tc in getToolCallsForMessage(message)" :key="tc.call.id">
+                          <AiElementsToolHeader :type="`tool-${tc.call.name}`" :state="tc.state" />
+                          <AiElementsToolContent>
+                            <AiElementsToolInput :input="tc.call.args" />
+                            <AiElementsToolOutput v-if="tc.result" :output="tc.result.content"
+                              :error-text="tc.state === 'output-error' ? String(tc.result.content) : undefined" />
+                          </AiElementsToolContent>
+                        </AiElementsTool>
 
-                      <!-- 文本回复 -->
-                      <AiElementsMessageResponse v-if="message.text" :content="message.text" />
-                    </AiElementsMessageContent>
-                  </AiElementsMessage>
-                </template>
+                        <AiElementsMessageResponse v-if="message.text" :content="message.text" />
+                      </AiElementsMessageContent>
+                    </AiElementsMessage>
+                  </template>
 
-                <!-- 加载中指示器 -->
-                <!-- <AiElementsMessage v-if="isLoading" from="assistant">
-                  <AiElementsMessageContent>
-                    <AiElementsLoader />
-                  </AiElementsMessageContent>
-                </AiElementsMessage> -->
-              </AiElementsConversationContent>
-              <AiElementsConversationScrollButton />
-            </AiElementsConversation>
+                </AiElementsConversationContent>
+                <AiElementsConversationScrollButton />
+              </AiElementsConversation>
 
+              <template #fallback>
+                <div class="flex size-full items-center justify-center">
+                  <Loader2Icon class="size-6 animate-spin text-muted-foreground" />
+                </div>
+              </template>
+            </ClientOnly>
           </div>
           <!-- 任务进度（可折叠，有 todo 时才显示） -->
           <Transition @enter="onProgressEnter" @after-enter="onProgressAfterEnter" @leave="onProgressLeave"
@@ -187,20 +182,6 @@ const stream = reactive(useStream({
     console.error('[useStream] 流错误:', error)
   },
 }))
-
-// 查询是否有活跃 run，若有则自动重连
-const runStatus = await useApiFetch<{
-  isRunning: boolean
-  runId?: string
-}>(`/api/v1/case/analysis/run-status/${sessionId.value}`, { showError: false })
-
-if (runStatus?.isRunning && runStatus.runId && !stream.isLoading) {
-  try {
-    await stream.joinStream(runStatus.runId)
-  } catch (error) {
-    console.error('[rejoin] 重连流失败:', error)
-  }
-}
 
 // 历史消息 fallback：将 API 返回的字典格式消息转为 BaseMessage 实例
 const historyMessages = computed(() => {
@@ -378,8 +359,6 @@ async function handlePromptSubmit(data: PromptSubmitData) {
   stream.submit(
     { messages: [{ type: 'human', content: text }] },
     {
-      onDisconnect: 'continue',
-      streamResumable: true,
       optimisticValues: () => ({
         messages: [...currentMsgDicts, { type: 'human', content: text }],
       }),
