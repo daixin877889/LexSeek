@@ -392,7 +392,7 @@ watch(() => allTodos.map(t => t.status).join(), () => {
   nextTick(() => {
     const el = todoListRef.value
     if (el) {
-      el.scrollTop = 0
+      el.scrollTo({ top: 0, behavior: 'smooth' })
     }
   })
 })
