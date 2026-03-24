@@ -73,16 +73,24 @@ export const mainAgent = async (sessionId: string, prompt: string, options: Main
         tools,
     })
 
-    const streamConfig: any = {
-        configurable: {
-            thread_id: sessionId,
-        },
-        streamMode: ['values', 'messages'],
-        encoding: 'text/event-stream',
-    }
+    // const streamConfig: any = {
+    //     configurable: {
+    //         thread_id: sessionId,
+    //     },
+    //     streamMode: ['values', 'messages'],
+    //     encoding: 'text/event-stream',
+    //     subgraphs: true,
+    // }
 
     return agent.stream(
         { messages: [new HumanMessage(prompt)] },
-        streamConfig,
+        {
+            configurable: {
+                thread_id: sessionId,
+            },
+            streamMode: ['values', 'messages'],
+            encoding: 'text/event-stream',
+            subgraphs: true,
+        },
     )
 }

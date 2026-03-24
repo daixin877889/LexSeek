@@ -72,6 +72,8 @@ export default defineEventHandler(async (event) => {
         }
     }
 
+    console.log('sessionId', sessionId)
+
     // 4. 验证案件权限
     const caseInfo = await findCaseBySessionIdService(sessionId)
     if (!caseInfo) {
@@ -91,13 +93,25 @@ export default defineEventHandler(async (event) => {
         thinking: true,
     })
 
-    // 7. 直接返回 toEventStream 生成的标准 SSE ReadableStream
-    return new Response(sseStream, {
-        headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-            'X-Accel-Buffering': 'no',
-        },
+    // // 7. 直接返回 toEventStream 生成的标准 SSE ReadableStream
+    // return new Response(sseStream, {
+    //     headers: {
+    //         'Content-Type': 'text/event-stream',
+    //         'Cache-Control': 'no-cache',
+    //         'Connection': 'keep-alive',
+    //         'X-Accel-Buffering': 'no',
+    //     },
+    // })
+
+
+    // 设置 SSE 响应头
+    setResponseHeaders(event, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
     })
+
+    // agentStream 已经是标准 SSE 格式的 Uint8Array 流，直接返回
+    return sseStream
 })

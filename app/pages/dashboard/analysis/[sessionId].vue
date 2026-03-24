@@ -20,9 +20,8 @@
             <AiElementsConversation class="h-full">
               <AiElementsConversationContent>
                 <!-- 空状态 -->
-                <AiElementsConversationEmptyState
-                  v-if="stream.messages.length === 0 && !stream.isLoading" title="开始案件分析"
-                  description="输入补充信息或点击发送开始 AI 分析" />
+                <AiElementsConversationEmptyState v-if="stream.messages.length === 0 && !stream.isLoading"
+                  title="开始案件分析" description="输入补充信息或点击发送开始 AI 分析" />
 
                 <template v-for="(message, msgIndex) in stream.messages" :key="message.id ?? msgIndex">
                   <!-- 用户消息 -->
@@ -162,8 +161,10 @@ const thinkingEnabled = ref(route.query.thinking !== 'false')
 // 模板中直接用 stream.messages，Vue 自动追踪并在数据变化时重渲染
 const stream = reactive(useStream({
   transport: new FetchStreamTransport({
-    apiUrl: '/api/v1/case/analysis/stream/' + sessionId.value,
+    // apiUrl: '/api/v1/case/analysis/stream/' + sessionId.value,
+    apiUrl: '/api/v1/case/analysis/chat',
   }),
+  threadId: sessionId.value,
   onError: (error) => {
     console.error('[useStream] 流错误:', error);
   },
