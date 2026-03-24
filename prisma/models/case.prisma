@@ -88,6 +88,8 @@ model caseSessions {
     caseId    Int       @map("case_id")
     /// 会话状态：1-进行中，2-已完成，3-已中断，4-已失败
     status    Int       @default(1)
+    /// 当前活跃的 run ID（stream 进行中时有值，结束后清空）
+    activeRunId String? @map("active_run_id") @db.VarChar(100)
     /// 创建时间
     createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
     /// 最后更新时间
