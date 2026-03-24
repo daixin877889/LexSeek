@@ -64,6 +64,20 @@ if (!result.success) {
 - key 不能包含 `:` 字符
 - 变量名不能包含大写
 
+## 路由文件命名
+
+动态路径参数（`[param]`）必须放在文件名末尾，不能放在目录中间：
+
+```
+# 正确：参数在末尾
+server/api/v1/case/analysis/runs/cancel/[runId].post.ts
+→ POST /api/v1/case/analysis/runs/cancel/:runId
+
+# 错误：参数在中间
+server/api/v1/case/analysis/runs/[runId]/cancel.post.ts
+→ 不要这样写
+```
+
 ## 代码架构
 
 在 `server/services` 目录中：

@@ -28,7 +28,7 @@
 | `server/plugins/agent-worker.ts` | Nitro Plugin：Worker 生命周期 + 清理定时任务 |
 | `server/api/v1/case/analysis/runs/[sessionId].get.ts` | 查询 session 的 run 列表 |
 | `server/api/v1/case/analysis/runs/[sessionId]/current.get.ts` | 查询当前活跃 run |
-| `server/api/v1/case/analysis/runs/[runId]/cancel.post.ts` | 取消 run |
+| `server/api/v1/case/analysis/runs/cancel/[runId].post.ts` | 取消 run |
 | `shared/types/agentRun.ts` | AgentRun 相关类型定义 |
 | `tests/server/agent/agentRun.service.test.ts` | AgentRun 服务层测试 |
 | `tests/server/agent/agentRun.dao.test.ts` | AgentRun DAO 测试 |
@@ -780,7 +780,7 @@ git commit -m "refactor(analysis): chat API 改为入队+订阅+转发模式"
 **Files:**
 - Create: `server/api/v1/case/analysis/runs/[sessionId].get.ts`
 - Create: `server/api/v1/case/analysis/runs/[sessionId]/current.get.ts`
-- Create: `server/api/v1/case/analysis/runs/[runId]/cancel.post.ts`
+- Create: `server/api/v1/case/analysis/runs/cancel/[runId].post.ts`
 
 **依赖:** Task 4
 

@@ -262,7 +262,7 @@ Agent 执行超过 1 小时（可通过 AGENT_TIMEOUT_MS 环境变量配置）
 |------|------|------|
 | GET | `/api/v1/case/analysis/runs/{sessionId}` | 查询 session 的 run 列表 |
 | GET | `/api/v1/case/analysis/runs/{sessionId}/current` | 查询当前活跃 run |
-| POST | `/api/v1/case/analysis/runs/{runId}/cancel` | 取消执行中的 run |
+| POST | `/api/v1/case/analysis/runs/cancel/{runId}` | 取消执行中的 run |
 
 ### 响应格式
 
