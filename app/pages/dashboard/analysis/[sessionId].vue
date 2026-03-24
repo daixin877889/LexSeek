@@ -20,23 +20,23 @@
             <AiElementsConversation class="h-full">
               <AiElementsConversationContent>
                 <!-- 空状态 -->
-                <AiElementsConversationEmptyState v-if="stream.messages.length === 0 && !stream.isLoading"
+                <AiElementsConversationEmptyState v-if="displayMessages.length === 0 && !stream.isLoading"
                   title="开始案件分析" description="输入补充信息或点击发送开始 AI 分析" />
 
-                <template v-for="(message, msgIndex) in stream.messages" :key="message.id ?? msgIndex">
+                <template v-for="(message, msgIndex) in displayMessages" :key="message.id ?? msgIndex">
                   <!-- 用户消息 -->
-                  <AiElementsMessage v-if="HumanMessage.isInstance(message)" from="user">
+                  <AiElementsMessage v-if="HumanMessage.isInstance(message)" from="user" class="max-w-full">
                     <AiElementsMessageContent>
                       {{ message.text }}
                     </AiElementsMessageContent>
                   </AiElementsMessage>
 
                   <!-- AI 消息 -->
-                  <AiElementsMessage v-else-if="AIMessage.isInstance(message)" from="assistant">
+                  <AiElementsMessage v-else-if="AIMessage.isInstance(message)" from="assistant" class="max-w-full">
                     <AiElementsMessageContent>
                       <!-- 推理块 -->
                       <AiElementsReasoning v-if="getReasoningText(message)"
-                        :is-streaming="stream.isLoading && msgIndex === stream.messages.length - 1">
+                        :is-streaming="stream.isLoading && msgIndex === displayMessages.length - 1">
                         <AiElementsReasoningTrigger />
                         <AiElementsReasoningContent :content="getReasoningText(message)" />
                       </AiElementsReasoning>
@@ -84,7 +84,7 @@
                 </div>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <div ref="todoListRef" class="px-4 pb-3 max-h-[200px] overflow-y-auto">
+                <div ref="todoListRef" class="px-4 pb-3 max-h-[120px] overflow-y-auto">
 
                   <AiElementsQueue>
                     <AiElementsQueueSection>
@@ -104,11 +104,11 @@
           <!-- 底部输入区域（固定） -->
           <div class="shrink-0 border-t bg-background">
             <CaseAnalysisPromptInput ref="promptInputRef" v-model:thinking="thinkingEnabled" placeholder="输入补充信息或问题..."
-              submit-label="发送" :loading="isAnalyzing" :disabled="isComplete" :enable-watcher="false" :min-rows="1"
+              submit-label="发送" :loading="stream.isLoading" :disabled="isComplete" :enable-watcher="false" :min-rows="1"
               :max-rows="4" @submit="handlePromptSubmit" />
 
             <!-- 状态提示 -->
-            <div v-if="isAnalyzing" class="flex items-center justify-center pb-2">
+            <div v-if="stream.isLoading" class="flex items-center justify-center pb-2">
               <Loader2Icon class="size-4 animate-spin text-primary mr-2" />
               <span class="text-xs text-muted-foreground">AI 正在分析中...</span>
             </div>
@@ -121,7 +121,7 @@
       <!-- 右侧面板：分析结果 -->
       <ResizablePanel :default-size="50" :min-size="30">
         <CaseAnalysisResults :results="analysisResults" v-model:active-index="activeResultIndex" :show-regenerate="true"
-          :show-copy="true" :is-analyzing="isAnalyzing" class="h-full" @regenerate="handleRegenerate" />
+          :show-copy="true" :is-analyzing="stream.isLoading" class="h-full" @regenerate="handleRegenerate" />
       </ResizablePanel>
     </ResizablePanelGroup>
   </div>
@@ -153,25 +153,49 @@ interface QueueTodo {
 const allTodos = reactive<QueueTodo[]>([])
 
 // 派生状态
-const isAnalyzing = ref(false)
 const isComplete = ref(false)
 const thinkingEnabled = ref(route.query.thinking !== 'false')
 
-// reactive() 包装让 getter（如 messages）通过 Proxy 被 Vue 响应式追踪
-// 模板中直接用 stream.messages，Vue 自动追踪并在数据变化时重渲染
+// 加载线程历史状态
+const threadHistory = await useApiFetch<{
+  values: Record<string, unknown>
+  threadId: string
+}>(`/api/v1/case/analysis/thread/${sessionId.value}`, {
+  showError: false,
+})
+
 const stream = reactive(useStream({
   transport: new FetchStreamTransport({
-    // apiUrl: '/api/v1/case/analysis/stream/' + sessionId.value,
     apiUrl: '/api/v1/case/analysis/chat',
   }),
   threadId: sessionId.value,
+  // initialValues 存入 #historyValues，供 optimisticValues 合并使用
+  // 注意：这不会让 stream.messages 在首次 submit 前返回历史
+  initialValues: threadHistory?.values ?? undefined,
   onError: (error) => {
-    console.error('[useStream] 流错误:', error);
+    console.error('[useStream] 流错误:', error)
   },
-  onFinish: (state, error) => {
-    console.log('[useStream] 流完成:', state, error);
-  },
-}));
+}))
+
+// 历史消息 fallback：将 API 返回的字典格式消息转为 BaseMessage 实例
+const historyMessages = computed(() => {
+  const rawMessages = threadHistory?.values?.messages
+  if (!Array.isArray(rawMessages) || rawMessages.length === 0) return []
+  return rawMessages.map((m: any) => {
+    if (m.type === 'human') return new HumanMessage({ content: m.content, id: m.id })
+    if (m.type === 'ai') return new AIMessage({ content: m.content, id: m.id, tool_calls: m.tool_calls })
+    if (m.type === 'tool') return new ToolMessage({ content: m.content, tool_call_id: m.tool_call_id, id: m.id })
+    return m
+  })
+})
+
+// 最终用于模板渲染的消息列表
+// stream 启动后使用 stream.messages；否则 fallback 到历史
+const displayMessages = computed(() =>
+  stream.messages.length > 0 || stream.isLoading
+    ? stream.messages
+    : historyMessages.value
+)
 
 /** 从 write_todos 工具的参数或返回值中提取原始 todo 数据 */
 function extractTodoItems(args: any, resultContent: any): Array<{ title: string; status: string }> {
@@ -204,7 +228,7 @@ function extractTodoItems(args: any, resultContent: any): Array<{ title: string;
 // 监听 messages 变化，提取最新的 write_todos 数据
 // 关键设计：只处理已完成的工具调用（有 ToolMessage 结果），跳过正在流式传输的不完整调用
 // 这样可以避免流式 args 逐 token 到达导致列表逐项重渲染
-watch(() => stream.messages, (msgs) => {
+watch(displayMessages, (msgs) => {
   if (!msgs) return
   // Pass 1: 收集所有 ToolMessage 结果（ToolMessage 在消息数组中位于 AIMessage 之后，必须先收集）
   const toolResultMap = new Map<string, any>()
@@ -278,7 +302,7 @@ interface ToolCallWithResult {
 // 预计算 ToolMessage 索引，避免模板中每个 AI 消息都重复遍历
 const toolResultsMap = computed(() => {
   const map = new Map<string, any>()
-  for (const msg of stream.messages) {
+  for (const msg of displayMessages.value) {
     if (ToolMessage.isInstance(msg)) {
       map.set((msg as any).tool_call_id, msg)
     }
@@ -317,15 +341,24 @@ const promptInputRef = ref<{ reset: () => void } | null>(null)
  * 处理 promptInput 提交：发送补充消息和追加材料
  */
 async function handlePromptSubmit(data: PromptSubmitData) {
-  if (isAnalyzing.value || isComplete.value) return
+  if (stream.isLoading || isComplete.value) return
 
-  isAnalyzing.value = true
+  const text = data.text || '开始分析'
 
-  // // 发送消息继续分析（materials 暂不传递，当前 stream API 不支持追加材料）
-  // sendMessage({ text: data.text || '开始分析' })
-  stream.submit({ messages: [{ type: 'human', content: data.text || '开始分析' }] })
+  // 捕获当前消息列表，构造 optimisticValues 防止消息闪烁
+  const currentMsgDicts = stream.messages.length > 0
+    ? stream.messages.map((m: any) => typeof m.toDict === 'function' ? m.toDict() : m)
+    : (threadHistory?.values?.messages as any[] ?? [])
 
-  // 重置输入组件
+  stream.submit(
+    { messages: [{ type: 'human', content: text }] },
+    {
+      optimisticValues: () => ({
+        messages: [...currentMsgDicts, { type: 'human', content: text }],
+      }),
+    },
+  )
+
   promptInputRef.value?.reset()
 }
 
