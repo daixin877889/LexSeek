@@ -188,6 +188,20 @@ const stream = reactive(useStream({
   },
 }))
 
+// 查询是否有活跃 run，若有则自动重连
+const runStatus = await useApiFetch<{
+  isRunning: boolean
+  runId?: string
+}>(`/api/v1/case/analysis/run-status/${sessionId.value}`, { showError: false })
+
+if (runStatus?.isRunning && runStatus.runId && !stream.isLoading) {
+  try {
+    await stream.joinStream(runStatus.runId)
+  } catch (error) {
+    console.error('[rejoin] 重连流失败:', error)
+  }
+}
+
 // 历史消息 fallback：将 API 返回的字典格式消息转为 BaseMessage 实例
 const historyMessages = computed(() => {
   const rawMessages = threadHistory?.values?.messages
@@ -364,6 +378,8 @@ async function handlePromptSubmit(data: PromptSubmitData) {
   stream.submit(
     { messages: [{ type: 'human', content: text }] },
     {
+      onDisconnect: 'continue',
+      streamResumable: true,
       optimisticValues: () => ({
         messages: [...currentMsgDicts, { type: 'human', content: text }],
       }),
