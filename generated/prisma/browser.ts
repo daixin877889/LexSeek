@@ -18,6 +18,11 @@ export { Prisma }
 export * as $Enums from './enums.js'
 export * from './enums.js';
 /**
+ * Model agentRuns
+ * Agent 执行记录表 - 存储 Agent 后台任务队列的执行记录
+ */
+export type agentRuns = Prisma.agentRunsModel
+/**
  * Model apiPermissionGroups
  * API 权限分组表
  */

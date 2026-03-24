@@ -29,8 +29,8 @@ export * from "./enums.js"
  * @example
  * ```
  * const prisma = new PrismaClient()
- * // Fetch zero or more ApiPermissionGroups
- * const apiPermissionGroups = await prisma.apiPermissionGroups.findMany()
+ * // Fetch zero or more AgentRuns
+ * const agentRuns = await prisma.agentRuns.findMany()
  * ```
  * 
  * Read more in our [docs](https://pris.ly/d/client).
@@ -39,6 +39,11 @@ export const PrismaClient = $Class.getPrismaClientClass()
 export type PrismaClient<LogOpts extends Prisma.LogLevel = never, OmitOpts extends Prisma.PrismaClientOptions["omit"] = Prisma.PrismaClientOptions["omit"], ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = $Class.PrismaClient<LogOpts, OmitOpts, ExtArgs>
 export { Prisma }
 
+/**
+ * Model agentRuns
+ * Agent 执行记录表 - 存储 Agent 后台任务队列的执行记录
+ */
+export type agentRuns = Prisma.agentRunsModel
 /**
  * Model apiPermissionGroups
  * API 权限分组表

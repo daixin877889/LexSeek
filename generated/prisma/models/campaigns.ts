@@ -564,10 +564,6 @@ export type campaignsOrderByRelationAggregateInput = {
   _count?: Prisma.SortOrder
 }
 
-export type DateTimeFieldUpdateOperationsInput = {
-  set?: Date | string
-}
-
 export type campaignsCreateNestedManyWithoutLevelInput = {
   create?: Prisma.XOR<Prisma.campaignsCreateWithoutLevelInput, Prisma.campaignsUncheckedCreateWithoutLevelInput> | Prisma.campaignsCreateWithoutLevelInput[] | Prisma.campaignsUncheckedCreateWithoutLevelInput[]
   connectOrCreate?: Prisma.campaignsCreateOrConnectWithoutLevelInput | Prisma.campaignsCreateOrConnectWithoutLevelInput[]

@@ -436,26 +436,6 @@ export type ApiPermissionGroupsNullableScalarRelationFilter = {
   isNot?: Prisma.apiPermissionGroupsWhereInput | null
 }
 
-export type StringFieldUpdateOperationsInput = {
-  set?: string
-}
-
-export type NullableStringFieldUpdateOperationsInput = {
-  set?: string | null
-}
-
-export type IntFieldUpdateOperationsInput = {
-  set?: number
-  increment?: number
-  decrement?: number
-  multiply?: number
-  divide?: number
-}
-
-export type NullableDateTimeFieldUpdateOperationsInput = {
-  set?: Date | string | null
-}
-
 export type apiPermissionGroupsCreateNestedOneWithoutApiPermissionsInput = {
   create?: Prisma.XOR<Prisma.apiPermissionGroupsCreateWithoutApiPermissionsInput, Prisma.apiPermissionGroupsUncheckedCreateWithoutApiPermissionsInput>
   connectOrCreate?: Prisma.apiPermissionGroupsCreateOrConnectWithoutApiPermissionsInput
