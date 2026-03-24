@@ -74,6 +74,7 @@ export async function claimPendingRunDAO(
     if (rows.length === 0) return null
 
     const run = rows[0]
+    if (!run) return null
     const now = new Date()
 
     return tx.agentRuns.update({
