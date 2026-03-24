@@ -171,6 +171,14 @@ export default defineNuxtConfig({
       dimensions: 1536,     // NUXT_EMBEDDING_DIMENSIONS
       batchSize: 5,         // NUXT_EMBEDDING_BATCH_SIZE
     },
+    // Agent 后台任务队列配置
+    agent: {
+      maxConcurrent: 3,            // AGENT_MAX_CONCURRENT
+      maxUserConcurrent: 2,        // AGENT_MAX_USER_CONCURRENT
+      timeoutMs: 3600000,          // AGENT_TIMEOUT_MS（1小时）
+      heartbeatIntervalMs: 15000,  // AGENT_HEARTBEAT_INTERVAL_MS
+      crashThresholdMs: 60000,     // AGENT_CRASH_THRESHOLD_MS
+    },
     // 存储适配器配置
     storage: {
       // 默认存储类型: aliyun_oss, qiniu, tencent_cos
