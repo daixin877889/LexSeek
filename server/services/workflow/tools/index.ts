@@ -5,7 +5,7 @@
  * Requirements: 12.1.1-12.1.5
  */
 
-import type { StructuredToolInterface } from '@langchain/core/tools'
+import type { StructuredTool } from '@langchain/core/tools'
 import type { ToolMeta, ToolContext, ToolModule } from './types'
 import { getToolMetaFromDefinition } from './types'
 
@@ -61,8 +61,8 @@ export function getToolMetaService(name: string): ToolMeta | null {
 export function getToolInstancesService(
     names: string[],
     context: ToolContext
-): StructuredToolInterface[] {
-    const tools: StructuredToolInterface[] = []
+): StructuredTool[] {
+    const tools: StructuredTool[] = []
 
     for (const name of names) {
         const module = toolModules[name]

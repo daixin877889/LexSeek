@@ -5,7 +5,7 @@
  * Requirements: 12.1.1, 12.1.2
  */
 
-import type { StructuredToolInterface } from '@langchain/core/tools'
+import type { StructuredTool } from '@langchain/core/tools'
 import type { ZodObject, ZodType } from 'zod'
 
 /** 工具参数定义（用于 API 返回） */
@@ -57,7 +57,7 @@ export interface ToolModule {
     /** 工具定义（包含 name、description、schema） */
     toolDefinition: ToolDefinition<ZodObject<Record<string, ZodType>>>
     /** 工具工厂函数 */
-    createTool: (context: ToolContext) => StructuredToolInterface
+    createTool: (context: ToolContext) => StructuredTool
 }
 
 /**
