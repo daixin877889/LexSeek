@@ -101,20 +101,20 @@ export async function createCaseAgent(sessionId: string, options: CaseAgentOptio
                 name: config.name,
                 description: config.title || config.description || config.name,
                 model: subModel,
-                systemPrompt: subPrompt?.content,
+                systemPrompt: subPrompt?.content ?? '',
                 tools: subTools,
             }
         })
     )
 
-    const validSubagents = subagents.filter(Boolean)
+    const validSubagents = subagents.filter((s): s is NonNullable<typeof s> => s != null)
 
     logger.info('案件 Agent 创建', {
         sessionId,
         model: mainConfig.modelName,
         toolsCount: mainTools.length,
         subagentsCount: validSubagents.length,
-        subagentNames: validSubagents.map(s => s!.name),
+        subagentNames: validSubagents.map(s => s.name),
     })
 
     // 8. 创建 DeepAgent（含长期记忆）
