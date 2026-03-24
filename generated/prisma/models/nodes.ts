@@ -1418,7 +1418,7 @@ export type $nodesPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
      */
     description: string | null
     /**
-     * 节点类型：analysis-分析模块，document-文书模块
+     * 节点类型：analysis-分析模块，document-文书模块，extraction-数据提取，agent-主代理
      */
     type: string
     /**
