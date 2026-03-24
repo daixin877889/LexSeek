@@ -432,6 +432,25 @@ function onProgressAfterLeave(el: Element) {
 onUnmounted(() => {
   allTodos.splice(0)
 });
+
+// 页面进入时检查活跃 run，自动重连
+onMounted(async () => {
+  try {
+    const activeRun = await $fetch<{ code: number; data: { run: { id: string; status: string } | null } }>(
+      `/api/v1/case/analysis/runs/current/${sessionId.value}`,
+    )
+    if (activeRun?.data?.run && ['pending', 'running'].includes(activeRun.data.run.status)) {
+      // 有正在执行的 run，建立 SSE 连接进入订阅模式
+      // 发送空消息，chat.post.ts 检测到已有活跃 run 后进入重连订阅模式
+      stream.submit(
+        { messages: [] },
+      )
+    }
+  }
+  catch {
+    // 查询失败时静默忽略，不影响正常使用
+  }
+})
 </script>
 
 <style></style>

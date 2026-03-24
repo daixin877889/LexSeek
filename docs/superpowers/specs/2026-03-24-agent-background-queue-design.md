@@ -247,7 +247,7 @@ Agent 执行超过 1 小时（可通过 AGENT_TIMEOUT_MS 环境变量配置）
 ```
 页面刷新 / 网络恢复
   → useStream 加载 thread 历史（现有 thread API 不变）
-  → 检查是否有 running 的 run（GET /runs/{sessionId}/current）
+  → 检查是否有 running 的 run（GET /runs/current/{sessionId}）
   → 有 → chat.post.ts 建立 SSE 连接
        → XRANGE run_events:{runId} lastEventId+ 补发缺失事件
        → SUBSCRIBE run:{runId} 接续新事件
@@ -261,7 +261,7 @@ Agent 执行超过 1 小时（可通过 AGENT_TIMEOUT_MS 环境变量配置）
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/v1/case/analysis/runs/{sessionId}` | 查询 session 的 run 列表 |
-| GET | `/api/v1/case/analysis/runs/{sessionId}/current` | 查询当前活跃 run |
+| GET | `/api/v1/case/analysis/runs/current/{sessionId}` | 查询当前活跃 run |
 | POST | `/api/v1/case/analysis/runs/cancel/{runId}` | 取消执行中的 run |
 
 ### 响应格式
