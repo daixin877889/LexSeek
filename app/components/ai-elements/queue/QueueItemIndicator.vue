@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 
 interface QueueItemIndicatorProps {
   completed?: boolean
+  status?: 'pending' | 'in_progress' | 'completed'
   class?: HTMLAttributes['class']
 }
 
@@ -13,6 +14,10 @@ const props = withDefaults(
     completed: false,
   },
 )
+
+const resolvedStatus = computed(() =>
+  props.status ?? (props.completed ? 'completed' : 'pending')
+)
 </script>
 
 <template>
@@ -20,9 +25,11 @@ const props = withDefaults(
     :class="
       cn(
         'mt-0.5 inline-block size-2.5 rounded-full border',
-        props.completed
-          ? 'border-muted-foreground/20 bg-muted-foreground/10'
-          : 'border-muted-foreground/50',
+        resolvedStatus === 'in_progress'
+          ? 'border-green-500 bg-green-500 animate-pulse'
+          : resolvedStatus === 'completed'
+            ? 'border-muted-foreground/20 bg-muted-foreground/10'
+            : 'border-muted-foreground/50',
         props.class,
       )
     "
