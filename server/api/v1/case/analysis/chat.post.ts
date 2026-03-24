@@ -10,7 +10,6 @@
 
 import { runCaseChat } from '~~/server/services/agent/caseAgent'
 import { findCaseBySessionIdService } from '~~/server/services/case/caseSession.service'
-import { randomUUID } from 'crypto'
 
 /** 从 FetchStreamTransport 请求体中提取参数 */
 function extractParams(body: any) {
@@ -87,43 +86,25 @@ export default defineEventHandler(async (event) => {
     // 5. 构建用户消息
     const userMessage = message || '请开始分析案件'
 
-    // 6. 生成 runId 并写入数据库
-    const runId = randomUUID()
-    await prisma.caseSessions.update({
-        where: { sessionId },
-        data: { activeRunId: runId },
+    // 6. 获取 SSE 流
+    const sseStream = await runCaseChat(sessionId, userMessage, {
+        userId: user.id,
+        caseId: caseInfo.id,
+        thinking: true,
     })
 
-    // 7. 获取 SSE 流
-    let sseStream: ReadableStream
-    try {
-        sseStream = await runCaseChat(sessionId, userMessage, {
-            userId: user.id,
-            caseId: caseInfo.id,
-            thinking: true,
-        })
-    } catch (error) {
-        await prisma.caseSessions.update({
-            where: { sessionId },
-            data: { activeRunId: null },
-        }).catch(() => {})
-        throw error
-    }
+    // // 7. 直接返回 toEventStream 生成的标准 SSE ReadableStream
+    // return new Response(sseStream, {
+    //     headers: {
+    //         'Content-Type': 'text/event-stream',
+    //         'Cache-Control': 'no-cache',
+    //         'Connection': 'keep-alive',
+    //         'X-Accel-Buffering': 'no',
+    //     },
+    // })
 
-    // 8. 包装流：在流结束时清空 activeRunId
-    const wrappedStream = sseStream.pipeThrough(new TransformStream({
-        transform(chunk, controller) {
-            controller.enqueue(chunk)
-        },
-        flush() {
-            prisma.caseSessions.update({
-                where: { sessionId },
-                data: { activeRunId: null },
-            }).catch(() => {})
-        },
-    }))
 
-    // 9. 设置 SSE 响应头
+    // 设置 SSE 响应头
     setResponseHeaders(event, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -131,5 +112,6 @@ export default defineEventHandler(async (event) => {
         'X-Accel-Buffering': 'no',
     })
 
-    return wrappedStream
+    // agentStream 已经是标准 SSE 格式的 Uint8Array 流，直接返回
+    return sseStream
 })
