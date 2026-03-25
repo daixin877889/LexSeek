@@ -12,7 +12,7 @@ import type {
     NodeListParams,
     NodeGroupListParams,
 } from '#shared/types/node'
-import type { Prisma } from '~~/generated/prisma/client'
+import { Prisma } from '~~/generated/prisma/client'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma
@@ -220,6 +220,9 @@ export const createNodeDao = async (
                 tools: data.tools ?? [],
                 groupId: data.groupId,
                 status: data.status ?? 1,
+                outputSchema: data.outputSchema
+                    ? (data.outputSchema as Prisma.InputJsonValue)
+                    : Prisma.DbNull,
             },
             include: {
                 group: true,
@@ -494,6 +497,11 @@ export const updateNodeDao = async (
                 ...(data.tools !== undefined && { tools: data.tools }),
                 ...(data.groupId !== undefined && { groupId: data.groupId }),
                 ...(data.status !== undefined && { status: data.status }),
+                ...(data.outputSchema !== undefined && {
+                    outputSchema: data.outputSchema === null
+                        ? Prisma.DbNull
+                        : (data.outputSchema as Prisma.InputJsonValue),
+                }),
                 updatedAt: new Date(),
             },
             include: {

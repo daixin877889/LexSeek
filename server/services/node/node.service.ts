@@ -206,7 +206,12 @@ export const createNodeService = async (data: CreateNodeInput) => {
         }
     }
 
-    return await createNodeDao(data)
+    // 非 extraction/agent 类型强制清空 outputSchema
+    const SCHEMA_TYPES = ['extraction', 'agent']
+    const cleanedData = (!SCHEMA_TYPES.includes(data.type) && data.outputSchema)
+        ? { ...data, outputSchema: null }
+        : data
+    return await createNodeDao(cleanedData)
 }
 
 /**
@@ -296,7 +301,13 @@ export const updateNodeService = async (
         }
     }
 
-    return await updateNodeDao(id, data)
+    // 非 extraction/agent 类型强制清空 outputSchema
+    const finalType = data.type ?? existing.type
+    const SCHEMA_TYPES = ['extraction', 'agent']
+    const cleanedData = (!SCHEMA_TYPES.includes(finalType) && data.outputSchema !== undefined)
+        ? { ...data, outputSchema: null }
+        : data
+    return await updateNodeDao(id, cleanedData)
 }
 
 /**

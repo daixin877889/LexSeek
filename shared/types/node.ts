@@ -96,6 +96,7 @@ export interface CreateNodeInput {
     tools?: string[]
     groupId?: number | null
     status?: number
+    outputSchema?: Record<string, unknown> | null
 }
 
 /** 更新节点输入类型 */
