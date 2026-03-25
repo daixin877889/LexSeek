@@ -27,9 +27,6 @@ export {
     getExtractedBasicInfo,
     EXTRACT_INFO_NODE_NAME,
     EXTRACT_INFO_NODE_CONFIG_NAME,
-    type ExtractedInfo,
-    type ExtractInfoInterruptData,
-    type ConfirmedInfo,
 } from './extractInfo'
 
 // 模块选择节点（中断点3）

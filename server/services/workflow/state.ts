@@ -19,6 +19,7 @@ import {
     type AnalysisModuleInfo,
     type AnalysisResult,
     type InterruptData,
+    type ExtractedCaseInfo,
 } from '#shared/types/case'
 
 // 注意：InterruptType, WorkflowPhase, AnalysisModuleInfo, AnalysisResult, InterruptData
@@ -132,6 +133,11 @@ export const CaseAnalysisAnnotation = Annotation.Root({
         reducer: replaceReducer,
         default: () => false,
     }),
+    /** 结构化提取结果（固定字段+扩展字段） */
+    extractedInfo: Annotation<ExtractedCaseInfo | null>({
+        reducer: replaceReducer,
+        default: () => null,
+    }),
 
     // ==================== 模块选择（中断点3） ====================
     /** 可用的分析模块列表 */
@@ -239,6 +245,7 @@ export function createInitialState(params: {
         caseTypeName: '',
         summary: '',
         basicInfoConfirmed: false,
+        extractedInfo: null,
 
         // 模块选择
         availableModules: [],
