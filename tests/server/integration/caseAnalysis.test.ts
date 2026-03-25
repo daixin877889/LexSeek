@@ -3,20 +3,19 @@ import { getAllToolNamesService } from '~~/server/services/workflow/tools'
 
 describe('Case Analysis Integration', () => {
     describe('Tool Registry', () => {
-        it('should have all 7 required tools registered', () => {
+        it('should have all 6 required tools registered', () => {
             const names = getAllToolNamesService()
             expect(names).toContain('search_case_materials')
             expect(names).toContain('search_law')
             expect(names).toContain('process_materials')
-            expect(names).toContain('extract_case_info')
             expect(names).toContain('reserve_points')
             expect(names).toContain('confirm_points')
             expect(names).toContain('rollback_points')
         })
 
-        it('should have exactly 7 tools', () => {
+        it('should have exactly 6 tools', () => {
             const names = getAllToolNamesService()
-            expect(names).toHaveLength(7)
+            expect(names).toHaveLength(6)
         })
     })
 
