@@ -100,6 +100,13 @@
                             </div>
                             <p v-else class="text-muted-foreground">暂无配置工具</p>
                         </div>
+                        <!-- outputSchema 展示 -->
+                        <div v-if="node.outputSchema" class="col-span-full space-y-1">
+                            <Label class="text-muted-foreground">结构化输出 Schema</Label>
+                            <div class="bg-muted rounded-md p-4 overflow-auto max-h-96">
+                                <pre class="text-sm font-mono whitespace-pre-wrap">{{ formatOutputSchema(node.outputSchema) }}</pre>
+                            </div>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -209,6 +216,15 @@ const nodeTools = computed(() => {
 const formatDate = (date: string | Date | null | undefined) => {
     if (!date) return '-'
     return dayjs(date).format('YYYY-MM-DD HH:mm')
+}
+
+// 格式化 outputSchema
+const formatOutputSchema = (schema: unknown) => {
+    try {
+        return JSON.stringify(schema, null, 2)
+    } catch {
+        return String(schema)
+    }
 }
 
 // 提示词类型标签
