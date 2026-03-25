@@ -29,21 +29,82 @@
                 <TabsTrigger value="json">JSON 编辑</TabsTrigger>
             </TabsList>
 
+            <!-- 可视化编辑 -->
             <TabsContent value="visual" class="mt-3">
-                <div class="border rounded-md p-3 schema-editor-wrapper">
-                    <ClientOnly>
-                        <JsonSchemaEditorVue3
-                            v-model="schemaForVisual"
-                            :show-raw="false"
-                            lang="zh_CN"
-                        />
-                        <template #fallback>
-                            <div class="text-sm text-muted-foreground">加载中...</div>
-                        </template>
-                    </ClientOnly>
+                <div class="space-y-3">
+                    <!-- 字段列表 -->
+                    <div v-for="(field, index) in fields" :key="index"
+                        class="border rounded-md p-3 space-y-2">
+                        <div class="flex items-center gap-2">
+                            <div class="flex-1 grid grid-cols-3 gap-2">
+                                <Input
+                                    v-model="field.name"
+                                    placeholder="字段名"
+                                    class="font-mono text-sm"
+                                    @input="syncToModel"
+                                />
+                                <Select v-model="field.type" @update:model-value="syncToModel">
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="类型" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem v-for="t in FIELD_TYPES" :key="t.value" :value="t.value">
+                                            {{ t.label }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <Input
+                                    v-model="field.description"
+                                    placeholder="描述（可选）"
+                                    class="text-sm"
+                                    @input="syncToModel"
+                                />
+                            </div>
+                            <Button variant="ghost" size="icon" class="shrink-0"
+                                @click="removeField(index)">
+                                <X class="h-4 w-4" />
+                            </Button>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <label class="flex items-center gap-2 text-sm cursor-pointer">
+                                <Checkbox
+                                    :checked="field.required"
+                                    @update:checked="(val: boolean) => { field.required = val; syncToModel() }"
+                                />
+                                必填
+                            </label>
+                            <!-- array 类型额外配置 items 类型 -->
+                            <div v-if="field.type === 'array'" class="flex items-center gap-2 text-sm">
+                                <span class="text-muted-foreground">元素类型:</span>
+                                <Select v-model="field.itemsType" @update:model-value="syncToModel">
+                                    <SelectTrigger class="w-28 h-8">
+                                        <SelectValue placeholder="类型" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem v-for="t in BASIC_TYPES" :key="t.value" :value="t.value">
+                                            {{ t.label }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 空状态 -->
+                    <div v-if="fields.length === 0"
+                        class="border border-dashed rounded-md p-6 text-center text-sm text-muted-foreground">
+                        暂无字段，点击下方按钮添加
+                    </div>
+
+                    <!-- 添加字段按钮 -->
+                    <Button variant="outline" size="sm" class="w-full" @click="addField">
+                        <Plus class="h-4 w-4 mr-1" />
+                        添加字段
+                    </Button>
                 </div>
             </TabsContent>
 
+            <!-- JSON 编辑 -->
             <TabsContent value="json" class="mt-3">
                 <ClientOnly>
                     <!-- @vue-ignore json-editor-vue mode prop accepts string -->
@@ -71,66 +132,149 @@
 </template>
 
 <script setup lang="ts">
-import { WrapText, Trash2 } from 'lucide-vue-next'
+import { Plus, WrapText, Trash2, X } from 'lucide-vue-next'
 
 // 延迟导入避免 SSR 问题
 const JsonEditorVue = defineAsyncComponent(() => import('json-editor-vue'))
-const JsonSchemaEditorVue3 = defineAsyncComponent(() =>
-    import('@jianmu/json-schema-editor-vue3/lib/json-schema-editor-vue3.css').then(
-        // @ts-expect-error - 该库无类型声明，默认导出是 Vue 插件，组件在 [0] 位置
-        () => import('@jianmu/json-schema-editor-vue3').then((m: any) => {
-            const plugin = m.default || m
-            return plugin[0] || plugin
-        })
-    )
-)
+
+/** 可视化字段定义 */
+interface SchemaField {
+    name: string
+    type: string
+    description: string
+    required: boolean
+    itemsType: string // array 类型的 items 类型
+}
+
+const BASIC_TYPES = [
+    { value: 'string', label: 'string' },
+    { value: 'number', label: 'number' },
+    { value: 'boolean', label: 'boolean' },
+]
+
+const FIELD_TYPES = [
+    ...BASIC_TYPES,
+    { value: 'array', label: 'array' },
+    { value: 'object', label: 'object' },
+]
 
 const modelValue = defineModel<Record<string, unknown> | null>({ default: null })
 
 const activeTab = ref<'visual' | 'json'>('visual')
 const jsonError = ref('')
 
-const DEFAULT_SCHEMA: Record<string, unknown> = { type: 'object', properties: {}, required: [] }
+// 可视化字段列表
+const fields = ref<SchemaField[]>([])
 
-// 可视化编辑器使用的数据
-const schemaForVisual = ref<Record<string, unknown>>({ ...DEFAULT_SCHEMA })
-
-// JSON 编辑器使用的数据
+// JSON 编辑器数据
 const jsonValue = ref<unknown>(null)
 
-// 从外部值初始化
-const initFromModelValue = () => {
-    if (modelValue.value && typeof modelValue.value === 'object') {
-        schemaForVisual.value = { ...modelValue.value }
-        jsonValue.value = { ...modelValue.value }
-    } else {
-        schemaForVisual.value = { ...DEFAULT_SCHEMA }
-        jsonValue.value = { ...DEFAULT_SCHEMA }
+// 内部同步标记，避免循环触发
+let syncing = false
+
+// ---------- 可视化 → JSON Schema 转换 ----------
+
+const fieldsToSchema = (fieldList: SchemaField[]): Record<string, unknown> => {
+    const properties: Record<string, unknown> = {}
+    const required: string[] = []
+
+    for (const f of fieldList) {
+        if (!f.name) continue
+        const prop: Record<string, unknown> = { type: f.type }
+        if (f.description) prop.description = f.description
+        if (f.type === 'array') {
+            prop.items = { type: f.itemsType || 'string' }
+        }
+        properties[f.name] = prop
+        if (f.required) required.push(f.name)
+    }
+
+    return {
+        type: 'object',
+        properties,
+        ...(required.length > 0 ? { required } : {}),
     }
 }
 
-// 监听外部值变化
+// ---------- JSON Schema → 可视化字段转换 ----------
+
+const schemaToFields = (schema: Record<string, unknown>): SchemaField[] => {
+    const props = (schema.properties ?? {}) as Record<string, any>
+    const req = (schema.required ?? []) as string[]
+    return Object.entries(props).map(([name, def]) => ({
+        name,
+        type: def?.type ?? 'string',
+        description: def?.description ?? '',
+        required: req.includes(name),
+        itemsType: def?.items?.type ?? 'string',
+    }))
+}
+
+// ---------- 初始化 ----------
+
+const initFromModelValue = () => {
+    if (syncing) return
+    syncing = true
+    if (modelValue.value && typeof modelValue.value === 'object') {
+        fields.value = schemaToFields(modelValue.value)
+        jsonValue.value = { ...modelValue.value }
+    } else {
+        fields.value = []
+        jsonValue.value = { type: 'object', properties: {} }
+    }
+    nextTick(() => { syncing = false })
+}
+
 watch(modelValue, initFromModelValue, { immediate: true })
 
-// Tab 切换时同步数据
+// ---------- Tab 切换同步 ----------
+
 watch(activeTab, (newTab) => {
+    syncing = true
     if (newTab === 'json') {
-        jsonValue.value = { ...schemaForVisual.value }
+        // 可视化 → JSON
+        const schema = fieldsToSchema(fields.value)
+        jsonValue.value = schema
         jsonError.value = ''
-    } else if (jsonValue.value && typeof jsonValue.value === 'object') {
-        schemaForVisual.value = { ...(jsonValue.value as Record<string, unknown>) }
+    } else {
+        // JSON → 可视化
+        if (jsonValue.value && typeof jsonValue.value === 'object') {
+            const schema = jsonValue.value as Record<string, unknown>
+            fields.value = schemaToFields(schema)
+        }
     }
+    nextTick(() => { syncing = false })
 })
 
-// 可视化编辑器变化时同步到 modelValue
-watch(schemaForVisual, (val) => {
-    if (activeTab.value === 'visual' && val) {
-        modelValue.value = { ...val }
-    }
-}, { deep: true })
+// ---------- 可视化操作 ----------
 
-// JSON 编辑器变化回调
+const syncToModel = () => {
+    if (syncing) return
+    syncing = true
+    modelValue.value = fieldsToSchema(fields.value)
+    nextTick(() => { syncing = false })
+}
+
+const addField = () => {
+    fields.value.push({
+        name: '',
+        type: 'string',
+        description: '',
+        required: false,
+        itemsType: 'string',
+    })
+}
+
+const removeField = (index: number) => {
+    fields.value.splice(index, 1)
+    syncToModel()
+}
+
+// ---------- JSON 编辑操作 ----------
+
 const onJsonChange = (val: unknown) => {
+    if (syncing) return
+    syncing = true
     if (typeof val === 'object' && val !== null) {
         jsonError.value = ''
         modelValue.value = { ...(val as Record<string, unknown>) }
@@ -143,29 +287,20 @@ const onJsonChange = (val: unknown) => {
             jsonError.value = 'JSON 格式不正确'
         }
     }
+    nextTick(() => { syncing = false })
 }
 
-// 格式化 JSON
 const formatJson = () => {
     if (jsonValue.value && typeof jsonValue.value === 'object') {
         jsonValue.value = JSON.parse(JSON.stringify(jsonValue.value))
     }
 }
 
-// 清空
 const clearSchema = () => {
-    schemaForVisual.value = { ...DEFAULT_SCHEMA }
-    jsonValue.value = { ...DEFAULT_SCHEMA }
+    syncing = true
+    fields.value = []
+    jsonValue.value = { type: 'object', properties: {} }
     modelValue.value = null
+    nextTick(() => { syncing = false })
 }
 </script>
-
-<style>
-/* 限制 @jianmu/json-schema-editor-vue3 的 Ant Design 样式泄漏 */
-.schema-editor-wrapper {
-    all: initial;
-    display: block;
-    font-family: inherit;
-    color: inherit;
-}
-</style>
