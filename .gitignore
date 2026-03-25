@@ -36,3 +36,5 @@ scheduled_tasks.lock
 
 
 app/coverage
+
+.superpowers/brainstorm/
