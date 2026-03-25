@@ -83,7 +83,11 @@
 import { Plus, WrapText, Trash2 } from 'lucide-vue-next'
 
 // 延迟导入避免 SSR 问题
-const JsonEditorVue = defineAsyncComponent(() => import('json-editor-vue'))
+const JsonEditorVue = defineAsyncComponent(() =>
+    import('vanilla-jsoneditor/themes/jse-theme-dark.css').then(
+        () => import('json-editor-vue')
+    )
+)
 
 const { isDark } = useColorMode()
 
@@ -162,8 +166,10 @@ const fieldsToSchema = (fieldList: SchemaField[]): Record<string, unknown> => {
 }
 
 const schemaToFields = (schema: Record<string, unknown>): SchemaField[] => {
-    const props = (schema.properties ?? {}) as Record<string, any>
-    const req = (schema.required ?? []) as string[]
+    // 先用 JSON 序列化去除 Vue 响应式代理
+    const raw = JSON.parse(JSON.stringify(schema))
+    const props = (raw.properties ?? {}) as Record<string, any>
+    const req = (raw.required ?? []) as string[]
     return Object.entries(props).map(([name, def]) => {
         const field: SchemaField = {
             name,
@@ -194,10 +200,16 @@ const schemaToFields = (schema: Record<string, unknown>): SchemaField[] => {
 const syncFromModel = () => {
     if (syncing) return
     syncing = true
-    if (modelValue.value && typeof modelValue.value === 'object'
-        && Object.keys(modelValue.value).length > 0) {
-        fields.value = schemaToFields(modelValue.value)
-        jsonValue.value = JSON.parse(JSON.stringify(modelValue.value))
+    const raw = modelValue.value
+    if (raw && typeof raw === 'object') {
+        const plain = JSON.parse(JSON.stringify(raw))
+        if (plain.properties || plain.type) {
+            fields.value = schemaToFields(plain)
+            jsonValue.value = plain
+        } else {
+            fields.value = []
+            jsonValue.value = { type: 'object', properties: {} }
+        }
     } else {
         fields.value = []
         jsonValue.value = { type: 'object', properties: {} }
