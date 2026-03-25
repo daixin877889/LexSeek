@@ -77,8 +77,11 @@ import { WrapText, Trash2 } from 'lucide-vue-next'
 const JsonEditorVue = defineAsyncComponent(() => import('json-editor-vue'))
 const JsonSchemaEditorVue3 = defineAsyncComponent(() =>
     import('@jianmu/json-schema-editor-vue3/lib/json-schema-editor-vue3.css').then(
-        // @ts-expect-error - 该库无类型声明
-        () => import('@jianmu/json-schema-editor-vue3').then((m: any) => m.default || m)
+        // @ts-expect-error - 该库无类型声明，默认导出是 Vue 插件，组件在 [0] 位置
+        () => import('@jianmu/json-schema-editor-vue3').then((m: any) => {
+            const plugin = m.default || m
+            return plugin[0] || plugin
+        })
     )
 )
 
