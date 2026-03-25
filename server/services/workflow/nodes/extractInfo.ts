@@ -103,7 +103,7 @@ export async function extractInfoNode(
             systemPrompt,
             tools,
             checkpointer,
-            responseFormat: toolStrategy(outputSchema),
+            responseFormat: toolStrategy(outputSchema as any),
         })
 
         // 8. Agent 自主执行
