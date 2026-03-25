@@ -199,6 +199,32 @@ export const INTERRUPT_TASK_MAP: Record<string, string> = {
 
 // ==================== 案件基本信息接口 ====================
 
+/** 扩展字段项（LLM 根据案件类型自动提取的额外信息） */
+export interface ExtraField {
+    /** 英文标识（camelCase） */
+    name: string
+    /** 中文名称 */
+    title: string
+    /** 提取的值 */
+    value: string
+}
+
+/** 结构化提取结果（固定字段 + 动态扩展字段） */
+export interface ExtractedCaseInfo {
+    /** 案件标题 */
+    title: string
+    /** 原告列表 */
+    plaintiff: string[]
+    /** 被告列表 */
+    defendant: string[]
+    /** 案件类型（必须匹配 case_types 表中的值） */
+    caseType: string
+    /** 案件概述 */
+    summary: string
+    /** 扩展字段列表 */
+    extraFields: ExtraField[]
+}
+
 /** 原告/被告信息 */
 export interface PartyInfo {
     /** 名称 */
