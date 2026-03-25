@@ -96,8 +96,8 @@ function formatSearchResults(results: MaterialSearchResult[]): FormattedSearchRe
         index: index + 1,
         content: result.content,
         source: {
-            materialId: result.materialId,
-            materialName: result.materialName,
+            sourceId: result.sourceId,
+            sourceName: result.sourceName,
             chunkIndex: result.chunkIndex,
         },
         relevanceScore: Number(result.score.toFixed(4)),
@@ -112,10 +112,10 @@ interface FormattedSearchResult {
     content: string
     /** 来源信息 */
     source: {
-        /** 材料 ID */
-        materialId: number
-        /** 材料名称 */
-        materialName: string
+        /** 来源 ID */
+        sourceId: number
+        /** 来源名称 */
+        sourceName: string
         /** 分块索引 */
         chunkIndex: number
     }

@@ -61,8 +61,8 @@ export default defineEventHandler(async (event) => {
             results: searchResults.map((item, index) => ({
                 index: index + 1,
                 content: item.content,
-                materialId: item.materialId,
-                materialName: item.materialName,
+                sourceId: item.sourceId,
+                sourceName: item.sourceName,
                 score: Number(item.score.toFixed(4)),
                 chunkIndex: item.chunkIndex,
             })),
