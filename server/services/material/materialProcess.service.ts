@@ -359,3 +359,127 @@ export async function ensureMaterialsEmbeddedService(
 
     return { total: materials.length, success, failed, skipped }
 }
+
+/**
+ * 批量检查材料是否已在各识别记录表中完成识别
+ *
+ * 按材料类型查询对应的识别记录表：
+ * - 文本(1): textContentRecords，content 非空即已识别
+ * - 文档(2): docRecognitionRecords，status === 2 即已识别
+ * - 图片(3): imageRecognitionRecords，status === 2 即已识别
+ * - 音频(4): asrRecords，status === 2 即已识别
+ *
+ * @returns Map<materialId, boolean>
+ */
+export async function batchCheckMaterialRecognizedService(
+    materials: MaterialWithFile[],
+): Promise<Map<number, boolean>> {
+    const resultMap = new Map<number, boolean>()
+    if (materials.length === 0) return resultMap
+
+    // 初始化所有材料为 false
+    for (const m of materials) {
+        resultMap.set(m.id, false)
+    }
+
+    // 按类型分组
+    const textMaterials = materials.filter(m => m.type === 1)
+    const docMaterials = materials.filter(m => m.type === 2 && m.ossFileId)
+    const imgMaterials = materials.filter(m => m.type === 3 && m.ossFileId)
+    const audioMaterials = materials.filter(m => m.type === 4 && m.ossFileId)
+
+    const queries: Promise<void>[] = []
+
+    // 文本：content 非空
+    if (textMaterials.length > 0) {
+        queries.push(
+            prisma.textContentRecords.findMany({
+                where: {
+                    materialId: { in: textMaterials.map(m => m.id) },
+                    content: { not: null },
+                    deletedAt: null,
+                },
+                select: { materialId: true },
+            }).then(records => {
+                for (const r of records) {
+                    if (r.materialId) resultMap.set(r.materialId, true)
+                }
+            })
+        )
+    }
+
+    // 文档：status === 2
+    if (docMaterials.length > 0) {
+        const ossToMaterial = new Map(docMaterials.map(m => [m.ossFileId!, m.id]))
+        queries.push(
+            prisma.docRecognitionRecords.findMany({
+                where: {
+                    ossFileId: { in: [...ossToMaterial.keys()] },
+                    status: 2,
+                    deletedAt: null,
+                },
+                select: { ossFileId: true },
+            }).then(records => {
+                const seen = new Set<number>()
+                for (const r of records) {
+                    if (r.ossFileId && !seen.has(r.ossFileId)) {
+                        seen.add(r.ossFileId)
+                        const materialId = ossToMaterial.get(r.ossFileId)
+                        if (materialId) resultMap.set(materialId, true)
+                    }
+                }
+            })
+        )
+    }
+
+    // 图片：status === 2
+    if (imgMaterials.length > 0) {
+        const ossToMaterial = new Map(imgMaterials.map(m => [m.ossFileId!, m.id]))
+        queries.push(
+            prisma.imageRecognitionRecords.findMany({
+                where: {
+                    ossFileId: { in: [...ossToMaterial.keys()] },
+                    status: 2,
+                    deletedAt: null,
+                },
+                select: { ossFileId: true },
+            }).then(records => {
+                const seen = new Set<number>()
+                for (const r of records) {
+                    if (r.ossFileId && !seen.has(r.ossFileId)) {
+                        seen.add(r.ossFileId)
+                        const materialId = ossToMaterial.get(r.ossFileId)
+                        if (materialId) resultMap.set(materialId, true)
+                    }
+                }
+            })
+        )
+    }
+
+    // 音频：status === 2
+    if (audioMaterials.length > 0) {
+        const ossToMaterial = new Map(audioMaterials.map(m => [m.ossFileId!, m.id]))
+        queries.push(
+            prisma.asrRecords.findMany({
+                where: {
+                    ossFileId: { in: [...ossToMaterial.keys()] },
+                    status: 2,
+                    deletedAt: null,
+                },
+                select: { ossFileId: true },
+            }).then(records => {
+                const seen = new Set<number>()
+                for (const r of records) {
+                    if (r.ossFileId && !seen.has(r.ossFileId)) {
+                        seen.add(r.ossFileId)
+                        const materialId = ossToMaterial.get(r.ossFileId)
+                        if (materialId) resultMap.set(materialId, true)
+                    }
+                }
+            })
+        )
+    }
+
+    await Promise.all(queries)
+    return resultMap
+}
