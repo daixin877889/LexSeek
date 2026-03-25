@@ -8,9 +8,7 @@
 import { tool } from '@langchain/core/tools'
 import { z } from 'zod'
 import type { ToolDefinition, ToolContext } from './types'
-import { getMaterialsByCaseIdService } from '../../material/material.service'
-import { batchCheckMaterialEmbeddedService } from '../../material/materialEmbedding.service'
-import { ensureMaterialsEmbeddedService } from '../../material/materialProcess.service'
+import { ensureMaterialsReadyService } from '../../material/materialPipeline.service'
 
 const TOKEN_THRESHOLD = 32000
 
@@ -158,8 +156,8 @@ export function createTool(context: ToolContext) {
             logger.info('执行材料处理工具', { userId, caseId })
 
             try {
-                // 1. 获取案件所有材料元信息
-                const materials = await getMaterialsByCaseIdService(caseId)
+                // 1. 通过 pipeline 确保材料已识别+嵌入
+                const { materials, embeddedMap } = await ensureMaterialsReadyService(caseId, userId)
                 if (materials.length === 0) {
                     return JSON.stringify({
                         mode: 'empty',
@@ -168,25 +166,16 @@ export function createTool(context: ToolContext) {
                     })
                 }
 
-                // 2. 检查嵌入状态，触发未完成的识别/嵌入
-                const embeddedMap = await batchCheckMaterialEmbeddedService(
-                    materials.map(m => m.id)
-                )
-                const notEmbedded = materials.filter(m => !embeddedMap.get(m.id))
-                if (notEmbedded.length > 0) {
-                    await ensureMaterialsEmbeddedService(notEmbedded, userId)
-                }
-
-                // 3. 从各识别记录表获取实际内容
+                // 2. 从各识别记录表获取实际内容
                 const contentMap = await fetchMaterialContents(materials)
 
-                // 4. 计算总 token 量
+                // 3. 计算总 token 量
                 let totalTokens = 0
                 for (const content of contentMap.values()) {
                     totalTokens += estimateTokens(content)
                 }
 
-                // 5. 决定提供模式
+                // 4. 决定提供模式
                 const isFullMode = totalTokens < TOKEN_THRESHOLD
 
                 const materialList = materials.map(m => {
