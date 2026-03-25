@@ -38,14 +38,16 @@
                           <AiElementsReasoningContent :content="getReasoningText(message)" />
                         </AiElementsReasoning>
 
-                        <AiElementsTool v-for="tc in getToolCallsForMessage(message)" :key="tc.call.id">
-                          <AiElementsToolHeader :type="`tool-${tc.call.name}`" :state="tc.state" />
-                          <AiElementsToolContent>
-                            <AiElementsToolInput :input="tc.call.args" />
-                            <AiElementsToolOutput v-if="tc.result" :output="tc.result.content"
-                              :error-text="tc.state === 'output-error' ? String(tc.result.content) : undefined" />
-                          </AiElementsToolContent>
-                        </AiElementsTool>
+                        <CaseAnalysisToolsToolRenderer
+                          v-for="tc in getToolCallsForMessage(message)"
+                          :key="tc.call.id"
+                          :tool-name="tc.call.name"
+                          :input="tc.call.args"
+                          :output="tc.result?.content"
+                          :state="tc.state"
+                          @confirm="handleToolConfirm"
+                          @reject="handleToolReject"
+                        />
 
                         <AiElementsMessageResponse v-if="message.text" :content="message.text" />
                       </AiElementsMessageContent>
@@ -200,12 +202,39 @@ const historyMessages = computed(() => {
   return coerceRawMessages(rawMessages)
 })
 
-// 流式消息：从 stream.values 原始数据自行转换
-// 不使用 stream.messages，因为 @langchain/vue 的 ensureMessageInstances 不支持 tool 类型消息
+// 流式消息：以 stream.messages 为基础（保留 thinking），补充 stream.values 中的 ToolMessage
+// stream.messages 通过 @langchain/vue 累积，保留 thinking 内容块
+// 但 ensureMessageInstances 不支持 tool 类型消息，需要从 stream.values 补充
 const streamMessages = computed(() => {
+  const lcMessages = stream.messages as any[]
   const rawMessages = (stream.values as any)?.messages
-  if (!Array.isArray(rawMessages) || rawMessages.length === 0) return []
-  return coerceRawMessages(rawMessages)
+
+  // 如果 stream.messages 为空，fallback 到 stream.values（历史恢复场景）
+  if (!Array.isArray(lcMessages) || lcMessages.length === 0) {
+    if (!Array.isArray(rawMessages) || rawMessages.length === 0) return []
+    return coerceRawMessages(rawMessages)
+  }
+
+  // 从 stream.values.messages 补充被 ensureMessageInstances 丢弃的 ToolMessage
+  if (!Array.isArray(rawMessages)) return lcMessages
+
+  const result = [...lcMessages]
+  const existingIds = new Set(result.map((m: any) => m.id).filter(Boolean))
+
+  for (const raw of rawMessages) {
+    if (raw.type === 'tool' && !existingIds.has(raw.id)) {
+      // 找到对应的 AI 消息（通过 tool_call_id 匹配），插入其后
+      const aiIdx = result.findLastIndex((m: any) =>
+        AIMessage.isInstance(m) && (m as any).tool_calls?.some((tc: any) => tc.id === raw.tool_call_id),
+      )
+      const insertAt = aiIdx >= 0 ? aiIdx + 1 : result.length
+      const toolMsg = new ToolMessage({ content: raw.content, tool_call_id: raw.tool_call_id, id: raw.id })
+      result.splice(insertAt, 0, toolMsg)
+      if (raw.id) existingIds.add(raw.id)
+    }
+  }
+
+  return result
 })
 
 // 最终用于模板渲染的消息列表
@@ -382,6 +411,21 @@ async function handlePromptSubmit(data: PromptSubmitData) {
 }
 
 const handleRegenerate = () => { }
+
+/** 工具中断确认（如 extract_case_info 信息确认） */
+function handleToolConfirm(data: any) {
+  stream.submit(undefined, {
+    command: { resume: { action: 'approve', data } },
+  })
+}
+
+/** 工具中断拒绝 */
+function handleToolReject() {
+  stream.submit(undefined, {
+    command: { resume: { action: 'reject' } },
+  })
+}
+
 const goBack = () => {
   router.push({ name: "dashboard-analysis" });
 }

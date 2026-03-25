@@ -26,7 +26,7 @@ function handleConfirm() {
 </script>
 
 <template>
-    <AiElementsConfirmation>
+    <AiElementsConfirmation :state="'approval-requested'" :approval="{ id: 'case-info' }">
         <AiElementsConfirmationRequest>
             <div class="space-y-3">
                 <h3 class="font-medium">案件基础信息确认</h3>
@@ -41,11 +41,11 @@ function handleConfirm() {
                     </div>
                     <div>
                         <label class="text-muted-foreground">原告</label>
-                        <Input :model-value="editForm.plaintiff?.join('、')" @update:model-value="v => editForm.plaintiff = v.split('、')" />
+                        <Input :model-value="editForm.plaintiff?.join('、')" @update:model-value="v => editForm.plaintiff = String(v).split('、')" />
                     </div>
                     <div>
                         <label class="text-muted-foreground">被告</label>
-                        <Input :model-value="editForm.defendant?.join('、')" @update:model-value="v => editForm.defendant = v.split('、')" />
+                        <Input :model-value="editForm.defendant?.join('、')" @update:model-value="v => editForm.defendant = String(v).split('、')" />
                     </div>
                     <div class="col-span-2">
                         <label class="text-muted-foreground">案件概述</label>

@@ -16,18 +16,16 @@ defineProps<{
     <AiElementsQueue>
         <AiElementsQueueSection v-for="task in tasks" :key="task.id">
             <AiElementsQueueItem>
-                <AiElementsQueueItemIndicator :state="task.status" />
-                <AiElementsQueueItemContent>
-                    <div class="flex items-center justify-between">
-                        <span>{{ task.name }}</span>
-                        <Badge v-if="task.points" variant="outline" class="text-xs">{{ task.points }} 积分</Badge>
-                    </div>
+                <AiElementsQueueItemContent :completed="task.status === 'completed'">
+                    <AiElementsQueueItemIndicator :status="task.status" />
+                    <span>{{ task.name }}</span>
+                    <Badge v-if="task.points" variant="outline" class="text-xs ml-auto">{{ task.points }} 积分</Badge>
                 </AiElementsQueueItemContent>
             </AiElementsQueueItem>
 
             <!-- 运行中：显示推理过程 -->
             <AiElementsReasoning v-if="task.status === 'running'">
-                <AiElementsReasoningContent>
+                <AiElementsReasoningContent content="">
                     <AiElementsShimmer />
                 </AiElementsReasoningContent>
             </AiElementsReasoning>

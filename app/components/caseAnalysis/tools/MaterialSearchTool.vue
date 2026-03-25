@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import type { ExtendedToolState } from '@/components/ai-elements/types'
+
 const props = defineProps<{
     toolName: string
     input?: any
     output?: any
-    state: string
+    state: ExtendedToolState
 }>()
 
 const results = computed(() => {
@@ -16,19 +18,29 @@ const results = computed(() => {
 
 <template>
     <AiElementsTool>
-        <AiElementsToolHeader name="材料检索" :state="state" />
-        <AiElementsToolInput v-if="input">
-            <Badge variant="secondary">{{ input.query }}</Badge>
-        </AiElementsToolInput>
-        <AiElementsToolContent v-if="output">
-            <AiElementsToolOutput>
-                <div class="space-y-2">
-                    <div v-for="r in results" :key="r.index" class="border rounded p-2 text-sm">
-                        <div class="font-medium text-xs text-muted-foreground">{{ r.source?.materialName }}</div>
-                        <div class="mt-1">{{ r.content?.substring(0, 200) }}...</div>
-                    </div>
+        <AiElementsToolHeader title="材料检索" type="tool-search_case_materials" :state="state" />
+        <AiElementsToolContent v-if="input || output != null">
+            <div class="p-4 space-y-3">
+                <div v-if="input">
+                    <Badge variant="secondary">{{ input.query }}</Badge>
                 </div>
-            </AiElementsToolOutput>
+                <AiElementsSources v-if="results.length">
+                    <AiElementsSourcesTrigger :count="results.length" />
+                    <AiElementsSourcesContent>
+                        <AiElementsSource
+                            v-for="r in results"
+                            :key="r.index"
+                            :href="`#material-${r.index}`"
+                            :title="r.source?.materialName || '未知材料'"
+                        >
+                            <div class="flex flex-col gap-1">
+                                <span class="font-medium text-sm">{{ r.source?.materialName }}</span>
+                                <span class="text-xs text-muted-foreground line-clamp-2">{{ r.content?.substring(0, 200) }}</span>
+                            </div>
+                        </AiElementsSource>
+                    </AiElementsSourcesContent>
+                </AiElementsSources>
+            </div>
         </AiElementsToolContent>
     </AiElementsTool>
 </template>

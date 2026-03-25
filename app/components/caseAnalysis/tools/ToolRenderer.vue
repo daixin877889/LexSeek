@@ -1,25 +1,38 @@
 <script setup lang="ts">
+import type { ExtendedToolState } from '@/components/ai-elements/types'
+
 const props = defineProps<{
     toolName: string
     input?: any
     output?: any
-    state: string
+    state: ExtendedToolState
+}>()
+
+const emit = defineEmits<{
+    confirm: [caseInfo: any]
+    reject: []
 }>()
 </script>
 
 <template>
     <CaseAnalysisToolsMaterialProcessTool v-if="toolName === 'process_materials'" v-bind="props" />
     <CaseAnalysisToolsPointsReserveTool v-else-if="toolName === 'reserve_points'" v-bind="props" />
+    <CaseAnalysisToolsConfirmPointsTool v-else-if="toolName === 'confirm_points'" v-bind="props" />
+    <CaseAnalysisToolsRollbackPointsTool v-else-if="toolName === 'rollback_points'" v-bind="props" />
+    <CaseAnalysisToolsWriteTodosTool v-else-if="toolName === 'write_todos'" v-bind="props" />
     <CaseAnalysisToolsMaterialSearchTool v-else-if="toolName === 'search_case_materials'" v-bind="props" />
     <CaseAnalysisToolsLawSearchTool v-else-if="toolName === 'search_law'" v-bind="props" />
-    <CaseAnalysisToolsExtractInfoTool v-else-if="toolName === 'extract_case_info'" v-bind="props" />
-    <!-- 默认工具展示 -->
+    <CaseAnalysisToolsExtractInfoTool v-else-if="toolName === 'extract_case_info'" v-bind="props"
+        @confirm="emit('confirm', $event)" @reject="emit('reject')" />
+    <!-- 默认工具展示：使用 ai-elements 标准组件显示完整输入/输出/错误 -->
     <AiElementsTool v-else>
-        <AiElementsToolHeader :name="toolName" :state="state" />
-        <AiElementsToolContent v-if="output">
-            <AiElementsToolOutput>
-                <pre class="text-xs whitespace-pre-wrap">{{ JSON.stringify(output, null, 2) }}</pre>
-            </AiElementsToolOutput>
+        <AiElementsToolHeader :title="toolName" :type="`tool-${toolName}`" :state="state" />
+        <AiElementsToolContent>
+            <AiElementsToolInput v-if="input" :input="input" />
+            <AiElementsToolOutput v-if="output != null"
+                :output="output"
+                :error-text="state === 'output-error' ? String(output) : undefined"
+            />
         </AiElementsToolContent>
     </AiElementsTool>
 </template>

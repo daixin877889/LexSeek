@@ -37,7 +37,7 @@ const totalPoints = computed(() =>
 </script>
 
 <template>
-    <AiElementsConfirmation>
+    <AiElementsConfirmation :state="'approval-requested'" :approval="{ id: 'module-select' }">
         <AiElementsConfirmationRequest>
             <div class="space-y-3">
                 <h3 class="font-medium">选择分析模块</h3>
