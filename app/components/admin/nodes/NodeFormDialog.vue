@@ -119,6 +119,11 @@
                     <p class="text-xs text-muted-foreground">选择节点可调用的工具</p>
                 </div>
 
+                <!-- 结构化输出 Schema（仅 extraction/agent 类型） -->
+                <div v-if="showOutputSchema" class="space-y-2">
+                    <AdminNodesOutputSchemaEditor v-model="form.outputSchema" />
+                </div>
+
                 <!-- 状态 -->
                 <div class="space-y-2">
                     <Label>状态</Label>
@@ -191,6 +196,18 @@ const toolsLoading = ref(false)
 // 表单数据
 const form = ref(getDefaultForm())
 
+// 是否显示 outputSchema 编辑器
+const showOutputSchema = computed(() =>
+    ['extraction', 'agent'].includes(form.value.type)
+)
+
+// 类型切换时自动清空 outputSchema
+watch(() => form.value.type, (newType) => {
+    if (!['extraction', 'agent'].includes(newType)) {
+        form.value.outputSchema = null
+    }
+})
+
 // 获取默认表单值
 function getDefaultForm() {
     return {
@@ -203,6 +220,7 @@ function getDefaultForm() {
         groupId: 'none',
         tools: [] as string[],
         status: '1',
+        outputSchema: null as Record<string, unknown> | null,
     }
 }
 
@@ -288,6 +306,7 @@ const openEdit = (node: NodeWithRelations) => {
         groupId: node.groupId ? String(node.groupId) : 'none',
         tools: toolsArray,
         status: String(node.status),
+        outputSchema: (node.outputSchema as Record<string, unknown>) ?? null,
     }
     loadGroups()
     loadModels()
@@ -322,6 +341,7 @@ const handleSubmit = async () => {
             groupId: form.value.groupId === 'none' ? null : parseInt(form.value.groupId),
             tools: form.value.tools,
             status: parseInt(form.value.status),
+            outputSchema: showOutputSchema.value ? (form.value.outputSchema ?? null) : null,
         }
 
         let result
