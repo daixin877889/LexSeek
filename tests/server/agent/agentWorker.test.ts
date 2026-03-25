@@ -145,9 +145,13 @@ describe('Agent Worker 核心', () => {
   })
 
   it('processNextTask 并发已满时不取任务', async () => {
-    // 设置 max concurrent 为 1
-    const origMax = process.env.AGENT_MAX_CONCURRENT
-    process.env.AGENT_MAX_CONCURRENT = '1'
+    // 通过构造函数注入 maxConcurrent=1 的配置
+    const testConfig = {
+      maxConcurrent: 1,
+      timeoutMs: 3_600_000,
+      heartbeatIntervalMs: 15_000,
+      crashThresholdMs: 60_000,
+    }
 
     try {
       // 先创建一个 run 并让 worker 取走
@@ -160,7 +164,7 @@ describe('Agent Worker 核心', () => {
       })
       testIds.agentRunIds.push(run1.id)
 
-      const worker = new AgentWorker('test-full-worker')
+      const worker = new AgentWorker('test-full-worker', testConfig)
       const first = await worker.processNextTask()
       expect(first).toBe(true)
 
@@ -183,12 +187,7 @@ describe('Agent Worker 核心', () => {
       await worker.shutdown()
     }
     finally {
-      if (origMax !== undefined) {
-        process.env.AGENT_MAX_CONCURRENT = origMax
-      }
-      else {
-        delete process.env.AGENT_MAX_CONCURRENT
-      }
+      // 无需清理，配置仅在 worker 实例内
     }
   })
 

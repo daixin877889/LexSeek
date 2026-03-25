@@ -114,10 +114,6 @@ describe('AgentRun 服务层', () => {
     })
 
     it('用户并发超限时返回错误', async () => {
-      // 设置最大并发为 1
-      const origMax = process.env.AGENT_MAX_USER_CONCURRENT
-      process.env.AGENT_MAX_USER_CONCURRENT = '1'
-
       try {
         // 先入队一个
         const first = await enqueueRunService({
@@ -135,14 +131,14 @@ describe('AgentRun 服务层', () => {
         const session2 = await createTestSession(testCase.id)
         testIds.sessionIds.push(session2.sessionId)
 
-        // 再入队不同 session（同用户）
+        // 再入队不同 session（同用户），通过 options 设置 maxUserConcurrent=1
         const second = await enqueueRunService({
           sessionId: session2.sessionId,
           threadId: session2.sessionId,
           userId: testUser.id,
           caseId: testCase.id,
           input: { message: '超限' },
-        })
+        }, { maxUserConcurrent: 1 })
 
         expect('error' in second).toBe(true)
         if ('error' in second) {
@@ -150,12 +146,7 @@ describe('AgentRun 服务层', () => {
         }
       }
       finally {
-        if (origMax !== undefined) {
-          process.env.AGENT_MAX_USER_CONCURRENT = origMax
-        }
-        else {
-          delete process.env.AGENT_MAX_USER_CONCURRENT
-        }
+        // 无需清理
       }
     })
   })
