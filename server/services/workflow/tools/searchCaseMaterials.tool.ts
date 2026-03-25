@@ -1,27 +1,14 @@
 /**
  * 案件材料检索工作流工具
  *
- * 工作流工具层 - 调用 material 服务层的查询逻辑
- * 支持三种检索模式：
- * - query only: 语义搜索，caseId→sourceId 限定范围
- * - query + sourceId: 语义搜索，限定到指定 sourceId
- * - sourceId only: 精确查询完整内容
+ * 工作流工具层 - 调用 materialPipeline 服务层的检索逻辑
+ * 支持三种检索模式：语义搜索、精确检索、组合检索
  * Requirements: 12.2.1-12.2.4
  */
 
 import { tool } from '@langchain/core/tools'
 import { z } from 'zod'
-import { Document } from '@langchain/core/documents'
-import {
-    similaritySearchWithScore,
-    type VectorStoreConfig,
-} from '~~/server/services/legal/vectorStore.service'
-import {
-    caseMaterialVectorConfig,
-    type ContentEmbeddingMetadata,
-} from '../../material/materialEmbedding.service'
-import { getMaterialsByCaseIdService } from '../../material/material.service'
-import { getSourceId, fetchMaterialContents } from '../../material/materialPipeline.service'
+import { searchMaterialsService } from '../../material/materialPipeline.service'
 import type { ToolDefinition, ToolContext } from './types'
 
 /** 参数 schema（唯一数据源） */
@@ -54,70 +41,18 @@ export function createTool(context: ToolContext) {
         async (input) => {
             const { query, sourceId, k = 5 } = input
 
-            logger.info('执行材料检索工作流工具', {
-                userId,
-                caseId,
-                query,
-                sourceId,
-                k,
-            })
+            logger.info('执行材料检索工作流工具', { userId, caseId, query, sourceId, k })
 
             try {
-                // 1. 获取案件材料列表
-                const allMaterials = await getMaterialsByCaseIdService(caseId)
+                const results = await searchMaterialsService(userId, caseId, { query, sourceId, k })
 
-                // 2. 按 sourceId 过滤（如果指定）
-                const targetMaterials = sourceId
-                    ? allMaterials.filter(m => getSourceId(m) === sourceId)
-                    : allMaterials
-
-                if (targetMaterials.length === 0) {
+                if (results.length === 0) {
                     return JSON.stringify({ error: '未找到指定材料' })
                 }
 
-                // 3. 无 query → 精确查询完整内容
-                if (!query) {
-                    const contentMap = await fetchMaterialContents(targetMaterials)
-                    const exactResults = targetMaterials.map((m, index) => ({
-                        index: index + 1,
-                        content: contentMap.get(m.id) || '[暂无内容]',
-                        source: {
-                            sourceId: getSourceId(m),
-                            sourceName: m.name,
-                        },
-                    }))
-                    return JSON.stringify(exactResults)
-                }
+                logger.info('材料检索完成', { caseId, resultCount: results.length })
 
-                // 4. 有 query → 向量语义搜索，用 sourceId IN 限定范围
-                const sourceIds = targetMaterials.map(m => getSourceId(m))
-                const filter: Record<string, any> = {
-                    userId,
-                    sourceId: { in: sourceIds.map(String) },
-                }
-                const results = await similaritySearchWithScore(query, k, filter, caseMaterialVectorConfig)
-
-                // 5. 格式化结果
-                const formattedResults = results.map(([doc, score]: [Document, number], index: number) => {
-                    const metadata = doc.metadata as ContentEmbeddingMetadata
-                    return {
-                        index: index + 1,
-                        content: doc.pageContent,
-                        source: {
-                            sourceId: metadata.sourceId,
-                            sourceName: metadata.sourceName,
-                            chunkIndex: metadata.chunkIndex,
-                        },
-                        relevanceScore: Number(score.toFixed(4)),
-                    }
-                })
-
-                logger.info('材料检索完成', {
-                    caseId,
-                    resultCount: formattedResults.length,
-                })
-
-                return JSON.stringify(formattedResults)
+                return JSON.stringify(results)
             } catch (error) {
                 logger.error('材料检索失败:', error)
                 return JSON.stringify({

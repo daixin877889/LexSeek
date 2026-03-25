@@ -7,6 +7,7 @@
 import { getMaterialsByCaseIdService, type MaterialWithFile } from './material.service'
 import { batchCheckMaterialEmbeddedService, embedMaterialUnifiedService } from './materialEmbedding.service'
 import { processMaterialService, batchCheckMaterialRecognizedService } from './materialProcess.service'
+import { CaseMaterialType } from '#shared/types/case'
 
 export interface MaterialFailedItem {
     materialId: number
@@ -112,4 +113,304 @@ export async function ensureMaterialsReadyService(
         embeddedMap: finalEmbeddedMap,
         failed,
     }
+}
+
+// ==================== 材料上下文服务 ====================
+
+export const TOKEN_THRESHOLD = 32000
+
+/** 按材料类型返回向量表中的 sourceId */
+export function getSourceId(material: MaterialWithFile): number {
+    if (material.type === CaseMaterialType.CASE_CONTENT) {
+        return material.id
+    }
+    return material.ossFileId!
+}
+
+/** 简单 token 估算（中文约 2 字符/token，英文约 4 字符/token） */
+export function estimateTokens(text: string): number {
+    if (!text) return 0
+    const chineseChars = (text.match(/[\u4e00-\u9fff]/g) || []).length
+    const otherChars = text.length - chineseChars
+    return Math.ceil(chineseChars / 2 + otherChars / 4)
+}
+
+/**
+ * 从各识别记录表获取材料的实际内容
+ *
+ * caseMaterials 表只有元信息，内容分散在：
+ * - 文本(1): textContentRecords.content (按 materialId)
+ * - 文档(2): docRecognitionRecords.markdownContent (按 ossFileId)
+ * - 图片(3): imageRecognitionRecords.markdownContent (按 ossFileId)
+ * - 音频(4): asrRecords.summary (按 ossFileId)
+ */
+export async function fetchMaterialContents(
+    materials: { id: number; type: number; ossFileId: number | null }[]
+): Promise<Map<number, string>> {
+    const contentMap = new Map<number, string>()
+
+    const textMaterials = materials.filter(m => m.type === CaseMaterialType.CASE_CONTENT)
+    const docMaterials = materials.filter(m => m.type === CaseMaterialType.DOCUMENT && m.ossFileId)
+    const imgMaterials = materials.filter(m => m.type === CaseMaterialType.IMAGE && m.ossFileId)
+    const audioMaterials = materials.filter(m => m.type === CaseMaterialType.AUDIO && m.ossFileId)
+
+    const queries: Promise<void>[] = []
+
+    // 文本材料：从 textContentRecords 获取
+    if (textMaterials.length > 0) {
+        queries.push(
+            prisma.textContentRecords.findMany({
+                where: {
+                    materialId: { in: textMaterials.map(m => m.id) },
+                    content: { not: null },
+                    deletedAt: null,
+                },
+                select: { materialId: true, content: true },
+            }).then(records => {
+                for (const r of records) {
+                    if (r.materialId && r.content) {
+                        contentMap.set(r.materialId, r.content)
+                    }
+                }
+            })
+        )
+    }
+
+    // 文档材料：从 docRecognitionRecords 获取
+    if (docMaterials.length > 0) {
+        const ossFileIdToMaterialId = new Map(docMaterials.map(m => [m.ossFileId!, m.id]))
+        queries.push(
+            prisma.docRecognitionRecords.findMany({
+                where: {
+                    ossFileId: { in: [...ossFileIdToMaterialId.keys()] },
+                    markdownContent: { not: null },
+                    deletedAt: null,
+                },
+                select: { ossFileId: true, markdownContent: true },
+                orderBy: { createdAt: 'desc' },
+            }).then(records => {
+                const seen = new Set<number>()
+                for (const r of records) {
+                    if (r.ossFileId && r.markdownContent && !seen.has(r.ossFileId)) {
+                        seen.add(r.ossFileId)
+                        const materialId = ossFileIdToMaterialId.get(r.ossFileId)
+                        if (materialId) contentMap.set(materialId, r.markdownContent)
+                    }
+                }
+            })
+        )
+    }
+
+    // 图片材料：从 imageRecognitionRecords 获取
+    if (imgMaterials.length > 0) {
+        const ossFileIdToMaterialId = new Map(imgMaterials.map(m => [m.ossFileId!, m.id]))
+        queries.push(
+            prisma.imageRecognitionRecords.findMany({
+                where: {
+                    ossFileId: { in: [...ossFileIdToMaterialId.keys()] },
+                    markdownContent: { not: null },
+                    deletedAt: null,
+                },
+                select: { ossFileId: true, markdownContent: true },
+                orderBy: { createdAt: 'desc' },
+            }).then(records => {
+                const seen = new Set<number>()
+                for (const r of records) {
+                    if (r.ossFileId && r.markdownContent && !seen.has(r.ossFileId)) {
+                        seen.add(r.ossFileId)
+                        const materialId = ossFileIdToMaterialId.get(r.ossFileId)
+                        if (materialId) contentMap.set(materialId, r.markdownContent)
+                    }
+                }
+            })
+        )
+    }
+
+    // 音频材料：从 asrRecords 获取
+    if (audioMaterials.length > 0) {
+        const ossFileIdToMaterialId = new Map(audioMaterials.map(m => [m.ossFileId!, m.id]))
+        queries.push(
+            prisma.asrRecords.findMany({
+                where: {
+                    ossFileId: { in: [...ossFileIdToMaterialId.keys()] },
+                    summary: { not: null },
+                    deletedAt: null,
+                },
+                select: { ossFileId: true, summary: true },
+                orderBy: { createdAt: 'desc' },
+            }).then(records => {
+                const seen = new Set<number>()
+                for (const r of records) {
+                    if (r.ossFileId && r.summary && !seen.has(r.ossFileId)) {
+                        seen.add(r.ossFileId)
+                        const materialId = ossFileIdToMaterialId.get(r.ossFileId)
+                        if (materialId) contentMap.set(materialId, r.summary)
+                    }
+                }
+            })
+        )
+    }
+
+    await Promise.all(queries)
+    return contentMap
+}
+
+// ==================== 上下文构建 ====================
+
+export interface MaterialContextItem {
+    sourceId: number
+    name: string
+    type: number
+    hasContent: boolean
+    content?: string
+    summary?: string
+}
+
+export interface MaterialContextResult {
+    mode: 'full' | 'summary' | 'empty'
+    totalTokens: number
+    materialList: MaterialContextItem[]
+}
+
+export async function getMaterialContextService(
+    materials: MaterialWithFile[],
+    tokenThreshold: number = TOKEN_THRESHOLD,
+): Promise<MaterialContextResult> {
+    if (materials.length === 0) {
+        return { mode: 'empty', totalTokens: 0, materialList: [] }
+    }
+
+    const contentMap = await fetchMaterialContents(materials)
+
+    let totalTokens = 0
+    for (const content of contentMap.values()) {
+        totalTokens += estimateTokens(content)
+    }
+
+    const isFullMode = totalTokens < tokenThreshold
+
+    const materialList: MaterialContextItem[] = materials.map(m => {
+        const content = contentMap.get(m.id)
+        return {
+            sourceId: getSourceId(m),
+            name: m.name,
+            type: m.type,
+            hasContent: !!content,
+            ...(isFullMode && content
+                ? { content }
+                : { summary: m.summary || (content ? content.substring(0, 200) + '...' : `[材料: ${m.name}，暂无内容]`) }),
+        }
+    })
+
+    return {
+        mode: isFullMode ? 'full' : 'summary',
+        totalTokens,
+        materialList,
+    }
+}
+
+export function buildMaterialContextMessage(context: MaterialContextResult): string {
+    if (context.mode === 'full') {
+        const header = '以下是本案件的全部材料内容，请基于这些材料进行分析：\n'
+        const body = context.materialList
+            .map(m => `## [sourceId=${m.sourceId}] ${m.name}\n${m.content || '[暂无内容]'}`)
+            .join('\n\n')
+        return header + '\n' + body
+    }
+
+    // summary 模式
+    const header = `本案件共有 ${context.materialList.length} 份材料，材料量较大，以下为摘要信息。需要详细内容时请使用 search_case_materials 工具，传入 sourceId 精确检索。\n`
+    const body = context.materialList
+        .map(m => `- [sourceId=${m.sourceId}] ${m.name}（摘要：${m.summary || '暂无'}）`)
+        .join('\n')
+    return header + '\n' + body
+}
+
+export function buildIncrementalMaterialMessage(context: MaterialContextResult): string {
+    const header = '案件新增了以下材料，需要详细内容时请使用 search_case_materials 工具，传入 sourceId 精确检索。\n'
+    const body = context.materialList
+        .map(m => `- [sourceId=${m.sourceId}] ${m.name}（摘要：${m.summary || '暂无'}）`)
+        .join('\n')
+    return header + '\n' + body
+}
+
+// ==================== 材料检索服务 ====================
+
+import { Document } from '@langchain/core/documents'
+import {
+    similaritySearchWithScore,
+} from '~~/server/services/legal/vectorStore.service'
+import {
+    caseMaterialVectorConfig,
+    type ContentEmbeddingMetadata,
+} from './materialEmbedding.service'
+
+export interface MaterialSearchToolResult {
+    index: number
+    content: string
+    source: {
+        sourceId: number
+        sourceName: string
+        chunkIndex?: number
+    }
+    relevanceScore?: number
+}
+
+/**
+ * 材料检索核心逻辑（供工具层调用）
+ *
+ * 支持三种检索模式：
+ * - query only: 语义搜索，通过 caseId→sourceId 集合限定范围
+ * - query + sourceId: 语义搜索，限定到指定 sourceId
+ * - sourceId only: 精确查询完整内容
+ */
+export async function searchMaterialsService(
+    userId: number,
+    caseId: number,
+    options: { query?: string; sourceId?: number; k?: number },
+): Promise<MaterialSearchToolResult[]> {
+    const { query, sourceId, k = 5 } = options
+
+    const allMaterials = await getMaterialsByCaseIdService(caseId)
+
+    const targetMaterials = sourceId
+        ? allMaterials.filter(m => getSourceId(m) === sourceId)
+        : allMaterials
+
+    if (targetMaterials.length === 0) return []
+
+    // 无 query → 精确查询完整内容
+    if (!query) {
+        const contentMap = await fetchMaterialContents(targetMaterials)
+        return targetMaterials.map((m, index) => ({
+            index: index + 1,
+            content: contentMap.get(m.id) || '[暂无内容]',
+            source: {
+                sourceId: getSourceId(m),
+                sourceName: m.name,
+            },
+        }))
+    }
+
+    // 有 query → 向量语义搜索，用 sourceId IN 限定范围
+    const sourceIds = targetMaterials.map(m => getSourceId(m))
+    const filter: Record<string, any> = {
+        userId,
+        sourceId: { in: sourceIds.map(String) },
+    }
+    const results = await similaritySearchWithScore(query, k, filter, caseMaterialVectorConfig)
+
+    return results.map(([doc, score]: [Document, number], index: number) => {
+        const metadata = doc.metadata as ContentEmbeddingMetadata
+        return {
+            index: index + 1,
+            content: doc.pageContent,
+            source: {
+                sourceId: metadata.sourceId,
+                sourceName: metadata.sourceName,
+                chunkIndex: metadata.chunkIndex,
+            },
+            relevanceScore: Number(score.toFixed(4)),
+        }
+    })
 }

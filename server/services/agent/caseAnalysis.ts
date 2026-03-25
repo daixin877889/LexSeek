@@ -1,8 +1,8 @@
 import { createAgent, createMiddleware, HumanMessage } from "langchain";
 import { createChatModel } from '../node/chatModelFactory'
 import { getToolInstancesService } from '../workflow/tools'
-import { ensureMaterialsReadyService } from '../material/materialPipeline.service'
 import {
+    ensureMaterialsReadyService,
     getMaterialContextService,
     buildMaterialContextMessage,
     buildIncrementalMaterialMessage,
