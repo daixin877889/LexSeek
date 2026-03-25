@@ -7,10 +7,10 @@ interface PendingEvent {
   event: AgentEvent
   timestamp: number
 }
-
+const config = useRuntimeConfig()
 const pendingEvents: PendingEvent[] = []
-const PENDING_QUEUE_MAX = 500000
-const PENDING_QUEUE_TTL_MS = 5 * 60 * 1000 // 5 分钟
+const PENDING_QUEUE_MAX = config.agent.pendingQueueMax
+const PENDING_QUEUE_TTL_MS = config.agent.pendingQueueTtlMs
 
 function isRedisReady(): boolean {
   try {
@@ -170,8 +170,8 @@ export async function* createEventSubscription(
 
   function cleanup(): void {
     if (idleTimer) clearTimeout(idleTimer)
-    sub.unsubscribe(channel).catch(() => {})
-    sub.quit().catch(() => {})
+    sub.unsubscribe(channel).catch(() => { })
+    sub.quit().catch(() => { })
   }
 
   sub.on('message', (_ch: string, message: string) => {

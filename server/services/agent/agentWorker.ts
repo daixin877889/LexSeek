@@ -20,25 +20,35 @@ import {
 } from './agentEventBridge'
 import { getRedisSubscriber } from '~~/server/lib/redis'
 
-/** Worker 配置，从环境变量读取 */
-function getConfig() {
+export interface AgentWorkerConfig {
+  maxConcurrent: number
+  timeoutMs: number
+  heartbeatIntervalMs: number
+  crashThresholdMs: number
+}
+
+/** 从 runtimeConfig 获取 Worker 默认配置 */
+function getDefaultConfig(): AgentWorkerConfig {
+  const { agent } = useRuntimeConfig()
   return {
-    maxConcurrent: Number(process.env.AGENT_MAX_CONCURRENT) || 3,
-    timeoutMs: Number(process.env.AGENT_TIMEOUT_MS) || 3_600_000,
-    heartbeatIntervalMs: Number(process.env.AGENT_HEARTBEAT_INTERVAL_MS) || 15_000,
-    crashThresholdMs: Number(process.env.AGENT_CRASH_THRESHOLD_MS) || 60_000,
+    maxConcurrent: agent.maxConcurrent,
+    timeoutMs: agent.timeoutMs,
+    heartbeatIntervalMs: agent.heartbeatIntervalMs,
+    crashThresholdMs: agent.crashThresholdMs,
   }
 }
 
 export class AgentWorker {
   readonly workerId: string
+  private readonly config: AgentWorkerConfig
   private activeRuns: Map<string, AbortController> = new Map()
   private isShuttingDown = false
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
   private crashCheckTimer: ReturnType<typeof setInterval> | null = null
 
-  constructor(workerId?: string) {
+  constructor(workerId?: string, config?: AgentWorkerConfig) {
     this.workerId = workerId ?? `worker-${crypto.randomUUID().slice(0, 8)}`
+    this.config = config ?? getDefaultConfig()
   }
 
   /** 启动 Worker */
@@ -87,8 +97,7 @@ export class AgentWorker {
   async processNextTask(): Promise<boolean> {
     if (this.isShuttingDown) return false
 
-    const config = getConfig()
-    if (this.activeRuns.size >= config.maxConcurrent) return false
+    if (this.activeRuns.size >= this.config.maxConcurrent) return false
 
     const run = await claimPendingRunDAO(this.workerId)
     if (!run) return false
@@ -103,7 +112,6 @@ export class AgentWorker {
 
   /** 执行单个 run */
   private async executeRun(run: agentRuns): Promise<void> {
-    const config = getConfig()
     const abortController = new AbortController()
     this.activeRuns.set(run.id, abortController)
 
@@ -111,7 +119,7 @@ export class AgentWorker {
     const timeoutTimer = setTimeout(() => {
       logger.warn(`Run ${run.id} 超时，终止执行`)
       abortController.abort(new Error('Agent 执行超时'))
-    }, config.timeoutMs)
+    }, this.config.timeoutMs)
 
     try {
       // 发布 running 状态
@@ -218,7 +226,6 @@ export class AgentWorker {
 
   /** 心跳更新循环 */
   private startHeartbeat(): void {
-    const config = getConfig()
     this.heartbeatTimer = setInterval(async () => {
       if (this.activeRuns.size === 0) return
 
@@ -235,18 +242,17 @@ export class AgentWorker {
       catch (err) {
         logger.error('心跳更新失败:', err)
       }
-    }, config.heartbeatIntervalMs)
+    }, this.config.heartbeatIntervalMs)
   }
 
   /** 崩溃恢复检查循环 */
   private startCrashRecovery(): void {
-    const config = getConfig()
     // 崩溃恢复检查间隔 = 崩溃阈值 * 2
-    const checkInterval = config.crashThresholdMs * 2
+    const checkInterval = this.config.crashThresholdMs * 2
 
     this.crashCheckTimer = setInterval(async () => {
       try {
-        const staleRuns = await findStaleRunsDAO(config.crashThresholdMs)
+        const staleRuns = await findStaleRunsDAO(this.config.crashThresholdMs)
         for (const run of staleRuns) {
           const reset = await resetStaleRunDAO(run.id, run.workerId ?? '')
           if (reset) {

@@ -172,12 +172,21 @@ export default defineNuxtConfig({
       batchSize: 5,         // NUXT_EMBEDDING_BATCH_SIZE
     },
     // Agent 后台任务队列配置
+    // 环境变量映射: NUXT_AGENT_MAX_CONCURRENT, NUXT_AGENT_MAX_USER_CONCURRENT, ...
     agent: {
-      maxConcurrent: 3,            // AGENT_MAX_CONCURRENT
-      maxUserConcurrent: 2,        // AGENT_MAX_USER_CONCURRENT
-      timeoutMs: 3600000,          // AGENT_TIMEOUT_MS（1小时）
-      heartbeatIntervalMs: 15000,  // AGENT_HEARTBEAT_INTERVAL_MS
-      crashThresholdMs: 60000,     // AGENT_CRASH_THRESHOLD_MS
+      maxConcurrent: 3, // 最大并发数
+      maxUserConcurrent: 2, // 单用户最大并发数
+      timeoutMs: 3600000,          // 1小时
+      heartbeatIntervalMs: 15000, // 心跳间隔时间，单位：毫秒
+      crashThresholdMs: 60000, // 崩溃阈值时间，单位：毫秒
+      databaseUrl: '',             // Agent 专用数据库连接，默认回退到 DATABASE_URL
+      pendingQueueMax: 500000, // 最大队列长度
+      pendingQueueTtlMs: 10 * 60 * 1000, // 队列超时时间，单位：毫秒
+    },
+    // Redis 配置
+    // 环境变量映射: NUXT_REDIS_URL
+    redis: {
+      url: '',
     },
     // 存储适配器配置
     storage: {

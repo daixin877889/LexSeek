@@ -12,8 +12,10 @@ import { closeAgentDbPool, closeRedisConnections } from '~~/server/lib/redis'
 let worker: AgentWorker | null = null
 
 export default defineNitroPlugin((nitroApp) => {
-  if (!process.env.REDIS_URL) {
-    logger.warn('REDIS_URL 未配置，Agent Worker 不启动')
+  const { redis: redisConfig } = useRuntimeConfig()
+
+  if (!redisConfig.url) {
+    logger.warn('Redis URL 未配置，Agent Worker 不启动')
     return
   }
 

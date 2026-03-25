@@ -16,15 +16,17 @@ import {
 } from './agentRun.dao'
 import { getRedisClient } from '~~/server/lib/redis'
 
-/** 默认单用户最大并发 run 数 */
-const DEFAULT_MAX_USER_CONCURRENT = 2
-
 interface EnqueueRunParams {
   sessionId: string
   threadId: string
   userId: number
   caseId: number
   input: AgentRunInput
+}
+
+interface EnqueueRunOptions {
+  /** 覆盖用户最大并发数（用于测试） */
+  maxUserConcurrent?: number
 }
 
 /**
@@ -36,7 +38,8 @@ interface EnqueueRunParams {
  * 3. 创建新 run 并通知 Worker
  */
 export async function enqueueRunService(
-  params: EnqueueRunParams
+  params: EnqueueRunParams,
+  options?: EnqueueRunOptions,
 ): Promise<{ runId: string; isNew: boolean } | { error: string }> {
   // 1. 检查是否已有活跃 run
   const existingRun = await findActiveRunBySessionIdDAO(params.sessionId)
@@ -45,10 +48,11 @@ export async function enqueueRunService(
   }
 
   // 2. 检查用户并发限制
-  const maxConcurrent = Number(process.env.AGENT_MAX_USER_CONCURRENT) || DEFAULT_MAX_USER_CONCURRENT
+  const maxUserConcurrent = options?.maxUserConcurrent
+    ?? useRuntimeConfig().agent.maxUserConcurrent
   const activeCount = await countActiveRunsByUserIdDAO(params.userId)
-  if (activeCount >= maxConcurrent) {
-    return { error: `已达到最大并发分析数（${maxConcurrent}），请等待当前分析完成` }
+  if (activeCount >= maxUserConcurrent) {
+    return { error: `已达到最大并发分析数（${maxUserConcurrent}），请等待当前分析完成` }
   }
 
   // 3. 创建新 run
