@@ -120,7 +120,7 @@ model nodes {
 
 实现方式：
 1. **Prompt 注入**：提取节点启动时查询 `case_types` 表所有启用的类型名称，注入 system prompt 作为可选值列表
-2. **存储前验证**：确认后存储时，校验 `caseType` 是否匹配 `case_types` 表中的 `name`，匹配成功则同步 `caseTypeId`，匹配失败打日志告警并保留用户填写的值
+2. **存储前验证**：确认后存储时，校验 `caseType` 是否匹配 `case_types` 表中的 `name`，匹配成功则同步 `caseTypeId`，匹配失败打日志告警并**保留原有 `caseTypeId` 不变**（因为 `caseTypeId` 是必填字段，不可为 null）
 
 ```typescript
 // 提取节点 prompt 注入示例
@@ -134,11 +134,14 @@ const caseTypeNames = caseTypes.map(t => t.name).join('、')
 
 ## 3. 提取与存储流程
 
-### 3.1 提取节点 = Agent 节点
+### 3.1 提取节点 = Agent 节点（两阶段执行）
 
-**核心原则**：提取节点与普通分析节点的执行逻辑完全一致——都是带工具的 Agent 节点，唯一区别是输出使用 `withStructuredOutput` 约束为结构化 JSON。
+**核心原则**：提取节点与普通分析节点的执行逻辑完全一致——都是带工具的 Agent 节点。提取节点**自主查询**案件材料（通过工具），而非被动接收主代理传递的内容。这确保提取节点能获取最准确、最完整的原始信息。
 
-提取节点**自主查询**案件材料（通过工具），而非被动接收主代理传递的内容。这确保提取节点能获取最准确、最完整的原始信息。
+**关键约束**：LangChain 的 `withStructuredOutput` 返回 `Runnable` 而非 `BaseChatModel`，不支持再调用 `bindTools`。因此提取节点采用**两阶段执行**：
+
+1. **信息收集阶段**：普通 Agent 循环（`model.bindTools(tools)`），自主调用工具查询案件材料
+2. **结构化提取阶段**：收集完成后，用 `model.withStructuredOutput(zodSchema)` 对收集到的材料做一次结构化提取
 
 #### 执行流程
 
@@ -147,60 +150,109 @@ const caseTypeNames = caseTypes.map(t => t.name).join('、')
   ↓
 ① 加载节点配置（nodes 表：prompt、tools、modelId、outputSchema）
 ② 查询 case_types 表可选值，注入 prompt 变量 {{caseTypeOptions}}
-③ 创建 Agent（chatModelFactory + bindTools + withStructuredOutput）
+  ↓ 阶段一：信息收集（普通 Agent 循环）
+③ 创建 Agent（chatModelFactory + bindTools）
 ④ Agent 自主调用工具（如 search_case_materials）获取案件材料
-⑤ Agent 根据材料和 prompt 指引，输出结构化提取结果
-⑥ interrupt() 暂停，等待用户确认
-⑦ 用户确认/编辑后恢复，执行存储
+⑤ 收集到的材料内容聚合为文本
+  ↓ 阶段二：结构化提取
+⑥ 用 withStructuredOutput(zodSchema) 对聚合材料做一次结构化提取
+⑦ interrupt() 暂停，等待用户确认
+⑧ 用户确认/编辑后恢复，执行三层存储
 ```
 
 #### 关键实现
 
 ```typescript
-// extractInfo 节点（与普通节点逻辑统一）
+// extractInfo 节点（两阶段执行）
 export async function extractInfoNode(state: CaseAnalysisState) {
   const nodeConfig = await getNodeConfigService('extractInfo')
 
   // 1. 查询 case_types 可选值
   const caseTypes = await prisma.caseTypes.findMany({
     where: { status: 1, deletedAt: null },
-    select: { name: true },
+    select: { id: true, name: true },
   })
   const caseTypeOptions = caseTypes.map(t => t.name).join('、')
 
-  // 2. 构建 Agent（与普通节点一致的工具加载逻辑）
+  // 2. 加载工具（从节点配置动态读取，与普通节点一致）
   const tools = getToolInstancesService(nodeConfig.tools, {
     userId: state.userId,
     caseId: state.caseId,
     sessionId: state.sessionId,
   })
 
-  // 3. 结构化输出约束
-  const zodSchema = jsonSchemaToZod(nodeConfig.outputSchema)
-  const model = chatModelFactory(nodeConfig).withStructuredOutput(zodSchema)
-  const modelWithTools = model.bindTools(tools)
-
-  // 4. 渲染 prompt（注入 caseTypeOptions 等变量）
+  // 3. 渲染 prompt（注入 caseTypeOptions 等变量）
   const systemPrompt = renderPrompt(nodeConfig.prompts, { caseTypeOptions })
 
-  // 5. Agent 自主执行：调用工具查询材料 → 提取结构化信息
-  const extracted = await runAgentLoop(modelWithTools, systemPrompt, tools)
+  // === 阶段一：信息收集（普通 Agent 循环） ===
+  const model = chatModelFactory(nodeConfig)
+  const modelWithTools = model.bindTools(tools)
+  const collectedContent = await runAgentLoop(modelWithTools, systemPrompt, tools)
+  // collectedContent: Agent 调用工具后聚合的案件材料文本
 
-  // 6. 中断等待用户确认
+  // === 阶段二：结构化提取 ===
+  const zodSchema = jsonSchemaToZod(nodeConfig.outputSchema)
+  const structuredModel = chatModelFactory(nodeConfig).withStructuredOutput(zodSchema)
+  const extracted = await structuredModel.invoke([
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: collectedContent },
+  ])
+
+  // 4. 中断等待用户确认
   const userInput = interrupt({
     type: InterruptType.BASIC_INFO_CONFIRM,
     data: extracted,
   })
 
-  // 7. 处理确认结果并存储
+  // 5. 处理确认结果并执行三层存储
   const confirmedData = parseUserConfirmation(userInput, extracted)
-  await saveCaseInfo(state.caseId, confirmedData)
+  await saveCaseInfoService(state.caseId, confirmedData, caseTypes)
 
   return { extractedInfo: confirmedData }
 }
 ```
 
-> **注意**：`runAgentLoop` 是对 Agent 工具调用循环的抽象——Agent 决定调用哪些工具、调用几次，直到收集足够信息后输出结构化结果。具体实现复用项目现有的 Agent 执行机制。
+> **`runAgentLoop`**：Agent 工具调用循环的抽象——Agent 决定调用哪些工具、调用几次，直到收集足够信息。具体实现复用项目现有的 Agent 执行机制（参考 `main.ts` 中 `createDeepAgent` 的工具调用流程）。
+
+#### saveCaseInfoService 实现
+
+```typescript
+async function saveCaseInfoService(
+  caseId: number,
+  confirmedData: ExtractedInfo,
+  caseTypes: Array<{ id: number; name: string }>,
+) {
+  // 1. caseType 匹配 → caseTypeId
+  const matchedType = caseTypes.find(t => t.name === confirmedData.caseType)
+  if (!matchedType) {
+    logger.warn('caseType 未匹配 case_types 表', {
+      caseId,
+      caseType: confirmedData.caseType,
+    })
+  }
+
+  // 2. DB 固定字段 + JSONB
+  await prisma.cases.update({
+    where: { id: caseId },
+    data: {
+      title: confirmedData.title,
+      plaintiff: confirmedData.plaintiff,
+      defendant: confirmedData.defendant,
+      summary: confirmedData.summary,
+      extractedInfo: confirmedData,
+      // caseTypeId: 匹配成功则更新，失败则保留原值不动
+      ...(matchedType ? { caseTypeId: matchedType.id } : {}),
+    },
+  })
+
+  // 3. 长期记忆
+  const store = await getStore()
+  await store.put(["cases", String(caseId)], "basic_info", {
+    text: formatCaseInfo(confirmedData),
+    ...confirmedData,
+  })
+}
+```
 
 ### 3.2 extract_case_info 工具保留为材料查询工具
 
@@ -365,33 +417,42 @@ const results = await config.store.search(["cases", caseId], {
 
 ## 5. 中断机制
 
-### 5.1 服务端 interruptOn
+### 5.1 节点级 interrupt()
+
+使用 LangGraph 原生 `interrupt()` API（与现有 `extractInfo.ts` 一致），**不使用** `interruptOn` 工具级配置。中断发生在提取节点内部，Agent 自主收集材料 + 结构化提取后调用 `interrupt()` 暂停。
 
 ```typescript
-// caseAgent.ts
-createDeepAgent({
-  ...
-  interruptOn: {
-    extract_case_info: { allowed_decisions: ['approve', 'edit'] },
-  },
+// extractInfo 节点内（见 3.1 节）
+const userInput = interrupt({
+  type: InterruptType.BASIC_INFO_CONFIRM,
+  data: extracted,  // 结构化提取结果
 })
 ```
 
 ### 5.2 Worker command 传递
 
+现有 `agentWorker.ts` 的 `executeRun` 只支持 `message` 输入。需改造为同时支持 `command`（中断恢复）：
+
 ```typescript
-// agentWorker.ts
+// agentWorker.ts - executeRun 改造
 const input = run.input as { message?: string; command?: unknown }
 
 if (input.command) {
-  stream = await agent.stream(undefined, { ...config, command: input.command })
+  // 中断恢复：用 Command.resume 恢复 LangGraph 图执行
+  stream = await agent.stream(
+    new Command({ resume: input.command }),
+    config,
+  )
 } else {
+  // 正常消息
   stream = await agent.stream(
     { messages: [new HumanMessage(input.message)] },
     config,
   )
 }
 ```
+
+同时 `mainAgent` 函数签名需扩展，支持 `command` 参数（替代 `prompt`），内部根据类型决定调用 `agent.stream` 的方式。
 
 ### 5.3 API command 入队
 
@@ -437,25 +498,54 @@ ExtractInfoTool 的动态字段渲染：固定字段用专用表单控件（Inpu
 | `prisma/models/node.prisma` | 修改 | 新增 outputSchema 字段 |
 | Prisma migration | 新建 | 两个表的字段变更 + extractInfo 节点 seed 数据 |
 | `server/services/agent/store.ts` | 新建 | PostgresStore 单例（长期记忆后端） |
-| `server/services/workflow/nodes/extractInfo.ts` | 修改 | 改为 Agent 节点：自主调用工具查询材料 + withStructuredOutput 结构化输出 + case_types 约束 |
-| `server/services/agent/caseAgent.ts` | 修改 | 注入 store + interruptOn 配置 |
-| `server/services/agent/agentWorker.ts` | 修改 | command 传递 |
+| `server/services/workflow/nodes/extractInfo.ts` | 修改 | 改为两阶段 Agent 节点：工具收集 + 结构化提取 + case_types 约束 |
+| `server/services/agent/caseAgent.ts` | 修改 | 注入 store 配置 |
+| `server/services/agent/main.ts` | 修改 | `mainAgent` 支持 command 参数（中断恢复） |
+| `server/services/agent/agentWorker.ts` | 修改 | command 分支 + Command.resume |
 | `server/api/v1/case/analysis/chat.post.ts` | 修改 | command 入队 |
-| `app/components/caseAnalysis/tools/ExtractInfoTool.vue` | 修改 | 扩展字段支持 |
+| `app/components/caseAnalysis/tools/ExtractInfoTool.vue` | 修改 | 扩展字段支持（从扁平结构迁移到 extraFields 数组） |
+| `nuxt.config.ts` | 修改 | 新增 `runtimeConfig.embedding` 配置段 |
 
 ## 8. 依赖
 
 - `@langchain/langgraph-checkpoint-postgres`：`PostgresStore`（已安装，同包含 PostgresSaver）
 - LangChain `withStructuredOutput` API
-- JSON Schema → Zod 转换（`json-schema-to-zod` 或手写）
-- 语义搜索可选：嵌入模型（如 OpenAI text-embedding-3-small）
+- JSON Schema → Zod 转换：使用 `zod-to-json-schema` 的逆向（或在 seed 阶段直接存 Zod 兼容格式）。实现时选择最小依赖方案，必要时手写转换函数
+- 语义搜索可选：嵌入模型配置通过 `nuxt.config.ts` 的 `runtimeConfig.embedding`（apiKey/baseUrl/model/dimensions）+ 对应环境变量
 
-## 9. 验证
+## 9. 迁移策略
 
-1. 提取：工具返回包含固定+动态字段的结构化 JSON
-2. 中断：工具返回后图自动暂停
-3. 表单：ExtractInfoTool 正确回显固定字段和动态字段
-4. 确认：用户编辑后数据正确传回
-5. 存储：cases 表固定字段更新 + extractedInfo JSONB 写入 + 长期记忆写入
-6. 消费：分析子代理能通过 prompt 变量和长期记忆访问提取信息
-7. 恢复：Agent 恢复后正常继续后续分析步骤
+### 9.1 数据库迁移
+
+- `cases` 表新增 `summary`、`extractedInfo` 字段（均可空，不影响现有数据）
+- `nodes` 表新增 `outputSchema` 字段（可空）
+- 通过 Prisma migration SQL 为 `extractInfo` 节点填充 `outputSchema` 和 `tools` 配置
+
+### 9.2 前端兼容
+
+现有 `ExtractInfoTool.vue` 的 `CaseInfo` 接口使用扁平结构（`caseNumber`、`court` 等顶级可选字段）。迁移策略：
+- **不做旧数据兼容**：`extractedInfo` 是新字段，旧案件无此数据，不存在格式冲突
+- 前端直接改为 `extraFields` 数组渲染，旧的扁平字段 UI 移除
+
+### 9.3 节点迁移
+
+现有 `extractInfo.ts` 从 `state.aggregatedContent` 被动接收材料。迁移后改为 Agent 自主调用工具。原有的 `aggregatedContent` 状态字段保留（其他节点可能使用），但 `extractInfo` 节点不再依赖它。
+
+## 10. 验证
+
+### 正向流程
+
+1. 提取：Agent 自主调用工具获取材料，输出包含固定+动态字段的结构化 JSON
+2. caseType：提取结果中的 caseType 值来自 case_types 表
+3. 中断：结构化提取后图自动暂停
+4. 表单：ExtractInfoTool 正确回显固定字段和动态字段（extraFields 数组）
+5. 确认：用户编辑后数据正确传回
+6. 存储：cases 表固定字段更新 + extractedInfo JSONB 写入 + 长期记忆写入
+7. 消费：分析子代理能通过 prompt 变量和长期记忆访问提取信息
+8. 恢复：Agent 恢复后正常继续后续分析步骤
+
+### 异常流程
+
+9. 提取失败（工具调用异常/LLM 返回格式错误）：节点捕获异常，返回错误消息，不中断整体流程
+10. caseType 匹配失败：打日志告警，保留原有 caseTypeId 不变
+11. 用户取消确认：图回到中断前状态，可重新触发提取
