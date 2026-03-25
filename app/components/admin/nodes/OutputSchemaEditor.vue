@@ -32,63 +32,11 @@
             <!-- 可视化编辑 -->
             <TabsContent value="visual" class="mt-3">
                 <div class="space-y-3">
-                    <!-- 字段列表 -->
-                    <div v-for="(field, index) in fields" :key="index"
-                        class="border rounded-md p-3 space-y-2">
-                        <div class="flex items-center gap-2">
-                            <div class="flex-1 grid grid-cols-3 gap-2">
-                                <Input
-                                    v-model="field.name"
-                                    placeholder="字段名"
-                                    class="font-mono text-sm"
-                                    @input="syncToModel"
-                                />
-                                <Select v-model="field.type" @update:model-value="syncToModel">
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="类型" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem v-for="t in FIELD_TYPES" :key="t.value" :value="t.value">
-                                            {{ t.label }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <Input
-                                    v-model="field.description"
-                                    placeholder="描述（可选）"
-                                    class="text-sm"
-                                    @input="syncToModel"
-                                />
-                            </div>
-                            <Button variant="ghost" size="icon" class="shrink-0"
-                                @click="removeField(index)">
-                                <X class="h-4 w-4" />
-                            </Button>
-                        </div>
-                        <div class="flex items-center gap-4">
-                            <label class="flex items-center gap-2 text-sm cursor-pointer">
-                                <Checkbox
-                                    :checked="field.required"
-                                    @update:checked="(val: boolean) => { field.required = val; syncToModel() }"
-                                />
-                                必填
-                            </label>
-                            <!-- array 类型额外配置 items 类型 -->
-                            <div v-if="field.type === 'array'" class="flex items-center gap-2 text-sm">
-                                <span class="text-muted-foreground">元素类型:</span>
-                                <Select v-model="field.itemsType" @update:model-value="syncToModel">
-                                    <SelectTrigger class="w-28 h-8">
-                                        <SelectValue placeholder="类型" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem v-for="t in BASIC_TYPES" :key="t.value" :value="t.value">
-                                            {{ t.label }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                    </div>
+                    <SchemaFieldList
+                        :fields="fields"
+                        @update="syncToModel"
+                        @remove="removeField"
+                    />
 
                     <!-- 空状态 -->
                     <div v-if="fields.length === 0"
@@ -97,7 +45,7 @@
                     </div>
 
                     <!-- 添加字段按钮 -->
-                    <Button variant="outline" size="sm" class="w-full" @click="addField">
+                    <Button variant="outline" size="sm" class="w-full" @click="addField(fields)">
                         <Plus class="h-4 w-4 mr-1" />
                         添加字段
                     </Button>
@@ -114,7 +62,7 @@
                         :main-menu-bar="false"
                         :navigation-bar="false"
                         :status-bar="true"
-                        class="min-h-[200px]"
+                        :class="['min-h-[200px]', isDark ? 'jse-theme-dark' : '']"
                         @update:model-value="onJsonChange"
                     />
                     <template #fallback>
@@ -132,10 +80,12 @@
 </template>
 
 <script setup lang="ts">
-import { Plus, WrapText, Trash2, X } from 'lucide-vue-next'
+import { Plus, WrapText, Trash2 } from 'lucide-vue-next'
 
 // 延迟导入避免 SSR 问题
 const JsonEditorVue = defineAsyncComponent(() => import('json-editor-vue'))
+
+const { isDark } = useColorMode()
 
 /** 可视化字段定义 */
 interface SchemaField {
@@ -143,7 +93,9 @@ interface SchemaField {
     type: string
     description: string
     required: boolean
-    itemsType: string // array 类型的 items 类型
+    itemsType: string
+    /** array items 为 object 时的子字段 */
+    children: SchemaField[]
 }
 
 const BASIC_TYPES = [
@@ -155,6 +107,12 @@ const BASIC_TYPES = [
 const FIELD_TYPES = [
     ...BASIC_TYPES,
     { value: 'array', label: 'array' },
+    { value: 'object', label: 'object' },
+]
+
+/** array items 类型选项（含 object） */
+const ITEMS_TYPES = [
+    ...BASIC_TYPES,
     { value: 'object', label: 'object' },
 ]
 
@@ -172,7 +130,7 @@ const jsonValue = ref<unknown>(null)
 // 内部同步标记，避免循环触发
 let syncing = false
 
-// ---------- 可视化 → JSON Schema 转换 ----------
+// ---------- 可视化 ↔ JSON Schema 转换 ----------
 
 const fieldsToSchema = (fieldList: SchemaField[]): Record<string, unknown> => {
     const properties: Record<string, unknown> = {}
@@ -182,9 +140,16 @@ const fieldsToSchema = (fieldList: SchemaField[]): Record<string, unknown> => {
         if (!f.name) continue
         const prop: Record<string, unknown> = { type: f.type }
         if (f.description) prop.description = f.description
+
         if (f.type === 'array') {
-            prop.items = { type: f.itemsType || 'string' }
+            if (f.itemsType === 'object' && f.children.length > 0) {
+                // array of objects：递归生成 items schema
+                prop.items = fieldsToSchema(f.children)
+            } else {
+                prop.items = { type: f.itemsType || 'string' }
+            }
         }
+
         properties[f.name] = prop
         if (f.required) required.push(f.name)
     }
@@ -196,28 +161,43 @@ const fieldsToSchema = (fieldList: SchemaField[]): Record<string, unknown> => {
     }
 }
 
-// ---------- JSON Schema → 可视化字段转换 ----------
-
 const schemaToFields = (schema: Record<string, unknown>): SchemaField[] => {
     const props = (schema.properties ?? {}) as Record<string, any>
     const req = (schema.required ?? []) as string[]
-    return Object.entries(props).map(([name, def]) => ({
-        name,
-        type: def?.type ?? 'string',
-        description: def?.description ?? '',
-        required: req.includes(name),
-        itemsType: def?.items?.type ?? 'string',
-    }))
+    return Object.entries(props).map(([name, def]) => {
+        const field: SchemaField = {
+            name,
+            type: def?.type ?? 'string',
+            description: def?.description ?? '',
+            required: req.includes(name),
+            itemsType: 'string',
+            children: [],
+        }
+
+        if (def?.type === 'array' && def?.items) {
+            if (def.items.type === 'object' && def.items.properties) {
+                // array of objects：递归解析 items
+                field.itemsType = 'object'
+                field.children = schemaToFields(def.items)
+            } else {
+                field.itemsType = def.items.type ?? 'string'
+            }
+        }
+
+        return field
+    })
 }
 
-// ---------- 初始化 ----------
+// ---------- 数据源：以 modelValue 为单一真相源 ----------
 
-const initFromModelValue = () => {
+// modelValue → fields + jsonValue
+const syncFromModel = () => {
     if (syncing) return
     syncing = true
-    if (modelValue.value && typeof modelValue.value === 'object') {
+    if (modelValue.value && typeof modelValue.value === 'object'
+        && Object.keys(modelValue.value).length > 0) {
         fields.value = schemaToFields(modelValue.value)
-        jsonValue.value = { ...modelValue.value }
+        jsonValue.value = structuredClone(modelValue.value)
     } else {
         fields.value = []
         jsonValue.value = { type: 'object', properties: {} }
@@ -225,25 +205,11 @@ const initFromModelValue = () => {
     nextTick(() => { syncing = false })
 }
 
-watch(modelValue, initFromModelValue, { immediate: true })
+watch(modelValue, syncFromModel, { immediate: true })
 
-// ---------- Tab 切换同步 ----------
-
-watch(activeTab, (newTab) => {
-    syncing = true
-    if (newTab === 'json') {
-        // 可视化 → JSON
-        const schema = fieldsToSchema(fields.value)
-        jsonValue.value = schema
-        jsonError.value = ''
-    } else {
-        // JSON → 可视化
-        if (jsonValue.value && typeof jsonValue.value === 'object') {
-            const schema = jsonValue.value as Record<string, unknown>
-            fields.value = schemaToFields(schema)
-        }
-    }
-    nextTick(() => { syncing = false })
+// Tab 切换时：从 modelValue 重新同步到两个编辑器
+watch(activeTab, () => {
+    syncFromModel()
 })
 
 // ---------- 可视化操作 ----------
@@ -251,22 +217,29 @@ watch(activeTab, (newTab) => {
 const syncToModel = () => {
     if (syncing) return
     syncing = true
-    modelValue.value = fieldsToSchema(fields.value)
+    const schema = fieldsToSchema(fields.value)
+    modelValue.value = schema
+    // 同时同步到 jsonValue
+    jsonValue.value = structuredClone(schema)
     nextTick(() => { syncing = false })
 }
 
-const addField = () => {
-    fields.value.push({
-        name: '',
-        type: 'string',
-        description: '',
-        required: false,
-        itemsType: 'string',
-    })
+const createField = (): SchemaField => ({
+    name: '',
+    type: 'string',
+    description: '',
+    required: false,
+    itemsType: 'string',
+    children: [],
+})
+
+const addField = (target: SchemaField[]) => {
+    target.push(createField())
 }
 
-const removeField = (index: number) => {
-    fields.value.splice(index, 1)
+const removeField = (index: number, target?: SchemaField[]) => {
+    const list = target ?? fields.value
+    list.splice(index, 1)
     syncToModel()
 }
 
@@ -277,12 +250,14 @@ const onJsonChange = (val: unknown) => {
     syncing = true
     if (typeof val === 'object' && val !== null) {
         jsonError.value = ''
-        modelValue.value = { ...(val as Record<string, unknown>) }
+        modelValue.value = structuredClone(val as Record<string, unknown>)
+        fields.value = schemaToFields(val as Record<string, unknown>)
     } else if (typeof val === 'string') {
         try {
             const parsed = JSON.parse(val)
             jsonError.value = ''
             modelValue.value = parsed
+            fields.value = schemaToFields(parsed)
         } catch {
             jsonError.value = 'JSON 格式不正确'
         }
@@ -303,4 +278,12 @@ const clearSchema = () => {
     modelValue.value = null
     nextTick(() => { syncing = false })
 }
+
+// 暴露给子组件
+provide('addField', addField)
+provide('removeField', removeField)
+provide('syncToModel', syncToModel)
+provide('FIELD_TYPES', FIELD_TYPES)
+provide('ITEMS_TYPES', ITEMS_TYPES)
+provide('BASIC_TYPES', BASIC_TYPES)
 </script>
