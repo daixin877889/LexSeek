@@ -94,6 +94,8 @@ export interface NodeConfig {
     modelApiKeys: NodeApiKeyConfig[]
     /** 节点工具列表 */
     tools: string[]
+    /** 结构化输出 schema（JSON Schema 格式，用于 extraction 类型节点） */
+    outputSchema: Record<string, unknown> | null
 }
 
 // ==================== 节点分组服务 ====================
@@ -411,6 +413,7 @@ export const getNodeConfigService = async (name: string): Promise<NodeConfig | n
                 status: apiKey.status ?? 0,
             })),
             tools: (nodeConfig.tools as string[]) || [],
+            outputSchema: (nodeConfig.outputSchema as Record<string, unknown>) ?? null,
         }
 
         return config
@@ -507,6 +510,7 @@ export const getNodeConfigByIdService = async (id: number): Promise<NodeConfig |
                 status: apiKey.status ?? 0,
             })),
             tools: (nodeConfig.tools as string[]) || [],
+            outputSchema: (nodeConfig.outputSchema as Record<string, unknown>) ?? null,
         }
 
         return config
@@ -596,5 +600,6 @@ export const getSubagentConfigsService = async (
                 status: apiKey.status ?? 0,
             })),
             tools: (node.tools as string[]) || [],
+            outputSchema: (node.outputSchema as Record<string, unknown>) ?? null,
         }))
 }
