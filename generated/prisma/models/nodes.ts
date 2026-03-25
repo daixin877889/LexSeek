@@ -81,6 +81,7 @@ export type NodesCountAggregateOutputType = {
   priority: number
   modelId: number
   tools: number
+  outputSchema: number
   groupId: number
   status: number
   createdAt: number
@@ -145,6 +146,7 @@ export type NodesCountAggregateInputType = {
   priority?: true
   modelId?: true
   tools?: true
+  outputSchema?: true
   groupId?: true
   status?: true
   createdAt?: true
@@ -248,6 +250,7 @@ export type NodesGroupByOutputType = {
   priority: number
   modelId: number
   tools: runtime.JsonValue
+  outputSchema: runtime.JsonValue | null
   groupId: number | null
   status: number
   createdAt: Date
@@ -287,6 +290,7 @@ export type nodesWhereInput = {
   priority?: Prisma.IntFilter<"nodes"> | number
   modelId?: Prisma.IntFilter<"nodes"> | number
   tools?: Prisma.JsonFilter<"nodes">
+  outputSchema?: Prisma.JsonNullableFilter<"nodes">
   groupId?: Prisma.IntNullableFilter<"nodes"> | number | null
   status?: Prisma.IntFilter<"nodes"> | number
   createdAt?: Prisma.DateTimeFilter<"nodes"> | Date | string
@@ -308,6 +312,7 @@ export type nodesOrderByWithRelationInput = {
   priority?: Prisma.SortOrder
   modelId?: Prisma.SortOrder
   tools?: Prisma.SortOrder
+  outputSchema?: Prisma.SortOrderInput | Prisma.SortOrder
   groupId?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -332,6 +337,7 @@ export type nodesWhereUniqueInput = Prisma.AtLeast<{
   priority?: Prisma.IntFilter<"nodes"> | number
   modelId?: Prisma.IntFilter<"nodes"> | number
   tools?: Prisma.JsonFilter<"nodes">
+  outputSchema?: Prisma.JsonNullableFilter<"nodes">
   groupId?: Prisma.IntNullableFilter<"nodes"> | number | null
   status?: Prisma.IntFilter<"nodes"> | number
   createdAt?: Prisma.DateTimeFilter<"nodes"> | Date | string
@@ -353,6 +359,7 @@ export type nodesOrderByWithAggregationInput = {
   priority?: Prisma.SortOrder
   modelId?: Prisma.SortOrder
   tools?: Prisma.SortOrder
+  outputSchema?: Prisma.SortOrderInput | Prisma.SortOrder
   groupId?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -377,6 +384,7 @@ export type nodesScalarWhereWithAggregatesInput = {
   priority?: Prisma.IntWithAggregatesFilter<"nodes"> | number
   modelId?: Prisma.IntWithAggregatesFilter<"nodes"> | number
   tools?: Prisma.JsonWithAggregatesFilter<"nodes">
+  outputSchema?: Prisma.JsonNullableWithAggregatesFilter<"nodes">
   groupId?: Prisma.IntNullableWithAggregatesFilter<"nodes"> | number | null
   status?: Prisma.IntWithAggregatesFilter<"nodes"> | number
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"nodes"> | Date | string
@@ -391,6 +399,7 @@ export type nodesCreateInput = {
   type: string
   priority?: number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -411,6 +420,7 @@ export type nodesUncheckedCreateInput = {
   priority?: number
   modelId: number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: number | null
   status?: number
   createdAt?: Date | string
@@ -428,6 +438,7 @@ export type nodesUpdateInput = {
   type?: Prisma.StringFieldUpdateOperationsInput | string
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -448,6 +459,7 @@ export type nodesUncheckedUpdateInput = {
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   modelId?: Prisma.IntFieldUpdateOperationsInput | number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -467,6 +479,7 @@ export type nodesCreateManyInput = {
   priority?: number
   modelId: number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: number | null
   status?: number
   createdAt?: Date | string
@@ -481,6 +494,7 @@ export type nodesUpdateManyMutationInput = {
   type?: Prisma.StringFieldUpdateOperationsInput | string
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -496,6 +510,7 @@ export type nodesUncheckedUpdateManyInput = {
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   modelId?: Prisma.IntFieldUpdateOperationsInput | number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -527,6 +542,7 @@ export type nodesCountOrderByAggregateInput = {
   priority?: Prisma.SortOrder
   modelId?: Prisma.SortOrder
   tools?: Prisma.SortOrder
+  outputSchema?: Prisma.SortOrder
   groupId?: Prisma.SortOrder
   status?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -713,6 +729,7 @@ export type nodesCreateWithoutCaseAnalysesInput = {
   type: string
   priority?: number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -732,6 +749,7 @@ export type nodesUncheckedCreateWithoutCaseAnalysesInput = {
   priority?: number
   modelId: number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: number | null
   status?: number
   createdAt?: Date | string
@@ -764,6 +782,7 @@ export type nodesUpdateWithoutCaseAnalysesInput = {
   type?: Prisma.StringFieldUpdateOperationsInput | string
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -783,6 +802,7 @@ export type nodesUncheckedUpdateWithoutCaseAnalysesInput = {
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   modelId?: Prisma.IntFieldUpdateOperationsInput | number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -799,6 +819,7 @@ export type nodesCreateWithoutModelInput = {
   type: string
   priority?: number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -817,6 +838,7 @@ export type nodesUncheckedCreateWithoutModelInput = {
   type: string
   priority?: number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: number | null
   status?: number
   createdAt?: Date | string
@@ -865,6 +887,7 @@ export type nodesScalarWhereInput = {
   priority?: Prisma.IntFilter<"nodes"> | number
   modelId?: Prisma.IntFilter<"nodes"> | number
   tools?: Prisma.JsonFilter<"nodes">
+  outputSchema?: Prisma.JsonNullableFilter<"nodes">
   groupId?: Prisma.IntNullableFilter<"nodes"> | number | null
   status?: Prisma.IntFilter<"nodes"> | number
   createdAt?: Prisma.DateTimeFilter<"nodes"> | Date | string
@@ -879,6 +902,7 @@ export type nodesCreateWithoutGroupInput = {
   type: string
   priority?: number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -898,6 +922,7 @@ export type nodesUncheckedCreateWithoutGroupInput = {
   priority?: number
   modelId: number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -940,6 +965,7 @@ export type nodesCreateWithoutPromptsInput = {
   type: string
   priority?: number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -959,6 +985,7 @@ export type nodesUncheckedCreateWithoutPromptsInput = {
   priority?: number
   modelId: number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: number | null
   status?: number
   createdAt?: Date | string
@@ -991,6 +1018,7 @@ export type nodesUpdateWithoutPromptsInput = {
   type?: Prisma.StringFieldUpdateOperationsInput | string
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1010,6 +1038,7 @@ export type nodesUncheckedUpdateWithoutPromptsInput = {
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   modelId?: Prisma.IntFieldUpdateOperationsInput | number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1026,6 +1055,7 @@ export type nodesCreateWithoutLevelNodeAccessInput = {
   type: string
   priority?: number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1045,6 +1075,7 @@ export type nodesUncheckedCreateWithoutLevelNodeAccessInput = {
   priority?: number
   modelId: number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: number | null
   status?: number
   createdAt?: Date | string
@@ -1077,6 +1108,7 @@ export type nodesUpdateWithoutLevelNodeAccessInput = {
   type?: Prisma.StringFieldUpdateOperationsInput | string
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1096,6 +1128,7 @@ export type nodesUncheckedUpdateWithoutLevelNodeAccessInput = {
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   modelId?: Prisma.IntFieldUpdateOperationsInput | number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1113,6 +1146,7 @@ export type nodesCreateManyModelInput = {
   type: string
   priority?: number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: number | null
   status?: number
   createdAt?: Date | string
@@ -1127,6 +1161,7 @@ export type nodesUpdateWithoutModelInput = {
   type?: Prisma.StringFieldUpdateOperationsInput | string
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1145,6 +1180,7 @@ export type nodesUncheckedUpdateWithoutModelInput = {
   type?: Prisma.StringFieldUpdateOperationsInput | string
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1163,6 +1199,7 @@ export type nodesUncheckedUpdateManyWithoutModelInput = {
   type?: Prisma.StringFieldUpdateOperationsInput | string
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   groupId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1179,6 +1216,7 @@ export type nodesCreateManyGroupInput = {
   priority?: number
   modelId: number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1192,6 +1230,7 @@ export type nodesUpdateWithoutGroupInput = {
   type?: Prisma.StringFieldUpdateOperationsInput | string
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1211,6 +1250,7 @@ export type nodesUncheckedUpdateWithoutGroupInput = {
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   modelId?: Prisma.IntFieldUpdateOperationsInput | number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1229,6 +1269,7 @@ export type nodesUncheckedUpdateManyWithoutGroupInput = {
   priority?: Prisma.IntFieldUpdateOperationsInput | number
   modelId?: Prisma.IntFieldUpdateOperationsInput | number
   tools?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  outputSchema?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1293,6 +1334,7 @@ export type nodesSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   priority?: boolean
   modelId?: boolean
   tools?: boolean
+  outputSchema?: boolean
   groupId?: boolean
   status?: boolean
   createdAt?: boolean
@@ -1315,6 +1357,7 @@ export type nodesSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   priority?: boolean
   modelId?: boolean
   tools?: boolean
+  outputSchema?: boolean
   groupId?: boolean
   status?: boolean
   createdAt?: boolean
@@ -1333,6 +1376,7 @@ export type nodesSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   priority?: boolean
   modelId?: boolean
   tools?: boolean
+  outputSchema?: boolean
   groupId?: boolean
   status?: boolean
   createdAt?: boolean
@@ -1351,6 +1395,7 @@ export type nodesSelectScalar = {
   priority?: boolean
   modelId?: boolean
   tools?: boolean
+  outputSchema?: boolean
   groupId?: boolean
   status?: boolean
   createdAt?: boolean
@@ -1358,7 +1403,7 @@ export type nodesSelectScalar = {
   deletedAt?: boolean
 }
 
-export type nodesOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "title" | "description" | "type" | "priority" | "modelId" | "tools" | "groupId" | "status" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["nodes"]>
+export type nodesOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "title" | "description" | "type" | "priority" | "modelId" | "tools" | "outputSchema" | "groupId" | "status" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["nodes"]>
 export type nodesInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   group?: boolean | Prisma.nodes$groupArgs<ExtArgs>
   model?: boolean | Prisma.modelsDefaultArgs<ExtArgs>
@@ -1433,6 +1478,10 @@ export type $nodesPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
      * 工具列表（JSON 数组）
      */
     tools: runtime.JsonValue
+    /**
+     * 结构化输出 schema（JSON Schema 格式，用于 extraction 类型节点）
+     */
+    outputSchema: runtime.JsonValue | null
     /**
      * 关联的分组ID
      */
@@ -1889,6 +1938,7 @@ export interface nodesFieldRefs {
   readonly priority: Prisma.FieldRef<"nodes", 'Int'>
   readonly modelId: Prisma.FieldRef<"nodes", 'Int'>
   readonly tools: Prisma.FieldRef<"nodes", 'Json'>
+  readonly outputSchema: Prisma.FieldRef<"nodes", 'Json'>
   readonly groupId: Prisma.FieldRef<"nodes", 'Int'>
   readonly status: Prisma.FieldRef<"nodes", 'Int'>
   readonly createdAt: Prisma.FieldRef<"nodes", 'DateTime'>

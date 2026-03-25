@@ -46,6 +46,10 @@ model cases {
     plaintiff  Json?
     /// 被告信息（JSON 格式）
     defendant  Json?
+    /// 案件概述（从提取结果同步）
+    summary       String?   @db.Text
+    /// 全量提取结果（固定字段+动态扩展字段）
+    extractedInfo Json?     @map("extracted_info") @db.JsonB
     /// 案件状态：1-进行中，2-已完成，3-已关闭
     status     Int       @default(1)
     /// 是否为示范案件

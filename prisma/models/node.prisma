@@ -41,6 +41,8 @@ model nodes {
     modelId     Int       @map("model_id")
     /// 工具列表（JSON 数组）
     tools       Json      @default("[]")
+    /// 结构化输出 schema（JSON Schema 格式，用于 extraction 类型节点）
+    outputSchema Json?     @map("output_schema") @db.JsonB
     /// 关联的分组ID
     groupId     Int?      @map("group_id")
     /// 状态：1-启用，0-禁用

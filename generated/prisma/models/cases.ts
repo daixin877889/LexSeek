@@ -46,6 +46,7 @@ export type CasesMinAggregateOutputType = {
   content: string | null
   userId: number | null
   caseTypeId: number | null
+  summary: string | null
   status: number | null
   isDemo: boolean | null
   createdAt: Date | null
@@ -59,6 +60,7 @@ export type CasesMaxAggregateOutputType = {
   content: string | null
   userId: number | null
   caseTypeId: number | null
+  summary: string | null
   status: number | null
   isDemo: boolean | null
   createdAt: Date | null
@@ -74,6 +76,8 @@ export type CasesCountAggregateOutputType = {
   caseTypeId: number
   plaintiff: number
   defendant: number
+  summary: number
+  extractedInfo: number
   status: number
   isDemo: number
   createdAt: number
@@ -103,6 +107,7 @@ export type CasesMinAggregateInputType = {
   content?: true
   userId?: true
   caseTypeId?: true
+  summary?: true
   status?: true
   isDemo?: true
   createdAt?: true
@@ -116,6 +121,7 @@ export type CasesMaxAggregateInputType = {
   content?: true
   userId?: true
   caseTypeId?: true
+  summary?: true
   status?: true
   isDemo?: true
   createdAt?: true
@@ -131,6 +137,8 @@ export type CasesCountAggregateInputType = {
   caseTypeId?: true
   plaintiff?: true
   defendant?: true
+  summary?: true
+  extractedInfo?: true
   status?: true
   isDemo?: true
   createdAt?: true
@@ -233,6 +241,8 @@ export type CasesGroupByOutputType = {
   caseTypeId: number
   plaintiff: runtime.JsonValue | null
   defendant: runtime.JsonValue | null
+  summary: string | null
+  extractedInfo: runtime.JsonValue | null
   status: number
   isDemo: boolean
   createdAt: Date
@@ -271,6 +281,8 @@ export type casesWhereInput = {
   caseTypeId?: Prisma.IntFilter<"cases"> | number
   plaintiff?: Prisma.JsonNullableFilter<"cases">
   defendant?: Prisma.JsonNullableFilter<"cases">
+  summary?: Prisma.StringNullableFilter<"cases"> | string | null
+  extractedInfo?: Prisma.JsonNullableFilter<"cases">
   status?: Prisma.IntFilter<"cases"> | number
   isDemo?: Prisma.BoolFilter<"cases"> | boolean
   createdAt?: Prisma.DateTimeFilter<"cases"> | Date | string
@@ -291,6 +303,8 @@ export type casesOrderByWithRelationInput = {
   caseTypeId?: Prisma.SortOrder
   plaintiff?: Prisma.SortOrderInput | Prisma.SortOrder
   defendant?: Prisma.SortOrderInput | Prisma.SortOrder
+  summary?: Prisma.SortOrderInput | Prisma.SortOrder
+  extractedInfo?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   isDemo?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -314,6 +328,8 @@ export type casesWhereUniqueInput = Prisma.AtLeast<{
   caseTypeId?: Prisma.IntFilter<"cases"> | number
   plaintiff?: Prisma.JsonNullableFilter<"cases">
   defendant?: Prisma.JsonNullableFilter<"cases">
+  summary?: Prisma.StringNullableFilter<"cases"> | string | null
+  extractedInfo?: Prisma.JsonNullableFilter<"cases">
   status?: Prisma.IntFilter<"cases"> | number
   isDemo?: Prisma.BoolFilter<"cases"> | boolean
   createdAt?: Prisma.DateTimeFilter<"cases"> | Date | string
@@ -334,6 +350,8 @@ export type casesOrderByWithAggregationInput = {
   caseTypeId?: Prisma.SortOrder
   plaintiff?: Prisma.SortOrderInput | Prisma.SortOrder
   defendant?: Prisma.SortOrderInput | Prisma.SortOrder
+  summary?: Prisma.SortOrderInput | Prisma.SortOrder
+  extractedInfo?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   isDemo?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -357,6 +375,8 @@ export type casesScalarWhereWithAggregatesInput = {
   caseTypeId?: Prisma.IntWithAggregatesFilter<"cases"> | number
   plaintiff?: Prisma.JsonNullableWithAggregatesFilter<"cases">
   defendant?: Prisma.JsonNullableWithAggregatesFilter<"cases">
+  summary?: Prisma.StringNullableWithAggregatesFilter<"cases"> | string | null
+  extractedInfo?: Prisma.JsonNullableWithAggregatesFilter<"cases">
   status?: Prisma.IntWithAggregatesFilter<"cases"> | number
   isDemo?: Prisma.BoolWithAggregatesFilter<"cases"> | boolean
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"cases"> | Date | string
@@ -369,6 +389,8 @@ export type casesCreateInput = {
   content?: string | null
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   isDemo?: boolean
   createdAt?: Date | string
@@ -389,6 +411,8 @@ export type casesUncheckedCreateInput = {
   caseTypeId: number
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   isDemo?: boolean
   createdAt?: Date | string
@@ -404,6 +428,8 @@ export type casesUpdateInput = {
   content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -424,6 +450,8 @@ export type casesUncheckedUpdateInput = {
   caseTypeId?: Prisma.IntFieldUpdateOperationsInput | number
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -442,6 +470,8 @@ export type casesCreateManyInput = {
   caseTypeId: number
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   isDemo?: boolean
   createdAt?: Date | string
@@ -454,6 +484,8 @@ export type casesUpdateManyMutationInput = {
   content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -469,6 +501,8 @@ export type casesUncheckedUpdateManyInput = {
   caseTypeId?: Prisma.IntFieldUpdateOperationsInput | number
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -494,6 +528,8 @@ export type casesCountOrderByAggregateInput = {
   caseTypeId?: Prisma.SortOrder
   plaintiff?: Prisma.SortOrder
   defendant?: Prisma.SortOrder
+  summary?: Prisma.SortOrder
+  extractedInfo?: Prisma.SortOrder
   status?: Prisma.SortOrder
   isDemo?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -514,6 +550,7 @@ export type casesMaxOrderByAggregateInput = {
   content?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   caseTypeId?: Prisma.SortOrder
+  summary?: Prisma.SortOrder
   status?: Prisma.SortOrder
   isDemo?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -527,6 +564,7 @@ export type casesMinOrderByAggregateInput = {
   content?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   caseTypeId?: Prisma.SortOrder
+  summary?: Prisma.SortOrder
   status?: Prisma.SortOrder
   isDemo?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -677,6 +715,8 @@ export type casesCreateWithoutCaseTypeInput = {
   content?: string | null
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   isDemo?: boolean
   createdAt?: Date | string
@@ -695,6 +735,8 @@ export type casesUncheckedCreateWithoutCaseTypeInput = {
   userId: number
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   isDemo?: boolean
   createdAt?: Date | string
@@ -742,6 +784,8 @@ export type casesScalarWhereInput = {
   caseTypeId?: Prisma.IntFilter<"cases"> | number
   plaintiff?: Prisma.JsonNullableFilter<"cases">
   defendant?: Prisma.JsonNullableFilter<"cases">
+  summary?: Prisma.StringNullableFilter<"cases"> | string | null
+  extractedInfo?: Prisma.JsonNullableFilter<"cases">
   status?: Prisma.IntFilter<"cases"> | number
   isDemo?: Prisma.BoolFilter<"cases"> | boolean
   createdAt?: Prisma.DateTimeFilter<"cases"> | Date | string
@@ -754,6 +798,8 @@ export type casesCreateWithoutCaseSessionsInput = {
   content?: string | null
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   isDemo?: boolean
   createdAt?: Date | string
@@ -773,6 +819,8 @@ export type casesUncheckedCreateWithoutCaseSessionsInput = {
   caseTypeId: number
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   isDemo?: boolean
   createdAt?: Date | string
@@ -803,6 +851,8 @@ export type casesUpdateWithoutCaseSessionsInput = {
   content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -822,6 +872,8 @@ export type casesUncheckedUpdateWithoutCaseSessionsInput = {
   caseTypeId?: Prisma.IntFieldUpdateOperationsInput | number
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -836,6 +888,8 @@ export type casesCreateWithoutCaseMaterialsInput = {
   content?: string | null
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   isDemo?: boolean
   createdAt?: Date | string
@@ -855,6 +909,8 @@ export type casesUncheckedCreateWithoutCaseMaterialsInput = {
   caseTypeId: number
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   isDemo?: boolean
   createdAt?: Date | string
@@ -885,6 +941,8 @@ export type casesUpdateWithoutCaseMaterialsInput = {
   content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -904,6 +962,8 @@ export type casesUncheckedUpdateWithoutCaseMaterialsInput = {
   caseTypeId?: Prisma.IntFieldUpdateOperationsInput | number
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -918,6 +978,8 @@ export type casesCreateWithoutCaseAnalysesInput = {
   content?: string | null
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   isDemo?: boolean
   createdAt?: Date | string
@@ -937,6 +999,8 @@ export type casesUncheckedCreateWithoutCaseAnalysesInput = {
   caseTypeId: number
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   isDemo?: boolean
   createdAt?: Date | string
@@ -967,6 +1031,8 @@ export type casesUpdateWithoutCaseAnalysesInput = {
   content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -986,6 +1052,8 @@ export type casesUncheckedUpdateWithoutCaseAnalysesInput = {
   caseTypeId?: Prisma.IntFieldUpdateOperationsInput | number
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1000,6 +1068,8 @@ export type casesCreateWithoutUserInput = {
   content?: string | null
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   isDemo?: boolean
   createdAt?: Date | string
@@ -1018,6 +1088,8 @@ export type casesUncheckedCreateWithoutUserInput = {
   caseTypeId: number
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   isDemo?: boolean
   createdAt?: Date | string
@@ -1061,6 +1133,8 @@ export type casesCreateManyCaseTypeInput = {
   userId: number
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   isDemo?: boolean
   createdAt?: Date | string
@@ -1073,6 +1147,8 @@ export type casesUpdateWithoutCaseTypeInput = {
   content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1091,6 +1167,8 @@ export type casesUncheckedUpdateWithoutCaseTypeInput = {
   userId?: Prisma.IntFieldUpdateOperationsInput | number
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1108,6 +1186,8 @@ export type casesUncheckedUpdateManyWithoutCaseTypeInput = {
   userId?: Prisma.IntFieldUpdateOperationsInput | number
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1122,6 +1202,8 @@ export type casesCreateManyUserInput = {
   caseTypeId: number
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: number
   isDemo?: boolean
   createdAt?: Date | string
@@ -1134,6 +1216,8 @@ export type casesUpdateWithoutUserInput = {
   content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1152,6 +1236,8 @@ export type casesUncheckedUpdateWithoutUserInput = {
   caseTypeId?: Prisma.IntFieldUpdateOperationsInput | number
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1169,6 +1255,8 @@ export type casesUncheckedUpdateManyWithoutUserInput = {
   caseTypeId?: Prisma.IntFieldUpdateOperationsInput | number
   plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.IntFieldUpdateOperationsInput | number
   isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1233,6 +1321,8 @@ export type casesSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   caseTypeId?: boolean
   plaintiff?: boolean
   defendant?: boolean
+  summary?: boolean
+  extractedInfo?: boolean
   status?: boolean
   isDemo?: boolean
   createdAt?: boolean
@@ -1254,6 +1344,8 @@ export type casesSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   caseTypeId?: boolean
   plaintiff?: boolean
   defendant?: boolean
+  summary?: boolean
+  extractedInfo?: boolean
   status?: boolean
   isDemo?: boolean
   createdAt?: boolean
@@ -1271,6 +1363,8 @@ export type casesSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensi
   caseTypeId?: boolean
   plaintiff?: boolean
   defendant?: boolean
+  summary?: boolean
+  extractedInfo?: boolean
   status?: boolean
   isDemo?: boolean
   createdAt?: boolean
@@ -1288,6 +1382,8 @@ export type casesSelectScalar = {
   caseTypeId?: boolean
   plaintiff?: boolean
   defendant?: boolean
+  summary?: boolean
+  extractedInfo?: boolean
   status?: boolean
   isDemo?: boolean
   createdAt?: boolean
@@ -1295,7 +1391,7 @@ export type casesSelectScalar = {
   deletedAt?: boolean
 }
 
-export type casesOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "content" | "userId" | "caseTypeId" | "plaintiff" | "defendant" | "status" | "isDemo" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["cases"]>
+export type casesOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "content" | "userId" | "caseTypeId" | "plaintiff" | "defendant" | "summary" | "extractedInfo" | "status" | "isDemo" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["cases"]>
 export type casesInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
   caseType?: boolean | Prisma.caseTypesDefaultArgs<ExtArgs>
@@ -1366,6 +1462,14 @@ export type $casesPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
      * 被告信息（JSON 格式）
      */
     defendant: runtime.JsonValue | null
+    /**
+     * 案件概述（从提取结果同步）
+     */
+    summary: string | null
+    /**
+     * 全量提取结果（固定字段+动态扩展字段）
+     */
+    extractedInfo: runtime.JsonValue | null
     /**
      * 案件状态：1-进行中，2-已完成，3-已关闭
      */
@@ -1821,6 +1925,8 @@ export interface casesFieldRefs {
   readonly caseTypeId: Prisma.FieldRef<"cases", 'Int'>
   readonly plaintiff: Prisma.FieldRef<"cases", 'Json'>
   readonly defendant: Prisma.FieldRef<"cases", 'Json'>
+  readonly summary: Prisma.FieldRef<"cases", 'String'>
+  readonly extractedInfo: Prisma.FieldRef<"cases", 'Json'>
   readonly status: Prisma.FieldRef<"cases", 'Int'>
   readonly isDemo: Prisma.FieldRef<"cases", 'Boolean'>
   readonly createdAt: Prisma.FieldRef<"cases", 'DateTime'>
