@@ -1,5 +1,5 @@
 <template>
-    <div v-for="(field, index) in fields" :key="index"
+    <div v-for="(field, index) in fields" :key="`${field.name}-${index}`"
         class="border rounded-md p-3 space-y-2">
         <!-- 字段主行 -->
         <div class="flex items-center gap-2">
@@ -38,8 +38,8 @@
         <div class="flex items-center gap-4">
             <label class="flex items-center gap-2 text-sm cursor-pointer">
                 <Checkbox
-                    :checked="field.required"
-                    @update:checked="(val: boolean) => { field.required = val; syncToModel() }"
+                    v-model:checked="field.required"
+                    @update:checked="() => syncToModel()"
                 />
                 必填
             </label>
