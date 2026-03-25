@@ -91,17 +91,9 @@ export function buildMaterialContextMessage(context: MaterialContextResult): str
 export function buildIncrementalMaterialMessage(context: MaterialContextResult): string
 ```
 
-增量注入（仅新增材料），格式化为变更通知。
+增量注入（仅新增材料），固定使用 summary 格式，格式化为变更通知。
 
-**full 模式输出**：
-```
-案件新增了以下材料：
-
-## 材料3: 补充证据.pdf
-[完整内容]
-```
-
-**summary 模式输出**：
+**输出**：
 ```
 案件新增了以下材料，需要详细内容时请使用 search_case_materials 工具按需检索。
 
@@ -141,40 +133,44 @@ const caseMaterialContextMiddleware = (userId: number, caseId: number) => {
                     // 无变化则跳过
                     if (!isFirstInjection && newIds.length === 0) return
 
-                    // 4. 获取材料上下文（首次全量，后续仅新增）
-                    const targetMaterials = isFirstInjection
-                        ? materials
-                        : materials.filter(m => newIds.includes(m.id))
-
-                    const context = await getMaterialContextService(targetMaterials)
-                    if (context.mode === 'empty') return
-
-                    // 5. 构建消息
-                    const messageText = isFirstInjection
-                        ? buildMaterialContextMessage(context)
-                        : buildIncrementalMaterialMessage(context)
-
-                    // 6. 插入 HumanMessage
+                    // 4. 获取材料上下文
                     if (isFirstInjection) {
-                        // 首次：在 SystemMessage 之后插入
+                        // 首次：按 token 阈值判断 full/summary
+                        const context = await getMaterialContextService(materials)
+                        if (context.mode === 'empty') return
+
+                        const messageText = buildMaterialContextMessage(context)
+
+                        // 在 SystemMessage 之后插入
                         const systemIdx = state.messages.findIndex(
                             m => m._getType() === 'system'
                         )
                         const insertIdx = systemIdx >= 0 ? systemIdx + 1 : 0
                         state.messages.splice(insertIdx, 0, new HumanMessage(messageText))
+
+                        logger.info('材料上下文已注入（首次）', {
+                            caseId,
+                            mode: context.mode,
+                            materialCount: currentIds.length,
+                            totalTokens: context.totalTokens,
+                        })
                     } else {
-                        // 增量：在用户最新消息前插入（倒数第二位）
+                        // 增量：固定 summary 模式
+                        const newMaterials = materials.filter(m => newIds.includes(m.id))
+                        const context = await getMaterialContextService(newMaterials)
+                        if (context.mode === 'empty') return
+
+                        const messageText = buildIncrementalMaterialMessage(context)
+
+                        // 在用户最新消息前插入（倒数第二位）
                         const insertIdx = Math.max(0, state.messages.length - 1)
                         state.messages.splice(insertIdx, 0, new HumanMessage(messageText))
-                    }
 
-                    logger.info('材料上下文已注入', {
-                        caseId,
-                        mode: context.mode,
-                        isFirstInjection,
-                        newMaterialCount: isFirstInjection ? currentIds.length : newIds.length,
-                        totalTokens: context.totalTokens,
-                    })
+                        logger.info('材料上下文已注入（增量）', {
+                            caseId,
+                            newMaterialCount: newIds.length,
+                        })
+                    }
 
                     // 7. 返回更新后的 state（自动持久化到 checkpoint）
                     return { _injectedMaterialIds: currentIds }
