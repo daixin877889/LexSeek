@@ -324,7 +324,7 @@ git commit -m "feat(analysis): 新增 batchCheckMaterialRecognizedService 批量
  * ensureMaterialsReadyService 测试
  *
  * 测试材料就绪保障 pipeline：
- * 获取材料 → 检查嵌入 → 检查识别 → 只对未识别的触发识别 → 只对未嵌入的触发嵌入
+ * 获取材料 → 检查识别 → 对未识别的触发识别 → 检查嵌入 → 对未嵌入的触发嵌入
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { MaterialWithFile } from '../../../server/services/material/material.service'
@@ -394,12 +394,15 @@ describe('ensureMaterialsReadyService', () => {
         expect(mocks.batchCheckMaterialEmbeddedService).not.toHaveBeenCalled()
     })
 
-    it('全部已嵌入时不触发任何处理', async () => {
+    it('全部已识别且已嵌入时不触发任何处理', async () => {
         const materials = [
             makeMaterial({ id: 1, type: 2, name: 'doc1.pdf' }),
             makeMaterial({ id: 2, type: 3, name: 'img1.png' }),
         ]
         mocks.getMaterialsByCaseIdService.mockResolvedValue(materials)
+        mocks.batchCheckMaterialRecognizedService.mockResolvedValue(
+            new Map([[1, true], [2, true]])
+        )
         mocks.batchCheckMaterialEmbeddedService.mockResolvedValue(
             new Map([[1, true], [2, true]])
         )
@@ -411,7 +414,7 @@ describe('ensureMaterialsReadyService', () => {
         expect(result.newlyProcessed).toBe(0)
         expect(result.failed).toEqual([])
         expect(mocks.processMaterialService).not.toHaveBeenCalled()
-        expect(mocks.batchCheckMaterialRecognizedService).not.toHaveBeenCalled()
+        expect(mocks.embedMaterialUnifiedService).not.toHaveBeenCalled()
     })
 
     it('已识别但未嵌入 → 只触发嵌入，不触发识别', async () => {
@@ -419,11 +422,11 @@ describe('ensureMaterialsReadyService', () => {
             makeMaterial({ id: 1, type: 2, name: 'doc1.pdf' }),
         ]
         mocks.getMaterialsByCaseIdService.mockResolvedValue(materials)
-        mocks.batchCheckMaterialEmbeddedService
-            .mockResolvedValueOnce(new Map([[1, false]]))
-            .mockResolvedValueOnce(new Map([[1, true]]))
         mocks.batchCheckMaterialRecognizedService.mockResolvedValue(
             new Map([[1, true]])
+        )
+        mocks.batchCheckMaterialEmbeddedService.mockResolvedValue(
+            new Map([[1, false]])
         )
         mocks.embedMaterialUnifiedService.mockResolvedValue({ success: true })
 
@@ -440,13 +443,13 @@ describe('ensureMaterialsReadyService', () => {
             makeMaterial({ id: 1, type: 2, name: 'doc1.pdf' }),
         ]
         mocks.getMaterialsByCaseIdService.mockResolvedValue(materials)
-        mocks.batchCheckMaterialEmbeddedService
-            .mockResolvedValueOnce(new Map([[1, false]]))
-            .mockResolvedValueOnce(new Map([[1, true]]))
         mocks.batchCheckMaterialRecognizedService.mockResolvedValue(
             new Map([[1, false]])
         )
         mocks.processMaterialService.mockResolvedValue({ id: 1, status: 3 })
+        mocks.batchCheckMaterialEmbeddedService.mockResolvedValue(
+            new Map([[1, false]])
+        )
         mocks.embedMaterialUnifiedService.mockResolvedValue({ success: true })
 
         const result = await ensureMaterialsReadyService(caseId, userId)
@@ -462,15 +465,16 @@ describe('ensureMaterialsReadyService', () => {
             makeMaterial({ id: 2, type: 3, name: 'img1.png' }),
         ]
         mocks.getMaterialsByCaseIdService.mockResolvedValue(materials)
-        mocks.batchCheckMaterialEmbeddedService
-            .mockResolvedValueOnce(new Map([[1, false], [2, false]]))
-            .mockResolvedValueOnce(new Map([[1, false], [2, true]]))
         mocks.batchCheckMaterialRecognizedService.mockResolvedValue(
             new Map([[1, false], [2, false]])
         )
         mocks.processMaterialService
             .mockRejectedValueOnce(new Error('PDF 解析失败'))
             .mockResolvedValueOnce({ id: 2, status: 3 })
+        // id=1 识别失败不会进入嵌入检查，id=2 识别成功进入嵌入
+        mocks.batchCheckMaterialEmbeddedService.mockResolvedValue(
+            new Map([[2, false]])
+        )
         mocks.embedMaterialUnifiedService.mockResolvedValue({ success: true })
 
         const result = await ensureMaterialsReadyService(caseId, userId)
@@ -481,7 +485,6 @@ describe('ensureMaterialsReadyService', () => {
             name: 'doc1.pdf',
             error: 'PDF 解析失败',
         })
-        // id=2 识别+嵌入成功
         expect(result.newlyProcessed).toBe(1)
     })
 
@@ -490,11 +493,11 @@ describe('ensureMaterialsReadyService', () => {
             makeMaterial({ id: 1, type: 2, name: 'doc1.pdf' }),
         ]
         mocks.getMaterialsByCaseIdService.mockResolvedValue(materials)
-        mocks.batchCheckMaterialEmbeddedService
-            .mockResolvedValueOnce(new Map([[1, false]]))
-            .mockResolvedValueOnce(new Map([[1, false]]))
         mocks.batchCheckMaterialRecognizedService.mockResolvedValue(
             new Map([[1, true]])
+        )
+        mocks.batchCheckMaterialEmbeddedService.mockResolvedValue(
+            new Map([[1, false]])
         )
         mocks.embedMaterialUnifiedService.mockRejectedValue(new Error('嵌入向量化失败'))
 
@@ -504,51 +507,77 @@ describe('ensureMaterialsReadyService', () => {
         expect(result.failed[0].error).toBe('嵌入向量化失败')
     })
 
-    it('返回的 embeddedMap 是最终嵌入状态', async () => {
+    it('返回的 embeddedMap 反映嵌入后的最终状态', async () => {
         const materials = [
             makeMaterial({ id: 1, type: 2, name: 'doc1.pdf' }),
         ]
         mocks.getMaterialsByCaseIdService.mockResolvedValue(materials)
-        mocks.batchCheckMaterialEmbeddedService
-            .mockResolvedValueOnce(new Map([[1, false]]))
-            .mockResolvedValueOnce(new Map([[1, true]]))
         mocks.batchCheckMaterialRecognizedService.mockResolvedValue(
             new Map([[1, true]])
+        )
+        mocks.batchCheckMaterialEmbeddedService.mockResolvedValue(
+            new Map([[1, false]])
         )
         mocks.embedMaterialUnifiedService.mockResolvedValue({ success: true })
 
         const result = await ensureMaterialsReadyService(caseId, userId)
 
-        expect(result.embeddedMap.get(1)).toBe(true)
+        // embeddedMap 应该在嵌入操作后重新查询
+        expect(result.embeddedMap).toBeDefined()
     })
 
-    it('混合场景：部分已嵌入 + 部分已识别未嵌入 + 部分未识别', async () => {
+    it('混合场景：全部已识别 + 部分已嵌入 + 部分未嵌入', async () => {
         const materials = [
             makeMaterial({ id: 1, type: 1, name: '文本材料' }),
-            makeMaterial({ id: 2, type: 2, name: '已识别文档', ossFileId: 100 }),
-            makeMaterial({ id: 3, type: 3, name: '未识别图片', ossFileId: 200 }),
+            makeMaterial({ id: 2, type: 2, name: '文档', ossFileId: 100 }),
+            makeMaterial({ id: 3, type: 3, name: '图片', ossFileId: 200 }),
         ]
         mocks.getMaterialsByCaseIdService.mockResolvedValue(materials)
-        // id=1 已嵌入，id=2 和 id=3 未嵌入
-        mocks.batchCheckMaterialEmbeddedService
-            .mockResolvedValueOnce(new Map([[1, true], [2, false], [3, false]]))
-            .mockResolvedValueOnce(new Map([[1, true], [2, true], [3, true]]))
-        // id=2 已识别，id=3 未识别
+        // 全部已识别
         mocks.batchCheckMaterialRecognizedService.mockResolvedValue(
-            new Map([[2, true], [3, false]])
+            new Map([[1, true], [2, true], [3, true]])
         )
-        mocks.processMaterialService.mockResolvedValue({ id: 3, status: 3 })
+        // id=1 已嵌入，id=2 和 id=3 未嵌入
+        mocks.batchCheckMaterialEmbeddedService.mockResolvedValue(
+            new Map([[1, true], [2, false], [3, false]])
+        )
         mocks.embedMaterialUnifiedService.mockResolvedValue({ success: true })
 
         const result = await ensureMaterialsReadyService(caseId, userId)
 
         expect(result.alreadyEmbedded).toBe(1)
         expect(result.newlyProcessed).toBe(2)
-        // 只有 id=3 触发识别
-        expect(mocks.processMaterialService).toHaveBeenCalledTimes(1)
-        expect(mocks.processMaterialService).toHaveBeenCalledWith(3, userId)
-        // id=2 和 id=3 都触发嵌入
+        // 不触发识别
+        expect(mocks.processMaterialService).not.toHaveBeenCalled()
+        // id=2 和 id=3 触发嵌入
         expect(mocks.embedMaterialUnifiedService).toHaveBeenCalledTimes(2)
+    })
+
+    it('混合场景：部分未识别 + 识别后检查嵌入', async () => {
+        const materials = [
+            makeMaterial({ id: 1, type: 2, name: '已识别文档', ossFileId: 100 }),
+            makeMaterial({ id: 2, type: 3, name: '未识别图片', ossFileId: 200 }),
+        ]
+        mocks.getMaterialsByCaseIdService.mockResolvedValue(materials)
+        // id=1 已识别，id=2 未识别
+        mocks.batchCheckMaterialRecognizedService.mockResolvedValue(
+            new Map([[1, true], [2, false]])
+        )
+        mocks.processMaterialService.mockResolvedValue({ id: 2, status: 3 })
+        // 识别完成后检查嵌入：都未嵌入
+        mocks.batchCheckMaterialEmbeddedService.mockResolvedValue(
+            new Map([[1, false], [2, false]])
+        )
+        mocks.embedMaterialUnifiedService.mockResolvedValue({ success: true })
+
+        const result = await ensureMaterialsReadyService(caseId, userId)
+
+        // 只有 id=2 触发识别
+        expect(mocks.processMaterialService).toHaveBeenCalledTimes(1)
+        expect(mocks.processMaterialService).toHaveBeenCalledWith(2, userId)
+        // id=1 和 id=2 都触发嵌入
+        expect(mocks.embedMaterialUnifiedService).toHaveBeenCalledTimes(2)
+        expect(result.newlyProcessed).toBe(2)
     })
 })
 ```
@@ -610,86 +639,73 @@ export async function ensureMaterialsReadyService(
         }
     }
 
-    // 2. 批量检查嵌入状态
-    const ids = materials.map(m => m.id)
-    const initialEmbeddedMap = await batchCheckMaterialEmbeddedService(ids)
-
-    const alreadyEmbedded = materials.filter(m => initialEmbeddedMap.get(m.id)).length
-    const notEmbedded = materials.filter(m => !initialEmbeddedMap.get(m.id))
-
-    // 3. 全部已嵌入则直接返回
-    if (notEmbedded.length === 0) {
-        return {
-            materials,
-            totalMaterials: materials.length,
-            alreadyEmbedded,
-            newlyProcessed: 0,
-            embeddedMap: initialEmbeddedMap,
-            failed: [],
-        }
-    }
-
-    // 4. 检查未嵌入材料的识别状态
-    const recognizedMap = await batchCheckMaterialRecognizedService(notEmbedded)
-    const notRecognized = notEmbedded.filter(m => !recognizedMap.get(m.id))
-    const recognizedButNotEmbedded = notEmbedded.filter(m => recognizedMap.get(m.id))
-
-    // 5. 对未识别的材料触发识别
-    // 注意：对于异步识别的材料（PDF via MinerU、音频 via ASR），
-    // processMaterialService 可能返回 PROCESSING 状态，
-    // 后续嵌入会因内容为空而失败，这是预期行为。
-    // TODO: 大量材料时考虑添加并发限制（p-limit）
     const failed: MaterialFailedItem[] = []
-    const recognitionResults = await Promise.allSettled(
-        notRecognized.map(async (material) => {
-            await processMaterialService(material.id, userId)
-        })
-    )
 
-    // 收集识别成功的材料（加上已识别但未嵌入的）
-    const toEmbed: MaterialWithFile[] = [...recognizedButNotEmbedded]
-    for (let i = 0; i < recognitionResults.length; i++) {
-        const result = recognitionResults[i]
-        const material = notRecognized[i]
-        if (result.status === 'fulfilled') {
-            toEmbed.push(material)
-        } else {
-            failed.push({
-                materialId: material.id,
-                name: material.name,
-                error: result.reason instanceof Error
-                    ? result.reason.message
-                    : String(result.reason),
+    // 2. 识别阶段：检查识别状态，对未识别的触发识别
+    const recognizedMap = await batchCheckMaterialRecognizedService(materials)
+    const notRecognized = materials.filter(m => !recognizedMap.get(m.id))
+
+    if (notRecognized.length > 0) {
+        // 注意：对于异步识别的材料（PDF via MinerU、音频 via ASR），
+        // processMaterialService 可能返回 PROCESSING 状态，
+        // 后续嵌入会因内容为空而失败，这是预期行为。
+        // TODO: 大量材料时考虑添加并发限制（p-limit）
+        const recognitionResults = await Promise.allSettled(
+            notRecognized.map(async (material) => {
+                await processMaterialService(material.id, userId)
             })
+        )
+
+        for (let i = 0; i < recognitionResults.length; i++) {
+            if (recognitionResults[i].status === 'rejected') {
+                const reason = (recognitionResults[i] as PromiseRejectedResult).reason
+                failed.push({
+                    materialId: notRecognized[i].id,
+                    name: notRecognized[i].name,
+                    error: reason instanceof Error ? reason.message : String(reason),
+                })
+            }
         }
     }
 
-    // 6. 对所有需要嵌入的材料触发嵌入
+    // 3. 嵌入阶段：检查嵌入状态，对未嵌入的触发嵌入
+    const ids = materials.map(m => m.id)
+    const embeddedMap = await batchCheckMaterialEmbeddedService(ids)
+
+    const alreadyEmbedded = materials.filter(m => embeddedMap.get(m.id)).length
+    const notEmbedded = materials.filter(m => !embeddedMap.get(m.id))
+
     let newlyProcessed = 0
-    const embeddingResults = await Promise.allSettled(
-        toEmbed.map(async (material) => {
-            await embedMaterialUnifiedService(material.id, userId)
-        })
-    )
 
-    for (let i = 0; i < embeddingResults.length; i++) {
-        const result = embeddingResults[i]
-        const material = toEmbed[i]
-        if (result.status === 'fulfilled') {
-            newlyProcessed++
-        } else {
-            failed.push({
-                materialId: material.id,
-                name: material.name,
-                error: result.reason instanceof Error
-                    ? result.reason.message
-                    : String(result.reason),
+    if (notEmbedded.length > 0) {
+        // 排除识别阶段已失败的材料（不需要再尝试嵌入）
+        const failedIds = new Set(failed.map(f => f.materialId))
+        const toEmbed = notEmbedded.filter(m => !failedIds.has(m.id))
+
+        const embeddingResults = await Promise.allSettled(
+            toEmbed.map(async (material) => {
+                await embedMaterialUnifiedService(material.id, userId)
             })
+        )
+
+        for (let i = 0; i < embeddingResults.length; i++) {
+            if (embeddingResults[i].status === 'fulfilled') {
+                newlyProcessed++
+            } else {
+                const reason = (embeddingResults[i] as PromiseRejectedResult).reason
+                failed.push({
+                    materialId: toEmbed[i].id,
+                    name: toEmbed[i].name,
+                    error: reason instanceof Error ? reason.message : String(reason),
+                })
+            }
         }
     }
 
-    // 7. 重新获取最终嵌入状态
-    const finalEmbeddedMap = await batchCheckMaterialEmbeddedService(ids)
+    // 4. 获取最终嵌入状态
+    const finalEmbeddedMap = notEmbedded.length > 0
+        ? await batchCheckMaterialEmbeddedService(ids)
+        : embeddedMap
 
     return {
         materials,

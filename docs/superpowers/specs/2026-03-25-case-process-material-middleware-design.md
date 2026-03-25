@@ -69,13 +69,9 @@ export async function ensureMaterialsReadyService(
 
 1. `getMaterialsByCaseIdService(caseId)` 获取全部材料
 2. 空材料时直接返回 `{ materials: [], totalMaterials: 0, ... }`，不抛错
-3. `batchCheckMaterialEmbeddedService(ids)` 批量检查嵌入状态
-4. 对未嵌入的材料，调用 `batchCheckMaterialRecognizedService(notEmbedded)` 检查识别状态
-5. **未识别的** → `processMaterialService(materialId, userId)` 触发识别（OCR/ASR/PDF解析），使用 `Promise.allSettled` 并发处理
-6. **已识别但未嵌入的** + **刚识别成功的** → `embedMaterialUnifiedService(materialId, userId)` 触发嵌入，使用 `Promise.allSettled` 并发处理
-7. 逐个捕获失败并记录到 `failed` 数组（含 materialId、name、error message）
-8. 处理完成后重新调用 `batchCheckMaterialEmbeddedService` 获取最终嵌入状态映射
-9. 返回结果摘要（含材料列表、嵌入状态映射、失败列表）
+3. **识别阶段**：`batchCheckMaterialRecognizedService(materials)` 批量检查识别状态，对未识别的材料调用 `processMaterialService(materialId, userId)` 触发识别（OCR/ASR/PDF解析），使用 `Promise.allSettled` 并发处理，失败记录到 `failed` 数组
+4. **嵌入阶段**：`batchCheckMaterialEmbeddedService(ids)` 批量检查嵌入状态，对未嵌入的材料调用 `embedMaterialUnifiedService(materialId, userId)` 触发嵌入，使用 `Promise.allSettled` 并发处理，失败记录到 `failed` 数组
+5. 返回结果摘要（含材料列表、嵌入状态映射、失败列表）
 
 **关于 failed 详情收集**：pipeline service 在 `Promise.allSettled` 结果中自行收集每个材料的失败原因和名称。识别失败和嵌入失败都记录到同一个 `failed` 数组。
 
