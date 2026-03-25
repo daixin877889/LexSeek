@@ -197,7 +197,7 @@ const syncFromModel = () => {
     if (modelValue.value && typeof modelValue.value === 'object'
         && Object.keys(modelValue.value).length > 0) {
         fields.value = schemaToFields(modelValue.value)
-        jsonValue.value = structuredClone(modelValue.value)
+        jsonValue.value = JSON.parse(JSON.stringify(modelValue.value))
     } else {
         fields.value = []
         jsonValue.value = { type: 'object', properties: {} }
@@ -220,7 +220,7 @@ const syncToModel = () => {
     const schema = fieldsToSchema(fields.value)
     modelValue.value = schema
     // 同时同步到 jsonValue
-    jsonValue.value = structuredClone(schema)
+    jsonValue.value = JSON.parse(JSON.stringify(schema))
     nextTick(() => { syncing = false })
 }
 
@@ -250,7 +250,7 @@ const onJsonChange = (val: unknown) => {
     syncing = true
     if (typeof val === 'object' && val !== null) {
         jsonError.value = ''
-        modelValue.value = structuredClone(val as Record<string, unknown>)
+        modelValue.value = JSON.parse(JSON.stringify(val))
         fields.value = schemaToFields(val as Record<string, unknown>)
     } else if (typeof val === 'string') {
         try {
