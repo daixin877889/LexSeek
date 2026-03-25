@@ -23,6 +23,25 @@ export interface MaterialReadyResult {
     failed: MaterialFailedItem[]
 }
 
+/** 从 Promise.allSettled 结果中收集失败项 */
+function collectSettledFailures(
+    results: PromiseSettledResult<void>[],
+    materials: MaterialWithFile[],
+): MaterialFailedItem[] {
+    const failures: MaterialFailedItem[] = []
+    for (let i = 0; i < results.length; i++) {
+        if (results[i].status === 'rejected') {
+            const reason = (results[i] as PromiseRejectedResult).reason
+            failures.push({
+                materialId: materials[i].id,
+                name: materials[i].name,
+                error: reason instanceof Error ? reason.message : String(reason),
+            })
+        }
+    }
+    return failures
+}
+
 export async function ensureMaterialsReadyService(
     caseId: number,
     userId: number,
@@ -47,26 +66,14 @@ export async function ensureMaterialsReadyService(
     const notRecognized = materials.filter(m => !recognizedMap.get(m.id))
 
     if (notRecognized.length > 0) {
-        // 注意：对于异步识别的材料（PDF via MinerU、音频 via ASR），
+        // 对于异步识别的材料（PDF via MinerU、音频 via ASR），
         // processMaterialService 可能返回 PROCESSING 状态，
         // 后续嵌入会因内容为空而失败，这是预期行为。
         // TODO: 大量材料时考虑添加并发限制（p-limit）
         const recognitionResults = await Promise.allSettled(
-            notRecognized.map(async (material) => {
-                await processMaterialService(material.id, userId)
-            })
+            notRecognized.map(material => processMaterialService(material.id, userId))
         )
-
-        for (let i = 0; i < recognitionResults.length; i++) {
-            if (recognitionResults[i].status === 'rejected') {
-                const reason = (recognitionResults[i] as PromiseRejectedResult).reason
-                failed.push({
-                    materialId: notRecognized[i].id,
-                    name: notRecognized[i].name,
-                    error: reason instanceof Error ? reason.message : String(reason),
-                })
-            }
-        }
+        failed.push(...collectSettledFailures(recognitionResults, notRecognized))
     }
 
     // 3. 嵌入阶段：检查嵌入状态，对未嵌入的触发嵌入
@@ -84,23 +91,12 @@ export async function ensureMaterialsReadyService(
         const toEmbed = notEmbedded.filter(m => !failedIds.has(m.id))
 
         const embeddingResults = await Promise.allSettled(
-            toEmbed.map(async (material) => {
-                await embedMaterialUnifiedService(material.id, userId)
-            })
+            toEmbed.map(material => embedMaterialUnifiedService(material.id, userId))
         )
 
-        for (let i = 0; i < embeddingResults.length; i++) {
-            if (embeddingResults[i].status === 'fulfilled') {
-                newlyProcessed++
-            } else {
-                const reason = (embeddingResults[i] as PromiseRejectedResult).reason
-                failed.push({
-                    materialId: toEmbed[i].id,
-                    name: toEmbed[i].name,
-                    error: reason instanceof Error ? reason.message : String(reason),
-                })
-            }
-        }
+        const embeddingFailures = collectSettledFailures(embeddingResults, toEmbed)
+        newlyProcessed = toEmbed.length - embeddingFailures.length
+        failed.push(...embeddingFailures)
     }
 
     // 4. 获取最终嵌入状态

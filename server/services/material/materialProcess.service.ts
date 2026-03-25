@@ -360,14 +360,45 @@ export async function ensureMaterialsEmbeddedService(
     return { total: materials.length, success, failed, skipped }
 }
 
+/** 识别记录表中 status=2 表示识别成功 */
+const RECOGNITION_SUCCESS_STATUS = 2
+
+/**
+ * 通过 ossFileId 批量查询识别记录表，返回已识别的 materialId 集合
+ */
+function queryRecognitionByOssFileId(
+    materials: MaterialWithFile[],
+    findMany: (args: any) => Promise<{ ossFileId: number | null }[]>,
+    resultMap: Map<number, boolean>,
+): Promise<void> {
+    const ossToMaterial = new Map(materials.map(m => [m.ossFileId!, m.id]))
+    return findMany({
+        where: {
+            ossFileId: { in: [...ossToMaterial.keys()] },
+            status: RECOGNITION_SUCCESS_STATUS,
+            deletedAt: null,
+        },
+        select: { ossFileId: true },
+    }).then(records => {
+        const seen = new Set<number>()
+        for (const r of records) {
+            if (r.ossFileId && !seen.has(r.ossFileId)) {
+                seen.add(r.ossFileId)
+                const materialId = ossToMaterial.get(r.ossFileId)
+                if (materialId) resultMap.set(materialId, true)
+            }
+        }
+    })
+}
+
 /**
  * 批量检查材料是否已在各识别记录表中完成识别
  *
  * 按材料类型查询对应的识别记录表：
- * - 文本(1): textContentRecords，content 非空即已识别
- * - 文档(2): docRecognitionRecords，status === 2 即已识别
- * - 图片(3): imageRecognitionRecords，status === 2 即已识别
- * - 音频(4): asrRecords，status === 2 即已识别
+ * - 文本(CASE_CONTENT): textContentRecords，content 非空即已识别
+ * - 文档(DOCUMENT): docRecognitionRecords，status === 2 即已识别
+ * - 图片(IMAGE): imageRecognitionRecords，status === 2 即已识别
+ * - 音频(AUDIO): asrRecords，status === 2 即已识别
  *
  * @returns Map<materialId, boolean>
  */
@@ -377,20 +408,17 @@ export async function batchCheckMaterialRecognizedService(
     const resultMap = new Map<number, boolean>()
     if (materials.length === 0) return resultMap
 
-    // 初始化所有材料为 false
     for (const m of materials) {
         resultMap.set(m.id, false)
     }
 
-    // 按类型分组
-    const textMaterials = materials.filter(m => m.type === 1)
-    const docMaterials = materials.filter(m => m.type === 2 && m.ossFileId)
-    const imgMaterials = materials.filter(m => m.type === 3 && m.ossFileId)
-    const audioMaterials = materials.filter(m => m.type === 4 && m.ossFileId)
+    const textMaterials = materials.filter(m => m.type === CaseMaterialType.CASE_CONTENT)
+    const docMaterials = materials.filter(m => m.type === CaseMaterialType.DOCUMENT && m.ossFileId)
+    const imgMaterials = materials.filter(m => m.type === CaseMaterialType.IMAGE && m.ossFileId)
+    const audioMaterials = materials.filter(m => m.type === CaseMaterialType.AUDIO && m.ossFileId)
 
     const queries: Promise<void>[] = []
 
-    // 文本：content 非空
     if (textMaterials.length > 0) {
         queries.push(
             prisma.textContentRecords.findMany({
@@ -408,76 +436,16 @@ export async function batchCheckMaterialRecognizedService(
         )
     }
 
-    // 文档：status === 2
     if (docMaterials.length > 0) {
-        const ossToMaterial = new Map(docMaterials.map(m => [m.ossFileId!, m.id]))
-        queries.push(
-            prisma.docRecognitionRecords.findMany({
-                where: {
-                    ossFileId: { in: [...ossToMaterial.keys()] },
-                    status: 2,
-                    deletedAt: null,
-                },
-                select: { ossFileId: true },
-            }).then(records => {
-                const seen = new Set<number>()
-                for (const r of records) {
-                    if (r.ossFileId && !seen.has(r.ossFileId)) {
-                        seen.add(r.ossFileId)
-                        const materialId = ossToMaterial.get(r.ossFileId)
-                        if (materialId) resultMap.set(materialId, true)
-                    }
-                }
-            })
-        )
+        queries.push(queryRecognitionByOssFileId(docMaterials, prisma.docRecognitionRecords.findMany.bind(prisma.docRecognitionRecords), resultMap))
     }
 
-    // 图片：status === 2
     if (imgMaterials.length > 0) {
-        const ossToMaterial = new Map(imgMaterials.map(m => [m.ossFileId!, m.id]))
-        queries.push(
-            prisma.imageRecognitionRecords.findMany({
-                where: {
-                    ossFileId: { in: [...ossToMaterial.keys()] },
-                    status: 2,
-                    deletedAt: null,
-                },
-                select: { ossFileId: true },
-            }).then(records => {
-                const seen = new Set<number>()
-                for (const r of records) {
-                    if (r.ossFileId && !seen.has(r.ossFileId)) {
-                        seen.add(r.ossFileId)
-                        const materialId = ossToMaterial.get(r.ossFileId)
-                        if (materialId) resultMap.set(materialId, true)
-                    }
-                }
-            })
-        )
+        queries.push(queryRecognitionByOssFileId(imgMaterials, prisma.imageRecognitionRecords.findMany.bind(prisma.imageRecognitionRecords), resultMap))
     }
 
-    // 音频：status === 2
     if (audioMaterials.length > 0) {
-        const ossToMaterial = new Map(audioMaterials.map(m => [m.ossFileId!, m.id]))
-        queries.push(
-            prisma.asrRecords.findMany({
-                where: {
-                    ossFileId: { in: [...ossToMaterial.keys()] },
-                    status: 2,
-                    deletedAt: null,
-                },
-                select: { ossFileId: true },
-            }).then(records => {
-                const seen = new Set<number>()
-                for (const r of records) {
-                    if (r.ossFileId && !seen.has(r.ossFileId)) {
-                        seen.add(r.ossFileId)
-                        const materialId = ossToMaterial.get(r.ossFileId)
-                        if (materialId) resultMap.set(materialId, true)
-                    }
-                }
-            })
-        )
+        queries.push(queryRecognitionByOssFileId(audioMaterials, prisma.asrRecords.findMany.bind(prisma.asrRecords), resultMap))
     }
 
     await Promise.all(queries)

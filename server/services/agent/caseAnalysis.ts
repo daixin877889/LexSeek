@@ -1,5 +1,4 @@
 import { createAgent, createMiddleware, HumanMessage } from "langchain";
-// import { HumanMessage } from '@langchain/core/messages'
 import { createChatModel } from '../node/chatModelFactory'
 import { getToolInstancesService } from '../workflow/tools'
 import { ensureMaterialsReadyService } from '../material/materialPipeline.service'
@@ -41,9 +40,6 @@ const caseProcessMaterialMiddleware = (userId: number, caseId: number) => {
         }
     })
 }
-
-
-
 
 export const caseAnalysisAgent = async (sessionId: string, prompt: string, options: MainAgentOptions = {}) => {
     const { thinking = true, userId, caseId } = options
@@ -94,7 +90,6 @@ export const caseAnalysisAgent = async (sessionId: string, prompt: string, optio
         store,
         middleware: [caseProcessMaterialMiddleware(userId!, caseId!)],
     })
-
 
     return agent.stream(
         { messages: [new HumanMessage(prompt)] },
