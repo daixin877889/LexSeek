@@ -32,7 +32,7 @@
             <!-- 可视化编辑 -->
             <TabsContent value="visual" class="mt-3">
                 <div class="space-y-3">
-                    <SchemaFieldList
+                    <AdminNodesSchemaFieldList
                         :fields="fields"
                         @update="syncToModel"
                         @remove="removeField"

@@ -66,7 +66,7 @@
             class="ml-4 pl-3 border-l-2 border-muted space-y-2 mt-2">
             <p class="text-xs text-muted-foreground">数组元素属性：</p>
             <!-- 递归渲染子字段 -->
-            <SchemaFieldList
+            <AdminNodesSchemaFieldList
                 :fields="field.children"
                 @update="syncToModel"
                 @remove="(i: number) => removeChild(field, i)"
