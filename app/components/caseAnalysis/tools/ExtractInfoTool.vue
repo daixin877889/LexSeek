@@ -71,33 +71,27 @@
                             class="min-h-[80px] resize-none" />
                     </div>
 
-                    <!-- 可选字段 -->
-                    <Collapsible v-model:open="showOptionalFields">
-                        <CollapsibleTrigger
-                            class="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-                            <ChevronRightIcon class="h-4 w-4 transition-transform"
-                                :class="{ 'rotate-90': showOptionalFields }" />
-                            更多信息（可选）
-                        </CollapsibleTrigger>
-                        <CollapsibleContent class="mt-3 space-y-4">
-                            <div class="space-y-2">
-                                <Label for="extract-case-number">案号</Label>
-                                <Input id="extract-case-number" v-model="formData.caseNumber" placeholder="请输入案号" />
+                    <!-- 扩展字段 -->
+                    <div v-if="formData.extraFields.length > 0" class="space-y-3">
+                        <Label class="text-muted-foreground">扩展信息</Label>
+                        <div v-for="(field, index) in formData.extraFields" :key="`extra-${index}`"
+                            class="flex items-start gap-2">
+                            <div class="flex-1 space-y-1">
+                                <Input v-model="field.title" placeholder="字段名称"
+                                    class="text-sm" />
+                                <Input v-model="field.value" placeholder="字段值"
+                                    class="text-sm" />
                             </div>
-                            <div class="space-y-2">
-                                <Label for="extract-court">法院</Label>
-                                <Input id="extract-court" v-model="formData.court" placeholder="请输入法院名称" />
-                            </div>
-                            <div class="space-y-2">
-                                <Label for="extract-cause">案由</Label>
-                                <Input id="extract-cause" v-model="formData.causeOfAction" placeholder="请输入案由" />
-                            </div>
-                            <div class="space-y-2">
-                                <Label for="extract-amount">诉讼标的金额</Label>
-                                <Input id="extract-amount" v-model="formData.amount" placeholder="请输入金额" />
-                            </div>
-                        </CollapsibleContent>
-                    </Collapsible>
+                            <Button variant="ghost" size="icon" class="h-9 w-9 shrink-0 mt-0.5"
+                                @click="removeExtraField(index)">
+                                <XIcon class="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
+                    <Button variant="outline" size="sm" @click="addExtraField">
+                        <PlusIcon class="h-4 w-4 mr-1" />
+                        添加字段
+                    </Button>
                 </div>
 
                 <!-- 操作按钮 -->
@@ -136,18 +130,16 @@
                         <span class="text-muted-foreground">被告</span>
                         <p>{{ confirmedData.defendant.join('、') }}</p>
                     </div>
-                    <div v-if="confirmedData?.caseNumber" class="col-span-2">
-                        <span class="text-muted-foreground">案号</span>
-                        <p>{{ confirmedData.caseNumber }}</p>
-                    </div>
-                    <div v-if="confirmedData?.court" class="col-span-2">
-                        <span class="text-muted-foreground">法院</span>
-                        <p>{{ confirmedData.court }}</p>
-                    </div>
                     <div v-if="confirmedData?.summary" class="col-span-2">
                         <span class="text-muted-foreground">案件摘要</span>
                         <p class="line-clamp-3">{{ confirmedData.summary }}</p>
                     </div>
+                    <template v-if="confirmedData?.extraFields?.length">
+                        <div v-for="field in confirmedData.extraFields" :key="field.name" class="col-span-2">
+                            <span class="text-muted-foreground">{{ field.title }}</span>
+                            <p>{{ field.value }}</p>
+                        </div>
+                    </template>
                 </div>
             </div>
         </AiElementsConfirmationAccepted>
@@ -165,26 +157,14 @@
 <script setup lang="ts">
 import type { ExtendedToolState } from '@/components/ai-elements/types'
 import type { ToolUIPartApproval } from '@/components/ai-elements/confirmation/context'
+import type { ExtractedCaseInfo, ExtraField } from '#shared/types/case'
 import {
     ClipboardCheckIcon,
-    ChevronRightIcon,
     XIcon,
     PlusIcon,
     CheckCircleIcon,
     XCircleIcon,
 } from 'lucide-vue-next'
-
-interface CaseInfo {
-    title: string
-    plaintiff: string[]
-    defendant: string[]
-    caseType: string
-    summary: string
-    caseNumber?: string
-    court?: string
-    causeOfAction?: string
-    amount?: string
-}
 
 const props = defineProps<{
     toolName: string
@@ -194,15 +174,14 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-    confirm: [caseInfo: CaseInfo]
+    confirm: [caseInfo: ExtractedCaseInfo]
     reject: []
 }>()
 
 // Confirmation 组件状态
 const approval = ref<ToolUIPartApproval>({ id: 'extract-info' })
 const confirmationState = ref<ExtendedToolState>('approval-requested')
-const showOptionalFields = ref(false)
-const confirmedData = ref<CaseInfo | null>(null)
+const confirmedData = ref<ExtractedCaseInfo | null>(null)
 
 // 从 output 解析案件信息
 // 兼容两种格式：
@@ -220,9 +199,9 @@ const parsedOutput = computed(() => {
 })
 
 // 表单数据
-const formData = ref<CaseInfo>(createFormData())
+const formData = ref<ExtractedCaseInfo>(createFormData())
 
-function createFormData(): CaseInfo {
+function createFormData(): ExtractedCaseInfo {
     const data = parsedOutput.value
     return {
         title: data?.title || '',
@@ -230,10 +209,9 @@ function createFormData(): CaseInfo {
         defendant: data?.defendant?.length ? [...data.defendant] : [''],
         caseType: data?.caseType || '',
         summary: data?.summary || '',
-        caseNumber: data?.caseNumber || '',
-        court: data?.court || '',
-        causeOfAction: data?.causeOfAction || '',
-        amount: data?.amount || '',
+        extraFields: data?.extraFields?.length
+            ? data.extraFields.map((f: ExtraField) => ({ ...f }))
+            : [],
     }
 }
 
@@ -273,21 +251,31 @@ const removeDefendant = (index: number) => {
     }
 }
 
+const addExtraField = () => {
+    formData.value.extraFields.push({ name: '', title: '', value: '' })
+}
+
+const removeExtraField = (index: number) => {
+    formData.value.extraFields.splice(index, 1)
+}
+
 function handleConfirm() {
     if (!canSubmit.value) return
 
-    const cleaned: CaseInfo = {
+    const cleaned: ExtractedCaseInfo = {
         title: formData.value.title.trim(),
         plaintiff: formData.value.plaintiff.filter(p => p.trim().length > 0),
         defendant: formData.value.defendant.filter(d => d.trim().length > 0),
         caseType: formData.value.caseType.trim(),
         summary: formData.value.summary.trim(),
+        extraFields: formData.value.extraFields
+            .filter(f => f.title.trim() && f.value.trim())
+            .map(f => ({
+                name: f.name.trim() || f.title.trim().replace(/\s+/g, ''),
+                title: f.title.trim(),
+                value: f.value.trim(),
+            })),
     }
-
-    if (formData.value.caseNumber?.trim()) cleaned.caseNumber = formData.value.caseNumber.trim()
-    if (formData.value.court?.trim()) cleaned.court = formData.value.court.trim()
-    if (formData.value.causeOfAction?.trim()) cleaned.causeOfAction = formData.value.causeOfAction.trim()
-    if (formData.value.amount?.trim()) cleaned.amount = formData.value.amount.trim()
 
     confirmedData.value = cleaned
     approval.value = { id: 'extract-info', approved: true }

@@ -9,7 +9,7 @@ export const AGENT_RUN_STATUS = {
 export type AgentRunStatus = typeof AGENT_RUN_STATUS[keyof typeof AGENT_RUN_STATUS]
 
 export interface AgentRunInput {
-  message: string
+  message?: string
   command?: unknown
 }
 

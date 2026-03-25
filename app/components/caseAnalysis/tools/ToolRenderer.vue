@@ -22,8 +22,6 @@ const emit = defineEmits<{
     <CaseAnalysisToolsWriteTodosTool v-else-if="toolName === 'write_todos'" v-bind="props" />
     <CaseAnalysisToolsMaterialSearchTool v-else-if="toolName === 'search_case_materials'" v-bind="props" />
     <CaseAnalysisToolsLawSearchTool v-else-if="toolName === 'search_law'" v-bind="props" />
-    <CaseAnalysisToolsExtractInfoTool v-else-if="toolName === 'extract_case_info'" v-bind="props"
-        @confirm="emit('confirm', $event)" @reject="emit('reject')" />
     <!-- 默认工具展示：使用 ai-elements 标准组件显示完整输入/输出/错误 -->
     <AiElementsTool v-else>
         <AiElementsToolHeader :title="toolName" :type="`tool-${toolName}`" :state="state" />

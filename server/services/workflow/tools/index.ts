@@ -13,7 +13,6 @@ import { getToolMetaFromDefinition } from './types'
 import * as searchCaseMaterialsTool from './searchCaseMaterials.tool'
 import * as searchLawTool from './searchLaw.tool'
 import * as processMaterialsTool from './processMaterials.tool'
-import * as extractCaseInfoTool from './extractCaseInfo.tool'
 import * as reservePointsTool from './reservePoints.tool'
 import * as confirmPointsTool from './confirmPoints.tool'
 import * as rollbackPointsTool from './rollbackPoints.tool'
@@ -23,7 +22,6 @@ const toolModules: Record<string, ToolModule> = {
     search_case_materials: searchCaseMaterialsTool,
     search_law: searchLawTool,
     process_materials: processMaterialsTool,
-    extract_case_info: extractCaseInfoTool,
     reserve_points: reservePointsTool,
     confirm_points: confirmPointsTool,
     rollback_points: rollbackPointsTool,

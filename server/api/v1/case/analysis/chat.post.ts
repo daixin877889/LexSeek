@@ -104,8 +104,8 @@ export default defineEventHandler(async (event) => {
     runId = activeRun.id
   }
   else {
-    if (!message) {
-      // 无活跃 run + 无消息 → 返回错误
+    if (!message && !command) {
+      // 无活跃 run + 无消息也无 command → 返回错误
       return resError(event, 400, '消息不能为空')
     }
     // 无活跃 run + 有消息 → 入队新 run

@@ -7,6 +7,7 @@
 
 import { createDeepAgent } from 'deepagents'
 import { HumanMessage } from '@langchain/core/messages'
+import { Command } from '@langchain/langgraph'
 import { getCheckpointer } from '../workflow/checkpointer'
 import { getValidNodeConfig, getSubagentConfigsService } from '../node/node.service'
 import { createChatModel } from '../node/chatModelFactory'
@@ -153,13 +154,19 @@ export async function createCaseAgent(sessionId: string, options: CaseAgentOptio
  */
 export async function runCaseChat(
     sessionId: string,
-    message: string,
-    options: CaseAgentOptions
+    message: string | undefined,
+    options: CaseAgentOptions & { command?: unknown }
 ) {
-    const agent = await createCaseAgent(sessionId, options)
+    const { command, ...agentOptions } = options
+    const agent = await createCaseAgent(sessionId, agentOptions)
+
+    // 中断恢复：有 command 时使用 Command({ resume }) 恢复执行
+    const input = command
+        ? new Command({ resume: command })
+        : { messages: [new HumanMessage(message!)] }
 
     return agent.stream(
-        { messages: [new HumanMessage(message)] },
+        input,
         {
             configurable: {
                 thread_id: sessionId,

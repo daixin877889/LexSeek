@@ -131,11 +131,12 @@ export class AgentWorker {
       })
 
       // 调用 Agent
-      const input = run.input as { message: string; command?: unknown }
+      const input = run.input as { message?: string; command?: unknown }
       const { runCaseChat } = await import('./caseAgent')
       const stream = await runCaseChat(run.sessionId, input.message, {
         userId: run.userId,
         caseId: run.caseId,
+        command: input.command,
       })
 
       // 遍历 SSE stream 并发布事件到 Redis
