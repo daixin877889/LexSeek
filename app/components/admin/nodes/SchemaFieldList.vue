@@ -38,8 +38,8 @@
         <div class="flex items-center gap-4">
             <label class="flex items-center gap-2 text-sm cursor-pointer">
                 <Checkbox
-                    v-model:checked="field.required"
-                    @update:checked="() => syncToModel()"
+                    :model-value="field.required"
+                    @update:model-value="(val: boolean | 'indeterminate') => { field.required = val === true; syncToModel() }"
                 />
                 必填
             </label>
