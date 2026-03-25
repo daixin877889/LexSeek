@@ -6,13 +6,36 @@
 
 ## 实现范围
 
-1. **新建** `server/services/material/materialPipeline.service.ts`
-2. **新建** `caseProcessMaterialMiddleware`（在 `caseAnalysis.ts` 中）
-3. **重构** `processMaterials.tool.ts` 调用 pipeline service
+1. **新增** `batchCheckMaterialRecognizedService` 在 `materialProcess.service.ts` 中
+2. **新建** `server/services/material/materialPipeline.service.ts`
+3. **新建** `caseProcessMaterialMiddleware`（在 `caseAnalysis.ts` 中）
+4. **重构** `processMaterials.tool.ts` 调用 pipeline service
 
 `caseMaterialContextMiddleware`（内容获取+上下文注入）留到下一轮。
 
 ## 设计详情
+
+### 0. `batchCheckMaterialRecognizedService`
+
+**文件**：`server/services/material/materialProcess.service.ts`
+
+**签名**：
+
+```typescript
+/** 批量检查材料是否已识别完成 */
+export async function batchCheckMaterialRecognizedService(
+  materials: MaterialWithFile[]
+): Promise<Map<number, boolean>>
+```
+
+**逻辑**：
+- 按材料类型分组
+- 文本(1): 查 `textContentRecords`，条件 `materialId in ids, content not null, deletedAt null`
+- 文档(2): 查 `docRecognitionRecords`，条件 `ossFileId in ids, status === 2, deletedAt null`
+- 图片(3): 查 `imageRecognitionRecords`，条件 `ossFileId in ids, status === 2, deletedAt null`
+- 音频(4): 查 `asrRecords`，条件 `ossFileId in ids, status === 2, deletedAt null`
+- 文本类型没有 status 字段，通过 `content not null` 判断已识别
+- 并行查询四张表，汇总为 `Map<materialId, boolean>`
 
 ### 1. `materialPipeline.service.ts`
 
@@ -47,11 +70,14 @@ export async function ensureMaterialsReadyService(
 1. `getMaterialsByCaseIdService(caseId)` 获取全部材料
 2. 空材料时直接返回 `{ materials: [], totalMaterials: 0, ... }`，不抛错
 3. `batchCheckMaterialEmbeddedService(ids)` 批量检查嵌入状态
-4. 对未嵌入的材料，逐个调用 `processMaterialService(materialId, userId)` 触发识别（OCR/ASR/PDF解析），然后再做嵌入。使用 `Promise.allSettled` 并发处理，逐个捕获失败并记录到 `failed` 数组（含 materialId、name、error message）
-5. 处理完成后重新调用 `batchCheckMaterialEmbeddedService` 获取最终嵌入状态映射
-6. 返回结果摘要（含材料列表、嵌入状态映射、失败列表）
+4. 对未嵌入的材料，调用 `batchCheckMaterialRecognizedService(notEmbedded)` 检查识别状态
+5. **未识别的** → `processMaterialService(materialId, userId)` 触发识别（OCR/ASR/PDF解析），使用 `Promise.allSettled` 并发处理
+6. **已识别但未嵌入的** + **刚识别成功的** → `embedMaterialUnifiedService(materialId, userId)` 触发嵌入，使用 `Promise.allSettled` 并发处理
+7. 逐个捕获失败并记录到 `failed` 数组（含 materialId、name、error message）
+8. 处理完成后重新调用 `batchCheckMaterialEmbeddedService` 获取最终嵌入状态映射
+9. 返回结果摘要（含材料列表、嵌入状态映射、失败列表）
 
-**关于 failed 详情收集**：现有 `ensureMaterialsEmbeddedService` 返回的是统计数字（`{ total, success, failed: number, skipped }`），不含失败详情。pipeline service 不直接使用该函数，而是在 `Promise.allSettled` 结果中自行收集每个材料的失败原因和名称。
+**关于 failed 详情收集**：pipeline service 在 `Promise.allSettled` 结果中自行收集每个材料的失败原因和名称。识别失败和嵌入失败都记录到同一个 `failed` 数组。
 
 失败的材料记录到 `failed` 数组但不阻断整体流程。
 
@@ -119,6 +145,10 @@ const agent = createAgent({
 ### 超时与并发
 
 `ensureMaterialsReadyService` 在 `beforeAgent` 中执行，若案件有大量未识别/未嵌入的材料，处理可能耗时较长。当前使用 `Promise.allSettled` 全量并行。如果后续出现性能问题，可考虑添加并发限制（如 `p-limit`）。
+
+### 异步识别材料
+
+对于 PDF（MinerU）和音频（ASR），`processMaterialService` 可能返回 PROCESSING 状态（异步识别），后续 `embedMaterialUnifiedService` 会因内容为空而失败。这是预期行为，这些材料需要等异步回调完成后重新触发嵌入。
 
 ### 迁移到正式版
 
