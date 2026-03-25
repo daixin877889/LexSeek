@@ -16,6 +16,7 @@
 | API 验证 | `server/api/v1/admin/nodes/index.post.ts` | Zod schema 添加 `outputSchema` |
 | API 验证 | `server/api/v1/admin/nodes/[id].put.ts` | Zod schema 添加 `outputSchema` |
 | 服务/DAO | `server/services/node/node.dao.ts` | `createNodeDao` / `updateNodeDao` 传递 `outputSchema` |
+| 服务层 | `server/services/node/node.service.ts` | `createNodeService` / `updateNodeService` 添加类型约束清理 |
 | 前端表单 | `app/components/admin/nodes/NodeFormDialog.vue` | 新增双模式 outputSchema 编辑器 |
 | 前端详情 | `app/pages/admin/nodes/[id].vue` | 展示 outputSchema 内容 |
 
@@ -58,7 +59,13 @@ outputSchema: z.record(z.unknown()).optional().nullable()
 
 ### 3. DAO 层（node.dao.ts）
 
-确保 `createNodeDao` 和 `updateNodeDao` 将入参中的 `outputSchema` 传入 Prisma `create` / `update` 的 `data` 对象。当前这两个函数使用解构传参，需要在解构列表和 Prisma data 中补充 `outputSchema`。
+**createNodeDao**（L207-237）：在 `prisma.nodes.create` 的 `data` 中添加 `outputSchema: data.outputSchema ?? null`。
+
+**updateNodeDao**（L480-515）：使用条件展开 `...(data.outputSchema !== undefined && { outputSchema: data.outputSchema })` 添加到 `data` 对象。
+
+### 3.5 服务层类型约束（node.service.ts）
+
+在 `createNodeService` 和 `updateNodeService` 中添加防御性逻辑：当节点类型不是 `extraction` 或 `agent` 时，强制将 `outputSchema` 设为 `null`，确保数据一致性。此逻辑在服务层实现（而非仅前端），作为防御性保障。
 
 ### 4. 前端表单 - 双模式编辑器（NodeFormDialog.vue）
 
@@ -130,6 +137,8 @@ outputSchema: z.record(z.unknown()).optional().nullable()
 - 不修改 `getNodeConfigDao` / `getNodeConfigByIdDao`（已正确查询 outputSchema）
 - 不修改工作流节点执行逻辑（extractInfo.ts 等已正确使用）
 - 不需要数据库迁移（字段已存在）
+- 不修改 GET API `[id].get.ts`（`findNodeByIdDao` 使用 `include` 已返回所有字段，包括 `outputSchema`）
+- 不修改列表 GET API（列表查询无需返回 outputSchema）
 
 ## 测试计划
 
