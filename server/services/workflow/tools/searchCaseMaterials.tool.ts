@@ -52,8 +52,8 @@ export function createTool(context: ToolContext) {
                     index: index + 1,
                     content: result.content,
                     source: {
-                        materialId: result.materialId,
-                        materialName: result.materialName,
+                        sourceId: result.sourceId,
+                        sourceName: result.sourceName,
                         chunkIndex: result.chunkIndex,
                     },
                     relevanceScore: Number(result.score.toFixed(4)),
