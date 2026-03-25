@@ -13,7 +13,7 @@
 3. **新增** `buildMaterialContextMessage`、`buildIncrementalMaterialMessage` 在 `materialPipeline.service.ts`
 4. **新增** `caseMaterialContextMiddleware` 在 `caseAnalysis.ts`（使用 stateSchema 扩展 state）
 5. **重构** `processMaterials.tool.ts` 改用 `getMaterialContextService`
-6. **增强** `search_case_materials` 工具，支持 materialId 精确检索和范围限定
+6. **增强** `search_case_materials` 工具，支持 sourceId 精确检索和范围限定
 7. **清理** 旧版 `MaterialEmbeddingMetadata`，统一使用 `ContentEmbeddingMetadata`
 
 ## 设计详情
@@ -29,13 +29,13 @@
 
 新增辅助函数：
 
-- `mapMaterialToSourceId(material)` — 按材料类型将 materialId 映射为向量表中的 sourceId（文本类型 sourceId=materialId，文档/图片/音频类型 sourceId=ossFileId）
+- `getSourceId(material)` — 按材料类型返回向量表中的 sourceId（文本类型 sourceId=materialId，文档/图片/音频类型 sourceId=ossFileId）
 
 ### 2. `getMaterialContextService`
 
 ```typescript
 export interface MaterialContextItem {
-    id: number
+    sourceId: number
     name: string
     type: number
     hasContent: boolean
@@ -76,22 +76,22 @@ export function buildMaterialContextMessage(context: MaterialContextResult): str
 ```
 以下是本案件的全部材料内容，请基于这些材料进行分析：
 
-## [id=1] 起诉状.pdf
+## [sourceId=2] 起诉状.pdf
 [完整内容]
 
-## [id=2] 证据清单.docx
+## [sourceId=5] 证据清单.docx
 [完整内容]
 ```
 
 **summary 模式输出**：
 ```
-本案件共有 N 份材料，材料量较大，以下为摘要信息。需要详细内容时请使用 search_case_materials 工具，传入 materialId 精确检索。
+本案件共有 N 份材料，材料量较大，以下为摘要信息。需要详细内容时请使用 search_case_materials 工具，传入 sourceId 精确检索。
 
-- [id=1] 起诉状.pdf（摘要：xxx...）
-- [id=2] 证据清单.docx（摘要：xxx...）
+- [sourceId=2] 起诉状.pdf（摘要：xxx...）
+- [sourceId=5] 证据清单.docx（摘要：xxx...）
 ```
 
-> 注意：full 和 summary 格式中都包含 `[id=N]` 标记，方便 agent 在后续对话中使用 `search_case_materials({ materialId: N })` 精确检索。
+> 注意：full 和 summary 格式中都包含 `[sourceId=N]` 标记，方便 agent 在后续对话中使用 `search_case_materials({ sourceId: N })` 精确检索。
 
 #### `buildIncrementalMaterialMessage`
 
@@ -103,16 +103,16 @@ export function buildIncrementalMaterialMessage(context: MaterialContextResult):
 
 **输出**：
 ```
-案件新增了以下材料，需要详细内容时请使用 search_case_materials 工具，传入 materialId 精确检索。
+案件新增了以下材料，需要详细内容时请使用 search_case_materials 工具，传入 sourceId 精确检索。
 
-- [id=3] 补充证据.pdf（摘要：xxx...）
+- [sourceId=8] 补充证据.pdf（摘要：xxx...）
 ```
 
 ### 4. `caseMaterialContextMiddleware`
 
 **位置**：`server/services/agent/caseAnalysis.ts`
 
-**持久化方案**：使用 `createMiddleware` 的 `stateSchema` 扩展 agent state，新增 `_injectedMaterialIds` 字段。该字段随 checkpoint 自动持久化到 PostgreSQL，无需手动操作 Store。
+**持久化方案**：使用 `createMiddleware` 的 `stateSchema` 扩展 agent state，新增 `_injectedSourceIds` 字段。该字段随 checkpoint 自动持久化到 PostgreSQL，无需手动操作 Store。
 
 > **技术验证**：langchain 的 `createAgentState()` 会遍历所有 middleware 的 stateSchema 并合并到 agent 的完整 state 中。`beforeAgent` hook 可直接读取扩展字段，返回的 partial state 会被合并回去并持久化。以 `_` 开头的字段不会出现在 input/output schema 中（私有字段）。
 
@@ -121,7 +121,7 @@ const caseMaterialContextMiddleware = (userId: number, caseId: number) => {
     return createMiddleware({
         name: "CaseMaterialContextMiddleware",
         stateSchema: {
-            _injectedMaterialIds: z.array(z.number()).default([]),
+            _injectedSourceIds: z.array(z.number()).default([]),
         },
         beforeAgent: {
             hook: async (state) => {
@@ -130,16 +130,16 @@ const caseMaterialContextMiddleware = (userId: number, caseId: number) => {
                     const materials = await getMaterialsByCaseIdService(caseId)
                     if (materials.length === 0) return
 
-                    // 2. 从 state 读取已注入的材料 id 列表（自动从 checkpoint 恢复）
-                    const prevIds: number[] = state._injectedMaterialIds ?? []
-                    const currentIds = materials.map(m => m.id)
+                    // 2. 从 state 读取已注入的 sourceId 列表（自动从 checkpoint 恢复）
+                    const prevSourceIds: number[] = state._injectedSourceIds ?? []
+                    const currentSourceIds = materials.map(m => getSourceId(m))
 
                     // 3. 判断是首次注入还是增量
-                    const isFirstInjection = prevIds.length === 0
-                    const newIds = currentIds.filter(id => !prevIds.includes(id))
+                    const isFirstInjection = prevSourceIds.length === 0
+                    const newSourceIds = currentSourceIds.filter(id => !prevSourceIds.includes(id))
 
                     // 无变化则跳过
-                    if (!isFirstInjection && newIds.length === 0) return
+                    if (!isFirstInjection && newSourceIds.length === 0) return
 
                     // 4. 获取材料上下文
                     if (isFirstInjection) {
@@ -159,12 +159,13 @@ const caseMaterialContextMiddleware = (userId: number, caseId: number) => {
                         logger.info('材料上下文已注入（首次）', {
                             caseId,
                             mode: context.mode,
-                            materialCount: currentIds.length,
+                            materialCount: currentSourceIds.length,
                             totalTokens: context.totalTokens,
                         })
                     } else {
                         // 增量：固定 summary 模式
-                        const newMaterials = materials.filter(m => newIds.includes(m.id))
+                        const newSourceIdSet = new Set(newSourceIds)
+                        const newMaterials = materials.filter(m => newSourceIdSet.has(getSourceId(m)))
                         const context = await getMaterialContextService(newMaterials)
                         if (context.mode === 'empty') return
 
@@ -176,12 +177,12 @@ const caseMaterialContextMiddleware = (userId: number, caseId: number) => {
 
                         logger.info('材料上下文已注入（增量）', {
                             caseId,
-                            newMaterialCount: newIds.length,
+                            newMaterialCount: newSourceIds.length,
                         })
                     }
 
                     // 5. 返回更新后的 state（自动持久化到 checkpoint）
-                    return { _injectedMaterialIds: currentIds }
+                    return { _injectedSourceIds: currentSourceIds }
                 } catch (error) {
                     logger.error('材料上下文注入异常，继续启动 Agent', { caseId, error })
                 }
@@ -192,9 +193,10 @@ const caseMaterialContextMiddleware = (userId: number, caseId: number) => {
 ```
 
 **要点**：
-- `_injectedMaterialIds` 以 `_` 开头，标记为私有字段（不暴露到 input/output schema）
-- 通过 `return { _injectedMaterialIds: currentIds }` 更新 state，自动随 checkpoint 持久化
-- 多轮对话时 state 从 checkpoint 恢复，`prevIds` 自动包含上次注入的 ids
+- `_injectedSourceIds` 以 `_` 开头，标记为私有字段（不暴露到 input/output schema）
+- 通过 `return { _injectedSourceIds: currentSourceIds }` 更新 state，自动随 checkpoint 持久化
+- 使用 `getSourceId(material)` 获取每个材料对应的 sourceId
+- 多轮对话时 state 从 checkpoint 恢复，`prevSourceIds` 自动包含上次注入的 ids
 - 无需 Store 实例，无需额外传参
 - 闭包只需 `userId` 和 `caseId` 两个参数
 - 首次注入插入 SystemMessage 之后，增量注入插入用户最新消息之前
@@ -242,11 +244,11 @@ interface ContentEmbeddingMetadata {
 ```typescript
 const schema = z.object({
     query: z.string().optional().describe('语义查询内容，用于搜索相关的材料片段'),
-    materialId: z.number().optional().describe('材料 ID，精确检索或限定语义搜索范围到指定材料'),
+    sourceId: z.number().optional().describe('材料 sourceId，精确检索或限定语义搜索范围到指定材料'),
     k: z.number().optional().default(5).describe('返回结果数量，默认为 5'),
 }).refine(
-    data => data.query || data.materialId,
-    { message: '至少需要提供 query 或 materialId' }
+    data => data.query || data.sourceId,
+    { message: '至少需要提供 query 或 sourceId' }
 )
 ```
 
@@ -255,21 +257,21 @@ const schema = z.object({
 | 参数组合 | 行为 |
 |---------|------|
 | `query` only | 语义搜索，通过 caseId→材料列表→sourceId 集合限定案件范围 |
-| `query` + `materialId` | 语义搜索，范围限定到指定材料的 sourceId |
-| `materialId` only | 精确查询，从识别记录表获取该材料完整内容（`fetchMaterialContents`） |
+| `query` + `sourceId` | 语义搜索，范围限定到指定 sourceId |
+| `sourceId` only | 精确查询，从识别记录表获取该材料完整内容（`fetchMaterialContents`） |
 
 #### 内部实现
 
 ```typescript
 async (input) => {
-    const { query, materialId, k = 5 } = input
+    const { query, sourceId, k = 5 } = input
 
     // 1. 获取案件材料列表
     const allMaterials = await getMaterialsByCaseIdService(caseId)
 
-    // 2. 按 materialId 过滤（如果指定）
-    const targetMaterials = materialId
-        ? allMaterials.filter(m => m.id === materialId)
+    // 2. 按 sourceId 过滤（如果指定）
+    const targetMaterials = sourceId
+        ? allMaterials.filter(m => getSourceId(m) === sourceId)
         : allMaterials
 
     if (targetMaterials.length === 0) {
@@ -283,24 +285,22 @@ async (input) => {
     }
 
     // 4. 有 query → 向量语义搜索，用 sourceId IN 限定范围
-    const sourceIds = targetMaterials.map(m => mapMaterialToSourceId(m))
+    const sourceIds = targetMaterials.map(m => getSourceId(m))
     const filter = {
         userId,
         sourceId: { in: sourceIds.map(String) },
     }
     const results = await similaritySearchWithScore(query, k, filter, caseMaterialVectorConfig)
 
-    // 5. 格式化结果（使用 ContentEmbeddingMetadata 字段）
+    // 5. 格式化结果
     return JSON.stringify(results.map(([doc, score], index) => {
         const metadata = doc.metadata as ContentEmbeddingMetadata
-        // 反向映射 sourceId → materialId
-        const material = targetMaterials.find(m => mapMaterialToSourceId(m) === metadata.sourceId)
         return {
             index: index + 1,
             content: doc.pageContent,
             source: {
-                materialId: material?.id ?? metadata.sourceId,
-                materialName: metadata.sourceName,
+                sourceId: metadata.sourceId,
+                sourceName: metadata.sourceName,
                 chunkIndex: metadata.chunkIndex,
             },
             relevanceScore: Number(score.toFixed(4)),
@@ -309,10 +309,10 @@ async (input) => {
 }
 ```
 
-**`mapMaterialToSourceId` 辅助函数**：
+**`getSourceId` 辅助函数**：
 
 ```typescript
-function mapMaterialToSourceId(material: MaterialWithFile): number {
+export function getSourceId(material: MaterialWithFile): number {
     // 文本类型用 materialId，其他类型用 ossFileId
     if (material.type === CaseMaterialType.CASE_CONTENT) {
         return material.id
@@ -380,10 +380,10 @@ const context = await getMaterialContextService(materials)
 
 ## State 持久化机制
 
-middleware 通过 `stateSchema` 声明 `_injectedMaterialIds` 字段，langchain 的 `createAgentState()` 将其合并到 agent 的完整 state 中。该字段随 StateGraph checkpoint 自动持久化到 PostgreSQL（通过 PostgresSaver），多轮对话时自动恢复。
+middleware 通过 `stateSchema` 声明 `_injectedSourceIds` 字段，langchain 的 `createAgentState()` 将其合并到 agent 的完整 state 中。该字段随 StateGraph checkpoint 自动持久化到 PostgreSQL（通过 PostgresSaver），多轮对话时自动恢复。
 
 ```
-state._injectedMaterialIds: number[]  // e.g. [1, 2, 3]
+state._injectedSourceIds: number[]  // e.g. [2, 5, 8]
 ```
 
-每次注入后通过 hook 返回值更新为当前完整的材料 id 列表。下次 beforeAgent 执行时从 state 中读取历史 ids，与当前 ids 对比得出增量。
+每次注入后通过 hook 返回值更新为当前完整的 sourceId 列表。下次 beforeAgent 执行时从 state 中读取历史 sourceIds，与当前 sourceIds 对比得出增量。
