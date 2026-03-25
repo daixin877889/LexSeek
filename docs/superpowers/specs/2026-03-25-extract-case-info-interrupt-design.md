@@ -134,14 +134,11 @@ const caseTypeNames = caseTypes.map(t => t.name).join('、')
 
 ## 3. 提取与存储流程
 
-### 3.1 提取节点 = Agent 节点（两阶段执行）
+### 3.1 提取节点 = Agent 节点
 
 **核心原则**：提取节点与普通分析节点的执行逻辑完全一致——都是带工具的 Agent 节点。提取节点**自主查询**案件材料（通过工具），而非被动接收主代理传递的内容。这确保提取节点能获取最准确、最完整的原始信息。
 
-**关键约束**：LangChain 的 `withStructuredOutput` 返回 `Runnable` 而非 `BaseChatModel`，不支持再调用 `bindTools`。因此提取节点采用**两阶段执行**：
-
-1. **信息收集阶段**：普通 Agent 循环（`model.bindTools(tools)`），自主调用工具查询案件材料
-2. **结构化提取阶段**：收集完成后，用 `model.withStructuredOutput(zodSchema)` 对收集到的材料做一次结构化提取
+**结构化输出**：使用 `createDeepAgent`（deepagents 库）的 `responseFormat` 参数，同时支持工具调用和结构化输出。Agent 在工具调用循环中自主收集材料，最终输出结构化 JSON，结果在 `result.structuredResponse` 中。
 
 #### 执行流程
 
@@ -150,20 +147,20 @@ const caseTypeNames = caseTypes.map(t => t.name).join('、')
   ↓
 ① 加载节点配置（nodes 表：prompt、tools、modelId、outputSchema）
 ② 查询 case_types 表可选值，注入 prompt 变量 {{caseTypeOptions}}
-  ↓ 阶段一：信息收集（普通 Agent 循环）
-③ 创建 Agent（chatModelFactory + bindTools）
+③ 创建 Agent（createDeepAgent + tools + responseFormat）
 ④ Agent 自主调用工具（如 search_case_materials）获取案件材料
-⑤ 收集到的材料内容聚合为文本
-  ↓ 阶段二：结构化提取
-⑥ 用 withStructuredOutput(zodSchema) 对聚合材料做一次结构化提取
-⑦ interrupt() 暂停，等待用户确认
-⑧ 用户确认/编辑后恢复，执行三层存储
+⑤ Agent 根据材料和 prompt 指引，输出结构化提取结果（structuredResponse）
+⑥ interrupt() 暂停，等待用户确认
+⑦ 用户确认/编辑后恢复，执行三层存储
 ```
 
 #### 关键实现
 
 ```typescript
-// extractInfo 节点（两阶段执行）
+import { createDeepAgent } from 'deepagents'
+import { toolStrategy } from 'langchain'
+
+// extractInfo 节点
 export async function extractInfoNode(state: CaseAnalysisState) {
   const nodeConfig = await getNodeConfigService('extractInfo')
 
@@ -184,27 +181,30 @@ export async function extractInfoNode(state: CaseAnalysisState) {
   // 3. 渲染 prompt（注入 caseTypeOptions 等变量）
   const systemPrompt = renderPrompt(nodeConfig.prompts, { caseTypeOptions })
 
-  // === 阶段一：信息收集（普通 Agent 循环） ===
+  // 4. 创建 Agent（工具 + 结构化输出同时生效）
   const model = chatModelFactory(nodeConfig)
-  const modelWithTools = model.bindTools(tools)
-  const collectedContent = await runAgentLoop(modelWithTools, systemPrompt, tools)
-  // collectedContent: Agent 调用工具后聚合的案件材料文本
-
-  // === 阶段二：结构化提取 ===
   const zodSchema = jsonSchemaToZod(nodeConfig.outputSchema)
-  const structuredModel = chatModelFactory(nodeConfig).withStructuredOutput(zodSchema)
-  const extracted = await structuredModel.invoke([
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: collectedContent },
-  ])
 
-  // 4. 中断等待用户确认
+  const agent = createDeepAgent({
+    model,
+    systemPrompt,
+    tools,
+    responseFormat: toolStrategy(zodSchema),  // 结构化输出
+  })
+
+  // 5. Agent 自主执行：调用工具查询材料 → 输出结构化结果
+  const result = await agent.invoke({
+    messages: state.messages,
+  })
+  const extracted = result.structuredResponse
+
+  // 6. 中断等待用户确认
   const userInput = interrupt({
     type: InterruptType.BASIC_INFO_CONFIRM,
     data: extracted,
   })
 
-  // 5. 处理确认结果并执行三层存储
+  // 7. 处理确认结果并执行三层存储
   const confirmedData = parseUserConfirmation(userInput, extracted)
   await saveCaseInfoService(state.caseId, confirmedData, caseTypes)
 
@@ -212,7 +212,7 @@ export async function extractInfoNode(state: CaseAnalysisState) {
 }
 ```
 
-> **`runAgentLoop`**：Agent 工具调用循环的抽象——Agent 决定调用哪些工具、调用几次，直到收集足够信息。具体实现复用项目现有的 Agent 执行机制（参考 `main.ts` 中 `createDeepAgent` 的工具调用流程）。
+> **策略选择**：`toolStrategy` 将结构化输出作为一个额外的工具注入，兼容所有支持工具调用的模型。如果模型原生支持结构化输出（如 OpenAI/Claude），也可使用 `providerStrategy` 获得更好性能。
 
 #### saveCaseInfoService 实现
 
@@ -498,7 +498,7 @@ ExtractInfoTool 的动态字段渲染：固定字段用专用表单控件（Inpu
 | `prisma/models/node.prisma` | 修改 | 新增 outputSchema 字段 |
 | Prisma migration | 新建 | 两个表的字段变更 + extractInfo 节点 seed 数据 |
 | `server/services/agent/store.ts` | 新建 | PostgresStore 单例（长期记忆后端） |
-| `server/services/workflow/nodes/extractInfo.ts` | 修改 | 改为两阶段 Agent 节点：工具收集 + 结构化提取 + case_types 约束 |
+| `server/services/workflow/nodes/extractInfo.ts` | 修改 | 改为 Agent 节点：createDeepAgent + tools + responseFormat 结构化输出 + case_types 约束 |
 | `server/services/agent/caseAgent.ts` | 修改 | 注入 store 配置 |
 | `server/services/agent/main.ts` | 修改 | `mainAgent` 支持 command 参数（中断恢复） |
 | `server/services/agent/agentWorker.ts` | 修改 | command 分支 + Command.resume |
