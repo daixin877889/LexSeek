@@ -3,20 +3,31 @@
  *
  * 提供 LangGraph 工作流中使用的材料检索工具
  * 用于在 AI 分析过程中检索当前案件的相关材料内容
+ * 支持三种检索模式：语义搜索、精确检索、组合检索
  * Requirements: 12.1.1-12.1.4
  */
 
 import { tool } from '@langchain/core/tools'
 import { z } from 'zod'
+import { Document } from '@langchain/core/documents'
 import {
     searchCaseMaterialsService,
+    caseMaterialVectorConfig,
     type MaterialSearchResult,
+    type ContentEmbeddingMetadata,
 } from './materialEmbedding.service'
+import {
+    similaritySearchWithScore,
+} from '~~/server/services/legal/vectorStore.service'
+import { getMaterialsByCaseIdService } from './material.service'
+import { getSourceId, fetchMaterialContents } from './materialPipeline.service'
 
 /** 材料检索工具输入参数 */
 export interface MaterialSearchToolInput {
     /** 查询内容 */
-    query: string
+    query?: string
+    /** 材料 sourceId */
+    sourceId?: number
     /** 返回结果数量，默认 5 */
     k?: number
 }
@@ -43,25 +54,69 @@ export function createMaterialSearchTool(context: MaterialSearchToolContext) {
 
     return tool(
         async (input: MaterialSearchToolInput): Promise<string> => {
-            const { query, k = 5 } = input
+            const { query, sourceId, k = 5 } = input
 
             logger.info('执行材料检索工具', {
                 userId,
                 caseId,
                 query,
+                sourceId,
                 k,
             })
 
             try {
-                // 调用材料检索服务
-                const results = await searchCaseMaterialsService(userId, caseId, query, k)
+                // 1. 获取案件材料列表
+                const allMaterials = await getMaterialsByCaseIdService(caseId)
 
-                // 格式化返回结果
-                const formattedResults = formatSearchResults(results)
+                // 2. 按 sourceId 过滤（如果指定）
+                const targetMaterials = sourceId
+                    ? allMaterials.filter(m => getSourceId(m) === sourceId)
+                    : allMaterials
+
+                if (targetMaterials.length === 0) {
+                    return JSON.stringify({ error: '未找到指定材料' })
+                }
+
+                // 3. 无 query → 精确查询完整内容
+                if (!query) {
+                    const contentMap = await fetchMaterialContents(targetMaterials)
+                    const exactResults = targetMaterials.map((m, index) => ({
+                        index: index + 1,
+                        content: contentMap.get(m.id) || '[暂无内容]',
+                        source: {
+                            sourceId: getSourceId(m),
+                            sourceName: m.name,
+                        },
+                    }))
+                    return JSON.stringify(exactResults)
+                }
+
+                // 4. 有 query → 向量语义搜索，用 sourceId IN 限定范围
+                const sourceIds = targetMaterials.map(m => getSourceId(m))
+                const filter: Record<string, any> = {
+                    userId,
+                    sourceId: { in: sourceIds.map(String) },
+                }
+                const results = await similaritySearchWithScore(query, k, filter, caseMaterialVectorConfig)
+
+                // 5. 格式化结果
+                const formattedResults = results.map(([doc, score]: [Document, number], index: number) => {
+                    const metadata = doc.metadata as ContentEmbeddingMetadata
+                    return {
+                        index: index + 1,
+                        content: doc.pageContent,
+                        source: {
+                            sourceId: metadata.sourceId,
+                            sourceName: metadata.sourceName,
+                            chunkIndex: metadata.chunkIndex,
+                        },
+                        relevanceScore: Number(score.toFixed(4)),
+                    }
+                })
 
                 logger.info('材料检索完成', {
                     caseId,
-                    resultCount: results.length,
+                    resultCount: formattedResults.length,
                 })
 
                 return JSON.stringify(formattedResults)
@@ -75,52 +130,17 @@ export function createMaterialSearchTool(context: MaterialSearchToolContext) {
         },
         {
             name: 'search_case_materials',
-            description: '检索当前案件的材料内容，用于查找与分析相关的材料片段。仅在当前案件的材料范围内搜索，返回最相关的材料内容片段及来源信息。',
+            description: '检索当前案件的材料内容。支持语义搜索（传 query）、精确检索（传 sourceId）、或组合检索（query + sourceId 限定范围）。返回最相关的材料内容片段及来源信息。',
             schema: z.object({
-                query: z.string().describe('查询内容，用于搜索相关的材料片段'),
+                query: z.string().optional().describe('语义查询内容，用于搜索相关的材料片段'),
+                sourceId: z.number().optional().describe('材料 sourceId，精确检索或限定语义搜索范围到指定材料'),
                 k: z.number().optional().default(5).describe('返回结果数量，默认为 5'),
-            }),
+            }).refine(
+                data => data.query || data.sourceId,
+                { message: '至少需要提供 query 或 sourceId' }
+            ),
         }
     )
-}
-
-/**
- * 格式化检索结果
- *
- * 将检索结果转换为适合 AI 阅读的格式
- * @param results 检索结果列表
- * @returns 格式化后的结果
- */
-function formatSearchResults(results: MaterialSearchResult[]): FormattedSearchResult[] {
-    return results.map((result, index) => ({
-        index: index + 1,
-        content: result.content,
-        source: {
-            sourceId: result.sourceId,
-            sourceName: result.sourceName,
-            chunkIndex: result.chunkIndex,
-        },
-        relevanceScore: Number(result.score.toFixed(4)),
-    }))
-}
-
-/** 格式化后的检索结果 */
-interface FormattedSearchResult {
-    /** 结果序号 */
-    index: number
-    /** 内容片段 */
-    content: string
-    /** 来源信息 */
-    source: {
-        /** 来源 ID */
-        sourceId: number
-        /** 来源名称 */
-        sourceName: string
-        /** 分块索引 */
-        chunkIndex: number
-    }
-    /** 相关度分数 */
-    relevanceScore: number
 }
 
 /**
@@ -131,15 +151,17 @@ interface FormattedSearchResult {
  * @param caseId 案件 ID
  * @param query 查询内容
  * @param k 返回结果数量
+ * @param sourceIds 限定检索范围的 sourceId 列表
  * @returns 检索结果
  */
 export async function searchCaseMaterials(
     userId: number,
     caseId: number,
     query: string,
-    k: number = 5
+    k: number = 5,
+    sourceIds?: number[],
 ): Promise<MaterialSearchResult[]> {
-    return searchCaseMaterialsService(userId, caseId, query, k)
+    return searchCaseMaterialsService(userId, caseId, query, k, sourceIds)
 }
 
 /**
@@ -149,12 +171,17 @@ export async function searchCaseMaterials(
  */
 export const materialSearchToolMeta = {
     name: 'search_case_materials',
-    description: '检索当前案件的材料内容，用于查找与分析相关的材料片段',
+    description: '检索当前案件的材料内容。支持语义搜索、精确检索、组合检索',
     parameters: {
         query: {
             type: 'string',
-            description: '查询内容，用于搜索相关的材料片段',
-            required: true,
+            description: '语义查询内容，用于搜索相关的材料片段',
+            required: false,
+        },
+        sourceId: {
+            type: 'number',
+            description: '材料 sourceId，精确检索或限定语义搜索范围到指定材料',
+            required: false,
         },
         k: {
             type: 'number',
