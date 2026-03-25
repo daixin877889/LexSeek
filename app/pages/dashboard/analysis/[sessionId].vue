@@ -183,23 +183,36 @@ const stream = reactive(useStream({
   },
 }))
 
-// 历史消息 fallback：将 API 返回的字典格式消息转为 BaseMessage 实例
-const historyMessages = computed(() => {
-  const rawMessages = threadHistory?.values?.messages
-  if (!Array.isArray(rawMessages) || rawMessages.length === 0) return []
+/** 将原始字典格式消息转为 BaseMessage 实例（兼容 tool 类型） */
+function coerceRawMessages(rawMessages: any[]): any[] {
   return rawMessages.map((m: any) => {
     if (m.type === 'human') return new HumanMessage({ content: m.content, id: m.id })
     if (m.type === 'ai') return new AIMessage({ content: m.content, id: m.id, tool_calls: m.tool_calls })
     if (m.type === 'tool') return new ToolMessage({ content: m.content, tool_call_id: m.tool_call_id, id: m.id })
     return m
   })
+}
+
+// 历史消息 fallback：将 API 返回的字典格式消息转为 BaseMessage 实例
+const historyMessages = computed(() => {
+  const rawMessages = threadHistory?.values?.messages
+  if (!Array.isArray(rawMessages) || rawMessages.length === 0) return []
+  return coerceRawMessages(rawMessages)
+})
+
+// 流式消息：从 stream.values 原始数据自行转换
+// 不使用 stream.messages，因为 @langchain/vue 的 ensureMessageInstances 不支持 tool 类型消息
+const streamMessages = computed(() => {
+  const rawMessages = (stream.values as any)?.messages
+  if (!Array.isArray(rawMessages) || rawMessages.length === 0) return []
+  return coerceRawMessages(rawMessages)
 })
 
 // 最终用于模板渲染的消息列表
-// stream 启动后使用 stream.messages；否则 fallback 到历史
+// stream 启动后使用 streamMessages；否则 fallback 到历史
 const displayMessages = computed(() =>
-  stream.messages.length > 0 || stream.isLoading
-    ? stream.messages
+  streamMessages.value.length > 0 || stream.isLoading
+    ? streamMessages.value
     : historyMessages.value
 )
 
@@ -352,8 +365,8 @@ async function handlePromptSubmit(data: PromptSubmitData) {
   const text = data.text || '开始分析'
 
   // 捕获当前消息列表，构造 optimisticValues 防止消息闪烁
-  const currentMsgDicts = stream.messages.length > 0
-    ? stream.messages.map((m: any) => typeof m.toDict === 'function' ? m.toDict() : m)
+  const currentMsgDicts = streamMessages.value.length > 0
+    ? streamMessages.value.map((m: any) => typeof m.toDict === 'function' ? m.toDict() : m)
     : (threadHistory?.values?.messages as any[] ?? [])
 
   stream.submit(
