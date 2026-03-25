@@ -5,9 +5,9 @@
  * 模型配置通过数据库节点配置（caseMain）获取，支持动态切换模型
  */
 
-import { createDeepAgent } from 'deepagents'
+import { createDeepAgent, StoreBackend, type StateAndStore } from 'deepagents'
 import { HumanMessage } from '@langchain/core/messages'
-import { getCheckpointer } from '../workflow/checkpointer'
+import { getCheckpointer, getStore } from '../workflow/checkpointer'
 import { getValidNodeConfig } from '../node/node.service'
 import { createChatModel } from '../node/chatModelFactory'
 import { getToolInstancesService } from '../workflow/tools'
@@ -27,7 +27,7 @@ interface MainAgentOptions {
 
 export const mainAgent = async (sessionId: string, prompt: string, options: MainAgentOptions = {}) => {
     const { thinking = true, userId, caseId } = options
-    const checkpointer = await getCheckpointer()
+    const [checkpointer, store] = await Promise.all([getCheckpointer(), getStore()])
 
     // 从数据库获取节点配置
     const nodeConfig = await getValidNodeConfig(CASE_MAIN_NODE_NAME, '案件主Agent')
@@ -71,6 +71,8 @@ export const mainAgent = async (sessionId: string, prompt: string, options: Main
         systemPrompt,
         checkpointer,
         tools,
+        store,
+        backend: (config: StateAndStore) => new StoreBackend(config),
     })
 
     // const streamConfig: any = {

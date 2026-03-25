@@ -15,10 +15,18 @@
  */
 
 import { PostgresSaver } from '@langchain/langgraph-checkpoint-postgres'
+import { PostgresStore } from '@langchain/langgraph-checkpoint-postgres/store'
 import { logger } from '#shared/utils/logger'
 
 // 全局检查点器实例（单例模式）
 let checkpointerInstance: PostgresSaver | null = null
+
+// 全局 Store 实例（单例模式）
+let storeInstance: PostgresStore | null = null
+
+// Store 初始化状态标记
+let isStoreInitialized = false
+let isStoreInitializing = false
 
 // 初始化状态标记
 let isInitialized = false
@@ -133,4 +141,41 @@ export function getCheckpointerStatus(): {
  */
 export function isCheckpointerInitialized(): boolean {
     return isInitialized && checkpointerInstance !== null
+}
+
+/**
+ * 获取 PostgresStore 实例
+ *
+ * 使用单例模式，确保整个应用只有一个 store 实例
+ * 首次调用时会自动初始化数据库表结构（创建 langgraph_store 相关表）
+ *
+ * @returns PostgresStore 实例
+ * @throws 如果数据库连接失败
+ */
+export async function getStore(): Promise<PostgresStore> {
+    if (storeInstance && isStoreInitialized) return storeInstance
+
+    if (isStoreInitializing) {
+        while (isStoreInitializing) {
+            await new Promise(resolve => setTimeout(resolve, 100))
+        }
+        if (storeInstance && isStoreInitialized) return storeInstance
+    }
+
+    try {
+        isStoreInitializing = true
+        const databaseUrl = getDatabaseUrl()
+        storeInstance = PostgresStore.fromConnString(databaseUrl)
+        await storeInstance.setup()
+        isStoreInitialized = true
+        logger.info('LangGraph PostgresStore 初始化完成')
+        return storeInstance
+    } catch (error) {
+        logger.error('LangGraph PostgresStore 初始化失败:', error)
+        storeInstance = null
+        isStoreInitialized = false
+        throw error
+    } finally {
+        isStoreInitializing = false
+    }
 }
