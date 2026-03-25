@@ -139,4 +139,16 @@ middleware: [
 
 - 删除 `fetchMaterialContents`、`estimateTokens`、`TOKEN_THRESHOLD`
 - 改为 import 并调用 `getMaterialContextService`
-- tool 保留 `embedded` 字段和 `hint` 等 tool 特有的返回格式
+- tool 仍需调用 `ensureMaterialsReadyService` 获取 `embeddedMap`（用于 `embedded` 字段），再将返回的 `materials` 传给 `getMaterialContextService`
+- tool 在 `getMaterialContextService` 返回的 `materialList` 基础上补充 `embedded`、`tokenCount` 等 tool 特有字段
+
+**tool 调用流程**：
+```typescript
+const { materials, embeddedMap } = await ensureMaterialsReadyService(caseId, userId)
+const context = await getMaterialContextService(materials)
+// 在 context.materialList 基础上补充 embedded 字段构建最终返回
+```
+
+## 已知限制
+
+- `beforeAgent` 在多轮对话时可能重复执行，材料上下文 HumanMessage 可能被重复插入。这是实验版的已知限制，迁移到正式版时需要确认 middleware 的调用时机。
