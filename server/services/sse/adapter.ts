@@ -410,6 +410,7 @@ export function getInterruptHandlerName(type: InterruptType): string {
         [InterruptType.CASE_INFO_CHECK]: 'CaseInfoCheckHandler',
         [InterruptType.BASIC_INFO_CONFIRM]: 'BasicInfoConfirmHandler',
         [InterruptType.MODULE_SELECT]: 'ModuleSelectHandler',
+        [InterruptType.INSUFFICIENT_POINTS]: 'InsufficientPointsHandler',
     }
     return handlerMap[type] || 'DefaultInterruptHandler'
 }
@@ -565,6 +566,15 @@ export function validateResumeData(
             }
             return { valid: false, error: '请选择至少一个分析模块' }
 
+        case InterruptType.INSUFFICIENT_POINTS:
+            if (typeof userInput === 'object' && userInput !== null) {
+                const data = userInput as Record<string, unknown>
+                if (data.type === 'points_recharged') {
+                    return { valid: true }
+                }
+            }
+            return { valid: false, error: '恢复数据格式无效' }
+
         default:
             return { valid: true }
     }
@@ -604,6 +614,9 @@ export function formatResumeData(
                 const modules = userInput.split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
                 return { modules }
             }
+            return userInput
+
+        case InterruptType.INSUFFICIENT_POINTS:
             return userInput
 
         default:
