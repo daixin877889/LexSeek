@@ -89,9 +89,10 @@ function coerceRawMessages(rawMessages: any[]): any[] {
       });
     if (m.type === "tool")
       return new ToolMessage({
-        content: m.content,
-        tool_call_id: m.tool_call_id,
-        id: m.id,
+        // tool message 可能在 stream.values 中以 {type:"tool", data:{...}} 格式存储
+        content: m.data?.content ?? m.content,
+        tool_call_id: m.data?.tool_call_id ?? m.tool_call_id,
+        id: m.data?.id ?? m.id,
       });
     return m;
   });

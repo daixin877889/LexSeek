@@ -32,10 +32,18 @@ export function coerceRawMessages(raw: any[]): BaseMessage[] {
     .map((m: any) => {
       if (m instanceof HumanMessage || m instanceof AIMessage || m instanceof ToolMessage)
         return m
-      const type = m?.type ?? m?._type
-      if (type === 'human') return new HumanMessage(m)
-      if (type === 'ai') return new AIMessage(m)
-      if (type === 'tool') return new ToolMessage(m)
+      // 兼容 stream.values 中以 {type:"tool", data:{...}} 嵌套格式存储的 tool message
+      const inner = m.data ?? m
+      const type = inner.type ?? inner._type
+      if (type === 'human') return new HumanMessage(inner)
+      if (type === 'ai') return new AIMessage(inner)
+      if (type === 'tool') {
+        return new ToolMessage({
+          content: inner.content,
+          tool_call_id: inner.tool_call_id,
+          id: inner.id,
+        })
+      }
       return null
     })
     .filter(Boolean) as BaseMessage[]
@@ -69,25 +77,43 @@ function extractThinking(message: AIMessage): string | undefined {
 
 /**
  * 匹配 AIMessage 的 tool_calls 与对应的 ToolMessage 结果。
- * 工具错误状态使用 result.status === 'error'（与现有实现一致）。
+ * 工具错误状态从 ToolMessage.content 中检测 { error: true } 或 { success: false }。
  */
 function matchToolCalls(
   aiMessage: AIMessage,
-  toolResultsMap: Map<string, any>,
+  toolResultsMap: Map<string, ToolMessage>,
 ): ToolCallWithResult[] {
   const toolCalls = (aiMessage as any).tool_calls ?? []
   if (!toolCalls.length) return []
 
   return toolCalls.map((tc: any) => {
-    const result = toolResultsMap.get(tc.id ?? '')
-    const hasError = result && result.status === 'error'
+    const toolMsg = toolResultsMap.get(tc.id ?? '')
+    // ToolMessage.content 才是实际的工具返回数据
+    const content = toolMsg?.content
+    // 错误判断：从 content 中检测 { error: true } 或 { success: false }
+    // content 可能是 string / object / ContentBlock[]
+    const hasError = (() => {
+      if (content == null) return false
+      // string content，尝试解析后判断
+      if (typeof content === 'string') {
+        try {
+          const parsed = JSON.parse(content)
+          return parsed.error === true || parsed.success === false
+        } catch { return false }
+      }
+      // object content（排除 ContentBlock[]）
+      if (typeof content === 'object' && !Array.isArray(content)) {
+        return (content as any).error === true || (content as any).success === false
+      }
+      return false
+    })()
 
     return {
       id: tc.id ?? '',
       name: tc.name,
       args: tc.args ?? {},
-      result: result ?? undefined,
-      state: hasError ? 'output-error' : result ? 'output-available' : 'input-available',
+      result: content,
+      state: hasError ? 'output-error' : content !== undefined ? 'output-available' : 'input-available',
     } satisfies ToolCallWithResult
   })
 }
@@ -102,7 +128,7 @@ export function useMessageParser(messages: MaybeRef<any[]>) {
     const baseMessages = coerceRawMessages(raw)
 
     // 预计算 ToolMessage 索引
-    const toolResultsMap = new Map<string, any>()
+    const toolResultsMap = new Map<string, ToolMessage>()
     for (const m of baseMessages) {
       if (m instanceof ToolMessage) {
         toolResultsMap.set((m as any).tool_call_id, m)
