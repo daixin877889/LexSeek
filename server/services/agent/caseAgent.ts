@@ -120,11 +120,11 @@ export async function createCaseAgent(sessionId: string, options: CaseAgentOptio
 
     // 8. 创建 DeepAgent（含长期记忆）
     const agent: any = createDeepAgent({
-        model,
+        model: model as any,
         systemPrompt,
         checkpointer,
-        tools: mainTools,
-        subagents: validSubagents,
+        tools: mainTools as any,
+        subagents: validSubagents as any,
         // 长期记忆配置（设计文档 §4.5）
         // CompositeBackend: /memories/ 路径路由到 PostgresStore
         // SDK 自动注入 manage_memory 工具

@@ -99,9 +99,9 @@ export async function extractInfoNode(
         // 7. 创建 Agent（工具 + 结构化输出）
         const checkpointer = await getCheckpointer()
         const agent: any = createDeepAgent({
-            model,
+            model: model as any,
             systemPrompt,
-            tools,
+            tools: tools as any,
             checkpointer,
             responseFormat: toolStrategy(outputSchema as any),
         })

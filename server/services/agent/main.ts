@@ -67,10 +67,10 @@ export const mainAgent = async (sessionId: string, prompt: string, options: Main
     })
 
     const agent: any = createDeepAgent({
-        model,
+        model: model as any,
         systemPrompt,
         checkpointer,
-        tools,
+        tools: tools as any,
         store,
         backend: (config: StateAndStore) => new StoreBackend(config),
     })
