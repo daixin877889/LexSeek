@@ -140,15 +140,14 @@ export class AgentWorker {
       })
 
       if (session?.type === 2) {
-        // 初始化分析工作流
-        const { startInitAnalysis } = await import('../workflow/initAnalysis.workflow')
+        // 初始化分析：顺序执行器（非 LangGraph 工作流）
+        const { startInitAnalysis } = await import('../workflow/initAnalysis.executor')
         stream = await startInitAnalysis({
           sessionId: run.sessionId,
           userId: run.userId,
           caseId: run.caseId,
           selectedModules: input.selectedModules ?? [],
           completedResults: input.completedResults,
-          command: input.command,
         })
       } else {
         // 普通案件对话

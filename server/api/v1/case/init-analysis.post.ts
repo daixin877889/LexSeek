@@ -57,10 +57,8 @@ export default defineEventHandler(async (event) => {
 
     // 3. 分支：resume（恢复中断）vs 新建/重连
     if (command?.resume) {
-        // 恢复已中断的工作流
-        // 从 input 或 threadId 中获取 caseId
+        // 恢复已中断的分析：加载已完成结果，计算剩余模块，入队新 run
         const resumeCaseId = input?.caseId as number | undefined
-        // 通过 caseId 查找最新的初始化分析 session（因为前端 threadId 可能是临时值）
         const session = resumeCaseId
             ? await prisma.caseSessions.findFirst({
                 where: { caseId: resumeCaseId, type: 2, deletedAt: null },
@@ -76,13 +74,23 @@ export default defineEventHandler(async (event) => {
             return resError(event, 404, '分析会话不存在')
         }
 
-        // 入队 resume run
+        // 从数据库加载已完成的分析结果
+        const completedResults = await loadCompletedResultsService(session.caseId)
+        // 获取原始选中的模块列表
+        const allModules = (input?.selectedModules as string[])
+            ?? Object.keys(completedResults)
+        const remainingModules = allModules.filter(m => !completedResults[m])
+
+        if (remainingModules.length === 0) {
+            return resError(event, 400, '所有模块已完成，无需继续')
+        }
+
         const result = await enqueueRunService({
             sessionId: session.sessionId,
             threadId: session.sessionId,
             userId: user.id,
             caseId: session.caseId,
-            input: { command: command.resume },
+            input: { selectedModules: remainingModules, completedResults },
         })
         if ('error' in result) {
             return resError(event, 429, result.error)

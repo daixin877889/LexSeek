@@ -2,29 +2,29 @@
  * 初始化分析 composable
  *
  * 以 sessionId 为核心，直接作为 useStream 的 threadId
- * 页面路由为 /dashboard/cases/init-analysis/[sessionId]
- * sessionId 由案件创建后后端生成，前端跳转时携带
+ * 通过 stream.messages 获取流式消息，_module 字段区分模块归属
+ * 自定义事件（module_start/complete/failed/interrupt）通过 custom event 传递
+ *
+ * 重要：useStream 返回的 messages/values/interrupt 是 getter（非 Ref），
+ * 必须用 computed() 包装才能在模板中响应式更新。
  */
 
 import { useStream, FetchStreamTransport } from '@langchain/vue'
+import { AIMessage, ToolMessage } from '@langchain/core/messages'
 import { INIT_ANALYSIS_MODULES, DEFAULT_SELECTED_MODULES } from '#shared/types/initAnalysis'
 import type { ModuleRunState, InitAnalysisStatusResponse, ModuleStatus } from '#shared/types/initAnalysis'
-
-interface InitAnalysisState {
-  messages: any[]
-  selectedModules: string[]
-  currentModuleIndex: number
-  currentModule: string
-  completedResults: Record<string, string>
-  failedModules: Record<string, string>
-  isComplete: boolean
-}
 
 export function useInitAnalysis(sessionId: Ref<string>) {
   const phase = ref<'select' | 'running' | 'complete'>('select')
   const caseId = ref<number>(0)
   const selectedModules = ref<string[]>([...DEFAULT_SELECTED_MODULES])
   const moduleStates = ref<Record<string, ModuleRunState>>({})
+  // 每个模块的消息列表（从 stream.messages 中按 _module 分组）
+  const moduleMessages = ref<Record<string, any[]>>({})
+  // 当前活跃的模块名
+  const currentModule = ref<string>('')
+  // 中断数据
+  const interruptInfo = ref<any>(null)
 
   const activeModules = computed(() =>
     INIT_ANALYSIS_MODULES.filter(m => selectedModules.value.includes(m.name)),
@@ -32,6 +32,10 @@ export function useInitAnalysis(sessionId: Ref<string>) {
 
   function getModuleState(name: string): ModuleRunState {
     return moduleStates.value[name] ?? { name, status: 'idle', content: '' }
+  }
+
+  function getModuleMessageList(name: string): any[] {
+    return moduleMessages.value[name] ?? []
   }
 
   function updateModuleState(name: string, patch: Partial<ModuleRunState>) {
@@ -44,7 +48,7 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     apiUrl: '/api/v1/case/init-analysis',
   })
 
-  const stream = useStream<InitAnalysisState>({
+  const stream = useStream<any>({
     transport,
     threadId: sessionId.value,
     messagesKey: 'messages',
@@ -54,47 +58,93 @@ export function useInitAnalysis(sessionId: Ref<string>) {
   })
 
   // computed 包装 getter
-  const values = computed(() => stream.values as InitAnalysisState | undefined)
+  const messages = computed(() => stream.messages)
+  const values = computed(() => stream.values)
   const interrupt = computed(() => stream.interrupt)
   const isLoading = computed(() => stream.isLoading?.value ?? false)
 
-  // 监听 values 变化更新模块状态
-  watch(values, (v) => {
-    if (!v) return
-    syncModuleStates(v)
-  }, { deep: true })
+  // 监听 messages 变化，按 _module 字段分组消息
+  watch(messages, (msgs: any) => {
+    if (!Array.isArray(msgs) || msgs.length === 0) return
 
-  function syncModuleStates(vals: InitAnalysisState) {
-    const { currentModule, completedResults, failedModules, isComplete } = vals
-    const updated = { ...moduleStates.value }
+    const grouped: Record<string, any[]> = {}
 
-    for (const [name, result] of Object.entries(completedResults ?? {})) {
-      updated[name] = { name, status: 'complete', content: result }
+    for (const msg of msgs) {
+      // 从消息的附加数据中提取 _module 标记
+      const mod = (msg as any)?._module
+        ?? (msg as any)?.additional_kwargs?._module
+        ?? (msg as any)?.response_metadata?._module
+      if (!mod) continue
+
+      if (!grouped[mod]) grouped[mod] = []
+      grouped[mod].push(msg)
     }
 
-    for (const [name, error] of Object.entries(failedModules ?? {})) {
-      updated[name] = { name, status: 'failed', content: '', error }
-    }
+    // 合并到已有的 moduleMessages 中
+    moduleMessages.value = { ...moduleMessages.value, ...grouped }
 
-    if (currentModule && !completedResults?.[currentModule] && !failedModules?.[currentModule]) {
-      updated[currentModule] = {
-        ...updated[currentModule],
-        name: currentModule,
-        status: 'streaming',
-        content: updated[currentModule]?.content ?? '',
+    // 更新 streaming 状态的模块内容（从最后一条 AI 消息提取文本）
+    for (const [modName, modMsgs] of Object.entries(grouped)) {
+      const lastAI = [...modMsgs].reverse().find((m: any) =>
+        AIMessage.isInstance(m) || m.type === 'ai' || m.role === 'assistant',
+      )
+      if (lastAI) {
+        const content = typeof lastAI.content === 'string'
+          ? lastAI.content
+          : Array.isArray(lastAI.content)
+            ? lastAI.content.filter((c: any) => c.type === 'text').map((c: any) => c.text).join('')
+            : lastAI.text ?? ''
+
+        if (content && getModuleState(modName).status === 'streaming') {
+          updateModuleState(modName, { content })
+        }
       }
     }
+  }, { deep: true })
 
-    moduleStates.value = updated
+  // 监听 values 中的自定义事件（_custom 标记的事件）
+  watch(values, (v: any) => {
+    if (!v) return
 
-    if (isComplete) {
-      phase.value = 'complete'
+    // 检查是否有自定义事件数据
+    if (v._custom && v._type) {
+      handleCustomEvent(v._type, v)
+    }
+  }, { deep: true })
+
+  function handleCustomEvent(type: string, data: any) {
+    switch (type) {
+      case 'module_start':
+        currentModule.value = data.module
+        updateModuleState(data.module, { status: 'streaming', content: '' })
+        break
+
+      case 'module_complete':
+        updateModuleState(data.module, { status: 'complete' })
+        break
+
+      case 'module_failed':
+        updateModuleState(data.module, {
+          status: 'failed',
+          error: data.error ?? '模块执行失败',
+        })
+        break
+
+      case 'interrupt':
+        interruptInfo.value = data
+        if (data.module) {
+          updateModuleState(data.module, { status: 'idle' })
+        }
+        break
+
+      case 'analysis_complete':
+        phase.value = 'complete'
+        break
     }
   }
 
   // 加载已有状态（页面刷新恢复）
   async function loadStatus() {
-    // 通过 sessionId 获取 session 对应的案件信息
     const sessionInfo = await useApiFetch<{
       case: { id: number }
       session: { id: number; sessionId: string; status: number }
@@ -103,7 +153,6 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     if (!sessionInfo?.case) return
     caseId.value = sessionInfo.case.id
 
-    // 获取该案件的初始化分析状态
     const status = await useApiFetch<InitAnalysisStatusResponse>(
       `/api/v1/case/init-analysis/status/${caseId.value}`,
     )
@@ -131,7 +180,7 @@ export function useInitAnalysis(sessionId: Ref<string>) {
       }
       moduleStates.value = restored
 
-      // 进行中则重连 SSE（空提交触发重连模式）
+      // 进行中则重连
       if (status.status === 'in_progress') {
         stream.submit({ messages: [] } as any)
       }
@@ -145,9 +194,10 @@ export function useInitAnalysis(sessionId: Ref<string>) {
       initial[name] = { name, status: 'idle', content: '' }
     }
     moduleStates.value = initial
+    moduleMessages.value = {}
+    interruptInfo.value = null
     phase.value = 'running'
 
-    // sessionId 已经是真实的 thread_id，直接 submit
     stream.submit({
       caseId: caseId.value,
       selectedModules: selectedModules.value,
@@ -156,8 +206,9 @@ export function useInitAnalysis(sessionId: Ref<string>) {
 
   // 恢复工作流（积分不足购买后）
   function resumeWorkflow() {
+    interruptInfo.value = null
     stream.submit(
-      { caseId: caseId.value } as any,
+      { caseId: caseId.value, selectedModules: selectedModules.value } as any,
       { command: { resume: { action: 'continue' } } },
     )
   }
@@ -182,8 +233,10 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     moduleStates,
     activeModules,
     isLoading,
-    interrupt,
+    interrupt: interruptInfo,
+    currentModule,
     getModuleState,
+    getModuleMessageList,
     loadStatus,
     startAnalysis,
     resumeWorkflow,

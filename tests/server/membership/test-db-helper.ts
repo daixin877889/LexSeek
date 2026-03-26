@@ -183,15 +183,15 @@ export interface TestUserInput {
  * @param data 用户数据（可选）
  * @returns 创建的用户记录
  */
+let userCounter = 0
 export const createTestUser = async (
     data: TestUserInput = {}
 ): Promise<Prisma.usersGetPayload<{}>> => {
     const timestamp = Date.now()
-    // 使用 performance.now() 获取亚毫秒精度，确保同一毫秒内的多次调用也唯一
-    const perf = Math.floor(performance.now() % 1000)
-    const random = Math.floor(Math.random() * 10000)
-    // 生成 11 位手机号：199 + 3位亚毫秒 + 4位随机数
-    const suffix = String(perf).padStart(3, '0') + String(random).padStart(4, '0')
+    // 使用递增计数器确保唯一性，避免属性测试快速调用时手机号冲突
+    const count = ++userCounter
+    // 生成 11 位手机号：199 + 8位（时间戳末4位 + 计数器4位）
+    const suffix = String(timestamp % 10000).padStart(4, '0') + String(count % 10000).padStart(4, '0')
     const phone = data.phone || `199${suffix}`
 
     const user = await getTestPrisma().users.create({

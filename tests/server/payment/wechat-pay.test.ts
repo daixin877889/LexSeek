@@ -11,6 +11,14 @@ import { describe, it, expect, vi, beforeAll } from 'vitest'
 import * as fc from 'fast-check'
 import { generateKeyPairSync } from 'crypto'
 
+// Mock ofetch 模块（源码从 ofetch 导入 $fetch）
+const { mockFetch } = vi.hoisted(() => ({
+    mockFetch: vi.fn(),
+}))
+vi.mock('ofetch', () => ({
+    $fetch: mockFetch,
+}))
+
 // 生成测试用的 RSA 密钥对
 const { privateKey, publicKey } = generateKeyPairSync('rsa', {
     modulusLength: 2048,
@@ -24,9 +32,8 @@ beforeAll(() => {
         error: vi.fn(),
         warn: vi.fn(),
         info: vi.fn(),
+        debug: vi.fn(),
     })
-
-    vi.stubGlobal('$fetch', vi.fn())
 })
 
 // 导入被测试的模块
@@ -252,7 +259,7 @@ describe('WechatPayAdapter API 请求模拟', () => {
 
     it('小程序支付成功应返回 prepayId 和支付参数', async () => {
         // 模拟成功响应
-        vi.mocked($fetch).mockResolvedValueOnce({ prepay_id: 'wx123456789' })
+        mockFetch.mockResolvedValueOnce({ prepay_id: 'wx123456789' })
 
         const adapter = new WechatPayAdapter(validConfig)
         const result = await adapter.createPayment({
@@ -274,7 +281,7 @@ describe('WechatPayAdapter API 请求模拟', () => {
 
     it('小程序支付 API 失败应返回错误', async () => {
         // 模拟失败响应
-        vi.mocked($fetch).mockRejectedValueOnce(new Error('API 请求失败'))
+        mockFetch.mockRejectedValueOnce(new Error('API 请求失败'))
 
         const adapter = new WechatPayAdapter(validConfig)
         const result = await adapter.createPayment({
@@ -291,7 +298,7 @@ describe('WechatPayAdapter API 请求模拟', () => {
     })
 
     it('Native 支付成功应返回 codeUrl', async () => {
-        vi.mocked($fetch).mockResolvedValueOnce({ code_url: 'weixin://wxpay/bizpayurl?pr=xxx' })
+        mockFetch.mockResolvedValueOnce({ code_url: 'weixin://wxpay/bizpayurl?pr=xxx' })
 
         const adapter = new WechatPayAdapter(validConfig)
         const result = await adapter.createPayment({
@@ -307,7 +314,7 @@ describe('WechatPayAdapter API 请求模拟', () => {
     })
 
     it('Native 支付 API 失败应返回错误', async () => {
-        vi.mocked($fetch).mockRejectedValueOnce(new Error('网络错误'))
+        mockFetch.mockRejectedValueOnce(new Error('网络错误'))
 
         const adapter = new WechatPayAdapter(validConfig)
         const result = await adapter.createPayment({
@@ -323,7 +330,7 @@ describe('WechatPayAdapter API 请求模拟', () => {
     })
 
     it('H5 支付成功应返回 h5Url', async () => {
-        vi.mocked($fetch).mockResolvedValueOnce({ h5_url: 'https://wx.tenpay.com/xxx' })
+        mockFetch.mockResolvedValueOnce({ h5_url: 'https://wx.tenpay.com/xxx' })
 
         const adapter = new WechatPayAdapter(validConfig)
         const result = await adapter.createPayment({
@@ -339,7 +346,7 @@ describe('WechatPayAdapter API 请求模拟', () => {
     })
 
     it('H5 支付 API 失败应返回错误', async () => {
-        vi.mocked($fetch).mockRejectedValueOnce(new Error('H5 支付失败'))
+        mockFetch.mockRejectedValueOnce(new Error('H5 支付失败'))
 
         const adapter = new WechatPayAdapter(validConfig)
         const result = await adapter.createPayment({
@@ -355,7 +362,7 @@ describe('WechatPayAdapter API 请求模拟', () => {
     })
 
     it('APP 支付成功应返回 prepayId 和支付参数', async () => {
-        vi.mocked($fetch).mockResolvedValueOnce({ prepay_id: 'wx_app_123456' })
+        mockFetch.mockResolvedValueOnce({ prepay_id: 'wx_app_123456' })
 
         const adapter = new WechatPayAdapter(validConfig)
         const result = await adapter.createPayment({
@@ -375,7 +382,7 @@ describe('WechatPayAdapter API 请求模拟', () => {
     })
 
     it('APP 支付 API 失败应返回错误', async () => {
-        vi.mocked($fetch).mockRejectedValueOnce(new Error('APP 支付失败'))
+        mockFetch.mockRejectedValueOnce(new Error('APP 支付失败'))
 
         const adapter = new WechatPayAdapter(validConfig)
         const result = await adapter.createPayment({
@@ -391,7 +398,7 @@ describe('WechatPayAdapter API 请求模拟', () => {
     })
 
     it('查询订单（通过交易号）成功应返回订单信息', async () => {
-        vi.mocked($fetch).mockResolvedValueOnce({
+        mockFetch.mockResolvedValueOnce({
             trade_state: 'SUCCESS',
             out_trade_no: 'ORDER123',
             transaction_id: 'TX123456',
@@ -411,7 +418,7 @@ describe('WechatPayAdapter API 请求模拟', () => {
     })
 
     it('查询订单（通过订单号）成功应返回订单信息', async () => {
-        vi.mocked($fetch).mockResolvedValueOnce({
+        mockFetch.mockResolvedValueOnce({
             trade_state: 'NOTPAY',
             out_trade_no: 'ORDER456',
             transaction_id: '',
@@ -428,7 +435,7 @@ describe('WechatPayAdapter API 请求模拟', () => {
     })
 
     it('查询订单 API 失败应返回错误', async () => {
-        vi.mocked($fetch).mockRejectedValueOnce(new Error('查询失败'))
+        mockFetch.mockRejectedValueOnce(new Error('查询失败'))
 
         const adapter = new WechatPayAdapter(validConfig)
         const result = await adapter.queryOrder({ orderNo: 'ORDER123' })
@@ -438,7 +445,7 @@ describe('WechatPayAdapter API 请求模拟', () => {
     })
 
     it('关闭订单成功应返回成功', async () => {
-        vi.mocked($fetch).mockResolvedValueOnce({})
+        mockFetch.mockResolvedValueOnce({})
 
         const adapter = new WechatPayAdapter(validConfig)
         const result = await adapter.closeOrder({ orderNo: 'ORDER123' })
@@ -447,7 +454,7 @@ describe('WechatPayAdapter API 请求模拟', () => {
     })
 
     it('关闭订单 API 失败应返回错误', async () => {
-        vi.mocked($fetch).mockRejectedValueOnce(new Error('关闭失败'))
+        mockFetch.mockRejectedValueOnce(new Error('关闭失败'))
 
         const adapter = new WechatPayAdapter(validConfig)
         const result = await adapter.closeOrder({ orderNo: 'ORDER123' })

@@ -13,6 +13,14 @@ import { describe, it, expect, vi, beforeAll } from 'vitest'
 import * as fc from 'fast-check'
 import { generateKeyPairSync } from 'crypto'
 
+// Mock ofetch 模块（源码从 ofetch 导入 $fetch）
+const { mockFetch } = vi.hoisted(() => ({
+    mockFetch: vi.fn(),
+}))
+vi.mock('ofetch', () => ({
+    $fetch: mockFetch,
+}))
+
 // 生成测试用的 RSA 密钥对
 const { privateKey } = generateKeyPairSync('rsa', {
     modulusLength: 2048,
@@ -28,8 +36,6 @@ beforeAll(() => {
         info: vi.fn(),
         debug: vi.fn(),
     })
-
-    vi.stubGlobal('$fetch', vi.fn())
 })
 
 import { WechatPayAdapter } from '../../../server/lib/payment/adapters/wechat-pay'
@@ -48,7 +54,7 @@ describe('微信支付描述截断测试', () => {
 
     // 由于 truncateDescription 是私有方法，我们通过创建支付来间接测试
     it('短描述应保持不变', async () => {
-        vi.mocked($fetch).mockResolvedValueOnce({ code_url: 'weixin://test' })
+        mockFetch.mockResolvedValueOnce({ code_url: 'weixin://test' })
 
         const adapter = new WechatPayAdapter(validConfig)
         const result = await adapter.createPayment({
@@ -61,11 +67,11 @@ describe('微信支付描述截断测试', () => {
 
         expect(result.success).toBe(true)
         // 验证请求被调用
-        expect($fetch).toHaveBeenCalled()
+        expect(mockFetch).toHaveBeenCalled()
     })
 
     it('超长描述应被截断', async () => {
-        vi.mocked($fetch).mockResolvedValueOnce({ code_url: 'weixin://test' })
+        mockFetch.mockResolvedValueOnce({ code_url: 'weixin://test' })
 
         const adapter = new WechatPayAdapter(validConfig)
         // 创建一个超过 127 字节的描述（中文字符占 3 字节）
@@ -81,11 +87,11 @@ describe('微信支付描述截断测试', () => {
 
         expect(result.success).toBe(true)
         // 验证请求被调用（截断后的描述不会导致错误）
-        expect($fetch).toHaveBeenCalled()
+        expect(mockFetch).toHaveBeenCalled()
     })
 
     it('纯英文长描述应被截断', async () => {
-        vi.mocked($fetch).mockResolvedValueOnce({ code_url: 'weixin://test' })
+        mockFetch.mockResolvedValueOnce({ code_url: 'weixin://test' })
 
         const adapter = new WechatPayAdapter(validConfig)
         // 创建一个超过 127 字节的纯英文描述
@@ -115,7 +121,7 @@ describe('微信支付过期时间格式测试', () => {
 
     it('过期时间应为 RFC 3339 格式', async () => {
         let capturedBody: any = null
-        vi.mocked($fetch).mockImplementationOnce(async (url, options) => {
+        mockFetch.mockImplementationOnce(async (url: string, options: any) => {
             capturedBody = options?.body ? JSON.parse(options.body as string) : null
             return { code_url: 'weixin://test' }
         })
