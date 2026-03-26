@@ -94,19 +94,18 @@ export function useInitAnalysis(sessionId: Ref<string>) {
 
   // 加载已有状态（页面刷新恢复）
   async function loadStatus() {
-    // 通过 sessionId 获取 session 信息
+    // 通过 sessionId 获取 session 对应的案件信息
     const sessionInfo = await useApiFetch<{
-      caseId: number
-      status: number
-      type: number
+      case: { id: number }
+      session: { id: number; sessionId: string; status: number }
     }>(`/api/v1/case/session/${sessionId.value}`)
 
-    if (!sessionInfo) return
-    caseId.value = sessionInfo.caseId
+    if (!sessionInfo?.case) return
+    caseId.value = sessionInfo.case.id
 
     // 获取该案件的初始化分析状态
     const status = await useApiFetch<InitAnalysisStatusResponse>(
-      `/api/v1/case/init-analysis/status/${sessionInfo.caseId}`,
+      `/api/v1/case/init-analysis/status/${caseId.value}`,
     )
 
     if (!status) return
