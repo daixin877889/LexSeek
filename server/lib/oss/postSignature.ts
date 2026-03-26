@@ -145,16 +145,18 @@ function buildPolicyConditions(
 
         if (types.length === 1) {
             // 单个类型，使用完整类型作为前缀
-            commonPrefix = types[0]
+            commonPrefix = types[0] ?? ''
         } else {
             // 多个类型，找出公共前缀（如 image/、video/ 等）
             const firstType = types[0]
-            for (let i = 0; i < firstType.length; i++) {
-                const char = firstType[i]
-                if (types.every(t => t[i] === char)) {
-                    commonPrefix += char
-                } else {
-                    break
+            if (firstType) {
+                for (let i = 0; i < firstType.length; i++) {
+                    const char = firstType[i]
+                    if (char && types.every(t => t[i] === char)) {
+                        commonPrefix += char
+                    } else {
+                        break
+                    }
                 }
             }
         }
@@ -188,10 +190,13 @@ export async function generatePostSignature(
     // 格式化日期
     // 注意：x-oss-date 应该使用当前时间（签名生成时间），而不是过期时间
     const formattedDate = formatDateToUTC(date)
-    const dateStr = formattedDate.split('T')[0]
+    const dateStr = formattedDate.split('T')[0] ?? ''
 
     // 获取凭证信息
     const accessKeyId = credentials?.accessKeyId || config.accessKeyId
+    if (!accessKeyId) {
+        throw new Error('无法获取 OSS 访问密钥')
+    }
     const securityToken = credentials?.securityToken
 
     // 生成 credential

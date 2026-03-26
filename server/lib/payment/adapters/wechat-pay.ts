@@ -4,6 +4,7 @@
  * 实现微信支付 V3 API 的各种支付方式
  */
 import { createHash, createSign, createVerify, createDecipheriv } from 'crypto'
+import { $fetch } from 'ofetch'
 import { PaymentChannel, PaymentMethod } from '#shared/types/payment'
 import { BasePaymentAdapter } from '../base'
 import type { WechatPayConfig, CreatePaymentParams, PaymentResult, CallbackData, CallbackVerifyResult, QueryOrderParams, QueryOrderResult, CloseOrderParams, CloseOrderResult } from '../types'
@@ -375,7 +376,7 @@ export class WechatPayAdapter extends BasePaymentAdapter<WechatPayConfig> {
         })
 
         try {
-            const response = await $fetch<T>(fullUrl, {
+            const response = (await $fetch(fullUrl, {
                 method: method as 'GET' | 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -383,7 +384,7 @@ export class WechatPayAdapter extends BasePaymentAdapter<WechatPayConfig> {
                     'Authorization': authorization,
                 },
                 body: body ? bodyStr : undefined,
-            })
+            })) as T
 
             return response as T
         } catch (error: unknown) {

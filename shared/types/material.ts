@@ -3,8 +3,6 @@
  */
 
 // 导入案件材料类型枚举（统一使用，避免重复定义）
-// 注意：CaseMaterialType 和 CaseMaterialTypeText 在 case.ts 中定义
-// 这里不重新导出，避免 Nuxt 自动导入的重复警告
 import type { CaseMaterialType } from './case'
 
 /**
@@ -69,7 +67,6 @@ export interface MaterialUploadResult {
     /** 是否加密 */
     encrypted: boolean
 }
-
 
 // ==================== 服务端材料操作接口 ====================
 

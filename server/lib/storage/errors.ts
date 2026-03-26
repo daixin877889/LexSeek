@@ -38,7 +38,7 @@ export class StorageError extends Error {
     /** 错误码 */
     readonly code: StorageErrorCode
     /** 原始错误 */
-    readonly cause?: Error
+    override readonly cause?: Error
 
     constructor(message: string, code: StorageErrorCode, cause?: Error) {
         super(message)
@@ -88,7 +88,7 @@ export class StorageNotFoundError extends StorageError {
         this.path = path
     }
 
-    toJSON(): Record<string, unknown> {
+    override toJSON(): Record<string, unknown> {
         return {
             ...super.toJSON(),
             path: this.path

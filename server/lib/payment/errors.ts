@@ -7,7 +7,7 @@ export class PaymentError extends Error {
     /** 错误码 */
     code: string
     /** 原始错误 */
-    cause?: Error
+    override cause?: Error
 
     constructor(message: string, code: string, cause?: Error) {
         super(message)
