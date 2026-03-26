@@ -20,6 +20,12 @@
           </Button>
         </div>
 
+        <NuxtLink to="/dashboard/cases/create">
+          <Button variant="outline" class="w-full md:w-auto transition-all hover:scale-105 active:scale-95">
+            <Plus class="h-4 w-4 mr-2" />
+            创建案件
+          </Button>
+        </NuxtLink>
         <NuxtLink to="/dashboard/analysis">
           <Button class="w-full md:w-auto shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95">
             <Plus class="h-4 w-4 mr-2" />
