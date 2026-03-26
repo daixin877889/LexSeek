@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => {
         // 工具函数
         detectFileTypeService: vi.fn(),
         // 识别服务
-        createImageRecognitionService: vi.fn(),
+        createImageConversionService: vi.fn(),
         transcribeAudioService: vi.fn(),
         convertPdfService: vi.fn(),
         // Prisma
@@ -46,8 +46,8 @@ vi.stubGlobal('logger', {
 })
 // Stub global prisma because the handler uses auto-imported prisma
 vi.stubGlobal('prisma', mocks.prisma)
-// Stub global createImageRecognitionService (auto-imported in server)
-vi.stubGlobal('createImageRecognitionService', mocks.createImageRecognitionService)
+// Stub global createImageConversionService (auto-imported in server)
+vi.stubGlobal('createImageConversionService', mocks.createImageConversionService)
 
 // Mock fileDetect.service.ts
 vi.mock('../../../server/services/material/fileDetect.service', () => ({
@@ -59,10 +59,10 @@ vi.mock('~~/server/services/material/fileDetect.service', () => ({
 
 // Mock ocr.service.ts
 vi.mock('../../../server/services/material/ocr.service', () => ({
-    createImageRecognitionService: mocks.createImageRecognitionService,
+    createImageConversionService: mocks.createImageConversionService,
 }))
 vi.mock('~~/server/services/material/ocr.service', () => ({
-    createImageRecognitionService: mocks.createImageRecognitionService,
+    createImageConversionService: mocks.createImageConversionService,
 }))
 
 // Mock asr.service.ts
@@ -177,7 +177,7 @@ describe('统一识别入口 API', () => {
             }])
 
             mocks.detectFileTypeService.mockReturnValue(CaseMaterialType.IMAGE)
-            mocks.createImageRecognitionService.mockResolvedValue({
+            mocks.createImageConversionService.mockResolvedValue({
                 success: true,
                 record: { id: 1 }
             })
@@ -188,7 +188,7 @@ describe('统一识别入口 API', () => {
             // Assert
             expect(result.success).toBe(true)
             expect(result.data.results[0].status).toBe('processing')
-            expect(mocks.createImageRecognitionService).toHaveBeenCalledWith(123, 1)
+            expect(mocks.createImageConversionService).toHaveBeenCalledWith(123, 1)
         })
 
         it('应该正确处理音频类型文件', async () => {
@@ -260,7 +260,7 @@ describe('统一识别入口 API', () => {
             }])
 
             mocks.detectFileTypeService.mockReturnValue(CaseMaterialType.IMAGE)
-            mocks.createImageRecognitionService.mockResolvedValue({
+            mocks.createImageConversionService.mockResolvedValue({
                 success: false,
                 error: 'OCR 识别失败'
             })
