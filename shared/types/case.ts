@@ -143,6 +143,8 @@ export enum InterruptType {
     BASIC_INFO_CONFIRM = 'basic_info_confirm',
     /** 中断点3：模块选择 */
     MODULE_SELECT = 'module_select',
+    /** 中断点4：积分不足 */
+    INSUFFICIENT_POINTS = 'insufficient_points',
 }
 
 /** 工作流阶段枚举 */
@@ -323,11 +325,31 @@ export interface ModuleSelectInterruptData extends InterruptData {
     }
 }
 
+/** 积分不足中断数据接口（中断点4） */
+export interface InsufficientPointsInterruptData extends InterruptData {
+    type: InterruptType.INSUFFICIENT_POINTS
+    data: {
+        /** 用户是否为有效会员 */
+        isMember: boolean
+        /** 当前可用积分 */
+        availablePoints: number
+        /** 本次需要的积分数 */
+        requiredPoints: number
+        /** 已累计扣减积分 */
+        totalPointsConsumed: number
+        /** 已累计使用 token 数 */
+        totalTokensConsumed: number
+        /** 中断原因类型 */
+        reason: 'no_membership' | 'insufficient_points' | 'service_error'
+    }
+}
+
 /** 联合类型：所有中断数据类型 */
 export type TypedInterruptData =
     | CaseInfoCheckInterruptData
     | BasicInfoConfirmInterruptData
     | ModuleSelectInterruptData
+    | InsufficientPointsInterruptData
 
 // ==================== 分析模块接口 ====================
 
