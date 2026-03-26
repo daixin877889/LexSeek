@@ -38,7 +38,7 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const parsed = schema.safeParse(body)
     if (!parsed.success) {
-        return resError(event, 400, parsed.error.issues[0].message)
+        return resError(event, 400, parsed.error.issues[0]?.message ?? '参数校验失败')
     }
 
     const { message, materials } = parsed.data

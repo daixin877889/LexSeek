@@ -39,7 +39,7 @@ export default defineEventHandler(async (event) => {
     const params = body?.config?.configurable ?? body
     const parsed = schema.safeParse(params)
     if (!parsed.success) {
-        return resError(event, 400, parsed.error.issues[0].message)
+        return resError(event, 400, parsed.error.issues[0]?.message ?? '参数校验失败')
     }
 
     const { caseId, selectedModules: rawModules } = parsed.data

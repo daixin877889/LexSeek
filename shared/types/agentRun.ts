@@ -11,6 +11,8 @@ export type AgentRunStatus = typeof AGENT_RUN_STATUS[keyof typeof AGENT_RUN_STAT
 export interface AgentRunInput {
   message?: string
   command?: unknown
+  selectedModules?: string[]
+  completedResults?: Record<string, string>
 }
 
 export interface AgentStreamEvent {

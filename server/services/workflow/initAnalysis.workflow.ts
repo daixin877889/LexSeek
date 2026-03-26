@@ -106,8 +106,10 @@ export async function executeModuleNode(
         )
 
         for await (const chunk of stream) {
-            if (chunk.messages) {
-                const lastMsg = chunk.messages[chunk.messages.length - 1]
+            // stream chunk 类型因 streamMode 配置而异，使用 any 安全访问
+            const chunkData: any = Array.isArray(chunk) ? chunk[1] : chunk
+            if (chunkData?.messages) {
+                const lastMsg = chunkData.messages[chunkData.messages.length - 1]
                 if (lastMsg?.content && typeof lastMsg.content === 'string') {
                     result = lastMsg.content
                 }
@@ -147,7 +149,8 @@ export function routeAfterExecute(state: InitAnalysisState): string {
 /**
  * 获取编译后的初始化分析工作流（单例）
  */
-let workflowInstance: ReturnType<StateGraph<typeof InitAnalysisAnnotation>['compile']> | null = null
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let workflowInstance: any = null
 
 export async function getInitAnalysisWorkflow() {
     if (workflowInstance) return workflowInstance
@@ -163,7 +166,7 @@ export async function getInitAnalysisWorkflow() {
         ])
 
     workflowInstance = graph.compile({ checkpointer })
-    return workflowInstance
+    return workflowInstance!
 }
 
 /**
