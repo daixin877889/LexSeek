@@ -2,7 +2,7 @@
  * 银行利率查询服务
  */
 
-import type { LPRRate, DepositRate, LoanRate } from '@/types/tools'
+import type { LPRRate, DepositRate, LoanRate } from '#shared/types/tools'
 
 // 银行利率数据
 const bankRates: {
@@ -123,7 +123,7 @@ const bankRates: {
 export function queryLPRRate(date?: string): LPRRate | null {
     // 如果没有指定日期，返回最新的LPR利率
     if (!date) {
-        return bankRates.lpr[0]
+        return bankRates.lpr[0] ?? null
     }
 
     // 将查询日期转换为时间戳
@@ -131,9 +131,11 @@ export function queryLPRRate(date?: string): LPRRate | null {
 
     // 查找小于等于查询日期的最近一条记录
     for (let i = 0; i < bankRates.lpr.length; i++) {
-        const rateTimestamp = new Date(bankRates.lpr[i].date).getTime()
+        const rate = bankRates.lpr[i]
+        if (!rate) continue
+        const rateTimestamp = new Date(rate.date).getTime()
         if (queryTimestamp >= rateTimestamp) {
-            return bankRates.lpr[i]
+            return rate
         }
     }
 
@@ -149,7 +151,7 @@ export function queryLPRRate(date?: string): LPRRate | null {
 export function queryDepositRate(date?: string): DepositRate | null {
     // 如果没有指定日期，返回最新的存款基准利率
     if (!date) {
-        return bankRates.benchmark[0]
+        return bankRates.benchmark[0] ?? null
     }
 
     // 将查询日期转换为时间戳
@@ -157,9 +159,11 @@ export function queryDepositRate(date?: string): DepositRate | null {
 
     // 查找小于等于查询日期的最近一条记录
     for (let i = 0; i < bankRates.benchmark.length; i++) {
-        const rateTimestamp = new Date(bankRates.benchmark[i].date).getTime()
+        const rate = bankRates.benchmark[i]
+        if (!rate) continue
+        const rateTimestamp = new Date(rate.date).getTime()
         if (queryTimestamp >= rateTimestamp) {
-            return bankRates.benchmark[i]
+            return rate
         }
     }
 
@@ -175,7 +179,7 @@ export function queryDepositRate(date?: string): DepositRate | null {
 export function queryLoanRate(date?: string): LoanRate | null {
     // 如果没有指定日期，返回最新的贷款基准利率
     if (!date) {
-        return bankRates.loan[0]
+        return bankRates.loan[0] ?? null
     }
 
     // 将查询日期转换为时间戳
@@ -183,9 +187,11 @@ export function queryLoanRate(date?: string): LoanRate | null {
 
     // 查找小于等于查询日期的最近一条记录
     for (let i = 0; i < bankRates.loan.length; i++) {
-        const rateTimestamp = new Date(bankRates.loan[i].date).getTime()
+        const rate = bankRates.loan[i]
+        if (!rate) continue
+        const rateTimestamp = new Date(rate.date).getTime()
         if (queryTimestamp >= rateTimestamp) {
-            return bankRates.loan[i]
+            return rate
         }
     }
 
@@ -249,7 +255,7 @@ export function calculateAverageLPR(startDate: string, endDate: string, term: 'o
  * @returns 最新的LPR利率数据
  */
 export function getLatestLPR(): LPRRate {
-    return bankRates.lpr[0]
+    return bankRates.lpr[0]!
 }
 
 /**
@@ -257,7 +263,7 @@ export function getLatestLPR(): LPRRate {
  * @returns 最新的存款基准利率数据
  */
 export function getLatestDepositRate(): DepositRate {
-    return bankRates.benchmark[0]
+    return bankRates.benchmark[0]!
 }
 
 /**
@@ -265,5 +271,5 @@ export function getLatestDepositRate(): DepositRate {
  * @returns 最新的贷款基准利率数据
  */
 export function getLatestLoanRate(): LoanRate {
-    return bankRates.loan[0]
+    return bankRates.loan[0]!
 }

@@ -9,7 +9,7 @@ import type {
     LegalDeadlineResult,
     LimitationPeriodResult,
     LimitationType
-} from '@/types/tools'
+} from '#shared/types/tools'
 
 /**
  * 计算从起始日期推算指定天数后的日期

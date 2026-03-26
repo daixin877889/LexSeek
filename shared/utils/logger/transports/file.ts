@@ -13,7 +13,8 @@ import { LogFormatter } from '../formatter'
  * 需要同时满足：没有 window 对象、有 process 对象、process.cwd 是函数
  */
 function isNodeEnvironment(): boolean {
-    return typeof window === 'undefined' &&
+    return typeof globalThis !== 'undefined' &&
+        !('window' in globalThis && typeof (globalThis as { window?: unknown }).window !== 'undefined') &&
         typeof process !== 'undefined' &&
         typeof process.cwd === 'function'
 }

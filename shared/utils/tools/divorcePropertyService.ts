@@ -8,7 +8,7 @@ import type {
     DivorceOptions,
     DivorcePropertyResult,
     MaritalPropertyResult
-} from '@/types/tools'
+} from '#shared/types/tools'
 
 /**
  * 计算离婚财产分割

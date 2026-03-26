@@ -28,7 +28,10 @@ export class ConsoleTransport implements Transport {
 
     constructor() {
         // Detect browser vs Node.js environment
-        this.isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined'
+        this.isBrowser = typeof globalThis !== 'undefined' &&
+            'window' in globalThis &&
+            typeof (globalThis as { window?: unknown }).window !== 'undefined' &&
+            typeof (globalThis as { window?: { document?: unknown } }).window?.document !== 'undefined'
     }
 
     /**

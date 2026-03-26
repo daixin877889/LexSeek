@@ -48,7 +48,10 @@ export class Logger {
     constructor(options: LoggerOptions = {}) {
         // 检测运行环境
         // Requirements: 1.2
-        this.isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined'
+        this.isBrowser = typeof globalThis !== 'undefined' &&
+            'window' in globalThis &&
+            typeof (globalThis as { window?: unknown }).window !== 'undefined' &&
+            typeof (globalThis as { window?: { document?: unknown } }).window?.document !== 'undefined'
 
         // 设置默认日志级别
         // Requirements: 4.1 - 生产环境默认 INFO
@@ -75,9 +78,9 @@ export class Logger {
         }
 
         // 浏览器环境 - 检查 Nuxt 或其他框架的环境变量
-        if (this.isBrowser && typeof window !== 'undefined') {
-            const win = window as unknown as Record<string, unknown>
-            const nuxtConfig = win.__NUXT__ as { config?: { public?: { nodeEnv?: string } } } | undefined
+        if (this.isBrowser && typeof globalThis !== 'undefined' && 'window' in globalThis) {
+            const win = (globalThis as unknown as { window?: Record<string, unknown> }).window
+            const nuxtConfig = win?.__NUXT__ as { config?: { public?: { nodeEnv?: string } } } | undefined
             const nuxtEnv = nuxtConfig?.config?.public?.nodeEnv
             if (nuxtEnv) {
                 return nuxtEnv === 'production'

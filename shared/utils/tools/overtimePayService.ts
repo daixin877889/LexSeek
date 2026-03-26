@@ -2,7 +2,7 @@
  * 加班费和调休时间计算服务
  */
 
-import type { OvertimePayResult, CompensatoryTimeResult } from '@/types/tools'
+import type { OvertimePayResult, CompensatoryTimeResult } from '#shared/types/tools'
 
 /**
  * 计算加班费

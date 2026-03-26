@@ -2,7 +2,7 @@
  * 图片水印服务
  */
 
-import type { TextWatermarkOptions, ImageWatermarkOptions, WatermarkPosition } from '@/types/tools'
+import type { TextWatermarkOptions, ImageWatermarkOptions, WatermarkPosition } from '#shared/types/tools'
 
 /**
  * 添加文字水印到图片
@@ -77,7 +77,9 @@ export function addTextWatermark(
         // 设置图片源
         if (typeof imageSource === 'string') {
             img.src = imageSource
-        } else if (imageSource instanceof Blob || imageSource instanceof File) {
+        } else if (typeof Blob !== 'undefined' && imageSource instanceof Blob) {
+            img.src = URL.createObjectURL(imageSource)
+        } else if (typeof File !== 'undefined' && imageSource instanceof File) {
             img.src = URL.createObjectURL(imageSource)
         } else {
             reject(new Error('不支持的图片源类型'))
@@ -170,7 +172,9 @@ export function addImageWatermark(
         // 设置图片源
         if (typeof imageSource === 'string') {
             img.src = imageSource
-        } else if (imageSource instanceof Blob || imageSource instanceof File) {
+        } else if (typeof Blob !== 'undefined' && imageSource instanceof Blob) {
+            img.src = URL.createObjectURL(imageSource)
+        } else if (typeof File !== 'undefined' && imageSource instanceof File) {
             img.src = URL.createObjectURL(imageSource)
         } else {
             reject(new Error('不支持的主图片源类型'))
@@ -179,7 +183,9 @@ export function addImageWatermark(
 
         if (typeof watermarkSource === 'string') {
             watermark.src = watermarkSource
-        } else if (watermarkSource instanceof Blob || watermarkSource instanceof File) {
+        } else if (typeof Blob !== 'undefined' && watermarkSource instanceof Blob) {
+            watermark.src = URL.createObjectURL(watermarkSource)
+        } else if (typeof File !== 'undefined' && watermarkSource instanceof File) {
             watermark.src = URL.createObjectURL(watermarkSource)
         } else {
             reject(new Error('不支持的水印图片源类型'))

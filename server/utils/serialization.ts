@@ -4,13 +4,14 @@
  * 提供会员系统数据的序列化和反序列化方法
  */
 import dayjs from 'dayjs'
+import { UserMembershipSourceType } from '#shared/types/membership'
 import type {
     MembershipLevelInfo,
     UserMembershipInfo,
     MembershipStatus,
     MembershipLevelStatus,
-    UserMembershipSourceType,
 } from '#shared/types/membership'
+import type { membershipLevels, userMemberships } from '~~/generated/prisma/client'
 
 /** 序列化后的会员级别 */
 export interface SerializedMembershipLevel {
@@ -101,6 +102,18 @@ export const serializeUserMembership = (
 export const deserializeUserMembership = (
     data: SerializedUserMembership
 ): UserMembershipInfo => {
+    const sourceTypeNames: Record<number, string> = {
+        [UserMembershipSourceType.REDEMPTION_CODE]: '兑换码兑换',
+        [UserMembershipSourceType.DIRECT_PURCHASE]: '直接购买',
+        [UserMembershipSourceType.ADMIN_GIFT]: '管理员赠送',
+        [UserMembershipSourceType.ACTIVITY_AWARD]: '活动奖励',
+        [UserMembershipSourceType.TRIAL]: '试用',
+        [UserMembershipSourceType.REGISTRATION_AWARD]: '注册赠送',
+        [UserMembershipSourceType.INVITATION_TO_REGISTER]: '邀请注册赠送',
+        [UserMembershipSourceType.MEMBERSHIP_UPGRADE]: '会员升级',
+        [UserMembershipSourceType.OTHER]: '其他',
+    }
+
     return {
         id: data.id,
         userId: data.userId,
@@ -111,8 +124,11 @@ export const deserializeUserMembership = (
         autoRenew: data.autoRenew,
         status: data.status as MembershipStatus,
         sourceType: data.sourceType as UserMembershipSourceType,
+        sourceTypeName: sourceTypeNames[data.sourceType] || '未知来源',
         sourceId: data.sourceId,
         remark: data.remark,
+        createdAt: data.startDate, // 使用 startDate 作为 createdAt
+        settlementAt: null, // 默认为 null，需要从数据库获取
     }
 }
 

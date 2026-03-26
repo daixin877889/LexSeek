@@ -5,7 +5,8 @@
  * JWT用于用户身份验证和API请求授权。
  */
 
-import jwt, { Secret, SignOptions } from "jsonwebtoken";
+import jwt from "jsonwebtoken"
+import type { Secret, SignOptions } from "jsonwebtoken"
 // import config from "@/config/index.js";
 
 const config = useRuntimeConfig()

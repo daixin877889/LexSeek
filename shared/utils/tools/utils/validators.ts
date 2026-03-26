@@ -1,4 +1,4 @@
-import type { FormValidationRule, FormValidationRules, FormValidationResult } from '@/types/tools'
+import type { FormValidationRule, FormValidationRules, FormValidationResult } from '#shared/types/tools'
 
 /**
  * 验证是否为空
@@ -86,11 +86,18 @@ export function isValidDate(value: unknown): boolean {
     if (isNaN(date.getTime())) return false
 
     // 检查月份和日期的范围
-    const [year, month, day] = strValue.split('-').map(Number)
+    const parts = strValue.split('-')
+    if (parts.length !== 3) return false
 
+    const [year, monthStr, dayStr] = parts
+    const yearNum = Number(year)
+    const month = Number(monthStr)
+    const day = Number(dayStr)
+
+    if (isNaN(yearNum) || isNaN(month) || isNaN(day)) return false
     if (month < 1 || month > 12) return false
 
-    const lastDayOfMonth = new Date(year, month, 0).getDate()
+    const lastDayOfMonth = new Date(yearNum, month, 0).getDate()
     if (day < 1 || day > lastDayOfMonth) return false
 
     return true
@@ -109,6 +116,9 @@ export function validateForm(form: Record<string, unknown>, rules: FormValidatio
     for (const key in rules) {
         const value = form[key]
         const rule = rules[key]
+
+        // 如果没有规则，跳过
+        if (!rule) continue
 
         if (rule.required && isEmpty(value)) {
             errors[key] = rule.message || '此项不能为空'
