@@ -210,6 +210,7 @@ export interface TestSessionInput {
     sessionId?: string
     caseId: number
     status?: number
+    type?: number
 }
 
 /**
@@ -223,6 +224,7 @@ export const createTestSession = async (
             sessionId: data.sessionId || uuidv7(),
             caseId: data.caseId,
             status: data.status ?? SessionStatus.IN_PROGRESS,
+            type: data.type ?? 1,
             createdAt: new Date(),
             updatedAt: new Date(),
         },
