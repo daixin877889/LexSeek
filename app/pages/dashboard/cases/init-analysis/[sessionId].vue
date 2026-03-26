@@ -1,14 +1,15 @@
 <template>
-  <AiChat
-    title="初始化分析"
-    panel-mode="left"
-    :messages="[]"
-    :loading="isLoading"
-    :show-prompt="false"
-    :show-task-queue="false"
-    :show-tool-interrupt="false"
-    @back="goBack"
-  >
+  <div class="h-full">
+    <AiChat
+      title="初始化分析"
+      panel-mode="left"
+      :messages="[]"
+      :loading="isLoading"
+      :show-prompt="false"
+      :show-task-queue="false"
+      :show-tool-interrupt="false"
+      @back="goBack"
+    >
     <template #message-list>
       <!-- 阶段一：模块选择 -->
       <div v-if="phase === 'select'" class="p-4">
@@ -67,6 +68,7 @@
       />
     </template>
   </AiChat>
+  </div>
 </template>
 
 <script lang="ts" setup>

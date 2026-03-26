@@ -1,35 +1,37 @@
 <template>
-  <AiChat
-    title="案件分析"
-    v-model:panel-mode="panelMode"
-    v-model:thinking="thinkingEnabled"
-    :messages="displayMessages"
-    :loading="stream.isLoading"
-    :show-prompt="true"
-    :show-task-queue="true"
-    :todos="todos"
-    :show-tool-interrupt="true"
-    :prompt-disabled="isComplete"
-    prompt-placeholder="输入补充信息或问题..."
-    @submit="handlePromptSubmit"
-    @tool-confirm="handleToolConfirm"
-    @tool-reject="handleToolReject"
-    @back="goBack"
-  >
-    <template #right-panel>
-      <CaseAnalysisResults
-        :results="analysisResults"
-        v-model:active-index="activeResultIndex"
-        :show-regenerate="true"
-        :show-copy="true"
-        :is-analyzing="stream.isLoading"
-        @regenerate="handleRegenerate"
-      />
-    </template>
-    <template #empty>
-      <CaseAnalysisWelcome />
-    </template>
-  </AiChat>
+  <div class="h-full">
+    <AiChat
+      title="案件分析"
+      v-model:panel-mode="panelMode"
+      v-model:thinking="thinkingEnabled"
+      :messages="displayMessages"
+      :loading="stream.isLoading"
+      :show-prompt="true"
+      :show-task-queue="true"
+      :todos="todos"
+      :show-tool-interrupt="true"
+      :prompt-disabled="isComplete"
+      prompt-placeholder="输入补充信息或问题..."
+      @submit="handlePromptSubmit"
+      @tool-confirm="handleToolConfirm"
+      @tool-reject="handleToolReject"
+      @back="goBack"
+    >
+      <template #right-panel>
+        <CaseAnalysisResults
+          :results="analysisResults"
+          v-model:active-index="activeResultIndex"
+          :show-regenerate="true"
+          :show-copy="true"
+          :is-analyzing="stream.isLoading"
+          @regenerate="handleRegenerate"
+        />
+      </template>
+      <template #empty>
+        <CaseAnalysisWelcome />
+      </template>
+    </AiChat>
+  </div>
 </template>
 
 <script lang="ts" setup>
