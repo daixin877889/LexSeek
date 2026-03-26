@@ -120,24 +120,6 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     }
   }, { deep: true })
 
-  // 同时监听 stream.messages 获取流式消息（比 values.messages 更实时）
-  watch(() => stream.messages as any[], (msgs: any[]) => {
-    if (!Array.isArray(msgs) || msgs.length === 0) return
-    const v = values.value
-    if (!v?.lastExecutedModule) return
-
-    const moduleName = v.lastExecutedModule
-    // 将 stream.messages 中超出 prevMessagesLength 的部分作为当前模块的流式消息
-    // 注意：stream.messages 是实时的，可能比 values.messages 更新更快
-    if (msgs.length > prevMessagesLength) {
-      const newMsgs = msgs.slice(prevMessagesLength)
-      moduleMessagesMap.value = {
-        ...moduleMessagesMap.value,
-        [moduleName]: newMsgs,
-      }
-    }
-  }, { deep: true })
-
   // ==================== 工具函数 ====================
 
   function coerceRawMessages(rawMessages: any[]): any[] {
