@@ -130,14 +130,34 @@ export class AgentWorker {
         status: AGENT_RUN_STATUS.RUNNING,
       })
 
-      // 调用 Agent
-      const input = run.input as { message?: string; command?: unknown }
-      const { runCaseChat } = await import('./caseAgent')
-      const stream = await runCaseChat(run.sessionId, input.message, {
-        userId: run.userId,
-        caseId: run.caseId,
-        command: input.command,
+      // 调用 Agent（根据 session 类型路由）
+      const input = run.input as { message?: string; command?: unknown; selectedModules?: string[]; completedResults?: Record<string, string> }
+
+      let stream: ReadableStream
+      const session = await prisma.caseSessions.findUnique({
+        where: { sessionId: run.sessionId },
+        select: { type: true },
       })
+
+      if (session?.type === 2) {
+        // 初始化分析工作流
+        const { startInitAnalysis } = await import('../workflow/initAnalysis.workflow')
+        stream = await startInitAnalysis({
+          sessionId: run.sessionId,
+          userId: run.userId,
+          caseId: run.caseId,
+          selectedModules: input.selectedModules ?? [],
+          completedResults: input.completedResults,
+        })
+      } else {
+        // 普通案件对话
+        const { runCaseChat } = await import('./caseAgent')
+        stream = await runCaseChat(run.sessionId, input.message, {
+          userId: run.userId,
+          caseId: run.caseId,
+          command: input.command,
+        })
+      }
 
       // 遍历 SSE stream 并发布事件到 Redis
       const reader = stream.getReader()

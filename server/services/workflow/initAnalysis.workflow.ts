@@ -8,6 +8,8 @@
  */
 
 import { StateGraph } from '@langchain/langgraph'
+import { isGraphInterrupt } from '@langchain/langgraph'
+import { interrupt } from '@langchain/langgraph'
 import { HumanMessage } from '@langchain/core/messages'
 import { createAgent, type ReactAgent } from 'langchain'
 import { InitAnalysisAnnotation, type InitAnalysisState } from './initAnalysis.state'
@@ -22,6 +24,9 @@ import {
     completeAnalysisService,
     failAnalysisService,
 } from '../case/analysis.service'
+import { InterruptType } from '#shared/types/case'
+import { getCurrentMembershipService } from '../membership/userMembership.service'
+import { checkPointsService } from '../point/pointConsumption.service'
 
 const EXECUTE_MODULE_NODE = 'execute_module'
 
@@ -42,6 +47,54 @@ export async function executeModuleNode(
     }
 
     try {
+        // 0. 积分/会员预检（在工作流层中断，确保前端能感知）
+        const membership = await getCurrentMembershipService(userId)
+        if (!membership) {
+            interrupt({
+                type: InterruptType.INSUFFICIENT_POINTS,
+                message: '请先开通会员',
+                data: {
+                    module: moduleName,
+                    isMember: false,
+                    availablePoints: 0,
+                    reason: 'no_membership',
+                },
+            })
+            // resume 后重新检查
+            const refreshed = await getCurrentMembershipService(userId)
+            if (!refreshed) {
+                return {
+                    currentModule: moduleName,
+                    currentModuleIndex: currentModuleIndex + 1,
+                    failedModules: { [moduleName]: '未开通会员' },
+                }
+            }
+        }
+
+        const pointCheck = await checkPointsService(userId, 'case_analysis_token', 1)
+        if (!pointCheck.sufficient) {
+            interrupt({
+                type: InterruptType.INSUFFICIENT_POINTS,
+                message: '积分不足，请充值后继续',
+                data: {
+                    module: moduleName,
+                    isMember: true,
+                    availablePoints: pointCheck.available,
+                    requiredPoints: pointCheck.required,
+                    reason: 'insufficient_points',
+                },
+            })
+            // resume 后重新检查
+            const recheck = await checkPointsService(userId, 'case_analysis_token', 1)
+            if (!recheck.sufficient) {
+                return {
+                    currentModule: moduleName,
+                    currentModuleIndex: currentModuleIndex + 1,
+                    failedModules: { [moduleName]: '积分不足' },
+                }
+            }
+        }
+
         // 1. 加载节点配置
         const nodeConfig = await getValidNodeConfig(moduleName, `分析模块: ${moduleName}`)
         const activeApiKey = nodeConfig.modelApiKeys.find(k => k.status === 1)
@@ -125,6 +178,11 @@ export async function executeModuleNode(
             completedResults: { [moduleName]: result },
         }
     } catch (error: any) {
+        // GraphInterrupt 需要向上传递，不当作失败处理
+        if (isGraphInterrupt(error)) {
+            throw error
+        }
+
         logger.error(`初始化分析模块 ${moduleName} 执行失败:`, error)
 
         // 失败不阻塞后续模块
@@ -204,6 +262,8 @@ export async function startInitAnalysis(params: {
         {
             configurable: { thread_id: params.sessionId },
             streamMode: ['values', 'messages'],
+            version: 'v2' as const,
+            encoding: 'text/event-stream',
         },
     )
 }

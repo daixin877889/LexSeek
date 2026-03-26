@@ -27,8 +27,8 @@
 
         <!-- 积分不足中断 -->
         <InitAnalysisInsufficientPointsCard
-          v-if="interrupt?.type === 'insufficient_points'"
-          :available-points="(interrupt.data?.availablePoints as number)"
+          v-if="interruptData"
+          :available-points="interruptData.data?.availablePoints"
           @resume="resumeWorkflow"
         />
 
@@ -64,6 +64,17 @@ const {
   resumeWorkflow,
   retryModule,
 } = useInitAnalysis(caseId)
+
+// LangGraph interrupt 数据：数组中第一个元素的 value 就是 interrupt() 传入的对象
+const interruptData = computed(() => {
+  const raw = interrupt.value
+  if (!raw) return null
+  // useStream 的 interrupt 格式: [{ value: { type, message, data }, ... }]
+  const first = Array.isArray(raw) ? raw[0] : raw
+  const val = first?.value ?? first
+  if (val?.type === 'insufficient_points') return val
+  return null
+})
 
 onMounted(() => {
   loadStatus()
