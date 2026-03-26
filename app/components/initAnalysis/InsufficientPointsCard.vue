@@ -4,70 +4,86 @@
       <div class="rounded-full bg-amber-500/10 p-2">
         <AlertTriangleIcon class="size-5 text-amber-500" />
       </div>
-      <h3 class="text-base font-semibold">积分不足，分析已暂停</h3>
+      <h3 class="text-base font-semibold">{{ isMember ? '积分不足，分析已暂停' : '请先开通会员' }}</h3>
     </div>
 
-    <Alert>
-      <AlertDescription>
-        <p>{{ scenarioMessage }}</p>
-        <div class="mt-2 flex gap-4 text-sm text-muted-foreground">
-          <span>当前可用积分：<strong class="text-foreground">{{ availablePoints ?? 0 }}</strong></span>
-          <span>本次所需积分：<strong class="text-foreground">{{ requiredPoints ?? 0 }}</strong></span>
-        </div>
-      </AlertDescription>
-    </Alert>
+    <p class="text-sm text-muted-foreground">{{ scenarioMessage }}</p>
 
-    <div class="flex flex-wrap gap-3">
-      <!-- 无会员：显示升级会员按钮 -->
-      <Button v-if="!isMember" @click="openMembershipDialog">
-        <CrownIcon class="size-4 mr-1.5" />
-        开通会员
-      </Button>
-      <!-- 有会员但积分不足：显示购买积分按钮 -->
-      <Button v-else @click="openPointDialog">
-        <CoinsIcon class="size-4 mr-1.5" />
-        购买积分
-      </Button>
+    <!-- 加载中 -->
+    <div v-if="loading" class="flex items-center justify-center py-8">
+      <Loader2Icon class="size-5 animate-spin text-muted-foreground" />
+      <span class="ml-2 text-sm text-muted-foreground">加载中...</span>
+    </div>
+
+    <!-- 无会员：展示会员套餐 -->
+    <template v-else-if="!isMember">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div
+          v-for="plan in membershipPlans"
+          :key="plan.id"
+          class="border rounded-lg p-4 hover:border-primary transition-colors cursor-pointer"
+          @click="buyMembership(plan)"
+        >
+          <h4 class="font-semibold mb-1">{{ plan.name }}</h4>
+          <p class="text-xl font-bold">
+            ¥{{ plan.defaultDuration === 1 ? plan.priceMonthly : plan.priceYearly }}
+            <span class="text-xs text-muted-foreground font-normal">/{{ plan.defaultDuration === 1 ? '月' : '年' }}</span>
+          </p>
+          <p v-if="plan.giftPoint" class="text-xs text-primary mt-1">赠送 {{ plan.giftPoint }} 积分</p>
+          <p class="text-xs text-muted-foreground mt-1">{{ plan.description }}</p>
+        </div>
+      </div>
+    </template>
+
+    <!-- 有会员无积分：展示积分套餐 -->
+    <template v-else>
+      <div class="flex gap-4 text-sm text-muted-foreground mb-2">
+        <span>当前可用积分：<strong class="text-foreground">{{ availablePoints ?? 0 }}</strong></span>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div
+          v-for="product in pointProducts"
+          :key="product.id"
+          class="border rounded-lg p-4 hover:border-primary transition-colors cursor-pointer"
+          @click="buyPoints(product)"
+        >
+          <div class="flex justify-between items-start">
+            <h4 class="font-semibold">{{ product.name }}</h4>
+          </div>
+          <p class="text-xl font-bold mt-1">
+            ¥{{ product.unitPrice }}
+            <span
+              v-if="product.originalUnitPrice && product.originalUnitPrice > product.unitPrice"
+              class="text-sm line-through text-muted-foreground ml-1"
+            >¥{{ product.originalUnitPrice }}</span>
+          </p>
+          <p class="text-xs text-muted-foreground mt-1">{{ product.pointAmount }} 积分</p>
+        </div>
+      </div>
+    </template>
+
+    <!-- 购买协议 -->
+    <div v-if="!loading" class="flex items-start gap-2 pt-2 border-t">
+      <Checkbox id="purchase-agreement" v-model="agreeToAgreement" class="mt-0.5" />
+      <label for="purchase-agreement" class="text-xs text-muted-foreground leading-5 cursor-pointer">
+        购买即代表您同意
+        <NuxtLink to="/purchase-agreement" target="_blank" class="text-primary font-bold hover:text-primary/80">
+          《LexSeek（法索 AI）服务购买协议》
+        </NuxtLink>
+      </label>
+    </div>
+
+    <!-- 已充值继续分析 -->
+    <div class="flex gap-3 pt-2">
       <Button variant="outline" :disabled="isResuming" @click="handleResume">
         <Loader2Icon v-if="isResuming" class="size-4 mr-2 animate-spin" />
         已充值，继续分析
       </Button>
     </div>
 
-    <!-- 会员升级弹窗 -->
-    <MembershipUpgradeDialog
-      v-model:open="showUpgradeDialog"
-      :loading="upgradeLoading"
-      :options="upgradeOptions"
-      :selected-option="selectedUpgradeOption"
-      v-model:agree-to-agreement="agreeToAgreement"
-      @select="selectedUpgradeOption = $event"
-      @confirm="confirmUpgrade"
-      @close="closeUpgradeDialog"
-    />
-
-    <!-- 会员支付弹窗 -->
-    <MembershipQRCodeDialog
-      v-model:open="showMemberQRCode"
-      :qr-code-url="qrCodeUrl"
-      :loading="paymentLoading"
-      :paid="paymentPaid"
-      :use-jsapi="useJsapiPayment"
-      :jsapi-params="jsapiParams"
-      @close="closePaymentDialog"
-      @jsapi-result="handleJsapiResult"
-    />
-
-    <!-- 积分购买弹窗 -->
-    <PointsPointPurchaseDialog
-      v-model:open="showPointDialog"
-      :product-list="pointProductList"
-      @buy="buyPoints"
-    />
-
-    <!-- 积分支付弹窗 -->
-    <PointsPointQRCodeDialog
-      v-model:open="showPointQRCode"
+    <!-- 支付二维码弹窗（会员和积分共用） -->
+    <PaymentQRCodeDialog
+      v-model:open="showQRCode"
       :qr-code-url="qrCodeUrl"
       :loading="paymentLoading"
       :paid="paymentPaid"
@@ -80,7 +96,7 @@
 </template>
 
 <script lang="ts" setup>
-import { AlertTriangleIcon, Loader2Icon, CrownIcon, CoinsIcon } from 'lucide-vue-next'
+import { AlertTriangleIcon, Loader2Icon } from 'lucide-vue-next'
 import { PaymentChannel, PaymentMethod, DurationUnit } from '#shared/types/payment'
 import type { WechatPaymentParams, WechatPaymentResult } from '~/composables/useWechatPayment'
 
@@ -92,18 +108,53 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-
-const emit = defineEmits<{
-  resume: []
-}>()
-
-// ==================== 场景提示 ====================
+const emit = defineEmits<{ resume: [] }>()
 
 const scenarioMessage = computed(() => {
   if (!props.isMember) {
-    return '您尚未开通会员，开通会员后即可获得积分并继续分析。'
+    return '开通会员即可获得积分，选择以下套餐立即开通：'
   }
-  return '您的积分不足以完成本次分析，请购买积分后继续。'
+  return '选择以下积分套餐购买后即可继续分析：'
+})
+
+// ==================== 商品加载 ====================
+
+const loading = ref(true)
+const membershipPlans = ref<any[]>([])
+const pointProducts = ref<any[]>([])
+const agreeToAgreement = ref(true)
+
+onMounted(async () => {
+  if (!props.isMember) {
+    const data = await useApiFetch<any[]>('/api/v1/products', {
+      query: { type: 1 },
+      showError: false,
+    })
+    membershipPlans.value = (data ?? []).map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      levelId: p.levelId ?? 0,
+      priceMonthly: p.priceMonthly ?? 0,
+      priceYearly: p.priceYearly ?? 0,
+      giftPoint: p.giftPoint ?? 0,
+      description: p.description ?? '',
+      defaultDuration: p.defaultDuration ?? 2,
+    }))
+  } else {
+    const data = await useApiFetch<any[]>('/api/v1/products', {
+      query: { type: 2 },
+      showError: false,
+    })
+    pointProducts.value = (data ?? []).map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      unitPrice: p.unitPrice ?? 0,
+      originalUnitPrice: p.originalUnitPrice,
+      pointAmount: p.pointAmount ?? 0,
+      description: p.description ?? '',
+    }))
+  }
+  loading.value = false
 })
 
 // ==================== 继续分析 ====================
@@ -116,136 +167,39 @@ function handleResume() {
   setTimeout(() => { isResuming.value = false }, 15000)
 }
 
-// ==================== 共享支付状态 ====================
+// ==================== 支付 ====================
 
 const qrCodeUrl = ref('')
 const paymentLoading = ref(false)
 const paymentPaid = ref(false)
 const currentTransactionNo = ref('')
-const agreeToAgreement = ref(true)
+const showQRCode = ref(false)
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
 const { isInWechat, ensureOpenId, redirectToAuth } = useWechatPayment()
 const useJsapiPayment = ref(false)
 const jsapiParams = ref<WechatPaymentParams | undefined>(undefined)
 
-// ==================== 会员升级 ====================
-
-const showUpgradeDialog = ref(false)
-const upgradeLoading = ref(false)
-const upgradeOptions = ref<any[]>([])
-const selectedUpgradeOption = ref<any>(null)
-const showMemberQRCode = ref(false)
-
-async function openMembershipDialog() {
-  upgradeLoading.value = true
-  showUpgradeDialog.value = true
-
-  const result = await useApiFetch<{
-    currentMembership: any
-    options: any[]
-  }>('/api/v1/memberships/upgrade/options', { showError: false })
-
-  if (!result?.options?.length) {
-    // 没有升级选项时 fallback 到会员购买页面
-    toast.error('获取会员方案失败，请稍后重试')
-    showUpgradeDialog.value = false
-    upgradeLoading.value = false
+async function buyMembership(plan: any) {
+  if (!agreeToAgreement.value) {
+    toast.warning('请先同意购买协议')
     return
   }
 
-  upgradeOptions.value = result.options
-  selectedUpgradeOption.value = result.options[0] ?? null
-  upgradeLoading.value = false
-}
-
-function closeUpgradeDialog() {
-  showUpgradeDialog.value = false
-  selectedUpgradeOption.value = null
-  upgradeOptions.value = []
-}
-
-async function confirmUpgrade() {
-  if (!selectedUpgradeOption.value) return
-  showUpgradeDialog.value = false
-
-  const shouldUseJsapi = isInWechat.value
-
-  if (shouldUseJsapi) {
-    const currentOpenId = await ensureOpenId()
-    if (!currentOpenId) { redirectToAuth(); return }
-
-    const result = await useApiFetch<{
-      transactionNo: string
-      paymentParams: WechatPaymentParams
-    }>('/api/v1/memberships/upgrade/pay', {
-      method: 'POST',
-      body: {
-        targetLevelId: selectedUpgradeOption.value.levelId,
-        paymentChannel: PaymentChannel.WECHAT,
-        paymentMethod: PaymentMethod.MINI_PROGRAM,
-        openid: currentOpenId,
-      },
-    })
-    if (!result) return
-
-    currentTransactionNo.value = result.transactionNo
-    useJsapiPayment.value = true
-    jsapiParams.value = result.paymentParams
-    resetPaymentFlags()
-    showMemberQRCode.value = true
-  } else {
-    const result = await useApiFetch<{
-      transactionNo: string
-      codeUrl: string
-    }>('/api/v1/memberships/upgrade/pay', {
-      method: 'POST',
-      body: {
-        targetLevelId: selectedUpgradeOption.value.levelId,
-        paymentChannel: PaymentChannel.WECHAT,
-        paymentMethod: PaymentMethod.SCAN_CODE,
-      },
-    })
-    if (!result) return
-
-    currentTransactionNo.value = result.transactionNo
-    qrCodeUrl.value = result.codeUrl
-    useJsapiPayment.value = false
-    jsapiParams.value = undefined
-    resetPaymentFlags()
-    showMemberQRCode.value = true
-    startPolling()
-  }
-}
-
-// ==================== 积分购买 ====================
-
-const showPointDialog = ref(false)
-const showPointQRCode = ref(false)
-const pointProductList = ref<any[]>([])
-
-async function openPointDialog() {
-  // 加载积分商品列表
-  const data = await useApiFetch<any[]>('/api/v1/products', {
-    query: { type: 2 },
-    showError: false,
-  })
-
-  pointProductList.value = (data ?? []).map((p: any) => ({
-    id: p.id,
-    name: p.name,
-    unitPrice: p.unitPrice ?? 0,
-    originalUnitPrice: p.originalUnitPrice,
-    pointAmount: p.pointAmount ?? 0,
-    description: p.description ?? '',
-  }))
-
-  showPointDialog.value = true
+  const durationUnit = plan.defaultDuration === 1 ? DurationUnit.MONTH : DurationUnit.YEAR
+  await createPayment(plan.id, durationUnit)
 }
 
 async function buyPoints(product: any) {
-  showPointDialog.value = false
+  if (!agreeToAgreement.value) {
+    toast.warning('请先同意购买协议')
+    return
+  }
 
+  await createPayment(product.id, DurationUnit.MONTH)
+}
+
+async function createPayment(productId: number, durationUnit: DurationUnit) {
   const shouldUseJsapi = isInWechat.value
 
   if (shouldUseJsapi) {
@@ -258,9 +212,9 @@ async function buyPoints(product: any) {
     }>('/api/v1/payments/create', {
       method: 'POST',
       body: {
-        productId: product.id,
+        productId,
         duration: 1,
-        durationUnit: DurationUnit.MONTH,
+        durationUnit,
         paymentChannel: PaymentChannel.WECHAT,
         paymentMethod: PaymentMethod.MINI_PROGRAM,
         openid: currentOpenId,
@@ -272,7 +226,7 @@ async function buyPoints(product: any) {
     useJsapiPayment.value = true
     jsapiParams.value = result.paymentParams
     resetPaymentFlags()
-    showPointQRCode.value = true
+    showQRCode.value = true
   } else {
     const result = await useApiFetch<{
       transactionNo: string
@@ -280,9 +234,9 @@ async function buyPoints(product: any) {
     }>('/api/v1/payments/create', {
       method: 'POST',
       body: {
-        productId: product.id,
+        productId,
         duration: 1,
-        durationUnit: DurationUnit.MONTH,
+        durationUnit,
         paymentChannel: PaymentChannel.WECHAT,
         paymentMethod: PaymentMethod.SCAN_CODE,
       },
@@ -294,12 +248,10 @@ async function buyPoints(product: any) {
     useJsapiPayment.value = false
     jsapiParams.value = undefined
     resetPaymentFlags()
-    showPointQRCode.value = true
+    showQRCode.value = true
     startPolling()
   }
 }
-
-// ==================== 共享支付逻辑 ====================
 
 function resetPaymentFlags() {
   paymentPaid.value = false
@@ -310,12 +262,10 @@ function startPolling() {
   stopPolling()
   pollTimer = setInterval(async () => {
     if (!currentTransactionNo.value) { stopPolling(); return }
-
     const result = await useApiFetch<{ paid: boolean }>(
       `/api/v1/payments/query?transactionNo=${currentTransactionNo.value}&sync=true`,
       { showError: false },
     )
-
     if (result?.paid) {
       paymentPaid.value = true
       stopPolling()
@@ -333,8 +283,7 @@ function stopPolling() {
 }
 
 function closePaymentDialog() {
-  showMemberQRCode.value = false
-  showPointQRCode.value = false
+  showQRCode.value = false
   stopPolling()
   currentTransactionNo.value = ''
   qrCodeUrl.value = ''
