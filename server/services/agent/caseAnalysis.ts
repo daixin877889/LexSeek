@@ -1,4 +1,4 @@
-import { createAgent, createMiddleware, todoListMiddleware, HumanMessage, type AgentMiddleware } from "langchain";
+import { createAgent, createMiddleware, todoListMiddleware, summarizationMiddleware, HumanMessage, type ReactAgent } from "langchain";
 import { createChatModel } from '../node/chatModelFactory'
 import { getToolInstancesService } from '../workflow/tools'
 import {
@@ -165,9 +165,15 @@ export const caseAnalysisAgent = async (sessionId: string, prompt: string, optio
         toolsCount: tools.length,
     })
 
+    // 摘要中间件
+    const summarizationMiddlewareInstance = summarizationMiddleware({
+        model,
+        trigger: [
+            { tokens: 100000 },
+        ]
+    })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const agent: any = createAgent({
+    const agent: ReactAgent = createAgent({
         model,
         systemPrompt,
         checkpointer,
@@ -176,7 +182,8 @@ export const caseAnalysisAgent = async (sessionId: string, prompt: string, optio
         middleware: [
             caseProcessMaterialMiddleware(userId!, caseId!),
             caseMaterialContextMiddleware(userId!, caseId!),
-            todoListMiddleware() as AgentMiddleware,
+            todoListMiddleware(),
+            summarizationMiddlewareInstance,
         ],
     })
 
