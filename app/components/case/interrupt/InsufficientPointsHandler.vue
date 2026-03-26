@@ -15,9 +15,12 @@
             <Alert>
                 <AlertDescription>
                     您尚未开通会员，请先购买会员后继续使用案件分析功能。
+                    购买会员将赠送积分，可用于案件分析。
                 </AlertDescription>
             </Alert>
-            <MembershipPackageList @select="handleMembershipSelect" />
+            <Button @click="handleMembershipSelect">
+                前往购买会员
+            </Button>
         </template>
 
         <!-- 会员但积分不足 -->
@@ -54,7 +57,6 @@
 
 <script setup lang="ts">
 import type { InsufficientPointsInterruptData } from '#shared/types/case'
-import MembershipPackageList from '@/components/membership/MembershipPackageList.vue'
 
 interface Props {
     interrupt: InsufficientPointsInterruptData
