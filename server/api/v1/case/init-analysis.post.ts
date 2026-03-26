@@ -59,11 +59,9 @@ export default defineEventHandler(async (event) => {
         return resError(event, 403, '案件不存在或无权访问')
     }
 
-    // 5. 前置积分校验
-    const pointCheck = await checkPointsService(user.id, 'case_analysis_token', 100)
-    if (!pointCheck.sufficient) {
-        return resError(event, 402, '积分不足，请先充值')
-    }
+    // 5. 积分/会员校验由工作流内部 interrupt 处理，此处不拦截
+    //    工作流 executeModuleNode 中会检查会员状态和积分余额
+    //    不足时通过 LangGraph interrupt() 中断，前端展示购买卡片
 
     // 6. 检查是否有活跃的初始化分析 session（重连逻辑）
     const existingSession = await prisma.caseSessions.findFirst({
