@@ -16,6 +16,7 @@ import {
     transcribeAudioService,
     SUPPORTED_AUDIO_TYPES,
 } from '~~/server/services/material/asr.service'
+import { AsrTaskStatus } from '#shared/types/recognition'
 
 // 请求体验证 Schema
 const bodySchema = z.object({
@@ -40,7 +41,10 @@ const bodySchema = z.object({
             .optional()
             .default(true)
             .describe('是否启用说话人分离，默认 true'),
-    }).optional().default({}),
+    }).default({
+        languageHints: ['zh', 'en'],
+        diarizationEnabled: true,
+    }),
 })
 
 export default defineEventHandler(async (event) => {
@@ -57,8 +61,8 @@ export default defineEventHandler(async (event) => {
 
         const result = bodySchema.safeParse(body)
         if (!result.success) {
-            logger.warn('音频识别 API 参数验证失败', { error: result.error.issues[0].message })
-            return resError(event, 400, result.error.issues[0].message)
+            logger.warn('音频识别 API 参数验证失败', { error: result.error.issues[0]!!.message })
+            return resError(event, 400, result.error.issues[0]!!.message)
         }
 
         const { ossFileId, audioDuration, tempFilePath, options } = result.data
@@ -119,7 +123,6 @@ export default defineEventHandler(async (event) => {
         const submitResult = await transcribeAudioService(
             ossFileId,
             user.id,
-            estimatedDuration,
             {
                 languageHints: options.languageHints,
                 diarizationEnabled: options.diarizationEnabled,

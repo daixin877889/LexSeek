@@ -16,12 +16,12 @@ export default defineEventHandler(async (event) => {
     const id = getRouterParam(event, 'id')
     const paramsResult = paramsSchema.safeParse({ id })
     if (!paramsResult.success) {
-        return resError(event, 400, '参数错误：' + paramsResult.error.issues[0].message)
+        return resError(event, 400, '参数错误：' + paramsResult.error.issues[0]!.message)
     }
 
     try {
         await deletePromptService(paramsResult.data.id)
-        return resSuccess(event, '删除提示词成功')
+        return resSuccess(event, '删除提示词成功', null)
     } catch (error: any) {
         // 处理业务逻辑错误
         if (error.message === '提示词不存在') {

@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
 
     try {
         await deleteNodeGroupService(Number(id))
-        return resSuccess(event, '删除节点分组成功')
+        return resSuccess(event, '删除节点分组成功', null)
     } catch (error: any) {
         // 处理业务逻辑错误
         if (error.message === '节点分组不存在') {

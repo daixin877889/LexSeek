@@ -41,7 +41,7 @@ export default defineEventHandler(async (event) => {
         const body = await readBody(event)
         const result = bodySchema.safeParse(body)
         if (!result.success) {
-            return resError(event, 400, result.error.issues[0].message)
+            return resError(event, 400, result.error.issues[0]!!.message)
         }
 
         const { base64Data, mimeType, ossFileId } = result.data

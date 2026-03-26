@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const bodyResult = bodySchema.safeParse(body)
     if (!bodyResult.success) {
-        return resError(event, 400, bodyResult.error.issues[0]?.message || '参数错误')
+        return resError(event, 400, bodyResult.error.issues[0]!?.message || '参数错误')
     }
 
     const { ossFileId, htmlContent, markdownContent, fileName } = bodyResult.data

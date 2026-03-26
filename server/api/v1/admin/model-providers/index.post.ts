@@ -8,10 +8,10 @@ import { z } from 'zod'
 
 /** 请求体验证 */
 const bodySchema = z.object({
-    name: z.string({ required_error: '名称不能为空' })
+    name: z.string({ error: (issue) => issue.input === undefined ? '名称不能为空' : '名称必须是字符串' })
         .min(1, '名称不能为空')
         .max(100, '名称不能超过100个字符'),
-    baseUrl: z.string({ required_error: 'API基础URL不能为空' })
+    baseUrl: z.string({ error: (issue) => issue.input === undefined ? 'API基础URL不能为空' : 'API基础URL必须是字符串' })
         .url('请输入有效的URL地址')
         .max(255, 'URL不能超过255个字符'),
     description: z.string()
@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const result = bodySchema.safeParse(body)
     if (!result.success) {
-        return resError(event, 400, '参数错误：' + result.error.issues[0].message)
+        return resError(event, 400, '参数错误：' + result.error.issues[0]!!.message)
     }
 
     try {

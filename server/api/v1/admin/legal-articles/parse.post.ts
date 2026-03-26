@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
         const validationResult = ParseSchema.safeParse(body)
 
         if (!validationResult.success) {
-            const firstError = validationResult.error.issues[0]
+            const firstError = validationResult.error.issues[0]!
             return resError(event, 400, firstError.message)
         }
 

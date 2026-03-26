@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
         // 获取最新会话的分析结果
         let latestAnalyses: any[] = []
         if (caseRecord.caseSessions && caseRecord.caseSessions.length > 0) {
-            const latestSession = caseRecord.caseSessions[0] // 已按创建时间降序排列
+            const latestSession = caseRecord.caseSessions[0]! // 已按创建时间降序排列
             const analyses = await getSessionAnalysesService(latestSession.sessionId)
             latestAnalyses = analyses.map(a => ({
                 id: a.id,

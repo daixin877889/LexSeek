@@ -14,10 +14,10 @@ const bodySchema = z.object({
     name: z.string().min(1, '名称不能为空').max(100, '名称最多100个字符'),
     description: z.string().max(255, '描述最多255个字符').optional(),
     unitType: z.enum([BenefitUnitType.BYTE, BenefitUnitType.COUNT], {
-        errorMap: () => ({ message: '单位类型无效' }),
+        error: () => '单位类型无效',
     }),
     consumptionMode: z.enum([BenefitConsumptionMode.SUM, BenefitConsumptionMode.MAX], {
-        errorMap: () => ({ message: '计算模式无效' }),
+        error: () => '计算模式无效',
     }),
     defaultValue: z.string().refine((val) => {
         try {
@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const result = bodySchema.safeParse(body)
     if (!result.success) {
-        return resError(event, 400, '参数错误：' + result.error.issues[0].message)
+        return resError(event, 400, '参数错误：' + result.error.issues[0]!!.message)
     }
 
     const { code, name, description, unitType, consumptionMode, defaultValue } = result.data

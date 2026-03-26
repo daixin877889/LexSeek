@@ -49,13 +49,13 @@ export default defineEventHandler(async (event) => {
     const id = getRouterParam(event, 'id')
     const paramsResult = paramsSchema.safeParse({ id })
     if (!paramsResult.success) {
-        return resError(event, 400, '参数错误：' + paramsResult.error.issues[0].message)
+        return resError(event, 400, '参数错误：' + paramsResult.error.issues[0]!.message)
     }
 
     const body = await readBody(event)
     const bodyResult = bodySchema.safeParse(body)
     if (!bodyResult.success) {
-        return resError(event, 400, '参数错误：' + bodyResult.error.issues[0].message)
+        return resError(event, 400, '参数错误：' + bodyResult.error.issues[0]!.message)
     }
 
     try {

@@ -6,7 +6,8 @@
  * 返回所有启用的会员级别，按 sortOrder 升序排列（数字越大级别越高）
  */
 // import { findAllActiveMembershipLevelsDao } from '~/server/services/membership/membershipLevel.dao'
-import { MembershipLevelInfo, MembershipLevelStatus } from '#shared/types/membership'
+import type { MembershipLevelInfo } from '#shared/types/membership'
+import { MembershipLevelStatus } from '#shared/types/membership'
 
 export default defineEventHandler(async (event) => {
     try {

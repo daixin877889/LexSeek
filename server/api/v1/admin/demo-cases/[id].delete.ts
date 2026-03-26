@@ -16,12 +16,12 @@ export default defineEventHandler(async (event) => {
     const id = getRouterParam(event, 'id')
     const result = paramsSchema.safeParse({ id })
     if (!result.success) {
-        return resError(event, 400, '参数错误：' + result.error.issues[0].message)
+        return resError(event, 400, '参数错误：' + result.error.issues[0]!!.message)
     }
 
     try {
         await deleteDemoCaseService(result.data.id)
-        return resSuccess(event, '删除示范案例成功')
+        return resSuccess(event, '删除示范案例成功', null)
     } catch (error: any) {
         // 处理业务逻辑错误
         if (error.message === '示范案例不存在') {

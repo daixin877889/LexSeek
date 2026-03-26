@@ -9,6 +9,7 @@
  */
 
 import { z } from 'zod'
+import { $fetch } from 'ofetch'
 
 /** 请求体验证 Schema */
 const bodySchema = z.object({
@@ -31,7 +32,7 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const bodyResult = bodySchema.safeParse(body)
     if (!bodyResult.success) {
-        return resError(event, 400, bodyResult.error.issues[0]?.message || '参数错误')
+        return resError(event, 400, bodyResult.error.issues[0]!?.message || '参数错误')
     }
 
     const { uploadUrl, fileContent, fileName } = bodyResult.data
@@ -43,7 +44,7 @@ export default defineEventHandler(async (event) => {
         // 使用 PUT 方法上传到 MinerU OSS
         // 注意：不能设置 Content-Type，因为 MinerU 的签名是基于空 Content-Type 计算的
         const response = await $fetch.raw(uploadUrl, {
-            method: 'PUT',
+            method: 'PUT' as const,
             body: buffer,
         })
 

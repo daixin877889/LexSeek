@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
     const parseResult = queryPaymentSchema.safeParse(query)
 
     if (!parseResult.success) {
-        const errorMessage = parseResult.error.issues[0]?.message || '参数错误'
+        const errorMessage = parseResult.error.issues[0]!?.message || '参数错误'
         return resError(event, 400, errorMessage)
     }
 

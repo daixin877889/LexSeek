@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
         const params = { id: getRouterParam(event, 'id') }
         const paramsResult = paramsSchema.safeParse(params)
         if (!paramsResult.success) {
-            return resError(event, 400, paramsResult.error.issues[0].message)
+            return resError(event, 400, paramsResult.error.issues[0]!.message)
         }
 
         const { id } = paramsResult.data

@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
     // 参数验证
     const result = requestSchema.safeParse(body)
     if (!result.success) {
-        const errorMessage = result.error.issues[0]?.message || '参数错误'
+        const errorMessage = result.error.issues[0]!!?.message || '参数错误'
         return resError(event, 400, errorMessage)
     }
 

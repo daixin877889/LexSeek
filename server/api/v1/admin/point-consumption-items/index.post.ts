@@ -9,24 +9,24 @@ import { z } from 'zod'
 
 /** 请求体验证 */
 const bodySchema = z.object({
-    key: z.string({ required_error: 'Key不能为空' })
+    key: z.string({ error: (issue) => issue.input === undefined ? 'Key不能为空' : 'Key必须是字符串' })
         .min(1, 'Key不能为空')
         .max(50, 'Key不能超过50个字符')
         .regex(/^[a-z][a-z0-9_]*$/, 'Key只能包含小写字母、数字和下划线，且必须以字母开头'),
-    group: z.string({ required_error: '分组不能为空' })
+    group: z.string({ error: (issue) => issue.input === undefined ? '分组不能为空' : '分组必须是字符串' })
         .min(1, '分组不能为空')
         .max(100, '分组不能超过100个字符'),
-    name: z.string({ required_error: '名称不能为空' })
+    name: z.string({ error: (issue) => issue.input === undefined ? '名称不能为空' : '名称必须是字符串' })
         .min(1, '名称不能为空')
         .max(100, '名称不能超过100个字符'),
     description: z.string()
         .max(255, '描述不能超过255个字符')
         .optional()
         .nullable(),
-    unit: z.string({ required_error: '单位不能为空' })
+    unit: z.string({ error: (issue) => issue.input === undefined ? '单位不能为空' : '单位必须是字符串' })
         .min(1, '单位不能为空')
         .max(10, '单位不能超过10个字符'),
-    pointAmount: z.number({ required_error: '积分数量不能为空' })
+    pointAmount: z.number({ error: (issue) => issue.input === undefined ? '积分数量不能为空' : '积分数量必须是数字' })
         .int('积分数量必须是整数')
         .min(0, '积分数量不能为负数'),
     discount: z.number()
@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const result = bodySchema.safeParse(body)
     if (!result.success) {
-        return resError(event, 400, '参数错误：' + result.error.issues[0].message)
+        return resError(event, 400, '参数错误：' + result.error.issues[0]!!.message)
     }
 
     try {

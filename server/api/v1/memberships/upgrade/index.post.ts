@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
     const parseResult = bodySchema.safeParse(body)
 
     if (!parseResult.success) {
-        return resError(event, 400, parseResult.error.issues[0].message)
+        return resError(event, 400, parseResult.error.issues[0]!.message)
     }
 
     const { targetLevelId, orderId, membershipId } = parseResult.data

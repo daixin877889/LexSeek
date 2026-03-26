@@ -11,6 +11,7 @@
 
 import { z } from 'zod'
 import crypto from 'crypto'
+import { $fetch } from 'ofetch'
 import {
     createMineruTaskService,
 } from '~~/server/services/material/mineruTask.service'
@@ -94,7 +95,7 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const bodyResult = bodySchema.safeParse(body)
     if (!bodyResult.success) {
-        return resError(event, 400, bodyResult.error.issues[0]?.message || '参数错误')
+        return resError(event, 400, bodyResult.error.issues[0]!?.message || '参数错误')
     }
 
     const { files, modelVersion, enableOcr, enableFormula, enableTable } = bodyResult.data
@@ -149,7 +150,7 @@ export default defineEventHandler(async (event) => {
         }
 
         // 5. 调用 MinerU 批量上传 API
-        const response = await $fetch<MineruBatchResponse>(
+        const response = (await $fetch(
             'https://mineru.net/api/v4/file-urls/batch',
             {
                 method: 'POST',
@@ -159,7 +160,7 @@ export default defineEventHandler(async (event) => {
                 },
                 body: requestBody,
             }
-        )
+        )) as MineruBatchResponse
 
         if (response.code !== 0 || !response.data) {
             logger.error('MinerU 批量上传链接申请失败：', response)

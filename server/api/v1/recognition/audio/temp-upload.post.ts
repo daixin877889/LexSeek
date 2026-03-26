@@ -48,9 +48,9 @@ export default defineEventHandler(async (event) => {
         const result = bodySchema.safeParse(body)
         if (!result.success) {
             logger.warn('临时文件上传签名 API 参数验证失败', {
-                error: result.error.issues[0].message,
+                error: result.error.issues[0]!!.message,
             })
-            return resError(event, 400, result.error.issues[0].message)
+            return resError(event, 400, result.error.issues[0]!!.message)
         }
 
         const { ossFileId, fileName, fileSize, mimeType } = result.data

@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
                 levelId: currentMembership.levelId,
                 levelName: currentMembership.level.name,
                 endDate: currentMembership.endDate,
-                remainingDays: options.length > 0 ? options[0].remainingDays : 0,
+                remainingDays: options.length > 0 ? options[0]!.remainingDays : 0,
             },
             options,
         })

@@ -41,12 +41,12 @@ const extractPageMeta = (content: string): { title: string | null; layout: strin
     const metaContent = metaMatch[1]
 
     // 提取 title
-    const titleMatch = metaContent.match(/title\s*:\s*["'`]([^"'`]+)["'`]/)
-    const title = titleMatch ? titleMatch[1] : null
+    const titleMatch = metaContent?.match(/title\s*:\s*["'`]([^"'`]+)["'`]/)
+    const title = titleMatch?.[1] ?? null
 
     // 提取 layout
-    const layoutMatch = metaContent.match(/layout\s*:\s*["'`]([^"'`]+)["'`]/)
-    const layout = layoutMatch ? layoutMatch[1] : null
+    const layoutMatch = metaContent?.match(/layout\s*:\s*["'`]([^"'`]+)["'`]/)
+    const layout = layoutMatch?.[1] ?? null
 
     return { title, layout }
 }
@@ -99,7 +99,7 @@ const inferGroup = (routePath: string): string => {
         'landing': '落地页',
     }
 
-    return groupMap[parts[0]] || '公共页面'
+    return groupMap[parts[0]!] || '公共页面'
 }
 
 /**

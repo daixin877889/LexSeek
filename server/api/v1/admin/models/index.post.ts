@@ -11,18 +11,17 @@ import { z } from 'zod'
  * 包含 sdkType 字段用于指定 LangChain SDK 类型
  */
 const bodySchema = z.object({
-    providerId: z.number({ required_error: '提供商ID不能为空' })
+    providerId: z.number({ error: (issue) => issue.input === undefined ? '提供商ID不能为空' : '提供商ID必须是数字' })
         .int('提供商ID必须是整数')
         .positive('提供商ID必须是正整数'),
-    name: z.string({ required_error: '模型名称不能为空' })
+    name: z.string({ error: (issue) => issue.input === undefined ? '模型名称不能为空' : '模型名称必须是字符串' })
         .min(1, '模型名称不能为空')
         .max(100, '模型名称不能超过100个字符'),
-    displayName: z.string({ required_error: '显示名称不能为空' })
+    displayName: z.string({ error: (issue) => issue.input === undefined ? '显示名称不能为空' : '显示名称必须是字符串' })
         .min(1, '显示名称不能为空')
         .max(100, '显示名称不能超过100个字符'),
     modelType: z.enum(['chat', 'embedding', 'asr'], {
-        required_error: '模型类型不能为空',
-        invalid_type_error: '模型类型必须是 chat、embedding 或 asr',
+        error: (issue) => issue.input === undefined ? '模型类型不能为空' : '模型类型必须是 chat、embedding 或 asr',
     }),
     /**
      * LangChain SDK 类型
@@ -31,7 +30,7 @@ const bodySchema = z.object({
      * 支持的枚举值：openai、deepseek、gemini、anthropic
      */
     sdkType: z.enum(['openai', 'deepseek', 'gemini', 'anthropic'], {
-        message: 'SDK 类型必须是 openai、deepseek、gemini 或 anthropic',
+        error: 'SDK 类型必须是 openai、deepseek、gemini 或 anthropic',
     }).optional(),
     modelVersion: z.string()
         .max(50, '版本号不能超过50个字符')
@@ -76,7 +75,7 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const result = bodySchema.safeParse(body)
     if (!result.success) {
-        return resError(event, 400, '参数错误：' + result.error.issues[0].message)
+        return resError(event, 400, '参数错误：' + result.error.issues[0]!!.message)
     }
 
     try {

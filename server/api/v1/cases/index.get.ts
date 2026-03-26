@@ -73,9 +73,9 @@ export default defineEventHandler(async (event) => {
             } : null,
             // 最新会话信息
             latestSession: c.caseSessions && c.caseSessions.length > 0 ? {
-                sessionId: c.caseSessions[0].sessionId,
-                status: c.caseSessions[0].status,
-                createdAt: c.caseSessions[0].createdAt,
+                sessionId: c.caseSessions[0]!.sessionId,
+                status: c.caseSessions[0]!.status,
+                createdAt: c.caseSessions[0]!.createdAt,
             } : null,
         }))
 

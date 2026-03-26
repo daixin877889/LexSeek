@@ -14,7 +14,7 @@ const paramsSchema = z.object({
 
 /** 请求体验证 */
 const bodySchema = z.object({
-    status: z.number({ required_error: '状态不能为空' })
+    status: z.number({ error: '状态不能为空' })
         .int('状态必须是整数')
         .min(0, '状态值无效')
         .max(1, '状态值无效'),
@@ -24,13 +24,13 @@ export default defineEventHandler(async (event) => {
     const id = getRouterParam(event, 'id')
     const paramsResult = paramsSchema.safeParse({ id })
     if (!paramsResult.success) {
-        return resError(event, 400, '参数错误：' + paramsResult.error.issues[0].message)
+        return resError(event, 400, '参数错误：' + paramsResult.error.issues[0]!.message)
     }
 
     const body = await readBody(event)
     const bodyResult = bodySchema.safeParse(body)
     if (!bodyResult.success) {
-        return resError(event, 400, '参数错误：' + bodyResult.error.issues[0].message)
+        return resError(event, 400, '参数错误：' + bodyResult.error.issues[0]!.message)
     }
 
     try {

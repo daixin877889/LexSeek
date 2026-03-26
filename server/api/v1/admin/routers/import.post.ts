@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const result = importSchema.safeParse(body)
     if (!result.success) {
-        return resError(event, 400, result.error.issues[0]?.message || '参数错误')
+        return resError(event, 400, result.error.issues[0]!!?.message || '参数错误')
     }
 
     const { items } = result.data

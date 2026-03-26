@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
     // 参数校验
     const result = schema.safeParse(body)
     if (!result.success) {
-        return resError(event, 400, result.error.issues[0]?.message || '参数错误')
+        return resError(event, 400, result.error.issues[0]!!?.message || '参数错误')
     }
 
     const { ossFileIds } = result.data
@@ -92,10 +92,10 @@ export default defineEventHandler(async (event) => {
 
         switch (fileType) {
             case CaseMaterialType.IMAGE:
-                processResult = await createImageRecognitionService(ossFileId, user.id)
+                processResult = await createImageConversionService(ossFileId, user.id) as any
                 break
             case CaseMaterialType.AUDIO:
-                processResult = await transcribeAudioService(ossFileId, user.id)
+                processResult = await transcribeAudioService(ossFileId, user.id) as any
                 break
             case CaseMaterialType.DOCUMENT:
                 // 文档类型需要进一步根据扩展名判断
@@ -106,15 +106,15 @@ export default defineEventHandler(async (event) => {
                 } else if (ext === 'docx') {
                     // docx 文件使用 mammoth 解析（同步处理）
                     isSyncProcessing = true
-                    processResult = await recognizeDocxService(ossFileId, user.id)
+                    processResult = await recognizeDocxService(ossFileId, user.id) as any
                 } else {
                     // doc/pdf 等其他文档使用 MinerU 服务（异步处理）
-                    processResult = await convertPdfService(ossFileId, user.id)
+                    processResult = await convertPdfService(ossFileId, user.id) as any
                 }
                 break
             default:
                 // 未知类型，默认使用 MinerU 服务
-                processResult = await convertPdfService(ossFileId, user.id)
+                processResult = await convertPdfService(ossFileId, user.id) as any
         }
 
         // 检查是否已有成功的识别记录（taskId === 'existing' 表示已有成功记录）

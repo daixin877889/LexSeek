@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
         const result = paramsSchema.safeParse({ id })
 
         if (!result.success) {
-            return resError(event, 400, result.error.issues[0].message)
+            return resError(event, 400, result.error.issues[0]!!.message)
         }
 
         // 查询法律法规详情

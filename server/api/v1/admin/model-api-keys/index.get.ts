@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
     const query = getQuery(event)
     const result = querySchema.safeParse(query)
     if (!result.success) {
-        return resError(event, 400, '参数错误：' + result.error.issues[0].message)
+        return resError(event, 400, '参数错误：' + result.error.issues[0]!!.message)
     }
 
     const { page, pageSize, providerId, status } = result.data

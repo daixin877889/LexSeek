@@ -46,7 +46,7 @@ export default defineEventHandler(async (event) => {
         const params = { ossFileId: getRouterParam(event, 'ossFileId') }
         const paramsResult = paramsSchema.safeParse(params)
         if (!paramsResult.success) {
-            return resError(event, 400, paramsResult.error.issues[0]?.message)
+            return resError(event, 400, paramsResult.error.issues[0]!?.message)
         }
 
         const { ossFileId } = paramsResult.data

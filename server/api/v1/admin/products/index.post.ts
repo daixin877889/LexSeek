@@ -11,7 +11,7 @@ import { ProductType, ProductStatus } from '#shared/types/product'
 const bodySchema = z.object({
     name: z.string().min(1, '名称不能为空').max(100, '名称最多100个字符'),
     description: z.string().max(500, '描述最多500个字符').optional(),
-    type: z.nativeEnum(ProductType, { errorMap: () => ({ message: '产品类型无效' }) }),
+    type: z.nativeEnum(ProductType, { error: '产品类型无效' }),
     category: z.string().max(50, '分类最多50个字符').optional(),
     levelId: z.number().int().positive('会员级别ID必须为正整数').optional(),
     priceMonthly: z.number().min(0, '月付价格不能为负').optional(),
@@ -26,7 +26,7 @@ const bodySchema = z.object({
     purchaseLimit: z.number().int().min(0, '购买限制不能为负').optional(),
     pointAmount: z.number().int().min(0, '积分数量不能为负').optional(),
     giftPoint: z.number().int().min(0, '赠送积分不能为负').optional(),
-    status: z.nativeEnum(ProductStatus, { message: '产品状态无效' }).optional(),
+    status: z.nativeEnum(ProductStatus, { error: '产品状态无效' }).optional(),
     sortOrder: z.number().int().min(0, '排序值不能为负').optional(),
 })
 
@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const result = bodySchema.safeParse(body)
     if (!result.success) {
-        return resError(event, 400, '参数错误：' + result.error.issues[0].message)
+        return resError(event, 400, '参数错误：' + result.error.issues[0]!!.message)
     }
 
     try {

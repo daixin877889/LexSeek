@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
     const parseResult = querySchema.safeParse(query)
 
     if (!parseResult.success) {
-        return resError(event, 400, parseResult.error.issues[0].message)
+        return resError(event, 400, parseResult.error.issues[0]!.message)
     }
 
     const { page, pageSize } = parseResult.data

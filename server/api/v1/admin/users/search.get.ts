@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
     const query = getQuery(event)
     const result = querySchema.safeParse(query)
     if (!result.success) {
-        const firstError = result.error.issues[0]
+        const firstError = result.error.issues[0]!!
         return resError(event, 400, '参数错误：' + (firstError?.message || '未知错误'))
     }
 

@@ -8,13 +8,13 @@ import { z } from 'zod'
 
 /** 请求体验证 */
 const bodySchema = z.object({
-    providerId: z.number({ required_error: '提供商ID不能为空' })
+    providerId: z.number({ error: (issue) => issue.input === undefined ? '提供商ID不能为空' : '提供商ID必须是数字' })
         .int('提供商ID必须是整数')
         .positive('提供商ID必须是正整数'),
-    name: z.string({ required_error: '密钥名称不能为空' })
+    name: z.string({ error: (issue) => issue.input === undefined ? '密钥名称不能为空' : '密钥名称必须是字符串' })
         .min(1, '密钥名称不能为空')
         .max(100, '密钥名称不能超过100个字符'),
-    apiKey: z.string({ required_error: 'API密钥不能为空' })
+    apiKey: z.string({ error: (issue) => issue.input === undefined ? 'API密钥不能为空' : 'API密钥必须是字符串' })
         .min(1, 'API密钥不能为空')
         .max(255, 'API密钥不能超过255个字符'),
     isDefault: z.boolean().optional(),
@@ -39,7 +39,7 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const result = bodySchema.safeParse(body)
     if (!result.success) {
-        return resError(event, 400, '参数错误：' + result.error.issues[0].message)
+        return resError(event, 400, '参数错误：' + result.error.issues[0]!!.message)
     }
 
     try {

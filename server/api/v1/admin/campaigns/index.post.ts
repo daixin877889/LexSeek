@@ -11,13 +11,13 @@ import { CampaignType, CampaignStatus } from '#shared/types/campaign'
 /** 请求体验证 */
 const bodySchema = z.object({
     name: z.string().min(1, '名称不能为空').max(100, '名称最多100个字符'),
-    type: z.nativeEnum(CampaignType, { errorMap: () => ({ message: '活动类型无效' }) }),
+    type: z.nativeEnum(CampaignType, { error: () => '活动类型无效' }),
     levelId: z.number().int().positive('会员级别ID必须为正整数').nullable().optional(),
     duration: z.number().int().min(1, '时长至少为1天').nullable().optional(),
     giftPoint: z.number().int().min(0, '赠送积分不能为负').nullable().optional(),
     startAt: z.string().refine((val) => dayjs(val).isValid(), '开始时间格式无效'),
     endAt: z.string().refine((val) => dayjs(val).isValid(), '结束时间格式无效').nullable().optional(),
-    status: z.nativeEnum(CampaignStatus, { message: '活动状态无效' }).optional(),
+    status: z.nativeEnum(CampaignStatus, { error: () => '活动状态无效' }).optional(),
     remark: z.string().max(500, '备注最多500个字符').nullable().optional(),
 }).refine((data) => {
     // 如果有结束时间，验证结束时间必须晚于开始时间
@@ -32,7 +32,7 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const result = bodySchema.safeParse(body)
     if (!result.success) {
-        return resError(event, 400, '参数错误：' + result.error.issues[0].message)
+        return resError(event, 400, '参数错误：' + result.error.issues[0]!!.message)
     }
 
     const { name, type, levelId, duration, giftPoint, startAt, endAt, status, remark } = result.data

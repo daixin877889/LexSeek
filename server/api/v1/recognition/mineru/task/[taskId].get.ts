@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
         const params = getRouterParams(event)
         const paramsResult = paramsSchema.safeParse(params)
         if (!paramsResult.success) {
-            return resError(event, 400, paramsResult.error.issues[0]?.message || '参数错误')
+            return resError(event, 400, paramsResult.error.issues[0]!?.message || '参数错误')
         }
 
         const { taskId: taskIdParam } = paramsResult.data

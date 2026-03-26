@@ -14,6 +14,7 @@
 import { z } from 'zod'
 import { deleteEmbeddingsByMetadata } from '~~/server/services/legal/vectorStore.service'
 import { updateLegalEmbeddings } from '~~/server/services/legal/lawEmbedding.service'
+import { batchSaveArticlesService } from '~~/server/services/legal/article.service'
 
 /**
  * 请求参数验证 Schema
@@ -38,7 +39,7 @@ export default defineEventHandler(async (event) => {
         const validationResult = BatchSaveSchema.safeParse(body)
 
         if (!validationResult.success) {
-            const firstError = validationResult.error.issues[0]
+            const firstError = validationResult.error.issues[0]!
             return resError(event, 400, firstError.message)
         }
 
@@ -83,7 +84,7 @@ export default defineEventHandler(async (event) => {
 
         // 批量保存条文（事务操作）
         try {
-            await batchSaveArticles({
+            await batchSaveArticlesService({
                 legalId,
                 content,
                 articles,

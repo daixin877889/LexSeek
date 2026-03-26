@@ -39,11 +39,29 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const result = bodySchema.safeParse(body)
     if (!result.success) {
-        return resError(event, 400, '参数错误：' + result.error.issues[0].message)
+        return resError(event, 400, '参数错误：' + result.error.issues[0]!!.message)
     }
 
     try {
-        const product = await updateProductService(id, result.data)
+        // 将 null 转换为 undefined 以匹配 UpdateProductParams 类型
+        const updateData = {
+            ...result.data,
+            description: result.data.description ?? undefined,
+            category: result.data.category ?? undefined,
+            priceMonthly: result.data.priceMonthly ?? undefined,
+            priceYearly: result.data.priceYearly ?? undefined,
+            defaultDuration: result.data.defaultDuration ?? undefined,
+            unitPrice: result.data.unitPrice ?? undefined,
+            originalPriceMonthly: result.data.originalPriceMonthly ?? undefined,
+            originalPriceYearly: result.data.originalPriceYearly ?? undefined,
+            originalUnitPrice: result.data.originalUnitPrice ?? undefined,
+            minQuantity: result.data.minQuantity ?? undefined,
+            maxQuantity: result.data.maxQuantity ?? undefined,
+            purchaseLimit: result.data.purchaseLimit ?? undefined,
+            pointAmount: result.data.pointAmount ?? undefined,
+            giftPoint: result.data.giftPoint ?? undefined,
+        }
+        const product = await updateProductService(id, updateData)
         return resSuccess(event, '更新产品成功', product)
     } catch (error: any) {
         if (error.message === '产品不存在') {

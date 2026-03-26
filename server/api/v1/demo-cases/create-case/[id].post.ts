@@ -9,7 +9,8 @@
 
 import { z } from 'zod'
 import type { DemoCaseMaterial } from '~~/server/services/case/demoCase.dao'
-import { CaseMaterialType, MaterialStatus } from '#shared/types/material'
+import { CaseMaterialType } from '#shared/types/case'
+import { MaterialStatus } from '#shared/types/material'
 
 /** 路径参数验证 */
 const paramsSchema = z.object({
@@ -27,7 +28,7 @@ export default defineEventHandler(async (event) => {
     const params = getRouterParams(event)
     const paramsResult = paramsSchema.safeParse(params)
     if (!paramsResult.success) {
-        return resError(event, 400, '参数错误：' + paramsResult.error.issues[0].message)
+        return resError(event, 400, '参数错误：' + paramsResult.error.issues[0]!.message)
     }
 
     const { id: demoCaseId } = paramsResult.data
