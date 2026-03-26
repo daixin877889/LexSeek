@@ -1,20 +1,21 @@
 /**
- * 初始化分析 LangGraph 工作流（subgraph 版本）
+ * 初始化分析 LangGraph 工作流
  *
- * 父图 StateGraph 串行编排，每个模块创建 ReactAgent 作为子图节点
- * - 父图 checkpointer 自动管理所有子图状态，支持崩溃恢复
- * - subgraphs: true 让子图事件透传到 SSE 流
- * - _langchain_path 自动标注子图路径，前端无需额外注入
+ * 每个分析模块作为 StateGraph 的独立节点，节点内部调用 Agent 并返回 messages
+ * 父图 messages 使用 concat reducer 累积所有模块的消息
+ * 父图 stream() 的 messages/values 事件自然包含所有节点的消息更新
+ * useStream 可直接消费，无需额外处理
  *
- * 图结构：START → execute_next → (子图 Agent) → execute_next → ... → END
+ * 参考：/Users/daixin/work/dev/LexSeek/lexseekApi/src/services/ai/graph/caseAnalysisTask.ts
+ *
+ * 图结构：START → summaryNode → chronicleNode → claimNode → ... → END
+ * （未选中的模块在节点函数内部跳过，返回空更新）
  */
 
 import { Annotation, StateGraph } from '@langchain/langgraph'
-import { isGraphInterrupt } from '@langchain/langgraph'
-import { createAgent, type ReactAgent } from 'langchain'
+import { createAgent, summarizationMiddleware } from 'langchain'
 import { HumanMessage } from '@langchain/core/messages'
 import type { BaseMessage } from '@langchain/core/messages'
-import { messagesStateReducer } from '@langchain/langgraph'
 import { createChatModel } from '../node/chatModelFactory'
 import { getToolInstancesService } from './tools'
 import { pointConsumptionMiddleware } from './middleware/pointConsumption.middleware'
@@ -23,158 +24,159 @@ import {
     startAnalysisService,
     completeAnalysisService,
 } from '../case/analysis.service'
+import { VALID_MODULE_NAMES } from '#shared/types/initAnalysis'
 
 // ==================== State 定义 ====================
 
-function replaceReducer<T>(_existing: T, updated: T): T {
-    return updated
-}
-
-function mergeRecordReducer(
-    existing: Record<string, string>,
-    updated: Record<string, string>,
-): Record<string, string> {
-    return { ...existing, ...updated }
-}
-
-const InitAnalysisAnnotation = Annotation.Root({
+export const InitAnalysisAnnotation = Annotation.Root({
+    // messages 使用 concat reducer：每个节点返回的 messages 追加到数组中
+    // 这样父图 stream() 的 values 事件中 messages 包含所有节点的消息
     messages: Annotation<BaseMessage[]>({
-        reducer: messagesStateReducer,
         default: () => [],
+        reducer: (a, b) => a.concat(b),
     }),
     userId: Annotation<number>,
     caseId: Annotation<number>,
     sessionId: Annotation<string>,
-    selectedModules: Annotation<string[]>({
-        reducer: replaceReducer,
-        default: () => [],
-    }),
-    currentModuleIndex: Annotation<number>({
-        reducer: replaceReducer,
-        default: () => 0,
-    }),
-    currentModule: Annotation<string>({
-        reducer: replaceReducer,
-        default: () => '',
-    }),
-    completedResults: Annotation<Record<string, string>>({
-        reducer: mergeRecordReducer,
+    // 用户选中的模块列表
+    selectedModules: Annotation<string[]>,
+    // 各模块分析结果
+    result: Annotation<Record<string, string>>({
         default: () => ({}),
+        reducer: (a, b) => ({ ...a, ...b }),
     }),
-    failedModules: Annotation<Record<string, string>>({
-        reducer: mergeRecordReducer,
-        default: () => ({}),
-    }),
-    isComplete: Annotation<boolean>({
-        reducer: replaceReducer,
-        default: () => false,
-    }),
+    // 上一个执行的模块信息（供后续模块引用）
+    lastExecutedModule: Annotation<string>,
+    lastExecutedResult: Annotation<string>,
+    lastExecutedTitle: Annotation<string>,
 })
 
 type InitAnalysisState = typeof InitAnalysisAnnotation.State
 
-// ==================== 节点函数 ====================
+// ==================== 节点工厂 ====================
+
+interface ModuleNodeConfig {
+    moduleName: string
+    title: string
+}
 
 /**
- * 执行当前模块的 Agent
+ * 创建分析节点函数
  *
- * 每次执行一个模块：创建 Agent → invoke → 提取结果 → 保存 → 递增 index
- * Agent 内部的 pointConsumptionMiddleware 会处理积分中断（GraphInterrupt 向上传递）
+ * 节点内部：
+ * 1. 检查是否在 selectedModules 中（未选中则跳过）
+ * 2. 加载节点配置 + 创建 Agent
+ * 3. 调用 agent.invoke() 获取结果
+ * 4. 返回 { messages, result, lastExecuted* }
+ *
+ * 父图的 messages concat reducer 会自动累积
  */
-async function executeModuleNode(state: InitAnalysisState): Promise<Partial<InitAnalysisState>> {
-    const { selectedModules, currentModuleIndex, completedResults, userId, caseId, sessionId } = state
-    const moduleName = selectedModules[currentModuleIndex]
-
-    if (!moduleName) {
-        return { isComplete: true }
-    }
-
-    // 跳过已完成模块（resume 场景）
-    if (completedResults[moduleName]) {
-        return {
-            currentModule: moduleName,
-            currentModuleIndex: currentModuleIndex + 1,
+function createModuleNode(config: ModuleNodeConfig) {
+    return async (state: InitAnalysisState): Promise<Partial<InitAnalysisState>> => {
+        // 检查是否应执行此模块
+        if (!state.selectedModules.includes(config.moduleName)) {
+            return {}
         }
-    }
 
-    // 1. 加载节点配置
-    const nodeConfig = await getValidNodeConfig(moduleName, `分析模块: ${moduleName}`)
-    const activeApiKey = nodeConfig.modelApiKeys.find((k: any) => k.status === 1)
-    if (!activeApiKey) {
-        return {
-            currentModule: moduleName,
-            currentModuleIndex: currentModuleIndex + 1,
-            failedModules: { [moduleName]: `模块 ${moduleName} 无可用 API 密钥` },
+        const { userId, caseId, sessionId, lastExecutedTitle, lastExecutedResult } = state
+
+        // 1. 加载节点配置
+        let nodeConfig
+        try {
+            nodeConfig = await getValidNodeConfig(config.moduleName, `分析模块: ${config.moduleName}`)
+        } catch (error: any) {
+            logger.error(`模块 ${config.moduleName} 配置获取失败:`, error)
+            return {
+                result: { [config.moduleName]: `[错误] ${error.message}` },
+                lastExecutedModule: config.moduleName,
+                lastExecutedResult: '',
+                lastExecutedTitle: config.title,
+            }
         }
-    }
 
-    // 2. 创建模型
-    const model = createChatModel({
-        sdkType: nodeConfig.modelSdkType,
-        modelName: nodeConfig.modelName,
-        apiKey: activeApiKey.apiKey,
-        baseUrl: nodeConfig.modelProviderBaseUrl,
-        temperature: 0.7,
-        streaming: true,
-    })
+        const activeApiKey = nodeConfig.modelApiKeys.find((k: any) => k.status === 1)
+        if (!activeApiKey) {
+            return {
+                result: { [config.moduleName]: '[错误] 无可用 API 密钥' },
+                lastExecutedModule: config.moduleName,
+                lastExecutedResult: '',
+                lastExecutedTitle: config.title,
+            }
+        }
 
-    // 3. 加载工具
-    const tools = nodeConfig.tools?.length > 0
-        ? getToolInstancesService(nodeConfig.tools, { userId, caseId, sessionId })
-        : []
+        // 2. 创建模型
+        const model = createChatModel({
+            sdkType: nodeConfig.modelSdkType,
+            modelName: nodeConfig.modelName,
+            apiKey: activeApiKey.apiKey,
+            baseUrl: nodeConfig.modelProviderBaseUrl,
+            temperature: 0.7,
+            streaming: true,
+        })
 
-    // 4. 构建系统提示（注入已完成模块结果）
-    const systemPromptConfig = nodeConfig.prompts?.find(
-        (p: { type: string; status: number }) => p.type === 'system' && p.status === 1,
-    )
-    const systemPrompt = systemPromptConfig?.content ?? ''
-    const contextPrefix = Object.keys(completedResults).length > 0
-        ? `以下是已完成的分析结果，请参考：\n\n${Object.entries(completedResults).map(([k, v]) => `### ${k}\n${v}`).join('\n\n')}\n\n---\n\n`
-        : ''
+        // 3. 加载工具
+        const tools = nodeConfig.tools?.length > 0
+            ? getToolInstancesService(nodeConfig.tools, { userId, caseId, sessionId })
+            : []
 
-    // 5. 标记分析开始
-    const analysisRecord = await startAnalysisService({
-        caseId,
-        sessionId,
-        nodeId: nodeConfig.id,
-        analysisType: moduleName,
-    })
+        // 4. 构建系统提示
+        const systemPrompt = nodeConfig.prompts?.find(
+            (p: { type: string; status: number }) => p.type === 'system' && p.status === 1,
+        )?.content ?? ''
 
-    logger.info(`初始化分析模块 ${moduleName} 开始执行`, {
-        sessionId, caseId, userId, toolsCount: tools.length,
-    })
+        // 5. 构建上下文提示（注入前一个模块的结果）
+        let contextPrompt = ''
+        if (lastExecutedTitle && lastExecutedResult) {
+            contextPrompt = `\n\n## 前置分析结果\n### ${lastExecutedTitle}\n${lastExecutedResult}`
+        }
+        const fullPrompt = `${contextPrompt}\n\n --- \n\n 现在请开始任务：${config.title}`
 
-    try {
-        // 6. 创建并执行 Agent
-        const [checkpointer, store] = await Promise.all([getCheckpointer(), getStore()])
-        const agent: ReactAgent = createAgent({
+        // 6. 标记分析开始
+        const analysisRecord = await startAnalysisService({
+            caseId,
+            sessionId,
+            nodeId: nodeConfig.id,
+            analysisType: config.moduleName,
+        })
+
+        logger.info(`初始化分析模块 ${config.moduleName} 开始`, {
+            sessionId, caseId, userId, toolsCount: tools.length,
+        })
+
+        // 7. 创建并执行 Agent
+        const agent = createAgent({
             model,
-            systemPrompt: contextPrefix + systemPrompt,
-            checkpointer,
+            systemPrompt,
+            checkpointer: await getCheckpointer(),
             tools,
-            store,
+            store: await getStore(),
             middleware: [
                 pointConsumptionMiddleware(userId, 'case_analysis_token'),
                 caseMaterialContextMiddleware(userId, caseId),
+                summarizationMiddleware({
+                    model,
+                    trigger: [{ tokens: 100000 }],
+                }),
             ],
         })
 
-        // invoke 而非 stream——父图的 stream() 会自动透传子图事件
         const result = await agent.invoke(
-            { messages: [new HumanMessage('请执行分析')] },
+            { messages: [new HumanMessage(fullPrompt)] },
             {
-                configurable: { thread_id: `${sessionId}_${moduleName}` },
+                configurable: {
+                    thread_id: `${sessionId}_${config.moduleName}`,
+                    user_id: userId,
+                    case_id: caseId,
+                },
                 recursionLimit: 100,
             },
         )
 
-        // 7. 提取最终文本
-        const lastAIMsg = [...(result.messages ?? [])].reverse().find(
-            (m: any) => m._getType?.() === 'ai' || m.type === 'ai',
-        )
+        // 8. 提取最终文本
+        const lastMsg = result.messages?.[result.messages.length - 1]
         let resultText = ''
-        if (lastAIMsg) {
-            const content = lastAIMsg.content
+        if (lastMsg) {
+            const content = lastMsg.content
             if (typeof content === 'string') {
                 resultText = content
             } else if (Array.isArray(content)) {
@@ -185,42 +187,34 @@ async function executeModuleNode(state: InitAnalysisState): Promise<Partial<Init
             }
         }
 
-        // 8. 保存分析结果
+        // 9. 保存分析结果
         await completeAnalysisService(analysisRecord.id, resultText)
 
-        logger.info(`初始化分析模块 ${moduleName} 完成`, {
+        logger.info(`初始化分析模块 ${config.moduleName} 完成`, {
             sessionId, resultLength: resultText.length,
         })
 
         return {
-            currentModule: moduleName,
-            currentModuleIndex: currentModuleIndex + 1,
-            completedResults: { [moduleName]: resultText },
-        }
-    } catch (error: any) {
-        // GraphInterrupt（积分不足）向上传递给父图处理
-        if (isGraphInterrupt(error)) {
-            throw error
-        }
-
-        logger.error(`初始化分析模块 ${moduleName} 执行失败:`, error)
-
-        return {
-            currentModule: moduleName,
-            currentModuleIndex: currentModuleIndex + 1,
-            failedModules: { [moduleName]: error.message ?? '未知错误' },
+            messages: result.messages ?? [],
+            result: { [config.moduleName]: resultText },
+            lastExecutedModule: config.moduleName,
+            lastExecutedResult: resultText,
+            lastExecutedTitle: config.title,
         }
     }
 }
 
-// ==================== 路由 ====================
+// ==================== 模块节点定义（固定顺序） ====================
 
-function routeAfterExecute(state: InitAnalysisState): string {
-    if (state.isComplete || state.currentModuleIndex >= state.selectedModules.length) {
-        return '__end__'
-    }
-    return 'execute_module'
-}
+const MODULE_CONFIGS: ModuleNodeConfig[] = [
+    { moduleName: 'summary', title: '生成案件概要' },
+    { moduleName: 'chronicle', title: '提取案件大事记' },
+    { moduleName: 'claim', title: '预分析案件请求权' },
+    { moduleName: 'trend', title: '判决趋势预测' },
+    { moduleName: 'cause', title: '预选案由' },
+    { moduleName: 'defense', title: '抗辩分析及应对策略预测' },
+    { moduleName: 'evidence', title: '证据清单预梳理' },
+]
 
 // ==================== 工作流编译 ====================
 
@@ -231,13 +225,21 @@ async function getInitAnalysisWorkflow() {
 
     const checkpointer = await getCheckpointer()
 
-    const graph = new StateGraph(InitAnalysisAnnotation)
-        .addNode('execute_module', executeModuleNode)
-        .addEdge('__start__', 'execute_module')
-        .addConditionalEdges('execute_module', routeAfterExecute, [
-            'execute_module',
-            '__end__',
-        ])
+    const graph = new StateGraph(InitAnalysisAnnotation) as any
+
+    // 注册所有模块节点
+    for (const config of MODULE_CONFIGS) {
+        graph.addNode(`${config.moduleName}Node`, createModuleNode(config))
+    }
+
+    // 串行连接：START → summaryNode → chronicleNode → ... → END
+    const nodeNames = MODULE_CONFIGS.map(c => `${c.moduleName}Node`)
+
+    graph.addEdge('__start__', nodeNames[0])
+    for (let i = 0; i < nodeNames.length - 1; i++) {
+        graph.addEdge(nodeNames[i], nodeNames[i + 1])
+    }
+    graph.addEdge(nodeNames[nodeNames.length - 1], '__end__')
 
     workflowInstance = graph.compile({ checkpointer })
     return workflowInstance
@@ -257,19 +259,16 @@ export interface InitAnalysisParams {
 /**
  * 启动初始化分析
  *
- * 返回 SSE 格式的 ReadableStream，与 runCaseChat 格式一致
- * Worker 可直接用 parseSSEEvents 消费
+ * 返回 SSE 格式的 ReadableStream，Worker 可直接消费
+ * useStream 前端可直接消费 messages/values
  */
 export async function startInitAnalysis(params: InitAnalysisParams): Promise<ReadableStream> {
     const workflow = await getInitAnalysisWorkflow()
 
-    const { command, ...restParams } = params
-
-    // resume：有 command 时恢复已中断的工作流
-    if (command) {
+    if (params.command) {
         const { Command } = await import('@langchain/langgraph')
         return workflow.stream(
-            new Command({ resume: command }),
+            new Command({ resume: params.command }),
             {
                 configurable: { thread_id: params.sessionId },
                 streamMode: ['values', 'messages', 'updates'],
@@ -286,9 +285,6 @@ export async function startInitAnalysis(params: InitAnalysisParams): Promise<Rea
             caseId: params.caseId,
             sessionId: params.sessionId,
             selectedModules: params.selectedModules,
-            currentModuleIndex: 0,
-            currentModule: params.selectedModules[0] ?? '',
-            completedResults: params.completedResults ?? {},
         },
         {
             configurable: { thread_id: params.sessionId },
@@ -300,9 +296,6 @@ export async function startInitAnalysis(params: InitAnalysisParams): Promise<Rea
     )
 }
 
-/**
- * 重置工作流实例（用于测试）
- */
 export function resetInitAnalysisWorkflow(): void {
     workflowInstance = null
 }
