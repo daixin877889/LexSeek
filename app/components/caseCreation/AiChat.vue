@@ -13,7 +13,7 @@
             />
 
             <!-- 消息列表 -->
-            <template v-for="(msg, index) in messages" :key="msg.id">
+            <template v-for="msg in messages" :key="msg.id">
               <!-- 用户消息 -->
               <AiElementsMessage v-if="msg.role === 'user'" from="user" class="max-w-full">
                 <AiElementsMessageContent>
