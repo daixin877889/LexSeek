@@ -209,8 +209,9 @@ function handleSubmit(data: AiPromptSubmitData) {
 
     <!-- 单面板模式 -->
     <div v-else class="flex min-h-0 flex-1 flex-col">
-      <KeepAlive>
-        <template v-if="showLeftPanel">
+      <!-- 左侧面板 -->
+      <KeepAlive v-if="showLeftPanel">
+        <div key="left-panel-single" class="flex h-full flex-col">
           <slot
             v-if="$slots['message-list']"
             name="message-list"
@@ -249,11 +250,14 @@ function handleSubmit(data: AiPromptSubmitData) {
               @update:thinking="(v) => emit('update:thinking', v)"
             />
           </div>
-        </template>
+        </div>
+      </KeepAlive>
 
-        <template v-if="showRightPanel && !showLeftPanel">
+      <!-- 右侧面板 -->
+      <KeepAlive v-else-if="showRightPanel">
+        <div key="right-panel-single" class="h-full">
           <slot name="right-panel" />
-        </template>
+        </div>
       </KeepAlive>
     </div>
   </div>
