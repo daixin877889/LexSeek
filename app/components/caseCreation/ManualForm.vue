@@ -1,5 +1,5 @@
 <template>
-  <form class="mx-auto max-w-2xl space-y-6 py-8 px-4" @submit.prevent="handleSubmit">
+  <form class="mx-auto max-w-4xl space-y-6 py-8 px-8 overflow-y-auto" @submit.prevent="handleSubmit">
     <!-- 案件类型 -->
     <div class="space-y-2">
       <label class="text-sm font-medium leading-none">

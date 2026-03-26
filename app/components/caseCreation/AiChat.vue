@@ -1,91 +1,99 @@
 <template>
-  <div class="flex flex-col h-[600px] max-w-2xl mx-auto">
-    <!-- 消息列表 -->
-    <Conversation class="flex-1 overflow-hidden">
-      <ConversationContent class="p-4 space-y-4">
-        <!-- 欢迎消息 -->
-        <div v-if="messages.length === 0" class="flex gap-3">
-          <div class="shrink-0 size-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <SparklesIcon class="size-4 text-primary" />
-          </div>
-          <div class="rounded-lg bg-muted px-4 py-3 text-sm">
-            请描述您的案件情况，或直接上传案件材料，我来帮您提取关键信息。
-          </div>
-        </div>
+  <div class="flex flex-col h-full overflow-hidden">
+    <!-- 对话消息列表 -->
+    <div class="flex-1 min-h-0">
+      <ClientOnly>
+        <AiElementsConversation class="h-full">
+          <AiElementsConversationContent>
+            <!-- 空状态 -->
+            <AiElementsConversationEmptyState
+              v-if="messages.length === 0 && !isLoading"
+              title="AI 智能创建案件"
+              description="描述您的案件情况或上传案件材料，AI 将自动提取关键信息"
+            />
 
-        <!-- 消息列表 -->
-        <template v-for="msg in messages" :key="msg.id">
-          <!-- 用户消息 -->
-          <div v-if="msg.role === 'user'" class="flex justify-end gap-3">
-            <div class="rounded-lg bg-primary text-primary-foreground px-4 py-3 text-sm max-w-[80%]">
-              {{ msg.content }}
-            </div>
-          </div>
+            <!-- 消息列表 -->
+            <template v-for="(msg, index) in messages" :key="msg.id">
+              <!-- 用户消息 -->
+              <AiElementsMessage v-if="msg.role === 'user'" from="user" class="max-w-full">
+                <AiElementsMessageContent>
+                  {{ msg.content }}
+                  <!-- 材料附件提示 -->
+                  <div v-if="msg.materials && msg.materials.length > 0" class="mt-2 flex flex-wrap gap-1.5">
+                    <Badge v-for="m in msg.materials" :key="m.ossFileId" variant="outline" class="text-xs">
+                      <PaperclipIcon class="size-3 mr-1" />
+                      {{ m.name }}
+                    </Badge>
+                  </div>
+                </AiElementsMessageContent>
+              </AiElementsMessage>
 
-          <!-- AI 消息 -->
-          <div v-else class="flex gap-3">
-            <div class="shrink-0 size-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <SparklesIcon class="size-4 text-primary" />
-            </div>
-            <div class="flex-1 space-y-3 min-w-0">
-              <div class="rounded-lg bg-muted px-4 py-3 text-sm prose prose-sm max-w-none">
-                <MessageResponse :content="msg.content" />
-              </div>
+              <!-- AI 消息 -->
+              <AiElementsMessage v-else from="assistant" class="max-w-full">
+                <AiElementsMessageContent>
+                  <AiElementsMessageResponse v-if="msg.content" :content="msg.content" />
 
-              <!-- 提取结果卡片 -->
-              <CaseCreationExtractedInfoCard
-                v-if="msg.extractedInfo"
-                :extracted-info="msg.extractedInfo"
-                :case-types="caseTypes"
-                :is-submitting="isSubmitting"
-                @confirm="emit('confirm', $event)"
-              />
-            </div>
+                  <!-- 提取结果卡片 -->
+                  <CaseCreationExtractedInfoCard
+                    v-if="msg.extractedInfo"
+                    :extracted-info="msg.extractedInfo"
+                    :case-types="caseTypes"
+                    :is-submitting="isSubmitting"
+                    @confirm="emit('confirm', $event)"
+                  />
+                </AiElementsMessageContent>
+              </AiElementsMessage>
+            </template>
+
+            <!-- 加载状态 -->
+            <AiElementsMessage v-if="isLoading" from="assistant" class="max-w-full">
+              <AiElementsMessageContent>
+                <div class="flex items-center gap-2 text-muted-foreground">
+                  <Loader2Icon class="size-4 animate-spin" />
+                  <span class="text-sm">AI 正在分析中...</span>
+                </div>
+              </AiElementsMessageContent>
+            </AiElementsMessage>
+          </AiElementsConversationContent>
+          <AiElementsConversationScrollButton />
+        </AiElementsConversation>
+
+        <template #fallback>
+          <div class="flex size-full items-center justify-center">
+            <Loader2Icon class="size-6 animate-spin text-muted-foreground" />
           </div>
         </template>
+      </ClientOnly>
+    </div>
 
-        <!-- 加载中 -->
-        <div v-if="isLoading" class="flex gap-3">
-          <div class="shrink-0 size-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <SparklesIcon class="size-4 text-primary" />
-          </div>
-          <div class="rounded-lg bg-muted px-4 py-3">
-            <Loader2Icon class="size-4 animate-spin text-muted-foreground" />
-          </div>
-        </div>
-      </ConversationContent>
-    </Conversation>
-
-    <!-- 输入区域 -->
-    <div class="border-t p-4">
-      <form class="flex gap-2" @submit.prevent="handleSend">
-        <Input
-          v-model="inputText"
-          placeholder="描述您的案件情况..."
-          class="flex-1"
-          :disabled="isLoading"
-          @keydown.enter.exact.prevent="handleSend"
-        />
-        <Button type="submit" :disabled="!inputText.trim() || isLoading" size="icon">
-          <SendHorizontalIcon class="size-4" />
-        </Button>
-      </form>
+    <!-- 底部输入区域 -->
+    <div class="shrink-0 border-t bg-background">
+      <CaseAnalysisPromptInput
+        ref="promptInputRef"
+        v-model:thinking="thinkingEnabled"
+        placeholder="描述您的案件情况，或上传案件材料..."
+        submit-label="提取信息"
+        :loading="isLoading"
+        :disabled="isLoading"
+        :enable-watcher="false"
+        :min-rows="2"
+        :max-rows="6"
+        @submit="handlePromptSubmit"
+      />
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { SparklesIcon, Loader2Icon, SendHorizontalIcon } from 'lucide-vue-next'
-import { Conversation, ConversationContent } from '@/components/ai-elements/conversation'
-import { MessageResponse } from '@/components/ai-elements/message'
-import type { ExtractedCaseInfo } from '#shared/types/case'
-import type { CaseTypeOption } from '#shared/types/case'
+import { Loader2Icon, PaperclipIcon } from 'lucide-vue-next'
+import type { ExtractedCaseInfo, CaseTypeOption, PromptSubmitData, CaseMaterialParam } from '#shared/types/case'
 
 interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
   extractedInfo?: ExtractedCaseInfo
+  materials?: CaseMaterialParam[]
 }
 
 defineProps<{
@@ -104,39 +112,60 @@ const emit = defineEmits<{
 }>()
 
 const messages = ref<ChatMessage[]>([])
-const inputText = ref('')
 const isLoading = ref(false)
+const thinkingEnabled = ref(false)
+const promptInputRef = ref<{ reset: () => void } | null>(null)
 let messageCounter = 0
 
 function nextMessageId(): string {
   return `msg_${++messageCounter}`
 }
 
-async function handleSend() {
-  const text = inputText.value.trim()
-  if (!text || isLoading.value) return
+async function handlePromptSubmit(data: PromptSubmitData) {
+  const text = data.text?.trim() || ''
+  const materials = data.materials ?? []
 
-  messages.value = [...messages.value, { id: nextMessageId(), role: 'user', content: text }]
-  inputText.value = ''
+  if (!text && materials.length === 0) return
+  if (isLoading.value) return
+
+  // 构建用户消息显示文本
+  const displayText = text || `已上传 ${materials.length} 份材料`
+
+  messages.value = [
+    ...messages.value,
+    {
+      id: nextMessageId(),
+      role: 'user',
+      content: displayText,
+      materials: materials.length > 0 ? materials : undefined,
+    },
+  ]
+
+  promptInputRef.value?.reset()
   isLoading.value = true
 
   try {
-    const data = await useApiFetch<{
+    const body: Record<string, unknown> = { message: text }
+    if (materials.length > 0) {
+      body.materials = materials
+    }
+
+    const responseData = await useApiFetch<{
       message: string
       extractedInfo?: ExtractedCaseInfo
     }>('/api/v1/case/extract', {
       method: 'POST',
-      body: { message: text },
+      body,
     })
 
-    if (data) {
+    if (responseData) {
       messages.value = [
         ...messages.value,
         {
           id: nextMessageId(),
           role: 'assistant',
-          content: data.message || '已为您提取案件信息，请确认以下内容：',
-          extractedInfo: data.extractedInfo,
+          content: responseData.message || '已为您提取案件信息，请确认以下内容：',
+          extractedInfo: responseData.extractedInfo,
         },
       ]
     }
@@ -144,7 +173,11 @@ async function handleSend() {
   catch {
     messages.value = [
       ...messages.value,
-      { id: nextMessageId(), role: 'assistant', content: '抱歉，提取信息时出现错误，请重试。' },
+      {
+        id: nextMessageId(),
+        role: 'assistant',
+        content: '抱歉，提取信息时出现错误，请重试。',
+      },
     ]
   }
   finally {
