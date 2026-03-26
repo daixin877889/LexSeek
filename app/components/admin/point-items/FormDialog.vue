@@ -46,13 +46,14 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-2">
                         <Label>单位 <span class="text-destructive">*</span></Label>
-                        <Input v-model="form.unit" placeholder="如：次、页、分钟" />
+                        <Input v-model="form.unit" placeholder="如：次、页、分钟、千tokens" />
                     </div>
                     <div class="space-y-2">
                         <Label>积分数量 <span class="text-destructive">*</span></Label>
                         <Input v-model.number="form.pointAmount" type="number" min="0" placeholder="10" />
                     </div>
                 </div>
+                <p class="text-xs text-muted-foreground -mt-2">每个单位消耗的积分数量。如 unit=千tokens 且积分数量=5，则每 1000 tokens 消耗 5 积分</p>
 
                 <!-- 折扣 -->
                 <div class="space-y-2">
@@ -115,12 +116,14 @@ const selectedItem = ref<PointConsumptionItem | null>(null)
 const groupLabels: Record<string, string> = {
     material: '材料处理',
     analysisModules: '分析模块',
+    agentToken: 'Agent Token 消耗',
 }
 
 const groupOptions = computed(() => {
     const defaultGroups = [
         { value: 'material', label: '材料处理' },
         { value: 'analysisModules', label: '分析模块' },
+        { value: 'agentToken', label: 'Agent Token 消耗' },
     ]
     if (!props.groups?.length) return defaultGroups
     return props.groups.map(g => ({

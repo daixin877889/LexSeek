@@ -179,6 +179,7 @@ const selectedItem = ref<PointConsumptionItem | null>(null)
 const groupLabels: Record<string, string> = {
     material: '材料处理',
     analysisModules: '分析模块',
+    agentToken: 'Agent Token 消耗',
 }
 
 // 获取分组标签
