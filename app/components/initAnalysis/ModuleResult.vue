@@ -1,28 +1,23 @@
 <template>
-  <div :id="`module-${module.name}`" class="scroll-mt-20 rounded-xl border bg-card p-5">
-    <!-- 头部 -->
-    <div class="flex items-center gap-3 mb-4">
+  <div v-if="state.status !== 'idle'" :id="`module-${module.name}`" class="scroll-mt-20">
+    <!-- 模块标题行 -->
+    <div class="flex items-center gap-3 mb-3">
       <component :is="getModuleIcon(module.icon)" class="size-5 text-muted-foreground" />
       <h3 class="text-base font-semibold flex-1">{{ module.title }}</h3>
       <Badge :variant="badgeVariant">{{ statusText }}</Badge>
     </div>
 
     <!-- 内容区 -->
-    <div class="min-h-[60px]">
-      <!-- 等待中 -->
-      <div v-if="state.status === 'idle'" class="text-sm text-muted-foreground">
-        等待执行...
-      </div>
-
+    <div class="pl-8">
       <!-- 流式输出 -->
-      <div v-else-if="state.status === 'streaming'" class="prose prose-sm max-w-none dark:prose-invert">
-        <MessageResponse :content="state.content" />
+      <div v-if="state.status === 'streaming'" class="prose prose-sm max-w-none dark:prose-invert">
+        <AiElementsMessageResponse :content="state.content" />
         <span class="inline-block size-2 rounded-full bg-primary animate-pulse ml-1" />
       </div>
 
       <!-- 完成 -->
       <div v-else-if="state.status === 'complete'" class="prose prose-sm max-w-none dark:prose-invert">
-        <MessageResponse :content="state.content" />
+        <AiElementsMessageResponse :content="state.content" />
       </div>
 
       <!-- 失败 -->
@@ -35,13 +30,20 @@
           重试
         </Button>
       </div>
+
+      <!-- 中断 -->
+      <div v-else-if="state.status === 'interrupted'" class="text-sm text-amber-600 dark:text-amber-400">
+        分析已中断
+      </div>
     </div>
+
+    <!-- 分隔线 -->
+    <Separator class="mt-6" />
   </div>
 </template>
 
 <script lang="ts" setup>
 import { RefreshCwIcon } from 'lucide-vue-next'
-import { MessageResponse } from '@/components/ai-elements/message'
 import { getModuleIcon } from '~/utils/moduleIcons'
 import type { InitAnalysisModule, ModuleRunState } from '#shared/types/initAnalysis'
 
@@ -56,7 +58,6 @@ const emit = defineEmits<{
 
 const statusText = computed(() => {
   switch (props.state.status) {
-    case 'idle': return '等待中'
     case 'streaming': return '执行中'
     case 'complete': return '已完成'
     case 'failed': return '失败'

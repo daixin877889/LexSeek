@@ -16,21 +16,24 @@
       />
 
       <div class="max-w-4xl mx-auto px-4 py-6 space-y-6">
-        <!-- 模块结果列表 -->
-        <InitAnalysisModuleResult
-          v-for="mod in activeModules"
-          :key="mod.name"
-          :module="mod"
-          :state="getModuleState(mod.name)"
-          @retry="retryModule"
-        />
+        <!-- 只渲染已启动（非 idle）的模块，并在当前执行模块后插入积分不足卡片 -->
+        <template v-for="mod in activeModules" :key="mod.name">
+          <InitAnalysisModuleResult
+            :module="mod"
+            :state="getModuleState(mod.name)"
+            @retry="retryModule"
+          />
 
-        <!-- 积分不足中断 -->
-        <InitAnalysisInsufficientPointsCard
-          v-if="interruptData"
-          :available-points="interruptData.data?.availablePoints"
-          @resume="resumeWorkflow"
-        />
+          <!-- 积分不足中断卡片：紧跟在当前正在执行/中断的模块后面 -->
+          <InitAnalysisInsufficientPointsCard
+            v-if="interruptData && mod.name === interruptTargetModule"
+            :is-member="interruptData.data?.isMember ?? false"
+            :available-points="interruptData.data?.availablePoints"
+            :required-points="interruptData.data?.requiredPoints"
+            :reason="interruptData.data?.reason"
+            @resume="resumeWorkflow"
+          />
+        </template>
 
         <!-- 完成后操作 -->
         <div v-if="phase === 'complete'" class="flex justify-center pt-4">
@@ -73,6 +76,22 @@ const interruptData = computed(() => {
   const first = Array.isArray(raw) ? raw[0] : raw
   const val = first?.value ?? first
   if (val?.type === 'insufficient_points') return val
+  return null
+})
+
+/** 中断卡片应插入在哪个模块之后（计算一次，模板直接比较） */
+const interruptTargetModule = computed<string | null>(() => {
+  const modules = activeModules.value
+  // 优先：最后一个 streaming/interrupted 模块
+  for (let i = modules.length - 1; i >= 0; i--) {
+    const status = getModuleState(modules[i]!.name).status
+    if (status === 'streaming' || status === 'interrupted') return modules[i]!.name
+  }
+  // fallback：最后一个 complete/failed 模块
+  for (let i = modules.length - 1; i >= 0; i--) {
+    const status = getModuleState(modules[i]!.name).status
+    if (status === 'complete' || status === 'failed') return modules[i]!.name
+  }
   return null
 })
 
