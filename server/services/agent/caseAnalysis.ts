@@ -1,7 +1,7 @@
 import { createAgent, createMiddleware, todoListMiddleware, summarizationMiddleware, HumanMessage, type ReactAgent } from "langchain";
 import { createChatModel } from '../node/chatModelFactory'
 import { getToolInstancesService } from '../workflow/tools'
-import { caseMaterialContextMiddleware, caseProcessMaterialMiddleware } from '../workflow/middleware'
+import { caseMaterialContextMiddleware, caseProcessMaterialMiddleware, pointConsumptionMiddleware } from '../workflow/middleware'
 
 /** Agent 节点配置名称（必须在后台管理中配置） */
 const CASE_MAIN_NODE_NAME = 'summary'
@@ -66,6 +66,7 @@ export const caseAnalysisAgent = async (sessionId: string, prompt: string, optio
         tools,
         store,
         middleware: [
+            pointConsumptionMiddleware(userId!, 'case_analysis_token'),  // 积分扣减（最先执行）
             caseProcessMaterialMiddleware(userId!, caseId!),
             caseMaterialContextMiddleware(userId!, caseId!),
             todoListMiddleware(),
