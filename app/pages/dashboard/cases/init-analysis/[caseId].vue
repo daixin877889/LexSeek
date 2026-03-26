@@ -16,6 +16,16 @@
       />
 
       <div class="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        <!-- 积分不足中断卡片：没有模块启动时直接显示在顶部 -->
+        <InitAnalysisInsufficientPointsCard
+          v-if="interruptData && !interruptTargetModule"
+          :is-member="interruptData.data?.isMember ?? false"
+          :available-points="interruptData.data?.availablePoints"
+          :required-points="interruptData.data?.requiredPoints"
+          :reason="interruptData.data?.reason"
+          @resume="resumeWorkflow"
+        />
+
         <!-- 只渲染已启动（非 idle）的模块，并在当前执行模块后插入积分不足卡片 -->
         <template v-for="mod in activeModules" :key="mod.name">
           <InitAnalysisModuleResult
