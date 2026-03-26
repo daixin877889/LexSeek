@@ -1,0 +1,71 @@
+<template>
+  <div class="min-h-screen">
+    <!-- 阶段一：模块选择 -->
+    <InitAnalysisModuleSelector
+      v-if="phase === 'select'"
+      v-model="selectedModules"
+      @start="startAnalysis"
+      @skip="navigateTo(`/dashboard/cases/${caseId}`)"
+    />
+
+    <!-- 阶段二/三：Pipeline 进度 + 模块结果 -->
+    <template v-else>
+      <InitAnalysisPipelineProgress
+        :modules="activeModules"
+        :module-states="moduleStates"
+      />
+
+      <div class="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        <!-- 模块结果列表 -->
+        <InitAnalysisModuleResult
+          v-for="mod in activeModules"
+          :key="mod.name"
+          :module="mod"
+          :state="getModuleState(mod.name)"
+          @retry="retryModule"
+        />
+
+        <!-- 积分不足中断 -->
+        <InitAnalysisInsufficientPointsCard
+          v-if="interrupt?.type === 'insufficient_points'"
+          :available-points="(interrupt.data?.availablePoints as number)"
+          @resume="resumeWorkflow"
+        />
+
+        <!-- 完成后操作 -->
+        <div v-if="phase === 'complete'" class="flex justify-center pt-4">
+          <Button size="lg" @click="navigateTo(`/dashboard/cases/${caseId}`)">
+            进入案件详情
+          </Button>
+        </div>
+      </div>
+    </template>
+  </div>
+</template>
+
+<script lang="ts" setup>
+definePageMeta({
+  title: '初始化分析',
+  layout: 'dashboard-layout',
+})
+
+const route = useRoute()
+const caseId = computed(() => Number(route.params.caseId))
+
+const {
+  phase,
+  selectedModules,
+  moduleStates,
+  activeModules,
+  interrupt,
+  getModuleState,
+  loadStatus,
+  startAnalysis,
+  resumeWorkflow,
+  retryModule,
+} = useInitAnalysis(caseId)
+
+onMounted(() => {
+  loadStatus()
+})
+</script>
