@@ -25,6 +25,27 @@ import {
 // 注意：类型请直接从 #shared/types/case 导入，避免重复导出警告
 
 /**
+ * 中断类型对应的映射常量
+ */
+const INTERRUPT_PHASE_MAP: Record<InterruptType, WorkflowPhase> = {
+    [InterruptType.CASE_INFO_CHECK]: WorkflowPhase.CASE_INFO_CHECK,
+    [InterruptType.BASIC_INFO_CONFIRM]: WorkflowPhase.EXTRACT_INFO,
+    [InterruptType.MODULE_SELECT]: WorkflowPhase.MODULE_SELECT,
+}
+
+const INTERRUPT_TASK_ID_MAP: Record<InterruptType, string> = {
+    [InterruptType.CASE_INFO_CHECK]: 'case-info-check',
+    [InterruptType.BASIC_INFO_CONFIRM]: 'basic-info-confirm',
+    [InterruptType.MODULE_SELECT]: 'module-select',
+}
+
+const INTERRUPT_TASK_TITLE_MAP: Record<string, string> = {
+    'case-info-check': '案情信息检查',
+    'basic-info-confirm': '基本信息确认',
+    'module-select': '选择分析模块',
+}
+
+/**
  * 工具调用信息接口
  */
 export interface ToolCallInfo {
@@ -222,12 +243,7 @@ export function useCaseAnalysis(): UseCaseAnalysisReturn {
      * @param interruptType 中断类型
      */
     function updatePhaseFromInterrupt(interruptType: InterruptType): void {
-        const phaseMap: Record<InterruptType, WorkflowPhase> = {
-            [InterruptType.CASE_INFO_CHECK]: WorkflowPhase.CASE_INFO_CHECK,
-            [InterruptType.BASIC_INFO_CONFIRM]: WorkflowPhase.EXTRACT_INFO,
-            [InterruptType.MODULE_SELECT]: WorkflowPhase.MODULE_SELECT,
-        }
-        state.value.currentPhase = phaseMap[interruptType] || state.value.currentPhase
+        state.value.currentPhase = INTERRUPT_PHASE_MAP[interruptType] || state.value.currentPhase
     }
 
     /**
@@ -236,28 +252,15 @@ export function useCaseAnalysis(): UseCaseAnalysisReturn {
      * @param interruptType 中断类型
      */
     function updateTaskStatusFromInterrupt(interruptType: InterruptType): void {
-        const taskIdMap: Record<InterruptType, string> = {
-            [InterruptType.CASE_INFO_CHECK]: 'case-info-check',
-            [InterruptType.BASIC_INFO_CONFIRM]: 'basic-info-confirm',
-            [InterruptType.MODULE_SELECT]: 'module-select',
-        }
-
-        const taskId = taskIdMap[interruptType]
+        const taskId = INTERRUPT_TASK_ID_MAP[interruptType]
         if (taskId) {
-            // 将对应任务设为进行中状态
             const existingTask = state.value.tasks.find(t => t.taskName === taskId)
             if (existingTask) {
                 existingTask.status = 'running'
             } else {
-                // 如果任务不存在，添加到任务列表
-                const taskTitleMap: Record<string, string> = {
-                    'case-info-check': '案情信息检查',
-                    'basic-info-confirm': '基本信息确认',
-                    'module-select': '选择分析模块',
-                }
                 state.value.tasks.push({
                     taskName: taskId,
-                    taskTitle: taskTitleMap[taskId] || taskId,
+                    taskTitle: INTERRUPT_TASK_TITLE_MAP[taskId] || taskId,
                     status: 'running',
                 })
             }

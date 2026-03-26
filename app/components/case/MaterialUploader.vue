@@ -120,6 +120,7 @@ import {
   type MaterialUIStatus,
   type MaterialUploadResult,
 } from '~~/shared/types/material'
+import { isImageFile, isAudioFile, isRecognizableDocFile } from '~~/shared/utils/fileType'
 import { getExtensionFromFileName } from '~~/shared/utils/file'
 
 /**
@@ -163,34 +164,32 @@ const isProcessing = ref(false)
 const isDragOver = ref(false)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
-// 支持的文件类型
-const acceptTypes = computed(() => {
-  return [
-    // 文档
-    '.pdf', '.doc', '.docx', '.md', '.txt',
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'text/markdown',
-    'text/plain',
-    // 图片
-    '.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif',
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-    'image/heic',
-    'image/heif',
-    // 音频
-    '.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac',
-    'audio/mpeg',
-    'audio/wav',
-    'audio/mp4',
-    'audio/aac',
-    'audio/ogg',
-    'audio/flac',
-  ].join(',')
-})
+// 支持的文件类型（静态常量，避免 computed 中重建）
+const acceptTypes = [
+  // 文档
+  '.pdf', '.doc', '.docx', '.md', '.txt',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/markdown',
+  'text/plain',
+  // 图片
+  '.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif',
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  // 音频
+  '.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac',
+  'audio/mpeg',
+  'audio/wav',
+  'audio/mp4',
+  'audio/aac',
+  'audio/ogg',
+  'audio/flac',
+].join(',')
 
 // 是否可以处理
 const canProcess = computed(() => {
@@ -257,20 +256,17 @@ const getStatusText = (status: MaterialUIStatus): string => {
  * 检测文件的材料类型
  */
 const detectMaterialType = (file: File): CaseMaterialType => {
+  const fileName = file.name
   const mimeType = file.type.toLowerCase()
-  const ext = getExtensionFromFileName(file.name)
 
-  // 图片类型
-  if (mimeType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif'].includes(ext)) {
+  if (isImageFile(fileName) || mimeType.startsWith('image/')) {
     return CaseMaterialType.IMAGE
   }
 
-  // 音频类型
-  if (mimeType.startsWith('audio/') || ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac'].includes(ext)) {
+  if (isAudioFile(fileName) || mimeType.startsWith('audio/')) {
     return CaseMaterialType.AUDIO
   }
 
-  // 文档类型（包括 PDF 和可浏览器端处理的文档）
   return CaseMaterialType.DOCUMENT
 }
 
@@ -281,29 +277,8 @@ const detectMaterialType = (file: File): CaseMaterialType => {
  */
 const needsServerProcessing = (file: File): boolean => {
   const ext = getExtensionFromFileName(file.name)
-  const mimeType = file.type.toLowerCase()
-
-  // 浏览器端可处理的文件类型
   const browserProcessable = ['md', 'mkd', 'txt', 'docx', 'doc']
-
-  if (browserProcessable.includes(ext)) {
-    return false
-  }
-
-  // PDF、图片、音频需要服务端处理
-  if (mimeType === 'application/pdf' || ext === 'pdf') {
-    return true
-  }
-
-  if (mimeType.startsWith('image/')) {
-    return true
-  }
-
-  if (mimeType.startsWith('audio/')) {
-    return true
-  }
-
-  return true
+  return !browserProcessable.includes(ext)
 }
 
 /**
@@ -488,14 +463,12 @@ const processAndUpload = async () => {
   isProcessing.value = true
 
   try {
-    // 1. 处理所有待处理的浏览器端文件
+    // 1. 并行处理所有待处理的浏览器端文件
     const pendingBrowserFiles = materials.value.filter(
       m => m.status === 'pending' && !m.needServerProcess && m.file
     )
 
-    for (const material of pendingBrowserFiles) {
-      await processBrowserFile(material)
-    }
+    await Promise.all(pendingBrowserFiles.map(m => processBrowserFile(m)))
 
     // 2. 获取需要上传的文件（需要服务端处理的文件）
     const filesToUpload = materials.value.filter(
@@ -520,11 +493,9 @@ const processAndUpload = async () => {
         throw new Error(fileStore.error || '获取上传签名失败')
       }
 
-      // 上传文件
-      for (let i = 0; i < filesToUpload.length; i++) {
-        const material = filesToUpload[i]!
+      // 并行上传文件
+      await Promise.all(filesToUpload.map(async (material, i) => {
         const signature = signatures[i]!
-
         try {
           material.status = 'processing'
           const result = await uploadFileToOSS(material, signature)
@@ -535,14 +506,13 @@ const processAndUpload = async () => {
           material.error = error instanceof Error ? error.message : '上传失败'
           logger.error('上传文件失败:', material.name, error)
         }
-      }
+      }))
     }
 
     // 3. 检查是否有错误
-    const hasError = materials.value.some(m => m.status === 'error')
-    if (hasError) {
-      const errorCount = materials.value.filter(m => m.status === 'error').length
-      throw new Error(`${errorCount} 个文件处理失败`)
+    const errorMaterials = materials.value.filter(m => m.status === 'error')
+    if (errorMaterials.length > 0) {
+      throw new Error(`${errorMaterials.length} 个文件处理失败`)
     }
 
     // 4. 发送完成事件

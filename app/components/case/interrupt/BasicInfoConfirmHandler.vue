@@ -245,11 +245,10 @@ function createInitialFormData(): FormData {
 
 // 监听 interrupt 变化，重新初始化表单
 watch(
-    () => props.interrupt,
+    () => props.interrupt.data.extractedInfo,
     () => {
         formData.value = createInitialFormData()
-    },
-    { deep: true }
+    }
 )
 
 // 计算属性

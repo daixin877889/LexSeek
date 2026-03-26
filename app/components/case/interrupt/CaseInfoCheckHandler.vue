@@ -296,19 +296,17 @@ const handleSubmit = async () => {
         // 处理文件内容
         isProcessingFiles.value = true
         try {
-            const fileContents: string[] = []
-
-            for (const file of selectedFiles.value) {
+            // 并行读取所有文件
+            const fileResults = await Promise.all(selectedFiles.value.map(async file => {
                 try {
                     const result = await readFile(file)
-                    fileContents.push(`【${file.name}】\n${result.content}`)
+                    return `【${file.name}】\n${result.content}`
                 } catch {
-                    // 如果文件无法读取，添加文件名作为占位
-                    fileContents.push(`【${file.name}】（文件内容待服务端处理）`)
+                    return `【${file.name}】（文件内容待服务端处理）`
                 }
-            }
+            }))
 
-            submitContent = fileContents.join('\n\n')
+            submitContent = fileResults.join('\n\n')
 
             // 如果有文件说明，添加到开头
             if (fileDescription.value.trim()) {

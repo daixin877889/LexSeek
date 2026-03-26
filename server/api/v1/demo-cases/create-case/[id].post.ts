@@ -54,18 +54,18 @@ export default defineEventHandler(async (event) => {
             isDemo: true,
         })
 
-        // 解析预设材料并创建材料记录
+        // 解析预设材料并并行创建材料记录
         const materials = (demoCase.materials as unknown as DemoCaseMaterial[]) || []
 
-        for (const material of materials) {
-            await createMaterialService({
+        await Promise.all(materials.map(material =>
+            createMaterialService({
                 caseId: caseResult.caseId,
                 name: material.name,
                 type: material.type as CaseMaterialType,
                 content: material.content,
                 status: material.content ? MaterialStatus.COMPLETED : MaterialStatus.PENDING,
             })
-        }
+        ))
 
         const result = caseResult
 
