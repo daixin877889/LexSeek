@@ -1,4 +1,4 @@
-import { createAgent, createMiddleware, HumanMessage } from "langchain";
+import { createAgent, createMiddleware, todoListMiddleware, HumanMessage, type AgentMiddleware } from "langchain";
 import { createChatModel } from '../node/chatModelFactory'
 import { getToolInstancesService } from '../workflow/tools'
 import {
@@ -165,6 +165,8 @@ export const caseAnalysisAgent = async (sessionId: string, prompt: string, optio
         toolsCount: tools.length,
     })
 
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const agent: any = createAgent({
         model,
         systemPrompt,
@@ -174,6 +176,7 @@ export const caseAnalysisAgent = async (sessionId: string, prompt: string, optio
         middleware: [
             caseProcessMaterialMiddleware(userId!, caseId!),
             caseMaterialContextMiddleware(userId!, caseId!),
+            todoListMiddleware() as AgentMiddleware,
         ],
     })
 
@@ -186,6 +189,7 @@ export const caseAnalysisAgent = async (sessionId: string, prompt: string, optio
             streamMode: ['values', 'messages'],
             encoding: 'text/event-stream',
             subgraphs: true,
+            recursionLimit: 100,
         },
     )
 }
