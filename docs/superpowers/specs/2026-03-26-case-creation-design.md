@@ -135,7 +135,9 @@
 
 ### 3.1 初始化分析 LangGraph 工作流
 
-新建 `server/services/workflow/initAnalysis.workflow.ts`，替代现有 `caseAnalysis.workflow.ts`。
+新建 `server/services/workflow/initAnalysis.workflow.ts`。
+
+> **注意**：现有 `caseAnalysis.workflow.ts` 保持不动，后续单独处理其废弃/重构。本工作流是**新增**的独立工作流，专门用于初始化分析场景。
 
 **State 定义：**
 ```typescript
@@ -248,7 +250,17 @@ app/composables/
 
 - 复用 nodes 表中 `extract_info` 节点的配置
 - 作为独立的单分析 Agent 运行，支持结构化输出
-- 返回 `ExtractedCaseInfo`：title、plaintiff[]、defendant[]、caseType、summary
+- 返回 `ExtractedCaseInfo`：
+
+```typescript
+interface ExtractedCaseInfo {
+  title: string                // 案件标题
+  plaintiff: string[]          // 原告列表
+  defendant: string[]          // 被告列表
+  caseType: string             // 案件类型名称（需前端映射为 caseTypeId）
+  summary: string              // 案件摘要
+}
+```
 
 ### 5.3 初始化分析的模块依赖
 
@@ -256,9 +268,30 @@ app/composables/
 - `completedResults` 在 State 中累积
 - 每个模块执行时，将已完成的结果注入到 Agent 的系统提示或上下文中
 - 例如：`defense`（抗辩分析）可以引用 `claim`（请求权）和 `trend`（判决趋势）的结果
+- 用户只选部分模块时，仍按固定顺序执行（跳过未选模块），确保依赖链正确
 
 ### 5.4 错误处理
 
 - 单个模块失败不阻塞后续模块执行
 - 失败模块记录到 `failedModules`，前端显示错误信息和重试按钮
-- 重试时从失败模块处继续，不需要重跑已完成的模块
+- 重试：前端对失败模块调用 `POST /api/v1/case/init-analysis`，`selectedModules` 仅包含失败的模块名，后端创建新 session 执行，`completedResults` 从已有的 `caseAnalyses` 记录中加载
+
+### 5.5 SSE 事件格式
+
+初始化分析的 SSE 事件类型：
+
+| 事件类型 | payload | 说明 |
+|---------|---------|------|
+| `module_start` | `{ module: string, index: number, total: number }` | 模块开始执行 |
+| `module_streaming` | `{ module: string, content: string }` | 模块流式输出内容片段 |
+| `module_complete` | `{ module: string, result: string }` | 模块执行完成 |
+| `module_failed` | `{ module: string, error: string }` | 模块执行失败 |
+| `analysis_complete` | `{ completedModules: string[], failedModules: string[] }` | 全部模块执行完毕 |
+
+### 5.6 数据迁移说明
+
+`caseSessions` 新增 `type` 字段：
+- 新增 Prisma migration
+- 默认值为 1，现有数据自动兼容（所有已有 session 均为普通对话）
+- 现有查询 caseSessions 的代码无需修改（不加 type 筛选时返回所有类型）
+- 仅在初始化分析相关的新代码中使用 `type=2` 筛选
