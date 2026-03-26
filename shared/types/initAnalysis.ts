@@ -1,9 +1,3 @@
-/**
- * 初始化分析相关类型定义
- *
- * 定义初始化分析模块的接口、常量和状态类型
- */
-
 /** 初始化分析模块定义 */
 export interface InitAnalysisModule {
   name: string

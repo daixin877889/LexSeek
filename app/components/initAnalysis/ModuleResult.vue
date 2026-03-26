@@ -2,7 +2,7 @@
   <div :id="`module-${module.name}`" class="scroll-mt-20 rounded-xl border bg-card p-5">
     <!-- 头部 -->
     <div class="flex items-center gap-3 mb-4">
-      <component :is="getIcon(module.icon)" class="size-5 text-muted-foreground" />
+      <component :is="getModuleIcon(module.icon)" class="size-5 text-muted-foreground" />
       <h3 class="text-base font-semibold flex-1">{{ module.title }}</h3>
       <Badge :variant="badgeVariant">{{ statusText }}</Badge>
     </div>
@@ -40,17 +40,9 @@
 </template>
 
 <script lang="ts" setup>
-import {
-  FileTextIcon,
-  CalendarIcon,
-  ScaleIcon,
-  TrendingUpIcon,
-  TagIcon,
-  ShieldIcon,
-  ClipboardListIcon,
-  RefreshCwIcon,
-} from 'lucide-vue-next'
+import { RefreshCwIcon } from 'lucide-vue-next'
 import { MessageResponse } from '@/components/ai-elements/message'
+import { getModuleIcon } from '~/utils/moduleIcons'
 import type { InitAnalysisModule, ModuleRunState } from '#shared/types/initAnalysis'
 
 const props = defineProps<{
@@ -81,18 +73,4 @@ const badgeVariant = computed<'default' | 'secondary' | 'destructive' | 'outline
     default: return 'outline'
   }
 })
-
-const iconMap: Record<string, unknown> = {
-  FileText: FileTextIcon,
-  Calendar: CalendarIcon,
-  Scale: ScaleIcon,
-  TrendingUp: TrendingUpIcon,
-  Tag: TagIcon,
-  Shield: ShieldIcon,
-  ClipboardList: ClipboardListIcon,
-}
-
-function getIcon(iconName: string) {
-  return iconMap[iconName] ?? FileTextIcon
-}
 </script>

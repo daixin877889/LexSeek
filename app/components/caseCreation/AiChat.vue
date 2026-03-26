@@ -14,7 +14,7 @@
         </div>
 
         <!-- 消息列表 -->
-        <template v-for="(msg, index) in messages" :key="index">
+        <template v-for="msg in messages" :key="msg.id">
           <!-- 用户消息 -->
           <div v-if="msg.role === 'user'" class="flex justify-end gap-3">
             <div class="rounded-lg bg-primary text-primary-foreground px-4 py-3 text-sm max-w-[80%]">
@@ -28,7 +28,9 @@
               <SparklesIcon class="size-4 text-primary" />
             </div>
             <div class="flex-1 space-y-3 min-w-0">
-              <div class="rounded-lg bg-muted px-4 py-3 text-sm prose prose-sm max-w-none" v-html="msg.content" />
+              <div class="rounded-lg bg-muted px-4 py-3 text-sm prose prose-sm max-w-none">
+                <MessageResponse :content="msg.content" />
+              </div>
 
               <!-- 提取结果卡片 -->
               <CaseCreationExtractedInfoCard
@@ -75,21 +77,19 @@
 <script lang="ts" setup>
 import { SparklesIcon, Loader2Icon, SendHorizontalIcon } from 'lucide-vue-next'
 import { Conversation, ConversationContent } from '@/components/ai-elements/conversation'
+import { MessageResponse } from '@/components/ai-elements/message'
 import type { ExtractedCaseInfo } from '#shared/types/case'
-
-interface CaseType {
-  id: number
-  name: string
-}
+import type { CaseTypeOption } from '#shared/types/case'
 
 interface ChatMessage {
+  id: string
   role: 'user' | 'assistant'
   content: string
   extractedInfo?: ExtractedCaseInfo
 }
 
 defineProps<{
-  caseTypes: CaseType[]
+  caseTypes: CaseTypeOption[]
   isSubmitting: boolean
 }>()
 
@@ -106,12 +106,17 @@ const emit = defineEmits<{
 const messages = ref<ChatMessage[]>([])
 const inputText = ref('')
 const isLoading = ref(false)
+let messageCounter = 0
+
+function nextMessageId(): string {
+  return `msg_${++messageCounter}`
+}
 
 async function handleSend() {
   const text = inputText.value.trim()
   if (!text || isLoading.value) return
 
-  messages.value = [...messages.value, { role: 'user', content: text }]
+  messages.value = [...messages.value, { id: nextMessageId(), role: 'user', content: text }]
   inputText.value = ''
   isLoading.value = true
 
@@ -128,18 +133,21 @@ async function handleSend() {
       messages.value = [
         ...messages.value,
         {
+          id: nextMessageId(),
           role: 'assistant',
           content: data.message || '已为您提取案件信息，请确认以下内容：',
           extractedInfo: data.extractedInfo,
         },
       ]
     }
-  } catch {
+  }
+  catch {
     messages.value = [
       ...messages.value,
-      { role: 'assistant', content: '抱歉，提取信息时出现错误，请重试。' },
+      { id: nextMessageId(), role: 'assistant', content: '抱歉，提取信息时出现错误，请重试。' },
     ]
-  } finally {
+  }
+  finally {
     isLoading.value = false
   }
 }

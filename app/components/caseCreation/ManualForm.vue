@@ -72,14 +72,10 @@ import { Loader2Icon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { OssFileItem } from '~/store/file'
 import { CaseMaterialType } from '#shared/types/case'
-
-interface CaseType {
-  id: number
-  name: string
-}
+import type { CaseTypeOption } from '#shared/types/case'
 
 const props = defineProps<{
-  caseTypes: CaseType[]
+  caseTypes: CaseTypeOption[]
   isSubmitting: boolean
 }>()
 

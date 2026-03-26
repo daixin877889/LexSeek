@@ -48,15 +48,11 @@
 <script lang="ts" setup>
 import { Loader2Icon } from 'lucide-vue-next'
 import type { ExtractedCaseInfo } from '#shared/types/case'
-
-interface CaseType {
-  id: number
-  name: string
-}
+import type { CaseTypeOption } from '#shared/types/case'
 
 const props = defineProps<{
   extractedInfo: ExtractedCaseInfo
-  caseTypes: CaseType[]
+  caseTypes: CaseTypeOption[]
   isSubmitting: boolean
 }>()
 
@@ -80,6 +76,14 @@ const form = reactive({
     ? [...props.extractedInfo.defendant]
     : [''],
   summary: props.extractedInfo.summary || '',
+})
+
+watch(() => props.extractedInfo, (info) => {
+  form.title = info.title || ''
+  form.plaintiff = info.plaintiff?.length > 0 ? [...info.plaintiff] : ['']
+  form.defendant = info.defendant?.length > 0 ? [...info.defendant] : ['']
+  form.summary = info.summary || ''
+  form.caseTypeId = ''
 })
 
 // 尝试匹配案件类型名称到 ID

@@ -108,6 +108,7 @@ const { detectMimeType, validateFile, uploadToOSS } = useBatchUpload()
 const dropZoneRef = ref<HTMLDivElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const uploadingFiles = ref<FileUploadState[]>([])
+const pendingTimers = new Set<ReturnType<typeof setTimeout>>()
 
 interface DisplayItem {
   key: string
@@ -260,10 +261,13 @@ async function processFiles(files: File[]) {
           createdAt: new Date().toISOString(),
         }
 
-        setTimeout(() => {
+        const TRANSITION_DELAY_MS = 500
+        const timer = setTimeout(() => {
+          pendingTimers.delete(timer)
           uploadingFiles.value = uploadingFiles.value.filter(f => f.id !== state.id)
           emit('update:modelValue', [...props.modelValue, newFile])
-        }, 500)
+        }, TRANSITION_DELAY_MS)
+        pendingTimers.add(timer)
       } catch (err) {
         state.status = 'error'
         state.error = err instanceof Error ? err.message : '上传失败'
@@ -288,5 +292,12 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
       processFiles(Array.from(files))
     }
   },
+})
+
+onUnmounted(() => {
+  for (const timer of pendingTimers) {
+    clearTimeout(timer)
+  }
+  pendingTimers.clear()
 })
 </script>

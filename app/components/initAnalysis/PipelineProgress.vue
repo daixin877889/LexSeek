@@ -30,11 +30,11 @@ import type { InitAnalysisModule, ModuleRunState, ModuleStatus } from '#shared/t
 
 const props = defineProps<{
   modules: InitAnalysisModule[]
-  moduleStates: Map<string, ModuleRunState>
+  moduleStates: Record<string, ModuleRunState>
 }>()
 
 function getStatus(name: string): ModuleStatus {
-  return props.moduleStates.get(name)?.status ?? 'idle'
+  return props.moduleStates[name]?.status ?? 'idle'
 }
 
 function pillClasses(name: string): string {

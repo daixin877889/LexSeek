@@ -1,9 +1,4 @@
-import type { CaseMaterialParam } from '#shared/types/case'
-
-interface CaseType {
-  id: number
-  name: string
-}
+import type { CaseMaterialParam, CaseTypeOption } from '#shared/types/case'
 
 interface CreateCaseParams {
   caseTypeId: number
@@ -17,10 +12,10 @@ interface CreateCaseParams {
 export function useCaseCreation() {
   const mode = ref<'select' | 'manual' | 'ai'>('select')
   const isSubmitting = ref(false)
-  const caseTypes = ref<CaseType[]>([])
+  const caseTypes = ref<CaseTypeOption[]>([])
 
   async function loadCaseTypes() {
-    const data = await useApiFetch<{ items: CaseType[] }>('/api/v1/case-types')
+    const data = await useApiFetch<{ items: CaseTypeOption[] }>('/api/v1/case-types')
     caseTypes.value = data?.items ?? []
   }
 

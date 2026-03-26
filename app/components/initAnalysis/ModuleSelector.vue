@@ -24,7 +24,7 @@
 
         <!-- 图标 -->
         <div class="rounded-lg bg-muted p-2.5">
-          <component :is="getIcon(mod.icon)" class="size-5 text-muted-foreground" />
+          <component :is="getModuleIcon(mod.icon)" class="size-5 text-muted-foreground" />
         </div>
 
         <!-- 文字 -->
@@ -48,17 +48,9 @@
 </template>
 
 <script lang="ts" setup>
-import {
-  CheckIcon,
-  FileTextIcon,
-  CalendarIcon,
-  ScaleIcon,
-  TrendingUpIcon,
-  TagIcon,
-  ShieldIcon,
-  ClipboardListIcon,
-} from 'lucide-vue-next'
+import { CheckIcon } from 'lucide-vue-next'
 import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
+import { getModuleIcon } from '~/utils/moduleIcons'
 
 const props = defineProps<{
   modelValue: string[]
@@ -79,19 +71,5 @@ function toggle(name: string) {
     ? props.modelValue.filter(n => n !== name)
     : [...props.modelValue, name]
   emit('update:modelValue', updated)
-}
-
-const iconMap: Record<string, unknown> = {
-  FileText: FileTextIcon,
-  Calendar: CalendarIcon,
-  Scale: ScaleIcon,
-  TrendingUp: TrendingUpIcon,
-  Tag: TagIcon,
-  Shield: ShieldIcon,
-  ClipboardList: ClipboardListIcon,
-}
-
-function getIcon(iconName: string) {
-  return iconMap[iconName] ?? FileTextIcon
 }
 </script>
