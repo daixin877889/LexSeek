@@ -5,8 +5,7 @@
     <div v-for="(_, index) in modelValue" :key="index" class="flex items-center gap-2">
       <Input
         :model-value="modelValue[index]"
-        :placeholder="placeholder || `请输入${label}`"
-        class="flex-1"
+        :placeholder="placeholder || `请输入${label}姓名或名称`"
         @update:model-value="updateItem(index, $event as string)"
       />
       <Button
@@ -20,8 +19,6 @@
         <MinusCircleIcon class="size-4" />
         <span class="sr-only">删除</span>
       </Button>
-      <!-- 占位，保持单项时对齐 -->
-      <div v-else class="size-9 shrink-0" />
     </div>
 
     <Button type="button" variant="outline" size="sm" class="mt-1" @click="addItem">
