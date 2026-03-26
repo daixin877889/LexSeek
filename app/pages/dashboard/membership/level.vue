@@ -161,7 +161,7 @@ const currentMembership = computed(() => ({
 // 会员套餐列表（响应式）
 const productList = computed<MembershipPlan[]>(() => {
   if (!productsData.value) return [];
-  return productsData.value.map((p) => ({
+  return productsData.value.map((p: any) => ({
     id: p.id,
     name: p.name,
     levelId: p.levelId ?? 0,
@@ -185,7 +185,7 @@ const membershipHistory = computed<MembershipRecord[]>(() => {
 const membershipLevels = computed<MembershipLevel[]>(() => {
   // 添加免费版
   const levels = levelsData.value ?? [];
-  if (!levels.find((l) => l.id === 0)) {
+  if (!levels.find((l: any) => l.id === 0)) {
     return [{ id: 0, name: "免费版", sortOrder: 0 }, ...levels];
   }
   return levels;

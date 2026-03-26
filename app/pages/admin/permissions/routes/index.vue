@@ -77,7 +77,7 @@
                   class="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
                   <td class="px-4 py-3">
                     <div class="flex items-center gap-2">
-                      <component v-if="router.icon" :is="getIcon(router.icon)" class="h-4 w-4 text-muted-foreground" />
+                      <component v-if="router.icon" :is="getIcon(router.icon) as any" />
                       <span class="font-medium">{{ router.name }}</span>
                     </div>
                   </td>

@@ -19,7 +19,7 @@
 <script setup lang="ts">
 import { ArrowLeft } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import type { CreateLegalMainRequest } from '#shared/types/legal'
+import type { CreateLegalMainRequest, UpdateLegalMainRequest } from '#shared/types/legal'
 
 definePageMeta({
     layout: 'admin-layout',
@@ -27,10 +27,10 @@ definePageMeta({
 })
 
 /** 提交表单 */
-const handleSubmit = async (data: CreateLegalMainRequest) => {
+const handleSubmit = async (data: CreateLegalMainRequest | UpdateLegalMainRequest) => {
     const result = await useApiFetch('/api/v1/admin/legal-main', {
         method: 'POST',
-        body: data,
+        body: data as CreateLegalMainRequest,
     })
 
     if (result) {

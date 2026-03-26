@@ -11,7 +11,7 @@
                     @input="syncToModel"
                 />
                 <Select v-model="field.type"
-                    @update:model-value="(val: string) => onTypeChange(field, val)">
+                    @update:model-value="(val: AcceptableValue) => onTypeChange(field, val)">
                     <SelectTrigger>
                         <SelectValue placeholder="类型" />
                     </SelectTrigger>
@@ -48,7 +48,7 @@
             <div v-if="field.type === 'array'" class="flex items-center gap-2 text-sm">
                 <span class="text-muted-foreground">元素类型:</span>
                 <Select v-model="field.itemsType"
-                    @update:model-value="(val: string) => onItemsTypeChange(field, val)">
+                    @update:model-value="(val: AcceptableValue) => onItemsTypeChange(field, val)">
                     <SelectTrigger class="w-28 h-8">
                         <SelectValue placeholder="类型" />
                     </SelectTrigger>
@@ -81,6 +81,7 @@
 
 <script setup lang="ts">
 import { Plus, X } from 'lucide-vue-next'
+import type { AcceptableValue } from 'reka-ui'
 
 interface SchemaField {
     name: string
@@ -105,8 +106,8 @@ const ITEMS_TYPES = inject<{ value: string; label: string }[]>('ITEMS_TYPES', []
 
 const syncToModel = () => emit('update')
 
-const onTypeChange = (field: SchemaField, val: string) => {
-    field.type = val
+const onTypeChange = (field: SchemaField, val: AcceptableValue) => {
+    field.type = String(val ?? 'string')
     if (val !== 'array') {
         field.itemsType = 'string'
         field.children = []
@@ -114,8 +115,8 @@ const onTypeChange = (field: SchemaField, val: string) => {
     syncToModel()
 }
 
-const onItemsTypeChange = (field: SchemaField, val: string) => {
-    field.itemsType = val
+const onItemsTypeChange = (field: SchemaField, val: AcceptableValue) => {
+    field.itemsType = String(val ?? 'string')
     if (val !== 'object') {
         field.children = []
     }

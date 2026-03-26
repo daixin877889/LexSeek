@@ -130,6 +130,43 @@ definePageMeta({
   layout: "dashboard-layout",
 });
 
+// ==================== 类型定义 ====================
+
+/** 案件项 */
+interface CaseItem {
+  id: number
+  title: string
+  content: string | null
+  caseTypeId: number | null
+  status: number
+  isDemo: boolean
+  createdAt: string
+  updatedAt: string
+  caseType: {
+    id: number
+    name: string
+  } | null
+  latestSession: {
+    sessionId: string
+    status: number
+    createdAt: string
+  } | null
+}
+
+/** 案件类型 */
+interface CaseType {
+  id: number
+  name: string
+}
+
+/** 分页信息 */
+interface PaginationInfo {
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+}
+
 // ==================== 状态定义 ====================
 
 /** 视图模式 */

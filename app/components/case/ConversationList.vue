@@ -11,9 +11,11 @@
 import type { HTMLAttributes } from 'vue'
 import type {
     ToolCallInfo,
+} from '@/composables/useCaseAnalysis'
+import type {
     AnalysisResult,
     InterruptData,
-} from '@/composables/useCaseAnalysis'
+} from '#shared/types/case'
 import { cn } from '@/lib/utils'
 import { BotIcon, UserIcon, CopyIcon, CheckIcon, RefreshCwIcon } from 'lucide-vue-next'
 

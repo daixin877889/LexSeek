@@ -10,7 +10,7 @@
  * @see design.md - 导航与导出功能
  */
 import type { HTMLAttributes } from 'vue'
-import type { AnalysisResult } from '@/composables/useCaseAnalysis'
+import type { AnalysisResult } from '#shared/types/case'
 import { cn } from '@/lib/utils'
 import {
     DownloadIcon,

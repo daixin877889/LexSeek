@@ -192,7 +192,7 @@ const historyLoading = computed(() => historyStatus.value === "pending");
 // 积分获取记录列表（转换格式）
 const historyList = computed<PointHistoryRecord[]>(() => {
   if (!historyData.value?.list) return [];
-  return historyData.value.list.map((item) => ({
+  return historyData.value.list.map((item: any) => ({
     ...item,
     sourceTypeName: getSourceTypeName(item.sourceType),
   }));
@@ -360,7 +360,7 @@ const usageLoading = computed(() => usageStatus.value === "pending");
 // 积分使用记录列表（转换格式）
 const usageList = computed<PointUsageRecord[]>(() => {
   if (!usageData.value?.list) return [];
-  return usageData.value.list.map((item) => ({
+  return usageData.value.list.map((item: any) => ({
     id: item.id,
     itemDescription: item.pointConsumptionItems?.description || item.pointConsumptionItems?.name || "未知消耗项",
     pointAmount: item.pointAmount,
@@ -537,7 +537,7 @@ const { data: pointProductsData } = await useApi<
 // 积分商品列表（响应式）
 const pointProductList = computed<PointProduct[]>(() => {
   if (!pointProductsData.value) return [];
-  return pointProductsData.value.map((p) => ({
+  return pointProductsData.value.map((p: any) => ({
     id: p.id,
     name: p.name,
     unitPrice: p.unitPrice ?? 0,

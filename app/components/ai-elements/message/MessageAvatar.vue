@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { computed } from 'vue'
 
 interface Props {
-  src: string
+  src?: string
   name?: string
   class?: HTMLAttributes['class']
 }
@@ -16,7 +16,7 @@ const fallbackText = computed(() => props.name?.slice(0, 2) ?? 'ME')
 
 <template>
   <Avatar class="size-8 ring-1 ring-border" :class="[props.class]" v-bind="$attrs">
-    <AvatarImage alt="" class="mt-0 mb-0" :src="props.src" />
+    <AvatarImage v-if="props.src" alt="" class="mt-0 mb-0" :src="props.src" />
     <AvatarFallback>{{ fallbackText }}</AvatarFallback>
   </Avatar>
 </template>

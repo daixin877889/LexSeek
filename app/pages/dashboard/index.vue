@@ -3,7 +3,7 @@
     <!-- 分析次数限制提示 -->
     <div v-if="showAnalysisLimits" class="w-full p-4 mb-4 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-between">
       <p class="text-sm text-foreground">
-        您正在使用的是 <strong class="text-primary">{{ userStore.userInfo?.membership?.current?.levelName || '免费版' }}</strong>，今日可用分析次数 <strong>{{ 0 }} / {{ 10 }}</strong> ，本月可用分析次数 <strong>{{ 0 }} / {{ 100 }}</strong>。
+        您正在使用的是 <strong class="text-primary">{{ '免费版' }}</strong>，今日可用分析次数 <strong>{{ 0 }} / {{ 10 }}</strong> ，本月可用分析次数 <strong>{{ 0 }} / {{ 100 }}</strong>。
       </p>
       <Button variant="default" size="sm">立即升级</Button>
     </div>

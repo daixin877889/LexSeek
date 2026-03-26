@@ -151,7 +151,7 @@
  *
  * @see Requirements 6.1, 6.2, 6.3, 6.4
  */
-import type { ModuleSelectInterruptData, AnalysisModuleInfo } from '@/composables/useCaseAnalysis'
+import type { ModuleSelectInterruptData, AnalysisModuleInfo } from '#shared/types/case'
 import type { ExtendedToolState } from '@/components/ai-elements/types'
 import type { ToolUIPartApproval } from '@/components/ai-elements/confirmation/context'
 import {

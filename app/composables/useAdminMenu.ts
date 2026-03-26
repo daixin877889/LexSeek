@@ -72,7 +72,7 @@ export function useAdminMenu(): UseAdminMenuReturn {
     return {
         menuGroups: computed(() => store.menuGroups),
         isLoading: computed(() => store.isLoading),
-        error: store.error,
+        error: computed(() => store.error),
         isActive: store.isActive,
         isSubmenuCollapsed: store.isSubmenuCollapsed,
         toggleSubmenu: store.toggleSubmenu,

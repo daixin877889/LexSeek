@@ -127,7 +127,8 @@ const readTextFile = (file: File): Promise<string> => {
  */
 const readWordFile = async (file: File): Promise<string> => {
     const arrayBuffer = await file.arrayBuffer()
-    const result = await mammoth.extractRawText({ arrayBuffer })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await (mammoth as any).extractRawText({ arrayBuffer })
 
     if (result.messages.length > 0) {
         // 记录警告信息但不阻止处理
@@ -245,13 +246,14 @@ const downloadImageAsBase64 = async (url: string): Promise<{ base64: string; mim
 
     // 方案3：通过服务端代理下载
     try {
-        const proxyResponse = await $fetch<{ code: number; data?: { base64: string; mimeType: string } }>(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const proxyResponse = await ($fetch as any)(
             '/api/v1/proxy/image',
             {
                 method: 'POST',
                 body: { url },
             }
-        )
+        ) as { code: number; data?: { base64: string; mimeType: string } }
 
         if (proxyResponse?.code === 0 && proxyResponse.data) {
             return {
@@ -370,9 +372,11 @@ const extractDocxContent = async (fileOrBuffer: File | ArrayBuffer): Promise<Doc
     const images: ExtractedImage[] = []
 
     // 配置 mammoth 的图片转换器，将图片替换为占位符
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const options = {
-        convertImage: mammoth.images.imgElement((image) => {
-            return image.read('base64').then((base64Data) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        convertImage: (mammoth as any).images.imgElement((image: any) => {
+            return image.read('base64').then((base64Data: any) => {
                 const placeholderId = generateImagePlaceholderId()
                 const mimeType = image.contentType || 'image/png'
 
@@ -392,14 +396,16 @@ const extractDocxContent = async (fileOrBuffer: File | ArrayBuffer): Promise<Doc
     }
 
     // 提取 HTML 内容
-    const htmlResult = await mammoth.convertToHtml({ arrayBuffer }, options)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const htmlResult = await (mammoth as any).convertToHtml({ arrayBuffer }, options)
 
     if (htmlResult.messages.length > 0) {
         console.warn('mammoth HTML 转换警告:', htmlResult.messages)
     }
 
     // 提取纯文本内容
-    const textResult = await mammoth.extractRawText({ arrayBuffer })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const textResult = await (mammoth as any).extractRawText({ arrayBuffer })
 
     // 将 HTML 转换为 Markdown
     const turndownService = new TurndownService({

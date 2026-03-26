@@ -69,7 +69,7 @@ function handleDeleteNode(id: string) {
 }
 
 // Handle node reordering
-function handleReorderNodes(params) {
+function handleReorderNodes(params: { sourceId: string, targetId: string, position: 'before' | 'after' }): void {
   if (reorderNodes) {
     reorderNodes(params)
   }
@@ -99,6 +99,8 @@ watchEffect((onCleanup) => {
 
         const sourceId = source.data.id as string
         const target = location.current.dropTargets[0]
+        if (!target) return
+
         const targetId = target.data.id as string
 
         const instruction = extractInstruction(target.data)

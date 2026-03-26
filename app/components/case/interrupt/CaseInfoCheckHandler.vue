@@ -159,7 +159,7 @@
  *
  * @see Requirements 4.4, 4.5, 4.6
  */
-import type { CaseInfoCheckInterruptData } from '@/composables/useCaseAnalysis'
+import type { CaseInfoCheckInterruptData } from '#shared/types/case'
 import type { ExtendedToolState } from '@/components/ai-elements/types'
 import type { ToolUIPartApproval } from '@/components/ai-elements/confirmation/context'
 import {

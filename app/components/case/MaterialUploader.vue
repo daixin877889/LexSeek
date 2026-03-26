@@ -114,7 +114,12 @@ import {
 import { toast } from 'vue-sonner'
 import { FileSource } from '~~/shared/types/file'
 import type { PostSignatureResult } from '~~/shared/types/oss'
-import { CaseMaterialType, type MaterialItem, type MaterialStatus, type UploadResult } from '~~/shared/types/material'
+import { CaseMaterialType } from '#shared/types/case'
+import {
+  type MaterialItem,
+  type MaterialUIStatus,
+  type MaterialUploadResult,
+} from '~~/shared/types/material'
 import { getExtensionFromFileName } from '~~/shared/utils/file'
 
 /**
@@ -132,7 +137,7 @@ interface Props {
  */
 const emit = defineEmits<{
   /** 材料上传完成 */
-  (e: 'upload-complete', result: UploadResult): void
+  (e: 'upload-complete', result: MaterialUploadResult): void
   /** 材料上传失败 */
   (e: 'upload-error', error: Error): void
   /** 材料列表变化 */
@@ -231,7 +236,7 @@ const getMaterialTypeName = (type: CaseMaterialType): string => {
 /**
  * 获取状态文本
  */
-const getStatusText = (status: MaterialStatus): string => {
+const getStatusText = (status: MaterialUIStatus): string => {
   switch (status) {
     case 'pending':
       return '待处理'
@@ -460,7 +465,7 @@ const uploadFileToOSS = async (
   }
 
   return new Promise((resolve, reject) => {
-    uploadWorker.upload(material.file, signature, {
+    uploadWorker.upload(material.file!, signature, {
       onProgress: () => {
         // 可以在这里更新进度
       },
@@ -543,6 +548,7 @@ const processAndUpload = async () => {
     // 4. 发送完成事件
     emit('upload-complete', {
       materials: materials.value,
+      encrypted: false,
     })
 
     toast.success('材料上传成功')

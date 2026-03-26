@@ -3,7 +3,7 @@
  * 403 无权限页面
  */
 definePageMeta({
-    layout: 'blank',
+    layout: false,
     title: '无权限访问',
 })
 

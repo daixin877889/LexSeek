@@ -30,7 +30,10 @@ const slotContents = reactive<Record<string, string>>(props.componentSlots || {}
 watch(() => props.componentSlots, (newSlots) => {
   if (newSlots) {
     Object.keys(newSlots).forEach((key) => {
-      slotContents[key] = newSlots[key]
+      const value = newSlots[key]
+      if (value !== undefined) {
+        slotContents[key] = value
+      }
     })
   }
 }, { deep: true, immediate: true })
@@ -65,7 +68,8 @@ function updateSlotContent(slotName: string, content: string) {
 
   // If editor and componentId are available, update the node
   if (editor.value && props.componentId) {
-    editor.value.chain().focus().updateComponentSlots(props.componentId, { ...slotContents }).run()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (editor.value.chain().focus() as any).updateComponentSlots(props.componentId, { ...slotContents }).run()
   }
 }
 </script>

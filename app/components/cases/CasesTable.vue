@@ -85,10 +85,21 @@ import { Eye, Trash2 } from "lucide-vue-next";
 interface CaseItem {
     id: number;
     title: string;
-    caseTypeId: number;
+    content: string | null;
+    caseTypeId: number | null;
     status: number;
     isDemo: boolean;
     createdAt: string;
+    updatedAt: string;
+    caseType: {
+        id: number;
+        name: string;
+    } | null;
+    latestSession: {
+        sessionId: string;
+        status: number;
+        createdAt: string;
+    } | null;
 }
 
 interface CaseType {
@@ -115,7 +126,8 @@ const { formatDate } = useFormatters();
 
 // ==================== 方法 ====================
 
-const getCaseTypeName = (typeId: number): string => {
+const getCaseTypeName = (typeId: number | null): string => {
+    if (typeId === null) return "未知类型";
     const type = props.caseTypes.find((t) => t.id === typeId);
     return type?.name ?? "未知类型";
 };

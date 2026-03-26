@@ -22,6 +22,8 @@ import {
     type AnalysisResult,
 } from '#shared/types/case'
 
+// 注意：类型请直接从 #shared/types/case 导入，避免重复导出警告
+
 /**
  * 工具调用信息接口
  */

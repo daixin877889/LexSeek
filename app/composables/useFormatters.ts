@@ -14,13 +14,14 @@ export const useFormatters = () => {
     /**
      * 格式化日期（标准格式）
      * @param dateString 日期字符串
-     * @returns 格式化后的日期字符串，格式：YYYY-MM-DD HH:mm
+     * @param format 可选的格式字符串，默认为 'YYYY-MM-DD HH:mm'
+     * @returns 格式化后的日期字符串
      */
-    const formatDate = (dateString: string | null | undefined): string => {
+    const formatDate = (dateString: string | null | undefined, format?: string): string => {
         if (!dateString) return '—'
         const date = dayjs(dateString)
         if (!date.isValid()) return '—'
-        return date.format('YYYY-MM-DD HH:mm')
+        return date.format(format ?? 'YYYY-MM-DD HH:mm')
     }
 
     /**

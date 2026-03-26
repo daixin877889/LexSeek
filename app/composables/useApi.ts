@@ -21,7 +21,8 @@ interface UseApiOptions {
  */
 export function useApi<T = any>(
     url: string | (() => string) | Ref<string>,
-    options: Parameters<typeof useFetch>[1] & UseApiOptions = {}
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    options: any = {}
 ) {
     const {
         showError = true,
@@ -31,7 +32,8 @@ export function useApi<T = any>(
         ...restOptions
     } = options as any
 
-    return useFetch(url, {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (useFetch as any)(url, {
         ...restOptions,
         // 响应拦截器：处理业务逻辑错误
         async onResponse(ctx: any) {
@@ -124,5 +126,6 @@ export function useApi<T = any>(
             // 默认提取 data 字段
             return (response as ApiBaseResponse<T>).data as T
         },
-    }) as ReturnType<typeof useFetch<T>>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    }) as any
 }

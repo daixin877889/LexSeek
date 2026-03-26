@@ -160,7 +160,7 @@
  *
  * @see Requirements 5.4, 5.5
  */
-import type { BasicInfoConfirmInterruptData } from '@/composables/useCaseAnalysis'
+import type { BasicInfoConfirmInterruptData } from '#shared/types/case'
 import type { ExtendedToolState } from '@/components/ai-elements/types'
 import type { ToolUIPartApproval } from '@/components/ai-elements/confirmation/context'
 import {

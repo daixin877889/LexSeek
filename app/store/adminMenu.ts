@@ -49,7 +49,8 @@ export const useAdminMenuStore = defineStore('adminMenu', (): AdminMenuStoreRetu
     isLoading.value = true
     error.value = null
     try {
-      const data = await $fetch<any>('/api/v1/admin/menu-routers')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = await ($fetch as any)('/api/v1/admin/menu-routers') as any
       if (data.success && data.data) {
         rawRouters.value = data.data
       }
@@ -134,12 +135,12 @@ export const useAdminMenuStore = defineStore('adminMenu', (): AdminMenuStoreRetu
   })
 
   return {
-    rawRouters,
-    isLoading,
+    rawRouters: rawRouters.value,
+    isLoading: isLoading.value,
     error: computed(() => error.value),
-    collapsedIds,
-    activeId,
-    scrollPosition,
+    collapsedIds: collapsedIds.value,
+    activeId: activeId.value,
+    scrollPosition: scrollPosition.value,
     menuGroups,
     fetchMenuData,
     setRawRouters,

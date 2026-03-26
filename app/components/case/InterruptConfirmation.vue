@@ -38,13 +38,13 @@ import type {
     CaseInfoCheckInterruptData,
     BasicInfoConfirmInterruptData,
     ModuleSelectInterruptData,
-} from '@/composables/useCaseAnalysis'
+} from '#shared/types/case'
 import {
-    InterruptType,
     isCaseInfoCheckInterrupt,
     isBasicInfoConfirmInterrupt,
     isModuleSelectInterrupt,
 } from '@/composables/useCaseAnalysis'
+import { InterruptType } from '#shared/types/case'
 
 // 子组件
 import CaseInfoCheckHandler from './interrupt/CaseInfoCheckHandler.vue'

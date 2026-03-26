@@ -53,10 +53,15 @@ function createTable() {
   if (!isEditorReady.value)
     return
 
-  editor.value!.chain().focus().insertTable({ rows: newTableRows.value, cols: newTableCols.value, withHeaderRow: true }).run()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (editor.value!.chain().focus() as any).insertTable({ rows: newTableRows.value, cols: newTableCols.value, withHeaderRow: true }).run()
 
   showCreateTableDialog.value = false
 }
+
+// Helper function to call table methods
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const callTableMethod = (methodName: string) => (editor.value?.chain().focus() as any)[methodName]().run()
 </script>
 
 <template>
@@ -94,7 +99,7 @@ function createTable() {
               size="icon"
               variant="ghost"
               :disabled="!isEditorReady"
-              @click="editor?.chain().focus().addColumnBefore().run()"
+              @click="callTableMethod('addColumnBefore')"
             >
               <Icon name="mdi:table-column-plus-before" class="h-5 w-5" />
             </Button>
@@ -108,7 +113,7 @@ function createTable() {
               size="icon"
               variant="ghost"
               :disabled="!isEditorReady"
-              @click="editor?.chain().focus().addColumnAfter().run()"
+              @click="callTableMethod('addColumnAfter')"
             >
               <Icon name="mdi:table-column-plus-after" class="h-5 w-5" />
             </Button>
@@ -122,7 +127,7 @@ function createTable() {
               size="icon"
               variant="ghost"
               :disabled="!isEditorReady"
-              @click="editor?.chain().focus().deleteColumn().run()"
+              @click="callTableMethod('deleteColumn')"
             >
               <Icon name="mdi:table-column-remove" class="h-5 w-5" />
             </Button>
@@ -138,7 +143,7 @@ function createTable() {
               size="icon"
               variant="ghost"
               :disabled="!isEditorReady"
-              @click="editor?.chain().focus().addRowBefore().run()"
+              @click="callTableMethod('addRowBefore')"
             >
               <Icon name="mdi:table-row-plus-before" class="h-5 w-5" />
             </Button>
@@ -152,7 +157,7 @@ function createTable() {
               size="icon"
               variant="ghost"
               :disabled="!isEditorReady"
-              @click="editor?.chain().focus().addRowAfter().run()"
+              @click="callTableMethod('addRowAfter')"
             >
               <Icon name="mdi:table-row-plus-after" class="h-5 w-5" />
             </Button>
@@ -166,7 +171,7 @@ function createTable() {
               size="icon"
               variant="ghost"
               :disabled="!isEditorReady"
-              @click="editor?.chain().focus().deleteRow().run()"
+              @click="callTableMethod('deleteRow')"
             >
               <Icon name="mdi:table-row-remove" class="h-5 w-5" />
             </Button>
@@ -182,7 +187,7 @@ function createTable() {
               size="icon"
               variant="ghost"
               :disabled="!isEditorReady"
-              @click="editor?.chain().focus().toggleHeaderCell().run()"
+              @click="callTableMethod('toggleHeaderCell')"
             >
               <Icon name="mdi:format-header-pound" class="h-5 w-5" />
             </Button>
@@ -196,7 +201,7 @@ function createTable() {
               size="icon"
               variant="ghost"
               :disabled="!isEditorReady"
-              @click="editor?.chain().focus().mergeOrSplit().run()"
+              @click="callTableMethod('mergeOrSplit')"
             >
               <Icon name="mdi:table-merge-cells" class="h-5 w-5" />
             </Button>
@@ -211,7 +216,7 @@ function createTable() {
               variant="ghost"
               :disabled="!isEditorReady"
               class="text-destructive hover:bg-destructive/10"
-              @click="editor?.chain().focus().deleteTable().run()"
+              @click="callTableMethod('deleteTable')"
             >
               <Icon name="mdi:table-remove" class="h-5 w-5" />
             </Button>

@@ -80,7 +80,7 @@
                                     </Badge>
                                 </TableCell>
                                 <TableCell class="text-muted-foreground">
-                                    {{ formatDate(item.createdAt) }}
+                                    {{ formatDate(String(item.createdAt)) }}
                                 </TableCell>
                                 <TableCell class="text-right">
                                     <DropdownMenu>

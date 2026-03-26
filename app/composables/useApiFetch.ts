@@ -64,10 +64,11 @@ export async function useApiFetch<T = unknown>(
         ...restOptions
     } = options
 
-    const response = await $fetch<ApiBaseResponse<T>>(url, {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const response = await ($fetch as any)(url, {
         ...(restOptions as Record<string, unknown>),
         credentials: 'include', // 确保携带 cookie
-        onResponse(ctx) {
+        onResponse(ctx: any) {
             const data = ctx.response._data as ApiBaseResponse<T>
 
             // 处理 401 未授权：重置所有 store 并跳转登录页
@@ -88,7 +89,8 @@ export async function useApiFetch<T = unknown>(
                 return
             }
         },
-        onResponseError(ctx) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        onResponseError(ctx: any) {
             if (!showError) return
 
             const data = ctx.response._data as ApiBaseResponse<T> | undefined

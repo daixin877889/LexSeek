@@ -1,16 +1,32 @@
 <script setup lang="ts">
 import type { Editor } from '@tiptap/vue-3'
+import type { Node as ProsemirrorNode, ResolvedPos } from '@tiptap/pm/model'
 import { computed, onMounted, ref, watch } from 'vue'
 import { provideTiptapContext } from '.'
 
+/**
+ * 编辑器节点信息接口
+ */
+interface EditorNodeInfo {
+  id: string
+  name: string
+  type: string
+  icon: string
+  content: string
+  position: number
+  nodeSize: number
+  selected: boolean
+  depth: number
+}
+
 const props = defineProps<{
-  editor: Editor | undefined
+  editor: Editor | null
 }>()
 
 // State management for the Tiptap context
 const sidebarVisible = defineModel('sidebarVisible', { default: true })
 const selectedNodeId = ref('')
-const editorNodes = ref([])
+const editorNodes = ref<EditorNodeInfo[]>([])
 const content = ref('')
 
 // Update editor nodes when content changes
@@ -24,18 +40,18 @@ function updateEditorNodes() {
     return
   }
 
-  const nodes = []
+  const nodes: EditorNodeInfo[] = []
 
   // Process all nodes in the document
-  props.editor.state.doc.descendants((node, pos) => {
+  props.editor.state.doc.descendants((node: ProsemirrorNode, pos: number) => {
     // Skip text nodes and inline nodes
     if (node.isText)
       return
 
     // Generate a unique ID for the node
-    let nodeId
-    let nodeName
-    let nodeIcon
+    let nodeId: string
+    let nodeName: string
+    let nodeIcon: string
     let nodeContent = ''
     let depth = 0
 
@@ -129,11 +145,11 @@ function updateEditorNodes() {
 }
 
 // Get the text content of a node (for previews)
-function getTextContentPreview(node) {
+function getTextContentPreview(node: ProsemirrorNode): string {
   let text = ''
 
-  node.descendants((child) => {
-    if (child.isText) {
+  node.descendants((child: ProsemirrorNode) => {
+    if (child.isText && child.text) {
       text += child.text
     }
   })
@@ -147,7 +163,7 @@ function getTextContentPreview(node) {
 }
 
 // Get the depth level of a node based on its position
-function getNodeDepth(pos) {
+function getNodeDepth(pos: number): number {
   if (!props.editor)
     return 0
 
@@ -165,7 +181,7 @@ function getNodeDepth(pos) {
 }
 
 // Select node by id
-function selectNode(id) {
+function selectNode(id: string): void {
   if (!props.editor)
     return
 
@@ -180,13 +196,13 @@ function selectNode(id) {
 }
 
 // Find node position by ID
-function findNodePositionById(id) {
+function findNodePositionById(id: string): { from: number, to: number } | null {
   if (!props.editor)
     return null
 
-  let result = null
+  let result: { from: number, to: number } | null = null
 
-  props.editor.state.doc.descendants((node, pos) => {
+  props.editor.state.doc.descendants((node: ProsemirrorNode, pos: number) => {
     if (node.attrs.id === id || `${node.type.name}-${pos}` === id) {
       result = { from: pos, to: pos + node.nodeSize }
       return false // Stop traversal
@@ -197,14 +213,14 @@ function findNodePositionById(id) {
 }
 
 // Delete a node by id
-function deleteNode(id) {
+function deleteNode(id: string): boolean {
   if (!props.editor)
-    return
+    return false
 
   // Find the node position in the document
   const nodePos = findNodePositionById(id)
   if (nodePos === null) {
-    return
+    return false
   }
 
   try {
@@ -235,9 +251,9 @@ function deleteNode(id) {
 }
 
 // Duplicate a node by id
-function duplicateNode(id) {
+function duplicateNode(id: string): boolean {
   if (!props.editor)
-    return
+    return false
 
   // Find the node position in the document
   const nodePos = findNodePositionById(id)

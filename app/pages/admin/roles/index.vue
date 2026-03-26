@@ -249,7 +249,7 @@ const loadRoles = async () => {
       params.status = parseInt(statusFilter.value)
     }
 
-    const data = await useApiFetch('/api/v1/admin/roles', { query: params })
+    const data = await useApiFetch<{ items: Role[], total: number, totalPages: number }>('/api/v1/admin/roles', { query: params })
     if (data) {
       roles.value = data.items
       pagination.value.total = data.total

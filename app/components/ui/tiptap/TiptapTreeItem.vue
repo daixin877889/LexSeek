@@ -137,19 +137,19 @@ watchEffect((onCleanup) => {
 })
 
 // Handle node selection
-function handleClick(event) {
+function handleClick(event: Event): void {
   event.preventDefault()
   emits('select-node', node.value.id)
 }
 
 // Handle node duplication
-function handleDuplicate(event) {
+function handleDuplicate(event: Event): void {
   event.stopPropagation()
   emits('duplicate-node', node.value.id)
 }
 
 // Handle node deletion
-function handleDelete(event) {
+function handleDelete(event: Event): void {
   event.stopPropagation()
   emits('delete-node', node.value.id)
 }

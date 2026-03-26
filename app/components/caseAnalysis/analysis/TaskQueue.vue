@@ -10,6 +10,22 @@ interface TaskItem {
 defineProps<{
     tasks: TaskItem[]
 }>()
+
+/**
+ * 映射任务状态到队列指示器状态
+ */
+const mapStatus = (status: TaskItem['status']): 'pending' | 'in_progress' | 'completed' => {
+  switch (status) {
+    case 'running':
+      return 'in_progress'
+    case 'completed':
+      return 'completed'
+    case 'failed':
+      return 'completed' // 失败也显示为完成状态
+    default:
+      return 'pending'
+  }
+}
 </script>
 
 <template>
@@ -17,7 +33,7 @@ defineProps<{
         <AiElementsQueueSection v-for="task in tasks" :key="task.id">
             <AiElementsQueueItem>
                 <AiElementsQueueItemContent :completed="task.status === 'completed'">
-                    <AiElementsQueueItemIndicator :status="task.status" />
+                    <AiElementsQueueItemIndicator :status="mapStatus(task.status)" />
                     <span>{{ task.name }}</span>
                     <Badge v-if="task.points" variant="outline" class="text-xs ml-auto">{{ task.points }} 积分</Badge>
                 </AiElementsQueueItemContent>
