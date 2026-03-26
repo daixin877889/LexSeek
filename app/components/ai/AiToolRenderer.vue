@@ -17,33 +17,6 @@ const emit = defineEmits<{
   (e: 'reject'): void
 }>()
 
-// 内置工具映射表（使用 Nuxt 自动导入的组件名字符串，在 computed 中懒解析）
-const builtInToolNames: Record<string, string> = {
-  process_materials: 'AiToolsMaterialProcessTool',
-  reserve_points: 'AiToolsPointsReserveTool',
-  confirm_points: 'AiToolsConfirmPointsTool',
-  rollback_points: 'AiToolsRollbackPointsTool',
-  write_todos: 'AiToolsWriteTodosTool',
-  search_case_materials: 'AiToolsMaterialSearchTool',
-  search_law: 'AiToolsLawSearchTool',
-  extract_case_info: 'AiToolsExtractInfoTool',
-}
-
-// 解析组件：用户 toolMap 优先 > 内置映射 > DefaultTool
-const ToolComponent = computed(() => {
-  // 1. 用户自定义映射（直接是组件引用）
-  if (props.toolMap?.[props.toolCall.name]) {
-    return props.toolMap[props.toolCall.name]
-  }
-  // 2. 内置映射（通过 resolveComponent 懒解析）
-  const builtInName = builtInToolNames[props.toolCall.name]
-  if (builtInName) {
-    return resolveComponent(builtInName)
-  }
-  // 3. DefaultTool fallback
-  return resolveComponent('AiToolsDefaultTool')
-})
-
 // 适配层：统一为现有工具组件的 props 格式
 const adaptedProps = computed(() => ({
   toolName: props.toolCall.name,
@@ -62,10 +35,21 @@ function handleReject() {
 </script>
 
 <template>
+  <!-- 用户自定义工具优先 -->
   <component
-    :is="ToolComponent"
+    v-if="toolMap?.[toolCall.name]"
+    :is="toolMap[toolCall.name]"
     v-bind="adaptedProps"
     @confirm="handleConfirm"
     @reject="handleReject"
   />
+  <AiToolsMaterialProcessTool v-else-if="toolCall.name === 'process_materials'" v-bind="adaptedProps" @confirm="handleConfirm" @reject="handleReject" />
+  <AiToolsPointsReserveTool v-else-if="toolCall.name === 'reserve_points'" v-bind="adaptedProps" @confirm="handleConfirm" @reject="handleReject" />
+  <AiToolsConfirmPointsTool v-else-if="toolCall.name === 'confirm_points'" v-bind="adaptedProps" @confirm="handleConfirm" @reject="handleReject" />
+  <AiToolsRollbackPointsTool v-else-if="toolCall.name === 'rollback_points'" v-bind="adaptedProps" @confirm="handleConfirm" @reject="handleReject" />
+  <AiToolsWriteTodosTool v-else-if="toolCall.name === 'write_todos'" v-bind="adaptedProps" @confirm="handleConfirm" @reject="handleReject" />
+  <AiToolsMaterialSearchTool v-else-if="toolCall.name === 'search_case_materials'" v-bind="adaptedProps" @confirm="handleConfirm" @reject="handleReject" />
+  <AiToolsLawSearchTool v-else-if="toolCall.name === 'search_law'" v-bind="adaptedProps" @confirm="handleConfirm" @reject="handleReject" />
+  <AiToolsExtractInfoTool v-else-if="toolCall.name === 'extract_case_info'" v-bind="adaptedProps" @confirm="handleConfirm" @reject="handleReject" />
+  <AiToolsDefaultTool v-else v-bind="adaptedProps" @confirm="handleConfirm" @reject="handleReject" />
 </template>

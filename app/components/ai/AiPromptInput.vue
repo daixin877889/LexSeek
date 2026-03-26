@@ -1,5 +1,5 @@
 <template>
-  <div class="flex size-full flex-col justify-end relative" ref="dropZoneRef">
+  <div class="flex size-full flex-col justify-end relative p-4" ref="dropZoneRef">
     <div class="px-0 relative">
       <!-- 全屏拖拽覆盖层 -->
       <Transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 scale-95"
@@ -112,7 +112,7 @@
                 上传文件
                 <span v-if="selectedFiles.length > 0" class="ml-1 text-xs text-primary font-bold">({{
                   selectedFiles.length
-                  }})</span>
+                }})</span>
               </PromptInputButton>
               <TooltipProvider v-if="showThinkingToggle">
                 <Tooltip>

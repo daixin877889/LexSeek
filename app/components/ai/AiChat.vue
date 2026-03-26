@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
-import { ArrowLeftIcon, PanelLeftIcon, PanelRightIcon } from 'lucide-vue-next'
+import { ArrowLeftIcon, PanelLeftIcon, PanelRightIcon, LoaderIcon } from 'lucide-vue-next'
 import type { TodoItem } from './composables/useTaskQueueParser'
 import type { AiPromptSubmitData } from './AiPromptInput.vue'
 import { useMessageParser } from './composables/useMessageParser'
@@ -61,7 +61,7 @@ const emit = defineEmits<{
 const slots = useSlots()
 const attrs = useAttrs()
 
-// 消息解析
+// 消息解析（用于 #message-list slot 传递给父组件，AiMessageList 内部也会解析）
 const messagesRef = ref(props.messages)
 watch(() => props.messages, (v) => { messagesRef.value = v })
 const { parsedMessages } = useMessageParser(messagesRef)
@@ -81,6 +81,7 @@ const showLeftPanel = computed(() =>
 const showRightPanel = computed(() =>
   effectivePanelMode.value === 'right' || effectivePanelMode.value === 'both',
 )
+const showBothPanels = computed(() => showLeftPanel.value && showRightPanel.value)
 
 const leftSize = computed(() =>
   effectivePanelMode.value === 'both' ? props.defaultLeftSize : 100,
@@ -129,11 +130,49 @@ function handleSubmit(data: AiPromptSubmitData) {
       <slot name="header-actions" />
     </div>
 
-    <!-- Main content: 双面板模式 -->
-    <ResizablePanelGroup v-if="showLeftPanel && showRightPanel" direction="horizontal" class="min-h-0 flex-1">
+    <!-- 双面板模式 -->
+    <ResizablePanelGroup v-if="showBothPanels" direction="horizontal" class="flex-1 min-h-0">
       <ResizablePanel :default-size="leftSize" :min-size="minPanelSize" class="bg-muted/20">
-        <KeepAlive>
-          <div key="left-panel" class="flex h-full flex-col">
+        <div class="flex flex-col h-full overflow-hidden">
+          <div class="flex-1 min-h-0">
+            <ClientOnly>
+              <slot v-if="$slots['message-list']" name="message-list" :messages="parsedMessages" :loading="loading" />
+              <AiMessageList v-else :messages="parsedMessages" :loading="loading" :tool-map="toolMap"
+                :show-interrupt="showToolInterrupt" @tool-confirm="(d) => emit('tool-confirm', d)"
+                @tool-reject="(d) => emit('tool-reject', d)">
+                <template #empty>
+                  <slot name="empty" />
+                </template>
+              </AiMessageList>
+              <template #fallback>
+                <div class="flex size-full items-center justify-center">
+                  <LoaderIcon class="size-6 animate-spin text-muted-foreground" />
+                </div>
+              </template>
+            </ClientOnly>
+          </div>
+          <AiTaskQueue v-if="showTaskQueue && todos?.length" :todos="todos" />
+          <div v-if="showPrompt" class="shrink-0 border-t">
+            <slot name="prompt-actions" />
+            <AiPromptInput :loading="loading" :disabled="promptDisabled" :placeholder="promptPlaceholder"
+              :enable-file-upload="enableFileUpload" :show-thinking-toggle="showThinkingToggle" :thinking="thinking"
+              @submit="handleSubmit" @update:thinking="(v) => emit('update:thinking', v)" />
+          </div>
+        </div>
+      </ResizablePanel>
+
+      <ResizableHandle with-handle />
+
+      <ResizablePanel :default-size="rightSize" :min-size="minPanelSize">
+        <slot name="right-panel" />
+      </ResizablePanel>
+    </ResizablePanelGroup>
+
+    <!-- 仅左侧面板 -->
+    <div v-else-if="showLeftPanel" class="flex flex-1 min-h-0 flex-col">
+      <div class="flex flex-col h-full overflow-hidden">
+        <div class="flex-1 min-h-0">
+          <ClientOnly>
             <slot v-if="$slots['message-list']" name="message-list" :messages="parsedMessages" :loading="loading" />
             <AiMessageList v-else :messages="parsedMessages" :loading="loading" :tool-map="toolMap"
               :show-tool-interrupt="showToolInterrupt" @tool-confirm="(d) => emit('tool-confirm', d)"
@@ -142,59 +181,26 @@ function handleSubmit(data: AiPromptSubmitData) {
                 <slot name="empty" />
               </template>
             </AiMessageList>
-
-            <AiTaskQueue v-if="showTaskQueue && todos?.length" :todos="todos" />
-
-            <div v-if="showPrompt" class="shrink-0 border-t">
-              <slot name="prompt-actions" />
-              <AiPromptInput :loading="loading" :disabled="promptDisabled" :placeholder="promptPlaceholder"
-                :enable-file-upload="enableFileUpload" :show-thinking-toggle="showThinkingToggle" :thinking="thinking"
-                @submit="handleSubmit" @update:thinking="(v) => emit('update:thinking', v)" />
-            </div>
-          </div>
-        </KeepAlive>
-      </ResizablePanel>
-
-      <ResizableHandle with-handle />
-
-      <ResizablePanel :default-size="rightSize" :min-size="minPanelSize">
-        <KeepAlive>
-          <slot name="right-panel" />
-        </KeepAlive>
-      </ResizablePanel>
-    </ResizablePanelGroup>
-
-    <!-- 单面板模式 -->
-    <div v-else class="flex min-h-0 flex-1 flex-col">
-      <!-- 左侧面板 -->
-      <KeepAlive v-if="showLeftPanel">
-        <div key="left-panel-single" class="flex h-full flex-col">
-          <slot v-if="$slots['message-list']" name="message-list" :messages="parsedMessages" :loading="loading" />
-          <AiMessageList v-else :messages="parsedMessages" :loading="loading" :tool-map="toolMap"
-            :show-tool-interrupt="showToolInterrupt" @tool-confirm="(d) => emit('tool-confirm', d)"
-            @tool-reject="(d) => emit('tool-reject', d)">
-            <template #empty>
-              <slot name="empty" />
+            <template #fallback>
+              <div class="flex size-full items-center justify-center">
+                <LoaderIcon class="size-6 animate-spin text-muted-foreground" />
+              </div>
             </template>
-          </AiMessageList>
-
-          <AiTaskQueue v-if="showTaskQueue && todos?.length" :todos="todos" />
-
-          <div v-if="showPrompt" class="shrink-0 border-t">
-            <slot name="prompt-actions" />
-            <AiPromptInput :loading="loading" :disabled="promptDisabled" :placeholder="promptPlaceholder"
-              :enable-file-upload="enableFileUpload" :show-thinking-toggle="showThinkingToggle" :thinking="thinking"
-              @submit="handleSubmit" @update:thinking="(v) => emit('update:thinking', v)" />
-          </div>
+          </ClientOnly>
         </div>
-      </KeepAlive>
-
-      <!-- 右侧面板 -->
-      <KeepAlive v-else-if="showRightPanel">
-        <div key="right-panel-single" class="h-full">
-          <slot name="right-panel" />
+        <AiTaskQueue v-if="showTaskQueue && todos?.length" :todos="todos" />
+        <div v-if="showPrompt" class="shrink-0 border-t">
+          <slot name="prompt-actions" />
+          <AiPromptInput :loading="loading" :disabled="promptDisabled" :placeholder="promptPlaceholder"
+            :enable-file-upload="enableFileUpload" :show-thinking-toggle="showThinkingToggle" :thinking="thinking"
+            @submit="handleSubmit" @update:thinking="(v) => emit('update:thinking', v)" />
         </div>
-      </KeepAlive>
+      </div>
+    </div>
+
+    <!-- 仅右侧面板 -->
+    <div v-else-if="showRightPanel" class="h-full">
+      <slot name="right-panel" />
     </div>
   </div>
 </template>
