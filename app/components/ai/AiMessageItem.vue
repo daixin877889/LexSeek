@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChevronDownIcon, ChevronRightIcon } from 'lucide-vue-next'
 import type { Component } from 'vue'
 import type { ParsedMessage, ToolCallWithResult } from './composables/useMessageParser'
 
@@ -45,7 +46,8 @@ function handleToolReject(toolCall: ToolCallWithResult) {
           class="flex items-center gap-1 text-muted-foreground hover:text-foreground"
           @click="showThinking = !showThinking"
         >
-          <Icon :name="showThinking ? 'lucide:chevron-down' : 'lucide:chevron-right'" class="size-3.5" />
+          <ChevronDownIcon v-if="showThinking" class="size-3.5" />
+          <ChevronRightIcon v-else class="size-3.5" />
           <span>深度思考</span>
         </button>
         <div v-show="showThinking" class="mt-1 rounded border-l-2 border-muted-foreground/30 pl-3 text-muted-foreground">

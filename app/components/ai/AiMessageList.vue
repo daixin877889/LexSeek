@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ArrowDownIcon } from 'lucide-vue-next'
 import type { Component } from 'vue'
 import type { ParsedMessage } from './composables/useMessageParser'
 
@@ -95,7 +96,7 @@ watch(
         class="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full border bg-background px-3 py-1.5 text-sm shadow-md hover:bg-muted"
         @click="scrollToBottom"
       >
-        <Icon name="lucide:arrow-down" class="size-4" />
+        <ArrowDownIcon class="size-4" />
         <span>回到底部</span>
       </button>
     </Transition>

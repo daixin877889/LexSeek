@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ChevronDownIcon, ChevronRightIcon, LoaderIcon, CheckCircle2Icon, CircleIcon } from 'lucide-vue-next'
 import type { TodoItem } from './composables/useTaskQueueParser'
 
 interface Props {
@@ -25,9 +26,9 @@ function toggleExpand() {
 
 function getStatusIcon(status: string) {
   switch (status) {
-    case 'in_progress': return 'loader'
-    case 'completed': return 'check-circle'
-    default: return 'circle'
+    case 'in_progress': return LoaderIcon
+    case 'completed': return CheckCircle2Icon
+    default: return CircleIcon
   }
 }
 
@@ -47,7 +48,8 @@ function getStatusClass(status: string) {
       class="flex w-full items-center gap-2 px-4 py-2 text-sm font-medium hover:bg-muted/20"
       @click="toggleExpand"
     >
-      <Icon :name="isExpanded ? 'lucide:chevron-down' : 'lucide:chevron-right'" class="size-4" />
+      <ChevronDownIcon v-if="isExpanded" class="size-4" />
+      <ChevronRightIcon v-else class="size-4" />
       <span>任务进度 ({{ todos.filter(t => t.status === 'completed').length }}/{{ todos.length }})</span>
     </button>
     <div v-show="isExpanded || !collapsible" class="max-h-40 overflow-y-auto px-4 pb-2">
@@ -56,7 +58,7 @@ function getStatusClass(status: string) {
         :key="todo.id"
         class="flex items-center gap-2 py-1 text-sm"
       >
-        <Icon :name="`lucide:${getStatusIcon(todo.status)}`" class="size-4 shrink-0" :class="getStatusClass(todo.status)" />
+        <component :is="getStatusIcon(todo.status)" class="size-4 shrink-0" :class="getStatusClass(todo.status)" />
         <span :class="{ 'line-through text-muted-foreground': todo.status === 'completed' }">
           {{ todo.text }}
         </span>
