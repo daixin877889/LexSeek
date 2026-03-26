@@ -11,6 +11,7 @@ import { useStream, FetchStreamTransport } from '@langchain/vue'
 import { AIMessage, HumanMessage, ToolMessage } from '@langchain/core/messages'
 import { INIT_ANALYSIS_MODULES, DEFAULT_SELECTED_MODULES } from '#shared/types/initAnalysis'
 import type { ModuleRunState, InitAnalysisStatusResponse, ModuleStatus } from '#shared/types/initAnalysis'
+import { coerceRawMessages } from '~/components/ai/composables/useMessageParser'
 
 export function useInitAnalysis(sessionId: Ref<string>) {
   const phase = ref<'select' | 'running' | 'complete'>('select')
@@ -121,15 +122,6 @@ export function useInitAnalysis(sessionId: Ref<string>) {
   }, { deep: true })
 
   // ==================== 工具函数 ====================
-
-  function coerceRawMessages(rawMessages: any[]): any[] {
-    return rawMessages.map((m: any) => {
-      if (m.type === 'human') return new HumanMessage({ content: m.content, id: m.id })
-      if (m.type === 'ai') return new AIMessage({ content: m.content, id: m.id, tool_calls: m.tool_calls })
-      if (m.type === 'tool') return new ToolMessage({ content: m.content, tool_call_id: m.tool_call_id, id: m.id })
-      return m
-    })
-  }
 
   // ==================== 操作 ====================
 

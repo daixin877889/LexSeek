@@ -6,16 +6,22 @@
     <!-- 页面头部 -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
       <div class="space-y-1">
-        <h1 class="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">我的案件</h1>
+        <h1
+          class="text-3xl font-bold tracking-tight bg-linear-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+          我的案件</h1>
         <p class="text-muted-foreground text-sm md:text-base">这里记录了您的法律探索足迹，随时回顾和继续分析</p>
       </div>
       <div class="flex items-center gap-3">
         <!-- 视图切换 (仅 PC) -->
         <div class="hidden md:flex items-center bg-muted/50 rounded-lg p-1 border">
-          <Button variant="ghost" size="sm" :class="['h-8 w-8 p-0 rounded-md transition-all', viewMode === 'list' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground']" @click="viewMode = 'list'" title="列表视图">
+          <Button variant="ghost" size="sm"
+            :class="['h-8 w-8 p-0 rounded-md transition-all', viewMode === 'list' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground']"
+            @click="viewMode = 'list'" title="列表视图">
             <List class="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" :class="['h-8 w-8 p-0 rounded-md transition-all', viewMode === 'grid' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground']" @click="viewMode = 'grid'" title="卡片视图">
+          <Button variant="ghost" size="sm"
+            :class="['h-8 w-8 p-0 rounded-md transition-all', viewMode === 'grid' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground']"
+            @click="viewMode = 'grid'" title="卡片视图">
             <LayoutGrid class="h-4 w-4" />
           </Button>
         </div>
@@ -56,7 +62,8 @@
           </div>
           <div>
             <p class="text-xs text-muted-foreground uppercase font-medium">进行中</p>
-            <p class="text-2xl font-bold">{{ cases.filter(c => c.status === 1).length }}<span class="text-sm font-normal text-muted-foreground ml-1">(当前页)</span></p>
+            <p class="text-2xl font-bold">{{cases.filter(c => c.status === 1).length}}<span
+                class="text-sm font-normal text-muted-foreground ml-1">(当前页)</span></p>
           </div>
         </div>
       </Card>
@@ -68,7 +75,8 @@
           </div>
           <div>
             <p class="text-xs text-muted-foreground uppercase font-medium">已完成</p>
-            <p class="text-2xl font-bold">{{ cases.filter(c => c.status === 2).length }}<span class="text-sm font-normal text-muted-foreground ml-1">(当前页)</span></p>
+            <p class="text-2xl font-bold">{{cases.filter(c => c.status === 2).length}}<span
+                class="text-sm font-normal text-muted-foreground ml-1">(当前页)</span></p>
           </div>
         </div>
       </Card>

@@ -29,13 +29,16 @@
               </AiElementsReasoning>
 
               <!-- 工具调用 -->
-              <CaseAnalysisToolsToolRenderer
+              <AiToolRenderer
                 v-for="tc in getToolCallsForMessage(message)"
                 :key="tc.call.id"
-                :tool-name="tc.call.name"
-                :input="tc.call.args"
-                :output="tc.result?.content"
-                :state="tc.state"
+                :tool-call="{
+                  id: tc.call.id,
+                  name: tc.call.name,
+                  args: tc.call.args,
+                  result: tc.result?.content,
+                  state: tc.state,
+                }"
               />
 
               <!-- 文本内容 -->
