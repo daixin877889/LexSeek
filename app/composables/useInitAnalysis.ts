@@ -144,7 +144,7 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     caseId.value = sessionInfo.case.id
 
     const status = await useApiFetch<InitAnalysisStatusResponse>(
-      `/api/v1/case/init-analysis/status/${caseId.value}`,
+      `/api/v1/case/init-analysis-status/${caseId.value}`,
     )
 
     if (!status) return
