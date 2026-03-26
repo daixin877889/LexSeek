@@ -92,6 +92,8 @@ model caseSessions {
     caseId    Int       @map("case_id")
     /// 会话状态：1-进行中，2-已完成，3-已中断，4-已失败
     status    Int       @default(1)
+    /// 会话类型：1-普通对话，2-初始化分析
+    type      Int       @default(1)
     /// 创建时间
     createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
     /// 最后更新时间
@@ -107,6 +109,7 @@ model caseSessions {
 
     @@index([caseId], map: "idx_case_sessions_case_id")
     @@index([status], map: "idx_case_sessions_status")
+    @@index([type], map: "idx_case_sessions_type")
     @@index([deletedAt], map: "idx_case_sessions_deleted_at")
     @@map("case_sessions")
 }
