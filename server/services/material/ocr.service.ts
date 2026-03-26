@@ -135,15 +135,15 @@ async function extractImageInfo(imageUrl: string): Promise<ImageInfoResult> {
                 const [, mimeType, base64Data] = matches
 
                 // 压缩图片（限制为 9MB，留一些余量）
-                const compressed = await compressImageFromBase64(base64Data, mimeType, {
+                const compressed = await compressImageFromBase64(base64Data!, mimeType!, {
                     maxSizeBytes: 9 * 1024 * 1024, // 9MB
                 })
 
                 // 重新构建 data URL
                 processedImageUrl = `data:${compressed.mimeType};base64,${compressed.base64Data}`
                 logger.info('图片已压缩', {
-                    originalSize: base64Data.length,
-                    compressedSize: compressed.base64Data.length,
+                    originalSize: base64Data!.length,
+                    compressedSize: compressed.base64Data!.length,
                 })
             }
         } else {

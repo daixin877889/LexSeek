@@ -4,6 +4,7 @@
  * 负责存储配置的增删改查操作
  */
 
+import type { Prisma } from '#shared/types/prisma'
 import { StorageProviderType, type StorageConfig } from '~~/server/lib/storage/types'
 import { StorageConfigError } from '~~/server/lib/storage/errors'
 import crypto from 'crypto'
@@ -62,6 +63,9 @@ function decryptConfig(encryptedStr: string): Record<string, unknown> {
     }
 
     const [ivHex, authTagHex, encrypted] = parts
+    if (!ivHex || !authTagHex || !encrypted) {
+        throw new StorageConfigError('无效的加密配置部分')
+    }
     const iv = Buffer.from(ivHex, 'hex')
     const authTag = Buffer.from(authTagHex, 'hex')
 

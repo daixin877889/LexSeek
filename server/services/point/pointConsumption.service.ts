@@ -413,7 +413,7 @@ const executeSettle = async (
     }
 
     // 检查状态（只有预扣状态才能结算）
-    const firstRecord = preDeductRecords[0]
+    const firstRecord = preDeductRecords[0]!
     if (firstRecord.status !== PointConsumptionRecordStatus.PRE_DEDUCT) {
         throw new Error(`预扣批次已处理: ${batchId}`)
     }
@@ -422,7 +422,7 @@ const executeSettle = async (
     const preDeductTotal = preDeductRecords.reduce((sum, r) => sum + r.pointAmount, 0)
 
     // 获取消耗项目配置
-    const item = firstRecord.pointConsumptionItems
+    const item = firstRecord.pointConsumptionItems!
 
     // 计算实际消耗积分
     let actualConsumeAmount: number
@@ -547,7 +547,7 @@ const executeRollback = async (
     }
 
     // 检查状态（已处理的批次支持幂等回滚）
-    const firstRecord = preDeductRecords[0]
+    const firstRecord = preDeductRecords[0]!
     if (firstRecord.status === PointConsumptionRecordStatus.INVALID) {
         // 已回滚，幂等返回
         return { releasedAmount: 0 }

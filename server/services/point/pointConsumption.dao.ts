@@ -217,7 +217,7 @@ export const findValidPointRecordsForConsumeDao = async (
         logger.debug('查询用户有效积分记录结果', {
             userId,
             count: records.length,
-            totalRemaining: records.reduce((sum, r) => sum + r.remaining, 0),
+            totalRemaining: records.reduce((sum: number, r: pointRecords) => sum + r.remaining, 0),
         })
         return records
     } catch (error) {

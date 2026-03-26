@@ -1,8 +1,9 @@
 /**
  * 会员升级记录数据访问层
  *
- * 提供会员升级记录的 CRUD 操作
+ * 提供会员升级记录的 CRUD操作
  */
+import type { Prisma } from '#shared/types/prisma'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma
@@ -33,7 +34,7 @@ export const createMembershipUpgradeRecordDao = async (
         upgradePrice: number
         pointCompensation: number
         transferPoints?: number
-        details?: object
+        details?: Prisma.InputJsonValue
     },
     tx?: PrismaClient
 ): Promise<membershipUpgradeRecords> => {
@@ -47,7 +48,7 @@ export const createMembershipUpgradeRecordDao = async (
                 upgradePrice: data.upgradePrice,
                 pointCompensation: data.pointCompensation,
                 transferPoints: data.transferPoints ?? 0,
-                details: data.details ?? null,
+                details: data.details ?? undefined,
                 createdAt: new Date(),
                 updatedAt: new Date(),
             },

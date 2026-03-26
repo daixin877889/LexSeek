@@ -333,7 +333,7 @@ export function getNextModule(state: CaseAnalysisState): string | null {
     if (currentModuleIndex >= selectedModules.length) {
         return null
     }
-    return selectedModules[currentModuleIndex]
+    return selectedModules[currentModuleIndex] ?? null
 }
 
 /**

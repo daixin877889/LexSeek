@@ -10,7 +10,7 @@ import { logger } from '../../../shared/utils/logger'
 
 // 显式导入类型（测试环境需要）
 import { CampaignType, CampaignStatus } from '#shared/types/campaign'
-import type { Prisma, campaigns, membershipLevels } from '@prisma/client'
+import type { Prisma, campaigns, membershipLevels } from '#shared/types/prisma'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma

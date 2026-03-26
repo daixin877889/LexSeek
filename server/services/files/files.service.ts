@@ -171,6 +171,8 @@ export async function generateOssDownloadSignaturesService(query: {
         const bucketConfigMap = new Map<string, OssConfig>();
         for (let i = 0; i < bucketNames.length; i++) {
             const bucket = bucketNames[i];
+            if (!bucket) continue
+
             const ossConfig = configs[i];
 
             if (ossConfig) {

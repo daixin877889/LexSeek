@@ -7,6 +7,7 @@
 
 import type { mineruTasks, Prisma } from '~~/generated/prisma/client'
 import type { MineruTaskStatus as MineruTaskStatusType } from '#shared/types/recognition'
+import { $fetch } from 'ofetch'
 import { getActiveTokenValueService } from './mineruToken.service'
 import {
     createMineruTaskDao,
@@ -19,6 +20,18 @@ import {
     updateMineruTaskByTaskIdDao,
     findPendingMineruTasksDao,
 } from './mineruTask.dao'
+
+/** MinerU API 任务状态响应 */
+interface MineruTaskStatusResponse {
+    code: number
+    msg: string
+    data?: {
+        state: string
+        progress?: number
+        result?: any
+        err_msg?: string
+    }
+}
 
 /** MinerU 任务查询参数 */
 export interface MineruTaskQueryOptions {
@@ -237,21 +250,16 @@ export const queryMineruTaskStatusService = async (
 
     try {
         // 调用 MinerU API 查询任务状态
-        const response = await $fetch<{
-            code: number
-            msg: string
-            data?: {
-                state: string
-                progress?: number
-                result?: any
-                err_msg?: string
-            }
-        }>(`https://mineru.net/api/v4/extract/task/${task.taskId}`, {
-            method: 'GET',
-            headers: {
-                Authorization: `Bearer ${token}`,
+        // 使用类型断言避免 $fetch 类型实例化过深的问题
+        const response = (await $fetch(
+            `https://mineru.net/api/v4/extract/task/${task.taskId}`,
+            {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
             },
-        })
+        )) as MineruTaskStatusResponse
 
         if (response.code !== 0) {
             throw new Error(response.msg || '查询任务状态失败')

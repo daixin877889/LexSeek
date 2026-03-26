@@ -1,6 +1,7 @@
 /**
  * 用户服务层
  */
+import type { Prisma } from '#shared/types/prisma'
 
 /**
  * 创建用户（带角色分配）

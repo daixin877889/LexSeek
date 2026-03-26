@@ -22,7 +22,6 @@ export const createAsrTaskDao = async (
                 status: data.status ?? AsrTaskStatus.PENDING,
                 taskRawData: data.taskRawData ?? {},
                 result: data.result ?? {},
-                retrySourceId: data.retrySourceId,
                 isEncrypted: data.isEncrypted ?? false,
             },
         })

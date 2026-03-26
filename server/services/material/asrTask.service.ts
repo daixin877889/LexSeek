@@ -6,6 +6,7 @@
  */
 
 import type { asrTasks, Prisma } from '~~/generated/prisma/client'
+import { $fetch } from 'ofetch'
 import {
     createAsrTaskDao,
     findAsrTaskByIdDao,
@@ -237,11 +238,20 @@ export const queryAsrTaskStatusService = async (
 
     // 获取 ASR 节点配置（从模型管理获取 API Key）
     const nodeConfig = await getValidNodeConfig(ASR_NODE_NAME, 'ASR')
-    const asrToken = nodeConfig.modelApiKeys[0].apiKey
+    const asrToken = nodeConfig.modelApiKeys[0]!.apiKey
 
     try {
         // 调用阿里云百炼 ASR API 查询任务状态
-        const response = await $fetch<{
+        const response = (await $fetch(
+            `${nodeConfig.modelProviderBaseUrl}/tasks/${task.taskId}`,
+            {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${asrToken}`,
+                    'Content-Type': 'application/json; charset=utf-8',
+                },
+            },
+        )) as {
             request_id?: string
             output?: {
                 task_id: string
@@ -254,13 +264,7 @@ export const queryAsrTaskStatusService = async (
             }
             code?: string
             message?: string
-        }>(`${nodeConfig.modelProviderBaseUrl}/tasks/${task.taskId}`, {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${asrToken}`,
-                'Content-Type': 'application/json; charset=utf-8',
-            },
-        })
+        }
 
         if (response.code) {
             throw new Error(response.message || '查询任务状态失败')
@@ -410,7 +414,7 @@ export const retryAsrTaskService = async (
 
     // 获取 ASR 节点配置（从模型管理获取 API Key）
     const nodeConfig = await getValidNodeConfig(ASR_NODE_NAME, 'ASR')
-    const asrToken = nodeConfig.modelApiKeys[0].apiKey
+    const asrToken = nodeConfig.modelApiKeys[0]!.apiKey
 
     // 获取关联的 ASR 记录
     const records = await prisma.asrRecords.findMany({

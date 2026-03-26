@@ -143,9 +143,9 @@ export async function processAllImagesInMarkdown(
     base64ImageRegex.lastIndex = 0
 
     while ((match = base64ImageRegex.exec(markdown)) !== null) {
-        const altText = match[1]
-        const mimeType = match[2]
-        const base64Data = match[3]
+        const altText = match[1]!
+        const mimeType = match[2]!
+        const base64Data = match[3]!
 
         try {
             const imageBuffer = Buffer.from(base64Data, 'base64')
@@ -168,8 +168,8 @@ export async function processAllImagesInMarkdown(
     urlImageRegex.lastIndex = 0
 
     while ((match = urlImageRegex.exec(markdown)) !== null) {
-        const altText = match[1]
-        const imageUrl = match[ 2]
+        const altText = match[1]!
+        const imageUrl = match[2]!
 
         //跳过 base64 图片（data:开头）和已处理的占位符
         if (imageUrl.startsWith('data:') || imageUrl.includes('{{OSS_IMAGE:')) {
@@ -216,8 +216,8 @@ export async function processUrlImagesInMarkdown(
     urlImageRegex.lastIndex = 0
 
     while ((match = urlImageRegex.exec(markdown)) !== null) {
-        const altText = match[1]
-        const imageUrl = match[2]
+        const altText = match[1]!
+        const imageUrl = match[2]!
 
         // 跳过 base64 图片和已处理的占位符
         if (imageUrl.startsWith('data:') || imageUrl.includes('{{OSS_IMAGE:')) {

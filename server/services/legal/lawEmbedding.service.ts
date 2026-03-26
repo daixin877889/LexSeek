@@ -46,10 +46,16 @@ export function getLegalTypeName(type: string): string {
 
 /**
  * 构建章节层级数组
- * @param article 法律条文
+ * @param article 法律条文（只需包含层级字段）
  * @returns 章节层级数组
  */
-export function buildChapterHierarchy(article: legalArticles): string[] {
+export function buildChapterHierarchy(article: {
+    l1?: string | null
+    l2?: string | null
+    l3?: string | null
+    l4?: string | null
+    l5?: string | null
+}): string[] {
     const hierarchy: string[] = []
     if (article.l1) hierarchy.push(article.l1)
     if (article.l2) hierarchy.push(article.l2)
@@ -61,20 +67,33 @@ export function buildChapterHierarchy(article: legalArticles): string[] {
 
 /**
  * 构建层级路径字符串（用于显示）
- * @param article 法律条文
+ * @param article 法律条文（只需包含层级字段）
  * @returns 层级路径字符串
  */
-export function buildHierarchyPath(article: legalArticles): string {
+export function buildHierarchyPath(article: {
+    l1?: string | null
+    l2?: string | null
+    l3?: string | null
+    l4?: string | null
+    l5?: string | null
+}): string {
     return buildChapterHierarchy(article).join(' > ')
 }
 
 /**
  * 获取条文的可嵌入文本内容
  * 优先使用 content，如果为空则使用 L5 → L4 → L3 → L2 → L1 中最后一级存在的标题
- * @param article 法律条文
+ * @param article 法律条文（需包含 content 和层级字段）
  * @returns 可嵌入的文本内容
  */
-export function getEmbeddableContent(article: legalArticles): string {
+export function getEmbeddableContent(article: {
+    content?: string | null
+    l1?: string | null
+    l2?: string | null
+    l3?: string | null
+    l4?: string | null
+    l5?: string | null
+}): string {
     // 如果有 content，直接返回
     if (article.content && article.content.trim()) {
         return article.content

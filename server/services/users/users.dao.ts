@@ -1,6 +1,7 @@
 /**
  * 用户数据访问层
  */
+import type { Prisma } from '#shared/types/prisma'
 
 /**
  * 创建用户

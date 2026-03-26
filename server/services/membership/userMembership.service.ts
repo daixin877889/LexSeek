@@ -138,10 +138,10 @@ export const createMembershipService = async (
             (latest, current) => {
                 return dayjs(current.endDate).isAfter(dayjs(latest.endDate)) ? current : latest
             },
-            allValidMemberships[0]
+            allValidMemberships[0]!
         )
 
-        const latestEndDate = dayjs(latestMembership.endDate)
+        const latestEndDate = dayjs(latestMembership!.endDate)
         const today = dayjs().startOf('day')
 
         if (latestEndDate.isAfter(today)) {

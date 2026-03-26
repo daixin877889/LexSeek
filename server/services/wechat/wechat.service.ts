@@ -50,7 +50,9 @@ export async function getMpOpenidService(code: string): Promise<{
     logger.debug('请求微信公众号 OpenID', { appid: appId, code })
 
     try {
-        const rawResponse = await $fetch<WechatAccessTokenResult | string>(`${url}?${params.toString()}`)
+        // 使用 globalThis.$fetch 并添加 @ts-expect-error 避免 Nuxt 类型推断过深问题
+        // @ts-expect-error $fetch 类型推断过深，使用类型断言绕过
+        const rawResponse = await globalThis.$fetch(`${url}?${params.toString()}`) as WechatAccessTokenResult | string
 
         // 处理可能的双重序列化问题（微信 API 有时返回的 Content-Type 不标准）
         let response: WechatAccessTokenResult

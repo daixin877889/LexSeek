@@ -17,6 +17,7 @@ type PrismaClient = typeof prisma
 export const createMembershipBenefitDao = async (
     levelId: number,
     benefitId: number,
+    benefitValue: number,
     tx?: PrismaClient
 ): Promise<membershipBenefits> => {
     try {
@@ -24,6 +25,7 @@ export const createMembershipBenefitDao = async (
             data: {
                 level: { connect: { id: levelId } },
                 benefit: { connect: { id: benefitId } },
+                benefitValue: BigInt(benefitValue),
                 createdAt: new Date(),
                 updatedAt: new Date(),
             },
@@ -97,17 +99,20 @@ export const deleteMembershipBenefitDao = async (
  * 批量创建会员权益关联
  * @param levelId 会员级别 ID
  * @param benefitIds 权益 ID 列表
+ * @param benefitValues 权益值列表（与 benefitIds 一一对应）
  * @param tx 事务客户端（可选）
  */
 export const batchCreateMembershipBenefitsDao = async (
     levelId: number,
     benefitIds: number[],
+    benefitValues: number[],
     tx?: PrismaClient
 ): Promise<void> => {
     try {
-        const data = benefitIds.map((benefitId) => ({
+        const data = benefitIds.map((benefitId, index) => ({
             levelId,
             benefitId,
+            benefitValue: BigInt(benefitValues[index] ?? 0),
             createdAt: new Date(),
             updatedAt: new Date(),
         }))

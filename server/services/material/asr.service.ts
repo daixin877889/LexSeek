@@ -30,7 +30,8 @@ import { $fetch as ofetch } from 'ofetch'
 import { checkPointsService, consumePointsService, preDeductPointsService, settlePointsService, rollbackPreDeductService } from '../point/pointConsumption.service'
 import { getValidNodeConfig, getNodeConfigService, type NodeConfig } from '../node/node.service'
 import { embedAudioService as embedAudioToVectorStore, formatAsrResultForEmbedding } from './materialEmbedding.service'
-import { PollingConfig, DEFAULT_POLLING_CONFIG, calculateBackoffDelay } from './materialConstants'
+import { DEFAULT_POLLING_CONFIG, calculateBackoffDelay } from './materialConstants'
+import type { PollingConfig } from './materialConstants'
 
 /** 音频识别节点名称 */
 const ASR_NODE_NAME = 'audioRecognition'
@@ -142,7 +143,7 @@ function generateSpeakers(speakerCount: number): Array<{ id: number; name: strin
         speakers.push({
             id: i,
             name: `说话人 ${i + 1}`,
-            color: SPEAKER_COLORS[i % SPEAKER_COLORS.length],
+            color: SPEAKER_COLORS[i % SPEAKER_COLORS.length]!,
         })
     }
     return speakers
@@ -479,7 +480,7 @@ export const submitAsrTaskService = async (
         } catch (configError: any) {
             return { success: false, error: configError.message }
         }
-        const asrToken = nodeConfig.modelApiKeys[0].apiKey
+        const asrToken = nodeConfig.modelApiKeys[0]!.apiKey
 
         // 2. 获取文件信息
         const ossFile = await prisma.ossFiles.findFirst({
@@ -1011,7 +1012,7 @@ export const pollAsrTaskStatusService = async (taskId: string): Promise<boolean>
             logger.error('轮询任务状态失败：', configError.message)
             return false
         }
-        const asrToken = nodeConfig.modelApiKeys[0].apiKey
+        const asrToken = nodeConfig.modelApiKeys[0]!.apiKey
 
         // 调用阿里云百炼 ASR API 查询状态
         // 同上：避免 $fetch 深层类型推导导致 TS “类型实例化过深” 报错。
@@ -1059,7 +1060,7 @@ export const pollAsrTaskStatusService = async (taskId: string): Promise<boolean>
                 // 任务完成，处理结果
                 const results = output.results
                 if (results && results.length > 0) {
-                    const firstResult = results[0]
+                    const firstResult = results[0]!
                     if (firstResult.transcription_url) {
                         // 获取关联的 ASR 任务记录，以获取 userId 用于上传原始 JSON
                         const task = await getAsrTaskByTaskIdService(taskId)
@@ -1067,7 +1068,7 @@ export const pollAsrTaskStatusService = async (taskId: string): Promise<boolean>
                         if (task) {
                             const records = await findAsrRecordsByTaskIdDao(task.id)
                             if (records.length > 0) {
-                                userId = records[0].userId
+                                userId = records[0]!.userId
                             }
                         }
 

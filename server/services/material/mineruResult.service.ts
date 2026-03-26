@@ -10,6 +10,7 @@
 import JSZip from 'jszip'
 import { marked } from 'marked'
 import { v7 as uuidv7 } from 'uuid'
+import { $fetch } from 'ofetch'
 import { FileSource, OssFileStatus } from '#shared/types/file'
 import { StorageProviderType, type AliyunPostSignatureResult } from '~~/server/lib/storage/types'
 import { embedDocumentService } from '~~/server/services/material/materialEmbedding.service'
@@ -79,13 +80,15 @@ const getImageMimeType = (filename: string): string => {
 export async function downloadMineruZipService(downloadUrl: string): Promise<Buffer> {
     logger.info('开始下载 MinerU 识别结果', { url: downloadUrl.substring(0, 100) })
 
-    const response = await $fetch<ArrayBuffer>(downloadUrl, {
-        responseType: 'arrayBuffer',
+    const response = await $fetch(downloadUrl, {
+        method: 'GET',
+        responseType: 'arrayBuffer' as const,
         timeout: 60000, // 60 秒超时
     })
 
-    logger.info('MinerU ZIP 文件下载完成', { size: response.byteLength })
-    return Buffer.from(response)
+    const arrayBuffer = response as ArrayBuffer
+    logger.info('MinerU ZIP 文件下载完成', { size: arrayBuffer.byteLength })
+    return Buffer.from(arrayBuffer)
 }
 
 /**

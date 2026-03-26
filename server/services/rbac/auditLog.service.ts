@@ -15,7 +15,7 @@ const getClientIp = (event: H3Event): string | null => {
     // 优先从 X-Forwarded-For 获取（代理场景）
     const forwarded = getHeader(event, 'x-forwarded-for')
     if (forwarded) {
-        return forwarded.split(',')[0].trim()
+        return forwarded.split(',')[0]!.trim()
     }
 
     // 从 X-Real-IP 获取
@@ -45,7 +45,7 @@ export const logRoleCreate = async (
         targetType: 'role',
         targetId: roleId,
         operatorId,
-        newValue: roleData,
+        newValue: roleData as Prisma.InputJsonValue,
         ip: getClientIp(event),
     }, tx)
 }
@@ -66,8 +66,8 @@ export const logRoleUpdate = async (
         targetType: 'role',
         targetId: roleId,
         operatorId,
-        oldValue: oldData,
-        newValue: newData,
+        oldValue: oldData as Prisma.InputJsonValue,
+        newValue: newData as Prisma.InputJsonValue,
         ip: getClientIp(event),
     }, tx)
 }
@@ -87,7 +87,7 @@ export const logRoleDelete = async (
         targetType: 'role',
         targetId: roleId,
         operatorId,
-        oldValue: roleData,
+        oldValue: roleData as Prisma.InputJsonValue,
         ip: getClientIp(event),
     }, tx)
 }
@@ -213,7 +213,7 @@ export const logApiPermissionCreate = async (
         targetType: 'api_permission',
         targetId: permissionId,
         operatorId,
-        newValue: permissionData,
+        newValue: permissionData as Prisma.InputJsonValue,
         ip: getClientIp(event),
     }, tx)
 }
@@ -234,8 +234,8 @@ export const logApiPermissionUpdate = async (
         targetType: 'api_permission',
         targetId: permissionId,
         operatorId,
-        oldValue: oldData,
-        newValue: newData,
+        oldValue: oldData as Prisma.InputJsonValue,
+        newValue: newData as Prisma.InputJsonValue,
         ip: getClientIp(event),
     }, tx)
 }
@@ -255,7 +255,7 @@ export const logApiPermissionDelete = async (
         targetType: 'api_permission',
         targetId: permissionId,
         operatorId,
-        oldValue: permissionData,
+        oldValue: permissionData as Prisma.InputJsonValue,
         ip: getClientIp(event),
     }, tx)
 }

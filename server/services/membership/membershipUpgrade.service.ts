@@ -14,6 +14,7 @@ import { grantMembershipBenefitsService, expireMembershipBenefitsService } from 
 // 显式导入常量
 import { MembershipStatus, UserMembershipSourceType } from '#shared/types/membership'
 import type { UpgradeDetails, UpgradeDetailsOldPointRecord } from '#shared/types/membership'
+import type { Prisma } from '#shared/types/prisma'
 import { ProductType } from '#shared/types/product'
 import { PointRecordStatus, PointRecordSourceType } from '#shared/types/point.types'
 
@@ -129,8 +130,9 @@ export const getUpgradeOptionsService = async (
     // 按 levelId 分组，每个级别只取第一个商品
     const productsByLevel = new Map<number, products>()
     for (const product of allProducts) {
-        if (!productsByLevel.has(product.levelId)) {
-            productsByLevel.set(product.levelId, product)
+        const levelId = product.levelId ?? 0
+        if (levelId !== 0 && !productsByLevel.has(levelId)) {
+            productsByLevel.set(levelId, product)
         }
     }
 
@@ -144,7 +146,7 @@ export const getUpgradeOptionsService = async (
         const priceResult = calculateUpgradePrice(
             currentMembership,
             level,
-            currentProduct,
+            currentProduct ?? null,
             product,
             remainingDays,
             paidAmount,
@@ -405,7 +407,7 @@ export const calculateUpgradePriceService = async (
     })
 
     const currentProduct = currentProducts.length > 0 ? currentProducts[0] : null
-    const product = products[0]
+    const product = products[0]!
     const remainingDays = dayjs(currentMembership.endDate).diff(dayjs(), 'day')
 
     // 获取当前会员记录的累计实付金额和原始总天数
@@ -414,7 +416,7 @@ export const calculateUpgradePriceService = async (
     const result = calculateUpgradePrice(
         currentMembership,
         targetLevel,
-        currentProduct,
+        currentProduct ?? null,
         product,
         remainingDays,
         paidAmount,
@@ -515,7 +517,7 @@ export const executeMembershipUpgradeService = async (
         })
 
         const currentProduct = currentProducts.length > 0 ? currentProducts[0] : null
-        const product = products[0]
+        const product = products[0]!
         const remainingDays = dayjs(currentMembership.endDate).diff(dayjs(), 'day')
 
         // 获取当前会员记录的累计实付金额和原始总天数
@@ -525,7 +527,7 @@ export const executeMembershipUpgradeService = async (
         const priceResult = calculateUpgradePrice(
             currentMembership,
             targetLevel,
-            currentProduct,
+            currentProduct ?? null,
             product,
             remainingDays,
             paidAmount,
@@ -714,7 +716,7 @@ export const executeMembershipUpgradeService = async (
                 upgradePrice: priceResult.upgradePrice,
                 pointCompensation: priceResult.pointCompensation,
                 transferPoints: totalTransferPoints,
-                details: upgradeDetails,
+                details: upgradeDetails as unknown as Prisma.InputJsonValue,
             },
             client
         )

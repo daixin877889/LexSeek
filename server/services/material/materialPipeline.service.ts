@@ -25,17 +25,17 @@ export interface MaterialReadyResult {
 }
 
 /** 从 Promise.allSettled 结果中收集失败项 */
-function collectSettledFailures(
-    results: PromiseSettledResult<void>[],
+function collectSettledFailures<T>(
+    results: PromiseSettledResult<T>[],
     materials: MaterialWithFile[],
 ): MaterialFailedItem[] {
     const failures: MaterialFailedItem[] = []
     for (let i = 0; i < results.length; i++) {
-        if (results[i].status === 'rejected') {
-            const reason = (results[i] as PromiseRejectedResult).reason
+        if (results[i]!.status === 'rejected') {
+            const reason = (results[i]! as PromiseRejectedResult).reason
             failures.push({
-                materialId: materials[i].id,
-                name: materials[i].name,
+                materialId: materials[i]!.id,
+                name: materials[i]!.name,
                 error: reason instanceof Error ? reason.message : String(reason),
             })
         }

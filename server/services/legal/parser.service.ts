@@ -44,10 +44,10 @@ export function convertChineseNumberToArabic(chineseStr: string): number {
 
     for (let i = 0; i < chineseStr.length; i++) {
         const char = chineseStr[i]
-        if (char in charMap) {
-            num = charMap[char]
-        } else if (char in unitMap) {
-            const unit = unitMap[char]
+        if (char && char in charMap) {
+            num = charMap[char]!
+        } else if (char && char in unitMap) {
+            const unit = unitMap[char]!
             if (unit >= 10000) {
                 total += (section + num) * unit
                 section = 0
@@ -134,7 +134,7 @@ function parseHeadingsAndContent(
     const currentLevels = JSON.parse(JSON.stringify(initialLevels))
     const parts = headingsText.split(/(^#{1,5}\s.*$)/m)
 
-    if (parts.length > 0 && parts[0].trim() === '') {
+    if (parts.length > 0 && parts[0]?.trim() === '') {
         parts.shift()
     }
 
@@ -266,12 +266,17 @@ export function parseDocument(rawText: string): ParsedArticle[] {
  */
 function parseJudicialCoreContent(coreText: string): ParsedArticle[] {
     const jsonResult: ParsedArticle[] = []
-    const currentLevels = { l1: null, l1I: null, l2: null, l2I: null }
+    const currentLevels = {
+        l1: null as string | null,
+        l1I: null as number | null,
+        l2: null as string | null,
+        l2I: null as number | null
+    }
 
     // 正则表达式匹配 "一、" 或 "1." 开头的行
     const parts = coreText.split(/(^[一二三四五六七八九十百千万]+、.*$|^\d+\．.*$)/m)
 
-    if (parts.length > 0 && parts[0].trim() === '') {
+    if (parts.length > 0 && parts[0]?.trim() === '') {
         parts.shift()
     }
 
@@ -287,14 +292,14 @@ function parseJudicialCoreContent(coreText: string): ParsedArticle[] {
             level = 1
             const match = trimmedHeadingLine.match(/^([一二三四五六七八九十百千万]+)、/)
             currentLevels.l1 = trimmedHeadingLine
-            currentLevels.l1I = match ? convertChineseNumberToArabic(match[1]) : null
+            currentLevels.l1I = match && match[1] ? convertChineseNumberToArabic(match[1]) : null
             currentLevels.l2 = null
             currentLevels.l2I = null
         } else if (/^\d+\．/.test(trimmedHeadingLine)) {
             level = 2
             const match = trimmedHeadingLine.match(/^(\d+)\．/)
             currentLevels.l2 = trimmedHeadingLine
-            currentLevels.l2I = match ? parseInt(match[1], 10) : null
+            currentLevels.l2I = match && match[1] ? parseInt(match[1], 10) : null
         } else {
             continue // 不是有效标题行
         }
@@ -347,7 +352,7 @@ export function parseJudicialDocument(rawText: string): ParsedArticle[] {
         let preNoticeContent = noticesArea
         if (hasNoticeTag) {
             const noticeParts = noticesArea.split(/\s*>notice<\s*/)
-            preNoticeContent = noticeParts[0].trim()
+            preNoticeContent = noticeParts[0]?.trim() ?? ''
 
             // 处理 notice 部分
             noticeParts.forEach((noticeText, index) => {
@@ -379,7 +384,7 @@ export function parseJudicialDocument(rawText: string): ParsedArticle[] {
         // 如果notice前有内容，作为第一个header
         if (purePreNoticeContent) {
             const headerLines = purePreNoticeContent.split('\n')
-            const firstLine = headerLines[0].trim()
+            const firstLine = headerLines[0]?.trim() ?? null
             const remainingContent = headerLines.slice(1).join('\n').trim()
 
             finalJson.push({
@@ -388,7 +393,7 @@ export function parseJudicialDocument(rawText: string): ParsedArticle[] {
                 l3: firstLine,
                 l3I: headerIndex++,
                 l4: null, l4I: null, l5: null, l5I: null,
-                content: remainingContent
+                content: remainingContent || null
             })
         }
 
@@ -410,7 +415,7 @@ export function parseJudicialDocument(rawText: string): ParsedArticle[] {
 
                 if (pureHeaderText) {
                     const headerLines = pureHeaderText.split('\n')
-                    const firstLine = headerLines[0].trim()
+                    const firstLine = headerLines[0]?.trim() ?? null
                     const remainingContent = headerLines.slice(1).join('\n').trim()
 
                     finalJson.push({
@@ -436,7 +441,7 @@ export function parseJudicialDocument(rawText: string): ParsedArticle[] {
 
         if (headerText) {
             const headerLines = headerText.split('\n')
-            const firstLine = headerLines[0].trim()
+            const firstLine = headerLines[0]?.trim() ?? null
             const remainingContent = headerLines.slice(1).join('\n').trim()
 
             finalJson.push({
@@ -445,7 +450,7 @@ export function parseJudicialDocument(rawText: string): ParsedArticle[] {
                 l3: firstLine,
                 l3I: 1,
                 l4: null, l4I: null, l5: null, l5I: null,
-                content: remainingContent
+                content: remainingContent || null
             })
         }
     }
@@ -488,6 +493,7 @@ function parseBottomContent(bottomContent: string): ParsedArticle[] {
 
     for (let i = 0; i < parts.length; i++) {
         const part = parts[i]
+        if (!part) continue
 
         if (part.match(/\s*>footer<\s*/)) {
             // 处理前一个内容块
@@ -543,7 +549,7 @@ function createBottomContentItem(
     index: number
 ): ParsedArticle {
     const lines = content.split('\n')
-    const firstLine = lines[0].trim()
+    const firstLine = lines[0]?.trim() ?? null
     const remainingContent = lines.slice(1).join('\n').trim()
 
     return {

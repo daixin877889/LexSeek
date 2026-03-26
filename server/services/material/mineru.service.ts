@@ -32,7 +32,8 @@ import { $fetch as ofetch } from 'ofetch'
 import { processUrlImagesInMarkdown } from './imageProcessor'
 import { FileSource, OssFileStatus } from '#shared/types/file'
 import { getExtensionFromFileName } from '~~/shared/utils/file'
-import { PollingConfig, calculateBackoffDelay, DEFAULT_POLLING_CONFIG } from './materialConstants'
+import { calculateBackoffDelay, DEFAULT_POLLING_CONFIG } from './materialConstants'
+import type { PollingConfig } from './materialConstants'
 
 /**
  * MinerU PDF 转换专用轮询配置

@@ -16,11 +16,10 @@ import {
     StateSchema,
     MessagesValue,
     ReducedValue,
-    GraphNode,
-    ConditionalEdgeRouter,
     START,
     END,
-} from "@langchain/langgraph";
+} from "@langchain/langgraph"
+import type { GraphNode, ConditionalEdgeRouter } from "@langchain/langgraph"
 
 import { z } from "zod/v4";
 

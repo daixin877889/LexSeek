@@ -47,7 +47,7 @@ export const generateNextVersion = (currentVersion: string | null): string => {
         return 'v1'
     }
 
-    const versionNum = parseInt(match[1], 10)
+    const versionNum = parseInt(match[1]!, 10)
     return `v${versionNum + 1}`
 }
 
@@ -65,8 +65,8 @@ export const extractVariables = (content: string): string[] => {
     let match
 
     while ((match = regex.exec(content)) !== null) {
-        if (!variables.includes(match[1])) {
-            variables.push(match[1])
+        if (!variables.includes(match[1]!)) {
+            variables.push(match[1]!)
         }
     }
 
