@@ -27,7 +27,7 @@ const results = computed(() => {
                 <AiElementsSources v-if="results.length">
                     <AiElementsSourcesTrigger :count="results.length" />
                     <AiElementsSourcesContent>
-                        <AiElementsSource
+                        <AiElementsSourcesSource
                             v-for="r in results"
                             :key="r.index"
                             :href="`#material-${r.index}`"
@@ -37,7 +37,7 @@ const results = computed(() => {
                                 <span class="font-medium text-sm">{{ r.source?.materialName }}</span>
                                 <span class="text-xs text-muted-foreground line-clamp-2">{{ r.content?.substring(0, 200) }}</span>
                             </div>
-                        </AiElementsSource>
+                        </AiElementsSourcesSource>
                     </AiElementsSourcesContent>
                 </AiElementsSources>
             </div>
