@@ -8,8 +8,8 @@
  */
 
 import { StateGraph } from '@langchain/langgraph'
-import { isGraphInterrupt } from '@langchain/langgraph'
-import { interrupt } from '@langchain/langgraph'
+import { isGraphInterrupt, interrupt } from '@langchain/langgraph'
+import { Command } from '@langchain/langgraph'
 import { HumanMessage } from '@langchain/core/messages'
 import { createAgent, type ReactAgent } from 'langchain'
 import { InitAnalysisAnnotation, type InitAnalysisState } from './initAnalysis.state'
@@ -22,7 +22,6 @@ import { caseMaterialContextMiddleware } from './middleware/caseMaterialContext.
 import {
     startAnalysisService,
     completeAnalysisService,
-    failAnalysisService,
 } from '../case/analysis.service'
 import { InterruptType } from '#shared/types/case'
 import { getCurrentMembershipService } from '../membership/userMembership.service'
@@ -34,6 +33,7 @@ const EXECUTE_MODULE_NODE = 'execute_module'
  * 核心执行节点：串行执行当前模块的分析 Agent
  *
  * 每次调用执行一个模块，通过 currentModuleIndex 递增控制循环
+ * 积分/会员不足时通过 interrupt() 中断，resume 后整个节点重新执行
  * 失败时记录到 failedModules，不抛出异常
  */
 export async function executeModuleNode(
@@ -47,7 +47,7 @@ export async function executeModuleNode(
     }
 
     try {
-        // 0. 积分/会员预检（在工作流层中断，确保前端能感知）
+        // 0. 积分/会员预检（interrupt 后节点会重新执行，无需在 interrupt 后写恢复代码）
         const membership = await getCurrentMembershipService(userId)
         if (!membership) {
             interrupt({
@@ -60,15 +60,6 @@ export async function executeModuleNode(
                     reason: 'no_membership',
                 },
             })
-            // resume 后重新检查
-            const refreshed = await getCurrentMembershipService(userId)
-            if (!refreshed) {
-                return {
-                    currentModule: moduleName,
-                    currentModuleIndex: currentModuleIndex + 1,
-                    failedModules: { [moduleName]: '未开通会员' },
-                }
-            }
         }
 
         const pointCheck = await checkPointsService(userId, 'case_analysis_token', 1)
@@ -84,15 +75,6 @@ export async function executeModuleNode(
                     reason: 'insufficient_points',
                 },
             })
-            // resume 后重新检查
-            const recheck = await checkPointsService(userId, 'case_analysis_token', 1)
-            if (!recheck.sufficient) {
-                return {
-                    currentModule: moduleName,
-                    currentModuleIndex: currentModuleIndex + 1,
-                    failedModules: { [moduleName]: '积分不足' },
-                }
-            }
         }
 
         // 1. 加载节点配置
@@ -126,7 +108,7 @@ export async function executeModuleNode(
             ? `以下是已完成的分析结果，请参考：\n\n${Object.entries(completedResults).map(([k, v]) => `### ${k}\n${v}`).join('\n\n')}\n\n---\n\n`
             : ''
 
-        // 5. 标记分析开始（在数据库中创建/更新 caseAnalyses 记录）
+        // 5. 标记分析开始
         const analysisRecord = await startAnalysisService({
             caseId,
             sessionId,
@@ -150,7 +132,7 @@ export async function executeModuleNode(
 
         // 7. 执行并收集结果
         let result = ''
-        const stream = await agent.stream(
+        const agentStream = await agent.stream(
             { messages: [new HumanMessage('请执行分析')] },
             {
                 configurable: { thread_id: `${sessionId}_${moduleName}` },
@@ -158,8 +140,7 @@ export async function executeModuleNode(
             },
         )
 
-        for await (const chunk of stream) {
-            // stream chunk 类型因 streamMode 配置而异，使用 any 安全访问
+        for await (const chunk of agentStream) {
             const chunkData: any = Array.isArray(chunk) ? chunk[1] : chunk
             if (chunkData?.messages) {
                 const lastMsg = chunkData.messages[chunkData.messages.length - 1]
@@ -178,14 +159,13 @@ export async function executeModuleNode(
             completedResults: { [moduleName]: result },
         }
     } catch (error: any) {
-        // GraphInterrupt 需要向上传递，不当作失败处理
+        // GraphInterrupt 向上传递，不当作失败
         if (isGraphInterrupt(error)) {
             throw error
         }
 
         logger.error(`初始化分析模块 ${moduleName} 执行失败:`, error)
 
-        // 失败不阻塞后续模块
         return {
             currentModule: moduleName,
             currentModuleIndex: currentModuleIndex + 1,
@@ -237,8 +217,7 @@ export function resetInitAnalysisWorkflow(): void {
 /**
  * 启动初始化分析
  *
- * @param params 启动参数
- * @returns LangGraph 流式输出
+ * 返回 SSE 格式的 ReadableStream，与 runCaseChat 格式一致，兼容 Worker 管道
  */
 export async function startInitAnalysis(params: {
     caseId: number
@@ -246,11 +225,14 @@ export async function startInitAnalysis(params: {
     userId: number
     selectedModules: string[]
     completedResults?: Record<string, string>
+    command?: unknown
 }) {
     const workflow = await getInitAnalysisWorkflow()
 
-    return workflow.stream(
-        {
+    // resume：有 command 时恢复已中断的工作流
+    const input = params.command
+        ? new Command({ resume: params.command })
+        : {
             userId: params.userId,
             caseId: params.caseId,
             sessionId: params.sessionId,
@@ -258,11 +240,15 @@ export async function startInitAnalysis(params: {
             currentModuleIndex: 0,
             completedResults: params.completedResults ?? {},
             currentModule: params.selectedModules[0],
-        },
+        }
+
+    return workflow.stream(
+        input,
         {
             configurable: { thread_id: params.sessionId },
-            streamMode: ['values', 'messages'],
+            streamMode: ['values', 'messages', 'updates'],
             version: 'v2' as const,
+            subgraphs: true,
             encoding: 'text/event-stream',
         },
     )

@@ -148,6 +148,7 @@ export class AgentWorker {
           caseId: run.caseId,
           selectedModules: input.selectedModules ?? [],
           completedResults: input.completedResults,
+          command: input.command,
         })
       } else {
         // 普通案件对话

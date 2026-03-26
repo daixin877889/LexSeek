@@ -47,5 +47,9 @@ const isResuming = ref(false)
 function handleResume() {
   isResuming.value = true
   emit('resume')
+  // 超时重置，防止 resume 失败后按钮永久 loading
+  setTimeout(() => {
+    isResuming.value = false
+  }, 15000)
 }
 </script>

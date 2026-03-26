@@ -265,7 +265,11 @@ async function processFiles(files: File[]) {
         const timer = setTimeout(() => {
           pendingTimers.delete(timer)
           uploadingFiles.value = uploadingFiles.value.filter(f => f.id !== state.id)
-          emit('update:modelValue', [...props.modelValue, newFile])
+          // 用函数式更新避免并发 emit 竞态：基于最新 props.modelValue 追加
+          const current = [...props.modelValue]
+          if (!current.some(f => f.id === newFile.id)) {
+            emit('update:modelValue', [...current, newFile])
+          }
         }, TRANSITION_DELAY_MS)
         pendingTimers.add(timer)
       } catch (err) {
