@@ -262,7 +262,37 @@ interface ExtractedCaseInfo {
 }
 ```
 
-### 5.3 初始化分析的模块依赖
+### 5.3 积分与会员校验
+
+初始化分析执行过程中，通过 `pointConsumptionMiddleware` 进行积分扣减（按 token 计费）。在以下节点需要进行校验和中断处理：
+
+**工作流启动前（前置校验）：**
+- `POST /api/v1/case/init-analysis` 接收请求时，先检查用户会员状态
+- 非会员 → 直接返回错误，前端展示会员购买引导（不启动工作流）
+- 会员但积分为 0 → 同上，展示积分购买引导
+
+**每个模块执行前（运行时校验）：**
+- `executeModule` 节点在调用单分析 Agent 前，检查用户当前积分余额
+- 积分不足 → 工作流中断（LangGraph interrupt），发送 `insufficient_points` 中断事件
+
+**中断处理流程：**
+1. 后端发送 SSE 中断事件：`{ type: "interrupt", interruptType: "insufficient_points", data: { module, required, available, purchaseOptions } }`
+2. 前端在当前模块区域展示**积分不足购买卡片**（复用现有 `InsufficientPointsHandler.vue` 的模式）
+3. 购买卡片包含：
+   - 当前积分余额 / 所需积分提示
+   - 积分套餐购买选项
+   - 会员升级入口
+4. 用户完成购买后（通过支付回调确认积分到账），点击「继续分析」按钮
+5. 前端调用 `resumeWorkflow`，恢复工作流从中断处继续执行
+
+**SSE 中断事件补充：**
+
+| 事件类型 | payload | 说明 |
+|---------|---------|------|
+| `interrupt` | `{ interruptType: "insufficient_points", module: string, required: number, available: number }` | 积分不足中断 |
+| `resume` | `{ module: string }` | 工作流恢复继续 |
+
+### 5.5 初始化分析的模块依赖
 
 7 个模块串行执行，后续模块可访问前面模块的完整分析结果：
 - `completedResults` 在 State 中累积
@@ -270,13 +300,13 @@ interface ExtractedCaseInfo {
 - 例如：`defense`（抗辩分析）可以引用 `claim`（请求权）和 `trend`（判决趋势）的结果
 - 用户只选部分模块时，仍按固定顺序执行（跳过未选模块），确保依赖链正确
 
-### 5.4 错误处理
+### 5.6 错误处理
 
 - 单个模块失败不阻塞后续模块执行
 - 失败模块记录到 `failedModules`，前端显示错误信息和重试按钮
 - 重试：前端对失败模块调用 `POST /api/v1/case/init-analysis`，`selectedModules` 仅包含失败的模块名，后端创建新 session 执行，`completedResults` 从已有的 `caseAnalyses` 记录中加载
 
-### 5.5 SSE 事件格式
+### 5.7 SSE 事件格式
 
 初始化分析的 SSE 事件类型：
 
@@ -288,7 +318,7 @@ interface ExtractedCaseInfo {
 | `module_failed` | `{ module: string, error: string }` | 模块执行失败 |
 | `analysis_complete` | `{ completedModules: string[], failedModules: string[] }` | 全部模块执行完毕 |
 
-### 5.6 数据迁移说明
+### 5.8 数据迁移说明
 
 `caseSessions` 新增 `type` 字段：
 - 新增 Prisma migration
