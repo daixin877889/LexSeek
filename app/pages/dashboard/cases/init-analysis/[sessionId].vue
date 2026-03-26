@@ -34,7 +34,6 @@
             @retry="retryModule"
           />
 
-          <!-- 积分不足中断卡片：紧跟在当前正在执行/中断的模块后面 -->
           <InitAnalysisInsufficientPointsCard
             v-if="interruptData && mod.name === interruptTargetModule"
             :is-member="interruptData.data?.isMember ?? false"
@@ -63,10 +62,11 @@ definePageMeta({
 })
 
 const route = useRoute()
-const caseId = computed(() => Number(route.params.caseId))
+const sessionId = computed(() => route.params.sessionId as string)
 
 const {
   phase,
+  caseId,
   selectedModules,
   moduleStates,
   activeModules,
@@ -76,28 +76,24 @@ const {
   startAnalysis,
   resumeWorkflow,
   retryModule,
-} = useInitAnalysis(caseId)
+} = useInitAnalysis(sessionId)
 
-// LangGraph interrupt 数据：数组中第一个元素的 value 就是 interrupt() 传入的对象
+// LangGraph interrupt 数据
 const interruptData = computed(() => {
   const raw = interrupt.value
   if (!raw) return null
-  // useStream 的 interrupt 格式: [{ value: { type, message, data }, ... }]
   const first = Array.isArray(raw) ? raw[0] : raw
   const val = first?.value ?? first
   if (val?.type === 'insufficient_points') return val
   return null
 })
 
-/** 中断卡片应插入在哪个模块之后（计算一次，模板直接比较） */
 const interruptTargetModule = computed<string | null>(() => {
   const modules = activeModules.value
-  // 优先：最后一个 streaming/interrupted 模块
   for (let i = modules.length - 1; i >= 0; i--) {
     const status = getModuleState(modules[i]!.name).status
     if (status === 'streaming' || status === 'interrupted') return modules[i]!.name
   }
-  // fallback：最后一个 complete/failed 模块
   for (let i = modules.length - 1; i >= 0; i--) {
     const status = getModuleState(modules[i]!.name).status
     if (status === 'complete' || status === 'failed') return modules[i]!.name

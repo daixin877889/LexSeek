@@ -26,8 +26,8 @@ export function useCaseCreation() {
         method: 'POST',
         body: params,
       })
-      if (data?.caseId) {
-        await navigateTo(`/dashboard/cases/init-analysis/${data.caseId}`)
+      if (data?.sessionId) {
+        await navigateTo(`/dashboard/cases/init-analysis/${data.sessionId}`)
         return data.caseId
       }
       return null

@@ -1,12 +1,9 @@
 /**
  * 初始化分析 composable
  *
- * 使用 @langchain/vue useStream 连接初始化分析 SSE 端点
- * 通过 values 中的 currentModule/completedResults/failedModules 追踪进度
- * 通过 interrupt 处理积分不足中断
- *
- * 重要：useStream 返回的 messages/values/interrupt 是 getter（非 Ref），
- * 必须用 computed() 包装才能在模板中响应式更新。
+ * 以 sessionId 为核心，直接作为 useStream 的 threadId
+ * 页面路由为 /dashboard/cases/init-analysis/[sessionId]
+ * sessionId 由案件创建后后端生成，前端跳转时携带
  */
 
 import { useStream, FetchStreamTransport } from '@langchain/vue'
@@ -23,12 +20,11 @@ interface InitAnalysisState {
   isComplete: boolean
 }
 
-export function useInitAnalysis(caseId: Ref<number>) {
+export function useInitAnalysis(sessionId: Ref<string>) {
   const phase = ref<'select' | 'running' | 'complete'>('select')
+  const caseId = ref<number>(0)
   const selectedModules = ref<string[]>([...DEFAULT_SELECTED_MODULES])
   const moduleStates = ref<Record<string, ModuleRunState>>({})
-  // sessionId 由后端生成（uuidv7），前端通过 status API 获取后用于 useStream
-  const currentSessionId = ref<string>('')
 
   const activeModules = computed(() =>
     INIT_ANALYSIS_MODULES.filter(m => selectedModules.value.includes(m.name)),
@@ -43,38 +39,24 @@ export function useInitAnalysis(caseId: Ref<number>) {
     moduleStates.value = { ...moduleStates.value, [name]: { ...current, ...patch } }
   }
 
-  // useStream 实例（懒初始化）
-  let stream: ReturnType<typeof useStream<InitAnalysisState>> | null = null
+  // useStream 直接用 sessionId 作为 threadId
+  const transport = new FetchStreamTransport({
+    apiUrl: '/api/v1/case/init-analysis',
+  })
 
-  function ensureStream(threadId: string) {
-    if (stream && currentSessionId.value === threadId) return stream
+  const stream = useStream<InitAnalysisState>({
+    transport,
+    threadId: sessionId.value,
+    messagesKey: 'messages',
+    onError: (error) => {
+      console.error('[useInitAnalysis] 流错误:', error)
+    },
+  })
 
-    // 关闭旧连接
-    if (stream) {
-      stream.stop()
-    }
-
-    currentSessionId.value = threadId
-    const transport = new FetchStreamTransport({
-      apiUrl: '/api/v1/case/init-analysis',
-    })
-
-    stream = useStream<InitAnalysisState>({
-      transport,
-      threadId,
-      messagesKey: 'messages',
-      onError: (error) => {
-        console.error('[useInitAnalysis] 流错误:', error)
-      },
-    })
-
-    return stream
-  }
-
-  // computed 包装 getter（参考 useCaseChat.ts 的模式）
-  const values = computed(() => stream?.values as InitAnalysisState | undefined)
-  const interrupt = computed(() => stream?.interrupt)
-  const isLoading = computed(() => stream?.isLoading?.value ?? false)
+  // computed 包装 getter
+  const values = computed(() => stream.values as InitAnalysisState | undefined)
+  const interrupt = computed(() => stream.interrupt)
+  const isLoading = computed(() => stream.isLoading?.value ?? false)
 
   // 监听 values 变化更新模块状态
   watch(values, (v) => {
@@ -82,22 +64,18 @@ export function useInitAnalysis(caseId: Ref<number>) {
     syncModuleStates(v)
   }, { deep: true })
 
-  // 从 values 同步模块状态
   function syncModuleStates(vals: InitAnalysisState) {
     const { currentModule, completedResults, failedModules, isComplete } = vals
     const updated = { ...moduleStates.value }
 
-    // 标记已完成的模块
     for (const [name, result] of Object.entries(completedResults ?? {})) {
       updated[name] = { name, status: 'complete', content: result }
     }
 
-    // 标记失败的模块
     for (const [name, error] of Object.entries(failedModules ?? {})) {
       updated[name] = { name, status: 'failed', content: '', error }
     }
 
-    // 标记当前执行中的模块
     if (currentModule && !completedResults?.[currentModule] && !failedModules?.[currentModule]) {
       updated[currentModule] = {
         ...updated[currentModule],
@@ -116,8 +94,19 @@ export function useInitAnalysis(caseId: Ref<number>) {
 
   // 加载已有状态（页面刷新恢复）
   async function loadStatus() {
+    // 通过 sessionId 获取 session 信息
+    const sessionInfo = await useApiFetch<{
+      caseId: number
+      status: number
+      type: number
+    }>(`/api/v1/case/session/${sessionId.value}`)
+
+    if (!sessionInfo) return
+    caseId.value = sessionInfo.caseId
+
+    // 获取该案件的初始化分析状态
     const status = await useApiFetch<InitAnalysisStatusResponse>(
-      `/api/v1/case/init-analysis/status/${caseId.value}`,
+      `/api/v1/case/init-analysis/status/${sessionInfo.caseId}`,
     )
 
     if (!status) return
@@ -125,12 +114,11 @@ export function useInitAnalysis(caseId: Ref<number>) {
     if (status.status === 'in_progress' || status.status === 'completed') {
       phase.value = status.status === 'completed' ? 'complete' : 'running'
 
-      const moduleNames = status.modules.map(m => m.name)
+      const moduleNames = status.modules.filter(m => m.status !== 'idle').map(m => m.name)
       if (moduleNames.length > 0) {
         selectedModules.value = moduleNames
       }
 
-      // 恢复模块状态
       const restored: Record<string, ModuleRunState> = {}
       for (const m of status.modules) {
         const moduleStatus: ModuleStatus = m.status === 'complete' ? 'complete'
@@ -144,21 +132,15 @@ export function useInitAnalysis(caseId: Ref<number>) {
       }
       moduleStates.value = restored
 
-      // 进行中则用 sessionId 重连 SSE
-      if (status.status === 'in_progress' && status.sessionId) {
-        const s = ensureStream(status.sessionId)
-        // 空提交触发重连
-        s.submit({ messages: [] } as any)
+      // 进行中则重连 SSE（空提交触发重连模式）
+      if (status.status === 'in_progress') {
+        stream.submit({ messages: [] } as any)
       }
     }
   }
 
   // 启动分析
-  // 注意：sessionId 由后端生成。前端先用临时 threadId 发起请求，
-  // 后端会创建真正的 session 并入队 run。
-  // 后续重连/resume 用 status API 返回的 sessionId。
-  async function startAnalysis() {
-    // 初始化模块状态
+  function startAnalysis() {
     const initial: Record<string, ModuleRunState> = {}
     for (const name of selectedModules.value) {
       initial[name] = { name, status: 'idle', content: '' }
@@ -166,11 +148,8 @@ export function useInitAnalysis(caseId: Ref<number>) {
     moduleStates.value = initial
     phase.value = 'running'
 
-    // 用临时 threadId 启动（后端会忽略此 threadId，自行生成 sessionId）
-    // TODO: 更优方案是先调用 API 获取 sessionId 再连接 stream
-    const tempThreadId = `init-${caseId.value}-${Date.now()}`
-    const s = ensureStream(tempThreadId)
-    s.submit({
+    // sessionId 已经是真实的 thread_id，直接 submit
+    stream.submit({
       caseId: caseId.value,
       selectedModules: selectedModules.value,
     } as any)
@@ -178,7 +157,6 @@ export function useInitAnalysis(caseId: Ref<number>) {
 
   // 恢复工作流（积分不足购买后）
   function resumeWorkflow() {
-    if (!stream) return
     stream.submit(
       { caseId: caseId.value } as any,
       { command: { resume: { action: 'continue' } } },
@@ -188,20 +166,19 @@ export function useInitAnalysis(caseId: Ref<number>) {
   // 重试失败模块
   function retryModule(moduleName: string) {
     updateModuleState(moduleName, { status: 'idle', content: '', error: undefined })
-    const tempThreadId = `retry-${caseId.value}-${Date.now()}`
-    const s = ensureStream(tempThreadId)
-    s.submit({
+    stream.submit({
       caseId: caseId.value,
       selectedModules: [moduleName],
     } as any)
   }
 
   onUnmounted(() => {
-    stream?.stop()
+    stream.stop()
   })
 
   return {
     phase,
+    caseId,
     selectedModules,
     moduleStates,
     activeModules,
