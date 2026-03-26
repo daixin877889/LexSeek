@@ -1,32 +1,11 @@
 <template>
-  <AiChat
-    title="案件分析"
-    v-model:panel-mode="panelMode"
-    v-model:thinking="thinkingEnabled"
-    :messages="displayMessages"
-    :loading="stream.isLoading"
-    :show-prompt="true"
-    :show-task-queue="true"
-    :todos="todos"
-    :show-tool-interrupt="true"
-    :prompt-disabled="isComplete"
-    prompt-placeholder="输入补充信息或问题..."
-    class="h-full"
-    style="height: calc(100vh - 48px)"
-    @submit="handlePromptSubmit"
-    @tool-confirm="handleToolConfirm"
-    @tool-reject="handleToolReject"
-    @back="goBack"
-  >
+  <AiChat title="案件分析" v-model:panel-mode="panelMode" v-model:thinking="thinkingEnabled" :messages="displayMessages"
+    :loading="stream.isLoading" :show-prompt="true" :show-task-queue="true" :todos="todos" :show-tool-interrupt="true"
+    :prompt-disabled="isComplete" prompt-placeholder="输入补充信息或问题..." class="h-full" style="height: calc(100vh - 48px)"
+    @submit="handlePromptSubmit" @tool-confirm="handleToolConfirm" @tool-reject="handleToolReject" @back="goBack">
     <template #right-panel>
-      <CaseAnalysisResults
-        :results="analysisResults"
-        v-model:active-index="activeResultIndex"
-        :show-regenerate="true"
-        :show-copy="true"
-        :is-analyzing="stream.isLoading"
-        @regenerate="handleRegenerate"
-      />
+      <CaseAnalysisResults :results="analysisResults" v-model:active-index="activeResultIndex" :show-regenerate="true"
+        :show-copy="true" :is-analyzing="stream.isLoading" @regenerate="handleRegenerate" />
     </template>
     <template #empty>
       <CaseAnalysisWelcome />
@@ -166,8 +145,8 @@ async function handlePromptSubmit(data: AiPromptSubmitData) {
   const currentMsgDicts =
     streamMessages.value.length > 0
       ? streamMessages.value.map((m: any) =>
-          typeof m.toDict === "function" ? m.toDict() : m,
-        )
+        typeof m.toDict === "function" ? m.toDict() : m,
+      )
       : (threadHistory?.values?.messages as any[] ?? []);
 
   stream.submit(
@@ -180,7 +159,7 @@ async function handlePromptSubmit(data: AiPromptSubmitData) {
   );
 }
 
-const handleRegenerate = () => {};
+const handleRegenerate = () => { };
 
 /** 工具中断确认 */
 function handleToolConfirm(data: any) {
@@ -203,18 +182,18 @@ const goBack = () => {
 // 页面进入时检查活跃 run，自动重连
 onMounted(async () => {
   try {
-    const activeRun =
-      await $fetch<{ code: number; data: { run: { id: string; status: string } | null } }>(
-        `/api/v1/case/analysis/runs/current/${sessionId.value}`,
-      );
+    const activeRun = await useApiFetch<{ run: { id: string; status: string } | null }>(
+      `/api/v1/case/analysis/runs/current/${sessionId.value}`,
+      { showError: false },
+    )
     if (
-      activeRun?.data?.run &&
-      ["pending", "running"].includes(activeRun.data.run.status)
+      activeRun?.run &&
+      ['pending', 'running'].includes(activeRun.run.status)
     ) {
-      stream.submit({ messages: [] });
+      stream.submit({ messages: [] })
     }
   } catch {
     // 查询失败时静默忽略
   }
-});
+})
 </script>

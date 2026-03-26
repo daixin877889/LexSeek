@@ -6,7 +6,6 @@
     :loading="isLoading"
     :show-prompt="false"
     :show-task-queue="false"
-    :show-tool-interrupt="false"
     class="h-full"
     style="height: calc(100vh - 48px)"
     @back="goBack"

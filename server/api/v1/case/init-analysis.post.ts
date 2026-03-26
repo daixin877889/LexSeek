@@ -12,6 +12,7 @@
 import { z } from 'zod'
 import { v7 as uuidv7 } from 'uuid'
 import { validateAndSortModules, loadCompletedResultsService } from '~~/server/services/case/initAnalysis.service'
+import { validateCaseAccessService } from '~~/server/services/case/case.service'
 import { enqueueRunService, getActiveRunService } from '~~/server/services/agent/agentRun.service'
 import { replayEvents, createEventSubscription } from '~~/server/services/agent/agentEventBridge'
 import { AGENT_RUN_STATUS } from '#shared/types/agentRun'

@@ -7,12 +7,10 @@ interface Props {
   messages: ParsedMessage[]
   loading?: boolean
   toolMap?: Record<string, Component>
-  showInterrupt?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   loading: false,
-  showInterrupt: true,
 })
 
 const emit = defineEmits<{
@@ -58,7 +56,6 @@ function isLastMessage(msg: ParsedMessage): boolean {
               :key="tc.id"
               :tool-call="tc"
               :tool-map="toolMap"
-              :show-interrupt="showInterrupt"
               @confirm="(data: any) => emit('tool-confirm', { toolCallId: tc.id, data })"
               @reject="emit('tool-reject', { toolCallId: tc.id })"
             />

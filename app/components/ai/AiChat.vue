@@ -26,7 +26,6 @@ interface Props {
   thinking?: boolean
   // 工具
   toolMap?: Record<string, Component>
-  showToolInterrupt?: boolean
   // 任务队列
   showTaskQueue?: boolean
   todos?: readonly TodoItem[]
@@ -45,7 +44,6 @@ const props = withDefaults(defineProps<Props>(), {
   showThinkingToggle: true,
   enableFileUpload: true,
   thinking: true,
-  showToolInterrupt: true,
   showTaskQueue: false,
 })
 
@@ -61,10 +59,8 @@ const emit = defineEmits<{
 const slots = useSlots()
 const attrs = useAttrs()
 
-// 消息解析（用于 #message-list slot 传递给父组件，AiMessageList 内部也会解析）
-const messagesRef = ref(props.messages)
-watch(() => props.messages, (v) => { messagesRef.value = v })
-const { parsedMessages } = useMessageParser(messagesRef)
+// 消息解析（用于 #message-list slot 和 AiMessageList）
+const { parsedMessages } = useMessageParser(computed(() => props.messages))
 
 // 面板逻辑
 const hasRightSlot = computed(() => !!slots['right-panel'])
@@ -137,8 +133,7 @@ function handleSubmit(data: AiPromptSubmitData) {
           <div class="flex-1 min-h-0">
             <ClientOnly>
               <slot v-if="$slots['message-list']" name="message-list" :messages="parsedMessages" :loading="loading" />
-              <AiMessageList v-else :messages="parsedMessages" :loading="loading" :tool-map="toolMap"
-                :show-interrupt="showToolInterrupt" @tool-confirm="(d) => emit('tool-confirm', d)"
+              <AiMessageList v-else :messages="parsedMessages" :loading="loading" :tool-map="toolMap" @tool-confirm="(d) => emit('tool-confirm', d)"
                 @tool-reject="(d) => emit('tool-reject', d)">
                 <template #empty>
                   <slot name="empty" />
@@ -174,8 +169,7 @@ function handleSubmit(data: AiPromptSubmitData) {
         <div class="flex-1 min-h-0">
           <ClientOnly>
             <slot v-if="$slots['message-list']" name="message-list" :messages="parsedMessages" :loading="loading" />
-            <AiMessageList v-else :messages="parsedMessages" :loading="loading" :tool-map="toolMap"
-              :show-tool-interrupt="showToolInterrupt" @tool-confirm="(d) => emit('tool-confirm', d)"
+            <AiMessageList v-else :messages="parsedMessages" :loading="loading" :tool-map="toolMap" @tool-confirm="(d) => emit('tool-confirm', d)"
               @tool-reject="(d) => emit('tool-reject', d)">
               <template #empty>
                 <slot name="empty" />

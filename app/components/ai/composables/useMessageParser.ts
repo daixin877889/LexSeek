@@ -136,11 +136,11 @@ export function useMessageParser(messages: MaybeRef<any[]>) {
     }
 
     return baseMessages
-      .filter((m) => !(m instanceof ToolMessage)) // ToolMessage 合并到 AI 消息
-      .map((m, _idx) => {
+      .filter((m) => !(m instanceof ToolMessage))
+      .map((m, idx) => {
         if (m instanceof HumanMessage) {
           return {
-            id: m.id ?? `human-${_idx}`,
+            id: m.id ?? `human-${idx}`,
             type: 'human' as const,
             content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
             raw: m,
@@ -155,7 +155,7 @@ export function useMessageParser(messages: MaybeRef<any[]>) {
             : (m.content as string)
 
           return {
-            id: m.id ?? `ai-${_idx}`,
+            id: m.id ?? `ai-${idx}`,
             type: 'ai' as const,
             content,
             thinking: extractThinking(m),
@@ -164,7 +164,7 @@ export function useMessageParser(messages: MaybeRef<any[]>) {
           }
         }
         return {
-          id: (m as any).id ?? `msg-${_idx}`,
+          id: (m as any).id ?? `msg-${idx}`,
           type: 'system' as const,
           content: typeof m.content === 'string' ? m.content : '',
           raw: m,
