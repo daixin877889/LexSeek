@@ -34,9 +34,9 @@ export default defineEventHandler(async (event) => {
         return resError(event, 401, '请先登录')
     }
 
-    // 2. 解析请求体（兼容 FetchStreamTransport 和直连格式）
+    // 2. 解析请求体（FetchStreamTransport 格式：{ input: {...}, config: { configurable: { thread_id } } }）
     const body = await readBody(event)
-    const params = body?.config?.configurable ?? body
+    const params = body?.input ?? body
     const parsed = schema.safeParse(params)
     if (!parsed.success) {
         return resError(event, 400, parsed.error.issues[0]?.message ?? '参数校验失败')

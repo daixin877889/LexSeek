@@ -69,10 +69,10 @@ export function useInitAnalysis(caseId: Ref<number>) {
       () => stream!.interrupt,
       (interruptData: any) => {
         if (interruptData) {
-          // interrupt 发生时，当前模块标记为 interrupted
-          const currentMod = values.value?.currentModule
+          // interrupt 发生时，当前模块标记为 idle（等待用户操作）
+          const currentMod = (stream!.values as any)?.currentModule
           if (currentMod) {
-            updateModuleState(currentMod, { status: 'interrupted' })
+            updateModuleState(currentMod, { status: 'idle' })
           }
         }
       },
