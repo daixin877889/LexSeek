@@ -58,21 +58,28 @@ export default defineEventHandler(async (event) => {
     // 3. 分支：resume（恢复中断）vs 新建/重连
     if (command?.resume) {
         // 恢复已中断的工作流
-        if (!threadId) {
-            return resError(event, 400, '恢复分析需要 thread_id')
-        }
+        // 从 input 或 threadId 中获取 caseId
+        const resumeCaseId = input?.caseId as number | undefined
+        // 通过 caseId 查找最新的初始化分析 session（因为前端 threadId 可能是临时值）
+        const session = resumeCaseId
+            ? await prisma.caseSessions.findFirst({
+                where: { caseId: resumeCaseId, type: 2, deletedAt: null },
+                orderBy: { createdAt: 'desc' },
+            })
+            : threadId
+                ? await prisma.caseSessions.findFirst({
+                    where: { sessionId: threadId, type: 2, deletedAt: null },
+                })
+                : null
 
-        const session = await prisma.caseSessions.findFirst({
-            where: { sessionId: threadId, type: 2, deletedAt: null },
-        })
         if (!session) {
             return resError(event, 404, '分析会话不存在')
         }
 
         // 入队 resume run
         const result = await enqueueRunService({
-            sessionId: threadId,
-            threadId,
+            sessionId: session.sessionId,
+            threadId: session.sessionId,
             userId: user.id,
             caseId: session.caseId,
             input: { command: command.resume },

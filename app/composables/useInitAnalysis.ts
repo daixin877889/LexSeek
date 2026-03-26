@@ -179,9 +179,10 @@ export function useInitAnalysis(caseId: Ref<number>) {
   // 恢复工作流（积分不足购买后）
   function resumeWorkflow() {
     if (!stream) return
-    stream.submit(undefined, {
-      command: { resume: { action: 'continue' } },
-    })
+    stream.submit(
+      { caseId: caseId.value } as any,
+      { command: { resume: { action: 'continue' } } },
+    )
   }
 
   // 重试失败模块
