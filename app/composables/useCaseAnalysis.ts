@@ -20,6 +20,7 @@ import {
     type ModuleSelectInterruptData,
     type AnalysisModuleInfo,
     type AnalysisResult,
+    type InsufficientPointsInterruptData,
 } from '#shared/types/case'
 
 // 注意：类型请直接从 #shared/types/case 导入，避免重复导出警告
@@ -31,18 +32,21 @@ const INTERRUPT_PHASE_MAP: Record<InterruptType, WorkflowPhase> = {
     [InterruptType.CASE_INFO_CHECK]: WorkflowPhase.CASE_INFO_CHECK,
     [InterruptType.BASIC_INFO_CONFIRM]: WorkflowPhase.EXTRACT_INFO,
     [InterruptType.MODULE_SELECT]: WorkflowPhase.MODULE_SELECT,
+    [InterruptType.INSUFFICIENT_POINTS]: WorkflowPhase.ANALYSIS_TASK,
 }
 
 const INTERRUPT_TASK_ID_MAP: Record<InterruptType, string> = {
     [InterruptType.CASE_INFO_CHECK]: 'case-info-check',
     [InterruptType.BASIC_INFO_CONFIRM]: 'basic-info-confirm',
     [InterruptType.MODULE_SELECT]: 'module-select',
+    [InterruptType.INSUFFICIENT_POINTS]: 'insufficient-points',
 }
 
 const INTERRUPT_TASK_TITLE_MAP: Record<string, string> = {
     'case-info-check': '案情信息检查',
     'basic-info-confirm': '基本信息确认',
     'module-select': '选择分析模块',
+    'insufficient-points': '积分充值',
 }
 
 /**
@@ -617,6 +621,7 @@ export function useCaseAnalysis(): UseCaseAnalysisReturn {
             [InterruptType.CASE_INFO_CHECK]: 'case-info-check',
             [InterruptType.BASIC_INFO_CONFIRM]: 'basic-info-confirm',
             [InterruptType.MODULE_SELECT]: 'module-select',
+            [InterruptType.INSUFFICIENT_POINTS]: 'insufficient-points',
         }
 
         const taskId = taskIdMap[interruptType]
@@ -692,6 +697,7 @@ export function getInterruptHandlerName(type: InterruptType): string {
         [InterruptType.CASE_INFO_CHECK]: 'CaseInfoCheckHandler',
         [InterruptType.BASIC_INFO_CONFIRM]: 'BasicInfoConfirmHandler',
         [InterruptType.MODULE_SELECT]: 'ModuleSelectHandler',
+        [InterruptType.INSUFFICIENT_POINTS]: 'InsufficientPointsHandler',
     }
     return handlerMap[type] || 'DefaultInterruptHandler'
 }
@@ -709,6 +715,7 @@ export function formatInterruptMessage(type: InterruptType): string {
         [InterruptType.CASE_INFO_CHECK]: '请补充案情信息',
         [InterruptType.BASIC_INFO_CONFIRM]: '请确认案件基本信息',
         [InterruptType.MODULE_SELECT]: '请选择要执行的分析模块',
+        [InterruptType.INSUFFICIENT_POINTS]: '积分不足，请充值后继续',
     }
     return messageMap[type] || '请处理中断请求'
 }
@@ -747,6 +754,18 @@ export function isModuleSelectInterrupt(
     interrupt: InterruptData | null
 ): interrupt is ModuleSelectInterruptData {
     return interrupt?.type === InterruptType.MODULE_SELECT
+}
+
+/**
+ * 类型守卫：检查是否为积分不足中断
+ *
+ * @param interrupt 中断数据
+ * @returns 是否为积分不足中断
+ */
+export function isInsufficientPointsInterrupt(
+    interrupt: InterruptData | null
+): interrupt is InsufficientPointsInterruptData {
+    return interrupt?.type === InterruptType.INSUFFICIENT_POINTS
 }
 
 /**
@@ -865,6 +884,16 @@ export function validateResumeData(
             }
             return { valid: false, error: '请选择至少一个分析模块' }
 
+        case InterruptType.INSUFFICIENT_POINTS:
+            // 积分不足恢复：期望包含 type 字段的对象
+            if (typeof userInput === 'object' && userInput !== null) {
+                const data = userInput as Record<string, unknown>
+                if (data.type === 'points_recharged') {
+                    return { valid: true }
+                }
+            }
+            return { valid: false, error: '恢复数据格式无效' }
+
         default:
             return { valid: true }
     }
@@ -904,6 +933,10 @@ export function formatResumeData(
                 const modules = userInput.split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
                 return { modules }
             }
+            return userInput
+
+        case InterruptType.INSUFFICIENT_POINTS:
+            // 积分不足恢复：直接透传
             return userInput
 
         default:

@@ -12,6 +12,11 @@
         <ModuleSelectHandler v-else-if="isModuleSelect" :interrupt="interrupt as ModuleSelectInterruptData"
             :is-submitting="isSubmitting" @submit="handleModuleSelectSubmit" @cancel="handleCancel" />
 
+        <!-- 积分不足中断（中断点4） -->
+        <InsufficientPointsHandler v-else-if="isInsufficientPoints"
+            :interrupt="interrupt as InsufficientPointsInterruptData"
+            :is-submitting="isSubmitting" @submit="handlePointsSubmit" @cancel="handleCancel" />
+
         <!-- 未知中断类型 -->
         <Alert v-else variant="destructive" class="flex flex-col gap-2">
             <AlertDescription>
@@ -38,11 +43,13 @@ import type {
     CaseInfoCheckInterruptData,
     BasicInfoConfirmInterruptData,
     ModuleSelectInterruptData,
+    InsufficientPointsInterruptData,
 } from '#shared/types/case'
 import {
     isCaseInfoCheckInterrupt,
     isBasicInfoConfirmInterrupt,
     isModuleSelectInterrupt,
+    isInsufficientPointsInterrupt,
 } from '@/composables/useCaseAnalysis'
 import { InterruptType } from '#shared/types/case'
 
@@ -50,6 +57,7 @@ import { InterruptType } from '#shared/types/case'
 import CaseInfoCheckHandler from './interrupt/CaseInfoCheckHandler.vue'
 import BasicInfoConfirmHandler from './interrupt/BasicInfoConfirmHandler.vue'
 import ModuleSelectHandler from './interrupt/ModuleSelectHandler.vue'
+import InsufficientPointsHandler from './interrupt/InsufficientPointsHandler.vue'
 
 /**
  * 组件 Props
@@ -79,6 +87,7 @@ const props = withDefaults(defineProps<Props>(), {
 const isCaseInfoCheck = computed(() => isCaseInfoCheckInterrupt(props.interrupt))
 const isBasicInfoConfirm = computed(() => isBasicInfoConfirmInterrupt(props.interrupt))
 const isModuleSelect = computed(() => isModuleSelectInterrupt(props.interrupt))
+const isInsufficientPoints = computed(() => isInsufficientPointsInterrupt(props.interrupt))
 
 /**
  * 处理案情信息补充提交
@@ -99,6 +108,13 @@ const handleBasicInfoSubmit = (confirmedInfo: unknown) => {
  */
 const handleModuleSelectSubmit = (selectedModules: string[]) => {
     emit('submit', { modules: selectedModules })
+}
+
+/**
+ * 处理积分不足恢复提交
+ */
+const handlePointsSubmit = (data: unknown) => {
+    emit('submit', data)
 }
 
 /**
