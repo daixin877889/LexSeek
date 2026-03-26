@@ -2,7 +2,7 @@
 import type { TodoItem } from './composables/useTaskQueueParser'
 
 interface Props {
-  todos: TodoItem[]
+  todos: readonly TodoItem[]
   collapsible?: boolean
   defaultExpanded?: boolean
 }

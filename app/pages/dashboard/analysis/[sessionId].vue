@@ -33,7 +33,8 @@
 </template>
 
 <script lang="ts" setup>
-import type { AnalysisResult, PromptSubmitData } from "#shared/types/case";
+import type { AnalysisResult } from "#shared/types/case";
+import type { AiPromptSubmitData } from "~/components/ai/AiPromptInput.vue";
 import { useStream, FetchStreamTransport } from "@langchain/vue";
 import { AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { useTaskQueueParser } from "~/components/ai/composables/useTaskQueueParser";
@@ -147,14 +148,14 @@ const displayMessages = computed(() =>
 );
 
 // 任务队列解析
-const { todos } = useTaskQueueParser(displayMessages);
+const { todos } = useTaskQueueParser(displayMessages)
 
 // 分析结果
 const analysisResults = ref<AnalysisResult[]>([]);
 const activeResultIndex = ref(0);
 
 /** 处理 prompt 提交 */
-async function handlePromptSubmit(data: PromptSubmitData) {
+async function handlePromptSubmit(data: AiPromptSubmitData) {
   if (stream.isLoading || isComplete.value) return;
 
   const text = data.text || "开始分析";

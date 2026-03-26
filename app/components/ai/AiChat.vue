@@ -28,7 +28,7 @@ interface Props {
   showToolInterrupt?: boolean
   // 任务队列
   showTaskQueue?: boolean
-  todos?: TodoItem[]
+  todos?: readonly TodoItem[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -61,7 +61,9 @@ const slots = useSlots()
 const attrs = useAttrs()
 
 // 消息解析
-const { parsedMessages } = useMessageParser(() => props.messages)
+const messagesRef = ref(props.messages)
+watch(() => props.messages, (v) => { messagesRef.value = v })
+const { parsedMessages } = useMessageParser(messagesRef)
 
 // 面板逻辑
 const hasRightSlot = computed(() => !!slots['right-panel'])

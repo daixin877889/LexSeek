@@ -97,5 +97,5 @@ export function useTaskQueueParser(messages: MaybeRef<any[]>) {
     { deep: true },
   )
 
-  return { todos: readonly(todos) }
+  return { todos }
 }
