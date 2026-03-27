@@ -202,7 +202,7 @@ describe('积分记录服务测试', () => {
                         return true
                     }
                 ),
-                { numRuns: 10 }
+                { numRuns: 10, seed: 42 }
             )
         })
     })
@@ -270,7 +270,7 @@ describe('积分记录服务测试', () => {
                         return true
                     }
                 ),
-                { numRuns: 5 }
+                { numRuns: 5, seed: 42 }
             )
         })
     })

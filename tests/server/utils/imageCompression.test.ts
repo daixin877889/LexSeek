@@ -50,19 +50,30 @@ describe('图片压缩工具', () => {
             expect(result.mimeType).toMatch(/^image\/(png|jpeg|webp)$/)
         })
 
-        it('应该保持小于限制的图片不变', async () => {
+        it('应该保持小于限制的图片不变（early return）', async () => {
+            // 创建一个真正小的图片 buffer（而非 500x500 PNG）
+            const tinyBuffer = await sharp({
+                create: {
+                    width: 100,
+                    height: 100,
+                    channels: 3,
+                    background: { r: 255, g: 0, b: 0 },
+                },
+            })
+                .jpeg({ quality: 30 })
+                .toBuffer()
+
             const maxSize = 10 * 1024 * 1024 // 10MB
-
             // 确保测试图片小于限制
-            expect(smallImageBuffer.length).toBeLessThan(maxSize)
+            expect(tinyBuffer.length).toBeLessThan(maxSize)
 
-            const result = await compressImage(smallImageBuffer, 'image/png', {
+            const result = await compressImage(tinyBuffer, 'image/jpeg', {
                 maxSizeBytes: maxSize,
             })
 
-            // 应该返回原始图片
-            expect(result.buffer).toEqual(smallImageBuffer)
-            expect(result.mimeType).toBe('image/png')
+            // 应该返回原始图片（early return）
+            expect(result.buffer).toEqual(tinyBuffer)
+            expect(result.mimeType).toBe('image/jpeg')
         })
 
         it('应该正确处理 JPEG 格式', async () => {
@@ -83,6 +94,26 @@ describe('图片压缩工具', () => {
 
             expect(result.buffer.length).toBeLessThanOrEqual(5 * 1024 * 1024)
             expect(result.mimeType).toBe('image/jpeg')
+        })
+
+        it('应该正确处理 WebP 格式', async () => {
+            const webpBuffer = await sharp({
+                create: {
+                    width: 2000,
+                    height: 2000,
+                    channels: 3,
+                    background: { r: 128, g: 128, b: 0 },
+                },
+            })
+                .webp()
+                .toBuffer()
+
+            const result = await compressImage(webpBuffer, 'image/webp', {
+                maxSizeBytes: 5 * 1024 * 1024,
+            })
+
+            expect(result.buffer.length).toBeLessThanOrEqual(5 * 1024 * 1024)
+            expect(result.mimeType).toBe('image/webp')
         })
 
         it('应该在首次压缩不足时降低质量重试', async () => {
@@ -134,6 +165,27 @@ describe('图片压缩工具', () => {
             // 应该返回原始 base64
             expect(result.base64Data).toBe(base64Data)
             expect(result.mimeType).toBe('image/png')
+        })
+
+        it('应该拒绝包含 data URL 前缀的 base64', async () => {
+            // base64Data 不应包含 data: 前缀
+            const base64WithPrefix = 'data:image/png;base64,' + largeImageBuffer.toString('base64')
+            await expect(
+                compressImageFromBase64(base64WithPrefix, 'image/png')
+            ).rejects.toThrow('不应包含 data URL 前缀')
+        })
+
+        it('应该拒绝无效的 base64 格式', async () => {
+            await expect(
+                compressImageFromBase64('not-valid-base64!!!', 'image/jpeg')
+            ).rejects.toThrow('无效的 base64 格式')
+        })
+
+        it('应该拒绝解码后为空的 base64', async () => {
+            // 有效 base64 但解码后为空
+            await expect(
+                compressImageFromBase64('IA==', 'image/jpeg') // 0x08 解码后非空但很小
+            ).rejects.toThrow()
         })
     })
 

@@ -1,10 +1,10 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 
-describe('getSubagentConfigsService', () => {
+describe('getNodeConfigsByTypes', () => {
     it('should return configs sorted by priority', async () => {
-        const { getSubagentConfigsService } = await import(
+        const { getNodeConfigsByTypes } = await import(
             '~~/server/services/node/node.service'
         )
-        expect(typeof getSubagentConfigsService).toBe('function')
+        expect(typeof getNodeConfigsByTypes).toBe('function')
     })
 })

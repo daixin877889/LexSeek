@@ -9,8 +9,17 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref, readonly, computed } from 'vue'
-import type { DecryptionStatus } from '../../../shared/types/encryption'
-import { IdentityNotUnlockedError } from '../../../shared/types/encryption'
+
+// 解密状态类型（定义在测试中，因为 shared/types/encryption 不存在）
+type DecryptionStatus = 'idle' | 'locked' | 'decrypting' | 'success' | 'error'
+
+// 自定义错误类（模拟 IdentityNotUnlockedError）
+class IdentityNotUnlockedError extends Error {
+    constructor() {
+        super('Identity is not unlocked')
+        this.name = 'IdentityNotUnlockedError'
+    }
+}
 
 // 模拟 useAgeCrypto
 const mockDecryptFile = vi.fn()

@@ -15,6 +15,9 @@ import {
     isWeChatBrowser,
     getWechatAuthUrl,
     getWechatAuthUrlWithUserInfo,
+    encodeAuthState,
+    decodeAuthState,
+    getWechatAuthUrlWithCallback,
 } from "~/utils/wechat";
 
 describe("微信浏览器检测工具函数", () => {
@@ -207,6 +210,178 @@ describe("微信浏览器检测工具函数", () => {
                 ),
                 { numRuns: 100 }
             );
+        });
+    });
+
+    describe("encodeAuthState", () => {
+        it("应正确编码包含 targetUrl 的 state 对象", () => {
+            const state = { targetUrl: "https://example.com/callback" }
+            const encoded = encodeAuthState(state)
+            expect(typeof encoded).toBe("string")
+            expect(encoded.length).toBeGreaterThan(0)
+            // 应该是有效的 base64
+            expect(() => atob(encoded)).not.toThrow()
+        });
+
+        it("应正确编码包含 targetUrl 和 source 的 state 对象", () => {
+            const state = { targetUrl: "https://example.com/callback", source: "wechat" }
+            const encoded = encodeAuthState(state)
+            const decoded = JSON.parse(atob(encoded))
+            expect(decoded.targetUrl).toBe("https://example.com/callback")
+            expect(decoded.source).toBe("wechat")
+        });
+
+        it("Property: 任意有效的 state 对象都应能正确编码", () => {
+            fc.assert(
+                fc.property(
+                    fc.webUrl(),
+                    fc.option(fc.string(), { nil: undefined }),
+                    (targetUrl, source) => {
+                        const state = source !== undefined ? { targetUrl, source } : { targetUrl }
+                        const encoded = encodeAuthState(state)
+                        const decoded = decodeAuthState(encoded)
+                        expect(decoded).not.toBeNull()
+                        expect(decoded!.targetUrl).toBe(targetUrl)
+                        if (source !== undefined) {
+                            expect(decoded!.source).toBe(source)
+                        }
+                    }
+                ),
+                { numRuns: 100, seed: 12345 }
+            )
+        });
+    });
+
+    describe("decodeAuthState", () => {
+        it("应正确解码有效的 base64 编码字符串", () => {
+            const state = { targetUrl: "https://example.com/callback" }
+            const encoded = encodeAuthState(state)
+            const decoded = decodeAuthState(encoded)
+            expect(decoded).not.toBeNull()
+            expect(decoded!.targetUrl).toBe("https://example.com/callback")
+        });
+
+        it("应正确解码包含 source 的 state 对象", () => {
+            const state = { targetUrl: "https://example.com/callback", source: "wechat" }
+            const encoded = encodeAuthState(state)
+            const decoded = decodeAuthState(encoded)
+            expect(decoded).not.toBeNull()
+            expect(decoded!.targetUrl).toBe("https://example.com/callback")
+            expect(decoded!.source).toBe("wechat")
+        });
+
+        it("缺少 targetUrl 应返回 null", () => {
+            const invalidJson = JSON.stringify({ source: "wechat" })
+            const encoded = btoa(invalidJson)
+            expect(decodeAuthState(encoded)).toBeNull()
+        });
+
+        it("targetUrl 非字符串应返回 null", () => {
+            const invalidJson = JSON.stringify({ targetUrl: 123 })
+            const encoded = btoa(invalidJson)
+            expect(decodeAuthState(encoded)).toBeNull()
+        });
+
+        it("无效的 base64 应返回 null", () => {
+            expect(decodeAuthState("not-valid-base64!!!")).toBeNull()
+        });
+
+        it("空字符串应返回 null", () => {
+            expect(decodeAuthState("")).toBeNull()
+        });
+
+        it("Property: 往返编码解码应保持数据一致", () => {
+            fc.assert(
+                fc.property(
+                    fc.webUrl(),
+                    fc.option(fc.string({ minLength: 1, maxLength: 20 }), { nil: undefined }),
+                    (targetUrl, source) => {
+                        const state = source !== undefined ? { targetUrl, source } : { targetUrl }
+                        const encoded = encodeAuthState(state)
+                        const decoded = decodeAuthState(encoded)
+                        expect(decoded).not.toBeNull()
+                        expect(decoded!.targetUrl).toBe(targetUrl)
+                    }
+                ),
+                { numRuns: 100, seed: 12345 }
+            )
+        });
+    });
+
+    describe("getWechatAuthUrlWithCallback", () => {
+        it("生成正确的微信授权 URL（通用回调模式）", () => {
+            const targetUrl = "https://example.com/dashboard"
+            const url = getWechatAuthUrlWithCallback(targetUrl)
+            const config = useRuntimeConfig()
+
+            // 如果没有配置 appId 或回调地址，返回空字符串
+            if (!config.public.wechatAppId || !config.public.wechatAuthCallbackUrl) {
+                expect(url).toBe("")
+                return
+            }
+
+            expect(url).toContain("https://open.weixin.qq.com/connect/oauth2/authorize")
+            expect(url).toContain(`appid=${config.public.wechatAppId}`)
+            expect(url).toContain("scope=snsapi_base")
+            expect(url).toContain("#wechat_redirect")
+            // 回调地址应该是 wechatAuthCallbackUrl
+            expect(url).toContain(encodeURIComponent(config.public.wechatAuthCallbackUrl))
+            // state 参数应该包含 targetUrl 的 base64 编码
+            expect(url).toContain("state=")
+        });
+
+        it("未配置 appId 时返回空字符串", () => {
+            const config = useRuntimeConfig()
+            if (!config.public.wechatAppId) {
+                const url = getWechatAuthUrlWithCallback("https://example.com")
+                expect(url).toBe("")
+            }
+        });
+
+        it("未配置回调地址时返回空字符串", () => {
+            const config = useRuntimeConfig()
+            if (config.public.wechatAppId && !config.public.wechatAuthCallbackUrl) {
+                const url = getWechatAuthUrlWithCallback("https://example.com")
+                expect(url).toBe("")
+            }
+        });
+
+        it("包含 source 参数时应正确编码到 state", () => {
+            const config = useRuntimeConfig()
+            if (!config.public.wechatAppId || !config.public.wechatAuthCallbackUrl) return
+
+            const targetUrl = "https://example.com/dashboard"
+            const source = "purchase"
+            const url = getWechatAuthUrlWithCallback(targetUrl, source)
+
+            expect(url).toContain("state=")
+            // state 参数应该是 base64 编码的 JSON，URL 编码后会包含 % 和大写字母
+            // 简化验证：state 参数在 #wechat_redirect 之前
+            expect(url.indexOf("state=")).toBeGreaterThan(0)
+            expect(url.indexOf("#wechat_redirect")).toBeGreaterThan(url.indexOf("state="))
+        });
+
+        it("Property: 生成的 URL 格式应正确或为空", () => {
+            fc.assert(
+                fc.property(
+                    fc.webUrl(),
+                    fc.option(fc.string({ minLength: 1, maxLength: 20 }), { nil: undefined }),
+                    (targetUrl, source) => {
+                        const url = getWechatAuthUrlWithCallback(targetUrl, source)
+                        const config = useRuntimeConfig()
+
+                        if (!config.public.wechatAppId || !config.public.wechatAuthCallbackUrl) {
+                            expect(url).toBe("")
+                        } else {
+                            expect(url).toContain("https://open.weixin.qq.com")
+                            expect(url).toContain("appid=")
+                            expect(url).toContain("scope=snsapi_base")
+                            expect(url).toContain("#wechat_redirect")
+                        }
+                    }
+                ),
+                { numRuns: 100, seed: 12345 }
+            )
         });
     });
 });

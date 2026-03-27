@@ -124,11 +124,9 @@ describe('useMembershipStatus', () => {
 
             // 旗舰版仍然是最高级别（测试级别被排除）
             expect(isHighestLevel(3)).toBe(true)
-            // 测试级别虽然 sortOrder 最高，但被排除后不参与比较
-            // 由于 id=100 不在真实级别列表中，但它在 membershipLevels 中
-            // isHighestLevel 会找到它，但真实级别的最大 sortOrder 是 3
-            // 100 >= 3，所以返回 true
-            expect(isHighestLevel(100)).toBe(true)
+            // 测试级别虽然 sortOrder 最高，但它不是真正的会员级别
+            // 所以 isHighestLevel 不应在 realLevels 中找到它，返回 false
+            expect(isHighestLevel(100)).toBe(false)
         })
 
         it('Property 6.2: 使用 fast-check 验证最高级别判断', () => {

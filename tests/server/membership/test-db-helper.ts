@@ -187,16 +187,22 @@ let userCounter = 0
 export const createTestUser = async (
     data: TestUserInput = {}
 ): Promise<Prisma.usersGetPayload<{}>> => {
-    const timestamp = Date.now()
-    // 使用递增计数器确保唯一性，避免属性测试快速调用时手机号冲突
+    // 使用计数器 + 随机数 + 时间戳确保唯一性，手机号必须正好11位
     const count = ++userCounter
-    // 生成 11 位手机号：199 + 8位（时间戳末4位 + 计数器4位）
-    const suffix = String(timestamp % 10000).padStart(4, '0') + String(count % 10000).padStart(4, '0')
-    const phone = data.phone || `199${suffix}`
+    // 生成唯一后缀：计数器(4位) + 随机数(4位) + 时间戳位(4位) = 12位，取后8位
+    const randomPart = Array.from(crypto.getRandomValues(new Uint8Array(2)))
+        .map(b => String(b % 100).padStart(2, '0'))
+        .join('')
+    const counterPart = String(count % 10000).padStart(4, '0')
+    // 使用时间戳后4位 + 计数后4位混合，确保即使计数器循环也不会重复
+    const timestampPart = String(Date.now() % 10000).padStart(4, '0')
+    // 取 counterPart 后2位 + timestampPart 后3位 + randomPart 前3位 = 8位
+    const suffix = `${counterPart.slice(-2)}${timestampPart.slice(-3)}${randomPart.slice(0, 3)}`
+    const phone = data.phone || `199${suffix}`  // 199 + 8位 = 11位手机号
 
     const user = await getTestPrisma().users.create({
         data: {
-            name: data.name || `测试用户_${timestamp}`,
+            name: data.name || `测试用户_${count}`,
             phone,
             password: data.password || 'test_password_hash',
             status: data.status ?? 1,
@@ -684,70 +690,226 @@ export const cleanupTestData = async (testIds: TestIds): Promise<void> => {
 /**
  * 清理所有测试数据（使用测试标记前缀）
  * 用于清理残留的测试数据
+ *
+ * 删除顺序遵循外键依赖拓扑排序（叶表→父表）：
+ * 1. 最深层叶表（无子表引用）
+ * 2. 中间层（被叶表引用的表）
+ * 3. 根表（users, membershipLevels 等）
  */
 export const cleanupAllTestData = async (): Promise<void> => {
     try {
-        // 1. 删除测试兑换记录（通过兑换码关联）
-        const testCodes = await testPrisma.redemptionCodes.findMany({
-            where: { code: { startsWith: TEST_CODE_PREFIX } },
-            select: { id: true },
-        })
-        if (testCodes.length > 0) {
-            await testPrisma.redemptionRecords.deleteMany({
-                where: { codeId: { in: testCodes.map(c => c.id) } },
-            })
-        }
-
-        // 2. 删除测试用户的相关记录
+        // ===== 第一步：收集测试数据 ID =====
         const testUsers = await testPrisma.users.findMany({
             where: { phone: { startsWith: TEST_USER_PHONE_PREFIX } },
             select: { id: true },
         })
-        if (testUsers.length > 0) {
-            const userIds = testUsers.map(u => u.id)
+        const userIds = testUsers.map(u => u.id)
 
-            // 删除会员升级记录
-            await testPrisma.membershipUpgradeRecords.deleteMany({
+        const testCodes = await testPrisma.redemptionCodes.findMany({
+            where: { code: { startsWith: TEST_CODE_PREFIX } },
+            select: { id: true },
+        })
+        const codeIds = testCodes.map(c => c.id)
+
+        const testLevels = await testPrisma.membershipLevels.findMany({
+            where: { name: { startsWith: TEST_LEVEL_NAME_PREFIX } },
+            select: { id: true },
+        })
+        const levelIds = testLevels.map(l => l.id)
+
+        // ===== 第二步：删除叶表数据（按用户关联） =====
+        if (userIds.length > 0) {
+            // 案件分析结果（依赖 cases + caseSessions）
+            const testCases = await testPrisma.cases.findMany({
+                where: { userId: { in: userIds } },
+                select: { id: true },
+            })
+            const caseIds = testCases.map(c => c.id)
+
+            if (caseIds.length > 0) {
+                // caseAnalyses → cases, caseSessions
+                await testPrisma.caseAnalyses.deleteMany({
+                    where: { caseId: { in: caseIds } },
+                })
+                // caseMaterials → cases
+                await testPrisma.caseMaterials.deleteMany({
+                    where: { caseId: { in: caseIds } },
+                })
+                // caseSessions → cases
+                await testPrisma.caseSessions.deleteMany({
+                    where: { caseId: { in: caseIds } },
+                })
+            }
+
+            // 积分消耗记录（依赖 pointRecords + users）
+            await testPrisma.pointConsumptionRecords.deleteMany({
                 where: { userId: { in: userIds } },
             })
 
-            // 删除积分记录
+            // 查找用户的会员记录 ID，用于清理 membershipUpgradeRecords 的 fromMembershipId/toMembershipId
+            const testMemberships = await testPrisma.userMemberships.findMany({
+                where: { userId: { in: userIds } },
+                select: { id: true },
+            })
+            const membershipIds = testMemberships.map(m => m.id)
+
+            // 会员升级记录（依赖 users + orders + userMemberships）
+            await testPrisma.membershipUpgradeRecords.deleteMany({
+                where: { userId: { in: userIds } },
+            })
+            // 也清理引用测试用户会员的升级记录
+            if (membershipIds.length > 0) {
+                await testPrisma.membershipUpgradeRecords.deleteMany({
+                    where: {
+                        OR: [
+                            { fromMembershipId: { in: membershipIds } },
+                            { toMembershipId: { in: membershipIds } },
+                        ],
+                    },
+                })
+            }
+
+            // 查找用户订单 ID，用于清理 paymentTransactions
+            const testOrders = await testPrisma.orders.findMany({
+                where: { userId: { in: userIds } },
+                select: { id: true },
+            })
+            if (testOrders.length > 0) {
+                // paymentTransactions → orders
+                await testPrisma.paymentTransactions.deleteMany({
+                    where: { orderId: { in: testOrders.map(o => o.id) } },
+                })
+            }
+
+            // 兑换记录（依赖 users + redemptionCodes）
+            await testPrisma.redemptionRecords.deleteMany({
+                where: { userId: { in: userIds } },
+            })
+
+            // 识别记录（依赖 users）
+            await testPrisma.docRecognitionRecords.deleteMany({
+                where: { userId: { in: userIds } },
+            })
+            await testPrisma.imageRecognitionRecords.deleteMany({
+                where: { userId: { in: userIds } },
+            })
+            await testPrisma.asrRecords.deleteMany({
+                where: { userId: { in: userIds } },
+            })
+            await testPrisma.mineruTasks.deleteMany({
+                where: { userId: { in: userIds } },
+            })
+
+            // 用户权益（依赖 users）
+            await testPrisma.userBenefits.deleteMany({
+                where: { userId: { in: userIds } },
+            })
+
+            // ===== 第三步：删除中间层（依赖 users 的表） =====
+            // 积分记录（被 pointConsumptionRecords 引用，已在上方清理）
             await testPrisma.pointRecords.deleteMany({
                 where: { userId: { in: userIds } },
             })
 
-            // 删除用户会员记录
+            // 用户会员记录（被 membershipUpgradeRecords, pointRecords 引用，已清理）
             await testPrisma.userMemberships.deleteMany({
                 where: { userId: { in: userIds } },
             })
 
-            // 删除订单
+            // 订单（被 paymentTransactions, membershipUpgradeRecords 引用，已清理）
             await testPrisma.orders.deleteMany({
                 where: { userId: { in: userIds } },
             })
+
+            // 案件（被 caseSessions, caseMaterials, caseAnalyses 引用，已清理）
+            if (caseIds.length > 0) {
+                await testPrisma.cases.deleteMany({
+                    where: { id: { in: caseIds } },
+                })
+            }
         }
 
-        // 3. 删除测试产品
+        // ===== 第四步：删除兑换码关联数据 =====
+        if (codeIds.length > 0) {
+            await testPrisma.redemptionRecords.deleteMany({
+                where: { codeId: { in: codeIds } },
+            })
+        }
+
+        // ===== 第五步：删除测试产品（被 orders 引用，测试用户订单已清理） =====
+        // 先清理引用测试产品的订单
+        const testProducts = await testPrisma.products.findMany({
+            where: { name: { startsWith: '测试产品_' } },
+            select: { id: true },
+        })
+        if (testProducts.length > 0) {
+            const productIds = testProducts.map(p => p.id)
+            // 清理引用测试产品的支付记录和订单
+            const productOrders = await testPrisma.orders.findMany({
+                where: { productId: { in: productIds } },
+                select: { id: true },
+            })
+            if (productOrders.length > 0) {
+                await testPrisma.paymentTransactions.deleteMany({
+                    where: { orderId: { in: productOrders.map(o => o.id) } },
+                })
+                await testPrisma.membershipUpgradeRecords.deleteMany({
+                    where: { orderId: { in: productOrders.map(o => o.id) } },
+                })
+                await testPrisma.orders.deleteMany({
+                    where: { productId: { in: productIds } },
+                })
+            }
+        }
         await testPrisma.products.deleteMany({
             where: { name: { startsWith: '测试产品_' } },
         })
 
-        // 4. 删除测试兑换码
+        // ===== 第六步：删除测试兑换码 =====
         await testPrisma.redemptionCodes.deleteMany({
             where: { code: { startsWith: TEST_CODE_PREFIX } },
         })
 
-        // 5. 删除测试营销活动
+        // ===== 第七步：删除测试营销活动（先清理引用它的兑换码） =====
+        const testCampaigns = await testPrisma.campaigns.findMany({
+            where: { name: { startsWith: TEST_CAMPAIGN_NAME_PREFIX } },
+            select: { id: true },
+        })
+        if (testCampaigns.length > 0) {
+            await testPrisma.redemptionCodes.deleteMany({
+                where: { campaignId: { in: testCampaigns.map(c => c.id) } },
+            })
+        }
         await testPrisma.campaigns.deleteMany({
             where: { name: { startsWith: TEST_CAMPAIGN_NAME_PREFIX } },
         })
 
-        // 6. 删除测试会员级别
+        // ===== 第八步：删除测试会员级别（先清理所有引用） =====
+        if (levelIds.length > 0) {
+            await testPrisma.redemptionCodes.deleteMany({
+                where: { levelId: { in: levelIds } },
+            })
+            await testPrisma.levelNodeAccess.deleteMany({
+                where: { levelId: { in: levelIds } },
+            })
+            await testPrisma.membershipBenefits.deleteMany({
+                where: { levelId: { in: levelIds } },
+            })
+            await testPrisma.userMemberships.deleteMany({
+                where: { levelId: { in: levelIds } },
+            })
+            await testPrisma.products.deleteMany({
+                where: { levelId: { in: levelIds } },
+            })
+            await testPrisma.campaigns.deleteMany({
+                where: { levelId: { in: levelIds } },
+            })
+        }
         await testPrisma.membershipLevels.deleteMany({
             where: { name: { startsWith: TEST_LEVEL_NAME_PREFIX } },
         })
 
-        // 7. 删除测试用户
+        // ===== 第九步：删除测试用户（所有子表已清理） =====
         await testPrisma.users.deleteMany({
             where: { phone: { startsWith: TEST_USER_PHONE_PREFIX } },
         })
@@ -799,6 +961,8 @@ export const isTestDbAvailable = async (): Promise<boolean> => {
 export const resetDatabaseSequences = async (): Promise<void> => {
     try {
         const prisma = getTestPrisma()
+        // 先清理所有测试数据，避免残留数据导致唯一约束冲突
+        await cleanupAllTestData()
         // 重置 products 表的序列，从 1000 开始避免与种子数据冲突
         await prisma.$executeRaw`SELECT setval('products_id_seq', GREATEST((SELECT MAX(id) FROM products), 1000))`
         // 重置 orders 表的序列
