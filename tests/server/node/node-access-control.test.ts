@@ -50,6 +50,7 @@ const testIds = {
     userMembershipIds: [] as number[],
     nodeIds: [] as number[],
     modelIds: [] as number[],
+    providerIds: [] as number[],
     accessIds: [] as number[],
 }
 
@@ -70,6 +71,7 @@ const createTestModel = async () => {
                 baseUrl: 'https://api.test.com',
             },
         })
+        testIds.providerIds.push(provider.id)
     }
 
     const model = await testPrisma.models.create({
@@ -149,6 +151,15 @@ const cleanupTestData = async () => {
         })
         testIds.modelIds = []
     }
+    if (testIds.providerIds.length > 0) {
+        await testPrisma.modelApiKeys.deleteMany({
+            where: { providerId: { in: testIds.providerIds } },
+        })
+        await testPrisma.modelProviders.deleteMany({
+            where: { id: { in: testIds.providerIds } },
+        })
+        testIds.providerIds = []
+    }
     if (testIds.membershipLevelIds.length > 0) {
         await testPrisma.membershipLevels.deleteMany({
             where: { id: { in: testIds.membershipLevelIds } },
@@ -184,6 +195,23 @@ describe('节点权限访问控制属性测试', () => {
     })
 
     afterAll(async () => {
+        // 按前缀做全局清理，覆盖 afterEach 中 testIds 未追踪到的残留数据
+        try {
+            const testNodeIds = (await testPrisma.nodes.findMany({ where: { name: { startsWith: 'test_node_' } }, select: { id: true } })).map(n => n.id)
+            if (testNodeIds.length > 0) {
+                await testPrisma.prompts.deleteMany({ where: { nodeId: { in: testNodeIds } } })
+                await testPrisma.levelNodeAccess.deleteMany({ where: { nodeId: { in: testNodeIds } } })
+                await testPrisma.caseAnalyses.deleteMany({ where: { nodeId: { in: testNodeIds } } })
+            }
+            await testPrisma.nodes.deleteMany({ where: { name: { startsWith: 'test_node_' } } })
+            await testPrisma.nodeGroups.deleteMany({ where: { name: { startsWith: 'group_test_' } } })
+            await testPrisma.models.deleteMany({ where: { name: { startsWith: 'test_model_' } } })
+            const testProviderIds = (await testPrisma.modelProviders.findMany({ where: { name: { startsWith: 'test_provider_' } }, select: { id: true } })).map(p => p.id)
+            if (testProviderIds.length > 0) {
+                await testPrisma.modelApiKeys.deleteMany({ where: { providerId: { in: testProviderIds } } })
+            }
+            await testPrisma.modelProviders.deleteMany({ where: { name: { startsWith: 'test_provider_' } } })
+        } catch { /* 最终清理忽略错误 */ }
         await testPrisma.$disconnect()
     })
 

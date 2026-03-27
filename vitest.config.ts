@@ -41,6 +41,8 @@ export default defineVitestConfig({
     // 显式设置 root 为项目根目录，使 reportsDirectory 等相对路径正确解析
     root: rootDir,
     test: {
+        // 全局清理：所有测试文件结束后清理残留数据
+        globalSetup: ['./tests/global-teardown.ts'],
         // 使用 nuxt 环境
         environment: 'nuxt',
         environmentOptions: {

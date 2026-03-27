@@ -562,7 +562,22 @@ export const cleanupAllTestData = async (): Promise<void> => {
             where: { name: { startsWith: TEST_CASE_TYPE_PREFIX } },
         })
 
-        // 4. 删除测试用户
+        // 4. 删除测试模型和提供商
+        const testNodeIds = (await getTestPrisma().nodes.findMany({ where: { name: { startsWith: 'test_node_' } }, select: { id: true } })).map(n => n.id)
+        if (testNodeIds.length > 0) {
+            await getTestPrisma().prompts.deleteMany({ where: { nodeId: { in: testNodeIds } } })
+            await getTestPrisma().levelNodeAccess.deleteMany({ where: { nodeId: { in: testNodeIds } } })
+            await getTestPrisma().caseAnalyses.deleteMany({ where: { nodeId: { in: testNodeIds } } })
+        }
+        await getTestPrisma().nodes.deleteMany({ where: { name: { startsWith: 'test_node_' } } })
+        await getTestPrisma().models.deleteMany({ where: { name: { startsWith: 'test_model_' } } })
+        const testProviderIds = (await getTestPrisma().modelProviders.findMany({ where: { name: { startsWith: 'test_provider_' } }, select: { id: true } })).map(p => p.id)
+        if (testProviderIds.length > 0) {
+            await getTestPrisma().modelApiKeys.deleteMany({ where: { providerId: { in: testProviderIds } } })
+        }
+        await getTestPrisma().modelProviders.deleteMany({ where: { name: { startsWith: 'test_provider_' } } })
+
+        // 5. 删除测试用户
         await getTestPrisma().users.deleteMany({
             where: { phone: { startsWith: TEST_USER_PHONE_PREFIX } },
         })
