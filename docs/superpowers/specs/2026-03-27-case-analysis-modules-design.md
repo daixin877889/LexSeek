@@ -45,7 +45,19 @@ const getNextNode = (current: string, state) => {
 }
 ```
 
-### 4. 边定义
+### 4. `START` 入口条件边
+
+`START` 需要条件边，不能用固定边 `addEdge(START, 'summary')`，否则当 `selectedModules` 不包含 `summary` 时仍会进入一个空执行的节点：
+
+```ts
+// START 入口：指向第一个选中的模块（按 MODULE_ORDER 顺序）
+.addConditionalEdges(START, (state) => {
+  const first = MODULE_ORDER.find(m => state.selectedModules.includes(m))
+  return first ?? END
+})
+```
+
+### 5. 边定义
 
 每个节点使用条件边替代固定边：
 
@@ -65,7 +77,20 @@ const getNextNode = (current: string, state) => {
 .addConditionalEdges('evidence', (state) => getNextNode('evidence', state))
 ```
 
-### 5. 行为示例
+> 注意：需要移除原有的 `.addEdge(START, 'summary')`，否则固定边优先级高于条件边。
+
+### 6. 边界情况
+
+| 场景 | 行为 |
+|------|------|
+| `selectedModules = []` | `START` 条件边找不到任何模块，直接 `START → END`，流程结束 |
+| `selectedModules = ['summary']` | `START → summary → END` |
+| `selectedModules = ['evidence']` | `START → evidence → END` |
+| `selectedModules = ['chronicle', 'evidence']` | `START → chronicle → evidence → END`（按 MODULE_ORDER 顺序：chronicle 在 evidence 之前） |
+
+> 默认值 `['summary', 'chronicle', 'claim', 'trend', 'cause', 'defense', 'evidence']` 与当前行为一致（全量分析）。
+
+### 7. 行为示例
 
 `selectedModules = ['summary', 'chronicle', 'evidence']` 时：
 
