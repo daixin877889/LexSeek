@@ -88,7 +88,7 @@ const getNextNode = (current: string, state: typeof WorkflowState.State) => {
 .addConditionalEdges('evidence', (state) => getNextNode('evidence', state))
 ```
 
-> **注意：** 需要移除原有的 `.addEdge('evidence', END)`，否则固定边优先级高于条件边。
+> **注意：** 所有固定边（包括 `.addEdge('evidence', END)`）都会被条件边替代，无需单独删除。
 
 ### Task 4: 类型检查
 
