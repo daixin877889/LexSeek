@@ -448,17 +448,16 @@ export const getNodeConfigService = async (name: string): Promise<NodeConfig | n
  * @throws 如果节点未配置、未启用或未配置 API 密钥
  */
 export const getValidNodeConfig = async (
-    nodeName: string,
-    nodeTitle: string
+    nodeName: string
 ): Promise<NodeConfig> => {
     const config = await getNodeConfigService(nodeName)
 
     if (!config) {
-        throw new Error(`${nodeTitle} 节点未配置或未启用`)
+        throw new Error(`${nodeName} 节点未配置或未启用`)
     }
 
     if (config.modelApiKeys.length === 0) {
-        throw new Error(`${nodeTitle} 节点的模型提供商未配置 API 密钥`)
+        throw new Error(`${nodeName} 节点的模型提供商未配置 API 密钥`)
     }
 
     return config
@@ -536,15 +535,15 @@ export const getNodeConfigByIdService = async (id: number): Promise<NodeConfig |
 }
 
 /**
- * 获取子代理配置列表
+ * 按类型获取节点配置列表
  *
- * 查询 type IN ('analysis', 'document') 的节点配置，按 priority 升序排列
- * 用于 DeepAgent 构建子代理列表
+ * 查询指定类型的节点，按 priority 升序排序
+ * 用于工作流模块加载、子代理列表等场景
  *
- * @param types 节点类型列表，默认 ['analysis', 'document']
- * @returns NodeConfig 列表，按 priority 排序
+ * @param types - 节点类型列表，如 ['analysis'] 或 ['analysis', 'document']
+ * @returns NodeConfig 列表，按 priority 升序排序
  */
-export const getSubagentConfigsService = async (
+export const getNodeConfigsByTypes = async (
     types: string[] = ['analysis', 'document']
 ): Promise<NodeConfig[]> => {
     const nodes = await prisma.nodes.findMany({
