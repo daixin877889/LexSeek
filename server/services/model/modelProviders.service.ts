@@ -5,6 +5,15 @@
  */
 
 import type { CreateModelProviderInput, UpdateModelProviderInput } from '#shared/types/model'
+import {
+    findModelProviderByNameDao,
+    createModelProviderDao,
+    findModelProviderByIdDao,
+    findManyModelProvidersDao,
+    findAllModelProvidersDao,
+    updateModelProviderDao,
+    softDeleteModelProviderDao,
+} from './modelProviders.dao'
 
 /**
  * 创建模型提供商

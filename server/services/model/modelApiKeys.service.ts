@@ -5,6 +5,17 @@
  */
 
 import type { CreateModelApiKeyInput, UpdateModelApiKeyInput } from '#shared/types/model'
+import { findModelProviderByIdDao } from './modelProviders.dao'
+import {
+    createModelApiKeyDao,
+    findModelApiKeyByIdDao,
+    findManyModelApiKeysDao,
+    findModelApiKeysByProviderIdDao,
+    findDefaultModelApiKeyByProviderIdDao,
+    updateModelApiKeyDao,
+    setDefaultModelApiKeyDao,
+    softDeleteModelApiKeyDao,
+} from './modelApiKeys.dao'
 
 /**
  * 创建 API 密钥

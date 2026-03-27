@@ -18,7 +18,7 @@ import {
 } from '#shared/types/benefit'
 import { formatByteSize } from '#shared/utils/unitConverision'
 import { findBenefitsByLevelIdDao } from './membershipBenefit.dao'
-import { expireUserBenefitsBySourceDao } from './userBenefit.dao'
+import { expireUserBenefitsBySourceDao, createUserBenefitsDao } from './userBenefit.dao'
 import { prisma } from '../../utils/db'
 
 // 定义 Prisma 客户端类型（支持事务）

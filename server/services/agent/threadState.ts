@@ -14,8 +14,10 @@ import { mapStoredMessageToChatMessage } from '@langchain/core/messages'
  *
  * 注意：不能使用 BaseMessage.toDict()，它返回的是 constructor 格式
  * { type: "constructor", id: [...], kwargs: {...} }，前端无法解析
+ *
+ * @param msg - LangChain BaseMessage 实例、stored message 格式 { type, data } 或平坦字典
  */
-function messageToFlatDict(msg: any): Record<string, unknown> {
+export function messageToFlatDict(msg: any): Record<string, unknown> {
     // BaseMessage 实例（有 _getType 方法）
     if (typeof msg._getType === 'function') {
         const dict: Record<string, unknown> = {
