@@ -68,31 +68,31 @@ const analysisModules = await getNodeConfigsByTypes(['analysis'])
 const MODULE_ORDER = analysisModules.map(m => m.name) // ❌ 异步加载，全局作用域无法访问
 ```
 
-#### 解决方案：在 `getCaseAnalysisWorkflow()` 内部动态构建
+#### 解决方案：每次调用都重新编译工作流
 
-将 `getNextNode` 工厂化，在函数内部创建闭包访问 `MODULE_ORDER`：
+移除单例模式，每次调用 `getCaseAnalysisWorkflow()` 都从数据库加载最新模块并重新编译：
 
 ```typescript
 /**
- * 获取案件分析工作流实例
+ * 获取案件分析工作流实例（每次调用都重新编译）
+ *
+ * 不缓存工作流实例，每次调用都：
+ * 1. 从数据库加载最新的 analysis 类型节点
+ * 2. 按 priority 排序构建 MODULE_ORDER
+ * 3. 动态编译 StateGraph
  */
 export async function getCaseAnalysisWorkflow() {
-    if (workflowInstance) return workflowInstance
-
-    // 1. 异步加载模块
+    // 1. 异步加载模块（每次都查数据库）
     const analysisModules = await getNodeConfigsByTypes(['analysis'])
     const MODULE_ORDER = analysisModules.map(m => m.name)
 
     // 2. 创建路由函数（闭包访问 MODULE_ORDER）
-    const createGetNextNode = () => {
-        return (current: string, state: typeof WorkflowState.State): string => {
-            const idx = MODULE_ORDER.indexOf(current)
-            if (idx === -1) return END
-            const next = MODULE_ORDER.slice(idx + 1).find(m => state.selectedModules.includes(m))
-            return next ?? END
-        }
+    const getNextNode = (current: string, state: typeof WorkflowState.State): string => {
+        const idx = MODULE_ORDER.indexOf(current)
+        if (idx === -1) return END
+        const next = MODULE_ORDER.slice(idx + 1).find(m => state.selectedModules.includes(m))
+        return next ?? END
     }
-    const getNextNode = createGetNextNode()
 
     // 3. 动态创建节点和边
     const graph = new StateGraph(WorkflowState)
@@ -113,15 +113,14 @@ export async function getCaseAnalysisWorkflow() {
         graph.addConditionalEdges(moduleName, (state) => getNextNode(moduleName, state))
     }
 
-    workflowInstance = await graph.compile({ checkpointer })
-    return workflowInstance
+    return await graph.compile({ checkpointer })
 }
 ```
 
 **架构决策**：
-- **工作流实例是单例**：只在首次调用时加载模块，后续使用缓存
-- **模块变更需重启应用**：数据库中的模块变更不会实时反映，需重启应用重新加载
-- **无需 State 传递**：`MODULE_ORDER` 在工作流编译时确定，运行时不需要
+- **不缓存工作流实例**：每次调用都重新编译，确保获取最新模块
+- **数据库变更实时生效**：修改 `priority`、新增/禁用模块后，下次调用立即生效
+- **性能权衡**：每次调用增加一次数据库查询 + 图编译开销（约 10-50ms）
 
 ---
 
@@ -138,15 +137,34 @@ import { getNodeConfigsByTypes } from '../node/node.service'
 const subagentConfigs = await getNodeConfigsByTypes(['analysis', 'document'])
 ```
 
-### 4. 验证场景
+### 4. 修改文件
+
+- `server/services/node/node.service.ts` - 重命名方法
+- `server/services/agent/caseAgent.ts` - 更新导入和使用
+- `server/services/workflow/caseAnalysis.workflow.new.ts` - 动态加载模块（移除单例）
+
+### 5. 验证场景
 
 | 场景 | 行为 |
 |------|------|
 | 数据库有 7 个 analysis 模块 | 按 priority 顺序执行选中的模块 |
-| 数据库新增第 8 个模块 | 自动包含，无需改代码 |
+| 数据库新增第 8 个模块 | **下次调用立即生效**，无需重启 |
 | 前端传入不存在的模块名 | 路由函数跳过（`indexOf` 返回 -1） |
-| 数据库中某个模块 `status = 0` | 不会出现在 `MODULE_ORDER` 中，自动跳过 |
-| 数据库中某个模块 `deletedAt != null` | 不会出现在 `MODULE_ORDER` 中，自动跳过 |
+| 数据库中某个模块 `status = 0` | **下次调用时**不会出现在 `MODULE_ORDER` 中 |
+| 数据库中某个模块 `deletedAt != null` | **下次调用时**不会出现在 `MODULE_ORDER` 中 |
+| 修改模块的 `priority` | **下次调用时**顺序立即改变 |
+
+### 6. 性能影响
+
+| 操作 | 耗时 | 说明 |
+|------|------|------|
+| 数据库查询 | ~5-10ms | 查询 analysis 类型节点 |
+| 图编译 | ~5-20ms | LangGraph StateGraph 编译 |
+| 总计 | ~10-30ms | 每次调用增加一次开销 |
+
+**优化建议**（可选）：
+- 如果性能成为瓶颈，可考虑添加 Redis 缓存（TTL=5min）
+- 或使用版本号检测机制，仅在数据变更时重新编译
 
 ## 修改文件
 
