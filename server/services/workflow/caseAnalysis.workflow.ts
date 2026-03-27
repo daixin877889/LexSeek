@@ -244,7 +244,7 @@ function createWorkflowGraph() {
  *
  * @example
  * ```typescript
- * const workflow = await getCaseAnalysisWorkflow()
+ * const workflow = await getLegacyCaseAnalysisWorkflow()
  *
  * // 启动新的工作流
  * const result = await workflow.invoke(initialState, {
@@ -258,7 +258,7 @@ function createWorkflowGraph() {
  * )
  * ```
  */
-export async function getCaseAnalysisWorkflow(): Promise<CaseAnalysisWorkflow> {
+export async function getLegacyCaseAnalysisWorkflow(): Promise<CaseAnalysisWorkflow> {
     // 如果已有实例，直接返回
     if (workflowInstance) {
         return workflowInstance
@@ -383,7 +383,7 @@ export async function startCaseAnalysis(
     initialState: Partial<CaseAnalysisState>,
     config: WorkflowConfig
 ): Promise<CaseAnalysisState> {
-    const workflow = await getCaseAnalysisWorkflow()
+    const workflow = await getLegacyCaseAnalysisWorkflow()
     const workflowConfig = createWorkflowConfig(config)
 
     logger.info('启动案件分析工作流', {
@@ -408,7 +408,7 @@ export async function resumeCaseAnalysis(
     config: WorkflowConfig
 ): Promise<CaseAnalysisState> {
     const { Command } = await import('@langchain/langgraph')
-    const workflow = await getCaseAnalysisWorkflow()
+    const workflow = await getLegacyCaseAnalysisWorkflow()
     const workflowConfig = createWorkflowConfig(config)
 
     logger.info('恢复案件分析工作流', {
@@ -431,7 +431,7 @@ export async function resumeCaseAnalysis(
 export async function getWorkflowState(
     config: WorkflowConfig
 ): Promise<CaseAnalysisState | null> {
-    const workflow = await getCaseAnalysisWorkflow()
+    const workflow = await getLegacyCaseAnalysisWorkflow()
     const workflowConfig = createWorkflowConfig(config)
 
     try {
@@ -457,7 +457,7 @@ export async function getWorkflowHistory(
     config: WorkflowConfig,
     limit?: number
 ): Promise<Array<{ values: CaseAnalysisState; next: string[] }>> {
-    const workflow = await getCaseAnalysisWorkflow()
+    const workflow = await getLegacyCaseAnalysisWorkflow()
     const workflowConfig = createWorkflowConfig(config)
 
     const history: Array<{ values: CaseAnalysisState; next: string[] }> = []

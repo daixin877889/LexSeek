@@ -448,16 +448,18 @@ export const getNodeConfigService = async (name: string): Promise<NodeConfig | n
  * @throws 如果节点未配置、未启用或未配置 API 密钥
  */
 export const getValidNodeConfig = async (
-    nodeName: string
+    nodeName: string,
+    displayName?: string
 ): Promise<NodeConfig> => {
+    const label = displayName ?? nodeName
     const config = await getNodeConfigService(nodeName)
 
     if (!config) {
-        throw new Error(`${nodeName} 节点未配置或未启用`)
+        throw new Error(`${label} 节点未配置或未启用`)
     }
 
     if (config.modelApiKeys.length === 0) {
-        throw new Error(`${nodeName} 节点的模型提供商未配置 API 密钥`)
+        throw new Error(`${label} 节点的模型提供商未配置 API 密钥`)
     }
 
     return config
