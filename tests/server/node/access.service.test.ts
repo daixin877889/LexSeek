@@ -202,9 +202,10 @@ const cleanupTestData = async () => {
         }
     } catch { /* 忽略用户删除错误 */ }
     testIds.userIds = []
-    // 删除 provider
+    // 删除 provider（先清理引用它的 apiKeys）
     try {
         if (testIds.providerIds.length > 0) {
+            await testPrisma.modelApiKeys.deleteMany({ where: { providerId: { in: testIds.providerIds } } })
             await testPrisma.modelProviders.deleteMany({ where: { id: { in: testIds.providerIds } } })
         }
     } catch { /* 忽略 provider 删除错误 */ }

@@ -124,6 +124,7 @@ const cleanupTestData = async () => {
     testIds.modelIds = []
     try {
         if (testIds.providerIds.length > 0) {
+            await testPrisma.modelApiKeys.deleteMany({ where: { providerId: { in: testIds.providerIds } } })
             await testPrisma.modelProviders.deleteMany({ where: { id: { in: testIds.providerIds } } })
         }
     } catch { /* 忽略 provider 删除错误 */ }

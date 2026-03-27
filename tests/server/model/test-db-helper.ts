@@ -218,15 +218,18 @@ export const cleanupModelTestData = async (testIds: ModelTestIds): Promise<void>
             })
         }
 
-        // 2. 删除 API 密钥
+        // 2. 删除 API 密钥（按 ID 和按 providerId 两种方式确保清理干净）
         if (testIds.apiKeyIds.length > 0) {
             await getTestPrisma().modelApiKeys.deleteMany({
                 where: { id: { in: testIds.apiKeyIds } },
             })
         }
 
-        // 3. 删除提供商
+        // 3. 删除提供商（先清理引用它的 apiKeys）
         if (testIds.providerIds.length > 0) {
+            await getTestPrisma().modelApiKeys.deleteMany({
+                where: { providerId: { in: testIds.providerIds } },
+            })
             await getTestPrisma().modelProviders.deleteMany({
                 where: { id: { in: testIds.providerIds } },
             })

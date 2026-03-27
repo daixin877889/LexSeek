@@ -446,10 +446,16 @@ export const createTestAnalysis = async (
  */
 export const cleanupTestData = async (testIds: CaseTestIds): Promise<void> => {
     try {
-        // 1. 删除分析结果
+        // 1. 删除分析结果（按 ID 和按 session 两种方式确保清理干净）
         if (testIds.analysisIds.length > 0) {
             await getTestPrisma().caseAnalyses.deleteMany({
                 where: { id: { in: testIds.analysisIds } },
+            })
+        }
+        // 同时按 sessionId 清理，防止未 tracked 的 analyses 阻止 session 删除
+        if (testIds.sessionIds.length > 0) {
+            await getTestPrisma().caseAnalyses.deleteMany({
+                where: { sessionId: { in: testIds.sessionIds } },
             })
         }
 
@@ -495,8 +501,11 @@ export const cleanupTestData = async (testIds: CaseTestIds): Promise<void> => {
             })
         }
 
-        // 8. 删除模型提供商
+        // 8. 删除模型提供商（先清理引用它的 apiKeys）
         if (testIds.modelProviderIds.length > 0) {
+            await getTestPrisma().modelApiKeys.deleteMany({
+                where: { providerId: { in: testIds.modelProviderIds } },
+            })
             await getTestPrisma().modelProviders.deleteMany({
                 where: { id: { in: testIds.modelProviderIds } },
             })

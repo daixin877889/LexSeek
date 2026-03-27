@@ -116,9 +116,14 @@ export async function cleanupTestData(ids: AgentTestIds) {
     await p.agentRuns.deleteMany({ where: { id: { in: ids.agentRunIds } } })
   }
   if (ids.sessionIds.length > 0) {
+    // caseAnalyses 通过 sessionId 引用 caseSessions，需先删除
+    await p.caseAnalyses.deleteMany({ where: { sessionId: { in: ids.sessionIds } } })
     await p.caseSessions.deleteMany({ where: { sessionId: { in: ids.sessionIds } } })
   }
   if (ids.caseIds.length > 0) {
+    await p.caseAnalyses.deleteMany({ where: { caseId: { in: ids.caseIds } } })
+    await p.caseMaterials.deleteMany({ where: { caseId: { in: ids.caseIds } } })
+    await p.caseSessions.deleteMany({ where: { caseId: { in: ids.caseIds } } })
     await p.cases.deleteMany({ where: { id: { in: ids.caseIds } } })
   }
   if (ids.caseTypeIds.length > 0) {

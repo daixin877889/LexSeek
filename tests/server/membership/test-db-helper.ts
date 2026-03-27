@@ -870,16 +870,7 @@ export const cleanupAllTestData = async (): Promise<void> => {
             where: { code: { startsWith: TEST_CODE_PREFIX } },
         })
 
-        // ===== 第七步：删除测试营销活动（先清理引用它的兑换码） =====
-        const testCampaigns = await testPrisma.campaigns.findMany({
-            where: { name: { startsWith: TEST_CAMPAIGN_NAME_PREFIX } },
-            select: { id: true },
-        })
-        if (testCampaigns.length > 0) {
-            await testPrisma.redemptionCodes.deleteMany({
-                where: { campaignId: { in: testCampaigns.map(c => c.id) } },
-            })
-        }
+        // ===== 第七步：删除测试营销活动（campaigns 是叶表，无子表引用） =====
         await testPrisma.campaigns.deleteMany({
             where: { name: { startsWith: TEST_CAMPAIGN_NAME_PREFIX } },
         })
