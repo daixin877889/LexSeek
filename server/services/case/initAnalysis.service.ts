@@ -89,7 +89,7 @@ export const loadCompletedResultsService = async (
 ): Promise<Record<string, string>> => {
     const analyses = await prisma.caseAnalyses.findMany({
         where: { caseId, status: 2, deletedAt: null },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ version: 'desc' }, { createdAt: 'desc' }],
         distinct: ['analysisType'],
     })
 
