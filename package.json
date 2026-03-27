@@ -15,7 +15,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "test": "vitest run --reporter=verbose",
+    "test": "NODE_OPTIONS='--max-old-space-size=8192' vitest run --reporter=verbose",
     "test:server": "vitest run tests/server --reporter=verbose",
     "test:membership": "vitest run tests/server/membership --reporter=verbose",
     "test:storage": "vitest run tests/server/storage --reporter=verbose",
