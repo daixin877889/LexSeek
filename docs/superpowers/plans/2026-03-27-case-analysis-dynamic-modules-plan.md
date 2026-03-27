@@ -109,8 +109,11 @@ const getNextNode = (current: string, state: typeof WorkflowState.State) => { ..
 **重构 `getCaseAnalysisWorkflow` 函数**（第 140-168 行）：
 
 ```typescript
+// 移除单例变量声明（删除第 133 行）：
+// let workflowInstance: any = null
+
 export async function getCaseAnalysisWorkflow() {
-    if (workflowInstance) return workflowInstance
+    // 移除单例检查：if (workflowInstance) return workflowInstance
 
     // 1. 异步加载模块
     const analysisModules = await getNodeConfigsByTypes(['analysis'])
@@ -143,10 +146,14 @@ export async function getCaseAnalysisWorkflow() {
         graph.addConditionalEdges(moduleName, (state) => getNextNode(moduleName, state))
     }
 
-    workflowInstance = await graph.compile({ checkpointer })
-    return workflowInstance
+    return await graph.compile({ checkpointer })
 }
 ```
+
+**说明**：
+- 删除 `workflowInstance` 单例变量
+- 删除 `if (workflowInstance) return workflowInstance` 缓存检查
+- 每次调用都重新加载模块并重新编译
 
 - [ ] **Step 6: 提交**
 
