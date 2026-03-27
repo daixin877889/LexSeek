@@ -43,7 +43,89 @@ export const getNodeConfigsByTypes = async (
 - 功能：不变（仍查询 `type IN types`，`status = 1`，`deletedAt = null`，按 `priority` 排序）
 - 语义：从"获取子代理"变为"按类型获取节点配置"
 
-### 2. 调用方更新
+---
+
+### 2. 工作流架构调整（关键）
+
+#### 问题：异步加载与全局作用域冲突
+
+**当前代码**（硬编码常量）：
+```typescript
+// 编译时常量，可在全局作用域访问
+const MODULE_ORDER = ['summary', 'chronicle', ...] as const
+
+// 路由函数在全局定义
+const getNextNode = (current: string, state) => {
+    const idx = MODULE_ORDER.indexOf(current)  // ✅ MODULE_ORDER 已定义
+    ...
+}
+```
+
+**重构后**（异步加载）：
+```typescript
+// MODULE_ORDER 变为运行时变量，无法在全局作用域访问
+const analysisModules = await getNodeConfigsByTypes(['analysis'])
+const MODULE_ORDER = analysisModules.map(m => m.name) // ❌ 异步加载，全局作用域无法访问
+```
+
+#### 解决方案：在 `getCaseAnalysisWorkflow()` 内部动态构建
+
+将 `getNextNode` 工厂化，在函数内部创建闭包访问 `MODULE_ORDER`：
+
+```typescript
+/**
+ * 获取案件分析工作流实例
+ */
+export async function getCaseAnalysisWorkflow() {
+    if (workflowInstance) return workflowInstance
+
+    // 1. 异步加载模块
+    const analysisModules = await getNodeConfigsByTypes(['analysis'])
+    const MODULE_ORDER = analysisModules.map(m => m.name)
+
+    // 2. 创建路由函数（闭包访问 MODULE_ORDER）
+    const createGetNextNode = () => {
+        return (current: string, state: typeof WorkflowState.State): string => {
+            const idx = MODULE_ORDER.indexOf(current)
+            if (idx === -1) return END
+            const next = MODULE_ORDER.slice(idx + 1).find(m => state.selectedModules.includes(m))
+            return next ?? END
+        }
+    }
+    const getNextNode = createGetNextNode()
+
+    // 3. 动态创建节点和边
+    const graph = new StateGraph(WorkflowState)
+
+    // 注册节点
+    for (const module of analysisModules) {
+        graph.addNode(module.name, createAnalysisNode(module.name, module.title || module.name))
+    }
+
+    // START 入口
+    graph.addConditionalEdges(START, (state) => {
+        const first = MODULE_ORDER.find(m => state.selectedModules.includes(m))
+        return first ?? END
+    })
+
+    // 模块间边
+    for (const moduleName of MODULE_ORDER) {
+        graph.addConditionalEdges(moduleName, (state) => getNextNode(moduleName, state))
+    }
+
+    workflowInstance = await graph.compile({ checkpointer })
+    return workflowInstance
+}
+```
+
+**架构决策**：
+- **工作流实例是单例**：只在首次调用时加载模块，后续使用缓存
+- **模块变更需重启应用**：数据库中的模块变更不会实时反映，需重启应用重新加载
+- **无需 State 传递**：`MODULE_ORDER` 在工作流编译时确定，运行时不需要
+
+---
+
+### 3. 调用方更新
 
 **`server/services/agent/caseAgent.ts`**：
 ```typescript
@@ -56,55 +138,7 @@ import { getNodeConfigsByTypes } from '../node/node.service'
 const subagentConfigs = await getNodeConfigsByTypes(['analysis', 'document'])
 ```
 
-### 3. 工作流动态加载
-
-**`server/services/workflow/caseAnalysis.workflow.new.ts`**：
-
-```typescript
-// 修改前（硬编码）
-const MODULE_ORDER = ['summary', 'chronicle', 'claim', 'trend', 'cause', 'defense', 'evidence'] as const
-
-// 修改后（动态加载）
-import { getNodeConfigsByTypes } from '../node/node.service'
-
-// 在 getCaseAnalysisWorkflow() 中动态加载
-const analysisModules = await getNodeConfigsByTypes(['analysis'])
-const MODULE_ORDER = analysisModules.map(m => m.name) // string[]，按 priority 排序
-
-// 动态注册节点
-const graph = new StateGraph(WorkflowState)
-for (const module of analysisModules) {
-    graph.addNode(module.name, createAnalysisNode(module.name, module.title || module.name))
-
-    // 动态添加条件边
-    graph.addConditionalEdges(module.name, (state) => getNextNode(module.name, state))
-}
-
-// START 入口：指向第一个选中的模块
-graph.addConditionalEdges(START, (state) => {
-    const first = MODULE_ORDER.find(m => state.selectedModules.includes(m))
-    return first ?? END
-})
-```
-
-### 4. 路由函数适配
-
-由于 `MODULE_ORDER` 从 `const` 数组变为运行时 `string[]`，路由函数需要适配：
-
-```typescript
-// 修改后（支持运行时数组）
-const getNextNode = (current: string, state: typeof WorkflowState.State): string => {
-    const idx = MODULE_ORDER.indexOf(current)
-    if (idx === -1) {
-        // 当前节点不在数据库中，结束工作流
-        return END
-    }
-    const next = MODULE_ORDER.slice(idx + 1).find(m => state.selectedModules.includes(m))
-    return next ?? END
-}
-```
-
-### 5. 验证场景
+### 4. 验证场景
 
 | 场景 | 行为 |
 |------|------|
