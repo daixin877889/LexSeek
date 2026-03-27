@@ -9,7 +9,7 @@ import { createDeepAgent } from 'deepagents'
 import { HumanMessage } from '@langchain/core/messages'
 import { Command } from '@langchain/langgraph'
 import { getCheckpointer } from '../workflow/checkpointer'
-import { getValidNodeConfig, getSubagentConfigsService } from '../node/node.service'
+import { getValidNodeConfig, getNodeConfigsByTypes } from '../node/node.service'
 import { createChatModel } from '../node/chatModelFactory'
 import { getToolInstancesService } from '../workflow/tools'
 import { logger } from '#shared/utils/logger'
@@ -69,7 +69,7 @@ export async function createCaseAgent(sessionId: string, options: CaseAgentOptio
         : []
 
     // 6. 获取子代理配置（按 priority 排序）
-    const subagentConfigs = await getSubagentConfigsService(['analysis', 'document'])
+    const subagentConfigs = await getNodeConfigsByTypes(['analysis', 'document'])
 
     // 7. 构建子代理定义
     const subagents = await Promise.all(
