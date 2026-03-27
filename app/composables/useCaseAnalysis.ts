@@ -139,7 +139,7 @@ export interface UseCaseAnalysisReturn {
 /**
  * 创建初始状态
  */
-function createInitialState(): CaseAnalysisState {
+export function createInitialState(): CaseAnalysisState {
     return {
         isConnected: false,
         isLoading: false,
@@ -154,6 +154,29 @@ function createInitialState(): CaseAnalysisState {
         toolCalls: [],
         tasks: [],
         analysisResults: [],
+    }
+}
+
+/**
+ * 解析 SSE 消息
+ *
+ * @param data SSE 消息数据
+ * @returns 解析后的消息对象，无效返回 null
+ */
+export function parseSSEMessage(data: string): SSEMessage | null {
+    try {
+        // SSE 消息格式可能是 "data: {...}" 或直接是 "{...}"
+        let jsonStr = data
+        if (data.startsWith('data:')) {
+            jsonStr = data.slice(5).trim()
+        }
+        if (!jsonStr || jsonStr === '[DONE]') {
+            return null
+        }
+        return JSON.parse(jsonStr) as SSEMessage
+    } catch {
+        console.warn('解析 SSE 消息失败:', data)
+        return null
     }
 }
 
@@ -200,7 +223,7 @@ export function useCaseAnalysis(): UseCaseAnalysisReturn {
     /**
      * 解析 SSE 消息
      */
-    function parseSSEMessage(data: string): SSEMessage | null {
+    function parseSSEMessageLocal(data: string): SSEMessage | null {
         try {
             // SSE 消息格式可能是 "data: {...}" 或直接是 "{...}"
             let jsonStr = data
@@ -540,7 +563,7 @@ export function useCaseAnalysis(): UseCaseAnalysisReturn {
                     if (!trimmedLine) continue
 
                     // 解析 SSE 消息
-                    const message = parseSSEMessage(trimmedLine)
+                    const message = parseSSEMessageLocal(trimmedLine)
                     if (message) {
                         handleSSEMessage(message)
                     }

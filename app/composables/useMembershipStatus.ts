@@ -40,7 +40,8 @@ export const useMembershipStatus = (membershipLevels: Ref<MembershipLevel[]>) =>
         )
         if (realLevels.length === 0) return false
         const maxSortOrder = Math.max(...realLevels.map((l) => l.sortOrder))
-        const currentLevel = membershipLevels.value.find((l) => l.id === levelId)
+        // currentLevel 必须存在于真正的会员级别中
+        const currentLevel = realLevels.find((l) => l.id === levelId)
         return currentLevel ? currentLevel.sortOrder >= maxSortOrder : false
     }
 

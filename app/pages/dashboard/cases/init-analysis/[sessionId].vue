@@ -7,7 +7,6 @@
     :show-prompt="false"
     :show-task-queue="false"
     class="h-full"
-    style="height: calc(100vh - 48px)"
     @back="goBack"
   >
     <template #message-list>

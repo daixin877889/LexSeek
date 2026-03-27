@@ -71,7 +71,7 @@
 
         <!-- 内容区域 - 可滚动 -->
         <div class="flex-1 overflow-y-auto">
-          <div class="flex flex-col gap-4 p-0">
+          <div class="flex h-full flex-col gap-4 p-0">
             <!-- 嵌套布局：根据路由选择不同布局 -->
             <div v-if="$route.path.startsWith('/dashboard/settings')">
               <SettingsLayout>

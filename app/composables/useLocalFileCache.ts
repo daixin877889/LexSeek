@@ -63,7 +63,7 @@ const openDatabase = (): Promise<IDBDatabase> => {
 /**
  * 检查缓存是否过期
  */
-const isCacheExpired = (record: CachedFileRecord): boolean => {
+export const isCacheExpired = (record: CachedFileRecord): boolean => {
     const now = Date.now()
     return now - record.cachedAt > record.expiresIn
 }

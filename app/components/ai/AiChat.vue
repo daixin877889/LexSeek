@@ -164,7 +164,7 @@ function handleSubmit(data: AiPromptSubmitData) {
     </ResizablePanelGroup>
 
     <!-- 仅左侧面板 -->
-    <div v-else-if="showLeftPanel" class="flex flex-1 min-h-0 flex-col">
+    <div v-else-if="showLeftPanel" class="flex flex-1 min-h-0 flex-col overflow-hidden">
       <div class="flex flex-col h-full overflow-hidden">
         <div class="flex-1 min-h-0">
           <ClientOnly>
