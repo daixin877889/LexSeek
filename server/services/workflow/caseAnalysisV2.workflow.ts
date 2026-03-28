@@ -18,6 +18,8 @@ import { caseAnalysisAgent } from './agents/caseAnalysis'
 import { getCheckpointer } from './checkpointer'
 import { z } from "zod/v4";
 import { getNodeConfigsByTypes } from '../node/node.service'
+import { findAnalysisBySessionAndNodeDao, AnalysisStatus } from '../case/analysis.dao'
+import { markAnalysisFailedById } from './middleware/analysisResultPersistence.middleware'
 
 
 /**
@@ -68,10 +70,34 @@ function createAnalysisNode(agentName: string, defaultPrompt: string): GraphNode
             ? state.messages
             : [new HumanMessage(state.prompt ?? defaultPrompt)]
 
-        const response = await node.invoke({ messages })
+        try {
+            const response = await node.invoke({ messages })
+            return {
+                messages: response.messages,
+            }
+        } catch (error: any) {
+            // 查找 IN_PROGRESS 记录并标记失败
+            try {
+                const nodeInfo = await getNodeByNameService(agentName)
+                if (nodeInfo) {
+                    const record = await findAnalysisBySessionAndNodeDao(
+                        state.sessionId, nodeInfo.id, AnalysisStatus.IN_PROGRESS
+                    )
+                    if (record) {
+                        await markAnalysisFailedById(record.id)
+                    }
+                }
+            } catch (cleanupError) {
+                logger.error('标记分析失败异常', { agentName, cleanupError })
+            }
 
-        return {
-            messages: response.messages,
+            logger.error(`分析模块 ${agentName} 执行失败`, {
+                sessionId: state.sessionId,
+                error: error.message,
+            })
+
+            // 返回空 messages 让工作流继续执行下一个模块
+            return { messages: [] }
         }
     }
 }
