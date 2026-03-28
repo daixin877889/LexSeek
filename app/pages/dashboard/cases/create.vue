@@ -16,7 +16,7 @@
       <CaseAnalysisWelcome title="你好，我是小索，你的案件分析助手" subtitle="在下方输入框输入或上传案情材料，我会为你分析案件" />
 
       <!-- 输入框 -->
-      <AiPromptInput ref="promptInputRef" class="h-auto!" placeholder="请描述您的案件情况，例如：张三与李四因房屋租赁合同产生纠纷..."
+      <AiPromptInput ref="promptInputRef" class="h-auto!" placeholder="请输入案情信息或者上传案情材料，支持上传 文本、文档、音频、图片 四种材料。"
         :enable-file-upload="true" :show-thinking-toggle="false" :loading="isExtracting" :disabled="isExtracting"
         :min-rows="4" :max-rows="10" submit-label="提取信息" :on-file-button-click="openMaterialSelector"
         @submit="handleAiSubmit" />
