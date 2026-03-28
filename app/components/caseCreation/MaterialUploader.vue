@@ -35,7 +35,9 @@
     <!-- 文件列表 -->
     <div v-if="allFiles.length > 0" class="mt-3 space-y-2">
       <div v-for="item in allFiles" :key="item.key"
-        class="group flex items-center gap-3 rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-muted/50">
+        class="group flex items-center gap-3 rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-muted/50"
+        :class="{ 'cursor-pointer': item.ossFileId && getRecognitionStatus(item.ossFileId) === 'success' }"
+        @click="item.ossFileId && openPreview(item.ossFileId)">
         <!-- 文件图标/状态 -->
         <div class="shrink-0">
           <Loader2Icon v-if="item.uploading" class="size-4 animate-spin text-primary" />
@@ -91,6 +93,16 @@
         </Button>
       </div>
     </div>
+
+    <!-- 文档预览弹框 -->
+    <CaseAnalysisDocPreviewDialog v-if="previewFile && !isAudioFile(previewFile.fileName)"
+      v-model:open="previewDialogOpen" :oss-file-id="previewFile.id" :file-name="previewFile.fileName"
+      :file-type="previewFile.fileType" :encrypted="previewFile.encrypted" />
+
+    <!-- 音频预览弹框 -->
+    <CaseAnalysisAudioPreviewDialog v-if="previewFile && isAudioFile(previewFile.fileName)"
+      v-model:open="audioPreviewDialogOpen" :oss-file-id="previewFile.id" :file-name="previewFile.fileName"
+      :encrypted="previewFile.encrypted" />
   </div>
 </template>
 
@@ -103,6 +115,7 @@ import { FileSource } from '#shared/types/file'
 import { useBatchUpload, type FileUploadState } from '~/composables/useBatchUpload'
 import { formatByteSize } from '#shared/utils/unitConverision'
 import { useFileRecognition } from '~/composables/useFileRecognition'
+import { isRecognizableDocFile, isImageFile, isAudioFile } from '~~/shared/utils/fileType'
 
 interface Props {
   modelValue: OssFileItem[]
@@ -123,7 +136,7 @@ const emit = defineEmits<{
 
 const fileStore = useFileStore()
 const { detectMimeType, validateFile, uploadToOSS } = useBatchUpload()
-const { getRecognitionStatus, startRecognition, retryRecognition, clearStatus } = useFileRecognition()
+const { fileRecognitionStatus, getRecognitionStatus, startRecognition, retryRecognition, clearStatus } = useFileRecognition()
 
 const dropZoneRef = ref<HTMLDivElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -166,6 +179,32 @@ function formatSize(bytes: number): string {
   return formatByteSize(bytes, 1)
 }
 
+// 预览状态
+const previewDialogOpen = ref(false)
+const audioPreviewDialogOpen = ref(false)
+const previewFile = ref<OssFileItem | null>(null)
+
+function openPreview(ossFileId: number) {
+  const file = props.modelValue.find(f => f.id === ossFileId)
+  if (!file) return
+
+  const isPreviewable = isRecognizableDocFile(file.fileName) || isImageFile(file.fileName) || isAudioFile(file.fileName)
+  if (!isPreviewable) return
+
+  const status = getRecognitionStatus(file.id)
+  if (status !== 'success') {
+    toast.info(status === 'recognizing' ? '文件正在识别中' : '文件识别未就绪')
+    return
+  }
+
+  previewFile.value = file
+  if (isAudioFile(file.fileName)) {
+    audioPreviewDialogOpen.value = true
+  } else {
+    previewDialogOpen.value = true
+  }
+}
+
 function triggerFileInput() {
   fileInputRef.value?.click()
 }
@@ -184,6 +223,48 @@ function removeItem(item: DisplayItem) {
     emit('update:modelValue', props.modelValue.filter(f => f.id !== item.ossFileId))
   } else {
     uploadingFiles.value = uploadingFiles.value.filter(f => f.id !== item.key)
+  }
+}
+
+// 监听 modelValue 变化，对新增的可识别文件查询识别状态
+watch(() => props.modelValue, (files, oldFiles) => {
+  const oldIds = new Set((oldFiles ?? []).map(f => f.id))
+  const newFiles = files.filter(f => !oldIds.has(f.id))
+  if (newFiles.length === 0) return
+
+  // 对新增文件逐个查询识别状态
+  for (const file of newFiles) {
+    if (!isRecognizableDocFile(file.fileName) && !isImageFile(file.fileName) && !isAudioFile(file.fileName)) continue
+    if (getRecognitionStatus(file.id)) continue
+
+    // 查询当前识别状态
+    checkFileRecognitionStatus(file.id)
+  }
+}, { immediate: true })
+
+async function checkFileRecognitionStatus(ossFileId: number) {
+  try {
+    const response = await useApiFetch<{
+      recognized: boolean
+      status: number
+    }>(`/api/v1/recognition/status/${ossFileId}`, {
+      method: 'GET',
+      showError: false,
+    })
+    if (!response) return
+
+    const recognized = response.recognized === true || response.status === 2
+    if (recognized) {
+      fileRecognitionStatus.value.set(ossFileId, 'success')
+    } else if (response.status === 3) {
+      fileRecognitionStatus.value.set(ossFileId, 'error')
+    } else {
+      // 仍在识别中，启动轮询
+      startRecognition([ossFileId], props.modelValue)
+    }
+  } catch {
+    // 查询失败，尝试启动识别
+    startRecognition([ossFileId], props.modelValue)
   }
 }
 
