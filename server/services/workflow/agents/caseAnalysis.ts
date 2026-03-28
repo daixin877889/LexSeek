@@ -2,7 +2,7 @@ import { createAgent, todoListMiddleware, summarizationMiddleware, type ReactAge
 import type { LangGraphRunnableConfig } from "@langchain/langgraph";
 import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
-import { caseMaterialContextMiddleware, caseProcessMaterialMiddleware, pointConsumptionMiddleware } from '../middleware'
+import { caseMaterialContextMiddleware, caseProcessMaterialMiddleware, pointConsumptionMiddleware, analysisResultPersistenceMiddleware } from '../middleware'
 
 
 export interface AnalysisAgentOptions {
@@ -108,6 +108,12 @@ export const caseAnalysisAgent = async (
             summarizationMiddleware({
                 model,
                 trigger: [{ tokens: 100000 }],
+            }),
+            // 末位：afterAgent 在所有其他中间件之后执行
+            analysisResultPersistenceMiddleware({
+                agentName,
+                caseId: caseId!,
+                sessionId,
             }),
         ],
     })
