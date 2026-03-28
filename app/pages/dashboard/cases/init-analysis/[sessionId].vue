@@ -1,8 +1,7 @@
 <template>
   <AiChat
     title="初始化分析"
-    panel-mode="left"
-    :messages="[]"
+    :messages="streamMessages"
     :loading="isLoading"
     :show-prompt="false"
     :show-task-queue="false"
@@ -10,6 +9,14 @@
     @back="goBack"
   >
     <template #message-list>
+      <!-- 固定状态栏 -->
+      <InitAnalysisPipelineProgress
+        v-if="phase !== 'select'"
+        :modules="activeModules"
+        :module-states="moduleStates"
+        class="sticky top-0 z-10 bg-background border-b"
+      />
+
       <!-- 阶段一：模块选择 -->
       <div v-if="phase === 'select'" class="p-4">
         <InitAnalysisModuleSelector
@@ -21,12 +28,6 @@
 
       <!-- 阶段二/三：分析进度 -->
       <template v-else>
-        <InitAnalysisPipelineProgress
-          :modules="activeModules"
-          :module-states="moduleStates"
-          class="shrink-0"
-        />
-
         <div class="flex-1 min-h-0 overflow-y-auto px-4 py-6 space-y-6">
           <!-- 积分不足中断卡片 -->
           <InitAnalysisInsufficientPointsCard
@@ -58,18 +59,22 @@
       </template>
     </template>
 
-    <template #empty>
-      <InitAnalysisModuleSelector
-        v-if="phase === 'select'"
-        v-model="selectedModules"
-        @start="startAnalysis"
-        @skip="navigateTo(`/dashboard/cases/${caseId}`)"
-      />
+    <template #right-panel>
+      <!-- 案件信息卡片 -->
+      <InitAnalysisCaseInfoCard v-if="caseId > 0" :case-id="caseId" />
+
+      <!-- 分析结果（从 values.result 实时获取） -->
+      <div v-if="completedResults.length > 0" class="p-4 space-y-3">
+        <h3 class="text-sm font-medium text-muted-foreground">分析结果</h3>
+        <CaseAnalysisResults :results="completedResults" />
+      </div>
     </template>
   </AiChat>
 </template>
 
 <script lang="ts" setup>
+import type { AnalysisResult } from '#shared/types/case'
+
 definePageMeta({
   title: "初始化分析",
   layout: "dashboard-layout",
@@ -87,6 +92,8 @@ const {
   activeModules,
   isLoading,
   interrupt,
+  values,
+  streamMessages,
   getModuleState,
   getModuleMessages,
   loadStatus,
@@ -94,6 +101,24 @@ const {
   resumeWorkflow,
   retryModule,
 } = useInitAnalysis(sessionId)
+
+// 从 values.result 转换为 AnalysisResult[] 供右侧面板显示
+const completedResults = computed<AnalysisResult[]>(() => {
+  const result = values.value?.result
+  if (!result) return []
+  return Object.entries(result)
+    .filter(([_, content]) => !!content)
+    .map(([moduleName, content]) => {
+      const mod = activeModules.value.find(m => m.name === moduleName)
+      return {
+        nodeId: 0,
+        moduleName,
+        moduleTitle: mod?.title ?? moduleName,
+        content: content as string,
+        analyzedAt: new Date().toISOString(),
+      }
+    })
+})
 
 // LangGraph interrupt 数据
 const interruptData = computed(() => {
