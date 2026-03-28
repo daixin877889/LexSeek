@@ -20,10 +20,8 @@ import { createChatModel } from '../node/chatModelFactory'
 import { getToolInstancesService } from './tools'
 import { pointConsumptionMiddleware } from './middleware/pointConsumption.middleware'
 import { caseMaterialContextMiddleware } from './middleware/caseMaterialContext.middleware'
-import {
-    startAnalysisService,
-    completeAnalysisService,
-} from '../case/analysis.service'
+import { analysisResultPersistenceMiddleware, markAnalysisFailedById } from './middleware/analysisResultPersistence.middleware'
+import { findAnalysisBySessionAndNodeDao, AnalysisStatus } from '../case/analysis.dao'
 import { VALID_MODULE_NAMES } from '#shared/types/initAnalysis'
 
 // ==================== State 定义 ====================
@@ -131,19 +129,11 @@ function createModuleNode(config: ModuleNodeConfig) {
         }
         const fullPrompt = `${contextPrompt}\n\n --- \n\n 现在请开始任务：${config.title}`
 
-        // 6. 标记分析开始
-        const analysisRecord = await startAnalysisService({
-            caseId,
-            sessionId,
-            nodeId: nodeConfig.id,
-            analysisType: config.moduleName,
-        })
-
         logger.info(`初始化分析模块 ${config.moduleName} 开始`, {
             sessionId, caseId, userId, toolsCount: tools.length,
         })
 
-        // 7. 创建并执行 Agent
+        // 6. 创建并执行 Agent（中间件自动处理 start/complete）
         const agent = createAgent({
             model,
             systemPrompt,
@@ -157,49 +147,77 @@ function createModuleNode(config: ModuleNodeConfig) {
                     model,
                     trigger: [{ tokens: 100000 }],
                 }),
+                analysisResultPersistenceMiddleware({
+                    agentName: config.moduleName,
+                    caseId,
+                    sessionId,
+                }),
             ],
         })
 
-        const result = await agent.invoke(
-            { messages: [new HumanMessage(fullPrompt)] },
-            {
-                configurable: {
-                    thread_id: `${sessionId}_${config.moduleName}`,
-                    user_id: userId,
-                    case_id: caseId,
+        try {
+            const result = await agent.invoke(
+                { messages: [new HumanMessage(fullPrompt)] },
+                {
+                    configurable: {
+                        thread_id: `${sessionId}_${config.moduleName}`,
+                        user_id: userId,
+                        case_id: caseId,
+                    },
+                    recursionLimit: 100,
                 },
-                recursionLimit: 100,
-            },
-        )
+            )
 
-        // 8. 提取最终文本
-        const lastMsg = result.messages?.[result.messages.length - 1]
-        let resultText = ''
-        if (lastMsg) {
-            const content = lastMsg.content
-            if (typeof content === 'string') {
-                resultText = content
-            } else if (Array.isArray(content)) {
-                resultText = content
-                    .filter((c: any) => c.type === 'text')
-                    .map((c: any) => c.text)
-                    .join('')
+            // 7. 提取最终文本
+            const lastMsg = result.messages?.[result.messages.length - 1]
+            let resultText = ''
+            if (lastMsg) {
+                const content = lastMsg.content
+                if (typeof content === 'string') {
+                    resultText = content
+                } else if (Array.isArray(content)) {
+                    resultText = content
+                        .filter((c: any) => c.type === 'text')
+                        .map((c: any) => c.text)
+                        .join('')
+                }
             }
-        }
 
-        // 9. 保存分析结果
-        await completeAnalysisService(analysisRecord.id, resultText)
+            logger.info(`初始化分析模块 ${config.moduleName} 完成`, {
+                sessionId, resultLength: resultText.length,
+            })
 
-        logger.info(`初始化分析模块 ${config.moduleName} 完成`, {
-            sessionId, resultLength: resultText.length,
-        })
+            return {
+                messages: result.messages ?? [],
+                result: { [config.moduleName]: resultText },
+                lastExecutedModule: config.moduleName,
+                lastExecutedResult: resultText,
+                lastExecutedTitle: config.title,
+            }
+        } catch (error: any) {
+            // 查找 IN_PROGRESS 记录并标记失败
+            try {
+                const nodeInfo = await getNodeByNameService(config.moduleName)
+                if (nodeInfo) {
+                    const record = await findAnalysisBySessionAndNodeDao(
+                        sessionId, nodeInfo.id, AnalysisStatus.IN_PROGRESS
+                    )
+                    if (record) {
+                        await markAnalysisFailedById(record.id)
+                    }
+                }
+            } catch (cleanupError) {
+                logger.error('标记分析失败异常', { moduleName: config.moduleName, cleanupError })
+            }
 
-        return {
-            messages: result.messages ?? [],
-            result: { [config.moduleName]: resultText },
-            lastExecutedModule: config.moduleName,
-            lastExecutedResult: resultText,
-            lastExecutedTitle: config.title,
+            logger.error(`初始化分析模块 ${config.moduleName} 失败`, { sessionId, error })
+
+            return {
+                result: { [config.moduleName]: `[错误] ${error.message}` },
+                lastExecutedModule: config.moduleName,
+                lastExecutedResult: '',
+                lastExecutedTitle: config.title,
+            }
         }
     }
 }
