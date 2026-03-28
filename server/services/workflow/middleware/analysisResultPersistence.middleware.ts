@@ -53,9 +53,6 @@ export function extractLastAIMessageContent(messages: any[]): string | null {
 
 /**
  * 分析结果持久化中间件
- *
- * beforeAgent: 创建 IN_PROGRESS 分析记录
- * afterAgent: 提取 AIMessage 内容，更新为 COMPLETED 并设置 isActive
  */
 export const analysisResultPersistenceMiddleware = (
     options: AnalysisResultPersistenceOptions
