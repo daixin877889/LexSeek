@@ -169,6 +169,8 @@ model caseAnalyses {
     version        Int       @default(1)
     /// 分析状态：1-进行中，2-已完成，3-已失败
     status         Int       @default(1)
+    /// 是否为激活版本（同一 caseId+nodeId 只有一条为 true）
+    isActive       Boolean   @default(false) @map("is_active")
     /// 创建时间
     createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
     /// 最后更新时间
@@ -190,6 +192,7 @@ model caseAnalyses {
     @@index([nodeId], map: "idx_case_analyses_node_id")
     @@index([analysisType], map: "idx_case_analyses_analysis_type")
     @@index([status], map: "idx_case_analyses_status")
+    @@index([caseId, nodeId, isActive], map: "idx_case_analyses_active_version")
     @@index([deletedAt], map: "idx_case_analyses_deleted_at")
     @@map("case_analyses")
 }

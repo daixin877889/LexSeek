@@ -52,6 +52,7 @@ export type CaseAnalysesMinAggregateOutputType = {
   originalResult: string | null
   version: number | null
   status: number | null
+  isActive: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -67,6 +68,7 @@ export type CaseAnalysesMaxAggregateOutputType = {
   originalResult: string | null
   version: number | null
   status: number | null
+  isActive: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -82,6 +84,7 @@ export type CaseAnalysesCountAggregateOutputType = {
   originalResult: number
   version: number
   status: number
+  isActive: number
   createdAt: number
   updatedAt: number
   deletedAt: number
@@ -115,6 +118,7 @@ export type CaseAnalysesMinAggregateInputType = {
   originalResult?: true
   version?: true
   status?: true
+  isActive?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -130,6 +134,7 @@ export type CaseAnalysesMaxAggregateInputType = {
   originalResult?: true
   version?: true
   status?: true
+  isActive?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -145,6 +150,7 @@ export type CaseAnalysesCountAggregateInputType = {
   originalResult?: true
   version?: true
   status?: true
+  isActive?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -247,6 +253,7 @@ export type CaseAnalysesGroupByOutputType = {
   originalResult: string | null
   version: number
   status: number
+  isActive: boolean
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
@@ -285,6 +292,7 @@ export type caseAnalysesWhereInput = {
   originalResult?: Prisma.StringNullableFilter<"caseAnalyses"> | string | null
   version?: Prisma.IntFilter<"caseAnalyses"> | number
   status?: Prisma.IntFilter<"caseAnalyses"> | number
+  isActive?: Prisma.BoolFilter<"caseAnalyses"> | boolean
   createdAt?: Prisma.DateTimeFilter<"caseAnalyses"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"caseAnalyses"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"caseAnalyses"> | Date | string | null
@@ -303,6 +311,7 @@ export type caseAnalysesOrderByWithRelationInput = {
   originalResult?: Prisma.SortOrderInput | Prisma.SortOrder
   version?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -324,6 +333,7 @@ export type caseAnalysesWhereUniqueInput = Prisma.AtLeast<{
   originalResult?: Prisma.StringNullableFilter<"caseAnalyses"> | string | null
   version?: Prisma.IntFilter<"caseAnalyses"> | number
   status?: Prisma.IntFilter<"caseAnalyses"> | number
+  isActive?: Prisma.BoolFilter<"caseAnalyses"> | boolean
   createdAt?: Prisma.DateTimeFilter<"caseAnalyses"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"caseAnalyses"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"caseAnalyses"> | Date | string | null
@@ -342,6 +352,7 @@ export type caseAnalysesOrderByWithAggregationInput = {
   originalResult?: Prisma.SortOrderInput | Prisma.SortOrder
   version?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -365,6 +376,7 @@ export type caseAnalysesScalarWhereWithAggregatesInput = {
   originalResult?: Prisma.StringNullableWithAggregatesFilter<"caseAnalyses"> | string | null
   version?: Prisma.IntWithAggregatesFilter<"caseAnalyses"> | number
   status?: Prisma.IntWithAggregatesFilter<"caseAnalyses"> | number
+  isActive?: Prisma.BoolWithAggregatesFilter<"caseAnalyses"> | boolean
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"caseAnalyses"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"caseAnalyses"> | Date | string
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"caseAnalyses"> | Date | string | null
@@ -376,6 +388,7 @@ export type caseAnalysesCreateInput = {
   originalResult?: string | null
   version?: number
   status?: number
+  isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -394,6 +407,7 @@ export type caseAnalysesUncheckedCreateInput = {
   originalResult?: string | null
   version?: number
   status?: number
+  isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -405,6 +419,7 @@ export type caseAnalysesUpdateInput = {
   originalResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -423,6 +438,7 @@ export type caseAnalysesUncheckedUpdateInput = {
   originalResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -438,6 +454,7 @@ export type caseAnalysesCreateManyInput = {
   originalResult?: string | null
   version?: number
   status?: number
+  isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -449,6 +466,7 @@ export type caseAnalysesUpdateManyMutationInput = {
   originalResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -464,6 +482,7 @@ export type caseAnalysesUncheckedUpdateManyInput = {
   originalResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -489,6 +508,7 @@ export type caseAnalysesCountOrderByAggregateInput = {
   originalResult?: Prisma.SortOrder
   version?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -512,6 +532,7 @@ export type caseAnalysesMaxOrderByAggregateInput = {
   originalResult?: Prisma.SortOrder
   version?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -527,6 +548,7 @@ export type caseAnalysesMinOrderByAggregateInput = {
   originalResult?: Prisma.SortOrder
   version?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  isActive?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -672,6 +694,7 @@ export type caseAnalysesCreateWithoutCaseInput = {
   originalResult?: string | null
   version?: number
   status?: number
+  isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -688,6 +711,7 @@ export type caseAnalysesUncheckedCreateWithoutCaseInput = {
   originalResult?: string | null
   version?: number
   status?: number
+  isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -732,6 +756,7 @@ export type caseAnalysesScalarWhereInput = {
   originalResult?: Prisma.StringNullableFilter<"caseAnalyses"> | string | null
   version?: Prisma.IntFilter<"caseAnalyses"> | number
   status?: Prisma.IntFilter<"caseAnalyses"> | number
+  isActive?: Prisma.BoolFilter<"caseAnalyses"> | boolean
   createdAt?: Prisma.DateTimeFilter<"caseAnalyses"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"caseAnalyses"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"caseAnalyses"> | Date | string | null
@@ -743,6 +768,7 @@ export type caseAnalysesCreateWithoutCaseSessionInput = {
   originalResult?: string | null
   version?: number
   status?: number
+  isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -759,6 +785,7 @@ export type caseAnalysesUncheckedCreateWithoutCaseSessionInput = {
   originalResult?: string | null
   version?: number
   status?: number
+  isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -796,6 +823,7 @@ export type caseAnalysesCreateWithoutNodeInput = {
   originalResult?: string | null
   version?: number
   status?: number
+  isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -812,6 +840,7 @@ export type caseAnalysesUncheckedCreateWithoutNodeInput = {
   originalResult?: string | null
   version?: number
   status?: number
+  isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -852,6 +881,7 @@ export type caseAnalysesCreateManyCaseInput = {
   originalResult?: string | null
   version?: number
   status?: number
+  isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -863,6 +893,7 @@ export type caseAnalysesUpdateWithoutCaseInput = {
   originalResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -879,6 +910,7 @@ export type caseAnalysesUncheckedUpdateWithoutCaseInput = {
   originalResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -893,6 +925,7 @@ export type caseAnalysesUncheckedUpdateManyWithoutCaseInput = {
   originalResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -907,6 +940,7 @@ export type caseAnalysesCreateManyCaseSessionInput = {
   originalResult?: string | null
   version?: number
   status?: number
+  isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -918,6 +952,7 @@ export type caseAnalysesUpdateWithoutCaseSessionInput = {
   originalResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -934,6 +969,7 @@ export type caseAnalysesUncheckedUpdateWithoutCaseSessionInput = {
   originalResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -948,6 +984,7 @@ export type caseAnalysesUncheckedUpdateManyWithoutCaseSessionInput = {
   originalResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -962,6 +999,7 @@ export type caseAnalysesCreateManyNodeInput = {
   originalResult?: string | null
   version?: number
   status?: number
+  isActive?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -973,6 +1011,7 @@ export type caseAnalysesUpdateWithoutNodeInput = {
   originalResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -989,6 +1028,7 @@ export type caseAnalysesUncheckedUpdateWithoutNodeInput = {
   originalResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1003,6 +1043,7 @@ export type caseAnalysesUncheckedUpdateManyWithoutNodeInput = {
   originalResult?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   version?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
+  isActive?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1020,6 +1061,7 @@ export type caseAnalysesSelect<ExtArgs extends runtime.Types.Extensions.Internal
   originalResult?: boolean
   version?: boolean
   status?: boolean
+  isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1038,6 +1080,7 @@ export type caseAnalysesSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   originalResult?: boolean
   version?: boolean
   status?: boolean
+  isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1056,6 +1099,7 @@ export type caseAnalysesSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   originalResult?: boolean
   version?: boolean
   status?: boolean
+  isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1074,12 +1118,13 @@ export type caseAnalysesSelectScalar = {
   originalResult?: boolean
   version?: boolean
   status?: boolean
+  isActive?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
 }
 
-export type caseAnalysesOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "caseId" | "sessionId" | "nodeId" | "analysisType" | "analysisResult" | "originalResult" | "version" | "status" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["caseAnalyses"]>
+export type caseAnalysesOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "caseId" | "sessionId" | "nodeId" | "analysisType" | "analysisResult" | "originalResult" | "version" | "status" | "isActive" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["caseAnalyses"]>
 export type caseAnalysesInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   case?: boolean | Prisma.casesDefaultArgs<ExtArgs>
   caseSession?: boolean | Prisma.caseSessionsDefaultArgs<ExtArgs>
@@ -1149,6 +1194,10 @@ export type $caseAnalysesPayload<ExtArgs extends runtime.Types.Extensions.Intern
      * 分析状态：1-进行中，2-已完成，3-已失败
      */
     status: number
+    /**
+     * 是否为激活版本（同一 caseId+nodeId 只有一条为 true）
+     */
+    isActive: boolean
     /**
      * 创建时间
      */
@@ -1596,6 +1645,7 @@ export interface caseAnalysesFieldRefs {
   readonly originalResult: Prisma.FieldRef<"caseAnalyses", 'String'>
   readonly version: Prisma.FieldRef<"caseAnalyses", 'Int'>
   readonly status: Prisma.FieldRef<"caseAnalyses", 'Int'>
+  readonly isActive: Prisma.FieldRef<"caseAnalyses", 'Boolean'>
   readonly createdAt: Prisma.FieldRef<"caseAnalyses", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"caseAnalyses", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"caseAnalyses", 'DateTime'>
