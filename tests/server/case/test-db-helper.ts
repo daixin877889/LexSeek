@@ -414,6 +414,7 @@ export interface TestAnalysisInput {
     originalResult?: string | null
     version?: number
     status?: number
+    isActive?: boolean
 }
 
 /**
@@ -432,6 +433,7 @@ export const createTestAnalysis = async (
             originalResult: data.originalResult ?? null,
             version: data.version ?? 1,
             status: data.status ?? 2, // COMPLETED
+            isActive: data.isActive ?? false,
             createdAt: new Date(),
             updatedAt: new Date(),
         },
