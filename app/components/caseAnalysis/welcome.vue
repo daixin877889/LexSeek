@@ -6,13 +6,21 @@
       <NuxtImg src="/logo-gradient.svg" alt="小索" class="size-14 shrink-0" />
       <!-- 欢迎文字 -->
       <div class="flex flex-col gap-1">
-        <span class="text-xl font-bold">你好，我是小索，你的案件分析助手</span>
-        <span class="text-muted-foreground">在下方输入框输入你的案件信息，我会为你分析案件</span>
+        <span class="text-xl font-bold">{{ title }}</span>
+        <span class="text-muted-foreground">{{ subtitle }}</span>
       </div>
     </div>
   </div>
 </template>
 
-<script lang="ts" setup></script>
+<script lang="ts" setup>
+withDefaults(defineProps<{
+  title?: string
+  subtitle?: string
+}>(), {
+  title: '你好，我是小索，你的案件分析助手',
+  subtitle: '在下方输入框输入你的案件信息，我会为你分析案件',
+})
+</script>
 
 <style></style>
