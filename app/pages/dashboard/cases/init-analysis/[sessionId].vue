@@ -8,7 +8,7 @@
     class="h-full"
     @back="goBack"
   >
-    <template #message-list>
+    <template #message-list="{ messages: parsedMessages, loading: msgLoading }">
       <!-- 固定状态栏 -->
       <InitAnalysisPipelineProgress
         v-if="phase !== 'select'"
@@ -26,35 +26,27 @@
         />
       </div>
 
-      <!-- 阶段二/三：分析进度 -->
+      <!-- 阶段二/三：AiChat 默认消息渲染 + 额外内容 -->
       <template v-else>
-        <div class="flex-1 min-h-0 overflow-y-auto px-4 py-6 space-y-6">
-          <!-- 积分不足中断卡片 -->
-          <InitAnalysisInsufficientPointsCard
-            v-if="interruptData"
-            :is-member="interruptData.data?.isMember ?? false"
-            :available-points="interruptData.data?.availablePoints"
-            :required-points="interruptData.data?.requiredPoints"
-            :reason="interruptData.data?.reason"
-            @resume="resumeWorkflow"
-          />
+        <!-- 积分不足中断卡片 -->
+        <InitAnalysisInsufficientPointsCard
+          v-if="interruptData"
+          class="mx-4 mt-4"
+          :is-member="interruptData.data?.isMember ?? false"
+          :available-points="interruptData.data?.availablePoints"
+          :required-points="interruptData.data?.requiredPoints"
+          :reason="interruptData.data?.reason"
+          @resume="resumeWorkflow"
+        />
 
-          <!-- 按模块分组渲染 -->
-          <template v-for="mod in activeModules" :key="mod.name">
-            <InitAnalysisModuleResult
-              :module="mod"
-              :state="getModuleState(mod.name)"
-              :messages="getModuleMessages(mod.name)"
-              @retry="retryModule"
-            />
-          </template>
+        <!-- 使用 AiChat 默认的消息列表渲染 -->
+        <AiMessageList :messages="parsedMessages" :loading="msgLoading" />
 
-          <!-- 完成后操作 -->
-          <div v-if="phase === 'complete'" class="flex justify-center py-8">
-            <Button size="lg" @click="navigateTo(`/dashboard/cases/${caseId}`)">
-              进入案件详情
-            </Button>
-          </div>
+        <!-- 完成后操作 -->
+        <div v-if="phase === 'complete'" class="flex justify-center py-8">
+          <Button size="lg" @click="navigateTo(`/dashboard/cases/${caseId}`)">
+            进入案件详情
+          </Button>
         </div>
       </template>
     </template>
@@ -94,8 +86,6 @@ const {
   interrupt,
   values,
   streamMessages,
-  getModuleState,
-  getModuleMessages,
   loadStatus,
   startAnalysis,
   resumeWorkflow,

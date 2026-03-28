@@ -82,9 +82,9 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
             caseId: state.caseId,
         })
 
-        const messages = state.messages.length > 0
-            ? state.messages
-            : [new HumanMessage(state.prompt ?? moduleTitle)]
+        // 每个模块使用独立的初始消息，不继承前置模块的消息历史
+        // 避免前置模块的 tool_use 消息导致 INVALID_TOOL_RESULTS 错误
+        const messages = [new HumanMessage(state.prompt ?? moduleTitle)]
 
         try {
             // per-module thread_id 确保每个模块 Agent 使用独立的 checkpoint 线程
