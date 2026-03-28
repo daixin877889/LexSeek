@@ -1,9 +1,8 @@
 import type { CaseMaterialParam, CaseTypeOption, ExtractedCaseInfo } from '#shared/types/case'
-import { CaseMaterialType } from '#shared/types/case'
 import type { OssFileItem } from '~/store/file'
 import { toast } from 'vue-sonner'
 
-interface CreateCaseParams {
+export interface CreateCaseParams {
   caseTypeId: number
   title?: string
   plaintiff?: Array<{ name: string }>
@@ -36,7 +35,7 @@ export function useCaseCreation() {
   const isExtracting = ref(false)
   const caseTypes = ref<CaseTypeOption[]>([])
   const extractedFormData = ref<ExtractedFormData | null>(null)
-  const uploadedMaterials = ref<CaseMaterialParam[]>([])
+  const uploadedFiles = ref<OssFileItem[]>([])
 
   async function loadCaseTypes() {
     const data = await useApiFetch<{ items: CaseTypeOption[] }>('/api/v1/case-types')
@@ -48,11 +47,7 @@ export function useCaseCreation() {
     try {
       // 保存上传的材料
       if (files?.length) {
-        uploadedMaterials.value = files.map(f => ({
-          type: CaseMaterialType.DOCUMENT,
-          name: f.fileName,
-          ossFileId: f.id,
-        }))
+        uploadedFiles.value = [...files]
       }
 
       // 用户可能只上传了文件而不输入文字
@@ -70,7 +65,10 @@ export function useCaseCreation() {
       })
 
       if (result?.extractedInfo) {
-        extractedFormData.value = mapExtractedInfoToFormData(result.extractedInfo, caseTypes.value)
+        extractedFormData.value = {
+          ...mapExtractedInfoToFormData(result.extractedInfo, caseTypes.value),
+          content: message.trim() || undefined,
+        }
         step.value = 'confirm'
       } else {
         toast.warning(result?.message || '未能提取到案件信息，请尝试补充描述或手动创建')
@@ -105,7 +103,7 @@ export function useCaseCreation() {
     isExtracting,
     caseTypes,
     extractedFormData,
-    uploadedMaterials,
+    uploadedFiles,
     loadCaseTypes,
     createCase,
     extractCaseInfo,

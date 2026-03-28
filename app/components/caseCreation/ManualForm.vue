@@ -66,7 +66,7 @@
     <!-- 材料上传 -->
     <div class="space-y-2">
       <label class="text-sm font-medium leading-none">案件材料</label>
-      <CaseCreationMaterialUploader v-model="form.materials" :initial-files="initialData?.materials" />
+      <CaseCreationMaterialUploader v-model="form.materials" />
     </div>
 
     <!-- 提交 -->
@@ -84,10 +84,10 @@ import { Loader2Icon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { OssFileItem } from '~/store/file'
 import { CaseMaterialType } from '#shared/types/case'
-import type { CaseTypeOption, CaseMaterialParam } from '#shared/types/case'
-import type { ExtractedFormData } from '~/composables/useCaseCreation'
+import type { CaseTypeOption } from '#shared/types/case'
+import type { ExtractedFormData, CreateCaseParams } from '~/composables/useCaseCreation'
 
-type InitialData = ExtractedFormData & { materials?: CaseMaterialParam[] }
+type InitialData = ExtractedFormData & { initialFiles?: OssFileItem[] }
 
 const props = defineProps<{
   caseTypes: CaseTypeOption[]
@@ -96,14 +96,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  submit: [params: {
-    caseTypeId: number
-    title?: string
-    plaintiff?: Array<{ name: string }>
-    defendant?: Array<{ name: string }>
-    content?: string
-    materials?: Array<{ type: number; name?: string; ossFileId?: number }>
-  }]
+  submit: [params: CreateCaseParams]
 }>()
 
 const form = reactive({
@@ -129,6 +122,10 @@ watch(() => props.initialData, (data) => {
   if (data.plaintiff?.length) form.plaintiff = [...data.plaintiff]
   if (data.defendant?.length) form.defendant = [...data.defendant]
   if (data.content) form.content = data.content
+  if (data.initialFiles?.length) {
+    const newFiles = data.initialFiles.filter(f => !form.materials.some(m => m.id === f.id))
+    form.materials = [...form.materials, ...newFiles]
+  }
 }, { immediate: true })
 
 const canSubmit = computed(() => {

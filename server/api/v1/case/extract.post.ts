@@ -57,7 +57,7 @@ export default defineEventHandler(async (event) => {
         modelName: nodeConfig.modelName,
         apiKey: activeApiKey.apiKey,
         baseUrl: nodeConfig.modelProviderBaseUrl,
-        temperature: 0.3,
+        temperature: 0,
         streaming: false,
     })
 

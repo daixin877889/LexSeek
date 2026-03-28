@@ -73,6 +73,7 @@ import { ArrowRightIcon, ArrowLeftIcon, Loader2Icon } from 'lucide-vue-next'
 import type { AiPromptSubmitData } from '~/components/ai/AiPromptInput.vue'
 import type { ExampleItem } from '~/components/caseAnalysis/example.vue'
 import type { OssFileItem } from '~/store/file'
+import type { CreateCaseParams } from '~/composables/useCaseCreation'
 
 definePageMeta({
   title: '创建案件',
@@ -81,7 +82,7 @@ definePageMeta({
 
 const {
   step, isSubmitting, isExtracting, caseTypes,
-  extractedFormData, uploadedMaterials,
+  extractedFormData, uploadedFiles,
   loadCaseTypes, createCase, extractCaseInfo,
 } = useCaseCreation()
 
@@ -137,28 +138,21 @@ function confirmReplaceExample() {
 // 手动创建
 function goToManual() {
   extractedFormData.value = null
-  uploadedMaterials.value = []
+  uploadedFiles.value = []
   step.value = 'confirm'
 }
 
 // 表单初始数据
 const formInitialData = computed(() => {
-  if (!extractedFormData.value) return undefined
+  if (!extractedFormData.value && uploadedFiles.value.length === 0) return undefined
   return {
     ...extractedFormData.value,
-    materials: uploadedMaterials.value,
+    initialFiles: uploadedFiles.value,
   }
 })
 
 // 创建案件
-async function handleCreate(params: {
-  caseTypeId: number
-  title?: string
-  plaintiff?: Array<{ name: string }>
-  defendant?: Array<{ name: string }>
-  content?: string
-  materials?: Array<{ type: number; name?: string; ossFileId?: number }>
-}) {
+async function handleCreate(params: CreateCaseParams) {
   await createCase(params)
 }
 </script>
