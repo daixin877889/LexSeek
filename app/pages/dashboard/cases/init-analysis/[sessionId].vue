@@ -5,60 +5,64 @@
     :loading="isLoading"
     :show-prompt="false"
     :show-task-queue="false"
-    class="h-full"
+    class="h-full" style="height: calc(100vh - 48px)"
     @back="goBack"
   >
     <template #message-list="{ messages: parsedMessages, loading: msgLoading }">
-      <!-- 固定状态栏 -->
-      <InitAnalysisPipelineProgress
-        v-if="phase !== 'select'"
-        :modules="activeModules"
-        :module-states="moduleStates"
-        class="sticky top-0 z-10 bg-background border-b"
-      />
-
-      <!-- 阶段一：模块选择 -->
-      <div v-if="phase === 'select'" class="p-4">
-        <InitAnalysisModuleSelector
-          v-model="selectedModules"
-          @start="startAnalysis"
-          @skip="navigateTo(`/dashboard/cases/${caseId}`)"
-        />
-      </div>
-
-      <!-- 阶段二/三：AiChat 默认消息渲染 + 额外内容 -->
-      <template v-else>
-        <!-- 积分不足中断卡片 -->
-        <InitAnalysisInsufficientPointsCard
-          v-if="interruptData"
-          class="mx-4 mt-4"
-          :is-member="interruptData.data?.isMember ?? false"
-          :available-points="interruptData.data?.availablePoints"
-          :required-points="interruptData.data?.requiredPoints"
-          :reason="interruptData.data?.reason"
-          @resume="resumeWorkflow"
+      <div class="h-full overflow-y-auto">
+        <!-- 固定状态栏 -->
+        <InitAnalysisPipelineProgress
+          v-if="phase !== 'select'"
+          :modules="activeModules"
+          :module-states="moduleStates"
+          class="sticky top-0 z-10 bg-background border-b"
         />
 
-        <!-- 使用 AiChat 默认的消息列表渲染 -->
-        <AiMessageList :messages="parsedMessages" :loading="msgLoading" />
-
-        <!-- 完成后操作 -->
-        <div v-if="phase === 'complete'" class="flex justify-center py-8">
-          <Button size="lg" @click="navigateTo(`/dashboard/cases/${caseId}`)">
-            进入案件详情
-          </Button>
+        <!-- 阶段一：模块选择 -->
+        <div v-if="phase === 'select'" class="p-4">
+          <InitAnalysisModuleSelector
+            v-model="selectedModules"
+            @start="startAnalysis"
+            @skip="navigateTo(`/dashboard/cases/${caseId}`)"
+          />
         </div>
-      </template>
+
+        <!-- 阶段二/三 -->
+        <template v-else>
+          <!-- 积分不足中断卡片 -->
+          <InitAnalysisInsufficientPointsCard
+            v-if="interruptData"
+            class="mx-4 mt-4"
+            :is-member="interruptData.data?.isMember ?? false"
+            :available-points="interruptData.data?.availablePoints"
+            :required-points="interruptData.data?.requiredPoints"
+            :reason="interruptData.data?.reason"
+            @resume="resumeWorkflow"
+          />
+
+          <!-- 消息列表 -->
+          <AiMessageList :messages="parsedMessages" :loading="msgLoading" />
+
+          <!-- 完成后操作 -->
+          <div v-if="phase === 'complete'" class="flex justify-center py-8">
+            <Button size="lg" @click="navigateTo(`/dashboard/cases/${caseId}`)">
+              进入案件详情
+            </Button>
+          </div>
+        </template>
+      </div>
     </template>
 
     <template #right-panel>
-      <!-- 案件信息卡片 -->
-      <InitAnalysisCaseInfoCard v-if="caseId > 0" :case-id="caseId" />
+      <div class="h-full overflow-y-auto">
+        <!-- 案件信息卡片 -->
+        <InitAnalysisCaseInfoCard v-if="caseId > 0" :case-id="caseId" />
 
-      <!-- 分析结果（从 values.result 实时获取） -->
-      <div v-if="completedResults.length > 0" class="p-4 space-y-3">
-        <h3 class="text-sm font-medium text-muted-foreground">分析结果</h3>
-        <CaseAnalysisResults :results="completedResults" />
+        <!-- 分析结果（从 values.result 实时获取） -->
+        <div v-if="completedResults.length > 0" class="p-4 space-y-3">
+          <h3 class="text-sm font-medium text-muted-foreground">分析结果</h3>
+          <CaseAnalysisResults :results="completedResults" />
+        </div>
       </div>
     </template>
   </AiChat>

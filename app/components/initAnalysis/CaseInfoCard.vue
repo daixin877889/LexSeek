@@ -36,19 +36,20 @@ const props = defineProps<{
 interface CaseInfoData {
   title: string
   caseType?: { name: string }
-  plaintiff?: Array<{ name: string }>
-  defendant?: Array<{ name: string }>
+  plaintiff?: string[] | Array<{ name: string }>
+  defendant?: string[] | Array<{ name: string }>
   summary?: string
 }
 
 const caseInfo = ref<CaseInfoData | null>(null)
 
-const plaintiffText = computed(() =>
-  caseInfo.value?.plaintiff?.map(p => p.name).join('、') ?? ''
-)
-const defendantText = computed(() =>
-  caseInfo.value?.defendant?.map(d => d.name).join('、') ?? ''
-)
+function parsePartyNames(party?: string[] | Array<{ name: string }>): string {
+  if (!party || party.length === 0) return ''
+  return party.map(p => typeof p === 'string' ? p : p.name).join('、')
+}
+
+const plaintiffText = computed(() => parsePartyNames(caseInfo.value?.plaintiff))
+const defendantText = computed(() => parsePartyNames(caseInfo.value?.defendant))
 
 async function loadCaseInfo() {
   const data = await useApiFetch<CaseInfoData>(`/api/v1/case/${props.caseId}`)
