@@ -1,86 +1,116 @@
 <template>
   <div class="flex flex-col" style="height: calc(100vh - 48px)">
-    <!-- 返回按钮 + 模式切换 -->
-    <div v-if="mode !== 'select'" class="shrink-0 h-12 border-b bg-background/80 backdrop-blur flex items-center justify-between px-4">
-      <Button variant="ghost" size="sm" @click="mode = 'select'">
+    <!-- step = 'ai': AI 创建视图（v-show 保留 DOM 避免输入丢失） -->
+    <div v-show="step === 'ai'" class="flex flex-1 flex-col items-center justify-center gap-4 sm:gap-6 p-4 overflow-y-auto">
+      <!-- 欢迎语 -->
+      <CaseAnalysisWelcome
+        title="描述您的案件"
+        subtitle="AI 将帮您提取关键信息，快速创建案件"
+      />
+
+      <!-- 输入框 -->
+      <div class="w-full max-w-3xl">
+        <AiPromptInput
+          ref="promptInputRef"
+          placeholder="请描述您的案件情况，例如：张三与李四因房屋租赁合同产生纠纷..."
+          :enable-file-upload="true"
+          :show-thinking-toggle="false"
+          :loading="isExtracting"
+          :disabled="isExtracting"
+          submit-label="提取信息"
+          @submit="handleAiSubmit"
+        />
+      </div>
+
+      <!-- 示例卡片 -->
+      <div class="w-full max-w-3xl">
+        <CaseAnalysisExample
+          title="✨ 或者点击下方案例快速体验"
+          @select="handleExampleSelect"
+        />
+      </div>
+
+      <!-- 手动创建入口 -->
+      <div class="w-full max-w-3xl text-right">
+        <Button variant="link" @click="goToManual" class="text-muted-foreground">
+          手动创建
+          <ArrowRightIcon class="size-4 ml-1" />
+        </Button>
+      </div>
+    </div>
+
+    <!-- step = 'confirm': 确认表单视图 -->
+    <div v-if="step === 'confirm'" class="flex flex-1 flex-col p-4 sm:p-6 overflow-y-auto">
+      <!-- 返回按钮 -->
+      <Button variant="ghost" size="sm" class="self-start mb-4" @click="step = 'ai'">
         <ArrowLeftIcon class="size-4 mr-1" />
         返回
       </Button>
 
-      <div class="flex items-center bg-muted/50 rounded-lg p-1 border">
-        <Button
-          variant="ghost" size="sm"
-          :class="['h-8 px-3 rounded-md transition-all', mode === 'manual' ? 'bg-background shadow-sm' : 'text-muted-foreground']"
-          @click="mode = 'manual'"
-        >
-          <PenLineIcon class="size-3.5 mr-1.5" />
-          手动创建
-        </Button>
-        <Button
-          variant="ghost" size="sm"
-          :class="['h-8 px-3 rounded-md transition-all', mode === 'ai' ? 'bg-background shadow-sm' : 'text-muted-foreground']"
-          @click="mode = 'ai'"
-        >
-          <SparklesIcon class="size-3.5 mr-1.5" />
-          AI 创建
-        </Button>
-      </div>
-
-      <div class="w-16" />
-    </div>
-
-    <!-- 内容区域 -->
-    <div class="flex-1 min-h-0">
-      <Transition
-        enter-active-class="transition duration-200 ease-out"
-        enter-from-class="opacity-0 translate-y-2"
-        enter-to-class="opacity-100 translate-y-0"
-        leave-active-class="transition duration-150 ease-in"
-        leave-from-class="opacity-100"
-        leave-to-class="opacity-0"
-        mode="out-in"
-      >
-        <!-- 模式选择 -->
-        <CaseCreationModeSelector
-          v-if="mode === 'select'"
-          @select="mode = $event"
-        />
-
-        <!-- 手动创建 -->
+      <!-- 表单 -->
+      <div class="mx-auto w-full max-w-2xl">
         <CaseCreationManualForm
-          v-else-if="mode === 'manual'"
           :case-types="caseTypes"
           :is-submitting="isSubmitting"
+          :initial-data="formInitialData"
           @submit="handleCreate"
         />
-
-        <!-- AI 创建 -->
-        <CaseCreationAiChat
-          v-else
-          :case-types="caseTypes"
-          :is-submitting="isSubmitting"
-          class="h-full"
-          @confirm="handleCreate"
-        />
-      </Transition>
+      </div>
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { PenLineIcon, SparklesIcon, ArrowLeftIcon } from 'lucide-vue-next'
+import { ArrowRightIcon, ArrowLeftIcon } from 'lucide-vue-next'
+import type { AiPromptSubmitData } from '~/components/ai/AiPromptInput.vue'
+import type { ExampleItem } from '~/components/caseAnalysis/example.vue'
 
 definePageMeta({
   title: '创建案件',
   layout: 'dashboard-layout',
 })
 
-const { mode, isSubmitting, caseTypes, loadCaseTypes, createCase } = useCaseCreation()
+const {
+  step, isSubmitting, isExtracting, caseTypes,
+  extractedFormData, uploadedMaterials,
+  loadCaseTypes, createCase, extractCaseInfo,
+} = useCaseCreation()
+
+const promptInputRef = ref()
 
 onMounted(() => {
   loadCaseTypes()
 })
 
+// AI 提交处理
+async function handleAiSubmit(data: AiPromptSubmitData) {
+  await extractCaseInfo(data.text, data.files)
+}
+
+// 示例选择处理
+function handleExampleSelect(example: ExampleItem) {
+  if (example.content) {
+    extractCaseInfo(example.content)
+  }
+}
+
+// 手动创建
+function goToManual() {
+  extractedFormData.value = null
+  uploadedMaterials.value = []
+  step.value = 'confirm'
+}
+
+// 表单初始数据
+const formInitialData = computed(() => {
+  if (!extractedFormData.value) return undefined
+  return {
+    ...extractedFormData.value,
+    materials: uploadedMaterials.value,
+  }
+})
+
+// 创建案件
 async function handleCreate(params: {
   caseTypeId: number
   title?: string
