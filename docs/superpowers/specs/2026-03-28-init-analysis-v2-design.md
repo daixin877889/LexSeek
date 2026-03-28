@@ -15,6 +15,12 @@
 
 ## 后端：工作流切换
 
+### 架构差异说明
+
+**模块间上下文传递**：旧工作流通过 `contextPrompt` 显式注入前置模块结果到后续模块。v2 工作流中各模块独立执行，通过 `caseMaterialContextMiddleware` 注入案件材料上下文，不依赖前置模块结果。这是有意的架构变更——每个分析模块基于原始案件材料独立分析，而非依赖前一个模块的输出。
+
+**completedResults**：旧 executor 的 `startInitAnalysis` 虽然定义了 `completedResults` 参数，但实际未传给 `workflow.stream()`，不影响切换。
+
 ### 改动点
 
 **`server/services/agent/agentWorker.ts`（~114-161行）**
@@ -32,9 +38,25 @@ export async function startCaseAnalysisV2(params: {
   userId: number
   caseId: number
   selectedModules: string[]
+  command?: unknown  // 支持 resume（积分中断等）
 }): Promise<ReadableStream> {
   const workflow = await getCaseAnalysisWorkflow()
-  const stream = await workflow.stream(
+
+  if (params.command) {
+    const { Command } = await import('@langchain/langgraph')
+    return workflow.stream(
+      new Command({ resume: params.command }),
+      {
+        configurable: { thread_id: params.sessionId },
+        streamMode: ['values', 'messages', 'updates'],
+        subgraphs: true,
+        encoding: 'text/event-stream',
+        version: 'v2',
+      },
+    )
+  }
+
+  return workflow.stream(
     {
       sessionId: params.sessionId,
       userId: params.userId,
@@ -45,17 +67,18 @@ export async function startCaseAnalysisV2(params: {
       configurable: { thread_id: params.sessionId },
       streamMode: ['values', 'messages', 'updates'],
       subgraphs: true,
-    }
+      encoding: 'text/event-stream',
+      version: 'v2',
+    },
   )
-  // 转换为 SSE ReadableStream（与 initAnalysis 格式一致）
 }
 ```
 
-### init-analysis.post.ts 入队逻辑
+### init-analysis.post.ts
 
-保持不变。input 结构 `{ selectedModules, completedResults }` 兼容。
+需要小幅调整：resume 分支中不再传 `completedResults`（v2 不使用），其余入队逻辑不变。
 
-### State 差异
+### State 差异与前端适配策略
 
 | 字段 | initAnalysis.executor | caseAnalysisV2.workflow |
 |------|----------------------|------------------------|
@@ -66,7 +89,24 @@ export async function startCaseAnalysisV2(params: {
 | `failedModules` | ✅ | ❌ 无此字段 |
 | `llmCalls` | ❌ | ✅ ReducedValue |
 
-前端需要适配：模块状态不再从 `values.result`/`values.lastExecutedModule` 获取，改为从 SSE 事件的 `updates` 流中推断（`updates` 事件包含节点名称）。
+**前端模块状态追踪方案**：
+
+`useStream`（@langchain/vue）返回 `values`（state snapshot）、`messages`、`isLoading`，**不直接暴露 updates 事件**。
+
+由于 v2 state 缺少 `result`/`lastExecutedModule`/`failedModules`，前端需要改用以下策略：
+
+1. **检测当前执行模块**：监听 `stream.messages` 变化。v2 工作流每个模块节点执行时会产生 `AIMessage`，通过 `messages` 的增量变化和节点执行顺序（`selectedModules` 列表）推断当前模块。
+2. **检测模块完成**：`caseAnalysisAgent` 的 `analysisResultPersistenceMiddleware` 会将结果写入 `caseAnalyses` 表。前端在检测到消息增量时，轮询 `GET /api/v1/case/init-analysis-status/[caseId]` 获取各模块的持久化状态。
+3. **检测模块失败**：v2 的 `createAnalysisNode` 在 catch 中返回 `{ messages: [] }`（空消息），前端通过 init-analysis-status API 的模块 status=FAILED 判断。
+4. **整体完成检测**：`stream.isLoading` 变为 false 且无中断时，表示工作流结束。
+
+### 中断处理
+
+v2 工作流本身无中断点，但 `caseAnalysisAgent` 内部的 `pointConsumptionMiddleware` 可能触发积分不足中断。`startCaseAnalysisV2` 支持 `command` 参数以恢复中断。
+
+### 节点命名变化
+
+旧工作流节点名带 `Node` 后缀（如 `summaryNode`），v2 直接使用模块名（如 `summary`）。前端无硬编码旧节点名，不受影响。
 
 ---
 
@@ -104,7 +144,7 @@ export async function startCaseAnalysisV2(params: {
   title="初始化分析"
   :show-prompt="false"
   :show-task-queue="false"
-  :messages="displayMessages"
+  :messages="streamMessages"
   @back="goBack"
 >
   <template #message-list>
@@ -117,7 +157,7 @@ export async function startCaseAnalysisV2(params: {
     <!-- phase=select: 模块选择器 -->
     <InitAnalysisModuleSelector v-if="phase === 'select'" />
     <!-- phase=running/complete: AI 消息流 -->
-    <AiMessageList v-else :messages="displayMessages" />
+    <AiMessageList v-else :messages="streamMessages" />
   </template>
 
   <template #right-panel>
@@ -132,18 +172,26 @@ export async function startCaseAnalysisV2(params: {
 </AiChat>
 ```
 
+`streamMessages` 来源于 `useInitAnalysis` composable 中的 `stream.messages`。
+
 ### useInitAnalysis 适配
 
-**模块状态追踪改动**：
-
-不再从 `values.result`/`values.lastExecutedModule` 获取。改为：
-1. 监听 `stream` 的 `updates` 事件，从中获取节点执行信息（节点名称 = 模块名称）
-2. 每个节点执行完成后，通过节点名称映射到模块状态
-3. 模块分析结果由 `caseAnalysisAgent` 内部的 `analysisResultPersistenceMiddleware` 自动写入 `caseAnalyses` 表，前端通过现有 API `GET /api/v1/case/init-analysis-status/[caseId]` 查询已完成的结果，或在 `updates` 事件中检测模块完成后主动刷新
+重写模块状态追踪逻辑（详见后端 State 差异章节的前端适配策略）。
 
 **新增右侧面板数据**：
 - 案件信息通过 API `GET /api/v1/case/[caseId]` 获取
-- 分析结果通过现有 `analysisResults` 状态管理
+- 分析结果通过轮询 `GET /api/v1/case/init-analysis-status/[caseId]` 获取，检测到新完成的模块时更新
+
+### 重连逻辑
+
+页面刷新/重连时：
+1. `loadStatus()` 通过 `GET /api/v1/case/init-analysis-status/[caseId]` 恢复模块状态
+2. `stream.submit()` 重连 SSE 流（v2 state 字段不同，但 FetchStreamTransport 会自动获取最新 values）
+3. 已完成的模块从 init-analysis-status API 获取，不依赖 stream values
+
+### 模块列表策略
+
+前端继续使用 `INIT_ANALYSIS_MODULES`（`shared/types/initAnalysis.ts`）硬编码列表。后端 v2 工作流虽然动态从 DB 加载模块，但只执行前端传入的 `selectedModules`。如果后台新增模块，需同步更新 `INIT_ANALYSIS_MODULES`。
 
 ### 新增组件
 
@@ -153,7 +201,6 @@ export async function startCaseAnalysisV2(params: {
 
 - `InitAnalysisPipelineProgress` — 模块状态栏
 - `InitAnalysisModuleSelector` — 模块选择器
-- `InitAnalysisModuleResult` — 模块结果渲染
 - `AnalysisResults` — 分析结果面板
 
 ---
@@ -163,17 +210,17 @@ export async function startCaseAnalysisV2(params: {
 ### 后端修改
 
 - `server/services/agent/agentWorker.ts` — 路由改为调用 caseAnalysisV2
-- 新增 `server/services/workflow/caseAnalysisV2.executor.ts` — 执行封装
+- `server/api/v1/case/init-analysis.post.ts` — resume 分支去除 completedResults
+- 新增 `server/services/workflow/caseAnalysisV2.executor.ts` — 执行封装（含 command/resume 支持）
 
 ### 前端修改
 
 - `app/pages/dashboard/cases/init-analysis/[sessionId].vue` — 重写为 AiChat 双面板
-- `app/composables/useInitAnalysis.ts` — 适配 caseAnalysisV2 state 结构
+- `app/composables/useInitAnalysis.ts` — 重写模块状态追踪逻辑
 - 新增 `app/components/initAnalysis/CaseInfoCard.vue` — 案件信息卡片
 
 ### 保持不变
 
-- `server/api/v1/case/init-analysis.post.ts` — 入队逻辑不变
 - `server/services/workflow/caseAnalysisV2.workflow.ts` — 工作流不变
 - `app/components/initAnalysis/PipelineProgress.vue` — 状态栏不变
 - `app/components/initAnalysis/ModuleSelector.vue` — 模块选择器不变
@@ -181,3 +228,5 @@ export async function startCaseAnalysisV2(params: {
 ### 后续可删除（验证稳定后）
 
 - `server/services/workflow/initAnalysis.executor.ts` — 旧工作流执行器
+- `shared/types/initAnalysis.ts` 中的旧事件类型定义（如 `InitAnalysisEventType`）
+- `server/api/v1/case/init-analysis.post.ts` 中的 `loadCompletedResultsService` 相关调用
