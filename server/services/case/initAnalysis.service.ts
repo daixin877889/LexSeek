@@ -87,11 +87,19 @@ export const getInitAnalysisStatusService = async (
 export const loadCompletedResultsService = async (
     caseId: number,
 ): Promise<Record<string, string>> => {
-    const analyses = await prisma.caseAnalyses.findMany({
-        where: { caseId, status: 2, deletedAt: null },
-        orderBy: [{ version: 'desc' }, { createdAt: 'desc' }],
-        distinct: ['analysisType'],
+    // 优先使用 isActive 版本
+    const activeAnalyses = await prisma.caseAnalyses.findMany({
+        where: { caseId, status: 2, isActive: true, deletedAt: null },
     })
+
+    // fallback：如果没有 isActive 的记录，使用旧逻辑（兼容过渡期）
+    const analyses = activeAnalyses.length > 0
+        ? activeAnalyses
+        : await prisma.caseAnalyses.findMany({
+            where: { caseId, status: 2, deletedAt: null },
+            orderBy: [{ version: 'desc' }, { createdAt: 'desc' }],
+            distinct: ['analysisType'],
+        })
 
     const results: Record<string, string> = {}
     for (const a of analyses) {
