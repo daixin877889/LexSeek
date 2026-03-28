@@ -61,7 +61,7 @@
         </Badge>
         <Badge v-else-if="getRecognitionStatus(item.ossFileId) === 'error'" variant="outline"
           class="text-xs px-1 h-5 text-red-500 border-red-500 cursor-pointer bg-red-50/50 dark:bg-red-500/10 shrink-0"
-          @click.stop="retryRecognition(item.ossFileId!)">
+          @click.stop="retryRecognition(item.ossFileId!, props.modelValue)">
           <AlertCircleIcon class="size-3 mr-0.5" />
           重试
         </Badge>
@@ -95,15 +95,14 @@
 </template>
 
 <script lang="ts" setup>
-import { useDropZone, useDocumentVisibility } from '@vueuse/core'
+import { useDropZone } from '@vueuse/core'
 import { UploadIcon, UploadCloudIcon, FileIcon, Loader2Icon, AlertCircleIcon, XIcon, CheckIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { OssFileItem } from '~/store/file'
 import { FileSource } from '#shared/types/file'
 import { useBatchUpload, type FileUploadState } from '~/composables/useBatchUpload'
 import { formatByteSize } from '#shared/utils/unitConverision'
-import { isRecognizableDocFile, isImageFile, isAudioFile } from '~~/shared/utils/fileType'
-import type { CaseMaterialParam } from '#shared/types/case'
+import { useFileRecognition } from '~/composables/useFileRecognition'
 
 interface Props {
   modelValue: OssFileItem[]
@@ -111,7 +110,6 @@ interface Props {
   maxFiles?: number
   maxFileSize?: number
   acceptHint?: string
-  initialFiles?: CaseMaterialParam[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -125,19 +123,12 @@ const emit = defineEmits<{
 
 const fileStore = useFileStore()
 const { detectMimeType, validateFile, uploadToOSS } = useBatchUpload()
+const { getRecognitionStatus, startRecognition, retryRecognition, clearStatus } = useFileRecognition()
 
 const dropZoneRef = ref<HTMLDivElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const uploadingFiles = ref<FileUploadState[]>([])
 const pendingTimers = new Set<ReturnType<typeof setTimeout>>()
-
-// 文件识别状态
-const fileRecognitionStatus = ref<Map<number, 'idle' | 'recognizing' | 'success' | 'error'>>(new Map())
-const pollingTimers = ref<Map<number, NodeJS.Timeout>>(new Map())
-const POLLING_INTERVAL = 2000
-const MAX_POLLING_ATTEMPTS = 60
-
-const visibility = useDocumentVisibility()
 
 interface DisplayItem {
   key: string
@@ -171,11 +162,6 @@ const allFiles = computed<DisplayItem[]>(() => {
   return [...completed, ...uploading]
 })
 
-function getRecognitionStatus(ossFileId?: number): 'idle' | 'recognizing' | 'success' | 'error' | null {
-  if (!ossFileId) return null
-  return fileRecognitionStatus.value.get(ossFileId) || null
-}
-
 function formatSize(bytes: number): string {
   return formatByteSize(bytes, 1)
 }
@@ -194,126 +180,12 @@ function handleFileInputChange(e: Event) {
 
 function removeItem(item: DisplayItem) {
   if (item.ossFileId) {
-    // 清理识别状态
-    fileRecognitionStatus.value.delete(item.ossFileId)
-    stopPolling(item.ossFileId)
+    clearStatus(item.ossFileId)
     emit('update:modelValue', props.modelValue.filter(f => f.id !== item.ossFileId))
   } else {
     uploadingFiles.value = uploadingFiles.value.filter(f => f.id !== item.key)
   }
 }
-
-// 文件识别相关逻辑
-async function startRecognition(ossFileIds: number[]) {
-  const recognizable = ossFileIds.filter(id => {
-    const file = props.modelValue.find(f => f.id === id)
-    return file && (isRecognizableDocFile(file.fileName) || isImageFile(file.fileName) || isAudioFile(file.fileName))
-  })
-
-  if (recognizable.length === 0) return
-
-  recognizable.forEach(id => fileRecognitionStatus.value.set(id, 'recognizing'))
-
-  try {
-    const response = await useApiFetch<{
-      results: Array<{ ossFileId: number; status: 'processing' | 'completed' | 'failed'; error?: string }>
-    }>('/api/v1/recognition/start', {
-      method: 'POST',
-      body: { ossFileIds: recognizable },
-      showError: false,
-    })
-
-    if (!response?.results) {
-      recognizable.forEach(id => fileRecognitionStatus.value.set(id, 'error'))
-      return
-    }
-
-    for (const result of response.results) {
-      if (result.status === 'completed') {
-        fileRecognitionStatus.value.set(result.ossFileId, 'success')
-      } else if (result.status === 'processing') {
-        fileRecognitionStatus.value.set(result.ossFileId, 'recognizing')
-        pollFileStatus(result.ossFileId)
-      } else {
-        fileRecognitionStatus.value.set(result.ossFileId, 'error')
-        if (result.error) toast.error(`文件识别失败：${result.error}`)
-      }
-    }
-  } catch {
-    recognizable.forEach(id => fileRecognitionStatus.value.set(id, 'error'))
-  }
-}
-
-async function pollFileStatus(ossFileId: number, attemptCount = 0) {
-  if (visibility.value !== 'visible') return
-  if (attemptCount >= MAX_POLLING_ATTEMPTS) {
-    fileRecognitionStatus.value.set(ossFileId, 'error')
-    pollingTimers.value.delete(ossFileId)
-    return
-  }
-
-  try {
-    const response = await useApiFetch<{
-      recognized: boolean
-      status: number
-    }>(`/api/v1/recognition/status/${ossFileId}`, {
-      method: 'GET',
-      showError: false,
-    })
-
-    if (!response) {
-      const timer = setTimeout(() => pollFileStatus(ossFileId, attemptCount + 1), POLLING_INTERVAL)
-      pollingTimers.value.set(ossFileId, timer)
-      return
-    }
-
-    const recognized = response.recognized === true || response.status === 2
-    if (recognized) {
-      fileRecognitionStatus.value.set(ossFileId, 'success')
-      pollingTimers.value.delete(ossFileId)
-    } else if (response.status === 3) {
-      fileRecognitionStatus.value.set(ossFileId, 'error')
-      pollingTimers.value.delete(ossFileId)
-    } else {
-      const timer = setTimeout(() => pollFileStatus(ossFileId, attemptCount + 1), POLLING_INTERVAL)
-      pollingTimers.value.set(ossFileId, timer)
-    }
-  } catch {
-    const timer = setTimeout(() => pollFileStatus(ossFileId, attemptCount + 1), POLLING_INTERVAL)
-    pollingTimers.value.set(ossFileId, timer)
-  }
-}
-
-function stopPolling(ossFileId: number) {
-  const timer = pollingTimers.value.get(ossFileId)
-  if (timer) {
-    clearTimeout(timer)
-    pollingTimers.value.delete(ossFileId)
-  }
-}
-
-function stopAllPolling() {
-  pollingTimers.value.forEach(clearTimeout)
-  pollingTimers.value.clear()
-}
-
-async function retryRecognition(ossFileId: number) {
-  fileRecognitionStatus.value.set(ossFileId, 'recognizing')
-  await startRecognition([ossFileId])
-}
-
-// Visibility API 优化轮询
-watch(visibility, (state) => {
-  if (state === 'visible') {
-    fileRecognitionStatus.value.forEach((status, id) => {
-      if (status === 'recognizing' && !pollingTimers.value.has(id)) {
-        pollFileStatus(id)
-      }
-    })
-  } else {
-    stopAllPolling()
-  }
-})
 
 async function processFiles(files: File[]) {
   const totalCount = props.modelValue.length + uploadingFiles.value.length
@@ -417,8 +289,7 @@ async function processFiles(files: File[]) {
           const current = [...props.modelValue]
           if (!current.some(f => f.id === newFile.id)) {
             emit('update:modelValue', [...current, newFile])
-            // 上传完成后自动启动识别
-            nextTick(() => startRecognition([newFile.id]))
+            nextTick(() => startRecognition([newFile.id], [...current, newFile]))
           }
         }, TRANSITION_DELAY_MS)
         pendingTimers.add(timer)
@@ -453,6 +324,5 @@ onUnmounted(() => {
     clearTimeout(timer)
   }
   pendingTimers.clear()
-  stopAllPolling()
 })
 </script>

@@ -85,15 +85,9 @@ import { toast } from 'vue-sonner'
 import type { OssFileItem } from '~/store/file'
 import { CaseMaterialType } from '#shared/types/case'
 import type { CaseTypeOption, CaseMaterialParam } from '#shared/types/case'
+import type { ExtractedFormData } from '~/composables/useCaseCreation'
 
-interface InitialData {
-  title?: string
-  caseTypeId?: number
-  plaintiff?: string[]
-  defendant?: string[]
-  content?: string
-  materials?: CaseMaterialParam[]
-}
+type InitialData = ExtractedFormData & { materials?: CaseMaterialParam[] }
 
 const props = defineProps<{
   caseTypes: CaseTypeOption[]

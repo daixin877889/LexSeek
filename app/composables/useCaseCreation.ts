@@ -55,7 +55,7 @@ export function useCaseCreation() {
         }))
       }
 
-      // 保证 message 非空（extract API 要求 message.min(1)）
+      // 用户可能只上传了文件而不输入文字
       const text = message.trim() || '请根据上传的材料提取案件信息'
 
       const result = await useApiFetch<{
@@ -70,7 +70,6 @@ export function useCaseCreation() {
       })
 
       if (result?.extractedInfo) {
-        // 部分字段可能缺失，mapExtractedInfoToFormData 会优雅处理（各字段独立映射）
         extractedFormData.value = mapExtractedInfoToFormData(result.extractedInfo, caseTypes.value)
         step.value = 'confirm'
       } else {
