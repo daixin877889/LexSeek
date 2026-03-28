@@ -249,10 +249,14 @@ const internalPromptText = ref('')
  */
 const InternalStateSync = defineComponent({
   setup() {
-    const { textInput } = usePromptInput()
-    watch(textInput, (val) => {
+    const ctx = usePromptInput()
+    watch(ctx.textInput, (val) => {
       internalPromptText.value = val || ''
     }, { immediate: true })
+    // 缓存 Provider 方法到外部 ref
+    clearInput.value = ctx.clearInput
+    clearFiles.value = ctx.clearFiles
+    setTextInput.value = ctx.setTextInput
     return () => null
   }
 })
@@ -431,18 +435,10 @@ watch(visibility, (state) => {
   }
 });
 
-// 通过 usePromptInput 获取清空方法
+// 通过 InternalStateSync 在 Provider 内部获取的方法
 const clearInput = ref<(() => void) | null>(null)
 const clearFiles = ref<(() => void) | null>(null)
-
-watchPostEffect(() => {
-  try {
-    const ctx = usePromptInput()
-    clearInput.value = ctx.clearInput
-    clearFiles.value = ctx.clearFiles
-  }
-  catch { }
-})
+const setTextInput = ref<((val: string) => void) | null>(null)
 
 function reset() {
   selectedFiles.value = []
@@ -452,7 +448,15 @@ function reset() {
   clearFiles.value?.()
 }
 
-defineExpose({ reset })
+defineExpose({
+  reset,
+  hasContent() {
+    return !!internalPromptText.value?.trim() || selectedFiles.value.length > 0
+  },
+  setText(text: string) {
+    setTextInput.value?.(text)
+  },
+})
 
 function getRecognitionStatus(fileId: number): 'idle' | 'recognizing' | 'success' | 'error' | null {
   return fileRecognitionStatus.value.get(fileId) || null;
