@@ -70,7 +70,7 @@ step: 'ai' | 'confirm'
 |------|------|
 | `caseAnalysis/welcome.vue` | 添加 `title`、`subtitle` props，默认值保持原样，案件创建页传入不同文案 |
 | `caseAnalysis/example.vue` | 添加 `examples` prop（数据外部传入）和 `select` emit（点击回调），提取硬编码数据为默认值。案件创建场景：点击示例后将示例文本填入输入框 |
-| `caseAnalysis/promptInput.vue` | 该组件对 `useCaseAnalysisStore` 依赖极低（仅通过 `enableWatcher` 条件子组件写入 store），案件创建页复用时传 `enableWatcher: false` 即可跳过 store 依赖。添加 `submitLabel` prop 自定义提交按钮文案 |
+| `ai/AiPromptInput.vue` | 直接复用通用组件。需新增 `submitLabel` prop 支持自定义提交按钮文字（案件创建场景显示"创建案件"，默认仅显示发送图标）。FileSource 复用 `CASE_ANALYSIS`，无需改动。`enableFileUpload: true`、`showThinkingToggle: false`、`placeholder: '请描述您的案件情况...'` |
 
 ### 表单优化
 
@@ -221,7 +221,7 @@ ManualForm 的 `initialData.materials` 传入后，MaterialUploader 回显这些
 - `app/components/caseCreation/MaterialUploader.vue` — 文件状态显示
 - `app/components/caseAnalysis/welcome.vue` — 添加 props 通用化
 - `app/components/caseAnalysis/example.vue` — 添加 props/emit 通用化
-- `app/components/caseAnalysis/promptInput.vue` — 添加 props 解耦文案
+- `app/components/ai/AiPromptInput.vue` — 添加 `submitLabel` prop 支持自定义按钮文字
 
 ### 删除
 
