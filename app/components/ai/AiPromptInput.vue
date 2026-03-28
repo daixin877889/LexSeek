@@ -135,6 +135,7 @@
               <PromptInputSubmit class="h-9 px-4! rounded-md shadow-lg shadow-primary/20 active:scale-95 transition-all"
                 :status="submitStatus" :disabled="isSubmitDisabled" size="xs">
                 <SendHorizontal class="size-4" />
+                <span v-if="submitLabel" class="ml-1">{{ submitLabel }}</span>
               </PromptInputSubmit>
             </div>
           </PromptInputFooter>
@@ -186,6 +187,7 @@ const props = withDefaults(defineProps<{
   showThinkingToggle?: boolean
   minRows?: number
   maxRows?: number
+  submitLabel?: string
 }>(), {
   placeholder: '输入消息...',
   loading: false,
