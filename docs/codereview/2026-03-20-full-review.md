@@ -1,22 +1,24 @@
 # LexSeek 项目全面评审报告
 
-> 评审日期：2026-03-20
-> 评审方式：6 个专业评审代理并行评审
+> 评审日期：2026-03-20（初评） | 2026-03-28（更新）
+> 评审方式：6 个专业评审代理并行评审 + 自动代码分析
 > 评审范围：架构设计、代码风格、安全性、代码简洁性、功能设计、UI 实现
+>
+> **本次更新说明**：基于全量代码审查结果，验证了初评问题并发现新的安全问题、代码质量问题。新增问题包括：Agent 硬编码 API Key、废弃文件残留、前端 console.log 未清理等。
 
 ---
 
 ## 综合评分
 
-| 评审维度 | 评分 | 评审员 |
-|---------|------|--------|
-| 架构设计 | **7.5/10** | arch-reviewer |
-| 代码风格 | **6.5/10** | style-reviewer |
-| 安全性 | **6.5/10** | security-reviewer |
-| 代码简洁性 | **6.5/10** | simplicity-reviewer |
-| 功能设计 | **7.5/10** | feature-reviewer |
-| UI 实现 | **6.5/10** | ui-reviewer |
-| **总体** | **6.8/10** | |
+| 评审维度 | 评分 | 评审员 | 状态 |
+|---------|------|--------|------|
+| 架构设计 | **7.5/10** | arch-reviewer | 部分问题已修复 |
+| 代码风格 | **6.5/10** | style-reviewer | 待改进 |
+| 安全性 | **6.5/10** | security-reviewer | **需紧急修复** |
+| 代码简洁性 | **6.5/10** | simplicity-reviewer | 待改进 |
+| 功能设计 | **7.5/10** | feature-reviewer | 待完善 |
+| UI 实现 | **6.5/10** | ui-reviewer | 待改进 |
+| **总体** | **6.8/10** | | |
 
 ---
 
@@ -24,9 +26,9 @@
 
 ### 优点
 
-- 模块化 Prisma 模型（22个文件按领域拆分）
+- 模块化 Prisma 模型（22 个文件按领域拆分）
 - 严格的 Service + DAO 分层
-- server/lib 采用工厂+适配器模式，支持多云存储、多支付渠道
+- server/lib 采用工厂 + 适配器模式，支持多云存储、多支付渠道
 - 中间件数字前缀控制执行顺序（01 → 02 → 03）
 - 测试结构完善，覆盖 20+ 模块
 
@@ -40,31 +42,28 @@
 - 影响：违反 RESTful 命名一致性原则，前端调用方容易混淆
 - 建议：统一为 `/api/v1/cases`，单数路径 `/case` 下的接口迁移到复数路径
 
-**C2. 时区处理方案存在风险**
+**C2. 时区处理方案存在风险** ✅ 已修复
 - 位置：`server/utils/db.ts`
-- 问题：通过 Prisma `$extends` 拦截所有数据库操作，手动加减 8 小时偏移来处理时区
-- 风险：
-  1. `$rawQuery` 和 `$executeRaw` 不经过此拦截，会导致时区不一致
-  2. 性能开销：每次查询都递归遍历完整参数树
-  3. 任何深层嵌套的日期值可能遗漏
-- 建议：在数据库层面设置 `timezone = 'Asia/Shanghai'`，或在连接字符串中指定时区参数
+- 原问题：通过 Prisma `$extends` 拦截所有数据库操作，手动加减 8 小时偏移来处理时区
+- **修复状态**：已改用 `PrismaPg` 适配器并设置 `options: '-c TimeZone=UTC'`，避免双偏移 bug
+- 剩余风险：`$rawQuery` 和 `$executeRaw` 仍需注意时区处理
 
 #### HIGH
 
 **H1. 多个服务文件超过 800 行限制**
 
-| 文件 | 行数 |
-|------|------|
-| `server/services/material/asr.service.ts` | **1488** |
-| `server/services/material/materialEmbedding.service.ts` | **1291** |
-| `app/components/general/audio/AudioVisualization.vue` | **1332** |
-| `app/pages/landing/[invitedBy].vue` | **1177** |
-| `app/pages/dashboard/tools/interest.vue` | **1153** |
-| `app/composables/useCaseAnalysis.ts` | **948** |
-| `server/services/material/mineru.service.ts` | 893 |
-| `server/services/material/ocr.service.ts` | 818 |
-| `app/components/general/fileUploader.vue` | 839 |
-| `app/pages/pricing.vue` | 816 |
+| 文件 | 行数 | 类型 |
+|------|------|------|
+| `server/services/material/asr.service.ts` | **1456** | 服务层 |
+| `server/services/material/materialEmbedding.service.ts` | **1373** | 服务层 |
+| `app/components/general/audio/AudioVisualization.vue` | **1332** | 组件 |
+| `shared/utils/tools/interestService.ts` | **1195** | 工具类 |
+| `app/pages/landing/[invitedBy].vue` | **1177** | 页面 |
+| `app/pages/dashboard/tools/interest.vue` | **1153** | 页面 |
+| `app/composables/useCaseAnalysis.ts` | **1009** | 组合式函数 |
+| `server/services/material/mineru.service.ts` | 889 | 服务层 |
+| `app/pages/pricing.vue` | 816 | 页面 |
+| `server/services/material/ocr.service.ts` | 806 | 服务层 |
 
 **H2. `server/utils/oss.ts` 与 `server/lib/oss/` 职责重叠**
 - `utils/` 目录下放置了仅做 re-export 的文件，增加了间接性
@@ -78,6 +77,11 @@
 - 位置：`vitest.config.ts` 第 51-62 行
 - 影响：CI 中实际覆盖率降低
 - 建议：使用 `@nuxt/test-utils` 或创建独立的 vitest workspace
+
+**H5. 废弃文件未清理** ✅ 已修复
+- 位置：`server/api/v1/case/analysis/agents.post copy.ts`
+- 问题：测试文件副本残留在代码库中
+- **修复状态**：2026-03-28 已删除
 
 #### MEDIUM
 
@@ -108,13 +112,18 @@
 
 #### CRITICAL
 
-**`any` 类型滥用 — 170+ 处**
+**`any` 类型滥用 — 100+ 处**
 
 典型场景：
 - 动态 where 条件：`const where: any = {}` — 应使用 `Prisma.xxxWhereInput`
 - 事务客户端：`tx as any` — 应使用 `Prisma.TransactionClient`
 - 前端泛型：`useApiFetch<any>`、`ref<any[]>` — 应定义具体响应类型
 - catch error：`catch (error: any)` vs `catch (error)` 混用
+
+**高风险位置**：
+- `server/services/agent/caseAgent.ts:122-127` - DeepAgent 类型
+- `server/services/agent/main.ts:69-78` - Agent 主入口
+- `server/lib/aliSms.ts:6,17` - 阿里云短信客户端
 
 #### HIGH
 
@@ -134,6 +143,8 @@
 
 - 服务端混用 `console.log/error` 和项目 `logger`
 - 前端存在调试用 `console.log` 未清理
+  - `app/composables/useLegalEditorCache.ts` - 4 处
+  - `app/composables/useCaseAnalysis.ts` - 2 处
 
 #### MEDIUM
 
@@ -159,39 +170,46 @@
 
 #### CRITICAL
 
-| 编号 | 问题 | 文件 | OWASP |
-|------|------|------|-------|
-| C1 | **微信支付签名验证可跳过** — 未配置 platformCert 时 `verifySignature()` 返回 true | `server/lib/payment/adapters/wechat-pay.ts:418-422` | A07 |
-| C2 | **OSS 回调无来源签名验证** — 任何人可构造请求修改文件状态 | `server/api/v1/storage/callback/.post.ts` | A01 |
-| C3 | **JWT 密钥硬编码默认值** `lexseek_jwt_secret` | `nuxt.config.ts:150` | A02 |
-| C4 | **.env.testing 含真实生产凭证** — 阿里云 AK、微信私钥、API Key | `.env.testing` | A02 |
+| 编号 | 问题 | 风险等级 | 文件位置 | OWASP | 状态 |
+|------|------|----------|----------|-------|------|
+| C1 | **微信支付签名验证可跳过** — 未配置 platformCert 时 `verifySignature()` 返回 true | CRITICAL | `server/lib/payment/adapters/wechat-pay.ts:419-423` | A07 | 待修复 |
+| C2 | **OSS 回调无来源签名验证** — 任何人可构造请求修改文件状态 | CRITICAL | `server/api/v1/storage/callback/.post.ts` | A01 | 待修复 |
+| C3 | **JWT 密钥硬编码默认值** `lexseek_jwt_secret` | HIGH | `nuxt.config.ts:150` | A02 | 待修复 |
+| C4 | **.env/.env.testing 含真实生产凭证** — 阿里云 AK、微信私钥、API Key | CRITICAL | `.env`, `.env.testing` | A02 | 待修复 |
+| C5 | **Agent 硬编码 API Key** | CRITICAL | `server/services/agent/main.ts` | A02 | 待修复 |
+
+**C5. Agent 硬编码 API Key**（新增）
+- 位置：`server/services/agent/main.ts`
+- 问题：DeepSeek API Key 直接硬编码在源代码中
+- 风险：密钥泄露，可能被滥用导致额度耗尽
+- 建议：迁移到环境变量，添加启动时校验
 
 #### HIGH
 
-| 编号 | 问题 | OWASP |
-|------|------|-------|
-| H1 | **密码登录无速率限制**，可暴力破解 | A07 |
-| H2 | **缺少安全响应头**（CSP、X-Frame-Options、X-Content-Type-Options 等） | A05 |
-| H3 | SMS 速率限制基于内存 Map，多实例部署失效 | A07 |
-| H4 | 支付回调不验证金额一致性 | A04 |
-| H5 | 支付密钥配置无启动检查，使用空字符串默认值 | A05 |
+| 编号 | 问题 | OWASP | 文件位置 | 状态 |
+|------|------|-------|----------|------|
+| H1 | **密码登录无速率限制**，可暴力破解 | A07 | `server/api/v1/auth/login/password.post.ts` | 待修复 |
+| H2 | **缺少安全响应头**（CSP、X-Frame-Options、X-Content-Type-Options 等） | A05 | 全局中间件缺失 | 待修复 |
+| H3 | SMS 速率限制基于内存 Map，多实例部署失效 | A07 | `server/api/v1/sms/send.post.ts` | 待修复 |
+| H4 | 支付回调不验证金额一致性 | A04 | `server/services/payment/payment.service.ts` | 待修复 |
+| H5 | 支付密钥配置无启动检查，使用空字符串默认值 | A05 | `nuxt.config.ts` | 待修复 |
 
 #### MEDIUM
 
-| 编号 | 问题 | OWASP |
-|------|------|-------|
-| M1 | `v-html` 渲染未转义用户内容（XSS） | A03 |
-| M2 | 登录错误信息泄露用户是否存在（"用户不存在" vs "密码错误"） | A07 |
-| M3 | 权限缓存无 TTL，修改权限后用户仍持有旧权限 | - |
-| M4 | Token 黑名单 `deleteExpiredTokenBlacklistDao` 已实现但从未被调用 | - |
-| M5 | 邀请码使用 `Math.random()` 而非密码学安全随机数 | A02 |
-| M6 | MinerU 上传未限制 Base64 大小，可能导致 OOM | - |
-| M7 | OSS 公钥 URL 验证使用 `startsWith` 前缀匹配，可被构造恶意 URL 绕过 | - |
-| M8 | 缺少全局 API 速率限制 | - |
+| 编号 | 问题 | OWASP | 文件位置 | 状态 |
+|------|------|-------|----------|------|
+| M1 | `v-html` 渲染未转义用户内容（XSS） | A03 | 待定位 | 待修复 |
+| M2 | 登录错误信息泄露用户是否存在（"用户不存在" vs "密码错误"） | A07 | `server/api/v1/auth/login/password.post.ts` | 待修复 |
+| M3 | 权限缓存无 TTL，修改权限后用户仍持有旧权限 | - | - | 待修复 |
+| M4 | Token 黑名单 `deleteExpiredTokenBlacklistDao` 已实现但从未被调用 | - | - | 待修复 |
+| M5 | 邀请码使用 `Math.random()` 而非密码学安全随机数 | A02 | - | 待修复 |
+| M6 | MinerU 上传未限制 Base64 大小，可能导致 OOM | - | - | 待修复 |
+| M7 | OSS 公钥 URL 验证使用 `startsWith` 前缀匹配，可被构造恶意 URL 绕过 | - | - | 待修复 |
+| M8 | 缺少全局 API 速率限制 | - | - | 待修复 |
 
 #### LOW
 
-- 密码强度要求偏低（仅字母+数字）
+- 密码强度要求偏低（仅字母 + 数字）
 - 支付日志输出授权头信息
 - H5 支付硬编码 IP `127.0.0.1`
 - Cookie SameSite 策略为 `lax` 而非 `strict`
@@ -211,11 +229,13 @@
 
 #### CRITICAL — 重复代码
 
-| 问题 | 位置 | 重复次数 |
-|------|------|---------|
-| `useApi` 和 `useApiFetch` 中 401 处理逻辑完全重复 | `app/composables/useApi.ts:41-56` 和 `useApiFetch.ts:73-89` | 2 |
-| 会员信息映射逻辑重复（dayjs 格式化、sourceTypeName 转换） | `userMembership.service.ts:61/91/217` | 3 |
-| OSS 文件信息合并逻辑重复（Map 构建+过滤+合并，每处 ~35 行） | `material.service.ts:93/142/269` | 3 |
+| 问题 | 位置 | 重复次数 | 优先级 |
+|------|------|---------|--------|
+| `useApi` 和 `useApiFetch` 中 401 处理逻辑完全重复 | `app/composables/useApi.ts:42-58` 和 `useApiFetch.ts:74-90` | 2 | HIGH |
+| PrismaClient 类型定义重复 | 30+ 个服务文件 | 35+ | HIGH |
+| parseSSEMessage 函数重复 | `useCaseAnalysis.ts:166-181` 和 `226-241` | 2 (同一文件) | MEDIUM |
+| 会员信息映射逻辑重复（dayjs 格式化、sourceTypeName 转换） | `userMembership.service.ts` | 3 | MEDIUM |
+| OSS 文件信息合并逻辑重复（Map 构建 + 过滤 + 合并，每处 ~35 行） | `material.service.ts` | 3 | MEDIUM |
 
 #### HIGH — 模板代码膨胀
 
@@ -236,25 +256,31 @@
 - `useOrderStatus` 和 `useMembershipStatus` 可以是纯工具函数，不需要 composable
 - `decimalToNumberUtils` 过于防御性，处理了 6 种输入类型，实际只需 2 种
 
+#### 废弃文件
+
+| 文件 | 问题 | 状态 |
+|------|------|------|
+| `server/api/v1/case/analysis/agents.post copy.ts` | 测试文件副本 | ✅ 已删除 |
+
 ---
 
 ## 五、功能设计（7.5/10）
 
 ### 各模块评分
 
-| 模块 | 评分 | 关键缺陷 |
-|------|------|---------|
-| AI 分析工作流 | 8/10 | SSE 错误处理不完整，缺断线重连 |
-| 会员系统 | 8.5/10 | 缺过期自动处理，升级链递归性能 |
-| 支付系统 | 8.5/10 | 缺退款功能，签名验证可选 |
-| RBAC 权限 | 8/10 | 权限变更延迟，黑名单无缓存 |
-| 法律知识库 | 8/10 | 缺批量操作 |
-| 文件管理/识别 | 7.5/10 | 回调无签名验证，ASR 时长默认值 |
-| 案件管理 | 7/10 | 缺 UPDATE/DELETE API 端点，硬编码 API Key |
-| 认证系统 | 7/10 | 缺登录限流、Token 刷新 |
-| 积分系统 | 7/10 | 缺统一消耗接口 |
-| 兑换码 | 7/10 | 缺管理端点 |
-| 营销/邀请 | 6/10 | API 导入被注释，缺管理端点 |
+| 模块 | 评分 | 关键缺陷 | 状态 |
+|------|------|---------|------|
+| AI 分析工作流 | 8/10 | SSE 错误处理不完整，缺断线重连 | 待修复 |
+| 会员系统 | 8.5/10 | 缺过期自动处理，升级链递归性能 | 待完善 |
+| 支付系统 | 8.5/10 | 缺退款功能，签名验证可选 | 待完善 |
+| RBAC 权限 | 8/10 | 权限变更延迟，黑名单无缓存 | 待优化 |
+| 法律知识库 | 8/10 | 缺批量操作 | 待完善 |
+| 文件管理/识别 | 7.5/10 | 回调无签名验证，ASR 时长默认值 | 待修复 |
+| 案件管理 | 7/10 | 缺 UPDATE/DELETE API 端点，硬编码 API Key | 待修复 |
+| 认证系统 | 7/10 | 缺登录限流、Token 刷新 | 待完善 |
+| 积分系统 | 7/10 | 缺统一消耗接口 | 待完善 |
+| 兑换码 | 7/10 | 缺管理端点 | 待完善 |
+| 营销/邀请 | 6/10 | API 导入被注释，缺管理端点 | 待修复 |
 
 ### 紧急功能问题
 
@@ -306,26 +332,27 @@
 
 - **403 页面不支持深色模式** — 使用硬编码颜色 `bg-gray-50`、`text-gray-800`
 - **登录页使用原生 `<input>`** 而非 shadcn-vue `<Input>` 组件
-
-#### HIGH
-
-- **60+ 个文件硬编码颜色**，深色模式适配不完整
+- **36+ 个文件硬编码颜色**，深色模式适配不完整
   - 状态徽章：`bg-green-100 text-green-800`
   - 错误文本：`text-red-500`
   - 协议页面：大量 `text-gray-500`、`bg-gray-50`
   - 磁盘空间组件：`bg-white`、`border-gray-300`
+
+#### HIGH
+
 - **空状态处理不统一** — 三种方式混用（专门组件/内联/无处理）
 - **错误状态几乎完全缺失** — 仅 1 个页面有错误状态 UI
 - **缺少统一状态徽章组件** — 每个模块自己实现 `getStatusClass`
+- **布局文件命名不一致** — `admin-layout.vue` (kebab-case) vs `dashboardLayout.vue` (camelCase)
 
 #### MEDIUM
 
 - 加载状态覆盖不完整（~12 个页面缺失）
-- 布局文件命名不一致（`admin-layout.vue` kebab-case vs `dashboardLayout.vue` camelCase）
 - `settingsLayout` 和 `membershipLayout` 代码高度重复
 - `baseLayout.vue` 未使用 TypeScript
 - 所有 79 个页面都没有设置 `icon` 属性（规范要求设置）
 - 约 15 个组件包含 `<style>` 块，有 `!important` 的 z-index 覆盖
+- **useCaseAnalysis.ts 过大（1009 行）** — 建议拆分为多个 composables
 
 #### LOW
 
@@ -336,36 +363,35 @@
 
 ### 组件化程度评估
 
-| 维度 | 评分 |
-|------|------|
-| 页面组件拆分 | 8/10 |
-| 通用组件复用 | 6/10 |
-| 布局体系 | 7/10 |
-| Composables 抽象 | 8/10 |
-| 样式一致性 | 5/10 |
-| 表单处理 | 5/10 |
-| 状态管理（加载/空/错误） | 5/10 |
+| 维度 | 评分 | 说明 |
+|------|------|------|
+| 页面组件拆分 | 8/10 | 页面组件拆分合理 |
+| 通用组件复用 | 6/10 | 缺少统一 EmptyState、StatusBadge 组件 |
+| 布局体系 | 7/10 | 布局命名需统一 |
+| Composables 抽象 | 8/10 | 整体设计良好，部分文件过大 |
+| 样式一致性 | 5/10 | 硬编码颜色问题严重 |
+| 表单处理 | 5/10 | 验证方式不统一 |
+| 状态管理（加载/空/错误） | 5/10 | 覆盖不完整 |
 
 ---
 
 ## 修复优先级总览
 
-### P0 — 上线前必须修复（预估 3-5 天）
+### P0 — 上线前必须修复（预估 2-3 天）
 
-| 编号 | 问题 | 来源 |
-|------|------|------|
-| 1 | 移除 Agent 硬编码 DeepSeek API Key | 功能 |
-| 2 | JWT 默认密钥改为空字符串，启动时校验 | 安全 |
-| 3 | 微信支付签名验证强制启用 | 安全 |
-| 4 | OSS 回调添加签名验证 | 安全 |
-| 5 | 轮换 .env.testing 中的所有生产密钥 | 安全 |
-| 6 | 添加密码登录速率限制 | 安全 |
-| 7 | 统一登录错误信息（"用户名或密码错误"） | 安全 |
-| 8 | 修复 SSE 流使用案件实际内容 | 功能 |
-| 9 | 暴露案件 UPDATE/DELETE API 端点 | 功能 |
-| 10 | ASR 音频时长改为必填 | 功能 |
+| 编号 | 问题 | 来源 | 文件位置 |
+|------|------|------|----------|
+| 1 | 移除 Agent 硬编码 API Key | 功能/安全 | `server/services/agent/main.ts` |
+| 2 | JWT 默认密钥改为空字符串，启动时校验 | 安全 | `nuxt.config.ts:150` |
+| 3 | 微信支付签名验证强制启用 | 安全 | `server/lib/payment/adapters/wechat-pay.ts:419-423` |
+| 4 | OSS 回调添加来源签名验证 | 安全 | `server/api/v1/storage/callback/.post.ts` |
+| 5 | 轮换 .env.testing 中的所有生产密钥 | 安全 | `.env`, `.env.testing` |
+| 6 | 添加密码登录速率限制 | 安全 | `server/api/v1/auth/login/password.post.ts` |
+| 7 | 统一登录错误信息（"用户名或密码错误"） | 安全 | `server/api/v1/auth/login/password.post.ts` |
+| 8 | 删除废弃文件 `agents.post copy.ts` | 简洁性 | ✅ 已修复 |
+| 9 | 清理前端 console.log | 风格 | `app/composables/useLegalEditorCache.ts`, `useCaseAnalysis.ts` |
 
-### P1 — 2 周内修复（预估 5-7 天）
+### P1 — 2 周内修复（预估 3-5 天）
 
 | 编号 | 问题 | 来源 |
 |------|------|------|
@@ -375,7 +401,7 @@
 | 4 | 提取 `toUserMembershipInfo()` 辅助函数 | 简洁性 |
 | 5 | 提取 `enrichMaterialsWithFileInfo()` 辅助函数 | 简洁性 |
 | 6 | 统一 `PrismaClient` 类型定义 | 风格 |
-| 7 | 拆分超长文件（`asr.service.ts` 1488 行） | 架构/风格 |
+| 7 | 拆分超长文件（`asr.service.ts` 1456 行） | 架构/风格 |
 | 8 | 创建 EmptyState、StatusBadge 通用组件 | UI |
 | 9 | 修复 403 页面和登录页深色模式/组件 | UI |
 | 10 | 逐步替换硬编码颜色为语义化颜色 | UI |
@@ -384,7 +410,7 @@
 
 | 编号 | 问题 | 来源 |
 |------|------|------|
-| 1 | 消除 `any` 类型（170+ 处） | 风格 |
+| 1 | 消除 `any` 类型（100+ 处） | 风格 |
 | 2 | 统一错误处理模式 | 风格 |
 | 3 | 移除 DAO 层无意义 try-catch-rethrow | 简洁性 |
 | 4 | 速率限制迁移 Redis | 安全 |
@@ -409,3 +435,29 @@
 | 8 | 清理 Workflow `.new.ts` 新旧共存 | 架构 |
 | 9 | 审查并精简依赖包（119 个） | 架构 |
 | 10 | Token 黑名单定时清理任务 | 安全 |
+| 11 | 拆分 useCaseAnalysis.ts（1009 行） | UI/架构 |
+
+---
+
+## 附录：审查检查清单
+
+### 已完成
+
+- [x] 架构设计审查
+- [x] 代码风格审查
+- [x] 安全性审查
+- [x] 代码简洁性审查
+- [x] 功能设计审查
+- [x] UI 实现审查
+- [x] 删除废弃文件 `agents.post copy.ts`
+
+### 待完成
+
+- [ ] P0 问题修复（安全相关）
+- [ ] P1 问题修复（代码质量）
+- [ ] P2 问题优化（功能完善）
+- [ ] P3 长期改进
+
+---
+
+*最后更新：2026-03-28*
