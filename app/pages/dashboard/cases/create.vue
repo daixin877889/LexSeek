@@ -1,14 +1,29 @@
 <template>
-  <div class="flex flex-col" style="height: calc(100vh - 48px)">
+  <div class="flex flex-col relative" style="height: calc(100vh - 48px)">
+    <!-- 提取中遮罩 -->
+    <Transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0"
+      enter-to-class="opacity-100" leave-active-class="transition duration-150 ease-in"
+      leave-from-class="opacity-100" leave-to-class="opacity-0">
+      <div v-if="isExtracting"
+        class="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-sm">
+        <Loader2Icon class="size-8 animate-spin text-primary" />
+        <p class="text-sm text-muted-foreground">正在提取案件信息，请稍候...</p>
+      </div>
+    </Transition>
     <!-- step = 'ai': AI 创建视图（v-show 保留 DOM 避免输入丢失） -->
     <div v-show="step === 'ai'" class="flex-1 overflow-y-auto">
       <!-- 欢迎语 -->
-      <CaseAnalysisWelcome title="描述您的案件" subtitle="AI 将帮您提取关键信息，快速创建案件" />
+      <CaseAnalysisWelcome title="你好，我是小索，你的案件分析助手" subtitle="在下方输入框输入或上传案情材料，我会为你分析案件" />
 
       <!-- 输入框 -->
       <AiPromptInput ref="promptInputRef" class="h-auto!" placeholder="请描述您的案件情况，例如：张三与李四因房屋租赁合同产生纠纷..."
         :enable-file-upload="true" :show-thinking-toggle="false" :loading="isExtracting" :disabled="isExtracting"
-        :min-rows="4" :max-rows="10" submit-label="提取信息" @submit="handleAiSubmit" />
+        :min-rows="4" :max-rows="10" submit-label="提取信息" :on-file-button-click="openMaterialSelector"
+        @submit="handleAiSubmit" />
+
+      <!-- 文件选择弹框 -->
+      <CaseAnalysisMaterialSelector ref="materialSelectorRef" :disabled-file-ids="selectedFileIds"
+        @files-selected="handleFilesFromSelector" />
 
       <!-- 示例卡片 -->
       <CaseAnalysisExample title="✨ 或者点击下方案例快速体验" @select="handleExampleSelect" />
@@ -54,9 +69,10 @@
 </template>
 
 <script lang="ts" setup>
-import { ArrowRightIcon, ArrowLeftIcon } from 'lucide-vue-next'
+import { ArrowRightIcon, ArrowLeftIcon, Loader2Icon } from 'lucide-vue-next'
 import type { AiPromptSubmitData } from '~/components/ai/AiPromptInput.vue'
 import type { ExampleItem } from '~/components/caseAnalysis/example.vue'
+import type { OssFileItem } from '~/store/file'
 
 definePageMeta({
   title: '创建案件',
@@ -70,12 +86,26 @@ const {
 } = useCaseCreation()
 
 const promptInputRef = ref()
+const materialSelectorRef = ref()
 const showReplaceConfirm = ref(false)
 const pendingExampleContent = ref('')
+
+// 已选文件 ID（传给 MaterialSelector 禁用已选项）
+const selectedFileIds = computed(() => promptInputRef.value?.selectedFileIds ?? [])
 
 onMounted(() => {
   loadCaseTypes()
 })
+
+// 打开文件选择弹框
+function openMaterialSelector() {
+  materialSelectorRef.value?.openDialog()
+}
+
+// 从弹框选择文件后添加到输入框
+function handleFilesFromSelector(files: OssFileItem[]) {
+  promptInputRef.value?.addFiles(files)
+}
 
 // AI 提交处理
 async function handleAiSubmit(data: AiPromptSubmitData) {

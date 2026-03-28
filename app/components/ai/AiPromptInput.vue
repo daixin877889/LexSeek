@@ -6,7 +6,7 @@
         enter-to-class="opacity-100 scale-100" leave-active-class="transition duration-150 ease-in"
         leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
         <div v-if="enableFileUpload && isOverDropZone"
-          class="absolute inset-x-4 inset-y-0 z-50 flex items-center justify-center p-2 bg-primary/10 backdrop-blur-sm border-2 border-dashed border-primary rounded-md overflow-hidden">
+          class="absolute inset-0 z-50 flex items-center justify-center p-2 bg-primary/10 backdrop-blur-sm border-2 border-dashed border-primary rounded-md overflow-hidden">
           <div class="flex flex-col items-center gap-2 text-primary animate-pulse">
             <div class="p-2 bg-primary/20 rounded-full shrink-0">
               <UploadIcon class="size-8" />
@@ -106,13 +106,13 @@
           <PromptInputFooter class="border-t border-muted-foreground/20 border-dashed px-4">
             <!-- 工具栏 -->
             <PromptInputTools class="px-0">
-              <PromptInputButton v-if="enableFileUpload" variant="ghost" @click="triggerFileInput"
+              <PromptInputButton v-if="enableFileUpload" variant="ghost" @click="handleFileButtonClick"
                 class="ml-[-8px] hover:bg-primary/5 transition-colors">
                 <Paperclip class="text-muted-foreground" :size="16" />
-                上传文件
+                {{ uploadButtonLabel }}
                 <span v-if="selectedFiles.length > 0" class="ml-1 text-xs text-primary font-bold">({{
                   selectedFiles.length
-                }})</span>
+                  }})</span>
               </PromptInputButton>
               <TooltipProvider v-if="showThinkingToggle">
                 <Tooltip>
@@ -188,6 +188,8 @@ const props = withDefaults(defineProps<{
   minRows?: number
   maxRows?: number
   submitLabel?: string
+  uploadButtonLabel?: string
+  onFileButtonClick?: () => void
 }>(), {
   placeholder: '输入消息...',
   loading: false,
@@ -196,6 +198,7 @@ const props = withDefaults(defineProps<{
   showThinkingToggle: true,
   minRows: 1,
   maxRows: 4,
+  uploadButtonLabel: '案情材料',
 })
 
 const emit = defineEmits<{
@@ -286,6 +289,14 @@ const fileInputRef = ref<HTMLInputElement | null>(null);
 
 function triggerFileInput() {
   fileInputRef.value?.click();
+}
+
+function handleFileButtonClick() {
+  if (props.onFileButtonClick) {
+    props.onFileButtonClick()
+  } else {
+    triggerFileInput()
+  }
 }
 
 function handleFileInputChange(event: Event) {
@@ -455,6 +466,10 @@ defineExpose({
   },
   setText(text: string) {
     setTextInput.value?.(text)
+  },
+  addFiles: handleFilesSelected,
+  get selectedFileIds() {
+    return selectedFiles.value.map(f => f.id)
   },
 })
 
