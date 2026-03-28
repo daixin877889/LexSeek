@@ -45,6 +45,22 @@ export const WorkflowState = new StateSchema({
         z.number().default(0),
         { reducer: (x, y) => x + y }
     ),
+    /** 各模块分析结果（merge reducer：合并到同一对象） */
+    result: new ReducedValue(
+        z.record(z.string(), z.string()).default({}),
+        { reducer: (a, b) => ({ ...a, ...b }) }
+    ),
+    /** 当前正在执行的模块名 */
+    lastExecutedModule: z.string().default(''),
+    /** 最近执行的模块结果 */
+    lastExecutedResult: z.string().default(''),
+    /** 最近执行的模块标题 */
+    lastExecutedTitle: z.string().default(''),
+    /** 失败的模块信息 */
+    failedModules: new ReducedValue(
+        z.record(z.string(), z.string()).default({}),
+        { reducer: (a, b) => ({ ...a, ...b }) }
+    ),
 
 });
 
@@ -54,10 +70,10 @@ export const WorkflowState = new StateSchema({
 /**
  * 创建分析节点
  *
- * @param agentName - Agent 名称
- * @param defaultPrompt - 默认提示词（当 state.messages 为空时使用）
+ * @param agentName - Agent 名称（即模块名）
+ * @param moduleTitle - 模块标题（用于前端显示）
  */
-function createAnalysisNode(agentName: string, defaultPrompt: string): GraphNode<typeof WorkflowState> {
+function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<typeof WorkflowState> {
     return async (state) => {
         const node = await caseAnalysisAgent(agentName, {
             sessionId: state.sessionId,
@@ -68,15 +84,39 @@ function createAnalysisNode(agentName: string, defaultPrompt: string): GraphNode
 
         const messages = state.messages.length > 0
             ? state.messages
-            : [new HumanMessage(state.prompt ?? defaultPrompt)]
+            : [new HumanMessage(state.prompt ?? moduleTitle)]
 
         try {
-            const response = await node.invoke({ messages })
+            // per-module thread_id 确保每个模块 Agent 使用独立的 checkpoint 线程
+            const response = await node.invoke(
+                { messages },
+                { configurable: { thread_id: `${state.sessionId}_${agentName}` } }
+            )
+
+            // 从最后一条消息提取 resultText
+            const lastMsg = response.messages?.[response.messages.length - 1]
+            let resultText = ''
+            if (lastMsg) {
+                const content = lastMsg.content
+                if (typeof content === 'string') {
+                    resultText = content
+                } else if (Array.isArray(content)) {
+                    resultText = content
+                        .filter((c: any) => c.type === 'text')
+                        .map((c: any) => c.text)
+                        .join('\n')
+                }
+            }
+
             return {
                 messages: response.messages,
+                result: { [agentName]: resultText },
+                lastExecutedModule: agentName,
+                lastExecutedResult: resultText,
+                lastExecutedTitle: moduleTitle,
             }
         } catch (error: any) {
-            // 查找 IN_PROGRESS 记录并标记失败
+            // 标记 IN_PROGRESS 记录为失败
             try {
                 const nodeInfo = await getNodeByNameService(agentName)
                 if (nodeInfo) {
@@ -96,8 +136,13 @@ function createAnalysisNode(agentName: string, defaultPrompt: string): GraphNode
                 error: error.message,
             })
 
-            // 返回空 messages 让工作流继续执行下一个模块
-            return { messages: [] }
+            return {
+                messages: [],
+                failedModules: { [agentName]: error.message },
+                lastExecutedModule: agentName,
+                lastExecutedResult: '',
+                lastExecutedTitle: moduleTitle,
+            }
         }
     }
 }
