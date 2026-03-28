@@ -11,7 +11,7 @@
 
 import { z } from 'zod'
 import { v7 as uuidv7 } from 'uuid'
-import { validateAndSortModules, loadCompletedResultsService } from '~~/server/services/case/initAnalysis.service'
+import { validateAndSortModules } from '~~/server/services/case/initAnalysis.service'
 import { validateCaseAccessService } from '~~/server/services/case/case.service'
 import { enqueueRunService, getActiveRunService } from '~~/server/services/agent/agentRun.service'
 import { replayEvents, createEventSubscription } from '~~/server/services/agent/agentEventBridge'
@@ -75,23 +75,15 @@ export default defineEventHandler(async (event) => {
             return resError(event, 404, '分析会话不存在')
         }
 
-        // 从数据库加载已完成的分析结果
-        const completedResults = await loadCompletedResultsService(session.caseId)
         // 获取原始选中的模块列表
-        const allModules = (input?.selectedModules as string[])
-            ?? Object.keys(completedResults)
-        const remainingModules = allModules.filter(m => !completedResults[m])
-
-        if (remainingModules.length === 0) {
-            return resError(event, 400, '所有模块已完成，无需继续')
-        }
+        const allModules = (input?.selectedModules as string[]) ?? []
 
         const result = await enqueueRunService({
             sessionId: session.sessionId,
             threadId: session.sessionId,
             userId: user.id,
             caseId: session.caseId,
-            input: { selectedModules: remainingModules, completedResults },
+            input: { selectedModules: allModules },
         })
         if ('error' in result) {
             return resError(event, 429, result.error)
@@ -159,14 +151,12 @@ export default defineEventHandler(async (event) => {
             data: { sessionId, caseId, type: 2, status: 1 },
         })
 
-        const completedResults = await loadCompletedResultsService(caseId)
-
         const result = await enqueueRunService({
             sessionId,
             threadId: sessionId,
             userId: user.id,
             caseId,
-            input: { selectedModules, completedResults },
+            input: { selectedModules },
         })
         if ('error' in result) {
             return resError(event, 429, result.error)

@@ -131,7 +131,7 @@ export class AgentWorker {
       })
 
       // 调用 Agent（根据 session 类型路由）
-      const input = run.input as { message?: string; command?: unknown; selectedModules?: string[]; completedResults?: Record<string, string> }
+      const input = run.input as { message?: string; command?: unknown; selectedModules?: string[] }
 
       let stream: ReadableStream
       const session = await prisma.caseSessions.findUnique({
@@ -140,14 +140,13 @@ export class AgentWorker {
       })
 
       if (session?.type === 2) {
-        // 初始化分析：LangGraph subgraph 工作流
-        const { startInitAnalysis } = await import('../workflow/initAnalysis.executor')
-        stream = await startInitAnalysis({
+        // 初始化分析：caseAnalysisV2 工作流
+        const { startCaseAnalysisV2 } = await import('../workflow/caseAnalysisV2.executor')
+        stream = await startCaseAnalysisV2({
           sessionId: run.sessionId,
           userId: run.userId,
           caseId: run.caseId,
           selectedModules: input.selectedModules ?? [],
-          completedResults: input.completedResults,
           command: input.command,
         })
       } else {
