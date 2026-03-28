@@ -78,27 +78,56 @@ export async function startCaseAnalysisV2(params: {
 
 需要小幅调整：resume 分支中不再传 `completedResults`（v2 不使用），其余入队逻辑不变。
 
-### State 差异与前端适配策略
+### State 差异 → 直接修改 caseAnalysisV2.workflow.ts
 
-| 字段 | initAnalysis.executor | caseAnalysisV2.workflow |
-|------|----------------------|------------------------|
-| `messages` | concat reducer | MessagesValue |
-| `selectedModules` | ✅ | ✅ |
-| `result` | ✅ Record<string, string> | ❌ 无此字段 |
-| `lastExecutedModule` | ✅ | ❌ 无此字段 |
-| `failedModules` | ✅ | ❌ 无此字段 |
-| `llmCalls` | ❌ | ✅ ReducedValue |
+为 `WorkflowState` 添加模块追踪字段，使前端可以直接从 `stream.values` 读取状态，无需轮询 API：
 
-**前端模块状态追踪方案**：
+```typescript
+export const WorkflowState = new StateSchema({
+    // ...existing fields...
 
-`useStream`（@langchain/vue）返回 `values`（state snapshot）、`messages`、`isLoading`，**不直接暴露 updates 事件**。
+    /** 各模块分析结果（merge reducer：合并到同一对象） */
+    result: new ReducedValue(
+        z.record(z.string(), z.string()).default({}),
+        { reducer: (a, b) => ({ ...a, ...b }) }
+    ),
+    /** 当前正在执行的模块名 */
+    lastExecutedModule: z.string().default(''),
+    /** 最近执行的模块结果 */
+    lastExecutedResult: z.string().default(''),
+    /** 最近执行的模块标题 */
+    lastExecutedTitle: z.string().default(''),
+    /** 失败的模块信息 */
+    failedModules: new ReducedValue(
+        z.record(z.string(), z.string()).default({}),
+        { reducer: (a, b) => ({ ...a, ...b }) }
+    ),
+});
+```
 
-由于 v2 state 缺少 `result`/`lastExecutedModule`/`failedModules`，前端需要改用以下策略：
+同步修改 `createAnalysisNode`，在节点返回中更新这些字段：
 
-1. **检测当前执行模块**：监听 `stream.messages` 变化。v2 工作流每个模块节点执行时会产生 `AIMessage`，通过 `messages` 的增量变化和节点执行顺序（`selectedModules` 列表）推断当前模块。
-2. **检测模块完成**：`caseAnalysisAgent` 的 `analysisResultPersistenceMiddleware` 会将结果写入 `caseAnalyses` 表。前端在检测到消息增量时，轮询 `GET /api/v1/case/init-analysis-status/[caseId]` 获取各模块的持久化状态。
-3. **检测模块失败**：v2 的 `createAnalysisNode` 在 catch 中返回 `{ messages: [] }`（空消息），前端通过 init-analysis-status API 的模块 status=FAILED 判断。
-4. **整体完成检测**：`stream.isLoading` 变为 false 且无中断时，表示工作流结束。
+```typescript
+// 成功时
+return {
+    messages: response.messages,
+    result: { [agentName]: resultText },
+    lastExecutedModule: agentName,
+    lastExecutedResult: resultText,
+    lastExecutedTitle: moduleTitle,
+}
+
+// 失败时
+return {
+    messages: [],
+    failedModules: { [agentName]: error.message },
+    lastExecutedModule: agentName,
+    lastExecutedResult: '',
+    lastExecutedTitle: moduleTitle,
+}
+```
+
+**效果**：前端 `useInitAnalysis` 的 `watch(values)` 逻辑几乎可以原封不动地复用，只需适配 `useStream` 的初始化配置。
 
 ### 中断处理
 
@@ -176,7 +205,12 @@ v2 工作流本身无中断点，但 `caseAnalysisAgent` 内部的 `pointConsump
 
 ### useInitAnalysis 适配
 
-重写模块状态追踪逻辑（详见后端 State 差异章节的前端适配策略）。
+由于 `caseAnalysisV2.workflow.ts` 已添加 `result`/`lastExecutedModule`/`failedModules` 字段，前端 `useInitAnalysis` 的 `watch(values)` 模块状态追踪逻辑**几乎不需要改动**。
+
+主要改动：
+1. `useStream` 的 transport URL 保持 `/api/v1/case/init-analysis`（不变）
+2. `values` 中的字段名和格式与旧工作流一致（`result`、`lastExecutedModule`、`failedModules`）
+3. 去除对 `completedResults` 的依赖（如有）
 
 **新增右侧面板数据**：
 - 案件信息通过 API `GET /api/v1/case/[caseId]` 获取
@@ -186,8 +220,8 @@ v2 工作流本身无中断点，但 `caseAnalysisAgent` 内部的 `pointConsump
 
 页面刷新/重连时：
 1. `loadStatus()` 通过 `GET /api/v1/case/init-analysis-status/[caseId]` 恢复模块状态
-2. `stream.submit()` 重连 SSE 流（v2 state 字段不同，但 FetchStreamTransport 会自动获取最新 values）
-3. 已完成的模块从 init-analysis-status API 获取，不依赖 stream values
+2. `stream.submit()` 重连 SSE 流，自动获取最新 `values`（含 `result`/`lastExecutedModule`/`failedModules`）
+3. 重连后 `values` 字段与旧工作流格式一致，前端逻辑无需特殊处理
 
 ### 模块列表策略
 
@@ -209,6 +243,7 @@ v2 工作流本身无中断点，但 `caseAnalysisAgent` 内部的 `pointConsump
 
 ### 后端修改
 
+- `server/services/workflow/caseAnalysisV2.workflow.ts` — WorkflowState 添加模块追踪字段，createAnalysisNode 返回值更新
 - `server/services/agent/agentWorker.ts` — 路由改为调用 caseAnalysisV2
 - `server/api/v1/case/init-analysis.post.ts` — resume 分支去除 completedResults
 - 新增 `server/services/workflow/caseAnalysisV2.executor.ts` — 执行封装（含 command/resume 支持）
@@ -216,12 +251,11 @@ v2 工作流本身无中断点，但 `caseAnalysisAgent` 内部的 `pointConsump
 ### 前端修改
 
 - `app/pages/dashboard/cases/init-analysis/[sessionId].vue` — 重写为 AiChat 双面板
-- `app/composables/useInitAnalysis.ts` — 重写模块状态追踪逻辑
+- `app/composables/useInitAnalysis.ts` — 小幅适配（模块状态追踪逻辑基本不变）
 - 新增 `app/components/initAnalysis/CaseInfoCard.vue` — 案件信息卡片
 
 ### 保持不变
 
-- `server/services/workflow/caseAnalysisV2.workflow.ts` — 工作流不变
 - `app/components/initAnalysis/PipelineProgress.vue` — 状态栏不变
 - `app/components/initAnalysis/ModuleSelector.vue` — 模块选择器不变
 
