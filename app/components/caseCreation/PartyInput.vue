@@ -3,19 +3,10 @@
     <label v-if="label" class="text-sm font-medium leading-none">{{ label }}</label>
 
     <div v-for="(_, index) in modelValue" :key="index" class="flex items-center gap-2">
-      <Input
-        :model-value="modelValue[index]"
-        :placeholder="placeholder || `请输入${label}姓名或名称`"
-        @update:model-value="updateItem(index, $event as string)"
-      />
-      <Button
-        v-if="modelValue.length > 1"
-        type="button"
-        variant="ghost"
-        size="icon"
-        class="size-9 shrink-0 text-muted-foreground hover:text-destructive"
-        @click="removeItem(index)"
-      >
+      <Input :model-value="modelValue[index]" :placeholder="placeholder || `请输入${label}姓名或名称`"
+        @update:model-value="updateItem(index, $event as string)" class="mt-1" />
+      <Button v-if="modelValue.length > 1" type="button" variant="ghost" size="icon"
+        class="size-9 shrink-0 text-muted-foreground hover:text-destructive" @click="removeItem(index)">
         <MinusCircleIcon class="size-4" />
         <span class="sr-only">删除</span>
       </Button>
