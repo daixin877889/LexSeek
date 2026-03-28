@@ -14,6 +14,7 @@ import {
     updateAnalysisDao,
     getNextVersionDao,
     deactivateVersionsDao,
+    findAnalysisBySessionAndNodeDao,
     AnalysisStatus,
 } from '../../case/analysis.dao'
 import { failAnalysisService } from '../../case/analysis.service'
@@ -74,6 +75,35 @@ export const analysisResultPersistenceMiddleware = (
                         return
                     }
 
+                    // 1. 查找同 (sessionId, nodeId) 的 FAILED 或 IN_PROGRESS 记录，复用
+                    const existingFailed = await findAnalysisBySessionAndNodeDao(
+                        sessionId, node.id, AnalysisStatus.FAILED
+                    )
+                    if (existingFailed) {
+                        await updateAnalysisDao(existingFailed.id, {
+                            status: AnalysisStatus.IN_PROGRESS,
+                            analysisResult: null,
+                        })
+                        logger.info('分析持久化：复用 FAILED 记录', {
+                            analysisId: existingFailed.id,
+                            agentName,
+                            version: existingFailed.version,
+                        })
+                        return { _analysisRecordId: existingFailed.id }
+                    }
+
+                    const existingInProgress = await findAnalysisBySessionAndNodeDao(
+                        sessionId, node.id, AnalysisStatus.IN_PROGRESS
+                    )
+                    if (existingInProgress) {
+                        logger.info('分析持久化：复用 IN_PROGRESS 记录', {
+                            analysisId: existingInProgress.id,
+                            agentName,
+                        })
+                        return { _analysisRecordId: existingInProgress.id }
+                    }
+
+                    // 2. 无可复用记录，创建新版本
                     const record = await prisma.$transaction(async (tx: any) => {
                         const nextVersion = await getNextVersionDao(caseId, node.id, tx)
                         return await createAnalysisDao({

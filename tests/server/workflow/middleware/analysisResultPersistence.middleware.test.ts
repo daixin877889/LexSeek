@@ -16,6 +16,7 @@ vi.mock('~~/server/services/case/analysis.dao', () => ({
     updateAnalysisDao: vi.fn(),
     getNextVersionDao: vi.fn(),
     deactivateVersionsDao: vi.fn(),
+    findAnalysisBySessionAndNodeDao: vi.fn(),
     AnalysisStatus: {
         IN_PROGRESS: 1,
         COMPLETED: 2,
@@ -41,7 +42,7 @@ import {
     extractLastAIMessageContent,
     markAnalysisFailedById,
 } from '~~/server/services/workflow/middleware/analysisResultPersistence.middleware'
-import { createAnalysisDao, updateAnalysisDao, getNextVersionDao, deactivateVersionsDao, AnalysisStatus } from '~~/server/services/case/analysis.dao'
+import { createAnalysisDao, updateAnalysisDao, getNextVersionDao, deactivateVersionsDao, findAnalysisBySessionAndNodeDao, AnalysisStatus } from '~~/server/services/case/analysis.dao'
 import { failAnalysisService } from '~~/server/services/case/analysis.service'
 import { getNodeByNameService } from '~~/server/services/node/node.service'
 
@@ -116,6 +117,7 @@ describe('analysisResultPersistenceMiddleware beforeAgent', () => {
 
     it('应该创建 IN_PROGRESS 分析记录并返回 _analysisRecordId', async () => {
         vi.mocked(getNodeByNameService).mockResolvedValue({ id: 10, name: 'case_analyzer' } as any)
+        vi.mocked(findAnalysisBySessionAndNodeDao).mockResolvedValue(null)
         vi.mocked(getNextVersionDao).mockResolvedValue(3)
         vi.mocked(createAnalysisDao).mockResolvedValue({ id: 42, version: 3 } as any)
 
@@ -153,6 +155,39 @@ describe('analysisResultPersistenceMiddleware beforeAgent', () => {
         const result = await hook({})
 
         expect(result).toBeUndefined()
+        expect(createAnalysisDao).not.toHaveBeenCalled()
+    })
+
+    it('存在 FAILED 记录时应复用并重置为 IN_PROGRESS', async () => {
+        vi.mocked(getNodeByNameService).mockResolvedValue({ id: 10, name: 'case_analyzer' } as any)
+        const failedRecord = { id: 55, version: 2, status: AnalysisStatus.FAILED }
+        // 第一次调用查 FAILED，返回记录
+        vi.mocked(findAnalysisBySessionAndNodeDao).mockResolvedValueOnce(failedRecord as any)
+        vi.mocked(updateAnalysisDao).mockResolvedValue({ ...failedRecord, status: AnalysisStatus.IN_PROGRESS } as any)
+
+        const hook = getBeforeAgentHook()
+        const result = await hook({})
+
+        expect(result).toEqual({ _analysisRecordId: 55 })
+        expect(updateAnalysisDao).toHaveBeenCalledWith(55, {
+            status: AnalysisStatus.IN_PROGRESS,
+            analysisResult: null,
+        })
+        expect(createAnalysisDao).not.toHaveBeenCalled()
+    })
+
+    it('存在 IN_PROGRESS 记录时应直接复用', async () => {
+        vi.mocked(getNodeByNameService).mockResolvedValue({ id: 10, name: 'case_analyzer' } as any)
+        // 第一次查 FAILED 返回 null，第二次查 IN_PROGRESS 返回记录
+        vi.mocked(findAnalysisBySessionAndNodeDao)
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce({ id: 77, version: 1, status: AnalysisStatus.IN_PROGRESS } as any)
+
+        const hook = getBeforeAgentHook()
+        const result = await hook({})
+
+        expect(result).toEqual({ _analysisRecordId: 77 })
+        expect(updateAnalysisDao).not.toHaveBeenCalled()
         expect(createAnalysisDao).not.toHaveBeenCalled()
     })
 })
