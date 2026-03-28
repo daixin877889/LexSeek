@@ -1,86 +1,67 @@
 <template>
-  <form class="space-y-4 sm:space-y-6 py-6 sm:py-8 px-4 sm:px-6 md:px-12 lg:px-24 overflow-y-auto" @submit.prevent="handleSubmit">
-    <!-- 案件标题 -->
-    <div class="space-y-2">
-      <label class="text-sm font-medium leading-none">
-        案件标题 <span class="text-destructive">*</span>
-      </label>
-      <Input v-model="form.title" placeholder="请输入案件标题" @blur="touched.title = true" />
-      <p v-if="touched.title && !form.title.trim()" class="text-sm text-destructive">
-        请输入案件标题
-      </p>
-    </div>
+  <form class="py-6 sm:py-8 px-4 sm:px-6 md:px-12 overflow-y-auto" @submit.prevent="handleSubmit">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
+      <!-- 左栏：案件信息 -->
+      <div class="space-y-4 sm:space-y-6">
+        <!-- 案件标题 -->
+        <div class="space-y-2">
+          <label class="text-sm font-medium leading-none">
+            案件标题 <span class="text-destructive">*</span>
+          </label>
+          <Input v-model="form.title" placeholder="请输入案件标题" @blur="touched.title = true" class="mt-1" />
+          <p v-if="touched.title && !form.title.trim()" class="text-sm text-destructive">
+            请输入案件标题
+          </p>
+        </div>
 
-    <!-- 案件类型 -->
-    <div class="space-y-2">
-      <label class="text-sm font-medium leading-none">
-        案件类型 <span class="text-destructive">*</span>
-      </label>
-      <Select v-model="form.caseTypeId" @update:model-value="touched.caseTypeId = true">
-        <SelectTrigger class="w-full">
-          <SelectValue placeholder="请选择案件类型" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem
-            v-for="ct in caseTypes"
-            :key="ct.id"
-            :value="String(ct.id)"
-          >
-            {{ ct.name }}
-          </SelectItem>
-        </SelectContent>
-      </Select>
-      <p v-if="touched.caseTypeId && !form.caseTypeId" class="text-sm text-destructive">
-        请选择案件类型
-      </p>
-    </div>
+        <!-- 案件类型 -->
+        <div class="space-y-2">
+          <label class="text-sm font-medium leading-none">
+            案件类型 <span class="text-destructive">*</span>
+          </label>
+          <Select v-model="form.caseTypeId" @update:model-value="touched.caseTypeId = true" class="mt-1">
+            <SelectTrigger class="w-full">
+              <SelectValue placeholder="请选择案件类型" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="ct in caseTypes" :key="ct.id" :value="String(ct.id)">
+                {{ ct.name }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <p v-if="touched.caseTypeId && !form.caseTypeId" class="text-sm text-destructive">
+            请选择案件类型
+          </p>
+        </div>
 
-    <!-- 原告 -->
-    <CaseCreationPartyInput
-      v-model="form.plaintiff"
-      label="原告"
-      placeholder="请输入原告姓名或名称"
-    />
+        <!-- 原告 -->
+        <CaseCreationPartyInput v-model="form.plaintiff" label="原告" placeholder="请输入原告姓名或名称" />
 
-    <!-- 被告 -->
-    <CaseCreationPartyInput
-      v-model="form.defendant"
-      label="被告"
-      placeholder="请输入被告姓名或名称"
-    />
+        <!-- 被告 -->
+        <CaseCreationPartyInput v-model="form.defendant" label="被告" placeholder="请输入被告姓名或名称" />
 
-    <!-- 案件描述 -->
-    <div class="space-y-2">
-      <label class="text-sm font-medium leading-none">案件描述</label>
-      <Textarea
-        v-model="form.content"
-        placeholder="请输入案件描述"
-        :rows="4"
-        @blur="touched.content = true"
-      />
-      <p v-if="touched.content && !form.content.trim() && form.materials.length === 0" class="text-sm text-destructive">
-        案件描述和案件材料至少填写一项
-      </p>
-    </div>
+        <!-- 案件描述 -->
+        <div class="space-y-2">
+          <label class="text-sm font-medium leading-none">案件描述</label>
+          <Textarea v-model="form.content" placeholder="请输入案件描述" :rows="6" @blur="touched.content = true"
+            class="mt-1" />
+          <p v-if="touched.content && !form.content.trim() && form.materials.length === 0"
+            class="text-sm text-destructive">
+            案件描述和案件材料至少填写一项
+          </p>
+        </div>
+      </div>
 
-    <!-- 材料上传 -->
-    <div class="space-y-2">
-      <label class="text-sm font-medium leading-none">案件材料</label>
-      <CaseCreationMaterialUploader v-model="form.materials" />
-    </div>
-
-    <!-- 提交 -->
-    <div class="flex justify-end pt-4">
-      <Button type="submit" :disabled="!canSubmit || isSubmitting" class="w-full sm:w-auto min-w-[120px]">
-        <Loader2Icon v-if="isSubmitting" class="size-4 mr-2 animate-spin" />
-        创建案件
-      </Button>
+      <!-- 右栏：案件材料 -->
+      <div class="space-y-2">
+        <label class="text-sm font-medium leading-none">案件材料</label>
+        <CaseCreationMaterialUploader v-model="form.materials" class="mt-1" />
+      </div>
     </div>
   </form>
 </template>
 
 <script lang="ts" setup>
-import { Loader2Icon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { OssFileItem } from '~/store/file'
 import { CaseMaterialType } from '#shared/types/case'
@@ -159,11 +140,16 @@ function handleSubmit() {
     content: form.content.trim() || undefined,
     materials: form.materials.length > 0
       ? form.materials.map(f => ({
-          type: CaseMaterialType.DOCUMENT,
-          name: f.fileName,
-          ossFileId: f.id,
-        }))
+        type: CaseMaterialType.DOCUMENT,
+        name: f.fileName,
+        ossFileId: f.id,
+      }))
       : undefined,
   })
 }
+
+defineExpose({
+  canSubmit,
+  submit: handleSubmit,
+})
 </script>

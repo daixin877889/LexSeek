@@ -2,8 +2,8 @@
   <div class="flex flex-col relative" style="height: calc(100vh - 48px)">
     <!-- 提取中遮罩 -->
     <Transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0"
-      enter-to-class="opacity-100" leave-active-class="transition duration-150 ease-in"
-      leave-from-class="opacity-100" leave-to-class="opacity-0">
+      enter-to-class="opacity-100" leave-active-class="transition duration-150 ease-in" leave-from-class="opacity-100"
+      leave-to-class="opacity-0">
       <div v-if="isExtracting"
         class="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-sm">
         <Loader2Icon class="size-8 animate-spin text-primary" />
@@ -54,7 +54,7 @@
     </div>
 
     <!-- step = 'confirm': 确认表单视图 -->
-    <div v-if="step === 'confirm'" class="flex flex-1 flex-col overflow-y-auto">
+    <div v-if="step === 'confirm'" class="flex flex-1 flex-col overflow-y-auto pb-0">
       <!-- 返回按钮 -->
       <Button variant="ghost" size="sm" class="self-start m-4 mb-0" @click="step = 'ai'">
         <ArrowLeftIcon class="size-4 mr-1" />
@@ -62,8 +62,20 @@
       </Button>
 
       <!-- 表单 -->
-      <CaseCreationManualForm :case-types="caseTypes" :is-submitting="isSubmitting" :initial-data="formInitialData"
-        @submit="handleCreate" />
+      <CaseCreationManualForm ref="manualFormRef" :case-types="caseTypes" :is-submitting="isSubmitting"
+        :initial-data="formInitialData" @submit="handleCreate" />
+    </div>
+
+    <!-- 确认表单底部操作栏 -->
+    <div v-if="step === 'confirm'"
+      class="sticky bottom-0 border-t bg-background/95 backdrop-blur-sm px-4 sm:px-6 md:px-12 py-3">
+      <div class="flex justify-end">
+        <Button :disabled="!manualFormRef?.canSubmit || isSubmitting" class="w-full sm:w-auto min-w-[120px]"
+          @click="manualFormRef?.submit()">
+          <Loader2Icon v-if="isSubmitting" class="size-4 mr-2 animate-spin" />
+          创建案件
+        </Button>
+      </div>
     </div>
   </div>
 </template>
@@ -88,6 +100,7 @@ const {
 
 const promptInputRef = ref()
 const materialSelectorRef = ref()
+const manualFormRef = ref()
 const showReplaceConfirm = ref(false)
 const pendingExampleContent = ref('')
 
