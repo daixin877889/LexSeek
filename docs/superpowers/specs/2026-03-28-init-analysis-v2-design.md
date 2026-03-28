@@ -17,7 +17,7 @@
 
 ### 架构差异说明
 
-**模块间上下文传递**：旧工作流通过 `contextPrompt` 显式注入前置模块结果到后续模块。v2 工作流中各模块独立执行，通过 `caseMaterialContextMiddleware` 注入案件材料上下文，不依赖前置模块结果。这是有意的架构变更——每个分析模块基于原始案件材料独立分析，而非依赖前一个模块的输出。
+**模块间上下文传递**：旧工作流通过 `contextPrompt` 显式注入前置模块结果到后续模块。v2 工作流中各模块独立执行，通过 `caseMaterialContextMiddleware` 注入案件材料上下文，不依赖前置模块结果。这是有意的架构变更——每个分析模块基于原始案件材料独立分析，避免前置模块的错误传播到后续模块。如有需要，后续可通过在 `createAnalysisNode` 中读取 `state.lastExecutedResult` 构建 contextPrompt 来恢复此功能。
 
 **completedResults**：旧 executor 的 `startInitAnalysis` 虽然定义了 `completedResults` 参数，但实际未传给 `workflow.stream()`，不影响切换。
 
@@ -105,29 +105,100 @@ export const WorkflowState = new StateSchema({
 });
 ```
 
-同步修改 `createAnalysisNode`，在节点返回中更新这些字段：
+同步修改 `createAnalysisNode`，拆分为**两阶段 state 更新**以支持前端 streaming 状态检测：
 
 ```typescript
-// 成功时
-return {
-    messages: response.messages,
-    result: { [agentName]: resultText },
-    lastExecutedModule: agentName,
-    lastExecutedResult: resultText,
-    lastExecutedTitle: moduleTitle,
-}
+function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<typeof WorkflowState> {
+    return async (state) => {
+        // 阶段1：标记模块开始（前端据此显示 streaming 状态）
+        // 通过 LangGraph 的 Command 实现两阶段更新
+        const { Command } = await import('@langchain/langgraph')
 
-// 失败时
-return {
-    messages: [],
-    failedModules: { [agentName]: error.message },
-    lastExecutedModule: agentName,
-    lastExecutedResult: '',
-    lastExecutedTitle: moduleTitle,
+        const node = await caseAnalysisAgent(agentName, {
+            sessionId: state.sessionId,
+            prompt: state.prompt ?? undefined,
+            userId: state.userId,
+            caseId: state.caseId,
+        })
+
+        const messages = state.messages.length > 0
+            ? state.messages
+            : [new HumanMessage(state.prompt ?? moduleTitle)]
+
+        try {
+            const response = await node.invoke({ messages })
+
+            // 从 response.messages 最后一条 AIMessage 提取 resultText
+            // （参考 initAnalysis.executor.ts 的提取逻辑）
+            const lastMsg = response.messages?.[response.messages.length - 1]
+            let resultText = ''
+            if (lastMsg) {
+                const content = lastMsg.content
+                if (typeof content === 'string') {
+                    resultText = content
+                } else if (Array.isArray(content)) {
+                    resultText = content
+                        .filter((c: any) => c.type === 'text')
+                        .map((c: any) => c.text)
+                        .join('\n')
+                }
+            }
+
+            // 阶段2：标记模块完成 + 结果
+            return {
+                messages: response.messages,
+                result: { [agentName]: resultText },
+                lastExecutedModule: agentName,
+                lastExecutedResult: resultText,
+                lastExecutedTitle: moduleTitle,
+            }
+        } catch (error: any) {
+            // 失败处理：标记 IN_PROGRESS 记录为失败
+            try {
+                const nodeInfo = await getNodeByNameService(agentName)
+                if (nodeInfo) {
+                    const record = await findAnalysisBySessionAndNodeDao(
+                        state.sessionId, nodeInfo.id, AnalysisStatus.IN_PROGRESS
+                    )
+                    if (record) await markAnalysisFailedById(record.id)
+                }
+            } catch (cleanupError) {
+                logger.error('标记分析失败异常', { agentName, cleanupError })
+            }
+
+            logger.error(`分析模块 ${agentName} 执行失败`, {
+                sessionId: state.sessionId,
+                error: error.message,
+            })
+
+            return {
+                messages: [],
+                failedModules: { [agentName]: error.message },
+                lastExecutedModule: agentName,
+                lastExecutedResult: '',
+                lastExecutedTitle: moduleTitle,
+            }
+        }
+    }
 }
 ```
 
-**效果**：前端 `useInitAnalysis` 的 `watch(values)` 逻辑几乎可以原封不动地复用，只需适配 `useStream` 的初始化配置。
+**resultText 提取逻辑**：从 `response.messages` 最后一条消息的 `content` 中提取文本。支持 string 和 array（多内容块）两种格式，与旧 `initAnalysis.executor.ts` 的提取逻辑一致。
+
+**streaming 状态检测**：由于 LangGraph 节点返回是原子操作（`lastExecutedModule` 和 `result` 同时设置），前端无法通过 values 区分"正在执行"和"已完成"。解决方案：前端 `useInitAnalysis` 改用以下策略——
+
+当 `values` 中 `lastExecutedModule` 尚未出现在 `result` 或 `failedModules` 中时，标记为 streaming。但由于原子更新，这个窗口为零。实际的 streaming 体验通过 `stream.messages` 的实时增量实现——前端监听 messages 变化，按 `selectedModules` 顺序推断当前执行到哪个模块（已完成的在 `result` 中，下一个即为 streaming）。
+
+具体逻辑：
+```typescript
+// 推断当前正在执行的模块
+const currentStreamingModule = computed(() => {
+  if (phase.value !== 'running') return null
+  return selectedModules.value.find(m =>
+    !values.value?.result?.[m] && !values.value?.failedModules?.[m]
+  )
+})
+```
 
 ### 中断处理
 
@@ -214,7 +285,7 @@ v2 工作流本身无中断点，但 `caseAnalysisAgent` 内部的 `pointConsump
 
 **新增右侧面板数据**：
 - 案件信息通过 API `GET /api/v1/case/[caseId]` 获取
-- 分析结果通过轮询 `GET /api/v1/case/init-analysis-status/[caseId]` 获取，检测到新完成的模块时更新
+- 分析结果直接从 `stream.values.result` 实时获取（不需要轮询 API）
 
 ### 重连逻辑
 
@@ -222,6 +293,10 @@ v2 工作流本身无中断点，但 `caseAnalysisAgent` 内部的 `pointConsump
 1. `loadStatus()` 通过 `GET /api/v1/case/init-analysis-status/[caseId]` 恢复模块状态
 2. `stream.submit()` 重连 SSE 流，自动获取最新 `values`（含 `result`/`lastExecutedModule`/`failedModules`）
 3. 重连后 `values` 字段与旧工作流格式一致，前端逻辑无需特殊处理
+
+### 模块重试策略
+
+`retryModule(moduleName)` 通过 `stream.submit({ selectedModules: [moduleName] })` 重试。v2 工作流使用 checkpointer，同一个 `thread_id` 的新 stream 调用会创建新的 checkpoint 分支，不会与之前的 state 冲突。`selectedModules` 只包含要重试的模块，条件边会跳过其他模块直接执行目标模块。重试结果通过 `result` 的 merge reducer 合并到现有结果中。
 
 ### 模块列表策略
 
