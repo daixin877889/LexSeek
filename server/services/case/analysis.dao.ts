@@ -35,6 +35,8 @@ export interface CreateAnalysisInput {
     version?: number
     /** 分析状态 */
     status?: number
+    /** 是否为激活版本 */
+    isActive?: boolean
 }
 
 /** 更新分析结果输入 */
@@ -45,6 +47,8 @@ export interface UpdateAnalysisInput {
     originalResult?: string | null
     /** 分析状态 */
     status?: number
+    /** 是否为激活版本 */
+    isActive?: boolean
 }
 
 /** 分析结果列表查询参数 */
@@ -105,6 +109,7 @@ export const createAnalysisDao = async (
                 originalResult: data.originalResult ?? null,
                 version: data.version ?? 1,
                 status: data.status ?? AnalysisStatus.IN_PROGRESS,
+                isActive: data.isActive ?? false,
             },
         })
         return analysis
@@ -305,17 +310,20 @@ export const findLatestAnalysisVersionDao = async (
  * 查询会话中某个节点的分析结果
  * @param sessionId 会话 ID
  * @param nodeId 节点 ID
+ * @param status 分析状态（可选）
  * @returns 分析结果或 null
  */
 export const findAnalysisBySessionAndNodeDao = async (
     sessionId: string,
-    nodeId: number
+    nodeId: number,
+    status?: number
 ): Promise<caseAnalyses | null> => {
     try {
-        const analysis = await prisma.caseAnalyses.findFirst({
-            where: { sessionId, nodeId, deletedAt: null },
-        })
-        return analysis
+        const where: Prisma.caseAnalysesWhereInput = { sessionId, nodeId, deletedAt: null }
+        if (status !== undefined) {
+            where.status = status
+        }
+        return await prisma.caseAnalyses.findFirst({ where })
     } catch (error) {
         logger.error('查询会话节点分析结果失败：', error)
         throw error
@@ -326,14 +334,20 @@ export const findAnalysisBySessionAndNodeDao = async (
  * 获取案件某个节点的下一个版本号
  * @param caseId 案件 ID
  * @param nodeId 节点 ID
+ * @param tx 事务客户端（可选）
  * @returns 下一个版本号
  */
 export const getNextVersionDao = async (
     caseId: number,
-    nodeId: number
+    nodeId: number,
+    tx?: Prisma.TransactionClient
 ): Promise<number> => {
     try {
-        const latest = await findLatestAnalysisVersionDao(caseId, nodeId)
+        const client = tx || prisma
+        const latest = await client.caseAnalyses.findFirst({
+            where: { caseId, nodeId, deletedAt: null },
+            orderBy: { version: 'desc' },
+        })
         return latest ? latest.version + 1 : 1
     } catch (error) {
         logger.error('获取下一个版本号失败：', error)
@@ -361,6 +375,7 @@ export const updateAnalysisDao = async (
         if (data.analysisResult !== undefined) updateData.analysisResult = data.analysisResult
         if (data.originalResult !== undefined) updateData.originalResult = data.originalResult
         if (data.status !== undefined) updateData.status = data.status
+        if (data.isActive !== undefined) updateData.isActive = data.isActive
 
         const analysis = await client.caseAnalyses.update({
             where: { id },
@@ -465,6 +480,86 @@ export const countAnalysesByCaseIdDao = async (
         return await prisma.caseAnalyses.count({ where })
     } catch (error) {
         logger.error('统计案件分析结果数量失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 取消激活指定案件节点的所有激活版本
+ * @param caseId 案件 ID
+ * @param nodeId 节点 ID
+ * @param tx 事务客户端（可选）
+ */
+export const deactivateVersionsDao = async (
+    caseId: number,
+    nodeId: number,
+    tx?: Prisma.TransactionClient
+): Promise<void> => {
+    const client = tx || prisma
+    try {
+        await client.caseAnalyses.updateMany({
+            where: { caseId, nodeId, isActive: true, deletedAt: null },
+            data: { isActive: false, updatedAt: new Date() },
+        })
+    } catch (error) {
+        logger.error('取消激活版本失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 激活指定版本（同时取消同节点其他版本的激活状态）
+ * @param analysisId 分析结果 ID
+ * @param caseId 案件 ID
+ * @param nodeId 节点 ID
+ * @param tx 事务客户端（可选）
+ */
+export const activateVersionDao = async (
+    analysisId: number,
+    caseId: number,
+    nodeId: number,
+    tx?: Prisma.TransactionClient
+): Promise<void> => {
+    const execute = async (client: Prisma.TransactionClient) => {
+        await client.caseAnalyses.updateMany({
+            where: { caseId, nodeId, isActive: true, deletedAt: null },
+            data: { isActive: false, updatedAt: new Date() },
+        })
+        await client.caseAnalyses.update({
+            where: { id: analysisId },
+            data: { isActive: true, updatedAt: new Date() },
+        })
+    }
+    try {
+        if (tx) {
+            await execute(tx)
+        } else {
+            await prisma.$transaction(async (txClient) => {
+                await execute(txClient)
+            })
+        }
+    } catch (error) {
+        logger.error('激活版本失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 查询指定案件节点的激活版本
+ * @param caseId 案件 ID
+ * @param nodeId 节点 ID
+ * @returns 激活的分析结果或 null
+ */
+export const findActiveAnalysisVersionDao = async (
+    caseId: number,
+    nodeId: number
+): Promise<caseAnalyses | null> => {
+    try {
+        return await prisma.caseAnalyses.findFirst({
+            where: { caseId, nodeId, isActive: true, deletedAt: null },
+        })
+    } catch (error) {
+        logger.error('查询激活版本失败：', error)
         throw error
     }
 }

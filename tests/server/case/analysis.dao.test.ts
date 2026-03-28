@@ -35,6 +35,9 @@ import {
     softDeleteAnalysesBySessionDao,
     findAnalysisHistoryByCaseIdDao,
     countAnalysesByCaseIdDao,
+    deactivateVersionsDao,
+    activateVersionDao,
+    findActiveAnalysisVersionDao,
     AnalysisStatus,
 } from '../../../server/services/case/analysis.dao'
 import { v7 as uuidv7 } from 'uuid'
@@ -946,6 +949,351 @@ describe('案件分析结果 DAO 层', () => {
             const countAfter = await countAnalysesByCaseIdDao(testCase.id)
 
             expect(countAfter).toBeLessThan(countBefore)
+        })
+    })
+
+    // ==================== createAnalysisDao - isActive 支持 ====================
+
+    describe('createAnalysisDao - isActive 字段支持', () => {
+        it('应该支持创建时设置 isActive=true', async () => {
+            const analysis = await createAnalysisDao({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: testNode.id,
+                analysisType: 'is_active_true_test',
+                isActive: true,
+            })
+            testIds.analysisIds.push(analysis.id)
+
+            expect(analysis.isActive).toBe(true)
+        })
+
+        it('应该默认 isActive 为 false', async () => {
+            const analysis = await createAnalysisDao({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: testNode.id,
+                analysisType: 'is_active_default_test',
+            })
+            testIds.analysisIds.push(analysis.id)
+
+            expect(analysis.isActive).toBe(false)
+        })
+    })
+
+    // ==================== updateAnalysisDao - isActive 支持 ====================
+
+    describe('updateAnalysisDao - isActive 字段支持', () => {
+        it('应该支持更新 isActive 字段', async () => {
+            const analysis = await createAnalysisDao({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: testNode.id,
+                analysisType: 'update_is_active_test',
+                isActive: false,
+            })
+            testIds.analysisIds.push(analysis.id)
+
+            const updated = await updateAnalysisDao(analysis.id, { isActive: true })
+
+            expect(updated.isActive).toBe(true)
+        })
+
+        it('不传 isActive 时不应修改该字段', async () => {
+            const analysis = await createAnalysisDao({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: testNode.id,
+                analysisType: 'update_no_is_active_test',
+                isActive: true,
+            })
+            testIds.analysisIds.push(analysis.id)
+
+            const updated = await updateAnalysisDao(analysis.id, { status: AnalysisStatus.COMPLETED })
+
+            expect(updated.isActive).toBe(true)
+        })
+    })
+
+    // ==================== deactivateVersionsDao ====================
+
+    describe('deactivateVersionsDao - 取消激活版本', () => {
+        it('应该取消激活指定 caseId 和 nodeId 的所有激活版本', async () => {
+            const newNode = await createTestNode({ modelId: testModel.id })
+            testIds.nodeIds.push(newNode.id)
+
+            // 先创建 v1 并激活
+            const a1 = await createAnalysisDao({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: newNode.id,
+                analysisType: 'deactivate_test_1',
+                isActive: true,
+                version: 1,
+            })
+            testIds.analysisIds.push(a1.id)
+
+            // 取消激活后再创建 v2 并激活（避免唯一约束冲突）
+            await deactivateVersionsDao(testCase.id, newNode.id)
+
+            const a2 = await createAnalysisDao({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: newNode.id,
+                analysisType: 'deactivate_test_2',
+                isActive: true,
+                version: 2,
+            })
+            testIds.analysisIds.push(a2.id)
+
+            // 执行取消激活
+            await deactivateVersionsDao(testCase.id, newNode.id)
+
+            const found1 = await findAnalysisByIdDao(a1.id)
+            const found2 = await findAnalysisByIdDao(a2.id)
+
+            expect(found1!.isActive).toBe(false)
+            expect(found2!.isActive).toBe(false)
+        })
+
+        it('不应影响其他节点的激活状态', async () => {
+            const node1 = await createTestNode({ modelId: testModel.id })
+            testIds.nodeIds.push(node1.id)
+            const node2 = await createTestNode({ modelId: testModel.id })
+            testIds.nodeIds.push(node2.id)
+
+            const a1 = await createAnalysisDao({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: node1.id,
+                analysisType: 'deactivate_other_node_test_1',
+                isActive: true,
+            })
+            testIds.analysisIds.push(a1.id)
+
+            const a2 = await createAnalysisDao({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: node2.id,
+                analysisType: 'deactivate_other_node_test_2',
+                isActive: true,
+            })
+            testIds.analysisIds.push(a2.id)
+
+            await deactivateVersionsDao(testCase.id, node1.id)
+
+            const found1 = await findAnalysisByIdDao(a1.id)
+            const found2 = await findAnalysisByIdDao(a2.id)
+
+            expect(found1!.isActive).toBe(false)
+            expect(found2!.isActive).toBe(true)
+        })
+
+        it('不应影响已软删除的记录', async () => {
+            const newNode = await createTestNode({ modelId: testModel.id })
+            testIds.nodeIds.push(newNode.id)
+
+            const a1 = await createAnalysisDao({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: newNode.id,
+                analysisType: 'deactivate_deleted_test',
+                isActive: true,
+            })
+            testIds.analysisIds.push(a1.id)
+
+            // 软删除后再执行取消激活，不应报错
+            await softDeleteAnalysisDao(a1.id)
+            await deactivateVersionsDao(testCase.id, newNode.id)
+
+            // 已删除的记录不可通过 findAnalysisByIdDao 查到
+            const found = await findAnalysisByIdDao(a1.id)
+            expect(found).toBeNull()
+        })
+    })
+
+    // ==================== activateVersionDao ====================
+
+    describe('activateVersionDao - 激活指定版本', () => {
+        it('应该激活指定版本并取消其他版本的激活状态', async () => {
+            const newNode = await createTestNode({ modelId: testModel.id })
+            testIds.nodeIds.push(newNode.id)
+
+            const v1 = await createAnalysisDao({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: newNode.id,
+                analysisType: 'activate_test',
+                isActive: true,
+                version: 1,
+            })
+            testIds.analysisIds.push(v1.id)
+
+            const v2 = await createAnalysisDao({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: newNode.id,
+                analysisType: 'activate_test',
+                isActive: false,
+                version: 2,
+            })
+            testIds.analysisIds.push(v2.id)
+
+            await activateVersionDao(v2.id, testCase.id, newNode.id)
+
+            const foundV1 = await findAnalysisByIdDao(v1.id)
+            const foundV2 = await findAnalysisByIdDao(v2.id)
+
+            expect(foundV1!.isActive).toBe(false)
+            expect(foundV2!.isActive).toBe(true)
+        })
+    })
+
+    // ==================== findActiveAnalysisVersionDao ====================
+
+    describe('findActiveAnalysisVersionDao - 查询激活版本', () => {
+        it('应该返回激活的版本', async () => {
+            const newNode = await createTestNode({ modelId: testModel.id })
+            testIds.nodeIds.push(newNode.id)
+
+            const a1 = await createAnalysisDao({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: newNode.id,
+                analysisType: 'find_active_test',
+                isActive: false,
+                version: 1,
+            })
+            testIds.analysisIds.push(a1.id)
+
+            const a2 = await createAnalysisDao({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: newNode.id,
+                analysisType: 'find_active_test',
+                isActive: true,
+                version: 2,
+            })
+            testIds.analysisIds.push(a2.id)
+
+            const active = await findActiveAnalysisVersionDao(testCase.id, newNode.id)
+
+            expect(active).not.toBeNull()
+            expect(active!.id).toBe(a2.id)
+            expect(active!.isActive).toBe(true)
+        })
+
+        it('无激活版本时应该返回 null', async () => {
+            const newNode = await createTestNode({ modelId: testModel.id })
+            testIds.nodeIds.push(newNode.id)
+
+            const a1 = await createAnalysisDao({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: newNode.id,
+                analysisType: 'find_active_null_test',
+                isActive: false,
+            })
+            testIds.analysisIds.push(a1.id)
+
+            const active = await findActiveAnalysisVersionDao(testCase.id, newNode.id)
+            expect(active).toBeNull()
+        })
+    })
+
+    // ==================== findAnalysisBySessionAndNodeDao - status 参数 ====================
+
+    describe('findAnalysisBySessionAndNodeDao - status 参数过滤', () => {
+        it('应该按 status 过滤结果', async () => {
+            const newNode = await createTestNode({ modelId: testModel.id })
+            testIds.nodeIds.push(newNode.id)
+            const newSession = await createTestSession({ caseId: testCase.id })
+            testIds.sessionIds.push(newSession.sessionId)
+
+            const inProgress = await createAnalysisDao({
+                caseId: testCase.id,
+                sessionId: newSession.sessionId,
+                nodeId: newNode.id,
+                analysisType: 'status_filter_session_node',
+                status: AnalysisStatus.IN_PROGRESS,
+            })
+            testIds.analysisIds.push(inProgress.id)
+
+            const completed = await createAnalysisDao({
+                caseId: testCase.id,
+                sessionId: newSession.sessionId,
+                nodeId: newNode.id,
+                analysisType: 'status_filter_session_node_2',
+                status: AnalysisStatus.COMPLETED,
+            })
+            testIds.analysisIds.push(completed.id)
+
+            const foundCompleted = await findAnalysisBySessionAndNodeDao(
+                newSession.sessionId,
+                newNode.id,
+                AnalysisStatus.COMPLETED
+            )
+
+            expect(foundCompleted).not.toBeNull()
+            expect(foundCompleted!.status).toBe(AnalysisStatus.COMPLETED)
+        })
+
+        it('不传 status 时应该返回任意状态的结果', async () => {
+            const newNode = await createTestNode({ modelId: testModel.id })
+            testIds.nodeIds.push(newNode.id)
+            const newSession = await createTestSession({ caseId: testCase.id })
+            testIds.sessionIds.push(newSession.sessionId)
+
+            const analysis = await createAnalysisDao({
+                caseId: testCase.id,
+                sessionId: newSession.sessionId,
+                nodeId: newNode.id,
+                analysisType: 'no_status_filter_test',
+                status: AnalysisStatus.FAILED,
+            })
+            testIds.analysisIds.push(analysis.id)
+
+            const found = await findAnalysisBySessionAndNodeDao(
+                newSession.sessionId,
+                newNode.id
+            )
+
+            expect(found).not.toBeNull()
+        })
+    })
+
+    // ==================== getNextVersionDao - 事务支持 ====================
+
+    describe('getNextVersionDao - 事务支持', () => {
+        it('应该支持传入事务客户端', async () => {
+            const newNode = await createTestNode({ modelId: testModel.id })
+            testIds.nodeIds.push(newNode.id)
+
+            const analysis = await createAnalysisDao({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: newNode.id,
+                analysisType: 'tx_next_version_test',
+                version: 3,
+            })
+            testIds.analysisIds.push(analysis.id)
+
+            const { getTestPrisma } = await import('./test-db-helper')
+            const testPrisma = getTestPrisma()
+
+            const nextVersion = await testPrisma.$transaction(async (tx: any) => {
+                return await getNextVersionDao(testCase.id, newNode.id, tx)
+            })
+
+            expect(nextVersion).toBe(4)
+        })
+
+        it('不传事务客户端时应该正常工作', async () => {
+            const newNode = await createTestNode({ modelId: testModel.id })
+            testIds.nodeIds.push(newNode.id)
+
+            const nextVersion = await getNextVersionDao(testCase.id, newNode.id)
+            expect(nextVersion).toBe(1)
         })
     })
 
