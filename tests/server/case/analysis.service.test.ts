@@ -33,7 +33,10 @@ import {
     getLatestAnalysisVersionService,
     updateAnalysisResultService,
     deleteAnalysisService,
+    switchActiveVersionService,
+    getActiveAnalysisVersionService,
 } from '../../../server/services/case/analysis.service'
+import { activateVersionDao } from '../../../server/services/case/analysis.dao'
 
 describe('案件分析服务层', () => {
     let testIds: CaseTestIds
@@ -372,6 +375,186 @@ describe('案件分析服务层', () => {
 
         it('应该在分析记录不存在时抛出错误', async () => {
             await expect(deleteAnalysisService(999999)).rejects.toThrow('分析记录不存在')
+        })
+    })
+
+    describe('switchActiveVersionService - 切换激活版本', () => {
+        it('应该切换激活版本', async () => {
+            const newNode = await createTestNode({ modelId: testModel.id })
+            testIds.nodeIds.push(newNode.id)
+
+            // 创建两个 COMPLETED 版本
+            const v1 = await createTestAnalysis({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: newNode.id,
+                analysisType: 'test_switch',
+                analysisResult: '版本1',
+                version: 1,
+                status: 2,
+            })
+            testIds.analysisIds.push(v1.id)
+
+            const v2 = await createTestAnalysis({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: newNode.id,
+                analysisType: 'test_switch',
+                analysisResult: '版本2',
+                version: 2,
+                status: 2,
+            })
+            testIds.analysisIds.push(v2.id)
+
+            // 先激活 v1
+            await activateVersionDao(v1.id, testCase.id, newNode.id)
+
+            // 验证 v1 是激活的
+            const active1 = await getActiveAnalysisVersionService(testCase.id, newNode.id)
+            expect(active1?.id).toBe(v1.id)
+
+            // 切换到 v2
+            const switched = await switchActiveVersionService(v2.id)
+            expect(switched.isActive).toBe(true)
+
+            // 验证 v2 现在是激活的
+            const active2 = await getActiveAnalysisVersionService(testCase.id, newNode.id)
+            expect(active2?.id).toBe(v2.id)
+        })
+
+        it('应该拒绝激活非 COMPLETED 状态的记录', async () => {
+            const newNode = await createTestNode({ modelId: testModel.id })
+            testIds.nodeIds.push(newNode.id)
+
+            const inProgress = await createTestAnalysis({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: newNode.id,
+                analysisType: 'test_switch_fail',
+                status: 1, // IN_PROGRESS
+            })
+            testIds.analysisIds.push(inProgress.id)
+
+            await expect(switchActiveVersionService(inProgress.id)).rejects.toThrow('只能激活已完成的分析记录')
+        })
+
+        it('应该在分析记录不存在时抛出错误', async () => {
+            await expect(switchActiveVersionService(999999)).rejects.toThrow('分析记录不存在')
+        })
+    })
+
+    describe('getActiveAnalysisVersionService - 获取激活版本', () => {
+        it('应该返回激活版本', async () => {
+            const newNode = await createTestNode({ modelId: testModel.id })
+            testIds.nodeIds.push(newNode.id)
+
+            const analysis = await createTestAnalysis({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: newNode.id,
+                analysisType: 'test_active',
+                analysisResult: '激活版本结果',
+                status: 2,
+            })
+            testIds.analysisIds.push(analysis.id)
+
+            // 激活该版本
+            await activateVersionDao(analysis.id, testCase.id, newNode.id)
+
+            const active = await getActiveAnalysisVersionService(testCase.id, newNode.id)
+            expect(active).toBeDefined()
+            expect(active?.id).toBe(analysis.id)
+            expect(active?.isActive).toBe(true)
+        })
+
+        it('无激活版本返回 null', async () => {
+            const newNode = await createTestNode({ modelId: testModel.id })
+            testIds.nodeIds.push(newNode.id)
+
+            const active = await getActiveAnalysisVersionService(testCase.id, newNode.id)
+            expect(active).toBeNull()
+        })
+    })
+
+    describe('deleteAnalysisService - 激活转移', () => {
+        it('删除激活版本时应自动转移激活状态到次新 COMPLETED 版本', async () => {
+            const newNode = await createTestNode({ modelId: testModel.id })
+            testIds.nodeIds.push(newNode.id)
+
+            // 创建两个 COMPLETED 版本
+            const v1 = await createTestAnalysis({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: newNode.id,
+                analysisType: 'test_delete_transfer',
+                analysisResult: '版本1',
+                version: 1,
+                status: 2,
+            })
+            testIds.analysisIds.push(v1.id)
+
+            const v2 = await createTestAnalysis({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: newNode.id,
+                analysisType: 'test_delete_transfer',
+                analysisResult: '版本2',
+                version: 2,
+                status: 2,
+            })
+            testIds.analysisIds.push(v2.id)
+
+            // 激活 v2
+            await activateVersionDao(v2.id, testCase.id, newNode.id)
+
+            // 删除 v2（激活版本）
+            await deleteAnalysisService(v2.id)
+
+            // v1 应自动成为激活版本
+            const active = await getActiveAnalysisVersionService(testCase.id, newNode.id)
+            expect(active).toBeDefined()
+            expect(active?.id).toBe(v1.id)
+            expect(active?.isActive).toBe(true)
+        })
+
+        it('删除非激活版本不应影响当前激活', async () => {
+            const newNode = await createTestNode({ modelId: testModel.id })
+            testIds.nodeIds.push(newNode.id)
+
+            // 创建两个 COMPLETED 版本
+            const v1 = await createTestAnalysis({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: newNode.id,
+                analysisType: 'test_delete_no_transfer',
+                analysisResult: '版本1',
+                version: 1,
+                status: 2,
+            })
+            testIds.analysisIds.push(v1.id)
+
+            const v2 = await createTestAnalysis({
+                caseId: testCase.id,
+                sessionId: testSession.sessionId,
+                nodeId: newNode.id,
+                analysisType: 'test_delete_no_transfer',
+                analysisResult: '版本2',
+                version: 2,
+                status: 2,
+            })
+            testIds.analysisIds.push(v2.id)
+
+            // 激活 v2
+            await activateVersionDao(v2.id, testCase.id, newNode.id)
+
+            // 删除 v1（非激活版本）
+            await deleteAnalysisService(v1.id)
+
+            // v2 应仍为激活版本
+            const active = await getActiveAnalysisVersionService(testCase.id, newNode.id)
+            expect(active).toBeDefined()
+            expect(active?.id).toBe(v2.id)
+            expect(active?.isActive).toBe(true)
         })
     })
 

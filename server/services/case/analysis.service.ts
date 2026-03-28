@@ -21,6 +21,9 @@ import {
     softDeleteAnalysisDao,
     softDeleteAnalysesBySessionDao,
     countAnalysesByCaseIdDao,
+    deactivateVersionsDao,
+    activateVersionDao,
+    findActiveAnalysisVersionDao,
     AnalysisStatus,
 } from './analysis.dao'
 
@@ -370,13 +373,34 @@ export const updateAnalysisResultService = async (
  * @param analysisId 分析结果 ID
  */
 export const deleteAnalysisService = async (analysisId: number): Promise<void> => {
-    // 检查分析记录是否存在
     const existing = await findAnalysisByIdDao(analysisId)
     if (!existing) {
         throw new Error('分析记录不存在')
     }
 
+    const wasActive = existing.isActive
+
+    // 软删除时同时重置 isActive
+    if (wasActive) {
+        await updateAnalysisDao(analysisId, { isActive: false })
+    }
     await softDeleteAnalysisDao(analysisId)
+
+    // 如果删除的是激活版本，自动转移到次新 COMPLETED 版本
+    if (wasActive) {
+        const nextActive = await prisma.caseAnalyses.findFirst({
+            where: {
+                caseId: existing.caseId,
+                nodeId: existing.nodeId,
+                status: AnalysisStatus.COMPLETED,
+                deletedAt: null,
+            },
+            orderBy: { version: 'desc' },
+        })
+        if (nextActive) {
+            await updateAnalysisDao(nextActive.id, { isActive: true })
+        }
+    }
 }
 
 /**
@@ -503,4 +527,40 @@ export const appendAnalysisResultService = async (
     })
 
     return analysis
+}
+
+/**
+ * 切换激活版本
+ * 验证记录存在且 status = COMPLETED，事务内切换 isActive
+ *
+ * @param analysisId 分析结果 ID
+ * @returns 更新后的分析结果
+ */
+export const switchActiveVersionService = async (
+    analysisId: number
+): Promise<caseAnalyses> => {
+    const existing = await findAnalysisByIdDao(analysisId)
+    if (!existing) {
+        throw new Error('分析记录不存在')
+    }
+    if (existing.status !== AnalysisStatus.COMPLETED) {
+        throw new Error('只能激活已完成的分析记录')
+    }
+    await activateVersionDao(analysisId, existing.caseId, existing.nodeId)
+    const updated = await findAnalysisByIdDao(analysisId)
+    return updated!
+}
+
+/**
+ * 获取指定案件节点的激活版本
+ *
+ * @param caseId 案件 ID
+ * @param nodeId 节点 ID
+ * @returns 激活的分析结果或 null
+ */
+export const getActiveAnalysisVersionService = async (
+    caseId: number,
+    nodeId: number
+): Promise<caseAnalyses | null> => {
+    return await findActiveAnalysisVersionDao(caseId, nodeId)
 }
