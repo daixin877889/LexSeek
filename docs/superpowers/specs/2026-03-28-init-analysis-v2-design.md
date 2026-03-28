@@ -126,7 +126,10 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
             : [new HumanMessage(state.prompt ?? moduleTitle)]
 
         try {
-            const response = await node.invoke({ messages })
+            const response = await node.invoke(
+                { messages },
+                { configurable: { thread_id: `${state.sessionId}_${agentName}` } }
+            )
 
             // 从 response.messages 最后一条 AIMessage 提取 resultText
             // （参考 initAnalysis.executor.ts 的提取逻辑）
