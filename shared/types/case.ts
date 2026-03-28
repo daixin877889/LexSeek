@@ -411,6 +411,10 @@ export interface CreateCaseInput {
     isDemo?: boolean
     /** 案件材料（可选） */
     materials?: CaseMaterialParam[]
+    /** 案件概述（AI 提取） */
+    summary?: string | null
+    /** AI 提取的扩展字段 */
+    extractedInfo?: ExtraField[] | null
 }
 
 /** 更新案件输入 */

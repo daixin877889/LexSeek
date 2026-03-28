@@ -65,10 +65,14 @@
 import { toast } from 'vue-sonner'
 import type { OssFileItem } from '~/store/file'
 import { CaseMaterialType } from '#shared/types/case'
-import type { CaseTypeOption } from '#shared/types/case'
+import type { CaseTypeOption, ExtraField } from '#shared/types/case'
 import type { ExtractedFormData, CreateCaseParams } from '~/composables/useCaseCreation'
 
-type InitialData = ExtractedFormData & { initialFiles?: OssFileItem[] }
+type InitialData = ExtractedFormData & {
+  initialFiles?: OssFileItem[]
+  summary?: string
+  extractedInfo?: ExtraField[]
+}
 
 const props = defineProps<{
   caseTypes: CaseTypeOption[]
@@ -145,6 +149,8 @@ function handleSubmit() {
         ossFileId: f.id,
       }))
       : undefined,
+    summary: props.initialData?.summary || undefined,
+    extractedInfo: props.initialData?.extractedInfo || undefined,
   })
 }
 

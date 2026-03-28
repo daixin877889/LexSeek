@@ -1,4 +1,4 @@
-import type { CaseMaterialParam, CaseTypeOption, ExtractedCaseInfo } from '#shared/types/case'
+import type { CaseMaterialParam, CaseTypeOption, ExtractedCaseInfo, ExtraField } from '#shared/types/case'
 import type { OssFileItem } from '~/store/file'
 import { toast } from 'vue-sonner'
 
@@ -9,6 +9,8 @@ export interface CreateCaseParams {
   defendant?: Array<{ name: string }>
   content?: string
   materials?: CaseMaterialParam[]
+  summary?: string
+  extractedInfo?: ExtraField[]
 }
 
 export interface ExtractedFormData {
@@ -35,6 +37,7 @@ export function useCaseCreation() {
   const isExtracting = ref(false)
   const caseTypes = ref<CaseTypeOption[]>([])
   const extractedFormData = ref<ExtractedFormData | null>(null)
+  const rawExtractedInfo = ref<ExtractedCaseInfo | null>(null)
   const uploadedFiles = ref<OssFileItem[]>([])
 
   async function loadCaseTypes() {
@@ -65,6 +68,7 @@ export function useCaseCreation() {
       })
 
       if (result?.extractedInfo) {
+        rawExtractedInfo.value = result.extractedInfo
         extractedFormData.value = {
           ...mapExtractedInfoToFormData(result.extractedInfo, caseTypes.value),
           content: message.trim() || undefined,
@@ -103,6 +107,7 @@ export function useCaseCreation() {
     isExtracting,
     caseTypes,
     extractedFormData,
+    rawExtractedInfo,
     uploadedFiles,
     loadCaseTypes,
     createCase,

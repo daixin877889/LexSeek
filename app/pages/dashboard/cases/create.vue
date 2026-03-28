@@ -94,7 +94,7 @@ definePageMeta({
 
 const {
   step, isSubmitting, isExtracting, caseTypes,
-  extractedFormData, uploadedFiles,
+  extractedFormData, rawExtractedInfo, uploadedFiles,
   loadCaseTypes, createCase, extractCaseInfo,
 } = useCaseCreation()
 
@@ -161,6 +161,8 @@ const formInitialData = computed(() => {
   return {
     ...extractedFormData.value,
     initialFiles: uploadedFiles.value,
+    summary: rawExtractedInfo.value?.summary,
+    extractedInfo: rawExtractedInfo.value?.extraFields,
   }
 })
 

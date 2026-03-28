@@ -90,6 +90,14 @@ const createCaseSchema = z.object({
     defendant: z.array(partyInfoSchema).optional(),
     /** 案件材料（可选） */
     materials: z.array(caseMaterialSchema).optional(),
+    /** 案件概述（AI 提取） */
+    summary: z.string().optional(),
+    /** AI 提取的扩展字段 */
+    extractedInfo: z.array(z.object({
+        name: z.string(),
+        title: z.string(),
+        value: z.string(),
+    })).optional(),
 }).superRefine((data, ctx) => {
     // 验证 content 和 materials 至少提供一个
     const hasContent = data.content && data.content.trim().length > 0
@@ -120,7 +128,7 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, parseErrorMessage(result.error, '参数验证失败'))
     }
 
-    const { title, content, caseTypeId, plaintiff, defendant, materials } = result.data
+    const { title, content, caseTypeId, plaintiff, defendant, materials, summary, extractedInfo } = result.data
 
     try {
         // 创建案件
@@ -132,6 +140,8 @@ export default defineEventHandler(async (event) => {
             plaintiff: plaintiff as PartyInfo[] | undefined,
             defendant: defendant as PartyInfo[] | undefined,
             materials: materials as CaseMaterialParam[] | undefined,
+            summary: summary ?? null,
+            extractedInfo: extractedInfo ?? null,
         })
 
         logger.info('案件创建成功', {

@@ -126,6 +126,26 @@ export const createCaseService = async (
         }
     }
 
+    // 异步保存 AI 提取结果到长期记忆（fire-and-forget）
+    if (data.extractedInfo && data.extractedInfo.length > 0) {
+        const { saveCaseInfoService } = await import('./caseExtraction.service')
+        const enabledCaseTypes = await getEnabledCaseTypesService()
+        const confirmedData: import('#shared/types/case').ExtractedCaseInfo = {
+            title: data.title || result.caseRecord.title,
+            plaintiff: (data.plaintiff ?? []).map(p => p.name),
+            defendant: (data.defendant ?? []).map(p => p.name),
+            caseType: enabledCaseTypes.find(t => t.id === data.caseTypeId)?.name ?? '',
+            summary: data.summary ?? '',
+            extraFields: data.extractedInfo,
+        }
+        saveCaseInfoService(result.caseRecord.id, confirmedData, enabledCaseTypes).catch(error => {
+            logger.error('保存提取结果到长期记忆失败', {
+                error: error instanceof Error ? error.message : String(error),
+                caseId: result.caseRecord.id,
+            })
+        })
+    }
+
     return {
         caseId: result.caseRecord.id,
         sessionId,
