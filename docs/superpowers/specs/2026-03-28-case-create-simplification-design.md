@@ -69,8 +69,8 @@ step: 'ai' | 'confirm'
 | 组件 | 改动 |
 |------|------|
 | `caseAnalysis/welcome.vue` | 添加 `title`、`subtitle` props，默认值保持原样，案件创建页传入不同文案 |
-| `caseAnalysis/example.vue` | 添加 `examples` prop（数据外部传入）和 `select` emit（点击回调），提取硬编码数据为默认值 |
-| `caseAnalysis/promptInput.vue` | 添加 `submitLabel`、`fileLabel` 等 props 解耦文案；或在案件创建页直接复用底层 `AiPromptInput` 包一层薄逻辑 |
+| `caseAnalysis/example.vue` | 添加 `examples` prop（数据外部传入）和 `select` emit（点击回调），提取硬编码数据为默认值。案件创建场景：点击示例后将示例文本填入输入框 |
+| `caseAnalysis/promptInput.vue` | 该组件对 `useCaseAnalysisStore` 依赖极低（仅通过 `enableWatcher` 条件子组件写入 store），案件创建页复用时传 `enableWatcher: false` 即可跳过 store 依赖。添加 `submitLabel` prop 自定义提交按钮文案 |
 
 ### 表单优化
 
@@ -86,21 +86,41 @@ interface ManualFormProps {
   initialData?: {
     title?: string
     caseTypeId?: number
-    plaintiff?: PartyInfo[]
-    defendant?: PartyInfo[]
+    plaintiff?: string[]      // ManualForm 内部使用 string[]，提交时才转为 { name: string }[]
+    defendant?: string[]
     content?: string
-    materials?: CaseMaterialParam[]
+    materials?: CaseMaterialParam[]  // AI 步骤上传的文件也传入
   }
 }
 ```
+
+### 校验规则
+
+ManualForm 完整校验规则（全部通过才启用提交按钮）：
+
+| 规则 | 类型 | 说明 |
+|------|------|------|
+| 案件标题非空 | 必填 | 字段旁 inline 提示 |
+| 案件类型已选择 | 必填 | 字段旁 inline 提示 |
+| 描述和材料至少一项 | 组合必填 | 两个字段都为空时，在描述字段下方提示 |
 
 ### 删除
 
 | 组件 | 理由 |
 |------|------|
 | `caseCreation/ModeSelector.vue` | 不再需要模式选择 |
-| `caseCreation/AiChat.vue` | 被新流程替代 |
+| `caseCreation/AiChat.vue` | 被新流程替代（ExtractedInfoCard 仅在此组件中引用，一并删除） |
 | `caseCreation/ExtractedInfoCard.vue` | 提取结果直接映射到 ManualForm |
+
+### 保留不变
+
+| 组件 | 说明 |
+|------|------|
+| `caseCreation/PartyInput.vue` | ManualForm 内部使用，保持不变 |
+
+### 页面配置
+
+`create.vue` 保持 `definePageMeta({ layout: 'dashboard-layout' })`，与现有一致。
 
 ## Composable 改造
 
@@ -129,23 +149,55 @@ async function extractCaseInfo(message: string, materials?: Array<{ ossFileId: n
 function mapExtractedInfoToFormData(info: ExtractedCaseInfo, caseTypes: CaseType[]) {
   return {
     title: info.title,
-    caseTypeId: caseTypes.find(t => t.name === info.caseType)?.id,
-    plaintiff: info.plaintiff.map(name => ({ name })),
-    defendant: info.defendant.map(name => ({ name })),
+    caseTypeId: caseTypes.find(t => t.name === info.caseType || t.name.includes(info.caseType))?.id,
+    plaintiff: info.plaintiff,   // string[] 直接赋值
+    defendant: info.defendant,   // string[] 直接赋值
     content: info.summary,
   }
 }
 ```
 
+### AI 上传材料的传递
+
+AI 步骤中用户上传的文件需要在切换到 confirm 时一并传递。在 `useCaseCreation.ts` 中维护一个 `uploadedMaterials` ref：
+
+```typescript
+const uploadedMaterials = ref<CaseMaterialParam[]>([])
+
+async function extractCaseInfo(message: string, materials?: Array<{ ossFileId: number; name: string }>) {
+  // 1. 保存用户上传的材料到 uploadedMaterials
+  if (materials?.length) {
+    uploadedMaterials.value = materials.map(m => ({
+      type: CaseMaterialType.DOCUMENT,
+      name: m.name,
+      ossFileId: m.ossFileId,
+    }))
+  }
+  // 2. 调用 extract API
+  // 3. 映射结果到 formData（包含 materials: uploadedMaterials.value）
+}
+```
+
+ManualForm 的 `initialData.materials` 传入后，MaterialUploader 回显这些已上传文件。
+
+### AI 提取中的 UI 反馈
+
+用户点击提交后到提取完成期间：
+- 提交按钮显示 loading 状态（转圈 + "正在分析..."）
+- 输入框禁用，防止重复提交
+- 提取失败时恢复输入框，toast 提示错误
+
 ## API 变更
 
-**后端无需改动**。现有 API 完全满足新流程：
+**后端基本无需改动**，现有 API 满足新流程：
 
-| API | 用途 |
-|-----|------|
-| `POST /api/v1/case/extract` | AI 提取案件信息（已有） |
-| `POST /api/v1/case/create` | 创建案件（已有） |
-| `GET /api/v1/case-types` | 获取案件类型列表（已有） |
+| API | 用途 | 备注 |
+|-----|------|------|
+| `POST /api/v1/case/extract` | AI 提取案件信息 | `message` 字段当前必填（`z.string().min(1)`），前端需保证提交时有文本 |
+| `POST /api/v1/case/create` | 创建案件 | 无变更 |
+| `GET /api/v1/case-types` | 获取案件类型列表 | 无变更 |
+
+**注意**：如果用户仅上传文件不输入文字，前端应自动生成占位文本（如"请根据上传的材料提取案件信息"），避免 extract API 返回 400。
 
 ## 错误处理
 
@@ -154,7 +206,7 @@ function mapExtractedInfoToFormData(info: ExtractedCaseInfo, caseTypes: CaseType
 | extract API 失败 | toast 提示错误，用户可重试或切换手动创建 |
 | extract 返回不完整数据 | 已有字段预填，缺失字段留空让用户补充 |
 | caseType 名称匹配不到 | 类型下拉留空，用户手动选择 |
-| 确认表单返回 AI 步骤 | 保留之前的输入内容（输入框不清空） |
+| 确认表单返回 AI 步骤 | 保留 promptInput 中的文本和已上传文件列表（不清空） |
 | 材料上传失败/识别失败 | 显示失败状态和重试按钮 |
 | 表单校验不通过 | 禁用"创建案件"按钮，字段旁显示校验提示 |
 | create API 失败 | toast 提示，不跳转，用户可重试 |
