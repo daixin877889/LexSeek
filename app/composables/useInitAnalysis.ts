@@ -83,11 +83,14 @@ export function useInitAnalysis(sessionId: Ref<string>) {
       updated[name] = { name, status: 'failed', content: '', error: error as string }
     }
 
-    // 当前执行中的模块
-    if (lastExecutedModule && !result?.[lastExecutedModule] && !failedModules?.[lastExecutedModule]) {
-      updated[lastExecutedModule] = {
-        ...updated[lastExecutedModule],
-        name: lastExecutedModule,
+    // 当前执行中的模块（基于 selectedModules 顺序推断，串行条件边保证执行顺序）
+    const streaming = selectedModules.value.find(m =>
+      !result?.[m] && !failedModules?.[m]
+    )
+    if (streaming && updated[streaming]?.status !== 'complete' && updated[streaming]?.status !== 'failed') {
+      updated[streaming] = {
+        ...updated[streaming],
+        name: streaming,
         status: 'streaming',
         content: '',
       }
@@ -202,6 +205,8 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     activeModules,
     isLoading,
     interrupt,
+    values,
+    streamMessages: computed(() => stream.messages),
     getModuleState,
     getModuleMessages,
     loadStatus,
