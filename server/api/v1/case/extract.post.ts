@@ -70,9 +70,14 @@ export default defineEventHandler(async (event) => {
         ? `\n\n用户上传的材料：\n${materials.map(m => `- ${m.name} (ossFileId: ${m.ossFileId})`).join('\n')}`
         : ''
 
+    // 6. 查询可用案件类型，限制模型只能从中选择
+    const enabledCaseTypes = await getEnabledCaseTypesService()
+    const caseTypeNames = enabledCaseTypes.map(ct => ct.name)
+    const caseTypeConstraint = `\n\n## 案件类型约束\n案件类型（caseType）必须从以下列表中选择，不得自行创造：\n${caseTypeNames.map(n => `- ${n}`).join('\n')}\n如果无法确定案件类型，请选择最接近的一个。`
+
     try {
         const messages = [
-            new SystemMessage(systemPrompt + materialContext),
+            new SystemMessage(systemPrompt + materialContext + caseTypeConstraint),
             new HumanMessage(message),
         ]
 
