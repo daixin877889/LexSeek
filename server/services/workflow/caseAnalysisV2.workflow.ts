@@ -1,23 +1,22 @@
 /**
  * 案件分析工作流
  *
- * 使用 LangGraph StateGraph 组装完整的案件分析工作流
- * 包含 3 个中断点：
- * 1. 案情信息检查（循环检查-补充）
- * 2. 基本信息确认（用户确认/修改）
- * 3. 模块选择（用户选择分析模块）
+ * 使用 LangGraph 原生编排（StateGraph + ToolNode）替代 ReactAgent
+ * 解决 ReactAgent 在 streamMode 多模式下 invoke 失败的问题
  *
- * @see Requirements 1.1, 1.5, 1.6, 12.1, 12.2
- * @see design.md - LangGraph 工作流架构
+ * 每个分析模块内部构建独立的 ReAct 图（callModel → tools 循环）
+ * 支持 streamMode: ['values', 'messages', 'updates'] + subgraphs: true
  */
 
-import { StateGraph, StateSchema, MessagesValue, ReducedValue, START, END, } from "@langchain/langgraph"
+import { StateGraph, StateSchema, Annotation, MessagesAnnotation, MessagesValue, ReducedValue, START, END } from "@langchain/langgraph"
+import { ToolNode } from '@langchain/langgraph/prebuilt'
 import type { GraphNode } from "@langchain/langgraph"
-import { HumanMessage } from '@langchain/core/messages'
-import { caseAnalysisAgent } from './agents/caseAnalysis'
+import { HumanMessage, isAIMessage } from '@langchain/core/messages'
 import { getCheckpointer } from './checkpointer'
-import { z } from "zod/v4";
-import { getNodeConfigsByTypes } from '../node/node.service'
+import { z } from "zod/v4"
+import { getNodeConfigsByTypes, getValidNodeConfig } from '../node/node.service'
+import { createChatModel } from '../node/chatModelFactory'
+import { getToolInstancesService } from './tools'
 import { findAnalysisBySessionAndNodeDao, AnalysisStatus } from '../case/analysis.dao'
 import { markAnalysisFailedById } from './middleware/analysisResultPersistence.middleware'
 
@@ -26,11 +25,11 @@ import { markAnalysisFailedById } from './middleware/analysisResultPersistence.m
  * 工作流状态
  */
 export const WorkflowState = new StateSchema({
-    /** 会话 ID（会话 ID，用于生成线程 ID） */
+    /** 会话 ID */
     sessionId: z.string(),
-    /** 用户 ID（工具加载需要） */
+    /** 用户 ID */
     userId: z.number(),
-    /** 案件 ID（工具加载需要） */
+    /** 案件 ID */
     caseId: z.number(),
     /** 是否启用 extended thinking（默认 true） */
     thinking: z.boolean().default(true),
@@ -45,7 +44,7 @@ export const WorkflowState = new StateSchema({
         z.number().default(0),
         { reducer: (x, y) => x + y }
     ),
-    /** 各模块分析结果（merge reducer：合并到同一对象） */
+    /** 各模块分析结果 */
     result: new ReducedValue(
         z.record(z.string(), z.string()).default({}),
         { reducer: (a, b) => ({ ...a, ...b }) }
@@ -61,58 +60,101 @@ export const WorkflowState = new StateSchema({
         z.record(z.string(), z.string()).default({}),
         { reducer: (a, b) => ({ ...a, ...b }) }
     ),
-
-});
-
-
+})
 
 
 /**
  * 创建分析节点
  *
- * @param agentName - Agent 名称（即模块名）
- * @param moduleTitle - 模块标题（用于前端显示）
+ * 使用 LangGraph 原生 StateGraph + ToolNode 编排工具调用循环
+ * 不使用 createAgent（ReactAgent），避免 streamMode 多模式下的兼容性问题
  */
 function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<typeof WorkflowState> {
     return async (state) => {
-        const node = await caseAnalysisAgent(agentName, {
-            sessionId: state.sessionId,
-            prompt: state.prompt ?? undefined,
-            userId: state.userId,
-            caseId: state.caseId,
-        })
-
-        // 每个模块使用独立的初始消息，不继承前置模块的消息历史
-        const messages = [new HumanMessage(state.prompt ?? `现在请开始任务：${moduleTitle}`)]
-
         try {
-            // 每次使用唯一 thread_id，避免复用被污染的 checkpoint
-            // （之前失败运行的 tool_use 消息残留会导致 INVALID_TOOL_RESULTS 错误）
-            const response = await node.invoke(
-                { messages },
-                {
-                    configurable: {
-                        thread_id: `${state.sessionId}_${agentName}_${Date.now()}`,
-                        user_id: state.userId,
-                        case_id: state.caseId,
-                    },
-                    recursionLimit: 1000,
-                }
+            // 1. 加载节点配置
+            const nodeConfig = await getValidNodeConfig(agentName)
+            const activeApiKey = nodeConfig.modelApiKeys.find((k: any) => k.status === 1)
+            if (!activeApiKey) throw new Error(`${agentName} 节点无可用 API 密钥`)
+
+            // 2. 创建模型
+            const model = createChatModel({
+                sdkType: nodeConfig.modelSdkType,
+                modelName: nodeConfig.modelName,
+                apiKey: activeApiKey.apiKey,
+                baseUrl: nodeConfig.modelProviderBaseUrl,
+                temperature: 0.7,
+                streaming: true,
+                thinking: state.thinking,
+            })
+
+            // 3. 加载工具
+            const tools = nodeConfig.tools?.length > 0
+                ? getToolInstancesService(nodeConfig.tools, {
+                    userId: state.userId,
+                    caseId: state.caseId,
+                    sessionId: state.sessionId,
+                })
+                : []
+
+            const toolNode = tools.length > 0 ? new ToolNode(tools) : null
+            const modelWithTools = tools.length > 0 && model.bindTools ? model.bindTools(tools) : model
+
+            // 4. 获取系统提示
+            const systemPrompt = nodeConfig.prompts?.find(
+                (p: any) => p.type === 'system' && p.status === 1,
+            )?.content ?? ''
+
+            // 5. 构建内部 ReAct 图（callModel → tools 循环）
+            const InnerState = Annotation.Root({ ...MessagesAnnotation.spec })
+
+            const callModel = async (innerState: typeof InnerState.State) => {
+                const response = await modelWithTools.invoke(innerState.messages)
+                return { messages: [response] }
+            }
+
+            const shouldContinue = (innerState: typeof InnerState.State) => {
+                const lastMsg = innerState.messages[innerState.messages.length - 1]
+                if (lastMsg && isAIMessage(lastMsg) && lastMsg.tool_calls?.length) return 'tools'
+                return '__end__'
+            }
+
+            const innerBuilder = new StateGraph(InnerState)
+                .addNode('callModel', callModel)
+                .addEdge(START, 'callModel')
+
+            if (toolNode) {
+                innerBuilder
+                    .addNode('tools', toolNode)
+                    .addConditionalEdges('callModel', shouldContinue, { tools: 'tools', __end__: END })
+                    .addEdge('tools', 'callModel')
+            } else {
+                innerBuilder.addEdge('callModel', END)
+            }
+
+            const innerGraph = innerBuilder.compile()
+
+            // 6. 执行
+            const initialMessages = [
+                ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
+                new HumanMessage(state.prompt ?? `现在请开始任务：${moduleTitle}`),
+            ]
+
+            const response = await innerGraph.invoke(
+                { messages: initialMessages },
+                { recursionLimit: 1000 }
             )
 
-            // 从最后一条消息提取 resultText
+            // 7. 提取结果
             const lastMsg = response.messages?.[response.messages.length - 1]
             let resultText = ''
-            if (lastMsg) {
-                const content = lastMsg.content
-                if (typeof content === 'string') {
-                    resultText = content
-                } else if (Array.isArray(content)) {
-                    resultText = content
-                        .filter((c: any) => c.type === 'text')
-                        .map((c: any) => c.text)
-                        .join('\n')
-                }
+            if (lastMsg && typeof lastMsg.content === 'string') {
+                resultText = lastMsg.content
+            } else if (lastMsg && Array.isArray(lastMsg.content)) {
+                resultText = lastMsg.content
+                    .filter((c: any) => c.type === 'text')
+                    .map((c: any) => c.text)
+                    .join('\n')
             }
 
             return {
