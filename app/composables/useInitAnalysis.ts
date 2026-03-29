@@ -62,6 +62,14 @@ export function useInitAnalysis(sessionId: Ref<string>) {
   watch(values, (v: any) => {
     if (!v) return
 
+    // 调试日志
+    console.log('[useInitAnalysis] values 更新:', {
+      hasResult: !!v.result,
+      result: v.result,
+      lastExecutedModule: v.lastExecutedModule,
+      messagesLength: v.messages?.length,
+    })
+
     // 后端 state 字段名：lastExecutedModule, result, failedModules
     const { lastExecutedModule, result, failedModules, selectedModules: mods } = v
 
