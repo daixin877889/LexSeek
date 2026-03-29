@@ -17,15 +17,19 @@ export interface CaseAnalysisV2Params {
 export async function startCaseAnalysisV2(params: CaseAnalysisV2Params): Promise<ReadableStream> {
     const workflow = await getCaseAnalysisWorkflow()
 
+    const baseConfig = {
+        configurable: { thread_id: params.sessionId },
+        streamMode: ['values', 'messages', 'updates'] as const,
+        version: 'v2' as const,
+        subgraphs: true,
+        encoding: 'text/event-stream' as const,
+    }
+
     if (params.command) {
         const { Command } = await import('@langchain/langgraph')
         return workflow.stream(
             new Command({ resume: params.command }),
-            {
-                configurable: { thread_id: params.sessionId },
-                streamMode: ['values', 'messages', 'updates'],
-                subgraphs: true,
-            } as any,
+            baseConfig,
         )
     }
 
@@ -36,10 +40,6 @@ export async function startCaseAnalysisV2(params: CaseAnalysisV2Params): Promise
             caseId: params.caseId,
             selectedModules: params.selectedModules,
         },
-        {
-            configurable: { thread_id: params.sessionId },
-            streamMode: ['values', 'messages', 'updates'],
-            subgraphs: true,
-        } as any,
+        baseConfig,
     )
 }
