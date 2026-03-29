@@ -83,14 +83,20 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
         })
 
         // 每个模块使用独立的初始消息，不继承前置模块的消息历史
-        // 避免前置模块的 tool_use 消息导致 INVALID_TOOL_RESULTS 错误
-        const messages = [new HumanMessage(state.prompt ?? moduleTitle)]
+        const messages = [new HumanMessage(state.prompt ?? `现在请开始任务：${moduleTitle}`)]
 
         try {
             // per-module thread_id 确保每个模块 Agent 使用独立的 checkpoint 线程
             const response = await node.invoke(
                 { messages },
-                { configurable: { thread_id: `${state.sessionId}_${agentName}` } }
+                {
+                    configurable: {
+                        thread_id: `${state.sessionId}_${agentName}`,
+                        user_id: state.userId,
+                        case_id: state.caseId,
+                    },
+                    recursionLimit: 100,
+                }
             )
 
             // 从最后一条消息提取 resultText
@@ -108,15 +114,8 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                 }
             }
 
-            // 只将模块标记和最终结果返回到工作流 messages
-            // 不返回 Agent 内部的完整消息链（含材料注入等中间消息），避免前端重复显示
-            const resultMessages = [
-                new HumanMessage(`${moduleTitle}`),
-                ...(lastMsg ? [lastMsg] : []),
-            ]
-
             return {
-                messages: resultMessages,
+                messages: response.messages,
                 result: { [agentName]: resultText },
                 lastExecutedModule: agentName,
                 lastExecutedResult: resultText,
