@@ -19,7 +19,6 @@ import { createChatModel } from '../node/chatModelFactory'
 import { getToolInstancesService } from './tools'
 import { findAnalysisBySessionAndNodeDao, AnalysisStatus } from '../case/analysis.dao'
 import { markAnalysisFailedById } from './middleware/analysisResultPersistence.middleware'
-import { prisma } from '~~/server/lib/prisma'
 import { deactivateVersionsDao, updateAnalysisDao, createAnalysisDao } from '../case/analysis.dao'
 
 
