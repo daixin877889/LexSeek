@@ -20,8 +20,7 @@ export async function startCaseAnalysisV2(params: CaseAnalysisV2Params): Promise
     const baseConfig = {
         configurable: { thread_id: params.sessionId },
         streamMode: ['values', 'messages', 'updates'] as const,
-        version: 'v2' as const,
-        subgraphs: true,
+        encoding: 'text/event-stream' as const,
     }
 
     if (params.command) {
