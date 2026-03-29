@@ -108,8 +108,15 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                 }
             }
 
+            // 只将模块标记和最终结果返回到工作流 messages
+            // 不返回 Agent 内部的完整消息链（含材料注入等中间消息），避免前端重复显示
+            const resultMessages = [
+                new HumanMessage(`${moduleTitle}`),
+                ...(lastMsg ? [lastMsg] : []),
+            ]
+
             return {
-                messages: response.messages,
+                messages: resultMessages,
                 result: { [agentName]: resultText },
                 lastExecutedModule: agentName,
                 lastExecutedResult: resultText,
