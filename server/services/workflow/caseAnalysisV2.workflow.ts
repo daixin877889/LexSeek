@@ -8,7 +8,7 @@
  * 支持 streamMode: ['values', 'messages', 'updates'] + subgraphs: true
  */
 
-import { StateGraph, StateSchema, Annotation, MessagesAnnotation, MessagesValue, ReducedValue, START, END } from "@langchain/langgraph"
+import { StateGraph, StateSchema, Annotation, MessagesAnnotation, MessagesValue, ReducedValue, START, END, interrupt, isGraphInterrupt } from "@langchain/langgraph"
 import { ToolNode } from '@langchain/langgraph/prebuilt'
 import type { GraphNode } from "@langchain/langgraph"
 import { HumanMessage, isAIMessage } from '@langchain/core/messages'
@@ -20,6 +20,9 @@ import { getToolInstancesService } from './tools'
 import { findAnalysisBySessionAndNodeDao, AnalysisStatus } from '../case/analysis.dao'
 import { markAnalysisFailedById } from './middleware/analysisResultPersistence.middleware'
 import { deactivateVersionsDao, updateAnalysisDao, createAnalysisDao } from '../case/analysis.dao'
+import { checkPointsService } from '../point/pointConsumption.service'
+import { getCurrentMembershipService } from '../membership/userMembership.service'
+import { InterruptType } from '#shared/types/case'
 
 
 /**
@@ -61,6 +64,8 @@ export const WorkflowState = new StateSchema({
         z.record(z.string(), z.string()).default({}),
         { reducer: (a, b) => ({ ...a, ...b }) }
     ),
+    /** 积分检查已完成（避免 interrupt 后重复检查导致无限循环） */
+    pointsChecked: z.boolean().default(false),
 })
 
 
@@ -76,12 +81,13 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
             // 0. 创建 IN_PROGRESS 记录（在分析开始前）
             const nodeInfo = await getNodeByNameService(agentName)
             if (nodeInfo) {
-                // 检查是否已有 IN_PROGRESS 记录
+                // 检查是否已有 IN_PROGRESS 记录（同 session）
                 const existingRecord = await findAnalysisBySessionAndNodeDao(
                     state.sessionId, nodeInfo.id, AnalysisStatus.IN_PROGRESS
                 )
                 if (!existingRecord) {
-                    // 创建新的 IN_PROGRESS 记录
+                    // 停用该 case+node 的旧 active 记录，避免唯一约束冲突
+                    await deactivateVersionsDao(state.caseId, nodeInfo.id)
                     await createAnalysisDao({
                         caseId: state.caseId,
                         sessionId: state.sessionId,
@@ -93,6 +99,60 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                         version: 1,
                     })
                 }
+            }
+
+            // 0. 积分检查（在分析开始前，仅第一个模块检查，后续模块通过 pointsChecked 跳过）
+            // 注意：interrupt() 通过抛出 GraphInterrupt 异常工作，不能被 try-catch 捕获
+            if (!state.pointsChecked) {
+                // 检查会员状态
+                const membership = await getCurrentMembershipService(state.userId)
+                if (!membership) {
+                    interrupt({
+                        type: InterruptType.INSUFFICIENT_POINTS,
+                        message: '请先开通会员',
+                        data: {
+                            isMember: false,
+                            availablePoints: 0,
+                            requiredPoints: 1,
+                            reason: 'no_membership',
+                        },
+                    })
+                    // resume 后重新检查会员状态
+                    const refreshed = await getCurrentMembershipService(state.userId)
+                    if (!refreshed) {
+                        interrupt({
+                            type: InterruptType.INSUFFICIENT_POINTS,
+                            message: '请先开通会员',
+                            data: {
+                                isMember: false,
+                                availablePoints: 0,
+                                requiredPoints: 1,
+                                reason: 'no_membership',
+                            },
+                        })
+                    }
+                }
+
+                // 检查积分是否足够
+                const pointCheck = await checkPointsService(state.userId, agentName, 1)
+                if (!pointCheck.sufficient) {
+                    interrupt({
+                        type: InterruptType.INSUFFICIENT_POINTS,
+                        message: '积分不足，请充值后继续',
+                        data: {
+                            isMember: true,
+                            availablePoints: pointCheck.available,
+                            requiredPoints: pointCheck.required,
+                            reason: 'insufficient_points',
+                        },
+                    })
+                }
+
+                logger.info('积分检查通过', {
+                    agentName,
+                    userId: state.userId,
+                    caseId: state.caseId,
+                })
             }
 
             // 1. 加载节点配置
@@ -231,8 +291,14 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                 lastExecutedModule: agentName,
                 lastExecutedResult: resultText,
                 lastExecutedTitle: moduleTitle,
+                pointsChecked: true,
             }
         } catch (error: any) {
+            // interrupt() 抛出的 GraphInterrupt 必须传播到框架层，不能当作失败处理
+            if (isGraphInterrupt(error)) {
+                throw error
+            }
+
             // 标记 IN_PROGRESS 记录为失败
             try {
                 const nodeInfo = await getNodeByNameService(agentName)
@@ -259,6 +325,7 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                 lastExecutedModule: agentName,
                 lastExecutedResult: '',
                 lastExecutedTitle: moduleTitle,
+                pointsChecked: true,
             }
         }
     }

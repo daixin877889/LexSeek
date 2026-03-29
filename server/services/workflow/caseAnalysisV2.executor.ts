@@ -19,7 +19,7 @@ export async function startCaseAnalysisV2(params: CaseAnalysisV2Params): Promise
 
     const baseConfig = {
         configurable: { thread_id: params.sessionId },
-        streamMode: ['values', 'messages', 'updates'] as const,
+        streamMode: ['values', 'messages', 'updates'] as ['values', 'messages', 'updates'],
         encoding: 'text/event-stream' as const,
     }
 
@@ -40,4 +40,15 @@ export async function startCaseAnalysisV2(params: CaseAnalysisV2Params): Promise
         },
         baseConfig,
     )
+}
+
+/**
+ * 获取工作流 thread state（用于检测 interrupt）
+ *
+ * LangGraph 的 values 流模式不包含 __interrupt__ 数据，
+ * 需要在 stream 结束后通过 getState 读取 checkpoint 中的 interrupt 信息
+ */
+export async function getWorkflowThreadState(sessionId: string) {
+    const workflow = await getCaseAnalysisWorkflow()
+    return workflow.getState({ configurable: { thread_id: sessionId } })
 }

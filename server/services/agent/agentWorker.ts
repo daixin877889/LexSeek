@@ -162,6 +162,8 @@ export class AgentWorker {
       // 遍历 SSE stream 并发布事件到 Redis
       const reader = stream.getReader()
       const decoder = new TextDecoder()
+      // 缓冲最后一个 values 事件，stream 结束后可能需要注入 __interrupt__
+      let lastValuesData: unknown = null
 
       try {
         while (!abortController.signal.aborted) {
@@ -172,6 +174,25 @@ export class AgentWorker {
           // 解析 SSE 事件并发布
           const events = parseSSEEvents(text)
           for (const evt of events) {
+            // 缓冲最后一个 values 事件数据（用于 interrupt 检测后合并）
+            if (evt.event === 'values') {
+              lastValuesData = evt.data
+            }
+            await publishAgentEvent({
+              type: 'stream_event',
+              runId: run.id,
+              sessionId: run.sessionId,
+              event: evt.event as 'values' | 'messages' | 'updates',
+              data: evt.data,
+            })
+          }
+        }
+        // flush decoder 缓冲区中可能残留的数据
+        const remaining = decoder.decode()
+        if (remaining) {
+          const events = parseSSEEvents(remaining)
+          for (const evt of events) {
+            if (evt.event === 'values') lastValuesData = evt.data
             await publishAgentEvent({
               type: 'stream_event',
               runId: run.id,
@@ -188,6 +209,45 @@ export class AgentWorker {
 
       if (abortController.signal.aborted) {
         throw abortController.signal.reason ?? new Error('Run was aborted')
+      }
+
+      // 检查工作流是否被 interrupt
+      // LangGraph 的 values 流故意过滤 __interrupt__（mapOutputValues），
+      // 但 @langchain/langgraph-sdk 的 StreamManager 能正确处理 values 中的 __interrupt__：
+      // 有 __interrupt__ → merge；无 → replace。
+      // 所以只需保证最后一个 values 事件包含 __interrupt__。
+      if (session?.type === 2 && lastValuesData) {
+        try {
+          const { getWorkflowThreadState } = await import('../workflow/caseAnalysisV2.executor')
+          const threadState = await getWorkflowThreadState(run.sessionId)
+          const lastTask = threadState.tasks?.at(-1)
+          const interrupts = lastTask?.interrupts
+
+          if (interrupts?.length) {
+            // 发布最终 values 事件（合并 __interrupt__），保证是最后一个 values 事件
+            await publishAgentEvent({
+              type: 'stream_event',
+              runId: run.id,
+              sessionId: run.sessionId,
+              event: 'values',
+              data: {
+                ...(lastValuesData as Record<string, unknown>),
+                __interrupt__: interrupts,
+              },
+            })
+
+            await updateRunStatusDAO(run.id, AGENT_RUN_STATUS.INTERRUPTED)
+            await publishStatusChange({
+              type: 'status_change',
+              runId: run.id,
+              sessionId: run.sessionId,
+              status: AGENT_RUN_STATUS.INTERRUPTED,
+            })
+            return
+          }
+        } catch (stateErr) {
+          logger.warn(`检查工作流 interrupt 状态失败: run=${run.id}`, stateErr)
+        }
       }
 
       // 执行完成

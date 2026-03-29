@@ -4,6 +4,7 @@ export const AGENT_RUN_STATUS = {
   COMPLETED: 'completed',
   FAILED: 'failed',
   CANCELLED: 'cancelled',
+  INTERRUPTED: 'interrupted',
 } as const
 
 export type AgentRunStatus = typeof AGENT_RUN_STATUS[keyof typeof AGENT_RUN_STATUS]

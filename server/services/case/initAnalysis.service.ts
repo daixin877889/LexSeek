@@ -73,10 +73,19 @@ export const getInitAnalysisStatusService = async (
         : session.status === 2 ? 'completed' as const
             : 'failed' as const
 
+    // 获取已完成模块的结果
+    const result: Record<string, string> = {}
+    for (const analysis of analyses) {
+        if (analysis.status === 2 && analysis.analysisResult) {
+            result[analysis.analysisType] = analysis.analysisResult
+        }
+    }
+
     return {
         status: sessionStatus,
         sessionId: session.sessionId,
         modules,
+        result,
     }
 }
 

@@ -47,7 +47,7 @@ export async function findActiveRunBySessionIdDAO(
   return prisma.agentRuns.findFirst({
     where: {
       sessionId,
-      status: { in: [AGENT_RUN_STATUS.PENDING, AGENT_RUN_STATUS.RUNNING] },
+      status: { in: [AGENT_RUN_STATUS.PENDING, AGENT_RUN_STATUS.RUNNING, AGENT_RUN_STATUS.INTERRUPTED] },
     },
     orderBy: { createdAt: 'desc' },
   })

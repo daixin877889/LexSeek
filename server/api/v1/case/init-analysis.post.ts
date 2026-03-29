@@ -22,11 +22,12 @@ const inputSchema = z.object({
     selectedModules: z.array(z.string()).min(1),
 })
 
-/** 终结状态列表 */
+/** 终结状态列表（对 SSE 连接而言，INTERRUPTED 也是终结——需关闭连接让客户端能 submit resume） */
 const TERMINAL_STATUSES: readonly string[] = [
     AGENT_RUN_STATUS.COMPLETED,
     AGENT_RUN_STATUS.FAILED,
     AGENT_RUN_STATUS.CANCELLED,
+    AGENT_RUN_STATUS.INTERRUPTED,
 ]
 
 /**
@@ -58,7 +59,7 @@ export default defineEventHandler(async (event) => {
 
     // 3. 分支：resume（恢复中断）vs 新建/重连
     if (command?.resume) {
-        // 恢复已中断的分析：加载已完成结果，计算剩余模块，入队新 run
+        // 恢复已中断的分析
         const resumeCaseId = input?.caseId as number | undefined
         const session = resumeCaseId
             ? await prisma.caseSessions.findFirst({
@@ -75,15 +76,21 @@ export default defineEventHandler(async (event) => {
             return resError(event, 404, '分析会话不存在')
         }
 
-        // 获取原始选中的模块列表
-        const allModules = (input?.selectedModules as string[]) ?? []
+        // 将 interrupted 的 run 标记为 completed，让 enqueueRunService 能创建新 run
+        const activeRun = await getActiveRunService(session.sessionId)
+        if (activeRun && activeRun.status === AGENT_RUN_STATUS.INTERRUPTED) {
+            await prisma.agentRuns.update({
+                where: { id: activeRun.id },
+                data: { status: AGENT_RUN_STATUS.COMPLETED, completedAt: new Date() },
+            })
+        }
 
         const result = await enqueueRunService({
             sessionId: session.sessionId,
             threadId: session.sessionId,
             userId: user.id,
             caseId: session.caseId,
-            input: { selectedModules: allModules },
+            input: { command: command.resume },
         })
         if ('error' in result) {
             return resError(event, 429, result.error)

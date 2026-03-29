@@ -8,7 +8,6 @@
  */
 
 import { useStream, FetchStreamTransport } from '@langchain/vue'
-import { AIMessage, HumanMessage, ToolMessage } from '@langchain/core/messages'
 import { INIT_ANALYSIS_MODULES, DEFAULT_SELECTED_MODULES } from '#shared/types/initAnalysis'
 import type { ModuleRunState, InitAnalysisStatusResponse, ModuleStatus } from '#shared/types/initAnalysis'
 import { coerceRawMessages } from '~/components/ai/composables/useMessageParser'
@@ -22,6 +21,18 @@ export function useInitAnalysis(sessionId: Ref<string>) {
   const moduleMessagesMap = ref<Record<string, any[]>>({})
   // 上次 values.messages 长度，用于检测新增消息
   let prevMessagesLength = 0
+  // 上次 stream.messages 长度，用于检测新增消息（实时流）
+  let prevStreamLength = 0
+  // 上次 lastExecutedModule 值，用于检测模块切换（避免误判正在执行的模块）
+  let prevLastExecutedModule = ''
+  // 是否已从 checkpoint 恢复过消息（避免重复添加）
+  let restoredFromCheckpoint = false
+  // stream 是否已开始收到有效状态（避免 stream.submit 后第一次空状态覆盖 loadStatus 设置的状态）
+  let streamStarted = false
+  // 从数据库加载的已完成结果（页面刷新后恢复）
+  const resultFromDB = ref<Record<string, string>>({})
+  // 右侧面板当前选中的 tab 索引
+  const activeIndex = ref(0)
 
   const activeModules = computed(() =>
     INIT_ANALYSIS_MODULES.filter(m => selectedModules.value.includes(m.name)),
@@ -54,72 +65,120 @@ export function useInitAnalysis(sessionId: Ref<string>) {
   }))
 
   const values = computed(() => stream.values as any)
-  const interrupt = computed(() => stream.interrupt)
   const isLoading = computed(() => stream.isLoading)
+
+  // stream.interrupt 存在 Vue 响应式 bug：getter 只依赖 isLoading（stream 期间不变），
+  // 导致 values 更新后 interrupt 不重新求值。直接从 values.__interrupt__ 读取。
+  const interrupt = computed(() => {
+    const v = values.value
+    if (!v?.__interrupt__?.length) return undefined
+    return v.__interrupt__.length === 1 ? v.__interrupt__[0] : v.__interrupt__
+  })
 
   // ==================== 模块状态 + 消息分组追踪 ====================
 
+  // 流式结果合并 DB 结果（DB 结果优先，流式结果覆盖）
+  const mergedResult = computed(() => ({
+    ...resultFromDB.value,
+    ...(values.value?.result ?? {}),
+  }))
+
+  // 合并 stream.messages（实时流）和 values.messages（重连时从 checkpoint 恢复）
+  // 确保页面刷新后左侧消息列表能显示历史消息
+  const streamMessages = computed(() => {
+    const realtime = stream.messages ?? []
+    const checkpoint = values.value?.messages ?? []
+    // 如果有实时消息（长度 > 0），优先使用实时消息
+    if (realtime.length > 0) return realtime
+    // 否则使用从 checkpoint 恢复的消息
+    if (checkpoint.length > 0) {
+      return coerceRawMessages(checkpoint)
+    }
+    return []
+  })
+
+  // 追踪模块状态 + 消息分组
   watch(values, (v: any) => {
     if (!v) return
 
-    // 调试日志
-    console.log('[useInitAnalysis] values 更新:', {
-      hasResult: !!v.result,
-      result: v.result,
-      lastExecutedModule: v.lastExecutedModule,
-      messagesLength: v.messages?.length,
-    })
-
-    // 后端 state 字段名：lastExecutedModule, result, failedModules
     const { lastExecutedModule, result, failedModules, selectedModules: mods } = v
 
     if (mods?.length) {
       selectedModules.value = mods
     }
 
+    // 追踪模块切换（用于消息分组）
+    prevLastExecutedModule = lastExecutedModule ?? ''
+
+    const hasResultContent = result && Object.keys(result).length > 0
+    const hasFailedContent = failedModules && Object.keys(failedModules).length > 0
+
+    // 如果 stream 还没开始收到有效内容（result/failedModules），不覆盖 loadStatus 设置的状态
+    if (!streamStarted && !hasResultContent && !hasFailedContent) {
+      return
+    }
+    streamStarted = true
+
+    // 统一计算所有模块状态（基于 result/failedModules 的实际内容判断）
     const updated = { ...moduleStates.value }
-
-    // 已完成模块（result 是 Record<string, string>）
-    for (const [name, content] of Object.entries(result ?? {})) {
-      if (content) {
-        updated[name] = { name, status: 'complete', content: content as string }
+    for (const m of selectedModules.value) {
+      if (result?.[m]) {
+        // 有结果 → complete
+        updated[m] = { name: m, status: 'complete', content: result[m] as string }
+      } else if (failedModules?.[m]) {
+        // 失败 → failed
+        updated[m] = { name: m, status: 'failed', content: '', error: failedModules[m] as string }
+      } else if (updated[m]?.status === 'complete' || updated[m]?.status === 'failed') {
+        // 之前已完成/失败了，但 result 变了？回归 idle 让下一轮更新修正
+        updated[m] = { name: m, status: 'idle', content: '' }
       }
+      // else: 保持原状态（idle 或 streaming）
     }
 
-    // 失败模块
-    for (const [name, error] of Object.entries(failedModules ?? {})) {
-      updated[name] = { name, status: 'failed', content: '', error: error as string }
-    }
-
-    // 当前执行中的模块（基于 selectedModules 顺序推断，串行条件边保证执行顺序）
-    const streaming = selectedModules.value.find(m =>
-      !result?.[m] && !failedModules?.[m]
+    // 推断当前正在执行的模块（基于 selectedModules 顺序，串行条件边保证执行顺序）
+    // values 事件在节点完成后才发，所以第一个没有 result/failed 的模块就是当前正在执行的
+    const currentStreaming = selectedModules.value.find(m =>
+      updated[m]?.status !== 'complete' && updated[m]?.status !== 'failed',
     )
-    if (streaming && updated[streaming]?.status !== 'complete' && updated[streaming]?.status !== 'failed') {
-      updated[streaming] = {
-        ...updated[streaming],
-        name: streaming,
-        status: 'streaming',
-        content: '',
-      }
+    if (currentStreaming && updated[currentStreaming]?.status !== 'streaming') {
+      updated[currentStreaming] = { name: currentStreaming, status: 'streaming', content: '' }
     }
 
     moduleStates.value = updated
 
-    // 按模块分组消息：检测 values.messages 新增的消息归属到 lastExecutedModule
+    // 按模块分组消息
     const allMessages = v.messages
-    if (Array.isArray(allMessages) && lastExecutedModule) {
-      const newMessages = allMessages.slice(prevMessagesLength)
-      if (newMessages.length > 0) {
-        const existing = moduleMessagesMap.value[lastExecutedModule] ?? []
-        // 用 coerceRawMessages 将字典转 BaseMessage 实例
-        const coerced = coerceRawMessages(newMessages)
-        moduleMessagesMap.value = {
-          ...moduleMessagesMap.value,
-          [lastExecutedModule]: [...existing, ...coerced],
+    const currentStreamLength = stream.messages?.length ?? 0
+
+    if (Array.isArray(allMessages) && allMessages.length > 0) {
+      // 判断是重连恢复（stream.messages 为空但 values.messages 有内容）还是实时流
+      const isReconnecting = currentStreamLength === 0 && allMessages.length > 0 && !restoredFromCheckpoint
+
+      if (isReconnecting) {
+        // 重连恢复：一次性加载所有消息到最后一个执行的模块
+        restoredFromCheckpoint = true
+        if (lastExecutedModule) {
+          const coerced = coerceRawMessages(allMessages)
+          moduleMessagesMap.value = {
+            ...moduleMessagesMap.value,
+            [lastExecutedModule]: coerced,
+          }
         }
+        prevMessagesLength = allMessages.length
+      } else if (lastExecutedModule && currentStreamLength > prevStreamLength) {
+        // 实时流：增量添加新消息
+        const newMessages = allMessages.slice(prevMessagesLength)
+        if (newMessages.length > 0) {
+          const existing = moduleMessagesMap.value[lastExecutedModule] ?? []
+          const coerced = coerceRawMessages(newMessages)
+          moduleMessagesMap.value = {
+            ...moduleMessagesMap.value,
+            [lastExecutedModule]: [...existing, ...coerced],
+          }
+        }
+        prevMessagesLength = allMessages.length
+        prevStreamLength = currentStreamLength
       }
-      prevMessagesLength = allMessages.length
     }
 
     // 检查是否全部完成
@@ -131,8 +190,6 @@ export function useInitAnalysis(sessionId: Ref<string>) {
       }
     }
   }, { deep: true })
-
-  // ==================== 工具函数 ====================
 
   // ==================== 操作 ====================
 
@@ -150,6 +207,11 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     )
 
     if (!status) return
+
+    // 从 DB 加载已完成模块的结果（用于右侧面板刷新后恢复）
+    if (status.result && Object.keys(status.result).length > 0) {
+      resultFromDB.value = status.result
+    }
 
     if (status.status === 'in_progress' || status.status === 'completed') {
       phase.value = status.status === 'completed' ? 'complete' : 'running'
@@ -169,19 +231,29 @@ export function useInitAnalysis(sessionId: Ref<string>) {
       moduleStates.value = restored
 
       if (status.status === 'in_progress') {
-        stream.submit({ messages: [] } as any)
+        // 重连：需要传 caseId 和 selectedModules 以便后端正确路由到 session
+        stream.submit({
+          caseId: caseId.value,
+          selectedModules: selectedModules.value,
+        } as any)
       }
     }
   }
 
   function startAnalysis() {
+    const firstModule = selectedModules.value[0]
     const initial: Record<string, ModuleRunState> = {}
     for (const name of selectedModules.value) {
-      initial[name] = { name, status: 'idle', content: '' }
+      // 第一个模块立即标记为 streaming，其余 idle
+      initial[name] = { name, status: name === firstModule ? 'streaming' : 'idle', content: '' }
     }
     moduleStates.value = initial
     moduleMessagesMap.value = {}
     prevMessagesLength = 0
+    prevStreamLength = 0
+    prevLastExecutedModule = ''
+    restoredFromCheckpoint = false
+    streamStarted = false
     phase.value = 'running'
 
     stream.submit({
@@ -192,7 +264,7 @@ export function useInitAnalysis(sessionId: Ref<string>) {
 
   function resumeWorkflow() {
     stream.submit(
-      { caseId: caseId.value, selectedModules: selectedModules.value } as any,
+      { caseId: caseId.value } as any,
       { command: { resume: { action: 'continue' } } },
     )
   }
@@ -214,9 +286,11 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     isLoading,
     interrupt,
     values,
-    streamMessages: computed(() => stream.messages),
+    mergedResult,
+    streamMessages,
     getModuleState,
     getModuleMessages,
+    activeIndex,
     loadStatus,
     startAnalysis,
     resumeWorkflow,

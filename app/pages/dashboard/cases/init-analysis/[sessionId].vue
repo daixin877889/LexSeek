@@ -58,10 +58,14 @@
         <!-- 案件信息卡片 -->
         <InitAnalysisCaseInfoCard v-if="caseId > 0" :case-id="caseId" />
 
-        <!-- 分析结果（从 values.result 实时获取） -->
+        <!-- 分析结果（从 mergedResult 实时获取，合并 DB 和流式结果） -->
         <div v-if="completedResults.length > 0" class="p-4 space-y-3">
           <h3 class="text-sm font-medium text-muted-foreground">分析结果</h3>
-          <CaseAnalysisResults :results="completedResults" />
+          <CaseAnalysisResults
+            :results="completedResults"
+            v-model:active-index="activeIndex"
+            :is-analyzing="phase === 'running'"
+          />
         </div>
       </div>
     </template>
@@ -89,17 +93,20 @@ const {
   isLoading,
   interrupt,
   values,
+  mergedResult,
   streamMessages,
   loadStatus,
   startAnalysis,
   resumeWorkflow,
   retryModule,
+  activeIndex,
 } = useInitAnalysis(sessionId)
 
-// 从 values.result 转换为 AnalysisResult[] 供右侧面板显示
+// 从 mergedResult 转换为 AnalysisResult[] 供右侧面板显示
+// mergedResult 合并了 DB 结果（刷新恢复）和流式结果
 const completedResults = computed<AnalysisResult[]>(() => {
-  const result = values.value?.result
-  if (!result) return []
+  const result = mergedResult.value
+  if (!result || Object.keys(result).length === 0) return []
   return Object.entries(result)
     .filter(([_, content]) => !!content)
     .map(([moduleName, content]) => {
@@ -113,6 +120,13 @@ const completedResults = computed<AnalysisResult[]>(() => {
       }
     })
 })
+
+// 当结果列表变化时，确保 activeIndex 在有效范围内
+watch(completedResults, (results) => {
+  if (results.length > 0 && activeIndex.value >= results.length) {
+    activeIndex.value = results.length - 1
+  }
+}, { immediate: true })
 
 // LangGraph interrupt 数据
 const interruptData = computed(() => {
