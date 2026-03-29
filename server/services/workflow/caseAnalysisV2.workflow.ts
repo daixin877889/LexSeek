@@ -74,6 +74,28 @@ export const WorkflowState = new StateSchema({
 function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<typeof WorkflowState> {
     return async (state) => {
         try {
+            // 0. 创建 IN_PROGRESS 记录（在分析开始前）
+            const nodeInfo = await getNodeByNameService(agentName)
+            if (nodeInfo) {
+                // 检查是否已有 IN_PROGRESS 记录
+                const existingRecord = await findAnalysisBySessionAndNodeDao(
+                    state.sessionId, nodeInfo.id, AnalysisStatus.IN_PROGRESS
+                )
+                if (!existingRecord) {
+                    // 创建新的 IN_PROGRESS 记录
+                    await createAnalysisDao({
+                        caseId: state.caseId,
+                        sessionId: state.sessionId,
+                        nodeId: nodeInfo.id,
+                        analysisType: agentName,
+                        analysisResult: null,
+                        status: AnalysisStatus.IN_PROGRESS,
+                        isActive: true,
+                        version: 1,
+                    })
+                }
+            }
+
             // 1. 加载节点配置
             const nodeConfig = await getValidNodeConfig(agentName)
             const activeApiKey = nodeConfig.modelApiKeys.find((k: any) => k.status === 1)
