@@ -86,16 +86,17 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
         const messages = [new HumanMessage(state.prompt ?? `现在请开始任务：${moduleTitle}`)]
 
         try {
-            // per-module thread_id 确保每个模块 Agent 使用独立的 checkpoint 线程
+            // 每次使用唯一 thread_id，避免复用被污染的 checkpoint
+            // （之前失败运行的 tool_use 消息残留会导致 INVALID_TOOL_RESULTS 错误）
             const response = await node.invoke(
                 { messages },
                 {
                     configurable: {
-                        thread_id: `${state.sessionId}_${agentName}`,
+                        thread_id: `${state.sessionId}_${agentName}_${Date.now()}`,
                         user_id: state.userId,
                         case_id: state.caseId,
                     },
-                    recursionLimit: 100,
+                    recursionLimit: 1000,
                 }
             )
 
