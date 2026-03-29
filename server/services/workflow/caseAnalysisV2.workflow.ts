@@ -14,11 +14,13 @@ import type { GraphNode } from "@langchain/langgraph"
 import { HumanMessage, isAIMessage } from '@langchain/core/messages'
 import { getCheckpointer } from './checkpointer'
 import { z } from "zod/v4"
-import { getNodeConfigsByTypes, getValidNodeConfig } from '../node/node.service'
+import { getNodeConfigsByTypes, getValidNodeConfig, getNodeByNameService } from '../node/node.service'
 import { createChatModel } from '../node/chatModelFactory'
 import { getToolInstancesService } from './tools'
 import { findAnalysisBySessionAndNodeDao, AnalysisStatus } from '../case/analysis.dao'
 import { markAnalysisFailedById } from './middleware/analysisResultPersistence.middleware'
+import { prisma } from '~~/server/lib/prisma'
+import { deactivateVersionsDao, updateAnalysisDao, createAnalysisDao } from '../case/analysis.dao'
 
 
 /**
@@ -145,7 +147,7 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                 { recursionLimit: 1000 }
             )
 
-            // 7. 提取结果
+            // 7. 提取结果并持久化到数据库
             const lastMsg = response.messages?.[response.messages.length - 1]
             let resultText = ''
             if (lastMsg && typeof lastMsg.content === 'string') {
@@ -155,6 +157,51 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                     .filter((c: any) => c.type === 'text')
                     .map((c: any) => c.text)
                     .join('\n')
+            }
+
+            // 8. 持久化分析结果到数据库
+            try {
+                const nodeInfo = await getNodeByNameService(agentName)
+                if (nodeInfo) {
+                    // 查找是否有 IN_PROGRESS 记录
+                    const existingRecord = await findAnalysisBySessionAndNodeDao(
+                        state.sessionId, nodeInfo.id, AnalysisStatus.IN_PROGRESS
+                    )
+
+                    if (existingRecord) {
+                        // 更新现有记录为 COMPLETED
+                        await updateAnalysisDao(existingRecord.id, {
+                            analysisResult: resultText,
+                            status: AnalysisStatus.COMPLETED,
+                            isActive: true,
+                        })
+                    } else {
+                        // 创建新记录
+                        await createAnalysisDao({
+                            caseId: state.caseId,
+                            sessionId: state.sessionId,
+                            nodeId: nodeInfo.id,
+                            analysisType: agentName,
+                            analysisResult: resultText,
+                            status: AnalysisStatus.COMPLETED,
+                            isActive: true,
+                            version: 1,
+                        })
+                    }
+
+                    logger.info('分析结果持久化完成', {
+                        agentName,
+                        caseId: state.caseId,
+                        sessionId: state.sessionId,
+                        resultLength: resultText.length,
+                    })
+                }
+            } catch (persistError) {
+                logger.error('分析结果持久化失败', {
+                    agentName,
+                    error: persistError,
+                })
+                // 持久化失败不影响返回结果
             }
 
             return {
