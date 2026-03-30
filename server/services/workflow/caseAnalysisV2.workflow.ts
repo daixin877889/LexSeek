@@ -17,10 +17,10 @@ import { z } from "zod/v4"
 import { getNodeConfigsByTypes, getValidNodeConfig, getNodeByNameService } from '../node/node.service'
 import { createChatModel } from '../node/chatModelFactory'
 import { getToolInstancesService } from './tools'
-import { findAnalysisBySessionAndNodeDao, AnalysisStatus } from '../case/analysis.dao'
+import { findAnalysisBySessionAndNodeDao, findLatestAnalysisBySessionAndNodeDao, AnalysisStatus } from '../case/analysis.dao'
 import { markAnalysisFailedById } from './middleware/analysisResultPersistence.middleware'
 import { deactivateVersionsDao, updateAnalysisDao, createAnalysisDao } from '../case/analysis.dao'
-import { checkPointsService } from '../point/pointConsumption.service'
+import { checkPointsService, consumePointsService } from '../point/pointConsumption.service'
 import { getCurrentMembershipService } from '../membership/userMembership.service'
 import { InterruptType } from '#shared/types/case'
 
@@ -64,78 +64,133 @@ export const WorkflowState = new StateSchema({
         z.record(z.string(), z.string()).default({}),
         { reducer: (a, b) => ({ ...a, ...b }) }
     ),
-    /** 积分检查已完成（避免 interrupt 后重复检查导致无限循环） */
-    pointsChecked: z.boolean().default(false),
 })
 
+
+/** 每个汉字估算 4 tokens（无模型返回时的备降策略） */
+const TOKENS_PER_CHAR = 4
+
+/**
+ * 计算消息列表中所有 AI 消息的总 token 用量
+ *
+ * 优先使用模型返回的 usage_metadata.total_tokens（精确值）
+ * 无模型返回时按每个字符 4 token 估算（中文法律文本场景偏高估以覆盖成本）
+ */
+function calculateTotalTokens(messages: any[]): number {
+    let total = 0
+    for (const msg of messages) {
+        if (!isAIMessage(msg)) continue
+
+        // 优先使用模型返回的精确值
+        if (msg.usage_metadata?.total_tokens) {
+            total += msg.usage_metadata.total_tokens
+            continue
+        }
+
+        // 备降：按字符数估算
+        const content = typeof msg.content === 'string'
+            ? msg.content
+            : JSON.stringify(msg.content)
+        let estimated = content.length * TOKENS_PER_CHAR
+
+        // thinking tokens
+        if (msg.additional_kwargs?.thinking) {
+            const thinking = msg.additional_kwargs.thinking
+            const text = Array.isArray(thinking)
+                ? thinking.map((t: any) => t.thinking || '').join('')
+                : String(thinking)
+            estimated += text.length * TOKENS_PER_CHAR
+        }
+
+        // tool_calls tokens
+        if (msg.tool_calls?.length) {
+            estimated += JSON.stringify(msg.tool_calls).length * TOKENS_PER_CHAR
+        }
+
+        total += Math.max(estimated, 100)
+
+        logger.warn('AI 消息缺少 usage_metadata，使用字符估算', {
+            contentLength: content.length,
+            estimated,
+        })
+    }
+    return total
+}
+
+
+/** 分析模块统一使用的积分消耗项目 key */
+const ANALYSIS_POINT_ITEM_KEY = 'case_analysis_token'
 
 /**
  * 创建分析节点
  *
- * 使用 LangGraph 原生 StateGraph + ToolNode 编排工具调用循环
- * 不使用 createAgent（ReactAgent），避免 streamMode 多模式下的兼容性问题
+ * 完整生命周期：
+ * 1. 查 DB 判断模块状态（COMPLETED+已扣费/COMPLETED+未扣费/其他）
+ * 2. 会员检查（始终执行）
+ * 3. 积分预检（始终执行）
+ * 4. 创建 IN_PROGRESS 记录（仅未完成时）
+ * 5. 执行 LLM 分析 + 持久化（仅未完成时）
+ * 6. 按 token 扣减积分（始终执行）
  */
 function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<typeof WorkflowState> {
     return async (state) => {
         try {
-            // 0. 创建 IN_PROGRESS 记录（在分析开始前）
             const nodeInfo = await getNodeByNameService(agentName)
+
+            // ====== 步骤 1：查 DB 该 session+node 的最新记录 ======
+            let resultText = ''
+            let totalTokens = 0
+            let tokenQuantity = 0
+            let analysisAlreadyDone = false
+            let analysisRecordId: number | null = null
+
             if (nodeInfo) {
-                // 检查是否已有 IN_PROGRESS 记录（同 session）
-                const existingRecord = await findAnalysisBySessionAndNodeDao(
-                    state.sessionId, nodeInfo.id, AnalysisStatus.IN_PROGRESS
+                const latestRecord = await findLatestAnalysisBySessionAndNodeDao(
+                    state.sessionId, nodeInfo.id,
                 )
-                if (!existingRecord) {
-                    // 停用该 case+node 的旧 active 记录，避免唯一约束冲突
-                    await deactivateVersionsDao(state.caseId, nodeInfo.id)
-                    await createAnalysisDao({
-                        caseId: state.caseId,
-                        sessionId: state.sessionId,
-                        nodeId: nodeInfo.id,
-                        analysisType: agentName,
-                        analysisResult: null,
-                        status: AnalysisStatus.IN_PROGRESS,
-                        isActive: true,
-                        version: 1,
+                if (latestRecord?.status === AnalysisStatus.COMPLETED) {
+                    if (latestRecord.pointDeducted) {
+                        // 已完成且已扣费 → 直接返回结果
+                        logger.info('模块已完成且已扣费，跳过', { agentName })
+                        return {
+                            result: { [agentName]: latestRecord.analysisResult ?? '' },
+                            lastExecutedModule: agentName,
+                            lastExecutedResult: latestRecord.analysisResult ?? '',
+                            lastExecutedTitle: moduleTitle,
+                        }
+                    }
+                    // 已完成但未扣费（上次因积分不足 interrupt）→ 跳过分析，进入扣减
+                    resultText = latestRecord.analysisResult ?? ''
+                    tokenQuantity = latestRecord.tokenCount ?? 0
+                    totalTokens = latestRecord.tokens ?? 0
+                    analysisRecordId = latestRecord.id
+                    analysisAlreadyDone = true
+                    logger.info('模块已完成但未扣费，跳过分析直接扣减', {
+                        agentName, tokenQuantity, totalTokens,
                     })
                 }
             }
 
-            // 0. 积分检查（在分析开始前，仅第一个模块检查，后续模块通过 pointsChecked 跳过）
-            // 注意：interrupt() 通过抛出 GraphInterrupt 异常工作，不能被 try-catch 捕获
-            if (!state.pointsChecked) {
-                // 检查会员状态
-                const membership = await getCurrentMembershipService(state.userId)
-                if (!membership) {
+            // ====== 步骤 2-3：会员+积分预检 ======
+            // 仅在需要新分析时执行（analysisAlreadyDone 路径跳过，避免 interrupt 索引错位）
+            // analysisAlreadyDone 的扣减失败由步骤 6 的 while 循环独立处理
+            if (!analysisAlreadyDone) {
+                // 步骤 2：会员检查（while 循环，直到用户开通会员）
+                while (true) {
+                    const membership = await getCurrentMembershipService(state.userId)
+                    if (membership) break
                     interrupt({
                         type: InterruptType.INSUFFICIENT_POINTS,
                         message: '请先开通会员',
-                        data: {
-                            isMember: false,
-                            availablePoints: 0,
-                            requiredPoints: 1,
-                            reason: 'no_membership',
-                        },
+                        data: { isMember: false, availablePoints: 0, requiredPoints: 1, reason: 'no_membership' },
                     })
-                    // resume 后重新检查会员状态
-                    const refreshed = await getCurrentMembershipService(state.userId)
-                    if (!refreshed) {
-                        interrupt({
-                            type: InterruptType.INSUFFICIENT_POINTS,
-                            message: '请先开通会员',
-                            data: {
-                                isMember: false,
-                                availablePoints: 0,
-                                requiredPoints: 1,
-                                reason: 'no_membership',
-                            },
-                        })
-                    }
+                    // resume 后 interrupt() 返回，循环继续重新检查
                 }
 
-                // 检查积分是否足够
-                const pointCheck = await checkPointsService(state.userId, agentName, 1)
-                if (!pointCheck.sufficient) {
+                // 步骤 3：积分预检（while 循环，直到积分充足）
+                while (true) {
+                    const pointCheck = await checkPointsService(state.userId, ANALYSIS_POINT_ITEM_KEY, 1)
+                    if (pointCheck.sufficient) break
                     interrupt({
                         type: InterruptType.INSUFFICIENT_POINTS,
                         message: '积分不足，请充值后继续',
@@ -146,155 +201,209 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                             reason: 'insufficient_points',
                         },
                     })
+                    // resume 后 interrupt() 返回，循环继续重新检查
                 }
 
-                logger.info('积分检查通过', {
-                    agentName,
-                    userId: state.userId,
-                    caseId: state.caseId,
-                })
+                logger.info('积分检查通过', { agentName, userId: state.userId, caseId: state.caseId })
             }
 
-            // 1. 加载节点配置
-            const nodeConfig = await getValidNodeConfig(agentName)
-            const activeApiKey = nodeConfig.modelApiKeys.find((k: any) => k.status === 1)
-            if (!activeApiKey) throw new Error(`${agentName} 节点无可用 API 密钥`)
+            // ====== 步骤 4-5：分析+持久化（仅在未完成时执行）======
+            let responseMessages: any[] = []
 
-            // 2. 创建模型
-            const model = createChatModel({
-                sdkType: nodeConfig.modelSdkType,
-                modelName: nodeConfig.modelName,
-                apiKey: activeApiKey.apiKey,
-                baseUrl: nodeConfig.modelProviderBaseUrl,
-                temperature: 0.7,
-                streaming: true,
-                thinking: state.thinking,
-            })
-
-            // 3. 加载工具
-            const tools = nodeConfig.tools?.length > 0
-                ? getToolInstancesService(nodeConfig.tools, {
-                    userId: state.userId,
-                    caseId: state.caseId,
-                    sessionId: state.sessionId,
-                })
-                : []
-
-            const toolNode = tools.length > 0 ? new ToolNode(tools) : null
-            const modelWithTools = tools.length > 0 && model.bindTools ? model.bindTools(tools) : model
-
-            // 4. 获取系统提示
-            const systemPrompt = nodeConfig.prompts?.find(
-                (p: any) => p.type === 'system' && p.status === 1,
-            )?.content ?? ''
-
-            // 5. 构建内部 ReAct 图（callModel → tools 循环）
-            const InnerState = Annotation.Root({ ...MessagesAnnotation.spec })
-
-            const callModel = async (innerState: typeof InnerState.State) => {
-                const response = await modelWithTools.invoke(innerState.messages)
-                return { messages: [response] }
-            }
-
-            const shouldContinue = (innerState: typeof InnerState.State) => {
-                const lastMsg = innerState.messages[innerState.messages.length - 1]
-                if (lastMsg && isAIMessage(lastMsg) && lastMsg.tool_calls?.length) return 'tools'
-                return '__end__'
-            }
-
-            const innerBuilder = new StateGraph(InnerState)
-                .addNode('callModel', callModel)
-                .addEdge(START, 'callModel')
-
-            if (toolNode) {
-                innerBuilder
-                    .addNode('tools', toolNode)
-                    .addConditionalEdges('callModel', shouldContinue, { tools: 'tools', __end__: END })
-                    .addEdge('tools', 'callModel')
-            } else {
-                innerBuilder.addEdge('callModel', END)
-            }
-
-            const innerGraph = innerBuilder.compile()
-
-            // 6. 执行
-            const initialMessages = [
-                ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
-                new HumanMessage(state.prompt ?? `现在请开始任务：${moduleTitle}`),
-            ]
-
-            const response = await innerGraph.invoke(
-                { messages: initialMessages },
-                { recursionLimit: 1000 }
-            )
-
-            // 7. 提取结果并持久化到数据库
-            const lastMsg = response.messages?.[response.messages.length - 1]
-            let resultText = ''
-            if (lastMsg && typeof lastMsg.content === 'string') {
-                resultText = lastMsg.content
-            } else if (lastMsg && Array.isArray(lastMsg.content)) {
-                resultText = lastMsg.content
-                    .filter((c: any) => c.type === 'text')
-                    .map((c: any) => c.text)
-                    .join('\n')
-            }
-
-            // 8. 持久化分析结果到数据库
-            try {
-                const nodeInfo = await getNodeByNameService(agentName)
+            if (!analysisAlreadyDone) {
+                // 步骤 4：创建 IN_PROGRESS 记录
                 if (nodeInfo) {
-                    // 查找是否有 IN_PROGRESS 记录
-                    const existingRecord = await findAnalysisBySessionAndNodeDao(
-                        state.sessionId, nodeInfo.id, AnalysisStatus.IN_PROGRESS
+                    const existingInProgress = await findAnalysisBySessionAndNodeDao(
+                        state.sessionId, nodeInfo.id, AnalysisStatus.IN_PROGRESS,
                     )
-
-                    if (existingRecord) {
-                        // 更新现有记录为 COMPLETED
-                        await updateAnalysisDao(existingRecord.id, {
-                            analysisResult: resultText,
-                            status: AnalysisStatus.COMPLETED,
-                            isActive: true,
-                        })
-                    } else {
-                        // 创建新记录
+                    if (!existingInProgress) {
+                        await deactivateVersionsDao(state.caseId, nodeInfo.id)
                         await createAnalysisDao({
                             caseId: state.caseId,
                             sessionId: state.sessionId,
                             nodeId: nodeInfo.id,
                             analysisType: agentName,
-                            analysisResult: resultText,
-                            status: AnalysisStatus.COMPLETED,
+                            analysisResult: null,
+                            status: AnalysisStatus.IN_PROGRESS,
                             isActive: true,
                             version: 1,
                         })
                     }
+                }
 
-                    logger.info('分析结果持久化完成', {
-                        agentName,
+                // 步骤 5a：执行 LLM 分析
+                const nodeConfig = await getValidNodeConfig(agentName)
+                const activeApiKey = nodeConfig.modelApiKeys.find((k: any) => k.status === 1)
+                if (!activeApiKey) throw new Error(`${agentName} 节点无可用 API 密钥`)
+
+                const model = createChatModel({
+                    sdkType: nodeConfig.modelSdkType,
+                    modelName: nodeConfig.modelName,
+                    apiKey: activeApiKey.apiKey,
+                    baseUrl: nodeConfig.modelProviderBaseUrl,
+                    temperature: 0.7,
+                    streaming: true,
+                    thinking: state.thinking,
+                })
+
+                const tools = nodeConfig.tools?.length > 0
+                    ? getToolInstancesService(nodeConfig.tools, {
+                        userId: state.userId,
                         caseId: state.caseId,
                         sessionId: state.sessionId,
-                        resultLength: resultText.length,
                     })
+                    : []
+
+                const toolNode = tools.length > 0 ? new ToolNode(tools) : null
+                const modelWithTools = tools.length > 0 && model.bindTools ? model.bindTools(tools) : model
+
+                const systemPrompt = nodeConfig.prompts?.find(
+                    (p: any) => p.type === 'system' && p.status === 1,
+                )?.content ?? ''
+
+                const InnerState = Annotation.Root({ ...MessagesAnnotation.spec })
+
+                const callModel = async (innerState: typeof InnerState.State) => {
+                    const response = await modelWithTools.invoke(innerState.messages)
+                    return { messages: [response] }
                 }
-            } catch (persistError) {
-                logger.error('分析结果持久化失败', {
-                    agentName,
-                    error: persistError,
-                })
-                // 持久化失败不影响返回结果
+
+                const shouldContinue = (innerState: typeof InnerState.State) => {
+                    const lastMsg = innerState.messages[innerState.messages.length - 1]
+                    if (lastMsg && isAIMessage(lastMsg) && lastMsg.tool_calls?.length) return 'tools'
+                    return '__end__'
+                }
+
+                const innerBuilder = new StateGraph(InnerState)
+                    .addNode('callModel', callModel)
+                    .addEdge(START, 'callModel')
+
+                if (toolNode) {
+                    innerBuilder
+                        .addNode('tools', toolNode)
+                        .addConditionalEdges('callModel', shouldContinue, { tools: 'tools', __end__: END })
+                        .addEdge('tools', 'callModel')
+                } else {
+                    innerBuilder.addEdge('callModel', END)
+                }
+
+                const innerGraph = innerBuilder.compile()
+
+                const initialMessages = [
+                    ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
+                    new HumanMessage(state.prompt ?? `现在请开始任务：${moduleTitle}`),
+                ]
+
+                const response = await innerGraph.invoke(
+                    { messages: initialMessages },
+                    { recursionLimit: 1000 },
+                )
+
+                responseMessages = response.messages ?? []
+
+                // 步骤 5b：提取结果
+                const lastMsg = responseMessages[responseMessages.length - 1]
+                if (lastMsg && typeof lastMsg.content === 'string') {
+                    resultText = lastMsg.content
+                } else if (lastMsg && Array.isArray(lastMsg.content)) {
+                    resultText = lastMsg.content
+                        .filter((c: any) => c.type === 'text')
+                        .map((c: any) => c.text)
+                        .join('\n')
+                }
+
+                // 步骤 5c：计算 token
+                totalTokens = calculateTotalTokens(responseMessages)
+                tokenQuantity = Math.ceil(totalTokens / 1000)
+
+                // 步骤 5d：持久化为 COMPLETED + pointDeducted=false
+                try {
+                    if (nodeInfo) {
+                        const inProgressRecord = await findAnalysisBySessionAndNodeDao(
+                            state.sessionId, nodeInfo.id, AnalysisStatus.IN_PROGRESS,
+                        )
+                        if (inProgressRecord) {
+                            await updateAnalysisDao(inProgressRecord.id, {
+                                analysisResult: resultText,
+                                status: AnalysisStatus.COMPLETED,
+                                isActive: true,
+                                pointDeducted: false,
+                                tokenCount: tokenQuantity,
+                                tokens: totalTokens,
+                            })
+                            analysisRecordId = inProgressRecord.id
+                        } else {
+                            const newRecord = await createAnalysisDao({
+                                caseId: state.caseId,
+                                sessionId: state.sessionId,
+                                nodeId: nodeInfo.id,
+                                analysisType: agentName,
+                                analysisResult: resultText,
+                                status: AnalysisStatus.COMPLETED,
+                                isActive: true,
+                                version: 1,
+                                pointDeducted: false,
+                                tokenCount: tokenQuantity,
+                                tokens: totalTokens,
+                            })
+                            analysisRecordId = newRecord.id
+                        }
+                        logger.info('分析结果持久化完成', { agentName, resultLength: resultText.length, totalTokens })
+                    }
+                } catch (persistError) {
+                    logger.error('分析结果持久化失败', { agentName, error: persistError })
+                    // 持久化失败：返回 result（当前会话可用）+ 警告，不进入步骤 6
+                    return {
+                        messages: responseMessages,
+                        result: { [agentName]: resultText },
+                        failedModules: { [`${agentName}_persist`]: '分析结果保存失败，刷新后可能丢失' },
+                        lastExecutedModule: agentName,
+                        lastExecutedResult: resultText,
+                        lastExecutedTitle: moduleTitle,
+                    }
+                }
+            }
+
+            // ====== 步骤 6：扣减积分（while 循环，直到扣减成功）======
+            while (tokenQuantity > 0) {
+                try {
+                    await consumePointsService(state.userId, ANALYSIS_POINT_ITEM_KEY, tokenQuantity, {
+                        sourceId: state.caseId,
+                        remark: `案件分析：${moduleTitle}（${totalTokens} tokens）`,
+                    })
+                    // 扣减成功 → 标记已扣费
+                    if (analysisRecordId) {
+                        await updateAnalysisDao(analysisRecordId, { pointDeducted: true })
+                    }
+                    logger.info('积分消耗成功', { agentName, totalTokens, tokenQuantity })
+                    break
+                } catch (consumeError: any) {
+                    // 扣减失败 → interrupt 弹出购买 UI（结果已安全保存在 DB）
+                    logger.warn('积分不足，等待充值', { agentName, tokenQuantity })
+                    const check = await checkPointsService(state.userId, ANALYSIS_POINT_ITEM_KEY, 1)
+                    interrupt({
+                        type: InterruptType.INSUFFICIENT_POINTS,
+                        message: '积分不足，请充值后继续',
+                        data: {
+                            isMember: true,
+                            availablePoints: check.available,
+                            requiredPoints: tokenQuantity,
+                            reason: 'insufficient_points',
+                        },
+                    })
+                    // resume 后 interrupt() 返回，while 循环继续重试扣减
+                }
             }
 
             return {
-                messages: response.messages,
+                messages: responseMessages,
                 result: { [agentName]: resultText },
                 lastExecutedModule: agentName,
                 lastExecutedResult: resultText,
                 lastExecutedTitle: moduleTitle,
-                pointsChecked: true,
             }
         } catch (error: any) {
-            // interrupt() 抛出的 GraphInterrupt 必须传播到框架层，不能当作失败处理
+            // interrupt() 抛出的 GraphInterrupt 必须传播到框架层
             if (isGraphInterrupt(error)) {
                 throw error
             }
@@ -304,7 +413,7 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                 const nodeInfo = await getNodeByNameService(agentName)
                 if (nodeInfo) {
                     const record = await findAnalysisBySessionAndNodeDao(
-                        state.sessionId, nodeInfo.id, AnalysisStatus.IN_PROGRESS
+                        state.sessionId, nodeInfo.id, AnalysisStatus.IN_PROGRESS,
                     )
                     if (record) {
                         await markAnalysisFailedById(record.id)
@@ -325,7 +434,6 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                 lastExecutedModule: agentName,
                 lastExecutedResult: '',
                 lastExecutedTitle: moduleTitle,
-                pointsChecked: true,
             }
         }
     }

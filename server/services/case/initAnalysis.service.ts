@@ -81,11 +81,17 @@ export const getInitAnalysisStatusService = async (
         }
     }
 
+    // 检查是否有待处理的 interrupt（INTERRUPTED 状态的 run）
+    const interruptedRun = await prisma.agentRuns.findFirst({
+        where: { sessionId: session.sessionId, status: 'interrupted' },
+    })
+
     return {
         status: sessionStatus,
         sessionId: session.sessionId,
         modules,
         result,
+        hasPendingInterrupt: !!interruptedRun,
     }
 }
 

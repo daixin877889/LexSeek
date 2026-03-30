@@ -138,7 +138,28 @@ export default defineEventHandler(async (event) => {
             // 有活跃 run → 重连
             runId = activeRun.id
         } else {
-            // session 存在但 run 已结束 → 新 run
+            // session 存在但 run 已结束
+            // 检查请求的模块是否都已在 DB 中完成（COMPLETED + pointDeducted）
+            const completedAnalyses = await prisma.caseAnalyses.findMany({
+                where: { sessionId, status: 2, deletedAt: null },
+                select: { analysisType: true, pointDeducted: true },
+            })
+            const allRequestedDone = selectedModules.every(m =>
+                completedAnalyses.some(a => a.analysisType === m && a.pointDeducted),
+            )
+
+            if (allRequestedDone) {
+                // 请求的模块全部完成 → replay 快照（createSSEResponse 内部只发最后一条 values）
+                const lastRun = await prisma.agentRuns.findFirst({
+                    where: { sessionId, status: AGENT_RUN_STATUS.COMPLETED },
+                    orderBy: { createdAt: 'desc' },
+                })
+                if (lastRun) {
+                    return createSSEResponse(event, lastRun.id)
+                }
+            }
+
+            // 有未完成模块 → 创建新 run
             const result = await enqueueRunService({
                 sessionId,
                 threadId: sessionId,
@@ -203,18 +224,23 @@ function createSSEResponse(event: any, runId: string) {
             }, 15000)
 
             try {
-                // 补发缺失事件（重连场景）
+                // 补发缺失事件（只发最后一条 values 快照，避免逐条 replay 数千条事件导致前端卡顿）
                 const missed = await replayEvents(runId)
-                for (const evt of missed) {
-                    const sseData = evt.type === 'stream_event'
-                        ? `event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`
-                        : `event: status\ndata: ${JSON.stringify(evt)}\n\n`
-                    controller.enqueue(encoder.encode(sseData))
+                const lastValues = [...missed].reverse()
+                    .find(e => e.type === 'stream_event' && e.event === 'values')
+                if (lastValues?.type === 'stream_event') {
+                    controller.enqueue(encoder.encode(
+                        `event: ${lastValues.event}\ndata: ${JSON.stringify(lastValues.data)}\n\n`,
+                    ))
                 }
 
                 // 检查是否已结束
                 const lastMissed = missed.at(-1)
                 if (lastMissed?.type === 'status_change' && TERMINAL_STATUSES.includes(lastMissed.status)) {
+                    // 发送终结状态事件
+                    controller.enqueue(encoder.encode(
+                        `event: status\ndata: ${JSON.stringify(lastMissed)}\n\n`,
+                    ))
                     return
                 }
 
