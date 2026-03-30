@@ -37,6 +37,12 @@ export interface CreateAnalysisInput {
     status?: number
     /** 是否为激活版本 */
     isActive?: boolean
+    /** 积分是否已扣减 */
+    pointDeducted?: boolean
+    /** 消耗的千 token 数 */
+    tokenCount?: number | null
+    /** 实际 token 总数 */
+    tokens?: number | null
 }
 
 /** 更新分析结果输入 */
@@ -49,6 +55,12 @@ export interface UpdateAnalysisInput {
     status?: number
     /** 是否为激活版本 */
     isActive?: boolean
+    /** 积分是否已扣减 */
+    pointDeducted?: boolean
+    /** 消耗的千 token 数 */
+    tokenCount?: number | null
+    /** 实际 token 总数 */
+    tokens?: number | null
 }
 
 /** 分析结果列表查询参数 */
@@ -110,6 +122,9 @@ export const createAnalysisDao = async (
                 version: data.version ?? 1,
                 status: data.status ?? AnalysisStatus.IN_PROGRESS,
                 isActive: data.isActive ?? false,
+                pointDeducted: data.pointDeducted ?? false,
+                tokenCount: data.tokenCount ?? null,
+                tokens: data.tokens ?? null,
             },
         })
         return analysis
@@ -331,6 +346,25 @@ export const findAnalysisBySessionAndNodeDao = async (
 }
 
 /**
+ * 查询该 session+node 的最新分析记录（不限 status 和 isActive）
+ * 用于节点入口判断分析是否已完成、积分是否已扣减
+ */
+export const findLatestAnalysisBySessionAndNodeDao = async (
+    sessionId: string,
+    nodeId: number,
+): Promise<caseAnalyses | null> => {
+    try {
+        return await prisma.caseAnalyses.findFirst({
+            where: { sessionId, nodeId, deletedAt: null },
+            orderBy: { createdAt: 'desc' },
+        })
+    } catch (error) {
+        logger.error('查询最新会话节点分析结果失败：', error)
+        throw error
+    }
+}
+
+/**
  * 获取案件某个节点的下一个版本号
  * @param caseId 案件 ID
  * @param nodeId 节点 ID
@@ -376,6 +410,9 @@ export const updateAnalysisDao = async (
         if (data.originalResult !== undefined) updateData.originalResult = data.originalResult
         if (data.status !== undefined) updateData.status = data.status
         if (data.isActive !== undefined) updateData.isActive = data.isActive
+        if (data.pointDeducted !== undefined) updateData.pointDeducted = data.pointDeducted
+        if (data.tokenCount !== undefined) updateData.tokenCount = data.tokenCount
+        if (data.tokens !== undefined) updateData.tokens = data.tokens
 
         const analysis = await client.caseAnalyses.update({
             where: { id },

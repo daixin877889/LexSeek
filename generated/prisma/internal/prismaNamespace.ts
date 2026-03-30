@@ -4742,6 +4742,9 @@ export const CaseAnalysesScalarFieldEnum = {
   version: 'version',
   status: 'status',
   isActive: 'isActive',
+  pointDeducted: 'pointDeducted',
+  tokenCount: 'tokenCount',
+  tokens: 'tokens',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'

@@ -55,4 +55,6 @@ export interface InitAnalysisStatusResponse {
   }>
   /** 已完成模块的结果，用于页面刷新后恢复右侧面板结果 */
   result?: Record<string, string>
+  /** 是否有待处理的 interrupt（如积分扣减失败等待充值） */
+  hasPendingInterrupt?: boolean
 }

@@ -171,6 +171,12 @@ model caseAnalyses {
     status         Int       @default(1)
     /// 是否为激活版本（同一 caseId+nodeId 只有一条为 true）
     isActive       Boolean   @default(false) @map("is_active")
+    /// 积分是否已扣减
+    pointDeducted  Boolean   @default(false) @map("point_deducted")
+    /// 消耗的千 token 数（积分扣减单位）
+    tokenCount     Int?      @map("token_count")
+    /// 实际 token 总数
+    tokens         Int?
     /// 创建时间
     createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
     /// 最后更新时间
