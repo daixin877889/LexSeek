@@ -133,8 +133,8 @@ function handleSubmit(data: AiPromptSubmitData) {
           <div class="flex-1 min-h-0">
             <ClientOnly>
               <slot v-if="$slots['message-list']" name="message-list" :messages="parsedMessages" :loading="loading" />
-              <AiMessageList v-else :messages="parsedMessages" :loading="loading" :tool-map="toolMap" @tool-confirm="(d) => emit('tool-confirm', d)"
-                @tool-reject="(d) => emit('tool-reject', d)">
+              <AiMessageList v-else :messages="parsedMessages" :loading="loading" :tool-map="toolMap"
+                @tool-confirm="(d) => emit('tool-confirm', d)" @tool-reject="(d) => emit('tool-reject', d)">
                 <template #empty>
                   <slot name="empty" />
                 </template>
@@ -169,8 +169,8 @@ function handleSubmit(data: AiPromptSubmitData) {
         <div class="flex-1 min-h-0">
           <ClientOnly>
             <slot v-if="$slots['message-list']" name="message-list" :messages="parsedMessages" :loading="loading" />
-            <AiMessageList v-else :messages="parsedMessages" :loading="loading" :tool-map="toolMap" @tool-confirm="(d) => emit('tool-confirm', d)"
-              @tool-reject="(d) => emit('tool-reject', d)">
+            <AiMessageList v-else :messages="parsedMessages" :loading="loading" :tool-map="toolMap"
+              @tool-confirm="(d) => emit('tool-confirm', d)" @tool-reject="(d) => emit('tool-reject', d)">
               <template #empty>
                 <slot name="empty" />
               </template>

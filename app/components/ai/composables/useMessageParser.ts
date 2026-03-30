@@ -1,4 +1,4 @@
-import { AIMessage, HumanMessage, ToolMessage } from '@langchain/core/messages'
+import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages'
 import type { BaseMessage } from '@langchain/core/messages'
 
 // --- Types ---
@@ -30,13 +30,14 @@ export function coerceRawMessages(raw: any[]): BaseMessage[] {
   if (!raw?.length) return []
   return raw
     .map((m: any) => {
-      if (m instanceof HumanMessage || m instanceof AIMessage || m instanceof ToolMessage)
+      if (m instanceof HumanMessage || m instanceof AIMessage || m instanceof ToolMessage || m instanceof SystemMessage)
         return m
       // 兼容 stream.values 中以 {type:"tool", data:{...}} 嵌套格式存储的 tool message
       const inner = m.data ?? m
       const type = inner.type ?? inner._type
       if (type === 'human') return new HumanMessage(inner)
       if (type === 'ai') return new AIMessage(inner)
+      if (type === 'system') return new SystemMessage(inner)
       if (type === 'tool') {
         return new ToolMessage({
           content: inner.content,
@@ -136,7 +137,7 @@ export function useMessageParser(messages: MaybeRef<any[]>) {
     }
 
     return baseMessages
-      .filter((m) => !(m instanceof ToolMessage))
+      .filter((m) => !(m instanceof ToolMessage) && !(m instanceof SystemMessage))
       .map((m, idx) => {
         if (m instanceof HumanMessage) {
           return {
