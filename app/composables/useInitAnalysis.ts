@@ -231,7 +231,17 @@ export function useInitAnalysis(sessionId: Ref<string>) {
       moduleStates.value = restored
 
       if (status.status === 'in_progress') {
-        // 重连：需要传 caseId 和 selectedModules 以便后端正确路由到 session
+        // 有待处理的 interrupt（如积分扣减失败）→ 重连以获取 interrupt 数据
+        if (status.hasPendingInterrupt) {
+          stream.submit({
+            caseId: caseId.value,
+            selectedModules: selectedModules.value,
+          } as any)
+          return
+        }
+
+        // 始终重连 SSE（获取完整状态快照，包含 selectedModules 和 messages）
+        // 不提前设 phase='complete'，让 watch(values) 在 SSE 数据到达后统一判断
         stream.submit({
           caseId: caseId.value,
           selectedModules: selectedModules.value,

@@ -9,17 +9,17 @@
     @back="goBack"
   >
     <template #message-list="{ messages: parsedMessages, loading: msgLoading }">
-      <div class="h-full overflow-y-auto">
+      <div class="flex flex-col h-full">
         <!-- 固定状态栏 -->
         <InitAnalysisPipelineProgress
           v-if="phase !== 'select'"
           :modules="activeModules"
           :module-states="moduleStates"
-          class="sticky top-0 z-10 bg-background border-b"
+          class="shrink-0 bg-background border-b"
         />
 
         <!-- 阶段一：模块选择 -->
-        <div v-if="phase === 'select'" class="p-4">
+        <div v-if="phase === 'select'" class="flex-1 overflow-y-auto p-4">
           <InitAnalysisModuleSelector
             v-model="selectedModules"
             @start="startAnalysis"
@@ -27,29 +27,19 @@
           />
         </div>
 
-        <!-- 阶段二/三 -->
+        <!-- 阶段二/三：消息列表（StickToBottom 管理滚动） -->
         <template v-else>
-          <!-- 积分不足中断卡片 -->
-          <InitAnalysisInsufficientPointsCard
-            v-if="interruptData"
-            class="mx-4 mt-4"
-            :is-member="interruptData.data?.isMember ?? false"
-            :available-points="interruptData.data?.availablePoints"
-            :required-points="interruptData.data?.requiredPoints"
-            :reason="interruptData.data?.reason"
-            @resume="resumeWorkflow"
-          />
-
-          <!-- 消息列表 -->
-          <AiMessageList :messages="parsedMessages" :loading="msgLoading" />
-
-          <!-- 完成后操作 -->
-          <div v-if="phase === 'complete'" class="flex justify-center py-8">
-            <Button size="lg" @click="navigateTo(`/dashboard/cases/${caseId}`)">
-              进入案件详情
-            </Button>
+          <div class="flex-1 min-h-0">
+            <AiMessageList :messages="parsedMessages" :loading="msgLoading" />
           </div>
         </template>
+
+        <!-- 完成后操作（固定在底部，不在滚动区域内） -->
+        <div v-if="phase === 'complete'" class="shrink-0 flex justify-center py-4 bg-background/95 border-t">
+          <Button size="lg" @click="navigateTo(`/dashboard/cases/${caseId}`)">
+            进入案件详情
+          </Button>
+        </div>
       </div>
     </template>
 
@@ -70,6 +60,24 @@
       </div>
     </template>
   </AiChat>
+
+  <!-- 积分不足覆盖层 -->
+  <Dialog :open="!!interruptData" @update:open="() => {}">
+    <DialogContent class="sm:max-w-2xl" :show-close="false" @pointer-down-outside.prevent @escape-key-down.prevent @open-auto-focus.prevent>
+      <DialogHeader class="sr-only">
+        <DialogTitle>积分不足</DialogTitle>
+        <DialogDescription>请购买积分后继续分析</DialogDescription>
+      </DialogHeader>
+      <InitAnalysisInsufficientPointsCard
+        v-if="interruptData"
+        :is-member="interruptData.data?.isMember ?? false"
+        :available-points="interruptData.data?.availablePoints"
+        :required-points="interruptData.data?.requiredPoints"
+        :reason="interruptData.data?.reason"
+        @resume="resumeWorkflow"
+      />
+    </DialogContent>
+  </Dialog>
 </template>
 
 <script lang="ts" setup>
