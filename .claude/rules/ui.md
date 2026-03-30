@@ -45,10 +45,10 @@ import type { UserInfo } from "#shared/types/user";
 
 ## 组件使用
 
-组件按文件路径驼峰命名使用：
+组件按文件路径驼峰命名使用(shadcn-vue 组件除外)：
 ```vue
 <template>
-  <UiButton>按钮</UiButton>
+  <Button>按钮</Button>
   <DiskSpaceFileList />
 </template>
 ```
