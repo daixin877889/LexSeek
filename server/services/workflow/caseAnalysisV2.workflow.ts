@@ -278,7 +278,7 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                     }
 
                     // 防线3：trimMessages 兜底
-                    messagesToSend = await safetyTrimMessages(messagesToSend, contextBudget, model)
+                    messagesToSend = await safetyTrimMessages(messagesToSend, contextBudget)
 
                     const response = await modelWithTools.invoke(messagesToSend)
                     return { messages: [response] }  // state 保留完整历史

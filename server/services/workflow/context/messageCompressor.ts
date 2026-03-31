@@ -107,23 +107,29 @@ export async function compressMessages(
  * trimMessages 安全网
  *
  * 确保消息列表不超过模型上下文预算
- * 使用模型 tokenizer 精确计数
+ * 使用字符估算的 token 计数函数（ChatAnthropic 不兼容 js-tiktoken）
  */
 export async function safetyTrimMessages(
     messages: BaseMessage[],
     budget: number,
-    model: any,
 ): Promise<BaseMessage[]> {
+    // 先粗判是否需要裁剪
+    const estimate = estimateMessagesTokens(messages)
+    if (estimate <= budget) return messages
+
+    // 使用自定义 token 计数器（避免 js-tiktoken 的 Unknown model 警告）
     try {
-        return trimMessages(messages, {
+        return await trimMessages(messages, {
             strategy: 'last',
             maxTokens: budget,
             startOn: 'human',
             endOn: ['human', 'tool'],
-            tokenCounter: model,
+            tokenCounter: (msgs) => msgs.reduce((sum, m) => {
+                const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
+                return sum + estimateTokens(content) + 10
+            }, 0),
         })
     } catch (error) {
-        // trimMessages 失败（如模型不支持 tokenCounter），回退到字符估算裁剪
         logger.warn('trimMessages 失败，使用字符估算裁剪', { error })
         return trimByEstimation(messages, budget)
     }
