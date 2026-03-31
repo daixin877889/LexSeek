@@ -7,6 +7,10 @@
       <h3 class="text-base font-semibold">{{ isMember ? '积分不足，分析已暂停' : '请先开通会员' }}</h3>
     </div>
 
+    <div v-if="isMember" class="text-sm text-muted-foreground">
+      <span>当前可用积分：<strong class="text-foreground">{{ availablePoints ?? 0 }}</strong></span>
+    </div>
+
     <p class="text-sm text-muted-foreground">{{ scenarioMessage }}</p>
 
     <!-- 加载中 -->
@@ -17,7 +21,7 @@
 
     <!-- 无会员：展示会员套餐 -->
     <template v-else-if="!isMember">
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <div
           v-for="plan in membershipPlans"
           :key="plan.id"
@@ -37,10 +41,7 @@
 
     <!-- 有会员无积分：展示积分套餐 -->
     <template v-else>
-      <div class="flex gap-4 text-sm text-muted-foreground mb-2">
-        <span>当前可用积分：<strong class="text-foreground">{{ availablePoints ?? 0 }}</strong></span>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <div
           v-for="product in pointProducts"
           :key="product.id"

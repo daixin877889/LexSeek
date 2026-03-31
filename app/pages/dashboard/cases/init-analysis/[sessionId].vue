@@ -63,7 +63,7 @@
 
   <!-- 积分不足覆盖层 -->
   <Dialog :open="!!interruptData" @update:open="() => {}">
-    <DialogContent class="sm:max-w-2xl" :show-close="false" @pointer-down-outside.prevent @escape-key-down.prevent @open-auto-focus.prevent>
+    <DialogContent class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0" :show-close-button="false" @pointer-down-outside.prevent @escape-key-down.prevent @open-auto-focus.prevent>
       <DialogHeader class="sr-only">
         <DialogTitle>积分不足</DialogTitle>
         <DialogDescription>请购买积分后继续分析</DialogDescription>
