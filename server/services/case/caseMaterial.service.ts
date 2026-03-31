@@ -12,6 +12,20 @@ import { batchAddCaseMaterialsDAO, createSingleCaseMaterialDAO } from './caseMat
 import { createTextContentRecordDAO } from '../material/textContentRecords.dao'
 
 /**
+ * 根据 MIME 类型检测材料类型（服务端防御层）
+ *
+ * 当前端传来的 type 可能不正确时，根据 ossFile.fileType 纠正
+ * 如果 MIME 类型为空或无法识别，使用前端传来的值作为 fallback
+ */
+function detectMaterialTypeFromMime(mimeType: string | null, fallbackType: CaseMaterialType): CaseMaterialType {
+    if (!mimeType) return fallbackType
+    const mime = mimeType.toLowerCase()
+    if (mime.startsWith('image/')) return CaseMaterialType.IMAGE
+    if (mime.startsWith('audio/')) return CaseMaterialType.AUDIO
+    return fallbackType
+}
+
+/**
  * 批量添加案件材料
  *
  * 职责：
@@ -72,9 +86,12 @@ export const batchAddCaseMaterialsService = async (
             if (!ossFile) throw new Error('OSS 文件不存在')
             if (ossFile.userId !== userId) throw new Error('无权使用该文件，请检查文件权限')
 
+            // 根据 ossFile.fileType（MIME 类型）纠正材料类型（防御前端传错 type）
+            const correctedType = detectMaterialTypeFromMime(ossFile.fileType, material.type)
+
             fileMaterialDataList.push({
                 name: material.name || ossFile.fileName,
-                type: material.type,
+                type: correctedType,
                 ossFileId: material.ossFileId,
                 isEncrypted: ossFile.encrypted || false,
                 status: 1,

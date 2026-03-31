@@ -67,6 +67,7 @@ import type { OssFileItem } from '~/store/file'
 import { CaseMaterialType } from '#shared/types/case'
 import type { CaseTypeOption, ExtraField } from '#shared/types/case'
 import type { ExtractedFormData, CreateCaseParams } from '~/composables/useCaseCreation'
+import { getMaterialType } from '~/utils/caseMaterial'
 
 type InitialData = ExtractedFormData & {
   initialFiles?: OssFileItem[]
@@ -144,7 +145,7 @@ function handleSubmit() {
     content: form.content.trim() || undefined,
     materials: form.materials.length > 0
       ? form.materials.map(f => ({
-        type: CaseMaterialType.DOCUMENT,
+        type: getMaterialType(f.fileType),
         name: f.fileName,
         ossFileId: f.id,
       }))
