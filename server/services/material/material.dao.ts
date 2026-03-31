@@ -193,3 +193,74 @@ export const deleteMaterialDao = async (
     }
 }
 
+// ==================== 识别表查询（用于判断材料真实状态） ====================
+
+/** 文档识别记录查询结果 */
+interface DocRecordResult {
+    ossFileId: number
+    status: number
+}
+
+/** 图片识别记录查询结果 */
+interface ImageRecordResult {
+    ossFileId: number
+    status: number
+}
+
+/** ASR 记录查询结果 */
+interface AsrRecordResult {
+    ossFileId: number
+    status: number
+}
+
+/** 文本内容记录查询结果 */
+interface TextRecordResult {
+    materialId: number | null
+    content: string | null
+}
+
+/**
+ * 批量查询识别表记录（并行）
+ */
+export const findRecognitionRecordsByOssFileIdsDao = async (
+    ossFileIds: number[],
+    materialIds: number[]
+): Promise<{
+    docRecords: DocRecordResult[]
+    imageRecords: ImageRecordResult[]
+    asrRecords: AsrRecordResult[]
+    textRecords: TextRecordResult[]
+}> => {
+    if (ossFileIds.length === 0 && materialIds.length === 0) {
+        return { docRecords: [], imageRecords: [], asrRecords: [], textRecords: [] }
+    }
+
+    const [docRecords, imageRecords, asrRecords, textRecords] = await Promise.all([
+        ossFileIds.length > 0
+            ? prisma.docRecognitionRecords.findMany({
+                where: { ossFileId: { in: ossFileIds }, deletedAt: null },
+                select: { ossFileId: true, status: true },
+            })
+            : Promise.resolve([]),
+        ossFileIds.length > 0
+            ? prisma.imageRecognitionRecords.findMany({
+                where: { ossFileId: { in: ossFileIds }, deletedAt: null },
+                select: { ossFileId: true, status: true },
+            })
+            : Promise.resolve([]),
+        ossFileIds.length > 0
+            ? prisma.asrRecords.findMany({
+                where: { ossFileId: { in: ossFileIds }, deletedAt: null },
+                select: { ossFileId: true, status: true },
+            })
+            : Promise.resolve([]),
+        materialIds.length > 0
+            ? prisma.textContentRecords.findMany({
+                where: { materialId: { in: materialIds }, deletedAt: null },
+                select: { materialId: true, content: true },
+            })
+            : Promise.resolve([]),
+    ])
+
+    return { docRecords, imageRecords, asrRecords, textRecords }
+}

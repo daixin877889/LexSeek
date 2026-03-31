@@ -1,6 +1,7 @@
 <template>
   <AiChat
-    title="初始化分析"
+    :title="headerTitle"
+    v-model:panel-mode="panelMode"
     :messages="streamMessages"
     :loading="isLoading"
     :show-prompt="false"
@@ -48,6 +49,14 @@
         <!-- 案件信息卡片 -->
         <InitAnalysisCaseInfoCard v-if="caseId > 0" :case-id="caseId" />
 
+        <!-- 案件材料列表 -->
+        <InitAnalysisMaterialList
+          v-if="caseId > 0"
+          ref="materialListRef"
+          :case-id="caseId"
+          @preview="openMaterialPreview"
+        />
+
         <!-- 分析结果（从 mergedResult 实时获取，合并 DB 和流式结果） -->
         <div v-if="completedResults.length > 0" class="p-4 space-y-3">
           <h3 class="text-sm font-medium text-muted-foreground">分析结果</h3>
@@ -78,10 +87,50 @@
       />
     </DialogContent>
   </Dialog>
+
+  <!-- 文档/图片预览 -->
+  <CaseAnalysisDocPreviewDialog
+    v-if="previewMaterial?.type === 2 || previewMaterial?.type === 3"
+    v-model:open="showPreview"
+    :oss-file-id="previewMaterial!.ossFileId!"
+    :file-name="previewMaterial!.name"
+    :file-type="previewMaterial!.fileType || 'document'"
+  />
+
+  <!-- 音频预览 -->
+  <CaseAnalysisAudioPreviewDialog
+    v-if="previewMaterial?.type === 4"
+    v-model:open="showPreview"
+    :oss-file-id="previewMaterial!.ossFileId!"
+    :file-name="previewMaterial!.name"
+  />
+
+  <!-- 文本内容预览 -->
+  <Dialog v-model:open="showTextPreview">
+    <DialogContent class="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle class="flex items-center gap-2">
+          <FileTextIcon class="size-5 text-blue-500" />
+          {{ previewMaterial?.name }}
+        </DialogTitle>
+      </DialogHeader>
+      <div v-if="textLoading" class="flex justify-center py-8">
+        <Loader2Icon class="size-6 animate-spin text-muted-foreground" />
+      </div>
+      <div v-else-if="textContent" class="text-sm leading-relaxed whitespace-pre-wrap">
+        {{ textContent }}
+      </div>
+      <div v-else class="text-sm text-muted-foreground text-center py-8">
+        暂无文本内容
+      </div>
+    </DialogContent>
+  </Dialog>
 </template>
 
 <script lang="ts" setup>
 import type { AnalysisResult } from '#shared/types/case'
+import { CaseMaterialType } from '#shared/types/case'
+import { FileTextIcon, Loader2Icon } from 'lucide-vue-next'
 
 definePageMeta({
   title: "初始化分析",
@@ -91,6 +140,51 @@ definePageMeta({
 const route = useRoute()
 const router = useRouter()
 const sessionId = computed(() => route.params.sessionId as string)
+
+// 材料预览状态
+interface MaterialItem {
+  id: number
+  name: string
+  type: number
+  typeText: string
+  ossFileId: number | null
+  isEncrypted: boolean
+  status: number
+  summary: string | null
+  fileName: string | null
+  fileSize: number | null
+  fileType: string | null
+}
+
+const materialListRef = ref()
+const previewMaterial = ref<MaterialItem | null>(null)
+const showPreview = ref(false)
+const showTextPreview = ref(false)
+const textContent = ref<string | null>(null)
+const textLoading = ref(false)
+
+async function openMaterialPreview(material: MaterialItem) {
+  previewMaterial.value = material
+  if (material.type === CaseMaterialType.CASE_CONTENT) {
+    showTextPreview.value = true
+    textLoading.value = true
+    textContent.value = null
+    try {
+      const data = await useApiFetch<{ content: string | null }>(
+        `/api/v1/material/content/${material.id}`,
+        { query: { detail: false } }
+      )
+      textContent.value = data?.content ?? null
+    } finally {
+      textLoading.value = false
+    }
+  } else {
+    showPreview.value = true
+  }
+}
+
+// 面板布局模式：选择阶段只显示左侧
+const panelMode = ref<'left' | 'right' | 'both'>('left')
 
 const {
   phase,
@@ -109,6 +203,28 @@ const {
   retryModule,
   activeIndex,
 } = useInitAnalysis(sessionId)
+
+// 案件标题
+const caseTitle = ref('')
+
+// 加载案件标题
+watch(caseId, async (id) => {
+  if (id <= 0) return
+  const data = await useApiFetch<{ title: string }>(`/api/v1/case/${id}`)
+  if (data?.title) caseTitle.value = data.title
+}, { immediate: true })
+
+// 标题栏显示
+const headerTitle = computed(() =>
+  caseTitle.value ? `${caseTitle.value}` : '初始化分析',
+)
+
+// 分析开始（phase 离开 select）时自动展开右侧面板
+watch(phase, (val) => {
+  if (val !== 'select' && panelMode.value === 'left') {
+    panelMode.value = 'both'
+  }
+})
 
 // 从 mergedResult 转换为 AnalysisResult[] 供右侧面板显示
 // mergedResult 合并了 DB 结果（刷新恢复）和流式结果

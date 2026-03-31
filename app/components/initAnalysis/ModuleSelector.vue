@@ -5,12 +5,12 @@
       <p class="mt-2 text-muted-foreground">选择需要执行的分析模块，AI 将按顺序逐一分析</p>
     </div>
 
-    <!-- 模块网格 -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl w-full">
+    <!-- 模块网格：使用 auto-fill 确保在窄容器下也能正确换行 -->
+    <div class="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4 w-full px-4">
       <button
         v-for="mod in INIT_ANALYSIS_MODULES"
         :key="mod.name"
-        class="group relative flex flex-col items-start gap-3 rounded-xl border-2 p-5 text-left transition-all hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        class="group relative flex items-center gap-4 rounded-xl border-2 p-5 text-left transition-all hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[80px]"
         :class="isSelected(mod.name) ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'"
         @click="toggle(mod.name)"
       >
@@ -23,14 +23,14 @@
         </div>
 
         <!-- 图标 -->
-        <div class="rounded-lg bg-muted p-2.5">
+        <div class="shrink-0 rounded-lg bg-muted p-2">
           <component :is="getModuleIcon(mod.icon)" class="size-5 text-muted-foreground" />
         </div>
 
-        <!-- 文字 -->
-        <div>
-          <h3 class="text-sm font-semibold">{{ mod.title }}</h3>
-          <p class="mt-1 text-xs text-muted-foreground leading-relaxed">{{ mod.description }}</p>
+        <!-- 文字内容：标题与说明对齐 -->
+        <div class="flex flex-col gap-1 pr-6 min-w-0">
+          <h3 class="text-sm font-semibold truncate">{{ mod.title }}</h3>
+          <p class="text-xs text-muted-foreground leading-relaxed truncate">{{ mod.description }}</p>
         </div>
       </button>
     </div>

@@ -18,6 +18,7 @@ import {
 import {
     findTextContentRecordByMaterialIdDAO,
 } from './textContentRecords.dao'
+import { findRecognitionRecordsByOssFileIdsDao } from './material.dao'
 import type { CreateMaterialInput, UpdateMaterialInput, MaterialQueryOptions } from '#shared/types/material'
 import { MaterialStatus } from '#shared/types/material'
 import { CaseMaterialType } from '#shared/types/case'
@@ -179,6 +180,87 @@ export const getMaterialsByCaseIdService = async (
             filePath: fileInfo?.filePath,
         }
     })
+}
+
+/** 带真实状态的材料项 */
+export interface MaterialWithRealStatus extends MaterialWithFile {
+    /** 真实状态：1=待处理, 2=处理中, 3=已完成, 4=失败 */
+    realStatus: number
+}
+
+/**
+ * 获取案件的所有材料（带真实状态）
+ * 状态通过关联的识别表判断，不依赖 case_materials.status
+ */
+export const getMaterialsByCaseIdWithStatusService = async (
+    caseId: number
+): Promise<MaterialWithRealStatus[]> => {
+    const materials = await getMaterialsByCaseIdService(caseId)
+
+    if (materials.length === 0) {
+        return []
+    }
+
+    // 收集需要查询的 ossFileId 和 materialId
+    const ossFileIds = materials
+        .filter(m => m.ossFileId !== null)
+        .map(m => m.ossFileId as number)
+
+    const materialIds = materials
+        .filter(m => m.type === CaseMaterialType.CASE_CONTENT)
+        .map(m => m.id)
+
+    // 并行查询各识别表
+    const { docRecords, imageRecords, asrRecords, textRecords } = await findRecognitionRecordsByOssFileIdsDao(ossFileIds, materialIds)
+
+    const docMap = new Map(docRecords.map(r => [r.ossFileId, r.status]))
+    const imageMap = new Map(imageRecords.map(r => [r.ossFileId, r.status]))
+    const asrMap = new Map(asrRecords.map(r => [r.ossFileId, r.status]))
+    const textMap = new Map(textRecords.filter(r => r.materialId !== null).map(r => [r.materialId as number, !!r.content]))
+
+    // 根据识别表判断真实状态
+    function getRealStatus(material: MaterialWithFile): number {
+        switch (material.type) {
+            case CaseMaterialType.CASE_CONTENT: {
+                const hasContent = textMap.get(material.id)
+                return hasContent ? 3 : 1
+            }
+            case CaseMaterialType.DOCUMENT: {
+                if (!material.ossFileId) return 1
+                const status = docMap.get(material.ossFileId)
+                if (status === undefined) return 1
+                if (status === 2) return 3  // SUCCESS
+                if (status === 1) return 2  // PROCESSING
+                if (status === 3) return 4  // FAILED
+                return 1
+            }
+            case CaseMaterialType.IMAGE: {
+                if (!material.ossFileId) return 1
+                const status = imageMap.get(material.ossFileId)
+                if (status === undefined) return 1
+                if (status === 2) return 3  // COMPLETED
+                if (status === 1) return 2  // PROCESSING
+                if (status === 3) return 4  // FAILED
+                return 1
+            }
+            case CaseMaterialType.AUDIO: {
+                if (!material.ossFileId) return 1
+                const status = asrMap.get(material.ossFileId)
+                if (status === undefined) return 1
+                if (status === 2) return 3  // SUCCESS
+                if (status === 1) return 2  // PROCESSING
+                if (status === 3) return 4  // FAILED
+                return 1
+            }
+            default:
+                return 1
+        }
+    }
+
+    return materials.map(material => ({
+        ...material,
+        realStatus: getRealStatus(material),
+    }))
 }
 
 /**
