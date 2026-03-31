@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { MaterialItem } from '~/composables/useCaseDetail'
+import { useMediaQuery } from '@vueuse/core'
 import { CaseMaterialType } from '#shared/types/case'
 import { formatByteSize } from '#shared/utils/unitConverision'
 import { ArrowLeftIcon } from 'lucide-vue-next'

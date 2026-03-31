@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { BotIcon, XIcon, SendIcon } from 'lucide-vue-next'
+import { useMediaQuery } from '@vueuse/core'
 
 const isOpen = defineModel<boolean>({ default: false })
 

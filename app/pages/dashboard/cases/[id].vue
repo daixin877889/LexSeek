@@ -3,7 +3,7 @@ import type { ActiveView } from '~/composables/useCaseDetail'
 import { ArrowLeftIcon, BotIcon } from 'lucide-vue-next'
 
 definePageMeta({
-  layout: 'dashboard',
+  layout: 'dashboard-layout',
 })
 
 const route = useRoute()
