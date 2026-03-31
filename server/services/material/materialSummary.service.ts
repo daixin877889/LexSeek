@@ -58,27 +58,33 @@ export async function generateAndCacheSummaries(
         return summaryMap
     }
 
-    // 并行生成摘要
-    const tasks = materials.map(async (m) => {
-        const content = contentMap.get(m.id)
-        if (!content) return
+    // 并行生成摘要（限制并发数避免 API rate limit）
+    const CONCURRENCY_LIMIT = 5
+    for (let i = 0; i < materials.length; i += CONCURRENCY_LIMIT) {
+        const batch = materials.slice(i, i + CONCURRENCY_LIMIT)
+        const tasks = batch.map(async (m) => {
+            const content = contentMap.get(m.id)
+            if (!content) return
 
-        try {
-            const summary = await generateSingleSummary(model, systemPrompt, m.name, content)
-            if (summary) {
-                summaryMap.set(m.id, summary)
-                // 缓存到 DB
-                await prisma.caseMaterials.update({
-                    where: { id: m.id },
-                    data: { summary },
-                })
+            try {
+                const summary = await generateSingleSummary(model, systemPrompt, m.name, content)
+                if (summary) {
+                    summaryMap.set(m.id, summary)
+                }
+            } catch (error) {
+                logger.warn('材料摘要生成失败', { materialId: m.id, name: m.name, error })
             }
-        } catch (error) {
-            logger.warn('材料摘要生成失败', { materialId: m.id, name: m.name, error })
-        }
-    })
+        })
+        await Promise.all(tasks)
+    }
 
-    await Promise.all(tasks)
+    // 批量写入 DB（事务）
+    if (summaryMap.size > 0) {
+        const updates = [...summaryMap.entries()].map(([id, summary]) =>
+            prisma.caseMaterials.update({ where: { id }, data: { summary } }),
+        )
+        await prisma.$transaction(updates)
+    }
 
     logger.info('材料摘要生成完成', {
         total: materials.length,

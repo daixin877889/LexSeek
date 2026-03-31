@@ -23,16 +23,19 @@ const COMPRESS_RATIO = 0.6
 /** 保留最近 N 轮消息不压缩（1 轮 = AI + tool_call + tool_response） */
 const KEEP_RECENT_ROUNDS = 3
 
+/** 估算单条消息的 token 数 */
+function estimateMessageTokens(msg: BaseMessage): number {
+    const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
+    return estimateTokens(content) + 10 // +10 for message overhead
+}
+
 /**
  * 估算消息列表的总 token 数
  *
  * 用于粗判是否需要压缩（快速，基于字符估算）
  */
 export function estimateMessagesTokens(messages: BaseMessage[]): number {
-    return messages.reduce((sum, m) => {
-        const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
-        return sum + estimateTokens(content) + 10 // +10 for message overhead
-    }, 0)
+    return messages.reduce((sum, m) => sum + estimateMessageTokens(m), 0)
 }
 
 /**
@@ -112,9 +115,10 @@ export async function compressMessages(
 export async function safetyTrimMessages(
     messages: BaseMessage[],
     budget: number,
+    preEstimate?: number,
 ): Promise<BaseMessage[]> {
-    // 先粗判是否需要裁剪
-    const estimate = estimateMessagesTokens(messages)
+    // 使用预计算值或重新估算
+    const estimate = preEstimate ?? estimateMessagesTokens(messages)
     if (estimate <= budget) return messages
 
     // 使用自定义 token 计数器（避免 js-tiktoken 的 Unknown model 警告）
@@ -124,10 +128,7 @@ export async function safetyTrimMessages(
             maxTokens: budget,
             startOn: 'human',
             endOn: ['human', 'tool'],
-            tokenCounter: (msgs) => msgs.reduce((sum, m) => {
-                const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
-                return sum + estimateTokens(content) + 10
-            }, 0),
+            tokenCounter: (msgs) => msgs.reduce((sum, m) => sum + estimateMessageTokens(m), 0),
         })
     } catch (error) {
         logger.warn('trimMessages 失败，使用字符估算裁剪', { error })
@@ -139,47 +140,54 @@ export async function safetyTrimMessages(
 function trimByEstimation(messages: BaseMessage[], budget: number): BaseMessage[] {
     if (messages.length === 0) return messages
 
-    // 始终保留 system message（第一条）
     const systemMsg = messages[0]
     if (!systemMsg) return messages
-    const systemContent = typeof systemMsg.content === 'string' ? systemMsg.content : JSON.stringify(systemMsg.content)
-    let totalTokens = estimateTokens(systemContent) + 10
+    let totalTokens = estimateMessageTokens(systemMsg)
     const result: BaseMessage[] = [systemMsg]
 
-    // 从后往前保留其余消息，确保最近的消息优先
+    // 从后往前保留其余消息（push + reverse 避免 unshift 的 O(n²)）
     const rest: BaseMessage[] = []
     for (let i = messages.length - 1; i >= 1; i--) {
         const msg = messages[i]
         if (!msg) continue
-        const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
-        const tokens = estimateTokens(content) + 10
+        const tokens = estimateMessageTokens(msg)
         if (totalTokens + tokens > budget && rest.length > 0) break
-        rest.unshift(msg)
+        rest.push(msg)
         totalTokens += tokens
     }
+    rest.reverse()
 
     return [...result, ...rest]
 }
 
-/** 构建摘要提示词 */
+/** 构建摘要提示词（总长度限制 30K 字符，避免超出摘要模型上下文） */
 function buildSummaryPrompt(messages: BaseMessage[]): string {
+    const MAX_PROMPT_CHARS = 30000
     const lines: string[] = ['请将以下对话内容压缩为结构化摘要：\n']
+    let totalChars = 0
 
     for (const msg of messages) {
         const type = msg.getType?.() ?? 'unknown'
         const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
 
+        let line: string
         if (type === 'ai' && isAIMessage(msg) && msg.tool_calls?.length) {
-            lines.push(`[AI 调用工具] ${msg.tool_calls.map(tc => tc.name).join(', ')}`)
+            line = `[AI 调用工具] ${msg.tool_calls.map(tc => tc.name).join(', ')}`
         } else if (type === 'tool') {
-            // 截断过长的工具返回
             const truncated = content.length > 2000 ? content.slice(0, 2000) + '...(截断)' : content
-            lines.push(`[工具返回] ${truncated}`)
+            line = `[工具返回] ${truncated}`
         } else if (type === 'ai') {
-            lines.push(`[AI 回复] ${content.slice(0, 500)}${content.length > 500 ? '...' : ''}`)
+            line = `[AI 回复] ${content.slice(0, 500)}${content.length > 500 ? '...' : ''}`
         } else {
-            lines.push(`[${type}] ${content.slice(0, 300)}${content.length > 300 ? '...' : ''}`)
+            line = `[${type}] ${content.slice(0, 300)}${content.length > 300 ? '...' : ''}`
         }
+
+        if (totalChars + line.length > MAX_PROMPT_CHARS) {
+            lines.push('...(后续消息已省略)')
+            break
+        }
+        lines.push(line)
+        totalChars += line.length
     }
 
     lines.push('\n请输出结构化摘要，格式：\n[工具调用摘要] 查询了XXX，发现：（1）...（2）...')

@@ -148,21 +148,33 @@ export function estimateTokens(text: string): number {
 /**
  * 从 ASR result JSON 中提取纯文本（当 summary 为空时的 fallback）
  *
- * result 格式为 SimplifiedAsrResult: { sentences: [{ text, begin_time, end_time, speaker_id }] }
+ * 兼容两种格式：
+ * - 扁平格式: { sentences: [{ text }] }
+ * - SimplifiedAsrResult 嵌套格式: { transcripts: [{ sentences: [{ text }] }] }
  */
 function extractTextFromAsrResult(result: any): string | null {
     if (!result) return null
 
-    // SimplifiedAsrResult 格式
+    // 扁平格式: { sentences: [...] }
     if (result.sentences && Array.isArray(result.sentences)) {
         const text = result.sentences
             .map((s: any) => s.text || '')
             .filter(Boolean)
             .join('\n')
-        return text || null
+        if (text) return text
     }
 
-    // 兜底：尝试直接取 text 字段
+    // SimplifiedAsrResult 嵌套格式: { transcripts: [{ sentences: [...] }] }
+    if (result.transcripts && Array.isArray(result.transcripts)) {
+        const text = result.transcripts
+            .flatMap((t: any) => t.sentences || [])
+            .map((s: any) => s.text || '')
+            .filter(Boolean)
+            .join('\n')
+        if (text) return text
+    }
+
+    // 兜底：直接取 text 字段
     if (typeof result.text === 'string' && result.text.trim()) {
         return result.text
     }

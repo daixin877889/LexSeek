@@ -14,32 +14,7 @@
 
 ---
 
-## 前置条件
-
-在开始实施前，需要更新 DB 中分析节点关联模型的 `context_window` 值。
-
-- [ ] **Step 1: 编写 SQL 更新 context_window**
-
-在 `prisma/seeds/` 下或直接执行 SQL 更新所有分析节点关联模型的 `context_window` 字段：
-
-```sql
--- 根据模型名称批量设置 context_window
-UPDATE models SET context_window = 200000 WHERE name LIKE 'claude-%';
-UPDATE models SET context_window = 128000 WHERE name LIKE 'gpt-4o%';
-UPDATE models SET context_window = 64000 WHERE name LIKE 'deepseek%';
--- 其他未匹配的模型设置保守默认值
-UPDATE models SET context_window = 100000 WHERE context_window IS NULL;
-```
-
-- [ ] **Step 2: 执行 SQL 并验证**
-
-Run: `bun run prisma:studio` 打开数据库管理界面，验证 models 表的 context_window 字段已正确设置。
-
-- [ ] **Step 3: 提交**
-
-```bash
-git add -A && git commit -m "chore(db): 设置分析模型的 context_window 值"
-```
+**注意**：DB 中模型的 `context_window` 值由用户自行维护，不在本计划范围内。
 
 ---
 

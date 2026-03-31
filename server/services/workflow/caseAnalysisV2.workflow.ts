@@ -277,8 +277,9 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                         messagesToSend = await compressMessages(innerState.messages, contextBudget, model)
                     }
 
-                    // 防线3：trimMessages 兜底
-                    messagesToSend = await safetyTrimMessages(messagesToSend, contextBudget)
+                    // 防线3：trimMessages 兜底（传入预计算的估算值避免重复遍历）
+                    const trimEstimate = messagesToSend === innerState.messages ? roughEstimate : undefined
+                    messagesToSend = await safetyTrimMessages(messagesToSend, contextBudget, trimEstimate)
 
                     const response = await modelWithTools.invoke(messagesToSend)
                     return { messages: [response] }  // state 保留完整历史

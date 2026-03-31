@@ -50,6 +50,19 @@ export const CaseMaterialTypeText: Record<CaseMaterialType, string> = {
 }
 
 /**
+ * 根据 MIME 类型判断材料类型
+ *
+ * 前后端共用，确保类型映射规则一致
+ */
+export function getMaterialTypeFromMime(mimeType: string | null | undefined): CaseMaterialType {
+    if (!mimeType) return CaseMaterialType.DOCUMENT
+    const lower = mimeType.toLowerCase()
+    if (lower.startsWith('image/') || lower.includes('image')) return CaseMaterialType.IMAGE
+    if (lower.startsWith('audio/') || lower.includes('audio')) return CaseMaterialType.AUDIO
+    return CaseMaterialType.DOCUMENT
+}
+
+/**
  * 案件材料参数接口
  * 用于创建案件时提交材料信息
  */

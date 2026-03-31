@@ -28,22 +28,19 @@ interface ModuleContextParams {
  */
 export async function buildModuleContext(params: ModuleContextParams): Promise<string> {
     const { caseId, agentName } = params
+
+    // 4 个 section 无数据依赖，并行加载
+    const [caseInfoSection, materialSection, resultsSection, memorySection] = await Promise.all([
+        buildCaseInfoSection(caseId),
+        buildMaterialSection(caseId),
+        buildCompletedResultsSection(caseId, agentName),
+        buildMemorySection(caseId),
+    ])
+
     const sections: string[] = []
-
-    // 1. 案件基本信息
-    const caseInfoSection = await buildCaseInfoSection(caseId)
     if (caseInfoSection) sections.push(caseInfoSection)
-
-    // 2. 案件材料上下文
-    const materialSection = await buildMaterialSection(caseId)
     if (materialSection) sections.push(materialSection)
-
-    // 3. 已完成的分析结果（排除当前模块）
-    const resultsSection = await buildCompletedResultsSection(caseId, agentName)
     if (resultsSection) sections.push(resultsSection)
-
-    // 4. 案件长期记忆
-    const memorySection = await buildMemorySection(caseId)
     if (memorySection) sections.push(memorySection)
 
     return sections.join('\n\n')
