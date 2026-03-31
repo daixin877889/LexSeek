@@ -60,6 +60,10 @@ function navigateToMaterial(materialId: number) {
           :materials="materials ?? []"
           v-model:selected-id="selectedMaterialId"
         />
+        <CaseDetailAnalysis
+          v-else-if="activeView === 'analysis'"
+          :results="analysisResults"
+        />
         <!-- 其他视图占位 -->
         <div v-else class="flex items-center justify-center h-full text-muted-foreground">
           当前视图：{{ activeView }}
