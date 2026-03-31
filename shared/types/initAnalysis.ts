@@ -48,9 +48,11 @@ export type InitAnalysisEventType =
 export interface InitAnalysisStatusResponse {
   status: 'not_started' | 'in_progress' | 'completed' | 'failed'
   sessionId?: string
+  /** 用户原始选中的模块列表（从 run input 恢复） */
+  selectedModules?: string[]
   modules: Array<{
     name: string
-    status: 'idle' | 'complete' | 'failed'
+    status: 'idle' | 'in_progress' | 'complete' | 'failed'
     result?: string
   }>
   /** 已完成模块的结果，用于页面刷新后恢复右侧面板结果 */

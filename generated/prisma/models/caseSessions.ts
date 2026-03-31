@@ -68,6 +68,7 @@ export type CaseSessionsCountAggregateOutputType = {
   caseId: number
   status: number
   type: number
+  metadata: number
   createdAt: number
   updatedAt: number
   deletedAt: number
@@ -117,6 +118,7 @@ export type CaseSessionsCountAggregateInputType = {
   caseId?: true
   status?: true
   type?: true
+  metadata?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -215,6 +217,7 @@ export type CaseSessionsGroupByOutputType = {
   caseId: number
   status: number
   type: number
+  metadata: runtime.JsonValue | null
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
@@ -249,6 +252,7 @@ export type caseSessionsWhereInput = {
   caseId?: Prisma.IntFilter<"caseSessions"> | number
   status?: Prisma.IntFilter<"caseSessions"> | number
   type?: Prisma.IntFilter<"caseSessions"> | number
+  metadata?: Prisma.JsonNullableFilter<"caseSessions">
   createdAt?: Prisma.DateTimeFilter<"caseSessions"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"caseSessions"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"caseSessions"> | Date | string | null
@@ -262,6 +266,7 @@ export type caseSessionsOrderByWithRelationInput = {
   caseId?: Prisma.SortOrder
   status?: Prisma.SortOrder
   type?: Prisma.SortOrder
+  metadata?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -278,6 +283,7 @@ export type caseSessionsWhereUniqueInput = Prisma.AtLeast<{
   caseId?: Prisma.IntFilter<"caseSessions"> | number
   status?: Prisma.IntFilter<"caseSessions"> | number
   type?: Prisma.IntFilter<"caseSessions"> | number
+  metadata?: Prisma.JsonNullableFilter<"caseSessions">
   createdAt?: Prisma.DateTimeFilter<"caseSessions"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"caseSessions"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"caseSessions"> | Date | string | null
@@ -291,6 +297,7 @@ export type caseSessionsOrderByWithAggregationInput = {
   caseId?: Prisma.SortOrder
   status?: Prisma.SortOrder
   type?: Prisma.SortOrder
+  metadata?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -310,6 +317,7 @@ export type caseSessionsScalarWhereWithAggregatesInput = {
   caseId?: Prisma.IntWithAggregatesFilter<"caseSessions"> | number
   status?: Prisma.IntWithAggregatesFilter<"caseSessions"> | number
   type?: Prisma.IntWithAggregatesFilter<"caseSessions"> | number
+  metadata?: Prisma.JsonNullableWithAggregatesFilter<"caseSessions">
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"caseSessions"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"caseSessions"> | Date | string
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"caseSessions"> | Date | string | null
@@ -319,6 +327,7 @@ export type caseSessionsCreateInput = {
   sessionId: string
   status?: number
   type?: number
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -332,6 +341,7 @@ export type caseSessionsUncheckedCreateInput = {
   caseId: number
   status?: number
   type?: number
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -342,6 +352,7 @@ export type caseSessionsUpdateInput = {
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.IntFieldUpdateOperationsInput | number
   type?: Prisma.IntFieldUpdateOperationsInput | number
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -355,6 +366,7 @@ export type caseSessionsUncheckedUpdateInput = {
   caseId?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   type?: Prisma.IntFieldUpdateOperationsInput | number
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -367,6 +379,7 @@ export type caseSessionsCreateManyInput = {
   caseId: number
   status?: number
   type?: number
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -376,6 +389,7 @@ export type caseSessionsUpdateManyMutationInput = {
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.IntFieldUpdateOperationsInput | number
   type?: Prisma.IntFieldUpdateOperationsInput | number
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -387,6 +401,7 @@ export type caseSessionsUncheckedUpdateManyInput = {
   caseId?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   type?: Prisma.IntFieldUpdateOperationsInput | number
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -408,6 +423,7 @@ export type caseSessionsCountOrderByAggregateInput = {
   caseId?: Prisma.SortOrder
   status?: Prisma.SortOrder
   type?: Prisma.SortOrder
+  metadata?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -514,6 +530,7 @@ export type caseSessionsCreateWithoutCaseInput = {
   sessionId: string
   status?: number
   type?: number
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -525,6 +542,7 @@ export type caseSessionsUncheckedCreateWithoutCaseInput = {
   sessionId: string
   status?: number
   type?: number
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -566,6 +584,7 @@ export type caseSessionsScalarWhereInput = {
   caseId?: Prisma.IntFilter<"caseSessions"> | number
   status?: Prisma.IntFilter<"caseSessions"> | number
   type?: Prisma.IntFilter<"caseSessions"> | number
+  metadata?: Prisma.JsonNullableFilter<"caseSessions">
   createdAt?: Prisma.DateTimeFilter<"caseSessions"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"caseSessions"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"caseSessions"> | Date | string | null
@@ -575,6 +594,7 @@ export type caseSessionsCreateWithoutCaseAnalysesInput = {
   sessionId: string
   status?: number
   type?: number
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -587,6 +607,7 @@ export type caseSessionsUncheckedCreateWithoutCaseAnalysesInput = {
   caseId: number
   status?: number
   type?: number
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -612,6 +633,7 @@ export type caseSessionsUpdateWithoutCaseAnalysesInput = {
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.IntFieldUpdateOperationsInput | number
   type?: Prisma.IntFieldUpdateOperationsInput | number
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -624,6 +646,7 @@ export type caseSessionsUncheckedUpdateWithoutCaseAnalysesInput = {
   caseId?: Prisma.IntFieldUpdateOperationsInput | number
   status?: Prisma.IntFieldUpdateOperationsInput | number
   type?: Prisma.IntFieldUpdateOperationsInput | number
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -634,6 +657,7 @@ export type caseSessionsCreateManyCaseInput = {
   sessionId: string
   status?: number
   type?: number
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -643,6 +667,7 @@ export type caseSessionsUpdateWithoutCaseInput = {
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.IntFieldUpdateOperationsInput | number
   type?: Prisma.IntFieldUpdateOperationsInput | number
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -654,6 +679,7 @@ export type caseSessionsUncheckedUpdateWithoutCaseInput = {
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.IntFieldUpdateOperationsInput | number
   type?: Prisma.IntFieldUpdateOperationsInput | number
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -665,6 +691,7 @@ export type caseSessionsUncheckedUpdateManyWithoutCaseInput = {
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.IntFieldUpdateOperationsInput | number
   type?: Prisma.IntFieldUpdateOperationsInput | number
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -707,6 +734,7 @@ export type caseSessionsSelect<ExtArgs extends runtime.Types.Extensions.Internal
   caseId?: boolean
   status?: boolean
   type?: boolean
+  metadata?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -721,6 +749,7 @@ export type caseSessionsSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   caseId?: boolean
   status?: boolean
   type?: boolean
+  metadata?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -733,6 +762,7 @@ export type caseSessionsSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   caseId?: boolean
   status?: boolean
   type?: boolean
+  metadata?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -745,12 +775,13 @@ export type caseSessionsSelectScalar = {
   caseId?: boolean
   status?: boolean
   type?: boolean
+  metadata?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
 }
 
-export type caseSessionsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionId" | "caseId" | "status" | "type" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["caseSessions"]>
+export type caseSessionsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionId" | "caseId" | "status" | "type" | "metadata" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["caseSessions"]>
 export type caseSessionsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   case?: boolean | Prisma.casesDefaultArgs<ExtArgs>
   caseAnalyses?: boolean | Prisma.caseSessions$caseAnalysesArgs<ExtArgs>
@@ -796,6 +827,10 @@ export type $caseSessionsPayload<ExtArgs extends runtime.Types.Extensions.Intern
      * 会话类型：1-普通对话，2-初始化分析
      */
     type: number
+    /**
+     * 会话元数据（JSON），type=2 时存储 { selectedModules: string[] } 等
+     */
+    metadata: runtime.JsonValue | null
     /**
      * 创建时间
      */
@@ -1238,6 +1273,7 @@ export interface caseSessionsFieldRefs {
   readonly caseId: Prisma.FieldRef<"caseSessions", 'Int'>
   readonly status: Prisma.FieldRef<"caseSessions", 'Int'>
   readonly type: Prisma.FieldRef<"caseSessions", 'Int'>
+  readonly metadata: Prisma.FieldRef<"caseSessions", 'Json'>
   readonly createdAt: Prisma.FieldRef<"caseSessions", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"caseSessions", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"caseSessions", 'DateTime'>

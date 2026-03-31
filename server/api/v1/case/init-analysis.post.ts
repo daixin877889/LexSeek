@@ -183,7 +183,10 @@ export default defineEventHandler(async (event) => {
         // 8. 创建新 session + 入队 run
         sessionId = uuidv7()
         await prisma.caseSessions.create({
-            data: { sessionId, caseId, type: 2, status: 1 },
+            data: {
+                sessionId, caseId, type: 2, status: 1,
+                metadata: { selectedModules },
+            },
         })
 
         const result = await enqueueRunService({

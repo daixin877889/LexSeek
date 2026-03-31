@@ -263,6 +263,7 @@ export const CaseSessionsScalarFieldEnum = {
   caseId: 'caseId',
   status: 'status',
   type: 'type',
+  metadata: 'metadata',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'

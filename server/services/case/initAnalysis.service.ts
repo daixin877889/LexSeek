@@ -64,7 +64,8 @@ export const getInitAnalysisStatusService = async (
             status: !analysis ? 'idle' as const
                 : analysis.status === 2 ? 'complete' as const
                     : analysis.status === 3 ? 'failed' as const
-                        : 'idle' as const,
+                        : analysis.status === 1 ? 'in_progress' as const
+                            : 'idle' as const,
             result: analysis?.analysisResult ?? undefined,
         }
     })
@@ -86,9 +87,14 @@ export const getInitAnalysisStatusService = async (
         where: { sessionId: session.sessionId, status: 'interrupted' },
     })
 
+    // 从 session metadata 恢复用户原始选中的模块列表（服务端创建 session 时存储）
+    const sessionMetadata = session.metadata as { selectedModules?: string[] } | null
+    const selectedModules = sessionMetadata?.selectedModules
+
     return {
         status: sessionStatus,
         sessionId: session.sessionId,
+        selectedModules,
         modules,
         result,
         hasPendingInterrupt: !!interruptedRun,

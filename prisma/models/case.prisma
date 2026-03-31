@@ -94,6 +94,8 @@ model caseSessions {
     status    Int       @default(1)
     /// 会话类型：1-普通对话，2-初始化分析
     type      Int       @default(1)
+    /// 会话元数据（JSON），type=2 时存储 { selectedModules: string[] } 等
+    metadata  Json?     @db.JsonB
     /// 创建时间
     createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
     /// 最后更新时间
