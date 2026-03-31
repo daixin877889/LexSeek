@@ -68,6 +68,9 @@ function navigateToMaterial(materialId: number) {
         <div v-else class="flex items-center justify-center h-full text-muted-foreground">
           当前视图：{{ activeView }}
         </div>
+
+        <!-- 小索助手 -->
+        <CaseDetailXiaosuo v-model="xiaosuoOpen" />
       </main>
     </div>
 
