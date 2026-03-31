@@ -229,6 +229,19 @@ export function useInitAnalysis(sessionId: Ref<string>) {
           : 'idle'
         restored[m.name] = { name: m.name, status: moduleStatus, content: m.result ?? '' }
       }
+
+      // 分析进行中时，推断第一个未完成模块为 streaming
+      // LangGraph values 流只在节点完成后才发事件，第一个模块执行期间不会有 values 事件，
+      // 所以不能依赖 watch(values) 来设置 streaming 状态，必须在 loadStatus 阶段推断
+      if (status.status === 'in_progress') {
+        const firstRunning = selectedModules.value.find(name =>
+          restored[name]?.status !== 'complete' && restored[name]?.status !== 'failed',
+        )
+        if (firstRunning) {
+          restored[firstRunning] = { name: firstRunning, status: 'streaming', content: '' }
+        }
+      }
+
       moduleStates.value = restored
 
       if (status.status === 'in_progress') {
