@@ -113,8 +113,9 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     const hasResultContent = result && Object.keys(result).length > 0
     const hasFailedContent = failedModules && Object.keys(failedModules).length > 0
 
-    // 如果 stream 还没开始收到有效内容（result/failedModules），不覆盖 loadStatus 设置的状态
-    if (!streamStarted && !hasResultContent && !hasFailedContent) {
+    // 如果 stream 还没开始收到有效内容，不覆盖 loadStatus 设置的状态
+    // 但如果 SSE 返回了 selectedModules（checkpoint 数据），表示流已建立，需要更新 streaming 状态
+    if (!streamStarted && !hasResultContent && !hasFailedContent && !mods?.length) {
       return
     }
     streamStarted = true
