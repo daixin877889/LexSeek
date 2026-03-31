@@ -24,11 +24,11 @@
 
 **改造方式**：
 
-1. 新增 `buildModuleContext` 函数，从 DB 加载四类上下文：
+1. 新增 `buildModuleContext` 函数，从 DB 加载四类上下文（每类独立 try-catch，失败降级为空并 log warning，不中断模块执行）：
    - 案件基本信息（cases 表：title、plaintiff、defendant、summary、extractedInfo）
    - 案件材料上下文（复用 `getMaterialContextService` + `buildMaterialContextMessage`，含 sourceId）
-   - 已完成的分析结果（caseAnalyses 表，isActive=true, status=COMPLETED）
-   - 案件长期记忆（PostgresStore）
+   - 已完成的分析结果（caseAnalyses 表，isActive=true, status=COMPLETED，**排除当前 agentName 对应的模块**避免注入自己的旧结果）
+   - 案件长期记忆（通过 `getStore()` 读取 PostgresStore，namespace: `['cases', String(caseId)]`，key: `'basic_info'`。封装为 `getCaseMemory(caseId)` 函数，定义在 `moduleContextBuilder.ts` 中。记忆为空时跳过该 section）
 
 2. 将上下文合并到 system prompt 中（被 Worker 层 `stripSystemMessages` 自动过滤，不到达前端）：
    ```typescript
@@ -42,7 +42,7 @@
 
 3. 外层 `state.messages` 继续通过 `MessagesValue` reducer 累积所有模块的消息，仅服务于前端展示和 checkpoint 恢复。
 
-**上下文格式**：
+**上下文格式**（空 section 自动省略，不输出空标题浪费 token）：
 
 ```
 ## 案件基本信息
@@ -55,18 +55,15 @@
 ## 案件材料
 {buildMaterialContextMessage 输出，含 sourceId}
 
-## 已完成的分析结果
+## 已完成的分析结果          ← 第一个模块时此 section 省略
 ### 案件概要（summary）
 {result}
 ### 时间线（chronicle）
 {result}
 ...
 
-## 案件记忆
+## 案件记忆                  ← 无记忆时此 section 省略
 {memory}
-
-## 当前任务
-请执行"{moduleTitle}"分析。
 ```
 
 **优势**：
@@ -84,7 +81,7 @@
 #### 防线1：输入端预防控制
 
 - **材料上下文**：保持现有 `getMaterialContextService` 的统一决策逻辑（token < 32000 全量，≥ 32000 摘要）。不修改。
-- **工具返回结果截断**：新增 `truncateToolResult` 函数，对工具返回值做长度控制（默认 8000 tokens），超长时截断并提示模型使用更精确的查询条件。
+- **工具返回结果截断**：新增 `truncateToolResult` 函数，在工具结果**序列化之前**做长度控制——限制返回条数或每条内容长度（默认单条 8000 tokens），而非截断 JSON 字符串（避免破坏 JSON 格式）。超长时截断并在结果末尾追加提示信息。
 - **循环次数限制**：`recursionLimit` 从 1000 降低到 50。
 
 #### 防线2：动态摘要压缩
@@ -105,7 +102,7 @@ const callModel = async (innerState) => {
 
 `compressMessages` 逻辑：
 1. 始终保留：system message（第一条）+ 最近 3 轮消息
-2. 中间的工具调用轮次 → 用快速模型（Haiku）生成结构化摘要
+2. 中间的工具调用轮次 → 用快速模型生成结构化摘要（模型获取方式：复用当前模块的模型实例，设置 temperature=0 以确保摘要稳定；不单独创建 Haiku 实例，避免额外的 API key 管理）
 3. 摘要格式：`"[工具调用摘要] 查询了案件材料《xxx》，发现：（1）...（2）..."`
 4. 构建：`[system, summary_message, recent_messages...]`
 5. **关键**：只影响传给模型的输入，innerState.messages 不变
@@ -138,6 +135,8 @@ messagesToSend = trimMessages(messagesToSend, {
 - 压缩触发阈值 = 预算 * 0.6
 - 无 `context_window` 配置时默认 100K tokens
 
+**前置条件**：实施时需更新 DB 中分析节点关联模型的 `context_window` 值（当前所有模型该字段为 NULL）。可通过 SQL 迁移脚本批量设置，如 Claude 系列 200000、GPT-4o 128000 等。
+
 ## 文件清单
 
 ### 新增文件
@@ -154,7 +153,13 @@ messagesToSend = trimMessages(messagesToSend, {
 |------|---------|
 | `server/services/workflow/caseAnalysisV2.workflow.ts` | `createAnalysisNode`：(1) 调用 `buildModuleContext` (2) 合并到 system prompt (3) callModel 加压缩逻辑 (4) recursionLimit 降到 50 |
 | `server/services/node/node.service.ts` | `NodeConfig` 新增 `modelContextWindow`；构建逻辑补充读取 `model.contextWindow` |
-| `server/services/workflow/tools/searchCaseMaterials.tool.ts` | 工具返回结果调用 `truncateToolResult` 截断 |
+| `server/services/workflow/tools/searchCaseMaterials.tool.ts` | 工具返回结果调用 `truncateToolResult` 截断（在序列化前限制每条内容长度） |
+
+### 需确认的共存关系
+
+| 模块 | 说明 |
+|------|------|
+| `caseMaterialContextMiddleware` | 现有中间件通过 `beforeAgent` hook 注入材料上下文到 `state.messages`。本设计在 `buildModuleContext` 中独立复用 `getMaterialContextService`。**实施时需确认 caseAnalysisV2 工作流是否使用了该中间件**——如果是，需移除以避免材料上下文被注入两次 |
 
 ### 不修改的文件
 
