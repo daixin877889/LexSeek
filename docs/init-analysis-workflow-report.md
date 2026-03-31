@@ -231,6 +231,44 @@ if (!hasStreaming) {
 
 **规则**：**系统提示词是敏感数据，必须在数据离开服务器前剥离。前端过滤只是展示层防护，不能替代服务端过滤。任何新增的事件发布路径都必须经过 `stripSystemMessages` 处理。**
 
+### 坑 15：案件创建时材料类型硬编码为 DOCUMENT
+
+**现象**：上传 `.m4a` 音频文件创建案件后，分析工作流中该材料上下文显示"[暂无内容]"。
+
+**根因（两层问题）**：
+
+**第一层：前端材料类型硬编码。** `app/components/caseCreation/ManualForm.vue` 在构建 `materials` 参数时，将所有文件的 type 硬编码为 `CaseMaterialType.DOCUMENT(2)`：
+```typescript
+materials: form.materials.map(f => ({
+    type: CaseMaterialType.DOCUMENT,  // ← 硬编码！音频/图片全部标为文档
+    name: f.fileName,
+    ossFileId: f.id,
+}))
+```
+导致 `.m4a` 音频文件在 `case_materials` 表中 `type=2`（文档）而非 `type=4`（音频）。
+
+**第二层：后端无防御。** `batchAddCaseMaterialsService` 直接使用前端传来的 `material.type`，虽然已查了 `ossFile`（含正确的 `fileType='audio/x-m4a'`），但未根据 MIME 类型验证或纠正类型。
+
+**后果链**：`fetchMaterialContents` 按 `type=2` 查 `docRecognitionRecords` → 无记录 → 内容为空。实际的 ASR 识别结果在 `asrRecords` 表中（status=2, summary 有值），但因类型不匹配不会查询。
+
+**解决**：
+1. **前端**：`ManualForm.vue` 改为 `getMaterialType(f.fileType)` 根据 MIME 类型动态检测
+2. **后端**：`batchAddCaseMaterialsService` 新增 `detectMaterialTypeFromMime` 函数，根据 `ossFile.fileType` 纠正前端可能传错的 type（防御层）
+
+**规则**：**材料类型不能硬编码，必须根据文件 MIME 类型动态检测。后端必须基于 ossFile.fileType 做二次验证，不能盲信前端传来的 type 值。**
+
+### 坑 16：音频材料 ASR 识别后 summary 字段为空
+
+**现象**：即使材料类型正确（type=4），音频材料的上下文仍然显示"[暂无内容]"。
+
+**根因**：`fetchMaterialContents` 查询音频内容时要求 `asrRecords.summary` 非空（`WHERE summary IS NOT NULL`），但 ASR 识别流程中 `completeTranscriptionService` → `createAsrRecordDao` 创建记录时未设置 `summary` 字段。后续 `embedAsrRecordService` 通过 `extractTextFromSimplifiedResult` 从 `result` JSON 提取了文本用于向量化，但也未回写到 `summary`。
+
+**解决**：
+1. **`embedAsrRecordService`**：嵌入完成后将提取的文本回写到 `asrRecords.summary`（新增音频不再丢失）
+2. **`fetchMaterialContents`**：移除 `summary NOT NULL` 限制，改用 `status=2`（SUCCESS）过滤；新增 `extractTextFromAsrResult` fallback 函数，当 `summary` 为空时从 `result` JSON 提取纯文本（兼容存量记录）
+
+**规则**：**识别结果和上下文查询使用的字段必须一致。如果识别流程存的是 result JSON，查询层必须能从中提取内容，不能只依赖可能未被写入的 summary 字段。**
+
 ## 四、架构决策记录
 
 ### 积分生命周期设计
@@ -284,3 +322,7 @@ LangGraph workflow.stream()
 | `server/services/case/analysis.dao.ts` | 分析记录 DAO（新增 pointDeducted/tokenCount/tokens 字段） |
 | `server/services/case/initAnalysis.service.ts` | 状态查询服务（hasPendingInterrupt） |
 | `shared/types/agentRun.ts` | INTERRUPTED 状态定义 |
+| `server/services/workflow/context/moduleContextBuilder.ts` | 模块上下文构建（案件信息/材料/分析结果/记忆） |
+| `server/services/workflow/context/messageCompressor.ts` | 消息压缩（动态摘要 + trimMessages 兜底） |
+| `server/services/workflow/context/toolResultTruncator.ts` | 工具返回结果截断 |
+| `server/services/case/caseMaterial.service.ts` | 材料创建（含服务端类型纠正） |
