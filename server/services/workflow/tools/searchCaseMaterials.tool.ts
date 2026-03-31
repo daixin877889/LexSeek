@@ -10,6 +10,7 @@ import { tool } from '@langchain/core/tools'
 import { z } from 'zod'
 import { searchMaterialsService } from '../../material/materialPipeline.service'
 import type { ToolDefinition, ToolContext } from './types'
+import { truncateToolResults } from '../context/toolResultTruncator'
 
 /** 参数 schema（唯一数据源） */
 const schema = z.object({
@@ -52,7 +53,8 @@ export function createTool(context: ToolContext) {
 
                 logger.info('材料检索完成', { caseId, resultCount: results.length })
 
-                return JSON.stringify(results)
+                const truncated = truncateToolResults(results)
+                return JSON.stringify(truncated)
             } catch (error) {
                 logger.error('材料检索失败:', error)
                 return JSON.stringify({

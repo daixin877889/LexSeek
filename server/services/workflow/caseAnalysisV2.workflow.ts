@@ -13,6 +13,8 @@ import { ToolNode } from '@langchain/langgraph/prebuilt'
 import type { GraphNode } from "@langchain/langgraph"
 import { HumanMessage, isAIMessage } from '@langchain/core/messages'
 import { getCheckpointer } from './checkpointer'
+import { buildModuleContext } from './context/moduleContextBuilder'
+import { estimateMessagesTokens, getContextBudget, compressMessages, safetyTrimMessages } from './context/messageCompressor'
 import { z } from "zod/v4"
 import { getNodeConfigsByTypes, getValidNodeConfig, getNodeByNameService } from '../node/node.service'
 import { createChatModel } from '../node/chatModelFactory'
@@ -263,9 +265,23 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
 
                 const InnerState = Annotation.Root({ ...MessagesAnnotation.spec })
 
+                const { budget: contextBudget, compressThreshold } = getContextBudget(nodeConfig.modelContextWindow)
+
                 const callModel = async (innerState: typeof InnerState.State) => {
-                    const response = await modelWithTools.invoke(innerState.messages)
-                    return { messages: [response] }
+                    let messagesToSend = innerState.messages
+
+                    // 防线2：动态摘要压缩
+                    const roughEstimate = estimateMessagesTokens(innerState.messages)
+                    if (roughEstimate > compressThreshold) {
+                        logger.info('触发消息压缩', { agentName, roughEstimate, compressThreshold })
+                        messagesToSend = await compressMessages(innerState.messages, contextBudget, model)
+                    }
+
+                    // 防线3：trimMessages 兜底
+                    messagesToSend = await safetyTrimMessages(messagesToSend, contextBudget, model)
+
+                    const response = await modelWithTools.invoke(messagesToSend)
+                    return { messages: [response] }  // state 保留完整历史
                 }
 
                 const shouldContinue = (innerState: typeof InnerState.State) => {
@@ -289,14 +305,23 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
 
                 const innerGraph = innerBuilder.compile()
 
+                // 构建模块上下文（案件信息 + 材料 + 已完成分析结果 + 记忆）
+                const moduleContext = await buildModuleContext({
+                    caseId: state.caseId,
+                    agentName,
+                })
+
+                // 合并到 system prompt（被 Worker stripSystemMessages 自动过滤，不到达前端）
+                const enrichedSystemPrompt = [systemPrompt, moduleContext].filter(Boolean).join('\n\n')
+
                 const initialMessages = [
-                    ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
-                    new HumanMessage(state.prompt ?? `现在请开始任务：${moduleTitle}`),
+                    ...(enrichedSystemPrompt ? [{ role: 'system' as const, content: enrichedSystemPrompt }] : []),
+                    new HumanMessage(`现在请开始"${moduleTitle}"分析。`),
                 ]
 
                 const response = await innerGraph.invoke(
                     { messages: initialMessages },
-                    { recursionLimit: 1000 },
+                    { recursionLimit: 50 },
                 )
 
                 responseMessages = response.messages ?? []
