@@ -173,23 +173,58 @@ if (activeRun && activeRun.status !== AGENT_RUN_STATUS.INTERRUPTED) {
 
 **现象**：在第一个模块分析过程中刷新页面，顶部的模块进度条全部显示为 idle，正在分析的模块没有 streaming 状态。
 
-**根因**：`watch(values)` 中的 `streamStarted` 守卫过于激进。刷新后：
-1. `loadStatus()` 从 DB 恢复状态 → 所有模块 `idle`（IN_PROGRESS 在 status API 中映射为 idle）
-2. SSE 重连 → 收到 checkpoint values 快照（有 `selectedModules` 但无 `result`——第一个模块还在执行）
-3. 守卫条件 `!streamStarted && !hasResultContent && !hasFailedContent` 为 true → 提前 return
-4. `currentStreaming` 检测逻辑（推断第一个未完成模块为 streaming）被完全跳过
-5. 所有模块保持 `idle` 状态
+**根因（双层问题）**：
 
-**解决**：修改守卫条件，将 SSE 返回 `selectedModules`（checkpoint 数据）也视为"流已建立"：
+**第一层：`loadStatus()` 不推断 streaming 状态。** status API 将 IN_PROGRESS 映射为 `idle`，`loadStatus()` 直接使用该映射，所有模块均为 idle。
+
+**第二层：LangGraph `values` 流在节点完成前不发事件。** values 流模式只在节点执行完成后才发射状态快照。第一个模块执行期间，Redis 中没有任何 values 事件，SSE replay 为空，`watch(values)` 永远不触发，无法通过 `currentStreaming` 检测来补救。
+
+额外发现：`watch(values)` 的 `streamStarted` 守卫也过于激进——即使后续 values 事件到达（含 `selectedModules` 但无 `result`），也会被拦截。
+
+**解决（两处修复）**：
+
+1. **`loadStatus()` 主动推断 streaming 模块**（关键修复）：分析进行中时，第一个非 complete/非 failed 的模块就是当前正在执行的，直接标记为 `streaming`：
 ```typescript
-// 修改前：只看 result/failedModules
-if (!streamStarted && !hasResultContent && !hasFailedContent) { return }
+if (status.status === 'in_progress') {
+    const firstRunning = selectedModules.value.find(name =>
+        restored[name]?.status !== 'complete' && restored[name]?.status !== 'failed',
+    )
+    if (firstRunning) {
+        restored[firstRunning] = { name: firstRunning, status: 'streaming', content: '' }
+    }
+}
+```
 
-// 修改后：有 selectedModules（checkpoint 数据）也算流已建立
+2. **`watch(values)` 守卫放宽**（辅助修复）：有 checkpoint `selectedModules` 也视为流已建立：
+```typescript
 if (!streamStarted && !hasResultContent && !hasFailedContent && !mods?.length) { return }
 ```
 
-**规则**：**`streamStarted` 守卫的目的是防止空 SSE 覆盖 DB 恢复的状态。但 checkpoint 数据（含 selectedModules）是可信的——有 checkpoint 数据就应该允许状态更新，包括 streaming 模块检测。**
+**规则**：**LangGraph values 流只在节点完成后才发事件。刷新恢复不能依赖 SSE 来设置 streaming 状态——`loadStatus()` 必须基于 DB 状态自行推断当前正在执行的模块（串行执行下，第一个未完成的就是正在运行的）。**
+
+### 坑 14：SSE 流泄露系统提示词（安全漏洞）
+
+**现象**：浏览器 DevTools 中查看 SSE 流的原始数据，可以看到完整的系统提示词（system message）。
+
+**根因**：LangGraph 工作流中，每个分析节点通过 `innerGraph.invoke({ messages: [systemPrompt, humanMessage] })` 执行 LLM。系统提示词被 MessagesValue reducer 累积到外层工作流状态的 `messages` 字段中。Worker 将 values/messages 事件原样发布到 Redis，SSE 端点原样转发给客户端。虽然前端 `useMessageParser` 在渲染层过滤了 SystemMessage，但 SSE 原始数据中仍包含完整提示词，用户通过 DevTools 或抓包即可获取。
+
+**泄露路径**：
+```
+工作流 initialMessages 含系统提示
+  → MessagesValue reducer 累积到状态
+  → values 事件 data.messages 包含系统消息
+  → Worker publishAgentEvent 未过滤
+  → Redis stream 存储原始数据
+  → SSE 端点转发给客户端
+  → DevTools 可见完整系统提示词
+```
+
+**解决**：在 Worker 发布层（`agentWorker.ts`）统一过滤，添加 `stripSystemMessages` 函数：
+- `values` 事件：从 `data.messages` 数组中移除 `type === 'system'` 的消息
+- `messages` 事件：过滤掉整条 system 类型消息（返回 null 跳过发布）
+- 所有 `publishAgentEvent` 调用前统一调用过滤，确保 Redis 和 SSE 均不含系统消息
+
+**规则**：**系统提示词是敏感数据，必须在数据离开服务器前剥离。前端过滤只是展示层防护，不能替代服务端过滤。任何新增的事件发布路径都必须经过 `stripSystemMessages` 处理。**
 
 ## 四、架构决策记录
 
