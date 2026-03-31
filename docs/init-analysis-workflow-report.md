@@ -171,36 +171,41 @@ if (activeRun && activeRun.status !== AGENT_RUN_STATUS.INTERRUPTED) {
 
 ### 坑 13：刷新页面后分析中的模块状态消失
 
-**现象**：在第一个模块分析过程中刷新页面，顶部的模块进度条全部显示为 idle，正在分析的模块没有 streaming 状态。
+**现象**：刷新页面后，顶部模块进度条丢失正在分析的模块。尤其是最后一个模块执行中时，该模块从 UI 上完全消失。
 
-**根因（双层问题）**：
+**根因（三层问题）**：
 
-**第一层：`loadStatus()` 不推断 streaming 状态。** status API 将 IN_PROGRESS 映射为 `idle`，`loadStatus()` 直接使用该映射，所有模块均为 idle。
+**第一层：Status API 丢失信息。** `getInitAnalysisStatusService` 将 IN_PROGRESS（status=1）映射为 `'idle'`，与"未选中"不可区分。且不返回用户原始选中的模块列表。
 
-**第二层：LangGraph `values` 流在节点完成前不发事件。** values 流模式只在节点执行完成后才发射状态快照。第一个模块执行期间，Redis 中没有任何 values 事件，SSE replay 为空，`watch(values)` 永远不触发，无法通过 `currentStreaming` 检测来补救。
+**第二层：`loadStatus()` 错误推断 selectedModules。** 用 `modules.filter(m => m.status !== 'idle')` 推断选中模块，但 IN_PROGRESS 已被映射为 idle → 正在执行的模块被过滤掉。例如用户选了 [summary, chronicle, claim]，前两个完成，claim 执行中 → selectedModules 变成 [summary, chronicle]，claim 从 UI 消失。
 
-额外发现：`watch(values)` 的 `streamStarted` 守卫也过于激进——即使后续 values 事件到达（含 `selectedModules` 但无 `result`），也会被拦截。
+**第三层：LangGraph values 流在节点完成前不发事件。** 即使 `watch(values)` 有 `currentStreaming` 推断逻辑，但 values 流只在节点完成后才发射。第一个模块执行期间 watch 永远不触发，无法补救。
 
-**解决（两处修复）**：
+**解决（四处修复）**：
 
-1. **`loadStatus()` 主动推断 streaming 模块**（关键修复）：分析进行中时，第一个非 complete/非 failed 的模块就是当前正在执行的，直接标记为 `streaming`：
+1. **`caseSessions` 表新增 `metadata` (JSONB) 字段**，创建 session 时服务端将经过 `validateAndSortModules` 校验的 `selectedModules` 存入 `metadata: { selectedModules }`。权威来源是服务端 DB，不依赖前端传值或 run input 反推。
+
+2. **Status API 返回完整信息**：
+   - `InitAnalysisStatusResponse.modules[].status` 新增 `'in_progress'` 值（不再映射为 idle）
+   - 新增 `selectedModules` 字段（从 `session.metadata` 读取）
+
+3. **`loadStatus()` 使用 API 返回的 selectedModules**，不再从模块状态推断：
 ```typescript
-if (status.status === 'in_progress') {
-    const firstRunning = selectedModules.value.find(name =>
-        restored[name]?.status !== 'complete' && restored[name]?.status !== 'failed',
-    )
-    if (firstRunning) {
-        restored[firstRunning] = { name: firstRunning, status: 'streaming', content: '' }
-    }
+// 从 API 恢复原始选中模块（服务端权威来源）
+if (status.selectedModules?.length) {
+    selectedModules.value = status.selectedModules
+}
+// in_progress 直接映射为 streaming
+const moduleStatus = m.status === 'in_progress' ? 'streaming' : ...
+// 兜底：无 streaming 时推断第一个未完成模块（应对 IN_PROGRESS 记录未创建的窗口期）
+if (!hasStreaming) {
+    const firstRunning = selectedModules.value.find(...)
 }
 ```
 
-2. **`watch(values)` 守卫放宽**（辅助修复）：有 checkpoint `selectedModules` 也视为流已建立：
-```typescript
-if (!streamStarted && !hasResultContent && !hasFailedContent && !mods?.length) { return }
-```
+4. **`watch(values)` 守卫放宽**：有 checkpoint `selectedModules` 也视为流已建立。
 
-**规则**：**LangGraph values 流只在节点完成后才发事件。刷新恢复不能依赖 SSE 来设置 streaming 状态——`loadStatus()` 必须基于 DB 状态自行推断当前正在执行的模块（串行执行下，第一个未完成的就是正在运行的）。**
+**规则**：**刷新恢复的权威数据源优先级：session.metadata（selectedModules）> DB 记录状态（in_progress/complete）> 推断（第一个未完成的模块）。服务端必须在创建会话时持久化所有关键配置，Status API 必须返回足够信息让前端无需猜测。前端传值是最不可靠的来源。**
 
 ### 坑 14：SSE 流泄露系统提示词（安全漏洞）
 
