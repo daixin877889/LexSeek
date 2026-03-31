@@ -217,28 +217,34 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     if (status.status === 'in_progress' || status.status === 'completed') {
       phase.value = status.status === 'completed' ? 'complete' : 'running'
 
-      const moduleNames = status.modules.filter(m => m.status !== 'idle').map(m => m.name)
-      if (moduleNames.length > 0) {
-        selectedModules.value = moduleNames
+      // 从 API 恢复用户原始选中的模块（优先使用 run input 中的记录）
+      if (status.selectedModules?.length) {
+        selectedModules.value = status.selectedModules
       }
 
       const restored: Record<string, ModuleRunState> = {}
       for (const m of status.modules) {
+        // 只恢复用户选中的模块（避免未选中模块污染状态）
+        if (!selectedModules.value.includes(m.name)) continue
+
         const moduleStatus: ModuleStatus = m.status === 'complete' ? 'complete'
           : m.status === 'failed' ? 'failed'
+          : m.status === 'in_progress' ? 'streaming'
           : 'idle'
         restored[m.name] = { name: m.name, status: moduleStatus, content: m.result ?? '' }
       }
 
-      // 分析进行中时，推断第一个未完成模块为 streaming
-      // LangGraph values 流只在节点完成后才发事件，第一个模块执行期间不会有 values 事件，
-      // 所以不能依赖 watch(values) 来设置 streaming 状态，必须在 loadStatus 阶段推断
+      // 分析进行中时，确保有且仅有一个模块是 streaming
+      // 串行执行下，第一个非 complete/非 failed 的模块就是当前正在执行的
       if (status.status === 'in_progress') {
-        const firstRunning = selectedModules.value.find(name =>
-          restored[name]?.status !== 'complete' && restored[name]?.status !== 'failed',
-        )
-        if (firstRunning) {
-          restored[firstRunning] = { name: firstRunning, status: 'streaming', content: '' }
+        const hasStreaming = Object.values(restored).some(s => s.status === 'streaming')
+        if (!hasStreaming) {
+          const firstRunning = selectedModules.value.find(name =>
+            restored[name]?.status !== 'complete' && restored[name]?.status !== 'failed',
+          )
+          if (firstRunning) {
+            restored[firstRunning] = { name: firstRunning, status: 'streaming', content: '' }
+          }
         }
       }
 
