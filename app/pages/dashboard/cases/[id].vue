@@ -28,7 +28,7 @@ function navigateToMaterial(materialId: number) {
 </script>
 
 <template>
-  <div class="flex flex-col h-full">
+  <div class="flex flex-col" style="height: calc(100vh - 48px)">
     <!-- 头部 -->
     <header class="h-12 shrink-0 border-b flex items-center px-4 gap-3">
       <Button variant="ghost" size="icon" class="size-8 shrink-0" @click="navigateTo('/dashboard/cases')">
