@@ -18,9 +18,14 @@ import {
     CopyIcon,
     CheckIcon,
     FileTextIcon,
-    ChevronLeftIcon,
-    ChevronRightIcon,
     Loader2Icon,
+    CalendarIcon,
+    ScaleIcon,
+    TrendingUpIcon,
+    TagIcon,
+    ShieldIcon,
+    ClipboardListIcon,
+    ArrowLeftIcon,
 } from 'lucide-vue-next'
 
 /**
@@ -70,6 +75,27 @@ const emit = defineEmits<{
     (e: 'copy', result: AnalysisResult): void
 }>()
 
+// 查看模式：仪表盘或详情
+const viewMode = ref<'dashboard' | 'detail'>('dashboard')
+
+// 模块图标映射
+const iconMap: Record<string, any> = {
+    summary: FileTextIcon,
+    chronicle: CalendarIcon,
+    claim: ScaleIcon,
+    trend: TrendingUpIcon,
+    cause: TagIcon,
+    defense: ShieldIcon,
+    evidence: ClipboardListIcon,
+}
+
+/**
+ * 获取模块图标
+ */
+function getModuleIcon(name: string) {
+    return iconMap[name] || FileTextIcon
+}
+
 // 当前选中的模块索引（支持 v-model）
 const currentIndex = computed({
     get: () => props.activeIndex,
@@ -89,21 +115,10 @@ const hasResults = computed(() => props.results.length > 0)
 const copiedNodeId = ref<number | null>(null)
 
 /**
- * 切换到上一个模块
+ * 返回仪表盘
  */
-function goToPrevious() {
-    if (currentIndex.value > 0) {
-        currentIndex.value = currentIndex.value - 1
-    }
-}
-
-/**
- * 切换到下一个模块
- */
-function goToNext() {
-    if (currentIndex.value < props.results.length - 1) {
-        currentIndex.value = currentIndex.value + 1
-    }
+function goBack() {
+    viewMode.value = 'dashboard'
 }
 
 /**
@@ -112,6 +127,7 @@ function goToNext() {
 function goToModule(index: number) {
     if (index >= 0 && index < props.results.length) {
         currentIndex.value = index
+        viewMode.value = 'detail'
     }
 }
 
@@ -197,87 +213,96 @@ function formatAnalyzedAt(dateStr: string): string {
 
         <!-- 有结果时的展示 -->
         <template v-else>
-            <!-- 模块导航 Tabs -->
-            <div class="flex items-center gap-2 border-b px-4 py-2 bg-muted/30">
-                <!-- 左箭头 -->
-                <Button variant="ghost" size="icon" class="size-8 shrink-0" :disabled="currentIndex === 0"
-                    @click="goToPrevious">
-                    <ChevronLeftIcon class="size-4" />
-                </Button>
-
-                <!-- Tab 列表 -->
-                <div class="flex-1 overflow-x-auto">
-                    <div class="flex gap-1">
-                        <Button v-for="(result, index) in results" :key="result.nodeId"
-                            :variant="index === currentIndex ? 'secondary' : 'ghost'" size="sm" class="shrink-0 text-xs"
-                            @click="goToModule(index)">
-                            {{ result.moduleTitle || result.moduleName }}
-                        </Button>
-                    </div>
+            <!-- 仪表盘视图 -->
+            <div v-if="viewMode === 'dashboard'" class="flex-1 overflow-y-auto p-4 bg-muted/5">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-medium text-foreground">分析建议</h3>
+                    <span class="text-xs text-muted-foreground">{{ results.length }} 个结果</span>
                 </div>
-
-                <!-- 右箭头 -->
-                <Button variant="ghost" size="icon" class="size-8 shrink-0"
-                    :disabled="currentIndex === results.length - 1" @click="goToNext">
-                    <ChevronRightIcon class="size-4" />
-                </Button>
-            </div>
-
-            <!-- 结果内容区域 -->
-            <div class="flex-1 overflow-hidden">
-                <AiElementsArtifact v-if="currentResult" class="h-full border-0 rounded-none shadow-none">
-                    <!-- 头部：标题和操作按钮 -->
-                    <AiElementsArtifactHeader>
-                        <div class="flex flex-col gap-0.5">
-                            <AiElementsArtifactTitle>
-                                {{ currentResult.moduleTitle || currentResult.moduleName }}
-                            </AiElementsArtifactTitle>
-                            <span class="text-xs text-muted-foreground">
-                                分析于 {{ formatAnalyzedAt(currentResult.analyzedAt) }}
-                            </span>
-                        </div>
-
-                        <AiElementsArtifactActions>
-                            <!-- 复制按钮 -->
-                            <AiElementsArtifactAction v-if="showCopy" tooltip="复制内容" @click="handleCopy">
-                                <CheckIcon v-if="isCurrentCopied" class="size-4 text-green-500" />
-                                <CopyIcon v-else class="size-4" />
-                            </AiElementsArtifactAction>
-
-                            <!-- 重新生成按钮 -->
-                            <AiElementsArtifactAction v-if="showRegenerate" tooltip="重新生成"
-                                :disabled="isCurrentRegenerating" @click="handleRegenerate">
-                                <RefreshCwIcon class="size-4" :class="{ 'animate-spin': isCurrentRegenerating }" />
-                            </AiElementsArtifactAction>
-                        </AiElementsArtifactActions>
-                    </AiElementsArtifactHeader>
-
-                    <!-- 内容区域 -->
-                    <AiElementsArtifactContent class="overflow-y-auto">
-                        <!-- 重新生成中的加载状态 -->
-                        <div v-if="isCurrentRegenerating" class="flex items-center justify-center py-12">
-                            <div class="flex flex-col items-center gap-3">
-                                <AiElementsLoader :size="24" />
-                                <span class="text-sm text-muted-foreground">正在重新生成...</span>
+                <div class="grid grid-cols-2 gap-3">
+                    <Card v-for="(result, index) in results" :key="result.nodeId"
+                        class="group cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all duration-200 border-muted shadow-none"
+                        @click="goToModule(index)">
+                        <div class="p-4 flex flex-col gap-3">
+                            <div class="flex items-center justify-between">
+                                <div class="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                                    <component :is="getModuleIcon(result.moduleName)" class="size-5" />
+                                </div>
+                                <span class="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">第 1 版</span>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-semibold leading-tight group-hover:text-primary transition-colors">
+                                    {{ result.moduleTitle || result.moduleName }}
+                                </h4>
                             </div>
                         </div>
-
-                        <!-- Markdown 内容渲染 -->
-                        <AiElementsMessageResponse v-else :content="currentResult.content"
-                            class="prose prose-sm dark:prose-invert max-w-none" />
-                    </AiElementsArtifactContent>
-                </AiElementsArtifact>
+                    </Card>
+                </div>
             </div>
 
-            <!-- 底部：模块指示器 -->
-            <div class="flex items-center justify-center gap-1.5 py-2 border-t bg-muted/30">
-                <button v-for="(result, index) in results" :key="result.nodeId" type="button"
-                    class="size-2 rounded-full transition-colors" :class="[
-                        index === currentIndex
-                            ? 'bg-primary'
-                            : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'
-                    ]" :title="result.moduleTitle || result.moduleName" @click="goToModule(index)" />
-            </div>
+            <!-- 详情视图 -->
+            <template v-else>
+                <!-- 结果内容区域 -->
+                <div class="flex-1 overflow-hidden">
+                    <AiElementsArtifact v-if="currentResult" class="h-full border-0 rounded-none shadow-none">
+                        <!-- 头部：标题和操作按钮 -->
+                        <AiElementsArtifactHeader>
+                            <div class="flex items-center gap-3">
+                                <Button variant="ghost" size="icon" class="size-8 -ml-2 shrink-0" @click="goBack">
+                                    <ArrowLeftIcon class="size-4" />
+                                </Button>
+                                <div class="flex flex-col gap-0.5 min-w-0">
+                                    <AiElementsArtifactTitle class="truncate">
+                                        {{ currentResult.moduleTitle || currentResult.moduleName }}
+                                    </AiElementsArtifactTitle>
+                                    <span class="text-[10px] text-muted-foreground">
+                                        分析于 {{ formatAnalyzedAt(currentResult.analyzedAt) }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <AiElementsArtifactActions>
+                                <!-- 复制按钮 -->
+                                <AiElementsArtifactAction v-if="showCopy" tooltip="复制内容" @click="handleCopy">
+                                    <CheckIcon v-if="isCurrentCopied" class="size-4 text-green-500" />
+                                    <CopyIcon v-else class="size-4" />
+                                </AiElementsArtifactAction>
+
+                                <!-- 重新生成按钮 -->
+                                <AiElementsArtifactAction v-if="showRegenerate" tooltip="重新生成"
+                                    :disabled="isCurrentRegenerating" @click="handleRegenerate">
+                                    <RefreshCwIcon class="size-4" :class="{ 'animate-spin': isCurrentRegenerating }" />
+                                </AiElementsArtifactAction>
+                            </AiElementsArtifactActions>
+                        </AiElementsArtifactHeader>
+
+                        <!-- 内容区域 -->
+                        <AiElementsArtifactContent class="overflow-y-auto">
+                            <!-- 重新生成中的加载状态 -->
+                            <div v-if="isCurrentRegenerating" class="flex items-center justify-center py-12">
+                                <div class="flex flex-col items-center gap-3">
+                                    <AiElementsLoader :size="24" />
+                                    <span class="text-sm text-muted-foreground">正在重新生成...</span>
+                                </div>
+                            </div>
+
+                            <!-- Markdown 内容渲染 -->
+                            <AiElementsMessageResponse v-else :content="currentResult.content"
+                                class="prose prose-sm dark:prose-invert max-w-none" />
+                        </AiElementsArtifactContent>
+                    </AiElementsArtifact>
+                </div>
+
+                <!-- 底部：模块指示器 -->
+                <div class="flex items-center justify-center gap-1.5 py-2 border-t bg-muted/30">
+                    <button v-for="(result, index) in results" :key="result.nodeId" type="button"
+                        class="size-2 rounded-full transition-colors" :class="[
+                            index === currentIndex
+                                ? 'bg-primary'
+                                : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'
+                        ]" :title="result.moduleTitle || result.moduleName" @click="goToModule(index)" />
+                </div>
+            </template>
         </template>
     </div>
 </template>
