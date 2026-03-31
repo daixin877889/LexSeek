@@ -134,10 +134,17 @@ export default defineEventHandler(async (event) => {
     if (existingSession) {
         sessionId = existingSession.sessionId
         const activeRun = await getActiveRunService(sessionId)
-        if (activeRun) {
-            // 有活跃 run → 重连
+        if (activeRun && activeRun.status !== AGENT_RUN_STATUS.INTERRUPTED) {
+            // 有活跃 run（pending/running）→ 重连
             runId = activeRun.id
         } else {
+            // 如果是 interrupted 的 run，先标记为 completed（非 resume 模式无法恢复）
+            if (activeRun?.status === AGENT_RUN_STATUS.INTERRUPTED) {
+                await prisma.agentRuns.update({
+                    where: { id: activeRun.id },
+                    data: { status: AGENT_RUN_STATUS.COMPLETED, completedAt: new Date() },
+                })
+            }
             // session 存在但 run 已结束
             // 检查请求的模块是否都已在 DB 中完成（COMPLETED + pointDeducted）
             const completedAnalyses = await prisma.caseAnalyses.findMany({
