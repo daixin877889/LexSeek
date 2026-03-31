@@ -164,9 +164,13 @@ const textContent = ref<string | null>(null)
 const textLoading = ref(false)
 
 async function openMaterialPreview(material: MaterialItem) {
-  previewMaterial.value = material
-  if (material.type === CaseMaterialType.CASE_CONTENT) {
-    showTextPreview.value = true
+    // 移除当前焦点，避免 aria-hidden 警告
+    if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
+    }
+    previewMaterial.value = material
+    if (material.type === CaseMaterialType.CASE_CONTENT) {
+        showTextPreview.value = true
     textLoading.value = true
     textContent.value = null
     try {

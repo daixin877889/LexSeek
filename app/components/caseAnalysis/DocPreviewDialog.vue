@@ -271,6 +271,10 @@ async function loadContent() {
 // 使用 immediate: true 确保组件首次挂载时如果 open 为 true 也能触发加载
 watch(open, (isOpen) => {
     if (isOpen) {
+        // 移除当前焦点，避免 aria-hidden 警告
+        if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur()
+        }
         loadContent()
     }
 }, { immediate: true })

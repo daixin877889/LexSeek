@@ -215,6 +215,10 @@ function handleSpeakerUpdated() {
 // 监听弹框打开，加载内容
 watch(open, (isOpen) => {
     if (isOpen) {
+        // 移除当前焦点，避免 aria-hidden 警告
+        if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur()
+        }
         loadContent()
     }
 }, { immediate: true })
