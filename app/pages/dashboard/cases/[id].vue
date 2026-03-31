@@ -49,8 +49,14 @@ function navigateToMaterial(materialId: number) {
 
       <!-- 内容区 -->
       <main class="flex-1 min-w-0 overflow-hidden relative">
-        <!-- 占位内容 - 后续 Task 替换 -->
-        <div class="flex items-center justify-center h-full text-muted-foreground">
+        <CaseDetailOverview
+          v-if="activeView === 'overview'"
+          :case-id="caseId"
+          :analysis-results="analysisResults"
+          @navigate-view="navigateToView"
+        />
+        <!-- 其他视图占位 -->
+        <div v-else class="flex items-center justify-center h-full text-muted-foreground">
           当前视图：{{ activeView }}
         </div>
       </main>
