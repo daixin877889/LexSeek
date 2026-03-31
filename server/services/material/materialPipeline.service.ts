@@ -320,6 +320,25 @@ export async function getMaterialContextService(
 
     const isFullMode = totalTokens < tokenThreshold
 
+    // summary 模式下，为缺少 summary 的材料即时生成摘要并缓存
+    if (!isFullMode) {
+        const needSummary = materials.filter(m => !m.summary && contentMap.has(m.id))
+        if (needSummary.length > 0) {
+            try {
+                const { generateAndCacheSummaries } = await import('./materialSummary.service')
+                const generatedMap = await generateAndCacheSummaries(needSummary, contentMap)
+                // 将生成的 summary 合并回 materials 对象（供下方构建 materialList 使用）
+                for (const m of materials) {
+                    if (!m.summary && generatedMap.has(m.id)) {
+                        m.summary = generatedMap.get(m.id)!
+                    }
+                }
+            } catch (error) {
+                logger.warn('材料摘要批量生成失败，回退到截断模式', { error })
+            }
+        }
+    }
+
     const materialList: MaterialContextItem[] = materials.map(m => {
         const content = contentMap.get(m.id)
         return {
