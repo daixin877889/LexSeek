@@ -1,7 +1,8 @@
 # 案件详情页设计方案
 
 > 日期：2026-03-31
-> 状态：草稿
+> 状态：待用户审核
+> 审查意见：已完成（详见附录 A）
 
 ## 1. 概述
 
@@ -106,32 +107,47 @@
 
 ## 4. 数据模型
 
-### 4.1 文档项接口
+### 4.1 文档类型联合
 
 ```typescript
-interface DocumentItem {
-  /** 文档 ID（材料用 materialId，模块用 nodeId） */
-  id: string
-  /** 文档类型 */
-  type: 'material' | 'module'
+import { CaseMaterialType } from '#shared/types/case'
+
+// 文档基类
+interface BaseDocument {
   /** 文档标题 */
   title: string
   /** 图标 */
   icon: string
-  /** 关联的节点 ID（分析模块特有） */
-  nodeId?: number
-  /** 关联的材料 ID（材料特有） */
-  materialId?: number
-  /** 版本数量（分析模块特有） */
-  versionCount?: number
-  /** 当前版本号 */
-  currentVersion?: number
   /** 创建时间 */
   createdAt: string
 }
+
+// 材料文档（关联 shared/types/file.ts 中的 MaterialItem）
+interface MaterialDocument extends BaseDocument {
+  id: number                    // 材料 ID
+  type: 'material'
+  materialId: number
+  materialType: CaseMaterialType
+  fileName: string
+  fileSize: number
+}
+
+// 模块文档
+interface ModuleDocument extends BaseDocument {
+  id: string                   // 格式: "module-{nodeId}"
+  type: 'module'
+  nodeId: number
+  sessionId: string
+  versionCount: number         // 版本数量
+  currentVersion: number       // 当前版本号
+  hasNewContent: boolean      // 是否有新内容
+}
+
+// 文档联合类型
+type DocumentItem = MaterialDocument | ModuleDocument
 ```
 
-### 4.2 窗口状态接口
+### 4.2 窗口状态
 
 ```typescript
 interface WindowState {
@@ -140,15 +156,15 @@ interface WindowState {
   /** 窗口类型 */
   type: 'material' | 'module'
   /** 关联文档 ID */
-  documentId: string
+  documentId: string | number
   /** 窗口标题 */
   title: string
-  /** 是否可关闭 */
+  /** 是否可关闭（主案件对话不可关闭） */
   closable?: boolean
 }
 ```
 
-### 4.3 页面状态接口
+### 4.3 页面状态
 
 ```typescript
 interface CaseDetailState {
@@ -168,6 +184,10 @@ interface CaseDetailState {
   activeWindowId: string | null
   /** 小索弹窗是否打开 */
   xiaosuoOpen: boolean
+  /** 搜索关键词 */
+  searchQuery: string
+  /** 当前筛选类型 */
+  filterType: 'all' | 'material' | 'module'
 }
 ```
 
@@ -404,59 +424,88 @@ Agent 处理请求
 返回结果并显示
 ```
 
+### 7.4 键盘快捷键
+
+| 快捷键 | 功能 |
+|--------|------|
+| `Cmd/Ctrl + W` | 关闭当前 Tab |
+| `Cmd/Ctrl + Tab` | 切换到下一个 Tab |
+| `Cmd/Ctrl + Shift + Tab` | 切换到上一个 Tab |
+| `Cmd/Ctrl + 1-9` | 快速切换到指定 Tab |
+| `Cmd/Ctrl + B` | 切换侧边栏显示/隐藏 |
+| `Esc` | 关闭弹窗（AiChat、Sheet） |
+
 ## 8. 样式规范
 
-### 8.1 颜色变量
+### 8.1 颜色使用
 
-```css
-/* 文档类型颜色 */
---doc-material-bg: var(--muted);
---doc-material-border: var(--border);
---doc-module-bg: var(--primary/10);
---doc-module-border: var(--primary/20);
+在 Tailwind CSS v4 项目中，使用 Tailwind 类而非自定义 CSS 变量：
 
-/* Tab 栏样式 */
---tab-height: 40px;
---tab-padding: 12px 16px;
---tab-active-bg: var(--background);
---tab-inactive-bg: var(--muted/50);
+```vue
+<!-- 文档类型颜色 - 使用 Tailwind 类 -->
+<div class="bg-muted border-border">           <!-- 材料 -->
+<div class="bg-primary/10 border-primary/20">   <!-- 分析模块 -->
 
-/* 小索按钮样式 */
---xiaosuo-size: 48px;
---xiaosuo-icon-size: 24px;
---xiaosuo-position: fixed bottom-4 right-4;
+<!-- 状态颜色 -->
+<span class="bg-green-100 text-green-800">已完成</span>
+<span class="bg-blue-100 text-blue-800">进行中</span>
 ```
 
 ### 8.2 间距规范
 
 ```css
 /* 页面内边距 */
---page-padding: 16px;          /* 移动端 */
---page-padding: 24px;         /* PC 端 */
+--page-padding: 1rem;          /* 移动端 */
+--page-padding: 1.5rem;        /* PC 端 */
 
-/* 文档列表 */
+/* 文档列表宽度 */
 --doc-list-width: 280px;       /* PC 端 */
---doc-list-width: 240px;       /* 平板 */
+--doc-list-width: 240px;      /* 平板 */
+--doc-list-width: 100%;        /* 移动端 Sheet */
 
 /* 工作区 */
---workspace-gap: 16px;
---tab-gap: 4px;
+--workspace-gap: 1rem;
+--tab-gap: 0.25rem;
+
+/* 小索按钮 */
+--xiaosuo-size: 48px;
+--xiaosuo-icon-size: 24px;
+--xiaosuo-position: fixed bottom-4 right-4;
+--xiaosuo-mobile-bottom: env(safe-area-inset-bottom, 1rem);
 ```
 
 ### 8.3 动画规范
 
-```css
-/* Tab 切换 */
-transition: opacity 150ms ease-out, transform 150ms ease-out;
+```vue
+<!-- Tab 切换 -->
+<Transition enter-active-class="transition duration-150 ease-out"
+           leave-active-class="transition duration-150 ease-in">
+  <!-- 内容 -->
+</Transition>
 
-/* Sheet 展开 */
-transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+<!-- Sheet 展开 -->
+<Transition enter-active-class="transition-transform duration-300 ease-out"
+           enter-from-class="translate-y-full"
+           enter-to-class="translate-y-0"
+           leave-active-class="transition-transform duration-200 ease-in"
+           leave-from-class="translate-y-0"
+           leave-to-class="translate-y-full">
+  <!-- Sheet 内容 -->
+</Transition>
+```
 
-/* 窗口淡入 */
-animation: fadeIn 200ms ease-out;
+### 8.4 移动端安全区域
 
-/* 小索弹窗 */
-transition: opacity 200ms, transform 200ms;
+```vue
+<!-- 移动端底部安全区域适配 -->
+<div class="fixed bottom-4 right-4 pb-[env(safe-area-inset-bottom)]">
+  <!-- 小索按钮 -->
+</div>
+
+<!-- Sheet 底部安全区域 -->
+<Sheet class="pb-safe-area">
+  <!-- 内容 -->
+</Sheet>
 ```
 
 ## 9. 扩展性设计
@@ -476,17 +525,40 @@ transition: opacity 200ms, transform 200ms;
 <!-- 页面扩展插槽 -->
 <CaseDetailPage>
   <template #header-actions>
-    <!-- 扩展头部操作按钮 -->
+    <!-- 扩展头部操作按钮区域 -->
   </template>
 
   <template #document-item-extra="{ doc }">
-    <!-- 扩展文档项额外内容 -->
+    <!-- 扩展文档项额外内容（如版本数徽章） -->
   </template>
 
-  <template #workspace-footer>
-    <!-- 扩展工作区底部 -->
+  <template #document-item-actions="{ doc }">
+    <!-- 每个文档项的额外操作按钮 -->
+  </template>
+
+  <template #workspace-toolbar="{ activeWindow }">
+    <!-- 工作区工具栏扩展 -->
+  </template>
+
+  <template #xiaosuo-header>
+    <!-- 小索弹窗头部自定义 -->
   </template>
 </CaseDetailPage>
+```
+
+### 9.3 状态持久化策略
+
+| 状态 | 持久化方式 | 说明 |
+|------|------------|------|
+| 侧边栏宽度 | localStorage | 用户调整后的宽度比例 |
+| 最后激活的 Tab | localStorage | 下次访问时恢复 |
+| 打开的窗口列表 | 不持久化 | 每次进入页面从初始状态开始 |
+| 文档搜索筛选 | 不持久化 | 每次进入页面重置 |
+
+```typescript
+// 状态持久化示例
+const savedSidebarWidth = useLocalStorage('case-detail-sidebar-width', 280)
+const lastActiveWindowId = useLocalStorage('case-detail-last-window', null)
 ```
 
 ## 10. API 接口
@@ -523,29 +595,56 @@ GET /api/v1/cases/:caseId/documents
 {
   code: 200,
   data: {
-    materials: MaterialItem[]
-    modules: ModuleItem[]
+    materials: Array<{
+      id: number
+      name: string
+      materialType: CaseMaterialType
+      fileSize: number
+      createdAt: string
+    }>
+    modules: Array<{
+      nodeId: number
+      name: string
+      title: string
+      sessionId: string
+      versionCount: number
+      currentVersion: number
+      hasNewContent: boolean
+      createdAt: string
+    }>
   }
 }
 ```
 
-### 10.3 重命名文档
+### 10.3 材料相关操作
 
 ```
-PATCH /api/v1/cases/:caseId/documents/:docId
+# 重命名材料
+PATCH /api/v1/cases/:caseId/materials/:materialId
+
+# 删除材料
+DELETE /api/v1/cases/:caseId/materials/:materialId
 ```
 
-请求：
-```typescript
-{
-  title: string
-}
-```
-
-### 10.4 删除文档
+### 10.4 模块相关操作
 
 ```
-DELETE /api/v1/cases/:caseId/documents/:docId
+# 获取模块对话历史
+GET /api/v1/cases/:caseId/modules/:nodeId/history
+
+# 获取模块所有版本
+GET /api/v1/cases/:caseId/modules/:nodeId/versions
+
+# 切换激活版本
+POST /api/v1/cases/:caseId/modules/:nodeId/versions/:versionId/activate
+```
+
+### 10.5 小索对话
+
+```
+# 小索对话使用现有 AiChat 组件
+# API: /api/v1/case/analysis/chat
+# 具体接口定义参考 useCaseChat composable
 ```
 
 ## 11. 实现计划
@@ -590,3 +689,25 @@ DELETE /api/v1/cases/:caseId/documents/:docId
 - 现有组件：`/app/components/case/AnalysisResults.vue`
 - 现有组件：`/app/components/case/MaterialUploader.vue`
 - 类型定义：`/shared/types/case.ts`
+- 对话组件：`/app/components/ai/AiChat.vue`
+
+## 附录 A：审查意见处理
+
+### 已处理
+
+| 问题 | 处理方式 |
+|------|----------|
+| CSS 变量语法问题 | 改用 Tailwind 类，移除非标准 CSS 变量语法 |
+| 数据模型与现有类型对齐 | 复用 `CaseMaterialType` 枚举，定义联合类型 |
+| API 接口设计 | 区分材料/模块接口，引用现有对话 API |
+| 移动端安全区域 | 添加 `env(safe-area-inset-bottom)` 适配 |
+| 键盘快捷键 | 在交互流程章节补充快捷键设计 |
+| 状态持久化策略 | 添加 9.3 节明确持久化范围 |
+
+### 待实现
+
+| 问题 | 状态 | 说明 |
+|------|------|------|
+| 文件上传功能 | 本期不实现 | 后续扩展 |
+| 平板断点侧边栏交互 | 待定 | 根据实际使用反馈调整 |
+| 搜索功能细节 | 待定 | 全文搜索待后端支持 |
