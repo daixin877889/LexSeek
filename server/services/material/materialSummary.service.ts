@@ -11,14 +11,6 @@ import { createChatModel } from '../node/chatModelFactory'
 /** 摘要生成使用的节点名称 */
 const SUMMARIZER_NODE_NAME = 'material_summarizer'
 
-/** 摘要提示词模板 */
-const SUMMARY_SYSTEM_PROMPT = `你是一位法律文书摘要专家。请为以下案件材料生成 200-500 字的结构化摘要。
-要求：
-1. 保留关键事实、日期、金额、人物关系
-2. 保留重要的法律条款和合同条款引用
-3. 使用简洁客观的语言
-4. 如果材料是对话/录音转写，提取核心议题和各方立场`
-
 /**
  * 为缺少 summary 的材料批量生成摘要并缓存
  *
@@ -36,6 +28,7 @@ export async function generateAndCacheSummaries(
 
     // 获取摘要模型配置
     let model: any
+    let systemPrompt = ''
     try {
         const nodeConfig = await getValidNodeConfig(SUMMARIZER_NODE_NAME)
         const activeApiKey = nodeConfig.modelApiKeys.find((k: any) => k.status === 1)
@@ -51,6 +44,11 @@ export async function generateAndCacheSummaries(
             temperature: 0,
             streaming: false,
         })
+
+        // 从节点配置获取系统提示词
+        systemPrompt = nodeConfig.prompts?.find(
+            (p: any) => p.type === 'system' && p.status === 1,
+        )?.content ?? ''
     } catch (error) {
         logger.warn('获取 material_summarizer 节点失败，跳过摘要生成', { error })
         return summaryMap
@@ -62,7 +60,7 @@ export async function generateAndCacheSummaries(
         if (!content) return
 
         try {
-            const summary = await generateSingleSummary(model, m.name, content)
+            const summary = await generateSingleSummary(model, systemPrompt, m.name, content)
             if (summary) {
                 summaryMap.set(m.id, summary)
                 // 缓存到 DB
@@ -89,6 +87,7 @@ export async function generateAndCacheSummaries(
 /** 为单个材料生成摘要 */
 async function generateSingleSummary(
     model: any,
+    systemPrompt: string,
     materialName: string,
     content: string,
 ): Promise<string | null> {
@@ -98,10 +97,12 @@ async function generateSingleSummary(
         ? content.slice(0, maxContentChars) + '\n\n[内容过长已截断]'
         : content
 
-    const response = await model.invoke([
-        { role: 'system', content: SUMMARY_SYSTEM_PROMPT },
+    const messages: any[] = [
+        ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
         { role: 'user', content: `材料名称：${materialName}\n\n材料内容：\n${truncatedContent}` },
-    ])
+    ]
+
+    const response = await model.invoke(messages)
 
     const summary = typeof response.content === 'string'
         ? response.content
