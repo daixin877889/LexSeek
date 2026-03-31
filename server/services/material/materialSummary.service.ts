@@ -49,6 +49,10 @@ export async function generateAndCacheSummaries(
         systemPrompt = nodeConfig.prompts?.find(
             (p: any) => p.type === 'system' && p.status === 1,
         )?.content ?? ''
+        if (!systemPrompt) {
+            logger.warn('material_summarizer 节点未配置系统提示词，跳过摘要生成')
+            return summaryMap
+        }
     } catch (error) {
         logger.warn('获取 material_summarizer 节点失败，跳过摘要生成', { error })
         return summaryMap
