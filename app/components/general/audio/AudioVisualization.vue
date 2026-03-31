@@ -1,6 +1,6 @@
 <template>
-  <div class="audio-visualization w-full transition-all duration-500 ease-out"
-    :class="{ 'fixed inset-0 z-9999 bg-background': isFullscreen }" ref="audioVisualizationRef">
+  <div class="audio-visualization w-full flex flex-col transition-all duration-500 ease-out"
+    :class="isFullscreen ? 'fixed inset-0 z-9999 bg-background px-4 pb-4' : ''" ref="audioVisualizationRef">
     <!-- 全屏模式下的头部标题栏 -->
     <div v-if="isFullscreen" class="flex items-center justify-between p-4 border-b bg-background fullscreen-header">
       <h3 class="text-lg font-semibold">{{ materialTitle }}</h3>
@@ -10,15 +10,15 @@
       </Button>
     </div>
 
-    <!-- 音频播放器 -->
-    <div class="content-scale-transition" :class="{ 'mt-0': isFullscreen }">
+    <!-- 音频播放器（sticky 固定在顶部） -->
+    <div class="content-scale-transition shrink-0 sticky top-0 z-10 bg-background" :class="{ 'mt-0': isFullscreen }">
       <AudioPlayer ref="audioPlayerRef" :audio-url="audioUrl" :disabled="false" :disable-keyboard="true" @play="onPlay"
         @pause="onPause" @ended="onAudioEnded" @timeupdate="onTimeUpdate" />
     </div>
 
     <!-- ASR对话记录 -->
-    <div class="asr-content bg-background border rounded-lg content-scale-transition mt-4">
-      <div class="p-4 border-b">
+    <div class="asr-content bg-background border rounded-lg content-scale-transition mt-4 flex flex-col" :class="isFullscreen ? 'flex-1' : 'max-h-[60vh] overflow-hidden'">
+      <div class="p-4 border-b shrink-0">
         <div class="flex items-center justify-between">
           <div>
             <h3 class="text-lg font-semibold">语音识别结果</h3>
@@ -49,7 +49,7 @@
         </div>
       </div>
 
-      <div class="p-4 space-y-4 overflow-y-auto" :class="isFullscreen ? 'max-h-[calc(100vh-280px)]' : 'max-h-[400px]'"
+      <div class="p-4 space-y-4 overflow-y-auto flex-1" :class="isFullscreen ? 'max-h-[calc(100vh-280px)]' : ''"
         ref="asrContainerRef">
         <!-- 按说话人分组显示对话 -->
         <div v-if="processedTranscripts.length > 0 && props.asrData?.status === 2">

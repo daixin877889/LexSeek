@@ -1,8 +1,8 @@
 <template>
     <Dialog v-model:open="open">
-        <DialogContent class="w-full h-full md:min-w-[80vw] md:h-[85vh] flex flex-col p-0" @open-auto-focus.prevent
+        <DialogContent class="w-full max-h-[85vh] md:min-w-[80vw] flex flex-col overflow-hidden p-0" @open-auto-focus.prevent
             @interactOutside="(e) => e.preventDefault()">
-            <DialogHeader class="px-6 pt-6 pb-4 border-b">
+            <DialogHeader class="px-6 pt-6 pb-4 border-b shrink-0">
                 <DialogTitle class="flex items-center gap-2">
                     <FileAudioIcon class="size-5 text-purple-500" />
                     {{ fileName }}
@@ -33,10 +33,15 @@
                 </div>
 
                 <!-- 音频可视化组件 -->
-                <div v-else class="h-full overflow-y-auto">
-                    <AudioVisualization :asr-data="asrData" :audio-url="audioUrl" :material-title="fileName"
-                        :asr-record-id="asrRecordId ?? undefined" @speaker-updated="handleSpeakerUpdated" />
-                </div>
+                <AudioVisualization
+                    v-else
+                    :asr-data="asrData"
+                    :audio-url="audioUrl"
+                    :material-title="fileName"
+                    :asr-record-id="asrRecordId ?? undefined"
+                    class="h-full"
+                    @speaker-updated="handleSpeakerUpdated"
+                />
             </div>
         </DialogContent>
     </Dialog>
