@@ -1430,10 +1430,12 @@ export const embedAsrRecordService = async (
             fileName,
         })
 
-        // 8. 更新 ASR 识别记录的向量信息
+        // 8. 更新 ASR 识别记录的向量信息 + 摘要文本
+        // summary 字段供 fetchMaterialContents 读取，作为材料上下文注入工作流
         await updateAsrRecordDao(recordId, {
             vectorIds: embeddingResult.ids,
             lastEmbeddingAt: new Date(embeddingResult.lastEmbeddingAt),
+            summary: text,
         }, tx)
 
         logger.info(`音频识别结果向量化完成：recordId=${recordId}, ossFileId=${record.ossFileId}, chunkCount=${embeddingResult.chunkCount}`)

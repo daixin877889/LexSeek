@@ -142,8 +142,34 @@ export function estimateTokens(text: string): number {
  * - 文本(1): textContentRecords.content (按 materialId)
  * - 文档(2): docRecognitionRecords.markdownContent (按 ossFileId)
  * - 图片(3): imageRecognitionRecords.markdownContent (按 ossFileId)
- * - 音频(4): asrRecords.summary (按 ossFileId)
+ * - 音频(4): asrRecords.summary (按 ossFileId)，fallback 到 result JSON 提取纯文本
  */
+
+/**
+ * 从 ASR result JSON 中提取纯文本（当 summary 为空时的 fallback）
+ *
+ * result 格式为 SimplifiedAsrResult: { sentences: [{ text, begin_time, end_time, speaker_id }] }
+ */
+function extractTextFromAsrResult(result: any): string | null {
+    if (!result) return null
+
+    // SimplifiedAsrResult 格式
+    if (result.sentences && Array.isArray(result.sentences)) {
+        const text = result.sentences
+            .map((s: any) => s.text || '')
+            .filter(Boolean)
+            .join('\n')
+        return text || null
+    }
+
+    // 兜底：尝试直接取 text 字段
+    if (typeof result.text === 'string' && result.text.trim()) {
+        return result.text
+    }
+
+    return null
+}
+
 export async function fetchMaterialContents(
     materials: { id: number; type: number; ossFileId: number | null }[]
 ): Promise<Map<number, string>> {
@@ -226,25 +252,30 @@ export async function fetchMaterialContents(
         )
     }
 
-    // 音频材料：从 asrRecords 获取
+    // 音频材料：从 asrRecords 获取（优先 summary，fallback 到 result 文本）
     if (audioMaterials.length > 0) {
         const ossFileIdToMaterialId = new Map(audioMaterials.map(m => [m.ossFileId!, m.id]))
         queries.push(
             prisma.asrRecords.findMany({
                 where: {
                     ossFileId: { in: [...ossFileIdToMaterialId.keys()] },
-                    summary: { not: null },
+                    status: 2, // SUCCESS
                     deletedAt: null,
                 },
-                select: { ossFileId: true, summary: true },
+                select: { ossFileId: true, summary: true, result: true },
                 orderBy: { createdAt: 'desc' },
             }).then(records => {
                 const seen = new Set<number>()
                 for (const r of records) {
-                    if (r.ossFileId && r.summary && !seen.has(r.ossFileId)) {
-                        seen.add(r.ossFileId)
-                        const materialId = ossFileIdToMaterialId.get(r.ossFileId)
-                        if (materialId) contentMap.set(materialId, r.summary)
+                    if (r.ossFileId && !seen.has(r.ossFileId)) {
+                        // 优先使用 summary（已格式化的转录文本）
+                        // fallback：从 result JSON 提取纯文本
+                        const content = r.summary || extractTextFromAsrResult(r.result)
+                        if (content) {
+                            seen.add(r.ossFileId)
+                            const materialId = ossFileIdToMaterialId.get(r.ossFileId)
+                            if (materialId) contentMap.set(materialId, content)
+                        }
                     }
                 }
             })
