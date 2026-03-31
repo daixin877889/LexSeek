@@ -144,6 +144,53 @@ const interrupt = computed(() => {
 
 **规则**：**积分操作是基础设施逻辑，不是 LLM 的工具。不要把积分工具配给分析节点。**
 
+### 坑 12：非 resume 请求命中 INTERRUPTED run 导致接口无响应
+
+**现象**：`/api/v1/case/init-analysis` 接口不返回任何数据，前端无响应。
+
+**根因**：`findActiveRunBySessionIdDAO` 将 `INTERRUPTED` 视为"活跃"状态（与 PENDING/RUNNING 并列）。当工作流因积分不足被 interrupt 后，后续的非 resume 新请求进入"重连"分支，直接使用 interrupted run 的 ID 创建 SSE。SSE replay 旧事件后发现最后状态就是 `INTERRUPTED`（终结状态）→ 立即关闭连接 → 客户端收到瞬间关闭的空 SSE 流。
+
+**解决**：在非 resume 模式下，如果发现活跃 run 是 `INTERRUPTED` 状态，先将其标记为 `COMPLETED`，再走正常的"模块完成检查 → 创建新 run"流程：
+```typescript
+if (activeRun && activeRun.status !== AGENT_RUN_STATUS.INTERRUPTED) {
+    // 有活跃 run（pending/running）→ 重连
+    runId = activeRun.id
+} else {
+    // interrupted → 标记完成，走新建逻辑
+    if (activeRun?.status === AGENT_RUN_STATUS.INTERRUPTED) {
+        await prisma.agentRuns.update({
+            where: { id: activeRun.id },
+            data: { status: AGENT_RUN_STATUS.COMPLETED, completedAt: new Date() },
+        })
+    }
+    // ... 检查模块完成状态 → 创建新 run
+}
+```
+
+**规则**：**INTERRUPTED 对 SSE 连接是终结状态（坑 4），但对任务队列不应视为"活跃"。非 resume 请求遇到 INTERRUPTED run 时，必须先关闭旧 run 再创建新 run，否则会陷入死循环。**
+
+### 坑 13：刷新页面后分析中的模块状态消失
+
+**现象**：在第一个模块分析过程中刷新页面，顶部的模块进度条全部显示为 idle，正在分析的模块没有 streaming 状态。
+
+**根因**：`watch(values)` 中的 `streamStarted` 守卫过于激进。刷新后：
+1. `loadStatus()` 从 DB 恢复状态 → 所有模块 `idle`（IN_PROGRESS 在 status API 中映射为 idle）
+2. SSE 重连 → 收到 checkpoint values 快照（有 `selectedModules` 但无 `result`——第一个模块还在执行）
+3. 守卫条件 `!streamStarted && !hasResultContent && !hasFailedContent` 为 true → 提前 return
+4. `currentStreaming` 检测逻辑（推断第一个未完成模块为 streaming）被完全跳过
+5. 所有模块保持 `idle` 状态
+
+**解决**：修改守卫条件，将 SSE 返回 `selectedModules`（checkpoint 数据）也视为"流已建立"：
+```typescript
+// 修改前：只看 result/failedModules
+if (!streamStarted && !hasResultContent && !hasFailedContent) { return }
+
+// 修改后：有 selectedModules（checkpoint 数据）也算流已建立
+if (!streamStarted && !hasResultContent && !hasFailedContent && !mods?.length) { return }
+```
+
+**规则**：**`streamStarted` 守卫的目的是防止空 SSE 覆盖 DB 恢复的状态。但 checkpoint 数据（含 selectedModules）是可信的——有 checkpoint 数据就应该允许状态更新，包括 streaming 模块检测。**
+
 ## 四、架构决策记录
 
 ### 积分生命周期设计
