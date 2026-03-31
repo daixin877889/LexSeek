@@ -174,16 +174,20 @@ export class AgentWorker {
           // 解析 SSE 事件并发布
           const events = parseSSEEvents(text)
           for (const evt of events) {
+            // 剥离 system 消息（防止系统提示词泄露）
+            const sanitized = stripSystemMessages(evt.event, evt.data)
+            if (sanitized === null) continue
+
             // 缓冲最后一个 values 事件数据（用于 interrupt 检测后合并）
             if (evt.event === 'values') {
-              lastValuesData = evt.data
+              lastValuesData = sanitized
             }
             await publishAgentEvent({
               type: 'stream_event',
               runId: run.id,
               sessionId: run.sessionId,
               event: evt.event as 'values' | 'messages' | 'updates',
-              data: evt.data,
+              data: sanitized,
             })
           }
         }
@@ -192,13 +196,16 @@ export class AgentWorker {
         if (remaining) {
           const events = parseSSEEvents(remaining)
           for (const evt of events) {
-            if (evt.event === 'values') lastValuesData = evt.data
+            const sanitized = stripSystemMessages(evt.event, evt.data)
+            if (sanitized === null) continue
+
+            if (evt.event === 'values') lastValuesData = sanitized
             await publishAgentEvent({
               type: 'stream_event',
               runId: run.id,
               sessionId: run.sessionId,
               event: evt.event as 'values' | 'messages' | 'updates',
-              data: evt.data,
+              data: sanitized,
             })
           }
         }
@@ -433,4 +440,50 @@ function parseSSEEvents(text: string): Array<{ event: string; data: unknown }> {
   }
 
   return events
+}
+
+/**
+ * 判断消息是否为 system 类型
+ *
+ * LangGraph 消息格式可能是：
+ * - { type: 'system', ... }
+ * - { data: { type: 'system', ... } }（嵌套格式）
+ */
+function isSystemMessage(msg: unknown): boolean {
+  if (!msg || typeof msg !== 'object') return false
+  const m = msg as Record<string, unknown>
+  if (m.type === 'system') return true
+  // 兼容嵌套 { data: { type: 'system' } } 格式
+  if (m.data && typeof m.data === 'object' && (m.data as Record<string, unknown>).type === 'system') return true
+  return false
+}
+
+/**
+ * 从 SSE 事件数据中剥离 system 消息（防止系统提示词泄露到客户端）
+ *
+ * - values 事件：过滤 data.messages 数组中的 system 消息
+ * - messages 事件：过滤整个事件（如果是 system 消息则返回 null）
+ */
+function stripSystemMessages(event: string, data: unknown): unknown | null {
+  if (!data || typeof data !== 'object') return data
+
+  if (event === 'values') {
+    const d = data as Record<string, unknown>
+    if (Array.isArray(d.messages)) {
+      return { ...d, messages: d.messages.filter(m => !isSystemMessage(m)) }
+    }
+    return data
+  }
+
+  if (event === 'messages') {
+    // messages 事件可能是单条消息或消息数组
+    if (Array.isArray(data)) {
+      const filtered = (data as unknown[]).filter(m => !isSystemMessage(m))
+      return filtered.length > 0 ? filtered : null
+    }
+    if (isSystemMessage(data)) return null
+    return data
+  }
+
+  return data
 }
