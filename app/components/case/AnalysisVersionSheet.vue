@@ -125,11 +125,14 @@ watch(open, (val) => {
       <template v-else-if="isMobile">
         <!-- 预览视图 -->
         <template v-if="mobileShowPreview && selectedVersion">
-          <div class="shrink-0 flex items-center justify-between px-3 py-2 border-b">
-            <Button variant="ghost" size="sm" class="h-7 gap-1 -ml-2" @click="mobileBack">
-              <ArrowLeftIcon class="size-3.5" />
-              返回
-            </Button>
+          <div class="shrink-0 flex items-center justify-between px-3 py-2 border-b bg-muted/20">
+            <div class="flex items-center gap-2">
+              <Button variant="ghost" size="sm" class="h-7 gap-1 -ml-2" @click="mobileBack">
+                <ArrowLeftIcon class="size-3.5" />
+                返回
+              </Button>
+              <span class="text-xs font-medium">第 {{ selectedVersion.version }} 版</span>
+            </div>
             <div class="flex items-center gap-2">
               <Badge v-if="selectedVersion.isActive" variant="outline" class="text-green-600 border-green-300 text-[10px] h-5">
                 当前版本

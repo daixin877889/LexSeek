@@ -1,6 +1,6 @@
 <template>
   <div class="p-4 space-y-3">
-    <h3 class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
+    <h3 v-if="!hideHeader" class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
       <FileTextIcon class="size-4" />
       案件材料
       <Badge v-if="materials.length > 0" variant="secondary" class="font-normal px-1.5 py-0 h-4 text-[10px]">{{ materials.length }}</Badge>
@@ -94,9 +94,12 @@ interface MaterialItem {
   fileType: string | null
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   caseId: number
-}>()
+  hideHeader?: boolean
+}>(), {
+  hideHeader: false
+})
 
 const emit = defineEmits<{
   preview: [material: MaterialItem]

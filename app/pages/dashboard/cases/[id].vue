@@ -41,6 +41,14 @@ const { caseInfo, materials, analysisResults, refreshAnalysis, refreshCase } = u
 
 const pageTitle = computed(() => caseInfo.value?.title ?? '案件详情')
 
+const viewLabelMap: Record<ActiveView, string> = {
+  overview: '概览',
+  materials: '案件材料',
+  analysis: '分析结果',
+  todos: '待办事项',
+  documents: '文书生成',
+}
+
 // --- 材料预览弹窗状态（复用 init-analysis 的模式） ---
 const previewMaterial = ref<MaterialItem | null>(null)
 const showPreview = ref(false)
@@ -80,7 +88,7 @@ function navigateToAnalysis(index: number) {
 </script>
 
 <template>
-  <div class="flex flex-col" :style="{ height: hideDashboardHeader ? '100vh' : 'calc(100vh - 48px)' }">
+  <div class="flex flex-col relative" :style="{ height: hideDashboardHeader ? '100vh' : 'calc(100vh - 48px)' }">
     <!-- 头部 - 移动端分析详情模式时隐藏 -->
     <header
       class="h-12 shrink-0 border-b flex items-center px-4 gap-3"
@@ -89,7 +97,16 @@ function navigateToAnalysis(index: number) {
       <Button variant="ghost" size="icon" class="size-8 shrink-0" @click="navigateTo('/dashboard/cases')">
         <ArrowLeftIcon class="size-4" />
       </Button>
-      <h1 class="text-sm font-medium truncate flex-1">{{ pageTitle }}</h1>
+
+      <div class="flex-1 min-w-0">
+        <h1 class="text-sm font-medium truncate">
+          {{ pageTitle }}
+          <span v-if="activeView !== 'overview'" class="text-muted-foreground ml-1">
+            · {{ viewLabelMap[activeView] }}
+          </span>
+        </h1>
+      </div>
+
       <Button variant="ghost" size="icon" class="size-8 shrink-0" title="导出文档"
         :disabled="!analysisResults || analysisResults.length === 0"
         @click="showExportDialog = true">
@@ -109,23 +126,20 @@ function navigateToAnalysis(index: number) {
 
       <!-- 内容区 -->
       <main class="flex-1 min-w-0 overflow-hidden relative">
-        <CaseDetailOverview v-if="activeView === 'overview'" :case-id="caseId" :analysis-results="analysisResults"
-          @navigate-view="navigateToView" @preview-material="openMaterialPreview"
-          @navigate-analysis="navigateToAnalysis" @updated="refreshCase" />
-        <CaseDetailMaterials v-else-if="activeView === 'materials'" :materials="materials ?? []"
-          @preview="openMaterialPreview" />
-        <CaseDetailAnalysis v-else-if="activeView === 'analysis'" ref="analysisRef" :case-id="caseId" :results="analysisResults"
-          v-model:active-index="analysisIndex" v-model:view-mode="analysisMode"
-          @version-changed="refreshAnalysis" />
-        <!-- 其他视图占位 -->
-        <div v-else class="flex items-center justify-center h-full text-muted-foreground">
-          当前视图：{{ activeView }}
-        </div>
-
-        <!-- 小索助手 -->
-        <ClientOnly>
-          <CaseDetailXiaosuo v-model="xiaosuoOpen" />
-        </ClientOnly>
+        <Transition name="page-fade" mode="out-in">
+          <CaseDetailOverview v-if="activeView === 'overview'" :key="'overview'" :case-id="caseId" :analysis-results="analysisResults"
+            @navigate-view="navigateToView" @preview-material="openMaterialPreview"
+            @navigate-analysis="navigateToAnalysis" @updated="refreshCase" />
+          <CaseDetailMaterials v-else-if="activeView === 'materials'" :key="'materials'" :materials="materials ?? []"
+            @preview="openMaterialPreview" />
+          <CaseDetailAnalysis v-else-if="activeView === 'analysis'" :key="'analysis'" ref="analysisRef" :case-id="caseId" :results="analysisResults"
+            v-model:active-index="analysisIndex" v-model:view-mode="analysisMode"
+            @version-changed="refreshAnalysis" />
+          <!-- 其他视图占位 -->
+          <div v-else :key="'placeholder'" class="flex items-center justify-center h-full text-muted-foreground">
+            当前视图：{{ activeView }}
+          </div>
+        </Transition>
       </main>
     </div>
 
@@ -133,6 +147,11 @@ function navigateToAnalysis(index: number) {
     <div v-show="!hideDashboardHeader" class="md:hidden shrink-0">
       <CaseDetailBottomTabs v-model="activeView" />
     </div>
+
+    <!-- 小索助手 - 提升到此层级以覆盖 header -->
+    <ClientOnly>
+      <CaseDetailXiaosuo v-model="xiaosuoOpen" />
+    </ClientOnly>
   </div>
 
   <!-- 文档/图片预览弹窗 -->
@@ -165,9 +184,28 @@ function navigateToAnalysis(index: number) {
   </Dialog>
 
   <!-- 导出文档弹窗 -->
-  <CaseDetailCaseExportDialog
-    v-model:open="showExportDialog"
-    :title="pageTitle"
-    :results="analysisResults ?? []"
-  />
+  <ClientOnly>
+    <CaseDetailCaseExportDialog
+      v-model:open="showExportDialog"
+      :title="pageTitle"
+      :results="analysisResults ?? []"
+    />
+  </ClientOnly>
 </template>
+
+<style scoped>
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: all 0.2s ease-out;
+}
+
+.page-fade-enter-from {
+  opacity: 0;
+  transform: translateX(10px);
+}
+
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+</style>

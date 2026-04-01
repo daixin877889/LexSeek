@@ -26,6 +26,10 @@ import {
     ShieldIcon,
     ClipboardListIcon,
     ArrowLeftIcon,
+    ChevronLeftIcon,
+    ChevronRightIcon,
+    LayoutGridIcon,
+    ListIcon,
     SparklesIcon,
     HistoryIcon,
 } from 'lucide-vue-next'
@@ -61,6 +65,8 @@ interface Props {
     class?: HTMLAttributes['class']
     /** 查看模式：仪表盘或详情 */
     viewMode?: 'dashboard' | 'detail'
+    /** 是否隐藏头部（仅在仪表盘模式下生效） */
+    hideHeader?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -75,6 +81,7 @@ const props = withDefaults(defineProps<Props>(), {
     emptyDescription: '完成分析后，结果将在此处展示',
     isAnalyzing: false,
     viewMode: 'dashboard',
+    hideHeader: false,
 })
 
 const emit = defineEmits<{
@@ -102,6 +109,9 @@ const currentViewMode = computed({
     get: () => props.viewMode,
     set: (value) => emit('update:viewMode', value),
 })
+
+// 仪表盘模式下的显示视图：网格或列表
+const dashboardViewMode = ref<'grid' | 'list'>('grid')
 
 watch([currentViewMode, isMobileView], ([mode, mobile]) => {
     hideDashboardHeader.value = mobile && mode === 'detail'
@@ -161,6 +171,24 @@ function goToModule(index: number) {
     if (index >= 0 && index < props.results.length) {
         currentIndex.value = index
         currentViewMode.value = 'detail'
+    }
+}
+
+/**
+ * 切换到上一个模块
+ */
+function goToPrev() {
+    if (currentIndex.value > 0) {
+        currentIndex.value--
+    }
+}
+
+/**
+ * 切换到下一个模块
+ */
+function goToNext() {
+    if (currentIndex.value < props.results.length - 1) {
+        currentIndex.value++
     }
 }
 
@@ -236,45 +264,82 @@ function formatAnalyzedAt(dateStr: string): string {
 
         <!-- 有结果时的展示 -->
         <template v-else>
-            <!-- 仪表盘视图 -->
-            <div v-if="currentViewMode === 'dashboard'" class="p-4">
-                <div class="flex items-center justify-between mb-4">
-                    <h3
-                        class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
-                        <SparklesIcon class="size-4" />
-                        分析结果
-                        <span class="font-normal text-[10px] bg-muted px-1.5 py-0.5 rounded">{{ results.length }}</span>
-                    </h3>
-                </div>
-                <div class="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
-                    <button v-for="(result, index) in results" :key="result.nodeId"
-                        class="group relative flex flex-col items-center p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition-all border border-transparent hover:border-primary cursor-pointer text-center"
-                        @click="goToModule(index)">
+            <Transition name="view-fade" mode="out-in">
+                <!-- 仪表盘视图 -->
+                <div v-if="currentViewMode === 'dashboard'" key="dashboard" class="p-4">
+                    <div v-if="!hideHeader" class="flex items-center justify-between mb-4">
+                        <h3
+                            class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
+                            <SparklesIcon class="size-4" />
+                            分析结果
+                            <span class="font-normal text-[10px] bg-muted px-1.5 py-0.5 rounded">{{ results.length }}</span>
+                        </h3>
 
-                        <!-- 模块图标 -->
-                        <div
-                            class="flex items-center justify-center size-11 rounded-xl shrink-0 transition-colors group-hover:scale-105 mb-1.5 bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white">
-                            <component :is="getModuleIcon(result.moduleName)" class="size-6" />
+                        <div class="flex items-center bg-muted/50 rounded-lg p-0.5">
+                            <button class="size-7 flex items-center justify-center rounded-md transition-all"
+                                :class="dashboardViewMode === 'grid' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
+                                @click="dashboardViewMode = 'grid'">
+                                <LayoutGridIcon class="size-3.5" />
+                            </button>
+                            <button class="size-7 flex items-center justify-center rounded-md transition-all"
+                                :class="dashboardViewMode === 'list' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
+                                @click="dashboardViewMode = 'list'">
+                                <ListIcon class="size-3.5" />
+                            </button>
                         </div>
+                    </div>
 
-                        <!-- 模块信息 -->
-                        <div class="flex-1 min-w-0 w-full">
-                            <h4
-                                class="text-[12px] font-medium line-clamp-1 leading-tight mb-1 group-hover:text-primary transition-colors px-1">
-                                {{ result.moduleTitle || result.moduleName }}
-                            </h4>
-                            <div class="text-[10px] text-muted-foreground/60 flex items-center justify-center">
-                                <span>第 {{ result.version ?? 1 }} 版</span>
+                    <!-- 网格模式 -->
+                    <div v-if="dashboardViewMode === 'grid'" class="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
+                        <button v-for="(result, index) in results" :key="result.nodeId"
+                            class="group relative flex flex-col items-center p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition-all border border-transparent hover:border-primary cursor-pointer text-center"
+                            @click="goToModule(index)">
+
+                            <!-- 模块图标 -->
+                            <div
+                                class="flex items-center justify-center size-11 rounded-xl shrink-0 transition-colors group-hover:scale-105 mb-1.5 bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white">
+                                <component :is="getModuleIcon(result.moduleName)" class="size-6" />
                             </div>
-                        </div>
-                    </button>
-                </div>
-            </div>
 
-            <!-- 详情视图 -->
-            <template v-else>
-                <!-- 结果内容区域 -->
-                <div class="flex-1 overflow-hidden">
+                            <!-- 模块信息 -->
+                            <div class="flex-1 min-w-0 w-full">
+                                <h4
+                                    class="text-[12px] font-medium line-clamp-1 leading-tight mb-1 group-hover:text-primary transition-colors px-1">
+                                    {{ result.moduleTitle || result.moduleName }}
+                                </h4>
+                                <div class="text-[10px] text-muted-foreground/60 flex items-center justify-center">
+                                    <span>第 {{ result.version ?? 1 }} 版</span>
+                                </div>
+                            </div>
+                        </button>
+                    </div>
+
+                    <!-- 列表模式 -->
+                    <div v-else class="space-y-1">
+                        <button v-for="(result, index) in results" :key="result.nodeId"
+                            class="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/50 transition-colors group border border-transparent hover:border-border/50 text-left"
+                            @click="goToModule(index)">
+                            <div class="flex items-center justify-center size-9 rounded-lg shrink-0 bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                                <component :is="getModuleIcon(result.moduleName)" class="size-5" />
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h4 class="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                                    {{ result.moduleTitle || result.moduleName }}
+                                </h4>
+                                <div class="text-[11px] text-muted-foreground/60 flex items-center gap-2">
+                                    <span>第 {{ result.version ?? 1 }} 版</span>
+                                    <template v-if="formatAnalyzedAt(result.analyzedAt)">
+                                        <span class="size-0.5 rounded-full bg-muted-foreground/30"></span>
+                                        <span>分析于 {{ formatAnalyzedAt(result.analyzedAt) }}</span>
+                                    </template>
+                                </div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 详情视图 -->
+                <div v-else key="detail" class="flex-1 overflow-hidden">
                     <AiElementsArtifact v-if="currentResult" class="h-full border-0 rounded-none shadow-none">
                         <!-- 头部：标题和操作按钮 -->
                         <AiElementsArtifactHeader>
@@ -283,9 +348,14 @@ function formatAnalyzedAt(dateStr: string): string {
                                     <ArrowLeftIcon class="size-4" />
                                 </Button>
                                 <div class="flex flex-col gap-0.5 min-w-0">
-                                    <AiElementsArtifactTitle class="truncate">
-                                        {{ currentResult.moduleTitle || currentResult.moduleName }}
-                                    </AiElementsArtifactTitle>
+                                    <div class="flex items-center gap-2">
+                                        <AiElementsArtifactTitle class="truncate">
+                                            {{ currentResult.moduleTitle || currentResult.moduleName }}
+                                        </AiElementsArtifactTitle>
+                                        <Badge variant="secondary" class="px-1 py-0 h-4 text-[10px] font-normal shrink-0">
+                                            第 {{ currentResult.version ?? 1 }} 版
+                                        </Badge>
+                                    </div>
                                     <span v-if="formatAnalyzedAt(currentResult.analyzedAt)"
                                         class="text-[10px] text-muted-foreground">
                                         分析于 {{ formatAnalyzedAt(currentResult.analyzedAt) }}
@@ -311,6 +381,19 @@ function formatAnalyzedAt(dateStr: string): string {
                                     :disabled="isCurrentRegenerating" @click="handleRegenerate">
                                     <MessageCircleIcon class="size-4" />
                                 </AiElementsArtifactAction>
+
+                                <!-- 翻页按钮 -->
+                                <div class="flex items-center bg-muted/50 rounded-lg p-0.5 ml-1">
+                                    <AiElementsArtifactAction tooltip="上一个模块" :disabled="currentIndex <= 0"
+                                        @click="goToPrev">
+                                        <ChevronLeftIcon class="size-4" />
+                                    </AiElementsArtifactAction>
+                                    <div class="w-px h-3 bg-border mx-0.5"></div>
+                                    <AiElementsArtifactAction tooltip="下一个模块"
+                                        :disabled="currentIndex >= results.length - 1" @click="goToNext">
+                                        <ChevronRightIcon class="size-4" />
+                                    </AiElementsArtifactAction>
+                                </div>
                             </AiElementsArtifactActions>
                         </AiElementsArtifactHeader>
 
@@ -332,13 +415,29 @@ function formatAnalyzedAt(dateStr: string): string {
                         </AiElementsArtifactContent>
                     </AiElementsArtifact>
                 </div>
-
-            </template>
+            </Transition>
         </template>
     </div>
 
-    <!-- 版本 Sheet（组件待实现） -->
-    <!-- <CaseAnalysisVersionSheet v-if="showVersions && caseId && currentResult" v-model="versionSheetOpen"
+    <!-- 版本 Sheet -->
+    <CaseAnalysisVersionSheet v-if="showVersions && caseId && currentResult" v-model:open="versionSheetOpen"
         :case-id="caseId" :analysis-type="currentResult.moduleName"
-        :module-title="currentResult.moduleTitle || currentResult.moduleName" @activated="emit('versionChanged')" /> -->
+        :module-title="currentResult.moduleTitle || currentResult.moduleName" @activated="emit('versionChanged')" />
 </template>
+
+<style scoped>
+.view-fade-enter-active,
+.view-fade-leave-active {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.view-fade-enter-from {
+  opacity: 0;
+  transform: translateY(8px) scale(0.99);
+}
+
+.view-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.99);
+}
+</style>

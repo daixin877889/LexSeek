@@ -1,7 +1,7 @@
 <template>
   <div class="p-4 space-y-4">
     <div v-if="caseInfo" class="space-y-3">
-      <h3 class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
+      <h3 v-if="!hideHeader" class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
         <InfoIcon class="size-4" />
         案件基本信息
         <Button v-if="editable && !isEditing" variant="ghost" size="icon" class="size-5 ml-auto" @click="startEditing">
@@ -88,17 +88,6 @@
           <span class="text-foreground leading-relaxed line-clamp-3 font-bold">{{ caseInfo.summary }}</span>
         </template>
       </div>
-
-      <!-- 编辑操作栏 -->
-      <div v-if="isEditing" class="flex justify-end gap-2 pt-2 border-t">
-        <Button variant="outline" size="sm" class="h-7 text-xs" :disabled="isSaving" @click="cancelEditing">
-          取消
-        </Button>
-        <Button size="sm" class="h-7 text-xs" :disabled="isSaving" @click="saveChanges">
-          <Loader2Icon v-if="isSaving" class="size-3 animate-spin mr-1" />
-          保存
-        </Button>
-      </div>
     </div>
   </div>
 </template>
@@ -121,20 +110,35 @@ export interface CaseInfoData {
   extraFields?: ExtraField[]
 }
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   caseId: number
   editable?: boolean
-}>()
+  hideHeader?: boolean
+}>(), {
+  editable: false,
+  hideHeader: false,
+})
 
 const emit = defineEmits<{
   updated: []
+  'update:isEditing': [val: boolean]
 }>()
+
+defineExpose({
+  startEditing,
+  saveChanges,
+  cancelEditing,
+})
 
 const caseInfo = ref<CaseInfoData | null>(null)
 
 // 编辑状态
 const isEditing = ref(false)
 const isSaving = ref(false)
+
+watch(isEditing, (val) => {
+  emit('update:isEditing', val)
+})
 const editForm = ref({
   title: '',
   plaintiff: [] as string[],

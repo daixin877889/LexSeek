@@ -60,7 +60,7 @@ watch(isOpen, (open) => {
     >
       <div
         v-if="isOpen && isFullscreen"
-        class="absolute inset-0 z-30 bg-background flex flex-col"
+        class="fixed md:absolute inset-0 z-50 bg-background flex flex-col"
       >
         <!-- 头部 -->
         <div class="shrink-0 h-12 flex items-center justify-between px-4 border-b bg-muted/30">
@@ -112,7 +112,7 @@ watch(isOpen, (open) => {
     </Transition>
 
     <!-- 小窗模式：悬浮弹窗 -->
-    <div class="absolute bottom-4 right-4 z-20">
+    <div class="absolute bottom-4 right-4 z-40">
       <Transition
         enter-active-class="transition duration-200 ease-out"
         enter-from-class="opacity-0 scale-95 translate-y-2"
