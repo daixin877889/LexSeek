@@ -17,7 +17,8 @@ COPY . .
 # 生成 Prisma Client
 RUN bun prisma:generate
 
-# 构建 Nuxt 应用（跳过 prebuild 测试，因为测试文件被 .dockerignore 排除）
+# 构建 Nuxt 应用（跳过 prebuild 测试，增大内存限制用于服务端代码混淆）
+ENV NODE_OPTIONS=--max-old-space-size=8192
 RUN bun nuxt build
 
 # 在构建阶段安装 ipx 缺失的依赖到 .output/server/node_modules
