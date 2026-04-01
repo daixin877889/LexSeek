@@ -1,6 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import tailwindcss from '@tailwindcss/vite'
 import obfuscatorPlugin from 'vite-plugin-javascript-obfuscator'
+import rollupObfuscator from 'rollup-plugin-obfuscator'
 import { obfuscatorConfig } from './config/obfuscator'
 
 export default defineNuxtConfig({
@@ -113,7 +114,19 @@ export default defineNuxtConfig({
     // 解决 dayjs ESM 模块解析问题
     externals: {
       inline: ['dayjs']
-    }
+    },
+    // 生产构建代码混淆（rollup 插件）
+    rollupConfig: {
+      plugins: [
+        ...(process.env.NODE_ENV === 'production' ? [
+          rollupObfuscator({
+            options: {
+              ...obfuscatorConfig,
+            },
+          }),
+        ] : []),
+      ],
+    },
   },
   runtimeConfig: {
     public: {
