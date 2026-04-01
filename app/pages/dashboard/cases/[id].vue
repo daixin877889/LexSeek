@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { ActiveView, MaterialItem } from '~/composables/useCaseDetail'
 import { CaseMaterialType } from '#shared/types/case'
-import { ArrowLeftIcon, FileTextIcon, Loader2Icon } from 'lucide-vue-next'
+import { ArrowLeftIcon, FileTextIcon } from 'lucide-vue-next'
 import { VisuallyHidden } from 'reka-ui'
 import xiaosuoIcon from '~/assets/icon/xiaosuo.svg'
 
@@ -23,7 +23,6 @@ const initialView = validViews.includes(route.query.tab as ActiveView)
 const activeView = ref<ActiveView>(initialView)
 const analysisIndex = ref(route.query.ai ? Number(route.query.ai) : 0)
 const analysisMode = ref<'dashboard' | 'detail'>(route.query.am === 'detail' ? 'detail' : 'dashboard')
-const selectedMaterialId = ref<number | null>(null)
 const xiaosuoOpen = ref(false)
 
 // 统一同步所有状态到 query
@@ -37,7 +36,7 @@ watch([activeView, analysisIndex, analysisMode], ([view, ai, am]) => {
   router.replace({ query })
 })
 
-const { caseInfo, materials, analysisResults, refreshAnalysis } = useCaseDetail(caseId)
+const { caseInfo, materials, analysisResults, refreshAnalysis, refreshCase } = useCaseDetail(caseId)
 
 const pageTitle = computed(() => caseInfo.value?.title ?? '案件详情')
 
@@ -46,7 +45,6 @@ const previewMaterial = ref<MaterialItem | null>(null)
 const showPreview = ref(false)
 const showTextPreview = ref(false)
 const textContent = ref<string | null>(null)
-const textLoading = ref(false)
 
 async function openMaterialPreview(material: MaterialItem) {
   if (document.activeElement instanceof HTMLElement) {
@@ -55,17 +53,7 @@ async function openMaterialPreview(material: MaterialItem) {
   previewMaterial.value = material
   if (material.type === CaseMaterialType.CASE_CONTENT) {
     showTextPreview.value = true
-    textLoading.value = true
-    textContent.value = null
-    try {
-      const data = await useApiFetch<{ content: string | null }>(
-        `/api/v1/material/content/${material.id}`,
-        { query: { detail: false } }
-      )
-      textContent.value = data?.content ?? null
-    } finally {
-      textLoading.value = false
-    }
+    textContent.value = caseInfo.value?.content ?? null
   } else {
     showPreview.value = true
   }
@@ -117,9 +105,9 @@ function navigateToAnalysis(index: number) {
       <main class="flex-1 min-w-0 overflow-hidden relative">
         <CaseDetailOverview v-if="activeView === 'overview'" :case-id="caseId" :analysis-results="analysisResults"
           @navigate-view="navigateToView" @preview-material="openMaterialPreview"
-          @navigate-analysis="navigateToAnalysis" />
+          @navigate-analysis="navigateToAnalysis" @updated="refreshCase" />
         <CaseDetailMaterials v-else-if="activeView === 'materials'" :materials="materials ?? []"
-          v-model:selected-id="selectedMaterialId" @preview="openMaterialPreview" />
+          @preview="openMaterialPreview" />
         <CaseDetailAnalysis v-else-if="activeView === 'analysis'" ref="analysisRef" :case-id="caseId" :results="analysisResults"
           v-model:active-index="analysisIndex" v-model:view-mode="analysisMode"
           @version-changed="refreshAnalysis" />
@@ -161,10 +149,7 @@ function navigateToAnalysis(index: number) {
         </DialogTitle>
         <VisuallyHidden><DialogDescription>文本内容预览</DialogDescription></VisuallyHidden>
       </DialogHeader>
-      <div v-if="textLoading" class="flex justify-center py-8">
-        <Loader2Icon class="size-6 animate-spin text-muted-foreground" />
-      </div>
-      <div v-else-if="textContent" class="text-sm leading-relaxed whitespace-pre-wrap">
+      <div v-if="textContent" class="text-sm leading-relaxed whitespace-pre-wrap">
         {{ textContent }}
       </div>
       <div v-else class="text-sm text-muted-foreground text-center py-8">

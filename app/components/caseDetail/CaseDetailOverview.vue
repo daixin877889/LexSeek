@@ -13,6 +13,7 @@ const emit = defineEmits<{
   navigateView: [view: ActiveView]
   previewMaterial: [material: MaterialItem]
   navigateAnalysis: [index: number]
+  updated: []
 }>()
 
 // 概览中分析结果始终为 dashboard 模式
@@ -31,7 +32,7 @@ watch(analysisViewMode, (mode) => {
 <template>
   <div class="overflow-y-auto h-full">
     <!-- 案件信息 -->
-    <InitAnalysisCaseInfoCard :case-id="caseId" />
+    <InitAnalysisCaseInfoCard :case-id="caseId" editable @updated="emit('updated')" />
     <Separator class="opacity-50" />
 
     <!-- 案件材料 -->

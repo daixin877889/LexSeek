@@ -239,7 +239,8 @@ function formatAnalyzedAt(dateStr: string): string {
             <!-- 仪表盘视图 -->
             <div v-if="currentViewMode === 'dashboard'" class="p-4">
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
+                    <h3
+                        class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
                         <SparklesIcon class="size-4" />
                         分析结果
                         <span class="font-normal text-[10px] bg-muted px-1.5 py-0.5 rounded">{{ results.length }}</span>
@@ -249,15 +250,17 @@ function formatAnalyzedAt(dateStr: string): string {
                     <button v-for="(result, index) in results" :key="result.nodeId"
                         class="group relative flex flex-col items-center p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition-all border border-transparent hover:border-primary/10 text-center"
                         @click="goToModule(index)">
-                        
+
                         <!-- 模块图标 -->
-                        <div class="flex items-center justify-center size-11 rounded-xl shrink-0 transition-transform group-hover:scale-105 mb-1.5 bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                        <div
+                            class="flex items-center justify-center size-11 rounded-xl shrink-0 transition-colors group-hover:scale-105 mb-1.5 bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white">
                             <component :is="getModuleIcon(result.moduleName)" class="size-6" />
                         </div>
 
                         <!-- 模块信息 -->
                         <div class="flex-1 min-w-0 w-full">
-                            <h4 class="text-[12px] font-medium line-clamp-1 leading-tight mb-1 group-hover:text-primary transition-colors px-1">
+                            <h4
+                                class="text-[12px] font-medium line-clamp-1 leading-tight mb-1 group-hover:text-primary transition-colors px-1">
                                 {{ result.moduleTitle || result.moduleName }}
                             </h4>
                             <div class="text-[10px] text-muted-foreground/60 flex items-center justify-center">
@@ -283,7 +286,8 @@ function formatAnalyzedAt(dateStr: string): string {
                                     <AiElementsArtifactTitle class="truncate">
                                         {{ currentResult.moduleTitle || currentResult.moduleName }}
                                     </AiElementsArtifactTitle>
-                                    <span v-if="formatAnalyzedAt(currentResult.analyzedAt)" class="text-[10px] text-muted-foreground">
+                                    <span v-if="formatAnalyzedAt(currentResult.analyzedAt)"
+                                        class="text-[10px] text-muted-foreground">
                                         分析于 {{ formatAnalyzedAt(currentResult.analyzedAt) }}
                                     </span>
                                 </div>
@@ -291,7 +295,8 @@ function formatAnalyzedAt(dateStr: string): string {
 
                             <AiElementsArtifactActions>
                                 <!-- 版本按钮 -->
-                                <AiElementsArtifactAction v-if="showVersions && caseId" tooltip="历史版本" @click="versionSheetOpen = true">
+                                <AiElementsArtifactAction v-if="showVersions && caseId" tooltip="历史版本"
+                                    @click="versionSheetOpen = true">
                                     <HistoryIcon class="size-4" />
                                 </AiElementsArtifactAction>
 
@@ -333,12 +338,7 @@ function formatAnalyzedAt(dateStr: string): string {
     </div>
 
     <!-- 版本 Sheet -->
-    <CaseAnalysisVersionSheet
-        v-if="showVersions && caseId && currentResult"
-        v-model="versionSheetOpen"
-        :case-id="caseId"
-        :analysis-type="currentResult.moduleName"
-        :module-title="currentResult.moduleTitle || currentResult.moduleName"
-        @activated="emit('versionChanged')"
-    />
+    <CaseAnalysisVersionSheet v-if="showVersions && caseId && currentResult" v-model="versionSheetOpen"
+        :case-id="caseId" :analysis-type="currentResult.moduleName"
+        :module-title="currentResult.moduleTitle || currentResult.moduleName" @activated="emit('versionChanged')" />
 </template>
