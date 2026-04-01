@@ -40,8 +40,12 @@ watch(analysisViewMode, (mode) => {
   }
 })
 
-// 材料选择器弹窗
-const showMaterialSelector = ref(false)
+// 材料选择器
+const materialSelectorRef = ref<{ openDialog: () => void } | null>(null)
+
+function openMaterialSelector() {
+  materialSelectorRef.value?.openDialog()
+}
 
 function handleFilesSelected(files: OssFileItem[]) {
   emit('addMaterials', files)
@@ -104,7 +108,7 @@ function handleFilesSelected(files: OssFileItem[]) {
         <button
           class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
           :disabled="isAddingMaterials"
-          @click="showMaterialSelector = true"
+          @click="openMaterialSelector"
         >
           <Loader2Icon v-if="isAddingMaterials" class="size-3 animate-spin" />
           <PlusIcon v-else class="size-3" />
@@ -155,7 +159,7 @@ function handleFilesSelected(files: OssFileItem[]) {
 
     <!-- 材料选择器弹窗 -->
     <CaseAnalysisMaterialSelector
-      v-model:open="showMaterialSelector"
+      ref="materialSelectorRef"
       :disabled-file-ids="disabledOssFileIds"
       @files-selected="handleFilesSelected"
     />
