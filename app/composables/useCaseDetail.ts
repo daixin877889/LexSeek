@@ -153,6 +153,31 @@ export function useCaseDetail(caseId: Ref<number> | ComputedRef<number>) {
     }
   }
 
+  /**
+   * 重试识别失败的材料
+   * @param materialId 案件材料 ID（case_materials.id）
+   * @param ossFileId 对应的 ossFileId（用于轮询状态）
+   */
+  async function retryMaterial(materialId: number, ossFileId: number) {
+    try {
+      // 调用已有的材料处理 API
+      await useApiFetch(`/api/v1/material/process/${materialId}`, {
+        method: 'POST',
+        body: {},
+      })
+
+      // 启动轮询
+      handleRecognitionResults([{
+        ossFileId,
+        status: 'processing' as const,
+      }])
+
+      toast.success('已重新提交识别')
+    } catch {
+      toast.error('重试失败')
+    }
+  }
+
   return {
     caseInfo,
     materials,
@@ -163,6 +188,7 @@ export function useCaseDetail(caseId: Ref<number> | ComputedRef<number>) {
     refreshAnalysis,
     // 添加材料相关
     addMaterials,
+    retryMaterial,
     isAddingMaterials,
     disabledOssFileIds,
     fileRecognitionStatus,

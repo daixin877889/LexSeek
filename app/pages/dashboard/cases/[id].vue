@@ -44,6 +44,7 @@ const {
   refreshAnalysis,
   refreshCase,
   addMaterials,
+  retryMaterial,
   isAddingMaterials,
   disabledOssFileIds,
   fileRecognitionStatus,
@@ -150,7 +151,8 @@ function navigateToAnalysis(index: number) {
             :file-recognition-status="fileRecognitionStatus"
             :get-recognition-status="getRecognitionStatus"
             @preview="openMaterialPreview"
-            @add-materials="addMaterials" />
+            @add-materials="addMaterials"
+            @retry-material="retryMaterial" />
           <CaseDetailAnalysis v-else-if="activeView === 'analysis'" :key="'analysis'" ref="analysisRef" :case-id="caseId" :results="analysisResults"
             v-model:active-index="analysisIndex" v-model:view-mode="analysisMode"
             @version-changed="refreshAnalysis" />

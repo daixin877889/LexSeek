@@ -13,6 +13,7 @@ import {
   ListIcon,
   PlusIcon,
   Loader2Icon,
+  RefreshCwIcon,
 } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -26,6 +27,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   preview: [material: CaseDetailMaterialItem]
   addMaterials: [files: OssFileItem[]]
+  retryMaterial: [materialId: number, ossFileId: number]
 }>()
 
 const viewMode = ref<'grid' | 'list'>('grid')
@@ -147,14 +149,16 @@ function getMaterialIconColor(type: number) {
                   <Loader2Icon class="size-2.5 animate-spin" />识别中
                 </span>
                 <span v-else-if="getMaterialRecognitionStatus(material) === 'success'" class="text-green-500">已识别</span>
-                <span v-else-if="getMaterialRecognitionStatus(material) === 'error'" class="text-destructive">识别失败</span>
-              </template>
-            </div>
-          </div>
-        </button>
-      </div>
-
-      <!-- 列表视图 -->
+                <span v-else-if="getMaterialRecognitionStatus(material) === 'error'" class="text-destructive flex items-center gap-0.5">
+                  识别失败
+                  <button
+                    class="ml-0.5 hover:text-primary transition-colors"
+                    title="重试"
+                    @click.stop="material.ossFileId && emit('retryMaterial', material.id, material.ossFileId)"
+                  >
+                    <RefreshCwIcon class="size-2.5" />
+                  </button>
+                </span>
       <div v-else key="list" class="space-y-1">
         <button
           v-for="material in materials"
@@ -180,7 +184,16 @@ function getMaterialIconColor(type: number) {
                   <Loader2Icon class="size-2.5 animate-spin" />识别中
                 </span>
                 <span v-else-if="getMaterialRecognitionStatus(material) === 'success'" class="text-green-500">已识别</span>
-                <span v-else-if="getMaterialRecognitionStatus(material) === 'error'" class="text-destructive">识别失败</span>
+                <span v-else-if="getMaterialRecognitionStatus(material) === 'error'" class="text-destructive flex items-center gap-0.5">
+                  识别失败
+                  <button
+                    class="ml-0.5 hover:text-primary transition-colors"
+                    title="重试"
+                    @click.stop="material.ossFileId && emit('retryMaterial', material.id, material.ossFileId)"
+                  >
+                    <RefreshCwIcon class="size-2.5" />
+                  </button>
+                </span>
               </template>
             </div>
           </div>
