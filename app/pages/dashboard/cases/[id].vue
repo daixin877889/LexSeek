@@ -49,6 +49,12 @@ const {
   disabledOssFileIds,
   fileRecognitionStatus,
   getRecognitionStatus,
+  deleteMaterials,
+  selectedMaterialIds,
+  isDeleting,
+  isSelectMode,
+  toggleSelectMode,
+  toggleMaterialSelection,
 } = useCaseDetail(caseId)
 
 const pageTitle = computed(() => caseInfo.value?.title ?? '案件详情')
@@ -148,11 +154,17 @@ function navigateToAnalysis(index: number) {
           <CaseDetailMaterials v-else-if="activeView === 'materials'" :key="'materials'" :materials="materials ?? []"
             :disabled-oss-file-ids="disabledOssFileIds"
             :is-adding="isAddingMaterials"
+            :is-deleting="isDeleting"
+            :is-select-mode="isSelectMode"
+            :selected-material-ids="selectedMaterialIds"
             :file-recognition-status="fileRecognitionStatus"
             :get-recognition-status="getRecognitionStatus"
             @preview="openMaterialPreview"
             @add-materials="addMaterials"
-            @retry-material="retryMaterial" />
+            @retry-material="retryMaterial"
+            @delete-materials="deleteMaterials"
+            @toggle-select-mode="toggleSelectMode"
+            @toggle-selection="toggleMaterialSelection" />
           <CaseDetailAnalysis v-else-if="activeView === 'analysis'" :key="'analysis'" ref="analysisRef" :case-id="caseId" :results="analysisResults"
             v-model:active-index="analysisIndex" v-model:view-mode="analysisMode"
             @version-changed="refreshAnalysis" />

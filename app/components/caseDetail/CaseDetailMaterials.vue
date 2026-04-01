@@ -14,12 +14,18 @@ import {
   PlusIcon,
   Loader2Icon,
   RefreshCwIcon,
+  Trash2Icon,
+  CheckSquareIcon,
+  XIcon,
 } from 'lucide-vue-next'
 
 const props = defineProps<{
   materials: CaseDetailMaterialItem[]
   disabledOssFileIds?: number[]
   isAdding?: boolean
+  isDeleting?: boolean
+  isSelectMode?: boolean
+  selectedMaterialIds?: number[]
   fileRecognitionStatus?: Map<number, RecognitionStatus>
   getRecognitionStatus?: (ossFileId?: number) => RecognitionStatus | null
 }>()
@@ -28,10 +34,15 @@ const emit = defineEmits<{
   preview: [material: CaseDetailMaterialItem]
   addMaterials: [files: OssFileItem[]]
   retryMaterial: [materialId: number, ossFileId: number]
+  deleteMaterials: [materialIds: number[]]
+  toggleSelectMode: []
+  toggleSelection: [materialId: number]
 }>()
 
 const viewMode = ref<'grid' | 'list'>('grid')
 const materialSelectorRef = ref<{ openDialog: () => void } | null>(null)
+const showDeleteConfirm = ref(false)
+const pendingDeleteIds = ref<number[]>([])
 
 function openMaterialSelector() {
   materialSelectorRef.value?.openDialog()
@@ -39,6 +50,38 @@ function openMaterialSelector() {
 
 function handleFilesSelected(files: OssFileItem[]) {
   emit('addMaterials', files)
+}
+
+function isSelected(materialId: number): boolean {
+  return props.selectedMaterialIds?.includes(materialId) ?? false
+}
+
+function handleMaterialClick(material: CaseDetailMaterialItem) {
+  if (props.isSelectMode) {
+    emit('toggleSelection', material.id)
+  } else {
+    emit('preview', material)
+  }
+}
+
+/** 单个删除：弹确认框 */
+function confirmDeleteSingle(materialId: number) {
+  pendingDeleteIds.value = [materialId]
+  showDeleteConfirm.value = true
+}
+
+/** 批量删除：弹确认框 */
+function confirmDeleteSelected() {
+  if (!props.selectedMaterialIds?.length) return
+  pendingDeleteIds.value = [...props.selectedMaterialIds]
+  showDeleteConfirm.value = true
+}
+
+/** 确认删除 */
+function executeDelete() {
+  emit('deleteMaterials', pendingDeleteIds.value)
+  showDeleteConfirm.value = false
+  pendingDeleteIds.value = []
 }
 
 /** 获取材料的识别状态 */
@@ -90,36 +133,75 @@ function getMaterialIconColor(type: number) {
       </h3>
 
       <div class="flex items-center gap-2">
-        <!-- 添加材料按钮 -->
-        <button
-          class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-          :disabled="isAdding"
-          @click="openMaterialSelector"
-        >
-          <Loader2Icon v-if="isAdding" class="size-3 animate-spin" />
-          <PlusIcon v-else class="size-3" />
-          添加材料
-        </button>
-
-        <div class="w-px h-3 bg-border"></div>
-
-        <!-- 视图切换 -->
-        <div class="flex items-center bg-muted/50 rounded-lg p-0.5">
+        <!-- 多选模式：已选数量 + 删除按钮 + 取消 -->
+        <template v-if="isSelectMode">
+          <span v-if="selectedMaterialIds?.length" class="text-xs text-muted-foreground">
+            已选 {{ selectedMaterialIds.length }} 项
+          </span>
           <button
-            class="size-7 flex items-center justify-center rounded-md transition-all"
-            :class="viewMode === 'grid' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
-            @click="viewMode = 'grid'"
+            class="flex items-center gap-1 text-xs text-destructive hover:text-destructive/80 transition-colors"
+            :disabled="!selectedMaterialIds?.length || isDeleting"
+            @click="confirmDeleteSelected"
           >
-            <LayoutGridIcon class="size-3.5" />
+            <Loader2Icon v-if="isDeleting" class="size-3 animate-spin" />
+            <Trash2Icon v-else class="size-3" />
+            删除所选
           </button>
+          <div class="w-px h-3 bg-border"></div>
           <button
-            class="size-7 flex items-center justify-center rounded-md transition-all"
-            :class="viewMode === 'list' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
-            @click="viewMode = 'list'"
+            class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            @click="emit('toggleSelectMode')"
           >
-            <ListIcon class="size-3.5" />
+            <XIcon class="size-3" />
+            取消
           </button>
-        </div>
+        </template>
+
+        <!-- 正常模式 -->
+        <template v-else>
+          <!-- 添加材料按钮 -->
+          <button
+            class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+            :disabled="isAdding"
+            @click="openMaterialSelector"
+          >
+            <Loader2Icon v-if="isAdding" class="size-3 animate-spin" />
+            <PlusIcon v-else class="size-3" />
+            添加材料
+          </button>
+
+          <div class="w-px h-3 bg-border"></div>
+
+          <!-- 选择按钮 -->
+          <button
+            v-if="materials.length > 0"
+            class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+            @click="emit('toggleSelectMode')"
+          >
+            <CheckSquareIcon class="size-3" />
+            选择
+          </button>
+
+          <div v-if="materials.length > 0" class="w-px h-3 bg-border"></div>
+
+          <!-- 视图切换 -->
+          <div class="flex items-center bg-muted/50 rounded-lg p-0.5">
+            <button
+              class="size-7 flex items-center justify-center rounded-md transition-all"
+              :class="viewMode === 'grid' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
+              @click="viewMode = 'grid'"
+            >
+              <LayoutGridIcon class="size-3.5" />
+            </button>
+            <button
+              class="size-7 flex items-center justify-center rounded-md transition-all"
+              :class="viewMode === 'list' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
+              @click="viewMode = 'list'"
+            >
+              <ListIcon class="size-3.5" />
+            </button>
+          </div>
+        </template>
       </div>
     </div>
 
@@ -130,9 +212,27 @@ function getMaterialIconColor(type: number) {
         <button
           v-for="material in materials"
           :key="material.id"
-          class="group relative flex flex-col items-center p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition-all border border-transparent hover:border-primary/10 text-center"
-          @click="emit('preview', material)"
+          class="group relative flex flex-col items-center p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition-all border text-center"
+          :class="[
+            isSelectMode && isSelected(material.id) ? 'border-primary bg-primary/5' : 'border-transparent hover:border-primary/10',
+          ]"
+          @click="handleMaterialClick(material)"
         >
+          <!-- 多选 checkbox -->
+          <div v-if="isSelectMode" class="absolute top-1.5 left-1.5">
+            <Checkbox :checked="isSelected(material.id)" class="size-4" />
+          </div>
+
+          <!-- 单个删除按钮（非多选模式下 hover 显示） -->
+          <button
+            v-if="!isSelectMode"
+            class="absolute top-1 right-1 size-6 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            title="删除"
+            @click.stop="confirmDeleteSingle(material.id)"
+          >
+            <Trash2Icon class="size-3" />
+          </button>
+
           <div :class="['flex items-center justify-center size-11 rounded-xl shrink-0 transition-transform group-hover:scale-105 mb-1.5', getMaterialBgColor(material.type)]">
             <component :is="getMaterialIcon(material.type)" :class="['size-6', getMaterialIconColor(material.type)]" />
           </div>
@@ -170,9 +270,15 @@ function getMaterialIconColor(type: number) {
         <button
           v-for="material in materials"
           :key="material.id"
-          class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors group border border-transparent hover:border-border/50"
-          @click="emit('preview', material)"
+          class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors group border"
+          :class="[
+            isSelectMode && isSelected(material.id) ? 'border-primary bg-primary/5' : 'border-transparent hover:border-border/50',
+          ]"
+          @click="handleMaterialClick(material)"
         >
+          <!-- 多选 checkbox -->
+          <Checkbox v-if="isSelectMode" :checked="isSelected(material.id)" class="size-4 shrink-0" />
+
           <div :class="['flex items-center justify-center size-9 rounded-lg shrink-0', getMaterialBgColor(material.type)]">
             <component :is="getMaterialIcon(material.type)" :class="['size-5', getMaterialIconColor(material.type)]" />
           </div>
@@ -204,6 +310,16 @@ function getMaterialIconColor(type: number) {
               </template>
             </div>
           </div>
+
+          <!-- 单个删除按钮（非多选模式） -->
+          <button
+            v-if="!isSelectMode"
+            class="size-8 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+            title="删除"
+            @click.stop="confirmDeleteSingle(material.id)"
+          >
+            <Trash2Icon class="size-3.5" />
+          </button>
         </button>
       </div>
     </Transition>
@@ -214,6 +330,24 @@ function getMaterialIconColor(type: number) {
       :disabled-file-ids="disabledOssFileIds"
       @files-selected="handleFilesSelected"
     />
+
+    <!-- 删除确认对话框 -->
+    <AlertDialog v-model:open="showDeleteConfirm">
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>确认删除</AlertDialogTitle>
+          <AlertDialogDescription>
+            确定要删除{{ pendingDeleteIds.length > 1 ? ` ${pendingDeleteIds.length} 个` : '该' }}材料吗？删除后将无法恢复。
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>取消</AlertDialogCancel>
+          <AlertDialogAction class="bg-destructive text-destructive-foreground hover:bg-destructive/90" @click="executeDelete">
+            删除
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   </div>
 </template>
 

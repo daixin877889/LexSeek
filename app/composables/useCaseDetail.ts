@@ -160,13 +160,11 @@ export function useCaseDetail(caseId: Ref<number> | ComputedRef<number>) {
    */
   async function retryMaterial(materialId: number, ossFileId: number) {
     try {
-      // 调用已有的材料处理 API
       await useApiFetch(`/api/v1/material/process/${materialId}`, {
         method: 'POST',
         body: {},
       })
 
-      // 启动轮询
       handleRecognitionResults([{
         ossFileId,
         status: 'processing' as const,
@@ -175,6 +173,52 @@ export function useCaseDetail(caseId: Ref<number> | ComputedRef<number>) {
       toast.success('已重新提交识别')
     } catch {
       toast.error('重试失败')
+    }
+  }
+
+  // --- 删除材料 ---
+  const selectedMaterialIds = ref<number[]>([])
+  const isDeleting = ref(false)
+  const isSelectMode = ref(false)
+
+  function toggleSelectMode() {
+    isSelectMode.value = !isSelectMode.value
+    if (!isSelectMode.value) {
+      selectedMaterialIds.value = []
+    }
+  }
+
+  function toggleMaterialSelection(materialId: number) {
+    const index = selectedMaterialIds.value.indexOf(materialId)
+    if (index === -1) {
+      selectedMaterialIds.value = [...selectedMaterialIds.value, materialId]
+    } else {
+      selectedMaterialIds.value = selectedMaterialIds.value.filter(id => id !== materialId)
+    }
+  }
+
+  /**
+   * 删除材料
+   * @param materialIds 要删除的材料 ID 列表
+   */
+  async function deleteMaterials(materialIds: number[]) {
+    if (materialIds.length === 0) return
+
+    isDeleting.value = true
+    try {
+      await useApiFetch(`/api/v1/case/materials/delete/${id.value}`, {
+        method: 'DELETE',
+        body: { materialIds },
+      })
+
+      toast.success(`成功删除 ${materialIds.length} 个材料`)
+      selectedMaterialIds.value = []
+      isSelectMode.value = false
+      await refreshMaterials()
+    } catch {
+      toast.error('删除材料失败')
+    } finally {
+      isDeleting.value = false
     }
   }
 
@@ -194,5 +238,12 @@ export function useCaseDetail(caseId: Ref<number> | ComputedRef<number>) {
     fileRecognitionStatus,
     getRecognitionStatus,
     stopAllPolling,
+    // 删除材料相关
+    deleteMaterials,
+    selectedMaterialIds,
+    isDeleting,
+    isSelectMode,
+    toggleSelectMode,
+    toggleMaterialSelection,
   }
 }
