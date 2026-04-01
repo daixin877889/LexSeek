@@ -90,6 +90,21 @@ function getMaterialRecognitionStatus(material: CaseDetailMaterialItem): Recogni
   return props.getRecognitionStatus(material.ossFileId)
 }
 
+/** 获取材料的综合显示状态（优先前端轮询状态，其次 API 返回的 status） */
+function getMaterialDisplayStatus(material: CaseDetailMaterialItem): { text: string; color: string; spinning?: boolean; showRetry?: boolean } | null {
+  // 优先前端轮询状态
+  const recognitionStatus = getMaterialRecognitionStatus(material)
+  if (recognitionStatus === 'recognizing') return { text: '识别中', color: 'text-amber-500', spinning: true }
+  if (recognitionStatus === 'success') return { text: '已识别', color: 'text-green-500' }
+  if (recognitionStatus === 'error') return { text: '识别失败', color: 'text-destructive', showRetry: true }
+
+  // 其次 API 返回的 status（1=待处理, 2=处理中, 3=已完成, 4=失败）
+  if (material.status === 1) return { text: '待识别', color: 'text-muted-foreground' }
+  if (material.status === 2) return { text: '识别中', color: 'text-amber-500', spinning: true }
+  if (material.status === 4) return { text: '识别失败', color: 'text-destructive', showRetry: true }
+  return null
+}
+
 function getMaterialIcon(type: number) {
   switch (type) {
     case CaseMaterialType.DOCUMENT: return FileTextIcon
@@ -243,18 +258,16 @@ function getMaterialIconColor(type: number) {
             <div class="text-[10px] text-muted-foreground/60 flex items-center justify-center gap-1">
               <span v-if="material.fileSize" class="shrink-0">{{ formatByteSize(material.fileSize, 0) }}</span>
               <!-- 识别状态徽章 -->
-              <template v-if="getMaterialRecognitionStatus(material)">
+              <template v-if="getMaterialDisplayStatus(material)">
                 <span class="size-0.5 rounded-full bg-muted-foreground/30"></span>
-                <span v-if="getMaterialRecognitionStatus(material) === 'recognizing'" class="text-amber-500 flex items-center gap-0.5">
-                  <Loader2Icon class="size-2.5 animate-spin" />识别中
-                </span>
-                <span v-else-if="getMaterialRecognitionStatus(material) === 'success'" class="text-green-500">已识别</span>
-                <span v-else-if="getMaterialRecognitionStatus(material) === 'error'" class="text-destructive flex items-center gap-0.5">
-                  识别失败
+                <span :class="getMaterialDisplayStatus(material)!.color" class="flex items-center gap-0.5">
+                  <Loader2Icon v-if="getMaterialDisplayStatus(material)!.spinning" class="size-2.5 animate-spin" />
+                  {{ getMaterialDisplayStatus(material)!.text }}
                   <button
+                    v-if="getMaterialDisplayStatus(material)!.showRetry && material.ossFileId"
                     class="ml-0.5 hover:text-primary transition-colors"
                     title="重试"
-                    @click.stop="material.ossFileId && emit('retryMaterial', material.id, material.ossFileId)"
+                    @click.stop="emit('retryMaterial', material.id, material.ossFileId!)"
                   >
                     <RefreshCwIcon class="size-2.5" />
                   </button>
@@ -291,18 +304,16 @@ function getMaterialIconColor(type: number) {
               <span v-if="material.fileSize" class="size-0.5 rounded-full bg-muted-foreground/30"></span>
               <span v-if="material.fileSize">{{ formatByteSize(material.fileSize, 0) }}</span>
               <!-- 识别状态徽章 -->
-              <template v-if="getMaterialRecognitionStatus(material)">
+              <template v-if="getMaterialDisplayStatus(material)">
                 <span class="size-0.5 rounded-full bg-muted-foreground/30"></span>
-                <span v-if="getMaterialRecognitionStatus(material) === 'recognizing'" class="text-amber-500 flex items-center gap-0.5">
-                  <Loader2Icon class="size-2.5 animate-spin" />识别中
-                </span>
-                <span v-else-if="getMaterialRecognitionStatus(material) === 'success'" class="text-green-500">已识别</span>
-                <span v-else-if="getMaterialRecognitionStatus(material) === 'error'" class="text-destructive flex items-center gap-0.5">
-                  识别失败
+                <span :class="getMaterialDisplayStatus(material)!.color" class="flex items-center gap-0.5">
+                  <Loader2Icon v-if="getMaterialDisplayStatus(material)!.spinning" class="size-2.5 animate-spin" />
+                  {{ getMaterialDisplayStatus(material)!.text }}
                   <button
+                    v-if="getMaterialDisplayStatus(material)!.showRetry && material.ossFileId"
                     class="ml-0.5 hover:text-primary transition-colors"
                     title="重试"
-                    @click.stop="material.ossFileId && emit('retryMaterial', material.id, material.ossFileId)"
+                    @click.stop="emit('retryMaterial', material.id, material.ossFileId!)"
                   >
                     <RefreshCwIcon class="size-2.5" />
                   </button>

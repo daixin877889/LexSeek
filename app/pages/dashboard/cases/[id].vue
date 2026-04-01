@@ -146,11 +146,16 @@ function navigateToAnalysis(index: number) {
       <main class="flex-1 min-w-0 overflow-hidden relative">
         <Transition name="page-fade" mode="out-in">
           <CaseDetailOverview v-if="activeView === 'overview'" :key="'overview'" :case-id="caseId" :analysis-results="analysisResults"
+            :materials="materials ?? []"
             :disabled-oss-file-ids="disabledOssFileIds"
             :is-adding-materials="isAddingMaterials"
+            :file-recognition-status="fileRecognitionStatus"
+            :get-recognition-status="getRecognitionStatus"
             @navigate-view="navigateToView" @preview-material="openMaterialPreview"
             @navigate-analysis="navigateToAnalysis" @updated="refreshCase"
-            @add-materials="addMaterials" />
+            @add-materials="addMaterials"
+            @delete-materials="deleteMaterials"
+            @retry-material="retryMaterial" />
           <CaseDetailMaterials v-else-if="activeView === 'materials'" :key="'materials'" :materials="materials ?? []"
             :disabled-oss-file-ids="disabledOssFileIds"
             :is-adding="isAddingMaterials"
