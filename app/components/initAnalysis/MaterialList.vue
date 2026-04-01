@@ -3,7 +3,7 @@
     <h3 class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
       <FileTextIcon class="size-4" />
       案件材料
-      <Badge v-if="materials.length > 0" variant="secondary" class="ml-auto font-normal px-1.5 py-0 h-4 text-[10px]">{{ materials.length }}</Badge>
+      <Badge v-if="materials.length > 0" variant="secondary" class="font-normal px-1.5 py-0 h-4 text-[10px]">{{ materials.length }}</Badge>
     </h3>
 
     <!-- 加载状态 -->

@@ -68,6 +68,7 @@ export const getInitAnalysisStatusService = async (
                             : 'idle' as const,
             result: analysis?.analysisResult ?? undefined,
             version: analysis?.version ?? undefined,
+            analyzedAt: analysis?.createdAt?.toISOString() ?? undefined,
         }
     })
 

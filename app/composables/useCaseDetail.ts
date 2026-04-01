@@ -77,7 +77,7 @@ export function useCaseDetail(caseId: Ref<number> | ComputedRef<number>) {
           moduleName: m.name,
           moduleTitle: moduleDef?.title ?? m.name,
           content: m.result,
-          analyzedAt: '', // InitAnalysisStatusResponse 不含时间戳
+          analyzedAt: m.analyzedAt ?? '',
           version: m.version ?? 1,
         })
       }

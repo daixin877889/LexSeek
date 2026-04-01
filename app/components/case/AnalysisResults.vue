@@ -14,7 +14,7 @@ import type { HTMLAttributes } from 'vue'
 import type { AnalysisResult } from '#shared/types/case'
 import { cn } from '@/lib/utils'
 import {
-    RefreshCwIcon,
+    MessageCircleIcon,
     CopyIcon,
     CheckIcon,
     FileTextIcon,
@@ -27,7 +27,9 @@ import {
     ClipboardListIcon,
     ArrowLeftIcon,
     SparklesIcon,
+    HistoryIcon,
 } from 'lucide-vue-next'
+import { useMediaQuery } from '@vueuse/core'
 
 /**
  * 组件属性接口
@@ -35,6 +37,8 @@ import {
 interface Props {
     /** 分析结果列表 */
     results: AnalysisResult[]
+    /** 案件 ID（用于版本管理） */
+    caseId?: number
     /** 当前选中的模块索引 */
     activeIndex?: number
     /** 是否正在重新生成 */
@@ -45,6 +49,8 @@ interface Props {
     showRegenerate?: boolean
     /** 是否显示复制按钮 */
     showCopy?: boolean
+    /** 是否显示版本按钮 */
+    showVersions?: boolean
     /** 空状态标题 */
     emptyTitle?: string
     /** 空状态描述 */
@@ -64,6 +70,7 @@ const props = withDefaults(defineProps<Props>(), {
     regeneratingNodeId: null,
     showRegenerate: true,
     showCopy: true,
+    showVersions: false,
     emptyTitle: '暂无分析结果',
     emptyDescription: '完成分析后，结果将在此处展示',
     isAnalyzing: false,
@@ -79,12 +86,29 @@ const emit = defineEmits<{
     (e: 'regenerate', result: AnalysisResult): void
     /** 复制内容 */
     (e: 'copy', result: AnalysisResult): void
+    /** 版本切换后 */
+    (e: 'versionChanged'): void
 }>()
+
+// 版本 Sheet 状态
+const versionSheetOpen = ref(false)
+
+// 移动端详情模式时隐藏外部 header
+const isMobileView = useMediaQuery('(max-width: 767px)')
+const hideDashboardHeader = useState('hideDashboardHeader', () => false)
 
 // 查看模式：仪表盘或详情
 const currentViewMode = computed({
     get: () => props.viewMode,
     set: (value) => emit('update:viewMode', value),
+})
+
+watch([currentViewMode, isMobileView], ([mode, mobile]) => {
+    hideDashboardHeader.value = mobile && mode === 'detail'
+}, { immediate: true })
+
+onUnmounted(() => {
+    hideDashboardHeader.value = false
 })
 
 // 模块图标映射
@@ -121,7 +145,7 @@ const currentResult = computed(() => {
 const hasResults = computed(() => props.results.length > 0)
 
 // 复制状态
-const copiedNodeId = ref<number | null>(null)
+const copiedIndex = ref<number | null>(null)
 
 /**
  * 返回仪表盘
@@ -157,11 +181,11 @@ async function handleCopy() {
 
     try {
         await navigator.clipboard.writeText(currentResult.value.content)
-        copiedNodeId.value = currentResult.value.nodeId
+        copiedIndex.value = currentIndex.value
 
         // 2 秒后重置复制状态
         setTimeout(() => {
-            copiedNodeId.value = null
+            copiedIndex.value = null
         }, 2000)
 
         emit('copy', currentResult.value)
@@ -181,15 +205,17 @@ const isCurrentRegenerating = computed(() => {
  * 判断是否已复制当前模块
  */
 const isCurrentCopied = computed(() => {
-    return copiedNodeId.value === currentResult.value?.nodeId
+    return copiedIndex.value === currentIndex.value
 })
 
 /**
  * 格式化分析时间
  */
 function formatAnalyzedAt(dateStr: string): string {
+    if (!dateStr) return ''
     try {
         const date = new Date(dateStr)
+        if (isNaN(date.getTime())) return ''
         return date.toLocaleString('zh-CN', {
             month: '2-digit',
             day: '2-digit',
@@ -197,7 +223,7 @@ function formatAnalyzedAt(dateStr: string): string {
             minute: '2-digit',
         })
     } catch {
-        return dateStr
+        return ''
     }
 }
 </script>
@@ -228,8 +254,8 @@ function formatAnalyzedAt(dateStr: string): string {
                     <h3 class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
                         <SparklesIcon class="size-4" />
                         分析结果
+                        <span class="font-normal text-[10px] bg-muted px-1.5 py-0.5 rounded">{{ results.length }}</span>
                     </h3>
-                    <span class="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{{ results.length }} 个结果</span>
                 </div>
                 <div class="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
                     <button v-for="(result, index) in results" :key="result.nodeId"
@@ -269,54 +295,62 @@ function formatAnalyzedAt(dateStr: string): string {
                                     <AiElementsArtifactTitle class="truncate">
                                         {{ currentResult.moduleTitle || currentResult.moduleName }}
                                     </AiElementsArtifactTitle>
-                                    <span class="text-[10px] text-muted-foreground">
+                                    <span v-if="formatAnalyzedAt(currentResult.analyzedAt)" class="text-[10px] text-muted-foreground">
                                         分析于 {{ formatAnalyzedAt(currentResult.analyzedAt) }}
                                     </span>
                                 </div>
                             </div>
 
                             <AiElementsArtifactActions>
+                                <!-- 版本按钮 -->
+                                <AiElementsArtifactAction v-if="showVersions && caseId" tooltip="历史版本" @click="versionSheetOpen = true">
+                                    <HistoryIcon class="size-4" />
+                                </AiElementsArtifactAction>
+
                                 <!-- 复制按钮 -->
                                 <AiElementsArtifactAction v-if="showCopy" tooltip="复制内容" @click="handleCopy">
                                     <CheckIcon v-if="isCurrentCopied" class="size-4 text-green-500" />
                                     <CopyIcon v-else class="size-4" />
                                 </AiElementsArtifactAction>
 
-                                <!-- 重新生成按钮 -->
-                                <AiElementsArtifactAction v-if="showRegenerate" tooltip="重新生成"
+                                <!-- 对话按钮 -->
+                                <AiElementsArtifactAction v-if="showRegenerate" tooltip="模块对话"
                                     :disabled="isCurrentRegenerating" @click="handleRegenerate">
-                                    <RefreshCwIcon class="size-4" :class="{ 'animate-spin': isCurrentRegenerating }" />
+                                    <MessageCircleIcon class="size-4" />
                                 </AiElementsArtifactAction>
                             </AiElementsArtifactActions>
                         </AiElementsArtifactHeader>
 
                         <!-- 内容区域 -->
                         <AiElementsArtifactContent class="overflow-y-auto">
-                            <!-- 重新生成中的加载状态 -->
-                            <div v-if="isCurrentRegenerating" class="flex items-center justify-center py-12">
-                                <div class="flex flex-col items-center gap-3">
-                                    <AiElementsLoader :size="24" />
-                                    <span class="text-sm text-muted-foreground">正在重新生成...</span>
+                            <div class="px-8 pt-8 pb-12">
+                                <!-- 重新生成中的加载状态 -->
+                                <div v-if="isCurrentRegenerating" class="flex items-center justify-center py-12">
+                                    <div class="flex flex-col items-center gap-3">
+                                        <AiElementsLoader :size="24" />
+                                        <span class="text-sm text-muted-foreground">正在重新生成...</span>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <!-- Markdown 内容渲染 -->
-                            <AiElementsMessageResponse v-else :content="currentResult.content"
-                                class="prose prose-sm dark:prose-invert max-w-none" />
+                                <!-- Markdown 内容渲染 -->
+                                <AiElementsMessageResponse v-else :content="currentResult.content"
+                                    class="prose prose-sm dark:prose-invert max-w-none" />
+                            </div>
                         </AiElementsArtifactContent>
                     </AiElementsArtifact>
                 </div>
 
-                <!-- 底部：模块指示器 -->
-                <div class="flex items-center justify-center gap-1.5 py-2 border-t bg-muted/30">
-                    <button v-for="(result, index) in results" :key="result.nodeId" type="button"
-                        class="size-2 rounded-full transition-colors" :class="[
-                            index === currentIndex
-                                ? 'bg-primary'
-                                : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'
-                        ]" :title="result.moduleTitle || result.moduleName" @click="goToModule(index)" />
-                </div>
             </template>
         </template>
     </div>
+
+    <!-- 版本 Sheet -->
+    <CaseAnalysisVersionSheet
+        v-if="showVersions && caseId && currentResult"
+        v-model="versionSheetOpen"
+        :case-id="caseId"
+        :analysis-type="currentResult.moduleName"
+        :module-title="currentResult.moduleTitle || currentResult.moduleName"
+        @activated="emit('versionChanged')"
+    />
 </template>

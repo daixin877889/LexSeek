@@ -5,7 +5,7 @@ import type { HTMLAttributes } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { computed } from 'vue'
+import { computed, useAttrs } from 'vue'
 
 interface ArtifactActionProps {
   class?: HTMLAttributes['class']
@@ -21,23 +21,29 @@ const props = withDefaults(defineProps<ArtifactActionProps>(), {
   size: 'sm',
 })
 
+defineOptions({ inheritAttrs: false })
+
+const attrs = useAttrs()
+
 const classes = computed(() => cn(
   'size-8 p-0 text-muted-foreground hover:text-foreground',
   props.class,
 ))
+
+const buttonProps = computed(() => ({
+  type: 'button' as const,
+  variant: props.variant,
+  size: props.size,
+  class: classes.value,
+  ...attrs,
+}))
 </script>
 
 <template>
   <TooltipProvider v-if="props.tooltip">
     <Tooltip>
       <TooltipTrigger as-child>
-        <Button
-          type="button"
-          v-bind="{
-            ...props,
-            class: classes,
-          }"
-        >
+        <Button v-bind="buttonProps">
           <component
             :is="props.icon"
             v-if="props.icon"
@@ -55,11 +61,7 @@ const classes = computed(() => cn(
 
   <Button
     v-else
-    type="button"
-    v-bind="{
-      ...props,
-      class: classes,
-    }"
+    v-bind="buttonProps"
   >
     <component
       :is="props.icon"
