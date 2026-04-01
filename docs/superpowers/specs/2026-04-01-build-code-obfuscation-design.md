@@ -39,11 +39,12 @@ export const obfuscatorConfig: ObfuscatorOptions = {
   identifierNamesGenerator: 'hexadecimal',
   renameGlobals: false,
   selfDefending: false,
+  sourceMap: false,
   stringArray: true,
   stringArrayThreshold: 0.75,
   stringArrayEncoding: ['base64'],
   splitStrings: true,
-  splitStringsChunkLength: 10,
+  splitStringsChunkLength: 16,
   transformObjectKeys: true,
   unicodeEscapeSequence: false,
 }
@@ -59,9 +60,18 @@ export const obfuscatorConfig: ObfuscatorOptions = {
 | `stringArrayThreshold` | `0.75` | 75% 字符串参与，保留短字符串 |
 | `stringArrayEncoding` | `['base64']` | Base64 编码字符串 |
 | `splitStrings` | `true` | 拆分长字符串 |
+| `splitStringsChunkLength` | `16` | 每 16 字符拆分一块，平衡混淆效果和产物体积 |
+| `sourceMap` | `false` | 生产环境不生成 source map，防止逆向 |
 | `renameGlobals` | `false` | 不重命名全局变量，避免第三方库冲突 |
 | `deadCodeInjection` | `false` | 中度不需要死代码注入 |
 | `debugProtection` | `false` | 不启用反调试 |
+
+### Source Map 策略
+
+生产构建**不生成 source map**：
+- 混淆配置中 `sourceMap: false`
+- Source map 会暴露原始代码结构，与混淆目标矛盾
+- 如需调试生产问题，可临时关闭混淆构建一个带 source map 的版本
 
 ### Nuxt 集成
 
@@ -69,11 +79,19 @@ export const obfuscatorConfig: ObfuscatorOptions = {
 
 **前端（Vite 插件）：**
 
+`vite-plugin-javascript-obfuscator` 使用单对象参数 API：
+
 ```typescript
+import obfuscatorPlugin from 'vite-plugin-javascript-obfuscator'
+import { obfuscatorConfig } from './config/obfuscator'
+
+// nuxt.config.ts 中
 vite: {
   plugins: [
     ...(process.env.NODE_ENV === 'production' ? [
-      javascriptObfuscator(obfuscatorConfig, {
+      obfuscatorPlugin({
+        options: obfuscatorConfig,
+        apply: 'build',
         exclude: [/node_modules/],
       })
     ] : []),
@@ -83,12 +101,22 @@ vite: {
 
 **服务端（Nitro Rollup 插件）：**
 
+通过 `nitro.rollupConfig.plugins` 添加 Rollup 插件：
+
 ```typescript
+import { obfuscator as rollupObfuscator } from 'rollup-plugin-obfuscator'
+
+// nuxt.config.ts 中
 nitro: {
   rollupConfig: {
     plugins: [
       ...(process.env.NODE_ENV === 'production' ? [
-        rollupObfuscator({ ...obfuscatorConfig })
+        rollupObfuscator({
+          options: {
+            ...obfuscatorConfig,
+          },
+          exclude: [/node_modules/],
+        })
       ] : []),
     ],
   },
@@ -97,8 +125,19 @@ nitro: {
 
 **要点：**
 - 通过 `process.env.NODE_ENV === 'production'` 判断，开发环境不混淆
-- 前端用 `exclude: [/node_modules/]` 排除第三方库
-- 服务端 Nitro 的第三方库通过 `externals` 已排除，不参与混淆
+- 前端和服务端都通过 `exclude: [/node_modules/]` 显式排除第三方库
+- 前端使用 `apply: 'build'` 确保仅在构建时生效
+- Nitro 默认会将依赖打包（bundle），因此服务端也需要显式排除 node_modules
+
+### 构建验证
+
+混淆配置完成后，需要执行以下验证步骤：
+
+1. 运行 `bun build` 确认构建成功
+2. 运行 `bun preview` 进行冒烟测试
+3. 验证前端页面能正常加载和路由
+4. 验证服务端 API 能正常响应
+5. 对比混淆前后的产物体积（预期增大 20-40%）
 
 ## 文件变更
 
