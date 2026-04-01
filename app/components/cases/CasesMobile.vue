@@ -2,30 +2,34 @@
     <!-- 移动端卡片视图 (元数据等宽两栏布局) -->
     <div class="md:hidden space-y-4">
         <!-- 空状态 -->
-        <div v-if="list.length === 0" class="text-center py-12 text-muted-foreground border-dashed border-2 rounded-2xl bg-muted/20">
+        <div v-if="list.length === 0"
+            class="text-center py-12 text-muted-foreground border-dashed border-2 rounded-2xl bg-muted/20">
             暂无案件记录
         </div>
 
         <!-- 案件卡片列表 -->
         <div v-else v-for="item in list" :key="item.id"
             class="bg-card border rounded-2xl overflow-hidden hover:shadow-md transition-all active:scale-[0.98] flex flex-col">
-            
+
             <!-- 卡片内容区 -->
             <div class="p-5 flex-1 space-y-4">
                 <!-- 头部：标题居左，状态居右 -->
                 <div class="flex items-start justify-between gap-4">
                     <div class="min-w-0 flex-1">
-                        <NuxtLink :to="`/case/analysis/${item.id}`" 
+                        <NuxtLink :to="`/dashboard/cases/${item.id}`"
                             class="text-base font-bold text-foreground leading-snug line-clamp-2 block">
                             {{ item.title }}
                         </NuxtLink>
-                        <p class="text-[10px] font-mono text-muted-foreground/50 uppercase tracking-tighter mt-1">ID: #{{ item.id }}</p>
+                        <p class="text-[10px] font-mono text-muted-foreground/50 uppercase tracking-tighter mt-1">ID:
+                            #{{ item.id }}</p>
                     </div>
                     <div class="flex items-center gap-2 mt-1">
-                        <Badge :class="getStatusBadgeClass(item.status)" variant="outline" class="rounded-md border-transparent px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">
+                        <Badge :class="getStatusBadgeClass(item.status)" variant="outline"
+                            class="rounded-md border-transparent px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">
                             {{ getStatusText(item.status) }}
                         </Badge>
-                        <Badge v-if="item.isDemo" variant="secondary" class="rounded-md bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 text-[9px] font-bold uppercase px-1.5 py-0 whitespace-nowrap">
+                        <Badge v-if="item.isDemo" variant="secondary"
+                            class="rounded-md bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 text-[9px] font-bold uppercase px-1.5 py-0 whitespace-nowrap">
                             演示
                         </Badge>
                     </div>
@@ -46,13 +50,14 @@
 
             <!-- 常驻操作栏 -->
             <div class="px-5 py-3 bg-muted/30 border-t border-border/50 flex items-center justify-between mt-auto">
-                <Button variant="ghost" size="icon" 
+                <Button variant="ghost" size="icon"
                     class="h-9 w-9 rounded-full text-destructive/50 active:bg-destructive/10 transition-all"
                     @click="emit('delete', item.id)">
                     <Trash2 class="h-4 w-4" />
                 </Button>
-                <NuxtLink :to="`/case/analysis/${item.id}`">
-                    <Button variant="link" size="sm" class="h-9 p-0 text-muted-foreground active:text-primary font-bold hover:no-underline transition-colors flex items-center gap-1.5 group/btn">
+                <NuxtLink :to="`/dashboard/cases/${item.id}`">
+                    <Button variant="link" size="sm"
+                        class="h-9 p-0 text-muted-foreground active:text-primary font-bold hover:no-underline transition-colors flex items-center gap-1.5 group/btn">
                         <span class="text-sm">立即查看</span>
                         <ArrowRight class="h-3.5 w-3.5 transition-transform group-active/btn:translate-x-1" />
                     </Button>
