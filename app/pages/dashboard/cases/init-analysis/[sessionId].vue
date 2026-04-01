@@ -45,24 +45,44 @@
     </template>
 
     <template #right-panel>
-      <div class="h-full overflow-y-auto">
-        <!-- 案件信息卡片 -->
-        <InitAnalysisCaseInfoCard v-if="caseId > 0" :case-id="caseId" />
+      <div class="h-full flex flex-col bg-background border-l">
+        <!-- 仪表盘模式：可滚动，显示全部概况 -->
+        <div v-show="rightPanelViewMode === 'dashboard'" class="flex-1 overflow-y-auto">
+          <div class="flex flex-col">
+            <!-- 案件信息卡片 -->
+            <InitAnalysisCaseInfoCard v-if="caseId > 0" :case-id="caseId" />
 
-        <!-- 案件材料列表 -->
-        <InitAnalysisMaterialList
-          v-if="caseId > 0"
-          ref="materialListRef"
-          :case-id="caseId"
-          @preview="openMaterialPreview"
-        />
+            <Separator class="opacity-50" />
 
-        <!-- 分析结果（从 mergedResult 实时获取，合并 DB 和流式结果） -->
-        <div v-if="completedResults.length > 0" class="p-4 space-y-3">
-          <h3 class="text-sm font-medium text-muted-foreground">分析结果</h3>
+            <!-- 案件材料列表 -->
+            <InitAnalysisMaterialList
+              v-if="caseId > 0"
+              ref="materialListRef"
+              :case-id="caseId"
+              @preview="openMaterialPreview"
+            />
+
+            <Separator class="opacity-50" />
+
+            <!-- 分析结果列表（仅当分析开始或有结果时显示） -->
+            <CaseAnalysisResults
+              v-if="phase !== 'select'"
+              :results="completedResults"
+              v-model:active-index="activeIndex"
+              v-model:view-mode="rightPanelViewMode"
+              :is-analyzing="phase === 'running'"
+              empty-title="分析结果处理中"
+              empty-description="AI 正在读取案件材料并生成分析建议，请稍等..."
+            />
+          </div>
+        </div>
+
+        <!-- 详情模式：占据全屏，进行沉浸式阅读 -->
+        <div v-if="rightPanelViewMode === 'detail'" class="flex-1 overflow-hidden">
           <CaseAnalysisResults
             :results="completedResults"
             v-model:active-index="activeIndex"
+            v-model:view-mode="rightPanelViewMode"
             :is-analyzing="phase === 'running'"
           />
         </div>
@@ -162,6 +182,9 @@ const showPreview = ref(false)
 const showTextPreview = ref(false)
 const textContent = ref<string | null>(null)
 const textLoading = ref(false)
+
+// 右侧面板查看模式
+const rightPanelViewMode = ref<'dashboard' | 'detail'>('dashboard')
 
 async function openMaterialPreview(material: MaterialItem) {
     // 移除当前焦点，避免 aria-hidden 警告
