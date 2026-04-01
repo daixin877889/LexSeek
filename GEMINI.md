@@ -3,6 +3,8 @@
 ## 项目概览
 LexSeek 是一个基于 AI 的法律检索与发现平台，旨在利用先进的大模型技术（LLM）和向量检索提供高效的法律知识库服务、案件分析及法律文档处理工具。
 
+**始终用简体中文和用户交互**
+
 ## 核心技术栈
 - **前端框架**: [Nuxt 4](https://nuxt.com/) (Compatibility Mode) + [Vue 3](https://vuejs.org/)
 - **语言**: [TypeScript](https://www.typescriptlang.org/)
