@@ -402,6 +402,8 @@ export interface AnalysisResult {
     moduleTitle: string
     content: string
     analyzedAt: string
+    /** 版本号 */
+    version?: number
 }
 
 // ==================== API 类型 ====================

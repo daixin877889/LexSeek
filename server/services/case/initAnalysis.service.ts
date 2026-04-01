@@ -67,6 +67,7 @@ export const getInitAnalysisStatusService = async (
                         : analysis.status === 1 ? 'in_progress' as const
                             : 'idle' as const,
             result: analysis?.analysisResult ?? undefined,
+            version: analysis?.version ?? undefined,
         }
     })
 

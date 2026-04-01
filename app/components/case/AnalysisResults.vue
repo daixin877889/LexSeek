@@ -26,6 +26,7 @@ import {
     ShieldIcon,
     ClipboardListIcon,
     ArrowLeftIcon,
+    SparklesIcon,
 } from 'lucide-vue-next'
 
 /**
@@ -52,6 +53,8 @@ interface Props {
     isAnalyzing?: boolean
     /** 自定义类名 */
     class?: HTMLAttributes['class']
+    /** 查看模式：仪表盘或详情 */
+    viewMode?: 'dashboard' | 'detail'
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -64,11 +67,14 @@ const props = withDefaults(defineProps<Props>(), {
     emptyTitle: '暂无分析结果',
     emptyDescription: '完成分析后，结果将在此处展示',
     isAnalyzing: false,
+    viewMode: 'dashboard',
 })
 
 const emit = defineEmits<{
     /** 切换模块 */
     (e: 'update:activeIndex', index: number): void
+    /** 切换查看模式 */
+    (e: 'update:viewMode', mode: 'dashboard' | 'detail'): void
     /** 重新生成 */
     (e: 'regenerate', result: AnalysisResult): void
     /** 复制内容 */
@@ -76,7 +82,10 @@ const emit = defineEmits<{
 }>()
 
 // 查看模式：仪表盘或详情
-const viewMode = ref<'dashboard' | 'detail'>('dashboard')
+const currentViewMode = computed({
+    get: () => props.viewMode,
+    set: (value) => emit('update:viewMode', value),
+})
 
 // 模块图标映射
 const iconMap: Record<string, any> = {
@@ -118,7 +127,7 @@ const copiedNodeId = ref<number | null>(null)
  * 返回仪表盘
  */
 function goBack() {
-    viewMode.value = 'dashboard'
+    currentViewMode.value = 'dashboard'
 }
 
 /**
@@ -127,7 +136,7 @@ function goBack() {
 function goToModule(index: number) {
     if (index >= 0 && index < props.results.length) {
         currentIndex.value = index
-        viewMode.value = 'detail'
+        currentViewMode.value = 'detail'
     }
 }
 
@@ -214,29 +223,34 @@ function formatAnalyzedAt(dateStr: string): string {
         <!-- 有结果时的展示 -->
         <template v-else>
             <!-- 仪表盘视图 -->
-            <div v-if="viewMode === 'dashboard'" class="flex-1 overflow-y-auto p-4 bg-muted/5">
+            <div v-if="currentViewMode === 'dashboard'" class="p-4">
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-sm font-medium text-foreground">分析建议</h3>
-                    <span class="text-xs text-muted-foreground">{{ results.length }} 个结果</span>
+                    <h3 class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
+                        <SparklesIcon class="size-4" />
+                        分析结果
+                    </h3>
+                    <span class="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{{ results.length }} 个结果</span>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <Card v-for="(result, index) in results" :key="result.nodeId"
-                        class="group cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all duration-200 border-muted shadow-none"
+                <div class="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
+                    <button v-for="(result, index) in results" :key="result.nodeId"
+                        class="group relative flex flex-col items-center p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition-all border border-transparent hover:border-primary/10 text-center"
                         @click="goToModule(index)">
-                        <div class="p-4 flex flex-col gap-3">
-                            <div class="flex items-center justify-between">
-                                <div class="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
-                                    <component :is="getModuleIcon(result.moduleName)" class="size-5" />
-                                </div>
-                                <span class="text-[10px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">第 1 版</span>
-                            </div>
-                            <div>
-                                <h4 class="text-sm font-semibold leading-tight group-hover:text-primary transition-colors">
-                                    {{ result.moduleTitle || result.moduleName }}
-                                </h4>
+                        
+                        <!-- 模块图标 -->
+                        <div class="flex items-center justify-center size-11 rounded-xl shrink-0 transition-transform group-hover:scale-105 mb-1.5 bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                            <component :is="getModuleIcon(result.moduleName)" class="size-6" />
+                        </div>
+
+                        <!-- 模块信息 -->
+                        <div class="flex-1 min-w-0 w-full">
+                            <h4 class="text-[12px] font-medium line-clamp-1 leading-tight mb-1 group-hover:text-primary transition-colors px-1">
+                                {{ result.moduleTitle || result.moduleName }}
+                            </h4>
+                            <div class="text-[10px] text-muted-foreground/60 flex items-center justify-center">
+                                <span>第 {{ result.version ?? 1 }} 版</span>
                             </div>
                         </div>
-                    </Card>
+                    </button>
                 </div>
             </div>
 

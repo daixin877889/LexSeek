@@ -54,6 +54,7 @@ export interface InitAnalysisStatusResponse {
     name: string
     status: 'idle' | 'in_progress' | 'complete' | 'failed'
     result?: string
+    version?: number
   }>
   /** 已完成模块的结果，用于页面刷新后恢复右侧面板结果 */
   result?: Record<string, string>
