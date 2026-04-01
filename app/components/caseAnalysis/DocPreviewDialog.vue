@@ -15,7 +15,7 @@
             </DialogHeader>
 
             <!-- 内容区域 -->
-            <div class="flex-1 overflow-hidden">
+            <div class="flex-1 min-h-0 overflow-hidden">
                 <!-- 加载状态 -->
                 <div v-if="loading" class="flex items-center justify-center h-full">
                     <Loader2Icon class="size-8 animate-spin text-muted-foreground" />
