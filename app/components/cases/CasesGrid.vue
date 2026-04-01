@@ -14,7 +14,7 @@
                 <!-- 头部：标题居左，状态居右 -->
                 <div class="flex items-start justify-between gap-4">
                     <div class="min-w-0 flex-1">
-                        <NuxtLink :to="`/case/analysis/${item.id}`"
+                        <NuxtLink :to="`/dashboard/cases/${item.id}`"
                             class="text-base font-bold text-foreground hover:text-primary transition-colors line-clamp-2 leading-snug">
                             {{ item.title }}
                         </NuxtLink>
@@ -53,7 +53,7 @@
                     @click="emit('delete', item.id)" title="删除案件">
                     <Trash2 class="h-4 w-4" />
                 </Button>
-                <NuxtLink :to="`/case/analysis/${item.id}`">
+                <NuxtLink :to="`/dashboard/cases/${item.id}`">
                     <Button variant="link" size="sm"
                         class="h-8 p-0 text-muted-foreground hover:text-primary font-bold hover:no-underline transition-colors flex items-center gap-1 group/btn">
                         <span class="text-sm">查看详情</span>

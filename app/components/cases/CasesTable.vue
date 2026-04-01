@@ -5,11 +5,21 @@
             <table class="w-full border-collapse">
                 <thead>
                     <tr class="border-b bg-muted/30">
-                        <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground/80">案件信息</th>
-                        <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground/80">案件类型</th>
-                        <th class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground/80">创建时间</th>
-                        <th class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-muted-foreground/80">当前状态</th>
-                        <th class="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-muted-foreground/80">操作</th>
+                        <th
+                            class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground/80">
+                            案件信息</th>
+                        <th
+                            class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground/80">
+                            案件类型</th>
+                        <th
+                            class="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider text-muted-foreground/80">
+                            创建时间</th>
+                        <th
+                            class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-muted-foreground/80">
+                            当前状态</th>
+                        <th
+                            class="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-muted-foreground/80">
+                            操作</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-border/50">
@@ -26,15 +36,18 @@
                         <td class="px-6 py-4">
                             <div class="flex flex-col min-w-0">
                                 <div class="flex items-center gap-2">
-                                    <NuxtLink :to="`/case/analysis/${item.id}`"
+                                    <NuxtLink :to="`/dashboard/cases/${item.id}`"
                                         class="font-semibold text-foreground hover:text-primary transition-colors truncate max-w-[400px]">
                                         {{ item.title }}
                                     </NuxtLink>
-                                    <Badge v-if="item.isDemo" variant="secondary" class="rounded-md h-4 text-[10px] px-1.5 font-normal bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800">
+                                    <Badge v-if="item.isDemo" variant="secondary"
+                                        class="rounded-md h-4 text-[10px] px-1.5 font-normal bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800">
                                         演示
                                     </Badge>
                                 </div>
-                                <span class="text-[10px] font-mono text-muted-foreground/60 mt-1 uppercase tracking-tighter">Ref: #{{ item.id }}</span>
+                                <span
+                                    class="text-[10px] font-mono text-muted-foreground/60 mt-1 uppercase tracking-tighter">Ref:
+                                    #{{ item.id }}</span>
                             </div>
                         </td>
                         <!-- 类型 -->
@@ -51,20 +64,24 @@
                         </td>
                         <!-- 状态 -->
                         <td class="px-6 py-4 text-center">
-                            <Badge :class="getStatusBadgeClass(item.status)" variant="outline" class="rounded-md border-transparent px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider">
+                            <Badge :class="getStatusBadgeClass(item.status)" variant="outline"
+                                class="rounded-md border-transparent px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider">
                                 {{ getStatusText(item.status) }}
                             </Badge>
                         </td>
                         <!-- 操作 -->
                         <td class="px-6 py-4 text-right">
-                            <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div
+                                class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <Button variant="ghost" size="icon"
                                     class="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
                                     @click="emit('delete', item.id)" title="删除案件">
                                     <Trash2 class="h-4 w-4" />
                                 </Button>
-                                <NuxtLink :to="`/case/analysis/${item.id}`">
-                                    <Button variant="ghost" size="icon" class="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary" title="查看详情">
+                                <NuxtLink :to="`/dashboard/cases/${item.id}`">
+                                    <Button variant="ghost" size="icon"
+                                        class="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary"
+                                        title="查看详情">
                                         <Eye class="h-4 w-4" />
                                     </Button>
                                 </NuxtLink>
