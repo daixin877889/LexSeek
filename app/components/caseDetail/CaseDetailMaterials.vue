@@ -224,10 +224,10 @@ function getMaterialIconColor(type: number) {
     <Transition name="view-fade" mode="out-in">
       <!-- 网格视图 -->
       <div v-if="viewMode === 'grid'" key="grid" class="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
-        <button
+        <div
           v-for="material in materials"
           :key="material.id"
-          class="group relative flex flex-col items-center p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition-all border text-center"
+          class="group relative flex flex-col items-center p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition-all border text-center cursor-pointer"
           :class="[
             isSelectMode && isSelected(material.id) ? 'border-primary bg-primary/5' : 'border-transparent hover:border-primary/10',
           ]"
@@ -275,15 +275,15 @@ function getMaterialIconColor(type: number) {
               </template>
             </div>
           </div>
-        </button>
+        </div>
       </div>
 
       <!-- 列表视图 -->
       <div v-else key="list" class="space-y-1">
-        <button
+        <div
           v-for="material in materials"
           :key="material.id"
-          class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors group border"
+          class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors group border cursor-pointer"
           :class="[
             isSelectMode && isSelected(material.id) ? 'border-primary bg-primary/5' : 'border-transparent hover:border-border/50',
           ]"
@@ -331,7 +331,7 @@ function getMaterialIconColor(type: number) {
           >
             <Trash2Icon class="size-3.5" />
           </button>
-        </button>
+        </div>
       </div>
     </Transition>
 

@@ -232,10 +232,10 @@ function getMaterialIconColor(type: number) {
         暂无材料
       </div>
       <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
-        <button
+        <div
           v-for="material in materials"
           :key="material.id"
-          class="group relative flex flex-col items-center p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition-all border border-transparent hover:border-primary/10 text-center"
+          class="group relative flex flex-col items-center p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition-all border border-transparent hover:border-primary/10 text-center cursor-pointer"
           @click="emit('previewMaterial', material)"
         >
           <!-- 单个删除按钮 -->
@@ -274,7 +274,7 @@ function getMaterialIconColor(type: number) {
               </template>
             </div>
           </div>
-        </button>
+        </div>
       </div>
     </div>
 
