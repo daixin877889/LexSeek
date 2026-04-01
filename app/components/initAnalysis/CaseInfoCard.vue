@@ -1,7 +1,8 @@
 <template>
-  <div class="space-y-4 p-4">
+  <div class="p-4 space-y-4">
     <div v-if="caseInfo" class="space-y-3">
-      <h3 class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider">
+      <h3 class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
+        <InfoIcon class="size-4" />
         案件基本信息
       </h3>
       <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm items-baseline">
@@ -48,6 +49,8 @@
 </template>
 
 <script lang="ts" setup>
+import { InfoIcon } from 'lucide-vue-next'
+
 export interface ExtraField {
   name: string
   title: string
