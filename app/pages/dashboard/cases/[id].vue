@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import type { ActiveView, MaterialItem } from '~/composables/useCaseDetail'
 import { CaseMaterialType } from '#shared/types/case'
-import { ArrowLeftIcon, FileTextIcon } from 'lucide-vue-next'
+import { ArrowLeftIcon, FileTextIcon, DownloadIcon } from 'lucide-vue-next'
 import { VisuallyHidden } from 'reka-ui'
 import xiaosuoIcon from '~/assets/icon/xiaosuo.svg'
 
@@ -24,6 +24,7 @@ const activeView = ref<ActiveView>(initialView)
 const analysisIndex = ref(route.query.ai ? Number(route.query.ai) : 0)
 const analysisMode = ref<'dashboard' | 'detail'>(route.query.am === 'detail' ? 'detail' : 'dashboard')
 const xiaosuoOpen = ref(false)
+const showExportDialog = ref(false)
 
 // 统一同步所有状态到 query
 watch([activeView, analysisIndex, analysisMode], ([view, ai, am]) => {
@@ -89,6 +90,11 @@ function navigateToAnalysis(index: number) {
         <ArrowLeftIcon class="size-4" />
       </Button>
       <h1 class="text-sm font-medium truncate flex-1">{{ pageTitle }}</h1>
+      <Button variant="ghost" size="icon" class="size-8 shrink-0" title="导出文档"
+        :disabled="!analysisResults || analysisResults.length === 0"
+        @click="showExportDialog = true">
+        <DownloadIcon class="size-4" />
+      </Button>
       <Button variant="ghost" size="icon" class="size-8 shrink-0 md:hidden" @click="xiaosuoOpen = true">
         <ClientOnly><img :src="xiaosuoIcon" class="size-4" alt="小索" /></ClientOnly>
       </Button>
@@ -157,4 +163,11 @@ function navigateToAnalysis(index: number) {
       </div>
     </DialogContent>
   </Dialog>
+
+  <!-- 导出文档弹窗 -->
+  <CaseDetailCaseExportDialog
+    v-model:open="showExportDialog"
+    :title="pageTitle"
+    :results="analysisResults ?? []"
+  />
 </template>
