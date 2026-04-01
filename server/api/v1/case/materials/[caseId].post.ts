@@ -81,16 +81,18 @@ export default defineEventHandler(async (event) => {
             m => m.ossFileId && newOssFileIds.has(m.ossFileId),
         )
 
-        // 5. 异步触发识别（fire-and-forget）
+        // 5. 异步触发识别（fire-and-forget，串行执行避免 429 限流）
         const materialIdsToProcess = addedMaterials.map(m => m.id)
         if (materialIdsToProcess.length > 0) {
-            Promise.allSettled(
-                materialIdsToProcess.map(id =>
-                    processMaterialService(id, user.id).catch(err => {
+            ;(async () => {
+                for (const id of materialIdsToProcess) {
+                    try {
+                        await processMaterialService(id, user.id)
+                    } catch (err: any) {
                         logger.warn('材料处理失败', { materialId: id, error: err.message })
-                    }),
-                ),
-            ).catch(() => {})
+                    }
+                }
+            })().catch(() => {})
         }
 
         // 6. 返回新增材料列表
