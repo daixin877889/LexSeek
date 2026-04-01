@@ -28,6 +28,31 @@ import { markdownToHtmlService } from './mineruResult.service'
 /** OCR 节点名称 */
 const OCR_NODE_NAME = 'extractImageInfo'
 
+/** 429 重试配置 */
+const RETRY_CONFIG = { maxRetries: 3, baseDelayMs: 2000 }
+
+/**
+ * 带指数退避的重试包装，仅对 429 限流错误重试
+ */
+async function withRateLimitRetry<T>(fn: () => Promise<T>): Promise<T> {
+    for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
+        try {
+            return await fn()
+        } catch (error: any) {
+            const is429 = error?.status === 429
+                || error?.message?.includes('429')
+                || error?.cause?.status === 429
+            if (!is429 || attempt === RETRY_CONFIG.maxRetries) {
+                throw error
+            }
+            const delay = RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt)
+            logger.warn(`OCR 调用触发 429 限流，${delay}ms 后重试 (${attempt + 1}/${RETRY_CONFIG.maxRetries})`)
+            await new Promise(resolve => setTimeout(resolve, delay))
+        }
+    }
+    throw new Error('重试次数已耗尽')
+}
+
 /** 支持的图片 MIME 类型 */
 export const SUPPORTED_IMAGE_TYPES = [
     'image/jpeg',
@@ -171,7 +196,7 @@ async function extractImageInfo(imageUrl: string): Promise<ImageInfoResult> {
         // 获取系统提示词
         const systemPrompt = getSystemPromptFromConfig(nodeConfig)
 
-        const result = await modelWithStructure.invoke([
+        const result = await withRateLimitRetry(() => modelWithStructure.invoke([
             new SystemMessage(systemPrompt),
             new HumanMessage([
                 {
@@ -181,7 +206,7 @@ async function extractImageInfo(imageUrl: string): Promise<ImageInfoResult> {
                     },
                 },
             ]),
-        ])
+        ]))
 
         // 验证返回结果
         if (!result || !result.imgType || !result.imageInfo) {
@@ -233,7 +258,7 @@ async function extractImageInfoByBase64(base64Data: string, mimeType: string): P
         // 获取系统提示词
         const systemPrompt = getSystemPromptFromConfig(nodeConfig)
 
-        const result = await modelWithStructure.invoke([
+        const result = await withRateLimitRetry(() => modelWithStructure.invoke([
             new SystemMessage(systemPrompt),
             new HumanMessage([
                 {
@@ -243,7 +268,7 @@ async function extractImageInfoByBase64(base64Data: string, mimeType: string): P
                     },
                 },
             ]),
-        ])
+        ]))
 
         // 验证返回结果
         if (!result || !result.imgType || !result.imageInfo) {
