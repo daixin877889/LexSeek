@@ -97,6 +97,13 @@ function navigateToView(view: ActiveView) {
   activeView.value = view
 }
 
+function navigateToSelectMode() {
+  activeView.value = 'materials'
+  nextTick(() => {
+    if (!isSelectMode.value) toggleSelectMode()
+  })
+}
+
 function navigateToAnalysis(index: number) {
   activeView.value = 'analysis'
   nextTick(() => {
@@ -155,7 +162,8 @@ function navigateToAnalysis(index: number) {
             @navigate-analysis="navigateToAnalysis" @updated="refreshCase"
             @add-materials="addMaterials"
             @delete-materials="deleteMaterials"
-            @retry-material="retryMaterial" />
+            @retry-material="retryMaterial"
+            @navigate-to-select-mode="navigateToSelectMode" />
           <CaseDetailMaterials v-else-if="activeView === 'materials'" :key="'materials'" :materials="materials ?? []"
             :disabled-oss-file-ids="disabledOssFileIds"
             :is-adding="isAddingMaterials"

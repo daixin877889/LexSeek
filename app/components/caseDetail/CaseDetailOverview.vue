@@ -19,6 +19,7 @@ import {
   PlusIcon,
   Trash2Icon,
   RefreshCwIcon,
+  CheckSquareIcon,
 } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -39,6 +40,7 @@ const emit = defineEmits<{
   addMaterials: [files: OssFileItem[]]
   deleteMaterials: [materialIds: number[]]
   retryMaterial: [materialId: number, ossFileId: number]
+  navigateToSelectMode: []
 }>()
 
 const infoCardRef = ref<{
@@ -204,6 +206,15 @@ function getMaterialIconColor(type: number) {
           添加材料
         </button>
         <div class="w-px h-3 bg-border"></div>
+        <button
+          v-if="materials.length > 0"
+          class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+          @click="emit('navigateToSelectMode')"
+        >
+          <CheckSquareIcon class="size-3" />
+          批量管理
+        </button>
+        <div v-if="materials.length > 0" class="w-px h-3 bg-border"></div>
         <button
           class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
           @click="emit('navigateView', 'materials')"
