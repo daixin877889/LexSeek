@@ -1,5 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import tailwindcss from '@tailwindcss/vite'
+import obfuscatorPlugin from 'vite-plugin-javascript-obfuscator'
+import { obfuscatorConfig } from './config/obfuscator'
 
 export default defineNuxtConfig({
   // 组件配置：排除 index.ts 文件避免与 .vue 组件名称冲突
@@ -42,6 +44,13 @@ export default defineNuxtConfig({
   vite: {
     plugins: [
       tailwindcss() as any,
+      ...(process.env.NODE_ENV === 'production' ? [
+        obfuscatorPlugin({
+          options: obfuscatorConfig,
+          apply: 'build',
+          exclude: [/node_modules/],
+        }),
+      ] : []),
     ],
     worker: {
       format: 'es', // 使用 ES 模块格式
