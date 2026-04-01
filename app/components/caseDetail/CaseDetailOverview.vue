@@ -259,18 +259,18 @@ function getMaterialIconColor(type: number) {
               <!-- 识别状态 -->
               <template v-if="getMaterialDisplayStatus(material)">
                 <span class="size-0.5 rounded-full bg-muted-foreground/30"></span>
-                <span :class="getMaterialDisplayStatus(material)!.color" class="flex items-center gap-0.5">
+                <span v-if="!getMaterialDisplayStatus(material)!.showRetry" :class="getMaterialDisplayStatus(material)!.color" class="flex items-center gap-0.5">
                   <Loader2Icon v-if="getMaterialDisplayStatus(material)!.spinning" class="size-2.5 animate-spin" />
                   {{ getMaterialDisplayStatus(material)!.text }}
-                  <button
-                    v-if="getMaterialDisplayStatus(material)!.showRetry && material.ossFileId"
-                    class="ml-0.5 hover:text-primary transition-colors"
-                    title="重试"
-                    @click.stop="emit('retryMaterial', material.id, material.ossFileId!)"
-                  >
-                    <RefreshCwIcon class="size-2.5" />
-                  </button>
                 </span>
+                <button
+                  v-else
+                  class="text-destructive hover:text-primary transition-colors flex items-center gap-0.5"
+                  @click.stop="emit('retryMaterial', material.id, material.ossFileId!)"
+                >
+                  {{ getMaterialDisplayStatus(material)!.text }}
+                  <RefreshCwIcon class="size-2.5" />
+                </button>
               </template>
             </div>
           </div>
