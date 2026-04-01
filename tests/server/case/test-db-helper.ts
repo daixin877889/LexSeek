@@ -326,13 +326,13 @@ export interface TestNodeInput {
 export const createTestNode = async (
     data: TestNodeInput
 ): Promise<Prisma.nodesGetPayload<{}>> => {
-    const timestamp = Date.now()
-    const random = Math.random().toString(36).substring(2, 8)
+    // 使用完整 UUID 保证全局唯一性
+    const uniqueId = uuidv7()
 
     const node = await getTestPrisma().nodes.create({
         data: {
-            name: data.name || `test_node_${timestamp}_${random}`,
-            title: data.title ?? `测试节点_${timestamp}`,
+            name: data.name || `test_node_${uniqueId}`,
+            title: data.title ?? `测试节点_${uniqueId}`,
             type: data.type || 'analysis',
             description: data.description ?? '测试节点描述',
             modelId: data.modelId,

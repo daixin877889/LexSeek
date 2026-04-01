@@ -51,15 +51,17 @@ describe('初始化分析服务层', () => {
     })
 
     afterEach(async () => {
-        // 清理本轮创建的 session 和 analysis
-        if (testIds.analysisIds.length > 0 || testIds.sessionIds.length > 0) {
+        // 清理本轮创建的 session, analysis 和 node
+        if (testIds.analysisIds.length > 0 || testIds.sessionIds.length > 0 || testIds.nodeIds.length > 0) {
             await cleanupTestData({
                 ...createEmptyTestIds(),
                 analysisIds: [...testIds.analysisIds],
                 sessionIds: [...testIds.sessionIds],
+                nodeIds: [...testIds.nodeIds],
             })
             testIds.analysisIds = []
             testIds.sessionIds = []
+            testIds.nodeIds = []
         }
     })
 
@@ -142,7 +144,7 @@ describe('初始化分析服务层', () => {
             const session = await createTestSession({ caseId: testCase.id, type: 2, status: 2 })
             testIds.sessionIds.push(session.sessionId)
 
-            const node = await createTestNode({ modelId: testModel.id, name: 'summary' })
+            const node = await createTestNode({ modelId: testModel.id })
             testIds.nodeIds.push(node.id)
 
             const analysis = await createTestAnalysis({
