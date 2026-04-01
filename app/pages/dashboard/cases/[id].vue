@@ -1,6 +1,7 @@
 <script lang="ts" setup>
-import type { ActiveView } from '~/composables/useCaseDetail'
-import { ArrowLeftIcon } from 'lucide-vue-next'
+import type { ActiveView, MaterialItem } from '~/composables/useCaseDetail'
+import { CaseMaterialType } from '#shared/types/case'
+import { ArrowLeftIcon, BotIcon, FileTextIcon, Loader2Icon } from 'lucide-vue-next'
 
 definePageMeta({
   layout: 'dashboard-layout',
@@ -17,13 +18,49 @@ const { caseInfo, materials, analysisResults } = useCaseDetail(caseId)
 
 const pageTitle = computed(() => caseInfo.value?.title ?? '案件详情')
 
+// --- 材料预览弹窗状态（复用 init-analysis 的模式） ---
+const previewMaterial = ref<MaterialItem | null>(null)
+const showPreview = ref(false)
+const showTextPreview = ref(false)
+const textContent = ref<string | null>(null)
+const textLoading = ref(false)
+
+async function openMaterialPreview(material: MaterialItem) {
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur()
+  }
+  previewMaterial.value = material
+  if (material.type === CaseMaterialType.CASE_CONTENT) {
+    showTextPreview.value = true
+    textLoading.value = true
+    textContent.value = null
+    try {
+      const data = await useApiFetch<{ content: string | null }>(
+        `/api/v1/material/content/${material.id}`,
+        { query: { detail: false } }
+      )
+      textContent.value = data?.content ?? null
+    } finally {
+      textLoading.value = false
+    }
+  } else {
+    showPreview.value = true
+  }
+}
+
+// --- 分析视图 ref ---
+const analysisRef = ref<{ setActiveIndex: (index: number) => void }>()
+
+// --- 导航 ---
 function navigateToView(view: ActiveView) {
   activeView.value = view
 }
 
-function navigateToMaterial(materialId: number) {
-  activeView.value = 'materials'
-  selectedMaterialId.value = materialId
+function navigateToAnalysis(index: number) {
+  activeView.value = 'analysis'
+  nextTick(() => {
+    analysisRef.value?.setActiveIndex(index)
+  })
 }
 </script>
 
@@ -36,14 +73,14 @@ function navigateToMaterial(materialId: number) {
       </Button>
       <h1 class="text-sm font-medium truncate flex-1">{{ pageTitle }}</h1>
       <Button variant="ghost" size="icon" class="size-8 shrink-0 md:hidden" @click="xiaosuoOpen = true">
-        <IconsXiaosuoIcon :size="18" />
+        <BotIcon class="size-4" />
       </Button>
     </header>
 
     <!-- 主体 -->
     <div class="flex flex-1 min-h-0">
       <!-- 侧边栏 - 仅桌面端 -->
-      <aside class="hidden md:block w-56 shrink-0 border-r bg-muted/30">
+      <aside class="hidden md:block w-50 shrink-0 border-r bg-muted/30">
         <CaseDetailSidebar v-model="activeView" />
       </aside>
 
@@ -54,14 +91,18 @@ function navigateToMaterial(materialId: number) {
           :case-id="caseId"
           :analysis-results="analysisResults"
           @navigate-view="navigateToView"
+          @preview-material="openMaterialPreview"
+          @navigate-analysis="navigateToAnalysis"
         />
         <CaseDetailMaterials
           v-else-if="activeView === 'materials'"
           :materials="materials ?? []"
           v-model:selected-id="selectedMaterialId"
+          @preview="openMaterialPreview"
         />
         <CaseDetailAnalysis
           v-else-if="activeView === 'analysis'"
+          ref="analysisRef"
           :results="analysisResults"
         />
         <!-- 其他视图占位 -->
@@ -79,4 +120,42 @@ function navigateToMaterial(materialId: number) {
       <CaseDetailBottomTabs v-model="activeView" />
     </div>
   </div>
+
+  <!-- 文档/图片预览弹窗 -->
+  <CaseAnalysisDocPreviewDialog
+    v-if="previewMaterial?.type === CaseMaterialType.DOCUMENT || previewMaterial?.type === CaseMaterialType.IMAGE"
+    v-model:open="showPreview"
+    :oss-file-id="previewMaterial!.ossFileId!"
+    :file-name="previewMaterial!.name"
+    :file-type="previewMaterial!.fileType || 'document'"
+  />
+
+  <!-- 音频预览弹窗 -->
+  <CaseAnalysisAudioPreviewDialog
+    v-if="previewMaterial?.type === CaseMaterialType.AUDIO"
+    v-model:open="showPreview"
+    :oss-file-id="previewMaterial!.ossFileId!"
+    :file-name="previewMaterial!.name"
+  />
+
+  <!-- 文本内容预览弹窗 -->
+  <Dialog v-model:open="showTextPreview">
+    <DialogContent class="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle class="flex items-center gap-2">
+          <FileTextIcon class="size-5 text-blue-500" />
+          {{ previewMaterial?.name }}
+        </DialogTitle>
+      </DialogHeader>
+      <div v-if="textLoading" class="flex justify-center py-8">
+        <Loader2Icon class="size-6 animate-spin text-muted-foreground" />
+      </div>
+      <div v-else-if="textContent" class="text-sm leading-relaxed whitespace-pre-wrap">
+        {{ textContent }}
+      </div>
+      <div v-else class="text-sm text-muted-foreground text-center py-8">
+        暂无文本内容
+      </div>
+    </DialogContent>
+  </Dialog>
 </template>

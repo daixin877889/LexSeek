@@ -17,6 +17,10 @@ const props = defineProps<{
 
 const selectedId = defineModel<number | null>('selectedId', { default: null })
 
+const emit = defineEmits<{
+  preview: [material: MaterialItem]
+}>()
+
 const selectedMaterial = computed(() => {
   if (selectedId.value === null) return null
   return props.materials.find(m => m.id === selectedId.value) ?? null
@@ -25,8 +29,9 @@ const selectedMaterial = computed(() => {
 const isMobile = useMediaQuery('(max-width: 767px)')
 const showMobilePreview = computed(() => isMobile.value && selectedId.value !== null)
 
-function selectMaterial(id: number) {
-  selectedId.value = id
+function selectMaterial(material: MaterialItem) {
+  selectedId.value = material.id
+  emit('preview', material)
 }
 
 function backToList() {
@@ -105,7 +110,7 @@ function getMaterialIconColor(type: number) {
                       ? 'border-primary bg-primary/5'
                       : 'border-transparent hover:border-primary/10'
                   ]"
-                  @click="selectMaterial(material.id)"
+                  @click="selectMaterial(material)"
                 >
                   <div :class="['flex items-center justify-center size-11 rounded-xl shrink-0 transition-transform group-hover:scale-105 mb-1.5', getMaterialBgColor(material.type)]">
                     <component :is="getMaterialIcon(material.type)" :class="['size-6', getMaterialIconColor(material.type)]" />
@@ -145,7 +150,7 @@ function getMaterialIconColor(type: number) {
             v-for="material in materials"
             :key="material.id"
             class="group relative flex flex-col items-center p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition-all border border-transparent hover:border-primary/10 text-center"
-            @click="selectMaterial(material.id)"
+            @click="selectMaterial(material)"
           >
             <div :class="['flex items-center justify-center size-11 rounded-xl shrink-0 mb-1.5', getMaterialBgColor(material.type)]">
               <component :is="getMaterialIcon(material.type)" :class="['size-6', getMaterialIconColor(material.type)]" />
