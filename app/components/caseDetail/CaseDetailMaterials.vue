@@ -159,6 +159,13 @@ function getMaterialIconColor(type: number) {
                     <RefreshCwIcon class="size-2.5" />
                   </button>
                 </span>
+              </template>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      <!-- 列表视图 -->
       <div v-else key="list" class="space-y-1">
         <button
           v-for="material in materials"
