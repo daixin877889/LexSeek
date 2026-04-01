@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import type { ActiveView } from '~/composables/useCaseDetail'
-import { ArrowLeftIcon, BotIcon } from 'lucide-vue-next'
+import { ArrowLeftIcon } from 'lucide-vue-next'
 
 definePageMeta({
   layout: 'dashboard-layout',
@@ -36,7 +36,7 @@ function navigateToMaterial(materialId: number) {
       </Button>
       <h1 class="text-sm font-medium truncate flex-1">{{ pageTitle }}</h1>
       <Button variant="ghost" size="icon" class="size-8 shrink-0 md:hidden" @click="xiaosuoOpen = true">
-        <BotIcon class="size-4" />
+        <IconsXiaosuoIcon :size="18" />
       </Button>
     </header>
 

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { BotIcon, XIcon, SendIcon } from 'lucide-vue-next'
+import { XIcon, SendIcon } from 'lucide-vue-next'
 import { useMediaQuery } from '@vueuse/core'
 
 const isOpen = defineModel<boolean>({ default: false })
@@ -53,7 +53,7 @@ function sendMessage() {
         >
           <div class="shrink-0 h-10 flex items-center justify-between px-3 border-b bg-muted/30">
             <div class="flex items-center gap-2 text-sm font-medium">
-              <BotIcon class="size-4 text-primary" />
+              <IconsXiaosuoIcon :size="16" class="text-primary" />
               小索 · AI 助手
             </div>
             <Button variant="ghost" size="icon" class="size-6" @click="isOpen = false">
@@ -98,7 +98,7 @@ function sendMessage() {
         :variant="isOpen ? 'default' : 'outline'"
         @click="isOpen = !isOpen"
       >
-        <BotIcon class="size-5" />
+        <IconsXiaosuoIcon :size="22" />
       </Button>
     </div>
   </template>
@@ -109,7 +109,7 @@ function sendMessage() {
       <DrawerContent class="h-[90vh]">
         <DrawerHeader class="pb-2">
           <DrawerTitle class="flex items-center gap-2 text-sm">
-            <BotIcon class="size-4 text-primary" />
+            <IconsXiaosuoIcon :size="16" class="text-primary" />
             小索 · AI 助手
           </DrawerTitle>
         </DrawerHeader>
