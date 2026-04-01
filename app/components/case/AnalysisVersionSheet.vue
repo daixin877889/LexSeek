@@ -74,19 +74,10 @@ function mobileBack() {
   mobileShowPreview.value = false
 }
 
+const { formatDate: formatDateUtil } = useFormatters()
+
 function formatDate(dateStr: string): string {
-  try {
-    const date = new Date(dateStr)
-    if (isNaN(date.getTime())) return ''
-    return date.toLocaleString('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  } catch {
-    return ''
-  }
+  return formatDateUtil(dateStr, 'MM/DD HH:mm')
 }
 
 watch(open, (val) => {

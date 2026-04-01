@@ -208,23 +208,11 @@ const isCurrentCopied = computed(() => {
     return copiedIndex.value === currentIndex.value
 })
 
-/**
- * 格式化分析时间
- */
+const { formatDate } = useFormatters()
+
 function formatAnalyzedAt(dateStr: string): string {
     if (!dateStr) return ''
-    try {
-        const date = new Date(dateStr)
-        if (isNaN(date.getTime())) return ''
-        return date.toLocaleString('zh-CN', {
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-        })
-    } catch {
-        return ''
-    }
+    return formatDate(dateStr, 'MM/DD HH:mm')
 }
 </script>
 
