@@ -41,4 +41,6 @@ app/coverage
 
 .worktrees
 
+.superpowers/
+
 coverage
