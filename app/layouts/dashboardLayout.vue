@@ -18,8 +18,9 @@
     <SidebarInset class="h-screen overflow-hidden">
       <!-- 使用 flex 布局，header 固定高度，内容区域可滚动 -->
       <div class="flex h-full flex-col">
-        <!-- 头部 - 固定在顶部 -->
+        <!-- 头部 - 固定在顶部，支持页面级隐藏 -->
         <header
+          v-show="!hideDashboardHeader"
           class="flex h-12 shrink-0 items-center justify-between gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 bg-background border-b z-50">
           <div class="flex gap-2 px-4">
             <!-- logo -->
@@ -99,6 +100,9 @@ import SettingsLayout from "./settingsLayout.vue";
 import MembershipLayout from "./membershipLayout.vue";
 
 const sidebarTriggerRef = ref<InstanceType<typeof import("@/components/ui/sidebar").SidebarTrigger> | null>(null);
+
+// 页面可通过 useState('hideDashboardHeader') 控制 header 显隐
+const hideDashboardHeader = useState('hideDashboardHeader', () => false);
 
 // 通过组件实例的 $el 获取 DOM 元素并点击
 const toggleSidebar = () => {

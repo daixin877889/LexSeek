@@ -1,5 +1,6 @@
 <script lang="ts" setup>
-import { BotIcon, XIcon, SendIcon, MaximizeIcon, MinimizeIcon } from 'lucide-vue-next'
+import { XIcon, SendIcon, MaximizeIcon, MinimizeIcon } from 'lucide-vue-next'
+import xiaosuoIcon from '~/assets/icon/xiaosuo.svg'
 import { useMediaQuery } from '@vueuse/core'
 
 const isOpen = defineModel<boolean>({ default: false })
@@ -64,7 +65,7 @@ watch(isOpen, (open) => {
         <!-- 头部 -->
         <div class="shrink-0 h-12 flex items-center justify-between px-4 border-b bg-muted/30">
           <div class="flex items-center gap-2 text-sm font-medium">
-            <BotIcon class="size-4 text-primary" />
+            <img :src="xiaosuoIcon" class="size-4" alt="小索" />
             小索 · AI 助手
           </div>
           <div class="flex items-center gap-1">
@@ -126,7 +127,7 @@ watch(isOpen, (open) => {
         >
           <div class="shrink-0 h-10 flex items-center justify-between px-3 border-b bg-muted/30">
             <div class="flex items-center gap-2 text-sm font-medium">
-              <BotIcon class="size-4 text-primary" />
+              <img :src="xiaosuoIcon" class="size-4" alt="小索" />
               小索 · AI 助手
             </div>
             <div class="flex items-center gap-0.5">
@@ -170,15 +171,13 @@ watch(isOpen, (open) => {
         </div>
       </Transition>
 
-      <Button
+      <img
         v-show="!isFullscreen"
-        size="icon"
-        class="size-12 rounded-full shadow-lg"
-        :variant="isOpen ? 'default' : 'outline'"
+        :src="xiaosuoIcon"
+        class="size-12 cursor-pointer hover:scale-110 transition-transform drop-shadow-lg"
+        alt="小索"
         @click="isOpen = !isOpen"
-      >
-        <BotIcon class="size-5" />
-      </Button>
+      />
     </div>
   </template>
 
@@ -188,7 +187,7 @@ watch(isOpen, (open) => {
       <SheetContent side="bottom" class="h-[90vh] flex flex-col p-0">
         <SheetHeader class="shrink-0 px-4 pt-4 pb-2">
           <SheetTitle class="flex items-center gap-2 text-sm">
-            <BotIcon class="size-4 text-primary" />
+            <img :src="xiaosuoIcon" class="size-4" alt="小索" />
             小索 · AI 助手
           </SheetTitle>
         </SheetHeader>

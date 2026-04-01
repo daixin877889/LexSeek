@@ -32,9 +32,8 @@ const route = useRoute();
 
 // 根据路径查找对应路由的 title
 const getTitleForPath = (path: string): string | undefined => {
-  const routes = router.getRoutes();
-  const matchedRoute = routes.find((r) => r.path === path);
-  return matchedRoute?.meta?.title as string | undefined;
+  const resolved = router.resolve(path);
+  return resolved?.meta?.title as string | undefined;
 };
 
 // 计算面包屑 - 基于 URL 路径段构建层级，从路由 meta 获取 title
