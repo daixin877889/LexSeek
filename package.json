@@ -80,6 +80,7 @@
     "file-saver": "^2.0.5",
     "github-markdown-css": "^5.8.1",
     "heic2any": "^0.0.4",
+    "html-docx-js-typescript": "^0.1.5",
     "ioredis": "^5.10.1",
     "json-editor-vue": "^0.18.1",
     "jszip": "^3.10.1",
@@ -88,6 +89,7 @@
     "lodash-es": "^4.17.22",
     "lucide-vue-next": "^0.562.0",
     "mammoth": "^1.11.0",
+    "markdown-docx": "^1.5.1",
     "marked": "^17.0.1",
     "markstream-vue": "^0.0.4",
     "mermaid": "^11.12.2",
@@ -125,6 +127,7 @@
   "devDependencies": {
     "@nuxt/test-utils": "^3.21.0",
     "@tailwindcss/vite": "^4.1.18",
+    "@types/file-saver": "^2.0.7",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/lodash-es": "^4.17.12",
     "@types/pg": "^8.16.0",
