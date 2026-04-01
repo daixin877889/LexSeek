@@ -74,7 +74,7 @@ export const formatByteSize = (bytes: number | null | undefined, toFixed?: numbe
     value = bytes
     unit = "Bytes"
   }
-  if (toFixed) {
+  if (toFixed !== undefined) {
     value = Number(value.toFixed(toFixed))
   }
   return `${value} ${unit}`;
