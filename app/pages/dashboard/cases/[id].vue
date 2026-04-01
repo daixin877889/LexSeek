@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { ActiveView, MaterialItem } from '~/composables/useCaseDetail'
+import type { ActiveView, CaseDetailMaterialItem } from '~/composables/useCaseDetail'
 import { CaseMaterialType } from '#shared/types/case'
 import { ArrowLeftIcon, FileTextIcon, DownloadIcon } from 'lucide-vue-next'
 import { VisuallyHidden } from 'reka-ui'
@@ -37,7 +37,18 @@ watch([activeView, analysisIndex, analysisMode], ([view, ai, am]) => {
   router.replace({ query })
 })
 
-const { caseInfo, materials, analysisResults, refreshAnalysis, refreshCase } = useCaseDetail(caseId)
+const {
+  caseInfo,
+  materials,
+  analysisResults,
+  refreshAnalysis,
+  refreshCase,
+  addMaterials,
+  isAddingMaterials,
+  disabledOssFileIds,
+  fileRecognitionStatus,
+  getRecognitionStatus,
+} = useCaseDetail(caseId)
 
 const pageTitle = computed(() => caseInfo.value?.title ?? '案件详情')
 
@@ -50,12 +61,12 @@ const viewLabelMap: Record<ActiveView, string> = {
 }
 
 // --- 材料预览弹窗状态（复用 init-analysis 的模式） ---
-const previewMaterial = ref<MaterialItem | null>(null)
+const previewMaterial = ref<CaseDetailMaterialItem | null>(null)
 const showPreview = ref(false)
 const showTextPreview = ref(false)
 const textContent = ref<string | null>(null)
 
-async function openMaterialPreview(material: MaterialItem) {
+async function openMaterialPreview(material: CaseDetailMaterialItem) {
   if (document.activeElement instanceof HTMLElement) {
     document.activeElement.blur()
   }
@@ -128,10 +139,18 @@ function navigateToAnalysis(index: number) {
       <main class="flex-1 min-w-0 overflow-hidden relative">
         <Transition name="page-fade" mode="out-in">
           <CaseDetailOverview v-if="activeView === 'overview'" :key="'overview'" :case-id="caseId" :analysis-results="analysisResults"
+            :disabled-oss-file-ids="disabledOssFileIds"
+            :is-adding-materials="isAddingMaterials"
             @navigate-view="navigateToView" @preview-material="openMaterialPreview"
-            @navigate-analysis="navigateToAnalysis" @updated="refreshCase" />
+            @navigate-analysis="navigateToAnalysis" @updated="refreshCase"
+            @add-materials="addMaterials" />
           <CaseDetailMaterials v-else-if="activeView === 'materials'" :key="'materials'" :materials="materials ?? []"
-            @preview="openMaterialPreview" />
+            :disabled-oss-file-ids="disabledOssFileIds"
+            :is-adding="isAddingMaterials"
+            :file-recognition-status="fileRecognitionStatus"
+            :get-recognition-status="getRecognitionStatus"
+            @preview="openMaterialPreview"
+            @add-materials="addMaterials" />
           <CaseDetailAnalysis v-else-if="activeView === 'analysis'" :key="'analysis'" ref="analysisRef" :case-id="caseId" :results="analysisResults"
             v-model:active-index="analysisIndex" v-model:view-mode="analysisMode"
             @version-changed="refreshAnalysis" />

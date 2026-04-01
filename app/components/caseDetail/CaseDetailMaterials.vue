@@ -1,5 +1,7 @@
 <script lang="ts" setup>
-import type { MaterialItem } from '~/composables/useCaseDetail'
+import type { CaseDetailMaterialItem } from '~/composables/useCaseDetail'
+import type { OssFileItem } from '~/store/file'
+import type { RecognitionStatus } from '~/composables/useFileRecognition'
 import { CaseMaterialType } from '#shared/types/case'
 import { formatByteSize } from '#shared/utils/unitConverision'
 import {
@@ -9,17 +11,35 @@ import {
   FileAudioIcon,
   LayoutGridIcon,
   ListIcon,
+  PlusIcon,
+  Loader2Icon,
 } from 'lucide-vue-next'
 
 const props = defineProps<{
-  materials: MaterialItem[]
+  materials: CaseDetailMaterialItem[]
+  disabledOssFileIds?: number[]
+  isAdding?: boolean
+  fileRecognitionStatus?: Map<number, RecognitionStatus>
+  getRecognitionStatus?: (ossFileId?: number) => RecognitionStatus | null
 }>()
 
 const emit = defineEmits<{
-  preview: [material: MaterialItem]
+  preview: [material: CaseDetailMaterialItem]
+  addMaterials: [files: OssFileItem[]]
 }>()
 
 const viewMode = ref<'grid' | 'list'>('grid')
+const showMaterialSelector = ref(false)
+
+function handleFilesSelected(files: OssFileItem[]) {
+  emit('addMaterials', files)
+}
+
+/** 获取材料的识别状态 */
+function getMaterialRecognitionStatus(material: CaseDetailMaterialItem): RecognitionStatus | null {
+  if (!props.getRecognitionStatus || !material.ossFileId) return null
+  return props.getRecognitionStatus(material.ossFileId)
+}
 
 function getMaterialIcon(type: number) {
   switch (type) {
@@ -63,21 +83,37 @@ function getMaterialIconColor(type: number) {
         </Badge>
       </h3>
 
-      <div class="flex items-center bg-muted/50 rounded-lg p-0.5">
+      <div class="flex items-center gap-2">
+        <!-- 添加材料按钮 -->
         <button
-          class="size-7 flex items-center justify-center rounded-md transition-all"
-          :class="viewMode === 'grid' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
-          @click="viewMode = 'grid'"
+          class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+          :disabled="isAdding"
+          @click="showMaterialSelector = true"
         >
-          <LayoutGridIcon class="size-3.5" />
+          <Loader2Icon v-if="isAdding" class="size-3 animate-spin" />
+          <PlusIcon v-else class="size-3" />
+          添加材料
         </button>
-        <button
-          class="size-7 flex items-center justify-center rounded-md transition-all"
-          :class="viewMode === 'list' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
-          @click="viewMode = 'list'"
-        >
-          <ListIcon class="size-3.5" />
-        </button>
+
+        <div class="w-px h-3 bg-border"></div>
+
+        <!-- 视图切换 -->
+        <div class="flex items-center bg-muted/50 rounded-lg p-0.5">
+          <button
+            class="size-7 flex items-center justify-center rounded-md transition-all"
+            :class="viewMode === 'grid' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
+            @click="viewMode = 'grid'"
+          >
+            <LayoutGridIcon class="size-3.5" />
+          </button>
+          <button
+            class="size-7 flex items-center justify-center rounded-md transition-all"
+            :class="viewMode === 'list' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
+            @click="viewMode = 'list'"
+          >
+            <ListIcon class="size-3.5" />
+          </button>
+        </div>
       </div>
     </div>
 
@@ -100,6 +136,15 @@ function getMaterialIconColor(type: number) {
             </div>
             <div class="text-[10px] text-muted-foreground/60 flex items-center justify-center gap-1">
               <span v-if="material.fileSize" class="shrink-0">{{ formatByteSize(material.fileSize, 0) }}</span>
+              <!-- 识别状态徽章 -->
+              <template v-if="getMaterialRecognitionStatus(material)">
+                <span class="size-0.5 rounded-full bg-muted-foreground/30"></span>
+                <span v-if="getMaterialRecognitionStatus(material) === 'recognizing'" class="text-amber-500 flex items-center gap-0.5">
+                  <Loader2Icon class="size-2.5 animate-spin" />识别中
+                </span>
+                <span v-else-if="getMaterialRecognitionStatus(material) === 'success'" class="text-green-500">已识别</span>
+                <span v-else-if="getMaterialRecognitionStatus(material) === 'error'" class="text-destructive">识别失败</span>
+              </template>
             </div>
           </div>
         </button>
@@ -124,11 +169,27 @@ function getMaterialIconColor(type: number) {
               <span>{{ material.typeText }}</span>
               <span v-if="material.fileSize" class="size-0.5 rounded-full bg-muted-foreground/30"></span>
               <span v-if="material.fileSize">{{ formatByteSize(material.fileSize, 0) }}</span>
+              <!-- 识别状态徽章 -->
+              <template v-if="getMaterialRecognitionStatus(material)">
+                <span class="size-0.5 rounded-full bg-muted-foreground/30"></span>
+                <span v-if="getMaterialRecognitionStatus(material) === 'recognizing'" class="text-amber-500 flex items-center gap-0.5">
+                  <Loader2Icon class="size-2.5 animate-spin" />识别中
+                </span>
+                <span v-else-if="getMaterialRecognitionStatus(material) === 'success'" class="text-green-500">已识别</span>
+                <span v-else-if="getMaterialRecognitionStatus(material) === 'error'" class="text-destructive">识别失败</span>
+              </template>
             </div>
           </div>
         </button>
       </div>
     </Transition>
+
+    <!-- 材料选择器弹窗 -->
+    <CaseAnalysisMaterialSelector
+      v-model:open="showMaterialSelector"
+      :disabled-file-ids="disabledOssFileIds"
+      @files-selected="handleFilesSelected"
+    />
   </div>
 </template>
 

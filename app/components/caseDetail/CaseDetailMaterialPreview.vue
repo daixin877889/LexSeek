@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { MaterialItem } from '~/composables/useCaseDetail'
+import type { CaseDetailMaterialItem } from '~/composables/useCaseDetail'
 import { CaseMaterialType, CaseMaterialTypeText } from '#shared/types/case'
 import { formatByteSize } from '#shared/utils/unitConverision'
 import {
@@ -11,7 +11,7 @@ import {
 } from 'lucide-vue-next'
 
 const props = defineProps<{
-  material: MaterialItem | null
+  material: CaseDetailMaterialItem | null
 }>()
 
 const materialTypeText = computed(() => {

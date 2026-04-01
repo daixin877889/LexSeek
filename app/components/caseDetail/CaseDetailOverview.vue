@@ -1,19 +1,23 @@
 <script lang="ts" setup>
 import type { AnalysisResult } from '#shared/types/case'
-import type { ActiveView, MaterialItem } from '~/composables/useCaseDetail'
+import type { ActiveView, CaseDetailMaterialItem } from '~/composables/useCaseDetail'
+import type { OssFileItem } from '~/store/file'
 import { CaseMaterialType } from '#shared/types/case'
 import { EyeIcon, FileTextIcon, SparklesIcon, PencilIcon, CheckIcon, XIcon, Loader2Icon, PlusIcon } from 'lucide-vue-next'
 
 const props = defineProps<{
   caseId: number
   analysisResults: AnalysisResult[]
+  disabledOssFileIds?: number[]
+  isAddingMaterials?: boolean
 }>()
 
 const emit = defineEmits<{
   navigateView: [view: ActiveView]
-  previewMaterial: [material: MaterialItem]
+  previewMaterial: [material: CaseDetailMaterialItem]
   navigateAnalysis: [index: number]
   updated: []
+  addMaterials: [files: OssFileItem[]]
 }>()
 
 const infoCardRef = ref<{
@@ -35,6 +39,13 @@ watch(analysisViewMode, (mode) => {
     emit('navigateAnalysis', analysisActiveIndex.value)
   }
 })
+
+// 材料选择器弹窗
+const showMaterialSelector = ref(false)
+
+function handleFilesSelected(files: OssFileItem[]) {
+  emit('addMaterials', files)
+}
 </script>
 
 <template>
@@ -92,9 +103,11 @@ watch(analysisViewMode, (mode) => {
       <div class="flex items-center gap-4">
         <button
           class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-          @click="emit('navigateView', 'materials')"
+          :disabled="isAddingMaterials"
+          @click="showMaterialSelector = true"
         >
-          <PlusIcon class="size-3" />
+          <Loader2Icon v-if="isAddingMaterials" class="size-3 animate-spin" />
+          <PlusIcon v-else class="size-3" />
           添加材料
         </button>
         <div class="w-px h-3 bg-border"></div>
@@ -110,7 +123,7 @@ watch(analysisViewMode, (mode) => {
     <InitAnalysisMaterialList
       :case-id="caseId"
       hide-header
-      @preview="(m: MaterialItem) => emit('previewMaterial', m)"
+      @preview="(m: CaseDetailMaterialItem) => emit('previewMaterial', m)"
     />
     <Separator class="mx-4 opacity-50" />
 
@@ -138,6 +151,13 @@ watch(analysisViewMode, (mode) => {
       :show-copy="false"
       hide-header
       class="pt-0"
+    />
+
+    <!-- 材料选择器弹窗 -->
+    <CaseAnalysisMaterialSelector
+      v-model:open="showMaterialSelector"
+      :disabled-file-ids="disabledOssFileIds"
+      @files-selected="handleFilesSelected"
     />
   </div>
 </template>

@@ -1,12 +1,15 @@
 import type { AnalysisResult } from '#shared/types/case'
 import type { InitAnalysisStatusResponse } from '#shared/types/initAnalysis'
+import type { OssFileItem } from '~/store/file'
 import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
+import { getMaterialType } from '~/utils/caseMaterial'
+import { toast } from 'vue-sonner'
 
 /** 案件详情页视图类型（包含未来扩展） */
 export type ActiveView = 'overview' | 'materials' | 'analysis' | 'todos' | 'documents'
 
-/** MaterialItem 接口（与 MaterialList.vue 中定义一致） */
-export interface MaterialItem {
+/** CaseDetailMaterialItem 接口（案件详情页材料，与 API 返回对齐） */
+export interface CaseDetailMaterialItem {
   id: number
   name: string
   type: number
@@ -54,7 +57,7 @@ export function useCaseDetail(caseId: Ref<number> | ComputedRef<number>) {
   )
 
   // 材料列表（响应式）
-  const { data: materials, refresh: refreshMaterials } = useApi<MaterialItem[]>(
+  const { data: materials, refresh: refreshMaterials } = useApi<CaseDetailMaterialItem[]>(
     () => `/api/v1/case/${id.value}/materials`,
   )
 
@@ -73,7 +76,7 @@ export function useCaseDetail(caseId: Ref<number> | ComputedRef<number>) {
       if (m.status === 'complete' && m.result) {
         const moduleDef = INIT_ANALYSIS_MODULES.find(def => def.name === m.name)
         results.push({
-          nodeId: 0, // init-analysis 无持久化 nodeId，用 0 占位
+          nodeId: 0,
           moduleName: m.name,
           moduleTitle: moduleDef?.title ?? m.name,
           content: m.result,
@@ -85,6 +88,71 @@ export function useCaseDetail(caseId: Ref<number> | ComputedRef<number>) {
     return results
   })
 
+  // --- 识别轮询（仅轮询状态，不触发识别，识别由后端 processMaterialService 处理） ---
+  const {
+    fileRecognitionStatus,
+    getRecognitionStatus,
+    handleRecognitionResults,
+    stopAllPolling,
+  } = useFileRecognition()
+
+  // 当前案件已有材料的 ossFileId 列表（用于 materialSelector 的 disabledFileIds）
+  const disabledOssFileIds = computed<number[]>(() => {
+    return (materials.value ?? [])
+      .filter((m: CaseDetailMaterialItem) => m.ossFileId != null)
+      .map((m: CaseDetailMaterialItem) => m.ossFileId!)
+  })
+
+  // 添加材料的 loading 状态
+  const isAddingMaterials = ref(false)
+
+  /**
+   * 添加材料到当前案件
+   * @param files materialSelector 返回的 OssFileItem[]
+   */
+  async function addMaterials(files: OssFileItem[]) {
+    if (files.length === 0) return
+
+    isAddingMaterials.value = true
+    try {
+      const materialParams = files.map(file => ({
+        type: getMaterialType(file.fileType),
+        name: file.fileName,
+        ossFileId: file.id,
+      }))
+
+      const response = await useApiFetch<CaseDetailMaterialItem[]>(
+        `/api/v1/case/materials/${id.value}`,
+        {
+          method: 'POST',
+          body: { materials: materialParams },
+        },
+      )
+
+      if (!response || (Array.isArray(response) && response.length === 0)) {
+        toast.info('所有材料已存在，无需重复添加')
+        return
+      }
+
+      toast.success(`成功添加 ${Array.isArray(response) ? response.length : 0} 个材料`)
+
+      // 刷新材料列表
+      await refreshMaterials()
+
+      // 启动轮询（后端已通过 processMaterialService 触发识别，前端只需轮询状态）
+      // 构造 processing 状态，通过 handleRecognitionResults 启动轮询
+      const pollingResults = files.map(f => ({
+        ossFileId: f.id,
+        status: 'processing' as const,
+      }))
+      handleRecognitionResults(pollingResults)
+    } catch {
+      toast.error('添加材料失败')
+    } finally {
+      isAddingMaterials.value = false
+    }
+  }
+
   return {
     caseInfo,
     materials,
@@ -93,5 +161,12 @@ export function useCaseDetail(caseId: Ref<number> | ComputedRef<number>) {
     refreshCase,
     refreshMaterials,
     refreshAnalysis,
+    // 添加材料相关
+    addMaterials,
+    isAddingMaterials,
+    disabledOssFileIds,
+    fileRecognitionStatus,
+    getRecognitionStatus,
+    stopAllPolling,
   }
 }
