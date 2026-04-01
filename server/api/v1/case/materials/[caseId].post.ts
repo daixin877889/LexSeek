@@ -85,7 +85,7 @@ export default defineEventHandler(async (event) => {
         // 5. 异步触发识别（fire-and-forget，限制并发避免 429 限流）
         const materialIdsToProcess = addedMaterials.map(m => m.id)
         if (materialIdsToProcess.length > 0) {
-            const limit = pLimit(2)
+            const limit = pLimit(5)
             Promise.allSettled(
                 materialIdsToProcess.map(id =>
                     limit(() => processMaterialService(id, user.id).catch(err => {
