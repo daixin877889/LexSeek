@@ -248,7 +248,7 @@ function formatAnalyzedAt(dateStr: string): string {
                 </div>
                 <div class="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
                     <button v-for="(result, index) in results" :key="result.nodeId"
-                        class="group relative flex flex-col items-center p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition-all border border-transparent hover:border-primary/10 text-center"
+                        class="group relative flex flex-col items-center p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition-all border border-transparent hover:border-primary cursor-pointer text-center"
                         @click="goToModule(index)">
 
                         <!-- 模块图标 -->

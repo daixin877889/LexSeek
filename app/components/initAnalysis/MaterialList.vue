@@ -28,7 +28,7 @@
       <button
         v-for="material in materials"
         :key="material.id"
-        class="group relative flex flex-col items-center p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition-all border border-transparent hover:border-primary/10 text-center"
+        class="group relative flex flex-col items-center p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition-all border border-transparent hover:border-primary cursor-pointer text-center"
         @click="emit('preview', material)"
       >
         <!-- 状态标签 (绝对定位以节省空间) -->
