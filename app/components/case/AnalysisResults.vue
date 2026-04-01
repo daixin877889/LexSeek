@@ -337,8 +337,8 @@ function formatAnalyzedAt(dateStr: string): string {
         </template>
     </div>
 
-    <!-- 版本 Sheet -->
-    <CaseAnalysisVersionSheet v-if="showVersions && caseId && currentResult" v-model="versionSheetOpen"
+    <!-- 版本 Sheet（组件待实现） -->
+    <!-- <CaseAnalysisVersionSheet v-if="showVersions && caseId && currentResult" v-model="versionSheetOpen"
         :case-id="caseId" :analysis-type="currentResult.moduleName"
-        :module-title="currentResult.moduleTitle || currentResult.moduleName" @activated="emit('versionChanged')" />
+        :module-title="currentResult.moduleTitle || currentResult.moduleName" @activated="emit('versionChanged')" /> -->
 </template>
