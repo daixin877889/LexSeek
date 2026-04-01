@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { XIcon, SendIcon } from 'lucide-vue-next'
+import { BotIcon, XIcon, SendIcon } from 'lucide-vue-next'
 import { useMediaQuery } from '@vueuse/core'
 
 const isOpen = defineModel<boolean>({ default: false })
@@ -53,7 +53,7 @@ function sendMessage() {
         >
           <div class="shrink-0 h-10 flex items-center justify-between px-3 border-b bg-muted/30">
             <div class="flex items-center gap-2 text-sm font-medium">
-              <IconsXiaosuoIcon :size="16" class="text-primary" />
+              <BotIcon class="size-4 text-primary" />
               小索 · AI 助手
             </div>
             <Button variant="ghost" size="icon" class="size-6" @click="isOpen = false">
@@ -98,21 +98,21 @@ function sendMessage() {
         :variant="isOpen ? 'default' : 'outline'"
         @click="isOpen = !isOpen"
       >
-        <IconsXiaosuoIcon :size="22" />
+        <BotIcon class="size-5" />
       </Button>
     </div>
   </template>
 
-  <!-- 移动端：底部 Drawer -->
+  <!-- 移动端：底部 Sheet -->
   <template v-else>
-    <Drawer v-model:open="isOpen">
-      <DrawerContent class="h-[90vh]">
-        <DrawerHeader class="pb-2">
-          <DrawerTitle class="flex items-center gap-2 text-sm">
-            <IconsXiaosuoIcon :size="16" class="text-primary" />
+    <Sheet v-model:open="isOpen">
+      <SheetContent side="bottom" class="h-[90vh] flex flex-col p-0">
+        <SheetHeader class="shrink-0 px-4 pt-4 pb-2">
+          <SheetTitle class="flex items-center gap-2 text-sm">
+            <BotIcon class="size-4 text-primary" />
             小索 · AI 助手
-          </DrawerTitle>
-        </DrawerHeader>
+          </SheetTitle>
+        </SheetHeader>
 
         <div class="flex-1 overflow-y-auto px-4 space-y-3">
           <div
@@ -142,7 +142,7 @@ function sendMessage() {
             </Button>
           </div>
         </div>
-      </DrawerContent>
-    </Drawer>
+      </SheetContent>
+    </Sheet>
   </template>
 </template>
