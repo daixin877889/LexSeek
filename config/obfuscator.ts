@@ -1,7 +1,7 @@
 import type { ObfuscatorOptions } from 'javascript-obfuscator'
 
 /**
- * 中度混淆配置 — 前端和服务端共用
+ * 中度混淆配置 — 服务端代码混淆
  *
  * 包含：变量名压缩、字符串混淆、控制流扁平化
  * 不包含：死代码注入、反调试（高强度特性）

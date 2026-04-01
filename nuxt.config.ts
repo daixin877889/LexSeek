@@ -1,6 +1,5 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import tailwindcss from '@tailwindcss/vite'
-import obfuscatorPlugin from 'vite-plugin-javascript-obfuscator'
 import rollupObfuscator from 'rollup-plugin-obfuscator'
 import { obfuscatorConfig } from './config/obfuscator'
 
@@ -45,13 +44,6 @@ export default defineNuxtConfig({
   vite: {
     plugins: [
       tailwindcss() as any,
-      ...(process.env.NODE_ENV === 'production' ? [
-        obfuscatorPlugin({
-          options: obfuscatorConfig,
-          apply: 'build',
-          exclude: [/node_modules/],
-        }),
-      ] : []),
     ],
     worker: {
       format: 'es', // 使用 ES 模块格式
@@ -120,6 +112,7 @@ export default defineNuxtConfig({
       plugins: [
         ...(process.env.NODE_ENV === 'production' ? [
           rollupObfuscator({
+            global: true,
             options: {
               ...obfuscatorConfig,
             },
