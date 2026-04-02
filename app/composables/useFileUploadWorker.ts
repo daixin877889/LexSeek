@@ -37,18 +37,29 @@ interface WorkerInstance {
   refCount: number
 }
 
+/** Worker 单例 key */
+const WORKER_KEY = 'fileUpload'
+
 const workerInstanceMap = new Map<string, WorkerInstance>()
 
 /**
- * 获取共享 Worker 实例
- * 使用文件路径作为 key，支持不同路径的 Worker 实例
+ * 创建文件上传 Worker
+ * 注意：new URL() 必须使用静态字符串字面量，Vite 才能在生产构建中正确打包 Worker 文件
  */
-function getSharedWorker(workerUrl: string): WorkerInstance {
-  let instance = workerInstanceMap.get(workerUrl)
+function createFileUploadWorker(): Worker {
+  return new Worker(new URL('../workers/fileUpload.worker.ts', import.meta.url), { type: 'module' })
+}
+
+/**
+ * 获取共享 Worker 实例
+ * 使用引用计数管理 Worker 生命周期
+ */
+function getSharedWorker(): WorkerInstance {
+  let instance = workerInstanceMap.get(WORKER_KEY)
   if (!instance) {
-    const worker = new Worker(new URL(workerUrl, import.meta.url), { type: 'module' })
+    const worker = createFileUploadWorker()
     instance = { worker, refCount: 0 }
-    workerInstanceMap.set(workerUrl, instance)
+    workerInstanceMap.set(WORKER_KEY, instance)
   }
   return instance
 }
@@ -66,8 +77,7 @@ export const useFileUploadWorker = () => {
    * 初始化 Worker（使用引用计数）
    */
   const initWorker = () => {
-    const workerPath = '../workers/fileUpload.worker.ts'
-    currentInstance = getSharedWorker(workerPath)
+    currentInstance = getSharedWorker()
     currentInstance.refCount++
 
     // 监听 Worker 消息
@@ -155,11 +165,10 @@ export const useFileUploadWorker = () => {
     if (currentInstance) {
       currentInstance.refCount--
       if (currentInstance.refCount <= 0) {
-        const workerUrl = '../workers/fileUpload.worker.ts'
-        const instance = workerInstanceMap.get(workerUrl)
+        const instance = workerInstanceMap.get(WORKER_KEY)
         if (instance) {
           instance.worker.terminate()
-          workerInstanceMap.delete(workerUrl)
+          workerInstanceMap.delete(WORKER_KEY)
         }
       }
       currentInstance = null
