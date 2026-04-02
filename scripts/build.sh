@@ -83,6 +83,7 @@ echo "[3/3] 构建多架构镜像 (${PLATFORMS})..."
 BUILD_ARGS=(
     buildx build
     --platform "${PLATFORMS}"
+    --provenance=false
     ${NO_CACHE}
     -t "${FULL_IMAGE}:${TAG}"
     -t "${FULL_IMAGE}:latest"
