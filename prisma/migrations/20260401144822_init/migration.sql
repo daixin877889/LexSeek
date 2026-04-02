@@ -1,3 +1,26 @@
+-- 安装 vector 扩展
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- CreateTable
+CREATE TABLE "agent_runs" (
+    "id" TEXT NOT NULL,
+    "session_id" TEXT NOT NULL,
+    "thread_id" TEXT NOT NULL,
+    "user_id" INTEGER NOT NULL,
+    "case_id" INTEGER NOT NULL,
+    "input" JSONB NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'pending',
+    "worker_id" TEXT,
+    "heartbeat_at" TIMESTAMPTZ(6),
+    "started_at" TIMESTAMPTZ(6),
+    "completed_at" TIMESTAMPTZ(6),
+    "error" TEXT,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL,
+
+    CONSTRAINT "agent_runs_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateTable
 CREATE TABLE "api_permission_groups" (
     "id" SERIAL NOT NULL,
@@ -100,6 +123,8 @@ CREATE TABLE "cases" (
     "case_type_id" INTEGER NOT NULL,
     "plaintiff" JSONB,
     "defendant" JSONB,
+    "summary" TEXT,
+    "extracted_info" JSONB,
     "status" INTEGER NOT NULL DEFAULT 1,
     "is_demo" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -115,6 +140,8 @@ CREATE TABLE "case_sessions" (
     "session_id" VARCHAR(100) NOT NULL,
     "case_id" INTEGER NOT NULL,
     "status" INTEGER NOT NULL DEFAULT 1,
+    "type" INTEGER NOT NULL DEFAULT 1,
+    "metadata" JSONB,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "deleted_at" TIMESTAMPTZ(6),
@@ -128,15 +155,13 @@ CREATE TABLE "case_materials" (
     "case_id" INTEGER NOT NULL,
     "name" VARCHAR(255) NOT NULL,
     "type" INTEGER NOT NULL,
-    "content" TEXT,
-    "original_content" TEXT,
     "oss_file_id" INTEGER,
     "is_encrypted" BOOLEAN NOT NULL DEFAULT false,
     "status" INTEGER NOT NULL DEFAULT 1,
-    "embedding_status" VARCHAR(20) DEFAULT 'pending',
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "deleted_at" TIMESTAMPTZ(6),
+    "summary" TEXT,
 
     CONSTRAINT "case_materials_pkey" PRIMARY KEY ("id")
 );
@@ -152,6 +177,10 @@ CREATE TABLE "case_analyses" (
     "original_result" TEXT,
     "version" INTEGER NOT NULL DEFAULT 1,
     "status" INTEGER NOT NULL DEFAULT 1,
+    "is_active" BOOLEAN NOT NULL DEFAULT false,
+    "point_deducted" BOOLEAN NOT NULL DEFAULT false,
+    "token_count" INTEGER,
+    "tokens" INTEGER,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "deleted_at" TIMESTAMPTZ(6),
@@ -266,6 +295,24 @@ CREATE TABLE "law_embeddings" (
     "embedding" vector,
 
     CONSTRAINT "law_embeddings_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "text_content_records" (
+    "id" SERIAL NOT NULL,
+    "user_id" INTEGER NOT NULL,
+    "case_id" INTEGER NOT NULL,
+    "material_id" INTEGER,
+    "content" TEXT,
+    "html_content" TEXT,
+    "status" INTEGER NOT NULL DEFAULT 0,
+    "vector_ids" JSONB DEFAULT '[]',
+    "last_embedding_at" TIMESTAMPTZ(6),
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "text_content_records_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -428,6 +475,7 @@ CREATE TABLE "nodes" (
     "priority" INTEGER NOT NULL DEFAULT 100,
     "model_id" INTEGER NOT NULL,
     "tools" JSONB NOT NULL DEFAULT '[]',
+    "output_schema" JSONB,
     "group_id" INTEGER,
     "status" INTEGER NOT NULL DEFAULT 1,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -918,6 +966,15 @@ CREATE TABLE "token_blacklist" (
 );
 
 -- CreateIndex
+CREATE INDEX "idx_agent_runs_status_created_at" ON "agent_runs"("status", "created_at");
+
+-- CreateIndex
+CREATE INDEX "idx_agent_runs_session_id_created_at" ON "agent_runs"("session_id", "created_at");
+
+-- CreateIndex
+CREATE INDEX "idx_agent_runs_user_id" ON "agent_runs"("user_id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "api_permission_groups_name_key" ON "api_permission_groups"("name");
 
 -- CreateIndex
@@ -1038,6 +1095,9 @@ CREATE INDEX "idx_case_sessions_case_id" ON "case_sessions"("case_id");
 CREATE INDEX "idx_case_sessions_status" ON "case_sessions"("status");
 
 -- CreateIndex
+CREATE INDEX "idx_case_sessions_type" ON "case_sessions"("type");
+
+-- CreateIndex
 CREATE INDEX "idx_case_sessions_deleted_at" ON "case_sessions"("deleted_at");
 
 -- CreateIndex
@@ -1066,6 +1126,9 @@ CREATE INDEX "idx_case_analyses_analysis_type" ON "case_analyses"("analysis_type
 
 -- CreateIndex
 CREATE INDEX "idx_case_analyses_status" ON "case_analyses"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_case_analyses_active_version" ON "case_analyses"("case_id", "node_id", "is_active");
 
 -- CreateIndex
 CREATE INDEX "idx_case_analyses_deleted_at" ON "case_analyses"("deleted_at");
@@ -1120,6 +1183,15 @@ CREATE INDEX "idx_legal_articles_legal_id" ON "legal_articles"("legal_id");
 
 -- CreateIndex
 CREATE INDEX "idx_legal_articles_deleted_at" ON "legal_articles"("deleted_at");
+
+-- CreateIndex
+CREATE INDEX "idx_text_content_records_user_id" ON "text_content_records"("user_id");
+
+-- CreateIndex
+CREATE INDEX "idx_text_content_records_case_id" ON "text_content_records"("case_id");
+
+-- CreateIndex
+CREATE INDEX "idx_text_content_records_material_id" ON "text_content_records"("material_id");
 
 -- CreateIndex
 CREATE INDEX "idx_membership_levels_sort_order" ON "membership_levels"("sort_order");
