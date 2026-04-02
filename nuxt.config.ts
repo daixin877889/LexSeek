@@ -108,9 +108,10 @@ export default defineNuxtConfig({
       inline: ['dayjs']
     },
     // 生产构建代码混淆（rollup 插件）
+    // 通过环境变量 ENABLE_OBFUSCATOR=true 显式开启，默认关闭
     rollupConfig: {
       plugins: [
-        ...(process.env.NODE_ENV === 'production' ? [
+        ...(process.env.ENABLE_OBFUSCATOR === 'true' ? [
           rollupObfuscator({
             global: true,
             options: {

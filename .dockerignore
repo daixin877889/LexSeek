@@ -37,6 +37,9 @@ coverage
 # Kiro 配置
 .kiro
 
+# 部署脚本
+deploy.sh
+
 # 其他
 .DS_Store
 Thumbs.db
