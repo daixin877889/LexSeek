@@ -36,8 +36,8 @@
                     <!-- 全选/取消全选 -->
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-2">
-                            <Checkbox id="select-all" :checked="isAllSelected" :indeterminate="isPartialSelected"
-                                @update:checked="toggleSelectAll" :disabled="isSubmitting || !hasEnoughPoints" />
+                            <Checkbox id="select-all" :model-value="isAllSelected" :indeterminate="isPartialSelected"
+                                @update:model-value="toggleSelectAll" :disabled="isSubmitting || !hasEnoughPoints" />
                             <Label for="select-all" class="text-sm cursor-pointer">
                                 {{ isAllSelected ? '取消全选' : '全选' }}
                             </Label>
@@ -59,9 +59,9 @@
                                 !module.hasAccess ? 'opacity-50' : '',
                             ]" @click="toggleModule(module)">
                             <!-- 选择框 -->
-                            <Checkbox :checked="isModuleSelected(module.nodeId)"
+                            <Checkbox :model-value="isModuleSelected(module.nodeId)"
                                 :disabled="!module.hasAccess || isSubmitting || !hasEnoughPoints" class="mt-0.5"
-                                @click.stop @update:checked="() => toggleModule(module)" />
+                                @click.stop @update:model-value="() => toggleModule(module)" />
 
                             <!-- 模块信息 -->
                             <div class="flex-1 min-w-0">

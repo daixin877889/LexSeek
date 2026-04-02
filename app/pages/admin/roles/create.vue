@@ -29,7 +29,7 @@
             <div class="space-y-2">
               <Label>状态</Label>
               <div class="flex items-center space-x-2">
-                <Switch id="status" v-model:checked="statusEnabled" />
+                <Switch id="status" v-model="statusEnabled" />
                 <Label for="status" class="font-normal">{{ statusEnabled ? '启用' : '禁用' }}</Label>
               </div>
             </div>

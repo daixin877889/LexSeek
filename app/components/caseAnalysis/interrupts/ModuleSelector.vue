@@ -50,7 +50,7 @@ const totalPoints = computed(() =>
                         @click="toggleModule(m.key)"
                     >
                         <div class="flex items-center gap-2">
-                            <Checkbox :checked="selectedModules.includes(m.key)" />
+                            <Checkbox :model-value="selectedModules.includes(m.key)" />
                             <span>{{ m.name }}</span>
                             <Badge v-if="m.requiresMembership" variant="outline" class="text-xs">会员</Badge>
                         </div>

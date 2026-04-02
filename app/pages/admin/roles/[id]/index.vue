@@ -34,7 +34,7 @@
             <div class="space-y-2">
               <Label>状态</Label>
               <div class="flex items-center space-x-2">
-                <Switch id="status" v-model:checked="statusEnabled" :disabled="role.code === 'super_admin'" />
+                <Switch id="status" v-model="statusEnabled" :disabled="role.code === 'super_admin'" />
                 <Label for="status" class="font-normal">{{ statusEnabled ? '启用' : '禁用' }}</Label>
               </div>
               <p v-if="role.code === 'super_admin'" class="text-xs text-muted-foreground">

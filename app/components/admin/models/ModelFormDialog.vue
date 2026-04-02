@@ -114,7 +114,7 @@
                         </Select>
                     </div>
                     <div class="flex items-end space-x-2 pb-1">
-                        <Checkbox id="isDefault" v-model:checked="form.isDefault" />
+                        <Checkbox id="isDefault" v-model="form.isDefault" />
                         <Label for="isDefault" class="cursor-pointer">设为默认</Label>
                     </div>
                 </div>

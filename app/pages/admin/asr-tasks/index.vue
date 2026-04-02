@@ -74,7 +74,7 @@
                         <TableHeader>
                             <TableRow>
                                 <TableHead class="w-[50px]">
-                                    <Checkbox :checked="isAllSelected" @update:checked="handleSelectAll" />
+                                    <Checkbox :model-value="isAllSelected" @update:model-value="handleSelectAll" />
                                 </TableHead>
                                 <TableHead class="w-[60px]">ID</TableHead>
                                 <TableHead>任务ID</TableHead>
@@ -88,8 +88,8 @@
                         <TableBody>
                             <TableRow v-for="item in items" :key="item.id">
                                 <TableCell>
-                                    <Checkbox :checked="selectedIds.includes(item.id)"
-                                        @update:checked="(checked: boolean) => handleSelect(item.id, checked)" />
+                                    <Checkbox :model-value="selectedIds.includes(item.id)"
+                                        @update:model-value="(checked: boolean | 'indeterminate') => handleSelect(item.id, checked)" />
                                 </TableCell>
                                 <TableCell class="font-medium">{{ item.id }}</TableCell>
                                 <TableCell>
@@ -426,8 +426,8 @@ const changePage = (page: number) => {
 }
 
 // 全选/取消全选
-const handleSelectAll = (checked: boolean) => {
-    if (checked) {
+const handleSelectAll = (checked: boolean | 'indeterminate') => {
+    if (checked === true) {
         selectedIds.value = items.value.map(item => item.id)
     } else {
         selectedIds.value = []
@@ -435,8 +435,8 @@ const handleSelectAll = (checked: boolean) => {
 }
 
 // 单选
-const handleSelect = (id: number, checked: boolean) => {
-    if (checked) {
+const handleSelect = (id: number, checked: boolean | 'indeterminate') => {
+    if (checked === true) {
         if (!selectedIds.value.includes(id)) {
             selectedIds.value.push(id)
         }

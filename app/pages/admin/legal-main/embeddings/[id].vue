@@ -190,7 +190,7 @@
                     <!-- 是否有效 -->
                     <div class="flex items-center justify-between">
                         <Label>是否有效</Label>
-                        <Switch v-model:checked="editForm.isValid" />
+                        <Switch v-model="editForm.isValid" />
                     </div>
                     <!-- 失效日期 -->
                     <div class="space-y-2">

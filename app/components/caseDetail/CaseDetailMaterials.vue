@@ -235,7 +235,7 @@ function getMaterialIconColor(type: number) {
         >
           <!-- 多选 checkbox -->
           <div v-if="isSelectMode" class="absolute top-1.5 left-1.5">
-            <Checkbox :checked="isSelected(material.id)" class="size-4" />
+            <Checkbox :model-value="isSelected(material.id)" class="size-4" />
           </div>
 
           <!-- 单个删除按钮（非多选模式下 hover 显示） -->
@@ -290,7 +290,7 @@ function getMaterialIconColor(type: number) {
           @click="handleMaterialClick(material)"
         >
           <!-- 多选 checkbox -->
-          <Checkbox v-if="isSelectMode" :checked="isSelected(material.id)" class="size-4 shrink-0" />
+          <Checkbox v-if="isSelectMode" :model-value="isSelected(material.id)" class="size-4 shrink-0" />
 
           <div :class="['flex items-center justify-center size-9 rounded-lg shrink-0', getMaterialBgColor(material.type)]">
             <component :is="getMaterialIcon(material.type)" :class="['size-5', getMaterialIconColor(material.type)]" />

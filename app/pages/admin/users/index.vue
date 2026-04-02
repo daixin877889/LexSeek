@@ -127,8 +127,8 @@
           <Label>选择角色</Label>
           <div class="border rounded-md p-4 max-h-60 overflow-y-auto space-y-2">
             <div v-for="role in allRoles" :key="role.id" class="flex items-center space-x-2">
-              <Checkbox :id="`role-${role.id}`" :checked="selectedRoleIds.includes(role.id)"
-                @update:checked="(checked: boolean | 'indeterminate') => toggleRole(role.id, checked)" />
+              <Checkbox :id="`role-${role.id}`" :model-value="selectedRoleIds.includes(role.id)"
+                @update:model-value="(checked: boolean | 'indeterminate') => toggleRole(role.id, checked)" />
               <Label :for="`role-${role.id}`" class="font-normal cursor-pointer">
                 {{ role.name }}
                 <span class="text-muted-foreground text-xs ml-1">({{ role.code }})</span>

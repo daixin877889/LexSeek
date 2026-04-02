@@ -81,9 +81,9 @@
                     <div v-for="node in filteredNodes" :key="node.nodeId"
                         class="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
                         <div class="flex items-center gap-3 flex-1 min-w-0">
-                            <Checkbox :checked="node.hasAccess"
+                            <Checkbox :model-value="node.hasAccess"
                                 :disabled="updating[`${selectedLevelId}-${node.nodeId}`]"
-                                @update:checked="(checked: boolean) => handleToggleAccess(node.nodeId, checked)" />
+                                @update:model-value="(checked: boolean | 'indeterminate') => handleToggleAccess(node.nodeId, !!checked)" />
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2">
                                     <span class="font-medium truncate">{{ node.nodeTitle || node.nodeName }}</span>
