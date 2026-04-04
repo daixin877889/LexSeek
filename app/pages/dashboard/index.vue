@@ -29,7 +29,7 @@
         <div class="flex items-start justify-between">
           <div>
             <p class="text-sm font-medium text-muted-foreground mb-1">总案件数</p>
-            <h3 class="text-3xl font-bold text-card-foreground">{{ stats.totalCases }}</h3>
+            <h3 class="text-3xl font-bold text-card-foreground">{{ dashboardData.value?.statistics.totalCases ?? 0 }}</h3>
           </div>
           <div class="bg-muted text-muted-foreground p-2 rounded-md">
             <FileText class="h-6 w-6" />
@@ -38,7 +38,7 @@
         <div class="mt-4">
           <p class="text-sm text-muted-foreground flex items-center">
             <TrendingUp class="h-4 w-4 mr-1 text-green-500" />
-            <span class="text-green-500">+{{ stats.caseIncrease }} 本月</span>
+            <span class="text-green-500">+{{ dashboardData.value?.statistics.caseIncrease ?? 0 }} 本月</span>
           </p>
         </div>
       </div>
@@ -47,7 +47,7 @@
         <div class="flex items-start justify-between">
           <div>
             <p class="text-sm font-medium text-muted-foreground mb-1">分析次数</p>
-            <h3 class="text-3xl font-bold text-card-foreground">{{ stats.totalAnalysis }}</h3>
+            <h3 class="text-3xl font-bold text-card-foreground">{{ dashboardData.value?.statistics.totalAnalysis ?? 0 }}</h3>
           </div>
           <div class="bg-muted text-muted-foreground p-2 rounded-md">
             <BarChart3 class="h-6 w-6" />
@@ -56,7 +56,7 @@
         <div class="mt-4">
           <p class="text-sm text-muted-foreground flex items-center">
             <TrendingUp class="h-4 w-4 mr-1 text-green-500" />
-            <span class="text-green-500">+{{ stats.analysisIncrease }} 本月</span>
+            <span class="text-green-500">+{{ dashboardData.value?.statistics.analysisIncrease ?? 0 }} 本月</span>
           </p>
         </div>
       </div>
@@ -66,7 +66,7 @@
           <div class="flex items-start justify-between">
             <div>
               <p class="text-sm font-medium text-muted-foreground mb-1">可用积分</p>
-              <h3 class="text-3xl font-bold text-card-foreground">{{ pointInfo.remaining }}</h3>
+              <h3 class="text-3xl font-bold text-card-foreground">{{ dashboardData.value?.points.remaining ?? 0 }}</h3>
             </div>
             <div class="bg-muted text-muted-foreground p-2 rounded-md">
               <Coins class="h-6 w-6" />
@@ -75,7 +75,7 @@
           <div class="mt-4">
             <p class="text-sm text-muted-foreground flex items-center">
               <Coins class="h-4 w-4 mr-1" />
-              <span>购买: {{ pointInfo.purchasePoint }}，赠送: {{ pointInfo.otherPoint }}</span>
+              <span>购买: {{ dashboardData.value?.points.purchasePoint ?? 0 }}，赠送: {{ dashboardData.value?.points.otherPoint ?? 0 }}</span>
             </p>
           </div>
         </div>
@@ -86,7 +86,7 @@
           <div class="flex items-start justify-between">
             <div>
               <p class="text-sm font-medium text-muted-foreground mb-1">会员等级</p>
-              <h3 class="text-2xl font-bold text-card-foreground">旗舰版</h3>
+              <h3 class="text-2xl font-bold text-card-foreground">{{ dashboardData.value?.membership?.levelName ?? '免费版' }}</h3>
             </div>
             <div class="bg-muted text-muted-foreground p-2 rounded-md">
               <Crown class="h-6 w-6 text-orange-500" />
@@ -94,7 +94,7 @@
           </div>
           <div class="mt-4">
             <div class="flex items-center text-sm text-muted-foreground">
-              <span>有效期至：2029-06-15</span>
+              <span>有效期至：{{ dashboardData.value?.membership?.expiresAt ?? '-' }}</span>
             </div>
           </div>
         </div>
@@ -155,18 +155,21 @@
       </div>
 
       <div class="space-y-3">
-        <div v-for="analysis in recentAnalysis" :key="analysis.id">
-          <NuxtLink :to="`/dashboard/cases/${analysis.id}`" class="block">
+        <div v-for="c in dashboardData.value?.recentCases" :key="c.id">
+          <NuxtLink :to="`/dashboard/cases/${c.id}`" class="block">
             <div class="bg-card rounded-lg p-4 border border-border hover:border-primary transition-colors shadow-sm">
               <div class="flex items-center justify-between">
                 <div>
-                  <h3 class="font-medium mb-1 text-foreground">{{ analysis.title }}</h3>
+                  <h3 class="font-medium mb-1 text-foreground">{{ c.title }}</h3>
                   <div class="flex items-center gap-3">
-                    <p class="text-sm text-muted-foreground">{{ analysis.date }}</p>
+                    <p class="text-sm text-muted-foreground">{{ c.date }}</p>
                     <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-secondary text-secondary-foreground font-normal">
-                      {{ analysis.type }}
+                      {{ c.type }}
                     </span>
-                    <span v-if="analysis.status === 'completed'" class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20 font-normal">
+                    <span v-if="c.status === 'in_progress'" class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-normal">
+                      进行中
+                    </span>
+                    <span v-else class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20 font-normal">
                       已完成
                     </span>
                   </div>
@@ -184,14 +187,16 @@
 </template>
 
 <script lang="ts" setup>
-import { 
-  FileText, 
-  BarChart3, 
-  Coins, 
-  Crown, 
-  FilePlus, 
-  FolderOpen, 
-  HelpCircle, 
+import type { DashboardResponse } from '#shared/types/dashboard'
+
+import {
+  FileText,
+  BarChart3,
+  Coins,
+  Crown,
+  FilePlus,
+  FolderOpen,
+  HelpCircle,
   TrendingUp,
   TrendingDown,
   Activity,
@@ -206,59 +211,9 @@ definePageMeta({
 
 const userStore = useUserStore();
 
-// 模拟状态
+// 调用 Dashboard API
+const { data: dashboardData } = await useApi<DashboardResponse>('/api/v1/dashboard')
+
+// mock 状态（当前 API 未返回分析次数限制数据，保留展示）
 const showAnalysisLimits = true;
-const loading = false;
-
-const stats = {
-  totalCases: 38,
-  caseIncrease: 2,
-  totalAnalysis: 329,
-  analysisIncrease: 4
-};
-
-const pointInfo = {
-  remaining: "6,236",
-  purchasePoint: 0,
-  otherPoint: "6,236"
-};
-
-// 最新案件 (Mock)
-const recentAnalysis = [
-  {
-    id: 1,
-    title: "王某月诉薛某亮案",
-    date: "2026-03-20 14:22",
-    type: "民商事案件",
-    status: "completed"
-  },
-  {
-    id: 2,
-    title: "王某月诉薛某亮案",
-    date: "2026-03-13 23:13",
-    type: "民商事案件",
-    status: "completed"
-  },
-  {
-    id: 3,
-    title: "赵某诉孙某案",
-    date: "2026-02-23 20:30",
-    type: "民商事案件",
-    status: "completed"
-  },
-  {
-    id: 4,
-    title: "某传媒公司诉葛某飞合同纠纷案",
-    date: "2025-12-24 10:52",
-    type: "民商事案件",
-    status: "completed"
-  },
-  {
-    id: 5,
-    title: "湖北同济堂投资控股有限公司、张美华、李青诉深圳前海君创资产管理有限公司合伙协议纠纷再审审查案",
-    date: "2025-12-17 00:16",
-    type: "民商事案件",
-    status: "completed"
-  }
-];
 </script>
