@@ -3,7 +3,7 @@
     <!-- 分析次数限制提示 -->
     <div v-if="showAnalysisLimits" class="w-full p-4 mb-4 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-between">
       <p class="text-sm text-foreground">
-        您正在使用的是 <strong class="text-primary">{{ '免费版' }}</strong>，今日可用分析次数 <strong>{{ 0 }} / {{ 10 }}</strong> ，本月可用分析次数 <strong>{{ 0 }} / {{ 100 }}</strong>。
+        您正在使用的是 <strong class="text-primary">{{ dashboardData.value?.membership?.levelName ?? '免费版' }}</strong>，今日可用分析次数 <strong>{{ 0 }} / {{ 10 }}</strong> ，本月可用分析次数 <strong>{{ 0 }} / {{ 100 }}</strong>。
       </p>
       <Button variant="default" size="sm">立即升级</Button>
     </div>
@@ -198,10 +198,7 @@ import {
   FolderOpen,
   HelpCircle,
   TrendingUp,
-  TrendingDown,
-  Activity,
-  ExternalLink,
-  UserRound
+  ExternalLink
 } from "lucide-vue-next";
 
 definePageMeta({
@@ -214,6 +211,6 @@ const userStore = useUserStore();
 // 调用 Dashboard API
 const { data: dashboardData } = await useApi<DashboardResponse>('/api/v1/dashboard')
 
-// mock 状态（当前 API 未返回分析次数限制数据，保留展示）
-const showAnalysisLimits = true;
+// 暂时隐藏，等 API 支持后再启用
+const showAnalysisLimits = false;
 </script>
