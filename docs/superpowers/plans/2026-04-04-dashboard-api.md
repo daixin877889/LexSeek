@@ -160,10 +160,17 @@ export const getDashboardMembership = async (userId: number): Promise<DashboardM
         return null
     }
 
+    // 获取所有未删除会员中最晚的到期日期
+    const latestMembership = await prisma.userMemberships.findFirst({
+        where: { userId, deletedAt: null },
+        orderBy: { endDate: 'desc' },
+        select: { endDate: true },
+    })
+
     return {
         levelId: membership.levelId,
         levelName: membership.levelName,
-        expiresAt: dayjs(membership.endDate).format('YYYY-MM-DD'),
+        expiresAt: latestMembership ? dayjs(latestMembership.endDate).format('YYYY-MM-DD') : null,
     }
 }
 
@@ -400,7 +407,7 @@ git commit -m "feat(dashboard): 完成 Dashboard API 对接"
 - [ ] API 返回数据结构正确
 - [ ] 案件统计不包含软删除记录
 - [ ] 积分计算正确（remaining = purchasePoint + otherPoint）
-- [ ] 会员有效期为当前有效会员的日期
+- [ ] 会员等级为当前有效会员，到期日为所有未删除记录中最晚的日期
 - [ ] 无有效会员时显示"免费版"和"-"
 - [ ] 前端使用 `useApi` 进行服务端渲染
 - [ ] 无 mock 数据

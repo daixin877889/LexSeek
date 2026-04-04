@@ -25,9 +25,9 @@
 | `points.purchasePoint` | 同上，按 sourceType 分类 | 已生效未过期 |
 | `points.otherPoint` | 同上，按 sourceType 分类 | 已生效未过期 |
 | `membership.levelName` | 当前有效会员的 levelName | 无有效会员显示"免费版" |
-| `membership.expiresAt` | 当前有效会员的 endDate | 无有效会员显示 null（前端显示"-"） |
+| `membership.expiresAt` | 所有未删除会员记录中最晚的 endDate | 无会员记录显示 null（前端显示"-"） |
 
-**会员有效性判断**: `endDate >= today` 且 `deletedAt = null`
+**会员有效性判断**: `levelName` 取当前有效会员（`endDate >= today` 且 `deletedAt = null`），`expiresAt` 取所有未删除记录中最晚的 `endDate`
 
 ---
 
@@ -114,7 +114,7 @@ interface DashboardMembership {
 }
 ```
 
-**注意**: `levelName` 和 `expiresAt` 均来自"当前有效会员"（`endDate >= today` 且 `deletedAt = null`）
+**注意**: `levelName` 来自"当前有效会员"，`expiresAt` 来自"所有未删除会员中最晚的 endDate"
 
 ### 4.4 DashboardRecentCase
 
