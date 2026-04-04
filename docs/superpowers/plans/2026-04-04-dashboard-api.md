@@ -34,8 +34,8 @@ app/pages/dashboard/
 |--------|------|------|
 | `totalCases` | `prisma.cases.count` | 未删除 |
 | `caseIncrease` | `prisma.cases.count` | 本月新增，未删除 |
-| `totalAnalysis` | `prisma.caseAnalyses.count` | 包含软删除 |
-| `analysisIncrease` | `prisma.caseAnalyses.count` | 本月新增，包含软删除 |
+| `totalAnalysis` | `prisma.caseAnalyses.count` | 默认不包含软删除 |
+| `analysisIncrease` | `prisma.caseAnalyses.count` | 本月新增，默认不包含软删除 |
 | `points.remaining` | `getUserPointSummary` | 已生效未过期 |
 | `points.purchasePoint` | 同上，按 sourceType 分类 | 已生效未过期 |
 | `points.otherPoint` | 同上，按 sourceType 分类 | 已生效未过期 |
@@ -129,8 +129,9 @@ export const getDashboardStatistics = async (userId: number): Promise<DashboardS
     const [totalCases, caseIncrease, totalAnalysis, analysisIncrease] = await Promise.all([
         prisma.cases.count({ where: { userId, deletedAt: null } }),
         prisma.cases.count({ where: { userId, deletedAt: null, createdAt: { gte: monthStart } } }),
-        prisma.caseAnalyses.count({ where: { case: { userId } } }),
-        prisma.caseAnalyses.count({ where: { case: { userId }, createdAt: { gte: monthStart } } }),
+        // 分析记录默认不包含软删除
+        prisma.caseAnalyses.count({ where: { case: { userId }, deletedAt: null } }),
+        prisma.caseAnalyses.count({ where: { case: { userId }, deletedAt: null, createdAt: { gte: monthStart } } }),
     ])
 
     return { totalCases, caseIncrease, totalAnalysis, analysisIncrease }
@@ -152,22 +153,17 @@ export const getDashboardPoints = async (userId: number): Promise<DashboardPoint
  * 获取 Dashboard 会员信息
  */
 export const getDashboardMembership = async (userId: number): Promise<DashboardMembership | null> => {
+    // 获取当前有效会员
     const membership = await getCurrentMembershipService(userId)
 
     if (!membership) {
         return null
     }
 
-    const latestMembership = await prisma.userMemberships.findFirst({
-        where: { userId, deletedAt: null },
-        orderBy: { endDate: 'desc' },
-        select: { endDate: true },
-    })
-
     return {
         levelId: membership.levelId,
         levelName: membership.levelName,
-        expiresAt: latestMembership ? dayjs(latestMembership.endDate).format('YYYY-MM-DD') : null,
+        expiresAt: dayjs(membership.endDate).format('YYYY-MM-DD'),
     }
 }
 
@@ -290,7 +286,7 @@ const { data: dashboardData } = await useApi<DashboardResponse>('/api/v1/dashboa
 <span>购买: {{ dashboardData.value?.points.purchasePoint ?? 0 }}，赠送: {{ dashboardData.value?.points.otherPoint ?? 0 }}</span>
 
 <!-- 会员卡片 -->
-<h3>{{ dashboardData.value?.membership?.levelName ?? '无会员' }}</h3>
+<h3>{{ dashboardData.value?.membership?.levelName ?? '免费版' }}</h3>
 <span>有效期至：{{ dashboardData.value?.membership?.expiresAt ?? '-' }}</span>
 
 <!-- 最近案件 -->
@@ -402,9 +398,10 @@ git commit -m "feat(dashboard): 完成 Dashboard API 对接"
 ## 验证清单
 
 - [ ] API 返回数据结构正确
-- [ ] 案件统计包含软删除记录
+- [ ] 案件统计不包含软删除记录
 - [ ] 积分计算正确（remaining = purchasePoint + otherPoint）
-- [ ] 会员有效期为所有未删除记录中最晚的日期
+- [ ] 会员有效期为当前有效会员的日期
+- [ ] 无有效会员时显示"免费版"和"-"
 - [ ] 前端使用 `useApi` 进行服务端渲染
 - [ ] 无 mock 数据
 - [ ] 测试通过
