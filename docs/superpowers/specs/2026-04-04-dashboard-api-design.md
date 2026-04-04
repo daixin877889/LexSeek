@@ -89,8 +89,8 @@ GET /api/v1/dashboard
 interface DashboardStatistics {
   totalCases: number       // 总案件数（未删除）
   caseIncrease: number     // 本月新增案件
-  totalAnalysis: number   // 总分析次数（包含软删除）
-  analysisIncrease: number // 本月新增分析（包含软删除）
+  totalAnalysis: number   // 总分析次数（默认不包含软删除）
+  analysisIncrease: number // 本月新增分析（默认不包含软删除）
 }
 ```
 
