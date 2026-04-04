@@ -4,14 +4,14 @@
       <h1 class="text-[22px] font-bold truncate">利息计算器</h1>
       <div class="relative">
         <Button variant="ghost" size="icon" @click="isHelpOpen = !isHelpOpen" class="rounded-full">
-          <HelpIcon class="h-5 w-5" />
+          <HelpCircle class="h-5 w-5" />
           <span class="sr-only">帮助</span>
         </Button>
         <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-card rounded-lg border shadow-lg">
           <div class="flex justify-between items-center mb-3">
             <h3 class="font-semibold text-base">利息计算器说明</h3>
             <Button variant="ghost" size="icon" @click="isHelpOpen = false" class="h-6 w-6">
-              <CloseIcon class="h-5 w-5" />
+              <X class="h-5 w-5" />
               <span class="sr-only">关闭</span>
             </Button>
           </div>
@@ -515,7 +515,7 @@ definePageMeta({
   title: "利息计算",
   layout: "dashboard-layout",
 });
-import { AlertTriangleIcon, CalendarIcon } from "lucide-vue-next";
+import { AlertTriangleIcon, CalendarIcon, X, HelpCircle } from "lucide-vue-next";
 import { calculateSimpleInterest, calculateCustomRateInterest, calculateLPRInterest, calculatePBOCInterest, getRateForDate, getInterestRates } from "#shared/utils/tools/interestService";
 import { formatDate, daysBetween } from "#shared/utils/tools/utils/date";
 import { exportInterestToExcel } from "#shared/utils/tools/utils/excelExport";

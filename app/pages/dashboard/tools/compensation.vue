@@ -4,14 +4,14 @@
       <h1 class="text-[22px] font-bold truncate">经济补偿金/赔偿金计算</h1>
       <div class="relative">
         <Button variant="ghost" size="icon" @click="isHelpOpen = !isHelpOpen" class="rounded-full">
-          <HelpIcon class="h-5 w-5" />
+          <HelpCircle class="h-5 w-5" />
           <span class="sr-only">帮助</span>
         </Button>
         <div v-if="isHelpOpen" class="absolute right-0 z-50 w-80 mt-2 p-4 bg-card rounded-lg border shadow-lg">
           <div class="flex justify-between items-center mb-3">
             <h3 class="font-semibold text-base">功能说明</h3>
             <Button variant="ghost" size="icon" @click="isHelpOpen = false" class="h-6 w-6">
-              <CloseIcon class="h-5 w-5" />
+              <X class="h-5 w-5" />
               <span class="sr-only">关闭</span>
             </Button>
           </div>
@@ -78,7 +78,7 @@
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button variant="ghost" size="icon" class="h-5 w-5 p-0">
-                            <HelpIcon class="h-4 w-4" />
+                            <HelpCircle class="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent class="max-w-80 p-4">
@@ -144,7 +144,7 @@
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button variant="ghost" size="icon" class="h-5 w-5 p-0">
-                            <HelpIcon class="h-4 w-4" />
+                            <HelpCircle class="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent class="max-w-80 p-4">
@@ -286,7 +286,7 @@ definePageMeta({
 });
 
 import { exportCompensationToExcel } from "#shared/utils/tools/utils/excelExport";
-import { CalendarIcon } from "lucide-vue-next";
+import { CalendarIcon, X, HelpCircle } from "lucide-vue-next";
 
 const alertDialogStore = useAlertDialogStore();
 
