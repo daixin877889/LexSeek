@@ -32,9 +32,16 @@ export function useApi<T = any>(
         ...restOptions
     } = options as any
 
+    // SSR 阶段传递 cookies
+    const requestHeaders = import.meta.server ? useRequestHeaders(['cookie']) : undefined
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return (useFetch as any)(url, {
         ...restOptions,
+        headers: {
+            ...restOptions.headers,
+            ...requestHeaders,
+        },
         // 响应拦截器：处理业务逻辑错误
         async onResponse(ctx: any) {
             const data = ctx.response._data as ApiBaseResponse<T>

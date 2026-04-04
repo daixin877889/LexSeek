@@ -3,7 +3,7 @@
     <!-- 分析次数限制提示 -->
     <div v-if="showAnalysisLimits" class="w-full p-4 mb-4 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-between">
       <p class="text-sm text-foreground">
-        您正在使用的是 <strong class="text-primary">{{ dashboardData.value?.membership?.levelName ?? '免费版' }}</strong>，今日可用分析次数 <strong>{{ 0 }} / {{ 10 }}</strong> ，本月可用分析次数 <strong>{{ 0 }} / {{ 100 }}</strong>。
+        您正在使用的是 <strong class="text-primary">{{ dashboardData?.membership?.levelName ?? '免费版' }}</strong>，今日可用分析次数 <strong>{{ 0 }} / {{ 10 }}</strong> ，本月可用分析次数 <strong>{{ 0 }} / {{ 100 }}</strong>。
       </p>
       <Button variant="default" size="sm">立即升级</Button>
     </div>
@@ -29,7 +29,7 @@
         <div class="flex items-start justify-between">
           <div>
             <p class="text-sm font-medium text-muted-foreground mb-1">总案件数</p>
-            <h3 class="text-3xl font-bold text-card-foreground">{{ dashboardData.value?.statistics.totalCases ?? 0 }}</h3>
+            <h3 class="text-3xl font-bold text-card-foreground">{{ dashboardData?.statistics.totalCases ?? 0 }}</h3>
           </div>
           <div class="bg-muted text-muted-foreground p-2 rounded-md">
             <FileText class="h-6 w-6" />
@@ -38,7 +38,7 @@
         <div class="mt-4">
           <p class="text-sm text-muted-foreground flex items-center">
             <TrendingUp class="h-4 w-4 mr-1 text-green-500" />
-            <span class="text-green-500">+{{ dashboardData.value?.statistics.caseIncrease ?? 0 }} 本月</span>
+            <span class="text-green-500">+{{ dashboardData?.statistics.caseIncrease ?? 0 }} 本月</span>
           </p>
         </div>
       </div>
@@ -47,7 +47,7 @@
         <div class="flex items-start justify-between">
           <div>
             <p class="text-sm font-medium text-muted-foreground mb-1">分析次数</p>
-            <h3 class="text-3xl font-bold text-card-foreground">{{ dashboardData.value?.statistics.totalAnalysis ?? 0 }}</h3>
+            <h3 class="text-3xl font-bold text-card-foreground">{{ dashboardData?.statistics.totalAnalysis ?? 0 }}</h3>
           </div>
           <div class="bg-muted text-muted-foreground p-2 rounded-md">
             <BarChart3 class="h-6 w-6" />
@@ -56,7 +56,7 @@
         <div class="mt-4">
           <p class="text-sm text-muted-foreground flex items-center">
             <TrendingUp class="h-4 w-4 mr-1 text-green-500" />
-            <span class="text-green-500">+{{ dashboardData.value?.statistics.analysisIncrease ?? 0 }} 本月</span>
+            <span class="text-green-500">+{{ dashboardData?.statistics.analysisIncrease ?? 0 }} 本月</span>
           </p>
         </div>
       </div>
@@ -66,7 +66,7 @@
           <div class="flex items-start justify-between">
             <div>
               <p class="text-sm font-medium text-muted-foreground mb-1">可用积分</p>
-              <h3 class="text-3xl font-bold text-card-foreground">{{ dashboardData.value?.points.remaining ?? 0 }}</h3>
+              <h3 class="text-3xl font-bold text-card-foreground">{{ dashboardData?.points.remaining ?? 0 }}</h3>
             </div>
             <div class="bg-muted text-muted-foreground p-2 rounded-md">
               <Coins class="h-6 w-6" />
@@ -75,7 +75,7 @@
           <div class="mt-4">
             <p class="text-sm text-muted-foreground flex items-center">
               <Coins class="h-4 w-4 mr-1" />
-              <span>购买: {{ dashboardData.value?.points.purchasePoint ?? 0 }}，赠送: {{ dashboardData.value?.points.otherPoint ?? 0 }}</span>
+              <span>购买: {{ dashboardData?.points.purchasePoint ?? 0 }}，赠送: {{ dashboardData?.points.otherPoint ?? 0 }}</span>
             </p>
           </div>
         </div>
@@ -86,7 +86,7 @@
           <div class="flex items-start justify-between">
             <div>
               <p class="text-sm font-medium text-muted-foreground mb-1">会员等级</p>
-              <h3 class="text-2xl font-bold text-card-foreground">{{ dashboardData.value?.membership?.levelName ?? '免费版' }}</h3>
+              <h3 class="text-2xl font-bold text-card-foreground">{{ dashboardData?.membership?.levelName ?? '免费版' }}</h3>
             </div>
             <div class="bg-muted text-muted-foreground p-2 rounded-md">
               <Crown class="h-6 w-6 text-orange-500" />
@@ -94,7 +94,7 @@
           </div>
           <div class="mt-4">
             <div class="flex items-center text-sm text-muted-foreground">
-              <span>有效期至：{{ dashboardData.value?.membership?.expiresAt ?? '-' }}</span>
+              <span>有效期至：{{ dashboardData?.membership?.expiresAt ?? '-' }}</span>
             </div>
           </div>
         </div>
@@ -155,7 +155,7 @@
       </div>
 
       <div class="space-y-3">
-        <div v-for="c in dashboardData.value?.recentCases" :key="c.id">
+        <div v-for="c in dashboardData?.recentCases" :key="c.id">
           <NuxtLink :to="`/dashboard/cases/${c.id}`" class="block">
             <div class="bg-card rounded-lg p-4 border border-border hover:border-primary transition-colors shadow-sm">
               <div class="flex items-center justify-between">
@@ -208,8 +208,13 @@ definePageMeta({
 
 const userStore = useUserStore();
 
-// 调用 Dashboard API
-const { data: dashboardData } = await useApi<DashboardResponse>('/api/v1/dashboard')
+// 使用 useAsyncData + $fetch 实现 SSR，确保正确传递 cookies
+const { data: dashboardData } = await useAsyncData('dashboard', async () => {
+    // SSR 阶段传递 cookies
+    const headers = import.meta.server ? useRequestHeaders(['cookie']) : undefined
+    const response = await $fetch<ApiBaseResponse<DashboardResponse>>('/api/v1/dashboard', { headers })
+    return response.data
+})
 
 // 暂时隐藏，等 API 支持后再启用
 const showAnalysisLimits = false;
