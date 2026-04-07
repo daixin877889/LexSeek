@@ -80,7 +80,9 @@ async function openMaterialPreview(material: CaseDetailMaterialItem) {
   previewMaterial.value = material
   if (material.type === CaseMaterialType.CASE_CONTENT) {
     showTextPreview.value = true
-    textContent.value = caseInfo.value?.content ?? null
+    textContent.value = null
+    const res = await useApiFetch<{ content: string | null }>(`/api/v1/material/content/${material.id}`)
+    textContent.value = res?.content ?? null
   } else {
     showPreview.value = true
   }

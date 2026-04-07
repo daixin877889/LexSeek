@@ -16,9 +16,10 @@
       <CaseAnalysisWelcome title="你好，我是小索，你的案件分析助手" subtitle="在下方输入框输入或上传案情材料，我会为你分析案件" />
 
       <!-- 输入框 -->
-      <AiPromptInput ref="promptInputRef" class="h-auto!" placeholder="请输入案情信息或者上传案情材料，支持上传 文本、文档、音频、图片 四种材料。"
+      <AiPromptInput ref="promptInputRef" class="h-auto!" placeholder="请描述您的案件情况，例如：张三与李四因房屋租赁合同产生纠纷..."
         :enable-file-upload="true" :show-thinking-toggle="false" :loading="isExtracting" :disabled="isExtracting"
-        :min-rows="4" :max-rows="10" submit-label="提取信息" :on-file-button-click="openMaterialSelector"
+        :min-rows="4" :max-rows="10" submit-label="提取信息"
+        :on-file-button-click="openMaterialSelector"
         @submit="handleAiSubmit" />
 
       <!-- 文件选择弹框 -->
@@ -86,8 +87,6 @@ import type { AiPromptSubmitData } from '~/components/ai/AiPromptInput.vue'
 import type { ExampleItem } from '~/components/caseAnalysis/example.vue'
 import type { OssFileItem } from '~/store/file'
 import type { CreateCaseParams } from '~/composables/useCaseCreation'
-import { toast } from 'vue-sonner'
-import { getMaterialType } from '~/utils/caseMaterial'
 
 definePageMeta({
   title: '创建案件',
@@ -125,30 +124,7 @@ function handleFilesFromSelector(files: OssFileItem[]) {
 
 // AI 提交处理
 async function handleAiSubmit(data: AiPromptSubmitData) {
-  let caseId: number | null = null
-  try {
-    const createResult = await useApiFetch<{ caseId: number }>('/api/v1/case/create', {
-      method: 'POST',
-      body: {
-        title: '未命名案件',
-        content: data.text.trim() || undefined,
-        materials: data.files?.map(f => ({
-          type: getMaterialType(f.fileType),
-          name: f.fileName,
-          ossFileId: f.id,
-        })),
-      },
-    })
-    caseId = createResult?.caseId ?? null
-  } catch {
-    toast.error('创建案件失败，请重试')
-    return
-  }
-  if (!caseId) {
-    toast.error('创建案件失败，请重试')
-    return
-  }
-  await extractCaseInfo(data.text, caseId)
+  await extractCaseInfo(data.text, data.files)
 }
 
 // 示例选择处理
