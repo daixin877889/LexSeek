@@ -8,7 +8,7 @@
 
 1. 复用现有 regenerate 按钮（`MessageCircleIcon`）触发模块对话
 2. 对话框参考"小索"的悬浮窗样式，对话 UI 使用 `AiChat.vue` 组件
-3. 后端 Agent 使用 nodes 表中 type=analysis 且 name 匹配的节点配置
+3. 后端 Agent 使用 nodes 表中 type=analysis 且对应 nodeId 的节点配置
 4. 支持多轮对话，每次生成分析结果在 case_analyses 表新增新版本
 5. 多模块可并发分析，关闭弹窗不断 SSE 连接
 6. 页面刷新后支持重连恢复
@@ -92,7 +92,7 @@ interface UseModuleChatManager {
 
 **SSE 连接生命周期**：
 - 每个 ModuleChatInstance 内部持有一个 `useCaseChat` 实例
-- stream 连接在 instance 创建时建立
+- stream 连接在 sessionId 获取后建立（首次调用 `getOrCreateInstance` 时先请求 session API，拿到 sessionId 后才创建 stream）
 - 弹窗关闭/收起不影响 stream 连接
 - 页面卸载（`[id].vue` onUnmounted）时统一清理所有 stream
 
@@ -146,7 +146,7 @@ export async function runModuleChat(
 **中间件**：
 - `pointConsumptionMiddleware(userId, 'case_analysis_token')` — 按 token 计费
 - `summarizationMiddleware({ model, trigger: [{ tokens: 100000 }] })` — 长对话摘要
-- `moduleContextMiddleware` — **新建**，每轮对话前注入动态上下文（见 2.6）
+- `moduleContextMiddleware` — **新建**，每轮对话前注入动态上下文（见 2.2）
 
 **关键设计：静态 System Prompt + 动态上下文消息**
 
@@ -173,7 +173,7 @@ export async function runModuleChat(
 - 前端 `useMessageParser` 过滤 SystemMessage，不在对话 UI 中展示
 - 材料、记忆、其他模块结果均不会显示给用户
 
-### 2.6 moduleContextMiddleware（新建）
+### 2.2 moduleContextMiddleware（新建）
 
 **文件**：`server/services/workflow/middleware/moduleContext.middleware.ts`
 
@@ -216,7 +216,7 @@ interface ModuleContextState {
 
 **关键**：每轮对话前执行变更检测，仅在检测到变化时注入增量内容，无变更则跳过，避免重复注入浪费 token。
 
-### 2.2 save_analysis_result 工具
+### 2.3 save_analysis_result 工具
 
 Agent 的专用工具，用于保存分析结果到 case_analyses 表：
 
@@ -239,12 +239,11 @@ Agent 的专用工具，用于保存分析结果到 case_analyses 表：
 ```
 
 **执行逻辑**：
-1. 调用 `saveAnalysisResultService` 创建新版本记录
-2. **调用 `activateVersionDao(newAnalysis.id, caseId, nodeId)` 在事务内切换 isActive**（注意：`saveAnalysisResultService` 默认 isActive=false，必须额外调用激活）
-3. 通过 `publishAgentEvent` 发送自定义事件（见 2.7 事件扩展），携带版本号和 moduleName
-4. 返回 `{ success: true, version: number, message: "分析结果已保存为第N版" }`
+1. 在单个事务内完成保存 + 激活：调用 `saveAnalysisResultService` 创建新版本记录，然后调用 `activateVersionDao(newAnalysis.id, caseId, nodeId)` 切换 isActive（注意：`saveAnalysisResultService` 默认 isActive=false，必须在同一事务内额外调用激活，避免中间崩溃导致新版本未激活）。建议封装为 `saveAndActivateAnalysisService`
+2. 通过 `publishAgentEvent` 发送自定义事件（见 2.7 事件扩展），携带版本号和 moduleName
+3. 返回 `{ success: true, version: number, message: "分析结果已保存为第N版" }`
 
-### 2.3 新增 API
+### 2.4 新增 API
 
 #### `POST /api/v1/case/analysis/module-session`
 
@@ -272,16 +271,16 @@ Agent 的专用工具，用于保存分析结果到 case_analyses 表：
 2. 如有则返回已有 sessionId
 3. 如无则创建新 session（type=3，metadata: `{ moduleName, nodeId }`）
 
-### 2.4 Worker 执行分支
+### 2.5 Worker 执行分支
 
-修改 Worker 中的 Agent 选择逻辑：
+修改 Worker 中的 Agent 选择逻辑。Worker 从 `session.metadata`（而非 `run.input`）获取 `moduleName` 和 `nodeId`：
 
 ```typescript
-// 伪代码
+// agentWorker.ts 中
 const session = await findSessionById(sessionId)
 if (session.type === 3) {
-  // 模块对话
-  const { moduleName, nodeId } = session.metadata
+  // 模块对话：从 session.metadata 获取模块信息
+  const { moduleName, nodeId } = session.metadata as { moduleName: string; nodeId: number }
   return runModuleChat(sessionId, message, command, { userId, caseId, moduleName, nodeId })
 } else {
   // 主对话（type=1 普通对话, type=2 初始化分析）
@@ -289,7 +288,7 @@ if (session.type === 3) {
 }
 ```
 
-### 2.5 caseSessions 表扩展
+### 2.6 caseSessions 表扩展
 
 新增 type 值：
 - type=1：普通对话
@@ -326,20 +325,7 @@ export type AgentEvent = AgentStreamEvent | AgentStatusEvent | AgentCustomEvent
 - `agentEventBridge.ts`：`publishAgentEvent` 支持 `custom_event` 类型
 - `chat.post.ts`：SSE 转发循环中处理 `custom_event`，推送为 `event: {name}\ndata: {data}\n\n`
 
-### 2.8 Worker 上下文获取
-
-Worker 从 `session.metadata`（而非 `run.input`）获取 `moduleName` 和 `nodeId`。Worker 已有读取 session 的逻辑（`agentWorker.ts`），扩展读取 metadata 即可：
-
-```typescript
-// agentWorker.ts 中
-const session = await findSessionById(sessionId)
-if (session.type === 3) {
-  const { moduleName, nodeId } = session.metadata as { moduleName: string; nodeId: number }
-  return runModuleChat(sessionId, message, command, { userId, caseId, moduleName, nodeId })
-}
-```
-
-### 2.9 stopGeneration 取消 Worker 任务
+### 2.8 stopGeneration 取消 Worker 任务
 
 前端 `stopGeneration` 除了中止 SSE 连接外，**必须同时调用** `POST /api/v1/case/analysis/runs/cancel/[runId]` 取消 Worker 中正在执行的 run，避免 Worker 继续消耗积分。
 
