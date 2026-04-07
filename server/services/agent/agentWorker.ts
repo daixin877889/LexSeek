@@ -223,12 +223,34 @@ export class AgentWorker {
       // 但 @langchain/langgraph-sdk 的 StreamManager 能正确处理 values 中的 __interrupt__：
       // 有 __interrupt__ → merge；无 → replace。
       // 所以只需保证最后一个 values 事件包含 __interrupt__。
-      if (session?.type === 2 && lastValuesData) {
+      if (lastValuesData) {
         try {
-          const { getWorkflowThreadState } = await import('../workflow/caseAnalysisV2.executor')
-          const threadState = await getWorkflowThreadState(run.sessionId)
-          const lastTask = threadState.tasks?.at(-1)
-          const interrupts = lastTask?.interrupts
+          let interrupts: any[] | undefined
+
+          if (session?.type === 2) {
+            // 结构化分析：通过 workflow 实例获取 thread state
+            const { getWorkflowThreadState } = await import('../workflow/caseAnalysisV2.executor')
+            const threadState = await getWorkflowThreadState(run.sessionId)
+            const lastTask = threadState.tasks?.at(-1)
+            interrupts = lastTask?.interrupts
+          } else {
+            // 对话式聊天：通过 checkpointer 直接读取 thread state
+            const { getCheckpointer } = await import('../workflow/checkpointer')
+            const checkpointer = await getCheckpointer()
+            const tuple = await checkpointer.getTuple({
+              configurable: { thread_id: run.sessionId },
+            })
+            if (tuple) {
+              const pendingWrites = tuple.pendingWrites ?? []
+              // createAgent 产生的 interrupt 存储在 pending writes 的 __interrupt__ channel
+              const interruptWrites = pendingWrites.filter(
+                ([, channel]) => channel === '__interrupt__'
+              )
+              if (interruptWrites.length > 0) {
+                interrupts = interruptWrites.map(([, , value]) => value)
+              }
+            }
+          }
 
           if (interrupts?.length) {
             // 发布最终 values 事件（合并 __interrupt__），保证是最后一个 values 事件
