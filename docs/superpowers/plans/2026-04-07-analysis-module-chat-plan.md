@@ -87,6 +87,16 @@ export interface CreateSessionInput {
 }
 ```
 
+同时在 `shared/types/case.ts` 中新增 SessionType 枚举（避免魔术数字散布）：
+
+```typescript
+export enum SessionType {
+    NORMAL = 1,
+    INIT_ANALYSIS = 2,
+    MODULE_CHAT = 3,
+}
+```
+
 - [ ] **Step 3: 在 tools/types.ts 中扩展 ToolContext**
 
 在 `server/services/workflow/tools/types.ts` 的 `ToolContext` 接口中添加 `runId`：
@@ -499,7 +509,7 @@ export const moduleContextMiddleware = (
         stateSchema: z.object({
             _injectedSourceIds: z.array(z.number()).default([]),
             _lastMemoryHash: z.string().nullable().default(null),
-            _injectedResultVersions: z.record(z.string(), z.number()).default({}),
+            _injectedResultVersions: z.record(z.string(), z.string()).default({}),
             _currentModuleVersion: z.number().nullable().default(null),
         }),
         beforeAgent: {
@@ -526,7 +536,7 @@ export const moduleContextMiddleware = (
                     if (newMaterialIds.length > 0 || newSourceIds.length === 0) {
                         if (newSourceIds.length === 0) {
                             // 首轮：全量注入
-                            const context = await getMaterialContextService(caseId)
+                            const context = await getMaterialContextService(materials)
                             if (context)
                                 sections.push(`## 案件材料上下文\n${context}`)
                         }
@@ -551,14 +561,11 @@ export const moduleContextMiddleware = (
                     // 3. 其他模块分析结果变更检测
                     const otherResults = Object.entries(completedResults)
                         .filter(([key]) => key !== moduleName)
-                    // 需要从 DB 查询各模块的 activeVersion 号来做精确对比
-                    // 简化实现：对比结果内容 hash
                     for (const [key, content] of otherResults) {
-                        const contentHash = createHash('md5').update(content).digest('hex').length
-                        // 使用内容长度作为简易变更指标，实际实现应查询 version
-                        if (!newResultVersions[key]) {
+                        const contentHash = createHash('md5').update(content).digest('hex')
+                        if (newResultVersions[key] !== contentHash) {
                             sections.push(`## ${key} 分析结果\n${content}`)
-                            newResultVersions[key] = 1
+                            newResultVersions[key] = contentHash
                         }
                     }
 
@@ -644,12 +651,11 @@ import { HumanMessage } from '@langchain/core/messages'
 import { Command } from '@langchain/langgraph'
 import { getCheckpointer, getStore } from '../checkpointer'
 import { getValidNodeConfig } from '../../node/node.service'
-import { createChatModel } from '../models/chatModel'
-import { getToolInstancesService } from '../tools/toolLoader.service'
+import { createChatModel } from '../../node/chatModelFactory'
+import { getToolInstancesService } from '../tools'
 import { pointConsumptionMiddleware } from '../middleware'
 import { moduleContextMiddleware } from '../middleware/moduleContext.middleware'
 import { createTool as createSaveAnalysisResultTool } from '../tools/saveAnalysisResult.tool'
-import type { ToolContext } from '../tools/types'
 
 interface ModuleAgentOptions {
     userId: number
@@ -674,12 +680,18 @@ export async function runModuleChat(
         getValidNodeConfig(moduleName, `模块对话-${moduleName}`),
     ])
 
-    // 创建模型
+    // 创建模型（参考 caseMainAgent.ts 的 API key 获取模式）
+    const activeApiKey = nodeConfig.modelApiKeys.find(k => k.status === 1)
+    if (!activeApiKey) {
+        throw new Error(`模块 ${moduleName} 没有可用的 API 密钥`)
+    }
     const model = createChatModel({
         sdkType: nodeConfig.modelSdkType,
         modelName: nodeConfig.modelName,
-        apiKey: nodeConfig.modelApiKeys[0],
+        apiKey: activeApiKey.apiKey,
         baseUrl: nodeConfig.modelProviderBaseUrl,
+        temperature: 0.7,
+        streaming: true,
     })
 
     // 工具上下文
@@ -737,20 +749,9 @@ export async function runModuleChat(
         recursionLimit: 50,
     })
 }
-
-// 用于 interrupt 检测（复用 getChatThreadState 的模式）
-export async function getModuleChatThreadState(sessionId: string) {
-    const checkpointer = await getCheckpointer()
-    const minimalAgent = createAgent({
-        model: 'openai:gpt-4o-mini',
-        checkpointer,
-        tools: [],
-    })
-    return await minimalAgent.getState({ configurable: { thread_id: sessionId } })
-}
 ```
 
-注意：实际实现时需根据 `caseMainAgent.ts` 的精确模式调整 import 路径和工具加载逻辑。
+注意：不需要实现 `getModuleChatThreadState`，Worker 的 interrupt 检测分支中 type=3 自然落入 else 分支，调用已有的 `getChatThreadState`。
 
 - [ ] **Step 2: 类型检查**
 
@@ -1314,12 +1315,12 @@ git commit -m "feat(ui): 新增模块对话悬浮窗和最小化状态条组件"
 
 在 `CaseDetailAnalysis.vue` 中：
 
-1. 添加 emit 定义：
+1. 添加 emit 定义（使用 Vue 3.3+ 简洁语法，与现有代码一致）：
 
 ```typescript
 const emit = defineEmits<{
-    (e: 'versionChanged'): void
-    (e: 'regenerate', result: AnalysisResult): void
+    versionChanged: []
+    regenerate: [result: AnalysisResult]
 }>()
 ```
 
