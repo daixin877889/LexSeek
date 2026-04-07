@@ -135,7 +135,6 @@ export async function runCaseChat(
                 thread_id: sessionId,
             },
             streamMode: ['values', 'messages', 'updates'],
-            version: 'v2' as const,
             subgraphs: true,
             encoding: 'text/event-stream',
         },
