@@ -136,7 +136,7 @@ export async function runModuleChat(
 ```
 
 **初始化流程**：
-1. 并发加载 checkpointer、store、节点配置（`getValidNodeConfig(nodeId)`，按 nodeId 查找更精确）
+1. 并发加载 checkpointer、store、节点配置（`getValidNodeConfigById(nodeId)`，**需新增**——现有 `getValidNodeConfig` 按名称查找，`getNodeConfigByIdService` 按 ID 查找但缺少 API 密钥验证。新增函数复用后者的查询 + 前者的验证逻辑）
 2. 创建 `createChatModel()` — 根据节点绑定的 model 配置
 3. 加载工具列表（根据节点 tools 字段：search_case_materials、search_law 等）
 4. 注册自定义工具 `save_analysis_result`
@@ -147,6 +147,7 @@ export async function runModuleChat(
 - `pointConsumptionMiddleware(userId, 'case_analysis_token')` — 按 token 计费
 - `summarizationMiddleware({ model, trigger: [{ tokens: 100000 }] })` — 长对话摘要
 - `moduleContextMiddleware` — **新建**，每轮对话前注入动态上下文（见 2.2）
+- **注意：不得挂载 `analysisResultPersistenceMiddleware`**，否则会和 `save_analysis_result` 工具双重写入。该中间件在 afterAgent 中自动提取最后一条 AIMessage 保存，与工具主动调用保存冲突
 
 **关键设计：静态 System Prompt + 动态上下文消息**
 
@@ -271,12 +272,14 @@ Agent 的专用工具，用于保存分析结果到 case_analyses 表：
 2. 如有则返回已有 sessionId
 3. 如无则创建新 session（type=3，metadata: `{ moduleName, nodeId }`）
 
+**前置依赖**：现有 `createSessionDao`（`case.dao.ts`）的 `CreateSessionInput` 类型不支持 `type` 和 `metadata` 字段，需先扩展 DAO 层，添加这两个可选字段。
+
 ### 2.5 Worker 执行分支
 
 修改 Worker 中的 Agent 选择逻辑。Worker 从 `session.metadata`（而非 `run.input`）获取 `moduleName` 和 `nodeId`：
 
 ```typescript
-// agentWorker.ts 中
+// agentWorker.ts 中 executeRun 分支（约第 136-159 行）
 const session = await findSessionById(sessionId)
 if (session.type === 3) {
   // 模块对话：从 session.metadata 获取模块信息
@@ -287,6 +290,8 @@ if (session.type === 3) {
   return runCaseChat(sessionId, message, command, { userId, caseId })
 }
 ```
+
+**interrupt 状态处理**：`agentWorker.ts` 第 222-265 行有 interrupt 检测分支，当前仅处理 `type===2`（调用 `getWorkflowThreadState`）和 `else`（调用 `getChatThreadState`）。type=3 使用 LangGraph `createAgent`（ReAct 模式），interrupt 处理方式与主对话（type=1）相同，应走 `getChatThreadState` 路径。实现时确认该 else 分支覆盖 type=3 即可，无需新增独立分支。
 
 ### 2.6 caseSessions 表扩展
 
@@ -322,8 +327,8 @@ export type AgentEvent = AgentStreamEvent | AgentStatusEvent | AgentCustomEvent
 ```
 
 **同时修改**：
-- `agentEventBridge.ts`：`publishAgentEvent` 支持 `custom_event` 类型
-- `chat.post.ts`：SSE 转发循环中处理 `custom_event`，推送为 `event: {name}\ndata: {data}\n\n`
+- `agentEventBridge.ts`：**新增独立函数 `publishCustomEvent`**（不修改现有 `publishAgentEvent` 的入参类型，避免破坏已有调用方的类型安全）
+- `chat.post.ts`：SSE 转发循环中增加 `evt.type === 'custom_event'` 分支，推送为 `event: {name}\ndata: {data}\n\n`
 
 ### 2.8 stopGeneration 取消 Worker 任务
 
@@ -411,11 +416,13 @@ SSE stream A          SSE stream B             SSE stream C
 | `app/components/case/AnalysisResults.vue` | regenerate 事件向上传递（已有） |
 | `app/components/caseDetail/CaseDetailAnalysis.vue` | 传递 regenerate 事件到页面级 |
 | `server/services/agent/agentWorker.ts`（或等效文件） | Worker 添加 session type=3 分支，从 metadata 获取 nodeId |
-| `server/services/case/analysis.service.ts` | 可能需要新增 saveAndActivateAnalysisService |
+| `server/services/case/analysis.service.ts` | 新增 saveAndActivateAnalysisService（事务内保存+激活） |
 | `shared/types/agentRun.ts` | 新增 AgentCustomEvent 类型 |
 | `shared/types/case.ts` | 新增 session type 枚举值 |
-| `server/services/agent/agentEventBridge.ts` | 支持 custom_event 类型发布 |
-| `server/api/v1/case/analysis/chat.post.ts` | SSE 转发支持 custom_event |
+| `server/services/agent/agentEventBridge.ts` | 新增 publishCustomEvent 函数（独立于 publishAgentEvent） |
+| `server/api/v1/case/analysis/chat.post.ts` | SSE 转发循环中增加 custom_event 分支 |
+| `server/services/case/case.dao.ts` | 扩展 CreateSessionInput 类型，添加 type/metadata 字段 |
+| `server/services/node/node.service.ts` | 新增 getValidNodeConfigById 函数 |
 
 ---
 
@@ -440,5 +447,5 @@ SSE stream A          SSE stream B             SSE stream C
 5. **版本激活**：`save_analysis_result` 工具保存后必须调用 `activateVersionDao` 切换 isActive
 6. **积分计费**：使用 `case_analysis_token` 积分项，按 token 数计费
 7. **Session 唯一性**：每案件每模块最多一个 type=3 的 caseSession。通过应用层幂等事务保障（参考 `agentRun.dao.ts` P2002 处理模式），避免并发竞态创建多个 session
-8. **节点配置加载**：使用 `getValidNodeConfig(nodeId)`（按 ID 查找），而非按名称查找，更精确高效
+8. **节点配置加载**：需新增 `getValidNodeConfigById(nodeId)` 函数（`node.service.ts`），复用 `getNodeConfigByIdService` 的查询 + `getValidNodeConfig` 的验证逻辑（API 密钥检查）
 9. **stopGeneration 双重取消**：前端中止 SSE + 后端取消 run，避免 Worker 继续消耗积分
