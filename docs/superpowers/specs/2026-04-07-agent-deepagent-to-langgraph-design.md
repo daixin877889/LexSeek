@@ -18,6 +18,18 @@
 - `agentRun.dao.ts`、`agentRun.service.ts` 等基础设施层不变
 - 返回格式与现有 `caseAgent.ts` 的 `ReadableStream<Uint8Array>` SSE 格式兼容
 
+## 技术前提
+
+### `createAgent` 导入来源
+
+使用 `langchain` 包（非 `@langchain/langgraph`）的 `createAgent`，与现有 `caseAnalysis.ts` 一致：
+
+```typescript
+import { createAgent } from 'langchain'
+```
+
+该 API 支持 `middleware`、`name`、`checkpointer` 参数（已在现有 `caseAnalysis.ts` 中验证使用）。
+
 ## 架构设计
 
 ### 整体流程
@@ -30,7 +42,7 @@ chat.post.ts → enqueueRunService() → Redis 通知
 agentWorker.ts → executeRun() → 调用新的 runCaseChat()
   ↓
 caseMainAgent.ts
-  ├── 1. 从 DB 加载 caseMain 节点配置 (getNodeConfigService('caseMain'))
+  ├── 1. 从 DB 加载 caseMain 节点配置 (getValidNodeConfig('caseMain'))
   ├── 2. 从 DB 加载所有 analysis/document 节点 (getNodeConfigsByTypes)
   ├── 3. 为每个子节点生成 tool (subAgentToolFactory)
   ├── 4. 加载主代理通用工具 (search_law, search_case_materials 等)
@@ -64,13 +76,20 @@ async function createSubAgentTools(
 2. 从 `NodeConfig` 提取工具列表 → `getToolInstancesService()`
 3. 从 `NodeConfig` 提取系统提示词 → `prompts.find(p => p.type === 'system' && p.status === 1)`
 4. 创建子代理 → `createAgent({ model, tools, prompt, checkpointer, middleware, name })`
-5. 使用 async generator 流式执行 → `yield` 每个 token 产生 `on_tool_event`
-6. 返回最终结果字符串
+5. 使用 async generator 流式执行，传入复合 thread_id：
+   ```typescript
+   const stream = await subAgent.stream(
+     { messages: [{ role: 'user', content: input.question }] },
+     { configurable: { thread_id: `${context.sessionId}:${config.name}` } }
+   )
+   ```
+6. `yield` 每个 token 产生 `on_tool_event` → 实现子代理流式输出
+7. 返回最终结果字符串
 
 **工具签名：**
 ```typescript
 {
-  name: `ask_${config.name}_expert`,
+  name: `ask_${sanitizeName(config.name)}_expert`,  // sanitizeName 确保只含字母数字下划线
   description: config.title || config.description,
   schema: z.object({ question: z.string() })
 }
@@ -90,7 +109,7 @@ export async function runCaseChat(
 
 **内部步骤：**
 
-1. 获取主代理配置：`getNodeConfigService('caseMain')`（`type=agent`）
+1. 获取主代理配置：`getValidNodeConfig('caseMain')`（`type=agent`）
 2. 验证配置完整性：`validateNodeConfig()`
 3. 创建主代理模型：`createChatModel()` + API Key 轮转
 4. 获取所有子代理节点：`getNodeConfigsByTypes(['analysis', 'document'])`
@@ -176,8 +195,33 @@ PostgreSQL Checkpointer (共享实例)
 ### 流式输出
 
 - **主代理 token 流式**：`encoding: 'text/event-stream'` → LangGraph 原生 SSE 格式
-- **子代理 token 流式**：async generator tool 的 `yield` 产生 `on_tool_event`，通过 `streamMode: ['tools']` 或 `subgraphs: true` 传递到主代理的 stream
+- **子代理 token 流式**：async generator tool 的 `yield` 产生 `on_tool_event`，通过 `subgraphs: true` 传递到主代理的 stream
 - **前端接收**：与现有 `@langchain/vue` + `FetchStreamTransport` 兼容
+
+### 错误处理与降级
+
+**子代理创建失败（API Key 过期等）：**
+- 与现有 `caseAgent.ts` 一致：`logger.warn()` + 跳过该子代理
+- 主代理仍可正常工作，只是缺少该子代理工具
+
+**子代理执行超时/失败：**
+- 工具函数内 try/catch，返回错误描述字符串（而非抛出异常）
+- 主代理收到错误工具结果后，由 LLM 决定如何向用户解释
+
+**主代理所有子代理不可用：**
+- 主代理仍有通用工具（search_law 等），可以直接回答用户
+- 系统提示词中说明：若无法委派子代理，告知用户稍后重试
+
+### 子代理内 `interrupt()` 的传播
+
+`pointConsumptionMiddleware` 的 `beforeAgent` 钩子在积分不足时调用 `interrupt()`。当子代理作为工具执行时：
+
+- **子代理内 `interrupt()` 会冒泡到主代理**，导致整个 agent 暂停
+- Worker 检测到 `interrupted` 状态后发布状态变更事件
+- 前端展示"积分不足"提示，用户充值后可 resume
+- Resume 时主代理从 checkpoint 恢复，重新执行被中断的子代理工具
+
+**注意：** 如果子代理内的 `interrupt()` 行为在测试中发现问题，备选方案是子代理不挂载 `pointConsumptionMiddleware`，改为在子代理工具函数中手动调用 `checkPointsService` 检查积分，不足时返回错误字符串而非 interrupt。
 
 ## 文件变更清单
 
@@ -194,15 +238,18 @@ PostgreSQL Checkpointer (共享实例)
 | 文件 | 变更内容 |
 |------|---------|
 | `server/services/agent/agentWorker.ts` | `runCaseChat` import 改为从 `workflow/agents` 导入 |
-| `server/services/workflow/nodes/extractInfo.ts` | 替换 `createDeepAgent` 为 `createAgent` |
+| `server/services/workflow/nodes/extractInfo.ts` | 替换 `createDeepAgent` 为 `createAgent`（使用 `.withStructuredOutput()` 替代 `toolStrategy`） |
+| `server/api/v1/case/analysis/stream/[sessionId].post.ts` | 更新 import：`mainAgent` 改为从新模块导入，或移除该端点（如果不再需要直流路径） |
+| `server/api/v1/case/analysis/thread/[sessionId].get.ts` | 替换 `getThreadValuesService` 的实现来源（原 `threadState.ts` 将被删除） |
 
 ### 删除文件
 
 | 文件 | 原因 |
 |------|------|
 | `server/services/agent/caseAgent.ts` | 被 `workflow/agents/caseMainAgent.ts` 替代 |
-| `server/services/agent/main.ts` | 遗留代码，不再使用 |
-| `server/services/agent/threadState.ts` | 未使用 |
+| `server/services/agent/main.ts` | 遗留代码，不再使用（注意更新 `stream/[sessionId].post.ts` 的 import） |
+| `server/services/agent/threadState.ts` | 未使用（注意更新 `thread/[sessionId].get.ts` 的 import） |
+| `server/services/agent/caseAnalysis.ts` | 被 `workflow/agents/caseMainAgent.ts` 替代（功能合并） |
 
 ### 依赖变更
 
