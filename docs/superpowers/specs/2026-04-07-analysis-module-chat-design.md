@@ -105,14 +105,15 @@ interface UseModuleChatManager {
 1. 用户在 detail 视图点击 `MessageCircleIcon` 按钮
 2. `AnalysisResults.vue` emit `regenerate(result)` 事件
 3. `CaseDetailAnalysis.vue` 或 `[id].vue` 接收事件
-4. 调用 `moduleChatManager.getOrCreateInstance(result.moduleName, result.title)`
+4. 调用 `moduleChatManager.getOrCreateInstance(result.moduleName, result.moduleTitle)`
 5. 调用 `moduleChatManager.expandModule(result.moduleName)`
 6. 渲染 `AnalysisModuleChat` 组件
 
 ### 1.5 分析结果联动
 
-- 监听 SSE 事件中的 `analysis_result_saved` 类型事件
-- 收到后触发 `useCaseDetail` 的分析结果刷新
+- `useCaseChat` 的 `useStream` 原生支持 `onCustomEvent` 回调（`@langchain/vue` 内置），可直接接收 `analysis_result_saved` 自定义事件
+- `useModuleChatManager` 在创建 `useCaseChat` 实例时传入 `onCustomEvent` 回调
+- 收到 `analysis_result_saved` 事件后触发 `useCaseDetail` 的分析结果刷新
 - detail 视图实时更新为最新版本的 Markdown 内容和版本号
 - 版本历史 Sheet（CaseAnalysisVersionSheet）自然包含新版本
 
@@ -241,7 +242,7 @@ Agent 的专用工具，用于保存分析结果到 case_analyses 表：
 
 **执行逻辑**：
 1. 在单个事务内完成保存 + 激活：调用 `saveAnalysisResultService` 创建新版本记录，然后调用 `activateVersionDao(newAnalysis.id, caseId, nodeId)` 切换 isActive（注意：`saveAnalysisResultService` 默认 isActive=false，必须在同一事务内额外调用激活，避免中间崩溃导致新版本未激活）。建议封装为 `saveAndActivateAnalysisService`
-2. 通过 `publishAgentEvent` 发送自定义事件（见 2.7 事件扩展），携带版本号和 moduleName
+2. 通过新增的 `publishCustomEvent` 函数（见 2.7 事件扩展）发送 `analysis_result_saved` 事件，携带版本号和 moduleName
 3. 返回 `{ success: true, version: number, message: "分析结果已保存为第N版" }`
 
 ### 2.4 新增 API
@@ -276,7 +277,7 @@ Agent 的专用工具，用于保存分析结果到 case_analyses 表：
 
 ### 2.5 Worker 执行分支
 
-修改 Worker 中的 Agent 选择逻辑。Worker 从 `session.metadata`（而非 `run.input`）获取 `moduleName` 和 `nodeId`：
+修改 Worker 中的 Agent 选择逻辑。Worker 从 `session.metadata`（而非 `run.input`）获取 `moduleName` 和 `nodeId`。**注意**：当前 Worker 查询 session 时 `select: { type: true }`，需扩展为 `select: { type: true, metadata: true }`：
 
 ```typescript
 // agentWorker.ts 中 executeRun 分支（约第 136-159 行）
@@ -357,7 +358,7 @@ export type AgentEvent = AgentStreamEvent | AgentStatusEvent | AgentCustomEvent
       → enqueueRunService() → Redis publish('agent_tasks')
       → Worker 收到任务
         → session.type === 3 → runModuleChat()
-          → 加载节点配置（按 nodeId）、创建模型、加载工具
+          → 加载节点配置（按 moduleName）、创建模型、加载工具
           → 构建静态 system prompt（节点 prompt + 工具指令）
           → moduleContextMiddleware beforeAgent 注入动态上下文
           → createAgent.stream()
@@ -392,8 +393,17 @@ SSE stream A          SSE stream B             SSE stream C
 | 场景 | 处理方式 |
 |------|---------|
 | 关闭弹窗再打开 | stream 连接仍在，直接恢复显示 |
-| 页面刷新 | 复用 chat.post.ts 重连机制：有 activeRun + 无新消息 → replay + subscribe |
+| 页面刷新 | 见下方恢复流程 |
 | 切换 tab 再切回 | moduleChatManager 挂载在 `[id].vue`，tab 切换不影响 |
+
+**页面刷新恢复流程**：
+
+页面刷新后 `moduleChatManager` 状态丢失，需要恢复活跃模块列表：
+
+1. `[id].vue` 页面加载时，调用 `GET /api/v1/case/analysis/module-sessions?caseId=xxx`（**新增 API**）查询该案件所有 type=3 的 caseSession
+2. 对每个返回的 session，检查是否有 activeRun（可在同一 API 中返回）
+3. 为有 activeRun 的 session 自动重建 `ModuleChatInstance`，`useCaseChat` 初始化后走 chat.post.ts 的重连分支（有 activeRun + 无新消息 → replay + subscribe）
+4. 无 activeRun 的 session 不自动重建，等用户再次点击时按需创建
 
 ---
 
@@ -407,7 +417,8 @@ SSE stream A          SSE stream B             SSE stream C
 | `app/composables/useModuleChatManager.ts` | 模块对话管理 composable |
 | `server/services/workflow/agents/moduleAgent.ts` | 轻量级模块 Agent |
 | `server/services/workflow/middleware/moduleContext.middleware.ts` | 每轮动态上下文注入中间件 |
-| `server/api/v1/case/analysis/module-session.post.ts` | 模块 session 创建 API |
+| `server/api/v1/case/analysis/module-session.post.ts` | 模块 session 创建/获取 API |
+| `server/api/v1/case/analysis/module-sessions.get.ts` | 查询活跃模块 session 列表 API（页面刷新恢复用） |
 
 ### 修改文件
 | 文件 | 变更说明 |
