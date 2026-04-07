@@ -11,6 +11,8 @@ import { z } from 'zod'
 import { getValidNodeConfig } from '~~/server/services/node/node.service'
 import { createChatModel } from '~~/server/services/node/chatModelFactory'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
+import { CaseMaterialType } from '#shared/types/case'
+import { detectFileTypeService } from '~~/server/services/material/fileDetect.service'
 
 const EXTRACT_NODE_NAME = 'extractInfo'
 
@@ -66,9 +68,18 @@ export default defineEventHandler(async (event) => {
         (p: { type: string; status: number }) => p.type === 'system' && p.status === 1,
     )
     const systemPrompt = systemPromptConfig?.content ?? ''
-    const materialContext = materials?.length
-        ? `\n\n用户上传的材料：\n${materials.map(m => `- ${m.name} (ossFileId: ${m.ossFileId})`).join('\n')}`
-        : ''
+
+    // 5.1 通过 ossFileId 从识别记录表获取材料的真实文本内容
+    let materialContext = ''
+    if (materials?.length) {
+        const contentParts = await fetchMaterialContentsByOssFileIds(materials)
+        if (contentParts.length > 0) {
+            materialContext = `\n\n## 案件材料内容\n\n${contentParts.join('\n\n---\n\n')}`
+        } else {
+            // 识别记录不存在时 fallback 到文件名列表
+            materialContext = `\n\n用户上传的材料（内容尚未识别完成）：\n${materials.map(m => `- ${m.name}`).join('\n')}`
+        }
+    }
 
     // 6. 查询可用案件类型，限制模型只能从中选择
     const enabledCaseTypes = await getEnabledCaseTypesService()

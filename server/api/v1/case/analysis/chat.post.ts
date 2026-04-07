@@ -14,6 +14,7 @@
 
 import { findCaseBySessionIdService } from '~~/server/services/case/caseSession.service'
 import { enqueueRunService, getActiveRunService } from '~~/server/services/agent/agentRun.service'
+import { updateRunStatusDAO } from '~~/server/services/agent/agentRun.dao'
 import { replayEvents, createEventSubscription } from '~~/server/services/agent/agentEventBridge'
 import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
 
@@ -50,11 +51,12 @@ const BLACKLIST_PATTERNS = [
   /显示系统提示/,
 ]
 
-/** 终结状态列表 */
+/** 终结状态列表（包括 interrupted，重连时 replay 后需关闭流） */
 const TERMINAL_STATUSES: readonly string[] = [
   AGENT_RUN_STATUS.COMPLETED,
   AGENT_RUN_STATUS.FAILED,
   AGENT_RUN_STATUS.CANCELLED,
+  AGENT_RUN_STATUS.INTERRUPTED,
 ]
 
 export default defineEventHandler(async (event) => {
@@ -95,7 +97,22 @@ export default defineEventHandler(async (event) => {
   const activeRun = await getActiveRunService(sessionId)
   let runId: string
 
-  if (activeRun) {
+  if (activeRun && command && activeRun.status === AGENT_RUN_STATUS.INTERRUPTED) {
+    // 有 interrupted run + 有 command → resume：将旧 run 标记完成，入队新 run
+    await updateRunStatusDAO(activeRun.id, AGENT_RUN_STATUS.COMPLETED, { completedAt: new Date() })
+    const result = await enqueueRunService({
+      sessionId,
+      threadId: sessionId,
+      userId: user.id,
+      caseId: caseInfo.id,
+      input: { message, command },
+    })
+    if ('error' in result) {
+      return resError(event, 429, result.error)
+    }
+    runId = result.runId
+  }
+  else if (activeRun) {
     if (message) {
       // 已有活跃 run + 有新消息 → 返回错误
       return resError(event, 429, '请等待当前分析完成')

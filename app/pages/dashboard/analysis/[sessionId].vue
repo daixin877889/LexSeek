@@ -149,10 +149,14 @@ const analysisResults = ref<AnalysisResult[]>([]);
 const activeResultIndex = ref(0);
 
 // 中断状态检测（从 stream.values.__interrupt__ 中读取）
+// LangGraph interrupt 格式: [{ value: { type, message, data }, resumable, id }]
+// InterruptConfirmation 期望: { type, message, data }
 const currentInterrupt = computed<InterruptData | null>(() => {
   const v = stream.values as any
   if (!v?.__interrupt__?.length) return null
-  return v.__interrupt__[0] as InterruptData
+  const raw = v.__interrupt__[0]
+  // 解包 LangGraph interrupt 格式
+  return (raw?.value ?? raw) as InterruptData
 })
 
 /** 处理 prompt 提交 */
@@ -210,7 +214,7 @@ const goBack = () => {
   router.push({ name: "dashboard-analysis" });
 };
 
-// 页面进入时检查活跃 run，自动重连
+// 页面进入时检查活跃 run，自动重连（包括 interrupted 状态）
 onMounted(async () => {
   try {
     const activeRun = await useApiFetch<{ run: { id: string; status: string } | null }>(
@@ -219,8 +223,9 @@ onMounted(async () => {
     )
     if (
       activeRun?.run &&
-      ['pending', 'running'].includes(activeRun.run.status)
+      ['pending', 'running', 'interrupted'].includes(activeRun.run.status)
     ) {
+      // 重连 SSE，replay Redis 中的事件（包括 __interrupt__）
       stream.submit({ messages: [] })
     }
   } catch {
