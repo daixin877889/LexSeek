@@ -151,7 +151,7 @@ export class AgentWorker {
         })
       } else {
         // 普通案件对话
-        const { runCaseChat } = await import('./caseAgent')
+        const { runCaseChat } = await import('../workflow/agents')
         stream = await runCaseChat(run.sessionId, input.message, {
           userId: run.userId,
           caseId: run.caseId,
