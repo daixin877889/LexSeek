@@ -18,11 +18,13 @@ import {
     type CaseTestIds,
 } from './test-db-helper'
 import { PBT_CONFIG, caseTypeDataArbitrary } from './test-generators'
+import { prisma } from '~~/server/utils/db'
 import {
     createCaseTypeService,
     getCaseTypeByIdService,
     getCaseTypesService,
     getEnabledCaseTypesService,
+    getFirstEnabledCaseTypeService,
     updateCaseTypeService,
     updateCaseTypeStatusService,
     deleteCaseTypeService,
@@ -172,6 +174,36 @@ describe('案件类型服务层', () => {
             expect(result.every(ct => ct.status === 1)).toBe(true)
             expect(result.some(ct => ct.id === enabledType.id)).toBe(true)
             expect(result.every(ct => ct.id !== disabledType.id)).toBe(true)
+        })
+    })
+
+    describe('getFirstEnabledCaseTypeService - 获取第一条启用的案件类型', () => {
+        it('应返回按 priority 排序的第一条启用记录', async () => {
+            const first = await getFirstEnabledCaseTypeService()
+            expect(first).not.toBeNull()
+
+            // 验证返回的是 priority 最小的
+            const all = await prisma.caseTypes.findMany({
+                where: { status: 1, deletedAt: null },
+                orderBy: { priority: 'asc' },
+                take: 1,
+            })
+            expect(first!.id).toBe(all[0]!.id)
+        })
+
+        it('无启用记录时应返回 null', async () => {
+            // 临时禁用所有记录
+            await prisma.caseTypes.updateMany({
+                data: { status: 0 },
+            })
+
+            const result = await getFirstEnabledCaseTypeService()
+            expect(result).toBeNull()
+
+            // 恢复
+            await prisma.caseTypes.updateMany({
+                data: { status: 1 },
+            })
         })
     })
 
