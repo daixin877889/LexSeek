@@ -214,7 +214,7 @@ interface ModuleContextState {
 
 参考实现：`caseMaterialContextMiddleware` 的 `_injectedSourceIds` 增量逻辑。
 
-**关键**：每轮都重新构建，确保上下文始终反映最新状态（材料变化、记忆更新、其他模块新结果）。
+**关键**：每轮对话前执行变更检测，仅在检测到变化时注入增量内容，无变更则跳过，避免重复注入浪费 token。
 
 ### 2.2 save_analysis_result 工具
 
