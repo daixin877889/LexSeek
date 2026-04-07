@@ -10,7 +10,7 @@
  */
 
 import { findCaseBySessionIdService } from '~~/server/services/case/caseSession.service'
-import { mainAgent } from '~~/server/services/agent/main'
+import { runCaseChat } from '~~/server/services/workflow/agents'
 import { getMaterialsByCaseIdService } from '~~/server/services/material/material.service'
 import { batchCheckMaterialEmbeddedService } from '~~/server/services/material/materialEmbedding.service'
 import { ensureMaterialsEmbeddedService } from '~~/server/services/material/materialProcess.service'
@@ -61,7 +61,7 @@ export default defineEventHandler(async (event) => {
     const prompt = firstUserMessage || caseInfo.content || '开始分析'
 
     // 调用 mainAgent 获取 SSE 格式的流（encoding: "text/event-stream"）
-    const agentStream = await mainAgent(sessionId, prompt, {
+    const agentStream = await runCaseChat(sessionId, prompt, {
         thinking,
         userId: user.id,
         caseId: caseInfo.id,

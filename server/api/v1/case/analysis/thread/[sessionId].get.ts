@@ -7,7 +7,7 @@
  * 返回给前端用于渲染历史消息和作为 useStream 的 initialValues。
  */
 
-import { getThreadValuesService } from '~~/server/services/agent/threadState'
+import { getThreadValuesService } from '~~/server/services/workflow/agents'
 import { findCaseBySessionIdService } from '~~/server/services/case/caseSession.service'
 
 export default defineEventHandler(async (event) => {
