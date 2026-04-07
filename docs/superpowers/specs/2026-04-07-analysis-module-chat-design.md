@@ -69,12 +69,12 @@ interface ModuleChatInstance {
   isExpanded: Ref<boolean>  // 窗口是否展开
   isActive: Ref<boolean>    // 是否有活跃的分析任务
   sendMessage: (message: string) => void
-  stopGeneration: () => void
+  stopGeneration: () => void  // 中止 SSE + 取消后端 run
 }
 
 interface UseModuleChatManager {
-  // 模块 chat 实例 Map
-  instances: Map<string, ModuleChatInstance>
+  // 模块 chat 实例（使用 reactive Record 而非 Map，确保 Vue 响应式）
+  instances: Record<string, ModuleChatInstance>
   // 获取或创建模块 chat 实例
   getOrCreateInstance(moduleName: string, moduleTitle: string): ModuleChatInstance
   // 展开指定模块的对话窗口
@@ -87,6 +87,8 @@ interface UseModuleChatManager {
   activeModules: ComputedRef<ModuleChatInstance[]>
 }
 ```
+
+**注意**：`instances` 使用 `reactive<Record<string, ModuleChatInstance>>({})` 而非原生 `Map`，因为 Vue 3 对 `Map` 的响应式支持有限，`computed` 和 `watch` 在 Map 更新时不会可靠触发。
 
 **SSE 连接生命周期**：
 - 每个 ModuleChatInstance 内部持有一个 `useCaseChat` 实例
@@ -134,41 +136,62 @@ export async function runModuleChat(
 ```
 
 **初始化流程**：
-1. 并发加载 checkpointer、store、节点配置（`getNodeConfigService(moduleName)`）
+1. 并发加载 checkpointer、store、节点配置（`getValidNodeConfig(nodeId)`，按 nodeId 查找更精确）
 2. 创建 `createChatModel()` — 根据节点绑定的 model 配置
 3. 加载工具列表（根据节点 tools 字段：search_case_materials、search_law 等）
 4. 注册自定义工具 `save_analysis_result`
-5. 构建 system prompt（节点 prompt + 材料上下文 + 当前最新分析结果）
+5. 构建 system prompt（仅节点原始 prompt + 工具使用指令，**静态不变**）
 6. 创建 Agent 并返回流
 
 **中间件**：
 - `pointConsumptionMiddleware(userId, 'case_analysis_token')` — 按 token 计费
 - `summarizationMiddleware({ model, trigger: [{ tokens: 100000 }] })` — 长对话摘要
+- `moduleContextMiddleware` — **新建**，每轮对话前注入动态上下文（见 2.6）
 
-**关键设计：材料上下文注入 system prompt**
+**关键设计：静态 System Prompt + 动态上下文消息**
 
-材料上下文（案件材料的摘要/关键信息）**必须拼接在 system prompt 中**，而非作为对话消息发送。这样：
-- 材料上下文不会在前端对话流中显示给用户
-- Agent 始终能访问案件材料信息作为分析依据
-- 使用 `caseMaterialContextMiddleware` 的逻辑，但将结果拼接到 system prompt 而非消息
+为了命中模型供应商的 Prompt Caching 机制（基于消息前缀匹配），system prompt **保持不变**，动态变化的上下文通过 `beforeAgent` 中间件注入：
 
 ```
-System Prompt 结构：
+消息结构（每轮对话时）：
 ┌─────────────────────────────────────────┐
-│ [节点原始 System Prompt]                   │
+│ [SystemMessage] 节点原始 System Prompt     │ ← 静态，命中缓存
 │ （来自 prompts 表，如"你是法律分析专家..."）   │
+│ + 工具使用指令                              │
 ├─────────────────────────────────────────┤
-│ [案件材料上下文]                           │
-│ （材料摘要、关键信息，不在对话中显示）          │
+│ [...历史对话消息]                          │ ← checkpointer 恢复
 ├─────────────────────────────────────────┤
-│ [当前模块最新分析结果]                      │
-│ （作为已有基线，供 Agent 参考和优化）         │
+│ [SystemMessage] 动态上下文（不可见）         │ ← beforeAgent 每轮注入
+│ · 案件材料上下文（摘要/关键信息）              │
+│ · 长期记忆（PostgresStore basic_info）      │
+│ · 其他模块激活版本的分析结果                  │
+│ · 当前模块最新分析结果（作为基线）             │
 ├─────────────────────────────────────────┤
-│ [工具使用指令]                             │
-│ "当你生成或更新了该模块的分析结果时，           │
-│  必须调用 save_analysis_result 工具保存"     │
+│ [HumanMessage] 用户最新输入                │
 └─────────────────────────────────────────┘
 ```
+
+**上下文不可见性保障**：
+- 动态上下文作为 SystemMessage 注入，位于最新 HumanMessage 之前
+- 前端 `useMessageParser` 过滤 SystemMessage，不在对话 UI 中展示
+- 材料、记忆、其他模块结果均不会显示给用户
+
+### 2.6 moduleContextMiddleware（新建）
+
+**文件**：`server/services/workflow/middleware/moduleContext.middleware.ts`
+
+`beforeAgent` hook，每轮对话前执行：
+
+1. 并发加载 4 种上下文（复用 `moduleContextBuilder.ts` 的构建函数）：
+   - `buildMaterialSection(caseId)` — 案件材料摘要
+   - `buildMemorySection(caseId, store)` — 长期记忆（PostgresStore basic_info）
+   - `buildCompletedResultsSection(caseId, excludeModule)` — 其他模块激活版本结果
+   - 当前模块最新分析结果（`loadCompletedResultsService` 中该模块的结果）
+2. 拼接为一条 SystemMessage
+3. 在消息列表中查找并替换上一轮注入的动态 SystemMessage（通过特定标记识别，如 `<!-- module-context -->`）
+4. 如果是首轮则插入新 SystemMessage，位于最新 HumanMessage 之前
+
+**关键**：每轮都重新构建，确保上下文始终反映最新状态（材料变化、记忆更新、其他模块新结果）。
 
 ### 2.2 save_analysis_result 工具
 
@@ -194,8 +217,8 @@ Agent 的专用工具，用于保存分析结果到 case_analyses 表：
 
 **执行逻辑**：
 1. 调用 `saveAnalysisResultService` 创建新版本记录
-2. 新版本 `isActive = true`，旧版本 `isActive = false`（事务内切换）
-3. 通过 `publishAgentEvent` 发送 `analysis_result_saved` 事件，携带版本号和 moduleName
+2. **调用 `activateVersionDao(newAnalysis.id, caseId, nodeId)` 在事务内切换 isActive**（注意：`saveAnalysisResultService` 默认 isActive=false，必须额外调用激活）
+3. 通过 `publishAgentEvent` 发送自定义事件（见 2.7 事件扩展），携带版本号和 moduleName
 4. 返回 `{ success: true, version: number, message: "分析结果已保存为第N版" }`
 
 ### 2.3 新增 API
@@ -258,6 +281,49 @@ metadata 结构（type=3 时）：
 }
 ```
 
+### 2.7 AgentEvent 类型扩展
+
+现有 `AgentEvent` 类型（`shared/types/agentRun.ts`）是封闭 union：`AgentStreamEvent | AgentStatusEvent`。`analysis_result_saved` 无法通过现有类型传递。
+
+**扩展方案**：新增 `AgentCustomEvent` 类型：
+
+```typescript
+// shared/types/agentRun.ts
+export interface AgentCustomEvent {
+  type: 'custom_event'
+  runId: string
+  sessionId: string
+  name: string   // 如 'analysis_result_saved'
+  data: unknown  // { version: number, moduleName: string, analysisId: number }
+}
+export type AgentEvent = AgentStreamEvent | AgentStatusEvent | AgentCustomEvent
+```
+
+**同时修改**：
+- `agentEventBridge.ts`：`publishAgentEvent` 支持 `custom_event` 类型
+- `chat.post.ts`：SSE 转发循环中处理 `custom_event`，推送为 `event: {name}\ndata: {data}\n\n`
+
+### 2.8 Worker 上下文获取
+
+Worker 从 `session.metadata`（而非 `run.input`）获取 `moduleName` 和 `nodeId`。Worker 已有读取 session 的逻辑（`agentWorker.ts`），扩展读取 metadata 即可：
+
+```typescript
+// agentWorker.ts 中
+const session = await findSessionById(sessionId)
+if (session.type === 3) {
+  const { moduleName, nodeId } = session.metadata as { moduleName: string; nodeId: number }
+  return runModuleChat(sessionId, message, command, { userId, caseId, moduleName, nodeId })
+}
+```
+
+### 2.9 stopGeneration 取消 Worker 任务
+
+前端 `stopGeneration` 除了中止 SSE 连接外，**必须同时调用** `POST /api/v1/case/analysis/runs/cancel/[runId]` 取消 Worker 中正在执行的 run，避免 Worker 继续消耗积分。
+
+`ModuleChatInstance.stopGeneration` 实现：
+1. 调用 `stream.stop()` 中止 SSE
+2. 调用 cancel API 取消后端 run
+
 ---
 
 ## 三、数据流
@@ -277,12 +343,13 @@ metadata 结构（type=3 时）：
       → enqueueRunService() → Redis publish('agent_tasks')
       → Worker 收到任务
         → session.type === 3 → runModuleChat()
-          → 加载节点配置、创建模型、加载工具
-          → 构建 system prompt（节点prompt + 材料上下文 + 最新结果）
+          → 加载节点配置（按 nodeId）、创建模型、加载工具
+          → 构建静态 system prompt（节点 prompt + 工具指令）
+          → moduleContextMiddleware beforeAgent 注入动态上下文
           → createAgent.stream()
             → ReAct 循环：LLM 推理 → 工具调用
-            → save_analysis_result 工具 → 保存新版本
-          → publishAgentEvent → Redis
+            → save_analysis_result 工具 → 保存新版本 + 激活
+          → publishAgentEvent → Redis（含 custom_event 类型）
       → createEventSubscription(runId) → SSE 推送
     → 前端 stream.messages 响应式更新
     → AiChat 渲染对话
@@ -325,6 +392,7 @@ SSE stream A          SSE stream B             SSE stream C
 | `app/components/case/AnalysisModuleChatBar.vue` | 最小化状态条组件 |
 | `app/composables/useModuleChatManager.ts` | 模块对话管理 composable |
 | `server/services/workflow/agents/moduleAgent.ts` | 轻量级模块 Agent |
+| `server/services/workflow/middleware/moduleContext.middleware.ts` | 每轮动态上下文注入中间件 |
 | `server/api/v1/case/analysis/module-session.post.ts` | 模块 session 创建 API |
 
 ### 修改文件
@@ -333,9 +401,12 @@ SSE stream A          SSE stream B             SSE stream C
 | `app/pages/dashboard/cases/[id].vue` | 集成 moduleChatManager、渲染对话组件 |
 | `app/components/case/AnalysisResults.vue` | regenerate 事件向上传递（已有） |
 | `app/components/caseDetail/CaseDetailAnalysis.vue` | 传递 regenerate 事件到页面级 |
-| `server/services/agent/agentWorker.ts`（或等效文件） | Worker 添加 session type=3 分支 |
-| `server/services/case/analysis.service.ts` | 可能需要调整 saveAnalysisResultService 以支持通过 moduleName 保存 |
+| `server/services/agent/agentWorker.ts`（或等效文件） | Worker 添加 session type=3 分支，从 metadata 获取 nodeId |
+| `server/services/case/analysis.service.ts` | 可能需要新增 saveAndActivateAnalysisService |
+| `shared/types/agentRun.ts` | 新增 AgentCustomEvent 类型 |
 | `shared/types/case.ts` | 新增 session type 枚举值 |
+| `server/services/agent/agentEventBridge.ts` | 支持 custom_event 类型发布 |
+| `server/api/v1/case/analysis/chat.post.ts` | SSE 转发支持 custom_event |
 
 ---
 
@@ -353,7 +424,12 @@ SSE stream A          SSE stream B             SSE stream C
 
 ## 六、技术约束
 
-1. **材料上下文必须注入 system prompt**：不作为对话消息显示，避免前端泄露
-2. **版本自增**：通过 `getNextVersionDao` 确保版本号连续
-3. **积分计费**：使用 `case_analysis_token` 积分项，按 token 数计费
-4. **Session 唯一性**：每案件每模块最多一个 type=3 的 caseSession
+1. **动态上下文不可见**：材料、记忆、其他模块结果通过 SystemMessage 注入，前端过滤不显示
+2. **静态 System Prompt**：节点原始 prompt 不变，以命中模型供应商的 Prompt Caching
+3. **每轮刷新动态上下文**：`moduleContextMiddleware` 在 `beforeAgent` 中每轮重建，确保材料/记忆/其他模块结果的时效性
+4. **版本自增**：通过 `getNextVersionDao` 确保版本号连续
+5. **版本激活**：`save_analysis_result` 工具保存后必须调用 `activateVersionDao` 切换 isActive
+6. **积分计费**：使用 `case_analysis_token` 积分项，按 token 数计费
+7. **Session 唯一性**：每案件每模块最多一个 type=3 的 caseSession。通过应用层幂等事务保障（参考 `agentRun.dao.ts` P2002 处理模式），避免并发竞态创建多个 session
+8. **节点配置加载**：使用 `getValidNodeConfig(nodeId)`（按 ID 查找），而非按名称查找，更精确高效
+9. **stopGeneration 双重取消**：前端中止 SSE + 后端取消 run，避免 Worker 继续消耗积分
