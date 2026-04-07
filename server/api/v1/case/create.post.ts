@@ -128,7 +128,17 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, parseErrorMessage(result.error, '参数验证失败'))
     }
 
-    const { title, content, caseTypeId, plaintiff, defendant, materials, summary, extractedInfo } = result.data
+    const { title, content, plaintiff, defendant, materials, summary, extractedInfo } = result.data
+
+    // 如果未提供 caseTypeId，取第一条可用记录
+    let caseTypeId = result.data.caseTypeId
+    if (!caseTypeId) {
+        const firstType = await getFirstEnabledCaseTypeService()
+        if (!firstType) {
+            return resError(event, 400, '系统未配置任何案件类型，请联系管理员')
+        }
+        caseTypeId = firstType.id
+    }
 
     try {
         // 创建案件
