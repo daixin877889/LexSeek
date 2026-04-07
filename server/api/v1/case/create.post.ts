@@ -80,10 +80,11 @@ const createCaseSchema = z.object({
         .optional(),
     /** 案件内容/描述 */
     content: z.string().max(10000, { message: '案件内容不能超过 10000 个字符' }).optional(),
-    /** 案件类型 ID */
+    /** 案件类型 ID（可选，未传时后端自动取第一条可用记录） */
     caseTypeId: z.number()
         .int({ message: '案件类型 ID 必须为整数' })
-        .positive({ message: '案件类型 ID 必须为正整数' }),
+        .positive({ message: '案件类型 ID 必须为正整数' })
+        .optional(),
     /** 原告信息 */
     plaintiff: z.array(partyInfoSchema).optional(),
     /** 被告信息 */
