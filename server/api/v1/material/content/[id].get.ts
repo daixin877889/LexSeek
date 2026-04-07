@@ -69,7 +69,10 @@ export default defineEventHandler(async (event) => {
         }
 
         // 检查材料状态
-        if (material.status === MaterialStatus.PENDING) {
+        // 文本材料（CASE_CONTENT）的内容在创建时即就绪，历史数据可能 status 未更新，需兼容
+        const isTextMaterial = material.type === CaseMaterialType.CASE_CONTENT
+
+        if (material.status === MaterialStatus.PENDING && !isTextMaterial) {
             return resError(event, 400, '材料尚未处理，请先调用处理接口')
         }
 

@@ -111,10 +111,23 @@ export const processMaterialService = async (
             where: { materialId: material.id, deletedAt: null },
         })
         if (existingTextContent?.content) {
+            // 文本材料内容已就绪，执行嵌入后标记完成
+            if (options.enableEmbedding !== false) {
+                try {
+                    await embedMaterialUnifiedService(material.id, userId)
+                    logger.info('文本材料向量化完成', { materialId })
+                } catch (embedError: any) {
+                    logger.error('文本材料向量化失败', {
+                        materialId,
+                        error: embedError.message,
+                    })
+                }
+            }
+            await updateMaterialStatusService(material.id, MaterialStatus.COMPLETED)
             return {
                 id: material.id,
                 status: MaterialStatus.COMPLETED,
-                alreadyCompleted: true,
+                alreadyCompleted: false,
             }
         }
         throw new MaterialProcessError('材料没有关联的文件，无法处理', 400)

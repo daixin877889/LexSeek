@@ -7,6 +7,7 @@
 import type { Prisma } from '~~/generated/prisma/client'
 import type { CaseMaterialParam } from '#shared/types/case'
 import { CaseMaterialType } from '#shared/types/case'
+import { MaterialStatus } from '#shared/types/material'
 import { getMaterialTypeFromMime } from '#shared/types/case'
 import { findOssFileByIdDao } from '../files/ossFiles.dao'
 import { batchAddCaseMaterialsDAO, createSingleCaseMaterialDAO } from './caseMaterial.dao'
@@ -54,7 +55,7 @@ export const batchAddCaseMaterialsService = async (
             const created = await createSingleCaseMaterialDAO(caseId, {
                 name: material.name || '案情描述',
                 type: material.type,
-                status: 1,
+                status: MaterialStatus.PENDING, // 文本材料内容已就绪，但仍需走处理流程完成嵌入
             }, tx)
 
             await createTextContentRecordDAO({
