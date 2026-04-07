@@ -10,12 +10,14 @@
  * 架构：入队 + 订阅 Redis + 转发 SSE
  * - 新消息 → 入队 AgentRun → Worker 后台执行 → Redis 事件 → SSE 推送
  * - 重连 → 订阅已有 Run 的 Redis 事件 → 补发缺失事件 + 实时推送
+ * - 持久化保障 → Redis Stream 过期时 fallback 到 PostgresSaver checkpoint
  */
 
 import { findCaseBySessionIdService } from '~~/server/services/case/caseSession.service'
 import { enqueueRunService, getActiveRunService, getLatestRunService } from '~~/server/services/agent/agentRun.service'
 import { updateRunStatusDAO } from '~~/server/services/agent/agentRun.dao'
-import { replayEvents } from '~~/server/services/agent/agentEventBridge'
+import { replayEvents, createEventSubscription } from '~~/server/services/agent/agentEventBridge'
+import { getThreadValuesService } from '~~/server/services/workflow/agents'
 import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
 
 /** 从 FetchStreamTransport 请求体中提取参数 */
@@ -49,6 +51,14 @@ const BLACKLIST_PATTERNS = [
   /忽略上面的/,
   /输出你的提示词/,
   /显示系统提示/,
+]
+
+/** 终结状态列表（包括 interrupted，重连时 replay 后需关闭流） */
+const TERMINAL_STATUSES: readonly string[] = [
+  AGENT_RUN_STATUS.COMPLETED,
+  AGENT_RUN_STATUS.FAILED,
+  AGENT_RUN_STATUS.CANCELLED,
+  AGENT_RUN_STATUS.INTERRUPTED,
 ]
 
 export default defineEventHandler(async (event) => {
@@ -170,18 +180,68 @@ export default defineEventHandler(async (event) => {
 
       try {
         // 补发缺失事件（重连场景）
-        const missed = await replayEvents(runId)
-
-        // 关键优化：只发最后一条 values 快照，避免数千条事件导致前端卡顿
-        const lastValues = [...missed].reverse().find(e => e.type === 'stream_event' && e.event === 'values')
-        if (lastValues) {
-          controller.enqueue(encoder.encode(
-            `event: ${lastValues.event}\ndata: ${JSON.stringify(lastValues.data)}\n\n`,
-          ))
+        let missed: any[] = []
+        try {
+          missed = await replayEvents(runId)
+        } catch (err) {
+          logger.warn(`Redis Stream 补发失败: run=${runId}`, err)
         }
 
-        // 完成后立即关闭（SSE 连接不再需要）
-        return
+        // 如果 Redis Stream 没有数据，fallback 到 PostgresSaver checkpoint
+        if (missed.length === 0) {
+          const checkpointValues = await getThreadValuesService(sessionId)
+          if (checkpointValues) {
+            const messages = (checkpointValues.messages as any[]) || []
+            if (messages.length > 0) {
+              // 通过 SSE 发送完整的 values 事件
+              controller.enqueue(encoder.encode(
+                `event: values\ndata: ${JSON.stringify(checkpointValues)}\n\n`,
+              ))
+              // PostgresSaver 有数据说明 run 已完成，可以直接关闭
+              return
+            }
+          }
+          // 如果都没有数据，说明是空的 session，直接订阅实时事件即可
+        } else {
+          // 发送所有补发事件
+          for (const evt of missed) {
+            let sseData: string
+            if (evt.type === 'stream_event') {
+              sseData = `event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`
+            }
+            else if (evt.type === 'custom_event') {
+              sseData = `event: custom\ndata: ${JSON.stringify(evt.data)}\n\n`
+            }
+            else {
+              sseData = `event: status\ndata: ${JSON.stringify(evt)}\n\n`
+            }
+            controller.enqueue(encoder.encode(sseData))
+          }
+
+          // 检查是否已经结束（补发的最后一个事件可能是终结状态）
+          const lastMissed = missed.at(-1)
+          if (lastMissed?.type === 'status_change' && TERMINAL_STATUSES.includes(lastMissed.status)) {
+            return
+          }
+        }
+
+        // 订阅实时事件（活跃 run 或补发后未结束的 run）
+        for await (const evt of createEventSubscription(runId, abortController.signal)) {
+          if (evt.type === 'status_change' && TERMINAL_STATUSES.includes(evt.status)) {
+            controller.enqueue(encoder.encode(`event: status\ndata: ${JSON.stringify(evt)}\n\n`))
+            break
+          }
+          if (evt.type === 'stream_event') {
+            controller.enqueue(encoder.encode(
+              `event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`,
+            ))
+          }
+          if (evt.type === 'custom_event') {
+            controller.enqueue(encoder.encode(
+              `event: custom\ndata: ${JSON.stringify(evt.data)}\n\n`,
+            ))
+          }
+        }
       }
       catch (err) {
         logger.error(`SSE 流异常: run=${runId}`, err)
