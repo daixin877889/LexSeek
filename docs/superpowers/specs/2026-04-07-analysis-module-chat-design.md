@@ -153,7 +153,7 @@ export async function runModuleChat(
 为了命中模型供应商的 Prompt Caching 机制（基于消息前缀匹配），system prompt **保持不变**，动态变化的上下文通过 `beforeAgent` 中间件注入：
 
 ```
-消息结构（每轮对话时）：
+消息结构：
 ┌─────────────────────────────────────────┐
 │ [SystemMessage] 节点原始 System Prompt     │ ← 静态，命中缓存
 │ （来自 prompts 表，如"你是法律分析专家..."）   │
@@ -161,11 +161,8 @@ export async function runModuleChat(
 ├─────────────────────────────────────────┤
 │ [...历史对话消息]                          │ ← checkpointer 恢复
 ├─────────────────────────────────────────┤
-│ [SystemMessage] 动态上下文（不可见）         │ ← beforeAgent 每轮注入
-│ · 案件材料上下文（摘要/关键信息）              │
-│ · 长期记忆（PostgresStore basic_info）      │
-│ · 其他模块激活版本的分析结果                  │
-│ · 当前模块最新分析结果（作为基线）             │
+│ [SystemMessage] 动态上下文（仅变更时注入）    │ ← beforeAgent 按需注入
+│ （仅包含自上次注入以来发生变化的部分）          │
 ├─────────────────────────────────────────┤
 │ [HumanMessage] 用户最新输入                │
 └─────────────────────────────────────────┘
@@ -180,16 +177,42 @@ export async function runModuleChat(
 
 **文件**：`server/services/workflow/middleware/moduleContext.middleware.ts`
 
-`beforeAgent` hook，每轮对话前执行：
+`beforeAgent` hook，每轮对话前执行。**仅在检测到变更时注入**，无变更则零额外 token 消耗。
 
-1. 并发加载 4 种上下文（复用 `moduleContextBuilder.ts` 的构建函数）：
-   - `buildMaterialSection(caseId)` — 案件材料摘要
-   - `buildMemorySection(caseId, store)` — 长期记忆（PostgresStore basic_info）
-   - `buildCompletedResultsSection(caseId, excludeModule)` — 其他模块激活版本结果
-   - 当前模块最新分析结果（`loadCompletedResultsService` 中该模块的结果）
-2. 拼接为一条 SystemMessage
-3. 在消息列表中查找并替换上一轮注入的动态 SystemMessage（通过特定标记识别，如 `<!-- module-context -->`）
-4. 如果是首轮则插入新 SystemMessage，位于最新 HumanMessage 之前
+#### 变更检测机制
+
+State 中维护以下追踪字段（随 checkpoint 持久化）：
+
+```typescript
+interface ModuleContextState {
+  _injectedSourceIds: number[]              // 已注入的材料 sourceId 列表
+  _lastMemoryHash: string | null            // 上次注入时 basic_info 的 hash
+  _injectedResultVersions: Record<string, number>  // 各模块已注入的 activeVersion 号
+  _currentModuleVersion: number | null       // 当前模块已注入的版本号
+}
+```
+
+| 上下文类型 | 检测方式 | 首轮行为 | 后续轮次行为 |
+|-----------|---------|---------|------------|
+| 案件材料 | 对比 `_injectedSourceIds`，检查是否有新增 sourceId | 全量注入 | 仅注入新增材料（summary 模式） |
+| 长期记忆 | 对比 basic_info 内容的 hash 值 | 全量注入 | hash 不同时注入完整记忆 |
+| 其他模块结果 | 对比各模块 activeVersion 版本号 | 全量注入（排除当前模块） | 仅注入版本号变化的模块结果 |
+| 当前模块结果 | 对比 version 号 | 注入最新结果作为基线 | 版本变化时注入新结果 |
+
+#### 执行流程
+
+1. 从 State 读取追踪字段（首轮为空/null）
+2. 并发加载 4 种上下文的当前状态
+3. 逐项对比：
+   - 材料：当前 sourceIds vs `_injectedSourceIds` → 有新增则构建增量内容
+   - 记忆：当前 hash vs `_lastMemoryHash` → 不同则构建完整记忆
+   - 其他模块：当前各模块 version vs `_injectedResultVersions` → 变化的模块构建内容
+   - 当前模块：当前 version vs `_currentModuleVersion` → 变化则构建内容
+4. **全部无变更** → 跳过，不注入任何消息
+5. **有变更** → 将变更内容拼接为一条 SystemMessage，插入最新 HumanMessage 之前
+6. 更新 State 中的追踪字段
+
+参考实现：`caseMaterialContextMiddleware` 的 `_injectedSourceIds` 增量逻辑。
 
 **关键**：每轮都重新构建，确保上下文始终反映最新状态（材料变化、记忆更新、其他模块新结果）。
 
@@ -426,7 +449,7 @@ SSE stream A          SSE stream B             SSE stream C
 
 1. **动态上下文不可见**：材料、记忆、其他模块结果通过 SystemMessage 注入，前端过滤不显示
 2. **静态 System Prompt**：节点原始 prompt 不变，以命中模型供应商的 Prompt Caching
-3. **每轮刷新动态上下文**：`moduleContextMiddleware` 在 `beforeAgent` 中每轮重建，确保材料/记忆/其他模块结果的时效性
+3. **增量上下文注入**：`moduleContextMiddleware` 在 `beforeAgent` 中通过变更检测（sourceIds/hash/version）按需注入，无变更时零额外 token 消耗
 4. **版本自增**：通过 `getNextVersionDao` 确保版本号连续
 5. **版本激活**：`save_analysis_result` 工具保存后必须调用 `activateVersionDao` 切换 isActive
 6. **积分计费**：使用 `case_analysis_token` 积分项，按 token 数计费
