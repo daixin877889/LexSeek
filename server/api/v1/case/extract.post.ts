@@ -25,6 +25,17 @@ import { countTokens } from '~~/server/utils/tokenCounter'
 
 const EXTRACT_NODE_NAME = 'extractInfo'
 
+/** 分批摘要时单文件最大字符数（约 50000 字符 ≈ 60000 tokens） */
+const MAX_CONTENT_CHARS_FOR_SUMMARY = 50000
+
+/** 分批摘要的提示词模板 */
+const SUMMARY_PROMPT_TEMPLATE = `请仔细阅读以下材料，生成 300-500 字的摘要，保留所有关键信息：
+
+材料名称：{name}
+
+材料内容：
+{content}`
+
 const schema = z.object({
     message: z.string().min(1),
     materials: z.array(z.object({
@@ -34,13 +45,11 @@ const schema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-    // 1. 验证用户登录
     const user = event.context.auth?.user
     if (!user) {
         return resError(event, 401, '请先登录')
     }
 
-    // 2. 解析请求体
     const body = await readBody(event)
     const parsed = schema.safeParse(body)
     if (!parsed.success) {
@@ -49,7 +58,6 @@ export default defineEventHandler(async (event) => {
 
     const { message, materials } = parsed.data
 
-    // 3. 加载 extractInfo 节点配置
     let nodeConfig
     try {
         nodeConfig = await getValidNodeConfig(EXTRACT_NODE_NAME, '信息提取')
@@ -62,7 +70,6 @@ export default defineEventHandler(async (event) => {
         return resError(event, 500, '信息提取节点无可用 API 密钥')
     }
 
-    // 4. 创建模型实例（全文和摘要模式均复用）
     const model = createChatModel({
         sdkType: nodeConfig.modelSdkType,
         modelName: nodeConfig.modelName,
@@ -72,66 +79,54 @@ export default defineEventHandler(async (event) => {
         streaming: false,
     })
 
-    // 5. 计算 token 阈值
+    // token 阈值 = 上下文窗口的 70%，兜底 32000
     const tokenThreshold = nodeConfig.modelContextWindow
         ? Math.floor(nodeConfig.modelContextWindow * 0.7)
         : 32000
 
-    // 6. 构建系统提示词骨架
     const systemPromptConfig = nodeConfig.prompts?.find(
         (p: { type: string; status: number }) => p.type === 'system' && p.status === 1,
     )
     const systemPrompt = systemPromptConfig?.content ?? ''
 
-    // 7. 查询可用案件类型约束
     const enabledCaseTypes = await getEnabledCaseTypesService()
     const caseTypeNames = enabledCaseTypes.map(ct => ct.name)
     const caseTypeConstraint = `\n\n## 案件类型约束\n案件类型（caseType）必须从以下列表中选择，不得自行创造：\n${caseTypeNames.map(n => `- ${n}`).join('\n')}\n如果无法确定案件类型，请选择最接近的一个。`
 
-    // 8. 材料处理：识别 → 读取内容
+    // 材料处理：识别 → 读取内容
     let fileContexts: FileProcessContext[] = []
     if (materials?.length) {
         const ossFileIds = materials.map(m => m.ossFileId)
         fileContexts = await processFileMaterials(ossFileIds, user.id)
     }
 
-    // 9. 构建材料上下文
-    let materialContext = ''
-    if (fileContexts.length > 0) {
-        const succeeded = fileContexts.filter(f => f.recognitionStatus === 'success' && f.content)
-        const failed = fileContexts.filter(f => f.recognitionStatus === 'failed')
+    // 一次性分组，后续复用
+    const succeeded = fileContexts.filter(f => f.recognitionStatus === 'success' && f.content)
+    const failed = fileContexts.filter(f => f.recognitionStatus === 'failed')
 
-        if (succeeded.length > 0) {
-            materialContext = buildMaterialContext(succeeded)
-        }
-
-        if (failed.length > 0) {
-            const failedNames = failed.map(f => `${f.name}（${f.error}）`).join('、')
-            logger.warn(`部分材料识别失败: ${failedNames}`)
-        }
+    if (failed.length > 0) {
+        const failedNames = failed.map(f => `${f.name}（${f.error}）`).join('、')
+        logger.warn(`部分材料识别失败: ${failedNames}`)
     }
 
-    // 10. 构建完整系统提示词
+    const materialContext = succeeded.length > 0 ? buildMaterialContext(succeeded) : ''
     const systemWithContext = systemPrompt + materialContext + caseTypeConstraint
 
-    // 11. token 阈值检查
     const totalTokens = await countTokens(systemWithContext + message)
 
     let extractResult: { extractedInfo: any; message: string | null }
 
     try {
         if (totalTokens < tokenThreshold) {
-            // 11a. 未超限：直接全文提取
             extractResult = await doExtract(model, systemWithContext, message, nodeConfig.outputSchema)
         } else {
-            // 11b. 超限：分批摘要 + 合并提取
             logger.info('材料上下文超过 token 阈值，启用分批摘要模式', {
                 totalTokens,
                 tokenThreshold,
             })
             extractResult = await summarizeAndExtract(
                 model,
-                fileContexts.filter(f => f.recognitionStatus === 'success' && f.content),
+                succeeded,
                 message,
                 systemPrompt,
                 caseTypeConstraint,
@@ -143,10 +138,7 @@ export default defineEventHandler(async (event) => {
         return resError(event, 500, '信息提取失败，请重试')
     }
 
-    // 12. 返回结果
-    const failedMaterials = fileContexts
-        .filter(f => f.recognitionStatus === 'failed')
-        .map(f => ({ name: f.name, error: f.error }))
+    const failedMaterials = failed.map(f => ({ name: f.name, error: f.error }))
 
     return resSuccess(event, '提取成功', {
         message: nodeConfig.outputSchema
@@ -155,7 +147,7 @@ export default defineEventHandler(async (event) => {
         extractedInfo: extractResult.extractedInfo,
         materialMeta: {
             total: fileContexts.length,
-            succeeded: fileContexts.filter(f => f.recognitionStatus === 'success').length,
+            succeeded: succeeded.length,
             failed: failedMaterials.length,
             failedMaterials: failedMaterials.length > 0 ? failedMaterials : undefined,
         },
@@ -205,44 +197,41 @@ async function summarizeAndExtract(
     caseTypeConstraint: string,
     nodeConfig: any,
 ): Promise<{ extractedInfo: any; message: string | null }> {
-    const summaryPromptTemplate = `请仔细阅读以下材料，生成 300-500 字的摘要，保留所有关键信息：
+    // 并行生成各文件摘要
+    const summaryResults = await Promise.allSettled(
+        fileContexts
+            .filter(f => f.content)
+            .map(file => generateFileSummary(model, file)),
+    )
 
-材料名称：{name}
+    const filesWithContent = fileContexts.filter(f => f.content)
+    const summaries = summaryResults.map((r, i) => {
+        const file = filesWithContent[i]!
+        if (r.status === 'fulfilled') return r.value
+        logger.warn(`材料摘要生成失败: ${file.name}`, { error: (r.reason as Error)?.message })
+        return `【${file.name}摘要】\n[摘要生成失败，原文预览: ${file.content!.slice(0, 200)}...]`
+    })
 
-材料内容：
-{content}`
-
-    // 逐文件生成摘要
-    const summaries: string[] = []
-    for (const file of fileContexts) {
-        if (!file.content) continue
-        try {
-            // 内容过长时截断（约 50000 字符 ≈ 60000 tokens）
-            const truncated = file.content.length > 50000
-                ? file.content.slice(0, 50000) + '\n\n[内容过长已截断]'
-                : file.content
-            const result = await model.invoke([
-                new HumanMessage(
-                    summaryPromptTemplate
-                        .replace('{name}', file.name)
-                        .replace('{content}', truncated)
-                ),
-            ])
-            const summary = typeof result.content === 'string'
-                ? result.content
-                : JSON.stringify(result.content)
-            summaries.push(`【${file.name}摘要】\n${summary.trim()}`)
-        } catch (err: any) {
-            logger.warn(`材料摘要生成失败: ${file.name}`, { error: err.message })
-            summaries.push(
-                `【${file.name}摘要】\n[摘要生成失败，原文预览: ${file.content.slice(0, 200)}...]`
-            )
-        }
-    }
-
-    // 构建摘要上下文并执行最终提取
     const summaryContext = '\n\n## 材料摘要\n' + summaries.join('\n\n')
     const finalSystemPrompt = systemPrompt + summaryContext + caseTypeConstraint
 
     return await doExtract(model, finalSystemPrompt, userMessage, nodeConfig.outputSchema)
+}
+
+/** 生成单个文件的摘要 */
+async function generateFileSummary(model: any, file: FileProcessContext): Promise<string> {
+    const truncated = file.content!.length > MAX_CONTENT_CHARS_FOR_SUMMARY
+        ? file.content!.slice(0, MAX_CONTENT_CHARS_FOR_SUMMARY) + '\n\n[内容过长已截断]'
+        : file.content!
+    const result = await model.invoke([
+        new HumanMessage(
+            SUMMARY_PROMPT_TEMPLATE
+                .replace('{name}', file.name)
+                .replace('{content}', truncated),
+        ),
+    ])
+    const summary = typeof result.content === 'string'
+        ? result.content
+        : JSON.stringify(result.content)
+    return `【${file.name}摘要】\n${summary.trim()}`
 }
