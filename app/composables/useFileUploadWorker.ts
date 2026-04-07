@@ -77,10 +77,13 @@ export const useFileUploadWorker = () => {
    * 初始化 Worker（使用引用计数）
    */
   const initWorker = () => {
+    // 已初始化则直接返回
+    if (currentInstance) return currentInstance.worker
+
     currentInstance = getSharedWorker()
     currentInstance.refCount++
 
-    // 监听 Worker 消息
+    // 仅在首次初始化时添加监听器
     currentInstance.worker.addEventListener('message', (event: MessageEvent<WorkerResponse>) => {
       const response = event.data
       const task = tasks.get(response.id)
