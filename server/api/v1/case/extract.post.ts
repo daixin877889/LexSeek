@@ -11,17 +11,14 @@ import { z } from 'zod'
 import { getValidNodeConfig } from '~~/server/services/node/node.service'
 import { createChatModel } from '~~/server/services/node/chatModelFactory'
 import { HumanMessage, SystemMessage } from '@langchain/core/messages'
-import { CaseMaterialType } from '#shared/types/case'
-import { detectFileTypeService } from '~~/server/services/material/fileDetect.service'
 
 const EXTRACT_NODE_NAME = 'extractInfo'
 
 const schema = z.object({
+    /** 案件 ID（必填） */
+    caseId: z.number().int().positive({ message: '案件 ID 必须为正整数' }),
+    /** 用户消息 */
     message: z.string().min(1),
-    materials: z.array(z.object({
-        ossFileId: z.number().int().positive(),
-        name: z.string(),
-    })).optional(),
 })
 
 export default defineEventHandler(async (event) => {
@@ -38,9 +35,33 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, parsed.error.issues[0]?.message ?? '参数校验失败')
     }
 
-    const { message, materials } = parsed.data
+    const { caseId, message } = parsed.data
 
-    // 3. 加载 extractInfo 节点配置
+    // 3. 验证案件归属（case.service 自动导入）
+    await validateCaseAccessService(caseId, user.id)
+
+    // 4. 获取案件材料
+    const materials = await getMaterialsByCaseIdService(caseId)
+
+    // 5. 确保材料就绪（识别 + 嵌入）
+    const { materials: readyMaterials, failed } = await ensureMaterialsReadyService(caseId, user.id)
+
+    if (failed.length > 0) {
+        logger.warn('部分材料识别失败', { caseId, failed })
+    }
+
+    // 6. 构建材料上下文（token 超限时自动切换 summary 模式）
+    const materialContextResult = await getMaterialContextService(readyMaterials)
+    const materialContextText = buildMaterialContextMessage(materialContextResult)
+
+    logger.info('材料上下文构建完成', {
+        caseId,
+        mode: materialContextResult.mode,
+        totalTokens: materialContextResult.totalTokens,
+        materialCount: readyMaterials.length,
+    })
+
+    // 7. 加载 extractInfo 节点配置
     let nodeConfig
     try {
         nodeConfig = await getValidNodeConfig(EXTRACT_NODE_NAME, '信息提取')
@@ -53,7 +74,7 @@ export default defineEventHandler(async (event) => {
         return resError(event, 500, '信息提取节点无可用 API 密钥')
     }
 
-    // 4. 创建模型（提取任务用低温度）
+    // 8. 创建模型（提取任务用低温度）
     const model = createChatModel({
         sdkType: nodeConfig.modelSdkType,
         modelName: nodeConfig.modelName,
@@ -63,25 +84,16 @@ export default defineEventHandler(async (event) => {
         streaming: false,
     })
 
-    // 5. 构建提示
+    // 9. 构建提示
     const systemPromptConfig = nodeConfig.prompts?.find(
         (p: { type: string; status: number }) => p.type === 'system' && p.status === 1,
     )
     const systemPrompt = systemPromptConfig?.content ?? ''
+    const materialContext = materialContextResult.materialList.length > 0
+        ? '\n\n' + materialContextText
+        : ''
 
-    // 5.1 通过 ossFileId 从识别记录表获取材料的真实文本内容
-    let materialContext = ''
-    if (materials?.length) {
-        const contentParts = await fetchMaterialContentsByOssFileIds(materials)
-        if (contentParts.length > 0) {
-            materialContext = `\n\n## 案件材料内容\n\n${contentParts.join('\n\n---\n\n')}`
-        } else {
-            // 识别记录不存在时 fallback 到文件名列表
-            materialContext = `\n\n用户上传的材料（内容尚未识别完成）：\n${materials.map(m => `- ${m.name}`).join('\n')}`
-        }
-    }
-
-    // 6. 查询可用案件类型，限制模型只能从中选择
+    // 10. 查询可用案件类型，限制模型只能从中选择
     const enabledCaseTypes = await getEnabledCaseTypesService()
     const caseTypeNames = enabledCaseTypes.map(ct => ct.name)
     const caseTypeConstraint = `\n\n## 案件类型约束\n案件类型（caseType）必须从以下列表中选择，不得自行创造：\n${caseTypeNames.map(n => `- ${n}`).join('\n')}\n如果无法确定案件类型，请选择最接近的一个。`
@@ -92,13 +104,18 @@ export default defineEventHandler(async (event) => {
             new HumanMessage(message),
         ]
 
-        // 6. 调用模型（结构化输出或普通文本）
+        // 11. 调用模型（结构化输出或普通文本）
         if (nodeConfig.outputSchema) {
             const structuredModel = model.withStructuredOutput(nodeConfig.outputSchema)
             const result = await structuredModel.invoke(messages)
             return resSuccess(event, '提取成功', {
                 message: '已为您提取案件信息，请确认以下内容：',
                 extractedInfo: result,
+                materialContext: {
+                    mode: materialContextResult.mode,
+                    totalMaterials: readyMaterials.length,
+                    failedMaterials: failed.map(f => ({ name: f.name, error: f.error })),
+                },
             })
         } else {
             const result = await model.invoke(messages)
@@ -106,6 +123,11 @@ export default defineEventHandler(async (event) => {
             return resSuccess(event, '提取成功', {
                 message: content,
                 extractedInfo: null,
+                materialContext: {
+                    mode: materialContextResult.mode,
+                    totalMaterials: readyMaterials.length,
+                    failedMaterials: failed.map(f => ({ name: f.name, error: f.error })),
+                },
             })
         }
     } catch (err: any) {
