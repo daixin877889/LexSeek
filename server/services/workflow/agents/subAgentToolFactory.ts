@@ -122,31 +122,34 @@ export async function createSubAgentTools(
                         ],
                     })
 
-                    // 流式执行，收集结果
-                    const chunks: string[] = []
-                    const stream = await agent.stream(
+                    // 执行子代理（使用 invoke 而非 stream，因为工具需要完整返回值）
+                    const result = await agent.invoke(
                         { messages: [{ role: 'user', content: input.question }] },
                         {
                             configurable: {
                                 thread_id: `${context.sessionId}_sub_${safeName}`,
-                                user_id: context.userId,
-                                case_id: context.caseId,
                             },
-                            streamMode: 'messages',
+                            recursionLimit: 50,
                         },
                     )
 
-                    for await (const event of stream) {
-                        // 收集文本内容
-                        if (event && typeof event === 'object' && 'content' in event) {
-                            const content = (event as { content: string }).content
-                            if (typeof content === 'string' && content) {
-                                chunks.push(content)
+                    // 从 agent 返回的 messages 中提取最后一条 AI 回复
+                    const messages = result?.messages
+                    if (Array.isArray(messages) && messages.length > 0) {
+                        // 从后往前找最后一条 AI 消息
+                        for (let i = messages.length - 1; i >= 0; i--) {
+                            const msg = messages[i]
+                            const msgType = msg._getType?.() ?? msg.type
+                            if (msgType === 'ai' && msg.content) {
+                                const content = typeof msg.content === 'string'
+                                    ? msg.content
+                                    : JSON.stringify(msg.content)
+                                if (content.trim()) return content
                             }
                         }
                     }
 
-                    return chunks.join('') || '子代理未返回有效内容'
+                    return '子代理执行完成，但未生成文本回复'
                 } catch (error) {
                     const errorMessage = error instanceof Error ? error.message : '未知错误'
                     logger.error(`子代理 ${config.name} 执行失败`, { error: errorMessage })

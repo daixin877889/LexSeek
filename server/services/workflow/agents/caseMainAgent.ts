@@ -137,6 +137,7 @@ export async function runCaseChat(
             streamMode: ['values', 'messages', 'updates'],
             subgraphs: true,
             encoding: 'text/event-stream',
+            recursionLimit: 100,
         },
     )
 }
