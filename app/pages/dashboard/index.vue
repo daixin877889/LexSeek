@@ -208,13 +208,7 @@ definePageMeta({
 
 const userStore = useUserStore();
 
-// 使用 useAsyncData + $fetch 实现 SSR，确保正确传递 cookies
-const { data: dashboardData } = await useAsyncData('dashboard', async () => {
-    // SSR 阶段传递 cookies
-    const headers = import.meta.server ? useRequestHeaders(['cookie']) : undefined
-    const response = await $fetch<ApiBaseResponse<DashboardResponse>>('/api/v1/dashboard', { headers })
-    return response.data
-})
+const { data: dashboardData } = await useApi<DashboardResponse>('/api/v1/dashboard')
 
 // 暂时隐藏，等 API 支持后再启用
 const showAnalysisLimits = false;

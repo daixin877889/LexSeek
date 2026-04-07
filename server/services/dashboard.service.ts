@@ -6,8 +6,6 @@
 import dayjs from 'dayjs'
 import type { DashboardStatistics, DashboardPoints, DashboardMembership, DashboardRecentCase, DashboardResponse } from '#shared/types/dashboard'
 import type { CaseWithRelations } from './case/case.dao'
-import type { PointSummary } from './point/pointRecords.service'
-import type { UserMembershipInfo } from '#shared/types/membership'
 import { CaseStatus } from '#shared/types/case'
 import { getUserPointSummary } from './point/pointRecords.service'
 import { getCurrentMembershipService } from './membership/userMembership.service'
@@ -52,7 +50,7 @@ export const getDashboardStatistics = async (userId: number): Promise<DashboardS
  * @returns 积分信息
  */
 export const getDashboardPoints = async (userId: number): Promise<DashboardPoints> => {
-    const summary: PointSummary = await getUserPointSummary(userId)
+    const summary = await getUserPointSummary(userId)
 
     return {
         remaining: summary.remaining,
@@ -68,18 +66,17 @@ export const getDashboardPoints = async (userId: number): Promise<DashboardPoint
  * @returns 会员信息，无有效会员时返回 null
  */
 export const getDashboardMembership = async (userId: number): Promise<DashboardMembership | null> => {
-    const membership: UserMembershipInfo | null = await getCurrentMembershipService(userId)
+    // 并行查询当前会员和最晚到期时间
+    const [membership, latestMembership] = await Promise.all([
+        getCurrentMembershipService(userId),
+        prisma.userMemberships.findFirst({
+            where: { userId, deletedAt: null },
+            orderBy: { endDate: 'desc' },
+            select: { endDate: true },
+        }),
+    ])
 
-    if (!membership) {
-        return null
-    }
-
-    // expiresAt 取所有未删除会员中最晚的 endDate（与 levelName 无关）
-    const latestMembership = await prisma.userMemberships.findFirst({
-        where: { userId, deletedAt: null },
-        orderBy: { endDate: 'desc' },
-        select: { endDate: true },
-    })
+    if (!membership) return null
 
     return {
         levelId: membership.levelId,
@@ -108,7 +105,7 @@ export const getDashboardRecentCases = async (userId: number, limit: number = 5)
         title: c.title,
         date: dayjs(c.updatedAt).format('YYYY-MM-DD HH:mm'),
         type: c.caseType?.name ?? '',
-        status: c.status === CaseStatus.COMPLETED ? 'completed' as const : 'in_progress' as const,
+        status: c.status === CaseStatus.IN_PROGRESS ? 'in_progress' as const : 'completed' as const,
     }))
 }
 
