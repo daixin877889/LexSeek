@@ -141,3 +141,32 @@ export async function runCaseChat(
         },
     )
 }
+
+/**
+ * 获取对话式 agent 的 thread state（用于 interrupt 检测）
+ *
+ * 与 caseAnalysisV2 的 getWorkflowThreadState 功能一致，
+ * 创建一个最小化 agent 实例仅用于读取 checkpointer 中的 state。
+ *
+ * @param sessionId 会话 ID
+ */
+export async function getChatThreadState(sessionId: string) {
+    const checkpointer = await getCheckpointer()
+
+    // 创建最小化 agent 用于读取 state（不需要真实模型和工具）
+    const dummyModel = createChatModel({
+        sdkType: 'openai',
+        modelName: 'gpt-4',
+        apiKey: 'dummy',
+        baseUrl: 'http://localhost',
+    })
+
+    const stateReader = createAgent({
+        model: dummyModel,
+        checkpointer,
+    })
+
+    return stateReader.getState({
+        configurable: { thread_id: sessionId },
+    })
+}

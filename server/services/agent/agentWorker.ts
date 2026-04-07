@@ -234,22 +234,11 @@ export class AgentWorker {
             const lastTask = threadState.tasks?.at(-1)
             interrupts = lastTask?.interrupts
           } else {
-            // 对话式聊天：通过 checkpointer 直接读取 thread state
-            const { getCheckpointer } = await import('../workflow/checkpointer')
-            const checkpointer = await getCheckpointer()
-            const tuple = await checkpointer.getTuple({
-              configurable: { thread_id: run.sessionId },
-            })
-            if (tuple) {
-              const pendingWrites = tuple.pendingWrites ?? []
-              // createAgent 产生的 interrupt 存储在 pending writes 的 __interrupt__ channel
-              const interruptWrites = pendingWrites.filter(
-                ([, channel]) => channel === '__interrupt__'
-              )
-              if (interruptWrites.length > 0) {
-                interrupts = interruptWrites.map(([, , value]) => value)
-              }
-            }
+            // 对话式聊天：通过 getChatThreadState 获取 thread state
+            const { getChatThreadState } = await import('../workflow/agents')
+            const threadState = await getChatThreadState(run.sessionId) as any
+            const lastTask = threadState.tasks?.at(-1)
+            interrupts = lastTask?.interrupts
           }
 
           if (interrupts?.length) {

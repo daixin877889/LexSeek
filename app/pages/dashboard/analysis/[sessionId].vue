@@ -1,8 +1,20 @@
 <template>
   <AiChat title="案件分析" v-model:panel-mode="panelMode" v-model:thinking="thinkingEnabled" :messages="displayMessages"
     :loading="stream.isLoading" :show-prompt="true" :show-task-queue="true" :todos="todos" :show-tool-interrupt="true"
-    :prompt-disabled="isComplete" prompt-placeholder="输入补充信息或问题..." class="h-full" style="height: calc(100vh - 48px)"
+    :prompt-disabled="isComplete || !!currentInterrupt" prompt-placeholder="输入补充信息或问题..." class="h-full" style="height: calc(100vh - 48px)"
     @submit="handlePromptSubmit" @tool-confirm="handleToolConfirm" @tool-reject="handleToolReject" @back="goBack">
+
+    <!-- 中断确认 UI（积分不足等） -->
+    <template v-if="currentInterrupt" #prompt-actions>
+      <div class="p-4">
+        <CaseInterruptConfirmation
+          :interrupt="currentInterrupt"
+          :is-submitting="stream.isLoading"
+          @submit="handleInterruptSubmit"
+          @cancel="handleInterruptCancel"
+        />
+      </div>
+    </template>
     <template #right-panel>
       <CaseAnalysisResults :results="analysisResults" v-model:active-index="activeResultIndex" :show-regenerate="true"
         :show-copy="true" :is-analyzing="stream.isLoading" @regenerate="handleRegenerate" />
@@ -14,7 +26,7 @@
 </template>
 
 <script lang="ts" setup>
-import type { AnalysisResult } from "#shared/types/case";
+import type { AnalysisResult, InterruptData } from "#shared/types/case";
 import type { AiPromptSubmitData } from "~/components/ai/AiPromptInput.vue";
 import { useStream, FetchStreamTransport } from "@langchain/vue";
 import { AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
@@ -136,6 +148,13 @@ const { todos } = useTaskQueueParser(displayMessages)
 const analysisResults = ref<AnalysisResult[]>([]);
 const activeResultIndex = ref(0);
 
+// 中断状态检测（从 stream.values.__interrupt__ 中读取）
+const currentInterrupt = computed<InterruptData | null>(() => {
+  const v = stream.values as any
+  if (!v?.__interrupt__?.length) return null
+  return v.__interrupt__[0] as InterruptData
+})
+
 /** 处理 prompt 提交 */
 async function handlePromptSubmit(data: AiPromptSubmitData) {
   if (stream.isLoading || isComplete.value) return;
@@ -173,6 +192,18 @@ function handleToolReject() {
   stream.submit(undefined, {
     command: { resume: { action: "reject" } },
   });
+}
+
+/** 中断恢复（积分不足等） */
+function handleInterruptSubmit(data: unknown) {
+  stream.submit(undefined, {
+    command: { resume: data },
+  });
+}
+
+/** 中断取消 */
+function handleInterruptCancel() {
+  // 取消时不做任何操作，用户可以手动刷新或返回
 }
 
 const goBack = () => {
