@@ -10,6 +10,7 @@ import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
 import {
   createAgentRunDAO,
   findActiveRunBySessionIdDAO,
+  findLatestRunBySessionIdDAO,
   updateRunStatusDAO,
   countActiveRunsByUserIdDAO,
   findRunsBySessionIdDAO,
@@ -83,6 +84,15 @@ export async function getActiveRunService(
   sessionId: string
 ): Promise<agentRuns | null> {
   return findActiveRunBySessionIdDAO(sessionId)
+}
+
+/**
+ * 查找 session 的最新 run（不限状态，用于历史重放）
+ */
+export async function getLatestRunService(
+  sessionId: string
+): Promise<agentRuns | null> {
+  return findLatestRunBySessionIdDAO(sessionId)
 }
 
 /**

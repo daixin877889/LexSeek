@@ -100,6 +100,61 @@ const emit = defineEmits<{
 // 版本 Sheet 状态
 const versionSheetOpen = ref(false)
 
+// 版本列表（由父组件获取并传入）
+const versionItems = ref<Array<{
+    id: number
+    version: number
+    isActive: boolean
+    analysisResult: string | null
+    createdAt: string
+}>>([])
+const versionLoading = ref(false)
+
+// 刷新版本列表
+async function refreshVersionList() {
+    if (!props.caseId || !currentResult.value?.moduleName) return
+    versionLoading.value = true
+    try {
+        const data = await useApiFetch<typeof versionItems.value>(
+            `/api/v1/case/analysis/versions/${props.caseId}`,
+            { query: { analysisType: currentResult.value!.moduleName } },
+        )
+        versionItems.value = data ?? []
+        if (versionItems.value.length === 0) {
+            // fallback：从 init-analysis-status 获取版本信息
+            const status = await useApiFetch<{ modules?: Array<{ name: string; version?: number }> }>(
+                `/api/v1/case/init-analysis-status/${props.caseId}`,
+            )
+            const moduleStatus = status?.modules?.find(m => m.name === currentResult.value!.moduleName)
+            if (moduleStatus?.version && moduleStatus.version > 0) {
+                versionItems.value = [{
+                    id: 0,
+                    version: moduleStatus.version,
+                    isActive: true,
+                    analysisResult: null,
+                    createdAt: '',
+                }]
+            }
+        }
+    }
+    catch (error) {
+        console.error('获取版本列表失败:', error)
+        versionItems.value = []
+    }
+    finally {
+        versionLoading.value = false
+    }
+}
+
+watch(versionSheetOpen, async (open) => {
+    if (open) {
+        await refreshVersionList()
+    }
+    else {
+        versionItems.value = []
+    }
+})
+
 // 移动端详情模式时隐藏外部 header
 const isMobileView = useMediaQuery('(max-width: 767px)')
 const hideDashboardHeader = useState('hideDashboardHeader', () => false)
@@ -422,7 +477,9 @@ function formatAnalyzedAt(dateStr: string): string {
     <!-- 版本 Sheet -->
     <CaseAnalysisVersionSheet v-if="showVersions && caseId && currentResult" v-model:open="versionSheetOpen"
         :case-id="caseId" :analysis-type="currentResult.moduleName"
-        :module-title="currentResult.moduleTitle || currentResult.moduleName" @activated="emit('versionChanged')" />
+        :module-title="currentResult.moduleTitle || currentResult.moduleName"
+        :versions="versionItems" :loading="versionLoading"
+        @activated="refreshVersionList(); emit('versionChanged')" />
 </template>
 
 <style scoped>

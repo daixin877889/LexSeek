@@ -13,9 +13,9 @@
  */
 
 import { findCaseBySessionIdService } from '~~/server/services/case/caseSession.service'
-import { enqueueRunService, getActiveRunService } from '~~/server/services/agent/agentRun.service'
+import { enqueueRunService, getActiveRunService, getLatestRunService } from '~~/server/services/agent/agentRun.service'
 import { updateRunStatusDAO } from '~~/server/services/agent/agentRun.dao'
-import { replayEvents, createEventSubscription } from '~~/server/services/agent/agentEventBridge'
+import { replayEvents } from '~~/server/services/agent/agentEventBridge'
 import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
 
 /** 从 FetchStreamTransport 请求体中提取参数 */
@@ -49,14 +49,6 @@ const BLACKLIST_PATTERNS = [
   /忽略上面的/,
   /输出你的提示词/,
   /显示系统提示/,
-]
-
-/** 终结状态列表（包括 interrupted，重连时 replay 后需关闭流） */
-const TERMINAL_STATUSES: readonly string[] = [
-  AGENT_RUN_STATUS.COMPLETED,
-  AGENT_RUN_STATUS.FAILED,
-  AGENT_RUN_STATUS.CANCELLED,
-  AGENT_RUN_STATUS.INTERRUPTED,
 ]
 
 export default defineEventHandler(async (event) => {
@@ -122,21 +114,29 @@ export default defineEventHandler(async (event) => {
   }
   else {
     if (!message && !command) {
-      // 无活跃 run + 无消息也无 command → 返回错误
-      return resError(event, 400, '消息不能为空')
+      // 无活跃 run + 无消息也无 command → 尝试从最新 run 历史重放（页面刷新后重连）
+      const latestRun = await getLatestRunService(sessionId)
+      if (latestRun) {
+        runId = latestRun.id
+      }
+      else {
+        return resError(event, 400, '消息不能为空')
+      }
     }
-    // 无活跃 run + 有消息 → 入队新 run
-    const result = await enqueueRunService({
-      sessionId,
-      threadId: sessionId,
-      userId: user.id,
-      caseId: caseInfo.id,
-      input: { message, command },
-    })
-    if ('error' in result) {
-      return resError(event, 429, result.error)
+    else {
+      // 无活跃 run + 有消息 → 入队新 run
+      const result = await enqueueRunService({
+        sessionId,
+        threadId: sessionId,
+        userId: user.id,
+        caseId: caseInfo.id,
+        input: { message, command },
+      })
+      if ('error' in result) {
+        return resError(event, 429, result.error)
+      }
+      runId = result.runId
     }
-    runId = result.runId
   }
 
   // 6. 设置 SSE 响应头
@@ -171,43 +171,17 @@ export default defineEventHandler(async (event) => {
       try {
         // 补发缺失事件（重连场景）
         const missed = await replayEvents(runId)
-        for (const evt of missed) {
-          let sseData: string
-          if (evt.type === 'stream_event') {
-            sseData = `event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`
-          }
-          else if (evt.type === 'custom_event') {
-            sseData = `event: custom\ndata: ${JSON.stringify(evt.data)}\n\n`
-          }
-          else {
-            sseData = `event: status\ndata: ${JSON.stringify(evt)}\n\n`
-          }
-          controller.enqueue(encoder.encode(sseData))
+
+        // 关键优化：只发最后一条 values 快照，避免数千条事件导致前端卡顿
+        const lastValues = [...missed].reverse().find(e => e.type === 'stream_event' && e.event === 'values')
+        if (lastValues) {
+          controller.enqueue(encoder.encode(
+            `event: ${lastValues.event}\ndata: ${JSON.stringify(lastValues.data)}\n\n`,
+          ))
         }
 
-        // 检查是否已经结束（补发的最后一个事件可能是终结状态）
-        const lastMissed = missed.at(-1)
-        if (lastMissed?.type === 'status_change' && TERMINAL_STATUSES.includes(lastMissed.status)) {
-          return
-        }
-
-        // 订阅实时事件
-        for await (const evt of createEventSubscription(runId, abortController.signal)) {
-          if (evt.type === 'status_change' && TERMINAL_STATUSES.includes(evt.status)) {
-            controller.enqueue(encoder.encode(`event: status\ndata: ${JSON.stringify(evt)}\n\n`))
-            break
-          }
-          if (evt.type === 'stream_event') {
-            controller.enqueue(encoder.encode(
-              `event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`,
-            ))
-          }
-          if (evt.type === 'custom_event') {
-            controller.enqueue(encoder.encode(
-              `event: custom\ndata: ${JSON.stringify(evt.data)}\n\n`,
-            ))
-          }
-        }
+        // 完成后立即关闭（SSE 连接不再需要）
+        return
       }
       catch (err) {
         logger.error(`SSE 流异常: run=${runId}`, err)

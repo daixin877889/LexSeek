@@ -3,18 +3,20 @@ import { CheckCircleIcon, Loader2Icon, HistoryIcon, ArrowLeftIcon } from 'lucide
 import { useMediaQuery } from '@vueuse/core'
 import { VisuallyHidden } from 'reka-ui'
 
-interface VersionItem {
-  id: number
-  version: number
-  isActive: boolean
-  analysisResult: string | null
-  createdAt: string
-}
-
 const props = defineProps<{
   caseId: number
   analysisType: string
   moduleTitle: string
+  /** 版本列表（由父组件传入） */
+  versions?: Array<{
+    id: number
+    version: number
+    isActive: boolean
+    analysisResult: string | null
+    createdAt: string
+  }>
+  /** 是否正在加载版本 */
+  loading?: boolean
 }>()
 
 const open = defineModel<boolean>({ default: false })
@@ -24,27 +26,34 @@ const emit = defineEmits<{
 }>()
 
 const isMobile = useMediaQuery('(max-width: 767px)')
-const versions = ref<VersionItem[]>([])
-const loading = ref(false)
-const selectedVersion = ref<VersionItem | null>(null)
+const selectedVersion = ref<{
+  id: number
+  version: number
+  isActive: boolean
+  analysisResult: string | null
+  createdAt: string
+} | null>(null)
 const activating = ref(false)
 // 移动端：是否展示预览（列表 → 预览切换）
 const mobileShowPreview = ref(false)
 
-async function fetchVersions() {
-  loading.value = true
-  try {
-    const data = await useApiFetch<VersionItem[]>(
-      `/api/v1/case/analysis/versions/${props.caseId}`,
-      { query: { analysisType: props.analysisType } },
-    )
-    versions.value = data ?? []
-    // 默认选中激活版本
-    selectedVersion.value = versions.value.find(v => v.isActive) ?? versions.value[0] ?? null
-  } finally {
-    loading.value = false
+// props.versions 变化时更新选中状态
+watch(() => props.versions, (newVersions) => {
+  if (newVersions && newVersions.length > 0) {
+    selectedVersion.value = newVersions.find(v => v.isActive) ?? newVersions[0] ?? null
   }
-}
+  else {
+    selectedVersion.value = null
+  }
+}, { immediate: true })
+
+// 关闭时重置状态
+watch(open, (val) => {
+  if (!val) {
+    selectedVersion.value = null
+    mobileShowPreview.value = false
+  }
+})
 
 async function activateVersion(versionId: number) {
   activating.value = true
@@ -52,18 +61,13 @@ async function activateVersion(versionId: number) {
     await useApiFetch(`/api/v1/case/analysis/versions/activate/${versionId}`, {
       method: 'POST',
     })
-    // 更新本地状态
-    versions.value = versions.value.map(v => ({
-      ...v,
-      isActive: v.id === versionId,
-    }))
     emit('activated')
   } finally {
     activating.value = false
   }
 }
 
-function selectVersion(version: VersionItem) {
+function selectVersion(version: { id: number; version: number; isActive: boolean; analysisResult: string | null; createdAt: string }) {
   selectedVersion.value = version
   if (isMobile.value) {
     mobileShowPreview.value = true
@@ -79,16 +83,6 @@ const { formatDate: formatDateUtil } = useFormatters()
 function formatDate(dateStr: string): string {
   return formatDateUtil(dateStr, 'MM/DD HH:mm')
 }
-
-watch(open, (val) => {
-  if (val) {
-    fetchVersions()
-    mobileShowPreview.value = false
-  } else {
-    selectedVersion.value = null
-    versions.value = []
-  }
-})
 </script>
 
 <template>
@@ -112,12 +106,12 @@ watch(open, (val) => {
       </SheetHeader>
 
       <!-- 加载中 -->
-      <div v-if="loading" class="flex-1 flex items-center justify-center">
+      <div v-if="props.loading" class="flex-1 flex items-center justify-center">
         <Loader2Icon class="size-6 animate-spin text-muted-foreground" />
       </div>
 
       <!-- 空状态 -->
-      <div v-else-if="versions.length === 0" class="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+      <div v-else-if="!props.versions?.length" class="flex-1 flex items-center justify-center text-sm text-muted-foreground">
         暂无历史版本
       </div>
 
@@ -161,7 +155,7 @@ watch(open, (val) => {
         <!-- 列表视图 -->
         <div v-else class="flex-1 overflow-y-auto">
           <button
-            v-for="v in versions"
+            v-for="v in props.versions"
             :key="v.id"
             class="w-full text-left px-4 py-3 border-b text-sm transition-colors hover:bg-muted/50"
             @click="selectVersion(v)"
@@ -185,7 +179,7 @@ watch(open, (val) => {
         <!-- 左：版本列表 -->
         <div class="w-56 shrink-0 border-r overflow-y-auto">
           <button
-            v-for="v in versions"
+            v-for="v in props.versions"
             :key="v.id"
             class="w-full text-left px-3 py-2.5 border-b text-sm transition-colors hover:bg-muted/50"
             :class="selectedVersion?.id === v.id ? 'bg-muted' : ''"

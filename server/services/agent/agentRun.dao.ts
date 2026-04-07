@@ -54,6 +54,18 @@ export async function findActiveRunBySessionIdDAO(
 }
 
 /**
+ * 查找 session 的最新 run（不限状态，用于历史重放）
+ */
+export async function findLatestRunBySessionIdDAO(
+  sessionId: string
+): Promise<agentRuns | null> {
+  return prisma.agentRuns.findFirst({
+    where: { sessionId },
+    orderBy: { createdAt: 'desc' },
+  })
+}
+
+/**
  * 原子取任务：FOR UPDATE SKIP LOCKED
  *
  * 使用 $queryRaw 实现，Prisma 不直接支持此语法。

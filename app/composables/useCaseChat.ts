@@ -58,6 +58,10 @@ export function useCaseChat(options: CaseChatOptions) {
                 command: { resume: data },
             })
         },
+        /** 触发重连并回放历史消息（页面刷新后恢复 session 时使用） */
+        reconnect: () => {
+            stream.submit(undefined)
+        },
         stopGeneration: () => stream.stop(),
         getMessagesMetadata: (message: any, index?: number) =>
             stream.getMessagesMetadata(message, index),

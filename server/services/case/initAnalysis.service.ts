@@ -41,24 +41,32 @@ export const getInitAnalysisStatusService = async (
         throw new Error('案件不存在')
     }
 
-    // 查找初始化分析 session（type=2）
-    const session = await prisma.caseSessions.findFirst({
-        where: { caseId, type: 2, deletedAt: null },
+    // 获取 type=2（初始分析）和 type=3（模块对话）的会话
+    const sessions = await prisma.caseSessions.findMany({
+        where: { caseId, type: { in: [2, 3] }, deletedAt: null },
         orderBy: { createdAt: 'desc' },
     })
 
-    if (!session) {
+    if (sessions.length === 0) {
         return { status: 'not_started', modules: [] }
     }
 
-    // 获取分析结果
+    const sessionIds = sessions.map(s => s.sessionId)
+
+    // 获取所有会话的分析结果
     const analyses = await prisma.caseAnalyses.findMany({
-        where: { sessionId: session.sessionId, deletedAt: null },
+        where: { sessionId: { in: sessionIds }, deletedAt: null },
         orderBy: { createdAt: 'asc' },
     })
 
     const modules = INIT_ANALYSIS_MODULES.map(m => {
-        const analysis = analyses.find(a => a.analysisType === m.name)
+        // 优先使用 isActive 版本（来自任意会话）
+        const activeAnalysis = analyses.find(a => a.analysisType === m.name && a.isActive)
+        // fallback 到最新版本
+        const latestAnalysis = analyses
+            .filter(a => a.analysisType === m.name)
+            .sort((a, b) => b.version - a.version)[0]
+        const analysis = activeAnalysis || latestAnalysis
         return {
             name: m.name,
             status: !analysis ? 'idle' as const
@@ -72,30 +80,36 @@ export const getInitAnalysisStatusService = async (
         }
     })
 
-    const sessionStatus = session.status === 1 ? 'in_progress' as const
-        : session.status === 2 ? 'completed' as const
+    const type2Session = sessions.find(s => s.type === 2)
+    const primarySession = type2Session ?? sessions[0]!
+    const sessionStatus = primarySession.status === 1 ? 'in_progress' as const
+        : primarySession.status === 2 ? 'completed' as const
             : 'failed' as const
 
-    // 获取已完成模块的结果
+    // 获取已完成模块的结果（包括 type=2 和 type=3 的会话）
     const result: Record<string, string> = {}
     for (const analysis of analyses) {
         if (analysis.status === 2 && analysis.analysisResult) {
-            result[analysis.analysisType] = analysis.analysisResult
+            // isActive 版本优先，否则用最新版
+            const existing = result[analysis.analysisType]
+            if (!existing || analysis.isActive) {
+                result[analysis.analysisType] = analysis.analysisResult
+            }
         }
     }
 
     // 检查是否有待处理的 interrupt（INTERRUPTED 状态的 run）
     const interruptedRun = await prisma.agentRuns.findFirst({
-        where: { sessionId: session.sessionId, status: 'interrupted' },
+        where: { sessionId: type2Session?.sessionId, status: 'interrupted' },
     })
 
-    // 从 session metadata 恢复用户原始选中的模块列表（服务端创建 session 时存储）
-    const sessionMetadata = session.metadata as { selectedModules?: string[] } | null
+    // 从 type=2 session metadata 恢复用户原始选中的模块列表
+    const sessionMetadata = (type2Session?.metadata ?? sessions[0]!.metadata) as { selectedModules?: string[] } | null
     const selectedModules = sessionMetadata?.selectedModules
 
     return {
         status: sessionStatus,
-        sessionId: session.sessionId,
+        sessionId: primarySession.sessionId,
         selectedModules,
         modules,
         result,

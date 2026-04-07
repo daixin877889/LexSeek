@@ -12,6 +12,7 @@
 
 import { effectScope } from 'vue'
 import type { ComputedRef, Ref } from 'vue'
+import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
 
 export interface ModuleChatInstance {
     /** 模块标识 */
@@ -32,6 +33,8 @@ export interface ModuleChatInstance {
     sendMessage: (message: string) => void
     /** 中止生成（SSE + Worker） */
     stopGeneration: () => void
+    /** 触发重连并回放历史（页面刷新后恢复 session 时使用） */
+    reconnect: () => void
 }
 
 export function useModuleChatManager(caseId: Ref<number>) {
@@ -117,6 +120,7 @@ export function useModuleChatManager(caseId: Ref<number>) {
                     }
                 }
             },
+            reconnect: () => chatInstance?.reconnect(),
         }
 
         instances[moduleName] = instance
@@ -131,6 +135,11 @@ export function useModuleChatManager(caseId: Ref<number>) {
             if (instances[key]) instances[key].isExpanded.value = key === moduleName
         }
         expandedModule.value = moduleName
+        // 触发重连以回放历史消息（无论 session 是否已完成）
+        const instance = instances[moduleName]
+        if (instance) {
+            instance.reconnect()
+        }
     }
 
     /** 收起所有窗口 */
@@ -153,13 +162,14 @@ export function useModuleChatManager(caseId: Ref<number>) {
         )
         if (sessions) {
             for (const session of sessions) {
-                if (session.hasActiveRun) {
-                    const instance = await getOrCreateInstance(
-                        session.moduleName,
-                        session.moduleName,
-                    )
-                    instance.isActive.value = true
-                }
+                // 始终为存在的 session 创建实例（包括已完成的）
+                const moduleDef = INIT_ANALYSIS_MODULES.find(m => m.name === session.moduleName)
+                const title = moduleDef?.title ?? session.moduleName
+                const instance = await getOrCreateInstance(session.moduleName, title)
+                // 仅标记活跃状态，不用于决定是否重连
+                instance.isActive.value = session.hasActiveRun
+                // 始终触发重连以回放历史消息
+                instance.reconnect()
             }
         }
     }

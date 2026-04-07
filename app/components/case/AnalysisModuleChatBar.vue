@@ -18,7 +18,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-    <div v-if="modules.length > 0" class="fixed bottom-4 right-4 z-30 flex flex-col gap-1">
+    <div v-if="modules.length > 0" class="fixed bottom-4 right-4 z-50 flex flex-col gap-1">
         <button v-for="mod in modules" :key="mod.moduleName"
             class="flex items-center gap-2 px-3 py-1.5 bg-background border rounded-full shadow-sm hover:shadow-md transition-shadow text-xs"
             @click="emit('expand', mod.moduleName)">
