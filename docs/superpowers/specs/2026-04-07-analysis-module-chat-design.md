@@ -136,7 +136,7 @@ export async function runModuleChat(
 ```
 
 **初始化流程**：
-1. 并发加载 checkpointer、store、节点配置（`getValidNodeConfigById(nodeId)`，**需新增**——现有 `getValidNodeConfig` 按名称查找，`getNodeConfigByIdService` 按 ID 查找但缺少 API 密钥验证。新增函数复用后者的查询 + 前者的验证逻辑）
+1. 并发加载 checkpointer、store、节点配置（`getValidNodeConfig(moduleName)`，按名称查找，自带 API 密钥验证）
 2. 创建 `createChatModel()` — 根据节点绑定的 model 配置
 3. 加载工具列表（根据节点 tools 字段：search_case_materials、search_law 等）
 4. 注册自定义工具 `save_analysis_result`
@@ -422,7 +422,6 @@ SSE stream A          SSE stream B             SSE stream C
 | `server/services/agent/agentEventBridge.ts` | 新增 publishCustomEvent 函数（独立于 publishAgentEvent） |
 | `server/api/v1/case/analysis/chat.post.ts` | SSE 转发循环中增加 custom_event 分支 |
 | `server/services/case/case.dao.ts` | 扩展 CreateSessionInput 类型，添加 type/metadata 字段 |
-| `server/services/node/node.service.ts` | 新增 getValidNodeConfigById 函数 |
 
 ---
 
@@ -447,5 +446,5 @@ SSE stream A          SSE stream B             SSE stream C
 5. **版本激活**：`save_analysis_result` 工具保存后必须调用 `activateVersionDao` 切换 isActive
 6. **积分计费**：使用 `case_analysis_token` 积分项，按 token 数计费
 7. **Session 唯一性**：每案件每模块最多一个 type=3 的 caseSession。通过应用层幂等事务保障（参考 `agentRun.dao.ts` P2002 处理模式），避免并发竞态创建多个 session
-8. **节点配置加载**：需新增 `getValidNodeConfigById(nodeId)` 函数（`node.service.ts`），复用 `getNodeConfigByIdService` 的查询 + `getValidNodeConfig` 的验证逻辑（API 密钥检查）
+8. **节点配置加载**：使用现有 `getValidNodeConfig(moduleName)`（按名称查找，自带验证），node name 唯一无需按 ID 查找
 9. **stopGeneration 双重取消**：前端中止 SSE + 后端取消 run，避免 Worker 继续消耗积分
