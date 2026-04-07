@@ -12,16 +12,6 @@ const emit = defineEmits<{
 
 const activeIndex = defineModel<number>('activeIndex', { default: 0 })
 const viewMode = defineModel<'dashboard' | 'detail'>('viewMode', { default: 'dashboard' })
-
-// 外部可以设置初始 activeIndex
-function setActiveIndex(index: number) {
-  if (index >= 0 && index < props.results.length) {
-    activeIndex.value = index
-    viewMode.value = 'detail'
-  }
-}
-
-defineExpose({ setActiveIndex })
 </script>
 
 <template>

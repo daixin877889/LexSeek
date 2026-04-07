@@ -86,9 +86,6 @@ async function openMaterialPreview(material: CaseDetailMaterialItem) {
   }
 }
 
-// --- 分析视图 ref ---
-const analysisRef = ref<{ setActiveIndex: (index: number) => void }>()
-
 // 移动端分析详情模式时隐藏页面 header（由 AnalysisResults 通过 useState 控制）
 const hideDashboardHeader = useState('hideDashboardHeader', () => false)
 
@@ -105,10 +102,9 @@ function navigateToSelectMode() {
 }
 
 function navigateToAnalysis(index: number) {
+  analysisIndex.value = index
+  analysisMode.value = 'detail'
   activeView.value = 'analysis'
-  nextTick(() => {
-    analysisRef.value?.setActiveIndex(index)
-  })
 }
 </script>
 
@@ -178,7 +174,7 @@ function navigateToAnalysis(index: number) {
             @delete-materials="deleteMaterials"
             @toggle-select-mode="toggleSelectMode"
             @toggle-selection="toggleMaterialSelection" />
-          <CaseDetailAnalysis v-else-if="activeView === 'analysis'" :key="'analysis'" ref="analysisRef" :case-id="caseId" :results="analysisResults"
+          <CaseDetailAnalysis v-else-if="activeView === 'analysis'" :key="'analysis'" :case-id="caseId" :results="analysisResults"
             v-model:active-index="analysisIndex" v-model:view-mode="analysisMode"
             @version-changed="refreshAnalysis" />
           <!-- 其他视图占位 -->
