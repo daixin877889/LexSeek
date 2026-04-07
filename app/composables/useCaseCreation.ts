@@ -45,26 +45,17 @@ export function useCaseCreation() {
     caseTypes.value = data?.items ?? []
   }
 
-  async function extractCaseInfo(message: string, files?: OssFileItem[]) {
+  async function extractCaseInfo(message: string, caseId: number) {
     isExtracting.value = true
     try {
-      // 保存上传的材料
-      if (files?.length) {
-        uploadedFiles.value = [...files]
-      }
-
-      // 用户可能只上传了文件而不输入文字
       const text = message.trim() || '请根据上传的材料提取案件信息'
-
       const result = await useApiFetch<{
         message: string
         extractedInfo?: ExtractedCaseInfo
+        materialContext?: { mode: string; totalMaterials: number }
       }>('/api/v1/case/extract', {
         method: 'POST',
-        body: {
-          message: text,
-          materials: files?.map(f => ({ ossFileId: f.id, name: f.fileName })),
-        },
+        body: { caseId, message: text },
       })
 
       if (result?.extractedInfo) {
