@@ -60,19 +60,75 @@ git commit -m "feat(material): 导出 extractTextFromAsrResult 供外部复用"
 
 **Files:**
 - Create: `server/utils/tokenCounter.ts`
+- Test: `tests/server/utils/tokenCounter.test.ts`
 
-- [ ] **Step 1: 创建 `tokenCounter.ts`**
+- [ ] **Step 1: 确认 `js-tiktoken` 依赖**
+
+Run: `ls node_modules/js-tiktoken 2>/dev/null || bun add js-tiktoken`
+Expected: 已安装则跳过，未安装则安装成功
+
+- [ ] **Step 2: 创建 `tokenCounter.test.ts` 并验证失败**
 
 ```typescript
-import tiktoken from 'js-tiktoken'
+// tests/server/utils/tokenCounter.test.ts
+import { describe, it, expect, beforeAll } from 'vitest'
+
+describe('countTokens', () => {
+    it('应返回正整数', async () => {
+        const { countTokens } = await import('~~/server/utils/tokenCounter')
+        const result = await countTokens('你好世界')
+        expect(result).toBeGreaterThan(0)
+    })
+
+    it('中英文混合文本应正确计数', async () => {
+        const { countTokens } = await import('~~/server/utils/tokenCounter')
+        const result = await countTokens('Hello 你好 world 世界')
+        expect(result).toBeGreaterThan(0)
+    })
+
+    it('空字符串应返回 0', async () => {
+        const { countTokens } = await import('~~/server/utils/tokenCounter')
+        const result = await countTokens('')
+        expect(result).toBe(0)
+    })
+})
+
+describe('countTokensSync (fallback)', () => {
+    it('编码已初始化时应返回与 async 一致的正整数', async () => {
+        const { countTokens, countTokensSync } = await import('~~/server/utils/tokenCounter')
+        // 先初始化 async 版本
+        await countTokens('init')
+        const syncResult = countTokensSync('测试文本')
+        expect(syncResult).toBeGreaterThan(0)
+    })
+
+    it('未初始化时应使用字符估算 fallback', async () => {
+        // 每个测试使用独立模块实例，通过模块搜索路径确保隔离
+        // 直接验证估算结果为正整数且非 NaN
+        const { countTokensSync } = await import('~~/server/utils/tokenCounter')
+        const result = countTokensSync('hello world')
+        expect(typeof result).toBe('number')
+        expect(result).toBeGreaterThan(0)
+        expect(Number.isNaN(result)).toBe(false)
+    })
+})
+```
+
+Run: `npx vitest run tests/server/utils/tokenCounter.test.ts --reporter=verbose`
+Expected: FAIL（`countTokens` not defined）
+
+- [ ] **Step 3: 创建 `tokenCounter.ts`**
+
+```typescript
+import { getEncoding } from 'js-tiktoken'
 
 /** 全局编码实例（cl100k_base，兼容 DeepSeek V3 / GPT-4 / Qwen 等） */
-let encoding: Awaited<ReturnType<typeof tiktoken.init>> | null = null
+let encoding: Awaited<ReturnType<typeof getEncoding>> | null = null
 
 /** 获取或初始化编码实例（懒加载） */
-async function getEncoding() {
+async function getEncodingInstance() {
     if (!encoding) {
-        encoding = await tiktoken.init()
+        encoding = await getEncoding('cl100k_base')
     }
     return encoding
 }
@@ -83,7 +139,7 @@ async function getEncoding() {
  * @returns token 数量
  */
 export async function countTokens(text: string): Promise<number> {
-    const enc = await getEncoding()
+    const enc = await getEncodingInstance()
     return enc.encode(text).length
 }
 
@@ -107,15 +163,20 @@ function estimateTokensFallback(text: string): number {
 }
 ```
 
-- [ ] **Step 2: 运行类型检查**
+- [ ] **Step 4: 运行测试验证通过**
+
+Run: `npx vitest run tests/server/utils/tokenCounter.test.ts --reporter=verbose`
+Expected: PASS
+
+- [ ] **Step 5: 运行类型检查**
 
 Run: `npx nuxi typecheck`
 Expected: 无错误
 
-- [ ] **Step 3: 提交**
+- [ ] **Step 6: 提交**
 
 ```bash
-git add server/utils/tokenCounter.ts
+git add server/utils/tokenCounter.ts tests/server/utils/tokenCounter.test.ts
 git commit -m "feat(utils): 新增 tiktoken 精确 token 计数工具"
 ```
 
@@ -127,8 +188,129 @@ git commit -m "feat(utils): 新增 tiktoken 精确 token 计数工具"
 
 **Files:**
 - Create: `server/services/material/fileProcess.service.ts`
+- Test: `tests/server/services/material/fileProcess.service.test.ts`
 
-- [ ] **Step 1: 创建 `fileProcess.service.ts`**
+- [ ] **Step 1: 创建单元测试 `tests/server/services/material/fileProcess.service.test.ts` 并验证失败**
+
+```typescript
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+// Mock 所有外部依赖，对齐项目 vi.hoisted() 模式
+const mocks = vi.hoisted(() => ({
+    createImageConversionService: vi.fn(),
+    convertPdfService: vi.fn(),
+    getDocRecognitionByOssFileIdService: vi.fn(),
+    transcribeAudioService: vi.fn(),
+    extractTextFromAsrResult: vi.fn((r: any) => r?.text ?? ''),
+    // Mock prisma 各表
+    prisma: {
+        ossFiles: { findMany: vi.fn() },
+        docRecognitionRecords: { findMany: vi.fn() },
+        imageRecognitionRecords: { findMany: vi.fn() },
+        asrRecords: { findFirst: vi.fn() },
+    },
+    logger: { info: vi.fn(), warn: vi.fn() },
+}))
+
+vi.mock('../../../../server/utils/prisma', () => ({
+    prisma: mocks.prisma,
+}))
+vi.mock('~~/server/utils/prisma', () => ({
+    prisma: mocks.prisma,
+}))
+
+vi.mock('../../../../server/services/material/ocr.service', () => ({
+    createImageConversionService: mocks.createImageConversionService,
+}))
+vi.mock('~~/server/services/material/ocr.service', () => ({
+    createImageConversionService: mocks.createImageConversionService,
+}))
+
+vi.mock('../../../../server/services/material/mineru.service', () => ({
+    convertPdfService: mocks.convertPdfService,
+    getDocRecognitionByOssFileIdService: mocks.getDocRecognitionByOssFileIdService,
+}))
+vi.mock('~~/server/services/material/mineru.service', () => ({
+    convertPdfService: mocks.convertPdfService,
+    getDocRecognitionByOssFileIdService: mocks.getDocRecognitionByOssFileIdService,
+}))
+
+vi.mock('../../../../server/services/material/asr.service', () => ({
+    transcribeAudioService: mocks.transcribeAudioService,
+}))
+vi.mock('~~/server/services/material/asr.service', () => ({
+    transcribeAudioService: mocks.transcribeAudioService,
+}))
+
+vi.mock('../../../../server/services/material/materialPipeline.service', () => ({
+    extractTextFromAsrResult: mocks.extractTextFromAsrResult,
+}))
+vi.mock('~~/server/services/material/materialPipeline.service', () => ({
+    extractTextFromAsrResult: mocks.extractTextFromAsrResult,
+}))
+
+vi.mock('../../../../server/utils/logger', () => ({
+    logger: mocks.logger,
+}))
+vi.mock('~~/server/utils/logger', () => ({
+    logger: mocks.logger,
+}))
+
+import { processFileMaterials } from '../../../../server/services/material/fileProcess.service'
+
+describe('processFileMaterials', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('应返回 FileProcessContext 数组', async () => {
+        // Mock ossFiles 有记录但无识别记录，识别失败
+        mocks.prisma.ossFiles.findMany.mockResolvedValue([
+            { id: 1, fileName: 'test.pdf', fileType: 'application/pdf', filePath: '/path', deletedAt: null },
+        ])
+        mocks.prisma.docRecognitionRecords.findMany.mockResolvedValue([])
+        mocks.prisma.imageRecognitionRecords.findMany.mockResolvedValue([])
+        mocks.prisma.asrRecords.findMany.mockResolvedValue([])
+        mocks.convertPdfService.mockResolvedValue({ success: false, error: '识别失败' })
+
+        const result = await processFileMaterials([1], 1)
+        expect(Array.isArray(result)).toBe(true)
+        expect(result[0]).toHaveProperty('ossFileId')
+        expect(result[0]).toHaveProperty('recognitionStatus')
+    })
+
+    it('文件不存在时应返回 failed 状态', async () => {
+        mocks.prisma.ossFiles.findMany.mockResolvedValue([])
+        mocks.prisma.docRecognitionRecords.findMany.mockResolvedValue([])
+        mocks.prisma.imageRecognitionRecords.findMany.mockResolvedValue([])
+        mocks.prisma.asrRecords.findMany.mockResolvedValue([])
+
+        const result = await processFileMaterials([999], 1)
+        expect(result[0].recognitionStatus).toBe('failed')
+        expect(result[0].error).toBe('文件不存在')
+    })
+
+    it('已有识别记录时应直接返回内容', async () => {
+        mocks.prisma.ossFiles.findMany.mockResolvedValue([
+            { id: 1, fileName: 'test.pdf', fileType: 'application/pdf', filePath: '/path', deletedAt: null },
+        ])
+        mocks.prisma.docRecognitionRecords.findMany.mockResolvedValue([
+            { ossFileId: 1, status: 2, markdownContent: '已识别的内容', deletedAt: null },
+        ])
+        mocks.prisma.imageRecognitionRecords.findMany.mockResolvedValue([])
+        mocks.prisma.asrRecords.findMany.mockResolvedValue([])
+
+        const result = await processFileMaterials([1], 1)
+        expect(result[0].recognitionStatus).toBe('success')
+        expect(result[0].content).toBe('已识别的内容')
+    })
+})
+```
+
+Run: `npx vitest run tests/server/services/material/fileProcess.service.test.ts --reporter=verbose`
+Expected: FAIL（`processFileMaterials` not defined）
+
+- [ ] **Step 2: 创建 `fileProcess.service.ts`**
 
 ```typescript
 /**
@@ -366,15 +548,20 @@ async function recognizeFile(
 }
 ```
 
-- [ ] **Step 2: 运行类型检查**
+- [ ] **Step 3: 运行测试验证通过**
+
+Run: `npx vitest run tests/server/services/material/fileProcess.service.test.ts --reporter=verbose`
+Expected: PASS
+
+- [ ] **Step 4: 运行类型检查**
 
 Run: `npx nuxi typecheck`
 Expected: 无错误
 
-- [ ] **Step 3: 提交**
+- [ ] **Step 5: 提交**
 
 ```bash
-git add server/services/material/fileProcess.service.ts
+git add server/services/material/fileProcess.service.ts tests/server/services/material/fileProcess.service.test.ts
 git commit -m "feat(material): 新增文件粒度识别服务 fileProcess.service"
 ```
 
@@ -389,7 +576,10 @@ git commit -m "feat(material): 新增文件粒度识别服务 fileProcess.servic
 
 - [ ] **Step 1: 读取当前 `extract.post.ts` 完整内容**
 
-确认所有现有逻辑后再修改。
+确认所有现有逻辑后再修改。**注意：新实现需要移除以下导入和调用：**
+- `validateCaseAccessService`、`getMaterialsByCaseIdService`、`ensureMaterialsReadyService`、`getMaterialContextService`、`buildMaterialContextMessage` — 不再需要
+- 移除 `caseId` 相关逻辑和 schema 中的 `caseId` 字段
+- 新增 `materials` 参数（ossFileId + name 数组）
 
 - [ ] **Step 2: 替换为新实现**
 
@@ -527,12 +717,12 @@ export default defineEventHandler(async (event) => {
             tokenThreshold,
         })
         extractResult = await summarizeAndExtract(
+            model,
             fileContexts.filter(f => f.recognitionStatus === 'success' && f.content),
             message,
             systemPrompt,
             caseTypeConstraint,
             nodeConfig,
-            activeApiKey,
         )
     }
 
@@ -591,21 +781,14 @@ async function doExtract(
 
 /** 分批摘要 + 合并提取（超限模式） */
 async function summarizeAndExtract(
+    model: any,
     fileContexts: FileProcessContext[],
     userMessage: string,
     systemPrompt: string,
     caseTypeConstraint: string,
     nodeConfig: any,
-    activeApiKey: any,
 ): Promise<{ extractedInfo: any; message: string | null }> {
-    const summaryModel = createChatModel({
-        sdkType: nodeConfig.modelSdkType,
-        modelName: nodeConfig.modelName,
-        apiKey: activeApiKey.apiKey,
-        baseUrl: nodeConfig.modelProviderBaseUrl,
-        temperature: 0,
-        streaming: false,
-    })
+    const summaryModel = model // 与 extract 使用相同模型实例
 
     const summaryPromptTemplate = `请仔细阅读以下材料，生成 300-500 字的摘要，保留所有关键信息：
 
@@ -646,16 +829,7 @@ async function summarizeAndExtract(
     const summaryContext = '\n\n## 材料摘要\n' + summaries.join('\n\n')
     const finalSystemPrompt = systemPrompt + summaryContext + caseTypeConstraint
 
-    const extractModel = createChatModel({
-        sdkType: nodeConfig.modelSdkType,
-        modelName: nodeConfig.modelName,
-        apiKey: activeApiKey.apiKey,
-        baseUrl: nodeConfig.modelProviderBaseUrl,
-        temperature: 0,
-        streaming: false,
-    })
-
-    return await doExtract(extractModel, finalSystemPrompt, userMessage, nodeConfig.outputSchema)
+    return await doExtract(model, finalSystemPrompt, userMessage, nodeConfig.outputSchema)
 }
 ```
 

@@ -1,10 +1,10 @@
 # LexSeek 项目全面评审报告
 
-> 评审日期：2026-03-20（初评） | 2026-03-28（更新）
+> 评审日期：2026-03-20（初评） | 2026-03-28（更新） | 2026-04-07（再次更新）
 > 评审方式：6 个专业评审代理并行评审 + 自动代码分析
 > 评审范围：架构设计、代码风格、安全性、代码简洁性、功能设计、UI 实现
 >
-> **本次更新说明**：基于全量代码审查结果，验证了初评问题并发现新的安全问题、代码质量问题。新增问题包括：Agent 硬编码 API Key、废弃文件残留、前端 console.log 未清理等。
+> **本次更新说明**：基于全量代码审查结果，验证了初评问题修复状态并发现新的问题。新增发现：`any` 类型使用量增加至 307 处（server 179 + app 128），API Key 已迁移到数据库但 seedData.sql 仍含生产密钥，邀请码生成仍使用不安全随机数等。
 
 ---
 
@@ -36,25 +36,24 @@
 
 #### CRITICAL
 
-**C1. API 路由命名冲突：`/api/v1/case` 和 `/api/v1/cases` 共存**
+**C1. API 路由命名冲突：`/api/v1/case` 和 `/api/v1/cases` 共存** ❌ 未修复
 - 位置：`server/api/v1/case/` 和 `server/api/v1/cases/`
-- 问题：两个路径同时存在，语义不明。`case/` 下有 `create.post.ts`、`[caseId].get.ts`、`analysis/`、`session/` 等；`cases/` 下有 `index.get.ts` 和 `[caseId]/` 子目录
+- 问题：两个路径同时存在，语义不明。`case/` 下有 22 个接口；`cases/` 下有 2 个接口
 - 影响：违反 RESTful 命名一致性原则，前端调用方容易混淆
 - 建议：统一为 `/api/v1/cases`，单数路径 `/case` 下的接口迁移到复数路径
 
 **C2. 时区处理方案存在风险** ✅ 已修复
 - 位置：`server/utils/db.ts`
-- 原问题：通过 Prisma `$extends` 拦截所有数据库操作，手动加减 8 小时偏移来处理时区
-- **修复状态**：已改用 `PrismaPg` 适配器并设置 `options: '-c TimeZone=UTC'`，避免双偏移 bug
+- 修复状态：已改用 `PrismaPg` 适配器并设置 `options: '-c TimeZone=UTC'`，避免双偏移 bug
 - 剩余风险：`$rawQuery` 和 `$executeRaw` 仍需注意时区处理
 
 #### HIGH
 
-**H1. 多个服务文件超过 800 行限制**
+**H1. 多个服务文件超过 800 行限制** ❌ 未修复
 
 | 文件 | 行数 | 类型 |
 |------|------|------|
-| `server/services/material/asr.service.ts` | **1456** | 服务层 |
+| `server/services/material/asr.service.ts` | **1458** | 服务层 |
 | `server/services/material/materialEmbedding.service.ts` | **1373** | 服务层 |
 | `app/components/general/audio/AudioVisualization.vue` | **1332** | 组件 |
 | `shared/utils/tools/interestService.ts` | **1195** | 工具类 |
@@ -80,8 +79,7 @@
 
 **H5. 废弃文件未清理** ✅ 已修复
 - 位置：`server/api/v1/case/analysis/agents.post copy.ts`
-- 问题：测试文件副本残留在代码库中
-- **修复状态**：2026-03-28 已删除
+- **修复状态**：已删除
 
 #### MEDIUM
 
@@ -112,7 +110,13 @@
 
 #### CRITICAL
 
-**`any` 类型滥用 — 100+ 处**
+**`any` 类型滥用 — 307 处（较上次增加）**
+
+| 区域 | 数量 | 说明 |
+|------|------|------|
+| server | 179 处 | 分布在 100 个文件 |
+| app | 128 处 | 分布在 52 个文件 |
+| **总计** | **307 处** | |
 
 典型场景：
 - 动态 where 条件：`const where: any = {}` — 应使用 `Prisma.xxxWhereInput`
@@ -121,30 +125,34 @@
 - catch error：`catch (error: any)` vs `catch (error)` 混用
 
 **高风险位置**：
-- `server/services/agent/caseAgent.ts:122-127` - DeepAgent 类型
-- `server/services/agent/main.ts:69-78` - Agent 主入口
-- `server/lib/aliSms.ts:6,17` - 阿里云短信客户端
+- `server/services/workflow/caseAnalysisV2.workflow.ts:244` - `as any` 类型断言
+- `server/services/agent/agentWorker.ts:228,239` - `any[]` 和 `as any`
+- `server/services/material/asr.service.ts` - 15 处 any
+- `server/lib/payment/base.ts` - 签名生成逻辑
 
 #### HIGH
 
-**错误处理模式不统一**
+**错误处理模式不统一** ❌ 部分改善
 
 - 旧代码：`catch (error: any)` + `error.message`
 - 新代码：`catch (error)` + `parseErrorMessage(error, '默认信息')`
 - DAO 层过度 try-catch：每个函数都 catch-log-rethrow，无意义的样板代码
 
-**`readBody` vs `readValidatedBody` 混用**
+**`readBody` vs `readValidatedBody` 混用** ❌ 未修复
 
 - 模式 A：`readBody` + `schema.safeParse`（大部分文件）
 - 模式 B：`readValidatedBody` + `schema.parse`（少数文件）
 - 建议：统一使用一种模式
 
-**日志工具混用**
+**日志工具混用** ⚠️ 部分改善
 
 - 服务端混用 `console.log/error` 和项目 `logger`
-- 前端存在调试用 `console.log` 未清理
-  - `app/composables/useLegalEditorCache.ts` - 4 处
-  - `app/composables/useCaseAnalysis.ts` - 2 处
+- 前端 console.log 仍在 15+ 文件中存在
+  - `app/composables/useLegalEditorCache.ts`
+  - `app/composables/useCaseAnalysis.ts`
+  - `app/pages/landing/[invitedBy].vue`
+  - `app/pages/dashboard/settings/security.vue`
+  - 等
 
 #### MEDIUM
 
@@ -172,40 +180,59 @@
 
 | 编号 | 问题 | 风险等级 | 文件位置 | OWASP | 状态 |
 |------|------|----------|----------|-------|------|
-| C1 | **微信支付签名验证可跳过** — 未配置 platformCert 时 `verifySignature()` 返回 true | CRITICAL | `server/lib/payment/adapters/wechat-pay.ts:419-423` | A07 | 待修复 |
-| C2 | **OSS 回调无来源签名验证** — 任何人可构造请求修改文件状态 | CRITICAL | `server/api/v1/storage/callback/.post.ts` | A01 | 待修复 |
-| C3 | **JWT 密钥硬编码默认值** `lexseek_jwt_secret` | HIGH | `nuxt.config.ts:150` | A02 | 待修复 |
-| C4 | **.env/.env.testing 含真实生产凭证** — 阿里云 AK、微信私钥、API Key | CRITICAL | `.env`, `.env.testing` | A02 | 待修复 |
-| C5 | **Agent 硬编码 API Key** | CRITICAL | `server/services/agent/main.ts` | A02 | 待修复 |
+| C1 | **微信支付签名验证可跳过** — 未配置 platformCert 时 `verifySignature()` 返回 true | CRITICAL | `server/lib/payment/adapters/wechat-pay.ts:419-423` | A07 | **未修复** |
+| C2 | **OSS 回调无来源签名验证** — 任何人可构造请求修改文件状态 | CRITICAL | `server/api/v1/storage/callback/.post.ts` | A01 | **未修复** |
+| C3 | **JWT 密钥硬编码默认值** `lexseek_jwt_secret` | HIGH | `nuxt.config.ts:166` | A02 | **未修复** |
+| C4 | **seedData.sql 含真实生产 API Keys** | CRITICAL | `prisma/seeds/seedData.sql:795-803` | A02 | **未修复** |
+| C5 | **Agent 硬编码 API Key** | CRITICAL | - | A02 | ✅ **已修复** |
 
-**C5. Agent 硬编码 API Key**（新增）
-- 位置：`server/services/agent/main.ts`
-- 问题：DeepSeek API Key 直接硬编码在源代码中
-- 风险：密钥泄露，可能被滥用导致额度耗尽
-- 建议：迁移到环境变量，添加启动时校验
+**C4. seedData.sql 包含生产 API Keys（新增关注）**
+- 位置：`prisma/seeds/seedData.sql:795-803`
+- 发现内容：
+  - DeepSeek: `sk-62418816f329463b8608cab7851fe4da`
+  - SiliconFlow: `sk-ltmxpphtpcrkmkqekedmwbeimktrylnmhgatjkwarbayggbp`
+  - Bailian: `sk-e6bf4c958f0743b09d4dac074211a8be`
+  - 月之暗面: `sk-l3j8vDrK49b69TLDbPCdjcsDeiYbg0Qk1D7KOYEKT6CZKfzD`
+- 建议：使用环境变量引用或占位符，seed 脚本运行时替换
 
 #### HIGH
 
 | 编号 | 问题 | OWASP | 文件位置 | 状态 |
 |------|------|-------|----------|------|
-| H1 | **密码登录无速率限制**，可暴力破解 | A07 | `server/api/v1/auth/login/password.post.ts` | 待修复 |
-| H2 | **缺少安全响应头**（CSP、X-Frame-Options、X-Content-Type-Options 等） | A05 | 全局中间件缺失 | 待修复 |
-| H3 | SMS 速率限制基于内存 Map，多实例部署失效 | A07 | `server/api/v1/sms/send.post.ts` | 待修复 |
-| H4 | 支付回调不验证金额一致性 | A04 | `server/services/payment/payment.service.ts` | 待修复 |
-| H5 | 支付密钥配置无启动检查，使用空字符串默认值 | A05 | `nuxt.config.ts` | 待修复 |
+| H1 | **密码登录无速率限制**，可暴力破解 | A07 | `server/api/v1/auth/login/password.post.ts` | **未修复** |
+| H2 | **缺少安全响应头**（CSP、X-Frame-Options、X-Content-Type-Options 等） | A05 | 全局中间件缺失 | **未修复** |
+| H3 | SMS 速率限制基于内存 Map，多实例部署失效 | A07 | `server/api/v1/sms/send.post.ts` | **未修复** |
+| H4 | 支付回调不验证金额一致性 | A04 | `server/services/payment/payment.service.ts` | **未修复** |
+| H5 | 支付密钥配置无启动检查，使用空字符串默认值 | A05 | `nuxt.config.ts` | **未修复** |
 
 #### MEDIUM
 
 | 编号 | 问题 | OWASP | 文件位置 | 状态 |
 |------|------|-------|----------|------|
-| M1 | `v-html` 渲染未转义用户内容（XSS） | A03 | 待定位 | 待修复 |
-| M2 | 登录错误信息泄露用户是否存在（"用户不存在" vs "密码错误"） | A07 | `server/api/v1/auth/login/password.post.ts` | 待修复 |
-| M3 | 权限缓存无 TTL，修改权限后用户仍持有旧权限 | - | - | 待修复 |
-| M4 | Token 黑名单 `deleteExpiredTokenBlacklistDao` 已实现但从未被调用 | - | - | 待修复 |
-| M5 | 邀请码使用 `Math.random()` 而非密码学安全随机数 | A02 | - | 待修复 |
-| M6 | MinerU 上传未限制 Base64 大小，可能导致 OOM | - | - | 待修复 |
-| M7 | OSS 公钥 URL 验证使用 `startsWith` 前缀匹配，可被构造恶意 URL 绕过 | - | - | 待修复 |
-| M8 | 缺少全局 API 速率限制 | - | - | 待修复 |
+| M1 | `v-html` 渲染未转义用户内容（XSS） | A03 | 待定位 | **未修复** |
+| M2 | 登录错误信息泄露用户是否存在（"用户不存在" vs "密码错误"） | A07 | `server/api/v1/auth/login/password.post.ts:19,31` | **未修复** |
+| M3 | 权限缓存无 TTL，修改权限后用户仍持有旧权限 | - | - | **未修复** |
+| M4 | Token 黑名单 `deleteExpiredTokenBlacklistDao` 已实现但从未被调用 | - | - | **未修复** |
+| M5 | **邀请码使用 `Math.random()` 而非密码学安全随机数** | A02 | `server/utils/password.ts:51-57` | **未修复** |
+| M6 | MinerU 上传未限制 Base64 大小，可能导致 OOM | - | - | **未修复** |
+| M7 | OSS 公钥 URL 验证使用 `startsWith` 前缀匹配，可被构造恶意 URL 绕过 | - | - | **未修复** |
+| M8 | 缺少全局 API 速率限制 | - | - | **未修复** |
+
+**M5. 邀请码生成不安全（详细说明）**
+```typescript
+// server/utils/password.ts:51-57
+export function generateRandomCode(): string {
+    const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let code = "";
+    for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+}
+```
+- 问题：`Math.random()` 不是密码学安全的随机数生成器
+- 影响：攻击者可预测邀请码，实施邀请欺诈
+- 建议：使用 `crypto.randomUUID()` 或 `crypto.getRandomValues()`
 
 #### LOW
 
@@ -232,8 +259,8 @@
 | 问题 | 位置 | 重复次数 | 优先级 |
 |------|------|---------|--------|
 | `useApi` 和 `useApiFetch` 中 401 处理逻辑完全重复 | `app/composables/useApi.ts:42-58` 和 `useApiFetch.ts:74-90` | 2 | HIGH |
-| PrismaClient 类型定义重复 | 30+ 个服务文件 | 35+ | HIGH |
-| parseSSEMessage 函数重复 | `useCaseAnalysis.ts:166-181` 和 `226-241` | 2 (同一文件) | MEDIUM |
+| PrismaClient 类型定义重复 | 多个服务文件 | 多个 | HIGH |
+| parseSSEvents 函数重复 | `useCaseAnalysis.ts:166-181` 和 `226-241` | 2 (同一文件) | MEDIUM |
 | 会员信息映射逻辑重复（dayjs 格式化、sourceTypeName 转换） | `userMembership.service.ts` | 3 | MEDIUM |
 | OSS 文件信息合并逻辑重复（Map 构建 + 过滤 + 合并，每处 ~35 行） | `material.service.ts` | 3 | MEDIUM |
 
@@ -241,7 +268,7 @@
 
 | 问题 | 影响范围 |
 |------|---------|
-| `type PrismaClient = typeof prisma` 在 35 个文件中重复定义 | 35 个文件 |
+| `type PrismaClient = typeof prisma` 在多个文件中重复定义 | 多个文件 |
 | Service 层薄包装函数（直接转发 DAO，无业务逻辑） | 9+ 处 |
 | DAO 层每个函数 try-catch-log-rethrow 模板代码 | 全部 DAO 文件 |
 
@@ -276,29 +303,30 @@
 | RBAC 权限 | 8/10 | 权限变更延迟，黑名单无缓存 | 待优化 |
 | 法律知识库 | 8/10 | 缺批量操作 | 待完善 |
 | 文件管理/识别 | 7.5/10 | 回调无签名验证，ASR 时长默认值 | 待修复 |
-| 案件管理 | 7/10 | 缺 UPDATE/DELETE API 端点，硬编码 API Key | 待修复 |
-| 认证系统 | 7/10 | 缺登录限流、Token 刷新 | 待完善 |
+| 案件管理 | 7/10 | 命名不一致，API Key 已迁移 | 部分改善 |
+| 认证系统 | 7/10 | 缺登录限流、Token 刷新、错误信息泄露 | 待修复 |
 | 积分系统 | 7/10 | 缺统一消耗接口 | 待完善 |
 | 兑换码 | 7/10 | 缺管理端点 | 待完善 |
-| 营销/邀请 | 6/10 | API 导入被注释，缺管理端点 | 待修复 |
+| 营销/邀请 | 6/10 | API 导入被注释，缺管理端点，邀请码不安全 | 待修复 |
 
 ### 紧急功能问题
 
-1. **Agent 硬编码 DeepSeek API Key** (`sk-62418816...`) — `server/services/agent/main.ts`
+1. ~~**Agent 硬编码 DeepSeek API Key** (`sk-62418816...`)~~ ✅ 已修复 — API Key 现从数据库 `model_api_keys` 表读取
 2. **SSE 流端点使用硬编码测试文本**而非案件实际内容
-3. **案件缺 UPDATE/DELETE API 端点** — 服务层已实现但未暴露
+3. **案件 UPDATE 端点已添加** — `server/api/v1/case/[caseId].put.ts` 已存在
 4. **ASR 音频时长默认 60 分钟**导致积分扣费不准确
+5. **seedData.sql 包含生产 API Keys** — 需要清理
 
 ### 功能缺口汇总
 
 **案件管理**：
-- 缺失 PUT /case/[caseId] 端点（updateCaseService 已实现但未暴露）
-- 缺失 DELETE 端点（deleteCaseService 已实现但未暴露）
+- 缺失 DELETE 端点（`deleteCaseService` 已实现但未暴露）
 - 缺少创建新分析会话的 API
 
 **认证系统**：
 - 缺少 Token 刷新机制（无 refresh_token）
 - 缺少全局速率限制中间件
+- 登录错误信息泄露用户是否存在
 
 **支付系统**：
 - 缺少退款功能（无退款 API 和退款回调处理）
@@ -312,6 +340,7 @@
 - 营销活动 API 端点导入被注释，自动导入不工作
 - 兑换码缺少管理员创建/作废/导出 API
 - 邀请系统缺少转化追踪和 SEO 优化
+- 邀请码使用不安全随机数
 
 ---
 
@@ -379,17 +408,17 @@
 
 ### P0 — 上线前必须修复（预估 2-3 天）
 
-| 编号 | 问题 | 来源 | 文件位置 |
-|------|------|------|----------|
-| 1 | 移除 Agent 硬编码 API Key | 功能/安全 | `server/services/agent/main.ts` |
-| 2 | JWT 默认密钥改为空字符串，启动时校验 | 安全 | `nuxt.config.ts:150` |
-| 3 | 微信支付签名验证强制启用 | 安全 | `server/lib/payment/adapters/wechat-pay.ts:419-423` |
-| 4 | OSS 回调添加来源签名验证 | 安全 | `server/api/v1/storage/callback/.post.ts` |
-| 5 | 轮换 .env.testing 中的所有生产密钥 | 安全 | `.env`, `.env.testing` |
-| 6 | 添加密码登录速率限制 | 安全 | `server/api/v1/auth/login/password.post.ts` |
-| 7 | 统一登录错误信息（"用户名或密码错误"） | 安全 | `server/api/v1/auth/login/password.post.ts` |
-| 8 | 删除废弃文件 `agents.post copy.ts` | 简洁性 | ✅ 已修复 |
-| 9 | 清理前端 console.log | 风格 | `app/composables/useLegalEditorCache.ts`, `useCaseAnalysis.ts` |
+| 编号 | 问题 | 来源 | 文件位置 | 状态 |
+|------|------|------|----------|------|
+| 1 | ~~移除 Agent 硬编码 API Key~~ | 功能/安全 | - | ✅ 已修复 |
+| 2 | JWT 默认密钥改为空字符串，启动时校验 | 安全 | `nuxt.config.ts:166` | **未修复** |
+| 3 | 微信支付签名验证强制启用 | 安全 | `server/lib/payment/adapters/wechat-pay.ts:419-423` | **未修复** |
+| 4 | OSS 回调添加来源签名验证 | 安全 | `server/api/v1/storage/callback/.post.ts` | **未修复** |
+| 5 | 清理 seedData.sql 中的生产密钥 | 安全 | `prisma/seeds/seedData.sql:795-803` | **未修复** |
+| 6 | 添加密码登录速率限制 | 安全 | `server/api/v1/auth/login/password.post.ts` | **未修复** |
+| 7 | 统一登录错误信息（"用户名或密码错误"） | 安全 | `server/api/v1/auth/login/password.post.ts:19,31` | **未修复** |
+| 8 | ~~删除废弃文件 `agents.post copy.ts`~~ | 简洁性 | - | ✅ 已修复 |
+| 9 | 清理前端 console.log | 风格 | 15+ 文件 | **未修复** |
 
 ### P1 — 2 周内修复（预估 3-5 天）
 
@@ -401,7 +430,7 @@
 | 4 | 提取 `toUserMembershipInfo()` 辅助函数 | 简洁性 |
 | 5 | 提取 `enrichMaterialsWithFileInfo()` 辅助函数 | 简洁性 |
 | 6 | 统一 `PrismaClient` 类型定义 | 风格 |
-| 7 | 拆分超长文件（`asr.service.ts` 1456 行） | 架构/风格 |
+| 7 | 拆分超长文件（`asr.service.ts` 1458 行） | 架构/风格 |
 | 8 | 创建 EmptyState、StatusBadge 通用组件 | UI |
 | 9 | 修复 403 页面和登录页深色模式/组件 | UI |
 | 10 | 逐步替换硬编码颜色为语义化颜色 | UI |
@@ -410,7 +439,7 @@
 
 | 编号 | 问题 | 来源 |
 |------|------|------|
-| 1 | 消除 `any` 类型（100+ 处） | 风格 |
+| 1 | 消除 `any` 类型（307 处） | 风格 |
 | 2 | 统一错误处理模式 | 风格 |
 | 3 | 移除 DAO 层无意义 try-catch-rethrow | 简洁性 |
 | 4 | 速率限制迁移 Redis | 安全 |
@@ -436,6 +465,7 @@
 | 9 | 审查并精简依赖包（119 个） | 架构 |
 | 10 | Token 黑名单定时清理任务 | 安全 |
 | 11 | 拆分 useCaseAnalysis.ts（1009 行） | UI/架构 |
+| 12 | 邀请码使用密码学安全随机数 | 安全 |
 
 ---
 
@@ -450,6 +480,7 @@
 - [x] 功能设计审查
 - [x] UI 实现审查
 - [x] 删除废弃文件 `agents.post copy.ts`
+- [x] Agent API Key 迁移到数据库
 
 ### 待完成
 
@@ -460,4 +491,29 @@
 
 ---
 
-*最后更新：2026-03-28*
+## 本次更新摘要（2026-04-07）
+
+### 已修复问题
+1. ✅ Agent 硬编码 API Key 已迁移到数据库 `model_api_keys` 表
+2. ✅ 废弃文件 `agents.post copy.ts` 已删除
+3. ✅ 时区处理已改用 PrismaPg 适配器
+
+### 新发现问题
+1. ⚠️ `any` 类型使用量增加至 307 处（server 179 + app 128）
+2. ⚠️ seedData.sql 包含生产 API Keys（5 个密钥）
+3. ⚠️ 邀请码生成仍使用 `Math.random()` 而非密码学安全随机数
+4. ⚠️ 登录错误信息仍泄露用户是否存在
+
+### 未修复问题
+1. 微信支付签名验证可跳过
+2. OSS 回调无签名验证
+3. JWT 密钥默认值
+4. 密码登录无速率限制
+5. 缺少安全响应头
+6. API 路由命名不一致
+7. 超长文件未拆分
+8. 深色模式硬编码颜色问题
+
+---
+
+*最后更新：2026-04-07*
