@@ -136,7 +136,7 @@ export class AgentWorker {
       let stream: ReadableStream
       const session = await prisma.caseSessions.findUnique({
         where: { sessionId: run.sessionId },
-        select: { type: true },
+        select: { type: true, metadata: true },
       })
 
       if (session?.type === 2) {
@@ -148,6 +148,18 @@ export class AgentWorker {
           caseId: run.caseId,
           selectedModules: input.selectedModules ?? [],
           command: input.command,
+        })
+      } else if (session?.type === 3) {
+        // 模块对话
+        const { runModuleChat } = await import('../workflow/agents/moduleAgent')
+        const metadata = session.metadata as { moduleName: string; nodeId: number }
+        stream = await runModuleChat(run.sessionId, input.message, {
+          userId: run.userId,
+          caseId: run.caseId,
+          moduleName: metadata.moduleName,
+          nodeId: metadata.nodeId,
+          command: input.command,
+          runId: run.id,
         })
       } else {
         // 普通案件对话

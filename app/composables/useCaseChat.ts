@@ -14,6 +14,8 @@ import type { BaseMessage } from '@langchain/core/messages'
 export interface CaseChatOptions {
     /** 会话 ID（作为 thread_id） */
     sessionId: string
+    /** 自定义事件回调（用于模块对话接收 analysis_result_saved 等事件） */
+    onCustomEvent?: (data: any) => void
 }
 
 interface CaseAgentState {
@@ -31,6 +33,7 @@ export function useCaseChat(options: CaseChatOptions) {
         transport,
         threadId: sessionId,
         messagesKey: 'messages',
+        onCustomEvent: options.onCustomEvent,
         onError: (error) => {
             console.error('[useCaseChat] 流错误:', error)
         },

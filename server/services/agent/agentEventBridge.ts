@@ -1,4 +1,4 @@
-import type { AgentEvent, AgentStreamEvent, AgentStatusEvent } from '#shared/types/agentRun'
+import type { AgentEvent, AgentStreamEvent, AgentStatusEvent, AgentCustomEvent } from '#shared/types/agentRun'
 import { getRedisClient, createRedisSubscription } from '~~/server/lib/redis'
 
 // ==================== 内存降级队列 ====================
@@ -117,6 +117,30 @@ export async function publishStatusChange(event: AgentStatusEvent): Promise<void
   catch (err) {
     logger.error('Agent event bridge: publishStatusChange 失败，降级到内存队列:', err)
     enqueuePending(event)
+  }
+}
+
+/** 发布自定义事件（用于模块对话的 analysis_result_saved 等） */
+export async function publishCustomEvent(event: AgentCustomEvent): Promise<void> {
+  if (!isRedisReady()) {
+    enqueuePending(event as unknown as AgentStreamEvent)
+    return
+  }
+
+  const redis = getRedisClient()
+  const payload = JSON.stringify(event)
+  try {
+    await Promise.all([
+      redis.publish(`run:${event.runId}`, payload),
+      redis.xadd(
+        `run_events:${event.runId}`, 'MAXLEN', '~', '2000', '*',
+        'payload', payload,
+      ),
+    ])
+  }
+  catch (err) {
+    logger.error('Agent event bridge: publishCustomEvent 失败，降级到内存队列:', err)
+    enqueuePending(event as unknown as AgentStreamEvent)
   }
 }
 

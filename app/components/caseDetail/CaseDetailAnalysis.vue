@@ -8,6 +8,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   versionChanged: []
+  regenerate: [result: AnalysisResult]
 }>()
 
 const activeIndex = defineModel<number>('activeIndex', { default: 0 })
@@ -26,6 +27,7 @@ const viewMode = defineModel<'dashboard' | 'detail'>('viewMode', { default: 'das
       :show-versions="true"
       class="h-full"
       @version-changed="emit('versionChanged')"
+      @regenerate="(result) => emit('regenerate', result)"
     />
   </div>
 </template>

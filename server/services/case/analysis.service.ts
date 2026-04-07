@@ -116,6 +116,42 @@ export const saveAnalysisResultService = async (
 }
 
 /**
+ * 保存分析结果并在同一事务内激活版本
+ * 用于模块对话 Agent 的 save_analysis_result 工具
+ *
+ * @param data 保存数据
+ * @returns 保存的分析结果（已激活）
+ */
+export const saveAndActivateAnalysisService = async (
+    data: SaveAnalysisInput,
+): Promise<caseAnalyses> => {
+    return await prisma.$transaction(async (tx) => {
+        // 获取下一个版本号
+        const version = await getNextVersionDao(data.caseId, data.nodeId, tx)
+
+        // 创建新版本记录
+        const analysis = await createAnalysisDao(
+            {
+                caseId: data.caseId,
+                sessionId: data.sessionId,
+                nodeId: data.nodeId,
+                analysisType: data.analysisType,
+                analysisResult: data.analysisResult,
+                originalResult: data.originalResult ?? null,
+                version,
+                status: AnalysisStatus.COMPLETED,
+            },
+            tx,
+        )
+
+        // 在同一事务内激活新版本
+        await activateVersionDao(analysis.id, data.caseId, data.nodeId, tx)
+
+        return analysis
+    })
+}
+
+/**
  * 开始分析（创建进行中状态的记录）
  * 用于在分析开始时创建记录，后续更新结果
  *

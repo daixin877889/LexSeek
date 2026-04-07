@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { ActiveView, CaseDetailMaterialItem } from '~/composables/useCaseDetail'
+import type { AnalysisResult } from '#shared/types/case'
 import { CaseMaterialType } from '#shared/types/case'
 import { ArrowLeftIcon, FileTextIcon, DownloadIcon } from 'lucide-vue-next'
 import { VisuallyHidden } from 'reka-ui'
@@ -108,6 +109,25 @@ function navigateToAnalysis(index: number) {
   analysisMode.value = 'detail'
   activeView.value = 'analysis'
 }
+
+// --- 模块对话管理 ---
+const moduleChatManager = useModuleChatManager(caseId)
+
+async function handleModuleRegenerate(result: AnalysisResult) {
+  await moduleChatManager.getOrCreateInstance(result.moduleName, result.moduleTitle)
+  moduleChatManager.expandModule(result.moduleName)
+}
+
+// 当前展开的模块实例（用于模板绑定，避免 undefined）
+const expandedChatInstance = computed(() => {
+  const name = moduleChatManager.expandedModule.value
+  return name ? moduleChatManager.instances[name] : undefined
+})
+
+// 页面刷新后恢复活跃 session
+onMounted(() => {
+  moduleChatManager.restoreActiveSessions()
+})
 </script>
 
 <template>
@@ -178,7 +198,8 @@ function navigateToAnalysis(index: number) {
             @toggle-selection="toggleMaterialSelection" />
           <CaseDetailAnalysis v-else-if="activeView === 'analysis'" :key="'analysis'" :case-id="caseId" :results="analysisResults"
             v-model:active-index="analysisIndex" v-model:view-mode="analysisMode"
-            @version-changed="refreshAnalysis" />
+            @version-changed="refreshAnalysis"
+            @regenerate="handleModuleRegenerate" />
           <!-- 其他视图占位 -->
           <div v-else :key="'placeholder'" class="flex items-center justify-center h-full text-muted-foreground">
             当前视图：{{ activeView }}
@@ -191,6 +212,24 @@ function navigateToAnalysis(index: number) {
     <div v-show="!hideDashboardHeader" class="md:hidden shrink-0">
       <CaseDetailBottomTabs v-model="activeView" />
     </div>
+
+    <!-- 模块对话悬浮窗 -->
+    <ClientOnly>
+      <CaseAnalysisModuleChat
+        v-if="expandedChatInstance"
+        v-model="expandedChatInstance.isExpanded.value"
+        :case-id="caseId"
+        :chat-instance="expandedChatInstance"
+      />
+    </ClientOnly>
+
+    <!-- 模块对话最小化状态条 -->
+    <ClientOnly>
+      <CaseAnalysisModuleChatBar
+        :modules="moduleChatManager.activeModules.value.filter(m => !m.isExpanded.value)"
+        @expand="moduleChatManager.expandModule"
+      />
+    </ClientOnly>
 
     <!-- 小索助手 - 提升到此层级以覆盖 header -->
     <ClientOnly>

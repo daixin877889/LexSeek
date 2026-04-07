@@ -172,9 +172,16 @@ export default defineEventHandler(async (event) => {
         // 补发缺失事件（重连场景）
         const missed = await replayEvents(runId)
         for (const evt of missed) {
-          const sseData = evt.type === 'stream_event'
-            ? `event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`
-            : `event: status\ndata: ${JSON.stringify(evt)}\n\n`
+          let sseData: string
+          if (evt.type === 'stream_event') {
+            sseData = `event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`
+          }
+          else if (evt.type === 'custom_event') {
+            sseData = `event: custom\ndata: ${JSON.stringify(evt.data)}\n\n`
+          }
+          else {
+            sseData = `event: status\ndata: ${JSON.stringify(evt)}\n\n`
+          }
           controller.enqueue(encoder.encode(sseData))
         }
 
@@ -193,6 +200,11 @@ export default defineEventHandler(async (event) => {
           if (evt.type === 'stream_event') {
             controller.enqueue(encoder.encode(
               `event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`,
+            ))
+          }
+          if (evt.type === 'custom_event') {
+            controller.enqueue(encoder.encode(
+              `event: custom\ndata: ${JSON.stringify(evt.data)}\n\n`,
             ))
           }
         }

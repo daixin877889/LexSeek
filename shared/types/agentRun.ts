@@ -31,4 +31,12 @@ export interface AgentStatusEvent {
   status: AgentRunStatus
 }
 
-export type AgentEvent = AgentStreamEvent | AgentStatusEvent
+export interface AgentCustomEvent {
+  type: 'custom_event'
+  runId: string
+  sessionId: string
+  name: string
+  data: unknown
+}
+
+export type AgentEvent = AgentStreamEvent | AgentStatusEvent | AgentCustomEvent

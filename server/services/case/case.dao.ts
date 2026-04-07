@@ -76,6 +76,8 @@ export const createSessionDao = async (
                 sessionId: data.sessionId,
                 caseId: data.caseId,
                 status: data.status ?? SessionStatus.IN_PROGRESS,
+                type: data.type ?? 1,
+                metadata: data.metadata ? (data.metadata as Prisma.InputJsonValue) : undefined,
             },
         })
         return session

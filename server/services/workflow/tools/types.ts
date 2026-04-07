@@ -40,6 +40,8 @@ export interface ToolContext {
     caseId: number
     /** 会话 ID */
     sessionId: string
+    /** 运行 ID（模块对话工具需要） */
+    runId?: string
 }
 
 /** 工具定义（单一数据源） */
