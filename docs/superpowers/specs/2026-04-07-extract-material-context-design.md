@@ -98,8 +98,9 @@ function estimateTokens(text: string): number {
 
 ```typescript
 import { CaseMaterialType, getMaterialTypeFromMime } from '#shared/types/case'
+import { extractTextFromAsrResult } from './materialPipeline.service'
 import { createImageConversionService } from './ocr.service'
-import { convertPdfService, getDocRecognitionByOssFileIdService } from './mineru.service'
+import { convertPdfService, getDocRecognitionByOssFileIdService, pollTaskStatusService } from './mineru.service'
 import { transcribeAudioService } from './asr.service'
 
 /**
@@ -265,20 +266,50 @@ function findExistingContent(
 }
 
 /**
- * 从 ASR result JSON 提取纯文本
+ * 统一等待识别完成（适用于异步识别类型）
+ *
+ * 两个底层服务均已内置后台轮询机制：
+ * - convertPdfService 内部调用 startTaskPollingService
+ * - transcribeAudioService 内部调用 startAsrTaskPollingService
+ *
+ * 当前函数仅查询 DB 状态，不重复启动轮询。
+ *
+ * @param taskId 任务 ID（从 submitResult.task.taskId 获取）
+ * @param type 识别类型
+ * @param ossFileId OSS 文件 ID
+ * @returns 识别完成后的文本内容
+ * @throws 识别超时
  */
-function extractTextFromAsrResult(result: any): string | null {
-    if (!result) return null
-    if (result.sentences && Array.isArray(result.sentences)) {
-        const text = result.sentences.map((s: any) => s.text || '').filter(Boolean).join('\n')
-        if (text) return text
+async function waitForRecognitionComplete(
+    taskId: string,
+    type: 'doc' | 'audio',
+    ossFileId: number,
+): Promise<string> {
+    const MAX_WAIT_MS = 5 * 60 * 1000
+    const INTERVAL_MS = type === 'doc' ? 5000 : 3000
+    const startTime = Date.now()
+
+    while (Date.now() - startTime < MAX_WAIT_MS) {
+        await new Promise(resolve => setTimeout(resolve, INTERVAL_MS))
+
+        if (type === 'doc') {
+            // MinerU：使用已导出的 pollTaskStatusService
+            const record = await getDocRecognitionByOssFileIdService(ossFileId)
+            if (record?.markdownContent) return record.markdownContent
+        } else {
+            // ASR：直接查询 DB
+            const record = await prisma.asrRecords.findFirst({
+                where: { ossFileId, status: 2, deletedAt: null },
+                select: { summary: true, result: true },
+            })
+            if (record) {
+                const content = record.summary || extractTextFromAsrResult(record.result)
+                if (content) return content
+            }
+        }
     }
-    if (result.transcripts && Array.isArray(result.transcripts)) {
-        const text = result.transcripts.flatMap((t: any) => t.sentences || []).map((s: any) => s.text || '').filter(Boolean).join('\n')
-        if (text) return text
-    }
-    if (typeof result.text === 'string' && result.text.trim()) return result.text
-    return null
+
+    throw new Error(`${type === 'doc' ? '文档' : '音频'}识别超时`)
 }
 
 /**
@@ -292,82 +323,41 @@ async function recognizeFile(
 ): Promise<string> {
     switch (materialType) {
         case CaseMaterialType.IMAGE: {
+            // 图片识别为同步处理
             const result = await createImageConversionService(ossFileId, userId)
             if (!result.success) throw new Error(result.error || '图片识别失败')
             return result.record?.markdownContent ?? ''
         }
         case CaseMaterialType.AUDIO: {
-            // 异步识别，轮询等待
-            return await recognizeAudioWithPolling(ossFileId, userId)
+            // 音频识别为异步处理，提交后等待完成
+            const result = await transcribeAudioService(ossFileId, userId)
+            if (!result.success) throw new Error(result.error || '音频识别失败')
+            // 内部已启动后台轮询，当前函数仅等待 DB 状态变化
+            if (result.task?.taskId && result.task.taskId !== 'existing') {
+                return await waitForRecognitionComplete(result.task.taskId, 'audio', ossFileId)
+            }
+            // 兜底：直接查 DB
+            const record = await prisma.asrRecords.findFirst({
+                where: { ossFileId, status: 2, deletedAt: null },
+                select: { summary: true, result: true },
+            })
+            const content = record?.summary || extractTextFromAsrResult(record?.result)
+            if (content) return content
+            throw new Error('音频识别结果为空')
         }
         default: {
             // 文档：PDF 等 MinerU 处理，异步
-            return await recognizeDocumentWithPolling(ossFileId, userId)
+            const result = await convertPdfService(ossFileId, userId)
+            if (!result.success) throw new Error(result.error || '文档识别失败')
+            if (result.task?.taskId && result.task.taskId !== 'existing') {
+                return await waitForRecognitionComplete(result.task.taskId, 'doc', ossFileId)
+            }
+            // 兜底：直接查 DB
+            const record = await getDocRecognitionByOssFileIdService(ossFileId)
+            if (record?.markdownContent) return record.markdownContent
+            throw new Error('文档识别结果为空')
         }
     }
-}
-
-/**
- * 异步识别音频（轮询等待完成）
- *
- * 注意：`transcribeAudioService` 内部可能已启动后台轮询。
- * 实现时需确认：若后台已轮询，则当前函数直接等待 DB 状态变化即可；
- * 若未启动，则当前函数负责轮询。两者不应同时运行造成重复调用。
- */
-async function recognizeAudioWithPolling(ossFileId: number, userId: number): Promise<string> {
-    const result = await transcribeAudioService(ossFileId, userId)
-    if (!result.success) throw new Error(result.error || '音频识别失败')
-
-    // 轮询直到完成（最多 5 分钟）
-    const MAX_WAIT_MS = 5 * 60 * 1000
-    const INTERVAL_MS = 3000
-    const startTime = Date.now()
-
-    while (Date.now() - startTime < MAX_WAIT_MS) {
-        await sleep(INTERVAL_MS)
-        const record = await prisma.asrRecords.findFirst({
-            where: { ossFileId, status: 2, deletedAt: null },
-            select: { summary: true, result: true },
-        })
-        if (record) {
-            const content = record.summary || extractTextFromAsrResult(record.result)
-            if (content) return content
-        }
-    }
-
-    throw new Error('音频识别超时')
-}
-
-/**
- * 异步识别文档（轮询等待完成）
- *
- * 注意：MinerU 的 `convertPdfService` 内部可能已启动后台轮询，
- * 实现时需确认是否存在双轮询风险（同音频轮询）。
- */
-async function recognizeDocumentWithPolling(ossFileId: number, userId: number): Promise<string> {
-    const result = await convertPdfService(ossFileId, userId)
-    if (!result.success) throw new Error(result.error || '文档识别失败')
-
-    const MAX_WAIT_MS = 5 * 60 * 1000
-    const INTERVAL_MS = 5000
-    const startTime = Date.now()
-
-    while (Date.now() - startTime < MAX_WAIT_MS) {
-        await sleep(INTERVAL_MS)
-        const record = await prisma.docRecognitionRecords.findFirst({
-            where: { ossFileId, status: 2, deletedAt: null },
-            select: { markdownContent: true },
-        })
-        if (record?.markdownContent) {
-            return record.markdownContent
-        }
-    }
-
-    throw new Error('文档识别超时')
-}
-
-function sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 /**
@@ -666,8 +656,9 @@ async function summarizeAndExtract(
 
 | 文件 | 改动 |
 |------|------|
+| `server/services/material/materialPipeline.service.ts` | **改动**：将 `extractTextFromAsrResult` 从私有函数改为 `export`，供其他模块复用 |
 | `server/utils/tokenCounter.ts` | **新建**，tiktoken 精确 token 计数。**注**：现有的 `estimateTokens`（`materialPipeline.service.ts`）为字符估算 fallback，两套并存；后续可统一。 |
-| `server/services/material/fileProcess.service.ts` | **新建**，文件粒度识别→嵌入流水线。**注**：嵌入依赖 `case_materials.materialId`，当前阶段文件未关联案件，嵌入由案件创建后的 normal_flow 处理。 |
+| `server/services/material/fileProcess.service.ts` | **新建**，文件粒度识别→嵌入流水线。**注**：嵌入依赖 `case_materials.materialId`，当前阶段文件未关联案件，嵌入由案件创建后的 normal_flow 处理。复用 `extractTextFromAsrResult`（从 materialPipeline 导出）。 |
 | `server/api/v1/case/extract.post.ts` | 接入 fileProcessService + tiktoken 计数 + 分批摘要 + 材料元数据响应 |
 
 ## 待确认事项
