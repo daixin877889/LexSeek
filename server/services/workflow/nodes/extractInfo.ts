@@ -1,7 +1,7 @@
 /**
  * 基本信息提取节点（中断点2）
  *
- * 使用 createDeepAgent + toolStrategy 实现：
+ * 使用 createAgent + toolStrategy 实现：
  * 1. Agent 自主调用工具查询案件材料
  * 2. 输出结构化 JSON（ExtractedCaseInfo）
  * 3. interrupt() 暂停等待用户确认
@@ -10,8 +10,7 @@
 
 import { interrupt, Command } from '@langchain/langgraph'
 import { AIMessage, HumanMessage } from '@langchain/core/messages'
-import { createDeepAgent } from 'deepagents'
-import { toolStrategy } from 'langchain'
+import { createAgent, toolStrategy } from 'langchain'
 import { createChatModel } from '../../node/chatModelFactory'
 import { getValidNodeConfig } from '../../node/node.service'
 import { getToolInstancesService } from '../tools'
@@ -98,12 +97,12 @@ export async function extractInfoNode(
 
         // 7. 创建 Agent（工具 + 结构化输出）
         const checkpointer = await getCheckpointer()
-        const agent: any = createDeepAgent({
-            model: model as any,
+        const agent = createAgent({
+            model,
             systemPrompt,
-            tools: tools as any,
+            tools,
             checkpointer,
-            responseFormat: toolStrategy(outputSchema as any),
+            responseFormat: toolStrategy(outputSchema as any) as any,
         })
 
         // 8. Agent 自主执行
@@ -113,7 +112,7 @@ export async function extractInfoNode(
                 configurable: { thread_id: `${sessionId}-extract-${Date.now()}` },
             },
         )
-        const extracted: ExtractedCaseInfo = result.structuredResponse
+        const extracted = result.structuredResponse as unknown as ExtractedCaseInfo
 
         logger.info('结构化提取完成', {
             caseId,
