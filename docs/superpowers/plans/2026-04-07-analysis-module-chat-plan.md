@@ -496,7 +496,7 @@ import { SystemMessage } from '@langchain/core/messages'
 import { z } from 'zod'
 import { createHash } from 'node:crypto'
 import { getMaterialsByCaseIdService } from '../../material/material.service'
-import { getMaterialContextService } from '../../material/materialContext.service'
+import { getMaterialContextService, buildMaterialContextMessage } from '../../material/materialPipeline.service'
 import { loadCompletedResultsService } from '../../case/initAnalysis.service'
 import { getCaseMemory } from '../context/moduleContextBuilder'
 
@@ -536,9 +536,11 @@ export const moduleContextMiddleware = (
                     if (newMaterialIds.length > 0 || newSourceIds.length === 0) {
                         if (newSourceIds.length === 0) {
                             // 首轮：全量注入
-                            const context = await getMaterialContextService(materials)
-                            if (context)
-                                sections.push(`## 案件材料上下文\n${context}`)
+                            const contextResult = await getMaterialContextService(materials)
+                            if (contextResult.mode !== 'empty') {
+                                const messageText = buildMaterialContextMessage(contextResult)
+                                sections.push(`## 案件材料上下文\n${messageText}`)
+                            }
                         }
                         else {
                             // 增量：仅新增材料（summary 模式）
@@ -704,8 +706,8 @@ export async function runModuleChat(
         nodeId,
     }
 
-    // 加载节点配置的工具 + save_analysis_result
-    const nodeTools = await getToolInstancesService(nodeConfig.tools, toolContext)
+    // 加载节点配置的工具 + save_analysis_result（getToolInstancesService 是同步函数）
+    const nodeTools = getToolInstancesService(nodeConfig.tools, toolContext)
     const saveResultTool = createSaveAnalysisResultTool(toolContext)
     const allTools = [...nodeTools, saveResultTool]
 
@@ -1032,13 +1034,13 @@ export function useModuleChatManager(caseId: Ref<number>) {
         const isExpanded = ref(false)
         const isActive = ref(false)
 
-        // 获取或创建 session
-        const { data } = await useApiFetch('/api/v1/case/analysis/module-session', {
-            method: 'POST',
-            body: { caseId: caseId.value, moduleName },
-        })
-        if (data.value?.sessionId) {
-            sessionId.value = data.value.sessionId
+        // 获取或创建 session（useApiFetch 直接返回 data，非 { data } 响应式对象）
+        const sessionResult = await useApiFetch<{ sessionId: string; isNew: boolean }>(
+            '/api/v1/case/analysis/module-session',
+            { method: 'POST', body: { caseId: caseId.value, moduleName } },
+        )
+        if (sessionResult?.sessionId) {
+            sessionId.value = sessionResult.sessionId
         }
 
         // 创建 chat 实例（sessionId 获取后）
@@ -1068,12 +1070,12 @@ export function useModuleChatManager(caseId: Ref<number>) {
                 chatInstance?.stopGeneration()
                 // 获取 runId 并取消
                 if (sessionId.value) {
-                    const { data: runData } = await useApiFetch(
+                    const runData = await useApiFetch<{ id: string }>(
                         `/api/v1/case/analysis/runs/current/${sessionId.value}`,
                     )
-                    if (runData.value?.id) {
+                    if (runData?.id) {
                         await useApiFetch(
-                            `/api/v1/case/analysis/runs/cancel/${runData.value.id}`,
+                            `/api/v1/case/analysis/runs/cancel/${runData.id}`,
                             { method: 'POST' },
                         )
                     }
@@ -1102,11 +1104,16 @@ export function useModuleChatManager(caseId: Ref<number>) {
 
     // 页面刷新恢复
     async function restoreActiveSessions() {
-        const { data } = await useApiFetch(
+        const sessions = await useApiFetch<Array<{
+            sessionId: string
+            moduleName: string
+            nodeId: number
+            hasActiveRun: boolean
+        }>>(
             `/api/v1/case/analysis/module-sessions?caseId=${caseId.value}`,
         )
-        if (data.value) {
-            for (const session of data.value) {
+        if (sessions) {
+            for (const session of sessions) {
                 if (session.hasActiveRun) {
                     const instance = await getOrCreateInstance(
                         session.moduleName,
@@ -1206,7 +1213,7 @@ watch(isOpen, (open) => {
                     :messages="chatInstance.messages.value"
                     :loading="chatInstance.isLoading.value"
                     panel-mode="left"
-                    @submit="(data) => chatInstance.sendMessage(data.message)"
+                    @submit="(data) => chatInstance.sendMessage(data.text)"
                 />
             </div>
         </div>
@@ -1232,7 +1239,7 @@ watch(isOpen, (open) => {
                     :messages="chatInstance.messages.value"
                     :loading="chatInstance.isLoading.value"
                     panel-mode="left"
-                    @submit="(data) => chatInstance.sendMessage(data.message)"
+                    @submit="(data) => chatInstance.sendMessage(data.text)"
                 />
             </div>
         </div>
@@ -1249,7 +1256,7 @@ watch(isOpen, (open) => {
                     :messages="chatInstance.messages.value"
                     :loading="chatInstance.isLoading.value"
                     panel-mode="left"
-                    @submit="(data) => chatInstance.sendMessage(data.message)"
+                    @submit="(data) => chatInstance.sendMessage(data.text)"
                 />
             </div>
         </SheetContent>
