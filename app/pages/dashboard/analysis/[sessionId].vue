@@ -1,20 +1,8 @@
 <template>
   <AiChat title="案件分析" v-model:panel-mode="panelMode" v-model:thinking="thinkingEnabled" :messages="displayMessages"
     :loading="stream.isLoading" :show-prompt="true" :show-task-queue="true" :todos="todos" :show-tool-interrupt="true"
-    :prompt-disabled="isComplete || !!currentInterrupt" prompt-placeholder="输入补充信息或问题..." class="h-full" style="height: calc(100vh - 48px)"
+    :prompt-disabled="isComplete" prompt-placeholder="输入补充信息或问题..." class="h-full" style="height: calc(100vh - 48px)"
     @submit="handlePromptSubmit" @tool-confirm="handleToolConfirm" @tool-reject="handleToolReject" @back="goBack">
-
-    <!-- 中断确认 UI（积分不足等） -->
-    <template v-if="currentInterrupt" #prompt-actions>
-      <div class="p-4">
-        <CaseInterruptConfirmation
-          :interrupt="currentInterrupt"
-          :is-submitting="stream.isLoading"
-          @submit="handleInterruptSubmit"
-          @cancel="handleInterruptCancel"
-        />
-      </div>
-    </template>
     <template #right-panel>
       <CaseAnalysisResults :results="analysisResults" v-model:active-index="activeResultIndex" :show-regenerate="true"
         :show-copy="true" :is-analyzing="stream.isLoading" @regenerate="handleRegenerate" />
@@ -23,10 +11,28 @@
       <CaseAnalysisWelcome />
     </template>
   </AiChat>
+
+  <!-- 积分不足覆盖层（照抄 init-analysis 的 Dialog 模式） -->
+  <Dialog :open="!!interruptData" @update:open="() => {}">
+    <DialogContent class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0" :show-close-button="false" @pointer-down-outside.prevent @escape-key-down.prevent @open-auto-focus.prevent>
+      <DialogHeader class="sr-only">
+        <DialogTitle>积分不足</DialogTitle>
+        <DialogDescription>请购买积分后继续分析</DialogDescription>
+      </DialogHeader>
+      <InitAnalysisInsufficientPointsCard
+        v-if="interruptData"
+        :is-member="interruptData.data?.isMember ?? false"
+        :available-points="interruptData.data?.availablePoints"
+        :required-points="interruptData.data?.requiredPoints"
+        :reason="interruptData.data?.reason"
+        @resume="resumeWorkflow"
+      />
+    </DialogContent>
+  </Dialog>
 </template>
 
 <script lang="ts" setup>
-import type { AnalysisResult, InterruptData } from "#shared/types/case";
+import type { AnalysisResult } from "#shared/types/case";
 import type { AiPromptSubmitData } from "~/components/ai/AiPromptInput.vue";
 import { useStream, FetchStreamTransport } from "@langchain/vue";
 import { AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
@@ -80,7 +86,6 @@ function coerceRawMessages(rawMessages: any[]): any[] {
       });
     if (m.type === "tool")
       return new ToolMessage({
-        // tool message 可能在 stream.values 中以 {type:"tool", data:{...}} 格式存储
         content: m.data?.content ?? m.content,
         tool_call_id: m.data?.tool_call_id ?? m.tool_call_id,
         id: m.data?.id ?? m.id,
@@ -148,15 +153,20 @@ const { todos } = useTaskQueueParser(displayMessages)
 const analysisResults = ref<AnalysisResult[]>([]);
 const activeResultIndex = ref(0);
 
-// 中断状态检测（从 stream.values.__interrupt__ 中读取）
-// LangGraph interrupt 格式: [{ value: { type, message, data }, resumable, id }]
-// InterruptConfirmation 期望: { type, message, data }
-const currentInterrupt = computed<InterruptData | null>(() => {
+// LangGraph interrupt 数据（与 init-analysis 完全一致的解包逻辑）
+const interrupt = computed(() => {
   const v = stream.values as any
-  if (!v?.__interrupt__?.length) return null
-  const raw = v.__interrupt__[0]
-  // 解包 LangGraph interrupt 格式
-  return (raw?.value ?? raw) as InterruptData
+  if (!v?.__interrupt__?.length) return undefined
+  return v.__interrupt__.length === 1 ? v.__interrupt__[0] : v.__interrupt__
+})
+
+const interruptData = computed(() => {
+  const raw = interrupt.value
+  if (!raw) return null
+  const first = Array.isArray(raw) ? raw[0] : raw
+  const val = first?.value ?? first
+  if (val?.type === "insufficient_points") return val
+  return null
 })
 
 /** 处理 prompt 提交 */
@@ -198,16 +208,12 @@ function handleToolReject() {
   });
 }
 
-/** 中断恢复（积分不足等） */
-function handleInterruptSubmit(data: unknown) {
-  stream.submit(undefined, {
-    command: { resume: data },
-  });
-}
-
-/** 中断取消 */
-function handleInterruptCancel() {
-  // 取消时不做任何操作，用户可以手动刷新或返回
+/** 积分充值后恢复（与 init-analysis 的 resumeWorkflow 一致） */
+function resumeWorkflow() {
+  stream.submit(
+    { messages: [] } as any,
+    { command: { resume: { action: 'continue' } } },
+  )
 }
 
 const goBack = () => {
@@ -225,7 +231,6 @@ onMounted(async () => {
       activeRun?.run &&
       ['pending', 'running', 'interrupted'].includes(activeRun.run.status)
     ) {
-      // 重连 SSE，replay Redis 中的事件（包括 __interrupt__）
       stream.submit({ messages: [] })
     }
   } catch {
