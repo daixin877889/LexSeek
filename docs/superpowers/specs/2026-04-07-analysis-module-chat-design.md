@@ -112,6 +112,7 @@ interface UseModuleChatManager {
 ### 1.5 分析结果联动
 
 - `useCaseChat` 的 `useStream` 原生支持 `onCustomEvent` 回调（`@langchain/vue` 内置），可接收自定义事件
+- **前置修改**：当前 `useCaseChat` 的 `CaseChatOptions` 只有 `sessionId` 字段，不接受 `onCustomEvent`。需扩展 `CaseChatOptions` 添加 `onCustomEvent` 可选参数，并在内部 `useStream` 调用时透传
 - **SSE 事件格式要求**：chat.post.ts 推送自定义事件时，SSE 的 event 名必须是 `custom`（不是 `analysis_result_saved`），具体事件名和数据放在 data 中。因为 `useStream` 内部的 `matchEventType` 匹配规则是 `event === "custom"`
   ```
   event: custom
@@ -188,15 +189,19 @@ export async function runModuleChat(
 
 #### 变更检测机制
 
-State 中维护以下追踪字段（随 checkpoint 持久化）：
+通过 `createMiddleware` 的 `stateSchema` 参数声明追踪字段，LangGraph 自动随 checkpoint 持久化（参考 `caseMaterialContextMiddleware` 的 `_injectedSourceIds` 实现模式）：
 
 ```typescript
-interface ModuleContextState {
-  _injectedSourceIds: number[]              // 已注入的材料 sourceId 列表
-  _lastMemoryHash: string | null            // 上次注入时 basic_info 的 hash
-  _injectedResultVersions: Record<string, number>  // 各模块已注入的 activeVersion 号
-  _currentModuleVersion: number | null       // 当前模块已注入的版本号
-}
+createMiddleware({
+  name: 'ModuleContextMiddleware',
+  stateSchema: z.object({
+    _injectedSourceIds: z.array(z.number()).default([]),
+    _lastMemoryHash: z.string().nullable().default(null),
+    _injectedResultVersions: z.record(z.string(), z.number()).default({}),
+    _currentModuleVersion: z.number().nullable().default(null),
+  }),
+  // ...
+})
 ```
 
 | 上下文类型 | 检测方式 | 首轮行为 | 后续轮次行为 |
@@ -250,6 +255,10 @@ Agent 的专用工具，用于保存分析结果到 case_analyses 表：
 2. 通过新增的 `publishCustomEvent` 函数（见 2.7 事件扩展）发送 `analysis_result_saved` 事件，携带版本号和 moduleName
 3. 返回 `{ success: true, version: number, message: "分析结果已保存为第N版" }`
 
+**工具上下文获取**：
+- `caseId`、`sessionId`、`moduleName`、`nodeId` 通过工具工厂函数的闭包捕获（同现有 `searchCaseMaterials` 工具的 `createTool(context)` 模式）
+- `runId`：需扩展现有 `ToolContext` 接口添加 `runId` 字段，由 Worker 在执行 `runModuleChat` 前从 DB 查出并注入。现有 `ToolContext`（`shared/types/tools.ts`）只有 `userId`/`caseId`/`sessionId`
+
 ### 2.4 新增 API
 
 #### `POST /api/v1/case/analysis/module-session`
@@ -276,7 +285,7 @@ Agent 的专用工具，用于保存分析结果到 case_analyses 表：
 **逻辑**：
 1. 查找该案件该模块是否已有 type=3 的 caseSession
 2. 如有则返回已有 sessionId
-3. 如无则创建新 session（type=3，metadata: `{ moduleName, nodeId }`）
+3. 如无则：通过 `getNodeByNameService(moduleName)` 查 nodes 表获取 nodeId，然后创建新 session（type=3，metadata: `{ moduleName, nodeId }`）
 
 **前置依赖**：现有 `createSessionDao`（`case.dao.ts`）的 `CreateSessionInput` 类型不支持 `type` 和 `metadata` 字段，需先扩展 DAO 层，添加这两个可选字段。
 
@@ -342,7 +351,8 @@ export type AgentEvent = AgentStreamEvent | AgentStatusEvent | AgentCustomEvent
 
 `ModuleChatInstance.stopGeneration` 实现：
 1. 调用 `stream.stop()` 中止 SSE
-2. 调用 cancel API 取消后端 run
+2. 调用 `GET /api/v1/case/analysis/runs/current/[sessionId]` 获取当前 runId（已有 API）
+3. 调用 `POST /api/v1/case/analysis/runs/cancel/[runId]` 取消后端 run
 
 ---
 
@@ -368,9 +378,9 @@ export type AgentEvent = AgentStreamEvent | AgentStatusEvent | AgentCustomEvent
           → moduleContextMiddleware beforeAgent 注入动态上下文
           → createAgent.stream()
             → ReAct 循环：LLM 推理 → 工具调用
-            → save_analysis_result 工具 → 保存新版本 + 激活
-          → publishAgentEvent → Redis
-            → save_analysis_result 工具 → publishCustomEvent → Redis
+            → save_analysis_result 工具 → 保存新版本 + 激活 → publishCustomEvent
+          → publishAgentEvent（stream_event）→ Redis
+          → publishCustomEvent（custom_event）→ Redis
       → createEventSubscription(runId) → SSE 推送（stream_event/status_change/custom 三种事件）
     → 前端 stream.messages 响应式更新
     → AiChat 渲染对话
@@ -431,12 +441,14 @@ SSE stream A          SSE stream B             SSE stream C
 | 文件 | 变更说明 |
 |------|---------|
 | `app/pages/dashboard/cases/[id].vue` | 集成 moduleChatManager、渲染对话组件 |
+| `app/composables/useCaseChat.ts` | 扩展 CaseChatOptions 支持 onCustomEvent 等 useStream 回调透传 |
 | `app/components/case/AnalysisResults.vue` | regenerate 事件向上传递（已有） |
 | `app/components/caseDetail/CaseDetailAnalysis.vue` | 传递 regenerate 事件到页面级 |
-| `server/services/agent/agentWorker.ts`（或等效文件） | Worker 添加 session type=3 分支，从 metadata 获取 nodeId |
+| `server/services/agent/agentWorker.ts`（或等效文件） | Worker 添加 session type=3 分支，select 扩展 metadata，注入 runId 到 ToolContext |
 | `server/services/case/analysis.service.ts` | 新增 saveAndActivateAnalysisService（事务内保存+激活） |
 | `shared/types/agentRun.ts` | 新增 AgentCustomEvent 类型 |
 | `shared/types/case.ts` | 新增 session type 枚举值 |
+| `shared/types/tools.ts` | ToolContext 接口添加 runId 字段 |
 | `server/services/agent/agentEventBridge.ts` | 新增 publishCustomEvent 函数（独立于 publishAgentEvent） |
 | `server/api/v1/case/analysis/chat.post.ts` | SSE 转发循环中增加 custom_event 分支 |
 | `server/services/case/case.dao.ts` | 扩展 CreateSessionInput 类型，添加 type/metadata 字段 |
