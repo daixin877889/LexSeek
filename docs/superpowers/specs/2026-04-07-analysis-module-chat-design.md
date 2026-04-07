@@ -8,7 +8,7 @@
 
 1. 复用现有 regenerate 按钮（`MessageCircleIcon`）触发模块对话
 2. 对话框参考"小索"的悬浮窗样式，对话 UI 使用 `AiChat.vue` 组件
-3. 后端 Agent 使用 nodes 表中 type=analysis 且对应 nodeId 的节点配置
+3. 后端 Agent 使用 nodes 表中 type=analysis 且同 name 的节点配置
 4. 支持多轮对话，每次生成分析结果在 case_analyses 表新增新版本
 5. 多模块可并发分析，关闭弹窗不断 SSE 连接
 6. 页面刷新后支持重连恢复
@@ -137,8 +137,7 @@ interface UseModuleChatManager {
 export async function runModuleChat(
   sessionId: string,
   message: string | undefined,
-  command: any | undefined,
-  options: { userId: number; caseId: number; moduleName: string; nodeId: number }
+  options: { userId: number; caseId: number; moduleName: string; nodeId: number; command?: unknown }
 ): Promise<ReadableStream<Uint8Array>>
 ```
 
@@ -257,7 +256,8 @@ Agent 的专用工具，用于保存分析结果到 case_analyses 表：
 
 **工具上下文获取**：
 - `caseId`、`sessionId`、`moduleName`、`nodeId` 通过工具工厂函数的闭包捕获（同现有 `searchCaseMaterials` 工具的 `createTool(context)` 模式）
-- `runId`：需扩展现有 `ToolContext` 接口添加 `runId` 字段，由 Worker 在执行 `runModuleChat` 前从 DB 查出并注入。现有 `ToolContext`（`shared/types/tools.ts`）只有 `userId`/`caseId`/`sessionId`
+- 此处 `sessionId` 是模块对话的 type=3 session（即 `runModuleChat` 的第一个参数），也是 LangGraph 的 `thread_id`。`saveAnalysisResultService` 需要 sessionId 作为必填参数，使用此 sessionId 即可
+- `runId`：需扩展现有 `ToolContext` 接口添加 `runId` 字段，由 Worker 在执行 `runModuleChat` 前从 DB 查出并注入。现有 `ToolContext`（`server/services/workflow/tools/types.ts`）只有 `userId`/`caseId`/`sessionId`
 
 ### 2.4 新增 API
 
@@ -299,7 +299,7 @@ const session = await findSessionById(sessionId)
 if (session.type === 3) {
   // 模块对话：从 session.metadata 获取模块信息
   const { moduleName, nodeId } = session.metadata as { moduleName: string; nodeId: number }
-  return runModuleChat(sessionId, message, command, { userId, caseId, moduleName, nodeId })
+  return runModuleChat(sessionId, message, { userId, caseId, moduleName, nodeId, command })
 } else {
   // 主对话（type=1 普通对话, type=2 初始化分析）
   return runCaseChat(sessionId, message, command, { userId, caseId })
@@ -343,7 +343,7 @@ export type AgentEvent = AgentStreamEvent | AgentStatusEvent | AgentCustomEvent
 
 **同时修改**：
 - `agentEventBridge.ts`：**新增独立函数 `publishCustomEvent`**（不修改现有 `publishAgentEvent` 的入参类型，避免破坏已有调用方的类型安全）
-- `chat.post.ts`：SSE 转发循环中增加 `evt.type === 'custom_event'` 分支，推送格式必须为 `event: custom\ndata: ${JSON.stringify(evt.data)}\n\n`（event 名为 `custom` 而非具体事件名，`useStream` 的 `matchEventType` 按此规则匹配）
+- `chat.post.ts`：SSE 转发循环中增加 `evt.type === 'custom_event'` 分支，推送格式必须为 `event: custom\ndata: ${JSON.stringify(evt.data)}\n\n`（event 名为 `custom` 而非具体事件名，`useStream` 的 `matchEventType` 按此规则匹配）。**注意：replay（补发历史事件）和实时转发两处都需要增加该分支**，否则断线重连后 custom 事件会被错误地以 `event: status` 推送
 
 ### 2.8 stopGeneration 取消 Worker 任务
 
@@ -448,7 +448,7 @@ SSE stream A          SSE stream B             SSE stream C
 | `server/services/case/analysis.service.ts` | 新增 saveAndActivateAnalysisService（事务内保存+激活） |
 | `shared/types/agentRun.ts` | 新增 AgentCustomEvent 类型 |
 | `shared/types/case.ts` | 新增 session type 枚举值 |
-| `shared/types/tools.ts` | ToolContext 接口添加 runId 字段 |
+| `server/services/workflow/tools/types.ts` | ToolContext 接口添加 runId 字段 |
 | `server/services/agent/agentEventBridge.ts` | 新增 publishCustomEvent 函数（独立于 publishAgentEvent） |
 | `server/api/v1/case/analysis/chat.post.ts` | SSE 转发循环中增加 custom_event 分支 |
 | `server/services/case/case.dao.ts` | 扩展 CreateSessionInput 类型，添加 type/metadata 字段 |
