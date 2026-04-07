@@ -86,6 +86,8 @@ import type { AiPromptSubmitData } from '~/components/ai/AiPromptInput.vue'
 import type { ExampleItem } from '~/components/caseAnalysis/example.vue'
 import type { OssFileItem } from '~/store/file'
 import type { CreateCaseParams } from '~/composables/useCaseCreation'
+import { toast } from 'vue-sonner'
+import { getMaterialType } from '~/utils/caseMaterial'
 
 definePageMeta({
   title: '创建案件',
@@ -123,7 +125,30 @@ function handleFilesFromSelector(files: OssFileItem[]) {
 
 // AI 提交处理
 async function handleAiSubmit(data: AiPromptSubmitData) {
-  await extractCaseInfo(data.text, data.files)
+  let caseId: number | null = null
+  try {
+    const createResult = await useApiFetch<{ caseId: number }>('/api/v1/case/create', {
+      method: 'POST',
+      body: {
+        title: '未命名案件',
+        content: data.text.trim() || undefined,
+        materials: data.files?.map(f => ({
+          type: getMaterialType(f.fileType),
+          name: f.fileName,
+          ossFileId: f.id,
+        })),
+      },
+    })
+    caseId = createResult?.caseId ?? null
+  } catch {
+    toast.error('创建案件失败，请重试')
+    return
+  }
+  if (!caseId) {
+    toast.error('创建案件失败，请重试')
+    return
+  }
+  await extractCaseInfo(data.text, caseId)
 }
 
 // 示例选择处理
