@@ -67,6 +67,15 @@ export const getEnabledCaseTypesService = async (): Promise<caseTypes[]> => {
 }
 
 /**
+ * 获取第一条启用的案件类型（按 priority 排序）
+ * 用于创建案件时未指定类型时的默认值
+ */
+export const getFirstEnabledCaseTypeService = async (): Promise<caseTypes | null> => {
+    const list = await findEnabledCaseTypesDao()
+    return list[0] ?? null
+}
+
+/**
  * 更新案件类型
  * Requirements: 11.1
  */
