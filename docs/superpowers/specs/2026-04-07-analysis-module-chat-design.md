@@ -302,7 +302,7 @@ if (session.type === 3) {
   return runModuleChat(sessionId, message, { userId, caseId, moduleName, nodeId, command })
 } else {
   // 主对话（type=1 普通对话, type=2 初始化分析）
-  return runCaseChat(sessionId, message, command, { userId, caseId })
+  return runCaseChat(sessionId, message, { userId, caseId, command })
 }
 ```
 
