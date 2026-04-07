@@ -7,7 +7,7 @@
  * 返回给前端用于渲染历史消息和作为 useStream 的 initialValues。
  */
 
-import { getThreadValuesService } from '~~/server/services/workflow/agents'
+import { getThreadValuesService, loadSubAgentThreads } from '~~/server/services/workflow/agents'
 import { findCaseBySessionIdService } from '~~/server/services/case/caseSession.service'
 
 export default defineEventHandler(async (event) => {
@@ -35,9 +35,17 @@ export default defineEventHandler(async (event) => {
     // 4. 读取线程状态（降级：失败返回空值，不阻塞页面）
     try {
         const values = await getThreadValuesService(sessionId)
+        const messages = (values?.messages ?? []) as Record<string, unknown>[]
+
+        // 5. 加载子代理 thread 消息（用于前端展示子代理内部对话）
+        const subAgentThreads = messages.length > 0
+            ? await loadSubAgentThreads(sessionId, messages)
+            : []
+
         return resSuccess(event, '获取成功', {
             values: values ?? { messages: [] },
             threadId: sessionId,
+            subAgentThreads,
         })
     } catch (error) {
         logger.warn('读取线程状态失败，返回空值', {

@@ -129,7 +129,7 @@ export async function createSubAgentTools(
                             configurable: {
                                 thread_id: `${context.sessionId}_sub_${safeName}`,
                             },
-                            recursionLimit: 50,
+                            recursionLimit: 1000,
                         },
                     )
 
@@ -138,7 +138,8 @@ export async function createSubAgentTools(
                     if (Array.isArray(messages) && messages.length > 0) {
                         // 从后往前找最后一条 AI 消息
                         for (let i = messages.length - 1; i >= 0; i--) {
-                            const msg = messages[i]
+                            const msg = messages[i] as any
+                            if (!msg) continue
                             const msgType = msg._getType?.() ?? msg.type
                             if (msgType === 'ai' && msg.content) {
                                 const content = typeof msg.content === 'string'

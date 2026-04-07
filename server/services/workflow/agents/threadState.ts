@@ -3,10 +3,13 @@
  *
  * 从 PostgresSaver checkpointer 读取线程最新检查点，
  * 返回 useStream initialValues 所需的字典格式状态。
+ * 同时支持加载子代理 thread 消息。
  */
 
 import { getCheckpointer } from '~~/server/services/workflow/checkpointer'
 import { mapStoredMessageToChatMessage } from '@langchain/core/messages'
+import { sanitizeName } from './subAgentToolFactory'
+import { logger } from '#shared/utils/logger'
 
 /**
  * 将 checkpointer 中的消息转为 useStream 期望的平坦字典格式
@@ -73,4 +76,75 @@ export async function getThreadValuesService(
     }
 
     return channelValues as Record<string, unknown>
+}
+
+/** 子代理 thread 消息记录 */
+export interface SubAgentThread {
+    /** 子代理工具调用 ID（对应 AIMessage 中的 tool_call.id） */
+    toolCallId: string
+    /** 子代理名称（节点 name） */
+    agentName: string
+    /** 子代理 thread ID */
+    threadId: string
+    /** 子代理消息列表 */
+    messages: Record<string, unknown>[]
+}
+
+/**
+ * 从主 thread 消息中提取子代理工具调用，加载对应的子代理 thread 消息
+ *
+ * 子代理工具名格式: ask_{safeName}_expert
+ * 子代理 thread_id 格式: {sessionId}_sub_{safeName}
+ *
+ * @param sessionId 主会话 ID
+ * @param messages 主 thread 的平坦字典消息列表
+ * @returns 子代理 thread 消息映射（按 toolCallId 索引）
+ */
+export async function loadSubAgentThreads(
+    sessionId: string,
+    messages: Record<string, unknown>[],
+): Promise<SubAgentThread[]> {
+    const checkpointer = await getCheckpointer()
+    const subAgentThreads: SubAgentThread[] = []
+
+    // 从 AI 消息中提取子代理工具调用
+    for (const msg of messages) {
+        if (msg.type !== 'ai' || !Array.isArray(msg.tool_calls)) continue
+
+        for (const toolCall of msg.tool_calls as any[]) {
+            const toolName = toolCall.name as string
+            if (!toolName?.startsWith('ask_') || !toolName?.endsWith('_expert')) continue
+
+            // 从工具名反推节点 safeName: ask_{safeName}_expert → {safeName}
+            const safeName = toolName.slice(4, -7) // 去掉 "ask_" 和 "_expert"
+            const subThreadId = `${sessionId}_sub_${safeName}`
+
+            try {
+                const subTuple = await checkpointer.getTuple({
+                    configurable: { thread_id: subThreadId },
+                })
+
+                if (!subTuple) continue
+
+                const subChannelValues = subTuple.checkpoint.channel_values as Record<string, any>
+                const subRawMessages = subChannelValues?.messages
+
+                if (Array.isArray(subRawMessages) && subRawMessages.length > 0) {
+                    subAgentThreads.push({
+                        toolCallId: toolCall.id as string,
+                        agentName: safeName,
+                        threadId: subThreadId,
+                        messages: subRawMessages.map(messageToFlatDict),
+                    })
+                }
+            }
+            catch (error) {
+                logger.warn(`加载子代理 thread 失败: ${subThreadId}`, {
+                    error: error instanceof Error ? error.message : '未知错误',
+                })
+            }
+        }
+    }
+
+    return subAgentThreads
 }

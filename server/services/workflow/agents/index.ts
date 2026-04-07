@@ -1,3 +1,4 @@
 export { runCaseChat } from './caseMainAgent'
 export { createSubAgentTools, sanitizeName } from './subAgentToolFactory'
-export { getThreadValuesService, messageToFlatDict } from './threadState'
+export { getThreadValuesService, messageToFlatDict, loadSubAgentThreads } from './threadState'
+export type { SubAgentThread } from './threadState'
