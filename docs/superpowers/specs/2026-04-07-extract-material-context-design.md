@@ -97,6 +97,11 @@ function estimateTokens(text: string): number {
 #### 1.2 `server/services/material/fileProcess.service.ts` — 文件粒度识别→嵌入流水线
 
 ```typescript
+import { CaseMaterialType, getMaterialTypeFromMime } from '#shared/types/case'
+import { createImageConversionService } from './ocr.service'
+import { convertPdfService, getDocRecognitionByOssFileIdService } from './mineru.service'
+import { transcribeAudioService } from './asr.service'
+
 /**
  * 文件处理上下文（提取阶段的材料容器，不关联案件）
  */
@@ -223,17 +228,12 @@ export async function processFileMaterials(
 
 /**
  * 根据文件 MIME 类型推断材料类型
+ *
+ * 复用 shared/types/case.ts 中的 getMaterialTypeFromMime，
+ * 前后端共用同一映射规则，确保一致性。
  */
 function inferMaterialType(fileType: string | null): CaseMaterialType {
-    if (!fileType) return CaseMaterialType.DOCUMENT
-    const type = fileType.toLowerCase()
-    if (type.includes('image') || type.includes('png') || type.includes('jpeg') || type.includes('jpg') || type.includes('webp')) {
-        return CaseMaterialType.IMAGE
-    }
-    if (type.includes('audio') || type.includes('mp3') || type.includes('wav') || type.includes('m4a')) {
-        return CaseMaterialType.AUDIO
-    }
-    return CaseMaterialType.DOCUMENT
+    return getMaterialTypeFromMime(fileType)
 }
 
 /**
