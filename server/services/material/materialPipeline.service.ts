@@ -152,7 +152,7 @@ export function estimateTokens(text: string): number {
  * - 扁平格式: { sentences: [{ text }] }
  * - SimplifiedAsrResult 嵌套格式: { transcripts: [{ sentences: [{ text }] }] }
  */
-function extractTextFromAsrResult(result: any): string | null {
+export function extractTextFromAsrResult(result: any): string | null {
     if (!result) return null
 
     // 扁平格式: { sentences: [...] }
