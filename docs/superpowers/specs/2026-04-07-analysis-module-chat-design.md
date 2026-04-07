@@ -111,7 +111,12 @@ interface UseModuleChatManager {
 
 ### 1.5 分析结果联动
 
-- `useCaseChat` 的 `useStream` 原生支持 `onCustomEvent` 回调（`@langchain/vue` 内置），可直接接收 `analysis_result_saved` 自定义事件
+- `useCaseChat` 的 `useStream` 原生支持 `onCustomEvent` 回调（`@langchain/vue` 内置），可接收自定义事件
+- **SSE 事件格式要求**：chat.post.ts 推送自定义事件时，SSE 的 event 名必须是 `custom`（不是 `analysis_result_saved`），具体事件名和数据放在 data 中。因为 `useStream` 内部的 `matchEventType` 匹配规则是 `event === "custom"`
+  ```
+  event: custom
+  data: {"name":"analysis_result_saved","version":3,"moduleName":"summary","analysisId":123}
+  ```
 - `useModuleChatManager` 在创建 `useCaseChat` 实例时传入 `onCustomEvent` 回调
 - 收到 `analysis_result_saved` 事件后触发 `useCaseDetail` 的分析结果刷新
 - detail 视图实时更新为最新版本的 Markdown 内容和版本号
@@ -329,7 +334,7 @@ export type AgentEvent = AgentStreamEvent | AgentStatusEvent | AgentCustomEvent
 
 **同时修改**：
 - `agentEventBridge.ts`：**新增独立函数 `publishCustomEvent`**（不修改现有 `publishAgentEvent` 的入参类型，避免破坏已有调用方的类型安全）
-- `chat.post.ts`：SSE 转发循环中增加 `evt.type === 'custom_event'` 分支，推送为 `event: {name}\ndata: {data}\n\n`
+- `chat.post.ts`：SSE 转发循环中增加 `evt.type === 'custom_event'` 分支，推送格式必须为 `event: custom\ndata: ${JSON.stringify(evt.data)}\n\n`（event 名为 `custom` 而非具体事件名，`useStream` 的 `matchEventType` 按此规则匹配）
 
 ### 2.8 stopGeneration 取消 Worker 任务
 
@@ -364,8 +369,9 @@ export type AgentEvent = AgentStreamEvent | AgentStatusEvent | AgentCustomEvent
           → createAgent.stream()
             → ReAct 循环：LLM 推理 → 工具调用
             → save_analysis_result 工具 → 保存新版本 + 激活
-          → publishAgentEvent → Redis（含 custom_event 类型）
-      → createEventSubscription(runId) → SSE 推送
+          → publishAgentEvent → Redis
+            → save_analysis_result 工具 → publishCustomEvent → Redis
+      → createEventSubscription(runId) → SSE 推送（stream_event/status_change/custom 三种事件）
     → 前端 stream.messages 响应式更新
     → AiChat 渲染对话
     → 收到 analysis_result_saved 事件 → 刷新 detail 视图
@@ -402,8 +408,9 @@ SSE stream A          SSE stream B             SSE stream C
 
 1. `[id].vue` 页面加载时，调用 `GET /api/v1/case/analysis/module-sessions?caseId=xxx`（**新增 API**）查询该案件所有 type=3 的 caseSession
 2. 对每个返回的 session，检查是否有 activeRun（可在同一 API 中返回）
-3. 为有 activeRun 的 session 自动重建 `ModuleChatInstance`，`useCaseChat` 初始化后走 chat.post.ts 的重连分支（有 activeRun + 无新消息 → replay + subscribe）
-4. 无 activeRun 的 session 不自动重建，等用户再次点击时按需创建
+3. 为有 activeRun 的 session 自动重建 `ModuleChatInstance`
+4. **重连触发**：`useStream` 初始化时不会自动发请求，需在创建 instance 后显式调用 `stream.submit(undefined)` （空 submit，无新消息）触发 chat.post.ts 的重连分支（有 activeRun + 无新消息 → replay + subscribe）
+5. 无 activeRun 的 session 不自动重建，等用户再次点击时按需创建
 
 ---
 
