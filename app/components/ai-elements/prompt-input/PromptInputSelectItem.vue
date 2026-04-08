@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { SelectItem } from '@/components/ui/select'
-import { cn } from '@/lib/utils'
+import { SelectItem } from '@repo/shadcn-vue/components/ui/select'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 
 type PromptInputSelectItemProps = InstanceType<typeof SelectItem>['$props']
 

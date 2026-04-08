@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CommandShortcut } from '@/components/ui/command'
+import { CommandShortcut } from '@repo/shadcn-vue/components/ui/command'
 </script>
 
 <template>

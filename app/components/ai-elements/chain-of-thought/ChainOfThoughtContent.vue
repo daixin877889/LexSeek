@@ -3,8 +3,8 @@ import type { HTMLAttributes } from 'vue'
 import {
   Collapsible,
   CollapsibleContent,
-} from '@/components/ui/collapsible'
-import { cn } from '@/lib/utils'
+} from '@repo/shadcn-vue/components/ui/collapsible'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { useChainOfThought } from './context'
 
 const props = defineProps<{

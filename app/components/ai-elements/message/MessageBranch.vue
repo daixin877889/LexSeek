@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes, VNode } from 'vue'
 import type { MessageBranchContextType } from './context'
-import { cn } from '@/lib/utils'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { provide, readonly, ref } from 'vue'
 import { MessageBranchKey } from './context'
 

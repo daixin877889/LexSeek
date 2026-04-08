@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { ButtonVariants } from '@/components/ui/button'
+import type { ButtonVariants } from '@repo/shadcn-vue/components/ui/button'
 import type { HTMLAttributes } from 'vue'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { Button } from '@repo/shadcn-vue/components/ui/button'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { X } from 'lucide-vue-next'
 import { computed } from 'vue'
 

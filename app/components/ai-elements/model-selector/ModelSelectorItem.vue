@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { CommandItem } from '@/components/ui/command'
+import { CommandItem } from '@repo/shadcn-vue/components/ui/command'
 
-defineProps<{
+const props = defineProps<{
   value: string
 }>()
 </script>
 
 <template>
-  <CommandItem :value="value" v-bind="$attrs">
+  <CommandItem v-bind="$attrs" :value="props.value">
     <slot />
   </CommandItem>
 </template>

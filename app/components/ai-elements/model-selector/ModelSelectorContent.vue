@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { Command } from '@/components/ui/command'
-import { DialogContent, DialogTitle } from '@/components/ui/dialog'
-import { cn } from '@/lib/utils'
+import { Command } from '@repo/shadcn-vue/components/ui/command'
+import { DialogContent, DialogTitle } from '@repo/shadcn-vue/components/ui/dialog'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 
 interface Props {
   title?: string

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { Button } from '@repo/shadcn-vue/components/ui/button'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 
 const props = defineProps<{
   class?: HTMLAttributes['class']

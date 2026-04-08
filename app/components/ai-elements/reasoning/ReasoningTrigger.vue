@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { CollapsibleTrigger } from '@/components/ui/collapsible'
-import { cn } from '@/lib/utils'
+import { CollapsibleTrigger } from '@repo/shadcn-vue/components/ui/collapsible'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { BrainIcon, ChevronDownIcon } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { Shimmer } from '../shimmer'
@@ -27,31 +27,35 @@ const thinkingMessage = computed(() => {
 </script>
 
 <template>
-  <CollapsibleTrigger :class="cn(
-    'flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground',
-    props.class,
-  )">
+  <CollapsibleTrigger
+    :class="cn(
+      'flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground',
+      props.class,
+    )"
+  >
     <slot>
       <BrainIcon class="size-4" />
 
       <template v-if="thinkingMessage === 'thinking'">
         <Shimmer :duration="1">
-          思考中...
+          Thinking...
         </Shimmer>
       </template>
 
       <template v-else-if="thinkingMessage === 'default_done'">
-        <p>思考了一小会儿</p>
+        <p>Thought for a few seconds</p>
       </template>
 
       <template v-else>
-        <p>思考完成，耗时 {{ duration }} 秒</p>
+        <p>Thought for {{ duration }} seconds</p>
       </template>
 
-      <ChevronDownIcon :class="cn(
-        'size-4 transition-transform',
-        isOpen ? 'rotate-180' : 'rotate-0',
-      )" />
+      <ChevronDownIcon
+        :class="cn(
+          'size-4 transition-transform',
+          isOpen ? 'rotate-180' : 'rotate-0',
+        )"
+      />
     </slot>
   </CollapsibleTrigger>
 </template>

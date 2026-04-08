@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HoverCard } from '@/components/ui/hover-card'
+import { HoverCard } from '@repo/shadcn-vue/components/ui/hover-card'
 
 const props = withDefaults(defineProps<{
   closeDelay?: number

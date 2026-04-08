@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Button } from '@/components/ui/button'
-import { HoverCardTrigger } from '@/components/ui/hover-card'
+import { Button } from '@repo/shadcn-vue/components/ui/button'
+import { HoverCardTrigger } from '@repo/shadcn-vue/components/ui/hover-card'
 import { computed } from 'vue'
 import { useContextValue } from './context'
 import ContextIcon from './ContextIcon.vue'

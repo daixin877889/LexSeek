@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
-import { cn } from '@/lib/utils'
+import { ScrollArea, ScrollBar } from '@repo/shadcn-vue/components/ui/scroll-area'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 
 interface SuggestionsProps {
   class?: HTMLAttributes['class']

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { cn } from '@/lib/utils'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { Controls as ControlsPrimitive } from '@vue-flow/controls'
 import { reactiveOmit } from '@vueuse/core'
 import '@vue-flow/controls/dist/style.css'

@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { cn } from '@/lib/utils'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 
 interface QueueItemIndicatorProps {
   completed?: boolean
-  status?: 'pending' | 'in_progress' | 'completed'
   class?: HTMLAttributes['class']
 }
 
@@ -14,10 +13,6 @@ const props = withDefaults(
     completed: false,
   },
 )
-
-const resolvedStatus = computed(() =>
-  props.status ?? (props.completed ? 'completed' : 'pending')
-)
 </script>
 
 <template>
@@ -25,11 +20,9 @@ const resolvedStatus = computed(() =>
     :class="
       cn(
         'mt-0.5 inline-block size-2.5 rounded-full border',
-        resolvedStatus === 'in_progress'
-          ? 'border-green-500 bg-green-500 animate-pulse'
-          : resolvedStatus === 'completed'
-            ? 'border-muted-foreground/20 bg-muted-foreground/10'
-            : 'border-muted-foreground/50',
+        props.completed
+          ? 'border-muted-foreground/20 bg-muted-foreground/10'
+          : 'border-muted-foreground/50',
         props.class,
       )
     "

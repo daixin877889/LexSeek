@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CardAction } from '@/components/ui/card'
+import { CardAction } from '@repo/shadcn-vue/components/ui/card'
 </script>
 
 <template>

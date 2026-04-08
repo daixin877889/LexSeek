@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { CollapsibleTrigger } from '@/components/ui/collapsible'
-import { cn } from '@/lib/utils'
-
+import { CollapsibleTrigger } from '@repo/shadcn-vue/components/ui/collapsible'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { ChevronDownIcon } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -12,7 +11,9 @@ const props = defineProps<{
 </script>
 
 <template>
-  <CollapsibleTrigger :class="cn('flex items-center gap-2', props.class)">
+  <CollapsibleTrigger
+    :class="cn('flex items-center gap-2', props.class)"
+  >
     <slot>
       <p class="font-medium">
         Used {{ props.count }} sources

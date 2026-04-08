@@ -2,8 +2,8 @@
 import type { HTMLAttributes } from 'vue'
 import {
   CollapsibleTrigger,
-} from '@/components/ui/collapsible'
-import { cn } from '@/lib/utils'
+} from '@repo/shadcn-vue/components/ui/collapsible'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { ChevronDown, Search } from 'lucide-vue-next'
 
 interface TaskTriggerProps {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { DropdownMenu } from '@/components/ui/dropdown-menu'
+import { DropdownMenu } from '@repo/shadcn-vue/components/ui/dropdown-menu'
 
 type DropdownMenuProps = InstanceType<typeof DropdownMenu>['$props']
 

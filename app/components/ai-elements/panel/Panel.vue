@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { PanelPositionType } from '@vue-flow/core'
 import type { HTMLAttributes } from 'vue'
-import { cn } from '@/lib/utils'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { Panel as PanelPrimitive } from '@vue-flow/core'
 import { reactiveOmit } from '@vueuse/core'
 

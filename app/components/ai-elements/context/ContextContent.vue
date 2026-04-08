@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { HoverCardContent } from '@/components/ui/hover-card'
-import { cn } from '@/lib/utils'
+import { HoverCardContent } from '@repo/shadcn-vue/components/ui/hover-card'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 
 const props = defineProps<{
   class?: HTMLAttributes['class']

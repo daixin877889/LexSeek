@@ -1,20 +1,24 @@
 <script setup lang="ts">
-import type { ToolUIPart } from 'ai'
+import type { DynamicToolUIPart, ToolUIPart } from 'ai'
 import type { HTMLAttributes } from 'vue'
-import { cn } from '@/lib/utils'
-import { computed } from 'vue'
+import { cn } from '@repo/shadcn-vue/lib/utils'
+import { computed, isVNode } from 'vue'
 import { CodeBlock } from '../code-block'
 
-const props = defineProps<{
-  output: ToolUIPart['output']
-  errorText?: ToolUIPart['errorText']
+export type ToolPart = ToolUIPart | DynamicToolUIPart
+
+interface Props extends /* @vue-ignore */ HTMLAttributes {
+  output: ToolPart['output']
+  errorText: ToolPart['errorText']
   class?: HTMLAttributes['class']
-}>()
+}
+
+const props = defineProps<Props>()
 
 const showOutput = computed(() => props.output || props.errorText)
 
 const isObjectOutput = computed(
-  () => typeof props.output === 'object' && props.output !== null,
+  () => typeof props.output === 'object' && !isVNode(props.output),
 )
 const isStringOutput = computed(() => typeof props.output === 'string')
 
@@ -27,23 +31,43 @@ const formattedOutput = computed(() => {
 </script>
 
 <template>
-  <div v-if="showOutput" :class="cn('space-y-2 p-4', props.class)" v-bind="$attrs">
-    <h4 class="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-      {{ props.errorText ? "错误" : "调用结果" }}
+  <div
+    v-if="showOutput"
+    :class="cn('space-y-2 p-4', props.class)"
+    v-bind="$attrs"
+  >
+    <h4
+      class="font-medium text-muted-foreground text-xs uppercase tracking-wide"
+    >
+      {{ props.errorText ? "Error" : "Result" }}
     </h4>
-    <div :class="cn(
-      'overflow-x-auto rounded-md text-xs [&_table]:w-full',
-      props.errorText
-        ? 'bg-destructive/10 text-destructive'
-        : 'bg-muted/50 text-foreground',
-    )
-      ">
-      <div v-if="errorText" class="p-3">
+    <div
+      :class="
+        cn(
+          'overflow-x-auto rounded-md text-xs [&_table]:w-full',
+          props.errorText
+            ? 'bg-destructive/10 text-destructive'
+            : 'bg-muted/50 text-foreground',
+        )
+      "
+    >
+      <!-- Error text -->
+      <div v-if="errorText">
         {{ props.errorText }}
       </div>
 
-      <CodeBlock v-else-if="isObjectOutput || isStringOutput" :code="formattedOutput" language="json" />
-      <div v-else class="p-3">
+      <!-- Output rendering based on type -->
+      <CodeBlock
+        v-if="isObjectOutput"
+        :code="formattedOutput"
+        language="json"
+      />
+      <CodeBlock
+        v-else-if="isStringOutput"
+        :code="formattedOutput"
+        language="json"
+      />
+      <div v-else>
         {{ props.output }}
       </div>
     </div>

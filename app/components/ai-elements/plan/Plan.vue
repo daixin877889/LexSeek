@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { Card } from '@/components/ui/card'
-import { Collapsible } from '@/components/ui/collapsible'
-import { cn } from '@/lib/utils'
+import { Card } from '@repo/shadcn-vue/components/ui/card'
+import { Collapsible } from '@repo/shadcn-vue/components/ui/collapsible'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { computed } from 'vue'
 import { providePlan } from './context'
 

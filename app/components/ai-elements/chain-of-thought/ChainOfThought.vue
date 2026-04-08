@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { HTMLAttributes, Ref } from 'vue'
-import { cn } from '@/lib/utils'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { useVModel } from '@vueuse/core'
 import { provide } from 'vue'
 import { ChainOfThoughtContextKey } from './context'

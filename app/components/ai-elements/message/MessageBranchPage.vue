@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { ButtonGroupText } from '@/components/ui/button-group'
-import { cn } from '@/lib/utils'
+import { ButtonGroupText } from '@repo/shadcn-vue/components/ui/button-group'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { useMessageBranchContext } from './context'
 
 interface Props {

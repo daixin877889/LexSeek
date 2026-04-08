@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { cn } from '@/lib/utils'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { MicIcon } from 'lucide-vue-next'
 import { onMounted, onUnmounted, ref } from 'vue'
 import { usePromptInput } from './context'
@@ -85,7 +85,7 @@ onMounted(() => {
       let finalTranscript = ''
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i]
-        if (result && result.isFinal) {
+        if (result.isFinal) {
           finalTranscript += result[0]?.transcript ?? ''
         }
       }

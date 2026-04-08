@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { Badge } from '@/components/ui/badge'
-import { HoverCardTrigger } from '@/components/ui/hover-card'
-import { cn } from '@/lib/utils'
+import { Badge } from '@repo/shadcn-vue/components/ui/badge'
+import { HoverCardTrigger } from '@repo/shadcn-vue/components/ui/hover-card'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { computed } from 'vue'
 
 const props = defineProps<{

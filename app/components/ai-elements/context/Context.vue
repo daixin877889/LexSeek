@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { LanguageModelUsage } from 'ai'
 import type { ModelId } from './context'
-import { HoverCard } from '@/components/ui/hover-card'
+import { HoverCard } from '@repo/shadcn-vue/components/ui/hover-card'
 import { computed, provide } from 'vue'
 import { ContextKey } from './context'
 

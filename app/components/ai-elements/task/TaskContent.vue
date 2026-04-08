@@ -2,8 +2,8 @@
 import type { HTMLAttributes } from 'vue'
 import {
   CollapsibleContent,
-} from '@/components/ui/collapsible'
-import { cn } from '@/lib/utils'
+} from '@repo/shadcn-vue/components/ui/collapsible'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 
 interface TaskContentProps {
   class?: HTMLAttributes['class']

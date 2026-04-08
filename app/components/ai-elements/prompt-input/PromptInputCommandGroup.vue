@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { CommandGroup } from '@/components/ui/command'
-import { cn } from '@/lib/utils'
+import { CommandGroup } from '@repo/shadcn-vue/components/ui/command'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 
 type PromptInputCommandGroupProps = InstanceType<typeof CommandGroup>['$props']
 

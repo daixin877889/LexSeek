@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { SelectContent } from '@/components/ui/select'
-import { cn } from '@/lib/utils'
+import { SelectContent } from '@repo/shadcn-vue/components/ui/select'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 
 type SelectContentProps = InstanceType<typeof SelectContent>['$props']
 

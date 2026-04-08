@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { ButtonVariants } from '@/components/ui/button'
+import type { ButtonVariants } from '@repo/shadcn-vue/components/ui/button'
 import type { LucideIcon } from 'lucide-vue-next'
 import type { HTMLAttributes } from 'vue'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { cn } from '@/lib/utils'
+import { Button } from '@repo/shadcn-vue/components/ui/button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@repo/shadcn-vue/components/ui/tooltip'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { computed, useAttrs } from 'vue'
 
 interface ArtifactActionProps {

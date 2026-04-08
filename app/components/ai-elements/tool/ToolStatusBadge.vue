@@ -1,8 +1,8 @@
 <!-- StatusBadge.vue -->
 <script setup lang="ts">
+import type { DynamicToolUIPart, ToolUIPart } from 'ai'
 import type { Component } from 'vue'
-import type { ExtendedToolState } from '../types'
-import { Badge } from '@/components/ui/badge'
+import { Badge } from '@repo/shadcn-vue/components/ui/badge'
 import {
   CheckCircleIcon,
   CircleIcon,
@@ -11,25 +11,27 @@ import {
 } from 'lucide-vue-next'
 import { computed } from 'vue'
 
+export type ToolPart = ToolUIPart | DynamicToolUIPart
+
 const props = defineProps<{
-  state: ExtendedToolState
+  state: ToolPart['state']
 }>()
 
 const label = computed(() => {
-  const labels: Record<ExtendedToolState, string> = {
-    'input-streaming': '等待中',
-    'input-available': '运行中',
-    'approval-requested': '等待批准',
-    'approval-responded': '已批准',
-    'output-available': '完成',
-    'output-error': '错误',
-    'output-denied': '拒绝',
+  const labels: Record<ToolPart['state'], string> = {
+    'input-streaming': 'Pending',
+    'input-available': 'Running',
+    'approval-requested': 'Awaiting Approval',
+    'approval-responded': 'Responded',
+    'output-available': 'Completed',
+    'output-error': 'Error',
+    'output-denied': 'Denied',
   }
   return labels[props.state]
 })
 
 const icon = computed<Component>(() => {
-  const icons: Record<ExtendedToolState, Component> = {
+  const icons: Record<ToolPart['state'], Component> = {
     'input-streaming': CircleIcon,
     'input-available': ClockIcon,
     'approval-requested': ClockIcon,
@@ -42,16 +44,16 @@ const icon = computed<Component>(() => {
 })
 
 const iconClass = computed(() => {
-  const classes: Record<string, boolean> = {
-    'size-4': true,
-    'animate-pulse': props.state === 'input-available',
-    'text-yellow-600': props.state === 'approval-requested',
-    'text-blue-600': props.state === 'approval-responded',
-    'text-green-600': props.state === 'output-available',
-    'text-red-600': props.state === 'output-error',
-    'text-orange-600': props.state === 'output-denied',
+  const classes: Record<ToolPart['state'], string> = {
+    'input-streaming': 'size-4',
+    'input-available': 'size-4 animate-pulse',
+    'approval-requested': 'size-4 text-yellow-600',
+    'approval-responded': 'size-4 text-blue-600',
+    'output-available': 'size-4 text-green-600',
+    'output-error': 'size-4 text-red-600',
+    'output-denied': 'size-4 text-orange-600',
   }
-  return classes
+  return classes[props.state]
 })
 </script>
 

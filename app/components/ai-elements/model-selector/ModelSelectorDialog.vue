@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CommandDialog } from '@/components/ui/command'
+import { CommandDialog } from '@repo/shadcn-vue/components/ui/command'
 </script>
 
 <template>

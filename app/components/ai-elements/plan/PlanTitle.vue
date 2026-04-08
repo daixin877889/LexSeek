@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CardTitle } from '@/components/ui/card'
+import { CardTitle } from '@repo/shadcn-vue/components/ui/card'
 import { Shimmer } from '../shimmer'
 import { usePlan } from './context'
 

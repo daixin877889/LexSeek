@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
 import type { PromptInputMessage } from './types'
-import { InputGroup } from '@/components/ui/input-group'
-import { cn } from '@/lib/utils'
+import { InputGroup } from '@repo/shadcn-vue/components/ui/input-group'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { inject, onMounted, onUnmounted, ref } from 'vue'
 import { usePromptInputProvider } from './context'
 import { PROMPT_INPUT_KEY } from './types'

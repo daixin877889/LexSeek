@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { AlertDescription } from '@/components/ui/alert'
-import { cn } from '@/lib/utils'
+import { AlertDescription } from '@repo/shadcn-vue/components/ui/alert'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 
 const props = defineProps<{
   class?: HTMLAttributes['class']

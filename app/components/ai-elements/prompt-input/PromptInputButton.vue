@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { InputGroupButton } from '@/components/ui/input-group'
-import { cn } from '@/lib/utils'
+import { InputGroupButton } from '@repo/shadcn-vue/components/ui/input-group'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { Comment, computed, Text, toRef, useSlots } from 'vue'
 
 type InputGroupButtonProps = InstanceType<typeof InputGroupButton>['$props']

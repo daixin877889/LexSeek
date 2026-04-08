@@ -3,8 +3,8 @@ import type { HtmlHTMLAttributes } from 'vue'
 import {
   Collapsible,
   CollapsibleTrigger,
-} from '@/components/ui/collapsible'
-import { cn } from '@/lib/utils'
+} from '@repo/shadcn-vue/components/ui/collapsible'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { BrainIcon, ChevronDownIcon } from 'lucide-vue-next'
 import { useChainOfThought } from './context'
 

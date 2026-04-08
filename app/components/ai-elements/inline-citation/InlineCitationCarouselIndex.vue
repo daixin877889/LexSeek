@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { useCarousel } from '@/components/ui/carousel'
-import { cn } from '@/lib/utils'
+import { useCarousel } from '@repo/shadcn-vue/components/ui/carousel'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { computed, nextTick, ref, watch } from 'vue'
 
 const props = defineProps<{

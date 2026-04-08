@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { Button } from '@/components/ui/button'
-import { CollapsibleTrigger } from '@/components/ui/collapsible'
-import { cn } from '@/lib/utils'
+import { Button } from '@repo/shadcn-vue/components/ui/button'
+import { CollapsibleTrigger } from '@repo/shadcn-vue/components/ui/collapsible'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { ChevronsUpDownIcon } from 'lucide-vue-next'
 
 const props = defineProps<{

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { IframeHTMLAttributes, VNodeChild } from 'vue'
-import { cn } from '@/lib/utils'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { computed } from 'vue'
 import { useWebPreviewContext } from './context'
 

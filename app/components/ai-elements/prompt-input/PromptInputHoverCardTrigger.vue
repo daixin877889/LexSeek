@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HoverCardTrigger } from '@/components/ui/hover-card'
+import { HoverCardTrigger } from '@repo/shadcn-vue/components/ui/hover-card'
 
 type PromptInputHoverCardTriggerProps = InstanceType<typeof HoverCardTrigger>['$props']
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { Collapsible } from '@/components/ui/collapsible'
-import { cn } from '@/lib/utils'
+import { Collapsible } from '@repo/shadcn-vue/components/ui/collapsible'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { useVModel } from '@vueuse/core'
 import { computed, provide, ref, watch } from 'vue'
 import { ReasoningKey } from './context'

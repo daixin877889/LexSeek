@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { InputGroupAddon } from '@/components/ui/input-group'
-import { cn } from '@/lib/utils'
+import { InputGroupAddon } from '@repo/shadcn-vue/components/ui/input-group'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 
 type PromptInputHeaderProps = InstanceType<typeof InputGroupAddon>['$props']
 

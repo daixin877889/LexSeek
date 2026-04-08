@@ -25,7 +25,9 @@
                 :is-streaming="state.status === 'streaming' && msgIndex === messages.length - 1"
               >
                 <AiElementsReasoningTrigger />
-                <AiElementsReasoningContent :content="getReasoningText(message)" />
+                <AiElementsReasoningContent
+                  :content="getReasoningText(message)"
+                />
               </AiElementsReasoning>
 
               <!-- 工具调用 -->
@@ -82,7 +84,9 @@
 <script lang="ts" setup>
 import { RefreshCwIcon } from 'lucide-vue-next'
 import { AIMessage, ToolMessage } from '@langchain/core/messages'
+import type { AIMessage as AIMessageType } from '@langchain/core/messages'
 import { getModuleIcon } from '~/utils/moduleIcons'
+import { extractThinking } from '~/components/ai/composables/useMessageParser'
 import type { InitAnalysisModule, ModuleRunState } from '#shared/types/initAnalysis'
 
 const props = defineProps<{
@@ -115,19 +119,9 @@ function getMessageText(message: any): string {
   return ''
 }
 
+// 统一使用 extractThinking 函数（完整合并模式，用于历史消息渲染）
 function getReasoningText(message: any): string {
-  if ('contentBlocks' in message) {
-    return message.contentBlocks
-      .filter((b: any) => b.type === 'reasoning')
-      .map((b: any) => b.reasoning)
-      .join('')
-  }
-  const content = message.content
-  if (!Array.isArray(content)) return ''
-  return content
-    .filter((b: any) => b.type === 'thinking')
-    .map((b: any) => b.thinking)
-    .join('')
+  return extractThinking(message as AIMessageType, false) ?? ''
 }
 
 type ToolState = 'input-available' | 'output-available' | 'output-error'

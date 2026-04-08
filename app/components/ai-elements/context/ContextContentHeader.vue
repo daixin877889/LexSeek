@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { Progress } from '@/components/ui/progress'
-import { cn } from '@/lib/utils'
+import { Progress } from '@repo/shadcn-vue/components/ui/progress'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { computed } from 'vue'
 import { useContextValue } from './context'
 

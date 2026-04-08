@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import Card from '@/components/ui/card/Card.vue'
-import { cn } from '@/lib/utils'
+import Card from '@repo/shadcn-vue/components/ui/card/Card.vue'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { Handle, Position } from '@vue-flow/core'
 import { reactiveOmit } from '@vueuse/core'
 

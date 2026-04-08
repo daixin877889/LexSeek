@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { Button } from '@repo/shadcn-vue/components/ui/button'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { ArrowDownIcon } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { useStickToBottomContext } from 'vue-stick-to-bottom'
@@ -22,7 +22,10 @@ function handleClick() {
 <template>
   <Button
     v-if="showScrollButton"
-    :class="cn('absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full', props.class)"
+    :class="cn(
+      'absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full dark:bg-background dark:hover:bg-muted',
+      props.class,
+    )"
     aria-label="Scroll to bottom"
     size="icon"
     type="button"

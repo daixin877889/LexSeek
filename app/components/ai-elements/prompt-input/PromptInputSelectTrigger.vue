@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { SelectTrigger } from '@/components/ui/select'
-import { cn } from '@/lib/utils'
+import { SelectTrigger } from '@repo/shadcn-vue/components/ui/select'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 
 type SelectTriggerProps = InstanceType<typeof SelectTrigger>['$props']
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
+import { DropdownMenuItem } from '@repo/shadcn-vue/components/ui/dropdown-menu'
 import { ImageIcon } from 'lucide-vue-next'
 import { usePromptInput } from './context'
 

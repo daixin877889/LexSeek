@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
-import { cn } from '@/lib/utils'
+import { DropdownMenuItem } from '@repo/shadcn-vue/components/ui/dropdown-menu'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 
 type PromptInputActionMenuItemProps = InstanceType<typeof DropdownMenuItem>['$props']
 

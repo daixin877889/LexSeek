@@ -1,4 +1,5 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import { resolve } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import rollupObfuscator from 'rollup-plugin-obfuscator'
 import { obfuscatorConfig } from './config/obfuscator'
@@ -42,6 +43,13 @@ export default defineNuxtConfig({
   },
   css: ['~/assets/css/tailwind.css'],
   vite: {
+    resolve: {
+      alias: {
+        // ai-elements 组件使用 @repo/shadcn-vue 路径，映射到本地目录
+        '@repo/shadcn-vue/lib': resolve(__dirname, 'app/lib'),
+        '@repo/shadcn-vue/components/ui': resolve(__dirname, 'app/components/ui'),
+      },
+    },
     plugins: [
       tailwindcss() as any,
     ],

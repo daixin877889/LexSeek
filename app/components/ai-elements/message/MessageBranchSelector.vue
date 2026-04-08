@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { UIMessage } from 'ai'
-import { ButtonGroup } from '@/components/ui/button-group'
+import { ButtonGroup } from '@repo/shadcn-vue/components/ui/button-group'
 import { useMessageBranchContext } from './context'
 
 interface Props {

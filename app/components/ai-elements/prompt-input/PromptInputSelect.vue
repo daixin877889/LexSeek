@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Select } from '@/components/ui/select'
+import { Select } from '@repo/shadcn-vue/components/ui/select'
 
 type PromptInputSelectProps = InstanceType<typeof Select>['$props']
 

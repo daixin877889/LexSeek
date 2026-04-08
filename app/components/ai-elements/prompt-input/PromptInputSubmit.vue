@@ -1,9 +1,9 @@
 <script setup lang="ts">
-// import type { InputGroupButtonVariants } from '@/components/ui/input-group'
+// import type { InputGroupButtonVariants } from '@repo/shadcn-vue/components/ui/input-group'
 import type { ChatStatus } from 'ai'
 import type { HTMLAttributes } from 'vue'
-import { InputGroupButton } from '@/components/ui/input-group'
-import { cn } from '@/lib/utils'
+import { InputGroupButton } from '@repo/shadcn-vue/components/ui/input-group'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 import { CornerDownLeftIcon, Loader2Icon, SquareIcon, XIcon } from 'lucide-vue-next'
 import { computed } from 'vue'
 
@@ -41,21 +41,7 @@ const iconClass = computed(() => {
   return 'size-4'
 })
 
-const emit = defineEmits<{
-  (e: 'submit'): void
-  (e: 'stop'): void
-}>()
-
 const { status, size, variant, class: _, ...restProps } = props
-
-function handleClick() {
-  if (status === 'streaming' || status === 'submitted') {
-    emit('stop')
-  }
-  else {
-    emit('submit')
-  }
-}
 </script>
 
 <template>
@@ -64,16 +50,11 @@ function handleClick() {
     :class="cn(props.class)"
     :size="size"
     :variant="variant"
-    type="button"
-    :disabled="status === 'submitted' || $attrs.disabled === true"
+    type="submit"
     v-bind="restProps"
-    @click.stop="handleClick"
   >
-    <div class="flex items-center justify-center">
-      <Loader2Icon v-if="status === 'streaming' || status === 'submitted'" class="size-4 animate-spin shrink-0" />
-      <slot v-else>
-        <component :is="icon" :class="iconClass" />
-      </slot>
-    </div>
+    <slot>
+      <component :is="icon" :class="iconClass" />
+    </slot>
   </InputGroupButton>
 </template>

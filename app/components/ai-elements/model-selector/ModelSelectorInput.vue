@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
-import { CommandInput } from '@/components/ui/command'
-import { cn } from '@/lib/utils'
+import { CommandInput } from '@repo/shadcn-vue/components/ui/command'
+import { cn } from '@repo/shadcn-vue/lib/utils'
 
 interface Props {
   class?: HTMLAttributes['class']

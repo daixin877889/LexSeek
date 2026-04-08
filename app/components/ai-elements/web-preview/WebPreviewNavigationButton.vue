@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import type { ButtonVariants } from '@/components/ui/button'
+import type { ButtonVariants } from '@repo/shadcn-vue/components/ui/button'
 import type { HTMLAttributes } from 'vue'
-import { Button } from '@/components/ui/button'
+import { Button } from '@repo/shadcn-vue/components/ui/button'
 
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip'
+} from '@repo/shadcn-vue/components/ui/tooltip'
 
 interface Props extends /* @vue-ignore */ HTMLAttributes {
   size?: ButtonVariants['size']
