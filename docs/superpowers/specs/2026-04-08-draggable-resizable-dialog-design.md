@@ -74,8 +74,9 @@ interface UseDraggableResizeReturn {
 
 3. **拖拽和 resize 冲突处理**：
    - 标题栏角落同时属于拖拽区和 resize 区
-   - 标题栏 `pointerdown` 先检查是否在角落 resize 区域
-   - 在角落 → 启动 resize；不在角落 → 启动 drag
+   - 统一在标题栏 `onDragStart` 内部处理：先检查鼠标是否在角落 resize 区域
+   - 在角落 → 调用 resize 逻辑并 `stopPropagation` 阻止冒泡到容器级 `onResizeStart`
+   - 不在角落 → 启动 drag 并 `stopPropagation`
 
 4. **边界纠正**：松手后检查标题栏顶部是否在视口内（保证至少标题栏可见可抓取），不在则用 `requestAnimationFrame` 平滑移回
 
@@ -86,11 +87,28 @@ interface UseDraggableResizeReturn {
 - 边界纠正基于视口尺寸计算
 - `absolute` 在可滚动的父容器中会出现定位偏移
 
+#### Z-index 层级管理
+
+项目中 `fixed` 元素的 z-index 分层：
+- 导航栏：`z-30`（不冲突）
+- 对话框小窗：`z-40`（两个对话框同级）
+- 对话框全屏：`z-50`
+- Toast/通知：`z-[100]`（始终最高）
+
+两个对话框同时打开时的处理：
+- 默认初始位置错开：AnalysisModuleChat 偏移 `(-40, -40)` 避免完全重叠
+- 点击/拖拽对话框时提升到最高层（动态调整 z-index）：当前操作的窗口 `z-40`，另一个降为 `z-39`
+- composable 通过外部传入 `zIndex` ref 支持动态层级
+
 #### 默认初始位置
 
 打开时定位在视口右下角，具体计算：
 - `x = viewport.width - width - 16`
 - `y = viewport.height - height - 70`（留出底部状态栏空间）
+
+#### 视口变化处理
+
+监听 `window.resize` 事件（通过 `@vueuse/core` 的 `useWindowSize`），当视口缩小导致对话框超出边界时，自动执行边界纠正。使用 `watchThrottled` 节流以避免频繁计算。
 
 ## 组件改造
 
@@ -110,9 +128,10 @@ interface UseDraggableResizeReturn {
 ### CaseDetailXiaosuo.vue
 
 同样应用 `useDraggableResize`：
-- 小窗模式使用相同的 composable
+- 对话框 DOM 节点从悬浮按钮的包裹容器中移出，与按钮容器平级放置
+- 小窗模式使用 `fixed` + composable style，独立于按钮容器
 - 悬浮按钮位置不受影响（保持 `absolute bottom-4 right-4`）
-- 关闭/打开逻辑不变
+- 显示/隐藏逻辑通过 `isOpen` ref 统一控制，两个元素独立渲染
 
 ### 移动端
 
@@ -146,6 +165,10 @@ interface UseDraggableResizeReturn {
 - 进入全屏：保存当前 position/size
 - 退出全屏：恢复保存的 position/size
 - 关闭对话框：reset() 回到默认
+
+### Transition 动画
+
+改为 `fixed` + 动态 style 后，进出场动画简化为仅 `opacity` 过渡，移除 `scale-95` 和 `translate-y-2`（避免与动态 `left`/`top` 冲突导致视觉跳动）。
 
 ## 涉及文件
 
