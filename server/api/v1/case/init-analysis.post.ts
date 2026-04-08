@@ -101,19 +101,38 @@ export default defineEventHandler(async (event) => {
     }
 
     // 4. 新建/重连逻辑
-    const parsed = inputSchema.safeParse(input)
-    if (!parsed.success) {
-        return resError(event, 400, parsed.error.issues[0]?.message ?? '参数校验失败')
-    }
-
-    const { caseId, selectedModules: rawModules } = parsed.data
-
-    // 5. 验证模块名并排序
+    // 纯重连场景：stream.submit(undefined) 时 input 为空，但有 threadId，从 checkpoint 恢复
+    let caseId: number
     let selectedModules: string[]
-    try {
-        selectedModules = validateAndSortModules(rawModules)
-    } catch (err: any) {
-        return resError(event, 400, err.message)
+
+    if (!input && threadId) {
+        // 纯重连：从 session 恢复信息
+        const session = await prisma.caseSessions.findFirst({
+            where: { sessionId: threadId, type: 2, deletedAt: null },
+            select: { caseId: true, metadata: true },
+        })
+        if (!session) {
+            return resError(event, 404, '分析会话不存在')
+        }
+        caseId = session.caseId
+        // 从 metadata 中恢复 selectedModules（服务端权威来源）
+        const metadata = session.metadata as { selectedModules?: string[] } | null
+        selectedModules = metadata?.selectedModules ?? []
+    } else {
+        // 新执行：需要完整的 input
+        const parsed = inputSchema.safeParse(input)
+        if (!parsed.success) {
+            return resError(event, 400, parsed.error.issues[0]?.message ?? '参数校验失败')
+        }
+        caseId = parsed.data.caseId
+        const rawModules = parsed.data.selectedModules
+
+        // 5. 验证模块名并排序
+        try {
+            selectedModules = validateAndSortModules(rawModules)
+        } catch (err: any) {
+            return resError(event, 400, err.message)
+        }
     }
 
     // 6. 验证案件权限
