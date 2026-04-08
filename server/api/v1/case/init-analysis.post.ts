@@ -15,6 +15,7 @@ import { validateAndSortModules } from '~~/server/services/case/initAnalysis.ser
 import { validateCaseAccessService } from '~~/server/services/case/case.service'
 import { enqueueRunService, getActiveRunService } from '~~/server/services/agent/agentRun.service'
 import { replayEvents, createEventSubscription } from '~~/server/services/agent/agentEventBridge'
+import { getThreadValuesService } from '~~/server/services/workflow/agents'
 import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
 
 const inputSchema = z.object({
@@ -96,7 +97,7 @@ export default defineEventHandler(async (event) => {
             return resError(event, 429, result.error)
         }
 
-        return createSSEResponse(event, result.runId)
+        return createSSEResponse(event, result.runId, session.sessionId)
     }
 
     // 4. 新建/重连逻辑
@@ -162,7 +163,7 @@ export default defineEventHandler(async (event) => {
                     orderBy: { createdAt: 'desc' },
                 })
                 if (lastRun) {
-                    return createSSEResponse(event, lastRun.id)
+                    return createSSEResponse(event, lastRun.id, sessionId)
                 }
             }
 
@@ -202,13 +203,13 @@ export default defineEventHandler(async (event) => {
         runId = result.runId
     }
 
-    return createSSEResponse(event, runId)
+    return createSSEResponse(event, runId, sessionId)
 })
 
 /**
  * 创建 SSE 响应流
  */
-function createSSEResponse(event: any, runId: string) {
+async function createSSEResponse(event: any, runId: string, sessionId?: string) {
     setResponseHeaders(event, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
@@ -235,13 +236,39 @@ function createSSEResponse(event: any, runId: string) {
 
             try {
                 // 补发缺失事件（只发最后一条 values 快照，避免逐条 replay 数千条事件导致前端卡顿）
-                const missed = await replayEvents(runId)
+                let missed = await replayEvents(runId)
                 const lastValues = [...missed].reverse()
                     .find(e => e.type === 'stream_event' && e.event === 'values')
+
+                // 如果 Redis Stream 有数据，发送最后一条 values 快照
                 if (lastValues?.type === 'stream_event') {
                     controller.enqueue(encoder.encode(
                         `event: ${lastValues.event}\ndata: ${JSON.stringify(lastValues.data)}\n\n`,
                     ))
+                }
+                // Fallback: 如果 Redis Stream 没有数据，尝试从 PostgresSaver checkpoint 加载
+                else {
+                    // 如果没有传入 sessionId，尝试从 run 中获取
+                    let threadId = sessionId
+                    if (!threadId) {
+                        const run = await prisma.agentRuns.findUnique({ where: { id: runId } })
+                        if (run) {
+                            threadId = run.threadId
+                        }
+                    }
+                    if (threadId) {
+                        const checkpointValues = await getThreadValuesService(threadId)
+                        if (checkpointValues) {
+                            const messages = (checkpointValues.messages as any[]) || []
+                            if (messages.length > 0) {
+                                controller.enqueue(encoder.encode(
+                                    `event: values\ndata: ${JSON.stringify(checkpointValues)}\n\n`,
+                                ))
+                                // 标记已发送 checkpoint，跳过后续的实时订阅
+                                missed = []
+                            }
+                        }
+                    }
                 }
 
                 // 检查是否已结束
@@ -254,7 +281,7 @@ function createSSEResponse(event: any, runId: string) {
                     return
                 }
 
-                // 订阅实时事件
+                // 订阅实时事件（如果已发送 checkpoint 且 run 已完成，跳过订阅）
                 for await (const evt of createEventSubscription(runId, abortController.signal)) {
                     if (evt.type === 'status_change' && TERMINAL_STATUSES.includes(evt.status)) {
                         controller.enqueue(encoder.encode(`event: status\ndata: ${JSON.stringify(evt)}\n\n`))
@@ -267,7 +294,7 @@ function createSSEResponse(event: any, runId: string) {
                     }
                 }
             } catch (err) {
-                logger.error(`初始化分析 SSE 流异常: run=${runId}`, err)
+                logger.error(`初始化分析 SSE 流异常：run=${runId}`, err)
             } finally {
                 clearInterval(keepalive)
                 abortController.abort()

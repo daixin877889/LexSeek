@@ -18,6 +18,7 @@ import { HumanMessage } from '@langchain/core/messages'
 import type { BaseMessage } from '@langchain/core/messages'
 import { createChatModel } from '../node/chatModelFactory'
 import { getToolInstancesService } from './tools'
+import { getCheckpointer, getStore } from './checkpointer'
 import { pointConsumptionMiddleware } from './middleware/pointConsumption.middleware'
 import { caseMaterialContextMiddleware } from './middleware/caseMaterialContext.middleware'
 import { analysisResultPersistenceMiddleware, markAnalysisFailedById } from './middleware/analysisResultPersistence.middleware'
@@ -134,14 +135,14 @@ function createModuleNode(config: ModuleNodeConfig) {
         })
 
         // 6. 创建并执行 Agent（中间件自动处理 start/complete）
+        // 注意：不使用 checkpointer，消息由父图 StateGraph 的 messages concat reducer 累积
         const agent = createAgent({
             model,
             systemPrompt,
-            checkpointer: await getCheckpointer(),
             tools,
             store: await getStore(),
             middleware: [
-                pointConsumptionMiddleware(userId, 'case_analysis_token'),
+                pointConsumptionMiddleware(userId, 'case_analysis_token', sessionId),
                 caseMaterialContextMiddleware(userId, caseId),
                 summarizationMiddleware({
                     model,
@@ -160,11 +161,11 @@ function createModuleNode(config: ModuleNodeConfig) {
                 { messages: [new HumanMessage(fullPrompt)] },
                 {
                     configurable: {
-                        thread_id: `${sessionId}_${config.moduleName}`,
+                        thread_id: sessionId,
                         user_id: userId,
                         case_id: caseId,
                     },
-                    recursionLimit: 100,
+                    recursionLimit: 1000,
                 },
             )
 

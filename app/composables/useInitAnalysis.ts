@@ -250,23 +250,16 @@ export function useInitAnalysis(sessionId: Ref<string>) {
 
       moduleStates.value = restored
 
-      if (status.status === 'in_progress') {
-        // 有待处理的 interrupt（如积分扣减失败）→ 重连以获取 interrupt 数据
-        if (status.hasPendingInterrupt) {
-          stream.submit({
-            caseId: caseId.value,
-            selectedModules: selectedModules.value,
-          } as any)
-          return
-        }
-
-        // 始终重连 SSE（获取完整状态快照，包含 selectedModules 和 messages）
-        // 不提前设 phase='complete'，让 watch(values) 在 SSE 数据到达后统一判断
-        stream.submit({
-          caseId: caseId.value,
-          selectedModules: selectedModules.value,
-        } as any)
+      // 有待处理的 interrupt（如积分扣减失败）→ 重连以获取 interrupt 数据
+      if (status.hasPendingInterrupt) {
+        stream.submit(undefined)
+        return
       }
+
+      // 始终重连 SSE（获取完整状态快照，包含 selectedModules 和 messages）
+      // 已完成状态也需要重连以加载历史消息（页面刷新后恢复）
+      // 使用 undefined 触发纯重连，从 checkpoint 加载历史
+      stream.submit(undefined)
     }
   }
 
