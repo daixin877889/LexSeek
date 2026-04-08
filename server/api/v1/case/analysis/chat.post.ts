@@ -126,7 +126,11 @@ export default defineEventHandler(async (event) => {
   let latestRunStatus: string | undefined
 
   if (activeRun && command && activeRun.status === AGENT_RUN_STATUS.INTERRUPTED) {
-    // 有 interrupted run + 有 command → resume：将旧 run 标记完成，入队新 run
+    // 验证 command 白名单
+    if (!isValidResumeCommand(command)) {
+      return resError(event, 400, '无效的 resume 命令')
+    }
+    // 有 interrupted run + 有合法 command → resume：将旧 run 标记完成，入队新 run
     await updateRunStatusDAO(activeRun.id, AGENT_RUN_STATUS.COMPLETED, { completedAt: new Date() })
     const result = await enqueueRunService({
       sessionId,
