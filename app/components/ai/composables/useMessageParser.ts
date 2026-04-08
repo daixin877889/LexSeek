@@ -135,8 +135,7 @@ export function useMessageParser(messages: MaybeRef<any[]>) {
         toolResultsMap.set((m as any).tool_call_id, m)
       }
     }
-
-    return baseMessages
+    const result = baseMessages
       .filter((m) => !(m instanceof ToolMessage) && !(m instanceof SystemMessage))
       .map((m, idx) => {
         if (m instanceof HumanMessage) {
@@ -154,13 +153,16 @@ export function useMessageParser(messages: MaybeRef<any[]>) {
                 .map((b: any) => b.text)
                 .join('')
             : (m.content as string)
+          const toolCalls = matchToolCalls(m, toolResultsMap)
+          // 跳过无内容且无 toolCalls 的 AI 消息（流式中断时保存的中间状态）
+          if (!content && !toolCalls.length) return null
 
           return {
             id: m.id ?? `ai-${idx}`,
             type: 'ai' as const,
             content,
             thinking: extractThinking(m),
-            toolCalls: matchToolCalls(m, toolResultsMap),
+            toolCalls,
             raw: m,
           }
         }
@@ -171,6 +173,9 @@ export function useMessageParser(messages: MaybeRef<any[]>) {
           raw: m,
         }
       })
+      .filter(Boolean) as ParsedMessage[]
+
+    return result
   })
 
   return { parsedMessages }

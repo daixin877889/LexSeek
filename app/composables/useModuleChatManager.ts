@@ -29,12 +29,16 @@ export interface ModuleChatInstance {
     isExpanded: Ref<boolean>
     /** 是否有活跃的分析任务 */
     isActive: Ref<boolean>
+    /** 是否已加载过历史消息 */
+    hasHistoryLoaded: Ref<boolean>
     /** 发送消息 */
     sendMessage: (message: string) => void
     /** 中止生成（SSE + Worker） */
     stopGeneration: () => void
     /** 触发重连并回放历史（页面刷新后恢复 session 时使用） */
     reconnect: () => void
+    /** 仅加载历史消息，不建立 SSE 订阅 */
+    loadHistory: () => void
 }
 
 export interface ModuleChatManagerOptions {
@@ -51,7 +55,14 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
 
     /** 所有活跃的模块列表（用于渲染状态条） */
     const activeModules = computed(() =>
-        Object.values(instances).filter(i => i.isActive.value || i.isExpanded.value),
+        Object.values(instances).filter(i =>
+            // 正在生成中（isActive）
+            i.isActive.value
+            // 窗口已展开
+            || i.isExpanded.value
+            // 加载中且有历史（最小化时仍显示正在进行的分析）
+            || (i.isLoading.value && i.hasHistoryLoaded.value),
+        ),
     )
 
     /**
@@ -67,6 +78,7 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
         const sessionId = ref<string | null>(null)
         const isExpanded = ref(false)
         const isActive = ref(false)
+        const hasHistoryLoaded = ref(false)
 
         // 获取或创建 session（useApiFetch 直接返回 data）
         const sessionResult = await useApiFetch<{ sessionId: string; isNew: boolean }>(
@@ -94,6 +106,20 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
             )!
         }
 
+        // 监听 isLoading 变化：开始加载时标记为活跃，结束后取消
+        if (chatInstance) {
+            watch(chatInstance.isLoading, (loading) => {
+                if (loading) {
+                    // run 开始（历史加载或实时订阅）
+                    isActive.value = true
+                }
+                else {
+                    // run 结束（已完成或出错）
+                    isActive.value = false
+                }
+            })
+        }
+
         const instance: ModuleChatInstance = {
             moduleName,
             moduleTitle,
@@ -102,6 +128,7 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
             isLoading: chatInstance?.isLoading || ref(false),
             isExpanded,
             isActive,
+            hasHistoryLoaded,
             sendMessage: (message: string) => chatInstance?.sendMessage(message),
             stopGeneration: async () => {
                 // 1. 中止 SSE 连接
@@ -109,12 +136,12 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
                 // 2. 获取 runId 并取消 Worker 任务
                 if (sessionId.value) {
                     try {
-                        const runData = await useApiFetch<{ id: string }>(
+                        const runData = await useApiFetch<{ run: { id: string } | null }>(
                             `/api/v1/case/analysis/runs/current/${sessionId.value}`,
                         )
-                        if (runData?.id) {
+                        if (runData?.run?.id) {
                             await useApiFetch(
-                                `/api/v1/case/analysis/runs/cancel/${runData.id}`,
+                                `/api/v1/case/analysis/runs/cancel/${runData.run.id}`,
                                 { method: 'POST' },
                             )
                         }
@@ -125,6 +152,7 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
                 }
             },
             reconnect: () => chatInstance?.reconnect(),
+            loadHistory: () => chatInstance?.loadHistory(),
         }
 
         instances[moduleName] = instance
@@ -154,7 +182,7 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
         expandedModule.value = null
     }
 
-    /** 页面刷新后恢复活跃 session */
+    /** 页面刷新后恢复 session */
     async function restoreActiveSessions() {
         const sessions = await useApiFetch<Array<{
             sessionId: string
@@ -166,14 +194,20 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
         )
         if (sessions) {
             for (const session of sessions) {
-                // 始终为存在的 session 创建实例（包括已完成的）
                 const moduleDef = INIT_ANALYSIS_MODULES.find(m => m.name === session.moduleName)
                 const title = moduleDef?.title ?? session.moduleName
                 const instance = await getOrCreateInstance(session.moduleName, title)
-                // 仅标记活跃状态，不用于决定是否重连
-                instance.isActive.value = session.hasActiveRun
-                // 始终触发重连以回放历史消息
-                instance.reconnect()
+
+                if (session.hasActiveRun) {
+                    // 正在分析中：建立 SSE 订阅接收实时事件 + 重放历史
+                    instance.isActive.value = true
+                    instance.reconnect()
+                }
+                else {
+                    // 已完成：只加载历史，不建立 SSE 订阅
+                    instance.isActive.value = false
+                    instance.loadHistory()
+                }
             }
         }
     }
