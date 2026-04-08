@@ -4,6 +4,7 @@
  *
  * 参考 CaseDetailXiaosuo.vue 的 UI 结构
  * 使用 AiChat 组件渲染对话
+ * 支持拖拽移动和自由缩放
  */
 import { XIcon, MaximizeIcon, MinimizeIcon } from 'lucide-vue-next'
 import { useMediaQuery } from '@vueuse/core'
@@ -20,9 +21,30 @@ const isMobile = useMediaQuery('(max-width: 767px)')
 const isFullscreen = ref(false)
 const thinking = ref(true)
 
-// 关闭时重置全屏
+// 拖拽和缩放
+const moduleChatZIndex = ref(40)
+const { style: windowStyle, onDragStart, onEdgeDetect, onResizeStart, cursor, isInteracting, reset }
+    = useDraggableResize({
+        initialWidth: 380,
+        initialHeight: 640,
+        minWidth: 300,
+        minHeight: 350,
+        positionOffset: { x: -40, y: -40 },
+        zIndex: moduleChatZIndex,
+    })
+
+// 合并 style（模板中直接绑定）
+const containerStyle = computed(() => ({
+    ...windowStyle.value,
+    cursor: cursor.value,
+}))
+
+// 关闭时重置全屏和窗口位置
 watch(isOpen, (open) => {
-    if (!open) isFullscreen.value = false
+    if (!open) {
+        isFullscreen.value = false
+        reset()
+    }
 })
 
 function handleSubmit(data: { text: string }) {
@@ -60,14 +82,20 @@ function handleSubmit(data: { text: string }) {
             </div>
         </Transition>
 
-        <!-- 小窗模式 -->
+        <!-- 小窗模式（可拖拽、可缩放） -->
         <Transition enter-active-class="transition duration-200 ease-out"
-            enter-from-class="opacity-0 scale-95 translate-y-2" enter-to-class="opacity-100 scale-100 translate-y-0"
-            leave-active-class="transition duration-150 ease-in" leave-from-class="opacity-100 scale-100 translate-y-0"
-            leave-to-class="opacity-0 scale-95 translate-y-2">
+            enter-from-class="opacity-0" enter-to-class="opacity-100"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="opacity-100" leave-to-class="opacity-0">
             <div v-if="isOpen && !isFullscreen"
-                class="absolute bottom-14 right-4 w-[380px] h-[640px] z-40 bg-background border rounded-xl shadow-xl flex flex-col overflow-hidden">
-                <div class="shrink-0 h-10 flex items-center justify-between px-3 border-b bg-muted/30">
+                class="fixed bg-background border rounded-xl shadow-xl flex flex-col overflow-hidden"
+                :class="{ 'select-none': isInteracting }"
+                :style="containerStyle"
+                @pointermove="onEdgeDetect"
+                @pointerdown="onResizeStart">
+                <div class="shrink-0 h-10 flex items-center justify-between px-3 border-b bg-muted/30
+                            cursor-grab active:cursor-grabbing"
+                    @pointerdown="onDragStart">
                     <div class="text-sm font-medium">{{ chatInstance.moduleTitle }}</div>
                     <div class="flex items-center gap-0.5">
                         <Button variant="ghost" size="icon" class="size-6" @click="isFullscreen = true">
