@@ -29,6 +29,9 @@ model agentRuns {
     /// 错误信息
     error       String?
 
+    /// 元数据（用于存储 resumeCount 等系统信息）- nullable，无默认值
+    metadata    Json?     @map("metadata")
+
     /// 创建时间
     createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
     /// 最后更新时间
