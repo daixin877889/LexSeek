@@ -141,11 +141,11 @@ export default defineEventHandler(async (event) => {
     runId = result.runId
   }
   else if (activeRun) {
-    if (message) {
-      // 已有活跃 run + 有新消息 → 返回错误
+    // 已有活跃 run + 有新消息 + run 正在运行 → 返回错误
+    if (shouldRejectMessage(activeRun.status, !!message)) {
       return resError(event, 429, '请等待当前分析完成')
     }
-    // 已有活跃 run + 无新消息 → 重连订阅模式
+    // 已有活跃 run + 无新消息或 run 非 RUNNING → 重连订阅模式
     runId = activeRun.id
   }
   else {
@@ -334,43 +334,3 @@ export default defineEventHandler(async (event) => {
     headers: { 'Content-Type': 'text/event-stream' },
   })
 })
-
-// --- 纯函数 ---
-
-/**
- * 判断是否应该拒绝消息（RUNNING 状态 + 有新消息）
- * @param activeRunStatus 当前 run 的状态
- * @param hasMessage 是否有新消息
- * @returns true 表示应该拒绝
- */
-export function shouldRejectMessage(activeRunStatus: string, hasMessage: boolean): boolean {
-  return activeRunStatus === AGENT_RUN_STATUS.RUNNING && hasMessage
-}
-
-/**
- * 验证 resume 命令是否合法
- * @param command 命令字符串
- * @returns true 表示命令合法
- */
-export function isValidResumeCommand(command: string | undefined): boolean {
-  if (!command) return false
-  return RESUME_COMMANDS.includes(command as typeof RESUME_COMMANDS[number])
-}
-
-/**
- * 判断是否应该拒绝 resume（超过次数上限）
- * @param resumeCount 当前 resume 次数
- * @returns true 表示应该拒绝
- */
-export function shouldRejectResume(resumeCount: number): boolean {
-  return resumeCount >= MAX_RESUME_COUNT
-}
-
-/**
- * 获取当前 resume 次数
- * @param metadata run 的 metadata 对象
- * @returns resume 次数，默认为 0
- */
-export function getResumeCount(metadata: any): number {
-  return (metadata?.resumeCount as number | undefined) ?? 0
-}
