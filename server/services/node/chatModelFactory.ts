@@ -93,6 +93,9 @@ const modelCreators: Record<SdkType, (config: ChatModelConfig) => BaseChatModel>
             baseUrl: config.baseUrl,
             temperature: config.temperature ?? 0.7,
             streaming: config.streaming ?? true,
+            ...(config.thinking && {
+                thinkingConfig: { thinkingBudget: 10_000 },
+            }),
         })
     },
 

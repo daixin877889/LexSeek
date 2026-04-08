@@ -51,32 +51,42 @@ export function coerceRawMessages(raw: any[]): BaseMessage[] {
 }
 
 /**
- * 提取 AIMessage 中的推理/思考文本。
+ * 从 AIMessage 中提取推理/思考文本
+ *
  * 支持三种传输格式：
  * - contentBlocks 中 type === 'reasoning'（LGP transport 路径）
  * - content 数组中 type === 'thinking'（FetchStreamTransport 路径）
  * - additional_kwargs.reasoning_content（Ollama/DeepSeek 等模型的额外字段）
+ *
+ * @param message AIMessage 实例
+ * @param lastOnly 是否只取最后一个块（流式增量场景）
  */
-function extractThinking(message: AIMessage): string | undefined {
+export function extractThinking(message: AIMessage, lastOnly: boolean = false): string | undefined {
   // 格式 1: contentBlocks（LGP transport 路径）
-  if ('contentBlocks' in message) {
-    const text = (message as any).contentBlocks
+  if ('contentBlocks' in message && Array.isArray((message as any).contentBlocks)) {
+    const blocks = (message as any).contentBlocks
       .filter((b: any) => b.type === 'reasoning')
-      .map((b: any) => b.reasoning)
-      .join('')
-    if (text) return text
+    if (blocks.length > 0) {
+      const result = lastOnly
+        ? blocks[blocks.length - 1]?.reasoning
+        : blocks.map((b: any) => b.reasoning).join('')
+      return result as string | undefined
+    }
   }
   // 格式 2: content 数组中的 thinking 块（FetchStreamTransport 路径）
   if (Array.isArray(message.content)) {
-    const text = message.content
+    const blocks = message.content
       .filter((b: any) => b.type === 'thinking')
-      .map((b: any) => b.thinking)
-      .join('')
-    if (text) return text
+    if (blocks.length > 0) {
+      const result = lastOnly
+        ? blocks[blocks.length - 1]?.thinking
+        : blocks.map((b: any) => b.thinking).join('')
+      return result as string | undefined
+    }
   }
   // 格式 3: additional_kwargs.reasoning_content（Ollama/DeepSeek 等模型）
   if ((message as any).additional_kwargs?.reasoning_content) {
-    return (message as any).additional_kwargs.reasoning_content
+    return (message as any).additional_kwargs.reasoning_content as string
   }
   return undefined
 }
@@ -172,14 +182,16 @@ export function useMessageParser(messages: MaybeRef<any[]>) {
                 .join('')
             : (m.content as string)
           const toolCalls = matchToolCalls(m, toolResultsMap)
-          // 跳过无内容且无 toolCalls 的 AI 消息（流式中断时保存的中间状态）
-          if (!content && !toolCalls.length) return null
+          // 提取 thinking（需在 skip 检查前执行，否则纯 thinking 阶段的消息会被误过滤）
+          const thinking = extractThinking(m, false)
+          // 跳过无内容、无 toolCalls、无 thinking 的 AI 消息（流式中断时保存的中间状态）
+          if (!content && !toolCalls.length && !thinking) return null
 
           return {
             id: m.id ?? `ai-${idx}`,
             type: 'ai' as const,
             content,
-            thinking: extractThinking(m),
+            thinking,
             toolCalls,
             raw: m,
           }

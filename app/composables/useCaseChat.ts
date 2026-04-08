@@ -62,9 +62,10 @@ export function useCaseChat(options: CaseChatOptions) {
         interrupt: computed(() => stream.interrupt),
         hasHistoryLoaded,              // 标记历史消息是否已加载
 
-        sendMessage: (message: string) => {
+        sendMessage: (message: string, options?: { thinking?: boolean }) => {
             stream.submit({
                 messages: [{ type: 'human', content: message }],
+                thinking: options?.thinking,
             } as any)
         },
         resumeInterrupt: (data: any) => {

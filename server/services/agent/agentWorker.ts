@@ -131,7 +131,7 @@ export class AgentWorker {
       })
 
       // 调用 Agent（根据 session 类型路由）
-      const input = run.input as { message?: string; command?: unknown; selectedModules?: string[] }
+      const input = run.input as { message?: string; command?: unknown; selectedModules?: string[]; thinking?: boolean }
 
       let stream: ReadableStream
       const session = await prisma.caseSessions.findUnique({
@@ -160,6 +160,7 @@ export class AgentWorker {
           nodeId: metadata.nodeId,
           command: input.command,
           runId: run.id,
+          thinking: input.thinking,
         })
       } else {
         // 普通案件对话

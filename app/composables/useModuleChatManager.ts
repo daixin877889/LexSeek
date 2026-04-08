@@ -32,7 +32,7 @@ export interface ModuleChatInstance {
     /** 是否已加载过历史消息 */
     hasHistoryLoaded: Ref<boolean>
     /** 发送消息 */
-    sendMessage: (message: string) => void
+    sendMessage: (message: string, options?: { thinking?: boolean }) => void
     /** 中止生成（SSE + Worker） */
     stopGeneration: () => void
     /** 触发重连并回放历史（页面刷新后恢复 session 时使用） */
@@ -129,7 +129,7 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
             isExpanded,
             isActive,
             hasHistoryLoaded,
-            sendMessage: (message: string) => chatInstance?.sendMessage(message),
+            sendMessage: (message: string, options?: { thinking?: boolean }) => chatInstance?.sendMessage(message, options),
             stopGeneration: async () => {
                 // 1. 中止 SSE 连接
                 chatInstance?.stopGeneration()

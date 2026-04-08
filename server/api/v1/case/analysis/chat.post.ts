@@ -64,7 +64,9 @@ function extractParams(body: any) {
     }
   }
 
-  return { sessionId, message, command }
+  const thinking = input?.thinking as boolean | undefined
+
+  return { sessionId, message, command, thinking }
 }
 
 /** 提示词防火墙黑名单 */
@@ -94,7 +96,7 @@ export default defineEventHandler(async (event) => {
 
   // 2. 解析 FetchStreamTransport 协议请求体
   const body = await readBody(event)
-  const { sessionId, message, command } = extractParams(body)
+  const { sessionId, message, command, thinking } = extractParams(body)
 
   if (!sessionId) {
     return resError(event, 400, 'thread_id 不能为空')
@@ -145,7 +147,7 @@ export default defineEventHandler(async (event) => {
       threadId: sessionId,
       userId: user.id,
       caseId: caseInfo.id,
-      input: { message, command },
+      input: { message, command, thinking },
     })
     if ('error' in result) {
       return resError(event, 429, result.error)
@@ -179,7 +181,7 @@ export default defineEventHandler(async (event) => {
         threadId: sessionId,
         userId: user.id,
         caseId: caseInfo.id,
-        input: { message, command },
+        input: { message, command, thinking },
       })
       if ('error' in result) {
         return resError(event, 429, result.error)
