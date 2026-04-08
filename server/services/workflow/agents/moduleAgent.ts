@@ -22,6 +22,7 @@ import { pointConsumptionMiddleware } from '../middleware'
 import { moduleContextMiddleware } from '../middleware/moduleContext.middleware'
 import { createTool as createSaveAnalysisResultTool } from '../tools/saveAnalysisResult.tool'
 import type { ToolContext } from '../tools/types'
+import { getSessionState } from '../state/storage'
 
 interface ModuleAgentOptions {
     userId: number
@@ -30,6 +31,7 @@ interface ModuleAgentOptions {
     nodeId: number
     command?: unknown
     runId?: string
+    thinking?: boolean
 }
 
 /**
@@ -66,16 +68,18 @@ export async function runModuleChat(
         baseUrl: nodeConfig.modelProviderBaseUrl,
         temperature: 0.7,
         streaming: true,
+        thinking: options.thinking,
     })
 
     // 工具上下文（扩展 ModuleToolContext）
-    const toolContext: ToolContext & { moduleName: string; nodeId: number; runId: string } = {
+    const toolContext: ToolContext & { moduleName: string; nodeId: number; runId: string; getState: () => Promise<Record<string, any> | null> } = {
         userId,
         caseId,
         sessionId,
         runId: runId || '',
         moduleName,
         nodeId,
+        getState: async () => getSessionState(sessionId),
     }
 
     // 加载节点配置的工具（同步函数）+ save_analysis_result 工具
@@ -100,7 +104,7 @@ export async function runModuleChat(
         store,
         tools: allTools,
         middleware: [
-            pointConsumptionMiddleware(userId, 'case_analysis_token'),
+            pointConsumptionMiddleware(userId, 'case_analysis_token', sessionId),
             moduleContextMiddleware(caseId, moduleName),
             summarizationMiddleware({
                 model,
@@ -122,6 +126,6 @@ export async function runModuleChat(
         streamMode: ['values', 'messages', 'updates'],
         subgraphs: true,
         encoding: 'text/event-stream',
-        recursionLimit: 50,
+        recursionLimit: 1000,
     })
 }

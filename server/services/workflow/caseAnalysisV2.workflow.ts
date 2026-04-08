@@ -322,7 +322,7 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
 
                 const response = await innerGraph.invoke(
                     { messages: initialMessages },
-                    { recursionLimit: 50 },
+                    { recursionLimit: 1000 },
                 )
 
                 responseMessages = response.messages ?? []

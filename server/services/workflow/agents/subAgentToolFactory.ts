@@ -118,7 +118,7 @@ export async function createSubAgentTools(
                         checkpointer,
                         store,
                         middleware: [
-                            pointConsumptionMiddleware(context.userId, 'case_analysis_token'),
+                            pointConsumptionMiddleware(context.userId, 'case_analysis_token', context.sessionId),
                         ],
                     })
 

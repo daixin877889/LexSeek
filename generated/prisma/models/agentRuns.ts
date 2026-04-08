@@ -81,6 +81,7 @@ export type AgentRunsCountAggregateOutputType = {
   startedAt: number
   completedAt: number
   error: number
+  metadata: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -142,6 +143,7 @@ export type AgentRunsCountAggregateInputType = {
   startedAt?: true
   completedAt?: true
   error?: true
+  metadata?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -246,6 +248,7 @@ export type AgentRunsGroupByOutputType = {
   startedAt: Date | null
   completedAt: Date | null
   error: string | null
+  metadata: runtime.JsonValue | null
   createdAt: Date
   updatedAt: Date
   _count: AgentRunsCountAggregateOutputType | null
@@ -286,6 +289,7 @@ export type agentRunsWhereInput = {
   startedAt?: Prisma.DateTimeNullableFilter<"agentRuns"> | Date | string | null
   completedAt?: Prisma.DateTimeNullableFilter<"agentRuns"> | Date | string | null
   error?: Prisma.StringNullableFilter<"agentRuns"> | string | null
+  metadata?: Prisma.JsonNullableFilter<"agentRuns">
   createdAt?: Prisma.DateTimeFilter<"agentRuns"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"agentRuns"> | Date | string
 }
@@ -303,6 +307,7 @@ export type agentRunsOrderByWithRelationInput = {
   startedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   completedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   error?: Prisma.SortOrderInput | Prisma.SortOrder
+  metadata?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -323,6 +328,7 @@ export type agentRunsWhereUniqueInput = Prisma.AtLeast<{
   startedAt?: Prisma.DateTimeNullableFilter<"agentRuns"> | Date | string | null
   completedAt?: Prisma.DateTimeNullableFilter<"agentRuns"> | Date | string | null
   error?: Prisma.StringNullableFilter<"agentRuns"> | string | null
+  metadata?: Prisma.JsonNullableFilter<"agentRuns">
   createdAt?: Prisma.DateTimeFilter<"agentRuns"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"agentRuns"> | Date | string
 }, "id">
@@ -340,6 +346,7 @@ export type agentRunsOrderByWithAggregationInput = {
   startedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   completedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   error?: Prisma.SortOrderInput | Prisma.SortOrder
+  metadata?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.agentRunsCountOrderByAggregateInput
@@ -365,6 +372,7 @@ export type agentRunsScalarWhereWithAggregatesInput = {
   startedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"agentRuns"> | Date | string | null
   completedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"agentRuns"> | Date | string | null
   error?: Prisma.StringNullableWithAggregatesFilter<"agentRuns"> | string | null
+  metadata?: Prisma.JsonNullableWithAggregatesFilter<"agentRuns">
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"agentRuns"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"agentRuns"> | Date | string
 }
@@ -382,6 +390,7 @@ export type agentRunsCreateInput = {
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   error?: string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -399,6 +408,7 @@ export type agentRunsUncheckedCreateInput = {
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   error?: string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -416,6 +426,7 @@ export type agentRunsUpdateInput = {
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -433,6 +444,7 @@ export type agentRunsUncheckedUpdateInput = {
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -450,6 +462,7 @@ export type agentRunsCreateManyInput = {
   startedAt?: Date | string | null
   completedAt?: Date | string | null
   error?: string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -467,6 +480,7 @@ export type agentRunsUpdateManyMutationInput = {
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -484,6 +498,7 @@ export type agentRunsUncheckedUpdateManyInput = {
   startedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadata?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -501,6 +516,7 @@ export type agentRunsCountOrderByAggregateInput = {
   startedAt?: Prisma.SortOrder
   completedAt?: Prisma.SortOrder
   error?: Prisma.SortOrder
+  metadata?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -586,6 +602,7 @@ export type agentRunsSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   startedAt?: boolean
   completedAt?: boolean
   error?: boolean
+  metadata?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["agentRuns"]>
@@ -603,6 +620,7 @@ export type agentRunsSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   startedAt?: boolean
   completedAt?: boolean
   error?: boolean
+  metadata?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["agentRuns"]>
@@ -620,6 +638,7 @@ export type agentRunsSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   startedAt?: boolean
   completedAt?: boolean
   error?: boolean
+  metadata?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["agentRuns"]>
@@ -637,11 +656,12 @@ export type agentRunsSelectScalar = {
   startedAt?: boolean
   completedAt?: boolean
   error?: boolean
+  metadata?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type agentRunsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionId" | "threadId" | "userId" | "caseId" | "input" | "status" | "workerId" | "heartbeatAt" | "startedAt" | "completedAt" | "error" | "createdAt" | "updatedAt", ExtArgs["result"]["agentRuns"]>
+export type agentRunsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionId" | "threadId" | "userId" | "caseId" | "input" | "status" | "workerId" | "heartbeatAt" | "startedAt" | "completedAt" | "error" | "metadata" | "createdAt" | "updatedAt", ExtArgs["result"]["agentRuns"]>
 
 export type $agentRunsPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "agentRuns"
@@ -695,6 +715,10 @@ export type $agentRunsPayload<ExtArgs extends runtime.Types.Extensions.InternalA
      * 错误信息
      */
     error: string | null
+    /**
+     * 元数据（用于存储 resumeCount 等系统信息）- nullable，无默认值
+     */
+    metadata: runtime.JsonValue | null
     /**
      * 创建时间
      */
@@ -1138,6 +1162,7 @@ export interface agentRunsFieldRefs {
   readonly startedAt: Prisma.FieldRef<"agentRuns", 'DateTime'>
   readonly completedAt: Prisma.FieldRef<"agentRuns", 'DateTime'>
   readonly error: Prisma.FieldRef<"agentRuns", 'String'>
+  readonly metadata: Prisma.FieldRef<"agentRuns", 'Json'>
   readonly createdAt: Prisma.FieldRef<"agentRuns", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"agentRuns", 'DateTime'>
 }

@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { InterruptType } from '#shared/types/case'
 import { getCurrentMembershipService } from '../../membership/userMembership.service'
 import { checkPointsService, consumePointsService } from '../../point/pointConsumption.service'
+import { updateSessionState } from '../state/storage'
 
 /** 中文文本 token 估算比率（2 字符 ≈ 1 token） */
 const CHARS_PER_TOKEN = 2
@@ -59,8 +60,9 @@ export const getTokenCount = (message: any): number => {
  *
  * @param userId 用户 ID
  * @param itemKey 消耗项目标识符（不同 Agent 传不同 key）
+ * @param sessionId 会话 ID（用于共享状态存储）
  */
-export const pointConsumptionMiddleware = (userId: number, itemKey: string) => {
+export const pointConsumptionMiddleware = (userId: number, itemKey: string, sessionId?: string) => {
     return createMiddleware({
         name: 'PointConsumptionMiddleware',
         stateSchema: z.object({
@@ -193,12 +195,19 @@ export const pointConsumptionMiddleware = (userId: number, itemKey: string) => {
                 try {
                     const result = await consumePointsService(userId, itemKey, quantity)
 
-                    return {
+                    const newState = {
                         _totalTokensConsumed: (state._totalTokensConsumed ?? 0) + totalTokens,
                         _totalPointsConsumed: (state._totalPointsConsumed ?? 0) + result.consumedAmount,
                         _pendingDeductQuantity: 0,
                         _resumingFromAfterModel: false,
                     }
+
+                    // 更新共享状态（如果 sessionId 已提供）
+                    if (sessionId) {
+                        updateSessionState(sessionId, newState)
+                    }
+
+                    return newState
                 } catch (error) {
                     // 区分"积分不足"和其他错误
                     const isInsufficientPoints = error instanceof Error
@@ -222,20 +231,34 @@ export const pointConsumptionMiddleware = (userId: number, itemKey: string) => {
                         })
 
                         // resume 后继续：标记状态，下次 beforeAgent 跳过预检
-                        return {
+                        const newState = {
                             _totalTokensConsumed: (state._totalTokensConsumed ?? 0) + totalTokens,
                             _pendingDeductQuantity: quantity,
                             _resumingFromAfterModel: true,
                         }
+
+                        // 更新共享状态（如果 sessionId 已提供）
+                        if (sessionId) {
+                            updateSessionState(sessionId, newState)
+                        }
+
+                        return newState
                     }
 
                     // 非积分不足的错误：记录日志，记入待补扣
                     logger.error('积分扣减异常（非积分不足）', { userId, error })
 
-                    return {
+                    const newState = {
                         _totalTokensConsumed: (state._totalTokensConsumed ?? 0) + totalTokens,
                         _pendingDeductQuantity: quantity,
                     }
+
+                    // 更新共享状态（如果 sessionId 已提供）
+                    if (sessionId) {
+                        updateSessionState(sessionId, newState)
+                    }
+
+                    return newState
                 }
             },
         },

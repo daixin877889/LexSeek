@@ -368,7 +368,7 @@ export function createWorkflowConfig(config: WorkflowConfig): {
         configurable: {
             thread_id: config.threadId,
         },
-        recursionLimit: config.recursionLimit ?? 50,
+        recursionLimit: config.recursionLimit ?? 1000,
     }
 }
 

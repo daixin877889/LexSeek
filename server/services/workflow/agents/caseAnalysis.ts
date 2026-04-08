@@ -101,7 +101,7 @@ export const caseAnalysisAgent = async (
         tools,
         store,
         middleware: [
-            pointConsumptionMiddleware(userId!, 'case_analysis_token'),
+            pointConsumptionMiddleware(userId!, 'case_analysis_token', sessionId),
             caseProcessMaterialMiddleware(userId!, caseId!),
             caseMaterialContextMiddleware(userId!, caseId!),
             todoListMiddleware(),

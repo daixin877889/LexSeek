@@ -47,6 +47,10 @@ export interface SaveAnalysisInput {
     analysisResult: string
     /** 还原后的结果（解密后的内容，可选） */
     originalResult?: string | null
+    /** 消耗的千 token 数（积分扣减单位） */
+    tokenCount?: number | null
+    /** 实际 token 总数 */
+    tokens?: number | null
 }
 
 /** 分析历史项 */
@@ -140,6 +144,8 @@ export const saveAndActivateAnalysisService = async (
                 originalResult: data.originalResult ?? null,
                 version,
                 status: AnalysisStatus.COMPLETED,
+                tokenCount: data.tokenCount ?? null,
+                tokens: data.tokens ?? null,
             },
             tx,
         )

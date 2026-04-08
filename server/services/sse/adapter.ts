@@ -454,7 +454,7 @@ export const RECOMMENDED_STREAM_MODE = [STREAM_MODES.VALUES, STREAM_MODES.MESSAG
  */
 export function createLangGraphStreamConfig(
     threadId: string,
-    recursionLimit = 50
+    recursionLimit = 1000
 ): {
     configurable: { thread_id: string }
     recursionLimit: number

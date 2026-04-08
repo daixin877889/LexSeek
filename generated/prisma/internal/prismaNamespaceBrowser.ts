@@ -137,6 +137,7 @@ export const AgentRunsScalarFieldEnum = {
   startedAt: 'startedAt',
   completedAt: 'completedAt',
   error: 'error',
+  metadata: 'metadata',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

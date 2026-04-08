@@ -2,7 +2,10 @@
  * 保存分析结果工作流工具
  *
  * Agent 专用工具，在模块对话中保存分析结果到 case_analyses 表
- * 在单个事务内完成保存+激活，并通过自定义事件通知前端刷新
+ * 在单个事务内完成保存 + 激活，并通过自定义事件通知前端刷新
+ *
+ * 注意：本工具会从 Agent 状态中读取 _totalTokensConsumed 和 _totalPointsConsumed，
+ * 并在保存分析结果时记录 token 消耗数据。
  */
 
 import { tool } from '@langchain/core/tools'
@@ -10,6 +13,7 @@ import { z } from 'zod'
 import type { ToolContext, ToolDefinition } from './types'
 import { saveAndActivateAnalysisService } from '../../case/analysis.service'
 import { publishCustomEvent } from '../../agent/agentEventBridge'
+import { getTokenCount } from '../middleware/pointConsumption.middleware'
 
 /** 参数 schema */
 const schema = z.object({
@@ -31,6 +35,11 @@ export interface ModuleToolContext extends ToolContext {
     nodeId: number
     /** 运行 ID（必填） */
     runId: string
+    /**
+     * 获取 Agent 状态的函数
+     * 用于读取 token 消耗等状态信息
+     */
+    getState?: () => Promise<Record<string, any> | null>
 }
 
 /**
@@ -41,15 +50,47 @@ export interface ModuleToolContext extends ToolContext {
  */
 export function createTool(context: ModuleToolContext) {
     return tool(
-        async (input) => {
+        async (input, config) => {
             try {
-                // 保存+激活（事务内完成）
+                // 从 Agent 状态中读取 token 消耗
+                let tokenCount: number | null = null
+                let tokens: number | null = null
+
+                // 尝试从状态中获取 token 信息
+                if (context.getState) {
+                    const state = await context.getState()
+                    if (state) {
+                        const totalTokens = state._totalTokensConsumed ?? 0
+                        if (totalTokens > 0) {
+                            tokens = totalTokens
+                            tokenCount = Math.ceil(totalTokens / 1000)
+                        }
+                    }
+                }
+
+                // 如果通过 getState 没有获取到 token 信息，尝试从 config 中获取
+                if (tokens === null || tokens === 0) {
+                    // 尝试从 config 的 configurable 中获取状态
+                    const configurable = config?.configurable as Record<string, any> | undefined
+                    const state = configurable?.state as Record<string, any> | undefined
+                    if (state) {
+                        const totalTokens = state._totalTokensConsumed ?? 0
+                        if (totalTokens > 0) {
+                            tokens = totalTokens
+                            tokenCount = Math.ceil(totalTokens / 1000)
+                        }
+                    }
+                }
+
+                // 保存 + 激活（事务内完成）
                 const analysis = await saveAndActivateAnalysisService({
                     caseId: context.caseId,
                     sessionId: context.sessionId,
                     nodeId: context.nodeId,
                     analysisType: context.moduleName,
                     analysisResult: input.analysisResult,
+                    tokenCount,
+                    tokens,
                 })
 
                 // 发布自定义事件通知前端
@@ -62,6 +103,8 @@ export function createTool(context: ModuleToolContext) {
                         version: analysis.version,
                         moduleName: context.moduleName,
                         analysisId: analysis.id,
+                        tokens,
+                        tokenCount,
                     },
                 })
 
@@ -69,6 +112,8 @@ export function createTool(context: ModuleToolContext) {
                     success: true,
                     version: analysis.version,
                     message: `分析结果已保存为第${analysis.version}版`,
+                    tokens,
+                    tokenCount,
                 })
             }
             catch (error: any) {
