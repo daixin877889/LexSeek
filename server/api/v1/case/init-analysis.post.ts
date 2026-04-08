@@ -104,13 +104,32 @@ export default defineEventHandler(async (event) => {
     // 纯重连场景：stream.submit(undefined) 时 input 为空，但有 threadId，从 checkpoint 恢复
     let caseId: number
     let selectedModules: string[]
+    let reconnectedSessionId: string | undefined  // 实际使用的 session ID（可能与 threadId 不同）
 
     if (!input && threadId) {
         // 纯重连：从 session 恢复信息
-        const session = await prisma.caseSessions.findFirst({
+        // 首先尝试查找 type=2 会话（初始化分析会话）
+        let session = await prisma.caseSessions.findFirst({
             where: { sessionId: threadId, type: 2, deletedAt: null },
             select: { caseId: true, metadata: true },
         })
+
+        // 如果找不到 type=2 会话，尝试查找 type=1 会话（主会话），然后获取对应的 type=2 会话
+        if (!session) {
+            const type1Session = await prisma.caseSessions.findFirst({
+                where: { sessionId: threadId, type: 1, deletedAt: null },
+                select: { caseId: true },
+            })
+            if (type1Session) {
+                // 查找该案件的 type=2 会话
+                session = await prisma.caseSessions.findFirst({
+                    where: { caseId: type1Session.caseId, type: 2, deletedAt: null },
+                    select: { caseId: true, metadata: true },
+                    orderBy: { createdAt: 'desc' },
+                })
+            }
+        }
+
         if (!session) {
             return resError(event, 404, '分析会话不存在')
         }
@@ -118,6 +137,7 @@ export default defineEventHandler(async (event) => {
         // 从 metadata 中恢复 selectedModules（服务端权威来源）
         const metadata = session.metadata as { selectedModules?: string[] } | null
         selectedModules = metadata?.selectedModules ?? []
+        reconnectedSessionId = session.sessionId
     } else {
         // 新执行：需要完整的 input
         const parsed = inputSchema.safeParse(input)
