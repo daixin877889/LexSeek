@@ -52,6 +52,7 @@ const emit = defineEmits<{
   (e: 'tool-confirm', data: { toolCallId: string; data: any }): void
   (e: 'tool-reject', data: { toolCallId: string }): void
   (e: 'back'): void
+  (e: 'stop'): void
   (e: 'update:thinking', value: boolean): void
   (e: 'update:panelMode', value: PanelMode): void
 }>()
@@ -151,7 +152,7 @@ function handleSubmit(data: AiPromptSubmitData) {
             <slot name="prompt-actions" />
             <AiPromptInput :loading="loading" :disabled="promptDisabled" :placeholder="promptPlaceholder"
               :enable-file-upload="enableFileUpload" :show-thinking-toggle="showThinkingToggle" :thinking="thinking"
-              @submit="handleSubmit" @update:thinking="(v) => emit('update:thinking', v)" />
+              @submit="handleSubmit" @stop="emit('stop')" @update:thinking="(v) => emit('update:thinking', v)" />
           </div>
         </div>
       </ResizablePanel>

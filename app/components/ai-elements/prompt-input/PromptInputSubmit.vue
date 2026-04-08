@@ -41,7 +41,21 @@ const iconClass = computed(() => {
   return 'size-4'
 })
 
+const emit = defineEmits<{
+  (e: 'submit'): void
+  (e: 'stop'): void
+}>()
+
 const { status, size, variant, class: _, ...restProps } = props
+
+function handleClick() {
+  if (status === 'streaming' || status === 'submitted') {
+    emit('stop')
+  }
+  else {
+    emit('submit')
+  }
+}
 </script>
 
 <template>
@@ -50,9 +64,10 @@ const { status, size, variant, class: _, ...restProps } = props
     :class="cn(props.class)"
     :size="size"
     :variant="variant"
-    type="submit"
-    :disabled="status === 'streaming' || status === 'submitted' || $attrs.disabled === true"
+    type="button"
+    :disabled="status === 'submitted' || $attrs.disabled === true"
     v-bind="restProps"
+    @click.stop="handleClick"
   >
     <div class="flex items-center justify-center">
       <Loader2Icon v-if="status === 'streaming' || status === 'submitted'" class="size-4 animate-spin shrink-0" />

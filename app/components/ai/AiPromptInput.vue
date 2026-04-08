@@ -133,7 +133,8 @@
             <!-- 提交按钮 -->
             <div class="flex items-center gap-2 mr-[-8px]">
               <PromptInputSubmit class="h-9 px-4! rounded-md shadow-lg shadow-primary/20 active:scale-95 transition-all"
-                :status="submitStatus" :disabled="isSubmitDisabled" size="xs">
+                :status="submitStatus" :disabled="isSubmitDisabled" size="xs"
+                @stop="emit('stop')" @submit="handleSubmitFromButton">
                 <SendHorizontal class="size-4" />
                 <span v-if="submitLabel" class="ml-1">{{ submitLabel }}</span>
               </PromptInputSubmit>
@@ -203,6 +204,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   submit: [data: AiPromptSubmitData]
+  stop: []
 }>()
 
 const thinking = defineModel<boolean>('thinking', { default: true })
@@ -636,6 +638,12 @@ async function handleSubmit(message: PromptInputMessage) {
     files: selectedFiles.value.length > 0 ? [...selectedFiles.value] : undefined,
   }
   emit('submit', data)
+}
+
+// 由 PromptInputSubmit 按钮直接调用（绕过 form submit）
+async function handleSubmitFromButton() {
+  // PromptInputSubmit 已确保此时不是 streaming/submitted 状态，直接用输入框当前内容提交
+  await handleSubmit({ text: internalPromptText.value || '', files: [] })
 }
 
 onUnmounted(stopAllPolling);

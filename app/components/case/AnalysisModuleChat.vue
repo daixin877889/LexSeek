@@ -55,7 +55,7 @@ function handleSubmit(data: { text: string }) {
                     <AiChat :messages="chatInstance.messages.value" :loading="chatInstance.isLoading.value"
                         panel-mode="left" :show-header="false" :show-thinking-toggle="false"
                         :enable-file-upload="false" prompt-placeholder="输入消息优化分析结果..."
-                        @submit="handleSubmit" />
+                        @submit="handleSubmit" @stop="chatInstance.stopGeneration()" />
                 </div>
             </div>
         </Transition>
@@ -84,7 +84,7 @@ function handleSubmit(data: { text: string }) {
                     <AiChat :messages="chatInstance.messages.value" :loading="chatInstance.isLoading.value"
                         panel-mode="left" :show-header="false" :show-thinking-toggle="false"
                         :enable-file-upload="false" prompt-placeholder="输入消息优化分析结果..."
-                        @submit="handleSubmit" />
+                        @submit="handleSubmit" @stop="chatInstance.stopGeneration()" />
                 </div>
             </div>
         </Transition>
@@ -100,7 +100,7 @@ function handleSubmit(data: { text: string }) {
                 <AiChat :messages="chatInstance.messages.value" :loading="chatInstance.isLoading.value"
                     panel-mode="left" :show-header="false" :show-thinking-toggle="false"
                     :enable-file-upload="false" prompt-placeholder="输入消息优化分析结果..."
-                    @submit="handleSubmit" />
+                    @submit="handleSubmit" @stop="chatInstance.stopGeneration()" />
             </div>
         </SheetContent>
     </Sheet>
