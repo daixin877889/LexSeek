@@ -20,6 +20,22 @@ import { replayEvents, createEventSubscription } from '~~/server/services/agent/
 import { getThreadValuesService } from '~~/server/services/workflow/agents'
 import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
 
+/** 过滤掉上下文注入消息（HumanMessage with metadata.injectedBy） */
+function filterInjectedMessages(messages: any[]): any[] {
+  return messages.filter(m => {
+    // SystemMessage 和 ToolMessage 始终过滤
+    if (m._getType?.() === 'system' || m._getType?.() === 'tool') return false
+
+    // HumanMessage 检测 metadata
+    const injector = m.response_metadata?.injectedBy as string | undefined
+    if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial')) {
+      return false
+    }
+
+    return true
+  })
+}
+
 /** 从 FetchStreamTransport 请求体中提取参数 */
 function extractParams(body: any) {
   const input = body?.input
@@ -202,8 +218,9 @@ export default defineEventHandler(async (event) => {
           if (checkpointValues) {
             const messages = (checkpointValues.messages as any[]) || []
             if (messages.length > 0) {
+              const filteredMessages = filterInjectedMessages(messages)
               controller.enqueue(encoder.encode(
-                `event: values\ndata: ${JSON.stringify(checkpointValues)}\n\n`,
+                `event: values\ndata: ${JSON.stringify({ ...checkpointValues, messages: filteredMessages })}\n\n`,
               ))
             }
           }
@@ -225,9 +242,9 @@ export default defineEventHandler(async (event) => {
           if (checkpointValues) {
             const messages = (checkpointValues.messages as any[]) || []
             if (messages.length > 0) {
-              // 通过 SSE 发送完整的 values 事件
+              const filteredMessages = filterInjectedMessages(messages)
               controller.enqueue(encoder.encode(
-                `event: values\ndata: ${JSON.stringify(checkpointValues)}\n\n`,
+                `event: values\ndata: ${JSON.stringify({ ...checkpointValues, messages: filteredMessages })}\n\n`,
               ))
               // PostgresSaver 有数据说明 run 已完成，可以直接关闭
               return
@@ -239,7 +256,13 @@ export default defineEventHandler(async (event) => {
           for (const evt of missed) {
             let sseData: string
             if (evt.type === 'stream_event') {
-              sseData = `event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`
+              if (evt.event === 'values') {
+                // values 事件需要过滤消息
+                const filteredMessages = filterInjectedMessages(evt.data.messages ?? [])
+                sseData = `event: values\ndata: ${JSON.stringify({ ...evt.data, messages: filteredMessages })}\n\n`
+              } else {
+                sseData = `event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`
+              }
             }
             else if (evt.type === 'custom_event') {
               // 必须发完整事件对象（含 name 字段），前端依赖 evt.name 判断事件类型

@@ -52,9 +52,10 @@ export function coerceRawMessages(raw: any[]): BaseMessage[] {
 
 /**
  * 提取 AIMessage 中的推理/思考文本。
- * 支持两种传输格式：
+ * 支持三种传输格式：
  * - contentBlocks 中 type === 'reasoning'（LGP transport 路径）
  * - content 数组中 type === 'thinking'（FetchStreamTransport 路径）
+ * - additional_kwargs.reasoning_content（Ollama/DeepSeek 等模型的额外字段）
  */
 function extractThinking(message: AIMessage): string | undefined {
   // 格式 1: contentBlocks（LGP transport 路径）
@@ -72,6 +73,10 @@ function extractThinking(message: AIMessage): string | undefined {
       .map((b: any) => b.thinking)
       .join('')
     if (text) return text
+  }
+  // 格式 3: additional_kwargs.reasoning_content（Ollama/DeepSeek 等模型）
+  if ((message as any).additional_kwargs?.reasoning_content) {
+    return (message as any).additional_kwargs.reasoning_content
   }
   return undefined
 }
@@ -136,7 +141,20 @@ export function useMessageParser(messages: MaybeRef<any[]>) {
       }
     }
     const result = baseMessages
-      .filter((m) => !(m instanceof ToolMessage) && !(m instanceof SystemMessage))
+      .filter((m) => {
+        // SystemMessage 和 ToolMessage 始终过滤
+        if (m instanceof ToolMessage || m instanceof SystemMessage) return false
+
+        // HumanMessage 检测 metadata
+        if (m instanceof HumanMessage) {
+          const injector = (m as any).response_metadata?.injectedBy as string | undefined
+          if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial')) {
+            return false
+          }
+        }
+
+        return true
+      })
       .map((m, idx) => {
         if (m instanceof HumanMessage) {
           return {

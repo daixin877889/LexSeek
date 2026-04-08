@@ -43,7 +43,13 @@ export const caseMaterialContextMiddleware = (userId: number, caseId: number) =>
               (m: any) => m._getType() === 'system'
             )
             const insertIdx = systemIdx >= 0 ? systemIdx + 1 : 0
-            state.messages.splice(insertIdx, 0, new HumanMessage(messageText))
+            state.messages.splice(insertIdx, 0, new HumanMessage({
+              content: messageText,
+              response_metadata: {
+                injectedBy: 'CaseMaterialContextMiddleware',
+                injectedAt: new Date().toISOString(),
+              },
+            }))
 
             logger.info('材料上下文已注入（首次）', {
               caseId,
@@ -62,7 +68,13 @@ export const caseMaterialContextMiddleware = (userId: number, caseId: number) =>
 
             // 在用户最新消息前插入（倒数第二位）
             const insertIdx = Math.max(0, state.messages.length - 1)
-            state.messages.splice(insertIdx, 0, new HumanMessage(messageText))
+            state.messages.splice(insertIdx, 0, new HumanMessage({
+              content: messageText,
+              response_metadata: {
+                injectedBy: 'CaseMaterialContextMiddleware',
+                injectedAt: new Date().toISOString(),
+              },
+            }))
 
             logger.info('材料上下文已注入（增量）', {
               caseId,

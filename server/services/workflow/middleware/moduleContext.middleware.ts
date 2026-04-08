@@ -12,7 +12,7 @@
  */
 
 import { createMiddleware } from 'langchain'
-import { SystemMessage } from '@langchain/core/messages'
+import { HumanMessage } from '@langchain/core/messages'
 import { z } from 'zod'
 import { createHash } from 'node:crypto'
 import { getMaterialsByCaseIdService } from '../../material/material.service'
@@ -119,10 +119,15 @@ export const moduleContextMiddleware = (caseId: number, moduleName: string) => {
                     // 无变更则跳过
                     if (sections.length === 0) return
 
-                    // 拼接为 SystemMessage，插入最新 HumanMessage 之前
-                    const contextMessage = new SystemMessage(
-                        `<!-- module-context -->\n${sections.join('\n\n')}`,
-                    )
+                    // 拼接为 HumanMessage，插入最新 HumanMessage 之前
+                    const contextMessage = new HumanMessage({
+                        content: sections.join('\n\n'),
+                        response_metadata: {
+                            injectedBy: `ModuleContextMiddleware:${moduleName}`,
+                            injectedAt: new Date().toISOString(),
+                            sectionsCount: sections.length,
+                        },
+                    })
                     const lastHumanIdx = state.messages.findLastIndex(
                         (m: any) => m._getType?.() === 'human' || m.constructor?.name === 'HumanMessage',
                     )
