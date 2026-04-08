@@ -130,8 +130,16 @@ export default defineEventHandler(async (event) => {
     if (!isValidResumeCommand(command)) {
       return resError(event, 400, '无效的 resume 命令')
     }
+    // 幂等性保护：检查 resume 次数
+    const resumeCount = getResumeCount(activeRun.metadata)
+    if (shouldRejectResume(resumeCount)) {
+      return resError(event, 429, 'Resume 次数已达上限，请开启新会话')
+    }
     // 有 interrupted run + 有合法 command → resume：将旧 run 标记完成，入队新 run
-    await updateRunStatusDAO(activeRun.id, AGENT_RUN_STATUS.COMPLETED, { completedAt: new Date() })
+    await updateRunStatusDAO(activeRun.id, AGENT_RUN_STATUS.COMPLETED, {
+      completedAt: new Date(),
+      metadata: { ...(activeRun.metadata as any || {}), resumeCount: resumeCount + 1 },
+    })
     const result = await enqueueRunService({
       sessionId,
       threadId: sessionId,
