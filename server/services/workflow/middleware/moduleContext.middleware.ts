@@ -36,8 +36,8 @@ export const moduleContextMiddleware = (caseId: number, moduleName: string) => {
             _lastMemoryHash: z.string().nullable().default(null),
             /** 已注入的其他模块结果 hash（moduleName → contentHash） */
             _injectedResultVersions: z.record(z.string(), z.string()).optional().default({}),
-            /** 当前模块已注入的版本号 */
-            _currentModuleVersion: z.number().nullable().default(null),
+            /** 当前模块已注入的分析结果 hash */
+            _currentModuleResultHash: z.string().nullable().default(null),
         }),
         beforeAgent: {
             hook: async (state) => {
@@ -46,7 +46,7 @@ export const moduleContextMiddleware = (caseId: number, moduleName: string) => {
                     let newSourceIds = state._injectedSourceIds ?? []
                     let newMemoryHash = state._lastMemoryHash ?? null
                     const newResultVersions: Record<string, string> = { ...((state._injectedResultVersions ?? {}) as Record<string, string>) }
-                    let newCurrentVersion = state._currentModuleVersion ?? null
+                    let newCurrentHash = state._currentModuleResultHash ?? null
 
                     // 并发加载 4 种上下文的当前状态
                     const [materials, memory, completedResults] = await Promise.all([
@@ -106,11 +106,14 @@ export const moduleContextMiddleware = (caseId: number, moduleName: string) => {
                         }
                     }
 
-                    // 4. 当前模块结果变更检测（首轮注入基线）
+                    // 4. 当前模块结果变更检测（首次或内容变化时注入）
                     const currentModuleResult = completedResults[moduleName]
-                    if (currentModuleResult && newCurrentVersion === null) {
+                    const currentModuleHash = currentModuleResult
+                        ? createHash('md5').update(currentModuleResult).digest('hex')
+                        : null
+                    if (currentModuleHash && currentModuleHash !== newCurrentHash) {
                         sections.push(`## 当前模块已有分析结果（基线）\n${currentModuleResult}`)
-                        newCurrentVersion = 1
+                        newCurrentHash = currentModuleHash
                     }
 
                     // 无变更则跳过
@@ -140,7 +143,7 @@ export const moduleContextMiddleware = (caseId: number, moduleName: string) => {
                         _injectedSourceIds: newSourceIds,
                         _lastMemoryHash: newMemoryHash,
                         _injectedResultVersions: newResultVersions,
-                        _currentModuleVersion: newCurrentVersion,
+                        _currentModuleResultHash: newCurrentHash,
                     }
                 }
                 catch (error) {

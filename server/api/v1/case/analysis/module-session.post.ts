@@ -45,13 +45,44 @@ export default defineEventHandler(async (event) => {
     if (!node) return resError(event, 404, `未找到模块节点: ${moduleName}`)
 
     // 创建新 session
+    // 使用 Serializable 事务防止并发竞态：两个请求同时通过 findFirst 后，
+    // 只有一个能成功插入，另一个触发唯一键违反时回退到查询
     const sessionId = uuidv4()
-    await createSessionDao({
-        sessionId,
-        caseId,
-        type: 3,
-        metadata: { moduleName, nodeId: node.id },
-    })
+    try {
+        await prisma.$transaction(
+            async (tx) => {
+                await tx.caseSessions.create({
+                    data: {
+                        sessionId,
+                        caseId,
+                        type: 3,
+                        metadata: { moduleName, nodeId: node.id },
+                    },
+                })
+            },
+            {
+                isolationLevel: 'Serializable',
+                timeout: 5000,
+            },
+        )
+    }
+    catch (error: any) {
+        // 唯一键违反（并发插入），回退到查询已创建的 session
+        if (error?.code === 'P2002') {
+            const existingAfterRace = await prisma.caseSessions.findFirst({
+                where: {
+                    caseId,
+                    type: 3,
+                    deletedAt: null,
+                    metadata: { path: ['moduleName'], equals: moduleName },
+                },
+            })
+            if (existingAfterRace) {
+                return resSuccess(event, '获取成功', { sessionId: existingAfterRace.sessionId, isNew: false })
+            }
+        }
+        throw error
+    }
 
     return resSuccess(event, '创建成功', { sessionId, isNew: true })
 })

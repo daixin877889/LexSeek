@@ -98,6 +98,8 @@ export default defineEventHandler(async (event) => {
   // 5. 四种分支逻辑
   const activeRun = await getActiveRunService(sessionId)
   let runId: string
+  // 已完成 run 的状态，用于 SSE 中跳过事件重放（仅需最终 checkpoint）
+  let latestRunStatus: string | undefined
 
   if (activeRun && command && activeRun.status === AGENT_RUN_STATUS.INTERRUPTED) {
     // 有 interrupted run + 有 command → resume：将旧 run 标记完成，入队新 run
@@ -128,6 +130,7 @@ export default defineEventHandler(async (event) => {
       const latestRun = await getLatestRunService(sessionId)
       if (latestRun) {
         runId = latestRun.id
+        latestRunStatus = latestRun.status
       }
       else {
         return resError(event, 400, '消息不能为空')
@@ -180,6 +183,28 @@ export default defineEventHandler(async (event) => {
 
       try {
         // 补发缺失事件（重连场景）
+        // 优化：已完成 run 跳过所有事件重放，直接取 PostgresSaver 最终快照发往前端。
+        // Redis Stream 包含所有中间事件（流式 chunk、checkpoint 等），重放耗时且前端需
+        // 处理数千个事件；而 PostgresSaver checkpoint 只存最终状态，一个 values 事件即可。
+        const isCompletedRun = latestRunStatus
+          ? TERMINAL_STATUSES.includes(latestRunStatus)
+          : false
+
+        if (isCompletedRun) {
+          // 已完成 run：直接走 PostgresSaver，发送最终 checkpoint
+          const checkpointValues = await getThreadValuesService(sessionId)
+          if (checkpointValues) {
+            const messages = (checkpointValues.messages as any[]) || []
+            if (messages.length > 0) {
+              controller.enqueue(encoder.encode(
+                `event: values\ndata: ${JSON.stringify(checkpointValues)}\n\n`,
+              ))
+            }
+          }
+          return
+        }
+
+        // 活跃 run 或未终结 run：重放 Redis Stream 事件（保留中间状态用于实时订阅）
         let missed: any[] = []
         try {
           missed = await replayEvents(runId)
@@ -210,7 +235,8 @@ export default defineEventHandler(async (event) => {
               sseData = `event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`
             }
             else if (evt.type === 'custom_event') {
-              sseData = `event: custom\ndata: ${JSON.stringify(evt.data)}\n\n`
+              // 必须发完整事件对象（含 name 字段），前端依赖 evt.name 判断事件类型
+              sseData = `event: custom\ndata: ${JSON.stringify(evt)}\n\n`
             }
             else {
               sseData = `event: status\ndata: ${JSON.stringify(evt)}\n\n`
@@ -237,8 +263,9 @@ export default defineEventHandler(async (event) => {
             ))
           }
           if (evt.type === 'custom_event') {
+            // 必须发完整事件对象（含 name 字段），前端依赖 evt.name 判断事件类型
             controller.enqueue(encoder.encode(
-              `event: custom\ndata: ${JSON.stringify(evt.data)}\n\n`,
+              `event: custom\ndata: ${JSON.stringify(evt)}\n\n`,
             ))
           }
         }

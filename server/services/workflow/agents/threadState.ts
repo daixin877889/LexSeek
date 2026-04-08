@@ -69,9 +69,12 @@ export async function getThreadValuesService(
     const rawMessages = channelValues.messages
 
     if (Array.isArray(rawMessages) && rawMessages.length > 0) {
+        const flatMessages = rawMessages.map(messageToFlatDict)
+        // 过滤掉 system message（包含案件材料等敏感上下文），防止泄露到前端
+        const nonSystemMessages = flatMessages.filter(msg => msg.type !== 'system')
         return {
             ...channelValues,
-            messages: rawMessages.map(messageToFlatDict),
+            messages: nonSystemMessages,
         }
     }
 
