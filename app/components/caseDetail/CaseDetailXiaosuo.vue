@@ -9,6 +9,23 @@ const isMobile = useMediaQuery('(max-width: 767px)')
 const isFullscreen = ref(false)
 const inputText = ref('')
 
+// 拖拽和缩放
+const xiaosuoZIndex = ref(40)
+const { style: windowStyle, onDragStart, onEdgeDetect, onResizeStart, cursor, isInteracting, reset }
+    = useDraggableResize({
+        initialWidth: 380,
+        initialHeight: 500,
+        minWidth: 300,
+        minHeight: 350,
+        zIndex: xiaosuoZIndex,
+    })
+
+// 合并 style
+const containerStyle = computed(() => ({
+    ...windowStyle.value,
+    cursor: cursor.value,
+}))
+
 interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
@@ -40,9 +57,12 @@ function toggleFullscreen() {
   isFullscreen.value = !isFullscreen.value
 }
 
-// 关闭时重置全屏
+// 关闭时重置全屏和窗口位置
 watch(isOpen, (open) => {
-  if (!open) isFullscreen.value = false
+  if (!open) {
+    isFullscreen.value = false
+    reset()
+  }
 })
 </script>
 
@@ -111,66 +131,73 @@ watch(isOpen, (open) => {
       </div>
     </Transition>
 
-    <!-- 小窗模式：悬浮弹窗 -->
-    <div class="absolute bottom-4 right-4 z-40">
-      <Transition
-        enter-active-class="transition duration-200 ease-out"
-        enter-from-class="opacity-0 scale-95 translate-y-2"
-        enter-to-class="opacity-100 scale-100 translate-y-0"
-        leave-active-class="transition duration-150 ease-in"
-        leave-from-class="opacity-100 scale-100 translate-y-0"
-        leave-to-class="opacity-0 scale-95 translate-y-2"
+    <!-- 小窗模式（可拖拽、可缩放）：独立 fixed 定位 -->
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition duration-150 ease-in"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div
+        v-if="isOpen && !isFullscreen"
+        class="fixed bg-background border rounded-xl shadow-xl flex flex-col overflow-hidden"
+        :class="{ 'select-none': isInteracting }"
+        :style="containerStyle"
+        @pointermove="onEdgeDetect"
+        @pointerdown="onResizeStart"
       >
-        <div
-          v-if="isOpen && !isFullscreen"
-          class="absolute bottom-14 right-0 w-[380px] h-[500px] bg-background border rounded-xl shadow-xl flex flex-col overflow-hidden"
-        >
-          <div class="shrink-0 h-10 flex items-center justify-between px-3 border-b bg-muted/30">
-            <div class="flex items-center gap-2 text-sm font-medium">
-              <img :src="xiaosuoIcon" class="size-4" alt="小索" />
-              小索 · AI 助手
-            </div>
-            <div class="flex items-center gap-0.5">
-              <Button variant="ghost" size="icon" class="size-6" @click="toggleFullscreen">
-                <MaximizeIcon class="size-3" />
-              </Button>
-              <Button variant="ghost" size="icon" class="size-6" @click="isOpen = false">
-                <XIcon class="size-3.5" />
-              </Button>
-            </div>
+        <div class="shrink-0 h-10 flex items-center justify-between px-3 border-b bg-muted/30
+                    cursor-grab active:cursor-grabbing"
+            @pointerdown="onDragStart">
+          <div class="flex items-center gap-2 text-sm font-medium">
+            <img :src="xiaosuoIcon" class="size-4" alt="小索" />
+            小索 · AI 助手
           </div>
-
-          <div class="flex-1 overflow-y-auto p-3 space-y-3">
-            <div
-              v-for="(msg, i) in messages"
-              :key="i"
-              :class="[
-                'text-sm rounded-lg px-3 py-2 max-w-[85%]',
-                msg.role === 'user'
-                  ? 'bg-primary text-primary-foreground ml-auto'
-                  : 'bg-muted'
-              ]"
-            >
-              {{ msg.content }}
-            </div>
-          </div>
-
-          <div class="shrink-0 p-2 border-t">
-            <div class="flex gap-2">
-              <input
-                v-model="inputText"
-                class="flex-1 h-8 px-3 text-sm bg-muted rounded-md border-0 outline-none focus:ring-1 focus:ring-primary"
-                placeholder="输入消息..."
-                @keydown.enter="sendMessage"
-              />
-              <Button size="icon" class="size-8 shrink-0" :disabled="!inputText.trim()" @click="sendMessage">
-                <SendIcon class="size-3.5" />
-              </Button>
-            </div>
+          <div class="flex items-center gap-0.5">
+            <Button variant="ghost" size="icon" class="size-6" @click="toggleFullscreen">
+              <MaximizeIcon class="size-3" />
+            </Button>
+            <Button variant="ghost" size="icon" class="size-6" @click="isOpen = false">
+              <XIcon class="size-3.5" />
+            </Button>
           </div>
         </div>
-      </Transition>
 
+        <div class="flex-1 overflow-y-auto p-3 space-y-3">
+          <div
+            v-for="(msg, i) in messages"
+            :key="i"
+            :class="[
+              'text-sm rounded-lg px-3 py-2 max-w-[85%]',
+              msg.role === 'user'
+                ? 'bg-primary text-primary-foreground ml-auto'
+                : 'bg-muted'
+            ]"
+          >
+            {{ msg.content }}
+          </div>
+        </div>
+
+        <div class="shrink-0 p-2 border-t">
+          <div class="flex gap-2">
+            <input
+              v-model="inputText"
+              class="flex-1 h-8 px-3 text-sm bg-muted rounded-md border-0 outline-none focus:ring-1 focus:ring-primary"
+              placeholder="输入消息..."
+              @keydown.enter="sendMessage"
+            />
+            <Button size="icon" class="size-8 shrink-0" :disabled="!inputText.trim()" @click="sendMessage">
+              <SendIcon class="size-3.5" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- 悬浮按钮：独立定位 -->
+    <div class="absolute bottom-4 right-4 z-40">
       <img
         v-show="!isFullscreen"
         :src="xiaosuoIcon"
