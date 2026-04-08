@@ -111,7 +111,7 @@ function navigateToAnalysis(index: number) {
 }
 
 // --- 模块对话管理 ---
-const moduleChatManager = useModuleChatManager(caseId)
+const moduleChatManager = useModuleChatManager(caseId, { onAnalysisSaved: refreshAnalysis })
 
 async function handleModuleRegenerate(result: AnalysisResult) {
   await moduleChatManager.getOrCreateInstance(result.moduleName, result.moduleTitle)

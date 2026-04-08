@@ -37,7 +37,12 @@ export interface ModuleChatInstance {
     reconnect: () => void
 }
 
-export function useModuleChatManager(caseId: Ref<number>) {
+export interface ModuleChatManagerOptions {
+    /** 分析结果保存后的回调（用于刷新前端数据） */
+    onAnalysisSaved?: () => void
+}
+
+export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatManagerOptions = {}) {
     // 使用 shallowReactive 避免 unwrap 内部 Ref
     const instances = shallowReactive<Record<string, ModuleChatInstance>>({})
     const expandedModule = ref<string | null>(null)
@@ -82,8 +87,7 @@ export function useModuleChatManager(caseId: Ref<number>) {
                     sessionId: sessionId.value!,
                     onCustomEvent: (eventData: any) => {
                         if (eventData.name === 'analysis_result_saved') {
-                            // 触发分析结果刷新
-                            refreshNuxtData('caseDetail')
+                            options.onAnalysisSaved?.()
                         }
                     },
                 }),
