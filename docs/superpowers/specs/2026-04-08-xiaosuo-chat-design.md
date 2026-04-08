@@ -60,6 +60,12 @@ await prisma.caseSessions.create({
 const query = getQuery(event)
 const caseId = Number(query.caseId)
 
+// 权限校验：确保案件属于当前用户
+const caseRecord = await prisma.cases.findFirst({
+  where: { id: caseId, userId: user.id, deletedAt: null },
+})
+if (!caseRecord) return resError(event, 404, '案件不存在')
+
 const sessions = await prisma.caseSessions.findMany({
   where: {
     caseId,
@@ -158,6 +164,7 @@ export function useXiaosuoChat(caseId: MaybeRef<number>) {
 
     // 对话状态（代理当前 useCaseChat 实例）
     messages: ComputedRef<any[]>,
+    values: ComputedRef<any>,
     isLoading: ComputedRef<boolean>,
     interrupt: ComputedRef<any>,
 
@@ -166,7 +173,7 @@ export function useXiaosuoChat(caseId: MaybeRef<number>) {
     switchSession: (sessionId: string) => Promise<void>,
     deleteSession: (sessionId: string) => Promise<void>,
     sendMessage: (text: string, options?: { thinking?: boolean }) => void,
-    resumeInterrupt: (data: any) => void,
+    resumeInterrupt: (data: any) => void,  // 内部调用 stream.submit({ messages: [] }, { command: { resume: data } })
     stopGeneration: () => void,
 
     // 初始化
@@ -321,21 +328,29 @@ const props = defineProps<{
 
 ### 3.5 中断处理
 
-`useCaseChat` 的 `interrupt` 来自 `useStream` 的 `stream.interrupt`（内部从 `stream.values.__interrupt__` 解包）。解包逻辑：
+直接复用 `[sessionId].vue` 的中断解包模式，从 `values.__interrupt__` 提取（而非 `stream.interrupt`），确保与参考实现完全一致：
 
 ```typescript
+// 与 [sessionId].vue 第 157-170 行保持一致
+const interrupt = computed(() => {
+  const v = xiaosuoChat.values.value as any
+  if (!v?.__interrupt__?.length) return undefined
+  return v.__interrupt__.length === 1 ? v.__interrupt__[0] : v.__interrupt__
+})
+
 const interruptData = computed(() => {
-  const raw = xiaosuoChat.interrupt.value
+  const raw = interrupt.value
   if (!raw) return null
-  // interrupt 可能是数组或单个对象
   const first = Array.isArray(raw) ? raw[0] : raw
   const val = first?.value ?? first
   if (val?.type === 'insufficient_points') return val
   return null
 })
 
+// 与 [sessionId].vue 保持一致，传 { messages: [] } 作为第一个参数
 function resumeWorkflow() {
-  xiaosuoChat.resumeInterrupt({ action: 'continue' })
+  xiaosuoChat.sendMessage('')  // 触发空消息 + command
+  // 实际实现：stream.submit({ messages: [] }, { command: { resume: { action: 'continue' } } })
 }
 ```
 
