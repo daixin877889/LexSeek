@@ -19,6 +19,14 @@ import { updateRunStatusDAO } from '~~/server/services/agent/agentRun.dao'
 import { replayEvents, createEventSubscription } from '~~/server/services/agent/agentEventBridge'
 import { getThreadValuesService } from '~~/server/services/workflow/agents'
 import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
+import {
+  shouldRejectMessage,
+  isValidResumeCommand,
+  shouldRejectResume,
+  getResumeCount,
+  RESUME_COMMANDS,
+  MAX_RESUME_COUNT,
+} from '~~/server/utils/chat-branch-utils'
 
 /** 过滤掉上下文注入消息（HumanMessage with metadata.injectedBy） */
 function filterInjectedMessages(messages: any[]): any[] {
@@ -237,6 +245,8 @@ export default defineEventHandler(async (event) => {
         }
 
         // 如果 Redis Stream 没有数据，fallback 到 PostgresSaver checkpoint
+        // 注意：不能直接 return，因为 PENDING run 还没被 Worker 处理，需要继续订阅实时事件
+        let hasFallbackData = false
         if (missed.length === 0) {
           const checkpointValues = await getThreadValuesService(sessionId)
           if (checkpointValues) {
@@ -246,12 +256,15 @@ export default defineEventHandler(async (event) => {
               controller.enqueue(encoder.encode(
                 `event: values\ndata: ${JSON.stringify({ ...checkpointValues, messages: filteredMessages })}\n\n`,
               ))
-              // PostgresSaver 有数据说明 run 已完成，可以直接关闭
-              return
+              hasFallbackData = true
+              // 不 return，继续订阅实时事件以接收新 run 的输出
             }
           }
           // 如果都没有数据，说明是空的 session，直接订阅实时事件即可
-        } else {
+        }
+
+        // Redis Stream 有数据：发送补发事件
+        if (missed.length > 0) {
           // 发送所有补发事件
           for (const evt of missed) {
             let sseData: string
@@ -288,9 +301,15 @@ export default defineEventHandler(async (event) => {
             break
           }
           if (evt.type === 'stream_event') {
-            controller.enqueue(encoder.encode(
-              `event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`,
-            ))
+            let sseData: string
+            if (evt.event === 'values') {
+              // values 事件需要过滤消息
+              const filteredMessages = filterInjectedMessages(evt.data.messages ?? [])
+              sseData = `event: values\ndata: ${JSON.stringify({ ...evt.data, messages: filteredMessages })}\n\n`
+            } else {
+              sseData = `event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`
+            }
+            controller.enqueue(encoder.encode(sseData))
           }
           if (evt.type === 'custom_event') {
             // 必须发完整事件对象（含 name 字段），前端依赖 evt.name 判断事件类型
@@ -315,3 +334,43 @@ export default defineEventHandler(async (event) => {
     headers: { 'Content-Type': 'text/event-stream' },
   })
 })
+
+// --- 纯函数 ---
+
+/**
+ * 判断是否应该拒绝消息（RUNNING 状态 + 有新消息）
+ * @param activeRunStatus 当前 run 的状态
+ * @param hasMessage 是否有新消息
+ * @returns true 表示应该拒绝
+ */
+export function shouldRejectMessage(activeRunStatus: string, hasMessage: boolean): boolean {
+  return activeRunStatus === AGENT_RUN_STATUS.RUNNING && hasMessage
+}
+
+/**
+ * 验证 resume 命令是否合法
+ * @param command 命令字符串
+ * @returns true 表示命令合法
+ */
+export function isValidResumeCommand(command: string | undefined): boolean {
+  if (!command) return false
+  return RESUME_COMMANDS.includes(command as typeof RESUME_COMMANDS[number])
+}
+
+/**
+ * 判断是否应该拒绝 resume（超过次数上限）
+ * @param resumeCount 当前 resume 次数
+ * @returns true 表示应该拒绝
+ */
+export function shouldRejectResume(resumeCount: number): boolean {
+  return resumeCount >= MAX_RESUME_COUNT
+}
+
+/**
+ * 获取当前 resume 次数
+ * @param metadata run 的 metadata 对象
+ * @returns resume 次数，默认为 0
+ */
+export function getResumeCount(metadata: any): number {
+  return (metadata?.resumeCount as number | undefined) ?? 0
+}
