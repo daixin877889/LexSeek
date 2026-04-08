@@ -190,9 +190,14 @@ export default defineEventHandler(async (event) => {
           ? TERMINAL_STATUSES.includes(latestRunStatus)
           : false
 
-        // 已完成 run：发送 PostgresSaver 最终 checkpoint 后，检查是否有新入队的 run。
-        // 如果有新 run → 订阅新 run 的实时事件；如果没有 → 发送 checkpoint 后直接返回。
-        if (isCompletedRun) {
+        // 检查此刻是否有新入队的 run（用户可能刚发了消息）
+        // 优先检查活跃 run，有则直接订阅，不发旧 checkpoint（避免前端收到旧数据）
+        const currentActiveRun = await getActiveRunService(sessionId)
+        if (currentActiveRun) {
+          runId = currentActiveRun.id
+        }
+        else if (isCompletedRun) {
+          // 无活跃 run 且旧 run 已完成：发 checkpoint 后直接返回（需求1）
           const checkpointValues = await getThreadValuesService(sessionId)
           if (checkpointValues) {
             const messages = (checkpointValues.messages as any[]) || []
@@ -202,17 +207,9 @@ export default defineEventHandler(async (event) => {
               ))
             }
           }
-          // 检查此刻是否有新入队的 run（用户可能刚发了消息）
-          const currentActiveRun = await getActiveRunService(sessionId)
-          if (currentActiveRun) {
-            // 有新 run → 订阅其实时事件（不走 replay，避免重放旧 run 的事件）
-            runId = currentActiveRun.id
-          }
-          else {
-            // 无新 run → checkpoint 已发完，关闭 SSE
-            return
-          }
+          return
         }
+        // 有活跃 run 但旧 run 未完成或有未终结状态：走 replay + subscribe（需求2）
 
         // 活跃 run：重放 Redis Stream 补发历史事件，再订阅实时事件
         let missed: any[] = []
