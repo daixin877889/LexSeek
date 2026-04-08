@@ -107,7 +107,7 @@ export async function claimPendingRunDAO(
 export async function updateRunStatusDAO(
   id: string,
   status: AgentRunStatus,
-  extra?: { error?: string; completedAt?: Date }
+  extra?: { error?: string; completedAt?: Date; metadata?: any }
 ): Promise<agentRuns> {
   return prisma.agentRuns.update({
     where: { id },
@@ -115,6 +115,7 @@ export async function updateRunStatusDAO(
       status,
       ...(extra?.error !== undefined && { error: extra.error }),
       ...(extra?.completedAt && { completedAt: extra.completedAt }),
+      ...(extra?.metadata !== undefined && { metadata: extra.metadata }),
     },
   })
 }
