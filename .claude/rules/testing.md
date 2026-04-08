@@ -121,3 +121,4 @@ it('should hash password before saving', async () => {
 - 测试完成必须清除测试数据，不允许残留测试数据，每次测试完成都需要检查数据库是否有残留测试数据。
 - 全量测试命令使用 `bun run test` 执行，不要使用 `bun test` 执行
 - 修复 bug 时，修复后先运行单元测试，确保修复完成，确认后运行全量测试套件（vitest），所有测试必须通过后才能视为完成。
+- E2E 测试优先使用 `chrome-devtools` 调用浏览器
