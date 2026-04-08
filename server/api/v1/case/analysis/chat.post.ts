@@ -316,8 +316,9 @@ export default defineEventHandler(async (event) => {
             let sseData: string
             if (evt.event === 'values') {
               // values 事件需要过滤消息
-              const filteredMessages = filterInjectedMessages(evt.data.messages ?? [])
-              sseData = `event: values\ndata: ${JSON.stringify({ ...evt.data, messages: filteredMessages })}\n\n`
+              const data = evt.data as { messages?: any[] }
+              const filteredMessages = filterInjectedMessages(data.messages ?? [])
+              sseData = `event: values\ndata: ${JSON.stringify({ ...data, messages: filteredMessages })}\n\n`
             } else {
               sseData = `event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`
             }
