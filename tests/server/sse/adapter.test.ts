@@ -341,7 +341,7 @@ describe('SSE AI SDK 适配器', () => {
             const config = createLangGraphStreamConfig('session-123')
 
             expect(config.configurable.thread_id).toBe('session-123')
-            expect(config.recursionLimit).toBe(50)
+            expect(config.recursionLimit).toBe(1000)
             expect(config.streamMode).toEqual(['values', 'messages'])
         })
 

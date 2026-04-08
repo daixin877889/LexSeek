@@ -21,7 +21,7 @@ vi.stubGlobal('logger', {
     debug: vi.fn(),
 })
 
-import { messageToFlatDict } from '../../../server/services/agent/threadState'
+import { messageToFlatDict } from '../../../server/services/workflow/agents/threadState'
 import { mapStoredMessageToChatMessage } from '@langchain/core/messages'
 
 const mockedMapStoredMessage = mapStoredMessageToChatMessage as ReturnType<typeof vi.fn>
