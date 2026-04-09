@@ -1,0 +1,1103 @@
+{
+  "version": "1.0",
+  "description": "法律检索效果评估数据集 — 100 条用例，覆盖 exact/hybrid/semantic/edge 四类场景",
+  "cases": [
+    {
+      "id": "exact-001",
+      "query": "民法典第一千条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国民法典", "content_contains": "人格权" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "civil"]
+    },
+    {
+      "id": "exact-002",
+      "query": "民法典第五百七十七条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国民法典", "content_contains": "违约责任" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "civil", "contract"]
+    },
+    {
+      "id": "exact-003",
+      "query": "民法典第一千零七十九条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国民法典", "content_contains": "离婚" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "civil", "marriage"]
+    },
+    {
+      "id": "exact-004",
+      "query": "民法典第一千一百六十五条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国民法典", "content_contains": "侵权责任" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "civil", "tort"]
+    },
+    {
+      "id": "exact-005",
+      "query": "刑法第二百六十四条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国刑法", "content_contains": "盗窃" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "criminal"]
+    },
+    {
+      "id": "exact-006",
+      "query": "刑法第二百三十二条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国刑法", "content_contains": "故意杀人" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "criminal"]
+    },
+    {
+      "id": "exact-007",
+      "query": "刑法第六十七条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国刑法", "content_contains": "自首" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "criminal"]
+    },
+    {
+      "id": "exact-008",
+      "query": "刑法第七十二条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国刑法", "content_contains": "缓刑" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "criminal"]
+    },
+    {
+      "id": "exact-009",
+      "query": "劳动合同法第四十六条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国劳动合同法", "content_contains": "经济补偿" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "labor"]
+    },
+    {
+      "id": "exact-010",
+      "query": "劳动合同法第四十七条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国劳动合同法", "content_contains": "经济补偿按劳动者" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "labor"]
+    },
+    {
+      "id": "exact-011",
+      "query": "劳动合同法第八十二条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国劳动合同法", "content_contains": "二倍的工资" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "labor"]
+    },
+    {
+      "id": "exact-012",
+      "query": "劳动合同法第三十八条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国劳动合同法", "content_contains": "劳动者可以解除劳动合同" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "labor"]
+    },
+    {
+      "id": "exact-013",
+      "query": "公司法第二十条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国公司法", "content_contains": "社会责任" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "corporate"]
+    },
+    {
+      "id": "exact-014",
+      "query": "公司法第七十四条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国公司法", "content_contains": "经理" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "corporate"]
+    },
+    {
+      "id": "exact-015",
+      "query": "公司法第一百八十二条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国公司法", "content_contains": "关联交易" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "corporate"]
+    },
+    {
+      "id": "exact-016",
+      "query": "消费者权益保护法第二十五条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国消费者权益保护法", "content_contains": "七日内退货" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "consumer"]
+    },
+    {
+      "id": "exact-017",
+      "query": "消费者权益保护法第五十五条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国消费者权益保护法", "content_contains": "三倍" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "consumer"]
+    },
+    {
+      "id": "exact-018",
+      "query": "民事诉讼法第一百二十二条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国民事诉讼法", "content_contains": "起诉必须符合" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "procedure"]
+    },
+    {
+      "id": "exact-019",
+      "query": "民事诉讼法第二百三十六条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国民事诉讼法", "content_contains": "执行行为" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "procedure"]
+    },
+    {
+      "id": "exact-020",
+      "query": "刑事诉讼法第十五条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国刑事诉讼法", "content_contains": "认罪认罚" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "procedure"]
+    },
+    {
+      "id": "exact-021",
+      "query": "刑事诉讼法第七十九条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国刑事诉讼法", "content_contains": "取保候审" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "procedure"]
+    },
+    {
+      "id": "exact-022",
+      "query": "道路交通安全法第七十六条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name_contains": "道路交通安全法", "content_contains": "交通事故" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "tort"]
+    },
+    {
+      "id": "exact-023",
+      "query": "商标法第五十七条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name_contains": "商标法", "content_contains": "注册商标专用权" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "ip"]
+    },
+    {
+      "id": "exact-024",
+      "query": "著作权法第五十二条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name_contains": "著作权法", "content_contains": "侵权行为" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "ip"]
+    },
+    {
+      "id": "exact-025",
+      "query": "土地管理法第四十七条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name_contains": "土地管理法", "content_contains": "征收土地" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "admin"]
+    },
+    {
+      "id": "exact-026",
+      "query": "行政诉讼法第十二条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name_contains": "行政诉讼法", "content_contains": "受理" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "admin"]
+    },
+    {
+      "id": "exact-027",
+      "query": "刑法第264条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国刑法", "content_contains": "盗窃" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "criminal", "arabic-number"]
+    },
+    {
+      "id": "exact-028",
+      "query": "民法典第1000条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国民法典", "content_contains": "人格权" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "civil", "arabic-number"]
+    },
+    {
+      "id": "exact-029",
+      "query": "民法典第577条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国民法典", "content_contains": "违约责任" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["exact", "civil", "abbreviation"]
+    },
+    {
+      "id": "exact-030",
+      "query": "劳动法第46条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name_contains": "劳动", "content_contains": "工资" }, "mustBeInTopN": 5 }
+      ],
+      "tags": ["exact", "labor", "abbreviation"]
+    },
+
+    {
+      "id": "hybrid-001",
+      "query": "民法典关于合同违约的规定",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国民法典", "content_contains": "违约" }, "mustBeInTopN": 5 }
+      ],
+      "tags": ["hybrid", "contract"]
+    },
+    {
+      "id": "hybrid-002",
+      "query": "合同解除的法定条件",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "解除" }, "mustBeInTopN": 5 }
+      ],
+      "tags": ["hybrid", "contract"]
+    },
+    {
+      "id": "hybrid-003",
+      "query": "违约金调整规则",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "违约金" }, "mustBeInTopN": 5 }
+      ],
+      "tags": ["hybrid", "contract"]
+    },
+    {
+      "id": "hybrid-004",
+      "query": "格式条款的效力",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "格式条款" }, "mustBeInTopN": 5 }
+      ],
+      "tags": ["hybrid", "contract"]
+    },
+    {
+      "id": "hybrid-005",
+      "query": "合同无效的情形",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "无效" }, "mustBeInTopN": 5 }
+      ],
+      "tags": ["hybrid", "contract"]
+    },
+    {
+      "id": "hybrid-006",
+      "query": "劳动合同法关于经济补偿金的规定",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "legal_name_contains": "劳动合同法", "content_contains": "经济补偿" }, "mustBeInTopN": 5 }
+      ],
+      "tags": ["hybrid", "labor"]
+    },
+    {
+      "id": "hybrid-007",
+      "query": "用人单位单方解除劳动合同的条件",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "解除劳动合同" }, "mustBeInTopN": 5 }
+      ],
+      "tags": ["hybrid", "labor"]
+    },
+    {
+      "id": "hybrid-008",
+      "query": "劳动者权益保护相关法律规定",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "劳动者" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "labor"]
+    },
+    {
+      "id": "hybrid-009",
+      "query": "工伤认定标准和条件",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "工伤" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "labor"]
+    },
+    {
+      "id": "hybrid-010",
+      "query": "民法典侵权责任编的归责原则",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国民法典", "content_contains": "侵权" }, "mustBeInTopN": 5 }
+      ],
+      "tags": ["hybrid", "tort"]
+    },
+    {
+      "id": "hybrid-011",
+      "query": "高空抛物责任认定",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "建筑物" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "tort"]
+    },
+    {
+      "id": "hybrid-012",
+      "query": "医疗损害责任",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "医疗" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "tort"]
+    },
+    {
+      "id": "hybrid-013",
+      "query": "产品责任缺陷认定",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "产品" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "tort"]
+    },
+    {
+      "id": "hybrid-014",
+      "query": "刑法中关于正当防卫的规定",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国刑法", "content_contains": "正当防卫" }, "mustBeInTopN": 5 }
+      ],
+      "tags": ["hybrid", "criminal"]
+    },
+    {
+      "id": "hybrid-015",
+      "query": "刑事责任年龄的规定",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "周岁" }, "mustBeInTopN": 5 }
+      ],
+      "tags": ["hybrid", "criminal"]
+    },
+    {
+      "id": "hybrid-016",
+      "query": "死刑适用条件",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "死刑" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "criminal"]
+    },
+    {
+      "id": "hybrid-017",
+      "query": "数罪并罚规则",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "数罪并罚" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "criminal"]
+    },
+    {
+      "id": "hybrid-018",
+      "query": "公司法股东知情权",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "legal_name_contains": "公司法", "content_contains": "股东" }, "mustBeInTopN": 5 }
+      ],
+      "tags": ["hybrid", "corporate"]
+    },
+    {
+      "id": "hybrid-019",
+      "query": "有限公司股权转让限制",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "股权转让" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "corporate"]
+    },
+    {
+      "id": "hybrid-020",
+      "query": "公司法人人格否认制度",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "公司" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "corporate"]
+    },
+    {
+      "id": "hybrid-021",
+      "query": "夫妻共同财产的范围",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "共同财产" }, "mustBeInTopN": 5 }
+      ],
+      "tags": ["hybrid", "marriage"]
+    },
+    {
+      "id": "hybrid-022",
+      "query": "离婚时财产分割规则",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "离婚" }, "mustBeInTopN": 5 }
+      ],
+      "tags": ["hybrid", "marriage"]
+    },
+    {
+      "id": "hybrid-023",
+      "query": "子女抚养权归属问题",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "抚养" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "marriage"]
+    },
+    {
+      "id": "hybrid-024",
+      "query": "专利侵权赔偿计算方法",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "legal_name_contains": "专利法", "content_contains": "赔偿" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "ip"]
+    },
+    {
+      "id": "hybrid-025",
+      "query": "商标近似判断标准",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "商标" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "ip"]
+    },
+    {
+      "id": "hybrid-026",
+      "query": "著作权合理使用",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "著作权" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "ip"]
+    },
+    {
+      "id": "hybrid-027",
+      "query": "行政处罚的程序要求",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "行政处罚" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "admin"]
+    },
+    {
+      "id": "hybrid-028",
+      "query": "行政复议的申请条件",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "行政复议" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "admin"]
+    },
+    {
+      "id": "hybrid-029",
+      "query": "政府信息公开的范围",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "信息公开" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "admin"]
+    },
+    {
+      "id": "hybrid-030",
+      "query": "民事诉讼管辖规则",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "管辖" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "procedure"]
+    },
+    {
+      "id": "hybrid-031",
+      "query": "刑事诉讼中的非法证据排除",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "证据" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "procedure"]
+    },
+    {
+      "id": "hybrid-032",
+      "query": "行政诉讼举证责任分配",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "举证" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "procedure"]
+    },
+    {
+      "id": "hybrid-033",
+      "query": "诉讼时效中断的情形",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "诉讼时效" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "procedure"]
+    },
+    {
+      "id": "hybrid-034",
+      "query": "商品房买卖合同纠纷",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "房屋" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "property"]
+    },
+    {
+      "id": "hybrid-035",
+      "query": "建设工程质量责任",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "建设工程" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "property"]
+    },
+    {
+      "id": "hybrid-036",
+      "query": "物业管理纠纷处理",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "物业" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "property"]
+    },
+    {
+      "id": "hybrid-037",
+      "query": "民间借贷利率上限",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "利率" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "finance"]
+    },
+    {
+      "id": "hybrid-038",
+      "query": "担保合同效力",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "担保" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "finance"]
+    },
+    {
+      "id": "hybrid-039",
+      "query": "票据权利追索",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "票据" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "finance"]
+    },
+    {
+      "id": "hybrid-040",
+      "query": "保险理赔条件和程序",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "保险" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["hybrid", "finance"]
+    },
+
+    {
+      "id": "semantic-001",
+      "query": "员工被公司无故辞退后能获得什么赔偿",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "经济补偿" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "labor"]
+    },
+    {
+      "id": "semantic-002",
+      "query": "租的房子到期房东不退押金怎么办",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "租赁" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "contract"]
+    },
+    {
+      "id": "semantic-003",
+      "query": "网上买的东西质量有问题可以退货吗",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "退货" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "consumer"]
+    },
+    {
+      "id": "semantic-004",
+      "query": "被人借了钱不还怎么起诉",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "借" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "finance"]
+    },
+    {
+      "id": "semantic-005",
+      "query": "开车撞到行人谁来赔",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "交通事故" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "tort"]
+    },
+    {
+      "id": "semantic-006",
+      "query": "夫妻离婚房子怎么分",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "离婚" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "marriage"]
+    },
+    {
+      "id": "semantic-007",
+      "query": "公司股东之间发生矛盾怎么解决",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "股东" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "corporate"]
+    },
+    {
+      "id": "semantic-008",
+      "query": "别人抄袭了我的文章怎么维权",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "著作权" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "ip"]
+    },
+    {
+      "id": "semantic-009",
+      "query": "被打了可以要求赔偿精神损失费吗",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "损害赔偿" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "tort"]
+    },
+    {
+      "id": "semantic-010",
+      "query": "签了合同对方不履行怎么办",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "违约" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "contract"]
+    },
+    {
+      "id": "semantic-011",
+      "query": "邻居装修噪音太大影响生活",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "相邻" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "property"]
+    },
+    {
+      "id": "semantic-012",
+      "query": "未成年人犯罪会被判刑吗",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "周岁" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "criminal"]
+    },
+    {
+      "id": "semantic-013",
+      "query": "遗产继承的顺序是什么",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "继承" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "civil"]
+    },
+    {
+      "id": "semantic-014",
+      "query": "商家虚假宣传消费者怎么索赔",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "欺诈" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "consumer"]
+    },
+    {
+      "id": "semantic-015",
+      "query": "工作中受伤公司不管怎么办",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "工伤" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "labor"]
+    },
+    {
+      "id": "semantic-016",
+      "query": "老板拖欠工资好几个月了",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "工资" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "labor"]
+    },
+    {
+      "id": "semantic-017",
+      "query": "孩子在学校受伤学校有责任吗",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "教育" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "tort"]
+    },
+    {
+      "id": "semantic-018",
+      "query": "快递丢了怎么赔偿",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "运输" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "contract"]
+    },
+    {
+      "id": "semantic-019",
+      "query": "买了假货怎么要求三倍赔偿",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "三倍" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "consumer"]
+    },
+    {
+      "id": "semantic-020",
+      "query": "个人隐私被泄露了怎么维权",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "隐私" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "civil"]
+    },
+    {
+      "id": "semantic-021",
+      "query": "小区物业费太高不合理",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "物业" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "property"]
+    },
+    {
+      "id": "semantic-022",
+      "query": "合伙做生意亏了钱怎么分担",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "合伙" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "contract"]
+    },
+    {
+      "id": "semantic-023",
+      "query": "二手房交易卖家反悔不卖了",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "房屋" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "property"]
+    },
+    {
+      "id": "semantic-024",
+      "query": "醉酒驾车出事故怎么判",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "醉酒" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "criminal"]
+    },
+    {
+      "id": "semantic-025",
+      "query": "信用卡被盗刷银行要负责吗",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "银行" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["semantic", "finance"]
+    },
+
+    {
+      "id": "edge-001",
+      "query": "不存在的法律名称第一条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [],
+      "tags": ["edge", "no-match"]
+    },
+    {
+      "id": "edge-002",
+      "query": "法",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 5,
+      "expectedHits": [],
+      "tags": ["edge", "short-query"]
+    },
+    {
+      "id": "edge-003",
+      "query": "民法典",
+      "type": "law",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国民法典" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["edge", "name-only"]
+    },
+    {
+      "id": "edge-004",
+      "query": "第一百条",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 5,
+      "expectedHits": [],
+      "tags": ["edge", "article-only"]
+    },
+    {
+      "id": "edge-005",
+      "query": "张三诉李四买卖合同纠纷一案中关于违约金的认定",
+      "type": "law",
+      "expectedMode": "semantic",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "content_contains": "违约金" }, "mustBeInTopN": 10 }
+      ],
+      "tags": ["edge", "complex-query"]
+    }
+  ]
+}
