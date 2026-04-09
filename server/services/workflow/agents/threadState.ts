@@ -33,6 +33,10 @@ export function messageToFlatDict(msg: any): Record<string, unknown> {
         if (msg.additional_kwargs && Object.keys(msg.additional_kwargs).length > 0) {
             dict.additional_kwargs = msg.additional_kwargs
         }
+        // 保留 response_metadata（用于前端过滤注入的上下文消息）
+        if (msg.response_metadata && Object.keys(msg.response_metadata).length > 0) {
+            dict.response_metadata = msg.response_metadata
+        }
         return dict
     }
     // stored message 格式 ({ type, data })，先转为 BaseMessage 再提取
