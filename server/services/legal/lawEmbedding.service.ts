@@ -118,10 +118,7 @@ export function getEmbeddableContent(article: {
 export function buildEmbeddingText(legal: legalMain, article: legalArticles): string {
     const hierarchyPath = buildHierarchyPath(article)
     const embeddableContent = getEmbeddableContent(article)
-    return `文件：${legal.name}
-类型：${getLegalTypeName(legal.type)}
-章节：${hierarchyPath}
-内容：${embeddableContent}`
+    return `${embeddableContent}\n\n——《${legal.name}》${hierarchyPath}`
 }
 
 /**

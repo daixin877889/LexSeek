@@ -449,9 +449,8 @@ describe('法律条文向量嵌入服务', () => {
                     (legal, article) => {
                         const text = buildEmbeddingText(legal, article)
                         expect(text).toContain(legal.name)
-                        expect(text).toContain('类型：')
-                        expect(text).toContain('章节：')
-                        expect(text).toContain('内容：')
+                        expect(text).toContain('——《')
+                        expect(text).toContain('》')
                     }
                 ),
                 { numRuns: 100 }
