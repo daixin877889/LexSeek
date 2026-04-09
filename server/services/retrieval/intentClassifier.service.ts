@@ -90,6 +90,7 @@ export async function classifyIntentService(
             baseUrl: config.modelProviderBaseUrl,
             temperature: 0,
             streaming: false,
+            thinking: false
         })
 
         // 获取 system prompt（从节点 prompts 中取 type='system' 的）

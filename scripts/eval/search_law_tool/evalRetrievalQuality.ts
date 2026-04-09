@@ -4,10 +4,10 @@
  * 连接真实数据库执行检索查询，输出指标报告（含 Rerank 前后对比）。
  *
  * 用法:
- *   bun run server/scripts/eval/search_law_tool/evalRetrievalQuality.ts
- *   bun run server/scripts/eval/search_law_tool/evalRetrievalQuality.ts --tags=exact
- *   bun run server/scripts/eval/search_law_tool/evalRetrievalQuality.ts --ids=exact-001,hybrid-001
- *   bun run server/scripts/eval/search_law_tool/evalRetrievalQuality.ts --verbose
+ *   bun run scripts/eval/search_law_tool/evalRetrievalQuality.ts
+ *   bun run scripts/eval/search_law_tool/evalRetrievalQuality.ts --tags=exact
+ *   bun run scripts/eval/search_law_tool/evalRetrievalQuality.ts --ids=exact-001,hybrid-001
+ *   bun run scripts/eval/search_law_tool/evalRetrievalQuality.ts --verbose
  */
 
 // -----------------------------------------------------------------------
@@ -15,8 +15,8 @@
 // -----------------------------------------------------------------------
 
 import { PrismaPg } from '@prisma/adapter-pg'
-import { PrismaClient } from '../../../../generated/prisma/client'
-import { logger as sharedLogger } from '../../../../shared/utils/logger/index'
+import { PrismaClient } from '../../../generated/prisma/client'
+import { logger as sharedLogger } from '../../../shared/utils/logger/index'
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -57,12 +57,12 @@ g.useRuntimeConfig = () => ({
 // 导入服务层（全局依赖就绪后）
 // -----------------------------------------------------------------------
 
-import { retrievalRouterService } from '../../../services/retrieval/retrievalRouter.service'
-import { classifyIntentService } from '../../../services/retrieval/intentClassifier.service'
-import { hybridSearchService } from '../../../services/retrieval/hybridSearch.service'
-import { semanticSearchService } from '../../../services/retrieval/semanticSearch.service'
-import { exactSearchService } from '../../../services/retrieval/exactSearch.service'
-import type { RetrievalResult, SearchResultItem } from '../../../services/retrieval/types'
+import { retrievalRouterService } from '../../../server/services/retrieval/retrievalRouter.service'
+import { classifyIntentService } from '../../../server/services/retrieval/intentClassifier.service'
+import { hybridSearchService } from '../../../server/services/retrieval/hybridSearch.service'
+import { semanticSearchService } from '../../../server/services/retrieval/semanticSearch.service'
+import { exactSearchService } from '../../../server/services/retrieval/exactSearch.service'
+import type { RetrievalResult, SearchResultItem } from '../../../server/services/retrieval/types'
 
 // -----------------------------------------------------------------------
 // 类型定义

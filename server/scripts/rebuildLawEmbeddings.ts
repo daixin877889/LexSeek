@@ -41,7 +41,7 @@ g.useRuntimeConfig = () => ({
     embedding: {
         apiKey: process.env.NUXT_EMBEDDING_API_KEY || process.env.EMBEDDING_API_KEY,
         baseUrl: process.env.NUXT_EMBEDDING_BASE_URL || process.env.EMBEDDING_BASE_URL,
-        model: process.env.NUXT_EMBEDDING_MODEL || process.env.EMBEDDING_MODEL || 'text-embedding-v3',
+        model: process.env.NUXT_EMBEDDING_MODEL || process.env.EMBEDDING_MODEL || 'text-embedding-v4',
         dimensions: Number(process.env.NUXT_EMBEDDING_DIMENSIONS || process.env.EMBEDDING_DIMENSIONS || 1536),
         batchSize: Number(process.env.NUXT_EMBEDDING_BATCH_SIZE || process.env.EMBEDDING_BATCH_SIZE || 5),
     },
