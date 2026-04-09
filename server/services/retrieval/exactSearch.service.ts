@@ -12,9 +12,9 @@ import type { IntentClassification, RetrievalResult } from './types'
  * 精确检索服务
  *
  * 流程：
- * 1. 按法律名称查找 legalMain（精确优先，再包含匹配）
- * 2. 按条文编号查找 legalArticles（l5/l3 字段包含匹配）
- * 3. 并行为每条命中结果扩展 order ±2 的上下文（同 l1 层级约束）
+ * 1. 按法律名称查找候选法律（精确优先，再包含匹配，可能多部）
+ * 2. 在每部候选法律中按条文编号查找（l5/l3 包含匹配）
+ * 3. 只保留有命中条文的法律，对每条命中扩展 order ±2 上下文
  * 4. 去重后格式化为 RetrievalResult 返回
  */
 export async function exactSearchService(
@@ -22,68 +22,79 @@ export async function exactSearchService(
 ): Promise<RetrievalResult[]> {
     if (!intent.legalName) return []
 
-    // 优先精确匹配，没有再走包含匹配（按名称长度升序，选最短即最精确的）
-    const legal =
-        await prisma.legalMain.findFirst({
-            where: { name: intent.legalName, deletedAt: null },
-        })
-        ?? await prisma.legalMain.findFirst({
+    // 1. 查找候选法律：精确匹配优先，无结果再包含匹配（可能匹配多部）
+    let candidateLegals = await prisma.legalMain.findMany({
+        where: { name: intent.legalName, deletedAt: null },
+    })
+    if (candidateLegals.length === 0) {
+        candidateLegals = await prisma.legalMain.findMany({
             where: { name: { contains: intent.legalName }, deletedAt: null },
             orderBy: { name: 'asc' },
         })
+    }
 
-    if (!legal) return []
+    if (candidateLegals.length === 0) return []
 
     const articleRefWhere = intent.articleRef
         ? { OR: [{ l5: { contains: intent.articleRef } }, { l3: { contains: intent.articleRef } }] }
         : {}
 
-    const hitArticles = await prisma.legalArticles.findMany({
-        where: { legalId: legal.id, deletedAt: null, ...articleRefWhere },
-        orderBy: { order: 'asc' },
-    })
-
-    if (!hitArticles.length) return []
-
-    // 并行扩展每条命中条文的前后 ±2 条上下文（同 l1 层级约束，避免跨大章节）
-    const expandedGroups = await Promise.all(
-        hitArticles.map(article =>
-            article.order == null
-                ? Promise.resolve([article])
-                : prisma.legalArticles.findMany({
-                      where: {
-                          legalId: legal.id,
-                          deletedAt: null,
-                          order: { gte: article.order - 2, lte: article.order + 2 },
-                          ...(article.l1 ? { l1: article.l1 } : {}),
-                      },
-                      orderBy: { order: 'asc' },
-                  }),
-        ),
+    // 2. 在每部候选法律中查条文，只保留有命中的
+    const legalArticlePairs = await Promise.all(
+        candidateLegals.map(async (legal) => {
+            const articles = await prisma.legalArticles.findMany({
+                where: { legalId: legal.id, deletedAt: null, ...articleRefWhere },
+                orderBy: { order: 'asc' },
+            })
+            return { legal, articles }
+        }),
     )
+    const matched = legalArticlePairs.filter(p => p.articles.length > 0)
 
-    // 按出现顺序去重
+    if (matched.length === 0) return []
+
+    // 3. 对每部命中法律的每条条文扩展上下文
+    const allResults: RetrievalResult[] = []
     const seenIds = new Set<string>()
-    const contextArticles = expandedGroups.flat().filter(a => {
-        if (seenIds.has(a.id)) return false
-        seenIds.add(a.id)
-        return true
-    })
 
-    return contextArticles.map(article => ({
-        score: 1.0,
-        content: article.content || '',
-        metadata: {
-            legal_name: legal.name,
-            document_number: legal.documentNumber,
-            publish_date: legal.publishDate?.toISOString(),
-            effective_date: legal.effectiveDate?.toISOString(),
-            invalid_date: legal.invalidDate?.toISOString(),
-            article_type: article.type,
-            articles_id: article.id,
-            chapter_hierarchy: buildHierarchyPath(article),
-            retrieval_mode: 'exact',
-        },
-        retrievalMode: 'exact' as const,
-    }))
+    for (const { legal, articles } of matched) {
+        const expandedGroups = await Promise.all(
+            articles.map(article =>
+                article.order == null
+                    ? Promise.resolve([article])
+                    : prisma.legalArticles.findMany({
+                          where: {
+                              legalId: legal.id,
+                              deletedAt: null,
+                              order: { gte: article.order - 2, lte: article.order + 2 },
+                              ...(article.l1 ? { l1: article.l1 } : {}),
+                          },
+                          orderBy: { order: 'asc' },
+                      }),
+            ),
+        )
+
+        for (const article of expandedGroups.flat()) {
+            if (seenIds.has(article.id)) continue
+            seenIds.add(article.id)
+            allResults.push({
+                score: 1.0,
+                content: article.content || '',
+                metadata: {
+                    legal_name: legal.name,
+                    document_number: legal.documentNumber,
+                    publish_date: legal.publishDate?.toISOString(),
+                    effective_date: legal.effectiveDate?.toISOString(),
+                    invalid_date: legal.invalidDate?.toISOString(),
+                    article_type: article.type,
+                    articles_id: article.id,
+                    chapter_hierarchy: buildHierarchyPath(article),
+                    retrieval_mode: 'exact',
+                },
+                retrievalMode: 'exact' as const,
+            })
+        }
+    }
+
+    return allResults
 }

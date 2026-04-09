@@ -9,11 +9,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { IntentClassification } from '../../../server/services/retrieval/types'
 
 // Mock prisma（Nuxt 自动导入全局变量）
-const mockLegalMainFindFirst = vi.fn()
+const mockLegalMainFindMany = vi.fn()
 const mockLegalArticlesFindMany = vi.fn()
 
 vi.stubGlobal('prisma', {
-    legalMain: { findFirst: (...args: any[]) => mockLegalMainFindFirst(...args) },
+    legalMain: { findMany: (...args: any[]) => mockLegalMainFindMany(...args) },
     legalArticles: { findMany: (...args: any[]) => mockLegalArticlesFindMany(...args) },
 })
 
@@ -68,8 +68,9 @@ describe('exactSearchService', () => {
             const legal = makeLegal()
             const article = makeArticle()
 
-            mockLegalMainFindFirst.mockResolvedValue(legal)
-            // 第一次调用：命中条文；第二次调用：上下文扩展
+            // 精确匹配命中
+            mockLegalMainFindMany.mockResolvedValueOnce([legal])
+            // 命中条文 + 上下文扩展
             mockLegalArticlesFindMany
                 .mockResolvedValueOnce([article])
                 .mockResolvedValueOnce([article])
@@ -93,9 +94,9 @@ describe('exactSearchService', () => {
             const article = makeArticle()
 
             // 精确匹配无命中，包含匹配命中
-            mockLegalMainFindFirst
-                .mockResolvedValueOnce(null)
-                .mockResolvedValueOnce(legal)
+            mockLegalMainFindMany
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([legal])
             mockLegalArticlesFindMany
                 .mockResolvedValueOnce([article])
                 .mockResolvedValueOnce([article])
@@ -110,11 +111,38 @@ describe('exactSearchService', () => {
 
             expect(results).toHaveLength(1)
             // 第一次调用：精确匹配
-            expect(mockLegalMainFindFirst.mock.calls[0][0].where.name).toBe('民法典')
+            expect(mockLegalMainFindMany.mock.calls[0][0].where.name).toBe('民法典')
             // 第二次调用：包含匹配，按名称升序
-            const secondCall = mockLegalMainFindFirst.mock.calls[1][0]
+            const secondCall = mockLegalMainFindMany.mock.calls[1][0]
             expect(secondCall.where.name).toEqual({ contains: '民法典' })
             expect(secondCall.orderBy).toEqual({ name: 'asc' })
+        })
+
+        it('包含匹配命中多部法律时只保留有条文命中的', async () => {
+            const law1 = makeLegal({ id: 'legal-001', name: '中华人民共和国劳动合同法' })
+            const law2 = makeLegal({ id: 'legal-002', name: '中华人民共和国劳动合同法实施条例' })
+            const article = makeArticle({ legalId: 'legal-001', content: '劳动合同法条文' })
+
+            // 精确匹配无命中，包含匹配返回两部法律
+            mockLegalMainFindMany
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([law1, law2])
+            // 法律1有命中条文，法律2无命中
+            mockLegalArticlesFindMany
+                .mockResolvedValueOnce([article])  // law1 条文查询
+                .mockResolvedValueOnce([])          // law2 条文查询
+                .mockResolvedValueOnce([article])   // law1 上下文扩展
+
+            const intent: IntentClassification = {
+                intent: 'exact',
+                legalName: '劳动合同法',
+                articleRef: '第三十八条',
+            }
+
+            const results = await exactSearchService(intent)
+
+            expect(results).toHaveLength(1)
+            expect(results[0].metadata.legal_name).toBe('中华人民共和国劳动合同法')
         })
     })
 
@@ -130,10 +158,8 @@ describe('exactSearchService', () => {
                 makeArticle({ id: 'article-005', order: 12 }),
             ]
 
-            mockLegalMainFindFirst.mockResolvedValue(legal)
-            // 命中条文
+            mockLegalMainFindMany.mockResolvedValueOnce([legal])
             mockLegalArticlesFindMany.mockResolvedValueOnce([hitArticle])
-            // 上下文扩展返回 5 条
             mockLegalArticlesFindMany.mockResolvedValueOnce(contextArticles)
 
             const intent: IntentClassification = {
@@ -154,7 +180,7 @@ describe('exactSearchService', () => {
             const legal = makeLegal()
             const hitArticle = makeArticle({ l1: '第一编', order: 10 })
 
-            mockLegalMainFindFirst.mockResolvedValue(legal)
+            mockLegalMainFindMany.mockResolvedValueOnce([legal])
             mockLegalArticlesFindMany.mockResolvedValueOnce([hitArticle])
             mockLegalArticlesFindMany.mockResolvedValueOnce([hitArticle])
 
@@ -173,7 +199,10 @@ describe('exactSearchService', () => {
 
     describe('无命中场景', () => {
         it('未找到法律时返回空数组', async () => {
-            mockLegalMainFindFirst.mockResolvedValue(null)
+            // 精确和包含都无命中
+            mockLegalMainFindMany
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([])
 
             const intent: IntentClassification = {
                 intent: 'exact',
@@ -188,8 +217,8 @@ describe('exactSearchService', () => {
         })
 
         it('找到法律但无命中条文时返回空数组', async () => {
-            mockLegalMainFindFirst.mockResolvedValue(makeLegal())
-            mockLegalArticlesFindMany.mockResolvedValue([])
+            mockLegalMainFindMany.mockResolvedValueOnce([makeLegal()])
+            mockLegalArticlesFindMany.mockResolvedValueOnce([])
 
             const intent: IntentClassification = {
                 intent: 'exact',
@@ -208,7 +237,7 @@ describe('exactSearchService', () => {
             const results = await exactSearchService(intent)
 
             expect(results).toEqual([])
-            expect(mockLegalMainFindFirst).not.toHaveBeenCalled()
+            expect(mockLegalMainFindMany).not.toHaveBeenCalled()
         })
     })
 
@@ -217,7 +246,7 @@ describe('exactSearchService', () => {
             const legal = makeLegal()
             const article = makeArticle()
 
-            mockLegalMainFindFirst.mockResolvedValue(legal)
+            mockLegalMainFindMany.mockResolvedValueOnce([legal])
             mockLegalArticlesFindMany
                 .mockResolvedValueOnce([article])
                 .mockResolvedValueOnce([article])
@@ -250,7 +279,6 @@ describe('exactSearchService', () => {
 
         it('chapter_hierarchy 过滤 null 值正确拼接层级', async () => {
             const legal = makeLegal()
-            // 只有 l3 和 l5，无 l1/l2/l4
             const article = makeArticle({
                 l1: null,
                 l2: null,
@@ -259,7 +287,7 @@ describe('exactSearchService', () => {
                 l5: '第一条',
             })
 
-            mockLegalMainFindFirst.mockResolvedValue(legal)
+            mockLegalMainFindMany.mockResolvedValueOnce([legal])
             mockLegalArticlesFindMany
                 .mockResolvedValueOnce([article])
                 .mockResolvedValueOnce([article])
@@ -279,7 +307,6 @@ describe('exactSearchService', () => {
     describe('去重', () => {
         it('多个命中条文的上下文重叠时去重后返回', async () => {
             const legal = makeLegal()
-            // 两条命中条文 order=10 和 order=12，上下文会有重叠
             const hitArticle1 = makeArticle({ id: 'article-010', order: 10 })
             const hitArticle2 = makeArticle({ id: 'article-012', order: 12 })
             const context1 = [
@@ -287,22 +314,19 @@ describe('exactSearchService', () => {
                 makeArticle({ id: 'article-009', order: 9 }),
                 makeArticle({ id: 'article-010', order: 10 }),
                 makeArticle({ id: 'article-011', order: 11 }),
-                makeArticle({ id: 'article-012', order: 12 }), // 与第二条命中重叠
+                makeArticle({ id: 'article-012', order: 12 }),
             ]
             const context2 = [
-                makeArticle({ id: 'article-010', order: 10 }), // 与第一条命中重叠
-                makeArticle({ id: 'article-011', order: 11 }), // 与第一条上下文重叠
+                makeArticle({ id: 'article-010', order: 10 }),
+                makeArticle({ id: 'article-011', order: 11 }),
                 makeArticle({ id: 'article-012', order: 12 }),
                 makeArticle({ id: 'article-013', order: 13 }),
                 makeArticle({ id: 'article-014', order: 14 }),
             ]
 
-            mockLegalMainFindFirst.mockResolvedValue(legal)
-            // 命中条文
+            mockLegalMainFindMany.mockResolvedValueOnce([legal])
             mockLegalArticlesFindMany.mockResolvedValueOnce([hitArticle1, hitArticle2])
-            // 第一条命中的上下文
             mockLegalArticlesFindMany.mockResolvedValueOnce(context1)
-            // 第二条命中的上下文
             mockLegalArticlesFindMany.mockResolvedValueOnce(context2)
 
             const intent: IntentClassification = {
@@ -313,10 +337,8 @@ describe('exactSearchService', () => {
 
             const results = await exactSearchService(intent)
 
-            // article-008 ~ article-014 共 7 条不重复
             expect(results).toHaveLength(7)
             const ids = results.map(r => r.metadata.articles_id)
-            // 无重复
             expect(new Set(ids).size).toBe(7)
         })
     })
