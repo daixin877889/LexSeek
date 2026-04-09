@@ -406,6 +406,7 @@ import {
     caseMaterialVectorConfig,
     type ContentEmbeddingMetadata,
 } from './materialEmbedding.service'
+import { retrievalRouterService } from '../retrieval/retrievalRouter.service'
 
 export interface MaterialSearchToolResult {
     index: number
@@ -454,25 +455,24 @@ export async function searchMaterialsService(
         }))
     }
 
-    // 有 query → 向量语义搜索，用 sourceId IN 限定范围
-    const sourceIds = targetMaterials.map(m => getSourceId(m))
-    const filter: Record<string, any> = {
-        userId,
-        sourceId: { in: sourceIds.map(String) },
-    }
-    const results = await similaritySearchWithScore(query, k, filter, caseMaterialVectorConfig)
-
-    return results.map(([doc, score]: [Document, number], index: number) => {
-        const metadata = doc.metadata as ContentEmbeddingMetadata
-        return {
-            index: index + 1,
-            content: doc.pageContent,
-            source: {
-                sourceId: metadata.sourceId,
-                sourceName: metadata.sourceName,
-                chunkIndex: metadata.chunkIndex,
-            },
-            relevanceScore: Number(score.toFixed(4)),
-        }
+    // 有 query → 走统一检索路由器
+    const sourceIds = targetMaterials.map(m => String(getSourceId(m)))
+    const results = await retrievalRouterService({
+        query,
+        type: 'case_material',
+        k,
+        metadataFilter: { userId: String(userId) },
+        sourceIds,
     })
+
+    return results.map((r, index) => ({
+        index: index + 1,
+        content: r.content,
+        source: {
+            sourceId: Number(r.metadata.sourceId),
+            sourceName: r.metadata.sourceName as string,
+            chunkIndex: r.metadata.chunkIndex as number | undefined,
+        },
+        relevanceScore: r.score,
+    }))
 }
