@@ -57,13 +57,14 @@ export const DEFAULT_SDK_TYPE: SdkType = 'openai'
 // ============================================================================
 
 /** 模型类型枚举 */
-export type ModelType = 'chat' | 'embedding' | 'asr'
+export type ModelType = 'chat' | 'embedding' | 'asr' | 'rerank'
 
 /** 模型类型标签映射 */
 export const ModelTypeLabels: Record<ModelType, string> = {
     chat: '对话模型',
     embedding: '嵌入模型',
     asr: '音频识别',
+    rerank: '重排序模型',
 }
 
 /** 模型状态枚举 */
@@ -99,6 +100,14 @@ export interface EmbeddingConfig {
     model: string
     dimensions: number
     batchSize: number
+    source: 'database' | 'environment'
+}
+
+/** Rerank 模型配置 */
+export interface RerankConfig {
+    apiKey: string
+    baseUrl: string
+    model: string
     source: 'database' | 'environment'
 }
 

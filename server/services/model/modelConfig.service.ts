@@ -4,7 +4,7 @@
  * 提供抽象的模型配置获取方法，支持数据库优先、环境变量回退
  */
 
-import type { FullModelConfig, EmbeddingConfig, ModelType } from '#shared/types/model'
+import type { FullModelConfig, EmbeddingConfig, RerankConfig, ModelType } from '#shared/types/model'
 import {
     findModelByIdDao,
     findModelsByTypeDao,
@@ -195,4 +195,51 @@ export const getEmbeddingConfigWithFallbackService = async (): Promise<Embedding
         batchSize,
         source: 'environment',
     }
+}
+
+/**
+ * 获取默认 Rerank 模型配置
+ * @returns 完整模型配置或 null
+ */
+export const getDefaultRerankConfigService = async (): Promise<FullModelConfig | null> => {
+    const model = await findDefaultModelByTypeDao('rerank')
+    if (!model) return null
+
+    const provider = model.modelProvider
+    const apiKey = await findDefaultModelApiKeyByProviderIdDao(model.providerId)
+
+    return { model, provider, apiKey }
+}
+
+/**
+ * 获取 Rerank 模型配置（优先数据库，回退环境变量）
+ * @returns Rerank 模型配置
+ */
+export const getRerankConfigWithFallbackService = async (): Promise<RerankConfig> => {
+    // 尝试从数据库获取默认 rerank 模型配置
+    const dbConfig = await getDefaultRerankConfigService()
+
+    if (dbConfig && dbConfig.apiKey) {
+        logger.info('使用数据库配置的 Rerank 模型')
+        return {
+            apiKey: dbConfig.apiKey.apiKey,
+            baseUrl: dbConfig.provider.baseUrl,
+            model: dbConfig.model.name,
+            source: 'database',
+        }
+    }
+
+    // 回退到环境变量配置
+    logger.info('数据库无默认 Rerank 模型配置，使用环境变量配置')
+    const config = useRuntimeConfig()
+
+    const apiKey = config.rerank?.apiKey || process.env.NUXT_RERANK_API_KEY
+    const baseUrl = config.rerank?.baseUrl || process.env.NUXT_RERANK_BASE_URL
+    const model = config.rerank?.model || process.env.NUXT_RERANK_MODEL || 'gte-rerank-v2'
+
+    if (!apiKey || !baseUrl) {
+        throw new Error('Rerank 模型配置不完整：缺少 API 密钥或基础 URL')
+    }
+
+    return { apiKey, baseUrl, model, source: 'environment' }
 }
