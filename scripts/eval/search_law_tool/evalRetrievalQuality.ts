@@ -65,6 +65,7 @@ import { classifyIntentService } from '../../../server/services/retrieval/intent
 import { hybridSearchService } from '../../../server/services/retrieval/hybridSearch.service'
 import { semanticSearchService } from '../../../server/services/retrieval/semanticSearch.service'
 import { exactSearchService } from '../../../server/services/retrieval/exactSearch.service'
+import { getPool } from '../../../server/services/legal/vectorStore.service'
 import type { RetrievalResult, SearchResultItem } from '../../../server/services/retrieval/types'
 
 // -----------------------------------------------------------------------
@@ -517,9 +518,10 @@ async function main() {
     writeFileSync(reportPath, JSON.stringify(report, null, 2))
     console.log(`📄 JSON 报告已保存: ${reportPath}\n`)
 
-    // 退出
+    // 退出：关闭所有数据库连接
     const prismaClient = g.prisma as InstanceType<typeof PrismaClient>
     await prismaClient.$disconnect()
+    await getPool().end()
 }
 
 main().catch(error => {
