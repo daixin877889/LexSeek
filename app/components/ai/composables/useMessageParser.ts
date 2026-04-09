@@ -24,14 +24,16 @@ export interface ParsedMessage {
 
 /**
  * 将 API 返回的字典格式消息转为 BaseMessage 实例。
- * 已经是 BaseMessage 实例的消息直接透传。
+ * 已经是 BaseMessage 实例（包括 MessageChunk）的消息直接透传。
  */
 export function coerceRawMessages(raw: any[]): BaseMessage[] {
   if (!raw?.length) return []
   return raw
     .map((m: any) => {
-      if (m instanceof HumanMessage || m instanceof AIMessage || m instanceof ToolMessage || m instanceof SystemMessage)
-        return m
+      // 检查是否已经是消息实例（包括 HumanMessageChunk 等 Chunk 类型）
+      const msgType = (m as any)._getType?.()
+      if (msgType) return m  // MessageChunk 或 BaseMessage 实例直接返回
+
       // 兼容 stream.values 中以 {type:"tool", data:{...}} 嵌套格式存储的 tool message
       const inner = m.data ?? m
       const type = inner.type ?? inner._type
@@ -143,20 +145,24 @@ export function useMessageParser(messages: MaybeRef<any[]>) {
 
     const baseMessages = coerceRawMessages(raw)
 
-    // 预计算 ToolMessage 索引
+    // 预计算 ToolMessage 索引（兼容 ToolMessageChunk）
     const toolResultsMap = new Map<string, ToolMessage>()
     for (const m of baseMessages) {
-      if (m instanceof ToolMessage) {
-        toolResultsMap.set((m as any).tool_call_id, m)
+      const t = (m as any)._getType?.() ?? (m as any).type
+      if (t === 'tool') {
+        toolResultsMap.set((m as any).tool_call_id, m as ToolMessage)
       }
     }
     const result = baseMessages
       .filter((m) => {
-        // SystemMessage 和 ToolMessage 始终过滤
-        if (m instanceof ToolMessage || m instanceof SystemMessage) return false
+        // 使用 _getType() 判断类型（兼容 MessageChunk 子类）
+        const msgType = (m as any)._getType?.() ?? (m as any).type
 
-        // HumanMessage 检测 metadata
-        if (m instanceof HumanMessage) {
+        // SystemMessage 和 ToolMessage 始终过滤
+        if (msgType === 'system' || msgType === 'tool') return false
+
+        // HumanMessage 检测 metadata（注入的上下文消息）
+        if (msgType === 'human') {
           const injector = (m as any).response_metadata?.injectedBy as string | undefined
           if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial')) {
             return false
@@ -166,7 +172,9 @@ export function useMessageParser(messages: MaybeRef<any[]>) {
         return true
       })
       .map((m, idx) => {
-        if (m instanceof HumanMessage) {
+        const msgType = (m as any)._getType?.() ?? (m as any).type
+
+        if (msgType === 'human') {
           return {
             id: m.id ?? `human-${idx}`,
             type: 'human' as const,
@@ -174,7 +182,7 @@ export function useMessageParser(messages: MaybeRef<any[]>) {
             raw: m,
           }
         }
-        if (m instanceof AIMessage) {
+        if (msgType === 'ai') {
           const content = Array.isArray(m.content)
             ? m.content
                 .filter((b: any) => b.type === 'text')

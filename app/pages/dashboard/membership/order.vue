@@ -90,8 +90,15 @@ interface OrderListResponse {
 
 // ==================== 状态定义 ====================
 
-// 筛选状态
-const statusFilter = ref("all");
+// 筛选状态（从 URL 恢复）
+const route = useRoute();
+const router = useRouter();
+const validTabs = ['all', 'pending', 'paid', 'cancelled'] as const;
+const statusFilter = ref(
+  validTabs.includes(route.query.tab as typeof validTabs[number])
+    ? (route.query.tab as string)
+    : 'all',
+);
 
 // 分页参数
 const currentPage = ref(1);
@@ -169,6 +176,9 @@ const jsapiParams = ref<WechatPaymentParams | undefined>(undefined);
 const handleStatusChange = (value: string | number) => {
   statusFilter.value = String(value);
   currentPage.value = 1; // 重置页码
+  const query: Record<string, string> = {};
+  if (statusFilter.value !== 'all') query.tab = statusFilter.value;
+  router.replace({ query });
 };
 
 /**

@@ -147,8 +147,21 @@ const { data: historyData, refresh: refreshHistory } = await useApi<{
 
 // ==================== 状态定义 ====================
 
-// Tab 状态
-const activeTab = ref("packages");
+// Tab 状态（从 URL 恢复）
+const route = useRoute();
+const router = useRouter();
+const validTabs = ['packages', 'records'] as const;
+const activeTab = ref(
+  validTabs.includes(route.query.tab as typeof validTabs[number])
+    ? (route.query.tab as string)
+    : 'packages',
+);
+
+watch(activeTab, (val) => {
+  const query: Record<string, string> = {};
+  if (val !== 'packages') query.tab = val;
+  router.replace({ query });
+});
 const selectedPlanLevel = ref("");
 
 // 当前会员信息（响应式）

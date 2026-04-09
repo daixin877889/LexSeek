@@ -127,8 +127,21 @@ const getSourceTypeName = (sourceType: number): string => {
 
 // ==================== 状态定义 ====================
 
-// 当前 Tab
-const currentTab = ref("history");
+// 当前 Tab（从 URL 恢复）
+const route = useRoute();
+const router = useRouter();
+const validTabs = ['history', 'usage'] as const;
+const currentTab = ref(
+  validTabs.includes(route.query.tab as typeof validTabs[number])
+    ? (route.query.tab as string)
+    : 'history',
+);
+
+watch(currentTab, (val) => {
+  const query: Record<string, string> = {};
+  if (val !== 'history') query.tab = val;
+  router.replace({ query });
+});
 
 // 每页数量
 const pageSize = 10;
@@ -737,6 +750,12 @@ watch(currentTab, async (newTab) => {
     usageLoaded.value = true;
   }
 });
+
+// 从 URL 恢复 tab 时，立即加载对应数据
+if (currentTab.value === "usage") {
+  executeUsage();
+  usageLoaded.value = true;
+}
 
 // 组件卸载时清理定时器
 onUnmounted(() => {

@@ -139,8 +139,21 @@ definePageMeta({
 // 获取用户 store
 const userStore = useUserStore();
 
-// 状态
-const activeTab = ref("invite-link");
+// 状态（从 URL 恢复 Tab）
+const route = useRoute();
+const router = useRouter();
+const validTabs = ['invite-link', 'invite-records'] as const;
+const activeTab = ref(
+  validTabs.includes(route.query.tab as typeof validTabs[number])
+    ? (route.query.tab as string)
+    : 'invite-link',
+);
+
+watch(activeTab, (val) => {
+  const query: Record<string, string> = {};
+  if (val !== 'invite-link') query.tab = val;
+  router.replace({ query });
+});
 const loading = ref(false);
 const qrcodeContainer = ref<HTMLElement | null>(null);
 const qrCodeGenerated = ref(false);
@@ -332,7 +345,10 @@ watch(inviteLink, (newLink, oldLink) => {
 // 组件挂载时初始化
 onMounted(async () => {
   await nextTick();
-  if (inviteLink.value) {
+  if (activeTab.value === "invite-records") {
+    // 从 URL 恢复到邀请记录 tab 时，立即加载数据
+    fetchInvitees();
+  } else if (inviteLink.value) {
     generateQRCode(true);
   }
 });
