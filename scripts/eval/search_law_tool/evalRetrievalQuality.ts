@@ -4,10 +4,10 @@
  * 连接真实数据库执行检索查询，输出指标报告（含 Rerank 前后对比）。
  *
  * 用法:
- *   bun --preload scripts/eval/bunPreload.ts run scripts/eval/search_law_tool/evalRetrievalQuality.ts // 完整评估
- *   bun --preload scripts/eval/bunPreload.ts run scripts/eval/search_law_tool/evalRetrievalQuality.ts --tags=exact // 只跑特定标签
- *   bun --preload scripts/eval/bunPreload.ts run scripts/eval/search_law_tool/evalRetrievalQuality.ts --ids=exact-001,hybrid-001  // 只跑特定用例
- *   bun --preload scripts/eval/bunPreload.ts run scripts/eval/search_law_tool/evalRetrievalQuality.ts --verbose // 输出详细结果
+ *   bun ./scripts/eval/search_law_tool/evalRetrievalQuality.ts                            // 完整评估
+ *   bun ./scripts/eval/search_law_tool/evalRetrievalQuality.ts --tags=exact               // 只跑特定标签
+ *   bun ./scripts/eval/search_law_tool/evalRetrievalQuality.ts --ids=exact-001,hybrid-001 // 只跑特定用例
+ *   bun ./scripts/eval/search_law_tool/evalRetrievalQuality.ts --verbose                  // 输出详细结果
  */
 
 // -----------------------------------------------------------------------
