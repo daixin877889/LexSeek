@@ -377,6 +377,12 @@ async function fullTextSearch(
     // ...
 }
 
+/** 允许的 metadata 过滤字段白名单 */
+const ALLOWED_METADATA_KEYS = new Set([
+    'legal_id', 'legal_name', 'legal_type', 'article_type',
+    'userId', 'sourceId', 'source',
+])
+
 /**
  * 构建参数化 metadata 过滤条件
  * 将结构化 filter 对象转为安全的参数化 SQL
@@ -393,6 +399,10 @@ function buildParameterizedMetadataFilter(
     let paramIdx = startParamIndex
 
     for (const [key, value] of Object.entries(filter)) {
+        // metadata key 白名单验证
+        if (!ALLOWED_METADATA_KEYS.has(key)) {
+            throw new Error(`非法 metadata 过滤字段: ${key}`)
+        }
         conditions.push(`metadata->>'${key}' = $${paramIdx}`)
         params.push(String(value))
         paramIdx++
@@ -462,12 +472,13 @@ function extractDocId(item: SearchResultItem, type: 'law' | 'case_material'): st
 function reciprocalRankFusion(
     bm25Results: SearchResultItem[],
     vectorResults: SearchResultItem[],
+    type: 'law' | 'case_material',
     k: number = 60,  // RRF 常数
 ): SearchResultItem[] {
     const scoreMap = new Map<string, { score: number; item: SearchResultItem }>()
 
     bm25Results.forEach((item, rank) => {
-        const id = extractDocId(item)
+        const id = extractDocId(item, type)
         const rrf = 1 / (k + rank + 1)
         const existing = scoreMap.get(id)
         if (existing) existing.score += rrf
@@ -475,7 +486,7 @@ function reciprocalRankFusion(
     })
 
     vectorResults.forEach((item, rank) => {
-        const id = extractDocId(item)
+        const id = extractDocId(item, type)
         const rrf = 1 / (k + rank + 1)
         const existing = scoreMap.get(id)
         if (existing) existing.score += rrf
@@ -740,16 +751,18 @@ export function createTool(context: ToolContext) {
                 return await fetchExactMaterial(context, input.sourceId, input.k)
             }
             // 有 query → 走路由器
+            // metadataFilter 只传简单值，IN 过滤由 hybridSearch 内部处理
             const results = await retrievalRouterService({
                 query: input.query,
                 type: 'case_material',
                 k: input.k,
                 metadataFilter: {
-                    userId: context.userId,
-                    ...(input.sourceId
-                        ? { sourceId: { in: [String(input.sourceId)] } }
-                        : { sourceId: { in: caseSourceIds } }),
+                    userId: String(context.userId),
                 },
+                // sourceIds 作为独立参数传递，由各通道内部构建 IN 条件
+                sourceIds: input.sourceId
+                    ? [String(input.sourceId)]
+                    : caseSourceIds.map(String),
             })
             return JSON.stringify(truncateToolResults(results))
         },
@@ -765,7 +778,10 @@ interface RetrievalRequest {
     query: string
     type: 'law' | 'case_material'
     k: number
-    metadataFilter?: Record<string, any>
+    /** 简单等值过滤（key=value），由 buildParameterizedMetadataFilter 处理 */
+    metadataFilter?: Record<string, string | number | boolean>
+    /** sourceId IN 过滤（案件材料检索用），由各通道内部构建 SQL IN 条件 */
+    sourceIds?: string[]
 }
 
 interface RetrievalResult {
@@ -783,6 +799,7 @@ async function retrievalRouterService(
 
     // 2. 分发到对应通道
     let results: RetrievalResult[]
+    let actualMode: 'exact' | 'hybrid' | 'semantic' = intent.intent
     switch (intent.intent) {
         case 'exact':
             results = await exactSearch(intent, request)
@@ -795,6 +812,7 @@ async function retrievalRouterService(
                     rewrittenQuery: intent.rewrittenQuery ?? request.query,
                 }
                 results = await hybridSearch(fallbackIntent, request)
+                actualMode = 'hybrid'  // 标记实际使用的检索模式
             }
             break
         case 'hybrid':
@@ -805,8 +823,8 @@ async function retrievalRouterService(
             break
     }
 
-    // 3. Rerank（精确通道跳过）
-    if (intent.intent !== 'exact' && results.length > 0) {
+    // 3. Rerank（仅精确通道且未降级时跳过）
+    if (actualMode !== 'exact' && results.length > 0) {
         results = await rerankAndFilter(request.query, results, request.k, request.type)
     }
 
@@ -1043,6 +1061,7 @@ NUXT_HNSW_EF_SEARCH=100
 | `server/services/material/materialPipeline.service.ts` | `searchMaterialsService` + `getMaterialContextService` 改造 |
 | `server/services/workflow/middleware/caseMaterialContext.middleware.ts` | 适配分级注入消息格式 |
 | `server/services/model/modelConfig.service.ts` | 新增 `getRerankConfigWithFallbackService` |
+| `shared/types/model.ts` | `ModelType` 联合类型新增 `'rerank'`，`ModelTypeLabels` 新增对应标签 |
 | `package.json` | 新增 `db:setup` 脚本 |
 
 ### 不动的文件
