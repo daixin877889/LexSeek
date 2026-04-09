@@ -36,5 +36,5 @@ export default defineEventHandler(async (event) => {
     data: { deletedAt: new Date() },
   })
 
-  return resSuccess(event, '删除成功')
+  return resSuccess(event, '删除成功', null)
 })

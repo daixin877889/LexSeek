@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   const parsed = bodySchema.safeParse(body)
   if (!parsed.success) {
-    return resError(event, 400, parsed.error.issues[0].message)
+    return resError(event, 400, parsed.error.issues[0]?.message ?? '参数错误')
   }
 
   const { caseId, title } = parsed.data

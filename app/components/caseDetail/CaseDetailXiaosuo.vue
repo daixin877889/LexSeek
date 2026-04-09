@@ -45,6 +45,10 @@ const currentSessionTitle = computed(() => {
   return session?.title ?? '新对话'
 })
 
+// 解包 composable 状态供模板使用（避免模板中 .value 类型推导问题）
+const chatMessages = computed(() => props.xiaosuoChat.messages.value as any[])
+const chatLoading = computed(() => !!props.xiaosuoChat.isLoading.value)
+
 // 中断处理（与 [sessionId].vue 保持一致）
 const interrupt = computed(() => {
   const v = props.xiaosuoChat.values.value as any
@@ -166,8 +170,8 @@ watch(isOpen, (open) => {
         <!-- 对话内容 -->
         <div class="flex-1 overflow-hidden">
           <AiChat
-            :messages="xiaosuoChat.messages.value"
-            :loading="xiaosuoChat.isLoading.value"
+            :messages="chatMessages"
+            :loading="chatLoading"
             panel-mode="left"
             :show-header="false"
             v-model:thinking="thinking"
@@ -247,8 +251,8 @@ watch(isOpen, (open) => {
 
         <div class="flex-1 overflow-hidden">
           <AiChat
-            :messages="xiaosuoChat.messages.value"
-            :loading="xiaosuoChat.isLoading.value"
+            :messages="chatMessages"
+            :loading="chatLoading"
             panel-mode="left"
             :show-header="false"
             v-model:thinking="thinking"
@@ -318,8 +322,8 @@ watch(isOpen, (open) => {
 
         <div class="flex-1 overflow-hidden">
           <AiChat
-            :messages="xiaosuoChat.messages.value"
-            :loading="xiaosuoChat.isLoading.value"
+            :messages="chatMessages"
+            :loading="chatLoading"
             panel-mode="left"
             :show-header="false"
             :show-thinking-toggle="false"

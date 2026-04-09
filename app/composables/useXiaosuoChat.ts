@@ -7,7 +7,9 @@
  * 参考：useModuleChatManager（effectScope 管理、双重取消）
  *       useCaseChat（底层 SSE 流管理）
  */
-import type { MaybeRef } from 'vue'
+import type { MaybeRef, ShallowRef } from 'vue'
+import { effectScope } from 'vue'
+import type { EffectScope } from 'vue'
 
 export interface XiaosuoSession {
   sessionId: string
@@ -126,7 +128,7 @@ export function useXiaosuoChat(caseId: MaybeRef<number>) {
     // 如果删的是当前 session，切换到下一个或创建新的
     if (currentSessionId.value === sessionId) {
       if (sessions.value.length > 0) {
-        await switchSession(sessions.value[0].sessionId)
+        await switchSession(sessions.value[0]!.sessionId)
       }
       else {
         await createSession()
@@ -178,7 +180,7 @@ export function useXiaosuoChat(caseId: MaybeRef<number>) {
         await createSession()
       }
       else {
-        await switchSession(sessions.value[0].sessionId)
+        await switchSession(sessions.value[0]!.sessionId)
       }
 
       initialized.value = true
