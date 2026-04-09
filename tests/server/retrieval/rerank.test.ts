@@ -18,17 +18,8 @@ vi.mock('../../../server/services/model/modelConfig.service', () => ({
 
 vi.stubGlobal('fetch', mocks.fetch)
 
-// 在 mock 设置之后导入被测模块
 import { rerankService, rerankAndFilterService } from '../../../server/services/retrieval/rerank.service'
 import type { SearchResultItem } from '../../../server/services/retrieval/types'
-
-/** 测试用 Rerank 配置（baseUrl 不含路径后缀） */
-const TEST_CONFIG = {
-    apiKey: 'sk-test-rerank-key',
-    baseUrl: 'https://dashscope.aliyuncs.com',
-    model: 'gte-rerank-v2',
-    source: 'environment' as const,
-}
 
 /** 构造测试用 SearchResultItem */
 const makeItem = (content: string, score = 0.5): SearchResultItem => ({
@@ -40,11 +31,70 @@ const makeItem = (content: string, score = 0.5): SearchResultItem => ({
 describe('rerankService', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        mocks.getRerankConfigWithFallbackService.mockResolvedValue(TEST_CONFIG)
+    })
+
+    describe('标准扁平格式（通用供应商）', () => {
+        const STANDARD_CONFIG = {
+            apiKey: 'sk-test',
+            baseUrl: 'https://api.siliconflow.cn/v1/rerank',
+            model: 'BAAI/bge-reranker-v2-m3',
+            source: 'database' as const,
+        }
+
+        it('使用扁平请求体和 results 响应', async () => {
+            mocks.getRerankConfigWithFallbackService.mockResolvedValue(STANDARD_CONFIG)
+            const mockResults = [{ index: 0, relevance_score: 0.95 }]
+            mocks.fetch.mockResolvedValue({
+                ok: true,
+                json: async () => ({ results: mockResults }),
+            })
+
+            const result = await rerankService('劳动合同', ['文档A'], 1)
+
+            expect(result).toEqual(mockResults)
+
+            const [url, options] = mocks.fetch.mock.calls[0]
+            expect(url).toBe('https://api.siliconflow.cn/v1/rerank')
+
+            const body = JSON.parse(options.body)
+            expect(body.query).toBe('劳动合同')
+            expect(body.documents).toEqual(['文档A'])
+            expect(body.top_n).toBe(1)
+            expect(body.input).toBeUndefined()
+            expect(body.parameters).toBeUndefined()
+        })
+
+        it('阿里云 compatible API 同样使用扁平格式', async () => {
+            mocks.getRerankConfigWithFallbackService.mockResolvedValue({
+                ...STANDARD_CONFIG,
+                baseUrl: 'https://dashscope.aliyuncs.com/compatible-api/v1/reranks',
+                model: 'qwen3-rerank',
+            })
+            mocks.fetch.mockResolvedValue({
+                ok: true,
+                json: async () => ({ results: [{ index: 0, relevance_score: 0.9 }] }),
+            })
+
+            await rerankService('查询', ['文档'], 1)
+
+            const [url, options] = mocks.fetch.mock.calls[0]
+            expect(url).toBe('https://dashscope.aliyuncs.com/compatible-api/v1/reranks')
+            const body = JSON.parse(options.body)
+            expect(body.query).toBe('查询')
+            expect(body.input).toBeUndefined()
+        })
     })
 
     describe('DashScope 原生格式（gte-rerank-v2）', () => {
-        it('使用嵌套 input/parameters 请求体和 output.results 响应', async () => {
+        const DASHSCOPE_CONFIG = {
+            apiKey: 'sk-dashscope',
+            baseUrl: 'https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank',
+            model: 'gte-rerank-v2',
+            source: 'environment' as const,
+        }
+
+        it('URL 包含 /api/v1/services/ 时自动使用嵌套格式', async () => {
+            mocks.getRerankConfigWithFallbackService.mockResolvedValue(DASHSCOPE_CONFIG)
             const mockResults = [
                 { index: 0, relevance_score: 0.9 },
                 { index: 1, relevance_score: 0.7 },
@@ -58,69 +108,43 @@ describe('rerankService', () => {
 
             expect(result).toEqual(mockResults)
 
-            // 验证 URL 为 DashScope 原生端点
             const [url, options] = mocks.fetch.mock.calls[0]
-            expect(url).toBe('https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank')
+            expect(url).toBe(DASHSCOPE_CONFIG.baseUrl)
 
-            // 验证请求体为嵌套格式
             const body = JSON.parse(options.body)
-            expect(body.model).toBe('gte-rerank-v2')
             expect(body.input.query).toBe('合同违约')
             expect(body.input.documents).toEqual(['文档A', '文档B'])
             expect(body.parameters.top_n).toBe(2)
-            expect(options.headers['Authorization']).toBe('Bearer sk-test-rerank-key')
-        })
-    })
-
-    describe('OpenAI 兼容格式（qwen3-rerank）', () => {
-        it('使用扁平请求体和 results 响应', async () => {
-            mocks.getRerankConfigWithFallbackService.mockResolvedValue({
-                ...TEST_CONFIG,
-                model: 'qwen3-rerank',
-            })
-
-            const mockResults = [
-                { index: 0, relevance_score: 0.95 },
-            ]
-            mocks.fetch.mockResolvedValue({
-                ok: true,
-                json: async () => ({ results: mockResults }),
-            })
-
-            const result = await rerankService('劳动合同', ['文档A'], 1)
-
-            expect(result).toEqual(mockResults)
-
-            // 验证 URL 为兼容 API 端点
-            const [url, options] = mocks.fetch.mock.calls[0]
-            expect(url).toBe('https://dashscope.aliyuncs.com/compatible-api/v1/reranks')
-
-            // 验证请求体为扁平格式
-            const body = JSON.parse(options.body)
-            expect(body.model).toBe('qwen3-rerank')
-            expect(body.query).toBe('劳动合同')
-            expect(body.documents).toEqual(['文档A'])
-            expect(body.top_n).toBe(1)
-            // 不应有嵌套的 input/parameters
-            expect(body.input).toBeUndefined()
-            expect(body.parameters).toBeUndefined()
+            expect(options.headers['Authorization']).toBe('Bearer sk-dashscope')
         })
     })
 
     it('使用自定义模型名称时覆盖配置中的模型', async () => {
+        mocks.getRerankConfigWithFallbackService.mockResolvedValue({
+            apiKey: 'sk-test',
+            baseUrl: 'https://api.jina.ai/v1/rerank',
+            model: 'jina-reranker-v2',
+            source: 'database' as const,
+        })
         mocks.fetch.mockResolvedValue({
             ok: true,
-            json: async () => ({ output: { results: [{ index: 0, relevance_score: 0.8 }] } }),
+            json: async () => ({ results: [{ index: 0, relevance_score: 0.8 }] }),
         })
 
-        await rerankService('查询', ['文档'], 1, 'custom-rerank-model')
+        await rerankService('查询', ['文档'], 1, 'custom-model')
 
         const [, options] = mocks.fetch.mock.calls[0]
         const body = JSON.parse(options.body)
-        expect(body.model).toBe('custom-rerank-model')
+        expect(body.model).toBe('custom-model')
     })
 
     it('API 超时时抛出 AbortError', async () => {
+        mocks.getRerankConfigWithFallbackService.mockResolvedValue({
+            apiKey: 'sk-test',
+            baseUrl: 'https://api.example.com/v1/rerank',
+            model: 'test',
+            source: 'database' as const,
+        })
         mocks.fetch.mockImplementation((_url: string, options: RequestInit) => {
             return new Promise((_resolve, reject) => {
                 options.signal?.addEventListener('abort', () => {
@@ -132,29 +156,25 @@ describe('rerankService', () => {
         await expect(rerankService('查询', ['文档'], 1)).rejects.toThrow()
     }, 10000)
 
-    it('API 返回 400 错误时抛出 Error', async () => {
-        mocks.fetch.mockResolvedValue({
-            ok: false,
-            status: 400,
-            statusText: 'Bad Request',
+    it('API 返回非 2xx 时抛出 Error', async () => {
+        mocks.getRerankConfigWithFallbackService.mockResolvedValue({
+            apiKey: 'sk-test',
+            baseUrl: 'https://api.example.com/v1/rerank',
+            model: 'test',
+            source: 'database' as const,
         })
+        mocks.fetch.mockResolvedValue({ ok: false, status: 400, statusText: 'Bad Request' })
 
-        await expect(rerankService('查询', ['文档'], 1)).rejects.toThrow(
-            'Rerank API 错误: 400 Bad Request',
-        )
-    })
-
-    it('API 返回 500 错误时抛出 Error', async () => {
-        mocks.fetch.mockResolvedValue({
-            ok: false,
-            status: 500,
-            statusText: 'Internal Server Error',
-        })
-
-        await expect(rerankService('查询', ['文档'], 1)).rejects.toThrow('Rerank API 错误: 500')
+        await expect(rerankService('查询', ['文档'], 1)).rejects.toThrow('Rerank API 错误: 400 Bad Request')
     })
 
     it('响应缺少 results 字段时抛出格式异常错误', async () => {
+        mocks.getRerankConfigWithFallbackService.mockResolvedValue({
+            apiKey: 'sk-test',
+            baseUrl: 'https://api.example.com/v1/rerank',
+            model: 'test',
+            source: 'database' as const,
+        })
         mocks.fetch.mockResolvedValue({
             ok: true,
             json: async () => ({ unexpected: 'format' }),
@@ -165,10 +185,16 @@ describe('rerankService', () => {
 })
 
 describe('rerankAndFilterService', () => {
+    const CONFIG = {
+        apiKey: 'sk-test',
+        baseUrl: 'https://api.example.com/v1/rerank',
+        model: 'rerank-model',
+        source: 'database' as const,
+    }
+
     beforeEach(() => {
         vi.clearAllMocks()
-        mocks.getRerankConfigWithFallbackService.mockResolvedValue(TEST_CONFIG)
-        // 重置阈值环境变量
+        mocks.getRerankConfigWithFallbackService.mockResolvedValue(CONFIG)
         delete process.env.NUXT_LAW_RERANK_THRESHOLD
         delete process.env.NUXT_MATERIAL_RERANK_THRESHOLD
     })
@@ -185,21 +211,17 @@ describe('rerankAndFilterService', () => {
         mocks.fetch.mockResolvedValue({
             ok: true,
             json: async () => ({
-                output: {
-                    results: [
-                        { index: 0, relevance_score: 0.9 },
-                        { index: 2, relevance_score: 0.5 },
-                        { index: 1, relevance_score: 0.4 },
-                    ],
-                },
+                results: [
+                    { index: 0, relevance_score: 0.9 },
+                    { index: 2, relevance_score: 0.5 },
+                    { index: 1, relevance_score: 0.4 },
+                ],
             }),
         })
 
         const result = await rerankAndFilterService('查询', items, 3, 'law')
 
-        // 默认法律阈值 0.3，全部通过
         expect(result).toHaveLength(3)
-        // 结果按 rerank 顺序返回，score 替换为 relevance_score
         expect(result[0].content).toBe('条文A')
         expect(result[0].score).toBe(0.9)
         expect(result[1].content).toBe('条文C')
@@ -215,13 +237,11 @@ describe('rerankAndFilterService', () => {
         mocks.fetch.mockResolvedValue({
             ok: true,
             json: async () => ({
-                output: {
-                    results: [
-                        { index: 0, relevance_score: 0.8 },
-                        { index: 1, relevance_score: 0.3 },
-                        { index: 2, relevance_score: 0.6 },
-                    ],
-                },
+                results: [
+                    { index: 0, relevance_score: 0.8 },
+                    { index: 1, relevance_score: 0.3 },
+                    { index: 2, relevance_score: 0.6 },
+                ],
             }),
         })
 
@@ -238,12 +258,10 @@ describe('rerankAndFilterService', () => {
         mocks.fetch.mockResolvedValue({
             ok: true,
             json: async () => ({
-                output: {
-                    results: [
-                        { index: 0, relevance_score: 0.25 },
-                        { index: 1, relevance_score: 0.15 },
-                    ],
-                },
+                results: [
+                    { index: 0, relevance_score: 0.25 },
+                    { index: 1, relevance_score: 0.15 },
+                ],
             }),
         })
 
@@ -259,33 +277,27 @@ describe('rerankAndFilterService', () => {
 
         const result = await rerankAndFilterService('查询', items, 2, 'law')
 
-        // 降级：返回前 k 条原始结果
         expect(result).toHaveLength(2)
         expect(result[0].content).toBe('条文A')
         expect(result[1].content).toBe('条文B')
     })
 
     it('输入超过 20 条时只取前 20 条参与 rerank', async () => {
-        // 构造 25 条数据
         const items = Array.from({ length: 25 }, (_, i) => makeItem(`条文${i}`))
 
         mocks.fetch.mockResolvedValue({
             ok: true,
             json: async () => ({
-                output: {
-                    results: [{ index: 0, relevance_score: 0.9 }],
-                },
+                results: [{ index: 0, relevance_score: 0.9 }],
             }),
         })
 
         await rerankAndFilterService('查询', items, 5, 'law')
 
-        // 验证传给 API 的文档只有 20 条
         const [, options] = mocks.fetch.mock.calls[0]
         const body = JSON.parse(options.body)
-        expect(body.input.documents).toHaveLength(20)
-        // 确认是前 20 条
-        expect(body.input.documents[0]).toBe('条文0')
-        expect(body.input.documents[19]).toBe('条文19')
+        expect(body.documents).toHaveLength(20)
+        expect(body.documents[0]).toBe('条文0')
+        expect(body.documents[19]).toBe('条文19')
     })
 })
