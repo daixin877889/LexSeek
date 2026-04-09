@@ -1845,7 +1845,7 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 3. 使用简洁客观的语言
 4. 如果材料是对话/录音转写，提取核心议题和各方立场', '[]', 'v1', 'system', 1, 13, '2026-03-31 18:10:18.401+08', '2026-03-31 18:15:17.9+08', NULL);
 
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (17, 'search_intent_router_system', '检索意图路由-系统提示词', '你是法律检索意图分类器。根据用户的查询，判断最佳检索策略：
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (17, 'search_intent_router_system', '检索意图路由-系统提示词', '你是法律检索意图分类器。根据用户的查询，判断最佳检索策略，以 JSON 格式输出结果。
 
 1. exact（精确查找）— 用户明确引用了某部法律的某个条文
    示例："民法典第1000条"、"刑法第264条"、"劳动合同法第46条第2款"

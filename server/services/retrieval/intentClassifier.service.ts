@@ -49,7 +49,7 @@ const DEFAULT_OUTPUT_SCHEMA = {
 }
 
 /** 默认 system prompt */
-const DEFAULT_SYSTEM_PROMPT = `你是法律检索意图分类器。根据用户的查询，判断最佳检索策略：
+const DEFAULT_SYSTEM_PROMPT = `你是法律检索意图分类器。根据用户的查询，判断最佳检索策略，以 JSON 格式输出结果。
 
 1. exact（精确查找）— 用户明确引用了某部法律的某个条文
    示例："民法典第1000条"、"刑法第264条"、"劳动合同法第46条第2款"
