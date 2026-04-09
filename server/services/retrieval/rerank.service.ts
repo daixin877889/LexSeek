@@ -1,7 +1,11 @@
 /**
  * Rerank 精排服务
  *
- * 调用阿里云百炼 Rerank API 对检索结果进行精排，支持阈值过滤和降级处理
+ * 调用阿里云百炼 Rerank API 对检索结果进行精排，支持阈值过滤和降级处理。
+ *
+ * 支持两种 API 格式：
+ * - qwen3-rerank: OpenAI 兼容格式（/compatible-api/v1/reranks，扁平请求体）
+ * - gte-rerank-v2 / qwen3-vl-rerank: DashScope 原生格式（嵌套 input/parameters）
  */
 
 import { getRerankConfigWithFallbackService } from '../model/modelConfig.service'
@@ -19,6 +23,9 @@ const MAX_RERANK_DOCS = 20
 /** Rerank API 超时时间（毫秒） */
 const RERANK_TIMEOUT_MS = 5000
 
+/** 使用 OpenAI 兼容格式的模型（扁平请求体，/compatible-api 端点） */
+const COMPATIBLE_API_MODELS = new Set(['qwen3-rerank'])
+
 /**
  * 调用 Rerank API 对文档进行精排
  * @param query 查询文本
@@ -34,7 +41,17 @@ export async function rerankService(
     model?: string,
 ): Promise<RerankApiResult[]> {
     const config = await getRerankConfigWithFallbackService()
-    const url = `${config.baseUrl}/v1/rerank`
+    const modelName = model || config.model
+    const isCompatible = COMPATIBLE_API_MODELS.has(modelName)
+
+    // 构建请求 URL 和请求体
+    const url = isCompatible
+        ? `${config.baseUrl}/compatible-api/v1/reranks`
+        : `${config.baseUrl}/api/v1/services/rerank/text-rerank/text-rerank`
+
+    const body = isCompatible
+        ? { model: modelName, query, documents, top_n: topN }
+        : { model: modelName, input: { query, documents }, parameters: { top_n: topN } }
 
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), RERANK_TIMEOUT_MS)
@@ -46,12 +63,7 @@ export async function rerankService(
                 'Authorization': `Bearer ${config.apiKey}`,
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-                model: model || config.model,
-                query,
-                documents,
-                top_n: topN,
-            }),
+            body: JSON.stringify(body),
             signal: controller.signal,
         })
 
@@ -60,7 +72,14 @@ export async function rerankService(
         }
 
         const data = await response.json()
-        return data.results as RerankApiResult[]
+
+        // 兼容两种响应格式：扁平 data.results 或嵌套 data.output.results
+        const results: RerankApiResult[] = data.results ?? data.output?.results
+        if (!results) {
+            throw new Error('Rerank API 响应格式异常：缺少 results 字段')
+        }
+
+        return results
     } finally {
         clearTimeout(timeout)
     }
