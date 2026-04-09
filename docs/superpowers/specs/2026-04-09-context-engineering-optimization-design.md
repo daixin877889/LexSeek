@@ -743,7 +743,7 @@ else { ... runCaseChat }
 - `compressMessages`：保留，集成到 `safetyTrimMiddleware`（4.3）作为第一道防线
 - `safetyTrimMessages`：保留，作为第二道防线
 - `trimByEstimation`：保留，作为最终兜底
-- `getContextBudget`：移除（与 Layer 4 的 `allocateBudget` 重复）
+- `getContextBudget`：保留但标记为 V2 路径专用。`getContextBudget` 返回 `{budget, compressThreshold}`（用于消息压缩判断），与 Layer 4 的 `allocateBudget`（用于上下文 section 分配）语义不同，两者各自服务于不同场景，不构成重复。V2 路径中 `caseAnalysisV2.workflow.ts` 继续使用 `getContextBudget`，V1 路径和 `moduleContextBuilder` 使用 `allocateBudget`。
 
 #### `caseAnalysis.ts`
 
