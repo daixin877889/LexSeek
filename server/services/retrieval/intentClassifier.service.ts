@@ -115,6 +115,12 @@ export async function classifyIntentService(
         // 调用模型获取结构化结果
         const result = await structuredModel.invoke(messages) as IntentClassification
 
+        // 校验 intent 合法性，无效时降级为 semantic
+        if (!result?.intent || !['exact', 'hybrid', 'semantic'].includes(result.intent)) {
+            logger.warn('意图分类结果无效，降级为 semantic:', result)
+            return { intent: 'semantic', rewrittenQuery: query }
+        }
+
         // 案件材料检索不支持 exact，强制降级为 hybrid
         if (type === 'case_material' && result.intent === 'exact') {
             return { ...result, intent: 'hybrid' }

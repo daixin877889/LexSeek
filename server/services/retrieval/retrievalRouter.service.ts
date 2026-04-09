@@ -25,7 +25,7 @@ export async function retrievalRouterService(
     const intent = await classifyIntentService(request.query, request.type)
     logger.info(`检索意图分类: ${intent.intent}`, { query: request.query, type: request.type })
 
-    let results: RetrievalResult[]
+    let results: RetrievalResult[] = []
     let actualMode: RetrievalMode = intent.intent
 
     switch (intent.intent) {
