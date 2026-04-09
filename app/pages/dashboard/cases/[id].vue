@@ -113,6 +113,9 @@ function navigateToAnalysis(index: number) {
 // --- 模块对话管理 ---
 const moduleChatManager = useModuleChatManager(caseId, { onAnalysisSaved: refreshAnalysis })
 
+// --- 小索对话管理 ---
+const xiaosuoChat = useXiaosuoChat(caseId)
+
 async function handleModuleRegenerate(result: AnalysisResult) {
   await moduleChatManager.getOrCreateInstance(result.moduleName, result.moduleTitle)
   moduleChatManager.expandModule(result.moduleName)
@@ -233,7 +236,7 @@ onMounted(() => {
 
     <!-- 小索助手 - 提升到此层级以覆盖 header -->
     <ClientOnly>
-      <CaseDetailXiaosuo v-model="xiaosuoOpen" />
+      <CaseDetailXiaosuo v-model="xiaosuoOpen" :xiaosuo-chat="xiaosuoChat" />
     </ClientOnly>
   </div>
 
