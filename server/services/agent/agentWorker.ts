@@ -484,10 +484,40 @@ function isSystemMessage(msg: unknown): boolean {
 }
 
 /**
- * 从 SSE 事件数据中剥离 system 消息（防止系统提示词泄露到客户端）
+ * 判断消息是否为中间件注入的上下文消息（不应发送到前端）
  *
- * - values 事件：过滤 data.messages 数组中的 system 消息
- * - messages 事件：过滤整个事件（如果是 system 消息则返回 null）
+ * 检测 response_metadata.injectedBy 是否以 ModuleContext 或 CaseMaterial 开头
+ */
+function isInjectedMessage(msg: unknown): boolean {
+  if (!msg || typeof msg !== 'object') return false
+  const m = msg as Record<string, unknown>
+  // 直接格式
+  const meta = m.response_metadata as Record<string, unknown> | undefined
+  if (meta?.injectedBy) {
+    const injector = meta.injectedBy as string
+    if (injector.startsWith('ModuleContext') || injector.startsWith('CaseMaterial')) return true
+  }
+  // 嵌套 { data: { response_metadata: ... } } 格式
+  if (m.data && typeof m.data === 'object') {
+    const innerMeta = (m.data as Record<string, unknown>).response_metadata as Record<string, unknown> | undefined
+    if (innerMeta?.injectedBy) {
+      const injector = innerMeta.injectedBy as string
+      if (injector.startsWith('ModuleContext') || injector.startsWith('CaseMaterial')) return true
+    }
+  }
+  return false
+}
+
+/** 判断消息是否应被过滤（system 消息或注入的上下文消息） */
+function isInternalMessage(msg: unknown): boolean {
+  return isSystemMessage(msg) || isInjectedMessage(msg)
+}
+
+/**
+ * 从 SSE 事件数据中剥离内部消息（防止系统提示词和上下文注入消息泄露到客户端）
+ *
+ * - values 事件：过滤 data.messages 数组中的内部消息
+ * - messages 事件：过滤整个事件（如果是内部消息则返回 null）
  */
 function stripSystemMessages(event: string, data: unknown): unknown | null {
   if (!data || typeof data !== 'object') return data
@@ -495,7 +525,7 @@ function stripSystemMessages(event: string, data: unknown): unknown | null {
   if (event === 'values') {
     const d = data as Record<string, unknown>
     if (Array.isArray(d.messages)) {
-      return { ...d, messages: d.messages.filter(m => !isSystemMessage(m)) }
+      return { ...d, messages: d.messages.filter(m => !isInternalMessage(m)) }
     }
     return data
   }
@@ -503,10 +533,10 @@ function stripSystemMessages(event: string, data: unknown): unknown | null {
   if (event === 'messages') {
     // messages 事件可能是单条消息或消息数组
     if (Array.isArray(data)) {
-      const filtered = (data as unknown[]).filter(m => !isSystemMessage(m))
+      const filtered = (data as unknown[]).filter(m => !isInternalMessage(m))
       return filtered.length > 0 ? filtered : null
     }
-    if (isSystemMessage(data)) return null
+    if (isInternalMessage(data)) return null
     return data
   }
 
