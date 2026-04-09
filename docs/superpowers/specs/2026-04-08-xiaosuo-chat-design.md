@@ -29,7 +29,7 @@
 
 **逻辑**：
 ```typescript
-const sessionId = uuid()
+const sessionId = uuidv4()  // import { v4 as uuidv4 } from 'uuid'
 await prisma.caseSessions.create({
   data: {
     sessionId,
@@ -173,8 +173,8 @@ export function useXiaosuoChat(caseId: MaybeRef<number>) {
     switchSession: (sessionId: string) => Promise<void>,
     deleteSession: (sessionId: string) => Promise<void>,
     sendMessage: (text: string, options?: { thinking?: boolean }) => void,
-    resumeInterrupt: (data: any) => void,  // 内部调用 stream.submit({ messages: [] }, { command: { resume: data } })
-    stopGeneration: () => void,
+    resumeInterrupt: (data: any) => void,  // 内部调用 stream.submit({ messages: [] } as any, { command: { resume: data } })
+    stopGeneration: () => Promise<void>,  // SSE 中止 + Worker 取消（双重取消）
 
     // 初始化
     init: () => Promise<void>,
@@ -216,17 +216,37 @@ async function switchSession(sessionId: string) {
   }
 }
 
-// 组件卸载时清理
-onScopeDispose(() => disposeCurrentChat())
+// 页面卸载时清理（与 useModuleChatManager 保持一致）
+onUnmounted(() => disposeCurrentChat())
 ```
 
 #### 对话状态代理
 
-`messages`、`isLoading`、`interrupt` 等响应式属性代理到当前 `useCaseChat` 实例：
+`messages`、`values`、`isLoading`、`interrupt` 等响应式属性代理到当前 `useCaseChat` 实例：
 ```typescript
 const messages = computed(() => currentChat?.messages.value ?? [])
+const values = computed(() => currentChat?.values.value)
 const isLoading = computed(() => currentChat?.isLoading.value ?? false)
 const interrupt = computed(() => currentChat?.interrupt.value)
+```
+
+#### stopGeneration 双重取消
+
+参照 `useModuleChatManager` 的模式，停止生成时需要同时中止前端 SSE 和后端 Worker：
+
+```typescript
+async function stopGeneration() {
+  // 1. 中止前端 SSE 连接
+  currentChat?.stopGeneration()
+
+  // 2. 取消后端 Worker 任务（防止继续扣积分）
+  const sessionId = currentSessionId.value
+  if (!sessionId) return
+  const runData = await useApiFetch(`/api/v1/case/analysis/runs/current/${sessionId}`)
+  if (runData?.run?.id) {
+    await useApiFetch(`/api/v1/case/analysis/runs/cancel/${runData.run.id}`, { method: 'POST' })
+  }
+}
 ```
 
 #### 初始化流程
@@ -347,10 +367,9 @@ const interruptData = computed(() => {
   return null
 })
 
-// 与 [sessionId].vue 保持一致，传 { messages: [] } 作为第一个参数
+// 恢复中断（使用 composable 接口，内部调用 stream.submit({ messages: [] }, { command: ... })）
 function resumeWorkflow() {
-  xiaosuoChat.sendMessage('')  // 触发空消息 + command
-  // 实际实现：stream.submit({ messages: [] }, { command: { resume: { action: 'continue' } } })
+  xiaosuoChat.resumeInterrupt({ action: 'continue' })
 }
 ```
 
