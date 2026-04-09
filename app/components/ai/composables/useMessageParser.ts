@@ -189,9 +189,9 @@ export function useMessageParser(messages: MaybeRef<any[]>) {
                 .map((b: any) => b.text)
                 .join('')
             : (m.content as string)
-          const toolCalls = matchToolCalls(m, toolResultsMap)
+          const toolCalls = matchToolCalls(m as any, toolResultsMap)
           // 提取 thinking（需在 skip 检查前执行，否则纯 thinking 阶段的消息会被误过滤）
-          const thinking = extractThinking(m, false)
+          const thinking = extractThinking(m as any, false)
           // 跳过无内容、无 toolCalls、无 thinking 的 AI 消息（流式中断时保存的中间状态）
           if (!content && !toolCalls.length && !thinking) return null
 
