@@ -4,24 +4,27 @@
  * 连接真实数据库执行检索查询，输出指标报告（含 Rerank 前后对比）。
  *
  * 用法:
- *   bun run scripts/eval/search_law_tool/evalRetrievalQuality.ts
- *   bun run scripts/eval/search_law_tool/evalRetrievalQuality.ts --tags=exact
- *   bun run scripts/eval/search_law_tool/evalRetrievalQuality.ts --ids=exact-001,hybrid-001
- *   bun run scripts/eval/search_law_tool/evalRetrievalQuality.ts --verbose
+ *   bun --preload scripts/eval/bunPreload.ts run scripts/eval/search_law_tool/evalRetrievalQuality.ts // 完整评估
+ *   bun --preload scripts/eval/bunPreload.ts run scripts/eval/search_law_tool/evalRetrievalQuality.ts --tags=exact // 只跑特定标签
+ *   bun --preload scripts/eval/bunPreload.ts run scripts/eval/search_law_tool/evalRetrievalQuality.ts --ids=exact-001,hybrid-001  // 只跑特定用例
+ *   bun --preload scripts/eval/bunPreload.ts run scripts/eval/search_law_tool/evalRetrievalQuality.ts --verbose // 输出详细结果
  */
 
 // -----------------------------------------------------------------------
 // 初始化全局依赖（模拟 Nuxt 自动导入，必须在导入服务层之前）
+// 运行前需加载 preload 插件：bun --preload scripts/eval/bunPreload.ts run ...
 // -----------------------------------------------------------------------
+
+import { resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const projectRoot = resolve(__dirname, '../../..')
 
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../../../generated/prisma/client'
 import { logger as sharedLogger } from '../../../shared/utils/logger/index'
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
 
 function createPrismaClient() {
     const databaseUrl = process.env.DATABASE_URL

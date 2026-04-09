@@ -1,5 +1,13 @@
 {
   // https://nuxt.com/docs/guide/concepts/typescript
+  "compilerOptions": {
+    "paths": {
+      "#shared": ["./shared"],
+      "#shared/*": ["./shared/*"],
+      "~~/*": ["./*"],
+      "@@/*": ["./*"]
+    }
+  },
   "files": [],
   "references": [
     {
