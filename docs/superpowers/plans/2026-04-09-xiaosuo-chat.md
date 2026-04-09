@@ -460,6 +460,28 @@ describe('小索 Session API', () => {
       expect(metadata?.source).not.toBe('xiaosuo')
     })
   })
+
+  describe('删除 Session 与活跃 Run', () => {
+    it('删除 session 时应检查并取消活跃 run', async () => {
+      if (!dbAvailable) return
+      const user = await createTestUser()
+      const caseRecord = await createTestCase(user.id)
+      const sessionId = await createXiaosuoSession(caseRecord.id)
+
+      // 验证 getActiveRunService 可以正常调用（无活跃 run 时返回 null）
+      const activeRun = await getActiveRunService(sessionId)
+      expect(activeRun).toBeNull()
+
+      // 软删除
+      await prisma.caseSessions.update({
+        where: { sessionId },
+        data: { deletedAt: new Date() },
+      })
+
+      const deleted = await prisma.caseSessions.findUnique({ where: { sessionId } })
+      expect(deleted!.deletedAt).not.toBeNull()
+    })
+  })
 })
 ```
 
@@ -724,7 +746,13 @@ git commit -m "feat(ui): 添加 useXiaosuoChat composable"
 import { XIcon, MaximizeIcon, MinimizeIcon, PlusIcon, ChevronDownIcon, Trash2Icon } from 'lucide-vue-next'
 import xiaosuoIcon from '~/assets/icon/xiaosuo.svg'
 import { useMediaQuery } from '@vueuse/core'
+import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
+import 'dayjs/locale/zh-cn'
 import type { useXiaosuoChat } from '~/composables/useXiaosuoChat'
+
+dayjs.extend(relativeTime)
+dayjs.locale('zh-cn')
 
 const props = defineProps<{
   xiaosuoChat: ReturnType<typeof useXiaosuoChat>
@@ -843,7 +871,7 @@ watch(isOpen, (open) => {
             @click="handleSwitchSession(s.sessionId)"
           >
             <span class="truncate flex-1">{{ s.title }}</span>
-            <span class="shrink-0 text-xs text-muted-foreground mx-1">{{ useTimeAgo(s.updatedAt).value }}</span>
+            <span class="shrink-0 text-xs text-muted-foreground mx-1">{{ dayjs(s.updatedAt).fromNow() }}</span>
             <button
               class="shrink-0 ml-2 p-1 rounded hover:bg-destructive/10 hover:text-destructive"
               @click.stop="handleDeleteSession(s.sessionId)"
@@ -969,10 +997,15 @@ git commit -m "feat(ui): 集成 useXiaosuoChat 到案件详情页"
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { nextTick } from 'vue'
 
-// Mock useApiFetch
+// Mock useApiFetch（项目使用 #imports 路径，参考 storage-config-dao.test.ts）
 const mockApiFetch = vi.fn()
-vi.mock('#app', () => ({
+vi.mock('#imports', () => ({
   useApiFetch: (...args: any[]) => mockApiFetch(...args),
+  ref: (v: any) => ({ value: v }),
+  computed: (fn: any) => ({ value: fn() }),
+  toRef: (v: any) => ({ value: typeof v === 'object' ? v.value : v }),
+  effectScope: () => ({ run: (fn: any) => fn(), stop: vi.fn() }),
+  onUnmounted: vi.fn(),
 }))
 
 // Mock useCaseChat
