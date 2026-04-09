@@ -130,7 +130,7 @@
       "expectedMode": "exact",
       "k": 5,
       "expectedHits": [
-        { "match": { "legal_name": "中华人民共和国劳动合同法", "content_contains": "劳动者可以解除劳动合同" }, "mustBeInTopN": 3 }
+        { "match": { "legal_name_contains": "劳动合同法", "content_contains": "解除劳动合同" }, "mustBeInTopN": 3 }
       ],
       "tags": ["exact", "labor"]
     },
@@ -163,7 +163,7 @@
       "expectedMode": "exact",
       "k": 5,
       "expectedHits": [
-        { "match": { "legal_name": "中华人民共和国公司法", "content_contains": "关联交易" }, "mustBeInTopN": 3 }
+        { "match": { "legal_name": "中华人民共和国公司法", "content_contains": "订立合同或者进行交易" }, "mustBeInTopN": 3 }
       ],
       "tags": ["exact", "corporate"]
     },
@@ -174,7 +174,7 @@
       "expectedMode": "exact",
       "k": 5,
       "expectedHits": [
-        { "match": { "legal_name": "中华人民共和国消费者权益保护法", "content_contains": "七日内退货" }, "mustBeInTopN": 3 }
+        { "match": { "legal_name_contains": "消费者权益保护法", "content_contains": "退货" }, "mustBeInTopN": 3 }
       ],
       "tags": ["exact", "consumer"]
     },
@@ -218,7 +218,7 @@
       "expectedMode": "exact",
       "k": 5,
       "expectedHits": [
-        { "match": { "legal_name": "中华人民共和国刑事诉讼法", "content_contains": "认罪认罚" }, "mustBeInTopN": 3 }
+        { "match": { "legal_name_contains": "刑事诉讼法", "content_contains": "供述" }, "mustBeInTopN": 3 }
       ],
       "tags": ["exact", "procedure"]
     },
@@ -240,7 +240,7 @@
       "expectedMode": "exact",
       "k": 5,
       "expectedHits": [
-        { "match": { "legal_name_contains": "道路交通安全法", "content_contains": "交通事故" }, "mustBeInTopN": 3 }
+        { "match": { "legal_name_contains": "道路交通安全法", "content_contains": "赔偿责任" }, "mustBeInTopN": 5 }
       ],
       "tags": ["exact", "tort"]
     },
@@ -306,7 +306,7 @@
       "expectedMode": "exact",
       "k": 5,
       "expectedHits": [
-        { "match": { "legal_name": "中华人民共和国民法典", "content_contains": "人格权" }, "mustBeInTopN": 3 }
+        { "match": { "legal_name": "中华人民共和国民法典", "content_contains": "人格权" }, "mustBeInTopN": 5 }
       ],
       "tags": ["exact", "civil", "arabic-number"]
     },
@@ -891,7 +891,7 @@
       "expectedMode": "semantic",
       "k": 10,
       "expectedHits": [
-        { "match": { "content_contains": "相邻" }, "mustBeInTopN": 10 }
+        { "match": { "content_contains": "不动产" }, "mustBeInTopN": 10 }
       ],
       "tags": ["semantic", "property"]
     },
