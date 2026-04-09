@@ -7,6 +7,7 @@
  */
 import { z } from 'zod'
 import { v4 as uuidv4 } from 'uuid'
+import dayjs from 'dayjs'
 
 const bodySchema = z.object({
   caseId: z.number().int().positive(),
@@ -32,7 +33,7 @@ export default defineEventHandler(async (event) => {
   if (!caseRecord) return resError(event, 404, '案件不存在')
 
   const sessionId = uuidv4()
-  const sessionTitle = title ?? '新对话'
+  const sessionTitle = title ?? dayjs().format('YYMMDDHHmm')
 
   await prisma.caseSessions.create({
     data: {
