@@ -69,8 +69,8 @@ interface TextSplitterConfig {
 
 /** 默认分块配置 */
 const defaultSplitterConfig: TextSplitterConfig = {
-    chunkSize: 1000,
-    chunkOverlap: 100,
+    chunkSize: 1500,
+    chunkOverlap: 200,
 }
 
 /**
