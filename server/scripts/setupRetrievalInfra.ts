@@ -114,6 +114,26 @@ END$$`,
     },
 ]
 
+// 向量列维度声明（HNSW 索引要求列有明确维度）
+const vectorDimStatements: Statement[] = [
+    {
+        label: '为 law_embeddings.embedding 声明维度 vector(1536)',
+        sql: `DO $$ BEGIN
+  IF (SELECT atttypmod FROM pg_attribute WHERE attrelid = 'law_embeddings'::regclass AND attname = 'embedding') = -1 THEN
+    ALTER TABLE law_embeddings ALTER COLUMN embedding TYPE vector(1536);
+  END IF;
+END$$`,
+    },
+    {
+        label: '为 case_material_embeddings.embedding 声明维度 vector(1536)',
+        sql: `DO $$ BEGIN
+  IF (SELECT atttypmod FROM pg_attribute WHERE attrelid = 'case_material_embeddings'::regclass AND attname = 'embedding') = -1 THEN
+    ALTER TABLE case_material_embeddings ALTER COLUMN embedding TYPE vector(1536);
+  END IF;
+END$$`,
+    },
+]
+
 // HNSW 索引（必须使用 CONCURRENTLY，不能在事务中执行）
 const hnswStatements: Statement[] = [
     {
@@ -144,6 +164,13 @@ async function main() {
 
         // 执行普通 DDL 语句
         for (const { label, sql } of ddlStatements) {
+            console.log(`  ▶ ${label}`)
+            await pool.query(sql)
+            console.log(`  ✅ ${label} 完成`)
+        }
+
+        // 声明向量列维度（HNSW 要求）
+        for (const { label, sql } of vectorDimStatements) {
             console.log(`  ▶ ${label}`)
             await pool.query(sql)
             console.log(`  ✅ ${label} 完成`)

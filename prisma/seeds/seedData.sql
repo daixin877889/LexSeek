@@ -868,6 +868,7 @@ INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "pri
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "group_id", "status", "created_at", "updated_at", "deleted_at", "output_schema") VALUES (11, 'defense', '抗辩分析及应对策略预测', '根据请求权生成抗辩分析及应对策略', 'analysis', 700, 2, '["search_case_materials", "search_law", "process_materials"]', NULL, 1, '2026-03-23 11:24:30.281+08', '2026-03-23 11:24:30.281+08', NULL, NULL);
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "group_id", "status", "created_at", "updated_at", "deleted_at", "output_schema") VALUES (12, 'evidence', '证据清单预梳理', '证据清单预梳理', 'analysis', 800, 2, '["search_case_materials", "search_law", "process_materials"]', NULL, 1, '2026-03-23 11:25:27.771+08', '2026-03-23 11:25:27.771+08', NULL, NULL);
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "group_id", "status", "created_at", "updated_at", "deleted_at", "output_schema") VALUES (13, 'material_summarizer', '案件材料摘要', '对案件材料做 300-500 字左右的摘要', 'extraction', 100, 1, '[]', NULL, 1, '2026-03-31 18:07:53.881+08', '2026-03-31 18:07:53.881+08', NULL, NULL);
+INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "group_id", "status", "created_at", "updated_at", "deleted_at", "output_schema") VALUES (14, 'search_intent_router', '检索意图路由器', '根据查询内容分类检索意图（精确/混合/语义），用于统一检索路由器的意图分发', 'extraction', 0, 10, '[]', NULL, 1, '2026-04-09 10:00:00+08', '2026-04-09 10:00:00+08', NULL, '{"type": "object", "required": ["intent"], "properties": {"intent": {"enum": ["exact", "hybrid", "semantic"], "description": "检索意图类型"}, "legalName": {"type": "string", "description": "识别到的法律名称"}, "articleRef": {"type": "string", "description": "条文编号，如 第一千条"}, "keywords": {"type": "array", "items": {"type": "string"}, "description": "提取的法律术语关键词"}, "rewrittenQuery": {"type": "string", "description": "改写后的语义查询"}}}');
 
 -- ==================== 提示词种子数据 ====================
 INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (1, 'caseInfoCheck_system', '案情信息检查-系统提示词', '你是一位专业的法律案件分析助手，专门负责评估案件材料中的案情信息是否充足。
@@ -1825,6 +1826,19 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 2. 保留重要的法律条款和合同条款引用
 3. 使用简洁客观的语言
 4. 如果材料是对话/录音转写，提取核心议题和各方立场', '[]', 'v1', 'system', 1, 13, '2026-03-31 18:10:18.401+08', '2026-03-31 18:15:17.9+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (17, 'search_intent_router_system', '检索意图路由-系统提示词', '你是法律检索意图分类器。根据用户的查询，判断最佳检索策略：
+
+1. exact（精确查找）— 用户明确引用了某部法律的某个条文
+   示例："民法典第1000条"、"刑法第264条"、"劳动合同法第46条第2款"
+   → 提取 legalName + articleRef
+
+2. hybrid（混合检索）— 包含特定法律术语或法律名称，但没有精确条文编号
+   示例："劳动合同法关于经济补偿的规定"、"公司法股东权益保护"
+   → 提取 legalName + keywords + rewrittenQuery
+
+3. semantic（语义检索）— 自然语言描述法律问题
+   示例："员工被无故辞退后如何索赔"、"房屋买卖合同纠纷的赔偿标准"
+   → 提取 keywords + rewrittenQuery', '[]', 'v1', 'system', 1, 14, '2026-04-09 10:00:00+08', '2026-04-09 10:00:00+08', NULL);
 
 
 
