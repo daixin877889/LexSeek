@@ -22,15 +22,15 @@ export async function exactSearchService(
 ): Promise<RetrievalResult[]> {
     if (!intent.legalName) return []
 
-    const legal = await prisma.legalMain.findFirst({
-        where: {
-            OR: [
-                { name: intent.legalName },
-                { name: { contains: intent.legalName } },
-            ],
-            deletedAt: null,
-        },
-    })
+    // 优先精确匹配，没有再走包含匹配（按名称长度升序，选最短即最精确的）
+    const legal =
+        await prisma.legalMain.findFirst({
+            where: { name: intent.legalName, deletedAt: null },
+        })
+        ?? await prisma.legalMain.findFirst({
+            where: { name: { contains: intent.legalName }, deletedAt: null },
+            orderBy: { name: 'asc' },
+        })
 
     if (!legal) return []
 

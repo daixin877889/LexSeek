@@ -92,7 +92,10 @@ describe('exactSearchService', () => {
             const legal = makeLegal()
             const article = makeArticle()
 
-            mockLegalMainFindFirst.mockResolvedValue(legal)
+            // 精确匹配无命中，包含匹配命中
+            mockLegalMainFindFirst
+                .mockResolvedValueOnce(null)
+                .mockResolvedValueOnce(legal)
             mockLegalArticlesFindMany
                 .mockResolvedValueOnce([article])
                 .mockResolvedValueOnce([article])
@@ -106,14 +109,12 @@ describe('exactSearchService', () => {
             const results = await exactSearchService(intent)
 
             expect(results).toHaveLength(1)
-            // 验证 findFirst 传入了包含匹配条件
-            const findFirstCall = mockLegalMainFindFirst.mock.calls[0][0]
-            expect(findFirstCall.where.OR).toEqual(
-                expect.arrayContaining([
-                    { name: '民法典' },
-                    { name: { contains: '民法典' } },
-                ])
-            )
+            // 第一次调用：精确匹配
+            expect(mockLegalMainFindFirst.mock.calls[0][0].where.name).toBe('民法典')
+            // 第二次调用：包含匹配，按名称升序
+            const secondCall = mockLegalMainFindFirst.mock.calls[1][0]
+            expect(secondCall.where.name).toEqual({ contains: '民法典' })
+            expect(secondCall.orderBy).toEqual({ name: 'asc' })
         })
     })
 
