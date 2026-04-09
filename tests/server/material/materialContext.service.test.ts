@@ -140,7 +140,7 @@ describe('buildMaterialContextMessage', () => {
             mode: 'full' as const,
             totalTokens: 100,
             materialList: [
-                { sourceId: 2, name: '起诉状.pdf', type: 2, hasContent: true, content: '起诉内容...' },
+                { sourceId: 2, name: '起诉状.pdf', type: 2, hasContent: true, mode: 'full' as const, content: '起诉内容...' },
             ],
         }
         const msg = buildMaterialContextMessage(context)
@@ -154,7 +154,7 @@ describe('buildMaterialContextMessage', () => {
             mode: 'summary' as const,
             totalTokens: 50000,
             materialList: [
-                { sourceId: 2, name: '起诉状.pdf', type: 2, hasContent: true, summary: '摘要...' },
+                { sourceId: 2, name: '起诉状.pdf', type: 2, hasContent: true, mode: 'summary' as const, summary: '摘要...' },
             ],
         }
         const msg = buildMaterialContextMessage(context)
@@ -170,7 +170,7 @@ describe('buildIncrementalMaterialMessage', () => {
             mode: 'summary' as const,
             totalTokens: 100,
             materialList: [
-                { sourceId: 8, name: '补充证据.pdf', type: 2, hasContent: true, summary: '补充...' },
+                { sourceId: 8, name: '补充证据.pdf', type: 2, hasContent: true, mode: 'summary' as const, summary: '补充...' },
             ],
         }
         const msg = buildIncrementalMaterialMessage(context)
