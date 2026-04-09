@@ -173,7 +173,7 @@ export function useXiaosuoChat(caseId: MaybeRef<number>) {
     switchSession: (sessionId: string) => Promise<void>,
     deleteSession: (sessionId: string) => Promise<void>,
     sendMessage: (text: string, options?: { thinking?: boolean }) => void,
-    resumeInterrupt: (data: any) => void,  // 内部调用 stream.submit({ messages: [] } as any, { command: { resume: data } })
+    resumeInterrupt: (data: any) => void,  // 内部调用 stream.submit(undefined, { command: { resume: data } })
     stopGeneration: () => Promise<void>,  // SSE 中止 + Worker 取消（双重取消）
 
     // 初始化
@@ -240,9 +240,11 @@ async function stopGeneration() {
   currentChat?.stopGeneration()
 
   // 2. 取消后端 Worker 任务（防止继续扣积分）
-  const sessionId = currentSessionId.value
-  if (!sessionId) return
-  const runData = await useApiFetch(`/api/v1/case/analysis/runs/current/${sessionId}`)
+  const sid = currentSessionId.value
+  if (!sid) return
+  const runData = await useApiFetch<{ run: { id: string } | null }>(
+    `/api/v1/case/analysis/runs/current/${sid}`,
+  )
   if (runData?.run?.id) {
     await useApiFetch(`/api/v1/case/analysis/runs/cancel/${runData.run.id}`, { method: 'POST' })
   }
@@ -334,8 +336,8 @@ const props = defineProps<{
 
 ```vue
 <AiChat
-  :messages="xiaosuoChat.messages.value"
-  :loading="xiaosuoChat.isLoading.value"
+  :messages="xiaosuoChat.messages"
+  :loading="xiaosuoChat.isLoading"
   panel-mode="left"
   :show-header="false"
   v-model:thinking="thinking"
@@ -444,3 +446,4 @@ function resumeWorkflow() {
 | 修改 | `app/pages/dashboard/cases/[id].vue` | 创建 useXiaosuoChat 并传递 |
 | 修改 | `server/services/agent/agentWorker.ts` | 补充 thinking 参数传递 |
 | 新建 | `tests/server/xiaosuo-session.test.ts` | 后端 API 测试 |
+| 新建 | `tests/composables/useXiaosuoChat.test.ts` | 前端 composable 测试 |
