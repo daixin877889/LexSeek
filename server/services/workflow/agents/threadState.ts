@@ -70,11 +70,21 @@ export async function getThreadValuesService(
 
     if (Array.isArray(rawMessages) && rawMessages.length > 0) {
         const flatMessages = rawMessages.map(messageToFlatDict)
-        // 过滤掉 system message（包含案件材料等敏感上下文），防止泄露到前端
-        const nonSystemMessages = flatMessages.filter(msg => msg.type !== 'system')
+        // 过滤掉 system message 和注入的上下文消息，防止泄露到前端
+        const filteredMessages = flatMessages.filter(msg => {
+            if (msg.type === 'system') return false
+            // 检查 HumanMessage 是否是注入的上下文消息
+            if (msg.type === 'human') {
+                const injector = (msg as any).response_metadata?.injectedBy as string | undefined
+                if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial')) {
+                    return false
+                }
+            }
+            return true
+        })
         return {
             ...channelValues,
-            messages: nonSystemMessages,
+            messages: filteredMessages,
         }
     }
 
