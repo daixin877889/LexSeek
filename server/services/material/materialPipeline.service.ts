@@ -300,24 +300,34 @@ export async function fetchMaterialContents(
 
 // ==================== 上下文构建 ====================
 
+/** 材料类型优先级：数值越高越优先注入全文 */
+export const MATERIAL_PRIORITY: Record<number, number> = {
+    1: 10, // CASE_CONTENT — 最高
+    2: 8,  // DOCUMENT — 核心证据
+    3: 5,  // IMAGE — 辅助
+    4: 3,  // AUDIO — 通常较长
+}
+
 export interface MaterialContextItem {
     sourceId: number
     name: string
     type: number
     hasContent: boolean
+    /** 当前条目的注入模式：全文或摘要 */
+    mode: 'full' | 'summary'
     content?: string
     summary?: string
 }
 
 export interface MaterialContextResult {
-    mode: 'full' | 'summary' | 'empty'
+    mode: 'full' | 'summary' | 'graded' | 'empty'
     totalTokens: number
     materialList: MaterialContextItem[]
 }
 
 export async function getMaterialContextService(
     materials: MaterialWithFile[],
-    tokenThreshold: number = TOKEN_THRESHOLD,
+    tokenBudget: number = TOKEN_THRESHOLD,
 ): Promise<MaterialContextResult> {
     if (materials.length === 0) {
         return { mode: 'empty', totalTokens: 0, materialList: [] }
@@ -325,74 +335,119 @@ export async function getMaterialContextService(
 
     const contentMap = await fetchMaterialContents(materials)
 
-    let totalTokens = 0
-    for (const content of contentMap.values()) {
-        totalTokens += estimateTokens(content)
-    }
+    // 按优先级降序排列，保证高价值材料优先获得全文预算
+    const sorted = [...materials].sort(
+        (a, b) => (MATERIAL_PRIORITY[b.type] || 0) - (MATERIAL_PRIORITY[a.type] || 0),
+    )
 
-    const isFullMode = totalTokens < tokenThreshold
+    let usedTokens = 0
+    let allFull = true
+    let allSummary = true
+    const materialList: MaterialContextItem[] = []
 
-    // summary 模式下，为缺少 summary 的材料即时生成摘要并缓存
-    if (!isFullMode) {
-        const needSummary = materials.filter(m => !m.summary && contentMap.has(m.id))
-        if (needSummary.length > 0) {
-            try {
-                const { generateAndCacheSummaries } = await import('./materialSummary.service')
-                const generatedMap = await generateAndCacheSummaries(needSummary, contentMap)
-                // 将生成的 summary 合并回 materials 对象（供下方构建 materialList 使用）
-                for (const m of materials) {
-                    if (!m.summary && generatedMap.has(m.id)) {
-                        m.summary = generatedMap.get(m.id)!
-                    }
-                }
-            } catch (error) {
-                logger.warn('材料摘要批量生成失败，回退到截断模式', { error })
-            }
-        }
-    }
-
-    const materialList: MaterialContextItem[] = materials.map(m => {
+    // 逐份材料累加 token：预算内注入全文，超出后注入摘要
+    for (const m of sorted) {
         const content = contentMap.get(m.id)
-        return {
-            sourceId: getSourceId(m),
-            name: m.name,
-            type: m.type,
-            hasContent: !!content,
-            ...(isFullMode && content
-                ? { content }
-                : { summary: m.summary || (content ? content.substring(0, 200) + '...' : `[材料: ${m.name}，暂无内容]`) }),
+        if (!content) {
+            materialList.push({
+                sourceId: getSourceId(m),
+                name: m.name,
+                type: m.type,
+                hasContent: false,
+                mode: 'summary',
+                summary: `[材料: ${m.name}，暂无内容]`,
+            })
+            allFull = false
+            continue
         }
-    })
 
-    return {
-        mode: isFullMode ? 'full' : 'summary',
-        totalTokens,
-        materialList,
+        const tokens = estimateTokens(content)
+        if (usedTokens + tokens <= tokenBudget) {
+            materialList.push({
+                sourceId: getSourceId(m),
+                name: m.name,
+                type: m.type,
+                hasContent: true,
+                mode: 'full',
+                content,
+            })
+            usedTokens += tokens
+            allSummary = false
+        } else {
+            // 超出预算 → 降级为摘要
+            materialList.push({
+                sourceId: getSourceId(m),
+                name: m.name,
+                type: m.type,
+                hasContent: true,
+                mode: 'summary',
+                summary: m.summary || content.substring(0, 200) + '...',
+            })
+            allFull = false
+        }
     }
+
+    // 为需要摘要但尚无摘要（仅有截断文本）的材料批量生成摘要并缓存
+    const needSummaryItems = materialList.filter(
+        item => item.mode === 'summary' && item.hasContent && item.summary?.endsWith('...'),
+    )
+    if (needSummaryItems.length > 0) {
+        const needSummaryMaterials = sorted.filter(m =>
+            needSummaryItems.some(item => getSourceId(m) === item.sourceId),
+        )
+        try {
+            const { generateAndCacheSummaries } = await import('./materialSummary.service')
+            const generatedMap = await generateAndCacheSummaries(needSummaryMaterials, contentMap)
+            for (const item of needSummaryItems) {
+                const material = sorted.find(m => getSourceId(m) === item.sourceId)
+                if (material && generatedMap.has(material.id)) {
+                    item.summary = generatedMap.get(material.id)!
+                }
+            }
+        } catch (error) {
+            logger.warn('材料摘要批量生成失败，回退到截断模式', { error })
+        }
+    }
+
+    const mode = allFull ? 'full' : allSummary ? 'summary' : 'graded'
+    return { mode, totalTokens: usedTokens, materialList }
 }
 
 export function buildMaterialContextMessage(context: MaterialContextResult): string {
-    if (context.mode === 'full') {
-        const header = '以下是本案件的全部材料内容，请基于这些材料进行分析：\n'
-        const body = context.materialList
-            .map(m => `## [sourceId=${m.sourceId}] ${m.name}\n${m.content || '[暂无内容]'}`)
-            .join('\n\n')
-        return header + '\n' + body
-    }
+    if (context.mode === 'empty') return ''
 
-    // summary 模式
-    const header = `本案件共有 ${context.materialList.length} 份材料，材料量较大，以下为摘要信息。需要详细内容时请使用 search_case_materials 工具，传入 sourceId 精确检索。\n`
+    const fullCount = context.materialList.filter(m => m.mode === 'full').length
+    const summaryCount = context.materialList.filter(m => m.mode === 'summary').length
+    const header = `以下是本案件的材料内容（共 ${context.materialList.length} 份，${fullCount} 份全文 + ${summaryCount} 份摘要）。\n摘要材料需要详细内容时请使用 search_case_materials 工具，传入 sourceId 精确检索。\n`
+
     const body = context.materialList
-        .map(m => `- [sourceId=${m.sourceId}] ${m.name}（摘要：${m.summary || '暂无'}）`)
-        .join('\n')
+        .map(m => {
+            if (m.mode === 'full') {
+                return `## [sourceId=${m.sourceId}] ${m.name} [全文]\n${m.content || '[暂无内容]'}`
+            }
+            return `## [sourceId=${m.sourceId}] ${m.name} [摘要]\n${m.summary || '[暂无摘要]'}`
+        })
+        .join('\n\n')
+
     return header + '\n' + body
 }
 
 export function buildIncrementalMaterialMessage(context: MaterialContextResult): string {
-    const header = '案件新增了以下材料，需要详细内容时请使用 search_case_materials 工具，传入 sourceId 精确检索。\n'
+    if (context.mode === 'empty') return ''
+
+    const fullCount = context.materialList.filter(m => m.mode === 'full').length
+    const summaryCount = context.materialList.filter(m => m.mode === 'summary').length
+    const header = `案件新增了以下材料（共 ${context.materialList.length} 份，${fullCount} 份全文 + ${summaryCount} 份摘要）。\n摘要材料需要详细内容时请使用 search_case_materials 工具，传入 sourceId 精确检索。\n`
+
     const body = context.materialList
-        .map(m => `- [sourceId=${m.sourceId}] ${m.name}（摘要：${m.summary || '暂无'}）`)
-        .join('\n')
+        .map(m => {
+            if (m.mode === 'full') {
+                return `## [sourceId=${m.sourceId}] ${m.name} [全文]\n${m.content || '[暂无内容]'}`
+            }
+            return `## [sourceId=${m.sourceId}] ${m.name} [摘要]\n${m.summary || '[暂无摘要]'}`
+        })
+        .join('\n\n')
+
     return header + '\n' + body
 }
 
