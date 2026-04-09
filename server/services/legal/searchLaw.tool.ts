@@ -14,7 +14,8 @@ import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 import timezone from 'dayjs/plugin/timezone'
 import type { LawSearchParams, LawSearchResultItem, LawSearchResult, LawEmbeddingMetadata } from '#shared/types/legal'
-import { getVectorStore, getPool } from './vectorStore.service'
+import { getPool } from './vectorStore.service'
+import { retrievalRouterService } from '../retrieval/retrievalRouter.service'
 
 // 配置 dayjs 插件
 dayjs.extend(utc)
@@ -168,66 +169,32 @@ function buildSQLDateFilter(
 export async function searchLaw(params: SearchLawParams): Promise<SearchResultItem[]> {
     logger.info('法律搜索参数:', params)
 
-    // 如果有 query 参数，使用向量搜索
+    // 如果有 query 参数，走统一检索路由器
     if (params.query) {
-        const store = await getVectorStore({
-            tableName: 'law_embeddings',
+        const results = await retrievalRouterService({
+            query: params.query,
+            type: 'law',
+            k: params.k || 5,
+            metadataFilter: {
+                ...(params.legalId && { legal_id: params.legalId }),
+                ...(params.legalName && { legal_name: params.legalName }),
+                ...(params.legalType && { legal_type: params.legalType }),
+                ...(params.articleType && { article_type: params.articleType }),
+            },
+            postFilters: {
+                isEffective: params.isEffective,
+                invalidDateFilter: params.invalidDateFilter,
+                publishDateFilter: params.publishDateFilter,
+                effectiveDateFilter: params.effectiveDateFilter,
+            },
         })
 
-        // 构建过滤器（使用 snake_case 字段名）
-        const filter: Record<string, string | number | boolean> = {}
-
-        if (params.legalId) {
-            filter.legal_id = params.legalId
-        }
-        if (params.legalName) {
-            filter.legal_name = params.legalName
-        }
-        if (params.legalType) {
-            filter.legal_type = params.legalType
-        }
-        if (params.articleType) {
-            filter.article_type = params.articleType
-        }
-
-        // 执行向量搜索
-        const results = await store.similaritySearchWithScore(
-            params.query,
-            params.k || 50,
-            Object.keys(filter).length > 0 ? filter : undefined
-        )
-
-        let result: SearchResultItem[] = results.map(([doc, score]) => ({
-            score: 1 - Number(score.toFixed(3)),
-            content: doc.pageContent,
-            metadata: doc.metadata as Record<string, unknown>,
+        // 映射回 SearchResultItem[]（兼容下游）
+        return results.map(r => ({
+            score: r.score,
+            content: r.content,
+            metadata: r.metadata,
         }))
-
-        // 按 score 排序
-        result.sort((a, b) => b.score - a.score)
-
-        // 应用日期过滤（使用 snake_case 字段名）
-        const dateFilters = {
-            invalid_date: params.invalidDateFilter,
-            publish_date: params.publishDateFilter,
-            effective_date: params.effectiveDateFilter,
-        }
-
-        let filteredResults = applyDateFilter(result, dateFilters)
-
-        // 应用是否有效过滤
-        if (params.isEffective !== undefined) {
-            filteredResults = filteredResults.filter(item => {
-                const isEffective = isLawEffective(
-                    item.metadata.effective_date as string | null,
-                    item.metadata.invalid_date as string | null
-                )
-                return isEffective === params.isEffective
-            })
-        }
-
-        // 限制返回数量
-        return filteredResults.slice(0, params.k || 5)
     } else {
         // 如果没有 query 参数，使用 SQL 查询
         const pool = getPool()
