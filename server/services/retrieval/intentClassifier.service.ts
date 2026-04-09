@@ -113,7 +113,10 @@ export async function classifyIntentService(
         ]
 
         // 调用模型获取结构化结果
-        const result = await structuredModel.invoke(messages) as IntentClassification
+        // tags: ['internal'] 用于 agentWorker 过滤，不将此消息发送到前端消息流
+        const result = await structuredModel.invoke(messages, {
+            tags: ['internal'],
+        }) as IntentClassification
 
         // 校验 intent 合法性，无效时降级为 semantic
         if (!result?.intent || !['exact', 'hybrid', 'semantic'].includes(result.intent)) {

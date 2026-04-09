@@ -508,9 +508,23 @@ function isInjectedMessage(msg: unknown): boolean {
   return false
 }
 
-/** 判断消息是否应被过滤（system 消息或注入的上下文消息） */
+/** 判断消息是否应被过滤（system 消息、注入的上下文消息、或内部 LLM 调用消息） */
 function isInternalMessage(msg: unknown): boolean {
   return isSystemMessage(msg) || isInjectedMessage(msg)
+}
+
+/**
+ * 判断 messages 事件的 [messageChunk, metadata] 元组是否为内部 LLM 调用
+ *
+ * 通过 invoke 时传入的 tags: ['internal'] 标记识别，
+ * LangGraph 会将 tags 写入 messages 事件的 metadata.tags 中
+ */
+function isInternalLLMEvent(data: unknown): boolean {
+  if (!Array.isArray(data) || data.length < 2) return false
+  const metadata = data[1] as Record<string, unknown> | undefined
+  if (!metadata || typeof metadata !== 'object') return false
+  const tags = metadata.tags as string[] | undefined
+  return Array.isArray(tags) && tags.includes('internal')
 }
 
 /**
@@ -531,7 +545,11 @@ function stripSystemMessages(event: string, data: unknown): unknown | null {
   }
 
   if (event === 'messages') {
-    // messages 事件可能是单条消息或消息数组
+    // messages 事件格式为 [messageChunk, metadata] 元组
+    // 检查 metadata.tags 是否包含 'internal'（内部 LLM 调用，如意图分类器）
+    if (isInternalLLMEvent(data)) return null
+
+    // 兼容：单条消息或消息数组格式
     if (Array.isArray(data)) {
       const filtered = (data as unknown[]).filter(m => !isInternalMessage(m))
       return filtered.length > 0 ? filtered : null
