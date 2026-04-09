@@ -161,6 +161,8 @@ const getModelTypeVariant = (type: string) => {
             return 'secondary'
         case 'asr':
             return 'outline'
+        case 'rerank':
+            return 'secondary'
         default:
             return 'secondary'
     }

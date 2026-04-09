@@ -37,9 +37,9 @@
                             <SelectValue placeholder="选择模型类型" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="chat">对话模型</SelectItem>
-                            <SelectItem value="embedding">嵌入模型</SelectItem>
-                            <SelectItem value="asr">音频识别</SelectItem>
+                            <SelectItem v-for="(label, type) in ModelTypeLabels" :key="type" :value="type">
+                                {{ label }}
+                            </SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -134,7 +134,7 @@
 import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { ModelProvider, Model, SdkType } from '#shared/types/model'
-import { SDK_TYPES, SdkTypeLabels, DEFAULT_SDK_TYPE } from '#shared/types/model'
+import { SDK_TYPES, SdkTypeLabels, ModelTypeLabels, DEFAULT_SDK_TYPE } from '#shared/types/model'
 
 // SDK 类型选项列表
 const sdkTypeOptions = SDK_TYPES.map(type => ({
