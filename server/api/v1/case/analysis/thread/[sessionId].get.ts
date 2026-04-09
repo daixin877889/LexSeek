@@ -37,13 +37,22 @@ export default defineEventHandler(async (event) => {
         const values = await getThreadValuesService(sessionId)
         const messages = (values?.messages ?? []) as Record<string, unknown>[]
 
+        // 过滤注入的上下文消息（system / caseMaterial / moduleContext）
+        const filteredMessages = messages.filter(m => {
+            const type = (m as any)._getType?.() ?? (m as any).type ?? (m as any).data?.type
+            if (type === 'system' || type === 'tool') return false
+            const injector = ((m as any).response_metadata?.injectedBy ?? (m as any).data?.response_metadata?.injectedBy) as string | undefined
+            if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial')) return false
+            return true
+        })
+
         // 5. 加载子代理 thread 消息（用于前端展示子代理内部对话）
         const subAgentThreads = messages.length > 0
             ? await loadSubAgentThreads(sessionId, messages)
             : []
 
         return resSuccess(event, '获取成功', {
-            values: values ?? { messages: [] },
+            values: { ...(values ?? {}), messages: filteredMessages },
             threadId: sessionId,
             subAgentThreads,
         })

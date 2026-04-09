@@ -30,18 +30,33 @@ import {
 
 /** 过滤掉上下文注入消息（HumanMessage with metadata.injectedBy） */
 function filterInjectedMessages(messages: any[]): any[] {
-  return messages.filter(m => {
-    // SystemMessage 和 ToolMessage 始终过滤
-    if (m._getType?.() === 'system' || m._getType?.() === 'tool') return false
+  return messages.filter(m => !isInternalMessage(m))
+}
 
-    // HumanMessage 检测 metadata
-    const injector = m.response_metadata?.injectedBy as string | undefined
-    if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial')) {
-      return false
-    }
+/** 判断单条消息是否为内部消息（system / tool / 注入上下文），不应发送到前端 */
+function isInternalMessage(m: any): boolean {
+  // SystemMessage 和 ToolMessage 始终过滤
+  if (m._getType?.() === 'system' || m._getType?.() === 'tool') return true
+  // 兼容字典格式
+  const type = m.type ?? m.data?.type
+  if (type === 'system' || type === 'tool') return true
 
+  // HumanMessage 检测 metadata（注入的上下文消息）
+  const injector = (m.response_metadata?.injectedBy ?? m.data?.response_metadata?.injectedBy) as string | undefined
+  if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial')) {
     return true
-  })
+  }
+
+  return false
+}
+
+/** 过滤 messages 事件中的内部消息，返回 null 表示整条事件应跳过 */
+function filterMessagesEvent(data: any): any | null {
+  if (Array.isArray(data)) {
+    const filtered = data.filter((m: any) => !isInternalMessage(m))
+    return filtered.length > 0 ? filtered : null
+  }
+  return isInternalMessage(data) ? null : data
 }
 
 /** 从 FetchStreamTransport 请求体中提取参数 */
@@ -287,6 +302,11 @@ export default defineEventHandler(async (event) => {
                 // values 事件需要过滤消息
                 const filteredMessages = filterInjectedMessages(evt.data.messages ?? [])
                 sseData = `event: values\ndata: ${JSON.stringify({ ...evt.data, messages: filteredMessages })}\n\n`
+              } else if (evt.event === 'messages') {
+                // messages 事件也需要过滤注入消息
+                const filtered = filterMessagesEvent(evt.data)
+                if (!filtered) continue
+                sseData = `event: messages\ndata: ${JSON.stringify(filtered)}\n\n`
               } else {
                 sseData = `event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`
               }
@@ -321,6 +341,11 @@ export default defineEventHandler(async (event) => {
               const data = evt.data as { messages?: any[] }
               const filteredMessages = filterInjectedMessages(data.messages ?? [])
               sseData = `event: values\ndata: ${JSON.stringify({ ...data, messages: filteredMessages })}\n\n`
+            } else if (evt.event === 'messages') {
+              // messages 事件也需要过滤注入消息
+              const filtered = filterMessagesEvent(evt.data)
+              if (!filtered) continue
+              sseData = `event: messages\ndata: ${JSON.stringify(filtered)}\n\n`
             } else {
               sseData = `event: ${evt.event}\ndata: ${JSON.stringify(evt.data)}\n\n`
             }

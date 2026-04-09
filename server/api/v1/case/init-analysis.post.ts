@@ -300,8 +300,16 @@ async function createSSEResponse(event: any, runId: string, sessionId?: string) 
                         if (checkpointValues) {
                             const messages = (checkpointValues.messages as any[]) || []
                             if (messages.length > 0) {
+                                // 过滤内部消息（system / 注入上下文）
+                                const filteredMessages = messages.filter((m: any) => {
+                                    const type = m._getType?.() ?? m.type ?? m.data?.type
+                                    if (type === 'system' || type === 'tool') return false
+                                    const injector = (m.response_metadata?.injectedBy ?? m.data?.response_metadata?.injectedBy) as string | undefined
+                                    if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial')) return false
+                                    return true
+                                })
                                 controller.enqueue(encoder.encode(
-                                    `event: values\ndata: ${JSON.stringify(checkpointValues)}\n\n`,
+                                    `event: values\ndata: ${JSON.stringify({ ...checkpointValues, messages: filteredMessages })}\n\n`,
                                 ))
                                 // 标记已发送 checkpoint，跳过后续的实时订阅
                                 missed = []
