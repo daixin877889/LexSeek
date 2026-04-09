@@ -190,13 +190,14 @@ export function useXiaosuoChat(caseId: MaybeRef<number>) {
 
 ```typescript
 let currentScope: EffectScope | null = null
-let currentChat: ReturnType<typeof useCaseChat> | null = null
+// ⚠️ 必须用 shallowRef，否则 computed 无法追踪 currentChat 的重新赋值
+const currentChat = shallowRef<ReturnType<typeof useCaseChat> | null>(null)
 
 function disposeCurrentChat() {
   if (currentScope) {
     currentScope.stop()  // 清理 useStream 内部的 watch/computed
     currentScope = null
-    currentChat = null
+    currentChat.value = null
   }
 }
 
@@ -205,14 +206,14 @@ async function switchSession(sessionId: string) {
   currentSessionId.value = sessionId
 
   currentScope = effectScope()
-  currentChat = currentScope.run(() => useCaseChat({ sessionId }))!
+  currentChat.value = currentScope.run(() => useCaseChat({ sessionId }))!
 
   // 检查是否有活跃 run
   const session = sessions.value.find(s => s.sessionId === sessionId)
   if (session?.hasActiveRun) {
-    currentChat.reconnect()
+    currentChat.value.reconnect()
   } else {
-    currentChat.loadHistory()
+    currentChat.value.loadHistory()
   }
 }
 
@@ -222,12 +223,12 @@ onUnmounted(() => disposeCurrentChat())
 
 #### 对话状态代理
 
-`messages`、`values`、`isLoading`、`interrupt` 等响应式属性代理到当前 `useCaseChat` 实例：
+`messages`、`values`、`isLoading`、`interrupt` 等响应式属性代理到当前 `useCaseChat` 实例（通过 `shallowRef` 追踪变化）：
 ```typescript
-const messages = computed(() => currentChat?.messages.value ?? [])
-const values = computed(() => currentChat?.values.value)
-const isLoading = computed(() => currentChat?.isLoading.value ?? false)
-const interrupt = computed(() => currentChat?.interrupt.value)
+const messages = computed(() => currentChat.value?.messages.value ?? [])
+const values = computed(() => currentChat.value?.values.value)
+const isLoading = computed(() => currentChat.value?.isLoading.value ?? false)
+const interrupt = computed(() => currentChat.value?.interrupt.value)
 ```
 
 #### stopGeneration 双重取消

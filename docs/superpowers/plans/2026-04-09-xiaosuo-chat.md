@@ -540,7 +540,8 @@ export function useXiaosuoChat(caseId: MaybeRef<number>) {
 
   // effectScope 管理（参照 useModuleChatManager）
   let currentScope: EffectScope | null = null
-  let currentChat: ReturnType<typeof useCaseChat> | null = null
+  // ⚠️ 必须用 shallowRef，否则 computed 无法追踪 currentChat 的重新赋值
+  const currentChat = shallowRef<ReturnType<typeof useCaseChat> | null>(null)
 
   // 快速切换竞态防护
   let switchCounter = 0
@@ -549,15 +550,15 @@ export function useXiaosuoChat(caseId: MaybeRef<number>) {
     if (currentScope) {
       currentScope.stop()
       currentScope = null
-      currentChat = null
+      currentChat.value = null
     }
   }
 
-  // 对话状态代理
-  const messages = computed(() => currentChat?.messages.value ?? [])
-  const values = computed(() => currentChat?.values.value)
-  const isLoading = computed(() => currentChat?.isLoading.value ?? false)
-  const interrupt = computed(() => currentChat?.interrupt.value)
+  // 对话状态代理（通过 shallowRef 追踪 currentChat 变化）
+  const messages = computed(() => currentChat.value?.messages.value ?? [])
+  const values = computed(() => currentChat.value?.values.value)
+  const isLoading = computed(() => currentChat.value?.isLoading.value ?? false)
+  const interrupt = computed(() => currentChat.value?.interrupt.value)
 
   // ── Session CRUD ──
 
@@ -613,15 +614,15 @@ export function useXiaosuoChat(caseId: MaybeRef<number>) {
     }
 
     currentScope = newScope
-    currentChat = newChat
+    currentChat.value = newChat
 
     // 检查是否有活跃 run
     const session = sessions.value.find(s => s.sessionId === sessionId)
     if (session?.hasActiveRun) {
-      currentChat.reconnect()
+      currentChat.value.reconnect()
     }
     else {
-      currentChat.loadHistory()
+      currentChat.value.loadHistory()
     }
   }
 
@@ -648,16 +649,16 @@ export function useXiaosuoChat(caseId: MaybeRef<number>) {
   // ── 消息操作 ──
 
   function sendMessage(text: string, options?: { thinking?: boolean }) {
-    currentChat?.sendMessage(text, options)
+    currentChat.value?.sendMessage(text, options)
   }
 
   function resumeInterrupt(data: any) {
-    currentChat?.resumeInterrupt(data)
+    currentChat.value?.resumeInterrupt(data)
   }
 
   async function stopGeneration() {
     try {
-      currentChat?.stopGeneration()
+      currentChat.value?.stopGeneration()
 
       const sid = currentSessionId.value
       if (!sid) return
