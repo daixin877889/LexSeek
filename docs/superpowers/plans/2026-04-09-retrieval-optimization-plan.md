@@ -224,6 +224,7 @@ export interface DateFilter {
 export const ALLOWED_TABLES = new Set(['law_embeddings', 'case_material_embeddings'])
 
 /** 允许的 metadata 过滤字段白名单 */
+// 注意：articles_id 不在白名单中，因为它仅用于 RRF 去重读取（extractDocId），不用于 SQL WHERE 过滤
 export const ALLOWED_METADATA_KEYS = new Set([
     'legal_id', 'legal_name', 'legal_type', 'article_type',
     'userId', 'sourceId', 'source',
@@ -486,6 +487,8 @@ curl -X POST http://localhost:3000/api/v1/admin/prompts -H 'Content-Type: applic
 curl -X PUT http://localhost:3000/api/v1/admin/prompts/activate/<promptId>
 ```
 
+如果 admin API 不可用，可通过 `bun run prisma:studio` 打开 Prisma Studio 直接操作 nodes 和 prompts 表插入记录。
+
 - [ ] **Step 6: Commit**
 
 ```
@@ -523,7 +526,7 @@ feat(retrieval): 添加 LLM 意图分类服务（search_intent_router 节点）
 5. **postFilters 应用**（rerank 之后、slice 之前）：调用 `isLawEffective` 和 `applyDateFilter`。注意：这两个函数在 `server/services/legal/searchLaw.tool.ts` 中是**未导出的私有函数**，需要先将它们导出（或提取到 `server/services/retrieval/postFilter.service.ts` 中复用）
 6. `results.slice(0, request.k)` 返回
 
-**前置步骤**：在实现 retrievalRouter 之前，需要先从 `searchLaw.tool.ts` 导出 `isLawEffective` 和 `applyDateFilter` 函数，或将它们提取到独立文件 `server/services/retrieval/postFilter.service.ts` 中（推荐后者，避免循环依赖）。
+**前置步骤**：在实现 retrievalRouter 之前，需要先从 `searchLaw.tool.ts` 导出 `isLawEffective` 和 `applyDateFilter` 函数，或将它们提取到独立文件 `server/services/retrieval/postFilter.service.ts` 中（推荐后者，避免循环依赖）。提取时将参数类型从内部 `SearchResultItem[]` 改为 `RetrievalResult[]`（两者结构兼容，都有 `metadata` 字段）。
 
 - [ ] **Step 4: 运行测试确认通过**
 
@@ -561,6 +564,10 @@ feat(retrieval): 添加统一检索路由器（意图路由 + 多通道分发 + 
 - metadataFilter 键名转换：`legalId → legal_id`, `legalType → legal_type`
 - `isEffective` 和日期过滤放入 `postFilters`
 - 无 query 分支保持现有 SQL 逻辑不变
+- 路由器返回 `RetrievalResult[]`，需映射回 `SearchResultItem[]`（两者结构兼容）：
+  ```typescript
+  return results.map(r => ({ score: r.score, content: r.content, metadata: r.metadata }))
+  ```
 
 - [ ] **Step 4: 验证工作流工具层兼容**
 
@@ -606,15 +613,27 @@ const results = await retrievalRouterService({
 
 无 query 分支保持现有 `fetchMaterialContents` 逻辑。
 
-- [ ] **Step 4: 适配工作流工具层**
+- [ ] **Step 4: 确保返回类型映射在服务层内部完成**
 
-`server/services/workflow/tools/searchCaseMaterials.tool.ts` 中 `createTool` 的返回值处理：
-- `searchMaterialsService` 返回类型从 `MaterialSearchToolResult[]` 变为 `RetrievalResult[]`（有 query 时）
-- 需要将 `RetrievalResult` 映射回 `MaterialSearchToolResult` 格式（保持 `index`, `content`, `source`, `relevanceScore` 字段），确保 `truncateToolResults` 和 JSON 序列化逻辑兼容
+`searchMaterialsService` 内部走路由器后，将 `RetrievalResult[]` 映射回 `MaterialSearchToolResult[]`，保持函数签名不变。这样 `server/services/workflow/tools/searchCaseMaterials.tool.ts` 工具层代码**零修改**：
+
+```typescript
+// searchMaterialsService 内部，router 分支末尾
+return results.map((r, index) => ({
+    index: index + 1,
+    content: r.content,
+    source: {
+        sourceId: Number(r.metadata.sourceId),
+        sourceName: r.metadata.sourceName as string,
+        chunkIndex: r.metadata.chunkIndex as number | undefined,
+    },
+    relevanceScore: r.score,
+}))
+```
 
 - [ ] **Step 5: 运行测试确认通过**
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```
 feat(retrieval): searchCaseMaterialsTool 接入统一检索路由器
