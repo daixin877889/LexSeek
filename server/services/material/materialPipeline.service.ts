@@ -392,14 +392,14 @@ export async function getMaterialContextService(
         item => item.mode === 'summary' && item.hasContent && item.summary?.endsWith('...'),
     )
     if (needSummaryItems.length > 0) {
-        const needSummaryMaterials = sorted.filter(m =>
-            needSummaryItems.some(item => getSourceId(m) === item.sourceId),
-        )
+        const needSourceIds = new Set(needSummaryItems.map(item => item.sourceId))
+        const sourceIdToMaterial = new Map(sorted.map(m => [getSourceId(m), m]))
+        const needSummaryMaterials = sorted.filter(m => needSourceIds.has(getSourceId(m)))
         try {
             const { generateAndCacheSummaries } = await import('./materialSummary.service')
             const generatedMap = await generateAndCacheSummaries(needSummaryMaterials, contentMap)
             for (const item of needSummaryItems) {
-                const material = sorted.find(m => getSourceId(m) === item.sourceId)
+                const material = sourceIdToMaterial.get(item.sourceId)
                 if (material && generatedMap.has(material.id)) {
                     item.summary = generatedMap.get(material.id)!
                 }
@@ -413,41 +413,29 @@ export async function getMaterialContextService(
     return { mode, totalTokens: usedTokens, materialList }
 }
 
+function formatMaterialList(items: MaterialContextItem[]): { stats: string; body: string } {
+    const fullCount = items.filter(m => m.mode === 'full').length
+    const summaryCount = items.filter(m => m.mode === 'summary').length
+    const stats = `共 ${items.length} 份，${fullCount} 份全文 + ${summaryCount} 份摘要`
+    const body = items
+        .map(m => m.mode === 'full'
+            ? `## [sourceId=${m.sourceId}] ${m.name} [全文]\n${m.content || '[暂无内容]'}`
+            : `## [sourceId=${m.sourceId}] ${m.name} [摘要]\n${m.summary || '[暂无摘要]'}`)
+        .join('\n\n')
+    return { stats, body }
+}
+
 export function buildMaterialContextMessage(context: MaterialContextResult): string {
     if (context.mode === 'empty') return ''
-
-    const fullCount = context.materialList.filter(m => m.mode === 'full').length
-    const summaryCount = context.materialList.filter(m => m.mode === 'summary').length
-    const header = `以下是本案件的材料内容（共 ${context.materialList.length} 份，${fullCount} 份全文 + ${summaryCount} 份摘要）。\n摘要材料需要详细内容时请使用 search_case_materials 工具，传入 sourceId 精确检索。\n`
-
-    const body = context.materialList
-        .map(m => {
-            if (m.mode === 'full') {
-                return `## [sourceId=${m.sourceId}] ${m.name} [全文]\n${m.content || '[暂无内容]'}`
-            }
-            return `## [sourceId=${m.sourceId}] ${m.name} [摘要]\n${m.summary || '[暂无摘要]'}`
-        })
-        .join('\n\n')
-
+    const { stats, body } = formatMaterialList(context.materialList)
+    const header = `以下是本案件的材料内容（${stats}）。\n摘要材料需要详细内容时请使用 search_case_materials 工具，传入 sourceId 精确检索。\n`
     return header + '\n' + body
 }
 
 export function buildIncrementalMaterialMessage(context: MaterialContextResult): string {
     if (context.mode === 'empty') return ''
-
-    const fullCount = context.materialList.filter(m => m.mode === 'full').length
-    const summaryCount = context.materialList.filter(m => m.mode === 'summary').length
-    const header = `案件新增了以下材料（共 ${context.materialList.length} 份，${fullCount} 份全文 + ${summaryCount} 份摘要）。\n摘要材料需要详细内容时请使用 search_case_materials 工具，传入 sourceId 精确检索。\n`
-
-    const body = context.materialList
-        .map(m => {
-            if (m.mode === 'full') {
-                return `## [sourceId=${m.sourceId}] ${m.name} [全文]\n${m.content || '[暂无内容]'}`
-            }
-            return `## [sourceId=${m.sourceId}] ${m.name} [摘要]\n${m.summary || '[暂无摘要]'}`
-        })
-        .join('\n\n')
-
+    const { stats, body } = formatMaterialList(context.materialList)
+    const header = `案件新增了以下材料（${stats}）。\n摘要材料需要详细内容时请使用 search_case_materials 工具，传入 sourceId 精确检索。\n`
     return header + '\n' + body
 }
 

@@ -23,17 +23,10 @@ export async function vectorSearchService(
         throw new Error(`非法表名: ${tableName}`)
     }
 
-    // 获取 query 的向量
     const embeddings = await getEmbeddingsAsync()
     const queryVector = await embeddings.embedQuery(query)
     const vectorStr = `[${queryVector.join(',')}]`
 
-    // 设置 HNSW ef_search 参数
-    const efSearch = parseInt(process.env.NUXT_HNSW_EF_SEARCH || '100')
-    const pool = getPool()
-    await pool.query(`SET hnsw.ef_search = ${efSearch}`)
-
-    // 构建 metadata 过滤（$2 开始）
     const { filterSQL: metaSQL, filterParams: metaParams } = buildParameterizedMetadataFilter(metadataFilter, 2)
     const { filterSQL: sourceSQL, filterParams: sourceParams } = buildSourceIdsFilter(sourceIds, 2 + metaParams.length)
     const limitIdx = 2 + metaParams.length + sourceParams.length
@@ -48,13 +41,22 @@ export async function vectorSearchService(
         LIMIT $${limitIdx}
     `
     const params = [vectorStr, ...metaParams, ...sourceParams, k]
-    const result = await pool.query(sql, params)
 
-    return result.rows.map(row => ({
-        score: parseFloat(row.score),
-        content: row.text,
-        metadata: row.metadata,
-    }))
+    // 使用同一个 client 连接保证 SET 和查询在同一会话
+    const pool = getPool()
+    const client = await pool.connect()
+    try {
+        const efSearch = parseInt(process.env.NUXT_HNSW_EF_SEARCH || '100')
+        await client.query(`SET hnsw.ef_search = ${efSearch}`)
+        const result = await client.query(sql, params)
+        return result.rows.map(row => ({
+            score: parseFloat(row.score),
+            content: row.text,
+            metadata: row.metadata,
+        }))
+    } finally {
+        client.release()
+    }
 }
 
 /**
@@ -110,12 +112,10 @@ export async function hybridSearchService(
     const searchK = request.k * 3  // 粗检索取 3 倍
     const searchQuery = intent.rewrittenQuery || request.query
 
-    // 并行执行 BM25 和 Vector 搜索
     const [bm25Results, vectorResults] = await Promise.all([
         fullTextSearchService(tableName, intent.keywords || [], searchK, request.metadataFilter, request.sourceIds),
         vectorSearchService(tableName, searchQuery, searchK, request.metadataFilter, request.sourceIds),
     ])
 
-    // RRF 融合
     return reciprocalRankFusion(bm25Results, vectorResults, request.type)
 }

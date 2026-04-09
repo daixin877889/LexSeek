@@ -4,9 +4,12 @@
  * 统一检索路由器、各通道、Rerank 等服务的共享类型
  */
 
+/** 检索模式 */
+export type RetrievalMode = 'exact' | 'hybrid' | 'semantic'
+
 /** 检索意图分类结果 */
 export interface IntentClassification {
-    intent: 'exact' | 'hybrid' | 'semantic'
+    intent: RetrievalMode
     legalName?: string
     articleRef?: string
     keywords?: string[]
@@ -45,7 +48,7 @@ export interface RetrievalResult {
     content: string
     score: number
     metadata: Record<string, unknown>
-    retrievalMode: 'exact' | 'hybrid' | 'semantic'
+    retrievalMode: RetrievalMode
 }
 
 /** 内部搜索结果（BM25/Vector 通道共用） */

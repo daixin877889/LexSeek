@@ -11,39 +11,28 @@ import { hybridSearchService } from './hybridSearch.service'
 import { semanticSearchService } from './semanticSearch.service'
 import { rerankAndFilterService } from './rerank.service'
 import { applyPostFiltersService } from './postFilter.service'
-import type { RetrievalRequest, RetrievalResult, IntentClassification, SearchResultItem } from './types'
+import type { RetrievalRequest, RetrievalResult, IntentClassification, SearchResultItem, RetrievalMode } from './types'
 
 /**
  * 统一检索路由器
  *
- * 流程：
- * 1. LLM 意图分类（精确/混合/语义）
- * 2. 分发到对应检索通道
- * 3. 精确通道无结果时降级到混合通道
- * 4. 非精确通道结果经 Rerank 重排序
- * 5. 后处理过滤（有效性、日期范围）
- * 6. 截取 top-k 返回
- *
- * @param request 检索请求
- * @returns 检索结果数组（已排序、过滤、截取）
+ * 流程：LLM 意图分类 → 分发到对应通道 → Rerank → 后处理过滤 → top-k
+ * 精确通道无结果时自动降级到混合通道
  */
 export async function retrievalRouterService(
     request: RetrievalRequest,
 ): Promise<RetrievalResult[]> {
-    // 1. LLM 意图路由
     const intent = await classifyIntentService(request.query, request.type)
     logger.info(`检索意图分类: ${intent.intent}`, { query: request.query, type: request.type })
 
-    // 2. 分发到对应通道
     let results: RetrievalResult[]
-    let actualMode: 'exact' | 'hybrid' | 'semantic' = intent.intent
+    let actualMode: RetrievalMode = intent.intent
 
     switch (intent.intent) {
         case 'exact': {
             results = await exactSearchService(intent)
 
             if (results.length === 0) {
-                // 精确通道无结果，降级到混合检索
                 logger.info('精确检索无结果，降级到混合检索')
                 const fallbackIntent: IntentClassification = {
                     ...intent,
@@ -69,20 +58,14 @@ export async function retrievalRouterService(
         }
     }
 
-    // 3. Rerank（精确通道且未降级时跳过）
     if (actualMode !== 'exact' && results.length > 0) {
         const searchItems: SearchResultItem[] = results.map(r => ({
-            score: r.score,
-            content: r.content,
-            metadata: r.metadata,
+            score: r.score, content: r.content, metadata: r.metadata,
         }))
         const reranked = await rerankAndFilterService(request.query, searchItems, request.k, request.type)
         results = reranked.map(r => ({ ...r, retrievalMode: actualMode }))
     }
 
-    // 4. 后处理过滤（日期、有效性）
     results = applyPostFiltersService(results, request.postFilters)
-
-    // 5. 截取 top-k
     return results.slice(0, request.k)
 }

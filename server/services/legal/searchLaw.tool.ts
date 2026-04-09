@@ -16,19 +16,13 @@ import timezone from 'dayjs/plugin/timezone'
 import type { LawSearchParams, LawSearchResultItem, LawSearchResult, LawEmbeddingMetadata } from '#shared/types/legal'
 import { getPool } from './vectorStore.service'
 import { retrievalRouterService } from '../retrieval/retrievalRouter.service'
+import type { DateFilter, SearchResultItem } from '../retrieval/types'
+import { isLawEffective, applyDateFilter } from '../retrieval/postFilter.service'
 
-// 配置 dayjs 插件
 dayjs.extend(utc)
 dayjs.extend(timezone)
 
-// 东八区时区
 const CHINA_TIMEZONE = 'Asia/Shanghai'
-
-/** 日期过滤接口 */
-interface DateFilter {
-    date: string // ISO 格式日期: YYYY-MM-DD
-    operator: '>' | '<' | '=' | '>=' | '<='
-}
 
 /** 搜索参数 */
 interface SearchLawParams {
@@ -43,86 +37,6 @@ interface SearchLawParams {
     invalidDateFilter?: DateFilter
     publishDateFilter?: DateFilter
     effectiveDateFilter?: DateFilter
-}
-
-/** 搜索结果项 */
-interface SearchResultItem {
-    score: number
-    content: string
-    metadata: Record<string, unknown>
-}
-
-/**
- * 检查法律条文是否有效
- * @param effectiveDate 生效日期
- * @param invalidDate 失效日期
- * @returns 是否有效
- */
-function isLawEffective(effectiveDate?: string | null, invalidDate?: string | null): boolean {
-    const now = dayjs().tz(CHINA_TIMEZONE)
-
-    // 检查生效日期
-    if (effectiveDate) {
-        const effective = dayjs(effectiveDate)
-        if (!effective.isValid() || effective.isAfter(now)) {
-            return false // 未生效
-        }
-    }
-
-    // 检查失效日期
-    if (invalidDate && invalidDate !== '') {
-        const invalid = dayjs(invalidDate)
-        if (invalid.isValid() && invalid.isBefore(now)) {
-            return false // 已失效
-        }
-    }
-
-    return true
-}
-
-/**
- * 应用日期过滤到结果
- * @param results 搜索结果
- * @param dateFilters 日期过滤条件
- * @returns 过滤后的结果
- */
-function applyDateFilter(
-    results: SearchResultItem[],
-    dateFilters: Record<string, DateFilter | undefined>
-): SearchResultItem[] {
-    let filteredResults = [...results]
-
-    for (const [field, dateFilter] of Object.entries(dateFilters)) {
-        if (!dateFilter) continue
-
-        const { date, operator } = dateFilter
-        const targetDate = dayjs.tz(date, CHINA_TIMEZONE)
-
-        filteredResults = filteredResults.filter(result => {
-            const resultDateStr = result.metadata[field] as string | undefined
-            if (!resultDateStr) return false
-
-            const resultDate = dayjs(resultDateStr)
-            if (!resultDate.isValid()) return false
-
-            switch (operator) {
-                case '>':
-                    return resultDate.isAfter(targetDate)
-                case '<':
-                    return resultDate.isBefore(targetDate)
-                case '=':
-                    return resultDate.isSame(targetDate, 'day')
-                case '>=':
-                    return resultDate.isSame(targetDate, 'day') || resultDate.isAfter(targetDate)
-                case '<=':
-                    return resultDate.isSame(targetDate, 'day') || resultDate.isBefore(targetDate)
-                default:
-                    return true
-            }
-        })
-    }
-
-    return filteredResults
 }
 
 /**

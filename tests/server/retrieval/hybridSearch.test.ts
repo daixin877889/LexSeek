@@ -173,7 +173,8 @@ describe('vectorSearchService', () => {
         const mockQuery = vi.fn()
             .mockResolvedValueOnce({}) // SET hnsw.ef_search
             .mockResolvedValueOnce({ rows: mockRows }) // SELECT
-        vi.mocked(getPool).mockReturnValue({ query: mockQuery } as never)
+        const mockClient = { query: mockQuery, release: vi.fn() }
+        vi.mocked(getPool).mockReturnValue({ connect: vi.fn().mockResolvedValue(mockClient) } as never)
 
         const result = await vectorSearchService('law_embeddings', '合同纠纷', 5)
 
@@ -220,7 +221,8 @@ describe('vectorSearchService', () => {
         const mockQuery = vi.fn()
             .mockResolvedValueOnce({})
             .mockResolvedValueOnce({ rows: [] })
-        vi.mocked(getPool).mockReturnValue({ query: mockQuery } as never)
+        const mockClient = { query: mockQuery, release: vi.fn() }
+        vi.mocked(getPool).mockReturnValue({ connect: vi.fn().mockResolvedValue(mockClient) } as never)
 
         await vectorSearchService('law_embeddings', '刑法', 10, { legal_type: 'statute' })
 
@@ -254,7 +256,8 @@ describe('hybridSearchService', () => {
         const mockQuery = vi.fn()
             .mockResolvedValueOnce({}) // SET hnsw.ef_search
             .mockResolvedValueOnce({ rows: vectorItems.map(i => ({ text: i.content, metadata: i.metadata, score: '0.9' })) })
-        vi.mocked(getPool).mockReturnValue({ query: mockQuery } as never)
+        const mockClient = { query: mockQuery, release: vi.fn() }
+        vi.mocked(getPool).mockReturnValue({ connect: vi.fn().mockResolvedValue(mockClient) } as never)
 
         const result = await hybridSearchService(
             { intent: 'hybrid', keywords: ['合同', '违约'], rewrittenQuery: '合同违约纠纷' },
@@ -286,7 +289,8 @@ describe('hybridSearchService', () => {
         const mockQuery = vi.fn()
             .mockResolvedValueOnce({})
             .mockResolvedValueOnce({ rows: [] })
-        vi.mocked(getPool).mockReturnValue({ query: mockQuery } as never)
+        const mockClient = { query: mockQuery, release: vi.fn() }
+        vi.mocked(getPool).mockReturnValue({ connect: vi.fn().mockResolvedValue(mockClient) } as never)
 
         await hybridSearchService(
             { intent: 'hybrid', keywords: ['损害赔偿'] },
@@ -305,7 +309,8 @@ describe('hybridSearchService', () => {
         const mockQuery = vi.fn()
             .mockResolvedValueOnce({})
             .mockResolvedValueOnce({ rows: [] })
-        vi.mocked(getPool).mockReturnValue({ query: mockQuery } as never)
+        const mockClient = { query: mockQuery, release: vi.fn() }
+        vi.mocked(getPool).mockReturnValue({ connect: vi.fn().mockResolvedValue(mockClient) } as never)
 
         await hybridSearchService(
             { intent: 'hybrid', keywords: ['证人证词'] },
