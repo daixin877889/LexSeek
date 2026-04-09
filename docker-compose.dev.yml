@@ -1,0 +1,31 @@
+# 开发环境 Docker Compose 配置
+# 使用方式: docker compose -f docker-compose.dev.yml up -d
+# 首次构建: docker compose -f docker-compose.dev.yml up -d --build
+
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: docker/postgres/Dockerfile
+    image: lexseek-postgres:dev
+    container_name: lexseek-postgres-dev
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=daixin
+      - POSTGRES_PASSWORD=daixin88
+      - POSTGRES_DB=postgres
+      - TZ=Asia/Shanghai
+    volumes:
+      - lexseek-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U daixin -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  lexseek-pgdata:
+    driver: local
