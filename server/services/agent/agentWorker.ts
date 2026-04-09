@@ -169,6 +169,7 @@ export class AgentWorker {
           userId: run.userId,
           caseId: run.caseId,
           command: input.command,
+          thinking: input.thinking,
         })
       }
 
