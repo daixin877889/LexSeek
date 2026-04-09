@@ -236,17 +236,21 @@ const interrupt = computed(() => currentChat?.interrupt.value)
 
 ```typescript
 async function stopGeneration() {
-  // 1. 中止前端 SSE 连接
-  currentChat?.stopGeneration()
+  try {
+    // 1. 中止前端 SSE 连接
+    currentChat?.stopGeneration()
 
-  // 2. 取消后端 Worker 任务（防止继续扣积分）
-  const sid = currentSessionId.value
-  if (!sid) return
-  const runData = await useApiFetch<{ run: { id: string } | null }>(
-    `/api/v1/case/analysis/runs/current/${sid}`,
-  )
-  if (runData?.run?.id) {
-    await useApiFetch(`/api/v1/case/analysis/runs/cancel/${runData.run.id}`, { method: 'POST' })
+    // 2. 取消后端 Worker 任务（防止继续扣积分）
+    const sid = currentSessionId.value
+    if (!sid) return
+    const runData = await useApiFetch<{ run: { id: string } | null }>(
+      `/api/v1/case/analysis/runs/current/${sid}`,
+    )
+    if (runData?.run?.id) {
+      await useApiFetch(`/api/v1/case/analysis/runs/cancel/${runData.run.id}`, { method: 'POST' })
+    }
+  } catch (error) {
+    console.error('[useXiaosuoChat] 停止生成失败:', error)
   }
 }
 ```
