@@ -716,11 +716,17 @@ export const searchLawTool = tool(
                 query: input.query,
                 type: 'law',
                 k: input.k || 5,
+                // metadataFilter 只传 metadata 等值过滤（snake_case 键名）
                 metadataFilter: {
-                    legalId: input.legalId,
-                    legalType: input.legalType,
+                    ...(input.legalId && { legal_id: input.legalId }),
+                    ...(input.legalType && { legal_type: input.legalType }),
+                },
+                // 日期和有效性等后处理过滤，通过独立字段传递
+                postFilters: {
                     isEffective: input.isEffective,
-                    ...dateFilters,
+                    invalidDateFilter: input.invalidDateFilter,
+                    publishDateFilter: input.publishDateFilter,
+                    effectiveDateFilter: input.effectiveDateFilter,
                 },
             })
             return JSON.stringify(formatLawResults(results))
@@ -782,6 +788,13 @@ interface RetrievalRequest {
     metadataFilter?: Record<string, string | number | boolean>
     /** sourceId IN 过滤（案件材料检索用），由各通道内部构建 SQL IN 条件 */
     sourceIds?: string[]
+    /** 后处理过滤（日期范围、有效性等），在检索结果返回后内存中过滤 */
+    postFilters?: {
+        isEffective?: boolean
+        invalidDateFilter?: DateFilter
+        publishDateFilter?: DateFilter
+        effectiveDateFilter?: DateFilter
+    }
 }
 
 interface RetrievalResult {
@@ -974,8 +987,14 @@ CREATE TRIGGER trg_law_embeddings_tsv
     BEFORE INSERT OR UPDATE OF text ON law_embeddings
     FOR EACH ROW EXECUTE FUNCTION update_tsv_column();
 
+-- case_material_embeddings 复用同一个触发器函数
+CREATE TRIGGER trg_case_material_embeddings_tsv
+    BEFORE INSERT OR UPDATE OF text ON case_material_embeddings
+    FOR EACH ROW EXECUTE FUNCTION update_tsv_column();
+
 -- 初始填充已有数据
 UPDATE law_embeddings SET tsv = to_tsvector('chinese', COALESCE(text, ''));
+UPDATE case_material_embeddings SET tsv = to_tsvector('chinese', COALESCE(text, ''));
 ```
 
 trigger 对 Prisma 和 PGVectorStore 完全透明 — INSERT 时无需显式传入 tsv 列。
