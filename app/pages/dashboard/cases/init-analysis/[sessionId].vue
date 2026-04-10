@@ -91,7 +91,7 @@
   </AiChat>
 
   <!-- 统一中断处理器 -->
-  <CaseInterruptInterruptHandler :interrupt-data="interruptData" @resume="resumeWorkflow" />
+  <CaseInterruptHandler :interrupt-data="interruptData" @resume="resumeWorkflow" />
 
   <!-- 文档/图片预览 -->
   <CaseAnalysisDocPreviewDialog

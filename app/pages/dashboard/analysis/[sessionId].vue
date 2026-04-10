@@ -13,7 +13,7 @@
   </AiChat>
 
   <!-- 统一中断处理器 -->
-  <CaseInterruptInterruptHandler :interrupt-data="stream.interruptData.value" @resume="resumeWorkflow" />
+  <CaseInterruptHandler :interrupt-data="stream.interruptData.value" @resume="resumeWorkflow" />
 </template>
 
 <script lang="ts" setup>
