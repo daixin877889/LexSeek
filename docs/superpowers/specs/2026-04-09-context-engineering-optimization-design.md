@@ -1,6 +1,6 @@
 # 工作流与 Agent 上下文工程全量优化设计
 
-**版本**: 1.4
+**版本**: 1.5
 **日期**: 2026-04-10
 **状态**: 审查通过
 
@@ -43,8 +43,7 @@ Layer 5: 基础设施  → #13 #14 storage Redis 化、Worker 过滤完善
 
 ### 1.4 设计约束
 
-- **主代理/模块代理**的动态上下文注入使用 HumanMessage + `response_metadata.injectedBy` 标记方案（LangGraph 不允许多个 SystemMessage，且动态上下文需在对话过程中增量注入）
-- **子代理**的上下文注入使用系统提示词拼接方式（子代理每次调用独立创建，上下文为一次性静态注入，适合直接拼入 systemPrompt；系统消息由 `agentWorker.ts` 和 `threadState.ts` 过滤，不会泄露到前端）
+- **所有代理**（主代理、模块代理、子代理）的动态上下文注入统一使用 HumanMessage + `response_metadata.injectedBy` 标记方案（LangGraph 不允许多个 SystemMessage，且保持 systemPrompt 纯静态以命中 Prompt Caching）
 - 前端通过 `useMessageParser.ts` 按 `injectedBy` 前缀过滤，服务端 `stripSystemMessages` 过滤 system 消息
 - 两条工作流路径（V1 initAnalysis / V2 caseAnalysisV2）均为正式功能，需同等级优化
 - `server/utils/tokenCounter.ts`（tiktoken cl100k_base）已实现，可直接复用
@@ -632,41 +631,58 @@ async function buildBriefContext(caseId: number): Promise<string> {
 
 **改造子代理创建逻辑**：
 
-子代理的上下文注入采用**系统提示词拼接方式**（见 1.4 设计约束）。原因：
-- 子代理每次工具调用独立创建，上下文为一次性静态注入，无需增量更新
-- systemPrompt 方式更简洁，且已有三层过滤覆盖
+子代理的上下文注入采用**与主代理一致的 HumanMessage + `injectedBy` 标记方案**。原因：
+- systemPrompt 拼接方式在上下文变化时（如用户中途新增材料）会导致整个前缀缓存失效
+- HumanMessage 方案保持 systemPrompt 纯静态（命中 Prompt Caching），动态上下文追加到消息流中
+- 与主代理/模块代理方案统一，降低维护成本
 
 ```typescript
 // subAgentToolFactory.ts - 工具函数内部
 
 const briefContext = await buildBriefContext(context.caseId)
-const enrichedSystemPrompt = [
-  systemPrompt,
-  briefContext,
-].filter(Boolean).join('\n\n')
 
+// systemPrompt 保持纯静态（命中 Prompt Caching）
 const agent = createAgent({
-  systemPrompt: enrichedSystemPrompt,
+  systemPrompt,  // 不拼接 briefContext
   // ...rest
 })
+
+// 在 invoke 前，将 briefContext 作为带标记的 HumanMessage 注入到 initialMessages 中
+const initialMessages = briefContext
+  ? [
+      new HumanMessage({
+        content: briefContext,
+        response_metadata: {
+          injectedBy: 'SubAgentContext',
+          injectedAt: new Date().toISOString(),
+        },
+      }),
+      new HumanMessage(question),  // 主代理传入的问题
+    ]
+  : [new HumanMessage(question)]
+
+const result = await agent.invoke(
+  { messages: initialMessages },
+  { configurable: { thread_id: `${context.sessionId}_sub_${safeName}` } },
+)
 ```
 
-**服务端和前端双重过滤**：
+> **注意**：子代理共享 `thread_id`，首次调用注入 briefContext 后会被 checkpoint 持久化。后续调用时 briefContext 已在历史消息中，无需重复注入。可通过检查 checkpoint 历史是否已有 `injectedBy: 'SubAgentContext'` 的消息来判断是否跳过注入。
 
-子代理上下文通过 system prompt 注入，需确保以下三层过滤全部生效：
+**服务端和前端三重过滤**：
 
-1. **服务端 `agentWorker.ts`**：`isFilterableMessage`（6.2 改造后）过滤 `type === 'system'` 的消息 ✓
+1. **服务端 `agentWorker.ts`**：`isFilterableMessage`（6.2 改造后）过滤 `response_metadata.injectedBy` 存在的消息 ✓
 2. **服务端 `threadState.ts`**：
-   - `getThreadValuesService` 已过滤 `msg.type !== 'system'` ✓
-   - **`loadSubAgentThreads` 当前完全无过滤**（子代理线程消息直接 `map(messageToFlatDict)` 原样返回）✗ — 这是需要修复的缺陷
-3. **前端 `useMessageParser.ts`**：过滤 `SystemMessage` 实例 ✓
+   - `getThreadValuesService` 已过滤 `injectedBy` 以 `ModuleContext`/`CaseMaterial` 开头的消息，需**新增 `SubAgentContext` 前缀**
+   - **`loadSubAgentThreads` 当前完全无过滤**（子代理线程消息直接 `map(messageToFlatDict)` 原样返回）✗ — 需修复
+3. **前端 `useMessageParser.ts`**：需**新增 `SubAgentContext` 前缀**到过滤列表
 
 **`loadSubAgentThreads` 改造**（修复缺失的过滤逻辑）：
 
 ```typescript
 // threadState.ts - loadSubAgentThreads
 // 当前：subRawMessages.map(messageToFlatDict) — 无过滤
-// 改为：先过滤再映射
+// 改为：先映射再过滤
 const filteredMessages = subRawMessages
   .map(messageToFlatDict)
   .filter(msg => {
@@ -681,6 +697,32 @@ subAgentThreads.push({
   threadId: subThreadId,
   messages: filteredMessages,
 })
+```
+
+**`getThreadValuesService` 改造**（新增 SubAgentContext 前缀）：
+
+```typescript
+// threadState.ts - getThreadValuesService
+// 当前只过滤 ModuleContext 和 CaseMaterial 前缀
+// 改为同时过滤 SubAgentContext
+if (injector?.startsWith('ModuleContext')
+  || injector?.startsWith('CaseMaterial')
+  || injector?.startsWith('SubAgentContext')
+) {
+  return false
+}
+```
+
+**`useMessageParser.ts` 改造**（前端新增 SubAgentContext 前缀）：
+
+```typescript
+// app/components/ai/composables/useMessageParser.ts
+if (injector?.startsWith('ModuleContext')
+  || injector?.startsWith('CaseMaterial')
+  || injector?.startsWith('SubAgentContext')  // 新增
+) {
+  return false
+}
 ```
 
 ---
