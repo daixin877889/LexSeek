@@ -19,6 +19,7 @@ import {
     buildEmbeddingText,
     buildEmbeddingMetadata,
     getLegalTypeName,
+    getEmbeddableContent,
 } from '~~/server/services/legal/lawEmbedding.service'
 
 // 生成有效日期的 arbitrary（过滤无效日期）
@@ -455,6 +456,110 @@ describe('法律条文向量嵌入服务', () => {
                 ),
                 { numRuns: 100 }
             )
+        })
+    })
+
+    describe('getEmbeddableContent', () => {
+        it('有 content 时应直接返回 content', () => {
+            const article = {
+                content: '第一条 为了保护民事主体的合法权益',
+                l1: '第一编 总则',
+                l2: '第一章 基本规定',
+                l3: null,
+                l4: null,
+                l5: null,
+            }
+            expect(getEmbeddableContent(article)).toBe('第一条 为了保护民事主体的合法权益')
+        })
+
+        it('content 为空字符串时应回退到层级标题', () => {
+            const article = {
+                content: '',
+                l1: '第一编 总则',
+                l2: null,
+                l3: null,
+                l4: null,
+                l5: null,
+            }
+            expect(getEmbeddableContent(article)).toBe('第一编 总则')
+        })
+
+        it('content 为仅空格时应回退到层级标题', () => {
+            const article = {
+                content: '   ',
+                l1: null,
+                l2: '第一章',
+                l3: null,
+                l4: null,
+                l5: null,
+            }
+            expect(getEmbeddableContent(article)).toBe('第一章')
+        })
+
+        it('content 为 null 时应按 L5 → L1 优先级返回', () => {
+            // L5 优先
+            expect(getEmbeddableContent({
+                content: null, l1: 'L1', l2: 'L2', l3: 'L3', l4: 'L4', l5: 'L5',
+            })).toBe('L5')
+
+            // 只有 L3 和 L1
+            expect(getEmbeddableContent({
+                content: null, l1: 'L1', l2: null, l3: 'L3', l4: null, l5: null,
+            })).toBe('L3')
+
+            // 只有 L1
+            expect(getEmbeddableContent({
+                content: null, l1: 'L1', l2: null, l3: null, l4: null, l5: null,
+            })).toBe('L1')
+        })
+
+        it('所有字段为 null 或空时应返回空字符串', () => {
+            expect(getEmbeddableContent({
+                content: null, l1: null, l2: null, l3: null, l4: null, l5: null,
+            })).toBe('')
+
+            expect(getEmbeddableContent({
+                content: '', l1: '', l2: '', l3: '', l4: '', l5: '',
+            })).toBe('')
+        })
+
+        it('层级标题为仅空格时应跳过', () => {
+            expect(getEmbeddableContent({
+                content: null, l1: '  ', l2: null, l3: '有效标题', l4: null, l5: '  ',
+            })).toBe('有效标题')
+        })
+
+        it('对于任意条文，返回值为字符串', () => {
+            fc.assert(
+                fc.property(legalArticlesArbitrary, (article) => {
+                    const result = getEmbeddableContent(article)
+                    expect(typeof result).toBe('string')
+                }),
+                { numRuns: 100 }
+            )
+        })
+
+        it('有 content 的条文不应返回层级标题', () => {
+            fc.assert(
+                fc.property(
+                    legalArticlesArbitrary.filter(a => a.content != null && a.content.trim().length > 0),
+                    (article) => {
+                        const result = getEmbeddableContent(article)
+                        expect(result).toBe(article.content)
+                    }
+                ),
+                { numRuns: 50 }
+            )
+        })
+    })
+
+    describe('getLegalTypeName - 边界情况', () => {
+        it('空字符串应返回其他', () => {
+            expect(getLegalTypeName('')).toBe('其他')
+        })
+
+        it('null/undefined 类型应返回其他', () => {
+            expect(getLegalTypeName(undefined as unknown as string)).toBe('其他')
         })
     })
 })

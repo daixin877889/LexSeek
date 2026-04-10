@@ -329,4 +329,100 @@ describe('积分商品支付处理器测试', () => {
             })
         })
     })
+
+    describe('handle 方法测试', () => {
+        it('商品未设置积分数量时 handle 应抛出错误', async () => {
+            const user = await createTestUser()
+            const testId = generateTestId()
+            const product = await prisma.products.create({
+                data: {
+                    name: `测试商品_${testId}`,
+                    type: ProductType.POINTS,
+                    priceMonthly: 99,
+                    priceYearly: 999,
+                    pointAmount: null,
+                    status: 1,
+                    sortOrder: 1,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                },
+            })
+            testIds.productIds.push(product.id)
+            const order = await createTestOrder(user.id, product.id)
+
+            await expect(
+                pointsHandler.handle(order as any, prisma)
+            ).rejects.toThrow('积分商品未设置积分数量')
+        })
+
+        it('应正确创建积分记录', async () => {
+            const user = await createTestUser()
+            const product = await createTestProduct({
+                type: ProductType.POINTS,
+                pointAmount: 500,
+            })
+            const order = await createTestOrder(user.id, product.id, {
+                duration: 2,
+                durationUnit: 'month',
+            })
+
+            await pointsHandler.handle(order as any, prisma)
+
+            // 验证积分记录已创建
+            const pointRecords = await prisma.pointRecords.findMany({
+                where: { userId: user.id },
+                orderBy: { createdAt: 'desc' },
+            })
+
+            expect(pointRecords.length).toBeGreaterThanOrEqual(1)
+            const latestRecord = pointRecords[0]
+            // 总积分 = 500 * 2 = 1000
+            expect(latestRecord.pointAmount).toBe(1000)
+        })
+
+        it('duration 为 1 时积分应等于商品积分数量', async () => {
+            const user = await createTestUser()
+            const product = await createTestProduct({
+                type: ProductType.POINTS,
+                pointAmount: 300,
+            })
+            const order = await createTestOrder(user.id, product.id, {
+                duration: 1,
+                durationUnit: 'month',
+            })
+
+            await pointsHandler.handle(order as any, prisma)
+
+            const pointRecords = await prisma.pointRecords.findMany({
+                where: { userId: user.id },
+                orderBy: { createdAt: 'desc' },
+            })
+
+            expect(pointRecords.length).toBeGreaterThanOrEqual(1)
+            expect(pointRecords[0].pointAmount).toBe(300)
+        })
+
+        it('大额积分购买应正确处理', async () => {
+            const user = await createTestUser()
+            const product = await createTestProduct({
+                type: ProductType.POINTS,
+                pointAmount: 10000,
+            })
+            const order = await createTestOrder(user.id, product.id, {
+                duration: 12,
+                durationUnit: 'month',
+            })
+
+            await pointsHandler.handle(order as any, prisma)
+
+            const pointRecords = await prisma.pointRecords.findMany({
+                where: { userId: user.id },
+                orderBy: { createdAt: 'desc' },
+            })
+
+            expect(pointRecords.length).toBeGreaterThanOrEqual(1)
+            // 总积分 = 10000 * 12 = 120000
+            expect(pointRecords[0].pointAmount).toBe(120000)
+        })
+    })
 })

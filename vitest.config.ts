@@ -111,6 +111,8 @@ export default defineVitestConfig({
             '**/app/assets/**',
             // 排除 lucideIcons
             '**/lucideIcons.ts',
+            // 排除纯外部 SDK 包装（无业务逻辑）
+            '**/server/lib/aliSms.ts',
         ],
         // 只包含 app 和 shared 目录
         include: [

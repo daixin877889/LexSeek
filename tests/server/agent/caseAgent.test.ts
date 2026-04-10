@@ -8,18 +8,18 @@ vi.mock('~~/server/services/workflow/checkpointer', () => ({
     getCheckpointer: vi.fn(),
 }))
 
-describe('createCaseAgent', () => {
-    it('should export createCaseAgent function', async () => {
-        const { createCaseAgent } = await import(
-            '~~/server/services/agent/caseAgent'
-        )
-        expect(typeof createCaseAgent).toBe('function')
-    })
-
+describe('caseMainAgent', () => {
     it('should export runCaseChat function', async () => {
         const { runCaseChat } = await import(
-            '~~/server/services/agent/caseAgent'
+            '~~/server/services/workflow/agents/index'
         )
         expect(typeof runCaseChat).toBe('function')
+    })
+
+    it('should export getChatThreadState function', async () => {
+        const { getChatThreadState } = await import(
+            '~~/server/services/workflow/agents/index'
+        )
+        expect(typeof getChatThreadState).toBe('function')
     })
 })

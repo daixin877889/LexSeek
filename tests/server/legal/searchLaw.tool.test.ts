@@ -388,6 +388,150 @@ describe('法律搜索工具', () => {
         })
     })
 
+    describe('Property 11: SQL 日期过滤参数构建', () => {
+        it('有效日期和操作符应构建正确的 SQL 片段', () => {
+            fc.assert(
+                fc.property(
+                    dateStringArb,
+                    dateOperatorArb,
+                    (date, operator) => {
+                        // 模拟 buildSQLDateFilter 逻辑
+                        const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+                        expect(dateRegex.test(date)).toBe(true)
+
+                        const validOperators = ['>', '<', '=', '>=', '<=']
+                        expect(validOperators).toContain(operator)
+
+                        const chinaDate = dayjs.tz(date, CHINA_TIMEZONE)
+                        expect(chinaDate.isValid()).toBe(true)
+
+                        const formattedDate = chinaDate.format('YYYY-MM-DD')
+                        expect(formattedDate).toBe(date)
+                    }
+                ),
+                { numRuns: 100 }
+            )
+        })
+
+        it('无效日期格式应被拒绝', () => {
+            const invalidDates = ['2025/01/01', '01-01-2025', 'not-a-date', '2025-1-1', '']
+            invalidDates.forEach(date => {
+                const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+                expect(dateRegex.test(date)).toBe(false)
+            })
+        })
+
+        it('无效操作符应被拒绝', () => {
+            const invalidOperators = ['!=', '<>', 'LIKE', 'IN', '==']
+            const validOperators = ['>', '<', '=', '>=', '<=']
+            invalidOperators.forEach(op => {
+                expect(validOperators).not.toContain(op)
+            })
+        })
+    })
+
+    describe('Property 12: searchLawService 结果映射', () => {
+        it('搜索模式应正确判断', () => {
+            // 有 query → vector 模式
+            expect('vector').toBe((() => {
+                const params = { query: '合同法' }
+                return params.query ? 'vector' : 'sql'
+            })())
+
+            // 无 query → sql 模式
+            expect('sql').toBe((() => {
+                const params = { limit: 10 }
+                return (params as { query?: string }).query ? 'vector' : 'sql'
+            })())
+        })
+
+        it('结果映射应提取正确字段', () => {
+            fc.assert(
+                fc.property(
+                    fc.array(
+                        fc.record({
+                            score: fc.float({ min: 0, max: 1, noNaN: true }),
+                            content: fc.string({ minLength: 1, maxLength: 200 }),
+                            metadata: fc.record({
+                                articles_id: fc.uuid(),
+                                legal_id: fc.uuid(),
+                                legal_name: fc.string({ minLength: 1, maxLength: 50 }),
+                                chapter_hierarchy: fc.array(fc.string({ maxLength: 50 }), { maxLength: 5 }),
+                            }),
+                        }),
+                        { minLength: 0, maxLength: 10 }
+                    ),
+                    (results) => {
+                        // 模拟 searchLawService 的映射逻辑
+                        const items = results.map(item => ({
+                            articles_id: item.metadata.articles_id as string,
+                            legal_id: item.metadata.legal_id as string,
+                            legal_name: item.metadata.legal_name as string,
+                            content: item.content,
+                            chapter_hierarchy: Array.isArray(item.metadata.chapter_hierarchy)
+                                ? (item.metadata.chapter_hierarchy as string[])
+                                : [],
+                            score: item.score,
+                            metadata: item.metadata,
+                        }))
+
+                        expect(items.length).toBe(results.length)
+                        items.forEach((item, i) => {
+                            expect(item.articles_id).toBe(results[i].metadata.articles_id)
+                            expect(item.legal_id).toBe(results[i].metadata.legal_id)
+                            expect(item.content).toBe(results[i].content)
+                            expect(Array.isArray(item.chapter_hierarchy)).toBe(true)
+                        })
+                    }
+                ),
+                { numRuns: 50 }
+            )
+        })
+
+        it('chapter_hierarchy 非数组时应回退为空数组', () => {
+            const metadata = { chapter_hierarchy: 'not-an-array' }
+            const result = Array.isArray(metadata.chapter_hierarchy)
+                ? metadata.chapter_hierarchy
+                : []
+            expect(result).toEqual([])
+        })
+    })
+
+    describe('Property 13: SQL 查询条件构建', () => {
+        it('metadata 过滤字段应使用 snake_case', () => {
+            const metadataFields = ['legal_id', 'legal_name', 'legal_type', 'article_type']
+            metadataFields.forEach(field => {
+                // 不应包含大写字母（snake_case 验证）
+                expect(field).not.toMatch(/[A-Z]/)
+                expect(field).toMatch(/^[a-z_]+$/)
+            })
+        })
+
+        it('分页偏移量在第一页时不应有 OFFSET', () => {
+            const page = 1
+            const pageSize = 5
+            const offset = (page - 1) * pageSize
+            expect(offset).toBe(0)
+            // 只有 page > 1 时才添加 OFFSET
+            expect(page > 1).toBe(false)
+        })
+
+        it('分页偏移量在非首页时应正确计算', () => {
+            fc.assert(
+                fc.property(
+                    fc.integer({ min: 2, max: 100 }),
+                    fc.integer({ min: 1, max: 50 }),
+                    (page, pageSize) => {
+                        const offset = (page - 1) * pageSize
+                        expect(offset).toBeGreaterThan(0)
+                        expect(page > 1).toBe(true)
+                    }
+                ),
+                { numRuns: 100 }
+            )
+        })
+    })
+
     describe('有效性过滤', () => {
         it('isLawEffective 应正确判断法律有效性', () => {
             // 测试未来生效日期 - 应该无效

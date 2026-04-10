@@ -301,4 +301,154 @@ describe('会员商品支付处理器测试', () => {
             )
         })
     })
+
+    describe('handle 方法测试', () => {
+        it('应正确创建会员记录', async () => {
+            const user = await createTestUser()
+            const level = await createTestMembershipLevel()
+            const product = await createTestProduct(level.id, {
+                type: ProductType.MEMBERSHIP,
+                giftPoint: 0,
+            })
+            const order = await createTestOrder(user.id, product.id, {
+                orderType: OrderType.PURCHASE,
+                duration: 1,
+                durationUnit: 'year',
+            })
+
+            await membershipHandler.handle(order as any, prisma)
+
+            // 验证会员记录已创建
+            const memberships = await prisma.userMemberships.findMany({
+                where: { userId: user.id },
+                orderBy: { createdAt: 'desc' },
+            })
+
+            expect(memberships.length).toBeGreaterThanOrEqual(1)
+            expect(memberships[0].levelId).toBe(level.id)
+            expect(memberships[0].userId).toBe(user.id)
+        })
+
+        it('有赠送积分的会员商品应同时创建积分记录', async () => {
+            const user = await createTestUser()
+            const level = await createTestMembershipLevel()
+            const product = await createTestProduct(level.id, {
+                type: ProductType.MEMBERSHIP,
+                giftPoint: 200,
+            })
+            const order = await createTestOrder(user.id, product.id, {
+                orderType: OrderType.PURCHASE,
+                duration: 1,
+                durationUnit: 'year',
+            })
+
+            await membershipHandler.handle(order as any, prisma)
+
+            // 验证会员记录已创建
+            const memberships = await prisma.userMemberships.findMany({
+                where: { userId: user.id },
+                orderBy: { createdAt: 'desc' },
+            })
+            expect(memberships.length).toBeGreaterThanOrEqual(1)
+
+            // 验证积分记录已创建
+            const pointRecords = await prisma.pointRecords.findMany({
+                where: { userId: user.id },
+                orderBy: { createdAt: 'desc' },
+            })
+            expect(pointRecords.length).toBeGreaterThanOrEqual(1)
+            expect(pointRecords[0].pointAmount).toBe(200)
+        })
+
+        it('赠送积分为 0 时不应创建积分记录', async () => {
+            const user = await createTestUser()
+            const level = await createTestMembershipLevel()
+            const product = await createTestProduct(level.id, {
+                type: ProductType.MEMBERSHIP,
+                giftPoint: 0,
+            })
+            const order = await createTestOrder(user.id, product.id, {
+                orderType: OrderType.PURCHASE,
+                duration: 1,
+                durationUnit: 'year',
+            })
+
+            await membershipHandler.handle(order as any, prisma)
+
+            // 验证没有积分记录
+            const pointRecords = await prisma.pointRecords.findMany({
+                where: { userId: user.id },
+                orderBy: { createdAt: 'desc' },
+            })
+            expect(pointRecords.length).toBe(0)
+        })
+
+        it('不同时长单位应正确处理', async () => {
+            const user = await createTestUser()
+            const level = await createTestMembershipLevel()
+            const product = await createTestProduct(level.id, {
+                type: ProductType.MEMBERSHIP,
+                giftPoint: 0,
+            })
+            const order = await createTestOrder(user.id, product.id, {
+                orderType: OrderType.PURCHASE,
+                duration: 30,
+                durationUnit: 'day',
+            })
+
+            await membershipHandler.handle(order as any, prisma)
+
+            const memberships = await prisma.userMemberships.findMany({
+                where: { userId: user.id },
+                orderBy: { createdAt: 'desc' },
+            })
+
+            expect(memberships.length).toBeGreaterThanOrEqual(1)
+            // 30 天的会员，endDate 应大于 startDate
+            const membership = memberships[0]
+            expect(new Date(membership.endDate).getTime()).toBeGreaterThan(
+                new Date(membership.startDate).getTime()
+            )
+        })
+
+        it('赠送积分的生效时间应与会员开始时间一致', async () => {
+            const user = await createTestUser()
+            const level = await createTestMembershipLevel()
+            const product = await createTestProduct(level.id, {
+                type: ProductType.MEMBERSHIP,
+                giftPoint: 500,
+            })
+            const order = await createTestOrder(user.id, product.id, {
+                orderType: OrderType.PURCHASE,
+                duration: 1,
+                durationUnit: 'year',
+            })
+
+            await membershipHandler.handle(order as any, prisma)
+
+            const memberships = await prisma.userMemberships.findMany({
+                where: { userId: user.id },
+                orderBy: { createdAt: 'desc' },
+            })
+            const pointRecords = await prisma.pointRecords.findMany({
+                where: { userId: user.id },
+                orderBy: { createdAt: 'desc' },
+            })
+
+            expect(memberships.length).toBeGreaterThanOrEqual(1)
+            expect(pointRecords.length).toBeGreaterThanOrEqual(1)
+
+            const membership = memberships[0]
+            const pointRecord = pointRecords[0]
+
+            // 积分的生效时间应和会员开始时间一致
+            expect(pointRecord.effectiveAt.toISOString()).toBe(
+                membership.startDate.toISOString()
+            )
+            // 积分的过期时间应和会员结束时间一致
+            expect(pointRecord.expiredAt.toISOString()).toBe(
+                membership.endDate.toISOString()
+            )
+        })
+    })
 })

@@ -12,7 +12,7 @@
  * **Validates: Requirements 会员权益模块**
  */
 
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest'
 import {
     getTestPrisma,
     createTestMembershipLevel,
@@ -23,7 +23,7 @@ import {
     isTestDbAvailable,
     type TestIds,
 } from './test-db-helper'
-import { BenefitConsumptionMode } from '../../../shared/types/benefit'
+import { BenefitConsumptionMode, BenefitCode } from '../../../shared/types/benefit'
 
 // 导入服务函数
 import {
@@ -395,6 +395,519 @@ describe('用户权益服务测试', () => {
             // 不应抛出错误
             expect(true).toBe(true)
         })
+    })
+})
+
+// 注册 Nuxt 自动导入的 DAO 函数为全局变量，使 userBenefit.service.ts 中的服务函数可在测试中运行
+import { findAllActiveBenefitsDao, findBenefitByCodeDao } from '../../../server/services/membership/benefit.dao'
+import { sumUserBenefitValueDao, findUserBenefitsByCodeDao as _findUserBenefitsByCodeDaoForGlobal } from '../../../server/services/membership/userBenefit.dao'
+import { ossUsageDao } from '../../../server/services/files/ossFiles.dao'
+import { BenefitStatus } from '../../../shared/types/membership'
+import { OssFileStatus } from '../../../shared/types/file'
+import { FileSizeUnit } from '../../../shared/types/unitConverision'
+
+;(globalThis as any).findAllActiveBenefitsDao = findAllActiveBenefitsDao
+;(globalThis as any).findBenefitByCodeDao = findBenefitByCodeDao
+;(globalThis as any).sumUserBenefitValueDao = sumUserBenefitValueDao
+;(globalThis as any).ossUsageDao = ossUsageDao
+;(globalThis as any).findUserBenefitsByCodeDao = _findUserBenefitsByCodeDaoForGlobal
+;(globalThis as any).BenefitStatus = BenefitStatus
+;(globalThis as any).OssFileStatus = OssFileStatus
+;(globalThis as any).FileSizeUnit = FileSizeUnit
+
+describe('getUserBenefitSummaryService 测试', () => {
+    let dbAvailable = false
+    const testIds: TestIds = createEmptyTestIds()
+    const prisma = getTestPrisma()
+    const testBenefitIds: number[] = []
+    const testMembershipBenefitIds: number[] = []
+    const testUserBenefitIds: number[] = []
+
+    beforeAll(async () => {
+        dbAvailable = await isTestDbAvailable()
+    })
+
+    afterEach(async () => {
+        if (dbAvailable) {
+            if (testUserBenefitIds.length > 0) {
+                await prisma.userBenefits.deleteMany({
+                    where: { id: { in: testUserBenefitIds } },
+                })
+                testUserBenefitIds.length = 0
+            }
+            if (testBenefitIds.length > 0 && testIds.userIds.length > 0) {
+                await prisma.userBenefits.deleteMany({
+                    where: {
+                        benefitId: { in: testBenefitIds },
+                        userId: { in: testIds.userIds },
+                    },
+                })
+            }
+            if (testMembershipBenefitIds.length > 0) {
+                await prisma.membershipBenefits.deleteMany({
+                    where: { id: { in: testMembershipBenefitIds } },
+                })
+                testMembershipBenefitIds.length = 0
+            }
+            if (testBenefitIds.length > 0) {
+                await prisma.benefits.deleteMany({
+                    where: { id: { in: testBenefitIds } },
+                })
+                testBenefitIds.length = 0
+            }
+            await cleanupTestData(testIds)
+            testIds.userIds = []
+            testIds.membershipLevelIds = []
+        }
+    })
+
+    afterAll(async () => {
+        if (dbAvailable) {
+            await disconnectTestDb()
+        }
+    })
+
+    const createTestBenefit = async (data?: {
+        name?: string
+        code?: string
+        unitType?: string
+        consumptionMode?: string
+        defaultValue?: bigint
+    }) => {
+        const uniqueId = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+        const benefit = await prisma.benefits.create({
+            data: {
+                code: data?.code || `test_benefit_${uniqueId}`,
+                name: data?.name || `测试权益_${uniqueId}`,
+                description: '测试权益描述',
+                unitType: data?.unitType ?? 'count',
+                consumptionMode: data?.consumptionMode ?? 'sum',
+                defaultValue: data?.defaultValue ?? BigInt(0),
+                status: 1,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+        })
+        testBenefitIds.push(benefit.id)
+        return benefit
+    }
+
+    it('应返回所有启用权益的汇总信息', async () => {
+        if (!dbAvailable) return
+
+        const user = await createTestUser()
+        testIds.userIds.push(user.id)
+
+        // 使用 getUserBenefitSummaryService 获取汇总
+        const { getUserBenefitSummaryService } = await import(
+            '../../../server/services/membership/userBenefit.service'
+        )
+        const summaries = await getUserBenefitSummaryService(user.id)
+
+        // 应该返回数组
+        expect(Array.isArray(summaries)).toBe(true)
+
+        // 每个汇总项应有正确的结构
+        for (const summary of summaries) {
+            expect(summary).toHaveProperty('code')
+            expect(summary).toHaveProperty('name')
+            expect(summary).toHaveProperty('totalValue')
+            expect(summary).toHaveProperty('usedValue')
+            expect(summary).toHaveProperty('remainingValue')
+            expect(summary).toHaveProperty('unitType')
+            expect(summary).toHaveProperty('formatted')
+            expect(summary.formatted).toHaveProperty('percentage')
+            expect(typeof summary.formatted.percentage).toBe('number')
+            expect(summary.formatted.percentage).toBeGreaterThanOrEqual(0)
+            expect(summary.formatted.percentage).toBeLessThanOrEqual(100)
+        }
+    })
+
+    it('没有权益记录的用户应使用默认值', async () => {
+        if (!dbAvailable) return
+
+        const user = await createTestUser()
+        testIds.userIds.push(user.id)
+
+        const { getUserBenefitSummaryService } = await import(
+            '../../../server/services/membership/userBenefit.service'
+        )
+        const summaries = await getUserBenefitSummaryService(user.id)
+
+        // 所有权益的 usedValue 应为 0 或 总值等于默认值
+        for (const summary of summaries) {
+            expect(summary.totalValue).toBeGreaterThanOrEqual(0)
+            expect(summary.remainingValue).toBeGreaterThanOrEqual(0)
+        }
+    })
+})
+
+describe('getUserStorageQuotaService 测试', () => {
+    let dbAvailable = false
+    const testIds: TestIds = createEmptyTestIds()
+
+    beforeAll(async () => {
+        dbAvailable = await isTestDbAvailable()
+    })
+
+    afterEach(async () => {
+        if (dbAvailable) {
+            await cleanupTestData(testIds)
+            testIds.userIds = []
+            testIds.membershipLevelIds = []
+        }
+    })
+
+    afterAll(async () => {
+        if (dbAvailable) {
+            await disconnectTestDb()
+        }
+    })
+
+    it('应返回正确的存储配额结构', async () => {
+        if (!dbAvailable) return
+
+        const user = await createTestUser()
+        testIds.userIds.push(user.id)
+
+        const { getUserStorageQuotaService } = await import(
+            '../../../server/services/membership/userBenefit.service'
+        )
+        const quota = await getUserStorageQuotaService(user.id)
+
+        expect(quota).toHaveProperty('totalBytes')
+        expect(quota).toHaveProperty('usedBytes')
+        expect(quota).toHaveProperty('remainingBytes')
+        expect(quota).toHaveProperty('formatted')
+        expect(quota.formatted).toHaveProperty('total')
+        expect(quota.formatted).toHaveProperty('used')
+        expect(quota.formatted).toHaveProperty('remaining')
+        expect(quota.formatted).toHaveProperty('percentage')
+    })
+
+    it('剩余空间不应为负数', async () => {
+        if (!dbAvailable) return
+
+        const user = await createTestUser()
+        testIds.userIds.push(user.id)
+
+        const { getUserStorageQuotaService } = await import(
+            '../../../server/services/membership/userBenefit.service'
+        )
+        const quota = await getUserStorageQuotaService(user.id)
+
+        expect(quota.remainingBytes).toBeGreaterThanOrEqual(0)
+        expect(quota.totalBytes).toBeGreaterThanOrEqual(0)
+        expect(quota.usedBytes).toBeGreaterThanOrEqual(0)
+    })
+
+    it('使用率百分比应在 0-100 之间', async () => {
+        if (!dbAvailable) return
+
+        const user = await createTestUser()
+        testIds.userIds.push(user.id)
+
+        const { getUserStorageQuotaService } = await import(
+            '../../../server/services/membership/userBenefit.service'
+        )
+        const quota = await getUserStorageQuotaService(user.id)
+
+        expect(quota.formatted.percentage).toBeGreaterThanOrEqual(0)
+        expect(quota.formatted.percentage).toBeLessThanOrEqual(100)
+    })
+})
+
+describe('checkStorageQuotaService 测试', () => {
+    let dbAvailable = false
+    const testIds: TestIds = createEmptyTestIds()
+
+    beforeAll(async () => {
+        dbAvailable = await isTestDbAvailable()
+    })
+
+    afterEach(async () => {
+        if (dbAvailable) {
+            await cleanupTestData(testIds)
+            testIds.userIds = []
+            testIds.membershipLevelIds = []
+        }
+    })
+
+    afterAll(async () => {
+        if (dbAvailable) {
+            await disconnectTestDb()
+        }
+    })
+
+    it('请求 0 字节空间应被允许', async () => {
+        if (!dbAvailable) return
+
+        const user = await createTestUser()
+        testIds.userIds.push(user.id)
+
+        const { checkStorageQuotaService } = await import(
+            '../../../server/services/membership/userBenefit.service'
+        )
+        const result = await checkStorageQuotaService(user.id, 0)
+
+        expect(result.allowed).toBe(true)
+        expect(result.requiredSize).toBe(0)
+        expect(result.message).toBeUndefined()
+    })
+
+    it('请求超大空间应返回不允许', async () => {
+        if (!dbAvailable) return
+
+        const user = await createTestUser()
+        testIds.userIds.push(user.id)
+
+        const { checkStorageQuotaService } = await import(
+            '../../../server/services/membership/userBenefit.service'
+        )
+        // 请求 100TB 空间，肯定超额
+        const hugeSize = 100 * 1024 * 1024 * 1024 * 1024
+        const result = await checkStorageQuotaService(user.id, hugeSize)
+
+        expect(result.allowed).toBe(false)
+        expect(result.message).toBeDefined()
+        expect(result.message).toContain('云盘空间不足')
+    })
+
+    it('返回结果应包含正确的配额信息', async () => {
+        if (!dbAvailable) return
+
+        const user = await createTestUser()
+        testIds.userIds.push(user.id)
+
+        const { checkStorageQuotaService } = await import(
+            '../../../server/services/membership/userBenefit.service'
+        )
+        const result = await checkStorageQuotaService(user.id, 1024)
+
+        expect(result).toHaveProperty('allowed')
+        expect(result).toHaveProperty('quota')
+        expect(result).toHaveProperty('requiredSize')
+        expect(result).toHaveProperty('requiredFormatted')
+        expect(result.quota).toHaveProperty('totalBytes')
+        expect(result.quota).toHaveProperty('usedBytes')
+        expect(result.quota).toHaveProperty('remainingBytes')
+        expect(result.requiredSize).toBe(1024)
+    })
+})
+
+describe('getUserBenefitDetailService 测试', () => {
+    let dbAvailable = false
+    const testIds: TestIds = createEmptyTestIds()
+    const prisma = getTestPrisma()
+    const testBenefitIds: number[] = []
+    const testUserBenefitIds: number[] = []
+
+    beforeAll(async () => {
+        dbAvailable = await isTestDbAvailable()
+    })
+
+    afterEach(async () => {
+        if (dbAvailable) {
+            if (testUserBenefitIds.length > 0) {
+                await prisma.userBenefits.deleteMany({
+                    where: { id: { in: testUserBenefitIds } },
+                })
+                testUserBenefitIds.length = 0
+            }
+            if (testBenefitIds.length > 0 && testIds.userIds.length > 0) {
+                await prisma.userBenefits.deleteMany({
+                    where: {
+                        benefitId: { in: testBenefitIds },
+                        userId: { in: testIds.userIds },
+                    },
+                })
+            }
+            if (testBenefitIds.length > 0) {
+                await prisma.benefits.deleteMany({
+                    where: { id: { in: testBenefitIds } },
+                })
+                testBenefitIds.length = 0
+            }
+            await cleanupTestData(testIds)
+            testIds.userIds = []
+            testIds.membershipLevelIds = []
+        }
+    })
+
+    afterAll(async () => {
+        if (dbAvailable) {
+            await disconnectTestDb()
+        }
+    })
+
+    it('查询不存在的权益标识码应返回 null', async () => {
+        if (!dbAvailable) return
+
+        const user = await createTestUser()
+        testIds.userIds.push(user.id)
+
+        const { getUserBenefitDetailService } = await import(
+            '../../../server/services/membership/userBenefit.service'
+        )
+        const result = await getUserBenefitDetailService(user.id, 'non_existent_code_xyz')
+
+        expect(result).toBeNull()
+    })
+
+    it('查询存在的权益应返回完整的详情结构', async () => {
+        if (!dbAvailable) return
+
+        const user = await createTestUser()
+        testIds.userIds.push(user.id)
+
+        const { getUserBenefitDetailService } = await import(
+            '../../../server/services/membership/userBenefit.service'
+        )
+        // 使用系统内置的存储空间权益
+        const result = await getUserBenefitDetailService(user.id, BenefitCode.STORAGE_SPACE)
+
+        if (result) {
+            expect(result).toHaveProperty('code')
+            expect(result).toHaveProperty('name')
+            expect(result).toHaveProperty('totalValue')
+            expect(result).toHaveProperty('usedValue')
+            expect(result).toHaveProperty('remainingValue')
+            expect(result).toHaveProperty('unitType')
+            expect(result).toHaveProperty('formatted')
+            expect(result).toHaveProperty('records')
+            expect(Array.isArray(result.records)).toBe(true)
+            expect(result.formatted).toHaveProperty('percentage')
+            expect(result.remainingValue).toBeGreaterThanOrEqual(0)
+        }
+    })
+
+    it('权益详情中的记录应包含来源类型名称', async () => {
+        if (!dbAvailable) return
+
+        const user = await createTestUser()
+        testIds.userIds.push(user.id)
+
+        // 创建一个自定义权益并为用户添加记录
+        const uniqueId = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+        const benefit = await prisma.benefits.create({
+            data: {
+                code: `test_detail_${uniqueId}`,
+                name: `详情测试权益_${uniqueId}`,
+                description: '测试权益详情',
+                unitType: 'count',
+                consumptionMode: 'sum',
+                defaultValue: BigInt(0),
+                status: 1,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+        })
+        testBenefitIds.push(benefit.id)
+
+        const now = new Date()
+        const endDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000)
+        const ub = await prisma.userBenefits.create({
+            data: {
+                userId: user.id,
+                benefitId: benefit.id,
+                benefitValue: BigInt(500),
+                sourceType: 'membership_gift',
+                sourceId: 1,
+                effectiveAt: now,
+                expiredAt: endDate,
+                status: 1,
+                remark: '测试记录',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+        })
+        testUserBenefitIds.push(ub.id)
+
+        const { getUserBenefitDetailService } = await import(
+            '../../../server/services/membership/userBenefit.service'
+        )
+        const result = await getUserBenefitDetailService(user.id, benefit.code)
+
+        expect(result).not.toBeNull()
+        expect(result!.code).toBe(benefit.code)
+        expect(result!.totalValue).toBe(500)
+        expect(result!.records.length).toBeGreaterThanOrEqual(1)
+
+        const record = result!.records[0]
+        expect(record).toHaveProperty('id')
+        expect(record).toHaveProperty('benefitValue')
+        expect(record).toHaveProperty('sourceType')
+        expect(record).toHaveProperty('sourceTypeName')
+        expect(record.sourceTypeName).toBe('会员赠送')
+        expect(record).toHaveProperty('effectiveAt')
+        expect(record).toHaveProperty('expiredAt')
+        expect(record).toHaveProperty('status')
+    })
+
+    it('无用户权益记录时应使用权益默认值', async () => {
+        if (!dbAvailable) return
+
+        const user = await createTestUser()
+        testIds.userIds.push(user.id)
+
+        // 创建一个有默认值的权益
+        const uniqueId = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+        const benefit = await prisma.benefits.create({
+            data: {
+                code: `test_default_${uniqueId}`,
+                name: `默认值权益_${uniqueId}`,
+                description: '测试默认值',
+                unitType: 'count',
+                consumptionMode: 'sum',
+                defaultValue: BigInt(100),
+                status: 1,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+        })
+        testBenefitIds.push(benefit.id)
+
+        const { getUserBenefitDetailService } = await import(
+            '../../../server/services/membership/userBenefit.service'
+        )
+        const result = await getUserBenefitDetailService(user.id, benefit.code)
+
+        expect(result).not.toBeNull()
+        // 没有用户权益记录时，totalValue 应使用默认值 100
+        expect(result!.totalValue).toBe(100)
+        expect(result!.records.length).toBe(0)
+    })
+
+    it('次数类型权益应格式化为 "X 次"', async () => {
+        if (!dbAvailable) return
+
+        const user = await createTestUser()
+        testIds.userIds.push(user.id)
+
+        const uniqueId = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+        const benefit = await prisma.benefits.create({
+            data: {
+                code: `test_count_${uniqueId}`,
+                name: `次数权益_${uniqueId}`,
+                description: '次数类型测试',
+                unitType: 'count',
+                consumptionMode: 'sum',
+                defaultValue: BigInt(50),
+                status: 1,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+        })
+        testBenefitIds.push(benefit.id)
+
+        const { getUserBenefitDetailService } = await import(
+            '../../../server/services/membership/userBenefit.service'
+        )
+        const result = await getUserBenefitDetailService(user.id, benefit.code)
+
+        expect(result).not.toBeNull()
+        expect(result!.formatted.total).toContain('次')
+        expect(result!.formatted.remaining).toContain('次')
     })
 })
 
