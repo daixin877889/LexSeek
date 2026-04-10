@@ -1,0 +1,593 @@
+# 三模块基础设施统一重构设计
+
+> **版本**: v1.0
+> **日期**: 2026-04-10
+> **范围**: init-analysis 初始化分析、模块对话、小索对话框
+> **目标**: 三模块共享同一套基础设施（工具/中间件/Session DAO/UI/Composable），保留"工作流"+"Agent 对话"两种顶层模式
+
+## 1. 背景与动机
+
+### 1.1 问题陈述
+
+LexSeek 的三个 AI 分析模块（init-analysis、模块对话、小索对话框）在从分析服务到前端 UI 的完整链路中存在约 450-500 行的重复代码。主要重复集中在：
+
+- **Composable 层**：`useXiaosuoChat`（212 行）和 `useModuleChatManager`（231 行）在 effectScope 管理、stopGeneration 双重取消、reconnect/loadHistory 判定三个关键点的代码相似度 ≥ 90%
+- **后端 Session CRUD**：`xiaosuo-session*.ts` 和 `module-session*.ts` 四个 API 文件是典型的模板复制（重复度 85-95%）
+- **UI 组件层**：`CaseDetailXiaosuo.vue` 和 `AnalysisModuleChat.vue` 共享 90% 的窗口布局代码
+- **中断处理**：三模块各自实现 `__interrupt__` 解包 + `Dialog + InsufficientPointsCard` 包装
+
+### 1.2 设计原则
+
+1. **底层不动**：`agentRun.service.ts`、`agentEventBridge.ts`、4 个中间件已良性复用，不做改动
+2. **中间层抽象**：新增 Session DAO + `useStreamChat` + `useChatSessionManager` 作为"薄胶水层"
+3. **上层保持差异化**：`useInitAnalysis`（工作流模式）和 `useModuleChatManager` / `useXiaosuoChat`（对话模式）保持各自的业务逻辑，但改为**继承**而非**复制**
+4. **SSE 入口保留两条**：`/init-analysis`（工作流专用）+ `/chat`（对话共用）不合并
+
+### 1.3 需求变更
+
+- **模块对话多 session 支持**：模块对话从"每案件每模块最多一个 session"改为多 session 模式（与小索对齐），用户可以为同一模块创建多个独立对话，避免老对话上下文污染
+- **Session 标题**：自动生成格式 `模块名-YYMMDDHHmm`（例如 `证据清单梳理-2604102055`），支持重命名
+
+### 1.4 约束
+
+- **数据库兼容性**：允许追加式 schema 变化（可加字段/索引），旧字段不删、旧记录不丢，metadata 结构变更需迁移脚本
+- `caseSessions.type` 含义保留：1（小索）、2（init-analysis）、3（模块对话）
+- `app/components/ui/*` shadcn-vue 组件禁止修改
+
+## 2. 整体架构
+
+```
+┌─────────────────────────────────────────────────┐
+│              Page / Component Layer              │
+│                                                  │
+│  [sessionId].vue    [id].vue     CaseDetailXiaosuo│
+│  (init-analysis)    (模块对话)     (小索对话框)    │
+├─────────────────────────────────────────────────┤
+│              UI 基础组件层 (Phase 3)              │
+│                                                  │
+│  <ChatWindowShell>  <InterruptHandler>  <AiChat> │
+│       (新增)             (新增)         (现有)    │
+├─────────────────────────────────────────────────┤
+│            Composable 管理层 (Phase 2+4)          │
+│                                                  │
+│  useInitAnalysis   useModuleChatManager  useXiao  │
+│  (重写:基于底层)    (重写:基于基类)    (重写:基类) │
+│                          │                       │
+│              useChatSessionManager (新增)         │
+│                          │                       │
+│                  useCaseChat (重写:基于底层)      │
+│                          │                       │
+│              useStreamChat<T> (新增:泛型底层)     │
+├─────────────────────────────────────────────────┤
+│              Server API Layer                    │
+│                                                  │
+│  /init-analysis (保留)   /chat (保留,共享)        │
+│  /xiaosuo-sess*         /module-sess*            │
+│       └───────── 统一调用 ─────────┘              │
+│              Session DAO 抽象层 (Phase 1)         │
+│                          │                       │
+│  agentRun · eventBridge · middleware (现有,不动)   │
+└─────────────────────────────────────────────────┘
+```
+
+## 3. Phase 1：后端 Session DAO 抽象层
+
+### 3.1 新增 `server/services/case/session.dao.ts`
+
+提取五个公共 DAO 函数：
+
+#### `validateCaseOwnershipDao(caseId, userId)`
+
+从 4 个 session API 中提取的公共权限校验三行。
+
+- 输入：`caseId: number`, `userId: number`
+- 输出：`cases | null`
+- 逻辑：`prisma.cases.findFirst({ where: { id: caseId, userId, deletedAt: null } })`
+
+#### `listSessionsWithActiveRunDao(params)`
+
+从 `xiaosuo-sessions.get.ts:19-40` 和 `module-sessions.get.ts:25-42` 提取。
+
+- 输入：
+  - `caseId: number`
+  - `userId: number`（用于权限校验）
+  - `type: number`（1 或 3）
+  - `metadataFilter?: { path: string[]; equals: any }`（可选 JSON path 过滤）
+  - `select?: Prisma.caseSessionsSelect`
+  - `orderBy?: Prisma.caseSessionsOrderByWithRelationInput`
+- 输出：`SessionListItem[]`，每项包含 `sessionId`, `type`, `metadata`, `hasActiveRun`, `createdAt`, `updatedAt`
+- 逻辑：`prisma.caseSessions.findMany(...)` + `Promise.all(sessions.map(s => getActiveRunService(s.sessionId)))`
+
+#### `createSessionDao(params)`
+
+从 `xiaosuo-session.post.ts:35-45` 和 `module-session.post.ts:50-85` 提取。
+
+- 输入：
+  - `caseId: number`
+  - `userId: number`
+  - `type: number`
+  - `metadata: Record<string, any>`（含 title + 业务字段）
+  - `dedupeKey?: string`（并发防重 key，如 `${userId}:${caseId}:${moduleName}`）
+  - `dedupeTtlMs?: number`（防重窗口，默认 3000ms）
+- 输出：`{ sessionId: string; isNew: boolean }`
+- 逻辑：
+  1. 若有 `dedupeKey`：检查 Redis `SET NX EX` 锁 → 存在则查最近创建的 session 返回 `{ isNew: false }`
+  2. 不存在 → 加锁 → `prisma.caseSessions.create(...)` → 返回 `{ sessionId, isNew: true }`
+
+#### `softDeleteSessionDao(params)`
+
+从 `xiaosuo-session/[sessionId].delete.ts` 提取，模块对话的 delete API 将复用。
+
+- 输入：`sessionId: string`, `userId: number`, `allowedTypes: number[]`
+- 输出：`void`
+- 逻辑：
+  1. `findFirst({ sessionId, deletedAt: null })` + include case
+  2. 权限校验：`case.userId === userId`
+  3. 类型校验：`session.type in allowedTypes`
+  4. 若有 activeRun → `cancelRunService(activeRun.id)`
+  5. `prisma.update({ deletedAt: new Date() })`
+
+#### `renameSessionDao(params)`
+
+新增。小索和模块对话共用。
+
+- 输入：`sessionId: string`, `userId: number`, `newTitle: string`
+- 输出：`void`
+- 逻辑：
+  1. 权限校验（同上）
+  2. `prisma.caseSessions.update({ where: { sessionId }, data: { metadata: { ...existing, title: newTitle } } })`
+
+### 3.2 改造现有 API
+
+改造后各 API 只保留差异化逻辑（参数校验 + 响应字段映射），公共模式全部委托给 DAO：
+
+- `xiaosuo-sessions.get.ts`（44 行 → ~15 行）
+- `module-sessions.get.ts`（46 行 → ~15 行）
+- `xiaosuo-session.post.ts`（48 行 → ~20 行）
+- `module-session.post.ts`（88 行 → ~25 行）：删除 Serializable 事务逻辑（不再需要幂等，改为 dedupeKey 防重）
+
+### 3.3 新增 API
+
+- `module-session/[sessionId].delete.ts`（~10 行）：调用 `softDeleteSessionDao({ sessionId, userId, allowedTypes: [3] })`
+- `session/[sessionId]/rename.patch.ts`（~15 行）：调用 `renameSessionDao`，小索和模块对话共用
+
+### 3.4 metadata 追加
+
+模块对话 session 的 metadata 追加 `title` 字段：
+
+```
+// 现有
+{ moduleName: 'evidence', nodeId: 7 }
+
+// 新增 title
+{ moduleName: 'evidence', nodeId: 7, title: '证据清单梳理-2604102055' }
+```
+
+历史记录无 title → 前端显示时 fallback 到 `moduleName` 对应的中文名。无需迁移脚本。
+
+## 4. Phase 2：前端 Composable 基础层
+
+### 4.1 新增 `useStreamChat<T>` — 泛型流管理底层
+
+**文件**：`app/composables/useStreamChat.ts`（~60 行）
+
+将 `useCaseChat` 和 `useInitAnalysis` 共同的 `FetchStreamTransport + useStream + computed 包装 + interrupt 解包` 抽取为泛型 composable。
+
+```typescript
+interface StreamChatOptions<T> {
+  apiUrl: string              // SSE API 端点
+  threadId?: string           // LangGraph thread ID
+  messagesKey?: string        // 状态对象中的消息字段名（默认 'messages'）
+  onCustomEvent?: (data: any) => void
+}
+
+interface StreamChatReturn<T> {
+  // 状态（全部为 computed/shallowRef，Vue 响应式）
+  messages: ComputedRef<BaseMessage[]>
+  values: ComputedRef<T | undefined>
+  isLoading: ShallowRef<boolean>
+  error: ShallowRef<any>
+  interruptData: ComputedRef<any>     // 统一解包：__interrupt__ 数组 → 首项 → .value
+  hasHistoryLoaded: Ref<boolean>
+
+  // 操作
+  submit: (input?: any, config?: any) => void
+  stop: () => void
+  reconnect: () => void
+  loadHistory: () => void
+  getMessagesMetadata: (msg: any, idx?: number) => any
+}
+```
+
+内部实现要点：
+- `computed(() => { void stream.values; return stream.messages })` — 必须显式访问 `stream.values` 注册依赖
+- `interruptData` 统一解包：三处消费方的 `__interrupt__` 解析代码下沉到此处
+- `hasHistoryLoaded` + watch(values) 标记：与现有 `useCaseChat` 行为一致
+
+### 4.2 改造 `useCaseChat` — 基于 useStreamChat 的特化
+
+**文件**：`app/composables/useCaseChat.ts`（98 行 → ~50 行）
+
+```typescript
+interface CaseChatOptions {
+  sessionId: string
+  onCustomEvent?: (data: any) => void
+}
+
+interface CaseAgentState {
+  messages: BaseMessage[]
+}
+
+function useCaseChat(options: CaseChatOptions) {
+  const stream = useStreamChat<CaseAgentState>({
+    apiUrl: '/api/v1/case/analysis/chat',
+    threadId: options.sessionId,
+    messagesKey: 'messages',
+    onCustomEvent: options.onCustomEvent,
+  })
+
+  return {
+    ...stream,
+    sendMessage(text: string, opts?: { thinking?: boolean }) {
+      stream.submit({
+        messages: [{ type: 'human', content: text }],
+        thinking: opts?.thinking,
+      } as any)
+    },
+    resumeInterrupt(data: any) {
+      stream.submit(undefined, { command: { resume: data } })
+    },
+    stopGeneration: () => stream.stop(),
+  }
+}
+```
+
+### 4.3 新增 `useStopActiveRun` — 双重取消公共函数
+
+**文件**：`app/composables/useStopActiveRun.ts`（~20 行）
+
+```typescript
+async function stopActiveRun(sessionId: string): Promise<void> {
+  try {
+    const runData = await useApiFetch<{ run: { id: string } | null }>(
+      `/api/v1/case/analysis/runs/current/${sessionId}`,
+    )
+    if (runData?.run?.id) {
+      await useApiFetch(
+        `/api/v1/case/analysis/runs/cancel/${runData.run.id}`,
+        { method: 'POST' },
+      )
+    }
+  }
+  catch (error) {
+    console.error('[stopActiveRun] 取消失败:', error)
+  }
+}
+```
+
+消除 `useXiaosuoChat.ts:149-168` 和 `useModuleChatManager.ts:133-152` 的 20 行×2 重复。
+
+### 4.4 新增 `useChatSessionManager` — 多 session 管理基类
+
+**文件**：`app/composables/useChatSessionManager.ts`（~120 行）
+
+封装小索和模块对话共同的多 session 生命周期管理模式。
+
+```typescript
+interface SessionItem {
+  sessionId: string
+  title: string
+  createdAt: string
+  updatedAt: string
+  hasActiveRun: boolean
+}
+
+interface ChatSessionManagerOptions {
+  caseId: MaybeRef<number>
+  listUrl: (caseId: number) => string
+  createUrl: string
+  deleteUrl: (sessionId: string) => string
+  buildCreateBody: (caseId: number) => Record<string, any>
+  onCustomEvent?: (data: any) => void
+}
+```
+
+返回值：
+
+```typescript
+interface ChatSessionManagerReturn {
+  // Session 管理
+  sessions: Ref<SessionItem[]>
+  currentSessionId: Ref<string | null>
+  isSessionLoading: Ref<boolean>
+
+  // 当前对话状态（代理自 useCaseChat）
+  messages: ComputedRef<BaseMessage[]>
+  values: ComputedRef<any>
+  isLoading: ComputedRef<boolean>
+  interruptData: ComputedRef<any>
+
+  // Session 操作
+  init: () => Promise<void>
+  createSession: (title?: string) => Promise<string>
+  switchSession: (sessionId: string) => Promise<void>
+  deleteSession: (sessionId: string) => Promise<void>
+  renameSession: (sessionId: string, title: string) => Promise<void>
+
+  // 消息操作
+  sendMessage: (text: string, options?: { thinking?: boolean }) => void
+  resumeInterrupt: (data: any) => void
+  stopGeneration: () => Promise<void>   // stream.stop() + stopActiveRun(sid)
+}
+```
+
+内部封装的公共逻辑（从 `useXiaosuoChat` 和 `useModuleChatManager` 提取）：
+
+1. **effectScope 管理**：`currentScope: EffectScope | null` + `currentChat: ShallowRef` + `disposeCurrentChat()`
+2. **竞态防护**：`switchCounter` 计数器，防止快速切换导致旧 scope 泄漏
+3. **switchSession**：dispose → 新 scope → `useCaseChat(sessionId)` → 按 `hasActiveRun` 自动 reconnect/loadHistory
+4. **stopGeneration**：`currentChat.stop()` + `stopActiveRun(currentSessionId)`
+5. **init**：fetchSessions → 空则 createSession → 否则 switchSession(最新)
+6. **onUnmounted** 自动清理
+
+### 4.5 改造 `useXiaosuoChat` — 薄包装
+
+**文件**：`app/composables/useXiaosuoChat.ts`（212 行 → ~30 行）
+
+```typescript
+function useXiaosuoChat(caseId: MaybeRef<number>) {
+  return useChatSessionManager({
+    caseId,
+    listUrl: (id) => `/api/v1/case/analysis/xiaosuo-sessions?caseId=${id}`,
+    createUrl: '/api/v1/case/analysis/xiaosuo-session',
+    deleteUrl: (sid) => `/api/v1/case/analysis/xiaosuo-session/${sid}`,
+    buildCreateBody: (id) => ({ caseId: id }),
+  })
+}
+```
+
+### 4.6 改造 `useModuleChatManager` — 保留特有逻辑
+
+**文件**：`app/composables/useModuleChatManager.ts`（231 行 → ~80 行）
+
+保留的特有逻辑：
+- `instances: Record<string, ChatSessionManagerReturn>` — 每模块一个 session manager
+- `expandedModule / expandModule / collapseAll` — 窗口展开管理
+- `getOrCreateModuleManager(moduleName, moduleTitle)` — 按需创建 manager 实例
+- `activeModules` computed — 活跃模块列表
+- `restoreActiveSessions()` — 页面刷新恢复
+- `onAnalysisSaved` 回调 — 模块对话特有
+
+删除的逻辑（下沉到基类）：effectScope 管理、stopGeneration 双重取消、hasActiveRun 分支、messages/values 代理。
+
+### 4.7 新增 `<InterruptHandler>` 组件
+
+**文件**：`app/components/case/interrupt/InterruptHandler.vue`（~30 行）
+
+```vue
+<script setup lang="ts">
+defineProps<{ interruptData: any }>()
+defineEmits<{ resume: [data: any] }>()
+</script>
+
+<template>
+  <Dialog :open="!!interruptData">
+    <DialogContent class="max-w-2xl">
+      <InitAnalysisInsufficientPointsCard
+        v-if="interruptData?.type === 'insufficient_points'"
+        :is-member="interruptData.data?.isMember"
+        :available-points="interruptData.data?.availablePoints"
+        :required-points="interruptData.data?.requiredPoints"
+        :reason="interruptData.data?.reason"
+        @resume="$emit('resume', { action: 'continue' })"
+      />
+      <!-- 未来新增 interrupt 类型在这里扩展 -->
+    </DialogContent>
+  </Dialog>
+</template>
+```
+
+三个消费方的 Dialog + InsufficientPointsCard 包装代码替换为单行：
+```vue
+<InterruptHandler :interrupt-data="manager.interruptData.value" @resume="manager.resumeInterrupt" />
+```
+
+## 5. Phase 3：UI 外壳层
+
+### 5.1 新增 `<ChatWindowShell>` 组件
+
+**文件**：`app/components/case/ChatWindowShell.vue`（~100 行）
+
+承载三种窗口形态的公共结构：
+
+- **桌面全屏**：`fixed inset-0 z-50`
+- **桌面小窗**：`fixed` + `useDraggableResize`（可拖拽、可缩放）
+- **移动端 Sheet**：`Sheet side="bottom" class="h-dvh"`（100dvh 动态视口高度）
+
+Props：
+
+```typescript
+interface ChatWindowShellProps {
+  open: boolean                    // v-model
+  fullscreen?: boolean             // v-model
+  title?: string
+  icon?: Component
+  showClose?: boolean              // 默认 true
+  showFullscreen?: boolean         // 默认 true
+  draggable?: boolean              // 默认 true
+  resizable?: boolean              // 默认 true
+  initialWidth?: number
+  initialHeight?: number
+}
+```
+
+Emits：`update:open`, `update:fullscreen`
+
+Slots：
+- `#titlebar-left`：标题栏左侧自定义区域（session 选择器等）
+- `#titlebar-right`：标题栏右侧额外按钮
+- `#default`：主内容区（AiChat）
+
+内部封装：`useDraggableResize`、`useDevice` / `isMobile`、关闭/全屏按钮。
+
+### 5.2 新增 `<SessionListPopover>` 组件
+
+**文件**：`app/components/case/SessionListPopover.vue`（~60 行）
+
+小索和模块对话共用的 session 列表 UI。
+
+Props：
+
+```typescript
+interface Props {
+  sessions: SessionItem[]
+  currentId: string | null
+  loading?: boolean
+}
+```
+
+Emits：`select(sessionId)`, `create()`, `delete(sessionId)`, `rename(sessionId, title)`
+
+内部结构：
+- Popover 包裹列表
+- 每项：title + `dayjs(updatedAt).fromNow()`
+- 当前 session 高亮
+- 右侧操作按钮：重命名（编辑图标）、删除（需确认）
+- 底部"新建对话"按钮
+
+### 5.3 改造消费方
+
+**`CaseDetailXiaosuo.vue`**（290 行 → ~120 行）：使用 `ChatWindowShell` + `SessionListPopover` + `InterruptHandler`。
+
+**`AnalysisModuleChat.vue`**（133 行 → ~80 行）：使用 `ChatWindowShell` + `SessionListPopover`（新增，多 session 支持）+ `InterruptHandler`。
+
+## 6. Phase 4：init-analysis 基础设施对齐
+
+### 6.1 改造 `useInitAnalysis` 底层
+
+将 `useInitAnalysis` 中直接创建的 `FetchStreamTransport + useStream` 替换为 `useStreamChat`。
+
+变化点：
+1. 删除直接的 `FetchStreamTransport` + `useStream` 创建（约 15 行） → 改为 `useStreamChat<InitAnalysisState>({ apiUrl: '/api/v1/case/init-analysis' })`
+2. 删除 `computed` 包装代码（values/isLoading/interrupt，约 10 行） → 从 stream 对象直接获取
+3. 删除 interrupt 解包逻辑 → 使用 `stream.interruptData`
+4. 页面中删除 Dialog + InsufficientPointsCard 包装 → 使用 `<InterruptHandler>`
+
+保留不变的工作流特有逻辑（约 200 行）：
+- `phase` 状态机 (select → running → complete)
+- `moduleStates` 推断（第一个非 complete 的模块 → streaming）
+- `moduleMessagesMap` 分组（实时流增量 + 重连恢复）
+- `mergedResult`（DB 结果 + 流式结果合并）
+- `resultFromDB`（页面刷新恢复）
+- `startAnalysis` / `resumeWorkflow` / `retryModule`
+- `watch(values)` 模块分组与完成检测
+
+### 6.2 `useChatSessionManager` 的 stopGeneration 改用 `stopActiveRun`
+
+```typescript
+// useChatSessionManager.ts 内部
+async function stopGeneration() {
+  currentChat.value?.stopGeneration()
+  const sid = currentSessionId.value
+  if (sid) await stopActiveRun(sid)
+}
+```
+
+### 6.3 风险与缓解
+
+| 风险 | 概率 | 影响 | 缓解 |
+|---|---|---|---|
+| useStreamChat 的 computed 包装行为与 useInitAnalysis 现有逻辑不兼容 | 中 | 高 | 先写对比测试，确认 watch(values) 触发时机不变 |
+| init-analysis 的 `reactive(useStream(...))` 改为 `useStreamChat` 后响应式链路中断 | 中 | 高 | useStreamChat 内部保持 reactive 包装方式，保持一致 |
+| Phase 1-3 的抽象在适配 init-analysis 时发现不够灵活 | 低 | 中 | Phase 4 在 Phase 1-3 合并后单独开分支，可回退 |
+
+## 7. 测试策略
+
+### 7.1 TDD 原则
+
+先写测试再改代码。每个 PR 需满足以下测试覆盖：
+
+| PR | 测试类型 | 覆盖内容 |
+|---|---|---|
+| PR #1 | 单元测试 | `validateCaseOwnershipDao`、`listSessionsWithActiveRunDao`、`createSessionDao`（含并发防重）、`softDeleteSessionDao`、`renameSessionDao` |
+| PR #1 | 集成测试 | 4 个瘦化后的 API 端点（确认请求/响应不变） |
+| PR #2 | 单元测试 | `useStreamChat`（computed 包装、interruptData 解包）、`useChatSessionManager`（session CRUD、switchSession、stopGeneration 双重取消、竞态防护）、`useStopActiveRun` |
+| PR #3 | 组件测试 | `ChatWindowShell`（三种模式切换）、`SessionListPopover`（列表渲染、事件 emit）、`InterruptHandler`（按 type 分发渲染） |
+| PR #4 | 回归测试 | `useInitAnalysis` 的 watch(values) 触发时机、moduleStates 推断、mergedResult 合并逻辑——先写对比测试确认改造前后行为一致 |
+
+### 7.2 E2E 验收（手动）
+
+每个 PR 合并前在开发环境验证：
+- 小索对话框：打开 → 新建/切换/删除 session → 发消息 → 流式回复 → 停止生成
+- 模块对话：重新生成 → 新建 session → 切换 → 删除旧 session → 中断恢复
+- 初始化分析：选择模块 → 开始分析 → 页面刷新恢复 → 积分不足中断 → 支付后继续
+
+## 8. PR 拆分与实施顺序
+
+```
+PR #1: Phase 1 — 后端 Session DAO 抽象
+│  新增: session.dao.ts, module-session delete API, rename API
+│  改造: 4 个现有 session API 瘦化
+│  前置: 无
+│
+PR #2: Phase 2 — 前端 Composable 基础层
+│  新增: useStreamChat.ts, useChatSessionManager.ts, useStopActiveRun.ts, InterruptHandler.vue
+│  改造: useCaseChat.ts, useXiaosuoChat.ts, useModuleChatManager.ts
+│  前置: PR #1（模块对话多 session 依赖 delete + rename API）
+│
+PR #3: Phase 3 — UI 外壳层
+│  新增: ChatWindowShell.vue, SessionListPopover.vue
+│  改造: CaseDetailXiaosuo.vue, AnalysisModuleChat.vue
+│  前置: PR #2
+│
+PR #4: Phase 4 — init-analysis 对齐
+│  改造: useInitAnalysis.ts, useCaseChat.ts, init-analysis/[sessionId].vue
+│  前置: PR #2
+│  注意: PR #3 和 PR #4 互不依赖，可并行开发
+```
+
+### 回滚策略
+
+每个 PR 独立可回滚。若 PR #4（最高风险）出问题：
+- 回退 PR #4，PR #1-3 的价值已落袋
+- init-analysis 回到使用直接 useStream 的旧实现
+- 其余两模块不受影响
+
+## 9. 交付物总览
+
+### 新增文件
+
+| 文件 | 用途 | 预估行数 |
+|---|---|---|
+| `server/services/case/session.dao.ts` | Session DAO 抽象 | ~100 |
+| `server/api/v1/case/analysis/module-session/[sessionId].delete.ts` | 模块对话 session 删除 | ~10 |
+| `server/api/v1/case/analysis/session/[sessionId]/rename.patch.ts` | 通用 session 重命名 | ~15 |
+| `app/composables/useStreamChat.ts` | 泛型流管理底层 | ~60 |
+| `app/composables/useChatSessionManager.ts` | 多 session 管理基类 | ~120 |
+| `app/composables/useStopActiveRun.ts` | 双重取消公共函数 | ~20 |
+| `app/components/case/ChatWindowShell.vue` | 窗口外壳组件 | ~100 |
+| `app/components/case/SessionListPopover.vue` | Session 列表组件 | ~60 |
+| `app/components/case/interrupt/InterruptHandler.vue` | 中断处理组件 | ~30 |
+
+### 改造文件
+
+| 文件 | 变化 |
+|---|---|
+| `server/api/v1/case/analysis/xiaosuo-sessions.get.ts` | 44 → ~15 行 |
+| `server/api/v1/case/analysis/module-sessions.get.ts` | 46 → ~15 行 |
+| `server/api/v1/case/analysis/xiaosuo-session.post.ts` | 48 → ~20 行 |
+| `server/api/v1/case/analysis/module-session.post.ts` | 88 → ~25 行 |
+| `app/composables/useCaseChat.ts` | 98 → ~50 行 |
+| `app/composables/useXiaosuoChat.ts` | 212 → ~30 行 |
+| `app/composables/useModuleChatManager.ts` | 231 → ~80 行 |
+| `app/composables/useInitAnalysis.ts` | ~300 → ~220 行 |
+| `app/components/caseDetail/CaseDetailXiaosuo.vue` | 290 → ~120 行 |
+| `app/components/case/AnalysisModuleChat.vue` | 133 → ~80 行 |
+| `app/pages/dashboard/cases/init-analysis/[sessionId].vue` | -15 行 |
+
+### 净效果
+
+- **新增**：~515 行基础设施
+- **删除**：~860 行重复/冗余代码
+- **净减**：~345 行
+- **关键收益**：三模块首次在流管理、session 管理、UI 外壳、中断处理四个层面共享同一份代码
