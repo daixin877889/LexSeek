@@ -380,7 +380,7 @@ interface ChatSessionManagerOptions {
   listUrl: (caseId: number) => string
   createUrl: string
   deleteUrl: (sessionId: string) => string
-  buildCreateBody: (caseId: number) => Record<string, any>
+  buildCreateBody: (caseId: number, title?: string) => Record<string, any>
   onCustomEvent?: (data: any) => void
 }
 ```
@@ -434,7 +434,7 @@ function useXiaosuoChat(caseId: MaybeRef<number>) {
     listUrl: (id) => `/api/v1/case/analysis/xiaosuo-sessions?caseId=${id}`,
     createUrl: '/api/v1/case/analysis/xiaosuo-session',
     deleteUrl: (sid) => `/api/v1/case/analysis/xiaosuo-session/${sid}`,
-    buildCreateBody: (id) => ({ caseId: id }),
+    buildCreateBody: (id, title) => ({ caseId: id, title }),
   })
 }
 ```
