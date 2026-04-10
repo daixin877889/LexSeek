@@ -19,10 +19,16 @@ import type { BaseMessage } from '@langchain/core/messages'
 import { createChatModel } from '../node/chatModelFactory'
 import { getToolInstancesService } from './tools'
 import { getCheckpointer, getStore } from './checkpointer'
-import { pointConsumptionMiddleware } from './middleware/pointConsumption.middleware'
-import { caseMaterialContextMiddleware } from './middleware/caseMaterialContext.middleware'
-import { analysisResultPersistenceMiddleware, markAnalysisFailedById } from './middleware/analysisResultPersistence.middleware'
-import { safetyTrimMiddleware } from './middleware/safetyTrim.middleware'
+import {
+    buildMiddlewareStack,
+    MIDDLEWARE_PRIORITY,
+    MIDDLEWARE_NAMES,
+    pointConsumptionMiddleware,
+    caseMaterialContextMiddleware,
+    analysisResultPersistenceMiddleware,
+    markAnalysisFailedById,
+    safetyTrimMiddleware,
+} from './middleware'
 import { findAnalysisBySessionAndNodeDao, AnalysisStatus } from '../case/analysis.dao'
 import { VALID_MODULE_NAMES } from '#shared/types/initAnalysis'
 
@@ -146,23 +152,43 @@ function createModuleNode(config: ModuleNodeConfig) {
             systemPrompt,
             tools,
             store: await getStore(),
-            middleware: [
-                pointConsumptionMiddleware(userId, 'case_analysis_token', sessionId),
-                caseMaterialContextMiddleware(userId, caseId),
-                summarizationMiddleware({
-                    model,
-                    trigger: [{ tokens: triggerTokens }],
-                }),
-                safetyTrimMiddleware({
-                    model,
-                    maxTokens: Math.floor(contextWindow * 0.8),
-                }),
-                analysisResultPersistenceMiddleware({
-                    agentName: config.moduleName,
-                    caseId,
-                    sessionId,
-                }),
-            ],
+            middleware: buildMiddlewareStack([
+                {
+                    name: MIDDLEWARE_NAMES.POINT_CONSUMPTION,
+                    priority: MIDDLEWARE_PRIORITY.POINT_CONSUMPTION,
+                    middleware: pointConsumptionMiddleware(userId, 'case_analysis_token', sessionId),
+                },
+                {
+                    name: MIDDLEWARE_NAMES.MATERIAL_CONTEXT,
+                    priority: MIDDLEWARE_PRIORITY.MATERIAL_CONTEXT,
+                    middleware: caseMaterialContextMiddleware(userId, caseId),
+                },
+                {
+                    name: MIDDLEWARE_NAMES.SUMMARIZATION,
+                    priority: MIDDLEWARE_PRIORITY.SUMMARIZATION,
+                    middleware: summarizationMiddleware({
+                        model,
+                        trigger: [{ tokens: triggerTokens }],
+                    }),
+                },
+                {
+                    name: MIDDLEWARE_NAMES.SAFETY_TRIM,
+                    priority: MIDDLEWARE_PRIORITY.SAFETY_TRIM,
+                    middleware: safetyTrimMiddleware({
+                        model,
+                        maxTokens: Math.floor(contextWindow * 0.8),
+                    }),
+                },
+                {
+                    name: MIDDLEWARE_NAMES.RESULT_PERSISTENCE,
+                    priority: MIDDLEWARE_PRIORITY.RESULT_PERSISTENCE,
+                    middleware: analysisResultPersistenceMiddleware({
+                        agentName: config.moduleName,
+                        caseId,
+                        sessionId,
+                    }),
+                },
+            ]),
         })
 
         try {
