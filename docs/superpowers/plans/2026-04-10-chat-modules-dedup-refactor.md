@@ -178,7 +178,21 @@ EOF
 
 - [ ] **Step 2: 瘦化 module-sessions.get.ts**
 
-读取当前文件（45 行），替换为 ~20 行：参数校验 → `listSessionsWithActiveRunDAO({ caseId, userId, type: 3 })` → 响应映射（提取 moduleName/nodeId/title/hasActiveRun/createdAt/updatedAt）。
+读取当前文件（45 行），替换为 ~25 行：参数校验 → `listSessionsWithActiveRunDAO(...)` → 响应映射。
+
+> **关键变更**：新增可选查询参数 `moduleName` 过滤。Task 8 的 `useModuleChatManager` 会传 `?moduleName=xxx` 来只获取该模块的 session 列表。
+>
+> ```typescript
+> const query = getQuery(event)
+> const caseId = Number(query.caseId)
+> const moduleName = query.moduleName as string | undefined
+>
+> const params: any = { caseId, userId: user.id, type: 3 }
+> if (moduleName) {
+>     params.metadataFilter = { path: ['moduleName'], equals: moduleName }
+> }
+> const sessions = await listSessionsWithActiveRunDAO(params)
+> ```
 
 - [ ] **Step 3: 瘦化 xiaosuo-session.post.ts**
 
@@ -509,6 +523,9 @@ Run: `npx nuxi typecheck`
 Expected: **可能报 `useXiaosuoChat.ts` 和 `useModuleChatManager.ts` 的 `interrupt` 属性不存在错误**——这是预期的中间态（useCaseChat 不再返回 `interrupt`，只返回 `interruptData`）。将在 Task 8 重写时修复。如果只有这一类错误，可以继续。
 
 - [ ] **Step 4: 提交 useStopActiveRun + useCaseChat**
+
+```bash
+git add app/composables/useStopActiveRun.ts app/composables/useCaseChat.ts
 git commit -m "$(cat <<'EOF'
 refactor(composable): useCaseChat 基于 useStreamChat 重写 + useStopActiveRun
 
