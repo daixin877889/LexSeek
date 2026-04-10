@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, LangGraph (langchain), tiktoken (js-tiktoken), Redis, Prisma, Vitest
 
-**Spec:** `docs/superpowers/specs/2026-04-09-context-engineering-optimization-design.md` v1.7
+**Spec:** `docs/superpowers/specs/2026-04-09-context-engineering-optimization-design.md` v1.9
 
 ---
 

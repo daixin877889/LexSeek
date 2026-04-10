@@ -1,6 +1,6 @@
 # 工作流与 Agent 上下文工程全量优化设计
 
-**版本**: 1.8
+**版本**: 1.9
 **日期**: 2026-04-10
 **状态**: 审查通过
 
@@ -608,15 +608,25 @@ function truncateSection(
 /**
  * 构建精简版案件上下文（约 500-1000 tokens）。
  * 只包含结构化摘要信息，不含材料正文。
+ *
+ * 注意：
+ * - cases.plaintiff/defendant 是 Json? 类型，需 formatParty 序列化
+ * - caseMaterials.type 是 Int 类型（1-文本 2-文档 3-图片 4-音频），需映射为文本
  */
+const MATERIAL_TYPE_LABELS: Record<number, string> = {
+  1: '文本',
+  2: '文档',
+  3: '图片',
+  4: '音频',
+}
+
 async function buildBriefContext(caseId: number): Promise<string> {
   const caseInfo = await prisma.cases.findUnique({
     where: { id: caseId },
     select: {
       title: true,
-      caseType: true,
-      plaintiff: true,
-      defendant: true,
+      plaintiff: true,   // Json? 字段
+      defendant: true,   // Json? 字段
       summary: true,
     },
   })
@@ -628,15 +638,21 @@ async function buildBriefContext(caseId: number): Promise<string> {
     select: { name: true, type: true },
   })
 
+  const formatParty = (party: any): string => {
+    if (!party) return ''
+    if (typeof party === 'string') return party
+    if (Array.isArray(party)) return party.map((p: any) => p.name || p).join('、')
+    return party.name || JSON.stringify(party)
+  }
+
   const parts = [
     '## 案件概要',
     `- 标题：${caseInfo.title || '未命名'}`,
-    caseInfo.caseType ? `- 案件类型：${caseInfo.caseType}` : null,
-    caseInfo.plaintiff ? `- 原告：${caseInfo.plaintiff}` : null,
-    caseInfo.defendant ? `- 被告：${caseInfo.defendant}` : null,
+    caseInfo.plaintiff ? `- 原告：${formatParty(caseInfo.plaintiff)}` : null,
+    caseInfo.defendant ? `- 被告：${formatParty(caseInfo.defendant)}` : null,
     caseInfo.summary ? `- 概述：${caseInfo.summary}` : null,
     materials.length > 0
-      ? `\n## 材料列表\n${materials.map(m => `- ${m.name} (${m.type})`).join('\n')}`
+      ? `\n## 材料列表\n${materials.map(m => `- ${m.name} (${MATERIAL_TYPE_LABELS[m.type] || '未知'})`).join('\n')}`
       : null,
   ]
 
@@ -697,12 +713,13 @@ const result = await agent.invoke(
 ```typescript
 // threadState.ts - loadSubAgentThreads
 // 当前：subRawMessages.map(messageToFlatDict) — 无过滤
-// 改为：先映射再过滤
+// 改为：先映射再过滤（messageToFlatDict 返回 Record<string, unknown>，需类型断言）
 const filteredMessages = subRawMessages
   .map(messageToFlatDict)
   .filter(msg => {
     if (msg.type === 'system') return false
-    if (msg.response_metadata?.injectedBy) return false
+    const meta = msg.response_metadata as { injectedBy?: string } | undefined
+    if (meta?.injectedBy) return false
     return true
   })
 
