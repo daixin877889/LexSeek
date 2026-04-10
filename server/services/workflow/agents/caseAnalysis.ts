@@ -27,7 +27,6 @@ function extractRuntimeConfig(config?: LangGraphRunnableConfig) {
     return {
         userId: cfg?.user_id as number | undefined,
         caseId: cfg?.case_id as number | undefined,
-        prompt: cfg?.prompt as string | undefined,
     }
 }
 
