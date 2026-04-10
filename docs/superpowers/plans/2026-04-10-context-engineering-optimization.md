@@ -535,10 +535,11 @@ const middleware = buildMiddlewareStack([
 Run: `npx vitest run tests/server/workflow --reporter=verbose`
 Expected: PASS
 
-- [ ] **Step 4: 提交**
+- [ ] **Step 5: 提交**
 
 ```bash
-git add server/services/workflow/middleware/types.ts server/services/workflow/middleware/index.ts
+git add server/services/workflow/middleware/types.ts server/services/workflow/middleware/index.ts \
+  server/services/workflow/initAnalysis.executor.ts
 git commit -m "feat(middleware): 新增中间件优先级排序和互斥校验机制"
 ```
 
