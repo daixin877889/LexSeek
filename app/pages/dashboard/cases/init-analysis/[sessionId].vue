@@ -90,23 +90,8 @@
     </template>
   </AiChat>
 
-  <!-- 积分不足覆盖层 -->
-  <Dialog :open="!!interruptData" @update:open="() => {}">
-    <DialogContent class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0" :show-close-button="false" @pointer-down-outside.prevent @escape-key-down.prevent @open-auto-focus.prevent>
-      <DialogHeader class="sr-only">
-        <DialogTitle>积分不足</DialogTitle>
-        <DialogDescription>请购买积分后继续分析</DialogDescription>
-      </DialogHeader>
-      <InitAnalysisInsufficientPointsCard
-        v-if="interruptData"
-        :is-member="interruptData.data?.isMember ?? false"
-        :available-points="interruptData.data?.availablePoints"
-        :required-points="interruptData.data?.requiredPoints"
-        :reason="interruptData.data?.reason"
-        @resume="resumeWorkflow"
-      />
-    </DialogContent>
-  </Dialog>
+  <!-- 统一中断处理器 -->
+  <CaseInterruptInterruptHandler :interrupt-data="interruptData" @resume="resumeWorkflow" />
 
   <!-- 文档/图片预览 -->
   <CaseAnalysisDocPreviewDialog
@@ -220,8 +205,7 @@ const {
   moduleStates,
   activeModules,
   isLoading,
-  interrupt,
-  values,
+  interruptData,
   mergedResult,
   streamMessages,
   loadStatus,
@@ -278,16 +262,6 @@ watch(completedResults, (results) => {
     activeIndex.value = results.length - 1
   }
 }, { immediate: true })
-
-// LangGraph interrupt 数据
-const interruptData = computed(() => {
-  const raw = interrupt.value
-  if (!raw) return null
-  const first = Array.isArray(raw) ? raw[0] : raw
-  const val = first?.value ?? first
-  if (val?.type === "insufficient_points") return val
-  return null
-})
 
 const goBack = () => {
   router.push({ name: "dashboard-cases" })

@@ -1,16 +1,25 @@
 /**
  * 初始化分析 composable
  *
- * 使用 useStream 消费 LangGraph StateGraph 的 SSE 流
+ * 使用 useStreamChat 消费 LangGraph StateGraph 的 SSE 流
  * 通过 values.lastExecutedModule 追踪当前模块
  * 通过 values.messages 数组长度变化按模块分组消息
  * 每个模块有独立的消息列表供 ModuleResult 渲染
  */
 
-import { useStream, FetchStreamTransport } from '@langchain/vue'
 import { INIT_ANALYSIS_MODULES, DEFAULT_SELECTED_MODULES } from '#shared/types/initAnalysis'
 import type { ModuleRunState, InitAnalysisStatusResponse, ModuleStatus } from '#shared/types/initAnalysis'
 import { coerceRawMessages } from '~/components/ai/composables/useMessageParser'
+
+// InitAnalysis LangGraph 状态类型
+interface InitAnalysisState extends Record<string, unknown> {
+  lastExecutedModule?: string
+  result?: Record<string, string>
+  failedModules?: Record<string, string>
+  selectedModules?: string[]
+  messages?: any[]
+  __interrupt__?: any[]
+}
 
 export function useInitAnalysis(sessionId: Ref<string>) {
   const phase = ref<'select' | 'running' | 'complete'>('select')
@@ -51,43 +60,30 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     moduleStates.value = { ...moduleStates.value, [name]: { ...current, ...patch } }
   }
 
-  // ==================== useStream ====================
+  // ==================== useStreamChat ====================
 
-  const stream = reactive(useStream({
-    transport: new FetchStreamTransport({
-      apiUrl: '/api/v1/case/init-analysis',
-    }),
+  const stream = useStreamChat<InitAnalysisState>({
+    apiUrl: '/api/v1/case/init-analysis',
     threadId: sessionId.value,
     messagesKey: 'messages',
-    onError: (error: any) => {
-      console.error('[useInitAnalysis] 流错误:', error)
-    },
-  }))
-
-  const values = computed(() => stream.values as any)
-  const isLoading = computed(() => stream.isLoading)
-
-  // stream.interrupt 存在 Vue 响应式 bug：getter 只依赖 isLoading（stream 期间不变），
-  // 导致 values 更新后 interrupt 不重新求值。直接从 values.__interrupt__ 读取。
-  const interrupt = computed(() => {
-    const v = values.value
-    if (!v?.__interrupt__?.length) return undefined
-    return v.__interrupt__.length === 1 ? v.__interrupt__[0] : v.__interrupt__
   })
+
+  // stream.interruptData 已在 useStreamChat 内部正确解包（绕过 Vue 响应式 bug）
+  const { interruptData } = stream
 
   // ==================== 模块状态 + 消息分组追踪 ====================
 
   // 流式结果合并 DB 结果（DB 结果优先，流式结果覆盖）
   const mergedResult = computed(() => ({
     ...resultFromDB.value,
-    ...(values.value?.result ?? {}),
+    ...(stream.values.value?.result ?? {}),
   }))
 
   // 合并 stream.messages（实时流）和 values.messages（重连时从 checkpoint 恢复）
   // 确保页面刷新后左侧消息列表能显示历史消息
   const streamMessages = computed(() => {
-    const realtime = stream.messages ?? []
-    const checkpoint = values.value?.messages ?? []
+    const realtime = stream.messages.value ?? []
+    const checkpoint = stream.values.value?.messages ?? []
     // 如果有实时消息（长度 > 0），优先使用实时消息
     if (realtime.length > 0) return realtime
     // 否则使用从 checkpoint 恢复的消息
@@ -98,7 +94,7 @@ export function useInitAnalysis(sessionId: Ref<string>) {
   })
 
   // 追踪模块状态 + 消息分组
-  watch(values, (v: any) => {
+  watch(() => stream.values.value, (v: InitAnalysisState | undefined) => {
     if (!v) return
 
     const { lastExecutedModule, result, failedModules, selectedModules: mods } = v
@@ -149,7 +145,7 @@ export function useInitAnalysis(sessionId: Ref<string>) {
 
     // 按模块分组消息
     const allMessages = v.messages
-    const currentStreamLength = stream.messages?.length ?? 0
+    const currentStreamLength = stream.messages.value?.length ?? 0
 
     if (Array.isArray(allMessages) && allMessages.length > 0) {
       // 判断是重连恢复（stream.messages 为空但 values.messages 有内容）还是实时流
@@ -306,9 +302,9 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     selectedModules,
     moduleStates,
     activeModules,
-    isLoading,
-    interrupt,
-    values,
+    isLoading: stream.isLoading,
+    interruptData,
+    values: stream.values,
     mergedResult,
     streamMessages,
     getModuleState,
