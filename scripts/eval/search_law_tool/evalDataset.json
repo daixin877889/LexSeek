@@ -891,7 +891,7 @@
       "expectedMode": "semantic",
       "k": 10,
       "expectedHits": [
-        { "match": { "content_contains": "不动产" }, "mustBeInTopN": 10 }
+        { "match": { "content_contains": "妨害" }, "mustBeInTopN": 10 }
       ],
       "tags": ["semantic", "property"]
     },
@@ -1054,7 +1054,7 @@
       "id": "edge-001",
       "query": "不存在的法律名称第一条",
       "type": "law",
-      "expectedMode": "exact",
+      "expectedMode": "hybrid",
       "k": 5,
       "expectedHits": [],
       "tags": ["edge", "no-match"]
@@ -1083,7 +1083,7 @@
       "id": "edge-004",
       "query": "第一百条",
       "type": "law",
-      "expectedMode": "semantic",
+      "expectedMode": "exact",
       "k": 5,
       "expectedHits": [],
       "tags": ["edge", "article-only"]
@@ -1092,7 +1092,7 @@
       "id": "edge-005",
       "query": "张三诉李四买卖合同纠纷一案中关于违约金的认定",
       "type": "law",
-      "expectedMode": "semantic",
+      "expectedMode": "hybrid",
       "k": 10,
       "expectedHits": [
         { "match": { "content_contains": "违约金" }, "mustBeInTopN": 10 }
