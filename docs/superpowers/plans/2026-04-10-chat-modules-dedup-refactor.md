@@ -219,7 +219,7 @@ EOF
 
 **Files:**
 - Create: `server/api/v1/case/analysis/module-session/[sessionId].delete.ts`
-- Create: `server/api/v1/case/analysis/session/[sessionId]/rename.patch.ts`
+- Create: `server/api/v1/case/analysis/session/rename/[sessionId].patch.ts`
 
 - [ ] **Step 1: 创建 module-session delete API**
 
@@ -672,7 +672,7 @@ export function useChatSessionManager(options: ChatSessionManagerOptions) {
 
     async function renameSession(sessionId: string, newTitle: string) {
         await useApiFetch(
-            `/api/v1/case/analysis/session/${sessionId}/rename`,
+            `/api/v1/case/analysis/session/rename/${sessionId}`,
             { method: 'PATCH', body: { title: newTitle } },
         )
         sessions.value = sessions.value.map(s =>
@@ -1115,7 +1115,7 @@ git commit -m "test(composable): useInitAnalysis 对比测试（Phase 4 改造�
 
 - [ ] **Step 3: 运行对比测试确认行为不变**
 
-Run: `npx vitest run tests/server/workflow/useInitAnalysis.comparison.test.ts --reporter=verbose`
+Run: `npx vitest run tests/composables/useInitAnalysis.comparison.test.ts --reporter=verbose`
 Expected: PASS（与基线行为一致）
 
 - [ ] **Step 4: 类型检查**
