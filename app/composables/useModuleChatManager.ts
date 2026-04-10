@@ -15,6 +15,8 @@ export type ModuleChatInstance = SessionManager & {
     moduleName: string
     moduleTitle: string
     isExpanded: Ref<boolean>
+    /** 是否隐藏（用户从状态条关闭标签后为 true，下次 expand 时重置为 false） */
+    isHidden: Ref<boolean>
 }
 
 export interface ModuleChatManagerOptions {
@@ -29,7 +31,8 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
 
     const activeModules = computed(() =>
         Object.values(instances).filter(i =>
-            i.isLoading.value || (i.sessions.value.length > 0 && i.currentSessionId.value),
+            !i.isHidden.value
+            && (i.isLoading.value || (i.sessions.value.length > 0 && i.currentSessionId.value)),
         ),
     )
 
@@ -62,6 +65,7 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
             moduleName,
             moduleTitle,
             isExpanded: ref(false),
+            isHidden: ref(false),
         })
 
         instances[moduleName] = instance
@@ -80,7 +84,16 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
         for (const key of Object.keys(instances)) {
             if (instances[key]) instances[key].isExpanded.value = key === moduleName
         }
+        // expand 时重置 isHidden，确保从状态条关闭后再次打开能正常显示
+        const target = instances[moduleName]
+        if (target) target.isHidden.value = false
         expandedModule.value = moduleName
+    }
+
+    /** 从状态条隐藏某个模块标签（不中断底层 chat，仅 UI 隐藏） */
+    function hideModule(moduleName: string) {
+        const target = instances[moduleName]
+        if (target) target.isHidden.value = true
     }
 
     function collapseAll() {
@@ -125,6 +138,7 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
         getOrCreateModuleManager,
         getOrCreateInstance,
         expandModule,
+        hideModule,
         collapseAll,
         expandedModule,
         activeModules,

@@ -231,6 +231,7 @@ onMounted(() => {
       <CaseAnalysisModuleChatBar
         :modules="moduleChatManager.activeModules.value.filter(m => !m.isExpanded.value)"
         @expand="moduleChatManager.expandModule"
+        @close="moduleChatManager.hideModule"
       />
     </ClientOnly>
 
