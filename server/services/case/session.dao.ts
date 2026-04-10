@@ -138,7 +138,6 @@ export async function createSessionDAO(
         data: {
             sessionId,
             caseId: params.caseId,
-            userId: params.userId,
             type: params.type,
             metadata: params.metadata,
         },

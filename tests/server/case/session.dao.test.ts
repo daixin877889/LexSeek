@@ -256,7 +256,6 @@ describe('createSessionDAO', () => {
                 data: expect.objectContaining({
                     sessionId: 'mock-uuid-1234',
                     caseId: 1,
-                    userId: 100,
                     type: 1,
                 }),
             }),
