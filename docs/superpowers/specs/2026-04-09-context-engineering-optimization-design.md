@@ -1,6 +1,6 @@
 # 工作流与 Agent 上下文工程全量优化设计
 
-**版本**: 1.2
+**版本**: 1.3
 **日期**: 2026-04-10
 **状态**: 审查通过
 
@@ -240,62 +240,76 @@ const { userId, caseId } = extractRuntimeConfig(config)
 
 **问题**：`splice` 注入的 HumanMessage 被 PostgresSaver 持久化，历史注入内容随对话轮次累积。
 
-**方案**：在 `beforeAgent` 开头先清除上一轮注入的消息，再重新注入当前版本。
+**方案**：保持历史注入消息不动（命中模型供应商 Prompt Caching），仅在上下文发生变更时追加增量消息。
 
-**关键原则**：`cleanPreviousInjections` 只清除消息数组中的注入 HumanMessage，**不重置** state 中的增量检测字段（`_injectedSourceIds`、`_lastMemoryHash`、`_injectedResultVersions` 等）。这样：
-- 清除消息后，增量检测 hash/version 仍保持上一轮的值
-- 只有当上下文内容真正变化时（hash 变了），才会生成新的注入消息
-- 内容未变化时，清除旧消息后不会重新注入（因为 hash 相同，sections 为空）
+> **关键约束**：模型供应商（OpenAI、Anthropic、DeepSeek 等）对消息前缀匹配做 Prompt Caching。如果每轮清除并重新注入上下文，即使内容相同，消息 ID 变化也会导致缓存失效，token 成本大幅上升。因此**绝不清除历史注入消息**，而是通过增量检测只追加变更部分。
 
-这确保了"消息不累积"和"增量检测仍有效"两个目标同时满足。
+**改造策略**：
 
-**新增共享工具函数**：
+1. **历史注入消息保持原样**（命中缓存）
+2. **增量检测逻辑不变**：通过 `_injectedSourceIds`、hash 等 state 字段检测上下文变更
+3. **只追加变更部分**：只有新增材料、记忆变化、分析结果更新时才注入新的 HumanMessage
+4. **膨胀治理交由 summarizationMiddleware + safetyTrimMiddleware 兜底**：当累积的注入消息导致总 token 逼近窗口时，由 4.2/4.3 的压缩和截断机制处理
+
+**改造 `caseMaterialContextMiddleware`**（主要是确保增量逻辑的正确性）：
 
 ```typescript
-// server/services/workflow/middleware/utils.ts
+beforeAgent: async (state) => {
+  const prevSourceIds = state._injectedSourceIds ?? []
+  const currentSourceIds = getCurrentSourceIds(caseId)
+  const newSourceIds = currentSourceIds.filter(id => !prevSourceIds.includes(id))
 
-/**
- * 清除指定中间件之前注入的所有 HumanMessage。
- * 通过 response_metadata.injectedBy 前缀匹配。
- * 返回新数组，不修改原数组。
- */
-export function cleanPreviousInjections(
-  messages: BaseMessage[],
-  injectorPrefix: string
-): BaseMessage[] {
-  return messages.filter(m => {
-    if (m._getType() !== 'human') return true
-    const injectedBy = (m as any).response_metadata?.injectedBy
-    return !injectedBy?.startsWith(injectorPrefix)
+  if (newSourceIds.length === 0) return  // 无变更，不注入，历史消息原样保留
+
+  // 仅注入新增材料的上下文
+  const newMaterials = materials.filter(m => newSourceIds.includes(getSourceId(m)))
+  const context = await getMaterialContextService(newMaterials)
+  if (context.mode === 'empty') return
+
+  const messageText = buildIncrementalMaterialMessage(context)
+  const insertIdx = Math.max(0, state.messages.length - 1)
+  state.messages.splice(insertIdx, 0, new HumanMessage({
+    content: messageText,
+    response_metadata: { injectedBy: 'CaseMaterialContextMiddleware', injectedAt: new Date().toISOString() },
+  }))
+
+  return { _injectedSourceIds: currentSourceIds }
+}
+```
+
+**改造 `moduleContextMiddleware`**（当前逻辑已基本正确，确认要点）：
+
+```typescript
+beforeAgent: async (state) => {
+  // 并行加载 4 类上下文并用 hash 检测变更
+  // 只有 hash 变化的 section 才会拼入新的注入消息
+  // 所有 section 都没有变化时直接 return，不注入任何消息
+  // 历史注入消息保持原样，命中 Prompt Caching
+
+  const sections: string[] = []
+
+  // 1. 材料变更检测（sourceId 增量）
+  // 2. 记忆变更检测（MD5 hash 对比）
+  // 3. 其他模块结果变更检测（per-module hash 对比）
+  // 4. 当前模块结果变更检测（MD5 hash 对比）
+
+  if (sections.length === 0) return  // 无变更
+
+  // 追加增量消息到最新 HumanMessage 之前
+  const contextMessage = new HumanMessage({
+    content: sections.join('\n\n'),
+    response_metadata: { injectedBy: `ModuleContextMiddleware:${moduleName}`, injectedAt: new Date().toISOString() },
   })
+  // ...insert logic...
 }
 ```
 
-**改造 `caseMaterialContextMiddleware`**：
+**效果**：
+- 历史注入消息不动 → 命中 Prompt Caching → 降低 token 成本
+- 增量检测确保只追加变更 → 减缓膨胀速度
+- 膨胀最终由 summarizationMiddleware（4.2）+ safetyTrimMiddleware（4.3）兜底处理
 
-```typescript
-beforeAgent: async (state) => {
-  // 1. 清除上一轮注入
-  state.messages = cleanPreviousInjections(state.messages, 'CaseMaterialContext')
-
-  // 2. 加载材料并注入（逻辑不变）
-  // ...existing injection logic...
-}
-```
-
-**改造 `moduleContextMiddleware`**：
-
-```typescript
-beforeAgent: async (state) => {
-  // 1. 清除上一轮注入
-  state.messages = cleanPreviousInjections(state.messages, 'ModuleContext')
-
-  // 2. 加载上下文并注入（逻辑不变）
-  // ...existing injection logic...
-}
-```
-
-**效果**：每轮对话中该中间件的注入消息只保留最新版本。历史 checkpoint 中的旧注入消息在下一轮 `beforeAgent` 时被清除。前端显示不受影响（本来就过滤了这些消息）。
+**与当前实现的差异**：当前 `caseMaterialContextMiddleware` 的首次注入和增量注入逻辑已基本正确。主要改造点在于确保增量检测的健壮性（如 sourceId 去重、hash 稳定性），以及移除任何"清除历史注入"的逻辑（如果有的话）。
 
 ### 4.2 summarization 阈值动态化
 
@@ -609,6 +623,8 @@ async function buildBriefContext(caseId: number): Promise<string> {
 
 **改造子代理创建逻辑**：
 
+子代理的上下文注入采用系统提示词拼接方式（非 HumanMessage 注入），因为子代理是在主代理工具调用内部创建的，其消息流不直接暴露给前端。但子代理的线程状态可通过 `loadSubAgentThreads` 加载到前端展示，因此仍需确保上下文消息不泄露。
+
 ```typescript
 // subAgentToolFactory.ts - 工具函数内部
 
@@ -622,6 +638,37 @@ const agent = createAgent({
   systemPrompt: enrichedSystemPrompt,
   // ...rest
 })
+```
+
+**前端和服务端双重过滤**：
+
+子代理上下文通过 system prompt 注入，已有的过滤机制已覆盖：
+
+1. **服务端**：`agentWorker.ts` 的 `stripSystemMessages`（及本设计 6.2 改造后的 `isFilterableMessage`）会过滤 `type === 'system'` 的消息
+2. **服务端**：`threadState.ts` 的 `getThreadValuesService` 过滤 `msg.type !== 'system'`
+3. **前端**：`useMessageParser.ts` 过滤 `SystemMessage` 实例
+
+如果子代理改为使用 HumanMessage 注入上下文（与主代理保持一致），则需额外确保：
+
+1. **服务端**：`loadSubAgentThreads`（`threadState.ts`）在加载子代理线程时，也要过滤带 `response_metadata.injectedBy` 的 HumanMessage
+2. **前端**：`useMessageParser.ts` 已按 `injectedBy` 前缀过滤，需确认子代理的 `injectedBy` 值（如 `SubAgentContext`）也在过滤范围内
+
+```typescript
+// threadState.ts - loadSubAgentThreads 改造
+// 加载子代理线程时，过滤注入的上下文消息
+const filteredMessages = flatMessages.filter(msg => {
+  if (msg.type === 'system') return false
+  if (msg.response_metadata?.injectedBy) return false  // 过滤注入的上下文
+  return true
+})
+
+// useMessageParser.ts - 确认过滤前缀覆盖子代理
+if (injector?.startsWith('ModuleContext')
+  || injector?.startsWith('CaseMaterial')
+  || injector?.startsWith('SubAgentContext')  // 新增子代理过滤
+) {
+  return false
+}
 ```
 
 ---
@@ -895,6 +942,7 @@ Layer 1 和 Layer 2 可并行实施。Layer 3-5 顺序执行。
 | 风险 | 影响 | 缓解措施 |
 |------|------|----------|
 | tiktoken 二分查找性能 | 工具调用延迟增加 | 设置 100ms 超时，降级到字符估算 |
-| checkpoint 清理逻辑 bug | 丢失用户消息 | `cleanPreviousInjections` 只过滤带 `injectedBy` 的 HumanMessage，用户消息无此标记 |
+| 增量注入消息累积 | 长对话中注入消息逐渐膨胀 | summarizationMiddleware（4.2）+ safetyTrimMiddleware（4.3）兜底压缩，历史注入消息在摘要时被合并 |
+| 子代理上下文泄露 | 子代理注入的上下文可能暴露到前端 | 服务端 + 前端双重过滤（system prompt 过滤 + injectedBy 过滤） |
 | Redis 连接故障 | storage 不可用 | 添加内存 Map fallback（降级模式） |
 | summarization 动态阈值过低 | 频繁触发摘要影响响应速度 | 设置下限 `Math.max(triggerTokens, 30000)` |
