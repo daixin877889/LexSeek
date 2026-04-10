@@ -8,12 +8,13 @@
 import { tool } from '@langchain/core/tools'
 import { z } from 'zod'
 import { searchLaw } from '../../legal/searchLaw.tool'
+import { truncateToolResults } from '../context/toolResultTruncator'
 import type { ToolDefinition, ToolContext } from './types'
 
 /** 参数 schema（唯一数据源） */
 const schema = z.object({
     query: z.string().optional().describe('搜索关键词，用于语义搜索法律条文内容'),
-    k: z.number().optional().default(5).describe('返回结果数量，默认为 5'),
+    k: z.number().max(20).optional().default(5).describe('返回结果数量，最多 20 条'),
     legalType: z.enum(['law', 'regulation', 'judicial_interp', 'guideline']).optional().describe('法律类型：law（法律）、regulation（法规）、judicial_interp（司法解释）、guideline（指导性文件）'),
     legalName: z.string().optional().describe('法律名称，用于筛选特定法律的所有条文'),
     isEffective: z.boolean().optional().describe('是否有效，true 表示只返回有效条文，false 表示只返回无效条文'),
@@ -71,7 +72,8 @@ export function createTool(context: ToolContext) {
                     resultCount: results.length,
                 })
 
-                return JSON.stringify(formattedResults)
+                const truncated = truncateToolResults(formattedResults, { maxTokensPerItem: 8000 })
+                return JSON.stringify(truncated)
             } catch (error) {
                 logger.error('法律检索失败:', error)
                 return JSON.stringify({

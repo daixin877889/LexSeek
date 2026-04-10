@@ -16,7 +16,7 @@ import { truncateToolResults } from '../context/toolResultTruncator'
 const schema = z.object({
     query: z.string().optional().describe('语义查询内容，用于搜索相关的材料片段'),
     sourceId: z.number().optional().describe('材料 sourceId，精确检索或限定语义搜索范围到指定材料'),
-    k: z.number().optional().default(5).describe('返回结果数量，默认为 5'),
+    k: z.number().max(20).optional().default(5).describe('返回结果数量，默认为 5，最多 20 条'),
 }).refine(
     data => data.query || data.sourceId,
     { message: '至少需要提供 query 或 sourceId' }

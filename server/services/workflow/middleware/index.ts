@@ -1,5 +1,7 @@
+export * from './types'
 export * from './caseProcessMaterial.middleware'
 export * from './caseMaterialContext.middleware'
 export * from './pointConsumption.middleware'
 export * from './analysisResultPersistence.middleware'
 export * from './moduleContext.middleware'
+export * from './safetyTrim.middleware'

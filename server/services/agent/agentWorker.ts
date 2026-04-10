@@ -139,7 +139,12 @@ export class AgentWorker {
         select: { type: true, metadata: true },
       })
 
-      if (session?.type === 2) {
+      // session 必须存在，否则直接抛错，避免静默降级到普通 runCaseChat 导致路由错乱
+      if (!session) {
+        throw new Error(`Session not found for run ${run.id}, sessionId: ${run.sessionId}`)
+      }
+
+      if (session.type === 2) {
         // 初始化分析：caseAnalysisV2 工作流
         const { startCaseAnalysisV2 } = await import('../workflow/caseAnalysisV2.executor')
         stream = await startCaseAnalysisV2({
@@ -149,7 +154,7 @@ export class AgentWorker {
           selectedModules: input.selectedModules ?? [],
           command: input.command,
         })
-      } else if (session?.type === 3) {
+      } else if (session.type === 3) {
         // 模块对话
         const { runModuleChat } = await import('../workflow/agents/moduleAgent')
         const metadata = session.metadata as { moduleName: string; nodeId: number }
@@ -241,7 +246,7 @@ export class AgentWorker {
         try {
           let interrupts: any[] | undefined
 
-          if (session?.type === 2) {
+          if (session.type === 2) {
             // 结构化分析：通过 workflow 实例获取 thread state
             const { getWorkflowThreadState } = await import('../workflow/caseAnalysisV2.executor')
             const threadState = await getWorkflowThreadState(run.sessionId)
@@ -486,7 +491,7 @@ function isSystemMessage(msg: unknown): boolean {
 /**
  * 判断消息是否为中间件注入的上下文消息（不应发送到前端）
  *
- * 检测 response_metadata.injectedBy 是否以 ModuleContext 或 CaseMaterial 开头
+ * 检测 response_metadata.injectedBy 是否以 ModuleContext、CaseMaterial 或 SubAgentContext 开头
  */
 function isInjectedMessage(msg: unknown): boolean {
   if (!msg || typeof msg !== 'object') return false
@@ -495,14 +500,18 @@ function isInjectedMessage(msg: unknown): boolean {
   const meta = m.response_metadata as Record<string, unknown> | undefined
   if (meta?.injectedBy) {
     const injector = meta.injectedBy as string
-    if (injector.startsWith('ModuleContext') || injector.startsWith('CaseMaterial')) return true
+    if (injector.startsWith('ModuleContext')
+      || injector.startsWith('CaseMaterial')
+      || injector.startsWith('SubAgentContext')) return true
   }
   // 嵌套 { data: { response_metadata: ... } } 格式
   if (m.data && typeof m.data === 'object') {
     const innerMeta = (m.data as Record<string, unknown>).response_metadata as Record<string, unknown> | undefined
     if (innerMeta?.injectedBy) {
       const injector = innerMeta.injectedBy as string
-      if (injector.startsWith('ModuleContext') || injector.startsWith('CaseMaterial')) return true
+      if (injector.startsWith('ModuleContext')
+        || injector.startsWith('CaseMaterial')
+        || injector.startsWith('SubAgentContext')) return true
     }
   }
   return false
@@ -531,6 +540,7 @@ function isInternalLLMEvent(data: unknown): boolean {
  * 从 SSE 事件数据中剥离内部消息（防止系统提示词和上下文注入消息泄露到客户端）
  *
  * - values 事件：过滤 data.messages 数组中的内部消息
+ * - updates 事件：按 node 遍历，过滤每个 node 输出中的 messages 数组
  * - messages 事件：过滤整个事件（如果是内部消息则返回 null）
  */
 function stripSystemMessages(event: string, data: unknown): unknown | null {
@@ -542,6 +552,27 @@ function stripSystemMessages(event: string, data: unknown): unknown | null {
       return { ...d, messages: d.messages.filter(m => !isInternalMessage(m)) }
     }
     return data
+  }
+
+  // updates 事件：数据结构是 Record<nodeName, NodeOutput>（按节点聚合的增量更新）
+  // 需遍历每个 node 输出单独处理其 messages 数组
+  if (event === 'updates') {
+    const d = data as Record<string, unknown>
+    const result: Record<string, unknown> = {}
+    for (const [nodeName, nodeOutput] of Object.entries(d)) {
+      if (nodeOutput && typeof nodeOutput === 'object') {
+        const no = nodeOutput as Record<string, unknown>
+        if (Array.isArray(no.messages)) {
+          result[nodeName] = {
+            ...no,
+            messages: no.messages.filter(m => !isInternalMessage(m)),
+          }
+          continue
+        }
+      }
+      result[nodeName] = nodeOutput
+    }
+    return result
   }
 
   if (event === 'messages') {

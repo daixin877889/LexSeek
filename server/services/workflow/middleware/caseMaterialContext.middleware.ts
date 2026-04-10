@@ -23,9 +23,10 @@ export const caseMaterialContextMiddleware = (userId: number, caseId: number) =>
           const prevSourceIds: number[] = state._injectedSourceIds ?? []
           const currentSourceIds = materials.map(m => getSourceId(m))
 
-          // 3. 判断是首次注入还是增量
+          // 3. 判断是首次注入还是增量（使用 Set 优化大数据量下的去重性能）
           const isFirstInjection = prevSourceIds.length === 0
-          const newSourceIds = currentSourceIds.filter(id => !prevSourceIds.includes(id))
+          const prevSourceIdSet = new Set(prevSourceIds)
+          const newSourceIds = currentSourceIds.filter(id => !prevSourceIdSet.has(id))
 
           // 无变化则跳过
           if (!isFirstInjection && newSourceIds.length === 0) return

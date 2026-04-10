@@ -13,10 +13,12 @@ import { getValidNodeConfig, getNodeConfigsByTypes } from '../../node/node.servi
 import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { createSubAgentTools } from './subAgentToolFactory'
+import { renderSystemPrompt } from '../utils/promptRenderer'
 import {
     pointConsumptionMiddleware,
     caseProcessMaterialMiddleware,
     caseMaterialContextMiddleware,
+    safetyTrimMiddleware,
 } from '../middleware'
 
 /** 主代理节点名称 */
@@ -78,11 +80,8 @@ export async function runCaseChat(
         thinking,
     })
 
-    // 4. 获取系统提示词
-    const systemPromptConfig = mainConfig.prompts.find(
-        p => p.type === 'system' && p.status === 1,
-    )
-    const systemPrompt = systemPromptConfig?.content
+    // 4. 获取系统提示词（渲染模板变量）
+    const systemPrompt = renderSystemPrompt(mainConfig, { caseId })
 
     // 5. 加载主代理通用工具
     const toolContext = { userId, caseId, sessionId }
@@ -105,6 +104,13 @@ export async function runCaseChat(
     })
 
     // 8. 创建主代理
+    // 根据模型上下文窗口动态计算 summarization 触发阈值：
+    // - 取窗口的 60% 作为触发点，为工具输出与最终响应留出冗余
+    // - 下限 30k 防止窗口过小时摘要过于频繁
+    // - 未配置 modelContextWindow 时回退到 128k（主流模型保守默认）
+    const contextWindow = mainConfig.modelContextWindow || 128000
+    const triggerTokens = Math.max(Math.floor(contextWindow * 0.6), 30000)
+
     const agent: ReactAgent = createAgent({
         model,
         systemPrompt,
@@ -117,7 +123,11 @@ export async function runCaseChat(
             caseMaterialContextMiddleware(userId, caseId),
             summarizationMiddleware({
                 model,
-                trigger: [{ tokens: 100000 }],
+                trigger: [{ tokens: triggerTokens }],
+            }),
+            safetyTrimMiddleware({
+                model,
+                maxTokens: Math.floor(contextWindow * 0.8),
             }),
         ],
     })

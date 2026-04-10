@@ -57,6 +57,7 @@ vi.mock('../../../../server/services/workflow/middleware', () => ({
     pointConsumptionMiddleware: vi.fn(() => ({ __mock: 'pointConsumption' })),
     caseProcessMaterialMiddleware: vi.fn(() => ({ __mock: 'caseProcessMaterial' })),
     caseMaterialContextMiddleware: vi.fn(() => ({ __mock: 'caseMaterialContext' })),
+    safetyTrimMiddleware: vi.fn(() => ({ __mock: 'safetyTrim' })),
 }))
 
 // mock @langchain/core/messages

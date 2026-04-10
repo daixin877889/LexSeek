@@ -2,7 +2,8 @@ import { createAgent, todoListMiddleware, summarizationMiddleware, type ReactAge
 import type { LangGraphRunnableConfig } from "@langchain/langgraph";
 import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
-import { caseMaterialContextMiddleware, caseProcessMaterialMiddleware, pointConsumptionMiddleware, analysisResultPersistenceMiddleware } from '../middleware'
+import { caseMaterialContextMiddleware, caseProcessMaterialMiddleware, pointConsumptionMiddleware, analysisResultPersistenceMiddleware, safetyTrimMiddleware } from '../middleware'
+import { renderSystemPrompt } from '../utils/promptRenderer'
 
 
 export interface AnalysisAgentOptions {
@@ -26,7 +27,6 @@ function extractRuntimeConfig(config?: LangGraphRunnableConfig) {
     return {
         userId: cfg?.user_id as number | undefined,
         caseId: cfg?.case_id as number | undefined,
-        prompt: cfg?.prompt as string | undefined,
     }
 }
 
@@ -75,9 +75,9 @@ export const caseAnalysisAgent = async (
         thinking,
     })
 
-    // 获取系统提示词（优先使用数据库配置）
-    const systemPromptConfig = nodeConfig.prompts.find((p) => p.type === 'system' && p.status === 1)
-    const systemPrompt = systemPromptConfig?.content
+    // 获取系统提示词（优先使用数据库配置，并渲染模板变量）
+    // agentName 对应 nodes 表中的节点名，即当前模块名
+    const systemPrompt = renderSystemPrompt(nodeConfig, { caseId, moduleName: agentName })
 
     // 从节点配置动态加载工具（使用 runtime userId/caseId）
     const tools = nodeConfig.tools.length > 0 && userId && caseId
@@ -94,6 +94,10 @@ export const caseAnalysisAgent = async (
         toolsCount: tools.length,
     })
 
+    // 根据模型上下文窗口动态计算 summarization 触发阈值（窗口 * 60%，下限 30k）
+    const contextWindow = nodeConfig.modelContextWindow || 128000
+    const triggerTokens = Math.max(Math.floor(contextWindow * 0.6), 30000)
+
     const agent: ReactAgent = createAgent({
         model,
         systemPrompt,
@@ -107,7 +111,11 @@ export const caseAnalysisAgent = async (
             todoListMiddleware(),
             summarizationMiddleware({
                 model,
-                trigger: [{ tokens: 100000 }],
+                trigger: [{ tokens: triggerTokens }],
+            }),
+            safetyTrimMiddleware({
+                model,
+                maxTokens: Math.floor(contextWindow * 0.8),
             }),
             // 末位：afterAgent 在所有其他中间件之后执行
             analysisResultPersistenceMiddleware({

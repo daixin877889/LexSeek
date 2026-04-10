@@ -20,7 +20,9 @@ import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { pointConsumptionMiddleware } from '../middleware'
 import { moduleContextMiddleware } from '../middleware/moduleContext.middleware'
+import { safetyTrimMiddleware } from '../middleware/safetyTrim.middleware'
 import { createTool as createSaveAnalysisResultTool } from '../tools/saveAnalysisResult.tool'
+import { renderSystemPrompt } from '../utils/promptRenderer'
 import type { ToolContext } from '../tools/types'
 import { getSessionState } from '../state/storage'
 
@@ -91,12 +93,16 @@ export async function runModuleChat(
 
     // 构建静态 system prompt（不变，命中供应商 Prompt Caching）
     const systemPromptParts = [
-        nodeConfig.prompts.find(p => p.type === 'system')?.content || '',
+        renderSystemPrompt(nodeConfig, { caseId, moduleName }),
         '当你生成或更新了该模块的分析结果时，必须调用 save_analysis_result 工具保存结果。',
     ].filter(Boolean)
     const systemPrompt = systemPromptParts.join('\n\n')
 
     // 创建 Agent
+    // 根据模型上下文窗口动态计算 summarization 触发阈值（窗口 * 60%，下限 30k）
+    const contextWindow = nodeConfig.modelContextWindow || 128000
+    const triggerTokens = Math.max(Math.floor(contextWindow * 0.6), 30000)
+
     const agent: ReactAgent = createAgent({
         model,
         systemPrompt,
@@ -108,7 +114,11 @@ export async function runModuleChat(
             moduleContextMiddleware(caseId, moduleName),
             summarizationMiddleware({
                 model,
-                trigger: [{ tokens: 100000 }],
+                trigger: [{ tokens: triggerTokens }],
+            }),
+            safetyTrimMiddleware({
+                model,
+                maxTokens: Math.floor(contextWindow * 0.8),
             }),
         ],
     })

@@ -277,9 +277,19 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                         messagesToSend = await compressMessages(innerState.messages, contextBudget, model)
                     }
 
-                    // 防线3：trimMessages 兜底（传入预计算的估算值避免重复遍历）
+                    // 防线3：safetyTrimMessages 兜底（临时截断用于模型调用，不写回 state 避免 checkpoint 丢失完整历史）
+                    const beforeTrimLen = messagesToSend.length
                     const trimEstimate = messagesToSend === innerState.messages ? roughEstimate : undefined
                     messagesToSend = await safetyTrimMessages(messagesToSend, contextBudget, trimEstimate)
+                    if (messagesToSend.length < beforeTrimLen) {
+                        logger.warn('V2 路径消息临时截断', {
+                            agentName,
+                            estimated: trimEstimate ?? roughEstimate,
+                            budget: contextBudget,
+                            before: beforeTrimLen,
+                            after: messagesToSend.length,
+                        })
+                    }
 
                     const response = await modelWithTools.invoke(messagesToSend)
                     return { messages: [response] }  // state 保留完整历史
@@ -310,6 +320,7 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                 const moduleContext = await buildModuleContext({
                     caseId: state.caseId,
                     agentName,
+                    contextWindow: nodeConfig.modelContextWindow || 128000,
                 })
 
                 // 合并到 system prompt（被 Worker stripSystemMessages 自动过滤，不到达前端）
