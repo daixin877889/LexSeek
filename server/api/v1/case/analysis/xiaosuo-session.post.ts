@@ -6,8 +6,8 @@
  * 响应: { code: 200, data: { sessionId, title } }
  */
 import { z } from 'zod'
-import { v4 as uuidv4 } from 'uuid'
 import dayjs from 'dayjs'
+import { createSessionDAO } from '~/server/services/case/session.dao'
 
 const bodySchema = z.object({
   caseId: z.number().int().positive(),
@@ -25,24 +25,16 @@ export default defineEventHandler(async (event) => {
   }
 
   const { caseId, title } = parsed.data
-
-  // 权限校验：案件属于当前用户
-  const caseRecord = await prisma.cases.findFirst({
-    where: { id: caseId, userId: user.id, deletedAt: null },
-  })
-  if (!caseRecord) return resError(event, 404, '案件不存在')
-
-  const sessionId = uuidv4()
   const sessionTitle = title ?? dayjs().format('YYMMDDHHmm')
 
-  await prisma.caseSessions.create({
-    data: {
-      sessionId,
-      caseId,
-      type: 1,
-      metadata: { source: 'xiaosuo', title: sessionTitle },
-    },
+  const result = await createSessionDAO({
+    caseId,
+    userId: user.id,
+    type: 1,
+    metadata: { source: 'xiaosuo', title: sessionTitle },
+    dedupeKey: `${user.id}:${caseId}:xiaosuo`,
   })
+  if (!result) return resError(event, 404, '案件不存在')
 
-  return resSuccess(event, '创建成功', { sessionId, title: sessionTitle })
+  return resSuccess(event, '创建成功', { sessionId: result.sessionId, title: sessionTitle })
 })
