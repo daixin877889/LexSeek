@@ -1,6 +1,6 @@
 # 工作流与 Agent 上下文工程全量优化设计
 
-**版本**: 1.3
+**版本**: 1.4
 **日期**: 2026-04-10
 **状态**: 审查通过
 
@@ -43,11 +43,13 @@ Layer 5: 基础设施  → #13 #14 storage Redis 化、Worker 过滤完善
 
 ### 1.4 设计约束
 
-- HumanMessage + `response_metadata.injectedBy` 标记是已确认的上下文注入方案（LangGraph 不允许多个 SystemMessage）
+- **主代理/模块代理**的动态上下文注入使用 HumanMessage + `response_metadata.injectedBy` 标记方案（LangGraph 不允许多个 SystemMessage，且动态上下文需在对话过程中增量注入）
+- **子代理**的上下文注入使用系统提示词拼接方式（子代理每次调用独立创建，上下文为一次性静态注入，适合直接拼入 systemPrompt；系统消息由 `agentWorker.ts` 和 `threadState.ts` 过滤，不会泄露到前端）
 - 前端通过 `useMessageParser.ts` 按 `injectedBy` 前缀过滤，服务端 `stripSystemMessages` 过滤 system 消息
 - 两条工作流路径（V1 initAnalysis / V2 caseAnalysisV2）均为正式功能，需同等级优化
 - `server/utils/tokenCounter.ts`（tiktoken cl100k_base）已实现，可直接复用
 - 数据库时区 Asia/Shanghai，Prisma 连接使用 TimeZone=UTC
+- **中间件 hook 格式**：项目使用 `createMiddleware` API，所有 hook 须用 `{ hook: async (state) => {...} }` 对象包装，不支持直接赋值 async 函数
 
 ---
 
@@ -254,54 +256,58 @@ const { userId, caseId } = extractRuntimeConfig(config)
 **改造 `caseMaterialContextMiddleware`**（主要是确保增量逻辑的正确性）：
 
 ```typescript
-beforeAgent: async (state) => {
-  const prevSourceIds = state._injectedSourceIds ?? []
-  const currentSourceIds = getCurrentSourceIds(caseId)
-  const newSourceIds = currentSourceIds.filter(id => !prevSourceIds.includes(id))
+beforeAgent: {
+  hook: async (state) => {
+    const prevSourceIds = state._injectedSourceIds ?? []
+    const currentSourceIds = getCurrentSourceIds(caseId)
+    const newSourceIds = currentSourceIds.filter(id => !prevSourceIds.includes(id))
 
-  if (newSourceIds.length === 0) return  // 无变更，不注入，历史消息原样保留
+    if (newSourceIds.length === 0) return  // 无变更，不注入，历史消息原样保留
 
-  // 仅注入新增材料的上下文
-  const newMaterials = materials.filter(m => newSourceIds.includes(getSourceId(m)))
-  const context = await getMaterialContextService(newMaterials)
-  if (context.mode === 'empty') return
+    // 仅注入新增材料的上下文
+    const newMaterials = materials.filter(m => newSourceIds.includes(getSourceId(m)))
+    const context = await getMaterialContextService(newMaterials)
+    if (context.mode === 'empty') return
 
-  const messageText = buildIncrementalMaterialMessage(context)
-  const insertIdx = Math.max(0, state.messages.length - 1)
-  state.messages.splice(insertIdx, 0, new HumanMessage({
-    content: messageText,
-    response_metadata: { injectedBy: 'CaseMaterialContextMiddleware', injectedAt: new Date().toISOString() },
-  }))
+    const messageText = buildIncrementalMaterialMessage(context)
+    const insertIdx = Math.max(0, state.messages.length - 1)
+    state.messages.splice(insertIdx, 0, new HumanMessage({
+      content: messageText,
+      response_metadata: { injectedBy: 'CaseMaterialContextMiddleware', injectedAt: new Date().toISOString() },
+    }))
 
-  return { _injectedSourceIds: currentSourceIds }
-}
+    return { _injectedSourceIds: currentSourceIds }
+  },
+},
 ```
 
 **改造 `moduleContextMiddleware`**（当前逻辑已基本正确，确认要点）：
 
 ```typescript
-beforeAgent: async (state) => {
-  // 并行加载 4 类上下文并用 hash 检测变更
-  // 只有 hash 变化的 section 才会拼入新的注入消息
-  // 所有 section 都没有变化时直接 return，不注入任何消息
-  // 历史注入消息保持原样，命中 Prompt Caching
+beforeAgent: {
+  hook: async (state) => {
+    // 并行加载 4 类上下文并用 hash 检测变更
+    // 只有 hash 变化的 section 才会拼入新的注入消息
+    // 所有 section 都没有变化时直接 return，不注入任何消息
+    // 历史注入消息保持原样，命中 Prompt Caching
 
-  const sections: string[] = []
+    const sections: string[] = []
 
-  // 1. 材料变更检测（sourceId 增量）
-  // 2. 记忆变更检测（MD5 hash 对比）
-  // 3. 其他模块结果变更检测（per-module hash 对比）
-  // 4. 当前模块结果变更检测（MD5 hash 对比）
+    // 1. 材料变更检测（sourceId 增量）
+    // 2. 记忆变更检测（MD5 hash 对比）
+    // 3. 其他模块结果变更检测（per-module hash 对比）
+    // 4. 当前模块结果变更检测（MD5 hash 对比）
 
-  if (sections.length === 0) return  // 无变更
+    if (sections.length === 0) return  // 无变更
 
-  // 追加增量消息到最新 HumanMessage 之前
-  const contextMessage = new HumanMessage({
-    content: sections.join('\n\n'),
-    response_metadata: { injectedBy: `ModuleContextMiddleware:${moduleName}`, injectedAt: new Date().toISOString() },
-  })
-  // ...insert logic...
-}
+    // 追加增量消息到最新 HumanMessage 之前
+    const contextMessage = new HumanMessage({
+      content: sections.join('\n\n'),
+      response_metadata: { injectedBy: `ModuleContextMiddleware:${moduleName}`, injectedAt: new Date().toISOString() },
+    })
+    // ...insert logic...
+  },
+},
 ```
 
 **效果**：
@@ -344,31 +350,34 @@ import { compressMessages, safetyTrimMessages, estimateMessagesTokens } from '..
  * 这是有意的两层策略：快速预判 + 精确截断，避免每轮都调用 tiktoken。
  */
 export function safetyTrimMiddleware(options: { model: BaseChatModel; maxTokens: number }) {
-  return {
+  return createMiddleware({
     name: 'safetyTrimMiddleware',
     stateSchema: z.object({}),
-    beforeAgent: async (state: { messages: BaseMessage[] }) => {
-      const estimated = await estimateMessagesTokens(state.messages)
-      if (estimated <= options.maxTokens) return
+    beforeAgent: {
+      hook: async (state: { messages: BaseMessage[] }) => {
+        // estimateMessagesTokens 是同步函数（返回 number），用于快速预判
+        const estimated = estimateMessagesTokens(state.messages)
+        if (estimated <= options.maxTokens) return
 
-      // 防线一：LLM 摘要压缩
-      // 注意：compressMessages 的签名为 (messages, budget, model)
-      try {
-        const compressed = await compressMessages(
-          state.messages,
-          options.maxTokens,
-          options.model,
-        )
-        state.messages = compressed
-        return
-      } catch (error) {
-        logger.warn('compressMessages 失败，降级到 safetyTrim', { error })
-      }
+        // 防线一：LLM 摘要压缩
+        // 注意：compressMessages 的签名为 (messages, budget, model)
+        try {
+          const compressed = await compressMessages(
+            state.messages,
+            options.maxTokens,
+            options.model,
+          )
+          state.messages = compressed
+          return
+        } catch (error) {
+          logger.warn('compressMessages 失败，降级到 safetyTrim', { error })
+        }
 
-      // 防线二：trimMessages 截断
-      state.messages = await safetyTrimMessages(state.messages, options.maxTokens)
+        // 防线二：trimMessages 截断
+        state.messages = await safetyTrimMessages(state.messages, options.maxTokens)
+      },
     },
-  }
+  })
 }
 ```
 
@@ -623,7 +632,9 @@ async function buildBriefContext(caseId: number): Promise<string> {
 
 **改造子代理创建逻辑**：
 
-子代理的上下文注入采用系统提示词拼接方式（非 HumanMessage 注入），因为子代理是在主代理工具调用内部创建的，其消息流不直接暴露给前端。但子代理的线程状态可通过 `loadSubAgentThreads` 加载到前端展示，因此仍需确保上下文消息不泄露。
+子代理的上下文注入采用**系统提示词拼接方式**（见 1.4 设计约束）。原因：
+- 子代理每次工具调用独立创建，上下文为一次性静态注入，无需增量更新
+- systemPrompt 方式更简洁，且已有三层过滤覆盖
 
 ```typescript
 // subAgentToolFactory.ts - 工具函数内部
@@ -640,35 +651,36 @@ const agent = createAgent({
 })
 ```
 
-**前端和服务端双重过滤**：
+**服务端和前端双重过滤**：
 
-子代理上下文通过 system prompt 注入，已有的过滤机制已覆盖：
+子代理上下文通过 system prompt 注入，需确保以下三层过滤全部生效：
 
-1. **服务端**：`agentWorker.ts` 的 `stripSystemMessages`（及本设计 6.2 改造后的 `isFilterableMessage`）会过滤 `type === 'system'` 的消息
-2. **服务端**：`threadState.ts` 的 `getThreadValuesService` 过滤 `msg.type !== 'system'`
-3. **前端**：`useMessageParser.ts` 过滤 `SystemMessage` 实例
+1. **服务端 `agentWorker.ts`**：`isFilterableMessage`（6.2 改造后）过滤 `type === 'system'` 的消息 ✓
+2. **服务端 `threadState.ts`**：
+   - `getThreadValuesService` 已过滤 `msg.type !== 'system'` ✓
+   - **`loadSubAgentThreads` 当前完全无过滤**（子代理线程消息直接 `map(messageToFlatDict)` 原样返回）✗ — 这是需要修复的缺陷
+3. **前端 `useMessageParser.ts`**：过滤 `SystemMessage` 实例 ✓
 
-如果子代理改为使用 HumanMessage 注入上下文（与主代理保持一致），则需额外确保：
-
-1. **服务端**：`loadSubAgentThreads`（`threadState.ts`）在加载子代理线程时，也要过滤带 `response_metadata.injectedBy` 的 HumanMessage
-2. **前端**：`useMessageParser.ts` 已按 `injectedBy` 前缀过滤，需确认子代理的 `injectedBy` 值（如 `SubAgentContext`）也在过滤范围内
+**`loadSubAgentThreads` 改造**（修复缺失的过滤逻辑）：
 
 ```typescript
-// threadState.ts - loadSubAgentThreads 改造
-// 加载子代理线程时，过滤注入的上下文消息
-const filteredMessages = flatMessages.filter(msg => {
-  if (msg.type === 'system') return false
-  if (msg.response_metadata?.injectedBy) return false  // 过滤注入的上下文
-  return true
-})
+// threadState.ts - loadSubAgentThreads
+// 当前：subRawMessages.map(messageToFlatDict) — 无过滤
+// 改为：先过滤再映射
+const filteredMessages = subRawMessages
+  .map(messageToFlatDict)
+  .filter(msg => {
+    if (msg.type === 'system') return false
+    if (msg.response_metadata?.injectedBy) return false
+    return true
+  })
 
-// useMessageParser.ts - 确认过滤前缀覆盖子代理
-if (injector?.startsWith('ModuleContext')
-  || injector?.startsWith('CaseMaterial')
-  || injector?.startsWith('SubAgentContext')  // 新增子代理过滤
-) {
-  return false
-}
+subAgentThreads.push({
+  toolCallId: toolCall.id as string,
+  agentName: safeName,
+  threadId: subThreadId,
+  messages: filteredMessages,
+})
 ```
 
 ---
