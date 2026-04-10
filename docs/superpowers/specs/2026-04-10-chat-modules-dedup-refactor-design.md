@@ -263,11 +263,23 @@ interface StreamChatReturn<T> {
 
 选择此策略的原因：`useCaseChat`（已被小索 + 模块对话 + 案件分析页三个消费方使用）的 ComputedRef 模式更通用，且 Vue 3 Composition API 的主流约定就是通过 `.value` 访问响应式数据。
 
+> **@langchain/vue 响应式机制说明**（基于 `stream.custom.js` 源码分析）：
+>
+> `useStreamCustom`（FetchStreamTransport 路径）返回的 `values`/`interrupt`/`messages` 是 **ES6 getter**（非 Ref/ComputedRef）。getter 内部读取 `shallowRef.value`，当在 Vue 的 `computed` getter 执行环境中调用时，shallowRef 的依赖会**透过 getter 传播**到外层 computed 的 effect（Vue 的全局 activeEffect 机制）。
+>
+> 这意味着 `computed(() => stream.values)` **能正确响应更新**——虽然 `stream.values` 不是 Ref，但它的 getter 内部触发了 `streamValues.value` 的 track。
+>
+> 而 `stream.isLoading` 和 `stream.error` 是直接暴露的 `shallowRef`，可以直接透传（如 `isLoading: stream.isLoading`）。
+
 #### `interruptData` 统一解包（CRITICAL：绕过 Vue 响应式 bug）
 
-> **已知 bug**（记录于 `useInitAnalysis.ts:70-71`）：`stream.interrupt` getter 只依赖 `isLoading`（流期间不变），导致 `values` 更新后 `interrupt` 不重新求值。
+> **已知 bug**（记录于 `useInitAnalysis.ts:70-71`，源码确认于 `@langchain/vue@0.4.5` 的 `node_modules/@langchain/vue/dist/stream.custom.js:49-52`）：
 >
-> **解决方案**：`interruptData` **必须从 `stream.values.__interrupt__`** 读取（而非 `stream.interrupt`），与 `useInitAnalysis` 现有的规避方式保持一致。
+> `useStreamCustom` 内部的 `interruptComputed = computed(() => { isLoading.value; return orchestrator.interrupt })` **只依赖 `isLoading` shallowRef**。当中断发生在流的中途（`isLoading` 保持 `true` 不变），`interruptComputed` 不会重新计算，导致 `stream.interrupt` getter 返回过时的值。
+>
+> 而 `stream.values` getter 内部读取的是 `streamValues.value`（shallowRef，每次 orchestrator 更新时重新赋值），因此 `stream.values.__interrupt__` 路径能正确响应中断数据变化。
+>
+> **解决方案**：`interruptData` **必须从 `stream.values.__interrupt__`** 读取。
 
 完整伪代码：
 
