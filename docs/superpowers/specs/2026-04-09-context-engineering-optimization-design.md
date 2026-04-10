@@ -1,6 +1,6 @@
 # 工作流与 Agent 上下文工程全量优化设计
 
-**版本**: 1.6
+**版本**: 1.7
 **日期**: 2026-04-10
 **状态**: 审查通过
 
@@ -824,8 +824,12 @@ function isFilterableMessage(msg: unknown): boolean {
 
 #### 6.2.2 `updates` 事件也过滤
 
+在现有 `stripSystemMessages` 函数中扩展（保持函数名不变，避免修改两处调用点 `agentWorker.ts:192` 和 `:213`）：
+
 ```typescript
-function stripFilterableMessages(
+// 在现有 stripSystemMessages 函数中，将 isSystemMessage 替换为 isFilterableMessage
+// 并新增 updates 事件处理
+function stripSystemMessages(
   event: string,
   data: unknown
 ): unknown | null {
@@ -918,8 +922,8 @@ describe('truncateToTokenLimit', () => {
 
 // searchLaw.tool.test.ts
 describe('searchLaw k 参数验证', () => {
-  it('k > 10 被拒绝', () => {
-    expect(() => schema.parse({ query: 'test', k: 15 })).toThrow()
+  it('k > 20 被拒绝', () => {
+    expect(() => schema.parse({ query: 'test', k: 25 })).toThrow()
   })
 })
 ```
