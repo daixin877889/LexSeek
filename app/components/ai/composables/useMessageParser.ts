@@ -164,7 +164,7 @@ export function useMessageParser(messages: MaybeRef<any[]>) {
         // HumanMessage 检测 metadata（注入的上下文消息）
         if (msgType === 'human') {
           const injector = (m as any).response_metadata?.injectedBy as string | undefined
-          if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial')) {
+          if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial') || injector?.startsWith('SubAgentContext')) {
             return false
           }
         }

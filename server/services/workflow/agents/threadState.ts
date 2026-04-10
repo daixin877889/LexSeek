@@ -80,7 +80,7 @@ export async function getThreadValuesService(
             // 检查 HumanMessage 是否是注入的上下文消息
             if (msg.type === 'human') {
                 const injector = (msg as any).response_metadata?.injectedBy as string | undefined
-                if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial')) {
+                if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial') || injector?.startsWith('SubAgentContext')) {
                     return false
                 }
             }
@@ -147,11 +147,20 @@ export async function loadSubAgentThreads(
                 const subRawMessages = subChannelValues?.messages
 
                 if (Array.isArray(subRawMessages) && subRawMessages.length > 0) {
+                    // 过滤 system message 和注入的上下文消息
+                    const filteredMessages = subRawMessages
+                        .map(messageToFlatDict)
+                        .filter(msg => {
+                            if (msg.type === 'system') return false
+                            const meta = msg.response_metadata as { injectedBy?: string } | undefined
+                            if (meta?.injectedBy) return false
+                            return true
+                        })
                     subAgentThreads.push({
                         toolCallId: toolCall.id as string,
                         agentName: safeName,
                         threadId: subThreadId,
-                        messages: subRawMessages.map(messageToFlatDict),
+                        messages: filteredMessages,
                     })
                 }
             }

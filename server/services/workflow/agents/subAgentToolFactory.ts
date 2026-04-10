@@ -8,6 +8,7 @@
 import { tool } from '@langchain/core/tools'
 import { z } from 'zod'
 import type { StructuredToolInterface } from '@langchain/core/tools'
+import { HumanMessage } from '@langchain/core/messages'
 import { createAgent } from 'langchain'
 import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
@@ -36,6 +37,55 @@ export interface SubAgentToolContext {
  */
 export function sanitizeName(name: string): string {
     return name.replace(/[^a-zA-Z0-9_]/g, '_')
+}
+
+/** 材料类型映射 */
+const MATERIAL_TYPE_LABELS: Record<number, string> = {
+    1: '文本', 2: '文档', 3: '图片', 4: '音频',
+}
+
+/**
+ * 构建精简版案件上下文
+ *
+ * 从数据库读取案件基本信息和材料列表，生成约 500-1000 tokens 的概要文本。
+ * 用于子代理首次调用时注入，使子代理具备案件上下文。
+ *
+ * @param caseId 案件 ID
+ * @returns 案件概要文本，无数据时返回空字符串
+ */
+async function buildBriefContext(caseId: number): Promise<string> {
+    const caseInfo = await prisma.cases.findUnique({
+        where: { id: caseId },
+        select: { title: true, plaintiff: true, defendant: true, summary: true },
+    })
+    if (!caseInfo) return ''
+
+    const materials = await prisma.caseMaterials.findMany({
+        where: { caseId, deletedAt: null },
+        select: { name: true, type: true },
+    })
+
+    const formatParty = (party: unknown): string => {
+        if (!party) return ''
+        if (typeof party === 'string') return party
+        if (Array.isArray(party)) return party.map((p: any) => p.name || p).join('、')
+        if (typeof party === 'object' && party !== null) {
+            return (party as any).name || JSON.stringify(party)
+        }
+        return String(party)
+    }
+
+    const parts = [
+        '## 案件概要',
+        `- 标题：${caseInfo.title || '未命名'}`,
+        caseInfo.plaintiff ? `- 原告：${formatParty(caseInfo.plaintiff)}` : null,
+        caseInfo.defendant ? `- 被告：${formatParty(caseInfo.defendant)}` : null,
+        caseInfo.summary ? `- 概述：${caseInfo.summary}` : null,
+        materials.length > 0
+            ? `\n## 材料列表\n${materials.map(m => `- ${m.name} (${MATERIAL_TYPE_LABELS[m.type] || '未知'})`).join('\n')}`
+            : null,
+    ]
+    return parts.filter(Boolean).join('\n')
 }
 
 /**
@@ -108,6 +158,33 @@ export async function createSubAgentTools(
                         getStore(),
                     ])
 
+                    const subThreadId = `${context.sessionId}_sub_${safeName}`
+
+                    // 从 checkpointer 读取历史，判断是否已注入过 SubAgentContext
+                    const checkpointTuple = await checkpointer.getTuple({
+                        configurable: { thread_id: subThreadId },
+                    })
+                    const existingMessages = (checkpointTuple?.checkpoint?.channel_values as any)?.messages ?? []
+                    const hasContext = Array.isArray(existingMessages) && existingMessages.some(
+                        (m: any) => m.response_metadata?.injectedBy === 'SubAgentContext'
+                            || m.kwargs?.response_metadata?.injectedBy === 'SubAgentContext',
+                    )
+
+                    // 首次调用注入精简案件上下文，后续调用通过 checkpoint 历史跳过
+                    const briefContext = hasContext ? '' : await buildBriefContext(context.caseId)
+                    const initialMessages = briefContext
+                        ? [
+                            new HumanMessage({
+                                content: briefContext,
+                                response_metadata: {
+                                    injectedBy: 'SubAgentContext',
+                                    injectedAt: new Date().toISOString(),
+                                },
+                            }),
+                            new HumanMessage(input.question),
+                        ]
+                        : [new HumanMessage(input.question)]
+
                     // 创建子代理
                     const agent = createAgent({
                         model,
@@ -120,12 +197,12 @@ export async function createSubAgentTools(
                         ],
                     })
 
-                    // 执行子代理（使用 invoke 而非 stream，因为工具需要完整返回值）
+                    // 执行子代理
                     const result = await agent.invoke(
-                        { messages: [{ role: 'user', content: input.question }] },
+                        { messages: initialMessages },
                         {
                             configurable: {
-                                thread_id: `${context.sessionId}_sub_${safeName}`,
+                                thread_id: subThreadId,
                             },
                             recursionLimit: 1000,
                         },
