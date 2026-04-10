@@ -1,6 +1,6 @@
 # 工作流与 Agent 上下文工程全量优化设计
 
-**版本**: 1.10
+**版本**: 1.11
 **日期**: 2026-04-10
 **状态**: 审查通过
 
@@ -367,6 +367,7 @@ import { compressMessages, safetyTrimMessages, estimateMessagesTokens } from '..
  * 1. compressMessages 内部已 catch 异常，失败时静默返回原消息
  *    → 降级条件必须判断"压缩后是否仍超预算"，而非依赖 try-catch
  * 2. 使用 splice 原地修改 state.messages，与项目现有中间件写法一致
+ * 3. replacement 初始化为 state.messages 避免 null 状态，消除 TS 类型收窄问题
  */
 export function safetyTrimMiddleware(options: { model: BaseChatModel; maxTokens: number }) {
   return createMiddleware({
@@ -379,9 +380,8 @@ export function safetyTrimMiddleware(options: { model: BaseChatModel; maxTokens:
         if (estimated <= options.maxTokens) return
 
         // 防线一：LLM 摘要压缩
-        // 注意：compressMessages 的签名为 (messages, budget, model)
-        //      且不抛异常，失败/无需压缩时会静默返回原消息
-        let replacement: BaseMessage[] | null = null
+        // 初始化为原消息，避免 null 状态以通过 TS 类型检查
+        let replacement: BaseMessage[] = state.messages
         try {
           replacement = await compressMessages(
             state.messages,
@@ -389,19 +389,14 @@ export function safetyTrimMiddleware(options: { model: BaseChatModel; maxTokens:
             options.model,
           )
         } catch (error) {
-          // 防御性编程：正常情况下 compressMessages 不会到这里
+          // 防御性编程：compressMessages 内部已 catch，此处仅兜底意外路径
           logger.warn('compressMessages 抛异常（意外路径），降级到 safetyTrim', { error })
-          replacement = null
+          // replacement 保持 state.messages
         }
 
-        // 防线二：压缩结果仍超预算 → 强制截断
-        const stillOverBudget = !replacement
-          || estimateMessagesTokens(replacement) > options.maxTokens
-        if (stillOverBudget) {
-          replacement = await safetyTrimMessages(
-            replacement ?? state.messages,
-            options.maxTokens,
-          )
+        // 防线二：压缩后仍超预算 → 强制截断
+        if (estimateMessagesTokens(replacement) > options.maxTokens) {
+          replacement = await safetyTrimMessages(replacement, options.maxTokens)
         }
 
         // 使用 splice 原地替换，与项目现有中间件写法一致

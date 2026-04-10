@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript, LangGraph (langchain), tiktoken (js-tiktoken), Redis, Prisma, Vitest
 
-**Spec:** `docs/superpowers/specs/2026-04-09-context-engineering-optimization-design.md` v1.10
+**Spec:** `docs/superpowers/specs/2026-04-09-context-engineering-optimization-design.md` v1.11
 
 ---
 
@@ -488,6 +488,7 @@ import { compressMessages, safetyTrimMessages, estimateMessagesTokens } from '..
  * 1. compressMessages 不抛异常（消息过少、middle 为空、摘要失败时静默返回原消息）
  *    → 降级触发条件必须使用"压缩后是否仍超预算"而非 try-catch
  * 2. 使用 splice 原地修改 state.messages，对齐项目现有中间件写法
+ * 3. replacement 初始化为 state.messages 避免 null 状态，消除 TS 类型收窄问题
  */
 export function safetyTrimMiddleware(options: { model: BaseChatModel; maxTokens: number }) {
     return createMiddleware({
@@ -498,8 +499,9 @@ export function safetyTrimMiddleware(options: { model: BaseChatModel; maxTokens:
                 const estimated = estimateMessagesTokens(state.messages)
                 if (estimated <= options.maxTokens) return
 
-                // 防线一：LLM 摘要压缩（不抛异常，需额外判断结果是否仍超预算）
-                let replacement: BaseMessage[] | null = null
+                // 防线一：LLM 摘要压缩
+                // 初始化为原消息，避免 null 状态，使 TS 无需跨变量控制流追踪
+                let replacement: BaseMessage[] = state.messages
                 try {
                     replacement = await compressMessages(
                         state.messages,
@@ -507,22 +509,17 @@ export function safetyTrimMiddleware(options: { model: BaseChatModel; maxTokens:
                         options.model,
                     )
                 } catch (error) {
-                    // compressMessages 内部已捕获异常，此处是防御性编程
+                    // 防御性编程：compressMessages 内部已 catch，此处仅兜底意外路径
                     logger.warn('compressMessages 抛异常（意外路径），降级到 safetyTrim', { error })
-                    replacement = null
+                    // replacement 保持 state.messages
                 }
 
-                // 防线二：如压缩失败或压缩后仍超预算，使用 trimMessages 强制截断
-                const stillOverBudget = !replacement
-                    || estimateMessagesTokens(replacement) > options.maxTokens
-                if (stillOverBudget) {
-                    replacement = await safetyTrimMessages(
-                        replacement ?? state.messages,
-                        options.maxTokens,
-                    )
+                // 防线二：压缩后仍超预算 → 强制截断
+                if (estimateMessagesTokens(replacement) > options.maxTokens) {
+                    replacement = await safetyTrimMessages(replacement, options.maxTokens)
                 }
 
-                // 使用 splice 原地替换，与项目现有中间件修改方式一致
+                // 使用 splice 原地替换，与项目现有中间件写法一致
                 state.messages.splice(0, state.messages.length, ...replacement)
             },
         },
