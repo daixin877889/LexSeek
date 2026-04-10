@@ -310,6 +310,7 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                 const moduleContext = await buildModuleContext({
                     caseId: state.caseId,
                     agentName,
+                    contextWindow: nodeConfig.modelContextWindow || 128000,
                 })
 
                 // 合并到 system prompt（被 Worker stripSystemMessages 自动过滤，不到达前端）

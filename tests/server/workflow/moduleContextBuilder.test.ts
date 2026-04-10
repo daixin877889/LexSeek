@@ -49,6 +49,15 @@ vi.mock('~~/server/services/workflow/checkpointer', () => ({
     getStore: () => Promise.resolve({ get: mockStoreGet }),
 }))
 
+// Mock tokenCounter（测试数据量远小于预算，使用简单的字符估算即可）
+vi.mock('~~/server/utils/tokenCounter', () => ({
+    countTokensSync: (text: string) => {
+        if (!text) return 0
+        // 简单估算：约 4 字符 = 1 token
+        return Math.ceil(text.length / 4)
+    },
+}))
+
 import {
     buildModuleContext,
     getCaseMemory,
