@@ -1,6 +1,6 @@
 # 工作流与 Agent 上下文工程全量优化设计
 
-**版本**: 1.7
+**版本**: 1.8
 **日期**: 2026-04-10
 **状态**: 审查通过
 
@@ -826,8 +826,10 @@ function isFilterableMessage(msg: unknown): boolean {
 
 在现有 `stripSystemMessages` 函数中扩展（保持函数名不变，避免修改两处调用点 `agentWorker.ts:192` 和 `:213`）：
 
+> **注意**：LangGraph 的 `updates` 事件数据结构是 `Record<nodeName, NodeOutput>`（按节点聚合的增量更新），**不是** `{ messages: [...] }`。需要遍历每个 node 输出，对包含 `messages` 字段的输出做过滤。
+
 ```typescript
-// 在现有 stripSystemMessages 函数中，将 isSystemMessage 替换为 isFilterableMessage
+// 在现有 stripSystemMessages 函数中，将 isSystemMessage 替换为 isInternalMessage
 // 并新增 updates 事件处理
 function stripSystemMessages(
   event: string,
@@ -835,27 +837,48 @@ function stripSystemMessages(
 ): unknown | null {
   if (!data || typeof data !== 'object') return data
 
-  // values 和 updates 事件：过滤 messages 数组
-  if (event === 'values' || event === 'updates') {
+  // values 事件：data 形如 { messages: [...] }
+  if (event === 'values') {
     const d = data as Record<string, unknown>
     if (Array.isArray(d.messages)) {
       return {
         ...d,
-        messages: d.messages.filter(m => !isFilterableMessage(m)),
+        messages: d.messages.filter(m => !isInternalMessage(m)),
       }
     }
     return data
   }
 
+  // updates 事件：data 形如 { nodeName: { messages: [...], ... }, ... }
+  if (event === 'updates') {
+    const d = data as Record<string, unknown>
+    const result: Record<string, unknown> = {}
+    for (const [nodeName, nodeOutput] of Object.entries(d)) {
+      if (nodeOutput && typeof nodeOutput === 'object') {
+        const no = nodeOutput as Record<string, unknown>
+        if (Array.isArray(no.messages)) {
+          result[nodeName] = {
+            ...no,
+            messages: no.messages.filter(m => !isInternalMessage(m)),
+          }
+          continue
+        }
+      }
+      result[nodeName] = nodeOutput
+    }
+    return result
+  }
+
   // messages 事件
   if (event === 'messages') {
+    if (isInternalLLMEvent(data)) return null
     if (Array.isArray(data)) {
       const filtered = (data as unknown[]).filter(
-        m => !isFilterableMessage(m)
+        m => !isInternalMessage(m)
       )
       return filtered.length > 0 ? filtered : null
     }
-    if (isFilterableMessage(data)) return null
+    if (isInternalMessage(data)) return null
     return data
   }
 
