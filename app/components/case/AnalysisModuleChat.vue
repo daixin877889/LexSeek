@@ -58,11 +58,12 @@ function handleResumeInterrupt(data: unknown) {
     :initial-height="640"
     :position-offset="{ x: -40, y: -40 }"
   >
-    <!-- 标题栏左侧：session 选择器（与小索一致的多会话管理） -->
+    <!-- 标题栏左侧：session 选择器（前缀由 UI 动态拼接为"模块名 - 时间"） -->
     <template #titlebar-left>
       <CaseSessionListPopover
         :sessions="sessions"
         :current-id="chatInstance.currentSessionId.value"
+        :title-prefix="chatInstance.moduleTitle"
         @select="chatInstance.switchSession($event)"
         @create="chatInstance.createSession()"
         @delete="chatInstance.deleteSession($event)"

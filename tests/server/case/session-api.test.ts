@@ -41,7 +41,6 @@ vi.stubGlobal('resError', vi.fn((event: any, code: number, message: string) => (
 // 动态引入 handler（必须在 mock 后执行）
 // ============================================================
 import { listSessionsWithActiveRunDAO, createSessionDAO, softDeleteSessionDAO, renameSessionDAO } from '../../../server/services/case/session.dao'
-import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
 
 // 帮助类型
 type MockFn = ReturnType<typeof vi.fn>
@@ -426,7 +425,7 @@ describe('POST /api/v1/case/analysis/module-session', () => {
         )
     })
 
-    it('标题格式应为"模块中文名-YYMMDDHHmm"', async () => {
+    it('未传 title 时应自动生成纯时间戳标题（前缀由 UI 负责）', async () => {
         const event = makeEvent({ user: { id: 1 } })
         ;(global.readBody as MockFn).mockResolvedValue({ caseId: 100, moduleName: 'summary' })
         ;(global as any).getNodeByNameService.mockResolvedValue({ id: 'node-abc' })
@@ -439,9 +438,8 @@ describe('POST /api/v1/case/analysis/module-session', () => {
 
         await handler(event)
 
-        // 标题应以 INIT_ANALYSIS_MODULES 中 summary 的 title 开头
-        const summaryModule = INIT_ANALYSIS_MODULES.find(m => m.name === 'summary')
-        expect(capturedMetadata.title).toMatch(new RegExp(`^${summaryModule!.title}-\\d{10}$`))
+        // 标题格式：YYMMDDHHmm，10 位数字（不含模块名前缀）
+        expect(capturedMetadata.title).toMatch(/^\d{10}$/)
         expect(capturedMetadata.moduleName).toBe('summary')
         expect(capturedMetadata.nodeId).toBe('node-abc')
     })

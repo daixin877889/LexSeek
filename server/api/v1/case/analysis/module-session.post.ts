@@ -5,15 +5,18 @@
  *
  * 为指定案件的指定模块创建 type=3 的对话 session
  * 模块对话支持多 session，不再做幂等约束
+ *
+ * 标题策略：数据库只存时间戳部分（YYMMDDHHmm），模块名前缀由前端 UI
+ * （SessionListPopover 的 titlePrefix）负责显示。重命名时只修改时间戳部分。
  */
 import { z } from 'zod'
 import dayjs from 'dayjs'
 import { createSessionDAO } from '~~/server/services/case/session.dao'
-import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
 
 const bodySchema = z.object({
     caseId: z.number().int().positive(),
     moduleName: z.string().min(1),
+    title: z.string().max(100).optional(),
 })
 
 export default defineEventHandler(async (event) => {
@@ -26,15 +29,14 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, parsed.error.issues[0]?.message ?? '参数错误')
     }
 
-    const { caseId, moduleName } = parsed.data
+    const { caseId, moduleName, title } = parsed.data
 
     // 获取节点 ID
     const node = await getNodeByNameService(moduleName)
     if (!node) return resError(event, 404, `未找到模块节点: ${moduleName}`)
 
-    // 从模块定义中查找中文名，生成标题
-    const module = INIT_ANALYSIS_MODULES.find(m => m.name === moduleName)
-    const sessionTitle = `${module?.title ?? moduleName}-${dayjs().format('YYMMDDHHmm')}`
+    // 标题：优先使用客户端传入，否则用纯时间戳（前缀由 UI 负责）
+    const sessionTitle = title ?? dayjs().format('YYMMDDHHmm')
 
     const result = await createSessionDAO({
         caseId,
@@ -45,5 +47,9 @@ export default defineEventHandler(async (event) => {
     })
     if (!result) return resError(event, 404, '案件不存在')
 
-    return resSuccess(event, '创建成功', { sessionId: result.sessionId, isNew: result.isNew })
+    return resSuccess(event, '创建成功', {
+        sessionId: result.sessionId,
+        title: sessionTitle,
+        isNew: result.isNew,
+    })
 })

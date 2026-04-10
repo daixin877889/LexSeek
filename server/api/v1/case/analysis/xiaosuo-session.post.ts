@@ -4,6 +4,9 @@
  *
  * 请求体: { caseId: number, title?: string }
  * 响应: { code: 200, data: { sessionId, title } }
+ *
+ * 标题策略：数据库只存时间戳部分（YYMMDDHHmm），"小索"前缀由前端 UI
+ * （SessionListPopover 的 titlePrefix）负责显示。重命名时只修改时间戳部分。
  */
 import { z } from 'zod'
 import dayjs from 'dayjs'
@@ -25,6 +28,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const { caseId, title } = parsed.data
+  // 默认标题：纯时间戳 YYMMDDHHmm（前缀由 UI 负责）
   const sessionTitle = title ?? dayjs().format('YYMMDDHHmm')
 
   const result = await createSessionDAO({

@@ -56,11 +56,12 @@ watch(isOpen, (open) => {
     :initial-width="380"
     :initial-height="500"
   >
-    <!-- 标题栏左侧：session 选择器 -->
+    <!-- 标题栏左侧：session 选择器（前缀由 UI 动态拼接为"小索 - 时间"） -->
     <template #titlebar-left>
       <CaseSessionListPopover
         :sessions="sessions"
         :current-id="xiaosuoChat.currentSessionId.value"
+        title-prefix="小索"
         @select="xiaosuoChat.switchSession($event)"
         @create="xiaosuoChat.createSession()"
         @delete="xiaosuoChat.deleteSession($event)"

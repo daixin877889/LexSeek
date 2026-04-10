@@ -23,8 +23,11 @@ const props = withDefaults(defineProps<{
   sessions: SessionItem[]
   currentId: string | null
   loading?: boolean
+  /** 标题前缀（如"小索"或模块中文名），由 UI 动态拼接，不存入数据库 */
+  titlePrefix?: string
 }>(), {
   loading: false,
+  titlePrefix: '',
 })
 
 const emit = defineEmits<{
@@ -76,10 +79,11 @@ function handleCreate() {
   emit('create')
 }
 
-// 当前 session 标题（用于 trigger 按钮显示）
+// 当前 session 标题（用于 trigger 按钮显示），拼接前缀
 const currentTitle = computed(() => {
   const session = props.sessions.find(s => s.sessionId === props.currentId)
-  return session?.title ?? '新对话'
+  const title = session?.title ?? '新对话'
+  return props.titlePrefix ? `${props.titlePrefix} - ${title}` : title
 })
 </script>
 
@@ -90,7 +94,7 @@ const currentTitle = computed(() => {
         class="flex items-center gap-1 font-medium hover:text-primary transition-colors"
         :disabled="loading"
       >
-        <span class="truncate max-w-32">{{ currentTitle }}</span>
+        <span class="truncate max-w-48">{{ currentTitle }}</span>
         <ChevronDownIcon class="size-3.5 shrink-0" />
       </button>
     </PopoverTrigger>
