@@ -21,6 +21,7 @@ import { getToolInstancesService } from '../tools'
 import { pointConsumptionMiddleware } from '../middleware'
 import { moduleContextMiddleware } from '../middleware/moduleContext.middleware'
 import { createTool as createSaveAnalysisResultTool } from '../tools/saveAnalysisResult.tool'
+import { renderSystemPrompt } from '../utils/promptRenderer'
 import type { ToolContext } from '../tools/types'
 import { getSessionState } from '../state/storage'
 
@@ -91,7 +92,7 @@ export async function runModuleChat(
 
     // 构建静态 system prompt（不变，命中供应商 Prompt Caching）
     const systemPromptParts = [
-        nodeConfig.prompts.find(p => p.type === 'system')?.content || '',
+        renderSystemPrompt(nodeConfig, { caseId, moduleName }),
         '当你生成或更新了该模块的分析结果时，必须调用 save_analysis_result 工具保存结果。',
     ].filter(Boolean)
     const systemPrompt = systemPromptParts.join('\n\n')

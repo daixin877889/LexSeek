@@ -3,6 +3,7 @@ import type { LangGraphRunnableConfig } from "@langchain/langgraph";
 import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { caseMaterialContextMiddleware, caseProcessMaterialMiddleware, pointConsumptionMiddleware, analysisResultPersistenceMiddleware } from '../middleware'
+import { renderSystemPrompt } from '../utils/promptRenderer'
 
 
 export interface AnalysisAgentOptions {
@@ -75,9 +76,9 @@ export const caseAnalysisAgent = async (
         thinking,
     })
 
-    // 获取系统提示词（优先使用数据库配置）
-    const systemPromptConfig = nodeConfig.prompts.find((p) => p.type === 'system' && p.status === 1)
-    const systemPrompt = systemPromptConfig?.content
+    // 获取系统提示词（优先使用数据库配置，并渲染模板变量）
+    // agentName 对应 nodes 表中的节点名，即当前模块名
+    const systemPrompt = renderSystemPrompt(nodeConfig, { caseId, moduleName: agentName })
 
     // 从节点配置动态加载工具（使用 runtime userId/caseId）
     const tools = nodeConfig.tools.length > 0 && userId && caseId

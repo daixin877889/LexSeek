@@ -13,6 +13,7 @@ import { getValidNodeConfig, getNodeConfigsByTypes } from '../../node/node.servi
 import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { createSubAgentTools } from './subAgentToolFactory'
+import { renderSystemPrompt } from '../utils/promptRenderer'
 import {
     pointConsumptionMiddleware,
     caseProcessMaterialMiddleware,
@@ -78,11 +79,8 @@ export async function runCaseChat(
         thinking,
     })
 
-    // 4. 获取系统提示词
-    const systemPromptConfig = mainConfig.prompts.find(
-        p => p.type === 'system' && p.status === 1,
-    )
-    const systemPrompt = systemPromptConfig?.content
+    // 4. 获取系统提示词（渲染模板变量）
+    const systemPrompt = renderSystemPrompt(mainConfig, { caseId })
 
     // 5. 加载主代理通用工具
     const toolContext = { userId, caseId, sessionId }

@@ -13,6 +13,7 @@ import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { pointConsumptionMiddleware } from '../middleware'
 import { getCheckpointer, getStore } from '../checkpointer'
+import { renderSystemPrompt } from '../utils/promptRenderer'
 import type { NodeConfig } from '../../node/node.service'
 
 /** 子代理工具上下文 */
@@ -75,11 +76,8 @@ export async function createSubAgentTools(
         const toolName = `ask_${safeName}_expert`
         const description = config.title || config.description || config.name
 
-        // 获取系统提示词
-        const systemPromptConfig = config.prompts.find(
-            p => p.type === 'system' && p.status === 1
-        )
-        const systemPrompt = systemPromptConfig?.content ?? ''
+        // 获取系统提示词（渲染模板变量）
+        const systemPrompt = renderSystemPrompt(config, { caseId: context.caseId })
 
         const subAgentTool = tool(
             async (input: { question: string }): Promise<string> => {
