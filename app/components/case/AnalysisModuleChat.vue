@@ -2,10 +2,15 @@
 /**
  * 模块对话悬浮窗组件
  *
- * 使用 ChatWindowShell（三种窗口形态）+ InterruptConfirmation
- * 132 行精简到 ~70 行，补齐 InterruptHandler 功能缺失
+ * 使用 ChatWindowShell（三种窗口形态）+ SessionListPopover（多 session 管理）
+ * + InterruptConfirmation
+ *
+ * 每个模块对应一个 session manager，manager 内部管理该模块的多个 session。
+ * 用户可以在同一模块下创建、切换、删除、重命名多个独立对话，
+ * 避免老对话的上下文污染（与小索一致的多 session 模型）。
  */
 import type { ModuleChatInstance } from '~/composables/useModuleChatManager'
+import type { SessionItem } from '~/components/case/SessionListPopover.vue'
 
 const props = defineProps<{
     caseId: number
@@ -15,6 +20,15 @@ const props = defineProps<{
 const isOpen = defineModel<boolean>({ default: false })
 const isFullscreen = ref(false)
 const thinking = ref(true)
+
+// 适配 SessionListPopover 的 session 列表类型
+const sessions = computed<SessionItem[]>(() =>
+    props.chatInstance.sessions.value.map((s: any) => ({
+        sessionId: s.sessionId,
+        title: s.title,
+        updatedAt: s.updatedAt,
+    })),
+)
 
 const interruptData = computed(() => props.chatInstance.interruptData.value)
 
@@ -44,6 +58,18 @@ function handleResumeInterrupt(data: unknown) {
     :initial-height="640"
     :position-offset="{ x: -40, y: -40 }"
   >
+    <!-- 标题栏左侧：session 选择器（与小索一致的多会话管理） -->
+    <template #titlebar-left>
+      <CaseSessionListPopover
+        :sessions="sessions"
+        :current-id="chatInstance.currentSessionId.value"
+        @select="chatInstance.switchSession($event)"
+        @create="chatInstance.createSession()"
+        @delete="chatInstance.deleteSession($event)"
+        @rename="(sid, title) => chatInstance.renameSession(sid, title)"
+      />
+    </template>
+
     <!-- 对话内容 -->
     <AiChat
       :messages="chatInstance.messages.value"
