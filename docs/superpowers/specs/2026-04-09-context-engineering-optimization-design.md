@@ -1,7 +1,7 @@
 # 工作流与 Agent 上下文工程全量优化设计
 
-**版本**: 1.1
-**日期**: 2026-04-09
+**版本**: 1.2
+**日期**: 2026-04-10
 **状态**: 审查通过
 
 ---
@@ -53,22 +53,44 @@ Layer 5: 基础设施  → #13 #14 storage Redis 化、Worker 过滤完善
 
 ## 二、Layer 1：工具层加固
 
+### 2.0 检索架构现状
+
+两个检索工具的底层已接入统一检索路由器（`retrievalRouterService`），链路为：
+
+```
+workflow tool → 服务层(searchLaw / searchMaterialsService)
+  → retrievalRouterService
+    → LLM 意图分类 → 精确/混合/语义通道
+    → Rerank（MAX_RERANK_DOCS = 20）
+    → 后处理过滤
+    → results.slice(0, request.k)
+```
+
+路由器层已提供两层条数保护：
+- Rerank 阶段上限 20 条（`MAX_RERANK_DOCS`）
+- 最终 `slice(0, k)` 确保返回条数 <= k
+
+但以下问题仍然存在，需要在 workflow tool 层修复：
+- **k 参数无 schema 级上限**：模型可传入 `k=50`，虽然 Rerank 层隐式限制了 20，但不应依赖内部实现细节
+- **searchLaw 无单条结果截断**：路由器控制条数但不控制单条内容大小，法律条文可能很长
+- **toolResultTruncator 字符估算不精确**：`estimateTokens` + `maxTokens * 3` 中文偏差 2 倍
+
 ### 2.1 `searchLaw` 添加结果截断
 
 **文件**：`server/services/workflow/tools/searchLaw.tool.ts`
 
-**现状**：直接 `JSON.stringify(formattedResults)` 返回，无截断、无条数限制。
+**现状**：直接 `JSON.stringify(formattedResults)` 返回，无单条截断。路由器层已保证条数 <= k，但单条法律条文内容可能很长。
 
 **改造**：
 
-1. `k` 参数添加上限：
+1. `k` 参数添加 schema 级上限（与 Rerank `MAX_RERANK_DOCS = 20` 对齐）：
 
 ```typescript
 // 原来
 k: z.number().optional().default(5).describe('返回结果数量')
 
 // 改为
-k: z.number().max(10).optional().default(5).describe('返回结果数量，最多 10 条')
+k: z.number().max(20).optional().default(5).describe('返回结果数量，最多 20 条')
 ```
 
 2. 返回前调用 `truncateToolResults`：
@@ -85,12 +107,14 @@ return JSON.stringify(truncated)
 
 **文件**：`server/services/workflow/tools/searchCaseMaterials.tool.ts`
 
+**现状**：已集成 `truncateToolResults` 做单条截断，但 `k` 参数无 schema 级上限。
+
 ```typescript
 // 原来
 k: z.number().optional().default(5).describe('返回结果数量，默认为 5')
 
 // 改为
-k: z.number().max(10).optional().default(5).describe('返回结果数量，默认为 5，最多 10 条')
+k: z.number().max(20).optional().default(5).describe('返回结果数量，默认为 5，最多 20 条')
 ```
 
 ### 2.3 `toolResultTruncator.ts` 切换到 tiktoken
