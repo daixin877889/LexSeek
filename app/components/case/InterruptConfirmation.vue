@@ -45,13 +45,13 @@ import type {
     ModuleSelectInterruptData,
     InsufficientPointsInterruptData,
 } from '#shared/types/case'
-import {
-    isCaseInfoCheckInterrupt,
-    isBasicInfoConfirmInterrupt,
-    isModuleSelectInterrupt,
-    isInsufficientPointsInterrupt,
-} from '@/composables/useCaseAnalysis'
 import { InterruptType } from '#shared/types/case'
+
+// 中断类型守卫
+const isCaseInfoCheckInterrupt = (d: InterruptData | null) => d?.type === InterruptType.CASE_INFO_CHECK
+const isBasicInfoConfirmInterrupt = (d: InterruptData | null) => d?.type === InterruptType.BASIC_INFO_CONFIRM
+const isModuleSelectInterrupt = (d: InterruptData | null) => d?.type === InterruptType.MODULE_SELECT
+const isInsufficientPointsInterrupt = (d: InterruptData | null) => d?.type === InterruptType.INSUFFICIENT_POINTS
 
 // 子组件
 import CaseInfoCheckHandler from './interrupt/CaseInfoCheckHandler.vue'
