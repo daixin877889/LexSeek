@@ -12,29 +12,13 @@
     </template>
   </AiChat>
 
-  <!-- 积分不足覆盖层（照抄 init-analysis 的 Dialog 模式） -->
-  <Dialog :open="!!interruptData" @update:open="() => {}">
-    <DialogContent class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0" :show-close-button="false" @pointer-down-outside.prevent @escape-key-down.prevent @open-auto-focus.prevent>
-      <DialogHeader class="sr-only">
-        <DialogTitle>积分不足</DialogTitle>
-        <DialogDescription>请购买积分后继续分析</DialogDescription>
-      </DialogHeader>
-      <InitAnalysisInsufficientPointsCard
-        v-if="interruptData"
-        :is-member="interruptData.data?.isMember ?? false"
-        :available-points="interruptData.data?.availablePoints"
-        :required-points="interruptData.data?.requiredPoints"
-        :reason="interruptData.data?.reason"
-        @resume="resumeWorkflow"
-      />
-    </DialogContent>
-  </Dialog>
+  <!-- 统一中断处理器 -->
+  <CaseInterruptInterruptHandler :interrupt-data="stream.interruptData.value" @resume="resumeWorkflow" />
 </template>
 
 <script lang="ts" setup>
 import type { AnalysisResult } from "#shared/types/case";
 import type { AiPromptSubmitData } from "~/components/ai/AiPromptInput.vue";
-import { useStream, FetchStreamTransport } from "@langchain/vue";
 import { AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
 import { useTaskQueueParser } from "~/components/ai/composables/useTaskQueueParser";
 
@@ -60,18 +44,11 @@ const threadHistory = await useApiFetch<{
   showError: false,
 });
 
-const stream = reactive(
-  useStream({
-    transport: new FetchStreamTransport({
-      apiUrl: "/api/v1/case/analysis/chat",
-    }),
-    threadId: sessionId.value,
-    initialValues: threadHistory?.values ?? undefined,
-    onError: (error) => {
-      console.error("[useStream] 流错误:", error);
-    },
-  }),
-);
+const stream = useStreamChat({
+  apiUrl: "/api/v1/case/analysis/chat",
+  threadId: sessionId.value,
+  initialValues: threadHistory?.values ?? undefined,
+});
 
 /** 将原始字典格式消息转为 BaseMessage 实例 */
 function coerceRawMessages(rawMessages: any[]): any[] {
@@ -103,8 +80,8 @@ const historyMessages = computed(() => {
 
 // 流式消息：补充 stream.values 中的 ToolMessage
 const streamMessages = computed(() => {
-  const lcMessages = stream.messages as any[];
-  const rawMessages = (stream.values as any)?.messages;
+  const lcMessages = stream.messages.value as any[];
+  const rawMessages = (stream.values.value as any)?.messages;
 
   if (!Array.isArray(lcMessages) || lcMessages.length === 0) {
     if (!Array.isArray(rawMessages) || rawMessages.length === 0) return [];
@@ -141,7 +118,7 @@ const streamMessages = computed(() => {
 
 // 最终用于渲染的消息列表
 const displayMessages = computed(() =>
-  streamMessages.value.length > 0 || stream.isLoading
+  streamMessages.value.length > 0 || stream.isLoading.value
     ? streamMessages.value
     : historyMessages.value,
 );
@@ -153,25 +130,9 @@ const { todos } = useTaskQueueParser(displayMessages)
 const analysisResults = ref<AnalysisResult[]>([]);
 const activeResultIndex = ref(0);
 
-// LangGraph interrupt 数据（与 init-analysis 完全一致的解包逻辑）
-const interrupt = computed(() => {
-  const v = stream.values as any
-  if (!v?.__interrupt__?.length) return undefined
-  return v.__interrupt__.length === 1 ? v.__interrupt__[0] : v.__interrupt__
-})
-
-const interruptData = computed(() => {
-  const raw = interrupt.value
-  if (!raw) return null
-  const first = Array.isArray(raw) ? raw[0] : raw
-  const val = first?.value ?? first
-  if (val?.type === "insufficient_points") return val
-  return null
-})
-
 /** 处理 prompt 提交 */
 async function handlePromptSubmit(data: AiPromptSubmitData) {
-  if (stream.isLoading || isComplete.value) return;
+  if (stream.isLoading.value || isComplete.value) return;
 
   const text = data.text || "开始分析";
 
@@ -208,7 +169,7 @@ function handleToolReject() {
   });
 }
 
-/** 积分充值后恢复（与 init-analysis 的 resumeWorkflow 一致） */
+/** 积分充值后恢复 */
 function resumeWorkflow() {
   stream.submit(
     { messages: [] } as any,
