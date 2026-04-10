@@ -55,12 +55,13 @@ export const moduleContextMiddleware = (caseId: number, moduleName: string) => {
                         loadCompletedResultsService(caseId).catch((): Record<string, string> => ({})),
                     ])
 
-                    // 1. 材料增量检测
+                    // 1. 材料增量检测（使用 Set 优化大数据量下的去重性能）
                     const prevSourceIds = state._injectedSourceIds ?? []
                     const currentSourceIds = materials.map(m => getSourceId(m))
                     const isFirstMaterial = prevSourceIds.length === 0
+                    const prevSourceIdSet = new Set(prevSourceIds)
                     const newMaterialIds = currentSourceIds.filter(
-                        id => !prevSourceIds.includes(id),
+                        id => !prevSourceIdSet.has(id),
                     )
 
                     if (isFirstMaterial && materials.length > 0) {
