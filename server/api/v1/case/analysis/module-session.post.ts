@@ -8,7 +8,7 @@
  */
 import { z } from 'zod'
 import dayjs from 'dayjs'
-import { createSessionDAO } from '~/server/services/case/session.dao'
+import { createSessionDAO } from '~~/server/services/case/session.dao'
 import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
 
 const bodySchema = z.object({

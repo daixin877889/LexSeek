@@ -2,7 +2,7 @@
  * 查询小索对话 Session 列表
  * GET /api/v1/case/analysis/xiaosuo-sessions?caseId=xxx
  */
-import { listSessionsWithActiveRunDAO } from '~/server/services/case/session.dao'
+import { listSessionsWithActiveRunDAO } from '~~/server/services/case/session.dao'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.auth?.user

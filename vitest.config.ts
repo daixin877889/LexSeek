@@ -137,6 +137,8 @@ export default defineVitestConfig({
             '#shared/*': resolve(sharedDir, '*'),
             '~~': rootDir,
             '~~/*': resolve(rootDir, '*'),
+            // 注意：~/server 需在 ~ 之前匹配，以便 server 代码中的 import 正确解析
+            '~/server': serverDir,
             '~': appDir,
             '~/*': resolve(appDir, '*'),
             '@': appDir,

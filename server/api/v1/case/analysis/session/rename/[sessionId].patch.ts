@@ -3,7 +3,7 @@
  * PATCH /api/v1/case/analysis/session/rename/:sessionId
  */
 import { z } from 'zod'
-import { renameSessionDAO } from '~/server/services/case/session.dao'
+import { renameSessionDAO } from '~~/server/services/case/session.dao'
 
 const bodySchema = z.object({
     title: z.string().min(1).max(100),

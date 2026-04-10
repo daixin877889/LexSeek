@@ -2,7 +2,7 @@
  * 删除模块对话 Session
  * DELETE /api/v1/case/analysis/module-session/:sessionId
  */
-import { softDeleteSessionDAO } from '~/server/services/case/session.dao'
+import { softDeleteSessionDAO } from '~~/server/services/case/session.dao'
 
 export default defineEventHandler(async (event) => {
     const user = event.context.auth?.user

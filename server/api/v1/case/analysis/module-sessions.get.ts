@@ -7,7 +7,7 @@
  * 包含是否有 activeRun 的状态，用于页面刷新后恢复
  * 支持可选 moduleName 参数过滤
  */
-import { listSessionsWithActiveRunDAO } from '~/server/services/case/session.dao'
+import { listSessionsWithActiveRunDAO } from '~~/server/services/case/session.dao'
 
 export default defineEventHandler(async (event) => {
     const user = event.context.auth?.user
