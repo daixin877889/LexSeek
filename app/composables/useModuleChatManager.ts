@@ -4,8 +4,9 @@
  * ModuleChatInstance = useChatSessionManager 返回值 + 模块元数据（moduleName/moduleTitle/isExpanded）
  */
 
+import { effectScope } from 'vue'
+import type { EffectScope, Ref } from 'vue'
 import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
-import type { Ref } from 'vue'
 
 type SessionManager = ReturnType<typeof useChatSessionManager>
 
@@ -23,6 +24,8 @@ export interface ModuleChatManagerOptions {
 export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatManagerOptions = {}) {
     const instances = shallowReactive<Record<string, ModuleChatInstance>>({})
     const expandedModule = ref<string | null>(null)
+    // 持有所有 session manager 的 effectScope，页面卸载时统一清理
+    const scopes: EffectScope[] = []
 
     const activeModules = computed(() =>
         Object.values(instances).filter(i =>
@@ -36,7 +39,11 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
     ): Promise<ModuleChatInstance> {
         if (instances[moduleName]) return instances[moduleName]
 
-        const manager = useChatSessionManager({
+        // 在 effectScope 内创建 useChatSessionManager，确保其内部的
+        // ref/computed/watch/onUnmounted 正确注册（异步事件回调中无 component context）
+        const scope = effectScope()
+        scopes.push(scope)
+        const manager = scope.run(() => useChatSessionManager({
             caseId,
             listUrl: (id) =>
                 `/api/v1/case/analysis/module-sessions?caseId=${id}&moduleName=${moduleName}`,
@@ -49,7 +56,7 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
                     options.onAnalysisSaved?.()
                 }
             },
-        })
+        }))!
 
         const instance: ModuleChatInstance = Object.assign(manager, {
             moduleName,
@@ -59,6 +66,10 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
 
         instances[moduleName] = instance
         triggerRef(expandedModule)
+
+        // 自动初始化 session 列表（等价于小索的 init），否则 sendMessage 时 currentChat 为 null
+        await manager.init()
+
         return instance
     }
 
@@ -97,10 +108,17 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
         for (const moduleName of moduleNames) {
             const moduleDef = INIT_ANALYSIS_MODULES.find(m => m.name === moduleName)
             const title = moduleDef?.title ?? moduleName
-            const manager = await getOrCreateModuleManager(moduleName, title)
-            await manager.init()
+            await getOrCreateModuleManager(moduleName, title)
+            // getOrCreateModuleManager 内部已调用 manager.init()
         }
     }
+
+    // 页面卸载时清理所有 scope
+    onUnmounted(() => {
+        for (const scope of scopes) {
+            scope.stop()
+        }
+    })
 
     return {
         instances,
