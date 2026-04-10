@@ -18,6 +18,7 @@ import {
     pointConsumptionMiddleware,
     caseProcessMaterialMiddleware,
     caseMaterialContextMiddleware,
+    safetyTrimMiddleware,
 } from '../middleware'
 
 /** 主代理节点名称 */
@@ -123,6 +124,10 @@ export async function runCaseChat(
             summarizationMiddleware({
                 model,
                 trigger: [{ tokens: triggerTokens }],
+            }),
+            safetyTrimMiddleware({
+                model,
+                maxTokens: Math.floor(contextWindow * 0.8),
             }),
         ],
     })

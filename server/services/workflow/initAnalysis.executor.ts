@@ -22,6 +22,7 @@ import { getCheckpointer, getStore } from './checkpointer'
 import { pointConsumptionMiddleware } from './middleware/pointConsumption.middleware'
 import { caseMaterialContextMiddleware } from './middleware/caseMaterialContext.middleware'
 import { analysisResultPersistenceMiddleware, markAnalysisFailedById } from './middleware/analysisResultPersistence.middleware'
+import { safetyTrimMiddleware } from './middleware/safetyTrim.middleware'
 import { findAnalysisBySessionAndNodeDao, AnalysisStatus } from '../case/analysis.dao'
 import { VALID_MODULE_NAMES } from '#shared/types/initAnalysis'
 
@@ -151,6 +152,10 @@ function createModuleNode(config: ModuleNodeConfig) {
                 summarizationMiddleware({
                     model,
                     trigger: [{ tokens: triggerTokens }],
+                }),
+                safetyTrimMiddleware({
+                    model,
+                    maxTokens: Math.floor(contextWindow * 0.8),
                 }),
                 analysisResultPersistenceMiddleware({
                     agentName: config.moduleName,

@@ -20,6 +20,7 @@ import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { pointConsumptionMiddleware } from '../middleware'
 import { moduleContextMiddleware } from '../middleware/moduleContext.middleware'
+import { safetyTrimMiddleware } from '../middleware/safetyTrim.middleware'
 import { createTool as createSaveAnalysisResultTool } from '../tools/saveAnalysisResult.tool'
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import type { ToolContext } from '../tools/types'
@@ -114,6 +115,10 @@ export async function runModuleChat(
             summarizationMiddleware({
                 model,
                 trigger: [{ tokens: triggerTokens }],
+            }),
+            safetyTrimMiddleware({
+                model,
+                maxTokens: Math.floor(contextWindow * 0.8),
             }),
         ],
     })
