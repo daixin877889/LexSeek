@@ -98,6 +98,10 @@ export async function runModuleChat(
     const systemPrompt = systemPromptParts.join('\n\n')
 
     // 创建 Agent
+    // 根据模型上下文窗口动态计算 summarization 触发阈值（窗口 * 60%，下限 30k）
+    const contextWindow = nodeConfig.modelContextWindow || 128000
+    const triggerTokens = Math.max(Math.floor(contextWindow * 0.6), 30000)
+
     const agent: ReactAgent = createAgent({
         model,
         systemPrompt,
@@ -109,7 +113,7 @@ export async function runModuleChat(
             moduleContextMiddleware(caseId, moduleName),
             summarizationMiddleware({
                 model,
-                trigger: [{ tokens: 100000 }],
+                trigger: [{ tokens: triggerTokens }],
             }),
         ],
     })

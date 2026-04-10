@@ -94,6 +94,10 @@ export const caseAnalysisAgent = async (
         toolsCount: tools.length,
     })
 
+    // 根据模型上下文窗口动态计算 summarization 触发阈值（窗口 * 60%，下限 30k）
+    const contextWindow = nodeConfig.modelContextWindow || 128000
+    const triggerTokens = Math.max(Math.floor(contextWindow * 0.6), 30000)
+
     const agent: ReactAgent = createAgent({
         model,
         systemPrompt,
@@ -107,7 +111,7 @@ export const caseAnalysisAgent = async (
             todoListMiddleware(),
             summarizationMiddleware({
                 model,
-                trigger: [{ tokens: 100000 }],
+                trigger: [{ tokens: triggerTokens }],
             }),
             // 末位：afterAgent 在所有其他中间件之后执行
             analysisResultPersistenceMiddleware({

@@ -136,6 +136,10 @@ function createModuleNode(config: ModuleNodeConfig) {
 
         // 6. 创建并执行 Agent（中间件自动处理 start/complete）
         // 注意：不使用 checkpointer，消息由父图 StateGraph 的 messages concat reducer 累积
+        // 根据模型上下文窗口动态计算 summarization 触发阈值（窗口 * 60%，下限 30k）
+        const contextWindow = nodeConfig.modelContextWindow || 128000
+        const triggerTokens = Math.max(Math.floor(contextWindow * 0.6), 30000)
+
         const agent = createAgent({
             model,
             systemPrompt,
@@ -146,7 +150,7 @@ function createModuleNode(config: ModuleNodeConfig) {
                 caseMaterialContextMiddleware(userId, caseId),
                 summarizationMiddleware({
                     model,
-                    trigger: [{ tokens: 100000 }],
+                    trigger: [{ tokens: triggerTokens }],
                 }),
                 analysisResultPersistenceMiddleware({
                     agentName: config.moduleName,
