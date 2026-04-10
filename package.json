@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "NODE_OPTIONS='--max-old-space-size=8192' npx nuxt build",
-    "typecheck": "vue-tsc --noEmit",
+    "typecheck": "npx nuxi typecheck",
     "dev": "NUXT_HOST=0.0.0.0 nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
