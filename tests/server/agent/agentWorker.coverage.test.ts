@@ -107,13 +107,17 @@ describe('SSE 解析逻辑验证', () => {
     const meta = m.response_metadata as Record<string, unknown> | undefined
     if (meta?.injectedBy) {
       const injector = meta.injectedBy as string
-      if (injector.startsWith('ModuleContext') || injector.startsWith('CaseMaterial')) return true
+      if (injector.startsWith('ModuleContext')
+        || injector.startsWith('CaseMaterial')
+        || injector.startsWith('SubAgentContext')) return true
     }
     if (m.data && typeof m.data === 'object') {
       const innerMeta = (m.data as Record<string, unknown>).response_metadata as Record<string, unknown> | undefined
       if (innerMeta?.injectedBy) {
         const injector = innerMeta.injectedBy as string
-        if (injector.startsWith('ModuleContext') || injector.startsWith('CaseMaterial')) return true
+        if (injector.startsWith('ModuleContext')
+          || injector.startsWith('CaseMaterial')
+          || injector.startsWith('SubAgentContext')) return true
       }
     }
     return false
@@ -121,6 +125,14 @@ describe('SSE 解析逻辑验证', () => {
 
   function isInternalMessage(msg: unknown): boolean {
     return isSystemMessage(msg) || isInjectedMessage(msg)
+  }
+
+  function isInternalLLMEvent(data: unknown): boolean {
+    if (!Array.isArray(data) || data.length < 2) return false
+    const metadata = data[1] as Record<string, unknown> | undefined
+    if (!metadata || typeof metadata !== 'object') return false
+    const tags = metadata.tags as string[] | undefined
+    return Array.isArray(tags) && tags.includes('internal')
   }
 
   function stripSystemMessages(event: string, data: unknown): unknown | null {
@@ -134,7 +146,27 @@ describe('SSE 解析逻辑验证', () => {
       return data
     }
 
+    if (event === 'updates') {
+      const d = data as Record<string, unknown>
+      const result: Record<string, unknown> = {}
+      for (const [nodeName, nodeOutput] of Object.entries(d)) {
+        if (nodeOutput && typeof nodeOutput === 'object') {
+          const no = nodeOutput as Record<string, unknown>
+          if (Array.isArray(no.messages)) {
+            result[nodeName] = {
+              ...no,
+              messages: no.messages.filter(m => !isInternalMessage(m)),
+            }
+            continue
+          }
+        }
+        result[nodeName] = nodeOutput
+      }
+      return result
+    }
+
     if (event === 'messages') {
+      if (isInternalLLMEvent(data)) return null
       if (Array.isArray(data)) {
         const filtered = (data as unknown[]).filter(m => !isInternalMessage(m))
         return filtered.length > 0 ? filtered : null
@@ -225,6 +257,18 @@ describe('SSE 解析逻辑验证', () => {
       })).toBe(true)
     })
 
+    it('直接格式的 SubAgentContext 注入消息', () => {
+      expect(isInjectedMessage({
+        response_metadata: { injectedBy: 'SubAgentContextInjector' },
+      })).toBe(true)
+    })
+
+    it('嵌套格式的 SubAgentContext 注入消息', () => {
+      expect(isInjectedMessage({
+        data: { response_metadata: { injectedBy: 'SubAgentContextV2' } },
+      })).toBe(true)
+    })
+
     it('非注入消息', () => {
       expect(isInjectedMessage({
         response_metadata: { injectedBy: 'OtherMiddleware' },
@@ -294,10 +338,46 @@ describe('SSE 解析逻辑验证', () => {
       expect(result[0].type).toBe('ai')
     })
 
-    it('updates 等其他事件直接返回', () => {
-      const data = { someField: 'value' }
-      const result = stripSystemMessages('updates', data)
-      expect(result).toEqual(data)
+    it('updates 事件：按 node 遍历过滤每个 node 输出的 messages', () => {
+      const data = {
+        agent: {
+          messages: [
+            { type: 'system', content: 'prompt' },
+            { type: 'ai', content: 'response' },
+          ],
+          extraField: 'preserved',
+        },
+        tools: {
+          messages: [
+            { response_metadata: { injectedBy: 'SubAgentContextInjector' } },
+            { type: 'tool', content: 'tool-result' },
+          ],
+        },
+      }
+      const result = stripSystemMessages('updates', data) as any
+      expect(result.agent.messages).toHaveLength(1)
+      expect(result.agent.messages[0].type).toBe('ai')
+      expect(result.agent.extraField).toBe('preserved')
+      expect(result.tools.messages).toHaveLength(1)
+      expect(result.tools.messages[0].type).toBe('tool')
+    })
+
+    it('updates 事件：node 输出无 messages 字段保持原样', () => {
+      const data = {
+        customNode: { state: 'done', value: 42 },
+      }
+      const result = stripSystemMessages('updates', data) as any
+      expect(result.customNode).toEqual({ state: 'done', value: 42 })
+    })
+
+    it('updates 事件：node 输出为 null/非对象保持原样', () => {
+      const data = {
+        nullNode: null,
+        stringNode: 'literal',
+      }
+      const result = stripSystemMessages('updates', data) as any
+      expect(result.nullNode).toBeNull()
+      expect(result.stringNode).toBe('literal')
     })
 
     it('null data 直接返回', () => {
