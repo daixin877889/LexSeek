@@ -106,7 +106,18 @@ function isAIMessage(msg: any): boolean {
   return AIMessage.isInstance(msg) || msg?.type === 'ai' || msg?.role === 'assistant'
 }
 
+/** 检索类工具：调用时不显示模型的推理/思考和文本内容 */
+const SEARCH_TOOL_NAMES = new Set(['search_law', 'search_case_materials'])
+
+/** 判断消息是否为纯检索工具调用 */
+function isSearchOnlyMessage(message: any): boolean {
+  const toolCalls = message.tool_calls ?? []
+  return toolCalls.length > 0 && toolCalls.every((tc: any) => SEARCH_TOOL_NAMES.has(tc.name))
+}
+
 function getMessageText(message: any): string {
+  // 检索类工具调用不显示文本内容
+  if (isSearchOnlyMessage(message)) return ''
   if (message.text) return message.text
   const content = message.content
   if (typeof content === 'string') return content
@@ -119,8 +130,9 @@ function getMessageText(message: any): string {
   return ''
 }
 
-// 统一使用 extractThinking 函数（完整合并模式，用于历史消息渲染）
+// 检索类工具调用不显示推理过程和文本内容
 function getReasoningText(message: any): string {
+  if (isSearchOnlyMessage(message)) return ''
   return extractThinking(message as AIMessageType, false) ?? ''
 }
 

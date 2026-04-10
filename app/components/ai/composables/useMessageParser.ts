@@ -20,6 +20,9 @@ export interface ParsedMessage {
   raw: any
 }
 
+/** 检索类工具：调用时不显示模型的推理/思考过程 */
+const SEARCH_TOOL_NAMES = new Set(['search_law', 'search_case_materials'])
+
 // --- Helpers ---
 
 /**
@@ -192,14 +195,19 @@ export function useMessageParser(messages: MaybeRef<any[]>) {
           const toolCalls = matchToolCalls(m as any, toolResultsMap)
           // 提取 thinking（需在 skip 检查前执行，否则纯 thinking 阶段的消息会被误过滤）
           const thinking = extractThinking(m as any, false)
+          // 检索类工具调用：过滤 thinking 和 text，只保留 tool_calls
+          const isSearchOnly = toolCalls.length > 0
+            && toolCalls.every(tc => SEARCH_TOOL_NAMES.has(tc.name))
+          const effectiveThinking = isSearchOnly ? undefined : thinking
+          const effectiveContent = isSearchOnly ? '' : content
           // 跳过无内容、无 toolCalls、无 thinking 的 AI 消息（流式中断时保存的中间状态）
-          if (!content && !toolCalls.length && !thinking) return null
+          if (!effectiveContent && !toolCalls.length && !effectiveThinking) return null
 
           return {
             id: m.id ?? `ai-${idx}`,
             type: 'ai' as const,
-            content,
-            thinking,
+            content: effectiveContent,
+            thinking: effectiveThinking,
             toolCalls,
             raw: m,
           }

@@ -40,6 +40,9 @@ const results = computed(() => {
                         </AiElementsSourcesSource>
                     </AiElementsSourcesContent>
                 </AiElementsSources>
+                <div v-else-if="state === 'output-available'" class="text-sm text-muted-foreground">
+                    未检索到结果
+                </div>
             </div>
         </AiElementsToolContent>
     </AiElementsTool>

@@ -26,7 +26,7 @@ function formatChapter(hierarchy: unknown): string {
 <template>
     <AiElementsTool>
         <AiElementsToolHeader title="法律检索" type="tool-search_law" :state="state" />
-        <AiElementsToolContent v-if="input || results.length">
+        <AiElementsToolContent v-if="input || output != null">
             <div class="p-4 space-y-3">
                 <div v-if="input" class="flex items-center gap-2">
                     <Badge v-if="input.legalType" variant="outline">{{ input.legalType }}</Badge>
@@ -61,6 +61,9 @@ function formatChapter(hierarchy: unknown): string {
                             <AiElementsCodeBlockCopyButton />
                         </AiElementsCodeBlock>
                     </div>
+                </div>
+                <div v-else-if="state === 'output-available'" class="text-sm text-muted-foreground">
+                    未检索到结果
                 </div>
             </div>
         </AiElementsToolContent>
