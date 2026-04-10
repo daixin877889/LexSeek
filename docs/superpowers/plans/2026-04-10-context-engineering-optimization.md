@@ -484,8 +484,10 @@ import { compressMessages, safetyTrimMessages, estimateMessagesTokens } from '..
  * 使用 estimateMessagesTokens（同步字符估算）做快速预判，
  * 实际截断由 compressMessages/safetyTrimMessages 执行。
  *
- * 注意：参考项目中现有中间件（如 caseMaterialContext.middleware.ts），
- * 使用 splice 原地修改 state.messages，而非直接赋值。
+ * 注意：
+ * 1. compressMessages 不抛异常（消息过少、middle 为空、摘要失败时静默返回原消息）
+ *    → 降级触发条件必须使用"压缩后是否仍超预算"而非 try-catch
+ * 2. 使用 splice 原地修改 state.messages，对齐项目现有中间件写法
  */
 export function safetyTrimMiddleware(options: { model: BaseChatModel; maxTokens: number }) {
     return createMiddleware({
@@ -496,7 +498,7 @@ export function safetyTrimMiddleware(options: { model: BaseChatModel; maxTokens:
                 const estimated = estimateMessagesTokens(state.messages)
                 if (estimated <= options.maxTokens) return
 
-                // 防线一：LLM 摘要压缩
+                // 防线一：LLM 摘要压缩（不抛异常，需额外判断结果是否仍超预算）
                 let replacement: BaseMessage[] | null = null
                 try {
                     replacement = await compressMessages(
@@ -505,15 +507,22 @@ export function safetyTrimMiddleware(options: { model: BaseChatModel; maxTokens:
                         options.model,
                     )
                 } catch (error) {
-                    logger.warn('compressMessages 失败，降级到 safetyTrim', { error })
+                    // compressMessages 内部已捕获异常，此处是防御性编程
+                    logger.warn('compressMessages 抛异常（意外路径），降级到 safetyTrim', { error })
+                    replacement = null
                 }
 
-                // 防线二：trimMessages 截断
-                if (!replacement) {
-                    replacement = await safetyTrimMessages(state.messages, options.maxTokens)
+                // 防线二：如压缩失败或压缩后仍超预算，使用 trimMessages 强制截断
+                const stillOverBudget = !replacement
+                    || estimateMessagesTokens(replacement) > options.maxTokens
+                if (stillOverBudget) {
+                    replacement = await safetyTrimMessages(
+                        replacement ?? state.messages,
+                        options.maxTokens,
+                    )
                 }
 
-                // 使用 splice 原地替换，保持与项目现有中间件一致的修改方式
+                // 使用 splice 原地替换，与项目现有中间件修改方式一致
                 state.messages.splice(0, state.messages.length, ...replacement)
             },
         },

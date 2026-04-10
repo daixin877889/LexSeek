@@ -362,6 +362,11 @@ import { compressMessages, safetyTrimMessages, estimateMessagesTokens } from '..
  * 使用 estimateMessagesTokens（字符估算）做快速预判，
  * 实际截断由 compressMessages/safetyTrimMessages 执行。
  * 这是有意的两层策略：快速预判 + 精确截断，避免每轮都调用 tiktoken。
+ *
+ * 关键注意事项：
+ * 1. compressMessages 内部已 catch 异常，失败时静默返回原消息
+ *    → 降级条件必须判断"压缩后是否仍超预算"，而非依赖 try-catch
+ * 2. 使用 splice 原地修改 state.messages，与项目现有中间件写法一致
  */
 export function safetyTrimMiddleware(options: { model: BaseChatModel; maxTokens: number }) {
   return createMiddleware({
@@ -375,20 +380,32 @@ export function safetyTrimMiddleware(options: { model: BaseChatModel; maxTokens:
 
         // 防线一：LLM 摘要压缩
         // 注意：compressMessages 的签名为 (messages, budget, model)
+        //      且不抛异常，失败/无需压缩时会静默返回原消息
+        let replacement: BaseMessage[] | null = null
         try {
-          const compressed = await compressMessages(
+          replacement = await compressMessages(
             state.messages,
             options.maxTokens,
             options.model,
           )
-          state.messages = compressed
-          return
         } catch (error) {
-          logger.warn('compressMessages 失败，降级到 safetyTrim', { error })
+          // 防御性编程：正常情况下 compressMessages 不会到这里
+          logger.warn('compressMessages 抛异常（意外路径），降级到 safetyTrim', { error })
+          replacement = null
         }
 
-        // 防线二：trimMessages 截断
-        state.messages = await safetyTrimMessages(state.messages, options.maxTokens)
+        // 防线二：压缩结果仍超预算 → 强制截断
+        const stillOverBudget = !replacement
+          || estimateMessagesTokens(replacement) > options.maxTokens
+        if (stillOverBudget) {
+          replacement = await safetyTrimMessages(
+            replacement ?? state.messages,
+            options.maxTokens,
+          )
+        }
+
+        // 使用 splice 原地替换，与项目现有中间件写法一致
+        state.messages.splice(0, state.messages.length, ...replacement)
       },
     },
   })
