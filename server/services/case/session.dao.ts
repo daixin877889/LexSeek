@@ -56,15 +56,15 @@ export async function listSessionsWithActiveRunDAO(
     })
 
     return Promise.all(
-        sessions.map(async (s: any) => {
-            const activeRun = await getActiveRunService(s.sessionId)
+        sessions.map(async (session) => {
+            const activeRun = await getActiveRunService(session.sessionId)
             return {
-                sessionId: s.sessionId,
-                type: s.type,
-                metadata: s.metadata as Record<string, any>,
+                sessionId: session.sessionId,
+                type: session.type,
+                metadata: session.metadata as Record<string, any>,
                 hasActiveRun: !!activeRun,
-                createdAt: s.createdAt,
-                updatedAt: s.updatedAt,
+                createdAt: session.createdAt,
+                updatedAt: session.updatedAt,
             }
         }),
     )
