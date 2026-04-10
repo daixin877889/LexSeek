@@ -1,6 +1,6 @@
 # 工作流与 Agent 上下文工程全量优化设计
 
-**版本**: 1.5
+**版本**: 1.6
 **日期**: 2026-04-10
 **状态**: 审查通过
 
@@ -44,11 +44,26 @@ Layer 5: 基础设施  → #13 #14 storage Redis 化、Worker 过滤完善
 ### 1.4 设计约束
 
 - **所有代理**（主代理、模块代理、子代理）的动态上下文注入统一使用 HumanMessage + `response_metadata.injectedBy` 标记方案（LangGraph 不允许多个 SystemMessage，且保持 systemPrompt 纯静态以命中 Prompt Caching）
-- 前端通过 `useMessageParser.ts` 按 `injectedBy` 前缀过滤，服务端 `stripSystemMessages` 过滤 system 消息
+- 前端通过 `useMessageParser.ts` 按 `injectedBy` 前缀过滤，服务端 `stripSystemMessages` 过滤 system 消息和注入消息
+- 检索工具内部的 LLM 调用（意图分类器）通过 `tags: ['internal']` 标记，`agentWorker.ts` 的 `isInternalLLMEvent` 在 SSE 层拦截（已实现，commit a876625）
 - 两条工作流路径（V1 initAnalysis / V2 caseAnalysisV2）均为正式功能，需同等级优化
 - `server/utils/tokenCounter.ts`（tiktoken cl100k_base）已实现，可直接复用
 - 数据库时区 Asia/Shanghai，Prisma 连接使用 TimeZone=UTC
 - **中间件 hook 格式**：项目使用 `createMiddleware` API，所有 hook 须用 `{ hook: async (state) => {...} }` 对象包装，不支持直接赋值 async 函数
+
+### 1.5 消息过滤架构（现状 + 本设计改造后）
+
+三层过滤确保内部消息不泄露到前端：
+
+| 消息类型 | agentWorker.ts (SSE) | threadState.ts (Checkpoint) | useMessageParser.ts (前端) |
+|---|---|---|---|
+| SystemMessage | ✓ `isSystemMessage` | ✓ `type === 'system'` | ✓ `msgType === 'system'` |
+| 材料上下文 `CaseMaterial*` | ✓ `isInjectedMessage` | ✓ `injectedBy` 前缀 | ✓ `injectedBy` 前缀 |
+| 模块上下文 `ModuleContext*` | ✓ `isInjectedMessage` | ✓ `injectedBy` 前缀 | ✓ `injectedBy` 前缀 |
+| 子代理上下文 `SubAgentContext` | ✓ `isInjectedMessage` | **待改造** 6.2 + 5.2 | **待改造** 5.2 |
+| 意图分类器 LLM 消息 | ✓ `tags: ['internal']` | 不涉及（不写入 state） | 不涉及 |
+| 子代理线程 `loadSubAgentThreads` | — | **待改造** 5.2 | ✓ 前端兜底 |
+| ToolMessage | 不过滤（需展示工具过程） | 不过滤 | ✓ 过滤（前端不直接展示） |
 
 ---
 
