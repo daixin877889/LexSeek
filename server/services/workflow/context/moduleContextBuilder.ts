@@ -114,7 +114,7 @@ export async function buildModuleContext(params: ModuleContextParams): Promise<s
 
     for (let i = 0; i < sectionEntries.length; i++) {
         const entry = sectionEntries[i]
-        if (!entry.raw) {
+        if (!entry || !entry.raw) {
             // 此 section 为空，预算全部留给后续
             continue
         }
