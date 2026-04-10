@@ -204,7 +204,7 @@ export const pointConsumptionMiddleware = (userId: number, itemKey: string, sess
 
                     // 更新共享状态（如果 sessionId 已提供）
                     if (sessionId) {
-                        updateSessionState(sessionId, newState)
+                        await updateSessionState(sessionId, newState)
                     }
 
                     return newState
@@ -239,7 +239,7 @@ export const pointConsumptionMiddleware = (userId: number, itemKey: string, sess
 
                         // 更新共享状态（如果 sessionId 已提供）
                         if (sessionId) {
-                            updateSessionState(sessionId, newState)
+                            await updateSessionState(sessionId, newState)
                         }
 
                         return newState
@@ -255,7 +255,7 @@ export const pointConsumptionMiddleware = (userId: number, itemKey: string, sess
 
                     // 更新共享状态（如果 sessionId 已提供）
                     if (sessionId) {
-                        updateSessionState(sessionId, newState)
+                        await updateSessionState(sessionId, newState)
                     }
 
                     return newState
