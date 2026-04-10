@@ -283,6 +283,8 @@ interruptData: computed(() => {
 })
 ```
 
+> **与现有实现的行为差异**：现有 `CaseDetailXiaosuo.vue:59-66` 对非 `insufficient_points` 类型返回 `null`（做了类型过滤），而 `useStreamChat.interruptData` **不做中断类型过滤**，所有类型的中断数据都会传递到消费方。类型分发职责由 `InterruptHandler` 组件承担（Section 4.7）。
+
 ### 4.2 改造 `useCaseChat` — 基于 useStreamChat 的特化
 
 **文件**：`app/composables/useCaseChat.ts`（98 行 → ~50 行）
@@ -461,6 +463,10 @@ function useXiaosuoChat(caseId: MaybeRef<number>) {
  * 4 个 Handler 组件（case/interrupt/）是旧系统的遗留，但代码质量高，
  * 类型直接从 #shared/types/case 导入，可独立复用。
  * 当新系统的工作流触发对应中断类型时，在此处接入即可。
+ *
+ * 注意：积分不足使用 InitAnalysisInsufficientPointsCard（含完整支付流程：
+ * 会员套餐展示、积分购买、二维码支付），而非 case/interrupt/InsufficientPointsHandler
+ * （旧系统简陋版本，仅文字提示）。
  */
 defineProps<{ interruptData: any }>()
 const emit = defineEmits<{ resume: [data: any] }>()
@@ -644,7 +650,7 @@ async function stopGeneration() {
 | PR | 测试类型 | 覆盖内容 |
 |---|---|---|
 | PR #1 | 单元测试 | `validateCaseOwnershipDAO`、`listSessionsWithActiveRunDAO`、`createSessionDAO`（含并发防重 + Redis 降级）、`softDeleteSessionDAO`、`renameSessionDAO`（含 jsonb_set 原子更新） |
-| PR #1 | 集成测试 | 4 个瘦化后的 API 端点 + 新增的 delete/rename 端点（确认请求/响应不变） |
+| PR #1 | 集成测试 | 4 个瘦化后的 API 端点 + 新增的 delete/rename 端点（确认请求/响应不变）。**边界用例**：验证 `type=1` session 的 `metadata.source` 始终为 `'xiaosuo'`，确认 `softDeleteSessionDAO` 的 type 校验与现有 metadata source 校验等价 |
 | PR #2 | 单元测试 | `useStreamChat`（computed 包装、**interruptData 从 values.__interrupt__ 解包而非 stream.interrupt**）、`useChatSessionManager`（session CRUD、switchSession、stopGeneration 双重取消、竞态防护、init 幂等保护）、`useStopActiveRun` |
 | PR #3 | 组件测试 | `ChatWindowShell`（三种模式切换 + positionOffset）、`SessionListPopover`（列表渲染、事件 emit、重命名交互）、`InterruptHandler`（按 type 分发渲染）、`AnalysisModuleChatBar`（多 session 模式下的正确渲染回归） |
 | PR #4 | **TDD 对比测试** | `useInitAnalysis`：改造前先写对比测试锁定 watch(values) 触发次数、moduleStates 推断、mergedResult 合并、streamMessages 合并、interrupt 触发行为。改造后重跑确认行为不变。`analysis/[sessionId].vue` 的 interrupt + 消息显示验证 |
