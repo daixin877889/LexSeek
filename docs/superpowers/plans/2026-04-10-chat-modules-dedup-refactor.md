@@ -28,7 +28,7 @@
 |---|---|---|
 | `server/services/case/session.dao.ts` | Session CRUD DAO 抽象（5 个公共函数） | #1 |
 | `server/api/v1/case/analysis/module-session/[sessionId].delete.ts` | 模块对话 session 删除 | #1 |
-| `server/api/v1/case/analysis/session/[sessionId]/rename.patch.ts` | 通用 session 重命名 | #1 |
+| `server/api/v1/case/analysis/session/rename/[sessionId].patch.ts` | 通用 session 重命名 | #1 |
 | `tests/server/case/session.dao.test.ts` | Session DAO 单元测试 | #1 |
 | `app/composables/useStreamChat.ts` | 泛型流管理底层（绕过 interrupt 响应式 bug） | #2 |
 | `app/composables/useChatSessionManager.ts` | 多 session 管理基类 | #2 |
@@ -229,6 +229,8 @@ EOF
 
 通用 API（小索和模块对话共用）。zod 校验 body `{ title: z.string().min(1).max(100) }` → `renameSessionDAO({ sessionId, userId, newTitle })`。约 20 行。
 
+> **注意**：文件路径 `session/rename/[sessionId].patch.ts` 遵循项目路由规范——动态参数 `[param]` 必须在文件名末尾（`.claude/rules/api.md`）。
+
 - [ ] **Step 3: 运行测试 + 类型检查**
 
 Run: `npx vitest run tests/server --reporter=verbose && npx nuxi typecheck`
@@ -238,11 +240,43 @@ Expected: PASS
 
 ```bash
 git add server/api/v1/case/analysis/module-session/[sessionId].delete.ts \
-    server/api/v1/case/analysis/session/[sessionId]/rename.patch.ts
+    server/api/v1/case/analysis/session/rename/[sessionId].patch.ts
 git commit -m "$(cat <<'EOF'
 feat(api): 新增模块对话 session 删除和通用 session 重命名 API
 EOF
 )"
+```
+
+---
+
+### Task 4.5: Session API 集成测试
+
+**Files:**
+- Create: `tests/server/case/session-api.test.ts`
+
+> Spec Section 7.1 要求 PR #1 的集成测试覆盖"4 个瘦化后的 API 端点 + 新增的 delete/rename 端点"。
+
+- [ ] **Step 1: 编写 6 个 API 端点的集成测试**
+
+测试场景（参考项目已有的 API 测试 `tests/server/api/*.test.ts` 的模式）：
+- `GET /xiaosuo-sessions?caseId=xxx`：返回 session 列表格式正确、权限校验
+- `GET /module-sessions?caseId=xxx`：返回 session 列表格式正确、权限校验、包含 title/createdAt/updatedAt
+- `POST /xiaosuo-session`：创建成功返回 sessionId + title、zod 参数校验
+- `POST /module-session`：创建成功返回 sessionId + title + isNew、包含 moduleName + nodeId
+- `DELETE /module-session/:sessionId`：软删除成功、权限校验
+- `PATCH /session/rename/:sessionId`：重命名成功、zod 校验
+- **边界用例**：验证 `type=1` session 的 `metadata.source` 始终为 `'xiaosuo'`（确认 `softDeleteSessionDAO` 的 type 校验与现有 metadata source 校验等价）
+
+- [ ] **Step 2: 运行测试确认通过**
+
+Run: `npx vitest run tests/server/case/session-api.test.ts --reporter=verbose`
+Expected: PASS
+
+- [ ] **Step 3: 提交**
+
+```bash
+git add tests/server/case/session-api.test.ts
+git commit -m "test(api): Session API 集成测试（瘦化后 + 新增端点）"
 ```
 
 ---
@@ -962,7 +996,8 @@ git commit -m "feat(ui): 新增 SessionListPopover 共享 session 列表组件"
 > - 删除两处 Popover session 列表 → 使用 SessionListPopover
 > - 删除 Dialog + InsufficientPointsCard → 使用 InterruptHandler
 > - 删除 useDraggableResize 调用 → 由 ChatWindowShell 内部封装
-> - 删除 interrupt/interruptData computed → 使用 xiaosuoChat.interruptData
+> - **删除 interrupt/interruptData 两个 computed（第 52-66 行）** → 改用 `xiaosuoChat.interruptData`（来自 useChatSessionManager，已在 useStreamChat 中统一解包）
+> - 注意：旧的 `useXiaosuoChat` 返回了 `interrupt` 属性，新版不再有——所有引用 `xiaosuoChat.interrupt` 的代码需改为 `xiaosuoChat.interruptData`
 
 - [ ] **Step 2: 重写 AnalysisModuleChat.vue**
 
@@ -971,10 +1006,14 @@ git commit -m "feat(ui): 新增 SessionListPopover 共享 session 列表组件"
 > - **新增** InterruptHandler（之前完全没有中断 UI——这是补齐功能缺失）
 > - **新增** SessionListPopover（多 session 支持）
 > - 传入 `positionOffset` 使窗口偏移避免与小索重叠
+> - chatInstance 的类型从 `ModuleChatInstance`（旧接口，已删除）改为 `ReturnType<typeof useChatSessionManager>`
 
 - [ ] **Step 3: 适配 AnalysisModuleChatBar.vue**
 
-> 读取当前文件（30 行）。多 session 模式下确认 isLoading/isActive 数据源是否需要调整（从 ModuleChatInstance 改为 useChatSessionManager 返回值）。
+> 读取当前文件（30 行）。多 session 模式下：
+> - 将 `ModuleChatInstance` 类型引用改为 `ReturnType<typeof useChatSessionManager>` 或使用新的接口
+> - isLoading 数据源改为 `manager.isLoading.value`（来自 useChatSessionManager）
+> - 不需要展示每个 session，只需显示模块是否有活跃分析
 
 - [ ] **Step 4: 类型检查 + 测试**
 
@@ -1004,31 +1043,35 @@ EOF
 ### Task 13: useInitAnalysis TDD 对比测试
 
 **Files:**
-- Create: `tests/server/workflow/useInitAnalysis.comparison.test.ts`
+- Create: `tests/composables/useInitAnalysis.comparison.test.ts`
 
 - [ ] **Step 1: 编写对比测试**
 
 > **CRITICAL**：改造前先锁定 useInitAnalysis 的关键行为。
+>
+> **可行性说明**：`useInitAnalysis` 内部使用 `@langchain/vue` 的 `useStream` + Vue 的 `reactive`/`computed`/`watch`。在 Vitest 环境中需要：
+> - Mock `@langchain/vue`（返回一个 stub useStream，模拟 ES6 getter + shallowRef 行为）
+> - 使用 `@vue/test-utils` 的 `withSetup` 或在 `effectScope` 中运行 composable
+> - 如果 mock 复杂度过高，**降级为手动 E2E 验证**（在开发环境通过 UI 操作验证，记录 console 日志对比改造前后的 watch 触发次数）
+>
 > 测试项（参考 spec Section 6.1 前置条件）：
+> 1. **moduleStates 推断**：给定 values.result 和 values.failedModules，验证 moduleStates 的 idle/streaming/complete/failed 转换
+> 2. **mergedResult**：验证 DB 结果 + 流式结果的合并（流式优先覆盖）
+> 3. **streamMessages**：验证实时消息 vs checkpoint 消息的合并（实时优先）
+> 4. **interrupt 触发**：当 values.__interrupt__ 变化时，interruptData 是否正确更新
 >
-> 1. **watch(values) 触发行为**：当 orchestrator 更新 streamValues 时，watch 回调是否正确触发
-> 2. **moduleStates 推断**：给定 values.result 和 values.failedModules，验证 moduleStates 的 idle/streaming/complete/failed 转换
-> 3. **mergedResult**：验证 DB 结果 + 流式结果的合并（流式优先覆盖）
-> 4. **streamMessages**：验证实时消息 vs checkpoint 消息的合并（实时优先）
-> 5. **interrupt 触发**：当 values.__interrupt__ 变化时，interruptData 是否正确更新
->
-> 注意：这些测试是对现有行为的"快照"，用于改造后确认行为不变。
+> 注意：这些测试是对现有行为的"快照"，用于改造后确认行为不变。如果 mock useStream 不可行，至少应提取 `moduleStates 推断` 和 `mergedResult 合并` 为纯函数并对其单独测试。
 
 - [ ] **Step 2: 运行对比测试确认通过（改造前基线）**
 
-Run: `npx vitest run tests/server/workflow/useInitAnalysis.comparison.test.ts --reporter=verbose`
+Run: `npx vitest run tests/composables/useInitAnalysis.comparison.test.ts --reporter=verbose`
 Expected: PASS（基线通过）
 
 - [ ] **Step 3: 提交**
 
 ```bash
-git add tests/server/workflow/useInitAnalysis.comparison.test.ts
-git commit -m "test(workflow): useInitAnalysis 对比测试（Phase 4 改造前基线）"
+git add tests/composables/useInitAnalysis.comparison.test.ts
+git commit -m "test(composable): useInitAnalysis 对比测试（Phase 4 改造前基线）"
 ```
 
 ---
@@ -1108,7 +1151,7 @@ EOF
 > 读取当前文件（240 行）。替换点：
 >
 > 1. 第 37 行：删除 `import { useStream, FetchStreamTransport } from "@langchain/vue"`
-> 2. 第 63-74 行：`reactive(useStream({...}))` → `useStreamChat({...})`
+> 2. 第 63-74 行：`reactive(useStream({...}))` → `useStreamChat({...})`，**注意传入 `initialValues: threadHistory?.values ?? undefined`**（当前第 69 行使用了 initialValues，改造后必须保留）
 > 3. 所有 `stream.xxx` 直接访问改为 `stream.xxx.value`（与 Task 14 相同的机械替换）
 > 4. 第 156-170 行：删除 interrupt / interruptData 两个 computed
 > 5. 第 15-31 行：删除 Dialog + InsufficientPointsCard → 使用 InterruptHandler
