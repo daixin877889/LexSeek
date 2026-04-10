@@ -33,13 +33,12 @@ function filterInjectedMessages(messages: any[]): any[] {
   return messages.filter(m => !isInternalMessage(m))
 }
 
-/** 判断单条消息是否为内部消息（system / tool / 注入上下文），不应发送到前端 */
+/** 判断单条消息是否为内部消息（system / 注入上下文），不应发送到前端 */
 function isInternalMessage(m: any): boolean {
-  // SystemMessage 和 ToolMessage 始终过滤
-  if (m._getType?.() === 'system' || m._getType?.() === 'tool') return true
-  // 兼容字典格式
+  // 只过滤 SystemMessage（ToolMessage 必须保留，前端需要它匹配工具调用结果）
+  if (m._getType?.() === 'system') return true
   const type = m.type ?? m.data?.type
-  if (type === 'system' || type === 'tool') return true
+  if (type === 'system') return true
 
   // HumanMessage 检测 metadata（注入的上下文消息）
   const injector = (m.response_metadata?.injectedBy ?? m.data?.response_metadata?.injectedBy) as string | undefined
