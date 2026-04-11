@@ -19,15 +19,12 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-        // 检查模型是否存在
-        const existing = await findModelByIdDao(result.data.id)
-        if (!existing) {
+        await deleteModelService(result.data.id)
+        return resSuccess(event, '删除模型成功', null)
+    } catch (error: any) {
+        if (error.message === '模型不存在') {
             return resError(event, 404, '模型不存在')
         }
-
-        await softDeleteModelDao(result.data.id)
-        return resSuccess(event, '删除模型成功', null)
-    } catch (error) {
         logger.error('删除模型失败：', error)
         return resError(event, 500, '删除模型失败')
     }

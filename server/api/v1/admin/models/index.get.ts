@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
     const { page, pageSize, modelType, providerId, status, orderBy, orderDir } = result.data
 
     try {
-        const data = await findManyModelsDao({
+        const data = await getModelsService({
             page,
             pageSize,
             modelType: modelType as ModelType | undefined,

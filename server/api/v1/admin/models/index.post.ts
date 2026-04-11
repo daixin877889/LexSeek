@@ -79,15 +79,16 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-        // 检查提供商是否存在
-        const provider = await findModelProviderByIdDao(result.data.providerId)
-        if (!provider) {
-            return resError(event, 400, '关联的提供商不存在')
-        }
-
-        const model = await createModelDao(result.data)
+        const model = await createModelService(result.data)
         return resSuccess(event, '创建模型成功', model)
     } catch (error: any) {
+        // 处理 service 层业务错误
+        if (error.message === '提供商不存在') {
+            return resError(event, 400, '关联的提供商不存在')
+        }
+        if (error.message?.startsWith('不支持的 SDK 类型')) {
+            return resError(event, 400, error.message)
+        }
         // 处理唯一性约束错误
         if (error.code === 'P2002') {
             return resError(event, 409, '该提供商下已存在同名模型')

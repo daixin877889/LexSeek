@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-        const model = await findModelByIdDao(result.data.id)
+        const model = await getModelByIdService(result.data.id)
         if (!model) {
             return resError(event, 404, '模型不存在')
         }

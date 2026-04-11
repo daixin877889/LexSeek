@@ -89,15 +89,16 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-        // 检查模型是否存在
-        const existing = await findModelByIdDao(paramsResult.data.id)
-        if (!existing) {
-            return resError(event, 404, '模型不存在')
-        }
-
-        const model = await updateModelDao(paramsResult.data.id, bodyResult.data)
+        const model = await updateModelService(paramsResult.data.id, bodyResult.data)
         return resSuccess(event, '更新模型成功', model)
     } catch (error: any) {
+        // 处理 service 层业务错误
+        if (error.message === '模型不存在') {
+            return resError(event, 404, '模型不存在')
+        }
+        if (error.message?.startsWith('不支持的 SDK 类型')) {
+            return resError(event, 400, error.message)
+        }
         // 处理唯一性约束错误
         if (error.code === 'P2002') {
             return resError(event, 409, '该提供商下已存在同名模型')

@@ -5,7 +5,6 @@
  */
 
 import { z } from 'zod'
-import type { ModelType } from '#shared/types/model'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({
@@ -20,15 +19,12 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-        // 检查模型是否存在
-        const existing = await findModelByIdDao(result.data.id)
-        if (!existing) {
+        await setDefaultModelService(result.data.id)
+        return resSuccess(event, '设置默认模型成功', { id: result.data.id })
+    } catch (error: any) {
+        if (error.message === '模型不存在') {
             return resError(event, 404, '模型不存在')
         }
-
-        await setDefaultModelDao(result.data.id, existing.modelType as ModelType)
-        return resSuccess(event, '设置默认模型成功', { id: result.data.id })
-    } catch (error) {
         logger.error('设置默认模型失败：', error)
         return resError(event, 500, '设置默认模型失败')
     }
