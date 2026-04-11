@@ -22,7 +22,13 @@ const STORAGE_TTL = 3600 * 2
 export async function getSessionState(sessionId: string): Promise<Record<string, any> | null> {
     const redis = getRedisClient()
     const raw = await redis.get(`${STORAGE_PREFIX}${sessionId}`)
-    return raw ? JSON.parse(raw) : null
+    if (!raw) return null
+    try {
+        return JSON.parse(raw)
+    } catch {
+        logger.warn(`session 状态 JSON 解析失败: ${sessionId}`)
+        return null
+    }
 }
 
 /**
