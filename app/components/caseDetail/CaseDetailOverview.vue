@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { AnalysisResult } from '#shared/types/case'
+import type { AnalysisModuleCard } from '#shared/types/case'
 import type { ActiveView, CaseDetailMaterialItem } from '~/composables/useCaseDetail'
 import type { OssFileItem } from '~/store/file'
 import type { RecognitionStatus } from '~/composables/useFileRecognition'
@@ -25,6 +26,9 @@ import {
 const props = defineProps<{
   caseId: number
   analysisResults: AnalysisResult[]
+  moduleCards?: AnalysisModuleCard[]
+  showBatchButton?: boolean
+  hasPendingInterrupt?: boolean
   materials: CaseDetailMaterialItem[]
   disabledOssFileIds?: number[]
   isAddingMaterials?: boolean
@@ -35,12 +39,14 @@ const props = defineProps<{
 const emit = defineEmits<{
   navigateView: [view: ActiveView]
   previewMaterial: [material: CaseDetailMaterialItem]
-  navigateAnalysis: [index: number]
+  navigateAnalysis: [moduleName: string]
   updated: []
   addMaterials: [files: OssFileItem[]]
   deleteMaterials: [materialIds: number[]]
   retryMaterial: [materialId: number, ossFileId: number]
   navigateToSelectMode: []
+  generateModule: [moduleName: string, moduleTitle: string]
+  batchGenerate: []
 }>()
 
 const infoCardRef = ref<{
@@ -53,13 +59,13 @@ const isSavingCaseInfo = ref(false)
 
 // 概览中分析结果始终为 dashboard 模式
 const analysisViewMode = ref<'dashboard' | 'detail'>('dashboard')
-const analysisActiveIndex = ref(0)
+const analysisActiveModule = ref<string | null>(null)
 
-// 拦截分析结果卡片点击：切换到分析视图
+// 拦截分析结果卡片点击：complete 时切换到分析视图
 watch(analysisViewMode, (mode) => {
-  if (mode === 'detail') {
+  if (mode === 'detail' && analysisActiveModule.value) {
     nextTick(() => { analysisViewMode.value = 'dashboard' })
-    emit('navigateAnalysis', analysisActiveIndex.value)
+    emit('navigateAnalysis', analysisActiveModule.value)
   }
 })
 
@@ -298,12 +304,17 @@ function getMaterialIconColor(type: number) {
     </div>
     <CaseAnalysisResults
       :results="analysisResults"
+      :module-cards="moduleCards"
       v-model:view-mode="analysisViewMode"
-      v-model:active-index="analysisActiveIndex"
+      v-model:active-module="analysisActiveModule"
       :show-regenerate="false"
       :show-copy="false"
+      :show-batch-button="showBatchButton"
+      :has-pending-interrupt="hasPendingInterrupt"
       hide-header
       class="pt-0"
+      @generate-module="(name, title) => emit('generateModule', name, title)"
+      @batch-generate="emit('batchGenerate')"
     />
 
     <!-- 材料选择器弹窗 -->
