@@ -497,8 +497,7 @@ async function pollFileStatus(ossFileId: number, attemptCount = 0) {
     });
 
     if (!response) {
-      const timer = setTimeout(() => pollFileStatus(ossFileId, attemptCount + 1), POLLING_INTERVAL);
-      pollingTimers.value.set(ossFileId, timer);
+      scheduleNextPoll(ossFileId, attemptCount);
       return;
     }
 
@@ -510,13 +509,19 @@ async function pollFileStatus(ossFileId: number, attemptCount = 0) {
       fileRecognitionStatus.value.set(ossFileId, 'error');
       pollingTimers.value.delete(ossFileId);
     } else {
-      const timer = setTimeout(() => pollFileStatus(ossFileId, attemptCount + 1), POLLING_INTERVAL);
-      pollingTimers.value.set(ossFileId, timer);
+      scheduleNextPoll(ossFileId, attemptCount);
     }
   } catch (error) {
-    const timer = setTimeout(() => pollFileStatus(ossFileId, attemptCount + 1), POLLING_INTERVAL);
-    pollingTimers.value.set(ossFileId, timer);
+    scheduleNextPoll(ossFileId, attemptCount);
   }
+}
+
+/** 调度下一次轮询，清理旧 timer 避免并发轮询 */
+function scheduleNextPoll(ossFileId: number, attemptCount: number) {
+  const existing = pollingTimers.value.get(ossFileId);
+  if (existing) clearTimeout(existing);
+  const timer = setTimeout(() => pollFileStatus(ossFileId, attemptCount + 1), POLLING_INTERVAL);
+  pollingTimers.value.set(ossFileId, timer);
 }
 
 function stopPolling(ossFileId: number) {

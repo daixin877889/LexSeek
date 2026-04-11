@@ -23,6 +23,9 @@ export function useFileRecognition() {
   }
 
   function scheduleNextPoll(ossFileId: number, attemptCount: number) {
+    // 清理旧 timer，避免同一文件出现多个并发轮询链
+    const existing = pollingTimers.value.get(ossFileId)
+    if (existing) clearTimeout(existing)
     const timer = setTimeout(() => pollFileStatus(ossFileId, attemptCount + 1), POLLING_INTERVAL)
     pollingTimers.value.set(ossFileId, timer)
   }
