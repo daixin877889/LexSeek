@@ -48,7 +48,13 @@ watch([activeView, analysisModule, analysisMode], ([view, am, mode]) => {
 // --- 模块对话管理（必须在 useCaseDetail 之前，因为 generatingModules 是依赖） ---
 // 使用 let 变量打破 refreshAnalysis 与 moduleChatManager 的循环依赖
 let _refreshAnalysis: (() => Promise<void>) | undefined
-const moduleChatManager = useModuleChatManager(caseId, { onAnalysisSaved: () => _refreshAnalysis?.() })
+const moduleChatManager = useModuleChatManager(caseId, {
+  onAnalysisSaved: () => {
+    _refreshAnalysis?.()
+    // 广播给其他标签���（init-analysis 页面 / 另一个案件详情 tab）
+    postCrossTabEvent('analysis:updated', { caseId: caseId.value })
+  },
+})
 
 const {
   caseInfo,
@@ -195,6 +201,13 @@ watch([analysisModule, analysisMode, allModuleCards], ([mod, mode, cards]) => {
 const expandedChatInstance = computed(() => {
   const name = moduleChatManager.expandedModule.value
   return name ? moduleChatManager.instances[name] : undefined
+})
+
+// 模块对话生成状态变化时广播给其他标签页（init-analysis 页面同步显示）
+watch(moduleChatManager.generatingModules, (modules) => {
+  if (caseId.value > 0) {
+    postCrossTabEvent('module:generating', { caseId: caseId.value, modules: [...modules] })
+  }
 })
 
 // 页面刷新后恢复活跃 session

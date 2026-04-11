@@ -56,12 +56,16 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     INIT_ANALYSIS_MODULES.filter(m => selectedModules.value.includes(m.name)),
   )
 
-  // 右侧面板 7 个模块的全局卡片（跨 session 聚合 + 实时流覆盖）
+  // 跨标签页模块对话生成状态（案件详情页的 moduleChatManager 广播过来的）
+  const externalGenerating = ref<string[]>([])
+
+  // 右侧面板 7 个模块的全局卡片（跨 session 聚合 + 实时流覆盖 + 跨标签模块对话状态）
   const allModuleCards = computed<AnalysisModuleCard[]>(() => {
     const globalModules = statusModules.value
     const streamResult = stream.values.value?.result ?? {}
     const streamFailed = stream.values.value?.failedModules ?? {}
     const localStates = moduleStates.value
+    const extGenerating = new Set(externalGenerating.value)
 
     return INIT_ANALYSIS_MODULES.map(def => {
       // 实时流中的状态优先（本 session 正在跑的模块）
@@ -98,7 +102,7 @@ export function useInitAnalysis(sessionId: Ref<string>) {
       if (g?.status === 'failed') {
         return { moduleName: def.name, moduleTitle: def.title, status: 'failed' as const }
       }
-      if (g?.status === 'in_progress') {
+      if (g?.status === 'in_progress' || extGenerating.has(def.name)) {
         return { moduleName: def.name, moduleTitle: def.title, status: 'in_progress' as const }
       }
       return { moduleName: def.name, moduleTitle: def.title, status: 'idle' as const }
@@ -117,6 +121,32 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     const current = getModuleState(name)
     moduleStates.value = { ...moduleStates.value, [name]: { ...current, ...patch } }
   }
+
+  // 跨标签页监听：案件详情页的模块对话生成状态
+  useCrossTabListener('module:generating', (data) => {
+    if (data.caseId === caseId.value) {
+      externalGenerating.value = data.modules
+    }
+  })
+
+  // 跨标签页监听：模块对话保存结果后刷新右侧面板全局状态
+  let crossTabFetchSeq = 0
+  useCrossTabListener('analysis:updated', async (data) => {
+    if (data.caseId === caseId.value) {
+      const seq = ++crossTabFetchSeq
+      const status = await useApiFetch<InitAnalysisStatusResponse>(
+        `/api/v1/case/init-analysis-status/${caseId.value}`,
+        { query: { sessionId: sessionId.value } },
+      )
+      if (status && seq === crossTabFetchSeq) {
+        statusModules.value = status.modules ?? []
+        resultFromDB.value = status.result ?? {}
+        completedModules.value = (status.modules ?? [])
+          .filter(m => m.status === 'complete')
+          .map(m => m.name)
+      }
+    }
+  })
 
   /** 重置所有内部状态变量（用于 startAnalysis / loadStatus 前置清理） */
   function resetInternalState() {
@@ -272,6 +302,16 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     }
   }, { deep: true })
 
+  // SSE 流关闭时发送最终广播
+  // 解决：最后一个模块完成时 values watch 广播，但此时 run 还是 running。
+  // SSE 流关闭代表 run 已到达终态（completed/failed），此时再广播一次确保案件详情页拿到正确的 session status。
+  watch(() => stream.isLoading.value, (loading, wasLoading) => {
+    if (wasLoading && !loading && caseId.value > 0) {
+      lastBroadcastSignature = ''
+      postCrossTabEvent('analysis:updated', { caseId: caseId.value })
+    }
+  })
+
   // ==================== 操作 ====================
 
   async function loadStatus() {
@@ -289,12 +329,26 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     }
     caseId.value = sessionInfo.case.id
 
+    // 从 session 自身状态推断 phase 兜底值（防止 status API 失败时回退到 select 导致重复分析）
+    const sessionStatus = sessionInfo.session?.status
+    if (sessionStatus === 2) {
+      phase.value = 'complete'
+    } else if (sessionStatus === 1) {
+      // status=1 可能是 not_started（无 run）或 in_progress，先设为 running 防止误显示 ModuleSelector
+      // 后续 status API 成功后会修正为准确值
+      phase.value = 'running'
+    }
+
     const status = await useApiFetch<InitAnalysisStatusResponse>(
       `/api/v1/case/init-analysis-status/${caseId.value}`,
       { query: { sessionId: sessionId.value } },
     )
 
     if (!status) {
+      // status API 失败：用 session 状态兜底，尝试 SSE 重连恢复
+      if (sessionStatus === 1 || sessionStatus === 2) {
+        stream.submit(undefined)
+      }
       isInitialized.value = true
       return
     }
@@ -380,9 +434,9 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     resetInternalState()
     phase.value = 'running'
 
-    // 跨标签页通知：分析开始
-    lastBroadcastSignature = ''  // 确保 start 广播一定发出
-    postCrossTabEvent('analysis:updated', { caseId: caseId.value })
+    // 重置签名确保后续 values watch 首次触发时一定广播
+    // 不在此处同步广播——此时后端还没创建 run，案件详情页查 API 会拿到旧数据
+    lastBroadcastSignature = ''
 
     stream.submit({
       caseId: caseId.value,
@@ -391,9 +445,8 @@ export function useInitAnalysis(sessionId: Ref<string>) {
   }
 
   function resumeWorkflow() {
-    // 跨标签页通知：中断恢复
-    lastBroadcastSignature = ''  // 确保 resume 广播一定发出
-    postCrossTabEvent('analysis:updated', { caseId: caseId.value })
+    // 重置签名确保后续 values watch 首次触发时一定广播
+    lastBroadcastSignature = ''
 
     stream.submit(
       { caseId: caseId.value } as any,
@@ -403,6 +456,8 @@ export function useInitAnalysis(sessionId: Ref<string>) {
 
   function retryModule(moduleName: string) {
     updateModuleState(moduleName, { status: 'idle', content: '', error: undefined })
+    // 重置签名确保后续 values watch 首次触发时一定广播
+    lastBroadcastSignature = ''
     stream.submit({
       caseId: caseId.value,
       selectedModules: [moduleName],

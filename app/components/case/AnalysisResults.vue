@@ -291,7 +291,7 @@ function handleCardClick(card: AnalysisModuleCard) {
 function getCardSubtext(card: AnalysisModuleCard): string {
     if (props.hasPendingInterrupt && card.status !== 'complete') return '等待处理中断'
     if (card.status === 'complete') return `第 ${card.version ?? 1} 版`
-    if (card.status === 'in_progress') return '生成中...'
+    if (card.status === 'in_progress') return card.locked ? '分析中...' : '生成中...'
     if (card.status === 'failed') {
         if (props.readonly) return '生成失败'
         if (card.locked) return '等待当前批次完成后可重试'
@@ -450,7 +450,7 @@ function formatAnalyzedAt(dateStr: string): string {
                                 <PlusIcon class="size-3" />
                                 批量分析
                             </button>
-                            <button v-if="showViewAll && completeCards.length > 0"
+                            <button v-if="showViewAll"
                                 class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors mr-2"
                                 @click="emit('viewAll')">
                                 <EyeIcon class="size-3" />

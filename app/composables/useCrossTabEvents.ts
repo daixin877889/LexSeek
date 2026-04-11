@@ -20,6 +20,8 @@ const CHANNEL_NAME = 'lexseek:cross-tab'
 export interface CrossTabEvents {
     /** 分析结果更新（init-analysis 模块完成 / 模块对话保存结果） */
     'analysis:updated': { caseId: number }
+    /** 模块对话生成状态变化（案件详情页 → init-analysis 页面） */
+    'module:generating': { caseId: number; modules: string[] }
     /** 积分余额变化（预留） */
     'points:changed': Record<string, never>
     /** 登出（预留） */

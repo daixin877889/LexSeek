@@ -74,12 +74,15 @@ export function useCaseDetail(
 
   // 跨标签页同步：其他标签页的 init-analysis 或模块对话完成时自动刷新
   // 使用 useApiFetch（基于 $fetch）绕过 useFetch 缓存，确保获取到最新数据
+  // 用请求序号防止并发竞争：多次快速广播时只采纳最新一次请求的结果
+  let crossTabFetchSeq = 0
   useCrossTabListener('analysis:updated', async (data) => {
     if (data.caseId === id.value) {
+      const seq = ++crossTabFetchSeq
       const fresh = await useApiFetch<InitAnalysisStatusResponse>(
         `/api/v1/case/init-analysis-status/${id.value}`,
       )
-      if (fresh) analysisStatus.value = fresh
+      if (fresh && seq === crossTabFetchSeq) analysisStatus.value = fresh
     }
   })
 
@@ -169,11 +172,20 @@ export function useCaseDetail(
           locked: isLocked,
         }
       }
+      // locked 模块（init-analysis 正在运行 + 该模块在 selectedModules 中 + 未完成）
+      // 即使 DB 中还没有 caseAnalyses 记录，也应标记为 in_progress
+      if (isLocked) {
+        return {
+          moduleName: def.name,
+          moduleTitle: def.title,
+          status: 'in_progress' as const,
+          locked: true,
+        }
+      }
       return {
         moduleName: def.name,
         moduleTitle: def.title,
         status: 'idle' as const,
-        locked: isLocked,
       }
     })
   })
