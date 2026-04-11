@@ -1,13 +1,13 @@
 /**
  * Agent Worker Nitro Plugin
  *
- * 管理 Agent Worker 的生命周期：启动、清理定时任务、优雅关闭
- * 仅在 REDIS_URL 配置时启动
+ * 管理 Agent Worker 的生命周期：启动和优雅关闭。
+ * 定时清理逻辑已迁移至 cron-scheduler.ts 统一管理。
+ * 资源关闭（Redis/DB）由 cron-scheduler.ts 的 close hook 负责，
+ * 确保 Redis 连接在所有定时任务停止后才关闭。
  */
 
 import { AgentWorker } from '~~/server/services/agent/agentWorker'
-import { deleteOldRunsDAO } from '~~/server/services/agent/agentRun.dao'
-import { closeAgentDbPool, closeRedisConnections } from '~~/server/lib/redis'
 
 let worker: AgentWorker | null = null
 
@@ -24,27 +24,11 @@ export default defineNitroPlugin((nitroApp) => {
     logger.error('Agent Worker 启动失败:', err)
   })
 
-  // 每 24 小时清理 90 天前的已终结 run
-  const cleanupTimer = setInterval(async () => {
-    try {
-      const deleted = await deleteOldRunsDAO(90)
-      if (deleted > 0) {
-        logger.info(`Agent runs 清理完成，删除 ${deleted} 条`)
-      }
-    }
-    catch (err) {
-      logger.error('Agent runs 清理失败:', err)
-    }
-  }, 24 * 60 * 60 * 1000)
-
-  // Graceful shutdown
+  // Graceful shutdown（仅停止 Worker，资源关闭由 cron-scheduler 负责）
   nitroApp.hooks.hook('close', async () => {
-    clearInterval(cleanupTimer)
     if (worker) {
       await worker.shutdown()
       worker = null
     }
-    await closeAgentDbPool()
-    await closeRedisConnections()
   })
 })
