@@ -41,9 +41,7 @@ export function estimateMessagesTokens(messages: BaseMessage[]): number {
 /**
  * 根据模型配置获取上下文预算
  *
- * V2 路径专用 — 返回消息压缩的 budget 和 compressThreshold
- * V1 路径（initAnalysis.executor.ts）使用 createAgent + middleware 模式，
- * 通过 summarizationMiddleware / safetyTrimMiddleware 实现同等能力。
+ * 返回消息压缩的 budget 和 compressThreshold
  */
 export function getContextBudget(contextWindow?: number): {
     budget: number
