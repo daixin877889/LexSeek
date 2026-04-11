@@ -5,7 +5,6 @@
  *
  * 返回当前登录用户的会员权益列表
  */
-// import { getUserBenefitsService } from '~/server/services/membership/benefit.service'
 
 export default defineEventHandler(async (event) => {
     try {

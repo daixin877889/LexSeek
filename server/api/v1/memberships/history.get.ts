@@ -6,7 +6,6 @@
  * 返回当前登录用户的会员历史记录（分页）
  */
 import { z } from 'zod'
-// import { getMembershipHistoryService } from '~/server/services/membership/userMembership.service'
 
 // 查询参数验证 schema
 const querySchema = z.object({

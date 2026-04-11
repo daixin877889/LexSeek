@@ -7,7 +7,6 @@
  */
 import dayjs from 'dayjs'
 import { z } from 'zod'
-// import { findAllCampaignsDao } from '~/server/services/campaign/campaign.dao'
 import { CampaignType, CampaignStatus, type CampaignInfo } from '#shared/types/campaign'
 
 // 查询参数验证 schema

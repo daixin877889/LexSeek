@@ -4,7 +4,6 @@
  * 返回用户的会员升级历史记录
  */
 import { z } from 'zod'
-// import { getUserUpgradeRecordsService } from '~/server/services/membership/membershipUpgrade.service'
 
 // 查询参数验证
 const querySchema = z.object({

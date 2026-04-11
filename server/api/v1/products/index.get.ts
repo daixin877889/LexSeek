@@ -5,9 +5,6 @@
  *
  * 返回所有上架商品列表
  */
-// import { z } from 'zod'
-// import { getActiveProductsService } from '~/server/services/product/product.service'
-// import { ProductType } from '#shared/types/product'
 
 // 查询参数验证 schema
 const querySchema = z.object({

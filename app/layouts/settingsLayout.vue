@@ -27,9 +27,6 @@
 </template>
 
 <script setup lang="ts">
-// import { ref, onMounted, watch } from "vue";
-// import { useRouter } from "vue-router";
-// import { useMenuStore } from "@/stores";
 const router = useRouter();
 // const menuStore = useMenuStore();
 import { UserIcon, LockIcon } from "lucide-vue-next";

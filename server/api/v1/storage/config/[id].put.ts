@@ -4,12 +4,6 @@
  * PUT /api/v1/storage/config/:id
  */
 
-// import {
-//     updateStorageConfigDao,
-//     isConfigNameExistsDao
-// } from '~~/server/services/storage/storage-config.dao'
-// import { clearAdapterCache } from '~~/server/services/storage/storage.service'
-
 export default defineEventHandler(async (event) => {
     try {
         const user = event.context.auth.user

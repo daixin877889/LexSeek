@@ -5,8 +5,6 @@
  *
  * 返回兑换码的详细信息（不执行兑换）
  */
-// import { z } from 'zod'
-// import { getRedemptionCodeInfoService } from '~/server/services/redemption/redemption.service'
 
 // 查询参数验证 schema
 const querySchema = z.object({

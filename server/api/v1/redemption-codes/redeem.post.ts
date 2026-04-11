@@ -5,8 +5,6 @@
  *
  * 执行兑换码兑换操作
  */
-// import { z } from 'zod'
-// import { redeemCodeService } from '~/server/services/redemption/redemption.service'
 
 // 请求体验证 schema
 const bodySchema = z.object({

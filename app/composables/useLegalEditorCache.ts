@@ -32,7 +32,6 @@ export function useLegalEditorCache() {
         try {
             const key = getCacheKey(legalId)
             localStorage.setItem(key, content)
-            console.log('保存草稿到缓存', { legalId, contentLength: content.length })
         } catch (error) {
             console.error('保存草稿到缓存失败', { legalId, error })
         }
@@ -48,10 +47,6 @@ export function useLegalEditorCache() {
         try {
             const key = getCacheKey(legalId)
             const content = localStorage.getItem(key)
-
-            if (content) {
-                console.log('从缓存加载草稿', { legalId, contentLength: content.length })
-            }
 
             return content
         } catch (error) {

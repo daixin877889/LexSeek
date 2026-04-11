@@ -7,7 +7,6 @@
 
 import jwt from "jsonwebtoken"
 import type { Secret, SignOptions } from "jsonwebtoken"
-// import config from "@/config/index.js";
 
 const config = useRuntimeConfig()
 
