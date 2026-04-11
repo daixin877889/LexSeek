@@ -6,7 +6,8 @@
  */
 
 import { z } from 'zod'
-import type { ArticleSearchResponse, ValidityStatus } from '#shared/types/legal-search'
+import type { ArticleSearchResponse, ValidityStatusFilter } from '#shared/types/legal-search'
+import { VALIDITY_STATUS_FILTERS } from '#shared/types/legal-search'
 import { LegalType } from '#shared/types/legal'
 import { searchLawService } from '../../../services/legal/searchLaw.tool'
 
@@ -15,7 +16,7 @@ const requestSchema = z.object({
     query: z.string().min(1, '搜索查询不能为空').max(500, '搜索查询过长'),
     legalType: z.nativeEnum(LegalType).optional(),
     // 生效状态：all-全部, valid-现行有效, pending-尚未生效, invalid-已失效
-    validityStatus: z.enum(['all', 'valid', 'pending', 'invalid']).optional().default('valid'),
+    validityStatus: z.enum(VALIDITY_STATUS_FILTERS).optional().default('valid'),
     limit: z.number().int().min(1).max(100).optional().default(10),
 })
 
@@ -24,7 +25,7 @@ const requestSchema = z.object({
  * @param validityStatus 生效状态
  * @returns validOnly 参数（true: 仅有效, false: 仅无效, undefined: 全部）
  */
-function convertValidityStatus(validityStatus: ValidityStatus): boolean | undefined {
+function convertValidityStatus(validityStatus: ValidityStatusFilter): boolean | undefined {
     switch (validityStatus) {
         case 'valid':
             return true // 现行有效

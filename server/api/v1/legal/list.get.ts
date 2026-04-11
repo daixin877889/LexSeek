@@ -8,6 +8,7 @@
 import { z } from 'zod'
 import dayjs from 'dayjs'
 import type { LegalListResponse } from '#shared/types/legal-search'
+import { VALIDITY_STATUS_FILTERS } from '#shared/types/legal-search'
 import { LegalType } from '#shared/types/legal'
 
 // 请求参数验证
@@ -17,7 +18,7 @@ const querySchema = z.object({
     keyword: z.string().optional(),
     type: z.nativeEnum(LegalType).optional(),
     issuingAuthority: z.string().optional(), // 单个发文机关
-    validityStatus: z.enum(['all', 'valid', 'pending', 'invalid']).optional().default('all'),
+    validityStatus: z.enum(VALIDITY_STATUS_FILTERS).optional().default('all'),
     publishDateFrom: z.string().optional(),
     publishDateTo: z.string().optional(),
     sortBy: z.enum(['publishDate', 'effectiveDate', 'name', 'createdAt']).default('publishDate'),

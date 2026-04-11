@@ -133,7 +133,7 @@
 
 <script lang="ts" setup>
 import { Search, ChevronsUpDown, Check, Loader2 } from 'lucide-vue-next'
-import type { ValidityStatus } from '#shared/types/legal-search'
+import type { ValidityStatusFilter } from '#shared/types/legal-search'
 import { LegalType } from '#shared/types/legal'
 
 // ==================== Props ====================
@@ -152,9 +152,9 @@ interface Props {
     /** 选中的发文机关 */
     issuingAuthority?: string | null
     /** 生效状态（搜全文） */
-    validityStatus?: ValidityStatus
+    validityStatus?: ValidityStatusFilter
     /** 生效状态（搜法条） */
-    articleValidityStatus?: ValidityStatus
+    articleValidityStatus?: ValidityStatusFilter
     /** 发文机关选项列表 */
     issuingAuthoritiesOptions?: string[]
     /** 加载状态 */
@@ -182,8 +182,8 @@ const emit = defineEmits<{
     'update:type': [value: LegalType | null]
     'update:articleType': [value: LegalType | null]
     'update:issuingAuthority': [value: string | null]
-    'update:validityStatus': [value: ValidityStatus]
-    'update:articleValidityStatus': [value: ValidityStatus]
+    'update:validityStatus': [value: ValidityStatusFilter]
+    'update:articleValidityStatus': [value: ValidityStatusFilter]
     search: []
     reset: []
 }>()
@@ -257,7 +257,7 @@ const handleTypeChange = (val: string) => {
 
 /** 处理生效状态变化 */
 const handleValidityStatusChange = (val: string) => {
-    const newStatus = val as ValidityStatus
+    const newStatus = val as ValidityStatusFilter
     if (props.activeTab === 'legal') {
         emit('update:validityStatus', newStatus)
     } else {

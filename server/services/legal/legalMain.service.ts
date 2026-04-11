@@ -19,6 +19,7 @@ import type {
     PaginatedResponse,
     LegalType,
 } from '#shared/types/legal'
+import type { ValidityStatus } from '#shared/types/legal-search'
 import dayjs from 'dayjs'
 import {
     createLegalMainDao,
@@ -60,7 +61,7 @@ function formatDateTime(date: Date | null | undefined): string | null {
  * @returns 分页响应
  */
 export async function getLegalMainListService(
-    query: LegalMainListQuery & { status?: 'valid' | 'invalid' | 'pending' }
+    query: LegalMainListQuery & { status?: ValidityStatus }
 ): Promise<PaginatedResponse<LegalMainListItem>> {
     const { page = 1, pageSize = 10 } = query
 

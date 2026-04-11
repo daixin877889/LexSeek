@@ -138,7 +138,8 @@
 
 <script lang="ts" setup>
 import { Loader2, FileText, AlertCircle, RefreshCw, FileSearch } from 'lucide-vue-next'
-import type { ValidityStatus, ArticleSearchFilters } from '#shared/types/legal-search'
+import type { ValidityStatusFilter, ArticleSearchFilters } from '#shared/types/legal-search'
+import { VALIDITY_STATUS_FILTERS } from '#shared/types/legal-search'
 import type { LawSearchResultItem, LegalType } from '#shared/types/legal'
 
 // ==================== 页面元数据 ====================
@@ -171,7 +172,7 @@ const activeTab = ref<'legal' | 'article'>('legal')
 const searchKeyword = ref('')
 
 /** 搜索筛选条件 */
-const searchFilters = ref<{ type: LegalType | null; issuingAuthority: string | null; validityStatus: ValidityStatus }>({
+const searchFilters = ref<{ type: LegalType | null; issuingAuthority: string | null; validityStatus: ValidityStatusFilter }>({
     type: null,
     issuingAuthority: null,
     validityStatus: 'valid',
@@ -269,8 +270,8 @@ const restoreFromUrl = () => {
     if (typeof query.issuingAuthority === 'string') {
         searchFilters.value.issuingAuthority = query.issuingAuthority
     }
-    if (typeof query.validityStatus === 'string' && ['all', 'valid', 'pending', 'invalid'].includes(query.validityStatus)) {
-        searchFilters.value.validityStatus = query.validityStatus as ValidityStatus
+    if (typeof query.validityStatus === 'string' && (VALIDITY_STATUS_FILTERS as readonly string[]).includes(query.validityStatus)) {
+        searchFilters.value.validityStatus = query.validityStatus as ValidityStatusFilter
     }
     if (typeof query.page === 'string') {
         const page = parseInt(query.page, 10)
@@ -286,8 +287,8 @@ const restoreFromUrl = () => {
     if (typeof query.articleType === 'string' && ['law', 'regulation', 'judicial_interp', 'guideline'].includes(query.articleType)) {
         articleFilters.value.legalType = query.articleType as LegalType
     }
-    if (typeof query.articleStatus === 'string' && ['all', 'valid', 'pending', 'invalid'].includes(query.articleStatus)) {
-        articleFilters.value.validityStatus = query.articleStatus as ValidityStatus
+    if (typeof query.articleStatus === 'string' && (VALIDITY_STATUS_FILTERS as readonly string[]).includes(query.articleStatus)) {
+        articleFilters.value.validityStatus = query.articleStatus as ValidityStatusFilter
     }
 
     // 如果有搜全文的关键词，自动执行搜索

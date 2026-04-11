@@ -113,6 +113,7 @@
 import { Plus, Search, Loader2, Scale, RotateCcw } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import type { LegalMainListItem, PaginatedResponse } from '#shared/types/legal'
+import { VALIDITY_STATUS_FILTERS } from '#shared/types/legal-search'
 
 definePageMeta({
     layout: 'admin-layout',
@@ -151,7 +152,7 @@ const { syncToUrl, restoreFromUrl } = useUrlState({
     },
     validValues: {
         type: ['all', 'law', 'regulation', 'judicial_interp', 'guideline'],
-        status: ['all', 'valid', 'invalid', 'pending']
+        status: [...VALIDITY_STATUS_FILTERS]
     }
 })
 

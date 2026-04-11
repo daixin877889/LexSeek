@@ -6,6 +6,7 @@
 
 import type { Prisma } from '#shared/types/prisma'
 import type { LegalType } from '#shared/types/legal'
+import type { ValidityStatus } from '#shared/types/legal-search'
 
 // 定义 Prisma 客户端类型（支持事务）
 type PrismaClient = typeof prisma
@@ -18,7 +19,7 @@ interface LegalMainListOptions {
     type?: LegalType
     issuingAuthority?: string
     /** 状态筛选：valid-有效，invalid-已失效，pending-未生效 */
-    status?: 'valid' | 'invalid' | 'pending'
+    status?: ValidityStatus
     sortBy?: 'createdAt' | 'publishDate' | 'effectiveDate' | 'name'
     sortOrder?: 'asc' | 'desc'
 }

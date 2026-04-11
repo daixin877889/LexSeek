@@ -6,8 +6,17 @@ import type { LegalType, LegalMainListItem, LegalArticleInfo, LawSearchResultIte
 
 // ==================== 筛选条件类型 ====================
 
-/** 生效状态筛选值 */
-export type ValidityStatus = 'all' | 'valid' | 'pending' | 'invalid'
+/** 生效状态值数组（数据库层，不含 'all'） */
+export const VALIDITY_STATUSES = ['valid', 'pending', 'invalid'] as const
+
+/** 生效状态类型 */
+export type ValidityStatus = typeof VALIDITY_STATUSES[number]
+
+/** 生效状态筛选值数组（UI 层，含 'all'） */
+export const VALIDITY_STATUS_FILTERS = ['all', ...VALIDITY_STATUSES] as const
+
+/** 生效状态筛选类型（UI 层，含 'all'） */
+export type ValidityStatusFilter = typeof VALIDITY_STATUS_FILTERS[number]
 
 /** 法律法规搜索筛选条件 */
 export interface LegalSearchFilters {
@@ -18,7 +27,7 @@ export interface LegalSearchFilters {
     /** 发文机关（单选） */
     issuingAuthority: string | null
     /** 生效状态（all: 全部, valid: 现行有效, pending: 尚未生效, invalid: 已失效） */
-    validityStatus: ValidityStatus
+    validityStatus: ValidityStatusFilter
     /** 发布日期起始 */
     publishDateFrom: string | null
     /** 发布日期结束 */
@@ -30,7 +39,7 @@ export interface ArticleSearchFilters {
     /** 法律类型 */
     legalType: LegalType | null
     /** 生效状态（all: 全部, valid: 现行有效, pending: 尚未生效, invalid: 已失效） */
-    validityStatus: ValidityStatus
+    validityStatus: ValidityStatusFilter
 }
 
 // ==================== 分页类型 ====================

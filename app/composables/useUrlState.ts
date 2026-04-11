@@ -1,12 +1,15 @@
 /**
  * URL 状态管理 Composable
- * 
+ *
  * 用于将页面筛选状态同步到 URL 查询参数，实现以下功能：
  * 1. 状态持久化：筛选条件保存在 URL 中，刷新页面后状态不丢失
  * 2. 可分享性：用户可以复制 URL 分享给他人，他人打开后看到相同的筛选结果
  * 3. 浏览器导航支持：支持浏览器的前进/后退按钮
  * 4. 良好的用户体验：URL 简洁可读，参数验证完善
  */
+
+import type { ValidityStatusFilter } from '#shared/types/legal-search'
+import { VALIDITY_STATUS_FILTERS } from '#shared/types/legal-search'
 
 /**
  * 筛选状态接口
@@ -19,7 +22,7 @@ export interface FilterState {
     type: 'all' | 'law' | 'regulation' | 'judicial_interp' | 'guideline'
 
     /** 状态筛选 */
-    status: 'all' | 'valid' | 'invalid' | 'pending'
+    status: ValidityStatusFilter
 
     /** 发文机关 */
     issuingAuthority: string
@@ -99,7 +102,7 @@ export function validateParams(
     // 验证并清理 status（状态筛选）
     let status = defaults.status
     if (typeof params.status === 'string') {
-        const validStatuses = validValues?.status || ['all', 'valid', 'invalid', 'pending']
+        const validStatuses = validValues?.status || [...VALIDITY_STATUS_FILTERS]
         if (validStatuses.includes(params.status)) {
             status = params.status as FilterState['status']
         } else {
