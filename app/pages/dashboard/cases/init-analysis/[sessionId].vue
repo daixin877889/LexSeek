@@ -47,44 +47,44 @@
 
     <template #right-panel>
       <div class="h-full flex flex-col bg-background border-l">
-        <!-- 仪表盘模式：可滚动，显示全部概况 -->
+        <!-- 仪表盘模式：可滚动 -->
         <div v-show="rightPanelViewMode === 'dashboard'" class="flex-1 overflow-y-auto">
           <div class="flex flex-col">
-            <!-- 案件信息卡片 -->
-            <InitAnalysisCaseInfoCard v-if="caseId > 0" :case-id="caseId" />
-
-            <Separator class="opacity-50" />
-
-            <!-- 案件材料列表 -->
-            <InitAnalysisMaterialList
+            <!-- 案件信息 + 材料（复用 CaseDetailOverview 只读模式） -->
+            <CaseDetailOverview
               v-if="caseId > 0"
-              ref="materialListRef"
               :case-id="caseId"
-              @preview="openMaterialPreview"
+              :materials="materials"
+              :materials-loading="materialsLoading"
+              :analysis-results="[]"
+              :readonly="true"
+              @preview-material="openMaterialPreview"
             />
 
             <Separator class="opacity-50" />
 
-            <!-- 分析结果列表（仅当分析开始或有结果时显示） -->
+            <!-- 分析结果（独立渲染，readonly） -->
             <CaseAnalysisResults
               v-if="phase !== 'select'"
               :results="completedResults"
               v-model:active-index="activeIndex"
               v-model:view-mode="rightPanelViewMode"
               :is-analyzing="phase === 'running'"
+              :readonly="true"
               empty-title="分析结果处理中"
               empty-description="AI 正在读取案件材料并生成分析建议，请稍等..."
             />
           </div>
         </div>
 
-        <!-- 详情模式：占据全屏，进行沉浸式阅读 -->
+        <!-- 详情模式：沉浸式阅读 -->
         <div v-if="rightPanelViewMode === 'detail'" class="flex-1 overflow-hidden">
           <CaseAnalysisResults
             :results="completedResults"
             v-model:active-index="activeIndex"
             v-model:view-mode="rightPanelViewMode"
             :is-analyzing="phase === 'running'"
+            :readonly="true"
           />
         </div>
       </div>
@@ -135,6 +135,7 @@
 
 <script lang="ts" setup>
 import type { AnalysisResult } from '#shared/types/case'
+import type { CaseDetailMaterialItem } from '~/composables/useCaseDetail'
 import { CaseMaterialType } from '#shared/types/case'
 import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
 import { FileTextIcon, Loader2Icon } from 'lucide-vue-next'
@@ -149,31 +150,31 @@ const router = useRouter()
 const sessionId = computed(() => route.params.sessionId as string)
 
 // 材料预览状态
-interface MaterialItem {
-  id: number
-  name: string
-  type: number
-  typeText: string
-  ossFileId: number | null
-  isEncrypted: boolean
-  status: number
-  summary: string | null
-  fileName: string | null
-  fileSize: number | null
-  fileType: string | null
-}
-
-const materialListRef = ref()
-const previewMaterial = ref<MaterialItem | null>(null)
+const previewMaterial = ref<CaseDetailMaterialItem | null>(null)
 const showPreview = ref(false)
 const showTextPreview = ref(false)
 const textContent = ref<string | null>(null)
 const textLoading = ref(false)
 
+// 材料数据
+const materials = ref<CaseDetailMaterialItem[]>([])
+const materialsLoading = ref(false)
+
+async function loadMaterials(id: number) {
+  if (id <= 0) return
+  materialsLoading.value = true
+  try {
+    const data = await useApiFetch<CaseDetailMaterialItem[]>(`/api/v1/case/${id}/materials`)
+    if (data) materials.value = data
+  } finally {
+    materialsLoading.value = false
+  }
+}
+
 // 右侧面板查看模式
 const rightPanelViewMode = ref<'dashboard' | 'detail'>('dashboard')
 
-async function openMaterialPreview(material: MaterialItem) {
+async function openMaterialPreview(material: CaseDetailMaterialItem) {
     // 移除当前焦点，避免 aria-hidden 警告
     if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur()
@@ -225,6 +226,8 @@ const caseTitle = ref('')
 
 watch(caseId, async (id) => {
   if (id <= 0) return
+  // 加载材料
+  loadMaterials(id)
   const data = await useApiFetch<{ title: string }>(`/api/v1/case/${id}`)
   if (data?.title) caseTitle.value = data.title
 
