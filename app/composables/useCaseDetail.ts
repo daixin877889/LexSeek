@@ -143,13 +143,13 @@ export function useCaseDetail(
     const locked = lockedModules.value
 
     return INIT_ANALYSIS_MODULES.map(def => {
+      const base = { moduleName: def.name, moduleTitle: def.title }
       const m = moduleMap.get(def.name) as ModuleStatusItem | undefined
       const isLocked = locked.has(def.name)
 
       if (m?.status === 'complete' && m.result) {
         return {
-          moduleName: def.name,
-          moduleTitle: def.title,
+          ...base,
           status: 'complete' as const,
           content: m.result,
           analyzedAt: m.analyzedAt ?? '',
@@ -157,36 +157,14 @@ export function useCaseDetail(
         }
       }
       if (m?.status === 'failed') {
-        return {
-          moduleName: def.name,
-          moduleTitle: def.title,
-          status: 'failed' as const,
-          locked: isLocked,
-        }
+        return { ...base, status: 'failed' as const, locked: isLocked }
       }
-      if (m?.status === 'in_progress' || generating.has(def.name)) {
-        return {
-          moduleName: def.name,
-          moduleTitle: def.title,
-          status: 'in_progress' as const,
-          locked: isLocked,
-        }
+      // in_progress 包含三种来源：后端状态、前端 moduleChat 正在生成、init-analysis 锁定中
+      // locked 模块即使 DB 还没有 caseAnalyses 记录，也应标记为 in_progress
+      if (m?.status === 'in_progress' || generating.has(def.name) || isLocked) {
+        return { ...base, status: 'in_progress' as const, locked: isLocked }
       }
-      // locked 模块（init-analysis 正在运行 + 该模块在 selectedModules 中 + 未完成）
-      // 即使 DB 中还没有 caseAnalyses 记录，也应标记为 in_progress
-      if (isLocked) {
-        return {
-          moduleName: def.name,
-          moduleTitle: def.title,
-          status: 'in_progress' as const,
-          locked: true,
-        }
-      }
-      return {
-        moduleName: def.name,
-        moduleTitle: def.title,
-        status: 'idle' as const,
-      }
+      return { ...base, status: 'idle' as const }
     })
   })
 

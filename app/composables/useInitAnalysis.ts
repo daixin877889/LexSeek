@@ -68,22 +68,23 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     const extGenerating = new Set(externalGenerating.value)
 
     return INIT_ANALYSIS_MODULES.map(def => {
+      const base = { moduleName: def.name, moduleTitle: def.title }
+
       // 实时流中的状态优先（本 session 正在跑的模块）
       const local = localStates[def.name]
       if (local) {
         if (local.status === 'complete' || streamResult[def.name]) {
           return {
-            moduleName: def.name,
-            moduleTitle: def.title,
+            ...base,
             status: 'complete' as const,
             content: streamResult[def.name] ?? local.content,
           }
         }
         if (local.status === 'failed' || streamFailed[def.name]) {
-          return { moduleName: def.name, moduleTitle: def.title, status: 'failed' as const }
+          return { ...base, status: 'failed' as const }
         }
         if (local.status === 'streaming') {
-          return { moduleName: def.name, moduleTitle: def.title, status: 'in_progress' as const }
+          return { ...base, status: 'in_progress' as const }
         }
       }
 
@@ -91,8 +92,7 @@ export function useInitAnalysis(sessionId: Ref<string>) {
       const g = globalModules.find(m => m.name === def.name)
       if (g?.status === 'complete' && g.result) {
         return {
-          moduleName: def.name,
-          moduleTitle: def.title,
+          ...base,
           status: 'complete' as const,
           content: g.result,
           analyzedAt: g.analyzedAt,
@@ -100,12 +100,12 @@ export function useInitAnalysis(sessionId: Ref<string>) {
         }
       }
       if (g?.status === 'failed') {
-        return { moduleName: def.name, moduleTitle: def.title, status: 'failed' as const }
+        return { ...base, status: 'failed' as const }
       }
       if (g?.status === 'in_progress' || extGenerating.has(def.name)) {
-        return { moduleName: def.name, moduleTitle: def.title, status: 'in_progress' as const }
+        return { ...base, status: 'in_progress' as const }
       }
-      return { moduleName: def.name, moduleTitle: def.title, status: 'idle' as const }
+      return { ...base, status: 'idle' as const }
     })
   })
 
