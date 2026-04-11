@@ -79,6 +79,8 @@ interface Props {
     showBatchButton?: boolean
     /** 是否有待处理的中断 */
     hasPendingInterrupt?: boolean
+    /** 只读模式：禁用生成操作和模块对话 */
+    readonly?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -95,6 +97,10 @@ const props = withDefaults(defineProps<Props>(), {
     viewMode: 'dashboard',
     hideHeader: false,
 })
+
+// readonly 模式覆盖
+const effectiveShowRegenerate = computed(() => props.readonly ? false : props.showRegenerate)
+const effectiveShowBatchButton = computed(() => props.readonly ? false : props.showBatchButton)
 
 const emit = defineEmits<{
     /** 切换模块（旧模式） */
@@ -257,6 +263,7 @@ const hasResults = computed(() => cards.value.length > 0)
 
 // 卡片禁用判断
 function isCardDisabled(card: AnalysisModuleCard): boolean {
+    if (props.readonly && card.status !== 'complete') return true
     if (props.hasPendingInterrupt && card.status !== 'complete') return true
     if (card.locked) return true
     return false
@@ -265,6 +272,7 @@ function isCardDisabled(card: AnalysisModuleCard): boolean {
 // 卡片点击处理
 function handleCardClick(card: AnalysisModuleCard) {
     if (isCardDisabled(card)) return
+    if (props.readonly && card.status !== 'complete') return
     if (card.status === 'complete') {
         currentModuleName.value = card.moduleName
         currentViewMode.value = 'detail'
@@ -281,10 +289,12 @@ function getCardSubtext(card: AnalysisModuleCard): string {
     if (card.status === 'complete') return `第 ${card.version ?? 1} 版`
     if (card.status === 'in_progress') return '生成中...'
     if (card.status === 'failed') {
+        if (props.readonly) return '生成失败'
         if (card.locked) return '等待当前批次完成后可重试'
         return '生成失败，点击重试'
     }
     if (card.status === 'idle') {
+        if (props.readonly) return '未生成'
         if (card.locked) return '等待执行'
         return '点击生成'
     }
@@ -430,7 +440,7 @@ function formatAnalyzedAt(dateStr: string): string {
                         </h3>
 
                         <div class="flex items-center gap-2">
-                            <button v-if="showBatchButton"
+                            <button v-if="effectiveShowBatchButton"
                                 class="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors mr-2"
                                 @click="emit('batchGenerate')">
                                 <PlusIcon class="size-3" />
@@ -593,7 +603,7 @@ function formatAnalyzedAt(dateStr: string): string {
                                 </AiElementsArtifactAction>
 
                                 <!-- 对话按钮 -->
-                                <AiElementsArtifactAction v-if="showRegenerate" tooltip="模块对话"
+                                <AiElementsArtifactAction v-if="effectiveShowRegenerate" tooltip="模块对话"
                                     :disabled="isCurrentRegenerating" @click="handleRegenerate">
                                     <MessageCircleIcon class="size-4" />
                                 </AiElementsArtifactAction>
