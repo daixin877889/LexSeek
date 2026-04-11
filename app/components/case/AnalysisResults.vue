@@ -312,7 +312,7 @@ function goToModule(moduleName: string) {
  */
 function goToPrev() {
     const idx = completeCards.value.findIndex(c => c.moduleName === currentModuleName.value)
-    if (idx > 0) currentModuleName.value = completeCards.value[idx - 1].moduleName
+    if (idx > 0) currentModuleName.value = completeCards.value[idx - 1]!.moduleName
 }
 
 /**
@@ -320,7 +320,7 @@ function goToPrev() {
  */
 function goToNext() {
     const idx = completeCards.value.findIndex(c => c.moduleName === currentModuleName.value)
-    if (idx < completeCards.value.length - 1) currentModuleName.value = completeCards.value[idx + 1].moduleName
+    if (idx < completeCards.value.length - 1) currentModuleName.value = completeCards.value[idx + 1]!.moduleName
 }
 
 // 当前模块在 completeCards 中的位置（用于翻页 disabled 判断）

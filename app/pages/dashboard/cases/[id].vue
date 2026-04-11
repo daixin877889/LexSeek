@@ -190,7 +190,7 @@ async function handleBatchGenerate() {
 
     await refreshAnalysis()
 
-    const reader = (response as ReadableStream).getReader()
+    const reader = (response as unknown as ReadableStream).getReader()
     const decoder = new TextDecoder()
     let buffer = ''
 

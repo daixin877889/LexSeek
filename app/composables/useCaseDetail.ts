@@ -5,6 +5,9 @@ import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
 import { getMaterialType } from '~/utils/caseMaterial'
 import { toast } from 'vue-sonner'
 
+/** 模块状态元素类型（从 InitAnalysisStatusResponse.modules 提取） */
+type ModuleStatusItem = InitAnalysisStatusResponse['modules'][number]
+
 /** 案件详情页视图类型（包含未来扩展） */
 export type ActiveView = 'overview' | 'materials' | 'analysis' | 'todos' | 'documents'
 
@@ -83,9 +86,11 @@ export function useCaseDetail(
     if (!isInitAnalysisRunning.value) return new Set()
     const status = analysisStatus.value
     if (!status?.selectedModules?.length) return new Set()
-    const moduleMap = new Map(status.modules?.map(m => [m.name, m]) ?? [])
+    const moduleMap = new Map<string, ModuleStatusItem>(
+      (status.modules ?? []).map((m: ModuleStatusItem) => [m.name, m]),
+    )
     return new Set(
-      status.selectedModules.filter(name => {
+      status.selectedModules.filter((name: string) => {
         const m = moduleMap.get(name)
         return m?.status !== 'complete'
       }),
@@ -117,12 +122,14 @@ export function useCaseDetail(
   // 全部 7 个模块的卡片状态（四态 + 锁定）
   const allModuleCards = computed<AnalysisModuleCard[]>(() => {
     const status = analysisStatus.value
-    const moduleMap = new Map(status?.modules?.map(m => [m.name, m]) ?? [])
+    const moduleMap = new Map<string, ModuleStatusItem>(
+      (status?.modules ?? []).map((m: ModuleStatusItem) => [m.name, m]),
+    )
     const generating = new Set(options?.generatingModules?.value ?? [])
     const locked = lockedModules.value
 
     return INIT_ANALYSIS_MODULES.map(def => {
-      const m = moduleMap.get(def.name)
+      const m = moduleMap.get(def.name) as ModuleStatusItem | undefined
       const isLocked = locked.has(def.name)
 
       if (m?.status === 'complete' && m.result) {
