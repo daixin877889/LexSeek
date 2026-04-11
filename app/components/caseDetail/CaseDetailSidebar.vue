@@ -32,35 +32,48 @@ const futureItems: Array<{ label: string; icon: Component }> = [
 </script>
 
 <template>
-  <nav class="flex flex-col h-full p-3 space-y-1">
-    <button
-      v-for="item in menuItems"
-      :key="item.id"
-      class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors"
-      :class="[
-        modelValue === item.id
-          ? 'bg-primary/10 text-primary font-medium'
-          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-      ]"
-      @click="modelValue = item.id"
-    >
-      <component :is="item.icon" class="size-4 shrink-0" />
-      <span>{{ item.label }}</span>
-      <Badge v-if="item.badge" variant="secondary" class="ml-auto px-1.5 py-0 h-4 text-[10px]">
-        {{ item.badge }}
-      </Badge>
-    </button>
+  <TooltipProvider :delay-duration="300">
+    <nav class="flex flex-col h-full p-2 lg:p-3 space-y-1">
+      <Tooltip v-for="item in menuItems" :key="item.id">
+        <TooltipTrigger as-child>
+          <button
+            class="w-full flex items-center justify-center lg:justify-start gap-3 px-2 lg:px-3 py-2 rounded-lg text-sm transition-colors"
+            :class="[
+              modelValue === item.id
+                ? 'bg-primary/10 text-primary font-medium'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            ]"
+            @click="modelValue = item.id"
+          >
+            <component :is="item.icon" class="size-4 shrink-0" />
+            <span class="hidden lg:inline">{{ item.label }}</span>
+            <Badge v-if="item.badge" variant="secondary" class="ml-auto px-1.5 py-0 h-4 text-[10px] hidden lg:inline-flex">
+              {{ item.badge }}
+            </Badge>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right" class="lg:hidden">
+          {{ item.label }}
+        </TooltipContent>
+      </Tooltip>
 
-    <Separator class="my-2" />
-    <button
-      v-for="item in futureItems"
-      :key="item.label"
-      class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground/50 cursor-not-allowed"
-      disabled
-    >
-      <component :is="item.icon" class="size-4 shrink-0" />
-      <span>{{ item.label }}</span>
-      <span class="ml-auto text-[9px] bg-muted rounded px-1">即将推出</span>
-    </button>
-  </nav>
+      <Separator class="my-2" />
+
+      <Tooltip v-for="item in futureItems" :key="item.label">
+        <TooltipTrigger as-child>
+          <button
+            class="w-full flex items-center justify-center lg:justify-start gap-3 px-2 lg:px-3 py-2 rounded-lg text-sm text-muted-foreground/50 cursor-not-allowed"
+            disabled
+          >
+            <component :is="item.icon" class="size-4 shrink-0" />
+            <span class="hidden lg:inline">{{ item.label }}</span>
+            <span class="ml-auto text-[9px] bg-muted rounded px-1 hidden lg:inline">即将推出</span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right" class="lg:hidden">
+          {{ item.label }}（即将推出）
+        </TooltipContent>
+      </Tooltip>
+    </nav>
+  </TooltipProvider>
 </template>
