@@ -600,3 +600,55 @@ export const findActiveAnalysisVersionDao = async (
         throw error
     }
 }
+
+/**
+ * 查询超时的 IN_PROGRESS 分析记录
+ *
+ * 用于定时清理因进程崩溃等原因导致状态永远悬挂的分析记录。
+ * 使用 updatedAt 而非 createdAt，只捕获真正僵死（长时间无更新）的记录。
+ *
+ * @param thresholdMs 超时阈值（毫秒）
+ * @returns 超时记录的 ID 列表
+ */
+export const findStaleInProgressAnalysesDao = async (
+    thresholdMs: number,
+): Promise<number[]> => {
+    try {
+        const threshold = new Date(Date.now() - thresholdMs)
+        const records = await prisma.caseAnalyses.findMany({
+            where: {
+                status: AnalysisStatus.IN_PROGRESS,
+                updatedAt: { lt: threshold },
+                deletedAt: null,
+            },
+            select: { id: true },
+        })
+        return records.map((r) => r.id)
+    } catch (error) {
+        logger.error('查询超时分析记录失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 批量更新分析记录状态
+ *
+ * @param ids 记录 ID 列表
+ * @param status 目标状态
+ * @returns 更新的记录数
+ */
+export const batchUpdateAnalysisStatusDao = async (
+    ids: number[],
+    status: AnalysisStatus,
+): Promise<number> => {
+    try {
+        const result = await prisma.caseAnalyses.updateMany({
+            where: { id: { in: ids } },
+            data: { status, updatedAt: new Date() },
+        })
+        return result.count
+    } catch (error) {
+        logger.error('批量更新分析状态失败：', error)
+        throw error
+    }
+}

@@ -24,6 +24,8 @@ import {
     deactivateVersionsDao,
     activateVersionDao,
     findActiveAnalysisVersionDao,
+    findStaleInProgressAnalysesDao,
+    batchUpdateAnalysisStatusDao,
     AnalysisStatus,
 } from './analysis.dao'
 
@@ -605,4 +607,24 @@ export const getActiveAnalysisVersionService = async (
     nodeId: number
 ): Promise<caseAnalyses | null> => {
     return await findActiveAnalysisVersionDao(caseId, nodeId)
+}
+
+/**
+ * 清理超时的 IN_PROGRESS 分析记录
+ *
+ * 作为进程崩溃导致任务丢失的兜底机制。超过 2 小时仍为 IN_PROGRESS 的记录
+ * 判定为僵死，标记为 FAILED。agentRuns 心跳机制处理正常崩溃恢复（秒级），
+ * 此函数只是最后一道防线。
+ *
+ * @returns 清理的记录数
+ */
+export const cleanupStaleAnalysesService = async (): Promise<number> => {
+    const STALE_THRESHOLD_MS = 2 * 60 * 60 * 1000
+
+    const staleIds = await findStaleInProgressAnalysesDao(STALE_THRESHOLD_MS)
+    if (staleIds.length === 0) return 0
+
+    const count = await batchUpdateAnalysisStatusDao(staleIds, AnalysisStatus.FAILED)
+    logger.info(`已清理 ${count} 条超时分析记录`)
+    return count
 }
