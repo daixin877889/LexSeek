@@ -84,7 +84,7 @@ watch(isOpen, (open) => {
   </CaseChatWindowShell>
 
   <!-- 悬浮按钮 -->
-  <div class="absolute bottom-4 right-4 z-40">
+  <div class="absolute bottom-20 md:bottom-4 right-4 z-40">
     <img
       v-show="!isFullscreen"
       :src="xiaosuoIcon"
