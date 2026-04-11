@@ -47,6 +47,7 @@ const emit = defineEmits<{
   navigateToSelectMode: []
   generateModule: [moduleName: string, moduleTitle: string]
   batchGenerate: []
+  goToInterrupt: []
 }>()
 
 const infoCardRef = ref<{
@@ -156,10 +157,8 @@ function getMaterialIconColor(type: number) {
       </h3>
       <div class="flex items-center gap-2">
         <template v-if="!isEditingCaseInfo">
-          <button
-            class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-            @click="infoCardRef?.startEditing()"
-          >
+          <button class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+            @click="infoCardRef?.startEditing()">
             <PencilIcon class="size-3" />
             编辑信息
           </button>
@@ -167,29 +166,21 @@ function getMaterialIconColor(type: number) {
         <template v-else>
           <button
             class="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors px-2 py-1 rounded hover:bg-destructive/10"
-            @click="infoCardRef?.cancelEditing()"
-          >
+            @click="infoCardRef?.cancelEditing()">
             <XIcon class="size-3" />
             取消
           </button>
           <button
             class="flex items-center gap-1 text-xs font-medium text-primary hover:bg-primary/10 px-2 py-1 rounded transition-colors"
-            @click="infoCardRef?.saveChanges()"
-          >
+            @click="infoCardRef?.saveChanges()">
             <CheckIcon class="size-3" />
             保存生效
           </button>
         </template>
       </div>
     </div>
-    <InitAnalysisCaseInfoCard
-      ref="infoCardRef"
-      :case-id="caseId"
-      editable
-      hide-header
-      v-model:is-editing="isEditingCaseInfo"
-      @updated="emit('updated')"
-    />
+    <InitAnalysisCaseInfoCard ref="infoCardRef" :case-id="caseId" editable hide-header
+      v-model:is-editing="isEditingCaseInfo" @updated="emit('updated')" />
     <Separator class="mx-4 opacity-50" />
 
     <!-- 案件材料 -->
@@ -202,29 +193,22 @@ function getMaterialIconColor(type: number) {
         </Badge>
       </h3>
       <div class="flex items-center gap-4">
-        <button
-          class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-          :disabled="isAddingMaterials"
-          @click="openMaterialSelector"
-        >
+        <button class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+          :disabled="isAddingMaterials" @click="openMaterialSelector">
           <Loader2Icon v-if="isAddingMaterials" class="size-3 animate-spin" />
           <PlusIcon v-else class="size-3" />
           添加材料
         </button>
         <div class="w-px h-3 bg-border"></div>
-        <button
-          v-if="materials.length > 0"
+        <button v-if="materials.length > 0"
           class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-          @click="emit('navigateToSelectMode')"
-        >
+          @click="emit('navigateToSelectMode')">
           <CheckSquareIcon class="size-3" />
           批量管理
         </button>
         <div v-if="materials.length > 0" class="w-px h-3 bg-border"></div>
-        <button
-          class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-          @click="emit('navigateView', 'materials')"
-        >
+        <button class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+          @click="emit('navigateView', 'materials')">
           <EyeIcon class="size-3" />
           查看全部
         </button>
@@ -238,26 +222,23 @@ function getMaterialIconColor(type: number) {
         暂无材料
       </div>
       <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
-        <div
-          v-for="material in materials"
-          :key="material.id"
+        <div v-for="material in materials" :key="material.id"
           class="group relative flex flex-col items-center p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition-all border border-transparent hover:border-primary/10 text-center cursor-pointer"
-          @click="emit('previewMaterial', material)"
-        >
+          @click="emit('previewMaterial', material)">
           <!-- 单个删除按钮 -->
           <button
             class="absolute top-1 right-1 size-6 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            title="删除"
-            @click.stop="confirmDelete(material.id)"
-          >
+            title="删除" @click.stop="confirmDelete(material.id)">
             <Trash2Icon class="size-3" />
           </button>
 
-          <div :class="['flex items-center justify-center size-11 rounded-xl shrink-0 transition-transform group-hover:scale-105 mb-1.5', getMaterialBgColor(material.type)]">
+          <div
+            :class="['flex items-center justify-center size-11 rounded-xl shrink-0 transition-transform group-hover:scale-105 mb-1.5', getMaterialBgColor(material.type)]">
             <component :is="getMaterialIcon(material.type)" :class="['size-6', getMaterialIconColor(material.type)]" />
           </div>
           <div class="flex-1 min-w-0 w-full">
-            <div class="text-[12px] font-medium line-clamp-1 leading-tight mb-1 group-hover:text-primary transition-colors px-1">
+            <div
+              class="text-[12px] font-medium line-clamp-1 leading-tight mb-1 group-hover:text-primary transition-colors px-1">
               {{ material.name }}
             </div>
             <div class="text-[10px] text-muted-foreground/60 flex items-center justify-center gap-1">
@@ -265,15 +246,13 @@ function getMaterialIconColor(type: number) {
               <!-- 识别状态 -->
               <template v-if="getMaterialDisplayStatus(material)">
                 <span class="size-0.5 rounded-full bg-muted-foreground/30"></span>
-                <span v-if="!getMaterialDisplayStatus(material)!.showRetry" :class="getMaterialDisplayStatus(material)!.color" class="flex items-center gap-0.5">
+                <span v-if="!getMaterialDisplayStatus(material)!.showRetry"
+                  :class="getMaterialDisplayStatus(material)!.color" class="flex items-center gap-0.5">
                   <Loader2Icon v-if="getMaterialDisplayStatus(material)!.spinning" class="size-2.5 animate-spin" />
                   {{ getMaterialDisplayStatus(material)!.text }}
                 </span>
-                <button
-                  v-else
-                  class="text-destructive hover:text-primary transition-colors flex items-center gap-0.5"
-                  @click.stop="emit('retryMaterial', material.id, material.ossFileId!)"
-                >
+                <button v-else class="text-destructive hover:text-primary transition-colors flex items-center gap-0.5"
+                  @click.stop="emit('retryMaterial', material.id, material.ossFileId!)">
                   {{ getMaterialDisplayStatus(material)!.text }}
                   <RefreshCwIcon class="size-2.5" />
                 </button>
@@ -291,48 +270,33 @@ function getMaterialIconColor(type: number) {
       <h3 class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
         <SparklesIcon class="size-4" />
         分析结果
-        <span v-if="analysisResults.length > 0" class="font-normal text-[10px] bg-muted px-1.5 py-0.5 rounded">{{ analysisResults.length }}</span>
+        <span v-if="analysisResults.length > 0" class="font-normal text-[10px] bg-muted px-1.5 py-0.5 rounded">{{
+          analysisResults.length }}</span>
       </h3>
       <div class="flex items-center gap-4">
-        <button
-          v-if="showBatchButton"
+        <button v-if="showBatchButton"
           class="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
-          @click="emit('batchGenerate')"
-        >
+          @click="emit('batchGenerate')">
           <PlusIcon class="size-3" />
-          补充分析
+          批量分析
         </button>
-        <button
-          v-if="analysisResults.length > 0"
+        <button v-if="analysisResults.length > 0"
           class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-          @click="emit('navigateView', 'analysis')"
-        >
+          @click="emit('navigateView', 'analysis')">
           <EyeIcon class="size-3" />
           查看全部
         </button>
       </div>
     </div>
-    <CaseAnalysisResults
-      :results="analysisResults"
-      :module-cards="moduleCards"
-      v-model:view-mode="analysisViewMode"
-      v-model:active-module="analysisActiveModule"
-      :show-regenerate="false"
-      :show-copy="false"
-      :show-batch-button="showBatchButton"
-      :has-pending-interrupt="hasPendingInterrupt"
-      hide-header
-      class="pt-0"
-      @generate-module="(name, title) => emit('generateModule', name, title)"
-      @batch-generate="emit('batchGenerate')"
-    />
+    <CaseAnalysisResults :results="analysisResults" :module-cards="moduleCards" v-model:view-mode="analysisViewMode"
+      v-model:active-module="analysisActiveModule" :show-regenerate="false" :show-copy="false"
+      :show-batch-button="showBatchButton" :has-pending-interrupt="hasPendingInterrupt" hide-header class="pt-0"
+      @generate-module="(name, title) => emit('generateModule', name, title)" @batch-generate="emit('batchGenerate')"
+      @go-to-interrupt="emit('goToInterrupt')" />
 
     <!-- 材料选择器弹窗 -->
-    <CaseAnalysisMaterialSelector
-      ref="materialSelectorRef"
-      :disabled-file-ids="disabledOssFileIds"
-      @files-selected="handleFilesSelected"
-    />
+    <CaseAnalysisMaterialSelector ref="materialSelectorRef" :disabled-file-ids="disabledOssFileIds"
+      @files-selected="handleFilesSelected" />
 
     <!-- 删除确认对话框 -->
     <AlertDialog v-model:open="showDeleteConfirm">
@@ -343,7 +307,8 @@ function getMaterialIconColor(type: number) {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>取消</AlertDialogCancel>
-          <AlertDialogAction class="bg-destructive text-destructive-foreground hover:bg-destructive/90" @click="executeDelete">
+          <AlertDialogAction class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            @click="executeDelete">
             删除
           </AlertDialogAction>
         </AlertDialogFooter>

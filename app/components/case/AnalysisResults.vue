@@ -75,7 +75,7 @@ interface Props {
     viewMode?: 'dashboard' | 'detail'
     /** 是否隐藏头部（仅在仪表盘模式下生效） */
     hideHeader?: boolean
-    /** 是否显示补充分析按钮 */
+    /** 是否显示批量分析按钮 */
     showBatchButton?: boolean
     /** 是否有待处理的中断 */
     hasPendingInterrupt?: boolean
@@ -113,6 +113,8 @@ const emit = defineEmits<{
     (e: 'generateModule', moduleName: string, moduleTitle: string): void
     /** 触发批量生成 */
     (e: 'batchGenerate'): void
+    /** 前往处理中断 */
+    (e: 'goToInterrupt'): void
 }>()
 
 // 版本 Sheet 状态
@@ -423,17 +425,16 @@ function formatAnalyzedAt(dateStr: string): string {
                             class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
                             <SparklesIcon class="size-4" />
                             分析结果
-                            <span class="font-normal text-[10px] bg-muted px-1.5 py-0.5 rounded">{{ completeCards.length }}/{{ cards.length }}</span>
+                            <span class="font-normal text-[10px] bg-muted px-1.5 py-0.5 rounded">{{ completeCards.length
+                                }}/{{ cards.length }}</span>
                         </h3>
 
                         <div class="flex items-center gap-2">
-                            <button
-                                v-if="showBatchButton"
+                            <button v-if="showBatchButton"
                                 class="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors mr-2"
-                                @click="emit('batchGenerate')"
-                            >
+                                @click="emit('batchGenerate')">
                                 <PlusIcon class="size-3" />
-                                补充分析
+                                批量分析
                             </button>
                             <div class="flex items-center bg-muted/50 rounded-lg p-0.5">
                                 <button class="size-7 flex items-center justify-center rounded-md transition-all"
@@ -450,8 +451,22 @@ function formatAnalyzedAt(dateStr: string): string {
                         </div>
                     </div>
 
+                    <!-- 中断提示条 -->
+                    <div v-if="hasPendingInterrupt"
+                        class="flex items-center gap-3 p-3 mb-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400">
+                        <AlertCircleIcon class="size-4 shrink-0" />
+                        <span class="text-xs flex-1">初始化分析已中断（积分不足），部分模块暂不可用</span>
+                        <button
+                            class="text-xs font-medium px-2.5 py-1 rounded-md bg-amber-500/15 hover:bg-amber-500/25 transition-colors shrink-0"
+                            @click="emit('goToInterrupt')"
+                        >
+                            前往处理
+                        </button>
+                    </div>
+
                     <!-- 网格模式：四态卡片 -->
-                    <div v-if="dashboardViewMode === 'grid'" class="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
+                    <div v-if="dashboardViewMode === 'grid'"
+                        class="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
                         <button v-for="card in cards" :key="card.moduleName"
                             class="group relative flex flex-col items-center p-2.5 rounded-xl transition-all text-center"
                             :class="[
@@ -460,12 +475,10 @@ function formatAnalyzedAt(dateStr: string): string {
                                 card.status === 'in_progress' ? 'bg-muted/40 border border-primary/30' : '',
                                 card.status === 'idle' ? 'bg-muted/20 border border-dashed border-muted-foreground/30 hover:border-muted-foreground/50' : '',
                                 card.status === 'failed' ? 'bg-destructive/5 border border-destructive/30 hover:border-destructive/50' : '',
-                            ]"
-                            @click="handleCardClick(card)">
+                            ]" @click="handleCardClick(card)">
 
                             <!-- 模块图标 -->
-                            <div
-                                class="flex items-center justify-center size-11 rounded-xl shrink-0 transition-colors mb-1.5"
+                            <div class="flex items-center justify-center size-11 rounded-xl shrink-0 transition-colors mb-1.5"
                                 :class="[
                                     card.status === 'complete' ? 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white group-hover:scale-105' : '',
                                     card.status === 'in_progress' ? 'bg-primary/10 text-primary' : '',
@@ -479,8 +492,7 @@ function formatAnalyzedAt(dateStr: string): string {
 
                             <!-- 模块信息 -->
                             <div class="flex-1 min-w-0 w-full">
-                                <h4
-                                    class="text-[12px] font-medium line-clamp-1 leading-tight mb-1 transition-colors px-1"
+                                <h4 class="text-[12px] font-medium line-clamp-1 leading-tight mb-1 transition-colors px-1"
                                     :class="[
                                         card.status === 'complete' ? 'group-hover:text-primary' : '',
                                         card.status === 'idle' ? 'text-muted-foreground/60' : '',
@@ -488,7 +500,8 @@ function formatAnalyzedAt(dateStr: string): string {
                                     ]">
                                     {{ card.moduleTitle || card.moduleName }}
                                 </h4>
-                                <div class="text-[10px] text-muted-foreground/60 flex items-center justify-center gap-1">
+                                <div
+                                    class="text-[10px] text-muted-foreground/60 flex items-center justify-center gap-1">
                                     <ClockIcon v-if="card.status === 'idle' && card.locked" class="size-2.5" />
                                     <span>{{ getCardSubtext(card) }}</span>
                                 </div>
@@ -506,8 +519,7 @@ function formatAnalyzedAt(dateStr: string): string {
                                 card.status === 'in_progress' ? 'border border-primary/20' : '',
                                 card.status === 'idle' ? 'border border-dashed border-muted-foreground/20 hover:border-muted-foreground/40' : '',
                                 card.status === 'failed' ? 'border border-destructive/20 hover:border-destructive/40' : '',
-                            ]"
-                            @click="handleCardClick(card)">
+                            ]" @click="handleCardClick(card)">
                             <div class="flex items-center justify-center size-9 rounded-lg shrink-0 transition-colors"
                                 :class="[
                                     card.status === 'complete' ? 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white' : '',
@@ -520,18 +532,18 @@ function formatAnalyzedAt(dateStr: string): string {
                                 <component v-else :is="getModuleIcon(card.moduleName)" class="size-5" />
                             </div>
                             <div class="flex-1 min-w-0">
-                                <h4 class="text-sm font-medium truncate transition-colors"
-                                    :class="[
-                                        card.status === 'complete' ? 'group-hover:text-primary' : '',
-                                        card.status === 'idle' ? 'text-muted-foreground/60' : '',
-                                        card.status === 'failed' ? 'text-destructive/80' : '',
-                                    ]">
+                                <h4 class="text-sm font-medium truncate transition-colors" :class="[
+                                    card.status === 'complete' ? 'group-hover:text-primary' : '',
+                                    card.status === 'idle' ? 'text-muted-foreground/60' : '',
+                                    card.status === 'failed' ? 'text-destructive/80' : '',
+                                ]">
                                     {{ card.moduleTitle || card.moduleName }}
                                 </h4>
                                 <div class="text-[11px] text-muted-foreground/60 flex items-center gap-2">
                                     <ClockIcon v-if="card.status === 'idle' && card.locked" class="size-2.5" />
                                     <span>{{ getCardSubtext(card) }}</span>
-                                    <template v-if="card.status === 'complete' && card.analyzedAt && formatAnalyzedAt(card.analyzedAt)">
+                                    <template
+                                        v-if="card.status === 'complete' && card.analyzedAt && formatAnalyzedAt(card.analyzedAt)">
                                         <span class="size-0.5 rounded-full bg-muted-foreground/30"></span>
                                         <span>分析于 {{ formatAnalyzedAt(card.analyzedAt) }}</span>
                                     </template>
@@ -555,7 +567,8 @@ function formatAnalyzedAt(dateStr: string): string {
                                         <AiElementsArtifactTitle class="truncate">
                                             {{ currentResult.moduleTitle || currentResult.moduleName }}
                                         </AiElementsArtifactTitle>
-                                        <Badge variant="secondary" class="px-1 py-0 h-4 text-[10px] font-normal shrink-0">
+                                        <Badge variant="secondary"
+                                            class="px-1 py-0 h-4 text-[10px] font-normal shrink-0">
                                             第 {{ currentResult.version ?? 1 }} 版
                                         </Badge>
                                     </div>
@@ -625,24 +638,23 @@ function formatAnalyzedAt(dateStr: string): string {
     <!-- 版本 Sheet -->
     <CaseAnalysisVersionSheet v-if="showVersions && caseId && currentResult" v-model:open="versionSheetOpen"
         :case-id="caseId" :analysis-type="currentResult.moduleName"
-        :module-title="currentResult.moduleTitle || currentResult.moduleName"
-        :versions="versionItems" :loading="versionLoading"
-        @activated="refreshVersionList(); emit('versionChanged')" />
+        :module-title="currentResult.moduleTitle || currentResult.moduleName" :versions="versionItems"
+        :loading="versionLoading" @activated="refreshVersionList(); emit('versionChanged')" />
 </template>
 
 <style scoped>
 .view-fade-enter-active,
 .view-fade-leave-active {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .view-fade-enter-from {
-  opacity: 0;
-  transform: translateY(8px) scale(0.99);
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
 }
 
 .view-fade-leave-to {
-  opacity: 0;
-  transform: translateY(-8px) scale(0.99);
+    opacity: 0;
+    transform: translateY(-8px) scale(0.99);
 }
 </style>

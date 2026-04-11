@@ -15,6 +15,7 @@ const emit = defineEmits<{
   regenerate: [result: AnalysisResult]
   generateModule: [moduleName: string, moduleTitle: string]
   batchGenerate: []
+  goToInterrupt: []
 }>()
 
 const activeModule = defineModel<string | null>('activeModule', { default: null })
@@ -39,6 +40,7 @@ const viewMode = defineModel<'dashboard' | 'detail'>('viewMode', { default: 'das
       @regenerate="(result) => emit('regenerate', result)"
       @generate-module="(name, title) => emit('generateModule', name, title)"
       @batch-generate="emit('batchGenerate')"
+      @go-to-interrupt="emit('goToInterrupt')"
     />
   </div>
 </template>

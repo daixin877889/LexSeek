@@ -54,6 +54,7 @@ const {
   caseInfo,
   materials,
   analysisResults,
+  analysisStatus,
   allModuleCards,
   showBatchButton,
   isInitAnalysisRunning,
@@ -172,6 +173,14 @@ function handleBatchGenerate() {
   navigateTo(`/dashboard/cases/init-analysis?caseId=${caseId.value}`)
 }
 
+// --- 前往处理中断 ---
+function handleGoToInterrupt() {
+  const sessionId = analysisStatus.value?.sessionId
+  if (sessionId) {
+    navigateTo(`/dashboard/cases/init-analysis/${sessionId}`)
+  }
+}
+
 // idle 模块直达详情模式时自动降级为 dashboard
 watch([analysisModule, analysisMode, allModuleCards], ([mod, mode, cards]) => {
   if (mode === 'detail' && mod) {
@@ -191,31 +200,6 @@ const expandedChatInstance = computed(() => {
 // 页面刷新后恢复活跃 session
 onMounted(() => {
   moduleChatManager.restoreActiveSessions()
-})
-
-// 页面重新可见时刷新分析状态（跨标签页同步）
-function handleVisibilityChange() {
-  if (document.visibilityState === 'visible') {
-    refreshAnalysis()
-  }
-}
-onMounted(() => document.addEventListener('visibilitychange', handleVisibilityChange))
-onUnmounted(() => document.removeEventListener('visibilitychange', handleVisibilityChange))
-
-// 有进行中的模块时启用轮询（5s），完成后自动停止
-let pollingTimer: ReturnType<typeof setInterval> | null = null
-
-watch(() => allModuleCards.value.some(c => c.status === 'in_progress'), (hasInProgress) => {
-  if (hasInProgress && !pollingTimer) {
-    pollingTimer = setInterval(() => refreshAnalysis(), 5000)
-  } else if (!hasInProgress && pollingTimer) {
-    clearInterval(pollingTimer)
-    pollingTimer = null
-  }
-}, { immediate: true })
-
-onUnmounted(() => {
-  if (pollingTimer) clearInterval(pollingTimer)
 })
 </script>
 
@@ -275,7 +259,8 @@ onUnmounted(() => {
             @retry-material="retryMaterial"
             @navigate-to-select-mode="navigateToSelectMode"
             @generate-module="handleGenerateModule"
-            @batch-generate="handleBatchGenerate" />
+            @batch-generate="handleBatchGenerate"
+            @go-to-interrupt="handleGoToInterrupt" />
           <CaseDetailMaterials v-else-if="activeView === 'materials'" :key="'materials'" :materials="materials ?? []"
             :disabled-oss-file-ids="disabledOssFileIds"
             :is-adding="isAddingMaterials"
@@ -298,7 +283,8 @@ onUnmounted(() => {
             @version-changed="refreshAnalysis"
             @regenerate="handleModuleRegenerate"
             @generate-module="handleGenerateModule"
-            @batch-generate="handleBatchGenerate" />
+            @batch-generate="handleBatchGenerate"
+            @go-to-interrupt="handleGoToInterrupt" />
           <!-- 其他视图占位 -->
           <div v-else :key="'placeholder'" class="flex items-center justify-center h-full text-muted-foreground">
             当前视图：{{ activeView }}
