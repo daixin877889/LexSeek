@@ -168,58 +168,6 @@ export enum InterruptType {
     INSUFFICIENT_POINTS = 'insufficient_points',
 }
 
-/** 工作流阶段枚举 */
-export enum WorkflowPhase {
-    MATERIAL_PROCESS = 'material_process',
-    CASE_INFO_CHECK = 'case_info_check',
-    EXTRACT_INFO = 'extract_info',
-    MODULE_SELECT = 'module_select',
-    ANALYSIS_TASK = 'analysis_task',
-    COMPLETE = 'complete',
-}
-
-// ==================== 任务相关类型 ====================
-
-/** 任务状态 */
-export type TaskStatus = 'pending' | 'active' | 'completed'
-
-/** 任务类型 */
-export type TaskType = 'checkpoint' | 'analysis'
-
-/** 任务项 */
-export interface TaskItem {
-    /** 任务ID */
-    id: string
-    /** 任务名称 */
-    name: string
-    /** 任务描述（可选） */
-    description?: string
-    /** 任务类型：中断点或分析模块 */
-    type: TaskType
-    /** 任务状态 */
-    status: TaskStatus
-    /** 排序顺序 */
-    order: number
-    /** 关联的分析结果ID（用于跳转） */
-    resultId?: number
-    /** 关联的节点ID */
-    nodeId?: number
-}
-
-/** 预定义的中断点任务 */
-export const CHECKPOINT_TASKS: Omit<TaskItem, 'status'>[] = [
-    { id: 'case-info-check', name: '案情信息检查', type: 'checkpoint', order: 1 },
-    { id: 'basic-info-confirm', name: '基本信息确认', type: 'checkpoint', order: 2 },
-    { id: 'module-select', name: '选择分析模块', type: 'checkpoint', order: 3 },
-]
-
-/** 中断点ID映射 */
-export const INTERRUPT_TASK_MAP: Record<string, string> = {
-    case_info_check: 'case-info-check',
-    basic_info_confirm: 'basic-info-confirm',
-    module_select: 'module-select',
-}
-
 // ==================== 案件基本信息接口 ====================
 
 /** 扩展字段项（LLM 根据案件类型自动提取的额外信息） */

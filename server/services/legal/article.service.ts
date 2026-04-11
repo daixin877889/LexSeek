@@ -7,9 +7,6 @@
 
 import type { ParsedArticle } from '#shared/types/legal-parser'
 import {
-    updateLegalContentDao,
-    deleteArticlesByLegalIdDao,
-    createArticlesDao,
     buildArticlesDataDao,
 } from './article.dao'
 
@@ -29,47 +26,6 @@ export interface BatchSaveArticlesParams {
     effectiveDate: Date | null
     /** 失效日期 */
     invalidDate: Date | null
-}
-
-/**
- * 更新法律法规的内容字段
- *
- * @param legalId - 法律法规 ID
- * @param content - 法律法规内容（Markdown 格式）
- * @returns 更新后的法律法规对象
- */
-export async function updateLegalContentService(legalId: string, content: string) {
-    return await updateLegalContentDao(legalId, content)
-}
-
-/**
- * 删除指定法律法规的所有条文（软删除）
- *
- * @param legalId - 法律法规 ID
- * @returns 删除的条文数量
- */
-export async function deleteArticlesByLegalIdService(legalId: string) {
-    return await deleteArticlesByLegalIdDao(legalId)
-}
-
-/**
- * 批量创建条文
- *
- * @param legalId - 法律法规 ID
- * @param articles - 解析后的条文数组
- * @param publishDate - 发布日期
- * @param effectiveDate - 生效日期
- * @param invalidDate - 失效日期
- * @returns 创建的条文数组
- */
-export async function createArticlesService(
-    legalId: string,
-    articles: ParsedArticle[],
-    publishDate: Date | null,
-    effectiveDate: Date | null,
-    invalidDate: Date | null
-) {
-    return await createArticlesDao(legalId, articles, publishDate, effectiveDate, invalidDate)
 }
 
 /**
