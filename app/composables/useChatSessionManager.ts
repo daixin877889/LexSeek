@@ -187,7 +187,7 @@ export function useChatSessionManager(options: ChatSessionManagerOptions) {
         }
     }
 
-    onUnmounted(() => disposeCurrentChat())
+    onScopeDispose(() => disposeCurrentChat())
 
     return {
         sessions,
