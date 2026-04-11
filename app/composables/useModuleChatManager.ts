@@ -29,6 +29,16 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
     // 持有所有 session manager 的 effectScope，页面卸载时统一清理
     const scopes: EffectScope[] = []
 
+    // 正在通过模块对话生成中的模块名列表（watch + ref 模式，解决 shallowReactive 嵌套追踪问题）
+    const generatingModules = ref<string[]>([])
+
+    function watchInstanceLoading(instance: ModuleChatInstance) {
+        watch(() => instance.isLoading.value, () => {
+            generatingModules.value = Object.keys(instances)
+                .filter(name => instances[name]?.isLoading?.value)
+        }, { immediate: true })
+    }
+
     const activeModules = computed(() =>
         Object.values(instances).filter(i =>
             !i.isHidden.value
@@ -39,6 +49,7 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
     async function getOrCreateModuleManager(
         moduleName: string,
         moduleTitle: string,
+        options?: { autoMessage?: string },
     ): Promise<ModuleChatInstance> {
         if (instances[moduleName]) return instances[moduleName]
 
@@ -68,11 +79,19 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
             isHidden: ref(false),
         })
 
+        // 在 effectScope 内注册 isLoading watch，确保清理
+        scope.run(() => watchInstanceLoading(instance))
+
         instances[moduleName] = instance
         triggerRef(expandedModule)
 
         // 自动初始化 session 列表（等价于小索的 init），否则 sendMessage 时 currentChat 为 null
         await manager.init()
+
+        // 自动发送生成消息（仅首次创建时，instance 已存在时走上面的 early return 不会到这里）
+        if (options?.autoMessage && manager.sendMessage) {
+            await manager.sendMessage(options.autoMessage)
+        }
 
         return instance
     }
@@ -126,8 +145,11 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
         }
     }
 
-    // 页面卸载时清理所有 scope
+    // 页面卸载时清理所有 scope 和活跃流连接
     onUnmounted(() => {
+        for (const name of Object.keys(instances)) {
+            instances[name]?.stop?.()
+        }
         for (const scope of scopes) {
             scope.stop()
         }
@@ -143,5 +165,6 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
         expandedModule,
         activeModules,
         restoreActiveSessions,
+        generatingModules,
     }
 }
