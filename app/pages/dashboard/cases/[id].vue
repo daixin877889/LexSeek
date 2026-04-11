@@ -192,6 +192,13 @@ const expandedChatInstance = computed(() => {
 onMounted(() => {
   moduleChatManager.restoreActiveSessions()
 })
+
+// 页面重新可见时刷新分析状态（跨标签页同步）
+useEventListener(document, 'visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    refreshAnalysis()
+  }
+})
 </script>
 
 <template>
