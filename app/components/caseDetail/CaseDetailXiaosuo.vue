@@ -5,7 +5,6 @@
  * 使用 ChatWindowShell（三种窗口形态）+ SessionListPopover + InterruptConfirmation
  * 从 288 行精简到 ~100 行
  */
-import xiaosuoIcon from '~/assets/icon/xiaosuo.svg'
 import type { useXiaosuoChat } from '~/composables/useXiaosuoChat'
 import type { SessionItem } from '~/components/case/SessionListPopover.vue'
 
@@ -52,11 +51,14 @@ watch(isOpen, (open) => {
     v-model:open="isOpen"
     v-model:fullscreen="isFullscreen"
     title="小索"
-    :icon="xiaosuoIcon"
     :initial-width="380"
     :initial-height="500"
   >
-    <!-- 标题栏左侧：session 选择器（前缀由 UI 动态拼接为"小索 - 时间"） -->
+    <!-- 标题栏图标 -->
+    <template #titlebar-icon>
+      <IconXiaosuoIcon class="size-4 shrink-0 text-primary" />
+    </template>
+    <!-- 标题栏左侧：session 选择器 -->
     <template #titlebar-left>
       <CaseSessionListPopover
         :sessions="sessions"
@@ -85,11 +87,9 @@ watch(isOpen, (open) => {
 
   <!-- 悬浮按钮 -->
   <div class="absolute bottom-20 md:bottom-4 right-4 z-40">
-    <img
+    <IconXiaosuoIcon
       v-show="!isFullscreen"
-      :src="xiaosuoIcon"
-      class="size-12 cursor-pointer hover:scale-110 transition-transform drop-shadow-lg"
-      alt="小索"
+      class="size-12 cursor-pointer hover:scale-110 transition-transform drop-shadow-lg text-primary"
       @click="isOpen = !isOpen"
     />
   </div>

@@ -5,7 +5,6 @@ import { VALID_MODULE_NAMES } from '#shared/types/initAnalysis'
 import { CaseMaterialType } from '#shared/types/case'
 import { ArrowLeftIcon, FileTextIcon, DownloadIcon } from 'lucide-vue-next'
 import { VisuallyHidden } from 'reka-ui'
-import xiaosuoIcon from '~/assets/icon/xiaosuo.svg'
 
 definePageMeta({
   title: '案件详情',
@@ -242,7 +241,7 @@ onMounted(() => {
         <DownloadIcon class="size-4" />
       </Button>
       <Button variant="ghost" size="icon" class="size-8 shrink-0 md:hidden" @click="xiaosuoOpen = true">
-        <ClientOnly><img :src="xiaosuoIcon" class="size-4" alt="小索" /></ClientOnly>
+        <ClientOnly><IconXiaosuoIcon class="size-4 text-primary" /></ClientOnly>
       </Button>
     </header>
 

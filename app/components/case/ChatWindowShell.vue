@@ -97,7 +97,9 @@ watch(isOpen, (open) => {
         <!-- 全屏标题栏 -->
         <div class="shrink-0 h-12 flex items-center justify-between px-4 border-b bg-muted/30">
           <div class="flex items-center gap-2 min-w-0">
-            <img v-if="icon" :src="icon" class="size-4 shrink-0" :alt="title" />
+            <slot name="titlebar-icon">
+              <img v-if="icon" :src="icon" class="size-4 shrink-0" :alt="title" />
+            </slot>
             <slot name="titlebar-left">
               <span class="text-sm font-medium truncate">{{ title }}</span>
             </slot>
@@ -143,7 +145,9 @@ watch(isOpen, (open) => {
           @pointerdown="draggable ? onDragStart($event) : undefined"
         >
           <div class="flex items-center gap-2 min-w-0">
-            <img v-if="icon" :src="icon" class="size-3.5 shrink-0" :alt="title" />
+            <slot name="titlebar-icon">
+              <img v-if="icon" :src="icon" class="size-3.5 shrink-0" :alt="title" />
+            </slot>
             <slot name="titlebar-left">
               <span class="text-xs font-medium truncate">{{ title }}</span>
             </slot>
@@ -172,7 +176,9 @@ watch(isOpen, (open) => {
       <SheetHeader class="shrink-0 px-4 pt-4 pb-2">
         <SheetTitle class="flex items-center justify-between text-sm">
           <div class="flex items-center gap-2 min-w-0">
-            <img v-if="icon" :src="icon" class="size-4 shrink-0" :alt="title" />
+            <slot name="titlebar-icon">
+              <img v-if="icon" :src="icon" class="size-4 shrink-0" :alt="title" />
+            </slot>
             <slot name="titlebar-left">
               <span class="font-medium truncate">{{ title }}</span>
             </slot>
