@@ -143,8 +143,8 @@ export function useInitAnalysis(sessionId: Ref<string>) {
 
     moduleStates.value = updated
 
-    // 跨标签页通知：有模块完成或失败时广播
-    if (caseId.value > 0 && (hasResultContent || hasFailedContent)) {
+    // 跨标签页通知：每次有效状态变化时广播（覆盖模块开始/完成/失败/全部完成）
+    if (caseId.value > 0) {
       postCrossTabEvent('analysis:updated', { caseId: caseId.value })
     }
 
@@ -280,6 +280,9 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     streamStarted = false
     phase.value = 'running'
 
+    // 跨标签页通知：分析开始
+    postCrossTabEvent('analysis:updated', { caseId: caseId.value })
+
     stream.submit({
       caseId: caseId.value,
       selectedModules: selectedModules.value,
@@ -287,6 +290,9 @@ export function useInitAnalysis(sessionId: Ref<string>) {
   }
 
   function resumeWorkflow() {
+    // 跨标签页通知：中断恢复
+    postCrossTabEvent('analysis:updated', { caseId: caseId.value })
+
     stream.submit(
       { caseId: caseId.value } as any,
       { command: { resume: { action: 'continue' } } },
