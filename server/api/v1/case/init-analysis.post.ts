@@ -164,7 +164,7 @@ export default defineEventHandler(async (event) => {
 
     // 7. 查找 session
     // 纯重连模式：通过 threadId 查找任意状态的 session（含已完成）
-    // 新执行模式：查找活跃的（status=1）session 用于重连或补充分析
+    // 新执行模式：优先使用 threadId 指定的 session（确保目标精确），fallback 到最新活跃 session
     let existingSession
     if (reconnectedSessionId) {
         existingSession = await prisma.caseSessions.findFirst({
@@ -172,6 +172,18 @@ export default defineEventHandler(async (event) => {
         })
         if (!existingSession) {
             return resError(event, 404, '分析会话不存在')
+        }
+    } else if (threadId) {
+        // 新执行模式 + 有 threadId：优先匹配指定 session
+        existingSession = await prisma.caseSessions.findFirst({
+            where: { sessionId: threadId, caseId, type: 2, status: 1, deletedAt: null },
+        })
+        if (!existingSession) {
+            // fallback：查找该案件最新的活跃 session
+            existingSession = await prisma.caseSessions.findFirst({
+                where: { caseId, type: 2, status: 1, deletedAt: null },
+                orderBy: { createdAt: 'desc' },
+            })
         }
     } else {
         existingSession = await prisma.caseSessions.findFirst({
@@ -230,7 +242,14 @@ export default defineEventHandler(async (event) => {
                 }
             }
 
-            // 有未完成模块 → 创建新 run
+            // 有未完成模块 → 更新 session.metadata 并创建新 run
+            // 关键修复：必须同步 metadata.selectedModules，否则 getInitAnalysisStatusService
+            // 的防御性状态修复会因为 metadata 为空而失效，导致 session 永远停留在 in_progress
+            await prisma.caseSessions.update({
+                where: { sessionId },
+                data: { metadata: { selectedModules } },
+            })
+
             const result = await enqueueRunService({
                 sessionId,
                 threadId: sessionId,

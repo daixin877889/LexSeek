@@ -93,30 +93,15 @@ export const getInitAnalysisStatusService = async (
         where: { sessionId: type2Session?.sessionId, status: { in: ['pending', 'running'] } },
     })
 
+    // 检查 primarySession 是否有任何 run（用于 not_started 判断）
+    const anyRun = await prisma.agentRuns.findFirst({
+        where: { sessionId: primarySession.sessionId },
+        select: { id: true },
+    })
+
     // 从 type=2 session metadata 恢复用户原始选中的模块列表
     const sessionMetadata = (type2Session?.metadata ?? sessions[0]!.metadata) as { selectedModules?: string[] } | null
     const selectedModules = sessionMetadata?.selectedModules
-
-    // 防御性状态修正：如果 session.status=1 但无活跃 run 且无 interrupt，
-    // 检查 selectedModules 是否全部完成，如果是则修正为 completed
-    let sessionStatus = primarySession.status === 1 ? 'in_progress' as const
-        : primarySession.status === 2 ? 'completed' as const
-            : 'failed' as const
-
-    if (sessionStatus === 'in_progress' && !activeRun && !interruptedRun && selectedModules?.length) {
-        const allSelectedComplete = selectedModules.every(name =>
-            modules.find(m => m.name === name)?.status === 'complete',
-        )
-        if (allSelectedComplete) {
-            // 自动修复 session 状态
-            await prisma.caseSessions.update({
-                where: { sessionId: primarySession.sessionId },
-                data: { status: 2 },
-            })
-            sessionStatus = 'completed'
-            logger.info(`[initAnalysis] 自动修复 session ${primarySession.sessionId} 状态为 completed`)
-        }
-    }
 
     // 获取已完成模块的结果（包括 type=2 和 type=3 的会话）
     const result: Record<string, string> = {}
@@ -127,6 +112,40 @@ export const getInitAnalysisStatusService = async (
             if (!existing || analysis.isActive) {
                 result[analysis.analysisType] = analysis.analysisResult
             }
+        }
+    }
+
+    // 如果 primarySession 从未有 run（刚通过 init-session API 创建的空 session）
+    // 返回 not_started 让前端展示 ModuleSelector，同时仍然返回其他 session 累积的 modules/result
+    if (!anyRun && primarySession.status === 1) {
+        return {
+            status: 'not_started',
+            sessionId: primarySession.sessionId,
+            modules,
+            result,
+            hasPendingInterrupt: false,
+        }
+    }
+
+    // 防御性状态修正：如果 session.status=1 但无活跃 run 且无 interrupt，
+    // 检查 selectedModules 是否全部到达终态（complete 或 failed），如果是则修正为 completed
+    let sessionStatus = primarySession.status === 1 ? 'in_progress' as const
+        : primarySession.status === 2 ? 'completed' as const
+            : 'failed' as const
+
+    if (sessionStatus === 'in_progress' && !activeRun && !interruptedRun && selectedModules?.length) {
+        const allSelectedSettled = selectedModules.every(name => {
+            const m = modules.find(mo => mo.name === name)
+            return m?.status === 'complete' || m?.status === 'failed'
+        })
+        if (allSelectedSettled) {
+            // 自动修复 session 状态
+            await prisma.caseSessions.update({
+                where: { sessionId: primarySession.sessionId },
+                data: { status: 2 },
+            })
+            sessionStatus = 'completed'
+            logger.info(`[initAnalysis] 自动修复 session ${primarySession.sessionId} 状态为 completed`)
         }
     }
 
