@@ -13,6 +13,7 @@
 - 重复点击同一 demo case 不在用户云盘中产生多余的 ossFile 记录
 - 最终走原有 `POST /api/v1/case/extract` → 确认表单 → `POST /api/v1/case/create` 流程，生成普通案件（`isDemo=false`）出现在用户的案件列表中
 - Admin 管理页同步改造为真实 OSS 上传，端到端可用
+- 顺手清理仍在调用废弃端点的 dead code 组件 `app/components/case/DemoCaseList.vue`（目前无页面引用它，但仍调用 `/api/v1/demo-cases/create-case/:id` 旧端点，避免未来误复用）
 - `GET /api/v1/demo-cases/create-case/:id`（旧的"一键创建"直达端点）在本任务范围内不再被前台使用，暂不删除以保持向后兼容；后续由独立任务清理
 
 ## 非目标
@@ -56,16 +57,24 @@ interface DemoCaseMaterial {
 
 Admin API（见 3.3）负责物理拒绝 `type=1` 与缺失 `sourceOssFileId` 的请求。
 
-#### 1.3 `ossFiles` 表仅增加复合索引
+#### 1.3 `ossFiles` 表仅增加部分唯一索引
 
 **不新增任何列**。用 `(userId, bucketName, filePath)` 做克隆去重的天然联合键，语义是"该用户云盘里已有指向同一 OSS 对象的记录"。
 
-```prisma
-model ossFiles {
-    // ... 现有字段 ...
-    @@index([userId, bucketName, filePath], map: "idx_oss_files_user_bucket_path")
-}
+**必须是 UNIQUE（而非普通 index）**，否则两个并发 prepare 请求会各自 miss、各自 create，产生重复克隆行。同时为了兼容"用户软删除自己的克隆记录后再次点击同一 demo case 需要能建新行"的场景（见 5.1），约束必须只作用于未软删行。
+
+结论：必须使用 Postgres 部分唯一索引 `CREATE UNIQUE INDEX ... WHERE deleted_at IS NULL`。**Prisma `@@unique` 不支持 partial 索引**，因此必须在 Prisma migration 的 `migration.sql` 中手写原生 DDL：
+
+```sql
+-- 在 Prisma migration 的 migration.sql 末尾手写
+CREATE UNIQUE INDEX "idx_oss_files_user_bucket_path"
+  ON "oss_files" ("user_id", "bucket_name", "file_path")
+  WHERE "deleted_at" IS NULL;
 ```
+
+`schema.prisma` 中**不要**写 `@@unique` 或 `@@index` 来描述这个约束；手写 migration 与 `prisma migrate dev` 的 diff 检测不冲突（Prisma 会把 partial index 视为"数据库独有"并忽略）。后续执行 `prisma db pull` 时应注意该索引不会回流到 schema。
+
+**并发写入时的行为**：两个并发 prepare 请求同时 miss、同时 create 时，其中一个会因为 UNIQUE 约束违反抛 `P2002` 错误；prepare 服务层捕获这个错误后，重新执行 `findFirst` 即可拿到另一个请求刚写入的克隆行，正常返回。
 
 #### 1.4 数据迁移脚本
 
@@ -163,30 +172,48 @@ if (existing) {
 }
 
 // 3. 未命中：创建新 ossFile 行（字段直接复制自 source，仅 userId 换成当前用户）
-const clone = await prisma.ossFiles.create({
-  data: {
-    userId: user.id,
-    bucketName: source.bucketName,
-    fileName: source.fileName,
-    filePath: source.filePath,           // 同一 OSS object
-    fileSize: source.fileSize,
-    fileType: source.fileType,
-    source: FileSource.CASE_ANALYSIS,    // 与用户自上传对齐
-    status: source.status,
-    encrypted: source.encrypted,
-    originalMimeType: source.originalMimeType,
-  },
-})
+try {
+  const clone = await tx.ossFiles.create({
+    data: {
+      userId: user.id,
+      bucketName: source.bucketName,
+      fileName: source.fileName,
+      filePath: source.filePath,           // 同一 OSS object
+      fileSize: source.fileSize,
+      fileType: source.fileType,
+      source: FileSource.CASE_ANALYSIS,    // 与用户自上传对齐
+      status: source.status,
+      // encrypted / originalMimeType 不显式传入，使用 schema 默认值；
+      // 项目已不再使用端到端加密，这两个字段由 Prisma 默认值兜底
+    },
+  })
 
-// 4. 同步克隆识别与嵌入（见 2.3）
-await cloneRecognitionAndEmbeddings({
-  sourceUserId: source.userId,
-  sourceOssFileId: source.id,
-  targetUserId: user.id,
-  targetOssFileId: clone.id,
-})
+  // 4. 同步克隆识别与嵌入（见 2.3）
+  await cloneRecognitionAndEmbeddings({
+    tx,
+    sourceUserId: source.userId,
+    sourceOssFileId: source.id,
+    targetUserId: user.id,
+    targetOssFileId: clone.id,
+  })
 
-result.push(toOssFileItem(clone))
+  result.push(toOssFileItem(clone))
+} catch (err) {
+  // 并发写：另一个请求已先行 create，UNIQUE 约束违反 → 重查一次
+  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+    const winner = await tx.ossFiles.findFirstOrThrow({
+      where: {
+        userId: user.id,
+        bucketName: source.bucketName,
+        filePath: source.filePath,
+        deletedAt: null,
+      },
+    })
+    result.push(toOssFileItem(winner))
+    continue
+  }
+  throw err
+}
 ```
 
 **顺序执行而非并发**：所有材料在同一个 Prisma `$transaction` 中顺序克隆，保证整个 prepare 操作的原子性。嵌入向量的 pgvector 写入是原生 SQL，使用 `$queryRawUnsafe`/`$executeRawUnsafe` 在同一事务内执行。
@@ -199,7 +226,20 @@ result.push(toOssFileItem(clone))
 
 新建服务函数 `cloneRecognitionAndEmbeddingsService(input)` 放在 `server/services/case/demoCase.service.ts`。
 
-**识别记录克隆**（三类按需处理）：
+**关键原则：只克隆 status=成功的识别记录。**
+
+理由：若源识别记录处于 `PROCESSING`/`FAILED`，直接复制到用户侧会触发后续两种异常行为：
+1. `POST /api/v1/recognition/start` 再次被用户端的 `addFiles` 触发时，现有服务（`ocr.service.ts` 的 `createImageConversionService`、`mineru.service.ts` 的 `submitPdfConversionService`）判断到已有非 COMPLETED 记录，会根据路径不同表现为"重复创建被拒绝"或"重新调用 MinerU 并扣用户积分" —— 后者是对用户的硬伤害
+2. 对于图片路径直接返回"图片已存在识别记录，请勿重复创建"错误，用户卡在识别中状态
+
+因此克隆流程必须按"status=成功"严格过滤；admin 侧识别未成功时，跳过识别克隆，让用户端的 `addFiles → /api/v1/recognition/start` 走**新建**分支，与 admin 侧完全解耦。
+
+**状态值常量参考**（对应 `prisma/models/recognition.prisma`）：
+- `doc_recognition_records.status=2` 为成功
+- `image_recognition_records.status=2` 为成功
+- `asr_records.status=2` 为成功
+
+**识别记录克隆**（三类按需处理，且只克隆 status=2 的行）：
 
 ```sql
 -- 文档识别
@@ -213,11 +253,12 @@ SELECT $targetUserId, $targetOssFileId, status, html_content, markdown_content,
 FROM doc_recognition_records
 WHERE user_id = $sourceUserId
   AND oss_file_id = $sourceOssFileId
+  AND status = 2
   AND deleted_at IS NULL
 RETURNING id;
 ```
 
-`image_recognition_records`、`asr_records` 结构类似，字段映射 1:1 复制。若源文件对应表中没有行（admin 尚未完成识别），跳过并继续。
+`image_recognition_records`、`asr_records` 结构同理，全部加 `status = 2 AND deleted_at IS NULL` 过滤。若查到 0 行，视为"admin 未完成识别"，跳过本张表的克隆，继续下一张。
 
 #### 2.4 嵌入向量克隆
 
@@ -246,6 +287,8 @@ SELECT array_agg(id) FROM copied;
 
 **vector_ids 回填说明**：当前检索路径仅通过 `case_material_embeddings.metadata` 的 userId/sourceId 过滤，不走 `recognition_records.vector_ids`。回填仅用于管理面板展示"本文档已生成 N 个向量"这类统计，不影响检索正确性。为了保持识别记录的字段完整性，本设计选择回填；实现时若发现回填路径复杂可在代码 review 时调整为先不回填，留空数组。
 
+**严禁绕过事务**：`server/services/legal/vectorStore.service.ts` 使用独立的 `pg.Pool`（不是 Prisma 连接池），因此 `server/services/material/materialEmbedding.service.ts` 中调用 `addDocumentsToVectorStore` / `deleteContentEmbeddings` / `getPool()` 的任何函数都会**绕过 Prisma 交互式事务**。克隆实现必须**只使用 `tx.$executeRawUnsafe` / `tx.$queryRawUnsafe`** 在 Prisma 事务连接上执行原生 SQL，**严禁调用** embedding service 或 vectorStore service 的任何函数。
+
 #### 2.5 列表端点保持现状
 
 `GET /api/v1/demo-cases` 现有实现已满足前台列表需要，本次不修改。
@@ -254,7 +297,9 @@ SELECT array_agg(id) FROM copied;
 
 #### 3.1 新增 `FileSource.DEMO_CASE`
 
-`shared/types/file.ts` 增加枚举项：
+本项改动涉及**三个文件**，缺一会导致云盘列表显示 undefined 或上传拒绝：
+
+**A. `shared/types/file.ts` 的 `FileSource` 枚举** —— 增加枚举值：
 
 ```ts
 export enum FileSource {
@@ -263,9 +308,27 @@ export enum FileSource {
 }
 ```
 
-`shared/utils/fileSourceConfig.ts`（或等价位置）新增上传场景配置：允许常见文档、图片、音频 MIME，文件大小上限暂定 50MB。
+**B. 同文件 `FileSourceName` 展示名映射** —— 增加键值对：
 
-OSS 目录按既有模式 `${basePath}user${user.id}/demo_case/`，或者新增"系统资源"目录 `${basePath}system/demo_case/` —— **决定**：沿用既有 per-user 目录，admin 账户本身就是一个正常用户，无需特殊逻辑。
+```ts
+export const FileSourceName: Record<FileSource, string> = {
+  // ... 现有 ...
+  [FileSource.DEMO_CASE]: '示范案例',
+}
+```
+
+不补齐会导致 `server/api/v1/files/oss/file-list.ts` 的 `FileSourceName[file.source]` 返回 `undefined`，admin 云盘列表列会显示空字符串或 undefined。
+
+**C. `shared/utils/file.ts` 的 `getFileSourceAccept`** —— 为 `DEMO_CASE` 补上允许的 MIME 与大小上限（允许常见文档/图片/音频，文件大小上限暂定 50MB，与 `CASE_ANALYSIS` 对齐即可）：
+
+```ts
+case FileSource.DEMO_CASE:
+  return [ /* 与 CASE_ANALYSIS 相同的 accept 列表 */ ]
+```
+
+未补齐 `getFileSourceAccept` 会导致 admin 侧上传时 `/api/v1/storage/presigned-url` 端点返回 400 `不支持的上传场景`。
+
+OSS 目录沿用既有 per-user 模式 `${basePath}user${user.id}/demo_case/` —— admin 账户本身就是一个正常用户，无需特殊逻辑。
 
 #### 3.2 Admin 上传组件
 
@@ -514,10 +577,15 @@ export interface DemoCasePrepareResponse {
 
 | 场景 | 处理 |
 |---|---|
-| admin 上传文件但识别尚未完成 | 克隆 ossFile 成功，`doc_recognition_records` 等表查不到源行 → 跳过该表克隆，无致命错误；前端 `addFiles` 后走既有 `/api/v1/recognition/start` 路径，用户会看到"识别中"→"已识别" |
+| admin 上传文件但识别尚未完成 / 识别失败 | 克隆 ossFile 成功；识别记录克隆按 `status=2` 过滤，查到 0 行 → 跳过识别克隆。前端 `addFiles` 后走既有 `/api/v1/recognition/start` 路径，走新建分支，由用户端正常识别 |
 | admin 源文件被软删 | `prepare` 在 2.2 第 1 步检测到 `source.deletedAt` 非空，整体事务回滚并返回 500 `示范案例资源异常` |
-| 用户重复点同一 demo case | `(userId, bucketName, filePath)` 命中 → 返回同一 ossFileId；`AiPromptInput.addFiles` 内部基于 `selectedFileIds` 去重，不会在文件列表里出现两份 |
+| 用户重复点同一 demo case（串行） | `(userId, bucketName, filePath)` 命中 → 返回同一 ossFileId；`AiPromptInput.addFiles` 内部基于 `selectedFileIds` 去重，不会在文件列表里出现两份 |
+| 用户并发两次点同一 demo case | 前端 `preparingDemoCaseId` 非空时忽略后续点击；若前端防御失效（两个页面 tab），后端两个 prepare 请求其中一个会因部分唯一索引 P2002 冲突，服务层 catch 后重查联合键命中、返回同一克隆行 |
+| 用户软删自己的克隆 ossFile 后再次点击 | `findFirst` 带 `deletedAt: null` 会 miss → 新建克隆行并重新克隆识别记录。旧的软删行保留（`deletedAt` 非空），`case_material_embeddings` 中旧的克隆向量成为孤儿数据（不影响检索，不清理） |
 | 用户已自上传同名文件然后点击 demo case | `filePath` 不同（用户上传生成的是 `user<id>/case_analysis/uuid.pdf`，admin 上传是 `user<adminId>/demo_case/uuid.pdf`），视为两份独立文件。这是预期行为 |
+| admin 修改源文件 `fileName`（不改 `filePath`） | 用户已有的克隆行保持首次克隆时的 fileName 快照，不会自动更新；用户下次点击同 demo case 仍复用旧克隆行。属于有意的快照语义 |
+| admin 软删 demo case 本身 | 用户已克隆的 ossFile 不受影响，仍在用户云盘中；列表端点 `GET /api/v1/demo-cases` 过滤已软删的 demo case，用户不再看到入口 |
+| admin 本人在前台使用自己创建的 demo case | 联合键 `(adminUserId, bucketName, filePath)` 直接命中源 ossFile 本身 → 返回源行，无需创建克隆。后续 addFiles + recognition/start 的 userId 校验因 userId 相同自动通过 |
 | 用户 prepare 成功后未继续提取、关闭页面、下次进入 | 克隆的 ossFile 仍在用户云盘里；再次点击走联合键命中，零副作用 |
 | `demoCase.content` 与 `materials` 都为空 | admin API 层阻止保存，前台不会出现这类 demo case |
 | 用户点"提取信息" → 提交案件 | 走原有 `/api/v1/case/extract` → `/api/v1/case/create` 流程，`cases.isDemo = false`，出现在"我的案件"列表中 |
