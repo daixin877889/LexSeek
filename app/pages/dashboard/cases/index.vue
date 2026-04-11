@@ -331,17 +331,15 @@ const handleDelete = async () => {
 
   isDeleting.value = true;
   try {
-    const result = await useApiFetch(`/api/v1/cases/${caseToDelete.value}`, {
+    await useApiFetch(`/api/v1/cases/${caseToDelete.value}`, {
       method: "DELETE",
     });
 
-    if (result !== null) {
-      toast.success("案件删除成功");
-      showDeleteDialog.value = false;
-      caseToDelete.value = null;
-      // 刷新列表
-      fetchCases();
-    }
+    toast.success("案件删除成功");
+    showDeleteDialog.value = false;
+    caseToDelete.value = null;
+    // 刷新列表
+    fetchCases();
   } catch (error) {
     logger.error("删除案件失败:", error);
     toast.error("删除案件失败");
