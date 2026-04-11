@@ -89,7 +89,7 @@ function useCaseDetail(
 > **加载态**: `analysisStatus` 基于 `useApi` 异步加载，初始时 `allModuleCards` 返回全部 idle，API 返回后响应式更新。这是 Vue 响应式的正常行为，无需特殊处理。
 
 > **not_started 场景**: 从未分析过的案件，`analysisStatus.modules` 为空数组，`moduleMap` 为空，全部返回 idle。用户可直接通过卡片入口开始首次生成。
-```
+
 
 保留原 `analysisResults`（仅 complete），供导出、版本管理等场景使用。
 
@@ -141,13 +141,34 @@ function useCaseDetail(
 |------|------|
 | `shared/types/case.ts` | 新增 `AnalysisModuleDisplayStatus`、`AnalysisModuleCard` 类型（不含 icon 字段） |
 | `app/composables/useCaseDetail.ts` | 新增 `allModuleCards` computed（接收 `generatingModules` 参数），导出 |
-| `app/components/case/AnalysisResults.vue` | 新增 `moduleCards` prop（`AnalysisModuleCard[]`，与原 `results` 并存）；三态卡片渲染（`:key="card.moduleName"`）；emit `generateModule`；"补充分析"按钮 emit `batchGenerate`；详情翻页维护 `completeIndices` |
+| `app/components/case/AnalysisResults.vue` | 新增 `moduleCards` prop（`AnalysisModuleCard[]`，与原 `results` 并存）；`activeIndex` 改为 `activeModule: string \| null`；三态卡片渲染（`:key="card.moduleName"`）；emit `generateModule`；"补充分析"按钮 emit `batchGenerate`；详情翻页维护 `completeIndices` |
 | `app/components/caseDetail/CaseDetailOverview.vue` | 新增 `moduleCards` prop；透传 `generateModule` emit |
 | `app/components/caseDetail/CaseDetailAnalysis.vue` | 新增 `moduleCards` prop；透传 `generateModule`、`batchGenerate` emit |
-| `app/pages/dashboard/cases/[id].vue` | 传递 `allModuleCards` 给子组件；新增 `handleGenerateModule`（单个生成 → moduleChatManager + autoMessage）、`handleBatchGenerate`（原地调用 init-analysis API） |
+| `app/pages/dashboard/cases/[id].vue` | `?ai` 参数改为 moduleName；传递 `allModuleCards` 给子组件；新增 `handleGenerateModule`（单个生成 → moduleChatManager + autoMessage）、`handleBatchGenerate`（原地调用 init-analysis API） |
 | `app/composables/useModuleChatManager.ts` | `getOrCreateInstance` 新增 `autoMessage?: string` 参数；新增 `generatingModules: Ref<string[]>` 导出 |
 
-### 5. 不改动的部分
+### 5. URL 参数改用 moduleName
+
+当前 `[id].vue` 中 `?ai=<index>` 用数字索引定位分析结果。随着模块补充生成，索引会漂移（如原本 `?ai=0` 指向 chronicle，补充生成 summary 后变成指向 summary）。
+
+**改动**：`?ai` 参数从数字索引改为 moduleName 字符串（如 `?ai=summary`、`?ai=chronicle`）。
+
+```typescript
+// 之前
+const analysisIndex = ref(route.query.ai ? Number(route.query.ai) : 0)
+
+// 之后
+const analysisModule = ref<string | null>(route.query.ai as string ?? null)
+```
+
+- `AnalysisResults` 组件的 `activeIndex` prop 改为 `activeModule: string | null`
+- 详情视图进入时通过 `moduleName` 定位，而非数组索引
+- `navigateAnalysis(index)` 改为 `navigateAnalysis(moduleName)`
+- query 同步逻辑对应更新
+
+涉及文件：`[id].vue`、`CaseDetailOverview.vue`、`CaseDetailAnalysis.vue`、`AnalysisResults.vue`（已在组件改动清单中）。
+
+### 6. 不改动的部分
 
 - 服务端所有 API（`init-analysis`、`init-analysis-status` 等）
 - `useInitAnalysis.ts`
