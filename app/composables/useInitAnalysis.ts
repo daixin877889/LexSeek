@@ -9,6 +9,7 @@
 
 import { INIT_ANALYSIS_MODULES, DEFAULT_SELECTED_MODULES } from '#shared/types/initAnalysis'
 import type { ModuleRunState, InitAnalysisStatusResponse, ModuleStatus } from '#shared/types/initAnalysis'
+import type { AnalysisModuleCard } from '#shared/types/case'
 import { coerceRawMessages } from '~/components/ai/composables/useMessageParser'
 
 // InitAnalysis LangGraph 状态类型
@@ -48,10 +49,61 @@ export function useInitAnalysis(sessionId: Ref<string>) {
   const resultFromDB = ref<Record<string, string>>({})
   // 右侧面板当前选中的 tab 索引
   const activeIndex = ref(0)
+  // 从 loadStatus 加载的全局模块状态（跨 session 的 7 个模块，用于右侧面板全局视图）
+  const statusModules = ref<InitAnalysisStatusResponse['modules']>([])
 
   const activeModules = computed(() =>
     INIT_ANALYSIS_MODULES.filter(m => selectedModules.value.includes(m.name)),
   )
+
+  // 右侧面板 7 个模块的全局卡片（跨 session 聚合 + 实时流覆盖）
+  const allModuleCards = computed<AnalysisModuleCard[]>(() => {
+    const globalModules = statusModules.value
+    const streamResult = stream.values.value?.result ?? {}
+    const streamFailed = stream.values.value?.failedModules ?? {}
+    const localStates = moduleStates.value
+
+    return INIT_ANALYSIS_MODULES.map(def => {
+      // 实时流中的状态优先（本 session 正在跑的模块）
+      const local = localStates[def.name]
+      if (local) {
+        if (local.status === 'complete' || streamResult[def.name]) {
+          return {
+            moduleName: def.name,
+            moduleTitle: def.title,
+            status: 'complete' as const,
+            content: streamResult[def.name] ?? local.content,
+          }
+        }
+        if (local.status === 'failed' || streamFailed[def.name]) {
+          return { moduleName: def.name, moduleTitle: def.title, status: 'failed' as const }
+        }
+        if (local.status === 'streaming') {
+          return { moduleName: def.name, moduleTitle: def.title, status: 'in_progress' as const }
+        }
+      }
+
+      // fallback 到全局状态
+      const g = globalModules.find(m => m.name === def.name)
+      if (g?.status === 'complete' && g.result) {
+        return {
+          moduleName: def.name,
+          moduleTitle: def.title,
+          status: 'complete' as const,
+          content: g.result,
+          analyzedAt: g.analyzedAt,
+          version: g.version,
+        }
+      }
+      if (g?.status === 'failed') {
+        return { moduleName: def.name, moduleTitle: def.title, status: 'failed' as const }
+      }
+      if (g?.status === 'in_progress') {
+        return { moduleName: def.name, moduleTitle: def.title, status: 'in_progress' as const }
+      }
+      return { moduleName: def.name, moduleTitle: def.title, status: 'idle' as const }
+    })
+  })
 
   function getModuleState(name: string): ModuleRunState {
     return moduleStates.value[name] ?? { name, status: 'idle', content: '' }
@@ -239,12 +291,16 @@ export function useInitAnalysis(sessionId: Ref<string>) {
 
     const status = await useApiFetch<InitAnalysisStatusResponse>(
       `/api/v1/case/init-analysis-status/${caseId.value}`,
+      { query: { sessionId: sessionId.value } },
     )
 
     if (!status) {
       isInitialized.value = true
       return
     }
+
+    // 保存全局模块状态（跨 session 聚合的 7 个模块，供右侧面板使用）
+    statusModules.value = status.modules ?? []
 
     // 计算已完成模块（整个案件的累积状态，跨 session）
     completedModules.value = (status.modules ?? [])
@@ -361,6 +417,7 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     isInitialized,
     moduleStates,
     activeModules,
+    allModuleCards,
     isLoading: stream.isLoading,
     interruptData,
     values: stream.values,

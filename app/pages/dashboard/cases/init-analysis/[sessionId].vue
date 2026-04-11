@@ -74,7 +74,7 @@
             <CaseAnalysisResults
               v-if="rightPanelHasResults || phase !== 'select'"
               :results="completedResults"
-              :module-cards="moduleCards"
+              :module-cards="allModuleCards"
               v-model:active-index="activeIndex"
               v-model:view-mode="rightPanelViewMode"
               :readonly="true"
@@ -88,7 +88,7 @@
         <div v-if="rightPanelViewMode === 'detail'" class="flex-1 overflow-hidden">
           <CaseAnalysisResults
             :results="completedResults"
-            :module-cards="moduleCards"
+            :module-cards="allModuleCards"
             v-model:active-index="activeIndex"
             v-model:view-mode="rightPanelViewMode"
             :readonly="true"
@@ -141,7 +141,7 @@
 </template>
 
 <script lang="ts" setup>
-import type { AnalysisResult, AnalysisModuleCard } from '#shared/types/case'
+import type { AnalysisResult } from '#shared/types/case'
 import type { CaseDetailMaterialItem } from '~/composables/useCaseDetail'
 import { CaseMaterialType } from '#shared/types/case'
 import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
@@ -216,6 +216,7 @@ const {
   isInitialized,
   moduleStates,
   activeModules,
+  allModuleCards,
   isLoading,
   interruptData,
   mergedResult,
@@ -274,31 +275,12 @@ const completedResults = computed<AnalysisResult[]>(() => {
     })
 })
 
-// 从 moduleStates 构建四态模块卡片（与案件详情页一致的展示方式）
-const moduleCards = computed<AnalysisModuleCard[]>(() => {
-  const states = moduleStates.value
-  if (!Object.keys(states).length) return []
-  const result = mergedResult.value ?? {}
-  return Object.values(states).map((ms) => {
-    const mod = INIT_ANALYSIS_MODULES.find(m => m.name === ms.name)
-    // streaming/interrupted → in_progress
-    const status: AnalysisModuleCard['status'] =
-      ms.status === 'streaming' || ms.status === 'interrupted' ? 'in_progress'
-        : ms.status === 'complete' ? 'complete'
-          : ms.status === 'failed' ? 'failed'
-            : 'idle'
-    return {
-      moduleName: ms.name,
-      moduleTitle: mod?.title ?? ms.name,
-      status,
-      content: result[ms.name] ?? undefined,
-      analyzedAt: status === 'complete' ? new Date().toISOString() : undefined,
-    }
-  })
-})
+// 从 moduleStates 构建四态模块卡片 → 改用 useInitAnalysis 的 allModuleCards（跨 session 全局 7 个模块）
 
 // select 阶段右侧面板是否有已存在结果可展示（补充分析场景）
-const rightPanelHasResults = computed(() => completedResults.value.length > 0)
+const rightPanelHasResults = computed(() =>
+  allModuleCards.value.some(c => c.status === 'complete'),
+)
 
 // 当结果列表变化时，确保 activeIndex 在有效范围内
 watch(completedResults, (results) => {

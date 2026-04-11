@@ -28,10 +28,16 @@ export const validateAndSortModules = (selectedModules: string[]): string[] => {
 
 /**
  * 获取案件的初始化分析状态
+ *
+ * @param sessionId 可选，指定查询特定 session 的状态。
+ *   传入时：status/selectedModules/hasPendingInterrupt 精确对应该 session。
+ *   不传时：使用最新的 type=2 session（案件详情页场景）。
+ *   modules/result 始终是跨 session 的全局聚合结果。
  */
 export const getInitAnalysisStatusService = async (
     caseId: number,
     userId: number,
+    sessionId?: string,
 ): Promise<InitAnalysisStatusResponse> => {
     // 验证案件权限
     const caseRecord = await prisma.cases.findFirst({
@@ -53,7 +59,7 @@ export const getInitAnalysisStatusService = async (
 
     const sessionIds = sessions.map(s => s.sessionId)
 
-    // 获取所有会话的分析结果
+    // 获取所有会话的分析结果（跨 session 全局聚合）
     const analyses = await prisma.caseAnalyses.findMany({
         where: { sessionId: { in: sessionIds }, deletedAt: null },
         orderBy: { createdAt: 'asc' },
@@ -80,17 +86,27 @@ export const getInitAnalysisStatusService = async (
         }
     })
 
-    const type2Session = sessions.find(s => s.type === 2)
-    const primarySession = type2Session ?? sessions[0]!
+    // 确定 primarySession：指定 sessionId 时精确匹配，否则使用最新 type=2
+    let primarySession
+    if (sessionId) {
+        primarySession = sessions.find(s => s.sessionId === sessionId && s.type === 2)
+        if (!primarySession) {
+            // sessionId 不匹配任何 type=2 session，返回全局模块数据但状态为 not_started
+            return { status: 'not_started', sessionId, modules, result: buildResultMap(analyses), hasPendingInterrupt: false }
+        }
+    } else {
+        const type2Session = sessions.find(s => s.type === 2)
+        primarySession = type2Session ?? sessions[0]!
+    }
 
     // 检查是否有待处理的 interrupt（INTERRUPTED 状态的 run）
     const interruptedRun = await prisma.agentRuns.findFirst({
-        where: { sessionId: type2Session?.sessionId, status: 'interrupted' },
+        where: { sessionId: primarySession.sessionId, status: 'interrupted' },
     })
 
     // 检查是否有活跃的 run（PENDING/RUNNING）
     const activeRun = await prisma.agentRuns.findFirst({
-        where: { sessionId: type2Session?.sessionId, status: { in: ['pending', 'running'] } },
+        where: { sessionId: primarySession.sessionId, status: { in: ['pending', 'running'] } },
     })
 
     // 检查 primarySession 是否有任何 run（用于 not_started 判断）
@@ -99,21 +115,12 @@ export const getInitAnalysisStatusService = async (
         select: { id: true },
     })
 
-    // 从 type=2 session metadata 恢复用户原始选中的模块列表
-    const sessionMetadata = (type2Session?.metadata ?? sessions[0]!.metadata) as { selectedModules?: string[] } | null
+    // 从 primarySession metadata 恢复用户原始选中的模块列表
+    const sessionMetadata = primarySession.metadata as { selectedModules?: string[] } | null
     const selectedModules = sessionMetadata?.selectedModules
 
-    // 获取已完成模块的结果（包括 type=2 和 type=3 的会话）
-    const result: Record<string, string> = {}
-    for (const analysis of analyses) {
-        if (analysis.status === 2 && analysis.analysisResult) {
-            // isActive 版本优先，否则用最新版
-            const existing = result[analysis.analysisType]
-            if (!existing || analysis.isActive) {
-                result[analysis.analysisType] = analysis.analysisResult
-            }
-        }
-    }
+    // 获取已完成模块的结果（跨 session 全局聚合）
+    const result = buildResultMap(analyses)
 
     // 如果 primarySession 从未有 run（刚通过 init-session API 创建的空 session）
     // 返回 not_started 让前端展示 ModuleSelector，同时仍然返回其他 session 累积的 modules/result
@@ -157,6 +164,20 @@ export const getInitAnalysisStatusService = async (
         result,
         hasPendingInterrupt: !!interruptedRun,
     }
+}
+
+/** 从 analyses 构建已完成结果 map（isActive 优先） */
+function buildResultMap(analyses: Array<{ analysisType: string; status: number; analysisResult: string | null; isActive: boolean }>): Record<string, string> {
+    const result: Record<string, string> = {}
+    for (const analysis of analyses) {
+        if (analysis.status === 2 && analysis.analysisResult) {
+            const existing = result[analysis.analysisType]
+            if (!existing || analysis.isActive) {
+                result[analysis.analysisType] = analysis.analysisResult
+            }
+        }
+    }
+    return result
 }
 
 /**

@@ -19,8 +19,11 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, '无效的案件ID')
     }
 
+    const query = getQuery(event)
+    const sessionId = query.sessionId as string | undefined
+
     try {
-        const status = await getInitAnalysisStatusService(caseId, user.id)
+        const status = await getInitAnalysisStatusService(caseId, user.id, sessionId)
         return resSuccess(event, '获取成功', status)
     } catch (err: any) {
         return resError(event, 400, err.message)
