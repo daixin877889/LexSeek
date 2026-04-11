@@ -147,17 +147,17 @@ SET materials = COALESCE(
 
 #### 2.2 克隆流程（单材料视角）
 
-对 `demoCase.materials` 顺序遍历，每一项执行：
+对 `demoCase.materials` 顺序遍历，每一项执行（**位于事务内部，create 失败不做局部 catch**）：
 
 ```ts
 // 1. 读取 admin 源 ossFile
-const source = await findOssFileByIdDao(material.sourceOssFileId)
+const source = await tx.ossFiles.findUnique({ where: { id: material.sourceOssFileId } })
 if (!source || source.deletedAt) {
   throw new Error('示范案例资源异常')
 }
 
 // 2. 查用户云盘里是否已有指向同一 OSS 对象的行
-const existing = await prisma.ossFiles.findFirst({
+const existing = await tx.ossFiles.findFirst({
   where: {
     userId: user.id,
     bucketName: source.bucketName,
@@ -172,55 +172,90 @@ if (existing) {
 }
 
 // 3. 未命中：创建新 ossFile 行（字段直接复制自 source，仅 userId 换成当前用户）
-try {
-  const clone = await tx.ossFiles.create({
-    data: {
-      userId: user.id,
-      bucketName: source.bucketName,
-      fileName: source.fileName,
-      filePath: source.filePath,           // 同一 OSS object
-      fileSize: source.fileSize,
-      fileType: source.fileType,
-      source: FileSource.CASE_ANALYSIS,    // 与用户自上传对齐
-      status: source.status,
-      // encrypted / originalMimeType 不显式传入，使用 schema 默认值；
-      // 项目已不再使用端到端加密，这两个字段由 Prisma 默认值兜底
-    },
-  })
+// P2002 冲突不在此处 catch —— 详见下方"事务级重试"。
+const clone = await tx.ossFiles.create({
+  data: {
+    userId: user.id,
+    bucketName: source.bucketName,
+    fileName: source.fileName,
+    filePath: source.filePath,           // 同一 OSS object
+    fileSize: source.fileSize,
+    fileType: source.fileType,
+    source: FileSource.CASE_ANALYSIS,    // 与用户自上传对齐
+    status: source.status,
+    // encrypted / originalMimeType 不显式传入，使用 schema 默认值；
+    // 项目已不再使用端到端加密，这两个字段由 Prisma 默认值兜底
+  },
+})
 
-  // 4. 同步克隆识别与嵌入（见 2.3）
-  await cloneRecognitionAndEmbeddings({
-    tx,
-    sourceUserId: source.userId,
-    sourceOssFileId: source.id,
-    targetUserId: user.id,
-    targetOssFileId: clone.id,
-  })
+// 4. 同步克隆识别与嵌入（见 2.3）
+await cloneRecognitionAndEmbeddings({
+  tx,
+  sourceUserId: source.userId,
+  sourceOssFileId: source.id,
+  targetUserId: user.id,
+  targetOssFileId: clone.id,
+})
 
-  result.push(toOssFileItem(clone))
-} catch (err) {
-  // 并发写：另一个请求已先行 create，UNIQUE 约束违反 → 重查一次
-  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-    const winner = await tx.ossFiles.findFirstOrThrow({
-      where: {
-        userId: user.id,
-        bucketName: source.bucketName,
-        filePath: source.filePath,
-        deletedAt: null,
-      },
-    })
-    result.push(toOssFileItem(winner))
-    continue
+result.push(toOssFileItem(clone))
+```
+
+**事务级重试（关键修订）**：
+
+Postgres 的事务在 UNIQUE 违反（P2002）抛出后会进入 aborted 状态，**此后任何查询都会失败**（`current transaction is aborted, commands ignored until end of transaction block`）。因此 P2002 的兜底**不能在同一个事务内 catch 重查**，必须放到 `$transaction` 调用**外层**重开一个新事务：
+
+```ts
+// 服务层入口，包住整个 $transaction
+async function prepareDemoCaseForUserService(
+  demoCaseId: number,
+  user: { id: number },
+): Promise<{ content: string | null, files: OssFileItem[] }> {
+  const MAX_RETRIES = 2
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await prisma.$transaction(
+        async (tx) => {
+          const demoCase = await tx.demoCases.findFirst({
+            where: { id: demoCaseId, deletedAt: null, status: 1 },
+          })
+          if (!demoCase) throw /* 404 或 400 对应错误 */
+
+          const materials = (demoCase.materials ?? []) as unknown as DemoCaseMaterial[]
+          const result: OssFileItem[] = []
+
+          for (const material of materials) {
+            // ... 上面 1-4 步（findFirst 命中复用、miss 则 create + 克隆识别/嵌入）
+          }
+
+          return { content: demoCase.content, files: result }
+        },
+        { timeout: 30_000, maxWait: 5_000 },
+      )
+    } catch (err) {
+      // 只重试因并发产生的 UNIQUE 冲突；其他错误直接上抛
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError
+        && err.code === 'P2002'
+        && attempt < MAX_RETRIES
+      ) {
+        logger.warn('prepare demo case P2002 retry', { demoCaseId, userId: user.id, attempt })
+        continue
+      }
+      throw err
+    }
   }
-  throw err
+  // 理论不可达
+  throw new Error('prepare demo case 重试超出上限')
 }
 ```
 
-**顺序执行而非并发**：所有材料在同一个 Prisma `$transaction` 中顺序克隆，保证整个 prepare 操作的原子性。嵌入向量的 pgvector 写入是原生 SQL，使用 `$queryRawUnsafe`/`$executeRawUnsafe` 在同一事务内执行。
+**幂等性保证**：每次重试都是一次全新的事务，顶部的 `tx.ossFiles.findFirst` 会重查联合键。第二次进入时，另一个并发请求已经 commit，`findFirst` 直接命中并复用，不会再触发 create。因此最多重试 1 次就能稳定成功，留 `MAX_RETRIES=2` 作为保险。整个 prepare 操作天然幂等（联合键命中即复用）。
 
-**事务超时**：Prisma `interactiveTransactions` 默认 5 秒，对于多文件 + 嵌入向量克隆显然不够。调用 `$transaction(fn, { timeout: 30_000, maxWait: 5_000 })` 显式指定 30 秒超时。
-
-任一环节失败整体回滚，返回 500。
+**执行模型说明**：
+- 所有材料在同一个事务中**顺序克隆**，不并发，保证事务边界清晰
+- 嵌入向量的 pgvector 写入通过 `tx.$executeRawUnsafe` / `tx.$queryRawUnsafe` 在同一事务连接上执行，与 ossFile create 共享事务
+- `$transaction` 调用显式指定 `timeout: 30_000`（默认 5s 对多文件 + 嵌入向量克隆不够）
+- 任一环节失败（非 P2002）整体回滚，返回 500
 
 #### 2.3 识别记录 + 嵌入向量克隆
 
@@ -242,7 +277,7 @@ try {
 **识别记录克隆**（三类按需处理，且只克隆 status=2 的行）：
 
 ```sql
--- 文档识别
+-- 文档识别：字段 1:1 复制，仅换 user_id / oss_file_id
 INSERT INTO doc_recognition_records
   (user_id, oss_file_id, status, html_content, markdown_content,
    keywords, summary, vector_ids, last_embedding_at, last_edit_at,
@@ -258,7 +293,49 @@ WHERE user_id = $sourceUserId
 RETURNING id;
 ```
 
-`image_recognition_records`、`asr_records` 结构同理，全部加 `status = 2 AND deleted_at IS NULL` 过滤。若查到 0 行，视为"admin 未完成识别"，跳过本张表的克隆，继续下一张。
+```sql
+-- 图片识别：同上；image_type 为内容描述性字段，可直接复制
+INSERT INTO image_recognition_records
+  (user_id, oss_file_id, status, image_type, html_content, markdown_content,
+   keywords, summary, vector_ids, last_embedding_at, last_edit_at,
+   created_at, updated_at)
+SELECT $targetUserId, $targetOssFileId, status, image_type, html_content, markdown_content,
+       keywords, summary, '[]'::jsonb, last_embedding_at, last_edit_at,
+       now(), now()
+FROM image_recognition_records
+WHERE user_id = $sourceUserId
+  AND oss_file_id = $sourceOssFileId
+  AND status = 2
+  AND deleted_at IS NULL
+RETURNING id;
+```
+
+```sql
+-- ASR 识别：特殊字段要显式置 NULL，避免跨用户引用 admin 侧资源
+-- asr_tasks_id: admin 侧的 ASR 任务 ID，用户侧不应持有外键
+-- json_oss_file_id: admin 侧保存的转录原始 JSON 的 ossFileId，用户侧不应引用
+-- temp_file_path: admin 侧解密临时文件路径，识别完成后应该已清理
+INSERT INTO asr_records
+  (user_id, oss_file_id, asr_tasks_id, status, audio_url, audio_duration,
+   result, json_oss_file_id, temp_file_path, speakers, keywords, summary,
+   vector_ids, last_embedding_at, last_edit_at, created_at, updated_at)
+SELECT $targetUserId, $targetOssFileId,
+       NULL,                    -- asr_tasks_id
+       status, audio_url, audio_duration,
+       result,
+       NULL,                    -- json_oss_file_id
+       NULL,                    -- temp_file_path
+       speakers, keywords, summary,
+       '[]'::jsonb, last_embedding_at, last_edit_at, now(), now()
+FROM asr_records
+WHERE user_id = $sourceUserId
+  AND oss_file_id = $sourceOssFileId
+  AND status = 2
+  AND deleted_at IS NULL
+RETURNING id;
+```
+
+若查到 0 行，视为"admin 未完成识别"，跳过本张表的克隆，继续下一张。
 
 #### 2.4 嵌入向量克隆
 
@@ -319,11 +396,16 @@ export const FileSourceName: Record<FileSource, string> = {
 
 不补齐会导致 `server/api/v1/files/oss/file-list.ts` 的 `FileSourceName[file.source]` 返回 `undefined`，admin 云盘列表列会显示空字符串或 undefined。
 
-**C. `shared/utils/file.ts` 的 `getFileSourceAccept`** —— 为 `DEMO_CASE` 补上允许的 MIME 与大小上限（允许常见文档/图片/音频，文件大小上限暂定 50MB，与 `CASE_ANALYSIS` 对齐即可）：
+**C. `shared/utils/file.ts` 的 `getFileSourceAccept`** —— 该函数内部维护一个数组 `acceptList`，需向数组追加一项（与 `CASE_ANALYSIS` 复用同一套允许列表）：
 
 ```ts
-case FileSource.DEMO_CASE:
-  return [ /* 与 CASE_ANALYSIS 相同的 accept 列表 */ ]
+const acceptList: FileSourceAccept[] = [
+  // ... 现有六项 ...
+  {
+    name: FileSourceName[FileSource.DEMO_CASE],
+    accept: mapAccept({ ...ASR_ACCEPT, ...DOC_ACCEPT, ...IMAGE_ACCEPT }),
+  },
+]
 ```
 
 未补齐 `getFileSourceAccept` 会导致 admin 侧上传时 `/api/v1/storage/presigned-url` 端点返回 400 `不支持的上传场景`。
@@ -599,7 +681,8 @@ export interface DemoCasePrepareResponse {
    - `findOssFileByIdDao` 新 case：源文件软删返回 null
 2. `tests/server/case/demoCase.service.test.ts` 扩展
    - `prepareDemoCaseForUserService`：首次克隆成功、联合键命中复用、源文件缺失抛错、多文件顺序克隆
-   - `cloneRecognitionAndEmbeddingsService`：doc/image/asr 三类识别记录的克隆、源无识别记录的跳过、嵌入向量 metadata 正确更新
+   - **并发冲突重试**：mock `tx.ossFiles.create` 第一次抛 `P2002`、第二次 findFirst 命中，验证服务层在外层 `$transaction` 级别重开事务并返回正确结果
+   - `cloneRecognitionAndEmbeddingsService`：doc/image/asr 三类识别记录的克隆、只克隆 `status=2` 的记录、源无识别记录或 status 非 2 的跳过、asr_records 克隆时 `asr_tasks_id`/`json_oss_file_id`/`temp_file_path` 显式为 NULL、嵌入向量 metadata 正确更新
 3. 新文件 `tests/server/demoCases/prepare.test.ts`
    - `POST /api/v1/demo-cases/:id/prepare` API 层：401 未登录、404 不存在、400 已禁用、200 正常返回 shape（断言 `content` 与 `files[]`）
 4. 新文件 `tests/server/admin/demoCaseMaterials.test.ts`
