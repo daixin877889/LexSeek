@@ -23,6 +23,7 @@
         <div v-if="phase === 'select'" class="flex-1 overflow-y-auto p-4">
           <InitAnalysisModuleSelector
             v-model="selectedModules"
+            :completed-modules="completedModules"
             @start="startAnalysis"
             @skip="navigateTo(`/dashboard/cases/${caseId}`)"
           />
@@ -216,14 +217,32 @@ const {
   activeIndex,
 } = useInitAnalysis(sessionId)
 
-// 案件标题
+// 已完成模块列表（用于补充分析时在 ModuleSelector 中禁用）
+const completedModules = ref<string[]>([])
+
+// 加载案件标题和已完成模块
 const caseTitle = ref('')
 
-// 加载案件标题
 watch(caseId, async (id) => {
   if (id <= 0) return
   const data = await useApiFetch<{ title: string }>(`/api/v1/case/${id}`)
   if (data?.title) caseTitle.value = data.title
+
+  // 获取该案件已完成的模块
+  const status = await useApiFetch<{ modules: Array<{ name: string; status: string }> }>(
+    `/api/v1/case/init-analysis-status/${id}`,
+  )
+  if (status?.modules) {
+    completedModules.value = status.modules
+      .filter(m => m.status === 'complete')
+      .map(m => m.name)
+    // 补充分析时，预选未完成的模块（排除已完成的）
+    if (phase.value === 'select' && completedModules.value.length > 0) {
+      selectedModules.value = selectedModules.value.filter(
+        name => !completedModules.value.includes(name),
+      )
+    }
+  }
 }, { immediate: true })
 
 // 标题栏显示

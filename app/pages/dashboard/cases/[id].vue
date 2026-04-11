@@ -167,52 +167,9 @@ async function handleGenerateModule(moduleName: string, moduleTitle: string) {
   }
 }
 
-// --- 批量生成（简化 SSE 方案） ---
-const batchAbortController = ref<AbortController | null>(null)
-
-async function handleBatchGenerate() {
-  if (isInitAnalysisRunning.value || hasPendingInterrupt.value) return
-  const targetModules = allModuleCards.value
-    .filter(c => c.status === 'idle' && !c.locked)
-    .map(c => c.moduleName)
-  if (targetModules.length === 0) return
-
-  const controller = new AbortController()
-  batchAbortController.value = controller
-
-  try {
-    const response = await $fetch('/api/v1/case/init-analysis', {
-      method: 'POST',
-      body: { input: { caseId: caseId.value, selectedModules: targetModules } },
-      signal: controller.signal,
-      responseType: 'stream',
-    })
-
-    await refreshAnalysis()
-
-    const reader = (response as unknown as ReadableStream).getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-
-      if (buffer.includes('event: values')) {
-        await refreshAnalysis()
-        buffer = ''
-      }
-      if (buffer.includes('"status":"COMPLETED"') || buffer.includes('"status":"FAILED"')) {
-        break
-      }
-    }
-  } catch (err: any) {
-    if (err?.name !== 'AbortError') console.error('批量生成失败:', err)
-  } finally {
-    batchAbortController.value = null
-    await refreshAnalysis()
-  }
+// --- 批量生成（跳转到初始化分析页面） ---
+function handleBatchGenerate() {
+  navigateTo(`/dashboard/cases/init-analysis?caseId=${caseId.value}`)
 }
 
 // idle 模块直达详情模式时自动降级为 dashboard
@@ -234,11 +191,6 @@ const expandedChatInstance = computed(() => {
 // 页面刷新后恢复活跃 session
 onMounted(() => {
   moduleChatManager.restoreActiveSessions()
-})
-
-// 页面卸载时清理批量生成 SSE 连接
-onUnmounted(() => {
-  batchAbortController.value?.abort()
 })
 </script>
 

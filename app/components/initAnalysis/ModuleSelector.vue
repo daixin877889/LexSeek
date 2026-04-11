@@ -10,16 +10,25 @@
       <button
         v-for="mod in INIT_ANALYSIS_MODULES"
         :key="mod.name"
-        class="group relative flex items-center gap-4 rounded-xl border-2 p-5 text-left transition-all hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[80px]"
-        :class="isSelected(mod.name) ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'"
+        class="group relative flex items-center gap-4 rounded-xl border-2 p-5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[80px]"
+        :class="[
+          isCompleted(mod.name) ? 'border-border bg-muted/30 opacity-60 cursor-not-allowed' :
+          isSelected(mod.name) ? 'border-primary bg-primary/5 hover:shadow-md' :
+          'border-border hover:border-primary/50 hover:shadow-md cursor-pointer',
+        ]"
+        :disabled="isCompleted(mod.name)"
         @click="toggle(mod.name)"
       >
-        <!-- 选中指示 -->
+        <!-- 选中/已完成指示 -->
         <div
           class="absolute top-3 right-3 size-5 rounded-full border-2 flex items-center justify-center transition-colors"
-          :class="isSelected(mod.name) ? 'border-primary bg-primary' : 'border-muted-foreground/30'"
+          :class="[
+            isCompleted(mod.name) ? 'border-green-500 bg-green-500' :
+            isSelected(mod.name) ? 'border-primary bg-primary' :
+            'border-muted-foreground/30',
+          ]"
         >
-          <CheckIcon v-if="isSelected(mod.name)" class="size-3 text-primary-foreground" />
+          <CheckIcon v-if="isSelected(mod.name) || isCompleted(mod.name)" class="size-3 text-primary-foreground" />
         </div>
 
         <!-- 图标 -->
@@ -29,7 +38,10 @@
 
         <!-- 文字内容：标题与说明对齐 -->
         <div class="flex flex-col gap-1 pr-6 min-w-0">
-          <h3 class="text-sm font-semibold truncate">{{ mod.title }}</h3>
+          <div class="flex items-center gap-2">
+            <h3 class="text-sm font-semibold truncate">{{ mod.title }}</h3>
+            <Badge v-if="isCompleted(mod.name)" variant="secondary" class="text-[10px] shrink-0">已生成</Badge>
+          </div>
           <p class="text-xs text-muted-foreground leading-relaxed truncate">{{ mod.description }}</p>
         </div>
       </button>
@@ -54,6 +66,8 @@ import { getModuleIcon } from '~/utils/moduleIcons'
 
 const props = defineProps<{
   modelValue: string[]
+  /** 已完成的模块名列表（补充分析时禁用不可选） */
+  completedModules?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -62,11 +76,16 @@ const emit = defineEmits<{
   skip: []
 }>()
 
+function isCompleted(name: string): boolean {
+  return props.completedModules?.includes(name) ?? false
+}
+
 function isSelected(name: string): boolean {
   return props.modelValue.includes(name)
 }
 
 function toggle(name: string) {
+  if (isCompleted(name)) return
   const updated = isSelected(name)
     ? props.modelValue.filter(n => n !== name)
     : [...props.modelValue, name]
