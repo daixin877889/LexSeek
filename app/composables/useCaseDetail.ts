@@ -1,4 +1,4 @@
-import type { AnalysisResult } from '#shared/types/case'
+import type { AnalysisResult, AnalysisModuleCard } from '#shared/types/case'
 import type { InitAnalysisStatusResponse } from '#shared/types/initAnalysis'
 import type { OssFileItem } from '~/store/file'
 import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
@@ -48,7 +48,10 @@ export interface CaseDetailInfo {
   }>
 }
 
-export function useCaseDetail(caseId: Ref<number> | ComputedRef<number>) {
+export function useCaseDetail(
+  caseId: Ref<number> | ComputedRef<number>,
+  options?: { generatingModules?: Ref<string[]> },
+) {
   const id = toRef(caseId)
 
   // 案件基本信息（响应式，用于页面头部标题等）
@@ -65,6 +68,29 @@ export function useCaseDetail(caseId: Ref<number> | ComputedRef<number>) {
   const { data: analysisStatus, refresh: refreshAnalysis } = useApi<InitAnalysisStatusResponse>(
     () => `/api/v1/case/init-analysis-status/${id.value}`,
   )
+
+  // init-analysis 派生状态
+  const isInitAnalysisRunning = computed(() =>
+    analysisStatus.value?.status === 'in_progress',
+  )
+
+  const hasPendingInterrupt = computed(() =>
+    analysisStatus.value?.hasPendingInterrupt === true,
+  )
+
+  // init-analysis 锁定的模块：selectedModules 中非 complete 的全部
+  const lockedModules = computed<Set<string>>(() => {
+    if (!isInitAnalysisRunning.value) return new Set()
+    const status = analysisStatus.value
+    if (!status?.selectedModules?.length) return new Set()
+    const moduleMap = new Map(status.modules?.map(m => [m.name, m]) ?? [])
+    return new Set(
+      status.selectedModules.filter(name => {
+        const m = moduleMap.get(name)
+        return m?.status !== 'complete'
+      }),
+    )
+  })
 
   // 将分析结果转换为 AnalysisResult[] 格式
   const analysisResults = computed<AnalysisResult[]>(() => {
@@ -87,6 +113,59 @@ export function useCaseDetail(caseId: Ref<number> | ComputedRef<number>) {
     }
     return results
   })
+
+  // 全部 7 个模块的卡片状态（四态 + 锁定）
+  const allModuleCards = computed<AnalysisModuleCard[]>(() => {
+    const status = analysisStatus.value
+    const moduleMap = new Map(status?.modules?.map(m => [m.name, m]) ?? [])
+    const generating = new Set(options?.generatingModules?.value ?? [])
+    const locked = lockedModules.value
+
+    return INIT_ANALYSIS_MODULES.map(def => {
+      const m = moduleMap.get(def.name)
+      const isLocked = locked.has(def.name)
+
+      if (m?.status === 'complete' && m.result) {
+        return {
+          moduleName: def.name,
+          moduleTitle: def.title,
+          status: 'complete' as const,
+          content: m.result,
+          analyzedAt: m.analyzedAt ?? '',
+          version: m.version ?? 1,
+        }
+      }
+      if (m?.status === 'failed') {
+        return {
+          moduleName: def.name,
+          moduleTitle: def.title,
+          status: 'failed' as const,
+          locked: isLocked,
+        }
+      }
+      if (m?.status === 'in_progress' || generating.has(def.name)) {
+        return {
+          moduleName: def.name,
+          moduleTitle: def.title,
+          status: 'in_progress' as const,
+          locked: isLocked,
+        }
+      }
+      return {
+        moduleName: def.name,
+        moduleTitle: def.title,
+        status: 'idle' as const,
+        locked: isLocked,
+      }
+    })
+  })
+
+  // 批量生成按钮显示条件
+  const showBatchButton = computed(() =>
+    !isInitAnalysisRunning.value
+    && !hasPendingInterrupt.value
+    && allModuleCards.value.some(c => c.status === 'idle' && !c.locked),
+  )
 
   // --- 识别轮询（仅轮询状态，不触发识别，识别由后端 processMaterialService 处理） ---
   const {
@@ -227,6 +306,11 @@ export function useCaseDetail(caseId: Ref<number> | ComputedRef<number>) {
     materials,
     analysisResults,
     analysisStatus,
+    allModuleCards,
+    showBatchButton,
+    isInitAnalysisRunning,
+    hasPendingInterrupt,
+    lockedModules,
     refreshCase,
     refreshMaterials,
     refreshAnalysis,
