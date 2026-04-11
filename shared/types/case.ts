@@ -354,6 +354,22 @@ export interface AnalysisResult {
     version?: number
 }
 
+/** 分析模块展示状态 */
+export type AnalysisModuleDisplayStatus = 'complete' | 'in_progress' | 'idle' | 'failed'
+
+/** 分析模块卡片数据（四态 + 锁定） */
+export interface AnalysisModuleCard {
+    moduleName: string
+    moduleTitle: string
+    status: AnalysisModuleDisplayStatus
+    /** 是否被 init-analysis 流程锁定 */
+    locked?: boolean
+    /** status=complete 时有值 */
+    content?: string
+    analyzedAt?: string
+    version?: number
+}
+
 // ==================== API 类型 ====================
 
 /** 创建案件输入 */
