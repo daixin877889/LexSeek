@@ -293,14 +293,24 @@ function getMaterialIconColor(type: number) {
         分析结果
         <span v-if="analysisResults.length > 0" class="font-normal text-[10px] bg-muted px-1.5 py-0.5 rounded">{{ analysisResults.length }}</span>
       </h3>
-      <button
-        v-if="analysisResults.length > 0"
-        class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-        @click="emit('navigateView', 'analysis')"
-      >
-        <EyeIcon class="size-3" />
-        查看全部
-      </button>
+      <div class="flex items-center gap-4">
+        <button
+          v-if="showBatchButton"
+          class="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+          @click="emit('batchGenerate')"
+        >
+          <PlusIcon class="size-3" />
+          补充分析
+        </button>
+        <button
+          v-if="analysisResults.length > 0"
+          class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+          @click="emit('navigateView', 'analysis')"
+        >
+          <EyeIcon class="size-3" />
+          查看全部
+        </button>
+      </div>
     </div>
     <CaseAnalysisResults
       :results="analysisResults"
