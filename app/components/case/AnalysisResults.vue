@@ -272,7 +272,6 @@ function isCardDisabled(card: AnalysisModuleCard): boolean {
 // 卡片点击处理
 function handleCardClick(card: AnalysisModuleCard) {
     if (isCardDisabled(card)) return
-    if (props.readonly && card.status !== 'complete') return
     if (card.status === 'complete') {
         currentModuleName.value = card.moduleName
         currentViewMode.value = 'detail'

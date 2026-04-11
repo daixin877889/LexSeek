@@ -226,7 +226,7 @@ const caseTitle = ref('')
 
 watch(caseId, async (id) => {
   if (id <= 0) return
-  // 加载材料
+  // 不阻塞标题和状态加载，后台并行获取材料
   loadMaterials(id)
   const data = await useApiFetch<{ title: string }>(`/api/v1/case/${id}`)
   if (data?.title) caseTitle.value = data.title
