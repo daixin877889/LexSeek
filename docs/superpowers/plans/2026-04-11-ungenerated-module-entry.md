@@ -412,7 +412,7 @@ function handleCardClick(card: AnalysisModuleCard) {
 
 与网格模式相同的状态逻辑，但用列表布局。
 
-- [ ] **Step 5: 仪表盘头部添加"补充分析"按钮**
+- [ ] **Step 5: 仪表盘头部添加"批量分析"按钮**
 
 在现有的视图切换按钮区域左侧添加：
 
@@ -423,7 +423,7 @@ function handleCardClick(card: AnalysisModuleCard) {
   @click="emit('batchGenerate')"
 >
   <PlusIcon class="size-3" />
-  补充分析
+  批量分析
 </button>
 ```
 
@@ -793,13 +793,13 @@ Run: `bun dev`
 2. 点击任一 idle 卡片 → 模块对话窗口打开 + 自动发送生成消息
 3. 生成中卡片显示 Loader + "生成中..." → 再次点击重新展开窗口
 4. 生成完成后卡片变为 complete → 点击可进入详情视图
-5. 点击"补充分析"按钮 → 批量生成开始 → 卡片逐步从 idle → in_progress → complete
+5. 点击"批量分析"按钮 → 批量生成开始 → 卡片逐步从 idle → in_progress → complete
 6. URL `?ai=summary` 参数正确同步
 7. 详情视图翻页只在 complete 模块间切换
 8. init-analysis 运行时批量按钮隐藏，locked 模块不可点击
 9. init-analysis 运行中，非 selectedModules 的 idle 模块可单独生成
 10. hasPendingInterrupt 时所有 idle/failed 卡片禁用，complete 模块仍可查看详情
-11. 全部 7 个模块 complete 时"补充分析"按钮隐藏
+11. 全部 7 个模块 complete 时"批量分析"按钮隐藏
 12. 模块生成中刷新页面，刷新后该模块卡片仍显示 in_progress
 13. `init-analysis/[sessionId].vue` 和 `analysis/[sessionId].vue` 页面功能不受影响（旧 `activeIndex` 模式正常）
 
@@ -818,7 +818,7 @@ Expected: PASS
 - [ ] 7 个模块始终展示（包括从未分析的案件）
 - [ ] 四态卡片样式正确（complete/in_progress/idle/failed）
 - [ ] 单个生成路径正常（模块对话 + 自动发消息）
-- [ ] 批量生成路径正常（补充分析按钮 + SSE）
+- [ ] 批量生成路径正常（批量分析按钮 + SSE）
 - [ ] URL `?ai=moduleName` 正确同步
 - [ ] locked 模块不可点击
 - [ ] hasPendingInterrupt 时所有生成入口禁用

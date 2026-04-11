@@ -240,7 +240,7 @@ const { allModuleCards, ... } = useCaseDetail(caseId, {
 4. 模块对话完成后保存新的 `caseAnalyses` 记录（`isActive=true`），覆盖旧的 failed 记录
 5. `refreshAnalysis()` 后卡片从 failed → complete
 
-#### 3.5 批量生成（"补充分析"按钮）
+#### 3.5 批量生成（"批量分析"按钮）
 
 **按钮显示条件**：
 ```typescript
@@ -272,7 +272,7 @@ const showBatchButton = computed(() =>
 |------|------|
 | `shared/types/case.ts` | 新增 `AnalysisModuleDisplayStatus`（四态：complete/in_progress/idle/failed）、`AnalysisModuleCard`（含 `locked` 字段，无 `error`/`nodeId`） |
 | `app/composables/useCaseDetail.ts` | 新增 `allModuleCards` computed（接收 `generatingModules` 参数，支持四态 + 锁定逻辑）；新增 `isInitAnalysisRunning`、`hasPendingInterrupt`、`lockedModules` 派生状态；全部导出 |
-| `app/components/case/AnalysisResults.vue` | 新增 `moduleCards` prop（`AnalysisModuleCard[]`，与原 `results` 并存）；新增 `activeModule: string \| null` v-model（与 `activeIndex` 双 v-model 共存）；四态卡片渲染（`:key="card.moduleName"`）；locked 和 pendingInterrupt 时卡片不可点击；emit `generateModule`（单个生成/重试/重新展开统一事件）；"补充分析"按钮 emit `batchGenerate`；详情翻页维护 `completeIndices`；翻页时同时 emit 两个 update 事件 |
+| `app/components/case/AnalysisResults.vue` | 新增 `moduleCards` prop（`AnalysisModuleCard[]`，与原 `results` 并存）；新增 `activeModule: string \| null` v-model（与 `activeIndex` 双 v-model 共存）；四态卡片渲染（`:key="card.moduleName"`）；locked 和 pendingInterrupt 时卡片不可点击；emit `generateModule`（单个生成/重试/重新展开统一事件）；"批量分析"按钮 emit `batchGenerate`；详情翻页维护 `completeIndices`；翻页时同时 emit 两个 update 事件 |
 | `app/components/caseDetail/CaseDetailOverview.vue` | 新增 `moduleCards`、`showBatchButton` props；内部状态 `analysisActiveIndex` 迁移为 `analysisActiveModule: string \| null`；`navigateAnalysis` emit 签名从 `[index: number]` 改为 `[moduleName: string]`；`<CaseAnalysisResults>` 改用 `v-model:active-module`；透传 `generateModule`、`batchGenerate` emit |
 | `app/components/caseDetail/CaseDetailAnalysis.vue` | 新增 `moduleCards`、`showBatchButton` props；`defineModel<number>('activeIndex')` 改为 `defineModel<string \| null>('activeModule')`；模板绑定从 `v-model:active-index` 改为 `v-model:active-module`；透传 `generateModule`、`batchGenerate` emit |
 | `app/pages/dashboard/cases/[id].vue` | `?ai` 参数改为 moduleName（含白名单校验 `VALID_MODULE_NAMES`）；`analysisIndex` 改为 `analysisModule: string \| null`；`navigateToAnalysis` 签名改为 `(moduleName: string)`；query 同步条件为 `if (am) query.ai = am`；`<CaseDetailAnalysis>` 改用 `v-model:active-module`；idle 模块直达 URL 时自动降级为 dashboard 模式；传递 `allModuleCards`、`showBatchButton` 给子组件；新增 `handleGenerateModule`（根据卡片状态决定是否传 `autoMessage`：idle/failed 传消息，in_progress 只展开）、`handleBatchGenerate`（原地调用 init-analysis API） |
