@@ -159,7 +159,7 @@ function useCaseDetail(
 
 **交互优先级**：
 1. `hasPendingInterrupt === true` → 所有 idle 和 failed 卡片禁用
-2. `locked === true` → idle/in_progress 卡片禁用手动点击
+2. `locked === true` → idle/in_progress/failed 卡片禁用手动点击
 3. 否则按卡片状态的默认交互
 
 #### 2.2 排列顺序
