@@ -194,10 +194,28 @@ onMounted(() => {
 })
 
 // 页面重新可见时刷新分析状态（跨标签页同步）
-useEventListener(document, 'visibilitychange', () => {
+function handleVisibilityChange() {
   if (document.visibilityState === 'visible') {
     refreshAnalysis()
   }
+}
+onMounted(() => document.addEventListener('visibilitychange', handleVisibilityChange))
+onUnmounted(() => document.removeEventListener('visibilitychange', handleVisibilityChange))
+
+// 有进行中的模块时启用轮询（5s），完成后自动停止
+let pollingTimer: ReturnType<typeof setInterval> | null = null
+
+watch(() => allModuleCards.value.some(c => c.status === 'in_progress'), (hasInProgress) => {
+  if (hasInProgress && !pollingTimer) {
+    pollingTimer = setInterval(() => refreshAnalysis(), 5000)
+  } else if (!hasInProgress && pollingTimer) {
+    clearInterval(pollingTimer)
+    pollingTimer = null
+  }
+}, { immediate: true })
+
+onUnmounted(() => {
+  if (pollingTimer) clearInterval(pollingTimer)
 })
 </script>
 
