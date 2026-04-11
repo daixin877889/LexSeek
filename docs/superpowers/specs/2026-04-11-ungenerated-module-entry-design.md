@@ -29,9 +29,6 @@ export interface AnalysisModuleCard {
   content?: string
   analyzedAt?: string
   version?: number
-  nodeId?: number
-  // status=failed 时有值
-  error?: string
 }
 ```
 
@@ -97,7 +94,6 @@ function useCaseDetail(
           content: m.result,
           analyzedAt: m.analyzedAt ?? '',
           version: m.version ?? 1,
-          nodeId: 0,
         }
       }
       // failed
@@ -180,14 +176,22 @@ function useCaseDetail(
 
 #### 3.1 `generatingModules` 派生
 
-`generatingModules` 从 `moduleChatManager.instances` 派生，无需额外状态管理：
+`moduleChatManager.instances` 是 `shallowReactive`，只追踪顶层 key 增删，不追踪嵌套 `isLoading.value` 变化。因此不能直接用 computed 派生，需改用 watch + ref 模式：
 
 ```typescript
-// useModuleChatManager 新增导出
-const generatingModules = computed(() =>
-  Object.keys(instances).filter(name => instances[name]?.isLoading?.value),
-)
+// useModuleChatManager 新增
+const generatingModules = ref<string[]>([])
+
+// 每个 instance 创建后，watch 其 isLoading 变化
+function watchInstanceLoading(instance: ModuleChatInstance) {
+  watch(() => instance.isLoading.value, () => {
+    generatingModules.value = Object.keys(instances)
+      .filter(name => instances[name]?.isLoading?.value)
+  }, { immediate: true })
+}
 ```
+
+在 `getOrCreateModuleManager` 中创建 instance 后调用 `watchInstanceLoading(instance)`（在 effectScope 内，确保清理）。
 
 `[id].vue` 传递给 `useCaseDetail`：
 
@@ -266,13 +270,13 @@ const showBatchButton = computed(() =>
 
 | 文件 | 改动 |
 |------|------|
-| `shared/types/case.ts` | 新增 `AnalysisModuleDisplayStatus`（四态：complete/in_progress/idle/failed）、`AnalysisModuleCard`（含 `locked` 和 `error` 字段） |
+| `shared/types/case.ts` | 新增 `AnalysisModuleDisplayStatus`（四态：complete/in_progress/idle/failed）、`AnalysisModuleCard`（含 `locked` 字段，无 `error`/`nodeId`） |
 | `app/composables/useCaseDetail.ts` | 新增 `allModuleCards` computed（接收 `generatingModules` 参数，支持四态 + 锁定逻辑）；新增 `isInitAnalysisRunning`、`hasPendingInterrupt`、`lockedModules` 派生状态；全部导出 |
 | `app/components/case/AnalysisResults.vue` | 新增 `moduleCards` prop（`AnalysisModuleCard[]`，与原 `results` 并存）；新增 `activeModule: string \| null` v-model（与 `activeIndex` 双 v-model 共存）；四态卡片渲染（`:key="card.moduleName"`）；locked 和 pendingInterrupt 时卡片不可点击；emit `generateModule`（单个生成/重试/重新展开统一事件）；"补充分析"按钮 emit `batchGenerate`；详情翻页维护 `completeIndices`；翻页时同时 emit 两个 update 事件 |
 | `app/components/caseDetail/CaseDetailOverview.vue` | 新增 `moduleCards`、`showBatchButton` props；内部状态 `analysisActiveIndex` 迁移为 `analysisActiveModule: string \| null`；`navigateAnalysis` emit 签名从 `[index: number]` 改为 `[moduleName: string]`；`<CaseAnalysisResults>` 改用 `v-model:active-module`；透传 `generateModule`、`batchGenerate` emit |
 | `app/components/caseDetail/CaseDetailAnalysis.vue` | 新增 `moduleCards`、`showBatchButton` props；`defineModel<number>('activeIndex')` 改为 `defineModel<string \| null>('activeModule')`；模板绑定从 `v-model:active-index` 改为 `v-model:active-module`；透传 `generateModule`、`batchGenerate` emit |
 | `app/pages/dashboard/cases/[id].vue` | `?ai` 参数改为 moduleName（含白名单校验 `VALID_MODULE_NAMES`）；`analysisIndex` 改为 `analysisModule: string \| null`；`navigateToAnalysis` 签名改为 `(moduleName: string)`；query 同步条件为 `if (am) query.ai = am`；`<CaseDetailAnalysis>` 改用 `v-model:active-module`；idle 模块直达 URL 时自动降级为 dashboard 模式；传递 `allModuleCards`、`showBatchButton` 给子组件；新增 `handleGenerateModule`（根据卡片状态决定是否传 `autoMessage`：idle/failed 传消息，in_progress 只展开）、`handleBatchGenerate`（原地调用 init-analysis API） |
-| `app/composables/useModuleChatManager.ts` | `getOrCreateInstance` 新增 `autoMessage?: string` 参数，仅在参数存在时自动 sendMessage；新增 `generatingModules: ComputedRef<string[]>` 导出（从 `instances` 派生） |
+| `app/composables/useModuleChatManager.ts` | `getOrCreateInstance` 新增 `autoMessage?: string` 参数，仅在首次创建 instance 且参数存在时自动 sendMessage；新增 `generatingModules: Ref<string[]>` 导出（watch + ref 模式，监听每个 instance 的 `isLoading` 变化，解决 `shallowReactive` 嵌套追踪问题） |
 
 > **不改动 `init-analysis/[sessionId].vue` 和 `analysis/[sessionId].vue`**：这两个页面继续使用 `AnalysisResults.vue` 的旧 `activeIndex` v-model。`useInitAnalysis.ts` 内部的 `activeIndex: Ref<number>` 保持不变。
 
@@ -429,26 +433,35 @@ const activeModule = defineModel<string | null>('activeModule', { default: null 
 #### 6.3 `handleGenerateModule` 的分支逻辑
 
 ```typescript
-function handleGenerateModule(card: AnalysisModuleCard) {
+async function handleGenerateModule(card: AnalysisModuleCard) {
   // 已锁定或 interrupt 态，UI 层应已拦截，此处兜底
   if (card.locked || hasPendingInterrupt.value) return
+  // 防止快速双击竞态
+  if (generatingGuard.has(card.moduleName)) return
+  generatingGuard.add(card.moduleName)
 
-  if (card.status === 'in_progress') {
-    // 模块对话正在生成 → 仅重新展开窗口，不重复发消息
-    const instance = moduleChatManager.instances[card.moduleName]
-    if (instance) moduleChatManager.expandModule(card.moduleName)
-    return
+  try {
+    if (card.status === 'in_progress') {
+      // 模块对话正在生成 → 仅重新展开窗口，不重复发消息
+      const instance = moduleChatManager.instances[card.moduleName]
+      if (instance) moduleChatManager.expandModule(card.moduleName)
+      return
+    }
+
+    // idle 或 failed → 创建/获取 instance 并自动发送生成消息
+    await moduleChatManager.getOrCreateInstance(
+      card.moduleName,
+      card.moduleTitle,
+      { autoMessage: `请为本案件生成${card.moduleTitle}分析报告` },
+    )
+    moduleChatManager.expandModule(card.moduleName)
+  } finally {
+    generatingGuard.delete(card.moduleName)
   }
-
-  // idle 或 failed → 创建/获取 instance 并自动发送生成消息
-  await moduleChatManager.getOrCreateInstance(
-    card.moduleName,
-    card.moduleTitle,
-    { autoMessage: `请为本案件生成${card.moduleTitle}分析报告` },
-  )
-  moduleChatManager.expandModule(card.moduleName)
 }
 ```
+
+> **竞态防护**：`generatingGuard: Set<string>` 用于防止快速双击同一卡片导致重复创建 instance 或重复发送 autoMessage。`getOrCreateInstance` 本身有幂等性保障（instance 已存在时直接返回），但 `autoMessage` 仅在新建 instance 时发送，守卫确保第二次点击不进入创建流程。
 
 #### 6.4 `handleBatchGenerate` 的校验
 
@@ -473,6 +486,57 @@ function handleBatchGenerate() {
 - 两种生成使用不同的 session 类型（type=2 vs type=3），后端互相隔离
 - 两者的分析结果都会写入 `caseAnalyses` 表，`isActive=true`
 - 完成后 `refreshAnalysis()` 刷新，两者独立反映到卡片状态
+
+#### 6.6 failed + locked 组合态
+
+init-analysis 串行执行 `[summary, chronicle, claim]`，chronicle 失败但 init-analysis 仍在运行（正在执行 claim）。此时 chronicle 的状态为 `failed + locked`：
+
+- 卡片显示**失败态样式**（红色错误图标），保留视觉反馈
+- 但**禁用点击**（`pointer-events-none`），等待 init-analysis 整体结束后再允许重试
+- 底部文案改为"等待当前批次完成后可重试"
+
+交互优先级中 `locked === true` 优先于 failed 的默认交互（第 2.1 节第 2 条），确保不会在 init-analysis 运行期间触发模块对话重试。
+
+#### 6.7 批量生成技术方案
+
+批量生成在案件详情页内原地调用 `init-analysis` API，**不实例化 `useInitAnalysis`**（该 composable 包含消息分组、重连等复杂逻辑，仅适用于独立页面）。
+
+**方案**：使用简化的 SSE 流消费 + 定时 `refreshAnalysis` 组合：
+
+1. 通过 `$fetch` + `ReadableStream` 向 `POST /api/v1/case/init-analysis` 发起 SSE 请求，传入 `{ caseId, selectedModules }`
+2. **不做前端流式状态追踪**（不消费 stream_event/values 事件细节），仅监听终态事件（`COMPLETED`/`FAILED`/`INTERRUPTED`）
+3. SSE 建立后立即 `refreshAnalysis()` 触发一次 `analysisStatus` 刷新，此后 SSE 中每收到 `values` 事件（表示模块完成）就再刷一次
+4. init-analysis API 返回的模块状态（in_progress/complete/failed）通过 `analysisStatus` → `allModuleCards` → 卡片 UI 自动反映进度
+5. 收到终态后关闭连接，最终 `refreshAnalysis()` 确认所有状态
+
+**优势**：
+- 零状态管理开销（不需要 useStreamChat、不需要模块消息分组）
+- 通过已有的 `analysisStatus` API 刷新驱动 UI 更新，复用 `allModuleCards` 的四态逻辑
+- `isInitAnalysisRunning` 在 SSE 期间为 true，自动锁定 selectedModules 中的模块
+
+**生命周期**：SSE 连接通过 `AbortController` 管理，在 `onUnmounted` 时 `abort()` 关闭。
+
+#### 6.8 页面卸载与 SSE 清理
+
+`useModuleChatManager` 的 `onUnmounted` 调用 `scope.stop()` 清理所有 effectScope。需要确认 `useChatSessionManager` 内部的 `useStreamChat` 在 scope 销毁时是否自动 abort SSE 连接：
+
+- 如果 `useStreamChat` 注册了 `onScopeDispose(() => abortController.abort())`（Vue 3.5+ effectScope 清理钩子），则自动清理
+- 如果没有，需要在 `useModuleChatManager.onUnmounted` 中遍历 instances，显式调用各 instance 的 `stop()` / `abort()` 方法
+
+**实现时需验证**：检查 `useStreamChat` 的 abort 机制，必要时补充清理逻辑。此为实现细节，不影响设计方案整体方向。
+
+#### 6.9 双 v-model emit 精确触发条件
+
+`AnalysisResults.vue` 翻页时同时 emit `update:activeIndex` 和 `update:activeModule`，但应**仅在对应 prop 被传入时才 emit**，避免无接收方的冗余事件触发不必要的渲染：
+
+```typescript
+if (props.activeIndex !== undefined) emit('update:activeIndex', newIndex)
+if (props.activeModule !== undefined) emit('update:activeModule', newModuleName)
+```
+
+#### 6.10 `useCaseDetail` 调用方确认
+
+当前 `useCaseDetail` 仅在 `app/pages/dashboard/cases/[id].vue` 一处调用。新增的 `options?: { generatingModules }` 可选参数向后兼容，不影响任何已有代码。
 
 ### 7. 不改动的部分
 
