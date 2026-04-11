@@ -167,11 +167,11 @@ export function useCaseDetail(
     })
   })
 
-  // 批量生成按钮显示条件
+  // 批量生成按钮显示条件（至少 2 个未分析模块才显示，1 个用单个生成即可）
   const showBatchButton = computed(() =>
     !isInitAnalysisRunning.value
     && !hasPendingInterrupt.value
-    && allModuleCards.value.some(c => c.status === 'idle' && !c.locked),
+    && allModuleCards.value.filter(c => c.status === 'idle' && !c.locked).length > 1,
   )
 
   // --- 识别轮询（仅轮询状态，不触发识别，识别由后端 processMaterialService 处理） ---

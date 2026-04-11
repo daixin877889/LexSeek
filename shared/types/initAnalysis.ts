@@ -23,8 +23,8 @@ export const INIT_ANALYSIS_MODULES: InitAnalysisModule[] = [
 /** 有效模块名列表 */
 export const VALID_MODULE_NAMES = INIT_ANALYSIS_MODULES.map(m => m.name)
 
-/** 默认选中的模块 */
-export const DEFAULT_SELECTED_MODULES = ['summary', 'chronicle']
+/** 默认选中的模块（全选） */
+export const DEFAULT_SELECTED_MODULES = VALID_MODULE_NAMES
 
 /** 模块运行时状态 */
 export interface ModuleRunState {
