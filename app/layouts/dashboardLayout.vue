@@ -26,7 +26,7 @@
             <!-- logo -->
             <div class="flex items-center gap-2 md:hidden">
               <NuxtLink to="/dashboard" class="flex items-center gap-2">
-                <img src="/logo.svg" class="h-6 text-primary" />
+                <img src="/logo.svg" class="h-6 dark:invert" />
                 <h1 class="text-xl font-bold">LexSeek｜法索 AI</h1>
               </NuxtLink>
             </div>
