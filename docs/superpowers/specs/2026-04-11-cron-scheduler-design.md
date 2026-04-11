@@ -54,7 +54,7 @@ end
 
 ```typescript
 interface CronTask {
-  name: string          // 任务名称，同时作为锁 key 前缀
+  name: string          // 任务名称，同时作为锁 key 前缀（注册时校验唯一性）
   intervalMs: number    // 执行间隔（毫秒）
   lockTtlSeconds: number // 锁的过期时间（秒）
   fn: () => Promise<unknown> // 任务执行函数
@@ -62,12 +62,13 @@ interface CronTask {
 }
 
 class CronScheduler {
-  register(task: CronTask): void
+  register(task: CronTask): void  // 任务名重复时抛出错误
   start(): void       // 启动所有已注册任务；runImmediately 的任务先立即执行一次再启动 setInterval
   shutdown(): void     // clearInterval 所有定时器
 }
 ```
 
+- `register()` 校验 name 唯一性，重复注册抛出错误
 - `start()` 为每个任务创建 `setInterval`，回调中自动包裹 `withDistributedLock`
 - 每次执行自动 try-catch，异常只记日志（`logger.error`）不影响后续调度
 - 锁 key 格式：`cron:lock:{taskName}`
@@ -160,9 +161,19 @@ const cleanupTimer = setInterval(async () => { ... }, 24 * 60 * 60 * 1000)
 
 该清理逻辑由 `cron-scheduler.ts` 中的 `agent-runs-cleanup` 任务统一管理，具备分布式锁保护。
 
+**关键变更**：将 `closeRedisConnections()` 和 `closeAgentDbPool()` 的调用从 agent-worker.ts 移到 cron-scheduler.ts 的 close hook 中。
+
+原因：Nitro 的 close hook 按插件文件名字母序执行。`agent-worker.ts`（a 开头）先于 `cron-scheduler.ts`（c 开头）。如果 agent-worker 先关闭 Redis 连接，cron-scheduler 中正在执行的任务将无法释放分布式锁。
+
+改造后：
+- `agent-worker.ts` close hook：仅负责 `worker.shutdown()`
+- `cron-scheduler.ts` close hook：先 `scheduler.shutdown()`，再 `closeAgentDbPool()`，最后 `closeRedisConnections()`
+
+这样确保 Redis 连接在所有定时任务停止后才关闭。
+
 agent-worker.ts 保留的职责：
 - AgentWorker 生命周期管理（start/shutdown）
-- 优雅关闭时清理 Worker、关闭 Redis 和 DB 连接
+- 优雅关闭时停止 Worker
 
 ## 依赖关系
 
@@ -202,6 +213,78 @@ server/plugins/cron-scheduler.ts
 ## 验证方式
 
 1. **类型检查**：`npx nuxi typecheck` 通过
-2. **单实例测试**：启动 dev server，观察日志确认 5 个任务按频率执行
-3. **分布式锁验证**：启动两个实例，确认同一时刻只有一个实例执行任务
-4. **兜底清理验证**：手动插入一条 2 小时前的 IN_PROGRESS 分析记录，确认被清理
+2. **单元测试**：`npx vitest run tests/server/cron` 通过
+3. **单实例测试**：启动 dev server，观察日志确认 5 个任务按频率执行
+4. **分布式锁验证**：启动两个实例，确认同一时刻只有一个实例执行任务
+5. **兜底清理验证**：手动插入一条 2 小时前的 IN_PROGRESS 分析记录，确认被清理
+
+## 单元测试
+
+测试文件：`tests/server/cron/cron.test.ts`
+
+### withDistributedLock 测试用例
+
+| 用例 | 说明 |
+|------|------|
+| 抢锁成功 — 执行并返回结果 | mock Redis SET 返回 'OK'，验证 fn 被调用，返回 fn 结果 |
+| 抢锁失败 — 返回 null | mock Redis SET 返回 null，验证 fn 未被调用，返回 null |
+| fn 执行异常 — 释放锁后抛出 | mock fn 抛错，验证 Lua 脚本被调用（释放锁），异常被重新抛出 |
+| Redis 连接异常 — 返回 null | mock Redis SET 抛出连接错误，验证返回 null 且不向上抛出 |
+| 锁释放校验 UUID — 不误删他人锁 | 验证 Lua 脚本接收正确的 lockKey 和 UUID 参数 |
+| 锁释放时 Redis 异常 — 不影响返回值 | mock Lua eval 抛错，验证 fn 结果仍正常返回（finally 中 catch） |
+
+### CronScheduler 测试用例
+
+| 用例 | 说明 |
+|------|------|
+| register — 正常注册 | 注册一个任务，验证 start 后 setInterval 被调用 |
+| register — 重复名称抛错 | 注册两个同名任务，验证第二次抛出错误 |
+| start + runImmediately — 立即执行 | 注册 `runImmediately: true` 的任务，验证 start 后立即执行一次 |
+| shutdown — 清理定时器 | 启动后 shutdown，验证 clearInterval 被调用，后续不再执行 |
+| 任务异常不影响调度 | mock fn 抛错，验证不影响其他任务和后续调度 |
+
+### cleanupStaleAnalysesService 测试用例
+
+| 用例 | 说明 |
+|------|------|
+| 无超时记录 — 返回 0 | 无 IN_PROGRESS 记录超过阈值，返回 0 |
+| 有超时记录 — 标记为 FAILED | 插入超时记录，验证状态被更新为 FAILED |
+| 未超时记录不受影响 | 插入未超时的 IN_PROGRESS 记录，验证不被清理 |
+| 已软删除记录不受影响 | 插入已删除的超时记录（deletedAt 非 null），验证不被清理 |
+
+## 边界条件分析
+
+### 1. close hook 执行顺序竞态（已处理）
+
+Nitro 的 close hook 按插件文件名字母序执行。`agent-worker.ts` 先于 `cron-scheduler.ts`。
+
+**解决方案**：将 `closeRedisConnections()` 从 agent-worker.ts 移到 cron-scheduler.ts 的 close hook 末尾，确保 Redis 连接在所有定时任务停止后才关闭。详见「4. agent-worker.ts 改造」章节。
+
+### 2. 锁 TTL 过期但任务仍在执行
+
+如果任务执行时间超过锁 TTL，锁自动过期后另一个实例可以抢到锁导致重复执行。
+
+**风险评估**：低。各任务均有处理上限：
+- ASR/MinerU 轮询：每次最多 50 条，每条只做一次 API 状态查询，远在 120s 内完成
+- 支付清理/分析清理：批量 DB 操作，秒级完成
+- Agent runs 清理：单次 DELETE 查询，秒级完成
+
+**容忍策略**：即使极端情况下重复执行，各任务函数本身具有幂等性（查状态/标记状态），不会产生数据损坏。不引入锁续期（watchdog）机制以保持实现简单。
+
+### 3. 同实例 setInterval 回调重叠
+
+如果一个回调耗时超过 interval，下一个 interval 触发时前一个回调还在执行。
+
+**分析**：Node.js 事件循环保证 setInterval 回调串行排队。即使前一个回调未完成，下一个回调也会排入队列等待。当前一个回调完成释放锁后，排队的回调会尝试抢锁——此时可能抢到（正常执行）或被其他实例抢走（跳过）。两种结果都是正确的。
+
+### 4. Redis 短暂不可用
+
+Redis 短暂宕机期间，所有定时任务都会跳过（抢锁失败）。Redis 恢复后，下一个 interval 自动恢复执行。
+
+**风险评估**：低。定时任务本身是兜底机制，偶尔跳过几个周期不影响业务。无需 catch-up 逻辑。
+
+### 5. 进程关闭时正在执行的任务
+
+`scheduler.shutdown()` 只清理 interval 定时器，不会中断正在执行的回调。正在执行的回调会自然完成并释放锁，然后进程退出。
+
+**风险评估**：无。即使极端情况下进程被强制杀死，锁有 TTL 会自动过期，不会造成死锁。
