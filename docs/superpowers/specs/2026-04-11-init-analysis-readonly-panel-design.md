@@ -43,6 +43,8 @@ readonly?: boolean  // 默认 false
 | 案件信息 header | "编辑信息"按钮、保存/取消编辑按钮 |
 | 材料 header | "添加材料"按钮、"批量管理"按钮、"查看全部"按钮 |
 | 材料卡片 | 每张卡片的删除图标（Trash2Icon） |
+| 材料卡片 | 识别失败的"重试"按钮（RefreshCwIcon），改为纯文本"识别失败" |
+| 分析结果区 | 整个区域（header + Separator + CaseAnalysisResults），通过 `v-if="!readonly && analysisResults.length > 0"` 控制 |
 | 底部弹窗 | `CaseAnalysisMaterialSelector` 弹窗、删除确认 `AlertDialog` |
 
 **新增功能：为材料区添加列表/卡片视图切换**
@@ -85,6 +87,11 @@ readonly?: boolean  // 默认 false
 | Detail header actions | 隐藏"模块对话"按钮（`MessageCircleIcon`） |
 | Detail header actions | 保留：复制、历史版本、翻页 |
 | `getCardSubtext` | idle 状态：显示"未生成"（而非"点击生成"）；failed 状态：显示"生成失败"（而非"生成失败，点击重试"） |
+
+**与现有 prop 的关系：**
+
+`readonly` prop 覆盖以下现有 prop 的行为：
+- 当 `readonly=true` 时，`showRegenerate` 和 `showBatchButton` 自动视为 `false`，无需调用方额外传入
 
 ### 3. 初始化分析页右面板改造
 
@@ -155,14 +162,21 @@ CaseAnalysisResults (readonly)
 
 方案：在 `[sessionId].vue` 中新增材料获取逻辑：
 - 监听 `caseId` 变化，调用 `/api/v1/case/${caseId}/materials` 获取材料列表
-- 将材料数据转换为 `CaseDetailMaterialItem[]` 格式传入 `CaseDetailOverview`
-- 可选：引入 `useFileRecognition` composable 来获取识别状态
+- 直接导入 `CaseDetailMaterialItem` 类型（来自 `useCaseDetail.ts`），移除页面中重复定义的局部 `MaterialItem` 接口
+- 引入 `useFileRecognition` composable 获取识别状态，传入 `CaseDetailOverview`
+- 材料预览事件处理器 `previewMaterial` 的类型同步改为 `CaseDetailMaterialItem`
+
+**材料加载状态**
+
+`CaseDetailOverview` 需新增 `materialsLoading` prop（`boolean`，默认 `false`）。当 `materialsLoading=true` 时，材料区显示骨架屏（skeleton）而非"暂无材料"空状态，避免数据加载期间闪烁。
 
 **CaseDetailOverview 分析结果区**
 
-传入空的 `analysisResults` 数组并配合右面板的独立 `CaseAnalysisResults` 实例展示分析结果。这样分析结果区的 dashboard/detail 切换不受 `CaseDetailOverview` 内部逻辑影响。
+当 `readonly=true` 时，`CaseDetailOverview` 的分析结果区（Separator + header + CaseAnalysisResults）通过 `v-if="!readonly"` 整体隐藏。初始化分析页在 `CaseDetailOverview` 外部独立渲染 `CaseAnalysisResults` 组件，由页面层控制 dashboard/detail 模式切换。
 
-为实现这一点，`CaseDetailOverview` 需要支持在 `analysisResults` 为空时隐藏分析结果区域（已有 `v-if` 判断，传空数组即可不渲染分析区域的内容）。
+**加密状态展示**
+
+当前 `InitAnalysisMaterialList` 显示加密锁图标（`LockIcon`），但 `CaseDetailOverview` 的材料卡片不含此标识。由于初始化分析页是只读展示场景，加密状态信息不影响用户操作，故本次不新增加密图标。如后续需要在概览组件中展示加密状态，可作为独立需求处理。
 
 ### 5. 可删除的旧组件
 
@@ -175,9 +189,9 @@ CaseAnalysisResults (readonly)
 
 | 文件 | 改动类型 |
 |------|---------|
-| `app/components/caseDetail/CaseDetailOverview.vue` | 修改：增加 readonly prop、材料视图切换 |
-| `app/components/case/AnalysisResults.vue` | 修改：增加 readonly prop |
-| `app/pages/dashboard/cases/init-analysis/[sessionId].vue` | 修改：替换右面板组件、新增材料数据获取 |
+| `app/components/caseDetail/CaseDetailOverview.vue` | 修改：增加 readonly/materialsLoading prop、材料视图切换、readonly 时隐藏分析结果区 |
+| `app/components/case/AnalysisResults.vue` | 修改：增加 readonly prop，覆盖 showRegenerate/showBatchButton |
+| `app/pages/dashboard/cases/init-analysis/[sessionId].vue` | 修改：替换右面板组件、导入 CaseDetailMaterialItem、新增材料数据获取 |
 | `app/components/initAnalysis/MaterialList.vue` | 删除（可选，实施完成后清理） |
 
 ## 不变更
