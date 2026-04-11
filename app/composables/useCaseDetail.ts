@@ -73,8 +73,14 @@ export function useCaseDetail(
   )
 
   // 跨标签页同步：其他标签页的 init-analysis 或模块对话完成时自动刷新
-  useCrossTabListener('analysis:updated', (data) => {
-    if (data.caseId === id.value) refreshAnalysis()
+  // 使用 useApiFetch（基于 $fetch）绕过 useFetch 缓存，确保获取到最新数据
+  useCrossTabListener('analysis:updated', async (data) => {
+    if (data.caseId === id.value) {
+      const fresh = await useApiFetch<InitAnalysisStatusResponse>(
+        `/api/v1/case/init-analysis-status/${id.value}`,
+      )
+      if (fresh) analysisStatus.value = fresh
+    }
   })
 
   // init-analysis 派生状态
