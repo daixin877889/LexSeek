@@ -135,6 +135,7 @@
 <script lang="ts" setup>
 import type { AnalysisResult } from '#shared/types/case'
 import { CaseMaterialType } from '#shared/types/case'
+import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
 import { FileTextIcon, Loader2Icon } from 'lucide-vue-next'
 
 definePageMeta({
@@ -245,7 +246,7 @@ const completedResults = computed<AnalysisResult[]>(() => {
   return Object.entries(result)
     .filter(([_, content]) => !!content)
     .map(([moduleName, content]) => {
-      const mod = activeModules.value.find(m => m.name === moduleName)
+      const mod = INIT_ANALYSIS_MODULES.find(m => m.name === moduleName)
       return {
         nodeId: 0,
         moduleName,

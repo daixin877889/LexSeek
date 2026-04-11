@@ -82,9 +82,41 @@ export const getInitAnalysisStatusService = async (
 
     const type2Session = sessions.find(s => s.type === 2)
     const primarySession = type2Session ?? sessions[0]!
-    const sessionStatus = primarySession.status === 1 ? 'in_progress' as const
+
+    // 检查是否有待处理的 interrupt（INTERRUPTED 状态的 run）
+    const interruptedRun = await prisma.agentRuns.findFirst({
+        where: { sessionId: type2Session?.sessionId, status: 'interrupted' },
+    })
+
+    // 检查是否有活跃的 run（PENDING/RUNNING）
+    const activeRun = await prisma.agentRuns.findFirst({
+        where: { sessionId: type2Session?.sessionId, status: { in: ['pending', 'running'] } },
+    })
+
+    // 从 type=2 session metadata 恢复用户原始选中的模块列表
+    const sessionMetadata = (type2Session?.metadata ?? sessions[0]!.metadata) as { selectedModules?: string[] } | null
+    const selectedModules = sessionMetadata?.selectedModules
+
+    // 防御性状态修正：如果 session.status=1 但无活跃 run 且无 interrupt，
+    // 检查 selectedModules 是否全部完成，如果是则修正为 completed
+    let sessionStatus = primarySession.status === 1 ? 'in_progress' as const
         : primarySession.status === 2 ? 'completed' as const
             : 'failed' as const
+
+    if (sessionStatus === 'in_progress' && !activeRun && !interruptedRun && selectedModules?.length) {
+        const allSelectedComplete = selectedModules.every(name =>
+            modules.find(m => m.name === name)?.status === 'complete',
+        )
+        if (allSelectedComplete) {
+            // 自动修复 session 状态
+            await prisma.caseSessions.update({
+                where: { sessionId: primarySession.sessionId },
+                data: { status: 2 },
+            })
+            sessionStatus = 'completed'
+            logger.info(`[initAnalysis] 自动修复 session ${primarySession.sessionId} 状态为 completed`)
+        }
+    }
 
     // 获取已完成模块的结果（包括 type=2 和 type=3 的会话）
     const result: Record<string, string> = {}
@@ -97,15 +129,6 @@ export const getInitAnalysisStatusService = async (
             }
         }
     }
-
-    // 检查是否有待处理的 interrupt（INTERRUPTED 状态的 run）
-    const interruptedRun = await prisma.agentRuns.findFirst({
-        where: { sessionId: type2Session?.sessionId, status: 'interrupted' },
-    })
-
-    // 从 type=2 session metadata 恢复用户原始选中的模块列表
-    const sessionMetadata = (type2Session?.metadata ?? sessions[0]!.metadata) as { selectedModules?: string[] } | null
-    const selectedModules = sessionMetadata?.selectedModules
 
     return {
         status: sessionStatus,
