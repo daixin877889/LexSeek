@@ -287,6 +287,13 @@ const goBack = () => {
   router.push({ name: "dashboard-cases" })
 }
 
+// 跨标签页同步：模块对话在其他标签完成时刷新已完成模块列表
+useCrossTabListener('analysis:updated', (data) => {
+  if (caseId.value > 0 && data.caseId === caseId.value) {
+    loadStatus()
+  }
+})
+
 onMounted(() => {
   loadStatus()
 })

@@ -68,6 +68,8 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
             onCustomEvent: (eventData: any) => {
                 if (eventData.name === 'analysis_result_saved') {
                     options.onAnalysisSaved?.()
+                    // 跨标签页通知
+                    postCrossTabEvent('analysis:updated', { caseId: caseId.value })
                 }
             },
         }))!

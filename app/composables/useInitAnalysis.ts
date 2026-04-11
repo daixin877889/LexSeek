@@ -143,6 +143,11 @@ export function useInitAnalysis(sessionId: Ref<string>) {
 
     moduleStates.value = updated
 
+    // 跨标签页通知：有模块完成或失败时广播
+    if (caseId.value > 0 && (hasResultContent || hasFailedContent)) {
+      postCrossTabEvent('analysis:updated', { caseId: caseId.value })
+    }
+
     // 按模块分组消息
     const allMessages = v.messages
     const currentStreamLength = stream.messages.value?.length ?? 0

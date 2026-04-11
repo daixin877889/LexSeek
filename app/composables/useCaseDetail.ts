@@ -72,6 +72,11 @@ export function useCaseDetail(
     () => `/api/v1/case/init-analysis-status/${id.value}`,
   )
 
+  // 跨标签页同步：其他标签页的 init-analysis 或模块对话完成时自动刷新
+  useCrossTabListener('analysis:updated', (data) => {
+    if (data.caseId === id.value) refreshAnalysis()
+  })
+
   // init-analysis 派生状态
   const isInitAnalysisRunning = computed(() =>
     analysisStatus.value?.status === 'in_progress',
