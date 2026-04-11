@@ -11,7 +11,7 @@ import type { ModelType } from '#shared/types/model'
 const querySchema = z.object({
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
-    modelType: z.enum(['chat', 'embedding', 'asr']).optional(),
+    modelType: z.enum(['chat', 'embedding', 'asr', 'rerank']).optional(),
     providerId: z.coerce.number().int().positive().optional(),
     status: z.coerce.number().int().min(0).max(1).optional(),
     orderBy: z.enum(['priority', 'name', 'createdAt']).default('priority'),

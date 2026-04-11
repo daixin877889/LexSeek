@@ -31,9 +31,9 @@
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">全部类型</SelectItem>
-                        <SelectItem value="chat">对话模型</SelectItem>
-                        <SelectItem value="embedding">嵌入模型</SelectItem>
-                        <SelectItem value="asr">音频识别</SelectItem>
+                        <SelectItem v-for="(label, type) in ModelTypeLabels" :key="type" :value="type">
+                            {{ label }}
+                        </SelectItem>
                     </SelectContent>
                 </Select>
                 <Select v-model="statusFilter">
@@ -166,8 +166,8 @@
 <script setup lang="ts">
 import { Plus, Loader2, Bot, Search, MoreHorizontal, Pencil, Trash2, Star } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import type { ModelProvider, Model, SdkType } from '#shared/types/model'
-import { SdkTypeLabels } from '#shared/types/model'
+import type { ModelProvider, Model, SdkType, ModelType } from '#shared/types/model'
+import { SdkTypeLabels, ModelTypeLabels } from '#shared/types/model'
 
 definePageMeta({ layout: 'admin-layout', title: '模型管理' })
 
@@ -193,15 +193,8 @@ const statusFilter = ref('all')
 const deleteDialogOpen = ref(false)
 const selectedModel = ref<ModelWithProvider | null>(null)
 
-// 模型类型标签
-const getTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-        chat: '对话模型',
-        embedding: '嵌入模型',
-        asr: '音频识别',
-    }
-    return labels[type] || type
-}
+// 模型类型标签（复用 shared 定义，保证前后端一致）
+const getTypeLabel = (type: string) => ModelTypeLabels[type as ModelType] ?? type
 
 // 模型类型样式
 const getTypeVariant = (type: string) => {
@@ -209,6 +202,7 @@ const getTypeVariant = (type: string) => {
         chat: 'default',
         embedding: 'secondary',
         asr: 'outline',
+        rerank: 'secondary',
     }
     return variants[type] || 'default'
 }
