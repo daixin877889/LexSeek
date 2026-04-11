@@ -249,7 +249,7 @@ onMounted(() => {
     <!-- 主体 -->
     <div class="flex flex-1 min-h-0">
       <!-- 侧边栏 - 仅桌面端 -->
-      <aside class="hidden md:block w-50 shrink-0 border-r bg-muted/30">
+      <aside class="hidden md:block w-14 lg:w-50 shrink-0 border-r bg-muted/30 transition-all">
         <CaseDetailSidebar v-model="activeView" />
       </aside>
 
@@ -348,7 +348,7 @@ onMounted(() => {
 
   <!-- 文本内容预览弹窗 -->
   <Dialog v-model:open="showTextPreview">
-    <DialogContent class="max-w-2xl max-h-[80vh] overflow-y-auto">
+    <DialogContent class="w-full max-h-[80vh] md:min-w-[70vw] flex flex-col overflow-y-auto">
       <DialogHeader>
         <DialogTitle class="flex items-center gap-2">
           <FileTextIcon class="size-5 text-blue-500" />
