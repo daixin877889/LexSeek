@@ -45,8 +45,11 @@ export const NodeStatusLabels: Record<NodeStatus, string> = {
     [NodeStatus.ENABLED]: '启用',
 }
 
-/** 提示词类型枚举 */
-export type PromptType = 'system' | 'user' | 'assistant'
+/** 提示词类型枚举值数组（单一来源） */
+export const PROMPT_TYPES = ['system', 'user', 'assistant'] as const
+
+/** 提示词类型 */
+export type PromptType = typeof PROMPT_TYPES[number]
 
 /** 提示词类型标签映射 */
 export const PromptTypeLabels: Record<PromptType, string> = {

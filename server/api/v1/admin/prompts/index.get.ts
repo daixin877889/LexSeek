@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { PROMPT_TYPES } from '#shared/types/node'
 import type { PromptType } from '#shared/types/node'
 
 /** 查询参数验证 */
@@ -13,7 +14,7 @@ const querySchema = z.object({
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
     nodeId: z.coerce.number().int().positive().optional(),
-    type: z.enum(['system', 'user', 'assistant']).optional(),
+    type: z.enum(PROMPT_TYPES).optional(),
     status: z.coerce.number().int().min(0).max(1).optional(),
     keyword: z.string().optional(),
     orderBy: z.enum(['version', 'name', 'createdAt']).default('createdAt'),

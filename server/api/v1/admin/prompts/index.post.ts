@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod'
+import { PROMPT_TYPES } from '#shared/types/node'
 
 /** 请求体验证 */
 const bodySchema = z.object({
@@ -19,8 +20,8 @@ const bodySchema = z.object({
     content: z.string({ message: '提示词内容不能为空' })
         .min(1, '提示词内容不能为空'),
     variables: z.array(z.string()).optional(),
-    type: z.enum(['system', 'user', 'assistant'], {
-        message: '提示词类型必须是 system、user 或 assistant',
+    type: z.enum(PROMPT_TYPES, {
+        message: `提示词类型必须是 ${PROMPT_TYPES.join('、')}`,
     }),
     nodeId: z.number({ message: '节点ID不能为空' })
         .int('节点ID必须是整数')
