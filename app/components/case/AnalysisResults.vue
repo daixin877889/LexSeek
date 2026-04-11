@@ -12,6 +12,7 @@
  */
 import type { HTMLAttributes } from 'vue'
 import type { AnalysisResult } from '#shared/types/case'
+import type { AnalysisModuleCard } from '#shared/types/case'
 import { cn } from '@/lib/utils'
 import {
     MessageCircleIcon,
@@ -32,6 +33,9 @@ import {
     ListIcon,
     SparklesIcon,
     HistoryIcon,
+    PlusIcon,
+    AlertCircleIcon,
+    ClockIcon,
 } from 'lucide-vue-next'
 import { useMediaQuery } from '@vueuse/core'
 
@@ -39,12 +43,16 @@ import { useMediaQuery } from '@vueuse/core'
  * 组件属性接口
  */
 interface Props {
-    /** 分析结果列表 */
+    /** 分析结果列表（旧模式，保留兼容） */
     results: AnalysisResult[]
+    /** 全部模块卡片（新模式，四态） */
+    moduleCards?: AnalysisModuleCard[]
     /** 案件 ID（用于版本管理） */
     caseId?: number
-    /** 当前选中的模块索引 */
+    /** 当前选中的模块索引（旧 v-model） */
     activeIndex?: number
+    /** 当前选中的模块名（新 v-model） */
+    activeModule?: string | null
     /** 是否正在重新生成 */
     isRegenerating?: boolean
     /** 正在重新生成的模块 ID */
@@ -67,6 +75,10 @@ interface Props {
     viewMode?: 'dashboard' | 'detail'
     /** 是否隐藏头部（仅在仪表盘模式下生效） */
     hideHeader?: boolean
+    /** 是否显示补充分析按钮 */
+    showBatchButton?: boolean
+    /** 是否有待处理的中断 */
+    hasPendingInterrupt?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -85,8 +97,10 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const emit = defineEmits<{
-    /** 切换模块 */
+    /** 切换模块（旧模式） */
     (e: 'update:activeIndex', index: number): void
+    /** 切换模块（新模式） */
+    (e: 'update:activeModule', moduleName: string | null): void
     /** 切换查看模式 */
     (e: 'update:viewMode', mode: 'dashboard' | 'detail'): void
     /** 重新生成 */
@@ -95,6 +109,10 @@ const emit = defineEmits<{
     (e: 'copy', result: AnalysisResult): void
     /** 版本切换后 */
     (e: 'versionChanged'): void
+    /** 触发单个模块生成/重试/重新展开 */
+    (e: 'generateModule', moduleName: string, moduleTitle: string): void
+    /** 触发批量生成 */
+    (e: 'batchGenerate'): void
 }>()
 
 // 版本 Sheet 状态
@@ -194,23 +212,85 @@ function getModuleIcon(name: string) {
     return iconMap[name] || FileTextIcon
 }
 
-// 当前选中的模块索引（支持 v-model）
-const currentIndex = computed({
-    get: () => props.activeIndex,
-    set: (value) => emit('update:activeIndex', value),
+// 数据源：优先 moduleCards（新模式），回退 results（旧模式）
+const cards = computed<AnalysisModuleCard[]>(() => {
+    if (props.moduleCards?.length) return props.moduleCards
+    return props.results.map(r => ({
+        moduleName: r.moduleName,
+        moduleTitle: r.moduleTitle,
+        status: 'complete' as const,
+        content: r.content,
+        analyzedAt: r.analyzedAt,
+        version: r.version,
+    }))
 })
 
-// 当前选中的分析结果
+// 只有 complete 的卡片可进入详情
+const completeCards = computed(() => cards.value.filter(c => c.status === 'complete'))
+
+// 双模式 activeModule 解析
+const currentModuleName = computed({
+    get: () => {
+        if (props.activeModule !== undefined) return props.activeModule
+        const idx = props.activeIndex ?? 0
+        return completeCards.value[idx]?.moduleName ?? null
+    },
+    set: (val) => {
+        if (props.activeModule !== undefined) emit('update:activeModule', val)
+        if (props.activeIndex !== undefined) {
+            const idx = completeCards.value.findIndex(c => c.moduleName === val)
+            emit('update:activeIndex', idx >= 0 ? idx : 0)
+        }
+    },
+})
+
+// 当前选中的完成结果（用于详情视图）
 const currentResult = computed(() => {
-    if (props.results.length === 0) return null
-    return props.results[currentIndex.value] || props.results[0]
+    if (!currentModuleName.value) return completeCards.value[0] ?? null
+    return completeCards.value.find(c => c.moduleName === currentModuleName.value) ?? completeCards.value[0] ?? null
 })
 
-// 是否有结果
-const hasResults = computed(() => props.results.length > 0)
+// 是否有任何结果可展示（包含四态卡片）
+const hasResults = computed(() => cards.value.length > 0)
+
+// 卡片禁用判断
+function isCardDisabled(card: AnalysisModuleCard): boolean {
+    if (props.hasPendingInterrupt && card.status !== 'complete') return true
+    if (card.locked) return true
+    return false
+}
+
+// 卡片点击处理
+function handleCardClick(card: AnalysisModuleCard) {
+    if (isCardDisabled(card)) return
+    if (card.status === 'complete') {
+        currentModuleName.value = card.moduleName
+        currentViewMode.value = 'detail'
+        return
+    }
+    if (card.status === 'idle' || card.status === 'failed' || card.status === 'in_progress') {
+        emit('generateModule', card.moduleName, card.moduleTitle)
+    }
+}
+
+// 卡片底部文案
+function getCardSubtext(card: AnalysisModuleCard): string {
+    if (props.hasPendingInterrupt && card.status !== 'complete') return '等待处理中断'
+    if (card.status === 'complete') return `第 ${card.version ?? 1} 版`
+    if (card.status === 'in_progress') return '生成中...'
+    if (card.status === 'failed') {
+        if (card.locked) return '等待当前批次完成后可重试'
+        return '生成失败，点击重试'
+    }
+    if (card.status === 'idle') {
+        if (card.locked) return '等待执行'
+        return '点击生成'
+    }
+    return ''
+}
 
 // 复制状态
-const copiedIndex = ref<number | null>(null)
+const copiedModuleName = ref<string | null>(null)
 
 /**
  * 返回仪表盘
@@ -222,37 +302,47 @@ function goBack() {
 /**
  * 切换到指定模块
  */
-function goToModule(index: number) {
-    if (index >= 0 && index < props.results.length) {
-        currentIndex.value = index
-        currentViewMode.value = 'detail'
-    }
+function goToModule(moduleName: string) {
+    currentModuleName.value = moduleName
+    currentViewMode.value = 'detail'
 }
 
 /**
- * 切换到上一个模块
+ * 切换到上一个 complete 模块
  */
 function goToPrev() {
-    if (currentIndex.value > 0) {
-        currentIndex.value--
-    }
+    const idx = completeCards.value.findIndex(c => c.moduleName === currentModuleName.value)
+    if (idx > 0) currentModuleName.value = completeCards.value[idx - 1].moduleName
 }
 
 /**
- * 切换到下一个模块
+ * 切换到下一个 complete 模块
  */
 function goToNext() {
-    if (currentIndex.value < props.results.length - 1) {
-        currentIndex.value++
-    }
+    const idx = completeCards.value.findIndex(c => c.moduleName === currentModuleName.value)
+    if (idx < completeCards.value.length - 1) currentModuleName.value = completeCards.value[idx + 1].moduleName
 }
 
+// 当前模块在 completeCards 中的位置（用于翻页 disabled 判断）
+const currentCompleteIndex = computed(() =>
+    completeCards.value.findIndex(c => c.moduleName === currentModuleName.value),
+)
+
 /**
- * 重新生成当前模块
+ * 重新生成当前模块（用于详情视图内）
  */
 function handleRegenerate() {
     if (currentResult.value) {
-        emit('regenerate', currentResult.value)
+        // 构造 AnalysisResult 兼容对象
+        const r = currentResult.value
+        emit('regenerate', {
+            nodeId: 0,
+            moduleName: r.moduleName,
+            moduleTitle: r.moduleTitle,
+            content: r.content ?? '',
+            analyzedAt: r.analyzedAt ?? '',
+            version: r.version,
+        })
     }
 }
 
@@ -260,18 +350,24 @@ function handleRegenerate() {
  * 复制当前模块内容
  */
 async function handleCopy() {
-    if (!currentResult.value) return
+    if (!currentResult.value?.content) return
 
     try {
         await navigator.clipboard.writeText(currentResult.value.content)
-        copiedIndex.value = currentIndex.value
+        copiedModuleName.value = currentModuleName.value
 
-        // 2 秒后重置复制状态
         setTimeout(() => {
-            copiedIndex.value = null
+            copiedModuleName.value = null
         }, 2000)
 
-        emit('copy', currentResult.value)
+        emit('copy', {
+            nodeId: 0,
+            moduleName: currentResult.value.moduleName,
+            moduleTitle: currentResult.value.moduleTitle,
+            content: currentResult.value.content,
+            analyzedAt: currentResult.value.analyzedAt ?? '',
+            version: currentResult.value.version,
+        })
     } catch (error) {
         console.error('复制失败:', error)
     }
@@ -281,14 +377,14 @@ async function handleCopy() {
  * 判断当前模块是否正在重新生成
  */
 const isCurrentRegenerating = computed(() => {
-    return props.isRegenerating && props.regeneratingNodeId === currentResult.value?.nodeId
+    return props.isRegenerating && currentResult.value?.moduleName != null
 })
 
 /**
  * 判断是否已复制当前模块
  */
 const isCurrentCopied = computed(() => {
-    return copiedIndex.value === currentIndex.value
+    return copiedModuleName.value === currentModuleName.value
 })
 
 const { formatDate } = useFormatters()
@@ -327,65 +423,117 @@ function formatAnalyzedAt(dateStr: string): string {
                             class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
                             <SparklesIcon class="size-4" />
                             分析结果
-                            <span class="font-normal text-[10px] bg-muted px-1.5 py-0.5 rounded">{{ results.length }}</span>
+                            <span class="font-normal text-[10px] bg-muted px-1.5 py-0.5 rounded">{{ completeCards.length }}/{{ cards.length }}</span>
                         </h3>
 
-                        <div class="flex items-center bg-muted/50 rounded-lg p-0.5">
-                            <button class="size-7 flex items-center justify-center rounded-md transition-all"
-                                :class="dashboardViewMode === 'grid' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
-                                @click="dashboardViewMode = 'grid'">
-                                <LayoutGridIcon class="size-3.5" />
+                        <div class="flex items-center gap-2">
+                            <button
+                                v-if="showBatchButton"
+                                class="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors mr-2"
+                                @click="emit('batchGenerate')"
+                            >
+                                <PlusIcon class="size-3" />
+                                补充分析
                             </button>
-                            <button class="size-7 flex items-center justify-center rounded-md transition-all"
-                                :class="dashboardViewMode === 'list' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
-                                @click="dashboardViewMode = 'list'">
-                                <ListIcon class="size-3.5" />
-                            </button>
+                            <div class="flex items-center bg-muted/50 rounded-lg p-0.5">
+                                <button class="size-7 flex items-center justify-center rounded-md transition-all"
+                                    :class="dashboardViewMode === 'grid' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
+                                    @click="dashboardViewMode = 'grid'">
+                                    <LayoutGridIcon class="size-3.5" />
+                                </button>
+                                <button class="size-7 flex items-center justify-center rounded-md transition-all"
+                                    :class="dashboardViewMode === 'list' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
+                                    @click="dashboardViewMode = 'list'">
+                                    <ListIcon class="size-3.5" />
+                                </button>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- 网格模式 -->
+                    <!-- 网格模式：四态卡片 -->
                     <div v-if="dashboardViewMode === 'grid'" class="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
-                        <button v-for="(result, index) in results" :key="result.nodeId"
-                            class="group relative flex flex-col items-center p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition-all border border-transparent hover:border-primary cursor-pointer text-center"
-                            @click="goToModule(index)">
+                        <button v-for="card in cards" :key="card.moduleName"
+                            class="group relative flex flex-col items-center p-2.5 rounded-xl transition-all text-center"
+                            :class="[
+                                isCardDisabled(card) ? 'pointer-events-none opacity-60' : 'cursor-pointer',
+                                card.status === 'complete' ? 'bg-muted/40 hover:bg-muted/60 border border-transparent hover:border-primary' : '',
+                                card.status === 'in_progress' ? 'bg-muted/40 border border-primary/30' : '',
+                                card.status === 'idle' ? 'bg-muted/20 border border-dashed border-muted-foreground/30 hover:border-muted-foreground/50' : '',
+                                card.status === 'failed' ? 'bg-destructive/5 border border-destructive/30 hover:border-destructive/50' : '',
+                            ]"
+                            @click="handleCardClick(card)">
 
                             <!-- 模块图标 -->
                             <div
-                                class="flex items-center justify-center size-11 rounded-xl shrink-0 transition-colors group-hover:scale-105 mb-1.5 bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white">
-                                <component :is="getModuleIcon(result.moduleName)" class="size-6" />
+                                class="flex items-center justify-center size-11 rounded-xl shrink-0 transition-colors mb-1.5"
+                                :class="[
+                                    card.status === 'complete' ? 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white group-hover:scale-105' : '',
+                                    card.status === 'in_progress' ? 'bg-primary/10 text-primary' : '',
+                                    card.status === 'idle' ? 'bg-muted/60 text-muted-foreground/40' : '',
+                                    card.status === 'failed' ? 'bg-destructive/10 text-destructive' : '',
+                                ]">
+                                <Loader2Icon v-if="card.status === 'in_progress'" class="size-6 animate-spin" />
+                                <AlertCircleIcon v-else-if="card.status === 'failed'" class="size-6" />
+                                <component v-else :is="getModuleIcon(card.moduleName)" class="size-6" />
                             </div>
 
                             <!-- 模块信息 -->
                             <div class="flex-1 min-w-0 w-full">
                                 <h4
-                                    class="text-[12px] font-medium line-clamp-1 leading-tight mb-1 group-hover:text-primary transition-colors px-1">
-                                    {{ result.moduleTitle || result.moduleName }}
+                                    class="text-[12px] font-medium line-clamp-1 leading-tight mb-1 transition-colors px-1"
+                                    :class="[
+                                        card.status === 'complete' ? 'group-hover:text-primary' : '',
+                                        card.status === 'idle' ? 'text-muted-foreground/60' : '',
+                                        card.status === 'failed' ? 'text-destructive/80' : '',
+                                    ]">
+                                    {{ card.moduleTitle || card.moduleName }}
                                 </h4>
-                                <div class="text-[10px] text-muted-foreground/60 flex items-center justify-center">
-                                    <span>第 {{ result.version ?? 1 }} 版</span>
+                                <div class="text-[10px] text-muted-foreground/60 flex items-center justify-center gap-1">
+                                    <ClockIcon v-if="card.status === 'idle' && card.locked" class="size-2.5" />
+                                    <span>{{ getCardSubtext(card) }}</span>
                                 </div>
                             </div>
                         </button>
                     </div>
 
-                    <!-- 列表模式 -->
+                    <!-- 列表模式：四态卡片 -->
                     <div v-else class="space-y-1">
-                        <button v-for="(result, index) in results" :key="result.nodeId"
-                            class="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-muted/50 transition-colors group border border-transparent hover:border-border/50 text-left"
-                            @click="goToModule(index)">
-                            <div class="flex items-center justify-center size-9 rounded-lg shrink-0 bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
-                                <component :is="getModuleIcon(result.moduleName)" class="size-5" />
+                        <button v-for="card in cards" :key="card.moduleName"
+                            class="w-full flex items-center gap-3 p-2.5 rounded-lg transition-colors group text-left"
+                            :class="[
+                                isCardDisabled(card) ? 'pointer-events-none opacity-60' : '',
+                                card.status === 'complete' ? 'hover:bg-muted/50 border border-transparent hover:border-border/50' : '',
+                                card.status === 'in_progress' ? 'border border-primary/20' : '',
+                                card.status === 'idle' ? 'border border-dashed border-muted-foreground/20 hover:border-muted-foreground/40' : '',
+                                card.status === 'failed' ? 'border border-destructive/20 hover:border-destructive/40' : '',
+                            ]"
+                            @click="handleCardClick(card)">
+                            <div class="flex items-center justify-center size-9 rounded-lg shrink-0 transition-colors"
+                                :class="[
+                                    card.status === 'complete' ? 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white' : '',
+                                    card.status === 'in_progress' ? 'bg-primary/10 text-primary' : '',
+                                    card.status === 'idle' ? 'bg-muted/60 text-muted-foreground/40' : '',
+                                    card.status === 'failed' ? 'bg-destructive/10 text-destructive' : '',
+                                ]">
+                                <Loader2Icon v-if="card.status === 'in_progress'" class="size-5 animate-spin" />
+                                <AlertCircleIcon v-else-if="card.status === 'failed'" class="size-5" />
+                                <component v-else :is="getModuleIcon(card.moduleName)" class="size-5" />
                             </div>
                             <div class="flex-1 min-w-0">
-                                <h4 class="text-sm font-medium truncate group-hover:text-primary transition-colors">
-                                    {{ result.moduleTitle || result.moduleName }}
+                                <h4 class="text-sm font-medium truncate transition-colors"
+                                    :class="[
+                                        card.status === 'complete' ? 'group-hover:text-primary' : '',
+                                        card.status === 'idle' ? 'text-muted-foreground/60' : '',
+                                        card.status === 'failed' ? 'text-destructive/80' : '',
+                                    ]">
+                                    {{ card.moduleTitle || card.moduleName }}
                                 </h4>
                                 <div class="text-[11px] text-muted-foreground/60 flex items-center gap-2">
-                                    <span>第 {{ result.version ?? 1 }} 版</span>
-                                    <template v-if="formatAnalyzedAt(result.analyzedAt)">
+                                    <ClockIcon v-if="card.status === 'idle' && card.locked" class="size-2.5" />
+                                    <span>{{ getCardSubtext(card) }}</span>
+                                    <template v-if="card.status === 'complete' && card.analyzedAt && formatAnalyzedAt(card.analyzedAt)">
                                         <span class="size-0.5 rounded-full bg-muted-foreground/30"></span>
-                                        <span>分析于 {{ formatAnalyzedAt(result.analyzedAt) }}</span>
+                                        <span>分析于 {{ formatAnalyzedAt(card.analyzedAt) }}</span>
                                     </template>
                                 </div>
                             </div>
@@ -411,7 +559,7 @@ function formatAnalyzedAt(dateStr: string): string {
                                             第 {{ currentResult.version ?? 1 }} 版
                                         </Badge>
                                     </div>
-                                    <span v-if="formatAnalyzedAt(currentResult.analyzedAt)"
+                                    <span v-if="currentResult.analyzedAt && formatAnalyzedAt(currentResult.analyzedAt)"
                                         class="text-[10px] text-muted-foreground">
                                         分析于 {{ formatAnalyzedAt(currentResult.analyzedAt) }}
                                     </span>
@@ -439,13 +587,13 @@ function formatAnalyzedAt(dateStr: string): string {
 
                                 <!-- 翻页按钮 -->
                                 <div class="flex items-center bg-muted/50 rounded-lg p-0.5 ml-1">
-                                    <AiElementsArtifactAction tooltip="上一个模块" :disabled="currentIndex <= 0"
+                                    <AiElementsArtifactAction tooltip="上一个模块" :disabled="currentCompleteIndex <= 0"
                                         @click="goToPrev">
                                         <ChevronLeftIcon class="size-4" />
                                     </AiElementsArtifactAction>
                                     <div class="w-px h-3 bg-border mx-0.5"></div>
                                     <AiElementsArtifactAction tooltip="下一个模块"
-                                        :disabled="currentIndex >= results.length - 1" @click="goToNext">
+                                        :disabled="currentCompleteIndex >= completeCards.length - 1" @click="goToNext">
                                         <ChevronRightIcon class="size-4" />
                                     </AiElementsArtifactAction>
                                 </div>
@@ -464,7 +612,7 @@ function formatAnalyzedAt(dateStr: string): string {
                                 </div>
 
                                 <!-- Markdown 内容渲染 -->
-                                <AiElementsMessageResponse v-else :content="currentResult.content"
+                                <AiElementsMessageResponse v-else :content="currentResult.content ?? ''"
                                     class="prose prose-sm dark:prose-invert max-w-none" />
                             </div>
                         </AiElementsArtifactContent>
