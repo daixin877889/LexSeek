@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod'
+import { MODEL_TYPES } from '#shared/types/model'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({
@@ -24,8 +25,8 @@ const bodySchema = z.object({
         .min(1, '显示名称不能为空')
         .max(100, '显示名称不能超过100个字符')
         .optional(),
-    modelType: z.enum(['chat', 'embedding', 'asr', 'rerank'], {
-        message: '模型类型必须是 chat、embedding、asr 或 rerank',
+    modelType: z.enum(MODEL_TYPES, {
+        message: `模型类型必须是 ${MODEL_TYPES.join('、')}`,
     }).optional(),
     /**
      * LangChain SDK 类型

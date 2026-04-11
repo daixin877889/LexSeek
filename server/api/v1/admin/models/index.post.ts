@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod'
+import { MODEL_TYPES } from '#shared/types/model'
 
 /**
  * 请求体验证
@@ -20,8 +21,8 @@ const bodySchema = z.object({
     displayName: z.string({ error: (issue) => issue.input === undefined ? '显示名称不能为空' : '显示名称必须是字符串' })
         .min(1, '显示名称不能为空')
         .max(100, '显示名称不能超过100个字符'),
-    modelType: z.enum(['chat', 'embedding', 'asr', 'rerank'], {
-        error: (issue) => issue.input === undefined ? '模型类型不能为空' : '模型类型必须是 chat、embedding、asr 或 rerank',
+    modelType: z.enum(MODEL_TYPES, {
+        error: (issue) => issue.input === undefined ? '模型类型不能为空' : `模型类型必须是 ${MODEL_TYPES.join('、')}`,
     }),
     /**
      * LangChain SDK 类型

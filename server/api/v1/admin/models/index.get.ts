@@ -5,13 +5,14 @@
  */
 
 import { z } from 'zod'
+import { MODEL_TYPES } from '#shared/types/model'
 import type { ModelType } from '#shared/types/model'
 
 /** 查询参数验证 */
 const querySchema = z.object({
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
-    modelType: z.enum(['chat', 'embedding', 'asr', 'rerank']).optional(),
+    modelType: z.enum(MODEL_TYPES).optional(),
     providerId: z.coerce.number().int().positive().optional(),
     status: z.coerce.number().int().min(0).max(1).optional(),
     orderBy: z.enum(['priority', 'name', 'createdAt']).default('priority'),

@@ -56,8 +56,11 @@ export const DEFAULT_SDK_TYPE: SdkType = 'openai'
 // 模型类型相关定义
 // ============================================================================
 
-/** 模型类型枚举 */
-export type ModelType = 'chat' | 'embedding' | 'asr' | 'rerank'
+/** 模型类型枚举值数组（单一来源，前后端 zod/UI 共用） */
+export const MODEL_TYPES = ['chat', 'embedding', 'asr', 'rerank'] as const
+
+/** 模型类型 */
+export type ModelType = typeof MODEL_TYPES[number]
 
 /** 模型类型标签映射 */
 export const ModelTypeLabels: Record<ModelType, string> = {
