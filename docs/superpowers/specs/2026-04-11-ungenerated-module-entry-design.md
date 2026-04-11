@@ -17,17 +17,21 @@
 #### 1.1 新增类型（`shared/types/case.ts`）
 
 ```typescript
-export type AnalysisModuleDisplayStatus = 'complete' | 'in_progress' | 'idle'
+export type AnalysisModuleDisplayStatus = 'complete' | 'in_progress' | 'idle' | 'failed'
 
 export interface AnalysisModuleCard {
   moduleName: string
   moduleTitle: string
   status: AnalysisModuleDisplayStatus
+  /** 是否被 init-analysis 流程锁定（等待执行或正在执行），锁定时不可单独生成 */
+  locked?: boolean
   // status=complete 时有值
   content?: string
   analyzedAt?: string
   version?: number
   nodeId?: number
+  // status=failed 时有值
+  error?: string
 }
 ```
 
@@ -37,9 +41,13 @@ export interface AnalysisModuleCard {
 
 > **icon 字段**: `AnalysisModuleCard` 不存储 `icon` 字段，复用 `AnalysisResults.vue` 已有的 `iconMap`（通过 `moduleName` 映射 Lucide 组件）。
 
-#### 1.2 `useCaseDetail.ts` 新增 `allModuleCards`
+#### 1.2 `useCaseDetail.ts` 新增 `allModuleCards` 和状态标志
 
-需要一个额外的前端状态源来标记正在通过模块对话生成的模块。通过参数接收 `moduleChatManager` 的活跃模块列表：
+需要两个前端派生状态：
+- `generatingModules`: 正在通过模块对话生成的模块名集合（从 `moduleChatManager.instances` 派生，见第 3 节）
+- `isInitAnalysisRunning`: init-analysis 工作流是否正在运行
+- `hasPendingInterrupt`: init-analysis 是否处于待处理中断态（积分不足等）
+- `lockedModules`: 被 init-analysis 锁定的模块集合（status.selectedModules 中所有非 complete 的）
 
 ```typescript
 function useCaseDetail(
@@ -47,13 +55,40 @@ function useCaseDetail(
   options?: { generatingModules?: Ref<string[]> }
 ) {
   // ...
+  const isInitAnalysisRunning = computed(() =>
+    analysisStatus.value?.status === 'in_progress',
+  )
+
+  const hasPendingInterrupt = computed(() =>
+    analysisStatus.value?.hasPendingInterrupt === true,
+  )
+
+  // init-analysis 锁定的模块：status.selectedModules 中非 complete 的全部
+  // （包括已经 in_progress 和还在等待串行执行的 idle）
+  const lockedModules = computed<Set<string>>(() => {
+    if (!isInitAnalysisRunning.value) return new Set()
+    const status = analysisStatus.value
+    if (!status?.selectedModules?.length) return new Set()
+    const moduleMap = new Map(status.modules?.map(m => [m.name, m]) ?? [])
+    return new Set(
+      status.selectedModules.filter(name => {
+        const m = moduleMap.get(name)
+        return m?.status !== 'complete'
+      }),
+    )
+  })
+
   const allModuleCards = computed<AnalysisModuleCard[]>(() => {
     const status = analysisStatus.value
     const moduleMap = new Map(status?.modules?.map(m => [m.name, m]) ?? [])
     const generating = new Set(options?.generatingModules?.value ?? [])
+    const locked = lockedModules.value
 
     return INIT_ANALYSIS_MODULES.map(def => {
       const m = moduleMap.get(def.name)
+      const isLocked = locked.has(def.name)
+
+      // complete
       if (m?.status === 'complete' && m.result) {
         return {
           moduleName: def.name,
@@ -65,21 +100,41 @@ function useCaseDetail(
           nodeId: 0,
         }
       }
-      // API 返回 in_progress（init-analysis 流程中），或前端标记正在模块对话生成
+      // failed
+      if (m?.status === 'failed') {
+        return {
+          moduleName: def.name,
+          moduleTitle: def.title,
+          status: 'failed' as const,
+          locked: isLocked,
+        }
+      }
+      // in_progress：API 返回 in_progress，或前端模块对话正在生成
       if (m?.status === 'in_progress' || generating.has(def.name)) {
         return {
           moduleName: def.name,
           moduleTitle: def.title,
           status: 'in_progress' as const,
+          locked: isLocked,
         }
       }
+      // idle（可能被 init-analysis 等待执行锁定）
       return {
         moduleName: def.name,
         moduleTitle: def.title,
         status: 'idle' as const,
+        locked: isLocked,
       }
     })
   })
+
+  return {
+    // ...
+    allModuleCards,
+    isInitAnalysisRunning,
+    hasPendingInterrupt,
+    lockedModules,
+  }
 }
 ```
 
@@ -92,15 +147,24 @@ function useCaseDetail(
 
 保留原 `analysisResults`（仅 complete），供导出、版本管理等场景使用。
 
-### 2. UI 三态卡片
+### 2. UI 四态卡片
 
 #### 2.1 卡片状态样式
 
 | 状态 | 图标区 | 标题/文字 | 边框 | 交互 |
 |------|--------|-----------|------|------|
 | complete | 实色图标，hover 放大 | 正常色，显示版本号+时间 | `border-transparent hover:border-primary` | 可点击进入详情 |
-| in_progress | Loader2Icon 旋转动画 | 正常色，底部"生成中..." | `border-primary/30` | `pointer-events-none opacity-70` |
-| idle | 灰色图标 `text-muted-foreground/40` | 灰色，底部"点击生成" | `border-dashed border-muted-foreground/30` | 可点击触发生成 |
+| in_progress（模块对话） | Loader2Icon 旋转动画 | 正常色，底部"生成中..." | `border-primary/30` | 可点击 → 重新展开对话窗口（不重复发消息） |
+| in_progress（init-analysis 锁定） | Loader2Icon 旋转动画 | 正常色，底部"生成中..." | `border-primary/30` | `pointer-events-none`（受 init-analysis 串行流程管理，不可手动干预） |
+| idle（普通） | 灰色图标 `text-muted-foreground/40` | 灰色，底部"点击生成" | `border-dashed border-muted-foreground/30` | 可点击触发单个生成 |
+| idle（init-analysis 锁定） | 灰色图标 + 小时钟图标叠加 | 灰色，底部"等待 init-analysis 执行" | `border-dashed border-muted-foreground/30 opacity-60` | `pointer-events-none` |
+| idle（hasPendingInterrupt 时） | 灰色图标 | 灰色，底部"等待处理中断" | `border-dashed opacity-60` | `pointer-events-none` |
+| failed | 红色错误图标（`AlertCircleIcon text-destructive`） | 底部"生成失败，点击重试" | `border-destructive/30` | 可点击触发重新生成（走单个生成路径，模块对话） |
+
+**交互优先级**：
+1. `hasPendingInterrupt === true` → 所有 idle 和 failed 卡片禁用
+2. `locked === true` → idle/in_progress 卡片禁用手动点击
+3. 否则按卡片状态的默认交互
 
 #### 2.2 排列顺序
 
@@ -114,37 +178,101 @@ function useCaseDetail(
 
 ### 3. 交互路径
 
-#### 3.1 单个生成（点击 idle 卡片）
+#### 3.1 `generatingModules` 派生
+
+`generatingModules` 从 `moduleChatManager.instances` 派生，无需额外状态管理：
+
+```typescript
+// useModuleChatManager 新增导出
+const generatingModules = computed(() =>
+  Object.keys(instances).filter(name => instances[name]?.isLoading?.value),
+)
+```
+
+`[id].vue` 传递给 `useCaseDetail`：
+
+```typescript
+const moduleChatManager = useModuleChatManager(caseId, { onAnalysisSaved: refreshAnalysis })
+const { allModuleCards, ... } = useCaseDetail(caseId, {
+  generatingModules: moduleChatManager.generatingModules,
+})
+```
+
+页面刷新后 `restoreActiveSessions()` 重建 instances，`isLoading` 自动反映流式状态，`generatingModules` 派生正确无需额外处理。
+
+#### 3.2 单个生成（点击 idle 卡片）
+
+**前置条件**：卡片未被锁定（`!card.locked && !hasPendingInterrupt`）。
 
 1. 用户点击 idle 卡片
 2. `AnalysisResults` emit `generateModule(moduleName, moduleTitle)`
-3. `[id].vue` 调用 `moduleChatManager.getOrCreateInstance(moduleName, moduleTitle)`
+3. `[id].vue` 调用 `moduleChatManager.getOrCreateInstance(moduleName, moduleTitle, { autoMessage: ... })`
 4. 展开模块对话窗口
-5. 自动发送生成消息（`useModuleChatManager` 新增 `autoMessage` 支持），消息模板：`"请为本案件生成{moduleTitle}分析报告"`
-6. 完成后 `refreshAnalysis()` 刷新，卡片 idle → complete
+5. 自动发送生成消息（`useModuleChatManager.getOrCreateInstance` 新增 `autoMessage?: string` 参数），消息模板：`"请为本案件生成{moduleTitle}分析报告"`
+6. 完成后通过 `onAnalysisSaved` 回调触发 `refreshAnalysis()`，卡片 idle → complete
 
-> **生成中状态**: 步骤 3-5 期间，`moduleChatManager` 将模块名加入 `generatingModules`，`allModuleCards` 中该模块变为 `in_progress`，卡片显示加载状态且不可点击。
+> **生成中状态派生**：步骤 3-5 期间，`instances[moduleName].isLoading` 为 true，`generatingModules` 计算属性自动包含该模块，`allModuleCards` 将其标记为 `in_progress`。
 
-#### 3.2 批量生成（"补充分析"按钮）
+#### 3.3 重新展开生成中对话（点击 in_progress 卡片）
 
-1. 分析结果仪表盘头部，当存在 idle 模块时显示"补充分析"按钮
-2. 点击后在案件详情页内原地调用 `init-analysis` API（参考 `useInitAnalysis.startAnalysis` 的模式），传入 idle 模块列表作为 `selectedModules`
-3. 复用现有 SSE 流消费逻辑（`useStreamChat`），在分析结果区域显示生成进度
-4. 完成后 `refreshAnalysis()` 刷新，卡片状态更新
+**条件**：`status === 'in_progress' && !card.locked`（即该 in_progress 来自模块对话而非 init-analysis 锁定）。
 
-> **不做页面跳转**: 当前初始化分析页面 (`init-analysis/[sessionId].vue`) 需要已创建的 sessionId 路由参数，且不支持从 query 读取预选模块。在案件详情页内直接调用 API 更简单，避免额外的页面跳转和参数传递改动。
+1. 用户点击 in_progress 卡片
+2. `AnalysisResults` emit `generateModule(moduleName, moduleTitle)`
+3. `[id].vue` 调用 `moduleChatManager.getOrCreateInstance(moduleName, moduleTitle)` **不传 `autoMessage`**
+4. `getOrCreateInstance` 返回已存在的 instance（第 43 行 `if (instances[moduleName]) return instances[moduleName]`），不会重复创建也不会重复发消息
+5. 调用 `moduleChatManager.expandModule(moduleName)` 重新展开窗口
+
+> **关键**：复用现有 `getOrCreateInstance` 的幂等性，单个生成路径和重新展开路径使用同一个事件。`[id].vue` 中 `handleGenerateModule` 根据当前卡片状态决定是否传 `autoMessage`。
+
+#### 3.4 失败重试（点击 failed 卡片）
+
+**前置条件**：`!hasPendingInterrupt`。
+
+与单个生成路径完全相同：
+1. 用户点击 failed 卡片
+2. emit `generateModule(moduleName, moduleTitle)`
+3. `handleGenerateModule` 通过模块对话重新生成
+4. 模块对话完成后保存新的 `caseAnalyses` 记录（`isActive=true`），覆盖旧的 failed 记录
+5. `refreshAnalysis()` 后卡片从 failed → complete
+
+#### 3.5 批量生成（"补充分析"按钮）
+
+**按钮显示条件**：
+```typescript
+const showBatchButton = computed(() =>
+  !isInitAnalysisRunning.value
+  && !hasPendingInterrupt.value
+  && allModuleCards.value.some(c => c.status === 'idle' && !c.locked),
+)
+```
+
+- 全部 7 个模块完成（无 idle）→ 隐藏
+- init-analysis 正在运行 → 隐藏（同一案件同时只能有一个 init-analysis 工作流）
+- 存在 pending interrupt → 隐藏
+- 其他情况 → 显示
+
+**点击行为**：
+1. 从 `allModuleCards` 过滤出 `status === 'idle' && !locked` 的模块列表作为 `selectedModules`
+2. 原地调用 `init-analysis` API（参考 `useInitAnalysis.startAnalysis` 的模式）
+3. 复用 SSE 流消费逻辑，在分析结果区域显示生成进度
+4. 完成后 `refreshAnalysis()` 刷新
+
+> **排除 in_progress 和 failed**：
+> - `in_progress` 模块已经在生成（或被 init-analysis 锁定），不重复生成
+> - `failed` 模块由用户单独重试，不混入批量流程
 
 ### 4. 组件改动清单
 
 | 文件 | 改动 |
 |------|------|
-| `shared/types/case.ts` | 新增 `AnalysisModuleDisplayStatus`、`AnalysisModuleCard` 类型（不含 icon 字段） |
-| `app/composables/useCaseDetail.ts` | 新增 `allModuleCards` computed（接收 `generatingModules` 参数），导出 |
-| `app/components/case/AnalysisResults.vue` | 新增 `moduleCards` prop（`AnalysisModuleCard[]`，与原 `results` 并存）；新增 `activeModule: string \| null` v-model（与 `activeIndex` 双 v-model 共存）；三态卡片渲染（`:key="card.moduleName"`）；emit `generateModule`；"补充分析"按钮 emit `batchGenerate`；详情翻页维护 `completeIndices`；翻页时同时 emit 两个 update 事件 |
-| `app/components/caseDetail/CaseDetailOverview.vue` | 新增 `moduleCards` prop；内部状态 `analysisActiveIndex` 迁移为 `analysisActiveModule: string \| null`；`navigateAnalysis` emit 签名从 `[index: number]` 改为 `[moduleName: string]`；`<CaseAnalysisResults>` 改用 `v-model:active-module`；透传 `generateModule` emit |
-| `app/components/caseDetail/CaseDetailAnalysis.vue` | 新增 `moduleCards` prop；`defineModel<number>('activeIndex')` 改为 `defineModel<string \| null>('activeModule')`；模板绑定从 `v-model:active-index` 改为 `v-model:active-module`；透传 `generateModule`、`batchGenerate` emit |
-| `app/pages/dashboard/cases/[id].vue` | `?ai` 参数改为 moduleName（含白名单校验 `VALID_MODULE_NAMES`）；`analysisIndex` 改为 `analysisModule: string \| null`；`navigateToAnalysis` 签名改为 `(moduleName: string)`；query 同步条件为 `if (am) query.ai = am`；`<CaseDetailAnalysis>` 改用 `v-model:active-module`；idle 模块直达 URL 时自动降级为 dashboard 模式；传递 `allModuleCards` 给子组件；新增 `handleGenerateModule`（单个生成 → moduleChatManager + autoMessage）、`handleBatchGenerate`（原地调用 init-analysis API） |
-| `app/composables/useModuleChatManager.ts` | `getOrCreateInstance` 新增 `autoMessage?: string` 参数；新增 `generatingModules: Ref<string[]>` 导出 |
+| `shared/types/case.ts` | 新增 `AnalysisModuleDisplayStatus`（四态：complete/in_progress/idle/failed）、`AnalysisModuleCard`（含 `locked` 和 `error` 字段） |
+| `app/composables/useCaseDetail.ts` | 新增 `allModuleCards` computed（接收 `generatingModules` 参数，支持四态 + 锁定逻辑）；新增 `isInitAnalysisRunning`、`hasPendingInterrupt`、`lockedModules` 派生状态；全部导出 |
+| `app/components/case/AnalysisResults.vue` | 新增 `moduleCards` prop（`AnalysisModuleCard[]`，与原 `results` 并存）；新增 `activeModule: string \| null` v-model（与 `activeIndex` 双 v-model 共存）；四态卡片渲染（`:key="card.moduleName"`）；locked 和 pendingInterrupt 时卡片不可点击；emit `generateModule`（单个生成/重试/重新展开统一事件）；"补充分析"按钮 emit `batchGenerate`；详情翻页维护 `completeIndices`；翻页时同时 emit 两个 update 事件 |
+| `app/components/caseDetail/CaseDetailOverview.vue` | 新增 `moduleCards`、`showBatchButton` props；内部状态 `analysisActiveIndex` 迁移为 `analysisActiveModule: string \| null`；`navigateAnalysis` emit 签名从 `[index: number]` 改为 `[moduleName: string]`；`<CaseAnalysisResults>` 改用 `v-model:active-module`；透传 `generateModule`、`batchGenerate` emit |
+| `app/components/caseDetail/CaseDetailAnalysis.vue` | 新增 `moduleCards`、`showBatchButton` props；`defineModel<number>('activeIndex')` 改为 `defineModel<string \| null>('activeModule')`；模板绑定从 `v-model:active-index` 改为 `v-model:active-module`；透传 `generateModule`、`batchGenerate` emit |
+| `app/pages/dashboard/cases/[id].vue` | `?ai` 参数改为 moduleName（含白名单校验 `VALID_MODULE_NAMES`）；`analysisIndex` 改为 `analysisModule: string \| null`；`navigateToAnalysis` 签名改为 `(moduleName: string)`；query 同步条件为 `if (am) query.ai = am`；`<CaseDetailAnalysis>` 改用 `v-model:active-module`；idle 模块直达 URL 时自动降级为 dashboard 模式；传递 `allModuleCards`、`showBatchButton` 给子组件；新增 `handleGenerateModule`（根据卡片状态决定是否传 `autoMessage`：idle/failed 传消息，in_progress 只展开）、`handleBatchGenerate`（原地调用 init-analysis API） |
+| `app/composables/useModuleChatManager.ts` | `getOrCreateInstance` 新增 `autoMessage?: string` 参数，仅在参数存在时自动 sendMessage；新增 `generatingModules: ComputedRef<string[]>` 导出（从 `instances` 派生） |
 
 > **不改动 `init-analysis/[sessionId].vue` 和 `analysis/[sessionId].vue`**：这两个页面继续使用 `AnalysisResults.vue` 的旧 `activeIndex` v-model。`useInitAnalysis.ts` 内部的 `activeIndex: Ref<number>` 保持不变。
 
@@ -280,7 +408,73 @@ const activeModule = defineModel<string | null>('activeModule', { default: null 
 
 旧的 `?ai=<index>` 书签会在迁移后失效。由于 URL 参数只在应用内部使用，无对外承诺，不做兼容处理。
 
-### 6. 不改动的部分
+### 6. 边界场景与锁定规则
+
+#### 6.1 核心原则
+
+- **同一模块不允许并发分析**：一个模块同一时刻只能有一个生成流程（要么 init-analysis，要么模块对话）
+- **同一案件同时只能有一个 init-analysis 工作流运行**：init-analysis 运行时禁用批量按钮
+- **模块对话与 init-analysis 的锁互不影响**：不在 init-analysis selectedModules 中的 idle 模块，即使 init-analysis 正在跑，也可以通过模块对话单独生成
+
+#### 6.2 交互矩阵
+
+| 场景 | 卡片点击 | 批量按钮 |
+|------|---------|---------|
+| 无 init-analysis，无 interrupt | idle/failed → 单个生成；in_progress（模块对话）→ 重新展开对话；complete → 进入详情 | 显示（若有 idle） |
+| init-analysis 运行中 | selectedModules 中的模块：完全禁用；其他 idle 模块：可单个生成 | 隐藏 |
+| hasPendingInterrupt | 所有 idle/failed 禁用；complete 仍可查看 | 隐藏 |
+| 单个生成中（模块对话） | 该模块 in_progress → 可点击重新展开窗口 | 显示（若仍有其他 idle） |
+| 全部 complete | N/A | 隐藏 |
+
+#### 6.3 `handleGenerateModule` 的分支逻辑
+
+```typescript
+function handleGenerateModule(card: AnalysisModuleCard) {
+  // 已锁定或 interrupt 态，UI 层应已拦截，此处兜底
+  if (card.locked || hasPendingInterrupt.value) return
+
+  if (card.status === 'in_progress') {
+    // 模块对话正在生成 → 仅重新展开窗口，不重复发消息
+    const instance = moduleChatManager.instances[card.moduleName]
+    if (instance) moduleChatManager.expandModule(card.moduleName)
+    return
+  }
+
+  // idle 或 failed → 创建/获取 instance 并自动发送生成消息
+  await moduleChatManager.getOrCreateInstance(
+    card.moduleName,
+    card.moduleTitle,
+    { autoMessage: `请为本案件生成${card.moduleTitle}分析报告` },
+  )
+  moduleChatManager.expandModule(card.moduleName)
+}
+```
+
+#### 6.4 `handleBatchGenerate` 的校验
+
+```typescript
+function handleBatchGenerate() {
+  if (isInitAnalysisRunning.value || hasPendingInterrupt.value) return
+  const targetModules = allModuleCards.value
+    .filter(c => c.status === 'idle' && !c.locked)
+    .map(c => c.moduleName)
+  if (targetModules.length === 0) return
+  // 原地调用 init-analysis API，参考 useInitAnalysis.startAnalysis
+  // ...
+}
+```
+
+#### 6.5 并发场景说明
+
+**场景**：用户启动 init-analysis 只选 summary+chronicle，此时 claim/trend/cause/defense/evidence 不在锁定列表中。用户可以通过模块对话单独生成 claim。
+
+- init-analysis 的 summary/chronicle 模块：`locked=true`，卡片禁用
+- claim 模块：`locked=false`，可通过模块对话单独生成
+- 两种生成使用不同的 session 类型（type=2 vs type=3），后端互相隔离
+- 两者的分析结果都会写入 `caseAnalyses` 表，`isActive=true`
+- 完成后 `refreshAnalysis()` 刷新，两者独立反映到卡片状态
+
+### 7. 不改动的部分
 
 - 服务端所有 API（`init-analysis`、`init-analysis-status` 等）
 - `useInitAnalysis.ts`
