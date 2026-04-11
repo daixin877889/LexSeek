@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import type { ActiveView, CaseDetailMaterialItem } from '~/composables/useCaseDetail'
 import type { AnalysisResult } from '#shared/types/case'
+import { VALID_MODULE_NAMES } from '#shared/types/initAnalysis'
 import { CaseMaterialType } from '#shared/types/case'
 import { ArrowLeftIcon, FileTextIcon, DownloadIcon } from 'lucide-vue-next'
 import { VisuallyHidden } from 'reka-ui'
@@ -22,26 +23,41 @@ const initialView = validViews.includes(route.query.tab as ActiveView)
   : 'overview'
 
 const activeView = ref<ActiveView>(initialView)
-const analysisIndex = ref(route.query.ai ? Number(route.query.ai) : 0)
+// URL ai 参数：moduleName 字符串（带白名单校验）
+const rawAi = route.query.ai
+const analysisModule = ref<string | null>(
+  typeof rawAi === 'string' && VALID_MODULE_NAMES.includes(rawAi)
+    ? rawAi
+    : null,
+)
 const analysisMode = ref<'dashboard' | 'detail'>(route.query.am === 'detail' ? 'detail' : 'dashboard')
 const xiaosuoOpen = ref(false)
 const showExportDialog = ref(false)
 
 // 统一同步所有状态到 query
-watch([activeView, analysisIndex, analysisMode], ([view, ai, am]) => {
+watch([activeView, analysisModule, analysisMode], ([view, am, mode]) => {
   const query: Record<string, string> = {}
   if (view !== 'overview') query.tab = view
   if (view === 'analysis') {
-    if (ai > 0) query.ai = String(ai)
-    if (am === 'detail') query.am = 'detail'
+    if (am) query.ai = am
+    if (mode === 'detail') query.am = 'detail'
   }
   router.replace({ query })
 })
+
+// --- 模块对话管理（必须在 useCaseDetail 之前，因为 generatingModules 是依赖） ---
+// 使用 let 变量打破 refreshAnalysis 与 moduleChatManager 的循环依赖
+let _refreshAnalysis: (() => Promise<void>) | undefined
+const moduleChatManager = useModuleChatManager(caseId, { onAnalysisSaved: () => _refreshAnalysis?.() })
 
 const {
   caseInfo,
   materials,
   analysisResults,
+  allModuleCards,
+  showBatchButton,
+  isInitAnalysisRunning,
+  hasPendingInterrupt,
   refreshAnalysis,
   refreshCase,
   addMaterials,
@@ -56,7 +72,10 @@ const {
   isSelectMode,
   toggleSelectMode,
   toggleMaterialSelection,
-} = useCaseDetail(caseId)
+} = useCaseDetail(caseId, {
+  generatingModules: moduleChatManager.generatingModules,
+})
+_refreshAnalysis = refreshAnalysis
 
 const pageTitle = computed(() => caseInfo.value?.title ?? '案件详情')
 
@@ -104,14 +123,11 @@ function navigateToSelectMode() {
   })
 }
 
-function navigateToAnalysis(index: number) {
-  analysisIndex.value = index
+function navigateToAnalysis(moduleName: string) {
+  analysisModule.value = moduleName
   analysisMode.value = 'detail'
   activeView.value = 'analysis'
 }
-
-// --- 模块对话管理 ---
-const moduleChatManager = useModuleChatManager(caseId, { onAnalysisSaved: refreshAnalysis })
 
 // --- 小索对话管理 ---
 const xiaosuoChat = useXiaosuoChat(caseId)
@@ -120,6 +136,94 @@ async function handleModuleRegenerate(result: AnalysisResult) {
   await moduleChatManager.getOrCreateInstance(result.moduleName, result.moduleTitle)
   moduleChatManager.expandModule(result.moduleName)
 }
+
+// --- 单个生成/重试/重新展开 ---
+const generatingGuard = new Set<string>()
+
+async function handleGenerateModule(moduleName: string, moduleTitle: string) {
+  if (generatingGuard.has(moduleName)) return
+  generatingGuard.add(moduleName)
+
+  try {
+    const card = allModuleCards.value.find(c => c.moduleName === moduleName)
+    if (!card || card.locked || hasPendingInterrupt.value) return
+
+    if (card.status === 'in_progress') {
+      // 模块对话正在生成 → 仅重新展开窗口
+      const instance = moduleChatManager.instances[moduleName]
+      if (instance) moduleChatManager.expandModule(moduleName)
+      return
+    }
+
+    // idle 或 failed → 创建 instance + 自动发消息
+    await moduleChatManager.getOrCreateInstance(
+      moduleName,
+      moduleTitle,
+      { autoMessage: `请为本案件生成${moduleTitle}分析报告` },
+    )
+    moduleChatManager.expandModule(moduleName)
+  } finally {
+    generatingGuard.delete(moduleName)
+  }
+}
+
+// --- 批量生成（简化 SSE 方案） ---
+const batchAbortController = ref<AbortController | null>(null)
+
+async function handleBatchGenerate() {
+  if (isInitAnalysisRunning.value || hasPendingInterrupt.value) return
+  const targetModules = allModuleCards.value
+    .filter(c => c.status === 'idle' && !c.locked)
+    .map(c => c.moduleName)
+  if (targetModules.length === 0) return
+
+  const controller = new AbortController()
+  batchAbortController.value = controller
+
+  try {
+    const response = await $fetch('/api/v1/case/init-analysis', {
+      method: 'POST',
+      body: { input: { caseId: caseId.value, selectedModules: targetModules } },
+      signal: controller.signal,
+      responseType: 'stream',
+    })
+
+    await refreshAnalysis()
+
+    const reader = (response as ReadableStream).getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+
+      if (buffer.includes('event: values')) {
+        await refreshAnalysis()
+        buffer = ''
+      }
+      if (buffer.includes('"status":"COMPLETED"') || buffer.includes('"status":"FAILED"')) {
+        break
+      }
+    }
+  } catch (err: any) {
+    if (err?.name !== 'AbortError') console.error('批量生成失败:', err)
+  } finally {
+    batchAbortController.value = null
+    await refreshAnalysis()
+  }
+}
+
+// idle 模块直达详情模式时自动降级为 dashboard
+watch([analysisModule, analysisMode, allModuleCards], ([mod, mode, cards]) => {
+  if (mode === 'detail' && mod) {
+    const card = cards.find(c => c.moduleName === mod)
+    if (card && card.status !== 'complete') {
+      analysisMode.value = 'dashboard'
+    }
+  }
+})
 
 // 当前展开的模块实例（用于模板绑定，避免 undefined）
 const expandedChatInstance = computed(() => {
@@ -130,6 +234,11 @@ const expandedChatInstance = computed(() => {
 // 页面刷新后恢复活跃 session
 onMounted(() => {
   moduleChatManager.restoreActiveSessions()
+})
+
+// 页面卸载时清理批量生成 SSE 连接
+onUnmounted(() => {
+  batchAbortController.value?.abort()
 })
 </script>
 
@@ -174,6 +283,9 @@ onMounted(() => {
       <main class="flex-1 min-w-0 overflow-hidden relative">
         <Transition name="page-fade" mode="out-in">
           <CaseDetailOverview v-if="activeView === 'overview'" :key="'overview'" :case-id="caseId" :analysis-results="analysisResults"
+            :module-cards="allModuleCards"
+            :show-batch-button="showBatchButton"
+            :has-pending-interrupt="hasPendingInterrupt"
             :materials="materials ?? []"
             :disabled-oss-file-ids="disabledOssFileIds"
             :is-adding-materials="isAddingMaterials"
@@ -184,7 +296,9 @@ onMounted(() => {
             @add-materials="addMaterials"
             @delete-materials="deleteMaterials"
             @retry-material="retryMaterial"
-            @navigate-to-select-mode="navigateToSelectMode" />
+            @navigate-to-select-mode="navigateToSelectMode"
+            @generate-module="handleGenerateModule"
+            @batch-generate="handleBatchGenerate" />
           <CaseDetailMaterials v-else-if="activeView === 'materials'" :key="'materials'" :materials="materials ?? []"
             :disabled-oss-file-ids="disabledOssFileIds"
             :is-adding="isAddingMaterials"
@@ -200,9 +314,14 @@ onMounted(() => {
             @toggle-select-mode="toggleSelectMode"
             @toggle-selection="toggleMaterialSelection" />
           <CaseDetailAnalysis v-else-if="activeView === 'analysis'" :key="'analysis'" :case-id="caseId" :results="analysisResults"
-            v-model:active-index="analysisIndex" v-model:view-mode="analysisMode"
+            :module-cards="allModuleCards"
+            :show-batch-button="showBatchButton"
+            :has-pending-interrupt="hasPendingInterrupt"
+            v-model:active-module="analysisModule" v-model:view-mode="analysisMode"
             @version-changed="refreshAnalysis"
-            @regenerate="handleModuleRegenerate" />
+            @regenerate="handleModuleRegenerate"
+            @generate-module="handleGenerateModule"
+            @batch-generate="handleBatchGenerate" />
           <!-- 其他视图占位 -->
           <div v-else :key="'placeholder'" class="flex items-center justify-center h-full text-muted-foreground">
             当前视图：{{ activeView }}
