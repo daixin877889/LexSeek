@@ -198,26 +198,26 @@ function getMaterialIconColor(type: number) {
           {{ materials.length }}
         </Badge>
       </h3>
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-2 lg:gap-4">
         <template v-if="!readonly">
           <button class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-            :disabled="isAddingMaterials" @click="openMaterialSelector">
+            :disabled="isAddingMaterials" @click="openMaterialSelector" title="添加材料">
             <Loader2Icon v-if="isAddingMaterials" class="size-3 animate-spin" />
             <PlusIcon v-else class="size-3" />
-            添加材料
+            <span class="hidden lg:inline">添加材料</span>
           </button>
           <div class="w-px h-3 bg-border"></div>
           <button v-if="materials.length > 0"
             class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-            @click="emit('navigateToSelectMode')">
+            @click="emit('navigateToSelectMode')" title="批量管理">
             <CheckSquareIcon class="size-3" />
-            批量管理
+            <span class="hidden lg:inline">批量管理</span>
           </button>
           <div v-if="materials.length > 0" class="w-px h-3 bg-border"></div>
           <button class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-            @click="emit('navigateView', 'materials')">
+            @click="emit('navigateView', 'materials')" title="查看全部">
             <EyeIcon class="size-3" />
-            查看全部
+            <span class="hidden lg:inline">查看全部</span>
           </button>
           <div class="w-px h-3 bg-border"></div>
         </template>

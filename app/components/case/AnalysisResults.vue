@@ -446,15 +446,17 @@ function formatAnalyzedAt(dateStr: string): string {
                         <div class="flex items-center gap-2">
                             <button v-if="effectiveShowBatchButton"
                                 class="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors mr-2"
+                                title="批量分析"
                                 @click="emit('batchGenerate')">
                                 <PlusIcon class="size-3" />
-                                批量分析
+                                <span class="hidden lg:inline">批量分析</span>
                             </button>
                             <button v-if="showViewAll"
                                 class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors mr-2"
+                                title="查看全部"
                                 @click="emit('viewAll')">
                                 <EyeIcon class="size-3" />
-                                查看全部
+                                <span class="hidden lg:inline">查看全部</span>
                             </button>
                             <div class="flex items-center bg-muted/50 rounded-lg p-0.5">
                                 <button class="size-7 flex items-center justify-center rounded-md transition-all"
