@@ -13,7 +13,7 @@ import { z } from 'zod'
 import { v7 as uuidv7 } from 'uuid'
 import { validateAndSortModules } from '~~/server/services/case/initAnalysis.service'
 import { validateCaseAccessService } from '~~/server/services/case/case.service'
-import { enqueueRunService, getActiveRunService } from '~~/server/services/agent/agentRun.service'
+import { enqueueRunService, getActiveRunService, getLatestRunService } from '~~/server/services/agent/agentRun.service'
 import { replayEvents, createEventSubscription } from '~~/server/services/agent/agentEventBridge'
 import { getThreadValuesService } from '~~/server/services/workflow/agents'
 import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
@@ -162,17 +162,41 @@ export default defineEventHandler(async (event) => {
         return resError(event, 403, '案件不存在或无权访问')
     }
 
-    // 7. 检查是否有活跃的初始化分析 session（重连逻辑）
-    const existingSession = await prisma.caseSessions.findFirst({
-        where: { caseId, type: 2, status: 1, deletedAt: null },
-        orderBy: { createdAt: 'desc' },
-    })
+    // 7. 查找 session
+    // 纯重连模式：通过 threadId 查找任意状态的 session（含已完成）
+    // 新执行模式：查找活跃的（status=1）session 用于重连或补充分析
+    let existingSession
+    if (reconnectedSessionId) {
+        existingSession = await prisma.caseSessions.findFirst({
+            where: { sessionId: reconnectedSessionId, type: 2, deletedAt: null },
+        })
+        if (!existingSession) {
+            return resError(event, 404, '分析会话不存在')
+        }
+    } else {
+        existingSession = await prisma.caseSessions.findFirst({
+            where: { caseId, type: 2, status: 1, deletedAt: null },
+            orderBy: { createdAt: 'desc' },
+        })
+    }
 
     let runId: string
     let sessionId: string
 
     if (existingSession) {
         sessionId = existingSession.sessionId
+
+        // 纯重连模式：只读 replay 最新 run，不创建任何新 run，不修改任何状态
+        // 覆盖场景：completed（replay 快照）、in_progress（重连活跃流）、interrupted（回放中断数据）
+        if (reconnectedSessionId) {
+            const latestRun = await getLatestRunService(sessionId)
+            if (!latestRun) {
+                return resError(event, 404, '无可用的分析快照')
+            }
+            return createSSEResponse(event, latestRun.id, sessionId)
+        }
+
+        // 新执行模式：检查 session 是否有活跃 run，决定重连或创建新 run
         const activeRun = await getActiveRunService(sessionId)
         if (activeRun && activeRun.status !== AGENT_RUN_STATUS.INTERRUPTED) {
             // 有活跃 run（pending/running）→ 重连
@@ -220,7 +244,7 @@ export default defineEventHandler(async (event) => {
             runId = result.runId
         }
     } else {
-        // 8. 创建新 session + 入队 run
+        // 8. 创建新 session + 入队 run（仅新执行模式走到这里）
         sessionId = uuidv7()
         await prisma.caseSessions.create({
             data: {
