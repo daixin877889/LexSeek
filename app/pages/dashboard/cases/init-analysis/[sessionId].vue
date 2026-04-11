@@ -74,9 +74,9 @@
             <CaseAnalysisResults
               v-if="rightPanelHasResults || phase !== 'select'"
               :results="completedResults"
+              :module-cards="moduleCards"
               v-model:active-index="activeIndex"
               v-model:view-mode="rightPanelViewMode"
-              :is-analyzing="phase === 'running'"
               :readonly="true"
               empty-title="分析结果处理中"
               empty-description="AI 正在读取案件材料并生成分析建议，请稍等..."
@@ -88,9 +88,9 @@
         <div v-if="rightPanelViewMode === 'detail'" class="flex-1 overflow-hidden">
           <CaseAnalysisResults
             :results="completedResults"
+            :module-cards="moduleCards"
             v-model:active-index="activeIndex"
             v-model:view-mode="rightPanelViewMode"
-            :is-analyzing="phase === 'running'"
             :readonly="true"
           />
         </div>
@@ -141,7 +141,7 @@
 </template>
 
 <script lang="ts" setup>
-import type { AnalysisResult } from '#shared/types/case'
+import type { AnalysisResult, AnalysisModuleCard } from '#shared/types/case'
 import type { CaseDetailMaterialItem } from '~/composables/useCaseDetail'
 import { CaseMaterialType } from '#shared/types/case'
 import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
@@ -272,6 +272,29 @@ const completedResults = computed<AnalysisResult[]>(() => {
         analyzedAt: new Date().toISOString(),
       }
     })
+})
+
+// 从 moduleStates 构建四态模块卡片（与案件详情页一致的展示方式）
+const moduleCards = computed<AnalysisModuleCard[]>(() => {
+  const states = moduleStates.value
+  if (!Object.keys(states).length) return []
+  const result = mergedResult.value ?? {}
+  return Object.values(states).map((ms) => {
+    const mod = INIT_ANALYSIS_MODULES.find(m => m.name === ms.name)
+    // streaming/interrupted → in_progress
+    const status: AnalysisModuleCard['status'] =
+      ms.status === 'streaming' || ms.status === 'interrupted' ? 'in_progress'
+        : ms.status === 'complete' ? 'complete'
+          : ms.status === 'failed' ? 'failed'
+            : 'idle'
+    return {
+      moduleName: ms.name,
+      moduleTitle: mod?.title ?? ms.name,
+      status,
+      content: result[ms.name] ?? undefined,
+      analyzedAt: status === 'complete' ? new Date().toISOString() : undefined,
+    }
+  })
 })
 
 // select 阶段右侧面板是否有已存在结果可展示（补充分析场景）
