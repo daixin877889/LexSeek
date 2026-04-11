@@ -13,16 +13,14 @@ import type {
 // ============================================================================
 
 /**
- * LangChain SDK 类型枚举
- * 用于标识模型应使用的 LangChain 包
+ * LangChain SDK 类型枚举值数组（单一来源）
  */
-export type SdkType = 'openai' | 'deepseek' | 'gemini' | 'anthropic'
+export const SDK_TYPES = ['openai', 'deepseek', 'gemini', 'anthropic'] as const
 
 /**
- * 所有支持的 SDK 类型数组
- * 方便遍历和验证
+ * LangChain SDK 类型
  */
-export const SDK_TYPES: readonly SdkType[] = ['openai', 'deepseek', 'gemini', 'anthropic'] as const
+export type SdkType = typeof SDK_TYPES[number]
 
 /**
  * SDK 类型标签映射

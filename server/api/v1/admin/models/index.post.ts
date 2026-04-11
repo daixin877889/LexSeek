@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod'
-import { MODEL_TYPES } from '#shared/types/model'
+import { MODEL_TYPES, SDK_TYPES } from '#shared/types/model'
 
 /**
  * 请求体验证
@@ -30,8 +30,8 @@ const bodySchema = z.object({
      * 可选字段，默认值为 'openai'（在数据库层设置）
      * 支持的枚举值：openai、deepseek、gemini、anthropic
      */
-    sdkType: z.enum(['openai', 'deepseek', 'gemini', 'anthropic'], {
-        error: 'SDK 类型必须是 openai、deepseek、gemini 或 anthropic',
+    sdkType: z.enum(SDK_TYPES, {
+        error: `SDK 类型必须是 ${SDK_TYPES.join('、')}`,
     }).optional(),
     modelVersion: z.string()
         .max(50, '版本号不能超过50个字符')
