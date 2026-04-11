@@ -247,11 +247,18 @@ git commit -m "feat(cron): 实现 withDistributedLock 分布式锁工具函数"
 
 - [ ] **Step 1: 在测试文件中添加 CronScheduler 测试**
 
-在 `tests/server/cron/cron.test.ts` 末尾追加：
+首先修改 `tests/server/cron/cron.test.ts` 顶部的 import 行，将：
+```typescript
+const { withDistributedLock } = await import('../../../server/utils/cron')
+```
+改为：
+```typescript
+const { withDistributedLock, CronScheduler } = await import('../../../server/utils/cron')
+```
+
+然后在文件末尾追加：
 
 ```typescript
-// 在文件顶部 import 区域补充：
-// const { withDistributedLock, CronScheduler } = await import('../../../server/utils/cron')
 
 describe('CronScheduler', () => {
     let scheduler: InstanceType<typeof CronScheduler>
@@ -484,6 +491,9 @@ vi.stubGlobal('logger', {
     warn: vi.fn(),
     error: vi.fn(),
 })
+
+// mock prisma 全局变量（防止 importOriginal 加载 DAO 模块时因缺少 prisma 报错）
+vi.stubGlobal('prisma', {})
 
 // mock DAO 模块（直接 mock DAO 函数，避免 prisma 自动导入拦截问题）
 const mockFindStale = vi.fn()
