@@ -92,9 +92,11 @@ export default defineNitroPlugin((nitroApp) => {
 
   scheduler.start()
 
-  // 优雅关闭
-  nitroApp.hooks.hook('close', () => {
+  // 优雅关闭（顺序：停调度 → 关 DB 池 → 关 Redis）
+  nitroApp.hooks.hook('close', async () => {
     scheduler.shutdown()
+    await closeAgentDbPool()
+    await closeRedisConnections()
   })
 })
 ```
