@@ -10,12 +10,12 @@ import type { AdminMenuItem, AdminMenuGroup } from '~/composables/useAdminMenu'
 
 /** adminMenuStore 返回类型 */
 export interface AdminMenuStoreReturn {
-  rawRouters: any[]
-  isLoading: boolean
+  rawRouters: Ref<any[]>
+  isLoading: Ref<boolean>
   error: ComputedRef<string | null>
-  collapsedIds: Set<string>
-  activeId: string
-  scrollPosition: number
+  collapsedIds: Ref<Set<string>>
+  activeId: Ref<string>
+  scrollPosition: Ref<number>
   menuGroups: ComputedRef<AdminMenuGroup[]>
   fetchMenuData: () => Promise<void>
   setRawRouters: (data: any[]) => void
@@ -135,12 +135,12 @@ export const useAdminMenuStore = defineStore('adminMenu', (): AdminMenuStoreRetu
   })
 
   return {
-    rawRouters: rawRouters.value,
-    isLoading: isLoading.value,
+    rawRouters,
+    isLoading,
     error: computed(() => error.value),
-    collapsedIds: collapsedIds.value,
-    activeId: activeId.value,
-    scrollPosition: scrollPosition.value,
+    collapsedIds,
+    activeId,
+    scrollPosition,
     menuGroups,
     fetchMenuData,
     setRawRouters,
