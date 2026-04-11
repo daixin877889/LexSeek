@@ -1,61 +1,76 @@
 <template>
   <div class="flex flex-col items-center py-12 px-4">
-    <div class="text-center mb-10">
-      <h1 class="text-3xl font-bold tracking-tight">选择分析模块</h1>
-      <p class="mt-2 text-muted-foreground">选择需要执行的分析模块，AI 将按顺序逐一分析</p>
+    <!-- 所有模块已完成的场景 -->
+    <div v-if="allCompleted" class="text-center">
+      <div class="inline-flex items-center justify-center size-16 rounded-full bg-green-500/10 mb-6">
+        <CheckIcon class="size-8 text-green-500" />
+      </div>
+      <h1 class="text-2xl font-bold tracking-tight mb-2">所有分析模块已生成</h1>
+      <p class="text-sm text-muted-foreground mb-8">该案件的全部分析模块都已有结果，无需补充分析</p>
+      <Button size="lg" @click="emit('skip')">
+        进入案件详情
+      </Button>
     </div>
 
-    <!-- 模块网格：使用 auto-fill 确保在窄容器下也能正确换行 -->
-    <div class="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4 w-full px-4">
-      <button
-        v-for="mod in INIT_ANALYSIS_MODULES"
-        :key="mod.name"
-        class="group relative flex items-center gap-4 rounded-xl border-2 p-5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[80px]"
-        :class="[
-          isCompleted(mod.name) ? 'border-border bg-muted/30 opacity-60 cursor-not-allowed' :
-          isSelected(mod.name) ? 'border-primary bg-primary/5 hover:shadow-md' :
-          'border-border hover:border-primary/50 hover:shadow-md cursor-pointer',
-        ]"
-        :disabled="isCompleted(mod.name)"
-        @click="toggle(mod.name)"
-      >
-        <!-- 选中/已完成指示 -->
-        <div
-          class="absolute top-3 right-3 size-5 rounded-full border-2 flex items-center justify-center transition-colors"
+    <!-- 正常的模块选择 -->
+    <template v-else>
+      <div class="text-center mb-10">
+        <h1 class="text-3xl font-bold tracking-tight">选择分析模块</h1>
+        <p class="mt-2 text-muted-foreground">选择需要执行的分析模块，AI 将按顺序逐一分析</p>
+      </div>
+
+      <!-- 模块网格：使用 auto-fill 确保在窄容器下也能正确换行 -->
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4 w-full px-4">
+        <button
+          v-for="mod in INIT_ANALYSIS_MODULES"
+          :key="mod.name"
+          class="group relative flex items-center gap-4 rounded-xl border-2 p-5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[80px]"
           :class="[
-            isCompleted(mod.name) ? 'border-green-500 bg-green-500' :
-            isSelected(mod.name) ? 'border-primary bg-primary' :
-            'border-muted-foreground/30',
+            isCompleted(mod.name) ? 'border-border bg-muted/30 opacity-60 cursor-not-allowed' :
+            isSelected(mod.name) ? 'border-primary bg-primary/5 hover:shadow-md' :
+            'border-border hover:border-primary/50 hover:shadow-md cursor-pointer',
           ]"
+          :disabled="isCompleted(mod.name)"
+          @click="toggle(mod.name)"
         >
-          <CheckIcon v-if="isSelected(mod.name) || isCompleted(mod.name)" class="size-3 text-primary-foreground" />
-        </div>
-
-        <!-- 图标 -->
-        <div class="shrink-0 rounded-lg bg-muted p-2">
-          <component :is="getModuleIcon(mod.icon)" class="size-5 text-muted-foreground" />
-        </div>
-
-        <!-- 文字内容：标题与说明对齐 -->
-        <div class="flex flex-col gap-1 pr-6 min-w-0">
-          <div class="flex items-center gap-2">
-            <h3 class="text-sm font-semibold truncate">{{ mod.title }}</h3>
-            <Badge v-if="isCompleted(mod.name)" variant="secondary" class="text-[10px] shrink-0">已生成</Badge>
+          <!-- 选中/已完成指示 -->
+          <div
+            class="absolute top-3 right-3 size-5 rounded-full border-2 flex items-center justify-center transition-colors"
+            :class="[
+              isCompleted(mod.name) ? 'border-green-500 bg-green-500' :
+              isSelected(mod.name) ? 'border-primary bg-primary' :
+              'border-muted-foreground/30',
+            ]"
+          >
+            <CheckIcon v-if="isSelected(mod.name) || isCompleted(mod.name)" class="size-3 text-primary-foreground" />
           </div>
-          <p class="text-xs text-muted-foreground leading-relaxed truncate">{{ mod.description }}</p>
-        </div>
-      </button>
-    </div>
 
-    <!-- 底部操作 -->
-    <div class="mt-10 flex flex-col items-center gap-3">
-      <Button :disabled="modelValue.length === 0" size="lg" @click="emit('start')">
-        开始分析（{{ modelValue.length }} 个模块）
-      </Button>
-      <Button variant="link" class="text-muted-foreground" @click="emit('skip')">
-        跳过，直接进入案件详情
-      </Button>
-    </div>
+          <!-- 图标 -->
+          <div class="shrink-0 rounded-lg bg-muted p-2">
+            <component :is="getModuleIcon(mod.icon)" class="size-5 text-muted-foreground" />
+          </div>
+
+          <!-- 文字内容：标题与说明对齐 -->
+          <div class="flex flex-col gap-1 pr-6 min-w-0">
+            <div class="flex items-center gap-2">
+              <h3 class="text-sm font-semibold truncate">{{ mod.title }}</h3>
+              <Badge v-if="isCompleted(mod.name)" variant="secondary" class="text-[10px] shrink-0">已生成</Badge>
+            </div>
+            <p class="text-xs text-muted-foreground leading-relaxed truncate">{{ mod.description }}</p>
+          </div>
+        </button>
+      </div>
+
+      <!-- 底部操作 -->
+      <div class="mt-10 flex flex-col items-center gap-3">
+        <Button :disabled="modelValue.length === 0" size="lg" @click="emit('start')">
+          开始分析（{{ modelValue.length }} 个模块）
+        </Button>
+        <Button variant="link" class="text-muted-foreground" @click="emit('skip')">
+          跳过，直接进入案件详情
+        </Button>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -91,4 +106,9 @@ function toggle(name: string) {
     : [...props.modelValue, name]
   emit('update:modelValue', updated)
 }
+
+// 所有模块都已完成（补充分析场景的边界情况）
+const allCompleted = computed(() =>
+  INIT_ANALYSIS_MODULES.every(mod => isCompleted(mod.name)),
+)
 </script>

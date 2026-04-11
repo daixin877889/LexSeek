@@ -3,7 +3,7 @@
     :title="headerTitle"
     v-model:panel-mode="panelMode"
     :messages="streamMessages"
-    :loading="isLoading"
+    :loading="isLoading && phase !== 'complete'"
     :show-prompt="false"
     :show-task-queue="false"
     class="h-full" style="height: calc(100vh - 48px)"
@@ -11,37 +11,44 @@
   >
     <template #message-list="{ messages: parsedMessages, loading: msgLoading }">
       <div class="flex flex-col h-full">
-        <!-- 固定状态栏 -->
-        <InitAnalysisPipelineProgress
-          v-if="phase !== 'select'"
-          :modules="activeModules"
-          :module-states="moduleStates"
-          class="shrink-0 bg-background border-b"
-        />
-
-        <!-- 阶段一：模块选择 -->
-        <div v-if="phase === 'select'" class="flex-1 overflow-y-auto p-4">
-          <InitAnalysisModuleSelector
-            v-model="selectedModules"
-            :completed-modules="completedModules"
-            @start="startAnalysis"
-            @skip="navigateTo(`/dashboard/cases/${caseId}`)"
-          />
+        <!-- 初始化加载态：避免 phase 闪烁 -->
+        <div v-if="!isInitialized" class="flex-1 flex items-center justify-center">
+          <Loader2Icon class="size-6 animate-spin text-muted-foreground" />
         </div>
 
-        <!-- 阶段二/三：消息列表（StickToBottom 管理滚动） -->
         <template v-else>
-          <div class="flex-1 min-h-0">
-            <AiMessageList :messages="parsedMessages" :loading="msgLoading" />
+          <!-- 固定状态栏 -->
+          <InitAnalysisPipelineProgress
+            v-if="phase !== 'select'"
+            :modules="activeModules"
+            :module-states="moduleStates"
+            class="shrink-0 bg-background border-b"
+          />
+
+          <!-- 阶段一：模块选择 -->
+          <div v-if="phase === 'select'" class="flex-1 overflow-y-auto p-4">
+            <InitAnalysisModuleSelector
+              v-model="selectedModules"
+              :completed-modules="completedModules"
+              @start="startAnalysis"
+              @skip="navigateTo(`/dashboard/cases/${caseId}`)"
+            />
+          </div>
+
+          <!-- 阶段二/三：消息列表（StickToBottom 管理滚动） -->
+          <template v-else>
+            <div class="flex-1 min-h-0">
+              <AiMessageList :messages="parsedMessages" :loading="msgLoading" />
+            </div>
+          </template>
+
+          <!-- 完成后操作（固定在底部，不在滚动区域内） -->
+          <div v-if="phase === 'complete'" class="shrink-0 flex justify-center py-4 bg-background/95 border-t">
+            <Button size="lg" @click="navigateTo(`/dashboard/cases/${caseId}`)">
+              进入案件详情
+            </Button>
           </div>
         </template>
-
-        <!-- 完成后操作（固定在底部，不在滚动区域内） -->
-        <div v-if="phase === 'complete'" class="shrink-0 flex justify-center py-4 bg-background/95 border-t">
-          <Button size="lg" @click="navigateTo(`/dashboard/cases/${caseId}`)">
-            进入案件详情
-          </Button>
-        </div>
       </div>
     </template>
 
@@ -63,9 +70,9 @@
 
             <Separator class="opacity-50" />
 
-            <!-- 分析结果（独立渲染，readonly） -->
+            <!-- 分析结果（readonly，select 阶段也显示，让用户看到已有结果） -->
             <CaseAnalysisResults
-              v-if="phase !== 'select'"
+              v-if="rightPanelHasResults || phase !== 'select'"
               :results="completedResults"
               v-model:active-index="activeIndex"
               v-model:view-mode="rightPanelViewMode"
@@ -205,6 +212,8 @@ const {
   phase,
   caseId,
   selectedModules,
+  completedModules,
+  isInitialized,
   moduleStates,
   activeModules,
   isLoading,
@@ -218,34 +227,16 @@ const {
   activeIndex,
 } = useInitAnalysis(sessionId)
 
-// 已完成模块列表（用于补充分析时在 ModuleSelector 中禁用）
-const completedModules = ref<string[]>([])
-
-// 加载案件标题和已完成模块
+// 案件标题
 const caseTitle = ref('')
 
+// 监听 caseId：加载材料和案件标题（completedModules 由 loadStatus 统一管理）
 watch(caseId, async (id) => {
   if (id <= 0) return
-  // 不阻塞标题和状态加载，后台并行获取材料
+  // 并行加载材料和标题
   loadMaterials(id)
   const data = await useApiFetch<{ title: string }>(`/api/v1/case/${id}`)
   if (data?.title) caseTitle.value = data.title
-
-  // 获取该案件已完成的模块
-  const status = await useApiFetch<{ modules: Array<{ name: string; status: string }> }>(
-    `/api/v1/case/init-analysis-status/${id}`,
-  )
-  if (status?.modules) {
-    completedModules.value = status.modules
-      .filter(m => m.status === 'complete')
-      .map(m => m.name)
-    // 补充分析时，预选未完成的模块（排除已完成的）
-    if (phase.value === 'select' && completedModules.value.length > 0) {
-      selectedModules.value = selectedModules.value.filter(
-        name => !completedModules.value.includes(name),
-      )
-    }
-  }
 }, { immediate: true })
 
 // 标题栏显示
@@ -253,12 +244,16 @@ const headerTitle = computed(() =>
   caseTitle.value ? `${caseTitle.value}` : '初始化分析',
 )
 
-// 分析开始（phase 离开 select）时自动展开右侧面板
-watch(phase, (val) => {
-  if (val !== 'select' && panelMode.value === 'left') {
+// 分析开始或存在已生成结果时自动展开右侧面板
+watch([phase, isInitialized], ([val, init]) => {
+  if (!init) return
+  // 非 select 阶段（running/complete）一定展开
+  // select 阶段但有已生成结果（补充分析场景）也展开
+  const shouldExpand = val !== 'select' || completedResults.value.length > 0
+  if (shouldExpand && panelMode.value === 'left') {
     panelMode.value = 'both'
   }
-})
+}, { immediate: true })
 
 // 从 mergedResult 转换为 AnalysisResult[] 供右侧面板显示
 // mergedResult 合并了 DB 结果（刷新恢复）和流式结果
@@ -279,6 +274,9 @@ const completedResults = computed<AnalysisResult[]>(() => {
     })
 })
 
+// select 阶段右侧面板是否有已存在结果可展示（补充分析场景）
+const rightPanelHasResults = computed(() => completedResults.value.length > 0)
+
 // 当结果列表变化时，确保 activeIndex 在有效范围内
 watch(completedResults, (results) => {
   if (results.length > 0 && activeIndex.value >= results.length) {
@@ -290,12 +288,9 @@ const goBack = () => {
   router.push({ name: "dashboard-cases" })
 }
 
-// 跨标签页同步：模块对话在其他标签完成时刷新已完成模块列表
-useCrossTabListener('analysis:updated', (data) => {
-  if (caseId.value > 0 && data.caseId === caseId.value) {
-    loadStatus()
-  }
-})
+// 不订阅 analysis:updated 跨标签页事件
+// init-analysis 页面本身是分析状态的源头，订阅会导致广播循环（本页触发刷新 → watch 再广播）
+// 模块对话在其他标签完成时，用户回到本页会自然看到最新状态
 
 onMounted(() => {
   loadStatus()

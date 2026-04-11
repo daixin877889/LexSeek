@@ -26,6 +26,10 @@ export function useInitAnalysis(sessionId: Ref<string>) {
   const caseId = ref<number>(0)
   const selectedModules = ref<string[]>([...DEFAULT_SELECTED_MODULES])
   const moduleStates = ref<Record<string, ModuleRunState>>({})
+  // 该案件已完成的模块列表（跨 session 累积，用于补充分析场景下禁用模块选择）
+  const completedModules = ref<string[]>([])
+  // 是否已初始化完成（loadStatus 是否已完成）
+  const isInitialized = ref(false)
   // 每个模块的消息分组：{ moduleName: BaseMessage[] }
   const moduleMessagesMap = ref<Record<string, any[]>>({})
   // 上次 values.messages 长度，用于检测新增消息
@@ -38,6 +42,8 @@ export function useInitAnalysis(sessionId: Ref<string>) {
   let restoredFromCheckpoint = false
   // stream 是否已开始收到有效状态（避免 stream.submit 后第一次空状态覆盖 loadStatus 设置的状态）
   let streamStarted = false
+  // 跨标签页广播去重签名（避免 reconnect 触发的空广播）
+  let lastBroadcastSignature = ''
   // 从数据库加载的已完成结果（页面刷新后恢复）
   const resultFromDB = ref<Record<string, string>>({})
   // 右侧面板当前选中的 tab 索引
@@ -58,6 +64,16 @@ export function useInitAnalysis(sessionId: Ref<string>) {
   function updateModuleState(name: string, patch: Partial<ModuleRunState>) {
     const current = getModuleState(name)
     moduleStates.value = { ...moduleStates.value, [name]: { ...current, ...patch } }
+  }
+
+  /** 重置所有内部状态变量（用于 startAnalysis / loadStatus 前置清理） */
+  function resetInternalState() {
+    prevMessagesLength = 0
+    prevStreamLength = 0
+    prevLastExecutedModule = ''
+    restoredFromCheckpoint = false
+    streamStarted = false
+    lastBroadcastSignature = ''
   }
 
   // ==================== useStreamChat ====================
@@ -99,7 +115,9 @@ export function useInitAnalysis(sessionId: Ref<string>) {
 
     const { lastExecutedModule, result, failedModules, selectedModules: mods } = v
 
-    if (mods?.length) {
+    // 只在非 select phase 下接受来自 checkpoint 的 selectedModules
+    // 避免补充分析 select 阶段时被 checkpoint 数据污染
+    if (mods?.length && phase.value !== 'select') {
       selectedModules.value = mods
     }
 
@@ -143,9 +161,18 @@ export function useInitAnalysis(sessionId: Ref<string>) {
 
     moduleStates.value = updated
 
-    // 跨标签页通知：每次有效状态变化时广播（覆盖模块开始/完成/失败/全部完成）
+    // 跨标签页通知：基于签名去重，避免 reconnect 造成的无意义广播循环
     if (caseId.value > 0) {
-      postCrossTabEvent('analysis:updated', { caseId: caseId.value })
+      const signature = JSON.stringify({
+        resultKeys: Object.keys(result ?? {}).sort(),
+        failedKeys: Object.keys(failedModules ?? {}).sort(),
+        hasInterrupt: Array.isArray(v.__interrupt__) && v.__interrupt__.length > 0,
+        selected: [...selectedModules.value].sort(),
+      })
+      if (signature !== lastBroadcastSignature) {
+        lastBroadcastSignature = signature
+        postCrossTabEvent('analysis:updated', { caseId: caseId.value })
+      }
     }
 
     // 按模块分组消息
@@ -196,23 +223,48 @@ export function useInitAnalysis(sessionId: Ref<string>) {
   // ==================== 操作 ====================
 
   async function loadStatus() {
+    // 重置所有内部状态变量，避免上次会话的残留
+    resetInternalState()
+
     const sessionInfo = await useApiFetch<{
       case: { id: number }
       session: { id: number; sessionId: string; status: number }
     }>(`/api/v1/case/session/${sessionId.value}`)
 
-    if (!sessionInfo?.case) return
+    if (!sessionInfo?.case) {
+      isInitialized.value = true
+      return
+    }
     caseId.value = sessionInfo.case.id
 
     const status = await useApiFetch<InitAnalysisStatusResponse>(
       `/api/v1/case/init-analysis-status/${caseId.value}`,
     )
 
-    if (!status) return
+    if (!status) {
+      isInitialized.value = true
+      return
+    }
+
+    // 计算已完成模块（整个案件的累积状态，跨 session）
+    completedModules.value = (status.modules ?? [])
+      .filter(m => m.status === 'complete')
+      .map(m => m.name)
 
     // 从 DB 加载已完成模块的结果（用于右侧面板刷新后恢复）
     if (status.result && Object.keys(status.result).length > 0) {
       resultFromDB.value = status.result
+    }
+
+    // not_started: 当前 session 尚未开始（补充分析新 session / 刚创建的 session）
+    if (status.status === 'not_started') {
+      phase.value = 'select'
+      // 默认选中所有未完成的模块
+      selectedModules.value = DEFAULT_SELECTED_MODULES.filter(
+        name => !completedModules.value.includes(name),
+      )
+      isInitialized.value = true
+      return
     }
 
     if (status.status === 'in_progress' || status.status === 'completed') {
@@ -251,17 +303,13 @@ export function useInitAnalysis(sessionId: Ref<string>) {
 
       moduleStates.value = restored
 
-      // 有待处理的 interrupt（如积分扣减失败）→ 重连以获取 interrupt 数据
-      if (status.hasPendingInterrupt) {
-        stream.submit(undefined)
-        return
-      }
-
       // 始终重连 SSE（获取完整状态快照，包含 selectedModules 和 messages）
       // 已完成状态也需要重连以加载历史消息（页面刷新后恢复）
       // 使用 undefined 触发纯重连，从 checkpoint 加载历史
       stream.submit(undefined)
     }
+
+    isInitialized.value = true
   }
 
   function startAnalysis() {
@@ -273,14 +321,11 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     }
     moduleStates.value = initial
     moduleMessagesMap.value = {}
-    prevMessagesLength = 0
-    prevStreamLength = 0
-    prevLastExecutedModule = ''
-    restoredFromCheckpoint = false
-    streamStarted = false
+    resetInternalState()
     phase.value = 'running'
 
     // 跨标签页通知：分析开始
+    lastBroadcastSignature = ''  // 确保 start 广播一定发出
     postCrossTabEvent('analysis:updated', { caseId: caseId.value })
 
     stream.submit({
@@ -291,6 +336,7 @@ export function useInitAnalysis(sessionId: Ref<string>) {
 
   function resumeWorkflow() {
     // 跨标签页通知：中断恢复
+    lastBroadcastSignature = ''  // 确保 resume 广播一定发出
     postCrossTabEvent('analysis:updated', { caseId: caseId.value })
 
     stream.submit(
@@ -311,6 +357,8 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     phase,
     caseId,
     selectedModules,
+    completedModules,
+    isInitialized,
     moduleStates,
     activeModules,
     isLoading: stream.isLoading,
