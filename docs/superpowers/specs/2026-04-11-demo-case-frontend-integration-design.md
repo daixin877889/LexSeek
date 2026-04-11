@@ -482,6 +482,89 @@ Zod 校验规则：
 
 响应保持 `resSuccess(event, ..., demoCase)` 契约。
 
+**识别记录自动引导（关键）**：
+
+admin 保存 demo case 时，对每个 `sourceOssFileId`**主动确保识别记录存在**，而不是拒绝或放任。逻辑放在新服务函数 `ensureSourceFileRecognitionService(sourceOssFileId, ownerUserId)`：
+
+```ts
+async function ensureSourceFileRecognitionService(
+  sourceOssFileId: number,
+  ownerUserId: number,   // admin 自己的 userId（源文件的归属）
+): Promise<void> {
+  const source = await findOssFileByIdDao(sourceOssFileId)
+  if (!source || source.deletedAt) {
+    throw new Error(`sourceOssFileId=${sourceOssFileId} 不存在或已删除`)
+  }
+
+  // 查三张识别表中是否已有任何状态的记录（包括 PROCESSING/FAILED）
+  const [doc, image, asr] = await Promise.all([
+    prisma.docRecognitionRecords.findFirst({
+      where: { ossFileId: sourceOssFileId, deletedAt: null },
+      select: { id: true, status: true },
+    }),
+    prisma.imageRecognitionRecords.findFirst({
+      where: { ossFileId: sourceOssFileId, deletedAt: null },
+      select: { id: true, status: true },
+    }),
+    prisma.asrRecords.findFirst({
+      where: { ossFileId: sourceOssFileId, deletedAt: null },
+      select: { id: true, status: true },
+    }),
+  ])
+
+  // 若任一表已有记录（无论成功、处理中、失败），都不再干预；
+  // PROCESSING → 轮询会自然完成；FAILED → 保留现状交给 admin 手动重试
+  if (doc || image || asr) {
+    return
+  }
+
+  // 三张表都空 → 主动调用统一识别入口触发
+  // 使用 source.userId（admin 本人）作为 userId，在 admin 自己的命名空间里跑识别
+  // 注意：这里调用的是底层 service 而非 /api/v1/recognition/start HTTP 端点，
+  // 避免 internal fetch 的鉴权/序列化开销；对齐 start.post.ts 内的分发逻辑
+  const ext = getExtensionFromFileName(source.fileName) || ''
+  const fileType = detectFileTypeService(source.fileName)
+
+  try {
+    switch (fileType) {
+      case CaseMaterialType.IMAGE:
+        await createImageConversionService(sourceOssFileId, source.userId)
+        break
+      case CaseMaterialType.AUDIO:
+        await transcribeAudioService(sourceOssFileId, source.userId)
+        break
+      case CaseMaterialType.DOCUMENT:
+        if (ext === 'md' || ext === 'txt') {
+          await readTextFileService(sourceOssFileId, source.userId)
+        } else if (ext === 'docx') {
+          await recognizeDocxService(sourceOssFileId, source.userId)
+        } else {
+          await convertPdfService(sourceOssFileId, source.userId)
+        }
+        break
+      default:
+        await convertPdfService(sourceOssFileId, source.userId)
+    }
+  } catch (err) {
+    // 识别触发失败不阻塞 demo case 保存：只记日志
+    // 原因：后续用户侧点击时会兜底再触发一次；admin 侧的"保存 demo case"是配置动作，
+    // 不应因识别服务故障而失败
+    logger.warn('admin save demo-case: ensureSourceFileRecognition 触发失败', {
+      sourceOssFileId,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
+}
+```
+
+**何时调用**：`POST /api/v1/admin/demo-cases` 和 `PUT /api/v1/admin/demo-cases/:id` 在通过 Zod 校验、且通过"sourceOssFileId 存在性校验"之后，于**写入 demoCases 记录之前**，对每个 `materials[].sourceOssFileId` 顺序调用 `ensureSourceFileRecognitionService`。整个过程不放在事务内 —— 识别服务内部有自己的 DB 写入（写 `docRecognitionRecords` 等），且异步识别会返回 taskId 后进入后台轮询，不应被外层事务绑定。
+
+**效果**：
+- Admin 上传场景（正常路径）：`MaterialUploader.vue` 上传完成后已调 `/api/v1/recognition/start`，保存 demo case 时 `ensureSourceFileRecognitionService` 查到已有记录，直接 return
+- Admin 复用已有文件（比如从自己的云盘里挑一个之前上传的 ossFileId 填进 materials）：此时若该文件此前未做过识别，保存 demo case 时会主动触发
+- Admin 上传但 `/recognition/start` 触发失败（前端错误被吞掉）：保存时兜底一次
+- 识别服务自身故障：保存不阻塞、只记日志；用户侧点击时还会再触发一次（2.3 的克隆按 `status=2` 过滤，自然跳过未完成的）
+
 #### 3.4 `FormDialog.vue` 重构
 
 主信息区新增"案件描述"字段：
@@ -680,7 +763,8 @@ export interface DemoCasePrepareResponse {
 
 | 场景 | 处理 |
 |---|---|
-| admin 上传文件但识别尚未完成 / 识别失败 | 克隆 ossFile 成功；识别记录克隆按 `status=2` 过滤，查到 0 行 → 跳过识别克隆。前端 `addFiles` 后走既有 `/api/v1/recognition/start` 路径，走新建分支，由用户端正常识别 |
+| admin 上传文件但识别尚未完成 / 识别失败 | 克隆 ossFile 成功；识别记录克隆按 `status=2` 过滤，查到 0 行 → 跳过识别克隆。前端 `addFiles` 后走既有 `/api/v1/recognition/start` 路径，走新建分支，由用户端完成识别。两份识别任务并行但不冲突（每份在各自 userId 命名空间），代价是 MinerU/ASR 调用翻倍 |
+| admin 保存 demo case 时源文件从未做过识别 | Admin save 服务层 `ensureSourceFileRecognitionService`（见 3.3）检测到三张识别表都无记录 → 主动调底层识别服务触发（按文件类型分发）。保存流程本身不阻塞、触发失败只记日志 |
 | admin 源文件被软删 | `prepare` 在 2.2 第 1 步检测到 `source.deletedAt` 非空，整体事务回滚并返回 500 `示范案例资源异常` |
 | 用户重复点同一 demo case（串行） | `(userId, bucketName, filePath)` 命中 → 返回同一 ossFileId；`AiPromptInput.addFiles` 内部基于 `selectedFileIds` 去重，不会在文件列表里出现两份 |
 | 用户并发两次点同一 demo case | 前端 `preparingDemoCaseId` 非空时忽略后续点击；若前端防御失效（两个页面 tab），后端两个 prepare 请求其中一个会因联合唯一约束 `idx_oss_files_user_bucket_path` 触发 P2002 冲突，外层 `$transaction` 级重试后第二次 findFirst 命中对方已 commit 的行、返回同一克隆行 |
@@ -709,6 +793,11 @@ export interface DemoCasePrepareResponse {
    - `POST /api/v1/demo-cases/:id/prepare` API 层：401 未登录、404 不存在、400 已禁用、200 正常返回 shape（断言 `content` 与 `files[]`）
 4. 新文件 `tests/server/admin/demoCaseMaterials.test.ts`
    - Admin 校验：`materials[].type=1` 被拒、`sourceOssFileId` 必填、source ossFile 不存在被拒、`content` 与 `materials` 同时为空被拒
+   - **自动引导识别**：`ensureSourceFileRecognitionService` 的场景分支
+     - 源文件三张识别表都无记录 → mock 对应的底层识别服务被调用一次
+     - 源文件已有 `status=1/2/3` 记录 → 底层识别服务不被调用
+     - 底层识别服务抛错 → demoCase 保存不阻塞（记 warn 日志继续）
+     - 按文件类型正确分发：图片 → `createImageConversionService`、PDF → `convertPdfService`、docx → `recognizeDocxService`、md/txt → `readTextFileService`、音频 → `transcribeAudioService`
 
 **前端**：`applyDemoCase` / `handleExampleSelect` / `loadDemoCases` 等纯交互逻辑从 `create.vue` 抽取到 `useCaseCreation` composable 内部（已有文件，扩展即可），并在 `tests/app/composables/useCaseCreation.test.ts`（新建）中加入：
 - `loadDemoCases` 成功与失败路径
@@ -747,3 +836,9 @@ export interface DemoCasePrepareResponse {
 
 - **识别克隆的一致性**：admin 侧若对识别记录做了后续编辑（例如通过文档识别结果的编辑接口），已克隆到用户侧的副本不会自动同步。这是可接受的快照语义。
 - **filePath 共享的所有权困惑**：两条 ossFiles 行指向同一 OSS key，管理员删除源文件 OSS 对象会导致用户侧的克隆记录变为"孤儿"。解决方案：admin 删除示范案例源文件时仅做 ossFiles 软删，不动 OSS object；或者明确"示范案例源文件不可删除，只可替换"。本 spec 选择前者，由 admin 约束层保证。
+- **识别 / 嵌入的三层安全网**：设计依赖三层保障来确保分析流程在任何状态下都能跑通，任何一层失败都能被下一层兜底：
+  1. **Admin save 阶段**（3.3 `ensureSourceFileRecognitionService`）：主动触发从未识别过的源文件，保证 admin 提交 demo case 后识别已被排入队列
+  2. **prepare 阶段**（2.2 / 2.3）：克隆已有 `status=2` 的识别记录与嵌入向量到用户 ossFileId，保证"admin 已完成"场景下用户零等待
+  3. **用户侧触发**（`addFiles → /api/v1/recognition/start`）：若 prepare 克隆时源识别未完成（admin save 触发后还在跑），用户克隆的 ossFileId 上会走一条独立的识别任务；这是"admin 已触发但未完成"窗口期的兜底
+  4. **分析前最终兜底**（`ensureMaterialsReadyService`）：案件分析启动前会对所有材料做一次 recognize + embed 状态检查并补齐，是最后一道闸
+- **并行识别的重复成本**：当 admin save 触发的识别正在 PROCESSING 时，用户点击触发的是一条**独立**的识别任务（两个 ossFileId 不同），会造成 MinerU/OCR/ASR 调用被执行两次。这是可接受的成本 —— 换来了"admin 不需要同步等识别完成"的配置体验。若后续发现 PDF 类文件真实 QPS 压力过大，可在 prepare 阶段加一个 "admin 源识别处于 PROCESSING 时等待 N 秒看是否完成，完成则走克隆" 的小优化，但非本次必做项。
