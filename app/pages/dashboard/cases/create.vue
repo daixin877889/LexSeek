@@ -18,8 +18,7 @@
       <!-- 输入框 -->
       <AiPromptInput ref="promptInputRef" class="h-auto!" placeholder="请描述您的案件情况，例如：张三与李四因房屋租赁合同产生纠纷..."
         :enable-file-upload="true" :show-thinking-toggle="false" :loading="isExtracting" :disabled="isExtracting"
-        :min-rows="4" :max-rows="10" submit-label="提取信息"
-        :on-file-button-click="openMaterialSelector"
+        :min-rows="4" :max-rows="10" submit-label="提取信息" :on-file-button-click="openMaterialSelector"
         @submit="handleAiSubmit" />
 
       <!-- 文件选择弹框 -->

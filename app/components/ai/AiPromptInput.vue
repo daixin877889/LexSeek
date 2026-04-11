@@ -112,7 +112,7 @@
                 {{ uploadButtonLabel }}
                 <span v-if="selectedFiles.length > 0" class="ml-1 text-xs text-primary font-bold">({{
                   selectedFiles.length
-                  }})</span>
+                }})</span>
               </PromptInputButton>
               <TooltipProvider v-if="showThinkingToggle">
                 <Tooltip>
@@ -133,8 +133,8 @@
             <!-- 提交按钮 -->
             <div class="flex items-center gap-2 mr-[-8px]">
               <PromptInputSubmit class="h-9 px-4! rounded-md shadow-lg shadow-primary/20 active:scale-95 transition-all"
-                :status="submitStatus" :disabled="isSubmitDisabled" size="xs"
-                @stop="emit('stop')" @submit="handleSubmitFromButton">
+                :status="submitStatus" :disabled="isSubmitDisabled" size="xs" @stop="emit('stop')"
+                @submit="handleSubmitFromButton">
                 <SendHorizontal class="size-4" />
                 <span v-if="submitLabel" class="ml-1">{{ submitLabel }}</span>
               </PromptInputSubmit>
@@ -199,7 +199,7 @@ const props = withDefaults(defineProps<{
   showThinkingToggle: true,
   minRows: 1,
   maxRows: 4,
-  uploadButtonLabel: '案情材料',
+  uploadButtonLabel: '上传材料',
 })
 
 const emit = defineEmits<{
