@@ -2,16 +2,15 @@
 /**
  * 小索图标组件
  *
- * 耳朵填充和眼睛填充跟随 currentColor（通过 text-primary 等类控制），
- * 其余部分保持原始 SVG 配色不变。
+ * 将原始 xiaosuo.svg 内联为 Vue 组件，保持原始配色。
  */
 </script>
 
 <template>
   <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" fill="none">
-    <!-- 耳朵：填充跟随主题色 -->
-    <circle cx="60" cy="320" r="45" stroke="#0F172A" stroke-width="8" fill="currentColor" />
-    <circle cx="452" cy="320" r="45" stroke="#0F172A" stroke-width="8" fill="currentColor" />
+    <!-- 耳朵 -->
+    <circle cx="60" cy="320" r="45" stroke="#0F172A" stroke-width="8" fill="#FFFFFF" />
+    <circle cx="452" cy="320" r="45" stroke="#0F172A" stroke-width="8" fill="#FFFFFF" />
     <!-- 头部外轮廓 -->
     <path d="M256,460 C380,460 456,390 456,290 C456,190 380,140 256,140 C132,140 56,190 56,290 C56,390 132,460 256,460 Z"
       stroke="#0F172A" stroke-width="12" fill="#FFFFFF" />
@@ -21,9 +20,9 @@
     <!-- 面罩描边 -->
     <path d="M256,412 C335,412 398,365 398,300 C398,235 335,208 256,208 C177,208 114,235 114,300 C114,365 177,412 256,412 Z"
       stroke="#F59E0B" stroke-width="4" />
-    <!-- 眼睛：填充跟随主题色 -->
-    <circle cx="190" cy="305" r="28" fill="currentColor" />
-    <circle cx="322" cy="305" r="28" fill="currentColor" />
+    <!-- 眼睛 -->
+    <circle cx="190" cy="305" r="28" fill="#FFFFFF" />
+    <circle cx="322" cy="305" r="28" fill="#FFFFFF" />
     <!-- 帽子 -->
     <polygon points="256 40 440 130 256 220 72 130" fill="#1E293B" />
     <polygon points="256 40 256 220 72 130" fill="#0F172A" />

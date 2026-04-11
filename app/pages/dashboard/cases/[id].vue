@@ -241,7 +241,7 @@ onMounted(() => {
         <DownloadIcon class="size-4" />
       </Button>
       <Button variant="ghost" size="icon" class="size-8 shrink-0 md:hidden" @click="xiaosuoOpen = true">
-        <ClientOnly><IconXiaosuoIcon class="size-4 text-primary" /></ClientOnly>
+        <ClientOnly><IconXiaosuoIcon class="size-4" /></ClientOnly>
       </Button>
     </header>
 
