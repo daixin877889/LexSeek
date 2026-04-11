@@ -14,7 +14,7 @@ export interface AgentRunInput {
   command?: unknown
   selectedModules?: string[]
   completedResults?: Record<string, string>
-  thinking: boolean | undefined
+  thinking?: boolean
 }
 
 export interface AgentStreamEvent {

@@ -89,11 +89,16 @@ export async function classifyIntentService(
         // 获取节点配置
         const config = await getValidNodeConfig(INTENT_ROUTER_NODE)
 
+        const firstApiKey = config.modelApiKeys[0]
+        if (!firstApiKey) {
+            throw new Error(`节点 ${INTENT_ROUTER_NODE} 未配置任何 API Key`)
+        }
+
         // 创建模型
         const model = createChatModel({
             sdkType: config.modelSdkType,
             modelName: config.modelName,
-            apiKey: config.modelApiKeys[0].apiKey,
+            apiKey: firstApiKey.apiKey,
             baseUrl: config.modelProviderBaseUrl,
             temperature: 0,
             streaming: false,

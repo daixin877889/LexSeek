@@ -42,6 +42,12 @@ export default defineNuxtConfig({
     }
   },
   css: ['~/assets/css/tailwind.css'],
+  alias: {
+    // ai-elements 组件使用 @repo/shadcn-vue 路径，映射到本地目录
+    // 在 Nuxt 层面声明，使 Vite 构建与 TypeScript 类型检查保持一致
+    '@repo/shadcn-vue/lib': resolve(__dirname, 'app/lib'),
+    '@repo/shadcn-vue/components/ui': resolve(__dirname, 'app/components/ui'),
+  },
   vite: {
     resolve: {
       alias: {

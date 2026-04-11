@@ -111,7 +111,7 @@ export default defineEventHandler(async (event) => {
         // 首先尝试查找 type=2 会话（初始化分析会话）
         let session = await prisma.caseSessions.findFirst({
             where: { sessionId: threadId, type: 2, deletedAt: null },
-            select: { caseId: true, metadata: true },
+            select: { caseId: true, metadata: true, sessionId: true },
         })
 
         // 如果找不到 type=2 会话，尝试查找 type=1 会话（主会话），然后获取对应的 type=2 会话
@@ -124,7 +124,7 @@ export default defineEventHandler(async (event) => {
                 // 查找该案件的 type=2 会话
                 session = await prisma.caseSessions.findFirst({
                     where: { caseId: type1Session.caseId, type: 2, deletedAt: null },
-                    select: { caseId: true, metadata: true },
+                    select: { caseId: true, metadata: true, sessionId: true },
                     orderBy: { createdAt: 'desc' },
                 })
             }

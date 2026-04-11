@@ -232,10 +232,12 @@ export const getRerankConfigWithFallbackService = async (): Promise<RerankConfig
     // 回退到环境变量配置
     logger.info('数据库无默认 Rerank 模型配置，使用环境变量配置')
     const config = useRuntimeConfig()
+    // rerank 字段未在 nuxt.config.ts 的 runtimeConfig 中显式声明，这里用类型断言兜底
+    const rerankConfig = (config as unknown as { rerank?: { apiKey?: string; baseUrl?: string; model?: string } }).rerank
 
-    const apiKey = config.rerank?.apiKey || process.env.NUXT_RERANK_API_KEY
-    const baseUrl = config.rerank?.baseUrl || process.env.NUXT_RERANK_BASE_URL
-    const model = config.rerank?.model || process.env.NUXT_RERANK_MODEL || 'gte-rerank-v2'
+    const apiKey = rerankConfig?.apiKey || process.env.NUXT_RERANK_API_KEY
+    const baseUrl = rerankConfig?.baseUrl || process.env.NUXT_RERANK_BASE_URL
+    const model = rerankConfig?.model || process.env.NUXT_RERANK_MODEL || 'gte-rerank-v2'
 
     if (!apiKey || !baseUrl) {
         throw new Error('Rerank 模型配置不完整：缺少 API 密钥或基础 URL')

@@ -135,10 +135,15 @@ export async function rerankAndFilterService(
 
         return rerankResults
             .filter(r => r.relevance_score >= threshold)
-            .map(r => ({
-                ...candidateResults[r.index],
-                score: r.relevance_score,
-            }))
+            .map(r => {
+                const candidate = candidateResults[r.index]
+                if (!candidate) return null
+                return {
+                    ...candidate,
+                    score: r.relevance_score,
+                }
+            })
+            .filter((item): item is SearchResultItem => item !== null)
     } catch (error) {
         logger.warn('Rerank API 调用失败，降级返回原始结果:', error)
         return candidateResults.slice(0, k)

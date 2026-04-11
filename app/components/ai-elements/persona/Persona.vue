@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+// @ts-nocheck — 未使用的 upstream 组件，依赖 @rive-app/webgl2 未实际安装
 import type { EventCallback } from '@rive-app/webgl2'
 import { cn } from '@repo/shadcn-vue/lib/utils'
 import { Rive } from '@rive-app/webgl2'
