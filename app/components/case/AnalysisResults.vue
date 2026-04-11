@@ -19,6 +19,7 @@ import {
     CopyIcon,
     CheckIcon,
     FileTextIcon,
+    EyeIcon,
     Loader2Icon,
     CalendarIcon,
     ScaleIcon,
@@ -81,6 +82,8 @@ interface Props {
     hasPendingInterrupt?: boolean
     /** 只读模式：禁用生成操作和模块对话 */
     readonly?: boolean
+    /** 是否显示"查看全部"按钮（案件详情概览视图使用） */
+    showViewAll?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -121,6 +124,8 @@ const emit = defineEmits<{
     (e: 'batchGenerate'): void
     /** 前往处理中断 */
     (e: 'goToInterrupt'): void
+    /** 查看全部（跳转分析视图） */
+    (e: 'viewAll'): void
 }>()
 
 // 版本 Sheet 状态
@@ -444,6 +449,12 @@ function formatAnalyzedAt(dateStr: string): string {
                                 @click="emit('batchGenerate')">
                                 <PlusIcon class="size-3" />
                                 批量分析
+                            </button>
+                            <button v-if="showViewAll && completeCards.length > 0"
+                                class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors mr-2"
+                                @click="emit('viewAll')">
+                                <EyeIcon class="size-3" />
+                                查看全部
                             </button>
                             <div class="flex items-center bg-muted/50 rounded-lg p-0.5">
                                 <button class="size-7 flex items-center justify-center rounded-md transition-all"

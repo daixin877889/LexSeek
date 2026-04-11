@@ -12,7 +12,6 @@ import {
   FileIcon,
   ImageIcon,
   FileAudioIcon,
-  SparklesIcon,
   PencilIcon,
   CheckIcon,
   XIcon,
@@ -343,34 +342,13 @@ function getMaterialIconColor(type: number) {
     <template v-if="!readonly">
       <Separator class="mx-4 opacity-50" />
 
-      <!-- 分析结果 -->
-      <div class="p-4 flex items-center justify-between pb-0">
-        <h3 class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
-          <SparklesIcon class="size-4" />
-          分析结果
-          <span v-if="analysisResults.length > 0" class="font-normal text-[10px] bg-muted px-1.5 py-0.5 rounded">{{
-            analysisResults.length }}</span>
-        </h3>
-        <div class="flex items-center gap-4">
-          <button v-if="showBatchButton"
-            class="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
-            @click="emit('batchGenerate')">
-            <PlusIcon class="size-3" />
-            批量分析
-          </button>
-          <button v-if="analysisResults.length > 0"
-            class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-            @click="emit('navigateView', 'analysis')">
-            <EyeIcon class="size-3" />
-            查看全部
-          </button>
-        </div>
-      </div>
+      <!-- 分析结果（AnalysisResults 内部 header 统一管理按钮：批量分析 + 查看全部 + 视图切换） -->
       <CaseAnalysisResults :results="analysisResults" :module-cards="moduleCards" v-model:view-mode="analysisViewMode"
         v-model:active-module="analysisActiveModule" :show-regenerate="false" :show-copy="false"
-        :show-batch-button="showBatchButton" :has-pending-interrupt="hasPendingInterrupt" hide-header class="pt-0"
+        :show-batch-button="showBatchButton" :has-pending-interrupt="hasPendingInterrupt"
+        :show-view-all="true"
         @generate-module="(name, title) => emit('generateModule', name, title)" @batch-generate="emit('batchGenerate')"
-        @go-to-interrupt="emit('goToInterrupt')" />
+        @go-to-interrupt="emit('goToInterrupt')" @view-all="emit('navigateView', 'analysis')" />
 
       <!-- 材料选择器弹窗 -->
       <CaseAnalysisMaterialSelector ref="materialSelectorRef" :disabled-file-ids="disabledOssFileIds"
