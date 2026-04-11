@@ -157,6 +157,13 @@ if (!source || source.deletedAt) {
   throw new Error('示范案例资源异常')
 }
 
+// filePath 不应为 null（presigned-url 上传流程总会生成 filePath）
+// 若为 null，联合唯一约束语义失效，需跳过该材料
+if (!source.filePath) {
+  logger.error('demo case source ossFile filePath is null', { ossFileId: source.id })
+  continue
+}
+
 // 2. 查用户云盘里是否已有指向同一 OSS 对象的行（软删行也要命中，走复活路径）
 //    注意：此处不过滤 deletedAt —— 让软删行也被命中以便后续"资源复活"
 const existing = await tx.ossFiles.findFirst({
@@ -219,64 +226,42 @@ result.push(toOssFileItem(clone))
 
 **识别记录与软删的交互（已验证）**：`server/services/files/ossFiles.dao.ts:117-130` `deleteFileDao` 和 `deleteOssFilesDao` 在用户删除云盘文件时**仅更新 `ossFiles.deletedAt`**，不级联清理 `doc_recognition_records` / `image_recognition_records` / `asr_records` / `case_material_embeddings`。因此复活 ossFile 后，原先克隆的识别数据天然仍然有效，可直接复用。
 
-**事务级重试（关键修订）**：
+**事务管理**：
 
-Postgres 的事务在 UNIQUE 违反（P2002）抛出后会进入 aborted 状态，**此后任何查询都会失败**（`current transaction is aborted, commands ignored until end of transaction block`）。因此 P2002 的兜底**不能在同一个事务内 catch 重查**，必须放到 `$transaction` 调用**外层**重开一个新事务：
+整个 prepare 逻辑放在一个 `prisma.$transaction` 内执行，30 秒超时：
 
 ```ts
-// 服务层入口，包住整个 $transaction
 async function prepareDemoCaseForUserService(
   demoCaseId: number,
   user: { id: number },
 ): Promise<{ content: string | null, files: OssFileItem[] }> {
-  const MAX_RETRIES = 2
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      return await prisma.$transaction(
-        async (tx) => {
-          const demoCase = await tx.demoCases.findFirst({
-            where: { id: demoCaseId, deletedAt: null, status: 1 },
-          })
-          if (!demoCase) throw /* 404 或 400 对应错误 */
+  return await prisma.$transaction(
+    async (tx) => {
+      const demoCase = await tx.demoCases.findFirst({
+        where: { id: demoCaseId, deletedAt: null, status: 1 },
+      })
+      if (!demoCase) throw /* 404 或 400 对应错误 */
 
-          const materials = (demoCase.materials ?? []) as unknown as DemoCaseMaterial[]
-          const result: OssFileItem[] = []
+      const materials = (demoCase.materials ?? []) as unknown as DemoCaseMaterial[]
+      const result: OssFileItem[] = []
 
-          for (const material of materials) {
-            // ... 上面 1-4 步（findFirst 命中复用、miss 则 create + 克隆识别/嵌入）
-          }
-
-          return { content: demoCase.content, files: result }
-        },
-        { timeout: 30_000, maxWait: 5_000 },
-      )
-    } catch (err: any) {
-      // 只重试因并发产生的 UNIQUE 冲突；其他错误直接上抛
-      // 精确匹配 idx_oss_files_user_bucket_path 索引，避免误重试
-      // （项目既有 service 层使用 err?.code 鸭子类型判断，不引入 instanceof）
-      const isOssFileClonedConflict =
-        err?.code === 'P2002'
-        && Array.isArray(err?.meta?.target)
-        && (err.meta.target as string[]).some(t => t.includes('idx_oss_files_user_bucket_path'))
-      if (isOssFileClonedConflict && attempt < MAX_RETRIES) {
-        logger.warn('prepare demo case P2002 retry', { demoCaseId, userId: user.id, attempt })
-        continue
+      for (const material of materials) {
+        // ... 上面 1-4 步（findFirst 命中复用/复活、miss 则 create + 克隆识别）
       }
-      throw err
-    }
-  }
-  // 理论不可达
-  throw new Error('prepare demo case 重试超出上限')
+
+      return { content: demoCase.content, files: result }
+    },
+    { timeout: 30_000, maxWait: 5_000 },
+  )
 }
 ```
 
-**幂等性保证**：每次重试都是一次全新的事务，顶部的 `tx.ossFiles.findFirst` 会重查联合键。第二次进入时，另一个并发请求已经 commit，`findFirst` 直接命中并复用，不会再触发 create。因此最多重试 1 次就能稳定成功，留 `MAX_RETRIES=2` 作为保险。整个 prepare 操作天然幂等（联合键命中即复用）。
+**并发冲突处理**：若两个请求同时对同一 `(userId, bucketName, filePath)` 执行 create，后到者触发 P2002 唯一约束违反，整个事务回滚。由于前端已有 `preparingDemoCaseId` 防重复点击，该场景仅在多标签页同时操作时发生，概率极低。P2002 传播为 500 错误，前端 `useApiFetch` 自动 toast 错误信息，用户手动重试即可成功（重新进入 findFirst → 命中对方已 commit 的行）。
 
 **执行模型说明**：
-- 所有材料在同一个事务中**顺序克隆**，不并发，保证事务边界清晰
-- 嵌入向量的 pgvector 写入通过 `tx.$executeRawUnsafe` / `tx.$queryRawUnsafe` 在同一事务连接上执行，与 ossFile create 共享事务
-- `$transaction` 调用显式指定 `timeout: 30_000`（默认 5s 对多文件 + 嵌入向量克隆不够）
-- 任一环节失败（非 P2002）整体回滚，返回 500
+- 所有材料在同一个事务中**顺序克隆**，不并发
+- `$transaction` 显式 `timeout: 30_000`（默认 5s 对多文件克隆不够）
+- 任一环节失败整体回滚，返回 500
 
 #### 2.3 识别记录 + 嵌入向量克隆
 
@@ -304,7 +289,7 @@ INSERT INTO doc_recognition_records
    keywords, summary, vector_ids, last_embedding_at, last_edit_at,
    created_at, updated_at)
 SELECT $targetUserId, $targetOssFileId, status, html_content, markdown_content,
-       keywords, summary, '[]'::jsonb, last_embedding_at, last_edit_at,
+       keywords, summary, '[]'::jsonb, NULL, last_edit_at,
        now(), now()
 FROM doc_recognition_records
 WHERE user_id = $sourceUserId
@@ -321,7 +306,7 @@ INSERT INTO image_recognition_records
    keywords, summary, vector_ids, last_embedding_at, last_edit_at,
    created_at, updated_at)
 SELECT $targetUserId, $targetOssFileId, status, image_type, html_content, markdown_content,
-       keywords, summary, '[]'::jsonb, last_embedding_at, last_edit_at,
+       keywords, summary, '[]'::jsonb, NULL, last_edit_at,
        now(), now()
 FROM image_recognition_records
 WHERE user_id = $sourceUserId
@@ -347,7 +332,7 @@ SELECT $targetUserId, $targetOssFileId,
        NULL,                    -- json_oss_file_id
        NULL,                    -- temp_file_path
        speakers, keywords, summary,
-       '[]'::jsonb, last_embedding_at, last_edit_at, now(), now()
+       '[]'::jsonb, NULL, last_edit_at, now(), now()
 FROM asr_records
 WHERE user_id = $sourceUserId
   AND oss_file_id = $sourceOssFileId
@@ -358,34 +343,18 @@ RETURNING id;
 
 若查到 0 行，视为"admin 未完成识别"，跳过本张表的克隆，继续下一张。
 
-#### 2.4 嵌入向量克隆
+#### 2.4 嵌入向量：不克隆，延迟生成
 
-```sql
-WITH copied AS (
-  INSERT INTO case_material_embeddings (id, text, metadata, embedding)
-  SELECT gen_random_uuid(),
-         text,
-         jsonb_set(
-           jsonb_set(metadata, '{userId}', to_jsonb($targetUserId::int)),
-           '{sourceId}', to_jsonb($targetOssFileId::int)
-         ),
-         embedding
-  FROM case_material_embeddings
-  WHERE metadata->>'userId' = $sourceUserId::text
-    AND metadata->>'sourceId' = $sourceOssFileId::text
-    AND metadata->>'source' IN ('doc', 'image', 'audio')
-  RETURNING id
-)
-SELECT array_agg(id) FROM copied;
-```
+本设计**不**克隆 `case_material_embeddings` 表的嵌入向量行。
 
-显式限定 `metadata->>'source' IN ('doc', 'image', 'audio')` 是为了把 `text` 类型的嵌入排除在克隆范围之外 —— text 类嵌入的 `sourceId` 是 `materialId`（case 级 PK），与 ossFileId 名义上不同源，理论上不会冲突；但加上显式过滤可以对未来新增 source 类型提供前置防御。
+理由：嵌入向量的生成由案件分析启动时的既有 `ensureMaterialsReadyService`（`materialPipeline.service.ts`）自动处理 —— 该服务会检查每个材料的嵌入状态，对未嵌入的自动调 `embedMaterialUnifiedService`。嵌入耗时仅几秒，隐藏在分析加载遮罩内，用户无感知。
 
-返回的新嵌入 id 数组，如有必要，回写到对应识别记录的 `vector_ids` 字段（先插入识别记录时 `vector_ids='[]'`，这里 `UPDATE ... SET vector_ids = $array`）。
+删除嵌入向量克隆的收益：
+- 省去整个 pgvector `INSERT...SELECT` + `jsonb_set` metadata 修改 + `vector_ids` 回填的复杂逻辑
+- 消除"必须用 `tx.$executeRawUnsafe` 绕过 Prisma ORM、且严禁调用 vectorStore service"的事务约束
+- 减少约 50 行高风险原生 SQL 代码
 
-**vector_ids 回填说明**：当前检索路径仅通过 `case_material_embeddings.metadata` 的 userId/sourceId 过滤，不走 `recognition_records.vector_ids`。回填仅用于管理面板展示"本文档已生成 N 个向量"这类统计，不影响检索正确性。为了保持识别记录的字段完整性，本设计选择回填；实现时若发现回填路径复杂可在代码 review 时调整为先不回填，留空数组。
-
-**严禁绕过事务**：`server/services/legal/vectorStore.service.ts` 使用独立的 `pg.Pool`（不是 Prisma 连接池），因此 `server/services/material/materialEmbedding.service.ts` 中调用 `addDocumentsToVectorStore` / `deleteContentEmbeddings` / `getPool()` 的任何函数都会**绕过 Prisma 交互式事务**。克隆实现必须**只使用 `tx.$executeRawUnsafe` / `tx.$queryRawUnsafe`** 在 Prisma 事务连接上执行原生 SQL，**严禁调用** embedding service 或 vectorStore service 的任何函数。
+**关键配合**：2.3 节识别记录克隆时，`last_embedding_at` 字段必须**显式置 NULL**（而非复制源值），否则 `batchCheckMaterialEmbeddedService` 会误判"嵌入已完成"，跳过重新嵌入。
 
 #### 2.5 列表端点保持现状
 
@@ -708,10 +677,22 @@ async function handleExampleSelect(example: ExampleItem) {
 async function confirmReplaceExample() {
   const example = pendingExample.value
   if (!example) return
-  promptInputRef.value?.reset()
-  await nextTick()
-  await applyDemoCase(example)
-  pendingExample.value = null
+  preparingDemoCaseId.value = example.id
+  try {
+    const data = await useApiFetch<DemoCasePrepareResponse>(
+      `/api/v1/demo-cases/${example.id}/prepare`,
+      { method: 'POST' },
+    )
+    if (!data) return  // prepare 失败，保留用户输入不动
+    // prepare 成功后再清空并填充
+    promptInputRef.value?.reset()
+    await nextTick()
+    if (data.content) promptInputRef.value?.setText(data.content)
+    if (data.files?.length) promptInputRef.value?.addFiles(data.files)
+  } finally {
+    preparingDemoCaseId.value = null
+    pendingExample.value = null
+  }
 }
 
 async function applyDemoCase(example: ExampleItem) {
@@ -786,9 +767,8 @@ export interface DemoCasePrepareResponse {
    - `findOssFileByIdDao` 新 case：源文件软删返回 null
 2. `tests/server/case/demoCase.service.test.ts` 扩展
    - `prepareDemoCaseForUserService`：首次克隆成功、联合键命中复用、源文件缺失抛错、多文件顺序克隆
-   - **资源复活**：预先软删用户已有的克隆 ossFile，再次调用 prepare 应该：UPDATE 把 `deletedAt` 置回 null、返回同一 ossFileId、不重复插入 doc/image/asr 识别记录、不重复插入嵌入向量行
-   - **并发冲突重试**：mock `tx.ossFiles.create` 第一次抛 `P2002`、第二次 findFirst 命中，验证服务层在外层 `$transaction` 级别重开事务并返回正确结果
-   - `cloneRecognitionAndEmbeddingsService`：doc/image/asr 三类识别记录的克隆、只克隆 `status=2` 的记录、源无识别记录或 status 非 2 的跳过、asr_records 克隆时 `asr_tasks_id`/`json_oss_file_id`/`temp_file_path` 显式为 NULL、嵌入向量 metadata 正确更新
+   - **资源复活**：预先软删用户已有的克隆 ossFile，再次调用 prepare 应该：UPDATE 把 `deletedAt` 置回 null、返回同一 ossFileId、不重复插入 doc/image/asr 识别记录
+   - `cloneRecognitionAndEmbeddingsService`：doc/image/asr 三类识别记录的克隆、只克隆 `status=2` 的记录、源无识别记录或 status 非 2 的跳过、asr_records 克隆时 `asr_tasks_id`/`json_oss_file_id`/`temp_file_path` 显式为 NULL、**`last_embedding_at` 显式为 NULL**（不复制源值）、`vector_ids` 为空数组
 3. 新文件 `tests/server/demoCases/prepare.test.ts`
    - `POST /api/v1/demo-cases/:id/prepare` API 层：401 未登录、404 不存在、400 已禁用、200 正常返回 shape（断言 `content` 与 `files[]`）
 4. 新文件 `tests/server/admin/demoCaseMaterials.test.ts`
@@ -823,6 +803,10 @@ export interface DemoCasePrepareResponse {
 ## 实施顺序建议
 
 1. 数据模型与迁移（1.1–1.4）
+1.5. 更新 DAO 层类型定义（`server/services/case/demoCase.dao.ts`）：
+   - `DemoCaseMaterial` 接口从 `{ name, type: number, content?, fileUrl? }` 改为 `{ name: string, type: 2|3|4, sourceOssFileId: number }`
+   - `CreateDemoCaseInput` / `UpdateDemoCaseInput` 新增 `content?: string | null`
+   - `createDemoCaseDao` / `updateDemoCaseDao` 写入 `content` 字段
 2. 后端 `prepareDemoCaseForUserService` + `cloneRecognitionAndEmbeddingsService` + 单元测试
 3. 新端点 `POST /api/v1/demo-cases/:id/prepare` + API 层测试
 4. Admin API 变更（3.3）+ Admin 侧测试
@@ -836,9 +820,5 @@ export interface DemoCasePrepareResponse {
 
 - **识别克隆的一致性**：admin 侧若对识别记录做了后续编辑（例如通过文档识别结果的编辑接口），已克隆到用户侧的副本不会自动同步。这是可接受的快照语义。
 - **filePath 共享的所有权困惑**：两条 ossFiles 行指向同一 OSS key，管理员删除源文件 OSS 对象会导致用户侧的克隆记录变为"孤儿"。解决方案：admin 删除示范案例源文件时仅做 ossFiles 软删，不动 OSS object；或者明确"示范案例源文件不可删除，只可替换"。本 spec 选择前者，由 admin 约束层保证。
-- **识别 / 嵌入的三层安全网**：设计依赖三层保障来确保分析流程在任何状态下都能跑通，任何一层失败都能被下一层兜底：
-  1. **Admin save 阶段**（3.3 `ensureSourceFileRecognitionService`）：主动触发从未识别过的源文件，保证 admin 提交 demo case 后识别已被排入队列
-  2. **prepare 阶段**（2.2 / 2.3）：克隆已有 `status=2` 的识别记录与嵌入向量到用户 ossFileId，保证"admin 已完成"场景下用户零等待
-  3. **用户侧触发**（`addFiles → /api/v1/recognition/start`）：若 prepare 克隆时源识别未完成（admin save 触发后还在跑），用户克隆的 ossFileId 上会走一条独立的识别任务；这是"admin 已触发但未完成"窗口期的兜底
-  4. **分析前最终兜底**（`ensureMaterialsReadyService`）：案件分析启动前会对所有材料做一次 recognize + embed 状态检查并补齐，是最后一道闸
+- **识别可用性保障**：识别记录通过 prepare 阶段克隆（2.3），保证"admin 已完成"时用户零等待。admin 侧 `ensureSourceFileRecognitionService`（3.3）在 save 时引导从未识别过的源文件。若克隆和引导都未覆盖（极端场景），用户侧 `addFiles → recognition/start` 的正常识别流程提供最终兜底。嵌入向量不克隆，由案件分析启动时 `ensureMaterialsReadyService` 自动生成（耗时几秒，用户无感知）。
 - **并行识别的重复成本**：当 admin save 触发的识别正在 PROCESSING 时，用户点击触发的是一条**独立**的识别任务（两个 ossFileId 不同），会造成 MinerU/OCR/ASR 调用被执行两次。这是可接受的成本 —— 换来了"admin 不需要同步等识别完成"的配置体验。若后续发现 PDF 类文件真实 QPS 压力过大，可在 prepare 阶段加一个 "admin 源识别处于 PROCESSING 时等待 N 秒看是否完成，完成则走克隆" 的小优化，但非本次必做项。
