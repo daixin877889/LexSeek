@@ -191,6 +191,8 @@ result.push(toOssFileItem(clone))
 
 **顺序执行而非并发**：所有材料在同一个 Prisma `$transaction` 中顺序克隆，保证整个 prepare 操作的原子性。嵌入向量的 pgvector 写入是原生 SQL，使用 `$queryRawUnsafe`/`$executeRawUnsafe` 在同一事务内执行。
 
+**事务超时**：Prisma `interactiveTransactions` 默认 5 秒，对于多文件 + 嵌入向量克隆显然不够。调用 `$transaction(fn, { timeout: 30_000, maxWait: 5_000 })` 显式指定 30 秒超时。
+
 任一环节失败整体回滚，返回 500。
 
 #### 2.3 识别记录 + 嵌入向量克隆
@@ -232,10 +234,13 @@ WITH copied AS (
   FROM case_material_embeddings
   WHERE metadata->>'userId' = $sourceUserId::text
     AND metadata->>'sourceId' = $sourceOssFileId::text
+    AND metadata->>'source' IN ('doc', 'image', 'audio')
   RETURNING id
 )
 SELECT array_agg(id) FROM copied;
 ```
+
+显式限定 `metadata->>'source' IN ('doc', 'image', 'audio')` 是为了把 `text` 类型的嵌入排除在克隆范围之外 —— text 类嵌入的 `sourceId` 是 `materialId`（case 级 PK），与 ossFileId 名义上不同源，理论上不会冲突；但加上显式过滤可以对未来新增 source 类型提供前置防御。
 
 返回的新嵌入 id 数组，如有必要，回写到对应识别记录的 `vector_ids` 字段（先插入识别记录时 `vector_ids='[]'`，这里 `UPDATE ... SET vector_ids = $array`）。
 
@@ -280,7 +285,7 @@ defineProps<{ modelValue: DemoCaseMaterial[] }>()
 defineEmits<{ 'update:modelValue': [DemoCaseMaterial[]] }>()
 ```
 
-**命名区分**：与 `app/components/caseAnalysis/MaterialUploader.vue`（如果存在）不冲突，通过目录 `admin/demo-cases/` 隔离。实现阶段先检查 caseAnalysis 目录下是否有可抽取的公共底层组件，若有则提取到 `app/components/common/` 两侧共用。
+**命名区分**：通过目录 `admin/demo-cases/` 隔离。实现阶段先检查既有的 `app/components/case/MaterialUploader.vue` 与 `app/components/caseCreation/MaterialUploader.vue`（两者目前是同名不同路径的业务组件），判断是否有公共底层可抽取到 `app/components/common/` 两侧共用；如有重复实现，应在本次任务内一并收敛。
 
 #### 3.3 Admin API 变更
 
@@ -532,7 +537,12 @@ export interface DemoCasePrepareResponse {
 4. 新文件 `tests/server/admin/demoCaseMaterials.test.ts`
    - Admin 校验：`materials[].type=1` 被拒、`sourceOssFileId` 必填、source ossFile 不存在被拒、`content` 与 `materials` 同时为空被拒
 
-**前端**：本次不新增组件级测试，遵循项目既有前端测试密度。手测脚本写入验收清单（5.3）。
+**前端**：`applyDemoCase` / `handleExampleSelect` / `loadDemoCases` 等纯交互逻辑从 `create.vue` 抽取到 `useCaseCreation` composable 内部（已有文件，扩展即可），并在 `tests/app/composables/useCaseCreation.test.ts`（新建）中加入：
+- `loadDemoCases` 成功与失败路径
+- `applyDemoCase` 正常填充 text + files 分支
+- `handleExampleSelect` 已有内容时弹窗分支 vs 无内容直接应用分支
+
+组件层（`example.vue` 本身）仍维持不新增测试；逻辑已下沉到 composable 被覆盖即可。
 
 #### 5.3 验收标准
 
