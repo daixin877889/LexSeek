@@ -21,6 +21,8 @@ import {
   Trash2Icon,
   RefreshCwIcon,
   CheckSquareIcon,
+  LayoutGridIcon,
+  ListIcon,
 } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -34,6 +36,8 @@ const props = defineProps<{
   isAddingMaterials?: boolean
   fileRecognitionStatus?: Map<number, RecognitionStatus>
   getRecognitionStatus?: (ossFileId?: number) => RecognitionStatus | null
+  readonly?: boolean
+  materialsLoading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -57,6 +61,9 @@ const infoCardRef = ref<{
 } | null>(null)
 const isEditingCaseInfo = ref(false)
 const isSavingCaseInfo = ref(false)
+
+// 材料视图模式
+const materialViewMode = ref<'grid' | 'list'>('grid')
 
 // 概览中分析结果始终为 dashboard 模式
 const analysisViewMode = ref<'dashboard' | 'detail'>('dashboard')
@@ -155,7 +162,7 @@ function getMaterialIconColor(type: number) {
         <FileTextIcon class="size-4" />
         案件基本信息
       </h3>
-      <div class="flex items-center gap-2">
+      <div v-if="!readonly" class="flex items-center gap-2">
         <template v-if="!isEditingCaseInfo">
           <button class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
             @click="infoCardRef?.startEditing()">
@@ -179,7 +186,7 @@ function getMaterialIconColor(type: number) {
         </template>
       </div>
     </div>
-    <InitAnalysisCaseInfoCard ref="infoCardRef" :case-id="caseId" editable hide-header
+    <InitAnalysisCaseInfoCard ref="infoCardRef" :case-id="caseId" :editable="!readonly" hide-header
       v-model:is-editing="isEditingCaseInfo" @updated="emit('updated')" />
     <Separator class="mx-4 opacity-50" />
 
@@ -193,126 +200,213 @@ function getMaterialIconColor(type: number) {
         </Badge>
       </h3>
       <div class="flex items-center gap-4">
-        <button class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-          :disabled="isAddingMaterials" @click="openMaterialSelector">
-          <Loader2Icon v-if="isAddingMaterials" class="size-3 animate-spin" />
-          <PlusIcon v-else class="size-3" />
-          添加材料
-        </button>
-        <div class="w-px h-3 bg-border"></div>
-        <button v-if="materials.length > 0"
-          class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-          @click="emit('navigateToSelectMode')">
-          <CheckSquareIcon class="size-3" />
-          批量管理
-        </button>
-        <div v-if="materials.length > 0" class="w-px h-3 bg-border"></div>
-        <button class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-          @click="emit('navigateView', 'materials')">
-          <EyeIcon class="size-3" />
-          查看全部
-        </button>
-      </div>
-    </div>
-
-    <!-- 材料网格（直接渲染，共享 useCaseDetail 数据） -->
-    <div class="p-4 pt-3">
-      <div v-if="materials.length === 0" class="text-center py-6 text-sm text-muted-foreground">
-        <FileTextIcon class="size-8 mx-auto mb-2 opacity-50" />
-        暂无材料
-      </div>
-      <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
-        <div v-for="material in materials" :key="material.id"
-          class="group relative flex flex-col items-center p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition-all border border-transparent hover:border-primary/10 text-center cursor-pointer"
-          @click="emit('previewMaterial', material)">
-          <!-- 单个删除按钮 -->
-          <button
-            class="absolute top-1 right-1 size-6 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            title="删除" @click.stop="confirmDelete(material.id)">
-            <Trash2Icon class="size-3" />
+        <template v-if="!readonly">
+          <button class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+            :disabled="isAddingMaterials" @click="openMaterialSelector">
+            <Loader2Icon v-if="isAddingMaterials" class="size-3 animate-spin" />
+            <PlusIcon v-else class="size-3" />
+            添加材料
           </button>
-
-          <div
-            :class="['flex items-center justify-center size-11 rounded-xl shrink-0 transition-transform group-hover:scale-105 mb-1.5', getMaterialBgColor(material.type)]">
-            <component :is="getMaterialIcon(material.type)" :class="['size-6', getMaterialIconColor(material.type)]" />
-          </div>
-          <div class="flex-1 min-w-0 w-full">
-            <div
-              class="text-[12px] font-medium line-clamp-1 leading-tight mb-1 group-hover:text-primary transition-colors px-1">
-              {{ material.name }}
-            </div>
-            <div class="text-[10px] text-muted-foreground/60 flex items-center justify-center gap-1">
-              <span v-if="material.fileSize" class="shrink-0">{{ formatByteSize(material.fileSize, 0) }}</span>
-              <!-- 识别状态 -->
-              <template v-if="getMaterialDisplayStatus(material)">
-                <span class="size-0.5 rounded-full bg-muted-foreground/30"></span>
-                <span v-if="!getMaterialDisplayStatus(material)!.showRetry"
-                  :class="getMaterialDisplayStatus(material)!.color" class="flex items-center gap-0.5">
-                  <Loader2Icon v-if="getMaterialDisplayStatus(material)!.spinning" class="size-2.5 animate-spin" />
-                  {{ getMaterialDisplayStatus(material)!.text }}
-                </span>
-                <button v-else class="text-destructive hover:text-primary transition-colors flex items-center gap-0.5"
-                  @click.stop="emit('retryMaterial', material.id, material.ossFileId!)">
-                  {{ getMaterialDisplayStatus(material)!.text }}
-                  <RefreshCwIcon class="size-2.5" />
-                </button>
-              </template>
-            </div>
-          </div>
+          <div class="w-px h-3 bg-border"></div>
+          <button v-if="materials.length > 0"
+            class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+            @click="emit('navigateToSelectMode')">
+            <CheckSquareIcon class="size-3" />
+            批量管理
+          </button>
+          <div v-if="materials.length > 0" class="w-px h-3 bg-border"></div>
+          <button class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+            @click="emit('navigateView', 'materials')">
+            <EyeIcon class="size-3" />
+            查看全部
+          </button>
+          <div class="w-px h-3 bg-border"></div>
+        </template>
+        <!-- 视图切换（始终显示） -->
+        <div class="flex items-center bg-muted/50 rounded-lg p-0.5">
+          <button class="size-7 flex items-center justify-center rounded-md transition-all"
+            :class="materialViewMode === 'grid' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
+            @click="materialViewMode = 'grid'">
+            <LayoutGridIcon class="size-3.5" />
+          </button>
+          <button class="size-7 flex items-center justify-center rounded-md transition-all"
+            :class="materialViewMode === 'list' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
+            @click="materialViewMode = 'list'">
+            <ListIcon class="size-3.5" />
+          </button>
         </div>
       </div>
     </div>
 
-    <Separator class="mx-4 opacity-50" />
-
-    <!-- 分析结果 -->
-    <div class="p-4 flex items-center justify-between pb-0">
-      <h3 class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
-        <SparklesIcon class="size-4" />
-        分析结果
-        <span v-if="analysisResults.length > 0" class="font-normal text-[10px] bg-muted px-1.5 py-0.5 rounded">{{
-          analysisResults.length }}</span>
-      </h3>
-      <div class="flex items-center gap-4">
-        <button v-if="showBatchButton"
-          class="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
-          @click="emit('batchGenerate')">
-          <PlusIcon class="size-3" />
-          批量分析
-        </button>
-        <button v-if="analysisResults.length > 0"
-          class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-          @click="emit('navigateView', 'analysis')">
-          <EyeIcon class="size-3" />
-          查看全部
-        </button>
+    <!-- 材料区域 -->
+    <div class="p-4 pt-3">
+      <!-- 加载状态 -->
+      <div v-if="materialsLoading" class="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
+        <div v-for="i in 4" :key="i" class="p-3 rounded-xl bg-muted/40 flex flex-col items-center text-center space-y-2">
+          <Skeleton class="size-11 rounded-lg" />
+          <div class="space-y-1.5 w-full">
+            <Skeleton class="h-3 w-3/4 mx-auto" />
+            <Skeleton class="h-2.5 w-1/2 mx-auto" />
+          </div>
+        </div>
       </div>
+      <!-- 空状态 -->
+      <div v-else-if="materials.length === 0" class="text-center py-6 text-sm text-muted-foreground">
+        <FileTextIcon class="size-8 mx-auto mb-2 opacity-50" />
+        暂无材料
+      </div>
+      <!-- 材料列表 -->
+      <Transition v-else name="view-fade" mode="out-in">
+        <!-- 网格视图 -->
+        <div v-if="materialViewMode === 'grid'" key="grid" class="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
+          <div v-for="material in materials" :key="material.id"
+            class="group relative flex flex-col items-center p-2.5 rounded-xl bg-muted/40 hover:bg-muted/60 transition-all border border-transparent hover:border-primary/10 text-center cursor-pointer"
+            @click="emit('previewMaterial', material)">
+            <!-- 单个删除按钮 -->
+            <button v-if="!readonly"
+              class="absolute top-1 right-1 size-6 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              title="删除" @click.stop="confirmDelete(material.id)">
+              <Trash2Icon class="size-3" />
+            </button>
+
+            <div
+              :class="['flex items-center justify-center size-11 rounded-xl shrink-0 transition-transform group-hover:scale-105 mb-1.5', getMaterialBgColor(material.type)]">
+              <component :is="getMaterialIcon(material.type)" :class="['size-6', getMaterialIconColor(material.type)]" />
+            </div>
+            <div class="flex-1 min-w-0 w-full">
+              <div
+                class="text-[12px] font-medium line-clamp-1 leading-tight mb-1 group-hover:text-primary transition-colors px-1">
+                {{ material.name }}
+              </div>
+              <div class="text-[10px] text-muted-foreground/60 flex items-center justify-center gap-1">
+                <span v-if="material.fileSize" class="shrink-0">{{ formatByteSize(material.fileSize, 0) }}</span>
+                <!-- 识别状态 -->
+                <template v-if="getMaterialDisplayStatus(material)">
+                  <span class="size-0.5 rounded-full bg-muted-foreground/30"></span>
+                  <span v-if="!getMaterialDisplayStatus(material)!.showRetry || readonly"
+                    :class="getMaterialDisplayStatus(material)!.color" class="flex items-center gap-0.5">
+                    <Loader2Icon v-if="getMaterialDisplayStatus(material)!.spinning" class="size-2.5 animate-spin" />
+                    {{ getMaterialDisplayStatus(material)!.text }}
+                  </span>
+                  <button v-else class="text-destructive hover:text-primary transition-colors flex items-center gap-0.5"
+                    @click.stop="emit('retryMaterial', material.id, material.ossFileId!)">
+                    {{ getMaterialDisplayStatus(material)!.text }}
+                    <RefreshCwIcon class="size-2.5" />
+                  </button>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 列表视图 -->
+        <div v-else key="list" class="space-y-1">
+          <div v-for="material in materials" :key="material.id"
+            class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors group border border-transparent hover:border-border/50 cursor-pointer"
+            @click="emit('previewMaterial', material)">
+            <div :class="['flex items-center justify-center size-9 rounded-lg shrink-0', getMaterialBgColor(material.type)]">
+              <component :is="getMaterialIcon(material.type)" :class="['size-5', getMaterialIconColor(material.type)]" />
+            </div>
+            <div class="flex-1 min-w-0 text-left">
+              <div class="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                {{ material.name }}
+              </div>
+              <div class="text-[11px] text-muted-foreground/60 flex items-center gap-2">
+                <span>{{ material.typeText }}</span>
+                <span v-if="material.fileSize" class="size-0.5 rounded-full bg-muted-foreground/30"></span>
+                <span v-if="material.fileSize">{{ formatByteSize(material.fileSize, 0) }}</span>
+                <template v-if="getMaterialDisplayStatus(material)">
+                  <span class="size-0.5 rounded-full bg-muted-foreground/30"></span>
+                  <span v-if="!getMaterialDisplayStatus(material)!.showRetry || readonly"
+                    :class="getMaterialDisplayStatus(material)!.color" class="flex items-center gap-0.5">
+                    <Loader2Icon v-if="getMaterialDisplayStatus(material)!.spinning" class="size-2.5 animate-spin" />
+                    {{ getMaterialDisplayStatus(material)!.text }}
+                  </span>
+                  <button v-else class="text-destructive hover:text-primary transition-colors flex items-center gap-0.5"
+                    @click.stop="emit('retryMaterial', material.id, material.ossFileId!)">
+                    {{ getMaterialDisplayStatus(material)!.text }}
+                    <RefreshCwIcon class="size-2.5" />
+                  </button>
+                </template>
+              </div>
+            </div>
+            <button v-if="!readonly"
+              class="size-8 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+              title="删除" @click.stop="confirmDelete(material.id)">
+              <Trash2Icon class="size-3.5" />
+            </button>
+          </div>
+        </div>
+      </Transition>
     </div>
-    <CaseAnalysisResults :results="analysisResults" :module-cards="moduleCards" v-model:view-mode="analysisViewMode"
-      v-model:active-module="analysisActiveModule" :show-regenerate="false" :show-copy="false"
-      :show-batch-button="showBatchButton" :has-pending-interrupt="hasPendingInterrupt" hide-header class="pt-0"
-      @generate-module="(name, title) => emit('generateModule', name, title)" @batch-generate="emit('batchGenerate')"
-      @go-to-interrupt="emit('goToInterrupt')" />
 
-    <!-- 材料选择器弹窗 -->
-    <CaseAnalysisMaterialSelector ref="materialSelectorRef" :disabled-file-ids="disabledOssFileIds"
-      @files-selected="handleFilesSelected" />
+    <template v-if="!readonly">
+      <Separator class="mx-4 opacity-50" />
 
-    <!-- 删除确认对话框 -->
-    <AlertDialog v-model:open="showDeleteConfirm">
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>确认删除</AlertDialogTitle>
-          <AlertDialogDescription>确定要删除该材料吗？删除后将无法恢复。</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>取消</AlertDialogCancel>
-          <AlertDialogAction class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            @click="executeDelete">
-            删除
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      <!-- 分析结果 -->
+      <div class="p-4 flex items-center justify-between pb-0">
+        <h3 class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
+          <SparklesIcon class="size-4" />
+          分析结果
+          <span v-if="analysisResults.length > 0" class="font-normal text-[10px] bg-muted px-1.5 py-0.5 rounded">{{
+            analysisResults.length }}</span>
+        </h3>
+        <div class="flex items-center gap-4">
+          <button v-if="showBatchButton"
+            class="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+            @click="emit('batchGenerate')">
+            <PlusIcon class="size-3" />
+            批量分析
+          </button>
+          <button v-if="analysisResults.length > 0"
+            class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+            @click="emit('navigateView', 'analysis')">
+            <EyeIcon class="size-3" />
+            查看全部
+          </button>
+        </div>
+      </div>
+      <CaseAnalysisResults :results="analysisResults" :module-cards="moduleCards" v-model:view-mode="analysisViewMode"
+        v-model:active-module="analysisActiveModule" :show-regenerate="false" :show-copy="false"
+        :show-batch-button="showBatchButton" :has-pending-interrupt="hasPendingInterrupt" hide-header class="pt-0"
+        @generate-module="(name, title) => emit('generateModule', name, title)" @batch-generate="emit('batchGenerate')"
+        @go-to-interrupt="emit('goToInterrupt')" />
+
+      <!-- 材料选择器弹窗 -->
+      <CaseAnalysisMaterialSelector ref="materialSelectorRef" :disabled-file-ids="disabledOssFileIds"
+        @files-selected="handleFilesSelected" />
+
+      <!-- 删除确认对话框 -->
+      <AlertDialog v-model:open="showDeleteConfirm">
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogDescription>确定要删除该材料吗？删除后将无法恢复。</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              @click="executeDelete">
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </template>
   </div>
 </template>
+
+<style scoped>
+.view-fade-enter-active,
+.view-fade-leave-active {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.view-fade-enter-from {
+  opacity: 0;
+  transform: translateY(8px) scale(0.99);
+}
+.view-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.99);
+}
+</style>
