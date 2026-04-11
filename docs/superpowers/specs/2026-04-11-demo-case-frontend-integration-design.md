@@ -57,30 +57,27 @@ interface DemoCaseMaterial {
 
 Admin API（见 3.3）负责物理拒绝 `type=1` 与缺失 `sourceOssFileId` 的请求。
 
-#### 1.3 `ossFiles` 表仅增加部分唯一索引
+#### 1.3 `ossFiles` 表增加复合唯一约束
 
 **不新增任何列**。用 `(userId, bucketName, filePath)` 做克隆去重的天然联合键，语义是"该用户云盘里已有指向同一 OSS 对象的记录"。
 
-**必须是 UNIQUE（而非普通 index）**，否则两个并发 prepare 请求会各自 miss、各自 create，产生重复克隆行。同时为了兼容"用户软删除自己的克隆记录后再次点击同一 demo case 需要能建新行"的场景（见 5.1），约束必须只作用于未软删行。
+该约束在 `schema.prisma` 中以标准 `@@unique` 形式声明，保证 dev 阶段反复重建 migration 时不会丢失：
 
-结论：必须使用 Postgres 部分唯一索引 `CREATE UNIQUE INDEX ... WHERE deleted_at IS NULL`。**Prisma `@@unique` 不支持 partial 索引**，因此必须在 Prisma migration 的 `migration.sql` 中手写原生 DDL：
+```prisma
+model ossFiles {
+  // ... 现有字段 ...
 
-```sql
--- 在 Prisma migration 的 migration.sql 末尾手写
--- 注意：PG15+ 的 UNIQUE 索引默认 NULLS DISTINCT，多个 filePath=NULL 的行不会触发约束
--- 对示范案例场景无影响（源材料必有 filePath），此处不额外加 NULLS NOT DISTINCT
-CREATE UNIQUE INDEX "idx_oss_files_user_bucket_path"
-  ON "oss_files" ("user_id", "bucket_name", "file_path")
-  WHERE "deleted_at" IS NULL;
+  @@unique([userId, bucketName, filePath], map: "idx_oss_files_user_bucket_path")
+}
 ```
 
-`schema.prisma` 中**不要**写 `@@unique` 或 `@@index` 来描述这个约束；手写 migration 与 `prisma migrate dev` 的 diff 检测不冲突（Prisma 会把 partial index 视为"数据库独有"并忽略）。后续执行 `prisma db pull` 时应注意该索引不会回流到 schema。
+**约束范围跨软删行**：Prisma `@@unique` 不支持 WHERE 过滤，该约束对所有行生效（包括 `deletedAt` 非空的软删行）。这不是问题，反而让设计更清晰 —— 用户的软删克隆行在第二次点击时走"资源复活"分支（见 2.2），而不是"新建一行"。
 
-**并发写入时的行为**：两个并发 prepare 请求同时 miss、同时 create 时，其中一个会因为 UNIQUE 约束违反抛 `P2002` 错误；prepare 服务层捕获这个错误后，重新执行 `findFirst` 即可拿到另一个请求刚写入的克隆行，正常返回。
+**对现有上传流程的兼容性**：存量的用户自上传文件走 `/api/v1/storage/presigned-url` 生成 `${uuidv7()}.${extension}` 作为 `filePath`，UUID v7 全局唯一，不会与任何存量行冲突。该唯一约束对现有上传链路透明。
 
 #### 1.4 数据迁移脚本
 
-一次性 SQL（放入 Prisma migration 的 `migration.sql` 中，紧随 `ALTER TABLE` 之后）：
+一次性数据迁移 SQL。**注意**：这段 SQL 仅对生产库已有数据有效；dev 阶段若使用 `prisma db push` 或频繁删除 migration 文件夹，可直接重跑 seed 生成新结构数据，无需执行这段迁移。
 
 ```sql
 -- 把存量文本材料搬到 content 列
@@ -158,23 +155,31 @@ if (!source || source.deletedAt) {
   throw new Error('示范案例资源异常')
 }
 
-// 2. 查用户云盘里是否已有指向同一 OSS 对象的行
+// 2. 查用户云盘里是否已有指向同一 OSS 对象的行（软删行也要命中，走复活路径）
+//    注意：此处不过滤 deletedAt —— 让软删行也被命中以便后续"资源复活"
 const existing = await tx.ossFiles.findFirst({
   where: {
     userId: user.id,
     bucketName: source.bucketName,
     filePath: source.filePath,
-    deletedAt: null,
   },
 })
 
 if (existing) {
-  result.push(toOssFileItem(existing))
+  if (existing.deletedAt !== null) {
+    // 复活：软删行翻转回 deletedAt=null；识别记录和嵌入向量还在原地，无需重复克隆
+    await tx.ossFiles.update({
+      where: { id: existing.id },
+      data: { deletedAt: null, updatedAt: new Date() },
+    })
+  }
+  result.push(toOssFileItem({ ...existing, deletedAt: null }))
   continue
 }
 
 // 3. 未命中：创建新 ossFile 行（字段直接复制自 source，仅 userId 换成当前用户）
-// P2002 冲突不在此处 catch —— 详见下方"事务级重试"。
+// P2002 冲突只可能来自"两个并发请求都走到 create" —— 此时不在事务内 catch，
+// 让它整体回滚，由外层 $transaction 调用方重开事务重试（见下方"事务级重试"）。
 const clone = await tx.ossFiles.create({
   data: {
     userId: user.id,
@@ -201,6 +206,16 @@ await cloneRecognitionAndEmbeddingsService({
 
 result.push(toOssFileItem(clone))
 ```
+
+**两条命中分支说明**：
+
+| findFirst 结果 | `existing.deletedAt` | 动作 | 识别/嵌入克隆 |
+|---|---|---|---|
+| null（无记录） | — | 创建新 ossFile（走第 3 步） | 需要（第 4 步） |
+| 非 null，未软删 | null | 直接复用已有 ossFileId | 无需（原已克隆） |
+| 非 null，已软删 | 非 null | 复活：UPDATE `deletedAt=null` 翻转回正常 | 无需（识别记录未级联清理，原数据仍在） |
+
+**识别记录与软删的交互（已验证）**：`server/services/files/ossFiles.dao.ts:117-130` `deleteFileDao` 和 `deleteOssFilesDao` 在用户删除云盘文件时**仅更新 `ossFiles.deletedAt`**，不级联清理 `doc_recognition_records` / `image_recognition_records` / `asr_records` / `case_material_embeddings`。因此复活 ossFile 后，原先克隆的识别数据天然仍然有效，可直接复用。
 
 **事务级重试（关键修订）**：
 
@@ -667,7 +682,7 @@ export interface DemoCasePrepareResponse {
 | admin 源文件被软删 | `prepare` 在 2.2 第 1 步检测到 `source.deletedAt` 非空，整体事务回滚并返回 500 `示范案例资源异常` |
 | 用户重复点同一 demo case（串行） | `(userId, bucketName, filePath)` 命中 → 返回同一 ossFileId；`AiPromptInput.addFiles` 内部基于 `selectedFileIds` 去重，不会在文件列表里出现两份 |
 | 用户并发两次点同一 demo case | 前端 `preparingDemoCaseId` 非空时忽略后续点击；若前端防御失效（两个页面 tab），后端两个 prepare 请求其中一个会因部分唯一索引 P2002 冲突，服务层 catch 后重查联合键命中、返回同一克隆行 |
-| 用户软删自己的克隆 ossFile 后再次点击 | `findFirst` 带 `deletedAt: null` 会 miss → 新建克隆行并重新克隆识别记录。旧的软删行保留（`deletedAt` 非空），`case_material_embeddings` 中旧的克隆向量成为孤儿数据（不影响检索，不清理） |
+| 用户软删自己的克隆 ossFile 后再次点击 | `findFirst`（不带 `deletedAt` 过滤）命中软删行 → UPDATE 把 `deletedAt` 置回 null（资源复活）→ 原 ossFileId 复用，识别记录与嵌入向量原地存活、无需重复克隆。整条 prepare 幂等无副作用 |
 | 用户已自上传同名文件然后点击 demo case | `filePath` 不同（用户上传生成的是 `user<id>/case_analysis/uuid.pdf`，admin 上传是 `user<adminId>/demo_case/uuid.pdf`），视为两份独立文件。这是预期行为 |
 | admin 修改源文件 `fileName`（不改 `filePath`） | 用户已有的克隆行保持首次克隆时的 fileName 快照，不会自动更新；用户下次点击同 demo case 仍复用旧克隆行。属于有意的快照语义 |
 | admin 软删 demo case 本身 | 用户已克隆的 ossFile 不受影响，仍在用户云盘中；列表端点 `GET /api/v1/demo-cases` 过滤已软删的 demo case，用户不再看到入口 |
@@ -685,6 +700,7 @@ export interface DemoCasePrepareResponse {
    - `findOssFileByIdDao` 新 case：源文件软删返回 null
 2. `tests/server/case/demoCase.service.test.ts` 扩展
    - `prepareDemoCaseForUserService`：首次克隆成功、联合键命中复用、源文件缺失抛错、多文件顺序克隆
+   - **资源复活**：预先软删用户已有的克隆 ossFile，再次调用 prepare 应该：UPDATE 把 `deletedAt` 置回 null、返回同一 ossFileId、不重复插入 doc/image/asr 识别记录、不重复插入嵌入向量行
    - **并发冲突重试**：mock `tx.ossFiles.create` 第一次抛 `P2002`、第二次 findFirst 命中，验证服务层在外层 `$transaction` 级别重开事务并返回正确结果
    - `cloneRecognitionAndEmbeddingsService`：doc/image/asr 三类识别记录的克隆、只克隆 `status=2` 的记录、源无识别记录或 status 非 2 的跳过、asr_records 克隆时 `asr_tasks_id`/`json_oss_file_id`/`temp_file_path` 显式为 NULL、嵌入向量 metadata 正确更新
 3. 新文件 `tests/server/demoCases/prepare.test.ts`
@@ -708,6 +724,7 @@ export interface DemoCasePrepareResponse {
 - [ ] 前端创建页 onMount 后看到后台示范案例卡片；列表空时整块 Example 隐藏
 - [ ] 点击卡片后文本立即出现在输入框、文件出现在文件列表；admin 源文件已完成识别时文件徽章直接显示"已识别"
 - [ ] 同一用户连续点击同一 demo case 两次，`SELECT count(*) FROM oss_files WHERE user_id = X AND file_path = Y AND deleted_at IS NULL` 结果为 `1`
+- [ ] 用户软删自己的克隆后再次点击 demo case，上面同样的 count 结果仍然为 `1`（资源复活而非新建）—— `SELECT count(*) FROM oss_files WHERE user_id = X AND file_path = Y` （不加 deleted_at 过滤）结果也为 `1`
 - [ ] 点击 demo case 后点"提取信息" → 确认表单 → 创建案件 → 新案件出现在"我的案件"列表，`isDemo=false`
 - [ ] 全量 `npx vitest run` 通过
 - [ ] `npx nuxi typecheck` 无新增错误
