@@ -1,5 +1,5 @@
 <template>
-  <SidebarProvider>
+  <SidebarProvider v-model:open="sidebarOpen">
     <!-- 侧边栏 -->
     <Sidebar collapsible="icon">
       <!-- 顶部logo -->
@@ -96,10 +96,19 @@
 
 <script setup lang="ts">
 import { MenuIcon, User, Sun } from "lucide-vue-next";
+import { useMediaQuery } from "@vueuse/core";
 import SettingsLayout from "./settingsLayout.vue";
 import MembershipLayout from "./membershipLayout.vue";
 
 const sidebarTriggerRef = ref<InstanceType<typeof import("@/components/ui/sidebar").SidebarTrigger> | null>(null);
+
+// 窄窗口自动折叠侧边栏（lg 断点以下）
+const isNarrowScreen = useMediaQuery("(max-width: 1023px)");
+const sidebarOpen = ref(!isNarrowScreen.value);
+
+watch(isNarrowScreen, (narrow) => {
+  sidebarOpen.value = !narrow;
+});
 
 // 页面可通过 useState('hideDashboardHeader') 控制 header 显隐
 const hideDashboardHeader = useState('hideDashboardHeader', () => false);
