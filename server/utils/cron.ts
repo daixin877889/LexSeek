@@ -37,7 +37,7 @@ export async function withDistributedLock<T>(
 
     try {
         const redis = getRedisClient()
-        const result = await redis.set(lockKey, lockValue, 'NX', 'EX', ttlSeconds)
+        const result = await redis.set(lockKey, lockValue, 'EX', ttlSeconds, 'NX')
         acquired = result === 'OK'
     } catch (error) {
         logger.error(`[${lockKey}] Redis 连接异常，跳过本次执行：`, error)

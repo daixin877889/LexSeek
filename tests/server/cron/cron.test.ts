@@ -40,7 +40,7 @@ describe('withDistributedLock', () => {
         const result = await withDistributedLock('test-lock', 60, fn)
         expect(fn).toHaveBeenCalledOnce()
         expect(result).toEqual({ data: 42 })
-        expect(mockRedisClient.set).toHaveBeenCalledWith('test-lock', expect.any(String), 'NX', 'EX', 60)
+        expect(mockRedisClient.set).toHaveBeenCalledWith('test-lock', expect.any(String), 'EX', 60, 'NX')
     })
 
     it('抢锁失败时返回 null 且不执行 fn', async () => {
