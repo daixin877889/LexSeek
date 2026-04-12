@@ -18,7 +18,7 @@
                             class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-muted-foreground/80">
                             当前状态</th>
                         <th
-                            class="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-muted-foreground/80">
+                            class="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider text-muted-foreground/80">
                             操作</th>
                     </tr>
                 </thead>
@@ -70,9 +70,9 @@
                             </Badge>
                         </td>
                         <!-- 操作 -->
-                        <td class="px-6 py-4 text-right">
+                        <td class="px-6 py-4">
                             <div
-                                class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                class="flex items-center justify-center gap-2">
                                 <Button variant="ghost" size="icon"
                                     class="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
                                     @click="emit('delete', item.id)" title="删除案件">

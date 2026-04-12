@@ -11,7 +11,7 @@
     <!-- 活动横幅 -->
     <div class="w-full p-3 mb-8 bg-primary rounded-md text-center shadow-sm">
       <p class="text-sm md:text-base text-primary-foreground font-medium">
-        <a href="javascript:void(0)" class="hover:opacity-80 transition-opacity">
+        <a href="javascript:void(0)" class="hover:opacity-80 transition-opacity" @click="wxSupportStore.showQrCode()">
           限时活动：联系客服可领取7天延长使用兑换码！<span class="underline underline-offset-4 ml-1">点此联系客服</span>
         </a>
       </p>
@@ -61,7 +61,7 @@
         </div>
       </div>
 
-      <NuxtLink to="/dashboard/membership" class="block">
+      <NuxtLink to="/dashboard/membership/point" class="block">
         <div class="bg-card rounded-lg p-6 shadow-sm border border-border hover:border-primary transition-colors h-full">
           <div class="flex items-start justify-between">
             <div>
@@ -105,7 +105,7 @@
     <div class="mb-8">
       <h2 class="text-xl font-semibold mb-4 text-foreground">快速操作</h2>
       <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <NuxtLink to="/dashboard/analysis/new" class="bg-card hover:bg-muted/50 hover:border-primary transition-colors rounded-lg p-4 border border-border flex items-center gap-4 shadow-sm">
+        <NuxtLink to="/dashboard/cases/create" class="bg-card hover:bg-muted/50 hover:border-primary transition-colors rounded-lg p-4 border border-border flex items-center gap-4 shadow-sm">
           <div class="bg-muted p-2 rounded-md">
             <FilePlus class="h-5 w-5 text-foreground" />
           </div>
@@ -135,7 +135,7 @@
           </div>
         </NuxtLink>
 
-        <div class="bg-card hover:bg-muted/50 hover:border-primary transition-colors rounded-lg p-4 border border-border flex items-center gap-4 shadow-sm cursor-pointer">
+        <div class="bg-card hover:bg-muted/50 hover:border-primary transition-colors rounded-lg p-4 border border-border flex items-center gap-4 shadow-sm cursor-pointer" @click="wxSupportStore.showQrCode()">
           <div class="bg-muted p-2 rounded-md">
             <HelpCircle class="h-5 w-5 text-foreground" />
           </div>
@@ -207,6 +207,7 @@ definePageMeta({
 });
 
 const userStore = useUserStore();
+const wxSupportStore = useWxSupportStore();
 
 const { data: dashboardData } = await useApi<DashboardResponse>('/api/v1/dashboard')
 
