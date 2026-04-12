@@ -25,7 +25,7 @@ const EXACT_REGEX = /^(?<legalName>.+?)第(?<articleNum>\d+)条(第(?<clauseNum>
  * 转换失败时（NaN 或 <=0）保留原文
  */
 function replaceChinese(match: string, numStr: string, suffix: string): string {
-  const num = Nzh.cn.decodeS(numStr)
+  const num = Number(Nzh.cn.decodeS(numStr))
   if (Number.isNaN(num) || num <= 0) {
     return match
   }
@@ -92,10 +92,10 @@ export function tryExactRegex(normalizedQuery: string): IntentClassification | n
   const match = EXACT_REGEX.exec(trimmed)
   if (!match?.groups) return null
 
-  const legalName = match.groups.legalName.trim()
+  const legalName = match.groups.legalName?.trim() ?? ''
   if (legalName.length < 2) return null
 
-  const articleNum = Number.parseInt(match.groups.articleNum, 10)
+  const articleNum = Number.parseInt(match.groups.articleNum ?? '', 10)
   if (Number.isNaN(articleNum) || articleNum <= 0) return null
 
   // 用 nzh 将阿拉伯数字转回标准中文数字格式（与 DB l5 字段一致）
