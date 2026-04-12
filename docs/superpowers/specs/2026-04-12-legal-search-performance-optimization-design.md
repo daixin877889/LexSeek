@@ -63,9 +63,9 @@
 
 归一化规则（按顺序执行）：
 
-1. **去空白**：trim + 合并连续空格为单个空格
+1. **去空白**：trim + 将所有空白字符（`\s`，含换行/制表符）替换为空格 + 合并连续空格为单个空格
 2. **去冗余前缀**：去掉"中华人民共和国"（数据库存简称如"民法典"）
-3. **中文数字转阿拉伯**：`第一千零七十九条` → `第1079条`，`第二百六十四条` → `第264条`
+3. **中文数字转阿拉伯**：**仅**作用于"第X条"和"第X款"模式内的中文数字，不影响其他位置的中文数字（如"第三编"、"第二章"保持不变）。示例：`第一千零七十九条` → `第1079条`，`第二百六十四条第二款` → `第264条第2款`，`第三编 合同` → 不变
 4. **全角转半角**：`１２３` → `123`
 
 关键约束：
@@ -136,13 +136,20 @@ classifyIntentService(query, type)
   → normalizedQuery = normalizeQuery(query)
   → if (type === 'law') 正则前置 → 命中则直接返回（不写缓存，因为正则结果是确定的）
   → cacheKey = buildCacheKey(type, normalizedQuery)
-  → try { Redis GET } catch { 跳过 }
-  → 缓存命中 → JSON.parse → 返回
+  → try {
+      raw = Redis GET cacheKey
+      parsed = JSON.parse(raw)
+      校验 parsed.intent ∈ ['exact','hybrid','semantic']，无效则丢弃缓存
+      case_material 且 intent=exact → 降级为 hybrid
+      return parsed
+    } catch { 跳过（GET 失败、parse 失败、校验失败均 fallback） }
   → 调 LLM（用原始 query，不是归一化后的）
   → if (type === 'case_material' && result.intent === 'exact') 降级为 hybrid（现有逻辑保留）
   → try { Redis SET EX 604800 } catch { 跳过 }
   → 返回结果
 ```
+
+**缓存容错要求**：Redis GET、JSON.parse、intent 合法性校验三步必须在同一 try-catch 内。任何一步异常（连接失败、数据损坏、字段无效）都 fallback 到 LLM，不中断主流程。
 
 ### 模块四：Router 复合 exact 查询支持
 
