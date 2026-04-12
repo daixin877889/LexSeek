@@ -31,7 +31,7 @@
         class="flex items-center gap-2 p-2 border rounded-md bg-muted/30">
         <Loader2 class="h-4 w-4 animate-spin shrink-0" />
         <span class="flex-1 truncate text-sm">{{ f.file.name }}</span>
-        <span class="text-xs">{{ f.progress }}%</span>
+        <span class="text-xs">{{ Math.round(f.progress) }}%</span>
       </div>
     </div>
   </div>
