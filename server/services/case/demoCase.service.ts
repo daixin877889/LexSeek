@@ -200,3 +200,78 @@ export async function cloneRecognitionService(input: CloneRecognitionInput): Pro
           AND deleted_at IS NULL
     `, targetUserId, targetOssFileId, sourceUserId, sourceOssFileId)
 }
+
+// ==================== ensureSourceFileRecognitionService ====================
+
+import { detectFileTypeService } from '~~/server/services/material/fileDetect.service'
+import { createImageConversionService } from '~~/server/services/material/ocr.service'
+import { convertPdfService } from '~~/server/services/material/mineru.service'
+import { transcribeAudioService } from '~~/server/services/material/asr.service'
+import { readTextFileService } from '~~/server/services/material/textReader.service'
+import { recognizeDocxService } from '~~/server/services/material/docxRecognition.service'
+import { CaseMaterialType } from '#shared/types/case'
+import { getExtensionFromFileName } from '~~/shared/utils/file'
+import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
+
+/**
+ * 确保示范案例源文件已经被识别过一次（admin save 阶段的引导）
+ *
+ * 若三张识别表中任一已有记录（无论状态），直接 return；
+ * 否则按文件类型分发到对应识别服务触发。
+ * 触发失败仅记 warn 日志，不抛错（demoCase 保存不应因识别故障而失败）。
+ */
+export async function ensureSourceFileRecognitionService(sourceOssFileId: number): Promise<void> {
+    const source = await findOssFileByIdDao(sourceOssFileId)
+    if (!source || source.deletedAt) {
+        throw new Error(`sourceOssFileId=${sourceOssFileId} 不存在或已删除`)
+    }
+
+    const [doc, image, asr] = await Promise.all([
+        prisma.docRecognitionRecords.findFirst({
+            where: { ossFileId: sourceOssFileId, deletedAt: null },
+            select: { id: true },
+        }),
+        prisma.imageRecognitionRecords.findFirst({
+            where: { ossFileId: sourceOssFileId, deletedAt: null },
+            select: { id: true },
+        }),
+        prisma.asrRecords.findFirst({
+            where: { ossFileId: sourceOssFileId, deletedAt: null },
+            select: { id: true },
+        }),
+    ])
+
+    if (doc || image || asr) {
+        return
+    }
+
+    const ext = getExtensionFromFileName(source.fileName) || ''
+    const fileType = detectFileTypeService(source.fileName)
+
+    try {
+        switch (fileType) {
+            case CaseMaterialType.IMAGE:
+                await createImageConversionService(sourceOssFileId, source.userId)
+                break
+            case CaseMaterialType.AUDIO:
+                await transcribeAudioService(sourceOssFileId, source.userId)
+                break
+            case CaseMaterialType.DOCUMENT:
+                if (ext === 'md' || ext === 'txt') {
+                    await readTextFileService(sourceOssFileId, source.userId)
+                } else if (ext === 'docx') {
+                    await recognizeDocxService(sourceOssFileId, source.userId)
+                } else {
+                    await convertPdfService(sourceOssFileId, source.userId)
+                }
+                break
+            default:
+                await convertPdfService(sourceOssFileId, source.userId)
+        }
+    } catch (err) {
+        logger.warn('ensureSourceFileRecognitionService 触发失败', {
+            sourceOssFileId,
+            error: err instanceof Error ? err.message : String(err),
+        })
+    }
+}
