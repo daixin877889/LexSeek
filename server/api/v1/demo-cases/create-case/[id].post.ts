@@ -62,8 +62,8 @@ export default defineEventHandler(async (event) => {
                 caseId: caseResult.caseId,
                 name: material.name,
                 type: material.type as CaseMaterialType,
-                content: material.content,
-                status: material.content ? MaterialStatus.COMPLETED : MaterialStatus.PENDING,
+                ossFileId: material.sourceOssFileId,
+                status: MaterialStatus.PENDING,
             })
         ))
 

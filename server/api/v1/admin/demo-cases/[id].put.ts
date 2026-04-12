@@ -15,9 +15,8 @@ const paramsSchema = z.object({
 /** 材料项验证 */
 const materialSchema = z.object({
     name: z.string({ message: '材料名称不能为空' }).min(1, '材料名称不能为空').max(255, '材料名称不能超过255个字符'),
-    type: z.number({ message: '材料类型必须是数字' }).int('材料类型必须是整数').min(1, '材料类型无效').max(4, '材料类型无效'),
-    content: z.string().optional(),
-    fileUrl: z.string().url('文件URL格式不正确').optional(),
+    type: z.union([z.literal(2), z.literal(3), z.literal(4)], { message: '材料类型无效，仅支持 2(文档)、3(图片)、4(音频)' }),
+    sourceOssFileId: z.number({ message: 'OSS文件ID不能为空' }).int('OSS文件ID必须是整数').positive('OSS文件ID必须是正整数'),
 })
 
 /** 请求体验证 */

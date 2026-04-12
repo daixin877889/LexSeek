@@ -14,16 +14,14 @@ export enum DemoCaseStatus {
     ENABLED = 1,
 }
 
-/** 预设材料项 */
+/** 预设文件材料项（文本内容已提升到 demoCases.content 顶级字段） */
 export interface DemoCaseMaterial {
-    /** 材料名称 */
+    /** 材料名称（展示用） */
     name: string
-    /** 材料类型：1-文本，2-文档，3-图片，4-音频 */
-    type: number
-    /** 材料内容（文本类型时使用） */
-    content?: string
-    /** OSS 文件 URL（文件类型时使用） */
-    fileUrl?: string
+    /** 材料类型：2-文档，3-图片，4-音频（文本 type=1 已废弃） */
+    type: 2 | 3 | 4
+    /** admin 上传得到的 ossFile.id */
+    sourceOssFileId: number
 }
 
 /** 创建示范案例输入 */
@@ -31,6 +29,7 @@ export interface CreateDemoCaseInput {
     title: string
     description?: string | null
     caseTypeId: number
+    content?: string | null
     materials?: DemoCaseMaterial[]
     coverImage?: string | null
     priority?: number
@@ -42,6 +41,7 @@ export interface UpdateDemoCaseInput {
     title?: string
     description?: string | null
     caseTypeId?: number
+    content?: string | null
     materials?: DemoCaseMaterial[]
     coverImage?: string | null
     priority?: number
@@ -71,6 +71,7 @@ export const createDemoCaseDao = async (data: CreateDemoCaseInput): Promise<demo
                 title: data.title,
                 description: data.description,
                 caseTypeId: data.caseTypeId,
+                content: data.content ?? null,
                 materials: (data.materials ?? []) as any,
                 coverImage: data.coverImage,
                 priority: data.priority ?? 100,
@@ -220,6 +221,7 @@ export const updateDemoCaseDao = async (
         if (data.title !== undefined) updateData.title = data.title
         if (data.description !== undefined) updateData.description = data.description
         if (data.caseTypeId !== undefined) updateData.caseTypeId = data.caseTypeId
+        if (data.content !== undefined) updateData.content = data.content
         if (data.materials !== undefined) updateData.materials = data.materials
         if (data.coverImage !== undefined) updateData.coverImage = data.coverImage
         if (data.priority !== undefined) updateData.priority = data.priority
