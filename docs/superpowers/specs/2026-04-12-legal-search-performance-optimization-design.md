@@ -167,13 +167,75 @@ Promise.all([
 - exact 和 hybrid 都命中同一条文时，保留 exact 结果（score=1.0）
 - exact 结果排在前面，hybrid 结果追加在后
 
+### 模块五：评估脚本同步
+
+**位置**：`scripts/eval/search_law_tool/`
+
+#### 5.1 evalRetrievalQuality.ts 更新
+
+`searchWithoutRerank()` 函数（第 171-205 行）是 `retrievalRouter` 的镜像实现，有自己的 exact 分支。需同步复合 exact 逻辑：
+
+```
+case 'exact': {
+  const isCompound = !!(intent.rewrittenQuery || intent.keywords?.length)
+  if (isCompound) {
+    // 并行 exact + hybrid（与 router 一致）
+    const [exactResults, hybridResults] = await Promise.all([
+      exactSearchService(intent),
+      hybridSearchService(intent, request),
+    ])
+    results = mergeAndDedup(exactResults, hybridResults)
+  } else {
+    // 纯 exact（原有逻辑不变）
+    ...
+  }
+}
+```
+
+另外，评估时 Redis 缓存会干扰延迟测量（重复 query 命中缓存显示虚假低延迟）。新增 `--no-cache` 参数：
+- 传入时，在评估开始前调用 `disableIntentCache()` 临时禁用缓存
+- 默认不传时使用缓存（模拟真实用户体验）
+
+在 `intentClassifier.service.ts` 中导出缓存控制函数：
+```typescript
+/** 禁用意图缓存（评估脚本用） */
+export function disableIntentCache(): void
+/** 启用意图缓存（默认状态） */
+export function enableIntentCache(): void
+```
+
+#### 5.2 evalDataset.json 补充复合 exact 用例
+
+当前数据集有 exact/hybrid/semantic/edge 四类共 100 条用例，但没有复合 exact 场景。新增用例：
+
+```json
+{
+  "id": "compound-exact-001",
+  "query": "民法典第一千条 人格权保护",
+  "type": "law",
+  "expectedMode": "exact",
+  "k": 10,
+  "expectedHits": [
+    { "match": { "legal_name": "中华人民共和国民法典", "content_contains": "人格权" }, "mustBeInTopN": 3 },
+    { "match": { "content_contains": "人格权" }, "mustBeInTopN": 10 }
+  ],
+  "tags": ["compound-exact", "civil"]
+}
+```
+
+新增 5 条左右复合 exact 用例，tag 为 `compound-exact`，验证：
+- 精确条文出现在 top-3
+- 语义相关条文也出现在结果中（不被丢弃）
+
 ## 文件变更清单
 
 | 文件 | 操作 | 说明 |
 |------|------|------|
 | `server/services/retrieval/queryNormalizer.ts` | **新增** | 归一化 + 中文数字转换 |
-| `server/services/retrieval/intentClassifier.service.ts` | 修改 | 加正则前置 + Redis 缓存 |
+| `server/services/retrieval/intentClassifier.service.ts` | 修改 | 加正则前置 + Redis 缓存 + 缓存控制函数 |
 | `server/services/retrieval/retrievalRouter.service.ts` | 修改 | 复合 exact 并行搜索 |
+| `scripts/eval/search_law_tool/evalRetrievalQuality.ts` | 修改 | 同步复合 exact 逻辑 + `--no-cache` 参数 |
+| `scripts/eval/search_law_tool/evalDataset.json` | 修改 | 补充 compound-exact 用例 |
 | `tests/server/retrieval/queryNormalizer.test.ts` | **新增** | 归一化和数字转换测试 |
 | `tests/server/retrieval/intentClassifier.test.ts` | 修改 | 缓存和正则前置测试 |
 | `tests/server/retrieval/retrievalRouter.test.ts` | 修改 | 复合 exact 测试 |
