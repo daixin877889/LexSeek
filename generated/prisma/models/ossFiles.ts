@@ -330,6 +330,7 @@ export type ossFilesOrderByWithRelationInput = {
 
 export type ossFilesWhereUniqueInput = Prisma.AtLeast<{
   id?: number
+  userId_bucketName_filePath?: Prisma.ossFilesUserIdBucketNameFilePathCompoundUniqueInput
   AND?: Prisma.ossFilesWhereInput | Prisma.ossFilesWhereInput[]
   OR?: Prisma.ossFilesWhereInput[]
   NOT?: Prisma.ossFilesWhereInput | Prisma.ossFilesWhereInput[]
@@ -347,7 +348,7 @@ export type ossFilesWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeNullableFilter<"ossFiles"> | Date | string | null
   updatedAt?: Prisma.DateTimeNullableFilter<"ossFiles"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"ossFiles"> | Date | string | null
-}, "id">
+}, "id" | "userId_bucketName_filePath">
 
 export type ossFilesOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -514,6 +515,12 @@ export type ossFilesUncheckedUpdateManyInput = {
   createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+}
+
+export type ossFilesUserIdBucketNameFilePathCompoundUniqueInput = {
+  userId: number
+  bucketName: string
+  filePath: string
 }
 
 export type ossFilesCountOrderByAggregateInput = {

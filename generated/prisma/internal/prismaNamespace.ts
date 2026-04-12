@@ -4759,6 +4759,7 @@ export const DemoCasesScalarFieldEnum = {
   id: 'id',
   title: 'title',
   description: 'description',
+  content: 'content',
   caseTypeId: 'caseTypeId',
   materials: 'materials',
   coverImage: 'coverImage',

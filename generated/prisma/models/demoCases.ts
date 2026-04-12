@@ -44,6 +44,7 @@ export type DemoCasesMinAggregateOutputType = {
   id: number | null
   title: string | null
   description: string | null
+  content: string | null
   caseTypeId: number | null
   coverImage: string | null
   priority: number | null
@@ -57,6 +58,7 @@ export type DemoCasesMaxAggregateOutputType = {
   id: number | null
   title: string | null
   description: string | null
+  content: string | null
   caseTypeId: number | null
   coverImage: string | null
   priority: number | null
@@ -70,6 +72,7 @@ export type DemoCasesCountAggregateOutputType = {
   id: number
   title: number
   description: number
+  content: number
   caseTypeId: number
   materials: number
   coverImage: number
@@ -100,6 +103,7 @@ export type DemoCasesMinAggregateInputType = {
   id?: true
   title?: true
   description?: true
+  content?: true
   caseTypeId?: true
   coverImage?: true
   priority?: true
@@ -113,6 +117,7 @@ export type DemoCasesMaxAggregateInputType = {
   id?: true
   title?: true
   description?: true
+  content?: true
   caseTypeId?: true
   coverImage?: true
   priority?: true
@@ -126,6 +131,7 @@ export type DemoCasesCountAggregateInputType = {
   id?: true
   title?: true
   description?: true
+  content?: true
   caseTypeId?: true
   materials?: true
   coverImage?: true
@@ -227,6 +233,7 @@ export type DemoCasesGroupByOutputType = {
   id: number
   title: string
   description: string | null
+  content: string | null
   caseTypeId: number
   materials: runtime.JsonValue
   coverImage: string | null
@@ -264,6 +271,7 @@ export type demoCasesWhereInput = {
   id?: Prisma.IntFilter<"demoCases"> | number
   title?: Prisma.StringFilter<"demoCases"> | string
   description?: Prisma.StringNullableFilter<"demoCases"> | string | null
+  content?: Prisma.StringNullableFilter<"demoCases"> | string | null
   caseTypeId?: Prisma.IntFilter<"demoCases"> | number
   materials?: Prisma.JsonFilter<"demoCases">
   coverImage?: Prisma.StringNullableFilter<"demoCases"> | string | null
@@ -279,6 +287,7 @@ export type demoCasesOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   title?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
+  content?: Prisma.SortOrderInput | Prisma.SortOrder
   caseTypeId?: Prisma.SortOrder
   materials?: Prisma.SortOrder
   coverImage?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -297,6 +306,7 @@ export type demoCasesWhereUniqueInput = Prisma.AtLeast<{
   NOT?: Prisma.demoCasesWhereInput | Prisma.demoCasesWhereInput[]
   title?: Prisma.StringFilter<"demoCases"> | string
   description?: Prisma.StringNullableFilter<"demoCases"> | string | null
+  content?: Prisma.StringNullableFilter<"demoCases"> | string | null
   caseTypeId?: Prisma.IntFilter<"demoCases"> | number
   materials?: Prisma.JsonFilter<"demoCases">
   coverImage?: Prisma.StringNullableFilter<"demoCases"> | string | null
@@ -312,6 +322,7 @@ export type demoCasesOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   title?: Prisma.SortOrder
   description?: Prisma.SortOrderInput | Prisma.SortOrder
+  content?: Prisma.SortOrderInput | Prisma.SortOrder
   caseTypeId?: Prisma.SortOrder
   materials?: Prisma.SortOrder
   coverImage?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -334,6 +345,7 @@ export type demoCasesScalarWhereWithAggregatesInput = {
   id?: Prisma.IntWithAggregatesFilter<"demoCases"> | number
   title?: Prisma.StringWithAggregatesFilter<"demoCases"> | string
   description?: Prisma.StringNullableWithAggregatesFilter<"demoCases"> | string | null
+  content?: Prisma.StringNullableWithAggregatesFilter<"demoCases"> | string | null
   caseTypeId?: Prisma.IntWithAggregatesFilter<"demoCases"> | number
   materials?: Prisma.JsonWithAggregatesFilter<"demoCases">
   coverImage?: Prisma.StringNullableWithAggregatesFilter<"demoCases"> | string | null
@@ -347,6 +359,7 @@ export type demoCasesScalarWhereWithAggregatesInput = {
 export type demoCasesCreateInput = {
   title: string
   description?: string | null
+  content?: string | null
   materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   coverImage?: string | null
   priority?: number
@@ -361,6 +374,7 @@ export type demoCasesUncheckedCreateInput = {
   id?: number
   title: string
   description?: string | null
+  content?: string | null
   caseTypeId: number
   materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   coverImage?: string | null
@@ -374,6 +388,7 @@ export type demoCasesUncheckedCreateInput = {
 export type demoCasesUpdateInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   coverImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   priority?: Prisma.IntFieldUpdateOperationsInput | number
@@ -388,6 +403,7 @@ export type demoCasesUncheckedUpdateInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   caseTypeId?: Prisma.IntFieldUpdateOperationsInput | number
   materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   coverImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -402,6 +418,7 @@ export type demoCasesCreateManyInput = {
   id?: number
   title: string
   description?: string | null
+  content?: string | null
   caseTypeId: number
   materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   coverImage?: string | null
@@ -415,6 +432,7 @@ export type demoCasesCreateManyInput = {
 export type demoCasesUpdateManyMutationInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   coverImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   priority?: Prisma.IntFieldUpdateOperationsInput | number
@@ -428,6 +446,7 @@ export type demoCasesUncheckedUpdateManyInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   caseTypeId?: Prisma.IntFieldUpdateOperationsInput | number
   materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   coverImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -452,6 +471,7 @@ export type demoCasesCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   title?: Prisma.SortOrder
   description?: Prisma.SortOrder
+  content?: Prisma.SortOrder
   caseTypeId?: Prisma.SortOrder
   materials?: Prisma.SortOrder
   coverImage?: Prisma.SortOrder
@@ -473,6 +493,7 @@ export type demoCasesMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   title?: Prisma.SortOrder
   description?: Prisma.SortOrder
+  content?: Prisma.SortOrder
   caseTypeId?: Prisma.SortOrder
   coverImage?: Prisma.SortOrder
   priority?: Prisma.SortOrder
@@ -486,6 +507,7 @@ export type demoCasesMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   title?: Prisma.SortOrder
   description?: Prisma.SortOrder
+  content?: Prisma.SortOrder
   caseTypeId?: Prisma.SortOrder
   coverImage?: Prisma.SortOrder
   priority?: Prisma.SortOrder
@@ -547,6 +569,7 @@ export type demoCasesUncheckedUpdateManyWithoutCaseTypeNestedInput = {
 export type demoCasesCreateWithoutCaseTypeInput = {
   title: string
   description?: string | null
+  content?: string | null
   materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   coverImage?: string | null
   priority?: number
@@ -560,6 +583,7 @@ export type demoCasesUncheckedCreateWithoutCaseTypeInput = {
   id?: number
   title: string
   description?: string | null
+  content?: string | null
   materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   coverImage?: string | null
   priority?: number
@@ -602,6 +626,7 @@ export type demoCasesScalarWhereInput = {
   id?: Prisma.IntFilter<"demoCases"> | number
   title?: Prisma.StringFilter<"demoCases"> | string
   description?: Prisma.StringNullableFilter<"demoCases"> | string | null
+  content?: Prisma.StringNullableFilter<"demoCases"> | string | null
   caseTypeId?: Prisma.IntFilter<"demoCases"> | number
   materials?: Prisma.JsonFilter<"demoCases">
   coverImage?: Prisma.StringNullableFilter<"demoCases"> | string | null
@@ -616,6 +641,7 @@ export type demoCasesCreateManyCaseTypeInput = {
   id?: number
   title: string
   description?: string | null
+  content?: string | null
   materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   coverImage?: string | null
   priority?: number
@@ -628,6 +654,7 @@ export type demoCasesCreateManyCaseTypeInput = {
 export type demoCasesUpdateWithoutCaseTypeInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   coverImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   priority?: Prisma.IntFieldUpdateOperationsInput | number
@@ -641,6 +668,7 @@ export type demoCasesUncheckedUpdateWithoutCaseTypeInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   coverImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   priority?: Prisma.IntFieldUpdateOperationsInput | number
@@ -654,6 +682,7 @@ export type demoCasesUncheckedUpdateManyWithoutCaseTypeInput = {
   id?: Prisma.IntFieldUpdateOperationsInput | number
   title?: Prisma.StringFieldUpdateOperationsInput | string
   description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   materials?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   coverImage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   priority?: Prisma.IntFieldUpdateOperationsInput | number
@@ -669,6 +698,7 @@ export type demoCasesSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   id?: boolean
   title?: boolean
   description?: boolean
+  content?: boolean
   caseTypeId?: boolean
   materials?: boolean
   coverImage?: boolean
@@ -684,6 +714,7 @@ export type demoCasesSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   id?: boolean
   title?: boolean
   description?: boolean
+  content?: boolean
   caseTypeId?: boolean
   materials?: boolean
   coverImage?: boolean
@@ -699,6 +730,7 @@ export type demoCasesSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   id?: boolean
   title?: boolean
   description?: boolean
+  content?: boolean
   caseTypeId?: boolean
   materials?: boolean
   coverImage?: boolean
@@ -714,6 +746,7 @@ export type demoCasesSelectScalar = {
   id?: boolean
   title?: boolean
   description?: boolean
+  content?: boolean
   caseTypeId?: boolean
   materials?: boolean
   coverImage?: boolean
@@ -724,7 +757,7 @@ export type demoCasesSelectScalar = {
   deletedAt?: boolean
 }
 
-export type demoCasesOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "description" | "caseTypeId" | "materials" | "coverImage" | "priority" | "status" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["demoCases"]>
+export type demoCasesOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "title" | "description" | "content" | "caseTypeId" | "materials" | "coverImage" | "priority" | "status" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["demoCases"]>
 export type demoCasesInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   caseType?: boolean | Prisma.caseTypesDefaultArgs<ExtArgs>
 }
@@ -756,6 +789,10 @@ export type $demoCasesPayload<ExtArgs extends runtime.Types.Extensions.InternalA
      * 案例简介
      */
     description: string | null
+    /**
+     * 示范案例的文本案情描述（点击后填入用户输入框）
+     */
+    content: string | null
     /**
      * 案件类型ID
      */
@@ -1215,6 +1252,7 @@ export interface demoCasesFieldRefs {
   readonly id: Prisma.FieldRef<"demoCases", 'Int'>
   readonly title: Prisma.FieldRef<"demoCases", 'String'>
   readonly description: Prisma.FieldRef<"demoCases", 'String'>
+  readonly content: Prisma.FieldRef<"demoCases", 'String'>
   readonly caseTypeId: Prisma.FieldRef<"demoCases", 'Int'>
   readonly materials: Prisma.FieldRef<"demoCases", 'Json'>
   readonly coverImage: Prisma.FieldRef<"demoCases", 'String'>
