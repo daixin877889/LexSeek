@@ -61,61 +61,14 @@
                     </div>
                 </div>
 
-                <!-- 预设材料 -->
+                <!-- 案件描述（点击示范案例时填入用户输入框） -->
                 <div class="space-y-2">
-                    <div class="flex items-center justify-between">
-                        <Label>预设材料</Label>
-                        <Button variant="outline" size="sm" @click="addMaterial">
-                            <Plus class="h-4 w-4 mr-1" />
-                            添加材料
-                        </Button>
-                    </div>
-                    <div v-if="form.materials.length === 0"
-                        class="text-sm text-muted-foreground py-4 text-center border rounded-md">
-                        暂无预设材料，点击上方按钮添加
-                    </div>
-                    <div v-else class="space-y-3">
-                        <div v-for="(material, index) in form.materials" :key="index"
-                            class="border rounded-md p-3 space-y-3">
-                            <div class="flex items-center justify-between">
-                                <span class="text-sm font-medium">材料 {{ index + 1 }}</span>
-                                <Button variant="ghost" size="icon" @click="removeMaterial(index)">
-                                    <X class="h-4 w-4" />
-                                </Button>
-                            </div>
-                            <div class="grid grid-cols-2 gap-3">
-                                <div class="space-y-1">
-                                    <Label class="text-xs">材料名称</Label>
-                                    <Input v-model="material.name" placeholder="材料名称" class="h-9" />
-                                </div>
-                                <div class="space-y-1">
-                                    <Label class="text-xs">材料类型</Label>
-                                    <Select v-model="material.type">
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="1">文本</SelectItem>
-                                            <SelectItem value="2">文档</SelectItem>
-                                            <SelectItem value="3">图片</SelectItem>
-                                            <SelectItem value="4">音频</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-                            <!-- 文本类型显示内容输入 -->
-                            <div v-if="material.type === '1'" class="space-y-1">
-                                <Label class="text-xs">材料内容</Label>
-                                <Textarea v-model="material.content" placeholder="请输入材料内容" rows="3" />
-                            </div>
-                            <!-- 文件类型显示 URL 输入 -->
-                            <div v-else class="space-y-1">
-                                <Label class="text-xs">文件 URL</Label>
-                                <Input v-model="material.fileUrl" placeholder="请输入文件 URL" />
-                            </div>
-                        </div>
-                    </div>
+                    <Label>案件描述</Label>
+                    <Textarea v-model="form.content" placeholder="点击示范案例时填入用户输入框的案情描述" rows="6" />
                 </div>
+
+                <!-- 预设文件材料 -->
+                <AdminDemoCasesMaterialUploader v-model="form.materials" />
             </div>
             <DialogFooter class="shrink-0">
                 <Button variant="outline" @click="open = false">取消</Button>
@@ -130,27 +83,21 @@
 
 
 <script setup lang="ts">
-import { Loader2, Plus, X } from 'lucide-vue-next'
+import { Loader2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import type { DemoCaseFileMaterial } from '#shared/types/case'
 
 /** 示范案例类型 */
 interface DemoCase {
     id: number
     title: string
     description?: string | null
+    content?: string | null
     caseTypeId: number
-    materials: DemoCaseMaterial[]
+    materials: any[]
     coverImage?: string | null
     priority: number
     status: number
-}
-
-/** 材料项类型 */
-interface DemoCaseMaterial {
-    name: string
-    type: string
-    content?: string
-    fileUrl?: string
 }
 
 /** 案件类型 */
@@ -183,32 +130,18 @@ function getDefaultForm() {
     return {
         title: '',
         description: '',
+        content: '',
         caseTypeId: '',
         coverImage: '',
         priority: 100,
         status: '1',
-        materials: [] as DemoCaseMaterial[],
+        materials: [] as DemoCaseFileMaterial[],
     }
 }
 
 // 重置表单
 const resetForm = () => {
     form.value = getDefaultForm()
-}
-
-// 添加材料
-const addMaterial = () => {
-    form.value.materials.push({
-        name: '',
-        type: '1',
-        content: '',
-        fileUrl: '',
-    })
-}
-
-// 移除材料
-const removeMaterial = (index: number) => {
-    form.value.materials.splice(index, 1)
 }
 
 // 打开创建对话框
@@ -223,18 +156,16 @@ const openCreate = () => {
 const openEdit = (item: DemoCase) => {
     isEdit.value = true
     selectedItem.value = item
-    // 处理材料数据，确保 type 是字符串
-    const materials = Array.isArray(item.materials)
-        ? item.materials.map(m => ({
-            name: m.name || '',
-            type: String(m.type || '1'),
-            content: m.content || '',
-            fileUrl: m.fileUrl || '',
-        }))
+    // 防御性过滤：只保留 type ∈ [2,3,4] 且 sourceOssFileId 为正整数的项
+    // 跳过旧 schema 残留的 type=1 文本项
+    const materials: DemoCaseFileMaterial[] = Array.isArray(item.materials)
+        ? (item.materials as any[]).filter(m =>
+            m && typeof m.sourceOssFileId === 'number' && m.sourceOssFileId > 0 && [2, 3, 4].includes(m.type))
         : []
     form.value = {
         title: item.title,
         description: item.description || '',
+        content: item.content || '',
         caseTypeId: String(item.caseTypeId),
         coverImage: item.coverImage || '',
         priority: item.priority,
@@ -256,42 +187,17 @@ const handleSubmit = async () => {
         return
     }
 
-    // 验证材料
-    for (let i = 0; i < form.value.materials.length; i++) {
-        const m = form.value.materials[i]
-        if (!m) continue
-        if (!m.name) {
-            toast.error(`材料 ${i + 1} 的名称不能为空`)
-            return
-        }
-        if (m.type === '1' && !m.content) {
-            toast.error(`材料 ${i + 1} 的内容不能为空`)
-            return
-        }
-        if (m.type !== '1' && !m.fileUrl) {
-            toast.error(`材料 ${i + 1} 的文件 URL 不能为空`)
-            return
-        }
-    }
-
     submitting.value = true
     try {
-        // 构建材料数据，type 转为数字
-        const materials = form.value.materials.map(m => ({
-            name: m.name,
-            type: parseInt(m.type),
-            content: m.type === '1' ? m.content : undefined,
-            fileUrl: m.type !== '1' ? m.fileUrl : undefined,
-        }))
-
         const body: Record<string, any> = {
             title: form.value.title,
             description: form.value.description || null,
+            content: form.value.content || null,
             caseTypeId: parseInt(form.value.caseTypeId),
             coverImage: form.value.coverImage || null,
             priority: form.value.priority,
             status: parseInt(form.value.status),
-            materials,
+            materials: form.value.materials,
         }
 
         let result
@@ -323,3 +229,4 @@ defineExpose({
     openEdit,
 })
 </script>
+
