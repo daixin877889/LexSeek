@@ -38,5 +38,8 @@ model ossFiles {
     @@index([status], map: "idx_oss_files_status")
     @@index([deletedAt], map: "idx_oss_files_deleted_at")
     @@index([encrypted], map: "idx_oss_files_encrypted")
+    // 示范案例克隆场景的去重联合键：同一用户下同一 OSS 对象（bucket+path）只能有一行
+    // 显式指定约束名，便于排查 P2002 错误时通过 err.meta.target 识别冲突来源
+    @@unique([userId, bucketName, filePath], map: "idx_oss_files_user_bucket_path")
     @@map("oss_files")
 }

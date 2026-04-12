@@ -213,6 +213,8 @@ model demoCases {
     title       String    @db.VarChar(200)
     /// 案例简介
     description String?   @db.VarChar(500)
+    /// 示范案例的文本案情描述（点击后填入用户输入框）
+    content     String?   @db.Text
     /// 案件类型ID
     caseTypeId  Int       @map("case_type_id")
     /// 预设材料列表（JSON 数组）
