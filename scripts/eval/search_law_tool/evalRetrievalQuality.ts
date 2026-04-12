@@ -8,6 +8,7 @@
  *   bun ./scripts/eval/search_law_tool/evalRetrievalQuality.ts --tags=exact               // 只跑特定标签
  *   bun ./scripts/eval/search_law_tool/evalRetrievalQuality.ts --ids=exact-001,hybrid-001 // 只跑特定用例
  *   bun ./scripts/eval/search_law_tool/evalRetrievalQuality.ts --verbose                  // 输出详细结果
+ *   bun ./scripts/eval/search_law_tool/evalRetrievalQuality.ts --no-cache                 // 跳过意图分类缓存
  */
 
 // -----------------------------------------------------------------------
@@ -51,6 +52,9 @@ g.useRuntimeConfig = () => ({
         apiKey: process.env.NUXT_RERANK_API_KEY,
         baseUrl: process.env.NUXT_RERANK_BASE_URL,
         model: process.env.NUXT_RERANK_MODEL,
+    },
+    redis: {
+        url: process.env.NUXT_REDIS_URL || process.env.REDIS_URL || '',
     },
     hnswEfSearch: process.env.NUXT_HNSW_EF_SEARCH,
     public: { logLevel: process.env.LOG_LEVEL || 'INFO' },
@@ -170,26 +174,55 @@ function evaluateHits(results: (RetrievalResult | SearchResultItem)[], expectedH
 
 async function searchWithoutRerank(
     evalCase: EvalCase,
+    options?: { noCache?: boolean },
 ): Promise<{ results: SearchResultItem[]; latencyMs: number }> {
     const start = Date.now()
-    const intent = await classifyIntentService(evalCase.query, evalCase.type as 'law' | 'case_material')
+    const intent = await classifyIntentService(evalCase.query, evalCase.type as 'law' | 'case_material', { skipCache: options?.noCache })
 
     let results: SearchResultItem[] = []
     const request = { query: evalCase.query, type: evalCase.type as 'law' | 'case_material', k: evalCase.k }
 
     switch (intent.intent) {
         case 'exact': {
-            const exactResults = await exactSearchService(intent)
-            results = exactResults.map(r => ({ score: r.score, content: r.content, metadata: r.metadata }))
-            if (results.length === 0) {
-                // 降级到 hybrid，但不 rerank
-                const fallbackIntent = {
-                    ...intent,
-                    intent: 'hybrid' as const,
-                    keywords: intent.keywords ?? [intent.legalName, intent.articleRef].filter(Boolean) as string[],
-                    rewrittenQuery: intent.rewrittenQuery ?? request.query,
+            const isCompound = !!(intent.rewrittenQuery || intent.keywords?.length)
+            if (isCompound) {
+                const [exactRaw, hybridResults] = await Promise.all([
+                    exactSearchService(intent),
+                    hybridSearchService(intent, request),
+                ])
+                // 类型转换：exactRaw 是 RetrievalResult[]，需转为 SearchResultItem[]
+                const exactItems: SearchResultItem[] = exactRaw.map(r => ({ score: r.score, content: r.content, metadata: r.metadata }))
+                // 用 Set 在 SearchResultItem 级别做去重
+                const seen = new Set<string>()
+                const merged: SearchResultItem[] = []
+                for (const r of exactItems) {
+                    const id = (r.metadata.articles_id as string) || r.content.slice(0, 50)
+                    seen.add(id)
+                    merged.push(r)
                 }
-                results = await hybridSearchService(fallbackIntent, request)
+                for (const r of hybridResults) {
+                    const id = (r.metadata.articles_id as string) || r.content.slice(0, 50)
+                    if (!seen.has(id)) {
+                        seen.add(id)
+                        merged.push(r)
+                    }
+                }
+                results = merged
+                // 注意：searchWithoutRerank 中不做 rerank
+            } else {
+                // 纯 exact：原有逻辑不变
+                const exactResults = await exactSearchService(intent)
+                results = exactResults.map(r => ({ score: r.score, content: r.content, metadata: r.metadata }))
+                if (results.length === 0) {
+                    // 降级到 hybrid，但不 rerank
+                    const fallbackIntent = {
+                        ...intent,
+                        intent: 'hybrid' as const,
+                        keywords: intent.keywords ?? [intent.legalName, intent.articleRef].filter(Boolean) as string[],
+                        rewrittenQuery: intent.rewrittenQuery ?? request.query,
+                    }
+                    results = await hybridSearchService(fallbackIntent, request)
+                }
             }
             break
         }
@@ -387,6 +420,7 @@ async function main() {
     const tagsArg = args.find(a => a.startsWith('--tags='))?.split('=')[1]
     const idsArg = args.find(a => a.startsWith('--ids='))?.split('=')[1]
     const verbose = args.includes('--verbose')
+    const noCache = args.includes('--no-cache')
 
     // 加载数据集
     const datasetPath = resolve(__dirname, 'evalDataset.json')
@@ -427,7 +461,7 @@ async function main() {
             let withoutRerank: CaseResult['withoutRerank'] = null
             if (evalCase.expectedMode !== 'exact') {
                 try {
-                    const noRerank = await searchWithoutRerank(evalCase)
+                    const noRerank = await searchWithoutRerank(evalCase, { noCache })
                     const noRerankHits = evaluateHits(noRerank.results, evalCase.expectedHits)
                     withoutRerank = {
                         hitResults: noRerankHits,

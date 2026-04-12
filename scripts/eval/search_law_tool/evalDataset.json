@@ -1098,6 +1098,71 @@
         { "match": { "content_contains": "违约金" }, "mustBeInTopN": 10 }
       ],
       "tags": ["edge", "complex-query"]
+    },
+
+    {
+      "id": "compound-exact-001",
+      "query": "民法典第一千条 人格权",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国民法典", "content_contains": "人格权" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["compound-exact", "civil"]
+    },
+    {
+      "id": "compound-exact-002",
+      "query": "刑法第二百六十四条 盗窃量刑",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国刑法", "content_contains": "盗窃" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["compound-exact", "criminal"]
+    },
+    {
+      "id": "compound-exact-003",
+      "query": "民法典第五百七十七条 违约责任承担",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 10,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国民法典", "content_contains": "违约责任" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["compound-exact", "contract"]
+    },
+    {
+      "id": "normalize-001",
+      "query": "中华人民共和国民法典第一百条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国民法典" }, "mustBeInTopN": 5 }
+      ],
+      "tags": ["normalize", "civil"]
+    },
+    {
+      "id": "normalize-002",
+      "query": "刑法第264条",
+      "type": "law",
+      "expectedMode": "exact",
+      "k": 5,
+      "expectedHits": [
+        { "match": { "legal_name": "中华人民共和国刑法", "content_contains": "盗窃" }, "mustBeInTopN": 3 }
+      ],
+      "tags": ["normalize", "criminal", "arabic-number"]
+    },
+    {
+      "id": "case-material-exact-001",
+      "query": "民法典第一百条",
+      "type": "case_material",
+      "expectedMode": "hybrid",
+      "k": 10,
+      "expectedHits": [],
+      "tags": ["case-material-exact"]
     }
   ]
 }
