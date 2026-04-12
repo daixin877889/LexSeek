@@ -26,7 +26,13 @@
         @files-selected="handleFilesFromSelector" />
 
       <!-- 示例卡片 -->
-      <CaseAnalysisExample title="✨ 或者点击下方案例快速体验" @select="handleExampleSelect" />
+      <CaseAnalysisExample
+        :examples="demoCases"
+        :loading="demoCasesLoading"
+        :selecting-id="preparingDemoCaseId"
+        title="✨ 或者点击下方案例快速体验"
+        @select="handleExampleSelect"
+      />
 
       <!-- 替换确认弹窗 -->
       <AlertDialog v-model:open="showReplaceConfirm">
@@ -83,7 +89,6 @@
 <script lang="ts" setup>
 import { ArrowRightIcon, ArrowLeftIcon, Loader2Icon } from 'lucide-vue-next'
 import type { AiPromptSubmitData } from '~/components/ai/AiPromptInput.vue'
-import type { ExampleItem } from '~/components/caseAnalysis/example.vue'
 import type { OssFileItem } from '~/store/file'
 import type { CreateCaseParams } from '~/composables/useCaseCreation'
 
@@ -92,23 +97,26 @@ definePageMeta({
   layout: 'dashboard-layout',
 })
 
+const promptInputRef = ref()
 const {
   step, isSubmitting, isExtracting, caseTypes,
   extractedFormData, rawExtractedInfo, uploadedFiles,
   loadCaseTypes, createCase, extractCaseInfo,
-} = useCaseCreation()
+  // demo case 扩展
+  demoCases, demoCasesLoading, preparingDemoCaseId,
+  showReplaceConfirm, pendingExample,
+  loadDemoCases, handleExampleSelect, confirmReplaceExample,
+} = useCaseCreation(promptInputRef)
 
-const promptInputRef = ref()
 const materialSelectorRef = ref()
 const manualFormRef = ref()
-const showReplaceConfirm = ref(false)
-const pendingExampleContent = ref('')
 
 // 已选文件 ID（传给 MaterialSelector 禁用已选项）
 const selectedFileIds = computed(() => promptInputRef.value?.selectedFileIds ?? [])
 
 onMounted(() => {
   loadCaseTypes()
+  loadDemoCases()
 })
 
 // 打开文件选择弹框
@@ -124,28 +132,6 @@ function handleFilesFromSelector(files: OssFileItem[]) {
 // AI 提交处理
 async function handleAiSubmit(data: AiPromptSubmitData) {
   await extractCaseInfo(data.text, data.files)
-}
-
-// 示例选择处理
-function handleExampleSelect(example: ExampleItem) {
-  if (!example.content) return
-
-  const input = promptInputRef.value
-  if (input?.hasContent()) {
-    pendingExampleContent.value = example.content
-    showReplaceConfirm.value = true
-    return
-  }
-
-  input?.setText(example.content)
-}
-
-function confirmReplaceExample() {
-  promptInputRef.value?.reset()
-  nextTick(() => {
-    promptInputRef.value?.setText(pendingExampleContent.value)
-    pendingExampleContent.value = ''
-  })
 }
 
 // 手动创建
