@@ -6,7 +6,7 @@
                     <h1 class="text-2xl md:text-3xl font-bold mb-1">提示词管理</h1>
                     <p class="text-muted-foreground text-sm">管理节点的提示词配置和版本</p>
                 </div>
-                <Button @click="formDialogRef?.openCreate()">
+                <Button @click="formDialogRef?.openCreate(nodeFilter !== 'all' ? nodeFilter : undefined)">
                     <Plus class="h-4 w-4 mr-2" />
                     新增提示词
                 </Button>

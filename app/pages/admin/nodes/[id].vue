@@ -116,7 +116,7 @@
                 <CardHeader>
                     <div class="flex items-center justify-between">
                         <CardTitle>关联提示词</CardTitle>
-                        <Button variant="outline" size="sm" @click="navigateTo('/admin/prompts')">
+                        <Button variant="outline" size="sm" @click="navigateTo(`/admin/prompts?nodeId=${node.id}`)">
                             <Settings class="h-4 w-4 mr-2" />
                             管理提示词
                         </Button>

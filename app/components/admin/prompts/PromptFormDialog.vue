@@ -216,10 +216,13 @@ const confirmInsertVariable = () => {
 }
 
 // 打开创建对话框
-const openCreate = () => {
+const openCreate = (defaultNodeId?: string) => {
     isEdit.value = false
     selectedPrompt.value = null
     resetForm()
+    if (defaultNodeId) {
+        form.value.nodeId = defaultNodeId
+    }
     loadNodes()
     open.value = true
 }
