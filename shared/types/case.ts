@@ -5,6 +5,8 @@
  * 供客户端和服务端共用
  */
 
+import type { OssFileDto } from './file'
+
 // ==================== 案件类型选项 ====================
 
 /** 案件类型选项（用于下拉选择） */
@@ -456,4 +458,28 @@ export interface CreateSessionInput {
     type?: number
     /** 会话元数据 */
     metadata?: Record<string, unknown>
+}
+
+/** 示范案例文件材料（与 server DemoCaseMaterial 结构同步） */
+export interface DemoCaseFileMaterial {
+  name: string
+  type: 2 | 3 | 4
+  sourceOssFileId: number
+}
+
+/** 示范案例列表项（GET /api/v1/demo-cases 返回） */
+export interface DemoCaseListItem {
+  id: number
+  title: string
+  description: string | null
+  caseTypeId: number
+  caseTypeName: string
+  coverImage: string | null
+  priority: number
+}
+
+/** 示范案例 prepare 响应 */
+export interface DemoCasePrepareResponse {
+  content: string | null
+  files: OssFileDto[]
 }

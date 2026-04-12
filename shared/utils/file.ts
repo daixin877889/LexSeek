@@ -90,6 +90,7 @@ export const getFileSourceAccept = (source?: FileSource): FileSourceAccept[] => 
     { name: FileSourceName[FileSource.FILE], accept: mapAccept({ ...ASR_ACCEPT, ...DOC_ACCEPT, ...IMAGE_ACCEPT }) },
     { name: FileSourceName[FileSource.VIDEO], accept: [] },
     { name: FileSourceName[FileSource.CASE_ANALYSIS], accept: mapAccept({ ...ASR_ACCEPT, ...DOC_ACCEPT, ...IMAGE_ACCEPT }) },
+    { name: FileSourceName[FileSource.DEMO_CASE], accept: mapAccept({ ...ASR_ACCEPT, ...DOC_ACCEPT, ...IMAGE_ACCEPT }) },
   ]
 
   if (source) {

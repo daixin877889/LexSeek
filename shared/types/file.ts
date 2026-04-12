@@ -14,6 +14,8 @@ export enum FileSource {
     VIDEO = "video",
     /** 案件分析 */
     CASE_ANALYSIS = "caseAnalysis",
+    /** 示范案例 */
+    DEMO_CASE = "demo_case",
 }
 
 /**
@@ -26,6 +28,7 @@ export const FileSourceName = {
     [FileSource.IMAGE]: "图片识别",
     [FileSource.VIDEO]: "视频",
     [FileSource.CASE_ANALYSIS]: "案件分析",
+    [FileSource.DEMO_CASE]: "示范案例",
 }
 
 // 文件来源允许的文件类型及最大大小
@@ -96,4 +99,18 @@ export enum FileSortField {
 export enum SortOrder {
     ASC = "asc",
     DESC = "desc"
+}
+
+/** OssFile API 传输对象（client/server 共享） */
+export interface OssFileDto {
+  id: number
+  fileName: string
+  fileSize: number
+  fileType: string
+  source: string
+  sourceName: string
+  status: number
+  statusName: string
+  encrypted: boolean
+  createdAt: string
 }
