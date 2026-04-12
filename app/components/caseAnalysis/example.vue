@@ -37,11 +37,12 @@ import type { DemoCaseListItem } from '#shared/types/case'
 export type ExampleItem = DemoCaseListItem
 
 withDefaults(defineProps<{
-  examples: DemoCaseListItem[]
+  examples?: DemoCaseListItem[]
   title?: string
   loading?: boolean
   selectingId?: number | null
 }>(), {
+  examples: () => [],
   title: '✨ 或者点击下方案例快速体验',
   loading: false,
   selectingId: null,
