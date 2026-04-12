@@ -40,7 +40,7 @@
   ↓
 ① normalizeQuery()                    ← 新增：归一化（< 1ms）
   ↓
-② tryExactRegex(normalized)           ← 新增：正则前置
+② tryExactRegex(normalized)           ← 新增：正则前置（仅 type=law）
   ├─ 命中纯 exact → 直接返回 intent，跳过 LLM + Redis
   └─ 未命中 ↓
 ③ checkRedisCache(type, normalized)   ← 新增：Redis 缓存
@@ -79,11 +79,20 @@
 ```typescript
 /** 归一化查询文本（用于缓存 key 和正则匹配） */
 export function normalizeQuery(query: string): string
+
+/** 正则前置：纯 exact 模式快速识别（仅 type=law 时调用） */
+export function tryExactRegex(normalizedQuery: string): IntentClassification | null
 ```
 
-`chineseNumberToArabic` 和 `arabicToChineseNumber` 为模块内部函数，不导出。正则前置函数 `tryExactRegex` 也放在此文件内（它依赖归一化结果和反向转换），由 `intentClassifier.service.ts` 导入调用。
+`chineseNumberToArabic` 和 `arabicToChineseNumber` 为模块内部函数，不导出。`tryExactRegex` 依赖这两个内部函数，因此也放在此文件内，由 `intentClassifier.service.ts` 导入调用。
 
-**`arabicToChineseNumber` 格式对齐要求**：转换结果必须与数据库 `legalArticles.l5`/`l3` 字段的实际存储格式一致。实施前须从数据库抽样确认关键数字的格式。必须覆盖的映射：
+**`arabicToChineseNumber` 格式对齐要求**：转换结果必须与数据库 `legalArticles.l5`/`l3` 字段的实际存储格式一致。实施前须从数据库抽样确认：
+
+```sql
+SELECT DISTINCT l5 FROM "legalArticles" WHERE l5 LIKE '%第%条%' LIMIT 20;
+```
+
+必须覆盖的映射：
 
 | 数字 | 预期中文 | 说明 |
 |------|---------|------|
@@ -100,7 +109,8 @@ export function normalizeQuery(query: string): string
 
 ### 模块二：正则前置
 
-**位置**：`server/services/retrieval/intentClassifier.service.ts` 内新增函数
+**定义位置**：`server/services/retrieval/queryNormalizer.ts`（`tryExactRegex` 导出函数）
+**调用位置**：`server/services/retrieval/intentClassifier.service.ts` 内调用
 
 **前置条件**：仅当 `type === 'law'` 时执行正则前置。`case_material` 类型不支持 exact 通道（现有代码第 139-141 行有降级逻辑），正则前置必须跳过，否则会绕过该降级检查。
 
@@ -231,6 +241,7 @@ case 'exact': {
       hybridSearchService(intent, request),
     ])
     results = mergeAndDedup(exactResults, hybridResults)
+    // 注意：searchWithoutRerank 中不做 rerank，仅 mergeAndDedup 后直接返回
   } else {
     // 纯 exact（原有逻辑不变）
     ...
@@ -300,7 +311,7 @@ g.useRuntimeConfig = () => ({
 | `server/services/retrieval/intentClassifier.service.ts` | 修改 | 加 Redis 缓存，签名新增 `options?: { skipCache }` |
 | `server/services/retrieval/retrievalRouter.service.ts` | 修改 | 复合 exact 并行搜索 + `mergeAndDedup` 导出函数 |
 | `scripts/eval/search_law_tool/evalRetrievalQuality.ts` | 修改 | 同步复合 exact 逻辑 + `--no-cache` 参数 |
-| `scripts/eval/search_law_tool/evalDataset.json` | 修改 | 补充 compound-exact 用例 |
+| `scripts/eval/search_law_tool/evalDataset.json` | 修改 | 补充 compound-exact、normalize、case-material-exact 用例 |
 | `tests/server/retrieval/queryNormalizer.test.ts` | **新增** | 归一化和数字转换测试 |
 | `tests/server/retrieval/intentClassifier.test.ts` | 修改 | 缓存和正则前置测试 |
 | `tests/server/retrieval/retrievalRouter.test.ts` | 修改 | 复合 exact 测试 |
@@ -344,7 +355,7 @@ g.useRuntimeConfig = () => ({
 | Rerank 阈值 | 0.3 | 0.2（更宽松） |
 | 后处理过滤 | 日期/有效性 | 无 |
 
-**注意事项**：模块四（复合 exact）中的 `mergeAndDedup` 函数使用 `metadata.articles_id` 去重，仅适用于 law。case_material 不会进入复合 exact 分支，无需处理 `sourceId_chunkIndex` 去重。但实现 `mergeAndDedup` 时应确保不会被 case_material 意外触发。
+**注意事项**：模块四（复合 exact）中的 `mergeAndDedup` 函数使用 `metadata.articles_id` 去重，仅适用于 law。case_material 不会进入复合 exact 分支（因为 case_material 的 exact 在读取缓存或 LLM 返回后被降级为 hybrid，router 中 `intent.intent` 不会是 `'exact'`），所以 `mergeAndDedup` 不需要额外的 type 防护判断。
 
 ## 决策记录
 
@@ -360,7 +371,7 @@ g.useRuntimeConfig = () => ({
 | 正则 articleRef 款号 | 含款 / 不含款 | 不含款（只到"条"） | DB l5 只存到"条"级别，含款号导致 contains 匹配失败 |
 | 缓存存储时机 | 降级前存 / 降级后存 | 降级前存（LLM 原始结果） | 降级策略变更时不需要清缓存，读取端负责降级 |
 | 缓存跳过机制 | 全局状态 / 参数传递 | 参数传递（`skipCache`） | 避免全局状态污染生产代码，参数方式更安全 |
-| 导出函数数量 | 3 个 / 1 个 | 仅导出 `normalizeQuery` | 减少 API 表面积，内部函数由正则前置在同文件内使用 |
+| 导出函数数量 | 3 个 / 2 个 / 1 个 | 导出 `normalizeQuery` + `tryExactRegex` | 内部函数（数字转换）不导出，但正则前置需由 intentClassifier 调用所以须导出 |
 
 ## 不做的事
 
