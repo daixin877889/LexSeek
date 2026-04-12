@@ -39,14 +39,6 @@ BEGIN
 END$$`,
     },
     {
-        label: '为 law_embeddings 添加 tsv 列',
-        sql: 'ALTER TABLE law_embeddings ADD COLUMN IF NOT EXISTS tsv tsvector',
-    },
-    {
-        label: '为 case_material_embeddings 添加 tsv 列',
-        sql: 'ALTER TABLE case_material_embeddings ADD COLUMN IF NOT EXISTS tsv tsvector',
-    },
-    {
         label: '创建 update_tsv_column trigger 函数',
         sql: `CREATE OR REPLACE FUNCTION update_tsv_column()
 RETURNS TRIGGER AS $$

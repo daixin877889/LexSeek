@@ -254,6 +254,8 @@ model caseMaterialEmbeddings {
     metadata  Json?
     /// 材料内容向量嵌入
     embedding Unsupported("vector")?
+    /// 中文全文搜索向量（由 trigger 自动维护）
+    tsv       Unsupported("tsvector")?
 
     @@map("case_material_embeddings")
 }

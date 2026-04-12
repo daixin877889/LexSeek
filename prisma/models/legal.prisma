@@ -109,6 +109,8 @@ model lawEmbeddings {
     metadata  Json?
     /// 法律内容向量嵌入
     embedding Unsupported("vector")?
+    /// 中文全文搜索向量（由 trigger 自动维护）
+    tsv       Unsupported("tsvector")?
 
     @@map("law_embeddings")
 }
