@@ -89,7 +89,7 @@ watch(isOpen, (open) => {
   <div class="absolute bottom-20 md:bottom-4 right-4 z-40">
     <IconXiaosuoIcon
       v-show="!isFullscreen"
-      class="size-12 cursor-pointer hover:scale-110 transition-transform drop-shadow-lg"
+      class="size-12 cursor-pointer transition-transform drop-shadow-lg animate-float"
       @click="isOpen = !isOpen"
     />
   </div>

@@ -9,7 +9,7 @@ const gradientId = useId()
 </script>
 
 <template>
-  <svg viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+  <svg class="xiaosuo-icon" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient :id="gradientId" x1="0%" y1="0%" x2="0%" y2="100%">
         <stop offset="0%" stop-color="#b8daff" />
@@ -33,3 +33,22 @@ const gradientId = useId()
     </g>
   </svg>
 </template>
+
+<style scoped>
+.xiaosuo-icon {
+  transition: scale 0.3s ease;
+}
+
+.xiaosuo-icon:hover {
+  scale: 1.1;
+  animation: xiaosuo-wiggle 0.8s ease-in-out;
+}
+
+@keyframes xiaosuo-wiggle {
+  0%, 100% { rotate: 0deg; }
+  20% { rotate: -6deg; }
+  40% { rotate: 6deg; }
+  60% { rotate: -4deg; }
+  80% { rotate: 2deg; }
+}
+</style>

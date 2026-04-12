@@ -3,7 +3,7 @@
     <!-- 欢迎消息 - 大字体突出显示 -->
     <div class="w-full inline-flex items-center gap-4 px-5 py-4 bg-gradient-custom dark:bg-gradient-custom-dark rounded-md">
       <!-- AI 头像 -->
-      <IconXiaosuoIcon class="size-14 shrink-0" />
+      <IconXiaosuoIcon class="size-14 shrink-0 animate-float" />
       <!-- 欢迎文字 -->
       <div class="flex flex-col gap-1">
         <span class="text-xl font-bold">{{ title }}</span>
