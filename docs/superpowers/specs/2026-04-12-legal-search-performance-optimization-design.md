@@ -266,12 +266,44 @@ export function enableIntentCache(): void
 
 ## 预期效果
 
+### 法律搜索（type=law）
+
 | 场景 | 优化前 | 优化后 | 加速比 |
 |------|--------|--------|--------|
 | 纯 exact（"民法典第100条"） | 2-3s | 200-300ms | ~10x |
 | 重复查询（缓存命中） | 2-3s | 500-1000ms | ~3x |
 | 首次语义查询 | 2-3s | 2-3s | 无变化 |
 | 复合 exact（"民法典第1001条 合同约定"） | 2-3s（语义丢失） | 2-3s（语义保留） | 质量提升 |
+
+### 案件材料搜索（type=case_material）
+
+| 场景 | 优化前 | 优化后 | 加速比 |
+|------|--------|--------|--------|
+| 重复查询（缓存命中） | 2-3s | 500-1000ms | ~3x |
+| 首次查询 | 2-3s | 2-3s | 无变化 |
+
+案件材料搜索与法律搜索共用约 80% 的检索基础设施（`retrievalRouterService` → `classifyIntentService` → `hybridSearch`/`semanticSearch` → `rerank`）。各优化模块对 case_material 的影响：
+
+| 优化模块 | 对 case_material 影响 | 说明 |
+|---------|----------------------|------|
+| Query 归一化 | 有益 | 提升缓存命中率，对搜索逻辑透明 |
+| 正则前置 | 无影响 | 仅 type=law 执行 |
+| Redis 缓存 | 有益 | `intent:case_material:{hash}` 独立缓存，重复查询加速 |
+| 复合 exact | 无影响 | case_material 的 exact 被降级为 hybrid，不进入复合逻辑 |
+
+**缓存命中率预期**：case_material 的缓存命中率可能低于 law——材料搜索通常由 Agent 在工作流中自动发起，query 由 LLM 生成，每次措辞可能不同。但缓存 miss 只是回退到原有流程，无负面影响。
+
+**关键差异点**：
+
+| 维度 | law | case_material |
+|------|-----|---------------|
+| 向量表 | `law_embeddings` | `case_material_embeddings` |
+| exact 通道 | 支持 | 不支持（降级为 hybrid） |
+| 去重 ID | `articles_id` | `sourceId_chunkIndex` |
+| Rerank 阈值 | 0.3 | 0.2（更宽松） |
+| 后处理过滤 | 日期/有效性 | 无 |
+
+**注意事项**：模块四（复合 exact）中的 `mergeAndDedup` 函数使用 `metadata.articles_id` 去重，仅适用于 law。case_material 不会进入复合 exact 分支，无需处理 `sourceId_chunkIndex` 去重。但实现 `mergeAndDedup` 时应确保不会被 case_material 意外触发。
 
 ## 决策记录
 
