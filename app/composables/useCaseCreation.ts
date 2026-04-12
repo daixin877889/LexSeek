@@ -1,4 +1,5 @@
-import type { CaseMaterialParam, CaseTypeOption, ExtractedCaseInfo, ExtraField } from '#shared/types/case'
+import type { CaseMaterialParam, CaseTypeOption, ExtractedCaseInfo, ExtraField, DemoCaseListItem, DemoCasePrepareResponse } from '#shared/types/case'
+import type { OssFileDto } from '#shared/types/file'
 import type { OssFileItem } from '~/store/file'
 import { toast } from 'vue-sonner'
 
@@ -21,6 +22,14 @@ export interface ExtractedFormData {
   content?: string
 }
 
+/** 前端控制器接口：由 AiPromptInput 的 defineExpose 实现 */
+interface PromptInputController {
+  setText: (v: string) => void
+  addFiles: (files: OssFileDto[]) => void
+  reset: () => void
+  hasContent: () => boolean
+}
+
 function mapExtractedInfoToFormData(info: ExtractedCaseInfo, types: CaseTypeOption[]): ExtractedFormData {
   return {
     title: info.title,
@@ -31,7 +40,7 @@ function mapExtractedInfoToFormData(info: ExtractedCaseInfo, types: CaseTypeOpti
   }
 }
 
-export function useCaseCreation() {
+export function useCaseCreation(promptInputRef?: Ref<PromptInputController | null>) {
   const step = ref<'ai' | 'confirm'>('ai')
   const isSubmitting = ref(false)
   const isExtracting = ref(false)
@@ -101,6 +110,76 @@ export function useCaseCreation() {
     }
   }
 
+  // ---- demo case 扩展 ----
+
+  const demoCases = ref<DemoCaseListItem[]>([])
+  const demoCasesLoading = ref(true)
+  const preparingDemoCaseId = ref<number | null>(null)
+  const showReplaceConfirm = ref(false)
+  const pendingExample = ref<DemoCaseListItem | null>(null)
+
+  async function loadDemoCases() {
+    demoCasesLoading.value = true
+    try {
+      const data = await useApiFetch<{ items: DemoCaseListItem[] }>('/api/v1/demo-cases')
+      demoCases.value = data?.items ?? []
+    } finally {
+      demoCasesLoading.value = false
+    }
+  }
+
+  async function fetchAndFillDemoCase(example: DemoCaseListItem): Promise<boolean> {
+    const data = await useApiFetch<DemoCasePrepareResponse>(
+      `/api/v1/demo-cases/prepare/${example.id}`,
+      { method: 'POST' },
+    )
+    if (!data) return false
+    if (data.content) promptInputRef?.value?.setText(data.content)
+    if (data.files?.length) promptInputRef?.value?.addFiles(data.files)
+    return true
+  }
+
+  async function applyDemoCase(example: DemoCaseListItem) {
+    if (preparingDemoCaseId.value !== null) return
+    preparingDemoCaseId.value = example.id
+    try {
+      await fetchAndFillDemoCase(example)
+    } finally {
+      preparingDemoCaseId.value = null
+    }
+  }
+
+  async function handleExampleSelect(example: DemoCaseListItem) {
+    if (promptInputRef?.value?.hasContent()) {
+      pendingExample.value = example
+      showReplaceConfirm.value = true
+      return
+    }
+    await applyDemoCase(example)
+  }
+
+  async function confirmReplaceExample() {
+    const example = pendingExample.value
+    if (!example) return
+    preparingDemoCaseId.value = example.id
+    try {
+      // 先请求 prepare，成功后再清空输入框，避免失败时内容丢失
+      const data = await useApiFetch<DemoCasePrepareResponse>(
+        `/api/v1/demo-cases/prepare/${example.id}`,
+        { method: 'POST' },
+      )
+      if (!data) return
+      promptInputRef?.value?.reset()
+      await nextTick()
+      if (data.content) promptInputRef?.value?.setText(data.content)
+      if (data.files?.length) promptInputRef?.value?.addFiles(data.files)
+    } finally {
+      preparingDemoCaseId.value = null
+      pendingExample.value = null
+      showReplaceConfirm.value = false
+    }
+  }
+
   return {
     step,
     isSubmitting,
@@ -112,5 +191,15 @@ export function useCaseCreation() {
     loadCaseTypes,
     createCase,
     extractCaseInfo,
+    // demo case 扩展
+    demoCases,
+    demoCasesLoading,
+    preparingDemoCaseId,
+    showReplaceConfirm,
+    pendingExample,
+    loadDemoCases,
+    handleExampleSelect,
+    confirmReplaceExample,
+    applyDemoCase,
   }
 }
