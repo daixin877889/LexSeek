@@ -6,6 +6,8 @@
  */
 
 import { z } from 'zod'
+import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
+import { ensureSourceFileRecognitionService } from '~~/server/services/case/demoCase.service'
 
 /** 路由参数验证 */
 const paramsSchema = z.object({
@@ -29,6 +31,7 @@ const bodySchema = z.object({
         .max(500, '简介不能超过500个字符')
         .optional()
         .nullable(),
+    content: z.string().nullable().optional(),
     caseTypeId: z.number()
         .int('案件类型ID必须是整数')
         .positive('案件类型ID必须是正整数')
@@ -62,8 +65,35 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, '参数错误：' + bodyResult.error.issues[0]!.message)
     }
 
+    const data = bodyResult.data
+
+    // 若同时传了 content 和 materials，校验不能都为空
+    const hasContent = data.content !== undefined ? !!(data.content?.trim()) : undefined
+    const hasMaterials = data.materials !== undefined ? data.materials.length > 0 : undefined
+    if (hasContent === false && hasMaterials === false) {
+        return resError(event, 400, '请至少填写案件描述或上传一个文件材料')
+    }
+
+    // 校验每个 sourceOssFileId 存在性
+    if (data.materials) {
+        for (const m of data.materials) {
+            const source = await findOssFileByIdDao(m.sourceOssFileId)
+            if (!source || source.deletedAt) {
+                return resError(event, 400, `材料 "${m.name}" 的源文件不存在或已删除`)
+            }
+        }
+
+        // 引导源文件识别（顺序调用，避免并发资源争用）
+        for (const m of data.materials) {
+            await ensureSourceFileRecognitionService(m.sourceOssFileId)
+        }
+    }
+
     try {
-        const demoCase = await updateDemoCaseService(paramsResult.data.id, bodyResult.data)
+        const demoCase = await updateDemoCaseService(paramsResult.data.id, {
+            ...data,
+            content: data.content !== undefined ? data.content : undefined,
+        })
         return resSuccess(event, '更新示范案例成功', demoCase)
     } catch (error: any) {
         // 处理业务逻辑错误
@@ -77,3 +107,4 @@ export default defineEventHandler(async (event) => {
         return resError(event, 500, '更新示范案例失败')
     }
 })
+
