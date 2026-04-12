@@ -196,7 +196,6 @@ export function useCaseCreation(promptInputRef?: Ref<PromptInputController | nul
     demoCasesLoading,
     preparingDemoCaseId,
     showReplaceConfirm,
-    pendingExample,
     loadDemoCases,
     handleExampleSelect,
     confirmReplaceExample,

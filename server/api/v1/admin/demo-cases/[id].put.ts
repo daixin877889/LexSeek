@@ -90,10 +90,7 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-        const demoCase = await updateDemoCaseService(paramsResult.data.id, {
-            ...data,
-            content: data.content !== undefined ? data.content : undefined,
-        })
+        const demoCase = await updateDemoCaseService(paramsResult.data.id, data)
         return resSuccess(event, '更新示范案例成功', demoCase)
     } catch (error: any) {
         // 处理业务逻辑错误

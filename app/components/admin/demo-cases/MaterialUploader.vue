@@ -73,9 +73,10 @@ async function onFilePick(event: Event) {
     uploadingFiles.value.push(state)
 
     try {
+      const mimeType = detectMimeType(file)
       const signatures = await fileStore.getBatchPresignedUrls({
         source: FileSource.DEMO_CASE,
-        files: [{ originalFileName: file.name, fileSize: file.size, mimeType: detectMimeType(file) }],
+        files: [{ originalFileName: file.name, fileSize: file.size, mimeType }],
         encrypted: false,
       })
       const signature = signatures?.[0]
@@ -87,7 +88,7 @@ async function onFilePick(event: Event) {
       // 追加到 modelValue
       const mat: DemoCaseFileMaterial = {
         name: file.name,
-        type: inferTypeFromMime(detectMimeType(file)),
+        type: inferTypeFromMime(mimeType),
         sourceOssFileId: ossFileId,
       }
       modelValue.value = [...modelValue.value, mat]
@@ -141,7 +142,7 @@ function getBadgeLabel(s: 'recognizing' | 'success' | 'error' | null | undefined
 
 /** 回显识别状态：对 modelValue 中每个 sourceOssFileId 查询当前状态 */
 async function refreshRecognitionStatus() {
-  for (const mat of modelValue.value) {
+  await Promise.all(modelValue.value.map(async (mat) => {
     try {
       const r = await useApiFetch<{ recognized: boolean; status: number }>(
         `/api/v1/recognition/status/${mat.sourceOssFileId}`,
@@ -154,7 +155,7 @@ async function refreshRecognitionStatus() {
         )
       }
     } catch { /* 忽略 */ }
-  }
+  }))
 }
 
 watch(modelValue, refreshRecognitionStatus, { immediate: true })

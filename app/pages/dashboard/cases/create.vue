@@ -104,7 +104,7 @@ const {
   loadCaseTypes, createCase, extractCaseInfo,
   // demo case 扩展
   demoCases, demoCasesLoading, preparingDemoCaseId,
-  showReplaceConfirm, pendingExample,
+  showReplaceConfirm,
   loadDemoCases, handleExampleSelect, confirmReplaceExample,
 } = useCaseCreation(promptInputRef)
 
