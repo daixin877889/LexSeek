@@ -64,28 +64,39 @@
 归一化规则（按顺序执行）：
 
 1. **去空白**：trim + 将所有空白字符（`\s`，含换行/制表符）替换为空格 + 合并连续空格为单个空格
-2. **去冗余前缀**：去掉"中华人民共和国"（数据库存简称如"民法典"）
-3. **中文数字转阿拉伯**：**仅**作用于"第X条"和"第X款"模式内的中文数字，不影响其他位置的中文数字（如"第三编"、"第二章"保持不变）。示例：`第一千零七十九条` → `第1079条`，`第二百六十四条第二款` → `第264条第2款`，`第三编 合同` → 不变
-4. **全角转半角**：`１２３` → `123`
+2. **去 Unicode 控制字符**：剔除零宽字符（U+200B-U+200F）、方向控制字符（U+2028-U+202F）、BOM（U+FEFF）等不可见字符，防止影响缓存 key 一致性和正则匹配
+3. **去冗余前缀**：去掉"中华人民共和国"（数据库存简称如"民法典"）
+4. **中文数字转阿拉伯**：**仅**作用于"第X条"和"第X款"模式内的中文数字，不影响其他位置的中文数字（如"第三编"、"第二章"保持不变）。支持字符映射：`零=〇=0, 一=1, 二=两=2, 三=3, 四=4, 五=5, 六=6, 七=7, 八=8, 九=9, 十, 百, 千, 万`。示例：`第一千零七十九条` → `第1079条`，`第二百六十四条第二款` → `第264条第2款`，`第三编 合同` → 不变
+5. **全角转半角**：`１２３` → `123`
 
 关键约束：
 - 归一化只影响缓存 key 和正则匹配，**不改变传给 LLM 的原始 query**
 - 归一化是纯函数，无副作用
+- 该文件导出纯函数，不是业务服务层，因此不使用 `.service.ts` 后缀（与 `types.ts` 一致）
 
 导出函数：
 
 ```typescript
 /** 归一化查询文本（用于缓存 key 和正则匹配） */
 export function normalizeQuery(query: string): string
-
-/** 中文数字转阿拉伯数字 */
-export function chineseNumberToArabic(text: string): number
-
-/** 阿拉伯数字转中文数字 */
-export function arabicToChineseNumber(num: number): string
 ```
 
-`arabicToChineseNumber` 用于正则前置模块：匹配到阿拉伯数字后转回中文，因为 `exactSearch` 的数据库查询用 `l5/l3 contains`，数据库存的是中文（"第一千零七十九条"）。
+`chineseNumberToArabic` 和 `arabicToChineseNumber` 为模块内部函数，不导出。正则前置函数 `tryExactRegex` 也放在此文件内（它依赖归一化结果和反向转换），由 `intentClassifier.service.ts` 导入调用。
+
+**`arabicToChineseNumber` 格式对齐要求**：转换结果必须与数据库 `legalArticles.l5`/`l3` 字段的实际存储格式一致。实施前须从数据库抽样确认关键数字的格式。必须覆盖的映射：
+
+| 数字 | 预期中文 | 说明 |
+|------|---------|------|
+| 10 | 十（非一十） | 标准法律写法 |
+| 11 | 十一 | |
+| 20 | 二十 | |
+| 100 | 一百 | |
+| 101 | 一百零一 | |
+| 110 | 一百一十 | |
+| 1000 | 一千 | |
+| 1001 | 一千零一 | |
+| 1010 | 一千零一十 | |
+| 1079 | 一千零七十九 | |
 
 ### 模块二：正则前置
 
@@ -102,7 +113,7 @@ export function arabicToChineseNumber(num: number): string
 | 归一化后 query | type | 匹配？ | 结果 |
 |---|---|---|---|
 | `民法典第1079条` | law | 是 | `{ intent: 'exact', legalName: '民法典', articleRef: '第一千零七十九条' }` |
-| `刑法第264条第2款` | law | 是 | `{ intent: 'exact', legalName: '刑法', articleRef: '第二百六十四条第二款' }` |
+| `刑法第264条第2款` | law | 是 | `{ intent: 'exact', legalName: '刑法', articleRef: '第二百六十四条' }`（款号丢弃） |
 | `民法典第100条` | case_material | 跳过 | 走 LLM（case_material 不走正则） |
 | `民法典 第100条` | law | 是 | legalName trim 后 = `'民法典'` |
 | `民法典第1001条 合同约定` | law | 否 | 走 LLM |
@@ -110,6 +121,8 @@ export function arabicToChineseNumber(num: number): string
 
 **后处理**：
 - 匹配后 `legalName` 必须 **trim**（去首尾空格），防止"民法典 第100条"等输入导致 legalName 带尾部空格，使 exactSearch 的 `contains` 匹配失败
+- 匹配后 `legalName` 长度必须 >= 2，否则视为不匹配（单字法律名不存在）
+- `articleRef` **只保留到"条"，不含"款"**：即使正则捕获了 clauseNum，articleRef 也只生成"第N条"部分。原因：数据库 `l5` 字段通常只存到"条"级别（如"第四十六条"），用 `contains "第四十六条第二款"` 会匹配失败
 - `articleRef` 转回中文数字格式（调用 `arabicToChineseNumber`），与数据库存储格式一致
 
 命中后返回的 `IntentClassification` 不含 `rewrittenQuery`/`keywords` → router 走纯 exact 快通道。
@@ -124,32 +137,46 @@ export function arabicToChineseNumber(num: number): string
 |------|-----|------|
 | key 格式 | `intent:{type}:{sha256_16(normalizedQuery)}` | type 区分 law/case_material |
 | hash 算法 | `crypto.createHash('sha256').digest('hex').slice(0, 16)` | Node.js 内置，16 位 hex 足够 |
-| TTL | 7 天（604800 秒） | 意图分类不依赖法条数据，节点配置变更频率极低 |
-| 缓存值 | `JSON.stringify(IntentClassification)` | 完整的意图分类结果 |
-| 失效策略 | TTL 自然过期 | 不做主动失效。节点配置变更后最多 7 天刷新 |
+| TTL | 1 天（86400 秒） | 平衡缓存命中率和配置变更后的刷新速度 |
+| 缓存值 | `JSON.stringify(IntentClassification)` | **存 LLM 原始结果**，不做降级处理 |
+| 失效策略 | TTL 自然过期 | 不做主动失效。节点配置变更后最多 1 天刷新 |
 | Redis 异常 | 透明降级 | try-catch 包裹，异常时跳过缓存直接调 LLM |
 
-`classifyIntentService` 内部流程变更：
+**缓存写入原则**：缓存存储 LLM 的原始输出（不降级）。case_material 的 exact→hybrid 降级逻辑只在**读取时**执行。这样做的好处是：如果将来 case_material 支持 exact 通道，只需修改读取端降级逻辑，不需要清理缓存。
+
+`classifyIntentService` 签名变更：
+
+```typescript
+export async function classifyIntentService(
+    query: string,
+    type: 'law' | 'case_material',
+    options?: { skipCache?: boolean },  // 新增：评估脚本传 true 跳过缓存
+): Promise<IntentClassification>
+```
+
+内部流程：
 
 ```
-classifyIntentService(query, type)
+classifyIntentService(query, type, options?)
   → normalizedQuery = normalizeQuery(query)
-  → if (type === 'law') 正则前置 → 命中则直接返回（不写缓存，因为正则结果是确定的）
-  → cacheKey = buildCacheKey(type, normalizedQuery)
-  → try {
-      raw = Redis GET cacheKey
-      parsed = JSON.parse(raw)
-      校验 parsed.intent ∈ ['exact','hybrid','semantic']，无效则丢弃缓存
-      case_material 且 intent=exact → 降级为 hybrid
-      return parsed
-    } catch { 跳过（GET 失败、parse 失败、校验失败均 fallback） }
-  → 调 LLM（用原始 query，不是归一化后的）
-  → if (type === 'case_material' && result.intent === 'exact') 降级为 hybrid（现有逻辑保留）
-  → try { Redis SET EX 604800 } catch { 跳过 }
+  → if (type === 'law') tryExactRegex(normalizedQuery) → 命中则直接返回
+  → if (!options?.skipCache) {
+      try {
+        raw = Redis GET cacheKey
+        parsed = JSON.parse(raw)
+        校验 parsed.intent ∈ ['exact','hybrid','semantic']，无效则 throw
+        if (type === 'case_material' && parsed.intent === 'exact') → 降级为 hybrid
+        return parsed
+      } catch { 跳过 }
+    }
+  → 调 LLM（用原始 query）
+  → LLM 结果校验（现有逻辑保留）
+  → if (!options?.skipCache) try { Redis SET EX 86400（存 LLM 原始结果，不降级） } catch { 跳过 }
+  → if (type === 'case_material' && result.intent === 'exact') 降级为 hybrid
   → 返回结果
 ```
 
-**缓存容错要求**：Redis GET、JSON.parse、intent 合法性校验三步必须在同一 try-catch 内。任何一步异常（连接失败、数据损坏、字段无效）都 fallback 到 LLM，不中断主流程。
+**缓存容错要求**：Redis GET、JSON.parse、intent 合法性校验三步必须在同一 try-catch 内。校验失败时需显式 `throw` 以触发 catch 分支。任何一步异常（连接失败、数据损坏、字段无效）都 fallback 到 LLM，不中断主流程。
 
 ### 模块四：Router 复合 exact 查询支持
 
@@ -167,14 +194,19 @@ exactSearch → 有结果则直接返回（不变）
 复合 exact（有 rewrittenQuery 或 keywords）：
 
 ```
-Promise.all([
-  exactSearch(intent),
-  hybridSearch(intent, request),
+const [exactResults, hybridRaw] = await Promise.all([
+  exactSearchService(intent),           // 返回 RetrievalResult[]
+  hybridSearchService(intent, request),  // 返回 SearchResultItem[]
 ])
-→ 合并去重（exact 结果优先，按 articles_id 去重）
+// 类型转换：SearchResultItem → RetrievalResult（添加 retrievalMode）
+const hybridResults = hybridRaw.map(r => ({ ...r, retrievalMode: 'hybrid' as const }))
+// 合并去重
+results = mergeAndDedup(exactResults, hybridResults)
 → rerank 精排（用原始 query）
 → 返回 top-k
 ```
+
+`mergeAndDedup` 函数放在 `retrievalRouter.service.ts` 内作为导出函数（评估脚本也需导入）。
 
 去重规则：
 - 以 `metadata.articles_id` 为唯一键
@@ -207,15 +239,17 @@ case 'exact': {
 ```
 
 另外，评估时 Redis 缓存会干扰延迟测量（重复 query 命中缓存显示虚假低延迟）。新增 `--no-cache` 参数：
-- 传入时，在评估开始前调用 `disableIntentCache()` 临时禁用缓存
+- 传入时，调用 `classifyIntentService(query, type, { skipCache: true })` 跳过缓存
 - 默认不传时使用缓存（模拟真实用户体验）
 
-在 `intentClassifier.service.ts` 中导出缓存控制函数：
+评估脚本的 `useRuntimeConfig` mock 需新增 Redis 配置（否则默认使用缓存时 `getRedisClient()` 会因缺少 `redis.url` 报错）：
 ```typescript
-/** 禁用意图缓存（评估脚本用） */
-export function disableIntentCache(): void
-/** 启用意图缓存（默认状态） */
-export function enableIntentCache(): void
+g.useRuntimeConfig = () => ({
+    // ...现有 embedding/rerank 配置...
+    redis: {
+        url: process.env.NUXT_REDIS_URL || process.env.REDIS_URL || '',
+    },
+})
 ```
 
 #### 5.2 evalDataset.json 补充新场景用例
@@ -233,7 +267,7 @@ export function enableIntentCache(): void
 | 法律名+条号+语义 | "民法典第一千条 人格权保护" | 精确条文 top-3，语义结果在 top-10 |
 | 法律名+条号+术语 | "刑法第二百六十四条 盗窃量刑" | 同上 |
 
-新增 5 条左右，tag 为 `compound-exact`。
+新增 3 条，tag 为 `compound-exact`。
 
 ##### 新增场景二：归一化变体（normalize）
 
@@ -246,7 +280,7 @@ export function enableIntentCache(): void
 | 全角数字 | "民法典第１００条" | 归一化后命中正则 |
 | 名称与条号间有空格 | "民法典 第100条" | legalName trim 后正常匹配 |
 
-新增 4-5 条，tag 为 `normalize`。每条用例的 `expectedHits` 应与对应的现有 exact 用例一致（验证归一化不改变结果）。
+新增 2 条，tag 为 `normalize`。归一化变体的细节覆盖由单元测试（`queryNormalizer.test.ts`）负责，评估数据集只验证端到端路径通畅。
 
 ##### 新增场景三：case_material + exact 模式（case-material-exact）
 
@@ -262,9 +296,9 @@ export function enableIntentCache(): void
 
 | 文件 | 操作 | 说明 |
 |------|------|------|
-| `server/services/retrieval/queryNormalizer.ts` | **新增** | 归一化 + 中文数字转换 |
-| `server/services/retrieval/intentClassifier.service.ts` | 修改 | 加正则前置 + Redis 缓存 + 缓存控制函数 |
-| `server/services/retrieval/retrievalRouter.service.ts` | 修改 | 复合 exact 并行搜索 |
+| `server/services/retrieval/queryNormalizer.ts` | **新增** | 归一化 + 中文数字转换 + 正则前置函数 |
+| `server/services/retrieval/intentClassifier.service.ts` | 修改 | 加 Redis 缓存，签名新增 `options?: { skipCache }` |
+| `server/services/retrieval/retrievalRouter.service.ts` | 修改 | 复合 exact 并行搜索 + `mergeAndDedup` 导出函数 |
 | `scripts/eval/search_law_tool/evalRetrievalQuality.ts` | 修改 | 同步复合 exact 逻辑 + `--no-cache` 参数 |
 | `scripts/eval/search_law_tool/evalDataset.json` | 修改 | 补充 compound-exact 用例 |
 | `tests/server/retrieval/queryNormalizer.test.ts` | **新增** | 归一化和数字转换测试 |
@@ -316,13 +350,17 @@ export function enableIntentCache(): void
 
 | 决策 | 选项 | 选择 | 原因 |
 |------|------|------|------|
-| 缓存失效策略 | 主动清除 / 短 TTL / 版本号 / 长 TTL | 长 TTL（7天） | 节点配置变更频率极低，不值得增加耦合 |
+| 缓存失效策略 | 主动清除 / 短 TTL / 版本号 / 长 TTL | 1 天 TTL | 平衡命中率和配置变更后的刷新速度，7 天过长会在调试迭代阶段造成困惑 |
 | Redis 异常处理 | 透明降级 / 强依赖 | 透明降级 | 缓存是加速层，不应成为单点故障 |
 | 归一化传给 LLM | 是 / 否 | 否 | LLM 自身有数字转换能力，传原始 query 更完整 |
 | 复合查询策略 | 只走 exact / exact ∥ hybrid | exact ∥ hybrid | 修复语义部分丢失问题 |
 | 正则匹配范围 | 纯 exact / 含复合 | 纯 exact | 复合查询需要 LLM 提取 rewrittenQuery，正则无法替代 |
 | 正则 type 限制 | 所有 type / 仅 law | 仅 law | case_material 不支持 exact 通道，正则必须跳过避免绕过降级逻辑 |
-| 正则 legalName 处理 | 原样 / trim | trim | 防止"民法典 第100条"等输入导致 legalName 尾部空格，使 DB contains 匹配失败 |
+| 正则 legalName 处理 | 原样 / trim | trim + 长度 >= 2 | 防止空格问题和单字误匹配 |
+| 正则 articleRef 款号 | 含款 / 不含款 | 不含款（只到"条"） | DB l5 只存到"条"级别，含款号导致 contains 匹配失败 |
+| 缓存存储时机 | 降级前存 / 降级后存 | 降级前存（LLM 原始结果） | 降级策略变更时不需要清缓存，读取端负责降级 |
+| 缓存跳过机制 | 全局状态 / 参数传递 | 参数传递（`skipCache`） | 避免全局状态污染生产代码，参数方式更安全 |
+| 导出函数数量 | 3 个 / 1 个 | 仅导出 `normalizeQuery` | 减少 API 表面积，内部函数由正则前置在同文件内使用 |
 
 ## 不做的事
 
