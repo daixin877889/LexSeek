@@ -6,6 +6,7 @@
  */
 
 import type { demoCases } from '~~/generated/prisma/client'
+import type { Prisma } from '~~/generated/prisma/client'
 
 // 导入 DAO 函数
 import {
@@ -120,4 +121,82 @@ export const deleteDemoCaseService = async (id: number): Promise<void> => {
     }
 
     await softDeleteDemoCaseDao(id)
+}
+
+// ==================== cloneRecognitionService ====================
+
+/** 克隆识别记录的输入参数 */
+export interface CloneRecognitionInput {
+    tx: Prisma.TransactionClient
+    sourceUserId: number
+    sourceOssFileId: number
+    targetUserId: number
+    targetOssFileId: number
+}
+
+/**
+ * 克隆 admin 源文件的识别记录到用户名下（复用 MinerU/OCR/ASR 结果）
+ *
+ * 只克隆 status=2 的成功记录。last_embedding_at 显式置 NULL：
+ * 因为嵌入向量本身不克隆，由分析启动时的 ensureMaterialsReadyService 延迟生成。
+ * 若复制源的 last_embedding_at，batchCheckMaterialEmbeddedService 会误判已嵌入。
+ *
+ * ASR 记录中 asr_tasks_id / json_oss_file_id / temp_file_path 显式置 NULL，
+ * 避免跨用户引用 admin 侧的 ASR 任务 / JSON 文件 / 临时文件路径。
+ */
+export async function cloneRecognitionService(input: CloneRecognitionInput): Promise<void> {
+    const { tx, sourceUserId, sourceOssFileId, targetUserId, targetOssFileId } = input
+
+    // 1. 克隆文档识别
+    await tx.$executeRawUnsafe(`
+        INSERT INTO doc_recognition_records
+          (user_id, oss_file_id, status, html_content, markdown_content,
+           keywords, summary, vector_ids, last_embedding_at, last_edit_at,
+           created_at, updated_at)
+        SELECT $1::int, $2::int, status, html_content, markdown_content,
+               keywords, summary, '[]'::jsonb, NULL, last_edit_at,
+               now(), now()
+        FROM doc_recognition_records
+        WHERE user_id = $3::int
+          AND oss_file_id = $4::int
+          AND status = 2
+          AND deleted_at IS NULL
+    `, targetUserId, targetOssFileId, sourceUserId, sourceOssFileId)
+
+    // 2. 克隆图片识别
+    await tx.$executeRawUnsafe(`
+        INSERT INTO image_recognition_records
+          (user_id, oss_file_id, status, image_type, html_content, markdown_content,
+           keywords, summary, vector_ids, last_embedding_at, last_edit_at,
+           created_at, updated_at)
+        SELECT $1::int, $2::int, status, image_type, html_content, markdown_content,
+               keywords, summary, '[]'::jsonb, NULL, last_edit_at,
+               now(), now()
+        FROM image_recognition_records
+        WHERE user_id = $3::int
+          AND oss_file_id = $4::int
+          AND status = 2
+          AND deleted_at IS NULL
+    `, targetUserId, targetOssFileId, sourceUserId, sourceOssFileId)
+
+    // 3. 克隆 ASR 识别（跨用户引用字段显式置 NULL）
+    await tx.$executeRawUnsafe(`
+        INSERT INTO asr_records
+          (user_id, oss_file_id, asr_tasks_id, status, audio_url, audio_duration,
+           result, json_oss_file_id, temp_file_path, speakers, keywords, summary,
+           vector_ids, last_embedding_at, last_edit_at, created_at, updated_at)
+        SELECT $1::int, $2::int,
+               NULL,
+               status, audio_url, audio_duration,
+               result,
+               NULL,
+               NULL,
+               speakers, keywords, summary,
+               '[]'::jsonb, NULL, last_edit_at, now(), now()
+        FROM asr_records
+        WHERE user_id = $3::int
+          AND oss_file_id = $4::int
+          AND status = 2
+          AND deleted_at IS NULL
+    `, targetUserId, targetOssFileId, sourceUserId, sourceOssFileId)
 }

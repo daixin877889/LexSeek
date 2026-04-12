@@ -5,7 +5,7 @@
  * **Validates: demoCase.service.ts 核心函数**
  */
 
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach } from 'vitest'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../../../generated/prisma/client'
 import { config } from 'dotenv'
@@ -37,6 +37,8 @@ import {
     updateDemoCaseService,
     updateDemoCaseStatusService,
     deleteDemoCaseService,
+    cloneRecognitionService,
+    prepareDemoCaseForUserService,
 } from '../../../server/services/case/demoCase.service'
 
 // 测试数据追踪
@@ -369,5 +371,166 @@ describe('示范案例服务层', () => {
         it('不存在的 ID 应抛出错误', async () => {
             await expect(deleteDemoCaseService(999999)).rejects.toThrow('示范案例不存在')
         })
+    })
+})
+
+// ==================== cloneRecognitionService ====================
+
+describe('cloneRecognitionService', () => {
+    let sourceUserId: number
+    let targetUserId: number
+    let sourceOssFileId: number
+    let targetOssFileId: number
+
+    beforeEach(async () => {
+        // 创建两个测试用户 + 两个 ossFile（source/target 指向同一 bucket+path）
+        const ts = Date.now().toString().slice(-8)
+        const sourceUser = await prisma.users.create({ data: { phone: `1${ts}10`, name: 'src' } })
+        const targetUser = await prisma.users.create({ data: { phone: `1${ts}11`, name: 'tgt' } })
+        sourceUserId = sourceUser.id
+        targetUserId = targetUser.id
+
+        const source = await prisma.ossFiles.create({
+            data: {
+                userId: sourceUserId,
+                bucketName: 'test-bucket',
+                fileName: 'sample.pdf',
+                filePath: `test/sample_${Date.now()}.pdf`,
+                fileSize: 1024,
+                fileType: 'application/pdf',
+                source: 'demo_case',
+                status: 1,
+            },
+        })
+        sourceOssFileId = source.id
+
+        const target = await prisma.ossFiles.create({
+            data: {
+                userId: targetUserId,
+                bucketName: 'test-bucket',
+                fileName: 'sample.pdf',
+                filePath: source.filePath,
+                fileSize: 1024,
+                fileType: 'application/pdf',
+                source: 'caseAnalysis',
+                status: 1,
+            },
+        })
+        targetOssFileId = target.id
+    })
+
+    afterEach(async () => {
+        // 清理测试数据（按外键依赖倒序）
+        await prisma.docRecognitionRecords.deleteMany({ where: { userId: { in: [sourceUserId, targetUserId] } } })
+        await prisma.imageRecognitionRecords.deleteMany({ where: { userId: { in: [sourceUserId, targetUserId] } } })
+        await prisma.asrRecords.deleteMany({ where: { userId: { in: [sourceUserId, targetUserId] } } })
+        await prisma.ossFiles.deleteMany({ where: { userId: { in: [sourceUserId, targetUserId] } } })
+        await prisma.users.deleteMany({ where: { id: { in: [sourceUserId, targetUserId] } } })
+    })
+
+    it('克隆 status=2 的 docRecognitionRecord，last_embedding_at 置 NULL', async () => {
+        await prisma.docRecognitionRecords.create({
+            data: {
+                userId: sourceUserId,
+                ossFileId: sourceOssFileId,
+                status: 2,
+                markdownContent: 'hello',
+                htmlContent: '<p>hello</p>',
+                summary: '摘要',
+                lastEmbeddingAt: new Date(),
+            },
+        })
+
+        await prisma.$transaction(async (tx) => {
+            await cloneRecognitionService({
+                tx,
+                sourceUserId,
+                sourceOssFileId,
+                targetUserId,
+                targetOssFileId,
+            })
+        })
+
+        const cloned = await prisma.docRecognitionRecords.findFirst({
+            where: { userId: targetUserId, ossFileId: targetOssFileId },
+        })
+        expect(cloned).not.toBeNull()
+        expect(cloned?.markdownContent).toBe('hello')
+        expect(cloned?.lastEmbeddingAt).toBeNull()
+        expect(cloned?.vectorIds).toEqual([])
+    })
+
+    it('跳过 status!=2 的识别记录', async () => {
+        await prisma.docRecognitionRecords.create({
+            data: {
+                userId: sourceUserId,
+                ossFileId: sourceOssFileId,
+                status: 1,  // PROCESSING
+                markdownContent: null,
+            },
+        })
+
+        await prisma.$transaction(async (tx) => {
+            await cloneRecognitionService({
+                tx,
+                sourceUserId,
+                sourceOssFileId,
+                targetUserId,
+                targetOssFileId,
+            })
+        })
+
+        const cloned = await prisma.docRecognitionRecords.findFirst({
+            where: { userId: targetUserId, ossFileId: targetOssFileId },
+        })
+        expect(cloned).toBeNull()
+    })
+
+    it('克隆 asrRecords 时 asr_tasks_id / json_oss_file_id / temp_file_path 显式为 NULL', async () => {
+        await prisma.asrRecords.create({
+            data: {
+                userId: sourceUserId,
+                ossFileId: sourceOssFileId,
+                status: 2,
+                summary: '对话摘要',
+                // asrTasksId 和 jsonOssFileId 是外键，测试中不创建真实关联记录，保持 null 即可
+                // 真实业务中 admin 侧会有这些字段，这里通过 tempFilePath 验证 NULL 语义
+                tempFilePath: '/tmp/foo',  // admin 侧的临时路径
+                lastEmbeddingAt: new Date(),
+            },
+        })
+
+        await prisma.$transaction(async (tx) => {
+            await cloneRecognitionService({
+                tx,
+                sourceUserId,
+                sourceOssFileId,
+                targetUserId,
+                targetOssFileId,
+            })
+        })
+
+        const cloned = await prisma.asrRecords.findFirst({
+            where: { userId: targetUserId, ossFileId: targetOssFileId },
+        })
+        expect(cloned).not.toBeNull()
+        expect(cloned?.summary).toBe('对话摘要')
+        expect(cloned?.asrTasksId).toBeNull()
+        expect(cloned?.jsonOssFileId).toBeNull()
+        expect(cloned?.tempFilePath).toBeNull()
+        expect(cloned?.lastEmbeddingAt).toBeNull()
+    })
+
+    it('源文件没有任何识别记录时不抛错', async () => {
+        await prisma.$transaction(async (tx) => {
+            await cloneRecognitionService({
+                tx,
+                sourceUserId,
+                sourceOssFileId,
+                targetUserId,
+                targetOssFileId,
+            })
+        })
+        // 只要不抛错就算通过
     })
 })
