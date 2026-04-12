@@ -1,7 +1,7 @@
 <template>
     <!-- 示范案例创建/编辑对话框 -->
     <Dialog v-model:open="open">
-        <DialogContent class="max-w-2xl max-h-[85vh] flex flex-col" @interactOutside="(e) => e.preventDefault()">
+        <DialogContent class="max-w-4xl max-h-[85vh] flex flex-col" @interactOutside="(e) => e.preventDefault()">
             <DialogHeader class="shrink-0">
                 <DialogTitle>{{ isEdit ? '编辑示范案例' : '新增示范案例' }}</DialogTitle>
                 <DialogDescription>{{ isEdit ? '修改示范案例配置' : '创建新的示范案例' }}</DialogDescription>
