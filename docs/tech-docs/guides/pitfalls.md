@@ -392,3 +392,35 @@ dayjs(dateString).fromNow()  // 需要 relativeTime 插件
 ### 数据库时区
 
 数据库时区为 `Asia/Shanghai`。Prisma 连接使用 `TimeZone=UTC` 以避免双偏移 bug。
+
+## 九、shadcn-vue DialogContent 宽度覆盖
+
+### 问题
+
+`DialogContent` 组件内置默认样式 `sm:max-w-lg`（见 `app/components/ui/dialog/DialogContent.vue`）。如果直接写 `max-w-4xl` 等不带断点前缀的 class，在 ≥640px 屏幕上会被内置的 `sm:max-w-lg` 覆盖，导致宽度设置不生效。
+
+### 影响范围
+
+所有使用 `<DialogContent>` 且需要自定义宽度的弹框。
+
+### 正确做法
+
+必须加 `sm:` 前缀来覆盖同断点的默认值：
+
+```vue
+<!-- ❌ 错误：max-w-4xl 被内置 sm:max-w-lg 覆盖 -->
+<DialogContent class="max-w-4xl">
+
+<!-- ✅ 正确：sm: 前缀与内置断点同级，成功覆盖 -->
+<DialogContent class="sm:max-w-4xl">
+
+<!-- ✅ 正确：使用任意值写法也可以 -->
+<DialogContent class="sm:max-w-[700px]">
+```
+
+### 项目现有用法参考
+
+- `sm:max-w-[500px]`：`OrderDetailDialog.vue`
+- `sm:max-w-2xl`：`CaseDetailXiaosuo.vue`
+- `sm:max-w-[700px]`：`CaseExportDialog.vue`
+- `md:min-w-[70vw]`：`DocPreviewDialog.vue`（用 min-w 实现大弹窗）
