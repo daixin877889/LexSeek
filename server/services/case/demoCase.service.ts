@@ -275,3 +275,136 @@ export async function ensureSourceFileRecognitionService(sourceOssFileId: number
         })
     }
 }
+
+// ==================== prepareDemoCaseForUserService ====================
+
+import { FileSource, FileSourceName } from '#shared/types/file'
+import type { OssFileDto } from '#shared/types/file'
+
+/** 将 Prisma ossFile 行转成 API 契约的 OssFileDto */
+function toOssFileDto(file: {
+    id: number
+    fileName: string
+    fileSize: any
+    fileType: string
+    source: string | null
+    status: number
+    encrypted: boolean
+    createdAt: Date | null
+}): OssFileDto {
+    const source = (file.source ?? FileSource.CASE_ANALYSIS) as string
+    return {
+        id: file.id,
+        fileName: file.fileName,
+        fileSize: Number(file.fileSize),
+        fileType: file.fileType,
+        source,
+        sourceName: FileSourceName[source as FileSource] ?? '文件',
+        status: file.status,
+        statusName: file.status === 1 ? '正常' : '异常',
+        encrypted: file.encrypted,
+        createdAt: file.createdAt?.toISOString() ?? new Date().toISOString(),
+    }
+}
+
+/**
+ * 准备示范案例：克隆 OSS 文件与识别记录到当前用户
+ *
+ * 对文件材料遍历：
+ * - 若用户已有同 (bucket, filePath) 行（含软删），复用或复活
+ * - 否则新建 ossFile 行 + 克隆识别记录（status=2 过滤）
+ *
+ * P2002 并发冲突由前端 toast 提示用户重试，事务级不做自动重试。
+ */
+export async function prepareDemoCaseForUserService(
+    demoCaseId: number,
+    user: { id: number },
+): Promise<{ content: string | null; files: OssFileDto[] }> {
+    return await prisma.$transaction(
+        async (tx) => {
+            const demoCase = await tx.demoCases.findFirst({
+                where: { id: demoCaseId, deletedAt: null },
+            })
+            if (!demoCase) {
+                throw new Error('示范案例不存在')
+            }
+            if (demoCase.status !== 1) {
+                throw new Error('示范案例已禁用')
+            }
+
+            const materials = ((demoCase.materials ?? []) as unknown) as import('./demoCase.dao').DemoCaseMaterial[]
+            const result: OssFileDto[] = []
+
+            for (const material of materials) {
+                // 1. 读取 admin 源 ossFile
+                const source = await tx.ossFiles.findUnique({
+                    where: { id: material.sourceOssFileId },
+                })
+                if (!source || source.deletedAt) {
+                    throw new Error('示范案例资源异常')
+                }
+
+                if (!source.filePath) {
+                    logger.error('demo case source ossFile filePath is null', {
+                        ossFileId: source.id,
+                    })
+                    continue
+                }
+
+                // 2. 查用户云盘（不过滤 deletedAt，以便复活）
+                const existing = await tx.ossFiles.findFirst({
+                    where: {
+                        userId: user.id,
+                        bucketName: source.bucketName,
+                        filePath: source.filePath,
+                    },
+                })
+
+                if (existing) {
+                    if (existing.deletedAt !== null) {
+                        // 复活
+                        const revived = await tx.ossFiles.update({
+                            where: { id: existing.id },
+                            data: { deletedAt: null, updatedAt: new Date() },
+                        })
+                        result.push(toOssFileDto(revived))
+                    } else {
+                        result.push(toOssFileDto(existing))
+                    }
+                    continue
+                }
+
+                // 3. 未命中：创建新 ossFile 行
+                const clone = await tx.ossFiles.create({
+                    data: {
+                        userId: user.id,
+                        bucketName: source.bucketName,
+                        fileName: source.fileName,
+                        filePath: source.filePath,
+                        fileSize: source.fileSize,
+                        fileType: source.fileType,
+                        source: FileSource.CASE_ANALYSIS,
+                        status: source.status,
+                    },
+                })
+
+                // 4. 克隆识别记录（不克隆嵌入向量，由分析启动时延迟生成）
+                await cloneRecognitionService({
+                    tx,
+                    sourceUserId: source.userId,
+                    sourceOssFileId: source.id,
+                    targetUserId: user.id,
+                    targetOssFileId: clone.id,
+                })
+
+                result.push(toOssFileDto(clone))
+            }
+
+            return {
+                content: demoCase.content,
+                files: result,
+            }
+        },
+        { timeout: 30_000, maxWait: 5_000 },
+    )
+}

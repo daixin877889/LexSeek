@@ -534,3 +534,128 @@ describe('cloneRecognitionService', () => {
         // 只要不抛错就算通过
     })
 })
+
+// ==================== prepareDemoCaseForUserService ====================
+
+describe('prepareDemoCaseForUserService', () => {
+    let adminUserId: number
+    let userUserId: number
+    let sourceOssFileId: number
+    let demoCaseId: number
+
+    beforeEach(async () => {
+        const ts = Date.now().toString().slice(-8)
+        const admin = await prisma.users.create({ data: { phone: `1${ts}20`, name: 'admin' } })
+        const user = await prisma.users.create({ data: { phone: `1${ts}21`, name: 'user' } })
+        adminUserId = admin.id
+        userUserId = user.id
+
+        const source = await prisma.ossFiles.create({
+            data: {
+                userId: adminUserId,
+                bucketName: 'test-bucket',
+                fileName: 'sample.pdf',
+                filePath: `test/${Date.now()}.pdf`,
+                fileSize: 100,
+                fileType: 'application/pdf',
+                source: 'demo_case',
+                status: 1,
+            },
+        })
+        sourceOssFileId = source.id
+
+        // 假设源文件已识别成功
+        await prisma.docRecognitionRecords.create({
+            data: {
+                userId: adminUserId,
+                ossFileId: sourceOssFileId,
+                status: 2,
+                markdownContent: '# Doc content',
+            },
+        })
+
+        // 创建一个有 content 和 materials 的 demoCase
+        const caseType = await prisma.caseTypes.findFirst()
+        const demoCase = await prisma.demoCases.create({
+            data: {
+                title: `Test demo ${Date.now()}`,
+                description: 'test',
+                content: '这是示范案情描述',
+                caseTypeId: caseType!.id,
+                materials: [{ name: '文档', type: 2, sourceOssFileId }] as any,
+                status: 1,
+            },
+        })
+        demoCaseId = demoCase.id
+    })
+
+    afterEach(async () => {
+        await prisma.docRecognitionRecords.deleteMany({ where: { userId: { in: [adminUserId, userUserId] } } })
+        await prisma.demoCases.deleteMany({ where: { id: demoCaseId } })
+        await prisma.ossFiles.deleteMany({ where: { userId: { in: [adminUserId, userUserId] } } })
+        await prisma.users.deleteMany({ where: { id: { in: [adminUserId, userUserId] } } })
+    })
+
+    it('首次克隆：返回 content + files，克隆 ossFile 与识别记录', async () => {
+        const result = await prepareDemoCaseForUserService(demoCaseId, { id: userUserId })
+        expect(result.content).toBe('这是示范案情描述')
+        expect(result.files).toHaveLength(1)
+        expect(result.files[0]?.fileName).toBe('sample.pdf')
+
+        // 验证克隆产生的 ossFile 行
+        const clones = await prisma.ossFiles.findMany({
+            where: { userId: userUserId, deletedAt: null },
+        })
+        expect(clones).toHaveLength(1)
+        expect(clones[0]?.filePath).toBe((await prisma.ossFiles.findUnique({ where: { id: sourceOssFileId } }))!.filePath)
+
+        // 验证识别记录克隆（status=2 + last_embedding_at=NULL）
+        const recRecords = await prisma.docRecognitionRecords.findMany({
+            where: { userId: userUserId },
+        })
+        expect(recRecords).toHaveLength(1)
+        expect(recRecords[0]?.lastEmbeddingAt).toBeNull()
+    })
+
+    it('再次调用：复用同一 ossFileId，不重复克隆识别记录', async () => {
+        const r1 = await prepareDemoCaseForUserService(demoCaseId, { id: userUserId })
+        const r2 = await prepareDemoCaseForUserService(demoCaseId, { id: userUserId })
+        expect(r1.files[0]?.id).toBe(r2.files[0]?.id)
+
+        const clones = await prisma.ossFiles.findMany({ where: { userId: userUserId, deletedAt: null } })
+        expect(clones).toHaveLength(1)
+
+        const recRecords = await prisma.docRecognitionRecords.findMany({ where: { userId: userUserId } })
+        expect(recRecords).toHaveLength(1)
+    })
+
+    it('资源复活：软删后再次调用将 deletedAt 翻回 null', async () => {
+        const r1 = await prepareDemoCaseForUserService(demoCaseId, { id: userUserId })
+        const clonedId = r1.files[0]!.id
+        // 软删
+        await prisma.ossFiles.update({ where: { id: clonedId }, data: { deletedAt: new Date() } })
+        // 再点
+        const r2 = await prepareDemoCaseForUserService(demoCaseId, { id: userUserId })
+        expect(r2.files[0]?.id).toBe(clonedId)
+        const clones = await prisma.ossFiles.findMany({ where: { userId: userUserId } })
+        expect(clones).toHaveLength(1)
+        expect(clones[0]?.deletedAt).toBeNull()
+    })
+
+    it('demoCase 不存在时抛错', async () => {
+        await expect(prepareDemoCaseForUserService(999999, { id: userUserId }))
+            .rejects.toThrow()
+    })
+
+    it('demoCase 禁用时抛错', async () => {
+        await prisma.demoCases.update({ where: { id: demoCaseId }, data: { status: 0 } })
+        await expect(prepareDemoCaseForUserService(demoCaseId, { id: userUserId }))
+            .rejects.toThrow()
+    })
+
+    it('源文件已软删时抛错', async () => {
+        await prisma.ossFiles.update({ where: { id: sourceOssFileId }, data: { deletedAt: new Date() } })
+        await expect(prepareDemoCaseForUserService(demoCaseId, { id: userUserId }))
+            .rejects.toThrow()
+    })
+})
