@@ -60,7 +60,7 @@
             </div>
             <DialogFooter class="shrink-0">
                 <Button variant="outline" @click="open = false">取消</Button>
-                <Button @click="handleSubmit" :disabled="submitting">
+                <Button @click="handleSubmit" :disabled="!canSubmit">
                     <Loader2 v-if="submitting" class="h-4 w-4 mr-2 animate-spin" />
                     {{ isEdit ? '保存' : '创建' }}
                 </Button>
@@ -112,6 +112,13 @@ const selectedItem = ref<DemoCase | null>(null)
 
 // 表单数据
 const form = ref(getDefaultForm())
+
+// 案件描述和文件材料都为空时禁用保存
+const canSubmit = computed(() => {
+    const hasContent = !!form.value.content?.trim()
+    const hasMaterials = form.value.materials.length > 0
+    return (hasContent || hasMaterials) && !submitting.value
+})
 
 // 获取默认表单值
 function getDefaultForm() {
