@@ -14,6 +14,34 @@ import { applyPostFiltersService } from './postFilter.service'
 import type { RetrievalRequest, RetrievalResult, IntentClassification, SearchResultItem, RetrievalMode } from './types'
 
 /**
+ * 合并去重：exact 结果优先，hybrid 结果追加
+ * 去重 ID：metadata.articles_id，无 articles_id 时 fallback 到 content 前 50 字符
+ */
+export function mergeAndDedup(
+    exactResults: RetrievalResult[],
+    hybridResults: RetrievalResult[],
+): RetrievalResult[] {
+    const seen = new Set<string>()
+    const merged: RetrievalResult[] = []
+
+    for (const r of exactResults) {
+        const id = (r.metadata.articles_id as string) || r.content.slice(0, 50)
+        seen.add(id)
+        merged.push(r)
+    }
+
+    for (const r of hybridResults) {
+        const id = (r.metadata.articles_id as string) || r.content.slice(0, 50)
+        if (!seen.has(id)) {
+            seen.add(id)
+            merged.push(r)
+        }
+    }
+
+    return merged
+}
+
+/**
  * 统一检索路由器
  *
  * 流程：LLM 意图分类 → 分发到对应通道 → Rerank → 后处理过滤 → top-k
@@ -30,19 +58,32 @@ export async function retrievalRouterService(
 
     switch (intent.intent) {
         case 'exact': {
-            results = await exactSearchService(intent)
+            const isCompound = !!(intent.rewrittenQuery || intent.keywords?.length)
 
-            if (results.length === 0) {
-                logger.info('精确检索无结果，降级到混合检索')
-                const fallbackIntent: IntentClassification = {
-                    ...intent,
-                    intent: 'hybrid',
-                    keywords: intent.keywords ?? [intent.legalName, intent.articleRef].filter(Boolean) as string[],
-                    rewrittenQuery: intent.rewrittenQuery ?? request.query,
+            if (isCompound) {
+                // 复合 exact：并行 exact + hybrid
+                const [exactResults, hybridRaw] = await Promise.all([
+                    exactSearchService(intent),
+                    hybridSearchService(intent, request),
+                ])
+                const hybridResults = hybridRaw.map(r => ({ ...r, retrievalMode: 'hybrid' as const }))
+                results = mergeAndDedup(exactResults, hybridResults)
+                actualMode = 'hybrid' // 复合查询走 rerank
+            } else {
+                // 纯 exact：原有逻辑不变
+                results = await exactSearchService(intent)
+                if (results.length === 0) {
+                    logger.info('精确检索无结果，降级到混合检索')
+                    const fallbackIntent: IntentClassification = {
+                        ...intent,
+                        intent: 'hybrid',
+                        keywords: intent.keywords ?? [intent.legalName, intent.articleRef].filter(Boolean) as string[],
+                        rewrittenQuery: intent.rewrittenQuery ?? request.query,
+                    }
+                    const searchResults = await hybridSearchService(fallbackIntent, request)
+                    results = searchResults.map(r => ({ ...r, retrievalMode: 'hybrid' as const }))
+                    actualMode = 'hybrid'
                 }
-                const searchResults = await hybridSearchService(fallbackIntent, request)
-                results = searchResults.map(r => ({ ...r, retrievalMode: 'hybrid' as const }))
-                actualMode = 'hybrid'
             }
             break
         }

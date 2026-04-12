@@ -42,7 +42,7 @@ vi.mock('../../../server/services/retrieval/rerank.service', () => ({
 vi.stubGlobal('logger', { info: vi.fn(), error: vi.fn(), warn: vi.fn() })
 
 // 在 mock 设置之后导入被测模块
-import { retrievalRouterService } from '../../../server/services/retrieval/retrievalRouter.service'
+import { retrievalRouterService, mergeAndDedup } from '../../../server/services/retrieval/retrievalRouter.service'
 import { applyPostFiltersService, isLawEffective, applyDateFilter } from '../../../server/services/retrieval/postFilter.service'
 
 // --- 测试辅助工厂 ---
@@ -294,6 +294,115 @@ describe('retrievalRouterService', () => {
                 'case_material',
             )
         })
+    })
+
+    describe('复合 exact 查询', () => {
+        it('有 rewrittenQuery 时并行 exact+hybrid，走 rerank', async () => {
+            const exactResults: RetrievalResult[] = [
+                makeRetrievalResult({ content: '精确结果', retrievalMode: 'exact', score: 1.0 }),
+            ]
+            const hybridItems: SearchResultItem[] = [
+                makeSearchItem({ content: '混合结果', score: 0.7 }),
+            ]
+            const rerankedItems: SearchResultItem[] = [
+                makeSearchItem({ content: '精确结果', score: 1.0 }),
+                makeSearchItem({ content: '混合结果', score: 0.7 }),
+            ]
+
+            mocks.classifyIntentService.mockResolvedValue({
+                intent: 'exact',
+                legalName: '民法典',
+                articleRef: '第五百七十七条',
+                rewrittenQuery: '民法典第577条违约责任',
+            } satisfies IntentClassification)
+            mocks.exactSearchService.mockResolvedValue(exactResults)
+            mocks.hybridSearchService.mockResolvedValue(hybridItems)
+            mocks.rerankAndFilterService.mockResolvedValue(rerankedItems)
+
+            const result = await retrievalRouterService(makeRequest())
+
+            // exact 和 hybrid 都应被调用
+            expect(mocks.exactSearchService).toHaveBeenCalledOnce()
+            expect(mocks.hybridSearchService).toHaveBeenCalledOnce()
+            // 复合查询走 rerank
+            expect(mocks.rerankAndFilterService).toHaveBeenCalledOnce()
+            expect(result.length).toBeGreaterThan(0)
+        })
+
+        it('无 rewrittenQuery 且无 keywords 时走纯 exact，不触发 hybrid', async () => {
+            const exactResults: RetrievalResult[] = [
+                makeRetrievalResult({ content: '精确结果', retrievalMode: 'exact', score: 1.0 }),
+            ]
+
+            mocks.classifyIntentService.mockResolvedValue({
+                intent: 'exact',
+                legalName: '民法典',
+                articleRef: '第一条',
+            } satisfies IntentClassification)
+            mocks.exactSearchService.mockResolvedValue(exactResults)
+
+            const result = await retrievalRouterService(makeRequest())
+
+            expect(mocks.exactSearchService).toHaveBeenCalledOnce()
+            expect(mocks.hybridSearchService).not.toHaveBeenCalled()
+            expect(mocks.rerankAndFilterService).not.toHaveBeenCalled()
+            expect(result).toEqual(exactResults)
+        })
+    })
+})
+
+// --- mergeAndDedup 单元测试 ---
+
+describe('mergeAndDedup', () => {
+    it('无重复时拼接（exact 在前）', () => {
+        const exactResults: RetrievalResult[] = [
+            makeRetrievalResult({ content: '精确1', metadata: { articles_id: 'a1' }, retrievalMode: 'exact' }),
+        ]
+        const hybridResults: RetrievalResult[] = [
+            makeRetrievalResult({ content: '混合1', metadata: { articles_id: 'b1' }, retrievalMode: 'hybrid' }),
+        ]
+
+        const merged = mergeAndDedup(exactResults, hybridResults)
+
+        expect(merged).toHaveLength(2)
+        expect(merged[0].content).toBe('精确1')
+        expect(merged[1].content).toBe('混合1')
+    })
+
+    it('重复时保留 exact 结果', () => {
+        const exactResults: RetrievalResult[] = [
+            makeRetrievalResult({ content: '精确版本', metadata: { articles_id: 'same-id' }, retrievalMode: 'exact', score: 1.0 }),
+        ]
+        const hybridResults: RetrievalResult[] = [
+            makeRetrievalResult({ content: '混合版本', metadata: { articles_id: 'same-id' }, retrievalMode: 'hybrid', score: 0.7 }),
+        ]
+
+        const merged = mergeAndDedup(exactResults, hybridResults)
+
+        expect(merged).toHaveLength(1)
+        expect(merged[0].content).toBe('精确版本')
+        expect(merged[0].retrievalMode).toBe('exact')
+    })
+
+    it('空数组安全', () => {
+        expect(mergeAndDedup([], [])).toEqual([])
+        expect(mergeAndDedup([makeRetrievalResult()], [])).toHaveLength(1)
+        expect(mergeAndDedup([], [makeRetrievalResult()])).toHaveLength(1)
+    })
+
+    it('articles_id 不存在时 fallback 到 content 前 50 字符去重', () => {
+        const sharedContent = '这是一段共享的法律条文内容，用于测试 fallback 去重逻辑是否正常工作'
+        const exactResults: RetrievalResult[] = [
+            makeRetrievalResult({ content: sharedContent, metadata: {}, retrievalMode: 'exact' }),
+        ]
+        const hybridResults: RetrievalResult[] = [
+            makeRetrievalResult({ content: sharedContent, metadata: {}, retrievalMode: 'hybrid' }),
+        ]
+
+        const merged = mergeAndDedup(exactResults, hybridResults)
+
+        expect(merged).toHaveLength(1)
+        expect(merged[0].retrievalMode).toBe('exact')
     })
 })
 
