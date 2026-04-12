@@ -91,20 +91,26 @@ export function arabicToChineseNumber(num: number): string
 
 **位置**：`server/services/retrieval/intentClassifier.service.ts` 内新增函数
 
+**前置条件**：仅当 `type === 'law'` 时执行正则前置。`case_material` 类型不支持 exact 通道（现有代码第 139-141 行有降级逻辑），正则前置必须跳过，否则会绕过该降级检查。
+
 对归一化后的 query 做模式匹配：
 
 ```
 ^(?<legalName>.+?)第(?<articleNum>\d+)条(第(?<clauseNum>\d+)款)?$
 ```
 
-| 归一化后 query | 匹配？ | 结果 |
-|---|---|---|
-| `民法典第1079条` | 是 | `{ intent: 'exact', legalName: '民法典', articleRef: '第一千零七十九条' }` |
-| `刑法第264条第2款` | 是 | `{ intent: 'exact', legalName: '刑法', articleRef: '第二百六十四条第二款' }` |
-| `民法典第1001条 合同约定` | 否 | 走 LLM |
-| `合同解除的法定条件` | 否 | 走 LLM |
+| 归一化后 query | type | 匹配？ | 结果 |
+|---|---|---|---|
+| `民法典第1079条` | law | 是 | `{ intent: 'exact', legalName: '民法典', articleRef: '第一千零七十九条' }` |
+| `刑法第264条第2款` | law | 是 | `{ intent: 'exact', legalName: '刑法', articleRef: '第二百六十四条第二款' }` |
+| `民法典第100条` | case_material | 跳过 | 走 LLM（case_material 不走正则） |
+| `民法典 第100条` | law | 是 | legalName trim 后 = `'民法典'` |
+| `民法典第1001条 合同约定` | law | 否 | 走 LLM |
+| `合同解除的法定条件` | law | 否 | 走 LLM |
 
-匹配后 `articleRef` 转回中文数字格式（调用 `arabicToChineseNumber`），与数据库存储格式一致。
+**后处理**：
+- 匹配后 `legalName` 必须 **trim**（去首尾空格），防止"民法典 第100条"等输入导致 legalName 带尾部空格，使 exactSearch 的 `contains` 匹配失败
+- `articleRef` 转回中文数字格式（调用 `arabicToChineseNumber`），与数据库存储格式一致
 
 命中后返回的 `IntentClassification` 不含 `rewrittenQuery`/`keywords` → router 走纯 exact 快通道。
 
@@ -128,11 +134,12 @@ export function arabicToChineseNumber(num: number): string
 ```
 classifyIntentService(query, type)
   → normalizedQuery = normalizeQuery(query)
-  → 正则前置 → 命中则直接返回（不写缓存，因为正则结果是确定的）
+  → if (type === 'law') 正则前置 → 命中则直接返回（不写缓存，因为正则结果是确定的）
   → cacheKey = buildCacheKey(type, normalizedQuery)
   → try { Redis GET } catch { 跳过 }
   → 缓存命中 → JSON.parse → 返回
   → 调 LLM（用原始 query，不是归一化后的）
+  → if (type === 'case_material' && result.intent === 'exact') 降级为 hybrid（现有逻辑保留）
   → try { Redis SET EX 604800 } catch { 跳过 }
   → 返回结果
 ```
@@ -258,6 +265,8 @@ export function enableIntentCache(): void
 | 归一化传给 LLM | 是 / 否 | 否 | LLM 自身有数字转换能力，传原始 query 更完整 |
 | 复合查询策略 | 只走 exact / exact ∥ hybrid | exact ∥ hybrid | 修复语义部分丢失问题 |
 | 正则匹配范围 | 纯 exact / 含复合 | 纯 exact | 复合查询需要 LLM 提取 rewrittenQuery，正则无法替代 |
+| 正则 type 限制 | 所有 type / 仅 law | 仅 law | case_material 不支持 exact 通道，正则必须跳过避免绕过降级逻辑 |
+| 正则 legalName 处理 | 原样 / trim | trim | 防止"民法典 第100条"等输入导致 legalName 尾部空格，使 DB contains 匹配失败 |
 
 ## 不做的事
 
