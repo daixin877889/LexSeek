@@ -207,15 +207,10 @@ const getMaterialCount = (materials: any) => {
 
 // 加载案件类型列表
 const loadCaseTypes = async () => {
-    // TODO: 从 API 获取案件类型列表
-    // 暂时使用模拟数据
-    caseTypes.value = [
-        { id: 1, name: '民事纠纷' },
-        { id: 2, name: '刑事案件' },
-        { id: 3, name: '行政诉讼' },
-        { id: 4, name: '劳动争议' },
-        { id: 5, name: '知识产权' },
-    ]
+    const data = await useApiFetch<{ items: CaseType[] }>('/api/v1/case-types')
+    if (data) {
+        caseTypes.value = data.items
+    }
 }
 
 // 加载案例列表
