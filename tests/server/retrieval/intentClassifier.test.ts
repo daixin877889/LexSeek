@@ -24,8 +24,17 @@ vi.mock('../../../server/utils/logger', () => ({
     logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
 }))
 
+// Mock Redis 客户端
+vi.mock('../../../server/lib/redis', () => ({
+    getRedisClient: vi.fn().mockReturnValue({
+        get: vi.fn().mockResolvedValue(null),
+        set: vi.fn().mockResolvedValue('OK'),
+    }),
+}))
+
 import { getValidNodeConfig } from '../../../server/services/node/node.service'
 import { createChatModel } from '../../../server/services/node/chatModelFactory'
+import { getRedisClient } from '../../../server/lib/redis'
 
 // ============================================================================
 // 测试辅助
@@ -222,5 +231,57 @@ describe('classifyIntentService', () => {
 
         const messages = mockInvoke.mock.calls[0][0]
         expect(messages[0].content).toContain('不存在精确通道')
+    })
+})
+
+describe('正则前置 + Redis 缓存', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        // 重置 Redis mock 默认行为
+        vi.mocked(getRedisClient().get).mockResolvedValue(null)
+        vi.mocked(getRedisClient().set).mockResolvedValue('OK')
+    })
+
+    it('type=law 纯 exact 查询 — 正则命中，跳过 LLM', async () => {
+        const result = await classifyIntentService('民法典第100条', 'law')
+        expect(result.intent).toBe('exact')
+        expect(result.legalName).toBe('民法典')
+        expect(createChatModel).not.toHaveBeenCalled()
+    })
+
+    it('type=case_material — 正则跳过，走 LLM', async () => {
+        const llmResult = { intent: 'hybrid', keywords: ['民法典'] }
+        const { model } = makeMockModel(llmResult)
+        vi.mocked(getValidNodeConfig).mockResolvedValue(makeNodeConfig() as never)
+        vi.mocked(createChatModel).mockReturnValue(model as never)
+
+        const result = await classifyIntentService('民法典第100条', 'case_material')
+        expect(result.intent).toBe('hybrid')
+        expect(createChatModel).toHaveBeenCalledOnce()
+    })
+
+    it('skipCache=true — 跳过 Redis 缓存，走 LLM', async () => {
+        const llmResult = { intent: 'hybrid', keywords: ['合同'] }
+        const { model } = makeMockModel(llmResult)
+        vi.mocked(getValidNodeConfig).mockResolvedValue(makeNodeConfig() as never)
+        vi.mocked(createChatModel).mockReturnValue(model as never)
+
+        const result = await classifyIntentService('合同解除条件', 'law', { skipCache: true })
+        expect(result.intent).toBe('hybrid')
+        expect(createChatModel).toHaveBeenCalledOnce()
+    })
+
+    it('Redis 连接失败 — 透明降级到 LLM', async () => {
+        // 让 Redis get 抛异常
+        vi.mocked(getRedisClient().get).mockRejectedValueOnce(new Error('ECONNREFUSED'))
+
+        const llmResult = { intent: 'semantic', rewrittenQuery: '合同纠纷' }
+        const { model } = makeMockModel(llmResult)
+        vi.mocked(getValidNodeConfig).mockResolvedValue(makeNodeConfig() as never)
+        vi.mocked(createChatModel).mockReturnValue(model as never)
+
+        const result = await classifyIntentService('合同纠纷', 'law')
+        expect(result.intent).toBe('semantic')
+        expect(createChatModel).toHaveBeenCalledOnce()
     })
 })
