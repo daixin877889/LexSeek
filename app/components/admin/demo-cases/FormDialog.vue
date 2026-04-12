@@ -13,12 +13,6 @@
                     <Input v-model="form.title" placeholder="请输入案例标题" />
                 </div>
 
-                <!-- 案例简介 -->
-                <div class="space-y-2">
-                    <Label>案例简介</Label>
-                    <Textarea v-model="form.description" placeholder="请输入案例简介" rows="3" />
-                </div>
-
                 <!-- 案件类型 -->
                 <div class="space-y-2">
                     <Label>案件类型 <span class="text-destructive">*</span></Label>
@@ -32,12 +26,6 @@
                             </SelectItem>
                         </SelectContent>
                     </Select>
-                </div>
-
-                <!-- 封面图片 -->
-                <div class="space-y-2">
-                    <Label>封面图片</Label>
-                    <Input v-model="form.coverImage" placeholder="请输入封面图片 URL" />
                 </div>
 
                 <!-- 优先级和状态 -->
