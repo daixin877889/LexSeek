@@ -211,28 +211,45 @@ export function disableIntentCache(): void
 export function enableIntentCache(): void
 ```
 
-#### 5.2 evalDataset.json 补充复合 exact 用例
+#### 5.2 evalDataset.json 补充新场景用例
 
-当前数据集有 exact/hybrid/semantic/edge 四类共 100 条用例，但没有复合 exact 场景。新增用例：
+当前数据集有 exact/hybrid/semantic/edge 四类共 100 条用例。需补充以下场景，覆盖流程 review 中发现的所有路径分支。
 
-```json
-{
-  "id": "compound-exact-001",
-  "query": "民法典第一千条 人格权保护",
-  "type": "law",
-  "expectedMode": "exact",
-  "k": 10,
-  "expectedHits": [
-    { "match": { "legal_name": "中华人民共和国民法典", "content_contains": "人格权" }, "mustBeInTopN": 3 },
-    { "match": { "content_contains": "人格权" }, "mustBeInTopN": 10 }
-  ],
-  "tags": ["compound-exact", "civil"]
-}
-```
+**数据集创建要求**：所有用例的 `expectedHits` 必须基于真实数据库记录（查询 `legalMain` 和 `legalArticles` 表获取真实的 `legal_name`、`content`、`articles_id`），不可凭空捏造。实施时需先查库确认记录存在。
 
-新增 5 条左右复合 exact 用例，tag 为 `compound-exact`，验证：
-- 精确条文出现在 top-3
-- 语义相关条文也出现在结果中（不被丢弃）
+##### 新增场景一：复合 exact（compound-exact）
+
+验证复合查询中精确条文 + 语义相关条文都出现在结果中。
+
+| 用例模式 | 示例 query | 验证要点 |
+|---------|-----------|---------|
+| 法律名+条号+语义 | "民法典第一千条 人格权保护" | 精确条文 top-3，语义结果在 top-10 |
+| 法律名+条号+术语 | "刑法第二百六十四条 盗窃量刑" | 同上 |
+
+新增 5 条左右，tag 为 `compound-exact`。
+
+##### 新增场景二：归一化变体（normalize）
+
+验证不同写法归一化后走相同路径、返回相同结果。
+
+| 用例模式 | 示例 query | 验证要点 |
+|---------|-----------|---------|
+| 全称前缀 | "中华人民共和国民法典第一百条" | 与"民法典第100条"结果一致 |
+| 中文数字 | "刑法第二百六十四条" | 与"刑法第264条"结果一致 |
+| 全角数字 | "民法典第１００条" | 归一化后命中正则 |
+| 名称与条号间有空格 | "民法典 第100条" | legalName trim 后正常匹配 |
+
+新增 4-5 条，tag 为 `normalize`。每条用例的 `expectedHits` 应与对应的现有 exact 用例一致（验证归一化不改变结果）。
+
+##### 新增场景三：case_material + exact 模式（case-material-exact）
+
+验证 case_material 类型不走 exact 通道。
+
+| 用例模式 | 示例 query | type | 验证要点 |
+|---------|-----------|------|---------|
+| 精确模式 | "民法典第一百条" | case_material | 应被降级为 hybrid/semantic，不走 exactSearch |
+
+新增 1-2 条，tag 为 `case-material-exact`，`expectedMode` 为 `hybrid`。
 
 ## 文件变更清单
 
