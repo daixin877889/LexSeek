@@ -54,16 +54,10 @@ export function useAdminMenu(): UseAdminMenuReturn {
 
     // 路由变化时更新激活状态
     watch(() => route.path, (path) => {
-        const matchedRouter = store.rawRouters.find((r: any) => {
-            if (r.path === path) return true
-            if (path.startsWith(r.path + '/')) {
-                const moreSpecific = store.rawRouters.some((r2: any) =>
-                    r2.path !== r.path && r2.path !== path && path.startsWith(r2.path + '/')
-                )
-                return !moreSpecific
-            }
-            return false
-        })
+        // 从所有菜单路由中找到最长前缀匹配（最精确匹配）
+        const matchedRouter = store.rawRouters
+            .filter((r: any) => r.path === path || path.startsWith(r.path + '/'))
+            .sort((a: any, b: any) => b.path.length - a.path.length)[0]
         if (matchedRouter) {
             store.setActive(matchedRouter.path)
         }
