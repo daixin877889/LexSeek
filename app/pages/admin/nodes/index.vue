@@ -216,6 +216,8 @@ const loadNodes = async () => {
         const params: Record<string, any> = {
             page: pagination.value.page,
             pageSize: pagination.value.pageSize,
+            orderBy: 'createdAt',
+            orderDir: 'desc',
         }
         if (groupFilter.value !== 'all') params.groupId = parseInt(groupFilter.value)
         if (typeFilter.value !== 'all') params.type = typeFilter.value
