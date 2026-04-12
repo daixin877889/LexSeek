@@ -36,6 +36,11 @@ describe('normalizeQuery', () => {
   it('空字符串安全', () => {
     expect(normalizeQuery('')).toBe('')
   })
+
+  it('非中文数字字符不被转换', () => {
+    // "abc" 不匹配中文数字正则，不会进入 replaceChinese
+    expect(normalizeQuery('民法典第abc条')).toBe('民法典第abc条')
+  })
 })
 
 describe('tryExactRegex', () => {
@@ -108,6 +113,14 @@ describe('tryExactRegex', () => {
       expect(result).not.toBeNull()
       expect(result).not.toHaveProperty('rewrittenQuery')
       expect(result).not.toHaveProperty('keywords')
+    })
+
+    it('空字符串返回 null', () => {
+      expect(tryExactRegex('')).toBeNull()
+    })
+
+    it('articleNum 为 0 返回 null', () => {
+      expect(tryExactRegex('民法典第0条')).toBeNull()
     })
   })
 })
