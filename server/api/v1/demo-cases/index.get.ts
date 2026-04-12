@@ -40,15 +40,25 @@ export default defineEventHandler(async (event) => {
         const caseTypeMap = new Map(caseTypes.map((ct) => [ct.id, ct.name]))
 
         // 格式化返回数据
-        const items = demoCases.map((dc) => ({
-            id: dc.id,
-            title: dc.title,
-            description: dc.description,
-            caseTypeId: dc.caseTypeId,
-            caseTypeName: caseTypeMap.get(dc.caseTypeId) || '',
-            coverImage: dc.coverImage,
-            priority: dc.priority,
-        }))
+        const items = demoCases.map((dc) => {
+            // 卡片预览：description 优先；否则从 content 截取前 120 字符
+            const contentPreview = dc.content
+                ? dc.content.replace(/\s+/g, ' ').trim().slice(0, 120)
+                : null
+            const preview = dc.description?.trim() || contentPreview || null
+            const materialCount = Array.isArray(dc.materials) ? dc.materials.length : 0
+            return {
+                id: dc.id,
+                title: dc.title,
+                description: dc.description,
+                preview,
+                materialCount,
+                caseTypeId: dc.caseTypeId,
+                caseTypeName: caseTypeMap.get(dc.caseTypeId) || '',
+                coverImage: dc.coverImage,
+                priority: dc.priority,
+            }
+        })
 
         return resSuccess(event, '获取示范案例列表成功', { items })
     } catch (error) {

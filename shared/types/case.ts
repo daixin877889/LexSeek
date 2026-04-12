@@ -471,7 +471,12 @@ export interface DemoCaseFileMaterial {
 export interface DemoCaseListItem {
   id: number
   title: string
+  /** 案例简介（admin 填写的短描述，可能为空） */
   description: string | null
+  /** 卡片预览文本：description 优先，否则从 content 截取前 120 字符（后端计算） */
+  preview: string | null
+  /** 预设文件材料数量（不含文本内容） */
+  materialCount: number
   caseTypeId: number
   caseTypeName: string
   coverImage: string | null
