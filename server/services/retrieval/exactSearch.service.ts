@@ -5,7 +5,7 @@
  * 命中条文会扩展前后 ±2 条上下文（限制在同 l1 层级内），并对结果去重。
  */
 
-import { buildHierarchyPath } from '../legal/lawEmbedding.service'
+import { buildChapterHierarchy } from '../legal/lawEmbedding.service'
 import type { IntentClassification, RetrievalResult } from './types'
 
 /**
@@ -81,14 +81,17 @@ export async function exactSearchService(
                 score: 1.0,
                 content: article.content || '',
                 metadata: {
-                    legal_name: legal.name,
-                    document_number: legal.documentNumber,
-                    publish_date: legal.publishDate?.toISOString(),
-                    effective_date: legal.effectiveDate?.toISOString(),
-                    invalid_date: legal.invalidDate?.toISOString(),
-                    article_type: article.type,
                     articles_id: article.id,
-                    chapter_hierarchy: buildHierarchyPath(article),
+                    legal_id: legal.id,
+                    legal_name: legal.name,
+                    legal_type: legal.type,
+                    article_type: article.type,
+                    chapter_hierarchy: buildChapterHierarchy(article),
+                    issuing_authority: legal.issuingAuthority || '',
+                    document_number: legal.documentNumber || '',
+                    publish_date: legal.publishDate?.toISOString() ?? null,
+                    effective_date: legal.effectiveDate?.toISOString() ?? null,
+                    invalid_date: legal.invalidDate?.toISOString() ?? null,
                     retrieval_mode: 'exact',
                 },
                 retrievalMode: 'exact' as const,

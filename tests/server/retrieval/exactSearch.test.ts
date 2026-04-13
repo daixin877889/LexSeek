@@ -269,15 +269,15 @@ describe('exactSearchService', () => {
                 document_number: '主席令第45号',
                 publish_date: '2020-05-28T00:00:00.000Z',
                 effective_date: '2021-01-01T00:00:00.000Z',
-                invalid_date: undefined,
+                invalid_date: null,
                 article_type: 'l5',
                 articles_id: 'article-001',
-                chapter_hierarchy: '第一编 > 第一章 > 第一条',
+                chapter_hierarchy: ['第一编', '第一章', '第一条'],
                 retrieval_mode: 'exact',
             })
         })
 
-        it('chapter_hierarchy 过滤 null 值正确拼接层级', async () => {
+        it('chapter_hierarchy 过滤 null 值返回数组', async () => {
             const legal = makeLegal()
             const article = makeArticle({
                 l1: null,
@@ -300,7 +300,7 @@ describe('exactSearchService', () => {
 
             const results = await exactSearchService(intent)
 
-            expect(results[0].metadata.chapter_hierarchy).toBe('总则 > 第一条')
+            expect(results[0].metadata.chapter_hierarchy).toEqual(['总则', '第一条'])
         })
     })
 
