@@ -257,5 +257,6 @@ model caseMaterialEmbeddings {
     /// 中文全文搜索向量（由 trigger 自动维护）
     tsv       Unsupported("tsvector")?
 
+    @@index([tsv], type: Gin, map: "idx_case_material_tsv")
     @@map("case_material_embeddings")
 }

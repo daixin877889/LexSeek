@@ -112,5 +112,31 @@ model lawEmbeddings {
     /// 中文全文搜索向量（由 trigger 自动维护）
     tsv       Unsupported("tsvector")?
 
+    @@index([tsv], type: Gin, map: "idx_law_embeddings_tsv")
+    @@index([text(ops: raw("gin_trgm_ops"))], type: Gin, map: "idx_law_embeddings_text_trgm")
     @@map("law_embeddings")
+}
+
+/// zhparser 扩展自动创建的自定义词典类型，不由 Prisma 管理
+enum dictType {
+    extra
+    it
+    edu
+    gov
+    medical
+    other
+
+    @@map("dict_type")
+}
+
+/// zhparser 扩展自动创建的自定义词表，不由 Prisma 管理
+model pgTsCustomWord {
+    word   String                    @id @map("word") @db.Char(255)
+    tf     Float                     @default(10.0) @map("tf")
+    idf    Float                     @default(2.0) @map("idf")
+    attr   String                    @default("n") @map("attr") @db.Char(1)
+    tsType dictType                  @default(extra) @map("ts_type")
+
+    @@ignore
+    @@map("pg_ts_custom_word")
 }
