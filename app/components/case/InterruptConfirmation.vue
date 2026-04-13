@@ -13,9 +13,12 @@
             :is-submitting="isSubmitting" @submit="handleModuleSelectSubmit" @cancel="handleCancel" />
 
         <!-- 积分不足中断（中断点4） -->
-        <InsufficientPointsHandler v-else-if="isInsufficientPoints"
-            :interrupt="interrupt as InsufficientPointsInterruptData"
-            :is-submitting="isSubmitting" @submit="handlePointsSubmit" @cancel="handleCancel" />
+        <InitAnalysisInsufficientPointsCard v-else-if="isInsufficientPoints"
+            :is-member="insufficientPointsData?.isMember ?? false"
+            :available-points="insufficientPointsData?.availablePoints"
+            :required-points="insufficientPointsData?.requiredPoints"
+            :reason="insufficientPointsData?.reason"
+            @resume="handlePointsResume" />
 
         <!-- 未知中断类型 -->
         <Alert v-else variant="destructive" class="flex flex-col gap-2">
@@ -57,7 +60,6 @@ const isInsufficientPointsInterrupt = (d: InterruptData | null) => d?.type === I
 import CaseInfoCheckHandler from './interrupt/CaseInfoCheckHandler.vue'
 import BasicInfoConfirmHandler from './interrupt/BasicInfoConfirmHandler.vue'
 import ModuleSelectHandler from './interrupt/ModuleSelectHandler.vue'
-import InsufficientPointsHandler from './interrupt/InsufficientPointsHandler.vue'
 
 /**
  * 组件 Props
@@ -88,6 +90,11 @@ const isCaseInfoCheck = computed(() => isCaseInfoCheckInterrupt(props.interrupt)
 const isBasicInfoConfirm = computed(() => isBasicInfoConfirmInterrupt(props.interrupt))
 const isModuleSelect = computed(() => isModuleSelectInterrupt(props.interrupt))
 const isInsufficientPoints = computed(() => isInsufficientPointsInterrupt(props.interrupt))
+const insufficientPointsData = computed(() =>
+    isInsufficientPoints.value
+        ? (props.interrupt as InsufficientPointsInterruptData).data
+        : null,
+)
 
 /**
  * 处理案情信息补充提交
@@ -111,10 +118,10 @@ const handleModuleSelectSubmit = (selectedModules: string[]) => {
 }
 
 /**
- * 处理积分不足恢复提交
+ * 处理积分不足恢复（支付完成后继续分析）
  */
-const handlePointsSubmit = (data: unknown) => {
-    emit('submit', data)
+const handlePointsResume = () => {
+    emit('submit', { type: 'points_recharged' })
 }
 
 /**
