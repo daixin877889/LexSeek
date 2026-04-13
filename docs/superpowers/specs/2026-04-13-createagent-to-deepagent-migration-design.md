@@ -22,7 +22,7 @@
 | `@langchain/langgraph` | ^1.2.8 | ^1.2.8 | ✅ 一致 |
 | `zod` | ^4.2.1 | ^4.3.6 | ⚠️ 需升级 |
 
-**新增依赖**：`deepagents@^1.9.0`
+**新增依赖**：`deepagents@^1.9.0`、`langsmith@>=0.5.15`（deepagents peerDependency）
 
 ## 约束
 
@@ -77,7 +77,8 @@ const agent: ReactAgent = createAgent({
 ```typescript
 import { createDeepAgent, type DeepAgent } from 'deepagents'
 
-const agent: DeepAgent = await createDeepAgent({
+// createDeepAgent 是同步函数，直接返回 DeepAgent
+const agent: DeepAgent = createDeepAgent({
     model,
     systemPrompt,
     checkpointer,
@@ -85,6 +86,7 @@ const agent: DeepAgent = await createDeepAgent({
     tools: directTools,  // 仅通用工具（search_law, search_case_materials 等）
     subagents: subAgentConfigs,  // deepagent 内置子代理机制
     skills: ['/skills/'],  // skills 目录
+    backend: (config) => new StoreBackend(config),  // 限制 filesystem 在 PostgresStore 内
     middleware: [
         // 业务中间件保留
         pointConsumptionMiddleware(...),
@@ -159,13 +161,15 @@ const agent: ReactAgent = createAgent({
 ```typescript
 import { createDeepAgent, type DeepAgent } from 'deepagents'
 
-const agent: DeepAgent = await createDeepAgent({
+// createDeepAgent 是同步函数
+const agent: DeepAgent = createDeepAgent({
     model,
     systemPrompt,
     checkpointer,
     store,
     tools: allTools,  // 节点工具 + saveAnalysisResult
     skills: ['/skills/'],
+    backend: (config) => new StoreBackend(config),
     middleware: [
         pointConsumptionMiddleware(...),
         moduleContextMiddleware(...),
@@ -201,12 +205,12 @@ Skills 内容包含：
 
 ### Backend 配置
 
-deepagent 的 filesystem 工具需要配置 backend。对于本项目，推荐使用 `StoreBackend`（复用现有 PostgresStore）：
+deepagent 的 filesystem 工具需要配置 backend。对于本项目，**必须使用 `StoreBackend`**（复用现有 PostgresStore），以确保 filesystem 操作限制在 PostgresStore 内，不触及真实服务器文件系统：
 
 ```typescript
 import { StoreBackend } from 'deepagents'
 
-const agent = await createDeepAgent({
+const agent = createDeepAgent({
     backend: (config) => new StoreBackend(config),
     store: getStore(),   // 复用现有 PostgresStore 单例
     // ...
@@ -214,6 +218,21 @@ const agent = await createDeepAgent({
 ```
 
 这样 filesystem 操作（大结果卸载、context 文件读写）持久化在 PostgresStore 中，与现有检查点存储统一。
+
+### 内置工具安全性评估（Critical）
+
+deepagent 自动挂载的内置工具存在安全风险，**必须通过 backend 策略限制**：
+
+| 内置工具 | 风险 | StoreBackend 下的行为 |
+|---------|------|---------------------|
+| `execute`（shell 执行）| **高** - 服务器 shell 访问 | ⚠️ **需验证是否被禁用**。如果 StoreBackend 不禁用 execute，则为**阻断性问题** |
+| `write_file` / `edit_file` | 中 - 可能写服务器文件 | ✅ 操作限制在 PostgresStore namespace 内 |
+| `read_file` | 中 - 可能读敏感文件 | ✅ 只能读 PostgresStore 中的数据 |
+| `ls` / `glob` / `grep` | 低 - 可能暴露文件结构 | ✅ 只能查询 PostgresStore 中的数据 |
+| `write_todos` | 无 | ✅ 状态存储在 agent state 中 |
+| `task`（subagent） | 无 | ✅ 使用配置的 subagents |
+
+**PoC 验证项**：必须在最小化 PoC 中验证 `StoreBackend` 下 `execute` 工具是否被自动禁用。如果未被禁用，需要寻找禁用特定内置工具的 API 或考虑自定义 backend。
 
 ### 工具冲突检查
 
@@ -242,6 +261,18 @@ deepagent 的 `interruptOn` 参数支持 HITL 工作流。当前项目的 interr
 - `Command({ resume })` 恢复机制不受影响
 - Worker 的 interrupted 状态检测逻辑不变
 
+**子代理 interrupt 冒泡（需 PoC 验证）**：
+当子代理的中间件（如 `pointConsumptionMiddleware`）在子代理内部触发 `interrupt()` 时，需要验证：
+1. 这个 interrupt 是否冒泡到主代理？（deepagent 的 `task` 工具如何处理子代理的 `GraphInterrupt`）
+2. `agentWorker.ts` 中的 interrupt 检测逻辑（`tasks[-1].interrupts`）在 subgraph 场景下是否正确工作
+3. 如果冒泡不正确，备选方案：子代理不挂载 `pointConsumptionMiddleware`，改为工具函数内手动检查积分
+
+### getChatThreadState 函数迁移
+
+当前 `caseMainAgent.ts` 中的 `getChatThreadState` 使用 `createAgent`（不带 middleware）创建最小实例读取 checkpoint state。迁移后，`DeepAgent` 的 state schema 因内置中间件扩展了字段（`todos`、`_summarizationSessionId` 等）。
+
+**方案**：`getChatThreadState` 改为使用 `checkpointer.getTuple()` 低层 API 直接读取，避免创建 agent 实例。或创建一个使用相同 `createDeepAgent` 配置的只读实例。
+
 ### 流式输出兼容性
 
 `DeepAgent` 继承自 `ReactAgent`，支持完全相同的 stream 参数：
@@ -264,9 +295,9 @@ agent.stream(input, {
 
 | 文件 | 变更内容 |
 |------|---------|
-| `server/services/workflow/agents/caseMainAgent.ts` | `createAgent` → `createDeepAgent`，添加 subagents/skills/backend |
+| `server/services/workflow/agents/caseMainAgent.ts` | `createAgent` → `createDeepAgent`，添加 subagents/skills/backend；`getChatThreadState` 改用低层 API |
 | `server/services/workflow/agents/moduleAgent.ts` | `createAgent` → `createDeepAgent`，添加 skills/backend |
-| `package.json` | 新增 `deepagents@^1.9.0`，升级 `zod@^4.3.6` |
+| `package.json` | 新增 `deepagents@^1.9.0`、`langsmith@>=0.5.15`，升级 `zod@^4.3.6` |
 
 ### 可能删除
 
@@ -303,6 +334,7 @@ agent.stream(input, {
 | 操作 | 包名 | 版本 |
 |------|------|------|
 | 新增 | `deepagents` | ^1.9.0 |
+| 新增 | `langsmith` | >=0.5.15（peerDependency） |
 | 升级 | `zod` | ^4.2.1 → ^4.3.6 |
 
 ## 风险评估
@@ -323,22 +355,60 @@ agent.stream(input, {
 
 ### 高风险
 - **zod 升级**：从 ^4.2.1 升级到 ^4.3.6，需全项目验证兼容性
-- **summarization 行为变化**：deepagent 内置的 summarizationMiddleware 配置可能与现有参数不同，需要验证摘要触发阈值和行为
+  - 验证方案：`npx vitest run` 全量测试 + `npx nuxi typecheck` 类型检查
+  - 注意 Prisma 已将 zod 作为 inline 依赖打包（commit `b10e1ac`），需确认是否受影响
+- **summarization 行为变化**：deepagent 内置的 summarizationMiddleware 配置可能与现有参数不同
+  - 当前配置：`trigger: [{ tokens: contextWindow * 0.6 }]`，下限 30k
+  - 需在 PoC 中验证 deepagent 的 `computeSummarizationDefaults` 自动阈值是否一致
+  - 如果不一致，可禁用内置 summarization 并继续手动挂载
+- **内置工具安全性**：`execute` 工具在生产环境的服务器上运行是严重安全隐患
+  - 必须验证 `StoreBackend` 是否自动禁用 `execute`
+  - 如果未禁用，这是**迁移阻断项**
 
 ## 迁移步骤
 
-1. **依赖安装**：`bun add deepagents@^1.9.0` + `bun add zod@^4.3.6`
-2. **Skills 目录创建**：建立 `.deepagents/skills/` 结构
-3. **caseMainAgent 迁移**：改用 createDeepAgent，配置 subagents
-4. **moduleAgent 迁移**：改用 createDeepAgent
-5. **验证 subAgentToolFactory 可替代性**：测试 deepagent subagent 机制
+### Phase 0：最小化 PoC（阻断性验证）
+
+在开始正式迁移前，必须先验证以下阻断性问题：
+
+1. **`execute` 工具安全性**：创建最小 `createDeepAgent` + `StoreBackend` 实例，检查 `execute` 工具是否被禁用
+2. **SSE 格式兼容性**：验证 `encoding: 'text/event-stream'` 在 deepagent 内置中间件栈下输出格式正确
+3. **Interrupt 冒泡**：验证子代理中间件 `interrupt()` 是否正确冒泡到主代理
+4. **Checkpoint 兼容性**：验证旧 `createAgent` 的 checkpoint 能否被 `createDeepAgent` 加载（影响正在进行的会话）
+
+如果任一项验证失败，需要重新评估迁移方案。
+
+### Phase 1：依赖和基础设施
+
+1. **依赖安装**：`bun add deepagents@^1.9.0 langsmith` + `bun add zod@^4.3.6`
+2. **zod 兼容性验证**：`npx vitest run` + `npx nuxi typecheck`
+3. **Skills 目录创建**：建立 `.deepagents/skills/` 结构
+4. **Skills 部署配置**：确保 `.deepagents/skills/` 在 Nuxt 构建后可被读取（可能需要 `nitro.externals` 配置，或改用 StoreBackend 内存 skills）
+
+### Phase 2：moduleAgent 迁移（先简单后复杂）
+
+5. **moduleAgent 迁移**：改用 createDeepAgent（无子代理，改动最小）
 6. **集成测试**：SSE 流式输出、interrupt/resume、多轮对话
-7. **性能基准**：对比迁移前后 token 消耗和响应延迟
+7. **验证通过后合并**
+
+### Phase 3：caseMainAgent 迁移
+
+8. **caseMainAgent 迁移**：改用 createDeepAgent，配置 subagents
+9. **getChatThreadState 适配**：改用 checkpointer 低层 API 或 DeepAgent 实例
+10. **验证 subAgentToolFactory 可替代性**：测试 deepagent subagent 机制
+11. **集成测试**：完整功能回归
+12. **性能基准**：对比迁移前后首次响应延迟、单轮对话 token 消耗增幅
+
+### 回滚策略
+
+- 每个 Phase 独立分支，可单独回滚
+- 保留 `subAgentToolFactory.ts` 作为 fallback 直到 Phase 3 验证通过
+- 如果 deepagent 的内置行为不可控，随时可以退回 `createAgent` + 手动挂载 deepagent 中间件的方案（deepagent 的 middleware 可独立使用）
 
 ## 参考资料
 
 - [deepagentsjs GitHub](https://github.com/langchain-ai/deepagentsjs)
 - [deepagents npm](https://www.npmjs.com/package/deepagents)
-- [Skills 文档](https://docs.langchain.com/oss/javascript/deepagents/skills)
-- [createDeepAgent API](https://deepwiki.com/langchain-ai/deepagentsjs/4-createdeepagent-api)
-- [Customize Deep Agents](https://docs.langchain.com/oss/javascript/deepagents/customization)
+- [Skills 文档 - LangChain Docs](https://docs.langchain.com/oss/javascript/deepagents/skills)
+- [Customize Deep Agents - LangChain Docs](https://docs.langchain.com/oss/javascript/deepagents/customization)
+- [Deep Agents Overview - LangChain Docs](https://docs.langchain.com/oss/javascript/deepagents/overview)
