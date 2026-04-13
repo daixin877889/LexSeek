@@ -53,7 +53,10 @@ export async function exactSearchService(
 
     if (matched.length === 0) return []
 
-    // 3. 对每部命中法律的每条条文扩展上下文
+    // 3. 收集直接命中条文的 ID（用于区分主命中和上下文的 score）
+    const primaryHitIds = new Set(matched.flatMap(p => p.articles.map(a => a.id)))
+
+    // 4. 对每部命中法律的每条条文扩展上下文
     const allResults: RetrievalResult[] = []
     const seenIds = new Set<string>()
 
@@ -77,8 +80,10 @@ export async function exactSearchService(
         for (const article of expandedGroups.flat()) {
             if (seenIds.has(article.id)) continue
             seenIds.add(article.id)
+            // 直接命中条文 score=1.0，上下文条文 score=0.95
+            const isPrimaryHit = primaryHitIds.has(article.id)
             allResults.push({
-                score: 1.0,
+                score: isPrimaryHit ? 1.0 : 0.95,
                 content: article.content || '',
                 metadata: {
                     articles_id: article.id,
@@ -99,5 +104,6 @@ export async function exactSearchService(
         }
     }
 
-    return allResults
+    // 按 score 降序排列：主命中（1.0）在前，上下文（0.95）在后
+    return allResults.sort((a, b) => b.score - a.score)
 }
