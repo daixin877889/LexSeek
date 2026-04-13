@@ -263,7 +263,7 @@ export type MineruTasksGroupByOutputType = {
   _max: MineruTasksMaxAggregateOutputType | null
 }
 
-type GetMineruTasksGroupByPayload<T extends mineruTasksGroupByArgs> = Prisma.PrismaPromise<
+export type GetMineruTasksGroupByPayload<T extends mineruTasksGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<MineruTasksGroupByOutputType, T['by']> &
       {
@@ -1533,6 +1533,11 @@ export type mineruTasksFindManyArgs<ExtArgs extends runtime.Types.Extensions.Int
    * Skip the first `n` mineruTasks.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of mineruTasks.
+   */
   distinct?: Prisma.MineruTasksScalarFieldEnum | Prisma.MineruTasksScalarFieldEnum[]
 }
 

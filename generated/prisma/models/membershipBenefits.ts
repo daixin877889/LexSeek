@@ -218,7 +218,7 @@ export type MembershipBenefitsGroupByOutputType = {
   _max: MembershipBenefitsMaxAggregateOutputType | null
 }
 
-type GetMembershipBenefitsGroupByPayload<T extends membershipBenefitsGroupByArgs> = Prisma.PrismaPromise<
+export type GetMembershipBenefitsGroupByPayload<T extends membershipBenefitsGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<MembershipBenefitsGroupByOutputType, T['by']> &
       {
@@ -1412,6 +1412,11 @@ export type membershipBenefitsFindManyArgs<ExtArgs extends runtime.Types.Extensi
    * Skip the first `n` membershipBenefits.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of membershipBenefits.
+   */
   distinct?: Prisma.MembershipBenefitsScalarFieldEnum | Prisma.MembershipBenefitsScalarFieldEnum[]
 }
 

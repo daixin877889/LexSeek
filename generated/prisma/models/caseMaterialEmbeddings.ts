@@ -142,7 +142,7 @@ export type CaseMaterialEmbeddingsGroupByOutputType = {
   _max: CaseMaterialEmbeddingsMaxAggregateOutputType | null
 }
 
-type GetCaseMaterialEmbeddingsGroupByPayload<T extends caseMaterialEmbeddingsGroupByArgs> = Prisma.PrismaPromise<
+export type GetCaseMaterialEmbeddingsGroupByPayload<T extends caseMaterialEmbeddingsGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<CaseMaterialEmbeddingsGroupByOutputType, T['by']> &
       {
@@ -903,6 +903,11 @@ export type caseMaterialEmbeddingsFindManyArgs<ExtArgs extends runtime.Types.Ext
    * Skip the first `n` caseMaterialEmbeddings.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of caseMaterialEmbeddings.
+   */
   distinct?: Prisma.CaseMaterialEmbeddingsScalarFieldEnum | Prisma.CaseMaterialEmbeddingsScalarFieldEnum[]
 }
 

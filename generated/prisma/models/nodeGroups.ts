@@ -210,7 +210,7 @@ export type NodeGroupsGroupByOutputType = {
   _max: NodeGroupsMaxAggregateOutputType | null
 }
 
-type GetNodeGroupsGroupByPayload<T extends nodeGroupsGroupByArgs> = Prisma.PrismaPromise<
+export type GetNodeGroupsGroupByPayload<T extends nodeGroupsGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<NodeGroupsGroupByOutputType, T['by']> &
       {
@@ -1223,6 +1223,11 @@ export type nodeGroupsFindManyArgs<ExtArgs extends runtime.Types.Extensions.Inte
    * Skip the first `n` nodeGroups.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of nodeGroups.
+   */
   distinct?: Prisma.NodeGroupsScalarFieldEnum | Prisma.NodeGroupsScalarFieldEnum[]
 }
 

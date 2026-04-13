@@ -250,7 +250,7 @@ export type ModelApiKeysGroupByOutputType = {
   _max: ModelApiKeysMaxAggregateOutputType | null
 }
 
-type GetModelApiKeysGroupByPayload<T extends modelApiKeysGroupByArgs> = Prisma.PrismaPromise<
+export type GetModelApiKeysGroupByPayload<T extends modelApiKeysGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<ModelApiKeysGroupByOutputType, T['by']> &
       {
@@ -1437,6 +1437,11 @@ export type modelApiKeysFindManyArgs<ExtArgs extends runtime.Types.Extensions.In
    * Skip the first `n` modelApiKeys.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of modelApiKeys.
+   */
   distinct?: Prisma.ModelApiKeysScalarFieldEnum | Prisma.ModelApiKeysScalarFieldEnum[]
 }
 

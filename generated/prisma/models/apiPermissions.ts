@@ -242,7 +242,7 @@ export type ApiPermissionsGroupByOutputType = {
   _max: ApiPermissionsMaxAggregateOutputType | null
 }
 
-type GetApiPermissionsGroupByPayload<T extends apiPermissionsGroupByArgs> = Prisma.PrismaPromise<
+export type GetApiPermissionsGroupByPayload<T extends apiPermissionsGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<ApiPermissionsGroupByOutputType, T['by']> &
       {
@@ -1575,6 +1575,11 @@ export type apiPermissionsFindManyArgs<ExtArgs extends runtime.Types.Extensions.
    * Skip the first `n` apiPermissions.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of apiPermissions.
+   */
   distinct?: Prisma.ApiPermissionsScalarFieldEnum | Prisma.ApiPermissionsScalarFieldEnum[]
 }
 

@@ -245,7 +245,7 @@ export type PromptsGroupByOutputType = {
   _max: PromptsMaxAggregateOutputType | null
 }
 
-type GetPromptsGroupByPayload<T extends promptsGroupByArgs> = Prisma.PrismaPromise<
+export type GetPromptsGroupByPayload<T extends promptsGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<PromptsGroupByOutputType, T['by']> &
       {
@@ -1451,6 +1451,11 @@ export type promptsFindManyArgs<ExtArgs extends runtime.Types.Extensions.Interna
    * Skip the first `n` prompts.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of prompts.
+   */
   distinct?: Prisma.PromptsScalarFieldEnum | Prisma.PromptsScalarFieldEnum[]
 }
 

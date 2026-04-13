@@ -117,9 +117,9 @@ export default defineNuxtConfig({
 
       ]
     },
-    // 解决 dayjs ESM 模块解析问题
+    // 解决 dayjs/zod ESM 模块解析问题，确保打包进 .output
     externals: {
-      inline: ['dayjs']
+      inline: ['dayjs', 'zod']
     },
     // 生产构建代码混淆（rollup 插件）
     // 通过环境变量 ENABLE_OBFUSCATOR=true 显式开启，默认关闭

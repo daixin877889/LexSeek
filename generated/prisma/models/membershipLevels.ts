@@ -221,7 +221,7 @@ export type MembershipLevelsGroupByOutputType = {
   _max: MembershipLevelsMaxAggregateOutputType | null
 }
 
-type GetMembershipLevelsGroupByPayload<T extends membershipLevelsGroupByArgs> = Prisma.PrismaPromise<
+export type GetMembershipLevelsGroupByPayload<T extends membershipLevelsGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<MembershipLevelsGroupByOutputType, T['by']> &
       {
@@ -1868,6 +1868,11 @@ export type membershipLevelsFindManyArgs<ExtArgs extends runtime.Types.Extension
    * Skip the first `n` membershipLevels.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of membershipLevels.
+   */
   distinct?: Prisma.MembershipLevelsScalarFieldEnum | Prisma.MembershipLevelsScalarFieldEnum[]
 }
 

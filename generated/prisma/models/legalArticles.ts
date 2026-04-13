@@ -338,7 +338,7 @@ export type LegalArticlesGroupByOutputType = {
   _max: LegalArticlesMaxAggregateOutputType | null
 }
 
-type GetLegalArticlesGroupByPayload<T extends legalArticlesGroupByArgs> = Prisma.PrismaPromise<
+export type GetLegalArticlesGroupByPayload<T extends legalArticlesGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<LegalArticlesGroupByOutputType, T['by']> &
       {
@@ -1898,6 +1898,11 @@ export type legalArticlesFindManyArgs<ExtArgs extends runtime.Types.Extensions.I
    * Skip the first `n` legalArticles.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of legalArticles.
+   */
   distinct?: Prisma.LegalArticlesScalarFieldEnum | Prisma.LegalArticlesScalarFieldEnum[]
 }
 

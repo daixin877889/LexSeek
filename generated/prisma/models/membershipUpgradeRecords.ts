@@ -265,7 +265,7 @@ export type MembershipUpgradeRecordsGroupByOutputType = {
   _max: MembershipUpgradeRecordsMaxAggregateOutputType | null
 }
 
-type GetMembershipUpgradeRecordsGroupByPayload<T extends membershipUpgradeRecordsGroupByArgs> = Prisma.PrismaPromise<
+export type GetMembershipUpgradeRecordsGroupByPayload<T extends membershipUpgradeRecordsGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<MembershipUpgradeRecordsGroupByOutputType, T['by']> &
       {
@@ -1970,6 +1970,11 @@ export type membershipUpgradeRecordsFindManyArgs<ExtArgs extends runtime.Types.E
    * Skip the first `n` membershipUpgradeRecords.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of membershipUpgradeRecords.
+   */
   distinct?: Prisma.MembershipUpgradeRecordsScalarFieldEnum | Prisma.MembershipUpgradeRecordsScalarFieldEnum[]
 }
 

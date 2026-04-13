@@ -254,7 +254,7 @@ export type TextContentRecordsGroupByOutputType = {
   _max: TextContentRecordsMaxAggregateOutputType | null
 }
 
-type GetTextContentRecordsGroupByPayload<T extends textContentRecordsGroupByArgs> = Prisma.PrismaPromise<
+export type GetTextContentRecordsGroupByPayload<T extends textContentRecordsGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<TextContentRecordsGroupByOutputType, T['by']> &
       {
@@ -1246,6 +1246,11 @@ export type textContentRecordsFindManyArgs<ExtArgs extends runtime.Types.Extensi
    * Skip the first `n` textContentRecords.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of textContentRecords.
+   */
   distinct?: Prisma.TextContentRecordsScalarFieldEnum | Prisma.TextContentRecordsScalarFieldEnum[]
 }
 

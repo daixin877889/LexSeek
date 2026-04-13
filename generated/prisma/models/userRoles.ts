@@ -207,7 +207,7 @@ export type UserRolesGroupByOutputType = {
   _max: UserRolesMaxAggregateOutputType | null
 }
 
-type GetUserRolesGroupByPayload<T extends userRolesGroupByArgs> = Prisma.PrismaPromise<
+export type GetUserRolesGroupByPayload<T extends userRolesGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<UserRolesGroupByOutputType, T['by']> &
       {
@@ -1362,6 +1362,11 @@ export type userRolesFindManyArgs<ExtArgs extends runtime.Types.Extensions.Inter
    * Skip the first `n` userRoles.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of userRoles.
+   */
   distinct?: Prisma.UserRolesScalarFieldEnum | Prisma.UserRolesScalarFieldEnum[]
 }
 

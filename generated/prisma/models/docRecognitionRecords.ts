@@ -259,7 +259,7 @@ export type DocRecognitionRecordsGroupByOutputType = {
   _max: DocRecognitionRecordsMaxAggregateOutputType | null
 }
 
-type GetDocRecognitionRecordsGroupByPayload<T extends docRecognitionRecordsGroupByArgs> = Prisma.PrismaPromise<
+export type GetDocRecognitionRecordsGroupByPayload<T extends docRecognitionRecordsGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<DocRecognitionRecordsGroupByOutputType, T['by']> &
       {
@@ -1527,6 +1527,11 @@ export type docRecognitionRecordsFindManyArgs<ExtArgs extends runtime.Types.Exte
    * Skip the first `n` docRecognitionRecords.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of docRecognitionRecords.
+   */
   distinct?: Prisma.DocRecognitionRecordsScalarFieldEnum | Prisma.DocRecognitionRecordsScalarFieldEnum[]
 }
 

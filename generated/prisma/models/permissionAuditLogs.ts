@@ -227,7 +227,7 @@ export type PermissionAuditLogsGroupByOutputType = {
   _max: PermissionAuditLogsMaxAggregateOutputType | null
 }
 
-type GetPermissionAuditLogsGroupByPayload<T extends permissionAuditLogsGroupByArgs> = Prisma.PrismaPromise<
+export type GetPermissionAuditLogsGroupByPayload<T extends permissionAuditLogsGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<PermissionAuditLogsGroupByOutputType, T['by']> &
       {
@@ -1369,6 +1369,11 @@ export type permissionAuditLogsFindManyArgs<ExtArgs extends runtime.Types.Extens
    * Skip the first `n` permissionAuditLogs.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of permissionAuditLogs.
+   */
   distinct?: Prisma.PermissionAuditLogsScalarFieldEnum | Prisma.PermissionAuditLogsScalarFieldEnum[]
 }
 

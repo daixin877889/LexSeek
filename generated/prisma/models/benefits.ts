@@ -242,7 +242,7 @@ export type BenefitsGroupByOutputType = {
   _max: BenefitsMaxAggregateOutputType | null
 }
 
-type GetBenefitsGroupByPayload<T extends benefitsGroupByArgs> = Prisma.PrismaPromise<
+export type GetBenefitsGroupByPayload<T extends benefitsGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<BenefitsGroupByOutputType, T['by']> &
       {
@@ -1490,6 +1490,11 @@ export type benefitsFindManyArgs<ExtArgs extends runtime.Types.Extensions.Intern
    * Skip the first `n` benefits.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of benefits.
+   */
   distinct?: Prisma.BenefitsScalarFieldEnum | Prisma.BenefitsScalarFieldEnum[]
 }
 

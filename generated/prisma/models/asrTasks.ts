@@ -216,7 +216,7 @@ export type AsrTasksGroupByOutputType = {
   _max: AsrTasksMaxAggregateOutputType | null
 }
 
-type GetAsrTasksGroupByPayload<T extends asrTasksGroupByArgs> = Prisma.PrismaPromise<
+export type GetAsrTasksGroupByPayload<T extends asrTasksGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<AsrTasksGroupByOutputType, T['by']> &
       {
@@ -1281,6 +1281,11 @@ export type asrTasksFindManyArgs<ExtArgs extends runtime.Types.Extensions.Intern
    * Skip the first `n` asrTasks.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of asrTasks.
+   */
   distinct?: Prisma.AsrTasksScalarFieldEnum | Prisma.AsrTasksScalarFieldEnum[]
 }
 

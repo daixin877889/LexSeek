@@ -207,7 +207,7 @@ export type RoleRoutersGroupByOutputType = {
   _max: RoleRoutersMaxAggregateOutputType | null
 }
 
-type GetRoleRoutersGroupByPayload<T extends roleRoutersGroupByArgs> = Prisma.PrismaPromise<
+export type GetRoleRoutersGroupByPayload<T extends roleRoutersGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<RoleRoutersGroupByOutputType, T['by']> &
       {
@@ -1362,6 +1362,11 @@ export type roleRoutersFindManyArgs<ExtArgs extends runtime.Types.Extensions.Int
    * Skip the first `n` roleRouters.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of roleRouters.
+   */
   distinct?: Prisma.RoleRoutersScalarFieldEnum | Prisma.RoleRoutersScalarFieldEnum[]
 }
 

@@ -220,7 +220,7 @@ export type SystemConfigsGroupByOutputType = {
   _max: SystemConfigsMaxAggregateOutputType | null
 }
 
-type GetSystemConfigsGroupByPayload<T extends systemConfigsGroupByArgs> = Prisma.PrismaPromise<
+export type GetSystemConfigsGroupByPayload<T extends systemConfigsGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<SystemConfigsGroupByOutputType, T['by']> &
       {
@@ -1140,6 +1140,11 @@ export type systemConfigsFindManyArgs<ExtArgs extends runtime.Types.Extensions.I
    * Skip the first `n` systemConfigs.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of systemConfigs.
+   */
   distinct?: Prisma.SystemConfigsScalarFieldEnum | Prisma.SystemConfigsScalarFieldEnum[]
 }
 

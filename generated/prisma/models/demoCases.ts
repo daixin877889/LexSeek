@@ -249,7 +249,7 @@ export type DemoCasesGroupByOutputType = {
   _max: DemoCasesMaxAggregateOutputType | null
 }
 
-type GetDemoCasesGroupByPayload<T extends demoCasesGroupByArgs> = Prisma.PrismaPromise<
+export type GetDemoCasesGroupByPayload<T extends demoCasesGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<DemoCasesGroupByOutputType, T['by']> &
       {
@@ -1457,6 +1457,11 @@ export type demoCasesFindManyArgs<ExtArgs extends runtime.Types.Extensions.Inter
    * Skip the first `n` demoCases.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of demoCases.
+   */
   distinct?: Prisma.DemoCasesScalarFieldEnum | Prisma.DemoCasesScalarFieldEnum[]
 }
 

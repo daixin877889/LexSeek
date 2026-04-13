@@ -207,7 +207,7 @@ export type LevelNodeAccessGroupByOutputType = {
   _max: LevelNodeAccessMaxAggregateOutputType | null
 }
 
-type GetLevelNodeAccessGroupByPayload<T extends levelNodeAccessGroupByArgs> = Prisma.PrismaPromise<
+export type GetLevelNodeAccessGroupByPayload<T extends levelNodeAccessGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<LevelNodeAccessGroupByOutputType, T['by']> &
       {
@@ -1362,6 +1362,11 @@ export type levelNodeAccessFindManyArgs<ExtArgs extends runtime.Types.Extensions
    * Skip the first `n` levelNodeAccesses.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of levelNodeAccesses.
+   */
   distinct?: Prisma.LevelNodeAccessScalarFieldEnum | Prisma.LevelNodeAccessScalarFieldEnum[]
 }
 

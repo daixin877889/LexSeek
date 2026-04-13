@@ -263,7 +263,7 @@ export type NodesGroupByOutputType = {
   _max: NodesMaxAggregateOutputType | null
 }
 
-type GetNodesGroupByPayload<T extends nodesGroupByArgs> = Prisma.PrismaPromise<
+export type GetNodesGroupByPayload<T extends nodesGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<NodesGroupByOutputType, T['by']> &
       {
@@ -2140,6 +2140,11 @@ export type nodesFindManyArgs<ExtArgs extends runtime.Types.Extensions.InternalA
    * Skip the first `n` nodes.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of nodes.
+   */
   distinct?: Prisma.NodesScalarFieldEnum | Prisma.NodesScalarFieldEnum[]
 }
 

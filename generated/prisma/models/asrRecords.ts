@@ -298,7 +298,7 @@ export type AsrRecordsGroupByOutputType = {
   _max: AsrRecordsMaxAggregateOutputType | null
 }
 
-type GetAsrRecordsGroupByPayload<T extends asrRecordsGroupByArgs> = Prisma.PrismaPromise<
+export type GetAsrRecordsGroupByPayload<T extends asrRecordsGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<AsrRecordsGroupByOutputType, T['by']> &
       {
@@ -1928,6 +1928,11 @@ export type asrRecordsFindManyArgs<ExtArgs extends runtime.Types.Extensions.Inte
    * Skip the first `n` asrRecords.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of asrRecords.
+   */
   distinct?: Prisma.AsrRecordsScalarFieldEnum | Prisma.AsrRecordsScalarFieldEnum[]
 }
 

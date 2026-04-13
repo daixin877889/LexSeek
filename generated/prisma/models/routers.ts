@@ -278,7 +278,7 @@ export type RoutersGroupByOutputType = {
   _max: RoutersMaxAggregateOutputType | null
 }
 
-type GetRoutersGroupByPayload<T extends routersGroupByArgs> = Prisma.PrismaPromise<
+export type GetRoutersGroupByPayload<T extends routersGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<RoutersGroupByOutputType, T['by']> &
       {
@@ -2068,6 +2068,11 @@ export type routersFindManyArgs<ExtArgs extends runtime.Types.Extensions.Interna
    * Skip the first `n` routers.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of routers.
+   */
   distinct?: Prisma.RoutersScalarFieldEnum | Prisma.RoutersScalarFieldEnum[]
 }
 

@@ -141,7 +141,7 @@ export type LawEmbeddingsGroupByOutputType = {
   _max: LawEmbeddingsMaxAggregateOutputType | null
 }
 
-type GetLawEmbeddingsGroupByPayload<T extends lawEmbeddingsGroupByArgs> = Prisma.PrismaPromise<
+export type GetLawEmbeddingsGroupByPayload<T extends lawEmbeddingsGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<LawEmbeddingsGroupByOutputType, T['by']> &
       {
@@ -902,6 +902,11 @@ export type lawEmbeddingsFindManyArgs<ExtArgs extends runtime.Types.Extensions.I
    * Skip the first `n` lawEmbeddings.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of lawEmbeddings.
+   */
   distinct?: Prisma.LawEmbeddingsScalarFieldEnum | Prisma.LawEmbeddingsScalarFieldEnum[]
 }
 

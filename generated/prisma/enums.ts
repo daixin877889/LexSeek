@@ -9,7 +9,13 @@
 * 🟢 You can import this file directly.
 */
 
+export const dictType = {
+  extra: 'extra',
+  it: 'it',
+  edu: 'edu',
+  gov: 'gov',
+  medical: 'medical',
+  other: 'other'
+} as const
 
-
-// This file is empty because there are no enums in the schema.
-export {}
+export type dictType = (typeof dictType)[keyof typeof dictType]

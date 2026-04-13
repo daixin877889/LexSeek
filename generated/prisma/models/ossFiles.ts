@@ -274,7 +274,7 @@ export type OssFilesGroupByOutputType = {
   _max: OssFilesMaxAggregateOutputType | null
 }
 
-type GetOssFilesGroupByPayload<T extends ossFilesGroupByArgs> = Prisma.PrismaPromise<
+export type GetOssFilesGroupByPayload<T extends ossFilesGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<OssFilesGroupByOutputType, T['by']> &
       {
@@ -1353,6 +1353,11 @@ export type ossFilesFindManyArgs<ExtArgs extends runtime.Types.Extensions.Intern
    * Skip the first `n` ossFiles.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of ossFiles.
+   */
   distinct?: Prisma.OssFilesScalarFieldEnum | Prisma.OssFilesScalarFieldEnum[]
 }
 

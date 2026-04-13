@@ -261,7 +261,7 @@ export type RedemptionCodesGroupByOutputType = {
   _max: RedemptionCodesMaxAggregateOutputType | null
 }
 
-type GetRedemptionCodesGroupByPayload<T extends redemptionCodesGroupByArgs> = Prisma.PrismaPromise<
+export type GetRedemptionCodesGroupByPayload<T extends redemptionCodesGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<RedemptionCodesGroupByOutputType, T['by']> &
       {
@@ -1617,6 +1617,11 @@ export type redemptionCodesFindManyArgs<ExtArgs extends runtime.Types.Extensions
    * Skip the first `n` redemptionCodes.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of redemptionCodes.
+   */
   distinct?: Prisma.RedemptionCodesScalarFieldEnum | Prisma.RedemptionCodesScalarFieldEnum[]
 }
 

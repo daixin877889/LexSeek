@@ -255,7 +255,7 @@ export type CasesGroupByOutputType = {
   _max: CasesMaxAggregateOutputType | null
 }
 
-type GetCasesGroupByPayload<T extends casesGroupByArgs> = Prisma.PrismaPromise<
+export type GetCasesGroupByPayload<T extends casesGroupByArgs> = Prisma.PrismaPromise<
   Array<
     Prisma.PickEnumerable<CasesGroupByOutputType, T['by']> &
       {
@@ -2128,6 +2128,11 @@ export type casesFindManyArgs<ExtArgs extends runtime.Types.Extensions.InternalA
    * Skip the first `n` cases.
    */
   skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of cases.
+   */
   distinct?: Prisma.CasesScalarFieldEnum | Prisma.CasesScalarFieldEnum[]
 }
 
