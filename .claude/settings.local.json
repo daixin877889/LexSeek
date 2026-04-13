@@ -1,4 +1,10 @@
 {
+  "enabledPlugins": {
+    "minimax-skills@minimax-skills": false,
+    "ralph-wiggum@claude-code-plugins": false,
+    "basedpyright@claude-code-lsps": false,
+    "bsl-lsp@claude-code-lsps": false
+  },
   "permissions": {
     "allow": [
       "Bash(cd:*)",
