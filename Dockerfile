@@ -30,6 +30,11 @@ FROM oven/bun:1-slim AS runner
 
 WORKDIR /app
 
+# 安装 Python 运行时（支持 Python Skills 脚本）
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends python3 && \
+    rm -rf /var/lib/apt/lists/*
+
 # 设置生产环境
 ENV NODE_ENV=production
 ENV NUXT_HOST=0.0.0.0
@@ -37,6 +42,9 @@ ENV NUXT_PORT=3000
 
 # 从构建阶段复制 Nuxt 构建产物（包含已安装的依赖）
 COPY --from=builder /app/.output ./.output
+
+# 复制 Skills 目录（含脚本和参考文档）
+COPY --from=builder /app/.deepagents ./.deepagents
 
 # 暴露端口
 EXPOSE 3000
