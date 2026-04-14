@@ -48,7 +48,7 @@ const isFullscreen = defineModel<boolean>('fullscreen', { default: false })
 const isMobile = useMediaQuery('(max-width: 767px)')
 
 // 拖拽和缩放（小窗模式）
-const windowZIndex = ref(40)
+const windowZIndex = ref(60)
 const { style: windowStyle, onDragStart, onEdgeDetect, onResizeStart, cursor, isInteracting, reset }
   = useDraggableResize({
     initialWidth: props.initialWidth,
@@ -93,10 +93,10 @@ watch(isOpen, (open) => {
       leave-from-class="opacity-100"
       leave-to-class="opacity-0"
     >
-      <div v-if="isOpen && isFullscreen" class="fixed inset-0 z-50 bg-background flex flex-col">
+      <div v-if="isOpen && isFullscreen" class="fixed inset-0 z-[60] bg-background flex flex-col">
         <!-- 全屏标题栏 -->
         <div class="shrink-0 h-12 flex items-center justify-between px-4 border-b bg-muted/30">
-          <div class="flex items-center gap-2 min-w-0">
+          <div class="flex items-center gap-2 min-w-0 flex-1">
             <slot name="titlebar-icon">
               <img v-if="icon" :src="icon" class="size-4 shrink-0" :alt="title" />
             </slot>
@@ -144,7 +144,7 @@ watch(isOpen, (open) => {
           :class="draggable ? 'cursor-grab active:cursor-grabbing' : ''"
           @pointerdown="draggable ? onDragStart($event) : undefined"
         >
-          <div class="flex items-center gap-2 min-w-0">
+          <div class="flex items-center gap-2 min-w-0 flex-1">
             <slot name="titlebar-icon">
               <img v-if="icon" :src="icon" class="size-3.5 shrink-0" :alt="title" />
             </slot>
@@ -175,7 +175,7 @@ watch(isOpen, (open) => {
     <SheetContent side="bottom" class="h-dvh flex flex-col p-0">
       <SheetHeader class="shrink-0 px-4 pt-4 pb-2">
         <SheetTitle class="flex items-center justify-between text-sm">
-          <div class="flex items-center gap-2 min-w-0">
+          <div class="flex items-center gap-2 min-w-0 flex-1">
             <slot name="titlebar-icon">
               <img v-if="icon" :src="icon" class="size-4 shrink-0" :alt="title" />
             </slot>

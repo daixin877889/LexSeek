@@ -25,7 +25,7 @@ function handleClose(moduleName: string, e: Event) {
 
 <template>
     <!-- 定位在小索悬浮按钮（bottom-4 size-12 ≈ 64px）上方，避免重叠 -->
-    <div v-if="modules.length > 0" class="fixed bottom-36 md:bottom-20 right-4 z-50 flex flex-col gap-1 items-end">
+    <div v-if="modules.length > 0" class="fixed bottom-36 md:bottom-20 right-4 z-[60] flex flex-col gap-1 items-end">
         <div v-for="mod in modules" :key="mod.moduleName"
             class="group flex items-center gap-1 pl-3 pr-1 py-1 bg-background border rounded-full shadow-sm hover:shadow-md transition-shadow text-xs">
             <button class="flex items-center gap-2 cursor-pointer" @click="emit('expand', mod.moduleName)">

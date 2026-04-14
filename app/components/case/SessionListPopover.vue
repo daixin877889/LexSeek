@@ -91,14 +91,14 @@ const currentTitle = computed(() => {
   <Popover v-model:open="open">
     <PopoverTrigger as-child>
       <button
-        class="flex items-center gap-1 font-medium hover:text-primary transition-colors"
+        class="flex items-center gap-1 min-w-0 font-medium hover:text-primary transition-colors"
         :disabled="loading"
       >
-        <span class="truncate max-w-48">{{ currentTitle }}</span>
+        <span class="truncate">{{ currentTitle }}</span>
         <ChevronDownIcon class="size-3.5 shrink-0" />
       </button>
     </PopoverTrigger>
-    <PopoverContent class="w-64 p-0" align="start">
+    <PopoverContent class="w-64 p-0 z-[70]" align="start">
       <!-- session 列表 -->
       <div class="max-h-60 overflow-y-auto">
         <div

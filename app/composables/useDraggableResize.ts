@@ -215,6 +215,10 @@ export function useDraggableResize(options: UseDraggableResizeOptions = {}) {
   }
 
   function onDragStart(e: PointerEvent) {
+    // 如果点击的是交互元素（按钮、输入框等），不启动拖拽，让元素自身处理事件
+    const target = e.target as HTMLElement
+    if (target.closest('button, input, a, [role="button"], [data-no-drag]')) return
+
     // 检查是否在标题栏角落的 resize 区域（左上角或右上角）
     const el = (e.currentTarget as HTMLElement).parentElement
     if (el) {
