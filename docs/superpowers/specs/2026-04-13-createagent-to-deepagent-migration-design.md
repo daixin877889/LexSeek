@@ -10,8 +10,10 @@
 
 接入 Agent Skills 生态（skills.sh 1370+ 技能库），使 LexSeek 的 Agent 能够：
 1. 自动发现和加载 SKILL.md 定义的领域技能
-2. 执行 Skill 中的脚本（如法律检索 `lexseek.cjs`）
+2. 执行 Skill 中的脚本
 3. 与 Claude Code、Codex、Copilot 等共享同一套 Skill 格式
+
+> **注意**：本文档中的 `lexseek` Skill 仅作为验证示范，不代表最终要接入的 Skill 内容。实际 Skills 将根据业务需求另行设计。
 
 ## 已验证的技术可行性
 
@@ -186,20 +188,19 @@ export const runSkillScript = tool(
 
 ### Skills 目录
 
+遵循 [Agent Skills 规范](https://agentskills.io/specification) 的标准目录结构：
+
 ```
 .deepagents/
 └── skills/
-    └── lexseek/
-        ├── SKILL.md                 # 法律检索指令（已验证可用）
-        ├── scripts/
-        │   └── lexseek.cjs          # 法律检索 CLI
-        ├── references/
-        │   ├── auth.md              # 认证文档
-        │   └── legal-api.md         # API 文档
-        └── evals/                   # 评估用例
+    └── <skill-name>/
+        ├── SKILL.md            # 必需：指令 + YAML frontmatter
+        ├── scripts/            # 可选：Agent 可执行的脚本
+        ├── references/         # 可选：按需加载的参考文档
+        └── assets/             # 可选：模板、图片等资源
 ```
 
-**注意**：`scripts/.env` 不放入仓库。API Key 通过运行时环境变量 `LEXSEEK_API_KEY` 注入（见下方多用户隔离说明）。
+具体 Skill 的内容根据业务需求另行设计，不属于本框架设计的范围。
 
 ### 多用户隔离
 
@@ -212,27 +213,12 @@ export const runSkillScript = tool(
 | run_skill_script 工具 | ✅ 安全 | 结构化参数、白名单限制、30s 超时 |
 | 现有中间件/工具 | ✅ 不变 | 不受影响 |
 
-**Critical: lexseek.cjs 的 `.env` 写入问题**
+**Skill 脚本的多用户安全要求**：
 
-原始 `lexseek.cjs` 的 `login` 命令会将 API Key 写入 `scripts/.env` 文件，导致跨用户数据泄露（用户 A 登录后，用户 B 使用 A 的 Key）。
-
-**解决方案**：
-1. `run_skill_script` 工具**禁止 `login` action**（白名单仅允许 `search`）
-2. API Key 通过 `run_skill_script` 的 `env` 参数注入：每个用户的 Key 从数据库获取，通过环境变量传入脚本
-3. 修改 `lexseek.cjs` 优先读取 `LEXSEEK_API_KEY` 环境变量，不依赖 `.env` 文件
-
-```typescript
-// run_skill_script 中按用户注入环境变量
-execFile('node', execArgs, {
-    timeout: 30_000,
-    cwd: resolve(SKILLS_ROOT, skillName, 'scripts'),
-    env: {
-        PATH: '/usr/local/bin:/usr/bin:/bin',
-        NODE_ENV: 'production',
-        LEXSEEK_API_KEY: userApiKey,  // 从数据库获取当前用户的 API Key
-    },
-}, callback)
-```
+Skills 目录本身是共享只读资源，无跨用户污染。但具体 Skill 脚本的实现需遵守以下规则：
+1. **脚本不得在共享目录写入状态**（如认证凭据、缓存数据）
+2. **用户级配置通过环境变量注入**，由 `run_skill_script` 工具根据当前用户上下文动态传入
+3. 如果脚本需要持久化用户状态，应通过 API 调用服务端存储，而非本地文件
 
 ### 工具名冲突检查
 
@@ -250,10 +236,8 @@ execFile('node', execArgs, {
 | 文件 | 职责 |
 |------|------|
 | `server/services/workflow/tools/readSkillFile.tool.ts` | 只读的 Skill 文件读取工具 |
-| `server/services/workflow/tools/runSkillScript.tool.ts` | 白名单受限的 Skill 脚本执行工具 |
-| `.deepagents/skills/lexseek/SKILL.md` | 法律检索 Skill（从桌面实验版迁入） |
-| `.deepagents/skills/lexseek/scripts/lexseek.cjs` | 法律检索 CLI 脚本 |
-| `.deepagents/skills/lexseek/references/*.md` | Skill 参考文档 |
+| `server/services/workflow/tools/runSkillScript.tool.ts` | 结构化参数的 Skill 脚本执行工具 |
+| `.deepagents/skills/` | Skills 根目录（具体 Skill 内容另行设计） |
 
 ### 修改文件
 
@@ -303,15 +287,14 @@ execFile('node', execArgs, {
 ## 迁移步骤
 
 1. `bun add deepagents langsmith`
-2. 创建 `.deepagents/skills/lexseek/` 目录，迁入 Skill 文件（不含 `.env`）
-3. 修改 `lexseek.cjs`：优先读取 `LEXSEEK_API_KEY` 环境变量，移除 `.env` 文件写入逻辑
-4. 实现 `readSkillFile.tool.ts` 和 `runSkillScript.tool.ts`
-5. caseMainAgent.ts 追加 middleware + tools
-6. moduleAgent.ts 追加 middleware + tools
-7. Dockerfile runner 阶段追加 `COPY .deepagents ./.deepagents`
-8. 本地验证：Skill 发现 → SKILL.md 读取 → 脚本执行
-9. 中断恢复验证：从旧 checkpoint 恢复后 agent 正常工作
-10. Docker 验证：路径解析 + 脚本执行
+2. 创建 `.deepagents/skills/` 根目录
+3. 实现 `readSkillFile.tool.ts` 和 `runSkillScript.tool.ts`
+4. caseMainAgent.ts 追加 middleware + tools
+5. moduleAgent.ts 追加 middleware + tools
+6. Dockerfile runner 阶段追加 `COPY .deepagents ./.deepagents`
+7. 本地验证：Skill 发现 → SKILL.md 读取 → 脚本执行（可用 lexseek 示范 Skill 验证）
+8. 中断恢复验证：从旧 checkpoint 恢复后 agent 正常工作
+9. Docker 验证：路径解析 + 脚本执行
 
 ## 参考资料
 
