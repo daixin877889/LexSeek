@@ -20,12 +20,21 @@ import {
     caseMaterialContextMiddleware,
     safetyTrimMiddleware,
 } from '../middleware'
+import { createSkillsMiddleware, FilesystemBackend } from 'deepagents'
+import { createTool as createReadSkillFileTool } from '../tools/readSkillFile.tool'
+import { createTool as createRunSkillScriptTool } from '../tools/runSkillScript.tool'
 
 /** 主代理节点名称 */
 const CASE_MAIN_NODE_NAME = 'caseMain'
 
 /** 子代理节点类型 */
 const SUB_AGENT_NODE_TYPES = ['analysis', 'document']
+
+/** Skills 中间件（模块级单例） */
+const skillsMiddleware = createSkillsMiddleware({
+    backend: new FilesystemBackend({ rootDir: process.cwd() }),
+    sources: ['.deepagents/skills/'],
+})
 
 export interface CaseAgentOptions {
     /** 用户 ID */
@@ -92,8 +101,9 @@ export async function runCaseChat(
     // 6. 生成子代理工具
     const subAgentToolList = await createSubAgentTools(subAgentConfigs, toolContext)
 
-    // 7. 合并工具列表
-    const allTools = [...mainTools, ...subAgentToolList]
+    // 7. 合并工具列表（含 Skills 工具）
+    const skillTools = [createReadSkillFileTool(toolContext), createRunSkillScriptTool(toolContext)]
+    const allTools = [...mainTools, ...subAgentToolList, ...skillTools]
 
     logger.info('案件主 Agent 创建', {
         sessionId,
@@ -129,6 +139,7 @@ export async function runCaseChat(
                 model,
                 maxTokens: Math.floor(contextWindow * 0.8),
             }),
+            skillsMiddleware,
         ],
     })
 

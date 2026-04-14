@@ -23,8 +23,17 @@ import { moduleContextMiddleware } from '../middleware/moduleContext.middleware'
 import { safetyTrimMiddleware } from '../middleware/safetyTrim.middleware'
 import { createTool as createSaveAnalysisResultTool } from '../tools/saveAnalysisResult.tool'
 import { renderSystemPrompt } from '../utils/promptRenderer'
+import { createSkillsMiddleware, FilesystemBackend } from 'deepagents'
+import { createTool as createReadSkillFileTool } from '../tools/readSkillFile.tool'
+import { createTool as createRunSkillScriptTool } from '../tools/runSkillScript.tool'
 import type { ToolContext } from '../tools/types'
 import { getSessionState } from '../state/storage'
+
+/** Skills 中间件（模块级单例） */
+const skillsMiddleware = createSkillsMiddleware({
+    backend: new FilesystemBackend({ rootDir: process.cwd() }),
+    sources: ['.deepagents/skills/'],
+})
 
 interface ModuleAgentOptions {
     userId: number
@@ -89,7 +98,8 @@ export async function runModuleChat(
         ? getToolInstancesService(nodeConfig.tools, toolContext)
         : []
     const saveResultTool = createSaveAnalysisResultTool(toolContext)
-    const allTools = [...nodeTools, saveResultTool]
+    const skillTools = [createReadSkillFileTool(toolContext), createRunSkillScriptTool(toolContext)]
+    const allTools = [...nodeTools, saveResultTool, ...skillTools]
 
     // 构建静态 system prompt（不变，命中供应商 Prompt Caching）
     const systemPromptParts = [
@@ -120,6 +130,7 @@ export async function runModuleChat(
                 model,
                 maxTokens: Math.floor(contextWindow * 0.8),
             }),
+            skillsMiddleware,
         ],
     })
 

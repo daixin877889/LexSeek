@@ -39,6 +39,8 @@ export const MIDDLEWARE_PRIORITY = {
     SUMMARIZATION: 40,
     /** 安全截断兜底（summarization 的最后防线） */
     SAFETY_TRIM: 50,
+    /** Skills 发现和加载（wrapModelCall 注入 prompt） */
+    SKILLS_DISCOVERY: 60,
     /** 待办列表中间件 */
     TODO_LIST: 80,
     /** 分析结果持久化（必须最后执行） */
@@ -53,6 +55,7 @@ export const MIDDLEWARE_NAMES = {
     MODULE_CONTEXT: 'moduleContext',
     SUMMARIZATION: 'summarization',
     SAFETY_TRIM: 'safetyTrim',
+    SKILLS_DISCOVERY: 'skillsDiscovery',
     TODO_LIST: 'todoList',
     RESULT_PERSISTENCE: 'analysisResultPersistence',
 } as const
