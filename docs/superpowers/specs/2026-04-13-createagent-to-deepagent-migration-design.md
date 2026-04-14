@@ -91,84 +91,94 @@ const agent: ReactAgent = createAgent({
 })
 ```
 
-### readSkillFile 工具
+### read_skill_file 工具
 
 SkillsMiddleware 将 skill 路径注入 system prompt（如 `Read skills/lexseek/SKILL.md for full instructions`），Agent 需要一个文件读取工具来加载完整内容。
 
 ```typescript
 import { tool } from 'langchain'
-import { readFileSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { z } from 'zod'
 
 const SKILLS_ROOT = resolve('/app/.deepagents/skills')
 
 export const readSkillFile = tool(
-    async ({ path }) => {
-        const fullPath = resolve(SKILLS_ROOT, path.replace(/^\.?\/?skills\//, ''))
-        // 安全校验：只允许读取 skills 目录内的文件
+    async ({ path: filePath }) => {
+        // 安全校验：禁止路径遍历和绝对路径
+        if (filePath.includes('..') || filePath.startsWith('/')) {
+            return 'Error: 非法路径'
+        }
+        const fullPath = resolve(SKILLS_ROOT, filePath.replace(/^\.?\/?skills\//, ''))
         if (!fullPath.startsWith(SKILLS_ROOT)) {
             return 'Error: 只允许读取 skills 目录内的文件'
         }
         try {
-            return readFileSync(fullPath, 'utf-8')
-        } catch (e) {
-            return `Error: 文件不存在 ${path}`
+            return await readFile(fullPath, 'utf-8')
+        } catch {
+            return `Error: 文件不存在 ${filePath}`
         }
     },
     {
-        name: 'read_file',
+        name: 'read_skill_file',
         description: '读取 skill 文件内容（SKILL.md、references 等）',
         schema: z.object({
-            path: z.string().describe('文件路径，如 skills/lexseek/SKILL.md'),
+            path: z.string().describe('文件路径，如 lexseek/SKILL.md'),
         }),
     }
 )
 ```
 
-### runSkillScript 工具
+### run_skill_script 工具
+
+使用**结构化参数**代替自由文本命令，防止命令注入：
 
 ```typescript
 import { tool } from 'langchain'
 import { execFile } from 'node:child_process'
 import { resolve } from 'node:path'
+import { existsSync } from 'node:fs'
 import { z } from 'zod'
 
 const SKILLS_ROOT = resolve('/app/.deepagents/skills')
 
 export const runSkillScript = tool(
-    async ({ command }) => {
-        // 解析命令：node scripts/lexseek.cjs search --query "..."
-        const parts = command.split(' ')
-        const runtime = parts[0]       // node
-        const scriptPath = parts[1]    // scripts/lexseek.cjs
-        const args = parts.slice(2)    // search --query "..."
-
-        if (runtime !== 'node') {
-            return 'Error: 只支持 node 运行时'
+    async ({ skillName, scriptName, action, args }) => {
+        // 安全校验：名称中禁止路径遍历字符
+        if ([skillName, scriptName, action].some(s => s.includes('..') || s.includes('/'))) {
+            return 'Error: 参数中包含非法字符'
         }
 
-        const fullScriptPath = resolve(SKILLS_ROOT, scriptPath.replace(/^\.?\/?/, ''))
-        if (!fullScriptPath.startsWith(SKILLS_ROOT)) {
-            return 'Error: 只允许执行 skills 目录内的脚本'
+        const scriptPath = resolve(SKILLS_ROOT, skillName, 'scripts', scriptName)
+        if (!scriptPath.startsWith(SKILLS_ROOT) || !existsSync(scriptPath)) {
+            return `Error: 脚本不存在 ${skillName}/scripts/${scriptName}`
         }
 
-        return new Promise((resolve) => {
-            execFile('node', [fullScriptPath, ...args], {
+        // 构建参数数组：action + args 键值对转为 --key value 格式
+        const execArgs = [scriptPath, action]
+        for (const [key, value] of Object.entries(args ?? {})) {
+            execArgs.push(`--${key}`, value)
+        }
+
+        return new Promise((done) => {
+            execFile('node', execArgs, {
                 timeout: 30_000,
-                cwd: SKILLS_ROOT,
+                cwd: resolve(SKILLS_ROOT, skillName, 'scripts'),
                 env: { PATH: '/usr/local/bin:/usr/bin:/bin', NODE_ENV: 'production' },
             }, (err, stdout, stderr) => {
-                if (err) resolve(`Error (exit ${err.code}): ${stderr || err.message}`)
-                else resolve(stdout)
+                if (err) done(`Error (exit ${err.code}): ${stderr || err.message}`)
+                else done(stdout)
             })
         })
     },
     {
-        name: 'execute',
-        description: '在沙箱环境中执行 skill 脚本',
+        name: 'run_skill_script',
+        description: '执行 skill 脚本。示例：skillName=lexseek, scriptName=lexseek.cjs, action=search, args={query: "劳动合同 解除"}',
         schema: z.object({
-            command: z.string().describe('执行命令，格式: node <script_path> [args]'),
+            skillName: z.string().describe('Skill 名称，如 lexseek'),
+            scriptName: z.string().describe('脚本文件名，如 lexseek.cjs'),
+            action: z.string().describe('操作名称，如 search, login'),
+            args: z.record(z.string()).optional().describe('参数键值对，如 { query: "关键词" }'),
         }),
     }
 )
@@ -182,13 +192,14 @@ export const runSkillScript = tool(
     └── lexseek/
         ├── SKILL.md                 # 法律检索指令（已验证可用）
         ├── scripts/
-        │   ├── lexseek.cjs          # 法律检索 CLI
-        │   └── .env                 # API Key
+        │   └── lexseek.cjs          # 法律检索 CLI
         ├── references/
         │   ├── auth.md              # 认证文档
         │   └── legal-api.md         # API 文档
         └── evals/                   # 评估用例
 ```
+
+**注意**：`scripts/.env` 不放入仓库。API Key 通过运行时环境变量 `LEXSEEK_API_KEY` 注入（见下方多用户隔离说明）。
 
 ### 多用户隔离
 
@@ -197,20 +208,40 @@ export const runSkillScript = tool(
 | SkillsMiddleware | ✅ 安全 | 只读取 SKILL.md 元数据，不写文件 |
 | `skillsMetadata` state | ✅ 安全 | 存在 agent state 中，per-thread 隔离 |
 | `files` state channel | ✅ 安全 | SkillsMiddleware 添加但不写入，per-thread 隔离 |
-| readSkillFile 工具 | ✅ 安全 | 只读、白名单限制在 skills 目录 |
-| runSkillScript 工具 | ✅ 安全 | 白名单限制、30s 超时、不继承环境变量 |
+| read_skill_file 工具 | ✅ 安全 | 只读、白名单限制、禁止路径遍历 |
+| run_skill_script 工具 | ✅ 安全 | 结构化参数、白名单限制、30s 超时 |
 | 现有中间件/工具 | ✅ 不变 | 不受影响 |
 
-Skills 是**共享只读资源**，不存在跨用户写入污染。
+**Critical: lexseek.cjs 的 `.env` 写入问题**
+
+原始 `lexseek.cjs` 的 `login` 命令会将 API Key 写入 `scripts/.env` 文件，导致跨用户数据泄露（用户 A 登录后，用户 B 使用 A 的 Key）。
+
+**解决方案**：
+1. `run_skill_script` 工具**禁止 `login` action**（白名单仅允许 `search`）
+2. API Key 通过 `run_skill_script` 的 `env` 参数注入：每个用户的 Key 从数据库获取，通过环境变量传入脚本
+3. 修改 `lexseek.cjs` 优先读取 `LEXSEEK_API_KEY` 环境变量，不依赖 `.env` 文件
+
+```typescript
+// run_skill_script 中按用户注入环境变量
+execFile('node', execArgs, {
+    timeout: 30_000,
+    cwd: resolve(SKILLS_ROOT, skillName, 'scripts'),
+    env: {
+        PATH: '/usr/local/bin:/usr/bin:/bin',
+        NODE_ENV: 'production',
+        LEXSEEK_API_KEY: userApiKey,  // 从数据库获取当前用户的 API Key
+    },
+}, callback)
+```
 
 ### 工具名冲突检查
 
 | 新增工具名 | 现有工具 | deepagent 内置 | 冲突？ |
 |-----------|---------|---------------|--------|
-| `read_file` | 无 | 有（FilesystemMiddleware 提供，但未加载） | ✅ 无冲突 |
-| `execute` | 无 | 有（需 SandboxBackend，未加载） | ✅ 无冲突 |
+| `read_skill_file` | 无 | 无同名 | ✅ 无冲突 |
+| `run_skill_script` | 无 | 无同名 | ✅ 无冲突 |
 
-因为只加载了 `SkillsMiddleware`（不加载 `FilesystemMiddleware`），内置的 `read_file` 和 `execute` 工具不会注册，自定义版本可安全使用。
+使用业务前缀命名（`read_skill_file`、`run_skill_script`），避免与 deepagent 内置的 `read_file`、`execute` 冲突，也防止未来加载其他 deepagent 中间件时产生命名冲突。
 
 ## 文件变更清单
 
@@ -249,35 +280,38 @@ Skills 是**共享只读资源**，不存在跨用户写入污染。
 | 操作 | 包名 | 版本 | 说明 |
 |------|------|------|------|
 | 新增 | `deepagents` | ^1.9.0 | 仅使用 `createSkillsMiddleware` + `FilesystemBackend` |
-
-注意：`deepagents` 的 peerDep `langsmith@>=0.5.15` 需确认项目是否已安装。
+| 新增 | `langsmith` | >=0.5.15 | deepagents peerDependency（需确认是否必装） |
 
 ## 风险评估
 
 ### 低风险
 - **兼容性已验证**：createSkillsMiddleware 返回标准 AgentMiddleware，createAgent 接受无误
 - **零改动现有代码**：只追加，不修改
-- **无工具冲突**：未加载 FilesystemMiddleware，内置工具不注册
-- **多用户安全**：Skills 只读，工具白名单限制
+- **无工具冲突**：使用业务前缀命名，不与 deepagent 内置工具冲突
+- **多用户安全**：Skills 只读、结构化参数防注入、API Key 通过环境变量注入
 
 ### 中等风险
 - **FilesystemBackend 路径**：必须使用相对路径（`./skills/`），绝对路径无效（已验证）
-- **Docker 部署路径**：`rootDir` 设为 `/app`，`sources` 设为 `./.deepagents/skills/`，需在 Docker 中验证路径解析
+- **Docker 部署路径**：`rootDir` 设为 `/app`，`sources` 设为 `./.deepagents/skills/`，需在 Docker 中验证
+- **`files` state channel 对 checkpoint 的影响**：SkillsMiddleware 添加了 `skillsMetadata` 和 `files` 到 state schema。现有 checkpoint 不含这些字段，中断恢复时 reducer 的默认值（`[]`/`undefined`）需验证正确
+- **langsmith peerDep**：`deepagents` 要求 `langsmith@>=0.5.15`，项目当前未安装，需确认是否必装
 
 ### 需验证
-- **SkillsMiddleware 与现有 summarizationMiddleware 的中间件顺序**：SkillsMiddleware 应放在最后（在 wrapModelCall 中注入 prompt 最先执行）
-- **`files` state channel 对 checkpoint 的影响**：SkillsMiddleware 添加了 `files` 到 state schema，需确认不影响现有 checkpoint 序列化
+- **中间件顺序**：SkillsMiddleware 放在末尾，其 `wrapModelCall` 最先执行（洋葱模型），在其他中间件修改 prompt 之前注入 skills 信息
+- **旧 checkpoint 恢复**：从不含 `skillsMetadata` 的旧 checkpoint 恢复时，agent 是否正常工作
 
 ## 迁移步骤
 
-1. `bun add deepagents`
-2. 创建 `.deepagents/skills/lexseek/` 目录，迁入 Skill 文件
-3. 实现 `readSkillFile.tool.ts` 和 `runSkillScript.tool.ts`
-4. caseMainAgent.ts 追加 middleware + tools
-5. moduleAgent.ts 追加 middleware + tools
-6. Dockerfile 追加 `COPY .deepagents ./.deepagents`
-7. 本地验证：Skill 发现 → 读取 → 脚本执行
-8. Docker 验证：路径解析 + 脚本执行
+1. `bun add deepagents langsmith`
+2. 创建 `.deepagents/skills/lexseek/` 目录，迁入 Skill 文件（不含 `.env`）
+3. 修改 `lexseek.cjs`：优先读取 `LEXSEEK_API_KEY` 环境变量，移除 `.env` 文件写入逻辑
+4. 实现 `readSkillFile.tool.ts` 和 `runSkillScript.tool.ts`
+5. caseMainAgent.ts 追加 middleware + tools
+6. moduleAgent.ts 追加 middleware + tools
+7. Dockerfile runner 阶段追加 `COPY .deepagents ./.deepagents`
+8. 本地验证：Skill 发现 → SKILL.md 读取 → 脚本执行
+9. 中断恢复验证：从旧 checkpoint 恢复后 agent 正常工作
+10. Docker 验证：路径解析 + 脚本执行
 
 ## 参考资料
 
