@@ -278,7 +278,7 @@
         <h2 class="text-3xl font-bold mb-4">体验LexSeek的强大功能</h2>
         <p class="text-xl mb-8 max-w-2xl mx-auto opacity-90">立即注册并获得免费试用机会，亲身体验AI如何提升您的法律工作效率</p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <NuxtLink to="/dashboard/analysis"
+          <NuxtLink to="/dashboard/cases/create"
             class="inline-flex items-center justify-center px-6 py-3 bg-background text-foreground font-medium rounded-md hover:bg-background/90 transition-colors">
             开始分析 </NuxtLink>
           <NuxtLink to="/pricing"
