@@ -175,7 +175,7 @@ export function createTool(context: ToolContext) {
 
 ### run_skill_script 工具
 
-使用**结构化参数**防止命令注入，遵循 ToolModule 接口：
+使用**结构化参数**防止命令注入，遵循 ToolModule 接口。支持 Node.js、Python、Bash 三种运行时（覆盖 Agent Skills 规范要求）：
 
 ```typescript
 import { tool } from '@langchain/core/tools'
@@ -187,10 +187,17 @@ import type { ToolContext } from './types'
 
 const SKILLS_ROOT = resolve('/app/.deepagents/skills')
 
+/** 允许的运行时及其可执行文件路径 */
+const ALLOWED_RUNTIMES: Record<string, string> = {
+    node: 'node',
+    python: 'python3',
+    bash: 'bash',
+}
+
 const schema = z.object({
     skillName: z.string().describe('Skill 名称，如 lexseek'),
-    scriptName: z.string().describe('脚本文件名，如 lexseek.cjs'),
-    action: z.string().describe('操作名称，如 search, login'),
+    scriptName: z.string().describe('脚本文件名，如 lexseek.cjs、extract.py、setup.sh'),
+    action: z.string().describe('操作名称，如 search, login（作为第一个参数传入脚本）'),
     args: z.record(z.string()).optional().describe('参数键值对，如 { query: "关键词" }'),
 })
 
@@ -212,13 +219,23 @@ export function createTool(context: ToolContext) {
                 return `Error: 脚本不存在 ${skillName}/scripts/${scriptName}`
             }
 
+            // 根据文件扩展名推断运行时
+            const ext = scriptName.split('.').pop()?.toLowerCase()
+            let runtime: string
+            if (ext === 'js' || ext === 'cjs' || ext === 'mjs') runtime = 'node'
+            else if (ext === 'py') runtime = 'python'
+            else if (ext === 'sh') runtime = 'bash'
+            else return `Error: 不支持的脚本类型 .${ext}，仅支持 .js/.cjs/.mjs/.py/.sh`
+
+            const runtimeBin = ALLOWED_RUNTIMES[runtime]
+
             const execArgs = [scriptPath, action]
             for (const [key, value] of Object.entries(args ?? {})) {
                 execArgs.push(`--${key}`, value)
             }
 
             return new Promise((done) => {
-                execFile('node', execArgs, {
+                execFile(runtimeBin, execArgs, {
                     timeout: 30_000,
                     cwd: resolve(SKILLS_ROOT, skillName, 'scripts'),
                     env: { PATH: '/usr/local/bin:/usr/bin:/bin', NODE_ENV: 'production' },
@@ -246,7 +263,7 @@ export function createTool(context: ToolContext) {
 └── skills/
     └── <skill-name>/
         ├── SKILL.md            # 必需：指令 + YAML frontmatter
-        ├── scripts/            # 可选：Agent 可执行的脚本（Phase 2）
+        ├── scripts/            # 可选：Agent 可执行的脚本（Node.js/Python/Bash）
         ├── references/         # 可选：按需加载的参考文档
         └── assets/             # 可选：模板、图片等资源
 ```
@@ -295,7 +312,7 @@ Skills 目录本身是共享只读资源，无跨用户污染。但具体 Skill 
 | `server/services/workflow/agents/moduleAgent.ts` | 同上（middleware + 2 个工具） |
 | `server/services/workflow/middleware/types.ts` | 添加 `SKILLS_DISCOVERY` 到 `MIDDLEWARE_PRIORITY` |
 | `package.json` | 新增 `deepagents@^1.9.0` |
-| `Dockerfile` | runner 阶段第39行后追加 `COPY --from=builder /app/.deepagents ./.deepagents` |
+| `Dockerfile` | runner 阶段安装 `python3`（支持 Python 脚本）+ `COPY --from=builder /app/.deepagents ./.deepagents` |
 
 ### 不受影响
 
@@ -342,7 +359,7 @@ Skills 目录本身是共享只读资源，无跨用户污染。但具体 Skill 
 5. `middleware/types.ts` 添加 `SKILLS_DISCOVERY` 优先级常量
 6. caseMainAgent.ts 追加 middleware + 2 个工具
 7. moduleAgent.ts 追加 middleware + 2 个工具
-8. Dockerfile runner 阶段第39行后追加 `COPY --from=builder /app/.deepagents ./.deepagents`
+8. Dockerfile runner 阶段：安装 `python3`（支持 Python Skills 脚本）+ `COPY --from=builder /app/.deepagents ./.deepagents`
 9. 本地验证：Skill 发现 → SKILL.md 读取 → 脚本执行（可用 lexseek 示范 Skill）
 10. 中断恢复验证：从旧 checkpoint 恢复后 agent 正常工作
 11. Docker 验证：路径解析 + 脚本执行
