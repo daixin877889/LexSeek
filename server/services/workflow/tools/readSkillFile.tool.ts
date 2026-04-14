@@ -1,0 +1,77 @@
+/**
+ * 读取 Skill 文件工具
+ *
+ * 工作流工具层 - 读取 .deepagents/skills 目录下的 skill 文件内容
+ * 支持 SKILL.md、references 等文本文件，拒绝路径遍历和二进制文件
+ */
+
+import { tool } from '@langchain/core/tools'
+import { readFile } from 'node:fs/promises'
+import { extname, resolve } from 'node:path'
+import { z } from 'zod'
+import type { ToolContext, ToolDefinition } from './types'
+
+/** 默认 skills 根目录 */
+const DEFAULT_SKILLS_ROOT = resolve(process.cwd(), '.deepagents/skills')
+
+/** 允许读取的文本文件扩展名 */
+const ALLOWED_EXTENSIONS = new Set(['.md', '.txt', '.json', '.yaml', '.yml', '.js', '.ts', '.py', '.sh', '.cjs', '.mjs'])
+
+/** 参数 schema（唯一数据源） */
+const schema = z.object({
+    path: z.string().describe('文件路径，如 lexseek/SKILL.md'),
+})
+
+/** 工具定义（单一数据源） */
+export const toolDefinition: ToolDefinition<typeof schema> = {
+    name: 'read_skill_file',
+    description: '读取 skill 文件内容（SKILL.md、references 等）',
+    schema,
+}
+
+/**
+ * 创建读取 skill 文件工具
+ *
+ * @param context 工具上下文（包含 userId、caseId、sessionId）
+ * @param skillsRoot 可选的 skills 根目录（默认 DEFAULT_SKILLS_ROOT，测试时可覆盖）
+ * @returns LangGraph 工具实例
+ */
+export function createTool(context: ToolContext, skillsRoot?: string) {
+    const SKILLS_ROOT = skillsRoot ?? DEFAULT_SKILLS_ROOT
+
+    return tool(
+        async ({ path: filePath }) => {
+            // 拒绝路径遍历和绝对路径
+            if (filePath.includes('..') || filePath.startsWith('/')) {
+                return 'Error: 非法路径'
+            }
+
+            // 规范化路径：移除前缀 skills/ 或 ./skills/
+            const normalizedPath = filePath.replace(/^\.?\/?skills\//, '')
+            const fullPath = resolve(SKILLS_ROOT, normalizedPath)
+
+            // 二次确认路径在 skills 目录内（防止 resolve 后越界）
+            if (!fullPath.startsWith(SKILLS_ROOT + '/') && fullPath !== SKILLS_ROOT) {
+                return 'Error: 只允许读取 skills 目录内的文件'
+            }
+
+            // 校验扩展名，只允许文本文件
+            const ext = extname(filePath).toLowerCase()
+            if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
+                return `Error: 不支持读取 ${ext} 文件，仅支持文本文件`
+            }
+
+            // 读取文件内容
+            try {
+                return await readFile(fullPath, 'utf-8')
+            } catch {
+                return `Error: 文件不存在 ${filePath}`
+            }
+        },
+        {
+            name: toolDefinition.name,
+            description: toolDefinition.description,
+            schema,
+        },
+    )
+}
