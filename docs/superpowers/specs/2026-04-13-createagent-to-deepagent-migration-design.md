@@ -1,379 +1,288 @@
-# createAgent → createDeepAgent 迁移设计
+# 接入 Agent Skills 生态设计
 
 ## 概述
 
-将小索（caseMainAgent）和模块对话（moduleAgent）从 LangGraph 原生 `createAgent`（`langchain` 包）迁移到 `createDeepAgent`（`deepagents` 包），获得标准 Skills 能力（含脚本执行）、内置规划工具、子代理上下文隔离和自动摘要等能力。
+在现有 `createAgent` 架构上接入 [Agent Skills 开放标准](https://agentskills.io/specification)，通过 `deepagents` 包的 `createSkillsMiddleware` 中间件实现标准 Skills 发现和加载能力，同时增加受限的脚本执行工具支持 Skill 脚本。
 
-**初始化分析工作流（`caseAnalysisV2.workflow.ts`）不动。**
+**现有 `createAgent` 代码零改动。仅追加中间件和工具。**
 
-## 迁移动机
+## 动机
 
-1. **Skills + 脚本执行**（核心诱因）：deepagent 原生支持 [Agent Skills 规范](https://agentskills.io/specification)，Skill 可包含可执行脚本（`scripts/` 目录），Agent 通过 `execute` 工具运行。已验证：法律检索 Skill（`lexseek.cjs`）可被成功调用
-2. **内置规划**：`write_todos` 工具自动进行任务分解和进度追踪
-3. **子代理隔离**：内置 `SubAgentMiddleware` 替代手写 `subAgentToolFactory`，上下文自动隔离
-4. **上下文管理**：内置 `summarizationMiddleware`，大结果自动卸载
+接入 Agent Skills 生态（skills.sh 1370+ 技能库），使 LexSeek 的 Agent 能够：
+1. 自动发现和加载 SKILL.md 定义的领域技能
+2. 执行 Skill 中的脚本（如法律检索 `lexseek.cjs`）
+3. 与 Claude Code、Codex、Copilot 等共享同一套 Skill 格式
 
-## 依赖兼容性
+## 已验证的技术可行性
 
-| 依赖 | 项目当前版本 | deepagents v1.9.0 要求 | 状态 |
-|------|------------|----------------------|------|
-| `langchain` | ^1.3.1 | ^1.3.1 | ✅ 一致 |
-| `@langchain/core` | ^1.1.39 | ^1.1.38 | ✅ 兼容 |
-| `@langchain/langgraph` | ^1.2.8 | ^1.2.8 | ✅ 一致 |
-| `zod` | ^4.2.1 | ^4.3.6 | ⚠️ 需升级 |
+通过 `/tmp/deepagents-test/verify.cjs` 脚本验证：
 
-**新增依赖**：`deepagents@^1.9.0`、`langsmith@>=0.5.15`（deepagents peerDependency）
+| 验证项 | 结果 |
+|-------|------|
+| `createSkillsMiddleware` 创建 | ✓ 返回标准 `AgentMiddleware`（来自 `langchain` 包） |
+| `FilesystemBackend` 发现 SKILL.md | ✓ 使用相对路径 `./skills/` |
+| `createAgent` 接受 skillsMiddleware | ✓ 编译成功，与 `summarizationMiddleware` 等共存 |
+| SKILL.md 读取 | ✓ 正确解析 YAML frontmatter + Markdown |
+
+**关键发现**：`createSkillsMiddleware` 返回的是 `langchain` 包定义的 `AgentMiddleware` 类型，与 `createAgent` 完全兼容。不需要 `createDeepAgent`。
 
 ## 约束
 
-- `caseAnalysisV2.workflow.ts`（StateGraph 工作流）完全不动
-- 业务中间件（积分扣减、材料上下文注入、结果持久化）保持不变
-- 现有 SSE/Redis 事件管道完全复用
-- 返回格式与现有 `ReadableStream<Uint8Array>` SSE 格式兼容
-- `caseAnalysis.ts`（Workflow 内的 Agent 工厂）继续使用 `createAgent`
+- 所有现有 `createAgent` 代码不动（caseMainAgent、moduleAgent、caseAnalysis、subAgentToolFactory）
+- 所有现有中间件不动（积分、材料上下文、摘要、截断等）
+- 所有现有工具不动（search_law、search_case_materials 等）
+- `caseAnalysisV2.workflow.ts` 不动
+- SSE/Redis/Worker 管道不动
 
 ## 架构设计
 
-### 影响范围
+### 改动点（仅 3 处）
 
 ```
-迁移到 createDeepAgent:
-├── server/services/workflow/agents/caseMainAgent.ts    ← 小索主代理
-├── server/services/workflow/agents/moduleAgent.ts       ← 模块对话代理
-└── server/services/workflow/agents/subAgentToolFactory.ts ← 可能被替代
+新增:
+├── 1. createSkillsMiddleware 追加到现有 middleware 数组
+├── 2. readSkillFile 工具（读取 SKILL.md 和 references）
+└── 3. runSkillScript 工具（执行 skills/*/scripts/ 下的脚本）
 
-不受影响:
-├── server/services/workflow/caseAnalysisV2.workflow.ts  ← 初始化工作流
-├── server/services/workflow/agents/caseAnalysis.ts      ← 工作流内 Agent 工厂
-├── server/services/workflow/middleware/*                 ← 所有业务中间件
-├── server/services/workflow/tools/*                      ← 所有工具定义
-├── server/services/agent/*                               ← Worker/DAO/事件桥
-└── server/api/v1/case/analysis/*                         ← API 端点
+不受影响（全部现有代码）:
+├── createAgent 调用方式不变
+├── 中间件栈不变（只在末尾追加）
+├── 工具列表不变（只追加新工具）
+└── 其余所有文件不变
 ```
 
-### Backend 策略：StoreBackend + 自定义 execute 工具
+### 集成方式
 
-#### 多用户隔离问题
-
-LexSeek 是多用户系统，多个用户可能并发运行 Agent。deepagent 的 backend 决定了文件操作的隔离性：
-
-| Backend | 文件隔离 | execute 工具 | 多用户安全 |
-|---------|---------|-------------|-----------|
-| `LocalShellBackend` | ❌ 共享文件系统 | ✅ 有 | ❌ 跨用户污染 |
-| `StoreBackend` | ✅ per-thread 隔离在 PostgresStore | ❌ 没有 | ✅ 天然安全 |
-
-**方案**：使用 `StoreBackend`（文件操作天然隔离）+ 自定义白名单 `execute` 工具（仅允许执行 skills 目录下的脚本）。
-
-#### 自定义 execute 工具实现
+以 caseMainAgent 为例（moduleAgent 同理）：
 
 ```typescript
-import { tool } from 'langchain'
-import { execFile } from 'node:child_process'
-import { z } from 'zod'
+// === 新增 import ===
+import { createSkillsMiddleware, FilesystemBackend } from 'deepagents'
+import { readSkillFile } from '../tools/readSkillFile.tool'
+import { runSkillScript } from '../tools/runSkillScript.tool'
 
-const SKILLS_SCRIPTS_DIR = '/app/.deepagents/skills'
+// === Skills 中间件（模块级单例） ===
+const skillsMiddleware = createSkillsMiddleware({
+    backend: new FilesystemBackend({ rootDir: '/app' }),
+    sources: ['./.deepagents/skills/'],
+})
 
-/**
- * 受限的脚本执行工具，仅允许运行 skills 目录下的脚本
- * 替代 deepagent 内置的 execute 工具（StoreBackend 下不可用）
- */
-const runSkillScript = tool(
-    async ({ command }) => {
-        // 白名单校验：只允许执行 skills 目录下的脚本
-        const allowedPrefix = `node ${SKILLS_SCRIPTS_DIR}/`
-        if (!command.startsWith(allowedPrefix)) {
-            return `Error: 只允许执行 ${SKILLS_SCRIPTS_DIR} 目录下的脚本`
-        }
-
-        const args = command.replace('node ', '').split(' ')
-        return new Promise((resolve) => {
-            execFile('node', args, {
-                timeout: 30_000,
-                env: { PATH: '/usr/local/bin:/usr/bin:/bin', NODE_ENV: 'production' },
-            }, (err, stdout, stderr) => {
-                resolve(err ? `Error: ${stderr || err.message}` : stdout)
-            })
-        })
-    },
-    {
-        name: 'execute',
-        description: '在沙箱环境中执行 skill 脚本命令',
-        schema: z.object({
-            command: z.string().describe('要执行的命令，格式: node <script_path> [args]'),
-        }),
-    }
-)
-```
-
-**安全保障**：
-- 白名单路径校验：仅 `/app/.deepagents/skills/` 下的脚本可执行
-- 不继承宿主环境变量（`inheritEnv: false` 语义）
-- 30 秒超时
-- Docker 容器本身作为外层隔离
-
-**注意**：自定义 `execute` 工具名称与 deepagent 内置 `execute` 冲突。由于 `StoreBackend` 不提供 `execute`，deepagent 不会注册内置版本（`isSandboxBackend` 检查会返回 false），所以自定义版本可以安全注册。需要在 PoC 中验证此行为。
-
-### 小索主代理（caseMainAgent.ts）迁移
-
-**Before**:
-```typescript
-import { createAgent, summarizationMiddleware, type ReactAgent } from 'langchain'
-
+// === 现有代码不动，只在 middleware 和 tools 末尾追加 ===
 const agent: ReactAgent = createAgent({
     model,
     systemPrompt,
     checkpointer,
     store,
-    tools: allTools,
+    tools: [
+        ...allTools,          // 现有工具不动
+        readSkillFile,        // 新增：读取 Skill 文件
+        runSkillScript,       // 新增：执行 Skill 脚本
+    ],
     middleware: [
+        // 现有中间件不动
         pointConsumptionMiddleware(...),
         caseProcessMaterialMiddleware(...),
         caseMaterialContextMiddleware(...),
         summarizationMiddleware({...}),
         safetyTrimMiddleware({...}),
+        // 新增：Skills 发现和加载
+        skillsMiddleware,
     ],
 })
 ```
 
-**After**:
-```typescript
-import { createDeepAgent, StoreBackend, type DeepAgent } from 'deepagents'
+### readSkillFile 工具
 
-// createDeepAgent 是同步函数
-const agent: DeepAgent = createDeepAgent({
-    model,
-    systemPrompt,
-    checkpointer,
-    store,
-    backend: (config) => new StoreBackend(config),
-    tools: [...directTools, runSkillScript],  // 通用工具 + 自定义 execute
-    subagents: subAgentConfigs,
-    skills: ['/skills/'],
-    middleware: [
-        pointConsumptionMiddleware(...),
-        caseProcessMaterialMiddleware(...),
-        caseMaterialContextMiddleware(...),
-        safetyTrimMiddleware({...}),
-    ],
-})
+SkillsMiddleware 将 skill 路径注入 system prompt（如 `Read skills/lexseek/SKILL.md for full instructions`），Agent 需要一个文件读取工具来加载完整内容。
+
+```typescript
+import { tool } from 'langchain'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { z } from 'zod'
+
+const SKILLS_ROOT = resolve('/app/.deepagents/skills')
+
+export const readSkillFile = tool(
+    async ({ path }) => {
+        const fullPath = resolve(SKILLS_ROOT, path.replace(/^\.?\/?skills\//, ''))
+        // 安全校验：只允许读取 skills 目录内的文件
+        if (!fullPath.startsWith(SKILLS_ROOT)) {
+            return 'Error: 只允许读取 skills 目录内的文件'
+        }
+        try {
+            return readFileSync(fullPath, 'utf-8')
+        } catch (e) {
+            return `Error: 文件不存在 ${path}`
+        }
+    },
+    {
+        name: 'read_file',
+        description: '读取 skill 文件内容（SKILL.md、references 等）',
+        schema: z.object({
+            path: z.string().describe('文件路径，如 skills/lexseek/SKILL.md'),
+        }),
+    }
+)
 ```
 
-**关键变化**：
-1. `summarizationMiddleware` → deepagent 内置，移除手动挂载
-2. `subAgentToolFactory` → 改用 `subagents` 参数声明式配置
-3. 新增 `skills` + 自定义 `execute` 工具实现脚本执行
-4. `StoreBackend` 确保多用户文件隔离
-5. 返回类型从 `ReactAgent` 变为 `DeepAgent`（继承自 `ReactAgent`）
+### runSkillScript 工具
 
-### 子代理配置转换
-
-**Before**（subAgentToolFactory.ts 动态生成工具）:
 ```typescript
-const subTools = await createSubAgentTools(subAgentConfigs, {
-    sessionId, userId, caseId, checkpointer, store
-})
+import { tool } from 'langchain'
+import { execFile } from 'node:child_process'
+import { resolve } from 'node:path'
+import { z } from 'zod'
+
+const SKILLS_ROOT = resolve('/app/.deepagents/skills')
+
+export const runSkillScript = tool(
+    async ({ command }) => {
+        // 解析命令：node scripts/lexseek.cjs search --query "..."
+        const parts = command.split(' ')
+        const runtime = parts[0]       // node
+        const scriptPath = parts[1]    // scripts/lexseek.cjs
+        const args = parts.slice(2)    // search --query "..."
+
+        if (runtime !== 'node') {
+            return 'Error: 只支持 node 运行时'
+        }
+
+        const fullScriptPath = resolve(SKILLS_ROOT, scriptPath.replace(/^\.?\/?/, ''))
+        if (!fullScriptPath.startsWith(SKILLS_ROOT)) {
+            return 'Error: 只允许执行 skills 目录内的脚本'
+        }
+
+        return new Promise((resolve) => {
+            execFile('node', [fullScriptPath, ...args], {
+                timeout: 30_000,
+                cwd: SKILLS_ROOT,
+                env: { PATH: '/usr/local/bin:/usr/bin:/bin', NODE_ENV: 'production' },
+            }, (err, stdout, stderr) => {
+                if (err) resolve(`Error (exit ${err.code}): ${stderr || err.message}`)
+                else resolve(stdout)
+            })
+        })
+    },
+    {
+        name: 'execute',
+        description: '在沙箱环境中执行 skill 脚本',
+        schema: z.object({
+            command: z.string().describe('执行命令，格式: node <script_path> [args]'),
+        }),
+    }
+)
 ```
 
-**After**（deepagent subagents 声明）:
-```typescript
-import type { SubAgent } from 'deepagents'
-
-const subagents: SubAgent[] = subAgentConfigs.map(config => ({
-    name: sanitizeName(config.name),
-    description: config.title || config.description,
-    systemPrompt: renderSystemPrompt(config),
-    tools: getToolInstancesService(config.tools, toolContext),
-    model: createChatModel(config),
-    middleware: [
-        pointConsumptionMiddleware(userId, 'case_analysis_token', sessionId),
-    ],
-}))
-```
-
-### 模块对话代理（moduleAgent.ts）迁移
-
-**After**:
-```typescript
-const agent: DeepAgent = createDeepAgent({
-    model,
-    systemPrompt,
-    checkpointer,
-    store,
-    backend: (config) => new StoreBackend(config),
-    tools: [...allTools, runSkillScript],
-    skills: ['/skills/'],
-    middleware: [
-        pointConsumptionMiddleware(...),
-        moduleContextMiddleware(...),
-        safetyTrimMiddleware({...}),
-    ],
-})
-```
-
-### Skills 目录结构
+### Skills 目录
 
 ```
 .deepagents/
 └── skills/
     └── lexseek/
-        ├── SKILL.md                # 法律检索 Skill（含使用流程、案情分析规则）
+        ├── SKILL.md                 # 法律检索指令（已验证可用）
         ├── scripts/
-        │   ├── lexseek.cjs         # Node.js CLI（login/search）
-        │   └── .env                # API Key 存储
+        │   ├── lexseek.cjs          # 法律检索 CLI
+        │   └── .env                 # API Key
         ├── references/
-        │   ├── auth.md             # 认证文档
-        │   └── legal-api.md        # API 接口文档
-        └── evals/                  # Skill 评估用例
+        │   ├── auth.md              # 认证文档
+        │   └── legal-api.md         # API 文档
+        └── evals/                   # 评估用例
 ```
 
-Skills 通过渐进式披露（Progressive Disclosure）加载：
-1. **Advertise**：skill name + description 注入 system prompt（~100 tokens）
-2. **Load**：Agent 用 `read_file` 读取完整 SKILL.md
-3. **Read resources**：按需读取 `references/` 下的文档
-4. **Execute**：通过自定义 `execute` 工具运行 `scripts/` 下的脚本
+### 多用户隔离
 
-### Interrupt 兼容性
+| 组件 | 隔离性 | 说明 |
+|------|--------|------|
+| SkillsMiddleware | ✅ 安全 | 只读取 SKILL.md 元数据，不写文件 |
+| `skillsMetadata` state | ✅ 安全 | 存在 agent state 中，per-thread 隔离 |
+| `files` state channel | ✅ 安全 | SkillsMiddleware 添加但不写入，per-thread 隔离 |
+| readSkillFile 工具 | ✅ 安全 | 只读、白名单限制在 skills 目录 |
+| runSkillScript 工具 | ✅ 安全 | 白名单限制、30s 超时、不继承环境变量 |
+| 现有中间件/工具 | ✅ 不变 | 不受影响 |
 
-**兼容性确认**：
-- 中间件内的 `interrupt()` 调用在 `DeepAgent`（继承自 `ReactAgent`）中正常工作
-- `Command({ resume })` 恢复机制不受影响
+Skills 是**共享只读资源**，不存在跨用户写入污染。
 
-**子代理 interrupt 冒泡（需 PoC 验证）**：
-1. 子代理中间件 `interrupt()` 是否冒泡到主代理？
-2. `agentWorker.ts` 的 interrupt 检测在 subgraph 场景下是否正确？
-3. 备选：子代理不挂载 `pointConsumptionMiddleware`，工具函数内手动检查积分
+### 工具名冲突检查
 
-### getChatThreadState 函数迁移
+| 新增工具名 | 现有工具 | deepagent 内置 | 冲突？ |
+|-----------|---------|---------------|--------|
+| `read_file` | 无 | 有（FilesystemMiddleware 提供，但未加载） | ✅ 无冲突 |
+| `execute` | 无 | 有（需 SandboxBackend，未加载） | ✅ 无冲突 |
 
-迁移后 `DeepAgent` 的 state schema 扩展了字段（`todos`、`_summarizationSessionId` 等）。
-
-**方案**：改用 `checkpointer.getTuple()` 低层 API 直接读取。
-
-### 流式输出兼容性
-
-```typescript
-agent.stream(input, {
-    configurable: { thread_id: sessionId },
-    streamMode: ['values', 'messages', 'updates'],
-    subgraphs: true,
-    encoding: 'text/event-stream',
-    recursionLimit: 1000,  // 显式覆盖 deepagent 默认的 10000
-})
-```
+因为只加载了 `SkillsMiddleware`（不加载 `FilesystemMiddleware`），内置的 `read_file` 和 `execute` 工具不会注册，自定义版本可安全使用。
 
 ## 文件变更清单
-
-### 修改文件
-
-| 文件 | 变更内容 |
-|------|---------|
-| `server/services/workflow/agents/caseMainAgent.ts` | `createAgent` → `createDeepAgent`，添加 subagents/skills/backend/runSkillScript |
-| `server/services/workflow/agents/moduleAgent.ts` | `createAgent` → `createDeepAgent`，添加 skills/backend/runSkillScript |
-| `package.json` | 新增 `deepagents@^1.9.0`、`langsmith@>=0.5.15`，升级 `zod@^4.3.6` |
-| `Dockerfile` | 复制 `.deepagents/` 目录到镜像 |
-
-### 可能删除
-
-| 文件 | 条件 |
-|------|------|
-| `server/services/workflow/agents/subAgentToolFactory.ts` | 如果 deepagent 内置 subagent 机制完全覆盖需求 |
 
 ### 新增文件
 
 | 文件 | 职责 |
 |------|------|
-| `server/services/workflow/tools/runSkillScript.tool.ts` | 白名单受限的 skill 脚本执行工具 |
-| `.deepagents/skills/lexseek/SKILL.md` | 法律检索 Skill |
+| `server/services/workflow/tools/readSkillFile.tool.ts` | 只读的 Skill 文件读取工具 |
+| `server/services/workflow/tools/runSkillScript.tool.ts` | 白名单受限的 Skill 脚本执行工具 |
+| `.deepagents/skills/lexseek/SKILL.md` | 法律检索 Skill（从桌面实验版迁入） |
 | `.deepagents/skills/lexseek/scripts/lexseek.cjs` | 法律检索 CLI 脚本 |
 | `.deepagents/skills/lexseek/references/*.md` | Skill 参考文档 |
 
+### 修改文件
+
+| 文件 | 变更内容 |
+|------|---------|
+| `server/services/workflow/agents/caseMainAgent.ts` | middleware 末尾追加 `skillsMiddleware`，tools 追加 2 个工具 |
+| `server/services/workflow/agents/moduleAgent.ts` | 同上 |
+| `package.json` | 新增 `deepagents@^1.9.0` |
+| `Dockerfile` | 新增 `COPY .deepagents ./.deepagents` |
+
 ### 不受影响
 
-- `server/services/workflow/caseAnalysisV2.workflow.ts` — 初始化工作流
-- `server/services/workflow/agents/caseAnalysis.ts` — 工作流内 Agent 工厂
-- `server/services/workflow/middleware/*` — 所有业务中间件
-- `server/services/workflow/tools/*` — 现有工具定义
-- `server/services/agent/*` — Worker/DAO/事件桥
+- `createAgent` 调用参数结构不变（只追加数组元素）
+- 所有现有中间件不变
+- 所有现有工具不变
+- `caseAnalysisV2.workflow.ts` 不变
+- `subAgentToolFactory.ts` 不变
+- `caseAnalysis.ts` 不变
+- SSE/Redis/Worker 管道不变
+- 所有 API 端点不变
 
 ### 依赖变更
 
-| 操作 | 包名 | 版本 |
-|------|------|------|
-| 新增 | `deepagents` | ^1.9.0 |
-| 新增 | `langsmith` | >=0.5.15（peerDependency） |
-| 升级 | `zod` | ^4.2.1 → ^4.3.6 |
+| 操作 | 包名 | 版本 | 说明 |
+|------|------|------|------|
+| 新增 | `deepagents` | ^1.9.0 | 仅使用 `createSkillsMiddleware` + `FilesystemBackend` |
 
-### Dockerfile 变更
-
-```diff
- COPY --from=builder /app/.output ./.output
-
-+# 复制 deepagent skills（含脚本和参考文档）
-+COPY .deepagents ./.deepagents
-+
- EXPOSE 3000
-```
+注意：`deepagents` 的 peerDep `langsmith@>=0.5.15` 需确认项目是否已安装。
 
 ## 风险评估
 
 ### 低风险
-- **依赖兼容性**：deepagents 依赖与项目完全一致
-- **工具冲突**：`StoreBackend` 不注册内置 `execute`，自定义版本可安全注册
-- **API 兼容**：`DeepAgent` 继承 `ReactAgent`，所有 LangGraph 操作兼容
-- **多用户隔离**：`StoreBackend` 文件操作 per-thread 隔离在 PostgresStore 中
+- **兼容性已验证**：createSkillsMiddleware 返回标准 AgentMiddleware，createAgent 接受无误
+- **零改动现有代码**：只追加，不修改
+- **无工具冲突**：未加载 FilesystemMiddleware，内置工具不注册
+- **多用户安全**：Skills 只读，工具白名单限制
 
 ### 中等风险
-- **子代理机制差异**：需验证 interrupt 冒泡、流式传播、自定义中间件
-- **summarization 行为**：deepagent 内置 `summarizationMiddleware` 的触发阈值可能与现有不同
-  - 当前：`trigger: [{ tokens: contextWindow * 0.6 }]`，下限 30k
-  - 如不一致，禁用内置版本并继续手动挂载
+- **FilesystemBackend 路径**：必须使用相对路径（`./skills/`），绝对路径无效（已验证）
+- **Docker 部署路径**：`rootDir` 设为 `/app`，`sources` 设为 `./.deepagents/skills/`，需在 Docker 中验证路径解析
 
-### 高风险
-- **zod 升级**（^4.2.1 → ^4.3.6）：全项目验证 `npx vitest run` + `npx nuxi typecheck`
-- **自定义 execute 与内置 execute 冲突**：需验证 `StoreBackend` 下 deepagent 确实不注册内置版
+### 需验证
+- **SkillsMiddleware 与现有 summarizationMiddleware 的中间件顺序**：SkillsMiddleware 应放在最后（在 wrapModelCall 中注入 prompt 最先执行）
+- **`files` state channel 对 checkpoint 的影响**：SkillsMiddleware 添加了 `files` 到 state schema，需确认不影响现有 checkpoint 序列化
 
 ## 迁移步骤
 
-### Phase 0：最小化 PoC（阻断性验证）
-
-1. **自定义 execute 注册**：验证 `StoreBackend` + 自定义 `execute` 工具名不冲突
-2. **SSE 格式兼容性**：验证 `encoding: 'text/event-stream'` 在 deepagent 内置中间件栈下正常
-3. **Skill 脚本执行**：验证 `StoreBackend` 下 Agent 能通过自定义 `execute` 运行 lexseek.cjs
-4. **Interrupt 冒泡**：验证子代理中间件 `interrupt()` 正确冒泡到主代理
-5. **Checkpoint 兼容**：验证旧 `createAgent` 的 checkpoint 能否被 `createDeepAgent` 加载
-
-### Phase 1：依赖和基础设施
-
-1. `bun add deepagents@^1.9.0 langsmith` + `bun add zod@^4.3.6`
-2. zod 兼容性验证：`npx vitest run` + `npx nuxi typecheck`
-3. 创建 `.deepagents/skills/lexseek/` 目录，迁入 Skill 文件
-4. 实现 `runSkillScript.tool.ts`
-
-### Phase 2：moduleAgent 迁移（先简单后复杂）
-
-5. moduleAgent 改用 `createDeepAgent`（无子代理，改动最小）
-6. 集成测试：SSE、interrupt/resume、多轮对话、skill 脚本调用
-7. 验证通过后合并
-
-### Phase 3：caseMainAgent 迁移
-
-8. caseMainAgent 改用 `createDeepAgent`，配置 subagents
-9. getChatThreadState 改用 `checkpointer.getTuple()`
-10. 验证 subAgentToolFactory 可替代性
-11. 集成测试 + 性能基准
-
-### 回滚策略
-
-- 每个 Phase 独立分支
-- 保留 `subAgentToolFactory.ts` 直到 Phase 3 验证通过
-- deepagent 的 middleware 可独立使用，随时可退回 `createAgent` + 单独挂载
+1. `bun add deepagents`
+2. 创建 `.deepagents/skills/lexseek/` 目录，迁入 Skill 文件
+3. 实现 `readSkillFile.tool.ts` 和 `runSkillScript.tool.ts`
+4. caseMainAgent.ts 追加 middleware + tools
+5. moduleAgent.ts 追加 middleware + tools
+6. Dockerfile 追加 `COPY .deepagents ./.deepagents`
+7. 本地验证：Skill 发现 → 读取 → 脚本执行
+8. Docker 验证：路径解析 + 脚本执行
 
 ## 参考资料
 
+- [Agent Skills 规范](https://agentskills.io/specification)
+- [Skills - LangChain Docs](https://docs.langchain.com/oss/javascript/langchain/multi-agent/skills)
 - [deepagentsjs GitHub](https://github.com/langchain-ai/deepagentsjs)
 - [deepagents npm](https://www.npmjs.com/package/deepagents)
-- [Skills 文档 - LangChain Docs](https://docs.langchain.com/oss/javascript/deepagents/skills)
-- [Sandboxes 文档 - LangChain Docs](https://docs.langchain.com/oss/javascript/deepagents/sandboxes)
-- [Customize Deep Agents - LangChain Docs](https://docs.langchain.com/oss/javascript/deepagents/customization)
-- [Agent Skills 规范](https://agentskills.io/specification)
-- [Sandbox API Reference](https://reference.langchain.com/javascript/deepagents/sandboxes)
+- [skills.sh - Skill 社区生态](https://skills.sh)
