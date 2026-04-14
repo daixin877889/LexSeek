@@ -424,3 +424,105 @@ dayjs(dateString).fromNow()  // 需要 relativeTime 插件
 - `sm:max-w-2xl`：`CaseDetailXiaosuo.vue`
 - `sm:max-w-[700px]`：`CaseExportDialog.vue`
 - `md:min-w-[70vw]`：`DocPreviewDialog.vue`（用 min-w 实现大弹窗）
+
+## 十七、init-analysis 页面 type=1 sessionId 导致历史消息不加载
+
+### 问题
+
+案件创建时 `createCaseService` 生成的是 type=1（主会话）session，前端 `useCaseCreation.ts` 拿这个 sessionId 导航到 `/dashboard/cases/init-analysis/${sessionId}`。但 init-analysis 页面的 `loadStatus` 调用 status API 时传入 type=1 的 sessionId，`getInitAnalysisStatusService` 在 `sessions.find(s => s.sessionId === sessionId && s.type === 2)` 中找不到匹配，直接返回 `status: 'not_started'`。前端 phase 被覆盖为 `'select'`，不会调用 `stream.submit(undefined)` 重连 SSE，历史消息无法加载。
+
+### 影响范围
+
+所有通过案件创建流程进入 init-analysis 页面的场景。URL 中的 sessionId 是 type=1 而非 type=2，刷新后 phase 回到模块选择页。
+
+### 解决方案
+
+在 `getInitAnalysisStatusService` 中，当传入的 sessionId 不匹配任何 type=2 session 时，**回退到同案件的最新 type=2 session**：
+
+```typescript
+// server/services/case/initAnalysis.service.ts
+primarySession = sessions.find(s => s.sessionId === sessionId && s.type === 2)
+if (!primarySession) {
+    // 回退到最新 type=2 session（sessionId 可能是 type=1 主会话）
+    primarySession = sessions.find(s => s.type === 2)
+    if (!primarySession) {
+        return { status: 'not_started', ... }
+    }
+}
+```
+
+### 相关文件
+
+- 前端入口：`app/composables/useCaseCreation.ts:104`（用 type=1 sessionId 导航）
+- 后端 session 创建：`server/services/case/case.service.ts:92`（`createSessionDao` 默认 type=1）
+- Status API：`server/services/case/initAnalysis.service.ts:91-99`
+
+## 十八、SSE checkpoint fallback 路径中已完成 run 连接不关闭
+
+### 问题
+
+`init-analysis.post.ts` 的 `createSSEResponse` 中，当 Redis Stream 无数据（过期/重启）时走 checkpoint fallback 路径。发送 `values` 事件后，代码将 `missed = []` 并注释"跳过后续的实时订阅"，但实际并未跳过 — 代码继续执行到 `createEventSubscription`，对于已完成的 run 不会有新事件，SSE 连接永久挂起。
+
+### 影响范围
+
+Redis Stream 数据过期（>7天）或 Redis 重启后，已完成 session 的 SSE 重连。前端虽然收到了 `values` 事件，但 `isLoading` 一直为 `true`。
+
+### 解决方案
+
+在 fallback 发送 checkpoint 后，查询 run 状态并在终结时直接 return 关闭 SSE：
+
+```typescript
+// 发送 checkpoint values 后
+const run = await prisma.agentRuns.findUnique({
+    where: { id: runId },
+    select: { status: true },
+})
+if (run && TERMINAL_STATUSES.includes(run.status)) {
+    // 发送终结状态事件并关闭 SSE
+    controller.enqueue(encoder.encode(
+        `event: status\ndata: ${JSON.stringify({ type: 'status_change', runId, status: run.status })}\n\n`,
+    ))
+    return
+}
+// run 仍在进行中才进入实时订阅
+```
+
+### 相关文件
+
+- `server/api/v1/case/init-analysis.post.ts:329-374`（`createSSEResponse` fallback 路径）
+- `server/services/workflow/agents/threadState.ts`（`getThreadValuesService`）
+
+## 十九、vue-stream-markdown 表格底部 loading 图标不消失
+
+### 问题
+
+分析结果页面中，当 Markdown 内容包含表格（如"案件大事记"）时，表格底部始终显示一个旋转的 loading 图标（Spin 组件）。
+
+### 原因
+
+`vue-stream-markdown` 的 `<Markdown>` 组件 `mode` prop 默认值为 `streaming`。在 streaming 模式下，解析器会将 AST 中最后一个叶节点标记为 `loading: true`。表格组件内部通过 `hasLoadingNode()` 递归检查子节点的 loading 状态，如果存在则渲染 `<Spin>` 加载动画。
+
+对于已完成的分析结果（非实时流式传输），由于没有显式传 `mode="static"`，默认走 `streaming` 模式，导致表格最后一个节点永远被标记为 loading。
+
+### 影响范围
+
+所有使用 `<AiElementsMessageResponse>` 展示**已完成内容**且内容中包含表格的场景。
+
+### 正确做法
+
+```vue
+<!-- ❌ 错误：默认 mode="streaming"，已完成内容的表格会一直显示 loading -->
+<AiElementsMessageResponse :content="content" />
+
+<!-- ✅ 正确：已完成内容使用 static 模式 -->
+<AiElementsMessageResponse :content="content" mode="static" />
+
+<!-- ✅ 正确：流式传输中的内容使用默认的 streaming 模式 -->
+<AiElementsMessageResponse :content="streamingContent" />
+```
+
+### 相关文件
+
+- 组件：`app/components/ai-elements/message/MessageResponse.vue`（新增 `mode` prop 透传）
+- 库源码：`node_modules/vue-stream-markdown/dist/table-CZIsOIpV.js`（`hasLoadingNode` 检查）
+- 已修复的使用点：`AnalysisResults.vue`、`AnalysisVersionSheet.vue`、`CaseDetailMaterialPreview.vue`、`AiMessageListVirtualItem.vue`、`ModuleResult.vue`（fallback 场景）
