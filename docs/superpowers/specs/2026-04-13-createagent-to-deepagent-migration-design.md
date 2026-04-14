@@ -280,9 +280,12 @@ Skills 目录本身是共享只读资源，无跨用户污染。但具体 Skill 
 - **`files` state channel 对 checkpoint 的影响**：SkillsMiddleware 添加了 `skillsMetadata` 和 `files` 到 state schema。现有 checkpoint 不含这些字段，中断恢复时 reducer 的默认值（`[]`/`undefined`）需验证正确
 - **langsmith peerDep**：`deepagents` 要求 `langsmith@>=0.5.15`，项目当前未安装，需确认是否必装
 
-### 需验证
-- **中间件顺序**：SkillsMiddleware 放在末尾，其 `wrapModelCall` 最先执行（洋葱模型），在其他中间件修改 prompt 之前注入 skills 信息
-- **旧 checkpoint 恢复**：从不含 `skillsMetadata` 的旧 checkpoint 恢复时，agent 是否正常工作
+### 需验证 → 已验证 ✓
+
+通过 `/tmp/deepagents-test/verify-risks.cjs` 脚本验证：
+
+- **中间件顺序** ✓：SkillsMiddleware 放在 middleware 数组末尾时，其 `wrapModelCall` 在洋葱模型中最外层执行（最先修改 systemMessage）。Skills 信息注入后，内层中间件（summarization 等）可以看到完整的 prompt。这是正确的行为。
+- **旧 checkpoint 恢复** ✓：用不含 SkillsMiddleware 的 createAgent 创建 checkpoint 后，用含 SkillsMiddleware 的 createAgent 恢复成功。新增的 `skillsMetadata` 默认值为 `[]`，`files` 默认值为 `{}`。不需要 checkpoint 迁移。
 
 ## 迁移步骤
 
