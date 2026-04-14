@@ -412,7 +412,16 @@ function formatAnalyzedAt(dateStr: string): string {
 </script>
 
 <template>
-    <div :class="cn('flex flex-col h-full', props.class)">
+    <div :class="cn('flex flex-col h-full container-[inline-size]', props.class)">
+        <!-- 模块对话按钮 - 定位在正文右上角 -->
+        <Button v-if="effectiveShowRegenerate && !isCurrentRegenerating" variant="outline"
+            size="sm"
+            class="module-chat-btn absolute top-[88px] right-8 z-50 gap-1.5 rounded-full border-primary/30 text-primary bg-background/80 backdrop-blur-sm shadow-sm hover:shadow-md hover:border-primary/60 hover:text-primary transition-all duration-300"
+            :disabled="isCurrentRegenerating" @click="handleRegenerate">
+            <MessageCircleIcon class="size-4" />
+            <span>AI 辅助修改</span>
+        </Button>
+
         <!-- 空状态 -->
         <div v-if="!hasResults" class="flex flex-col items-center justify-center h-full text-center p-8">
             <!-- 分析中状态 -->
@@ -614,12 +623,6 @@ function formatAnalyzedAt(dateStr: string): string {
                                     <CopyIcon v-else class="size-4" />
                                 </AiElementsArtifactAction>
 
-                                <!-- 对话按钮 -->
-                                <AiElementsArtifactAction v-if="effectiveShowRegenerate" tooltip="模块对话"
-                                    :disabled="isCurrentRegenerating" @click="handleRegenerate">
-                                    <MessageCircleIcon class="size-4" />
-                                </AiElementsArtifactAction>
-
                                 <!-- 翻页按钮 -->
                                 <div class="flex items-center bg-muted/50 rounded-lg p-0.5 ml-1">
                                     <AiElementsArtifactAction tooltip="上一个模块" :disabled="currentCompleteIndex <= 0"
@@ -637,7 +640,8 @@ function formatAnalyzedAt(dateStr: string): string {
 
                         <!-- 内容区域 -->
                         <AiElementsArtifactContent class="overflow-y-auto">
-                            <div class="px-8 pt-8 pb-12">
+                            <div class="relative px-8 pt-8 pb-12">
+
                                 <!-- 重新生成中的加载状态 -->
                                 <div v-if="isCurrentRegenerating" class="flex items-center justify-center py-12">
                                     <div class="flex flex-col items-center gap-3">
@@ -678,5 +682,62 @@ function formatAnalyzedAt(dateStr: string): string {
 .view-fade-leave-to {
     opacity: 0;
     transform: translateY(-8px) scale(0.99);
+}
+
+.module-chat-btn {
+    animation: float 3s ease-in-out infinite;
+}
+
+/* PC 端（侧边栏展开时容器宽度较大） */
+@container (min-width: 768px) {
+    .module-chat-btn {
+        top: 140px;
+    }
+}
+
+/* 边框跑马灯效果 - hover 时旋转的渐变边框 */
+.module-chat-btn::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    padding: 2px;
+    background: linear-gradient(var(--gradient-angle, 0deg),
+        oklch(0.645 0.246 16.439) 0%,
+        oklch(0.7 0.15 250) 25%,
+        oklch(0.75 0.2 200) 50%,
+        oklch(0.7 0.15 250) 75%,
+        oklch(0.645 0.246 16.439) 100%
+    );
+    mask: linear-gradient(#fff 0 0) content-box,
+          linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.module-chat-btn:hover::before {
+    opacity: 1;
+    animation: borderRotate 2s linear infinite;
+}
+
+@keyframes borderRotate {
+    0% { --gradient-angle: 0deg; }
+    100% { --gradient-angle: 360deg; }
+}
+
+@property --gradient-angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-4px);
+    }
 }
 </style>
