@@ -147,6 +147,7 @@ function formatDate(dateStr: string): string {
             <AiElementsMessageResponse
               v-if="selectedVersion.analysisResult"
               :content="selectedVersion.analysisResult"
+              mode="static"
               class="prose prose-sm dark:prose-invert max-w-none"
             />
           </div>

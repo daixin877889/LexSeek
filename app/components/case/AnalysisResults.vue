@@ -652,6 +652,7 @@ function formatAnalyzedAt(dateStr: string): string {
 
                                 <!-- Markdown 内容渲染 -->
                                 <AiElementsMessageResponse v-else :content="currentResult.content ?? ''"
+                                    mode="static"
                                     class="prose prose-sm dark:prose-invert max-w-none" />
                             </div>
                         </AiElementsArtifactContent>

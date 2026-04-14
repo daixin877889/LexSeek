@@ -43,7 +43,7 @@ const emit = defineEmits<{
       />
 
       <!-- AI 响应内容 -->
-      <AiElementsMessageResponse v-if="msg.content" :content="msg.content" />
+      <AiElementsMessageResponse v-if="msg.content" :content="msg.content" mode="static" />
     </AiElementsMessageContent>
   </AiElementsMessage>
 

@@ -61,7 +61,7 @@
 
       <!-- 没有消息时的 fallback：使用 content 字段渲染（页面刷新恢复场景） -->
       <div v-else-if="state.content" class="prose prose-sm max-w-none dark:prose-invert">
-        <AiElementsMessageResponse :content="state.content" />
+        <AiElementsMessageResponse :content="state.content" mode="static" />
       </div>
 
       <!-- 失败 -->

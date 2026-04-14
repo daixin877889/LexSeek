@@ -8,6 +8,7 @@ import 'vue-stream-markdown/index.css'
 interface Props {
   content?: string
   class?: HTMLAttributes['class']
+  mode?: 'streaming' | 'static'
 }
 
 const props = defineProps<Props>()
@@ -32,6 +33,7 @@ const md = computed(() => (slotContent.value ?? props.content ?? '') as string)
 <template>
   <Markdown
     :content="md"
+    :mode="props.mode"
     :class="
       cn(
         'size-full [&>*:first-child]:mt-0! [&>*:last-child]:mb-0!',
