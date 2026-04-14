@@ -59,21 +59,19 @@
 
 ### 分阶段实施
 
-**Phase 1（本次）**：Skills 发现 + Skill 文件读取
+**Phase 1（本次）**：Skills 发现 + 文件读取 + 脚本执行
 - `createSkillsMiddleware` 中间件
 - `read_skill_file` 工具
-
-**Phase 2（有实际业务需求时）**：脚本执行
 - `run_skill_script` 工具
+
+脚本执行是 Skills 的核心价值——没有脚本执行，Skills 就只是结构化提示词，项目已有的 Nodes + Prompts 系统完全可以替代。
 
 ### 改动点
 
 ```
-Phase 1 新增:
+新增:
 ├── 1. createSkillsMiddleware 追加到现有 middleware 数组
-└── 2. read_skill_file 工具（读取 SKILL.md 和 references）
-
-Phase 2 新增（延后）:
+├── 2. read_skill_file 工具（读取 SKILL.md 和 references）
 └── 3. run_skill_script 工具（执行 skills/*/scripts/ 下的脚本）
 
 不受影响（全部现有代码）:
@@ -91,6 +89,7 @@ Phase 2 新增（延后）:
 // === 新增 import ===
 import { createSkillsMiddleware, FilesystemBackend } from 'deepagents'
 import { createTool as createReadSkillFileTool } from '../tools/readSkillFile.tool'
+import { createTool as createRunSkillScriptTool } from '../tools/runSkillScript.tool'
 
 // === Skills 中间件（模块级单例） ===
 const skillsMiddleware = createSkillsMiddleware({
@@ -107,6 +106,7 @@ const agent: ReactAgent = createAgent({
     tools: [
         ...allTools,                              // 现有工具不动
         createReadSkillFileTool(toolContext),      // 新增：读取 Skill 文件
+        createRunSkillScriptTool(toolContext),     // 新增：执行 Skill 脚本
     ],
     middleware: [
         // 现有中间件不动
@@ -173,6 +173,70 @@ export function createTool(context: ToolContext) {
 }
 ```
 
+### run_skill_script 工具
+
+使用**结构化参数**防止命令注入，遵循 ToolModule 接口：
+
+```typescript
+import { tool } from '@langchain/core/tools'
+import { execFile } from 'node:child_process'
+import { resolve } from 'node:path'
+import { existsSync } from 'node:fs'
+import { z } from 'zod'
+import type { ToolContext } from './types'
+
+const SKILLS_ROOT = resolve('/app/.deepagents/skills')
+
+const schema = z.object({
+    skillName: z.string().describe('Skill 名称，如 lexseek'),
+    scriptName: z.string().describe('脚本文件名，如 lexseek.cjs'),
+    action: z.string().describe('操作名称，如 search, login'),
+    args: z.record(z.string()).optional().describe('参数键值对，如 { query: "关键词" }'),
+})
+
+export const toolDefinition = {
+    name: 'run_skill_script',
+    description: '执行 skill 脚本。示例：skillName=lexseek, scriptName=lexseek.cjs, action=search, args={query: "劳动合同 解除"}',
+    schema,
+}
+
+export function createTool(context: ToolContext) {
+    return tool(
+        async ({ skillName, scriptName, action, args }) => {
+            if ([skillName, scriptName, action].some(s => s.includes('..') || s.includes('/'))) {
+                return 'Error: 参数中包含非法字符'
+            }
+
+            const scriptPath = resolve(SKILLS_ROOT, skillName, 'scripts', scriptName)
+            if (!scriptPath.startsWith(SKILLS_ROOT) || !existsSync(scriptPath)) {
+                return `Error: 脚本不存在 ${skillName}/scripts/${scriptName}`
+            }
+
+            const execArgs = [scriptPath, action]
+            for (const [key, value] of Object.entries(args ?? {})) {
+                execArgs.push(`--${key}`, value)
+            }
+
+            return new Promise((done) => {
+                execFile('node', execArgs, {
+                    timeout: 30_000,
+                    cwd: resolve(SKILLS_ROOT, skillName, 'scripts'),
+                    env: { PATH: '/usr/local/bin:/usr/bin:/bin', NODE_ENV: 'production' },
+                }, (err, stdout, stderr) => {
+                    if (err) done(`Error (exit ${err.code}): ${stderr || err.message}`)
+                    else done(stdout)
+                })
+            })
+        },
+        {
+            name: toolDefinition.name,
+            description: toolDefinition.description,
+            schema,
+        }
+    )
+}
+```
+
 ### Skills 目录
 
 遵循 [Agent Skills 规范](https://agentskills.io/specification) 的标准目录结构：
@@ -195,15 +259,22 @@ export function createTool(context: ToolContext) {
 | `skillsMetadata` state | ✅ 安全 | 存在 agent state 中，per-thread 隔离 |
 | `files` state channel | ✅ 安全 | SkillsMiddleware 添加但不写入，per-thread 隔离 |
 | read_skill_file 工具 | ✅ 安全 | 只读、白名单限制、禁止路径遍历 |
+| run_skill_script 工具 | ✅ 安全 | 结构化参数、白名单限制、30s 超时、不继承环境变量 |
 | 现有中间件/工具 | ✅ 不变 | 不受影响 |
 
-Skills 是共享只读资源，无跨用户污染。
+**Skill 脚本的多用户安全要求**：
+
+Skills 目录本身是共享只读资源，无跨用户污染。但具体 Skill 脚本的实现需遵守以下规则：
+1. **脚本不得在共享目录写入状态**（如认证凭据、缓存数据）
+2. **用户级配置通过环境变量注入**，由 `run_skill_script` 工具根据当前用户上下文动态传入
+3. 如果脚本需要持久化用户状态，应通过 API 调用服务端存储，而非本地文件
 
 ### 工具名冲突检查
 
 | 新增工具名 | 现有工具 | deepagent 内置 | 冲突？ |
 |-----------|---------|---------------|--------|
 | `read_skill_file` | 无 | 无同名 | ✅ 无冲突 |
+| `run_skill_script` | 无 | 无同名 | ✅ 无冲突 |
 
 ## 文件变更清单
 
@@ -212,15 +283,16 @@ Skills 是共享只读资源，无跨用户污染。
 | 文件 | 职责 |
 |------|------|
 | `server/services/workflow/tools/readSkillFile.tool.ts` | Skill 文件读取工具（遵循 ToolModule 接口） |
+| `server/services/workflow/tools/runSkillScript.tool.ts` | Skill 脚本执行工具（结构化参数、遵循 ToolModule 接口） |
 | `.deepagents/skills/` | Skills 根目录 |
 
 ### 修改文件
 
 | 文件 | 变更内容 |
 |------|---------|
-| `server/services/workflow/tools/index.ts` | 注册 `read_skill_file` 到 toolModules |
-| `server/services/workflow/agents/caseMainAgent.ts` | middleware 末尾追加 `skillsMiddleware`，tools 追加 read_skill_file |
-| `server/services/workflow/agents/moduleAgent.ts` | 同上 |
+| `server/services/workflow/tools/index.ts` | 注册 `read_skill_file` 和 `run_skill_script` 到 toolModules |
+| `server/services/workflow/agents/caseMainAgent.ts` | middleware 末尾追加 `skillsMiddleware`，tools 追加 2 个工具 |
+| `server/services/workflow/agents/moduleAgent.ts` | 同上（middleware + 2 个工具） |
 | `server/services/workflow/middleware/types.ts` | 添加 `SKILLS_DISCOVERY` 到 `MIDDLEWARE_PRIORITY` |
 | `package.json` | 新增 `deepagents@^1.9.0` |
 | `Dockerfile` | runner 阶段第39行后追加 `COPY --from=builder /app/.deepagents ./.deepagents` |
@@ -263,25 +335,17 @@ Skills 是共享只读资源，无跨用户污染。
 
 ## 实施步骤
 
-### Phase 1：Skills 发现 + 文件读取
-
 1. `bun add deepagents langsmith`
 2. 创建 `.deepagents/skills/` 根目录
-3. 实现 `readSkillFile.tool.ts`（遵循 ToolModule 接口），注册到 `tools/index.ts`
-4. `middleware/types.ts` 添加 `SKILLS_DISCOVERY` 优先级常量
-5. caseMainAgent.ts 追加 middleware + tool
-6. moduleAgent.ts 追加 middleware + tool
-7. Dockerfile runner 阶段追加 `COPY --from=builder /app/.deepagents ./.deepagents`
-8. 本地验证：Skill 发现 → SKILL.md 读取（可用 lexseek 示范 Skill）
-9. 中断恢复验证：从旧 checkpoint 恢复后 agent 正常工作
-10. Docker 验证：路径解析
-
-### Phase 2：脚本执行（有实际业务需求时）
-
-1. 实现 `runSkillScript.tool.ts`（结构化参数、白名单限制）
-2. 注册到工具注册表
-3. 追加到 agent 的 tools 数组
-4. 安全审计：环境隔离、资源限制、审计日志
+3. 实现 `readSkillFile.tool.ts` 和 `runSkillScript.tool.ts`（遵循 ToolModule 接口）
+4. 注册两个工具到 `tools/index.ts`
+5. `middleware/types.ts` 添加 `SKILLS_DISCOVERY` 优先级常量
+6. caseMainAgent.ts 追加 middleware + 2 个工具
+7. moduleAgent.ts 追加 middleware + 2 个工具
+8. Dockerfile runner 阶段第39行后追加 `COPY --from=builder /app/.deepagents ./.deepagents`
+9. 本地验证：Skill 发现 → SKILL.md 读取 → 脚本执行（可用 lexseek 示范 Skill）
+10. 中断恢复验证：从旧 checkpoint 恢复后 agent 正常工作
+11. Docker 验证：路径解析 + 脚本执行
 
 ## 参考资料
 
