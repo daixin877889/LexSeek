@@ -197,8 +197,14 @@ export function createTool(context: ToolContext, skillsRoot?: string) {
                 return 'Error: 非法路径'
             }
             const fullPath = resolve(SKILLS_ROOT, filePath.replace(/^\.?\/?skills\//, ''))
-            if (!fullPath.startsWith(SKILLS_ROOT)) {
+            if (!fullPath.startsWith(SKILLS_ROOT + '/')) {
                 return 'Error: 只允许读取 skills 目录内的文件'
+            }
+            // 只允许读取文本文件（防止二进制文件浪费 LLM context）
+            const textExts = ['.md', '.txt', '.json', '.yaml', '.yml', '.js', '.ts', '.py', '.sh', '.cjs', '.mjs']
+            const ext = filePath.split('.').pop()?.toLowerCase()
+            if (ext && !textExts.includes(`.${ext}`)) {
+                return `Error: 不支持读取 .${ext} 文件，仅支持文本文件`
             }
             try {
                 return await readFile(fullPath, 'utf-8')
@@ -412,10 +418,22 @@ export function createTool(context: ToolContext, skillsRoot?: string) {
                 execFile(runtimeBin, execArgs, {
                     timeout: 30_000,
                     cwd: resolve(SKILLS_ROOT, skillName, 'scripts'),
-                    env: { PATH: '/usr/local/bin:/usr/bin:/bin', NODE_ENV: 'production' },
+                    env: {
+                        // 继承必要的系统环境变量，过滤敏感信息
+                        PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
+                        HOME: process.env.HOME || '/tmp',
+                        LANG: process.env.LANG || 'en_US.UTF-8',
+                        NODE_ENV: 'production',
+                        // Node.js 模块解析需要
+                        NODE_PATH: process.env.NODE_PATH || '',
+                    },
                 }, (err, stdout, stderr) => {
-                    if (err) done(`Error (exit ${err.code}): ${stderr || err.message}`)
-                    else done(stdout)
+                    if (err) {
+                        done(`Error (exit ${err.code}): ${stderr || err.message}`)
+                    } else {
+                        // 非错误时 stderr 可能有 warning/logging 输出，拼接到结果
+                        done(stderr ? `${stdout}\n[stderr]: ${stderr}` : stdout)
+                    }
                 })
             })
         },
@@ -536,7 +554,7 @@ import { createTool as createRunSkillScriptTool } from '../tools/runSkillScript.
 /** Skills 中间件（模块级单例） */
 const skillsMiddleware = createSkillsMiddleware({
     backend: new FilesystemBackend({ rootDir: process.cwd() }),
-    sources: ['./.deepagents/skills/'],
+    sources: ['.deepagents/skills/'],
 })
 ```
 
@@ -626,12 +644,21 @@ git commit -m "feat(agents): 集成 Skills 到模块对话 Agent"
 
 ---
 
-### Task 9: 更新 Dockerfile
+### Task 9: 更新 Dockerfile 和 .dockerignore
 
 **Files:**
 - Modify: `Dockerfile:29-39`
+- Modify: `.dockerignore:12`
 
-- [ ] **Step 1: 在 runner 阶段安装 python3 并复制 .deepagents**
+- [ ] **Step 1: 修复 .dockerignore 排除规则**
+
+`.dockerignore` 第 12 行 `*.md` 会递归排除所有 `.md` 文件，导致 SKILL.md 和 references/*.md 在 Docker 构建时丢失。在 `*.md` 和 `!README.md` 之后添加：
+
+```
+!.deepagents/**/*.md
+```
+
+- [ ] **Step 2: 在 runner 阶段安装 python3 并复制 .deepagents**
 
 在 `Dockerfile` 第 29 行 `FROM oven/bun:1-slim AS runner` 之后、`WORKDIR /app` 之后添加：
 
@@ -649,11 +676,11 @@ RUN apt-get update && \
 COPY --from=builder /app/.deepagents ./.deepagents
 ```
 
-- [ ] **Step 2: 提交**
+- [ ] **Step 3: 提交**
 
 ```bash
-git add Dockerfile
-git commit -m "chore(docker): 安装 python3 并复制 .deepagents 目录"
+git add Dockerfile .dockerignore
+git commit -m "chore(docker): 安装 python3、复制 .deepagents、修复 .dockerignore md 排除"
 ```
 
 ---

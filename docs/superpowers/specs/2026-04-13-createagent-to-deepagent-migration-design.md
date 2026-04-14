@@ -94,7 +94,7 @@ import { createTool as createRunSkillScriptTool } from '../tools/runSkillScript.
 // === Skills 中间件（模块级单例） ===
 const skillsMiddleware = createSkillsMiddleware({
     backend: new FilesystemBackend({ rootDir: '/app' }),
-    sources: ['./.deepagents/skills/'],
+    sources: ['.deepagents/skills/'],
 })
 
 // === 现有代码不动，只在 middleware 和 tools 末尾追加 ===
@@ -312,7 +312,8 @@ Skills 目录本身是共享只读资源，无跨用户污染。但具体 Skill 
 | `server/services/workflow/agents/moduleAgent.ts` | 同上（middleware + 2 个工具） |
 | `server/services/workflow/middleware/types.ts` | 添加 `SKILLS_DISCOVERY` 到 `MIDDLEWARE_PRIORITY` |
 | `package.json` | 新增 `deepagents@^1.9.0` |
-| `Dockerfile` | runner 阶段安装 `python3`（支持 Python 脚本）+ `COPY --from=builder /app/.deepagents ./.deepagents` |
+| `Dockerfile` | runner 阶段安装 `python3` + `COPY --from=builder /app/.deepagents ./.deepagents` |
+| `.dockerignore` | 添加 `!.deepagents/**/*.md` 排除规则（`*.md` 会误删 SKILL.md） |
 
 ### 不受影响
 
