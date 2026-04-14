@@ -32,7 +32,7 @@
             创建案件
           </Button>
         </NuxtLink>
-        <NuxtLink to="/dashboard/analysis/create">
+        <NuxtLink to="/dashboard/cases/create">
           <Button class="w-full md:w-auto shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95">
             <Plus class="h-4 w-4 mr-2" />
             新建分析

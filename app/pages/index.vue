@@ -11,7 +11,7 @@
             </h1>
             <p class="text-xl text-muted-foreground mb-8">LexSeek 帮助律师精炼案件信息，洞悉复杂案情脉络，提供从概要梳理到策略预判的深度分析，助您高效决策，掌控全局。</p>
             <div class="flex flex-col sm:flex-row gap-4">
-              <NuxtLink to="/dashboard/analysis/create"
+              <NuxtLink to="/dashboard/cases/create"
                 class="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors">
                 {{ btnText }}</NuxtLink>
               <NuxtLink to="/features"
@@ -85,7 +85,7 @@
         </div>
 
         <div class="flex justify-center mt-10">
-          <NuxtLink to="/dashboard/analysis/create"
+          <NuxtLink to="/dashboard/cases/create"
             class="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 active:scale-95 transition-all shadow-lg shadow-primary/20">
             {{ btnText }}</NuxtLink>
         </div>
@@ -150,7 +150,7 @@
         </div>
 
         <div class="flex justify-center mt-10">
-          <NuxtLink to="/dashboard/analysis/create"
+          <NuxtLink to="/dashboard/cases/create"
             class="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors">
             {{ btnText }}</NuxtLink>
         </div>
@@ -195,7 +195,7 @@
         </div>
 
         <div class="flex justify-center mt-10">
-          <NuxtLink to="/dashboard/analysis/create"
+          <NuxtLink to="/dashboard/cases/create"
             class="inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors">
             {{ btnText }}</NuxtLink>
         </div>
@@ -297,7 +297,7 @@
         <h2 class="text-3xl font-bold mb-4">立即开始使用 LexSeek</h2>
         <p class="text-xl mb-8 max-w-2xl mx-auto opacity-90">加入成千上万的法律专业人士，体验法律 AI 辅助案件分析带来的效率提升</p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <NuxtLink to="/dashboard/analysis/create"
+          <NuxtLink to="/dashboard/cases/create"
             class="inline-flex items-center justify-center px-6 py-3 bg-background text-foreground font-medium rounded-md hover:bg-background/90 transition-colors">
             {{ btnText }}</NuxtLink>
           <NuxtLink to="/features"
