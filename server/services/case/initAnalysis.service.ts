@@ -91,8 +91,11 @@ export const getInitAnalysisStatusService = async (
     if (sessionId) {
         primarySession = sessions.find(s => s.sessionId === sessionId && s.type === 2)
         if (!primarySession) {
-            // sessionId 不匹配任何 type=2 session，返回全局模块数据但状态为 not_started
-            return { status: 'not_started', sessionId, modules, result: buildResultMap(analyses), hasPendingInterrupt: false }
+            // sessionId 不匹配任何 type=2 session（可能是 type=1 主会话），回退到最新 type=2
+            primarySession = sessions.find(s => s.type === 2)
+            if (!primarySession) {
+                return { status: 'not_started', sessionId, modules, result: buildResultMap(analyses), hasPendingInterrupt: false }
+            }
         }
     } else {
         const type2Session = sessions.find(s => s.type === 2)

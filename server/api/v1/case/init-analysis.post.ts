@@ -328,38 +328,48 @@ async function createSSEResponse(event: any, runId: string, sessionId?: string) 
                 }
                 // Fallback: 如果 Redis Stream 没有数据，尝试从 PostgresSaver checkpoint 加载
                 else {
-                    // 如果没有传入 sessionId，尝试从 run 中获取
                     let threadId = sessionId
+                    let runStatus: string | undefined
                     if (!threadId) {
-                        const run = await prisma.agentRuns.findUnique({ where: { id: runId } })
+                        const run = await prisma.agentRuns.findUnique({
+                            where: { id: runId },
+                            select: { threadId: true, status: true },
+                        })
                         if (run) {
                             threadId = run.threadId
+                            runStatus = run.status
                         }
+                    } else {
+                        // 已有 threadId，只需查 run 状态
+                        const run = await prisma.agentRuns.findUnique({
+                            where: { id: runId },
+                            select: { status: true },
+                        })
+                        runStatus = run?.status
                     }
                     if (threadId) {
                         const checkpointValues = await getThreadValuesService(threadId)
                         if (checkpointValues) {
                             const messages = (checkpointValues.messages as any[]) || []
                             if (messages.length > 0) {
-                                // 过滤内部消息（system / 注入上下文）
-                                const filteredMessages = messages.filter((m: any) => {
-                                    const type = m._getType?.() ?? m.type ?? m.data?.type
-                                    if (type === 'system' || type === 'tool') return false
-                                    const injector = (m.response_metadata?.injectedBy ?? m.data?.response_metadata?.injectedBy) as string | undefined
-                                    if (injector?.startsWith('ModuleContext') || injector?.startsWith('CaseMaterial')) return false
-                                    return true
-                                })
                                 controller.enqueue(encoder.encode(
-                                    `event: values\ndata: ${JSON.stringify({ ...checkpointValues, messages: filteredMessages })}\n\n`,
+                                    `event: values\ndata: ${JSON.stringify(checkpointValues)}\n\n`,
                                 ))
-                                // 标记已发送 checkpoint，跳过后续的实时订阅
+                                // run 已终结则直接关闭 SSE
+                                if (runStatus && TERMINAL_STATUSES.includes(runStatus)) {
+                                    controller.enqueue(encoder.encode(
+                                        `event: status\ndata: ${JSON.stringify({ type: 'status_change', runId, status: runStatus })}\n\n`,
+                                    ))
+                                    return
+                                }
+                                // run 仍在进行中，跳过 missed 终结检查，直接进入实时订阅
                                 missed = []
                             }
                         }
                     }
                 }
 
-                // 检查是否已结束
+                // 检查是否已结束（仅当 Redis Stream 有数据时走此分支）
                 const lastMissed = missed.at(-1)
                 if (lastMissed?.type === 'status_change' && TERMINAL_STATUSES.includes(lastMissed.status)) {
                     // 发送终结状态事件
@@ -369,7 +379,7 @@ async function createSSEResponse(event: any, runId: string, sessionId?: string) 
                     return
                 }
 
-                // 订阅实时事件（如果已发送 checkpoint 且 run 已完成，跳过订阅）
+                // 订阅实时事件
                 for await (const evt of createEventSubscription(runId, abortController.signal)) {
                     if (evt.type === 'status_change' && TERMINAL_STATUSES.includes(evt.status)) {
                         controller.enqueue(encoder.encode(`event: status\ndata: ${JSON.stringify(evt)}\n\n`))

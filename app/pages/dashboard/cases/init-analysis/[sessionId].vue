@@ -120,21 +120,23 @@
 
   <!-- 文本内容预览 -->
   <Dialog v-model:open="showTextPreview">
-    <DialogContent class="max-w-2xl max-h-[80vh] overflow-y-auto">
-      <DialogHeader>
+    <DialogContent class="w-full max-h-[80vh] md:min-w-[70vw] flex flex-col">
+      <DialogHeader class="shrink-0">
         <DialogTitle class="flex items-center gap-2">
           <FileTextIcon class="size-5 text-blue-500" />
           {{ previewMaterial?.name }}
         </DialogTitle>
       </DialogHeader>
-      <div v-if="textLoading" class="flex justify-center py-8">
-        <Loader2Icon class="size-6 animate-spin text-muted-foreground" />
-      </div>
-      <div v-else-if="textContent" class="text-sm leading-relaxed whitespace-pre-wrap">
-        {{ textContent }}
-      </div>
-      <div v-else class="text-sm text-muted-foreground text-center py-8">
-        暂无文本内容
+      <div class="flex-1 min-h-0 overflow-y-auto">
+        <div v-if="textLoading" class="flex justify-center py-8">
+          <Loader2Icon class="size-6 animate-spin text-muted-foreground" />
+        </div>
+        <div v-else-if="textContent" class="text-sm leading-relaxed whitespace-pre-wrap">
+          {{ textContent }}
+        </div>
+        <div v-else class="text-sm text-muted-foreground text-center py-8">
+          暂无文本内容
+        </div>
       </div>
     </DialogContent>
   </Dialog>
