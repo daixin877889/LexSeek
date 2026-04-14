@@ -29,7 +29,7 @@
 
 接入 Agent Skills 生态（skills.sh 1370+ 技能库），使 LexSeek 的 Agent 能够：
 1. 自动发现和加载 SKILL.md 定义的领域技能
-2. 执行 Skill 中的脚本（Phase 2，有实际业务需求时实现）
+2. 执行 Skill 中的脚本（Node.js/Python/Bash）
 3. 与 Claude Code、Codex、Copilot 等共享同一套 Skill 格式
 
 > **注意**：本文档中的 `lexseek` Skill 仅作为验证示范，不代表最终要接入的 Skill 内容。实际 Skills 将根据业务需求另行设计。
@@ -134,7 +134,7 @@ import { tool } from '@langchain/core/tools'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { z } from 'zod'
-import type { ToolContext, ToolModule } from './types'
+import type { ToolContext, ToolDefinition } from './types'
 
 const SKILLS_ROOT = resolve('/app/.deepagents/skills')
 
@@ -142,7 +142,7 @@ const schema = z.object({
     path: z.string().describe('文件路径，如 lexseek/SKILL.md'),
 })
 
-export const toolDefinition = {
+export const toolDefinition: ToolDefinition<typeof schema> = {
     name: 'read_skill_file',
     description: '读取 skill 文件内容（SKILL.md、references 等）',
     schema,
@@ -183,7 +183,7 @@ import { execFile } from 'node:child_process'
 import { resolve } from 'node:path'
 import { existsSync } from 'node:fs'
 import { z } from 'zod'
-import type { ToolContext } from './types'
+import type { ToolContext, ToolDefinition } from './types'
 
 const SKILLS_ROOT = resolve('/app/.deepagents/skills')
 
@@ -201,7 +201,7 @@ const schema = z.object({
     args: z.record(z.string()).optional().describe('参数键值对，如 { query: "关键词" }'),
 })
 
-export const toolDefinition = {
+export const toolDefinition: ToolDefinition<typeof schema> = {
     name: 'run_skill_script',
     description: '执行 skill 脚本。示例：skillName=lexseek, scriptName=lexseek.cjs, action=search, args={query: "劳动合同 解除"}',
     schema,
