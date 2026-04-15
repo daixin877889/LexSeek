@@ -1,0 +1,323 @@
+/**
+ * 上传 Workspace 文件工具
+ *
+ * 工作流工具层 - 将 per-session workspace 中的文件上传到用户云盘（OSS）
+ * 支持配额检查，配额不足时降级到临时公共路径（24h 有效）
+ * 拒绝路径遍历、绝对路径、NULL 字节、反斜杠等非法文件名
+ */
+
+import { tool } from '@langchain/core/tools'
+import { stat as fsStat } from 'node:fs/promises'
+import { createReadStream } from 'node:fs'
+import { extname, resolve } from 'node:path'
+import { z } from 'zod'
+import { uploadFileService } from '~~/server/services/storage/storage.service'
+import { checkStorageQuotaService } from '~~/server/services/membership/userBenefit.service'
+import { createOssFileDao } from '~~/server/services/files/ossFiles.dao'
+import type { ToolContext, ToolDefinition } from './types'
+import { FileSource, OssFileStatus } from '#shared/types/file'
+
+/** workspace 根目录（各 session 的临时工作区） */
+const WORKSPACE_BASE = '/tmp/skills-workspace'
+
+/** sessionId 格式校验：只允许字母、数字、下划线、连字符，最长 128 位 */
+const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/
+
+/** 文件大小上限：50MB */
+const MAX_FILE_SIZE = 50 * 1024 * 1024
+
+/** 临时文件有效期：24小时 */
+const TEMP_FILE_TTL_MS = 24 * 60 * 60 * 1000
+
+/**
+ * MIME 类型映射表（扩展名 → MIME）
+ */
+const MIME_MAP: Record<string, string> = {
+    '.txt': 'text/plain',
+    '.md': 'text/markdown',
+    '.csv': 'text/csv',
+    '.html': 'text/html',
+    '.json': 'application/json',
+    '.xml': 'application/xml',
+    '.pdf': 'application/pdf',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xls': 'application/vnd.ms-excel',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.ppt': 'application/vnd.ms-powerpoint',
+    '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.mp3': 'audio/mpeg',
+    '.mp4': 'video/mp4',
+    '.wav': 'audio/wav',
+    '.zip': 'application/zip',
+    '.gz': 'application/gzip',
+    '.log': 'text/plain',
+    '.sh': 'text/x-shellscript',
+    '.py': 'text/x-python',
+    '.js': 'text/javascript',
+    '.ts': 'text/typescript',
+}
+
+/**
+ * 根据文件扩展名推断 MIME 类型
+ */
+function inferMimeType(fileName: string): string {
+    const ext = extname(fileName).toLowerCase()
+    return MIME_MAP[ext] ?? 'application/octet-stream'
+}
+
+/**
+ * 校验文件名安全性
+ *
+ * @param fileName 待校验的文件名（不含路径）
+ * @returns 错误描述字符串（无错误则返回 null）
+ */
+function validateFileName(fileName: string): string | null {
+    if (fileName.includes('\0')) {
+        return 'Error: 文件名包含非法字符（NULL 字节）'
+    }
+    if (fileName.includes('/')) {
+        return 'Error: 文件名不允许包含斜杠（/）'
+    }
+    if (fileName.includes('\\')) {
+        return 'Error: 文件名不允许包含反斜杠（\\）'
+    }
+    if (fileName.includes('..')) {
+        return 'Error: 文件名不允许包含路径遍历（..）'
+    }
+    if (!fileName.trim()) {
+        return 'Error: 文件名不能为空'
+    }
+    return null
+}
+
+/**
+ * 格式化 file-card 输出
+ */
+function formatFileCard(fields: {
+    fileId: number | string
+    fileName: string
+    fileSize: number
+    mimeType: string
+    temporary?: boolean
+    expiresAt?: string
+}): string {
+    const lines: string[] = [
+        '[file-card]',
+        `fileId: ${fields.fileId}`,
+        `fileName: ${fields.fileName}`,
+        `fileSize: ${fields.fileSize}`,
+        `mimeType: ${fields.mimeType}`,
+    ]
+    if (fields.temporary) {
+        lines.push('temporary: true')
+        lines.push(`expiresAt: ${fields.expiresAt}`)
+    }
+    lines.push('[/file-card]')
+    return lines.join('\n')
+}
+
+/** stat 函数类型（支持注入，便于测试） */
+type StatFn = (path: string) => Promise<{ size: number }>
+
+/** 参数 schema（唯一数据源） */
+const schema = z.object({
+    fileName: z.string().min(1).describe('workspace 中的文件名（不含路径），如 output.txt 或 analysis.pdf'),
+})
+
+/** 工具定义（单一数据源） */
+export const toolDefinition: ToolDefinition<typeof schema> = {
+    name: 'upload_workspace_file',
+    description: '将当前 session workspace 中的文件上传到用户云盘（OSS），返回 [file-card] 格式的文件信息。配额不足时自动降级到临时存储路径（24小时有效）。',
+    schema,
+}
+
+/**
+ * 创建上传 workspace 文件工具
+ *
+ * @param context 工具上下文（包含 userId、caseId、sessionId）
+ * @param workspaceBase 可选的 workspace 根目录（默认 WORKSPACE_BASE，测试时可覆盖）
+ * @param statFn 可选的 stat 函数（测试时可注入，用于模拟文件大小）
+ * @returns LangGraph 工具实例
+ */
+export function createTool(context: ToolContext, workspaceBase?: string, statFn?: StatFn) {
+    const base = workspaceBase ?? WORKSPACE_BASE
+
+    if (!SESSION_ID_PATTERN.test(context.sessionId)) {
+        throw new Error(`无效的 sessionId 格式: ${context.sessionId}`)
+    }
+
+    const workspaceDir = resolve(base, context.sessionId)
+    const statFile = statFn ?? fsStat
+
+    return tool(
+        async ({ fileName }) => {
+            // 1. 文件名安全校验
+            const nameError = validateFileName(fileName)
+            if (nameError) {
+                return nameError
+            }
+
+            const filePath = resolve(workspaceDir, fileName)
+
+            // 2. 二次边界检查，防止意外越界
+            if (!filePath.startsWith(workspaceDir + '/') && filePath !== workspaceDir) {
+                return 'Error: 文件路径不在 workspace 目录内'
+            }
+
+            // 3. 文件存在性和大小检查
+            let fileSize: number
+            try {
+                const statResult = await statFile(filePath)
+                fileSize = statResult.size
+            } catch {
+                return `Error: 文件不存在或无法访问 - ${fileName}`
+            }
+
+            if (fileSize > MAX_FILE_SIZE) {
+                return `Error: 文件超过大小限制（最大 50MB），当前文件大小 ${(fileSize / 1024 / 1024).toFixed(2)}MB`
+            }
+
+            // 4. 推断 MIME 类型
+            const mimeType = inferMimeType(fileName)
+
+            // 5. 检查用户云盘配额
+            let quotaAllowed = true
+            try {
+                const quotaCheck = await checkStorageQuotaService(context.userId, fileSize)
+                quotaAllowed = quotaCheck.allowed
+            } catch (err) {
+                logger.warn('配额检查失败，继续上传到临时路径:', err)
+                quotaAllowed = false
+            }
+
+            if (quotaAllowed) {
+                // 6a. 配额充足：上传到用户 OSS 目录，并创建数据库记录
+                return await uploadToUserStorage(
+                    context.userId,
+                    context.sessionId,
+                    filePath,
+                    fileName,
+                    fileSize,
+                    mimeType,
+                )
+            } else {
+                // 6b. 配额不足：上传到临时公共路径（24h 有效）
+                return await uploadToTempStorage(
+                    context.userId,
+                    context.sessionId,
+                    filePath,
+                    fileName,
+                    fileSize,
+                    mimeType,
+                )
+            }
+        },
+        {
+            name: toolDefinition.name,
+            description: toolDefinition.description,
+            schema,
+        },
+    )
+}
+
+/**
+ * 上传到用户 OSS 目录，并创建 ossFiles 数据库记录
+ */
+async function uploadToUserStorage(
+    userId: number,
+    sessionId: string,
+    filePath: string,
+    fileName: string,
+    fileSize: number,
+    mimeType: string,
+): Promise<string> {
+    try {
+        const ossPath = `users/${userId}/workspace/${sessionId}/${Date.now()}_${fileName}`
+        const stream = createReadStream(filePath)
+
+        const uploadResult = await uploadFileService(ossPath, stream, {
+            contentType: mimeType,
+            userId,
+        })
+
+        // 创建 ossFiles 数据库记录
+        const ossFile = await createOssFileDao({
+            userId,
+            bucketName: '',  // uploadFileService 使用默认 bucket
+            fileName,
+            filePath: uploadResult.name,
+            fileSize,
+            fileType: mimeType,
+            source: FileSource.CASE_ANALYSIS,
+            status: OssFileStatus.UPLOADED,
+            encrypted: false,
+        })
+
+        logger.info('workspace 文件已上传到用户云盘:', {
+            userId,
+            ossFileId: ossFile.id,
+            fileName,
+            ossPath: uploadResult.name,
+        })
+
+        return formatFileCard({
+            fileId: ossFile.id,
+            fileName,
+            fileSize,
+            mimeType,
+        })
+    } catch (err) {
+        logger.error('上传 workspace 文件到用户云盘失败:', err)
+        return `Error: 文件上传失败 - ${err instanceof Error ? err.message : '未知错误'}`
+    }
+}
+
+/**
+ * 配额不足时，上传到临时公共路径（24h 有效）
+ * 注意：此路径文件不会被纳入用户配额统计，24h 后由 OSS 生命周期规则自动清理
+ */
+async function uploadToTempStorage(
+    userId: number,
+    sessionId: string,
+    filePath: string,
+    fileName: string,
+    fileSize: number,
+    mimeType: string,
+): Promise<string> {
+    try {
+        const timestamp = Date.now()
+        const ossPath = `temp/${userId}/workspace/${sessionId}/${timestamp}_${fileName}`
+        const stream = createReadStream(filePath)
+
+        await uploadFileService(ossPath, stream, {
+            contentType: mimeType,
+        })
+
+        const expiresAt = new Date(timestamp + TEMP_FILE_TTL_MS).toISOString()
+
+        logger.warn('workspace 文件已上传到临时路径（用户配额不足）:', {
+            userId,
+            fileName,
+            ossPath,
+            expiresAt,
+        })
+
+        return formatFileCard({
+            fileId: `temp_${timestamp}`,
+            fileName,
+            fileSize,
+            mimeType,
+            temporary: true,
+            expiresAt,
+        })
+    } catch (err) {
+        logger.error('上传 workspace 文件到临时路径失败:', err)
+        return `Error: 文件上传失败 - ${err instanceof Error ? err.message : '未知错误'}`
+    }
+}
