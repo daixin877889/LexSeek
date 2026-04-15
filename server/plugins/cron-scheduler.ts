@@ -6,6 +6,7 @@
  */
 
 import { closeAgentDbPool, closeRedisConnections } from '~~/server/lib/redis'
+import { cleanExpiredWorkspacesService } from '~~/server/services/workflow/tools/workspace'
 
 export default defineNitroPlugin((nitroApp) => {
   const { redis: redisConfig } = useRuntimeConfig()
