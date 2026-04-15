@@ -456,7 +456,7 @@ export function createTool(context: ToolContext, skillsRoot?: string) {
 
 ### write_skill_file 工具
 
-Agent 动态创建脚本和输出文件的能力。写入到 per-session 临时目录 `/tmp/skills-workspace-{sessionId}/`，遵循 ToolModule 接口：
+Agent 动态创建脚本和输出文件的能力。写入到 per-session 临时目录 `/tmp/skills-workspace/{sessionId}/`，遵循 ToolModule 接口：
 
 ```typescript
 import { tool } from '@langchain/core/tools'
