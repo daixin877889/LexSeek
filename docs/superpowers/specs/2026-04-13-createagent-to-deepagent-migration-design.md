@@ -89,18 +89,35 @@
 
 Skill 脚本生成的文件（如 .pptx）需要返回给 Web 端用户。**与案件材料一致，保存到用户的 OSS 文件夹中，计入用户云盘配额**。
 
+#### 核心设计原则
+
+1. **Agent 返回文件卡片**：不是裸链接，而是结构化的文件信息（fileId、fileName、fileSize、mimeType），前端渲染为可视化文件卡片
+2. **点击时生成临时链接**：Agent 对话消息持久化存储，用户可能数天/数月后再查看。下载链接不在消息中硬编码，用户点击时才调用 API 生成临时 URL
+3. **文件删除优雅处理**：用户可能从云盘中删除该文件，点击下载时提示"文件已删除"
+
+#### 流程
+
 ```
 Agent 调用 run_skill_script → 脚本输出文件到 WORKSPACE_DIR
-     → Agent 调用 upload_workspace_file 工具
-     → 复用现有文件上传服务（存到用户 OSS 目录、计入配额）
-     → 返回下载链接 → Agent 在回复中嵌入链接 → 用户点击下载
+  → Agent 调用 upload_workspace_file
+  → 上传到用户 OSS 目录 + 创建文件记录（files 表）+ 计入云盘配额
+  → 返回 fileId + fileName + fileSize + mimeType
+  → Agent 在回复中嵌入结构化文件卡片标记
+
+前端渲染文件卡片（图标 + 文件名 + 大小 + 下载按钮）
+  → 用户点击下载 → 前端调用 GET /api/v1/files/{fileId}/download
+  → 后端校验文件是否存在 → 生成临时签名 URL（有效期 5 分钟）→ 302 重定向
+  → 文件已删除时返回 404 → 前端显示"文件已被删除"
 ```
 
-**`upload_workspace_file` 工具**：
+#### `upload_workspace_file` 工具
+
+返回**结构化文件信息**（非下载链接），Agent 将其嵌入回复：
 
 ```typescript
 import { tool } from '@langchain/core/tools'
 import { resolve } from 'node:path'
+import { stat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { z } from 'zod'
 import type { ToolContext, ToolDefinition } from './types'
@@ -113,7 +130,7 @@ const schema = z.object({
 
 export const toolDefinition: ToolDefinition<typeof schema> = {
     name: 'upload_workspace_file',
-    description: '将 workspace 中的文件上传到用户云盘，返回下载链接。文件计入用户云盘配额。',
+    description: '将 workspace 中的文件上传到用户云盘并返回文件卡片信息。文件计入用户云盘配额。返回的信息应原样嵌入回复中，前端会渲染为可下载的文件卡片。',
     schema,
 }
 
@@ -135,10 +152,24 @@ export function createTool(context: ToolContext) {
             }
 
             try {
-                // 复用现有文件上传服务：存到用户 OSS 目录、计入云盘配额
-                // 具体调用方式参照 server/services/files/ 和 server/lib/oss/ 现有逻辑
-                const result = await uploadUserFileService(context.userId, filePath, fileName)
-                return `文件已上传到您的云盘，下载链接: ${result.downloadUrl}`
+                const fileStat = await stat(filePath)
+
+                // 复用现有文件上传服务：
+                // 1. 上传到用户 OSS 目录
+                // 2. 创建 files 表记录（关联 userId）
+                // 3. 计入云盘配额
+                const fileRecord = await uploadUserFileService(context.userId, filePath, fileName)
+
+                // 返回结构化文件卡片信息（Agent 应原样嵌入回复）
+                // 前端通过识别 [file-card] 标记渲染为可视化卡片
+                return [
+                    `[file-card]`,
+                    `fileId: ${fileRecord.id}`,
+                    `fileName: ${fileName}`,
+                    `fileSize: ${fileStat.size}`,
+                    `mimeType: ${fileRecord.mimeType}`,
+                    `[/file-card]`,
+                ].join('\n')
             } catch (err) {
                 return `Error: 上传失败 ${err instanceof Error ? err.message : '未知错误'}`
             }
@@ -152,11 +183,55 @@ export function createTool(context: ToolContext) {
 }
 ```
 
-**关键设计**：
-- 复用现有的 `uploadUserFileService` / `server/services/files/` + `server/lib/oss/` 上传逻辑
-- 通过 `context.userId` 关联到用户 OSS 目录
-- 文件大小计入用户云盘配额（与案件材料一致）
-- 具体的 service 函数调用需根据现有代码的实际 API 适配
+#### 文件卡片格式
+
+Agent 回复中嵌入的结构化标记：
+
+```
+[file-card]
+fileId: 12345
+fileName: 案件分析报告.pptx
+fileSize: 1048576
+mimeType: application/vnd.openxmlformats-officedocument.presentationml.presentation
+[/file-card]
+```
+
+前端解析该标记，渲染为：
+
+```
+┌─────────────────────────────────────┐
+│  📄 案件分析报告.pptx         1.0 MB │
+│  [下载]                              │
+└─────────────────────────────────────┘
+```
+
+#### 下载 API
+
+```
+GET /api/v1/files/{fileId}/download
+```
+
+**逻辑**：
+1. 校验用户权限（`event.context.auth?.user` 必须是文件所有者）
+2. 查询 files 表获取 OSS 路径
+3. 检查文件是否存在（OSS head request）
+4. 文件存在 → 生成临时签名 URL（有效期 5 分钟）→ 302 重定向
+5. 文件已删除 → 返回 `{ code: 404, message: '文件已被删除' }`
+
+**注意**：如果项目已有文件下载 API（如案件材料下载），可直接复用，无需新建端点。
+
+#### 文件删除后的 UI 处理
+
+对话历史中的文件卡片在文件被删除后：
+
+```
+┌─────────────────────────────────────┐
+│  📄 案件分析报告.pptx    [已删除]    │
+│  该文件已从云盘中删除                 │
+└─────────────────────────────────────┘
+```
+
+前端在用户点击下载时调用 API，收到 404 后更新卡片状态。或在渲染卡片时先 HEAD 检查文件状态（可选，避免每次都检查可以懒加载）。
 
 ### 改动点
 
