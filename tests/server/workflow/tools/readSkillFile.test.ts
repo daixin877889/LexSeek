@@ -151,3 +151,55 @@ describe('read_skill_file 工具 - 工具定义', () => {
         expect(readTool.description.toLowerCase()).toContain('skill')
     })
 })
+
+describe('read_skill_file 工具 - workspace 读取', () => {
+    /** 使用固定的测试 sessionId，保证与 WORKSPACE_BASE 结合后指向临时目录 */
+    const testSessionId = 'test-workspace-session-' + Date.now()
+
+    /** workspace 根目录（与 WORKSPACE_BASE 常量保持一致） */
+    const workspaceBase = '/tmp/skills-workspace'
+
+    /** 当前 session 的 workspace 目录 */
+    const workspaceDir = resolve(workspaceBase, testSessionId)
+
+    /** workspace 测试上下文 */
+    const workspaceContext = {
+        userId: 1,
+        caseId: 1,
+        sessionId: testSessionId,
+    }
+
+    beforeAll(async () => {
+        // 创建 workspace 目录并写入测试文件
+        await mkdir(workspaceDir, { recursive: true })
+        await writeFile(resolve(workspaceDir, 'output.log'), '分析完成\n共处理 42 条记录')
+    })
+
+    afterAll(async () => {
+        // 清理 workspace 临时目录
+        await rm(workspaceDir, { recursive: true, force: true })
+    })
+
+    it('应能通过 _workspace/output.log 路径读取 workspace 文件', async () => {
+        const readTool = createTool(workspaceContext, testSkillsDir)
+        const result = await readTool.invoke({ path: '_workspace/output.log' })
+
+        expect(result).toContain('分析完成')
+        expect(result).toContain('42')
+    })
+
+    it('应拒绝 _workspace/result.pptx（二进制扩展名）', async () => {
+        const readTool = createTool(workspaceContext, testSkillsDir)
+        const result = await readTool.invoke({ path: '_workspace/result.pptx' })
+
+        expect(result).toContain('Error')
+        expect(result).toContain('请使用 upload_workspace_file')
+    })
+
+    it('应拒绝 _workspace/../../../etc/passwd（路径遍历）', async () => {
+        const readTool = createTool(workspaceContext, testSkillsDir)
+        const result = await readTool.invoke({ path: '_workspace/../../../etc/passwd' })
+
+        expect(result).toContain('Error')
+    })
+})
