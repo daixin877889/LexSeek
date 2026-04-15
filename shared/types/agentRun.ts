@@ -30,6 +30,7 @@ export interface AgentStatusEvent {
   runId: string
   sessionId: string
   status: AgentRunStatus
+  error?: string // 新增：仅 FAILED 时有值
 }
 
 export interface AgentCustomEvent {

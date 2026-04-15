@@ -316,6 +316,7 @@ export class AgentWorker {
         runId: run.id,
         sessionId: run.sessionId,
         status,
+        error: isCancelled ? undefined : errorMessage, // 新增
       }).catch(e => logger.error('发布状态变更失败:', e))
 
       if (!isCancelled) {
