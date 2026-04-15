@@ -28,8 +28,9 @@
 ## 设计决策（基于 review 反馈）
 
 1. **workspace 路径从 sessionId 内部推导**：不给 `createTool` 增加第三个参数，而是在工具内部用 `WORKSPACE_BASE + context.sessionId` 推导。
-2. **workspace 清理在任务结束后立即执行**：在 agentWorker 的执行完成回调中 `rm -rf /tmp/skills-workspace/{sessionId}/`，不需要定时任务。
-3. **沿用已实现代码的模式**：`existsSync` 预检查不采用（已实现版本通过 execFile 错误码判断更准确），扩展名检查统一用 `extname()`，`ALLOWED_EXTENSIONS` 保持模块级常量。
+2. **workspace 会话级持久**：workspace 绑定 session 生命周期，不在 run 结束后清理（支持多轮迭代修改）。清理时机：会话关闭/归档时，或 24h 无新 run 时由定时任务兜底清理。
+3. **前端 file-card 一期实现**：在 MessageResponse.vue 中添加 `[file-card]` 解析和渲染，一期交付可用的文件下载体验。
+4. **沿用已实现代码的模式**：`existsSync` 预检查不采用，扩展名检查统一用 `extname()`，`ALLOWED_EXTENSIONS` 保持模块级常量。
 
 ## 待完成 Task 清单
 
@@ -40,8 +41,9 @@
 | 3 | 新建 writeSkillFile 工具 | 无 |
 | 4 | 新建 uploadWorkspaceFile 工具（含配额兜底） | 无 |
 | 5 | 注册新工具 + 更新 Agent 集成 + 更新测试断言 | 3, 4 |
-| 6 | workspace 清理逻辑（agentWorker 回调） | 无 |
-| 7 | 端到端验证 | 1-6 |
+| 6 | workspace 清理（定时任务兜底 + 会话关闭回调） | 无 |
+| 7 | 前端 file-card 解析和渲染 | 无 |
+| 8 | 端到端验证 | 1-7 |
 
 ---
 
@@ -287,44 +289,123 @@ git commit -m "feat(agents): 集成 write_skill_file 和 upload_workspace_file"
 ### Task 6: workspace 清理逻辑
 
 **Files:**
-- Modify: `server/services/agent/agentWorker.ts`（或相关执行完成回调文件）
+- Modify: `server/plugins/cron-scheduler.ts`
 
-- [ ] **Step 1: 定位执行完成回调**
+workspace 绑定 session 生命周期，**不在 run 结束后清理**（支持多轮迭代修改）。
 
-读取 `server/services/agent/agentWorker.ts`，找到任务执行完成后的清理位置（如 `finally` 块或 `onComplete` 回调）。
+清理时机：
+- **定时兜底**：cron-scheduler 每小时扫描，清理 24h 无修改的 workspace 目录
+- **会话关闭**（如有明确的会话关闭/归档 API）：在回调中清理对应 workspace
 
-- [ ] **Step 2: 添加 workspace 清理**
-
-在执行完成后添加：
+- [ ] **Step 1: 在 cron-scheduler 中添加清理任务**
 
 ```typescript
-import { rm } from 'node:fs/promises'
+import { readdir, stat, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 const WORKSPACE_BASE = '/tmp/skills-workspace'
+const MAX_AGE_MS = 24 * 60 * 60 * 1000
 
-// 在任务执行完成（成功或失败）后清理 workspace
-async function cleanupWorkspace(sessionId: string) {
-    const workspaceDir = resolve(WORKSPACE_BASE, sessionId)
+async function cleanExpiredWorkspaces() {
     try {
-        await rm(workspaceDir, { recursive: true, force: true })
-    } catch {
-        // 目录不存在时静默忽略
+        const entries = await readdir(WORKSPACE_BASE, { withFileTypes: true })
+        const now = Date.now()
+        for (const entry of entries) {
+            if (!entry.isDirectory()) continue
+            const dirPath = resolve(WORKSPACE_BASE, entry.name)
+            const dirStat = await stat(dirPath)
+            if (now - dirStat.mtimeMs > MAX_AGE_MS) {
+                await rm(dirPath, { recursive: true, force: true })
+                logger.info('清理过期 workspace', { dir: entry.name })
+            }
+        }
+    } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+            logger.warn('workspace 清理失败', { error: err })
+        }
     }
 }
 ```
 
-在 agentWorker 的执行完成位置调用 `cleanupWorkspace(sessionId)`。
+注册到 scheduler：每小时执行一次。
 
-- [ ] **Step 3: 提交**
+- [ ] **Step 2: 提交**
 
 ```bash
-git commit -m "chore: 任务完成后清理 workspace 临时目录"
+git commit -m "chore: 添加 workspace 定时兜底清理（24h 无活动过期）"
 ```
 
 ---
 
-### Task 7: 端到端验证
+### Task 7: 前端 file-card 解析和渲染
+
+**Files:**
+- Modify: 消息渲染组件（如 `app/components/chat/MessageResponse.vue` 或等效组件）
+
+- [ ] **Step 1: 定位消息渲染组件**
+
+找到 AI 回复的 Markdown 渲染位置，确认使用的是 `vue-stream-markdown` 还是其他库。
+
+- [ ] **Step 2: 添加 file-card 后处理**
+
+在 Markdown 渲染结果中，用正则匹配 `[file-card]...[/file-card]` 标记，替换为文件卡片组件：
+
+```typescript
+// 正则匹配
+const FILE_CARD_REGEX = /\[file-card\]([\s\S]*?)\[\/file-card\]/g
+
+// 解析字段
+function parseFileCard(content: string) {
+    const fields: Record<string, string> = {}
+    content.split('\n').forEach(line => {
+        const match = line.match(/^(\w+):\s*(.+)$/)
+        if (match) fields[match[1]] = match[2].trim()
+    })
+    // 必要字段校验
+    if (!fields.fileId || !fields.fileName) return null
+    return fields
+}
+```
+
+- [ ] **Step 3: 渲染文件卡片 UI**
+
+```vue
+<template>
+    <div class="file-card">
+        <div class="file-icon">📄</div>
+        <div class="file-info">
+            <div class="file-name">{{ card.fileName }}</div>
+            <div class="file-size">{{ formatSize(card.fileSize) }}</div>
+            <div v-if="card.temporary === 'true'" class="file-warning">
+                ⚠️ 临时文件，{{ remainingTime }}后过期
+            </div>
+        </div>
+        <div class="file-actions">
+            <button @click="download">下载</button>
+            <button v-if="card.temporary === 'true'" @click="saveToCloud">保存到云盘</button>
+        </div>
+    </div>
+</template>
+```
+
+下载按钮点击时调用 `GET /api/v1/files/{fileId}/download`，处理 404（已删除）和正常（302 重定向）两种情况。
+
+- [ ] **Step 4: SSE 流式缓冲处理**
+
+确保 SSE 流式传输中 `[file-card]` 标记不被拆分渲染：
+- 检测到 `[file-card]` 开始标记后缓冲后续内容
+- 直到收到 `[/file-card]` 完整后才渲染卡片
+- 超时未收到闭合标记时回退为纯文本
+
+- [ ] **Step 5: 提交**
+
+```bash
+git commit -m "feat(ui): 实现 file-card 消息渲染组件"
+```
+
+---
+
+### Task 8: 端到端验证
 
 - [ ] **Step 1: 创建测试 Skill**
 
@@ -360,8 +441,10 @@ git commit -m "test: 验证 Skills 全链路"
 
 ## 二期待办（本次不实施）
 
-- [ ] OSS Lifecycle Rule 配置（skills-temp/ 前缀 1 天过期）— 配额兜底的临时文件清理
-- [ ] save-temp API 端点（POST /api/v1/files/save-temp）— 前端"保存到云盘"按钮
-- [ ] 前端 file-card 解析（temporary/expiresAt 状态、保存到云盘按钮、已删除/已过期状态）
+- [ ] save-temp API 端点（POST /api/v1/files/save-temp）— 前端"保存到云盘"按钮的后端
+- [ ] OSS Lifecycle Rule 配置（skills-temp/ 前缀 1 天过期）
 - [ ] 每用户每天临时存储上限
 - [ ] moduleAgent 补充独立测试文件
+- [ ] list_workspace_files 工具（动态文件名场景）
+- [ ] 脚本执行失败重试上限（per-session 失败计数器）
+- [ ] Docker 网络隔离（脚本沙箱安全加固）
