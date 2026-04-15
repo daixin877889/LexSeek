@@ -27,10 +27,9 @@
 
 ## 设计决策（基于 review 反馈）
 
-1. **workspace 路径从 sessionId 内部推导**：不给 `createTool` 增加第三个参数，而是在工具内部用 `WORKSPACE_BASE + context.sessionId` 推导。测试时通过覆盖 `WORKSPACE_BASE` 常量或使用特定 sessionId 对齐临时目录。
-2. **配额兜底逻辑延后到二期**：第一版 `upload_workspace_file` 直接调用现有 OSS 服务上传，上传失败返回错误。临时文件区域、`save-temp` API、前端 `temporary` 卡片解析等配额兜底机制在二期实现。
+1. **workspace 路径从 sessionId 内部推导**：不给 `createTool` 增加第三个参数，而是在工具内部用 `WORKSPACE_BASE + context.sessionId` 推导。
+2. **workspace 清理在任务结束后立即执行**：在 agentWorker 的执行完成回调中 `rm -rf /tmp/skills-workspace/{sessionId}/`，不需要定时任务。
 3. **沿用已实现代码的模式**：`existsSync` 预检查不采用（已实现版本通过 execFile 错误码判断更准确），扩展名检查统一用 `extname()`，`ALLOWED_EXTENSIONS` 保持模块级常量。
-4. **workspace 清理定时任务延后**：Docker 容器重启时 `/tmp` 自动清理，第一版不会有积累。正式上线后再添加。
 
 ## 待完成 Task 清单
 
@@ -39,9 +38,10 @@
 | 1 | 更新 readSkillFile：支持 _workspace/ 前缀 + sessionId 校验 | 无 |
 | 2 | 更新 runSkillScript：支持 _workspace + NODE_PATH | 无 |
 | 3 | 新建 writeSkillFile 工具 | 无 |
-| 4 | 新建 uploadWorkspaceFile 工具（简化版，无配额兜底） | 无 |
+| 4 | 新建 uploadWorkspaceFile 工具（含配额兜底） | 无 |
 | 5 | 注册新工具 + 更新 Agent 集成 + 更新测试断言 | 3, 4 |
-| 6 | 端到端验证 | 1-5 |
+| 6 | workspace 清理逻辑（agentWorker 回调） | 无 |
+| 7 | 端到端验证 | 1-6 |
 
 ---
 
@@ -173,13 +173,13 @@ git commit -m "feat(tools): 实现 write_skill_file 工具"
 
 ---
 
-### Task 4: 新建 uploadWorkspaceFile 工具（简化版）
+### Task 4: 新建 uploadWorkspaceFile 工具（含配额兜底）
 
 **Files:**
 - Create: `server/services/workflow/tools/uploadWorkspaceFile.tool.ts`
 - Create: `tests/server/workflow/tools/uploadWorkspaceFile.test.ts`
 
-**第一版简化**：直接调用现有 OSS 服务上传，上传失败返回错误。不实现配额兜底（二期）。
+**前置**：需基于现有 `server/services/storage/` 和 `server/lib/oss/` 封装上传服务函数。
 
 - [ ] **Step 1: 调研现有上传服务**
 
@@ -188,17 +188,22 @@ git commit -m "feat(tools): 实现 write_skill_file 工具"
 - `server/lib/oss/upload.ts`
 - `server/services/files/` 目录（如有）
 
-确定：如何上传本地文件到用户 OSS 目录、如何创建 files 表记录、如何获取 mimeType。
+确定：
+- 如何上传本地文件到用户 OSS 目录
+- 如何创建 files 表记录
+- 如何检查和扣减云盘配额
+- 如何获取 mimeType（`mime-types` 包或简单映射表）
 
 - [ ] **Step 2: 写测试**
 
-测试用例（mock OSS 上传）：
-1. 应返回 [file-card] 格式
+测试用例（mock OSS 上传和配额检查）：
+1. 应返回 [file-card] 格式（含 fileId、fileName、fileSize、mimeType）
 2. 应拒绝不存在的文件
 3. 应拒绝文件名含非法字符
 4. 应拒绝超大文件（> 50MB）
-5. 上传失败时返回错误信息
-6. 工具名和描述正确
+5. 配额不足时应返回 temporary: true 的临时卡片
+6. 上传失败时返回错误信息
+7. 工具名和描述正确
 
 - [ ] **Step 3: 运行测试确认失败**
 
@@ -206,18 +211,18 @@ git commit -m "feat(tools): 实现 write_skill_file 工具"
 
 要点：
 - `SESSION_ID_PATTERN` 校验
-- `stat.size > 50 * 1024 * 1024` 检查
-- 基于现有 storage/oss 服务封装上传逻辑
-- 推断 mimeType（基于扩展名，使用 `mime-types` 包或简单映射表）
+- `stat.size > 50MB` 检查
+- 正常流程：上传到用户 OSS 目录 + 创建 files 记录 + 扣减配额 → 返回永久 file-card
+- 配额不足：上传到临时公共区域（`skills-temp/{sessionId}/`，OSS Lifecycle 24h 过期）→ 返回临时 file-card（`temporary: true`, `expiresAt`）
+- 推断 mimeType（基于扩展名）
 - 输出 `[file-card]...[/file-card]` 格式
-- 上传失败直接返回错误（无配额兜底，第一版）
 
 - [ ] **Step 5: 运行测试确认通过**
 
 - [ ] **Step 6: 提交**
 
 ```bash
-git commit -m "feat(tools): 实现 upload_workspace_file 工具（简化版）"
+git commit -m "feat(tools): 实现 upload_workspace_file 工具（含配额兜底）"
 ```
 
 ---
@@ -279,7 +284,47 @@ git commit -m "feat(agents): 集成 write_skill_file 和 upload_workspace_file"
 
 ---
 
-### Task 6: 端到端验证
+### Task 6: workspace 清理逻辑
+
+**Files:**
+- Modify: `server/services/agent/agentWorker.ts`（或相关执行完成回调文件）
+
+- [ ] **Step 1: 定位执行完成回调**
+
+读取 `server/services/agent/agentWorker.ts`，找到任务执行完成后的清理位置（如 `finally` 块或 `onComplete` 回调）。
+
+- [ ] **Step 2: 添加 workspace 清理**
+
+在执行完成后添加：
+
+```typescript
+import { rm } from 'node:fs/promises'
+import { resolve } from 'node:path'
+
+const WORKSPACE_BASE = '/tmp/skills-workspace'
+
+// 在任务执行完成（成功或失败）后清理 workspace
+async function cleanupWorkspace(sessionId: string) {
+    const workspaceDir = resolve(WORKSPACE_BASE, sessionId)
+    try {
+        await rm(workspaceDir, { recursive: true, force: true })
+    } catch {
+        // 目录不存在时静默忽略
+    }
+}
+```
+
+在 agentWorker 的执行完成位置调用 `cleanupWorkspace(sessionId)`。
+
+- [ ] **Step 3: 提交**
+
+```bash
+git commit -m "chore: 任务完成后清理 workspace 临时目录"
+```
+
+---
+
+### Task 7: 端到端验证
 
 - [ ] **Step 1: 创建测试 Skill**
 
@@ -315,8 +360,8 @@ git commit -m "test: 验证 Skills 全链路"
 
 ## 二期待办（本次不实施）
 
-- [ ] 配额兜底：临时文件区域 + uploadTempFileService + save-temp API + 前端 temporary 卡片
-- [ ] workspace 清理定时任务（cron-scheduler.ts）
-- [ ] OSS Lifecycle Rule 配置（skills-temp/ 前缀 1 天过期）
+- [ ] OSS Lifecycle Rule 配置（skills-temp/ 前缀 1 天过期）— 配额兜底的临时文件清理
+- [ ] save-temp API 端点（POST /api/v1/files/save-temp）— 前端"保存到云盘"按钮
+- [ ] 前端 file-card 解析（temporary/expiresAt 状态、保存到云盘按钮、已删除/已过期状态）
 - [ ] 每用户每天临时存储上限
 - [ ] moduleAgent 补充独立测试文件
