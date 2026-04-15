@@ -17,7 +17,8 @@ const analysisNodes: Record<string, string> = {
   cause: '预选案由',
   defense: '抗辩分析及应对策略预测',
   evidence: '证据清单预梳理',
-  caseInfoCheck: '案情信息检查'
+  caseInfoCheck: '案情信息检查',
+  extract: "数据提取"
 }
 
 const EXPERT_PATTERN = /^ask_([a-z0-9_]+?)_expert$/
