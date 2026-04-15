@@ -7,6 +7,7 @@
 
 import { createAgent, summarizationMiddleware, type ReactAgent } from 'langchain'
 import { HumanMessage } from '@langchain/core/messages'
+import type { StructuredToolInterface } from '@langchain/core/tools'
 import { Command } from '@langchain/langgraph'
 import { getCheckpointer, getStore } from '../checkpointer'
 import { getValidNodeConfig, getNodeConfigsByTypes } from '../../node/node.service'
@@ -104,13 +105,20 @@ export async function runCaseChat(
     const subAgentToolList = await createSubAgentTools(subAgentConfigs, toolContext)
 
     // 7. 合并工具列表（含 Skills 工具）
+    // 按 name 去重：后注入的 skillTools 胜出，避免 DB 中 mainConfig.tools 同时
+    // 登记了 skill 工具导致 LangChain AgentNode 检测到"同名不同实例"而抛错
+    // （"You have modified a tool in wrapModelCall hook of middleware SkillsMiddleware"）
     const skillTools = [
         createReadSkillFileTool(toolContext),
         createWriteSkillFileTool(toolContext),
         createRunSkillScriptTool(toolContext),
         createUploadWorkspaceFileTool(toolContext),
     ]
-    const allTools = [...mainTools, ...subAgentToolList, ...skillTools]
+    const toolsByName = new Map<string, StructuredToolInterface>()
+    for (const tool of [...mainTools, ...subAgentToolList, ...skillTools]) {
+        toolsByName.set(tool.name, tool)
+    }
+    const allTools = Array.from(toolsByName.values())
 
     logger.info('案件主 Agent 创建', {
         sessionId,

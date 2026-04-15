@@ -13,6 +13,7 @@
 
 import { createAgent, summarizationMiddleware, type ReactAgent } from 'langchain'
 import { HumanMessage } from '@langchain/core/messages'
+import type { StructuredToolInterface } from '@langchain/core/tools'
 import { Command } from '@langchain/langgraph'
 import { getCheckpointer, getStore } from '../checkpointer'
 import { getValidNodeConfig } from '../../node/node.service'
@@ -96,6 +97,9 @@ export async function runModuleChat(
     }
 
     // 加载节点配置的工具（同步函数）+ save_analysis_result 工具
+    // 按 name 去重：后注入的 skillTools / saveResultTool 胜出，避免 DB 中
+    // nodeConfig.tools 同时登记了 skill 工具导致 LangChain AgentNode 检测到
+    // "同名不同实例"而抛错（见 caseMainAgent.ts 相同防护）
     const nodeTools = nodeConfig.tools.length > 0
         ? getToolInstancesService(nodeConfig.tools, toolContext)
         : []
@@ -106,7 +110,11 @@ export async function runModuleChat(
         createRunSkillScriptTool(toolContext),
         createUploadWorkspaceFileTool(toolContext),
     ]
-    const allTools = [...nodeTools, saveResultTool, ...skillTools]
+    const toolsByName = new Map<string, StructuredToolInterface>()
+    for (const tool of [...nodeTools, saveResultTool, ...skillTools]) {
+        toolsByName.set(tool.name, tool)
+    }
+    const allTools = Array.from(toolsByName.values())
 
     // 构建静态 system prompt（不变，命中供应商 Prompt Caching）
     const systemPromptParts = [
