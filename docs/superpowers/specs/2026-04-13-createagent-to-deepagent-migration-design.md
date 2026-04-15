@@ -81,9 +81,9 @@
 └── ...                        # 其他临时文件
 ```
 
-**生命周期**：首次调用 `write_skill_file` 时自动创建，会话结束后由系统清理（依赖 OS `/tmp` 清理策略或 agentWorker 清理逻辑）。
+**生命周期**：首次调用 `write_skill_file` 时自动创建。通过定时任务清理超过 24 小时的 workspace 目录（不依赖 OS `/tmp` 清理策略）。
 
-**多用户隔离**：每个 sessionId 独立目录，无跨用户污染。工具创建时断言 sessionId 格式合法（不含 `..` 和 `/`）。
+**多用户隔离**：每个 sessionId 独立目录，无跨用户污染。所有工具创建时断言 sessionId 格式合法（正则 `/^[a-zA-Z0-9_-]{1,128}$/`）。
 
 ### workspace 文件下载链路
 
@@ -135,14 +135,14 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
 }
 
 export function createTool(context: ToolContext) {
-    if (!context.sessionId || context.sessionId.includes('..') || context.sessionId.includes('/')) {
+    if (!SESSION_ID_PATTERN.test(context.sessionId)) {
         throw new Error(`Invalid sessionId: ${context.sessionId}`)
     }
     const workspaceDir = resolve(WORKSPACE_BASE, context.sessionId)
 
     return tool(
         async ({ fileName }) => {
-            if (fileName.includes('..') || fileName.includes('/')) {
+            if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\0')) {
                 return 'Error: 文件名中包含非法字符'
             }
 
@@ -153,6 +153,11 @@ export function createTool(context: ToolContext) {
 
             try {
                 const fileStat = await stat(filePath)
+
+                // 文件大小限制 50MB
+                if (fileStat.size > 50 * 1024 * 1024) {
+                    return `Error: 文件过大（${(fileStat.size / 1024 / 1024).toFixed(1)}MB），上限 50MB`
+                }
 
                 // 复用现有文件上传服务：
                 // 1. 上传到用户 OSS 目录
@@ -398,7 +403,7 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
 
 export function createTool(context: ToolContext, skillsRoot?: string) {
     const SKILLS_ROOT = skillsRoot ?? DEFAULT_SKILLS_ROOT
-    if (!context.sessionId || context.sessionId.includes('..') || context.sessionId.includes('/')) {
+    if (!SESSION_ID_PATTERN.test(context.sessionId)) {
         throw new Error(`Invalid sessionId: ${context.sessionId}`)
     }
     const workspaceDir = resolve(WORKSPACE_BASE, context.sessionId)
@@ -425,6 +430,13 @@ export function createTool(context: ToolContext, skillsRoot?: string) {
 
             if (!fullPath.startsWith(safeBase + '/')) {
                 return 'Error: 路径超出允许范围'
+            }
+
+            // 扩展名白名单（skills 和 workspace 共用，防止二进制文件浪费 context）
+            const ALLOWED_EXTENSIONS = new Set(['.md', '.txt', '.json', '.yaml', '.yml', '.js', '.ts', '.py', '.sh', '.cjs', '.mjs', '.log'])
+            const ext = filePath.split('.').pop()?.toLowerCase()
+            if (ext && !ALLOWED_EXTENSIONS.has(`.${ext}`)) {
+                return `Error: 不支持读取 .${ext} 文件，请使用 upload_workspace_file 处理二进制文件`
             }
 
             try {
@@ -455,9 +467,18 @@ import type { ToolContext, ToolDefinition } from './types'
 
 const WORKSPACE_BASE = '/tmp/skills-workspace'
 
+/** sessionId 合法格式 */
+const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/
+
+/** 文件名/路径段合法字符（字母、数字、下划线、连字符、点、中文） */
+const SAFE_PATH_SEGMENT = /^[\w.\-\u4e00-\u9fff]+$/
+
+/** 写入内容最大 10MB */
+const MAX_CONTENT_SIZE = 10 * 1024 * 1024
+
 const schema = z.object({
     path: z.string().min(1).describe('文件路径（相对于 workspace），如 generate-ppt.cjs 或 output/report.md'),
-    content: z.string().describe('文件内容'),
+    content: z.string().max(MAX_CONTENT_SIZE).describe('文件内容（最大 10MB）'),
 })
 
 export const toolDefinition: ToolDefinition<typeof schema> = {
@@ -468,16 +489,20 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
 
 export function createTool(context: ToolContext, workspaceBase?: string) {
     const base = workspaceBase ?? WORKSPACE_BASE
-    // 防御性校验：sessionId 不得包含路径遍历字符
-    if (!context.sessionId || context.sessionId.includes('..') || context.sessionId.includes('/')) {
+    if (!SESSION_ID_PATTERN.test(context.sessionId)) {
         throw new Error(`Invalid sessionId: ${context.sessionId}`)
     }
     const workspaceDir = resolve(base, context.sessionId)
 
     return tool(
         async ({ path: filePath, content }) => {
-            if (filePath.includes('..') || filePath.startsWith('/')) {
+            if (filePath.includes('..') || filePath.startsWith('/') || filePath.includes('\0')) {
                 return 'Error: 非法路径'
+            }
+            // 校验路径每一段的字符合法性
+            const segments = filePath.split('/')
+            if (segments.some(s => !SAFE_PATH_SEGMENT.test(s))) {
+                return 'Error: 路径包含非法字符'
             }
 
             const fullPath = resolve(workspaceDir, filePath)
@@ -547,7 +572,7 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
 
 export function createTool(context: ToolContext, skillsRoot?: string) {
     const SKILLS_ROOT = skillsRoot ?? DEFAULT_SKILLS_ROOT
-    if (!context.sessionId || context.sessionId.includes('..') || context.sessionId.includes('/')) {
+    if (!SESSION_ID_PATTERN.test(context.sessionId)) {
         throw new Error(`Invalid sessionId: ${context.sessionId}`)
     }
     const workspaceDir = resolve(WORKSPACE_BASE, context.sessionId)
@@ -600,7 +625,8 @@ export function createTool(context: ToolContext, skillsRoot?: string) {
                         HOME: process.env.HOME || '/tmp',
                         LANG: process.env.LANG || 'en_US.UTF-8',
                         NODE_ENV: 'production',
-                        NODE_PATH: process.env.NODE_PATH || '',
+                        // 包含主项目 node_modules，workspace 脚本可 require 第三方包（如 pptxgenjs）
+                        NODE_PATH: resolve(process.cwd(), 'node_modules'),
                         // workspace 目录作为环境变量，脚本可用于输出文件
                         WORKSPACE_DIR: workspaceDir,
                     },
@@ -673,6 +699,67 @@ Skills 目录本身是共享只读资源，无跨用户污染。但具体 Skill 
 | `write_skill_file` | 无 | 无同名 | ✅ 无冲突 |
 | `run_skill_script` | 无 | 无同名 | ✅ 无冲突 |
 | `upload_workspace_file` | 无 | 无同名 | ✅ 无冲突 |
+
+### 边界条件和安全注意事项
+
+#### sessionId 格式
+
+所有涉及 workspace 的工具在 `createTool` 时断言 sessionId 匹配 `/^[a-zA-Z0-9_-]{1,128}$/`，拒绝空字符串、路径遍历字符、特殊字符。
+
+#### 文件大小限制
+
+| 工具 | 限制 | 说明 |
+|------|------|------|
+| write_skill_file | content ≤ 10MB | zod `.max(10MB)` |
+| upload_workspace_file | 文件 ≤ 50MB | `stat.size` 检查 |
+| run_skill_script | stdout ≤ 1MB | Node.js `execFile` 默认 `maxBuffer` |
+
+#### 文件名安全
+
+`write_skill_file` 的路径段校验使用白名单正则 `/^[\w.\-\u4e00-\u9fff]+$/`，允许字母、数字、下划线、连字符、点、中文，拒绝 NULL 字节、反斜杠等危险字符。
+
+#### workspace 脚本的 node_modules 依赖
+
+`run_skill_script` 的 `env.NODE_PATH` 设置为主项目的 `node_modules` 路径（`resolve(process.cwd(), 'node_modules')`），workspace 中动态创建的脚本可以 `require` 项目已安装的第三方包（如 `pptxgenjs`）。Skill 如需额外依赖，应在 SKILL.md 的 `compatibility` 字段声明，并在项目的 `package.json` 中预装。
+
+#### 脚本超时后的进程清理
+
+`execFile` 超时发送 `SIGTERM`，但不会杀死孙子进程。对于产生子进程的复杂脚本，建议在实现层使用 `{ killSignal: 'SIGKILL' }` 或通过进程组杀死。简单脚本（大多数 Skill）不受影响。
+
+#### 脚本超时后的不完整文件
+
+脚本执行超时时输出文件可能写了一半。`upload_workspace_file` 在上传前检查文件大小（`> 0`），但不做内容完整性校验。Skill 脚本应遵循"先写临时文件再原子重命名"模式确保输出完整性。
+
+#### 脚本安全边界
+
+`run_skill_script` 的安全模型是**信任 Skill 作者**——脚本在服务器进程的用户权限下运行，可访问文件系统。安全保障：
+- Docker 容器作为外层隔离
+- `env` 白名单限制环境变量（不泄露数据库密码等敏感信息）
+- 30s 超时防止无限运行
+
+#### file-card 标记的前端解析
+
+- **多个卡片**：前端用全局正则 `/\[file-card\][\s\S]*?\[\/file-card\]/g` 匹配
+- **防误解析**：解析后校验 `fileId` 和 `fileName` 两个必要字段，缺失则视为普通文本
+- **SSE 流式拆分**：前端维护缓冲区，检测到 `[file-card]` 开始标记后缓冲，直到 `[/file-card]` 完整后才渲染
+- **已过期临时文件**：卡片显示"已过期，请重新让 AI 生成"
+
+#### save-temp API 幂等性
+
+- 前端点击"保存到云盘"后立即 disable 按钮 + 加 loading
+- 后端对 `tempFileId` 做幂等检查（数据库唯一约束或 Redis 分布式锁），重复请求返回已保存的结果
+- 复制成功但删除临时文件失败时：仅 `logger.warn`，依赖 OSS Lifecycle Rule 兜底清理
+
+#### 临时文件 OSS 清理
+
+- 临时区域 `skills-temp/` 前缀配置 OSS Lifecycle Rule：对象创建 1 天后自动删除
+- `expiresAt` 以 OSS 对象创建时间 + 24h 计算
+- 每用户每天临时存储上限 100MB（防止恶意堆积）
+
+#### workspace 本地目录清理
+
+- 在定时任务（`server/plugins/cron-scheduler.ts`）中增加清理逻辑：扫描 `/tmp/skills-workspace/` 子目录，删除 `mtime > 24h` 的目录
+- 不依赖 OS `/tmp` 清理策略（Linux 发行版差异大，Docker 容器长期运行时 `/tmp` 不会自动清理）
 
 ## 文件变更清单
 
@@ -747,9 +834,11 @@ Skills 目录本身是共享只读资源，无跨用户污染。但具体 Skill 
 9. caseMainAgent.ts 追加 middleware + 4 个工具
 10. moduleAgent.ts 追加 middleware + 4 个工具
 11. Dockerfile runner 阶段：安装 `python3` + `COPY --from=builder /app/.deepagents ./.deepagents`
-12. 本地验证：Skill 发现 → 读取 → 写入脚本到 workspace → 执行 → 上传输出文件
-13. 中断恢复验证：从旧 checkpoint 恢复后 agent 正常工作
-14. Docker 验证：路径解析 + 脚本执行 + workspace 隔离 + OSS 上传
+12. 配置 OSS Lifecycle Rule：`skills-temp/` 前缀 1 天后自动删除
+13. 在 `server/plugins/cron-scheduler.ts` 增加 workspace 清理定时任务（24h 过期）
+14. 本地验证：Skill 发现 → 读取 → 写入脚本到 workspace → 执行 → 上传输出文件
+15. 中断恢复验证：从旧 checkpoint 恢复后 agent 正常工作
+16. Docker 验证：路径解析 + 脚本执行 + workspace 隔离 + OSS 上传
 
 ## 参考资料
 
