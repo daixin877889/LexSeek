@@ -87,11 +87,12 @@
 
 ### workspace 文件下载链路
 
-Skill 脚本生成的文件（如 .pptx）需要返回给 Web 端用户。流程：
+Skill 脚本生成的文件（如 .pptx）需要返回给 Web 端用户。**与案件材料一致，保存到用户的 OSS 文件夹中，计入用户云盘配额**。
 
 ```
 Agent 调用 run_skill_script → 脚本输出文件到 WORKSPACE_DIR
-     → Agent 调用 upload_workspace_file 工具 → 上传到 OSS
+     → Agent 调用 upload_workspace_file 工具
+     → 复用现有文件上传服务（存到用户 OSS 目录、计入配额）
      → 返回下载链接 → Agent 在回复中嵌入链接 → 用户点击下载
 ```
 
@@ -112,11 +113,14 @@ const schema = z.object({
 
 export const toolDefinition: ToolDefinition<typeof schema> = {
     name: 'upload_workspace_file',
-    description: '将 workspace 中的文件上传到云存储，返回下载链接。用于将脚本生成的文件（如 PPT、PDF）发送给用户。',
+    description: '将 workspace 中的文件上传到用户云盘，返回下载链接。文件计入用户云盘配额。',
     schema,
 }
 
 export function createTool(context: ToolContext) {
+    if (!context.sessionId || context.sessionId.includes('..') || context.sessionId.includes('/')) {
+        throw new Error(`Invalid sessionId: ${context.sessionId}`)
+    }
     const workspaceDir = resolve(WORKSPACE_BASE, context.sessionId)
 
     return tool(
@@ -131,9 +135,10 @@ export function createTool(context: ToolContext) {
             }
 
             try {
-                // 调用项目现有的 OSS 上传服务
-                const downloadUrl = await uploadToOSSService(filePath, `skills-output/${context.sessionId}/${fileName}`)
-                return `文件已上传，下载链接: ${downloadUrl}`
+                // 复用现有文件上传服务：存到用户 OSS 目录、计入云盘配额
+                // 具体调用方式参照 server/services/files/ 和 server/lib/oss/ 现有逻辑
+                const result = await uploadUserFileService(context.userId, filePath, fileName)
+                return `文件已上传到您的云盘，下载链接: ${result.downloadUrl}`
             } catch (err) {
                 return `Error: 上传失败 ${err instanceof Error ? err.message : '未知错误'}`
             }
@@ -147,7 +152,11 @@ export function createTool(context: ToolContext) {
 }
 ```
 
-**注意**：`uploadToOSSService` 复用项目现有的 OSS 上传逻辑（`server/lib/oss/`），具体实现取决于现有 API。
+**关键设计**：
+- 复用现有的 `uploadUserFileService` / `server/services/files/` + `server/lib/oss/` 上传逻辑
+- 通过 `context.userId` 关联到用户 OSS 目录
+- 文件大小计入用户云盘配额（与案件材料一致）
+- 具体的 service 函数调用需根据现有代码的实际 API 适配
 
 ### 改动点
 
