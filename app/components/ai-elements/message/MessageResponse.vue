@@ -2,14 +2,14 @@
 /**
  * AI 消息响应渲染组件
  *
- * 在 Markdown 渲染前先解析 [file-card] 标记，将消息内容拆分为
- * markdown 片段与文件卡片的交替序列，然后分别渲染。
+ * 渲染消息正文为 Markdown。文件卡片由 AiToolsUploadWorkspaceFileTool
+ * 直接从工具调用结果渲染（不依赖 LLM 在文本中嵌入 `[file-card]` 标记）。
+ * 历史消息中可能残留的 `[file-card]` 文本会被剥离，避免 markdown 渲染异常。
  */
 import type { HTMLAttributes } from 'vue'
 import { cn } from '@repo/shadcn-vue/lib/utils'
 import { Markdown } from 'vue-stream-markdown'
 import 'vue-stream-markdown/index.css'
-import { parseMessageSegments } from '~/utils/fileCardParser'
 
 interface Props {
   content?: string
@@ -32,21 +32,16 @@ const slotContent = computed<string | undefined>(() => {
 
 const rawContent = computed(() => (slotContent.value ?? props.content ?? '') as string)
 
-const segments = computed(() => parseMessageSegments(rawContent.value))
-
-/** 流式模式下，最后一个 markdown 片段使用 streaming 模式，其余用 static */
-function segmentMode(index: number): 'streaming' | 'static' {
-  if (props.mode !== 'streaming') return 'static'
-  // 找到最后一个 markdown 片段的索引
-  let lastMarkdownIdx = -1
-  for (let i = segments.value.length - 1; i >= 0; i--) {
-    if (segments.value[i]!.type === 'markdown') {
-      lastMarkdownIdx = i
-      break
-    }
-  }
-  return index === lastMarkdownIdx ? 'streaming' : 'static'
-}
+/**
+ * 剥离消息文本中的 [file-card]...[/file-card] 块
+ *
+ * 文件卡片由工具调用渲染器（AiToolsUploadWorkspaceFileTool）负责渲染，
+ * 文本中的 [file-card] 标记是冗余且在 LLM 缩写格式下会破坏 markdown 渲染。
+ * 流式输出过程中如果还没收到闭合标签，本次渲染会保留原样，下次更新时再剥离。
+ */
+const cleanedContent = computed(() =>
+  rawContent.value.replace(/\[file-card\][\s\S]*?\[\/file-card\]/g, '').trim(),
+)
 </script>
 
 <template>
@@ -59,25 +54,10 @@ function segmentMode(index: number): 'streaming' | 'static' {
     "
     v-bind="$attrs"
   >
-    <template v-for="(seg, idx) in segments" :key="idx">
-      <!-- Markdown 片段 -->
-      <Markdown
-        v-if="seg.type === 'markdown'"
-        :content="seg.text"
-        :mode="segmentMode(idx)"
-        class="size-full [&>*:first-child]:mt-0! [&>*:last-child]:mb-0!"
-      />
-
-      <!-- 文件卡片 -->
-      <AiFileCard
-        v-else-if="seg.type === 'file-card'"
-        :file-id="seg.data.fileId"
-        :file-name="seg.data.fileName"
-        :file-size="seg.data.fileSize"
-        :mime-type="seg.data.mimeType"
-        :temporary="seg.data.temporary"
-        :expires-at="seg.data.expiresAt"
-      />
-    </template>
+    <Markdown
+      :content="cleanedContent"
+      :mode="props.mode === 'streaming' ? 'streaming' : 'static'"
+      class="size-full [&>*:first-child]:mt-0! [&>*:last-child]:mb-0!"
+    />
   </div>
 </template>
