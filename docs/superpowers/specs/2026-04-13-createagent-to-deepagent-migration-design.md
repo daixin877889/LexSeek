@@ -59,12 +59,30 @@
 
 ### 分阶段实施
 
-**Phase 1（本次）**：Skills 发现 + 文件读取 + 脚本执行
+**Phase 1（本次）**：Skills 发现 + 文件读写 + 脚本执行
 - `createSkillsMiddleware` 中间件
 - `read_skill_file` 工具
-- `run_skill_script` 工具
+- `write_skill_file` 工具（per-session 临时目录）
+- `run_skill_script` 工具（支持 skills 目录和 workspace 目录）
 
 脚本执行是 Skills 的核心价值——没有脚本执行，Skills 就只是结构化提示词，项目已有的 Nodes + Prompts 系统完全可以替代。
+
+**写入能力的必要性**：许多 Skills（如 pptx-generator）需要 Agent 动态生成脚本并执行。没有写入能力，Agent 无法创建脚本文件，导致这类 Skill 完全失效。
+
+### per-session workspace 机制
+
+每个会话拥有独立的临时工作目录 `/tmp/skills-workspace-{sessionId}/`，Agent 可在其中创建脚本和输出文件。
+
+```
+/tmp/skills-workspace-{sessionId}/
+├── generate-ppt.cjs           # Agent 动态创建的脚本
+├── output.pptx                # 脚本生成的输出文件
+└── ...                        # 其他临时文件
+```
+
+**生命周期**：首次调用 `write_skill_file` 时自动创建，会话结束后由系统清理（依赖 OS `/tmp` 清理策略或 agentWorker 清理逻辑）。
+
+**多用户隔离**：每个 sessionId 独立目录，无跨用户污染。
 
 ### 改动点
 
@@ -72,7 +90,8 @@
 新增:
 ├── 1. createSkillsMiddleware 追加到现有 middleware 数组
 ├── 2. read_skill_file 工具（读取 SKILL.md 和 references）
-└── 3. run_skill_script 工具（执行 skills/*/scripts/ 下的脚本）
+├── 3. write_skill_file 工具（写入 per-session workspace 临时目录）
+└── 4. run_skill_script 工具（执行 skills 目录或 workspace 目录的脚本）
 
 不受影响（全部现有代码）:
 ├── createAgent 调用方式不变
@@ -89,6 +108,7 @@
 // === 新增 import ===
 import { createSkillsMiddleware, FilesystemBackend } from 'deepagents'
 import { createTool as createReadSkillFileTool } from '../tools/readSkillFile.tool'
+import { createTool as createWriteSkillFileTool } from '../tools/writeSkillFile.tool'
 import { createTool as createRunSkillScriptTool } from '../tools/runSkillScript.tool'
 
 // === Skills 中间件（模块级单例） ===
@@ -106,6 +126,7 @@ const agent: ReactAgent = createAgent({
     tools: [
         ...allTools,                              // 现有工具不动
         createReadSkillFileTool(toolContext),      // 新增：读取 Skill 文件
+        createWriteSkillFileTool(toolContext),     // 新增：写入 workspace 文件
         createRunSkillScriptTool(toolContext),     // 新增：执行 Skill 脚本
     ],
     middleware: [
@@ -173,9 +194,74 @@ export function createTool(context: ToolContext) {
 }
 ```
 
+### write_skill_file 工具
+
+Agent 动态创建脚本和输出文件的能力。写入到 per-session 临时目录 `/tmp/skills-workspace-{sessionId}/`，遵循 ToolModule 接口：
+
+```typescript
+import { tool } from '@langchain/core/tools'
+import { writeFile, mkdir } from 'node:fs/promises'
+import { resolve, dirname } from 'node:path'
+import { z } from 'zod'
+import type { ToolContext, ToolDefinition } from './types'
+
+const WORKSPACE_BASE = '/tmp/skills-workspace'
+
+const schema = z.object({
+    path: z.string().describe('文件路径（相对于 workspace），如 generate-ppt.cjs 或 output/report.md'),
+    content: z.string().describe('文件内容'),
+})
+
+export const toolDefinition: ToolDefinition<typeof schema> = {
+    name: 'write_skill_file',
+    description: '在会话工作区写入文件（用于创建脚本、保存输出等）。文件存储在隔离的临时目录中。',
+    schema,
+}
+
+export function createTool(context: ToolContext, workspaceBase?: string) {
+    const base = workspaceBase ?? WORKSPACE_BASE
+    const workspaceDir = resolve(base, context.sessionId)
+
+    return tool(
+        async ({ path: filePath, content }) => {
+            if (filePath.includes('..') || filePath.startsWith('/')) {
+                return 'Error: 非法路径'
+            }
+
+            const fullPath = resolve(workspaceDir, filePath)
+            if (!fullPath.startsWith(workspaceDir + '/')) {
+                return 'Error: 只允许写入 workspace 目录内的文件'
+            }
+
+            try {
+                await mkdir(dirname(fullPath), { recursive: true })
+                await writeFile(fullPath, content, 'utf-8')
+                return `文件已写入: ${fullPath}`
+            } catch (err) {
+                return `Error: 写入失败 ${err instanceof Error ? err.message : '未知错误'}`
+            }
+        },
+        {
+            name: toolDefinition.name,
+            description: toolDefinition.description,
+            schema,
+        },
+    )
+}
+```
+
+**关键设计**：
+- `workspaceDir` 使用 `context.sessionId` 隔离，每个会话独立目录
+- 路径校验与 `read_skill_file` 一致（禁止 `..` 和绝对路径，`startsWith` 二次校验）
+- `mkdir({ recursive: true })` 自动创建子目录
+
 ### run_skill_script 工具
 
-使用**结构化参数**防止命令注入，遵循 ToolModule 接口。支持 Node.js、Python、Bash 三种运行时（覆盖 Agent Skills 规范要求）：
+使用**结构化参数**防止命令注入，遵循 ToolModule 接口。支持 Node.js、Python、Bash 三种运行时。
+
+**支持两个执行源**：
+1. **Skills 目录**（`.deepagents/skills/{skillName}/scripts/`）— 预装的 Skill 脚本
+2. **Workspace 目录**（`/tmp/skills-workspace-{sessionId}/`）— Agent 动态创建的脚本
 
 ```typescript
 import { tool } from '@langchain/core/tools'
@@ -185,9 +271,9 @@ import { existsSync } from 'node:fs'
 import { z } from 'zod'
 import type { ToolContext, ToolDefinition } from './types'
 
-const SKILLS_ROOT = resolve('/app/.deepagents/skills')
+const DEFAULT_SKILLS_ROOT = resolve(process.cwd(), '.deepagents/skills')
+const WORKSPACE_BASE = '/tmp/skills-workspace'
 
-/** 允许的运行时及其可执行文件路径 */
 const ALLOWED_RUNTIMES: Record<string, string> = {
     node: 'node',
     python: 'python3',
@@ -195,7 +281,7 @@ const ALLOWED_RUNTIMES: Record<string, string> = {
 }
 
 const schema = z.object({
-    skillName: z.string().describe('Skill 名称，如 lexseek'),
+    skillName: z.string().describe('Skill 名称，如 lexseek。使用 "_workspace" 执行 workspace 中的脚本'),
     scriptName: z.string().describe('脚本文件名，如 lexseek.cjs、extract.py、setup.sh'),
     action: z.string().describe('操作名称，如 search, login（作为第一个参数传入脚本）'),
     args: z.record(z.string()).optional().describe('参数键值对，如 { query: "关键词" }'),
@@ -203,23 +289,47 @@ const schema = z.object({
 
 export const toolDefinition: ToolDefinition<typeof schema> = {
     name: 'run_skill_script',
-    description: '执行 skill 脚本。示例：skillName=lexseek, scriptName=lexseek.cjs, action=search, args={query: "劳动合同 解除"}',
+    description: '执行 skill 脚本或 workspace 中的脚本。skillName="_workspace" 表示执行 workspace 中 Agent 创建的脚本',
     schema,
 }
 
-export function createTool(context: ToolContext) {
+export function createTool(context: ToolContext, skillsRoot?: string) {
+    const SKILLS_ROOT = skillsRoot ?? DEFAULT_SKILLS_ROOT
+    const workspaceDir = resolve(WORKSPACE_BASE, context.sessionId)
+
     return tool(
         async ({ skillName, scriptName, action, args }) => {
-            if ([skillName, scriptName, action].some(s => s.includes('..') || s.includes('/'))) {
+            if ([scriptName, action].some(s => s.includes('..') || s.includes('/'))) {
                 return 'Error: 参数中包含非法字符'
             }
 
-            const scriptPath = resolve(SKILLS_ROOT, skillName, 'scripts', scriptName)
-            if (!scriptPath.startsWith(SKILLS_ROOT) || !existsSync(scriptPath)) {
-                return `Error: 脚本不存在 ${skillName}/scripts/${scriptName}`
+            // 确定脚本路径和工作目录
+            let scriptPath: string
+            let cwd: string
+            if (skillName === '_workspace') {
+                // 从 workspace 执行 Agent 动态创建的脚本
+                if (scriptName.includes('..') || scriptName.includes('/')) {
+                    return 'Error: 参数中包含非法字符'
+                }
+                scriptPath = resolve(workspaceDir, scriptName)
+                cwd = workspaceDir
+                if (!scriptPath.startsWith(workspaceDir + '/') || !existsSync(scriptPath)) {
+                    return `Error: workspace 中脚本不存在 ${scriptName}`
+                }
+            } else {
+                // 从 skills 目录执行预装脚本
+                if (skillName.includes('..') || skillName.includes('/')) {
+                    return 'Error: 参数中包含非法字符'
+                }
+                const scriptsDir = resolve(SKILLS_ROOT, skillName, 'scripts')
+                scriptPath = resolve(scriptsDir, scriptName)
+                cwd = scriptsDir
+                if (!scriptPath.startsWith(SKILLS_ROOT + '/') || !existsSync(scriptPath)) {
+                    return `Error: 脚本不存在 ${skillName}/scripts/${scriptName}`
+                }
             }
 
-            // 根据文件扩展名推断运行时
+            // 推断运行时
             const ext = scriptName.split('.').pop()?.toLowerCase()
             let runtime: string
             if (ext === 'js' || ext === 'cjs' || ext === 'mjs') runtime = 'node'
@@ -228,20 +338,30 @@ export function createTool(context: ToolContext) {
             else return `Error: 不支持的脚本类型 .${ext}，仅支持 .js/.cjs/.mjs/.py/.sh`
 
             const runtimeBin = ALLOWED_RUNTIMES[runtime]
-
             const execArgs = [scriptPath, action]
             for (const [key, value] of Object.entries(args ?? {})) {
                 execArgs.push(`--${key}`, value)
             }
 
-            return new Promise((done) => {
+            return new Promise<string>((done) => {
                 execFile(runtimeBin, execArgs, {
                     timeout: 30_000,
-                    cwd: resolve(SKILLS_ROOT, skillName, 'scripts'),
-                    env: { PATH: '/usr/local/bin:/usr/bin:/bin', NODE_ENV: 'production' },
+                    cwd,
+                    env: {
+                        PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
+                        HOME: process.env.HOME || '/tmp',
+                        LANG: process.env.LANG || 'en_US.UTF-8',
+                        NODE_ENV: 'production',
+                        NODE_PATH: process.env.NODE_PATH || '',
+                        // workspace 目录作为环境变量，脚本可用于输出文件
+                        WORKSPACE_DIR: workspaceDir,
+                    },
                 }, (err, stdout, stderr) => {
-                    if (err) done(`Error (exit ${err.code}): ${stderr || err.message}`)
-                    else done(stdout)
+                    if (err) {
+                        done(`Error (exit ${err.code}): ${stderr || err.message}`)
+                    } else {
+                        done(stderr ? `${stdout}\n[stderr]: ${stderr}` : stdout)
+                    }
                 })
             })
         },
@@ -249,10 +369,17 @@ export function createTool(context: ToolContext) {
             name: toolDefinition.name,
             description: toolDefinition.description,
             schema,
-        }
+        },
     )
 }
 ```
+
+**典型工作流（pptx-generator 示例）**：
+1. Agent 调用 `read_skill_file` 读取 `pptx-generator/SKILL.md` 和 `references/pptxgenjs.md`
+2. Agent 调用 `write_skill_file` 创建 `generate-ppt.cjs`（根据用户需求动态生成）
+3. Agent 调用 `run_skill_script`（`skillName="_workspace"`, `scriptName="generate-ppt.cjs"`）执行脚本
+4. 脚本将 .pptx 文件输出到 `WORKSPACE_DIR` 环境变量指向的目录
+5. Agent 返回文件路径给用户
 
 ### Skills 目录
 
@@ -276,7 +403,8 @@ export function createTool(context: ToolContext) {
 | `skillsMetadata` state | ✅ 安全 | 存在 agent state 中，per-thread 隔离 |
 | `files` state channel | ✅ 安全 | SkillsMiddleware 添加但不写入，per-thread 隔离 |
 | read_skill_file 工具 | ✅ 安全 | 只读、白名单限制、禁止路径遍历 |
-| run_skill_script 工具 | ✅ 安全 | 结构化参数、白名单限制、30s 超时、不继承环境变量 |
+| write_skill_file 工具 | ✅ 安全 | 写入 per-session 临时目录（`/tmp/skills-workspace-{sessionId}/`），禁止路径遍历 |
+| run_skill_script 工具 | ✅ 安全 | 结构化参数、白名单限制、30s 超时；workspace 脚本限定在 session 目录内 |
 | 现有中间件/工具 | ✅ 不变 | 不受影响 |
 
 **Skill 脚本的多用户安全要求**：
@@ -291,6 +419,7 @@ Skills 目录本身是共享只读资源，无跨用户污染。但具体 Skill 
 | 新增工具名 | 现有工具 | deepagent 内置 | 冲突？ |
 |-----------|---------|---------------|--------|
 | `read_skill_file` | 无 | 无同名 | ✅ 无冲突 |
+| `write_skill_file` | 无 | 无同名 | ✅ 无冲突 |
 | `run_skill_script` | 无 | 无同名 | ✅ 无冲突 |
 
 ## 文件变更清单
@@ -300,16 +429,17 @@ Skills 目录本身是共享只读资源，无跨用户污染。但具体 Skill 
 | 文件 | 职责 |
 |------|------|
 | `server/services/workflow/tools/readSkillFile.tool.ts` | Skill 文件读取工具（遵循 ToolModule 接口） |
-| `server/services/workflow/tools/runSkillScript.tool.ts` | Skill 脚本执行工具（结构化参数、遵循 ToolModule 接口） |
+| `server/services/workflow/tools/writeSkillFile.tool.ts` | Workspace 文件写入工具（per-session 隔离） |
+| `server/services/workflow/tools/runSkillScript.tool.ts` | Skill 脚本执行工具（支持 skills 目录和 workspace 目录） |
 | `.deepagents/skills/` | Skills 根目录 |
 
 ### 修改文件
 
 | 文件 | 变更内容 |
 |------|---------|
-| `server/services/workflow/tools/index.ts` | 注册 `read_skill_file` 和 `run_skill_script` 到 toolModules |
-| `server/services/workflow/agents/caseMainAgent.ts` | middleware 末尾追加 `skillsMiddleware`，tools 追加 2 个工具 |
-| `server/services/workflow/agents/moduleAgent.ts` | 同上（middleware + 2 个工具） |
+| `server/services/workflow/tools/index.ts` | 注册 `read_skill_file`、`write_skill_file` 和 `run_skill_script` 到 toolModules |
+| `server/services/workflow/agents/caseMainAgent.ts` | middleware 末尾追加 `skillsMiddleware`，tools 追加 3 个工具 |
+| `server/services/workflow/agents/moduleAgent.ts` | 同上（middleware + 3 个工具） |
 | `server/services/workflow/middleware/types.ts` | 添加 `SKILLS_DISCOVERY` 到 `MIDDLEWARE_PRIORITY` |
 | `package.json` | 新增 `deepagents@^1.9.0` |
 | `Dockerfile` | runner 阶段安装 `python3` + `COPY --from=builder /app/.deepagents ./.deepagents` |
@@ -355,15 +485,15 @@ Skills 目录本身是共享只读资源，无跨用户污染。但具体 Skill 
 
 1. `bun add deepagents langsmith`
 2. 创建 `.deepagents/skills/` 根目录
-3. 实现 `readSkillFile.tool.ts` 和 `runSkillScript.tool.ts`（遵循 ToolModule 接口）
-4. 注册两个工具到 `tools/index.ts`
+3. 实现 `readSkillFile.tool.ts`、`writeSkillFile.tool.ts` 和 `runSkillScript.tool.ts`（遵循 ToolModule 接口）
+4. 注册三个工具到 `tools/index.ts`
 5. `middleware/types.ts` 添加 `SKILLS_DISCOVERY` 优先级常量
-6. caseMainAgent.ts 追加 middleware + 2 个工具
-7. moduleAgent.ts 追加 middleware + 2 个工具
+6. caseMainAgent.ts 追加 middleware + 3 个工具
+7. moduleAgent.ts 追加 middleware + 3 个工具
 8. Dockerfile runner 阶段：安装 `python3`（支持 Python Skills 脚本）+ `COPY --from=builder /app/.deepagents ./.deepagents`
-9. 本地验证：Skill 发现 → SKILL.md 读取 → 脚本执行（可用 lexseek 示范 Skill）
+9. 本地验证：Skill 发现 → SKILL.md 读取 → 写入脚本到 workspace → 执行脚本
 10. 中断恢复验证：从旧 checkpoint 恢复后 agent 正常工作
-11. Docker 验证：路径解析 + 脚本执行
+11. Docker 验证：路径解析 + 脚本执行 + workspace 隔离
 
 ## 参考资料
 
