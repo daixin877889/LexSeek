@@ -358,7 +358,7 @@ async function createSSEResponse(event: any, runId: string, sessionId?: string) 
                                 // run 已终结则直接关闭 SSE
                                 if (runStatus && TERMINAL_STATUSES.includes(runStatus)) {
                                     controller.enqueue(encoder.encode(
-                                        `event: status\ndata: ${JSON.stringify({ type: 'status_change', runId, status: runStatus })}\n\n`,
+                                        `event: custom\ndata: ${JSON.stringify({ type: 'status_change', runId, status: runStatus })}\n\n`,
                                     ))
                                     return
                                 }
@@ -374,7 +374,7 @@ async function createSSEResponse(event: any, runId: string, sessionId?: string) 
                 if (lastMissed?.type === 'status_change' && TERMINAL_STATUSES.includes(lastMissed.status)) {
                     // 发送终结状态事件
                     controller.enqueue(encoder.encode(
-                        `event: status\ndata: ${JSON.stringify(lastMissed)}\n\n`,
+                        `event: custom\ndata: ${JSON.stringify(lastMissed)}\n\n`,
                     ))
                     return
                 }
@@ -382,7 +382,7 @@ async function createSSEResponse(event: any, runId: string, sessionId?: string) 
                 // 订阅实时事件
                 for await (const evt of createEventSubscription(runId, abortController.signal)) {
                     if (evt.type === 'status_change' && TERMINAL_STATUSES.includes(evt.status)) {
-                        controller.enqueue(encoder.encode(`event: status\ndata: ${JSON.stringify(evt)}\n\n`))
+                        controller.enqueue(encoder.encode(`event: custom\ndata: ${JSON.stringify(evt)}\n\n`))
                         break
                     }
                     if (evt.type === 'stream_event') {

@@ -311,11 +311,11 @@ export default defineEventHandler(async (event) => {
               }
             }
             else if (evt.type === 'custom_event') {
-              // 必须发完整事件对象（含 name 字段），前端依赖 evt.name 判断事件类型
+              // custom 通道承载 AgentCustomEvent 和 AgentStatusEvent 两类事件，消费方按 data.type 区分
               sseData = `event: custom\ndata: ${JSON.stringify(evt)}\n\n`
             }
             else {
-              sseData = `event: status\ndata: ${JSON.stringify(evt)}\n\n`
+              sseData = `event: custom\ndata: ${JSON.stringify(evt)}\n\n`
             }
             controller.enqueue(encoder.encode(sseData))
           }
@@ -330,7 +330,7 @@ export default defineEventHandler(async (event) => {
         // 订阅实时事件（活跃 run 或补发后未结束的 run）
         for await (const evt of createEventSubscription(runId, abortController.signal)) {
           if (evt.type === 'status_change' && TERMINAL_STATUSES.includes(evt.status)) {
-            controller.enqueue(encoder.encode(`event: status\ndata: ${JSON.stringify(evt)}\n\n`))
+            controller.enqueue(encoder.encode(`event: custom\ndata: ${JSON.stringify(evt)}\n\n`))
             break
           }
           if (evt.type === 'stream_event') {
@@ -351,7 +351,7 @@ export default defineEventHandler(async (event) => {
             controller.enqueue(encoder.encode(sseData))
           }
           if (evt.type === 'custom_event') {
-            // 必须发完整事件对象（含 name 字段），前端依赖 evt.name 判断事件类型
+            // custom 通道承载 AgentCustomEvent 和 AgentStatusEvent 两类事件，消费方按 data.type 区分
             controller.enqueue(encoder.encode(
               `event: custom\ndata: ${JSON.stringify(evt)}\n\n`,
             ))
