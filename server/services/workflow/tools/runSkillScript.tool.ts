@@ -13,15 +13,10 @@ import { tool } from '@langchain/core/tools'
 import { execFile } from 'node:child_process'
 import { resolve } from 'node:path'
 import { z } from 'zod'
+import { WORKSPACE_BASE, resolveWorkspaceDir } from './workspace'
 import type { ToolContext, ToolDefinition } from './types'
 
 const DEFAULT_SKILLS_ROOT = resolve(process.cwd(), '.deepagents/skills')
-
-/** Workspace 根目录，每个会话独立子目录 */
-const WORKSPACE_BASE = '/tmp/skills-workspace'
-
-/** 合法 sessionId 格式：字母、数字、下划线、连字符，1-128 位 */
-const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/
 
 /** 项目依赖目录，供子进程 NODE_PATH 使用 */
 const PROJECT_NODE_MODULES = resolve(process.cwd(), 'node_modules')
@@ -56,13 +51,8 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
  * @throws 当 sessionId 格式非法时抛出错误
  */
 export function createTool(context: ToolContext, skillsRoot?: string) {
-    // sessionId 格式校验在构造时执行，防止路径注入且避免每次调用重复校验
-    if (!SESSION_ID_PATTERN.test(context.sessionId)) {
-        throw new Error('Error: sessionId 格式非法')
-    }
-
     const SKILLS_ROOT = skillsRoot ?? DEFAULT_SKILLS_ROOT
-    const workspaceDir = resolve(WORKSPACE_BASE, context.sessionId)
+    const workspaceDir = resolveWorkspaceDir(WORKSPACE_BASE, context.sessionId)
 
     return tool(
         async ({ skillName, scriptName, action, args }) => {

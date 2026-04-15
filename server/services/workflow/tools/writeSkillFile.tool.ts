@@ -10,13 +10,8 @@ import { tool } from '@langchain/core/tools'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { z } from 'zod'
+import { WORKSPACE_BASE, resolveWorkspaceDir } from './workspace'
 import type { ToolContext, ToolDefinition } from './types'
-
-/** workspace 根目录（各 session 的临时工作区） */
-const WORKSPACE_BASE = '/tmp/skills-workspace'
-
-/** sessionId 格式校验：只允许字母、数字、下划线、连字符，最长 128 位 */
-const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/
 
 /** 路径段白名单：字母、数字、下划线、连字符、点、中文 */
 const SAFE_PATH_SEGMENT = /^[\w.\-\u4e00-\u9fff]+$/
@@ -69,12 +64,7 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
  */
 export function createTool(context: ToolContext, workspaceBase?: string) {
     const base = workspaceBase ?? WORKSPACE_BASE
-
-    if (!SESSION_ID_PATTERN.test(context.sessionId)) {
-        throw new Error(`无效的 sessionId 格式: ${context.sessionId}`)
-    }
-
-    const workspaceDir = resolve(base, context.sessionId)
+    const workspaceDir = resolveWorkspaceDir(base, context.sessionId)
 
     return tool(
         async ({ path: filePath, content }) => {

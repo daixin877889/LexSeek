@@ -12,12 +12,23 @@ import { mkdir, writeFile, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 
-// 模拟 uploadFileService（避免真实 OSS 调用）
+// 模拟存储服务（避免真实 OSS 调用）
 vi.mock('../../../../server/services/storage/storage.service', () => ({
     uploadFileService: vi.fn().mockResolvedValue({
         name: 'users/1/workspace/test.txt',
         etag: 'abc123',
         url: 'https://example.oss.com/users/1/workspace/test.txt',
+    }),
+}))
+
+vi.mock('../../../../server/services/storage/storageConfig.dao', () => ({
+    getDefaultStorageConfigDao: vi.fn().mockResolvedValue({
+        id: 1,
+        type: 'aliyun_oss',
+        name: 'default',
+        bucket: 'test-bucket',
+        region: 'oss-cn-hangzhou',
+        enabled: true,
     }),
 }))
 
@@ -34,7 +45,6 @@ vi.mock('../../../../server/services/membership/userBenefit.service', () => ({
         requiredSize: 100,
         requiredFormatted: '100B',
     }),
-    getUserStorageQuotaService: vi.fn(),
 }))
 
 // 模拟 createOssFileDao（避免真实数据库调用）
@@ -169,19 +179,13 @@ describe('upload_workspace_file 工具 - 文件存在性和大小校验', () => 
     })
 
     it('应拒绝超过 50MB 的文件', async () => {
-        // 创建一个大文件的路径（使用 mock stat 避免真实创建 50MB 文件）
         const bigFileName = 'big-file.bin'
-        // 创建 1 字节占位文件，通过模块内部 stat mock 测试大小检查
         await writeFile(resolve(testWorkspaceDir, bigFileName), Buffer.alloc(1))
 
-        // 用真实 stat 替换方式：直接手写一个超大文件（会实际创建，但这里只测逻辑）
-        // 改为：在实现中注入 statFn 使测试可 mock
-        // 由于测试文件不超过 50MB，此用例通过 stat 注入来测试
-        // 如果工具支持传入自定义 stat 函数（见工具实现），则使用 mock
+        // 注入 mock stat 函数模拟 51MB 文件，避免真实创建大文件
         const uploadTool = createTool(
             testContext,
             testWorkspaceBase,
-            // 传入 mock stat 函数，模拟 51MB 文件
             async (_path: string) => ({ size: 51 * 1024 * 1024 })
         )
         const result = await uploadTool.invoke({ fileName: bigFileName })

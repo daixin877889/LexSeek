@@ -10,16 +10,11 @@ import { tool } from '@langchain/core/tools'
 import { readFile } from 'node:fs/promises'
 import { extname, resolve } from 'node:path'
 import { z } from 'zod'
+import { WORKSPACE_BASE, resolveWorkspaceDir } from './workspace'
 import type { ToolContext, ToolDefinition } from './types'
 
 /** 默认 skills 根目录 */
 const DEFAULT_SKILLS_ROOT = resolve(process.cwd(), '.deepagents/skills')
-
-/** workspace 根目录（各 session 的临时工作区） */
-const WORKSPACE_BASE = '/tmp/skills-workspace'
-
-/** sessionId 格式校验：只允许字母、数字、下划线、连字符，最长 128 位 */
-const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/
 
 /** 允许读取的文本文件扩展名 */
 const ALLOWED_EXTENSIONS = new Set(['.md', '.txt', '.json', '.yaml', '.yml', '.js', '.ts', '.py', '.sh', '.cjs', '.mjs', '.log'])
@@ -51,14 +46,7 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
  */
 export function createTool(context: ToolContext, skillsRoot?: string) {
     const SKILLS_ROOT = skillsRoot ?? DEFAULT_SKILLS_ROOT
-
-    // 校验 sessionId 格式，防止目录遍历
-    if (!SESSION_ID_PATTERN.test(context.sessionId)) {
-        throw new Error(`无效的 sessionId 格式: ${context.sessionId}`)
-    }
-
-    /** 当前 session 的 workspace 目录 */
-    const workspaceDir = resolve(WORKSPACE_BASE, context.sessionId)
+    const workspaceDir = resolveWorkspaceDir(WORKSPACE_BASE, context.sessionId)
 
     return tool(
         async ({ path: filePath }) => {
