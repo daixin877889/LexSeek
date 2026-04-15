@@ -264,6 +264,13 @@ function useQueueDispatcher(deps: {
     const [head, ...rest] = latest
 
     try {
+      // 【关键】必须在 sendMessage 之前自增 lastLocalSendSeq。
+      // 因为 dispatcher 直接调用 currentChat.sendMessage（useCaseChat 原始方法），
+      // 绕过了 useChatSessionManager 的 sendMessage wrapper，wrapper 中的 ++ 不生效。
+      // 若缺失此行，派发第一条后 lastDispatchedSeq=1 会永远等于 lastLocalSendSeq=1，
+      // watch 守卫 `seq > lastDispatchedSeq` 永远为 false，队列死锁。
+      deps.lastLocalSendSeq.value++
+
       // 先调 sendMessage：失败时下方 set 不执行，队头仍在 queue 中
       // 注意：files 字段在当前阶段不传递（见 §5.6）
       deps.currentChat.value?.sendMessage(head.text, { thinking: head.thinking })
@@ -295,9 +302,14 @@ function useQueueDispatcher(deps: {
 
 **关键要点**：
 1. 派发器**必须在 manager 的 setup 顶层注册**（与 `sessions` ref 同级，自动绑定调用方 setup scope），**不**进 `switchSession` 内部新建的 inner `effectScope`。这样 session 切换不会 dispose dispatcher 的 watcher。
-2. **溯源守卫**是 C1 真正的修复：`lastLocalSendSeq` 只在 `useChatSessionManager.sendMessage`（用户直接发）和 `doDispatch`（队列派发）时 `++`。reconnect replay 不增长 seq，watch 看到 completed 但 `seq <= lastDispatchedSeq` 直接 return。
-3. `doDispatch` 的 try/catch 确保 `sendMessage` 同步异常时**队头仍保留**（set 未执行）且**暂停态被显式写入**，避免"锁释放后其他 tab 看到旧队头重复派发"的双发。
-4. `broadcastState` 在所有 Map 变化后调用，是跨标签同步的唯一出口；**listener 接收时不得再触发 broadcastState**（见 §5.7）。
+2. **溯源守卫**是 C1 真正的修复：`lastLocalSendSeq` 在**两处**都必须 `++`：
+   - `useChatSessionManager.sendMessage` wrapper 内（用户直接发送路径）
+   - `useQueueDispatcher.doDispatch` 内 `try` 块、`sendMessage` 调用之前（队列派发路径）
+
+   **为何两处都要**：dispatcher 直接调 `deps.currentChat.value?.sendMessage`（`useCaseChat` 原始方法），**绕过**了 `useChatSessionManager` 的 wrapper。若 doDispatch 不自增，派发第一条后 `lastDispatchedSeq == lastLocalSendSeq == 1`，守卫 `seq > lastDispatchedSeq` 永假，队列死锁。
+3. **`resumeQueue` 手动调用 `maybeDispatch` 时有意绕过 seq 守卫**（seq 守卫只存在于 `watch(runStatus)` 回调中，不在 `maybeDispatch` 入口）。这让"tab B 继承 tab A 留下的暂停队列后手动恢复"成为可能。**不要**将 seq 守卫下沉到 `maybeDispatch` 内——会破坏跨 tab 继承路径。
+4. `doDispatch` 的 try/catch 确保 `sendMessage` 同步异常时**队头仍保留**（set 未执行）且**暂停态被显式写入**，避免"锁释放后其他 tab 看到旧队头重复派发"的双发。
+5. `broadcastState` 在所有 Map 变化后调用，是跨标签同步的唯一出口；**listener 接收时不得再触发 broadcastState**（见 §5.7）。
 
 ### 5.3 入队决策放在组件层
 
@@ -365,7 +377,10 @@ function resumeQueue() {
   const sid = currentSessionId.value
   if (!sid) return
   queuePausedBy.set(sid, null)
-  triggerReactivity()
+  broadcastState(sid)
+  // 主动触发一次派发尝试（此时 isLoading 应为 false）。
+  // 注意：此路径**有意**不经过 seq 守卫（seq 守卫仅存在于 watch(runStatus) 回调），
+  // 用于支持"tab B 继承 tab A 留下的暂停队列后手动恢复"的跨 tab 场景。
   dispatcher.maybeDispatch()
 }
 ```
@@ -574,20 +589,27 @@ const isStopping = ref(false)
 async function handleStop() {
   if (isStopping.value) return
   isStopping.value = true
+
+  // 先注册 watch 再调 stopGeneration：避免 await 期间 cancelled 事件已经到达、
+  // watch 未建立导致错过信号，只能靠 3s 超时复位
+  const unwatch = watch(
+    props.xiaosuoChat.runStatus,  // runStatus 已是 ref/computed，无需 getter 包装
+    (s) => {
+      if (s === 'cancelled' || s === 'completed' || s === 'failed') {
+        isStopping.value = false
+        unwatch()
+      }
+    },
+    { immediate: true }, // 若调用时 runStatus 已是终止态则立即触发
+  )
+  setTimeout(() => { isStopping.value = false; unwatch() }, 3000)
+
   try {
     await props.xiaosuoChat.stopGeneration()
-  } finally {
-    // 等 runStatus 进入 cancelled 或 3s 超时
-    const unwatch = watch(
-      () => props.xiaosuoChat.runStatus.value,
-      (s) => {
-        if (s === 'cancelled' || s === 'completed' || s === 'failed') {
-          isStopping.value = false
-          unwatch()
-        }
-      },
-    )
-    setTimeout(() => { isStopping.value = false; unwatch() }, 3000)
+  } catch (err) {
+    console.error('[chat-stop] stopGeneration failed', err)
+    isStopping.value = false
+    unwatch()
   }
 }
 ```
@@ -975,7 +997,7 @@ vi.mock('~/composables/useCaseChat', () => ({ useCaseChat: () => mockChat }))
 
 **Mock 基础设施**：项目此前没有 BroadcastChannel / Web Locks 的 mock 先例，需新建通用工具：
 
-**文件**：`tests/utils/crossTabMocks.ts`（新建）
+**文件**：`tests/app/utils/crossTabMocks.ts`（新建。注意：项目既有 `tests/app/utils/` 目录结构，不是 `tests/utils/`）
 
 ```typescript
 import { vi } from 'vitest'
@@ -1120,7 +1142,7 @@ E2E 命令：`npx playwright test tests/e2e/xiaosuo-chat-queue.spec.ts`
 | `app/composables/chatQueueActions.ts` | 纯函数 + 类型 + 常量（`QueueItem`, `QueuePauseReason`, `QUEUE_MAX_SIZE`, `enqueueAction`, `removeAction`, `clearAction`, `pauseAction`, `resumeAction`） |
 | `app/composables/useQueueDispatcher.ts` | watcher 副作用 + 溯源守卫 + Web Locks 互斥 + 跨标签广播 |
 | `app/components/ai/AiChatQueueChips.vue` | 队列 chip 组件（基于 `ai-elements/queue` 基元组合，使用 `!flex-row` class 覆盖） |
-| `tests/utils/crossTabMocks.ts` | **新建通用测试基础设施**：`stubBroadcastChannel` + `stubNavigatorLocks`，后续跨标签功能可复用 |
+| `tests/app/utils/crossTabMocks.ts` | **新建通用测试基础设施**：`stubBroadcastChannel` + `stubNavigatorLocks`，后续跨标签功能可复用 |
 | `tests/app/components/ai/composables/chatQueueActions.test.ts` | 纯函数单测 |
 | `tests/app/components/ai/composables/useChatSessionManager.test.ts` | 响应式集成测试（含 reconnect 假边沿、interrupted、doDispatch 错误处理等用例） |
 | `tests/app/components/ai/composables/crossTabQueue.test.ts` | 跨标签同步单测 |
