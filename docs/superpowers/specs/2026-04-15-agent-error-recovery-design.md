@@ -51,21 +51,43 @@ const result = await withTimeout(
 
 #### 2.1 前端事件拦截
 
-在 `useStreamChat` 中暴露 `runStatus` 和 `runError` 响应式状态：
+`@langchain/vue` 的 `useStream` 不暴露底层 SSE 事件拦截 API（无 `onStatusChange`、`onAnyEvent` 等回调）。需要在 SSE 传输层自行处理。
+
+**方案**：扩展 `FetchStreamTransport`，在 fetch response 的 ReadableStream 中拦截 `event: status` 事件，解析后更新状态：
 
 ```typescript
-const runStatus = ref<string>('idle')  // idle | running | completed | failed
-const runError = ref<string>('')       // 失败原因
-
-// SSE 事件流中拦截 status_change
-onStatusChange((event) => {
-    runStatus.value = event.status
-    if (event.status === 'failed') {
-        runError.value = event.error || '执行失败'
-        // 自动停止 loading
+// 扩展 FetchStreamTransport，拦截 status 事件
+class InstrumentedTransport extends FetchStreamTransport {
+    onStatusChange?: (status: string, error?: string) => void
+    onHeartbeat?: () => void
+    
+    // 重写 fetch 方法，包装 response body
+    async send(input: any) {
+        const response = await super.send(input)
+        // 包装 response.body，在每个 SSE 事件到达时检查
+        // 如果是 event: status，解析并调用 onStatusChange
+        // 任何事件到达时调用 onHeartbeat（用于超时检测）
+        return wrapResponseWithInterceptor(response, this.onStatusChange, this.onHeartbeat)
     }
-})
+}
 ```
+
+在 `useStreamChat` 中使用 `InstrumentedTransport` 替代 `FetchStreamTransport`，暴露 `runStatus` 和 `runError` 响应式状态：
+
+```typescript
+const runStatus = ref<string>('idle')
+const runError = ref<string>('')
+
+const transport = new InstrumentedTransport({ apiUrl })
+transport.onStatusChange = (status, error) => {
+    runStatus.value = status
+    if (status === 'failed') {
+        runError.value = error || '执行失败'
+    }
+}
+```
+
+**注意**：具体实现取决于 `FetchStreamTransport` 的可扩展性。如果不可继承，则需要创建一个 wrapper transport 在外层拦截。
 
 #### 2.2 错误 Toast 和重试按钮
 
@@ -96,33 +118,31 @@ onStatusChange((event) => {
 
 #### 3.1 心跳超时检测
 
+通过 `InstrumentedTransport` 的 `onHeartbeat` 回调实现（每个 SSE 事件到达时触发，包括 keepalive）：
+
 ```typescript
-const HEARTBEAT_TIMEOUT = 60_000  // 60s 无事件（含 keepalive）视为断开
-
+const HEARTBEAT_TIMEOUT = 60_000  // 60s 无事件视为断开
 let lastEventTime = Date.now()
-let heartbeatTimer: ReturnType<typeof setInterval>
 
-// 每次收到 SSE 事件（包括 keepalive）时重置计时
-onAnyEvent(() => {
+transport.onHeartbeat = () => {
     lastEventTime = Date.now()
-})
+}
 
-heartbeatTimer = setInterval(() => {
+const heartbeatTimer = setInterval(() => {
     if (Date.now() - lastEventTime > HEARTBEAT_TIMEOUT && isLoading.value) {
         handleDisconnect()
     }
-}, 10_000)  // 每 10s 检查一次
+}, 10_000)
 ```
 
 #### 3.2 自动重连（指数退避）
 
 ```typescript
-const RECONNECT_DELAYS = [3_000, 6_000, 12_000]  // 3s, 6s, 12s
+const RECONNECT_DELAYS = [3_000, 6_000, 12_000]
 let reconnectAttempt = 0
 
 async function handleDisconnect() {
     if (reconnectAttempt >= RECONNECT_DELAYS.length) {
-        // 重连 3 次失败 → 显示手动重试 UI
         connectionStatus.value = 'disconnected'
         return
     }
@@ -131,10 +151,22 @@ async function handleDisconnect() {
     await sleep(RECONNECT_DELAYS[reconnectAttempt])
     reconnectAttempt++
     
-    // 重连 SSE 端点（后端有 replay 机制补发错过的事件）
+    // 通过 useStream 的 submit(undefined) 或重新创建实例重连
+    // 后端 SSE 端点有 replay 机制（replayEvents + createEventSubscription）
+    // 重连后会补发错过的事件
+    // 注意：需要重新创建 useStream 实例以避免内部状态错乱
+    // 具体方式需在实施时根据 @langchain/vue 的 useStream API 确定
     await reconnectSSE()
 }
 ```
+
+**重连与 useStream 的协调**：
+
+`useStream` 内部维护消息状态机，直接重连可能导致重复消息。两种方案：
+1. **重新创建 useStream 实例**：干净但丢失客户端缓存的消息（需从 checkpoint 重新加载）
+2. **调用 `stream.submit(undefined)`**：类似"空消息 resume"，触发后端发送当前状态
+
+推荐方案 1——重新创建实例 + 从 checkpoint 加载历史消息。这与用户刷新页面的行为一致，代码复用。
 
 #### 3.3 连接状态 UI
 
