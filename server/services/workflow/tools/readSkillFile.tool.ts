@@ -24,6 +24,12 @@ const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/
 /** 允许读取的文本文件扩展名 */
 const ALLOWED_EXTENSIONS = new Set(['.md', '.txt', '.json', '.yaml', '.yml', '.js', '.ts', '.py', '.sh', '.cjs', '.mjs', '.log'])
 
+/** 检查扩展名是否被允许，空扩展名（无后缀文件）视为允许 */
+function isAllowedExtension(filePath: string): boolean {
+    const ext = extname(filePath).toLowerCase()
+    return !ext || ALLOWED_EXTENSIONS.has(ext)
+}
+
 /** 参数 schema（唯一数据源） */
 const schema = z.object({
     path: z.string().min(1).describe('文件路径，如 lexseek/SKILL.md；或 _workspace/output.log 读取 session 工作区文件'),
@@ -71,9 +77,8 @@ export function createTool(context: ToolContext, skillsRoot?: string) {
                     return 'Error: 只允许读取 workspace 目录内的文件'
                 }
 
-                // 校验扩展名，拒绝二进制文件并给出提示
-                const ext = extname(filePath).toLowerCase()
-                if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
+                if (!isAllowedExtension(relativePath)) {
+                    const ext = extname(relativePath).toLowerCase()
                     return `Error: 不支持读取 ${ext} 文件，请使用 upload_workspace_file`
                 }
 
@@ -95,13 +100,11 @@ export function createTool(context: ToolContext, skillsRoot?: string) {
                 return 'Error: 只允许读取 skills 目录内的文件'
             }
 
-            // 校验扩展名，只允许文本文件
-            const ext = extname(filePath).toLowerCase()
-            if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
+            if (!isAllowedExtension(filePath)) {
+                const ext = extname(filePath).toLowerCase()
                 return `Error: 不支持读取 ${ext} 文件，仅支持文本文件`
             }
 
-            // 读取文件内容
             try {
                 return await readFile(fullPath, 'utf-8')
             } catch {
@@ -115,3 +118,4 @@ export function createTool(context: ToolContext, skillsRoot?: string) {
         },
     )
 }
+

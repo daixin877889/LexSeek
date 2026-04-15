@@ -4,7 +4,7 @@
  * 测试 skill 脚本执行工具的功能和安全边界
  *
  * **Feature: run-skill-script-tool**
- * **Validates: 脚本执行、路径安全、参数传递、运行时推断**
+ * **Validates: 脚本执行、路径安全、参数传递、运行时推断、workspace 执行**
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
@@ -23,6 +23,13 @@ const testContext = {
 /** 临时测试目录 */
 const testSkillsDir = resolve(tmpdir(), 'lexseek-test-run-skill-' + Date.now())
 
+/** workspace 测试会话 ID */
+const testSessionId = 'test-workspace-session-01'
+
+/** workspace 临时目录 */
+const workspaceBase = '/tmp/skills-workspace'
+const workspaceDir = resolve(workspaceBase, testSessionId)
+
 beforeAll(async () => {
     // 创建临时目录结构
     await mkdir(resolve(testSkillsDir, 'demo/scripts'), { recursive: true })
@@ -36,11 +43,20 @@ beforeAll(async () => {
     const shScript = `#!/bin/bash\necho "hello $1"`
     await writeFile(resolve(testSkillsDir, 'demo/scripts/greet.sh'), shScript)
     await chmod(resolve(testSkillsDir, 'demo/scripts/greet.sh'), 0o755)
+
+    // 创建 workspace 测试目录和脚本
+    await mkdir(workspaceDir, { recursive: true })
+
+    // workspace 测试脚本：输出 action 和 WORKSPACE_DIR 环境变量
+    const wsScript = `console.log(JSON.stringify({ action: process.argv[2], wsDir: process.env.WORKSPACE_DIR, ok: true }))`
+    await writeFile(resolve(workspaceDir, 'test-ws.cjs'), wsScript)
 })
 
 afterAll(async () => {
     // 清理临时目录
     await rm(testSkillsDir, { recursive: true, force: true })
+    // 清理 workspace 测试目录
+    await rm(workspaceDir, { recursive: true, force: true })
 })
 
 describe('run_skill_script 工具 - 工具定义', () => {
@@ -164,5 +180,51 @@ describe('run_skill_script 工具 - 脚本不存在', () => {
 
         expect(result).toContain('Error')
         expect(result).toContain('脚本不存在')
+    })
+})
+
+describe('run_skill_script 工具 - workspace 执行', () => {
+    /** 使用 workspace 会话 ID 的上下文 */
+    const wsContext = {
+        userId: 1,
+        caseId: 1,
+        sessionId: testSessionId,
+    }
+
+    it('应能执行 workspace 中的脚本（skillName="_workspace"）', async () => {
+        const runTool = createTool(wsContext, testSkillsDir)
+        const result = await runTool.invoke({
+            skillName: '_workspace',
+            scriptName: 'test-ws.cjs',
+            action: 'run',
+        })
+
+        const parsed = JSON.parse(result.trim())
+        expect(parsed.ok).toBe(true)
+        expect(parsed.action).toBe('run')
+    })
+
+    it('workspace 中不存在的脚本应报错', async () => {
+        const runTool = createTool(wsContext, testSkillsDir)
+        const result = await runTool.invoke({
+            skillName: '_workspace',
+            scriptName: 'notexist.cjs',
+            action: 'run',
+        })
+
+        expect(result).toContain('Error')
+        expect(result).toContain('脚本不存在')
+    })
+
+    it('WORKSPACE_DIR 环境变量应被正确传入脚本', async () => {
+        const runTool = createTool(wsContext, testSkillsDir)
+        const result = await runTool.invoke({
+            skillName: '_workspace',
+            scriptName: 'test-ws.cjs',
+            action: 'check-env',
+        })
+
+        const parsed = JSON.parse(result.trim())
+        expect(parsed.wsDir).toBe(workspaceDir)
     })
 })
