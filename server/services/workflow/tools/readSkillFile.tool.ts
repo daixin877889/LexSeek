@@ -50,8 +50,8 @@ export function createTool(context: ToolContext, skillsRoot?: string) {
 
     return tool(
         async ({ path: filePath }) => {
-            // 拒绝路径遍历和绝对路径
-            if (filePath.includes('..') || filePath.startsWith('/')) {
+            // 拒绝路径遍历、绝对路径和 NULL 字节
+            if (filePath.includes('..') || filePath.startsWith('/') || filePath.includes('\0')) {
                 return 'Error: 非法路径'
             }
 

@@ -56,9 +56,23 @@ export function createTool(context: ToolContext, skillsRoot?: string) {
 
     return tool(
         async ({ skillName, scriptName, action, args }) => {
-            // 禁止路径遍历字符和斜杠，防止目录逃逸
-            if ([skillName, scriptName, action].some(s => s.includes('..') || s.includes('/'))) {
+            // 白名单字符校验：只允许字母、数字、下划线、点、连字符
+            const SAFE_NAME = /^[a-zA-Z0-9_.-]+$/
+            if (![skillName, scriptName, action].every(s => SAFE_NAME.test(s))) {
                 return 'Error: 参数中包含非法字符'
+            }
+
+            // args key/value 安全校验
+            if (args) {
+                const SAFE_ARG_KEY = /^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/
+                for (const [key, value] of Object.entries(args)) {
+                    if (!SAFE_ARG_KEY.test(key)) {
+                        return `Error: 参数名 "${key}" 包含非法字符`
+                    }
+                    if (value.length > 4096) {
+                        return 'Error: 参数值过长（最大 4096 字符）'
+                    }
+                }
             }
 
             // 扩展名校验先于路径构造，避免用"文件不存在"掩盖类型错误
