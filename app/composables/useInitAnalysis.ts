@@ -474,6 +474,8 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     activeModules,
     allModuleCards,
     isLoading: stream.isLoading,
+    runStatus: stream.runStatus,
+    runError: stream.runError,
     interruptData,
     values: stream.values,
     mergedResult,

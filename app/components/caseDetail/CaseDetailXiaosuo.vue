@@ -7,6 +7,9 @@
  */
 import type { useXiaosuoChat } from '~/composables/useXiaosuoChat'
 import type { SessionItem } from '~/components/case/SessionListPopover.vue'
+import type { BaseMessage } from '@langchain/core/messages'
+import { toast } from 'vue-sonner'
+import { RefreshCw as RefreshCwIcon } from 'lucide-vue-next'
 
 const props = defineProps<{
   xiaosuoChat: ReturnType<typeof useXiaosuoChat>
@@ -28,6 +31,30 @@ const sessions = computed<SessionItem[]>(() =>
 const chatMessages = computed(() => props.xiaosuoChat.messages.value as any[])
 const chatLoading = computed(() => !!props.xiaosuoChat.isLoading.value)
 const interruptData = computed(() => props.xiaosuoChat.interruptData.value)
+
+// Agent 运行状态 + 失败反馈
+const runStatus = computed(() => props.xiaosuoChat.runStatus.value)
+const runError = computed(() => props.xiaosuoChat.runError.value)
+const showRetryButton = ref(false)
+
+watch(runStatus, (status) => {
+  if (status === 'failed') {
+    toast.error(`执行失败：${runError.value}`)
+    showRetryButton.value = true
+  } else {
+    // 非 failed 状态（含切换 session 后的 idle/completed/running/cancelled/interrupted/pending）一律隐藏
+    showRetryButton.value = false
+  }
+})
+
+function onRetry() {
+  const messages = props.xiaosuoChat.messages.value as BaseMessage[]
+  const lastUser = [...messages].reverse().find((m) => m.getType() === 'human')
+  if (!lastUser) return
+  showRetryButton.value = false
+  const content = typeof lastUser.content === 'string' ? lastUser.content : ''
+  if (content) props.xiaosuoChat.sendMessage(content, { thinking: thinking.value })
+}
 
 function handleSubmit(data: { text: string }) {
   if (data.text.trim()) {
@@ -82,7 +109,16 @@ watch(isOpen, (open) => {
       prompt-placeholder="问我任何关于案件的问题..."
       @submit="handleSubmit"
       @stop="xiaosuoChat.stopGeneration()"
-    />
+    >
+      <template #prompt-actions>
+        <div v-if="showRetryButton" class="flex items-center gap-2 px-4 py-2">
+          <Button size="sm" variant="outline" @click="onRetry">
+            <RefreshCwIcon class="w-4 h-4 mr-1" />
+            重试
+          </Button>
+        </div>
+      </template>
+    </AiChat>
   </CaseChatWindowShell>
 
   <!-- 悬浮按钮 -->

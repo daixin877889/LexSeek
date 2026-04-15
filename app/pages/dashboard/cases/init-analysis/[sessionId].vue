@@ -25,6 +25,20 @@
             class="shrink-0 bg-background border-b"
           />
 
+          <!-- 分析失败全局提示 + 重新分析按钮 -->
+          <div
+            v-if="showGlobalRetry"
+            class="shrink-0 mx-4 mt-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900 p-3 flex items-center justify-between"
+          >
+            <div class="flex items-center gap-2 text-sm text-red-800 dark:text-red-300">
+              <AlertTriangleIcon class="w-4 h-4" />
+              <span>分析中断：{{ runError }}</span>
+            </div>
+            <Button size="sm" variant="outline" @click="onRestartAnalysis">
+              重新分析
+            </Button>
+          </div>
+
           <!-- 阶段一：模块选择 -->
           <div v-if="phase === 'select'" class="flex-1 overflow-y-auto p-4">
             <InitAnalysisModuleSelector
@@ -147,7 +161,8 @@ import type { AnalysisResult } from '#shared/types/case'
 import type { CaseDetailMaterialItem } from '~/composables/useCaseDetail'
 import { CaseMaterialType } from '#shared/types/case'
 import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
-import { FileTextIcon, Loader2Icon } from 'lucide-vue-next'
+import { FileTextIcon, Loader2Icon, AlertTriangle as AlertTriangleIcon } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 
 definePageMeta({
   title: "初始化分析",
@@ -220,6 +235,8 @@ const {
   activeModules,
   allModuleCards,
   isLoading,
+  runStatus,
+  runError,
   interruptData,
   mergedResult,
   streamMessages,
@@ -229,6 +246,27 @@ const {
   retryModule,
   activeIndex,
 } = useInitAnalysis(sessionId)
+
+// Agent 运行失败反馈
+const showGlobalRetry = ref(false)
+
+watch(runStatus, (status) => {
+  if (status === 'failed') {
+    toast.error(`分析失败：${runError.value}`)
+    if (phase.value === 'running') {
+      showGlobalRetry.value = true
+    }
+  } else if (status === 'running') {
+    showGlobalRetry.value = false
+  }
+  // interrupted 由现有 CaseInterruptHandler 处理
+})
+
+function onRestartAnalysis() {
+  showGlobalRetry.value = false
+  // 使用 startAnalysis 完整重启（不用 resumeWorkflow——那是 interrupt 恢复，不适用 FAILED）
+  startAnalysis()
+}
 
 // 案件标题
 const caseTitle = ref('')

@@ -11,6 +11,9 @@
  */
 import type { ModuleChatInstance } from '~/composables/useModuleChatManager'
 import type { SessionItem } from '~/components/case/SessionListPopover.vue'
+import type { BaseMessage } from '@langchain/core/messages'
+import { toast } from 'vue-sonner'
+import { RefreshCw as RefreshCwIcon } from 'lucide-vue-next'
 
 const props = defineProps<{
     caseId: number
@@ -31,6 +34,30 @@ const sessions = computed<SessionItem[]>(() =>
 )
 
 const interruptData = computed(() => props.chatInstance.interruptData.value)
+
+// Agent 运行状态 + 失败反馈
+const runStatus = computed(() => props.chatInstance.runStatus.value)
+const runError = computed(() => props.chatInstance.runError.value)
+const showRetryButton = ref(false)
+
+watch(runStatus, (status) => {
+    if (status === 'failed') {
+        toast.error(`执行失败：${runError.value}`)
+        showRetryButton.value = true
+    } else {
+        // 非 failed 状态（含切换 session 后的 idle/completed/running/cancelled/interrupted/pending）一律隐藏
+        showRetryButton.value = false
+    }
+})
+
+function onRetry() {
+    const messages = props.chatInstance.messages.value as BaseMessage[]
+    const lastUser = [...messages].reverse().find((m) => m.getType() === 'human')
+    if (!lastUser) return
+    showRetryButton.value = false
+    const content = typeof lastUser.content === 'string' ? lastUser.content : ''
+    if (content) props.chatInstance.sendMessage(content, { thinking: thinking.value })
+}
 
 // 关闭时重置全屏
 watch(isOpen, (open) => {
@@ -82,7 +109,16 @@ function handleResumeInterrupt(data: unknown) {
       prompt-placeholder="输入消息优化分析结果..."
       @submit="handleSubmit"
       @stop="chatInstance.stopGeneration()"
-    />
+    >
+      <template #prompt-actions>
+        <div v-if="showRetryButton" class="flex items-center gap-2 px-4 py-2">
+          <Button size="sm" variant="outline" @click="onRetry">
+            <RefreshCwIcon class="w-4 h-4 mr-1" />
+            重试
+          </Button>
+        </div>
+      </template>
+    </AiChat>
   </CaseChatWindowShell>
 
   <!-- 中断处理弹窗 -->

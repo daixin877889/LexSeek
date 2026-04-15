@@ -16,6 +16,7 @@
 import { useStream, FetchStreamTransport } from '@langchain/vue'
 import type { UseStreamCustomOptions } from '@langchain/vue'
 import type { BaseMessage } from '@langchain/core/messages'
+import type { AgentRunStatus } from '#shared/types/agentRun'
 
 export interface StreamChatOptions {
     /** SSE API 端点 */
@@ -25,7 +26,7 @@ export interface StreamChatOptions {
     /** 状态对象中的消息字段名（默认 'messages'） */
     messagesKey?: string
     /** 自定义事件回调 */
-    onCustomEvent?: (data: any) => void
+    onCustomEvent?: (data: unknown) => void
     /** 初始状态值（用于从 checkpoint 恢复） */
     initialValues?: Record<string, unknown>
 }
@@ -35,11 +36,32 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         apiUrl: options.apiUrl,
     })
 
+    // 代理 agent run 状态，用于 UI 失败反馈
+    const runStatus = ref<AgentRunStatus | 'idle'>('idle')
+    const runError = ref<string>('')
+
     const streamOptions: UseStreamCustomOptions<T> = {
         transport: transport as any,
         threadId: options.threadId,
         messagesKey: options.messagesKey ?? 'messages',
-        onCustomEvent: options.onCustomEvent,
+        onCustomEvent: (data: unknown) => {
+            if (
+                data
+                && typeof data === 'object'
+                && 'type' in data
+                && (data as { type: unknown }).type === 'status_change'
+            ) {
+                const evt = data as { type: 'status_change'; status: AgentRunStatus; error?: string }
+                runStatus.value = evt.status
+                if (evt.status === 'failed') {
+                    runError.value = evt.error || '执行失败'
+                } else if (evt.status === 'cancelled') {
+                    runError.value = ''  // 用户主动取消不弹 toast
+                }
+                return  // status_change 不透传给外部 onCustomEvent
+            }
+            options.onCustomEvent?.(data)
+        },
         initialValues: options.initialValues as T | undefined,
         onError: (error) => {
             console.error('[useStreamChat] 流错误:', error)
@@ -68,6 +90,8 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         isLoading: s.isLoading,   // shallowRef，直接透传
         error: s.error,           // shallowRef，直接透传
         hasHistoryLoaded,
+        runStatus,
+        runError,
 
         /**
          * 统一 interrupt 解包（CRITICAL：绕过 Vue 响应式 bug）

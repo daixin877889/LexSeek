@@ -62,6 +62,8 @@ export function useChatSessionManager(options: ChatSessionManagerOptions) {
     const values = computed(() => currentChat.value?.values.value)
     const isLoading = computed(() => currentChat.value?.isLoading.value ?? false)
     const interruptData = computed(() => currentChat.value?.interruptData.value)
+    const runStatus = computed(() => currentChat.value?.runStatus.value ?? 'idle')
+    const runError = computed(() => currentChat.value?.runError.value ?? '')
 
     // ── Session CRUD ──
 
@@ -197,6 +199,8 @@ export function useChatSessionManager(options: ChatSessionManagerOptions) {
         values,
         isLoading,
         interruptData,
+        runStatus,
+        runError,
         createSession,
         switchSession,
         deleteSession,
