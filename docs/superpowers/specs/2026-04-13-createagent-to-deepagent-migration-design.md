@@ -220,6 +220,57 @@ GET /api/v1/files/{fileId}/download
 
 **注意**：如果项目已有文件下载 API（如案件材料下载），可直接复用，无需新建端点。
 
+#### 云盘配额不足处理
+
+当用户云盘配额不足时，采用**临时链接兜底**策略，避免用户白等生成时间：
+
+1. 上传到用户 OSS 目录失败（配额不足）
+2. 改存到临时公共区域（`skills-temp/{sessionId}/{fileName}`），设置 24 小时过期
+3. 返回带临时标记的文件卡片
+
+```
+[file-card]
+fileId: temp-12345
+fileName: 案件分析报告.pptx
+fileSize: 1048576
+mimeType: application/vnd.openxmlformats-officedocument.presentationml.presentation
+temporary: true
+expiresAt: 2026-04-15T10:00:00Z
+[/file-card]
+```
+
+前端渲染为带警告的临时卡片：
+
+```
+┌──────────────────────────────────────┐
+│  📄 案件分析报告.pptx        1.0 MB  │
+│  ⚠️ 临时文件，24小时后过期            │
+│  [立即下载]                           │
+└──────────────────────────────────────┘
+```
+
+Agent 同时提示用户："您的云盘空间不足，文件已生成临时下载链接（24 小时内有效）。请尽快下载，或清理云盘后重新生成。"
+
+`upload_workspace_file` 工具内部逻辑：
+
+```typescript
+try {
+    // 优先存到用户云盘
+    const fileRecord = await uploadUserFileService(context.userId, filePath, fileName)
+    return formatFileCard(fileRecord, { temporary: false })
+} catch (err) {
+    if (isQuotaExceededError(err)) {
+        // 配额不足 → 存到临时公共区域（24小时过期）
+        const tempRecord = await uploadTempFileService(filePath, fileName, {
+            prefix: `skills-temp/${context.sessionId}`,
+            expiresIn: 24 * 60 * 60,  // 24小时
+        })
+        return formatFileCard(tempRecord, { temporary: true, expiresAt: tempRecord.expiresAt })
+    }
+    throw err
+}
+```
+
 #### 文件删除后的 UI 处理
 
 对话历史中的文件卡片在文件被删除后：
