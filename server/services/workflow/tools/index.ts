@@ -18,6 +18,8 @@ import * as confirmPointsTool from './confirmPoints.tool'
 import * as rollbackPointsTool from './rollbackPoints.tool'
 import * as readSkillFileTool from './readSkillFile.tool'
 import * as runSkillScriptTool from './runSkillScript.tool'
+import * as writeSkillFileTool from './writeSkillFile.tool'
+import * as uploadWorkspaceFileTool from './uploadWorkspaceFile.tool'
 
 /** 工具模块映射 */
 const toolModules: Record<string, ToolModule> = {
@@ -29,6 +31,8 @@ const toolModules: Record<string, ToolModule> = {
     rollback_points: rollbackPointsTool,
     read_skill_file: readSkillFileTool,
     run_skill_script: runSkillScriptTool,
+    write_skill_file: writeSkillFileTool,
+    upload_workspace_file: uploadWorkspaceFileTool,
 }
 
 /**

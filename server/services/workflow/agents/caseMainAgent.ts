@@ -22,7 +22,9 @@ import {
 } from '../middleware'
 import { createSkillsMiddleware, FilesystemBackend } from 'deepagents'
 import { createTool as createReadSkillFileTool } from '../tools/readSkillFile.tool'
+import { createTool as createWriteSkillFileTool } from '../tools/writeSkillFile.tool'
 import { createTool as createRunSkillScriptTool } from '../tools/runSkillScript.tool'
+import { createTool as createUploadWorkspaceFileTool } from '../tools/uploadWorkspaceFile.tool'
 
 /** 主代理节点名称 */
 const CASE_MAIN_NODE_NAME = 'caseMain'
@@ -102,7 +104,12 @@ export async function runCaseChat(
     const subAgentToolList = await createSubAgentTools(subAgentConfigs, toolContext)
 
     // 7. 合并工具列表（含 Skills 工具）
-    const skillTools = [createReadSkillFileTool(toolContext), createRunSkillScriptTool(toolContext)]
+    const skillTools = [
+        createReadSkillFileTool(toolContext),
+        createWriteSkillFileTool(toolContext),
+        createRunSkillScriptTool(toolContext),
+        createUploadWorkspaceFileTool(toolContext),
+    ]
     const allTools = [...mainTools, ...subAgentToolList, ...skillTools]
 
     logger.info('案件主 Agent 创建', {

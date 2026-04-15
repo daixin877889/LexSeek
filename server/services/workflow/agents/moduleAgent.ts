@@ -25,7 +25,9 @@ import { createTool as createSaveAnalysisResultTool } from '../tools/saveAnalysi
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import { createSkillsMiddleware, FilesystemBackend } from 'deepagents'
 import { createTool as createReadSkillFileTool } from '../tools/readSkillFile.tool'
+import { createTool as createWriteSkillFileTool } from '../tools/writeSkillFile.tool'
 import { createTool as createRunSkillScriptTool } from '../tools/runSkillScript.tool'
+import { createTool as createUploadWorkspaceFileTool } from '../tools/uploadWorkspaceFile.tool'
 import type { ToolContext } from '../tools/types'
 import { getSessionState } from '../state/storage'
 
@@ -98,7 +100,12 @@ export async function runModuleChat(
         ? getToolInstancesService(nodeConfig.tools, toolContext)
         : []
     const saveResultTool = createSaveAnalysisResultTool(toolContext)
-    const skillTools = [createReadSkillFileTool(toolContext), createRunSkillScriptTool(toolContext)]
+    const skillTools = [
+        createReadSkillFileTool(toolContext),
+        createWriteSkillFileTool(toolContext),
+        createRunSkillScriptTool(toolContext),
+        createUploadWorkspaceFileTool(toolContext),
+    ]
     const allTools = [...nodeTools, saveResultTool, ...skillTools]
 
     // 构建静态 system prompt（不变，命中供应商 Prompt Caching）
