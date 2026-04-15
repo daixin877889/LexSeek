@@ -27,35 +27,26 @@ const testSkillsDir = resolve(tmpdir(), 'lexseek-test-run-skill-' + Date.now())
 const testSessionId = 'test-workspace-session-01'
 
 /** workspace 临时目录 */
-const workspaceBase = '/tmp/skills-workspace'
-const workspaceDir = resolve(workspaceBase, testSessionId)
+const workspaceDir = resolve('/tmp/skills-workspace', testSessionId)
 
 beforeAll(async () => {
-    // 创建临时目录结构
     await mkdir(resolve(testSkillsDir, 'demo/scripts'), { recursive: true })
 
-    // 创建 Node.js 测试脚本（.cjs）
-    // 读取 action 和 --key value 形式的参数，输出 JSON
     const cjsScript = `const action = process.argv[2]; const args = {}; for(let i=3;i<process.argv.length;i+=2){if(process.argv[i]?.startsWith('--'))args[process.argv[i].slice(2)]=process.argv[i+1]}; console.log(JSON.stringify({action,args,ok:true}))`
     await writeFile(resolve(testSkillsDir, 'demo/scripts/hello.cjs'), cjsScript)
 
-    // 创建 Bash 测试脚本（.sh）
     const shScript = `#!/bin/bash\necho "hello $1"`
     await writeFile(resolve(testSkillsDir, 'demo/scripts/greet.sh'), shScript)
     await chmod(resolve(testSkillsDir, 'demo/scripts/greet.sh'), 0o755)
 
-    // 创建 workspace 测试目录和脚本
     await mkdir(workspaceDir, { recursive: true })
 
-    // workspace 测试脚本：输出 action 和 WORKSPACE_DIR 环境变量
     const wsScript = `console.log(JSON.stringify({ action: process.argv[2], wsDir: process.env.WORKSPACE_DIR, ok: true }))`
     await writeFile(resolve(workspaceDir, 'test-ws.cjs'), wsScript)
 })
 
 afterAll(async () => {
-    // 清理临时目录
     await rm(testSkillsDir, { recursive: true, force: true })
-    // 清理 workspace 测试目录
     await rm(workspaceDir, { recursive: true, force: true })
 })
 
@@ -184,7 +175,6 @@ describe('run_skill_script 工具 - 脚本不存在', () => {
 })
 
 describe('run_skill_script 工具 - workspace 执行', () => {
-    /** 使用 workspace 会话 ID 的上下文 */
     const wsContext = {
         userId: 1,
         caseId: 1,

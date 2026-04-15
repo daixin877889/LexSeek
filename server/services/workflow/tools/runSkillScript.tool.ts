@@ -23,6 +23,9 @@ const WORKSPACE_BASE = '/tmp/skills-workspace'
 /** 合法 sessionId 格式：字母、数字、下划线、连字符，1-128 位 */
 const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/
 
+/** 项目依赖目录，供子进程 NODE_PATH 使用 */
+const PROJECT_NODE_MODULES = resolve(process.cwd(), 'node_modules')
+
 /** 支持的文件扩展名 → 运行时二进制映射 */
 const EXT_TO_RUNTIME: Record<string, string> = {
     js: 'node',
@@ -50,20 +53,19 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
  *
  * @param context 工具上下文（包含 userId、caseId、sessionId）
  * @param skillsRoot 可选的 skills 根目录（默认 DEFAULT_SKILLS_ROOT，测试时可覆盖）
+ * @throws 当 sessionId 格式非法时抛出错误
  */
 export function createTool(context: ToolContext, skillsRoot?: string) {
-    const SKILLS_ROOT = skillsRoot ?? DEFAULT_SKILLS_ROOT
+    // sessionId 格式校验在构造时执行，防止路径注入且避免每次调用重复校验
+    if (!SESSION_ID_PATTERN.test(context.sessionId)) {
+        throw new Error('Error: sessionId 格式非法')
+    }
 
-    // 推导会话专属 workspace 目录
+    const SKILLS_ROOT = skillsRoot ?? DEFAULT_SKILLS_ROOT
     const workspaceDir = resolve(WORKSPACE_BASE, context.sessionId)
 
     return tool(
         async ({ skillName, scriptName, action, args }) => {
-            // sessionId 格式校验，防止路径注入
-            if (!SESSION_ID_PATTERN.test(context.sessionId)) {
-                return 'Error: sessionId 格式非法'
-            }
-
             // 禁止路径遍历字符和斜杠，防止目录逃逸
             if ([skillName, scriptName, action].some(s => s.includes('..') || s.includes('/'))) {
                 return 'Error: 参数中包含非法字符'
@@ -76,23 +78,19 @@ export function createTool(context: ToolContext, skillsRoot?: string) {
                 return `Error: 不支持的脚本类型 .${ext}，仅支持 .js/.cjs/.mjs/.py/.sh`
             }
 
-            // 根据 skillName 决定脚本目录和路径
             let scriptsDir: string
             let scriptPath: string
             let errorPrefix: string
 
             if (skillName === '_workspace') {
-                // workspace 分支：脚本直接放在会话工作目录根部
                 scriptsDir = workspaceDir
                 scriptPath = resolve(scriptsDir, scriptName)
                 errorPrefix = `_workspace/${scriptName}`
 
-                // 确保脚本路径在 workspace 目录内，防止路径逃逸
-                if (!scriptPath.startsWith(workspaceDir + '/') && scriptPath !== workspaceDir) {
+                if (!scriptPath.startsWith(workspaceDir + '/')) {
                     return `Error: 脚本不存在 ${errorPrefix}`
                 }
             } else {
-                // 普通 skills 分支
                 scriptsDir = resolve(SKILLS_ROOT, skillName, 'scripts')
                 scriptPath = resolve(scriptsDir, scriptName)
                 errorPrefix = `${skillName}/scripts/${scriptName}`
@@ -113,9 +111,7 @@ export function createTool(context: ToolContext, skillsRoot?: string) {
                 HOME: process.env.HOME || '/tmp',
                 LANG: process.env.LANG || 'en_US.UTF-8',
                 NODE_ENV: 'production',
-                // 使用项目 node_modules 路径，确保脚本能正确解析依赖
-                NODE_PATH: resolve(process.cwd(), 'node_modules'),
-                // 注入会话工作目录，方便脚本读写临时文件
+                NODE_PATH: PROJECT_NODE_MODULES,
                 WORKSPACE_DIR: workspaceDir,
             }
 
