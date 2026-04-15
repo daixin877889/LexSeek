@@ -18,6 +18,7 @@ import {
   publishStatusChange,
   startReconnectFlush,
 } from './agentEventBridge'
+import { repairOrphanToolUseCheckpoint } from '../workflow/repairOrphanToolUse'
 import { getRedisSubscriber } from '~~/server/lib/redis'
 
 export interface AgentWorkerConfig {
@@ -310,6 +311,13 @@ export class AgentWorker {
           completedAt: new Date(),
         }).catch(e => logger.error('更新 run 状态失败:', e))
       }
+
+      // 修复 checkpoint 中可能的 orphan tool_use
+      // LangGraph step-level checkpoint 在工具节点中断时会留下 AIMessage(tool_use)
+      // 没有对应的 ToolMessage，导致用户"继续"对话时 Anthropic API 返回 400
+      // invalid_request_error。cancel 和 fail 路径都可能留下 orphan，都需要修复
+      await repairOrphanToolUseCheckpoint(run.sessionId, errorMessage)
+        .catch(e => logger.error(`修复 orphan tool_use 失败 (run=${run.id}):`, e))
 
       await publishStatusChange({
         type: 'status_change',
