@@ -59,11 +59,12 @@
 
 ### 分阶段实施
 
-**Phase 1（本次）**：Skills 发现 + 文件读写 + 脚本执行
+**Phase 1（本次）**：Skills 发现 + 文件读写 + 脚本执行 + 文件下载
 - `createSkillsMiddleware` 中间件
-- `read_skill_file` 工具
+- `read_skill_file` 工具（读取 Skills 目录和 workspace 目录）
 - `write_skill_file` 工具（per-session 临时目录）
 - `run_skill_script` 工具（支持 skills 目录和 workspace 目录）
+- workspace 文件下载 API（OSS 上传 + 下载链接返回）
 
 脚本执行是 Skills 的核心价值——没有脚本执行，Skills 就只是结构化提示词，项目已有的 Nodes + Prompts 系统完全可以替代。
 
@@ -71,10 +72,10 @@
 
 ### per-session workspace 机制
 
-每个会话拥有独立的临时工作目录 `/tmp/skills-workspace-{sessionId}/`，Agent 可在其中创建脚本和输出文件。
+每个会话拥有独立的临时工作目录 `/tmp/skills-workspace/{sessionId}/`，Agent 可在其中创建脚本和输出文件。
 
 ```
-/tmp/skills-workspace-{sessionId}/
+/tmp/skills-workspace/{sessionId}/
 ├── generate-ppt.cjs           # Agent 动态创建的脚本
 ├── output.pptx                # 脚本生成的输出文件
 └── ...                        # 其他临时文件
@@ -82,7 +83,71 @@
 
 **生命周期**：首次调用 `write_skill_file` 时自动创建，会话结束后由系统清理（依赖 OS `/tmp` 清理策略或 agentWorker 清理逻辑）。
 
-**多用户隔离**：每个 sessionId 独立目录，无跨用户污染。
+**多用户隔离**：每个 sessionId 独立目录，无跨用户污染。工具创建时断言 sessionId 格式合法（不含 `..` 和 `/`）。
+
+### workspace 文件下载链路
+
+Skill 脚本生成的文件（如 .pptx）需要返回给 Web 端用户。流程：
+
+```
+Agent 调用 run_skill_script → 脚本输出文件到 WORKSPACE_DIR
+     → Agent 调用 upload_workspace_file 工具 → 上传到 OSS
+     → 返回下载链接 → Agent 在回复中嵌入链接 → 用户点击下载
+```
+
+**`upload_workspace_file` 工具**：
+
+```typescript
+import { tool } from '@langchain/core/tools'
+import { resolve } from 'node:path'
+import { existsSync } from 'node:fs'
+import { z } from 'zod'
+import type { ToolContext, ToolDefinition } from './types'
+
+const WORKSPACE_BASE = '/tmp/skills-workspace'
+
+const schema = z.object({
+    fileName: z.string().min(1).describe('workspace 中的文件名，如 output.pptx'),
+})
+
+export const toolDefinition: ToolDefinition<typeof schema> = {
+    name: 'upload_workspace_file',
+    description: '将 workspace 中的文件上传到云存储，返回下载链接。用于将脚本生成的文件（如 PPT、PDF）发送给用户。',
+    schema,
+}
+
+export function createTool(context: ToolContext) {
+    const workspaceDir = resolve(WORKSPACE_BASE, context.sessionId)
+
+    return tool(
+        async ({ fileName }) => {
+            if (fileName.includes('..') || fileName.includes('/')) {
+                return 'Error: 文件名中包含非法字符'
+            }
+
+            const filePath = resolve(workspaceDir, fileName)
+            if (!filePath.startsWith(workspaceDir + '/') || !existsSync(filePath)) {
+                return `Error: 文件不存在 ${fileName}`
+            }
+
+            try {
+                // 调用项目现有的 OSS 上传服务
+                const downloadUrl = await uploadToOSSService(filePath, `skills-output/${context.sessionId}/${fileName}`)
+                return `文件已上传，下载链接: ${downloadUrl}`
+            } catch (err) {
+                return `Error: 上传失败 ${err instanceof Error ? err.message : '未知错误'}`
+            }
+        },
+        {
+            name: toolDefinition.name,
+            description: toolDefinition.description,
+            schema,
+        },
+    )
+}
+```
+
+**注意**：`uploadToOSSService` 复用项目现有的 OSS 上传逻辑（`server/lib/oss/`），具体实现取决于现有 API。
 
 ### 改动点
 
@@ -110,6 +175,7 @@ import { createSkillsMiddleware, FilesystemBackend } from 'deepagents'
 import { createTool as createReadSkillFileTool } from '../tools/readSkillFile.tool'
 import { createTool as createWriteSkillFileTool } from '../tools/writeSkillFile.tool'
 import { createTool as createRunSkillScriptTool } from '../tools/runSkillScript.tool'
+import { createTool as createUploadWorkspaceFileTool } from '../tools/uploadWorkspaceFile.tool'
 
 // === Skills 中间件（模块级单例） ===
 const skillsMiddleware = createSkillsMiddleware({
@@ -125,9 +191,10 @@ const agent: ReactAgent = createAgent({
     store,
     tools: [
         ...allTools,                              // 现有工具不动
-        createReadSkillFileTool(toolContext),      // 新增：读取 Skill 文件
+        createReadSkillFileTool(toolContext),      // 新增：读取 Skill/workspace 文件
         createWriteSkillFileTool(toolContext),     // 新增：写入 workspace 文件
         createRunSkillScriptTool(toolContext),     // 新增：执行 Skill 脚本
+        createUploadWorkspaceFileTool(toolContext), // 新增：上传 workspace 文件到 OSS
     ],
     middleware: [
         // 现有中间件不动
@@ -148,7 +215,13 @@ moduleAgent 同理，区别在于现有中间件栈不同（使用 `moduleContex
 
 ### read_skill_file 工具
 
-遵循项目 `ToolModule` 接口（`toolDefinition` + `createTool`），注册到工具注册表：
+遵循项目 `ToolModule` 接口（`toolDefinition` + `createTool`），注册到工具注册表。
+
+**支持两个读取源**：
+1. **Skills 目录**（`.deepagents/skills/`）— SKILL.md、references、assets 等
+2. **Workspace 目录**（`/tmp/skills-workspace/{sessionId}/`）— Agent 创建的脚本和脚本输出文件（路径前缀 `_workspace/`）
+
+> 以下为简化版代码示例，完整实现见 `server/services/workflow/tools/readSkillFile.tool.ts`（含扩展名白名单、`.deepagents/skills/` 前缀正则处理等）。
 
 ```typescript
 import { tool } from '@langchain/core/tools'
@@ -157,28 +230,50 @@ import { resolve } from 'node:path'
 import { z } from 'zod'
 import type { ToolContext, ToolDefinition } from './types'
 
-const SKILLS_ROOT = resolve('/app/.deepagents/skills')
+const DEFAULT_SKILLS_ROOT = resolve(process.cwd(), '.deepagents/skills')
+const WORKSPACE_BASE = '/tmp/skills-workspace'
 
 const schema = z.object({
-    path: z.string().describe('文件路径，如 lexseek/SKILL.md'),
+    path: z.string().min(1).describe('文件路径。Skills 文件如 lexseek/SKILL.md；workspace 文件如 _workspace/output.pptx'),
 })
 
 export const toolDefinition: ToolDefinition<typeof schema> = {
     name: 'read_skill_file',
-    description: '读取 skill 文件内容（SKILL.md、references 等）',
+    description: '读取 skill 文件或 workspace 文件。路径以 _workspace/ 开头时读取会话工作区文件。',
     schema,
 }
 
-export function createTool(context: ToolContext) {
+export function createTool(context: ToolContext, skillsRoot?: string) {
+    const SKILLS_ROOT = skillsRoot ?? DEFAULT_SKILLS_ROOT
+    if (!context.sessionId || context.sessionId.includes('..') || context.sessionId.includes('/')) {
+        throw new Error(`Invalid sessionId: ${context.sessionId}`)
+    }
+    const workspaceDir = resolve(WORKSPACE_BASE, context.sessionId)
+
     return tool(
         async ({ path: filePath }) => {
             if (filePath.includes('..') || filePath.startsWith('/')) {
                 return 'Error: 非法路径'
             }
-            const fullPath = resolve(SKILLS_ROOT, filePath.replace(/^\.?\/?skills\//, ''))
-            if (!fullPath.startsWith(SKILLS_ROOT)) {
-                return 'Error: 只允许读取 skills 目录内的文件'
+
+            let fullPath: string
+            let safeBase: string
+            if (filePath.startsWith('_workspace/')) {
+                // 从 workspace 读取
+                const relativePath = filePath.replace(/^_workspace\//, '')
+                fullPath = resolve(workspaceDir, relativePath)
+                safeBase = workspaceDir
+            } else {
+                // 从 skills 目录读取
+                const normalizedPath = filePath.replace(/^(?:\.?\/?)?(?:\.?deepagents\/)?skills\//, '')
+                fullPath = resolve(SKILLS_ROOT, normalizedPath)
+                safeBase = SKILLS_ROOT
             }
+
+            if (!fullPath.startsWith(safeBase + '/')) {
+                return 'Error: 路径超出允许范围'
+            }
+
             try {
                 return await readFile(fullPath, 'utf-8')
             } catch {
@@ -189,7 +284,7 @@ export function createTool(context: ToolContext) {
             name: toolDefinition.name,
             description: toolDefinition.description,
             schema,
-        }
+        },
     )
 }
 ```
@@ -208,7 +303,7 @@ import type { ToolContext, ToolDefinition } from './types'
 const WORKSPACE_BASE = '/tmp/skills-workspace'
 
 const schema = z.object({
-    path: z.string().describe('文件路径（相对于 workspace），如 generate-ppt.cjs 或 output/report.md'),
+    path: z.string().min(1).describe('文件路径（相对于 workspace），如 generate-ppt.cjs 或 output/report.md'),
     content: z.string().describe('文件内容'),
 })
 
@@ -220,6 +315,10 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
 
 export function createTool(context: ToolContext, workspaceBase?: string) {
     const base = workspaceBase ?? WORKSPACE_BASE
+    // 防御性校验：sessionId 不得包含路径遍历字符
+    if (!context.sessionId || context.sessionId.includes('..') || context.sessionId.includes('/')) {
+        throw new Error(`Invalid sessionId: ${context.sessionId}`)
+    }
     const workspaceDir = resolve(base, context.sessionId)
 
     return tool(
@@ -261,7 +360,7 @@ export function createTool(context: ToolContext, workspaceBase?: string) {
 
 **支持两个执行源**：
 1. **Skills 目录**（`.deepagents/skills/{skillName}/scripts/`）— 预装的 Skill 脚本
-2. **Workspace 目录**（`/tmp/skills-workspace-{sessionId}/`）— Agent 动态创建的脚本
+2. **Workspace 目录**（`/tmp/skills-workspace/{sessionId}/`）— Agent 动态创建的脚本
 
 ```typescript
 import { tool } from '@langchain/core/tools'
@@ -295,11 +394,15 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
 
 export function createTool(context: ToolContext, skillsRoot?: string) {
     const SKILLS_ROOT = skillsRoot ?? DEFAULT_SKILLS_ROOT
+    if (!context.sessionId || context.sessionId.includes('..') || context.sessionId.includes('/')) {
+        throw new Error(`Invalid sessionId: ${context.sessionId}`)
+    }
     const workspaceDir = resolve(WORKSPACE_BASE, context.sessionId)
 
     return tool(
         async ({ skillName, scriptName, action, args }) => {
-            if ([scriptName, action].some(s => s.includes('..') || s.includes('/'))) {
+            // 通用安全校验：所有用户输入参数禁止路径遍历
+            if ([skillName, scriptName, action].some(s => s.includes('..') || s.includes('/'))) {
                 return 'Error: 参数中包含非法字符'
             }
 
@@ -307,20 +410,12 @@ export function createTool(context: ToolContext, skillsRoot?: string) {
             let scriptPath: string
             let cwd: string
             if (skillName === '_workspace') {
-                // 从 workspace 执行 Agent 动态创建的脚本
-                if (scriptName.includes('..') || scriptName.includes('/')) {
-                    return 'Error: 参数中包含非法字符'
-                }
                 scriptPath = resolve(workspaceDir, scriptName)
                 cwd = workspaceDir
                 if (!scriptPath.startsWith(workspaceDir + '/') || !existsSync(scriptPath)) {
                     return `Error: workspace 中脚本不存在 ${scriptName}`
                 }
             } else {
-                // 从 skills 目录执行预装脚本
-                if (skillName.includes('..') || skillName.includes('/')) {
-                    return 'Error: 参数中包含非法字符'
-                }
                 const scriptsDir = resolve(SKILLS_ROOT, skillName, 'scripts')
                 scriptPath = resolve(scriptsDir, scriptName)
                 cwd = scriptsDir
@@ -379,7 +474,9 @@ export function createTool(context: ToolContext, skillsRoot?: string) {
 2. Agent 调用 `write_skill_file` 创建 `generate-ppt.cjs`（根据用户需求动态生成）
 3. Agent 调用 `run_skill_script`（`skillName="_workspace"`, `scriptName="generate-ppt.cjs"`）执行脚本
 4. 脚本将 .pptx 文件输出到 `WORKSPACE_DIR` 环境变量指向的目录
-5. Agent 返回文件路径给用户
+5. Agent 调用 `read_skill_file`（`path="_workspace/output.pptx"`）确认文件生成（或读取文本格式的输出日志）
+6. Agent 调用 `upload_workspace_file`（`fileName="output.pptx"`）上传到 OSS
+7. Agent 在回复中嵌入下载链接 → 用户点击下载
 
 ### Skills 目录
 
@@ -402,9 +499,10 @@ export function createTool(context: ToolContext, skillsRoot?: string) {
 | SkillsMiddleware | ✅ 安全 | 只读取 SKILL.md 元数据，不写文件 |
 | `skillsMetadata` state | ✅ 安全 | 存在 agent state 中，per-thread 隔离 |
 | `files` state channel | ✅ 安全 | SkillsMiddleware 添加但不写入，per-thread 隔离 |
-| read_skill_file 工具 | ✅ 安全 | 只读、白名单限制、禁止路径遍历 |
-| write_skill_file 工具 | ✅ 安全 | 写入 per-session 临时目录（`/tmp/skills-workspace-{sessionId}/`），禁止路径遍历 |
+| read_skill_file 工具 | ✅ 安全 | 只读、白名单限制、禁止路径遍历；workspace 读取限定在 session 目录内 |
+| write_skill_file 工具 | ✅ 安全 | 写入 per-session 临时目录（`/tmp/skills-workspace/{sessionId}/`），sessionId 格式校验 |
 | run_skill_script 工具 | ✅ 安全 | 结构化参数、白名单限制、30s 超时；workspace 脚本限定在 session 目录内 |
+| upload_workspace_file 工具 | ✅ 安全 | 只上传 workspace 内文件到 OSS，文件名禁止路径遍历 |
 | 现有中间件/工具 | ✅ 不变 | 不受影响 |
 
 **Skill 脚本的多用户安全要求**：
@@ -421,6 +519,7 @@ Skills 目录本身是共享只读资源，无跨用户污染。但具体 Skill 
 | `read_skill_file` | 无 | 无同名 | ✅ 无冲突 |
 | `write_skill_file` | 无 | 无同名 | ✅ 无冲突 |
 | `run_skill_script` | 无 | 无同名 | ✅ 无冲突 |
+| `upload_workspace_file` | 无 | 无同名 | ✅ 无冲突 |
 
 ## 文件变更清单
 
@@ -428,18 +527,19 @@ Skills 目录本身是共享只读资源，无跨用户污染。但具体 Skill 
 
 | 文件 | 职责 |
 |------|------|
-| `server/services/workflow/tools/readSkillFile.tool.ts` | Skill 文件读取工具（遵循 ToolModule 接口） |
+| `server/services/workflow/tools/readSkillFile.tool.ts` | Skill/workspace 文件读取工具 |
 | `server/services/workflow/tools/writeSkillFile.tool.ts` | Workspace 文件写入工具（per-session 隔离） |
-| `server/services/workflow/tools/runSkillScript.tool.ts` | Skill 脚本执行工具（支持 skills 目录和 workspace 目录） |
+| `server/services/workflow/tools/runSkillScript.tool.ts` | Skill 脚本执行工具（skills + workspace） |
+| `server/services/workflow/tools/uploadWorkspaceFile.tool.ts` | Workspace 文件上传 OSS 工具 |
 | `.deepagents/skills/` | Skills 根目录 |
 
 ### 修改文件
 
 | 文件 | 变更内容 |
 |------|---------|
-| `server/services/workflow/tools/index.ts` | 注册 `read_skill_file`、`write_skill_file` 和 `run_skill_script` 到 toolModules |
-| `server/services/workflow/agents/caseMainAgent.ts` | middleware 末尾追加 `skillsMiddleware`，tools 追加 3 个工具 |
-| `server/services/workflow/agents/moduleAgent.ts` | 同上（middleware + 3 个工具） |
+| `server/services/workflow/tools/index.ts` | 注册 4 个 skill 工具到 toolModules |
+| `server/services/workflow/agents/caseMainAgent.ts` | middleware 末尾追加 `skillsMiddleware`，tools 追加 4 个工具 |
+| `server/services/workflow/agents/moduleAgent.ts` | 同上（middleware + 4 个工具） |
 | `server/services/workflow/middleware/types.ts` | 添加 `SKILLS_DISCOVERY` 到 `MIDDLEWARE_PRIORITY` |
 | `package.json` | 新增 `deepagents@^1.9.0` |
 | `Dockerfile` | runner 阶段安装 `python3` + `COPY --from=builder /app/.deepagents ./.deepagents` |
@@ -485,15 +585,18 @@ Skills 目录本身是共享只读资源，无跨用户污染。但具体 Skill 
 
 1. `bun add deepagents langsmith`
 2. 创建 `.deepagents/skills/` 根目录
-3. 实现 `readSkillFile.tool.ts`、`writeSkillFile.tool.ts` 和 `runSkillScript.tool.ts`（遵循 ToolModule 接口）
-4. 注册三个工具到 `tools/index.ts`
-5. `middleware/types.ts` 添加 `SKILLS_DISCOVERY` 优先级常量
-6. caseMainAgent.ts 追加 middleware + 3 个工具
-7. moduleAgent.ts 追加 middleware + 3 个工具
-8. Dockerfile runner 阶段：安装 `python3`（支持 Python Skills 脚本）+ `COPY --from=builder /app/.deepagents ./.deepagents`
-9. 本地验证：Skill 发现 → SKILL.md 读取 → 写入脚本到 workspace → 执行脚本
-10. 中断恢复验证：从旧 checkpoint 恢复后 agent 正常工作
-11. Docker 验证：路径解析 + 脚本执行 + workspace 隔离
+3. 实现 `readSkillFile.tool.ts`（支持 skills + workspace 读取）
+4. 实现 `writeSkillFile.tool.ts`（per-session workspace 写入）
+5. 实现 `runSkillScript.tool.ts`（支持 skills + workspace 执行）
+6. 实现 `uploadWorkspaceFile.tool.ts`（workspace 文件上传 OSS）
+7. 注册 4 个工具到 `tools/index.ts`
+8. `middleware/types.ts` 添加 `SKILLS_DISCOVERY` 优先级常量
+9. caseMainAgent.ts 追加 middleware + 4 个工具
+10. moduleAgent.ts 追加 middleware + 4 个工具
+11. Dockerfile runner 阶段：安装 `python3` + `COPY --from=builder /app/.deepagents ./.deepagents`
+12. 本地验证：Skill 发现 → 读取 → 写入脚本到 workspace → 执行 → 上传输出文件
+13. 中断恢复验证：从旧 checkpoint 恢复后 agent 正常工作
+14. Docker 验证：路径解析 + 脚本执行 + workspace 隔离 + OSS 上传
 
 ## 参考资料
 
