@@ -20,7 +20,7 @@
 - **停止按钮可用**：进行中的对话可以通过点击停止按钮立即中断，已生成的部分内容作为"已取消"消息保留在对话历史中。
 - **消息队列**：用户可以在当前轮次进行中时继续输入新消息，最多 5 条 FIFO 队列；上一轮结束后自动派发下一条。
 - **异常自动暂停**：当前轮次被手动停止或因错误失败时，队列自动进入暂停态，等待用户手动恢复，避免用户不期望的连锁触发。
-- **统一双端生效**：小索对话与模块对话通过共享基类 `useChatSessionManager` 获得两项能力，修改点最少。
+- **统一双端生效**：小索对话（`CaseDetailXiaosuo.vue`）与模块对话（`AnalysisModuleChat.vue`）通过共享基类 `useChatSessionManager` 获得两项能力，修改点最少。
 
 ### 2.2 非目标（显式 YAGNI）
 
@@ -86,7 +86,8 @@ import type { OssFileItem } from '~/store/file'
 export interface QueueItem {
   id: string              // nanoid()，仅用于 UI key 和删除定位
   text: string            // 原始用户输入文本
-  files?: OssFileItem[]   // 入队时的快照（引用，文件已在 OSS）
+  files?: OssFileItem[]   // 前瞻性字段：当前两个对话场景均 enable-file-upload=false，
+                          // 队列结构先行支持，实际派发时暂不传递（见 §5.6）
   thinking: boolean       // 入队时的"深度思考"开关状态
   enqueuedAt: number      // Date.now()
 }
@@ -158,12 +159,12 @@ app/components/ai/
                          └───────┘
 ```
 
-三种状态的派生规则：
+三种状态的派生规则（**`running` 与 `idle` 均为派生展示态，核心逻辑只依赖 `isLoading` / `queuePausedBy` / `currentQueue.length` 三个源**）：
 - `idle` = 队列为空 且 `!isLoading.value` 且 `!isQueuePaused.value`
-- `running` = 队列非空（或 isLoading=true）且 `!isQueuePaused.value`
+- `running` = `!isQueuePaused.value` 且（队列非空 或 `isLoading.value=true`）
 - `paused` = `queuePausedBy.get(sid) !== null`
 
-**只有 `paused` 需要显式存储**，其他状态由 `currentQueue.length / isLoading / queuePausedBy` 派生。
+**只有 `paused` 需要显式存储**，其他状态由上面三个源派生。派发器（第 5.2 节）判断是否派发时，只读源状态，不读 `running`/`idle` 这两个标签。
 
 ### 5.2 派发器逻辑
 
@@ -209,9 +210,9 @@ function useQueueDispatcher(deps: {
     queuesBySession.set(sid, rest)
     triggerReactivity()
 
+    // 注意：files 字段在当前阶段不传递（见 §5.6）
     currentChat.value?.sendMessage(head.text, {
       thinking: head.thinking,
-      files: head.files,
     })
   }
 
@@ -263,13 +264,28 @@ function resumeQueue() {
 | `runStatus='failed'` 与 `isLoading=false` 时序不一致 | `watch(isLoading)` 内 `nextTick(() => maybeDispatch())`，让 `watch(runStatus)` 先写 `queuePausedBy`，maybeDispatch 再读就能看到 |
 | 派发的 chat 实例已被切换 | `currentChat.value` 是响应式读，switchSession 已 dispose 旧 chat；新 chat 实例的 `isLoading` 触发新的 watcher |
 
-### 5.6 对 `useCaseChat.sendMessage` 签名的依赖
+### 5.6 `useCaseChat.sendMessage` 现状与前瞻性决策
 
-需要**核对** `useCaseChat.sendMessage` 是否已支持 `files` 参数。若当前签名仅 `(text, { thinking })`：
-- **最小改动**：扩展为 `(text, { thinking, files? })`，向底层 stream 请求转发
-- **如不扩展**：队列的 `files` 字段无意义，与用户"支持文本+文件+thinking"的决策冲突
+**Phase 0 已核对**（`app/composables/useCaseChat.ts:23-28`）：
 
-此为实现阶段的 **Phase 0** 前置验证任务。
+```typescript
+sendMessage: (message: string, opts?: { thinking?: boolean }) => {
+    stream.submit({
+        messages: [{ type: 'human', content: message }],
+        thinking: opts?.thinking,
+    } as any)
+}
+```
+
+签名**仅接受** `text` 和 `thinking`，不支持 files。同时两个上层对话组件均硬编码 `:enable-file-upload="false"`（`CaseDetailXiaosuo.vue:108` 和 `AnalysisModuleChat.vue:108`），即现阶段 UI 根本不会产生 `files` 数据。
+
+**决策**：
+- `QueueItem.files` 字段**保留**在类型定义中（零成本的前瞻性设计）
+- 派发器调用 `sendMessage` 时**不传递 files**，等同于队列目前只处理文本 + thinking
+- **不扩展** `sendMessage` 签名，避免引入未使用的代码路径
+- 当未来某个对话场景启用 `:enable-file-upload="true"` 时，届时一并扩展 `sendMessage` 签名和 dispatcher 传参（预计 <10 行改动）
+
+此决策兼顾了用户"结构上支持文本+文件+thinking"的意图与当前代码现实，无需在本次实现中动 `useCaseChat`。
 
 ## 6. 按钮交互设计
 
@@ -332,10 +348,10 @@ loading 态（新增）:
   <template #prompt-actions>
     <div v-if="showRetryButton" class="...">...</div>
     <AiChatQueueChips
-      :queue="xiaosuoChat.currentQueue.value"
+      :queue="xiaosuoChat.currentQueue"
       :max="QUEUE_MAX_SIZE"
-      :paused="xiaosuoChat.isQueuePaused.value"
-      :pause-reason="xiaosuoChat.queuePauseReason.value"
+      :paused="xiaosuoChat.isQueuePaused"
+      :pause-reason="xiaosuoChat.queuePauseReason"
       @remove="xiaosuoChat.removeQueueItem"
       @resume="xiaosuoChat.resumeQueue"
       @clear="xiaosuoChat.clearQueue"
@@ -343,6 +359,8 @@ loading 态（新增）:
   </template>
 </AiChat>
 ```
+
+> 注意：Vue 3 template 对 ref/computed 会自动解包，模板中**不写** `.value`。
 
 新建组件 `app/components/ai/AiChatQueueChips.vue`，与 `AiChat.vue / AiPromptInput.vue` 同级，供小索与模块对话复用。
 
@@ -451,7 +469,7 @@ loading 态（新增）:
 |---|------|---------|
 | 1 | 派发后 `sendMessage` 底层 fetch 抛错 | `sendMessage` 已有 try-catch，写入 `runError` 并设 `runStatus='failed'`。`watch(runStatus)` 捕获 `failed` → 暂停队列 → 用户手动恢复 |
 | 2 | 派发时 `currentChat.value === null` | `maybeDispatch` 用可选链 `currentChat.value?.sendMessage(...)`，null 时 silently 跳过。此时 `isLoading` watch 不会触发，因为新 chat 尚未启动 |
-| 3 | 队列中某条消息的 files 已被后端删除 | 派发时不做文件可用性预检；后端 prompt 构造阶段报错，走正常 `failed` 路径进入暂停 |
+| 3 | 队列中某条消息的 files 已被后端删除 | 此场景仅在未来启用文件上传后才可能出现（当前 files 字段不被派发，见 §5.6）。届时后端 prompt 构造阶段报错 → 走场景 #1 的 `failed` 路径 → `watch(runStatus)` 自动暂停队列 |
 | 4 | 队列有内容时删除当前 session | `deleteSession` 额外清理 `queuesBySession.delete(sessionId)` 和 `queuePausedBy.delete(sessionId)` |
 | 5 | 派发中切换 session | 旧 session 的 effectScope 被 dispose → watch 停止，即使 isLoading 变 false 也不触发派发。剩余 queue 保留在 Map 中，切回即见 |
 | 6 | 用户在已满队列再按回车 | `enqueueMessage` 返回 `false`，组件层 `handleSubmit` 显示 toast，输入框**不清空**（用户输入不丢失） |
@@ -658,10 +676,17 @@ E2E 命令：`npx playwright test tests/e2e/xiaosuo-chat-queue.spec.ts`
 
 所有新增 TS 文件完成后运行 `npx nuxi typecheck`（项目规范明确用 `nuxi typecheck` 而非 `tsc`），作为 PR 提交前硬门槛。
 
-## 10. 实现阶段的前置验证
+## 10. 实现阶段的前置验证结果
 
-- **Phase 0 验证**：核对 `useCaseChat.sendMessage` 是否已支持 `files` 参数。若未支持，需先扩展签名，否则队列 `files` 字段无意义。
-- **模块对话组件定位**：当前探索只明确了小索对话入口（`CaseDetailXiaosuo.vue`），模块对话的 UI 入口位于 `app/components/case/AnalysisModuleChat.vue`（或类似名称），需在实现阶段确认并同步接入队列 UI。
+**Phase 0 已在 spec 阶段完成**，规划阶段无需重复核对：
+
+- **`useCaseChat.sendMessage` 签名**：`app/composables/useCaseChat.ts:23-28`，当前仅接受 `(text, { thinking })`，不支持 files。决策见 §5.6：本次实现**不扩展**此签名。
+- **模块对话组件入口**：`app/components/case/AnalysisModuleChat.vue`
+  - `handleSubmit`：line 67
+  - `@stop` 绑定：line 111
+  - `:enable-file-upload="false"`：line 108
+  - 结构与 `CaseDetailXiaosuo.vue` 完全对称，改造逻辑可 1:1 复用
+- **文件上传的现状**：小索对话（line 108）和模块对话（line 108）均硬编码 `:enable-file-upload="false"`，`files` 字段是前瞻性设计，当前不会产生数据
 
 ## 11. 影响评估
 
@@ -672,8 +697,7 @@ E2E 命令：`npx playwright test tests/e2e/xiaosuo-chat-queue.spec.ts`
 | `app/composables/useChatSessionManager.ts` | 扩展：新增队列状态 + API |
 | `app/components/ai/AiPromptInput.vue` | 修复按钮交互 + 新增 props |
 | `app/components/caseDetail/CaseDetailXiaosuo.vue` | `handleSubmit` 分派 + 挂载 queue chips |
-| 模块对话组件（待确认路径） | 同上 |
-| `app/composables/useCaseChat.ts` | 可能扩展 `sendMessage` 签名（Phase 0 验证后确定） |
+| `app/components/case/AnalysisModuleChat.vue` | `handleSubmit` 分派 + 挂载 queue chips（与小索对称改造） |
 
 ### 11.2 新建的文件
 
@@ -691,10 +715,21 @@ E2E 命令：`npx playwright test tests/e2e/xiaosuo-chat-queue.spec.ts`
 ### 11.3 不修改的文件
 
 - `app/components/ai-elements/prompt-input/PromptInputSubmit.vue`（shadcn 生成组件，绕开而非修改）
+- `app/composables/useCaseChat.ts`（签名本次不扩展，见 §5.6）
 - `server/services/agent/*`（后端取消机制已完整存在）
 - 数据库 schema（无持久化需求）
 
-## 12. 开放问题
+## 12. 决策日志
 
-- `useCaseChat.sendMessage` 的签名扩展是否会引入对现有调用点的破坏性改动？实现阶段 Phase 0 需回答。
-- 模块对话组件的具体文件路径需在实现阶段最终确认，可能涉及对 `CaseDetailAnalysis.vue` 或 `AnalysisModuleChat.vue` 的 `handleSubmit` 做类似改动。
+Spec 阶段确认的关键决策，规划与实现阶段无需重新争论：
+
+| 决策点 | 决定 | 理由 |
+|-------|-----|------|
+| 队列归属层 | `useChatSessionManager` 基类 | 双端一次修改生效，与 session 切换天然协同 |
+| 队列容量 | 5 条 FIFO | 够用且避免用户"连发 10 条"式 UX 混乱 |
+| 停止后处理 | 保留已生成内容标记"已取消" | 符合 ChatGPT / Claude.ai 既有心智 |
+| 失败后处理 | 自动暂停，等待手动恢复 | 与停止路径对称，避免故障连锁 |
+| 持久化范围 | 仅内存，unmount 即丢 | YAGNI，避免跨标签页冲突 |
+| files 字段 | 类型结构保留，运行时不传递 | 前瞻性设计，零成本，未来启用文件上传时扩展简单 |
+| `sendMessage` 签名 | 本次**不**扩展 | 当前 UI 不产生 files 数据，避免死代码 |
+| 停止 vs 加入队列 UI | 两按钮并排 | 避免"单按钮两种模式"的认知负担 |
