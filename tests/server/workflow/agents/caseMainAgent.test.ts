@@ -229,8 +229,8 @@ describe('runCaseChat 主代理', () => {
         // 验证 createAgent 被调用时传入了合并的工具
         expect(createAgent).toHaveBeenCalledTimes(1)
         const createAgentCall = vi.mocked(createAgent).mock.calls[0][0] as { tools: unknown[] }
-        // 主代理工具 2 个 + 子代理工具 2 个 = 4 个
-        expect(createAgentCall.tools).toHaveLength(4)
+        // 主代理工具 2 个 + 子代理工具 2 个 + Skills 工具 2 个 = 6 个
+        expect(createAgentCall.tools).toHaveLength(6)
     })
 
     it('中断恢复时使用 Command 而非 HumanMessage', async () => {
