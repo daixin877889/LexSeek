@@ -13,7 +13,7 @@ import { tool } from '@langchain/core/tools'
 import { execFile } from 'node:child_process'
 import { resolve } from 'node:path'
 import { z } from 'zod'
-import { WORKSPACE_BASE, resolveWorkspaceDir } from './workspace'
+import { WORKSPACE_BASE, resolveWorkspaceDir, withTimeout } from './workspace'
 import type { ToolContext, ToolDefinition } from './types'
 
 const DEFAULT_SKILLS_ROOT = resolve(process.cwd(), '.deepagents/skills')
@@ -119,23 +119,33 @@ export function createTool(context: ToolContext, skillsRoot?: string) {
                 WORKSPACE_DIR: workspaceDir,
             }
 
-            return new Promise<string>((done) => {
-                execFile(runtimeBin, execArgs, { timeout: 30_000, cwd: scriptsDir, env: execEnv },
-                    (err, stdout, stderr) => {
-                        if (err) {
-                            // ENOENT（运行时找不到）或 MODULE_NOT_FOUND（node 运行不存在的脚本）均视为脚本不存在
-                            const errCode = (err as NodeJS.ErrnoException).code
-                            if (errCode === 'ENOENT' || errCode === 'MODULE_NOT_FOUND'
-                                || stderr.includes('Cannot find module')) {
-                                done(`Error: 脚本不存在 ${errorPrefix}`)
-                            } else {
-                                done(`Error (exit ${err.code}): ${stderr || err.message}`)
-                            }
-                        } else {
-                            done(stderr ? `${stdout}\n[stderr]: ${stderr}` : stdout)
-                        }
-                    })
-            })
+            try {
+                return await withTimeout(
+                    new Promise<string>((done) => {
+                        execFile(runtimeBin, execArgs, { timeout: 30_000, cwd: scriptsDir, env: execEnv },
+                            (err, stdout, stderr) => {
+                                if (err) {
+                                    // ENOENT（运行时找不到）或 MODULE_NOT_FOUND（node 运行不存在的脚本）均视为脚本不存在
+                                    const errCode = (err as NodeJS.ErrnoException).code
+                                    if (errCode === 'ENOENT' || errCode === 'MODULE_NOT_FOUND'
+                                        || stderr.includes('Cannot find module')) {
+                                        done(`Error: 脚本不存在 ${errorPrefix}`)
+                                    } else {
+                                        done(`Error (exit ${err.code}): ${stderr || err.message}`)
+                                    }
+                                } else {
+                                    done(stderr ? `${stdout}\n[stderr]: ${stderr}` : stdout)
+                                }
+                            })
+                    }),
+                    35_000, // 比 execFile 内置超时多 5s
+                    `脚本 ${scriptName}`,
+                )
+            } catch (timeoutErr) {
+                // 保持工具层"永远返回字符串"的约定
+                const message = timeoutErr instanceof Error ? timeoutErr.message : '执行超时'
+                return `Error: ${message}`
+            }
         },
         {
             name: toolDefinition.name,

@@ -58,3 +58,25 @@ export async function cleanExpiredWorkspacesService(): Promise<void> {
         }
     }
 }
+
+/**
+ * Promise 级兜底超时包装器
+ *
+ * 防止 execFile 等异步调用在极端情况下 callback 不触发导致 Promise 永远 pending。
+ * 超时后立即 reject，让 agent 收到错误字符串继续推进。
+ */
+export function withTimeout<T>(
+    promise: Promise<T>,
+    ms: number,
+    label: string,
+): Promise<T> {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(
+            () => reject(new Error(`${label} 执行超时（${ms / 1000}s）`)),
+            ms,
+        )
+        promise
+            .then(resolve, reject)
+            .finally(() => clearTimeout(timer))
+    })
+}
