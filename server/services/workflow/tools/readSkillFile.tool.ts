@@ -46,8 +46,9 @@ export function createTool(context: ToolContext, skillsRoot?: string) {
                 return 'Error: 非法路径'
             }
 
-            // 规范化路径：移除前缀 skills/ 或 ./skills/
-            const normalizedPath = filePath.replace(/^\.?\/?skills\//, '')
+            // 规范化路径：移除 createSkillsMiddleware 注入的各种前缀
+            // 可能的格式：.deepagents/skills/x/SKILL.md、skills/x/SKILL.md、./skills/x/SKILL.md、x/SKILL.md
+            const normalizedPath = filePath.replace(/^(?:\.?\/?)?(?:\.?deepagents\/)?skills\//, '')
             const fullPath = resolve(SKILLS_ROOT, normalizedPath)
 
             // 二次确认路径在 skills 目录内（防止 resolve 后越界）

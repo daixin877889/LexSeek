@@ -48,6 +48,20 @@ describe('read_skill_file 工具 - 正常读取', () => {
         expect(result).toContain('这是技能说明文件。')
     })
 
+    it('应能通过 .deepagents/skills/ 前缀路径读取（createSkillsMiddleware 注入格式）', async () => {
+        const readTool = createTool(testContext, testSkillsDir)
+        const result = await readTool.invoke({ path: '.deepagents/skills/lexseek/SKILL.md' })
+
+        expect(result).toContain('# LexSeek Skill')
+    })
+
+    it('应能通过 skills/ 前缀路径读取', async () => {
+        const readTool = createTool(testContext, testSkillsDir)
+        const result = await readTool.invoke({ path: 'skills/lexseek/SKILL.md' })
+
+        expect(result).toContain('# LexSeek Skill')
+    })
+
     it('应能读取 references 下的 .md 文件', async () => {
         const readTool = createTool(testContext, testSkillsDir)
         const result = await readTool.invoke({ path: 'lexseek/references/legal-analysis.md' })
