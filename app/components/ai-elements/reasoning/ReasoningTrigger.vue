@@ -27,35 +27,31 @@ const thinkingMessage = computed(() => {
 </script>
 
 <template>
-  <CollapsibleTrigger
-    :class="cn(
-      'flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground',
-      props.class,
-    )"
-  >
+  <CollapsibleTrigger :class="cn(
+    'flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground',
+    props.class,
+  )">
     <slot>
       <BrainIcon class="size-4" />
 
       <template v-if="thinkingMessage === 'thinking'">
         <Shimmer :duration="1">
-          Thinking...
+          思考中...
         </Shimmer>
       </template>
 
       <template v-else-if="thinkingMessage === 'default_done'">
-        <p>Thought for a few seconds</p>
+        <p>思考完毕</p>
       </template>
 
       <template v-else>
-        <p>Thought for {{ duration }} seconds</p>
+        <p>已经思考了 {{ duration }} 秒</p>
       </template>
 
-      <ChevronDownIcon
-        :class="cn(
-          'size-4 transition-transform',
-          isOpen ? 'rotate-180' : 'rotate-0',
-        )"
-      />
+      <ChevronDownIcon :class="cn(
+        'size-4 transition-transform',
+        isOpen ? 'rotate-180' : 'rotate-0',
+      )" />
     </slot>
   </CollapsibleTrigger>
 </template>
