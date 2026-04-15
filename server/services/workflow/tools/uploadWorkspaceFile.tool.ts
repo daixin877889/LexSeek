@@ -110,7 +110,7 @@ const schema = z.object({
 /** 工具定义（单一数据源） */
 export const toolDefinition: ToolDefinition<typeof schema> = {
     name: 'upload_workspace_file',
-    description: '将当前 session workspace 中的文件上传到用户云盘（OSS），返回 [file-card] 格式的文件信息。配额不足时自动降级到临时存储路径（24小时有效）。',
+    description: '将当前 session workspace 中的文件上传到用户云盘（OSS），返回 [file-card] 格式的文件信息。重要：你必须将返回的 [file-card]...[/file-card] 完整内容原样粘贴到回复中，不要修改、缩写或重新格式化，前端会自动将其渲染为可下载的文件卡片。',
     schema,
 }
 
