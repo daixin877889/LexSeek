@@ -5,6 +5,7 @@
  */
 
 import { resolve } from 'node:path'
+import { readdir, stat, rm } from 'node:fs/promises'
 
 /** workspace 根目录（各 session 的临时工作区） */
 export const WORKSPACE_BASE = '/tmp/skills-workspace'
@@ -25,4 +26,35 @@ export function resolveWorkspaceDir(base: string, sessionId: string): string {
         throw new Error(`无效的 sessionId 格式: ${sessionId}`)
     }
     return resolve(base, sessionId)
+}
+
+/** workspace 最大存活时间（24 小时） */
+const MAX_AGE_MS = 24 * 60 * 60 * 1000
+
+/**
+ * 清理超过 24 小时无活动的 workspace 目录
+ *
+ * 由 cron-scheduler 每小时调用一次作为兜底清理
+ */
+export async function cleanExpiredWorkspacesService(): Promise<void> {
+    try {
+        const entries = await readdir(WORKSPACE_BASE, { withFileTypes: true })
+        const now = Date.now()
+
+        for (const entry of entries) {
+            if (!entry.isDirectory()) continue
+            const dirPath = resolve(WORKSPACE_BASE, entry.name)
+            const dirStat = await stat(dirPath)
+
+            if (now - dirStat.mtimeMs > MAX_AGE_MS) {
+                await rm(dirPath, { recursive: true, force: true })
+                logger.info('清理过期 skills workspace', { dir: entry.name })
+            }
+        }
+    } catch (err) {
+        // WORKSPACE_BASE 不存在时静默跳过（正常情况，没有 workspace 被创建）
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+            logger.warn('skills workspace 清理失败', { error: err })
+        }
+    }
 }

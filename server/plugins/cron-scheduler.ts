@@ -58,6 +58,14 @@ export default defineNitroPlugin((nitroApp) => {
     runImmediately: true,
   })
 
+  // Skills workspace 过期清理（每小时，清理 24h 无活动的 session workspace）
+  scheduler.register({
+    name: 'skills-workspace-cleanup',
+    intervalMs: 60 * 60 * 1000,
+    lockTtlSeconds: 60,
+    fn: cleanExpiredWorkspacesService,
+  })
+
   scheduler.start()
 
   // 优雅关闭（顺序：停调度 → 关 DB 池 → 关 Redis）
