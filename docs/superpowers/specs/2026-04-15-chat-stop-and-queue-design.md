@@ -122,6 +122,8 @@ return {
 }
 ```
 
+内部新增 `lastLocalSendSeq: Ref<number>`（默认 0），在封装后的 `sendMessage` 和 `doDispatch` 内 `++`，供 `useQueueDispatcher` 的溯源守卫读取。不暴露给外部。
+
 ### 4.5 文件结构
 
 项目现有 `app/composables/` 下 35 个 composable 均为**扁平组织**，本次保持一致，不新建子目录：
@@ -178,15 +180,14 @@ app/components/ai/
 
 ### 5.2 派发器逻辑
 
-**核心设计决策（修订后）**：派发器的触发源是 **`watch(runStatus)`** 而非 `watch(isLoading)`。原因：
-- `isLoading` 会在 `loadHistory()` 和 `reconnect()` 时经历假 true→false 边沿（`useStreamChat.ts:113-120` 调用 `s.submit(undefined)` 导致）
-- `runStatus` 仅由后端真实 `status_change` SSE 事件驱动（`useStreamChat.ts:52-55`），history 和 reconnect 不触发
-- 使用 `runStatus === 'completed'` 作为"真实结束"信号，天然规避 `reconnect` 误派发
+**核心设计决策（修订后 v2）**：派发器的触发源是 **`watch(runStatus)`** 而非 `watch(isLoading)`，**并叠加"本地发送溯源"守卫**避免 reconnect 重放的 `status_change: completed` 误触发。
+
+**为什么叠加本地发送守卫**：`server/api/v1/case/analysis/chat.post.ts:270` 的 `replayEvents(runId)` 会在 reconnect 时补发 Redis Stream 历史事件，包括 `status_change: running/completed`。`useStreamChat.ts:52-55` 的 `onCustomEvent` 会把这些事件写入本地 `runStatus`。所以单靠 `watch(runStatus === 'completed')` 仍会在 reconnect 时误派发。**解决方案**：引入 `lastLocalSendSeq` / `lastDispatchedSeq` 两个计数器，只有"本 tab 曾本地调用过 `sendMessage`（序号大于上次派发的）"才允许派发下一条。reconnect 重放不经过本地 `sendMessage`，seq 不增长，守卫拒绝。
 
 ```typescript
 // app/composables/useQueueDispatcher.ts
-import { effectScope, nextTick } from 'vue'
-import { postCrossTabEvent } from '~/composables/useCrossTabEvents'
+import { effectScope, nextTick, ref } from 'vue'
+import { postCrossTabEvent, useCrossTabListener } from '~/composables/useCrossTabEvents'
 
 function useQueueDispatcher(deps: {
   currentSessionId: Ref<string | null>
@@ -194,10 +195,15 @@ function useQueueDispatcher(deps: {
   runStatus: ComputedRef<AgentRunStatus | 'idle'>
   isLoading: ComputedRef<boolean>
   interruptData: ComputedRef<unknown>
-  queuesBySession: Map<string, QueueItem[]>  // 由 reactive(new Map()) 提供，见 §8.3
+  queuesBySession: Map<string, QueueItem[]>       // 由 reactive(new Map()) 提供，见 §8.3
   queuePausedBy: Map<string, QueuePauseReason>
-  tabId: string
+  tabId: string                                    // 由 onMounted 闭包生成（见 §5.7）
+  /** 本 tab 本地发送过的累计次数，每次 sendMessage 前 ++ */
+  lastLocalSendSeq: Ref<number>
 }) {
+  // 本 tab 已派发到的本地发送序号，用于溯源守卫
+  let lastDispatchedSeq = 0
+
   // 触发器：watch runStatus 到终止态
   watch(deps.runStatus, (next, prev) => {
     const sid = deps.currentSessionId.value
@@ -206,14 +212,18 @@ function useQueueDispatcher(deps: {
     // 暂停路径：failed / cancelled 自动暂停队列
     if (next === 'failed' || next === 'cancelled') {
       deps.queuePausedBy.set(sid, next === 'failed' ? 'failed' : 'stopped')
-      // 跨标签广播
       broadcastState(sid)
       return
     }
 
     // 派发路径：仅真正 completed 才派发下一条
     if (next === 'completed' && prev !== 'completed') {
-      nextTick(() => maybeDispatch())
+      // 溯源守卫：只有"本 tab 本地发送过新消息"才允许派发
+      // reconnect 重放的 completed 不经过本地 sendMessage，seq 未增长，守卫拒绝
+      if (deps.lastLocalSendSeq.value > lastDispatchedSeq) {
+        lastDispatchedSeq = deps.lastLocalSendSeq.value
+        nextTick(() => maybeDispatch())
+      }
     }
 
     // interrupted：不暂停也不派发（Dialog 由 interruptData 驱动）
@@ -232,33 +242,41 @@ function useQueueDispatcher(deps: {
     if (queue.length === 0) return                          // 守卫 5：队列空
 
     // 守卫 6：跨标签分布式互斥（Web Locks API）
-    // 同一 session 在多 tab 打开时，确保只有一个 tab 真实派发到后端
     if (typeof navigator !== 'undefined' && navigator.locks) {
       await navigator.locks.request(
         `chat-queue-dispatch:${sid}`,
         { mode: 'exclusive', ifAvailable: true },
         async (lock) => {
           if (!lock) return // 另一 tab 已拿到锁，本 tab 放弃派发
-          await doDispatch(sid, queue)
+          await doDispatch(sid)
         },
       )
     } else {
-      // 降级：不支持 Web Locks 的环境（极老浏览器 / SSR），直接派发
-      await doDispatch(sid, queue)
+      await doDispatch(sid)
     }
   }
 
-  async function doDispatch(sid: string, queue: QueueItem[]) {
-    // 再次读取最新队列（锁内，其他 tab 可能已 pop）
+  async function doDispatch(sid: string) {
+    // 锁内再次读取最新队列（其他 tab 可能已 pop）
     const latest = deps.queuesBySession.get(sid) ?? []
     if (latest.length === 0) return
 
     const [head, ...rest] = latest
-    // 注意：files 字段在当前阶段不传递（见 §5.6）
-    deps.currentChat.value?.sendMessage(head.text, { thinking: head.thinking })
-    deps.queuesBySession.set(sid, rest)
-    // 跨标签广播已派发
-    broadcastState(sid)
+
+    try {
+      // 先调 sendMessage：失败时下方 set 不执行，队头仍在 queue 中
+      // 注意：files 字段在当前阶段不传递（见 §5.6）
+      deps.currentChat.value?.sendMessage(head.text, { thinking: head.thinking })
+      // 成功则 pop 并广播
+      deps.queuesBySession.set(sid, rest)
+      broadcastState(sid)
+    } catch (err) {
+      // sendMessage 同步抛错：显式暂停队列并广播
+      // （队头仍在 queue 中，用户可"恢复队列"时重试）
+      console.error('[chat-queue] dispatch failed', { sessionId: sid, itemId: head.id })
+      deps.queuePausedBy.set(sid, 'failed')
+      broadcastState(sid)
+    }
   }
 
   function broadcastState(sid: string) {
@@ -267,7 +285,7 @@ function useQueueDispatcher(deps: {
       tabId: deps.tabId,
       queue: deps.queuesBySession.get(sid) ?? [],
       pauseReason: deps.queuePausedBy.get(sid) ?? null,
-      version: Date.now(),
+      version: performance.now() + Math.random(), // 双因子避免毫秒级碰撞
     })
   }
 
@@ -276,10 +294,10 @@ function useQueueDispatcher(deps: {
 ```
 
 **关键要点**：
-1. 派发器**必须在 manager 的 effectScope 内**运行，与 `queuesBySession` Map 同寿命，而不是每个 session 的 chat scope。这样 `switchSession` 不会 dispose dispatcher 的 watcher。
-2. `sendMessage` 在 `queuesBySession.set(...)` 之前调用：若 `currentChat.value` 在守卫层已过，则 sendMessage 调用安全；派发后再更新 Map 避免"pop 后 sendMessage 失败导致丢失"。
-3. `navigator.locks.request` 的 `ifAvailable: true` 让其他 tab 能立即跳过而不阻塞；一次派发一个持锁者。
-4. **broadcastState 在所有 Map 变化后调用**，是跨标签同步的唯一出口。
+1. 派发器**必须在 manager 的 setup 顶层注册**（与 `sessions` ref 同级，自动绑定调用方 setup scope），**不**进 `switchSession` 内部新建的 inner `effectScope`。这样 session 切换不会 dispose dispatcher 的 watcher。
+2. **溯源守卫**是 C1 真正的修复：`lastLocalSendSeq` 只在 `useChatSessionManager.sendMessage`（用户直接发）和 `doDispatch`（队列派发）时 `++`。reconnect replay 不增长 seq，watch 看到 completed 但 `seq <= lastDispatchedSeq` 直接 return。
+3. `doDispatch` 的 try/catch 确保 `sendMessage` 同步异常时**队头仍保留**（set 未执行）且**暂停态被显式写入**，避免"锁释放后其他 tab 看到旧队头重复派发"的双发。
+4. `broadcastState` 在所有 Map 变化后调用，是跨标签同步的唯一出口；**listener 接收时不得再触发 broadcastState**（见 §5.7）。
 
 ### 5.3 入队决策放在组件层
 
@@ -305,7 +323,38 @@ function handleSubmit(data: { text: string; files?: OssFileItem[] }) {
 }
 ```
 
-**关键补充**：暂停态下（`isQueuePaused === true`），即便 `isLoading === false`，用户新发的消息也应**进入队列尾部**而不是直接发送。否则会形成"用户直接发新消息 + 残留暂停队列"的错乱 UI。用户必须显式点击"恢复队列"或"清空"才能回到普通发送路径。
+**关键补充**：
+1. 暂停态下（`isQueuePaused === true`），即便 `isLoading === false`，用户新发的消息也应**进入队列尾部**而不是直接发送。否则会形成"用户直接发新消息 + 残留暂停队列"的错乱 UI。用户必须显式点击"恢复队列"或"清空"才能回到普通发送路径。
+2. **`useChatSessionManager.sendMessage` 必须包装一层**，在实际调用 `currentChat.value?.sendMessage` 之前 `lastLocalSendSeq.value++`，为 dispatcher 的溯源守卫（§5.2）提供信号：
+   ```typescript
+   // 在 useChatSessionManager 内部
+   function sendMessage(text: string, opts?: { thinking?: boolean }) {
+     lastLocalSendSeq.value++
+     currentChat.value?.sendMessage(text, opts)
+   }
+   ```
+   `doDispatch` 内部也遵守这一不变式：在 catch 之外、`sendMessage` 之前 `lastLocalSendSeq.value++`，保证下一轮 completed 能正确派发下一条。
+3. **暂停态 + 队列清空的死锁防护**：`clearQueue` 和最后一次 `removeQueueItem`（即移除后队列变空）的实现中，**自动** `queuePausedBy.delete(sid)` 并广播，避免"用户删光所有 chip 后仍锁在暂停态无法发送"的死锁（见 §8.1 场景 #17）：
+   ```typescript
+   function removeQueueItem(itemId: string) {
+     const sid = currentSessionId.value
+     if (!sid) return
+     const current = queuesBySession.get(sid) ?? []
+     const next = current.filter(i => i.id !== itemId)
+     queuesBySession.set(sid, next)
+     // 队列变空时自动清除暂停标记
+     if (next.length === 0) queuePausedBy.delete(sid)
+     broadcastState(sid)
+   }
+
+   function clearQueue() {
+     const sid = currentSessionId.value
+     if (!sid) return
+     queuesBySession.set(sid, [])
+     queuePausedBy.delete(sid)   // 清空同时重置暂停态
+     broadcastState(sid)
+   }
+   ```
 
 `enqueueMessage` 仍是纯状态操作，不需要判断"当前该发送还是入队"——**组件层**做这个决策。
 
@@ -326,15 +375,20 @@ function resumeQueue() {
 | 竞态场景 | 守卫策略 |
 |---------|---------|
 | 用户快速连续按回车入队两条 | `enqueueMessage` 同步操作，按序执行 |
-| `reconnect` 或 `loadHistory` 造成 isLoading 假边沿 | **派发器不再 watch isLoading**，改 watch `runStatus === 'completed'`；reconnect/loadHistory 不触发 `status_change` SSE 事件，runStatus 保持 `idle`/旧值，不触发派发 |
+| **reconnect 重放后端历史事件误派发** | `server/api/v1/case/analysis/chat.post.ts:270` 的 `replayEvents` 会补发 `status_change: running/completed`。**派发器的溯源守卫**（`lastLocalSendSeq` / `lastDispatchedSeq`）确保只有本 tab 本地 `sendMessage` 调用后的 completed 才触发派发。reconnect replay 不经过本地 sendMessage，seq 不增长，守卫拒绝 |
+| `loadHistory`（无活跃 run）假边沿 | 后端走 `isCompletedRun` 分支只发 values，不发 `status_change`，runStatus 保持 idle，watcher 不触发 |
 | `interrupted` 状态下 isLoading 可能变 false | `maybeDispatch` 守卫 2：`if (interruptData.value) return`；`watch(runStatus)` 对 `'interrupted'` 不做任何操作 |
 | 派发时 `currentChat.value === null` | `maybeDispatch` 守卫 4 提前 return，不会 pop 队头；避免数据丢失 |
-| 派发中组件 unmount | manager 的 `effectScope.stop()` 销毁 dispatcher 的 watch；Map 随闭包 GC |
-| 同一 session 多 tab 同时派发 | `navigator.locks.request(...ifAvailable: true)` 确保只有一个 tab 持锁派发，其他 tab 跳过 |
-| 派发的 chat 实例已被切换 | `switchSession` 先 dispose 旧 chat scope；dispatcher 挂在**manager scope**不受影响，读 `currentSessionId.value` 永远是最新 sid |
-| `deleteSession` 删除当前 session 时的清理时序 | 顺序：①调用 delete API → ②`queuesBySession.delete(sid)` + `queuePausedBy.delete(sid)` → ③从 sessions 数组移除 → ④`switchSession` 到下一条或 `createSession` 新建。保证 switchSession 进入前 Map 已清洁 |
-| 跨标签 enqueue / remove 冲突 | 所有 tab 监听 `chat-queue:sync` 事件应用完整快照；last-writer-wins，Lamport-like version 时间戳帮助忽略过期广播 |
+| **`doDispatch` 内 `sendMessage` 同步抛错** | `try/catch` 捕获：set 未执行 → 队头保留；catch 分支显式 `queuePausedBy.set(sid, 'failed')` + `broadcastState`。避免"锁释放后其他 tab 看到旧队头重复派发" |
+| 派发中组件 unmount | manager setup scope 销毁 dispatcher 的 watch；Map 随闭包 GC |
+| **同一 session 多 tab 同时派发** | `navigator.locks.request(...ifAvailable: true)` 确保只有一个 tab 持锁派发，其他 tab 跳过；即便持锁 tab 抛错也通过上面的 try/catch 保持状态一致 |
+| 派发的 chat 实例已被切换 | `switchSession` 先 dispose 旧 chat 的 inner scope；dispatcher 挂在**manager setup 顶层**不受影响，读 `currentSessionId.value` 永远是最新 sid |
+| `deleteSession` 清理时序 | 顺序：①调用 delete API → ②`queuesBySession.delete(sid)` + `queuePausedBy.delete(sid)` → ③广播 `chat-queue:sync` with `queue: []` 通知其他 tab → ④`sessions.value.filter(...)` 从数组移除 → ⑤`switchSession` 到下一条或 `createSession` 新建。顺序 ②+③ 必须在 ⑤ switchSession 之前 |
+| **跨标签 broadcast 风暴** | Listener 必须遵守 §5.7 硬约束：接收 `chat-queue:sync` 后**只写本地 Map**，**绝不**再调用 `broadcastState`；`tabId !== self` 守卫过滤自回；`version` 单调递增丢弃过期 |
+| **late-join 多 tab 同时响应 hello** | `version = performance.now() + Math.random()` 双因子避免毫秒级碰撞；接收方 last-writer-wins 最终收敛 |
 | 停止按钮快速连点 | 组件层 `isStopping` ref 守卫（见 §6.6），按下后置灰，`runStatus → cancelled` 或 3s 超时复位 |
+| **暂停态下队列被清空后死锁** | `clearQueue` 和最后一次 `removeQueueItem` 实现中：若结果队列变空，自动 `queuePausedBy.delete(sid)` 清除暂停标记并广播（见 §8.1 场景 #17） |
+| 暂停态下用户点击发送按钮 | `handleSubmit` 同时检查 `isLoading` 和 `isQueuePaused`，任一为真则入队而非发送 |
 
 ### 5.6 `useCaseChat.sendMessage` 现状与前瞻性决策
 
@@ -363,20 +417,22 @@ sendMessage: (message: string, opts?: { thinking?: boolean }) => {
 
 复用项目已有的 `app/composables/useCrossTabEvents.ts`（基于 BroadcastChannel 的 fire-and-forget 事件总线），不新建通信层。
 
+**与现有模式的差异**：项目现有的 6 个 `useCrossTabListener` 调用点（`useInitAnalysis.ts` / `useCaseDetail.ts` / `useModuleChatManager.ts` 等）均采用 **"收到事件 → refetch API"** 的模式。本 spec 的 `chat-queue:sync` **首次**采用 **"payload 作为 source of truth，接收方直接 merge 到本地 Map"** 的模式。**原因**：队列无服务端持久化（见 §2.2），接收方**无法 refetch**，只能信任 payload。此偏离是**必需而非错误**，后续维护者不应误以为"漏了 refetch"。
+
 **新增事件**（扩展 `CrossTabEvents` interface）：
 
 ```typescript
 // 在 app/composables/useCrossTabEvents.ts 的 CrossTabEvents interface 中新增
 export interface CrossTabEvents {
   // ... 已有事件
-  
+
   /** 队列状态完整快照（mutate 后广播） */
   'chat-queue:sync': {
     sessionId: string
-    tabId: string               // 发送方的 tab 标识
-    queue: QueueItem[]          // 完整队列快照
+    tabId: string                // 发送方 tab 标识，接收方用于自回过滤
+    queue: QueueItem[]           // 完整队列快照
     pauseReason: QueuePauseReason
-    version: number             // Date.now()，用于过期广播丢弃
+    version: number              // performance.now() + Math.random()，双因子避免毫秒级碰撞
   }
 
   /** 新 tab 打开 session 时请求状态 */
@@ -387,17 +443,71 @@ export interface CrossTabEvents {
 }
 ```
 
+**接收方实现（重要：必须严格按此模式，否则产生广播风暴）**：
+
+```typescript
+// 在 useChatSessionManager setup 顶层
+const lastAppliedVersion = new Map<string, number>()
+
+useCrossTabListener('chat-queue:sync', (payload) => {
+  // 守卫 1：忽略自己广播的 echo
+  if (payload.tabId === tabId) return
+  // 守卫 2：忽略过期广播（version 小于等于已应用的）
+  const sid = payload.sessionId
+  const lastV = lastAppliedVersion.get(sid) ?? 0
+  if (payload.version <= lastV) return
+  lastAppliedVersion.set(sid, payload.version)
+
+  // 应用到本地 Map（不再调用 broadcastState，避免风暴）
+  queuesBySession.set(sid, payload.queue)
+  if (payload.pauseReason === null) queuePausedBy.delete(sid)
+  else queuePausedBy.set(sid, payload.pauseReason)
+})
+
+useCrossTabListener('chat-queue:hello', (payload) => {
+  if (payload.tabId === tabId) return
+  const sid = payload.sessionId
+  // 仅当本 tab 持有该 session 的队列状态时回应
+  if (queuesBySession.has(sid) || queuePausedBy.has(sid)) {
+    postCrossTabEvent('chat-queue:sync', {
+      sessionId: sid,
+      tabId,
+      queue: queuesBySession.get(sid) ?? [],
+      pauseReason: queuePausedBy.get(sid) ?? null,
+      version: performance.now() + Math.random(),
+    })
+  }
+})
+```
+
+**硬约束（代码注释级）**：`useCrossTabListener('chat-queue:sync', ...)` 的回调**绝对不能**再调用 `broadcastState` 或 `postCrossTabEvent('chat-queue:sync', ...)`，否则形成死循环。接收路径纯粹是"写本地 Map"，不触发外广播。
+
+**Tab ID 生成（重要：避免 SSR 陷阱）**：
+
+```typescript
+// 在 useChatSessionManager setup 顶层
+import { nanoid } from 'nanoid'
+
+let tabId = ''
+onMounted(() => {
+  // 必须在 onMounted 内生成，避免 Nuxt useState 在 SSR 阶段 hydration
+  // 导致同一浏览器的所有 tab 共享同一个 tabId
+  tabId = nanoid()
+})
+```
+
+**不能使用** `useState('chat-tab-id', () => nanoid())`：Nuxt `useState` 在 SSR 时执行工厂并 hydration 到客户端，**同一浏览器所有 tab 共享同一个 tabId**，破坏"每 tab 独立"的前提。
+
 **协议流程**：
 
 | 动作 | 发起方 | 接收方行为 |
 |-----|-------|-----------|
-| enqueue / remove / clear / pause / resume / pop | 任一 tab 产生 Map 变化后调用 `broadcastState(sid)` | 其他 tab 的 `useCrossTabListener('chat-queue:sync', ...)` 接收：若 `tabId !== 自己`、`sessionId === currentSessionId.value`、`version > 上次应用的 version`，则用 `queue` 和 `pauseReason` 替换本地对应 session 的状态 |
-| 新 tab 初始化 session | tab `init()` 完成后 `postCrossTabEvent('chat-queue:hello', { sessionId, tabId })` | 其他持有该 session 状态的 tab 响应一次 `chat-queue:sync` |
+| enqueue / remove / clear / pause / resume / pop | 任一 tab 产生 Map 变化后调用 `broadcastState(sid)` | 其他 tab `useCrossTabListener('chat-queue:sync', ...)` 接收：先校验 `tabId !== self`、`version > lastAppliedVersion`，通过则用 payload 替换本地 Map。**不再二次广播** |
+| 新 tab 初始化 session | tab `init()` 完成后 `postCrossTabEvent('chat-queue:hello', { sessionId, tabId })` | 持有该 session 状态的其他 tab 响应一次 `chat-queue:sync`（见上方接收方代码） |
 | 派发（sendMessage 前） | 任一 tab `maybeDispatch` 持 Web Lock | 其他 tab 的 `navigator.locks.request({ ifAvailable: true })` 返回 null，放弃派发。派发成功后 `broadcastState` 同步队列 |
+| deleteSession | 删除 session 的 tab 清理 Map 后广播一次 `chat-queue:sync` with `queue: []` | 其他 tab 应用空队列并清除 `queuePausedBy` |
 
-**Tab ID 生成**：`app.vue` 或 plugin 内一次性 `const tabId = useState('chat-tab-id', () => nanoid())`，或直接在 `useChatSessionManager` 初始化时生成闭包变量。
-
-**Web Locks API 环境**：Chrome 69+ / Firefox 96+ / Safari 15.4+ / Edge 79+ 均支持，项目目标是现代浏览器。不支持时（极老浏览器 / SSR）降级为"无锁直接派发"，此时多 tab 可能双发，但项目部署环境无此场景。
+**Web Locks API 环境**：Chrome 69+ / Firefox 96+ / Safari 15.4+（2022-03 之前版本不支持） / Edge 79+，项目目标是现代浏览器。不支持时降级为"无锁直接派发"，此时多 tab 可能双发，项目部署环境可接受。
 
 **不做的事**：
 - 不用 localStorage 做"离线队列"持久化（保持"仅内存"原则）
@@ -590,41 +700,44 @@ function truncate(text: string, max = 24) {
     <!-- 基于 ai-elements/queue 的列表 -->
     <div class="p-2 max-h-[180px] overflow-y-auto">
       <AiElementsQueue>
-        <AiElementsQueueItem v-for="(item, index) in queue" :key="item.id">
-          <div class="flex items-center gap-2">
-            <!-- 序号指示器（复用 QueueItemIndicator 的圆点，加数字 badge） -->
-            <Badge variant="secondary" class="shrink-0 text-[10px] h-5 px-1.5">#{{ index + 1 }}</Badge>
+        <!-- 通过 class 覆盖 QueueItem 默认的 flex-col 为 flex-row，避免外套一层 div 破坏基元语义 -->
+        <AiElementsQueueItem
+          v-for="(item, index) in queue"
+          :key="item.id"
+          class="!flex-row items-center gap-2"
+        >
+          <!-- 序号 badge -->
+          <Badge variant="secondary" class="shrink-0 text-[10px] h-5 px-1.5">#{{ index + 1 }}</Badge>
 
-            <!-- 文本内容（复用 QueueItemContent 的 line-clamp 样式） -->
-            <Tooltip>
-              <TooltipTrigger as-child>
-                <AiElementsQueueItemContent>
-                  {{ truncate(item.text) }}
-                </AiElementsQueueItemContent>
-              </TooltipTrigger>
-              <TooltipContent class="max-w-md">
-                <div class="text-xs whitespace-pre-wrap">{{ item.text }}</div>
-                <div v-if="item.files?.length" class="mt-1 text-[10px] text-muted-foreground">
-                  附件：{{ item.files.map(f => f.fileName).join('、') }}
-                </div>
-              </TooltipContent>
-            </Tooltip>
+          <!-- 文本内容（复用 QueueItemContent 的 line-clamp） -->
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <AiElementsQueueItemContent>
+                {{ truncate(item.text) }}
+              </AiElementsQueueItemContent>
+            </TooltipTrigger>
+            <TooltipContent class="max-w-md">
+              <div class="text-xs whitespace-pre-wrap">{{ item.text }}</div>
+              <div v-if="item.files?.length" class="mt-1 text-[10px] text-muted-foreground">
+                附件：{{ item.files.map(f => f.fileName).join('、') }}
+              </div>
+            </TooltipContent>
+          </Tooltip>
 
-            <!-- 附件数 -->
-            <Badge v-if="item.files?.length" variant="outline" class="shrink-0 h-5 text-[10px]">
-              <PaperclipIcon class="size-3" /> {{ item.files.length }}
-            </Badge>
+          <!-- 附件数 -->
+          <Badge v-if="item.files?.length" variant="outline" class="shrink-0 h-5 text-[10px]">
+            <PaperclipIcon class="size-3" /> {{ item.files.length }}
+          </Badge>
 
-            <!-- thinking 标记 -->
-            <BrainIcon v-if="item.thinking" class="size-3.5 text-primary shrink-0" />
+          <!-- thinking 标记 -->
+          <BrainIcon v-if="item.thinking" class="size-3.5 text-primary shrink-0" />
 
-            <!-- 删除按钮（复用 QueueItemActions + QueueItemAction，hover 才显示） -->
-            <AiElementsQueueItemActions class="shrink-0">
-              <AiElementsQueueItemAction @click="emit('remove', item.id)">
-                <XIcon class="size-3" />
-              </AiElementsQueueItemAction>
-            </AiElementsQueueItemActions>
-          </div>
+          <!-- 删除按钮（hover 才显示） -->
+          <AiElementsQueueItemActions class="shrink-0">
+            <AiElementsQueueItemAction @click="emit('remove', item.id)">
+              <XIcon class="size-3" />
+            </AiElementsQueueItemAction>
+          </AiElementsQueueItemActions>
         </AiElementsQueueItem>
       </AiElementsQueue>
     </div>
@@ -678,7 +791,7 @@ function truncate(text: string, max = 24) {
 | 2 | 派发时 `currentChat.value === null` | `maybeDispatch` 守卫 4 提前 return，**不会 pop 队头**。队列保持完整，等下次 runStatus 切到 completed 再尝试 |
 | 3 | 队列中某条消息的 files 已被后端删除 | 此场景仅在未来启用文件上传后才可能出现（当前 files 字段不被派发，见 §5.6）。届时后端 prompt 构造阶段报错 → 走场景 #1 的 `failed` 路径 → 自动暂停 |
 | 4 | 队列有内容时删除当前 session | `deleteSession` 按以下顺序：①delete API → ②清理 `queuesBySession.delete(sid)` + `queuePausedBy.delete(sid)` → ③从 sessions 数组移除 → ④`switchSession` 到下一条或 `createSession`。清理必须在 switchSession **之前** |
-| 5 | 派发中切换 session | `switchSession` 先 dispose 旧 chat scope，但 dispatcher 挂在**manager scope**不受影响。新 session 的 reconnect/loadHistory 不触发 runStatus 变化，dispatcher 不误派发 |
+| 5 | 派发中切换 session | `switchSession` 先 dispose 旧 chat 的 inner scope。dispatcher 挂在**manager setup 顶层**不受影响。新 session 即使 reconnect 重放 `status_change: completed`，溯源守卫（`lastLocalSendSeq` 未增长）也会拒绝派发 |
 | 6 | 用户在已满队列再按回车 | `enqueueMessage` 返回 `false`，组件层 `handleSubmit` 显示 toast，输入框**不清空**（用户输入不丢失） |
 | 7 | 用户刚 enqueue 未派发就点停止 | `stopGeneration` 触发，`runStatus='cancelled'` → 暂停队列。刚入队消息保留，等待恢复 |
 | 8 | 派发的消息触发后端 interrupt | 后端 `agentWorker.ts:277-283` publish `status_change: interrupted`，`interruptData` 被设置 → 现有 `<Dialog>` 弹出。dispatcher 的 `maybeDispatch` 因守卫 2 `interruptData.value` 非 null 而 return，**即便此时 isLoading 已经变 false** 也不派发 |
@@ -689,6 +802,8 @@ function truncate(text: string, max = 24) {
 | 13 | 跨标签同时派发同一条消息 | 两个标签都收到 `runStatus=completed` → 都调用 `maybeDispatch` → 都请求 `navigator.locks`。仅一个 tab 持锁成功，另一个 `lock === null` 直接 return，无副作用 |
 | 14 | 新标签打开时已有其他 tab 持有队列状态 | 新 tab 在 `init()` 中 `postCrossTabEvent('chat-queue:hello', { sessionId, tabId })`；其他 tab 监听到 hello 后 `postCrossTabEvent('chat-queue:sync', ...)` 回应当前状态 |
 | 15 | 用户在 tab A 清空队列，tab B 正巧派发中 | tab B 若已拿到 Web Lock 并在 sendMessage 中途，会先完成当前派发（因为 Web Lock 是在派发入口加锁）。A 的清空广播到 B 时，B 应用 `clearAction`，清空剩余条目。未清空"正在发送"的那一条是可接受的 |
+| 16 | `doDispatch` 内 `sendMessage` 同步抛错 | try/catch 捕获 → `queuePausedBy.set(sid, 'failed')` + broadcast → 队头仍保留，用户可手动恢复重试 |
+| 17 | **暂停态 + 队列被清空死锁** | `clearQueue` 和 `removeQueueItem`（移除后队列变空时）自动 `queuePausedBy.delete(sid)` 并广播。避免"用户删光所有 chip 后仍锁在暂停态"的永久性死锁 |
 
 ### 8.2 用户预期边界
 
@@ -807,7 +922,8 @@ vi.mock('~/composables/useCaseChat', () => ({ useCaseChat: () => mockChat }))
 | 连续 pop | `runStatus` 模拟 completed → running → completed 循环 | `sendMessage` 依次调用 2 次，队列最终空 |
 | 暂停守卫（cancelled） | enqueue 2 → `runStatus: running → cancelled` | `sendMessage` 未被调用，队列保留，`isQueuePaused=true` |
 | 失败守卫（failed） | enqueue 2 → `runStatus: running → failed` | 同上，`queuePauseReason='failed'` |
-| **reconnect 假边沿不误派发** | enqueue 2 → 模拟 `isLoading: true → false` 但 runStatus 保持 `idle` | `sendMessage` **未**被调用（覆盖 Critical 1） |
+| **reconnect replay 不误派发** | 模拟 reconnect 时后端补发 `runStatus: idle → running → completed`（未调用过本地 sendMessage） | `sendMessage` **未**被调用（溯源守卫 `lastLocalSendSeq=0 ≤ lastDispatchedSeq=0`，覆盖 Critical 1） |
+| **loadHistory 无 runStatus 变化** | 模拟 loadHistory：runStatus 保持 idle，isLoading: true→false | `sendMessage` **未**被调用（isLoading 守卫 + runStatus 未变化） |
 | **interrupted 不派发** | enqueue 2 → `runStatus: running → interrupted` → `interruptData` 被设置 → 即使 isLoading 变 false | `sendMessage` **未**被调用（覆盖 Critical 2） |
 | interrupt 后 completed 派发 | 同上 → 模拟 `interruptData=null` + `runStatus: interrupted → completed` | `sendMessage` 调用一次 |
 | 手动恢复 | 暂停后 `resumeQueue()` | `sendMessage` 调用一次，暂停态清除 |
@@ -857,7 +973,58 @@ vi.mock('~/composables/useCaseChat', () => ({ useCaseChat: () => mockChat }))
 
 **文件**：`tests/app/components/ai/composables/crossTabQueue.test.ts`
 
-Mock `BroadcastChannel` 和 `navigator.locks`：
+**Mock 基础设施**：项目此前没有 BroadcastChannel / Web Locks 的 mock 先例，需新建通用工具：
+
+**文件**：`tests/utils/crossTabMocks.ts`（新建）
+
+```typescript
+import { vi } from 'vitest'
+
+/** 建立 BroadcastChannel 的手工 pub/sub 实现 */
+export function stubBroadcastChannel() {
+  const listeners = new Map<string, Set<(ev: MessageEvent) => void>>()
+  class MockChannel {
+    constructor(public name: string) {
+      if (!listeners.has(name)) listeners.set(name, new Set())
+    }
+    postMessage(data: unknown) {
+      listeners.get(this.name)?.forEach(fn => fn({ data } as MessageEvent))
+    }
+    set onmessage(fn: (ev: MessageEvent) => void) {
+      listeners.get(this.name)?.add(fn)
+    }
+    close() { /* no-op */ }
+  }
+  vi.stubGlobal('BroadcastChannel', MockChannel)
+  return () => { listeners.clear(); vi.unstubAllGlobals() }
+}
+
+/** 建立 navigator.locks 的简单串行实现 */
+export function stubNavigatorLocks() {
+  const held = new Set<string>()
+  vi.stubGlobal('navigator', {
+    locks: {
+      async request(
+        name: string,
+        opts: { ifAvailable?: boolean },
+        cb: (lock: unknown) => Promise<void>,
+      ) {
+        if (held.has(name)) {
+          if (opts.ifAvailable) return cb(null)
+          throw new Error('lock held')
+        }
+        held.add(name)
+        try { await cb({}) } finally { held.delete(name) }
+      },
+    },
+  })
+  return () => { held.clear(); vi.unstubAllGlobals() }
+}
+```
+
+这两个工具后续可被任何跨标签功能测试复用，避免重复造轮子。
+
+**测试用例**：
 
 | 用例 | 断言 |
 |-----|------|
@@ -865,7 +1032,10 @@ Mock `BroadcastChannel` 和 `navigator.locks`：
 | Tab A remove → Tab B 接收 | Tab B 的队列同步减少 |
 | Tab A pause → Tab B 接收 | Tab B 的 `isQueuePaused` 为 true |
 | 新 tab hello → 旧 tab 响应 sync | 新 tab 收到旧 tab 的状态并应用 |
-| 两 tab 同时 maybeDispatch | 只有一个拿到 Web Lock，另一个 return 无副作用 |
+| 两 tab 同时 maybeDispatch | 只有一个拿到 Web Lock，另一个 `lock===null` 返回无副作用 |
+| 持锁 tab `sendMessage` 抛错 | catch 分支写入 `queuePausedBy='failed'` 并 broadcast，队头保留 |
+| Listener 自回过滤 | tabId 相同的 `chat-queue:sync` 事件被忽略（版本未更新） |
+| 过期版本丢弃 | `version < lastApplied` 的 sync 事件被忽略 |
 | 无 `navigator.locks` 环境降级 | 直接执行派发（单 tab 默认路径） |
 
 ### 9.7 E2E 测试（Playwright）
@@ -948,10 +1118,11 @@ E2E 命令：`npx playwright test tests/e2e/xiaosuo-chat-queue.spec.ts`
 | 文件 | 说明 |
 |-----|------|
 | `app/composables/chatQueueActions.ts` | 纯函数 + 类型 + 常量（`QueueItem`, `QueuePauseReason`, `QUEUE_MAX_SIZE`, `enqueueAction`, `removeAction`, `clearAction`, `pauseAction`, `resumeAction`） |
-| `app/composables/useQueueDispatcher.ts` | watcher 副作用 + Web Locks 互斥 + 跨标签广播 |
-| `app/components/ai/AiChatQueueChips.vue` | 队列 chip 组件（基于 `ai-elements/queue` 基元组合） |
+| `app/composables/useQueueDispatcher.ts` | watcher 副作用 + 溯源守卫 + Web Locks 互斥 + 跨标签广播 |
+| `app/components/ai/AiChatQueueChips.vue` | 队列 chip 组件（基于 `ai-elements/queue` 基元组合，使用 `!flex-row` class 覆盖） |
+| `tests/utils/crossTabMocks.ts` | **新建通用测试基础设施**：`stubBroadcastChannel` + `stubNavigatorLocks`，后续跨标签功能可复用 |
 | `tests/app/components/ai/composables/chatQueueActions.test.ts` | 纯函数单测 |
-| `tests/app/components/ai/composables/useChatSessionManager.test.ts` | 响应式集成测试（含 reconnect 假边沿、interrupted、cross-tab 等用例） |
+| `tests/app/components/ai/composables/useChatSessionManager.test.ts` | 响应式集成测试（含 reconnect 假边沿、interrupted、doDispatch 错误处理等用例） |
 | `tests/app/components/ai/composables/crossTabQueue.test.ts` | 跨标签同步单测 |
 | `tests/app/components/ai/AiChatQueueChips.test.ts` | 组件测试 |
 | `tests/e2e/xiaosuo-chat-queue.spec.ts` | E2E 测试 |
@@ -975,13 +1146,19 @@ Spec 阶段确认的关键决策，规划与实现阶段无需重新争论：
 | 停止后处理 | 保留已生成内容标记"已取消" | 符合 ChatGPT / Claude.ai 既有心智 |
 | 失败后处理 | 自动暂停，等待手动恢复 | 与停止路径对称，避免故障连锁 |
 | 暂停态 handleSubmit | 强制走 enqueue，用户必须显式恢复或清空 | 避免"暂停队列 + 绕过发送"的 UI 错乱 |
+| 暂停态 + 空队列 | 自动清除暂停标记（clearQueue / 最后一次 removeQueueItem） | 避免用户删光 chip 后死锁 |
 | 持久化范围 | 仅内存 + 跨 tab 同步，关闭所有 tab 即丢失 | 跨设备 YAGNI；跨 tab 复用现有 BroadcastChannel 基础设施 |
 | files 字段 | 类型结构保留，运行时不传递 | 前瞻性设计，零成本 |
 | `sendMessage` 签名 | 本次**不**扩展 | 当前 UI 不产生 files 数据，避免死代码 |
 | 停止 vs 加入队列 UI | 两按钮并排 | 避免"单按钮两种模式"的认知负担 |
-| 派发触发源 | `watch(runStatus === 'completed')` 而非 `watch(isLoading)` | 规避 reconnect/loadHistory 的 isLoading 假边沿 |
+| 派发触发源 | `watch(runStatus === 'completed')` **+ 溯源守卫 `lastLocalSendSeq`** | 既规避 reconnect replay 的 `status_change` 重放，也规避 loadHistory 的 isLoading 假边沿 |
 | 跨 tab 互斥 | `navigator.locks.request({ ifAvailable: true })` | 浏览器级分布式锁，无需自建协议 |
 | Map 响应式方案 | `reactive(new Map())`（CollectionHandlers） | Vue 3 内置支持，无需 version counter 手动触发 |
-| Chip UI 复用 | 基于 `ai-elements/queue/*` 基元 | 项目已有 16 个原子组件 + `AiTaskQueue.vue` 参考实现，严禁重复造轮子 |
+| Chip UI 复用 | 基于 `ai-elements/queue/*` 基元 + `!flex-row` class 覆盖 | 项目已有 16 个原子组件 + `AiTaskQueue.vue` 参考实现，严禁重复造轮子；不外套 div 破坏基元语义 |
 | Composable 文件结构 | 扁平（`chatQueueActions.ts` + `useQueueDispatcher.ts`） | 项目现有 35 个 composable 零子目录先例 |
 | 停止按钮防抖 | 组件层 `isStopping` ref + 3s 超时复位 | 避免用户快速双击导致后端 cancel API 重复调用 |
+| TabId 生成时机 | **`onMounted` 内**闭包生成 `nanoid()` | 避免 Nuxt `useState` SSR hydration 导致所有 tab 共享同一 ID |
+| 跨 tab listener 模式 | **直接 merge payload 到本地 Map**（而非 refetch） | 队列无服务端持久化，无法 refetch；与项目现有 listener 模式的偏离是必需的 |
+| broadcastState 调用约束 | 仅在本地 mutation 路径调用；listener 接收事件后**不得**二次广播 | 硬约束级，防止死循环 |
+| `doDispatch` 错误处理 | `try/catch` 包裹 `sendMessage`，失败时显式 `queuePausedBy='failed'` + broadcast | 避免"Web Lock 释放后其他 tab 重复派发" |
+| 测试 mock 基础设施 | 新建 `tests/utils/crossTabMocks.ts` 供所有跨标签功能复用 | 避免未来重复造轮子 |
