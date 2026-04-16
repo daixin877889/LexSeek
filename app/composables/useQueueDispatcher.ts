@@ -43,30 +43,35 @@ export function useQueueDispatcher(deps: QueueDispatcherDeps) {
   // reconnect 重放的 completed 不经过本地 sendMessage，seq 不增长，守卫拒绝
   let lastDispatchedSeq = 0
 
-  // 触发器：watch runStatus 到终止态
-  watch(deps.runStatus, (next, prev) => {
+  // ── 暂停路径：failed / cancelled 自动暂停队列 ──
+  watch(deps.runStatus, (next) => {
     const sid = deps.currentSessionId.value
     if (!sid) return
-
-    // 暂停路径：failed / cancelled 自动暂停队列
     if (next === 'failed' || next === 'cancelled') {
       deps.queuePausedBy.set(sid, next === 'failed' ? 'failed' : 'stopped')
       broadcastState(sid)
-      return
     }
-
-    // 派发路径：仅真正 completed 才派发下一条
-    if (next === 'completed' && prev !== 'completed') {
-      // 溯源守卫：只有"本 tab 本地发送过新消息"才允许派发
-      // reconnect 重放的 completed 不经过本地 sendMessage，seq 未增长，守卫拒绝
-      if (deps.lastLocalSendSeq.value > lastDispatchedSeq) {
-        lastDispatchedSeq = deps.lastLocalSendSeq.value
-        nextTick(() => maybeDispatch())
-      }
-    }
-
     // interrupted：不暂停也不派发（Dialog 由 interruptData 驱动）
     // pending / running / idle：不做任何操作
+  })
+
+  // ── 派发路径：等 completed && !isLoading && !interruptData 三者都 ready 才派发 ──
+  // 早期方案只 watch(runStatus='completed') 在 isLoading 尚未 false 时会被守卫 3 拦截，
+  // 随后 isLoading 变 false 时没有新的 runStatus 事件重新触发 watch，导致队列卡住永不派发。
+  // 用 computed 聚合三个条件，watch 只在它从 false→true 时触发，保证 isLoading 彻底 settle。
+  const canDispatch = computed(() =>
+    deps.runStatus.value === 'completed'
+    && !deps.isLoading.value
+    && !deps.interruptData.value,
+  )
+  watch(canDispatch, (ready) => {
+    if (!ready) return
+    // 溯源守卫：只有"本 tab 本地发送过新消息"才允许派发
+    // reconnect 重放不经过本地 sendMessage，seq 未增长，守卫拒绝
+    if (deps.lastLocalSendSeq.value > lastDispatchedSeq) {
+      lastDispatchedSeq = deps.lastLocalSendSeq.value
+      nextTick(() => maybeDispatch())
+    }
   })
 
   async function maybeDispatch() {
