@@ -1,8 +1,8 @@
 # 小索子 Agent 分析持久化与上下文复用设计
 
-**版本**: 1.0
+**版本**: 1.1
 **日期**: 2026-04-17
-**状态**: 待审查
+**状态**: 审查通过
 
 ---
 
@@ -94,7 +94,7 @@ middleware: [
 
 ### 3.2 中间件栈变更
 
-**改造后小索 Agent**（`caseMainAgent`）中间件栈：
+**改造后小索 Agent**（`caseMainAgent`）中间件栈（按 priority 逻辑顺序展示）：
 
 ```
 caseProcessMaterial (10)
@@ -104,6 +104,8 @@ caseProcessMaterial (10)
   → safetyTrim (50)
   → skills (60)
 ```
+
+> **物理顺序说明**：`caseMainAgent.ts` 当前不通过 `buildMiddlewareStack` 排序，而是直接传入数组，物理顺序为 `pointConsumption → caseProcessMaterial → caseMaterialContext → summarization → safetyTrim → skills`（即 pointConsumption 排在 caseProcessMaterial 之前）。本次改造**不调整 pointConsumption 与 caseProcessMaterial 的物理顺序，仅替换 caseMaterialContext → moduleContext**，避免引入超出本 spec 范围的回归风险。
 
 **改造后子 Agent**（`subAgentToolFactory` 内部）中间件栈：
 
@@ -246,11 +248,13 @@ const agent = createAgent({
 +       analysisResultPersistenceMiddleware({
 +           agentName: config.name,    // 与 nodes 表的 name 对齐
 +           caseId: context.caseId,
-+           sessionId: context.sessionId,
++           sessionId: context.sessionId,  // ← 主 sessionId，不是 subThreadId
 +       }),
     ],
 })
 ```
+
+> **sessionId 选择说明**：子 Agent 内部使用 `subThreadId = ${context.sessionId}_sub_${safeName}` 作为 LangGraph thread_id（用于 checkpointer 隔离子 Agent 的对话状态），但 `analysisResultPersistenceMiddleware` 的 `sessionId` 参数应**传入主 sessionId**（即 `context.sessionId`）。理由：`caseAnalyses.sessionId` 在数据模型里表示"产生该版本的会话"，按案件维度归属；版本树服务于"用户在哪个对话里跑出来的"这一业务语义，而非"在哪个子 thread 里跑出来的"技术细节。`findAnalysisBySessionAndNodeDao(sessionId, nodeId, IN_PROGRESS)` 复用记录时也按主 sessionId 维度归并。
 
 **失败路径**：现有 `try-catch`（行 229-233）保持不动。`analysisResultPersistenceMiddleware.beforeAgent` 创建的 IN_PROGRESS 记录如果因子 Agent 异常未走完 `afterAgent`，由现有 `cleanupStaleAnalysesService`（2 小时兜底，见 `analysis.service.ts`）清理。该机制 [tech-docs/backend/case.md](../../tech-docs/backend/case.md) 已记录。
 
@@ -372,6 +376,7 @@ caseMainAgent → LLM
 - **场景 1**：创建小索 session → 触发 `ask_summary_expert` → 验证 `caseAnalyses` 表新增 isActive 版本，旧版本 isActive=false
 - **场景 2**：同 caseId 已有 isActive summary → 小索对话上下文应包含该 summary
 - **场景 3**：模块对话保存新版本 → 切换到小索 session → 小索看到新版本（验证 hash 增量更新）
+- **场景 4**：子 Agent 异常路径（mock LLM 抛错）→ 验证不会留下 `status=COMPLETED + isActive=false` 的脏数据；IN_PROGRESS 记录由 cleanup 服务兜底
 
 ### 7.3 测试约束
 
