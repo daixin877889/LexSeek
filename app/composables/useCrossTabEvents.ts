@@ -14,6 +14,8 @@
  * })
  */
 
+import type { QueueItem, QueuePauseReason } from './chatQueueActions'
+
 const CHANNEL_NAME = 'lexseek:cross-tab'
 
 /** 跨标签页事件类型定义，新增事件在此扩展 */
@@ -26,6 +28,22 @@ export interface CrossTabEvents {
     'points:changed': Record<string, never>
     /** 登出（预留） */
     'auth:logout': Record<string, never>
+    /** 队列状态完整快照（mutate 后广播） */
+    'chat-queue:sync': {
+        sessionId: string
+        /** 发送方 tab 标识，接收方用于自回过滤 */
+        tabId: string
+        /** 完整队列快照 */
+        queue: QueueItem[]
+        pauseReason: QueuePauseReason
+        /** performance.now() + Math.random()，双因子避免毫秒级碰撞 */
+        version: number
+    }
+    /** 新 tab 打开 session 时请求状态 */
+    'chat-queue:hello': {
+        sessionId: string
+        tabId: string
+    }
 }
 
 type EventType = keyof CrossTabEvents
