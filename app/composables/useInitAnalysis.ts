@@ -22,6 +22,63 @@ interface InitAnalysisState extends Record<string, unknown> {
   __interrupt__?: any[]
 }
 
+/**
+ * 按 INIT_ANALYSIS_MODULES 顺序找出 selectedModules 里的首个模块
+ *
+ * 与服务端 validateAndSortModules（按 VALID_MODULE_NAMES 排序）结果对齐，
+ * 避免 startAnalysis 本地标的 firstModule 与服务端实际执行顺序错位。
+ */
+export function pickFirstSelectedModule(
+  selectedModules: string[],
+): string | undefined {
+  return INIT_ANALYSIS_MODULES
+    .map(m => m.name)
+    .find(name => selectedModules.includes(name))
+}
+
+/**
+ * 根据 SSE values 快照计算最新 moduleStates
+ *
+ * 优先级：
+ * 1. SSE result 命中           → complete
+ * 2. SSE failedModules 命中    → failed
+ * 3. 上一帧已是终态（complete/failed，来自 loadStatus DB 或更早 SSE）→ 保留
+ * 4. 兜底 idle，下面 currentStreaming 推断再覆盖为 streaming
+ *
+ * 最后按 selectedModules 顺序找第一个非终态模块标 streaming。
+ *
+ * 关键设计：
+ * - 不再以 `{...prev}` 浅拷贝起步，避免 'streaming' 在选中列表变化时残留
+ * - 上一帧的 complete/failed 终态优先于 SSE 缺失，避免过期 checkpoint
+ *   抹除 loadStatus 从 caseAnalyses DB 表恢复的真值
+ */
+export function computeModuleStatesFromSnapshot(
+  selectedModules: string[],
+  result: Record<string, string | undefined> | undefined,
+  failedModules: Record<string, string | undefined> | undefined,
+  prev: Record<string, ModuleRunState>,
+): Record<string, ModuleRunState> {
+  const next: Record<string, ModuleRunState> = {}
+  for (const m of selectedModules) {
+    if (result?.[m]) {
+      next[m] = { name: m, status: 'complete', content: result[m] as string }
+    } else if (failedModules?.[m]) {
+      next[m] = { name: m, status: 'failed', content: '', error: failedModules[m] as string }
+    } else if (prev[m]?.status === 'complete' || prev[m]?.status === 'failed') {
+      next[m] = prev[m]!
+    } else {
+      next[m] = { name: m, status: 'idle', content: '' }
+    }
+  }
+  const currentStreaming = selectedModules.find(m =>
+    next[m]!.status !== 'complete' && next[m]!.status !== 'failed',
+  )
+  if (currentStreaming) {
+    next[currentStreaming] = { name: currentStreaming, status: 'streaming', content: '' }
+  }
+  return next
+}
+
 export function useInitAnalysis(sessionId: Ref<string>) {
   const phase = ref<'select' | 'running' | 'complete'>('select')
   const caseId = ref<number>(0)
@@ -216,32 +273,15 @@ export function useInitAnalysis(sessionId: Ref<string>) {
     }
     streamStarted = true
 
-    // 统一计算所有模块状态（基于 result/failedModules 的实际内容判断）
-    const updated = { ...moduleStates.value }
-    for (const m of selectedModules.value) {
-      if (result?.[m]) {
-        // 有结果 → complete
-        updated[m] = { name: m, status: 'complete', content: result[m] as string }
-      } else if (failedModules?.[m]) {
-        // 失败 → failed
-        updated[m] = { name: m, status: 'failed', content: '', error: failedModules[m] as string }
-      } else if (updated[m]?.status === 'complete' || updated[m]?.status === 'failed') {
-        // 之前已完成/失败了，但 result 变了？回归 idle 让下一轮更新修正
-        updated[m] = { name: m, status: 'idle', content: '' }
-      }
-      // else: 保持原状态（idle 或 streaming）
-    }
-
-    // 推断当前正在执行的模块（基于 selectedModules 顺序，串行条件边保证执行顺序）
-    // values 事件在节点完成后才发，所以第一个没有 result/failed 的模块就是当前正在执行的
-    const currentStreaming = selectedModules.value.find(m =>
-      updated[m]?.status !== 'complete' && updated[m]?.status !== 'failed',
+    // 统一计算所有模块状态（提取的纯函数，覆盖根因 1+3：
+    //   - 不再以 prev 浅拷贝起步，避免 streaming 残留
+    //   - 上一帧 complete/failed 终态优先于 SSE 缺失，避免过期 checkpoint 抹除 DB 真值）
+    moduleStates.value = computeModuleStatesFromSnapshot(
+      selectedModules.value,
+      result,
+      failedModules,
+      moduleStates.value,
     )
-    if (currentStreaming && updated[currentStreaming]?.status !== 'streaming') {
-      updated[currentStreaming] = { name: currentStreaming, status: 'streaming', content: '' }
-    }
-
-    moduleStates.value = updated
 
     // 跨标签页通知：基于签名去重，避免 reconnect 造成的无意义广播循环
     if (caseId.value > 0) {
@@ -423,7 +463,9 @@ export function useInitAnalysis(sessionId: Ref<string>) {
   }
 
   function startAnalysis() {
-    const firstModule = selectedModules.value[0]
+    // 用 INIT_ANALYSIS_MODULES 顺序找首个模块（与服务端 validateAndSortModules 对齐，
+    // 覆盖根因 2：用户乱序勾选时，本地 firstModule 不再与服务端实际执行顺序错位）
+    const firstModule = pickFirstSelectedModule(selectedModules.value)
     const initial: Record<string, ModuleRunState> = {}
     for (const name of selectedModules.value) {
       // 第一个模块立即标记为 streaming，其余 idle
