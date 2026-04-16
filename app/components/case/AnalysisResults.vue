@@ -413,8 +413,8 @@ function formatAnalyzedAt(dateStr: string): string {
 
 <template>
     <div :class="cn('flex flex-col h-full container-[inline-size]', props.class)">
-        <!-- 模块对话按钮 - 定位在正文右上角 -->
-        <Button v-if="effectiveShowRegenerate && !isCurrentRegenerating" variant="outline"
+        <!-- 模块对话按钮 - 仅在单模块详情视图显示（关闭模块预览回到仪表盘时隐藏） -->
+        <Button v-if="currentViewMode === 'detail' && effectiveShowRegenerate && !isCurrentRegenerating" variant="outline"
             size="sm"
             class="module-chat-btn absolute top-[88px] right-8 z-50 gap-1.5 rounded-full border-primary/30 text-primary bg-background/80 backdrop-blur-sm shadow-sm hover:shadow-md hover:border-primary/60 hover:text-primary transition-all duration-300"
             :disabled="isCurrentRegenerating" @click="handleRegenerate">
