@@ -38,7 +38,7 @@ function truncate(text: string, max = 24): string {
     <!-- 状态横幅仅在暂停态显示；运行态下由 chip 队头 spinner 指示"即将派发" -->
     <div
       v-if="paused"
-      class="px-3 py-1.5 text-xs flex items-center gap-2 bg-amber-50 text-amber-700 border-b border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30"
+      class="px-3 py-1.5 text-xs flex items-center gap-2 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
     >
       <PauseIcon class="size-3.5 shrink-0" />
       <span>队列已暂停（{{ pauseReasonText }}）</span>
