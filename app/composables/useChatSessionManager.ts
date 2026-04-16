@@ -9,10 +9,25 @@
  * - hasActiveRun 自动 reconnect / loadHistory
  * - stopGeneration 双重取消（SSE + Worker）
  * - init 幂等保护
+ * - 消息队列（per-session FIFO）与跨标签同步
  */
 
 import { effectScope } from 'vue'
 import type { EffectScope, MaybeRef } from 'vue'
+import { nanoid } from 'nanoid'
+import {
+    // 只 import 纯函数层需要在 manager 中直接使用的 enqueueAction；
+    // removeAction / clearAction 不在 manager 层使用——它们返回完整新 Map，
+    // 而 manager 的 reactive(Map) 只需 .set(sid, filteredArr) 触发响应式。
+    // Phase 1 的两个函数保留作为纯逻辑单元测试用途，manager 层的
+    // removeQueueItem / clearQueue 直接用 filter/set 已满足 spec §8.3 的
+    // immutable 更新规则（spread 新数组 + reactive Map.set 而非 push mutate）。
+    enqueueAction,
+    type QueueItem,
+    type QueuePauseReason,
+} from './chatQueueActions'
+import { postCrossTabEvent, useCrossTabListener } from './useCrossTabEvents'
+import { useQueueDispatcher } from './useQueueDispatcher'
 
 export interface SessionItem {
     sessionId: string
@@ -58,12 +73,52 @@ export function useChatSessionManager(options: ChatSessionManagerOptions) {
     }
 
     // 代理当前对话状态
-    const messages = computed(() => currentChat.value?.messages.value ?? [])
-    const values = computed(() => currentChat.value?.values.value)
-    const isLoading = computed(() => currentChat.value?.isLoading.value ?? false)
-    const interruptData = computed(() => currentChat.value?.interruptData.value)
-    const runStatus = computed(() => currentChat.value?.runStatus.value ?? 'idle')
-    const runError = computed(() => currentChat.value?.runError.value ?? '')
+    // ⚠️ 使用双重可选链 `?.x?.value` 防御 mock chat 实例字段缺失场景
+    const messages = computed(() => currentChat.value?.messages?.value ?? [])
+    const values = computed(() => currentChat.value?.values?.value)
+    const isLoading = computed(() => currentChat.value?.isLoading?.value ?? false)
+    const interruptData = computed(() => currentChat.value?.interruptData?.value)
+    const runStatus = computed(() => currentChat.value?.runStatus?.value ?? 'idle')
+    const runError = computed(() => currentChat.value?.runError?.value ?? '')
+
+    // ── 队列状态（per-session 隔离） ──
+    // 使用 reactive(Map) 走 Vue 3 CollectionHandlers，.set / .delete 自动触发响应（spec §8.3）
+    const queuesBySession = reactive(new Map<string, QueueItem[]>())
+    const queuePausedBy = reactive(new Map<string, Exclude<QueuePauseReason, null>>())
+    // 本 tab 本地发送过的累计次数，每次 sendMessage 前 ++
+    // 供 dispatcher 的溯源守卫识别"本 tab 主动发起" vs "reconnect 重放"
+    const lastLocalSendSeq = ref(0)
+    // 跨 tab 过期广播过滤：记录每个 session 最近一次应用的 version
+    const lastAppliedVersion = new Map<string, number>()
+
+    // tabId 必须在 onMounted 内生成，避免 Nuxt useState 在 SSR 阶段 hydration
+    // 导致同一浏览器的所有 tab 共享同一个 tabId（spec §5.7）
+    let tabId = ''
+    onMounted(() => {
+        tabId = nanoid()
+    })
+
+    // ── 派生 computed ──
+    const currentQueue = computed<QueueItem[]>(() => {
+        const sid = currentSessionId.value
+        if (!sid) return []
+        return queuesBySession.get(sid) ?? []
+    })
+
+    const currentQueueLen = computed(() => currentQueue.value.length)
+
+    const isQueuePaused = computed(() => {
+        const sid = currentSessionId.value
+        if (!sid) return false
+        // 宽松比较：null 或 undefined 都视为非暂停（spec §5.1）
+        return queuePausedBy.get(sid) != null
+    })
+
+    const queuePauseReason = computed<QueuePauseReason>(() => {
+        const sid = currentSessionId.value
+        if (!sid) return null
+        return queuePausedBy.get(sid) ?? null
+    })
 
     // ── Session CRUD ──
 
@@ -130,6 +185,22 @@ export function useChatSessionManager(options: ChatSessionManagerOptions) {
 
     async function deleteSession(sessionId: string) {
         await useApiFetch(options.deleteUrl(sessionId), { method: 'DELETE' })
+
+        // 顺序（spec §5.5 表格 + §8.1 场景 #4）：
+        // ①delete API → ②清理队列 Map → ③广播空队列 → ④移除 sessions 数组 → ⑤switchSession
+        // ②+③ 必须在 ⑤ switchSession 之前，避免切走后其他 tab 仍看到旧队列
+        queuesBySession.delete(sessionId)
+        queuePausedBy.delete(sessionId)
+        lastAppliedVersion.delete(sessionId)
+        // 通知其他 tab 清理（payload 为空队列 + 非暂停）
+        postCrossTabEvent('chat-queue:sync', {
+            sessionId,
+            tabId,
+            queue: [],
+            pauseReason: null,
+            version: performance.now() + Math.random(),
+        })
+
         sessions.value = sessions.value.filter(s => s.sessionId !== sessionId)
 
         if (currentSessionId.value === sessionId) {
@@ -155,7 +226,78 @@ export function useChatSessionManager(options: ChatSessionManagerOptions) {
     // ── 消息操作 ──
 
     function sendMessage(text: string, opts?: { thinking?: boolean }) {
+        // 用户直接发送路径：自增 seq，供 dispatcher 的溯源守卫识别
+        // （dispatcher 的 doDispatch 内也要 ++，因其直接调 currentChat.sendMessage 绕过本 wrapper）
+        lastLocalSendSeq.value++
         currentChat.value?.sendMessage(text, opts)
+    }
+
+    // ── 队列操作 API ──
+
+    /**
+     * 入队一条消息；返回 false 表示队列已满
+     */
+    function enqueueMessage(text: string, files?: any[], thinking = false): boolean {
+        const sid = currentSessionId.value
+        if (!sid) return false
+        const item: QueueItem = {
+            id: nanoid(),
+            text,
+            files,
+            thinking,
+            enqueuedAt: Date.now(),
+        }
+        const snapshot = new Map(queuesBySession) as Map<string, QueueItem[]>
+        const { next, ok } = enqueueAction(snapshot, sid, item)
+        if (ok) {
+            // reactive Map 的 set 触发响应式
+            queuesBySession.set(sid, next.get(sid)!)
+            dispatcher.broadcastState(sid)
+        }
+        return ok
+    }
+
+    /**
+     * 按 id 删除队列条目；删除后若队列变空自动清除暂停标记（死锁防护）
+     */
+    function removeQueueItem(itemId: string) {
+        const sid = currentSessionId.value
+        if (!sid) return
+        const current = queuesBySession.get(sid) ?? []
+        const nextList = current.filter(i => i.id !== itemId)
+        queuesBySession.set(sid, nextList)
+        // 死锁防护：队列变空时自动清除暂停标记（spec §5.3 / §8.1 #17）
+        if (nextList.length === 0) queuePausedBy.delete(sid)
+        dispatcher.broadcastState(sid)
+    }
+
+    /**
+     * 清空当前 session 队列 + 清除暂停标记
+     */
+    function clearQueue() {
+        const sid = currentSessionId.value
+        if (!sid) return
+        queuesBySession.set(sid, [])
+        queuePausedBy.delete(sid)
+        dispatcher.broadcastState(sid)
+    }
+
+    /**
+     * 恢复队列：清除暂停标记 + 主动触发一次派发尝试
+     *
+     * 关于"绕过 seq 守卫"的精确语义（spec §5.4）：
+     * - seq 守卫仅存在于 watch(runStatus) 回调内，maybeDispatch 入口本身不读 seq。
+     * - 手动调 maybeDispatch 在结构上就不经过 seq 守卫，无需特殊设计。
+     * - 这条路径仍受 maybeDispatch 的 6 个常规守卫保护。
+     * - 支持"tab B 继承 tab A 暂停队列后手动恢复"的跨 tab 接管场景。
+     * - 跨 tab 同时 resume 的双发风险由 Web Lock 防御。
+     */
+    function resumeQueue() {
+        const sid = currentSessionId.value
+        if (!sid) return
+        queuePausedBy.delete(sid)
+        dispatcher.broadcastState(sid)
+        dispatcher.maybeDispatch()
     }
 
     function resumeInterrupt(data: any) {
@@ -189,6 +331,69 @@ export function useChatSessionManager(options: ChatSessionManagerOptions) {
         }
     }
 
+    // ── 派发器实例化（必须在 setup 顶层，不进 switchSession 的 inner scope） ──
+    // 理由：dispatcher 内部 watch(runStatus) 必须与 manager 的 setup scope 同生命周期，
+    // 若挂在 switchSession 的 inner effectScope 内，session 切换时会 dispose watcher，
+    // 导致切到新 session 后 dispatcher 不再工作（spec §5.2 要点）
+    const dispatcher = useQueueDispatcher({
+        currentSessionId,
+        currentChat,
+        runStatus,
+        isLoading,
+        interruptData,
+        queuesBySession: queuesBySession as unknown as Map<string, QueueItem[]>,
+        queuePausedBy: queuePausedBy as unknown as Map<string, Exclude<QueuePauseReason, null>>,
+        get tabId() { return tabId },  // getter：tabId 在 onMounted 才赋值，需动态读取
+        lastLocalSendSeq,
+    })
+
+    // ── 跨标签 listener（接收方严格遵守"只写本地 Map，绝不二次广播"约束） ──
+    useCrossTabListener('chat-queue:sync', (payload) => {
+        // 守卫 1：忽略自己广播的 echo
+        if (payload.tabId === tabId) return
+        // 守卫 2：忽略过期广播（version 小于等于已应用的）
+        const sid = payload.sessionId
+        const lastV = lastAppliedVersion.get(sid) ?? 0
+        if (payload.version <= lastV) return
+        lastAppliedVersion.set(sid, payload.version)
+
+        // 应用到本地 Map（⚠️ 绝对不能调用 broadcastState，避免广播风暴）
+        queuesBySession.set(sid, payload.queue)
+        if (payload.pauseReason === null) queuePausedBy.delete(sid)
+        else queuePausedBy.set(sid, payload.pauseReason)
+    })
+
+    useCrossTabListener('chat-queue:hello', (payload) => {
+        if (payload.tabId === tabId) return
+        const sid = payload.sessionId
+        // 仅当本 tab 持有该 session 的队列状态时回应
+        if (queuesBySession.has(sid) || queuePausedBy.has(sid)) {
+            postCrossTabEvent('chat-queue:sync', {
+                sessionId: sid,
+                tabId,
+                queue: queuesBySession.get(sid) ?? [],
+                pauseReason: queuePausedBy.get(sid) ?? null,
+                version: performance.now() + Math.random(),
+            })
+        }
+    })
+
+    // ── hello 广播：等 tabId 就绪 + session 首次就绪后再发 ──
+    // 不放在 onMounted 里，因为 init() 可能还没跑完、currentSessionId 仍为 null。
+    // 用 watch 响应式触发：首次 currentSessionId 从 null/undefined → 有值时发一次 hello。
+    // 后续 switchSession 不重发（hello 语义是"本 tab 新加入该 session 集合"，而非"session 切换"）。
+    const helloSent = new Set<string>()
+    watch(
+        [currentSessionId, () => tabId],  // tabId 也是依赖：onMounted 赋值后触发
+        ([sid, tid]) => {
+            if (!sid || !tid) return
+            if (helloSent.has(sid)) return
+            helloSent.add(sid)
+            postCrossTabEvent('chat-queue:hello', { sessionId: sid, tabId: tid })
+        },
+        { immediate: false },  // 不要 immediate，避免 tabId='' 时误发
+    )
+
     onScopeDispose(() => disposeCurrentChat())
 
     return {
@@ -209,5 +414,14 @@ export function useChatSessionManager(options: ChatSessionManagerOptions) {
         resumeInterrupt,
         stopGeneration,
         init,
+        // 队列相关 API（spec §4.4）
+        currentQueue,
+        currentQueueLen,
+        isQueuePaused,
+        queuePauseReason,
+        enqueueMessage,
+        removeQueueItem,
+        clearQueue,
+        resumeQueue,
     }
 }
