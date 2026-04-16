@@ -1,7 +1,8 @@
 <template>
-    <!-- 通用支付弹框（支持扫码支付和 JSAPI 支付） -->
+    <!-- 通用支付弹框（支持扫码支付和 JSAPI 支付）
+         content + overlay 都是 z-[80]，需要盖过中断 Dialog（z-[70]）。 -->
     <Dialog :open="open" @update:open="handleClose">
-        <DialogContent class="sm:max-w-[425px]" @open-auto-focus.prevent>
+        <DialogContent class="sm:max-w-[425px] z-[80]" overlay-class="z-[80]" @open-auto-focus.prevent>
             <DialogHeader>
                 <DialogTitle>{{ paid ? '支付成功' : computedTitle }}</DialogTitle>
                 <DialogDescription>
