@@ -76,8 +76,8 @@ function truncate(text: string, max = 24): string {
       </template>
     </div>
 
-    <!-- 队列条目列表：基于 ai-elements/queue 基元组件 -->
-    <div class="p-2 max-h-[180px] overflow-y-auto">
+    <!-- 队列条目列表：max-h-[120px] 配合 overflow-y-auto 让多条内部 scroll，避免撑大 prompt 容器挤出输入框 -->
+    <div class="p-2 max-h-[120px] overflow-y-auto">
       <AiElementsQueue>
         <!--
           通过 ! 前缀覆盖 QueueItem 默认的 flex-col 为 flex-row，
