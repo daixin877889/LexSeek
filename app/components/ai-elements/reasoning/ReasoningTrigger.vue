@@ -45,7 +45,7 @@ const thinkingMessage = computed(() => {
       </template>
 
       <template v-else>
-        <p>已经思考了 {{ duration }} 秒</p>
+        <p>已思考 {{ duration }} 秒</p>
       </template>
 
       <ChevronDownIcon :class="cn(

@@ -2,13 +2,15 @@
 /**
  * upload_workspace_file 工具调用渲染器
  *
- * 把工具调用结果直接渲染为 `<AiFileCard>`，避免依赖 LLM 在回复文本中
- * 嵌入 `[file-card]` 标记的脆弱约定。
+ * 直接把工具调用渲染为"文件卡片 / 错误条 / 上传中条"三种形态之一，
+ * 不再套用通用的工具折叠面板（`AiElementsTool`），避免交付物被折叠
+ * 层级淹没导致用户忽略。
  *
- * 工具输出保持 `[file-card]\nkey: value\n[/file-card]` 文本格式（与后端
- * `uploadWorkspaceFile.tool.ts` 的 `formatFileCard` 一致），renderer 直接
- * 解析成结构化数据传给 `AiFileCard`。输出为 `Error: ...` 时走错误分支。
+ * 工具输出保持 `[file-card]\nkey: value\n[/file-card]` 文本格式（与
+ * 后端 `uploadWorkspaceFile.tool.ts` 的 `formatFileCard` 一致），这里
+ * 解析成结构化数据传给 `AiFileCard`；输出为 `Error: ...` 时走错误分支。
  */
+import { AlertCircleIcon, Loader2Icon } from 'lucide-vue-next'
 import type { ExtendedToolState } from '@/components/ai-elements/types'
 
 const props = defineProps<{
@@ -74,45 +76,37 @@ function parseOutput(output: unknown): ParsedOutput {
 
 const parsed = computed(() => parseOutput(props.output))
 
-/** 折叠区默认标题（"上传工作区文件"）由 ai-elements 的 tool name map 提供 */
+/** 上传中显示的文件名占位 */
+const pendingFileName = computed(() => props.input?.fileName || '文件')
 </script>
 
 <template>
-  <AiElementsTool>
-    <AiElementsToolHeader
-      title="上传文件"
-      :type="`tool-${props.toolName}`"
-      :state="props.state as any"
-    />
-    <AiElementsToolContent>
-      <AiElementsToolInput v-if="props.input" :input="props.input" />
+  <!-- 成功：直接渲染文件卡片（不再套工具折叠面板） -->
+  <AiFileCard
+    v-if="parsed.card"
+    :file-id="parsed.card.fileId"
+    :file-name="parsed.card.fileName"
+    :file-size="parsed.card.fileSize"
+    :mime-type="parsed.card.mimeType"
+    :temporary="parsed.card.temporary"
+    :expires-at="parsed.card.expiresAt"
+  />
 
-      <!-- 成功：渲染为文件卡片 -->
-      <div v-if="parsed.card" class="px-4 pb-3">
-        <AiFileCard
-          :file-id="parsed.card.fileId"
-          :file-name="parsed.card.fileName"
-          :file-size="parsed.card.fileSize"
-          :mime-type="parsed.card.mimeType"
-          :temporary="parsed.card.temporary"
-          :expires-at="parsed.card.expiresAt"
-        />
-      </div>
+  <!-- 失败：简洁错误条，视觉体量与文件卡片一致 -->
+  <div
+    v-else-if="parsed.errorText"
+    class="my-2 inline-flex w-full max-w-sm items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive shadow-sm"
+  >
+    <AlertCircleIcon class="mt-0.5 size-4 shrink-0" />
+    <span class="min-w-0 flex-1 break-words">{{ parsed.errorText }}</span>
+  </div>
 
-      <!-- 失败：显示错误信息 -->
-      <AiElementsToolOutput
-        v-else-if="parsed.errorText"
-        :output="null"
-        :error-text="parsed.errorText"
-      />
-
-      <!-- 进行中：上传中提示 -->
-      <div
-        v-else-if="props.state === 'input-available'"
-        class="px-4 pb-3 text-sm text-muted-foreground"
-      >
-        正在上传文件到云盘...
-      </div>
-    </AiElementsToolContent>
-  </AiElementsTool>
+  <!-- 进行中：上传中条 -->
+  <div
+    v-else-if="props.state === 'input-available'"
+    class="my-2 inline-flex w-full max-w-sm items-center gap-2 rounded-lg border bg-card px-4 py-3 text-sm text-muted-foreground shadow-sm"
+  >
+    <Loader2Icon class="size-4 shrink-0 animate-spin" />
+    <span class="min-w-0 flex-1 truncate">正在上传 {{ pendingFileName }} 到云盘…</span>
+  </div>
 </template>

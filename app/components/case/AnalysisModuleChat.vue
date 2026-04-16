@@ -14,6 +14,7 @@ import type { SessionItem } from '~/components/case/SessionListPopover.vue'
 import type { BaseMessage } from '@langchain/core/messages'
 import { toast } from 'vue-sonner'
 import { RefreshCw as RefreshCwIcon } from 'lucide-vue-next'
+import { QUEUE_MAX_SIZE } from '~/composables/chatQueueActions'
 
 const props = defineProps<{
     caseId: number
@@ -33,12 +34,30 @@ const sessions = computed<SessionItem[]>(() =>
     })),
 )
 
+// 与 CaseDetailXiaosuo.vue 保持对称的 computed 包装
+// !! 强制转 boolean 防御 isLoading 为 undefined 的边缘情况
+const chatMessages = computed(() => props.chatInstance.messages.value as any[])
+const chatLoading = computed(() => !!props.chatInstance.isLoading.value)
 const interruptData = computed(() => props.chatInstance.interruptData.value)
 
 // Agent 运行状态 + 失败反馈
 const runStatus = computed(() => props.chatInstance.runStatus.value)
 const runError = computed(() => props.chatInstance.runError.value)
 const showRetryButton = ref(false)
+
+// 队列响应式字段 unwrap（Vue 3 template 不自动 unwrap 嵌套 props 的 Ref）
+const currentQueue = computed(() => props.chatInstance.currentQueue.value)
+const queueLen = computed(() => props.chatInstance.currentQueueLen.value)
+const queueFull = computed(() => queueLen.value >= QUEUE_MAX_SIZE)
+const isQueuePaused = computed(() => props.chatInstance.isQueuePaused.value)
+const queuePauseReason = computed(() => props.chatInstance.queuePauseReason.value)
+
+// 停止去抖：防止重复点击停止按钮发起多次 cancel 请求
+const isStopping = ref(false)
+const TERMINAL_STATUSES = new Set(['cancelled', 'completed', 'failed'] as const)
+
+// AiChat 组件 ref，用于在入队成功后 reset 输入框
+const aiChatRef = ref<{ resetPrompt: () => void } | null>(null)
 
 watch(runStatus, (status) => {
     if (status === 'failed') {
@@ -64,9 +83,51 @@ watch(isOpen, (open) => {
     if (!open) isFullscreen.value = false
 })
 
-function handleSubmit(data: { text: string }) {
-    if (data.text.trim()) {
+function handleSubmit(data: { text: string; files?: any[] }) {
+    if (!data.text.trim() && !data.files?.length) return
+
+    // 暂停态强制入队 + loading 期间入队（spec §5.3）
+    const shouldEnqueue =
+        props.chatInstance.isLoading.value || props.chatInstance.isQueuePaused.value
+
+    if (shouldEnqueue) {
+        const ok = props.chatInstance.enqueueMessage(data.text, data.files, thinking.value)
+        if (!ok) {
+            toast.warning(`队列已满（最多 ${QUEUE_MAX_SIZE} 条），请等待当前对话结束或清空队列`)
+        } else {
+            aiChatRef.value?.resetPrompt()
+        }
+    } else {
         props.chatInstance.sendMessage(data.text, { thinking: thinking.value })
+    }
+}
+
+async function handleStop() {
+    if (isStopping.value) return
+    // 短路检查：避免 watch + immediate 时序坑
+    if (TERMINAL_STATUSES.has(props.chatInstance.runStatus.value as any)) return
+
+    isStopping.value = true
+    let unwatch: (() => void) | undefined
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const cleanup = () => {
+        isStopping.value = false
+        unwatch?.()
+        if (timer) clearTimeout(timer)
+        unwatch = undefined
+        timer = undefined
+    }
+    // 不用 immediate：上面已经短路检查过当前值，watch 仅响应后续变化
+    unwatch = watch(
+        () => props.chatInstance.runStatus.value,
+        (s) => { if (TERMINAL_STATUSES.has(s as any)) cleanup() },
+    )
+    timer = setTimeout(cleanup, 3000)
+    try {
+        await props.chatInstance.stopGeneration()
+    } catch (err) {
+        console.error('[chat-stop] stopGeneration failed', err)
+        cleanup()
     }
 }
 
@@ -100,15 +161,19 @@ function handleResumeInterrupt(data: unknown) {
 
     <!-- 对话内容 -->
     <AiChat
-      :messages="chatInstance.messages.value"
-      :loading="chatInstance.isLoading.value"
+      ref="aiChatRef"
+      :messages="chatMessages"
+      :loading="chatLoading"
       panel-mode="left"
       :show-header="false"
       v-model:thinking="thinking"
       :enable-file-upload="false"
+      :queue-length="queueLen"
+      :queue-full="queueFull"
+      :is-stopping="isStopping"
       prompt-placeholder="输入消息优化分析结果..."
       @submit="handleSubmit"
-      @stop="chatInstance.stopGeneration()"
+      @stop="handleStop"
     >
       <template #prompt-actions>
         <div v-if="showRetryButton" class="flex items-center gap-2 px-4 py-2">
@@ -117,6 +182,15 @@ function handleResumeInterrupt(data: unknown) {
             重试
           </Button>
         </div>
+        <AiChatQueueChips
+          :queue="currentQueue"
+          :max="QUEUE_MAX_SIZE"
+          :paused="isQueuePaused"
+          :pause-reason="queuePauseReason"
+          @remove="(id) => props.chatInstance.removeQueueItem(id)"
+          @resume="() => props.chatInstance.resumeQueue()"
+          @clear="() => props.chatInstance.clearQueue()"
+        />
       </template>
     </AiChat>
   </CaseChatWindowShell>

@@ -132,12 +132,59 @@
             </PromptInputTools>
             <!-- 提交按钮 -->
             <div class="flex items-center gap-2 mr-[-8px]">
-              <PromptInputSubmit class="h-9 px-4! rounded-md shadow-lg shadow-primary/20 active:scale-95 transition-all"
-                :status="submitStatus" :disabled="isSubmitDisabled" size="xs" @stop="emit('stop')"
-                @submit="handleSubmitFromButton">
+              <!-- 非 loading 态：使用原有 PromptInputSubmit（承担 type=submit 原生提交） -->
+              <PromptInputSubmit
+                v-if="!loading"
+                class="h-9 px-4! rounded-md shadow-lg shadow-primary/20 active:scale-95 transition-all"
+                :status="submitStatus"
+                :disabled="isSendDisabled"
+                size="xs"
+                data-testid="send-button"
+                @submit="handleSubmitFromButton"
+              >
                 <SendHorizontal class="size-4" />
                 <span v-if="submitLabel" class="ml-1">{{ submitLabel }}</span>
               </PromptInputSubmit>
+
+              <!-- loading 态：独立的停止 + 加入队列双按钮 -->
+              <!-- 原 @stop="emit('stop')" 是死代码（PromptInputSubmit 未声明 stop emit），此处用独立 Button 替代 -->
+              <div v-else class="flex items-center gap-1">
+                <!-- 停止按钮：isStopping=true 时禁用防止重复点击 -->
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  :disabled="props.isStopping"
+                  aria-label="停止当前对话"
+                  data-testid="stop-button"
+                  @click="emit('stop')"
+                >
+                  <SquareIcon class="size-4" />
+                </Button>
+
+                <!-- 加入队列按钮：有内容且队列未满时可用，右上角显示 +N 角标 -->
+                <div class="relative">
+                  <Button
+                    type="button"
+                    size="sm"
+                    :disabled="isEnqueueDisabled"
+                    :aria-disabled="isEnqueueDisabled"
+                    :aria-label="`加入发送队列（当前已有 ${props.queueLength ?? 0} 条）`"
+                    :title="props.queueFull ? '队列已满（最多 5 条）' : undefined"
+                    data-testid="enqueue-button"
+                    @click="handleSubmitFromButton"
+                  >
+                    <SendHorizontal class="size-4" />
+                  </Button>
+                  <Badge
+                    v-if="(props.queueLength ?? 0) > 0"
+                    class="absolute -top-1 -right-1 px-1 h-4 min-w-4 text-[10px]"
+                    variant="secondary"
+                  >
+                    +{{ props.queueLength }}
+                  </Badge>
+                </div>
+              </div>
             </div>
           </PromptInputFooter>
         </PromptInput>
@@ -163,7 +210,7 @@
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { PromptInput, PromptInputBody, PromptInputButton, PromptInputFooter, PromptInputHeader, PromptInputProvider, PromptInputSubmit, PromptInputTextarea, PromptInputTools } from "@/components/ai-elements/prompt-input";
 import { usePromptInput } from "@/components/ai-elements/prompt-input/context";
-import { Paperclip, SendHorizontal, XIcon, LockIcon, Loader2Icon, CheckIcon, AlertCircleIcon, UploadIcon, BrainIcon } from "lucide-vue-next";
+import { Paperclip, SendHorizontal, XIcon, LockIcon, Loader2Icon, CheckIcon, AlertCircleIcon, UploadIcon, BrainIcon, SquareIcon } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 import { useDocumentVisibility, useDropZone } from '@vueuse/core';
 import type { OssFileItem } from "~/store/file";
@@ -191,6 +238,12 @@ const props = withDefaults(defineProps<{
   submitLabel?: string
   uploadButtonLabel?: string
   onFileButtonClick?: () => void
+  /** 当前队列条目数，loading 态下用于显示 +N 角标 */
+  queueLength?: number
+  /** 队列是否已满，满时加入队列按钮禁用 */
+  queueFull?: boolean
+  /** 停止中状态，true 时停止按钮置灰禁用（防止重复点击） */
+  isStopping?: boolean
 }>(), {
   placeholder: '输入消息...',
   loading: false,
@@ -266,19 +319,25 @@ const InternalStateSync = defineComponent({
   }
 })
 
-// 计算是否禁用提交
-const isSubmitDisabled = computed(() => {
-  const hasText = !!internalPromptText.value?.trim();
-  const hasAttachments = props.enableFileUpload && selectedFiles.value.length > 0;
-
-  // 没有输入内容（文本或附件）时禁用
-  if (!hasText && !hasAttachments) return true;
-
-  // 正在上传文件、正在识别文件或组件本身被禁用时禁用按钮
-  return uploadingFiles.value.length > 0
-    || isAllRecognizing.value
-    || props.disabled;
+// 计算是否有内容（文本或附件）
+const hasContent = computed(() => {
+  const hasText = !!internalPromptText.value?.trim()
+  const hasAttachments = props.enableFileUpload && selectedFiles.value.length > 0
+  return hasText || hasAttachments
 })
+
+// 计算是否繁忙（上传中、识别中或组件被禁用）
+const isBusy = computed(() =>
+  uploadingFiles.value.length > 0 || isAllRecognizing.value || props.disabled
+)
+
+/** 普通发送按钮：无内容或忙时禁用 */
+const isSendDisabled = computed(() => !hasContent.value || isBusy.value)
+
+/** 加入队列按钮：无内容、忙、或队列满时禁用 */
+const isEnqueueDisabled = computed(() =>
+  !hasContent.value || isBusy.value || !!props.queueFull
+)
 
 // 提交状态：由外部 loading prop 派生
 const submitStatus = computed<"submitted" | "streaming" | "ready" | "error">(() => {
