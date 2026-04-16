@@ -11,7 +11,12 @@
 
 import { z } from 'zod'
 import { v7 as uuidv7 } from 'uuid'
-import { validateAndSortModules } from '~~/server/services/case/initAnalysis.service'
+import {
+    validateAndSortModules,
+    canShortCircuitSSE,
+    buildTerminalSnapshotEvents,
+    type TerminalRunStatusForSSE,
+} from '~~/server/services/case/initAnalysis.service'
 import { validateCaseAccessService } from '~~/server/services/case/case.service'
 import { enqueueRunService, getActiveRunService, getLatestRunService } from '~~/server/services/agent/agentRun.service'
 import { replayEvents, createEventSubscription } from '~~/server/services/agent/agentEventBridge'
@@ -315,6 +320,32 @@ async function createSSEResponse(event: any, runId: string, sessionId?: string) 
             }, 15000)
 
             try {
+                // 短路路径：若 run 已进入 completed/failed/cancelled 终态，
+                // 直接读 checkpoint 发一条 values + 一条 status_change 后关闭，
+                // 跳过 Redis Stream 的全量 XRANGE（~2000 条事件、几 MB 数据）。
+                // interrupted 必须保留原 replay 路径：__interrupt__ 字段只写入 Redis Stream
+                // 最后一条 values 事件，不在 checkpoint.channel_values 里。
+                const terminalRun = await prisma.agentRuns.findUnique({
+                    where: { id: runId },
+                    select: { status: true, threadId: true, error: true },
+                })
+                if (terminalRun && canShortCircuitSSE(terminalRun.status)) {
+                    const threadId = sessionId ?? terminalRun.threadId
+                    const checkpointValues = threadId
+                        ? await getThreadValuesService(threadId)
+                        : null
+                    const events = buildTerminalSnapshotEvents({
+                        runId,
+                        runStatus: terminalRun.status as TerminalRunStatusForSSE,
+                        checkpointValues,
+                        errorMessage: terminalRun.error,
+                    })
+                    for (const evt of events) {
+                        controller.enqueue(encoder.encode(evt))
+                    }
+                    return
+                }
+
                 // 补发缺失事件（只发最后一条 values 快照，避免逐条 replay 数千条事件导致前端卡顿）
                 let missed = await replayEvents(runId)
                 const lastValues = [...missed].reverse()
