@@ -148,18 +148,19 @@
 
               <!-- loading 态：独立的停止 + 加入队列双按钮 -->
               <!-- 原 @stop="emit('stop')" 是死代码（PromptInputSubmit 未声明 stop emit），此处用独立 Button 替代 -->
-              <div v-else class="flex items-center gap-1">
-                <!-- 停止按钮：isStopping=true 时禁用防止重复点击 -->
+              <div v-else class="flex items-center gap-1.5">
+                <!-- 停止按钮：destructive 变体（红色突出）+ icon-sm 方形图标按钮
+                     让用户一眼识别危险/中止操作；isStopping=true 时禁用防止重复点击 -->
                 <Button
                   type="button"
                   size="icon-sm"
-                  variant="ghost"
+                  variant="destructive"
                   :disabled="props.isStopping"
                   aria-label="停止当前对话"
                   data-testid="stop-button"
                   @click="onStopClick"
                 >
-                  <SquareIcon class="size-4" />
+                  <SquareIcon class="size-4 fill-current" />
                 </Button>
 
                 <!-- 加入队列按钮：有内容且队列未满时可用，右上角显示 +N 角标 -->

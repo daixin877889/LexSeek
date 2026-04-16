@@ -42,9 +42,18 @@ const virtualizer = useVirtualizer(computed(() => ({
   <div
     :style="{ height: `${virtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }"
   >
+    <!--
+      关键优化：
+      1. :key 用稳定的 `msg.id` 而非 virtualRow.index —— 队列派发触发 messages 数组引用
+         变化时，Vue 能通过 id 正确复用节点，而不是把整个可见列表当作新节点重挂载。
+         fallback 到 virtualRow.key 是为了极端情况下 msg 为空（虚拟化器在过渡帧中可能）。
+      2. v-memo 仅在 msg 的关键可视字段（id / content / thinking / toolCall 数量 / isLast / loading）
+         变化时才重新渲染子树。稳定消息（不在 streaming 的历史条目）不会因 messages 数组
+         引用变化而重复渲染。
+    -->
     <div
       v-for="virtualRow in virtualizer.getVirtualItems()"
-      :key="String(virtualRow.key)"
+      :key="messages[virtualRow.index]?.id ?? String(virtualRow.key)"
       :ref="(el) => virtualizer.measureElement(el as Element)"
       :data-index="virtualRow.index"
       :style="{
@@ -58,6 +67,14 @@ const virtualizer = useVirtualizer(computed(() => ({
     >
       <AiMessageListVirtualItem
         v-if="messages[virtualRow.index]"
+        v-memo="[
+          messages[virtualRow.index]!.id,
+          messages[virtualRow.index]!.content,
+          messages[virtualRow.index]!.thinking,
+          messages[virtualRow.index]!.toolCalls?.length ?? 0,
+          virtualRow.index === messages.length - 1,
+          loading,
+        ]"
         :msg="messages[virtualRow.index]!"
         :is-last="virtualRow.index === messages.length - 1"
         :loading="loading"
