@@ -35,49 +35,37 @@ function truncate(text: string, max = 24): string {
 
 <template>
   <div v-if="queue.length > 0" class="border-t border-b">
-    <!-- 状态横幅：运行中 vs 暂停态（方案 A 紧凑化：py-2→py-1.5） -->
+    <!-- 状态横幅仅在暂停态显示；运行态下由 chip 队头 spinner 指示"即将派发" -->
     <div
-      :class="[
-        'px-3 py-1.5 text-xs flex items-center gap-2',
-        paused
-          ? 'bg-amber-50 text-amber-700 border-b border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30'
-          : 'text-muted-foreground bg-muted/30',
-      ]"
+      v-if="paused"
+      class="px-3 py-1.5 text-xs flex items-center gap-2 bg-amber-50 text-amber-700 border-b border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30"
     >
-      <!-- 暂停态横幅 -->
-      <template v-if="paused">
-        <PauseIcon class="size-3.5 shrink-0" />
-        <span>队列已暂停（{{ pauseReasonText }}）</span>
-        <div class="ml-auto flex gap-1">
-          <Button
-            size="icon-sm"
-            variant="outline"
-            class="!size-6"
-            aria-label="恢复队列"
-            title="恢复队列"
-            data-testid="queue-resume"
-            @click="emit('resume')"
-          >
-            <PlayIcon class="size-3" />
-          </Button>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            class="!size-6"
-            aria-label="清空队列"
-            title="清空队列"
-            data-testid="queue-clear"
-            @click="emit('clear')"
-          >
-            <TrashIcon class="size-3" />
-          </Button>
-        </div>
-      </template>
-      <!-- 运行中横幅 -->
-      <template v-else>
-        <Loader2Icon class="size-3.5 animate-spin shrink-0" />
-        <span>排队中 ({{ queue.length }}/{{ max }})</span>
-      </template>
+      <PauseIcon class="size-3.5 shrink-0" />
+      <span>队列已暂停（{{ pauseReasonText }}）</span>
+      <div class="ml-auto flex gap-1">
+        <Button
+          size="icon-sm"
+          variant="outline"
+          class="!size-6"
+          aria-label="恢复队列"
+          title="恢复队列"
+          data-testid="queue-resume"
+          @click="emit('resume')"
+        >
+          <PlayIcon class="size-3" />
+        </Button>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          class="!size-6"
+          aria-label="清空队列"
+          title="清空队列"
+          data-testid="queue-clear"
+          @click="emit('clear')"
+        >
+          <TrashIcon class="size-3" />
+        </Button>
+      </div>
     </div>
 
     <!-- 队列条目列表（方案 A 紧凑化：p-2→p-1, max-h-[120px]→max-h-[88px] 约容纳 3 条紧凑 chip） -->
@@ -94,8 +82,23 @@ function truncate(text: string, max = 24): string {
           :key="item.id"
           class="!flex-row items-center gap-1.5 !px-2 !py-0.5 !text-xs !rounded-none"
         >
-          <!-- 序号 badge（紧凑：h-5→h-4，text-[10px]→text-[9px]） -->
-          <Badge variant="secondary" class="shrink-0 text-[9px] h-4 px-1">
+          <!--
+            序号 badge / 队头 spinner：
+            - 暂停态或非队头：显示 #N 序号 badge
+            - 运行态队头（index=0）：显示 spinner 指示"即将派发"，代替横幅的派发中信息
+          -->
+          <span
+            v-if="!paused && index === 0"
+            class="inline-flex shrink-0 text-primary"
+            title="即将派发"
+          >
+            <Loader2Icon class="size-3.5 animate-spin" />
+          </span>
+          <Badge
+            v-else
+            variant="secondary"
+            class="shrink-0 text-[9px] h-4 px-1"
+          >
             #{{ index + 1 }}
           </Badge>
 
