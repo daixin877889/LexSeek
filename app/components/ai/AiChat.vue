@@ -24,6 +24,10 @@ interface Props {
   showThinkingToggle?: boolean
   enableFileUpload?: boolean
   thinking?: boolean
+  // 队列状态（透传给 AiPromptInput）
+  queueLength?: number
+  queueFull?: boolean
+  isStopping?: boolean
   // 工具
   toolMap?: Record<string, Component>
   // 任务队列
@@ -45,6 +49,7 @@ const props = withDefaults(defineProps<Props>(), {
   enableFileUpload: true,
   thinking: true,
   showTaskQueue: false,
+  isStopping: false,
 })
 
 const emit = defineEmits<{
@@ -100,6 +105,15 @@ function toggleRightPanel() {
 function handleSubmit(data: AiPromptSubmitData) {
   emit('submit', data)
 }
+
+// 暴露 promptInput 的 reset 方法，供父组件在入队成功后清空输入框
+const promptInputRef = ref<{ reset: () => void } | null>(null)
+
+defineExpose({
+  resetPrompt() {
+    promptInputRef.value?.reset()
+  },
+})
 </script>
 
 <template>
@@ -150,8 +164,9 @@ function handleSubmit(data: AiPromptSubmitData) {
           <AiTaskQueue v-if="showTaskQueue && todos?.length" :todos="todos" />
           <div v-if="showPrompt" class="shrink-0 border-t">
             <slot name="prompt-actions" />
-            <AiPromptInput :loading="loading" :disabled="promptDisabled" :placeholder="promptPlaceholder"
+            <AiPromptInput ref="promptInputRef" :loading="loading" :disabled="promptDisabled" :placeholder="promptPlaceholder"
               :enable-file-upload="enableFileUpload" :show-thinking-toggle="showThinkingToggle" :thinking="thinking"
+              :queue-length="queueLength" :queue-full="queueFull" :is-stopping="isStopping"
               @submit="handleSubmit" @stop="emit('stop')" @update:thinking="(v) => emit('update:thinking', v)" />
           </div>
         </div>
@@ -186,9 +201,11 @@ function handleSubmit(data: AiPromptSubmitData) {
         <AiTaskQueue v-if="showTaskQueue && todos?.length" :todos="todos" />
         <div v-if="showPrompt" class="shrink-0 border-t">
           <slot name="prompt-actions" />
-          <AiPromptInput :loading="loading" :disabled="promptDisabled" :placeholder="promptPlaceholder"
+          <!-- 注意：仅左侧面板路径也需要 @stop，否则停止按钮事件无法冒泡到父组件 -->
+          <AiPromptInput ref="promptInputRef" :loading="loading" :disabled="promptDisabled" :placeholder="promptPlaceholder"
             :enable-file-upload="enableFileUpload" :show-thinking-toggle="showThinkingToggle" :thinking="thinking"
-            @submit="handleSubmit" @update:thinking="(v) => emit('update:thinking', v)" />
+            :queue-length="queueLength" :queue-full="queueFull" :is-stopping="isStopping"
+            @submit="handleSubmit" @stop="emit('stop')" @update:thinking="(v) => emit('update:thinking', v)" />
         </div>
       </div>
     </div>

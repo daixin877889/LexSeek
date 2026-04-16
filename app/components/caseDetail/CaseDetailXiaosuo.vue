@@ -10,6 +10,7 @@ import type { SessionItem } from '~/components/case/SessionListPopover.vue'
 import type { BaseMessage } from '@langchain/core/messages'
 import { toast } from 'vue-sonner'
 import { RefreshCw as RefreshCwIcon } from 'lucide-vue-next'
+import { QUEUE_MAX_SIZE } from '~/composables/chatQueueActions'
 
 const props = defineProps<{
   xiaosuoChat: ReturnType<typeof useXiaosuoChat>
@@ -37,6 +38,20 @@ const runStatus = computed(() => props.xiaosuoChat.runStatus.value)
 const runError = computed(() => props.xiaosuoChat.runError.value)
 const showRetryButton = ref(false)
 
+// 队列响应式字段 unwrap（Vue 3 template 不自动 unwrap 嵌套 props 的 Ref）
+const currentQueue = computed(() => props.xiaosuoChat.currentQueue.value)
+const queueLen = computed(() => props.xiaosuoChat.currentQueueLen.value)
+const queueFull = computed(() => queueLen.value >= QUEUE_MAX_SIZE)
+const isQueuePaused = computed(() => props.xiaosuoChat.isQueuePaused.value)
+const queuePauseReason = computed(() => props.xiaosuoChat.queuePauseReason.value)
+
+// 停止去抖：防止重复点击停止按钮发起多次 cancel 请求
+const isStopping = ref(false)
+const TERMINAL_STATUSES = new Set(['cancelled', 'completed', 'failed'] as const)
+
+// AiChat 组件 ref，用于在入队成功后 reset 输入框
+const aiChatRef = ref<{ resetPrompt: () => void } | null>(null)
+
 watch(runStatus, (status) => {
   if (status === 'failed') {
     toast.error(`执行失败：${runError.value}`)
@@ -56,9 +71,51 @@ function onRetry() {
   if (content) props.xiaosuoChat.sendMessage(content, { thinking: thinking.value })
 }
 
-function handleSubmit(data: { text: string }) {
-  if (data.text.trim()) {
+function handleSubmit(data: { text: string; files?: any[] }) {
+  if (!data.text.trim() && !data.files?.length) return
+
+  // 暂停态强制入队 + loading 期间入队（spec §5.3）
+  const shouldEnqueue =
+    props.xiaosuoChat.isLoading.value || props.xiaosuoChat.isQueuePaused.value
+
+  if (shouldEnqueue) {
+    const ok = props.xiaosuoChat.enqueueMessage(data.text, data.files, thinking.value)
+    if (!ok) {
+      toast.warning(`队列已满（最多 ${QUEUE_MAX_SIZE} 条），请等待当前对话结束或清空队列`)
+    } else {
+      aiChatRef.value?.resetPrompt()
+    }
+  } else {
     props.xiaosuoChat.sendMessage(data.text, { thinking: thinking.value })
+  }
+}
+
+async function handleStop() {
+  if (isStopping.value) return
+  // 短路检查：避免 watch + immediate 时序坑
+  if (TERMINAL_STATUSES.has(props.xiaosuoChat.runStatus.value as any)) return
+
+  isStopping.value = true
+  let unwatch: (() => void) | undefined
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const cleanup = () => {
+    isStopping.value = false
+    unwatch?.()
+    if (timer) clearTimeout(timer)
+    unwatch = undefined
+    timer = undefined
+  }
+  // 不用 immediate：上面已经短路检查过当前值，watch 仅响应后续变化
+  unwatch = watch(
+    () => props.xiaosuoChat.runStatus.value,
+    (s) => { if (TERMINAL_STATUSES.has(s as any)) cleanup() },
+  )
+  timer = setTimeout(cleanup, 3000)
+  try {
+    await props.xiaosuoChat.stopGeneration()
+  } catch (err) {
+    console.error('[chat-stop] stopGeneration failed', err)
+    cleanup()
   }
 }
 
@@ -100,15 +157,19 @@ watch(isOpen, (open) => {
 
     <!-- 对话内容 -->
     <AiChat
+      ref="aiChatRef"
       :messages="chatMessages"
       :loading="chatLoading"
       panel-mode="left"
       :show-header="false"
       v-model:thinking="thinking"
       :enable-file-upload="false"
+      :queue-length="queueLen"
+      :queue-full="queueFull"
+      :is-stopping="isStopping"
       prompt-placeholder="问我任何关于案件的问题..."
       @submit="handleSubmit"
-      @stop="xiaosuoChat.stopGeneration()"
+      @stop="handleStop"
     >
       <template #prompt-actions>
         <div v-if="showRetryButton" class="flex items-center gap-2 px-4 py-2">
@@ -117,6 +178,15 @@ watch(isOpen, (open) => {
             重试
           </Button>
         </div>
+        <AiChatQueueChips
+          :queue="currentQueue"
+          :max="QUEUE_MAX_SIZE"
+          :paused="isQueuePaused"
+          :pause-reason="queuePauseReason"
+          @remove="(id) => props.xiaosuoChat.removeQueueItem(id)"
+          @resume="() => props.xiaosuoChat.resumeQueue()"
+          @clear="() => props.xiaosuoChat.clearQueue()"
+        />
       </template>
     </AiChat>
   </CaseChatWindowShell>
