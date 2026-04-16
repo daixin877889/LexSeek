@@ -35,10 +35,10 @@ function truncate(text: string, max = 24): string {
 
 <template>
   <div v-if="queue.length > 0" class="border-t border-b">
-    <!-- 状态横幅：运行中 vs 暂停态，视觉区分 -->
+    <!-- 状态横幅：运行中 vs 暂停态（方案 A 紧凑化：py-2→py-1.5） -->
     <div
       :class="[
-        'px-3 py-2 text-xs flex items-center gap-2',
+        'px-3 py-1.5 text-xs flex items-center gap-2',
         paused
           ? 'bg-amber-50 text-amber-700 border-b border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30'
           : 'text-muted-foreground bg-muted/30',
@@ -52,22 +52,24 @@ function truncate(text: string, max = 24): string {
           <Button
             size="icon-sm"
             variant="outline"
+            class="!size-6"
             aria-label="恢复队列"
             title="恢复队列"
             data-testid="queue-resume"
             @click="emit('resume')"
           >
-            <PlayIcon class="size-3.5" />
+            <PlayIcon class="size-3" />
           </Button>
           <Button
             size="icon-sm"
             variant="ghost"
+            class="!size-6"
             aria-label="清空队列"
             title="清空队列"
             data-testid="queue-clear"
             @click="emit('clear')"
           >
-            <TrashIcon class="size-3.5" />
+            <TrashIcon class="size-3" />
           </Button>
         </div>
       </template>
@@ -78,20 +80,22 @@ function truncate(text: string, max = 24): string {
       </template>
     </div>
 
-    <!-- 队列条目列表：max-h-[120px] 配合 overflow-y-auto 让多条内部 scroll，避免撑大 prompt 容器挤出输入框 -->
-    <div class="p-2 max-h-[120px] overflow-y-auto">
-      <AiElementsQueue>
+    <!-- 队列条目列表（方案 A 紧凑化：p-2→p-1, max-h-[120px]→max-h-[88px] 约容纳 3 条紧凑 chip） -->
+    <div class="p-1 max-h-[88px] overflow-y-auto">
+      <!-- AiElementsQueue 默认 p-2 gap-2 多占 24px，此处用 !p-0 !gap-0 覆盖 -->
+      <AiElementsQueue class="!p-0 !gap-0">
         <!--
-          通过 ! 前缀覆盖 QueueItem 默认的 flex-col 为 flex-row，
-          实现横向排列（Tailwind v4 支持 ! 前缀的 !important）
+          方案 A 紧凑化：!flex-row 覆盖 flex-col + !px-2 !py-0.5 !text-xs 减小每条 chip 高度
+          + !rounded-none 去圆角避免"卡片感"，只保留 hover:bg-muted 的背景反馈（默认行为）
+          原：px-3 py-1 text-sm (~32px) → 现：扁平无圆角 (~24px)
         -->
         <AiElementsQueueItem
           v-for="(item, index) in queue"
           :key="item.id"
-          class="!flex-row items-center gap-2"
+          class="!flex-row items-center gap-1.5 !px-2 !py-0.5 !text-xs !rounded-none"
         >
-          <!-- 序号 badge -->
-          <Badge variant="secondary" class="shrink-0 text-[10px] h-5 px-1.5">
+          <!-- 序号 badge（紧凑：h-5→h-4，text-[10px]→text-[9px]） -->
+          <Badge variant="secondary" class="shrink-0 text-[9px] h-4 px-1">
             #{{ index + 1 }}
           </Badge>
 
@@ -119,24 +123,25 @@ function truncate(text: string, max = 24): string {
             </Tooltip>
           </TooltipProvider>
 
-          <!-- 附件数量 badge（仅当有附件时显示） -->
-          <Badge v-if="item.files?.length" variant="outline" class="shrink-0 h-5 text-[10px]">
-            <PaperclipIcon class="size-3" />
+          <!-- 附件数量 badge（紧凑：h-5→h-4） -->
+          <Badge v-if="item.files?.length" variant="outline" class="shrink-0 h-4 text-[9px] px-1">
+            <PaperclipIcon class="size-2.5" />
             {{ item.files.length }}
           </Badge>
 
           <!-- 深度思考标记（带 testid 供测试选取，放在 wrapper span 上避免依赖 lucide attrs 透传） -->
           <span v-if="item.thinking" data-testid="queue-brain-icon" class="inline-flex shrink-0">
-            <BrainIcon class="size-3.5 text-primary" />
+            <BrainIcon class="size-3 text-primary" />
           </span>
 
           <!-- 删除按钮：包在 QueueItemActions 里，hover 才显示（AiElementsQueueItemAction 自带行为） -->
           <AiElementsQueueItemActions class="shrink-0">
             <AiElementsQueueItemAction
+              class="!size-5"
               data-testid="queue-remove"
               @click="emit('remove', item.id)"
             >
-              <XIcon class="size-3" />
+              <XIcon class="size-2.5" />
             </AiElementsQueueItemAction>
           </AiElementsQueueItemActions>
         </AiElementsQueueItem>
