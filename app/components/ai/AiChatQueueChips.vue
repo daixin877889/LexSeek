@@ -38,33 +38,35 @@ function truncate(text: string, max = 24): string {
     <!-- 状态横幅仅在暂停态显示；运行态下由 chip 队头 spinner 指示"即将派发" -->
     <div
       v-if="paused"
-      class="px-3 py-1.5 text-xs flex items-center gap-2 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+      class="px-3 py-1 text-xs flex items-center gap-2 bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
     >
       <PauseIcon class="size-3.5 shrink-0" />
       <span>队列已暂停（{{ pauseReasonText }}）</span>
       <div class="ml-auto flex gap-1">
-        <Button
-          size="icon-sm"
-          variant="outline"
-          class="!size-6"
+        <!--
+          用原生 button 而非 shadcn Button：避免 variant 的默认 border/padding，
+          只保留 hover 背景反馈，横幅高度最小化
+        -->
+        <button
+          type="button"
+          class="inline-flex items-center justify-center size-5 rounded-sm hover:bg-amber-200/60 dark:hover:bg-amber-500/20 transition-colors cursor-pointer"
           aria-label="恢复队列"
           title="恢复队列"
           data-testid="queue-resume"
           @click="emit('resume')"
         >
           <PlayIcon class="size-3" />
-        </Button>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          class="!size-6"
+        </button>
+        <button
+          type="button"
+          class="inline-flex items-center justify-center size-5 rounded-sm hover:bg-amber-200/60 dark:hover:bg-amber-500/20 transition-colors cursor-pointer"
           aria-label="清空队列"
           title="清空队列"
           data-testid="queue-clear"
           @click="emit('clear')"
         >
           <TrashIcon class="size-3" />
-        </Button>
+        </button>
       </div>
     </div>
 
