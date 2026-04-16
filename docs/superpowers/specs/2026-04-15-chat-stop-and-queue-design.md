@@ -3,6 +3,7 @@
 **日期**：2026-04-15
 **作者**：戴鑫（与 Claude 协作）
 **状态**：待评审
+**版本**：v5（v1→v4 历次审查修订见 git log；v5 由"循环审查"流程产生，主要修订点：①核心决策"停止后 partial 处理"由"写入 LangGraph checkpoint"降级为"本会话内 messages 数组保留可见，刷新后消失"——基于核实后端 LangGraph 是 step-level checkpoint，未完成 step 的中间输出本就不持久化；②修正 listener 数量 4→3 的事实错误；③修正 useStreamChat 行号 52-55→47-64；④修复 `handleStop` 的 `watch + immediate` 时序漏洞；⑤修正 `Tooltip + QueueItemContent` 嵌套方案：放弃复用、直接用原生 span；⑥协调"暂停态强制入队"与"删光 chip 自动清除暂停"的语义；⑦补充 `sendMessage` sync fire-and-forget 的精确语义和未来 async 改造的提示；⑧补 `ChatInstance` 类型别名；⑨补"前端 fetch 失败 onError 不写 runStatus"已知边界；⑩补"跨 tab 并发 last-writer-wins"和"切走 session 队列冻结"已知行为）
 **影响范围**：前端（`app/composables/useChatSessionManager.ts`、`app/components/caseDetail/CaseDetailXiaosuo.vue`、模块对话组件、`app/components/ai/AiPromptInput.vue`、新增 `app/components/ai/AiChatQueueChips.vue`）
 
 ## 1. 问题背景
@@ -17,7 +18,7 @@
 
 ### 2.1 目标
 
-- **停止按钮可用**：进行中的对话可以通过点击停止按钮立即中断，已生成的部分内容作为"已取消"消息保留在对话历史中。
+- **停止按钮可用**：进行中的对话可以通过点击停止按钮立即中断。已生成的部分内容**仅在本会话窗口的 `useStreamChat.messages` 数组中保留可见**，不写入 LangGraph checkpoint；用户刷新页面、切走 session 再切回、或在另一个 tab 通过 `loadHistory` 读取后，残缺消息会消失。**这是依赖现有前端 streaming 行为的零额外改动方案**（见 §11.3 与 §8.2）。
 - **消息队列**：用户可以在当前轮次进行中时继续输入新消息，最多 5 条 FIFO 队列；上一轮结束后自动派发下一条。
 - **异常自动暂停**：当前轮次被手动停止或因错误失败时，队列自动进入暂停态，等待用户手动恢复，避免用户不期望的连锁触发。
 - **统一双端生效**：小索对话（`CaseDetailXiaosuo.vue`）与模块对话（`AnalysisModuleChat.vue`）通过共享基类 `useChatSessionManager` 获得两项能力，修改点最少。
@@ -40,7 +41,7 @@
 
 | 决策项 | 选择 |
 |-------|------|
-| 停止后已生成内容的处理 | 保留并标记"已取消"，写入 LangGraph checkpoint |
+| 停止后已生成内容的处理 | **本会话内保留**：依赖 `useStreamChat.messages` 已累积的 partial chunks，**不写入 checkpoint**（受限于 LangGraph step-level checkpoint 行为，详见 §8.2） |
 | 队列容量 | 最多 N=5 条，FIFO |
 | 手动停止后队列行为 | 自动暂停，等待手动恢复 |
 | 失败后队列行为 | 自动暂停，等待手动恢复 |
@@ -94,7 +95,6 @@ export interface QueueItem {
                           // 队列结构先行支持，实际派发时暂不传递（见 §5.6）
   thinking: boolean       // 入队时的"深度思考"开关状态
   enqueuedAt: number      // Date.now()，用于排序与跨标签同步的时序校验
-  originTabId: string     // 入队的 tab 唯一标识，跨标签审计用（见 §13）
 }
 
 export type QueuePauseReason = 'stopped' | 'failed' | null
@@ -122,7 +122,7 @@ return {
 }
 ```
 
-内部新增 `lastLocalSendSeq: Ref<number>`（默认 0），在封装后的 `sendMessage` 和 `doDispatch` 内 `++`，供 `useQueueDispatcher` 的溯源守卫读取。不暴露给外部。
+内部新增 `lastLocalSendSeq: Ref<number>`（`ref(0)`，在 `useChatSessionManager` setup 顶层声明），在封装后的 `sendMessage` 和 `doDispatch` 内 `++`，供 `useQueueDispatcher` 的溯源守卫读取。不暴露给外部。**生命周期**：与 `useChatSessionManager` 调用方组件的 setup scope 一致，每次组件 mount 重置为 0；不跨 tab、不持久化（与 `lastDispatchedSeq` 一样属于"运行时本 tab 派发器局部计数器"）。
 
 ### 4.5 文件结构
 
@@ -174,7 +174,9 @@ app/components/ai/
 三种状态的派生规则（**`running` 与 `idle` 均为派生展示态；核心派发逻辑由 `runStatus`、`interruptData`、`isLoading`、`queuePausedBy` 四个源驱动**）：
 - `idle` = 队列为空 且 `!isLoading.value` 且 `!isQueuePaused.value`
 - `running` = `!isQueuePaused.value` 且（队列非空 或 `isLoading.value=true`）
-- `paused` = `queuePausedBy.get(sid) !== null`
+- `paused` = `queuePausedBy.get(sid) != null`（**宽松比较 `!=` 同时处理 `null` 与 `undefined`**）
+
+**重要约定**：`isQueuePaused` computed 实现用宽松不等 `!= null`（而非严格 `!== null`），这样无论代码写 `queuePausedBy.set(sid, null)` 还是 `queuePausedBy.delete(sid)`，语义都是"非暂停"。这避免了 "set null vs delete" 的混用导致 `isQueuePaused` 错误地返回 true（因 `get` 返回 `undefined`，`undefined !== null === true`）。所有"清除暂停"的写法**必须统一为 `queuePausedBy.delete(sid)`**，`null` 作为初始值仅用于类型占位，运行期不应出现。
 
 **只有 `paused` 需要显式存储**，其他状态由上面四个源派生。派发器（第 5.2 节）判断是否派发时只读源状态，不读 `running`/`idle` 这两个 UI 标签。
 
@@ -182,12 +184,19 @@ app/components/ai/
 
 **核心设计决策（修订后 v2）**：派发器的触发源是 **`watch(runStatus)`** 而非 `watch(isLoading)`，**并叠加"本地发送溯源"守卫**避免 reconnect 重放的 `status_change: completed` 误触发。
 
-**为什么叠加本地发送守卫**：`server/api/v1/case/analysis/chat.post.ts:270` 的 `replayEvents(runId)` 会在 reconnect 时补发 Redis Stream 历史事件，包括 `status_change: running/completed`。`useStreamChat.ts:52-55` 的 `onCustomEvent` 会把这些事件写入本地 `runStatus`。所以单靠 `watch(runStatus === 'completed')` 仍会在 reconnect 时误派发。**解决方案**：引入 `lastLocalSendSeq` / `lastDispatchedSeq` 两个计数器，只有"本 tab 曾本地调用过 `sendMessage`（序号大于上次派发的）"才允许派发下一条。reconnect 重放不经过本地 `sendMessage`，seq 不增长，守卫拒绝。
+**为什么叠加本地发送守卫**：`server/api/v1/case/analysis/chat.post.ts:270` 的 `replayEvents(runId)` 会在 reconnect 时通过 `agentEventBridge.ts` 直接回放 Redis Stream 中的全部历史事件（包括 `status_change: running/completed`）。`useStreamChat.ts:47-64` 的 `onCustomEvent` 会把这些事件写入本地 `runStatus`。所以单靠 `watch(runStatus === 'completed')` 仍会在 reconnect 时误派发。**解决方案**：引入 `lastLocalSendSeq` / `lastDispatchedSeq` 两个计数器，只有"本 tab 曾本地调用过 `sendMessage`（序号大于上次派发的）"才允许派发下一条。reconnect 重放不经过本地 `sendMessage`，seq 不增长，守卫拒绝。
+
+**实际后端行为补充（v5 新增）**：经核实 `chat.post.ts:241-264` 对**已完成 run**走 `isCompletedRun` 优化分支：跳过 `replayEvents`，直接发 `PostgresSaver` 最终快照的 values 事件（**不**发 `status_change`）。所以"reconnect 时 replay status_change"主要发生在**未完成 run 的中途断线重连**场景，而非"重开 tab 看历史"。守卫的真正作用是：在 SSE 中断重连时，前 tab 的本地 `lastLocalSendSeq` 已经包含用户发送的 +1，replay 的 completed 看似合法但实际不应再触发派发（因为派发器从未接管该轮次）。本守卫确保只有"派发器主动管理的 completed → completed 转换"才允许 pop 队头。
 
 ```typescript
 // app/composables/useQueueDispatcher.ts
 import { effectScope, nextTick, ref } from 'vue'
 import { postCrossTabEvent, useCrossTabListener } from '~/composables/useCrossTabEvents'
+
+// 类型别名：currentChat.value 的类型与 useChatSessionManager 已有的 shallowRef 一致
+// 注意：TS 不支持 `typeof import('...').fn`，需分两行
+import type { useCaseChat } from '~/composables/useCaseChat'
+type ChatInstance = ReturnType<typeof useCaseChat>
 
 function useQueueDispatcher(deps: {
   currentSessionId: Ref<string | null>
@@ -271,8 +280,17 @@ function useQueueDispatcher(deps: {
       // watch 守卫 `seq > lastDispatchedSeq` 永远为 false，队列死锁。
       deps.lastLocalSendSeq.value++
 
-      // 先调 sendMessage：失败时下方 set 不执行，队头仍在 queue 中
-      // 注意：files 字段在当前阶段不传递（见 §5.6）
+      // 调 sendMessage：当前 useCaseChat.sendMessage（见 §5.6）是 **sync fire-and-forget**，
+      // 内部调用 `stream.submit(...)`，submit 本身是 sync 启动 SSE 流后立即返回，
+      // 不返回 Promise。所以本处**不需要** await。
+      // 错误路径分两类（详见 §8.1 #1）：
+      //   (a) 后端执行失败（fetch 已到达，Worker 启动后报错）：Worker publish status_change: failed
+      //       → 前端 watch(runStatus) 触发暂停分支，队列自动暂停。
+      //   (b) 前端 fetch 自身失败（断网、4xx/5xx）：useStreamChat 的 onError 当前仅 console.error，
+      //       不写 runStatus，队列**不会**自动暂停（v5 已知边界，用户需手动停止）。
+      // 注意：files 字段在当前阶段不传递（见 §5.6）。
+      // ⚠️ 若未来 `useCaseChat.sendMessage` 改为 async（返回 Promise），doDispatch 必须同步改为 await，
+      //    否则异步抛错会变成 unhandled rejection 且 set(sid, rest) 会先于 reject 执行导致消息丢失。
       deps.currentChat.value?.sendMessage(head.text, { thinking: head.thinking })
       // 成功则 pop 并广播
       deps.queuesBySession.set(sid, rest)
@@ -368,6 +386,12 @@ function handleSubmit(data: { text: string; files?: OssFileItem[] }) {
    }
    ```
 
+   **第 1 条与第 3 条的语义协调**：第 1 条说"暂停态下新发送强制入队"；第 3 条说"删光 chip 自动清除暂停标记"。两者交互产生的合法行为序列是：
+   - 暂停态 + 队列非空 → 用户发送 → 入队
+   - 暂停态 + 队列只剩 1 条 → 用户点 × 删除 → 队列变空、暂停标记被自动清除（隐式等价于 `clearQueue`） → 此后用户新发送走普通发送路径，无需点"恢复"
+
+   这等于把"删光最后一条 chip"作为"用户隐式表达不再需要这个暂停队列"的快捷操作。**若未来需要更严格的"用户必须显式决策"语义**，应改为：删光 chip 后保持暂停态，UI 显示"队列已空但暂停 [恢复正常发送]"按钮——本次按 YAGNI 先采用隐式清除方案。
+
 `enqueueMessage` 仍是纯状态操作，不需要判断"当前该发送还是入队"——**组件层**做这个决策。
 
 ### 5.4 `resumeQueue` 行为
@@ -376,11 +400,22 @@ function handleSubmit(data: { text: string; files?: OssFileItem[] }) {
 function resumeQueue() {
   const sid = currentSessionId.value
   if (!sid) return
-  queuePausedBy.set(sid, null)
+  // 统一使用 delete 而非 set(sid, null)，与 clearQueue / removeQueueItem 保持一致
+  // 配合 isQueuePaused 的宽松比较 `!= null`（见 §5.1），两种写法语义等价，但 delete 更干净
+  queuePausedBy.delete(sid)
   broadcastState(sid)
   // 主动触发一次派发尝试（此时 isLoading 应为 false）。
-  // 注意：此路径**有意**不经过 seq 守卫（seq 守卫仅存在于 watch(runStatus) 回调），
-  // 用于支持"tab B 继承 tab A 留下的暂停队列后手动恢复"的跨 tab 场景。
+  //
+  // ✅ 关于"绕过 seq 守卫"的精确语义（避免误读）：
+  //   - seq 守卫仅存在于 `watch(runStatus)` 回调内（§5.2），
+  //     `maybeDispatch()` 入口本身**不**读 seq —— 所以"手动调 maybeDispatch"在结构上就不经过 seq 守卫，无需特殊设计。
+  //   - 这条路径仍然受 `maybeDispatch` 的 6 个常规守卫保护（pausedBy / interruptData / isLoading / currentChat / 队列空 / Web Lock）。
+  //   - `doDispatch` 内仍会 `lastLocalSendSeq.value++`，所以**后续真实 completed 事件**到来时，
+  //     `watch(runStatus)` 守卫 `seq > lastDispatchedSeq` 仍能正确响应，链式派发不中断。
+  //   - 这个设计支持的关键场景：tab B 通过 hello 继承 tab A 暂停的队列后手动恢复，
+  //     即便 tab B 自己**从未本地 sendMessage 过**（lastLocalSendSeq 起始为 0），
+  //     也能从这条路径启动派发——这是有意为之的"跨 tab 接管"能力。
+  //   - 跨 tab 同时 resume 的双发风险由 Web Lock（§5.2 守卫 6）防御，与 seq 守卫无关。
   dispatcher.maybeDispatch()
 }
 ```
@@ -404,6 +439,8 @@ function resumeQueue() {
 | 停止按钮快速连点 | 组件层 `isStopping` ref 守卫（见 §6.6），按下后置灰，`runStatus → cancelled` 或 3s 超时复位 |
 | **暂停态下队列被清空后死锁** | `clearQueue` 和最后一次 `removeQueueItem` 实现中：若结果队列变空，自动 `queuePausedBy.delete(sid)` 清除暂停标记并广播（见 §8.1 场景 #17） |
 | 暂停态下用户点击发送按钮 | `handleSubmit` 同时检查 `isLoading` 和 `isQueuePaused`，任一为真则入队而非发送 |
+| **跨 tab 并发 enqueue（同一 session）** | 已知限制：`version = performance.now() + Math.random()` 的 last-writer-wins 在两 tab **同时**（毫秒级窗口内、且都在 hello 同步完成前）独立 enqueue 时，version 较小的广播被接收方按"过期"丢弃，可能导致一次入队丢失。**实际发生概率极低**（用户单设备同时操作两 tab 同一 session 的概率 + hello 协议未完成的窗口），且 §2.2 已声明跨 tab 仅尽力而为，本次按 YAGNI 不上 CRDT 计数器方案。已记入 §8.2 |
+| **session 切走后其队列保持冻结** | 已知行为：dispatcher 的 `watch(runStatus)` 监听的是 `currentChat` 当前实例的 runStatus（computed 代理）。切走 session A 后，`deps.runStatus` 指向新 session 的 runStatus；A 的后台 run 即便完成，也不会触发 dispatcher 的 watch（因为不在 currentChat 上）。A 的队列保留不动，**直到用户切回 A 且 A 触发新一轮 running→completed 转换**。属于符合预期的行为（避免后台串行派发不可见的队列），已记入 §8.2 |
 
 ### 5.6 `useCaseChat.sendMessage` 现状与前瞻性决策
 
@@ -432,7 +469,7 @@ sendMessage: (message: string, opts?: { thinking?: boolean }) => {
 
 复用项目已有的 `app/composables/useCrossTabEvents.ts`（基于 BroadcastChannel 的 fire-and-forget 事件总线），不新建通信层。
 
-**与现有模式的差异**：项目现有的 6 个 `useCrossTabListener` 调用点（`useInitAnalysis.ts` / `useCaseDetail.ts` / `useModuleChatManager.ts` 等）均采用 **"收到事件 → refetch API"** 的模式。本 spec 的 `chat-queue:sync` **首次**采用 **"payload 作为 source of truth，接收方直接 merge 到本地 Map"** 的模式。**原因**：队列无服务端持久化（见 §2.2），接收方**无法 refetch**，只能信任 payload。此偏离是**必需而非错误**，后续维护者不应误以为"漏了 refetch"。
+**与现有模式的差异**：项目现有的 3 个 `useCrossTabListener` 调用点（`useInitAnalysis.ts:126` 的 `module:generating`、`useInitAnalysis.ts:134` 的 `analysis:updated`、`useCaseDetail.ts:79` 的 `analysis:updated`）均采用 **"收到事件 → refetch API"** 的模式。本 spec 的 `chat-queue:sync` **首次**采用 **"payload 作为 source of truth，接收方直接 merge 到本地 Map"** 的模式。**原因**：队列无服务端持久化（见 §2.2），接收方**无法 refetch**，只能信任 payload。此偏离是**必需而非错误**，后续维护者不应误以为"漏了 refetch"。
 
 **新增事件**（扩展 `CrossTabEvents` interface）：
 
@@ -561,7 +598,7 @@ loading 态（新增）:
 
 | 修改点 | 文件 | 说明 |
 |-------|------|------|
-| 新增 props `queueLength` / `queueFull` | `AiPromptInput.vue` | 由父组件传入 `:queue-length="xiaosuoChat.currentQueueLen"` |
+| 新增 props `queueLength` / `queueFull` | `AiPromptInput.vue` | 由父组件通过 computed 解引用后传入（见 §7.2 注释，Vue 3 模板不自动 unwrap 嵌套 props Ref） |
 | 重写 `isSubmitDisabled` | `AiPromptInput.vue:270-281` | 拆分为 `isEnqueueDisabled` / `isSendDisabled` |
 | 按钮区域条件渲染 | `AiPromptInput.vue:134-141` | `v-if="loading"` 下渲染独立 `<Button>` 停止 + 加入队列；否则保持 `<PromptInputSubmit>` |
 | 停止按钮 `@click="emit('stop')"` | `AiPromptInput.vue` | 绕开 `PromptInputSubmit` 缺失的 `stop` emit |
@@ -586,35 +623,58 @@ loading 态（新增）:
 // CaseDetailXiaosuo.vue / AnalysisModuleChat.vue 中
 const isStopping = ref(false)
 
+const TERMINAL_STATUSES = new Set(['cancelled', 'completed', 'failed'] as const)
+
 async function handleStop() {
   if (isStopping.value) return
+
+  // 短路：若调用时已是终止态，直接复位（避免下方 watch immediate 的 unwatch-undefined 时序坑）
+  if (TERMINAL_STATUSES.has(props.xiaosuoChat.runStatus.value as any)) {
+    return
+  }
+
   isStopping.value = true
+
+  // 用 let + 显式声明，允许 watcher 回调内可选链调用 unwatch
+  // 避免"watch 同步触发但 const unwatch 未赋值"的 TypeError
+  let unwatch: (() => void) | undefined
+  let timer: ReturnType<typeof setTimeout> | undefined
+
+  const cleanup = () => {
+    isStopping.value = false
+    unwatch?.()
+    if (timer) clearTimeout(timer)
+    unwatch = undefined
+    timer = undefined
+  }
 
   // 先注册 watch 再调 stopGeneration：避免 await 期间 cancelled 事件已经到达、
   // watch 未建立导致错过信号，只能靠 3s 超时复位
-  const unwatch = watch(
-    props.xiaosuoChat.runStatus,  // runStatus 已是 ref/computed，无需 getter 包装
+  // 用 getter 形式包装，避免 props.xiaosuoChat.runStatus 是 props 字段时的解引用边界
+  unwatch = watch(
+    () => props.xiaosuoChat.runStatus.value,
     (s) => {
-      if (s === 'cancelled' || s === 'completed' || s === 'failed') {
-        isStopping.value = false
-        unwatch()
-      }
+      if (TERMINAL_STATUSES.has(s as any)) cleanup()
     },
-    { immediate: true }, // 若调用时 runStatus 已是终止态则立即触发
+    // 不用 immediate：上面已经短路检查过当前值
   )
-  setTimeout(() => { isStopping.value = false; unwatch() }, 3000)
+  timer = setTimeout(cleanup, 3000)
 
   try {
     await props.xiaosuoChat.stopGeneration()
   } catch (err) {
     console.error('[chat-stop] stopGeneration failed', err)
-    isStopping.value = false
-    unwatch()
+    cleanup()
   }
 }
 ```
 
 停止按钮 `:disabled="isStopping"`，点击中为置灰 loading 态。
+
+**关键点**：
+1. **短路终止态检查**：进入函数时若 `runStatus` 已是终止态，直接 return，避免后续 `watch + immediate` 的 unwatch-undefined 陷阱。
+2. **`let unwatch` 而非 `const`**：让闭包内可以可选链调用 `unwatch?.()`，避免 watch 同步触发时变量未赋值的 TypeError。
+3. **`cleanup` 集中复位**：success / failure / timeout 三条路径都走同一个 cleanup，避免遗漏 timer 或 watch handle 泄漏。
 
 ## 7. 队列 Chip UI
 
@@ -627,11 +687,12 @@ async function handleStop() {
 | 组件 | 用途 |
 |-----|------|
 | `<AiElementsQueue>` | 外壳容器：rounded border + bg-background + shadow-xs（已封装样式） |
-| `<AiElementsQueueItem>` | 单项 `<li>`：group hover + px-3 py-1 + text-sm + hover:bg-muted |
-| `<AiElementsQueueItemContent completed={bool}>` | 文本 slot：line-clamp-1 + grow + break-words（completed 时灰色删除线） |
-| `<AiElementsQueueItemIndicator completed={bool}>` | 圆点指示器：size-2.5 圆形 |
-| `<AiElementsQueueItemActions>` | 操作按钮组：flex gap-1 容器 |
-| `<AiElementsQueueItemAction>` | 单个操作按钮：ghost Button，group-hover:opacity-100（hover 才显示） |
+| `<AiElementsQueueItem>` | 单项 `<li>`：group hover + px-3 py-1 + text-sm + hover:bg-muted（默认 `flex-col`，本次通过 `!flex-row` class 覆盖为横向排列） |
+| `<AiElementsQueueItemContent>` | 文本 slot：`line-clamp-1 + grow + break-words`（接受 `completed` prop，启用时灰色删除线）。**注意**：本组件未做 reka-ui 的 DOM ref 转发，不能直接作为 `TooltipTrigger as-child` 的子组件，§7.3 选择放弃复用、直接用原生 span + 复制 line-clamp 等样式 class |
+| `<AiElementsQueueItemActions>` | 操作按钮组：`flex gap-1` 容器 |
+| `<AiElementsQueueItemAction>` | 单个操作按钮：ghost Button，`group-hover:opacity-100`（hover 才显示） |
+
+> `AiElementsQueueItemIndicator`（圆点指示器）也在该目录下，但本次队列 chip 设计未用到——队列序号已通过 `<Badge>#N` 表达，无需额外指示器。
 
 ### 7.2 挂载位置
 
@@ -639,17 +700,20 @@ async function handleStop() {
 
 ```vue
 <!-- CaseDetailXiaosuo.vue 修改后（AnalysisModuleChat.vue 对称改造） -->
+<!-- 注意：Vue 3 模板只自动 unwrap 顶层 Ref，`xiaosuoChat.xxx` 是 props 嵌套访问**不会** unwrap。
+     须在 script setup 中用 computed 包装解引用，与项目已有的 chatMessages / runStatus 包装模式一致。
+     示例：`const currentQueue = computed(() => props.xiaosuoChat.currentQueue.value)`。 -->
 <AiChat ...>
   <template #prompt-actions>
     <div v-if="showRetryButton" class="...">...</div>
     <AiChatQueueChips
-      :queue="xiaosuoChat.currentQueue"
+      :queue="currentQueue"
       :max="QUEUE_MAX_SIZE"
-      :paused="xiaosuoChat.isQueuePaused"
-      :pause-reason="xiaosuoChat.queuePauseReason"
-      @remove="xiaosuoChat.removeQueueItem"
-      @resume="xiaosuoChat.resumeQueue"
-      @clear="xiaosuoChat.clearQueue"
+      :paused="isQueuePaused"
+      :pause-reason="queuePauseReason"
+      @remove="(id) => props.xiaosuoChat.removeQueueItem(id)"
+      @resume="() => props.xiaosuoChat.resumeQueue()"
+      @clear="() => props.xiaosuoChat.clearQueue()"
     />
   </template>
 </AiChat>
@@ -731,12 +795,22 @@ function truncate(text: string, max = 24) {
           <!-- 序号 badge -->
           <Badge variant="secondary" class="shrink-0 text-[10px] h-5 px-1.5">#{{ index + 1 }}</Badge>
 
-          <!-- 文本内容（复用 QueueItemContent 的 line-clamp） -->
+          <!-- 文本内容：原计划复用 AiElementsQueueItemContent 的 line-clamp 样式，
+               但 reka-ui 的 <TooltipTrigger as-child> 通过 <Slot> primitive 把事件 + DOM ref
+               注入子元素，要求子元素能 **forward DOM ref**——Vue 3 自定义组件的 `ref` 默认
+               指向组件实例（非 DOM 节点），需要 defineExpose({ $el }) 或基于 reka-ui 的
+               Primitive 包装才能转发。`QueueItemContent.vue` 当前（2026-04 阶段）只是普通
+               单根 span 组件，未做 ref 转发，作为 as-child 子元素时 Tooltip 定位会失败。
+               按 §6.4 "不改第三方生成组件"原则，此处直接使用原生 span + 复制 QueueItemContent
+               的 line-clamp 样式（line-clamp-1 内置 display:-webkit-box，无需额外 block 类）。
+               这是 minimal 妥协，损失的复用度仅为 3 个 class。 -->
           <Tooltip>
             <TooltipTrigger as-child>
-              <AiElementsQueueItemContent>
+              <span
+                class="line-clamp-1 grow break-words text-muted-foreground min-w-0"
+              >
                 {{ truncate(item.text) }}
-              </AiElementsQueueItemContent>
+              </span>
             </TooltipTrigger>
             <TooltipContent class="max-w-md">
               <div class="text-xs whitespace-pre-wrap">{{ item.text }}</div>
@@ -809,7 +883,7 @@ function truncate(text: string, max = 24) {
 
 | # | 场景 | 处理策略 |
 |---|------|---------|
-| 1 | 派发后 `sendMessage` 底层 fetch 抛错 | `useStreamChat` 的 `onError` 捕获并 `console.error`。Worker 最终推送 `status_change: failed` → `watch(runStatus)` 暂停队列 → 用户手动恢复 |
+| 1 | 派发后 `sendMessage` 底层调用失败 | **分两种情况**：①**后端执行失败**（fetch 已到达，Worker 启动后报错）：Worker publish `status_change: failed` → 前端 SSE 收到 → `runStatus='failed'` → `watch(runStatus)` 暂停队列 → 用户手动恢复。②**前端 fetch 自身失败**（断网、CORS、4xx/5xx 立即返回）：`useStreamChat.ts:66-68` 的 `onError` 当前只 `console.error`，**不**写 runStatus，也不发 status_change，所以队列**不会**自动暂停 — 这是 v5 阶段的已知边界，用户需要手动点停止按钮触发 `cancelled` 路径。**未来优化**：在 `useStreamChat.onError` 内补一行 `runStatus.value = 'failed'`（约 1 行），即可让两种情况走统一暂停路径，本次 spec 暂不强制此改动以避免扩大范围 |
 | 2 | 派发时 `currentChat.value === null` | `maybeDispatch` 守卫 4 提前 return，**不会 pop 队头**。队列保持完整，等下次 runStatus 切到 completed 再尝试 |
 | 3 | 队列中某条消息的 files 已被后端删除 | 此场景仅在未来启用文件上传后才可能出现（当前 files 字段不被派发，见 §5.6）。届时后端 prompt 构造阶段报错 → 走场景 #1 的 `failed` 路径 → 自动暂停 |
 | 4 | 队列有内容时删除当前 session | `deleteSession` 按以下顺序：①delete API → ②清理 `queuesBySession.delete(sid)` + `queuePausedBy.delete(sid)` → ③从 sessions 数组移除 → ④`switchSession` 到下一条或 `createSession`。清理必须在 switchSession **之前** |
@@ -829,10 +903,15 @@ function truncate(text: string, max = 24) {
 
 ### 8.2 用户预期边界
 
-- **"已取消的消息仍会计入对话历史"**：已生成部分由 LangGraph checkpoint 保存，队列派发的下一条看到的 context 包含这条残缺消息。属于期望行为。
+- **"已取消消息只在本会话内可见，不持久化"**：LangGraph 使用 **step-level** checkpoint，未完成 step 的部分输出**不会被写入** `PostgresSaver`。`agentWorker.ts:302-333` 的 catch 块仅更新 run status 为 CANCELLED 并调用 `repairOrphanToolUseCheckpoint` 修复孤立工具调用，**不主动持久化** partial AIMessage。因此：
+  - 用户停止后，本 tab 的 `useStreamChat.messages` 数组里仍保留刚才 streaming 收到的 partial chunks，UI 可见。
+  - 一旦本 session 触发 `loadHistory`（刷新、切走再切回、新 tab 打开 session），由于读的是 PostgresSaver 快照，残缺消息消失。
+  - **队列派发的下一条** AI 看到的 context 由后端从 checkpoint 重建，**不包含**残缺消息。也就是说"上下文连续性"在停止后被打断——这是 v5 阶段的已知行为，未来如需"连续性"需扩展后端 catch 块手动 `graph.updateState` 写入 checkpoint，本次 spec 的 §11.3 明确不做此改动。
 - **"队列不是发送队列而是派发队列"**：每条独立发送、独立回复、独立计费，不会被合并。
-- **"暂停态不自动解除"**：即便 AI 因其他原因进入 idle，暂停态只能由 `resumeQueue` 显式清除。
+- **"暂停态不自动解除"**：即便 AI 因其他原因进入 idle，暂停态只能由 `resumeQueue` 显式清除——**例外**：删光最后一条 chip / `clearQueue` 会隐式清除暂停标记（见 §5.3 死锁防护协调）。
 - **"删除 chip 不撤销已派发"**：当队列头派发后已不在 queue 中，删除操作只能作用于剩余条目。
+- **"跨 tab 并发 enqueue 可能丢失"** (v5 已知限制)：两 tab 在毫秒级窗口内对同一 session 独立 enqueue 时，因 last-writer-wins，version 较小的入队可能被覆盖。本 spec 不上 CRDT 方案；用户单设备同时操作两 tab 操作同一 session 的概率极低，且 §2.2 声明跨 tab 仅尽力而为。
+- **"切走 session 后其队列冻结"** (v5 已知行为)：dispatcher 监听的 runStatus 是 `currentChat` 当前实例的代理。切走 session A 后，A 的后台 run 完成时 dispatcher 不响应，A 的队列保留但不派发，直到用户**切回 A** 且 A 产生新一轮 `running → completed` 转换才会继续派发。这是有意为之，避免"看不见的队列在后台连续触发"。
 
 ### 8.3 防御性编程原则
 
@@ -932,6 +1011,7 @@ const mockChat = {
   stopGeneration: vi.fn(),
   loadHistory: vi.fn(),
   reconnect: vi.fn(),
+  resumeInterrupt: vi.fn(), // 用于"interrupt 确认后继续派发"用例
 }
 vi.mock('~/composables/useCaseChat', () => ({ useCaseChat: () => mockChat }))
 ```
@@ -955,6 +1035,9 @@ vi.mock('~/composables/useCaseChat', () => ({ useCaseChat: () => mockChat }))
 | interrupt 期间 `isLoading` 变 false 的边界 | enqueue 1 → 模拟 `interruptData` 被设置 + `isLoading: true → false` | `sendMessage` **未**被调用（守卫 2 生效） |
 | 队列满 | 已有 5 条再 enqueue | 返回 `false` |
 | **暂停态下 handleSubmit 走 enqueue** | 暂停态 + isLoading=false + 组件层 handleSubmit | 调用的是 enqueueMessage，不是 sendMessage |
+| **resumeQueue + currentChat 为 null 边界** | 队列 1 条暂停 → mock currentChat.value=null → resumeQueue() → 应不抛错且不派发 | `sendMessage` 未被调用，队列保持，暂停标记已清除（resume 的预期副作用），UI 显示"运行中但无人派发"的中间态—— 此场景靠下次 currentChat 就绪 + 用户重新触发恢复 |
+| **删光最后一条 chip 自动清除暂停标记** | 暂停态 + 队列只剩 1 条 → removeQueueItem(id) | 队列空 + `isQueuePaused=false` + 广播 1 次 |
+| **clearQueue 同时清除暂停标记** | 暂停态 + 队列 3 条 → clearQueue() | 队列空 + `isQueuePaused=false` + 广播 1 次 |
 
 **时序控制**：用 `flushPromises()` 和 `await nextTick()` 精确控制 watch 执行顺序。
 
@@ -1152,8 +1235,9 @@ E2E 命令：`npx playwright test tests/e2e/xiaosuo-chat-queue.spec.ts`
 ### 11.3 不修改的文件
 
 - `app/components/ai-elements/prompt-input/PromptInputSubmit.vue`（shadcn 生成组件，绕开而非修改）
+- `app/components/ai-elements/queue/*`（同样属于 shadcn ai-elements 生成组件，§7.3 通过**放弃 QueueItemContent 复用 + 直接用原生 span + 复制 line-clamp 等样式 class** 的方式绕开 `TooltipTrigger as-child` 对 forward DOM ref 的需求，避免修改基元源码）
 - `app/composables/useCaseChat.ts`（签名本次不扩展，见 §5.6）
-- `server/services/agent/*`（后端取消机制已完整存在）
+- `server/services/agent/*`（后端取消机制已完整存在；**本次明确不扩展 partial AIMessage 持久化**，接受 LangGraph step-level checkpoint 的现有行为：刷新后残缺消息消失。详见 §8.2）
 - 数据库 schema（无持久化需求）
 
 ## 12. 决策日志
@@ -1165,10 +1249,10 @@ Spec 阶段确认的关键决策，规划与实现阶段无需重新争论：
 | 队列归属层 | `useChatSessionManager` 基类 | 双端一次修改生效，与 session 切换天然协同 |
 | 队列容量 | 5 条 FIFO | 够用且避免用户"连发 10 条"式 UX 混乱 |
 | 溢出策略 | **拒绝新入队**，**不丢弃最老一条** | 保护已排队条目，对用户意图更尊重 |
-| 停止后处理 | 保留已生成内容标记"已取消" | 符合 ChatGPT / Claude.ai 既有心智 |
+| 停止后处理 | **本会话内保留 partial AIMessage**（不写 checkpoint） | 受限于 LangGraph step-level checkpoint 的实际行为：未完成 step 的中间输出本就不持久化。要做"持久化"需扩展 `agentWorker.ts` catch 块 + 跨节点状态重构，工作量大；本次按 YAGNI 接受"刷新即消失"的体验，决策方向已与原始 spec 调整 |
 | 失败后处理 | 自动暂停，等待手动恢复 | 与停止路径对称，避免故障连锁 |
 | 暂停态 handleSubmit | 强制走 enqueue，用户必须显式恢复或清空 | 避免"暂停队列 + 绕过发送"的 UI 错乱 |
-| 暂停态 + 空队列 | 自动清除暂停标记（clearQueue / 最后一次 removeQueueItem） | 避免用户删光 chip 后死锁 |
+| 暂停态 + 空队列 | 自动清除暂停标记（clearQueue / 最后一次 removeQueueItem） | 避免用户删光 chip 后死锁；§5.3 已澄清这等于"用户隐式表达不再需要这个暂停队列" |
 | 持久化范围 | 仅内存 + 跨 tab 同步，关闭所有 tab 即丢失 | 跨设备 YAGNI；跨 tab 复用现有 BroadcastChannel 基础设施 |
 | files 字段 | 类型结构保留，运行时不传递 | 前瞻性设计，零成本 |
 | `sendMessage` 签名 | 本次**不**扩展 | 当前 UI 不产生 files 数据，避免死代码 |
@@ -1176,11 +1260,15 @@ Spec 阶段确认的关键决策，规划与实现阶段无需重新争论：
 | 派发触发源 | `watch(runStatus === 'completed')` **+ 溯源守卫 `lastLocalSendSeq`** | 既规避 reconnect replay 的 `status_change` 重放，也规避 loadHistory 的 isLoading 假边沿 |
 | 跨 tab 互斥 | `navigator.locks.request({ ifAvailable: true })` | 浏览器级分布式锁，无需自建协议 |
 | Map 响应式方案 | `reactive(new Map())`（CollectionHandlers） | Vue 3 内置支持，无需 version counter 手动触发 |
-| Chip UI 复用 | 基于 `ai-elements/queue/*` 基元 + `!flex-row` class 覆盖 | 项目已有 16 个原子组件 + `AiTaskQueue.vue` 参考实现，严禁重复造轮子；不外套 div 破坏基元语义 |
+| Chip UI 复用 | 基于 `ai-elements/queue/*` 基元 + `!flex-row` class 覆盖 | 项目已有 16 个原子组件 + `AiTaskQueue.vue` 参考实现，严禁重复造轮子 |
+| Tooltip 与 QueueItemContent 嵌套 | **放弃复用 QueueItemContent**，直接用原生 `<span>` + 复制其 `line-clamp-1 / grow / break-words` 样式 class 作为 TooltipTrigger 的 as-child 子元素 | reka-ui 的 `<TooltipTrigger as-child>` 通过 `<Slot>` primitive 注入事件 + DOM ref，要求子元素能 forward DOM ref；Vue 3 自定义组件默认 `ref` 指向实例（非 DOM 节点），QueueItemContent 未做 ref 转发；§6.4 不改第三方 ai-elements 源码原则；放弃复用仅损失 3 个 class 的复用度，是 minimal 妥协 |
 | Composable 文件结构 | 扁平（`chatQueueActions.ts` + `useQueueDispatcher.ts`） | 项目现有 35 个 composable 零子目录先例 |
-| 停止按钮防抖 | 组件层 `isStopping` ref + 3s 超时复位 | 避免用户快速双击导致后端 cancel API 重复调用 |
+| 停止按钮防抖 | 组件层 `isStopping` ref + 3s 超时复位 + **进入函数时短路终止态检查** | 避免用户快速双击导致后端 cancel API 重复调用；短路检查防止 `watch + immediate` 的 `unwatch-undefined` TypeError |
 | TabId 生成时机 | **`onMounted` 内**闭包生成 `nanoid()` | 避免 Nuxt `useState` SSR hydration 导致所有 tab 共享同一 ID |
 | 跨 tab listener 模式 | **直接 merge payload 到本地 Map**（而非 refetch） | 队列无服务端持久化，无法 refetch；与项目现有 listener 模式的偏离是必需的 |
 | broadcastState 调用约束 | 仅在本地 mutation 路径调用；listener 接收事件后**不得**二次广播 | 硬约束级，防止死循环 |
 | `doDispatch` 错误处理 | `try/catch` 包裹 `sendMessage`，失败时显式 `queuePausedBy='failed'` + broadcast | 避免"Web Lock 释放后其他 tab 重复派发" |
-| 测试 mock 基础设施 | 新建 `tests/utils/crossTabMocks.ts` 供所有跨标签功能复用 | 避免未来重复造轮子 |
+| `sendMessage` sync 语义 | 当前 useCaseChat.sendMessage 是 sync fire-and-forget，doDispatch **不需要** await；仅捕获同步抛错 | 异步错误（fetch/SSE）走 onError → status_change: failed 路径暂停队列；若未来改为 async 需同步补 await，已在 §5.2 注释中标注 |
+| 跨 tab 并发 last-writer-wins | **接受**已知限制，不上 CRDT/tab-counter 方案 | 用户单设备同时操作两 tab 同一 session 概率极低；§2.2 跨 tab 仅尽力而为；CRDT 复杂度高于收益，已记入 §5.5 / §8.2 |
+| Session 切走后队列冻结 | **接受**已知行为，不在后台串行派发不可见的队列 | 派发器仅监听当前 currentChat 的 runStatus，符合"用户视野内可控"原则；切回 session 时新一轮 running→completed 转换会自然继续派发 |
+| 测试 mock 基础设施 | 新建 `tests/app/utils/crossTabMocks.ts` 供所有跨标签功能复用 | 避免未来重复造轮子；路径与项目既有 `tests/app/utils/` 目录结构一致 |
