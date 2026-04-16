@@ -14,6 +14,7 @@ vi.mock('~~/server/services/material/materialPipeline.service', () => ({
 vi.stubGlobal('logger', { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })
 
 import {
+    compressMessages,
     estimateMessagesTokens,
     getContextBudget,
     safetyTrimMessages,
@@ -23,7 +24,38 @@ import {
     truncateToolResults,
 } from '~~/server/services/workflow/context/toolResultTruncator'
 
-import { HumanMessage, SystemMessage, AIMessage } from '@langchain/core/messages'
+import { HumanMessage, SystemMessage, AIMessage, ToolMessage, type BaseMessage } from '@langchain/core/messages'
+
+/**
+ * 检测消息列表中所有"孤儿 tool_result"
+ *
+ * 孤儿条件：ToolMessage 向前回溯（允许跨过其他 ToolMessage）找到的最近一条非 Tool
+ * 消息不是带相同 tool_call_id 的 AIMessage。
+ *
+ * Anthropic Messages API 严格要求每个 tool_result 块前面必须有携带相同
+ * tool_use_id 的 tool_use 块，否则返回 400 invalid_request_error。
+ */
+function findOrphanToolMessages(messages: BaseMessage[]): string[] {
+    const orphans: string[] = []
+    for (let i = 0; i < messages.length; i++) {
+        const msg = messages[i]!
+        if (msg.getType() !== 'tool') continue
+        const tcid = (msg as ToolMessage).tool_call_id
+        let paired = false
+        for (let j = i - 1; j >= 0; j--) {
+            const prev = messages[j]!
+            const prevType = prev.getType()
+            if (prevType === 'tool') continue
+            if (prevType === 'ai') {
+                const tcs = (prev as AIMessage).tool_calls ?? []
+                if (tcs.some(tc => tc.id === tcid)) paired = true
+            }
+            break
+        }
+        if (!paired) orphans.push(tcid)
+    }
+    return orphans
+}
 
 // ==================== messageCompressor ====================
 
@@ -153,5 +185,101 @@ describe('truncateToolResults', () => {
         ]
         const truncated = truncateToolResults(results)
         expect((truncated[0] as any).metadata).toEqual({ key: 'value' })
+    })
+})
+
+// ==================== compressMessages 边界对齐 ====================
+
+/** mock model：返回固定摘要内容（测试不关心摘要质量，只关心切分边界） */
+function createMockModel() {
+    return {
+        invoke: vi.fn().mockResolvedValue({ content: '摘要内容' }),
+    }
+}
+
+describe('compressMessages 边界对齐', () => {
+    it('切分点落在单条 ToolMessage 上时，返回结果不含孤儿 tool_result', async () => {
+        // 12 条消息：触发压缩（>11）；slice(-9) 起点 = messages[3] = ToolMessage(call1)
+        // 修复前：[system, summary(human), ToolMessage(call1) ...] → call1 无对应 AIMessage
+        const messages: BaseMessage[] = [
+            new SystemMessage('系统'),
+            new HumanMessage('问题'),
+            new AIMessage({ content: '', tool_calls: [{ id: 'call1', name: 'search', args: {} }] }),
+            new ToolMessage({ content: '结果1', tool_call_id: 'call1' }),
+            new AIMessage({ content: '', tool_calls: [{ id: 'call2', name: 'search', args: {} }] }),
+            new ToolMessage({ content: '结果2', tool_call_id: 'call2' }),
+            new AIMessage({ content: '', tool_calls: [{ id: 'call3', name: 'search', args: {} }] }),
+            new ToolMessage({ content: '结果3', tool_call_id: 'call3' }),
+            new AIMessage({ content: '', tool_calls: [{ id: 'call4', name: 'search', args: {} }] }),
+            new ToolMessage({ content: '结果4', tool_call_id: 'call4' }),
+            new AIMessage({ content: '', tool_calls: [{ id: 'call5', name: 'search', args: {} }] }),
+            new ToolMessage({ content: '结果5', tool_call_id: 'call5' }),
+        ]
+
+        const result = await compressMessages(messages, 100000, createMockModel() as any)
+
+        const orphans = findOrphanToolMessages(result)
+        expect(orphans).toEqual([])
+    })
+
+    it('切分点落在并行 ToolMessage 中间时，所有相关 ToolMessage 都有对应 AIMessage', async () => {
+        // 14 条消息：slice(-9) 起点 = messages[5] = ToolMessage(call_a)
+        // 修复前：AIMessage(tool_calls=[a,b,c,d]) 被切走，a/b/c/d 均成孤儿
+        const messages: BaseMessage[] = [
+            new SystemMessage('系统'),                                              // 0
+            new HumanMessage('问题1'),                                              // 1
+            new AIMessage('回复1'),                                                  // 2
+            new HumanMessage('问题2'),                                              // 3
+            new AIMessage({                                                          // 4
+                content: '',
+                tool_calls: [
+                    { id: 'call_a', name: 'search', args: {} },
+                    { id: 'call_b', name: 'search', args: {} },
+                    { id: 'call_c', name: 'search', args: {} },
+                    { id: 'call_d', name: 'search', args: {} },
+                ],
+            }),
+            new ToolMessage({ content: '结果A', tool_call_id: 'call_a' }),           // 5 ← slice 切点
+            new ToolMessage({ content: '结果B', tool_call_id: 'call_b' }),           // 6
+            new ToolMessage({ content: '结果C', tool_call_id: 'call_c' }),           // 7
+            new ToolMessage({ content: '结果D', tool_call_id: 'call_d' }),           // 8
+            new AIMessage('最终回复'),                                              // 9
+            new HumanMessage('问题3'),                                              // 10
+            new AIMessage('回复3'),                                                  // 11
+            new HumanMessage('问题4'),                                              // 12
+            new AIMessage('回复4'),                                                  // 13
+        ]
+
+        const result = await compressMessages(messages, 100000, createMockModel() as any)
+
+        const orphans = findOrphanToolMessages(result)
+        expect(orphans).toEqual([])
+    })
+
+    it('切分点落在普通 HumanMessage 上时，不引入孤儿（回归保护）', async () => {
+        // 14 条消息：slice(-9) 起点 = messages[5] = HumanMessage（天然无问题）
+        const messages: BaseMessage[] = [
+            new SystemMessage('系统'),
+            new HumanMessage('问题1'),
+            new AIMessage('回复1'),
+            new HumanMessage('问题2'),
+            new AIMessage('回复2'),
+            new HumanMessage('问题3'),  // ← slice(-9) 切点
+            new AIMessage('回复3'),
+            new HumanMessage('问题4'),
+            new AIMessage('回复4'),
+            new HumanMessage('问题5'),
+            new AIMessage('回复5'),
+            new HumanMessage('问题6'),
+            new AIMessage('回复6'),
+            new HumanMessage('问题7'),
+        ]
+
+        const result = await compressMessages(messages, 100000, createMockModel() as any)
+
+        const orphans = findOrphanToolMessages(result)
+        expect(orphans).toEqual([])
+        // 系统消息保留 + 摘要 HumanMessage + 9 条 recent
+        expect(result.length).toBe(11)
     })
 })

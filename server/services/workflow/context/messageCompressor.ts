@@ -77,8 +77,15 @@ export async function compressMessages(
     // 分离：system message, 中间消息, 最近 N 轮
     const systemMessage = messages[0]! // system prompt 始终在第一位
     const recentCount = KEEP_RECENT_ROUNDS * 3 // 每轮约 3 条消息
-    const recentMessages = messages.slice(-recentCount)
-    const middleMessages = messages.slice(1, -recentCount)
+    // 切点边界对齐：若起点落在 ToolMessage 上，向前回退跳过它，避免拼接后
+    // recentMessages 以孤立 tool_result 起始（与 Anthropic tool_use ↔ tool_result
+    // 配对约束冲突，否则返回 400 invalid_request_error）。
+    let recentStart = Math.max(1, messages.length - recentCount)
+    while (recentStart > 1 && messages[recentStart]?.getType?.() === 'tool') {
+        recentStart--
+    }
+    const recentMessages = messages.slice(recentStart)
+    const middleMessages = messages.slice(1, recentStart)
 
     if (middleMessages.length === 0) {
         return messages
