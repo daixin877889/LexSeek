@@ -31,42 +31,25 @@ const formattedOutput = computed(() => {
 </script>
 
 <template>
-  <div
-    v-if="showOutput"
-    :class="cn('space-y-2 p-4', props.class)"
-    v-bind="$attrs"
-  >
-    <h4
-      class="font-medium text-muted-foreground text-xs uppercase tracking-wide"
-    >
-      {{ props.errorText ? "Error" : "Result" }}
+  <div v-if="showOutput" :class="cn('space-y-2 p-4', props.class)" v-bind="$attrs">
+    <h4 class="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+      {{ props.errorText ? "错误" : "结果" }}
     </h4>
-    <div
-      :class="
-        cn(
-          'overflow-x-auto rounded-md text-xs [&_table]:w-full',
-          props.errorText
-            ? 'bg-destructive/10 text-destructive'
-            : 'bg-muted/50 text-foreground',
-        )
-      "
-    >
+    <div :class="cn(
+      'overflow-x-auto rounded-md text-xs [&_table]:w-full',
+      props.errorText
+        ? 'bg-destructive/10 text-destructive'
+        : 'bg-muted/50 text-foreground',
+    )
+      ">
       <!-- Error text -->
       <div v-if="errorText">
         {{ props.errorText }}
       </div>
 
       <!-- Output rendering based on type -->
-      <CodeBlock
-        v-if="isObjectOutput"
-        :code="formattedOutput"
-        language="json"
-      />
-      <CodeBlock
-        v-else-if="isStringOutput"
-        :code="formattedOutput"
-        language="json"
-      />
+      <CodeBlock v-if="isObjectOutput" :code="formattedOutput" language="json" />
+      <CodeBlock v-else-if="isStringOutput" :code="formattedOutput" language="json" />
       <div v-else>
         {{ props.output }}
       </div>

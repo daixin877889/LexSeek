@@ -7,18 +7,18 @@ const TOOL_NAME_MAP: Record<string, string> = {
   write_skill_file: '写入技能文件',
   read_skill_file: '读取技能文件',
   run_skill_script: '运行技能脚本',
+  extract: "数据提取"
 }
 
 const analysisNodes: Record<string, string> = {
+  caseInfoCheck: '案情信息检查',
   summary: '生成案件概要',
   chronicle: '提取案件大事记',
   claim: '预分析案件请求权',
   trend: '判决趋势预测',
   cause: '预选案由',
   defense: '抗辩分析及应对策略预测',
-  evidence: '证据清单预梳理',
-  caseInfoCheck: '案情信息检查',
-  extract: "数据提取"
+  evidence: '证据清单预梳理'
 }
 
 const EXPERT_PATTERN = /^ask_([a-z0-9_]+?)_expert$/
