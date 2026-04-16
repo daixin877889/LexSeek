@@ -176,7 +176,10 @@ function handleResumeInterrupt(data: unknown) {
       @stop="handleStop"
     >
       <template #prompt-actions>
-        <div v-if="showRetryButton" class="flex items-center gap-2 px-4 py-2">
+        <!-- 重试按钮仅在队列为空时显示（与 CaseDetailXiaosuo 对称）：
+             队列有内容且因失败暂停时，由 AiChatQueueChips 的"恢复队列"按钮覆盖此场景，
+             避免两个相似操作同时出现造成用户困惑 -->
+        <div v-if="showRetryButton && currentQueue.length === 0" class="flex items-center gap-2 px-4 py-2">
           <Button size="sm" variant="outline" @click="onRetry">
             <RefreshCwIcon class="w-4 h-4 mr-1" />
             重试

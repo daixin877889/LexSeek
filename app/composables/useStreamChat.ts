@@ -63,8 +63,15 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
             options.onCustomEvent?.(data)
         },
         initialValues: options.initialValues as T | undefined,
-        onError: (error) => {
+        onError: (error: any) => {
             console.error('[useStreamChat] 流错误:', error)
+            // spec §8.1 #1 P0 follow-up：前端 fetch 错误（网络/4xx/5xx）
+            // 应本地将 runStatus 置为 'failed'，让 dispatcher 的 watch 触发暂停分支、
+            // UI 层展示失败状态，避免队列卡死 + 用户无感知。
+            runStatus.value = 'failed'
+            runError.value = typeof error === 'string'
+                ? error
+                : (error?.message || '流错误')
         },
     }
 

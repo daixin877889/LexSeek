@@ -50,22 +50,24 @@ function truncate(text: string, max = 24): string {
         <span>队列已暂停（{{ pauseReasonText }}）</span>
         <div class="ml-auto flex gap-1">
           <Button
-            size="sm"
+            size="icon-sm"
             variant="outline"
+            aria-label="恢复队列"
+            title="恢复队列"
             data-testid="queue-resume"
             @click="emit('resume')"
           >
-            <PlayIcon class="size-3 mr-1" />
-            恢复队列
+            <PlayIcon class="size-3.5" />
           </Button>
           <Button
-            size="sm"
+            size="icon-sm"
             variant="ghost"
+            aria-label="清空队列"
+            title="清空队列"
             data-testid="queue-clear"
             @click="emit('clear')"
           >
-            <TrashIcon class="size-3 mr-1" />
-            清空
+            <TrashIcon class="size-3.5" />
           </Button>
         </div>
       </template>
