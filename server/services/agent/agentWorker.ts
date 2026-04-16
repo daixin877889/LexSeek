@@ -145,6 +145,13 @@ export class AgentWorker {
         throw new Error(`Session not found for run ${run.id}, sessionId: ${run.sessionId}`)
       }
 
+      // 兜底：修复上一轮可能遗留的 orphan tool_use
+      // 上一轮若在工具调用中途被取消/崩溃，catch 块的 repair 与 LangGraph
+      // 异步写 checkpoint 存在 race condition，可能漏网；在本轮 invoke 前
+      // 再扫一次，确保发给 LLM 的历史消息中每个 tool_use 都有配对 tool_result
+      await repairOrphanToolUseCheckpoint(run.sessionId, '上一轮对话被用户取消')
+        .catch(e => logger.warn(`Lazy repair 失败 (run=${run.id}):`, e))
+
       if (session.type === 2) {
         // 初始化分析：caseAnalysisV2 工作流
         const { startCaseAnalysisV2 } = await import('../workflow/caseAnalysisV2.executor')
@@ -154,6 +161,7 @@ export class AgentWorker {
           caseId: run.caseId,
           selectedModules: input.selectedModules ?? [],
           command: input.command,
+          signal: abortController.signal,
         })
       } else if (session.type === 3) {
         // 模块对话
@@ -167,6 +175,7 @@ export class AgentWorker {
           command: input.command,
           runId: run.id,
           thinking: input.thinking,
+          signal: abortController.signal,
         })
       } else {
         // 普通案件对话
@@ -176,6 +185,7 @@ export class AgentWorker {
           caseId: run.caseId,
           command: input.command,
           thinking: input.thinking,
+          signal: abortController.signal,
         })
       }
 

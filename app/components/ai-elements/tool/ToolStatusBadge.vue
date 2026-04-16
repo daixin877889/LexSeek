@@ -7,20 +7,23 @@ import {
   CheckCircleIcon,
   CircleIcon,
   ClockIcon,
+  PauseCircleIcon,
   XCircleIcon,
 } from 'lucide-vue-next'
 import { computed } from 'vue'
+import type { ExtendedToolState } from '../types'
 
 export type ToolPart = ToolUIPart | DynamicToolUIPart
 
 const props = defineProps<{
-  state: ToolPart['state']
+  state: ExtendedToolState
 }>()
 
 const label = computed(() => {
-  const labels: Record<ToolPart['state'], string> = {
+  const labels: Record<ExtendedToolState, string> = {
     'input-streaming': '待处理',
     'input-available': '运行中',
+    'input-paused': '已暂停',
     'approval-requested': '待批准',
     'approval-responded': '已回复',
     'output-available': '完成',
@@ -31,9 +34,10 @@ const label = computed(() => {
 })
 
 const icon = computed<Component>(() => {
-  const icons: Record<ToolPart['state'], Component> = {
+  const icons: Record<ExtendedToolState, Component> = {
     'input-streaming': CircleIcon,
     'input-available': ClockIcon,
+    'input-paused': PauseCircleIcon,
     'approval-requested': ClockIcon,
     'approval-responded': CheckCircleIcon,
     'output-available': CheckCircleIcon,
@@ -44,9 +48,10 @@ const icon = computed<Component>(() => {
 })
 
 const iconClass = computed(() => {
-  const classes: Record<ToolPart['state'], string> = {
+  const classes: Record<ExtendedToolState, string> = {
     'input-streaming': 'size-4',
     'input-available': 'size-4 animate-pulse',
+    'input-paused': 'size-4 text-yellow-600',
     'approval-requested': 'size-4 text-yellow-600',
     'approval-responded': 'size-4 text-blue-600',
     'output-available': 'size-4 text-green-600',

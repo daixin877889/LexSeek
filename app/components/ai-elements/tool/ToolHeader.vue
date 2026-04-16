@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DynamicToolUIPart, ToolUIPart } from 'ai'
 import type { HTMLAttributes } from 'vue'
+import type { ExtendedToolState } from '../types'
 import { CollapsibleTrigger } from '@repo/shadcn-vue/components/ui/collapsible'
 import { cn } from '@repo/shadcn-vue/lib/utils'
 import { ChevronDownIcon, WrenchIcon } from 'lucide-vue-next'
@@ -11,8 +12,8 @@ type ToolHeaderProps = {
   title?: string
   class?: HTMLAttributes['class']
 } & (
-  | { type: ToolUIPart['type'], state: ToolUIPart['state'], toolName?: never }
-  | { type: DynamicToolUIPart['type'], state: DynamicToolUIPart['state'], toolName: string }
+  | { type: ToolUIPart['type'], state: ExtendedToolState, toolName?: never }
+  | { type: DynamicToolUIPart['type'], state: ExtendedToolState, toolName: string }
 )
 
 const props = defineProps<ToolHeaderProps>()

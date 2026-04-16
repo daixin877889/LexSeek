@@ -226,7 +226,7 @@ describe('AgentRun 服务层', () => {
       expect(result.error).toContain('不存在')
     })
 
-    it('已完成的 run 无法取消', async () => {
+    it('已 terminal 的 run 再次取消返回幂等成功', async () => {
       const enqueued = await enqueueRunService({
         sessionId: testSession.sessionId,
         threadId: testSession.sessionId,
@@ -240,9 +240,11 @@ describe('AgentRun 服务层', () => {
           completedAt: new Date(),
         })
 
+        // cancelRunService 对已 terminal 的 run 返回幂等成功（而非错误），
+        // 让前端快速 cancel 的边缘窗口不卡在 isStopping
         const result = await cancelRunService(enqueued.runId)
-        expect(result.success).toBe(false)
-        expect(result.error).toContain('无法取消')
+        expect(result.success).toBe(true)
+        expect(result.error).toBeUndefined()
       }
     })
   })

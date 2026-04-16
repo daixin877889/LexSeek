@@ -1,5 +1,6 @@
 import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages'
 import type { BaseMessage } from '@langchain/core/messages'
+import type { ExtendedToolState } from '~/components/ai-elements/types'
 
 // --- Types ---
 
@@ -8,7 +9,12 @@ export interface ToolCallWithResult {
   name: string
   args: Record<string, any>
   result?: any
-  state: 'input-available' | 'output-available' | 'output-error'
+  /**
+   * 'input-paused' 专用于工作流 interrupt（如积分不足）期间，
+   * 把未完成工具从 'input-available' 重标记为 'input-paused'，
+   * 避免 ToolStatusBadge 持续显示"运行中"动画（用户感知"卡住"的根源）。
+   */
+  state: ExtendedToolState
 }
 
 export interface ParsedMessage {
@@ -19,9 +25,6 @@ export interface ParsedMessage {
   toolCalls?: ToolCallWithResult[]
   raw: any
 }
-
-/** 检索类工具：调用时不显示模型的推理/思考过程 */
-const SEARCH_TOOL_NAMES = new Set(['search_law', 'search_case_materials'])
 
 // --- Helpers ---
 
@@ -141,10 +144,15 @@ function matchToolCalls(
 
 // --- Composable ---
 
-export function useMessageParser(messages: MaybeRef<any[]>) {
+export function useMessageParser(
+  messages: MaybeRef<any[]>,
+  isInterrupted?: MaybeRef<boolean>,
+) {
   const parsedMessages = computed<ParsedMessage[]>(() => {
     const raw = toValue(messages)
     if (!raw?.length) return []
+
+    const interrupted = !!toValue(isInterrupted)
 
     const baseMessages = coerceRawMessages(raw)
 
@@ -192,22 +200,31 @@ export function useMessageParser(messages: MaybeRef<any[]>) {
                 .map((b: any) => b.text)
                 .join('')
             : (m.content as string)
-          const toolCalls = matchToolCalls(m as any, toolResultsMap)
+          const rawToolCalls = matchToolCalls(m as any, toolResultsMap)
+          // interrupt 期间没有 ToolMessage 返回，工具 state 会永远停在 input-available
+          // → 显示"运行中"动画 → 用户感知 UI 卡住。重标记为 input-paused 以去掉动画。
+          const toolCalls = interrupted
+            ? rawToolCalls.map((tc) =>
+                tc.state === 'input-available'
+                  ? { ...tc, state: 'input-paused' as const }
+                  : tc,
+              )
+            : rawToolCalls
           // 提取 thinking（需在 skip 检查前执行，否则纯 thinking 阶段的消息会被误过滤）
+          // 注意：不要在这里按工具名过滤 thinking/text —— 真正的"意图识别"LLM 调用
+          // 在 server/services/retrieval/intentClassifier.service.ts 内部执行，已通过
+          // tags:['internal'] + agentWorker.stripSystemMessages 在 SSE 层剥离，前端收不到。
+          // 前端能看到的带 search_* tool_calls 的 AI 消息一律是主 Agent 的主线推理，
+          // 必须原样保留 thinking 和 text。
           const thinking = extractThinking(m as any, false)
-          // 检索类工具调用：过滤 thinking 和 text，只保留 tool_calls
-          const isSearchOnly = toolCalls.length > 0
-            && toolCalls.every(tc => SEARCH_TOOL_NAMES.has(tc.name))
-          const effectiveThinking = isSearchOnly ? undefined : thinking
-          const effectiveContent = isSearchOnly ? '' : content
           // 跳过无内容、无 toolCalls、无 thinking 的 AI 消息（流式中断时保存的中间状态）
-          if (!effectiveContent && !toolCalls.length && !effectiveThinking) return null
+          if (!content && !toolCalls.length && !thinking) return null
 
           return {
             id: m.id ?? `ai-${idx}`,
             type: 'ai' as const,
-            content: effectiveContent,
-            thinking: effectiveThinking,
+            content,
+            thinking,
             toolCalls,
             raw: m,
           }

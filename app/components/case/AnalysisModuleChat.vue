@@ -54,7 +54,6 @@ const queuePauseReason = computed(() => props.chatInstance.queuePauseReason.valu
 
 // 停止去抖：防止重复点击停止按钮发起多次 cancel 请求
 const isStopping = ref(false)
-const TERMINAL_STATUSES = new Set(['cancelled', 'completed', 'failed'] as const)
 
 // AiChat 组件 ref，用于在入队成功后 reset 输入框
 const aiChatRef = ref<{ resetPrompt: () => void } | null>(null)
@@ -104,8 +103,10 @@ function handleSubmit(data: { text: string; files?: any[] }) {
 
 async function handleStop() {
     if (isStopping.value) return
-    // 短路检查：避免 watch + immediate 时序坑
-    if (TERMINAL_STATUSES.has(props.chatInstance.runStatus.value as any)) return
+    // 短路：当前无流在跑，stop 无意义。用 isLoading（前端本地信号）而非
+    // runStatus（后端 SSE 事件驱动，上轮 'cancelled' 会粘到新一轮 submit→status_change
+    // 之间的窗口，旧实现在此窗口内会误把 stop 吞掉）
+    if (!props.chatInstance.isLoading.value) return
 
     isStopping.value = true
     let unwatch: (() => void) | undefined
@@ -117,10 +118,11 @@ async function handleStop() {
         unwatch = undefined
         timer = undefined
     }
-    // 不用 immediate：上面已经短路检查过当前值，watch 仅响应后续变化
+    // 监听 isLoading 变 false 作为 cleanup 信号。不能用 runStatus：
+    // 若本轮 runStatus 赋值前就是 'cancelled'（上轮遗留），stop() 的同值赋值不触发 watch
     unwatch = watch(
-        () => props.chatInstance.runStatus.value,
-        (s) => { if (TERMINAL_STATUSES.has(s as any)) cleanup() },
+        () => props.chatInstance.isLoading.value,
+        (loading) => { if (!loading) cleanup() },
     )
     timer = setTimeout(cleanup, 3000)
     try {
@@ -134,6 +136,9 @@ async function handleStop() {
 function handleResumeInterrupt(data: unknown) {
     props.chatInstance.resumeInterrupt(data)
 }
+
+// 中断出现时 toast 提示，工具卡片从"运行中"切到"已暂停"（:is-interrupted 透传）
+useInterruptToast(interruptData)
 </script>
 
 <template>
@@ -164,6 +169,7 @@ function handleResumeInterrupt(data: unknown) {
       ref="aiChatRef"
       :messages="chatMessages"
       :loading="chatLoading"
+      :is-interrupted="!!interruptData"
       panel-mode="left"
       :show-header="false"
       v-model:thinking="thinking"
@@ -198,9 +204,11 @@ function handleResumeInterrupt(data: unknown) {
     </AiChat>
   </CaseChatWindowShell>
 
-  <!-- 中断处理弹窗 -->
+  <!-- 中断处理弹窗
+       content + overlay 都提到 z-[70]，完整遮住浮窗（ChatWindowShell z-[60]）：
+       - 没有 overlay-class 时 Overlay 仅 z-50，浮窗会漏在遮罩之上。 -->
   <Dialog :open="!!interruptData" @update:open="() => {}">
-    <DialogContent class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0" :show-close-button="false"
+    <DialogContent class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0 z-[70]" overlay-class="z-[70]" :show-close-button="false"
       @pointer-down-outside.prevent @escape-key-down.prevent @open-auto-focus.prevent>
       <DialogHeader class="sr-only">
         <DialogTitle>需要您的确认</DialogTitle>

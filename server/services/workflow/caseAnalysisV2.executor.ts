@@ -12,6 +12,8 @@ export interface CaseAnalysisV2Params {
     caseId: number
     selectedModules: string[]
     command?: unknown
+    /** 来自 agentWorker.executeRun 的 AbortController，用户取消/超时时传入 */
+    signal?: AbortSignal
 }
 
 export async function startCaseAnalysisV2(params: CaseAnalysisV2Params): Promise<ReadableStream> {
@@ -21,6 +23,7 @@ export async function startCaseAnalysisV2(params: CaseAnalysisV2Params): Promise
         configurable: { thread_id: params.sessionId },
         streamMode: ['values', 'messages', 'updates'] as ['values', 'messages', 'updates'],
         encoding: 'text/event-stream' as const,
+        signal: params.signal,
     }
 
     if (params.command) {

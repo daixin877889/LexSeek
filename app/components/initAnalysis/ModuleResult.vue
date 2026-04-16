@@ -106,18 +106,13 @@ function isAIMessage(msg: any): boolean {
   return AIMessage.isInstance(msg) || msg?.type === 'ai' || msg?.role === 'assistant'
 }
 
-/** 检索类工具：调用时不显示模型的推理/思考和文本内容 */
-const SEARCH_TOOL_NAMES = new Set(['search_law', 'search_case_materials'])
-
-/** 判断消息是否为纯检索工具调用 */
-function isSearchOnlyMessage(message: any): boolean {
-  const toolCalls = message.tool_calls ?? []
-  return toolCalls.length > 0 && toolCalls.every((tc: any) => SEARCH_TOOL_NAMES.has(tc.name))
-}
+// 注意：不要在这里按工具名过滤 thinking/text —— 真正的"意图识别"LLM 调用
+// 在 server/services/retrieval/intentClassifier.service.ts 内部执行，已通过
+// tags:['internal'] + agentWorker.stripSystemMessages 在 SSE 层剥离，前端收不到。
+// 前端能看到的带 search_* tool_calls 的 AI 消息一律是主 Agent 的主线推理，
+// 必须原样保留 thinking 和 text。
 
 function getMessageText(message: any): string {
-  // 检索类工具调用不显示文本内容
-  if (isSearchOnlyMessage(message)) return ''
   if (message.text) return message.text
   const content = message.content
   if (typeof content === 'string') return content
@@ -130,9 +125,7 @@ function getMessageText(message: any): string {
   return ''
 }
 
-// 检索类工具调用不显示推理过程和文本内容
 function getReasoningText(message: any): string {
-  if (isSearchOnlyMessage(message)) return ''
   return extractThinking(message as AIMessageType, false) ?? ''
 }
 

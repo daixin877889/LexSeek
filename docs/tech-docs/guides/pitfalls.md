@@ -526,3 +526,74 @@ if (run && TERMINAL_STATUSES.includes(run.status)) {
 - 组件：`app/components/ai-elements/message/MessageResponse.vue`（新增 `mode` prop 透传）
 - 库源码：`node_modules/vue-stream-markdown/dist/table-CZIsOIpV.js`（`hasLoadingNode` 检查）
 - 已修复的使用点：`AnalysisResults.vue`、`AnalysisVersionSheet.vue`、`CaseDetailMaterialPreview.vue`、`AiMessageListVirtualItem.vue`、`ModuleResult.vue`（fallback 场景）
+
+## 二十、不要在前端按工具名过滤 thinking/text（意图识别已由后端剥离）
+
+### 问题
+
+init-analysis 页面（以及任何经过 `AiChat` 的界面）中，模块分析主线 AI 消息的 thinking 在思考结束后突然消失 —— 用户在截图中明显看到"二次检索…请提供请求权法律清单…"这种主线推理内容,但 UI 在 tool_call 一到达就把 thinking 和 text 整块清空。
+
+### 根因
+
+`commit 9e3340d (fix(ui): 优化检索工具的消息展示)` 在前端增加了一段"检索类工具调用时过滤 thinking 和 text"的逻辑：
+
+```ts
+// ❌ app/components/ai/composables/useMessageParser.ts（已回退）
+const SEARCH_TOOL_NAMES = new Set(['search_law', 'search_case_materials'])
+const isSearchOnly = toolCalls.length > 0
+  && toolCalls.every(tc => SEARCH_TOOL_NAMES.has(tc.name))
+const effectiveThinking = isSearchOnly ? undefined : thinking
+const effectiveContent  = isSearchOnly ? '' : content
+```
+
+以及 `ModuleResult.vue` 中对应的 `isSearchOnlyMessage` 也做了相同判定。
+
+这段逻辑把"**主 Agent 决定调用 search_law / search_case_materials 的那条主线 AI 消息**"误判成了"意图识别消息"，于是在那条消息上把用户真正要看的 thinking 和 text 一并清空。
+
+### 关键事实：意图识别不在这条消息里
+
+真正的"意图识别"LLM 调用在 `server/services/retrieval/intentClassifier.service.ts::classifyIntentService`，它是 **search 工具内部**（`searchLaw.tool.ts` / `materialPipeline.service.ts` → `retrievalRouter.service.ts::retrievalRouterService`）起的独立小模型调用，用于判定 `exact / hybrid / semantic` 检索策略。它的特点：
+
+1. 使用 `model.withStructuredOutput(outputSchema)`，输出是结构化 JSON `{intent, legalName, articleRef, keywords, rewrittenQuery}`，**完全没有 `tool_calls` 字段**，所以前端 `isSearchOnly`（要求 `tool_calls` 全是 `search_*`）**永远不可能命中这条消息**。
+2. 调用时标记 `tags: ['internal']`，`server/services/agent/agentWorker.ts::stripSystemMessages` 会把 `messages` 事件里 `metadata.tags` 含 `'internal'` 的整条事件 `return null`。三类会话（`startCaseAnalysisV2` / `runModuleChat` / `runCaseChat`）都走同一个 `agentWorker.executeRun` → `stripSystemMessages` 流水线 → **前端永远收不到意图识别消息**。
+
+所以"隐藏意图识别的 thinking/text"这件事后端已经完整做了，前端再做任何基于工具名的过滤必然是错位打击。
+
+### 影响范围
+
+所有走 `useMessageParser` 或 `ModuleResult.vue` 的界面：init-analysis 页面、小索、模块对话。症状是：主线 thinking / text 在 AI 决定调用 `search_law` / `search_case_materials` 时整段消失，流式过程中"思考完就不见了"。
+
+### 正确做法
+
+**前端不做任何基于工具名的 thinking/text 过滤**，`thinking` 和 `content` 按原样渲染。
+
+```ts
+// ✅ app/components/ai/composables/useMessageParser.ts
+const thinking = extractThinking(m as any, false)
+if (!content && !toolCalls.length && !thinking) return null
+return { id, type: 'ai', content, thinking, toolCalls, raw: m }
+```
+
+```ts
+// ✅ app/components/initAnalysis/ModuleResult.vue
+function getMessageText(message: any): string { /* 直接取 text，不按工具名判空 */ }
+function getReasoningText(message: any): string {
+  return extractThinking(message as AIMessageType, false) ?? ''
+}
+```
+
+### 原则
+
+**"隐藏内部 LLM 调用消息"是 SSE/事件源层的职责，前端不该也没能力正确判断"哪条消息属于内部调用"。**
+
+- 新增内部 LLM 调用（如未来新增的 rerank、摘要前置模型等）：在服务端 `invoke(..., { tags: ['internal'] })` 标记，`agentWorker.stripSystemMessages` 会自动剥离。
+- 前端永远不要基于 `tool_calls[].name` 去猜某条消息是不是"意图识别/内部调用"。只要这条消息能到前端，就是主 Agent 要给用户看的。
+
+### 相关文件
+
+- 后端意图识别及 tag 标记：`server/services/retrieval/intentClassifier.service.ts:163,177-179`
+- 后端 SSE 过滤入口：`server/services/agent/agentWorker.ts:208,229`（`stripSystemMessages` 调用点）
+- 后端过滤实现：`server/services/agent/agentWorker.ts:544-612`（`isInternalLLMEvent` / `stripSystemMessages`）
+- 前端修复：`app/components/ai/composables/useMessageParser.ts`、`app/components/initAnalysis/ModuleResult.vue`
+- 错误提交（反例，勿回退）：`9e3340d fix(ui): 优化检索工具的消息展示`
+

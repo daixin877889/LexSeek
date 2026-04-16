@@ -22,9 +22,11 @@ const emit = defineEmits<{
 </script>
 
 <template>
+  <!-- content + overlay 都是 z-[70]，与小索/模块对话浮窗内中断 Dialog 保持一致。 -->
   <Dialog :open="!!interruptData" @update:open="() => {}">
     <DialogContent
-      class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0"
+      class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0 z-[70]"
+      overlay-class="z-[70]"
       :show-close-button="false"
       @pointer-down-outside.prevent
       @escape-key-down.prevent

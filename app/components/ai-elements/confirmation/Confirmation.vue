@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { ToolUIPart } from 'ai'
 import type { HTMLAttributes } from 'vue'
+import type { ExtendedToolState } from '../types'
 import type { ToolUIPartApproval } from './context'
 import { Alert } from '@repo/shadcn-vue/components/ui/alert'
 import { cn } from '@repo/shadcn-vue/lib/utils'
@@ -9,7 +9,7 @@ import { ConfirmationKey } from './context'
 
 const props = defineProps<{
   approval?: ToolUIPartApproval
-  state: ToolUIPart['state']
+  state: ExtendedToolState
   class?: HTMLAttributes['class']
 }>()
 
@@ -21,7 +21,7 @@ provide(ConfirmationKey, {
 
 <template>
   <Alert
-    v-if="approval && state !== 'input-streaming' && state !== 'input-available'"
+    v-if="approval && state !== 'input-streaming' && state !== 'input-available' && state !== 'input-paused'"
     :class="cn('flex flex-col gap-2', props.class)"
     v-bind="$attrs"
   >

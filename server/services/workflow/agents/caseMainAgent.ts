@@ -46,6 +46,8 @@ export interface CaseAgentOptions {
     caseId: number
     /** 是否启用 extended thinking */
     thinking?: boolean
+    /** 来自 agentWorker.executeRun 的 AbortController，用户取消/超时时传入 */
+    signal?: AbortSignal
 }
 
 /**
@@ -65,7 +67,7 @@ export async function runCaseChat(
     message: string | undefined,
     options: CaseAgentOptions & { command?: unknown },
 ): Promise<ReadableStream<Uint8Array>> {
-    const { command, userId, caseId, thinking = true } = options
+    const { command, userId, caseId, thinking = true, signal } = options
 
     // 1. 并发加载基础设施和配置
     const [checkpointer, store, mainConfig, subAgentConfigs] = await Promise.all([
@@ -174,6 +176,7 @@ export async function runCaseChat(
             subgraphs: true,
             encoding: 'text/event-stream',
             recursionLimit: 1000,
+            signal,
         },
     )
 }

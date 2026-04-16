@@ -17,6 +17,12 @@ interface Props {
   // 消息
   messages: any[]
   loading?: boolean
+  /**
+   * 工作流是否处于 interrupt 中。
+   * 为 true 时，未完成的工具调用状态从"运行中"改为"已暂停"，
+   * 避免用户感知 UI 卡死（参考 useMessageParser 的 isInterrupted 参数）。
+   */
+  isInterrupted?: boolean
   // 输入框
   showPrompt?: boolean
   promptPlaceholder?: string
@@ -42,6 +48,7 @@ const props = withDefaults(defineProps<Props>(), {
   defaultLeftSize: 50,
   minPanelSize: 30,
   loading: false,
+  isInterrupted: false,
   showPrompt: true,
   promptPlaceholder: '输入消息...',
   promptDisabled: false,
@@ -66,7 +73,11 @@ const slots = useSlots()
 const attrs = useAttrs()
 
 // 消息解析（用于 #message-list slot 和 AiMessageList）
-const { parsedMessages } = useMessageParser(computed(() => props.messages))
+// 传 isInterrupted，parser 会把未完成工具标记为 input-paused，避免"运行中"假象
+const { parsedMessages } = useMessageParser(
+  computed(() => props.messages),
+  computed(() => props.isInterrupted),
+)
 
 // 面板逻辑
 const hasRightSlot = computed(() => !!slots['right-panel'])

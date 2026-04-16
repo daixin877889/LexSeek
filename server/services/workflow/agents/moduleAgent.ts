@@ -46,6 +46,8 @@ interface ModuleAgentOptions {
     command?: unknown
     runId?: string
     thinking?: boolean
+    /** 来自 agentWorker.executeRun 的 AbortController，用户取消/超时时传入 */
+    signal?: AbortSignal
 }
 
 /**
@@ -163,5 +165,6 @@ export async function runModuleChat(
         subgraphs: true,
         encoding: 'text/event-stream',
         recursionLimit: 1000,
+        signal: options.signal,
     })
 }

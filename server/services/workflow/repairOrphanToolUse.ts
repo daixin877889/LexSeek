@@ -195,17 +195,68 @@ interface BlobRow {
 }
 
 /**
- * 修复指定 thread 最新 checkpoint 中的 orphan tool_use
+ * 修复指定 session 所有相关 thread / ns 下 checkpoint 的 orphan tool_use
  *
- * 直接就地修改 checkpoint_blobs 里 messages 通道的最新 version，
- * 不创建新 checkpoint、不影响父子关系。适合作为 agentWorker catch 块的兜底。
+ * 扫描范围（本次扩展，spec: 停止后整个 session 能干净恢复）：
+ * - 主 thread（`thread_id = sessionId`）的所有 checkpoint_ns（包括 ns='' 及
+ *   LangGraph subgraphs:true 配置下产生的 `{nodeName}:{uuid}` 子图 ns）
+ * - 子代理独立 thread（`thread_id LIKE '${sessionId}_sub_%'`）的所有 ns
  *
- * @param threadId LangGraph thread_id（对应 agent run 的 sessionId）
- * @param errorMessage 用于合成 ToolMessage 的错误描述
- * @returns 修复的 orphan 数量；0 表示无需修复
+ * 为什么要扫 subgraph ns：caseMainAgent 使用 createAgent + subgraphs:true，
+ * LangGraph 把 ReactAgent 对不同节点的调用建模成独立子图 checkpoint（如
+ * claim:<uuid>、defense:<uuid> 等），每个子图独立持有 messages 通道。用户
+ * 在这些子图内被 cancel 会留下 orphan tool_use，不修会在下次进入同一子图
+ * 时把悬挂 tool_use 发给 LLM，返回 400 invalid_request_error。
+ *
+ * 为什么要扫子代理独立 thread：subAgentToolFactory 给每个子代理用
+ * `${sessionId}_sub_${name}` 作为独立 thread_id；子代理被打断后下次调用
+ * 同一工具会从该 thread 读历史，同样会踩 orphan。
+ *
+ * 直接就地更新 checkpoint_blobs 的对应 version，不创建新 checkpoint、
+ * 不影响父子链。幂等：扫过无 orphan 的 scope 返回 0，多次调用无副作用。
+ *
+ * @param sessionId 会话 ID（对应主 LangGraph thread_id）
+ * @param errorMessage 合成 ToolMessage 的错误描述
+ * @returns 所有 scope 修复的 orphan 总数；0 表示无需修复
  */
 export async function repairOrphanToolUseCheckpoint(
+    sessionId: string,
+    errorMessage: string,
+): Promise<number> {
+    // 1. 枚举该 session 的所有相关 thread_id
+    const subPattern = `${sessionId}_sub_%`
+    const threads = await prisma.$queryRaw<{ thread_id: string }[]>`
+        SELECT DISTINCT thread_id
+        FROM checkpoints
+        WHERE thread_id = ${sessionId}
+           OR thread_id LIKE ${subPattern}
+    `
+    if (threads.length === 0) return 0
+
+    let total = 0
+    for (const { thread_id } of threads) {
+        // 2. 枚举该 thread 下所有 checkpoint_ns
+        const namespaces = await prisma.$queryRaw<{ checkpoint_ns: string }[]>`
+            SELECT DISTINCT checkpoint_ns
+            FROM checkpoints
+            WHERE thread_id = ${thread_id}
+        `
+        for (const { checkpoint_ns } of namespaces) {
+            total += await repairSingleScope(thread_id, checkpoint_ns, errorMessage)
+        }
+    }
+    return total
+}
+
+/**
+ * 修复单个 (thread_id, checkpoint_ns) scope 下最新 checkpoint 的 messages blob
+ *
+ * 内部实现：原 repairOrphanToolUseCheckpoint 的 SQL 逻辑，仅把
+ * checkpoint_ns 从硬编码 '' 改为参数化。
+ */
+async function repairSingleScope(
     threadId: string,
+    checkpointNs: string,
     errorMessage: string,
 ): Promise<number> {
     // 1. 查最新 checkpoint 获取 messages 的 version
@@ -213,7 +264,7 @@ export async function repairOrphanToolUseCheckpoint(
         SELECT checkpoint
         FROM checkpoints
         WHERE thread_id = ${threadId}
-          AND checkpoint_ns = ''
+          AND checkpoint_ns = ${checkpointNs}
         ORDER BY checkpoint_id DESC
         LIMIT 1
     `
@@ -229,7 +280,7 @@ export async function repairOrphanToolUseCheckpoint(
         SELECT blob, type
         FROM checkpoint_blobs
         WHERE thread_id = ${threadId}
-          AND checkpoint_ns = ''
+          AND checkpoint_ns = ${checkpointNs}
           AND channel = 'messages'
           AND version = ${versionStr}
     `
@@ -242,7 +293,7 @@ export async function repairOrphanToolUseCheckpoint(
         if (!Array.isArray(parsed)) return 0
         messages = parsed
     } catch (err) {
-        logger.error(`[repairOrphanToolUse] thread=${threadId} JSON parse 失败:`, err)
+        logger.warn(`[repairOrphanToolUse] thread=${threadId} ns='${checkpointNs}' JSON parse 失败，跳过`, err)
         return 0
     }
 
@@ -255,13 +306,13 @@ export async function repairOrphanToolUseCheckpoint(
         UPDATE checkpoint_blobs
         SET blob = ${patchedBuffer}
         WHERE thread_id = ${threadId}
-          AND checkpoint_ns = ''
+          AND checkpoint_ns = ${checkpointNs}
           AND channel = 'messages'
           AND version = ${versionStr}
     `
 
     logger.info(
-        `[repairOrphanToolUse] thread=${threadId} 修复 ${count} 个 orphan tool_use`,
+        `[repairOrphanToolUse] thread=${threadId} ns='${checkpointNs}' 修复 ${count} 个 orphan tool_use`,
     )
     return count
 }

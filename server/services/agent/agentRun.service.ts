@@ -96,7 +96,16 @@ export async function getLatestRunService(
 }
 
 /**
- * 取消 run（处理 pending 和 running 两种状态）
+ * 取消 run
+ *
+ * 语义：**幂等**。对任何状态的 run，cancel 的期望结果都是"run 不再运行"。
+ * - PENDING / RUNNING：真正发起取消并更新状态（RUNNING 同时发 Redis 信号让 Worker abort）
+ * - COMPLETED / CANCELLED / FAILED / INTERRUPTED：已 terminal，直接返回成功（符合幂等）
+ * - Run 不存在：返回失败
+ *
+ * 幂等是前端 UX 的前提：用户点停止时 run 可能刚好 completed，返回 error 会
+ * 让 UI 卡在 isStopping 等 timeout。前端调用方应只关心"是否成功停止"，不需
+ * 要区分"停止成功" vs "早已停止"。
  */
 export async function cancelRunService(
   runId: string
@@ -128,7 +137,9 @@ export async function cancelRunService(
     return { success: true }
   }
 
-  return { success: false, error: `Run 状态为 ${run.status}，无法取消` }
+  // 已是 terminal 状态（COMPLETED / CANCELLED / FAILED / INTERRUPTED）：
+  // 幂等成功，调用方无需区分"真的取消了" vs "早已完成"
+  return { success: true }
 }
 
 /**

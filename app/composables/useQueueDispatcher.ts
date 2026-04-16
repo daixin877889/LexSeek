@@ -48,6 +48,12 @@ export function useQueueDispatcher(deps: QueueDispatcherDeps) {
     const sid = deps.currentSessionId.value
     if (!sid) return
     if (next === 'failed' || next === 'cancelled') {
+      // 死锁防护：队列为空时不设暂停标记
+      // 否则用户在无队列时仅是"取消一次生成"却会让下一条直接输入的消息被
+      // AiPromptInput 的 shouldEnqueue 误判入队，等"继续"才派发（spec §5.3 /
+      // useChatSessionManager.removeQueueItem 已在 remove 路径做了对称防护）
+      const queueLen = (deps.queuesBySession.get(sid) ?? []).length
+      if (queueLen === 0) return
       deps.queuePausedBy.set(sid, next === 'failed' ? 'failed' : 'stopped')
       broadcastState(sid)
     }
@@ -117,26 +123,20 @@ export function useQueueDispatcher(deps: QueueDispatcherDeps) {
       // watch 守卫 `seq > lastDispatchedSeq` 永远为 false，队列死锁。
       deps.lastLocalSendSeq.value++
 
-      // 调 sendMessage：当前 useCaseChat.sendMessage 是 sync fire-and-forget，
-      // 内部调用 `stream.submit(...)`，submit 本身是 sync 启动 SSE 流后立即返回，
-      // 不返回 Promise。所以本处不需要 await。
-      // 错误路径分两类（详见 spec §8.1 #1）：
-      //   (a) 后端执行失败：Worker publish status_change: failed
-      //       → 前端 watch(runStatus) 触发暂停分支，队列自动暂停。
-      //   (b) 前端 fetch 自身失败：useStreamChat.onError 当前仅 console.error，
-      //       不写 runStatus，队列不会自动暂停（v5 已知边界）。
+      // await sendMessage：useCaseChat 把 stream.submit Promise 透传出来，
+      // fetch 建立失败 / 4xx / 5xx 会 reject 进本 try/catch。
+      // 成功只代表 SSE 已启动（后端执行失败走 watch(runStatus='failed') 自动暂停）。
       // 注意：files 字段在当前阶段不传递（见 spec §5.6）。
-      // ⚠️ 若未来 useCaseChat.sendMessage 改为 async，doDispatch 必须同步改为 await。
-      deps.currentChat.value?.sendMessage(head.text, { thinking: head.thinking })
+      await deps.currentChat.value?.sendMessage(head.text, { thinking: head.thinking })
 
       // 成功则 pop 并广播
       deps.queuesBySession.set(sid, rest)
       broadcastState(sid)
     }
     catch (err) {
-      // sendMessage 同步抛错：显式暂停队列并广播
-      // 队头仍在 queue 中（set 未执行），用户"恢复队列"时可重试
-      console.error('[chat-queue] dispatch failed', { sessionId: sid, itemId: head.id })
+      // sendMessage 抛错（同步或异步）：队头保留在 queue（set 未执行），
+      // 显式标 paused='failed' 并广播，用户点"恢复队列"时从队头重试
+      console.error('[chat-queue] dispatch failed', { sessionId: sid, itemId: head.id, err })
       deps.queuePausedBy.set(sid, 'failed')
       broadcastState(sid)
     }

@@ -131,7 +131,7 @@ describe('AgentRun 覆盖率补充', () => {
             expect(cancelResult.error).toBe('Run 不存在')
         })
 
-        it('已完成的 run 不能取消', async () => {
+        it('已 terminal 的 run 再次取消返回幂等成功', async () => {
             const newSession = await createTestSession(testCase.id)
             testIds.sessionIds.push(newSession.sessionId)
 
@@ -150,9 +150,11 @@ describe('AgentRun 覆盖率补充', () => {
                 completedAt: new Date(),
             })
 
+            // cancelRunService 对已 terminal 的 run 返回幂等成功（而非错误），
+            // 让前端快速 cancel 的边缘窗口不卡在 isStopping
             const cancelResult = await cancelRunService(result.runId)
-            expect(cancelResult.success).toBe(false)
-            expect(cancelResult.error).toContain('无法取消')
+            expect(cancelResult.success).toBe(true)
+            expect(cancelResult.error).toBeUndefined()
         })
     })
 

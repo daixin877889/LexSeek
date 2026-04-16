@@ -184,6 +184,11 @@ export function useChatSessionManager(options: ChatSessionManagerOptions) {
     }
 
     async function deleteSession(sessionId: string) {
+        // 删除前先取消 session 里可能正在跑的 run，避免后端出现孤儿 agentRun
+        // 幂等：若无活跃 run 或 run 已 terminal，stopActiveRun 直接成功
+        // 失败也不阻塞删除流程（用户意图是"删掉这个 session"）
+        await stopActiveRun(sessionId).catch(() => { /* 忽略 */ })
+
         await useApiFetch(options.deleteUrl(sessionId), { method: 'DELETE' })
 
         // 顺序（spec §5.5 表格 + §8.1 场景 #4）：
@@ -225,11 +230,13 @@ export function useChatSessionManager(options: ChatSessionManagerOptions) {
 
     // ── 消息操作 ──
 
-    function sendMessage(text: string, opts?: { thinking?: boolean }) {
+    function sendMessage(text: string, opts?: { thinking?: boolean }): Promise<void> | undefined {
         // 用户直接发送路径：自增 seq，供 dispatcher 的溯源守卫识别
         // （dispatcher 的 doDispatch 内也要 ++，因其直接调 currentChat.sendMessage 绕过本 wrapper）
         lastLocalSendSeq.value++
-        currentChat.value?.sendMessage(text, opts)
+        // 透传 sendMessage 的 Promise，UI 层可按需 await（通常不需要）；
+        // dispatcher 走 currentChat.sendMessage 直接拿 Promise，不经过本 wrapper
+        return currentChat.value?.sendMessage(text, opts)
     }
 
     // ── 队列操作 API ──
