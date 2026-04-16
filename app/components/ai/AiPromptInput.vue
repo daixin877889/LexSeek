@@ -157,7 +157,7 @@
                   :disabled="props.isStopping"
                   aria-label="停止当前对话"
                   data-testid="stop-button"
-                  @click="emit('stop')"
+                  @click="onStopClick"
                 >
                   <SquareIcon class="size-4" />
                 </Button>
@@ -259,6 +259,12 @@ const emit = defineEmits<{
   submit: [data: AiPromptSubmitData]
   stop: []
 }>()
+
+// 显式 method 而非 inline `@click="emit('stop')"`，避免 shadcn Button + reka-ui
+// Primitive 的 fallthrough attrs 链路在某些情况下丢失 inline emit 表达式的问题
+function onStopClick() {
+  emit('stop')
+}
 
 const thinking = defineModel<boolean>('thinking', { default: true })
 const fileStore = useFileStore();
