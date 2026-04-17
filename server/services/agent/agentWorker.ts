@@ -19,6 +19,7 @@ import {
   startReconnectFlush,
 } from './agentEventBridge'
 import { repairOrphanToolUseCheckpoint } from '../workflow/repairOrphanToolUse'
+import { generateSessionTitleAsync } from '../assistant/assistantSession.service'
 import { getRedisSubscriber } from '~~/server/lib/redis'
 
 export interface AgentWorkerConfig {
@@ -143,6 +144,7 @@ export class AgentWorker {
           metadata: true,
           userId: true,
           caseId: true,
+          title: true,
         },
       })
 
@@ -339,6 +341,43 @@ export class AgentWorker {
         sessionId: run.sessionId,
         status: AGENT_RUN_STATUS.COMPLETED,
       })
+
+      // 异步生成 assistant 会话标题（非阻塞，失败吞异常）
+      // spec §5.6.1：首条对话完成后根据首轮消息自动生成 ≤20 字标题
+      // 使用 lastValuesData 缓冲避免重新调 checkpointer，规避 commit 与 completedAt 时序竞态
+      if (
+        session.scope === 'assistant'
+        && !session.title
+        && session.userId != null
+        && lastValuesData
+        && typeof lastValuesData === 'object'
+      ) {
+        const msgs = (lastValuesData as { messages?: unknown[] }).messages ?? []
+        const firstUser = msgs.find((m) => {
+          if (!m || typeof m !== 'object') return false
+          const msg = m as { _getType?: () => string; type?: string }
+          return msg._getType?.() === 'human' || msg.type === 'human'
+        }) as { content?: unknown } | undefined
+        const firstAI = msgs.find((m) => {
+          if (!m || typeof m !== 'object') return false
+          const msg = m as { _getType?: () => string; type?: string }
+          return msg._getType?.() === 'ai' || msg.type === 'ai'
+        }) as { content?: unknown } | undefined
+        if (firstUser?.content && firstAI?.content) {
+          const userText = typeof firstUser.content === 'string'
+            ? firstUser.content
+            : JSON.stringify(firstUser.content)
+          const aiText = typeof firstAI.content === 'string'
+            ? firstAI.content
+            : JSON.stringify(firstAI.content)
+          void generateSessionTitleAsync(
+            run.sessionId,
+            session.userId,
+            userText,
+            aiText,
+          )
+        }
+      }
     }
     catch (err: any) {
       const errorMessage = err?.message ?? '未知错误'
