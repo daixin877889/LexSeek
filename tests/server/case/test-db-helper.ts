@@ -283,6 +283,8 @@ export const createTestOssFile = async (
     testIds?: CaseTestIds
 ): Promise<Prisma.ossFilesGetPayload<{}>> => {
     const timestamp = Date.now()
+    // 同一毫秒内并发调用时 timestamp 会碰撞，加随机后缀保证 (user_id, bucket_name, file_path) 唯一
+    const unique = `${timestamp}_${Math.random().toString(36).slice(2, 8)}`
 
     // 如果没有提供 userId，需要创建一个测试用户
     let userId = data.userId
@@ -297,8 +299,8 @@ export const createTestOssFile = async (
 
     const ossFile = await getTestPrisma().ossFiles.create({
         data: {
-            fileName: data.fileName || `test_file_${timestamp}.txt`,
-            filePath: data.filePath || `test/files/${timestamp}.txt`,
+            fileName: data.fileName || `test_file_${unique}.txt`,
+            filePath: data.filePath || `test/files/${unique}.txt`,
             fileSize: data.fileSize ?? 1024,
             fileType: data.fileType || 'text/plain',
             bucketName: data.bucketName || 'test-bucket',

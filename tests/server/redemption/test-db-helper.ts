@@ -174,10 +174,11 @@ export const createTestUser = async (
     }>
 ): Promise<{ id: number; name: string; phone: string }> => {
     const prisma = getTestPrisma()
-    const phone = data?.phone || `1${Date.now().toString().slice(-10)}`
+    // 使用 毫秒 + 随机 3 位避免同一毫秒内多次 createTestUser 的 phone 冲突
+    const phone = data?.phone || `1${Date.now().toString().slice(-7)}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`
     const user = await prisma.users.create({
         data: {
-            name: data?.name || `测试用户_${Date.now()}`,
+            name: data?.name || `测试用户_${Date.now()}_${Math.floor(Math.random() * 1e6)}`,
             phone,
             password: 'test_password_hash',
             status: 1,
