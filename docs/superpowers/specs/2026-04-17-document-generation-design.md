@@ -610,63 +610,72 @@ export const DOCUMENT_CATEGORY_KEYS = DOCUMENT_CATEGORIES.map(c => c.key) as rea
 
 模板 CRUD 校验 `category ∈ DOCUMENT_CATEGORY_KEYS`。
 
-#### 8.2.1 `shared/types/document.ts` 统一类型清单（前后端共享）
+#### 8.2.1 `shared/types/document.ts` 类型清单（前后端共享）
+
+**项目约定**（来自 `shared/types/prisma.ts`、`case.ts`、`material.ts`）：
+- Prisma 生成的 row 类型（`documentTemplates` / `documentDrafts`）**直接**从 `shared/types/prisma.ts` 导入，不在 `document.ts` 里手写镜像
+- `document.ts` 只放**业务枚举 / API 请求响应接口 / UI 衍生类型**
 
 ```typescript
-// 分类枚举（上方 8.2 已定义）
-export const DOCUMENT_CATEGORIES = [...] as const
-export type DocumentCategoryKey = ...
+// shared/types/document.ts
 
-// 核心数据接口
+// ==================== 业务枚举 ====================
+
+export const DOCUMENT_CATEGORIES = [...] as const  // §8.2 已定义
+export type DocumentCategoryKey = typeof DOCUMENT_CATEGORIES[number]['key']
+
+export type DocumentDraftStatus = 'drafting' | 'filling' | 'ready' | 'exported' | 'failed'
+
+// ==================== 业务值对象 ====================
+
+/** 模板占位符扫描结果（存 documentTemplates.placeholders 字段） */
 export interface Placeholder {
     name: string
     firstContext: string
 }
 
-export interface DocumentTemplate {
-    id: number
-    name: string
-    category: DocumentCategoryKey
-    scope: 'global' | 'user'
-    userId: number | null
-    ossFileId: number
-    placeholders: Placeholder[]
-    description: string | null
-    priority: number
-    status: 0 | 1
-    createdAt: string
-    updatedAt: string
+/** draft 的材料引用（存 documentDrafts.sourceRef 字段） */
+export interface DocumentSourceRef {
+    text?: string
+    fileIds?: number[]
+    caseId?: number
 }
 
-export type DocumentDraftStatus = 'drafting' | 'filling' | 'ready' | 'exported' | 'failed'
+/** AI 填充建议（存 documentDrafts.metadata.suggestions） */
+export interface DocumentDraftMetadata {
+    suggestions?: Record<string, string>
+}
 
-export interface DocumentDraft {
-    id: number
-    userId: number
-    caseId: number | null
-    sessionId: string
+// ==================== API 请求/响应 ====================
+
+export interface CreateDraftRequest {
     templateId: number
+    sourceText?: string
+    sourceFileIds?: number[]
+    caseId?: number
+}
+export interface CreateDraftResponse { draftId: number; sessionId: string }
+
+export interface PatchDraftRequest {
     values: Record<string, string | null>
-    sourceRef: {
-        text?: string
-        fileIds?: number[]
-        caseId?: number
-    } | null
-    outputFileId: number | null
-    status: DocumentDraftStatus
-    metadata: {
-        suggestions?: Record<string, string>
-    } | null
-    createdAt: string
-    updatedAt: string
 }
 
-// API 响应
-export interface CreateDraftResponse { draftId: number; sessionId: string }
 export interface ExportDraftResponse { ossFileId: number; downloadUrl: string }
 ```
 
-原则：所有跨前后端共享的实体类型放此文件，DAO 内部类型（如 Prisma 返回的 `documentDrafts` row）不导出到此；sanitize 转换在 service 层完成。
+**前后端直接使用 Prisma 类型的例子**：
+
+```typescript
+// 前端拉 draft：
+import type { documentDrafts } from '#shared/types/prisma'
+const draft: documentDrafts = await useApiFetch(...)
+
+// 后端 DAO 返回：
+import type { documentTemplates } from '~~/generated/prisma/client'
+export const getDocumentTemplateDAO = async (id: number): Promise<documentTemplates | null> => { ... }
+```
+
+**派生类型在 service/dao 内部**（不跨端共享的）走各自模块的 `types.ts`，不堆到 `shared/types/document.ts`。
 
 ### 8.3 控件类型推断（中英双轨，MVP 简化为 4 类）
 
