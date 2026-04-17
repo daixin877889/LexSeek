@@ -722,15 +722,25 @@ export async function getAssistantThreadState(sessionId: string) {
 ```typescript
 import { checkPointsService } from '~~/server/services/point/pointConsumption.service'
 
-const check = await checkPointsService(userId, 'assistant_token', 1)
-if (!check.allowed) {
-    return resError(event, 402, `积分不足：${check.reason}`)
+try {
+    const check = await checkPointsService(userId, 'assistant_token', 1)
+    if (!check.sufficient) {
+        return resError(event, 402, `积分不足（可用 ${check.available}）`)
+    }
+}
+catch (err) {
+    // getConsumptionItemByKeyService 在 itemKey 未 seed 时会抛错
+    // 详见 §4.11.5 的 pointConsumptionRules 硬阻塞要求
+    logger.error('积分规则校验失败', { itemKey: 'assistant_token', err })
+    return resError(event, 500, '积分计费规则未就绪，请联系管理员')
 }
 ```
 
+`PointCheckResult` 实际字段：`{ sufficient: boolean, required: number, available: number }`（见 `server/services/point/pointConsumption.service.ts:28`）。
+
 **运行时计费**：通过 `pointConsumptionMiddleware(userId, 'assistant_token', sessionId)` 在 `afterModel` 钩子按 token 扣减，与 `case_analysis_token` 走同一套扣减代码路径，只是 `itemKey` 不同。无需新建中间件。
 
-**先决条件**：需在 `pointConsumptionRules` 表（或当前积分单价配置表）新增一条 `itemKey='assistant_token'` 的单价记录，数值由运营提供（见 §11 开放问题）。
+**先决条件**：需在 `pointConsumptionRules` 表新增一条 `itemKey='assistant_token'` 的单价记录，数值由运营提供（见 §11 开放问题 #2）。
 
 ### 5.6 API 契约
 
