@@ -22,20 +22,24 @@ describe('AiChatQueueChips', () => {
     expect(w.find('div').exists()).toBe(false)
   })
 
-  it('2 条运行中显示"排队中 (2/5)"', () => {
+  it('2 条运行中：渲染容器 + 2 个序号 badge（#1 以 spinner 代替）', () => {
     const w = mount(AiChatQueueChips, {
       props: { queue: [makeItem('a'), makeItem('b')], max: 5, paused: false, pauseReason: null },
     })
-    expect(w.text()).toContain('排队中 (2/5)')
+    // 当前组件不再渲染 "排队中 (N/M)" 状态横幅（运行态下由队头 spinner 指示即将派发）
+    // 断言：容器存在，且第二条 chip 显示 #2 序号 badge
+    expect(w.find('div').exists()).toBe(true)
+    expect(w.text()).toContain('#2')
   })
 
-  it('暂停 stopped 显示"已手动停止"和恢复/清空按钮', () => {
+  it('暂停 stopped 显示"已手动停止"，恢复/清空按钮通过 testid 暴露', () => {
     const w = mount(AiChatQueueChips, {
       props: { queue: [makeItem('a')], max: 5, paused: true, pauseReason: 'stopped' },
     })
+    // 当前组件按钮只用 icon + aria-label/title（无可见文本），通过 data-testid 定位
     expect(w.text()).toContain('已手动停止')
-    expect(w.text()).toContain('恢复队列')
-    expect(w.text()).toContain('清空')
+    expect(w.find('[data-testid="queue-resume"]').exists()).toBe(true)
+    expect(w.find('[data-testid="queue-clear"]').exists()).toBe(true)
   })
 
   it('暂停 failed 显示"上一条执行失败"', () => {

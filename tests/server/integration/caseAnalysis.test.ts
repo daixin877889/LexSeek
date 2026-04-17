@@ -13,9 +13,22 @@ describe('Case Analysis Integration', () => {
             expect(names).toContain('rollback_points')
         })
 
-        it('should have exactly 6 tools', () => {
+        it('should have at least 6 core tools registered', () => {
             const names = getAllToolNamesService()
-            expect(names).toHaveLength(6)
+            // 注册表随业务演进追加了 skill/file 相关工具（read_skill_file、run_skill_script、
+            // write_skill_file、upload_workspace_file）；6 个核心工具仍然保留
+            expect(names.length).toBeGreaterThanOrEqual(6)
+            const coreTools = [
+                'search_case_materials',
+                'search_law',
+                'process_materials',
+                'reserve_points',
+                'confirm_points',
+                'rollback_points',
+            ]
+            for (const name of coreTools) {
+                expect(names).toContain(name)
+            }
         })
     })
 

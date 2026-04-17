@@ -146,16 +146,15 @@ describe('useLegalEditorCache 缓存操作', () => {
             expect(result).toBe('')
         })
 
-        it('加载成功时应记录日志', () => {
+        it('加载成功时返回原始内容且不记录信息日志', () => {
             const { loadDraftFromCache } = useLegalEditorCache()
             mockStorage['legal-editor-draft-test-003'] = 'some content'
 
-            loadDraftFromCache('test-003')
+            const result = loadDraftFromCache('test-003')
 
-            expect(mockConsoleLog).toHaveBeenCalledWith(
-                '从缓存加载草稿',
-                expect.objectContaining({ legalId: 'test-003', contentLength: 12 })
-            )
+            // 当前实现只在异常分支调用 console.error，成功路径保持静默
+            expect(result).toBe('some content')
+            expect(mockConsoleLog).not.toHaveBeenCalled()
         })
 
         it('缓存不存在时不应记录日志', () => {

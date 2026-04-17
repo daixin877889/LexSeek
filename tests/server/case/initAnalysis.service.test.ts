@@ -19,6 +19,7 @@ import {
     createEmptyTestIds,
     cleanupTestData,
     disconnectTestDb,
+    getTestPrisma,
     type CaseTestIds,
 } from './test-db-helper'
 
@@ -135,9 +136,28 @@ describe('初始化分析服务层', () => {
             const session = await createTestSession({ caseId: testCase.id, type: 2, status: 1 })
             testIds.sessionIds.push(session.sessionId)
 
-            const status = await getInitAnalysisStatusService(testCase.id, testUser.id)
-            expect(status.status).toBe('in_progress')
-            expect(status.sessionId).toBe(session.sessionId)
+            // 当前 service 逻辑：只有当 session 存在并且至少有一个 agentRun 时，才会返回
+            // in_progress；仅有空 session 会被视为 not_started（等待用户在前端选择模块）。
+            // 这里创建一条 running 的 agentRun 以复现真正的"进行中"场景。
+            const runningRun = await getTestPrisma().agentRuns.create({
+                data: {
+                    sessionId: session.sessionId,
+                    threadId: session.sessionId,
+                    userId: testUser.id,
+                    caseId: testCase.id,
+                    input: { message: 'test' },
+                    status: 'running',
+                },
+            })
+
+            try {
+                const status = await getInitAnalysisStatusService(testCase.id, testUser.id)
+                expect(status.status).toBe('in_progress')
+                expect(status.sessionId).toBe(session.sessionId)
+            } finally {
+                // cleanup agentRun（sessionIds 清理会级联删除，但显式删除更稳妥）
+                await getTestPrisma().agentRuns.delete({ where: { id: runningRun.id } }).catch(() => { /* noop */ })
+            }
         })
 
         it('已完成时返回 completed 及各模块结果', async () => {
