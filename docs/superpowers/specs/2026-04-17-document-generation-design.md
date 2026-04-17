@@ -20,7 +20,7 @@
 
 - `documentTemplates` + `documentDrafts` 两张新表，以及 `caseMaterials` 加 `draftId` 字段的 schema 变更
 - `documentMain` agent 节点 + `documentMain_system` 提示词 v1
-- 两个工具：`searchDraftMaterials`（检索）+ `searchLaw`（复用现有）；**不再**实现 `draftDocument` 工具
+- 两个工具：`search_case_materials`（扩展加 `draftId` 参数，不新建工具）+ `search_law`（完全复用）；**不再**实现 `draftDocument` / `searchDraftMaterials` 这样的重复工具
 - 服务层：模板扫描、模板 CRUD、draft CRUD、材料聚合、schema 动态构造、导出
 - 6 个 API 端点（见 §9）
 - 用户侧页：`/dashboard/assistant/document` + `DocumentDraftPanel` 组件 + docx-preview 实时预览
@@ -41,14 +41,19 @@
 
 | 父 spec §7 设计 | 本文档新方案 | 理由 |
 |---|---|---|
-| `draftDocument` 工具 + Agent 调工具写库 | **删除 `draftDocument` 工具**；用 LangChain v1 `createAgent` 的 `responseFormat` 原生结构化输出 | 减少工具数量与 tool_choice 强制机制；responseFormat 是 v1 发布重点能力，更轻量 |
+| `draftDocument` 工具 + Agent 调工具写库 | **删除 `draftDocument` 工具**；用 LangChain v1 `createAgent` 的 `responseFormat` 原生结构化输出；写库放 `draftResultPersistenceMiddleware`（仿现有 `analysisResultPersistenceMiddleware`）的 `afterAgent` 钩子 | 减少工具数量与 tool_choice 强制机制；responseFormat 是 v1 发布重点能力；项目里已经有 `beforeAgent + afterAgent` 持久化中间件的成熟范本可仿 |
 | 通用 responseFormat（`z.record(string, string)`） | **每个模板动态构造专属 Zod schema**：`z.object({ 占位符1: ..., 占位符2: ... })` | 占位符在扫描阶段已完全已知；专属 schema 精确约束输出 keys，降低幻觉 |
-| 材料聚合器三路径拼接塞 prompt（`sourceText + fileIds 文本 + caseMaterials 文本`） | 材料聚合器**只处理用户粘贴文本**；文件与案件材料统一通过 `searchDraftMaterials` 工具按需检索 | 避免大材料爆上下文；独立/案件两场景无分支 |
+| 材料聚合器三路径拼接塞 prompt | 材料聚合器**只处理用户粘贴文本**；文件与案件材料统一通过**扩展后的 `search_case_materials` 工具**按需检索 | 避免大材料爆上下文；独立/案件两场景无分支 |
+| 新建 `searchDraftMaterials` 工具 | **扩展现有 `search_case_materials` 工具**（`server/services/workflow/tools/searchCaseMaterials.tool.ts`）：参数 schema 加可选 `draftId`；service 函数 `searchMaterialsService` 增加 `draftId` 参数 | 两个工具 99% 重复；现有工具已注册到 `toolModules` registry，直接改最小开销 |
+| 新建 `deductAgentTokens` helper | 用现有 **`pointConsumptionMiddleware(userId, 'document_draft_token', sessionId)`**（`server/services/workflow/middleware/pointConsumption.middleware.ts`），与 caseMain / assistantMain 同路径 | 积分扣减中间件已通用，只需换 `itemKey` 参数 |
+| 手写 `renderContent` 替换变量 | 用现有 **`renderSystemPrompt(nodeConfig, context)`**（`server/services/workflow/utils/promptRenderer.ts`） | 已通用，不必重写 |
 | 占位符正则 `[a-zA-Z_][\w]*` | **扩展支持中文**：`[\u4e00-\u9fa5\w]+`（如 `{{原告}}`） | 律师日常用中文模板；与实际使用场景匹配 |
 | 分类枚举：起诉状 / 答辩状 / 函件 / 合同 / 其它（文书类型粒度） | **9 类，按律师实务场景**：律师通用工具 / 起诉·应诉·上诉 / 流程变更·程序操作 / 证据·鉴定·调查取证 / 保全·冻结·先予执行 / 执行·追偿·强制措施 / 仲裁·调解·担保物权 / 人身安全保护令 / 身份·监护·失踪 | 与律师真实业务场景对齐；保证 UI 简洁 |
 | 提示词含"最多 2 次 `searchCaseMaterials`" | **删除次数限制**，效果优先；按需检索直至获取足够信息 | 成本优先让位于质量 |
-| draftDocument 工具名义上挂 `assistantMain.tools` | **新建独立 `documentMain` agent 节点**（type=agent） | 职责隔离：assistantMain 通用对话，documentMain 专攻文书填充，提示词/工具/responseFormat 独立演进 |
+| draftDocument 工具名义上挂 `assistantMain.tools` | **新建独立 `documentMain` agent 节点**（type=agent），**其实现文件 `documentMainAgent.ts` 仿照 `server/services/workflow/agents/caseMainAgent.ts` 骨架** | 职责隔离：caseMain 范本已完备（节点配置加载 + 模型构造 + 工具注入 + 中间件堆栈），documentMain 只需参数化节点名 |
 | 未明确"重填" UX | **重填 = 创建新 draft**，旧 draft 归档 | 最简心智模型；历史可查 |
+| 未说明 session scope | 用现有 `caseSessions.scope='assistant'`（已在父 spec Phase 1 落地） + `caseId` 可空 | 不新增 scope 维度 |
+| 未说明 SSE / run / worker 基建 | **原样复用** `createAgentSseStream` / `enqueueRunService` / `AgentWorker` | 已通用于 caseMain 和 assistantMain |
 
 ---
 
@@ -91,7 +96,7 @@
   ├─ buildDraftSchema(template.placeholders)  → 专属 Zod schema
   ├─ buildInitialMessages(draft.sourceRef.text)  → 初始 user message
   ├─ createAgent({
-  │    model, tools: [searchDraftMaterialsTool, searchLawTool],
+  │    model, tools: [search_case_materials (扩展后), search_law],
   │    systemPrompt: renderPrompt(documentMainPromptV1, { templateName, templateCategory }),
   │    responseFormat: draftSchema,
   │  })
@@ -115,10 +120,10 @@
 **单一 Agent 路径，无场景分支**。独立生成和案件内生成走完全相同的：
 
 - 同一个 `documentMain` 节点
-- 同一套工具 `[searchDraftMaterials, searchLaw]`
+- 同一套工具 `[search_case_materials (扩展), search_law]`
 - 同一个 responseFormat 构造函数（输入不同的 placeholders）
 
-场景差异**仅**体现在 `searchDraftMaterials` 工具内部：按 `draft.sourceRef.fileIds` / `draft.sourceRef.caseId` 分流查询。
+场景差异**仅**体现在 `search_case_materials` 工具内部：按调用参数 `draftId`（文书生成场景） / 上下文中的 `caseId`（案件场景）分流查询。
 
 ### 4.3 为什么选 responseFormat 而非 draftDocument 工具
 
@@ -187,7 +192,7 @@ model caseMaterials {
 
 | 表 | 新增行 |
 |---|---|
-| `nodes` | `name='documentMain', type='agent', tools=['searchDraftMaterials','searchLaw'], priority=30` |
+| `nodes` | `name='documentMain', type='agent', tools=['search_case_materials','search_law'], priority=30` |
 | `prompts` | `documentMain_system` v1，挂 `documentMain` 节点，含变量 `{{templateName}}` / `{{templateCategory}}` |
 | `point_consumption_items` | `key='document_draft_token', group='agentToken', unit='千tokens', pointAmount=1, discount=1` |
 
@@ -205,6 +210,8 @@ bun run prisma:migrate dev --name add_document_templates_and_drafts_and_case_mat
 
 ## 6. Agent 实现（核心）
 
+**总原则：骨架与中间件尽量复用，Schema 构造、持久化中间件为新增。**
+
 ### 6.1 `documentMain` 节点配置
 
 | 字段 | 值 |
@@ -213,10 +220,26 @@ bun run prisma:migrate dev --name add_document_templates_and_drafts_and_case_mat
 | `type` | `agent` |
 | `priority` | 30 |
 | `modelId` | 复用 `assistantMain.modelId`；缺失回退首个启用 model |
-| `tools` | `['searchDraftMaterials', 'searchLaw']` |
+| `tools` | `['search_case_materials', 'search_law']`（注意：**工具名沿用现有注册名**，不新建 `searchDraftMaterials`） |
 | `status` | 1 |
 
-### 6.2 responseFormat 动态构造
+### 6.2 Agent 骨架：仿 `caseMainAgent.ts`
+
+`server/services/workflow/agents/documentMainAgent.ts` 严格仿 `caseMainAgent.ts`（L65-180）的节点加载与装配顺序，差异处**仅限**：
+
+| 维度 | caseMainAgent | documentMainAgent |
+|---|---|---|
+| 节点名 | `caseMain` | `documentMain` |
+| 工具集 | 配置 + skills + subAgents | 配置中的 `[search_case_materials, search_law]`，**不加 skills、不装子 agent** |
+| 中间件堆栈 | pointConsumption + caseProcessMaterial + moduleContext + summarization + safetyTrim + skillsMiddleware | pointConsumption + **draftResultPersistence（新增）** + summarization + safetyTrim |
+| `systemPrompt` | `renderSystemPrompt(mainConfig, { caseId })` | `renderSystemPrompt(mainConfig, { caseId, templateName, templateCategory, placeholdersWithContext })` |
+| `responseFormat` | 无 | `buildDraftSchema(template.placeholders)` |
+| `createAgent` 其他参数 | 原样 | 原样 |
+| 计费键 | `'case_analysis_token'` | `'document_draft_token'` |
+
+**关键：** 工具工厂 (`getToolInstancesService`) / 模型工厂 (`createChatModel`) / 提示词渲染 (`renderSystemPrompt`) / checkpointer / store / 中间件 **全部复用**，不新建任何工厂函数。
+
+### 6.3 responseFormat 动态构造（新增模块）
 
 ```typescript
 // server/services/assistant/document/draftSchema.builder.ts
@@ -224,14 +247,10 @@ import { z } from 'zod'
 import type { Placeholder } from './types'
 
 /**
- * 为每个模板动态构造 Zod schema。
- *
- * 原 spec §7 的通用 schema 让 LLM 自行决定输出 keys，存在幻觉/漏字段风险。
- * 扫描阶段我们已经拿到 template.placeholders，可以直接生成精确 schema。
+ * 为每个模板动态构造 Zod schema，限定 LLM 结构化输出的 keys。
  *
  * 设计决策：值类型统一用 `string | null` 保留灵活性。
  * 格式约束（日期 regex、金额 number）交给**前端表单**做，schema 层不强校验。
- * 上线后若出现"李四"落在"借款金额"这种语义错位，再按占位符命名模式加格式。
  */
 export function buildDraftSchema(placeholders: Placeholder[]) {
     const valueShape: Record<string, z.ZodType> = {}
@@ -252,33 +271,100 @@ export function buildDraftSchema(placeholders: Placeholder[]) {
 }
 ```
 
-### 6.3 工具：`searchDraftMaterials`
+### 6.4 工具：扩展现有 `search_case_materials`（不新建）
 
-**契约**：
+对现有 `server/services/workflow/tools/searchCaseMaterials.tool.ts` 做**最小增强**：
 
 ```typescript
-searchDraftMaterials({
-    draftId: number,
-    query: string,
-    topK?: number = 10,
-}) → { chunks: Array<{ source: string, text: string, score: number }> }
+// schema 新增可选 draftId
+const schema = z.object({
+    query: z.string().optional().describe('语义查询内容'),
+    sourceId: z.number().optional().describe('材料 sourceId，精确检索'),
+    draftId: z.number().optional().describe('文书 draft ID（文书生成场景传入）'),
+    k: z.number().max(20).optional().default(5),
+}).refine(
+    data => data.query || data.sourceId,
+    { message: '至少需要提供 query 或 sourceId' }
+)
+
+// createTool 内分支：
+if (caseId == null && !input.draftId) {
+    throw new Error('search_case_materials 工具需要 caseId 或 draftId，当前上下文均缺失')
+}
+// 分支调用 searchMaterialsService（service 签名加 draftId 可选参数）：
+const results = await searchMaterialsService(userId, caseId, {
+    query, sourceId, k, draftId: input.draftId,
+})
 ```
 
-**实现要点**：
+`searchMaterialsService` 内部：`draftId` 存在时查 `caseMaterials WHERE draftId=X`；否则查 `caseId=Y`；两者都有走合并。
 
-- 读 `documentDrafts.sourceRef` 决定查哪些材料
-- `fileIds` 存在 → 查 `caseMaterials WHERE draftId=<draftId>` 的 chunks（向量检索）
-- `caseId` 存在 → 查 `caseMaterials WHERE caseId=<draftId.caseId>` 的 chunks（复用 caseMain 同套检索）
-- 两者都有 → 合并结果，按 score 排序取 topK
-- `source` 字段标注出处（文件名 / 材料标题），供 AI 在填充时引用
+**不改工具名** `search_case_materials`，避免影响已上线的 caseMain / assistantMain 节点 `tools` 数组。description 更新为"检索当前案件或文书 draft 的材料内容"。
 
-**复用**：底层调 `retrievalService.searchCaseMaterials` 的检索函数（参考 caseMain 实现），不是直接调 caseMain 工具。
+### 6.5 工具：`search_law`
 
-### 6.4 工具：`searchLaw`
+完全复用，零改动。
 
-完全复用 `assistantMain` 已有工具，不改实现。
+### 6.6 持久化中间件：`draftResultPersistenceMiddleware`（新增，仿 analysis 中间件）
 
-### 6.5 提示词 `documentMain_system` v1
+**仿照 `server/services/workflow/middleware/analysisResultPersistence.middleware.ts` 的结构**，实现：
+
+```typescript
+// server/services/workflow/middleware/draftResultPersistence.middleware.ts
+import { createMiddleware } from 'langchain'
+import { updateDocumentDraftDAO } from '../../assistant/document/documentDraft.dao'
+
+interface DraftResultPersistenceOptions {
+    draftId: number
+    sessionId: string
+}
+
+export const draftResultPersistenceMiddleware = (options: DraftResultPersistenceOptions) =>
+    createMiddleware({
+        name: 'DraftResultPersistence',
+        beforeAgent: async () => {
+            await updateDocumentDraftDAO(options.draftId, { status: 'filling' })
+        },
+        afterAgent: async ({ state }) => {
+            // LangChain v1 createAgent 把 responseFormat 结果放到 state.structuredResponse
+            const structured = state.structuredResponse as
+                | { values: Record<string, string | null>; suggestions?: Record<string, string> }
+                | undefined
+            if (!structured) {
+                await updateDocumentDraftDAO(options.draftId, { status: 'failed' })
+                return
+            }
+            await updateDocumentDraftDAO(options.draftId, {
+                values: structured.values,
+                metadata: structured.suggestions ? { suggestions: structured.suggestions } : undefined,
+                status: 'ready',
+            })
+        },
+    })
+```
+
+中间件位置：放在 middleware 数组**末位**，保证 `afterAgent` 在 summarization / safetyTrim 之后执行（与现有 analysis 中间件同规则）。
+
+### 6.7 运行入口（service 层，精简版）
+
+```typescript
+// server/services/workflow/agents/documentMainAgent.ts
+export async function runDocumentChat(
+    sessionId: string,
+    draftId: number,
+    options: { userId: number; caseId?: number; signal?: AbortSignal },
+): Promise<ReadableStream<Uint8Array>> {
+    // 仿 runCaseChat：并发加载 checkpointer/store/nodeConfig
+    // 加载 draft + template → buildDraftSchema
+    // 组装 tools（getToolInstancesService） + middleware（含 draftResultPersistence）
+    // createAgent({ model, tools, systemPrompt, responseFormat: schema, middleware })
+    // 返回 agent.stream(...)，SSE 格式 encoding 与 caseMain 一致
+}
+```
+
+**调用入口**：`enqueueRunService({ sessionId, handler: 'document' })` → `AgentWorker.executeRun` 选择 `runDocumentChat`。Worker 现有派发逻辑通过 handler 字段调相应 runner，本期给 worker 的 handler map 加一项 `document: runDocumentChat`，不改 worker 主体。
+
+### 6.8 提示词 `documentMain_system` v1
 
 ```text
 你是 LexSeek 的文书生成助手。用户已选定文书模板并提供部分初始材料。
@@ -288,8 +374,8 @@ searchDraftMaterials({
 schema 中每个字段的 description 已说明占位符的首次出现上下文。
 
 # 工具
-- searchDraftMaterials：查询用户上传的文件与案件材料，按语义检索相关段落
-- searchLaw：查询法条原文与司法解释
+- search_case_materials：检索用户上传的文件（文书 draft 场景会自动限定到当前 draft）或案件材料（案件场景自动限定到当前 caseId）
+- search_law：查询法条原文与司法解释
 
 # 检索策略
 - 按占位符语义主动检索（如"借款金额" → 搜"金额 / 借款 / 本金"）
@@ -307,62 +393,29 @@ schema 中每个字段的 description 已说明占位符的首次出现上下文
 - 严禁编造姓名 / 身份证号 / 具体日期 / 案号
 ```
 
-### 6.6 运行流程（service 层）
+### 6.9 复用清单（实施必读）
 
-```typescript
-// server/services/assistant/document/documentDraft.service.ts
-export async function runDocumentMainAgent(
-    draftId: number,
-    sessionId: string,
-): Promise<void> {
-    const draft = await getDocumentDraftDAO(draftId)
-    const template = await getDocumentTemplateDAO(draft.templateId)
+实施 M3 时**禁止**新建以下组件的替代实现，全部复用现有路径：
 
-    await updateDocumentDraftDAO(draftId, { status: 'filling' })
+| 要做的事 | 现有文件 / 函数 |
+|---|---|
+| 构造 agent 骨架 | 仿 `server/services/workflow/agents/caseMainAgent.ts` |
+| 加载节点配置 | `getValidNodeConfig` / `getNodeConfigsByTypes`（`server/services/node/node.service.ts`） |
+| 构造模型实例 | `createChatModel`（`server/services/node/chatModelFactory.ts`） |
+| 渲染系统提示词 | `renderSystemPrompt`（`server/services/workflow/utils/promptRenderer.ts`） |
+| 工具按名加载 | `getToolInstancesService`（`server/services/workflow/tools/index.ts`） |
+| 工具注册 | `toolModules` 字典，不加新 key；扩展现有 `search_case_materials` |
+| checkpointer / store | `getCheckpointer / getStore`（`server/services/workflow/checkpointer.ts`） |
+| 积分扣减 | `pointConsumptionMiddleware(userId, 'document_draft_token', sessionId)`（`server/services/workflow/middleware/pointConsumption.middleware.ts`） |
+| 结果持久化 | 仿 `analysisResultPersistence.middleware.ts` 实现 `draftResultPersistence.middleware.ts` |
+| SSE 推送 | `createAgentSseStream`（`server/services/sse/agentSseStream.ts`） |
+| Run 入队与执行 | `enqueueRunService` + `AgentWorker`（`server/services/agent/`）；在 handler 分发上加 `document` 路由 |
+| 材料 OCR/embedding 栈 | `materialPipeline.service.ts` + `materialEmbedding.service.ts`（不改，仅在 DAO 层把 caseMaterials 查询 WHERE 增加 draftId 分支） |
+| 会话表 | `caseSessions` with `scope='assistant'`（父 spec Phase 1 已上线） |
+| 前端流管理 | `useStreamChat`（`app/composables/useStreamChat.ts`）；`useDocumentDraft` 仿 `useAssistantChat` 组装 |
+| 前端消息/工具展示组件 | 复用 `AssistantChatPanel` 内部的 `AiChat` / `ToolUseExplainer` / `AiMessageList` 组件 |
 
-    try {
-        const schema = buildDraftSchema(template.placeholders)
-        const nodeConfig = await getValidNodeConfig('documentMain', '文书生成主 Agent')
-        const model = createChatModel({ /* 从 nodeConfig 取参数 */ })
-        const prompt = renderContent(
-            nodeConfig.prompts.find(p => p.type === 'system')!.content,
-            { templateName: template.name, templateCategory: template.category },
-        )
-
-        const agent = createAgent({
-            model,
-            tools: buildDocumentTools(draftId),   // 工具工厂 inject draftId
-            systemPrompt: prompt,
-            responseFormat: schema,
-        })
-
-        const initialUserMessage = draft.sourceRef?.text
-            ?? '（用户未粘贴文本，请通过检索工具获取材料）'
-
-        const result = await agent.invoke({
-            messages: [{ role: 'user', content: initialUserMessage }],
-        })
-
-        const { values, suggestions } = result.structuredResponse
-
-        await updateDocumentDraftDAO(draftId, {
-            values,
-            metadata: suggestions ? { suggestions } : undefined,
-            status: 'ready',
-        })
-
-        await deductAgentTokens({
-            userId: draft.userId,
-            key: 'document_draft_token',
-            tokens: result.usage?.totalTokens ?? 0,
-        })
-    } catch (err) {
-        await updateDocumentDraftDAO(draftId, { status: 'failed' })
-        logger.error('documentMain agent 运行失败', { draftId, error: err })
-        throw err
-    }
-}
-```
+**未来扩展点**（不在本期）：通过 `subAgentToolFactory`（`server/services/workflow/agents/subAgentToolFactory.ts`）把 `documentMain` 作为 caseMain 的子代理注入，实现"在小索子对话里直接触发文书生成"——本期不做，节点 type=`agent` 使其天然具备这个能力。
 
 ---
 
@@ -372,7 +425,7 @@ export async function runDocumentMainAgent(
 
 只用 `draft.sourceRef.text`（用户粘贴文本）作为初始 user message。用户粘贴的文本天然量小（通常几千字以内），直接塞进上下文没问题。
 
-不拼接文件解析文本、不拼接 caseMaterials 内容——这些由 AI 通过 `searchDraftMaterials` 按需检索。
+不拼接文件解析文本、不拼接 caseMaterials 内容——这些由 AI 通过扩展后的 `search_case_materials` 按需检索（文书 draft 场景自动限定到 draftId；案件场景限定到 caseId）。
 
 ### 7.2 sourceFileIds 预处理
 
@@ -392,7 +445,7 @@ for (const fileId of sourceFileIds ?? []) {
 
 ### 7.3 caseId 关联
 
-案件场景下，`draft.sourceRef.caseId` 指向 `cases.id`，`searchDraftMaterials` 工具直接查该 case 的 `caseMaterials`（`caseId=X, draftId=null` 的原案件材料）。
+案件场景下，`draft.sourceRef.caseId` 指向 `cases.id`。agent 运行时 caseId 注入 `ToolContext`，`search_case_materials` 工具未传 `draftId` 参数时默认走 `caseId` 分支查该 case 的 `caseMaterials`（`caseId=X, draftId=null` 的原案件材料）。
 
 ---
 
@@ -526,17 +579,25 @@ DocumentDraftPanel (主组件)
 └── DocumentPreview           （docx-preview + TreeWalker 替换）
 ```
 
-**组件只负责渲染**，数据流集中在 `useDocumentDraft` composable：
+**组件只负责渲染**，数据流集中在 `useDocumentDraft` composable（**仿 `useAssistantChat.ts`** 结构，底层复用 `useStreamChat` 泛型：SSE 订阅 / runStatus / interruptData / resumeInterrupt 等逻辑全部沿用，不重写流管理）：
 
 ```typescript
-const {
-    draft,           // ref<DocumentDraft>
-    template,        // computed from draft.templateId
-    runStatus,       // 'idle' | 'filling' | 'ready' | 'failed'
-    onFieldChange,   // debounce 500ms PATCH
-    onExport,        // POST /export
-    onRegenerate,    // 创建新 draft
-} = useDocumentDraft(draftId)
+// app/composables/useDocumentDraft.ts（骨架）
+export function useDocumentDraft(draftId: Ref<number | null>) {
+    const stream = useStreamChat({ apiUrl: '/api/v1/assistant/document/chat', threadId: /* from draft.sessionId */ })
+    const draft = ref<DocumentDraft | null>(null)
+    const template = computed(() => /* 从 draft.templateId 查模板缓存 */)
+    return {
+        draft,
+        template,
+        runStatus: stream.runStatus,            // 直接透传
+        messages: stream.messages,
+        onStart: (prompt: string) => stream.submit({ messages: [{ type: 'human', content: prompt }] }),
+        onFieldChange: debounce(patchValues, 500),
+        onExport,
+        onRegenerate,
+    }
+}
 ```
 
 ### 10.3 实时预览技术实现
@@ -612,7 +673,7 @@ export async function exportDraft(draftId: number): Promise<{ ossFileId: number 
 |---|---|---|---|---|
 | M1 | 数据层 | 两张新表 + caseMaterials.draftId 迁移；`templateScanner.ts`；3-5 样本 .docx 入仓；seed 脚本扫描 + 上传 OSS + 写表 | `bun run prisma:migrate` + `bun prisma db seed` 后样本模板就绪 | — |
 | M2 | 模板 API + admin 页 | `documentTemplate.service/dao`；6 个模板端点；配额 20 校验；`/admin/document-templates` 页 | admin 上传 .docx → 用户列表可见；私人模板上传第 21 个被拒 | M1 |
-| M3 | AI 填充闭环 | `documentMain` 节点 + 提示词 seed；`buildDraftSchema`；`searchDraftMaterials` 工具；`documentDraft.service/dao`；`POST/GET/PATCH /drafts`；扣费 key seed + 接入 | curl POST `/drafts` → 看 SSE → AI 最终写回 `values` | M1, M2 |
+| M3 | AI 填充闭环 | `documentMain` 节点 + 提示词 seed；`buildDraftSchema`；**扩展 `search_case_materials` 工具**加 draftId 参数（含 service 层）；`documentDraft.service/dao`；`draftResultPersistence` 中间件（仿 analysis）；`documentMainAgent.ts` 仿 `caseMainAgent.ts`；`POST/GET/PATCH /drafts`；`document_draft_token` seed + 接入 `pointConsumptionMiddleware` | curl POST `/drafts` → 看 SSE → AI 最终写回 `values` | M1, M2 |
 | M4 | 用户页 + 导出 | `/dashboard/assistant/document` 路由；`DocumentDraftPanel` 组件；`useDocumentDraft` composable；`POST /drafts/:id/export` + docxtemplater | 浏览器打开页 → 选模板 → 输入材料 → AI 填完 → 编辑字段 → 导出带格式 .docx | M3 |
 | M5 | 实时预览 | docx-preview + TreeWalker 替换 + debounce 500ms；降级方案 A/B 代码预留 | 改任一字段，右侧 Word 样式预览实时同步 | M4 |
 | M6 | 案件 tab 复用 | caseDetail 新增 `documents` tab；`<DocumentDraftPanel :case-id>`；caseMaterials 预填多选 | 案件详情 → 文书 tab → 基于案件材料生成 → 导出 | M4 |
@@ -628,7 +689,7 @@ export async function exportDraft(draftId: number): Promise<{ ossFileId: number 
 |---|---|---|
 | M1 | 单元 | `templateScanner` 对正常 / 边界 / 无占位符 / 中文占位符 / 混合语言的 .docx 行为；seed 幂等性 |
 | M2 | 单元 + 集成 | `documentTemplate.dao/service`；`POST /templates` 配额=20 边界（并发两请求只有一个成功）；扫描失败回 400；admin 与 user scope 区分 |
-| M3 | 单元 + 集成 | `buildDraftSchema` 对空 / 单占位符 / 多占位符 / 中文占位符 / 重复占位符的行为；`documentDraft.dao/service` CRUD；`searchDraftMaterials` 三路径（仅 fileIds / 仅 caseId / 两者） |
+| M3 | 单元 + 集成 | `buildDraftSchema` 对空 / 单占位符 / 多占位符 / 中文占位符 / 重复占位符的行为；`documentDraft.dao/service` CRUD；**扩展后的 `search_case_materials`** 三路径（仅 draftId / 仅 caseId / 缺失报错）；`draftResultPersistence` 中间件 before/after 写回 |
 | M4 | 集成 | `POST /drafts/:id/export` 正常 / 缺字段（nullGetter 生效）/ 模板已删（404）/ draft 不属于当前用户（403） |
 | M5 | E2E（chrome-devtools 手测） | "选模板 → 输入 → 生成 → 改字段 → 预览同步" 完整路径；降级方案各自跑一遍 |
 | M6 | 集成 | 案件 tab 场景 `caseId` 注入 + caseMaterials 预填 + draft 关联到 case |
@@ -652,7 +713,7 @@ export async function exportDraft(draftId: number): Promise<{ ossFileId: number 
 | R1 | docx-preview 占位符跨 `<w:r>` 切分，TreeWalker 替换不准 | 样本模板在 Word 里连续输入占位符避免切分；不稳时降级方案 A/B |
 | R2 | 模板占位符命名不规范（含空格 / 特殊字符） | `templateScanner` 正则仅接受 `[\u4e00-\u9fa5\w]+`；不匹配拒绝上传并返回可读错误 |
 | R3 | AI 输出不符合 schema | `responseFormat` 原生强制，agent 循环内自动重试；仍失败则 status='failed' |
-| R4 | 材料超长爆上下文 | 统一走 `searchDraftMaterials` 工具按 topK 检索，不整体塞 prompt |
+| R4 | 材料超长爆上下文 | 统一走扩展后的 `search_case_materials` 工具按 topK 检索，不整体塞 prompt |
 | R5 | 样本模板质量差导致 M3/M4 跑不通 | M1 仓库级 review 样本模板；入仓前人工过一遍占位符命名与排版 |
 | R6 | 导出时占位符值缺失致渲染抛错 | `docxtemplater.nullGetter = () => ''` 全局兜底 |
 | R7 | 私人模板配额并发绕过 | Prisma `$transaction` 内 count + create，串行化 |
