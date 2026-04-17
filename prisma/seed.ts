@@ -14,9 +14,10 @@ import fs from 'node:fs'
 import path from 'node:path'
 // @ts-ignore
 import OSS from 'ali-oss'
-import mammoth from 'mammoth'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../generated/prisma/client'
+import { scanPlaceholders } from '../server/services/assistant/document/templateScanner'
+import { FileSource } from '../shared/types/file'
 
 const pool = new PrismaPg({
     connectionString: process.env.DATABASE_URL!,
@@ -384,24 +385,6 @@ const TEMPLATE_CATEGORY_MAP: Record<string, string> = {
     '民事调解协议': 'arbitration',
 }
 
-/** 从 .docx Buffer 提取 {{占位符}} 列表（中英文混合命名） */
-async function extractPlaceholders(buf: Buffer): Promise<{ name: string; firstContext: string }[]> {
-    const { value: rawText } = await mammoth.extractRawText({ buffer: buf })
-    const re = /\{\{([\u4e00-\u9fa5\w]+)\}\}/g
-    const map = new Map<string, string>()
-    let match: RegExpExecArray | null
-    while ((match = re.exec(rawText)) !== null) {
-        const name = match[1]
-        if (!map.has(name)) {
-            const lineStart = rawText.lastIndexOf('\n', match.index) + 1
-            const lineEnd = rawText.indexOf('\n', match.index + match[0].length)
-            const ctx = rawText.slice(lineStart, lineEnd === -1 ? undefined : lineEnd)
-            map.set(name, ctx)
-        }
-    }
-    return [...map.entries()].map(([name, firstContext]) => ({ name, firstContext }))
-}
-
 /**
  * Seed: 5 个样本文书模板
  *
@@ -461,7 +444,7 @@ async function seedDocumentTemplates(prismaClient: PrismaClient): Promise<void> 
         }
 
         const buffer = fs.readFileSync(path.join(dir, file))
-        const placeholders = await extractPlaceholders(buffer)
+        const placeholders = await scanPlaceholders(buffer)
         if (placeholders.length === 0) {
             throw new Error(`[seed] 样本模板 ${file} 无占位符，请检查模板内容`)
         }
@@ -481,7 +464,7 @@ async function seedDocumentTemplates(prismaClient: PrismaClient): Promise<void> 
                 filePath: ossPath,
                 fileSize: buffer.length,
                 fileType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                source: 'document_template',
+                source: FileSource.DOCUMENT_TEMPLATE,
                 status: 1,
                 encrypted: false,
             },
