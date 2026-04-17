@@ -240,7 +240,7 @@ export type AgentRunsGroupByOutputType = {
   sessionId: string
   threadId: string
   userId: number
-  caseId: number
+  caseId: number | null
   input: runtime.JsonValue
   status: string
   workerId: string | null
@@ -281,7 +281,7 @@ export type agentRunsWhereInput = {
   sessionId?: Prisma.StringFilter<"agentRuns"> | string
   threadId?: Prisma.StringFilter<"agentRuns"> | string
   userId?: Prisma.IntFilter<"agentRuns"> | number
-  caseId?: Prisma.IntFilter<"agentRuns"> | number
+  caseId?: Prisma.IntNullableFilter<"agentRuns"> | number | null
   input?: Prisma.JsonFilter<"agentRuns">
   status?: Prisma.StringFilter<"agentRuns"> | string
   workerId?: Prisma.StringNullableFilter<"agentRuns"> | string | null
@@ -299,7 +299,7 @@ export type agentRunsOrderByWithRelationInput = {
   sessionId?: Prisma.SortOrder
   threadId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
-  caseId?: Prisma.SortOrder
+  caseId?: Prisma.SortOrderInput | Prisma.SortOrder
   input?: Prisma.SortOrder
   status?: Prisma.SortOrder
   workerId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -320,7 +320,7 @@ export type agentRunsWhereUniqueInput = Prisma.AtLeast<{
   sessionId?: Prisma.StringFilter<"agentRuns"> | string
   threadId?: Prisma.StringFilter<"agentRuns"> | string
   userId?: Prisma.IntFilter<"agentRuns"> | number
-  caseId?: Prisma.IntFilter<"agentRuns"> | number
+  caseId?: Prisma.IntNullableFilter<"agentRuns"> | number | null
   input?: Prisma.JsonFilter<"agentRuns">
   status?: Prisma.StringFilter<"agentRuns"> | string
   workerId?: Prisma.StringNullableFilter<"agentRuns"> | string | null
@@ -338,7 +338,7 @@ export type agentRunsOrderByWithAggregationInput = {
   sessionId?: Prisma.SortOrder
   threadId?: Prisma.SortOrder
   userId?: Prisma.SortOrder
-  caseId?: Prisma.SortOrder
+  caseId?: Prisma.SortOrderInput | Prisma.SortOrder
   input?: Prisma.SortOrder
   status?: Prisma.SortOrder
   workerId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -364,7 +364,7 @@ export type agentRunsScalarWhereWithAggregatesInput = {
   sessionId?: Prisma.StringWithAggregatesFilter<"agentRuns"> | string
   threadId?: Prisma.StringWithAggregatesFilter<"agentRuns"> | string
   userId?: Prisma.IntWithAggregatesFilter<"agentRuns"> | number
-  caseId?: Prisma.IntWithAggregatesFilter<"agentRuns"> | number
+  caseId?: Prisma.IntNullableWithAggregatesFilter<"agentRuns"> | number | null
   input?: Prisma.JsonWithAggregatesFilter<"agentRuns">
   status?: Prisma.StringWithAggregatesFilter<"agentRuns"> | string
   workerId?: Prisma.StringNullableWithAggregatesFilter<"agentRuns"> | string | null
@@ -382,7 +382,7 @@ export type agentRunsCreateInput = {
   sessionId: string
   threadId: string
   userId: number
-  caseId: number
+  caseId?: number | null
   input: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: string
   workerId?: string | null
@@ -400,7 +400,7 @@ export type agentRunsUncheckedCreateInput = {
   sessionId: string
   threadId: string
   userId: number
-  caseId: number
+  caseId?: number | null
   input: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: string
   workerId?: string | null
@@ -418,7 +418,7 @@ export type agentRunsUpdateInput = {
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
   threadId?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.IntFieldUpdateOperationsInput | number
-  caseId?: Prisma.IntFieldUpdateOperationsInput | number
+  caseId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   input?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.StringFieldUpdateOperationsInput | string
   workerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -436,7 +436,7 @@ export type agentRunsUncheckedUpdateInput = {
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
   threadId?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.IntFieldUpdateOperationsInput | number
-  caseId?: Prisma.IntFieldUpdateOperationsInput | number
+  caseId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   input?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.StringFieldUpdateOperationsInput | string
   workerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -454,7 +454,7 @@ export type agentRunsCreateManyInput = {
   sessionId: string
   threadId: string
   userId: number
-  caseId: number
+  caseId?: number | null
   input: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: string
   workerId?: string | null
@@ -472,7 +472,7 @@ export type agentRunsUpdateManyMutationInput = {
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
   threadId?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.IntFieldUpdateOperationsInput | number
-  caseId?: Prisma.IntFieldUpdateOperationsInput | number
+  caseId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   input?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.StringFieldUpdateOperationsInput | string
   workerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -490,7 +490,7 @@ export type agentRunsUncheckedUpdateManyInput = {
   sessionId?: Prisma.StringFieldUpdateOperationsInput | string
   threadId?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.IntFieldUpdateOperationsInput | number
-  caseId?: Prisma.IntFieldUpdateOperationsInput | number
+  caseId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   input?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   status?: Prisma.StringFieldUpdateOperationsInput | string
   workerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -569,6 +569,14 @@ export type StringFieldUpdateOperationsInput = {
 
 export type IntFieldUpdateOperationsInput = {
   set?: number
+  increment?: number
+  decrement?: number
+  multiply?: number
+  divide?: number
+}
+
+export type NullableIntFieldUpdateOperationsInput = {
+  set?: number | null
   increment?: number
   decrement?: number
   multiply?: number
@@ -684,9 +692,9 @@ export type $agentRunsPayload<ExtArgs extends runtime.Types.Extensions.InternalA
      */
     userId: number
     /**
-     * 关联的案件ID
+     * 关联的案件ID（关联 session 的 scope=assistant 时为空）
      */
-    caseId: number
+    caseId: number | null
     /**
      * 输入参数（{ message: string, command?: any }）
      */

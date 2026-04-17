@@ -65,6 +65,9 @@ model users {
     /// 用户案件（一对多）
     cases cases[]
 
+    /// 关联的会话（case 域 + assistant 域）
+    caseSessions caseSessions[]
+
     /// 用户文档识别记录（一对多）
     docRecognitionRecords docRecognitionRecords[]
 

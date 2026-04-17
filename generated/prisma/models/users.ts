@@ -330,6 +330,7 @@ export type usersWhereInput = {
   permissionAuditLogs?: Prisma.PermissionAuditLogsListRelationFilter
   userBenefits?: Prisma.UserBenefitsListRelationFilter
   cases?: Prisma.CasesListRelationFilter
+  caseSessions?: Prisma.CaseSessionsListRelationFilter
   docRecognitionRecords?: Prisma.DocRecognitionRecordsListRelationFilter
   imageRecognitionRecords?: Prisma.ImageRecognitionRecordsListRelationFilter
   asrRecords?: Prisma.AsrRecordsListRelationFilter
@@ -364,6 +365,7 @@ export type usersOrderByWithRelationInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsOrderByRelationAggregateInput
   userBenefits?: Prisma.userBenefitsOrderByRelationAggregateInput
   cases?: Prisma.casesOrderByRelationAggregateInput
+  caseSessions?: Prisma.caseSessionsOrderByRelationAggregateInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsOrderByRelationAggregateInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsOrderByRelationAggregateInput
   asrRecords?: Prisma.asrRecordsOrderByRelationAggregateInput
@@ -401,6 +403,7 @@ export type usersWhereUniqueInput = Prisma.AtLeast<{
   permissionAuditLogs?: Prisma.PermissionAuditLogsListRelationFilter
   userBenefits?: Prisma.UserBenefitsListRelationFilter
   cases?: Prisma.CasesListRelationFilter
+  caseSessions?: Prisma.CaseSessionsListRelationFilter
   docRecognitionRecords?: Prisma.DocRecognitionRecordsListRelationFilter
   imageRecognitionRecords?: Prisma.ImageRecognitionRecordsListRelationFilter
   asrRecords?: Prisma.AsrRecordsListRelationFilter
@@ -482,6 +485,7 @@ export type usersCreateInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutUserInput
   cases?: Prisma.casesCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
@@ -516,6 +520,7 @@ export type usersUncheckedCreateInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutUserInput
   cases?: Prisma.casesUncheckedCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
@@ -549,6 +554,7 @@ export type usersUpdateInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
@@ -583,6 +589,7 @@ export type usersUncheckedUpdateInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUncheckedUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
@@ -651,6 +658,11 @@ export type usersUncheckedUpdateManyInput = {
 export type UsersScalarRelationFilter = {
   is?: Prisma.usersWhereInput
   isNot?: Prisma.usersWhereInput
+}
+
+export type UsersNullableScalarRelationFilter = {
+  is?: Prisma.usersWhereInput | null
+  isNot?: Prisma.usersWhereInput | null
 }
 
 export type usersCountOrderByAggregateInput = {
@@ -751,6 +763,22 @@ export type usersUpdateOneRequiredWithoutCasesNestedInput = {
   upsert?: Prisma.usersUpsertWithoutCasesInput
   connect?: Prisma.usersWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.usersUpdateToOneWithWhereWithoutCasesInput, Prisma.usersUpdateWithoutCasesInput>, Prisma.usersUncheckedUpdateWithoutCasesInput>
+}
+
+export type usersCreateNestedOneWithoutCaseSessionsInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutCaseSessionsInput, Prisma.usersUncheckedCreateWithoutCaseSessionsInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutCaseSessionsInput
+  connect?: Prisma.usersWhereUniqueInput
+}
+
+export type usersUpdateOneWithoutCaseSessionsNestedInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutCaseSessionsInput, Prisma.usersUncheckedCreateWithoutCaseSessionsInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutCaseSessionsInput
+  upsert?: Prisma.usersUpsertWithoutCaseSessionsInput
+  disconnect?: Prisma.usersWhereInput | boolean
+  delete?: Prisma.usersWhereInput | boolean
+  connect?: Prisma.usersWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.usersUpdateToOneWithWhereWithoutCaseSessionsInput, Prisma.usersUpdateWithoutCaseSessionsInput>, Prisma.usersUncheckedUpdateWithoutCaseSessionsInput>
 }
 
 export type usersCreateNestedOneWithoutUserMembershipsInput = {
@@ -947,6 +975,7 @@ export type usersCreateWithoutPermissionAuditLogsInput = {
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
   userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutUserInput
   cases?: Prisma.casesCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
@@ -980,6 +1009,7 @@ export type usersUncheckedCreateWithoutPermissionAuditLogsInput = {
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
   userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutUserInput
   cases?: Prisma.casesUncheckedCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
@@ -1028,6 +1058,7 @@ export type usersUpdateWithoutPermissionAuditLogsInput = {
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
   userBenefits?: Prisma.userBenefitsUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
@@ -1061,6 +1092,7 @@ export type usersUncheckedUpdateWithoutPermissionAuditLogsInput = {
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
   userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUncheckedUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
@@ -1093,6 +1125,7 @@ export type usersCreateWithoutCasesInput = {
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
   permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
@@ -1126,6 +1159,7 @@ export type usersUncheckedCreateWithoutCasesInput = {
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
@@ -1174,6 +1208,7 @@ export type usersUpdateWithoutCasesInput = {
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
   permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
@@ -1207,6 +1242,157 @@ export type usersUncheckedUpdateWithoutCasesInput = {
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutUserNestedInput
+  docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
+  mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type usersCreateWithoutCaseSessionsInput = {
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
+  userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutUserInput
+  cases?: Prisma.casesCreateNestedManyWithoutUserInput
+  docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
+  asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
+  mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
+}
+
+export type usersUncheckedCreateWithoutCaseSessionsInput = {
+  id?: number
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesUncheckedCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsUncheckedCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsUncheckedCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersUncheckedCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
+  userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutUserInput
+  cases?: Prisma.casesUncheckedCreateNestedManyWithoutUserInput
+  docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
+  asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
+  mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type usersCreateOrConnectWithoutCaseSessionsInput = {
+  where: Prisma.usersWhereUniqueInput
+  create: Prisma.XOR<Prisma.usersCreateWithoutCaseSessionsInput, Prisma.usersUncheckedCreateWithoutCaseSessionsInput>
+}
+
+export type usersUpsertWithoutCaseSessionsInput = {
+  update: Prisma.XOR<Prisma.usersUpdateWithoutCaseSessionsInput, Prisma.usersUncheckedUpdateWithoutCaseSessionsInput>
+  create: Prisma.XOR<Prisma.usersCreateWithoutCaseSessionsInput, Prisma.usersUncheckedCreateWithoutCaseSessionsInput>
+  where?: Prisma.usersWhereInput
+}
+
+export type usersUpdateToOneWithWhereWithoutCaseSessionsInput = {
+  where?: Prisma.usersWhereInput
+  data: Prisma.XOR<Prisma.usersUpdateWithoutCaseSessionsInput, Prisma.usersUncheckedUpdateWithoutCaseSessionsInput>
+}
+
+export type usersUpdateWithoutCaseSessionsInput = {
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
+  userBenefits?: Prisma.userBenefitsUpdateManyWithoutUserNestedInput
+  cases?: Prisma.casesUpdateManyWithoutUserNestedInput
+  docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
+  asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
+  mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
+}
+
+export type usersUncheckedUpdateWithoutCaseSessionsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUncheckedUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUncheckedUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUncheckedUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
+  userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutUserNestedInput
+  cases?: Prisma.casesUncheckedUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
@@ -1239,6 +1425,7 @@ export type usersCreateWithoutUserMembershipsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutUserInput
   cases?: Prisma.casesCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
@@ -1272,6 +1459,7 @@ export type usersUncheckedCreateWithoutUserMembershipsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutUserInput
   cases?: Prisma.casesUncheckedCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
@@ -1320,6 +1508,7 @@ export type usersUpdateWithoutUserMembershipsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
@@ -1353,6 +1542,7 @@ export type usersUncheckedUpdateWithoutUserMembershipsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUncheckedUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
@@ -1385,6 +1575,7 @@ export type usersCreateWithoutUserBenefitsInput = {
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
   permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
   cases?: Prisma.casesCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
@@ -1418,6 +1609,7 @@ export type usersUncheckedCreateWithoutUserBenefitsInput = {
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
   cases?: Prisma.casesUncheckedCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
@@ -1466,6 +1658,7 @@ export type usersUpdateWithoutUserBenefitsInput = {
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
   permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
   cases?: Prisma.casesUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
@@ -1499,6 +1692,7 @@ export type usersUncheckedUpdateWithoutUserBenefitsInput = {
   membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
   cases?: Prisma.casesUncheckedUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
@@ -1531,6 +1725,7 @@ export type usersCreateWithoutOrdersInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutUserInput
   cases?: Prisma.casesCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
@@ -1564,6 +1759,7 @@ export type usersUncheckedCreateWithoutOrdersInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutUserInput
   cases?: Prisma.casesUncheckedCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
@@ -1612,6 +1808,7 @@ export type usersUpdateWithoutOrdersInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
@@ -1645,6 +1842,7 @@ export type usersUncheckedUpdateWithoutOrdersInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUncheckedUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
@@ -1677,6 +1875,7 @@ export type usersCreateWithoutMembershipUpgradeRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutUserInput
   cases?: Prisma.casesCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
@@ -1710,6 +1909,7 @@ export type usersUncheckedCreateWithoutMembershipUpgradeRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutUserInput
   cases?: Prisma.casesUncheckedCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
@@ -1758,6 +1958,7 @@ export type usersUpdateWithoutMembershipUpgradeRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
@@ -1791,6 +1992,7 @@ export type usersUncheckedUpdateWithoutMembershipUpgradeRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUncheckedUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
@@ -1823,6 +2025,7 @@ export type usersCreateWithoutPointRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutUserInput
   cases?: Prisma.casesCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
@@ -1856,6 +2059,7 @@ export type usersUncheckedCreateWithoutPointRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutUserInput
   cases?: Prisma.casesUncheckedCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
@@ -1904,6 +2108,7 @@ export type usersUpdateWithoutPointRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
@@ -1937,6 +2142,7 @@ export type usersUncheckedUpdateWithoutPointRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUncheckedUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
@@ -1969,6 +2175,7 @@ export type usersCreateWithoutPointConsumptionRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutUserInput
   cases?: Prisma.casesCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
@@ -2002,6 +2209,7 @@ export type usersUncheckedCreateWithoutPointConsumptionRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutUserInput
   cases?: Prisma.casesUncheckedCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
@@ -2050,6 +2258,7 @@ export type usersUpdateWithoutPointConsumptionRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
@@ -2083,6 +2292,7 @@ export type usersUncheckedUpdateWithoutPointConsumptionRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUncheckedUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
@@ -2115,6 +2325,7 @@ export type usersCreateWithoutUserRolesInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutUserInput
   cases?: Prisma.casesCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
@@ -2148,6 +2359,7 @@ export type usersUncheckedCreateWithoutUserRolesInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutUserInput
   cases?: Prisma.casesUncheckedCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
@@ -2196,6 +2408,7 @@ export type usersUpdateWithoutUserRolesInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
@@ -2229,6 +2442,7 @@ export type usersUncheckedUpdateWithoutUserRolesInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUncheckedUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
@@ -2262,6 +2476,7 @@ export type usersCreateWithoutDocRecognitionRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutUserInput
   cases?: Prisma.casesCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
@@ -2295,6 +2510,7 @@ export type usersUncheckedCreateWithoutDocRecognitionRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutUserInput
   cases?: Prisma.casesUncheckedCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
@@ -2343,6 +2559,7 @@ export type usersUpdateWithoutDocRecognitionRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
@@ -2376,6 +2593,7 @@ export type usersUncheckedUpdateWithoutDocRecognitionRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUncheckedUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
@@ -2408,6 +2626,7 @@ export type usersCreateWithoutImageRecognitionRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutUserInput
   cases?: Prisma.casesCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
@@ -2441,6 +2660,7 @@ export type usersUncheckedCreateWithoutImageRecognitionRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutUserInput
   cases?: Prisma.casesUncheckedCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
@@ -2489,6 +2709,7 @@ export type usersUpdateWithoutImageRecognitionRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
@@ -2522,6 +2743,7 @@ export type usersUncheckedUpdateWithoutImageRecognitionRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUncheckedUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
@@ -2554,6 +2776,7 @@ export type usersCreateWithoutAsrRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutUserInput
   cases?: Prisma.casesCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
@@ -2587,6 +2810,7 @@ export type usersUncheckedCreateWithoutAsrRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutUserInput
   cases?: Prisma.casesUncheckedCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
@@ -2635,6 +2859,7 @@ export type usersUpdateWithoutAsrRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
@@ -2668,6 +2893,7 @@ export type usersUncheckedUpdateWithoutAsrRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUncheckedUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
@@ -2700,6 +2926,7 @@ export type usersCreateWithoutMineruTasksInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutUserInput
   cases?: Prisma.casesCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
@@ -2733,6 +2960,7 @@ export type usersUncheckedCreateWithoutMineruTasksInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutUserInput
   cases?: Prisma.casesUncheckedCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
@@ -2781,6 +3009,7 @@ export type usersUpdateWithoutMineruTasksInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
@@ -2814,6 +3043,7 @@ export type usersUncheckedUpdateWithoutMineruTasksInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUncheckedUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
@@ -2845,6 +3075,7 @@ export type usersCreateWithoutRedemptionRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutUserInput
   cases?: Prisma.casesCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
@@ -2878,6 +3109,7 @@ export type usersUncheckedCreateWithoutRedemptionRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
   userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutUserInput
   cases?: Prisma.casesUncheckedCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutUserInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
@@ -2926,6 +3158,7 @@ export type usersUpdateWithoutRedemptionRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
@@ -2959,6 +3192,7 @@ export type usersUncheckedUpdateWithoutRedemptionRecordsInput = {
   permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
   userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutUserNestedInput
   cases?: Prisma.casesUncheckedUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutUserNestedInput
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
@@ -2981,6 +3215,7 @@ export type UsersCountOutputType = {
   permissionAuditLogs: number
   userBenefits: number
   cases: number
+  caseSessions: number
   docRecognitionRecords: number
   imageRecognitionRecords: number
   asrRecords: number
@@ -2998,6 +3233,7 @@ export type UsersCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.
   permissionAuditLogs?: boolean | UsersCountOutputTypeCountPermissionAuditLogsArgs
   userBenefits?: boolean | UsersCountOutputTypeCountUserBenefitsArgs
   cases?: boolean | UsersCountOutputTypeCountCasesArgs
+  caseSessions?: boolean | UsersCountOutputTypeCountCaseSessionsArgs
   docRecognitionRecords?: boolean | UsersCountOutputTypeCountDocRecognitionRecordsArgs
   imageRecognitionRecords?: boolean | UsersCountOutputTypeCountImageRecognitionRecordsArgs
   asrRecords?: boolean | UsersCountOutputTypeCountAsrRecordsArgs
@@ -3087,6 +3323,13 @@ export type UsersCountOutputTypeCountCasesArgs<ExtArgs extends runtime.Types.Ext
 /**
  * UsersCountOutputType without action
  */
+export type UsersCountOutputTypeCountCaseSessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.caseSessionsWhereInput
+}
+
+/**
+ * UsersCountOutputType without action
+ */
 export type UsersCountOutputTypeCountDocRecognitionRecordsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.docRecognitionRecordsWhereInput
 }
@@ -3141,6 +3384,7 @@ export type usersSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   permissionAuditLogs?: boolean | Prisma.users$permissionAuditLogsArgs<ExtArgs>
   userBenefits?: boolean | Prisma.users$userBenefitsArgs<ExtArgs>
   cases?: boolean | Prisma.users$casesArgs<ExtArgs>
+  caseSessions?: boolean | Prisma.users$caseSessionsArgs<ExtArgs>
   docRecognitionRecords?: boolean | Prisma.users$docRecognitionRecordsArgs<ExtArgs>
   imageRecognitionRecords?: boolean | Prisma.users$imageRecognitionRecordsArgs<ExtArgs>
   asrRecords?: boolean | Prisma.users$asrRecordsArgs<ExtArgs>
@@ -3220,6 +3464,7 @@ export type usersInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   permissionAuditLogs?: boolean | Prisma.users$permissionAuditLogsArgs<ExtArgs>
   userBenefits?: boolean | Prisma.users$userBenefitsArgs<ExtArgs>
   cases?: boolean | Prisma.users$casesArgs<ExtArgs>
+  caseSessions?: boolean | Prisma.users$caseSessionsArgs<ExtArgs>
   docRecognitionRecords?: boolean | Prisma.users$docRecognitionRecordsArgs<ExtArgs>
   imageRecognitionRecords?: boolean | Prisma.users$imageRecognitionRecordsArgs<ExtArgs>
   asrRecords?: boolean | Prisma.users$asrRecordsArgs<ExtArgs>
@@ -3272,6 +3517,10 @@ export type $usersPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
      * 用户案件（一对多）
      */
     cases: Prisma.$casesPayload<ExtArgs>[]
+    /**
+     * 关联的会话（case 域 + assistant 域）
+     */
+    caseSessions: Prisma.$caseSessionsPayload<ExtArgs>[]
     /**
      * 用户文档识别记录（一对多）
      */
@@ -3762,6 +4011,7 @@ export interface Prisma__usersClient<T, Null = never, ExtArgs extends runtime.Ty
   permissionAuditLogs<T extends Prisma.users$permissionAuditLogsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$permissionAuditLogsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$permissionAuditLogsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   userBenefits<T extends Prisma.users$userBenefitsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$userBenefitsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$userBenefitsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   cases<T extends Prisma.users$casesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$casesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$casesPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  caseSessions<T extends Prisma.users$caseSessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$caseSessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$caseSessionsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   docRecognitionRecords<T extends Prisma.users$docRecognitionRecordsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$docRecognitionRecordsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$docRecognitionRecordsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   imageRecognitionRecords<T extends Prisma.users$imageRecognitionRecordsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$imageRecognitionRecordsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$imageRecognitionRecordsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   asrRecords<T extends Prisma.users$asrRecordsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$asrRecordsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$asrRecordsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -4442,6 +4692,30 @@ export type users$casesArgs<ExtArgs extends runtime.Types.Extensions.InternalArg
   take?: number
   skip?: number
   distinct?: Prisma.CasesScalarFieldEnum | Prisma.CasesScalarFieldEnum[]
+}
+
+/**
+ * users.caseSessions
+ */
+export type users$caseSessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the caseSessions
+   */
+  select?: Prisma.caseSessionsSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the caseSessions
+   */
+  omit?: Prisma.caseSessionsOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.caseSessionsInclude<ExtArgs> | null
+  where?: Prisma.caseSessionsWhereInput
+  orderBy?: Prisma.caseSessionsOrderByWithRelationInput | Prisma.caseSessionsOrderByWithRelationInput[]
+  cursor?: Prisma.caseSessionsWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.CaseSessionsScalarFieldEnum | Prisma.CaseSessionsScalarFieldEnum[]
 }
 
 /**

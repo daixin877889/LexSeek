@@ -83,17 +83,28 @@ model cases {
 }
 
 /// 案件会话表 - 存储案件分析的会话上下文，对应 LangGraph 的 thread_id
+/// 通过 scope 字段扩展为双域：case（案件内）与 assistant（通用法律助手）
 model caseSessions {
     /// 会话ID，主键，自增
     id        Int       @id @default(autoincrement())
     /// 会话唯一标识，对应 LangGraph thread_id
     sessionId String    @unique @map("session_id") @db.VarChar(100)
+    /// 会话归属域：case（案件内）/ assistant（通用法律助手）
+    scope     String    @default("case") @db.VarChar(20)
+    /// 会话所有者用户ID
+    /// - scope=assistant：必须存在（应用层校验）
+    /// - scope=case：冗余字段，便于列表按用户查询（存量可为 NULL，鉴权回退到 case.userId）
+    userId    Int?      @map("user_id")
     /// 关联的案件ID
-    caseId    Int       @map("case_id")
+    /// - scope=case：必须存在（应用层校验）
+    /// - scope=assistant：必须为 NULL
+    caseId    Int?      @map("case_id")
     /// 会话状态：1-进行中，2-已完成，3-已中断，4-已失败
     status    Int       @default(1)
-    /// 会话类型：1-普通对话，2-初始化分析
+    /// 会话类型：1-普通对话，2-初始化分析（仅 case 域使用）
     type      Int       @default(1)
+    /// 会话标题（assistant 场景由首条消息自动生成，用户可重命名）
+    title     String?   @db.VarChar(200)
     /// 会话元数据（JSON），type=2 时存储 { selectedModules: string[] } 等
     metadata  Json?     @db.JsonB
     /// 创建时间
@@ -103,14 +114,18 @@ model caseSessions {
     /// 删除时间，为 NULL 表示未删除
     deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-    /// 关联的案件
-    case cases @relation(fields: [caseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    /// 关联的案件（scope=assistant 时为 null）
+    case cases? @relation(fields: [caseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    /// 关联的用户（scope=assistant 必存在；scope=case 存量可为 null）
+    user users? @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
     /// 关联的案件分析结果
     caseAnalyses caseAnalyses[]
 
+    @@index([userId, scope, deletedAt], map: "idx_case_sessions_user_scope")
     @@index([caseId], map: "idx_case_sessions_case_id")
-    @@index([status], map: "idx_case_sessions_status")
+    @@index([scope, status], map: "idx_case_sessions_scope_status")
     @@index([type], map: "idx_case_sessions_type")
     @@index([deletedAt], map: "idx_case_sessions_deleted_at")
     @@map("case_sessions")

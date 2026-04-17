@@ -8,8 +8,8 @@ model agentRuns {
     threadId    String    @map("thread_id")
     /// 关联的用户ID
     userId      Int       @map("user_id")
-    /// 关联的案件ID
-    caseId      Int       @map("case_id")
+    /// 关联的案件ID（关联 session 的 scope=assistant 时为空）
+    caseId      Int?      @map("case_id")
 
     /// 输入参数（{ message: string, command?: any }）
     input       Json

@@ -84,6 +84,7 @@ export type cases = Prisma.casesModel
 /**
  * Model caseSessions
  * 案件会话表 - 存储案件分析的会话上下文，对应 LangGraph 的 thread_id
+ * 通过 scope 字段扩展为双域：case（案件内）与 assistant（通用法律助手）
  */
 export type caseSessions = Prisma.caseSessionsModel
 /**

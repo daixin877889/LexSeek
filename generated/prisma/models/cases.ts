@@ -579,6 +579,11 @@ export type casesSumOrderByAggregateInput = {
   status?: Prisma.SortOrder
 }
 
+export type CasesNullableScalarRelationFilter = {
+  is?: Prisma.casesWhereInput | null
+  isNot?: Prisma.casesWhereInput | null
+}
+
 export type CasesScalarRelationFilter = {
   is?: Prisma.casesWhereInput
   isNot?: Prisma.casesWhereInput
@@ -632,10 +637,12 @@ export type casesCreateNestedOneWithoutCaseSessionsInput = {
   connect?: Prisma.casesWhereUniqueInput
 }
 
-export type casesUpdateOneRequiredWithoutCaseSessionsNestedInput = {
+export type casesUpdateOneWithoutCaseSessionsNestedInput = {
   create?: Prisma.XOR<Prisma.casesCreateWithoutCaseSessionsInput, Prisma.casesUncheckedCreateWithoutCaseSessionsInput>
   connectOrCreate?: Prisma.casesCreateOrConnectWithoutCaseSessionsInput
   upsert?: Prisma.casesUpsertWithoutCaseSessionsInput
+  disconnect?: Prisma.casesWhereInput | boolean
+  delete?: Prisma.casesWhereInput | boolean
   connect?: Prisma.casesWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.casesUpdateToOneWithWhereWithoutCaseSessionsInput, Prisma.casesUpdateWithoutCaseSessionsInput>, Prisma.casesUncheckedUpdateWithoutCaseSessionsInput>
 }

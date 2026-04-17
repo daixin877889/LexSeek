@@ -566,14 +566,6 @@ export type BoolFieldUpdateOperationsInput = {
   set?: boolean
 }
 
-export type NullableIntFieldUpdateOperationsInput = {
-  set?: number | null
-  increment?: number
-  decrement?: number
-  multiply?: number
-  divide?: number
-}
-
 export type apiPermissionsCreateNestedOneWithoutRoleApiPermissionsInput = {
   create?: Prisma.XOR<Prisma.apiPermissionsCreateWithoutRoleApiPermissionsInput, Prisma.apiPermissionsUncheckedCreateWithoutRoleApiPermissionsInput>
   connectOrCreate?: Prisma.apiPermissionsCreateOrConnectWithoutRoleApiPermissionsInput

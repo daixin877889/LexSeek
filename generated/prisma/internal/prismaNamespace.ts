@@ -4704,9 +4704,12 @@ export type CasesScalarFieldEnum = (typeof CasesScalarFieldEnum)[keyof typeof Ca
 export const CaseSessionsScalarFieldEnum = {
   id: 'id',
   sessionId: 'sessionId',
+  scope: 'scope',
+  userId: 'userId',
   caseId: 'caseId',
   status: 'status',
   type: 'type',
+  title: 'title',
   metadata: 'metadata',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
