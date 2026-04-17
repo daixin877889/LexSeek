@@ -59,12 +59,21 @@ export default defineEventHandler(async (event) => {
             return resError(event, 404, '材料不存在')
         }
 
-        // 验证材料所属案件是否属于当前用户
-        const caseRecord = await prisma.cases.findFirst({
-            where: { id: material.caseId, userId: user.id, deletedAt: null },
-        })
+        // 验证材料访问权限：通过案件或文书草稿关联到当前用户
+        let hasAccess = false
+        if (material.caseId != null) {
+            const caseRecord = await prisma.cases.findFirst({
+                where: { id: material.caseId, userId: user.id, deletedAt: null },
+            })
+            hasAccess = caseRecord != null
+        } else if (material.draftId != null) {
+            const draftRecord = await prisma.documentDrafts.findFirst({
+                where: { id: material.draftId, userId: user.id, deletedAt: null },
+            })
+            hasAccess = draftRecord != null
+        }
 
-        if (!caseRecord) {
+        if (!hasAccess) {
             return resError(event, 403, '无权访问此材料')
         }
 

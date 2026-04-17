@@ -335,6 +335,8 @@ export type usersWhereInput = {
   imageRecognitionRecords?: Prisma.ImageRecognitionRecordsListRelationFilter
   asrRecords?: Prisma.AsrRecordsListRelationFilter
   mineruTasks?: Prisma.MineruTasksListRelationFilter
+  documentTemplates?: Prisma.DocumentTemplatesListRelationFilter
+  documentDrafts?: Prisma.DocumentDraftsListRelationFilter
 }
 
 export type usersOrderByWithRelationInput = {
@@ -370,6 +372,8 @@ export type usersOrderByWithRelationInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsOrderByRelationAggregateInput
   asrRecords?: Prisma.asrRecordsOrderByRelationAggregateInput
   mineruTasks?: Prisma.mineruTasksOrderByRelationAggregateInput
+  documentTemplates?: Prisma.documentTemplatesOrderByRelationAggregateInput
+  documentDrafts?: Prisma.documentDraftsOrderByRelationAggregateInput
 }
 
 export type usersWhereUniqueInput = Prisma.AtLeast<{
@@ -408,6 +412,8 @@ export type usersWhereUniqueInput = Prisma.AtLeast<{
   imageRecognitionRecords?: Prisma.ImageRecognitionRecordsListRelationFilter
   asrRecords?: Prisma.AsrRecordsListRelationFilter
   mineruTasks?: Prisma.MineruTasksListRelationFilter
+  documentTemplates?: Prisma.DocumentTemplatesListRelationFilter
+  documentDrafts?: Prisma.DocumentDraftsListRelationFilter
 }, "id" | "username" | "email" | "phone" | "inviteCode">
 
 export type usersOrderByWithAggregationInput = {
@@ -490,6 +496,8 @@ export type usersCreateInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
 }
 
 export type usersUncheckedCreateInput = {
@@ -525,6 +533,8 @@ export type usersUncheckedCreateInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type usersUpdateInput = {
@@ -559,6 +569,8 @@ export type usersUpdateInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
 }
 
 export type usersUncheckedUpdateInput = {
@@ -594,6 +606,8 @@ export type usersUncheckedUpdateInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type usersCreateManyInput = {
@@ -779,6 +793,36 @@ export type usersUpdateOneWithoutCaseSessionsNestedInput = {
   delete?: Prisma.usersWhereInput | boolean
   connect?: Prisma.usersWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.usersUpdateToOneWithWhereWithoutCaseSessionsInput, Prisma.usersUpdateWithoutCaseSessionsInput>, Prisma.usersUncheckedUpdateWithoutCaseSessionsInput>
+}
+
+export type usersCreateNestedOneWithoutDocumentTemplatesInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutDocumentTemplatesInput, Prisma.usersUncheckedCreateWithoutDocumentTemplatesInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutDocumentTemplatesInput
+  connect?: Prisma.usersWhereUniqueInput
+}
+
+export type usersUpdateOneWithoutDocumentTemplatesNestedInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutDocumentTemplatesInput, Prisma.usersUncheckedCreateWithoutDocumentTemplatesInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutDocumentTemplatesInput
+  upsert?: Prisma.usersUpsertWithoutDocumentTemplatesInput
+  disconnect?: Prisma.usersWhereInput | boolean
+  delete?: Prisma.usersWhereInput | boolean
+  connect?: Prisma.usersWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.usersUpdateToOneWithWhereWithoutDocumentTemplatesInput, Prisma.usersUpdateWithoutDocumentTemplatesInput>, Prisma.usersUncheckedUpdateWithoutDocumentTemplatesInput>
+}
+
+export type usersCreateNestedOneWithoutDocumentDraftsInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutDocumentDraftsInput, Prisma.usersUncheckedCreateWithoutDocumentDraftsInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutDocumentDraftsInput
+  connect?: Prisma.usersWhereUniqueInput
+}
+
+export type usersUpdateOneRequiredWithoutDocumentDraftsNestedInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutDocumentDraftsInput, Prisma.usersUncheckedCreateWithoutDocumentDraftsInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutDocumentDraftsInput
+  upsert?: Prisma.usersUpsertWithoutDocumentDraftsInput
+  connect?: Prisma.usersWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.usersUpdateToOneWithWhereWithoutDocumentDraftsInput, Prisma.usersUpdateWithoutDocumentDraftsInput>, Prisma.usersUncheckedUpdateWithoutDocumentDraftsInput>
 }
 
 export type usersCreateNestedOneWithoutUserMembershipsInput = {
@@ -980,6 +1024,8 @@ export type usersCreateWithoutPermissionAuditLogsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
 }
 
 export type usersUncheckedCreateWithoutPermissionAuditLogsInput = {
@@ -1014,6 +1060,8 @@ export type usersUncheckedCreateWithoutPermissionAuditLogsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type usersCreateOrConnectWithoutPermissionAuditLogsInput = {
@@ -1063,6 +1111,8 @@ export type usersUpdateWithoutPermissionAuditLogsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutPermissionAuditLogsInput = {
@@ -1097,6 +1147,8 @@ export type usersUncheckedUpdateWithoutPermissionAuditLogsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type usersCreateWithoutCasesInput = {
@@ -1130,6 +1182,8 @@ export type usersCreateWithoutCasesInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
 }
 
 export type usersUncheckedCreateWithoutCasesInput = {
@@ -1164,6 +1218,8 @@ export type usersUncheckedCreateWithoutCasesInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type usersCreateOrConnectWithoutCasesInput = {
@@ -1213,6 +1269,8 @@ export type usersUpdateWithoutCasesInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutCasesInput = {
@@ -1247,6 +1305,8 @@ export type usersUncheckedUpdateWithoutCasesInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type usersCreateWithoutCaseSessionsInput = {
@@ -1280,6 +1340,8 @@ export type usersCreateWithoutCaseSessionsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
 }
 
 export type usersUncheckedCreateWithoutCaseSessionsInput = {
@@ -1314,6 +1376,8 @@ export type usersUncheckedCreateWithoutCaseSessionsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type usersCreateOrConnectWithoutCaseSessionsInput = {
@@ -1363,6 +1427,8 @@ export type usersUpdateWithoutCaseSessionsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutCaseSessionsInput = {
@@ -1397,6 +1463,324 @@ export type usersUncheckedUpdateWithoutCaseSessionsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type usersCreateWithoutDocumentTemplatesInput = {
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
+  userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutUserInput
+  cases?: Prisma.casesCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutUserInput
+  docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
+  asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
+  mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
+}
+
+export type usersUncheckedCreateWithoutDocumentTemplatesInput = {
+  id?: number
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesUncheckedCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsUncheckedCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsUncheckedCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersUncheckedCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
+  userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutUserInput
+  cases?: Prisma.casesUncheckedCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutUserInput
+  docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
+  asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
+  mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type usersCreateOrConnectWithoutDocumentTemplatesInput = {
+  where: Prisma.usersWhereUniqueInput
+  create: Prisma.XOR<Prisma.usersCreateWithoutDocumentTemplatesInput, Prisma.usersUncheckedCreateWithoutDocumentTemplatesInput>
+}
+
+export type usersUpsertWithoutDocumentTemplatesInput = {
+  update: Prisma.XOR<Prisma.usersUpdateWithoutDocumentTemplatesInput, Prisma.usersUncheckedUpdateWithoutDocumentTemplatesInput>
+  create: Prisma.XOR<Prisma.usersCreateWithoutDocumentTemplatesInput, Prisma.usersUncheckedCreateWithoutDocumentTemplatesInput>
+  where?: Prisma.usersWhereInput
+}
+
+export type usersUpdateToOneWithWhereWithoutDocumentTemplatesInput = {
+  where?: Prisma.usersWhereInput
+  data: Prisma.XOR<Prisma.usersUpdateWithoutDocumentTemplatesInput, Prisma.usersUncheckedUpdateWithoutDocumentTemplatesInput>
+}
+
+export type usersUpdateWithoutDocumentTemplatesInput = {
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
+  userBenefits?: Prisma.userBenefitsUpdateManyWithoutUserNestedInput
+  cases?: Prisma.casesUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutUserNestedInput
+  docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
+  asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
+  mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
+}
+
+export type usersUncheckedUpdateWithoutDocumentTemplatesInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUncheckedUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUncheckedUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUncheckedUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
+  userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutUserNestedInput
+  cases?: Prisma.casesUncheckedUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutUserNestedInput
+  docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
+  mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type usersCreateWithoutDocumentDraftsInput = {
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
+  userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutUserInput
+  cases?: Prisma.casesCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutUserInput
+  docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
+  asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
+  mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
+}
+
+export type usersUncheckedCreateWithoutDocumentDraftsInput = {
+  id?: number
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesUncheckedCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsUncheckedCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsUncheckedCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersUncheckedCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
+  userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutUserInput
+  cases?: Prisma.casesUncheckedCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutUserInput
+  docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
+  asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
+  mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type usersCreateOrConnectWithoutDocumentDraftsInput = {
+  where: Prisma.usersWhereUniqueInput
+  create: Prisma.XOR<Prisma.usersCreateWithoutDocumentDraftsInput, Prisma.usersUncheckedCreateWithoutDocumentDraftsInput>
+}
+
+export type usersUpsertWithoutDocumentDraftsInput = {
+  update: Prisma.XOR<Prisma.usersUpdateWithoutDocumentDraftsInput, Prisma.usersUncheckedUpdateWithoutDocumentDraftsInput>
+  create: Prisma.XOR<Prisma.usersCreateWithoutDocumentDraftsInput, Prisma.usersUncheckedCreateWithoutDocumentDraftsInput>
+  where?: Prisma.usersWhereInput
+}
+
+export type usersUpdateToOneWithWhereWithoutDocumentDraftsInput = {
+  where?: Prisma.usersWhereInput
+  data: Prisma.XOR<Prisma.usersUpdateWithoutDocumentDraftsInput, Prisma.usersUncheckedUpdateWithoutDocumentDraftsInput>
+}
+
+export type usersUpdateWithoutDocumentDraftsInput = {
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
+  userBenefits?: Prisma.userBenefitsUpdateManyWithoutUserNestedInput
+  cases?: Prisma.casesUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutUserNestedInput
+  docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
+  asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
+  mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
+}
+
+export type usersUncheckedUpdateWithoutDocumentDraftsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUncheckedUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUncheckedUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUncheckedUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
+  userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutUserNestedInput
+  cases?: Prisma.casesUncheckedUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutUserNestedInput
+  docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
+  mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type usersCreateWithoutUserMembershipsInput = {
@@ -1430,6 +1814,8 @@ export type usersCreateWithoutUserMembershipsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
 }
 
 export type usersUncheckedCreateWithoutUserMembershipsInput = {
@@ -1464,6 +1850,8 @@ export type usersUncheckedCreateWithoutUserMembershipsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type usersCreateOrConnectWithoutUserMembershipsInput = {
@@ -1513,6 +1901,8 @@ export type usersUpdateWithoutUserMembershipsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutUserMembershipsInput = {
@@ -1547,6 +1937,8 @@ export type usersUncheckedUpdateWithoutUserMembershipsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type usersCreateWithoutUserBenefitsInput = {
@@ -1580,6 +1972,8 @@ export type usersCreateWithoutUserBenefitsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
 }
 
 export type usersUncheckedCreateWithoutUserBenefitsInput = {
@@ -1614,6 +2008,8 @@ export type usersUncheckedCreateWithoutUserBenefitsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type usersCreateOrConnectWithoutUserBenefitsInput = {
@@ -1663,6 +2059,8 @@ export type usersUpdateWithoutUserBenefitsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutUserBenefitsInput = {
@@ -1697,6 +2095,8 @@ export type usersUncheckedUpdateWithoutUserBenefitsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type usersCreateWithoutOrdersInput = {
@@ -1730,6 +2130,8 @@ export type usersCreateWithoutOrdersInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
 }
 
 export type usersUncheckedCreateWithoutOrdersInput = {
@@ -1764,6 +2166,8 @@ export type usersUncheckedCreateWithoutOrdersInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type usersCreateOrConnectWithoutOrdersInput = {
@@ -1813,6 +2217,8 @@ export type usersUpdateWithoutOrdersInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutOrdersInput = {
@@ -1847,6 +2253,8 @@ export type usersUncheckedUpdateWithoutOrdersInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type usersCreateWithoutMembershipUpgradeRecordsInput = {
@@ -1880,6 +2288,8 @@ export type usersCreateWithoutMembershipUpgradeRecordsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
 }
 
 export type usersUncheckedCreateWithoutMembershipUpgradeRecordsInput = {
@@ -1914,6 +2324,8 @@ export type usersUncheckedCreateWithoutMembershipUpgradeRecordsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type usersCreateOrConnectWithoutMembershipUpgradeRecordsInput = {
@@ -1963,6 +2375,8 @@ export type usersUpdateWithoutMembershipUpgradeRecordsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutMembershipUpgradeRecordsInput = {
@@ -1997,6 +2411,8 @@ export type usersUncheckedUpdateWithoutMembershipUpgradeRecordsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type usersCreateWithoutPointRecordsInput = {
@@ -2030,6 +2446,8 @@ export type usersCreateWithoutPointRecordsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
 }
 
 export type usersUncheckedCreateWithoutPointRecordsInput = {
@@ -2064,6 +2482,8 @@ export type usersUncheckedCreateWithoutPointRecordsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type usersCreateOrConnectWithoutPointRecordsInput = {
@@ -2113,6 +2533,8 @@ export type usersUpdateWithoutPointRecordsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutPointRecordsInput = {
@@ -2147,6 +2569,8 @@ export type usersUncheckedUpdateWithoutPointRecordsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type usersCreateWithoutPointConsumptionRecordsInput = {
@@ -2180,6 +2604,8 @@ export type usersCreateWithoutPointConsumptionRecordsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
 }
 
 export type usersUncheckedCreateWithoutPointConsumptionRecordsInput = {
@@ -2214,6 +2640,8 @@ export type usersUncheckedCreateWithoutPointConsumptionRecordsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type usersCreateOrConnectWithoutPointConsumptionRecordsInput = {
@@ -2263,6 +2691,8 @@ export type usersUpdateWithoutPointConsumptionRecordsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutPointConsumptionRecordsInput = {
@@ -2297,6 +2727,8 @@ export type usersUncheckedUpdateWithoutPointConsumptionRecordsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type usersCreateWithoutUserRolesInput = {
@@ -2330,6 +2762,8 @@ export type usersCreateWithoutUserRolesInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
 }
 
 export type usersUncheckedCreateWithoutUserRolesInput = {
@@ -2364,6 +2798,8 @@ export type usersUncheckedCreateWithoutUserRolesInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type usersCreateOrConnectWithoutUserRolesInput = {
@@ -2413,6 +2849,8 @@ export type usersUpdateWithoutUserRolesInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutUserRolesInput = {
@@ -2447,6 +2885,8 @@ export type usersUncheckedUpdateWithoutUserRolesInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type usersCreateWithoutDocRecognitionRecordsInput = {
@@ -2480,6 +2920,8 @@ export type usersCreateWithoutDocRecognitionRecordsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
 }
 
 export type usersUncheckedCreateWithoutDocRecognitionRecordsInput = {
@@ -2514,6 +2956,8 @@ export type usersUncheckedCreateWithoutDocRecognitionRecordsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type usersCreateOrConnectWithoutDocRecognitionRecordsInput = {
@@ -2563,6 +3007,8 @@ export type usersUpdateWithoutDocRecognitionRecordsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutDocRecognitionRecordsInput = {
@@ -2597,6 +3043,8 @@ export type usersUncheckedUpdateWithoutDocRecognitionRecordsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type usersCreateWithoutImageRecognitionRecordsInput = {
@@ -2630,6 +3078,8 @@ export type usersCreateWithoutImageRecognitionRecordsInput = {
   docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
 }
 
 export type usersUncheckedCreateWithoutImageRecognitionRecordsInput = {
@@ -2664,6 +3114,8 @@ export type usersUncheckedCreateWithoutImageRecognitionRecordsInput = {
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type usersCreateOrConnectWithoutImageRecognitionRecordsInput = {
@@ -2713,6 +3165,8 @@ export type usersUpdateWithoutImageRecognitionRecordsInput = {
   docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutImageRecognitionRecordsInput = {
@@ -2747,6 +3201,8 @@ export type usersUncheckedUpdateWithoutImageRecognitionRecordsInput = {
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type usersCreateWithoutAsrRecordsInput = {
@@ -2780,6 +3236,8 @@ export type usersCreateWithoutAsrRecordsInput = {
   docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
 }
 
 export type usersUncheckedCreateWithoutAsrRecordsInput = {
@@ -2814,6 +3272,8 @@ export type usersUncheckedCreateWithoutAsrRecordsInput = {
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type usersCreateOrConnectWithoutAsrRecordsInput = {
@@ -2863,6 +3323,8 @@ export type usersUpdateWithoutAsrRecordsInput = {
   docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutAsrRecordsInput = {
@@ -2897,6 +3359,8 @@ export type usersUncheckedUpdateWithoutAsrRecordsInput = {
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type usersCreateWithoutMineruTasksInput = {
@@ -2930,6 +3394,8 @@ export type usersCreateWithoutMineruTasksInput = {
   docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
 }
 
 export type usersUncheckedCreateWithoutMineruTasksInput = {
@@ -2964,6 +3430,8 @@ export type usersUncheckedCreateWithoutMineruTasksInput = {
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type usersCreateOrConnectWithoutMineruTasksInput = {
@@ -3013,6 +3481,8 @@ export type usersUpdateWithoutMineruTasksInput = {
   docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutMineruTasksInput = {
@@ -3047,6 +3517,8 @@ export type usersUncheckedUpdateWithoutMineruTasksInput = {
   docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type usersCreateWithoutRedemptionRecordsInput = {
@@ -3080,6 +3552,8 @@ export type usersCreateWithoutRedemptionRecordsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
 }
 
 export type usersUncheckedCreateWithoutRedemptionRecordsInput = {
@@ -3114,6 +3588,8 @@ export type usersUncheckedCreateWithoutRedemptionRecordsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
   asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type usersCreateOrConnectWithoutRedemptionRecordsInput = {
@@ -3163,6 +3639,8 @@ export type usersUpdateWithoutRedemptionRecordsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutRedemptionRecordsInput = {
@@ -3197,6 +3675,8 @@ export type usersUncheckedUpdateWithoutRedemptionRecordsInput = {
   imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
   asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
 }
 
 
@@ -3220,6 +3700,8 @@ export type UsersCountOutputType = {
   imageRecognitionRecords: number
   asrRecords: number
   mineruTasks: number
+  documentTemplates: number
+  documentDrafts: number
 }
 
 export type UsersCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -3238,6 +3720,8 @@ export type UsersCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.
   imageRecognitionRecords?: boolean | UsersCountOutputTypeCountImageRecognitionRecordsArgs
   asrRecords?: boolean | UsersCountOutputTypeCountAsrRecordsArgs
   mineruTasks?: boolean | UsersCountOutputTypeCountMineruTasksArgs
+  documentTemplates?: boolean | UsersCountOutputTypeCountDocumentTemplatesArgs
+  documentDrafts?: boolean | UsersCountOutputTypeCountDocumentDraftsArgs
 }
 
 /**
@@ -3355,6 +3839,20 @@ export type UsersCountOutputTypeCountMineruTasksArgs<ExtArgs extends runtime.Typ
   where?: Prisma.mineruTasksWhereInput
 }
 
+/**
+ * UsersCountOutputType without action
+ */
+export type UsersCountOutputTypeCountDocumentTemplatesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.documentTemplatesWhereInput
+}
+
+/**
+ * UsersCountOutputType without action
+ */
+export type UsersCountOutputTypeCountDocumentDraftsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.documentDraftsWhereInput
+}
+
 
 export type usersSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -3389,6 +3887,8 @@ export type usersSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   imageRecognitionRecords?: boolean | Prisma.users$imageRecognitionRecordsArgs<ExtArgs>
   asrRecords?: boolean | Prisma.users$asrRecordsArgs<ExtArgs>
   mineruTasks?: boolean | Prisma.users$mineruTasksArgs<ExtArgs>
+  documentTemplates?: boolean | Prisma.users$documentTemplatesArgs<ExtArgs>
+  documentDrafts?: boolean | Prisma.users$documentDraftsArgs<ExtArgs>
   _count?: boolean | Prisma.UsersCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["users"]>
 
@@ -3469,6 +3969,8 @@ export type usersInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   imageRecognitionRecords?: boolean | Prisma.users$imageRecognitionRecordsArgs<ExtArgs>
   asrRecords?: boolean | Prisma.users$asrRecordsArgs<ExtArgs>
   mineruTasks?: boolean | Prisma.users$mineruTasksArgs<ExtArgs>
+  documentTemplates?: boolean | Prisma.users$documentTemplatesArgs<ExtArgs>
+  documentDrafts?: boolean | Prisma.users$documentDraftsArgs<ExtArgs>
   _count?: boolean | Prisma.UsersCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type usersIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -3537,6 +4039,14 @@ export type $usersPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
      * 用户 MinerU 任务（一对多）
      */
     mineruTasks: Prisma.$mineruTasksPayload<ExtArgs>[]
+    /**
+     * 用户文书模板（一对多，scope=personal 时）
+     */
+    documentTemplates: Prisma.$documentTemplatesPayload<ExtArgs>[]
+    /**
+     * 用户文书草稿（一对多）
+     */
+    documentDrafts: Prisma.$documentDraftsPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     /**
@@ -4016,6 +4526,8 @@ export interface Prisma__usersClient<T, Null = never, ExtArgs extends runtime.Ty
   imageRecognitionRecords<T extends Prisma.users$imageRecognitionRecordsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$imageRecognitionRecordsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$imageRecognitionRecordsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   asrRecords<T extends Prisma.users$asrRecordsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$asrRecordsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$asrRecordsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   mineruTasks<T extends Prisma.users$mineruTasksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$mineruTasksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$mineruTasksPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  documentTemplates<T extends Prisma.users$documentTemplatesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$documentTemplatesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$documentTemplatesPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  documentDrafts<T extends Prisma.users$documentDraftsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$documentDraftsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$documentDraftsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -4812,6 +5324,54 @@ export type users$mineruTasksArgs<ExtArgs extends runtime.Types.Extensions.Inter
   take?: number
   skip?: number
   distinct?: Prisma.MineruTasksScalarFieldEnum | Prisma.MineruTasksScalarFieldEnum[]
+}
+
+/**
+ * users.documentTemplates
+ */
+export type users$documentTemplatesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the documentTemplates
+   */
+  select?: Prisma.documentTemplatesSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the documentTemplates
+   */
+  omit?: Prisma.documentTemplatesOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.documentTemplatesInclude<ExtArgs> | null
+  where?: Prisma.documentTemplatesWhereInput
+  orderBy?: Prisma.documentTemplatesOrderByWithRelationInput | Prisma.documentTemplatesOrderByWithRelationInput[]
+  cursor?: Prisma.documentTemplatesWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.DocumentTemplatesScalarFieldEnum | Prisma.DocumentTemplatesScalarFieldEnum[]
+}
+
+/**
+ * users.documentDrafts
+ */
+export type users$documentDraftsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the documentDrafts
+   */
+  select?: Prisma.documentDraftsSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the documentDrafts
+   */
+  omit?: Prisma.documentDraftsOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.documentDraftsInclude<ExtArgs> | null
+  where?: Prisma.documentDraftsWhereInput
+  orderBy?: Prisma.documentDraftsOrderByWithRelationInput | Prisma.documentDraftsOrderByWithRelationInput[]
+  cursor?: Prisma.documentDraftsWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.DocumentDraftsScalarFieldEnum | Prisma.DocumentDraftsScalarFieldEnum[]
 }
 
 /**

@@ -89,11 +89,20 @@ export const processMaterialService = async (
         throw new MaterialProcessError('材料不存在', 404)
     }
 
-    // 2. 授权检查：验证材料所属案件是否属于当前用户
-    const caseRecord = await prisma.cases.findFirst({
-        where: { id: material.caseId, userId, deletedAt: null },
-    })
-    if (!caseRecord) {
+    // 2. 授权检查：验证材料所属案件或文书草稿是否属于当前用户
+    let hasAccess = false
+    if (material.caseId != null) {
+        const caseRecord = await prisma.cases.findFirst({
+            where: { id: material.caseId, userId, deletedAt: null },
+        })
+        hasAccess = caseRecord != null
+    } else if (material.draftId != null) {
+        const draftRecord = await prisma.documentDrafts.findFirst({
+            where: { id: material.draftId, userId, deletedAt: null },
+        })
+        hasAccess = draftRecord != null
+    }
+    if (!hasAccess) {
         throw new MaterialProcessError('无权处理此材料', 403)
     }
 

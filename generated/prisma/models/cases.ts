@@ -293,6 +293,7 @@ export type casesWhereInput = {
   caseSessions?: Prisma.CaseSessionsListRelationFilter
   caseMaterials?: Prisma.CaseMaterialsListRelationFilter
   caseAnalyses?: Prisma.CaseAnalysesListRelationFilter
+  documentDrafts?: Prisma.DocumentDraftsListRelationFilter
 }
 
 export type casesOrderByWithRelationInput = {
@@ -315,6 +316,7 @@ export type casesOrderByWithRelationInput = {
   caseSessions?: Prisma.caseSessionsOrderByRelationAggregateInput
   caseMaterials?: Prisma.caseMaterialsOrderByRelationAggregateInput
   caseAnalyses?: Prisma.caseAnalysesOrderByRelationAggregateInput
+  documentDrafts?: Prisma.documentDraftsOrderByRelationAggregateInput
 }
 
 export type casesWhereUniqueInput = Prisma.AtLeast<{
@@ -340,6 +342,7 @@ export type casesWhereUniqueInput = Prisma.AtLeast<{
   caseSessions?: Prisma.CaseSessionsListRelationFilter
   caseMaterials?: Prisma.CaseMaterialsListRelationFilter
   caseAnalyses?: Prisma.CaseAnalysesListRelationFilter
+  documentDrafts?: Prisma.DocumentDraftsListRelationFilter
 }, "id">
 
 export type casesOrderByWithAggregationInput = {
@@ -401,6 +404,7 @@ export type casesCreateInput = {
   caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutCaseInput
   caseMaterials?: Prisma.caseMaterialsCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesCreateNestedManyWithoutCaseInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutCaseInput
 }
 
 export type casesUncheckedCreateInput = {
@@ -421,6 +425,7 @@ export type casesUncheckedCreateInput = {
   caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutCaseInput
   caseMaterials?: Prisma.caseMaterialsUncheckedCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedCreateNestedManyWithoutCaseInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type casesUpdateInput = {
@@ -440,6 +445,7 @@ export type casesUpdateInput = {
   caseSessions?: Prisma.caseSessionsUpdateManyWithoutCaseNestedInput
   caseMaterials?: Prisma.caseMaterialsUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUpdateManyWithoutCaseNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutCaseNestedInput
 }
 
 export type casesUncheckedUpdateInput = {
@@ -460,6 +466,7 @@ export type casesUncheckedUpdateInput = {
   caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutCaseNestedInput
   caseMaterials?: Prisma.caseMaterialsUncheckedUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedUpdateManyWithoutCaseNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type casesCreateManyInput = {
@@ -653,10 +660,12 @@ export type casesCreateNestedOneWithoutCaseMaterialsInput = {
   connect?: Prisma.casesWhereUniqueInput
 }
 
-export type casesUpdateOneRequiredWithoutCaseMaterialsNestedInput = {
+export type casesUpdateOneWithoutCaseMaterialsNestedInput = {
   create?: Prisma.XOR<Prisma.casesCreateWithoutCaseMaterialsInput, Prisma.casesUncheckedCreateWithoutCaseMaterialsInput>
   connectOrCreate?: Prisma.casesCreateOrConnectWithoutCaseMaterialsInput
   upsert?: Prisma.casesUpsertWithoutCaseMaterialsInput
+  disconnect?: Prisma.casesWhereInput | boolean
+  delete?: Prisma.casesWhereInput | boolean
   connect?: Prisma.casesWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.casesUpdateToOneWithWhereWithoutCaseMaterialsInput, Prisma.casesUpdateWithoutCaseMaterialsInput>, Prisma.casesUncheckedUpdateWithoutCaseMaterialsInput>
 }
@@ -673,6 +682,22 @@ export type casesUpdateOneRequiredWithoutCaseAnalysesNestedInput = {
   upsert?: Prisma.casesUpsertWithoutCaseAnalysesInput
   connect?: Prisma.casesWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.casesUpdateToOneWithWhereWithoutCaseAnalysesInput, Prisma.casesUpdateWithoutCaseAnalysesInput>, Prisma.casesUncheckedUpdateWithoutCaseAnalysesInput>
+}
+
+export type casesCreateNestedOneWithoutDocumentDraftsInput = {
+  create?: Prisma.XOR<Prisma.casesCreateWithoutDocumentDraftsInput, Prisma.casesUncheckedCreateWithoutDocumentDraftsInput>
+  connectOrCreate?: Prisma.casesCreateOrConnectWithoutDocumentDraftsInput
+  connect?: Prisma.casesWhereUniqueInput
+}
+
+export type casesUpdateOneWithoutDocumentDraftsNestedInput = {
+  create?: Prisma.XOR<Prisma.casesCreateWithoutDocumentDraftsInput, Prisma.casesUncheckedCreateWithoutDocumentDraftsInput>
+  connectOrCreate?: Prisma.casesCreateOrConnectWithoutDocumentDraftsInput
+  upsert?: Prisma.casesUpsertWithoutDocumentDraftsInput
+  disconnect?: Prisma.casesWhereInput | boolean
+  delete?: Prisma.casesWhereInput | boolean
+  connect?: Prisma.casesWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.casesUpdateToOneWithWhereWithoutDocumentDraftsInput, Prisma.casesUpdateWithoutDocumentDraftsInput>, Prisma.casesUncheckedUpdateWithoutDocumentDraftsInput>
 }
 
 export type casesCreateNestedManyWithoutUserInput = {
@@ -733,6 +758,7 @@ export type casesCreateWithoutCaseTypeInput = {
   caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutCaseInput
   caseMaterials?: Prisma.caseMaterialsCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesCreateNestedManyWithoutCaseInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutCaseInput
 }
 
 export type casesUncheckedCreateWithoutCaseTypeInput = {
@@ -752,6 +778,7 @@ export type casesUncheckedCreateWithoutCaseTypeInput = {
   caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutCaseInput
   caseMaterials?: Prisma.caseMaterialsUncheckedCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedCreateNestedManyWithoutCaseInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type casesCreateOrConnectWithoutCaseTypeInput = {
@@ -816,6 +843,7 @@ export type casesCreateWithoutCaseSessionsInput = {
   caseType: Prisma.caseTypesCreateNestedOneWithoutCasesInput
   caseMaterials?: Prisma.caseMaterialsCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesCreateNestedManyWithoutCaseInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutCaseInput
 }
 
 export type casesUncheckedCreateWithoutCaseSessionsInput = {
@@ -835,6 +863,7 @@ export type casesUncheckedCreateWithoutCaseSessionsInput = {
   deletedAt?: Date | string | null
   caseMaterials?: Prisma.caseMaterialsUncheckedCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedCreateNestedManyWithoutCaseInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type casesCreateOrConnectWithoutCaseSessionsInput = {
@@ -869,6 +898,7 @@ export type casesUpdateWithoutCaseSessionsInput = {
   caseType?: Prisma.caseTypesUpdateOneRequiredWithoutCasesNestedInput
   caseMaterials?: Prisma.caseMaterialsUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUpdateManyWithoutCaseNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutCaseNestedInput
 }
 
 export type casesUncheckedUpdateWithoutCaseSessionsInput = {
@@ -888,6 +918,7 @@ export type casesUncheckedUpdateWithoutCaseSessionsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   caseMaterials?: Prisma.caseMaterialsUncheckedUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedUpdateManyWithoutCaseNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type casesCreateWithoutCaseMaterialsInput = {
@@ -906,6 +937,7 @@ export type casesCreateWithoutCaseMaterialsInput = {
   caseType: Prisma.caseTypesCreateNestedOneWithoutCasesInput
   caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesCreateNestedManyWithoutCaseInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutCaseInput
 }
 
 export type casesUncheckedCreateWithoutCaseMaterialsInput = {
@@ -925,6 +957,7 @@ export type casesUncheckedCreateWithoutCaseMaterialsInput = {
   deletedAt?: Date | string | null
   caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedCreateNestedManyWithoutCaseInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type casesCreateOrConnectWithoutCaseMaterialsInput = {
@@ -959,6 +992,7 @@ export type casesUpdateWithoutCaseMaterialsInput = {
   caseType?: Prisma.caseTypesUpdateOneRequiredWithoutCasesNestedInput
   caseSessions?: Prisma.caseSessionsUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUpdateManyWithoutCaseNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutCaseNestedInput
 }
 
 export type casesUncheckedUpdateWithoutCaseMaterialsInput = {
@@ -978,6 +1012,7 @@ export type casesUncheckedUpdateWithoutCaseMaterialsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedUpdateManyWithoutCaseNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type casesCreateWithoutCaseAnalysesInput = {
@@ -996,6 +1031,7 @@ export type casesCreateWithoutCaseAnalysesInput = {
   caseType: Prisma.caseTypesCreateNestedOneWithoutCasesInput
   caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutCaseInput
   caseMaterials?: Prisma.caseMaterialsCreateNestedManyWithoutCaseInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutCaseInput
 }
 
 export type casesUncheckedCreateWithoutCaseAnalysesInput = {
@@ -1015,6 +1051,7 @@ export type casesUncheckedCreateWithoutCaseAnalysesInput = {
   deletedAt?: Date | string | null
   caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutCaseInput
   caseMaterials?: Prisma.caseMaterialsUncheckedCreateNestedManyWithoutCaseInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type casesCreateOrConnectWithoutCaseAnalysesInput = {
@@ -1049,6 +1086,7 @@ export type casesUpdateWithoutCaseAnalysesInput = {
   caseType?: Prisma.caseTypesUpdateOneRequiredWithoutCasesNestedInput
   caseSessions?: Prisma.caseSessionsUpdateManyWithoutCaseNestedInput
   caseMaterials?: Prisma.caseMaterialsUpdateManyWithoutCaseNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutCaseNestedInput
 }
 
 export type casesUncheckedUpdateWithoutCaseAnalysesInput = {
@@ -1068,6 +1106,101 @@ export type casesUncheckedUpdateWithoutCaseAnalysesInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutCaseNestedInput
   caseMaterials?: Prisma.caseMaterialsUncheckedUpdateManyWithoutCaseNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutCaseNestedInput
+}
+
+export type casesCreateWithoutDocumentDraftsInput = {
+  title: string
+  content?: string | null
+  plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: number
+  isDemo?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  user: Prisma.usersCreateNestedOneWithoutCasesInput
+  caseType: Prisma.caseTypesCreateNestedOneWithoutCasesInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutCaseInput
+  caseMaterials?: Prisma.caseMaterialsCreateNestedManyWithoutCaseInput
+  caseAnalyses?: Prisma.caseAnalysesCreateNestedManyWithoutCaseInput
+}
+
+export type casesUncheckedCreateWithoutDocumentDraftsInput = {
+  id?: number
+  title: string
+  content?: string | null
+  userId: number
+  caseTypeId: number
+  plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: number
+  isDemo?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutCaseInput
+  caseMaterials?: Prisma.caseMaterialsUncheckedCreateNestedManyWithoutCaseInput
+  caseAnalyses?: Prisma.caseAnalysesUncheckedCreateNestedManyWithoutCaseInput
+}
+
+export type casesCreateOrConnectWithoutDocumentDraftsInput = {
+  where: Prisma.casesWhereUniqueInput
+  create: Prisma.XOR<Prisma.casesCreateWithoutDocumentDraftsInput, Prisma.casesUncheckedCreateWithoutDocumentDraftsInput>
+}
+
+export type casesUpsertWithoutDocumentDraftsInput = {
+  update: Prisma.XOR<Prisma.casesUpdateWithoutDocumentDraftsInput, Prisma.casesUncheckedUpdateWithoutDocumentDraftsInput>
+  create: Prisma.XOR<Prisma.casesCreateWithoutDocumentDraftsInput, Prisma.casesUncheckedCreateWithoutDocumentDraftsInput>
+  where?: Prisma.casesWhereInput
+}
+
+export type casesUpdateToOneWithWhereWithoutDocumentDraftsInput = {
+  where?: Prisma.casesWhereInput
+  data: Prisma.XOR<Prisma.casesUpdateWithoutDocumentDraftsInput, Prisma.casesUncheckedUpdateWithoutDocumentDraftsInput>
+}
+
+export type casesUpdateWithoutDocumentDraftsInput = {
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  user?: Prisma.usersUpdateOneRequiredWithoutCasesNestedInput
+  caseType?: Prisma.caseTypesUpdateOneRequiredWithoutCasesNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutCaseNestedInput
+  caseMaterials?: Prisma.caseMaterialsUpdateManyWithoutCaseNestedInput
+  caseAnalyses?: Prisma.caseAnalysesUpdateManyWithoutCaseNestedInput
+}
+
+export type casesUncheckedUpdateWithoutDocumentDraftsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.IntFieldUpdateOperationsInput | number
+  caseTypeId?: Prisma.IntFieldUpdateOperationsInput | number
+  plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutCaseNestedInput
+  caseMaterials?: Prisma.caseMaterialsUncheckedUpdateManyWithoutCaseNestedInput
+  caseAnalyses?: Prisma.caseAnalysesUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type casesCreateWithoutUserInput = {
@@ -1086,6 +1219,7 @@ export type casesCreateWithoutUserInput = {
   caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutCaseInput
   caseMaterials?: Prisma.caseMaterialsCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesCreateNestedManyWithoutCaseInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutCaseInput
 }
 
 export type casesUncheckedCreateWithoutUserInput = {
@@ -1105,6 +1239,7 @@ export type casesUncheckedCreateWithoutUserInput = {
   caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutCaseInput
   caseMaterials?: Prisma.caseMaterialsUncheckedCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedCreateNestedManyWithoutCaseInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type casesCreateOrConnectWithoutUserInput = {
@@ -1165,6 +1300,7 @@ export type casesUpdateWithoutCaseTypeInput = {
   caseSessions?: Prisma.caseSessionsUpdateManyWithoutCaseNestedInput
   caseMaterials?: Prisma.caseMaterialsUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUpdateManyWithoutCaseNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutCaseNestedInput
 }
 
 export type casesUncheckedUpdateWithoutCaseTypeInput = {
@@ -1184,6 +1320,7 @@ export type casesUncheckedUpdateWithoutCaseTypeInput = {
   caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutCaseNestedInput
   caseMaterials?: Prisma.caseMaterialsUncheckedUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedUpdateManyWithoutCaseNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type casesUncheckedUpdateManyWithoutCaseTypeInput = {
@@ -1234,6 +1371,7 @@ export type casesUpdateWithoutUserInput = {
   caseSessions?: Prisma.caseSessionsUpdateManyWithoutCaseNestedInput
   caseMaterials?: Prisma.caseMaterialsUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUpdateManyWithoutCaseNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutCaseNestedInput
 }
 
 export type casesUncheckedUpdateWithoutUserInput = {
@@ -1253,6 +1391,7 @@ export type casesUncheckedUpdateWithoutUserInput = {
   caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutCaseNestedInput
   caseMaterials?: Prisma.caseMaterialsUncheckedUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedUpdateManyWithoutCaseNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type casesUncheckedUpdateManyWithoutUserInput = {
@@ -1280,12 +1419,14 @@ export type CasesCountOutputType = {
   caseSessions: number
   caseMaterials: number
   caseAnalyses: number
+  documentDrafts: number
 }
 
 export type CasesCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   caseSessions?: boolean | CasesCountOutputTypeCountCaseSessionsArgs
   caseMaterials?: boolean | CasesCountOutputTypeCountCaseMaterialsArgs
   caseAnalyses?: boolean | CasesCountOutputTypeCountCaseAnalysesArgs
+  documentDrafts?: boolean | CasesCountOutputTypeCountDocumentDraftsArgs
 }
 
 /**
@@ -1319,6 +1460,13 @@ export type CasesCountOutputTypeCountCaseAnalysesArgs<ExtArgs extends runtime.Ty
   where?: Prisma.caseAnalysesWhereInput
 }
 
+/**
+ * CasesCountOutputType without action
+ */
+export type CasesCountOutputTypeCountDocumentDraftsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.documentDraftsWhereInput
+}
+
 
 export type casesSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1340,6 +1488,7 @@ export type casesSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   caseSessions?: boolean | Prisma.cases$caseSessionsArgs<ExtArgs>
   caseMaterials?: boolean | Prisma.cases$caseMaterialsArgs<ExtArgs>
   caseAnalyses?: boolean | Prisma.cases$caseAnalysesArgs<ExtArgs>
+  documentDrafts?: boolean | Prisma.cases$documentDraftsArgs<ExtArgs>
   _count?: boolean | Prisma.CasesCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["cases"]>
 
@@ -1405,6 +1554,7 @@ export type casesInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   caseSessions?: boolean | Prisma.cases$caseSessionsArgs<ExtArgs>
   caseMaterials?: boolean | Prisma.cases$caseMaterialsArgs<ExtArgs>
   caseAnalyses?: boolean | Prisma.cases$caseAnalysesArgs<ExtArgs>
+  documentDrafts?: boolean | Prisma.cases$documentDraftsArgs<ExtArgs>
   _count?: boolean | Prisma.CasesCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type casesIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1439,6 +1589,10 @@ export type $casesPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
      * 关联的案件分析结果
      */
     caseAnalyses: Prisma.$caseAnalysesPayload<ExtArgs>[]
+    /**
+     * 关联的文书草稿
+     */
+    documentDrafts: Prisma.$documentDraftsPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     /**
@@ -1896,6 +2050,7 @@ export interface Prisma__casesClient<T, Null = never, ExtArgs extends runtime.Ty
   caseSessions<T extends Prisma.cases$caseSessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.cases$caseSessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$caseSessionsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   caseMaterials<T extends Prisma.cases$caseMaterialsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.cases$caseMaterialsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$caseMaterialsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   caseAnalyses<T extends Prisma.cases$caseAnalysesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.cases$caseAnalysesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$caseAnalysesPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  documentDrafts<T extends Prisma.cases$documentDraftsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.cases$documentDraftsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$documentDraftsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2409,6 +2564,30 @@ export type cases$caseAnalysesArgs<ExtArgs extends runtime.Types.Extensions.Inte
   take?: number
   skip?: number
   distinct?: Prisma.CaseAnalysesScalarFieldEnum | Prisma.CaseAnalysesScalarFieldEnum[]
+}
+
+/**
+ * cases.documentDrafts
+ */
+export type cases$documentDraftsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the documentDrafts
+   */
+  select?: Prisma.documentDraftsSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the documentDrafts
+   */
+  omit?: Prisma.documentDraftsOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.documentDraftsInclude<ExtArgs> | null
+  where?: Prisma.documentDraftsWhereInput
+  orderBy?: Prisma.documentDraftsOrderByWithRelationInput | Prisma.documentDraftsOrderByWithRelationInput[]
+  cursor?: Prisma.documentDraftsWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.DocumentDraftsScalarFieldEnum | Prisma.DocumentDraftsScalarFieldEnum[]
 }
 
 /**

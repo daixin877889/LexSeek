@@ -64,6 +64,8 @@ export const ModelName = {
   caseAnalyses: 'caseAnalyses',
   demoCases: 'demoCases',
   caseMaterialEmbeddings: 'caseMaterialEmbeddings',
+  documentTemplates: 'documentTemplates',
+  documentDrafts: 'documentDrafts',
   ossFiles: 'ossFiles',
   legalMain: 'legalMain',
   legalArticles: 'legalArticles',
@@ -279,6 +281,7 @@ export type CaseSessionsScalarFieldEnum = (typeof CaseSessionsScalarFieldEnum)[k
 export const CaseMaterialsScalarFieldEnum = {
   id: 'id',
   caseId: 'caseId',
+  draftId: 'draftId',
   name: 'name',
   type: 'type',
   ossFileId: 'ossFileId',
@@ -340,6 +343,44 @@ export const CaseMaterialEmbeddingsScalarFieldEnum = {
 } as const
 
 export type CaseMaterialEmbeddingsScalarFieldEnum = (typeof CaseMaterialEmbeddingsScalarFieldEnum)[keyof typeof CaseMaterialEmbeddingsScalarFieldEnum]
+
+
+export const DocumentTemplatesScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  category: 'category',
+  scope: 'scope',
+  userId: 'userId',
+  ossFileId: 'ossFileId',
+  placeholders: 'placeholders',
+  description: 'description',
+  priority: 'priority',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type DocumentTemplatesScalarFieldEnum = (typeof DocumentTemplatesScalarFieldEnum)[keyof typeof DocumentTemplatesScalarFieldEnum]
+
+
+export const DocumentDraftsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  caseId: 'caseId',
+  sessionId: 'sessionId',
+  templateId: 'templateId',
+  values: 'values',
+  sourceRef: 'sourceRef',
+  metadata: 'metadata',
+  outputFileId: 'outputFileId',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type DocumentDraftsScalarFieldEnum = (typeof DocumentDraftsScalarFieldEnum)[keyof typeof DocumentDraftsScalarFieldEnum]
 
 
 export const OssFilesScalarFieldEnum = {

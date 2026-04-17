@@ -110,6 +110,16 @@ export type demoCases = Prisma.demoCasesModel
  */
 export type caseMaterialEmbeddings = Prisma.caseMaterialEmbeddingsModel
 /**
+ * Model documentTemplates
+ * 文书模板表 - 存储可复用的法律文书模板
+ */
+export type documentTemplates = Prisma.documentTemplatesModel
+/**
+ * Model documentDrafts
+ * 文书草稿表 - 存储用户基于模板生成的文书草稿
+ */
+export type documentDrafts = Prisma.documentDraftsModel
+/**
  * Model ossFiles
  * OSS 文件表
  */

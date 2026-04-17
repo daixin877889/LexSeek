@@ -397,6 +397,8 @@ export const ModelName = {
   caseAnalyses: 'caseAnalyses',
   demoCases: 'demoCases',
   caseMaterialEmbeddings: 'caseMaterialEmbeddings',
+  documentTemplates: 'documentTemplates',
+  documentDrafts: 'documentDrafts',
   ossFiles: 'ossFiles',
   legalMain: 'legalMain',
   legalArticles: 'legalArticles',
@@ -454,7 +456,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
+    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "documentTemplates" | "documentDrafts" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1417,6 +1419,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.caseMaterialEmbeddingsCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.CaseMaterialEmbeddingsCountAggregateOutputType> | number
+        }
+      }
+    }
+    documentTemplates: {
+      payload: Prisma.$documentTemplatesPayload<ExtArgs>
+      fields: Prisma.documentTemplatesFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.documentTemplatesFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentTemplatesPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.documentTemplatesFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentTemplatesPayload>
+        }
+        findFirst: {
+          args: Prisma.documentTemplatesFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentTemplatesPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.documentTemplatesFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentTemplatesPayload>
+        }
+        findMany: {
+          args: Prisma.documentTemplatesFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentTemplatesPayload>[]
+        }
+        create: {
+          args: Prisma.documentTemplatesCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentTemplatesPayload>
+        }
+        createMany: {
+          args: Prisma.documentTemplatesCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.documentTemplatesCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentTemplatesPayload>[]
+        }
+        delete: {
+          args: Prisma.documentTemplatesDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentTemplatesPayload>
+        }
+        update: {
+          args: Prisma.documentTemplatesUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentTemplatesPayload>
+        }
+        deleteMany: {
+          args: Prisma.documentTemplatesDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.documentTemplatesUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.documentTemplatesUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentTemplatesPayload>[]
+        }
+        upsert: {
+          args: Prisma.documentTemplatesUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentTemplatesPayload>
+        }
+        aggregate: {
+          args: Prisma.DocumentTemplatesAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateDocumentTemplates>
+        }
+        groupBy: {
+          args: Prisma.documentTemplatesGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DocumentTemplatesGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.documentTemplatesCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DocumentTemplatesCountAggregateOutputType> | number
+        }
+      }
+    }
+    documentDrafts: {
+      payload: Prisma.$documentDraftsPayload<ExtArgs>
+      fields: Prisma.documentDraftsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.documentDraftsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.documentDraftsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftsPayload>
+        }
+        findFirst: {
+          args: Prisma.documentDraftsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.documentDraftsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftsPayload>
+        }
+        findMany: {
+          args: Prisma.documentDraftsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftsPayload>[]
+        }
+        create: {
+          args: Prisma.documentDraftsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftsPayload>
+        }
+        createMany: {
+          args: Prisma.documentDraftsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.documentDraftsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftsPayload>[]
+        }
+        delete: {
+          args: Prisma.documentDraftsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftsPayload>
+        }
+        update: {
+          args: Prisma.documentDraftsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftsPayload>
+        }
+        deleteMany: {
+          args: Prisma.documentDraftsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.documentDraftsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.documentDraftsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftsPayload>[]
+        }
+        upsert: {
+          args: Prisma.documentDraftsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftsPayload>
+        }
+        aggregate: {
+          args: Prisma.DocumentDraftsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateDocumentDrafts>
+        }
+        groupBy: {
+          args: Prisma.documentDraftsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DocumentDraftsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.documentDraftsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DocumentDraftsCountAggregateOutputType> | number
         }
       }
     }
@@ -4722,6 +4872,7 @@ export type CaseSessionsScalarFieldEnum = (typeof CaseSessionsScalarFieldEnum)[k
 export const CaseMaterialsScalarFieldEnum = {
   id: 'id',
   caseId: 'caseId',
+  draftId: 'draftId',
   name: 'name',
   type: 'type',
   ossFileId: 'ossFileId',
@@ -4783,6 +4934,44 @@ export const CaseMaterialEmbeddingsScalarFieldEnum = {
 } as const
 
 export type CaseMaterialEmbeddingsScalarFieldEnum = (typeof CaseMaterialEmbeddingsScalarFieldEnum)[keyof typeof CaseMaterialEmbeddingsScalarFieldEnum]
+
+
+export const DocumentTemplatesScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  category: 'category',
+  scope: 'scope',
+  userId: 'userId',
+  ossFileId: 'ossFileId',
+  placeholders: 'placeholders',
+  description: 'description',
+  priority: 'priority',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type DocumentTemplatesScalarFieldEnum = (typeof DocumentTemplatesScalarFieldEnum)[keyof typeof DocumentTemplatesScalarFieldEnum]
+
+
+export const DocumentDraftsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  caseId: 'caseId',
+  sessionId: 'sessionId',
+  templateId: 'templateId',
+  values: 'values',
+  sourceRef: 'sourceRef',
+  metadata: 'metadata',
+  outputFileId: 'outputFileId',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type DocumentDraftsScalarFieldEnum = (typeof DocumentDraftsScalarFieldEnum)[keyof typeof DocumentDraftsScalarFieldEnum]
 
 
 export const OssFilesScalarFieldEnum = {
@@ -5800,6 +5989,8 @@ export type GlobalOmitConfig = {
   caseAnalyses?: Prisma.caseAnalysesOmit
   demoCases?: Prisma.demoCasesOmit
   caseMaterialEmbeddings?: Prisma.caseMaterialEmbeddingsOmit
+  documentTemplates?: Prisma.documentTemplatesOmit
+  documentDrafts?: Prisma.documentDraftsOmit
   ossFiles?: Prisma.ossFilesOmit
   legalMain?: Prisma.legalMainOmit
   legalArticles?: Prisma.legalArticlesOmit

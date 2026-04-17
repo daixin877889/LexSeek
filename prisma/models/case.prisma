@@ -68,11 +68,13 @@ model cases {
     caseType caseTypes @relation(fields: [caseTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
     /// 关联的案件会话
-    caseSessions  caseSessions[]
+    caseSessions   caseSessions[]
     /// 关联的案件材料
-    caseMaterials caseMaterials[]
+    caseMaterials  caseMaterials[]
     /// 关联的案件分析结果
-    caseAnalyses  caseAnalyses[]
+    caseAnalyses   caseAnalyses[]
+    /// 关联的文书草稿
+    documentDrafts documentDrafts[]
 
     @@index([userId], map: "idx_cases_user_id")
     @@index([caseTypeId], map: "idx_cases_case_type_id")
@@ -135,8 +137,10 @@ model caseSessions {
 model caseMaterials {
     /// 材料ID，主键，自增
     id          Int       @id @default(autoincrement())
-    /// 关联的案件ID
-    caseId      Int       @map("case_id")
+    /// 关联的案件ID（文书生成场景下可为 NULL，此时由 draftId 关联）
+    caseId      Int?      @map("case_id")
+    /// 关联的文书草稿ID（文书生成场景使用，与 caseId 互斥）
+    draftId     Int?      @map("draft_id")
     /// 材料名称
     name        String    @db.VarChar(255)
     /// 材料类型：1-文本，2-文档，3-图片，4-音频
@@ -156,10 +160,13 @@ model caseMaterials {
     /// 材料摘要缓存（首次生成后缓存，复用时不重复提取）
     summary     String?   @db.Text
 
-    /// 关联的案件
-    case cases @relation(fields: [caseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    /// 关联的案件（caseId 不为 NULL 时有效）
+    case  cases?          @relation(fields: [caseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    /// 关联的文书草稿（draftId 不为 NULL 时有效）
+    draft documentDrafts? @relation(fields: [draftId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
     @@index([caseId], map: "idx_case_materials_case_id")
+    @@index([draftId], map: "idx_case_materials_draft")
     @@index([type], map: "idx_case_materials_type")
     @@index([status], map: "idx_case_materials_status")
     @@index([deletedAt], map: "idx_case_materials_deleted_at")
