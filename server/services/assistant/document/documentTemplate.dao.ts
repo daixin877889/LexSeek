@@ -47,9 +47,14 @@ export interface ListDocumentTemplatesInput {
 
 /**
  * 创建文书模板。
+ * @param tx 可选事务客户端，由 Service 层在 $transaction 内传入
  */
-export async function createDocumentTemplateDAO(input: CreateDocumentTemplateInput) {
-    return prisma.documentTemplates.create({
+export async function createDocumentTemplateDAO(
+    input: CreateDocumentTemplateInput,
+    tx?: Prisma.TransactionClient,
+) {
+    const db = tx ?? prisma
+    return db.documentTemplates.create({
         data: {
             name: input.name,
             category: input.category,
@@ -132,9 +137,11 @@ export async function softDeleteDocumentTemplateDAO(id: number): Promise<void> {
 /**
  * 统计特定用户的个人模板数量（scope='user', deletedAt=null）。
  * 用于配额校验（Task 2.2）。
+ * @param tx 可选事务客户端，由 Service 层在 $transaction 内传入
  */
-export async function countUserTemplatesDAO(userId: number): Promise<number> {
-    return prisma.documentTemplates.count({
+export async function countUserTemplatesDAO(userId: number, tx?: Prisma.TransactionClient): Promise<number> {
+    const db = tx ?? prisma
+    return db.documentTemplates.count({
         where: {
             scope: 'user',
             userId,
