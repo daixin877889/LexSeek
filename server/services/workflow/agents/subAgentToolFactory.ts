@@ -12,7 +12,7 @@ import { HumanMessage } from '@langchain/core/messages'
 import { createAgent } from 'langchain'
 import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
-import { pointConsumptionMiddleware } from '../middleware'
+import { pointConsumptionMiddleware, analysisResultPersistenceMiddleware } from '../middleware'
 import { getCheckpointer, getStore } from '../checkpointer'
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import type { NodeConfig } from '../../node/node.service'
@@ -194,6 +194,11 @@ export async function createSubAgentTools(
                         store,
                         middleware: [
                             pointConsumptionMiddleware(context.userId, 'case_analysis_token', context.sessionId),
+                            analysisResultPersistenceMiddleware({
+                                agentName: config.name,
+                                caseId: context.caseId,
+                                sessionId: context.sessionId,
+                            }),
                         ],
                     })
 

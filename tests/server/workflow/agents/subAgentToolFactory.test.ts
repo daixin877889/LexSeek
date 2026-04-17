@@ -20,18 +20,25 @@ vi.mock('../../../../server/services/workflow/tools', () => ({
 
 vi.mock('langchain', () => ({
     createAgent: vi.fn(() => ({
-        stream: vi.fn(async function* () {
-            yield { type: 'on_tool_event', data: 'test' }
+        invoke: vi.fn().mockResolvedValue({
+            messages: [{
+                _getType: () => 'ai',
+                type: 'ai',
+                content: '分析结果文本',
+            }],
         }),
     })),
 }))
 
 vi.mock('../../../../server/services/workflow/middleware', () => ({
     pointConsumptionMiddleware: vi.fn(() => ({})),
+    analysisResultPersistenceMiddleware: vi.fn(() => ({})),
 }))
 
 vi.mock('../../../../server/services/workflow/checkpointer', () => ({
-    getCheckpointer: vi.fn(async () => ({})),
+    getCheckpointer: vi.fn(async () => ({
+        getTuple: vi.fn().mockResolvedValue(null),
+    })),
     getStore: vi.fn(async () => ({})),
 }))
 
@@ -41,6 +48,37 @@ vi.stubGlobal('logger', {
     warn: vi.fn(),
     error: vi.fn(),
     debug: vi.fn(),
+})
+
+// mock promptRenderer
+vi.mock('../../../../server/services/workflow/utils/promptRenderer', () => ({
+    renderSystemPrompt: vi.fn(() => '你是分析助手'),
+}))
+
+// mock @langchain/core/messages（工具调用时 buildBriefContext 构造 HumanMessage）
+vi.mock('@langchain/core/messages', () => ({
+    HumanMessage: class HumanMessage {
+        content: string
+        response_metadata: any
+        constructor(opts: any) {
+            if (typeof opts === 'string') { this.content = opts; return }
+            this.content = opts.content
+            this.response_metadata = opts.response_metadata
+        }
+        _getType() { return 'human' }
+    },
+}))
+
+// mock prisma（buildBriefContext 内部调用）
+vi.stubGlobal('prisma', {
+    cases: {
+        findUnique: vi.fn().mockResolvedValue({
+            title: '测试案件', plaintiff: null, defendant: null, summary: null,
+        }),
+    },
+    caseMaterials: {
+        findMany: vi.fn().mockResolvedValue([]),
+    },
 })
 
 /** 创建测试用 NodeConfig */
@@ -171,5 +209,55 @@ describe('createSubAgentTools 子代理工具创建', () => {
         ]
         const tools = await createSubAgentTools(configs, baseContext)
         expect(tools[0].description).toBe('我的专家节点')
+    })
+
+    describe('子 Agent 持久化中间件', () => {
+        it('工具调用时应挂载 analysisResultPersistenceMiddleware', async () => {
+            const { createAgent } = await import('langchain')
+            const { analysisResultPersistenceMiddleware } = await import(
+                '../../../../server/services/workflow/middleware'
+            )
+
+            const configs = [
+                createMockNodeConfig({ name: 'summary', title: '案件概要' }),
+            ]
+            const tools = await createSubAgentTools(configs, baseContext)
+
+            // 实际调用工具以触发内部 createAgent
+            await tools[0].invoke({ question: '分析案件' })
+
+            // 验证 analysisResultPersistenceMiddleware 被正确调用
+            expect(analysisResultPersistenceMiddleware).toHaveBeenCalledWith({
+                agentName: 'summary',
+                caseId: baseContext.caseId,
+                sessionId: baseContext.sessionId,
+            })
+
+            // 验证 createAgent 收到的 middleware 数组长度为 2
+            expect(createAgent).toHaveBeenCalled()
+            const agentConfig = vi.mocked(createAgent).mock.calls[0][0] as { middleware: unknown[] }
+            expect(agentConfig.middleware).toHaveLength(2)
+        })
+
+        it('应使用主 sessionId（非 subThreadId）', async () => {
+            const { analysisResultPersistenceMiddleware } = await import(
+                '../../../../server/services/workflow/middleware'
+            )
+
+            const configs = [
+                createMockNodeConfig({ name: 'defense', title: '辩护策略' }),
+            ]
+            const tools = await createSubAgentTools(configs, baseContext)
+
+            // 调用工具触发内部 createAgent
+            await tools[0].invoke({ question: '生成辩护策略' })
+
+            // sessionId 应为主 session 的 ID
+            expect(analysisResultPersistenceMiddleware).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    sessionId: 'test-session-id',
+                })
+            )
+        })
     })
 })
