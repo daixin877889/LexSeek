@@ -26,18 +26,20 @@
 - `tests/shared/types/contract.test.ts`
 - `tests/server/workflow/middleware/middlewareNames.test.ts`
 - `tests/shared/types/case.interruptType.test.ts`
-- `tests/prisma/seed-contract.test.ts`
+- `tests/server/prisma/seed-contract.test.ts`
+- `tests/server/contract/sampleFixtures.test.ts`
 
 **修改**
 - `package.json` + `bun.lock`（装依赖）
 - `shared/types/case.ts`（InterruptType 枚举加 AWAITING_STANCE）
 - `server/services/workflow/middleware/types.ts`（MIDDLEWARE_NAMES 加 REVIEW_RESULT_PERSISTENCE 常量）
-- `prisma/seed.ts`（新增 `seedContractReviewMainNode` / `seedContractReviewTokenRule`，并在 `main()` 追加 await 调用）
-- `prisma/seeds/seedData.sql`（追加 contract_review 相关行，供新环境 bootstrap）
+- `prisma/models/user.prisma`（追加 `contractReviews contractReviews[]` 反向关联，按项目约定）
+- `prisma/seed.ts`（**export** `seedContractReviewMainNode` / `seedContractReviewTokenRule` 两个函数，供单测调用；**main() 不 await 调用**，M3 激活节点时再追加 await 并把 status=0→1）
 - `.claude/rules/git.md`（scope 列表新增 `contract`）
 
-**本期不动**（M2 起负责）
-- `server/services/assistant/contract/**`、`server/services/workflow/middleware/reviewResultPersistence.middleware.ts`、`server/services/workflow/middleware/index.ts`（新 export 推迟到 M3 中间件文件落地时一起改）
+**本期不动**（M2/M3 负责）
+- `server/services/assistant/contract/**`、`server/services/workflow/middleware/reviewResultPersistence.middleware.ts`、`server/services/workflow/middleware/index.ts`（M3 实现 middleware 时一起补 export）
+- `prisma/seeds/seedData.sql`（M3 启动并激活节点时一起补 nodes / prompts / point_consumption_items 对应 INSERT；参考 `case_analysis_token` id=12 的实际格式）
 - 前端任何代码
 
 ---
@@ -130,11 +132,22 @@ git commit -m "docs(contract): git.md scope 列表新增 contract 条目"
 
 **Files:**
 - Modify: `shared/types/case.ts:162-171`
-- Create: `tests/shared/types/case.interruptType.test.ts`
+- Create: `tests/shared/types/case.interruptType.test.ts`（作为一次性 regression guard，防止未来误删枚举值）
 
-- [ ] **Step 3.1：写失败测试**
+**说明：** 枚举新增一个值属于纯声明性变更，项目惯例是"直接改 + typecheck"。本 Task 保留一个轻量单测是为了锁定 `AWAITING_STANCE='awaiting_stance'` 字面值不被未来 PR 意外改动（前端 interrupt 分发依赖此字符串），**不走 "先写失败测试" 的 TDD 节拍**。
 
-创建 `tests/shared/types/case.interruptType.test.ts`：
+- [ ] **Step 3.1：添加枚举值**
+
+在 `shared/types/case.ts:170` 的 `INSUFFICIENT_POINTS` 条后追加：
+
+```typescript
+    /** 中断点5：合同审查立场选择（甲方 / 乙方 / 中立；payload 含 partyA / partyB / contractType） */
+    AWAITING_STANCE = 'awaiting_stance',
+```
+
+- [ ] **Step 3.2：创建回归测试**
+
+`tests/shared/types/case.interruptType.test.ts`：
 
 ```typescript
 import { describe, it, expect } from 'vitest'
@@ -154,40 +167,16 @@ describe('InterruptType enum', () => {
 })
 ```
 
-- [ ] **Step 3.2：运行测试，确认失败**
+- [ ] **Step 3.3：跑测试 + typecheck**
 
 ```bash
 npx vitest run tests/shared/types/case.interruptType.test.ts --reporter=verbose
-```
-
-**Expected:** 第二个 case 失败，提示 `Property 'AWAITING_STANCE' does not exist`。
-
-- [ ] **Step 3.3：添加枚举值**
-
-在 `shared/types/case.ts:170` 的 `INSUFFICIENT_POINTS` 条后追加：
-
-```typescript
-    /** 中断点5：合同审查立场选择（甲方 / 乙方 / 中立；payload 含 partyA / partyB / contractType） */
-    AWAITING_STANCE = 'awaiting_stance',
-```
-
-- [ ] **Step 3.4：再跑测试，确认通过**
-
-```bash
-npx vitest run tests/shared/types/case.interruptType.test.ts --reporter=verbose
-```
-
-**Expected:** 两个 case 都 PASS。
-
-- [ ] **Step 3.5：类型检查**
-
-```bash
 npx nuxi typecheck 2>&1 | grep -E "(case\.ts|InterruptType)" | head -10
 ```
 
-**Expected:** 无与 `case.ts` / `InterruptType` 相关错误（可能有无关现存告警，忽略）。
+**Expected:** 测试 PASS；typecheck 无与 `case.ts` / `InterruptType` 相关新增错误。
 
-- [ ] **Step 3.6：Commit**
+- [ ] **Step 3.4：Commit**
 
 ```bash
 git add shared/types/case.ts tests/shared/types/case.interruptType.test.ts
@@ -391,12 +380,26 @@ git commit -m "feat(contract): 新建 shared/types/contract.ts 共享类型"
 
 **Files:**
 - Modify: `server/services/workflow/middleware/types.ts`
-- Create: `tests/server/workflow/middleware/middlewareNames.test.ts`
+- Create: `tests/server/workflow/middleware/middlewareNames.test.ts`（作为 regression guard 锁定字面值）
 
-- [ ] **Step 5.1：写失败测试**
+**说明：** 常量追加属于纯声明性变更，不走"先写失败测试"节拍，直接改 + 单测验证 + typecheck。
+
+- [ ] **Step 5.1：添加常量**
+
+在 `server/services/workflow/middleware/types.ts` 的 `MIDDLEWARE_NAMES` 对象里，于 `RESULT_PERSISTENCE: 'analysisResultPersistence'`（L60）之后追加：
 
 ```typescript
-// tests/server/workflow/middleware/middlewareNames.test.ts
+    /** 合同审查结果持久化中间件（与 RESULT_PERSISTENCE 共享 priority=90） */
+    REVIEW_RESULT_PERSISTENCE: 'reviewResultPersistence',
+```
+
+**注意：** 不要动 `MIDDLEWARE_PRIORITY`（90 是多个持久化中间件共享的通用优先级）。不动 `buildMiddlewareStack` 互斥校验（L74-81 只管 MATERIAL_CONTEXT vs MODULE_CONTEXT，与本新增无关）。
+
+- [ ] **Step 5.2：创建回归测试**
+
+`tests/server/workflow/middleware/middlewareNames.test.ts`：
+
+```typescript
 import { describe, it, expect } from 'vitest'
 import { MIDDLEWARE_NAMES, MIDDLEWARE_PRIORITY } from '~~/server/services/workflow/middleware/types'
 
@@ -415,34 +418,16 @@ describe('MIDDLEWARE_NAMES / PRIORITY（合同审查扩展）', () => {
 })
 ```
 
-- [ ] **Step 5.2：运行测试，确认失败**
+- [ ] **Step 5.3：跑测试 + typecheck**
 
 ```bash
 npx vitest run tests/server/workflow/middleware/middlewareNames.test.ts --reporter=verbose
+npx nuxi typecheck 2>&1 | grep -E "middleware/types" | head -10
 ```
 
-**Expected:** 第二个 case 失败（`REVIEW_RESULT_PERSISTENCE` undefined）。
+**Expected:** 3 个 case 全 PASS；typecheck 无与中间件常量相关新错误。
 
-- [ ] **Step 5.3：添加常量**
-
-在 `server/services/workflow/middleware/types.ts` 的 `MIDDLEWARE_NAMES` 对象里，于 `RESULT_PERSISTENCE: 'analysisResultPersistence'` 之后追加：
-
-```typescript
-    /** 合同审查结果持久化中间件（与 RESULT_PERSISTENCE 共享 priority=90） */
-    REVIEW_RESULT_PERSISTENCE: 'reviewResultPersistence',
-```
-
-**注意：** 不要动 `MIDDLEWARE_PRIORITY`（90 是多个持久化中间件共享的通用优先级）。
-
-- [ ] **Step 5.4：再跑测试，确认通过**
-
-```bash
-npx vitest run tests/server/workflow/middleware/middlewareNames.test.ts --reporter=verbose
-```
-
-**Expected:** 3 个 case 全 PASS。
-
-- [ ] **Step 5.5：Commit**
+- [ ] **Step 5.4：Commit**
 
 ```bash
 git add server/services/workflow/middleware/types.ts tests/server/workflow/middleware/middlewareNames.test.ts
@@ -511,26 +496,28 @@ model contractReviews {
 }
 ```
 
-- [ ] **Step 6.3：在 `users` model 反向关联（若项目要求）**
+- [ ] **Step 6.3 ：users model 追加反向关联（项目约定必须）**
 
 ```bash
-grep -n "model users" prisma/models/user.prisma | head -5
+grep -n "model users" prisma/models/user.prisma
+grep -nE "^\s+(cases|caseSessions|documentDrafts)\s+\w+\[\]" prisma/models/user.prisma
 ```
 
-查看 `users` model 是否需要反向关联 `contractReviews[]`。**项目约定**：所有 1:N 关系需双向声明。参考 `users` model 中既有的 `cases cases[]` / `caseSessions caseSessions[]` 模式，追加一行：
+**Expected：** 看到 `users` model 定义，且多行形如 `cases cases[]` / `caseSessions caseSessions[]` / `documentDrafts documentDrafts[]` —— 证明项目对 1:N 关系一律双向声明。
+
+在 `users` model 末尾、`@@index` 之前、跟 `documentDrafts documentDrafts[]` 同一段（约 L87 附近）追加：
 
 ```prisma
     contractReviews contractReviews[]
 ```
 
-位置与其他反向关系保持一致（通常在 model 末尾、@@index 之前）。
-
-- [ ] **Step 6.4：跑 Prisma format + migrate**
+- [ ] **Step 6.4：跑 Prisma migrate**
 
 ```bash
 cd /Users/daixin/work/dev/LexSeek/LexSeek
 bun run prisma:generate
-bun run prisma:migrate dev --name add_contract_reviews
+# package.json 的 "prisma:migrate" 脚本已是 "prisma migrate dev"，额外参数透传即可
+bun run prisma:migrate --name add_contract_reviews
 ```
 
 **Expected:**
@@ -633,14 +620,13 @@ done
 - M2 `commentInjector` 会以这些样本跑"批注 ≥20 / 中文 / id 不冲突"单测
 ```
 
-- [ ] **Step 7.4：写 fixture 测试（M1 即冒烟 mammoth 可解）**
+- [ ] **Step 7.4：写 fixture 测试（M1 冒烟 mammoth 可解 + 合并断言）**
 
 `tests/server/contract/sampleFixtures.test.ts`：
 
 ```typescript
 import { describe, it, expect } from 'vitest'
-import { readFile, access } from 'node:fs/promises'
-import { constants } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import mammoth from 'mammoth'
 
@@ -648,25 +634,14 @@ const SAMPLE_DIR = join(__dirname, '../../../prisma/seeds/contract-samples')
 const SAMPLES = ['labor', 'lease', 'sale', 'service', 'loan'] as const
 
 describe('合同审查样本 fixture', () => {
-    it.each(SAMPLES)('%s.docx 存在且可读', async (name) => {
-        const path = join(SAMPLE_DIR, `${name}.docx`)
-        await expect(access(path, constants.R_OK)).resolves.toBeUndefined()
-    })
-
+    // M1 只做最小冒烟：mammoth 可解 + 段落 ≥ 5。
+    // 甲/乙方正则命中率由 M2 partyDetector 单测覆盖，不在 M1 重复断言。
     it.each(SAMPLES)('%s.docx 可被 mammoth 解析且段落数 ≥ 5', async (name) => {
         const path = join(SAMPLE_DIR, `${name}.docx`)
-        const buffer = await readFile(path)
+        const buffer = await readFile(path)   // 读取失败会抛错，等效 access 断言
         const { value: rawText } = await mammoth.extractRawText({ buffer })
         const paragraphs = rawText.split(/\n+/).filter(p => p.trim().length > 0)
         expect(paragraphs.length).toBeGreaterThanOrEqual(5)
-    })
-
-    it.each(SAMPLES)('%s.docx 含明示"甲方"与"乙方"标识', async (name) => {
-        const path = join(SAMPLE_DIR, `${name}.docx`)
-        const buffer = await readFile(path)
-        const { value: rawText } = await mammoth.extractRawText({ buffer })
-        expect(rawText).toMatch(/甲\s*方[:：]/)
-        expect(rawText).toMatch(/乙\s*方[:：]/)
     })
 })
 ```
@@ -677,7 +652,7 @@ describe('合同审查样本 fixture', () => {
 npx vitest run tests/server/contract/sampleFixtures.test.ts --reporter=verbose
 ```
 
-**Expected:** 3 × 5 = 15 个 case 全 PASS。如果"甲方/乙方"正则 case 失败，回 Step 7.1 修样本文本（务必包含这两个标识）。
+**Expected:** 5 个 case 全 PASS。若某份 .docx mammoth 不认或段落太少，回 Step 7.1 / 7.2 修样本。
 
 - [ ] **Step 7.6：Commit**
 
