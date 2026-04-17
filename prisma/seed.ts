@@ -139,18 +139,68 @@ async function seedAssistantTokenRule(prismaClient: PrismaClient): Promise<void>
 }
 
 /**
+ * 让位：把 seedData.sql 中原 sort ∈ [5, 9] 的 dashboard 顶级菜单整体下移 2 格，
+ * 为法律助手三条菜单（sort=4/5/6）腾出位置。
+ *
+ * 幂等保护：
+ * - 只修改 name 属于原始静态菜单集合（legal/tools/diskSpace/membership/settings）的行
+ * - 且当前 sort 仍在 [5, 9] 区间时才 +2（已经被挪过的不再动）
+ * - 检测 assistant 菜单是否已存在并 sort ≤ 6，若满足则跳过（说明已经让位完毕）
+ */
+async function shiftLegacyDashboardMenus(prismaClient: PrismaClient): Promise<void> {
+    // 如果 assistant 菜单已经在 4/5/6 位置，说明已让位过，跳过
+    const existingAssistant = await prismaClient.routers.findUnique({
+        where: { name: 'dashboard-assistant-chat' },
+        select: { sort: true },
+    })
+    if (existingAssistant && existingAssistant.sort <= 6) {
+        return
+    }
+
+    // 原静态菜单（sort=5..9）按名称精准定位，避免误伤自定义菜单
+    const legacyNames = ['dashboard-legal', 'tools', 'diskSpace', 'membership', 'settings']
+    const legacy = await prismaClient.routers.findMany({
+        where: {
+            name: { in: legacyNames },
+            sort: { gte: 5, lte: 9 },
+        },
+        select: { id: true, name: true, sort: true },
+    })
+
+    for (const row of legacy) {
+        await prismaClient.routers.update({
+            where: { id: row.id },
+            data: { sort: row.sort + 2 },
+        })
+    }
+
+    if (legacy.length > 0) {
+        console.log(
+            `[seed] 已让位 ${legacy.length} 条 dashboard 菜单（sort +2，为法律助手腾位）`,
+        )
+    }
+}
+
+/**
  * Seed: 法律助手侧边栏三级菜单 + 默认角色授权
  *
  * 设计要点：
  * 1. navMain.vue 渲染扁平 isMenu=true 列表，不支持父子折叠，因此直接注册三条顶级菜单。
  * 2. 图标与现有菜单统一使用 `lucideIcons.XxxIcon` 前缀；图标名沿用 lucide-vue-next 官方命名。
- * 3. upsert by `name`（unique）——重跑幂等，且不覆盖人工修订的 title/icon/sort。
- * 4. 角色授权：默认分配给普通用户 (code=user) 与管理员 (code=admin)；
+ * 3. upsert by `name`（unique）——新部署时从 create 创建；
+ *    既有部署时 update 字段强制刷新 title/path/sort（这几个字段是本次 bug 修复必须覆盖的）。
+ *    icon/description 不强制覆盖，允许运营按需调整。
+ * 4. 菜单顺序：三条助手菜单紧跟"创建案件"(sort=3)，使用 sort=4/5/6；
+ *    基础 seedData.sql 中原 sort∈[5,9] 的菜单需要在部署前往后让 2 格（见同文件下方 shiftLegacyDashboardMenus）。
+ * 5. 角色授权：默认分配给普通用户 (code=user) 与管理员 (code=admin)；
  *    super_admin 在 permission.service.ts 中通过代码旁路获得所有路由，不需单独授权。
- * 5. roleRouters 关联使用 upsert by 复合唯一键 (roleId, routerId) 保持幂等。
+ * 6. roleRouters 关联使用 upsert by 复合唯一键 (roleId, routerId) 保持幂等。
  */
 async function seedAssistantRouters(prismaClient: PrismaClient): Promise<void> {
-    // 1. 确认路由组（dashboard 组，id=1 由 seedData.sql 预置）
+    // 1. 先让位：把 sort∈[5,9] 的老 dashboard 菜单整体往后挪 2 格（幂等保护）
+    await shiftLegacyDashboardMenus(prismaClient)
+
+    // 2. 确认路由组（dashboard 组，id=1 由 seedData.sql 预置）
     const dashboardGroup = await prismaClient.routerGroups.findUnique({
         where: { name: 'dashboard' },
     })
@@ -158,40 +208,44 @@ async function seedAssistantRouters(prismaClient: PrismaClient): Promise<void> {
         throw new Error('[seed] router_groups.dashboard 不存在，请先执行 seedData.sql 初始化基础数据')
     }
 
-    // 2. 定义菜单元信息（sort 故意留 100/110/120 的间隔，方便后续人工插入调整）
+    // 3. 定义菜单元信息（sort=4/5/6 紧跟创建案件）
     const menus = [
         {
             name: 'dashboard-assistant-chat',
-            title: '法律助手 · 对话',
-            path: '/dashboard/assistant/chat',
+            title: '法律助手',
+            path: '/dashboard/assistant',
             icon: 'lucideIcons.MessageSquareIcon',
             description: '无案件上下文的通用法律助手对话入口',
-            sort: 100,
+            sort: 4,
         },
         {
             name: 'dashboard-assistant-contract',
-            title: '法律助手 · 合同审查',
-            path: '/dashboard/assistant/contract',
+            title: '合同审查',
+            path: '/dashboard/contract',
             icon: 'lucideIcons.FileSearchIcon',
             description: '合同审查（占位，开发中）',
-            sort: 110,
+            sort: 5,
         },
         {
             name: 'dashboard-assistant-document',
-            title: '法律助手 · 文书生成',
-            path: '/dashboard/assistant/document',
+            title: '文书生成',
+            path: '/dashboard/document',
             icon: 'lucideIcons.FileTextIcon',
             description: '法律文书生成（占位，开发中）',
-            sort: 120,
+            sort: 6,
         },
     ] as const
 
-    // 3. upsert 路由
+    // 4. upsert 路由：title/path/sort 本次必须覆盖存量（修复菜单名/路由/顺序）
     const routerIds: number[] = []
     for (const menu of menus) {
         const router = await prismaClient.routers.upsert({
             where: { name: menu.name },
-            update: {}, // 不覆盖人工修订
+            update: {
+                title: menu.title,
+                path: menu.path,
+                sort: menu.sort,
+            },
             create: {
                 name: menu.name,
                 title: menu.title,
