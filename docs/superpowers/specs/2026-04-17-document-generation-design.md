@@ -44,7 +44,7 @@
 | `draftDocument` 工具 + Agent 调工具写库 | **删除 `draftDocument` 工具**；用 LangChain v1 `createAgent` 的 `responseFormat` 原生结构化输出；写库放 `draftResultPersistenceMiddleware`（仿现有 `analysisResultPersistenceMiddleware`）的 `afterAgent` 钩子 | 减少工具数量与 tool_choice 强制机制；responseFormat 是 v1 发布重点能力；项目里已经有 `beforeAgent + afterAgent` 持久化中间件的成熟范本可仿 |
 | 通用 responseFormat（`z.record(string, string)`） | **每个模板动态构造专属 Zod schema**：`z.object({ 占位符1: ..., 占位符2: ... })` | 占位符在扫描阶段已完全已知；专属 schema 精确约束输出 keys，降低幻觉 |
 | 材料聚合器三路径拼接塞 prompt | 材料聚合器**只处理用户粘贴文本**；文件与案件材料统一通过**扩展后的 `search_case_materials` 工具**按需检索 | 避免大材料爆上下文；独立/案件两场景无分支 |
-| 新建 `searchDraftMaterials` 工具 | **扩展现有 `search_case_materials` 工具**（`server/services/workflow/tools/searchCaseMaterials.tool.ts`）：参数 schema 加可选 `draftId`；service 函数 `searchMaterialsService` 增加 `draftId` 参数 | 两个工具 99% 重复；现有工具已注册到 `toolModules` registry，直接改最小开销 |
+| 新建 `searchDraftMaterials` 工具 | **扩展现有 `search_case_materials` 工具**（`server/services/workflow/tools/searchCaseMaterials.tool.ts`）：参数 schema 加可选 `draftId`；**新增并行 service 函数** `searchMaterialsByDraftService`（不改原 `searchMaterialsService` 签名） | 两个工具 99% 重复；现有工具已注册到 `toolModules` registry，直接改最小开销；service 层并行添加避免侵入现有 caseId 路径 |
 | 新建 `deductAgentTokens` helper | 用现有 **`pointConsumptionMiddleware(userId, 'document_draft_token', sessionId)`**（`server/services/workflow/middleware/pointConsumption.middleware.ts`），与 caseMain / assistantMain 同路径 | 积分扣减中间件已通用，只需换 `itemKey` 参数 |
 | 手写 `renderContent` 替换变量 | 用现有 **`renderSystemPrompt(nodeConfig, context)`**（`server/services/workflow/utils/promptRenderer.ts`） | 已通用，不必重写 |
 | 占位符正则 `[a-zA-Z_][\w]*` | **扩展支持中文**：`[\u4e00-\u9fa5\w]+`（如 `{{原告}}`） | 律师日常用中文模板；与实际使用场景匹配 |
@@ -90,21 +90,28 @@
   │   - 等待所有文件 status='processed' 再入队（同步等待或轮询）
   └─ enqueueRunService → agentWorker（worker 按 scope='document' 分支调 runDocumentChat）
     ↓
-[Agent 阶段] agentWorker → runDocumentMainAgent(draftId, sessionId)
-  ├─ 读 draft + template（拿 placeholders 清单）
-  ├─ 更新 status='filling'
-  ├─ buildDraftSchema(template.placeholders)  → 专属 Zod schema
-  ├─ buildInitialMessages(draft.sourceRef.text)  → 初始 user message
+[Agent 阶段] agentWorker → runDocumentChat(sessionId, options)
+  ├─ 从 sessionId 反查 draft（documentDrafts.sessionId 有索引）+ template
+  ├─ buildDraftSchema(template.placeholders) → 专属 Zod schema
+  ├─ 初始 user message = draft.sourceRef.text ?? "（无粘贴文本，请通过工具检索）"
   ├─ createAgent({
   │    model, tools: [search_case_materials (扩展后), search_law],
-  │    systemPrompt: renderPrompt(documentMainPromptV1, { templateName, templateCategory }),
+  │    systemPrompt: renderSystemPrompt(mainConfig, { caseId, templateName, templateCategory }),
   │    responseFormat: draftSchema,
+  │    middleware: [
+  │      pointConsumptionMiddleware(userId, 'document_draft_token', sessionId),
+  │      summarization, safetyTrim,
+  │      draftResultPersistenceMiddleware({ draftId, sessionId }),  // 末位：beforeAgent 置 filling，afterAgent 写回 values
+  │    ],
   │  })
-  ├─ agent.invoke({ messages: [initialMessages] })  // AI 按需调检索工具
-  ├─ 读 result.structuredResponse = { values, suggestions? }
-  ├─ 更新 draft: values, metadata={suggestions}, status='ready'
-  ├─ 按 run 累计 token 扣积分（key='document_draft_token'）
-  └─ SSE 推送 runStatus='completed'
+  ├─ agent.stream(...) — AI 按需调检索工具，最终输出 state.structuredResponse
+  │
+  │  以下由中间件自动完成（agentWorker 只 pipe SSE）：
+  │  • beforeAgent: draftResultPersistence 置 status='filling'
+  │  • afterModel × N: pointConsumption 按 token 增量扣减（key='document_draft_token'）
+  │  • afterAgent: draftResultPersistence 读 state.structuredResponse → 写 draft.values + status='ready'
+  │
+  └─ SSE 推送至前端（runStatus='completed'）
     ↓
 [前端阶段] DocumentDraftPanel 监听 runStatus
   ├─ completed → GET /drafts/:id 拉最新 values
@@ -150,7 +157,9 @@
 
 ### 5.2 新表：`documentDrafts`
 
-定义沿用父 spec §4.8，本文档强化**状态机**：
+定义沿用父 spec §4.8，本文档追加一项约束 + 强化**状态机**：
+
+**`sessionId` 改为 unique（override 父 spec §4.8 的 `@@index`）**：父 spec 定义为 `@@index([sessionId])` 允许多行复用同一 sessionId，但本实施按 §3.3 "重填=新 draft=新 sessionId" 约束为 1:1。改为 `@@unique([sessionId])` 让 `runDocumentChat` 可以直接 `findUniqueBySessionId` 不需要 `findFirst + 排序`。迁移脚本：`CREATE UNIQUE INDEX idx_doc_drafts_session ON document_drafts(session_id)`（替换原普通索引）。
 
 ```
 drafting   ← POST /drafts 刚创建
@@ -199,7 +208,7 @@ model caseMaterials {
 | 表 | 新增行 |
 |---|---|
 | `nodes` | `name='documentMain', type='agent', tools=['search_case_materials','search_law'], priority=30` |
-| `prompts` | `documentMain_system` v1，挂 `documentMain` 节点，含变量 `{{templateName}}` / `{{templateCategory}}` |
+| `prompts` | `documentMain_system` v1，挂 `documentMain` 节点，含变量 `{{templateName}}` / `{{templateCategory}}`（占位符上下文不进提示词，靠 `buildDraftSchema` 的 `.describe()` 传递） |
 | `point_consumption_items` | `key='document_draft_token', group='agentToken', unit='千tokens', pointAmount=1, discount=1` |
 
 所有 seed 同步写入：
@@ -237,14 +246,25 @@ bun run prisma:migrate dev --name add_document_templates_and_drafts_and_case_mat
 |---|---|---|
 | 节点名 | `caseMain` | `documentMain` |
 | 工具集 | 配置 + skills + subAgents | 配置中的 `[search_case_materials, search_law]`，**不加 skills、不装子 agent** |
-| 中间件堆栈 | pointConsumption + caseProcessMaterial + moduleContext + summarization + safetyTrim + skillsMiddleware | pointConsumption + **draftResultPersistence（新增）** + summarization + safetyTrim |
-| `systemPrompt` | `renderSystemPrompt(mainConfig, { caseId })` | `renderSystemPrompt(mainConfig, { caseId, templateName, templateCategory, placeholdersWithContext })`（需先扩展 `PromptRenderContext` 接口，见下方） |
-| `responseFormat` | 无 | `buildDraftSchema(template.placeholders)` |
+| 中间件堆栈 | pointConsumption + caseProcessMaterial + moduleContext + summarization + safetyTrim + skillsMiddleware | pointConsumption + summarization + safetyTrim + **draftResultPersistence（新增，末位）** |
+| `systemPrompt` | `renderSystemPrompt(mainConfig, { caseId })` | `renderSystemPrompt(mainConfig, { caseId, templateName, templateCategory })`（需先扩展 `PromptRenderContext` 接口加 2 个字段，见下方） |
+| `responseFormat` | 无 | `buildDraftSchema(template.placeholders)`（**占位符上下文写入 schema 每字段的 `.describe()`，不塞进系统提示词**，避免重复） |
 | `createAgent` 其他参数 | 原样 | 原样 |
 | 计费键 | `'case_analysis_token'` | `'document_draft_token'` |
 
+**中间件顺序**：`draftResultPersistence` 必须放**末位**（这样 `afterAgent` 钩子在 summarization/safetyTrim 之后执行，与 `analysisResultPersistenceMiddleware` 同规则）。最终 middleware 数组形如：
+
+```typescript
+middleware: [
+    pointConsumptionMiddleware(userId, 'document_draft_token', sessionId),
+    summarizationMiddleware({ model, trigger: [{ tokens: triggerTokens }] }),
+    safetyTrimMiddleware({ model, maxTokens: Math.floor(contextWindow * 0.8) }),
+    draftResultPersistenceMiddleware({ draftId, sessionId }),  // 末位
+]
+```
+
 **需先做的小改动**：
-1. 扩展 `server/services/workflow/utils/promptRenderer.ts` 的 `PromptRenderContext` 接口加 3 个 optional 字段（`templateName`/`templateCategory`/`placeholdersWithContext`），并在 `renderSystemPrompt` body 里把它们写入 `variables` 字典。底层 `renderContent` 天然支持任意 key，但其正则是 `/\{\{(\w+)\}\}/g`（`\w` 不匹配中文），**提示词变量键须为英文标识符**（模板占位符可含中文，不影响，因为它们是替换结果的 value 字符串）。
+1. 扩展 `server/services/workflow/utils/promptRenderer.ts` 的 `PromptRenderContext` 接口加 2 个 optional 字段（`templateName`/`templateCategory`），并在 `renderSystemPrompt` body 里把它们写入 `variables` 字典。底层 `renderContent` 天然支持任意 key，但其正则是 `/\{\{(\w+)\}\}/g`（`\w` 不匹配中文），**提示词变量键须为英文标识符**（模板占位符可含中文，不影响，因为它们是替换结果的 value 字符串）。
 2. 扩展 `server/services/workflow/tools/types.ts` 的 `ToolContext` 接口加 optional `draftId` 字段。`documentMainAgent.ts` 构造 `toolContext = { userId, caseId, sessionId, draftId }`；`searchCaseMaterials.tool.ts` 的 `createTool` 内部优先用 `input.draftId`，缺失时回退 `context.draftId`，仍缺失再看 `context.caseId`。
 
 **关键：** 工具工厂 (`getToolInstancesService`) / 模型工厂 (`createChatModel`) / 提示词渲染 (`renderSystemPrompt`，扩展后) / checkpointer / store / 中间件 **全部复用**，不新建任何工厂函数。
@@ -398,14 +418,16 @@ export const draftResultPersistenceMiddleware = (
 // server/services/workflow/agents/documentMainAgent.ts
 export async function runDocumentChat(
     sessionId: string,
-    draftId: number,
     options: { userId: number; caseId?: number; signal?: AbortSignal },
 ): Promise<ReadableStream<Uint8Array>> {
-    // 仿 runCaseChat：并发加载 checkpointer/store/nodeConfig
-    // 加载 draft + template → buildDraftSchema
-    // 组装 tools（getToolInstancesService） + middleware（含 draftResultPersistence）
-    // createAgent({ model, tools, systemPrompt, responseFormat: schema, middleware })
-    // 返回 agent.stream(...)，SSE 格式 encoding 与 caseMain 一致
+    // 1. 从 sessionId 反查 draft（documentDrafts.sessionId 有 unique index）
+    //    draft 含 templateId + sourceRef，模板包含 placeholders
+    // 2. 仿 runCaseChat：并发加载 checkpointer/store/nodeConfig(documentMain)
+    // 3. buildDraftSchema(template.placeholders) → 专属 schema
+    // 4. 组装 tools（getToolInstancesService + toolContext含draftId）
+    //    + middleware（pointConsumption + summarization + safetyTrim + draftResultPersistence，末位）
+    // 5. createAgent({ model, tools, systemPrompt, responseFormat: schema, middleware })
+    // 6. 返回 agent.stream(...)，SSE 格式 encoding 与 caseMain 一致
 }
 ```
 
@@ -414,17 +436,18 @@ export async function runDocumentChat(
 ```typescript
 if (session.scope === 'document') {
     const { runDocumentChat } = await import('../workflow/agents/documentMainAgent')
-    stream = await runDocumentChat(run.sessionId, input.draftId, {
+    stream = await runDocumentChat(run.sessionId, {
         userId: session.userId!,
-        caseId: session.caseId,
+        caseId: session.caseId ?? undefined,
         signal: abortController.signal,
     })
+    // draftId 由 runDocumentChat 从 sessionId 反查 documentDrafts 得到，不经 input 传递
 }
 else if (session.scope === 'assistant') { /* 现状 */ }
 else { /* case 域 */ }
 ```
 
-**非 handler map 注入**，是**现有 if-else 链加一个 branch**（最小改动 ≈ 10 行）。不改 worker 主体，不改 enqueue 协议。
+**非 handler map 注入**，是**现有 if-else 链加一个 branch**（最小改动 ≈ 10 行）。不改 worker 主体，不改 enqueue 协议（`AgentRunInput` 类型零改动）。
 
 ### 6.8 提示词 `documentMain_system` v1
 
@@ -464,7 +487,7 @@ schema 中每个字段的 description 已说明占位符的首次出现上下文
 | 构造 agent 骨架 | 仿 `server/services/workflow/agents/caseMainAgent.ts` |
 | 加载节点配置 | `getValidNodeConfig` / `getNodeConfigsByTypes`（`server/services/node/node.service.ts`） |
 | 构造模型实例 | `createChatModel`（`server/services/node/chatModelFactory.ts`） |
-| 渲染系统提示词 | `renderSystemPrompt`（`server/services/workflow/utils/promptRenderer.ts`），**本期需扩展 `PromptRenderContext` 加 3 个字段** |
+| 渲染系统提示词 | `renderSystemPrompt`（`server/services/workflow/utils/promptRenderer.ts`），**本期需扩展 `PromptRenderContext` 加 2 个字段**（`templateName` / `templateCategory`） |
 | 工具按名加载 | `getToolInstancesService`（`server/services/workflow/tools/index.ts`） |
 | 工具注册 | `toolModules` 字典，不加新 key；扩展现有 `search_case_materials` 参数 |
 | checkpointer / store | `getCheckpointer / getStore`（`server/services/workflow/checkpointer.ts`） |
@@ -503,7 +526,7 @@ for (const fileId of sourceFileIds ?? []) {
 }
 ```
 
-`ensureMaterialReadyForDraftService` 位于 `materialPipeline.service.ts`，是 §6.4.1 列出的 4 个 draftId-based 并行函数之一。
+`ensureMaterialReadyForDraftService` 位于 `materialPipeline.service.ts`，是 §6.4.1 列出的 3 个 service 并行函数之一（配合 1 个新增 DAO 函数 `findMaterialsByDraftIdDao`）。
 
 ### 7.3 caseId 关联
 
@@ -540,7 +563,7 @@ export async function scanPlaceholders(docxBuffer: Buffer): Promise<Placeholder[
 
 支持中英混合占位符：`{{原告}}` / `{{plaintiff_name}}` / `{{loan_amount}}` / `{{借款金额}}` 均合法。
 
-**⚠️ 区分提示词变量 vs 模板占位符**：本节的中文支持仅针对**文书模板中的占位符**。提示词中的变量（`renderSystemPrompt` 替换的 `{{caseId}}` / `{{templateName}}` 等）由 `renderContent(raw, variables)`（`server/services/node/prompt.service.ts:82`）处理，其正则为 `/\{\{(\w+)\}\}/g`，**只匹配英文标识符**。本期的提示词变量命名（`templateName` / `templateCategory` / `placeholdersWithContext`）全部用英文，不触发此限制。如果未来想让提示词变量名也支持中文，需单独修改 `renderContent` 的正则，不在本期范围。
+**⚠️ 区分提示词变量 vs 模板占位符**：本节的中文支持仅针对**文书模板中的占位符**。提示词中的变量（`renderSystemPrompt` 替换的 `{{caseId}}` / `{{templateName}}` 等）由 `renderContent(raw, variables)`（`server/services/node/prompt.service.ts:82`）处理，其正则为 `/\{\{(\w+)\}\}/g`，**只匹配英文标识符**。本期的提示词变量命名（`templateName` / `templateCategory`）全部用英文，不触发此限制。如果未来想让提示词变量名也支持中文，需单独修改 `renderContent` 的正则，不在本期范围。
 
 ### 8.2 分类枚举（9 类）
 
@@ -750,7 +773,7 @@ export async function exportDraft(draftId: number): Promise<{ ossFileId: number 
 |---|---|---|---|---|
 | M1 | 数据层 + 依赖 | `bun add docxtemplater pizzip`（M4 需要）+ `bun add docx-preview`（M5 需要，可 M1 一并装好）；两张新表 + caseMaterials 迁移（`caseId` DROP NOT NULL + 新增 `draft_id`）；`templateScanner.ts`；3-5 样本 .docx 入仓；seed 脚本扫描 + 上传 OSS + 写表 | `bun run prisma:migrate` + `bun prisma db seed` 后样本模板就绪；三库均可 `import` | — |
 | M2 | 模板 API + admin 页 | `documentTemplate.service/dao`；6 个模板端点；配额 20 校验；`/admin/document-templates` 页 | admin 上传 .docx → 用户列表可见；私人模板上传第 21 个被拒 | M1 |
-| M3 | AI 填充闭环 | **PoC 先行**：验证 LangChain v1 `state.structuredResponse` 在 afterAgent 钩子可见；**接口扩展**：`PromptRenderContext` 加 3 字段、`ToolContext` 加 `draftId?` 字段；**Pipeline 并行函数**：新增 3 个 draftId-based service 函数 + 1 个 DAO（`findMaterialsByDraftIdDao` / `getMaterialsByDraftIdService` / `searchMaterialsByDraftService` / `ensureMaterialsReadyForDraftService`）；`documentMain` 节点 + 提示词 seed；`buildDraftSchema`；**扩展 `search_case_materials` 工具**加 draftId 参数；`documentDraft.service/dao`；`draftResultPersistence` 中间件（仿 analysis 中间件的 `{ hook }` 形状）；`documentMainAgent.ts` 仿 `caseMainAgent.ts`；**Worker 加 `scope==='document'` 分支**；`POST/GET/PATCH /drafts`；`document_draft_token` seed + 接入 `pointConsumptionMiddleware` | curl POST `/drafts` → 看 SSE → AI 最终写回 `values` | M1, M2 |
+| M3 | AI 填充闭环 | **PoC 先行**：验证 LangChain v1 `state.structuredResponse` 在 afterAgent 钩子可见；**接口扩展**：`PromptRenderContext` 加 2 字段（`templateName`/`templateCategory`）、`ToolContext` 加 `draftId?` 字段；**Pipeline 并行函数**：新增 3 个 draftId-based service 函数 + 1 个 DAO（`findMaterialsByDraftIdDao` / `getMaterialsByDraftIdService` / `searchMaterialsByDraftService` / `ensureMaterialsReadyForDraftService`）；`documentMain` 节点 + 提示词 seed；`buildDraftSchema`；**扩展 `search_case_materials` 工具**加 draftId 参数；`documentDraft.service/dao`；`draftResultPersistence` 中间件（仿 analysis 中间件的 `{ hook }` 形状）；`documentMainAgent.ts` 仿 `caseMainAgent.ts`；**Worker 加 `scope==='document'` 分支**；`POST/GET/PATCH /drafts`；`document_draft_token` seed + 接入 `pointConsumptionMiddleware` | curl POST `/drafts` → 看 SSE → AI 最终写回 `values` | M1, M2 |
 | M4 | 用户页 + 导出 | `/dashboard/assistant/document` 路由；`DocumentDraftPanel` 组件；`useDocumentDraft` composable；`POST /drafts/:id/export` + docxtemplater | 浏览器打开页 → 选模板 → 输入材料 → AI 填完 → 编辑字段 → 导出带格式 .docx | M3 |
 | M5 | 实时预览 | docx-preview + TreeWalker 替换 + debounce 500ms；降级方案 A/B 代码预留 | 改任一字段，右侧 Word 样式预览实时同步 | M4 |
 | M6 | 案件 tab 复用 | caseDetail 新增 `documents` tab；`<DocumentDraftPanel :case-id>`；caseMaterials 预填多选 | 案件详情 → 文书 tab → 基于案件材料生成 → 导出 | M4 |
