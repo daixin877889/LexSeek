@@ -16,6 +16,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!session) return resError(event, 404, 'Session 不存在')
+  if (!session.case) return resError(event, 404, 'Session 不存在或不属于案件域')
   if (session.case.userId !== user.id) return resError(event, 403, '无权操作')
 
   // 验证是小索 session

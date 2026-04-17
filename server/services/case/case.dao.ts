@@ -148,7 +148,7 @@ export const findCaseBySessionIdDao = async (
             },
         })
 
-        if (!session || session.case.deletedAt) {
+        if (!session || !session.case || session.case.deletedAt) {
             return null
         }
 
