@@ -115,7 +115,7 @@
                             </TableCell>
                             <TableCell>
                                 <span class="text-sm text-muted-foreground">
-                                    {{ Array.isArray(tpl.placeholders) ? tpl.placeholders.length : 0 }} 个
+                                    {{ (Array.isArray(tpl.placeholders) ? tpl.placeholders.length : 0) }} 个
                                 </span>
                             </TableCell>
                             <TableCell>
@@ -124,7 +124,7 @@
                                 </Badge>
                             </TableCell>
                             <TableCell class="text-sm text-muted-foreground">
-                                {{ formatDate(tpl.createdAt instanceof Date ? tpl.createdAt.toISOString() : tpl.createdAt) }}
+                                {{ formatDate(tpl.createdAt.toISOString()) }}
                             </TableCell>
                             <TableCell class="text-right">
                                 <DropdownMenu>
@@ -354,21 +354,7 @@ const formatFileSize = (bytes: number) => {
 const loadTemplates = async () => {
     loading.value = true
     try {
-        // 获取总数用于配额显示
-        const countParams: Record<string, any> = {
-            scope: 'user',
-            skip: 0,
-            take: 1,
-        }
-        const countData = await useApiFetch<{ list: TemplateRow[]; total: number }>(
-            '/api/v1/assistant/document/templates',
-            { query: countParams }
-        )
-        if (countData) {
-            templateCount.value = countData.total
-        }
-
-        // 获取列表数据（API 不支持 status 过滤，请求全量数据再客户端过滤）
+        // 单次请求获取列表数据和总数（API 不支持 status 过滤，请求全量数据再客户端过滤）
         const params: Record<string, any> = {
             scope: 'user',
             skip: 0,
@@ -382,6 +368,7 @@ const loadTemplates = async () => {
             { query: params }
         )
         if (data) {
+            templateCount.value = data.total
             const filtered = statusFilter.value === 'all'
                 ? data.list
                 : data.list.filter(t => t.status === Number(statusFilter.value))
