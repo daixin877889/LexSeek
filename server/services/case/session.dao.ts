@@ -148,6 +148,9 @@ export async function createSessionDAO(
 
 /**
  * 查找未删除的 session 并校验权限（内部公共逻辑）。
+ *
+ * 兼容 scope=case（存量 userId 可能为 NULL，回退 session.case.userId）
+ * 与 scope=assistant（session.case 为 null，只能用 session.userId）。
  */
 async function findSessionWithOwnershipCheck(sessionId: string, userId: number) {
     const session = await prisma.caseSessions.findFirst({
@@ -155,7 +158,11 @@ async function findSessionWithOwnershipCheck(sessionId: string, userId: number) 
         include: { case: { select: { userId: true } } },
     })
     if (!session) return { session: null, error: 'Session 不存在' as const }
-    if (session.case.userId !== userId) return { session: null, error: '无权操作该 Session' as const }
+
+    const ownerId = session.userId ?? session.case?.userId
+    if (ownerId == null || ownerId !== userId) {
+        return { session: null, error: '无权操作该 Session' as const }
+    }
     return { session, error: null }
 }
 
