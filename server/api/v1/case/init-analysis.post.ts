@@ -138,6 +138,10 @@ export default defineEventHandler(async (event) => {
         if (!session) {
             return resError(event, 404, '分析会话不存在')
         }
+        // 类型守卫：case 域 session 的 caseId 应非空；放宽 schema 后需显式检查避免误入 assistant 域
+        if (session.caseId == null) {
+            return resError(event, 400, '无效的会话（非案件域）')
+        }
         caseId = session.caseId
         // 从 metadata 中恢复 selectedModules（服务端权威来源）
         const metadata = session.metadata as { selectedModules?: string[] } | null

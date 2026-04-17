@@ -53,7 +53,7 @@ async function seedAssistantMainNode(prismaClient: PrismaClient): Promise<void> 
             type: 'agent',
             priority: 10,
             modelId,
-            tools: ['searchLaw'],
+            tools: ['search_law'],
             status: 1,
         },
     })
