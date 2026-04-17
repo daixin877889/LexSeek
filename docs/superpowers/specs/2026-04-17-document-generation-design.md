@@ -14,6 +14,18 @@
 
 律师选择预设 / 私人文书模板，提交案情材料（粘贴文本 / 文件上传 / 案件材料），AI 通过 Agent 架构调用检索工具整合上下文并输出结构化占位符填充结果；用户通过表单调整字段后导出带格式的 .docx。
 
+**用户核心闭环（5 步）**：
+
+```
+1. 选文书模板（分类 Tab → 模板卡片）
+2. 提供材料（粘贴文本 / 上传文件 / 案件材料多选）
+3. 点"开始生成" → AI 按 schema 填充占位符
+4. 表单编辑（带实时预览）
+5. 导出 .docx
+```
+
+> 原始需求出处：父 spec §1 / §3 "律师轻量化任务无需创建案件；合同审查/文书生成在案件详情页复用"。
+
 ### 1.2 本次交付范围（Phase 3 全量）
 
 与父 spec §9.3 对齐，**全部**纳入本次迭代：
@@ -28,6 +40,17 @@
 - 案件详情 `documents` tab 复用
 - 积分键 `document_draft_token` 与计费接入
 - 批量导入脚本 `scripts/importDocumentTemplates.ts`
+
+**里程碑价值优先级**（实施时如遇资源紧张，按此顺序取舍）：
+
+| 优先级 | 里程碑 | 业务价值 |
+|---|---|---|
+| P0（核心 MVP） | M1 + M2 + M3 + M4 | 用户能完整走通：选模板 → 输入 → 生成 → 改字段 → 导出 |
+| P0（硬需求） | M5 | 实时预览—编辑体验 |
+| P1（案件集成） | M6 | 案件详情页复用，覆盖原始需求"案件内也能用" |
+| P2（运营就绪） | M7 | 批量导入生产模板 + E2E 覆盖 |
+
+M1-M5 是闭环必需，M6 按原始需求明示必做，M7 在 P0/P1 过关后推进。
 
 ### 1.3 不在本次范围
 
@@ -587,21 +610,76 @@ export const DOCUMENT_CATEGORY_KEYS = DOCUMENT_CATEGORIES.map(c => c.key) as rea
 
 模板 CRUD 校验 `category ∈ DOCUMENT_CATEGORY_KEYS`。
 
-### 8.3 控件类型推断（中英双轨）
+#### 8.2.1 `shared/types/document.ts` 统一类型清单（前后端共享）
 
-前端 `DocumentFieldForm` 组件渲染字段时按下表推断控件：
+```typescript
+// 分类枚举（上方 8.2 已定义）
+export const DOCUMENT_CATEGORIES = [...] as const
+export type DocumentCategoryKey = ...
+
+// 核心数据接口
+export interface Placeholder {
+    name: string
+    firstContext: string
+}
+
+export interface DocumentTemplate {
+    id: number
+    name: string
+    category: DocumentCategoryKey
+    scope: 'global' | 'user'
+    userId: number | null
+    ossFileId: number
+    placeholders: Placeholder[]
+    description: string | null
+    priority: number
+    status: 0 | 1
+    createdAt: string
+    updatedAt: string
+}
+
+export type DocumentDraftStatus = 'drafting' | 'filling' | 'ready' | 'exported' | 'failed'
+
+export interface DocumentDraft {
+    id: number
+    userId: number
+    caseId: number | null
+    sessionId: string
+    templateId: number
+    values: Record<string, string | null>
+    sourceRef: {
+        text?: string
+        fileIds?: number[]
+        caseId?: number
+    } | null
+    outputFileId: number | null
+    status: DocumentDraftStatus
+    metadata: {
+        suggestions?: Record<string, string>
+    } | null
+    createdAt: string
+    updatedAt: string
+}
+
+// API 响应
+export interface CreateDraftResponse { draftId: number; sessionId: string }
+export interface ExportDraftResponse { ossFileId: number; downloadUrl: string }
+```
+
+原则：所有跨前后端共享的实体类型放此文件，DAO 内部类型（如 Prisma 返回的 `documentDrafts` row）不导出到此；sanitize 转换在 service 层完成。
+
+### 8.3 控件类型推断（中英双轨，MVP 简化为 4 类）
+
+前端 `DocumentFieldForm` 组件渲染字段时按下表推断控件。**MVP 仅区分 4 种控件**（避免过度分化）：
 
 | 控件类型 | 英文关键字 | 中文关键字 | 示例 |
 |---|---|---|---|
 | DatePicker | `date`, `_at`, `_time` | 含"日期"、"时间" | `contract_date` / `{{签订日期}}` |
 | Number + 千分位 | `amount`, `money`, `fee`, `price` | 含"金额"、"费用"、"价格"、"款" | `loan_amount` / `{{借款金额}}` |
-| Input + 11 位 | `phone`, `mobile` | 含"电话"、"手机" | `{{手机号}}` |
-| Input + 18 位 | `id_number`, `_id_card` | 含"身份证" | `{{身份证号}}` |
-| Select 男/女 | `sex`, `gender` | 含"性别" | `{{性别}}` |
-| Select（AI 建议） | `_type` 结尾 | 含"类型"、"类别" | `{{合同类型}}` |
-| Input / textarea | 默认 | 默认 | `{{原告}}` |
+| Textarea（自动升级） | 值 > 50 字符时 | 值 > 50 字符时 | `{{事实与理由}}` |
+| Input（默认） | 其他（含原 phone/id_number/sex/type 等） | 其他 | `{{原告}}` / `{{手机号}}` / `{{合同类型}}` |
 
-值 > 50 字符自动升级为 textarea。
+**为什么不为 phone / id_card / sex / type 做特殊控件**：MVP 用 Input 配合 placeholder 提示（如 `placeholder="11 位手机号"`）体验已足够；特殊校验正则可后续按反馈增量加。DatePicker 与 Number（千分位）体验差异大，保留特殊化。
 
 ---
 
@@ -658,14 +736,22 @@ GET   /api/v1/assistant/document/drafts?page=&pageSize=&caseId=
 
 ### 10.2 组件划分
 
+所有组件文件位于 `app/components/assistant/document/`：
+
 ```
-DocumentDraftPanel (主组件)
-├── DocumentTemplatePicker   （分类 Tab + 模板卡片 + 已选态）
-├── DocumentSourceInput       （AiPromptInput：文本 + 文件 + caseMaterials 多选）
-├── DocumentRunStatus         （MVP：仅展示 runStatus 旋转 + "AI 正在生成"文案；后续可接 `AiToolRenderer`（`app/components/ai/AiToolRenderer.vue`）展示检索工具调用序列，其背后按工具名分派到 `app/components/ai/tools/MaterialSearchTool.vue` / `LawSearchTool.vue`）
-├── DocumentFieldForm         （字段表单，按 §8.3 推断控件）
-└── DocumentPreview           （docx-preview + TreeWalker 替换，见 §10.3）
+app/components/assistant/document/
+├── DocumentDraftPanel.vue            （主组件，整合下方子组件）
+├── DocumentTemplatePicker.vue        （分类 Tab + 模板卡片 + 已选态）
+├── DocumentSourceInput.vue           （AiPromptInput：文本 + 文件 + caseMaterials 多选）
+├── DocumentRunStatus.vue             （MVP：仅展示 runStatus 旋转 + "AI 正在生成"文案；
+│                                       后续可接 `AiToolRenderer`（`app/components/ai/AiToolRenderer.vue`）
+│                                       展示检索工具调用序列，其背后按工具名分派到
+│                                       `app/components/ai/tools/MaterialSearchTool.vue` / `LawSearchTool.vue`）
+├── DocumentFieldForm.vue             （字段表单，按 §8.3 推断控件）
+└── DocumentPreview.vue               （docx-preview + TreeWalker 替换，见 §10.3）
 ```
+
+`DocumentDraftPanel` 接受 prop `:case-id`（可选）；独立场景不传，案件 tab 场景传入。
 
 **组件只负责渲染**，数据流集中在 `useDocumentDraft` composable（**仿 `useAssistantChat.ts`** 结构，底层复用 `useStreamChat` 泛型：SSE 订阅 / runStatus / interruptData / resumeInterrupt 等逻辑全部沿用，不重写流管理）：
 
@@ -713,7 +799,9 @@ const debouncedUpdate = useDebounceFn(updatePreview, 500)
 watch(() => formValues, (v) => debouncedUpdate(v), { deep: true })
 ```
 
-**降级策略**（M5 验收时若 TreeWalker 替换因占位符跨 `<w:r>` 切分而不稳）：
+**⚠️ 实时预览是硬需求**：对用户体验至关重要，不可删减。
+
+**降级策略**（仅 M5 验收时若 TreeWalker 替换因占位符跨 `<w:r>` 切分而不稳用于应急）：
 - **降级触发门槛**：M5 验收用 3-5 个样本模板 × 5 个典型填充场景 = 15-25 次渲染；**失败率 > 10%** 即触发降级
 - 降级方案 A：保留 docx-preview 渲染，但去掉自动 debounce；改为手动"刷新预览"按钮触发
 - 降级方案 B：完全去掉实时预览，改为"下载预览 PDF"按钮调后端渲染
@@ -820,7 +908,6 @@ export async function exportDraft(draftId: number): Promise<{ ossFileId: number 
 | R7 | 私人模板配额并发绕过 | Prisma `$transaction` 内 count + create，串行化 |
 | R8 | 材料预处理超时（OCR 慢） | `ensureMaterialReadyForDraftService` 设超时（30s）；超时 API 返回 503 + 前端提示稍后重试 |
 | R9 | AI 检索无结果导致填 null 过多 | 提示词要求"无法推断则 null + suggestions 给建议值"；前端表单对 null 字段高亮提示人工填写 |
-| R10 | 动态 schema 包含中文 key 在某些模型下解析异常 | M3 里程碑专门测 Claude / GPT 两边的中文 key 支持；不稳则给占位符加 `en_name` 做英文别名 |
 
 ---
 
