@@ -879,6 +879,8 @@ INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "d
 INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES (10, 'defense', 'analysisModules', '抗辩分析及应对策略预测', '抗辩分析及应对策略预测', '次', 5, 1, '2026-03-16 20:28:50.428246+08', '2026-03-16 20:28:50.428246+08', NULL, '1.00');
 INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES (11, 'evidence', 'analysisModules', '证据清单预梳理', '证据清单预梳理', '次', 7, 1, '2026-03-16 20:28:50.428623+08', '2026-03-16 20:28:50.428623+08', NULL, '0.70');
 INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES (12, 'case_analysis_token', 'agentToken', '案件分析 Token 消耗', '模型调用按 token 用量扣减积分', '千tokens', 10, 1, '2026-03-26 00:00:00+08', '2026-03-26 00:00:00+08', NULL, '1.00');
+-- document_draft_token: 文书生成 token 计费规则（由 seed.ts 的 seedDocumentDraftTokenRule 幂等写入，此处为等幂备份）
+INSERT INTO "public"."point_consumption_items" ("key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES ('document_draft_token', 'agentToken', '文书生成 token 计费', '文书生成按模型 token 用量扣减积分', '千tokens', 1, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL, '1.00') ON CONFLICT (key) DO NOTHING;
 
 -- ==================== 案件类型种子数据 ====================
 INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (1, '民商事案件', '包括合同纠纷、侵权纠纷、婚姻家庭纠纷等民事案件', 'ScaleIcon', 10, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
@@ -914,6 +916,8 @@ INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "pri
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (14, 'search_intent_router', '检索意图路由器', '根据查询内容分类检索意图（精确/混合/语义），用于统一检索路由器的意图分发', 'extraction', 100, 1, '[]', '{"type": "object", "required": ["intent"], "properties": {"intent": {"enum": ["exact", "hybrid", "semantic"], "description": "检索意图类型"}, "keywords": {"type": "array", "items": {"type": "string"}, "description": "提取的法律术语关键词"}, "legalName": {"type": "string", "description": "识别到的法律名称"}, "articleRef": {"type": "string", "description": "条文编号，如 第一千条"}, "rewrittenQuery": {"type": "string", "description": "改写后的语义查询"}}}', NULL, 1, '2026-04-09 10:00:00+08', '2026-04-10 00:05:33.799+08', NULL);
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (15, 'assistantMain', '通用法律助手主Agent', '无案件上下文的法律问答与工具调用', 'agent', 10, 2, '["search_law"]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL);
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (16, 'assistantTitleGen', '会话标题生成', '根据首轮对话生成 ≤20 字会话标题，供侧栏列表展示', 'extraction', 20, 2, '[]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL);
+-- documentMain: 文书生成主 Agent（model_id=1 为 deepseek-chat，不可用 reasoner 模型）
+INSERT INTO "public"."nodes" ("name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES ('documentMain', '文书生成主Agent', '按模板占位符填充生成文书', 'agent', 30, 1, '["search_case_materials", "search_law"]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
 
 -- ==================== 提示词种子数据 ====================
 INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (1, 'caseInfoCheck_system', '案情信息检查-系统提示词', '你是一位专业的法律案件分析助手，专门负责评估案件材料中的案情信息是否充足。
@@ -1924,7 +1928,54 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 助手回复：{{firstAssistantReply}}
 
 请直接输出标题（不要包含"标题："或其他前缀）：', '["firstUserMessage", "firstAssistantReply"]', 'v1', 'system', 1, 16, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL);
+-- documentMain 系统提示词 v1（node_id 通过子查询获取，保证与运行时 seed 一致）
+INSERT INTO "public"."prompts" ("name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at")
+SELECT 'documentMain_system', '文书生成主Agent系统提示词 v1',
+'你是 LexSeek 的文书生成助手，负责按模板占位符逐一填充法律文书内容。
 
+# 当前模板
+
+模板名称：{{templateName}}
+模板分类：{{templateCategory}}
+
+# 可用工具
+
+- search_case_materials：检索用户已上传的案件材料，获取当事人信息、事实经过、金额明细等
+- search_law：查询相关法律条文，为文书引用提供依据
+
+# 工作流程
+
+1. 调用 search_case_materials 检索案件材料，逐一推断每个占位符的值
+2. 如需引用法条，调用 search_law 获取准确条文
+3. 对无法从材料中推断的占位符，返回 null（严禁编造）
+4. 在 suggestions 中为每个字段说明填充依据或无法推断的原因
+
+# 输出格式
+
+必须返回以下标准 JSON，不得包含额外文字：
+
+```json
+{
+  "values": {
+    "占位符名称": "填充内容或 null"
+  },
+  "suggestions": {
+    "占位符名称": "填充依据说明"
+  }
+}
+```
+
+# 约束
+
+- 所有涉及姓名、金额、日期的值必须来自材料或法条，来源不明的一律返回 null
+- 不替用户做最终法律判断，只提供基于材料的客观填充
+- 使用简体中文，法律术语准确规范',
+'["templateName", "templateCategory"]', 'v1', 'system', 1, n.id, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL
+FROM nodes n
+WHERE n.name = 'documentMain' AND n.deleted_at IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM prompts p WHERE p.node_id = n.id AND p.name = 'documentMain_system' AND p.deleted_at IS NULL
+  );
 
 -- 重置所有序列，确保新插入的记录不会与种子数据冲突
 -- Reset all sequences to avoid ID conflicts with seed data

@@ -220,6 +220,177 @@ async function seedAssistantTokenRule(prismaClient: PrismaClient): Promise<void>
 }
 
 /**
+ * Seed: documentMain 节点 + 系统提示词 v1
+ *
+ * ⚠️ 关键约束：documentMain 必须使用支持 tool_choice 的 chat 模型。
+ *    deepseek-reasoner 等 reasoner 类模型不支持 tool_choice，
+ *    LangChain responseFormat 依赖 tool_choice，因此 documentMain 不能使用 reasoner 模型。
+ *
+ * 模型选择策略：
+ * - 优先复用 caseMain 的 modelId（保证与案件分析能力基线一致）
+ * - 若 caseMain 配置的是 reasoner 模型（name 包含 reasoner/r1），退回首个非 reasoner 的启用 chat 模型
+ * - 回退模型不存在时报错，提示运维补齐 chat 模型配置
+ */
+async function seedDocumentMainNode(prismaClient: PrismaClient): Promise<void> {
+    // 1. 取 caseMain 的 modelId 作为初始候选
+    const caseMain = await prismaClient.nodes.findUnique({ where: { name: 'caseMain' } })
+    let documentModelId = caseMain?.modelId
+
+    if (documentModelId == null) {
+        // caseMain 不存在，直接取首个启用的 chat 模型
+        const firstChat = await prismaClient.models.findFirst({
+            where: {
+                status: 1,
+                modelType: 'chat',
+                NOT: [{ name: { contains: 'reasoner' } }, { name: { contains: '-r1' } }],
+            },
+            orderBy: { id: 'asc' },
+        })
+        if (!firstChat) {
+            throw new Error('[seed] 无可用 chat 模型，请先在 models 表添加支持 tool_choice 的模型后再执行 documentMain seed')
+        }
+        documentModelId = firstChat.id
+        console.warn(
+            `[seed] caseMain 不存在，documentMain 使用首个可用 chat 模型: ${firstChat.name} (id=${firstChat.id})`,
+        )
+    } else {
+        // caseMain 存在，校验其模型是否为 reasoner 类型
+        const caseMainModel = await prismaClient.models.findUnique({ where: { id: documentModelId } })
+        const isReasoner = caseMainModel?.name?.toLowerCase().includes('reasoner') || caseMainModel?.name?.toLowerCase().includes('-r1')
+        if (isReasoner) {
+            console.warn(
+                `[seed] documentMain 不能用 reasoner 模型（${caseMainModel?.name}），退回首个非 reasoner chat 模型`,
+            )
+            const nonReasoner = await prismaClient.models.findFirst({
+                where: {
+                    status: 1,
+                    modelType: 'chat',
+                    NOT: [{ name: { contains: 'reasoner' } }, { name: { contains: '-r1' } }],
+                },
+                orderBy: { id: 'asc' },
+            })
+            if (!nonReasoner) {
+                throw new Error('[seed] 无可用非 reasoner chat 模型，documentMain seed 无法执行')
+            }
+            console.warn(`[seed] documentMain 将使用模型: ${nonReasoner.name} (id=${nonReasoner.id})`)
+            documentModelId = nonReasoner.id
+        }
+    }
+
+    // 2. upsert documentMain 节点（已存在则保留配置，不覆盖人工修订）
+    const node = await prismaClient.nodes.upsert({
+        where: { name: 'documentMain' },
+        update: {},
+        create: {
+            name: 'documentMain',
+            title: '文书生成主Agent',
+            description: '按模板占位符填充生成文书',
+            type: 'agent',
+            priority: 30,
+            modelId: documentModelId,
+            tools: ['search_case_materials', 'search_law'],
+            status: 1,
+        },
+    })
+
+    // 3. 提示词 v1（find-then-create 保证幂等；已存在则不覆盖内容）
+    const systemPromptContent = `你是 LexSeek 的文书生成助手，负责按模板占位符逐一填充法律文书内容。
+
+# 当前模板
+
+模板名称：{{templateName}}
+模板分类：{{templateCategory}}
+
+# 可用工具
+
+- search_case_materials：检索用户已上传的案件材料，获取当事人信息、事实经过、金额明细等
+- search_law：查询相关法律条文，为文书引用提供依据
+
+# 工作流程
+
+1. 调用 search_case_materials 检索案件材料，逐一推断每个占位符的值
+2. 如需引用法条，调用 search_law 获取准确条文
+3. 对无法从材料中推断的占位符，返回 null（严禁编造）
+4. 在 suggestions 中为每个字段说明填充依据或无法推断的原因
+
+# 输出格式
+
+必须返回以下标准 JSON，不得包含额外文字：
+
+\`\`\`json
+{
+  "values": {
+    "占位符名称": "填充内容或 null"
+  },
+  "suggestions": {
+    "占位符名称": "填充依据说明"
+  }
+}
+\`\`\`
+
+# 约束
+
+- 所有涉及姓名、金额、日期的值必须来自材料或法条，来源不明的一律返回 null
+- 不替用户做最终法律判断，只提供基于材料的客观填充
+- 使用简体中文，法律术语准确规范`
+
+    const existing = await prismaClient.prompts.findFirst({
+        where: { nodeId: node.id, type: 'system', version: 'v1', deletedAt: null },
+    })
+    if (!existing) {
+        await prismaClient.prompts.create({
+            data: {
+                name: 'documentMain_system',
+                title: '文书生成主Agent系统提示词 v1',
+                content: systemPromptContent,
+                variables: ['templateName', 'templateCategory'],
+                version: 'v1',
+                type: 'system',
+                status: 1,
+                nodeId: node.id,
+            },
+        })
+    }
+
+    console.log('[seed] documentMain 节点 + 提示词 v1 完成')
+}
+
+/**
+ * Seed: document_draft_token 积分消耗规则
+ *
+ * 参考 assistant_token / case_analysis_token 的字段结构（group=agentToken, unit=千tokens）。
+ * 积分单价与 discount 由运营后续调整，此处只保证运行时有可用规则。
+ */
+async function seedDocumentDraftTokenRule(prismaClient: PrismaClient): Promise<void> {
+    // 优先参考 assistant_token，其次 case_analysis_token，都不存在时使用默认值
+    const reference =
+        (await prismaClient.pointConsumptionItems.findUnique({ where: { key: 'assistant_token' } })) ??
+        (await prismaClient.pointConsumptionItems.findUnique({ where: { key: 'case_analysis_token' } }))
+
+    const pointAmount = reference?.pointAmount ?? 1
+    const discount = reference?.discount ?? 1
+    const unit = reference?.unit ?? '千tokens'
+    const group = reference?.group ?? 'agentToken'
+
+    await prismaClient.pointConsumptionItems.upsert({
+        where: { key: 'document_draft_token' },
+        update: {},
+        create: {
+            key: 'document_draft_token',
+            group,
+            name: '文书生成 token 计费',
+            description: '文书生成按模型 token 用量扣减积分',
+            unit,
+            pointAmount,
+            discount,
+            status: 1,
+        },
+    })
+
+    console.log('[seed] document_draft_token 积分规则完成')
+}
+
+/**
  * 让位：把 seedData.sql 中原 sort ∈ [5, 9] 的 dashboard 顶级菜单整体下移 2 格，
  * 为法律助手三条菜单（sort=4/5/6）腾出位置。
  *
@@ -495,6 +666,8 @@ async function main(): Promise<void> {
     await seedAssistantTokenRule(prisma)
     await seedAssistantRouters(prisma)
     await seedDocumentTemplates(prisma)
+    await seedDocumentMainNode(prisma)
+    await seedDocumentDraftTokenRule(prisma)
 }
 
 main()
