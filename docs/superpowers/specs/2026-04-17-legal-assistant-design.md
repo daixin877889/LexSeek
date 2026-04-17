@@ -1299,7 +1299,7 @@ Step 4: 导出 .docx
 
 - 用户在 `/dashboard/assistant/document/templates` 上传
 - **配额限制**：按当前用户已存在的 `documentTemplates` 行数（`scope='user' AND userId=X AND deletedAt IS NULL`）做 COUNT 查询，超过阈值拒绝上传
-- 阈值具体数值与是否区分会员等级为开放问题（见 §11 #4）；第三期实施前再确定
+- 阈值具体数值与是否区分会员等级为开放问题（见 §11 #3）；第三期实施前再确定
 - 本 spec **不新增** benefit 体系配额字段（遵守 §4.5 原则）
 - scope='user', userId=当前用户
 
@@ -1717,7 +1717,7 @@ bun add fast-xml-parser diff-match-patch docx-preview
 # mammoth、jszip 已存在
 ```
 
-**前置验证**：`server/services/files/files.service.ts` 的 OSS 上传能力是否支持无 caseId 场景（见 §11 #8）；若不支持，需在本期先扩展。
+**前置验证**：`server/services/files/files.service.ts` 的 OSS 上传能力是否支持无 caseId 场景（见 §11 #4）；若不支持，需在本期先扩展。
 
 **交付清单**：
 1. 数据模型
@@ -1850,7 +1850,7 @@ bun add pizzip docxtemplater
 
 - 软删 `case_sessions` 仅标 `deletedAt`；LangGraph checkpointer（`checkpoint` 表，`thread_id=sessionId`）中的状态**不会自动清理**
 - 影响：assistant 用户频繁新建/删除对话，checkpoint 表会持续增长
-- 缓解（留作运维后续跟进，见 §11 #7）：同步删除 / cron 清理
+- 缓解（留作运维后续跟进，见 §11 #5）：同步删除 / cron 清理
 
 ### 10.9 文书模板占位符跨 run 切分的风险
 
