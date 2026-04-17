@@ -17,7 +17,6 @@ import {
     PencilIcon,
     CheckIcon,
     XIcon,
-    MessageSquareIcon,
 } from 'lucide-vue-next'
 import type {
     AssistantSession,
@@ -118,12 +117,8 @@ defineExpose({ refresh: loadSessions, createSession })
 
 <template>
     <div class="flex h-full flex-col bg-muted/30 border-r border-border/60">
-        <!-- 头部：标题 + 新对话按钮（幽灵按钮 + 图标前缀） -->
-        <div class="px-3 pt-3 pb-2 space-y-2">
-            <div class="flex items-center gap-2 px-1 text-xs font-medium text-muted-foreground">
-                <MessageSquareIcon class="size-3.5" />
-                <span>我的对话</span>
-            </div>
+        <!-- 新对话按钮：outline 风格，与列表项区分 -->
+        <div class="px-2 pt-3 pb-2">
             <Button
                 variant="outline"
                 size="sm"

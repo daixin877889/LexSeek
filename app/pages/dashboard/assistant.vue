@@ -35,9 +35,22 @@ watch(sessionId, (sid) => {
 })
 
 /** 空状态"开始新对话"按钮：委托侧栏组件创建新会话 */
-const sessionListRef = ref<{ createSession: () => Promise<void> } | null>(null)
+const sessionListRef = ref<{
+    createSession: () => Promise<void>
+    refresh: () => Promise<void>
+} | null>(null)
 function startNewConversation() {
     sessionListRef.value?.createSession()
+}
+
+/**
+ * run 完成后触发：worker 会在首轮对话完成后异步生成标题（spec §5.6.1），
+ * 一般 ~1-2s 内落库。延迟 2.5s 再刷新侧栏列表以拿到新标题。
+ */
+function handleRunComplete() {
+    setTimeout(() => {
+        sessionListRef.value?.refresh()
+    }, 2500)
 }
 </script>
 
@@ -85,6 +98,7 @@ function startNewConversation() {
                 :key="sessionId"
                 :session-id="sessionId"
                 class="flex-1 min-h-0"
+                @run-complete="handleRunComplete"
             />
         </div>
     </div>

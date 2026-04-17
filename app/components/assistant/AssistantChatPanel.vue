@@ -20,6 +20,15 @@ const props = defineProps<{
   sessionId: string
 }>()
 
+/**
+ * run 完成时触发：
+ * - worker 会在首条对话完成后异步生成 ≤20 字标题（spec §5.6.1），
+ * - 父页可据此刷新侧栏列表把"未命名对话"替换为生成后的标题。
+ */
+const emit = defineEmits<{
+  'run-complete': []
+}>()
+
 // 基于固定 sessionId 构建 stream；作为 ref 只是为了满足 composable 签名。
 const sessionIdRef = ref<string | null>(props.sessionId)
 
@@ -43,12 +52,16 @@ const isStopping = ref(false)
 
 // 失败重试按钮
 const showRetryButton = ref(false)
-watch(runStatus, (status) => {
+watch(runStatus, (status, prev) => {
   if (status === 'failed') {
     toast.error(`执行失败：${runError.value || '未知错误'}`)
     showRetryButton.value = true
   } else {
     showRetryButton.value = false
+  }
+  // 首轮对话完成后 worker 会异步生成标题；向父页抛事件触发侧栏刷新
+  if (status === 'completed' && prev !== 'completed') {
+    emit('run-complete')
   }
 })
 
