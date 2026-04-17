@@ -10,6 +10,11 @@
  *
  * 运行：`bun prisma db seed`
  */
+import fs from 'node:fs'
+import path from 'node:path'
+// @ts-ignore
+import OSS from 'ali-oss'
+import mammoth from 'mammoth'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../generated/prisma/client'
 
@@ -370,11 +375,143 @@ async function seedAssistantRouters(prismaClient: PrismaClient): Promise<void> {
     )
 }
 
+/** 文书模板名称 → 分类映射 */
+const TEMPLATE_CATEGORY_MAP: Record<string, string> = {
+    '民间借贷起诉状': 'litigation',
+    '民事答辩状': 'litigation',
+    '委托代理合同': 'general',
+    '律师函': 'general',
+    '民事调解协议': 'arbitration',
+}
+
+/** 从 .docx Buffer 提取 {{占位符}} 列表（中英文混合命名） */
+async function extractPlaceholders(buf: Buffer): Promise<{ name: string; firstContext: string }[]> {
+    const { value: rawText } = await mammoth.extractRawText({ buffer: buf })
+    const re = /\{\{([\u4e00-\u9fa5\w]+)\}\}/g
+    const map = new Map<string, string>()
+    let match: RegExpExecArray | null
+    while ((match = re.exec(rawText)) !== null) {
+        const name = match[1]
+        if (!map.has(name)) {
+            const lineStart = rawText.lastIndexOf('\n', match.index) + 1
+            const lineEnd = rawText.indexOf('\n', match.index + match[0].length)
+            const ctx = rawText.slice(lineStart, lineEnd === -1 ? undefined : lineEnd)
+            map.set(name, ctx)
+        }
+    }
+    return [...map.entries()].map(([name, firstContext]) => ({ name, firstContext }))
+}
+
+/**
+ * Seed: 5 个样本文书模板
+ *
+ * - 从 prisma/seeds/document-templates/*.docx 读取文件
+ * - 扫描占位符，上传至 OSS，写入 document_templates 表
+ * - 幂等：name + scope='global' 已存在则跳过
+ * - ossFiles.userId 使用数据库第一个用户（seed 环境无系统用户）
+ * - OSS 配置直接从环境变量读取（seed 不在 Nuxt 运行时，无法用 useRuntimeConfig）
+ */
+async function seedDocumentTemplates(prismaClient: PrismaClient): Promise<void> {
+    const dir = path.join(process.cwd(), 'prisma/seeds/document-templates')
+    if (!fs.existsSync(dir)) {
+        console.log('[seed] document-templates 目录不存在，跳过')
+        return
+    }
+
+    // 从环境变量读取 OSS 配置（与 nuxt.config.ts 中 NUXT_STORAGE_ALIYUN_OSS_* 对应）
+    const ossAccessKeyId = process.env.NUXT_STORAGE_ALIYUN_OSS_ACCESS_KEY_ID ?? ''
+    const ossAccessKeySecret = process.env.NUXT_STORAGE_ALIYUN_OSS_ACCESS_KEY_SECRET ?? ''
+    const ossBucket = process.env.NUXT_STORAGE_ALIYUN_OSS_BUCKET ?? ''
+    const ossRegion = process.env.NUXT_STORAGE_ALIYUN_OSS_REGION ?? ''
+    if (!ossAccessKeyId || !ossBucket) {
+        throw new Error(
+            '[seed] 缺少 OSS 环境变量（NUXT_STORAGE_ALIYUN_OSS_ACCESS_KEY_ID / BUCKET 等），无法上传模板文件',
+        )
+    }
+    // 直接使用 ali-oss 客户端，避免引入 server/lib/oss（依赖 Nuxt 路径别名）
+    const ossClient = new OSS({
+        accessKeyId: ossAccessKeyId,
+        accessKeySecret: ossAccessKeySecret,
+        bucket: ossBucket,
+        region: ossRegion,
+    })
+
+    // 取第一个用户作为 ossFiles.userId（ossFiles.userId 是 NOT NULL 字段，全局模板不属于任何用户但表字段必填）
+    const firstUser = await prismaClient.users.findFirst({ select: { id: true } })
+    if (!firstUser) {
+        throw new Error('[seed] 数据库无用户记录，请先创建至少一个用户后再运行 seed')
+    }
+    const systemUserId = firstUser.id
+
+    const files = fs.readdirSync(dir).filter((f) => f.endsWith('.docx'))
+    for (const file of files) {
+        const name = path.basename(file, '.docx')
+        const category = TEMPLATE_CATEGORY_MAP[name]
+        if (!category) {
+            console.warn(`[seed] 样本模板 ${name} 未映射到 category，跳过`)
+            continue
+        }
+
+        // 幂等：已存在则跳过
+        const existing = await prismaClient.documentTemplates.findFirst({
+            where: { name, scope: 'global', deletedAt: null },
+        })
+        if (existing) {
+            continue
+        }
+
+        const buffer = fs.readFileSync(path.join(dir, file))
+        const placeholders = await extractPlaceholders(buffer)
+        if (placeholders.length === 0) {
+            throw new Error(`[seed] 样本模板 ${file} 无占位符，请检查模板内容`)
+        }
+
+        // 上传至 OSS（路径带时间戳保证唯一）
+        const ossPath = `seed-templates/${Date.now()}_${file}`
+        await ossClient.put(ossPath, buffer, {
+            mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        })
+
+        // 写 oss_files 记录（userId 用系统用户，scope=global 模板不属于个人）
+        const ossFile = await prismaClient.ossFiles.create({
+            data: {
+                userId: systemUserId,
+                bucketName: ossBucket,
+                fileName: file,
+                filePath: ossPath,
+                fileSize: buffer.length,
+                fileType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                source: 'document_template',
+                status: 1,
+                encrypted: false,
+            },
+        })
+
+        // 写 document_templates 记录
+        await prismaClient.documentTemplates.create({
+            data: {
+                name,
+                category,
+                scope: 'global',
+                userId: null,
+                ossFileId: ossFile.id,
+                placeholders: placeholders as any,
+                description: `系统预置：${name}`,
+                priority: 100,
+                status: 1,
+            },
+        })
+
+        console.log(`[seed] 文书模板写入：${name}（${placeholders.length} 个占位符）`)
+    }
+}
+
 async function main(): Promise<void> {
     await seedAssistantMainNode(prisma)
     await seedAssistantTitleGenNode(prisma)
     await seedAssistantTokenRule(prisma)
     await seedAssistantRouters(prisma)
+    await seedDocumentTemplates(prisma)
 }
 
 main()
