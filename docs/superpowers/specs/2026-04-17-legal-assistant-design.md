@@ -218,8 +218,6 @@ model agentRuns {
     sessionId   String    @map("session_id")
     threadId    String    @map("thread_id")
     userId      Int       @map("user_id")
-    /// 归属域：case / assistant
-    scope       String    @default("case") @db.VarChar(20)
     /// 关联的案件ID（scope=assistant 时为空）
     caseId      Int?      @map("case_id")
     input       Json
@@ -236,15 +234,11 @@ model agentRuns {
     @@index([status, createdAt], map: "idx_agent_runs_status_created_at")
     @@index([sessionId, createdAt], map: "idx_agent_runs_session_id_created_at")
     @@index([userId], map: "idx_agent_runs_user_id")
-    @@index([scope], map: "idx_agent_runs_scope")
     @@map("agent_runs")
 }
 ```
 
-**变更清单**：
-- `caseId` 从 `Int` 改为 `Int?`
-- 新增字段：`scope`
-- 新增索引：`idx_agent_runs_scope`
+**变更清单**：`caseId` 从 `Int` 改为 `Int?`。**不新增 scope 字段**——scope 语义完全由关联的 `caseSessions` 承载，agentWorker 也是通过 session 分流（§5.2），无消费者读 `run.scope`，冗余字段会带来维护成本与不一致风险。
 
 ### 4.4 第一期 · `nodes` 表数据扩展（不改 schema）
 
@@ -436,83 +430,53 @@ export async function createSessionDAO(input: z.infer<typeof CreateSessionSchema
 
 agentRuns 的 DAO 同理。
 
-### 4.11 存量数据回填与代码兼容清单
+### 4.11 代码兼容清单
 
-第一期 migration 应用后，必须与 migration 同 PR **一并完成**以下代码改造（否则项目编译或运行会崩）。
+第一期 migration 应用后，**必须与 migration 同 PR 完成**以下代码改造（否则项目编译或运行会崩）。
 
-#### 4.11.1 独立 seed 脚本 `scripts/backfillSessionUserId.ts`
+核心思路：**存量 case 域代码行为完全不变**。`caseSessions.userId` 字段对 case 域可以保持 NULL，鉴权回退到 `session.case.userId`；只有 assistant 域新代码必须写 userId（因为没有 case 可回退）。这一选择把对现有代码的侵入面降到最小。
 
-```typescript
-// 运行：bun run scripts/backfillSessionUserId.ts
-import { prisma } from '~~/server/utils/prisma'
+#### 4.11.1 `session.case.xxx` 访问点改造（必改）
 
-async function main() {
-    const result = await prisma.$executeRaw`
-        UPDATE case_sessions cs
-           SET user_id = c.user_id
-          FROM cases c
-         WHERE cs.case_id = c.id
-           AND cs.user_id IS NULL
-           AND cs.deleted_at IS NULL
-    `
-    console.log(`回填完成：${result} 行`)
-}
-main().finally(() => prisma.$disconnect())
-```
-
-migration 不含 DML；部署流程：migration 应用后运维**执行一次**脚本；删库重建时（全新环境）空跑无副作用。
-
-#### 4.11.2 **session.case.xxx 访问点改造清单**（必改）
-
-`caseId` 放宽为 `Int?` 后，Prisma 生成类型 `session.case: cases | null`。以下所有访问点若直接 `.case.xxx` 会编译失败或运行时 NPE。改造方案如下：
+`caseSessions.caseId` 放宽为 `Int?` 后，Prisma 生成类型 `session.case: cases | null`，直接 `.case.xxx` 访问会编译失败或运行时 NPE。
 
 | 文件:行 | 现状 | 改造 |
 |---|---|---|
 | `server/services/case/session.dao.ts:152-159` `findSessionWithOwnershipCheck` | `session.case.userId !== userId` | `const ownerId = session.userId ?? session.case?.userId; if (ownerId == null \|\| ownerId !== userId) ...` |
-| `server/services/case/case.dao.ts:findCaseBySessionIdDao` ~line 151 | `if (!session \|\| session.case.deletedAt)` | 先加 scope 守卫：`if (!session \|\| session.scope !== 'case' \|\| !session.case \|\| session.case.deletedAt)` 返回 null |
-| `server/api/v1/case/analysis/xiaosuo-session/[sessionId].delete.ts:19` | `if (session.case.userId !== user.id)` | 小索子本身只存在于 case 域，先 assert `session.scope === 'case'` + `session.case != null`，再继续原逻辑 |
+| `server/services/case/case.dao.ts:findCaseBySessionIdDao` ~line 151 | `if (!session \|\| session.case.deletedAt)` | `if (!session \|\| !session.case \|\| session.case.deletedAt) return null`（遇到 assistant session 返回 null，caller 职责是不调此 DAO） |
+| `server/api/v1/case/analysis/xiaosuo-session/[sessionId].delete.ts:19` | `if (session.case.userId !== user.id)` | 小索子只存在于 case 域；加 `if (session.case == null) return resError(404, 'session 不存在')` + 保留原鉴权 |
 
-**方法论**：实施时先 `grep -rn "session\.case\." server/` 穷举所有访问点，每一处都需要明确处理 `session.case === null`（scope=assistant）情况。
+**实施时 grep 穷举**：`grep -rn "session\.case\." server/ app/` 检查所有访问点，每一处都需要处理 `null` 情况（TS 会在编译时报错帮助发现）。
 
-#### 4.11.3 **新写入路径 userId 双写清单**（必改）
+#### 4.11.2 新写入路径只对 assistant 域必改
 
-存量回填只解决**存量**数据。新写入 session 的代码路径若不写 userId，会让 `session.userId` 对新记录也是 NULL，导致 §4.11.2 中 `ownerId` 回退依赖 `session.case?.userId`，丧失 assistant scope 支持。改造：
+- 新建 `server/services/assistant/assistantSession.dao.ts`：写入时**必须**设置 `scope='assistant', userId=<current>, caseId=null, type=1`；Zod 前置校验（§4.10）
+- **case 域的 createSession 路径不必改**（`session.dao.ts:137` 与 `case.dao.ts:74` 仍可保留 userId 不写入），因为 §4.11.1 的鉴权回退已覆盖
 
-| 文件:行 | 现状 | 改造 |
-|---|---|---|
-| `server/services/case/session.dao.ts:137` `createSession`（分析 V2 会话创建） | `data: { sessionId, caseId, type, metadata }` | `data: { sessionId, caseId, scope: 'case', userId, type, metadata }`；Service 调用方必须传入 userId |
-| `server/services/case/case.dao.ts:74-82` `createSessionDao`（小索子/普通对话会话创建） | 同上未写 userId | 同上，加 `scope: 'case'` + `userId` |
-| 新增 `server/services/assistant/assistantSession.dao.ts` | （新文件） | `data: { sessionId, scope: 'assistant', userId, caseId: null, title, ... }` + Zod 校验 |
-
-#### 4.11.4 **agentRun 入队签名改造**（必改）
-
-现有 `enqueueRunService` 与 `createAgentRunDAO` 的 `caseId` 为必填 `number`，且无 `scope` 字段。放宽 schema 后仍按原签名传 `caseId: number` 会让 Prisma 因接收 null 或 undefined 而报错。改造：
+#### 4.11.3 `agentRun` 入队签名改造（必改）
 
 | 文件:行 | 现状 | 改造 |
 |---|---|---|
-| `server/services/agent/agentRun.service.ts:21-26` `EnqueueRunParams` | `caseId: number` | `caseId: number \| null` + 新增 `scope: 'case' \| 'assistant'`（默认 `'case'`） |
-| `server/services/agent/agentRun.service.ts:41` `enqueueRunService` | 透传 params 到 DAO | 同步扩展字段 |
-| `server/services/agent/agentRun.dao.ts:16-26` `CreateAgentRunParams` | `caseId: number` | `caseId: number \| null` + `scope: 'case' \| 'assistant'` |
-| `server/services/agent/agentRun.dao.ts:createAgentRunDAO` | `data: { ..., caseId: data.caseId }` | 同步扩展到 Prisma create data |
-| `server/api/v1/case/analysis/chat.post.ts:160-164` / `193-199` 入队调用点 | 传 `caseId: caseInfo.id` | 显式传 `scope: 'case'` + `caseId` |
+| `agentRun.service.ts:21-26` `EnqueueRunParams` | `caseId: number` | `caseId: number \| null` |
+| `agentRun.dao.ts:16-26` `CreateAgentRunParams` | `caseId: number` | `caseId: number \| null` |
+| `agentRun.dao.ts:createAgentRunDAO` | `data: { ..., caseId: data.caseId }` | 同步扩展（Prisma 接受 null 对应可空列） |
+| `chat.post.ts:160-164` / `193-199` 入队调用 | 传 `caseId: caseInfo.id` | 不变（case 域本来就有 caseId） |
 
-新入口 `/api/v1/assistant/chat.post.ts` 与 `/api/v1/assistant/contract/reviews/[id]/stance.post.ts` 均以 `scope: 'assistant', caseId: <caseId | null>` 调用。
+新入口 `/api/v1/assistant/chat.post.ts` 与 `/api/v1/assistant/contract/reviews/[id]/stance.post.ts` 传 `caseId: <caseId | null>`。
 
-#### 4.11.5 **积分规则 seed 与代码同 PR**（必改）
+#### 4.11.4 积分规则 seed 与代码同 PR（硬阻塞）
 
-`pointConsumptionMiddleware` 的 `beforeAgent` 会调 `getConsumptionItemByKeyService(itemKey)`；若 `pointConsumptionRules` 表里没有 `assistant_token` 这条规则，会话一启动就抛错、run 直接 failed。
+`pointConsumptionMiddleware` 的 `beforeAgent` 会调 `getConsumptionItemByKeyService(itemKey)`；`pointConsumptionRules` 表若无 `assistant_token` 规则，会话启动即抛错。
 
-**硬阻塞要求**：
-- 第一期 PR 必须包含 `prisma/seed.ts` 或独立 seed 脚本，插入 `itemKey='assistant_token'` 的规则行（单价占位 0，发布前由运营通过 admin 后台修正）
-- 新入口 `/api/v1/assistant/chat.post.ts` 的 `checkPointsService` 调用必须 try/catch，捕获"规则不存在"错误时返回 `resError(500, '积分计费规则未就绪，请联系管理员')`，而非让裸异常上浮
+**硬阻塞要求**：第一期 PR 必须包含 seed 脚本（或 admin 后台操作），插入 `itemKey='assistant_token'` 规则行（单价占位由运营设定）。发布前由 CI 检查 `SELECT COUNT(*) FROM point_consumption_rules WHERE item_key='assistant_token' = 1`。
 
-#### 4.11.6 迁移验证步骤
+代码层不加 try/catch 兜底——异常由 Nitro 默认 error handler 捕获并返回 500，触发运维告警，让 incident 可见（吞成友好错误反而会掩盖部署事故）。
+
+#### 4.11.5 迁移验证步骤
 
 1. `bun run prisma:migrate dev --name add_assistant_scope_to_sessions_and_runs`
-2. `prisma migrate diff --from-url $DATABASE_URL --to-schema-datamodel prisma/schema.prisma --script` 预览 SQL，确认仅 ALTER
-3. 部署预发：执行 `bun run scripts/backfillSessionUserId.ts`
-4. 验证：`SELECT COUNT(*) FROM case_sessions WHERE user_id IS NULL AND scope='case' AND deleted_at IS NULL` 应为 0
-5. 验证：`SELECT COUNT(*) FROM point_consumption_rules WHERE item_key='assistant_token'` 应 ≥ 1
+2. `prisma migrate diff` 预览 SQL，确认仅有期望的 ALTER
+3. 验证 seed：`SELECT COUNT(*) FROM point_consumption_rules WHERE item_key='assistant_token'` 应 ≥ 1
 
 ---
 
@@ -544,22 +508,33 @@ server/
 
 ### 5.2 agentWorker 改造
 
-现状：`agentWorker.ts:executeRun` 按 `session.type` 路由到 `caseMainAgent` / `caseAnalysisV2` / `moduleAgent`，各分支**直接传 `run.caseId`**（类型 number）。
+现状（`server/services/agent/agentWorker.ts:138-141`）：
+```typescript
+const session = await prisma.caseSessions.findUnique({
+    where: { sessionId: run.sessionId },
+    select: { type: true, metadata: true },
+})
+```
+按 `session.type` 路由到 `caseMainAgent` / `caseAnalysisV2` / `moduleAgent`，各分支**直接传 `run.caseId`**（类型 number）。
 
 改造要点：
-1. 先按 scope 分流；assistant 分支调 `runAssistantChat`，**不传** caseId
-2. case 分支在传递 caseId 之前**显式断言非空**（而非 non-null `!`），以便在存量数据异常时抛出清晰错误而非裸 NPE
+1. **扩展 select 字段**：从 `{ type, metadata }` 改为 `{ scope: true, type: true, metadata: true, userId: true, caseId: true }`（否则 scope 读不到，assistant 分支永远进不去——这是静默路由错误的高风险点）
+2. 先按 scope 分流；assistant 分支调 `runAssistantChat`，**不传** caseId
+3. case 分支在传递 caseId 之前**显式断言非空**（而非 non-null `!`），以便在数据异常时抛出清晰错误而非裸 NPE
 
 ```typescript
 // server/services/agent/agentWorker.ts  改造后伪代码
-const session = await getSessionDAO(sessionId)
-if (!session) throw new Error(`session ${sessionId} not found`)
+const session = await prisma.caseSessions.findUnique({
+    where: { sessionId: run.sessionId },
+    select: { scope: true, type: true, metadata: true, userId: true, caseId: true },
+})
+if (!session) throw new Error(`session ${run.sessionId} not found`)
 
 if (session.scope === 'assistant') {
     if (session.userId == null) {
-        throw new Error(`assistant session ${sessionId} 缺失 userId（数据损坏）`)
+        throw new Error(`assistant session ${run.sessionId} 缺失 userId（数据损坏）`)
     }
-    return runAssistantChat(sessionId, message, {
+    return runAssistantChat(run.sessionId, message, {
         userId: session.userId,
         command,
         signal,
@@ -567,20 +542,19 @@ if (session.scope === 'assistant') {
     })
 }
 
-// case 域分支：caseId 必须存在（由 scope='case' 的 Zod 校验 + CHECK 语义保证）
+// case 域分支：caseId 必须存在
 if (session.caseId == null) {
-    throw new Error(`case session ${sessionId} 缺失 caseId（scope 与 caseId 不一致，数据损坏）`)
+    throw new Error(`case session ${run.sessionId} 缺失 caseId（scope 与 caseId 不一致，数据损坏）`)
 }
-const caseId = session.caseId  // 此处之后 TS 收窄为 number
-
+const caseId = session.caseId  // TS 收窄为 number
 switch (session.type) {
-    case 1: return runCaseChat(sessionId, message, { userId: run.userId, caseId, signal, command })
+    case 1: return runCaseChat(run.sessionId, message, { userId: run.userId, caseId, signal, command })
     case 2: return runCaseAnalysisV2(...)
     case 3: return runModuleChat(...)
 }
 ```
 
-同时 `run.caseId`（`agentRuns` 表的）也在入队时放宽为可空（§4.11.4），worker 读取时同样做 null 断言。
+注：`run.caseId` 同样放宽为 `Int?`（§4.3），但 agentWorker 读取时优先用 `session.caseId`，不依赖 run 级冗余。
 
 ### 5.3 `assistantAgent.ts` 核心实现
 
@@ -722,25 +696,17 @@ export async function getAssistantThreadState(sessionId: string) {
 ```typescript
 import { checkPointsService } from '~~/server/services/point/pointConsumption.service'
 
-try {
-    const check = await checkPointsService(userId, 'assistant_token', 1)
-    if (!check.sufficient) {
-        return resError(event, 402, `积分不足（可用 ${check.available}）`)
-    }
-}
-catch (err) {
-    // getConsumptionItemByKeyService 在 itemKey 未 seed 时会抛错
-    // 详见 §4.11.5 的 pointConsumptionRules 硬阻塞要求
-    logger.error('积分规则校验失败', { itemKey: 'assistant_token', err })
-    return resError(event, 500, '积分计费规则未就绪，请联系管理员')
+const check = await checkPointsService(userId, 'assistant_token', 1)
+if (!check.sufficient) {
+    return resError(event, 402, `积分不足（可用 ${check.available}）`)
 }
 ```
 
 `PointCheckResult` 实际字段：`{ sufficient: boolean, required: number, available: number }`（见 `server/services/point/pointConsumption.service.ts:28`）。
 
-**运行时计费**：通过 `pointConsumptionMiddleware(userId, 'assistant_token', sessionId)` 在 `afterModel` 钩子按 token 扣减，与 `case_analysis_token` 走同一套扣减代码路径，只是 `itemKey` 不同。无需新建中间件。
+**不做 try/catch 兜底**：§4.11.4 已将 seed 与代码同 PR 作为硬阻塞条件；若真遇到 `assistant_token` 规则缺失，`checkPointsService` 的错误应正常抛出、由 Nitro 默认 error handler 返回 500 并触发运维告警（避免吞成友好错误掩盖部署事故）。
 
-**先决条件**：需在 `pointConsumptionRules` 表新增一条 `itemKey='assistant_token'` 的单价记录，数值由运营提供（见 §11 开放问题 #2）。
+**运行时计费**：通过 `pointConsumptionMiddleware(userId, 'assistant_token', sessionId)` 在 `afterModel` 钩子按 token 扣减，与 `case_analysis_token` 走同一套扣减代码路径，只是 `itemKey` 不同。无需新建中间件。
 
 ### 5.6 API 契约
 
@@ -783,7 +749,9 @@ DELETE /api/v1/assistant/sessions/:id
 Response: { success: true }
 ```
 
-删除：软删（`deletedAt = now()`）。
+**实现独立于 case 域**：assistant 会话的 rename/softDelete **不复用** `session.dao.ts:renameSessionDAO` / `softDeleteSessionDAO`（后者依赖 `allowedTypes` 参数与 case 语义耦合）。`assistantSession.dao.ts` 自建 rename / softDelete 方法，仅校验 `scope='assistant'` + `userId`。
+
+删除：软删（`deletedAt = now()`）。checkpoint 残留策略见 §10.8。
 
 #### 5.6.4 发送消息（SSE）
 
@@ -806,9 +774,9 @@ Response: text/event-stream（复用现有 SSE 协议）
 
 具体步骤：
 1. 鉴权 + scope 校验（`sessionId` 必须 scope=assistant 且归属当前用户，走 `findSessionWithOwnershipCheck`）
-2. 积分门控：`checkPointsService(userId, 'assistant_token', 1)`；若规则不存在 → `resError(500, '积分计费规则未就绪')`
+2. 积分门控：`checkPointsService(userId, 'assistant_token', 1)`；错误不做友好兜底（§5.5）
 3. 并发保护：继承现有 `agentRuns` 的 partial unique index（`sessionId + status IN (pending, running)`）+ P2002 错误 catch 作为竞态兜底，避免双写
-4. 按上表分支调用 `enqueueRunService`，`scope='assistant'`；`caseId` 默认为 null（独立对话场景），合同审查/文书生成在案件页复用时**允许**携带 caseId 以便关联查询（此时 session 仍 scope=assistant）
+4. 按上表分支调用 `enqueueRunService`；`caseId` 默认为 null（独立对话场景），合同审查/文书生成在案件页复用时**允许**携带 caseId 以便关联查询（session 仍 scope=assistant）
 5. 返回 SSE stream（与 case 域完全一致的协议）
 
 **测试用例必含**：每种分支各一条集成测试；并发双发同一 sessionId 只能有一个入队成功。
@@ -1007,13 +975,12 @@ export default defineEventHandler(async (event) => {
         return resSuccess(event, '立场已提交（状态：' + review.status + '）', { reviewId })
     }
 
-    // 复用 §4.11.4 改造后的 enqueueRunService（支持 scope + 可空 caseId）
+    // 复用 §4.11.3 改造后的 enqueueRunService（caseId 可空）
     // runAssistantChat 内部会将 input.command 转为 Command({ resume: command })
     const result = await enqueueRunService({
         sessionId: review.sessionId,
         threadId: review.sessionId,
         userId: user.id,
-        scope: 'assistant',
         caseId: review.caseId,  // 允许为 null
         input: {
             message: undefined,
@@ -1028,7 +995,7 @@ export default defineEventHandler(async (event) => {
 
 **关键点**：
 1. 函数名是 **`enqueueRunService`**（非 `enqueueAgentRunService`），见 `server/services/agent/agentRun.service.ts:41`
-2. 参数签名按 §4.11.4 扩展后支持 `scope` + `caseId: number | null`
+2. 参数签名按 §4.11.3 扩展后支持 `caseId: number | null`
 3. `runAssistantChat`（§5.3）已实现 `const input = command ? new Command({ resume: command }) : ...`，此处复用
 4. 幂等：review 状态 ≠ awaiting_stance 时直接返回成功（不再入队），避免重复点击引发 P2002
 
@@ -1523,7 +1490,7 @@ GET /api/v1/assistant/document/drafts?page=&pageSize=&caseId=
   }
   ```
 - 用户改表单 → debounce 500ms → 克隆原 DOM 树 → 调 `replacePlaceholders` → 替换到预览容器
-- **注意**：占位符跨 `<w:r>` 切分后 docx-preview 渲染出来的文本节点可能被拆分。若检测到拆分，降级为"后端用 docxtemplater 渲染 → 返回 HTML/base64 预览"；此为降级路径，第三期实施时若发现 UI 不稳定再启用
+- 占位符跨 `<w:r>` 切分的风险已在 §10.9 登记；第三期实施时若 UI 不稳定再决定降级方案
 
 ### 7.11 在案件详情页的复用
 
@@ -1682,47 +1649,37 @@ async function deleteSession(id: string) {
 **前置依赖检查**：本期**无需**安装新 npm 包，全部使用现有依赖。
 
 **交付清单**：
-1. 数据模型
-   - [ ] `caseSessions` 放宽 + 新增字段（Prisma migrate，§4.2）
-   - [ ] `agentRuns` 放宽 + 新增字段（Prisma migrate，§4.3）
-   - [ ] `nodes` 表插入 `assistantMain` + 对应 `prompts` v1（seed 脚本）
-   - [ ] `pointConsumptionRules` 表新增 `assistant_token` 计费键配置（seed 脚本，**硬阻塞** §4.11.5）
-2. 存量数据
-   - [ ] `scripts/backfillSessionUserId.ts` 回填脚本（§4.11.1）
-   - [ ] 部署文档更新：指示运维执行回填脚本
-3. 现有代码兼容改造（§4.11.2 + §4.11.3 + §4.11.4）
+1. 数据模型（`prisma migrate dev` 自动生成）
+   - [ ] `caseSessions`：caseId 可空 + 新增 scope/userId/title + 索引（§4.2）
+   - [ ] `agentRuns`：caseId 可空（§4.3，不新增 scope 字段）
+   - [ ] `nodes` 表 seed `assistantMain` + 对应 `prompts` v1
+   - [ ] `pointConsumptionRules` seed `assistant_token` 计费键（**硬阻塞** §4.11.4）
+2. 现有代码兼容改造（§4.11）
    - [ ] `session.dao.ts:findSessionWithOwnershipCheck` 改为 `session.userId ?? session.case?.userId` 回退
-   - [ ] `case.dao.ts:findCaseBySessionIdDao` 加 scope='case' + `session.case != null` 守卫
-   - [ ] `xiaosuo-session/[sessionId].delete.ts` 加 scope='case' + `session.case != null` 守卫
-   - [ ] `session.dao.ts:createSession` 写入 `scope + userId`（Service 调用方同步传入 userId）
-   - [ ] `case.dao.ts:createSessionDao` 写入 `scope + userId`
-   - [ ] grep 穷举所有 `session.case.` 访问点并各自改造（项目扫描）
-   - [ ] `agentRun.service.ts:EnqueueRunParams` + `agentRun.dao.ts:CreateAgentRunParams`：`caseId: number | null` + 新增 `scope`
-   - [ ] `agentRun.dao.ts:createAgentRunDAO` Prisma data 同步扩展
-   - [ ] `chat.post.ts` 现有入队调用点显式传 `scope: 'case'`
-   - [ ] `agentWorker.ts:executeRun` case 分支 `caseId` null 检查（§5.2）
-4. 新增后端
-   - [ ] `server/services/assistant/assistantSession.service/dao`（含 Zod 校验 scope ↔ caseId 互斥）
+   - [ ] `case.dao.ts:findCaseBySessionIdDao` 加 `session.case` null 守卫
+   - [ ] `xiaosuo-session/[sessionId].delete.ts` 加 `session.case` null 守卫
+   - [ ] grep 穷举 `session.case.` 访问点并各自处理 null（TS 编译帮助发现）
+   - [ ] `agentRun.service.ts:EnqueueRunParams` 与 `agentRun.dao.ts:CreateAgentRunParams`：`caseId: number | null`
+   - [ ] `agentWorker.executeRun`：扩展 session select 字段（scope/userId/caseId）+ 按 scope 分流 + null 断言（§5.2）
+3. 新增后端
+   - [ ] `server/services/assistant/assistantSession.service/dao`（自建 rename/softDelete，不复用 case 域 DAO；Zod 校验 scope + userId + caseId=null）
    - [ ] `server/services/workflow/agents/assistantAgent.ts`
-   - [ ] `agentWorker.executeRun` 按 scope 分流（§5.2）
    - [ ] `/api/v1/assistant/sessions.*`
    - [ ] `/api/v1/assistant/chat`（复用 case chat.post 的 6 分支范式，§5.6.4）
    - [ ] `/api/v1/assistant/runs/cancel/[runId]`
-   - [ ] chat.post 入口对 `checkPointsService` 的 try/catch，规则缺失时 500 而非裸崩
-5. 前端
+4. 前端
    - [ ] `/dashboard/assistant/chat` 页
    - [ ] `AssistantSessionList` 组件
    - [ ] `useAssistantChat` composable
    - [ ] `shared/types/assistant.ts` 新增 `AssistantSession` 类型
-   - [ ] 侧边栏三个菜单项注册（RBAC 路由表；后两个先链到 WIP 占位页）
+   - [ ] 侧边栏三个菜单项注册（后两个先链到 WIP 占位页）
    - [ ] 首条消息后异步生成会话标题
-6. 测试
-   - [ ] `assistantSession` DAO 单测（scope/caseId 互斥校验、userId 必填校验）
-   - [ ] `findSessionWithOwnershipCheck` 单测：case 域 + assistant 域两种 session 都能正确鉴权
-   - [ ] `findCaseBySessionIdDao` 单测：遇到 scope='assistant' 返回 null 不崩
-   - [ ] `enqueueRunService` 单测：scope='assistant' + caseId=null 能正常入队
-   - [ ] `agentWorker.executeRun` 单测：双分支路由 + 损坏数据抛明确错误
-   - [ ] `assistantAgent` 集成测试（SSE 流、工具调用、积分扣减）
+5. 测试
+   - [ ] `assistantSession` DAO 参数化测试：scope/caseId/userId 多组合的 Zod 校验（一条 `it.each` 覆盖）
+   - [ ] `findSessionWithOwnershipCheck` 单测：case 域（`session.case.userId` 回退）+ assistant 域（`session.userId`）两种场景鉴权正确
+   - [ ] `findCaseBySessionIdDao` 遇到 assistant session 返回 null 不崩
+   - [ ] `agentWorker.executeRun` 双分支路由 + 数据异常抛明确错误
+   - [ ] `assistantAgent` 集成测试：SSE 流、工具调用、积分扣减
    - [ ] 端到端：新建会话 → 发消息 → 收流 → 标题生成 → 列表显示 → 刷新页面重连 → 软删
 
 ### 9.2 第二期（合同审查）
@@ -1853,36 +1810,40 @@ bun add pizzip docxtemplater
 
 ### 10.7 中断恢复的一致性
 
-- 合同审查在立场询问处 `interrupt()`，如果用户关闭页面后再进来，应能看到"等待立场"状态
-- **实现**：`contractReviews.status='awaiting_stance'`，前端查询时检测此状态，直接弹立场选择框，提交后通过 `/stance` 端点 → `enqueueRunService` → `runAssistantChat({ command: { stance } })` → `Command({ resume })` 恢复
-- 恢复路径已在 §6.5.1 端到端说明
+- 合同审查在立场询问处 `interrupt()`；用户关闭页面后再进来，通过 `contractReviews.status='awaiting_stance'` 识别并拉起立场选择框
+- 端到端恢复链路详见 §6.5.1（不在此重复）
 
 ### 10.8 Session 软删后 checkpoint 残留
 
 - 软删 `case_sessions` 仅标 `deletedAt`；LangGraph checkpointer（`checkpoint` 表，`thread_id=sessionId`）中的状态**不会自动清理**
-- 影响：assistant 用户频繁新建/删除对话，checkpoint 表会持续增长占用磁盘
-- **缓解方案**（第一期不实现，留作运维后续跟进）：
-  - 方案 A：session 软删时同步调 LangGraph `clear()` 删除对应 thread_id 的 checkpoint（推荐，但需验证 clear API 可用性）
-  - 方案 B：运维按周跑清理 cron，删除 `checkpoint` 中 `thread_id` 对应 session 已 deletedAt 超 30 天的行
-- 纳入 §11 开放问题 #9 供后续决策
+- 影响：assistant 用户频繁新建/删除对话，checkpoint 表会持续增长
+- 缓解（留作运维后续跟进，见 §11 #7）：同步删除 / cron 清理
+
+### 10.9 文书模板占位符跨 run 切分的风险
+
+- Word 可能把 `{{placeholder}}` 切分到多个 `<w:r>` 中，docx-preview 渲染后 DOM 文本节点可能被拆分，前端直接 TreeWalker 替换会漏匹配
+- 后端导出路径不受影响（docxtemplater 自带 run-joining）
+- 第三期实施时若发现预览不稳定，按需补降级方案（此 spec 不提前冻结方案）
 
 ---
 
 ## 11. 开放问题
 
-以下问题不阻塞 spec 定稿，但实施前需要回答：
+以下是**真正需要实施前答复**的问题（已在 spec 中给出默认答案的不再列出）：
 
-| # | 问题 | 预期阶段 |
-|---|---|---|
-| 1 | `assistantMain` 节点的模型选择（是否用更便宜的 Haiku？） | 第一期实施前 |
-| 2 | `assistant_token` / `contract_review_token` / `document_draft_token` 三个计费键在 `pointConsumptionRules` 的具体单价 | 第一期实施前（运营决策，第一期只需 `assistant_token` 就绪） |
-| 3 | 首批 100+ 文书模板的分类体系与命名规范（CSV 准备） | 第三期前（运营准备） |
-| 4 | 用户私人模板配额的免费/付费分档（需要时再扩展 benefit 体系） | 第三期前 |
-| 5 | 是否在第一期侧边栏就展示合同审查/文书生成的入口（WIP 占位）| 第一期前（产品决策） |
-| 6 | 合同审查 / 文书生成是否需要历史记录列表页（类似会话列表）| 第二/三期前 |
-| 7 | 是否需要对"按次配额"做产品承诺（决定是否立项扩展 benefit 周期归零能力）| 后续独立立项 |
-| 8 | `server/services/files/files.service.ts` 的 OSS 上传 API 是否支持无 caseId 场景？若不支持，需在第二期先扩展 | 第二期实施前 |
-| 9 | LangGraph checkpoint 清理策略（§10.8）：同步 clear / cron 清理 / 暂不处理 | 第一期上线后 30 天内决策 |
+| # | 问题 | 决策方 | 预期阶段 |
+|---|---|---|---|
+| 1 | `assistant_token` / `contract_review_token` / `document_draft_token` 三个计费键在 `pointConsumptionRules` 的具体单价 | 运营 | 第一期实施前（只需先确定 `assistant_token`） |
+| 2 | 首批 100+ 文书模板的分类体系、命名规范与 CSV 元信息 | 产品/运营 | 第三期前 |
+| 3 | 用户私人模板配额的免费/付费分档 | 产品 | 第三期前 |
+| 4 | `server/services/files/files.service.ts` 的 OSS 上传 API 是否支持无 caseId 场景？若不支持，需在第二期先扩展 | 工程 | 第二期实施前 |
+| 5 | LangGraph checkpoint 清理策略（§10.8）：同步 clear / cron 清理 / 暂不处理 | 工程/运维 | 第一期上线后 30 天内 |
+
+默认决策（spec 已给出，无需再问）：
+- 模型选择：`assistantMain` 与 `caseMain` 同模型，后期独立调整
+- 侧边栏入口：第一期三个菜单项都注册（后两个先链到 WIP 占位页）
+- 合同审查 / 文书生成历史列表：第二/三期实施时顺便补，非阻塞
+- 按次配额能力：不承诺，留作独立立项
 
 ---
 
