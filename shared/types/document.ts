@@ -1,0 +1,63 @@
+/**
+ * 文书生成相关业务类型
+ *
+ * 约定：Prisma row 类型直接从 #shared/types/prisma 导入，不在此处手写镜像。
+ * 本文件只放业务枚举、API 请求响应、值对象。
+ */
+
+// ==================== 分类枚举 ====================
+export const DOCUMENT_CATEGORIES = [
+    { key: 'general',          label: '律师通用工具' },
+    { key: 'litigation',       label: '起诉·应诉·上诉' },
+    { key: 'procedure',        label: '流程变更·程序操作' },
+    { key: 'evidence',         label: '证据·鉴定·调查取证' },
+    { key: 'preservation',     label: '保全·冻结·先予执行' },
+    { key: 'enforcement',      label: '执行·追偿·强制措施' },
+    { key: 'arbitration',      label: '仲裁·调解·担保物权' },
+    { key: 'protection_order', label: '人身安全保护令' },
+    { key: 'identity',         label: '身份·监护·失踪' },
+] as const
+
+export type DocumentCategoryKey = typeof DOCUMENT_CATEGORIES[number]['key']
+export const DOCUMENT_CATEGORY_KEYS = DOCUMENT_CATEGORIES.map(c => c.key) as readonly DocumentCategoryKey[]
+
+// ==================== Draft 状态枚举 ====================
+export type DocumentDraftStatus = 'drafting' | 'filling' | 'ready' | 'exported' | 'failed'
+
+// ==================== 值对象 ====================
+export interface Placeholder {
+    name: string
+    firstContext: string
+}
+
+export interface DocumentSourceRef {
+    text?: string
+    fileIds?: number[]
+    caseId?: number
+}
+
+export interface DocumentDraftMetadata {
+    suggestions?: Record<string, string>
+}
+
+// ==================== API 请求/响应 ====================
+export interface CreateDraftRequest {
+    templateId: number
+    sourceText?: string
+    sourceFileIds?: number[]
+    caseId?: number
+}
+
+export interface CreateDraftResponse {
+    draftId: number
+    sessionId: string
+}
+
+export interface PatchDraftRequest {
+    values: Record<string, string | null>
+}
+
+export interface ExportDraftResponse {
+    ossFileId: number
+    downloadUrl: string
+}
