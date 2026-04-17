@@ -832,12 +832,18 @@ type Risk = {
   legalBasis?: string     // 《民法典》第 XXX 条（可选）
   analysis: string        // 条款分析
   risk: string            // 法律风险
-  suggestion: string      // 修改建议
+  suggestion: string      // 修改建议（文字描述，如"建议改为 30 日内付款"）
+  suggestedClauseText?: string  // AI 重写后的完整条款文本（可选；前端展示前后 diff 用）
   strategy?: string       // 谈判策略（可选）
 }
 
 type ContractReviewRisks = Risk[]
 ```
+
+**条款级 diff 策略**（对齐用户需求中的"改进后 diff"选项）：
+- AI 对高风险 / 中风险条款产出 `suggestedClauseText`；低风险可不强制
+- 前端点击"查看 diff"时，用 `diff-match-patch` 对 `clauseText` vs `suggestedClauseText` 做段落级比对，渲染红绿对照
+- **不做全文改写**（成本高、商业审查场景也不实用），如将来业务需要再扩展 `summary.improvedFullText` 字段
 
 ### 6.4 核心流程（Agent 化 · 2 轮交互）
 
@@ -1011,6 +1017,8 @@ export default defineEventHandler(async (event) => {
 # 审查要求
 - 逐段审查，标注所有对 {{stanceLabel}} 不利的条款
 - 每处问题输出一条结构化 Risk，字段见下方 JSON schema
+- 对每个 high / medium 级别 Risk，**必须**额外产出 `suggestedClauseText`
+  字段（AI 重写后的完整条款文本），使前端能做前后 diff 对照；low 级别可省略
 - 使用专业法律术语，禁用感叹号
 - 引用具体法条（《合同法》《民法典》《劳动合同法》等及条号）
 - 宁可多标，不可漏标
@@ -1027,7 +1035,8 @@ export default defineEventHandler(async (event) => {
       "legalBasis": "《民法典》第 XXX 条",
       "analysis": "...",
       "risk": "...",
-      "suggestion": "...",
+      "suggestion": "建议改为...",
+      "suggestedClauseText": "甲方应在收到发票后 30 日内付款，逾期按日万分之五支付违约金。",
       "strategy": "..."
     }
   ],
@@ -1178,8 +1187,11 @@ GET /api/v1/assistant/contract/reviews?page=&pageSize=&caseId=
 │  │ 批注浮层        │  │ [中] 保密条款    │                   │
 │  │ (高亮段落点击    │  │ [低] 竞业限制    │                   │
 │  │  展开批注)      │  │                 │                   │
+│  │                │  │ 每条右上角小按钮  │                   │
+│  │                │  │ [查看改写] 展开   │                   │
+│  │                │  │ 原文↔改写 diff   │                   │
+│  │                │  │                 │                   │
 │  │                │  │ [下载 Word]      │                   │
-│  │                │  │ [查看 diff]      │                   │
 │  │                │  │ [导出报告]       │                   │
 │  └────────────────┘  └────────────────┘                   │
 └───────────────────────────────────────────────────────────┘
