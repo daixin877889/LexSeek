@@ -26,7 +26,7 @@ import { loadCompletedResultsService } from '../../case/initAnalysis.service'
 import { getCaseMemory } from '../context/moduleContextBuilder'
 
 /** 模块上下文注入中间件 */
-export const moduleContextMiddleware = (caseId: number, moduleName: string) => {
+export const moduleContextMiddleware = (caseId: number, moduleName?: string) => {
     return createMiddleware({
         name: 'ModuleContextMiddleware',
         stateSchema: z.object({
@@ -97,8 +97,9 @@ export const moduleContextMiddleware = (caseId: number, moduleName: string) => {
                     }
 
                     // 3. 其他模块分析结果变更检测
-                    const otherResults = Object.entries(completedResults)
-                        .filter(([key]) => key !== moduleName)
+                    const otherResults = moduleName != null
+                        ? Object.entries(completedResults).filter(([key]) => key !== moduleName)
+                        : Object.entries(completedResults)
                     for (const [key, content] of otherResults) {
                         const contentHash = createHash('md5').update(content).digest('hex')
                         if (newResultVersions[key] !== contentHash) {
@@ -108,13 +109,15 @@ export const moduleContextMiddleware = (caseId: number, moduleName: string) => {
                     }
 
                     // 4. 当前模块结果变更检测（首次或内容变化时注入）
-                    const currentModuleResult = completedResults[moduleName]
-                    const currentModuleHash = currentModuleResult
-                        ? createHash('md5').update(currentModuleResult).digest('hex')
-                        : null
-                    if (currentModuleHash && currentModuleHash !== newCurrentHash) {
-                        sections.push(`## 当前模块已有分析结果（基线）\n${currentModuleResult}`)
-                        newCurrentHash = currentModuleHash
+                    if (moduleName != null) {
+                        const currentModuleResult = completedResults[moduleName]
+                        const currentModuleHash = currentModuleResult
+                            ? createHash('md5').update(currentModuleResult).digest('hex')
+                            : null
+                        if (currentModuleHash && currentModuleHash !== newCurrentHash) {
+                            sections.push(`## 当前模块已有分析结果（基线）\n${currentModuleResult}`)
+                            newCurrentHash = currentModuleHash
+                        }
                     }
 
                     // 无变更则跳过
@@ -124,7 +127,7 @@ export const moduleContextMiddleware = (caseId: number, moduleName: string) => {
                     const contextMessage = new HumanMessage({
                         content: sections.join('\n\n'),
                         response_metadata: {
-                            injectedBy: `ModuleContextMiddleware:${moduleName}`,
+                            injectedBy: `ModuleContextMiddleware:${moduleName ?? 'global'}`,
                             injectedAt: new Date().toISOString(),
                             sectionsCount: sections.length,
                         },

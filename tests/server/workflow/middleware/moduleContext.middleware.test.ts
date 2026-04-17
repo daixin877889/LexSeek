@@ -242,5 +242,110 @@ describe('moduleContextMiddleware 测试', () => {
             // 消息应被 push 到 messages
             expect(state.messages.length).toBeGreaterThanOrEqual(0)
         })
+
+        describe('moduleName 可选（小索场景）', () => {
+            it('缺省 moduleName 时应将所有已完成模块注入到 section 3', async () => {
+                vi.mocked(loadCompletedResultsService).mockResolvedValue({
+                    summary: '摘要分析结果',
+                    defense: '抗辩分析结果',
+                })
+
+                const middleware = moduleContextMiddleware(1)
+                const humanMsg = {
+                    _getType: () => 'human',
+                    constructor: { name: 'HumanMessage' },
+                    content: '用户输入',
+                }
+                const state = {
+                    messages: [humanMsg],
+                    _injectedSourceIds: [],
+                    _lastMemoryHash: null,
+                    _injectedResultVersions: {},
+                    _currentModuleResultHash: null,
+                }
+
+                const result = await middleware.beforeAgent.hook(state)
+                expect(result).toBeDefined()
+                expect(result?._injectedResultVersions).toHaveProperty('summary')
+                expect(result?._injectedResultVersions).toHaveProperty('defense')
+            })
+
+            it('缺省 moduleName 时应跳过 section 4（当前模块基线）', async () => {
+                vi.mocked(loadCompletedResultsService).mockResolvedValue({
+                    summary: '摘要分析结果',
+                })
+
+                const middleware = moduleContextMiddleware(1)
+                const humanMsg = {
+                    _getType: () => 'human',
+                    constructor: { name: 'HumanMessage' },
+                    content: '用户输入',
+                }
+                const state = {
+                    messages: [humanMsg],
+                    _injectedSourceIds: [],
+                    _lastMemoryHash: null,
+                    _injectedResultVersions: {},
+                    _currentModuleResultHash: null,
+                }
+
+                const result = await middleware.beforeAgent.hook(state)
+                expect(result).toBeDefined()
+                expect(result?._currentModuleResultHash).toBeNull()
+            })
+
+            it('缺省 moduleName 时 injectedBy 应包含 global', async () => {
+                vi.mocked(getCaseMemory).mockResolvedValue('案件记忆内容')
+
+                const middleware = moduleContextMiddleware(1)
+                const humanMsg = {
+                    _getType: () => 'human',
+                    constructor: { name: 'HumanMessage' },
+                    content: '用户输入',
+                }
+                const state = {
+                    messages: [humanMsg] as any[],
+                    _injectedSourceIds: [],
+                    _lastMemoryHash: null,
+                    _injectedResultVersions: {},
+                    _currentModuleResultHash: null,
+                }
+
+                await middleware.beforeAgent.hook(state)
+                // 查找注入的 HumanMessage
+                const injectedMsg = state.messages.find(
+                    (m: any) => m.response_metadata?.injectedBy,
+                )
+                expect(injectedMsg).toBeDefined()
+                expect(injectedMsg.response_metadata.injectedBy).toContain('global')
+            })
+
+            it('有 moduleName 时行为不变（回归）', async () => {
+                vi.mocked(loadCompletedResultsService).mockResolvedValue({
+                    test_module: '当前模块结果',
+                    other_module: '其他模块结果',
+                })
+
+                const middleware = moduleContextMiddleware(1, 'test_module')
+                const humanMsg = {
+                    _getType: () => 'human',
+                    constructor: { name: 'HumanMessage' },
+                    content: '用户输入',
+                }
+                const state = {
+                    messages: [humanMsg],
+                    _injectedSourceIds: [],
+                    _lastMemoryHash: null,
+                    _injectedResultVersions: {},
+                    _currentModuleResultHash: null,
+                }
+
+                const result = await middleware.beforeAgent.hook(state)
+                expect(result).toBeDefined()
+                expect(result?._injectedResultVersions).toHaveProperty('other_module')
+                expect(result?._injectedResultVersions).not.toHaveProperty('test_module')
+                expect(result?._currentModuleResultHash).not.toBeNull()
+            })
+        })
     })
 })
