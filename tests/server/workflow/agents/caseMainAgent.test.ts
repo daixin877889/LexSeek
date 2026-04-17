@@ -56,7 +56,7 @@ vi.mock('../../../../server/services/workflow/agents/subAgentToolFactory', () =>
 vi.mock('../../../../server/services/workflow/middleware', () => ({
     pointConsumptionMiddleware: vi.fn(() => ({ __mock: 'pointConsumption' })),
     caseProcessMaterialMiddleware: vi.fn(() => ({ __mock: 'caseProcessMaterial' })),
-    caseMaterialContextMiddleware: vi.fn(() => ({ __mock: 'caseMaterialContext' })),
+    moduleContextMiddleware: vi.fn(() => ({ __mock: 'moduleContext' })),
     safetyTrimMiddleware: vi.fn(() => ({ __mock: 'safetyTrim' })),
 }))
 
@@ -263,5 +263,18 @@ describe('runCaseChat 主代理', () => {
         await expect(
             runCaseChat('session-6', '测试', { userId: 1, caseId: 600 })
         ).rejects.toThrow('没有可用的 API 密钥')
+    })
+
+    it('应使用 moduleContextMiddleware 替代 caseMaterialContextMiddleware', async () => {
+        const middleware = await import('../../../../server/services/workflow/middleware')
+
+        const { runCaseChat } = await import(
+            '../../../../server/services/workflow/agents/caseMainAgent'
+        )
+
+        await runCaseChat('session-ctx', '测试上下文', { userId: 1, caseId: 700 })
+
+        // moduleContextMiddleware 应被调用（仅传 caseId，不传 moduleName）
+        expect(middleware.moduleContextMiddleware).toHaveBeenCalledWith(700)
     })
 })

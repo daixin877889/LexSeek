@@ -18,7 +18,7 @@ import { renderSystemPrompt } from '../utils/promptRenderer'
 import {
     pointConsumptionMiddleware,
     caseProcessMaterialMiddleware,
-    caseMaterialContextMiddleware,
+    moduleContextMiddleware,
     safetyTrimMiddleware,
 } from '../middleware'
 import { createSkillsMiddleware, FilesystemBackend } from 'deepagents'
@@ -147,7 +147,7 @@ export async function runCaseChat(
         middleware: [
             pointConsumptionMiddleware(userId, 'case_analysis_token', sessionId),
             caseProcessMaterialMiddleware(userId, caseId),
-            caseMaterialContextMiddleware(userId, caseId),
+            moduleContextMiddleware(caseId),
             summarizationMiddleware({
                 model,
                 trigger: [{ tokens: triggerTokens }],
