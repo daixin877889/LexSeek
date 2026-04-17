@@ -218,7 +218,7 @@ model agentRuns {
     sessionId   String    @map("session_id")
     threadId    String    @map("thread_id")
     userId      Int       @map("user_id")
-    /// 关联的案件ID（scope=assistant 时为空）
+    /// 关联的案件ID（关联 session 的 scope=assistant 时为空）
     caseId      Int?      @map("case_id")
     input       Json
     status      String    @default("pending")
@@ -1777,7 +1777,15 @@ bun add pizzip docxtemplater
 - **缓解**：
   - 所有写入必须走 `*.dao.ts` + Zod 校验
   - ESLint 规则：禁止 `prisma.caseSessions.create/update` 直接调用（必须通过 DAO）
-  - CI 添加数据一致性检查 SQL：每周跑一次巡检（`SELECT * FROM case_sessions WHERE (scope='case' AND case_id IS NULL) OR (scope='assistant' AND case_id IS NOT NULL)`）
+  - CI 添加数据一致性检查 SQL：每周跑一次巡检，覆盖 scope/caseId 一致性与 assistant session 必须有 userId：
+    ```sql
+    SELECT 'scope_caseId_mismatch' AS check, * FROM case_sessions
+     WHERE deleted_at IS NULL
+       AND ((scope='case' AND case_id IS NULL) OR (scope='assistant' AND case_id IS NOT NULL))
+    UNION ALL
+    SELECT 'assistant_missing_userId' AS check, * FROM case_sessions
+     WHERE deleted_at IS NULL AND scope='assistant' AND user_id IS NULL;
+    ```
 
 ### 10.3 assistantAgent 与 caseMainAgent 代码重复
 
