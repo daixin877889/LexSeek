@@ -14,7 +14,7 @@ definePageMeta({
 </script>
 
 <template>
-    <div class="flex flex-col items-center justify-center h-[calc(100vh-3rem)] text-muted-foreground">
+    <div class="flex flex-1 flex-col items-center justify-center min-h-0 text-muted-foreground">
         <HardHatIcon class="size-16 mb-4 opacity-50" />
         <p class="text-xl font-medium text-foreground">文书生成功能正在建设中</p>
         <p class="mt-2 text-sm">敬请期待第三期上线</p>

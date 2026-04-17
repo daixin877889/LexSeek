@@ -42,7 +42,7 @@ function startNewConversation() {
 </script>
 
 <template>
-    <div class="flex h-[calc(100vh-3rem)] overflow-hidden bg-background">
+    <div class="flex flex-1 min-h-0 overflow-hidden bg-background">
         <AssistantSessionList
             ref="sessionListRef"
             v-model:selected-id="sessionId"
