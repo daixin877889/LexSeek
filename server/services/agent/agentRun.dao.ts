@@ -12,7 +12,8 @@ export interface CreateAgentRunParams {
   sessionId: string
   threadId: string
   userId: number
-  caseId: number
+  /** 关联案件 ID；scope=assistant 时传 null */
+  caseId: number | null
   input: AgentRunInput
 }
 

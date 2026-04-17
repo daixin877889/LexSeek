@@ -100,6 +100,55 @@ describe('AgentRun DAO 层', () => {
         input: { message: '第二次' },
       })).rejects.toThrow()
     })
+
+    it('caseId=null 时应正常写入（assistant 域场景）', async () => {
+      // 为 assistant 域创建一个 scope=assistant、caseId=null 的 session
+      const p = (globalThis as any).prisma
+      const assistantSessionId = `assist-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      await p.caseSessions.create({
+        data: {
+          sessionId: assistantSessionId,
+          scope: 'assistant',
+          userId: testUser.id,
+          caseId: null,
+          type: 1,
+          status: 1,
+        },
+      })
+      testIds.sessionIds.push(assistantSessionId)
+
+      const run = await createAgentRunDAO({
+        sessionId: assistantSessionId,
+        threadId: assistantSessionId,
+        userId: testUser.id,
+        caseId: null,
+        input: { message: 'hello' },
+      })
+      testIds.agentRunIds.push(run.id)
+
+      expect(run.caseId).toBeNull()
+      expect(run.sessionId).toBe(assistantSessionId)
+      expect(run.status).toBe(AGENT_RUN_STATUS.PENDING)
+    })
+
+    it('caseId=数字时保持兼容 case 域', async () => {
+      // 复用已有 testSession（scope=case，caseId=testCase.id）
+      // 但此 describe 顶部已为其 push 了 run，需要独立 session 避免 unique 冲突
+      const session2 = await createTestSession(testCase.id)
+      testIds.sessionIds.push(session2.sessionId)
+
+      const run = await createAgentRunDAO({
+        sessionId: session2.sessionId,
+        threadId: session2.sessionId,
+        userId: testUser.id,
+        caseId: testCase.id,
+        input: { message: 'hi' },
+      })
+      testIds.agentRunIds.push(run.id)
+
+      expect(run.caseId).toBe(testCase.id)
+      expect(run.sessionId).toBe(session2.sessionId)
+    })
   })
 
   describe('findActiveRunBySessionIdDAO', () => {
