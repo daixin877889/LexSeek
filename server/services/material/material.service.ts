@@ -11,6 +11,7 @@ import {
     findMaterialByIdDao,
     findManyMaterialsDao,
     findMaterialsByCaseIdDao,
+    findMaterialsByDraftIdDao,
     findMaterialsByIdsDao,
     updateMaterialDao,
     deleteMaterialDao,
@@ -35,6 +36,49 @@ export interface MaterialWithFile extends caseMaterials {
     filePath?: string
 }
 
+// ==================== 共享辅助函数 ====================
+
+/**
+ * 为材料列表批量附加 OSS 文件信息
+ * 提取公共的 ossFiles 查询 + fileMap 合并逻辑，供多个 Service 复用
+ */
+async function attachOssFileInfo(materials: caseMaterials[]): Promise<MaterialWithFile[]> {
+    const ossFileIds = materials
+        .filter((m) => m.ossFileId !== null)
+        .map((m) => m.ossFileId as number)
+
+    let fileMap = new Map<number, { fileName: string; fileSize: number; fileType: string; filePath?: string }>()
+
+    if (ossFileIds.length > 0) {
+        const ossFiles = await prisma.ossFiles.findMany({
+            where: { id: { in: ossFileIds }, deletedAt: null },
+            select: { id: true, fileName: true, fileSize: true, fileType: true, filePath: true },
+        })
+        fileMap = new Map(
+            ossFiles.map((file) => [
+                file.id,
+                {
+                    fileName: file.fileName,
+                    fileSize: Number(file.fileSize),
+                    fileType: file.fileType,
+                    filePath: file.filePath ?? undefined,
+                },
+            ])
+        )
+    }
+
+    return materials.map((material) => {
+        const fileInfo = material.ossFileId ? fileMap.get(material.ossFileId) : undefined
+        return {
+            ...material,
+            fileName: fileInfo?.fileName,
+            fileSize: fileInfo?.fileSize,
+            fileType: fileInfo?.fileType,
+            filePath: fileInfo?.filePath,
+        }
+    })
+}
+
 // ==================== 服务层 ====================
 
 /**
@@ -45,12 +89,19 @@ export const createMaterialService = async (
     data: CreateMaterialInput,
     tx?: Prisma.TransactionClient
 ): Promise<caseMaterials> => {
-    // 验证案件是否存在
-    const caseExists = await (tx || prisma).cases.findFirst({
-        where: { id: data.caseId, deletedAt: null },
-    })
-    if (!caseExists) {
-        throw new Error('案件不存在')
+    // 应用层 XOR 校验：caseId 和 draftId 不能同时存在
+    if (data.caseId !== null && data.caseId !== undefined && data.draftId !== undefined) {
+        throw new Error('caseId 和 draftId 不能同时传入')
+    }
+
+    // 案件场景：验证案件是否存在
+    if (data.caseId !== null && data.caseId !== undefined) {
+        const caseExists = await (tx || prisma).cases.findFirst({
+            where: { id: data.caseId, deletedAt: null },
+        })
+        if (!caseExists) {
+            throw new Error('案件不存在')
+        }
     }
 
     return await createMaterialDao(data, tx)
@@ -93,46 +144,7 @@ export const getMaterialsService = async (
     options: MaterialQueryOptions = {}
 ): Promise<{ list: MaterialWithFile[]; total: number }> => {
     const { list, total } = await findManyMaterialsDao(options)
-
-    // 获取所有关联的文件信息
-    const ossFileIds = list
-        .filter((m) => m.ossFileId !== null)
-        .map((m) => m.ossFileId as number)
-
-    let fileMap = new Map<number, { fileName: string; fileSize: number; fileType: string; filePath?: string }>()
-
-    if (ossFileIds.length > 0) {
-        const ossFiles = await prisma.ossFiles.findMany({
-            where: { id: { in: ossFileIds }, deletedAt: null },
-            select: { id: true, fileName: true, fileSize: true, fileType: true, filePath: true },
-        })
-
-        fileMap = new Map(
-            ossFiles.map((file) => [
-                file.id,
-                {
-                    fileName: file.fileName,
-                    fileSize: Number(file.fileSize),
-                    fileType: file.fileType,
-                    filePath: file.filePath ?? undefined,
-                },
-            ])
-        )
-    }
-
-    // 合并材料和文件信息
-    const materialsWithFile: MaterialWithFile[] = list.map((material) => {
-        const fileInfo = material.ossFileId ? fileMap.get(material.ossFileId) : undefined
-        return {
-            ...material,
-            fileName: fileInfo?.fileName,
-            fileSize: fileInfo?.fileSize,
-            fileType: fileInfo?.fileType,
-            filePath: fileInfo?.filePath,
-        }
-    })
-
-    return { list: materialsWithFile, total }
+    return { list: await attachOssFileInfo(list), total }
 }
 
 /**
@@ -142,44 +154,17 @@ export const getMaterialsByCaseIdService = async (
     caseId: number
 ): Promise<MaterialWithFile[]> => {
     const materials = await findMaterialsByCaseIdDao(caseId)
+    return attachOssFileInfo(materials)
+}
 
-    // 获取所有关联的文件信息
-    const ossFileIds = materials
-        .filter((m) => m.ossFileId !== null)
-        .map((m) => m.ossFileId as number)
-
-    let fileMap = new Map<number, { fileName: string; fileSize: number; fileType: string; filePath?: string }>()
-
-    if (ossFileIds.length > 0) {
-        const ossFiles = await prisma.ossFiles.findMany({
-            where: { id: { in: ossFileIds }, deletedAt: null },
-            select: { id: true, fileName: true, fileSize: true, fileType: true, filePath: true },
-        })
-
-        fileMap = new Map(
-            ossFiles.map((file) => [
-                file.id,
-                {
-                    fileName: file.fileName,
-                    fileSize: Number(file.fileSize),
-                    fileType: file.fileType,
-                    filePath: file.filePath ?? undefined,
-                },
-            ])
-        )
-    }
-
-    // 合并材料和文件信息
-    return materials.map((material) => {
-        const fileInfo = material.ossFileId ? fileMap.get(material.ossFileId) : undefined
-        return {
-            ...material,
-            fileName: fileInfo?.fileName,
-            fileSize: fileInfo?.fileSize,
-            fileType: fileInfo?.fileType,
-            filePath: fileInfo?.filePath,
-        }
-    })
+/**
+ * 获取文书草稿的所有材料
+ */
+export const getMaterialsByDraftIdService = async (
+    draftId: number
+): Promise<MaterialWithFile[]> => {
+    const materials = await findMaterialsByDraftIdDao(draftId)
+    return attachOssFileInfo(materials)
 }
 
 /** 带真实状态的材料项 */
@@ -346,44 +331,7 @@ export const getMaterialsByIdsService = async (
     ids: number[]
 ): Promise<MaterialWithFile[]> => {
     const materials = await findMaterialsByIdsDao(ids)
-
-    // 获取所有关联的文件信息
-    const ossFileIds = materials
-        .filter((m) => m.ossFileId !== null)
-        .map((m) => m.ossFileId as number)
-
-    let fileMap = new Map<number, { fileName: string; fileSize: number; fileType: string; filePath?: string }>()
-
-    if (ossFileIds.length > 0) {
-        const ossFiles = await prisma.ossFiles.findMany({
-            where: { id: { in: ossFileIds }, deletedAt: null },
-            select: { id: true, fileName: true, fileSize: true, fileType: true, filePath: true },
-        })
-
-        fileMap = new Map(
-            ossFiles.map((file) => [
-                file.id,
-                {
-                    fileName: file.fileName,
-                    fileSize: Number(file.fileSize),
-                    fileType: file.fileType,
-                    filePath: file.filePath ?? undefined,
-                },
-            ])
-        )
-    }
-
-    // 合并材料和文件信息
-    return materials.map((material) => {
-        const fileInfo = material.ossFileId ? fileMap.get(material.ossFileId) : undefined
-        return {
-            ...material,
-            fileName: fileInfo?.fileName,
-            fileSize: fileInfo?.fileSize,
-            fileType: fileInfo?.fileType,
-            filePath: fileInfo?.filePath,
-        }
-    })
+    return attachOssFileInfo(materials)
 }
 
 /**

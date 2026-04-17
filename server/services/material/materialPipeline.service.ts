@@ -4,10 +4,11 @@
  * 确保案件所有材料已完成识别和嵌入，供中间件和工具复用。
  * 只对未识别的触发识别，只对未嵌入的触发嵌入，避免重复处理。
  */
-import { getMaterialsByCaseIdService, type MaterialWithFile } from './material.service'
+import { getMaterialsByCaseIdService, getMaterialsByDraftIdService, type MaterialWithFile } from './material.service'
 import { batchCheckMaterialEmbeddedService, embedMaterialUnifiedService } from './materialEmbedding.service'
 import { processMaterialService, batchCheckMaterialRecognizedService } from './materialProcess.service'
 import { CaseMaterialType } from '#shared/types/case'
+import { createMaterialDao, findMaterialByIdDao, findMaterialByDraftIdAndOssFileIdDao } from './material.dao'
 
 export interface MaterialFailedItem {
     materialId: number
@@ -518,4 +519,123 @@ export async function searchMaterialsService(
         },
         relevanceScore: r.score,
     }))
+}
+
+// ==================== draftId-based 并行扩展函数 ====================
+
+const POLL_INTERVAL_MS = 1000
+const MAX_POLLS = 30 // 30s 超时
+
+/**
+ * 基于文书草稿 ID 的材料检索服务（供工具层调用）
+ *
+ * 与 searchMaterialsService 结构相同，但按 draftId 获取材料范围。
+ * - query only: 语义搜索，通过 draftId→sourceId 集合限定范围
+ * - sourceId only: 精确查询完整内容
+ */
+export async function searchMaterialsByDraftService(
+    userId: number,
+    draftId: number,
+    options: { query?: string; sourceId?: number; k?: number },
+): Promise<MaterialSearchToolResult[]> {
+    const { query, sourceId, k = 5 } = options
+
+    const allMaterials = await getMaterialsByDraftIdService(draftId)
+
+    const targetMaterials = sourceId
+        ? allMaterials.filter(m => getSourceId(m) === sourceId)
+        : allMaterials
+
+    if (targetMaterials.length === 0) return []
+
+    // 无 query → 精确查询完整内容
+    if (!query) {
+        const contentMap = await fetchMaterialContents(targetMaterials)
+        return targetMaterials.map((m, index) => ({
+            index: index + 1,
+            content: contentMap.get(m.id) || '[暂无内容]',
+            source: {
+                sourceId: getSourceId(m),
+                sourceName: m.name,
+            },
+        }))
+    }
+
+    // 有 query → 走统一检索路由器
+    const sourceIds = targetMaterials.map(m => String(getSourceId(m)))
+    const results = await retrievalRouterService({
+        query,
+        type: 'case_material',
+        k,
+        metadataFilter: { userId: String(userId) },
+        sourceIds,
+    })
+
+    return results.map((r, index) => ({
+        index: index + 1,
+        content: r.content,
+        source: {
+            sourceId: Number(r.metadata.sourceId),
+            sourceName: r.metadata.sourceName as string,
+            chunkIndex: r.metadata.chunkIndex as number | undefined,
+        },
+        relevanceScore: r.score,
+    }))
+}
+
+/**
+ * 单文件材料就绪保障（文书草稿场景）
+ *
+ * 1. 查询 caseMaterials 是否已有 (draftId + ossFileId) 记录
+ * 2. 无则创建（caseId=null, draftId=X）
+ * 3. 触发 OCR + embedding pipeline（复用 embedMaterialUnifiedService）
+ * 4. 轮询直至 status=processed；30s 超时抛错
+ */
+export async function ensureMaterialsReadyForDraftService(
+    ossFileId: number,
+    draftId: number,
+    userId: number,
+): Promise<{ id: number; status: number; draftId: number | null; ossFileId: number | null }> {
+    // 1. 应用层去重：精确查找已有 (draftId, ossFileId) 记录
+    const existing = await findMaterialByDraftIdAndOssFileIdDao(draftId, ossFileId)
+
+    let materialId: number
+
+    if (existing) {
+        materialId = existing.id
+        if (existing.status === 3) {
+            return { id: existing.id, status: existing.status, draftId: existing.draftId, ossFileId: existing.ossFileId }
+        }
+    } else {
+        // 2. 创建新材料记录（caseId=null, draftId=X，XOR 保证互斥）
+        const ossFile = await prisma.ossFiles.findFirst({
+            where: { id: ossFileId, deletedAt: null },
+            select: { fileName: true },
+        })
+        const newMaterial = await createMaterialDao({
+            caseId: null,
+            draftId,
+            ossFileId,
+            name: ossFile?.fileName ?? `材料_${ossFileId}`,
+            type: CaseMaterialType.DOCUMENT,
+        })
+        materialId = newMaterial.id
+
+        // 3. 触发 embedding pipeline
+        await embedMaterialUnifiedService(materialId, userId)
+    }
+
+    // 4. 轮询直至 status=processed（3）
+    for (let i = 0; i < MAX_POLLS; i++) {
+        const updated = await findMaterialByIdDao(materialId)
+        if (updated?.status === 3) {
+            return { id: updated.id, status: updated.status, draftId: updated.draftId, ossFileId: updated.ossFileId }
+        }
+        if (updated?.status === 4) {
+            throw new Error(`材料处理失败: ${materialId}`)
+        }
+        await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
+    }
+
+    throw new Error(`材料处理超时: ${materialId}`)
 }

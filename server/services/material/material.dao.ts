@@ -19,7 +19,8 @@ export const createMaterialDao = async (
     try {
         const material = await (tx || prisma).caseMaterials.create({
             data: {
-                caseId: data.caseId,
+                caseId: data.caseId ?? null,
+                draftId: data.draftId ?? null,
                 name: data.name,
                 type: data.type,
                 ossFileId: data.ossFileId ?? null,
@@ -119,6 +120,43 @@ export const findMaterialsByCaseIdDao = async (
         return materials
     } catch (error) {
         logger.error('通过案件ID查询材料失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 通过文书草稿ID查询所有材料
+ */
+export const findMaterialsByDraftIdDao = async (
+    draftId: number,
+    tx?: Prisma.TransactionClient
+): Promise<caseMaterials[]> => {
+    try {
+        const materials = await (tx || prisma).caseMaterials.findMany({
+            where: { draftId, deletedAt: null },
+            orderBy: { createdAt: 'asc' },
+        })
+        return materials
+    } catch (error) {
+        logger.error('通过文书草稿ID查询材料失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 通过文书草稿ID和OSS文件ID查询单条材料（应用层去重使用）
+ */
+export const findMaterialByDraftIdAndOssFileIdDao = async (
+    draftId: number,
+    ossFileId: number,
+    tx?: Prisma.TransactionClient
+): Promise<caseMaterials | null> => {
+    try {
+        return await (tx || prisma).caseMaterials.findFirst({
+            where: { draftId, ossFileId, deletedAt: null },
+        })
+    } catch (error) {
+        logger.error('通过文书草稿ID和OSS文件ID查询材料失败：', error)
         throw error
     }
 }
