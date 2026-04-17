@@ -138,9 +138,113 @@ async function seedAssistantTokenRule(prismaClient: PrismaClient): Promise<void>
     console.log('[seed] assistant_token 积分规则完成')
 }
 
+/**
+ * Seed: 法律助手侧边栏三级菜单 + 默认角色授权
+ *
+ * 设计要点：
+ * 1. navMain.vue 渲染扁平 isMenu=true 列表，不支持父子折叠，因此直接注册三条顶级菜单。
+ * 2. 图标与现有菜单统一使用 `lucideIcons.XxxIcon` 前缀；图标名沿用 lucide-vue-next 官方命名。
+ * 3. upsert by `name`（unique）——重跑幂等，且不覆盖人工修订的 title/icon/sort。
+ * 4. 角色授权：默认分配给普通用户 (code=user) 与管理员 (code=admin)；
+ *    super_admin 在 permission.service.ts 中通过代码旁路获得所有路由，不需单独授权。
+ * 5. roleRouters 关联使用 upsert by 复合唯一键 (roleId, routerId) 保持幂等。
+ */
+async function seedAssistantRouters(prismaClient: PrismaClient): Promise<void> {
+    // 1. 确认路由组（dashboard 组，id=1 由 seedData.sql 预置）
+    const dashboardGroup = await prismaClient.routerGroups.findUnique({
+        where: { name: 'dashboard' },
+    })
+    if (!dashboardGroup) {
+        throw new Error('[seed] router_groups.dashboard 不存在，请先执行 seedData.sql 初始化基础数据')
+    }
+
+    // 2. 定义菜单元信息（sort 故意留 100/110/120 的间隔，方便后续人工插入调整）
+    const menus = [
+        {
+            name: 'dashboard-assistant-chat',
+            title: '法律助手 · 对话',
+            path: '/dashboard/assistant/chat',
+            icon: 'lucideIcons.MessageSquareIcon',
+            description: '无案件上下文的通用法律助手对话入口',
+            sort: 100,
+        },
+        {
+            name: 'dashboard-assistant-contract',
+            title: '法律助手 · 合同审查',
+            path: '/dashboard/assistant/contract',
+            icon: 'lucideIcons.FileSearchIcon',
+            description: '合同审查（占位，开发中）',
+            sort: 110,
+        },
+        {
+            name: 'dashboard-assistant-document',
+            title: '法律助手 · 文书生成',
+            path: '/dashboard/assistant/document',
+            icon: 'lucideIcons.FileTextIcon',
+            description: '法律文书生成（占位，开发中）',
+            sort: 120,
+        },
+    ] as const
+
+    // 3. upsert 路由
+    const routerIds: number[] = []
+    for (const menu of menus) {
+        const router = await prismaClient.routers.upsert({
+            where: { name: menu.name },
+            update: {}, // 不覆盖人工修订
+            create: {
+                name: menu.name,
+                title: menu.title,
+                description: menu.description,
+                path: menu.path,
+                isMenu: true,
+                parentId: null,
+                icon: menu.icon,
+                groupId: dashboardGroup.id,
+                sort: menu.sort,
+            },
+        })
+        routerIds.push(router.id)
+    }
+
+    // 4. 找默认被授权角色（普通用户 + 管理员）；角色缺失仅告警不阻塞
+    const targetRoles = await prismaClient.roles.findMany({
+        where: { code: { in: ['user', 'admin'] }, deletedAt: null },
+        select: { id: true, code: true },
+    })
+    if (targetRoles.length === 0) {
+        console.warn('[seed] 未找到 user/admin 角色，跳过助手菜单授权（super_admin 由代码旁路放行）')
+        console.log('[seed] 法律助手菜单注册完成')
+        return
+    }
+
+    // 5. upsert roleRouters 关联（幂等，利用复合唯一键）
+    for (const role of targetRoles) {
+        for (const routerId of routerIds) {
+            await prismaClient.roleRouters.upsert({
+                where: {
+                    idx_role_router_unique: { roleId: role.id, routerId },
+                },
+                update: {},
+                create: {
+                    roleId: role.id,
+                    routerId,
+                },
+            })
+        }
+    }
+
+    console.log(
+        `[seed] 法律助手菜单注册完成：${menus.length} 条路由，授权角色 [${targetRoles
+            .map((r) => r.code)
+            .join(', ')}]`,
+    )
+}
+
 async function main(): Promise<void> {
     await seedAssistantMainNode(prisma)
     await seedAssistantTokenRule(prisma)
+    await seedAssistantRouters(prisma)
 }
 
 main()
