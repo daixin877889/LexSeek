@@ -18,6 +18,8 @@ export enum FileSource {
     DEMO_CASE = "demo_case",
     /** 文书模板 */
     DOCUMENT_TEMPLATE = "document_template",
+    /** 文书导出 */
+    DOCUMENT_EXPORT = "document_export",
 }
 
 /**
@@ -32,6 +34,7 @@ export const FileSourceName = {
     [FileSource.CASE_ANALYSIS]: "案件分析",
     [FileSource.DEMO_CASE]: "示范案例",
     [FileSource.DOCUMENT_TEMPLATE]: "文书模板",
+    [FileSource.DOCUMENT_EXPORT]: "文书导出",
 }
 
 // 文件来源允许的文件类型及最大大小

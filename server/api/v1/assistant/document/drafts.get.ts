@@ -30,12 +30,7 @@ export default defineEventHandler(async (event) => {
     }
 
     const { caseId, skip, take } = parsed.data
-    const result = await listDocumentDraftsDAO({
-        userId: user.id,
-        ...(caseId !== undefined ? { caseId } : {}),
-        skip,
-        take,
-    })
+    const result = await listDocumentDraftsDAO({ userId: user.id, caseId, skip, take })
 
     return resSuccess(event, '获取草稿列表成功', {
         items: result.list,
