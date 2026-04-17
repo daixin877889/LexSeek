@@ -81,9 +81,23 @@ interface MockEvent {
 }
 
 function makeEvent(opts: { userId?: number; body?: any }): MockEvent {
+    const b = opts.body ?? {}
+    // FetchStreamTransport（@langchain/vue）线协议：
+    //   { input: { messages, thinking }, config: { configurable: { thread_id } }, command }
+    // 端点通过 extractChatParams 反解析，这里封装让用例仍以扁平 body 编写。
+    const wireBody = {
+        input: {
+            messages: typeof b.message === 'string'
+                ? [{ type: 'human', content: b.message }]
+                : undefined,
+            thinking: b.thinking,
+        },
+        config: { configurable: { thread_id: b.sessionId } },
+        command: b.command,
+    }
     return {
         context: opts.userId ? { auth: { user: { id: opts.userId } } } : {},
-        __body: opts.body,
+        __body: wireBody,
         node: { req: { on: () => undefined } },
     }
 }

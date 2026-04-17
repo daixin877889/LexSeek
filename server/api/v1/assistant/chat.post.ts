@@ -15,7 +15,6 @@
  * 6. 无活跃 run + 无消息无 command + 无最新 run → 400
  */
 
-import { z } from 'zod'
 import {
     findActiveRunBySessionIdDAO,
     findLatestRunBySessionIdDAO,
@@ -25,15 +24,8 @@ import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
 import { getAssistantSessionService } from '~~/server/services/assistant/assistantSession.service'
 import { checkPointsService } from '~~/server/services/point/pointConsumption.service'
 import { createAgentSseStream } from '~~/server/services/sse/agentSseStream'
-import { shouldRejectMessage } from '~~/server/utils/chat-branch-utils'
+import { extractChatParams, shouldRejectMessage } from '~~/server/utils/chat-branch-utils'
 import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
-
-const BodySchema = z.object({
-    sessionId: z.string().min(1, 'sessionId 不能为空'),
-    message: z.string().max(10000, '输入内容过长，单次消息最大 10,000 字符').optional(),
-    command: z.unknown().optional(),
-    thinking: z.boolean().optional(),
-})
 
 /** 提示词防火墙黑名单（与 case chat.post 对齐） */
 const BLACKLIST_PATTERNS: RegExp[] = [
@@ -45,6 +37,8 @@ const BLACKLIST_PATTERNS: RegExp[] = [
     /显示系统提示/,
 ]
 
+const MAX_MESSAGE_LENGTH = 10000
+
 export default defineEventHandler(async (event) => {
     // 1. 鉴权
     const user = event.context.auth?.user
@@ -52,13 +46,16 @@ export default defineEventHandler(async (event) => {
         return resError(event, 401, '请先登录')
     }
 
-    // 2. 参数校验
+    // 2. 解析 FetchStreamTransport 协议请求体（与 case/analysis/chat.post 对齐）
     const raw = await readBody(event).catch(() => ({}))
-    const parsed = BodySchema.safeParse(raw ?? {})
-    if (!parsed.success) {
-        return resError(event, 400, parsed.error.issues[0]?.message ?? '参数错误')
+    const { sessionId, message, command, thinking } = extractChatParams(raw ?? {})
+
+    if (!sessionId) {
+        return resError(event, 400, 'sessionId 不能为空')
     }
-    const { sessionId, message, command, thinking } = parsed.data
+    if (message !== undefined && message.length > MAX_MESSAGE_LENGTH) {
+        return resError(event, 400, '输入内容过长，单次消息最大 10,000 字符')
+    }
 
     // 3. 提示词防火墙
     if (message && BLACKLIST_PATTERNS.some(p => p.test(message))) {

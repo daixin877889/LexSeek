@@ -23,34 +23,10 @@ import {
   isValidResumeCommand,
   shouldRejectResume,
   getResumeCount,
+  extractChatParams,
   RESUME_COMMANDS,
   MAX_RESUME_COUNT,
 } from '~~/server/utils/chat-branch-utils'
-
-/** 从 FetchStreamTransport 请求体中提取参数 */
-function extractParams(body: any) {
-  const input = body?.input
-  const config = body?.config
-  const command = body?.command
-
-  const sessionId = config?.configurable?.thread_id as string | undefined
-
-  let message: string | undefined
-  if (input?.messages && Array.isArray(input.messages)) {
-    const lastMsg = input.messages.at(-1)
-    if (lastMsg) {
-      message = typeof lastMsg.content === 'string'
-        ? lastMsg.content
-        : typeof lastMsg === 'string'
-          ? lastMsg
-          : undefined
-    }
-  }
-
-  const thinking = input?.thinking as boolean | undefined
-
-  return { sessionId, message, command, thinking }
-}
 
 /** 提示词防火墙黑名单 */
 const BLACKLIST_PATTERNS = [
@@ -71,7 +47,7 @@ export default defineEventHandler(async (event) => {
 
   // 2. 解析 FetchStreamTransport 协议请求体
   const body = await readBody(event)
-  const { sessionId, message, command, thinking } = extractParams(body)
+  const { sessionId, message, command, thinking } = extractChatParams(body)
 
   if (!sessionId) {
     return resError(event, 400, 'thread_id 不能为空')

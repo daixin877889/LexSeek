@@ -49,3 +49,44 @@ export function shouldRejectResume(resumeCount: number): boolean {
 export function getResumeCount(metadata: any): number {
   return (metadata?.resumeCount as number | undefined) ?? 0
 }
+
+/**
+ * FetchStreamTransport（@langchain/vue）请求体解析
+ *
+ * 前端 useStream 走该协议，body 形如：
+ *   { input: { messages: [{ type, content }, ...], thinking? },
+ *     config: { configurable: { thread_id } },
+ *     command, streamSubgraphs }
+ *
+ * 此函数将其规整为 case/assistant 两类对话 API 共用的 `{ sessionId, message, command, thinking }`。
+ */
+export interface ExtractedChatParams {
+  sessionId: string | undefined
+  message: string | undefined
+  command: any
+  thinking: boolean | undefined
+}
+
+export function extractChatParams(body: any): ExtractedChatParams {
+  const input = body?.input
+  const config = body?.config
+  const command = body?.command
+
+  const sessionId = config?.configurable?.thread_id as string | undefined
+
+  let message: string | undefined
+  if (input?.messages && Array.isArray(input.messages)) {
+    const lastMsg = input.messages.at(-1)
+    if (lastMsg) {
+      message = typeof lastMsg.content === 'string'
+        ? lastMsg.content
+        : typeof lastMsg === 'string'
+          ? lastMsg
+          : undefined
+    }
+  }
+
+  const thinking = input?.thinking as boolean | undefined
+
+  return { sessionId, message, command, thinking }
+}
