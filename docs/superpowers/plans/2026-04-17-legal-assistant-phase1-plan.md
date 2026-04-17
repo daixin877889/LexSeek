@@ -222,9 +222,15 @@ Run: `ls -la /Users/daixin/work/dev/LexSeek/LexSeek/prisma/seed.ts && cat /Users
 
 ```typescript
 async function seedAssistantMainNode(prisma: PrismaClient) {
-  // 1. 找一个可用 model（默认用 caseMain 同一个 modelId 以降成本）
+  // 1. 选模型：优先复用 caseMain，其次取第一个可用 model（避免全新环境或缺 caseMain 时失败）
   const caseMain = await prisma.nodes.findUnique({ where: { name: 'caseMain' } })
-  if (!caseMain) throw new Error('caseMain 节点不存在，请先运行主 seed')
+  let modelId = caseMain?.modelId
+  if (modelId == null) {
+    const firstModel = await prisma.models.findFirst({ where: { status: 1 } })
+    if (!firstModel) throw new Error('无可用 model，请先 seed models 表')
+    modelId = firstModel.id
+    console.warn('[seed] caseMain 不存在，assistantMain 使用首个可用 model', firstModel.name)
+  }
 
   // 2. upsert assistantMain 节点
   const node = await prisma.nodes.upsert({
@@ -236,7 +242,7 @@ async function seedAssistantMainNode(prisma: PrismaClient) {
       description: '无案件上下文的法律问答与工具调用',
       type: 'agent',
       priority: 10,
-      modelId: caseMain.modelId,
+      modelId,
       tools: ['searchLaw'],  // 第一期工具，第二期追加 reviewContract / draftDocument
       status: 1,
     },
@@ -1223,16 +1229,16 @@ export async function softDeleteAssistantSessionDAO(
 }
 ```
 
-- [ ] **Step 6: 创建 `index.ts` barrel export**
+- [ ] **Step 6: 创建 `index.ts` barrel export（仅导出已实现的部分）**
 
 ```typescript
 // server/services/assistant/index.ts
 export * from './assistantSession.dao'
-export * from './assistantSession.service'
 export * from './types'
+// assistantSession.service 在 Task 9 完成后追加导出
 ```
 
-（`assistantSession.service.ts` 在下一个 Task 实现）
+**重要**：现在 service 文件尚不存在，导出它会导致 TS 编译失败。Task 9 Step 1 完成后会回到此文件追加 `export * from './assistantSession.service'`。
 
 - [ ] **Step 7: 运行测试确认通过**
 
@@ -1410,13 +1416,13 @@ export async function getAssistantThreadState(sessionId: string) {
 
 - [ ] **Step 3: 修改 `server/services/workflow/agents/index.ts`**
 
-移除 Task 6 的占位 stub，改为 barrel export：
+保持与现有显式 re-export 约定一致（该文件已显式列出 caseMainAgent/moduleAgent 等的命名导出，避免通配 `export *` 引入命名冲突）。追加：
+
 ```typescript
-export * from './caseMainAgent'
-export * from './moduleAgent'
-export * from './assistantAgent'
-// 注意：若不同文件间函数名冲突，改为显式 re-export
+export { runAssistantChat, getAssistantThreadState } from './assistantAgent'
 ```
+
+（若 Task 6 Step 6 里已在此文件 export 了占位 stub `runAssistantChat`，一并移除那一行。）
 
 - [ ] **Step 4: 集成测试（不连真实模型，mock createChatModel）**
 
@@ -1609,15 +1615,30 @@ describe('assistantSession.service', () => {
 Run: `npx vitest run tests/server/assistant/assistantSession.service.test.ts --reporter=verbose`
 Expected: PASS
 
-- [ ] **Step 4: 提交**
+- [ ] **Step 4: 回到 `server/services/assistant/index.ts` 追加 service 导出**
+
+现在 service 文件已实现，可补齐 barrel：
+
+```typescript
+// server/services/assistant/index.ts
+export * from './assistantSession.dao'
+export * from './assistantSession.service'  // 新增
+export * from './types'
+```
+
+Run: `npx nuxi typecheck`
+Expected: 无错误
+
+- [ ] **Step 5: 提交**
 
 ```bash
-git add server/services/assistant/assistantSession.service.ts tests/server/assistant/assistantSession.service.test.ts
+git add server/services/assistant/assistantSession.service.ts server/services/assistant/index.ts tests/server/assistant/assistantSession.service.test.ts
 git commit -m "feat(assistant): 新增 assistantSession.service 封装与标题生成
 
 - 对 DAO 的 service 级包装
-- generateSessionTitleAsync 在首轮对话后异步调模型生成 ≤20 字标题
-- 失败吞异常不影响主路径"
+- generateSessionTitleAsync 接受首轮 user/AI 消息，生成 ≤20 字标题
+- 失败吞异常不影响主路径
+- 补齐 barrel index.ts"
 ```
 
 ---
@@ -1790,20 +1811,139 @@ git commit -m "feat(assistant): 新增会话 CRUD API
 
 ---
 
-## Task 11: API · `/api/v1/assistant/chat.post.ts` SSE（复用 case chat 6 分支）
+## Task 11: 抽取共享 SSE stream 工具（前置依赖）
+
+**Files:**
+- Create: `server/services/sse/agentSseStream.ts`
+- Modify: `server/api/v1/case/analysis/chat.post.ts`（替换内联实现为新工具调用）
+- Test: `tests/server/sse/agentSseStream.test.ts`（新增基本冒烟）
+
+**背景：** spec §5.6.4 要求 assistant `/chat` 复用 case chat.post 的 SSE 协议。但 case chat.post L215-334 是**内联 120 行 ReadableStream 实现**（含 Redis 订阅 / keepalive / replay / PostgresSaver fallback），并没有抽成工具函数。Task 12 实现 assistant /chat 必须**先**把这段抽出。
+
+- [ ] **Step 1: 阅读现有 SSE 内联实现**
+
+Run: `sed -n '210,340p' /Users/daixin/work/dev/LexSeek/LexSeek/server/api/v1/case/analysis/chat.post.ts`
+
+识别：
+- 输入参数：`runId`、`event`（H3 event）、`latestRunStatus`、`sessionId`
+- 依赖：Redis client、keepalive 定时器、`filterInjectedMessages`、`getThreadValuesService`
+- 终止条件：run 完成事件 / 客户端断开
+
+- [ ] **Step 2: 在 `server/services/sse/agentSseStream.ts` 新建抽取版本**
+
+把 case chat.post 的 SSE 逻辑完整搬到新文件，以函数形式暴露：
+
+```typescript
+/**
+ * 通用 Agent SSE 流构造器。
+ *
+ * 输入 runId 与 H3 event，返回 ReadableStream：
+ * - 订阅 Redis Stream 补发缺失事件（重连场景）
+ * - 已完成 run 从 PostgresSaver 取最终快照发送
+ * - keepalive 心跳
+ * - 客户端断开时 abort
+ *
+ * 抽取自 server/api/v1/case/analysis/chat.post.ts:215-334。
+ */
+export interface CreateAgentSseStreamOptions {
+  runId: string
+  event: H3Event
+  sessionId: string
+  latestRunStatus?: string
+}
+
+export function createAgentSseStream(
+  opts: CreateAgentSseStreamOptions,
+): ReadableStream<Uint8Array> {
+  const { runId, event, sessionId, latestRunStatus } = opts
+  // ...内联实现按原文移动到此；参数从 closure 改为入参...
+  return new ReadableStream({
+    async start(controller) {
+      const encoder = new TextEncoder()
+      const abortController = new AbortController()
+      event.node.req.on('close', () => { abortController.abort() })
+      const keepalive = setInterval(() => {
+        try { controller.enqueue(encoder.encode(': keepalive\n\n')) }
+        catch { /* closed */ }
+      }, 15000)
+      try {
+        // ... 原逻辑：已完成 run 取快照 / Redis Stream 订阅 / replay ...
+      }
+      finally {
+        clearInterval(keepalive)
+      }
+    },
+  })
+}
+```
+
+**注意**：逐行搬运，不做任何逻辑修改。若需要从 chat.post 原闭包变量（如 `sessionId`）改为入参，同步调整。
+
+- [ ] **Step 3: 修改 case chat.post.ts 改用新工具**
+
+```typescript
+// server/api/v1/case/analysis/chat.post.ts 末尾
+import { createAgentSseStream } from '~~/server/services/sse/agentSseStream'
+
+// ...原 6. setResponseHeaders 之后，替换 7. 内联 new ReadableStream(...) 为：
+return createAgentSseStream({ runId, event, sessionId, latestRunStatus })
+```
+
+删除原 L215-334 的内联 `new ReadableStream` 块。
+
+- [ ] **Step 4: 冒烟测试 - case 域现有功能不回归**
+
+Run: `npx vitest run tests/server/integration/caseAnalysis.test.ts --reporter=verbose`
+Expected: 所有现有 case SSE 相关测试保持 PASS（抽取不应改变行为）
+
+手动验证（启 dev server）：在现有案件对话页发一条消息 → 仍能看到流式响应。
+
+- [ ] **Step 5: TypeScript 编译**
+
+Run: `npx nuxi typecheck`
+Expected: 无错误
+
+- [ ] **Step 6: 提交**
+
+```bash
+git add server/services/sse/agentSseStream.ts server/api/v1/case/analysis/chat.post.ts
+git commit -m "refactor(sse): 抽取 agentSseStream 公共工具
+
+- 把 case chat.post 内联的 ReadableStream 构造逻辑抽到
+  server/services/sse/agentSseStream.ts
+- case chat.post 改为 import + 调用，行为不变
+- 为 assistant chat.post 的 SSE 复用铺路（Task 12）"
+```
+
+---
+
+## Task 12: API · `/api/v1/assistant/chat.post.ts` SSE（复用 case chat 6 分支 + agentSseStream）
 
 **Files:**
 - Create: `server/api/v1/assistant/chat.post.ts`
-- Reference: `server/api/v1/case/analysis/chat.post.ts`（参考结构，复用 6 分支范式）
+- Reference: `server/api/v1/case/analysis/chat.post.ts`（参考 6 分支范式）
 - Test: `tests/server/assistant/chat.post.integration.test.ts`
 
 **参考规范：** spec §5.5, §5.6.4
 
-- [ ] **Step 1: 阅读 case chat.post.ts 完整结构**
+**前置：** Task 11 已抽取 `createAgentSseStream`；Task 5 已放宽 `EnqueueRunParams.caseId`。
 
-Run: `cat /Users/daixin/work/dev/LexSeek/LexSeek/server/api/v1/case/analysis/chat.post.ts`
+- [ ] **Step 1: 阅读 case chat.post 完整结构并**理解 resume 语义**
 
-重点关注 6 个分支的判定条件（activeRun RUNNING/INTERRUPTED、latestRun 重放、command resume）。
+Run: `sed -n '120,205p' /Users/daixin/work/dev/LexSeek/LexSeek/server/api/v1/case/analysis/chat.post.ts`
+
+**关键观察**：case chat.post L144-160 的 resume 路径是：
+```typescript
+if (activeRun.status === 'interrupted' && message) {
+    // 先把旧 run 标记完成，释放 partial unique index
+    await updateRunStatusDAO(activeRun.id, 'completed', ...)
+    // 再入队新 run（带 command）
+    const result = await enqueueRunService({ ... })
+    runId = result.runId
+}
+```
+
+**必须对齐这个语义**。否则 `enqueueRunService` 内 `findActiveRunBySessionIdDAO` 会直接拦截返回旧 runId，导致 resume command 被吞。
 
 - [ ] **Step 2: 实现 `chat.post.ts`**
 
@@ -1812,12 +1952,16 @@ import { z } from 'zod'
 import {
   findActiveRunBySessionIdDAO,
   findLatestRunBySessionIdDAO,
+  updateRunStatusDAO,
 } from '~~/server/services/agent/agentRun.dao'
-import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
-import { shouldRejectMessage } from '~~/server/services/agent/agentRun.service'
+import {
+  enqueueRunService,
+  shouldRejectMessage,
+} from '~~/server/services/agent/agentRun.service'
 import { getAssistantSessionService } from '~~/server/services/assistant/assistantSession.service'
 import { checkPointsService } from '~~/server/services/point/pointConsumption.service'
-import { createSseStream } from '~~/server/services/sse/sseStream'  // 若实际文件名不同以现状为准
+import { createAgentSseStream } from '~~/server/services/sse/agentSseStream'
+import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
 
 const BodySchema = z.object({
   sessionId: z.string().min(1),
@@ -1837,17 +1981,17 @@ export default defineEventHandler(async (event) => {
   if (!parsed.success) return resError(event, 400, parsed.error.issues[0].message)
   const { sessionId, message, command, thinking } = parsed.data
 
-  // 3. scope 校验 + 鉴权（必须 scope=assistant 且归属当前用户）
+  // 3. scope 校验 + 鉴权
   const session = await getAssistantSessionService(sessionId, user.id)
   if (!session) return resError(event, 404, '会话不存在或无权访问')
 
-  // 4. 积分门控（错误不兜底，让 Nitro 默认 handler 返回 500）
+  // 4. 积分门控（不做 try/catch 兜底）
   const check = await checkPointsService(user.id, 'assistant_token', 1)
   if (!check.sufficient) {
     return resError(event, 402, `积分不足（可用 ${check.available}）`)
   }
 
-  // 5. 6 分支路由（对齐 case chat.post）
+  // 5. 6 分支路由
   const activeRun = await findActiveRunBySessionIdDAO(sessionId)
   let runId: string
   let latestRunStatus: string | undefined
@@ -1856,8 +2000,11 @@ export default defineEventHandler(async (event) => {
     if (message && shouldRejectMessage(activeRun.status, true)) {
       return resError(event, 429, '请等待当前分析完成')
     }
-    if (message && (activeRun.status === 'interrupted' || activeRun.status === 'pending')) {
-      // 活跃 run + 新消息 + 非 RUNNING：入队新 run（resume 路径）
+    if (message && activeRun.status === AGENT_RUN_STATUS.INTERRUPTED) {
+      // resume 路径：先标完成旧 run 释放 unique index，再入队带 command
+      await updateRunStatusDAO(activeRun.id, AGENT_RUN_STATUS.COMPLETED, {
+        completedAt: new Date(),
+      })
       const result = await enqueueRunService({
         sessionId,
         threadId: sessionId,
@@ -1869,13 +2016,13 @@ export default defineEventHandler(async (event) => {
       runId = result.runId
     }
     else {
-      // 活跃 run + 无新消息：重连订阅
+      // 活跃 run + 无新消息（刷新重连）
       runId = activeRun.id
     }
   }
   else {
     if (!message && !command) {
-      // 无活跃 run + 无消息无 command：尝试从最新 run 重放
+      // 无活跃 run + 无消息无 command：从最新 run 重放
       const latestRun = await findLatestRunBySessionIdDAO(sessionId)
       if (latestRun) {
         runId = latestRun.id
@@ -1886,7 +2033,7 @@ export default defineEventHandler(async (event) => {
       }
     }
     else {
-      // 无活跃 run + 有消息/有 command：入队新 run
+      // 无活跃 run + 有消息/command：入队
       try {
         const result = await enqueueRunService({
           sessionId,
@@ -1899,7 +2046,6 @@ export default defineEventHandler(async (event) => {
         runId = result.runId
       }
       catch (err: any) {
-        // P2002：并发竞态，另一路已入队；回查活跃 run 订阅
         if (err?.code === 'P2002') {
           const raceActive = await findActiveRunBySessionIdDAO(sessionId)
           if (raceActive) {
@@ -1916,7 +2062,7 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // 6. 设置 SSE 响应头
+  // 6. SSE 响应头
   setResponseHeaders(event, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
@@ -1924,35 +2070,30 @@ export default defineEventHandler(async (event) => {
     'X-Accel-Buffering': 'no',
   })
 
-  // 7. 订阅 run 的 SSE 流（复用 case 域的 createSseStream 或等价工具）
-  return createSseStream({ runId, event, latestRunStatus })
+  // 7. 复用 agentSseStream
+  return createAgentSseStream({ runId, event, sessionId, latestRunStatus })
 })
 ```
 
-**重要**：`createSseStream` 的实际 API 请以项目现有封装为准（参考 case chat.post.ts 第 215 行之后）。如果 case chat.post 是内联实现 SSE stream，则把那段代码抽成 `server/services/sse/assistantSseStream.ts` 并在这里调用。
+**注意**：`updateRunStatusDAO` 的第二个参数签名以项目实际为准；若只接收 status 不接额外字段，按 case chat.post L146 的现有调用方式调整。
 
 - [ ] **Step 3: 集成测试覆盖 6 分支**
 
-创建 `tests/server/assistant/chat.post.integration.test.ts`，针对 spec §5.6.4 的 6 种场景各写一条测试：
-- 活跃 RUNNING + 新消息 → 429
-- 活跃 INTERRUPTED + 新消息 → 入队新 run
-- 活跃 + 无新消息 → 复用 runId 订阅
-- 无活跃 + 有消息 → 入队
-- 无活跃 + 无消息无 command → 从 latest run 重放
-- 无活跃 + 有 command → 入队（command 携带）
+创建 `tests/server/assistant/chat.post.integration.test.ts`，对 spec §5.6.4 的 6 种场景各写一条测试：
 
-并发双发测试：
+- 活跃 RUNNING + 新消息 → 429
+- 活跃 INTERRUPTED + 新消息 → 旧 run 标 completed + 入队新 run（验证 DB 里有两条 run，新 run 的 input 带 message）
+- 活跃 PENDING + 无新消息 → 复用 runId 订阅
+- 无活跃 + 有消息 → 入队
+- 无活跃 + 无消息无 command → latest run 重放
+- 无活跃 + 有 command → 入队带 command
+
+并发双发：
 ```typescript
 it('并发双发同一 sessionId 只一个入队成功', async () => {
   const user = await createTestUser()
   const session = await createAssistantSessionService(user.id)
-  // 模拟认证 context
-  const [r1, r2] = await Promise.all([
-    $fetch('/api/v1/assistant/chat', { method: 'POST', body: { sessionId: session.sessionId, message: 'a' } }),
-    $fetch('/api/v1/assistant/chat', { method: 'POST', body: { sessionId: session.sessionId, message: 'b' } }),
-  ])
-  // 其中之一成功，另一个复用 runId 或返回 429
-  // 数据库中只应有 1 条 status=pending 的 run
+  // ... 双发 ...
   const runs = await prisma.agentRuns.findMany({
     where: { sessionId: session.sessionId, status: { in: ['pending', 'running'] } },
   })
@@ -1963,7 +2104,7 @@ it('并发双发同一 sessionId 只一个入队成功', async () => {
 - [ ] **Step 4: 运行测试**
 
 Run: `npx vitest run tests/server/assistant/chat.post.integration.test.ts --reporter=verbose`
-Expected: PASS
+Expected: 全部 PASS
 
 - [ ] **Step 5: 提交**
 
@@ -1972,14 +2113,16 @@ git add server/api/v1/assistant/chat.post.ts tests/server/assistant/chat.post.in
 git commit -m "feat(assistant): 新增 /api/v1/assistant/chat SSE 接口
 
 - 复用 case chat.post 的 6 分支范式
-- 积分前置门控（assistant_token）
-- P2002 竞态兜底
+- interrupted + 新消息：先 updateRunStatusDAO 标完成再入队
+  （对齐 case 域，避免 enqueueRunService 拦截吞掉 resume command）
+- 复用 Task 11 抽取的 createAgentSseStream
+- 积分前置门控 assistant_token；P2002 竞态兜底
 - 参见 spec §5.6.4"
 ```
 
 ---
 
-## Task 12: API · 取消运行 `/api/v1/assistant/runs/cancel/[runId].post.ts`
+## Task 13: API · 取消运行 `/api/v1/assistant/runs/cancel/[runId].post.ts`
 
 **Files:**
 - Create: `server/api/v1/assistant/runs/cancel/[runId].post.ts`
@@ -2062,7 +2205,7 @@ git commit -m "feat(assistant): 新增 /api/v1/assistant/runs/cancel/:runId
 
 ---
 
-## Task 13: 前端 · `useAssistantChat` composable
+## Task 14: 前端 · `useAssistantChat` composable
 
 **Files:**
 - Create: `app/composables/useAssistantChat.ts`
@@ -2070,15 +2213,22 @@ git commit -m "feat(assistant): 新增 /api/v1/assistant/runs/cancel/:runId
 
 **参考规范：** spec §8.3.1
 
-- [ ] **Step 1: 读 useXiaosuoChat 与 useStreamChat 了解现有 API**
+- [ ] **Step 1: 读 useStreamChat 实际 API 与参考 composable**
+
+`useStreamChat` 的实际签名可能与 spec 伪代码不一致（spec 用了简化版）。实施前必须对齐：
 
 Run:
 ```bash
+cat /Users/daixin/work/dev/LexSeek/LexSeek/app/composables/useStreamChat.ts
 cat /Users/daixin/work/dev/LexSeek/LexSeek/app/composables/useXiaosuoChat.ts
-cat /Users/daixin/work/dev/LexSeek/LexSeek/app/composables/useStreamChat.ts | head -80
+cat /Users/daixin/work/dev/LexSeek/LexSeek/app/composables/useCaseChat.ts 2>/dev/null || true
 ```
 
+从 `useXiaosuoChat` 或 `useCaseChat` 借鉴**完整的真实调用模式**（返回值结构、回调名、消息状态管理）；把 `useAssistantChat` 写成其 sibling，仅替换 API URL（`/api/v1/assistant/chat`）与 session 归属语义。
+
 - [ ] **Step 2: 实现 `useAssistantChat`**
+
+以下伪代码是**结构参考**（实际字段名、回调名以 Step 1 找到的真实 `useStreamChat` API 为准；不要照搬）：
 
 ```typescript
 import type { Ref } from 'vue'
@@ -2088,40 +2238,23 @@ import type { AiPromptSubmitData } from '~/components/ai/AiPromptInput.vue'
  * 通用法律助手对话 composable。
  *
  * 基于 useStreamChat，URL 指向 /api/v1/assistant/chat。
- * 提供与 useXiaosuoChat 对齐的接口以便 UI 层复用 AiChat。
+ * 接口与 useXiaosuoChat / useCaseChat 对齐以便 UI 层复用 AiChat。
  */
 export function useAssistantChat(sessionId: Ref<string | null>) {
   const messages = ref<any[]>([])
   const loading = ref(false)
   const isInterrupted = ref(false)
 
-  // 根据 useStreamChat 的实际 API 调整调用；这里按 spec 给出的伪代码写
-  const { send, stop, reconnect } = useStreamChat({
-    url: '/api/v1/assistant/chat',
-    sessionId,
-    onMessage(msg) {
-      messages.value = [...messages.value, msg]
-    },
-    onInterrupt() {
-      isInterrupted.value = true
-    },
-    onDone() {
-      loading.value = false
-    },
-    onError(err) {
-      logger?.warn?.('assistantChat error', err)
-      loading.value = false
-    },
+  // 字段名以 useStreamChat 真实 API 为准（apiUrl vs url、threadId vs sessionId 等）
+  const stream = useStreamChat({
+    // 按实际签名填写...
   })
 
   async function sendMessage(input: AiPromptSubmitData) {
     if (!sessionId.value) return
     loading.value = true
     isInterrupted.value = false
-    await send({
-      message: input.text,
-      thinking: input.thinking,
-    })
+    // 调 stream 的真实 send 方法
   }
 
   async function loadHistory() {
@@ -2139,14 +2272,17 @@ export function useAssistantChat(sessionId: Ref<string | null>) {
     loading,
     isInterrupted,
     sendMessage,
-    stop,
-    reconnect,
+    // stop / reconnect 等方法按 useStreamChat 真实返回值透传
     loadHistory,
   }
 }
 ```
 
-**注意**：`useStreamChat` 的真实签名请以现有实现为准，此处参考 spec 写法。若字段名不同，适配即可。
+关键要求：
+- URL 必须为 `/api/v1/assistant/chat`
+- sessionId 作为 thread 标识传入
+- 消息状态管理模式复用 useXiaosuoChat（避免与 case 域行为漂移）
+- 类型从 `#shared/types/assistant` 手动 `import type`
 
 - [ ] **Step 3: 提交**
 
@@ -2161,7 +2297,7 @@ git commit -m "feat(assistant): 新增 useAssistantChat composable
 
 ---
 
-## Task 14: 前端 · `<AssistantSessionList>` 组件
+## Task 15: 前端 · `<AssistantSessionList>` 组件
 
 **Files:**
 - Create: `app/components/assistant/AssistantSessionList.vue`
@@ -2280,7 +2416,56 @@ git commit -m "feat(assistant): 新增 AssistantSessionList 组件
 
 ---
 
-## Task 15: 前端 · 对话页 + WIP 占位页
+## Task 16: 侧边栏 RBAC 菜单注册（先做）
+
+**Files:**
+- Modify: RBAC 路由配置文件（项目内位置需通过 grep 确定）
+
+**顺序说明**：本 Task 在前端对话页之前完成，以便 Task 17 的浏览器验证能直接从侧边栏跳转；否则只能手打 URL。
+
+- [ ] **Step 1: 找到菜单/RBAC 路由注册方式**
+
+Run:
+```bash
+grep -rn "dashboard/cases\|dashboard/tools\|currentRoleRouters" /Users/daixin/work/dev/LexSeek/LexSeek/app/components/dashboard/navMain.vue /Users/daixin/work/dev/LexSeek/LexSeek/server/services/rbac/ 2>/dev/null | head -20
+```
+
+定位：
+- 现有路由是在 DB 表（`routers`）还是代码常量
+- 是否需要 admin 后台添加角色权限
+- 菜单图标字段名
+
+- [ ] **Step 2: 注册 3 条新路由**
+
+按现有机制把以下 3 条加入路由表（可能是 seed 脚本、可能是 admin UI，按项目现状操作）：
+
+| path | title | icon | parentId | priority |
+|---|---|---|---|---|
+| `/dashboard/assistant/chat` | 法律助手 · 对话 | MessageSquare | null（或"法律助手"父项下）| 10 |
+| `/dashboard/assistant/contract` | 法律助手 · 合同审查 | FileSearch | 同上 | 20 |
+| `/dashboard/assistant/document` | 法律助手 · 文书生成 | FileText | 同上 | 30 |
+
+若 RBAC 支持父子菜单，建议父菜单 `/dashboard/assistant`（无实际页面，只做分组）。
+
+给所有现有角色授权访问这三条路由（至少"普通用户"角色需要访问）。
+
+**注意**：Task 17 的对话页文件尚不存在，Nuxt 对不存在的路由会 404；但侧边栏菜单项会显示，Task 17 完成后即可用。
+
+- [ ] **Step 3: 提交**
+
+```bash
+git add <修改的 RBAC 配置文件>
+git commit -m "feat(rbac): 注册法律助手三级菜单路由
+
+- /dashboard/assistant/chat（第一期可用）
+- /dashboard/assistant/contract（第二期，WIP 占位）
+- /dashboard/assistant/document（第三期，WIP 占位）
+- 默认对普通用户角色可见"
+```
+
+---
+
+## Task 17: 前端 · 对话页 + WIP 占位页
 
 **Files:**
 - Create: `app/pages/dashboard/assistant/chat.vue`
@@ -2288,6 +2473,8 @@ git commit -m "feat(assistant): 新增 AssistantSessionList 组件
 - Create: `app/pages/dashboard/assistant/document.vue`（WIP 占位）
 
 **参考规范：** spec §8.1, §8.2, §8.5
+
+**前置：** Task 14（composable）、Task 15（组件）、Task 16（菜单注册）已完成。
 
 - [ ] **Step 1: 实现 `chat.vue`**
 
@@ -2381,13 +2568,14 @@ definePageMeta({
 - [ ] **Step 3: 浏览器验证**
 
 启动 dev server：`bun dev`
-访问 `/dashboard/assistant/chat`：
+
+从 Task 16 注册好的侧边栏菜单点击"法律助手 · 对话"进入：
 - 左侧显示"暂无会话"
 - 点「新对话」创建成功
 - 右侧输入框可用
 - 发消息 → 看到流式响应
 
-访问 `/dashboard/assistant/contract`、`/dashboard/assistant/document`：看到 WIP 占位。
+再点"法律助手 · 合同审查"和"文书生成"：看到 WIP 占位。
 
 - [ ] **Step 4: 提交**
 
@@ -2403,82 +2591,40 @@ git commit -m "feat(assistant): 新增对话页与 WIP 占位页
 
 ---
 
-## Task 16: 侧边栏 RBAC 菜单注册
-
-**Files:**
-- Modify: RBAC 路由配置文件（项目内位置需通过 grep 确定）
-
-- [ ] **Step 1: 找到菜单/RBAC 路由注册方式**
-
-Run:
-```bash
-grep -rn "dashboard/cases\|dashboard/tools\|currentRoleRouters" /Users/daixin/work/dev/LexSeek/LexSeek/app/components/dashboard/navMain.vue /Users/daixin/work/dev/LexSeek/LexSeek/server/services/rbac/ 2>/dev/null | head -20
-```
-
-定位：
-- 现有路由是在 DB 表（`routers`）还是代码常量
-- 是否需要 admin 后台添加角色权限
-- 菜单图标字段名
-
-- [ ] **Step 2: 注册 3 条新路由**
-
-按现有机制把以下 3 条加入路由表（可能是 seed 脚本、可能是 admin UI，按项目现状操作）：
-
-| path | title | icon | parentId | priority |
-|---|---|---|---|---|
-| `/dashboard/assistant/chat` | 法律助手 · 对话 | MessageSquare | null（或"法律助手"父项下）| 10 |
-| `/dashboard/assistant/contract` | 法律助手 · 合同审查 | FileSearch | 同上 | 20 |
-| `/dashboard/assistant/document` | 法律助手 · 文书生成 | FileText | 同上 | 30 |
-
-若 RBAC 支持父子菜单，建议父菜单 `/dashboard/assistant`（无实际页面，只做分组）。
-
-给所有现有角色授权访问这三条路由（至少"普通用户"角色需要访问）。
-
-- [ ] **Step 3: 浏览器验证**
-
-登录后侧边栏能看到"法律助手 · 对话"菜单项，点击跳到对话页。
-
-- [ ] **Step 4: 提交**
-
-```bash
-git add <修改的 RBAC 配置文件>
-git commit -m "feat(rbac): 注册法律助手三级菜单路由
-
-- /dashboard/assistant/chat（第一期可用）
-- /dashboard/assistant/contract（第二期，WIP 占位）
-- /dashboard/assistant/document（第三期，WIP 占位）
-- 默认对普通用户角色可见"
-```
-
----
-
-## Task 17: 首条消息后异步生成会话标题
+## Task 18: 首条消息后异步生成会话标题
 
 **Files:**
 - Modify: `server/services/agent/agentWorker.ts`（或 assistantAgent 完成回调处）
 
-- [ ] **Step 1: 找 SSE stream 完成的钩子**
+- [ ] **Step 1: 找 SSE stream 完成的钩子与现有 lastValuesData 缓冲**
 
-`runAssistantChat` 返回的是 ReadableStream；stream 消费到 done 后的动作在 agentWorker 的 `executeRun` 中处理（参考 case 域）。
+`runAssistantChat` 返回的 ReadableStream；stream 消费到 done 后由 agentWorker 的 `executeRun` 处理完成状态。
 
-Run: `grep -n "completedAt\|status.*completed" /Users/daixin/work/dev/LexSeek/LexSeek/server/services/agent/agentWorker.ts | head -10`
+Run:
+```bash
+grep -n "completedAt\|status.*completed\|lastValuesData" /Users/daixin/work/dev/LexSeek/LexSeek/server/services/agent/agentWorker.ts | head -10
+```
+
+**重点**：agentWorker 已有 `lastValuesData` 缓冲（保存 stream 最后一帧 values）。**直接从缓冲取首条 user/AI 消息**，而非重新调 `getAssistantThreadState`——避免 checkpointer commit 与 `completedAt` 标记的时序竞态（小概率读到未包含 AI 回复的快照）。
 
 - [ ] **Step 2: 在 assistant run 完成时触发标题生成**
 
-在 agentWorker 的 run 完成分支加入：
+在 agentWorker 的 run 完成分支（把 run 状态标 `completed` 之后）加入：
 
 ```typescript
+import { generateSessionTitleAsync } from '~~/server/services/assistant/assistantSession.service'
+
 // 现有代码：run 标记 completed 之后
-if (session.scope === 'assistant' && !session.title) {
-  // 异步生成，不阻塞
-  const state = await getAssistantThreadState(run.sessionId).catch(() => null)
-  const msgs = (state?.values as any)?.messages ?? []
+if (session.scope === 'assistant' && !session.title && session.userId != null) {
+  // 从 agentWorker 现有的 lastValuesData 缓冲取首条 user/AI 消息
+  // （避免重新调 checkpointer，规避时序竞态）
+  const msgs = (lastValuesData as any)?.messages ?? []
   const firstUser = msgs.find((m: any) => m.type === 'human' || m._getType?.() === 'human')?.content
   const firstAI = msgs.find((m: any) => m.type === 'ai' || m._getType?.() === 'ai')?.content
   if (firstUser && firstAI) {
     void generateSessionTitleAsync(
       run.sessionId,
-      session.userId!,
+      session.userId,
       String(firstUser),
       String(firstAI),
     )
@@ -2486,7 +2632,7 @@ if (session.scope === 'assistant' && !session.title) {
 }
 ```
 
-（实际实现根据 LangGraph message 结构调整字段读取方式）
+**注意**：`lastValuesData` 在 agentWorker 现有代码中的具体变量名以实际为准；若非此名，在 Step 1 的 grep 输出里找。LangGraph 消息结构字段（`type` / `_getType()`）因版本不同可能要适配——读取时多走一层可选链 `?.` 避免崩溃。
 
 - [ ] **Step 3: 冒烟测试**
 
@@ -2499,6 +2645,7 @@ git add server/services/agent/agentWorker.ts
 git commit -m "feat(assistant): 首条对话完成后异步生成会话标题
 
 - 在 run 完成钩子中检测 scope=assistant + title 为空
+- 从现有 lastValuesData 缓冲取首条消息，避免 checkpointer 时序竞态
 - 调 generateSessionTitleAsync 非阻塞生成 ≤20 字标题
 - 失败吞异常不影响主路径
 - 参见 spec §5.6.1"
@@ -2506,7 +2653,7 @@ git commit -m "feat(assistant): 首条对话完成后异步生成会话标题
 
 ---
 
-## Task 18: 端到端测试 & 回归
+## Task 19: 端到端测试 & 回归
 
 **Files:**
 - 全量 vitest 回归
@@ -2578,7 +2725,7 @@ git status
 ## 完成标准
 
 第一期完成当且仅当：
-- [ ] 所有 Task 1-18 的 Step 全部打钩
+- [ ] 所有 Task 1-19 的 Step 全部打钩
 - [ ] `npx vitest run tests/server` 全绿
 - [ ] `npx nuxi typecheck` 无错误
 - [ ] 手动 E2E 全流程通过
