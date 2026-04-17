@@ -1502,15 +1502,28 @@ GET /api/v1/assistant/document/drafts?page=&pageSize=&caseId=
 
 ### 7.12 模板导入计划（首批 100+ 模板）
 
-**前置工作**（运营 & 产品协同）：
-1. 把 100+ Word 文件的占位符统一用 `{{name}}` 重写
-2. 为每个文件准备元信息 CSV：`file_path, name, category, description, priority`
+**运营 runbook**（第三期实施前必须完成）：
+
+| 阶段 | 责任方 | 产出 | 工具 |
+|---|---|---|---|
+| 1. 占位符规范化改写 | 运营（或外包） | 全部 .docx 中占位符统一为 `{{name}}` 双花括号语法 | Word 查找替换 + 人工复核 |
+| 2. 元信息 CSV 编制 | 运营 + 产品 | `templates.csv`：`file_path, name, category, description, priority` | Excel / 飞书多维表格 |
+| 3. 技术导入 | 工程 | 调 `scripts/importDocumentTemplates.ts` 批量上传 OSS + 写 `documentTemplates` | 脚本 |
+| 4. 抽样校验 | 运营 | 随机抽 20 个模板在页面上走一遍完整流程（选模板→填资料→AI 填充→导出），人工核对样式还原 | 手测 |
 
 **执行脚本** `scripts/importDocumentTemplates.ts`：
 - 逐行读 CSV
 - 对每行：校验 .docx 可解析 → 扫描占位符 → 上传 OSS → 写 `documentTemplates(scope='global')`
-- 扫描不到占位符的文件报错中止
+- 扫描不到占位符的文件报错并中止（避免脏数据）
 - 输出成功/失败清单
+- 支持 `--dry-run` 先预览不写库
+
+**占位符改写规范**（运营需遵守）：
+- 命名：小写+下划线，`plaintiff_name` / `loan_amount` / `contract_date`
+- 日期类占位符名包含 `date` / `_at` / `_time`
+- 金额类占位符名包含 `amount` / `money` / `fee` / `price`
+- 枚举类占位符名 `_type` 结尾
+- 同一模板内占位符命名保持一致（同一概念不要 `plaintiff` / `party_a` 混用）
 
 ---
 
@@ -1832,6 +1845,44 @@ bun add pizzip docxtemplater
 - Word 可能把 `{{placeholder}}` 切分到多个 `<w:r>` 中，docx-preview 渲染后 DOM 文本节点可能被拆分，前端直接 TreeWalker 替换会漏匹配
 - 后端导出路径不受影响（docxtemplater 自带 run-joining）
 - 第三期实施时若发现预览不稳定，按需补降级方案（此 spec 不提前冻结方案）
+
+### 10.10 非功能需求清单（实施约束）
+
+以下约束为 spec 级承诺，实施阶段必须遵守：
+
+**移动端适配**（现有页面均为响应式，本项目必须保持）：
+- `/dashboard/assistant/chat`：移动端会话列表折叠为抽屉（点击按钮滑出），消息区全屏
+- `/dashboard/assistant/contract`：移动端左右双栏折叠为上下 tab（合同全文 / 风险清单）
+- `/dashboard/assistant/document`：移动端模板选择区保持上方卡片横滑；表单与预览折叠为上下 tab
+- 使用现有 Tailwind v4 响应式工具（sm/md/lg），不引入新框架
+
+**性能与异步化**：
+- docx 解析（mammoth）与批注注入（jszip + XML 重写）必须在 `agentWorker` 后台 run 中执行，**不得**在 HTTP 请求线程同步处理（避免请求超时与主线程阻塞）
+- 合同/文书文件限制：单文件 ≤ 20MB、页数 ≤ 100 页（超出拒绝并提示）
+- 文书模板列表首屏分页 20 条
+
+**上传安全**：
+- 用户上传的 .docx 仅用于**解析**（提取段落、扫描占位符、注入批注）；**不允许**将原文件直接回传给其他用户
+- 所有下载产物均为**系统生成**的 .docx（reviewed-{id}.docx / draft-{id}.docx），不暴露上传原文件 URL
+- 是否做病毒扫描依赖项目现有 OSS 上传链路（见 §11 #4）；spec 不承诺新增扫描能力
+
+**回滚 / Feature Flag**：
+第一期上线后若 `agentWorker` 的 scope 分流逻辑出现严重 bug，可按以下顺序快速关闭 assistant 入口（无需回滚代码）：
+1. **前端层**：RBAC 角色路由表移除 `/dashboard/assistant/*` 三条路由（侧边栏即刻消失）
+2. **节点层**：`UPDATE nodes SET status=0 WHERE name='assistantMain'`（后端新 run 直接拒绝）
+3. **API 层**：前置中间件白名单暂停 `/api/v1/assistant/**` 路径（Nitro middleware）
+已入队未完成的 run 会继续跑完，不影响用户当前会话。
+
+**失败态用户体验**：
+
+| 场景 | 用户看到 | 代码路径 |
+|---|---|---|
+| OSS 上传失败（合同/文书资料） | Toast："文件上传失败，请重试"；前端保留 prompt 草稿 | 上传 API 抛出 → 前端 catch 显示 toast |
+| SSE 断线 | 右上角小标"连接中断，正在重连…"；15s 后自动 reconnect | 复用 case 域现有 reconnect 逻辑 |
+| session 被并发删除（跨标签） | 切到列表首页并提示"会话已删除" | `postCrossTabEvent('session:deleted')` |
+| 合同审查 interrupt 超时未提交立场（> 24h）| contract_reviews.status 手动标记 failed；用户重进看到"审查已过期，请重新发起" | 定时 cron 清理 + 前端状态检测 |
+| 积分扣到 0（token 流式计费触发中断）| 沿用 case 域现有积分不足 interrupt UI（`INSUFFICIENT_POINTS`） | 复用 caseMain 既有机制 |
+| 文书 AI 填充解析失败（非 JSON）| Toast："AI 填充失败，已保留空白表单，请手动输入或重试" | `draftDocument` 工具 catch → 返回空 values |
 
 ---
 
