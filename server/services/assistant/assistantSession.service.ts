@@ -22,8 +22,15 @@ import type {
 } from './types'
 import { getValidNodeConfig } from '../node/node.service'
 import { createChatModel } from '../node/chatModelFactory'
+import { renderContent } from '../node/prompt.service'
 
-/** 生成标题使用的 assistantMain 节点名称 */
+/**
+ * 标题生成节点名称。
+ *
+ * 独立于 assistantMain：模型、温度可在运营侧不影响主对话的前提下单独调整。
+ * 若节点缺失或被禁用，runtime 回退到 assistantMain（保证向前兼容旧环境）。
+ */
+const TITLE_GEN_NODE_NAME = 'assistantTitleGen'
 const ASSISTANT_MAIN_NODE_NAME = 'assistantMain'
 
 /** 标题最大字符数 */
@@ -94,12 +101,17 @@ function sanitizeTitle(raw: string): string {
  *
  * 触发条件：首轮对话完成后调用。全程 try/catch 吞异常，非核心路径。
  *
+ * 节点化管理（参考 spec §5.3）：
+ * - 提示词 / 模型 / 温度 / maxTokens 全部由 `assistantTitleGen` 节点管理（nodes + prompts 表）
+ * - 提示词支持 `{{firstUserMessage}}` / `{{firstAssistantReply}}` 变量
+ * - `assistantTitleGen` 不可用时降级到 `assistantMain`，仍然从 nodes 表取模型（保证向前兼容）
+ *
  * 步骤：
  * 1. 查 session：不存在 / 跨用户 / 已软删 → 跳过
  * 2. 已有 title → 跳过（不覆盖）
- * 3. 读 assistantMain 节点配置：无 API key → 跳过
- * 4. 用 createChatModel 构造 model（temperature 0.3, streaming false）
- * 5. 调 invoke 生成标题
+ * 3. 读节点配置：无 API key → 跳过
+ * 4. 用 createChatModel 构造 model（streaming=false，参数来自节点）
+ * 5. 渲染 system 提示词（替换首轮消息变量）并调 invoke
  * 6. 清洗 + 截断 20 字
  * 7. 调 renameAssistantSessionDAO 写回
  *
@@ -127,50 +139,57 @@ export async function generateSessionTitleAsync(
             return
         }
 
-        // 3. 读取 assistantMain 节点配置
-        let mainConfig
+        // 3. 读取节点配置：优先 assistantTitleGen，回退 assistantMain
+        let nodeConfig
         try {
-            mainConfig = await getValidNodeConfig(ASSISTANT_MAIN_NODE_NAME, '通用法律助手主Agent')
-        } catch (err) {
-            logger.warn('生成标题跳过：节点配置不可用', {
+            nodeConfig = await getValidNodeConfig(TITLE_GEN_NODE_NAME, '会话标题生成节点')
+        } catch (titleErr) {
+            logger.info('assistantTitleGen 不可用，回退到 assistantMain', {
                 sessionId,
-                error: err instanceof Error ? err.message : String(err),
+                reason: titleErr instanceof Error ? titleErr.message : String(titleErr),
             })
-            return
+            try {
+                nodeConfig = await getValidNodeConfig(ASSISTANT_MAIN_NODE_NAME, '通用法律助手主Agent')
+            } catch (mainErr) {
+                logger.warn('生成标题跳过：节点配置不可用', {
+                    sessionId,
+                    error: mainErr instanceof Error ? mainErr.message : String(mainErr),
+                })
+                return
+            }
         }
 
-        const activeApiKey = mainConfig.modelApiKeys.find(k => k.status === 1)
+        const activeApiKey = nodeConfig.modelApiKeys.find(k => k.status === 1)
         if (!activeApiKey) {
             logger.warn('生成标题跳过：无可用 API key', { sessionId })
             return
         }
 
-        // 4. 构造模型实例（低温度、非流式，只需一次 invoke）
+        // 4. 构造模型实例（非流式；温度由节点配置决定，缺省 0.3）
         const model = createChatModel({
-            sdkType: mainConfig.modelSdkType,
-            modelName: mainConfig.modelName,
+            sdkType: nodeConfig.modelSdkType,
+            modelName: nodeConfig.modelName,
             apiKey: activeApiKey.apiKey,
-            baseUrl: mainConfig.modelProviderBaseUrl,
+            baseUrl: nodeConfig.modelProviderBaseUrl,
             temperature: 0.3,
             streaming: false,
         })
 
-        // 5. 构造 prompt 并生成标题
-        const prompt = [
-            '你是一个会话标题生成助手。请根据下面的首轮对话，生成一个简洁的会话标题。',
-            '',
-            '要求：',
-            '- 长度不超过 20 字',
-            '- 用中文',
-            '- 不要加引号、标点结尾、换行或任何前后缀',
-            '- 概括对话主题，不要重复问题原文',
-            '',
-            `用户提问：${firstUserMessage}`,
-            '',
-            `助手回复：${firstAssistantReply}`,
-            '',
-            '请直接输出标题（不要包含"标题："或其他前缀）：',
-        ].join('\n')
+        // 5. 从 nodeConfig 取 system 提示词并渲染变量
+        const systemPromptRaw = nodeConfig.prompts.find(
+            p => p.type === 'system' && p.status === 1,
+        )?.content ?? ''
+        if (!systemPromptRaw.trim()) {
+            logger.warn('生成标题跳过：节点缺少启用的 system 提示词', {
+                sessionId,
+                node: nodeConfig.name,
+            })
+            return
+        }
+        const prompt = renderContent(systemPromptRaw, {
+            firstUserMessage,
+            firstAssistantReply,
+        })
 
         const response = await model.invoke(prompt)
         const rawText = typeof response?.content === 'string'

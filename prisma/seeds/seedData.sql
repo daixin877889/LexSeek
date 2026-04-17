@@ -912,6 +912,8 @@ INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "pri
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (12, 'evidence', '证据清单预梳理', '证据清单预梳理', 'analysis', 800, 2, '["search_case_materials", "search_law", "process_materials"]', NULL, NULL, 1, '2026-03-23 11:25:27.771+08', '2026-03-23 11:25:27.771+08', NULL);
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (13, 'material_summarizer', '案件材料摘要', '对案件材料做 300-500 字左右的摘要', 'extraction', 100, 1, '[]', NULL, NULL, 1, '2026-03-31 18:07:53.881+08', '2026-03-31 18:07:53.881+08', NULL);
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (14, 'search_intent_router', '检索意图路由器', '根据查询内容分类检索意图（精确/混合/语义），用于统一检索路由器的意图分发', 'extraction', 100, 1, '[]', '{"type": "object", "required": ["intent"], "properties": {"intent": {"enum": ["exact", "hybrid", "semantic"], "description": "检索意图类型"}, "keywords": {"type": "array", "items": {"type": "string"}, "description": "提取的法律术语关键词"}, "legalName": {"type": "string", "description": "识别到的法律名称"}, "articleRef": {"type": "string", "description": "条文编号，如 第一千条"}, "rewrittenQuery": {"type": "string", "description": "改写后的语义查询"}}}', NULL, 1, '2026-04-09 10:00:00+08', '2026-04-10 00:05:33.799+08', NULL);
+INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (15, 'assistantMain', '通用法律助手主Agent', '无案件上下文的法律问答与工具调用', 'agent', 10, 2, '["search_law"]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL);
+INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (16, 'assistantTitleGen', '会话标题生成', '根据首轮对话生成 ≤20 字会话标题，供侧栏列表展示', 'extraction', 20, 2, '[]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL);
 
 -- ==================== 提示词种子数据 ====================
 INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (1, 'caseInfoCheck_system', '案情信息检查-系统提示词', '你是一位专业的法律案件分析助手，专门负责评估案件材料中的案情信息是否充足。
@@ -1889,6 +1891,39 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
    即使提到了"继承"、"犯罪"、"股东"等日常化的法律概念词，只要整体是口语化表达就属于 semantic
    示例："员工被公司无故辞退后能获得什么赔偿"、"租的房子到期房东不退押金怎么办"、"网上买的东西质量有问题可以退货吗"、"未成年人犯罪会被判刑吗"、"遗产继承的顺序是什么"、"公司股东之间发生矛盾怎么解决"
    → 提取 keywords + rewrittenQuery', '[]', 'v1', 'system', 1, 14, '2026-04-09 10:00:00+08', '2026-04-10 08:20:19.562383+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (18, 'assistantMain_system', '通用法律助手系统提示词 v1', '你是 LexSeek 的通用法律助手，服务于中国大陆法律场景下的律师、法务与普通用户。
+
+# 能力边界
+- 你可以回答法律知识问题、提供文书起草思路、做合同基础分析。
+- 你可以调用 searchLaw 工具检索最新法条。
+- 你【不】拥有任何案件上下文；如果用户提到"我的案件"但没有贴出详情，主动请用户提供关键信息。
+- 对于需要严谨尽职调查的任务（完整合同审查、正式文书生成），提示用户切换到
+  「合同审查」「文书生成」专用入口，那里有专用工具与流程。
+
+# 输出要求
+- 准确、中立、使用法律术语，避免情绪化用语与感叹号。
+- 引用法条时标注名称与条号（如《民法典》第 509 条）。
+- 涉及不确定事实时主动说明前提假设。
+- 默认使用简体中文。
+- 所有涉及日期、金额、主体名称的内容，必须明确来源（来自用户输入 / 法条 / 工具返回）。
+
+# 不做的事
+- 不替用户做最终法律决定，只提供分析与建议。
+- 不编造案例编号、当事人姓名、未经检索的法条内容。
+- 不讨论与法律无关的话题（礼貌拒绝并引导回法律咨询）。', '[]', 'v1', 'system', 1, 15, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (19, 'assistantTitleGen_system', '会话标题生成系统提示词 v1', '你是一个会话标题生成助手。请根据下面的首轮对话，生成一个简洁的会话标题。
+
+要求：
+- 长度不超过 20 字
+- 用中文
+- 不要加引号、标点结尾、换行或任何前后缀
+- 概括对话主题，不要重复问题原文
+
+用户提问：{{firstUserMessage}}
+
+助手回复：{{firstAssistantReply}}
+
+请直接输出标题（不要包含"标题："或其他前缀）：', '["firstUserMessage", "firstAssistantReply"]', 'v1', 'system', 1, 16, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL);
 
 
 -- 重置所有序列，确保新插入的记录不会与种子数据冲突

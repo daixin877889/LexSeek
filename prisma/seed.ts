@@ -102,6 +102,81 @@ async function seedAssistantMainNode(prismaClient: PrismaClient): Promise<void> 
 }
 
 /**
+ * Seed: assistantTitleGen 节点 + 系统提示词 v1
+ *
+ * 独立于 assistantMain，用于会话标题生成：
+ * - 运营可单独调整温度/模型/提示词，不影响主对话体验
+ * - 模型优先复用 assistantMain 的 modelId（保持语言风格一致），缺失时回退首个启用 model
+ * - 提示词支持 `{{firstUserMessage}}` / `{{firstAssistantReply}}` 模板变量
+ */
+async function seedAssistantTitleGenNode(prismaClient: PrismaClient): Promise<void> {
+    // 1. 选模型：优先复用 assistantMain
+    const assistantMain = await prismaClient.nodes.findUnique({ where: { name: 'assistantMain' } })
+    let modelId = assistantMain?.modelId
+    if (modelId == null) {
+        const firstModel = await prismaClient.models.findFirst({ where: { status: 1 } })
+        if (!firstModel) {
+            throw new Error('[seed] 无可用 model，请先 seed models 表后再执行 assistantTitleGen seed')
+        }
+        modelId = firstModel.id
+        console.warn(
+            `[seed] assistantMain 不存在，assistantTitleGen 使用首个可用 model: ${firstModel.name} (id=${firstModel.id})`,
+        )
+    }
+
+    // 2. upsert 节点（已存在则保留配置）
+    const node = await prismaClient.nodes.upsert({
+        where: { name: 'assistantTitleGen' },
+        update: {},
+        create: {
+            name: 'assistantTitleGen',
+            title: '会话标题生成',
+            description: '根据首轮对话生成 ≤20 字会话标题，供侧栏列表展示',
+            type: 'extraction',
+            priority: 20,
+            modelId,
+            tools: [],
+            status: 1,
+        },
+    })
+
+    // 3. upsert 系统提示词 v1
+    const systemPromptContent = `你是一个会话标题生成助手。请根据下面的首轮对话，生成一个简洁的会话标题。
+
+要求：
+- 长度不超过 20 字
+- 用中文
+- 不要加引号、标点结尾、换行或任何前后缀
+- 概括对话主题，不要重复问题原文
+
+用户提问：{{firstUserMessage}}
+
+助手回复：{{firstAssistantReply}}
+
+请直接输出标题（不要包含"标题："或其他前缀）：`
+
+    const existing = await prismaClient.prompts.findFirst({
+        where: { nodeId: node.id, type: 'system', version: 'v1', deletedAt: null },
+    })
+    if (!existing) {
+        await prismaClient.prompts.create({
+            data: {
+                name: 'assistantTitleGen_system',
+                title: '会话标题生成系统提示词 v1',
+                content: systemPromptContent,
+                variables: ['firstUserMessage', 'firstAssistantReply'],
+                version: 'v1',
+                type: 'system',
+                status: 1,
+                nodeId: node.id,
+            },
+        })
+    }
+
+    console.log('[seed] assistantTitleGen 节点 + 提示词 v1 完成')
+}
+
+/**
  * Seed: assistant_token 积分消耗规则
  *
  * 参考线上 case_analysis_token 行的字段结构（group=agentToken, unit=千tokens）。
@@ -297,6 +372,7 @@ async function seedAssistantRouters(prismaClient: PrismaClient): Promise<void> {
 
 async function main(): Promise<void> {
     await seedAssistantMainNode(prisma)
+    await seedAssistantTitleGenNode(prisma)
     await seedAssistantTokenRule(prisma)
     await seedAssistantRouters(prisma)
 }
