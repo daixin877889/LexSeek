@@ -161,7 +161,21 @@ export class AgentWorker {
         .catch(e => logger.warn(`Lazy repair 失败 (run=${run.id}):`, e))
 
       // === scope 分流（spec §5.2） ===
-      if (session.scope === 'assistant') {
+      if (session.scope === 'document') {
+        if (session.userId == null) {
+          throw new Error(
+            `document session ${run.sessionId} 缺失 userId（数据损坏）`,
+          )
+        }
+        const { runDocumentChat } = await import('../workflow/agents/documentMainAgent')
+        stream = await runDocumentChat(run.sessionId, input.message, {
+          userId: session.userId,
+          caseId: session.caseId ?? undefined,
+          command: input.command,
+          signal: abortController.signal,
+        })
+      }
+      else if (session.scope === 'assistant') {
         if (session.userId == null) {
           throw new Error(
             `assistant session ${run.sessionId} 缺失 userId（数据损坏）`,

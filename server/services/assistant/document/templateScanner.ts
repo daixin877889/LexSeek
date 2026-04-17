@@ -15,7 +15,7 @@ export async function scanPlaceholders(docxBuffer: Buffer): Promise<Placeholder[
     let match: RegExpExecArray | null
     while ((match = PLACEHOLDER_RE.exec(rawText)) !== null) {
         const name = match[1]
-        if (!map.has(name)) {
+        if (name != null && !map.has(name)) {
             const lineStart = rawText.lastIndexOf('\n', match.index) + 1
             const lineEnd = rawText.indexOf('\n', match.index + match[0].length)
             const firstContext = rawText.slice(lineStart, lineEnd === -1 ? undefined : lineEnd)

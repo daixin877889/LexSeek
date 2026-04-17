@@ -9,7 +9,7 @@ declare module 'mammoth' {
     }
 
     interface ConvertResult {
-        /** Converted markdown content */
+        /** Converted markdown/raw text content */
         value: string
         /** Messages/warnings from conversion */
         messages: Array<{
@@ -23,7 +23,13 @@ declare module 'mammoth' {
      */
     function convertToMarkdown(options: ConvertOptions): Promise<ConvertResult>
 
+    /**
+     * Extract plain text from a DOCX file (no formatting)
+     */
+    function extractRawText(options: ConvertOptions): Promise<ConvertResult>
+
     export default {
         convertToMarkdown,
+        extractRawText,
     }
 }

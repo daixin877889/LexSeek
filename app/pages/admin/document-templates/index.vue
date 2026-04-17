@@ -97,7 +97,7 @@
                                 </Badge>
                             </TableCell>
                             <TableCell class="text-sm text-muted-foreground">
-                                {{ formatDate(tpl.createdAt) }}
+                                {{ formatDate(String(tpl.createdAt)) }}
                             </TableCell>
                             <TableCell class="text-right">
                                 <DropdownMenu>
