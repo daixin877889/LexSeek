@@ -102,7 +102,6 @@ describe('Agent Worker 核心', () => {
 
   afterAll(async () => {
     await cleanupTestData(testIds)
-    await disconnectTestDb()
   })
 
   it('构造函数生成唯一 workerId', () => {
@@ -226,6 +225,145 @@ describe('Agent Worker 核心', () => {
     const p = (globalThis as any).prisma
     const updated = await p.agentRuns.findUnique({ where: { id: run.id } })
     expect(updated.status).toBe(AGENT_RUN_STATUS.COMPLETED)
+
+    await worker.shutdown()
+  })
+})
+
+/**
+ * Task 6: scope 分流 + 数据异常抛错
+ *
+ * executeRun 是私有方法，通过 processNextTask 间接触发。
+ * 异步 executeRun 捕获的错误会被写入 agentRuns.status=FAILED + error 字段。
+ */
+describe('agentWorker.executeRun - scope 分流与数据异常', () => {
+  let testIds: AgentTestIds
+  let testUser: Awaited<ReturnType<typeof createTestUser>>
+
+  beforeAll(async () => {
+    testIds = createEmptyTestIds()
+    testUser = await createTestUser()
+    testIds.userIds.push(testUser.id)
+  })
+
+  afterEach(async () => {
+    vi.clearAllMocks()
+    const p = (globalThis as any).prisma
+    if (testIds.agentRunIds.length > 0) {
+      await p.agentRuns.deleteMany({ where: { id: { in: testIds.agentRunIds } } })
+      testIds.agentRunIds = []
+    }
+    if (testIds.sessionIds.length > 0) {
+      await p.caseSessions.deleteMany({ where: { sessionId: { in: testIds.sessionIds } } })
+      testIds.sessionIds = []
+    }
+  })
+
+  afterAll(async () => {
+    await cleanupTestData(testIds)
+    await disconnectTestDb()
+  })
+
+  /**
+   * 等待 run 变为非 pending/running 状态（或超时返回当前状态）
+   */
+  async function waitForRunTermination(runId: string, maxMs = 1500) {
+    const p = (globalThis as any).prisma
+    const deadline = Date.now() + maxMs
+    while (Date.now() < deadline) {
+      const row = await p.agentRuns.findUnique({ where: { id: runId } })
+      if (row && row.status !== AGENT_RUN_STATUS.PENDING && row.status !== AGENT_RUN_STATUS.RUNNING) {
+        return row
+      }
+      await new Promise(r => setTimeout(r, 50))
+    }
+    return p.agentRuns.findUnique({ where: { id: runId } })
+  }
+
+  it('scope=assistant 但 session.userId=null 应写入明确错误（数据损坏）', async () => {
+    const sessionId = `broken-assist-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    await (globalThis as any).prisma.$executeRaw`
+      INSERT INTO case_sessions (session_id, scope, user_id, case_id, status, type, created_at, updated_at)
+      VALUES (${sessionId}, 'assistant', NULL, NULL, 1, 1, NOW(), NOW())
+    `
+    testIds.sessionIds.push(sessionId)
+
+    const run = await createAgentRunDAO({
+      sessionId,
+      threadId: sessionId,
+      userId: testUser.id,
+      caseId: null,
+      input: { message: 'hi' },
+    })
+    testIds.agentRunIds.push(run.id)
+
+    const worker = new AgentWorker('test-broken-assist-worker')
+    await worker.processNextTask()
+
+    const terminated = await waitForRunTermination(run.id)
+    expect(terminated.status).toBe(AGENT_RUN_STATUS.FAILED)
+    expect(terminated.error).toMatch(/缺失 userId/)
+
+    await worker.shutdown()
+  })
+
+  it('scope=case 但 session.caseId=null 应写入明确错误（数据损坏）', async () => {
+    const sessionId = `broken-case-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    await (globalThis as any).prisma.$executeRaw`
+      INSERT INTO case_sessions (session_id, scope, user_id, case_id, status, type, created_at, updated_at)
+      VALUES (${sessionId}, 'case', ${testUser.id}, NULL, 1, 1, NOW(), NOW())
+    `
+    testIds.sessionIds.push(sessionId)
+
+    const run = await createAgentRunDAO({
+      sessionId,
+      threadId: sessionId,
+      userId: testUser.id,
+      caseId: null,
+      input: { message: 'hi' },
+    })
+    testIds.agentRunIds.push(run.id)
+
+    const worker = new AgentWorker('test-broken-case-worker')
+    await worker.processNextTask()
+
+    const terminated = await waitForRunTermination(run.id)
+    expect(terminated.status).toBe(AGENT_RUN_STATUS.FAILED)
+    expect(terminated.error).toMatch(/缺失 caseId/)
+
+    await worker.shutdown()
+  })
+
+  it('scope=assistant 正常分流到 runAssistantChat（Task 8 前为 stub，抛"尚未实现"）', async () => {
+    const sessionId = `assist-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    await (globalThis as any).prisma.caseSessions.create({
+      data: {
+        sessionId,
+        scope: 'assistant',
+        userId: testUser.id,
+        caseId: null,
+        status: 1,
+        type: 1,
+      },
+    })
+    testIds.sessionIds.push(sessionId)
+
+    const run = await createAgentRunDAO({
+      sessionId,
+      threadId: sessionId,
+      userId: testUser.id,
+      caseId: null,
+      input: { message: 'hi' },
+    })
+    testIds.agentRunIds.push(run.id)
+
+    const worker = new AgentWorker('test-assist-stub-worker')
+    await worker.processNextTask()
+
+    const terminated = await waitForRunTermination(run.id)
+    expect(terminated.status).toBe(AGENT_RUN_STATUS.FAILED)
+    // Task 8 完成后会回来改断言为 completed
+    expect(terminated.error).toMatch(/尚未实现/)
 
     await worker.shutdown()
   })

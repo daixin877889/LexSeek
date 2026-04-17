@@ -137,7 +137,13 @@ export class AgentWorker {
       let stream: ReadableStream
       const session = await prisma.caseSessions.findUnique({
         where: { sessionId: run.sessionId },
-        select: { type: true, metadata: true },
+        select: {
+          scope: true,
+          type: true,
+          metadata: true,
+          userId: true,
+          caseId: true,
+        },
       })
 
       // session 必须存在，否则直接抛错，避免静默降级到普通 runCaseChat 导致路由错乱
@@ -152,41 +158,66 @@ export class AgentWorker {
       await repairOrphanToolUseCheckpoint(run.sessionId, '上一轮对话被用户取消')
         .catch(e => logger.warn(`Lazy repair 失败 (run=${run.id}):`, e))
 
-      if (session.type === 2) {
-        // 初始化分析：caseAnalysisV2 工作流
-        const { startCaseAnalysisV2 } = await import('../workflow/caseAnalysisV2.executor')
-        stream = await startCaseAnalysisV2({
-          sessionId: run.sessionId,
-          userId: run.userId,
-          caseId: run.caseId,
-          selectedModules: input.selectedModules ?? [],
-          command: input.command,
-          signal: abortController.signal,
-        })
-      } else if (session.type === 3) {
-        // 模块对话
-        const { runModuleChat } = await import('../workflow/agents/moduleAgent')
-        const metadata = session.metadata as { moduleName: string; nodeId: number }
-        stream = await runModuleChat(run.sessionId, input.message, {
-          userId: run.userId,
-          caseId: run.caseId,
-          moduleName: metadata.moduleName,
-          nodeId: metadata.nodeId,
-          command: input.command,
-          runId: run.id,
-          thinking: input.thinking,
-          signal: abortController.signal,
-        })
-      } else {
-        // 普通案件对话
-        const { runCaseChat } = await import('../workflow/agents')
-        stream = await runCaseChat(run.sessionId, input.message, {
-          userId: run.userId,
-          caseId: run.caseId,
+      // === scope 分流（spec §5.2） ===
+      if (session.scope === 'assistant') {
+        if (session.userId == null) {
+          throw new Error(
+            `assistant session ${run.sessionId} 缺失 userId（数据损坏）`,
+          )
+        }
+        const { runAssistantChat } = await import('../workflow/agents')
+        stream = await runAssistantChat(run.sessionId, input.message, {
+          userId: session.userId,
           command: input.command,
           thinking: input.thinking,
           signal: abortController.signal,
         })
+      }
+      else {
+        // === case 域分支：caseId 必须存在 ===
+        if (session.caseId == null) {
+          throw new Error(
+            `case session ${run.sessionId} 缺失 caseId（scope 与 caseId 不一致，数据损坏）`,
+          )
+        }
+        const caseId = session.caseId
+
+        if (session.type === 2) {
+          // 初始化分析：caseAnalysisV2 工作流
+          const { startCaseAnalysisV2 } = await import('../workflow/caseAnalysisV2.executor')
+          stream = await startCaseAnalysisV2({
+            sessionId: run.sessionId,
+            userId: run.userId,
+            caseId,
+            selectedModules: input.selectedModules ?? [],
+            command: input.command,
+            signal: abortController.signal,
+          })
+        } else if (session.type === 3) {
+          // 模块对话
+          const { runModuleChat } = await import('../workflow/agents/moduleAgent')
+          const metadata = session.metadata as { moduleName: string; nodeId: number }
+          stream = await runModuleChat(run.sessionId, input.message, {
+            userId: run.userId,
+            caseId,
+            moduleName: metadata.moduleName,
+            nodeId: metadata.nodeId,
+            command: input.command,
+            runId: run.id,
+            thinking: input.thinking,
+            signal: abortController.signal,
+          })
+        } else {
+          // 普通案件对话
+          const { runCaseChat } = await import('../workflow/agents')
+          stream = await runCaseChat(run.sessionId, input.message, {
+            userId: run.userId,
+            caseId,
+            command: input.command,
+            thinking: input.thinking,
+            signal: abortController.signal,
+          })
+        }
       }
 
       // 遍历 SSE stream 并发布事件到 Redis
