@@ -48,6 +48,8 @@ export interface ToolContext {
     sessionId: string
     /** 运行 ID（模块对话工具需要） */
     runId?: string
+    /** 文书草稿 ID（文书生成场景） */
+    draftId?: number
 }
 
 /** 工具定义（单一数据源） */

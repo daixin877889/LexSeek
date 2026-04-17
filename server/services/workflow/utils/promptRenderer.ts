@@ -17,13 +17,17 @@ export interface PromptRenderContext {
     moduleName?: string
     /** 案件类型 */
     caseType?: string
+    /** 文书模板名称 */
+    templateName?: string
+    /** 文书模板类别 */
+    templateCategory?: string
 }
 
 /**
  * 从 nodeConfig 提取生效的 system 提示词并渲染模板变量。
  *
  * - 仅取 `type === 'system' && status === 1` 的提示词
- * - 支持的变量：caseId / moduleName / caseType
+ * - 支持的变量：caseId / moduleName / caseType / templateName / templateCategory
  * - 若渲染后仍存在 `{{xxx}}` 字面量，会记录 warn 日志便于线上排查
  * - 若找不到有效的 system 提示词，返回空字符串
  *
@@ -52,6 +56,12 @@ export function renderSystemPrompt(
     }
     if (context.caseType) {
         variables.caseType = context.caseType
+    }
+    if (context.templateName) {
+        variables.templateName = context.templateName
+    }
+    if (context.templateCategory) {
+        variables.templateCategory = context.templateCategory
     }
 
     const rendered = renderContent(raw, variables)

@@ -122,4 +122,45 @@ describe('renderSystemPrompt', () => {
         const result = renderSystemPrompt(config, { caseType: '民事' })
         expect(result).toBe('案件类型：民事')
     })
+
+    it('支持 templateName 变量渲染', () => {
+        const config = buildConfig('模板名称：{{templateName}}')
+        const result = renderSystemPrompt(config, { templateName: '诉状' })
+        expect(result).toBe('模板名称：诉状')
+    })
+
+    it('支持 templateCategory 变量渲染', () => {
+        const config = buildConfig('模板类别：{{templateCategory}}')
+        const result = renderSystemPrompt(config, { templateCategory: '民事文书' })
+        expect(result).toBe('模板类别：民事文书')
+    })
+
+    it('同时支持 templateName 和 templateCategory 渲染', () => {
+        const config = buildConfig('生成模板 {{templateName}}（类别：{{templateCategory}}）')
+        const result = renderSystemPrompt(config, {
+            templateName: '诉状',
+            templateCategory: '民事文书',
+        })
+        expect(result).toBe('生成模板 诉状（类别：民事文书）')
+    })
+
+    it('未传 templateName 时不生成对应变量', () => {
+        const config = buildConfig('模板：{{templateName}}')
+        const result = renderSystemPrompt(config, {})
+        expect(result).toBe('模板：{{templateName}}')
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+            '系统提示词存在未替换的模板变量',
+            expect.objectContaining({ unreplacedVars: ['{{templateName}}'] }),
+        )
+    })
+
+    it('未传 templateCategory 时不生成对应变量', () => {
+        const config = buildConfig('类别：{{templateCategory}}')
+        const result = renderSystemPrompt(config, {})
+        expect(result).toBe('类别：{{templateCategory}}')
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+            '系统提示词存在未替换的模板变量',
+            expect.objectContaining({ unreplacedVars: ['{{templateCategory}}'] }),
+        )
+    })
 })
