@@ -32,6 +32,9 @@ export function createTool(context: ToolContext) {
             logger.info('执行材料处理工具', { userId, caseId })
 
             try {
+                if (caseId == null) {
+                    throw new Error('process_materials 工具需要 caseId，当前上下文缺失（可能 scope 路由错误）')
+                }
                 // 1. 通过 pipeline 确保材料已识别+嵌入
                 const { materials, embeddedMap } = await ensureMaterialsReadyService(caseId, userId)
                 if (materials.length === 0) {

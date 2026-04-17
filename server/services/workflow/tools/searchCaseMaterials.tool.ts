@@ -45,6 +45,9 @@ export function createTool(context: ToolContext) {
             logger.info('执行材料检索工作流工具', { userId, caseId, query, sourceId, k })
 
             try {
+                if (caseId == null) {
+                    throw new Error('search_case_materials 工具需要 caseId，当前上下文缺失（可能 scope 路由错误）')
+                }
                 const results = await searchMaterialsService(userId, caseId, { query, sourceId, k })
 
                 if (results.length === 0) {

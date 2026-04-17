@@ -83,6 +83,10 @@ export function createTool(context: ModuleToolContext) {
                 }
 
                 // 保存 + 激活（事务内完成）
+                // caseId 是模块对话场景的必需字段；若为 undefined 说明上游路由错误（assistant 域误入）
+                if (context.caseId == null) {
+                    throw new Error('save_analysis_result 工具需要 caseId，当前上下文缺失（可能 scope 路由错误）')
+                }
                 const analysis = await saveAndActivateAnalysisService({
                     caseId: context.caseId,
                     sessionId: context.sessionId,
