@@ -50,7 +50,7 @@
 **前端组件**（`app/components/assistant/document/`）：
 - `DocumentDraftPanel.vue` — 主容器，支持 `:case-id` prop
 - `DocumentTemplatePicker.vue` — 分类 Tab + 模板卡片
-- `DocumentSourceInput.vue` — AiPromptInput（文本 + 文件 + caseMaterials 多选）
+- `DocumentSourceInput.vue` — **瘦封装**：`<AiPromptInput>`（复用现有 721 行，含上传/拖拽/进度/识别）+ 案件场景叠加 `<CaseAnalysisMaterialSelector>`（复用现有 562 行）；**严禁重复实现上传 UI 或材料选择 Dialog**
 - `DocumentRunStatus.vue` — runStatus 展示
 - `DocumentFieldForm.vue` — 字段表单（控件推断 4 种）
 - `DocumentPreview.vue` — docx-preview + TreeWalker 替换
@@ -1264,9 +1264,66 @@ git commit -m "feat(assistant): 新增 useDocumentDraft composable"
 
 分类 Tab（9 类，从 `shared/types/document.ts` 导入）+ 模板卡片网格 + "已选 ✓ [更换]" 态
 
-- [ ] **Step 2: DocumentSourceInput**
+- [ ] **Step 2: DocumentSourceInput — 严禁重复实现文件上传 / 案件材料选择**
 
-复用 `AiPromptInput`：粘贴文本 + 文件上传按钮 + 案件材料多选（仅 `:case-id` 存在时显示）
+**⚠️ 复用边界**（必读）：
+
+| 能力 | 现有文件 | 直接复用方式 |
+|---|---|---|
+| 文本输入 + 文件上传（拖拽/进度/识别徽章/查重/OSS 签名/预览/移除） | `app/components/ai/AiPromptInput.vue`（721 行，已完备） | `<AiPromptInput enable-file-upload @submit="handleSubmit">`；submit 事件拿到 `AiPromptSubmitData { text, files: OssFileItem[] }`，`files[].id` 就是 `ossFileId`，不要再做任何上传 UI/逻辑 |
+| 案件材料多选 Dialog（类型筛选/搜索/上传新文件） | `app/components/caseAnalysis/materialSelector.vue`（562 行，已完备） | 参考 `app/components/caseAnalysis/promptInput.vue:150 / 215 / 236 / 612` 的 `<CaseAnalysisMaterialSelector ref="materialSelectorRef" :disabled-file-ids>` 组合方式 |
+| 两者整合（文本 + 上传 + 案件材料选择） | `app/components/caseAnalysis/promptInput.vue` 全文就是这个模式的参考 | `DocumentSourceInput` 的骨架≈`caseAnalysis/promptInput.vue` 简化版 |
+
+**DocumentSourceInput 的职责边界**（保持瘦）：
+- 渲染 `<AiPromptInput>`（独立场景时不显示"从案件材料选"按钮）
+- 案件场景（`:case-id` 存在）：额外渲染"从案件材料选"按钮，点击打开 `<CaseAnalysisMaterialSelector>`
+- 提交时把 `AiPromptSubmitData.files[].id` + 案件材料选中的 `materialId[]` 合并为 `sourceFileIds[]`
+- **不要**：文件上传 UI、进度条、识别徽章、文件类型筛选、上传重试——全部靠两个现有组件完成
+
+```vue
+<script setup lang="ts">
+import type { AiPromptSubmitData } from '~/components/ai/AiPromptInput.vue'
+
+const props = defineProps<{ caseId?: number }>()
+const emit = defineEmits<{ submit: [data: { text: string; sourceFileIds: number[] }] }>()
+
+const materialSelectorRef = ref<{ openDialog: () => void } | null>(null)
+const selectedCaseMaterialIds = ref<number[]>([])
+
+function handleAiSubmit(data: AiPromptSubmitData) {
+  const uploadedFileIds = (data.files ?? []).map(f => f.id)
+  emit('submit', {
+    text: data.text,
+    sourceFileIds: [...uploadedFileIds, ...selectedCaseMaterialIds.value],
+  })
+}
+</script>
+
+<template>
+  <div>
+    <AiPromptInput enable-file-upload @submit="handleAiSubmit">
+      <!-- 如需在输入框下方加按钮，可通过插槽；若 AiPromptInput 无插槽就外包一层按钮区 -->
+    </AiPromptInput>
+    <div v-if="caseId" class="mt-2 flex items-center gap-2">
+      <Button size="sm" variant="outline" @click="materialSelectorRef?.openDialog()">
+        从案件材料选择
+      </Button>
+      <span v-if="selectedCaseMaterialIds.length" class="text-xs text-muted-foreground">
+        已选 {{ selectedCaseMaterialIds.length }} 个案件材料
+      </span>
+    </div>
+    <CaseAnalysisMaterialSelector
+      v-if="caseId"
+      ref="materialSelectorRef"
+      :case-id="caseId"
+      :disabled-file-ids="selectedCaseMaterialIds"
+      @confirm="(ids: number[]) => selectedCaseMaterialIds = ids"
+    />
+  </div>
+</template>
+```
+
+实施时若 `AiPromptInput` 无底部插槽，优先**给 AiPromptInput 加一个具名插槽**（这属于通用增强），仍禁止在 DocumentSourceInput 里重做上传。
 
 - [ ] **Step 3: DocumentRunStatus**
 

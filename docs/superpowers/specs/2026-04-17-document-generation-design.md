@@ -522,6 +522,7 @@ schema 中每个字段的 description 已说明占位符的首次出现上下文
 | 材料 OCR/embedding 栈 | `materialPipeline.service.ts` + `material.service.ts` + `materialEmbedding.service.ts`，**本期新增 3 个 draftId-based 并行函数 + 1 个 DAO 函数**（见 §6.4.1）；`embedMaterialUnifiedService(materialId, userId)` 按单个材料处理，与 case/draft 无关，draft 场景下直接复用 |
 | 会话表 | `caseSessions` with **新 scope 值 `'document'`** + `caseId` 可空（现有 schema 已 optional） |
 | 前端流管理 | `useStreamChat`（`app/composables/useStreamChat.ts`）；`useDocumentDraft` 仿 `useAssistantChat` 组装 |
+| 前端文件上传 + 案件材料选择（DocumentSourceInput 瘦封装） | `AiPromptInput`（`app/components/ai/AiPromptInput.vue`，721 行，含拖拽/进度/识别/查重/OSS 签名/预览）+ `CaseAnalysisMaterialSelector`（`app/components/caseAnalysis/materialSelector.vue`，562 行，类型筛选/搜索/上传新文件）；组合参考 `app/components/caseAnalysis/promptInput.vue`。**DocumentSourceInput 严禁重做上传 UI 或选择 Dialog**，只做：渲染 AiPromptInput + 案件场景叠加 Selector 按钮 + 合并 sourceFileIds |
 | 前端消息/工具展示组件 | 复用 `app/components/ai/AiChat.vue` + `app/components/ai/AiMessageList.vue` + `app/components/ai/AiToolRenderer.vue`（工具调用渲染器：按工具名分派到 `app/components/ai/tools/*.vue`，例如 `MaterialSearchTool.vue` / `LawSearchTool.vue`） |
 
 **未来扩展点**（不在本期）：通过 `subAgentToolFactory`（`server/services/workflow/agents/subAgentToolFactory.ts`）把 `documentMain` 作为 caseMain 的子代理注入，实现"在小索子对话里直接触发文书生成"——本期不做，节点 type=`agent` 使其天然具备这个能力。
