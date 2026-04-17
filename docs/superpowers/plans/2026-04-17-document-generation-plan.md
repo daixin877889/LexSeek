@@ -519,7 +519,9 @@ async function seedDocumentTemplates(prismaClient: PrismaClient): Promise<void> 
             filePath: uploadResult.name,
             fileSize: buffer.length,
             fileType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            source: 'DOCUMENT_TEMPLATE',
+            source: FileSource.DOCUMENT_TEMPLATE,
+            status: OssFileStatus.UPLOADED,
+            encrypted: false,
         })
 
         await prismaClient.documentTemplates.create({
@@ -681,7 +683,9 @@ export async function createDocumentTemplateService(params: {
             filePath: uploadResult.name,
             fileSize: params.fileSize,
             fileType: params.mimeType,
-            source: 'DOCUMENT_TEMPLATE',
+            source: FileSource.DOCUMENT_TEMPLATE,
+            status: OssFileStatus.UPLOADED,
+            encrypted: false,
         })
         return ossFile.id
     }
