@@ -53,7 +53,7 @@ LexSeek 的全部 AI 能力——对话（`caseMainAgent`）、分析（`caseAna
 
 两者共用 agentWorker、checkpointer、SSE 协议。演化上互不干扰。
 
-### 1.4 非目标
+### 1.5 非目标
 
 - **不**改造 `caseAnalysisV2` 结构化工作流
 - **不**重构 `caseMainAgent`
@@ -751,8 +751,8 @@ Response: text/event-stream（复用现有 SSE 协议）
 
 实现：
 1. 鉴权 + scope 校验（`sessionId` 必须 scope=assistant 且归属当前用户）
-2. 权益门控
-3. 入队 `agent_runs(scope='assistant', caseId=null)` → 触发 worker
+2. 积分门控（`checkPointsService`）
+3. 入队 `agent_runs`，`scope='assistant'`；`caseId` 默认为 null（独立对话场景），但合同审查/文书生成在案件页复用时**允许**传入 caseId 以便后续关联查询（此时 session 仍为 assistant scope）
 4. 返回 SSE stream（与 case 域完全一致的协议）
 
 #### 5.6.5 取消运行
@@ -1235,7 +1235,9 @@ Step 4: 导出 .docx
 #### 7.4.2 用户私人模板
 
 - 用户在 `/dashboard/assistant/document/templates` 上传
-- 配额通过 `BenefitCode.DOCUMENT_TEMPLATE_SLOTS` 管理（默认免费用户 5 个，付费 20/无限）
+- **配额限制**：按当前用户已存在的 `documentTemplates` 行数（`scope='user' AND userId=X AND deletedAt IS NULL`）做 COUNT 查询，超过阈值拒绝上传
+- 阈值具体数值与是否区分会员等级为开放问题（见 §11 #4）；第三期实施前再确定
+- 本 spec **不新增** benefit 体系配额字段（遵守 §4.5 原则）
 - scope='user', userId=当前用户
 
 #### 7.4.3 模板查询
