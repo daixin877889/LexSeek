@@ -35,9 +35,23 @@ LexSeek 的全部 AI 能力——对话（`caseMainAgent`）、分析（`caseAna
 1. 引入**无 case 会话**通道（`scope='assistant'`），用户无需创建案件即可使用 AI 能力
 2. 在侧边栏提供 **3 个一级入口**：对话 / 合同审查 / 文书生成
 3. 合同审查、文书生成**既可独立使用**，也可**在案件详情页中复用**（同组件 + caseId prop 注入）
-4. 对话 / 合同审查 / 文书生成**各自独立的权益与积分规则**
+4. 对话 / 合同审查 / 文书生成**各自独立的积分计费键**
 5. 对用户：重型管理（case 全生命周期）和轻型任务（临时咨询/审查/起草）**两条产品线并存**
 6. 对开发：最大限度复用现有 LangGraph 执行内核 / SSE / checkpointer / Redis 队列
+
+### 1.4 与「小索子 Agent」的边界界定
+
+最近 commit `21d56d9` 引入了「小索子 Agent」的持久化与上下文复用。**小索子 Agent 仍绑定 caseId**，服务于案件内的子代理委派；本文的「通用法律助手」是**无 case 会话**，面向零上下文场景。两者关系：
+
+| 维度 | 小索子 Agent | 通用法律助手 |
+|---|---|---|
+| 上下文 | case 绑定 | 无 case |
+| 入口 | 案件详情页内的 AI 面板 | 侧边栏一级菜单 |
+| 节点 | 复用 caseMain / 分析节点 | 新增 assistantMain 节点 |
+| 会话 scope | `case` | `assistant` |
+| 持久化 | caseSessions（scope=case） | caseSessions（scope=assistant） |
+
+两者共用 agentWorker、checkpointer、SSE 协议。演化上互不干扰。
 
 ### 1.4 非目标
 
@@ -128,7 +142,7 @@ LexSeek 的全部 AI 能力——对话（`caseMainAgent`）、分析（`caseAna
 |---|---|---|
 | 系统提示词 | 假设有 case 背景、materials、analysis | 显式声明"无案件上下文" |
 | 工具集 | `searchCaseMaterials` / `processMaterials` / `saveAnalysisResult` 等需 caseId 的工具 | `searchLaw` 等普适工具（第二期追加 `reviewContract` / `draftDocument`） |
-| 中间件 | `caseMaterialContext` / `caseProcessMaterial` / `moduleContext` | 无案件相关中间件 |
+| 中间件 | `pointConsumption` / `caseProcessMaterial` / `moduleContext` / `summarization` / `safetyTrim` / `skills`（见 `caseMainAgent.ts`） | `pointConsumption`(itemKey 不同) / `summarization` / `safetyTrim`，**不注入**任何 case 相关中间件 |
 | 模型 | 需要强推理（可配更大模型） | 可配更便宜模型（通过 nodes.modelId） |
 | 积分计费键 | `case_analysis_token` | `assistant_token` |
 
@@ -253,28 +267,18 @@ VALUES (
 
 并为该 node 插入一条初始 prompts（type='system', version='v1', status=1）。提示词内容见 §5.4。
 
-### 4.5 第一期 · Benefit 扩展
+### 4.5 第一期 · 积分计费键扩展
 
-`shared/types/benefit.ts`：
+**不新增 `BenefitCode` 枚举值**。现有 `BenefitCode` 只有 `STORAGE_SPACE`，配套的 `BenefitUnitType`（BYTE / COUNT）+ `MembershipBenefits` 是**累加/额度型配额**模型（类似云盘空间），**没有按周期归零机制**，与"按次对话"不匹配。
 
-```typescript
-export enum BenefitCode {
-  STORAGE_SPACE = 'storage_space',
-  ASSISTANT_CHAT = 'assistant_chat',        // 新增
-  CONTRACT_REVIEW = 'contract_review',       // 第二期用
-  DOCUMENT_DRAFT = 'document_draft',         // 第二期用
-  DOCUMENT_TEMPLATE_SLOTS = 'document_template_slots',  // 第二期用：用户私人模板配额
-}
-```
+第一期完全走积分扣减路径：
+- `pointConsumptionMiddleware(userId, 'assistant_token', sessionId)` 按 token 扣减
+- 在 `pointConsumptionRules` 表新增一条记录：`itemKey='assistant_token'`，单价由运营配置（开放问题 §11）
+- 入口门控复用现有 `checkPointsService(userId, 'assistant_token', minUnits=1)`；积分不足 → `resError(402, '积分不足，请充值')`
 
-`membershipBenefits` 表按会员等级灌数据（数值由产品确定）：
-- 免费会员：`ASSISTANT_CHAT = 20 次/月`
-- 标准会员：`ASSISTANT_CHAT = 200 次/月`
-- 尊享会员：`ASSISTANT_CHAT = 无限`
+**未来若需要"免费会员 N 次/月"类配额**，需先扩展 benefit 体系（新增 `PERIOD_RESET` 计算模式 + `usageCounters` 表 + 月末 cron），再在 chat 入口增加次数校验。本次 spec 不承诺此扩展。
 
-**积分计费**：
-- `ASSISTANT_CHAT` 在 `pointConsumptionMiddleware` 中按 token 扣减，计费键 `assistant_token`（与 `case_analysis_token` 规则独立，单价可不同）
-- `CONTRACT_REVIEW` / `DOCUMENT_DRAFT`（第二期）按任务扣固定积分 + 超出阈值按 token 递增
+**enum 保持现状**：`shared/types/benefit.ts` 不改。合同审查、文书生成同理走积分键（`contract_review_token`、`document_draft_token`），不新增 benefit code。
 
 ### 4.6 第二期 · `contractReviews` 新表
 
@@ -432,13 +436,57 @@ export async function createSessionDAO(input: z.infer<typeof CreateSessionSchema
 
 agentRuns 的 DAO 同理。
 
-### 4.11 存量数据回填
+### 4.11 存量数据回填（独立 seed 脚本，不进 migration）
 
-第一期 migration 执行后：
-- 存量 `case_sessions` 行：`scope='case'`（默认值自动填充）、`userId=NULL`（**不回填**，查询时通过 `caseSessions.case.userId` 间接获取）
-- 存量 `agent_runs` 行：`scope='case'`（默认值自动填充）
+为遵守"所有 schema 变更由 Prisma CLI 自动生成、migration 文件无人工编辑"的原则，存量 `case_sessions.userId` 回填**不写入 migration 文件**。改由：
 
-若后续需要按 `userId` 查询 case 域会话，再单独写一次性 seed 脚本回填 `caseSessions.userId`（不纳入第一期范围）。
+1. 独立 TypeScript 脚本 `scripts/backfillSessionUserId.ts`：
+```typescript
+// 运行：bun run scripts/backfillSessionUserId.ts
+import { prisma } from '~~/server/utils/prisma'
+
+async function main() {
+    const result = await prisma.$executeRaw`
+        UPDATE case_sessions cs
+           SET user_id = c.user_id
+          FROM cases c
+         WHERE cs.case_id = c.id
+           AND cs.user_id IS NULL
+           AND cs.deleted_at IS NULL
+    `
+    console.log(`回填完成：${result} 行`)
+}
+main().finally(() => prisma.$disconnect())
+```
+
+2. 部署流程：migration 应用后，运维**执行一次**该脚本即可；删除 migrations 目录重建时（全新环境），无存量数据，脚本空跑无副作用，**不必执行**。
+
+3. 代码兼容：**必须在同 PR**改写 `session.dao.ts` 的 `findSessionWithOwnershipCheck`，使其不依赖回填是否已执行：
+
+```typescript
+async function findSessionWithOwnershipCheck(sessionId: string, userId: number) {
+    const session = await prisma.caseSessions.findFirst({
+        where: { sessionId, deletedAt: null },
+        include: { case: { select: { userId: true } } },
+    })
+    if (!session) return { session: null, error: 'Session 不存在' as const }
+
+    // 优先使用 session.userId（回填后或新写入的都有）；
+    // 回退到 session.case?.userId（case 域历史行在回填前的兼容）
+    // scope='assistant' 时 session.case 为 null，只能走 session.userId
+    const ownerId = session.userId ?? session.case?.userId
+    if (ownerId == null || ownerId !== userId) {
+        return { session: null, error: '无权操作该 Session' as const }
+    }
+    return { session, error: null }
+}
+```
+
+**迁移验证步骤**：
+1. `bun run prisma:migrate dev --name add_assistant_scope_to_sessions_and_runs`
+2. 本地 `prisma migrate diff --from-url $DATABASE_URL --to-schema-datamodel prisma/schema.prisma --script` 预览 SQL，确认仅有期望的 ALTER
+3. 部署到预发环境后执行 `bun run scripts/backfillSessionUserId.ts`
+4. 验证：`SELECT COUNT(*) FROM case_sessions WHERE user_id IS NULL AND scope='case' AND deleted_at IS NULL` 应为 0
 
 ---
 
@@ -479,19 +527,24 @@ server/
 const session = await getSessionDAO(sessionId)
 
 if (session.scope === 'assistant') {
-  return runAssistantChat(sessionId, message, {
-    userId: session.userId!,  // scope=assistant 时 userId 必存在
-    command,
-    signal,
-    thinking,
-  })
+    // assistant 域：session.userId 必然已写入（scope=assistant 的创建路径强校验）
+    // 存量 case 域未回填时，不会走入此分支，无需担心
+    if (session.userId == null) {
+        throw new Error(`assistant session ${sessionId} 缺失 userId（数据损坏）`)
+    }
+    return runAssistantChat(sessionId, message, {
+        userId: session.userId,
+        command,
+        signal,
+        thinking,
+    })
 }
 
-// 原有 case 分支保留不变
+// 原有 case 分支保留不变；case 域仍然通过 session.case.userId 取主（已有逻辑）
 switch (session.type) {
-  case 1: return runCaseChat(sessionId, message, { userId, caseId: session.caseId!, signal, command })
-  case 2: return runCaseAnalysisV2(...)
-  case 3: return runModuleChat(...)
+    case 1: return runCaseChat(sessionId, message, { userId, caseId: session.caseId!, signal, command })
+    case 2: return runCaseAnalysisV2(...)
+    case 3: return runModuleChat(...)
 }
 ```
 
@@ -628,17 +681,22 @@ export async function getAssistantThreadState(sessionId: string) {
 - 不讨论与法律无关的话题（礼貌拒绝并引导回法律咨询）。
 ```
 
-### 5.5 积分扣减与会员门控
+### 5.5 积分扣减门控
 
-**前置门控**（`chat.post.ts` 入口）：
+**前置门控**（`chat.post.ts` 入口，复用现有 `checkPointsService`）：
+
 ```typescript
-const canUse = await membershipBenefitService.canUse(BenefitCode.ASSISTANT_CHAT, userId)
-if (!canUse.allowed) {
-    return resError(event, 402, `权益不足：${canUse.reason}`)
+import { checkPointsService } from '~~/server/services/point/pointConsumption.service'
+
+const check = await checkPointsService(userId, 'assistant_token', 1)
+if (!check.allowed) {
+    return resError(event, 402, `积分不足：${check.reason}`)
 }
 ```
 
-**运行时计费**：通过已有 `pointConsumptionMiddleware` 按 token 扣减，计费键 `assistant_token`。无需新建中间件。
+**运行时计费**：通过 `pointConsumptionMiddleware(userId, 'assistant_token', sessionId)` 在 `afterModel` 钩子按 token 扣减，与 `case_analysis_token` 走同一套扣减代码路径，只是 `itemKey` 不同。无需新建中间件。
+
+**先决条件**：需在 `pointConsumptionRules` 表（或当前积分单价配置表）新增一条 `itemKey='assistant_token'` 的单价记录，数值由运营提供（见 §11 开放问题）。
 
 ### 5.6 API 契约
 
@@ -802,45 +860,93 @@ agentWorker → runAssistantChat（系统提示词 + reviewContract 工具）
 
 ```typescript
 // server/services/workflow/tools/reviewContract.tool.ts
-const reviewContractTool = tool({
-  name: 'reviewContract',
-  description: '对已上传的合同执行法律审查：识别甲乙方、请求用户立场、按立场输出风险点与批注',
-  schema: z.object({
-    reviewId: z.number(),
-  }),
-  async execute({ reviewId }, { interrupt }) {
-    // Step A: 解析合同
+import { tool } from '@langchain/core/tools'
+import { interrupt } from '@langchain/langgraph'  // 模块级 import，与 pointConsumption.middleware.ts 一致
+import { z } from 'zod'
+
+const reviewContractTool = tool(
+    async ({ reviewId }) => {
+        // Step A: 解析合同
+        const review = await getContractReviewDAO(reviewId)
+        const docx = await downloadFromOSS(review.originalFileId)
+        const { paragraphs, partyA, partyB, contractType } = await parseContract(docx)
+        await updateContractReviewDAO(reviewId, {
+            contractType, partyA, partyB, status: 'awaiting_stance',
+        })
+
+        // Step B: 请求立场（模块级 interrupt，抛出后 langgraph 持久化 checkpoint 暂停）
+        const { stance } = interrupt({
+            type: 'awaiting_stance',
+            reviewId,
+            partyA,
+            partyB,
+            contractType,
+        }) as { stance: 'partyA' | 'partyB' | 'neutral' }
+
+        // Step C: 按立场审查
+        await updateContractReviewDAO(reviewId, { stance, status: 'reviewing' })
+        const { risks, summary } = await runReviewPrompt({
+            paragraphs, stance, contractType, partyA, partyB,
+        })
+
+        // Step D: 批注注入
+        const reviewedBuffer = await injectComments(docx, risks)
+        const reviewedFileId = await uploadToOSS(reviewedBuffer, `reviewed-${reviewId}.docx`)
+
+        // Step E: 更新结果
+        await updateContractReviewDAO(reviewId, {
+            risks, summary, reviewedFileId, status: 'completed',
+        })
+
+        return { risks, summary, reviewedFileId }
+    },
+    {
+        name: 'reviewContract',
+        description: '对已上传的合同执行法律审查：识别甲乙方、请求用户立场、按立场输出风险点与批注',
+        schema: z.object({
+            reviewId: z.number(),
+        }),
+    },
+)
+```
+
+### 6.5.1 立场提交 → interrupt resume 的端到端机制
+
+由于 HTTP 请求不能直接操作 LangGraph 的 interrupt state，`/stance` 端点必须**通过 agentWorker 现有的队列机制**将 Command 注入到暂停的会话：
+
+```typescript
+// server/api/v1/assistant/contract/reviews/[id]/stance.post.ts
+export default defineEventHandler(async (event) => {
+    const reviewId = Number(getRouterParam(event, 'id'))
+    const { stance } = await readBody(event)
+    const user = event.context.auth?.user
+    if (!user) return resError(event, 401, '请先登录')
+
     const review = await getContractReviewDAO(reviewId)
-    const docx = await downloadFromOSS(review.originalFileId)
-    const { paragraphs, partyA, partyB, contractType } = await parseContract(docx)
-    await updateContractReviewDAO(reviewId, { contractType, partyA, partyB, status: 'awaiting_stance' })
+    if (review.userId !== user.id) return resError(event, 403, '无权操作')
+    if (review.status !== 'awaiting_stance') {
+        return resError(event, 400, `当前状态 ${review.status} 不允许提交立场`)
+    }
 
-    // Step B: 请求立场
-    const { stance } = await interrupt({
-      type: 'awaiting_stance',
-      reviewId,
-      partyA,
-      partyB,
-      contractType,
+    // 复用 agentRuns + agentWorker 的入队机制：
+    // 以 command 字段携带 stance，worker 在 executeRun 中检测到
+    // scope=assistant 且 input.command 存在时，走 Command({ resume }) 路径
+    await enqueueAgentRunService({
+        sessionId: review.sessionId,
+        userId: user.id,
+        scope: 'assistant',
+        caseId: review.caseId,
+        input: {
+            message: undefined,
+            command: { stance },  // 会被 runAssistantChat 的 Command({ resume }) 消费
+        },
     })
 
-    // Step C: 按立场审查
-    await updateContractReviewDAO(reviewId, { stance, status: 'reviewing' })
-    const { risks, summary } = await runReviewPrompt({ paragraphs, stance, contractType, partyA, partyB })
-
-    // Step D: 批注注入
-    const reviewedBuffer = await injectComments(docx, risks)
-    const reviewedFileId = await uploadToOSS(reviewedBuffer, `reviewed-${reviewId}.docx`)
-
-    // Step E: 更新结果
-    await updateContractReviewDAO(reviewId, {
-      risks, summary, reviewedFileId, status: 'completed',
-    })
-
-    return { risks, summary, reviewedFileId }
-  },
+    return resSuccess(event, '立场已提交，审查继续', { reviewId })
 })
 ```
+
+**关键点**：`runAssistantChat` 已在第 5.3 节实现 `const input = command ? new Command({ resume: command }) : ...`，此处复用该路径。
 
 ### 6.6 审查提示词模板（`contractReview_system` v1）
 
@@ -1254,13 +1360,12 @@ export async function exportDraft(draftId: number): Promise<{ ossFileId: number 
         paragraphLoop: true,
         linebreaks: true,
         delimiters: { start: '{{', end: '}}' },
+        // 缺失占位符用 nullGetter 统一兜底为空字符串，避免
+        // docxtemplater 对"未定义变量"抛错（尤其 loop/条件场景下 ?? '' 会失效）
+        nullGetter: () => '',
     })
 
-    // 填入空字符串避免未定义占位符报错
-    const data = Object.fromEntries(
-        template.placeholders.map((p: Placeholder) => [p.name, draft.values[p.name] ?? '']),
-    )
-    doc.render(data)
+    doc.render(draft.values as Record<string, string>)
 
     const outputBuffer = doc.getZip().generate({ type: 'nodebuffer' })
     const ossFileId = await uploadToOSS(outputBuffer, `draft-${draftId}.docx`)
@@ -1275,6 +1380,7 @@ export async function exportDraft(draftId: number): Promise<{ ossFileId: number 
 ```
 
 > **docxtemplater 自带 run-joining 能力**：能正确处理 Word 把 `{{name}}` 切分到多个 `<w:r>` 的情况，保持原样式。MIT 协议，可商用。
+> `nullGetter` 是官方推荐的缺失值兜底机制（见 docxtemplater 官方文档），覆盖 `{{ key }}`、`{#loop}...{/loop}`、`{?key}...{/key}` 等各种语法。
 
 ### 7.9 API 契约
 
@@ -1313,7 +1419,25 @@ GET /api/v1/assistant/document/drafts?page=&pageSize=&caseId=
 - 已选模板区显示"已选：XXX ✓ [更换]"，点击更换回到选择界面
 - 资料输入区的 `AiPromptInput` 与对话页完全一致的视觉与交互
 - 表单字段按 `template.placeholders` 顺序渲染，每个字段右上角小问号显示 AI suggestion
-- 预览区使用 `docx-preview` 渲染；用户改表单时 debounce 500ms 后重渲染
+
+**实时预览的技术实现**（关键）：
+- `docx-preview` 直接渲染**原始模板 .docx**（HTML 输出到隐藏容器）
+- `docx-preview` 本身**不支持** `{{placeholder}}` 模板语法，需要前端对渲染结果做文本节点替换：
+  ```typescript
+  function replacePlaceholders(root: HTMLElement, values: Record<string, string>) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+      const tasks: Array<() => void> = []
+      while (walker.nextNode()) {
+          const node = walker.currentNode as Text
+          const original = node.nodeValue ?? ''
+          const replaced = original.replace(/\{\{(\w+)\}\}/g, (_, name) => values[name] ?? '')
+          if (replaced !== original) tasks.push(() => { node.nodeValue = replaced })
+      }
+      tasks.forEach(fn => fn())
+  }
+  ```
+- 用户改表单 → debounce 500ms → 克隆原 DOM 树 → 调 `replacePlaceholders` → 替换到预览容器
+- **注意**：占位符跨 `<w:r>` 切分后 docx-preview 渲染出来的文本节点可能被拆分。若检测到拆分，降级为"后端用 docxtemplater 渲染 → 返回 HTML/base64 预览"；此为降级路径，第三期实施时若发现 UI 不稳定再启用
 
 ### 7.11 在案件详情页的复用
 
@@ -1469,34 +1593,46 @@ async function deleteSession(id: string) {
 
 **目标**：让无 case 对话能用，建立后续扩展的基础。
 
+**前置依赖检查**：本期**无需**安装新 npm 包，全部使用现有依赖。
+
 **交付清单**：
 1. 数据模型
    - [ ] `caseSessions` 放宽 + 新增字段（Prisma migrate）
    - [ ] `agentRuns` 放宽 + 新增字段（Prisma migrate）
-   - [ ] `nodes` 表插入 `assistantMain` + 对应 `prompts` v1
-   - [ ] `BenefitCode` 扩展 + `membershipBenefits` 灌数据
-   - [ ] `pointConsumptionRules` 新增 `assistant_token` 计费键
-2. 后端
+   - [ ] `nodes` 表插入 `assistantMain` + 对应 `prompts` v1（seed 脚本或 admin 后台）
+   - [ ] `pointConsumptionRules` 新增 `assistant_token` 计费键配置（不改 benefit enum）
+2. 存量数据
+   - [ ] `scripts/backfillSessionUserId.ts` 回填脚本
+   - [ ] 部署文档更新：指示运维执行回填脚本
+3. 后端
    - [ ] `assistantSession.service/dao`
    - [ ] `workflow/agents/assistantAgent.ts`
    - [ ] `agentWorker` 按 scope 分流
+   - [ ] 改写 `session.dao.ts` 的 `findSessionWithOwnershipCheck`（兼容 assistant scope）
    - [ ] `/api/v1/assistant/sessions.*`
    - [ ] `/api/v1/assistant/chat`
    - [ ] `/api/v1/assistant/runs/cancel/[runId]`
-3. 前端
+4. 前端
    - [ ] `/dashboard/assistant/chat` 页
    - [ ] `AssistantSessionList` 组件
    - [ ] `useAssistantChat` composable
    - [ ] 侧边栏三个菜单项注册（后两个先链到 WIP 占位页）
    - [ ] 首条消息后异步生成会话标题
-4. 测试
-   - [ ] assistantSession DAO 单测（scope/caseId 互斥校验）
-   - [ ] assistantAgent 集成测试（SSE 流、工具调用、中断恢复、积分扣减）
+5. 测试
+   - [ ] `assistantSession` DAO 单测（scope/caseId 互斥校验、userId 校验）
+   - [ ] `findSessionWithOwnershipCheck` 单测（case 域 + assistant 域两种 session 都能正确鉴权）
+   - [ ] `assistantAgent` 集成测试（SSE 流、工具调用、积分扣减）
    - [ ] 端到端：新建会话 → 发消息 → 收流 → 标题生成 → 列表显示
 
 ### 9.2 第二期（合同审查）
 
 **前置**：第一期完成。
+
+**前置依赖安装**：
+```bash
+bun add fast-xml-parser diff-match-patch docx-preview
+# mammoth、jszip 已存在
+```
 
 **交付清单**：
 1. 数据模型
@@ -1523,6 +1659,13 @@ async function deleteSession(id: string) {
 ### 9.3 第三期（文书生成）
 
 **前置**：第一期完成。第二期可并行。
+
+**前置依赖安装**：
+```bash
+bun add pizzip docxtemplater
+# docx-preview 与第二期共用（若第二期已装则免）
+# mammoth 已存在，用于占位符扫描
+```
 
 **交付清单**：
 1. 数据模型
@@ -1592,17 +1735,17 @@ async function deleteSession(id: string) {
   - 模板列表查询分页（默认 20/页）
   - 模板搜索走全文索引（若必要，后期加 pg_trgm）
 
-### 10.6 积分扣减与会员权益的边界场景
+### 10.6 积分模型而非 benefit 配额模型
 
-- 用户的 `ASSISTANT_CHAT` 次数用完但 token 计费仍继续
-- **缓解**：
-  - 进入 `chat.post.ts` 前置检查：次数 > 0 且积分余额 > 最低消费单元
-  - 单次对话中途积分不足：触发 safetyTrim 中间件之后的钩子，允许完成当前 turn 但禁止继续
+- 本 spec 未引入"次数/月"的配额型权益，原因是现有 `BenefitCode` 体系（`BYTE` / `COUNT` + `SUM` / `MAX` 模式）没有周期归零机制，运营用的 `membershipBenefits` 行为是累加型额度
+- **权衡**：本期只做"积分 token 扣减"这一种门控方式，简单、可靠、与现有代码对齐；放弃按次限额的产品能力
+- 若后期运营需要"免费用户 20 次/月"类限制，需单独立项扩展 benefit 体系（新增 `PERIOD_RESET` 模式 + `usageCounters` 表 + 月末 cron），此改造不在本 spec 范围
 
 ### 10.7 中断恢复的一致性
 
-- 合同审查在立场询问处 interrupt，如果用户关闭页面后再进来，应能看到"等待立场"状态
-- **实现**：`contractReviews.status='awaiting_stance'`，前端查询时检测此状态，直接弹立场选择框，提交后恢复
+- 合同审查在立场询问处 `interrupt()`，如果用户关闭页面后再进来，应能看到"等待立场"状态
+- **实现**：`contractReviews.status='awaiting_stance'`，前端查询时检测此状态，直接弹立场选择框，提交后通过 `/stance` 端点 → `enqueueAgentRunService` → `runAssistantChat({ command: { stance } })` → `Command({ resume })` 恢复
+- 恢复路径已在 §6.5.1 端到端说明
 
 ---
 
@@ -1613,11 +1756,12 @@ async function deleteSession(id: string) {
 | # | 问题 | 预期阶段 |
 |---|---|---|
 | 1 | `assistantMain` 节点的模型选择（是否用更便宜的 Haiku？） | 第一期实施前 |
-| 2 | `ASSISTANT_CHAT` / `CONTRACT_REVIEW` / `DOCUMENT_DRAFT` 的积分单价具体数值 | 第一期实施前（运营决策） |
+| 2 | `assistant_token` / `contract_review_token` / `document_draft_token` 三个计费键在 `pointConsumptionRules` 的具体单价 | 第一期实施前（运营决策） |
 | 3 | 首批 100+ 文书模板的分类体系与命名规范（CSV 准备） | 第三期前（运营准备） |
-| 4 | 用户私人模板配额的免费/付费分档 | 第三期前 |
+| 4 | 用户私人模板配额的免费/付费分档（需要时再扩展 benefit 体系） | 第三期前 |
 | 5 | 是否在第一期侧边栏就展示合同审查/文书生成的入口（WIP 占位）| 第一期前（产品决策） |
 | 6 | 合同审查 / 文书生成是否需要历史记录列表页（类似会话列表）| 第二/三期前 |
+| 7 | 是否需要对"按次配额"做产品承诺（决定是否立项扩展 benefit 周期归零能力）| 后续独立立项 |
 
 ---
 
