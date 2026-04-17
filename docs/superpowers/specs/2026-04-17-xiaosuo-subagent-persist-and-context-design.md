@@ -1,6 +1,6 @@
 # 小索子 Agent 分析持久化与上下文复用设计
 
-**版本**: 1.1
+**版本**: 1.2
 **日期**: 2026-04-17
 **状态**: 审查通过
 
@@ -159,8 +159,8 @@ injectedBy: `ModuleContextMiddleware:${moduleName ?? 'global'}`,
 const otherResults = Object.entries(completedResults)
     .filter(([key]) => key !== moduleName)
 
-// 改后：moduleName 可缺省时所有模块都纳入
-const otherResults = moduleName
+// 改后：moduleName 可缺省时所有模块都纳入（使用 != null 而非 truthiness，防御空字符串）
+const otherResults = moduleName != null
     ? Object.entries(completedResults).filter(([key]) => key !== moduleName)
     : Object.entries(completedResults)
 ```
@@ -176,8 +176,8 @@ if (currentModuleHash && currentModuleHash !== newCurrentHash) {
     newCurrentHash = currentModuleHash
 }
 
-// 改后：moduleName 缺省时跳过整个 section 4
-if (moduleName) {
+// 改后：moduleName 缺省时跳过整个 section 4（使用 != null 而非 truthiness，防御空字符串）
+if (moduleName != null) {
     const currentModuleResult = completedResults[moduleName]
     const currentModuleHash = currentModuleResult ? createHash('md5').update(currentModuleResult).digest('hex') : null
     if (currentModuleHash && currentModuleHash !== newCurrentHash) {
@@ -208,9 +208,9 @@ if (moduleName) {
 + import {
 +     pointConsumptionMiddleware,
 +     caseProcessMaterialMiddleware,
++     moduleContextMiddleware,       // ← 替换 caseMaterialContextMiddleware
 +     safetyTrimMiddleware,
 + } from '../middleware'
-+ import { moduleContextMiddleware } from '../middleware/moduleContext.middleware'
 
 // createAgent 中的 middleware 数组（行 147-160）
 middleware: [
@@ -356,6 +356,8 @@ caseMainAgent → LLM
 | 同 session 同 module 短时间并发触发 | `findAnalysisBySessionAndNodeDao` 复用 IN_PROGRESS 记录 | 不变（不会建多版本） |
 | 用户中途取消 (AbortSignal) | AgentWorker 已传 signal，子 Agent 抛 AbortError | 触发"子 Agent 异常"路径 |
 | document 类节点子 Agent | 中间件正常执行，写入 `caseAnalyses` | **接受**：当前不做类型区分，由用户决策 |
+| 同轮对话中 LLM 两次调用同一子 Agent | 第一次完成后记录变 COMPLETED；第二次 `beforeAgent` 找不到 IN_PROGRESS → 创建 version N+2 | **接受**：每次调用都独立产生新版本，最后激活的是最后一次的 |
+| 切换中间件后旧 checkpoint state 不兼容 | 旧小索对话的 checkpoint 中 `_injectedSourceIds` 存在于 `CaseMaterialContextMiddleware` 名下 | 新 `ModuleContextMiddleware` 读不到旧 state → 首次恢复旧对话时重新全量注入材料。这是**一次性迁移代价**，不会导致错误（首轮注入逻辑兜底），后续轮次正常增量 |
 
 ---
 
@@ -377,6 +379,7 @@ caseMainAgent → LLM
 - **场景 2**：同 caseId 已有 isActive summary → 小索对话上下文应包含该 summary
 - **场景 3**：模块对话保存新版本 → 切换到小索 session → 小索看到新版本（验证 hash 增量更新）
 - **场景 4**：子 Agent 异常路径（mock LLM 抛错）→ 验证不会留下 `status=COMPLETED + isActive=false` 的脏数据；IN_PROGRESS 记录由 cleanup 服务兜底
+- **场景 5**：已有旧 `CaseMaterialContextMiddleware` checkpoint 的小索对话 → 切换到 `ModuleContextMiddleware` 后首轮对话应重新全量注入材料（一次性迁移），后续轮次恢复增量
 
 ### 7.3 测试约束
 
@@ -424,6 +427,8 @@ caseMainAgent → LLM
 | `caseMainAgent` 切换到 `buildMiddlewareStack` | 与现有 `caseMainAgent` / `moduleAgent` 风格一致更重要 |
 | 修改 `loadCompletedResultsService` 的 token 预算实现 | 已在 [2026-04-09 spec 5.1](./2026-04-09-context-engineering-optimization-design.md) 由 `moduleContextBuilder` 统一管理 |
 | 区分 analysis / document 类节点的子 Agent 持久化策略 | 用户已决策当前接受统一持久化 |
+| 子 Agent 版本缺少 `tokenCount`/`tokens` 字段 | `analysisResultPersistenceMiddleware` 从未设置 token 统计字段（默认 null），这是现有中间件的已知行为，不在本次修复范围；如未来需要可在中间件 afterAgent 中从 `pointConsumptionMiddleware` 的 state 读取 |
+| 前端版本列表区分"小索生成"和"模块对话生成"的版本来源标签 | 可通过 `caseAnalyses.sessionId` 关联 `caseSessions.type/metadata` 推导来源，属 UI 改进而非本次 bug 修复 |
 | 给小索新增"切换某模块到旧版本"的工具 | 当前 UI 已有版本列表切换；小索读取时通过 `loadCompletedResultsService` 自动看到 isActive 版本，无需额外工具 |
 
 ---
