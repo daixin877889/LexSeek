@@ -1,22 +1,12 @@
 /**
- * POST /api/v1/assistant/document/templates
+ * POST /api/v1/admin/document-templates
  *
- * 用户端上传文书模板（multipart/form-data）。
- * - 无论是否超管，经此接口上传的模板一律为 scope='user'（受配额 20 限制，归属当前用户）
- * - 上传全局系统模板请走 /api/v1/admin/document-templates（仅超管可访问）
+ * 后台管理端上传全局文书模板（multipart/form-data）。
+ * 权限由 03.permission 中间件统一拦截（非 super_admin 访问 /api/v1/admin/** 直接 403）。
+ * - 一律创建 scope='global'（不走配额）
+ * - 与 /api/v1/assistant/document/templates（用户端）分离，避免超管意外把私人模板上传成全局模板
  *
- * Form 字段：
- * - file: .docx 文件（必填，≤ 20MB）
- * - name: 模板名称（必填，非空）
- * - category: 分类 key（必填）
- * - description: 简介（可选）
- *
- * 错误码：
- * - 400：格式非 .docx / 无占位符 / 缺少必填字段
- * - 403：配额已满（普通用户上限 20 个）
- * - 413：文件大小 > 20MB
- *
- * 参见 spec §2.3
+ * Form 字段、错误码与 spec §2.3 一致。
  */
 
 import { createDocumentTemplateService } from '~~/server/services/assistant/document/documentTemplate.service'
@@ -26,7 +16,6 @@ export default defineEventHandler(async (event) => {
     const user = event.context.auth?.user
     if (!user) return resError(event, 401, '请先登录')
 
-    // 解析 multipart/form-data
     const formData = await readMultipartFormData(event)
     if (!formData) return resError(event, 400, '缺少文件')
 
@@ -56,7 +45,7 @@ export default defineEventHandler(async (event) => {
 
     const result = await createDocumentTemplateService({
         userId: user.id,
-        isAdmin: false, // 用户端接口：一律按 user scope 处理
+        isAdmin: true, // 管理端：创建全局模板
         file: fileItem.data,
         fileName,
         fileSize,

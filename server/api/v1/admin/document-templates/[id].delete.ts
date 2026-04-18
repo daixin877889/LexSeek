@@ -1,13 +1,12 @@
 /**
- * DELETE /api/v1/assistant/document/templates/:id
+ * DELETE /api/v1/admin/document-templates/:id
  *
- * 用户端软删除文书模板（设置 deletedAt）。
- * - 仅允许删除自己的私人模板（scope='user' 且 userId===当前用户）
- * - 其他情况一律 403（包括 super_admin 本人也不得通过该接口删除他人/全局模板）
- * - 管理员删除任意模板请走 /api/v1/admin/document-templates/:id
- * - 已软删模板再次删除幂等（不报错）
+ * 后台管理端软删除文书模板。权限由 03.permission 中间件统一拦截
+ * （非 super_admin 访问 /api/v1/admin/** 会被直接 403）。
+ * - 可删除任意 scope 的模板（global/user）
+ * - 已软删幂等
  *
- * 参见 spec §2.3
+ * 与 /api/v1/assistant/document/templates/:id（用户端 owner-only）分离。
  */
 
 import {
@@ -29,15 +28,10 @@ export default defineEventHandler(async (event) => {
         const template = await getDocumentTemplateDAO(id)
         if (!template) return resError(event, 404, '模板不存在')
 
-        const isOwner = template.scope === 'user' && template.userId === user.id
-        if (!isOwner) {
-            return resError(event, 403, '仅可删除本人的私人模板')
-        }
-
         await softDeleteDocumentTemplateDAO(id)
         return resSuccess(event, '删除成功', { id })
     } catch (error: any) {
-        logger.error('删除文书模板失败', { id, userId: user.id, error: error?.message })
+        logger.error('[admin] 删除文书模板失败', { id, userId: user.id, error: error?.message })
         return resError(event, 500, error?.message || '删除模板失败')
     }
 })

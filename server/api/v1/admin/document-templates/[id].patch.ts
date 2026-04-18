@@ -1,18 +1,11 @@
 /**
- * PATCH /api/v1/assistant/document/templates/:id
+ * PATCH /api/v1/admin/document-templates/:id
  *
- * 用户端更新文书模板元数据（部分更新）。
- * - 仅允许修改自己的私人模板（scope='user' 且 userId===当前用户）
- * - 其他情况一律 403（包括 super_admin 本人也不得通过该接口改他人/全局模板）
- * - 管理员修改任意模板请走 /api/v1/admin/document-templates/:id
+ * 后台管理端更新文书模板元数据。权限由 03.permission 中间件拦截
+ * （非 super_admin 访问 /api/v1/admin/** 直接 403）。
+ * - 可修改任意 scope 的模板（global/user）
  *
- * Body（均可选）：
- * - name: string
- * - category: string
- * - description: string
- * - status: number
- *
- * 参见 spec §2.3
+ * 与 /api/v1/assistant/document/templates/:id（用户端 owner-only）分离。
  */
 
 import { z } from 'zod'
@@ -48,15 +41,10 @@ export default defineEventHandler(async (event) => {
         const template = await getDocumentTemplateDAO(id)
         if (!template) return resError(event, 404, '模板不存在')
 
-        const isOwner = template.scope === 'user' && template.userId === user.id
-        if (!isOwner) {
-            return resError(event, 403, '仅可修改本人的私人模板')
-        }
-
         const updated = await updateDocumentTemplateDAO(id, parsed.data)
         return resSuccess(event, '更新成功', updated)
     } catch (error: any) {
-        logger.error('更新文书模板失败', { id, userId: user.id, error: error?.message })
+        logger.error('[admin] 更新文书模板失败', { id, userId: user.id, error: error?.message })
         return resError(event, 500, error?.message || '更新模板失败')
     }
 })

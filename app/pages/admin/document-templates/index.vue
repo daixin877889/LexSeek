@@ -327,7 +327,7 @@ const loadTemplates = async () => {
         if (keyword.value.trim()) params.q = keyword.value.trim()
 
         const data = await useApiFetch<{ list: TemplateRow[]; total: number }>(
-            '/api/v1/assistant/document/templates',
+            '/api/v1/admin/document-templates',
             { query: params }
         )
         if (data) {
@@ -356,7 +356,7 @@ const changePage = (page: number) => {
 
 const handleToggleStatus = async (tpl: TemplateRow) => {
     const newStatus = tpl.status === 1 ? 0 : 1
-    const result = await useApiFetch(`/api/v1/assistant/document/templates/${tpl.id}`, {
+    const result = await useApiFetch(`/api/v1/admin/document-templates/${tpl.id}`, {
         method: 'PATCH',
         body: { status: newStatus },
     })
@@ -380,7 +380,7 @@ const confirmDelete = async () => {
     deleting.value = true
     try {
         const result = await useApiFetch(
-            `/api/v1/assistant/document/templates/${selectedTemplate.value.id}`,
+            `/api/v1/admin/document-templates/${selectedTemplate.value.id}`,
             { method: 'DELETE' }
         )
         if (result !== null) {
@@ -457,7 +457,7 @@ const confirmUpload = async () => {
         }
 
         const result = await useApiFetch<{ templateId: number }>(
-            '/api/v1/assistant/document/templates',
+            '/api/v1/admin/document-templates',
             { method: 'POST', body: formData }
         )
         if (result !== null) {
@@ -501,7 +501,7 @@ const confirmEdit = async () => {
             status: Number(editForm.statusStr),
         }
         const result = await useApiFetch(
-            `/api/v1/assistant/document/templates/${editForm.id}`,
+            `/api/v1/admin/document-templates/${editForm.id}`,
             { method: 'PATCH', body }
         )
         if (result !== null) {

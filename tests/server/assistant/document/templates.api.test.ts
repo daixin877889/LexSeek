@@ -62,6 +62,14 @@ vi.mock('~~/server/services/rbac/permission.service', () => ({
     checkIsSuperAdmin: vi.fn().mockResolvedValue(false),
 }))
 
+vi.mock('~~/server/services/files/ossFiles.dao', () => ({
+    findOssFileByIdDao: vi.fn(),
+}))
+
+vi.mock('~~/server/services/storage/storage.service', () => ({
+    generateSignedUrlService: vi.fn(),
+}))
+
 import {
     createDocumentTemplateService,
 } from '~~/server/services/assistant/document/documentTemplate.service'
@@ -72,6 +80,8 @@ import {
     softDeleteDocumentTemplateDAO,
 } from '~~/server/services/assistant/document/documentTemplate.dao'
 import { checkIsSuperAdmin } from '~~/server/services/rbac/permission.service'
+import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
+import { generateSignedUrlService } from '~~/server/services/storage/storage.service'
 
 const mockCreateService = createDocumentTemplateService as ReturnType<typeof vi.fn>
 const mockListDAO = listDocumentTemplatesDAO as ReturnType<typeof vi.fn>
@@ -79,6 +89,8 @@ const mockGetDAO = getDocumentTemplateDAO as ReturnType<typeof vi.fn>
 const mockUpdateDAO = updateDocumentTemplateDAO as ReturnType<typeof vi.fn>
 const mockSoftDeleteDAO = softDeleteDocumentTemplateDAO as ReturnType<typeof vi.fn>
 const mockCheckIsAdmin = checkIsSuperAdmin as ReturnType<typeof vi.fn>
+const mockFindOssFileDao = findOssFileByIdDao as ReturnType<typeof vi.fn>
+const mockGenerateSignedUrl = generateSignedUrlService as ReturnType<typeof vi.fn>
 
 // ==================== 动态 import handlers（必须在 mock 之后）====================
 
@@ -96,6 +108,24 @@ const { default: patchHandler } = await import(
 )
 const { default: deleteHandler } = await import(
     '../../../../server/api/v1/assistant/document/templates/[id].delete'
+)
+const { default: adminDeleteHandler } = await import(
+    '../../../../server/api/v1/admin/document-templates/[id].delete'
+)
+const { default: adminCreateHandler } = await import(
+    '../../../../server/api/v1/admin/document-templates/index.post'
+)
+const { default: adminPatchHandler } = await import(
+    '../../../../server/api/v1/admin/document-templates/[id].patch'
+)
+const { default: adminListHandler } = await import(
+    '../../../../server/api/v1/admin/document-templates/index.get'
+)
+const { default: adminDetailHandler } = await import(
+    '../../../../server/api/v1/admin/document-templates/[id].get'
+)
+const { default: adminDownloadUrlHandler } = await import(
+    '../../../../server/api/v1/admin/document-templates/download-url/[id].get'
 )
 
 // ==================== 类型 ====================
@@ -373,7 +403,7 @@ describe('文书模板 CRUD API', () => {
             )
         })
 
-        it('admin 用户上传时 isAdmin=true 传给 service', async () => {
+        it('用户端接口：super_admin 上传也强制 isAdmin=false（改走 admin 接口才能建全局模板）', async () => {
             const user = await createTestUser()
             userIds.push(user.id)
 
@@ -387,7 +417,7 @@ describe('文书模板 CRUD API', () => {
                 }) as any,
             )
             expect(mockCreateService).toHaveBeenCalledWith(
-                expect.objectContaining({ isAdmin: true }),
+                expect.objectContaining({ isAdmin: false }),
             )
         })
 
@@ -581,7 +611,7 @@ describe('文书模板 CRUD API', () => {
             expect(mockUpdateDAO).not.toHaveBeenCalled()
         })
 
-        it('admin 可修改任何模板', async () => {
+        it('admin（super_admin）经用户端接口修改他人模板也返回 403', async () => {
             const admin = await createTestUser()
             const owner = await createTestUser()
             userIds.push(admin.id, owner.id)
@@ -597,8 +627,27 @@ describe('文书模板 CRUD API', () => {
                     body: { name: 'Admin修改' },
                 }) as any,
             )
-            expect(res.success).toBe(true)
-            expect(mockUpdateDAO).toHaveBeenCalled()
+            expect(res.code).toBe(403)
+            expect(mockUpdateDAO).not.toHaveBeenCalled()
+        })
+
+        it('用户端接口拒绝修改 global 模板（即使是 super_admin）', async () => {
+            const admin = await createTestUser()
+            userIds.push(admin.id)
+
+            mockGetDAO.mockResolvedValue({ id: 2, name: '全局模板', scope: 'global', userId: null })
+            mockCheckIsAdmin.mockResolvedValue(true)
+
+            const res: any = await patchHandler(
+                makeEvent({
+                    userId: admin.id,
+                    isAdmin: true,
+                    params: { id: '2' },
+                    body: { name: '篡改' },
+                }) as any,
+            )
+            expect(res.code).toBe(403)
+            expect(mockUpdateDAO).not.toHaveBeenCalled()
         })
 
         it('传入未知字段被忽略（不报错）', async () => {
@@ -688,7 +737,7 @@ describe('文书模板 CRUD API', () => {
             expect(mockSoftDeleteDAO).not.toHaveBeenCalled()
         })
 
-        it('admin 可删除任何模板', async () => {
+        it('admin（super_admin）经用户端接口删除他人模板也返回 403', async () => {
             const admin = await createTestUser()
             const owner = await createTestUser()
             userIds.push(admin.id, owner.id)
@@ -703,8 +752,272 @@ describe('文书模板 CRUD API', () => {
                     params: { id: '1' },
                 }) as any,
             )
+            expect(res.code).toBe(403)
+            expect(mockSoftDeleteDAO).not.toHaveBeenCalled()
+        })
+
+        it('用户端接口拒绝删除 global 模板（即使是 super_admin）', async () => {
+            const admin = await createTestUser()
+            userIds.push(admin.id)
+
+            mockGetDAO.mockResolvedValue({ id: 2, name: '全局模板', scope: 'global', userId: null })
+            mockCheckIsAdmin.mockResolvedValue(true)
+
+            const res: any = await deleteHandler(
+                makeEvent({
+                    userId: admin.id,
+                    isAdmin: true,
+                    params: { id: '2' },
+                }) as any,
+            )
+            expect(res.code).toBe(403)
+            expect(mockSoftDeleteDAO).not.toHaveBeenCalled()
+        })
+    })
+
+    // ==================== DELETE /admin/document-templates/:id ====================
+
+    describe('DELETE /api/v1/admin/document-templates/:id', () => {
+        it('未登录返回 401', async () => {
+            const res: any = await adminDeleteHandler(makeEvent({ params: { id: '1' } }) as any)
+            expect(res.code).toBe(401)
+        })
+
+        it('id 非数字返回 400', async () => {
+            const admin = await createTestUser()
+            userIds.push(admin.id)
+            const res: any = await adminDeleteHandler(
+                makeEvent({ userId: admin.id, params: { id: 'abc' } }) as any,
+            )
+            expect(res.code).toBe(400)
+        })
+
+        it('模板不存在返回 404', async () => {
+            const admin = await createTestUser()
+            userIds.push(admin.id)
+            mockGetDAO.mockResolvedValue(null)
+            const res: any = await adminDeleteHandler(
+                makeEvent({ userId: admin.id, params: { id: '999' } }) as any,
+            )
+            expect(res.code).toBe(404)
+        })
+
+        it('可删除任意用户的 user 模板', async () => {
+            const admin = await createTestUser()
+            const owner = await createTestUser()
+            userIds.push(admin.id, owner.id)
+            mockGetDAO.mockResolvedValue({ id: 3, name: '他人模板', scope: 'user', userId: owner.id })
+
+            const res: any = await adminDeleteHandler(
+                makeEvent({ userId: admin.id, params: { id: '3' } }) as any,
+            )
             expect(res.success).toBe(true)
-            expect(mockSoftDeleteDAO).toHaveBeenCalledWith(1)
+            expect(mockSoftDeleteDAO).toHaveBeenCalledWith(3)
+        })
+
+        it('可删除 global 模板', async () => {
+            const admin = await createTestUser()
+            userIds.push(admin.id)
+            mockGetDAO.mockResolvedValue({ id: 4, name: '全局模板', scope: 'global', userId: null })
+
+            const res: any = await adminDeleteHandler(
+                makeEvent({ userId: admin.id, params: { id: '4' } }) as any,
+            )
+            expect(res.success).toBe(true)
+            expect(mockSoftDeleteDAO).toHaveBeenCalledWith(4)
+        })
+    })
+
+    // ==================== POST /admin/document-templates ====================
+
+    describe('POST /api/v1/admin/document-templates', () => {
+        it('未登录返回 401', async () => {
+            const res: any = await adminCreateHandler(
+                makeEvent({ formData: makeDocxFormData({}) }) as any,
+            )
+            expect(res.code).toBe(401)
+        })
+
+        it('强制 isAdmin=true 传给 service（创建全局模板）', async () => {
+            const admin = await createTestUser()
+            userIds.push(admin.id)
+
+            await adminCreateHandler(
+                makeEvent({
+                    userId: admin.id,
+                    formData: makeDocxFormData({}),
+                }) as any,
+            )
+            expect(mockCreateService).toHaveBeenCalledWith(
+                expect.objectContaining({ isAdmin: true }),
+            )
+        })
+    })
+
+    // ==================== PATCH /admin/document-templates/:id ====================
+
+    describe('PATCH /api/v1/admin/document-templates/:id', () => {
+        it('未登录返回 401', async () => {
+            const res: any = await adminPatchHandler(
+                makeEvent({ params: { id: '1' }, body: { name: 'x' } }) as any,
+            )
+            expect(res.code).toBe(401)
+        })
+
+        it('模板不存在返回 404', async () => {
+            const admin = await createTestUser()
+            userIds.push(admin.id)
+            mockGetDAO.mockResolvedValue(null)
+
+            const res: any = await adminPatchHandler(
+                makeEvent({ userId: admin.id, params: { id: '999' }, body: { name: 'x' } }) as any,
+            )
+            expect(res.code).toBe(404)
+        })
+
+        it('可修改任意用户的 user 模板', async () => {
+            const admin = await createTestUser()
+            const owner = await createTestUser()
+            userIds.push(admin.id, owner.id)
+
+            mockGetDAO.mockResolvedValue({ id: 5, name: '他人模板', scope: 'user', userId: owner.id })
+
+            const res: any = await adminPatchHandler(
+                makeEvent({
+                    userId: admin.id,
+                    params: { id: '5' },
+                    body: { name: 'Admin改名' },
+                }) as any,
+            )
+            expect(res.success).toBe(true)
+            expect(mockUpdateDAO).toHaveBeenCalledWith(5, expect.objectContaining({ name: 'Admin改名' }))
+        })
+
+        it('可修改 global 模板', async () => {
+            const admin = await createTestUser()
+            userIds.push(admin.id)
+
+            mockGetDAO.mockResolvedValue({ id: 6, name: '全局', scope: 'global', userId: null })
+
+            const res: any = await adminPatchHandler(
+                makeEvent({
+                    userId: admin.id,
+                    params: { id: '6' },
+                    body: { status: 0 },
+                }) as any,
+            )
+            expect(res.success).toBe(true)
+            expect(mockUpdateDAO).toHaveBeenCalledWith(6, expect.objectContaining({ status: 0 }))
+        })
+    })
+
+    // ==================== GET /admin/document-templates ====================
+
+    describe('GET /api/v1/admin/document-templates', () => {
+        it('未登录返回 401', async () => {
+            const res: any = await adminListHandler(makeEvent({}) as any)
+            expect(res.code).toBe(401)
+        })
+
+        it('不传 viewerUserId 给 DAO（可见全部模板）', async () => {
+            const admin = await createTestUser()
+            userIds.push(admin.id)
+            mockListDAO.mockResolvedValue({ list: [], total: 0 })
+
+            await adminListHandler(
+                makeEvent({ userId: admin.id, query: { skip: '0', take: '20' } }) as any,
+            )
+            const arg = mockListDAO.mock.calls.at(-1)?.[0]
+            expect(arg).toBeDefined()
+            expect(arg).not.toHaveProperty('viewerUserId')
+        })
+
+        it('透传 scope/category/q/skip/take 给 DAO', async () => {
+            const admin = await createTestUser()
+            userIds.push(admin.id)
+            mockListDAO.mockResolvedValue({ list: [], total: 0 })
+
+            await adminListHandler(
+                makeEvent({
+                    userId: admin.id,
+                    query: { scope: 'user', category: '起诉状', q: '张三', skip: '10', take: '5' },
+                }) as any,
+            )
+            expect(mockListDAO).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    scope: 'user',
+                    category: '起诉状',
+                    q: '张三',
+                    skip: 10,
+                    take: 5,
+                }),
+            )
+        })
+    })
+
+    // ==================== GET /admin/document-templates/:id ====================
+
+    describe('GET /api/v1/admin/document-templates/:id', () => {
+        it('未登录返回 401', async () => {
+            const res: any = await adminDetailHandler(makeEvent({ params: { id: '1' } }) as any)
+            expect(res.code).toBe(401)
+        })
+
+        it('模板不存在返回 404', async () => {
+            const admin = await createTestUser()
+            userIds.push(admin.id)
+            mockGetDAO.mockResolvedValue(null)
+
+            const res: any = await adminDetailHandler(
+                makeEvent({ userId: admin.id, params: { id: '1' } }) as any,
+            )
+            expect(res.code).toBe(404)
+        })
+
+        it('可查看他人的 user 模板（不做归属校验）', async () => {
+            const admin = await createTestUser()
+            const owner = await createTestUser()
+            userIds.push(admin.id, owner.id)
+            mockGetDAO.mockResolvedValue({ id: 7, name: '他人模板', scope: 'user', userId: owner.id })
+
+            const res: any = await adminDetailHandler(
+                makeEvent({ userId: admin.id, params: { id: '7' } }) as any,
+            )
+            expect(res.success).toBe(true)
+            expect(res.data.id).toBe(7)
+        })
+    })
+
+    // ==================== GET /admin/document-templates/download-url/:id ====================
+
+    describe('GET /api/v1/admin/document-templates/download-url/:id', () => {
+        it('未登录返回 401', async () => {
+            const res: any = await adminDownloadUrlHandler(
+                makeEvent({ params: { id: '1' } }) as any,
+            )
+            expect(res.code).toBe(401)
+        })
+
+        it('可为他人 user 模板生成下载链接', async () => {
+            const admin = await createTestUser()
+            const owner = await createTestUser()
+            userIds.push(admin.id, owner.id)
+
+            mockGetDAO.mockResolvedValue({
+                id: 8,
+                name: '他人模板',
+                scope: 'user',
+                userId: owner.id,
+                ossFileId: 100,
+            })
+            mockFindOssFileDao.mockResolvedValue({ id: 100, filePath: '/p/f.docx' })
+            mockGenerateSignedUrl.mockResolvedValue('https://signed.example/x')
+
+            const res: any = await adminDownloadUrlHandler(
+                makeEvent({ userId: admin.id, params: { id: '8' } }) as any,
+            )
+            expect(res.success).toBe(true)
+            expect(res.data.downloadUrl).toBe('https://signed.example/x')
         })
     })
 })
