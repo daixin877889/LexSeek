@@ -21,6 +21,15 @@ export const DOCUMENT_CATEGORIES = [
 export type DocumentCategoryKey = typeof DOCUMENT_CATEGORIES[number]['key']
 export const DOCUMENT_CATEGORY_KEYS = DOCUMENT_CATEGORIES.map(c => c.key) as readonly DocumentCategoryKey[]
 
+// ==================== 模板来源筛选枚举 ====================
+export type TemplateScopeFilter = 'all' | 'user' | 'global'
+
+export const TEMPLATE_SCOPE_OPTIONS: { value: TemplateScopeFilter; label: string }[] = [
+    { value: 'all', label: '全部' },
+    { value: 'user', label: '我的' },
+    { value: 'global', label: '公共' },
+]
+
 // ==================== Draft 状态枚举 ====================
 export type DocumentDraftStatus = 'drafting' | 'filling' | 'ready' | 'exported' | 'failed'
 

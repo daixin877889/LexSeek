@@ -19,7 +19,7 @@
  * 建议补充如下 data-testid：
  *   - DocumentTemplatePicker.vue     → 模板卡片按钮      data-testid="doc-template-card"
  *   - DocumentFieldForm.vue          → 字段输入框        data-testid="doc-field-input"
- *   - DraftList.vue "进入" 按钮       → data-testid="draft-open-btn"
+ *   - DraftHistory.vue "进入" 按钮    → data-testid="draft-open-btn"
  *   - drafts/[id].vue "AI 生成"       → data-testid="doc-ai-trigger"
  *   - drafts/[id].vue "返回"          → data-testid="doc-back-btn"
  *   - drafts/[id].vue "导出 .docx"   → data-testid="doc-export-btn"
@@ -118,9 +118,10 @@ test.describe('文书生成核心链路 E2E', () => {
     await page.waitForURL(DOCUMENT_HOME, { timeout: NAV_TIMEOUT })
     await expect(page.getByRole('heading', { name: '文书生成' })).toBeVisible()
 
-    // === Step 4：草稿列表中能看到刚创建的草稿 ===
-    // DraftList 组件有 "我的草稿" 标题
-    await expect(page.getByRole('heading', { name: '我的草稿' })).toBeVisible({
+    // === Step 4：历史文书 Tab 中能看到刚创建的草稿 ===
+    // 点击切到历史文书
+    await page.getByRole('tab', { name: '历史文书' }).click()
+    await expect(page.getByRole('tab', { name: '历史文书', selected: true })).toBeVisible({
       timeout: LIST_TIMEOUT,
     })
 
