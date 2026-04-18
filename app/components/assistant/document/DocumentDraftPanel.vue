@@ -86,7 +86,7 @@ watch(template, async (tpl) => {
 <template>
     <div class="space-y-6">
         <section v-if="!templateId">
-            <h2 class="text-lg font-semibold mb-3">选择模板</h2>
+            <!-- <h2 class="text-lg font-semibold mb-3">选择模板</h2> -->
             <AssistantDocumentTemplatePicker @select="(id: number) => templateId = id" />
         </section>
 
@@ -100,38 +100,25 @@ watch(template, async (tpl) => {
             <AssistantDocumentSourceInput :case-id="caseId" @submit="handleSourceSubmit" />
         </section>
 
-        <div
-            v-if="runStatus === 'filling'"
-            class="flex items-center gap-2 py-4 text-muted-foreground"
-        >
+        <div v-if="runStatus === 'filling'" class="flex items-center gap-2 py-4 text-muted-foreground">
             <Loader2Icon class="size-4 animate-spin" />
             <span>AI 正在分析材料并填充文书字段...</span>
         </div>
 
-        <div
-            v-if="error"
-            class="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
-        >
+        <div v-if="error"
+            class="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
             生成失败：{{ error.message || '请稍后重试' }}
         </div>
 
         <section v-if="(runStatus === 'ready' || runStatus === 'exported') && template && draft">
             <h2 class="text-lg font-semibold mb-3">编辑文书字段</h2>
-            <AssistantDocumentFieldForm
-                :template="template"
-                :values="currentValues"
-                :suggestions="suggestions"
-                @change="onFieldChange"
-            />
+            <AssistantDocumentFieldForm :template="template" :values="currentValues" :suggestions="suggestions"
+                @change="onFieldChange" />
         </section>
 
         <section v-if="draft && template">
-            <AssistantDocumentPreview
-                :template-buffer="templateBuffer"
-                :values="currentValues"
-                :disabled="exportDisabled || isLoading"
-                @export="onExport"
-            />
+            <AssistantDocumentPreview :template-buffer="templateBuffer" :values="currentValues"
+                :disabled="exportDisabled || isLoading" @export="onExport" />
         </section>
     </div>
 </template>

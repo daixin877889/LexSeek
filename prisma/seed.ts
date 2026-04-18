@@ -479,9 +479,9 @@ async function seedAssistantRouters(prismaClient: PrismaClient): Promise<void> {
             sort: 5,
         },
         {
-            name: 'dashboard-assistant-document',
+            name: 'dashboard-document',
             title: '文书生成',
-            path: '/dashboard/assistant/document',
+            path: '/dashboard/document',
             icon: 'lucideIcons.FileTextIcon',
             description: '按模板生成法律文书，AI 自动填充占位符',
             sort: 6,

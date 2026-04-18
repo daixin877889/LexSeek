@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 文书生成独立页（路由 /dashboard/assistant/document）
+ * 文书生成独立页（路由 /dashboard/document）
  *
  * 独立使用场景：用户在侧栏"文书生成"菜单进入，不带 caseId。
  * 案件场景由 caseDetail 的 documents tab 复用 DocumentDraftPanel（Task 6.1）。
