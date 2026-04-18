@@ -2,15 +2,15 @@
  * POST /api/v1/assistant/contract/chat handler 分支测试
  *
  * 策略：纯 mock 风格——通过 vi.mock 替换 DAO / agent / SSE 服务，直接调用 handler default export。
- * 只覆盖无需返回 Response 的 5 个早返回分支：
+ * 覆盖 5 条早返回分支 + 1 条 INTERRUPTED 恢复分支（断言 caseId=null 核心 delta）：
  *  1. 未登录 → 401
  *  2. sessionId 空 → 400
  *  3. session 不存在 → 404
  *  4. session 属于他人 → 403
  *  5. 活跃 RUNNING + 新消息 → 429
+ *  6. 活跃 INTERRUPTED + 新消息 → 旧 run 标 COMPLETED + enqueue(caseId=null)
  *
- * 其余分支（SSE 流 / enqueue 成功）由 M3 集成测试与 document/chat 同源逻辑覆盖，
- * 本测试文件不重复实现以避免 mock 真流带来的脆弱性。
+ * 其余分支（SSE 流 / enqueue 成功主路径）由 document/chat 同源逻辑覆盖。
  *
  * **Feature: contract-review-m4**
  * **Validates: Task 1.1（chat.post.ts）**
@@ -67,6 +67,7 @@ import {
     updateRunStatusDAO,
 } from '~~/server/services/agent/agentRun.dao'
 import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
+import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
 
 const mockFindReviewBySession = findContractReviewBySessionIdDAO as ReturnType<typeof vi.fn>
 const mockFindActiveRun = findActiveRunBySessionIdDAO as ReturnType<typeof vi.fn>
@@ -191,5 +192,45 @@ describe('POST /api/v1/assistant/contract/chat', () => {
         expect(mockEnqueueRun).not.toHaveBeenCalled()
         expect(mockUpdateRunStatus).not.toHaveBeenCalled()
         expect(mockFindLatestRun).not.toHaveBeenCalled()
+    })
+
+    it('INTERRUPTED + 新消息：旧 run 置 COMPLETED 后入队 caseId=null', async () => {
+        // contract vs document 的核心 delta：入队时 caseId 必须是 null（独立页，无案件绑定）
+        mockFindReviewBySession.mockResolvedValue(contractReview())
+        mockFindActiveRun.mockResolvedValue({
+            id: 'run-old',
+            status: AGENT_RUN_STATUS.INTERRUPTED,
+        })
+        mockEnqueueRun.mockResolvedValue({ runId: 'run-new' })
+
+        const res: any = await chatHandler(
+            makeEvent({
+                userId: USER_A,
+                body: { sessionId: 'sess-contract-uuid', message: '继续审查' },
+            }) as any,
+        )
+
+        // 返回 SSE Response（Response 实例，不是 error envelope）
+        expect(res).toBeInstanceOf(Response)
+
+        // 旧 run 被标记 COMPLETED 以释放 partial unique index
+        expect(mockUpdateRunStatus).toHaveBeenCalledTimes(1)
+        expect(mockUpdateRunStatus).toHaveBeenCalledWith(
+            'run-old',
+            AGENT_RUN_STATUS.COMPLETED,
+            expect.objectContaining({ completedAt: expect.any(Date) }),
+        )
+
+        // 入队参数断言：caseId=null 是 M4 契约核心
+        expect(mockEnqueueRun).toHaveBeenCalledTimes(1)
+        expect(mockEnqueueRun).toHaveBeenCalledWith(
+            expect.objectContaining({
+                sessionId: 'sess-contract-uuid',
+                threadId: 'sess-contract-uuid',
+                userId: USER_A,
+                caseId: null,
+                input: expect.objectContaining({ message: '继续审查' }),
+            }),
+        )
     })
 })

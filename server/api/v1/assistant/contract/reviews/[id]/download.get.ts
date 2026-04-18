@@ -5,14 +5,16 @@
  *
  * 返回 `{ downloadUrl }`，由前端直接拼在 `<a download>` 或 window.open 上使用。
  *
- * 分支：
+ * 错误分支（6 条）：
  *  - 401 未登录
  *  - 400 reviewId 无效（非整数 / ≤ 0）
  *  - 404 review 不存在（含软删）
  *  - 403 review 属于他人
  *  - 400 review 尚未完成（reviewedFileId 为空）
- *  - 404 ossFile 记录丢失
- *  - 200 成功，data.downloadUrl 为 https 签名 URL
+ *  - 404 ossFile 记录丢失或 filePath 缺失
+ *
+ * 成功分支（1 条）：
+ *  - 200 data.downloadUrl 为 https 签名 URL（1 小时有效）
  *
  * **Feature: contract-review-m4**
  */
@@ -21,6 +23,7 @@ import { getContractReviewDAO } from '~~/server/services/assistant/contract/cont
 import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import { generateSignedUrlService } from '~~/server/services/storage/storage.service'
 
+// 与文书导出（documentExport.service.ts）保持 1h 对齐
 const DOWNLOAD_URL_EXPIRES_SECONDS = 3600
 
 export default defineEventHandler(async (event) => {
