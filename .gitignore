@@ -44,3 +44,5 @@ app/coverage
 .superpowers/
 
 coverage
+
+tests/e2e/screenshots/
