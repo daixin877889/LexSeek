@@ -30,7 +30,6 @@ interface AwaitingStancePayload {
 export function useContractReview() {
     const reviewId = ref<number | null>(null)
     const review = ref<contractReviews | null>(null)
-    const runStatus = ref<ContractRunStatus>('idle')
 
     // 延迟创建，在 onStart / mountReview 获取 sessionId 后初始化
     const stream = shallowRef<ReturnType<typeof useStreamChat> | null>(null)
@@ -56,6 +55,24 @@ export function useContractReview() {
             partyB: typeof d.partyB === 'string' ? d.partyB : undefined,
             contractType: typeof d.contractType === 'string' ? d.contractType : undefined,
         }
+    })
+
+    /**
+     * 合同审查 UI 态，完全派生自 stream.runStatus + awaitingStance：
+     * - awaiting_stance 优先级最高（interrupt 未释放前一直显示）
+     * - stream completed/failed 直接映射
+     * - pending/running/interrupted 视为 reviewing
+     * - 未挂载或 idle/cancelled 回 idle
+     *
+     * 采用派生化避免"本地 ref 设了 reviewing 但 stream 完成后忘记回写"的陷阱。
+     */
+    const runStatus = computed<ContractRunStatus>(() => {
+        if (awaitingStance.value) return 'awaiting_stance'
+        const s = stream.value?.runStatus.value
+        if (s === 'completed') return 'completed'
+        if (s === 'failed') return 'failed'
+        if (s === 'pending' || s === 'running' || s === 'interrupted') return 'reviewing'
+        return 'idle'
     })
 
     /** 静默拉取最新 review（stream 完成后用于回填 risks / summary / reviewedFileId） */
@@ -87,28 +104,27 @@ export function useContractReview() {
                 await refreshReview(reviewId.value)
             },
         )
+
+        return s
     }
 
     async function onStart(payload: CreateReviewRequest) {
-        // 立即切到 reviewing 态；失败由 useApiFetch 自身 toast 提示
+        // 失败路径下旧 watcher 需要即时释放（mountStream 内部也会调，这里保证失败分支同样清理）
+        stopStreamWatch?.()
         review.value = null
         reviewId.value = null
         stream.value = null
-        runStatus.value = 'reviewing'
 
         const resp = await useApiFetch<CreateReviewResponse>(
             '/api/v1/assistant/contract/reviews',
             { method: 'POST', body: payload },
         )
-        if (!resp) {
-            runStatus.value = 'idle'
-            return
-        }
+        if (!resp) return
 
         reviewId.value = resp.reviewId
-        mountStream(resp.sessionId)
+        const s = mountStream(resp.sessionId)
         // submit 空输入：LangGraph checkpointer 从初始 state 推送后续消息
-        stream.value!.submit(undefined)
+        s.submit(undefined)
     }
 
     /**
@@ -117,6 +133,7 @@ export function useContractReview() {
      * 失败静默：拉取失败返回 null，UI 层据此跳回列表或展示错误占位。
      */
     async function mountReview(id: number) {
+        stopStreamWatch?.()
         review.value = null
         reviewId.value = null
         stream.value = null
@@ -131,8 +148,8 @@ export function useContractReview() {
         review.value = r
         reviewId.value = r.id
 
-        mountStream(r.sessionId)
-        stream.value!.submit(undefined)
+        const s = mountStream(r.sessionId)
+        s.submit(undefined)
     }
 
     /**
@@ -152,7 +169,7 @@ export function useContractReview() {
         )
         if (!result) return
 
-        // 复位本地 runStatus 再 submit，保证 watch(runStatus) 的 completed/failed 分支能再次触发
+        // 复位底层 stream runStatus 再 submit，保证 watch(runStatus) 的 completed/failed 分支能再次触发
         stream.value.runStatus.value = 'idle'
         stream.value.submit(undefined)
     }
