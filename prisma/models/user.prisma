@@ -86,6 +86,9 @@ model users {
     /// 用户文书草稿（一对多）
     documentDrafts documentDrafts[]
 
+    /// 用户合同审查记录（一对多）
+    contractReviews contractReviews[]
+
     @@index([id], map: "idx_users_id")
     @@index([status], map: "idx_users_status")
     @@index([deletedAt], map: "idx_users_deleted_at")

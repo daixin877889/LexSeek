@@ -888,6 +888,8 @@ INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "d
 INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES (12, 'case_analysis_token', 'agentToken', '案件分析 Token 消耗', '模型调用按 token 用量扣减积分', '千tokens', 10, 1, '2026-03-26 00:00:00+08', '2026-03-26 00:00:00+08', NULL, '1.00');
 -- document_draft_token: 文书生成 token 计费规则（由 seed.ts 的 seedDocumentDraftTokenRule 幂等写入，此处为等幂备份）
 INSERT INTO "public"."point_consumption_items" ("key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES ('document_draft_token', 'agentToken', '文书生成 token 计费', '文书生成按模型 token 用量扣减积分', '千tokens', 1, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL, '1.00') ON CONFLICT (key) DO NOTHING;
+-- contract_review_token: 合同审查 token 计费规则
+INSERT INTO "public"."point_consumption_items" ("key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES ('contract_review_token', 'agentToken', '合同审查 token 计费', '合同审查按模型 token 用量扣减积分', '千tokens', 1, 1, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL, '1.00') ON CONFLICT (key) DO NOTHING;
 
 -- ==================== 案件类型种子数据 ====================
 INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (1, '民商事案件', '包括合同纠纷、侵权纠纷、婚姻家庭纠纷等民事案件', 'ScaleIcon', 10, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
@@ -925,6 +927,9 @@ INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "pri
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (16, 'assistantTitleGen', '会话标题生成', '根据首轮对话生成 ≤20 字会话标题，供侧栏列表展示', 'extraction', 20, 2, '[]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL);
 -- documentMain: 文书生成主 Agent（model_id=1 为 deepseek-chat，不可用 reasoner 模型）
 INSERT INTO "public"."nodes" ("name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES ('documentMain', '文书生成主Agent', '按模板占位符填充生成文书', 'agent', 30, 1, '["search_case_materials", "search_law"]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
+
+-- contractReviewMain: 合同审查主 Agent（model_id=1 为 deepseek-chat，不可用 reasoner 模型）
+INSERT INTO "public"."nodes" ("name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES ('contractReviewMain', '合同审查主Agent', '按 responseFormat 输出结构化风险清单，并通过 parseAndAskStance 工具中断请求用户立场', 'agent', 40, 1, '["parseAndAskStance"]', NULL, NULL, 1, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
 
 -- ==================== 提示词种子数据 ====================
 INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (1, 'caseInfoCheck_system', '案情信息检查-系统提示词', '你是一位专业的法律案件分析助手，专门负责评估案件材料中的案情信息是否充足。
@@ -1982,6 +1987,44 @@ FROM nodes n
 WHERE n.name = 'documentMain' AND n.deleted_at IS NULL
   AND NOT EXISTS (
     SELECT 1 FROM prompts p WHERE p.node_id = n.id AND p.name = 'documentMain_system' AND p.deleted_at IS NULL
+  );
+
+-- contractReviewMain 系统提示词 v1（node_id 通过子查询获取）
+INSERT INTO "public"."prompts" ("name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at")
+SELECT 'contractReview_system', '合同审查系统提示词 v1',
+'你是 LexSeek 的合同审查助手。用户上传了一份合同，你按下面的流程审查：
+
+# 任务流程
+1. 调用 parseAndAskStance 工具：工具会解析合同、识别甲乙方、请求用户审查立场。该工具会 interrupt 暂停等待用户输入。
+2. 工具返回后，你会得到以下字段（在 ToolMessage 里）：
+   - stance / stanceLabel：用户选定的立场
+   - stanceFocus：立场审查重点（按 SKILL.md 原始协议；neutral 立场是官方扩展，标准为"识别所有可能产生歧义或权利义务不对等的条款，不偏向任何一方"）
+   - partyA / partyB / contractType：合同基础信息
+   - paragraphs：完整段落数组（带 index）
+3. 按 stance / stanceFocus 逐段审查合同，按响应格式（response schema）输出结构化结果（risks + summary）。
+
+# 审查要求
+- 逐段审查所有对当前立场方不利 / 权利义务不对等 / 存在法律风险的条款
+- 每处问题输出一条 Risk，字段见 response schema 中的 description
+- high / medium 级别 Risk **必须**额外提供 suggestedClauseText（AI 重写后的完整条款）
+- 使用专业法律术语，禁用感叹号
+- 引用具体法条（《民法典》《劳动合同法》《合同法》等及条号）
+- 宁可多标，不可漏标
+- summary 以 Markdown 简要说明合同整体风险画像、主要问题集中领域、建议行动顺序
+
+# 当前元信息（systemPrompt 变量注入）
+- reviewId：{{reviewId}}
+- 合同类型（若已识别）：{{contractType}}
+
+# 段落引用规则
+- clauseIndex 从工具返回的 paragraphs 数组索引取值（0-based）
+- clauseText 必须是 paragraphs 中对应段落的完整文本
+- 禁止编造段落',
+'[]', 'v1', 'system', 1, n.id, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL
+FROM nodes n
+WHERE n.name = 'contractReviewMain' AND n.deleted_at IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM prompts p WHERE p.node_id = n.id AND p.name = 'contractReview_system' AND p.deleted_at IS NULL
   );
 
 -- 重置所有序列，确保新插入的记录不会与种子数据冲突

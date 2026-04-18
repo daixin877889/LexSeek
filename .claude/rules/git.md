@@ -41,6 +41,7 @@ body (可选)
 - `rbac` - 权限系统
 - `invitation` - 邀请系统
 - `analysis` - 法律分析
+- `contract` - 合同审查
 
 ## 示例
 
