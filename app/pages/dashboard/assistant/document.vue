@@ -20,6 +20,6 @@ definePageMeta({
                 选择模板、提供材料，AI 自动填充文书字段，一键导出 .docx
             </p>
         </header>
-        <DocumentDraftPanel />
+        <AssistantDocumentDraftPanel />
     </div>
 </template>

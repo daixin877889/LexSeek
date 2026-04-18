@@ -87,7 +87,7 @@ watch(template, async (tpl) => {
     <div class="space-y-6">
         <section v-if="!templateId">
             <h2 class="text-lg font-semibold mb-3">选择模板</h2>
-            <DocumentTemplatePicker @select="(id: number) => templateId = id" />
+            <AssistantDocumentTemplatePicker @select="(id: number) => templateId = id" />
         </section>
 
         <section v-else-if="runStatus === 'idle'">
@@ -97,7 +97,7 @@ watch(template, async (tpl) => {
                     更换模板
                 </Button>
             </div>
-            <DocumentSourceInput :case-id="caseId" @submit="handleSourceSubmit" />
+            <AssistantDocumentSourceInput :case-id="caseId" @submit="handleSourceSubmit" />
         </section>
 
         <div
@@ -117,7 +117,7 @@ watch(template, async (tpl) => {
 
         <section v-if="(runStatus === 'ready' || runStatus === 'exported') && template && draft">
             <h2 class="text-lg font-semibold mb-3">编辑文书字段</h2>
-            <DocumentFieldForm
+            <AssistantDocumentFieldForm
                 :template="template"
                 :values="currentValues"
                 :suggestions="suggestions"
@@ -126,7 +126,7 @@ watch(template, async (tpl) => {
         </section>
 
         <section v-if="draft && template">
-            <DocumentPreview
+            <AssistantDocumentPreview
                 :template-buffer="templateBuffer"
                 :values="currentValues"
                 :disabled="exportDisabled || isLoading"
