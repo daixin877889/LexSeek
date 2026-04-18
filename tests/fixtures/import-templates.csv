@@ -1,0 +1,5 @@
+file_path,name,category,description,priority
+tests/fixtures/document-templates/chinese.docx,起诉状模板,litigation,民事起诉状标准模板,100
+tests/fixtures/document-templates/english.docx,证据清单模板,evidence,证据清单通用模板,90
+tests/fixtures/document-templates/mixed.docx,保全申请书模板,preservation,财产保全申请书模板,80
+tests/fixtures/document-templates/empty.docx,缺占位符模板,general,此文件无占位符扫描失败,100
