@@ -21,6 +21,10 @@ export interface PromptRenderContext {
     templateName?: string
     /** 文书模板类别 */
     templateCategory?: string
+    /** 合同审查 ID（contract scope） */
+    reviewId?: number
+    /** 合同类型（AI 识别，可能为空） */
+    contractType?: string
 }
 
 /**
