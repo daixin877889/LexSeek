@@ -30,6 +30,10 @@
 - 导出 PDF / Markdown 审查报告
 - 多合同对比 / 合并审查
 - 管理端接口 `/api/v1/admin/contract/**`（按新规则 `.claude/rules/api.md` 管理端与用户端 API 隔离，若未来需要管理端按需成对实现；本期**仅用户端**）
+- **批注浮层交互**（点击合同段落批注标记弹出浮层 → [编辑]/[删除]）：spec §9.3 / §14 O3 默认交付项，本期延后。理由：ContractDocxPreview 需要跨组件 refs 事件桥接，实现成本 0.5d；M4 已承诺"点击联动"MVP 仅由右侧清单展开 + scroll；批注浮层等 M6+ 迭代或用户反馈强需求时补
+- 批注点击 → 右侧 RiskListPanel 对应 item 高亮 + scrollIntoView 的"最小联动"：同上延后
+- **rebuilding 态超时守护 cron**（>10 min 自动回滚 status，防 Node 进程崩溃卡死）：M5 不含，登记为 M6+
+- **rebuild-docx 失败时新上传的 OSS 对象 best-effort 清理**：本期容忍孤儿（生产概率极低，OSS 累计成本可忽略）；M6+ 走统一的 ossFiles 孤儿扫描 cron 清理
 
 ---
 
@@ -169,6 +173,19 @@ ls tests/e2e/ 2>/dev/null
 - [ ] **Step 1: 追加到 shared/types/contract.ts 底部**
 
 ```typescript
+// shared/types/contract.ts 既有 ContractReviewStatus 联合类型需加 'rebuilding'：
+// 从：
+//   export type ContractReviewStatus =
+//       | 'pending' | 'reviewing' | 'awaiting_stance' | 'completed' | 'failed'
+// 改为：
+export type ContractReviewStatus =
+    | 'pending'
+    | 'reviewing'
+    | 'awaiting_stance'
+    | 'completed'
+    | 'rebuilding'           // ← 新增（M5 DB 临时态；不进状态机主图，对齐 spec §8.4）
+    | 'failed'
+
 import type { contractReviews } from '~~/generated/prisma/client'
 
 /**
@@ -189,7 +206,7 @@ export type ReviewWithParsedRisks = Omit<contractReviews, 'risks'> & {
 export const REVIEW_EDITABLE_STATUSES: readonly ContractReviewStatus[] = ['completed'] as const
 ```
 
-**不**改前端现有断言（Task 5/7 的组件升级时再一起切到 `ReviewWithParsedRisks`；避免本 Task 改动炸太多测试）。
+**不**改前端现有断言（本 Task 仅**声明**类型）。Task 8（Panel 接线）时一次性把 `ContractReviewPanel.vue:130` 的 `(review?.risks ?? []) as unknown as Risk[]` 改为 `review?.risks ?? []`（得益于 review 类型变 `ReviewWithParsedRisks`）。避免本 Task 改动炸太多测试。
 
 ### Step 2: 类型验证 + 提交
 
@@ -247,6 +264,36 @@ export async function patchReviewRisksDAO(
 
 记得在文件顶 `import type { Risk } from '#shared/types/contract'`。
 
+- [ ] **Step 1b: 同步加强 `riskSchema.builder.ts`（约束字段长度 + id uuid）**
+
+> **RISK_SHAPE 内字段长度约束**（建议同步修订 `server/services/assistant/contract/riskSchema.builder.ts` 的 `z.string()` 加 `.max(...)`）：
+> - `id`: `.uuid()` 格式校验
+> - `clauseText` / `suggestedClauseText`: `.max(10000)`
+> - `problem` / `analysis` / `risk` / `suggestion`: `.max(2000)`
+> - `category` / `legalBasis`: `.max(200)`
+>
+> 本 plan Task 2 Step 1b 新增 DAO 的同一提交内**同时**修订 `riskSchema.builder.ts` 的字段约束（非独立 Task，粒度小）。
+
+```typescript
+// server/services/assistant/contract/riskSchema.builder.ts
+// 在既有 RISK_SHAPE 上追加长度与 uuid 校验（仅加 .uuid() / .max()，不改语义）
+export const RISK_SHAPE = z.object({
+    id: z.string().uuid(),
+    clauseIndex: z.number().int().nonnegative(),
+    clauseText: z.string().min(1).max(10000),
+    level: z.enum(['high', 'medium', 'low']),
+    category: z.string().min(1).max(200),
+    problem: z.string().min(1).max(2000),
+    legalBasis: z.string().max(200).optional(),
+    analysis: z.string().min(1).max(2000),
+    risk: z.string().min(1).max(2000),
+    suggestion: z.string().min(1).max(2000),
+    suggestedClauseText: z.string().max(10000).optional(),
+}).refine(/* ... */)  // 既有 refine 保留不动
+```
+
+**注意**：M3 contractReview 已经存档的 risks 若有字段超长，Prisma 读取不会报错（runtime check 只发生在 PATCH 入站）；若超长现象多，再走数据修复 ticket。
+
 ### Step 2: 失败测试
 
 - [ ] **Step 2: 创建 tests/server/assistant/contract/patchReview.api.test.ts**
@@ -303,9 +350,11 @@ import {
     patchReviewRisksDAO,
 } from '~~/server/services/assistant/contract/contractReview.dao'
 import { RISK_SHAPE } from '~~/server/services/assistant/contract/riskSchema.builder'
+import { REVIEW_EDITABLE_STATUSES } from '#shared/types/contract'
+import type { ContractReviewStatus } from '#shared/types/contract'
 
 const BodySchema = z.object({
-    risks: z.array(RISK_SHAPE).min(0),
+    risks: z.array(RISK_SHAPE).max(200),   // 合同审查真实场景通常 ≤ 30，200 已很宽松
 }).strict() // 显式拒绝 summary 等额外字段
 
 export default defineEventHandler(async (event) => {
@@ -331,7 +380,7 @@ export default defineEventHandler(async (event) => {
     const review = await getContractReviewDAO(id)
     if (!review) return resError(event, 404, '合同审查不存在')
     if (review.userId !== user.id) return resError(event, 403, '无权编辑该审查')
-    if (review.status !== 'completed') {
+    if (!REVIEW_EDITABLE_STATUSES.includes(review.status as ContractReviewStatus)) {
         return resError(event, 409, `当前状态不允许编辑：${review.status}`)
     }
 
@@ -420,90 +469,104 @@ export async function rollbackRebuildDAO(id: number): Promise<void> {
 
 - [ ] **Step 2: 创建 server/services/assistant/contract/contractReviewRebuild.service.ts**
 
+> **注意**：`uploadFileService(path, buffer, options)` 是位置参数签名（见 `server/services/storage/storage.service.ts:59`）。`StorageProviderType` 从 `~~/server/lib/storage/types` 导入（与 M3 `reviewResultPersistence.middleware.ts:28` 一致）。`FileSource.CASE_ANALYSIS` 是 M3 已用的枚举值（见 `reviewResultPersistence.middleware.ts:111`），**不新增** `CONTRACT_REVIEW_REBUILD`。
+
 ```typescript
 /**
  * 重生批注 Word 服务（只在 POST /reviews/:id/rebuild-docx 端点中调用）。
  *
  * 责任：
- *   1. 调用方已占位 rebuilding —— 本函数专注"下载原件 → 注入 → 上传 → 更新"
+ *   1. 调用方已占位 rebuilding —— 本函数专注"下载原件 → 注入 → 上传 → 签名 URL → 更新"
  *   2. 任意步骤抛异常 → 调用方负责调用 rollbackRebuildDAO 回滚
  *   3. 成功时返回 { reviewedFileId, downloadUrl }（1h 签名）
  *
  * 注意：不处理并发，并发由 atomicSetRebuildingDAO 守门。
+ *
+ * 流程顺序（P0-4 回滚漏洞修复）：
+ *   upload → generateSignedUrl → createOssFile → setCompletedAfterRebuildDAO
+ *   这样 generateSignedUrlService 失败时 reviewedFileId 尚未被覆盖，
+ *   handler catch 里 rollbackRebuildDAO 能正确把 status 从 rebuilding 还原到 completed
+ *   且 reviewedFileId 保持旧值。
  */
+import { randomUUID } from 'node:crypto'
 import type { contractReviews } from '~~/generated/prisma/client'
 import { findOssFileByIdDao, createOssFileDao } from '~~/server/services/files/ossFiles.dao'
 import { setCompletedAfterRebuildDAO } from './contractReview.dao'
 import { injectComments } from './docx'
 import { downloadFileService, uploadFileService, generateSignedUrlService } from '~~/server/services/storage/storage.service'
-import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageConfigs.dao'
-import { StorageProviderType } from '#shared/types/oss'
+import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageConfig.dao'
+import { StorageProviderType } from '~~/server/lib/storage/types'
 import { FileSource, OssFileStatus } from '#shared/types/file'
 import type { Risk } from '#shared/types/contract'
+
+const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
 export interface RebuildDocxResult {
     reviewedFileId: number
     downloadUrl: string
 }
 
-export async function rebuildDocxService(
-    review: contractReviews,
-): Promise<RebuildDocxResult> {
-    if (!review.originalFileId) {
-        throw new Error('审查没有原始文件，无法重生批注')
-    }
+export async function rebuildDocxService(review: contractReviews): Promise<RebuildDocxResult> {
+    if (!review.originalFileId) throw new Error('审查没有原始文件，无法重生批注')
     const origOssFile = await findOssFileByIdDao(review.originalFileId)
-    if (!origOssFile?.filePath) {
-        throw new Error('原始文件已丢失，无法重生批注')
-    }
+    if (!origOssFile?.filePath) throw new Error('原始文件已丢失，无法重生批注')
+
     const origBuffer = await downloadFileService(origOssFile.filePath)
     const risks = (review.risks ?? []) as unknown as Risk[]
     const newDocxBuffer = await injectComments(origBuffer, risks)
+    const buffer = Buffer.isBuffer(newDocxBuffer) ? newDocxBuffer : Buffer.from(newDocxBuffer)
 
-    const uploadResult = await uploadFileService({
-        buffer: Buffer.from(newDocxBuffer),
-        filename: `${review.id}-reviewed-${Date.now()}.docx`,
-        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    // OSS 路径与 M3 contractReview.service.ts 保持同构：contract-review/<userId>/<uuid>.docx
+    const ossPath = `contract-review/${review.userId}/rebuild-${randomUUID()}.docx`
+    const uploadResult = await uploadFileService(ossPath, buffer, {
+        contentType: DOCX_MIME,
+        userId: review.userId,
     })
 
-    const [storageConfig] = await Promise.all([
-        getDefaultStorageConfigDao(StorageProviderType.ALIYUN_OSS, review.userId),
-    ])
+    const storageConfig = await getDefaultStorageConfigDao(StorageProviderType.ALIYUN_OSS, review.userId)
     const bucketName = storageConfig?.bucket ?? ''
+
+    // 先生成签名 URL（失败时此时 reviewedFileId 尚未更新，catch 里 rollback 能正确还原 status）
+    const downloadUrl = await generateSignedUrlService(uploadResult.name, {
+        expires: 3600,
+        userId: review.userId,
+    })
 
     const newOssFile = await createOssFileDao({
         userId: review.userId,
         bucketName,
         fileName: `合同审查-${review.id}.docx`,
         filePath: uploadResult.name,
-        fileSize: newDocxBuffer.byteLength,
-        fileType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        source: FileSource.CONTRACT_REVIEW_REBUILD,
+        fileSize: buffer.byteLength,
+        fileType: DOCX_MIME,
+        source: FileSource.CASE_ANALYSIS,   // ← 复用 M3 约定的 enum（P0-5 决策）
         status: OssFileStatus.UPLOADED,
         encrypted: false,
     })
 
+    // 最后落库 reviewedFileId：OSS 与签名 URL 都已就绪，失败只会发生在 DB 写入阶段
     await setCompletedAfterRebuildDAO(review.id, newOssFile.id)
-
-    const downloadUrl = await generateSignedUrlService(uploadResult.name, {
-        expires: 3600,
-        userId: review.userId,
-    })
 
     return { reviewedFileId: newOssFile.id, downloadUrl }
 }
 ```
 
-**注意**：
-
-- `FileSource.CONTRACT_REVIEW_REBUILD` 可能不存在 —— 先 `grep "CONTRACT_REVIEW" shared/types/file.ts`；若缺则需要：
-  - 在 `shared/types/file.ts` 新增 `CONTRACT_REVIEW_REBUILD = 'contract_review_rebuild'` 或复用已有 enum（如 `CONTRACT_REVIEW` 本身，若 M3 的 reviewResultPersistence 已用过 —— 看一眼那里的 `createOssFileDao({ source: ... })`）。**请以 grep 结果为准**。
-
 ### Step 3: 失败测试 + 实现 handler
+
+> **429 并发占位测试技巧**：不真并发 fetch（测试环境不支持），改为 2 选 1：
+> 1. `vi.mock` 把 `atomicSetRebuildingDAO` 替换为 `vi.fn().mockResolvedValue(false)` → 直接驱动 429 分支
+> 2. 或测试前预置 DB：`await updateContractReviewDAO(id, { status: 'rebuilding' })`，再调 handler，真实 SQL 占位会返回 count=0
+>
+> 推荐方案 1（更快、隔离度更高）。
 
 - [ ] **Step 3: 创建 tests/server/assistant/contract/rebuildDocx.api.test.ts**
 
 覆盖 8 个分支：401 / 400(id) / 404 / 403 / 409(status≠completed) / 429(并发占位失败) / 500(重生异常回滚 status) / 200(新 reviewedFileId + downloadUrl)
+
+再追加 1 条（P0-4 回滚时序）：
+```typescript
+it('setCompletedAfterRebuildDAO 成功前 generateSignedUrlService 抛异常 → status 回滚 completed 且 reviewedFileId 保持旧值')
+```
 
 - [ ] **Step 4: 创建 server/api/v1/assistant/contract/reviews/[id]/rebuild-docx.post.ts**
 
@@ -542,11 +605,20 @@ export default defineEventHandler(async (event) => {
     const occupied = await atomicSetRebuildingDAO(id)
     if (!occupied) return resError(event, 429, '批注正在重新生成中，请稍候')
 
+    // 占位成功后
+    logger.info('rebuild-docx 占位成功', { reviewId: id, userId: user.id })
+
     try {
         // 占位后重读（可能别的请求改了 risks）
         const fresh = await getContractReviewDAO(id)
         if (!fresh) throw new Error('review 在占位期间被删除')
         const result = await rebuildDocxService(fresh)
+        // 成功返回前
+        logger.info('rebuild-docx 完成', {
+            reviewId: id,
+            userId: user.id,
+            newFileId: result.reviewedFileId,
+        })
         return resSuccess(event, '重生成功', result)
     } catch (err) {
         logger.error('rebuild-docx 失败', err)
@@ -718,6 +790,8 @@ describe('useContractReview (M5 扩展)', () => {
 
 - [ ] **Step 2: 在 useContractReview.ts 补**
 
+> **前置说明**：若 M4 的 `refreshReview` 是 `mountStream` 的内部闭包不对外可见，先"把 `refreshReview` 从闭包提到 `useContractReview()` 顶层私有函数"（最小改动），以便 `onRebuildDocx` 复用。
+
 ```typescript
 import { useDebounceFn } from '@vueuse/core'
 import { toast } from 'vue-sonner'
@@ -738,6 +812,8 @@ const onEditRisks = useDebounceFn(async (risks: Risk[]) => {
     if (review.value) {
         review.value = { ...review.value, risks: risks as unknown as any }
     }
+    // PATCH 成功才置脏（失败不置）
+    hasUnsavedDocxChanges.value = true
 }, 500)
 
 async function onRebuildDocx() {
@@ -750,12 +826,10 @@ async function onRebuildDocx() {
         toast.error('重生批注失败，请稍后重试')
         return
     }
-    // 刷 review（reviewedFileId 变了，docx-preview 需重新加载）
-    const latest = await useApiFetch<contractReviews>(
-        `/api/v1/assistant/contract/reviews/${reviewId.value}`,
-        { showError: false } as any,
-    )
-    if (latest) review.value = latest
+    // 复用 M4 既有私有 refreshReview（mountStream 内部定义），
+    // 它内部已调 GET /:id 并正确拆 { review } 包装层
+    await refreshReview(reviewId.value)
+    hasUnsavedDocxChanges.value = false
     toast.success('批注已重生')
     // 自动触发浏览器下载（spec §9.3）
     const a = document.createElement('a')
@@ -769,12 +843,33 @@ async function onRebuildDocx() {
 
 const isRebuilding = computed(() => review.value?.status === 'rebuilding')
 
+/**
+ * 用户在本次会话内编辑过 risks 且尚未重生过 docx 的脏标记。
+ * - onEditRisks 成功 → true（"重新生成批注 Word"按钮高亮）
+ * - onRebuildDocx 成功 → false
+ * - mountReview / onStart 初始 → false
+ *
+ * 对齐 spec §9.3 第 991 行「只在用户编辑过 risks 且未重生过 docx 时高亮」
+ */
+const hasUnsavedDocxChanges = ref(false)
+
+// mountReview(id) 最前 → hasUnsavedDocxChanges.value = false
+// onStart 最前 → hasUnsavedDocxChanges.value = false
+
 return {
     // ...既有导出...
     onEditRisks,
     onRebuildDocx,
     isRebuilding,
+    hasUnsavedDocxChanges,
 }
+```
+
+**Task 5 测试补**（除已列 7 条外再追加 3 条）：
+```typescript
+it('onEditRisks 成功 → hasUnsavedDocxChanges=true')
+it('onRebuildDocx 成功 → hasUnsavedDocxChanges=false')
+it('mountReview 重置 hasUnsavedDocxChanges=false')
 ```
 
 - [ ] **Step 3: 测试通过 + 提交**
@@ -904,6 +999,8 @@ defineProps<{
     summary: string | null
     /** composable 的 isRebuilding；用于禁用编辑区域 */
     isRebuilding: boolean
+    /** P0-1：只有编辑过且未重生过才高亮"重新生成批注 Word"按钮（spec §9.3） */
+    hasUnsavedDocxChanges: boolean
 }>()
 defineEmits<{
     download: []
@@ -911,6 +1008,8 @@ defineEmits<{
     editRisks: [risks: Risk[]]
 }>()
 ```
+
+> "重新生成批注 Word"按钮 `:disabled` 条件：`!hasUnsavedDocxChanges || isRebuilding`（只有**编辑过**且**未在重生**才 enable）。
 
 ### Step 1/2/3: 失败测试 → 实现 → 提交
 
@@ -928,9 +1027,10 @@ defineEmits<{
 
 ### 补接线
 
-- `RiskListPanel` 追加 `:is-rebuilding="isRebuilding"` / `@rebuild="onRebuildDocx"` / `@edit-risks="onEditRisks"`
-- composable 解构增加：`onEditRisks, onRebuildDocx, isRebuilding`
+- `RiskListPanel` 追加 `:is-rebuilding="isRebuilding"` / `:has-unsaved-docx-changes="hasUnsavedDocxChanges"` / `@rebuild="onRebuildDocx"` / `@edit-risks="onEditRisks"`
+- composable 解构增加：`onEditRisks, onRebuildDocx, isRebuilding, hasUnsavedDocxChanges`
 - rebuilding 态 toast 提示（避免用户误操作），可用 watch `isRebuilding` 触发一次 `toast.info('批注正在重新生成...')`
+- **P1-4**：切换 `ContractReviewPanel.vue:130` 的 `(review?.risks ?? []) as unknown as Risk[]` 断言到原生类型 —— 因 Task 1 已将 `review` 的类型声明为 `ReviewWithParsedRisks`，可改为 `review?.risks ?? []`，移除 `as unknown as Risk[]`。
 
 ### 覆盖率验证
 
