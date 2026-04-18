@@ -93,6 +93,7 @@
                             <TableHead class="w-[60px]">ID</TableHead>
                             <TableHead>模板名称</TableHead>
                             <TableHead class="w-[160px]">分类</TableHead>
+                            <TableHead class="w-[80px]">归属</TableHead>
                             <TableHead class="w-[100px]">占位符数</TableHead>
                             <TableHead class="w-[80px]">状态</TableHead>
                             <TableHead class="w-[160px]">创建时间</TableHead>
@@ -112,6 +113,11 @@
                             </TableCell>
                             <TableCell>
                                 <Badge variant="secondary">{{ getCategoryLabel(tpl.category) }}</Badge>
+                            </TableCell>
+                            <TableCell>
+                                <Badge :variant="getScopeBadge(tpl.scope).variant">
+                                    {{ getScopeBadge(tpl.scope).label }}
+                                </Badge>
                             </TableCell>
                             <TableCell>
                                 <span class="text-sm text-muted-foreground">
@@ -315,6 +321,7 @@ import { toast } from 'vue-sonner'
 import { DOCUMENT_CATEGORIES } from '#shared/types/document'
 import type { DocumentCategoryKey } from '#shared/types/document'
 import type { documentTemplates } from '#shared/types/prisma'
+import { getScopeBadge, countUserScopeTemplates } from '~/utils/documentTemplateScope'
 
 definePageMeta({
     layout: 'dashboard-layout',
@@ -354,9 +361,10 @@ const formatFileSize = (bytes: number) => {
 const loadTemplates = async () => {
     loading.value = true
     try {
-        // 单次请求获取列表数据和总数（API 不支持 status 过滤，请求全量数据再客户端过滤）
+        // 单次请求获取混合视图数据（global + 当前用户 user）。
+        // 后端 total 是混合总数，不适合作为配额计数；
+        // 配额以列表中 scope='user' 的数量为准。
         const params: Record<string, any> = {
-            scope: 'user',
             skip: 0,
             take: 100,
         }
@@ -368,7 +376,7 @@ const loadTemplates = async () => {
             { query: params }
         )
         if (data) {
-            templateCount.value = data.total
+            templateCount.value = countUserScopeTemplates(data.list)
             const filtered = statusFilter.value === 'all'
                 ? data.list
                 : data.list.filter(t => t.status === Number(statusFilter.value))
