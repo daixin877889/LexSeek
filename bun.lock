@@ -6,6 +6,7 @@
       "dependencies": {
         "@ai-sdk/langchain": "^2.0.122",
         "@ai-sdk/vue": "^3.0.116",
+        "@alicloud/captcha20230305": "^1.1.4",
         "@alicloud/dysmsapi20170525": "^4.3.1",
         "@alicloud/openapi-client": "^0.4.15",
         "@alicloud/sms-sdk": "^1.1.6",
@@ -141,6 +142,8 @@
     "@ai-sdk/provider-utils": ["@ai-sdk/provider-utils@4.0.19", "https://registry.npmmirror.com/@ai-sdk/provider-utils/-/provider-utils-4.0.19.tgz", { "dependencies": { "@ai-sdk/provider": "3.0.8", "@standard-schema/spec": "^1.1.0", "eventsource-parser": "^3.0.6" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-3eG55CrSWCu2SXlqq2QCsFjo3+E7+Gmg7i/oRVoSZzIodTuDSfLb3MRje67xE9RFea73Zao7Lm4mADIfUETKGg=="],
 
     "@ai-sdk/vue": ["@ai-sdk/vue@3.0.116", "https://registry.npmmirror.com/@ai-sdk/vue/-/vue-3.0.116.tgz", { "dependencies": { "@ai-sdk/provider-utils": "4.0.19", "ai": "6.0.116", "swrv": "^1.0.4" }, "peerDependencies": { "vue": "^3.3.4" } }, "sha512-9+3Pi2T9F4ImvboJabeoApcXz4zjk1Gi2USjFscGfapfBIuYBkPBfJLmG1/7EAt0+3/GieGqeU553jVPa7pnQw=="],
+
+    "@alicloud/captcha20230305": ["@alicloud/captcha20230305@1.1.4", "https://registry.npmmirror.com/@alicloud/captcha20230305/-/captcha20230305-1.1.4.tgz", { "dependencies": { "@alicloud/openapi-core": "^1.0.0", "@darabonba/typescript": "^1.0.0" } }, "sha512-WG0xaJReho0iJIaU/3c+WpTZc9IBlWRnPbLh95vxs+p6RACgmV3Sj9kyRtKlbTr7i+nH98r5sNwsPCudHzINrg=="],
 
     "@alicloud/credentials": ["@alicloud/credentials@2.4.4", "https://registry.npmmirror.com/@alicloud/credentials/-/credentials-2.4.4.tgz", { "dependencies": { "@alicloud/tea-typescript": "^1.8.0", "httpx": "^2.3.3", "ini": "^1.3.5", "kitx": "^2.0.0" } }, "sha512-/eRAGSKcniLIFQ1UCpDhB/IrHUZisQ1sc65ws/c2avxUMpXwH1rWAohb76SVAUJhiF4mwvLzLJM1Mn1XL4Xe/Q=="],
 

@@ -11,6 +11,9 @@
           <GeneralThemeToggle />
         </ClientOnly>
       </div>
+      <ClientOnly>
+        <AuthAliyunCaptchaHost scene="registerSms" />
+      </ClientOnly>
       <div class="mx-auto w-full max-w-sm lg:w-96">
         <div class="text-center mb-8">
           <div class="flex justify-center items-center gap-2 mb-2">
@@ -246,6 +249,7 @@ const showPassword = ref(false);
 const showConfirmPassword = ref(false);
 const errorMessage = ref("");
 const authStore = useAuthStore();
+const registerSmsCaptcha = useAliyunCaptcha("registerSms");
 
 // 验证码相关
 const isGettingCode = ref(false);
@@ -262,6 +266,8 @@ onMounted(() => {
   if (route.query.invitedBy) {
     localStorage.setItem("invitedBy", route.query.invitedBy);
   }
+
+  registerSmsCaptcha.preload();
 });
 
 // 表单验证
@@ -278,27 +284,33 @@ const getVerificationCode = async () => {
   isGettingCode.value = true;
   errorMessage.value = "";
 
-  const isSuccess = await authStore.sendSmsCode({
-    phone: formData.phone,
-    type: SmsType.REGISTER,
-  });
+  try {
+    const captchaVerifyParam = await registerSmsCaptcha.verify();
+    const isSuccess = await authStore.sendSmsCode({
+      phone: formData.phone,
+      type: SmsType.REGISTER,
+      captchaVerifyParam: captchaVerifyParam || undefined,
+    });
 
-  if (isSuccess) {
-    toast.success("获取验证码成功");
-    // 发送成功，启动倒计时
-    countdown.value = 60;
-    countdownTimer = setInterval(() => {
-      if (countdown.value > 0) {
-        countdown.value--;
-      } else {
-        clearInterval(countdownTimer);
-      }
-    }, 1000);
-  } else {
-    errorMessage.value = authStore.error || "获取验证码失败，请稍后再试";
+    if (isSuccess) {
+      toast.success("获取验证码成功");
+      // 发送成功，启动倒计时
+      countdown.value = 60;
+      countdownTimer = setInterval(() => {
+        if (countdown.value > 0) {
+          countdown.value--;
+        } else {
+          clearInterval(countdownTimer);
+        }
+      }, 1000);
+    } else {
+      errorMessage.value = authStore.error || "获取验证码失败，请稍后再试";
+    }
+  } catch (captchaError) {
+    errorMessage.value = captchaError?.message || "安全验证失败，请稍后再试";
+  } finally {
+    isGettingCode.value = false;
   }
-
-  isGettingCode.value = false;
 };
 
 // 注册处理

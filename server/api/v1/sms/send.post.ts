@@ -3,6 +3,8 @@
  * @param event
  * @returns
  */
+import { canUseAliyunCaptchaSceneService, verifyAliyunCaptchaService } from '~~/server/services/security/aliyunCaptcha.service'
+
 export default defineEventHandler(async (event) => {
     const logger = createLogger('SMS')
     try {
@@ -16,11 +18,17 @@ export default defineEventHandler(async (event) => {
             phone: z.string({ message: '手机号不能为空' }).regex(/^1[3-9]\d{9}$/, "手机号格式不正确"),
             type: z.enum(SmsType, {
                 message: "验证码类型不正确"
-            })
+            }),
+            captchaVerifyParam: z.string().optional(),
         })
 
         const body = await readValidatedBody(event, (payload) => schema.parse(payload))
-        const { phone, type } = body
+        const { phone, type, captchaVerifyParam } = body
+        const captchaSceneMap: Record<SmsType, 'loginSms' | 'registerSms' | 'resetPasswordSms'> = {
+            [SmsType.LOGIN]: 'loginSms',
+            [SmsType.REGISTER]: 'registerSms',
+            [SmsType.RESET_PASSWORD]: 'resetPasswordSms',
+        }
 
         // 2. 检查用户状态（如果用户存在）
         const userResult = await findUserByPhoneDao(phone)
@@ -49,7 +57,29 @@ export default defineEventHandler(async (event) => {
             await deleteSmsRecordByIdDao(existingRecord.id)
         }
 
-        // 4. 生成新验证码并创建记录
+        // 4. 当前场景启用了阿里云验证码时，先做服务端验签
+        const sceneKey = captchaSceneMap[type]
+        if (canUseAliyunCaptchaSceneService(sceneKey)) {
+            if (!captchaVerifyParam?.trim()) {
+                return resError(event, 400, '安全验证失败，请重试')
+            }
+
+            const captchaResult = await verifyAliyunCaptchaService({
+                captchaVerifyParam,
+                sceneKey,
+            })
+            if (!captchaResult.success) {
+                logger.warn('短信发送前验证码校验失败', {
+                    phone,
+                    type,
+                    sceneKey,
+                    ...captchaResult,
+                })
+                return resError(event, 400, '安全验证失败，请重试')
+            }
+        }
+
+        // 5. 生成新验证码并创建记录
         const code = generateSmsCode()
         const newRecord = await createSmsRecordDao(phone, type, code, CODE_EXPIRE_MS)
 

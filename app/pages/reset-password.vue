@@ -11,6 +11,9 @@
           <GeneralThemeToggle />
         </ClientOnly>
       </div>
+      <ClientOnly>
+        <AuthAliyunCaptchaHost scene="resetPasswordSms" />
+      </ClientOnly>
       <div class="mx-auto w-full max-w-sm lg:w-96">
         <div class="text-center mb-8">
           <div class="flex justify-center items-center gap-2 mb-2">
@@ -116,6 +119,7 @@ import { ScaleIcon, EyeIcon, EyeOffIcon, Loader2 } from "lucide-vue-next";
 
 const router = useRouter();
 const authStore = useAuthStore();
+const resetPasswordSmsCaptcha = useAliyunCaptcha("resetPasswordSms");
 
 // 表单数据
 const formData = reactive({
@@ -173,6 +177,10 @@ const isGettingCode = ref(false);
 const countdown = ref(0);
 let countdownTimer = null;
 
+onMounted(() => {
+  resetPasswordSmsCaptcha.preload();
+});
+
 // 表单验证
 const isFormValid = computed(() => {
   return formData.verificationCode && formData.password && formData.confirmPassword && formData.password === formData.confirmPassword && formData.password.length >= 8 && validatePhone(formData.phone);
@@ -186,26 +194,31 @@ const getVerificationCode = async () => {
   }
 
   isGettingCode.value = true;
+  try {
+    const captchaVerifyParam = await resetPasswordSmsCaptcha.verify();
+    const isSuccess = await authStore.sendSmsCode({
+      phone: formData.phone,
+      type: "resetPassword",
+      captchaVerifyParam: captchaVerifyParam || undefined,
+    });
 
-  const isSuccess = await authStore.sendSmsCode({
-    phone: formData.phone,
-    type: "resetPassword",
-  });
-
-  if (isSuccess) {
-    toast.success("验证码已发送");
-    // 启动倒计时
-    countdown.value = 60;
-    countdownTimer = setInterval(() => {
-      if (countdown.value > 0) {
-        countdown.value--;
-      } else {
-        clearInterval(countdownTimer);
-      }
-    }, 1000);
+    if (isSuccess) {
+      toast.success("验证码已发送");
+      // 启动倒计时
+      countdown.value = 60;
+      countdownTimer = setInterval(() => {
+        if (countdown.value > 0) {
+          countdown.value--;
+        } else {
+          clearInterval(countdownTimer);
+        }
+      }, 1000);
+    }
+  } catch (captchaError) {
+    authStore.error = captchaError?.message || "安全验证失败，请稍后再试";
+  } finally {
+    isGettingCode.value = false;
   }
-
-  isGettingCode.value = false;
 };
 
 // 重置密码处理
