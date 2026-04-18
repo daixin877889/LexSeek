@@ -18,6 +18,10 @@ import { shallowRef } from 'vue'
 // ── mock @langchain/vue：避免真实 useStream 在测试环境下报错 ─────────────────
 
 const mockStreamSubmit = vi.fn()
+const mockStreamStop = vi.fn().mockResolvedValue(undefined)
+// 用 shallowRef 承载 values/messages，测试通过 mockStreamValues.value = ... 驱动 interrupt
+const mockStreamValues = shallowRef<any>(undefined)
+const mockStreamMessages = shallowRef<any[]>([])
 vi.mock('@langchain/vue', () => ({
     FetchStreamTransport: vi.fn().mockImplementation(function () { return {} }),
     useStream: vi.fn(() => {
@@ -25,11 +29,12 @@ vi.mock('@langchain/vue', () => ({
             isLoading: shallowRef(false),
             error: shallowRef(null),
             submit: mockStreamSubmit,
-            stop: vi.fn(),
+            stop: mockStreamStop,
             getMessagesMetadata: vi.fn(),
         }
-        Object.defineProperty(obj, 'values', { get() { return undefined }, enumerable: true })
-        Object.defineProperty(obj, 'messages', { get() { return [] }, enumerable: true })
+        // useStreamChat 通过 s.values / s.messages 读取，用 getter 把 shallowRef 暴露为原始值
+        Object.defineProperty(obj, 'values', { get() { return mockStreamValues.value }, enumerable: true })
+        Object.defineProperty(obj, 'messages', { get() { return mockStreamMessages.value }, enumerable: true })
         return obj
     }),
 }))
@@ -51,6 +56,9 @@ describe('useDocumentDraft.mountDraft', () => {
     beforeEach(() => {
         mockFetch.mockReset()
         mockStreamSubmit.mockReset()
+        mockStreamStop.mockClear()
+        mockStreamValues.value = undefined
+        mockStreamMessages.value = []
     })
 
     it('成功挂载：加载 draft、template 并将 runStatus 设为 ready', async () => {
@@ -134,5 +142,83 @@ describe('useDocumentDraft.mountDraft', () => {
         expect(c.template.value).toBeNull()
         // drafting 属于"其他" → ready
         expect(c.runStatus.value).toBe('ready')
+    })
+})
+
+// ── agent 交互动作：sendMessage / stopGeneration / resumeInterrupt / interruptData ──
+
+describe('useDocumentDraft agent actions', () => {
+    beforeEach(() => {
+        mockFetch.mockReset()
+        mockStreamSubmit.mockReset()
+        mockStreamStop.mockClear()
+        mockStreamValues.value = undefined
+        mockStreamMessages.value = []
+    })
+
+    async function mountReady() {
+        mockFetch
+            .mockResolvedValueOnce({
+                id: 1, sessionId: 's-1', values: {}, templateId: 7, status: 'ready',
+            })
+            .mockResolvedValueOnce({ id: 7, name: 't', placeholders: [] })
+        const c = useDocumentDraft()
+        await c.mountDraft(1)
+        // mountDraft 末尾会触发一次 submit(undefined) 用于 checkpoint 回放，清理以便后续断言
+        mockStreamSubmit.mockClear()
+        return c
+    }
+
+    it('stream 未挂载时 sendMessage/stopGeneration/resumeInterrupt 为 no-op', async () => {
+        const c = useDocumentDraft()
+        c.sendMessage('hi')
+        await c.stopGeneration()
+        c.resumeInterrupt({ any: 'data' })
+        expect(mockStreamSubmit).not.toHaveBeenCalled()
+        expect(mockStreamStop).not.toHaveBeenCalled()
+    })
+
+    it('sendMessage 向 stream 提交 human 消息', async () => {
+        const c = await mountReady()
+        c.sendMessage('请帮我填乙方')
+        expect(mockStreamSubmit).toHaveBeenCalledTimes(1)
+        expect(mockStreamSubmit).toHaveBeenCalledWith(
+            expect.objectContaining({
+                messages: [{ type: 'human', content: '请帮我填乙方' }],
+            }),
+            undefined,
+        )
+    })
+
+    it('stopGeneration 调用底层 stream.stop', async () => {
+        const c = await mountReady()
+        await c.stopGeneration()
+        expect(mockStreamStop).toHaveBeenCalledTimes(1)
+    })
+
+    it('resumeInterrupt 使用 command.resume 调用 submit', async () => {
+        const c = await mountReady()
+        c.resumeInterrupt({ approved: true })
+        expect(mockStreamSubmit).toHaveBeenCalledTimes(1)
+        expect(mockStreamSubmit).toHaveBeenCalledWith(
+            undefined,
+            expect.objectContaining({ command: { resume: { approved: true } } }),
+        )
+    })
+
+    it('无 interrupt 时 interruptData 为 null，isInterrupted 为 false', async () => {
+        const c = await mountReady()
+        expect(c.interruptData.value).toBeNull()
+        expect(c.isInterrupted.value).toBe(false)
+    })
+
+    it('values.__interrupt__ 存在时 interruptData 解包并 isInterrupted=true', async () => {
+        const c = await mountReady()
+        // 模拟底层 stream 收到 interrupt
+        mockStreamValues.value = {
+            __interrupt__: [{ value: { field: '乙方', question: '请填写乙方' } }],
+        }
+        expect(c.interruptData.value).toEqual({ field: '乙方', question: '请填写乙方' })
+        expect(c.isInterrupted.value).toBe(true)
     })
 })

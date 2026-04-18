@@ -187,6 +187,34 @@ export function useDocumentDraft() {
         runStatus.value = 'exported'
     }
 
+    // ── agent 交互动作 ─────────────────────────────────────────────────────
+
+    /** 向 stream 发送 human 消息；stream 未挂载则静默忽略 */
+    function sendMessage(text: string) {
+        if (!stream.value) return
+        stream.value.runStatus.value = 'idle'
+        stream.value.submit(
+            { messages: [{ type: 'human', content: text }] } as any,
+            undefined,
+        )
+    }
+
+    /** 停止当前 stream */
+    async function stopGeneration() {
+        await stream.value?.stop()
+    }
+
+    /** 提交 interrupt resume 指令 */
+    function resumeInterrupt(data: unknown) {
+        if (!stream.value) return
+        stream.value.runStatus.value = 'idle'
+        stream.value.submit(undefined, { command: { resume: data } } as any)
+    }
+
+    /** 从底层 stream 解包的 interrupt 载荷 */
+    const interruptData = computed(() => stream.value?.interruptData.value ?? null)
+    const isInterrupted = computed(() => interruptData.value != null)
+
     onUnmounted(() => {
         stopStreamWatch?.()
     })
@@ -202,5 +230,10 @@ export function useDocumentDraft() {
         mountDraft,
         onFieldChange,
         onExport,
+        sendMessage,
+        stopGeneration,
+        resumeInterrupt,
+        interruptData,
+        isInterrupted,
     }
 }
