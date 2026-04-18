@@ -188,4 +188,52 @@ describe('rebuildDocxService', () => {
         expect(mockCreateOss).not.toHaveBeenCalled()
         expect(mockSetCompleted).not.toHaveBeenCalled()
     })
+
+    it('review.risks 为 null → 注入器接到空数组，不报错', async () => {
+        mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: 'orig/path.docx' } as any)
+        mockDownload.mockResolvedValue(Buffer.from('orig'))
+        mockInject.mockResolvedValue(Buffer.from('new'))
+        mockUpload.mockResolvedValue({ name: 'contract-review/1001/rebuild-x.docx', etag: 'e', url: 'u' })
+        mockGetCfg.mockResolvedValue({ bucket: 'b' } as any)
+        mockSignUrl.mockResolvedValue('https://signed')
+        mockCreateOss.mockResolvedValue({ id: 123 } as any)
+        mockSetCompleted.mockResolvedValue({ id: REVIEW_ID } as any)
+
+        await rebuildDocxService(review({ risks: null }))
+        // injectComments 收到空数组 risks 时仍按原路径执行
+        const injectCall = mockInject.mock.calls[0]
+        expect(injectCall?.[1]).toEqual([])
+    })
+
+    it('storageConfig 为 null → bucketName 回退空字符串，流程仍继续', async () => {
+        mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: 'orig/path.docx' } as any)
+        mockDownload.mockResolvedValue(Buffer.from('orig'))
+        mockInject.mockResolvedValue(Buffer.from('new'))
+        mockUpload.mockResolvedValue({ name: 'contract-review/1001/rebuild-x.docx', etag: 'e', url: 'u' })
+        mockGetCfg.mockResolvedValue(null)
+        mockSignUrl.mockResolvedValue('https://signed')
+        mockCreateOss.mockResolvedValue({ id: 321 } as any)
+        mockSetCompleted.mockResolvedValue({ id: REVIEW_ID } as any)
+
+        await rebuildDocxService(review())
+        const ossArg = mockCreateOss.mock.calls[0]?.[0] as any
+        expect(ossArg.bucketName).toBe('')
+    })
+
+    it('injectComments 返回 Uint8Array（非 Buffer）→ Buffer.from 分支正确处理', async () => {
+        mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: 'orig/path.docx' } as any)
+        mockDownload.mockResolvedValue(Buffer.from('orig'))
+        // 返回非 Buffer 的 Uint8Array
+        mockInject.mockResolvedValue(new Uint8Array([1, 2, 3]))
+        mockUpload.mockResolvedValue({ name: 'contract-review/1001/rebuild-x.docx', etag: 'e', url: 'u' })
+        mockGetCfg.mockResolvedValue({ bucket: 'b' } as any)
+        mockSignUrl.mockResolvedValue('https://signed')
+        mockCreateOss.mockResolvedValue({ id: 456 } as any)
+        mockSetCompleted.mockResolvedValue({ id: REVIEW_ID } as any)
+
+        const r = await rebuildDocxService(review())
+        expect(r.reviewedFileId).toBe(456)
+        const uploadArg = mockUpload.mock.calls[0]?.[1]
+        expect(Buffer.isBuffer(uploadArg)).toBe(true)
+    })
 })

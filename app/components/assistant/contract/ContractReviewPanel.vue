@@ -10,6 +10,7 @@
  * runStatus 文案内联（不拆 ContractReviewStatus.vue），见 spec §9.2。
  */
 import { Loader2Icon } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 import type { Risk, ContractReviewStatus, StanceRequest } from '#shared/types/contract'
 
 const props = defineProps<{
@@ -25,6 +26,10 @@ const {
     mountReview,
     onStance,
     onDownload,
+    onEditRisks,
+    onRebuildDocx,
+    isRebuilding,
+    hasUnsavedDocxChanges,
     cancelReview,
 } = useContractReview()
 
@@ -86,6 +91,17 @@ async function handleStanceCancel() {
 function handleDialogOpenChange(open: boolean) {
     if (!open) handleStanceCancel()
 }
+
+/**
+ * 非用户触发路径（例如轮询 GET 回填）首次把 review.status 从 completed 切到 rebuilding
+ * 时，补一个 toast 给用户提示。用户主动点击「重新生成」入口时，
+ * onRebuildDocx 内部已经 toast.info 过一次，这里同时弹出也可接受（vue-sonner 自动合并）。
+ */
+watch(isRebuilding, (rebuilding, wasRebuilding) => {
+    if (rebuilding && !wasRebuilding) {
+        toast.info('批注正在重新生成，请稍候...')
+    }
+})
 </script>
 
 <template>
@@ -127,11 +143,15 @@ function handleDialogOpenChange(open: boolean) {
                     <span>{{ statusLabel }}</span>
                 </div>
                 <AssistantContractRiskListPanel
-                    :risks="((review?.risks ?? []) as unknown) as Risk[]"
+                    :risks="review?.risks ?? []"
                     :status="(review?.status ?? 'pending') as ContractReviewStatus"
                     :reviewed-file-id="review?.reviewedFileId ?? null"
                     :summary="review?.summary ?? null"
+                    :is-rebuilding="isRebuilding"
+                    :has-unsaved-docx-changes="hasUnsavedDocxChanges"
                     @download="onDownload"
+                    @rebuild="onRebuildDocx"
+                    @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
                 />
             </div>
         </div>

@@ -111,4 +111,51 @@ describe('detectParties (LLM fallback path)', () => {
         expect(result.contractType).toBeNull()
         expect(result.source).toBe('none')
     })
+
+    it('无可用 API 密钥（status!==1）→ 捕获后降级 none', async () => {
+        vi.mocked(getValidNodeConfig).mockResolvedValue({
+            id: 1,
+            name: 'contractReviewMain',
+            title: '合同审查主节点',
+            description: '',
+            type: 'main',
+            prompts: [],
+            modelId: 1,
+            modelName: 'deepseek-chat',
+            modelType: 'chat',
+            modelStatus: 1,
+            modelSdkType: 'openai',
+            modelProviderId: 1,
+            modelProviderName: 'DeepSeek',
+            modelProviderBaseUrl: 'https://api.deepseek.com/v1',
+            modelProviderDescription: '',
+            modelApiKeys: [{ id: 1, apiKey: 'sk-xxx', status: 0 }],
+            tools: [],
+            outputSchema: null,
+        } as Awaited<ReturnType<typeof getValidNodeConfig>>)
+        const result = await detectParties(['无甲乙方字样'])
+        expect(result.source).toBe('none')
+        expect(createChatModel).not.toHaveBeenCalled()
+    })
+
+    it('LLM 返回非字符串 content → 降级 none', async () => {
+        mockContractReviewNodeConfig()
+        vi.mocked(createChatModel).mockReturnValue({
+            invoke: vi.fn().mockResolvedValue({ content: [{ type: 'text', text: '不是字符串' }] }),
+        } as any)
+        const result = await detectParties(['无甲乙方字样'])
+        expect(result.source).toBe('none')
+    })
+
+    it('LLM 返回 JSON 但字段缺失 → partyA/partyB/contractType 各自 ?? null 回填', async () => {
+        mockContractReviewNodeConfig()
+        vi.mocked(createChatModel).mockReturnValue({
+            invoke: vi.fn().mockResolvedValue({ content: '{}' }),
+        } as any)
+        const result = await detectParties(['无甲乙方字样'])
+        expect(result.partyA).toBeNull()
+        expect(result.partyB).toBeNull()
+        expect(result.contractType).toBeNull()
+        expect(result.source).toBe('llm')
+    })
 })

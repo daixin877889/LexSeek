@@ -13,13 +13,13 @@
  */
 import { useDebounceFn } from '@vueuse/core'
 import { toast } from 'vue-sonner'
-import type { contractReviews } from '~~/generated/prisma/client'
 import type {
     CreateReviewRequest,
     CreateReviewResponse,
     StanceRequest,
     DownloadResponse,
     Risk,
+    ReviewWithParsedRisks,
 } from '#shared/types/contract'
 
 type ContractRunStatus = 'idle' | 'reviewing' | 'awaiting_stance' | 'completed' | 'failed'
@@ -32,7 +32,7 @@ interface AwaitingStancePayload {
 
 export function useContractReview() {
     const reviewId = ref<number | null>(null)
-    const review = ref<contractReviews | null>(null)
+    const review = ref<ReviewWithParsedRisks | null>(null)
 
     /**
      * 本次会话内是否编辑过 risks 且尚未重生 docx。
@@ -89,7 +89,7 @@ export function useContractReview() {
 
     /** 静默拉取最新 review（stream 完成后用于回填 risks / summary / reviewedFileId） */
     async function refreshReview(id: number) {
-        const latest = await useApiFetch<{ review: contractReviews }>(
+        const latest = await useApiFetch<{ review: ReviewWithParsedRisks }>(
             `/api/v1/assistant/contract/reviews/${id}`,
             { showError: false } as any,
         )
@@ -157,7 +157,7 @@ export function useContractReview() {
         stream.value = null
         hasUnsavedDocxChanges.value = false
 
-        const resp = await useApiFetch<{ review: contractReviews }>(
+        const resp = await useApiFetch<{ review: ReviewWithParsedRisks }>(
             `/api/v1/assistant/contract/reviews/${id}`,
             { showError: false } as any,
         )
@@ -220,7 +220,7 @@ export function useContractReview() {
             return
         }
         if (review.value) {
-            review.value = { ...review.value, risks: risks as unknown as contractReviews['risks'] }
+            review.value = { ...review.value, risks }
         }
         hasUnsavedDocxChanges.value = true
     }, 500)

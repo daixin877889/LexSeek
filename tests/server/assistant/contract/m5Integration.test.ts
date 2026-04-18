@@ -151,10 +151,9 @@ describe('M5 合同审查闭环（PATCH + rebuild-docx + 真实 DB 链路）', (
         await updateContractReviewDAO(reviewId, { status: 'rebuilding' })
 
         const res: any = await rebuildHandler(makeEvent(userId, String(reviewId)))
-        // handler 前置 REVIEW_EDITABLE_STATUSES 守护会先把非 completed 拦下（409）；
-        // 真·atomicSet=false 仅在两请求"同时"读到 completed 的极窄窗口才出现（429）。
-        // 两层共同构成原子防线——此处接受任一分支，都是"正在重生中，稍候再试"语义。
-        expect([409, 429]).toContain(res.code)
+        // status=rebuilding 命中前置守护（EDITABLE_STATUSES 拦截）→ 409
+        // 真并发下 atomicSet=false → 429 的语义已由 rebuildDocx.api.test.ts 覆盖
+        expect(res.code).toBe(409)
         expect(res.success).toBe(false)
     }, 30_000)
 

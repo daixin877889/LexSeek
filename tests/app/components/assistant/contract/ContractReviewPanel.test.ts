@@ -15,10 +15,24 @@
  * - RiskListPanel @download → onDownload
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, h, ref, computed, nextTick } from 'vue'
 import type { contractReviews } from '~~/generated/prisma/client'
+
+// ── mock vue-sonner toast（组件内 import toast from 'vue-sonner'）─────────────
+const mockToastInfo = vi.fn()
+const mockToastError = vi.fn()
+const mockToastSuccess = vi.fn()
+const mockToastWarning = vi.fn()
+vi.mock('vue-sonner', () => ({
+    toast: {
+        info: (...args: unknown[]) => mockToastInfo(...args),
+        error: (...args: unknown[]) => mockToastError(...args),
+        success: (...args: unknown[]) => mockToastSuccess(...args),
+        warning: (...args: unknown[]) => mockToastWarning(...args),
+    },
+}))
 
 // ── mock lucide-vue-next Loader2Icon（脚本内直接 import，globalStubs 无法注入）──
 vi.mock('lucide-vue-next', () => ({
@@ -37,11 +51,14 @@ const runStatusRef = ref<'idle' | 'reviewing' | 'awaiting_stance' | 'completed' 
 const isLoadingRef = ref(false)
 const interruptDataRef = ref<Record<string, unknown> | null>(null)
 const awaitingStanceRef = ref<{ partyA?: string; partyB?: string; contractType?: string } | null>(null)
+const hasUnsavedDocxChangesRef = ref(false)
 
 const mockOnStart = vi.fn()
 const mockMountReview = vi.fn()
 const mockOnStance = vi.fn()
 const mockOnDownload = vi.fn()
+const mockOnEditRisks = vi.fn()
+const mockOnRebuildDocx = vi.fn()
 const mockCancelReview = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('~/composables/useContractReview', () => ({
@@ -52,10 +69,14 @@ vi.mock('~/composables/useContractReview', () => ({
         isLoading: computed(() => isLoadingRef.value),
         interruptData: computed(() => interruptDataRef.value),
         awaitingStance: computed(() => awaitingStanceRef.value),
+        isRebuilding: computed(() => reviewRef.value?.status === 'rebuilding'),
+        hasUnsavedDocxChanges: hasUnsavedDocxChangesRef,
         onStart: mockOnStart,
         mountReview: mockMountReview,
         onStance: mockOnStance,
         onDownload: mockOnDownload,
+        onEditRisks: mockOnEditRisks,
+        onRebuildDocx: mockOnRebuildDocx,
         cancelReview: mockCancelReview,
     }),
 }))
@@ -143,20 +164,34 @@ const RiskListPanelStub = defineComponent({
         status: { type: String, default: 'pending' },
         reviewedFileId: { type: [Number, null] as unknown as () => number | null, default: null },
         summary: { type: [String, null] as unknown as () => string | null, default: null },
+        isRebuilding: { type: Boolean, default: false },
+        hasUnsavedDocxChanges: { type: Boolean, default: false },
     },
-    emits: ['download'],
+    emits: ['download', 'rebuild', 'editRisks'],
     setup(props, { emit }) {
         return () =>
             h(
-                'button',
+                'div',
                 {
                     'data-stub': 'RiskListPanel',
                     'data-status': props.status,
                     'data-risk-count': String((props.risks as unknown[]).length),
                     'data-summary': props.summary ?? '',
-                    onClick: () => emit('download'),
+                    'data-is-rebuilding': String(props.isRebuilding),
+                    'data-has-unsaved': String(props.hasUnsavedDocxChanges),
                 },
-                'risk-list',
+                [
+                    h('button', { 'data-stub-btn': 'download', onClick: () => emit('download') }, 'download'),
+                    h('button', { 'data-stub-btn': 'rebuild', onClick: () => emit('rebuild') }, 'rebuild'),
+                    h(
+                        'button',
+                        {
+                            'data-stub-btn': 'edit-risks',
+                            onClick: () => emit('editRisks', [{ id: 'nr', clauseIndex: 0 }]),
+                        },
+                        'edit-risks',
+                    ),
+                ],
             )
     },
 })
@@ -194,11 +229,15 @@ function makeReview(over: Partial<contractReviews> = {}): contractReviews {
     } as unknown as contractReviews
 }
 
+const mountedWrappers: Array<{ unmount: () => void }> = []
+
 function mountPanel(props: { reviewId?: number | null } = {}) {
-    return mount(ContractReviewPanel, {
+    const w = mount(ContractReviewPanel, {
         props,
         global: { stubs },
     })
+    mountedWrappers.push(w as unknown as { unmount: () => void })
+    return w
 }
 
 function resetRefs() {
@@ -208,6 +247,7 @@ function resetRefs() {
     isLoadingRef.value = false
     interruptDataRef.value = null
     awaitingStanceRef.value = null
+    hasUnsavedDocxChangesRef.value = false
 }
 
 beforeEach(() => {
@@ -216,7 +256,19 @@ beforeEach(() => {
     mockMountReview.mockReset()
     mockOnStance.mockReset()
     mockOnDownload.mockReset()
+    mockOnEditRisks.mockReset()
+    mockOnRebuildDocx.mockReset()
     mockCancelReview.mockClear()
+    mockToastInfo.mockReset()
+    mockToastError.mockReset()
+    mockToastSuccess.mockReset()
+    mockToastWarning.mockReset()
+})
+
+afterEach(() => {
+    while (mountedWrappers.length) {
+        try { mountedWrappers.pop()?.unmount() } catch { /* ignore */ }
+    }
 })
 
 describe('ContractReviewPanel', () => {
@@ -331,7 +383,7 @@ describe('ContractReviewPanel', () => {
         runStatusRef.value = 'completed'
         const w = mountPanel()
         await nextTick()
-        await w.find('[data-stub="RiskListPanel"]').trigger('click')
+        await w.find('[data-stub-btn="download"]').trigger('click')
         expect(mockOnDownload).toHaveBeenCalledTimes(1)
     })
 
@@ -368,5 +420,66 @@ describe('ContractReviewPanel', () => {
         const w = mountPanel()
         await nextTick()
         expect(w.find('[data-stub="ContractSourceInput"]').exists()).toBe(false)
+    })
+})
+
+describe('ContractReviewPanel M5 接线', () => {
+    it('review.status=rebuilding → 传给 RiskListPanel 的 :isRebuilding=true', async () => {
+        reviewRef.value = makeReview({ status: 'rebuilding', reviewedFileId: 1 } as unknown as Partial<contractReviews>)
+        const w = mountPanel()
+        await nextTick()
+        const risk = w.find('[data-stub="RiskListPanel"]')
+        expect(risk.attributes('data-is-rebuilding')).toBe('true')
+    })
+
+    it('hasUnsavedDocxChanges=true 时透传给 RiskListPanel', async () => {
+        reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
+        hasUnsavedDocxChangesRef.value = true
+        const w = mountPanel()
+        await nextTick()
+        const risk = w.find('[data-stub="RiskListPanel"]')
+        expect(risk.attributes('data-has-unsaved')).toBe('true')
+    })
+
+    it('RiskListPanel emit rebuild → 调 onRebuildDocx', async () => {
+        reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
+        const w = mountPanel()
+        await nextTick()
+        await w.find('[data-stub-btn="rebuild"]').trigger('click')
+        expect(mockOnRebuildDocx).toHaveBeenCalledTimes(1)
+    })
+
+    it('RiskListPanel emit edit-risks → 调 onEditRisks with 新 risks 数组', async () => {
+        reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
+        const w = mountPanel()
+        await nextTick()
+        await w.find('[data-stub-btn="edit-risks"]').trigger('click')
+        expect(mockOnEditRisks).toHaveBeenCalledTimes(1)
+        expect(mockOnEditRisks).toHaveBeenCalledWith([{ id: 'nr', clauseIndex: 0 }])
+    })
+
+    it('isRebuilding 从 false 变 true → 弹 toast.info 一次', async () => {
+        reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
+        mountPanel()
+        await nextTick()
+        expect(mockToastInfo).not.toHaveBeenCalled()
+
+        reviewRef.value = makeReview({ status: 'rebuilding', reviewedFileId: 1 } as unknown as Partial<contractReviews>)
+        await nextTick()
+        expect(mockToastInfo).toHaveBeenCalledTimes(1)
+        expect(mockToastInfo).toHaveBeenCalledWith('批注正在重新生成，请稍候...')
+    })
+
+    it('isRebuilding 保持 true → 不重复弹 toast.info', async () => {
+        reviewRef.value = makeReview({ status: 'rebuilding', reviewedFileId: 1 } as unknown as Partial<contractReviews>)
+        mountPanel()
+        await nextTick()
+        // mount 时 isRebuilding 已为 true（非 false→true 转变），watch 不 immediate，不应触发
+        expect(mockToastInfo).not.toHaveBeenCalled()
+
+        // 保持 true 下改 reviewedFileId（触发 review 重设但 isRebuilding 未变）
+        reviewRef.value = makeReview({ status: 'rebuilding', reviewedFileId: 2 } as unknown as Partial<contractReviews>)
+        await nextTick()
+        expect(mockToastInfo).not.toHaveBeenCalled()
     })
 })
