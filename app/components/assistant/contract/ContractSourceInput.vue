@@ -11,7 +11,6 @@
 <script lang="ts" setup>
 import { toast } from 'vue-sonner'
 import type { AiPromptSubmitData } from '~/components/ai/AiPromptInput.vue'
-import type { OssFileItem } from '~/store/file'
 import type { CreateReviewRequest } from '#shared/types/contract'
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
@@ -31,7 +30,7 @@ function handleAiSubmit(data: AiPromptSubmitData) {
   }
 
   if (files.length === 1) {
-    const file = files[0] as OssFileItem
+    const file = files[0]!
     if (file.fileType !== DOCX_MIME) {
       toast.warning('仅支持 .docx 文件')
       return
