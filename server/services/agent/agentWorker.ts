@@ -189,6 +189,19 @@ export class AgentWorker {
           signal: abortController.signal,
         })
       }
+      else if (session.scope === 'contract') {
+        if (session.userId == null) {
+          throw new Error(
+            `contract session ${run.sessionId} 缺失 userId（数据损坏）`,
+          )
+        }
+        const { runContractReviewChat } = await import('../workflow/agents/contractReviewMainAgent')
+        stream = await runContractReviewChat(run.sessionId, {
+          userId: session.userId,
+          command: input.command,
+          signal: abortController.signal,
+        })
+      }
       else {
         // === case 域分支：caseId 必须存在 ===
         if (session.caseId == null) {
