@@ -116,8 +116,6 @@ onMounted(async () => {
   try {
     await reconnect()
   } catch (err) {
-    // 回放失败不中断页面（useStreamChat 内部会记录 error）
-    // eslint-disable-next-line no-console
     console.error('[assistant-chat] reconnect failed', err)
   }
 })
@@ -125,20 +123,9 @@ onMounted(async () => {
 
 <template>
   <div class="flex flex-col h-full min-h-0">
-    <AiChat
-      :messages="messages"
-      :loading="loading"
-      :is-interrupted="isInterrupted"
-      v-model:thinking="thinking"
-      panel-mode="left"
-      :show-header="false"
-      :enable-file-upload="false"
-      :is-stopping="isStopping"
-      prompt-placeholder="输入你的法律问题..."
-      class="flex-1 min-h-0"
-      @submit="handleSubmit"
-      @stop="handleStop"
-    >
+    <AiChat :messages="messages" :loading="loading" :is-interrupted="isInterrupted" v-model:thinking="thinking"
+      panel-mode="left" :show-header="false" :enable-file-upload="false" :is-stopping="isStopping"
+      prompt-placeholder="输入你的法律问题..." class="flex-1 min-h-0" @submit="handleSubmit" @stop="handleStop">
       <template #prompt-actions>
         <div v-if="showRetryButton" class="flex items-center gap-2 px-4 py-2">
           <Button size="sm" variant="outline" @click="onRetry">
@@ -150,24 +137,15 @@ onMounted(async () => {
     </AiChat>
 
     <!-- 中断确认弹窗 -->
-    <Dialog :open="!!interruptData" @update:open="() => {}">
-      <DialogContent
-        class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0"
-        :show-close-button="false"
-        @pointer-down-outside.prevent
-        @escape-key-down.prevent
-        @open-auto-focus.prevent
-      >
+    <Dialog :open="!!interruptData" @update:open="() => { }">
+      <DialogContent class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0" :show-close-button="false"
+        @pointer-down-outside.prevent @escape-key-down.prevent @open-auto-focus.prevent>
         <DialogHeader class="sr-only">
           <DialogTitle>需要您的确认</DialogTitle>
           <DialogDescription>请查看并回应以下请求</DialogDescription>
         </DialogHeader>
         <div v-if="interruptData" class="p-6">
-          <CaseInterruptConfirmation
-            :interrupt="interruptData"
-            @submit="handleResumeInterrupt"
-            @cancel="() => {}"
-          />
+          <CaseInterruptConfirmation :interrupt="interruptData" @submit="handleResumeInterrupt" @cancel="() => { }" />
         </div>
       </DialogContent>
     </Dialog>
