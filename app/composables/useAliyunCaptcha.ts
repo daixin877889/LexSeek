@@ -13,7 +13,9 @@ interface SceneState {
   instance?: CaptchaInstance
   element?: HTMLElement
   button?: HTMLElement
+  needsReinitialize?: boolean
   pendingPromise?: Promise<string>
+  pendingTimeoutId?: number
   resolvePending?: (captchaVerifyParam: string) => void
   rejectPending?: (error: Error) => void
   cachedVerifyParam?: string
@@ -21,7 +23,9 @@ interface SceneState {
 }
 
 const CAPTCHA_CONFIG_PATH = '/auth-captcha-config'
+const CAPTCHA_SCRIPT_SELECTOR = 'script[data-aliyun-captcha="true"]'
 const CAPTCHA_VERIFY_PARAM_MAX_AGE_MS = 85 * 1000
+const CAPTCHA_VERIFY_TIMEOUT_MS = 120 * 1000
 const sceneStates = new Map<AliyunCaptchaSceneKey, SceneState>()
 const CAPTCHA_PREVERIFY_CACHE_ENABLED_SCENES = new Set<AliyunCaptchaSceneKey>([
   'loginSms',
@@ -64,11 +68,22 @@ function getSceneDomNodes(scene: AliyunCaptchaSceneKey) {
   }
 }
 
+function clearPendingVerificationTimeout(state: SceneState) {
+  if (!import.meta.client || state.pendingTimeoutId == null) {
+    return
+  }
+
+  window.clearTimeout(state.pendingTimeoutId)
+  state.pendingTimeoutId = undefined
+}
+
 function resetSceneState(scene: AliyunCaptchaSceneKey, error?: Error) {
   const state = getSceneState(scene)
 
-  if (error && state.rejectPending) {
-    state.rejectPending(error)
+  clearPendingVerificationTimeout(state)
+
+  if (state.rejectPending) {
+    state.rejectPending(error || new Error('验证码状态已重置，请重试'))
   }
 
   sceneStates.set(scene, {})
@@ -126,20 +141,26 @@ async function loadCaptchaScript(src: string): Promise<void> {
   }
 
   captchaScriptPromise = new Promise((resolve, reject) => {
-    const existingScript = document.querySelector<HTMLScriptElement>('script[data-aliyun-captcha="true"]')
+    const existingScript = document.querySelector<HTMLScriptElement>(CAPTCHA_SCRIPT_SELECTOR)
 
     if (existingScript) {
       const handleLoad = () => resolve()
       const handleError = () => reject(new Error('验证码脚本加载失败'))
 
       if (window.initAliyunCaptcha) {
+        existingScript.dataset.aliyunCaptchaStatus = 'loaded'
         resolve()
         return
       }
 
-      existingScript.addEventListener('load', handleLoad, { once: true })
-      existingScript.addEventListener('error', handleError, { once: true })
-      return
+      const scriptStatus = existingScript.dataset.aliyunCaptchaStatus
+      if (scriptStatus === 'loading') {
+        existingScript.addEventListener('load', handleLoad, { once: true })
+        existingScript.addEventListener('error', handleError, { once: true })
+        return
+      }
+
+      existingScript.remove()
     }
 
     const script = document.createElement('script')
@@ -147,8 +168,15 @@ async function loadCaptchaScript(src: string): Promise<void> {
     script.src = src
     script.async = true
     script.dataset.aliyunCaptcha = 'true'
-    script.onload = () => resolve()
-    script.onerror = () => reject(new Error('验证码脚本加载失败'))
+    script.dataset.aliyunCaptchaStatus = 'loading'
+    script.onload = () => {
+      script.dataset.aliyunCaptchaStatus = 'loaded'
+      resolve()
+    }
+    script.onerror = () => {
+      script.dataset.aliyunCaptchaStatus = 'error'
+      reject(new Error('验证码脚本加载失败'))
+    }
     document.head.appendChild(script)
   })
 
@@ -175,10 +203,12 @@ function getCaptchaRem(): number {
 
 function rejectPendingVerification(scene: AliyunCaptchaSceneKey, error: Error) {
   const state = getSceneState(scene)
+  clearPendingVerificationTimeout(state)
   if (!state.rejectPending) {
     return
   }
 
+  state.needsReinitialize = true
   state.rejectPending(error)
   state.pendingPromise = undefined
   state.resolvePending = undefined
@@ -193,6 +223,7 @@ function cacheVerificationResult(scene: AliyunCaptchaSceneKey, captchaVerifyPara
   const state = getSceneState(scene)
   state.cachedVerifyParam = captchaVerifyParam
   state.cachedVerifyAt = Date.now()
+  state.needsReinitialize = true
 }
 
 function resolvePendingVerification(scene: AliyunCaptchaSceneKey, captchaVerifyParam: string) {
@@ -203,6 +234,8 @@ function resolvePendingVerification(scene: AliyunCaptchaSceneKey, captchaVerifyP
   }
 
   state.resolvePending(captchaVerifyParam)
+  clearPendingVerificationTimeout(state)
+  state.needsReinitialize = true
   state.pendingPromise = undefined
   state.resolvePending = undefined
   state.rejectPending = undefined
@@ -239,12 +272,21 @@ async function ensureCaptchaReady(scene: AliyunCaptchaSceneKey): Promise<boolean
   }
 
   let state = getSceneState(scene)
-  if (state.initPromise && !isSceneBindingStale(scene, state)) {
+  if (
+    state.initPromise &&
+    !isSceneBindingStale(scene, state) &&
+    (!state.needsReinitialize || Boolean(state.cachedVerifyParam))
+  ) {
     return state.initPromise
   }
 
   if (state.initPromise) {
-    resetSceneState(scene, new Error('验证码宿主已变更，请重试'))
+    resetSceneState(
+      scene,
+      isSceneBindingStale(scene, state)
+        ? new Error('验证码宿主已变更，请重试')
+        : undefined
+    )
     state = getSceneState(scene)
   }
 
@@ -356,6 +398,10 @@ export function useAliyunCaptcha(scene: AliyunCaptchaSceneKey) {
       state.rejectPending = reject
     })
     state.pendingPromise = pendingPromise
+    state.pendingTimeoutId = window.setTimeout(() => {
+      state.instance?.hide?.()
+      rejectPendingVerification(scene, new Error('安全验证超时，请重试'))
+    }, CAPTCHA_VERIFY_TIMEOUT_MS)
 
     const domIds = getAliyunCaptchaDomIds(scene)
     const button = document.getElementById(domIds.buttonId) as HTMLButtonElement | null

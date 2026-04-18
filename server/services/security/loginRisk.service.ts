@@ -5,6 +5,11 @@ import { canUseAliyunCaptchaSceneService, getAliyunCaptchaRuntimeConfigService }
 
 const PASSWORD_LOGIN_RISK_KEY_PREFIX = 'auth:pwd-login:fail'
 
+export interface PasswordLoginCaptchaRequirement {
+  requireCaptcha: boolean
+  degraded: boolean
+}
+
 function getPasswordLoginRiskConfig() {
   const config = getAliyunCaptchaRuntimeConfigService()
   return {
@@ -34,12 +39,15 @@ export function getPasswordLoginRiskKeyService(event: H3Event, phone: string): s
 export async function shouldRequirePasswordLoginCaptchaService(
   event: H3Event,
   phone: string
-): Promise<boolean> {
+): Promise<PasswordLoginCaptchaRequirement> {
   const logger = createLogger('AuthLoginRisk')
   const config = getPasswordLoginRiskConfig()
 
   if (!config.enabled) {
-    return false
+    return {
+      requireCaptcha: false,
+      degraded: false,
+    }
   }
 
   try {
@@ -47,10 +55,16 @@ export async function shouldRequirePasswordLoginCaptchaService(
     const key = getPasswordLoginRiskKeyService(event, phone)
     const count = Number(await redis.get(key) || 0)
 
-    return count >= config.threshold
+    return {
+      requireCaptcha: count >= config.threshold,
+      degraded: false,
+    }
   } catch (error: any) {
-    logger.warn('读取密码登录风控计数失败，跳过本次验证码要求', { error })
-    return false
+    logger.warn('读取密码登录风控计数失败，已降级为强制验证码', { error })
+    return {
+      requireCaptcha: true,
+      degraded: true,
+    }
   }
 }
 
@@ -68,8 +82,15 @@ export async function recordPasswordLoginFailureService(
   try {
     const redis = getRedisClient()
     const key = getPasswordLoginRiskKeyService(event, phone)
-    await redis.incr(key)
-    await redis.expire(key, config.windowSec)
+    const results = await redis.multi()
+      .incr(key)
+      .expire(key, config.windowSec)
+      .exec()
+
+    if (!results || results.some(([commandError]) => commandError)) {
+      throw results?.find(([commandError]) => commandError)?.[0]
+        || new Error('密码登录失败计数写入失败')
+    }
   } catch (error: any) {
     logger.warn('记录密码登录失败计数失败，已跳过', { error })
   }

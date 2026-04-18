@@ -17,8 +17,8 @@ export default defineEventHandler(async (event) => {
 
         const { phone, password, captchaVerifyParam } = body;
 
-        const shouldRequireCaptcha = await shouldRequirePasswordLoginCaptchaService(event, phone)
-        if (shouldRequireCaptcha) {
+        const captchaRequirement = await shouldRequirePasswordLoginCaptchaService(event, phone)
+        if (captchaRequirement.requireCaptcha) {
             if (!captchaVerifyParam?.trim()) {
                 return resError(event, 429, '请完成安全验证后重试')
             }
@@ -30,6 +30,7 @@ export default defineEventHandler(async (event) => {
             if (!captchaResult.success) {
                 logger.warn('密码登录前验证码校验失败', {
                     phone,
+                    degraded: captchaRequirement.degraded,
                     ...captchaResult,
                 })
                 return resError(event, 400, '安全验证失败，请重试')

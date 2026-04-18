@@ -9,6 +9,25 @@ const mockLogger = {
 vi.stubGlobal('fetch', mockFetch)
 vi.stubGlobal('logger', mockLogger)
 
+async function flushMicrotasks() {
+  await Promise.resolve()
+  await Promise.resolve()
+  await Promise.resolve()
+}
+
+async function waitForCaptchaScript(): Promise<HTMLScriptElement> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const script = document.querySelector('script[data-aliyun-captcha="true"]') as HTMLScriptElement | null
+    if (script) {
+      return script
+    }
+
+    await flushMicrotasks()
+  }
+
+  throw new Error('未找到验证码脚本')
+}
+
 function appendSceneDom(scene: 'registerSms' | 'passwordLogin') {
   const element = document.createElement('div')
   element.id = `lexseek-aliyun-captcha-${scene}-element`
@@ -42,6 +61,8 @@ describe('useAliyunCaptcha', () => {
     vi.clearAllMocks()
     document.body.innerHTML = ''
     document.head.innerHTML = ''
+    delete (window as any).initAliyunCaptcha
+    delete (window as any).AliyunCaptchaConfig
 
     appendSceneDom('registerSms')
     appendSceneDom('passwordLogin')
@@ -125,6 +146,36 @@ describe('useAliyunCaptcha', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2)
   })
 
+  it('脚本首次加载失败后，下一次 preload 应重建 script', async () => {
+    const { useAliyunCaptcha } = await import('../../../app/composables/useAliyunCaptcha')
+    const captcha = useAliyunCaptcha('registerSms')
+
+    const firstPreloadPromise = captcha.preload()
+    const failedScript = await waitForCaptchaScript()
+    failedScript.dispatchEvent(new Event('error'))
+
+    const firstPreloadResult = await firstPreloadPromise
+    expect(firstPreloadResult).toBe(false)
+
+    const secondPreloadPromise = captcha.preload()
+    let reloadedScript: HTMLScriptElement | null = null
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await flushMicrotasks()
+      const currentScript = document.querySelector('script[data-aliyun-captcha="true"]') as HTMLScriptElement | null
+      if (currentScript && currentScript !== failedScript) {
+        reloadedScript = currentScript
+        break
+      }
+    }
+
+    expect(reloadedScript).toBeTruthy()
+    expect(reloadedScript).not.toBe(failedScript)
+    reloadedScript.dispatchEvent(new Event('error'))
+
+    const secondPreloadResult = await secondPreloadPromise
+    expect(secondPreloadResult).toBe(false)
+  })
+
   it('宿主 DOM 重新挂载后应重新初始化验证码实例', async () => {
     let latestOptions: any
 
@@ -153,5 +204,60 @@ describe('useAliyunCaptcha', () => {
     expect(firstPreloadResult).toBe(true)
     expect(verifyResult).toBe('remounted-captcha-param')
     expect((window as any).initAliyunCaptcha).toHaveBeenCalledTimes(2)
+  })
+
+  it('一次验证成功后，下一次 verify 应重新初始化实例', async () => {
+    let initCount = 0
+
+    ;(window as any).initAliyunCaptcha = vi.fn((options: any) => {
+      initCount += 1
+      const currentCount = initCount
+      const button = document.querySelector(options.button) as HTMLButtonElement
+
+      button.onclick = () => {
+        options.success(`captcha-${currentCount}`)
+      }
+
+      options.getInstance({
+        show: vi.fn(),
+      })
+    })
+
+    const { useAliyunCaptcha } = await import('../../../app/composables/useAliyunCaptcha')
+    const captcha = useAliyunCaptcha('passwordLogin')
+
+    const firstVerifyResult = await captcha.verify()
+    const secondVerifyResult = await captcha.verify()
+
+    expect(firstVerifyResult).toBe('captcha-1')
+    expect(secondVerifyResult).toBe('captcha-2')
+    expect((window as any).initAliyunCaptcha).toHaveBeenCalledTimes(2)
+  })
+
+  it('SDK 静默不回调时，verify 应在超时后失败', async () => {
+    vi.useFakeTimers()
+
+    try {
+      const hide = vi.fn()
+      ;(window as any).initAliyunCaptcha = vi.fn((options: any) => {
+        options.getInstance({
+          show: vi.fn(),
+          hide,
+        })
+      })
+
+      const { useAliyunCaptcha } = await import('../../../app/composables/useAliyunCaptcha')
+      const captcha = useAliyunCaptcha('passwordLogin')
+
+      const verifyPromise = captcha.verify()
+      await flushMicrotasks()
+      const timeoutAssertion = expect(verifyPromise).rejects.toThrow('安全验证超时，请重试')
+      await vi.advanceTimersByTimeAsync(120 * 1000)
+
+      await timeoutAssertion
+      expect(hide).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

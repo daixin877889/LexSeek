@@ -7,6 +7,13 @@ const mockRedisClient = {
   incr: vi.fn(),
   expire: vi.fn(),
   del: vi.fn(),
+  multi: vi.fn(),
+}
+
+const mockRedisMulti = {
+  incr: vi.fn(),
+  expire: vi.fn(),
+  exec: vi.fn(),
 }
 
 const mockGetRequestIP = vi.fn()
@@ -52,6 +59,13 @@ describe('loginRisk.service', () => {
     mockRedisClient.incr.mockResolvedValue(1)
     mockRedisClient.expire.mockResolvedValue(1)
     mockRedisClient.del.mockResolvedValue(1)
+    mockRedisMulti.incr.mockReturnValue(mockRedisMulti)
+    mockRedisMulti.expire.mockReturnValue(mockRedisMulti)
+    mockRedisMulti.exec.mockResolvedValue([
+      [null, 1],
+      [null, 1],
+    ])
+    mockRedisClient.multi.mockReturnValue(mockRedisMulti)
     mockCanUseAliyunCaptchaSceneService.mockReturnValue(true)
     mockGetAliyunCaptchaRuntimeConfigService.mockReturnValue({
       enable: true,
@@ -90,7 +104,10 @@ describe('loginRisk.service', () => {
     mockRedisClient.get.mockResolvedValue('3')
 
     const result = await service.shouldRequirePasswordLoginCaptchaService({} as any, '13800138000')
-    expect(result).toBe(true)
+    expect(result).toEqual({
+      requireCaptcha: true,
+      degraded: false,
+    })
   })
 
   it('未达到阈值时不应要求验证码', async () => {
@@ -98,15 +115,32 @@ describe('loginRisk.service', () => {
     mockRedisClient.get.mockResolvedValue('2')
 
     const result = await service.shouldRequirePasswordLoginCaptchaService({} as any, '13800138000')
-    expect(result).toBe(false)
+    expect(result).toEqual({
+      requireCaptcha: false,
+      degraded: false,
+    })
+  })
+
+  it('Redis 读取失败时应降级为强制验证码', async () => {
+    const service = await import('../../../server/services/security/loginRisk.service')
+    mockRedisClient.get.mockRejectedValue(new Error('redis unavailable'))
+
+    const result = await service.shouldRequirePasswordLoginCaptchaService({} as any, '13800138000')
+
+    expect(result).toEqual({
+      requireCaptcha: true,
+      degraded: true,
+    })
   })
 
   it('记录密码登录失败时应写入 Redis 并刷新 TTL', async () => {
     const service = await import('../../../server/services/security/loginRisk.service')
     await service.recordPasswordLoginFailureService({} as any, '13800138000')
 
-    expect(mockRedisClient.incr).toHaveBeenCalledTimes(1)
-    expect(mockRedisClient.expire).toHaveBeenCalledWith(expect.stringMatching(/^auth:pwd-login:fail:/), 900)
+    expect(mockRedisClient.multi).toHaveBeenCalledTimes(1)
+    expect(mockRedisMulti.incr).toHaveBeenCalledTimes(1)
+    expect(mockRedisMulti.expire).toHaveBeenCalledWith(expect.stringMatching(/^auth:pwd-login:fail:/), 900)
+    expect(mockRedisMulti.exec).toHaveBeenCalledTimes(1)
   })
 
   it('登录成功后应清理 Redis 计数', async () => {
@@ -124,8 +158,11 @@ describe('loginRisk.service', () => {
     const shouldRequire = await service.shouldRequirePasswordLoginCaptchaService({} as any, '13800138000')
     await service.recordPasswordLoginFailureService({} as any, '13800138000')
 
-    expect(shouldRequire).toBe(false)
+    expect(shouldRequire).toEqual({
+      requireCaptcha: false,
+      degraded: false,
+    })
     expect(mockRedisClient.get).not.toHaveBeenCalled()
-    expect(mockRedisClient.incr).not.toHaveBeenCalled()
+    expect(mockRedisClient.multi).not.toHaveBeenCalled()
   })
 })
