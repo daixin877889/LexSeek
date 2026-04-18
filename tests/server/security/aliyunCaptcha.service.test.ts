@@ -2,10 +2,36 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+let runtimeConfig: any
+
 const mockVerifyIntelligentCaptcha = vi.fn()
-const mockCaptchaClient = vi.fn(() => ({
-  verifyIntelligentCaptcha: mockVerifyIntelligentCaptcha,
+const mockCaptchaClient = vi.fn(
+  class MockCaptchaClient {
+    verifyIntelligentCaptcha = mockVerifyIntelligentCaptcha
+  }
+)
+const mockLogger = {
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+}
+
+vi.mock('#imports', () => ({
+  useRuntimeConfig: () => runtimeConfig,
+  createLogger: () => mockLogger,
+}), { virtual: true })
+
+vi.mock('nuxt/app', () => ({
+  useRuntimeConfig: () => runtimeConfig,
 }))
+
+vi.mock('#app/nuxt', async (importOriginal) => {
+  const actual = await importOriginal<any>()
+  return {
+    ...actual,
+    useRuntimeConfig: () => runtimeConfig,
+  }
+})
 
 vi.mock('@alicloud/captcha20230305', () => ({
   default: mockCaptchaClient,
@@ -30,8 +56,6 @@ vi.mock('@alicloud/openapi-core', () => ({
 }))
 
 describe('aliyunCaptcha.service', () => {
-  let runtimeConfig: any
-
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
@@ -61,12 +85,8 @@ describe('aliyunCaptcha.service', () => {
       },
     }
 
-    vi.stubGlobal('useRuntimeConfig', () => runtimeConfig)
-    vi.stubGlobal('createLogger', () => ({
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-    }))
+    ;(globalThis as any).useRuntimeConfig = () => runtimeConfig
+    ;(globalThis as any).createLogger = () => mockLogger
   })
 
   it('应根据 region 和 dualStack 推导 endpoint', async () => {
@@ -171,5 +191,27 @@ describe('aliyunCaptcha.service', () => {
 
     expect(result.success).toBe(false)
     expect(mockVerifyIntelligentCaptcha).not.toHaveBeenCalled()
+  })
+
+  it('SDK 抛错时应记录可读错误日志并返回错误消息', async () => {
+    const service = await import('../../../server/services/security/aliyunCaptcha.service')
+    const sdkError = new Error('Forbidden.RAMUserAccessDenied')
+
+    Object.assign(sdkError, {
+      code: 'Forbidden.RAMUserAccessDenied',
+      statusCode: 403,
+      requestId: 'req-err-1',
+    })
+
+    mockVerifyIntelligentCaptcha.mockRejectedValue(sdkError)
+
+    const result = await service.verifyAliyunCaptchaService({
+      captchaVerifyParam: 'opaque-param',
+      sceneKey: 'registerSms',
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.providerCode).toBe('Forbidden.RAMUserAccessDenied')
+    expect(result.providerMessage).toBe('Forbidden.RAMUserAccessDenied')
   })
 })

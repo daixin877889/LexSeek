@@ -14,9 +14,12 @@ interface SceneState {
   pendingPromise?: Promise<string>
   resolvePending?: (captchaVerifyParam: string) => void
   rejectPending?: (error: Error) => void
+  cachedVerifyParam?: string
+  cachedVerifyAt?: number
 }
 
 const CAPTCHA_CONFIG_PATH = '/auth-captcha-config'
+const CAPTCHA_VERIFY_PARAM_MAX_AGE_MS = 85 * 1000
 const sceneStates = new Map<AliyunCaptchaSceneKey, SceneState>()
 
 let captchaConfigPromise: Promise<AliyunCaptchaClientConfig> | null = null
@@ -141,9 +144,16 @@ function rejectPendingVerification(scene: AliyunCaptchaSceneKey, error: Error) {
   state.rejectPending = undefined
 }
 
+function cacheVerificationResult(scene: AliyunCaptchaSceneKey, captchaVerifyParam: string) {
+  const state = getSceneState(scene)
+  state.cachedVerifyParam = captchaVerifyParam
+  state.cachedVerifyAt = Date.now()
+}
+
 function resolvePendingVerification(scene: AliyunCaptchaSceneKey, captchaVerifyParam: string) {
   const state = getSceneState(scene)
   if (!state.resolvePending) {
+    cacheVerificationResult(scene, captchaVerifyParam)
     return
   }
 
@@ -151,6 +161,21 @@ function resolvePendingVerification(scene: AliyunCaptchaSceneKey, captchaVerifyP
   state.pendingPromise = undefined
   state.resolvePending = undefined
   state.rejectPending = undefined
+}
+
+function consumeCachedVerification(scene: AliyunCaptchaSceneKey): string | null {
+  const state = getSceneState(scene)
+  if (!state.cachedVerifyParam || !state.cachedVerifyAt) {
+    return null
+  }
+
+  const isExpired = Date.now() - state.cachedVerifyAt > CAPTCHA_VERIFY_PARAM_MAX_AGE_MS
+  const captchaVerifyParam = isExpired ? null : state.cachedVerifyParam
+
+  state.cachedVerifyParam = undefined
+  state.cachedVerifyAt = undefined
+
+  return captchaVerifyParam
 }
 
 async function ensureCaptchaReady(scene: AliyunCaptchaSceneKey): Promise<boolean> {
@@ -260,6 +285,12 @@ export function useAliyunCaptcha(scene: AliyunCaptchaSceneKey) {
     }
 
     const state = getSceneState(scene)
+    const cachedVerifyParam = consumeCachedVerification(scene)
+    if (cachedVerifyParam) {
+      logger.info('复用预先完成的验证码结果', { scene })
+      return cachedVerifyParam
+    }
+
     if (state.pendingPromise) {
       return state.pendingPromise
     }
@@ -269,11 +300,17 @@ export function useAliyunCaptcha(scene: AliyunCaptchaSceneKey) {
       state.rejectPending = reject
     })
 
-    if (typeof state.instance?.show === 'function') {
+    const domIds = getAliyunCaptchaDomIds(scene)
+    const button = document.getElementById(domIds.buttonId) as HTMLButtonElement | null
+
+    if (button) {
+      button.click()
+    } else if (typeof state.instance?.startTracelessVerification === 'function') {
+      state.instance.startTracelessVerification()
+    } else if (typeof state.instance?.show === 'function') {
       state.instance.show()
     } else {
-      const domIds = getAliyunCaptchaDomIds(scene)
-      document.getElementById(domIds.buttonId)?.click()
+      rejectPendingVerification(scene, new Error('验证码触发失败'))
     }
 
     return state.pendingPromise

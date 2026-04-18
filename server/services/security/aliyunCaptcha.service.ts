@@ -1,4 +1,4 @@
-import CaptchaClient, { VerifyIntelligentCaptchaRequest } from '@alicloud/captcha20230305'
+import * as CaptchaModule from '@alicloud/captcha20230305'
 import { $OpenApiUtil } from '@alicloud/openapi-core'
 import type { AliyunCaptchaClientConfig, AliyunCaptchaRegion, AliyunCaptchaSceneIds, AliyunCaptchaSceneKey } from '#shared/types/captcha'
 
@@ -39,8 +39,76 @@ export interface VerifyAliyunCaptchaResult {
   certifyId: string | null
 }
 
-let captchaClient: CaptchaClient | null = null
+interface CaptchaClientInstance {
+  verifyIntelligentCaptcha: (request: unknown) => Promise<any>
+}
+
+let captchaClient: CaptchaClientInstance | null = null
 let captchaClientSignature: string | null = null
+
+type CaptchaClientConstructor = new (config: InstanceType<typeof $OpenApiUtil.Config>) => CaptchaClientInstance
+type VerifyIntelligentCaptchaRequestConstructor = new (map?: Record<string, unknown>) => {
+  captchaVerifyParam?: string
+  sceneId?: string
+}
+
+function serializeAliyunCaptchaError(error: unknown): Record<string, unknown> {
+  if (error instanceof Error) {
+    const serialized: Record<string, unknown> = {
+      name: error.name || 'Error',
+      message: error.message || '未知异常',
+      stack: error.stack,
+    }
+
+    for (const key of Object.getOwnPropertyNames(error)) {
+      if (key in serialized) {
+        continue
+      }
+
+      serialized[key] = (error as unknown as Record<string, unknown>)[key]
+    }
+
+    return serialized
+  }
+
+  if (error && typeof error === 'object') {
+    return { ...(error as Record<string, unknown>) }
+  }
+
+  return {
+    message: error == null ? '未知异常' : String(error),
+  }
+}
+
+function resolveCaptchaClientConstructor(): CaptchaClientConstructor {
+  const candidates = [
+    (CaptchaModule as any).default,
+    (CaptchaModule as any).default?.default,
+    CaptchaModule,
+  ]
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'function') {
+      return candidate as CaptchaClientConstructor
+    }
+  }
+
+  throw new TypeError('CaptchaClient is not a constructor')
+}
+
+function createVerifyIntelligentCaptchaRequest(
+  payload: Record<string, unknown>
+): InstanceType<VerifyIntelligentCaptchaRequestConstructor> {
+  const RequestCtor = (CaptchaModule as any).VerifyIntelligentCaptchaRequest as
+    | VerifyIntelligentCaptchaRequestConstructor
+    | undefined
+
+  if (typeof RequestCtor !== 'function') {
+    throw new TypeError('VerifyIntelligentCaptchaRequest is not a constructor')
+  }
+
+  return new RequestCtor(payload)
+}
 
 export function resolveAliyunCaptchaEndpoint(
   region: AliyunCaptchaRegion,
@@ -109,7 +177,7 @@ export function getAliyunCaptchaClientConfigService(): AliyunCaptchaClientConfig
   }
 }
 
-function getCaptchaClient(): CaptchaClient {
+function getCaptchaClient(): CaptchaClientInstance {
   const logger = createLogger('AliyunCaptcha')
   const config = useRuntimeConfig()
   const captchaConfig = getAliyunCaptchaRuntimeConfigService()
@@ -127,8 +195,9 @@ function getCaptchaClient(): CaptchaClient {
       endpoint,
       protocol: 'https',
     })
+    const CaptchaClientCtor = resolveCaptchaClientConstructor()
 
-    captchaClient = new CaptchaClient(openApiConfig)
+    captchaClient = new CaptchaClientCtor(openApiConfig)
     captchaClientSignature = signature
     logger.info('阿里云验证码客户端已初始化', {
       endpoint,
@@ -149,6 +218,7 @@ export async function verifyAliyunCaptchaService({
 }): Promise<VerifyAliyunCaptchaResult> {
   const logger = createLogger('AliyunCaptcha')
   const sceneId = getAliyunCaptchaSceneIdService(sceneKey)
+  const captchaConfig = getAliyunCaptchaRuntimeConfigService()
 
   if (!canUseAliyunCaptchaSceneService(sceneKey) || !sceneId || !captchaVerifyParam?.trim()) {
     return {
@@ -163,7 +233,7 @@ export async function verifyAliyunCaptchaService({
 
   try {
     const client = getCaptchaClient()
-    const request = new VerifyIntelligentCaptchaRequest({
+    const request = createVerifyIntelligentCaptchaRequest({
       captchaVerifyParam,
       sceneId,
     })
@@ -192,15 +262,25 @@ export async function verifyAliyunCaptchaService({
       certifyId: body?.result?.certifyId || null,
     }
   } catch (error: any) {
+    const endpoint = resolveAliyunCaptchaEndpoint(captchaConfig.region, captchaConfig.dualStack)
+    const serializedError = serializeAliyunCaptchaError(error)
+
     logger.error('阿里云验证码校验异常', {
       sceneKey,
-      error,
+      sceneId,
+      region: captchaConfig.region,
+      dualStack: captchaConfig.dualStack,
+      endpoint,
+      error: serializedError,
     })
 
     return {
       success: false,
-      providerCode: null,
-      providerMessage: error?.message || '验证码校验失败',
+      providerCode: typeof serializedError.code === 'string' ? serializedError.code : null,
+      providerMessage:
+        (typeof serializedError.message === 'string' && serializedError.message) ||
+        error?.message ||
+        '验证码校验失败',
       verifyCode: null,
       requestId: null,
       certifyId: null,
