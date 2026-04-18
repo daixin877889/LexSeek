@@ -16,7 +16,7 @@
 - ✅ `shared/types/contract.ts`（Risk / Stance / ContractReviewStatus / 请求响应类型）
 - ✅ `InterruptType.AWAITING_STANCE` 枚举已加入 `shared/types/case.ts`
 - ✅ `MIDDLEWARE_NAMES.REVIEW_RESULT_PERSISTENCE = 'reviewResultPersistence'` 常量已加入 `server/services/workflow/middleware/types.ts`
-- ✅ seedData.sql 已 seed：`contractReviewMain` node（tools=['parseAndAskStance']）、`contractReview_system` 提示词 v1、`contract_review_token` 计费规则
+- ⚠️ seedData.sql 已 seed：`contractReviewMain` node、`contractReview_system` 提示词 v1、`contract_review_token` 计费规则；**但 M1 写入的 `tools` 字段值是 `["parseAndAskStance"]`，与项目 `toolModules` 字典的 snake_case key 约定（`search_case_materials` 等）不匹配，本 plan Task 0 修正为 `["parse_and_ask_stance"]`**
 - ✅ `server/services/assistant/contract/docx/`（parser / partyDetector / commentInjector / zipRewriter / xmlUtils / index）
 - ✅ `server/services/assistant/contract/textToDocx.service.ts`
 
@@ -36,16 +36,49 @@
 
 | # | 任务 | 产出 | 依赖 |
 |---|---|---|---|
-| 1 | 接口扩展（promptRenderer / ToolContext / middleware index export） | 3 处扩展 + 1 处 re-export | 无 |
+| 0 | 修正 M1 seed 错配：`contractReviewMain.tools` 值改为 snake_case | seedData.sql 1 处改动 + 本地 dev DB 同步 SQL | 无 |
+| 1 | 接口扩展（promptRenderer / ToolContext） | 2 处扩展 | 无 |
 | 2 | `riskSchema.builder.ts` + DAO + Service 骨架 | 3 文件 + 单测 | 1 |
-| 3 | `parseAndAskStance.tool.ts` + 工具注册 | 1 文件 + 1 处注册 + 单测 | 2 |
-| 4 | `reviewResultPersistence.middleware.ts` | 1 文件 + 单测 | 2 |
-| 5 | `contractReviewMainAgent.ts`（`runContractReviewChat` + `getContractReviewThreadState`） | 1 文件 + agents/index.ts export + 单测 | 3, 4 |
+| 3 | `parseAndAskStance.tool.ts` + 工具注册（snake_case key） | 1 文件 + 1 处注册 + 单测 | 2 |
+| 4 | `reviewResultPersistence.middleware.ts` + index.ts export | 1 文件 + 单测 | 2 |
+| 5 | `contractReviewMainAgent.ts`（`runContractReviewChat`） | 1 文件 + agents/index.ts export + smoke 单测 | 3, 4 |
 | 6 | Worker `scope='contract'` 分支 | agentWorker.ts 插入 else-if | 5 |
-| 7 | POST `/api/v1/assistant/contract/reviews` | 1 文件 + contractReview.service 完善 + 集成测 | 2 |
+| 7 | POST `/api/v1/assistant/contract/reviews`（含建 caseSession + 入队） | 1 API 文件 + contractReview.service 完整实现 + 集成测 | 2 |
 | 8 | GET `/api/v1/assistant/contract/reviews/:id` | 1 文件 + 集成测 | 2 |
-| 9 | POST `/api/v1/assistant/contract/reviews/:id/stance` | 1 文件 + 集成测 | 6, 7 |
-| 10 | 端到端集成测：happy path + commentInjector 抛错 + structuredResponse 缺失 | 1 测试文件 | 9 |
+| 9 | POST `/api/v1/assistant/contract/reviews/:id/stance`（含 INTERRUPTED→COMPLETED 释放） | 1 文件 + 集成测 | 6, 7 |
+| 10 | 端到端集成测：真实 DB 下的 afterAgent 持久化语义 | 1 测试文件 | 9 |
+
+---
+
+## Task 0：修正 M1 seed 里的工具名错配
+
+**背景**：`server/services/workflow/tools/index.ts:25-36` 的 `toolModules` 字典使用 **snake_case key**（如 `search_case_materials`），`getToolInstancesService(names, ctx)` 按名字精确匹配。M1 seed 写入 `contractReviewMain.tools = '["parseAndAskStance"]'`，加载工具时会 warn `工具 parseAndAskStance 不存在，已跳过`，导致 agent 拿不到工具，只能"干说话"而无法 interrupt。必须改成 `["parse_and_ask_stance"]`。
+
+**Files:**
+- Modify: `prisma/seeds/seedData.sql` 第 932 行附近（`contractReviewMain` 行的 `tools` 字段值）
+- DB 同步：对已运行的本地开发数据库 (`ls_new`) 与测试库 (`ls_new_testing`) 执行 `UPDATE`
+
+- [ ] **Step 0.1：改 seedData.sql**
+
+把 `INSERT INTO ... nodes ... VALUES ('contractReviewMain', ..., '["parseAndAskStance"]', ...)` 这行的 tools 字面值改为 `'["parse_and_ask_stance"]'`（保留 `ON CONFLICT DO NOTHING`，新库不受影响）。
+
+- [ ] **Step 0.2：对本地 dev 库执行 UPDATE 同步**
+
+```bash
+psql 'postgresql://daixin:daixin88@localhost:5432/ls_new' -c \
+  "UPDATE public.nodes SET tools = '[\"parse_and_ask_stance\"]'::jsonb WHERE name = 'contractReviewMain';"
+psql 'postgresql://daixin:daixin88@localhost:5432/ls_new_testing' -c \
+  "UPDATE public.nodes SET tools = '[\"parse_and_ask_stance\"]'::jsonb WHERE name = 'contractReviewMain';"
+```
+
+> 若 tools 列 Prisma type 为 TEXT 而非 JSONB，去掉 `::jsonb` 后缀；先 `\d nodes` 确认列类型。
+
+- [ ] **Step 0.3：提交**
+
+```bash
+git add prisma/seeds/seedData.sql
+git commit -m "fix(contract): M1 seed 工具名改为 snake_case 以匹配 toolModules 约定"
+```
 
 ---
 
@@ -54,7 +87,8 @@
 **Files:**
 - Modify: `server/services/workflow/utils/promptRenderer.ts:13-24`（`PromptRenderContext` 接口新增 `reviewId` / `contractType` 两字段）
 - Modify: `server/services/workflow/tools/types.ts:36-53`（`ToolContext` 接口新增 `reviewId` 字段）
-- Modify: `server/services/workflow/middleware/index.ts`（追加 `export { reviewResultPersistenceMiddleware } from './reviewResultPersistence.middleware'`——文件在 Task 4 建出；**本任务先占位注释 `// TODO(Task 4): export reviewResultPersistence.middleware`，避免 TS 报错**；Task 4 完成时替换为正式 export）
+
+> `middleware/index.ts` 里添加 `reviewResultPersistenceMiddleware` export 的动作**并入 Task 4**（反正同一次 commit 才能验证），本任务不碰 middleware 目录。
 
 - [ ] **Step 1.1：扩展 PromptRenderContext**
 
@@ -93,22 +127,15 @@ export interface ToolContext {
 }
 ```
 
-- [ ] **Step 1.3：middleware index 占位注释**
+- [ ] **Step 1.3：类型检查**
 
-```typescript
-// server/services/workflow/middleware/index.ts 末尾追加：
-// TODO(Task 4): export { reviewResultPersistenceMiddleware } from './reviewResultPersistence.middleware'
-```
-
-- [ ] **Step 1.4：类型检查**
-
-Run: `npx nuxi typecheck 2>&1 | grep -E "promptRenderer|tools/types|middleware/index" | head -20`
+Run: `npx nuxi typecheck 2>&1 | grep -E "promptRenderer|tools/types" | head -20`
 Expected: 无新增错误
 
-- [ ] **Step 1.5：提交**
+- [ ] **Step 1.4：提交**
 
 ```bash
-git add server/services/workflow/utils/promptRenderer.ts server/services/workflow/tools/types.ts server/services/workflow/middleware/index.ts
+git add server/services/workflow/utils/promptRenderer.ts server/services/workflow/tools/types.ts
 git commit -m "feat(contract): M3 扩展 PromptRenderContext / ToolContext 接口"
 ```
 
@@ -472,7 +499,7 @@ vi.mock('@langchain/langgraph', async () => {
     }
 })
 
-import { parseAndAskStanceTool } from '~~/server/services/workflow/tools/parseAndAskStance.tool'
+import { createTool as parseAndAskStanceCreateTool } from '~~/server/services/workflow/tools/parseAndAskStance.tool'
 import {
     getContractReviewDAO,
     updateContractReviewDAO,
@@ -482,7 +509,7 @@ import { downloadFileService } from '~~/server/services/storage/storage.service'
 import { parseContractDocx, detectParties } from '~~/server/services/assistant/contract/docx'
 import { interrupt } from '@langchain/langgraph'
 
-describe('parseAndAskStanceTool', () => {
+describe('parseAndAskStance createTool', () => {
     beforeEach(() => {
         vi.clearAllMocks()
     })
@@ -500,7 +527,7 @@ describe('parseAndAskStanceTool', () => {
         })
         ;(updateContractReviewDAO as any).mockResolvedValue({})
 
-        const tool = parseAndAskStanceTool({ userId: 7, sessionId: 's1', reviewId: 1 })
+        const tool = parseAndAskStanceCreateTool({ userId: 7, sessionId: 's1', reviewId: 1 })
         const result: any = await tool.invoke({})
 
         expect(interrupt).toHaveBeenCalledWith(expect.objectContaining({
@@ -519,14 +546,14 @@ describe('parseAndAskStanceTool', () => {
     })
 
     it('reviewId 缺失 → 抛错', async () => {
-        const tool = parseAndAskStanceTool({ userId: 7, sessionId: 's1' })
+        const tool = parseAndAskStanceCreateTool({ userId: 7, sessionId: 's1' })
         await expect(tool.invoke({})).rejects.toThrow(/reviewId 缺失/)
     })
 
     it('OSS 文件找不到 → 抛错', async () => {
         ;(getContractReviewDAO as any).mockResolvedValueOnce({ id: 1, userId: 7, originalFileId: 99 })
         ;(findOssFileByIdDao as any).mockResolvedValueOnce(null)
-        const tool = parseAndAskStanceTool({ userId: 7, sessionId: 's1', reviewId: 1 })
+        const tool = parseAndAskStanceCreateTool({ userId: 7, sessionId: 's1', reviewId: 1 })
         await expect(tool.invoke({})).rejects.toThrow(/OSS file 99 not found/)
     })
 
@@ -541,7 +568,7 @@ describe('parseAndAskStanceTool', () => {
         ;(interrupt as any).mockReturnValueOnce({ stance: 'neutral' })
         ;(updateContractReviewDAO as any).mockResolvedValue({})
 
-        const tool = parseAndAskStanceTool({ userId: 7, sessionId: 's1', reviewId: 1 })
+        const tool = parseAndAskStanceCreateTool({ userId: 7, sessionId: 's1', reviewId: 1 })
         const result: any = await tool.invoke({})
         expect(result.partyA).toBe('原甲')
         expect(result.partyB).toBe('原乙')
@@ -573,7 +600,7 @@ Expected: FAIL
 import { tool } from '@langchain/core/tools'
 import { interrupt } from '@langchain/langgraph'
 import { z } from 'zod'
-import type { ToolContext } from './types'
+import type { ToolContext, ToolDefinition } from './types'
 import { InterruptType } from '#shared/types/case'
 import type { Stance } from '#shared/types/contract'
 import {
@@ -601,14 +628,16 @@ const STANCE_FOCUS_TABLE: Record<Stance, string> = {
     neutral: '识别所有可能产生歧义或权利义务不对等的条款，不偏向任何一方',
 }
 
-export const TOOL_DEFINITION = {
-    name: 'parseAndAskStance',
+/** 工具定义（`ToolModule.toolDefinition`——注册表通过 `import * as` 聚合此模块导出） */
+export const toolDefinition: ToolDefinition<typeof schema> = {
+    name: 'parse_and_ask_stance',
     description:
         '解析合同段落、识别甲乙方与合同类型、通过 interrupt 请求用户立场。返回立场相关的审查上下文。此工具无需任何参数，直接调用即可。一次会话只应调用一次。',
     schema,
 }
 
-export const parseAndAskStanceTool = (context: ToolContext) => tool(
+/** 工具工厂（`ToolModule.createTool`——注册表通过 `import * as` 聚合此模块导出） */
+export const createTool = (context: ToolContext) => tool(
     async () => {
         const { reviewId } = context
         if (!reviewId) throw new Error('parseAndAskStance: reviewId 缺失')
@@ -658,23 +687,24 @@ export const parseAndAskStanceTool = (context: ToolContext) => tool(
             paragraphs,
         }
     },
-    TOOL_DEFINITION,
+    toolDefinition,
 )
-
-export const parseAndAskStanceModule = {
-    toolDefinition: TOOL_DEFINITION,
-    createTool: parseAndAskStanceTool,
-}
 ```
 
-- [ ] **Step 3.2.2：注册到工具表**
+> 关键形状对齐：`server/services/workflow/tools/index.ts:13-35` 用 `import * as xxxTool from './xxx.tool'` 聚合，要求每个工具模块导出两个命名符号：`toolDefinition`（包含 name/description/schema）+ `createTool`（(ctx)=>StructuredTool）。**禁止**自创 `parseAndAskStanceModule` 这种命名。
+
+- [ ] **Step 3.2.2：注册到 toolModules**
 
 ```typescript
-// server/services/workflow/tools/index.ts —— 在 toolModules 字典追加
-parseAndAskStance: () => import('./parseAndAskStance.tool').then(m => m.parseAndAskStanceModule),
-```
+// server/services/workflow/tools/index.ts 顶部追加 import：
+import * as parseAndAskStanceTool from './parseAndAskStance.tool'
 
-> 注：具体注册语法以 `toolModules` 现行约定为准（查阅 `server/services/workflow/tools/index.ts` 现有的 `searchCaseMaterials` 注册方式复刻）。实施时若发现约定与 `parseAndAskStanceModule` 形状不匹配，调整 module 形状以对齐，**禁止新造注册机制**。
+// toolModules 字典追加一项（注意 snake_case key，与 seed 里 contractReviewMain.tools = '["parse_and_ask_stance"]' 匹配）：
+const toolModules: Record<string, ToolModule> = {
+    // ...existing entries unchanged...
+    parse_and_ask_stance: parseAndAskStanceTool,
+}
+```
 
 - [ ] **Step 3.2.3：测试通过**
 
@@ -687,7 +717,7 @@ Expected: 4 passed
 git add server/services/workflow/tools/parseAndAskStance.tool.ts \
         server/services/workflow/tools/index.ts \
         tests/server/workflow/tools/parseAndAskStance.test.ts
-git commit -m "feat(contract): M3 新增 parseAndAskStance 工具 + 注册"
+git commit -m "feat(contract): M3 新增 parse_and_ask_stance 工具 + 注册"
 ```
 
 ---
@@ -696,7 +726,7 @@ git commit -m "feat(contract): M3 新增 parseAndAskStance 工具 + 注册"
 
 **Files:**
 - Create: `server/services/workflow/middleware/reviewResultPersistence.middleware.ts`
-- Modify: `server/services/workflow/middleware/index.ts`（将 Task 1 的 TODO 替换为正式 export）
+- Modify: `server/services/workflow/middleware/index.ts`（追加 `export { reviewResultPersistenceMiddleware } from './reviewResultPersistence.middleware'`）
 - Create: `tests/server/workflow/middleware/reviewResultPersistence.test.ts`
 
 ### 4.1 单测
@@ -970,7 +1000,7 @@ export const reviewResultPersistenceMiddleware = (
 
 > 关键对齐：`createOssFileDao` 入参是 plain 字段（非 Prisma nested connect）；`downloadFileService(filePath)` 单参数。实施前若发现 `uploadFileService` 返回字段名不是 `name` 而是 `path`，按实际返回值调整；**不可凭印象改 DAO 签名**。
 
-- [ ] **Step 4.2.2：Task 1 的 TODO 替换成正式 export**
+- [ ] **Step 4.2.2：在 middleware/index.ts 追加 export**
 
 ```typescript
 // server/services/workflow/middleware/index.ts
@@ -1191,16 +1221,9 @@ export async function runContractReviewChat(
         signal,
     })
 }
-
-export async function getContractReviewThreadState(sessionId: string) {
-    const checkpointer = await getCheckpointer()
-    const dummyModel = createChatModel({
-        sdkType: 'openai', modelName: 'gpt-4', apiKey: 'dummy', baseUrl: 'http://localhost',
-    })
-    const stateReader = createAgent({ model: dummyModel, checkpointer })
-    return stateReader.getState({ configurable: { thread_id: sessionId } })
-}
 ```
+
+> M3 **不**导出 `getContractReviewThreadState`——当前没有任何调用点（worker 走 SSE stream，不需要读 thread state）；M4 UI 真正需要时再按 `documentMainAgent.getDocumentThreadState` 模板添加。
 
 - [ ] **Step 5.2.2：agents/index.ts 追加 export**
 
@@ -1300,8 +1323,9 @@ import { uploadFileService } from '~~/server/services/storage/storage.service'
 import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageConfig.dao'
 import { FileSource, OssFileStatus } from '#shared/types/file'
 import { StorageProviderType } from '~~/server/lib/storage/types'
-import { textToDocx } from './textToDocx.service'
+import { textToDocxService } from './textToDocx.service'
 import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
+import { prisma } from '~~/server/utils/prisma'
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 const MAX_PASTE_LEN = 50_000
@@ -1338,7 +1362,7 @@ export async function createAndStartContractReviewService(
         if (text.length > MAX_PASTE_LEN) {
             return { error: `粘贴文本不能超过 ${MAX_PASTE_LEN} 字符`, code: 413 }
         }
-        const docxBuffer = await textToDocx(text)
+        const docxBuffer = await textToDocxService(text)
         const ossPath = `users/${userId}/contract-review/pasted-${Date.now()}.docx`
         const uploadResult = await uploadFileService(ossPath, docxBuffer, {
             contentType: DOCX_MIME, userId,
@@ -1364,6 +1388,22 @@ export async function createAndStartContractReviewService(
     }
 
     const sessionId = randomUUID()
+
+    // 先显式建 scope='contract' 的 caseSessions（对齐 documentDraft.service.ts:63-73 的模式——
+    // 既有的 createAssistantSessionDAO 会硬编码 scope='assistant' 导致 agentWorker
+    // 错路由到 runAssistantChat；必须绕开它直接 prisma.caseSessions.create）
+    await prisma.caseSessions.create({
+        data: {
+            sessionId,
+            scope: 'contract',
+            userId,
+            caseId: null,
+            type: 1,
+            status: 1,
+            title: sourceType === 'paste' ? '合同审查 · 粘贴文本' : '合同审查',
+        },
+    })
+
     const review = await createContractReviewDAO({
         userId,
         sessionId,
@@ -1371,10 +1411,6 @@ export async function createAndStartContractReviewService(
         status: 'pending',
     })
 
-    // scope='contract' 的 chatSession 由 agentRun 侧在 enqueue 时 upsert
-    // （沿用 assistant/document scope 的现行约定；若 agentRun 服务未自动建
-    //  chatSession，则在此处先显式建一条；实施时对照 enqueueRunService
-    //  的实际行为，选其一）
     const enqueued = await enqueueRunService({
         sessionId, threadId: sessionId, userId, caseId: null,
         input: { message: undefined, command: undefined },
@@ -1385,7 +1421,7 @@ export async function createAndStartContractReviewService(
 }
 ```
 
-> ⚠️ 会话落库细节：`enqueueRunService` 当前不会自动建 `chatSessions` 行（scope 由 session 侧决定）。实施时先查项目里已有的 assistant / document 流程怎么保证 `chatSessions.scope='contract'` 这行存在（看 `server/api/v1/assistant/chat.post.ts` 或 `document/chat.post.ts` 是怎么 upsert chatSession 的），**沿用同样的方式**，不要发明新 API。若项目内已有 `ensureChatSessionService` 之类的助手函数则直接复用。
+> 关键对齐：参考 `server/services/assistant/document/documentDraft.service.ts:63-73`——同样是 `scope=document` 场景直接调 `prisma.caseSessions.create` 而不走 `createAssistantSessionDAO`（后者会硬编码 `scope='assistant'`）。本 service 照抄此模式，把 `scope` 换为 `'contract'`。
 
 - [ ] **Step 7.1.3：实现 API 端点 `server/api/v1/assistant/contract/reviews.post.ts`**
 
@@ -1451,7 +1487,7 @@ git commit -m "feat(contract): M3 新增 POST /reviews 端点"
 1. 未登录 → 401
 2. review.userId !== user.id → 403
 3. id 不存在或 deletedAt!=null → 404
-4. 成功返回 `{ review: { id, status, contractType, partyA, partyB, stance, risks, summary, originalFileId, reviewedFileId, createdAt, updatedAt } }`（**不含** userId / sessionId / deletedAt，防止越权暴露）
+4. 成功返回 `{ review: { id, sessionId, status, contractType, partyA, partyB, stance, risks, summary, originalFileId, reviewedFileId, createdAt, updatedAt } }`（返回 **sessionId** 供前端 SSE 订阅；**不含** userId / deletedAt，防止越权暴露）
 
 - [ ] **Step 8.2：实现**
 
@@ -1473,6 +1509,7 @@ export default defineEventHandler(async (event) => {
     return resSuccess(event, '获取成功', {
         review: {
             id: review.id,
+            sessionId: review.sessionId,
             status: review.status,
             contractType: review.contractType,
             partyA: review.partyA,
@@ -1514,6 +1551,7 @@ git commit -m "feat(contract): M3 新增 GET /reviews/:id 端点"
 4. stance 参数非法（非 partyA/partyB/neutral）→ 400
 5. happy path：成功入队 → 200 返回 `{ reviewId, runId }`
 6. `enqueueRunService` 返回 `{ error: '...' }`（并发超限）→ 429
+7. **旧 run 为 INTERRUPTED**：调用前 mock `findActiveRunBySessionIdDAO` 返回 INTERRUPTED run → 验证 `updateRunStatusDAO(oldId, COMPLETED)` 被调用、且 `enqueueRunService` 随后入队成功（对齐 `server/api/v1/assistant/document/chat.post.ts:59-76` 的分支 1 路径）
 
 - [ ] **Step 9.2：实现**
 
@@ -1521,7 +1559,15 @@ git commit -m "feat(contract): M3 新增 GET /reviews/:id 端点"
 // server/api/v1/assistant/contract/reviews/[id]/stance.post.ts
 import { z } from 'zod'
 import { getContractReviewDAO } from '~~/server/services/assistant/contract/contractReview.dao'
-import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
+import {
+    enqueueRunService,
+    // 注：agentRun.service 若未 re-export 这两者则按实际路径从 agentRun.dao 导入
+} from '~~/server/services/agent/agentRun.service'
+import {
+    findActiveRunBySessionIdDAO,
+    updateRunStatusDAO,
+} from '~~/server/services/agent/agentRun.dao'
+import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
 
 const BodySchema = z.object({
     stance: z.enum(['partyA', 'partyB', 'neutral']),
@@ -1549,6 +1595,16 @@ export default defineEventHandler(async (event) => {
 
     if (review.status !== 'awaiting_stance') {
         return resSuccess(event, `立场已提交（状态：${review.status}）`, { reviewId })
+    }
+
+    // 关键：resume 前必须先把 INTERRUPTED 的旧 run 置 COMPLETED，
+    // 释放 (sessionId, status IN pending/running/interrupted) 的 partial unique index，
+    // 否则 enqueueRunService 会 P2002 冲突（对齐 document/chat.post.ts:59-64）
+    const activeRun = await findActiveRunBySessionIdDAO(review.sessionId)
+    if (activeRun && activeRun.status === AGENT_RUN_STATUS.INTERRUPTED) {
+        await updateRunStatusDAO(activeRun.id, AGENT_RUN_STATUS.COMPLETED, {
+            completedAt: new Date(),
+        })
     }
 
     const result = await enqueueRunService({
@@ -1624,26 +1680,14 @@ describe('M3 集成：结果持久化语义', () => {
         return mw.afterAgent?.hook ?? mw.afterAgent
     }
 
-    it('structuredResponse 缺失 → status=failed，risks=null（不可 rebuild）', async () => {
-        const review = await createContractReviewDAO({
-            userId,
-            sessionId: `itest-${Date.now()}-missing`,
-            originalFileId: 0,
-            status: 'reviewing',
-        })
-        createdIds.push(review.id)
-        const mw = reviewResultPersistenceMiddleware({
-            reviewId: review.id, sessionId: review.sessionId,
-        })
-        const after = getAfterHook(mw)
-        await after({})  // 无 structuredResponse
-        const refreshed = await getContractReviewDAO(review.id)
-        expect(refreshed?.status).toBe('failed')
-        expect(refreshed?.risks).toBeNull()
-    })
+    // 注：`structuredResponse 缺失 → failed` 的语义已由 Task 4 单测（mock）覆盖；
+    // 本集成测只保留 "真实 DB + 真实 injectComments 准备阶段失败" 一例，
+    // 验证 risks 能真的落库（M5 rebuild-docx 依赖此前提）。
 
-    it('injectComments 阶段失败 → risks 已落库 + status=failed（可 rebuild 恢复）', async () => {
-        // 用 originalFileId=0 让 findOssFileByIdDao 返回 null → 注入阶段抛错
+    it('批注注入准备阶段失败（originalFile 不存在）→ risks 已落库 + status=failed（M5 rebuild-docx 可恢复）', async () => {
+        // 用 originalFileId=0 让 findOssFileByIdDao 返回 null → 注入前准备阶段抛错
+        // （真正进入 injectComments 抛错的路径由 Task 4 的 mock 单测覆盖；
+        //  真实 DB 难以稳定构造坏 .docx Buffer 触发 injectComments 内部异常）
         const review = await createContractReviewDAO({
             userId,
             sessionId: `itest-${Date.now()}-inject-fail`,
