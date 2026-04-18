@@ -55,13 +55,20 @@ const debouncedUpdate = useDebounceFn((v: Record<string, string | null>) => upda
 watch(() => props.values, (v) => debouncedUpdate(v), { deep: true })
 
 // templateBuffer 变化时重置渲染状态（snapshot 与之绑定，必须同步清）
+//
+// 二次进入工作区（mountDraft 场景）时 templateBuffer 从 null 变为 ArrayBuffer，
+// 此时模板切换到 v-else 分支，previewRoot 的 <div> 还未挂载。
+// 必须 await nextTick 等 DOM flush 后再调用 updatePreview，否则 guard 跳过渲染 → 预览空白。
 watch(
     () => props.templateBuffer,
-    (buf) => {
+    async (buf) => {
         renderedOnce.value = false
         renderError.value = null
         snapshot.value = null
-        if (buf) updatePreview(props.values)
+        if (buf) {
+            await nextTick()
+            await updatePreview(props.values)
+        }
     },
 )
 

@@ -9,6 +9,7 @@
  * 参见 spec §10.2。
  */
 import { useDebounceFn } from '@vueuse/core'
+import { effectScope, type EffectScope } from 'vue'
 import { nanoid } from 'nanoid'
 import type { documentDrafts } from '~~/generated/prisma/client'
 import type {
@@ -32,6 +33,11 @@ export function useDocumentDraft() {
     const stream = shallowRef<ReturnType<typeof useStreamChat> | null>(null)
     // 上一个 stream 的 watcher 停止句柄，防止重启时泄漏
     let stopStreamWatch: (() => void) | null = null
+    // mountStream 可能在 onStart/mountDraft 的 await 之后才被调用，此时组件的
+    // active effect scope 已丢失，useStream 内部的 onScopeDispose 会触发
+    // `[Vue warn]: onScopeDispose is called when there is no active effect scope...`
+    // 用独立 effectScope 承接，组件卸载或重新挂载 stream 时统一 stop。
+    let streamScope: EffectScope | null = null
 
     const messages = computed(() => stream.value?.messages.value ?? [])
     const isLoading = computed(() => stream.value?.isLoading.value ?? false)
@@ -53,18 +59,26 @@ export function useDocumentDraft() {
 
     function mountStream(sessionId: string) {
         stopStreamWatch?.()
+        // 释放上一个 scope：stop 会触发其内部 onScopeDispose（包括 useStream
+        // 注册的清理钩子）以及停止 scope 内所有 watch，避免泄漏
+        streamScope?.stop()
 
-        const s = useStreamChat({
+        // 在独立 effectScope 内创建 stream，确保 useStream 内部的 onScopeDispose
+        // 有活跃 scope 可依附（mountStream 可能在 await 之后被调用，彼时组件
+        // active scope 已丢失）
+        const scope = effectScope()
+        streamScope = scope
+        const s = scope.run(() => useStreamChat({
             apiUrl: '/api/v1/assistant/document/chat',
             threadId: sessionId,
             messagesKey: 'messages',
             onCustomEvent: handleCustomEvent,
-        })
+        }))!
         stream.value = s
 
         // 后端 draftResultPersistenceMiddleware 只写库未推 SSE custom event，
         // 所以 stream 完成后主动 GET draft 同步 values/status，让 UI 切出 filling 态
-        stopStreamWatch = watch(
+        stopStreamWatch = scope.run(() => watch(
             () => s.runStatus.value,
             async (status) => {
                 if (status === 'failed') {
@@ -81,7 +95,7 @@ export function useDocumentDraft() {
                     runStatus.value = latest.draft.status === 'failed' ? 'failed' : 'ready'
                 }
             },
-        )
+        ))!
     }
 
     async function onStart(params: CreateDraftRequest) {
@@ -289,6 +303,7 @@ export function useDocumentDraft() {
 
     onUnmounted(() => {
         stopStreamWatch?.()
+        streamScope?.stop()
     })
 
     return {
