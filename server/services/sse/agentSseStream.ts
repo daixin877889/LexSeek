@@ -105,27 +105,25 @@ export function createAgentSseStream(
       }, 15000)
 
       try {
-        // 补发缺失事件（重连场景）
-        // 优化：已完成 run 跳过所有事件重放，直接取 PostgresSaver 最终快照发往前端。
-        // Redis Stream 包含所有中间事件（流式 chunk、checkpoint 等），重放耗时且前端需
-        // 处理数千个事件；而 PostgresSaver checkpoint 只存最终状态，一个 values 事件即可。
         const isCompletedRun = latestRunStatus
           ? TERMINAL_STATUSES.includes(latestRunStatus)
           : false
 
-        // 检查此刻是否有新入队的 run（用户可能刚发了消息）
-        // 优先检查活跃 run，有则直接订阅，不发旧 checkpoint（避免前端收到旧数据）
+        logger.info(`[SSE] runId=${runId}, latestRunStatus=${latestRunStatus}, isCompletedRun=${isCompletedRun}`)
+
         const currentActiveRun = await getActiveRunService(sessionId)
+        logger.info(`[SSE] currentActiveRun=${currentActiveRun ? currentActiveRun.id : 'null'}`)
         if (currentActiveRun) {
           runId = currentActiveRun.id
         }
         else if (isCompletedRun) {
-          // 无活跃 run 且旧 run 已完成：发 checkpoint 后直接返回（需求1）
           const checkpointValues = await getThreadValuesService(sessionId)
+          const messages = (checkpointValues?.messages as any[]) || []
+          logger.info(`[SSE] checkpointValues exists=${!!checkpointValues}, messages count=${messages.length}`)
           if (checkpointValues) {
-            const messages = (checkpointValues.messages as any[]) || []
             if (messages.length > 0) {
               const filteredMessages = filterInjectedMessages(messages)
+              logger.info(`[SSE] filteredMessages count=${filteredMessages.length}`)
               controller.enqueue(encoder.encode(
                 `event: values\ndata: ${JSON.stringify({ ...checkpointValues, messages: filteredMessages })}\n\n`,
               ))

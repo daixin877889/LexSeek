@@ -125,11 +125,17 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         },
         reconnect: () => {
             hasHistoryLoaded.value = false
-            s.submit(undefined)
+            console.log('[useStreamChat] reconnect called, submitting undefined...')
+            const result = s.submit(undefined)
+            console.log('[useStreamChat] submit returned:', typeof result)
+            return result
         },
         loadHistory: () => {
             hasHistoryLoaded.value = false
-            s.submit(undefined)
+            console.log('[useStreamChat] loadHistory called, submitting undefined...')
+            const result = s.submit(undefined)
+            console.log('[useStreamChat] submit returned:', typeof result)
+            return result
         },
         getMessagesMetadata: (msg: any, idx?: number) =>
             s.getMessagesMetadata(msg, idx),
