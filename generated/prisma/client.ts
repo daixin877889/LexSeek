@@ -110,6 +110,12 @@ export type demoCases = Prisma.demoCasesModel
  */
 export type caseMaterialEmbeddings = Prisma.caseMaterialEmbeddingsModel
 /**
+ * Model contractReviews
+ * 合同审查记录表
+ * MVP 不含 caseId 列（案件页复用 M6+ 再通过 ALTER TABLE 补齐）
+ */
+export type contractReviews = Prisma.contractReviewsModel
+/**
  * Model documentTemplates
  * 文书模板表 - 存储可复用的法律文书模板
  */

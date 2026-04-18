@@ -1,0 +1,37 @@
+/// 合同审查记录表
+/// MVP 不含 caseId 列（案件页复用 M6+ 再通过 ALTER TABLE 补齐）
+model contractReviews {
+    id             Int       @id @default(autoincrement())
+    /// 发起审查的用户 id
+    userId         Int       @map("user_id")
+    /// LangGraph thread_id；重审 = 新建 review = 新 sessionId（1:1 映射）
+    sessionId      String    @map("session_id") @db.VarChar(100)
+    /// 原始合同 OSS 文件 id
+    originalFileId Int       @map("original_file_id")
+    /// 批注回写后的 .docx OSS 文件 id（reviewResultPersistence.afterAgent 写入）
+    reviewedFileId Int?      @map("reviewed_file_id")
+    /// 合同类型（AI 识别；劳动 / 租赁 / 买卖 / 服务 / 借款 等）
+    contractType   String?   @map("contract_type") @db.VarChar(50)
+    /// 甲方名称（AI 识别，用户可在立场 Dialog 中修正）
+    partyA         String?   @map("party_a") @db.VarChar(200)
+    /// 乙方名称
+    partyB         String?   @map("party_b") @db.VarChar(200)
+    /// 用户选定的审查立场：partyA / partyB / neutral
+    stance         String?   @db.VarChar(20)
+    /// 状态机：pending -> reviewing -> awaiting_stance -> reviewing -> completed | failed
+    status         String    @default("pending") @db.VarChar(30)
+    /// 结构化风险清单（Risk[] JSON）
+    risks          Json?     @db.JsonB
+    /// 审查摘要 Markdown
+    summary        String?   @db.Text
+    createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+    updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+    deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+    user users @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+    @@unique([sessionId], map: "idx_contract_reviews_session")
+    @@index([userId, deletedAt], map: "idx_contract_reviews_user")
+    @@index([status], map: "idx_contract_reviews_status")
+    @@map("contract_reviews")
+}

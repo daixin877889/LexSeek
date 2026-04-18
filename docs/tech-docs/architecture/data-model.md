@@ -1,6 +1,6 @@
 # 数据模型
 
-LexSeek 使用 Prisma ORM + PostgreSQL 管理数据，采用模块化 schema 拆分，共 22 个 `.prisma` 模型文件，覆盖用户、案件、会员、支付、权限、AI 模型、法律知识库等核心业务域。
+LexSeek 使用 Prisma ORM + PostgreSQL 管理数据，采用模块化 schema 拆分，共 23 个 `.prisma` 模型文件，覆盖用户、案件、会员、支付、权限、AI 模型、法律知识库、合同审查等核心业务域。
 
 ---
 
@@ -32,6 +32,7 @@ LexSeek 使用 Prisma ORM + PostgreSQL 管理数据，采用模块化 schema 拆
 | `legal.prisma` | `legalMain`, `legalArticles`, `lawEmbeddings` | 法律知识库 |
 | `agentRun.prisma` | `agentRuns` | Agent 任务队列 |
 | `checkpoint.prisma` | (空，保留文件) | LangGraph 检查点 |
+| `contractReview.prisma` | `contractReviews` | 合同审查 |
 
 ---
 
@@ -154,6 +155,18 @@ caseMaterialEmbeddings (独立向量表)
 - `legalMain` 存储法律法规基本信息，`legalArticles` 存储条文内容（支持 5 级标题层级）
 - `lawEmbeddings` 和 `caseMaterialEmbeddings` 使用 pgvector 扩展存储向量数据
 - 向量字段类型为 `Unsupported("vector")`，Prisma 不直接管理，通过原生 SQL 操作
+
+### 2.8 合同审查
+
+```
+users (1) ──> (N) contractReviews
+```
+
+关键关系说明：
+- `contractReviews.userId` -> `users.id`：用户发起合同审查
+- `sessionId` 字段加 UNIQUE 约束（`idx_contract_reviews_session`），对应"合同审查会话 1:1 映射"——一次合同审查对应一个 LangGraph `thread_id`，重审即新建 review、新建 sessionId
+- MVP 阶段不含 `caseId` 列，M6+ 通过 `ALTER TABLE` 补齐案件页复用能力
+- `status` 状态机：`pending` → `reviewing` → `awaiting_stance` → `reviewing` → `completed` | `failed`
 
 ---
 

@@ -64,6 +64,7 @@ export const ModelName = {
   caseAnalyses: 'caseAnalyses',
   demoCases: 'demoCases',
   caseMaterialEmbeddings: 'caseMaterialEmbeddings',
+  contractReviews: 'contractReviews',
   documentTemplates: 'documentTemplates',
   documentDrafts: 'documentDrafts',
   ossFiles: 'ossFiles',
@@ -343,6 +344,27 @@ export const CaseMaterialEmbeddingsScalarFieldEnum = {
 } as const
 
 export type CaseMaterialEmbeddingsScalarFieldEnum = (typeof CaseMaterialEmbeddingsScalarFieldEnum)[keyof typeof CaseMaterialEmbeddingsScalarFieldEnum]
+
+
+export const ContractReviewsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  sessionId: 'sessionId',
+  originalFileId: 'originalFileId',
+  reviewedFileId: 'reviewedFileId',
+  contractType: 'contractType',
+  partyA: 'partyA',
+  partyB: 'partyB',
+  stance: 'stance',
+  status: 'status',
+  risks: 'risks',
+  summary: 'summary',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  deletedAt: 'deletedAt'
+} as const
+
+export type ContractReviewsScalarFieldEnum = (typeof ContractReviewsScalarFieldEnum)[keyof typeof ContractReviewsScalarFieldEnum]
 
 
 export const DocumentTemplatesScalarFieldEnum = {
