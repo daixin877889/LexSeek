@@ -58,6 +58,8 @@ export const MIDDLEWARE_NAMES = {
     SKILLS_DISCOVERY: 'skillsDiscovery',
     TODO_LIST: 'todoList',
     RESULT_PERSISTENCE: 'analysisResultPersistence',
+    /** 合同审查结果持久化（与 RESULT_PERSISTENCE 语义对等，独立 agent 使用） */
+    REVIEW_RESULT_PERSISTENCE: 'reviewResultPersistence',
 } as const
 
 /**
