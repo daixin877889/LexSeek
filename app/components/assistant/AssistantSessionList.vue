@@ -91,18 +91,26 @@ async function confirmRename(session: AssistantSession, e: Event) {
     if (res) await loadSessions()
 }
 
-async function deleteSession(session: AssistantSession, e: Event) {
+function deleteSession(session: AssistantSession, e: Event) {
     e.stopPropagation()
     const label = session.title ?? '未命名对话'
-    if (!window.confirm(`确定删除"${label}"？`)) return
-    const res = await useApiFetch<{ sessionId: string }>(
-        `/api/v1/assistant/sessions/${session.sessionId}`,
-        { method: 'DELETE' },
-    )
-    if (res) {
-        if (selectedId.value === session.sessionId) selectedId.value = null
-        await loadSessions()
-    }
+    const alertDialogStore = useAlertDialogStore()
+    alertDialogStore.showErrorDialog({
+        title: '确认删除',
+        message: `确定删除"${label}"？删除后无法恢复。`,
+        confirmText: '确认删除',
+        cancelText: '取消',
+        onConfirm: async () => {
+            const res = await useApiFetch<{ sessionId: string }>(
+                `/api/v1/assistant/sessions/${session.sessionId}`,
+                { method: 'DELETE' },
+            )
+            if (res) {
+                if (selectedId.value === session.sessionId) selectedId.value = null
+                await loadSessions()
+            }
+        },
+    })
 }
 
 function handleSelect(session: AssistantSession) {
