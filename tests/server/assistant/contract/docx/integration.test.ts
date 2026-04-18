@@ -8,6 +8,7 @@ import {
     detectParties,
     injectComments,
 } from '~~/server/services/assistant/contract/docx'
+import { textToDocxService } from '~~/server/services/assistant/contract/textToDocx.service'
 
 const SAMPLES = ['labor', 'lease', 'sale', 'service', 'loan'] as const
 const SAMPLE_DIR = join(__dirname, '../../../../../prisma/seeds/contract-samples')
@@ -59,5 +60,31 @@ describe('docx 端到端集成', () => {
 
         const { value } = await mammoth.extractRawText({ buffer: injected })
         expect(value.length).toBeGreaterThan(0)
+    })
+
+    it('paste → textToDocx → parse → inject 链路', async () => {
+        const text = '甲方：某公司\n乙方：张三\n本合同签订于 2026 年 4 月。\n付款条件：60 日内支付全款。\n违约金：日万分之五。\n合同期限：一年。'
+        const docxBuf = await textToDocxService(text)
+        const parsed = await parseContractDocx(docxBuf)
+        expect(parsed.paragraphs.length).toBeGreaterThan(2)
+
+        const clauseIdx = Math.min(1, parsed.paragraphs.length - 1)
+        const risks: Risk[] = [
+            {
+                id: 'r-1',
+                clauseIndex: clauseIdx,
+                clauseText: parsed.paragraphs[clauseIdx],
+                level: 'medium',
+                category: '付款条件',
+                problem: '周期过长',
+                analysis: 'a',
+                risk: 'r',
+                suggestion: 's',
+                suggestedClauseText: '改为 30 日',
+            },
+        ]
+        const injected = await injectComments(docxBuf, risks)
+        const { value } = await mammoth.extractRawText({ buffer: injected })
+        expect(value).toContain('甲方')
     })
 })

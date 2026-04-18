@@ -21,7 +21,8 @@ const ROOT_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 </Relationships>`
 
 const DOCUMENT_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>`
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+</Relationships>`
 
 function buildDocumentXml(text: string): string {
     const lines = text.length === 0 ? [''] : text.split(/\r?\n/)
