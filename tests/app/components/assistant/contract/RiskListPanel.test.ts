@@ -1,22 +1,25 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { defineComponent, h } from 'vue'
+import { defineComponent, h, nextTick } from 'vue'
 import RiskListPanel from '~/components/assistant/contract/RiskListPanel.vue'
 import type { Risk, ContractReviewStatus } from '#shared/types/contract'
 
 /**
  * RiskListPanel 单元测试
  *
- * **Feature: contract-review-m4**
+ * **Feature: contract-review-m4 + m5**
  *
- * 组件职责（M4 只读版）：
- * - 右侧风险清单侧栏
- * - 按 clauseIndex 升序渲染（不原地 sort props）
- * - 每条风险显示 level 徽章 + category + problem；点击 Card 展开/收起
- * - 展开时显示 AssistantContractRiskClauseDiff + legalBasis(可选) + analysis + risk + suggestion
- * - 顶部 summary 非空时渲染；空则不渲染
- * - 空风险 → "暂无风险条目"
- * - 下载按钮仅在 status === 'completed' && reviewedFileId !== null 时 enable
+ * M4 只读版（13 用例）：
+ * - 按 clauseIndex 升序渲染 / 不原地 sort props
+ * - level 徽章颜色 + 中文文案
+ * - 点击 Card 展开 / 收起 / 切换 / 展开内容正确
+ * - summary 空/非空 / 下载按钮三态
+ *
+ * M5 CRUD 扩展（11 用例）：
+ * - 顶部「新增风险」按钮 + 每条风险的「编辑 / 删除」按钮
+ * - editable 由 status + isRebuilding 推导
+ * - RiskEditDialog / AlertDialog 交互触发 editRisks
+ * - 「重新生成批注 Word」按钮 & rebuilding 态全局禁用
  */
 
 // 透明 stub：保持 slot 渲染
@@ -74,6 +77,71 @@ const RiskClauseDiffStub = defineComponent({
     },
 })
 
+// RiskEditDialog stub：按 open 条件渲染，暴露 risk prop 与手动触发 confirm 的按钮
+const RiskEditDialogStub = defineComponent({
+    name: 'AssistantContractRiskEditDialog',
+    props: {
+        open: { type: Boolean, default: false },
+        risk: { type: Object as () => Risk | null, default: null },
+    },
+    emits: ['update:open', 'confirm', 'cancel'],
+    setup(props, { emit }) {
+        return () =>
+            props.open
+                ? h('div', { 'data-stub': 'RiskEditDialog', 'data-has-risk': props.risk ? '1' : '0' }, [
+                    h(
+                        'button',
+                        {
+                            'data-test': 'edit-dialog-fire-confirm',
+                            onClick: () => {
+                                // 构造一个合法的 Risk payload 让外层替换/追加
+                                const payload: Risk = props.risk
+                                    ? { ...(props.risk as Risk), suggestion: '已修改建议' }
+                                    : {
+                                        id: 'new-risk-uuid',
+                                        clauseIndex: 99,
+                                        clauseText: '新条款原文',
+                                        level: 'medium',
+                                        category: '新类别',
+                                        problem: '新问题',
+                                        legalBasis: undefined,
+                                        analysis: '新分析',
+                                        risk: '新风险',
+                                        suggestion: '新建议',
+                                        suggestedClauseText: '新改写文本',
+                                    }
+                                emit('confirm', payload)
+                                emit('update:open', false)
+                            },
+                        },
+                        '触发 confirm'
+                    ),
+                ])
+                : null
+    },
+})
+
+// AlertDialog stub：按 open 条件渲染内容
+const AlertDialogStub = defineComponent({
+    name: 'AlertDialog',
+    props: { open: { type: Boolean, default: false } },
+    emits: ['update:open'],
+    setup(props, { slots }) {
+        return () =>
+            h('div', { 'data-stub': 'AlertDialog' }, props.open ? slots.default?.() : [])
+    },
+})
+
+// Action / Cancel 渲染为 button，透传 @click 事件
+const alertBtn = (name: string) =>
+    defineComponent({
+        name,
+        inheritAttrs: false,
+        setup(_, { slots, attrs }) {
+            return () => h('button', { 'data-stub': name, ...attrs }, slots.default?.())
+        },
+    })
+
 const stubs = {
     ScrollArea: ScrollAreaStub,
     Card: CardStub,
@@ -81,6 +149,15 @@ const stubs = {
     CardContent: passthrough('CardContent'),
     Button: ButtonStub,
     AssistantContractRiskClauseDiff: RiskClauseDiffStub,
+    AssistantContractRiskEditDialog: RiskEditDialogStub,
+    AlertDialog: AlertDialogStub,
+    AlertDialogContent: passthrough('AlertDialogContent'),
+    AlertDialogHeader: passthrough('AlertDialogHeader'),
+    AlertDialogTitle: passthrough('AlertDialogTitle'),
+    AlertDialogDescription: passthrough('AlertDialogDescription'),
+    AlertDialogFooter: passthrough('AlertDialogFooter'),
+    AlertDialogAction: alertBtn('AlertDialogAction'),
+    AlertDialogCancel: alertBtn('AlertDialogCancel'),
 }
 
 function makeRisk(over: Partial<Risk> = {}): Risk {
@@ -105,6 +182,8 @@ function mountPanel(props: Partial<{
     status: ContractReviewStatus
     reviewedFileId: number | null
     summary: string | null
+    isRebuilding: boolean
+    hasUnsavedDocxChanges: boolean
 }> = {}) {
     return mount(RiskListPanel, {
         props: {
@@ -112,18 +191,34 @@ function mountPanel(props: Partial<{
             status: 'pending' as ContractReviewStatus,
             reviewedFileId: null,
             summary: null,
+            isRebuilding: false,
+            hasUnsavedDocxChanges: false,
             ...props,
         },
         global: { stubs },
     })
 }
 
-function findCards(w: ReturnType<typeof mountPanel>) {
+type Wrapper = ReturnType<typeof mountPanel>
+
+function findCards(w: Wrapper) {
     return w.findAll('[data-stub="Card"]')
 }
 
-function findDownloadButton(w: ReturnType<typeof mountPanel>) {
-    return w.findAll('button').find(b => b.text().includes('下载批注 Word'))!
+function findButtonByText(w: Wrapper, label: string) {
+    return w.findAll('button').find(b => b.text().includes(label))
+}
+
+function findDownloadButton(w: Wrapper) {
+    return findButtonByText(w, '下载批注 Word')!
+}
+
+function findCreateButton(w: Wrapper) {
+    return findButtonByText(w, '新增风险')!
+}
+
+function findRebuildButton(w: Wrapper) {
+    return w.findAll('button').find(b => /重新生成批注 Word|批注生成中/.test(b.text()))
 }
 
 describe('RiskListPanel', () => {
@@ -192,7 +287,6 @@ describe('RiskListPanel', () => {
         })
         const w = mountPanel({ risks: [risk] })
 
-        // 展开前 RiskClauseDiff 不存在
         expect(w.find('[data-stub="RiskClauseDiff"]').exists()).toBe(false)
 
         await findCards(w)[0]!.trigger('click')
@@ -276,5 +370,156 @@ describe('RiskListPanel', () => {
         await btn.trigger('click')
         expect(w.emitted('download')).toBeTruthy()
         expect(w.emitted('download')!.length).toBe(1)
+    })
+})
+
+describe('RiskListPanel M5 扩展', () => {
+    function completedProps(over: Partial<Parameters<typeof mountPanel>[0]> = {}) {
+        return { status: 'completed' as ContractReviewStatus, reviewedFileId: 123, ...over }
+    }
+
+    it('顶部显示"新增风险"按钮；editable=true 时可点击', () => {
+        const w = mountPanel(completedProps({ risks: [] }))
+        const btn = findCreateButton(w)
+        expect(btn).toBeTruthy()
+        expect((btn.element as HTMLButtonElement).disabled).toBe(false)
+    })
+
+    it('editable=false 时新增/编辑/删除按钮全部 disabled', async () => {
+        // status != 'completed' → 全局不可编辑
+        const w = mountPanel({ status: 'reviewing', risks: [makeRisk()] })
+        expect((findCreateButton(w).element as HTMLButtonElement).disabled).toBe(true)
+
+        await findCards(w)[0]!.trigger('click')
+        const editBtn = findButtonByText(w, '编辑')!
+        const delBtn = findButtonByText(w, '删除')!
+        expect((editBtn.element as HTMLButtonElement).disabled).toBe(true)
+        expect((delBtn.element as HTMLButtonElement).disabled).toBe(true)
+    })
+
+    it('点击"新增风险" → 打开 RiskEditDialog（editingRisk=null）', async () => {
+        const w = mountPanel(completedProps({ risks: [] }))
+        expect(w.find('[data-stub="RiskEditDialog"]').exists()).toBe(false)
+
+        await findCreateButton(w).trigger('click')
+        const dialog = w.find('[data-stub="RiskEditDialog"]')
+        expect(dialog.exists()).toBe(true)
+        expect(dialog.attributes('data-has-risk')).toBe('0')
+    })
+
+    it('点击某条风险的"编辑" → 打开 RiskEditDialog（editingRisk=该 risk）', async () => {
+        const w = mountPanel(completedProps({ risks: [makeRisk({ id: 'target-id' })] }))
+        await findCards(w)[0]!.trigger('click')
+        await findButtonByText(w, '编辑')!.trigger('click')
+
+        const dialog = w.find('[data-stub="RiskEditDialog"]')
+        expect(dialog.exists()).toBe(true)
+        expect(dialog.attributes('data-has-risk')).toBe('1')
+    })
+
+    it('RiskEditDialog 确认新增 → emit editRisks 追加 1 条', async () => {
+        const existing = makeRisk({ id: 'existing', clauseIndex: 0 })
+        const w = mountPanel(completedProps({ risks: [existing] }))
+        await findCreateButton(w).trigger('click')
+        await w.find('[data-test="edit-dialog-fire-confirm"]').trigger('click')
+
+        const payload = w.emitted('editRisks')![0][0] as Risk[]
+        expect(payload).toHaveLength(2)
+        expect(payload[0]!.id).toBe('existing')
+        expect(payload[1]!.id).toBe('new-risk-uuid')
+    })
+
+    it('RiskEditDialog 确认编辑 → emit editRisks 替换同 id 的 risk', async () => {
+        const r = makeRisk({ id: 'target', suggestion: '旧建议' })
+        const other = makeRisk({ id: 'other', clauseIndex: 10 })
+        const w = mountPanel(completedProps({ risks: [r, other] }))
+
+        await findCards(w)[0]!.trigger('click')
+        await findButtonByText(w, '编辑')!.trigger('click')
+        await w.find('[data-test="edit-dialog-fire-confirm"]').trigger('click')
+
+        const payload = w.emitted('editRisks')![0][0] as Risk[]
+        expect(payload).toHaveLength(2)
+        const replaced = payload.find(x => x.id === 'target')!
+        expect(replaced.suggestion).toBe('已修改建议')
+        expect(payload.find(x => x.id === 'other')).toEqual(other)
+    })
+
+    it('点击"删除" → 打开 AlertDialog 二次确认', async () => {
+        const w = mountPanel(completedProps({ risks: [makeRisk()] }))
+        await findCards(w)[0]!.trigger('click')
+        expect(w.text()).not.toContain('确认删除该风险？')
+
+        await findButtonByText(w, '删除')!.trigger('click')
+        await nextTick()
+        expect(w.text()).toContain('确认删除该风险？')
+    })
+
+    it('AlertDialog 确认 → emit editRisks 移除该 risk', async () => {
+        const a = makeRisk({ id: 'a', clauseIndex: 0 })
+        const b = makeRisk({ id: 'b', clauseIndex: 1 })
+        const w = mountPanel(completedProps({ risks: [a, b] }))
+
+        await findCards(w)[0]!.trigger('click')
+        await findButtonByText(w, '删除')!.trigger('click')
+        await nextTick()
+        await w.find('[data-stub="AlertDialogAction"]').trigger('click')
+
+        const payload = w.emitted('editRisks')![0][0] as Risk[]
+        expect(payload).toHaveLength(1)
+        expect(payload[0]!.id).toBe('b')
+    })
+
+    it('AlertDialog 取消 → 不 emit editRisks', async () => {
+        const w = mountPanel(completedProps({ risks: [makeRisk()] }))
+        await findCards(w)[0]!.trigger('click')
+        await findButtonByText(w, '删除')!.trigger('click')
+        await nextTick()
+
+        await w.find('[data-stub="AlertDialogCancel"]').trigger('click')
+        expect(w.emitted('editRisks')).toBeUndefined()
+    })
+
+    it('hasUnsavedDocxChanges && !isRebuilding && completed → "重新生成批注 Word"按钮 enable + 点击 emit rebuild', async () => {
+        const w = mountPanel(completedProps({ risks: [makeRisk()], hasUnsavedDocxChanges: true }))
+        const btn = findRebuildButton(w)!
+        expect(btn).toBeTruthy()
+        expect(btn.text()).toContain('重新生成批注 Word')
+        expect((btn.element as HTMLButtonElement).disabled).toBe(false)
+
+        await btn.trigger('click')
+        expect(w.emitted('rebuild')).toBeTruthy()
+        expect(w.emitted('rebuild')!.length).toBe(1)
+    })
+
+    it('hasUnsavedDocxChanges=false → 重生按钮不渲染', () => {
+        const w = mountPanel(completedProps({ risks: [makeRisk()], hasUnsavedDocxChanges: false }))
+        // 按 v-if 条件，未变更时不渲染重生按钮
+        expect(findRebuildButton(w)).toBeUndefined()
+    })
+
+    it('isRebuilding=true → 重生按钮 disabled + 显示"批注生成中..." + 顶部 rebuilding 提示栏 + 所有编辑按钮 disabled', async () => {
+        const w = mountPanel(completedProps({
+            risks: [makeRisk()],
+            hasUnsavedDocxChanges: true,
+            isRebuilding: true,
+        }))
+
+        // 顶部提示栏
+        expect(w.text()).toContain('批注正在重新生成...')
+
+        // 重生按钮 disabled 且显示"批注生成中..."
+        const rebuildBtn = findRebuildButton(w)!
+        expect(rebuildBtn).toBeTruthy()
+        expect((rebuildBtn.element as HTMLButtonElement).disabled).toBe(true)
+        expect(rebuildBtn.text()).toContain('批注生成中...')
+
+        // 新增按钮 disabled
+        expect((findCreateButton(w).element as HTMLButtonElement).disabled).toBe(true)
+
+        // 展开 Card 后，编辑/删除按钮 disabled
+        await findCards(w)[0]!.trigger('click')
+        expect((findButtonByText(w, '编辑')!.element as HTMLButtonElement).disabled).toBe(true)
+        expect((findButtonByText(w, '删除')!.element as HTMLButtonElement).disabled).toBe(true)
     })
 })
