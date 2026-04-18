@@ -1,5 +1,5 @@
 <template>
-    <div class="space-y-6">
+    <div class="p-4 md:p-6 space-y-6">
         <!-- 页面标题 -->
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
@@ -63,13 +63,8 @@
                     v-model="keyword"
                     placeholder="搜索模板名称..."
                     class="w-full md:w-64"
-                    @keyup.enter="handleSearch"
                 />
             </div>
-            <Button variant="outline" @click="handleSearch">
-                <Search class="h-4 w-4 mr-2" />
-                筛选
-            </Button>
         </div>
 
         <!-- 加载状态 -->
@@ -86,14 +81,13 @@
 
         <!-- 模板列表 -->
         <template v-else>
-            <div class="rounded-md border">
+            <!-- 桌面表格 -->
+            <div v-if="isDesktop" class="rounded-md border">
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead class="w-[60px]">ID</TableHead>
                             <TableHead>模板名称</TableHead>
                             <TableHead class="w-[160px]">分类</TableHead>
-                            <TableHead class="w-[80px]">归属</TableHead>
                             <TableHead class="w-[100px]">占位符数</TableHead>
                             <TableHead class="w-[80px]">状态</TableHead>
                             <TableHead class="w-[160px]">创建时间</TableHead>
@@ -102,7 +96,6 @@
                     </TableHeader>
                     <TableBody>
                         <TableRow v-for="tpl in templates" :key="tpl.id">
-                            <TableCell class="font-medium">{{ tpl.id }}</TableCell>
                             <TableCell>
                                 <div>
                                     <div class="font-medium">{{ tpl.name }}</div>
@@ -115,11 +108,6 @@
                                 <Badge variant="secondary">{{ getCategoryLabel(tpl.category) }}</Badge>
                             </TableCell>
                             <TableCell>
-                                <Badge :variant="getScopeBadge(tpl.scope).variant">
-                                    {{ getScopeBadge(tpl.scope).label }}
-                                </Badge>
-                            </TableCell>
-                            <TableCell>
                                 <span class="text-sm text-muted-foreground">
                                     {{ (Array.isArray(tpl.placeholders) ? tpl.placeholders.length : 0) }} 个
                                 </span>
@@ -130,7 +118,7 @@
                                 </Badge>
                             </TableCell>
                             <TableCell class="text-sm text-muted-foreground">
-                                {{ formatDate(tpl.createdAt.toISOString()) }}
+                                {{ formatDate(tpl.createdAt) }}
                             </TableCell>
                             <TableCell class="text-right">
                                 <DropdownMenu>
@@ -159,6 +147,65 @@
                         </TableRow>
                     </TableBody>
                 </Table>
+            </div>
+
+            <!-- 移动卡片 -->
+            <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div
+                    v-for="tpl in templates"
+                    :key="tpl.id"
+                    class="group relative flex gap-3 rounded-xl border border-border bg-card p-3.5 transition-all hover:border-primary/60 hover:shadow-lg hover:-translate-y-0.5"
+                    :class="{ 'opacity-60': tpl.status !== 1 }"
+                >
+                    <!-- 左侧图标 -->
+                    <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300">
+                        <FileText class="size-5" />
+                    </div>
+
+                    <!-- 主体内容 -->
+                    <div class="flex-1 min-w-0 flex flex-col">
+                        <!-- 第一行：名称 + 禁用小标 + 菜单 -->
+                        <div class="flex items-start gap-1.5">
+                            <h3 class="flex-1 min-w-0 text-sm font-medium leading-snug line-clamp-2">{{ tpl.name }}</h3>
+                            <span
+                                v-if="tpl.status !== 1"
+                                class="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                            >已禁用</span>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger as-child>
+                                    <Button variant="ghost" size="icon" class="size-6 shrink-0 -mr-1">
+                                        <MoreHorizontal class="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem @click="openEditDialog(tpl)">
+                                        <Pencil class="h-4 w-4 mr-2" />
+                                        编辑元信息
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem @click="handleToggleStatus(tpl)">
+                                        <Power class="h-4 w-4 mr-2" />
+                                        {{ tpl.status === 1 ? '禁用' : '启用' }}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem class="text-destructive" @click="handleDelete(tpl)">
+                                        <Trash2 class="h-4 w-4 mr-2" />
+                                        删除
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+
+                        <!-- 描述 -->
+                        <p v-if="tpl.description" class="text-xs text-muted-foreground mt-1 line-clamp-1">
+                            {{ tpl.description }}
+                        </p>
+
+                        <!-- 底部：分类 -->
+                        <div class="mt-2">
+                            <span class="inline-block rounded bg-muted/70 px-1.5 py-0.5 text-xs text-foreground/70">{{ getCategoryLabel(tpl.category) }}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- 分页 -->
@@ -314,14 +361,14 @@
 
 <script setup lang="ts">
 import {
-    Upload, Loader2, FileText, Search,
-    MoreHorizontal, Pencil, Trash2, Power
+    Upload, Loader2, FileText,
+    MoreHorizontal, Pencil, Trash2, Power,
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { useMediaQuery, refDebounced } from '@vueuse/core'
 import { DOCUMENT_CATEGORIES } from '#shared/types/document'
 import type { DocumentCategoryKey } from '#shared/types/document'
 import type { documentTemplates } from '#shared/types/prisma'
-import { getScopeBadge, countUserScopeTemplates } from '~/utils/documentTemplateScope'
 
 definePageMeta({
     layout: 'dashboard-layout',
@@ -330,9 +377,10 @@ definePageMeta({
 })
 
 // ─── 类型 ───────────────────────────────────────────────────────────────────
+// API 经 HTTP 序列化后 createdAt 为 ISO 字符串，覆盖 Prisma 的 Date 类型定义
 type TemplateRow = Pick<documentTemplates,
-    'id' | 'name' | 'category' | 'scope' | 'description' | 'status' | 'placeholders' | 'createdAt'
->
+    'id' | 'name' | 'category' | 'scope' | 'description' | 'status' | 'placeholders'
+> & { createdAt: string }
 
 // ─── 状态 ────────────────────────────────────────────────────────────────────
 const { formatDate } = useFormatters()
@@ -344,6 +392,9 @@ const pagination = ref({ page: 1, pageSize: 20, total: 0 })
 const categoryFilter = ref('all')
 const statusFilter = ref('all')
 const keyword = ref('')
+
+// PC 表格，移动卡片（与 DraftHistory 一致，阈值 768px）
+const isDesktop = useMediaQuery('(min-width: 768px)')
 
 const quotaReached = computed(() => templateCount.value >= 20)
 
@@ -361,10 +412,10 @@ const formatFileSize = (bytes: number) => {
 const loadTemplates = async () => {
     loading.value = true
     try {
-        // 单次请求获取混合视图数据（global + 当前用户 user）。
-        // 后端 total 是混合总数，不适合作为配额计数；
-        // 配额以列表中 scope='user' 的数量为准。
+        // 该页面仅管理用户个人模板（scope='user' + 当前用户的 userId，由后端 DAO 过滤）。
+        // 不展示系统全局模板；配额计数直接使用 total。
         const params: Record<string, any> = {
+            scope: 'user',
             skip: 0,
             take: 100,
         }
@@ -376,7 +427,7 @@ const loadTemplates = async () => {
             { query: params }
         )
         if (data) {
-            templateCount.value = countUserScopeTemplates(data.list)
+            templateCount.value = data.total
             const filtered = statusFilter.value === 'all'
                 ? data.list
                 : data.list.filter(t => t.status === Number(statusFilter.value))
@@ -394,6 +445,10 @@ const handleSearch = () => {
     pagination.value.page = 1
     loadTemplates()
 }
+
+// 即时筛选：关键词防抖 300ms；分类/状态变化立即触发。回到第一页。
+const debouncedKeyword = refDebounced(keyword, 300)
+watch([debouncedKeyword, categoryFilter, statusFilter], handleSearch)
 
 const changePage = (page: number) => {
     pagination.value.page = page
