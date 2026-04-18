@@ -35,6 +35,11 @@
 - **rebuilding 态超时守护 cron**（>10 min 自动回滚 status，防 Node 进程崩溃卡死）：M5 不含，登记为 M6+
 - **rebuild-docx 失败时新上传的 OSS 对象 best-effort 清理**：本期容忍孤儿（生产概率极低，OSS 累计成本可忽略）；M6+ 走统一的 ossFiles 孤儿扫描 cron 清理
 - **跨会话 `hasUnsavedDocxChanges` 持久化**：本期前端脏标记仅本会话生效；M6+ 后端加 `risks_updated_at` 字段 + GET 响应透出，前端按 `risks_updated_at > reviewed_at` 计算
+- **真正的 Playwright CI E2E**：本 Task 9 采用手动验收脚本退路（`docs/tech-docs/guides/contract-m5-manual-validation.md`）覆盖 spec §12.3 两条功能路径。M6+ 建议把手动脚本自动化：
+  - 前置：新增 `playwright.config.ts`、把 `@playwright/test` 提升为直接依赖、`npx playwright install chromium` 在 CI 缓存 browsers
+  - 范围：将"场景 1 粘贴 / 场景 2 上传+编辑+重生"翻成 `tests/e2e/contract-review-full-path.spec.ts`（参考 `tests/e2e/document-draft-workflow.spec.ts` 风格），每用例 ≤ 120s，`test.describe.configure({ mode: 'serial' })` 防并发
+  - 断言：下载文件以 `PK\x03\x04` 魔术字节校验 .docx 有效
+  - CI 成本：预计单次 5-10 min，需要单独 job（与 vitest 分离，仅合并前触发）
 
 ---
 
