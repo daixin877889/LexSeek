@@ -168,6 +168,8 @@ export enum InterruptType {
     MODULE_SELECT = 'module_select',
     /** 中断点4：积分不足 */
     INSUFFICIENT_POINTS = 'insufficient_points',
+    /** 中断点5：合同审查立场选择 */
+    AWAITING_STANCE = 'awaiting_stance',
 }
 
 // ==================== 案件基本信息接口 ====================
