@@ -150,6 +150,26 @@ definePageMeta({
   layout: "dashboard-layout",
 });
 
+const route = useRoute();
+const router = useRouter();
+
+// 从 URL 解析初始页码（非法/缺省时回落到 1）
+const parsePageFromQuery = (value: unknown): number => {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const num = Number(raw);
+  return Number.isInteger(num) && num >= 1 ? num : 1;
+};
+
+const initialPage = parsePageFromQuery(route.query.page);
+
+// 将当前页码同步到 URL（page=1 时移除参数，保持链接简洁）
+const syncPageToUrl = (page: number) => {
+  const query = { ...route.query };
+  if (page <= 1) delete query.page;
+  else query.page = String(page);
+  router.replace({ query });
+};
+
 // ==================== 类型定义 ====================
 
 /** 案件项 */
@@ -203,7 +223,7 @@ const caseTypes = ref<CaseType[]>([]);
 
 // 分页信息
 const pagination = reactive<PaginationInfo>({
-  page: 1,
+  page: initialPage,
   pageSize: 10,
   total: 0,
   totalPages: 1,
@@ -235,6 +255,7 @@ watch(
   filters,
   () => {
     pagination.page = 1;
+    syncPageToUrl(pagination.page);
     fetchCases();
   },
   { deep: true }
@@ -274,6 +295,8 @@ const fetchCases = async () => {
       pagination.pageSize = result.pageSize;
       pagination.total = result.total;
       pagination.totalPages = result.totalPages;
+      // 后端可能对越界页码做了修正，保持 URL 与实际页码一致
+      syncPageToUrl(result.page);
     }
   } catch (error) {
     logger.error("获取案件列表失败:", error);
@@ -312,6 +335,7 @@ const resetFilters = () => {
  */
 const handlePageChange = (page: number) => {
   pagination.page = page;
+  syncPageToUrl(page);
   fetchCases();
 };
 
