@@ -50,7 +50,20 @@ export default defineEventHandler(async (event) => {
 
             // 3.1 如果未过期且在频率限制内，拒绝发送
             if (!isExpired && isWithinRateLimit) {
-                return resError(event, 400, '验证码获取频率过高，请稍后再试')
+                const retryAfterMs = Math.max(
+                    existingRecord.createdAt
+                        ? existingRecord.createdAt.getTime() + RATE_LIMIT_MS - now.getTime()
+                        : RATE_LIMIT_MS,
+                    0
+                )
+                const retryAfterSec = Math.max(Math.ceil(retryAfterMs / 1000), 1)
+
+                return {
+                    ...resError(event, 400, '验证码获取频率过高，请稍后再试'),
+                    data: {
+                        retryAfterSec,
+                    },
+                }
             }
 
             // 3.2 删除旧记录（无论是否过期，都需要重新生成）
@@ -91,7 +104,8 @@ export default defineEventHandler(async (event) => {
         }
         logger.info('短信验证码发送成功：', { phone, code })
         return resSuccess(event, '发送成功', {
-            expiredAt: newRecord.expiredAt
+            expiredAt: newRecord.expiredAt,
+            retryAfterSec: config.aliyun.sms.rateLimitMs,
         })
     } catch (error: any) {
         // 记录错误日志

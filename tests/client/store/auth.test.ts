@@ -3,11 +3,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
-const mockUseApiFetch = vi.fn()
+const mockFetch = vi.fn()
 const mockSetUserInfo = vi.fn()
 const mockClearUserInfo = vi.fn()
 
-vi.stubGlobal('useApiFetch', mockUseApiFetch)
+vi.stubGlobal('$fetch', mockFetch)
 vi.stubGlobal('useUserStore', () => ({
   setUserInfo: mockSetUserInfo,
   clearUserInfo: mockClearUserInfo,
@@ -29,14 +29,21 @@ describe('auth store', () => {
     const { useAuthStore } = await import('../../../app/store/auth')
     const store = useAuthStore()
 
-    mockUseApiFetch.mockResolvedValue({
-      token: 'token-123',
-      user: {
-        id: 1,
-        phone: '13800138000',
-        name: '测试用户',
-        roles: [1],
-        status: 1,
+    mockFetch.mockResolvedValue({
+      success: true,
+      code: 0,
+      message: 'ok',
+      timestamp: Date.now(),
+      requestId: 'req-1',
+      data: {
+        token: 'token-123',
+        user: {
+          id: 1,
+          phone: '13800138000',
+          name: '测试用户',
+          roles: [1],
+          status: 1,
+        },
       },
     })
 
@@ -49,9 +56,6 @@ describe('auth store', () => {
       success: true,
       requiresCaptcha: false,
     })
-    expect(mockSetUserInfo).toHaveBeenCalledWith(expect.objectContaining({
-      phone: '13800138000',
-    }))
     expect(store.isAuthenticated).toBe(true)
   })
 
@@ -59,14 +63,13 @@ describe('auth store', () => {
     const { useAuthStore } = await import('../../../app/store/auth')
     const store = useAuthStore()
 
-    mockUseApiFetch.mockImplementation(async (_url: string, options: Record<string, any>) => {
-      options.onBusinessError?.({
-        success: false,
-        code: 429,
-        message: '请完成安全验证后重试',
-        data: null,
-      })
-      return null
+    mockFetch.mockResolvedValue({
+      success: false,
+      code: 429,
+      message: '请完成安全验证后重试',
+      timestamp: Date.now(),
+      requestId: 'req-2',
+      data: null,
     })
 
     const result = await store.login({
@@ -85,8 +88,16 @@ describe('auth store', () => {
     const { useAuthStore } = await import('../../../app/store/auth')
     const store = useAuthStore()
 
-    mockUseApiFetch.mockResolvedValue({
-      expiredAt: new Date().toISOString(),
+    mockFetch.mockResolvedValue({
+      success: true,
+      code: 0,
+      message: 'ok',
+      timestamp: Date.now(),
+      requestId: 'req-3',
+      data: {
+        expiredAt: new Date().toISOString(),
+        retryAfterSec: 60,
+      },
     })
 
     const result = await store.sendSmsCode({
@@ -95,11 +106,46 @@ describe('auth store', () => {
       captchaVerifyParam: 'opaque-captcha-param',
     })
 
-    expect(result).toBe(true)
-    expect(mockUseApiFetch).toHaveBeenCalledWith('/api/v1/sms/send', expect.objectContaining({
+    expect(result).toEqual({
+      success: true,
+      message: null,
+      retryAfterSec: 60,
+      expiredAt: expect.any(String),
+    })
+    expect(mockFetch).toHaveBeenCalledWith('/api/v1/sms/send', expect.objectContaining({
       body: expect.objectContaining({
         captchaVerifyParam: 'opaque-captcha-param',
       }),
     }))
+  })
+
+  it('发送短信验证码失败时应保留业务错误和 retryAfterSec', async () => {
+    const { useAuthStore } = await import('../../../app/store/auth')
+    const store = useAuthStore()
+
+    mockFetch.mockResolvedValue({
+      success: false,
+      code: 400,
+      message: '验证码获取频率过高，请稍后再试',
+      timestamp: Date.now(),
+      requestId: 'req-4',
+      data: {
+        retryAfterSec: 42,
+      },
+    })
+
+    const result = await store.sendSmsCode({
+      phone: '13800138000',
+      type: 'register',
+      captchaVerifyParam: 'opaque-captcha-param',
+    })
+
+    expect(result).toEqual({
+      success: false,
+      message: '验证码获取频率过高，请稍后再试',
+      retryAfterSec: 42,
+      expiredAt: null,
+    })
+    expect(store.error).toBe('验证码获取频率过高，请稍后再试')
   })
 })

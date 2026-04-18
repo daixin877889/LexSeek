@@ -32,7 +32,7 @@
                 <Input id="phone" v-model="formData.phone" type="tel" autocomplete="tel" required @input="phoneMsg"
                   class="h-10 w-full px-3 py-2 border rounded-md text-base" placeholder="请输入您的手机号" />
                 <Button type="button" @click="getVerificationCode"
-                  :disabled="isGettingCode || countdown > 0 || !validatePhone(formData.phone)"
+                  :disabled="isGettingCode || isCoolingDown || !validatePhone(formData.phone)"
                   class="absolute right-0 top-0 h-10 px-3 py-2 bg-primary text-primary-foreground rounded-r-md rounded-l-none hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
                   {{ countdown > 0 ? `${countdown}秒后重试` : "获取验证码" }}
                 </Button>
@@ -174,8 +174,10 @@ const showConfirmPassword = ref(false);
 
 // 验证码相关
 const isGettingCode = ref(false);
-const countdown = ref(0);
-let countdownTimer = null;
+const { countdown, isCoolingDown, applyCooldown, getCooldownMessage } = useSmsCooldown(
+  () => formData.phone,
+  SmsType.RESET_PASSWORD,
+);
 
 onMounted(() => {
   resetPasswordSmsCaptcha.preload();
@@ -193,26 +195,32 @@ const getVerificationCode = async () => {
     return;
   }
 
+  if (isCoolingDown.value) {
+    authStore.error = getCooldownMessage();
+    return;
+  }
+
   isGettingCode.value = true;
   try {
     const captchaVerifyParam = await resetPasswordSmsCaptcha.verify();
-    const isSuccess = await authStore.sendSmsCode({
+    const result = await authStore.sendSmsCode({
       phone: formData.phone,
-      type: "resetPassword",
+      type: SmsType.RESET_PASSWORD,
       captchaVerifyParam: captchaVerifyParam || undefined,
     });
 
-    if (isSuccess) {
+    if (result.success) {
+      if (result.retryAfterSec) {
+        applyCooldown(result.retryAfterSec);
+      }
       toast.success("验证码已发送");
-      // 启动倒计时
-      countdown.value = 60;
-      countdownTimer = setInterval(() => {
-        if (countdown.value > 0) {
-          countdown.value--;
-        } else {
-          clearInterval(countdownTimer);
-        }
-      }, 1000);
+    } else {
+      if (result.retryAfterSec) {
+        applyCooldown(result.retryAfterSec);
+      }
+      authStore.error = result.retryAfterSec
+        ? getCooldownMessage(result.message || "验证码获取频率过高，请稍后再试")
+        : result.message || authStore.error || "获取验证码失败";
     }
   } catch (captchaError) {
     authStore.error = captchaError?.message || "安全验证失败，请稍后再试";
@@ -257,11 +265,4 @@ const handleResetPassword = async () => {
     });
   }
 };
-
-// 组件卸载时清除计时器
-onBeforeUnmount(() => {
-  if (countdownTimer) {
-    clearInterval(countdownTimer);
-  }
-});
 </script>

@@ -11,6 +11,13 @@ export const useAuthStore = defineStore("auth", () => {
     requiresCaptcha: boolean;
   }
 
+  interface SendSmsCodeResult {
+    success: boolean;
+    message: string | null;
+    retryAfterSec: number | null;
+    expiredAt: string | null;
+  }
+
   /**
    * 状态
    */
@@ -144,24 +151,43 @@ export const useAuthStore = defineStore("auth", () => {
     phone: string;
     type: string;
     captchaVerifyParam?: string;
-  }): Promise<boolean> => {
+  }): Promise<SendSmsCodeResult> => {
     loading.value = true;
     error.value = null;
+    let businessErrorMessage: string | null = null;
+    let businessErrorRetryAfterSec: number | null = null;
 
-    const data = await useApiFetch<any>("/api/v1/sms/send", {
+    const data = await useApiFetch<{ expiredAt?: string; retryAfterSec?: number }>("/api/v1/sms/send", {
       method: "POST",
       body: { phone, type, captchaVerifyParam },
       showError: false,
+      onBusinessError: (response) => {
+        businessErrorMessage = response.message;
+        const retryAfterSec = Number(response.data?.retryAfterSec);
+        businessErrorRetryAfterSec = Number.isFinite(retryAfterSec) && retryAfterSec > 0
+          ? retryAfterSec
+          : null;
+      },
     });
 
     loading.value = false;
 
     if (!data) {
-      error.value = "发送验证码失败";
-      return false;
+      error.value = businessErrorMessage || "发送验证码失败";
+      return {
+        success: false,
+        message: error.value,
+        retryAfterSec: businessErrorRetryAfterSec,
+        expiredAt: null,
+      };
     }
 
-    return true;
+    return {
+      success: true,
+      message: null,
+      retryAfterSec: typeof data.retryAfterSec === "number" ? data.retryAfterSec : null,
+      expiredAt: data.expiredAt || null,
+    };
   };
 
   /**

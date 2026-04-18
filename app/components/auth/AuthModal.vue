@@ -75,7 +75,7 @@
                                 <Input id="register-phone" v-model="registerForm.phone" type="tel" autocomplete="tel"
                                     required placeholder="请输入手机号" class="pr-24" />
                                 <Button type="button" @click="getVerificationCode"
-                                    :disabled="isGettingCode || countdown > 0 || !validatePhone(registerForm.phone)"
+                                    :disabled="isGettingCode || isCoolingDown || !validatePhone(registerForm.phone)"
                                     class="absolute right-0 top-0 h-full px-3 rounded-l-none" variant="secondary">
                                     {{ countdown > 0 ? `${countdown}s` : '获取验证码' }}
                                 </Button>
@@ -225,8 +225,10 @@ const registerError = ref('');
 
 // 验证码相关
 const isGettingCode = ref(false);
-const countdown = ref(0);
-let countdownTimer: ReturnType<typeof setInterval> | null = null;
+const { countdown, isCoolingDown, applyCooldown, getCooldownMessage } = useSmsCooldown(
+    () => registerForm.phone,
+    SmsType.REGISTER,
+);
 
 // 注册表单验证
 const isRegisterFormValid = computed(() => {
@@ -287,33 +289,34 @@ const getVerificationCode = async () => {
         return;
     }
 
+    if (isCoolingDown.value) {
+        registerError.value = getCooldownMessage();
+        return;
+    }
+
     isGettingCode.value = true;
     registerError.value = '';
 
     try {
         const captchaVerifyParam = await registerSmsCaptcha.verify();
-        const success = await authStore.sendSmsCode({
+        const result = await authStore.sendSmsCode({
             phone: registerForm.phone,
             type: SmsType.REGISTER,
             captchaVerifyParam: captchaVerifyParam || undefined,
         });
 
-        if (success) {
+        if (result.success) {
+            if (result.retryAfterSec) {
+                applyCooldown(result.retryAfterSec);
+            }
             toast.success('验证码已发送');
-            // 启动倒计时
-            countdown.value = 60;
-            countdownTimer = setInterval(() => {
-                if (countdown.value > 0) {
-                    countdown.value--;
-                } else {
-                    if (countdownTimer) {
-                        clearInterval(countdownTimer);
-                        countdownTimer = null;
-                    }
-                }
-            }, 1000);
         } else {
-            registerError.value = authStore.error || '获取验证码失败';
+            if (result.retryAfterSec) {
+                applyCooldown(result.retryAfterSec);
+            }
+            registerError.value = result.retryAfterSec
+                ? getCooldownMessage(result.message || '验证码获取频率过高，请稍后再试')
+                : result.message || authStore.error || '获取验证码失败';
         }
     } catch (captchaError: any) {
         registerError.value = captchaError?.message || '安全验证失败，请稍后再试';
@@ -386,10 +389,4 @@ const resetForms = () => {
     registerError.value = '';
 };
 
-// 组件卸载时清理定时器
-onUnmounted(() => {
-    if (countdownTimer) {
-        clearInterval(countdownTimer);
-    }
-});
 </script>
