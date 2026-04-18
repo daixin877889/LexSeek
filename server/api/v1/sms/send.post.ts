@@ -66,8 +66,6 @@ export default defineEventHandler(async (event) => {
                 }
             }
 
-            // 3.2 删除旧记录（无论是否过期，都需要重新生成）
-            await deleteSmsRecordByIdDao(existingRecord.id)
         }
 
         // 4. 当前场景启用了阿里云验证码时，先做服务端验签
@@ -92,7 +90,11 @@ export default defineEventHandler(async (event) => {
             }
         }
 
-        // 5. 生成新验证码并创建记录
+        // 5. 验签通过后，再删除旧记录并生成新验证码
+        if (existingRecord) {
+            await deleteSmsRecordByIdDao(existingRecord.id)
+        }
+
         const code = generateSmsCode()
         const newRecord = await createSmsRecordDao(phone, type, code, CODE_EXPIRE_MS)
 
