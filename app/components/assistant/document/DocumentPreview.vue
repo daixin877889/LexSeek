@@ -8,6 +8,7 @@
  */
 import { renderAsync } from 'docx-preview'
 import { useDebounceFn } from '@vueuse/core'
+import { FileTextIcon, DownloadIcon } from 'lucide-vue-next'
 
 const props = defineProps<{
     templateBuffer?: ArrayBuffer | null
@@ -54,16 +55,21 @@ const debouncedUpdate = useDebounceFn((v: Record<string, string | null>) => upda
 
 watch(() => props.values, (v) => debouncedUpdate(v), { deep: true })
 
+// templateBuffer 变化时重置渲染状态
 watch(
     () => props.templateBuffer,
     (buf) => {
-        // templateBuffer 变化时重置渲染状态，并重新渲染
         renderedOnce.value = false
         renderError.value = null
         if (buf) updatePreview(props.values)
     },
-    { immediate: true },
 )
+
+// 组件挂载后 previewRoot 才就绪，此处首次触发渲染
+// 不用 watch(immediate:true)：immediate 回调在 setup 阶段执行，previewRoot 仍是 null 会被 guard 跳过
+onMounted(() => {
+    if (props.templateBuffer) updatePreview(props.values)
+})
 
 function handleExport() {
     emit('export')
