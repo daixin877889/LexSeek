@@ -51,6 +51,36 @@ const suggestions = computed(() => {
 })
 
 const exportDisabled = computed(() => runStatus.value !== 'ready' && runStatus.value !== 'exported')
+
+// ========== 模板 Buffer 加载（用于 docx-preview 实时预览）==========
+
+const templateBuffer = ref<ArrayBuffer | null>(null)
+
+// 用于取消过期请求：每次 watch 触发时递增，仅最新版本写入 templateBuffer
+let fetchSeq = 0
+
+watch(template, async (tpl) => {
+    if (!tpl) {
+        templateBuffer.value = null
+        return
+    }
+    const seq = ++fetchSeq
+    try {
+        const result = await useApiFetch<{ downloadUrl: string }>(
+            `/api/v1/assistant/document/templates/download-url/${tpl.id}`,
+            { showError: false },
+        )
+        if (seq !== fetchSeq || !result?.downloadUrl) return
+        const resp = await fetch(result.downloadUrl)
+        if (seq !== fetchSeq) return
+        if (!resp.ok) throw new Error(`下载模板文件失败：${resp.status}`)
+        templateBuffer.value = await resp.arrayBuffer()
+    } catch (err) {
+        if (seq !== fetchSeq) return
+        // 加载失败不影响主流程（导出仍可正常工作），仅静默忽略
+        console.warn('加载模板 buffer 失败', err)
+    }
+})
 </script>
 
 <template>
@@ -97,6 +127,7 @@ const exportDisabled = computed(() => runStatus.value !== 'ready' && runStatus.v
 
         <section v-if="draft && template">
             <DocumentPreview
+                :template-buffer="templateBuffer"
                 :values="currentValues"
                 :disabled="exportDisabled || isLoading"
                 @export="onExport"
