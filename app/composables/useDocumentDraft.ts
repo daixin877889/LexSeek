@@ -156,14 +156,16 @@ export function useDocumentDraft() {
     }
 
     // 409 表示正在生成中，showError: false 由调用方决定如何展示
+    // 后端 patchDraftService 返回 `{ draft }` 嵌套结构，与 getDraftService 一致，
+    // 这里需要显式拆一层 draft，否则 draft.value 会变成 { draft: {...} }。
     const patchField = useDebounceFn(async (fieldName: string, value: string | null) => {
         if (!draftId.value) return
         const body: PatchDraftRequest = { values: { [fieldName]: value } }
-        const result = await useApiFetch<documentDrafts>(
+        const result = await useApiFetch<{ draft: documentDrafts }>(
             `/api/v1/assistant/document/drafts/${draftId.value}`,
             { method: 'PATCH', body, showError: false } as any,
         )
-        if (result) draft.value = result
+        if (result?.draft) draft.value = result.draft
     }, 500)
 
     function onFieldChange(fieldName: string, value: string | null) {

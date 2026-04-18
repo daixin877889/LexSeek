@@ -229,6 +229,50 @@ describe('useDocumentDraft agent actions', () => {
     })
 })
 
+// ── patchField 响应拆包 ────────────────────────────────────────────────────
+
+describe('useDocumentDraft.patchField response unwrap', () => {
+    beforeEach(() => {
+        mockFetch.mockReset()
+        mockStreamSubmit.mockReset()
+        mockStreamStop.mockClear()
+        mockStreamValues.value = undefined
+        mockStreamMessages.value = []
+    })
+
+    it('从 PATCH 响应拆包 { draft } 并正确更新 draft.value（不保留嵌套）', async () => {
+        // 先 mount：mountDraft 会依次 GET draft 和 GET template
+        mockFetch
+            .mockResolvedValueOnce({
+                draft: { id: 10, sessionId: 's', values: { 甲方: '' }, templateId: 7, status: 'ready' },
+            })
+            .mockResolvedValueOnce({ id: 7, name: 't', placeholders: [{ name: '甲方', firstContext: '' }] })
+
+        const c = useDocumentDraft()
+        await c.mountDraft(10)
+        expect(c.draft.value?.id).toBe(10)
+
+        // patchField 响应包了 { draft }，实现必须拆一层
+        const updated = {
+            id: 10,
+            sessionId: 's',
+            values: { 甲方: '张三' },
+            templateId: 7,
+            status: 'ready',
+        }
+        mockFetch.mockResolvedValueOnce({ draft: updated })
+
+        c.onFieldChange('甲方', '张三')
+        // useDebounceFn 500ms，等它跑完
+        await new Promise(r => setTimeout(r, 600))
+
+        // 关键断言：draft.value 不能带 draft 嵌套字段
+        expect(c.draft.value).not.toHaveProperty('draft')
+        expect(c.draft.value?.values).toEqual({ 甲方: '张三' })
+        expect(c.draft.value?.status).toBe('ready')
+    })
+})
+
 // ── 单 session 消息队列 ────────────────────────────────────────────────────
 
 describe('useDocumentDraft queue', () => {
