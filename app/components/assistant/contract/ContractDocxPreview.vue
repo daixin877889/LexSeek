@@ -1,0 +1,68 @@
+<script setup lang="ts">
+/**
+ * 合同预览组件（M4 版本）
+ *
+ * - 用 docx-preview 的 renderAsync 渲染已注入批注的 .docx
+ * - 优先加载 reviewedFileId；为空则 fallback 到 originalFileId（审查进行中先看原始合同）
+ * - 两个都为空 → 显示"等待合同上传..."
+ * - fetchSeq 机制避免快速切换时过期请求覆盖最新渲染（参照 DocumentDraftPanel）
+ * - M4 纯展示：不做段落浮层（M5）/ 不与 RiskListPanel 联动（M6）
+ */
+import { renderAsync } from 'docx-preview'
+
+const props = defineProps<{
+    reviewedFileId: number | null
+    originalFileId: number | null
+}>()
+
+const containerRef = ref<HTMLElement | null>(null)
+const loading = ref(false)
+const empty = computed(() => !props.reviewedFileId && !props.originalFileId)
+
+// 每次 load 触发时递增；仅最新 seq 允许继续写入 DOM，防止过期请求覆盖
+let fetchSeq = 0
+
+async function loadDocx(fileId: number) {
+    const seq = ++fetchSeq
+    loading.value = true
+    try {
+        const urlResp = await useApiFetch<Array<{ ossFileId: number; downloadUrl: string }>>(
+            '/api/v1/files/oss/download-url',
+            { method: 'POST', body: { ossFileIds: [fileId] }, showError: false } as any,
+        )
+        const downloadUrl = urlResp?.[0]?.downloadUrl
+        if (seq !== fetchSeq || !downloadUrl) return
+        const resp = await fetch(downloadUrl)
+        if (seq !== fetchSeq) return
+        if (!resp.ok) throw new Error(`下载合同失败: ${resp.status}`)
+        const buffer = await resp.arrayBuffer()
+        if (seq !== fetchSeq || !containerRef.value) return
+        containerRef.value.innerHTML = ''
+        await renderAsync(buffer, containerRef.value, undefined, { inWrapper: true })
+    } catch (err) {
+        console.warn('合同预览渲染失败', err)
+    } finally {
+        if (seq === fetchSeq) loading.value = false
+    }
+}
+
+watch(
+    () => props.reviewedFileId ?? props.originalFileId,
+    (id) => { if (id) loadDocx(id) },
+    { immediate: true },
+)
+</script>
+
+<template>
+    <div class="relative h-full bg-muted/20">
+        <div v-if="empty" class="flex h-full items-center justify-center text-sm text-muted-foreground">
+            等待合同上传...
+        </div>
+        <template v-else>
+            <div v-if="loading" class="absolute top-2 left-1/2 -translate-x-1/2 text-xs text-muted-foreground">
+                合同加载中...
+            </div>
+            <div ref="containerRef" class="docx-preview-container h-full overflow-auto p-4" />
+        </template>
+    </div>
+</template>
