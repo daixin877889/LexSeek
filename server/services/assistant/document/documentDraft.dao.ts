@@ -137,6 +137,9 @@ export async function listDocumentDraftsDAO(
             orderBy: { createdAt: 'desc' },
             skip: filters.skip,
             take: filters.take,
+            include: {
+                template: { select: { id: true, name: true } },
+            },
         }),
         db.documentDrafts.count({ where }),
     ])

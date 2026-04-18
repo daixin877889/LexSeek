@@ -449,6 +449,19 @@ describe('documentDraft.dao', () => {
             expect(result.list.map(d => d.id)).toContain(d1.id)
             expect(result.list.map(d => d.id)).not.toContain(d2.id)
         })
+
+        it('返回结果 include 模板名称供列表展示', async () => {
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+            const template = await createTestTemplate(testIds)
+
+            await createTestDraft(testIds, user.id, template.id)
+
+            const result = await listDocumentDraftsDAO({ userId: user.id, skip: 0, take: 50 })
+            const row = result.list.find(d => d.templateId === template.id)
+            expect(row).toBeDefined()
+            expect((row as any).template?.name).toBe(template.name)
+        })
     })
 
     // ==================== softDeleteDocumentDraftDAO ====================
