@@ -5,6 +5,21 @@ import rollupObfuscator from 'rollup-plugin-obfuscator'
 import { obfuscatorConfig } from './config/obfuscator'
 
 export default defineNuxtConfig({
+  // 忽略 worktree 目录：避免 Nuxt 扫描/监视导致 EMFILE
+  ignore: ['.worktrees/**', '**/.worktrees/**'],
+  watchers: {
+    chokidar: {
+      ignored: [
+        '**/.worktrees/**',
+        '**/node_modules/**',
+        '**/.git/**',
+        '**/.nuxt/**',
+        '**/.output/**',
+        '**/coverage/**',
+        '**/logs/**',
+      ],
+    },
+  },
   // 组件配置：排除 index.ts 文件避免与 .vue 组件名称冲突
   components: {
     dirs: [
