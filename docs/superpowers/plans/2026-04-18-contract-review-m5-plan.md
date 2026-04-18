@@ -34,6 +34,7 @@
 - 批注点击 → 右侧 RiskListPanel 对应 item 高亮 + scrollIntoView 的"最小联动"：同上延后
 - **rebuilding 态超时守护 cron**（>10 min 自动回滚 status，防 Node 进程崩溃卡死）：M5 不含，登记为 M6+
 - **rebuild-docx 失败时新上传的 OSS 对象 best-effort 清理**：本期容忍孤儿（生产概率极低，OSS 累计成本可忽略）；M6+ 走统一的 ossFiles 孤儿扫描 cron 清理
+- **跨会话 `hasUnsavedDocxChanges` 持久化**：本期前端脏标记仅本会话生效；M6+ 后端加 `risks_updated_at` 字段 + GET 响应透出，前端按 `risks_updated_at > reviewed_at` 计算
 
 ---
 
@@ -448,8 +449,9 @@ export async function setCompletedAfterRebuildDAO(
     id: number,
     reviewedFileId: number,
 ): Promise<contractReviews> {
+    // where 带 deletedAt: null —— 若重生期间用户软删此审查，抛 P2025 由 handler catch 回滚
     return prisma.contractReviews.update({
-        where: { id },
+        where: { id, deletedAt: null },
         data: { status: 'completed', reviewedFileId, updatedAt: new Date() },
     })
 }
@@ -584,6 +586,8 @@ it('setCompletedAfterRebuildDAO 成功前 generateSignedUrlService 抛异常 →
  */
 import { getContractReviewDAO, atomicSetRebuildingDAO, rollbackRebuildDAO } from '~~/server/services/assistant/contract/contractReview.dao'
 import { rebuildDocxService } from '~~/server/services/assistant/contract/contractReviewRebuild.service'
+import type { ContractReviewStatus } from '#shared/types/contract'
+import { REVIEW_EDITABLE_STATUSES } from '#shared/types/contract'
 
 export default defineEventHandler(async (event) => {
     const user = event.context.auth?.user
@@ -598,7 +602,7 @@ export default defineEventHandler(async (event) => {
     const review = await getContractReviewDAO(id)
     if (!review) return resError(event, 404, '合同审查不存在')
     if (review.userId !== user.id) return resError(event, 403, '无权重生批注')
-    if (review.status !== 'completed') {
+    if (!REVIEW_EDITABLE_STATUSES.includes(review.status as ContractReviewStatus)) {
         return resError(event, 409, `当前状态不允许重生：${review.status}`)
     }
 
@@ -790,7 +794,7 @@ describe('useContractReview (M5 扩展)', () => {
 
 - [ ] **Step 2: 在 useContractReview.ts 补**
 
-> **前置说明**：若 M4 的 `refreshReview` 是 `mountStream` 的内部闭包不对外可见，先"把 `refreshReview` 从闭包提到 `useContractReview()` 顶层私有函数"（最小改动），以便 `onRebuildDocx` 复用。
+> **说明**：M4 已把 `refreshReview(id: number)` 定义在 `useContractReview` 顶层（见 `app/composables/useContractReview.ts:80`），`onRebuildDocx` 可直接 `await refreshReview(reviewId.value)`，无需额外重构。
 
 ```typescript
 import { useDebounceFn } from '@vueuse/core'
@@ -818,19 +822,33 @@ const onEditRisks = useDebounceFn(async (risks: Risk[]) => {
 
 async function onRebuildDocx() {
     if (!reviewId.value) return
+    toast.info('正在重新生成批注，请稍候...')   // R3 P2-1 等待中提示（M-5）
+
+    // 捕获业务 code 以区分 429（占位中）vs 500（失败），R3 P1-B
+    // 方案 A（优先）：useApiFetch 已有 `onBusinessError` 回调
+    //   —— 事实核对：`app/composables/useApiFetch.ts:22/66/115` 确认存在
+    let bizCode: number | null = null
     const resp = await useApiFetch<{ reviewedFileId: number; downloadUrl: string }>(
         `/api/v1/assistant/contract/reviews/${reviewId.value}/rebuild-docx`,
-        { method: 'POST', showError: false } as any,
+        {
+            method: 'POST',
+            showError: false,
+            onBusinessError: (r: { code: number }) => { bizCode = r.code },
+        } as any,
     )
     if (!resp) {
-        toast.error('重生批注失败，请稍后重试')
+        if (bizCode === 429) {
+            toast.warning('批注正在重新生成中，请稍候')
+        } else {
+            toast.error('重生批注失败，请稍后重试')
+        }
         return
     }
-    // 复用 M4 既有私有 refreshReview（mountStream 内部定义），
-    // 它内部已调 GET /:id 并正确拆 { review } 包装层
+
     await refreshReview(reviewId.value)
     hasUnsavedDocxChanges.value = false
     toast.success('批注已重生')
+
     // 自动触发浏览器下载（spec §9.3）
     const a = document.createElement('a')
     a.href = resp.downloadUrl
@@ -841,6 +859,19 @@ async function onRebuildDocx() {
     document.body.removeChild(a)
 }
 
+// 方案 B（降级，仅在项目 useApiFetch 不支持 onBusinessError 时启用）：
+// const resp = await $fetch<{ code: number; data?: { reviewedFileId: number; downloadUrl: string } }>(
+//     `/api/v1/assistant/contract/reviews/${reviewId.value}/rebuild-docx`,
+//     { method: 'POST', ignoreResponseError: true } as any,
+// ).catch(() => null)
+// if (!resp || resp.code !== 200) {
+//     if (resp?.code === 429) toast.warning('批注正在重新生成中，请稍候')
+//     else toast.error('重生批注失败，请稍后重试')
+//     return
+// }
+// const data = resp.data!
+// // 后续使用 data.reviewedFileId / data.downloadUrl，其余流程同上
+
 const isRebuilding = computed(() => review.value?.status === 'rebuilding')
 
 /**
@@ -850,11 +881,17 @@ const isRebuilding = computed(() => review.value?.status === 'rebuilding')
  * - mountReview / onStart 初始 → false
  *
  * 对齐 spec §9.3 第 991 行「只在用户编辑过 risks 且未重生过 docx 时高亮」
+ *
+ * **本期简化**：仅本次会话生效（刷新页面后重置为 false）。
+ * 跨会话持久化（基于 `risks_updated_at > reviewed_at` DB 字段）登记到 M6+。
  */
 const hasUnsavedDocxChanges = ref(false)
 
-// mountReview(id) 最前 → hasUnsavedDocxChanges.value = false
-// onStart 最前 → hasUnsavedDocxChanges.value = false
+// 维护规则（R3 M-4 精确化）：
+// - onEditRisks 成功写库后 → `hasUnsavedDocxChanges.value = true`
+// - onRebuildDocx 成功后 → `hasUnsavedDocxChanges.value = false`
+// - mountReview(id) 里：插在 `stream.value = null` 之后（与 `review.value = null` / `reviewId.value = null` 同一批 reset 语句里）→ `hasUnsavedDocxChanges.value = false`
+// - onStart 里：同上位置 → `hasUnsavedDocxChanges.value = false`
 
 return {
     // ...既有导出...
@@ -1026,6 +1063,19 @@ defineEmits<{
 - Modify: `tests/app/components/assistant/contract/ContractReviewPanel.test.ts`
 
 ### 补接线
+
+- [ ] **Step 1a: 先把 composable 的 review ref 类型参数换掉（R3 P1-A，架构视角 M-4）**
+
+在 `app/composables/useContractReview.ts`：
+- 第 ~33 行 `const review = ref<contractReviews | null>(null)` → `const review = ref<ReviewWithParsedRisks | null>(null)`
+- `refreshReview(id)` 内 `useApiFetch<{ review: contractReviews }>` → `useApiFetch<{ review: ReviewWithParsedRisks }>`
+- `mountReview(id)` 同上（若有对应 useApiFetch 泛型）
+- 在 `useContractReview.ts` 顶部 import 里追加 `import type { ReviewWithParsedRisks } from '#shared/types/contract'`
+- 删掉原 `import type { contractReviews } from '~~/generated/prisma/client'`（若仅用于 review ref）
+
+改完后，下面 Step 2 "把 `ContractReviewPanel.vue:130` 的 `((review?.risks ?? []) as unknown) as Risk[]` 改为 `review?.risks ?? []`" 才能编译通过。
+
+运行 `npx nuxi typecheck 2>&1 | grep -E "(contract|useContractReview)"` 确认无新增类型错误（允许 M3 预存的 `partyDetector.ts` 噪音）。
 
 - `RiskListPanel` 追加 `:is-rebuilding="isRebuilding"` / `:has-unsaved-docx-changes="hasUnsavedDocxChanges"` / `@rebuild="onRebuildDocx"` / `@edit-risks="onEditRisks"`
 - composable 解构增加：`onEditRisks, onRebuildDocx, isRebuilding, hasUnsavedDocxChanges`
