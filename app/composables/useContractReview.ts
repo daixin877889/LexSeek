@@ -11,6 +11,7 @@
  *
  * 参见 spec §11（合同审查）与 M4 plan Task 2。
  */
+import { toast } from 'vue-sonner'
 import type { contractReviews } from '~~/generated/prisma/client'
 import type {
     CreateReviewRequest,
@@ -124,7 +125,12 @@ export function useContractReview() {
         reviewId.value = resp.reviewId
         const s = mountStream(resp.sessionId)
         // submit 空输入：LangGraph checkpointer 从初始 state 推送后续消息
-        s.submit(undefined)
+        try {
+            await s.submit(undefined)
+        } catch (err) {
+            console.warn('合同审查流启动失败', err)
+            toast.error('连接中断，请刷新页面重试')
+        }
     }
 
     /**
@@ -149,7 +155,12 @@ export function useContractReview() {
         reviewId.value = r.id
 
         const s = mountStream(r.sessionId)
-        s.submit(undefined)
+        try {
+            await s.submit(undefined)
+        } catch (err) {
+            console.warn('合同审查流续订失败', err)
+            toast.error('连接中断，请刷新页面重试')
+        }
     }
 
     /**
@@ -171,7 +182,12 @@ export function useContractReview() {
 
         // 复位底层 stream runStatus 再 submit，保证 watch(runStatus) 的 completed/failed 分支能再次触发
         stream.value.runStatus.value = 'idle'
-        stream.value.submit(undefined)
+        try {
+            await stream.value.submit(undefined)
+        } catch (err) {
+            console.warn('立场提交后续订失败', err)
+            toast.error('连接中断，请重试')
+        }
     }
 
     /** 拉取签名 URL 并通过隐藏 <a download> 触发浏览器下载 */
@@ -204,6 +220,21 @@ export function useContractReview() {
         await stream.value?.stop()
     }
 
+    /**
+     * 取消当前审查：停 stream + 清 watcher + 复位 review/reviewId。
+     *
+     * 场景：立场选择对话框点击"取消"→ 放弃整个审查，UI 回到提交屏。
+     * 不删除后端记录（M4 不做回滚），仅前端清态；用户可通过"我的审查"列表再进入。
+     */
+    async function cancelReview() {
+        await stream.value?.stop()
+        stopStreamWatch?.()
+        stopStreamWatch = null
+        stream.value = null
+        review.value = null
+        reviewId.value = null
+    }
+
     onUnmounted(() => {
         stopStreamWatch?.()
     })
@@ -225,5 +256,6 @@ export function useContractReview() {
         onDownload,
         resumeInterrupt,
         stopGeneration,
+        cancelReview,
     }
 }

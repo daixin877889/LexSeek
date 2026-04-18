@@ -367,3 +367,36 @@ describe('useContractReview stream completed watcher', () => {
         expect(c.review.value?.status).toBe('failed')
     })
 })
+
+describe('useContractReview.cancelReview', () => {
+    beforeEach(() => {
+        mockFetch.mockReset()
+        mockStreamSubmit.mockReset()
+        mockStreamStop.mockClear()
+        mockStreamValues.value = undefined
+        mockStreamMessages.value = []
+        mockStreamIsLoading.value = false
+        capturedOnCustomEvent = null
+    })
+
+    it('停 stream + 清 review / reviewId / stream.value', async () => {
+        // 先 onStart 挂载 stream
+        mockFetch.mockResolvedValueOnce({ reviewId: 77, sessionId: 's-77' })
+        const c = useContractReview()
+        await c.onStart({ sourceType: 'paste', text: '...' })
+        expect(c.reviewId.value).toBe(77)
+
+        await c.cancelReview()
+
+        expect(mockStreamStop).toHaveBeenCalledTimes(1)
+        expect(c.review.value).toBeNull()
+        expect(c.reviewId.value).toBeNull()
+    })
+
+    it('未挂载 stream 时调用 cancelReview 不抛错', async () => {
+        const c = useContractReview()
+        await expect(c.cancelReview()).resolves.toBeUndefined()
+        expect(c.review.value).toBeNull()
+        expect(c.reviewId.value).toBeNull()
+    })
+})

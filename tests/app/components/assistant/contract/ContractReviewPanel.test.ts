@@ -42,6 +42,7 @@ const mockOnStart = vi.fn()
 const mockMountReview = vi.fn()
 const mockOnStance = vi.fn()
 const mockOnDownload = vi.fn()
+const mockCancelReview = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('~/composables/useContractReview', () => ({
     useContractReview: () => ({
@@ -55,6 +56,7 @@ vi.mock('~/composables/useContractReview', () => ({
         mountReview: mockMountReview,
         onStance: mockOnStance,
         onDownload: mockOnDownload,
+        cancelReview: mockCancelReview,
     }),
 }))
 
@@ -84,20 +86,36 @@ const StanceDialogStub = defineComponent({
         partyB: { type: [String, null] as unknown as () => string | null, default: null },
         contractType: { type: [String, null] as unknown as () => string | null, default: null },
     },
-    emits: ['confirm', 'update:open'],
+    emits: ['confirm', 'cancel', 'update:open'],
     setup(props, { emit }) {
         return () =>
             h(
-                'button',
-                {
-                    'data-stub': 'StanceSelectionDialog',
-                    'data-open': String(props.open),
-                    'data-party-a': props.partyA ?? '',
-                    'data-party-b': props.partyB ?? '',
-                    'data-contract-type': props.contractType ?? '',
-                    onClick: () => emit('confirm', { stance: 'partyA', partyA: 'A', partyB: 'B' }),
-                },
-                'stance',
+                'div',
+                { 'data-stub': 'StanceSelectionDialog', 'data-open': String(props.open) },
+                [
+                    h(
+                        'button',
+                        {
+                            'data-stub-btn': 'confirm',
+                            'data-party-a': props.partyA ?? '',
+                            'data-party-b': props.partyB ?? '',
+                            'data-contract-type': props.contractType ?? '',
+                            onClick: () => emit('confirm', { stance: 'partyA', partyA: 'A', partyB: 'B' }),
+                        },
+                        'confirm',
+                    ),
+                    h(
+                        'button',
+                        {
+                            'data-stub-btn': 'cancel',
+                            onClick: () => {
+                                emit('cancel')
+                                emit('update:open', false)
+                            },
+                        },
+                        'cancel',
+                    ),
+                ],
             )
     },
 })
@@ -198,6 +216,7 @@ beforeEach(() => {
     mockMountReview.mockReset()
     mockOnStance.mockReset()
     mockOnDownload.mockReset()
+    mockCancelReview.mockClear()
 })
 
 describe('ContractReviewPanel', () => {
@@ -275,9 +294,10 @@ describe('ContractReviewPanel', () => {
         await nextTick()
         const dlg = w.find('[data-stub="StanceSelectionDialog"]')
         expect(dlg.attributes('data-open')).toBe('true')
-        expect(dlg.attributes('data-party-a')).toBe('甲公司')
-        expect(dlg.attributes('data-party-b')).toBe('乙公司')
-        expect(dlg.attributes('data-contract-type')).toBe('购销合同')
+        const confirmBtn = w.find('[data-stub-btn="confirm"]')
+        expect(confirmBtn.attributes('data-party-a')).toBe('甲公司')
+        expect(confirmBtn.attributes('data-party-b')).toBe('乙公司')
+        expect(confirmBtn.attributes('data-contract-type')).toBe('购销合同')
     })
 
     it('ContractSourceInput @submit 触发 onStart', async () => {
@@ -291,9 +311,19 @@ describe('ContractReviewPanel', () => {
         awaitingStanceRef.value = { partyA: 'A', partyB: 'B' }
         const w = mountPanel()
         await nextTick()
-        await w.find('[data-stub="StanceSelectionDialog"]').trigger('click')
+        await w.find('[data-stub-btn="confirm"]').trigger('click')
         expect(mockOnStance).toHaveBeenCalledTimes(1)
         expect(mockOnStance).toHaveBeenCalledWith({ stance: 'partyA', partyA: 'A', partyB: 'B' })
+    })
+
+    it('StanceSelectionDialog @cancel 触发 cancelReview（放弃整个审查）', async () => {
+        awaitingStanceRef.value = { partyA: 'A', partyB: 'B' }
+        const w = mountPanel()
+        await nextTick()
+        await w.find('[data-stub-btn="cancel"]').trigger('click')
+        await flushPromises()
+        expect(mockCancelReview).toHaveBeenCalledTimes(1)
+        expect(mockOnStance).not.toHaveBeenCalled()
     })
 
     it('RiskListPanel @download 触发 onDownload', async () => {

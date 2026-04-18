@@ -25,6 +25,7 @@ const {
     mountReview,
     onStance,
     onDownload,
+    cancelReview,
 } = useContractReview()
 
 // 外部 reviewId 注入：仅 immediate 触发一次 mountReview；composable 未监听后续变化
@@ -59,6 +60,32 @@ const showBusy = computed(() => {
 function handleStanceConfirm(payload: StanceRequest) {
     onStance(payload)
 }
+
+/**
+ * 立场 Dialog 取消 = 放弃整个审查。
+ *
+ * 原因：M4 立场是必选路径（审查流程无法跳过）。若仅 emit update:open=false，
+ * 父层 computed `!!awaitingStance` 会立刻再次为 true → Dialog 重开，用户被卡死。
+ * 因此取消语义映射为 cancelReview：停 stream + 清 review → UI 自然回到提交屏。
+ *
+ * 取消路径幂等：对话框点击取消会同时触发 @cancel 和 @update:open(false)，
+ * 通过 isCancelling 去重避免重复调用 cancelReview。
+ */
+let isCancelling = false
+
+async function handleStanceCancel() {
+    if (isCancelling) return
+    isCancelling = true
+    try {
+        await cancelReview()
+    } finally {
+        isCancelling = false
+    }
+}
+
+function handleDialogOpenChange(open: boolean) {
+    if (!open) handleStanceCancel()
+}
 </script>
 
 <template>
@@ -78,6 +105,8 @@ function handleStanceConfirm(payload: StanceRequest) {
             :party-b="awaitingStance?.partyB ?? null"
             :contract-type="awaitingStance?.contractType ?? null"
             @confirm="handleStanceConfirm"
+            @cancel="handleStanceCancel"
+            @update:open="handleDialogOpenChange"
         />
 
         <!-- Step 3 结果屏 -->
