@@ -30,6 +30,18 @@ export interface Placeholder {
     firstContext: string
 }
 
+// ==================== 模板类型 ====================
+/**
+ * 带类型化 placeholders 的模板类型
+ *
+ * Prisma 生成类型中 placeholders 为 JsonValue，使用时需转为 Placeholder[]，
+ * 统一在此处收敛，避免在每个消费点做类型断言。
+ */
+import type { documentTemplates } from '#shared/types/prisma'
+export type DocumentTemplate = Omit<documentTemplates, 'placeholders'> & {
+    placeholders: Placeholder[] | null
+}
+
 export interface DocumentSourceRef {
     text?: string
     fileIds?: number[]

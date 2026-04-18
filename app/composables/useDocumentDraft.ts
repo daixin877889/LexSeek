@@ -9,12 +9,13 @@
  * 参见 spec §10.2。
  */
 import { useDebounceFn } from '@vueuse/core'
-import type { documentDrafts, documentTemplates } from '~~/generated/prisma/client'
+import type { documentDrafts } from '~~/generated/prisma/client'
 import type {
     CreateDraftRequest,
     CreateDraftResponse,
     PatchDraftRequest,
     ExportDraftResponse,
+    DocumentTemplate,
 } from '#shared/types/document'
 
 type DocumentRunStatus = 'idle' | 'filling' | 'ready' | 'exported' | 'failed'
@@ -22,7 +23,7 @@ type DocumentRunStatus = 'idle' | 'filling' | 'ready' | 'exported' | 'failed'
 export function useDocumentDraft() {
     const draftId = ref<number | null>(null)
     const draft = ref<documentDrafts | null>(null)
-    const template = ref<documentTemplates | null>(null)
+    const template = ref<DocumentTemplate | null>(null)
     const runStatus = ref<DocumentRunStatus>('idle')
 
     // 延迟创建，在 onStart 获取 sessionId 后初始化
@@ -102,7 +103,7 @@ export function useDocumentDraft() {
         draftId.value = resp.draftId
 
         // template 是字段表单和预览渲染的前置条件，拉取失败不阻塞 SSE
-        const tpl = await useApiFetch<documentTemplates>(
+        const tpl = await useApiFetch<DocumentTemplate>(
             `/api/v1/assistant/document/templates/${params.templateId}`,
             { showError: false } as any,
         )
