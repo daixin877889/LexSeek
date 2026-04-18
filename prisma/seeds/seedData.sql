@@ -881,6 +881,8 @@ INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "d
 INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES (12, 'case_analysis_token', 'agentToken', '案件分析 Token 消耗', '模型调用按 token 用量扣减积分', '千tokens', 10, 1, '2026-03-26 00:00:00+08', '2026-03-26 00:00:00+08', NULL, '1.00');
 -- document_draft_token: 文书生成 token 计费规则（由 seed.ts 的 seedDocumentDraftTokenRule 幂等写入，此处为等幂备份）
 INSERT INTO "public"."point_consumption_items" ("key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES ('document_draft_token', 'agentToken', '文书生成 token 计费', '文书生成按模型 token 用量扣减积分', '千tokens', 1, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL, '1.00') ON CONFLICT (key) DO NOTHING;
+-- contract_review_token: 合同审查 token 计费规则（由 seed.ts 的 seedContractReviewTokenRule 幂等写入，此处为等幂备份）
+INSERT INTO "public"."point_consumption_items" ("key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES ('contract_review_token', 'agentToken', '合同审查 token 计费', '合同审查按模型 token 用量扣减积分', '千tokens', 1, 1, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL, '1.00') ON CONFLICT (key) DO NOTHING;
 
 -- ==================== 案件类型种子数据 ====================
 INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (1, '民商事案件', '包括合同纠纷、侵权纠纷、婚姻家庭纠纷等民事案件', 'ScaleIcon', 10, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
