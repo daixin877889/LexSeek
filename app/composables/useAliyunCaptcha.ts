@@ -11,6 +11,8 @@ interface CaptchaInstance {
 interface SceneState {
   initPromise?: Promise<boolean>
   instance?: CaptchaInstance
+  element?: HTMLElement
+  button?: HTMLElement
   pendingPromise?: Promise<string>
   resolvePending?: (captchaVerifyParam: string) => void
   rejectPending?: (error: Error) => void
@@ -21,6 +23,11 @@ interface SceneState {
 const CAPTCHA_CONFIG_PATH = '/auth-captcha-config'
 const CAPTCHA_VERIFY_PARAM_MAX_AGE_MS = 85 * 1000
 const sceneStates = new Map<AliyunCaptchaSceneKey, SceneState>()
+const CAPTCHA_PREVERIFY_CACHE_ENABLED_SCENES = new Set<AliyunCaptchaSceneKey>([
+  'loginSms',
+  'registerSms',
+  'resetPasswordSms',
+])
 
 let captchaConfigPromise: Promise<AliyunCaptchaClientConfig> | null = null
 let captchaScriptPromise: Promise<void> | null = null
@@ -49,6 +56,37 @@ function getSceneState(scene: AliyunCaptchaSceneKey): SceneState {
   return state
 }
 
+function getSceneDomNodes(scene: AliyunCaptchaSceneKey) {
+  const domIds = getAliyunCaptchaDomIds(scene)
+  return {
+    element: document.getElementById(domIds.elementId),
+    button: document.getElementById(domIds.buttonId) as HTMLButtonElement | null,
+  }
+}
+
+function resetSceneState(scene: AliyunCaptchaSceneKey, error?: Error) {
+  const state = getSceneState(scene)
+
+  if (error && state.rejectPending) {
+    state.rejectPending(error)
+  }
+
+  sceneStates.set(scene, {})
+}
+
+function isSceneBindingStale(scene: AliyunCaptchaSceneKey, state: SceneState): boolean {
+  if (!state.element || !state.button) {
+    return true
+  }
+
+  if (!document.contains(state.element) || !document.contains(state.button)) {
+    return true
+  }
+
+  const { element, button } = getSceneDomNodes(scene)
+  return state.element !== element || state.button !== button
+}
+
 async function getCaptchaConfig(): Promise<AliyunCaptchaClientConfig> {
   if (!import.meta.client) {
     return createDisabledCaptchaConfig()
@@ -67,7 +105,10 @@ async function getCaptchaConfig(): Promise<AliyunCaptchaClientConfig> {
         return await response.json() as AliyunCaptchaClientConfig
       } catch (error) {
         logger.warn('获取阿里云验证码配置失败', error)
-        return createDisabledCaptchaConfig()
+        captchaConfigPromise = null
+        throw error instanceof Error
+          ? error
+          : new Error('验证码配置加载失败，请稍后再试')
       }
     })()
   }
@@ -145,6 +186,10 @@ function rejectPendingVerification(scene: AliyunCaptchaSceneKey, error: Error) {
 }
 
 function cacheVerificationResult(scene: AliyunCaptchaSceneKey, captchaVerifyParam: string) {
+  if (!CAPTCHA_PREVERIFY_CACHE_ENABLED_SCENES.has(scene)) {
+    return
+  }
+
   const state = getSceneState(scene)
   state.cachedVerifyParam = captchaVerifyParam
   state.cachedVerifyAt = Date.now()
@@ -185,13 +230,22 @@ async function ensureCaptchaReady(scene: AliyunCaptchaSceneKey): Promise<boolean
 
   const config = await getCaptchaConfig()
   const sceneId = config.sceneIds[scene]
-  if (!config.enabled || !config.prefix || !sceneId) {
+  if (!config.enabled) {
     return false
   }
 
-  const state = getSceneState(scene)
-  if (state.initPromise) {
+  if (!config.prefix || !sceneId) {
+    throw new Error(`验证码场景配置不完整：${scene}`)
+  }
+
+  let state = getSceneState(scene)
+  if (state.initPromise && !isSceneBindingStale(scene, state)) {
     return state.initPromise
+  }
+
+  if (state.initPromise) {
+    resetSceneState(scene, new Error('验证码宿主已变更，请重试'))
+    state = getSceneState(scene)
   }
 
   state.initPromise = (async () => {
@@ -203,12 +257,14 @@ async function ensureCaptchaReady(scene: AliyunCaptchaSceneKey): Promise<boolean
     }
 
     const domIds = getAliyunCaptchaDomIds(scene)
-    const element = document.getElementById(domIds.elementId)
-    const button = document.getElementById(domIds.buttonId)
+    const { element, button } = getSceneDomNodes(scene)
 
     if (!element || !button) {
       throw new Error(`验证码宿主未就绪：${scene}`)
     }
+
+    state.element = element
+    state.button = button
 
     window.AliyunCaptchaConfig = {
       region: config.region,
@@ -295,10 +351,11 @@ export function useAliyunCaptcha(scene: AliyunCaptchaSceneKey) {
       return state.pendingPromise
     }
 
-    state.pendingPromise = new Promise<string>((resolve, reject) => {
+    const pendingPromise = new Promise<string>((resolve, reject) => {
       state.resolvePending = resolve
       state.rejectPending = reject
     })
+    state.pendingPromise = pendingPromise
 
     const domIds = getAliyunCaptchaDomIds(scene)
     const button = document.getElementById(domIds.buttonId) as HTMLButtonElement | null
@@ -313,7 +370,7 @@ export function useAliyunCaptcha(scene: AliyunCaptchaSceneKey) {
       rejectPendingVerification(scene, new Error('验证码触发失败'))
     }
 
-    return state.pendingPromise
+    return pendingPromise
   }
 
   return {
