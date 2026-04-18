@@ -68,7 +68,7 @@ describe('useDocumentDraft.mountDraft', () => {
     })
 
     it('成功挂载：加载 draft、template 并将 runStatus 设为 ready', async () => {
-        const draftResp = {
+        const draftInner = {
             id: 42,
             sessionId: 'sess-42',
             values: { 甲方: '张三' },
@@ -79,7 +79,7 @@ describe('useDocumentDraft.mountDraft', () => {
         }
         const templateResp = { id: 7, name: '租赁合同', placeholders: [{ name: '甲方', firstContext: '' }] }
         mockFetch
-            .mockResolvedValueOnce(draftResp)
+            .mockResolvedValueOnce({ draft: draftInner })
             .mockResolvedValueOnce(templateResp)
 
         const composable = useDocumentDraft()
@@ -99,7 +99,7 @@ describe('useDocumentDraft.mountDraft', () => {
     it('draft.status=failed 时 runStatus=failed', async () => {
         mockFetch
             .mockResolvedValueOnce({
-                id: 1, sessionId: 's', values: {}, templateId: 7, status: 'failed',
+                draft: { id: 1, sessionId: 's', values: {}, templateId: 7, status: 'failed' },
             })
             .mockResolvedValueOnce({ id: 7, name: 't', placeholders: [] })
 
@@ -112,7 +112,7 @@ describe('useDocumentDraft.mountDraft', () => {
     it('draft.status=exported 时 runStatus=exported', async () => {
         mockFetch
             .mockResolvedValueOnce({
-                id: 1, sessionId: 's', values: {}, templateId: 7, status: 'exported',
+                draft: { id: 1, sessionId: 's', values: {}, templateId: 7, status: 'exported' },
             })
             .mockResolvedValueOnce({ id: 7, name: 't', placeholders: [] })
 
@@ -137,7 +137,7 @@ describe('useDocumentDraft.mountDraft', () => {
     it('template 拉取失败不阻塞流程，draft/runStatus 仍生效', async () => {
         mockFetch
             .mockResolvedValueOnce({
-                id: 10, sessionId: 's-10', values: {}, templateId: 3, status: 'drafting',
+                draft: { id: 10, sessionId: 's-10', values: {}, templateId: 3, status: 'drafting' },
             })
             .mockResolvedValueOnce(null)
 
@@ -165,7 +165,7 @@ describe('useDocumentDraft agent actions', () => {
     async function mountReady() {
         mockFetch
             .mockResolvedValueOnce({
-                id: 1, sessionId: 's-1', values: {}, templateId: 7, status: 'ready',
+                draft: { id: 1, sessionId: 's-1', values: {}, templateId: 7, status: 'ready' },
             })
             .mockResolvedValueOnce({ id: 7, name: 't', placeholders: [] })
         const c = useDocumentDraft()
@@ -245,7 +245,7 @@ describe('useDocumentDraft queue', () => {
     async function mountReady() {
         mockFetch
             .mockResolvedValueOnce({
-                id: 1, sessionId: 's-1', values: {}, templateId: 7, status: 'ready',
+                draft: { id: 1, sessionId: 's-1', values: {}, templateId: 7, status: 'ready' },
             })
             .mockResolvedValueOnce({ id: 7, name: 't', placeholders: [] })
         const c = useDocumentDraft()

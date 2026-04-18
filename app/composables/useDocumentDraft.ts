@@ -128,13 +128,16 @@ export function useDocumentDraft() {
         draftId.value = null
         stream.value = null
 
-        const draftResp = await useApiFetch<documentDrafts>(
+        // 后端 getDraftService 返回 `{ draft }` 嵌套结构，useApiFetch 自动拆 data，
+        // 所以这里仍需显式拆一层 draft
+        const resp = await useApiFetch<{ draft: documentDrafts }>(
             `/api/v1/assistant/document/drafts/${id}`,
         )
-        if (!draftResp) {
+        if (!resp?.draft) {
             runStatus.value = 'idle'
             return
         }
+        const draftResp = resp.draft
         draft.value = draftResp
         draftId.value = draftResp.id
 

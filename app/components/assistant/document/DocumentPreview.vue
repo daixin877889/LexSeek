@@ -3,12 +3,20 @@
  * 文书预览组件（M5 版本）
  *
  * - 仅在首次有 templateBuffer 时调用一次 renderAsync 渲染 DOCX DOM
- * - 后续字段变化通过 TreeWalker 遍历 text nodes 做占位符替换，无需重新渲染
- * - 使用 useDebounceFn 防抖 500ms，避免高频输入时重复遍历
+ * - 首次渲染后立刻快照所有块级容器的 Text 节点 + 原始 nodeValue
+ * - 后续字段变化通过 replacePlaceholdersWithSnapshot 按段落合并替换，
+ *   解决 docx-preview 把 {{xxx}} 拆到多个 Text 节点导致逐节点正则无法
+ *   命中跨节点占位符的问题（#7）。
+ * - 使用 useDebounceFn 防抖 500ms，避免高频输入时重复遍历。
  */
 import { renderAsync } from 'docx-preview'
 import { useDebounceFn } from '@vueuse/core'
 import { FileTextIcon, DownloadIcon } from 'lucide-vue-next'
+import {
+    capturePlaceholderSnapshot,
+    replacePlaceholdersWithSnapshot,
+    type PlaceholderSnapshot,
+} from '~/utils/documentPlaceholder'
 
 const props = defineProps<{
     templateBuffer?: ArrayBuffer | null
@@ -21,19 +29,7 @@ const emit = defineEmits<{ export: [] }>()
 const previewRoot = ref<HTMLElement | null>(null)
 const renderedOnce = ref(false)
 const renderError = ref<string | null>(null)
-
-/** 替换 DOM 内所有 {{占位符}} 为对应的值 */
-function replacePlaceholders(root: HTMLElement, values: Record<string, string | null>) {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-    const PLACEHOLDER_RE = /\{\{([\u4e00-\u9fa5\w]+)\}\}/g
-
-    while (walker.nextNode()) {
-        const node = walker.currentNode as Text
-        const original = node.nodeValue ?? ''
-        const replaced = original.replace(PLACEHOLDER_RE, (_, name) => values[name] ?? '')
-        if (replaced !== original) node.nodeValue = replaced
-    }
-}
+const snapshot = ref<PlaceholderSnapshot | null>(null)
 
 /** 首次渲染 + 占位符替换；templateBuffer 变化时重置并重新渲染 */
 async function updatePreview(values: Record<string, string | null>) {
@@ -43,8 +39,11 @@ async function updatePreview(values: Record<string, string | null>) {
         if (!renderedOnce.value) {
             await renderAsync(props.templateBuffer, previewRoot.value)
             renderedOnce.value = true
+            snapshot.value = capturePlaceholderSnapshot(previewRoot.value)
         }
-        replacePlaceholders(previewRoot.value, values)
+        if (snapshot.value) {
+            replacePlaceholdersWithSnapshot(snapshot.value, values)
+        }
         renderError.value = null
     } catch (err) {
         renderError.value = err instanceof Error ? err.message : '预览渲染失败'
@@ -55,12 +54,13 @@ const debouncedUpdate = useDebounceFn((v: Record<string, string | null>) => upda
 
 watch(() => props.values, (v) => debouncedUpdate(v), { deep: true })
 
-// templateBuffer 变化时重置渲染状态
+// templateBuffer 变化时重置渲染状态（snapshot 与之绑定，必须同步清）
 watch(
     () => props.templateBuffer,
     (buf) => {
         renderedOnce.value = false
         renderError.value = null
+        snapshot.value = null
         if (buf) updatePreview(props.values)
     },
 )
