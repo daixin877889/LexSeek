@@ -61,3 +61,68 @@ describe('RiskClauseDiff', () => {
         expect(w.text()).toContain('无建议改写')
     })
 })
+
+/**
+ * M5 升级测试：字符级 diff 着色（diff-match-patch）
+ *
+ * - 删除片段：bg-red-100 + line-through
+ * - 新增片段：bg-emerald-100 + font-medium
+ * - 建议为空时 fallback 到 M4 的"无建议改写"纯文本行为
+ */
+describe('RiskClauseDiff (M5 diff-match-patch 升级)', () => {
+    it('原文与建议完全相同 → 无 diff 标记（全 equal）', () => {
+        const same = '甲方应于合同签订之日起三日内支付定金。'
+        const w = mount(RiskClauseDiff, {
+            props: { clauseText: same, suggestedClauseText: same },
+        })
+
+        const html = w.html()
+        expect(html).not.toContain('bg-red-100')
+        expect(html).not.toContain('bg-emerald-100')
+        expect(w.text()).toContain(same)
+    })
+
+    it('建议增加了 "不少于 30 日" → 新增片段用 emerald bg 高亮', () => {
+        const w = mount(RiskClauseDiff, {
+            props: {
+                clauseText: '甲方应提前通知乙方。',
+                suggestedClauseText: '甲方应提前不少于 30 日通知乙方。',
+            },
+        })
+
+        const html = w.html()
+        // 新增片段高亮
+        expect(html).toContain('bg-emerald-100')
+        // 原文栏没有被删除的内容
+        expect(html).not.toContain('bg-red-100')
+    })
+
+    it('原文 "60 日" 建议 "30 日" → 原文栏 60 红色删除线，建议栏 30 绿色', () => {
+        const w = mount(RiskClauseDiff, {
+            props: {
+                clauseText: '争议应在 60 日内协商解决。',
+                suggestedClauseText: '争议应在 30 日内协商解决。',
+            },
+        })
+
+        const html = w.html()
+        expect(html).toContain('bg-red-100')
+        expect(html).toContain('line-through')
+        expect(html).toContain('bg-emerald-100')
+        expect(html).toContain('font-medium')
+    })
+
+    it('suggestedClauseText 为空 → fallback 到"无建议改写"（保留 M4 行为）', () => {
+        const w = mount(RiskClauseDiff, {
+            props: {
+                clauseText: '本合同自双方签字盖章之日起生效。',
+                suggestedClauseText: '',
+            },
+        })
+
+        const html = w.html()
+        expect(html).not.toContain('bg-red-100')
+        expect(html).not.toContain('bg-emerald-100')
+        expect(w.text()).toContain('无建议改写')
+    })
+})
