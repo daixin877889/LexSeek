@@ -52,32 +52,58 @@
 
 ## Task 0：修正 M1 seed 里的工具名错配
 
-**背景**：`server/services/workflow/tools/index.ts:25-36` 的 `toolModules` 字典使用 **snake_case key**（如 `search_case_materials`），`getToolInstancesService(names, ctx)` 按名字精确匹配。M1 seed 写入 `contractReviewMain.tools = '["parseAndAskStance"]'`，加载工具时会 warn `工具 parseAndAskStance 不存在，已跳过`，导致 agent 拿不到工具，只能"干说话"而无法 interrupt。必须改成 `["parse_and_ask_stance"]`。
+**背景**：`server/services/workflow/tools/index.ts:25-36` 的 `toolModules` 字典使用 **snake_case key**（如 `search_case_materials`），`getToolInstancesService(names, ctx)` 按名字精确匹配。M1 seed 写入的 `parseAndAskStance` 出现在两处，都必须改成 `parse_and_ask_stance`：
+1. `nodes.tools` 字段值 `["parseAndAskStance"]` → 加载工具时 warn 跳过，agent 拿不到工具
+2. `prompts.content` 里"调用 parseAndAskStance 工具"→ LLM 按字面量 emit function_call 名会拿不到工具（很多模型容错但不保证）
 
 **Files:**
-- Modify: `prisma/seeds/seedData.sql` 第 932 行附近（`contractReviewMain` 行的 `tools` 字段值）
-- DB 同步：对已运行的本地开发数据库 (`ls_new`) 与测试库 (`ls_new_testing`) 执行 `UPDATE`
+- Modify: `prisma/seeds/seedData.sql` 第 932 行附近（`contractReviewMain` 行的 `tools` 字段 + description 文字）
+- Modify: `prisma/seeds/seedData.sql` 第 1998 行附近（`contractReview_system` 提示词 content 中的"调用 parseAndAskStance 工具"句）
+- DB 同步：对 `ls_new` 与 `ls_new_testing` 两个库都执行 `UPDATE`
 
-- [ ] **Step 0.1：改 seedData.sql**
+- [ ] **Step 0.1：改 seedData.sql 全部 `parseAndAskStance` 字面量**
 
-把 `INSERT INTO ... nodes ... VALUES ('contractReviewMain', ..., '["parseAndAskStance"]', ...)` 这行的 tools 字面值改为 `'["parse_and_ask_stance"]'`（保留 `ON CONFLICT DO NOTHING`，新库不受影响）。
+在 seedData.sql 里把所有 `parseAndAskStance` 替换为 `parse_and_ask_stance`：
+- 第 932 行的 `tools` JSON：`'["parseAndAskStance"]'` → `'["parse_and_ask_stance"]'`
+- 第 932 行的 description 文字：`通过 parseAndAskStance 工具中断` → `通过 parse_and_ask_stance 工具中断`
+- 第 1998 行的提示词 content：`调用 parseAndAskStance 工具` → `调用 parse_and_ask_stance 工具`
 
-- [ ] **Step 0.2：对本地 dev 库执行 UPDATE 同步**
+> 全文件 `parseAndAskStance` 只有以上两行两个文件块里 3 处；`sed -i '' 's/parseAndAskStance/parse_and_ask_stance/g' prisma/seeds/seedData.sql` 可一次搞定。改完 grep 校验 `grep -n parseAndAskStance prisma/seeds/seedData.sql` 应返回空。
+
+- [ ] **Step 0.2：对本地 dev 库 + 测试库执行 UPDATE 同步**
 
 ```bash
-psql 'postgresql://daixin:daixin88@localhost:5432/ls_new' -c \
-  "UPDATE public.nodes SET tools = '[\"parse_and_ask_stance\"]'::jsonb WHERE name = 'contractReviewMain';"
-psql 'postgresql://daixin:daixin88@localhost:5432/ls_new_testing' -c \
-  "UPDATE public.nodes SET tools = '[\"parse_and_ask_stance\"]'::jsonb WHERE name = 'contractReviewMain';"
+for DB in ls_new ls_new_testing; do
+  psql "postgresql://daixin:daixin88@localhost:5432/$DB" <<SQL
+UPDATE public.nodes
+   SET tools = '["parse_and_ask_stance"]'::jsonb,
+       description = REPLACE(description, 'parseAndAskStance', 'parse_and_ask_stance')
+ WHERE name = 'contractReviewMain';
+
+UPDATE public.prompts
+   SET content = REPLACE(content, 'parseAndAskStance', 'parse_and_ask_stance')
+ WHERE name = 'contractReview_system';
+SQL
+done
 ```
 
-> 若 tools 列 Prisma type 为 TEXT 而非 JSONB，去掉 `::jsonb` 后缀；先 `\d nodes` 确认列类型。
+> 若 `tools` 列 Prisma type 为 TEXT 而非 JSONB，去掉 `::jsonb` 后缀；先 `\d nodes` 确认列类型。
 
-- [ ] **Step 0.3：提交**
+- [ ] **Step 0.3：验证**
+
+```bash
+psql 'postgresql://daixin:daixin88@localhost:5432/ls_new_testing' -c \
+  "SELECT tools, description FROM public.nodes WHERE name = 'contractReviewMain';"
+psql 'postgresql://daixin:daixin88@localhost:5432/ls_new_testing' -c \
+  "SELECT content FROM public.prompts WHERE name = 'contractReview_system';" | grep -i "parse_and_ask_stance"
+```
+Expected: 两条输出均使用 `parse_and_ask_stance`，无 `parseAndAskStance` 残留
+
+- [ ] **Step 0.4：提交**
 
 ```bash
 git add prisma/seeds/seedData.sql
-git commit -m "fix(contract): M1 seed 工具名改为 snake_case 以匹配 toolModules 约定"
+git commit -m "fix(contract): M1 seed 工具名改为 snake_case 以匹配 toolModules 约定（node.tools + 提示词 + description）"
 ```
 
 ---
