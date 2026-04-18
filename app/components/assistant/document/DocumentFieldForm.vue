@@ -55,28 +55,28 @@
       <template v-else-if="inferFieldType(placeholder.name, localValues[placeholder.name]) === 'number'">
         <Input
           type="number"
-          :value="localValues[placeholder.name] ?? ''"
+          :model-value="localValues[placeholder.name] ?? ''"
           :placeholder="`请输入${placeholder.name}`"
-          @input="(e: Event) => onInputChange(placeholder.name, (e.target as HTMLInputElement).value)"
+          @update:model-value="(v) => onInputChange(placeholder.name, String(v))"
         />
       </template>
 
       <!-- 长文本 -->
       <template v-else-if="inferFieldType(placeholder.name, localValues[placeholder.name]) === 'textarea'">
         <Textarea
-          :value="localValues[placeholder.name] ?? ''"
+          :model-value="localValues[placeholder.name] ?? ''"
           :placeholder="`请输入${placeholder.name}`"
           :rows="4"
-          @input="(e: Event) => onInputChange(placeholder.name, (e.target as HTMLTextAreaElement).value)"
+          @update:model-value="(v) => onInputChange(placeholder.name, String(v))"
         />
       </template>
 
       <!-- 默认：单行输入 -->
       <template v-else>
         <Input
-          :value="localValues[placeholder.name] ?? ''"
+          :model-value="localValues[placeholder.name] ?? ''"
           :placeholder="`请输入${placeholder.name}`"
-          @input="(e: Event) => onInputChange(placeholder.name, (e.target as HTMLInputElement).value)"
+          @update:model-value="(v) => onInputChange(placeholder.name, String(v))"
         />
       </template>
 

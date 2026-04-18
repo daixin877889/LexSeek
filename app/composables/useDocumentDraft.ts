@@ -59,10 +59,25 @@ export function useDocumentDraft() {
         })
         stream.value = s
 
-        // 'completed' 时后端通过 custom event 推送 draft_ready，不在此处设置 ready 防 race condition
+        // 后端 draftResultPersistenceMiddleware 只写库未推 SSE custom event，
+        // 所以 stream 完成后主动 GET draft 同步 values/status，让 UI 切出 filling 态
         stopStreamWatch = watch(
             () => s.runStatus.value,
-            (status) => { if (status === 'failed') runStatus.value = 'failed' },
+            async (status) => {
+                if (status === 'failed') {
+                    runStatus.value = 'failed'
+                    return
+                }
+                if (status === 'completed' && draftId.value) {
+                    const latest = await useApiFetch<{ draft: documentDrafts }>(
+                        `/api/v1/assistant/document/drafts/${draftId.value}`,
+                        { showError: false } as any,
+                    )
+                    if (!latest?.draft) return
+                    draft.value = latest.draft
+                    runStatus.value = latest.draft.status === 'failed' ? 'failed' : 'ready'
+                }
+            },
         )
     }
 
@@ -85,6 +100,13 @@ export function useDocumentDraft() {
         }
 
         draftId.value = resp.draftId
+
+        // template 是字段表单和预览渲染的前置条件，拉取失败不阻塞 SSE
+        const tpl = await useApiFetch<documentTemplates>(
+            `/api/v1/assistant/document/templates/${params.templateId}`,
+            { showError: false } as any,
+        )
+        if (tpl) template.value = tpl
 
         mountStream(resp.sessionId)
         // submit 空输入使 LangGraph 从 checkpoint 恢复并开始推送
