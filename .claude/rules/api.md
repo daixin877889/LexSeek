@@ -83,3 +83,40 @@ server/api/v1/case/analysis/runs/[runId]/cancel.post.ts
 在 `server/services` 目录中：
 - 服务层：`模块名称.service.ts`，方法要以 `Service` 结尾
 - DAO 层：`模块名称.dao.ts`，方法要以 `DAO` 结尾
+
+## 管理端与用户端 API 隔离（系统级规则）
+
+**禁止** 在同一个接口中通过 `checkIsSuperAdmin` 等手段为超管开旁路来兼顾两端诉求。超管走用户端接口的行为必须和普通用户完全一致——否则极易产生"超管从用户页操作时意外越权或创建错误 scope 数据"的 bug。
+
+### 路径约定
+
+- 用户端：`server/api/v1/<module>/**`
+  - 鉴权：`event.context.auth?.user` + 业务维度归属校验（owner-only / viewerUserId 过滤等）
+  - 资源可见范围：仅自己的 + 公开共享的
+- 管理端：`server/api/v1/admin/<module>/**`
+  - 鉴权：由 `server/middleware/03.permission.ts` 统一拦截（非 super_admin 访问 `/api/v1/admin/**` 直接 403）
+  - 资源可见范围：全量，不做归属过滤
+
+### 强制成对实现
+
+同一资源两端都要操作时，按需分别实现成对接口；前端按身份调用对应那一套：
+
+```
+POST   /api/v1/<module>             ← /dashboard/** 页面调用
+POST   /api/v1/admin/<module>       ← /admin/** 页面调用
+
+GET    /api/v1/<module>
+GET    /api/v1/admin/<module>
+
+PATCH  /api/v1/<module>/:id
+PATCH  /api/v1/admin/<module>/:id
+
+DELETE /api/v1/<module>/:id
+DELETE /api/v1/admin/<module>/:id
+```
+
+用户端 handler 保持严格 owner-only / viewer 过滤；管理端 handler 去掉归属校验，依赖中间件保护。
+
+### 参考实现
+
+`server/api/v1/assistant/document/templates*`（用户端）与 `server/api/v1/admin/document-templates/**`（管理端）即按此规则实现，可直接对照。
