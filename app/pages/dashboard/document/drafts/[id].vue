@@ -14,6 +14,7 @@ import { ArrowLeftIcon, Loader2Icon, DownloadIcon, SparklesIcon, RefreshCw as Re
 import { toast } from 'vue-sonner'
 import type { documentDrafts } from '~~/generated/prisma/client'
 import { QUEUE_MAX_SIZE } from '~/composables/chatQueueActions'
+import type { OssFileItem } from '~/store/file'
 
 definePageMeta({
     layout: 'dashboard-layout',
@@ -124,15 +125,33 @@ function goBack() {
 const agentOpen = ref(false)
 const isStopping = ref(false)
 const showRetryButton = ref(false)
-const aiChatRef = ref<{ resetPrompt: () => void } | null>(null)
+const aiChatRef = ref<{
+    resetPrompt: () => void
+    addFiles: (files: OssFileItem[]) => void
+    selectedFileIds: number[]
+} | null>(null)
+const materialSelectorRef = ref<{ openDialog: () => void } | null>(null)
 
 const chatMessages = computed(() => messages.value as any[])
 const chatLoading = computed(() => isLoading.value)
 const queueLen = computed(() => currentQueue.value.length)
 const queueFull = computed(() => queueLen.value >= QUEUE_MAX_SIZE)
 
+// 已选文件 ID（传给 MaterialSelector 禁用已选项）
+const selectedFileIds = computed(() => aiChatRef.value?.selectedFileIds ?? [])
+
 function openAgent() {
     agentOpen.value = true
+}
+
+// 打开文件选择弹框
+function openMaterialSelector() {
+    materialSelectorRef.value?.openDialog()
+}
+
+// 从弹框选择文件后添加到输入框
+function handleFilesFromSelector(files: OssFileItem[]) {
+    aiChatRef.value?.addFiles(files)
 }
 
 function handleChatSubmit(data: { text: string; files?: unknown[] }) {
@@ -295,6 +314,7 @@ useInterruptToast(interruptData)
                 prompt-placeholder="告诉 AI 你想怎么填..."
                 :show-header="false"
                 panel-mode="left"
+                :on-file-button-click="openMaterialSelector"
                 @submit="handleChatSubmit"
                 @stop="handleStop"
             >
@@ -344,5 +364,12 @@ useInterruptToast(interruptData)
                 </div>
             </DialogContent>
         </Dialog>
+
+        <!-- 材料选择弹框（点击 AiChat 文件按钮触发） -->
+        <CaseAnalysisMaterialSelector
+            ref="materialSelectorRef"
+            :disabled-file-ids="selectedFileIds"
+            @files-selected="handleFilesFromSelector"
+        />
     </div>
 </template>
