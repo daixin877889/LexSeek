@@ -518,6 +518,18 @@ describe('API 权限 DAO 真实 DB 补充覆盖', () => {
             )
             expect(result.total).toBeGreaterThanOrEqual(4)
         })
+
+        it('all=true 时应跳过分页返回全部记录，不受 pageSize 上限约束', async () => {
+            // 当前分组下至少有 4 条（tag 一致），配合全库既有记录应 > 0
+            const result = await findApiPermissionsDao(
+                { keyword: tag },
+                { all: true }
+            )
+            expect(result.items.length).toBe(result.total)
+            expect(result.page).toBe(1)
+            expect(result.pageSize).toBe(result.total)
+            expect(result.totalPages).toBe(1)
+        })
     })
 
     // ========================================================================

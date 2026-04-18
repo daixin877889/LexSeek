@@ -204,8 +204,8 @@ const loadData = async () => {
     const [roleData, rolePerms, apiPerms, routes] = await Promise.all([
       useApiFetch<Role>(`/api/v1/admin/roles/${roleId.value}`),
       useApiFetch<{ apiPermissions: ApiPermission[]; routes: RoutePermission[] }>(`/api/v1/admin/roles/${roleId.value}/permissions`),
-      useApiFetch<{ items: ApiPermission[] }>('/api/v1/admin/api-permissions', { query: { pageSize: 100 } }),
-      useApiFetch<{ items: RoutePermission[] }>('/api/v1/admin/routers', { query: { pageSize: 100 } }),
+      useApiFetch<{ items: ApiPermission[] }>('/api/v1/admin/api-permissions', { query: { all: 'true' } }),
+      useApiFetch<{ items: RoutePermission[] }>('/api/v1/admin/routers', { query: { all: 'true' } }),
     ])
     if (roleData) role.value = roleData
     if (rolePerms) { selectedApiIds.value = rolePerms.apiPermissions.map(p => p.id); selectedRouteIds.value = rolePerms.routes.map(r => r.id) }

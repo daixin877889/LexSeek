@@ -321,6 +321,99 @@ describe('权限验证服务属性测试', () => {
         })
     })
 
+    describe('getUserPermissions - 超级管理员返回全量权限', () => {
+        it('超级管理员应返回所有启用的 API 权限（即使未显式分配）', async () => {
+            const uniqueId = generateUniqueId()
+
+            // 创建用户
+            const user = await createTestUser()
+            createdUserIds.push(user.id)
+
+            // 查找或创建超级管理员角色
+            let superAdminRole = await testPrisma.roles.findFirst({
+                where: { code: 'super_admin', status: 1, deletedAt: null },
+            })
+            if (!superAdminRole) {
+                superAdminRole = await testPrisma.roles.create({
+                    data: { name: '超级管理员', code: 'super_admin', description: '超级管理员', status: 1 },
+                })
+                createdRoleIds.push(superAdminRole.id)
+            }
+
+            const userRole = await testPrisma.userRoles.create({
+                data: { userId: user.id, roleId: superAdminRole.id },
+            })
+            createdUserRoleIds.push(userRole.id)
+
+            // 创建两条未分配给任何角色的启用 API 权限
+            const p1 = await createTestApiPermission(`/api/v1/test/super/a/${uniqueId}`, 'GET', false)
+            const p2 = await createTestApiPermission(`/api/v1/test/super/b/${uniqueId}`, 'POST', false)
+
+            // 获取权限：super_admin 应能看到这两条
+            const permissions = await getUserPermissions(user.id)
+
+            expect(permissions.isSuperAdmin).toBe(true)
+            const ids = permissions.apiPermissions.map(p => p.id)
+            expect(ids).toContain(p1.id)
+            expect(ids).toContain(p2.id)
+        })
+
+        it('超级管理员应返回所有启用的路由（即使未通过 roleRouters 关联）', async () => {
+            const uniqueId = generateUniqueId()
+
+            const user = await createTestUser()
+            createdUserIds.push(user.id)
+
+            let superAdminRole = await testPrisma.roles.findFirst({
+                where: { code: 'super_admin', status: 1, deletedAt: null },
+            })
+            if (!superAdminRole) {
+                superAdminRole = await testPrisma.roles.create({
+                    data: { name: '超级管理员', code: 'super_admin', description: '超级管理员', status: 1 },
+                })
+                createdRoleIds.push(superAdminRole.id)
+            }
+
+            const userRole = await testPrisma.userRoles.create({
+                data: { userId: user.id, roleId: superAdminRole.id },
+            })
+            createdUserRoleIds.push(userRole.id)
+
+            // 创建两条未关联任何角色的启用路由
+            const existingGroup = await testPrisma.routerGroups.findFirst()
+            const groupId = existingGroup?.id ?? 1
+            const router1 = await testPrisma.routers.create({
+                data: {
+                    name: `super_r1_${uniqueId}`,
+                    title: '超管测试路由1',
+                    path: `/test/super/route1/${uniqueId}`,
+                    isMenu: false,
+                    groupId,
+                },
+            })
+            const router2 = await testPrisma.routers.create({
+                data: {
+                    name: `super_r2_${uniqueId}`,
+                    title: '超管测试路由2',
+                    path: `/test/super/route2/${uniqueId}`,
+                    isMenu: true,
+                    groupId,
+                },
+            })
+
+            try {
+                const permissions = await getUserPermissions(user.id)
+                expect(permissions.isSuperAdmin).toBe(true)
+                expect(permissions.routePermissions).toContain(router1.path)
+                expect(permissions.routePermissions).toContain(router2.path)
+            } finally {
+                await testPrisma.routers.deleteMany({
+                    where: { id: { in: [router1.id, router2.id] } },
+                })
+            }
+        })
+    })
+
     describe('getUserPermissions', () => {
         it('应返回用户的完整权限信息', async () => {
             const uniqueId = generateUniqueId()

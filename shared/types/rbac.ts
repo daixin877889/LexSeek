@@ -6,6 +6,8 @@
 export interface PaginationParams {
     page?: number
     pageSize?: number
+    /** 为 true 时跳过分页，一次性返回全部记录 */
+    all?: boolean
 }
 
 /** 分页结果 */

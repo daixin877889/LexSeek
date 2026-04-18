@@ -7,6 +7,7 @@ import { z } from 'zod'
 const querySchema = z.object({
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    all: z.enum(['true', 'false']).transform(v => v === 'true').optional(),
     keyword: z.string().optional(),
     method: z.string().optional(),
     groupId: z.coerce.number().int().optional(),
@@ -27,12 +28,12 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, '参数错误')
     }
 
-    const { page, pageSize, keyword, method, groupId, isPublic, status } = result.data
+    const { page, pageSize, all, keyword, method, groupId, isPublic, status } = result.data
 
     // 使用 DAO 查询
     const data = await findApiPermissionsDao(
         { keyword, method, groupId, isPublic, status },
-        { page, pageSize }
+        all ? { all: true } : { page, pageSize }
     )
 
     return resSuccess(event, '获取成功', data)

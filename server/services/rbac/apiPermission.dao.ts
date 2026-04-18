@@ -154,8 +154,9 @@ export const findApiPermissionsDao = async (
     pagination: PaginationParams = {},
     tx?: Prisma.TransactionClient
 ) => {
-    const { page = 1, pageSize = 20 } = pagination
-    const skip = (page - 1) * pageSize
+    const { page = 1, pageSize = 20, all = false } = pagination
+    const skip = all ? undefined : (page - 1) * pageSize
+    const take = all ? undefined : pageSize
 
     // 构建查询条件
     const where: Prisma.apiPermissionsWhereInput = {
@@ -190,11 +191,21 @@ export const findApiPermissionsDao = async (
             where,
             include: { group: true },
             skip,
-            take: pageSize,
+            take,
             orderBy: [{ groupId: 'asc' }, { path: 'asc' }],
         }),
         (tx || prisma).apiPermissions.count({ where }),
     ])
+
+    if (all) {
+        return {
+            items,
+            total,
+            page: 1,
+            pageSize: total,
+            totalPages: total > 0 ? 1 : 0,
+        }
+    }
 
     return {
         items,

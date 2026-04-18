@@ -7,6 +7,7 @@ import { z } from 'zod'
 const querySchema = z.object({
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    all: z.enum(['true', 'false']).transform(v => v === 'true').optional(),
     keyword: z.string().optional(),
     groupId: z.coerce.number().int().optional(),
     isMenu: z.enum(['true', 'false']).optional(),
@@ -24,7 +25,7 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, '参数错误')
     }
 
-    const { page, pageSize, keyword, groupId, isMenu } = parsed.data
+    const { page, pageSize, all, keyword, groupId, isMenu } = parsed.data
 
     // 构建查询条件
     const where: any = {
@@ -50,7 +51,7 @@ export default defineEventHandler(async (event) => {
     // 查询总数
     const total = await prisma.routers.count({ where })
 
-    // 查询列表
+    // 查询列表（all=true 时跳过分页）
     const items = await prisma.routers.findMany({
         where,
         include: {
@@ -62,9 +63,19 @@ export default defineEventHandler(async (event) => {
             },
         },
         orderBy: [{ groupId: 'asc' }, { sort: 'asc' }, { id: 'asc' }],
-        skip: (page - 1) * pageSize,
-        take: pageSize,
+        skip: all ? undefined : (page - 1) * pageSize,
+        take: all ? undefined : pageSize,
     })
+
+    if (all) {
+        return resSuccess(event, '获取成功', {
+            items,
+            total,
+            page: 1,
+            pageSize: total,
+            totalPages: total > 0 ? 1 : 0,
+        })
+    }
 
     return resSuccess(event, '获取成功', {
         items,

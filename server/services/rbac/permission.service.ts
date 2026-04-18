@@ -106,6 +106,10 @@ const getUserRoutePermissions = async (
 /**
  * 获取用户完整权限信息
  * 优先从缓存获取，缓存未命中则查询数据库
+ *
+ * 超级管理员放行兜底：isSuperAdmin=true 时返回所有启用的 API 权限
+ * 和路由路径，避免下游依赖 apiPermissions/routePermissions 数组的代码
+ * 因未显式分配而失效（例如新增 API/路由后超管不可见）。
  */
 export const getUserPermissions = async (
     userId: number,
@@ -117,19 +121,41 @@ export const getUserPermissions = async (
         return cached
     }
 
-    // 查询数据库
-    const [isSuperAdmin, apiPermissions, routePermissions] = await Promise.all([
-        checkIsSuperAdmin(userId, tx),
-        findUserApiPermissionsDao(userId, tx),
-        getUserRoutePermissions(userId, tx),
-    ])
+    const client = tx || prisma
+    const isSuperAdmin = await checkIsSuperAdmin(userId, tx)
 
-    const permissions: UserPermissions = {
-        apiPermissions: apiPermissions.map(p => ({
+    let apiPermissions: UserPermissions['apiPermissions']
+    let routePermissions: string[]
+
+    if (isSuperAdmin) {
+        // 超级管理员：一次性返回所有启用的 API 权限和路由路径
+        const [allApis, allRouters] = await Promise.all([
+            client.apiPermissions.findMany({
+                where: { status: 1, deletedAt: null },
+                select: { id: true, path: true, method: true },
+            }),
+            client.routers.findMany({
+                where: { deletedAt: null },
+                select: { path: true },
+            }),
+        ])
+        apiPermissions = allApis
+        routePermissions = Array.from(new Set(allRouters.map(r => r.path)))
+    } else {
+        const [userApis, userRoutes] = await Promise.all([
+            findUserApiPermissionsDao(userId, tx),
+            getUserRoutePermissions(userId, tx),
+        ])
+        apiPermissions = userApis.map(p => ({
             id: p.id,
             path: p.path,
             method: p.method,
-        })),
+        }))
+        routePermissions = userRoutes
+    }
+
+    const permissions: UserPermissions = {
+        apiPermissions,
         routePermissions,
         isSuperAdmin,
     }
