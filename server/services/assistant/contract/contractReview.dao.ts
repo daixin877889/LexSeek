@@ -8,6 +8,7 @@
  */
 import { prisma } from '~~/server/utils/db'
 import type { contractReviews, Prisma } from '~~/generated/prisma/client'
+import type { Risk } from '#shared/types/contract'
 
 type CreateInput = Omit<Prisma.contractReviewsUncheckedCreateInput, 'id' | 'createdAt' | 'updatedAt'>
 type UpdateInput = Prisma.contractReviewsUncheckedUpdateInput
@@ -35,5 +36,19 @@ export async function updateContractReviewDAO(
     return prisma.contractReviews.update({
         where: { id },
         data: { ...data, updatedAt: new Date() },
+    })
+}
+
+/**
+ * 全量替换 risks 字段（仅 PATCH /reviews/:id 端点调用，status 校验在 handler 层）。
+ * where 带 deletedAt: null 守护软删竞态。
+ */
+export async function patchReviewRisksDAO(
+    id: number,
+    risks: Risk[],
+): Promise<contractReviews> {
+    return prisma.contractReviews.update({
+        where: { id, deletedAt: null },
+        data: { risks: risks as unknown as Prisma.InputJsonValue, updatedAt: new Date() },
     })
 }

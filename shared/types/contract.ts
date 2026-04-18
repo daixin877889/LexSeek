@@ -4,6 +4,8 @@
  * 约定：Prisma row 类型从 #shared/types/prisma 直接导入，不在此文件镜像。
  */
 
+import type { contractReviews } from '~~/generated/prisma/client'
+
 export type RiskLevel = 'high' | 'medium' | 'low'
 export type Stance = 'partyA' | 'partyB' | 'neutral'
 export type ContractReviewStatus =
@@ -58,8 +60,6 @@ export interface RebuildDocxResponse {
 export interface DownloadResponse {
     downloadUrl: string
 }
-
-import type { contractReviews } from '~~/generated/prisma/client'
 
 /**
  * 审查实体（已将 Prisma JsonValue risks 收敛到 Risk[] 类型）。
