@@ -50,6 +50,8 @@ export interface ToolContext {
     runId?: string
     /** 文书草稿 ID（文书生成场景） */
     draftId?: number
+    /** 合同审查 ID（parseAndAskStance 工具依赖） */
+    reviewId?: number
 }
 
 /** 工具定义（单一数据源） */
