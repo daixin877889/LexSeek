@@ -1,0 +1,191 @@
+/**
+ * rebuildDocxService 单元测试
+ *
+ * 覆盖路径：
+ *   - happy path：下载→注入→上传→签名→createOssFile→setCompleted 顺序正确
+ *   - originalFileId 为空 → 抛错 "没有原始文件"
+ *   - findOssFileByIdDao 返回 null → 抛错 "原始文件已丢失"
+ *   - origOssFile.filePath 为空 → 抛错 "原始文件已丢失"
+ *   - setCompletedAfterRebuildDAO 抛异常 → 错误冒泡（service 内不 catch）
+ *   - generateSignedUrlService 抛异常 → 错误冒泡，createOssFileDao / setCompletedAfterRebuildDAO 都未被调（P0-4 关键时序验证）
+ *
+ * **Feature: contract-review-m5**
+ * **Validates: Task 3（contractReviewRebuild.service.ts）**
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+// ==================== 全局 Stub ====================
+
+;(globalThis as any).logger = { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() }
+;(globalThis as any).prisma = {}
+
+// ==================== Mock 所有外部依赖 ====================
+
+vi.mock('~~/server/services/files/ossFiles.dao', () => ({
+    findOssFileByIdDao: vi.fn(),
+    createOssFileDao: vi.fn(),
+}))
+
+vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
+    setCompletedAfterRebuildDAO: vi.fn(),
+}))
+
+vi.mock('~~/server/services/assistant/contract/docx', () => ({
+    injectComments: vi.fn(),
+}))
+
+vi.mock('~~/server/services/storage/storage.service', () => ({
+    downloadFileService: vi.fn(),
+    uploadFileService: vi.fn(),
+    generateSignedUrlService: vi.fn(),
+}))
+
+vi.mock('~~/server/services/storage/storageConfig.dao', () => ({
+    getDefaultStorageConfigDao: vi.fn(),
+}))
+
+import {
+    findOssFileByIdDao,
+    createOssFileDao,
+} from '~~/server/services/files/ossFiles.dao'
+import { setCompletedAfterRebuildDAO } from '~~/server/services/assistant/contract/contractReview.dao'
+import { injectComments } from '~~/server/services/assistant/contract/docx'
+import {
+    downloadFileService,
+    uploadFileService,
+    generateSignedUrlService,
+} from '~~/server/services/storage/storage.service'
+import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageConfig.dao'
+
+const mockFindOss = findOssFileByIdDao as ReturnType<typeof vi.fn>
+const mockCreateOss = createOssFileDao as ReturnType<typeof vi.fn>
+const mockSetCompleted = setCompletedAfterRebuildDAO as ReturnType<typeof vi.fn>
+const mockInject = injectComments as ReturnType<typeof vi.fn>
+const mockDownload = downloadFileService as ReturnType<typeof vi.fn>
+const mockUpload = uploadFileService as ReturnType<typeof vi.fn>
+const mockSignUrl = generateSignedUrlService as ReturnType<typeof vi.fn>
+const mockGetCfg = getDefaultStorageConfigDao as ReturnType<typeof vi.fn>
+
+// ==================== 动态 import service ====================
+
+const { rebuildDocxService } = await import(
+    '../../../../server/services/assistant/contract/contractReviewRebuild.service'
+)
+
+// ==================== 固件 ====================
+
+const USER_ID = 1001
+const REVIEW_ID = 42
+const ORIG_FILE_ID = 77
+
+function review(overrides: Partial<Record<string, any>> = {}) {
+    return {
+        id: REVIEW_ID,
+        userId: USER_ID,
+        sessionId: 'sess',
+        status: 'rebuilding',
+        originalFileId: ORIG_FILE_ID,
+        reviewedFileId: 88,
+        risks: [{ id: 'r1', clauseText: 'x', level: 'low' }],
+        ...overrides,
+    } as any
+}
+
+// ==================== 测试 ====================
+
+describe('rebuildDocxService', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('happy path：下载→注入→上传→签名→createOssFile→setCompleted 顺序正确', async () => {
+        mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: 'orig/path.docx' } as any)
+        mockDownload.mockResolvedValue(Buffer.from('orig-docx'))
+        mockInject.mockResolvedValue(Buffer.from('new-docx'))
+        mockUpload.mockResolvedValue({
+            name: 'contract-review/1001/rebuild-xxx.docx',
+            etag: 'e',
+            url: 'u',
+        })
+        mockGetCfg.mockResolvedValue({ bucket: 'lexseek-bucket' } as any)
+        mockSignUrl.mockResolvedValue('https://oss.signed/download')
+        mockCreateOss.mockResolvedValue({ id: 999 } as any)
+        mockSetCompleted.mockResolvedValue({ id: REVIEW_ID } as any)
+
+        const result = await rebuildDocxService(review())
+
+        expect(result).toEqual({
+            reviewedFileId: 999,
+            downloadUrl: 'https://oss.signed/download',
+        })
+
+        // 时序断言：signUrl 在 createOss 之前，createOss 在 setCompleted 之前
+        const signUrlOrder = mockSignUrl.mock.invocationCallOrder[0]
+        const createOssOrder = mockCreateOss.mock.invocationCallOrder[0]
+        const setCompletedOrder = mockSetCompleted.mock.invocationCallOrder[0]
+        expect(signUrlOrder).toBeLessThan(createOssOrder)
+        expect(createOssOrder).toBeLessThan(setCompletedOrder)
+
+        // 关键断言：每个都被调 1 次
+        expect(mockDownload).toHaveBeenCalledWith('orig/path.docx')
+        expect(mockInject).toHaveBeenCalledTimes(1)
+        expect(mockUpload).toHaveBeenCalledTimes(1)
+        expect(mockSignUrl).toHaveBeenCalledWith(
+            'contract-review/1001/rebuild-xxx.docx',
+            { expires: 3600, userId: USER_ID },
+        )
+        expect(mockCreateOss).toHaveBeenCalledTimes(1)
+        const ossArg = mockCreateOss.mock.calls[0]?.[0] as any
+        expect(ossArg.userId).toBe(USER_ID)
+        expect(ossArg.bucketName).toBe('lexseek-bucket')
+        expect(ossArg.filePath).toBe('contract-review/1001/rebuild-xxx.docx')
+        expect(mockSetCompleted).toHaveBeenCalledWith(REVIEW_ID, 999)
+    })
+
+    it('originalFileId 为空抛错 "没有原始文件"', async () => {
+        await expect(rebuildDocxService(review({ originalFileId: null }))).rejects.toThrow(
+            /没有原始文件/,
+        )
+        expect(mockFindOss).not.toHaveBeenCalled()
+    })
+
+    it('findOssFileByIdDao 返回 null 抛错 "原始文件已丢失"', async () => {
+        mockFindOss.mockResolvedValue(null)
+        await expect(rebuildDocxService(review())).rejects.toThrow(/原始文件已丢失/)
+        expect(mockDownload).not.toHaveBeenCalled()
+    })
+
+    it('findOssFileByIdDao 返回 filePath 为空抛错 "原始文件已丢失"', async () => {
+        mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: null } as any)
+        await expect(rebuildDocxService(review())).rejects.toThrow(/原始文件已丢失/)
+        expect(mockDownload).not.toHaveBeenCalled()
+    })
+
+    it('setCompletedAfterRebuildDAO 抛异常 → 错误冒泡（service 不 catch）', async () => {
+        mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: 'orig/path.docx' } as any)
+        mockDownload.mockResolvedValue(Buffer.from('orig'))
+        mockInject.mockResolvedValue(Buffer.from('new'))
+        mockUpload.mockResolvedValue({ name: 'contract-review/1001/rebuild-x.docx', etag: 'e', url: 'u' })
+        mockGetCfg.mockResolvedValue({ bucket: 'b' } as any)
+        mockSignUrl.mockResolvedValue('https://signed')
+        mockCreateOss.mockResolvedValue({ id: 999 } as any)
+        mockSetCompleted.mockRejectedValue(new Error('db write failed'))
+
+        await expect(rebuildDocxService(review())).rejects.toThrow(/db write failed/)
+    })
+
+    it('generateSignedUrlService 抛异常 → createOssFileDao / setCompletedAfterRebuildDAO 都未被调（P0-4 时序）', async () => {
+        mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: 'orig/path.docx' } as any)
+        mockDownload.mockResolvedValue(Buffer.from('orig'))
+        mockInject.mockResolvedValue(Buffer.from('new'))
+        mockUpload.mockResolvedValue({ name: 'contract-review/1001/rebuild-x.docx', etag: 'e', url: 'u' })
+        mockGetCfg.mockResolvedValue({ bucket: 'b' } as any)
+        mockSignUrl.mockRejectedValue(new Error('signed-url failed'))
+
+        await expect(rebuildDocxService(review())).rejects.toThrow(/signed-url failed/)
+        // P0-4 关键时序验证：signedUrl 失败时，createOssFile 和 setCompleted 都不应被调
+        expect(mockCreateOss).not.toHaveBeenCalled()
+        expect(mockSetCompleted).not.toHaveBeenCalled()
+    })
+})
