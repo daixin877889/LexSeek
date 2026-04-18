@@ -67,20 +67,24 @@ export function useDocumentDraft() {
     }
 
     async function onStart(params: CreateDraftRequest) {
-        runStatus.value = 'idle'
+        // 立即切到 filling 态：隐藏源输入视图，阻止重复点击，并显示 loading
+        // 失败时回退到 idle 由 useApiFetch 自身的 toast 提示错误
         draft.value = null
         template.value = null
         draftId.value = null
         stream.value = null
+        runStatus.value = 'filling'
 
         const resp = await useApiFetch<CreateDraftResponse>('/api/v1/assistant/document/drafts', {
             method: 'POST',
             body: params,
         })
-        if (!resp) return
+        if (!resp) {
+            runStatus.value = 'idle'
+            return
+        }
 
         draftId.value = resp.draftId
-        runStatus.value = 'filling'
 
         mountStream(resp.sessionId)
         // submit 空输入使 LangGraph 从 checkpoint 恢复并开始推送

@@ -6,8 +6,9 @@
  */
 import { getMaterialsByCaseIdService, getMaterialsByDraftIdService, type MaterialWithFile } from './material.service'
 import { batchCheckMaterialEmbeddedService, embedMaterialUnifiedService } from './materialEmbedding.service'
-import { processMaterialService, batchCheckMaterialRecognizedService } from './materialProcess.service'
-import { CaseMaterialType } from '#shared/types/case'
+import { processMaterialService, batchCheckMaterialRecognizedService, MaterialProcessError } from './materialProcess.service'
+import { CaseMaterialType, getMaterialTypeFromMime } from '#shared/types/case'
+import { MaterialStatus } from '#shared/types/material'
 import { createMaterialDao, findMaterialByIdDao, findMaterialByDraftIdAndOssFileIdDao } from './material.dao'
 
 export interface MaterialFailedItem {
@@ -586,52 +587,63 @@ export async function searchMaterialsByDraftService(
 /**
  * 单文件材料就绪保障（文书草稿场景）
  *
- * 1. 查询 caseMaterials 是否已有 (draftId + ossFileId) 记录
- * 2. 无则创建（caseId=null, draftId=X）
- * 3. 触发 OCR + embedding pipeline（复用 embedMaterialUnifiedService）
- * 4. 轮询直至 status=processed；30s 超时抛错
+ * 1. 按 (draftId, ossFileId) 去重查询或创建 caseMaterials 记录
+ *    - 新建时按 ossFiles.fileType(MIME) 推断 materialType，避免硬编码 DOCUMENT 导致音频/图片走错分支
+ * 2. 调用 processMaterialService 触发完整识别 + 嵌入 + 状态机
+ *    - 已识别文件会命中幂等分支（如 PDF 的 taskId==='existing'），同步完成
+ *    - 异步场景（MinerU/ASR）返回 PROCESSING，由下方轮询等待
+ * 3. 轮询 caseMaterials.status 直至 COMPLETED(3) / FAILED(4)；超时抛错
  */
 export async function ensureMaterialsReadyForDraftService(
     ossFileId: number,
     draftId: number,
     userId: number,
 ): Promise<{ id: number; status: number; draftId: number | null; ossFileId: number | null }> {
-    // 1. 应用层去重：精确查找已有 (draftId, ossFileId) 记录
     const existing = await findMaterialByDraftIdAndOssFileIdDao(draftId, ossFileId)
 
     let materialId: number
 
     if (existing) {
         materialId = existing.id
-        if (existing.status === 3) {
+        if (existing.status === MaterialStatus.COMPLETED) {
             return { id: existing.id, status: existing.status, draftId: existing.draftId, ossFileId: existing.ossFileId }
         }
     } else {
-        // 2. 创建新材料记录（caseId=null, draftId=X，XOR 保证互斥）
         const ossFile = await prisma.ossFiles.findFirst({
             where: { id: ossFileId, deletedAt: null },
-            select: { fileName: true },
+            select: { fileName: true, fileType: true },
         })
+        if (!ossFile) {
+            throw new Error(`OSS 文件不存在: ${ossFileId}`)
+        }
+        const materialType = getMaterialTypeFromMime(ossFile.fileType)
         const newMaterial = await createMaterialDao({
             caseId: null,
             draftId,
             ossFileId,
-            name: ossFile?.fileName ?? `材料_${ossFileId}`,
-            type: CaseMaterialType.DOCUMENT,
+            name: ossFile.fileName ?? `材料_${ossFileId}`,
+            type: materialType,
         })
         materialId = newMaterial.id
-
-        // 3. 触发 embedding pipeline
-        await embedMaterialUnifiedService(materialId, userId)
     }
 
-    // 4. 轮询直至 status=processed（3）
+    // 触发识别 + 嵌入（内部负责状态机 PENDING→PROCESSING→COMPLETED/FAILED）
+    // 已是 PROCESSING/COMPLETED 会抛 code=400，属正常幂等情况，交给后续轮询判定
+    try {
+        await processMaterialService(materialId, userId)
+    } catch (err) {
+        if (!(err instanceof MaterialProcessError) || err.code !== 400) {
+            throw err
+        }
+    }
+
+    // 轮询直至终态
     for (let i = 0; i < MAX_POLLS; i++) {
         const updated = await findMaterialByIdDao(materialId)
-        if (updated?.status === 3) {
+        if (updated?.status === MaterialStatus.COMPLETED) {
             return { id: updated.id, status: updated.status, draftId: updated.draftId, ossFileId: updated.ossFileId }
         }
-        if (updated?.status === 4) {
+        if (updated?.status === MaterialStatus.FAILED) {
             throw new Error(`材料处理失败: ${materialId}`)
         }
         await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
