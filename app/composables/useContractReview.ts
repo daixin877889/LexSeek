@@ -6,11 +6,12 @@
  * - mountReview：通过已有 reviewId 恢复
  * - onStance：立场选择后让 workflow 续跑（通过 stance 端点，不走 LangGraph command.resume）
  * - onDownload：下载已完成的批注版 .docx
+ * - onEditRisks：debounce 500ms PATCH risks，成功后标记 hasUnsavedDocxChanges
+ * - onRebuildDocx：重生批注 Word，成功后清标记 + 自动下载
  *
- * MVP 不含 onEditRisks / onRebuildDocx / 消息队列（M5 交付）。
- *
- * 参见 spec §11（合同审查）与 M4 plan Task 2。
+ * 参见 spec §11（合同审查）与 M4/M5 plan。
  */
+import { useDebounceFn } from '@vueuse/core'
 import { toast } from 'vue-sonner'
 import type { contractReviews } from '~~/generated/prisma/client'
 import type {
@@ -18,6 +19,7 @@ import type {
     CreateReviewResponse,
     StanceRequest,
     DownloadResponse,
+    Risk,
 } from '#shared/types/contract'
 
 type ContractRunStatus = 'idle' | 'reviewing' | 'awaiting_stance' | 'completed' | 'failed'
@@ -31,6 +33,15 @@ interface AwaitingStancePayload {
 export function useContractReview() {
     const reviewId = ref<number | null>(null)
     const review = ref<contractReviews | null>(null)
+
+    /**
+     * 本次会话内是否编辑过 risks 且尚未重生 docx。
+     * 仅本会话内有效，跨会话持久化登记留给 M6+。
+     */
+    const hasUnsavedDocxChanges = ref(false)
+
+    /** review.status === 'rebuilding' 时 UI 禁用编辑 + 显示进度 */
+    const isRebuilding = computed(() => review.value?.status === 'rebuilding')
 
     // 延迟创建，在 onStart / mountReview 获取 sessionId 后初始化
     const stream = shallowRef<ReturnType<typeof useStreamChat> | null>(null)
@@ -115,6 +126,7 @@ export function useContractReview() {
         review.value = null
         reviewId.value = null
         stream.value = null
+        hasUnsavedDocxChanges.value = false
 
         const resp = await useApiFetch<CreateReviewResponse>(
             '/api/v1/assistant/contract/reviews',
@@ -143,6 +155,7 @@ export function useContractReview() {
         review.value = null
         reviewId.value = null
         stream.value = null
+        hasUnsavedDocxChanges.value = false
 
         const resp = await useApiFetch<{ review: contractReviews }>(
             `/api/v1/assistant/contract/reviews/${id}`,
@@ -188,6 +201,68 @@ export function useContractReview() {
             console.warn('立场提交后续订失败', err)
             toast.error('连接中断，请重试')
         }
+    }
+
+    /**
+     * 用户编辑 risks 后 debounce 500ms PATCH 到后端。
+     *
+     * 成功：review.value.risks 本地同步更新 + hasUnsavedDocxChanges=true
+     * 失败（含 409 状态不允许）：toast.error 提示，hasUnsavedDocxChanges 保持原值
+     */
+    const onEditRisks = useDebounceFn(async (risks: Risk[]) => {
+        if (!reviewId.value) return
+        const resp = await useApiFetch<{ reviewId: number }>(
+            `/api/v1/assistant/contract/reviews/${reviewId.value}`,
+            { method: 'PATCH', body: { risks }, showError: false } as any,
+        )
+        if (!resp) {
+            toast.error('保存风险清单失败')
+            return
+        }
+        if (review.value) {
+            review.value = { ...review.value, risks: risks as unknown as contractReviews['risks'] }
+        }
+        hasUnsavedDocxChanges.value = true
+    }, 500)
+
+    /**
+     * 根据最新 risks 触发后端重生批注 Word，成功后自动下载新文件。
+     *
+     * 关键行为：
+     * - 入口立即 toast.info 等待中（rebuild 耗时 > 10s 常见）
+     * - 用 useApiFetch.onBusinessError 捕获 code，区分 429（占位中）vs 500（失败）
+     * - 成功：刷 review + hasUnsavedDocxChanges=false + toast.success + <a download> 触发浏览器下载
+     */
+    async function onRebuildDocx() {
+        if (!reviewId.value) return
+        toast.info('正在重新生成批注，请稍候...')
+
+        let bizCode: number | null = null
+        const resp = await useApiFetch<{ reviewedFileId: number; downloadUrl: string }>(
+            `/api/v1/assistant/contract/reviews/${reviewId.value}/rebuild-docx`,
+            {
+                method: 'POST',
+                showError: false,
+                onBusinessError: (r: { code: number }) => { bizCode = r.code },
+            } as any,
+        )
+        if (!resp) {
+            if (bizCode === 429) toast.warning('批注正在重新生成中，请稍候')
+            else toast.error('重生批注失败，请稍后重试')
+            return
+        }
+
+        await refreshReview(reviewId.value)
+        hasUnsavedDocxChanges.value = false
+        toast.success('批注已重生')
+
+        const a = document.createElement('a')
+        a.href = resp.downloadUrl
+        a.download = ''
+        a.style.display = 'none'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
     }
 
     /** 拉取签名 URL 并通过隐藏 <a download> 触发浏览器下载 */
@@ -249,11 +324,15 @@ export function useContractReview() {
         error,
         interruptData,
         awaitingStance,
+        hasUnsavedDocxChanges,
+        isRebuilding,
         // 动作
         onStart,
         mountReview,
         onStance,
         onDownload,
+        onEditRisks,
+        onRebuildDocx,
         resumeInterrupt,
         stopGeneration,
         cancelReview,
