@@ -96,19 +96,13 @@
 import { CalendarIcon, SparklesIcon } from 'lucide-vue-next'
 import { useDebounceFn } from '@vueuse/core'
 import type { DateValue } from 'reka-ui'
-import type { Placeholder } from '#shared/types/document'
-
-interface DocumentTemplateWithPlaceholders {
-  id: number
-  name: string
-  placeholders?: Placeholder[] | null
-}
+import type { DocumentTemplate, Placeholder } from '#shared/types/document'
 
 const props = defineProps<{
   /** 各字段当前值 */
   values: Record<string, string | null>
   /** 模板（用于获取字段列表） */
-  template: DocumentTemplateWithPlaceholders
+  template: DocumentTemplate
   /** AI 建议值（可选） */
   suggestions?: Record<string, string>
 }>()
@@ -119,7 +113,7 @@ const emit = defineEmits<{
 
 // 提取 placeholders 列表
 const placeholders = computed<Placeholder[]>(
-  () => (props.template.placeholders as Placeholder[] | null | undefined) ?? [],
+  () => props.template.placeholders ?? [],
 )
 
 // 本地副本，避免直接改 props（immutable 原则）

@@ -216,7 +216,7 @@ describe('文书模板 CRUD API', () => {
 
             await listHandler(makeEvent({ userId: user.id, query: { scope: 'global' } }) as any)
             expect(mockListDAO).toHaveBeenCalledWith(
-                expect.objectContaining({ scope: 'global' }),
+                expect.objectContaining({ scope: 'global', viewerUserId: user.id }),
             )
         })
 
@@ -226,7 +226,17 @@ describe('文书模板 CRUD API', () => {
 
             await listHandler(makeEvent({ userId: user.id, query: { scope: 'user' } }) as any)
             expect(mockListDAO).toHaveBeenCalledWith(
-                expect.objectContaining({ scope: 'user' }),
+                expect.objectContaining({ scope: 'user', viewerUserId: user.id }),
+            )
+        })
+
+        it('任何查询都透传 viewerUserId（避免越权暴露他人私人模板）', async () => {
+            const user = await createTestUser()
+            userIds.push(user.id)
+
+            await listHandler(makeEvent({ userId: user.id, query: {} }) as any)
+            expect(mockListDAO).toHaveBeenCalledWith(
+                expect.objectContaining({ viewerUserId: user.id }),
             )
         })
 

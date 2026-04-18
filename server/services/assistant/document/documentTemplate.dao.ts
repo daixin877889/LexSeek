@@ -41,6 +41,17 @@ export interface ListDocumentTemplatesInput {
     q?: string
     skip: number
     take: number
+    /**
+     * 权限过滤：当前查看者 user.id。
+     *
+     * - `scope='user'` → 仅返回该用户自己的私人模板（`WHERE userId = viewerUserId`）
+     * - `scope='global'` → 不受影响，返回全部 global 模板
+     * - 未传 `scope`（混合视图）→ 返回 `global` + 当前用户自己的 `user` 模板
+     * - `viewerUserId=undefined`（仅内部脚本/管理端使用）→ 不做用户维度过滤
+     *
+     * 前台 API 必须传入当前登录用户 id，防止越权暴露他人私人模板。
+     */
+    viewerUserId?: number
 }
 
 // ==================== DAO 方法 ====================
@@ -88,9 +99,27 @@ export async function getDocumentTemplateDAO(id: number) {
 export async function listDocumentTemplatesDAO(input: ListDocumentTemplatesInput) {
     const where: Prisma.documentTemplatesWhereInput = { deletedAt: null }
 
-    if (input.scope) where.scope = input.scope
     if (input.category) where.category = input.category
     if (input.q) where.name = { contains: input.q, mode: 'insensitive' }
+
+    // 作用域 + 用户维度过滤：
+    //  - scope='global' → 全局模板（viewerUserId 无影响）
+    //  - scope='user'   → 仅当前用户自己的私人模板
+    //  - 未传 scope     → global ∪ 当前用户的 user 模板
+    //  - viewerUserId=undefined 时不做用户维度过滤（仅限内部脚本/管理端）
+    if (input.scope === 'global') {
+        where.scope = 'global'
+    } else if (input.scope === 'user') {
+        where.scope = 'user'
+        if (input.viewerUserId !== undefined) {
+            where.userId = input.viewerUserId
+        }
+    } else if (input.viewerUserId !== undefined) {
+        where.OR = [
+            { scope: 'global' },
+            { scope: 'user', userId: input.viewerUserId },
+        ]
+    }
 
     const [list, total] = await Promise.all([
         prisma.documentTemplates.findMany({

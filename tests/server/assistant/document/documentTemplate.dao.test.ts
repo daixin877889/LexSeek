@@ -400,6 +400,102 @@ describe('documentTemplate.dao', () => {
             expect(result.total).toBeGreaterThanOrEqual(0)
             expect(Array.isArray(result.list)).toBe(true)
         })
+
+        // --------- viewerUserId 权限过滤 ---------
+
+        it('scope=user + viewerUserId：仅返回 viewer 自己的私人模板', async () => {
+            const userA = await createTestUser()
+            const userB = await createTestUser()
+            testIds.userIds.push(userA.id, userB.id)
+
+            const ossA = await createTestOssFile({ userId: userA.id }, testIds)
+            testIds.ossFileIds.push(ossA.id)
+            const ossB = await createTestOssFile({ userId: userB.id }, testIds)
+            testIds.ossFileIds.push(ossB.id)
+
+            const tplA = await createDocumentTemplateDAO({
+                name: `A私人_${Date.now()}`,
+                category: '合同',
+                scope: 'user',
+                userId: userA.id,
+                ossFileId: ossA.id,
+                placeholders: [],
+            })
+            testIds.templateIds.push(tplA.id)
+
+            const tplB = await createDocumentTemplateDAO({
+                name: `B私人_${Date.now()}`,
+                category: '合同',
+                scope: 'user',
+                userId: userB.id,
+                ossFileId: ossB.id,
+                placeholders: [],
+            })
+            testIds.templateIds.push(tplB.id)
+
+            const res = await listDocumentTemplatesDAO({
+                scope: 'user',
+                skip: 0,
+                take: 50,
+                viewerUserId: userA.id,
+            })
+            const ids = res.list.map(t => t.id)
+            expect(ids).toContain(tplA.id)
+            expect(ids).not.toContain(tplB.id)
+        })
+
+        it('未传 scope + viewerUserId：返回 global + viewer 自己的 user 模板，排除他人私人模板', async () => {
+            const uniqueCategory = `混合视图_${Date.now()}`
+            const userA = await createTestUser()
+            const userB = await createTestUser()
+            testIds.userIds.push(userA.id, userB.id)
+
+            const ossA = await createTestOssFile({ userId: userA.id }, testIds)
+            testIds.ossFileIds.push(ossA.id)
+            const ossB = await createTestOssFile({ userId: userB.id }, testIds)
+            testIds.ossFileIds.push(ossB.id)
+
+            const globalTpl = await createDocumentTemplateDAO({
+                name: `全局_${Date.now()}`,
+                category: uniqueCategory,
+                scope: 'global',
+                userId: null,
+                ossFileId: ossA.id,
+                placeholders: [],
+            })
+            testIds.templateIds.push(globalTpl.id)
+
+            const aUserTpl = await createDocumentTemplateDAO({
+                name: `A私人2_${Date.now()}`,
+                category: uniqueCategory,
+                scope: 'user',
+                userId: userA.id,
+                ossFileId: ossA.id,
+                placeholders: [],
+            })
+            testIds.templateIds.push(aUserTpl.id)
+
+            const bUserTpl = await createDocumentTemplateDAO({
+                name: `B私人2_${Date.now()}`,
+                category: uniqueCategory,
+                scope: 'user',
+                userId: userB.id,
+                ossFileId: ossB.id,
+                placeholders: [],
+            })
+            testIds.templateIds.push(bUserTpl.id)
+
+            const res = await listDocumentTemplatesDAO({
+                category: uniqueCategory,
+                skip: 0,
+                take: 50,
+                viewerUserId: userA.id,
+            })
+            const ids = res.list.map(t => t.id)
+            expect(ids).toContain(globalTpl.id)
+            expect(ids).toContain(aUserTpl.id)
+            expect(ids).not.toContain(bUserTpl.id)
+        })
     })
 
     // ==================== updateDocumentTemplateDAO ====================

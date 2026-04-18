@@ -36,7 +36,14 @@ export default defineEventHandler(async (event) => {
 
     try {
         const { scope, category, q, skip, take } = parsed.data
-        const result = await listDocumentTemplatesDAO({ scope, category, q, skip, take })
+        const result = await listDocumentTemplatesDAO({
+            scope,
+            category,
+            q,
+            skip,
+            take,
+            viewerUserId: user.id,
+        })
         return resSuccess(event, '获取模板列表成功', {
             list: result.list,
             total: result.total,

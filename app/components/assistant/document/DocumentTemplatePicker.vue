@@ -14,6 +14,26 @@
       </TabsList>
     </Tabs>
 
+    <!-- 来源筛选 + 管理入口 -->
+    <div class="flex items-center justify-between flex-wrap gap-2">
+      <Tabs :model-value="currentScope" @update:model-value="onScopeChange">
+        <TabsList class="h-8 p-0.5">
+          <TabsTrigger value="all" class="text-xs px-3 h-7">全部</TabsTrigger>
+          <TabsTrigger value="user" class="text-xs px-3 h-7">我的</TabsTrigger>
+          <TabsTrigger value="global" class="text-xs px-3 h-7">公共</TabsTrigger>
+        </TabsList>
+      </Tabs>
+      <Button
+        variant="outline"
+        size="sm"
+        class="h-7 text-xs"
+        @click="goManageTemplates"
+      >
+        <SettingsIcon class="size-3.5 mr-1" />
+        管理我的模板
+      </Button>
+    </div>
+
     <!-- 加载状态 -->
     <div v-if="status === 'pending'" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
       <div
@@ -29,7 +49,16 @@
       class="flex flex-col items-center justify-center py-10 text-muted-foreground"
     >
       <FileTextIcon class="size-10 mb-2 opacity-40" />
-      <p class="text-sm">暂无模板</p>
+      <p class="text-sm">{{ emptyText }}</p>
+      <Button
+        v-if="currentScope === 'user'"
+        variant="link"
+        size="sm"
+        class="h-auto mt-1 p-0 text-xs"
+        @click="goManageTemplates"
+      >
+        去上传 →
+      </Button>
     </div>
 
     <!-- 模板卡片网格 -->
@@ -47,10 +76,21 @@
         ]"
         @click="selectTemplate(tpl.id)"
       >
-        <!-- 已选标记 -->
+        <!-- 作用域标识 -->
+        <span
+          v-if="tpl.scope === 'user'"
+          class="absolute top-2 right-2 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200 px-1.5 py-0.5 text-[10px] font-medium"
+        >
+          我的
+        </span>
+
+        <!-- 已选标记（用户模板场景下位置让给"我的"标签） -->
         <span
           v-if="selectedTemplateId === tpl.id"
-          class="absolute top-2 right-2 flex items-center gap-1 text-xs font-medium text-primary"
+          :class="[
+            'absolute flex items-center gap-1 text-xs font-medium text-primary',
+            tpl.scope === 'user' ? 'top-2 right-11' : 'top-2 right-2',
+          ]"
         >
           <CheckIcon class="size-3" />
           已选
@@ -77,7 +117,7 @@
 </template>
 
 <script lang="ts" setup>
-import { CheckIcon, FileTextIcon } from 'lucide-vue-next'
+import { CheckIcon, FileTextIcon, SettingsIcon } from 'lucide-vue-next'
 import { DOCUMENT_CATEGORIES, type DocumentCategoryKey } from '#shared/types/document'
 
 interface TemplateItem {
@@ -85,7 +125,7 @@ interface TemplateItem {
   name: string
   description?: string | null
   category: string
-  scope: string
+  scope: 'global' | 'user'
   ossFileId?: number | null
 }
 
@@ -96,11 +136,13 @@ interface ListTemplatesResponse {
   take: number
 }
 
+type ScopeFilter = 'all' | 'user' | 'global'
+
 const props = defineProps<{
   /** 可预选分类 */
   category?: DocumentCategoryKey
-  /** 作用域 */
-  scope?: 'global' | 'user'
+  /** 初始来源筛选，默认 'all'（混合显示） */
+  initialScope?: ScopeFilter
 }>()
 
 const emit = defineEmits<{
@@ -110,12 +152,13 @@ const emit = defineEmits<{
 // 当前选中的模板 ID（通过 v-model:template-id）
 const selectedTemplateId = defineModel<number | null>('templateId', { default: null })
 
-const currentCategory = ref<string>(props.category ?? DOCUMENT_CATEGORIES[0].key)
+const currentCategory = ref<string>(props.category ?? DOCUMENT_CATEGORIES[0]!.key)
+const currentScope = ref<ScopeFilter>(props.initialScope ?? 'all')
 
-// 拉取模板列表
+// 拉取模板列表（scope=all 时不传 scope，让 API 返回 global + 自己的 user 模板）
 const queryParams = computed(() => {
   const q: Record<string, string> = { category: currentCategory.value }
-  if (props.scope) q.scope = props.scope
+  if (currentScope.value !== 'all') q.scope = currentScope.value
   return q
 })
 
@@ -126,6 +169,12 @@ const { data: listData, status, refresh } = useApi<ListTemplatesResponse>(
 
 const templates = computed(() => listData.value?.list ?? [])
 
+const emptyText = computed(() => {
+  if (currentScope.value === 'user') return '你还没有上传过这一分类下的模板'
+  if (currentScope.value === 'global') return '该分类暂无公共模板'
+  return '暂无模板'
+})
+
 const selectedTemplateName = computed(
   () => templates.value.find((t: TemplateItem) => t.id === selectedTemplateId.value)?.name ?? '',
 )
@@ -133,6 +182,11 @@ const selectedTemplateName = computed(
 function onCategoryChange(val: string | number) {
   currentCategory.value = String(val)
   // 切换分类后清除已选（避免选了别的分类的模板）
+  selectedTemplateId.value = null
+}
+
+function onScopeChange(val: string | number) {
+  currentScope.value = String(val) as ScopeFilter
   selectedTemplateId.value = null
 }
 
@@ -146,6 +200,11 @@ function clearTemplate() {
   selectedTemplateId.value = null
 }
 
-// 分类变化时重新拉取（useApi query 是响应式的，无需手动 refresh）
-watch(currentCategory, () => refresh())
+function goManageTemplates() {
+  navigateTo('/dashboard/document/templates')
+}
+
+// 分类/来源变化时 useApi 的 query 响应式会自动重拉，无需手动 refresh
+// 保留 refresh 引用避免未使用告警
+void refresh
 </script>
