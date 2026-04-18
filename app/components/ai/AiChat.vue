@@ -39,6 +39,8 @@ interface Props {
   // 任务队列
   showTaskQueue?: boolean
   todos?: readonly TodoItem[]
+  // 文件按钮点击回调（替代默认的本地文件选择，用于接入外部材料选择弹框）
+  onFileButtonClick?: () => void
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -118,11 +120,23 @@ function handleSubmit(data: AiPromptSubmitData) {
 }
 
 // 暴露 promptInput 的 reset 方法，供父组件在入队成功后清空输入框
-const promptInputRef = ref<{ reset: () => void } | null>(null)
+// addFiles / selectedFileIds 用于外部材料选择弹框与输入框联动（见 AiPromptInput defineExpose）
+interface PromptInputExposed {
+  reset: () => void
+  addFiles: (files: unknown[]) => void
+  readonly selectedFileIds: number[]
+}
+const promptInputRef = ref<PromptInputExposed | null>(null)
 
 defineExpose({
   resetPrompt() {
     promptInputRef.value?.reset()
+  },
+  addFiles(files: unknown[]) {
+    promptInputRef.value?.addFiles(files)
+  },
+  get selectedFileIds(): number[] {
+    return promptInputRef.value?.selectedFileIds ?? []
   },
 })
 </script>
@@ -178,6 +192,7 @@ defineExpose({
             <AiPromptInput ref="promptInputRef" :loading="loading" :disabled="promptDisabled" :placeholder="promptPlaceholder"
               :enable-file-upload="enableFileUpload" :show-thinking-toggle="showThinkingToggle" :thinking="thinking"
               :queue-length="queueLength" :queue-full="queueFull" :is-stopping="isStopping"
+              :on-file-button-click="onFileButtonClick"
               @submit="handleSubmit" @stop="emit('stop')" @update:thinking="(v) => emit('update:thinking', v)" />
           </div>
         </div>
@@ -216,6 +231,7 @@ defineExpose({
           <AiPromptInput ref="promptInputRef" :loading="loading" :disabled="promptDisabled" :placeholder="promptPlaceholder"
             :enable-file-upload="enableFileUpload" :show-thinking-toggle="showThinkingToggle" :thinking="thinking"
             :queue-length="queueLength" :queue-full="queueFull" :is-stopping="isStopping"
+            :on-file-button-click="onFileButtonClick"
             @submit="handleSubmit" @stop="emit('stop')" @update:thinking="(v) => emit('update:thinking', v)" />
         </div>
       </div>
