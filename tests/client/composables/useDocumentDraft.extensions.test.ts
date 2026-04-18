@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { shallowRef } from 'vue'
+import { shallowRef, nextTick } from 'vue'
 
 // ── mock @langchain/vue：避免真实 useStream 在测试环境下报错 ─────────────────
 
@@ -22,11 +22,17 @@ const mockStreamStop = vi.fn().mockResolvedValue(undefined)
 // 用 shallowRef 承载 values/messages，测试通过 mockStreamValues.value = ... 驱动 interrupt
 const mockStreamValues = shallowRef<any>(undefined)
 const mockStreamMessages = shallowRef<any[]>([])
+// isLoading 在队列测试中需要精确控制：stream 空闲 vs 正在 loading
+const mockStreamIsLoading = shallowRef(false)
+// 捕获 useStreamChat 传入的 onCustomEvent，测试通过它模拟 status_change 事件，
+// 从而驱动 useStreamChat 内部 runStatus 变化
+let capturedOnCustomEvent: ((data: unknown) => void) | null = null
 vi.mock('@langchain/vue', () => ({
     FetchStreamTransport: vi.fn().mockImplementation(function () { return {} }),
-    useStream: vi.fn(() => {
+    useStream: vi.fn((opts: any) => {
+        capturedOnCustomEvent = opts?.onCustomEvent ?? null
         const obj: Record<string, any> = {
-            isLoading: shallowRef(false),
+            isLoading: mockStreamIsLoading,
             error: shallowRef(null),
             submit: mockStreamSubmit,
             stop: mockStreamStop,
@@ -220,5 +226,145 @@ describe('useDocumentDraft agent actions', () => {
         }
         expect(c.interruptData.value).toEqual({ field: '乙方', question: '请填写乙方' })
         expect(c.isInterrupted.value).toBe(true)
+    })
+})
+
+// ── 单 session 消息队列 ────────────────────────────────────────────────────
+
+describe('useDocumentDraft queue', () => {
+    beforeEach(() => {
+        mockFetch.mockReset()
+        mockStreamSubmit.mockReset()
+        mockStreamStop.mockClear()
+        mockStreamValues.value = undefined
+        mockStreamMessages.value = []
+        mockStreamIsLoading.value = false
+        capturedOnCustomEvent = null
+    })
+
+    async function mountReady() {
+        mockFetch
+            .mockResolvedValueOnce({
+                id: 1, sessionId: 's-1', values: {}, templateId: 7, status: 'ready',
+            })
+            .mockResolvedValueOnce({ id: 7, name: 't', placeholders: [] })
+        const c = useDocumentDraft()
+        await c.mountDraft(1)
+        mockStreamSubmit.mockClear()
+        return c
+    }
+
+    it('enqueueMessage 在容量内入队并返回 true', () => {
+        const c = useDocumentDraft()
+        const ok = c.enqueueMessage('请把甲方填为张三')
+        expect(ok).toBe(true)
+        expect(c.currentQueue.value).toHaveLength(1)
+        expect(c.currentQueue.value[0]!.text).toBe('请把甲方填为张三')
+        expect(c.currentQueue.value[0]!.id).toBeTruthy()
+        expect(c.currentQueue.value[0]!.thinking).toBe(false)
+        expect(typeof c.currentQueue.value[0]!.enqueuedAt).toBe('number')
+    })
+
+    it('enqueueMessage 超过 QUEUE_MAX_SIZE 时返回 false 且不修改队列', () => {
+        const c = useDocumentDraft()
+        for (let i = 0; i < 5; i++) c.enqueueMessage(`msg-${i}`)
+        expect(c.currentQueue.value).toHaveLength(5)
+        const ok = c.enqueueMessage('overflow')
+        expect(ok).toBe(false)
+        expect(c.currentQueue.value).toHaveLength(5)
+        expect(c.currentQueue.value.some(i => i.text === 'overflow')).toBe(false)
+    })
+
+    it('removeQueueItem 按 id 删除单条', () => {
+        const c = useDocumentDraft()
+        c.enqueueMessage('a')
+        c.enqueueMessage('b')
+        const firstId = c.currentQueue.value[0]!.id
+        c.removeQueueItem(firstId)
+        expect(c.currentQueue.value).toHaveLength(1)
+        expect(c.currentQueue.value[0]!.text).toBe('b')
+    })
+
+    it('clearQueue 清空整个队列', () => {
+        const c = useDocumentDraft()
+        c.enqueueMessage('a')
+        c.enqueueMessage('b')
+        c.clearQueue()
+        expect(c.currentQueue.value).toHaveLength(0)
+    })
+
+    it('runStatus=failed 时 isQueuePaused=true，queuePauseReason=failed', async () => {
+        const c = await mountReady()
+        expect(c.isQueuePaused.value).toBe(false)
+        // 通过捕获的 onCustomEvent 驱动 useStreamChat 内部 runStatus 变为 failed
+        capturedOnCustomEvent?.({ type: 'status_change', status: 'failed', error: 'boom' })
+        await nextTick()
+        expect(c.isQueuePaused.value).toBe(true)
+        expect(c.queuePauseReason.value).toBe('failed')
+    })
+
+    it('runStatus=cancelled 时 queuePauseReason=stopped', async () => {
+        const c = await mountReady()
+        capturedOnCustomEvent?.({ type: 'status_change', status: 'cancelled' })
+        await nextTick()
+        expect(c.isQueuePaused.value).toBe(true)
+        expect(c.queuePauseReason.value).toBe('stopped')
+    })
+
+    it('runStatus=completed 且 stream 空闲时自动派发队首消息', async () => {
+        const c = await mountReady()
+        c.enqueueMessage('请帮我填乙方')
+        expect(c.currentQueue.value).toHaveLength(1)
+        mockStreamIsLoading.value = false
+        // 触发 completed：watch 应调用 sendMessage 提交队首消息
+        capturedOnCustomEvent?.({ type: 'status_change', status: 'completed' })
+        await nextTick()
+        expect(c.currentQueue.value).toHaveLength(0)
+        expect(mockStreamSubmit).toHaveBeenCalledTimes(1)
+        expect(mockStreamSubmit).toHaveBeenCalledWith(
+            expect.objectContaining({
+                messages: [{ type: 'human', content: '请帮我填乙方' }],
+            }),
+            undefined,
+        )
+    })
+
+    it('isQueuePaused=true 时 completed 事件不会派发队首', async () => {
+        const c = await mountReady()
+        // 先通过 failed 进入暂停态
+        capturedOnCustomEvent?.({ type: 'status_change', status: 'failed' })
+        await nextTick()
+        c.enqueueMessage('msg1')
+        capturedOnCustomEvent?.({ type: 'status_change', status: 'completed' })
+        await nextTick()
+        // 暂停中不派发
+        expect(mockStreamSubmit).not.toHaveBeenCalled()
+        expect(c.currentQueue.value).toHaveLength(1)
+    })
+
+    it('resumeQueue 清除暂停标记并派发就绪的队首消息', async () => {
+        const c = await mountReady()
+        capturedOnCustomEvent?.({ type: 'status_change', status: 'failed' })
+        await nextTick()
+        c.enqueueMessage('msg1')
+        mockStreamIsLoading.value = false
+
+        c.resumeQueue()
+        await nextTick()
+
+        expect(c.isQueuePaused.value).toBe(false)
+        expect(c.queuePauseReason.value).toBeNull()
+        expect(c.currentQueue.value).toHaveLength(0)
+        expect(mockStreamSubmit).toHaveBeenCalledTimes(1)
+    })
+
+    it('stream 仍在 loading 时 completed 不派发（边界：isLoading 未落回）', async () => {
+        const c = await mountReady()
+        c.enqueueMessage('msg1')
+        mockStreamIsLoading.value = true
+        capturedOnCustomEvent?.({ type: 'status_change', status: 'completed' })
+        await nextTick()
+        expect(mockStreamSubmit).not.toHaveBeenCalled()
+        expect(c.currentQueue.value).toHaveLength(1)
     })
 })

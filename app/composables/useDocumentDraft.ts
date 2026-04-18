@@ -9,6 +9,7 @@
  * 参见 spec §10.2。
  */
 import { useDebounceFn } from '@vueuse/core'
+import { nanoid } from 'nanoid'
 import type { documentDrafts } from '~~/generated/prisma/client'
 import type {
     CreateDraftRequest,
@@ -17,6 +18,7 @@ import type {
     ExportDraftResponse,
     DocumentTemplate,
 } from '#shared/types/document'
+import { QUEUE_MAX_SIZE, type QueueItem, type QueuePauseReason } from './chatQueueActions'
 
 type DocumentRunStatus = 'idle' | 'filling' | 'ready' | 'exported' | 'failed'
 
@@ -215,6 +217,71 @@ export function useDocumentDraft() {
     const interruptData = computed(() => stream.value?.interruptData.value ?? null)
     const isInterrupted = computed(() => interruptData.value != null)
 
+    // ── 单 session 消息队列 ────────────────────────────────────────────────
+    //
+    // 复用 chatQueueActions 的 QueueItem 类型和 QUEUE_MAX_SIZE 常量；
+    // 因单 session 不需要 Map<sessionId, items[]>，直接用 ref<QueueItem[]> +
+    // 不可变更新（filter / concat）实现。
+    const currentQueue = ref<QueueItem[]>([])
+    const isQueuePaused = ref(false)
+    const queuePauseReason = ref<QueuePauseReason>(null)
+
+    function enqueueMessage(text: string): boolean {
+        if (currentQueue.value.length >= QUEUE_MAX_SIZE) return false
+        currentQueue.value = [
+            ...currentQueue.value,
+            {
+                id: nanoid(),
+                text,
+                thinking: false,
+                enqueuedAt: Date.now(),
+            },
+        ]
+        return true
+    }
+
+    function removeQueueItem(id: string) {
+        currentQueue.value = currentQueue.value.filter(i => i.id !== id)
+    }
+
+    function clearQueue() {
+        currentQueue.value = []
+    }
+
+    /** 尝试派发：仅在未暂停、stream 已挂载且非 loading 时取队首发送 */
+    function dispatchNextIfReady() {
+        if (isQueuePaused.value) return
+        if (!stream.value || stream.value.isLoading.value) return
+        const head = currentQueue.value[0]
+        if (!head) return
+        currentQueue.value = currentQueue.value.slice(1)
+        sendMessage(head.text)
+    }
+
+    function resumeQueue() {
+        isQueuePaused.value = false
+        queuePauseReason.value = null
+        dispatchNextIfReady()
+    }
+
+    // 监听 stream runStatus：failed/cancelled 暂停、completed 自动派发下一条。
+    // stream 未挂载时 getter 返回 undefined，挂载后切换引用，watch 重新追踪新 ref —
+    // 此行为符合预期：未挂载时没有 run 可监控。
+    watch(
+        () => stream.value?.runStatus.value,
+        (status) => {
+            if (status === 'failed') {
+                isQueuePaused.value = true
+                queuePauseReason.value = 'failed'
+            } else if (status === 'cancelled') {
+                isQueuePaused.value = true
+                queuePauseReason.value = 'stopped'
+            } else if (status === 'completed') {
+                dispatchNextIfReady()
+            }
+        },
+    )
+
     onUnmounted(() => {
         stopStreamWatch?.()
     })
@@ -235,5 +302,13 @@ export function useDocumentDraft() {
         resumeInterrupt,
         interruptData,
         isInterrupted,
+        // 队列
+        currentQueue,
+        isQueuePaused,
+        queuePauseReason,
+        enqueueMessage,
+        removeQueueItem,
+        clearQueue,
+        resumeQueue,
     }
 }
