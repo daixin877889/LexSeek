@@ -391,161 +391,6 @@ async function seedDocumentDraftTokenRule(prismaClient: PrismaClient): Promise<v
 }
 
 /**
- * Seed: contractReviewMain 节点 + 系统提示词 v1
- *
- * - 模型优先复用 caseMain 的 modelId
- * - 若 caseMain 配置的是 reasoner 模型（name 包含 reasoner/r1），退回首个非 reasoner 的启用 chat 模型
- * - 回退模型不存在时报错，提示运维补齐 chat 模型配置
- */
-async function seedContractReviewMainNode(prismaClient: PrismaClient): Promise<void> {
-    // 1. 取 caseMain 的 modelId 作为初始候选
-    const caseMain = await prismaClient.nodes.findUnique({ where: { name: 'caseMain' } })
-    let contractModelId = caseMain?.modelId
-
-    if (contractModelId == null) {
-        // caseMain 不存在，直接取首个启用的 chat 模型
-        const firstChat = await prismaClient.models.findFirst({
-            where: {
-                status: 1,
-                modelType: 'chat',
-                NOT: [{ name: { contains: 'reasoner' } }, { name: { contains: '-r1' } }],
-            },
-            orderBy: { id: 'asc' },
-        })
-        if (!firstChat) {
-            throw new Error('[seed] 无可用 chat 模型，请先在 models 表添加支持 tool_choice 的模型后再执行 contractReviewMain seed')
-        }
-        contractModelId = firstChat.id
-        console.warn(
-            `[seed] caseMain 不存在，contractReviewMain 使用首个可用 chat 模型: ${firstChat.name} (id=${firstChat.id})`,
-        )
-    } else {
-        // caseMain 存在，校验其模型是否为 reasoner 类型
-        const caseMainModel = await prismaClient.models.findUnique({ where: { id: contractModelId } })
-        const isReasoner = caseMainModel?.name?.toLowerCase().includes('reasoner') || caseMainModel?.name?.toLowerCase().includes('-r1')
-        if (isReasoner) {
-            console.warn(
-                `[seed] contractReviewMain 不能用 reasoner 模型（${caseMainModel?.name}），退回首个非 reasoner chat 模型`,
-            )
-            const nonReasoner = await prismaClient.models.findFirst({
-                where: {
-                    status: 1,
-                    modelType: 'chat',
-                    NOT: [{ name: { contains: 'reasoner' } }, { name: { contains: '-r1' } }],
-                },
-                orderBy: { id: 'asc' },
-            })
-            if (!nonReasoner) {
-                throw new Error('[seed] 无可用非 reasoner chat 模型，contractReviewMain seed 无法执行')
-            }
-            console.warn(`[seed] contractReviewMain 将使用模型: ${nonReasoner.name} (id=${nonReasoner.id})`)
-            contractModelId = nonReasoner.id
-        }
-    }
-
-    // 2. upsert contractReviewMain 节点（已存在则保留配置，不覆盖人工修订）
-    const node = await prismaClient.nodes.upsert({
-        where: { name: 'contractReviewMain' },
-        update: {},
-        create: {
-            name: 'contractReviewMain',
-            title: '合同审查主Agent',
-            description: '按 responseFormat 输出结构化风险清单，并通过 parseAndAskStance 工具中断请求用户立场',
-            type: 'agent',
-            priority: 40,
-            modelId: contractModelId,
-            tools: ['parseAndAskStance'],
-            status: 1,
-        },
-    })
-
-    // 3. 提示词 v1（find-then-create 保证幂等；已存在则不覆盖内容）
-    const systemPromptContent = `你是 LexSeek 的合同审查助手。用户上传了一份合同，你按下面的流程审查：
-
-# 任务流程
-1. 调用 parseAndAskStance 工具：工具会解析合同、识别甲乙方、请求用户审查立场。该工具会 interrupt 暂停等待用户输入。
-2. 工具返回后，你会得到以下字段（在 ToolMessage 里）：
-   - stance / stanceLabel：用户选定的立场
-   - stanceFocus：立场审查重点（按 SKILL.md 原始协议；neutral 立场是官方扩展，标准为"识别所有可能产生歧义或权利义务不对等的条款，不偏向任何一方"）
-   - partyA / partyB / contractType：合同基础信息
-   - paragraphs：完整段落数组（带 index）
-3. 按 stance / stanceFocus 逐段审查合同，按响应格式（response schema）输出结构化结果（risks + summary）。
-
-# 审查要求
-- 逐段审查所有对当前立场方不利 / 权利义务不对等 / 存在法律风险的条款
-- 每处问题输出一条 Risk，字段见 response schema 中的 description
-- high / medium 级别 Risk **必须**额外提供 suggestedClauseText（AI 重写后的完整条款）
-- 使用专业法律术语，禁用感叹号
-- 引用具体法条（《民法典》《劳动合同法》《合同法》等及条号）
-- 宁可多标，不可漏标
-- summary 以 Markdown 简要说明合同整体风险画像、主要问题集中领域、建议行动顺序
-
-# 当前元信息（systemPrompt 变量注入）
-- reviewId：{{reviewId}}
-- 合同类型（若已识别）：{{contractType}}
-
-# 段落引用规则
-- clauseIndex 从工具返回的 paragraphs 数组索引取值（0-based）
-- clauseText 必须是 paragraphs 中对应段落的完整文本
-- 禁止编造段落`
-
-    const existing = await prismaClient.prompts.findFirst({
-        where: { nodeId: node.id, type: 'system', version: 'v1', deletedAt: null },
-    })
-    if (!existing) {
-        await prismaClient.prompts.create({
-            data: {
-                name: 'contractReview_system',
-                title: '合同审查系统提示词 v1',
-                content: systemPromptContent,
-                variables: [],
-                version: 'v1',
-                type: 'system',
-                status: 1,
-                nodeId: node.id,
-            },
-        })
-    }
-
-    console.log('[seed] contractReviewMain 节点 + 提示词 v1 完成')
-}
-
-/**
- * Seed: contract_review_token 积分消耗规则
- *
- * 参考 assistant_token / case_analysis_token 的字段结构（group=agentToken, unit=千tokens）。
- * 积分单价与 discount 由运营后续调整，此处只保证运行时有可用规则。
- */
-async function seedContractReviewTokenRule(prismaClient: PrismaClient): Promise<void> {
-    // 优先参考 assistant_token，其次 case_analysis_token，都不存在时使用默认值
-    const reference =
-        (await prismaClient.pointConsumptionItems.findUnique({ where: { key: 'assistant_token' } })) ??
-        (await prismaClient.pointConsumptionItems.findUnique({ where: { key: 'case_analysis_token' } }))
-
-    const pointAmount = reference?.pointAmount ?? 1
-    const discount = reference?.discount ?? 1
-    const unit = reference?.unit ?? '千tokens'
-    const group = reference?.group ?? 'agentToken'
-
-    await prismaClient.pointConsumptionItems.upsert({
-        where: { key: 'contract_review_token' },
-        update: {},
-        create: {
-            key: 'contract_review_token',
-            group,
-            name: '合同审查 token 计费',
-            description: '合同审查按模型 token 用量扣减积分',
-            unit,
-            pointAmount,
-            discount,
-            status: 1,
-        },
-    })
-
-    console.log('[seed] contract_review_token 积分规则完成')
-}
-
-/**
  * 让位：把 seedData.sql 中原 sort ∈ [5, 9] 的 dashboard 顶级菜单整体下移 2 格，
  * 为法律助手三条菜单（sort=4/5/6）腾出位置。
  *
@@ -823,24 +668,13 @@ async function main(): Promise<void> {
     await seedDocumentTemplates(prisma)
     await seedDocumentMainNode(prisma)
     await seedDocumentDraftTokenRule(prisma)
-    await seedContractReviewMainNode(prisma)
-    await seedContractReviewTokenRule(prisma)
 }
 
-// CLI 入口守卫：只在"直接执行本文件"时跑 main()
-// 模式来源：仓库既有 `scripts/importDocumentTemplates.ts:301`；Prisma 7 用 tsx 跑 seed，此表达式在 tsx / bun / node 下均可正确判断
-if (import.meta.url === `file://${process.argv[1]}`) {
-    main()
-        .catch((err) => {
-            console.error('[seed] 执行失败：', err)
-            process.exitCode = 1
-        })
-        .finally(async () => {
-            await prisma.$disconnect()
-        })
-}
-
-export {
-    seedContractReviewMainNode,
-    seedContractReviewTokenRule,
-}
+main()
+    .catch((err) => {
+        console.error('[seed] 执行失败：', err)
+        process.exitCode = 1
+    })
+    .finally(async () => {
+        await prisma.$disconnect()
+    })
