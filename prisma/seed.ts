@@ -473,9 +473,9 @@ async function seedAssistantRouters(prismaClient: PrismaClient): Promise<void> {
         {
             name: 'dashboard-assistant-contract',
             title: '合同审查',
-            path: '/dashboard/contract',
+            path: '/dashboard/assistant/contract',
             icon: 'lucideIcons.FileSearchIcon',
-            description: '合同审查（占位，开发中）',
+            description: '合同审查',
             sort: 5,
         },
         {
