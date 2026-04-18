@@ -158,7 +158,7 @@
 
 - [ ] **Step 3: 最小修复**
 
-  按用户选定的方向改动代码。**原则**：只改造成 bug 的那一行 / 那一处判断，不顺手重构。
+  按用户选定的方向改动代码。**原则**：只改用户确认方向涉及的最小代码块，不顺手重构、不额外扩展。具体改什么行依赖用户在检查点 A 的回复，不在本 plan 内预判。
 
 - [ ] **Step 4: 运行测试确认通过 + 手工回归**
 
@@ -213,7 +213,7 @@
 
 - [ ] **Step 3: 按方向修复**
 
-  用户确认的方向一般是：在 `replacePlaceholders` 前对每个段落容器合并相邻 Text 节点的文本，替换后写回第一个节点、其余清空。**把 `replacePlaceholders` 从组件内提成导出纯函数**以便单测。
+  按用户在检查点 A 选定的方向实现。不在本 plan 内预判具体代码——等用户确认后再写。实现时若涉及把内部函数提出为导出纯函数（便于单测），那步骤 1 的测试 import 路径需同步。
 
 - [ ] **Step 4: 运行通过 + 手工回归**
 
@@ -613,7 +613,20 @@
   const isInterrupted = computed(() => interruptData.value != null)
   ```
 
-  在 return 对象里暴露：`sendMessage, stopGeneration, resumeInterrupt, interruptData, isInterrupted, stream`（stream 也暴露，供 AiChat 消费 messages / loading）。
+  在 return 对象里暴露具体字段（**不暴露 stream 整体**以避免 composable 内部耦合）：
+  ```ts
+  return {
+      // ...已有：draft, template, runStatus, onStart, onFieldChange, onExport, mountDraft
+      messages: computed(() => stream.value?.messages.value ?? []),
+      isLoading: computed(() => !!stream.value?.isLoading.value),
+      error: computed(() => stream.value?.error.value ?? null),
+      sendMessage,
+      stopGeneration,
+      resumeInterrupt,
+      interruptData,
+      isInterrupted,
+  }
+  ```
 
 - [ ] **Step 4: 运行通过**
 
@@ -634,7 +647,7 @@
 - Modify: `app/composables/useDocumentDraft.ts`
 - Modify: `tests/client/composables/useDocumentDraft.extensions.test.ts`
 
-参考 `useChatSessionManager`（`app/composables/useChatSessionManager.ts`）的队列集成方式，但更简单——**单 session**，不需要 Map<sessionId, QueueItem[]>，可以直接用 `QueueItem[]`。
+**复用说明**：复用 `chatQueueActions` 的 `QueueItem` 类型和 `QUEUE_MAX_SIZE` 常量（保证和小索的队列行为一致）；**不复用** `enqueueAction / removeAction / clearAction` 纯函数（它们以 `Map<sessionId, items[]>` 为入参，单 session 场景套用 Map 反而笨拙），直接对 `ref<QueueItem[]>` 做不可变更新。
 
 - [ ] **Step 1: 写失败测试**
 
@@ -1060,42 +1073,135 @@
 
 ---
 
-## Task 11: 工作区 — 材料弹框集成
+## Task 11: 工作区 — 材料弹框集成（照抄 cases/create.vue）
+
+**背景**：`app/components/ai/AiChat.vue` 当前未透传 `onFileButtonClick` 给内部 `AiPromptInput`，也未通过 `defineExpose` 暴露 `selectedFileIds / addFiles`。需要小幅扩展 AiChat 接口（不改原有行为）后，才能照抄 `cases/create.vue` 的模式。
+
+### Task 11.1 — 扩展 `AiChat` 接口（前置）
+
+**Files:**
+- Modify: `app/components/ai/AiChat.vue`
+- Test: `tests/client/components/AiChat.props.test.ts`
+
+- [ ] **Step 1: 写失败测试**
+
+  ```ts
+  import { mount } from '@vue/test-utils'
+  import { describe, it, expect, vi } from 'vitest'
+  import AiChat from '~/components/ai/AiChat.vue'
+
+  describe('AiChat file-button integration', () => {
+    it('passes onFileButtonClick to internal AiPromptInput', async () => {
+      const handler = vi.fn()
+      const wrapper = mount(AiChat, {
+        props: { messages: [], enableFileUpload: true, onFileButtonClick: handler, panelMode: 'left' },
+      })
+      // 文件按钮通过 Paperclip icon 定位（AiPromptInput 内部的上传按钮）
+      const fileBtn = wrapper.find('button:has(.lucide-paperclip)')
+      expect(fileBtn.exists()).toBe(true)
+      await fileBtn.trigger('click')
+      expect(handler).toHaveBeenCalled()
+    })
+
+    it('exposes selectedFileIds and addFiles via ref', async () => {
+      const wrapper = mount(AiChat, { props: { messages: [], enableFileUpload: true, panelMode: 'left' } })
+      const vm = wrapper.vm as unknown as { selectedFileIds: number[]; addFiles: (f: unknown[]) => void }
+      expect(Array.isArray(vm.selectedFileIds)).toBe(true)
+      expect(typeof vm.addFiles).toBe('function')
+    })
+  })
+  ```
+
+- [ ] **Step 2: 运行确认失败**
+
+  `npx vitest run tests/client/components/AiChat.props.test.ts --reporter=verbose`
+  Expected: FAIL
+
+- [ ] **Step 3: 最小扩展 AiChat**
+
+  在 `app/components/ai/AiChat.vue`：
+
+  1. `interface Props` 增加 `onFileButtonClick?: () => void`
+  2. 两处 `<AiPromptInput ...>` 标签追加 `:on-file-button-click="onFileButtonClick"`
+  3. `defineExpose` 扩展：
+     ```ts
+     defineExpose({
+         resetPrompt() { promptInputRef.value?.reset() },
+         addFiles(files: unknown[]) { (promptInputRef.value as any)?.addFiles(files) },
+         get selectedFileIds(): number[] { return (promptInputRef.value as any)?.selectedFileIds ?? [] },
+     })
+     ```
+
+  > 不改 `AiPromptInput.vue`（已有 `onFileButtonClick` prop + `defineExpose` 的 `addFiles/selectedFileIds`），只在 AiChat 层做透传。
+
+- [ ] **Step 4: 运行通过**
+
+  Expected: PASS
+
+- [ ] **Step 5: 现有调用方回归**
+
+  `npx vitest run tests/client/components --reporter=verbose`
+  确认 `AssistantChatPanel / CaseDetailXiaosuo` 等依赖 AiChat 的测试不回归。
+
+- [ ] **Step 6: Commit**
+
+  ```bash
+  git add app/components/ai/AiChat.vue tests/client/components/AiChat.props.test.ts
+  git commit -m "feat(ai): AiChat 透传 onFileButtonClick + 暴露 selectedFileIds/addFiles"
+  ```
+
+### Task 11.2 — 工作区集成材料选择弹框（照抄 cases/create.vue）
 
 **Files:**
 - Modify: `app/pages/dashboard/document/drafts/[id].vue`
 
-- [ ] **Step 1: 引入材料选择器**
+- [ ] **Step 1: 照抄 create.vue 的 ref + 事件处理**
 
-  在 `<template>` 悬浮窗外层追加（与 Dialog 同级）：
+  在 `<script setup>` 里确认（Task 10 已加但此处明确化）：
+  ```ts
+  // 对照 app/pages/dashboard/cases/create.vue:134-138
+  const materialSelectorRef = ref<{ openDialog: () => void } | null>(null)
+  const aiChatRef = ref<{ addFiles: (f: unknown[]) => void; selectedFileIds: number[] } | null>(null)
+
+  function openMaterialSelector() { materialSelectorRef.value?.openDialog() }
+  function handleFilesFromSelector(files: unknown[]) { aiChatRef.value?.addFiles(files) }
+  const selectedFileIds = computed(() => aiChatRef.value?.selectedFileIds ?? [])
+  ```
+
+- [ ] **Step 2: 悬浮窗内 AiChat 挂 ref + 传 onFileButtonClick**
+
+  在 Task 10 的 `<AiChat ...>` 上加 `ref="aiChatRef"` 和 `:on-file-button-click="openMaterialSelector"`（若 Task 10 未加则此时补）。
+
+- [ ] **Step 3: 工作区页面追加 CaseAnalysisMaterialSelector**
+
+  在 Dialog 同级追加（对照 `cases/create.vue:32-36`）：
   ```vue
   <CaseAnalysisMaterialSelector
       ref="materialSelectorRef"
-      :disabled-file-ids="promptSelectedFileIds"
+      :disabled-file-ids="selectedFileIds"
       @files-selected="handleFilesFromSelector"
   />
   ```
 
-  在 `<script setup>` 里补：
-  ```ts
-  const promptSelectedFileIds = computed(() => promptInputRef.value?.selectedFileIds ?? [])
-  ```
+- [ ] **Step 4: 文件类型过滤（对应用户追加约束 C1）**
 
-  对照 `app/components/assistant/AssistantChatPanel.vue` 确认 `AiChat` 的 `:on-file-button-click` prop 会透传给内部 `AiPromptInput` 的文件按钮；悬浮窗里 `<AiChat ... :on-file-button-click="openMaterialSelector">` 已在 Task 10 加过，这里只需把 `ref="promptInputRef"` 挂到 AiChat（AiChat 已透出 `resetPrompt` ref；若 `selectedFileIds` / `addFiles` 未透出则需在 `AiChat.vue` 导出层补一行 `defineExpose`——照抄 `AiChat.vue` 现有 defineExpose 的 key 列表，新增 `selectedFileIds` 和 `addFiles` 透出 `AiPromptInput` 的同名 ref）。
+  **必须**先 Read `app/components/caseAnalysis/materialSelector.vue` 查 `fileTypeOptions` 数组，列出当前默认支持的扩展名清单。
 
-- [ ] **Step 2: 手工验证**
+  判断：
+  - 若**完全匹配**"案件材料类型"——本 step 无需改动
+  - 若**更宽**（例如包含文书场景不需要的类型）——给 `materialSelector.vue` 增加可选 prop `:accept-file-types?: string[]`，在工作区传入精确白名单（`['.docx', '.pdf', '.txt']`），**不改组件内部默认值**
 
-  工作区 → AI 生成 → 点 prompt 的上传按钮 → 弹框出现 → 选文件 → 关闭弹框 → 文件 chip 出现在 prompt 输入框上方 → 发送消息 → 请求带 sourceFileIds。
+  将 Read 结果和判断结论写进本 step 的 commit message 或实施报告中，留痕可追溯。
 
-- [ ] **Step 3: 核对文件类型白名单**
+- [ ] **Step 5: 手工验证**
 
-  对照 `CaseAnalysisMaterialSelector` 默认 `fileTypeOptions`，若文书场景需额外过滤（例如只要 `.docx/.pdf/.txt`），给组件加一个可选 prop `:accept-file-types`，**不改默认值**。否则跳过此步。
+  工作区 → 点 "✨ AI 生成" → 点 prompt 区的文件按钮 → 弹框出现 → 选文件 → 关闭 → 文件 chip 出现在 prompt 输入框 → 发送消息 → Network 看到 sourceFileIds 被带入（或后续 AI 引用）。
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 6: Commit**
 
   ```bash
   git add app/pages/dashboard/document/drafts/[id].vue app/components/caseAnalysis/materialSelector.vue
-  git commit -m "feat(assistant): 工作区集成材料选择弹框 (复用 MaterialSelector)"
+  git commit -m "feat(assistant): 工作区集成材料选择弹框 (照抄 cases/create.vue)"
   ```
 
 ---
@@ -1123,17 +1229,18 @@
   }))
 
   const rows = [
-    { id: 1, templateId: 7, templateName: '租赁合同', caseId: null, status: 'ready', updatedAt: '2026-04-18T00:00:00Z' },
-    { id: 2, templateId: 8, templateName: '起诉状', caseId: 7, status: 'exported', updatedAt: '2026-04-17T10:00:00Z' },
+    { id: 1, templateId: 7, caseId: null, status: 'ready', updatedAt: '2026-04-18T00:00:00Z' },
+    { id: 2, templateId: 8, caseId: 7, status: 'exported', updatedAt: '2026-04-17T10:00:00Z' },
   ]
 
   describe('DraftList', () => {
-    it('renders draft rows after mount', async () => {
+    it('renders draft rows after mount with template id fallback', async () => {
       mockFetch.mockResolvedValueOnce({ items: rows, total: 2, skip: 0, take: 10 })
       const wrapper = mount(DraftList)
       await flushPromises()
-      expect(wrapper.text()).toContain('租赁合同')
-      expect(wrapper.text()).toContain('起诉状')
+      // 后端暂未返回 templateName，前端 fallback 显示 "模板 #ID"
+      expect(wrapper.text()).toContain('模板 #7')
+      expect(wrapper.text()).toContain('模板 #8')
     })
 
     it('calls DELETE API when delete button clicked', async () => {
@@ -1284,60 +1391,7 @@
   git commit -m "feat(assistant): 新增 DraftList 组件 (分页 + 删除)"
   ```
 
-### Task 12.2 — 后端给草稿列表附带模板名
-
-**Files:**
-- Modify: `server/services/assistant/document/documentDraft.dao.ts`（`listDocumentDraftsDAO` include template name）
-- Modify: `server/api/v1/assistant/document/drafts.get.ts`（响应映射）
-- Modify: `tests/server/assistant/document/documentDraft.dao.test.ts`
-
-- [ ] **Step 1: 写失败测试**
-
-  在 `tests/server/assistant/document/documentDraft.dao.test.ts` 加：
-  ```ts
-  it('listDocumentDraftsDAO includes template name in each row', async () => {
-      const tpl = await prisma.documentTemplates.create({
-          data: { name: '测试模板', category: 'contract', scope: 'global', status: 1, placeholders: [], fileId: null, ossFileId: null, userId: null, description: null },
-      })
-      await createDocumentDraftDAO({
-          userId: 1, templateId: tpl.id, sessionId: randomUUID(),
-          status: 'pending', values: {}, sourceRef: null, metadata: null, caseId: null,
-      })
-      const result = await listDocumentDraftsDAO({ userId: 1, skip: 0, take: 10 })
-      expect(result.list[0]).toHaveProperty('template.name', '测试模板')
-  })
-  ```
-
-- [ ] **Step 2: 运行确认失败**
-
-- [ ] **Step 3: 修改 DAO**
-
-  ```ts
-  db.documentDrafts.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      skip: filters.skip,
-      take: filters.take,
-      include: {
-          template: { select: { id: true, name: true } },
-      },
-  }),
-  ```
-
-- [ ] **Step 4: 修改 drafts.get.ts 响应映射**
-
-  把 `result.list` 映射出 `templateName`，字段重命名以匹配 DraftList 的 TS 类型。
-
-- [ ] **Step 5: 通过**
-
-- [ ] **Step 6: Commit**
-
-  ```bash
-  git add server/ tests/server/
-  git commit -m "feat(assistant): 草稿列表返回附带模板名"
-  ```
-
-### Task 12.3 — 首页 index.vue 改版
+### Task 12.2 — 首页 index.vue 改版
 
 **Files:**
 - Modify: `app/pages/dashboard/document/index.vue`
@@ -1418,55 +1472,56 @@
 
 ---
 
-## Task 13: E2E 全链路测试
+## Task 13: E2E 核心链路测试
 
 **Files:**
 - Create: `tests/e2e/document-draft-workflow.spec.ts`
+
+聚焦核心链路「多轮修改」这一原始需求（#1），**不覆盖 AI 回复**（依赖 LLM 响应速度不稳）。AI 窗口只验证"能打开 + 能发出请求"。
 
 - [ ] **Step 1: 写 Playwright 场景**
 
   ```ts
   import { test, expect } from '@playwright/test'
 
-  test.describe('文书生成全链路', () => {
-    test('选模板 → 建草稿 → 退出 → 回来 → 手填 + AI 填 → 导出', async ({ page, login }) => {
+  test.describe('文书生成核心链路', () => {
+    test('选模板 → 建草稿 → 手填 → 退出 → 回来 → 字段仍在 → 导出可用', async ({ page, login }) => {
       await login()
 
       // 1. 首页选模板
       await page.goto('/dashboard/document')
-      await page.getByRole('button', { name: /新建|选择模板/ }).first().click()
-      // ...选中一个公共模板（例如"简易借款合同"）
       const firstTemplate = page.locator('button:has(.lucide-file-text)').first()
       await firstTemplate.click()
 
-      // 2. 跳转工作区，URL 形如 /dashboard/document/drafts/\d+
+      // 2. 跳转工作区
       await expect(page).toHaveURL(/\/dashboard\/document\/drafts\/\d+/)
       await expect(page.getByText('编辑字段')).toBeVisible()
+      const workspaceUrl = page.url()
 
       // 3. 手填一个字段
       const firstField = page.locator('input, textarea').first()
       await firstField.fill('张三')
+      // 等 debounce 500ms + PATCH 落库
+      await page.waitForTimeout(800)
 
       // 4. 退出到首页
       await page.getByRole('button', { name: '返回' }).click()
       await expect(page).toHaveURL('/dashboard/document')
 
-      // 5. 从"我的草稿"列表点"进入"
+      // 5. "我的草稿" 里出现刚建的那条
       await expect(page.getByText('我的草稿')).toBeVisible()
       await page.getByRole('button', { name: '进入' }).first().click()
-      await expect(page).toHaveURL(/\/dashboard\/document\/drafts\/\d+/)
+      await expect(page).toHaveURL(workspaceUrl)
 
-      // 6. 字段值仍在
+      // 6. 字段值仍在（多轮修改的关键验证）
       await expect(page.locator('input, textarea').first()).toHaveValue('张三')
 
-      // 7. 打开 AI 窗发一条消息
+      // 7. AI 窗可打开（不发消息，不等 AI 回复）
       await page.getByRole('button', { name: /AI 生成/ }).click()
-      await page.getByPlaceholder(/告诉 AI/).fill('请帮我填乙方')
-      await page.keyboard.press('Enter')
-      // 不等 AI 回复，仅确认窗口和请求发出
+      await expect(page.getByPlaceholder(/告诉 AI/)).toBeVisible()
 
-      // 8. 导出（按钮激活）
-      await expect(page.getByRole('button', { name: /导出 \.docx/ })).toBeEnabled({ timeout: 15000 })
+      // 8. 导出按钮可用
+      await expect(page.getByRole('button', { name: /导出 \.docx/ })).toBeVisible()
     })
   })
   ```
@@ -1485,34 +1540,18 @@
 
 ---
 
-## Task 14: 旧 DocumentDraftPanel 回归
+## 完成标准（Definition of Done）
 
-**Files:**
-- Read only: `app/pages/dashboard/cases/[id].vue` 或案件详情页引用 DocumentDraftPanel 的地方
-
-- [ ] **Step 1: 运行案件场景回归**
-
-  在案件详情页的"文书"tab 走完整流程：选模板 → 输入材料 → AI 填 → 导出。
-
-- [ ] **Step 2: 跑现有测试**
-
-  `npx vitest run tests/client/components/assistant/DocumentDraftPanel 2>&1 | tail`
-  `npx vitest run tests/server/assistant/document 2>&1 | tail`
-  Expected: 全部 PASS
-
-- [ ] **Step 3: 类型全量**
-
-  `npx nuxi typecheck 2>&1 | tail -30`
-  Expected: 无错误
-
-**本任务无 commit**，仅作为集成验证 gate。若发现回归，回到对应 Task 修。
-
----
-
-## 完成标准
-
-- [ ] 7 个原始问题全部 ✅
+**代码与测试**
 - [ ] `npx vitest run` 全绿
 - [ ] `npx nuxi typecheck` 无错误
-- [ ] Playwright E2E pass
-- [ ] 案件详情页文书 tab 行为无回归
+- [ ] `npx playwright test tests/e2e/document-draft-workflow.spec.ts` pass
+
+**需求交付**
+- [ ] 7 个原始问题全部 ✅（#1 多轮修改 / #2 材料弹框 / #3 手填入口 / #4 Agent 可见 / #5 分栏+悬浮 / #6 上传显示 / #7 预览占位符）
+- [ ] 6 个追加约束全部 ✅（云盘类型过滤 / 单会话预留多会话 / 队列+中断 / bug 不预判 / 照抄 create.vue / 醒目 AI 按钮）
+
+**回归（必须手工 + 自动化双验证）**
+- [ ] 案件详情页文书 tab（`DocumentDraftPanel` 场景）：选模板 → 提供材料 → AI 填 → 导出 行为无回归
+- [ ] `npx vitest run tests/client/components/assistant/DocumentDraftPanel` 通过
+- [ ] `npx vitest run tests/server/assistant/document` 通过
