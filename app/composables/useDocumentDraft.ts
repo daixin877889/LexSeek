@@ -114,6 +114,42 @@ export function useDocumentDraft() {
         stream.value!.submit(undefined)
     }
 
+    /**
+     * 二次进入工作区时通过已有 draftId 恢复状态
+     *
+     * 与 onStart 区别：不创建新 draft，仅拉取 draft + template，
+     * 再 mountStream 并 submit(undefined) 触发 checkpointer 回放历史消息。
+     */
+    async function mountDraft(id: number) {
+        draft.value = null
+        template.value = null
+        draftId.value = null
+        stream.value = null
+
+        const draftResp = await useApiFetch<documentDrafts>(
+            `/api/v1/assistant/document/drafts/${id}`,
+        )
+        if (!draftResp) {
+            runStatus.value = 'idle'
+            return
+        }
+        draft.value = draftResp
+        draftId.value = draftResp.id
+
+        const tpl = await useApiFetch<DocumentTemplate>(
+            `/api/v1/assistant/document/templates/${draftResp.templateId}`,
+            { showError: false } as any,
+        )
+        if (tpl) template.value = tpl
+
+        runStatus.value = draftResp.status === 'failed'
+            ? 'failed'
+            : (draftResp.status === 'exported' ? 'exported' : 'ready')
+
+        mountStream(draftResp.sessionId)
+        stream.value!.submit(undefined)
+    }
+
     // 409 表示正在生成中，showError: false 由调用方决定如何展示
     const patchField = useDebounceFn(async (fieldName: string, value: string | null) => {
         if (!draftId.value) return
@@ -163,6 +199,7 @@ export function useDocumentDraft() {
         isLoading,
         error,
         onStart,
+        mountDraft,
         onFieldChange,
         onExport,
     }
