@@ -13,6 +13,7 @@ import {
     createDocumentDraftDAO,
     getDocumentDraftDAO,
     updateDocumentDraftDAO,
+    softDeleteDocumentDraftDAO,
 } from './documentDraft.dao'
 import { randomUUID } from 'node:crypto'
 import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
@@ -170,4 +171,27 @@ export async function patchDraftService(
     })
 
     return { draft: updated }
+}
+
+// ==================== deleteDraftService ====================
+
+/**
+ * 软删除草稿：仅归属用户可删除。
+ * 在 DAO 层通过 deletedAt=now 实现软删，getDocumentDraftDAO / listDocumentDraftsDAO 不再返回。
+ */
+export async function deleteDraftService(
+    userId: number,
+    draftId: number,
+): Promise<{ ok: true } | ServiceError> {
+    const draft = await getDocumentDraftDAO(draftId)
+    if (!draft) {
+        return { error: '草稿不存在', code: 404 }
+    }
+
+    if (draft.userId !== userId) {
+        return { error: '无权删除此草稿', code: 403 }
+    }
+
+    await softDeleteDocumentDraftDAO(draftId)
+    return { ok: true }
 }

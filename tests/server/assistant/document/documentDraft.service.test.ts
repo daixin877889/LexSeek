@@ -23,6 +23,7 @@ vi.mock('~~/server/services/assistant/document/documentDraft.dao', () => ({
     updateDocumentDraftDAO: vi.fn(),
     listDocumentDraftsDAO: vi.fn(),
     findDraftBySessionIdDAO: vi.fn(),
+    softDeleteDocumentDraftDAO: vi.fn(),
 }))
 
 vi.mock('~~/server/services/assistant/assistantSession.dao', () => ({
@@ -47,12 +48,14 @@ import {
     createDraftService,
     getDraftService,
     patchDraftService,
+    deleteDraftService,
 } from '~~/server/services/assistant/document/documentDraft.service'
 import { getDocumentTemplateDAO } from '~~/server/services/assistant/document/documentTemplate.dao'
 import {
     createDocumentDraftDAO,
     getDocumentDraftDAO,
     updateDocumentDraftDAO,
+    softDeleteDocumentDraftDAO,
 } from '~~/server/services/assistant/document/documentDraft.dao'
 import { createAssistantSessionDAO } from '~~/server/services/assistant/assistantSession.dao'
 import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
@@ -66,6 +69,7 @@ const mockGetDocumentTemplateDAO = getDocumentTemplateDAO as ReturnType<typeof v
 const mockCreateDocumentDraftDAO = createDocumentDraftDAO as ReturnType<typeof vi.fn>
 const mockGetDocumentDraftDAO = getDocumentDraftDAO as ReturnType<typeof vi.fn>
 const mockUpdateDocumentDraftDAO = updateDocumentDraftDAO as ReturnType<typeof vi.fn>
+const mockSoftDeleteDocumentDraftDAO = softDeleteDocumentDraftDAO as ReturnType<typeof vi.fn>
 const mockCreateAssistantSessionDAO = createAssistantSessionDAO as ReturnType<typeof vi.fn>
 const mockEnqueueRunService = enqueueRunService as ReturnType<typeof vi.fn>
 const mockEnsureMaterialsReadyForDraftService = ensureMaterialsReadyForDraftService as ReturnType<typeof vi.fn>
@@ -414,5 +418,40 @@ describe('patchDraftService', () => {
                 expect.objectContaining({ values: expect.objectContaining({ plaintiff: '王五' }) }),
             )
         })
+    })
+})
+
+// ==================== deleteDraftService ====================
+
+describe('deleteDraftService', () => {
+    it('草稿不存在时返回 { error, code: 404 }', async () => {
+        mockGetDocumentDraftDAO.mockResolvedValue(null)
+
+        const result = await deleteDraftService(100, 999)
+        expect(result).toEqual({ error: '草稿不存在', code: 404 })
+        expect(mockSoftDeleteDocumentDraftDAO).not.toHaveBeenCalled()
+    })
+
+    it('userId 不匹配时返回 { error, code: 403 }', async () => {
+        mockGetDocumentDraftDAO.mockResolvedValue({
+            ...MOCK_DRAFT,
+            userId: 200,
+        })
+
+        const result = await deleteDraftService(100, MOCK_DRAFT.id)
+        expect(result).toEqual({ error: '无权删除此草稿', code: 403 })
+        expect(mockSoftDeleteDocumentDraftDAO).not.toHaveBeenCalled()
+    })
+
+    it('成功软删自己的草稿，返回 { ok: true }', async () => {
+        mockGetDocumentDraftDAO.mockResolvedValue({
+            ...MOCK_DRAFT,
+            userId: 100,
+        })
+        mockSoftDeleteDocumentDraftDAO.mockResolvedValue({ ...MOCK_DRAFT, deletedAt: new Date() })
+
+        const result = await deleteDraftService(100, MOCK_DRAFT.id)
+        expect(result).toEqual({ ok: true })
+        expect(mockSoftDeleteDocumentDraftDAO).toHaveBeenCalledWith(MOCK_DRAFT.id)
     })
 })

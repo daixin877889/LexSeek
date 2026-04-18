@@ -143,3 +143,17 @@ export async function listDocumentDraftsDAO(
 
     return { list, total }
 }
+
+/**
+ * 软删除草稿：设置 deletedAt=now。
+ * 归属校验由 Service 层负责；DAO 层只负责按 id 打标。
+ * @param id 草稿 ID
+ * @param tx 可选事务客户端
+ */
+export async function softDeleteDocumentDraftDAO(id: number, tx?: Prisma.TransactionClient) {
+    const db = tx ?? prisma
+    return db.documentDrafts.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+    })
+}

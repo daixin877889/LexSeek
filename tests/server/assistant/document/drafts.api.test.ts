@@ -40,6 +40,7 @@ vi.mock('~~/server/services/assistant/document/documentDraft.service', () => ({
     createDraftService: vi.fn(),
     getDraftService: vi.fn(),
     patchDraftService: vi.fn(),
+    deleteDraftService: vi.fn(),
 }))
 
 vi.mock('~~/server/services/assistant/document/documentDraft.dao', () => ({
@@ -50,12 +51,14 @@ import {
     createDraftService,
     getDraftService,
     patchDraftService,
+    deleteDraftService,
 } from '~~/server/services/assistant/document/documentDraft.service'
 import { listDocumentDraftsDAO } from '~~/server/services/assistant/document/documentDraft.dao'
 
 const mockCreateDraftService = createDraftService as ReturnType<typeof vi.fn>
 const mockGetDraftService = getDraftService as ReturnType<typeof vi.fn>
 const mockPatchDraftService = patchDraftService as ReturnType<typeof vi.fn>
+const mockDeleteDraftService = deleteDraftService as ReturnType<typeof vi.fn>
 const mockListDraftsDAO = listDocumentDraftsDAO as ReturnType<typeof vi.fn>
 
 // ==================== 动态 import handlers（必须在 mock 之后）====================
@@ -71,6 +74,9 @@ const { default: detailHandler } = await import(
 )
 const { default: patchHandler } = await import(
     '../../../../server/api/v1/assistant/document/drafts/[id].patch'
+)
+const { default: deleteHandler } = await import(
+    '../../../../server/api/v1/assistant/document/drafts/[id].delete'
 )
 
 // ==================== 工具函数 ====================
@@ -379,5 +385,70 @@ describe('PATCH /api/v1/assistant/document/drafts/:id', () => {
             }) as any,
         )
         expect(res.code).toBe(404)
+    })
+})
+
+// ==================== DELETE /drafts/:id ====================
+
+describe('DELETE /api/v1/assistant/document/drafts/:id', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('未登录返回 401', async () => {
+        const res: any = await deleteHandler(makeEvent({ params: { id: '1' } }) as any)
+        expect(res.code).toBe(401)
+        expect(mockDeleteDraftService).not.toHaveBeenCalled()
+    })
+
+    it('id 非数字返回 400', async () => {
+        const res: any = await deleteHandler(
+            makeEvent({ userId: USER_A, params: { id: 'abc' } }) as any,
+        )
+        expect(res.code).toBe(400)
+        expect(mockDeleteDraftService).not.toHaveBeenCalled()
+    })
+
+    it('id 为 0 返回 400', async () => {
+        const res: any = await deleteHandler(
+            makeEvent({ userId: USER_A, params: { id: '0' } }) as any,
+        )
+        expect(res.code).toBe(400)
+        expect(mockDeleteDraftService).not.toHaveBeenCalled()
+    })
+
+    it('id 为负数返回 400', async () => {
+        const res: any = await deleteHandler(
+            makeEvent({ userId: USER_A, params: { id: '-1' } }) as any,
+        )
+        expect(res.code).toBe(400)
+        expect(mockDeleteDraftService).not.toHaveBeenCalled()
+    })
+
+    it('草稿不存在返回 404', async () => {
+        mockDeleteDraftService.mockResolvedValue({ error: '草稿不存在', code: 404 })
+        const res: any = await deleteHandler(
+            makeEvent({ userId: USER_A, params: { id: '999' } }) as any,
+        )
+        expect(res.code).toBe(404)
+        expect(res.message).toContain('草稿不存在')
+    })
+
+    it('删除他人草稿返回 403', async () => {
+        mockDeleteDraftService.mockResolvedValue({ error: '无权删除此草稿', code: 403 })
+        const res: any = await deleteHandler(
+            makeEvent({ userId: USER_B, params: { id: '1' } }) as any,
+        )
+        expect(res.code).toBe(403)
+        expect(res.message).toContain('无权删除此草稿')
+    })
+
+    it('成功软删自己的草稿', async () => {
+        mockDeleteDraftService.mockResolvedValue({ ok: true })
+        const res: any = await deleteHandler(
+            makeEvent({ userId: USER_A, params: { id: '1' } }) as any,
+        )
+        expect(res.success).toBe(true)
+        expect(mockDeleteDraftService).toHaveBeenCalledWith(USER_A, 1)
     })
 })

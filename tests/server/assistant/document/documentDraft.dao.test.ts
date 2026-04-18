@@ -25,6 +25,7 @@ import {
     findDraftBySessionIdDAO,
     updateDocumentDraftDAO,
     listDocumentDraftsDAO,
+    softDeleteDocumentDraftDAO,
 } from '../../../../server/services/assistant/document/documentDraft.dao'
 
 // ==================== 本地测试数据扩展 ====================
@@ -447,6 +448,41 @@ describe('documentDraft.dao', () => {
             // 只有 d1 存在
             expect(result.list.map(d => d.id)).toContain(d1.id)
             expect(result.list.map(d => d.id)).not.toContain(d2.id)
+        })
+    })
+
+    // ==================== softDeleteDocumentDraftDAO ====================
+
+    describe('softDeleteDocumentDraftDAO', () => {
+        it('设置 deletedAt 后 getDocumentDraftDAO 返回 null', async () => {
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+            const template = await createTestTemplate(testIds)
+
+            const draft = await createTestDraft(testIds, user.id, template.id)
+
+            await softDeleteDocumentDraftDAO(draft.id)
+
+            const fetched = await getDocumentDraftDAO(draft.id)
+            expect(fetched).toBeNull()
+
+            // 验证 DB 中确实写入了 deletedAt
+            const raw = await getTestPrisma().documentDrafts.findUnique({ where: { id: draft.id } })
+            expect(raw?.deletedAt).not.toBeNull()
+        })
+
+        it('支持事务 tx 参数', async () => {
+            const user = await createTestUser()
+            testIds.userIds.push(user.id)
+            const template = await createTestTemplate(testIds)
+            const draft = await createTestDraft(testIds, user.id, template.id)
+
+            await getTestPrisma().$transaction(async (tx) => {
+                await softDeleteDocumentDraftDAO(draft.id, tx as any)
+            })
+
+            const fetched = await getDocumentDraftDAO(draft.id)
+            expect(fetched).toBeNull()
         })
     })
 })
