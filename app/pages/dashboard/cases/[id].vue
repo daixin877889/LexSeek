@@ -297,6 +297,9 @@ onMounted(() => {
             @generate-module="handleGenerateModule"
             @batch-generate="handleBatchGenerate"
             @go-to-interrupt="handleGoToInterrupt" />
+          <div v-else-if="activeView === 'documents'" :key="'documents'" class="h-full overflow-y-auto p-4 md:p-6">
+            <DocumentDraftPanel :case-id="caseId" />
+          </div>
           <!-- 其他视图占位 -->
           <div v-else :key="'placeholder'" class="flex items-center justify-center h-full text-muted-foreground">
             当前视图：{{ activeView }}

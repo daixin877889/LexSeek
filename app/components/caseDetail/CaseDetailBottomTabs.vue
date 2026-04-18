@@ -5,6 +5,7 @@ import {
   LayoutDashboardIcon,
   FolderIcon,
   SparklesIcon,
+  FileEditIcon,
 } from 'lucide-vue-next'
 
 interface TabItem {
@@ -19,6 +20,7 @@ const tabs: TabItem[] = [
   { id: 'overview', label: '概览', icon: LayoutDashboardIcon },
   { id: 'materials', label: '材料', icon: FolderIcon },
   { id: 'analysis', label: '分析', icon: SparklesIcon },
+  { id: 'documents', label: '文书', icon: FileEditIcon },
 ]
 </script>
 
