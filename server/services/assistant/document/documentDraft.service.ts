@@ -14,7 +14,7 @@ import {
     getDocumentDraftDAO,
     updateDocumentDraftDAO,
 } from './documentDraft.dao'
-import { createAssistantSessionDAO } from '../assistantSession.dao'
+import { randomUUID } from 'node:crypto'
 import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
 import { ensureMaterialsReadyForDraftService } from '~~/server/services/material/materialPipeline.service'
 import type { DocumentDraftStatus } from '#shared/types/document'
@@ -57,7 +57,19 @@ export async function createDraftService(
         return { error: '无权使用此模板', code: 403 }
     }
 
-    const session = await createAssistantSessionDAO({ userId })
+    // 直接创建 scope='document' 的 caseSession（不复用 createAssistantSessionDAO，后者会硬编码 scope='assistant'
+    // 导致 agentWorker 错误路由到 runAssistantChat 通用助手）
+    const session = await prisma.caseSessions.create({
+        data: {
+            sessionId: randomUUID(),
+            scope: 'document',
+            userId,
+            caseId: caseId ?? null,
+            type: 1,
+            status: 1,
+            title: template.name,
+        },
+    })
     const sessionId = session.sessionId
 
     const sourceRef: Record<string, unknown> = {}

@@ -30,6 +30,31 @@ import type { Placeholder } from '#shared/types/document'
 /** 文书主代理节点名称 */
 const DOCUMENT_MAIN_NODE_NAME = 'documentMain'
 
+/**
+ * 从 draft.sourceRef 构造 Agent 首轮启动指令。
+ * 用户没额外发消息时（前端仅 submit(undefined)），用此 prompt 引导模型按 schema 填充占位符。
+ */
+function buildInitialPromptFromDraft(
+    draft: { sourceRef: unknown },
+    templateName: string,
+): string {
+    const sourceRef = (draft.sourceRef as Record<string, unknown> | null) ?? {}
+    const segments: string[] = [`请为《${templateName}》按字段 schema 生成文书内容。`]
+
+    const text = typeof sourceRef.text === 'string' ? sourceRef.text.trim() : ''
+    if (text) {
+        segments.push(`用户补充说明：\n${text}`)
+    }
+
+    const fileIds = Array.isArray(sourceRef.fileIds) ? sourceRef.fileIds : []
+    if (fileIds.length > 0) {
+        segments.push(`已提供 ${fileIds.length} 份材料文件，请通过 search_case_materials 工具检索内容后填充字段。`)
+    }
+
+    segments.push('必须用 responseFormat 定义的 schema 输出结构化结果；未知字段填空字符串，不要编造。')
+    return segments.join('\n\n')
+}
+
 export interface DocumentAgentOptions {
     /** 用户 ID */
     userId: number
@@ -150,10 +175,16 @@ export async function runDocumentChat(
         ],
     })
 
-    // 9. 构造输入：中断恢复时使用 Command，正常对话使用 HumanMessage
-    const input = command
-        ? new Command({ resume: command })
-        : { messages: [new HumanMessage(message!)] }
+    // 9. 构造输入：中断恢复时使用 Command；否则用用户消息或从 draft.sourceRef 自动组装启动指令
+    // message 为 undefined 是正常场景（创建草稿后首次入队），此时从 draft 的 sourceRef 拼接启动提示
+    let input: Command | { messages: HumanMessage[] }
+    if (command) {
+        input = new Command({ resume: command })
+    }
+    else {
+        const startMessage = message ?? buildInitialPromptFromDraft(draft, template.name)
+        input = { messages: [new HumanMessage(startMessage)] }
+    }
 
     // 10. 流式执行，返回 SSE 格式的 ReadableStream
     return agent.stream(
