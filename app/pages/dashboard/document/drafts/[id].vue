@@ -7,12 +7,13 @@
  * 通过已有 draftId 二次进入：
  * - onMounted 调 mountDraft 恢复草稿与模板
  * - 左侧字段表单（手填 + AI 建议），右侧实时预览
- * - 顶部：返回、模板名称（含关联案件）、导出 .docx
- *
- * 本页不包含 Agent 对话窗与"AI 生成"按钮（Task 10 再加入）。
+ * - 顶部：返回、模板名称（含关联案件）、AI 生成、导出 .docx
+ * - 悬浮 Agent 对话窗 + 队列 / 中断 确认 Dialog
  */
-import { ArrowLeftIcon, Loader2Icon, DownloadIcon } from 'lucide-vue-next'
+import { ArrowLeftIcon, Loader2Icon, DownloadIcon, SparklesIcon, RefreshCw as RefreshCwIcon } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
 import type { documentDrafts } from '~~/generated/prisma/client'
+import { QUEUE_MAX_SIZE } from '~/composables/chatQueueActions'
 
 definePageMeta({
     layout: 'dashboard-layout',
@@ -31,6 +32,20 @@ const {
     onFieldChange,
     onExport,
     mountDraft,
+    // Task 10 新增：Agent 交互与队列
+    messages,
+    sendMessage,
+    stopGeneration,
+    resumeInterrupt,
+    interruptData,
+    isInterrupted,
+    currentQueue,
+    isQueuePaused,
+    queuePauseReason,
+    enqueueMessage,
+    removeQueueItem,
+    clearQueue,
+    resumeQueue,
 } = useDocumentDraft()
 
 const loading = ref(true)
@@ -103,6 +118,91 @@ watch(template, async (tpl) => {
 function goBack() {
     navigateTo('/dashboard/document')
 }
+
+// ========== Task 10：悬浮 Agent 窗 + 队列 / 中断 ==========
+
+const agentOpen = ref(false)
+const isStopping = ref(false)
+const showRetryButton = ref(false)
+const aiChatRef = ref<{ resetPrompt: () => void } | null>(null)
+
+const chatMessages = computed(() => messages.value as any[])
+const chatLoading = computed(() => isLoading.value)
+const queueLen = computed(() => currentQueue.value.length)
+const queueFull = computed(() => queueLen.value >= QUEUE_MAX_SIZE)
+
+function openAgent() {
+    agentOpen.value = true
+}
+
+function handleChatSubmit(data: { text: string; files?: unknown[] }) {
+    if (!data.text.trim() && !data.files?.length) return
+    const shouldEnqueue = chatLoading.value || isQueuePaused.value
+    if (shouldEnqueue) {
+        const ok = enqueueMessage(data.text)
+        if (!ok) {
+            toast.warning(`队列已满（最多 ${QUEUE_MAX_SIZE} 条），请等待当前对话结束或清空队列`)
+        } else {
+            aiChatRef.value?.resetPrompt()
+        }
+    } else {
+        sendMessage(data.text)
+        aiChatRef.value?.resetPrompt()
+    }
+}
+
+async function handleStop() {
+    if (isStopping.value) return
+    if (!chatLoading.value) return
+
+    isStopping.value = true
+    let unwatch: (() => void) | undefined
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const cleanup = () => {
+        isStopping.value = false
+        unwatch?.()
+        if (timer) clearTimeout(timer)
+        unwatch = undefined
+        timer = undefined
+    }
+    unwatch = watch(chatLoading, (loading) => {
+        if (!loading) cleanup()
+    })
+    timer = setTimeout(cleanup, 3000)
+    try {
+        await stopGeneration()
+    } catch (err) {
+        console.error('[document-draft-stop] stopGeneration failed', err)
+        cleanup()
+    }
+}
+
+function handleResumeInterrupt(data: unknown) {
+    resumeInterrupt(data)
+}
+
+// 失败时显示重试按钮（useDocumentDraft 暴露 runStatus: failed）
+watch(runStatus, (status) => {
+    if (status === 'failed') {
+        showRetryButton.value = true
+    } else {
+        showRetryButton.value = false
+    }
+})
+
+function onRetry() {
+    const list = chatMessages.value as any[]
+    const lastUser = [...list].reverse().find((m) => {
+        return typeof m?.getType === 'function' ? m.getType() === 'human' : m?.type === 'human'
+    })
+    if (!lastUser) return
+    showRetryButton.value = false
+    const content = typeof lastUser.content === 'string' ? lastUser.content : ''
+    if (content) sendMessage(content)
+}
+
+// 中断出现时 toast 提示（复用小索）
+useInterruptToast(interruptData)
 </script>
 
 <template>
@@ -122,6 +222,10 @@ function goBack() {
                 </h1>
             </div>
             <div class="flex items-center gap-2">
+                <Button variant="default" class="shadow-sm" @click="openAgent">
+                    <SparklesIcon class="size-4 mr-2" />
+                    AI 生成
+                </Button>
                 <Button :disabled="exportDisabled || isLoading" @click="onExport">
                     <DownloadIcon class="size-4 mr-2" />
                     导出 .docx
@@ -171,5 +275,74 @@ function goBack() {
                 />
             </div>
         </div>
+
+        <!-- 悬浮 Agent 窗 -->
+        <CaseChatWindowShell
+            v-model:open="agentOpen"
+            title="AI 生成助手"
+            :initial-width="420"
+            :initial-height="560"
+        >
+            <AiChat
+                ref="aiChatRef"
+                :messages="chatMessages"
+                :loading="chatLoading"
+                :is-interrupted="isInterrupted"
+                :enable-file-upload="true"
+                :queue-length="queueLen"
+                :queue-full="queueFull"
+                :is-stopping="isStopping"
+                prompt-placeholder="告诉 AI 你想怎么填..."
+                :show-header="false"
+                panel-mode="left"
+                @submit="handleChatSubmit"
+                @stop="handleStop"
+            >
+                <template #prompt-actions>
+                    <div
+                        v-if="showRetryButton && currentQueue.length === 0"
+                        class="flex items-center gap-2 px-4 py-2"
+                    >
+                        <Button size="sm" variant="outline" @click="onRetry">
+                            <RefreshCwIcon class="w-4 h-4 mr-1" />
+                            重试
+                        </Button>
+                    </div>
+                    <AiChatQueueChips
+                        :queue="currentQueue"
+                        :max="QUEUE_MAX_SIZE"
+                        :paused="isQueuePaused"
+                        :pause-reason="queuePauseReason"
+                        @remove="(id) => removeQueueItem(id)"
+                        @resume="() => resumeQueue()"
+                        @clear="() => clearQueue()"
+                    />
+                </template>
+            </AiChat>
+        </CaseChatWindowShell>
+
+        <!-- 中断确认弹窗 -->
+        <Dialog :open="!!interruptData" @update:open="() => {}">
+            <DialogContent
+                class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0 z-[70]"
+                overlay-class="z-[70]"
+                :show-close-button="false"
+                @pointer-down-outside.prevent
+                @escape-key-down.prevent
+                @open-auto-focus.prevent
+            >
+                <DialogHeader class="sr-only">
+                    <DialogTitle>需要您的确认</DialogTitle>
+                    <DialogDescription>请查看并回应 AI 的请求</DialogDescription>
+                </DialogHeader>
+                <div v-if="interruptData" class="p-6">
+                    <CaseInterruptConfirmation
+                        :interrupt="interruptData"
+                        @submit="handleResumeInterrupt"
+                        @cancel="() => {}"
+                    />
+                </div>
+            </DialogContent>
+        </Dialog>
     </div>
 </template>
