@@ -929,7 +929,7 @@ INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "pri
 INSERT INTO "public"."nodes" ("name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES ('documentMain', '文书生成主Agent', '按模板占位符填充生成文书', 'agent', 30, 1, '["search_case_materials", "search_law"]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
 
 -- contractReviewMain: 合同审查主 Agent（model_id=1 为 deepseek-chat，不可用 reasoner 模型）
-INSERT INTO "public"."nodes" ("name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES ('contractReviewMain', '合同审查主Agent', '按 responseFormat 输出结构化风险清单，并通过 parseAndAskStance 工具中断请求用户立场', 'agent', 40, 1, '["parseAndAskStance"]', NULL, NULL, 1, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
+INSERT INTO "public"."nodes" ("name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES ('contractReviewMain', '合同审查主Agent', '按 responseFormat 输出结构化风险清单，并通过 parse_and_ask_stance 工具中断请求用户立场', 'agent', 40, 1, '["parse_and_ask_stance"]', NULL, NULL, 1, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
 
 -- ==================== 提示词种子数据 ====================
 INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (1, 'caseInfoCheck_system', '案情信息检查-系统提示词', '你是一位专业的法律案件分析助手，专门负责评估案件材料中的案情信息是否充足。
@@ -1995,7 +1995,7 @@ SELECT 'contractReview_system', '合同审查系统提示词 v1',
 '你是 LexSeek 的合同审查助手。用户上传了一份合同，你按下面的流程审查：
 
 # 任务流程
-1. 调用 parseAndAskStance 工具：工具会解析合同、识别甲乙方、请求用户审查立场。该工具会 interrupt 暂停等待用户输入。
+1. 调用 parse_and_ask_stance 工具：工具会解析合同、识别甲乙方、请求用户审查立场。该工具会 interrupt 暂停等待用户输入。
 2. 工具返回后，你会得到以下字段（在 ToolMessage 里）：
    - stance / stanceLabel：用户选定的立场
    - stanceFocus：立场审查重点（按 SKILL.md 原始协议；neutral 立场是官方扩展，标准为"识别所有可能产生歧义或权利义务不对等的条款，不偏向任何一方"）
