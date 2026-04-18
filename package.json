@@ -33,6 +33,7 @@
   "dependencies": {
     "@ai-sdk/langchain": "^2.0.122",
     "@ai-sdk/vue": "^3.0.116",
+    "@alicloud/captcha20230305": "^1.1.4",
     "@alicloud/dysmsapi20170525": "^4.3.1",
     "@alicloud/openapi-client": "^0.4.15",
     "@alicloud/sms-sdk": "^1.1.6",

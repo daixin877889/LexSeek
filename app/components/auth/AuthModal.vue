@@ -6,6 +6,10 @@
                 <DialogTitle>{{ title }}</DialogTitle>
                 <DialogDescription>{{ description }}</DialogDescription>
             </DialogHeader>
+            <ClientOnly v-if="open">
+                <AuthAliyunCaptchaHost scene="passwordLogin" />
+                <AuthAliyunCaptchaHost scene="registerSms" />
+            </ClientOnly>
 
             <!-- Tab 切换 -->
             <Tabs v-model="activeTab" class="w-full flex-1 overflow-hidden flex flex-col">
@@ -161,6 +165,8 @@ const emit = defineEmits<{
 // Store
 const authStore = useAuthStore();
 const route = useRoute();
+const passwordLoginCaptcha = useAliyunCaptcha('passwordLogin');
+const registerSmsCaptcha = useAliyunCaptcha('registerSms');
 
 // 当前激活的 Tab
 const activeTab = ref<'login' | 'register'>(props.defaultTab);
@@ -173,6 +179,29 @@ const invitedBy = computed(() => {
 // 监听 defaultTab 变化
 watch(() => props.defaultTab, (newVal) => {
     activeTab.value = newVal;
+});
+
+const preloadCaptcha = async () => {
+    if (!props.open) {
+        return;
+    }
+
+    const captcha = activeTab.value === 'register' ? registerSmsCaptcha : passwordLoginCaptcha;
+    await captcha.preload();
+};
+
+watch(() => props.open, (isOpen) => {
+    if (isOpen) {
+        preloadCaptcha();
+    }
+});
+
+watch(activeTab, () => {
+    preloadCaptcha();
+});
+
+onMounted(() => {
+    preloadCaptcha();
 });
 
 // 登录表单
@@ -221,12 +250,26 @@ const handleLogin = async () => {
         return;
     }
 
-    const success = await authStore.login({
+    let result = await authStore.login({
         phone: loginForm.phone,
         password: loginForm.password,
     });
 
-    if (success) {
+    if (!result.success && result.requiresCaptcha) {
+        try {
+            const captchaVerifyParam = await passwordLoginCaptcha.verify();
+            result = await authStore.login({
+                phone: loginForm.phone,
+                password: loginForm.password,
+                captchaVerifyParam: captchaVerifyParam || undefined,
+            });
+        } catch (captchaError: any) {
+            loginError.value = captchaError?.message || '请完成安全验证后重试';
+            return;
+        }
+    }
+
+    if (result.success) {
         emit('success');
         emit('update:open', false);
         resetForms();
@@ -247,30 +290,36 @@ const getVerificationCode = async () => {
     isGettingCode.value = true;
     registerError.value = '';
 
-    const success = await authStore.sendSmsCode({
-        phone: registerForm.phone,
-        type: SmsType.REGISTER,
-    });
+    try {
+        const captchaVerifyParam = await registerSmsCaptcha.verify();
+        const success = await authStore.sendSmsCode({
+            phone: registerForm.phone,
+            type: SmsType.REGISTER,
+            captchaVerifyParam: captchaVerifyParam || undefined,
+        });
 
-    if (success) {
-        toast.success('验证码已发送');
-        // 启动倒计时
-        countdown.value = 60;
-        countdownTimer = setInterval(() => {
-            if (countdown.value > 0) {
-                countdown.value--;
-            } else {
-                if (countdownTimer) {
-                    clearInterval(countdownTimer);
-                    countdownTimer = null;
+        if (success) {
+            toast.success('验证码已发送');
+            // 启动倒计时
+            countdown.value = 60;
+            countdownTimer = setInterval(() => {
+                if (countdown.value > 0) {
+                    countdown.value--;
+                } else {
+                    if (countdownTimer) {
+                        clearInterval(countdownTimer);
+                        countdownTimer = null;
+                    }
                 }
-            }
-        }, 1000);
-    } else {
-        registerError.value = authStore.error || '获取验证码失败';
+            }, 1000);
+        } else {
+            registerError.value = authStore.error || '获取验证码失败';
+        }
+    } catch (captchaError: any) {
+        registerError.value = captchaError?.message || '安全验证失败，请稍后再试';
+    } finally {
+        isGettingCode.value = false;
     }
-
-    isGettingCode.value = false;
 };
 
 /**

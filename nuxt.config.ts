@@ -159,6 +159,24 @@ export default defineNuxtConfig({
     aliyun: {
       accessKeyId: '',
       accessKeySecret: '',
+      captcha: {
+        enable: false,
+        region: 'cn',
+        prefix: '',
+        dualStack: false,
+        scriptSrc: 'https://o.alicdn.com/captcha-frontend/aliyunCaptcha/AliyunCaptcha.js',
+        sceneIds: {
+          loginSms: '',
+          registerSms: '',
+          resetPasswordSms: '',
+          passwordLogin: '',
+        },
+        loginRisk: {
+          enable: false,
+          threshold: 3,
+          windowSec: 900,
+        },
+      },
       sms: {
         enable: false, // 是否启用短信发送
         signName: '', // 短信签名

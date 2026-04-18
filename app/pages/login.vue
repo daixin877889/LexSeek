@@ -11,6 +11,9 @@
           <GeneralThemeToggle />
         </ClientOnly>
       </div>
+      <ClientOnly>
+        <AuthAliyunCaptchaHost scene="passwordLogin" />
+      </ClientOnly>
       <div class="mx-auto w-full max-w-sm lg:w-96">
         <div class="text-center mb-8">
           <div class="flex justify-center items-center gap-2 mb-2">
@@ -93,6 +96,7 @@ import { ScaleIcon, EyeIcon, EyeOffIcon, Loader2 } from "lucide-vue-next";
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
+const passwordLoginCaptcha = useAliyunCaptcha("passwordLogin");
 
 // 表单数据
 const phone = ref("");
@@ -112,6 +116,8 @@ onMounted(() => {
     phone.value = savedAccount;
     rememberMe.value = true; // 如果有保存的账号，默认勾选"记住我"
   }
+
+  passwordLoginCaptcha.preload();
 });
 
 // 登录处理
@@ -125,11 +131,24 @@ const handleLogin = async () => {
     return;
   }
 
-  authStore.loading = true;
-
   try {
-    const isLoginSuccess = await authStore.login({ phone: phone.value, password: password.value });
-    if (!isLoginSuccess) {
+    let loginResult = await authStore.login({ phone: phone.value, password: password.value });
+
+    if (!loginResult.success && loginResult.requiresCaptcha) {
+      try {
+        const captchaVerifyParam = await passwordLoginCaptcha.verify();
+        loginResult = await authStore.login({
+          phone: phone.value,
+          password: password.value,
+          captchaVerifyParam: captchaVerifyParam || undefined,
+        });
+      } catch (captchaError) {
+        authStore.error = captchaError?.message || "请完成安全验证后重试";
+        return;
+      }
+    }
+
+    if (!loginResult.success) {
       return;
     }
 
@@ -147,8 +166,6 @@ const handleLogin = async () => {
   } catch (error) {
     logger.error("登录失败:", error);
     authStore.error = error.message || "登录失败，请检查您的手机号和密码";
-  } finally {
-    authStore.loading = false;
   }
 };
 

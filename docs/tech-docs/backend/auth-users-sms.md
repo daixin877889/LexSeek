@@ -306,6 +306,67 @@ const result = await sendCaptchaSms(phone, code)
 | `sms.maxFailures` | 验证码最大失败次数 |
 | `sms.lockDurationMs` | 验证码锁定时长 |
 
+### 3.4 阿里云验证码 2.0（一期）
+
+认证相关公开页面新增了阿里云验证码 2.0 接入，用来保护短信发送链路，并在密码登录失败达到阈值后触发补验。
+
+**服务端封装**：
+- `server/services/security/aliyunCaptcha.service.ts`
+- `server/services/security/loginRisk.service.ts`
+- `server/routes/auth-captcha-config.get.ts`
+
+**控制台场景约定**：
+
+| 场景 key | 用途 |
+|------|------|
+| `loginSms` | 短信登录发送验证码 |
+| `registerSms` | 注册页/注册弹窗发送验证码 |
+| `resetPasswordSms` | 找回密码发送验证码 |
+| `passwordLogin` | 密码登录失败阈值后的补验 |
+
+**运行时配置**（`runtimeConfig.aliyun.captcha`）：
+
+| 配置 | 说明 |
+|------|------|
+| `enable` | 是否启用验证码能力 |
+| `region` | `cn` 或 `sgp`，必须与服务端 endpoint 对齐 |
+| `prefix` | 控制台实例身份标 |
+| `dualStack` | 是否走双栈 endpoint |
+| `scriptSrc` | 前端动态加载的验证码脚本地址 |
+| `sceneIds.*` | 各业务场景对应的 SceneId |
+| `loginRisk.enable` | 是否启用密码登录失败阈值风控 |
+| `loginRisk.threshold` | 连续失败达到该次数后，登录接口返回 `429` 要求补验 |
+| `loginRisk.windowSec` | 风控窗口 TTL，单位秒 |
+
+常用环境变量示例：
+- `NUXT_ALIYUN_CAPTCHA_ENABLE`
+- `NUXT_ALIYUN_CAPTCHA_REGION`
+- `NUXT_ALIYUN_CAPTCHA_PREFIX`
+- `NUXT_ALIYUN_CAPTCHA_DUAL_STACK`
+- `NUXT_ALIYUN_CAPTCHA_SCENE_IDS_REGISTER_SMS`
+- `NUXT_ALIYUN_CAPTCHA_SCENE_IDS_RESET_PASSWORD_SMS`
+- `NUXT_ALIYUN_CAPTCHA_SCENE_IDS_PASSWORD_LOGIN`
+- `NUXT_ALIYUN_CAPTCHA_LOGIN_RISK_ENABLE`
+- `NUXT_ALIYUN_CAPTCHA_LOGIN_RISK_THRESHOLD`
+- `NUXT_ALIYUN_CAPTCHA_LOGIN_RISK_WINDOW_SEC`
+
+**前端接入点**：
+- `app/pages/register.vue`：发送注册验证码前先完成 captcha
+- `app/pages/reset-password.vue`：发送重置验证码前先完成 captcha
+- `app/components/auth/AuthModal.vue`：注册 tab 发送验证码前先完成 captcha
+- `app/pages/login.vue` / `app/components/auth/AuthModal.vue`：密码登录首次直接提交；若服务端返回 `429`，前端自动拉起 `passwordLogin` 场景并仅重试一次
+
+**请求契约**：
+- `POST /api/v1/sms/send`：当当前场景启用了 captcha 时，请求体必须包含 `captchaVerifyParam`
+- `POST /api/v1/auth/login/password`：请求体支持可选的 `captchaVerifyParam`；达到阈值但未补验时返回 `429 / 请完成安全验证后重试`
+- `CaptchaVerifyParam` 必须原样透传给阿里云服务端验签，不能裁剪或重组
+
+**测试与本地开发**：
+- 默认建议 `NUXT_ALIYUN_CAPTCHA_ENABLE=false`
+- 默认建议 `NUXT_ALIYUN_CAPTCHA_LOGIN_RISK_ENABLE=false`
+- 这样现有 API 集成测试无需真实 captcha 即可继续运行
+- 如果需要联调真实验证码，除了开启以上配置，还必须配置 `aliyun.accessKeyId/accessKeySecret`
+
 ## 4. 自动导入
 
 以下函数通过 Nuxt 自动导入机制注册，在 API 处理器和其他服务中无需手动 import：

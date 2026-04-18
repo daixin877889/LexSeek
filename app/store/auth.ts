@@ -6,6 +6,11 @@
 const AUTH_STATUS_COOKIE = "auth_status";
 
 export const useAuthStore = defineStore("auth", () => {
+  interface LoginResult {
+    success: boolean;
+    requiresCaptcha: boolean;
+  }
+
   /**
    * 状态
    */
@@ -24,31 +29,51 @@ export const useAuthStore = defineStore("auth", () => {
   /**
    * 用户登录
    */
-  const login = async ({ phone, password }: { phone: string; password: string }): Promise<boolean> => {
+  const login = async ({
+    phone,
+    password,
+    captchaVerifyParam,
+  }: {
+    phone: string;
+    password: string;
+    captchaVerifyParam?: string;
+  }): Promise<LoginResult> => {
     loading.value = true;
     error.value = null;
+    let businessErrorMessage: string | null = null;
+    let businessErrorCode: number | null = null;
 
     const data = await useApiFetch<{ token: string; user: SafeUserInfo }>(
       "/api/v1/auth/login/password",
       {
         method: "POST",
-        body: { phone, password },
+        body: { phone, password, captchaVerifyParam },
         showError: false,
+        onBusinessError: (response) => {
+          businessErrorCode = response.code;
+          businessErrorMessage = response.message;
+        },
       }
     );
 
     loading.value = false;
 
     if (!data || !data.token) {
-      error.value = "登录失败";
-      return false;
+      error.value = businessErrorMessage || "登录失败";
+      return {
+        success: false,
+        requiresCaptcha: businessErrorCode === 429,
+      };
     }
 
     // 登录成功，保存用户信息和认证状态（token 由服务端通过 Set-Cookie 设置）
     const userStore = useUserStore();
     userStore.setUserInfo(data.user);
     isAuthenticated.value = true;
-    return true;
+    return {
+      success: true,
+      requiresCaptcha: false,
+    };
   };
 
   /**
@@ -111,13 +136,21 @@ export const useAuthStore = defineStore("auth", () => {
   /**
    * 发送短信验证码
    */
-  const sendSmsCode = async ({ phone, type }: { phone: string; type: string }): Promise<boolean> => {
+  const sendSmsCode = async ({
+    phone,
+    type,
+    captchaVerifyParam,
+  }: {
+    phone: string;
+    type: string;
+    captchaVerifyParam?: string;
+  }): Promise<boolean> => {
     loading.value = true;
     error.value = null;
 
     const data = await useApiFetch<any>("/api/v1/sms/send", {
       method: "POST",
-      body: { phone, type },
+      body: { phone, type, captchaVerifyParam },
       showError: false,
     });
 
