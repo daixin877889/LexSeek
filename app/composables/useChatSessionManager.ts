@@ -91,12 +91,14 @@ export function useChatSessionManager(options: ChatSessionManagerOptions) {
     // 跨 tab 过期广播过滤：记录每个 session 最近一次应用的 version
     const lastAppliedVersion = new Map<string, number>()
 
-    // tabId 必须在 onMounted 内生成，避免 Nuxt useState 在 SSR 阶段 hydration
-    // 导致同一浏览器的所有 tab 共享同一个 tabId（spec §5.7）
+    // tabId 仅在客户端同步生成：用普通闭包而非 useState 天然每次调用独占一份，不存在
+    // spec §5.7 担心的跨 tab 共享问题；不能走 onMounted —— 本 composable 也会被
+    // useModuleChatManager 通过 scope.run 在异步回调中调用，此时无 component instance，
+    // onMounted 会报警且回调不会触发，导致 tabId 永远为空、跨 tab 回声过滤失效。
     let tabId = ''
-    onMounted(() => {
+    if (import.meta.client) {
         tabId = nanoid()
-    })
+    }
 
     // ── 派生 computed ──
     const currentQueue = computed<QueueItem[]>(() => {
@@ -350,7 +352,7 @@ export function useChatSessionManager(options: ChatSessionManagerOptions) {
         interruptData,
         queuesBySession: queuesBySession as unknown as Map<string, QueueItem[]>,
         queuePausedBy: queuePausedBy as unknown as Map<string, Exclude<QueuePauseReason, null>>,
-        get tabId() { return tabId },  // getter：tabId 在 onMounted 才赋值，需动态读取
+        get tabId() { return tabId },  // getter：SSR 环境下 tabId 为空，getter 便于统一读取
         lastLocalSendSeq,
     })
 
@@ -385,20 +387,20 @@ export function useChatSessionManager(options: ChatSessionManagerOptions) {
         }
     })
 
-    // ── hello 广播：等 tabId 就绪 + session 首次就绪后再发 ──
-    // 不放在 onMounted 里，因为 init() 可能还没跑完、currentSessionId 仍为 null。
-    // 用 watch 响应式触发：首次 currentSessionId 从 null/undefined → 有值时发一次 hello。
+    // ── hello 广播：等 session 首次就绪后再发 ──
+    // 客户端下 tabId 已在 setup 顶层同步生成，SSR 下保持空串；用 watch 响应式触发：
+    // 首次 currentSessionId 从 null/undefined → 有值时发一次 hello。
     // 后续 switchSession 不重发（hello 语义是"本 tab 新加入该 session 集合"，而非"session 切换"）。
     const helloSent = new Set<string>()
     watch(
-        [currentSessionId, () => tabId],  // tabId 也是依赖：onMounted 赋值后触发
-        ([sid, tid]) => {
-            if (!sid || !tid) return
+        currentSessionId,
+        (sid) => {
+            if (!sid || !tabId) return
             if (helloSent.has(sid)) return
             helloSent.add(sid)
-            postCrossTabEvent('chat-queue:hello', { sessionId: sid, tabId: tid })
+            postCrossTabEvent('chat-queue:hello', { sessionId: sid, tabId })
         },
-        { immediate: false },  // 不要 immediate，避免 tabId='' 时误发
+        { immediate: false },
     )
 
     onScopeDispose(() => disposeCurrentChat())
