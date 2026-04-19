@@ -219,5 +219,33 @@ describe('createAndStartContractReviewService', () => {
             })
             expect(mockCreateContractReviewDAO).not.toHaveBeenCalled()
         })
+
+        it('sourceType=upload 但 ossFileId 缺失 → 400', async () => {
+            const result = await createAndStartContractReviewService({
+                userId: 100,
+                sourceType: 'upload',
+            })
+            expect(result).toEqual({ error: 'ossFileId 不能为空', code: 400 })
+            expect(mockFindOssFileByIdDao).not.toHaveBeenCalled()
+        })
+
+        it('sourceType=paste 但 text 为空串 → 400', async () => {
+            const result = await createAndStartContractReviewService({
+                userId: 100,
+                sourceType: 'paste',
+                text: '',
+            })
+            expect(result).toEqual({ error: '粘贴文本不能为空', code: 400 })
+            expect(mockTextToDocxService).not.toHaveBeenCalled()
+        })
+
+        it('未知 sourceType → 400', async () => {
+            const result = await createAndStartContractReviewService({
+                userId: 100,
+                // 服务层第三路 else 分支安全网（zod 已在 handler 层先拦，这里确保服务自守护）
+                sourceType: 'unknown' as unknown as 'upload',
+            })
+            expect(result).toEqual({ error: '不支持的 sourceType', code: 400 })
+        })
     })
 })

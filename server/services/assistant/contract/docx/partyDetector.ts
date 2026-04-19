@@ -36,7 +36,7 @@ export async function detectParties(paragraphs: string[]): Promise<PartyDetectio
 
     const matchA = PARTY_A_REGEX.exec(fullText)
     const matchB = PARTY_B_REGEX.exec(fullText)
-    if (matchA && matchB) {
+    if (matchA?.[1] && matchB?.[1]) {
         return {
             partyA: matchA[1].trim(),
             partyB: matchB[1].trim(),
