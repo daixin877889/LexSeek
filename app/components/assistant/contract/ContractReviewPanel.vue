@@ -131,11 +131,6 @@ watch(isRebuilding, (rebuilding, wasRebuilding) => {
 
 // 浮动风险速览面板：默认显示，用户关闭后可通过 toolbar 重开
 const showFloatingPanel = ref(true)
-
-// TODO (Phase 3 案件页复用)：接入 Word 预览滚动定位；当前仅作为占位，保留 emit 不做动作
-function handleFocusRisk(_riskId: string) {
-    // noop
-}
 </script>
 
 <template>
@@ -197,7 +192,6 @@ function handleFocusRisk(_riskId: string) {
             :risks="review?.risks ?? []"
             :visible="showFloatingPanel"
             @update:visible="(v: boolean) => (showFloatingPanel = v)"
-            @focus-risk="handleFocusRisk"
         />
     </div>
 </template>

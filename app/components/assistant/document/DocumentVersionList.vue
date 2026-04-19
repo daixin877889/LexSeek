@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { EyeIcon, RotateCcwIcon, DownloadIcon, Trash2Icon, PencilIcon } from 'lucide-vue-next'
-import dayjs from 'dayjs'
 import type { DocumentDraftVersion } from '#shared/types/document'
 
 const props = defineProps<{
@@ -31,7 +30,7 @@ function commitRename(id: number) {
 }
 
 function formatTime(iso: string) {
-    return dayjs(iso).format('YYYY-MM-DD HH:mm')
+    return formatDate(iso, 'YYYY-MM-DD HH:mm')
 }
 </script>
 

@@ -116,10 +116,10 @@ const groupedRisks = computed(() => {
     for (const r of props.risks) {
         groups[r.level].push(r)
     }
-    // 组内按 clauseIndex 升序
-    for (const k of Object.keys(groups) as Array<'high' | 'medium' | 'low'>) {
-        groups[k] = [...groups[k]].sort((a, b) => a.clauseIndex - b.clauseIndex)
-    }
+    // 组内按 clauseIndex 升序（原地排序，避免一次额外数组分配）
+    groups.high.sort((a, b) => a.clauseIndex - b.clauseIndex)
+    groups.medium.sort((a, b) => a.clauseIndex - b.clauseIndex)
+    groups.low.sort((a, b) => a.clauseIndex - b.clauseIndex)
     return groups
 })
 

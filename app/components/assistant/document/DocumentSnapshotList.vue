@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { SparklesIcon, HistoryIcon } from 'lucide-vue-next'
-import dayjs from 'dayjs'
 import type { DocumentDraftSnapshot } from '#shared/types/document'
 
 defineProps<{
@@ -12,7 +11,7 @@ const emit = defineEmits<{
 }>()
 
 function formatTime(iso: string) {
-    return dayjs(iso).format('YYYY-MM-DD HH:mm')
+    return formatDate(iso, 'YYYY-MM-DD HH:mm')
 }
 </script>
 
