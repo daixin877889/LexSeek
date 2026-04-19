@@ -70,6 +70,44 @@ describe('detectParties (regex path)', () => {
         }
         expect(hit / SAMPLES.length).toBeGreaterThanOrEqual(0.8)
     })
+
+    it('括号包围写法「出租方（甲方）：」应识别为正则命中', async () => {
+        const paragraphs = [
+            '房屋租赁合同',
+            '出租方（甲方）：王小明（身份证号：110101198501011234）',
+            '承租方（乙方）：李四（身份证号：310101199001015678）',
+            '一、租赁房屋：上海市徐汇区。',
+        ]
+        const result = await detectParties(paragraphs)
+        expect(result.source).toBe('regex')
+        expect(result.partyA).toContain('王小明')
+        expect(result.partyB).toContain('李四')
+    })
+
+    it('正文识别到甲乙方时，应忽略签章行「甲方：（签字）」', async () => {
+        const paragraphs = [
+            '劳动合同',
+            '甲方（用人单位）：上海诺达科技有限公司',
+            '乙方（劳动者）：张三',
+            '一、合同期限。',
+            '甲方：（签章）  乙方：（签名）',
+        ]
+        const result = await detectParties(paragraphs)
+        expect(result.source).toBe('regex')
+        expect(result.partyA).toContain('上海诺达科技有限公司')
+        expect(result.partyB).toContain('张三')
+    })
+
+    it('仅存在签章行时，正则不应返回签章占位符', async () => {
+        const paragraphs = [
+            '协议',
+            '正文略',
+            '甲方：（签字）  乙方：（签字）',
+        ]
+        const result = await detectParties(paragraphs)
+        // 无有效甲乙方 → 应进入 LLM/none 分支，不能把"（签字）"当正经名字返回
+        expect(result.source).not.toBe('regex')
+    })
 })
 
 describe('detectParties (LLM fallback path)', () => {

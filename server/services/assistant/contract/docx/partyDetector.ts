@@ -7,6 +7,7 @@
  */
 import { createChatModel } from '~~/server/services/node/chatModelFactory'
 import { getValidNodeConfig } from '~~/server/services/node/node.service'
+import { CONTRACT_TYPE_OPTIONS } from '#shared/types/contract'
 
 export interface PartyDetectionResult {
     partyA: string | null
@@ -15,17 +16,34 @@ export interface PartyDetectionResult {
     source: 'regex' | 'llm' | 'none'
 }
 
-const PARTY_A_REGEX = /甲方[：:]\s*(.+?)(?:[\n。；]|$)/
-const PARTY_B_REGEX = /乙方[：:]\s*(.+?)(?:[\n。；]|$)/
+const PARTY_A_PATTERN = /(?:（|\()?甲方(?:（[^）]*）|\([^)]*\))?(?:）|\))?[：:]\s*(.+?)(?:[\n。；]|$)/g
+const PARTY_B_PATTERN = /(?:（|\()?乙方(?:（[^）]*）|\([^)]*\))?(?:）|\))?[：:]\s*(.+?)(?:[\n。；]|$)/g
 
-// 合同类型枚举为工程侧自决（spec §14 O6），不受 spec 硬约束
+// 跳过 "甲方：（签字）" 这类签章占位符与同行双主体被非贪婪吞并的残片
+const SIGNATURE_PLACEHOLDER_REGEX = /^[\s（(]*(?:签字|签名|签章|盖章|公章|代表|手印)[）)\s]*$/
+const CONTAINS_OTHER_PARTY_REGEX = /甲方[：:]|乙方[：:]/
+
+function pickValidCandidate(fullText: string, pattern: RegExp): string | null {
+    // 每次 new 正则，避免模块级 /g 正则的 lastIndex 在并发请求间共享
+    for (const match of fullText.matchAll(new RegExp(pattern.source, 'g'))) {
+        const raw = match[1]?.trim() ?? ''
+        if (!raw) continue
+        if (SIGNATURE_PLACEHOLDER_REGEX.test(raw)) continue
+        if (CONTAINS_OTHER_PARTY_REGEX.test(raw)) continue
+        return raw
+    }
+    return null
+}
+
+// 合同类型枚举为工程侧自决（spec §14 O6），不受 spec 硬约束。
+// 枚举集中在 #shared/types/contract 里（DB 不做 enum 约束，prompt 只是提示 LLM）
 const LLM_PROMPT = `请从下面的合同前 1500 字中识别甲方名称、乙方名称、合同类型，以严格 JSON 输出：
 {"partyA": "...", "partyB": "...", "contractType": "..."}
 
 要求：
 - 三个字段都必须存在
 - 无法识别填 null
-- 合同类型从 ["劳动合同","租赁合同","买卖合同","服务合同","借款合同","保密协议","其他"] 中选一个
+- 合同类型从 [${CONTRACT_TYPE_OPTIONS.map(t => `"${t}"`).join(',')}] 中选一个
 - 只输出 JSON，不要任何解释文字
 
 合同内容：
@@ -34,12 +52,12 @@ const LLM_PROMPT = `请从下面的合同前 1500 字中识别甲方名称、乙
 export async function detectParties(paragraphs: string[]): Promise<PartyDetectionResult> {
     const fullText = paragraphs.join('\n')
 
-    const matchA = PARTY_A_REGEX.exec(fullText)
-    const matchB = PARTY_B_REGEX.exec(fullText)
-    if (matchA?.[1] && matchB?.[1]) {
+    const matchA = pickValidCandidate(fullText, PARTY_A_PATTERN)
+    const matchB = pickValidCandidate(fullText, PARTY_B_PATTERN)
+    if (matchA && matchB) {
         return {
-            partyA: matchA[1].trim(),
-            partyB: matchB[1].trim(),
+            partyA: matchA,
+            partyB: matchB,
             contractType: null,
             source: 'regex',
         }

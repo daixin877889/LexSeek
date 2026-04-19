@@ -16,6 +16,24 @@ export type ContractReviewStatus =
     | 'rebuilding'           // ← M5 新增（DB 临时态；不进状态机主图，对齐 spec §8.4）
     | 'failed'
 
+/**
+ * 合同类型候选集。
+ *
+ * 仅作为 LLM prompt 的提示词使用（"从这些里选一个或返回其它"）；
+ * DB 存储为 varchar(50) 不加约束，允许 LLM 在必要时输出新类型。
+ * 所有引用这个列表的代码（如 partyDetector 的 prompt 模板）都应从这里导入，
+ * 避免枚举硬编码在多处形成偏差。
+ */
+export const CONTRACT_TYPE_OPTIONS = [
+    '劳动合同',
+    '租赁合同',
+    '买卖合同',
+    '服务合同',
+    '借款合同',
+    '保密协议',
+    '其他',
+] as const
+
 /** 单条风险（存 contractReviews.risks JSON 字段；schema 层 refine 强制 high/medium 必含 suggestedClauseText） */
 export interface Risk {
     id: string
