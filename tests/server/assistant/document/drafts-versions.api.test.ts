@@ -3,9 +3,11 @@
  * POST /api/v1/assistant/document/drafts/[id]/versions
  * PATCH /api/v1/assistant/document/drafts/versions/[versionId]
  * DELETE /api/v1/assistant/document/drafts/versions/[versionId]
+ * POST /api/v1/assistant/document/drafts/versions/restore/[versionId]
+ * GET /api/v1/assistant/document/drafts/versions/export/[versionId]
  *
  * **Feature: document-generation**
- * **Validates: Task 14 - versions list/create/rename/delete API**
+ * **Validates: Task 14/15 - versions list/create/rename/delete/restore/export API**
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -39,6 +41,15 @@ vi.mock('~~/server/services/assistant/document/documentDraftVersion.service', ()
     createVersionService: vi.fn(),
     renameVersionService: vi.fn(),
     deleteVersionService: vi.fn(),
+    restoreVersionService: vi.fn(),
+}))
+
+vi.mock('~~/server/services/assistant/document/documentDraftVersion.dao', () => ({
+    getVersionByIdDAO: vi.fn(),
+}))
+
+vi.mock('~~/server/services/assistant/document/documentExport.service', () => ({
+    exportVersionByIdService: vi.fn(),
 }))
 
 import {
@@ -46,12 +57,20 @@ import {
     createVersionService,
     renameVersionService,
     deleteVersionService,
+    restoreVersionService,
 } from '~~/server/services/assistant/document/documentDraftVersion.service'
+
+import { getVersionByIdDAO } from '~~/server/services/assistant/document/documentDraftVersion.dao'
+
+import { exportVersionByIdService } from '~~/server/services/assistant/document/documentExport.service'
 
 const mockListService = listVersionsForUserService as ReturnType<typeof vi.fn>
 const mockCreateService = createVersionService as ReturnType<typeof vi.fn>
 const mockRenameService = renameVersionService as ReturnType<typeof vi.fn>
 const mockDeleteService = deleteVersionService as ReturnType<typeof vi.fn>
+const mockRestoreService = restoreVersionService as ReturnType<typeof vi.fn>
+const mockGetVersion = getVersionByIdDAO as ReturnType<typeof vi.fn>
+const mockExportVersion = exportVersionByIdService as ReturnType<typeof vi.fn>
 
 // ==================== 动态 import handlers ====================
 
@@ -66,6 +85,12 @@ const { default: renameHandler } = await import(
 )
 const { default: deleteHandler } = await import(
     '../../../../server/api/v1/assistant/document/drafts/versions/[versionId].delete'
+)
+const { default: restoreHandler } = await import(
+    '../../../../server/api/v1/assistant/document/drafts/versions/restore/[versionId].post'
+)
+const { default: exportHandler } = await import(
+    '../../../../server/api/v1/assistant/document/drafts/versions/export/[versionId].get'
 )
 
 // ==================== 测试数据 ====================
@@ -440,6 +465,138 @@ describe('DELETE /api/v1/assistant/document/drafts/versions/[versionId]', () => 
     it('service 返 404 版本不存在时透传', async () => {
         mockDeleteService.mockResolvedValue({ error: '版本不存在', code: 404 })
         const res: any = await deleteHandler({
+            context: { auth: { user: { id: USER_A } } },
+            __params: { versionId: '999' },
+        })
+        expect(res.code).toBe(404)
+        expect(res.success).toBe(false)
+    })
+})
+
+// ==================== POST /drafts/versions/restore/[versionId] ====================
+
+describe('POST /api/v1/assistant/document/drafts/versions/restore/[versionId]', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('未登录返回 401', async () => {
+        const res: any = await restoreHandler({
+            context: {},
+            __params: { versionId: '1' },
+        })
+        expect(res.code).toBe(401)
+    })
+
+    it('versionId 非法字符串返回 400', async () => {
+        const res: any = await restoreHandler({
+            context: { auth: { user: { id: USER_A } } },
+            __params: { versionId: 'abc' },
+        })
+        expect(res.code).toBe(400)
+    })
+
+    it('versionId 为 0 返回 400', async () => {
+        const res: any = await restoreHandler({
+            context: { auth: { user: { id: USER_A } } },
+            __params: { versionId: '0' },
+        })
+        expect(res.code).toBe(400)
+    })
+
+    it('版本不存在返回 404', async () => {
+        mockGetVersion.mockResolvedValue(null)
+        const res: any = await restoreHandler({
+            context: { auth: { user: { id: USER_A } } },
+            __params: { versionId: '999' },
+        })
+        expect(res.code).toBe(404)
+    })
+
+    it('owner 成功恢复版本', async () => {
+        mockGetVersion.mockResolvedValue({ id: 5, draftId: 99 })
+        mockRestoreService.mockResolvedValue({ draft: { id: 99, values: { a: '1' } } })
+        const res: any = await restoreHandler({
+            context: { auth: { user: { id: USER_A } } },
+            __params: { versionId: '5' },
+        })
+        expect(res.code).toBe(0)
+        expect(res.success).toBe(true)
+        expect(res.data.draft.id).toBe(99)
+        expect(mockRestoreService).toHaveBeenCalledWith(USER_A, 99, 5)
+    })
+
+    it('service 返 403 无权恢复时透传', async () => {
+        mockGetVersion.mockResolvedValue({ id: 5, draftId: 99 })
+        mockRestoreService.mockResolvedValue({ error: '无权修改此草稿', code: 403 })
+        const res: any = await restoreHandler({
+            context: { auth: { user: { id: USER_B } } },
+            __params: { versionId: '5' },
+        })
+        expect(res.code).toBe(403)
+        expect(res.success).toBe(false)
+    })
+})
+
+// ==================== GET /drafts/versions/export/[versionId] ====================
+
+describe('GET /api/v1/assistant/document/drafts/versions/export/[versionId]', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('未登录返回 401', async () => {
+        const res: any = await exportHandler({
+            context: {},
+            __params: { versionId: '1' },
+        })
+        expect(res.code).toBe(401)
+    })
+
+    it('versionId 非法字符串返回 400', async () => {
+        const res: any = await exportHandler({
+            context: { auth: { user: { id: USER_A } } },
+            __params: { versionId: 'abc' },
+        })
+        expect(res.code).toBe(400)
+    })
+
+    it('versionId 为 0 返回 400', async () => {
+        const res: any = await exportHandler({
+            context: { auth: { user: { id: USER_A } } },
+            __params: { versionId: '0' },
+        })
+        expect(res.code).toBe(400)
+    })
+
+    it('owner 成功导出版本', async () => {
+        mockExportVersion.mockResolvedValue({
+            ossFileId: 123,
+            downloadUrl: 'https://example.com/x.docx',
+        })
+        const res: any = await exportHandler({
+            context: { auth: { user: { id: USER_A } } },
+            __params: { versionId: '5' },
+        })
+        expect(res.code).toBe(0)
+        expect(res.success).toBe(true)
+        expect(res.data.downloadUrl).toBe('https://example.com/x.docx')
+        expect(mockExportVersion).toHaveBeenCalledWith(USER_A, 5)
+    })
+
+    it('service 返 403 无权导出时透传', async () => {
+        mockExportVersion.mockResolvedValue({ error: '无权访问此版本', code: 403 })
+        const res: any = await exportHandler({
+            context: { auth: { user: { id: USER_B } } },
+            __params: { versionId: '5' },
+        })
+        expect(res.code).toBe(403)
+        expect(res.success).toBe(false)
+    })
+
+    it('service 返 404 版本不存在时透传', async () => {
+        mockExportVersion.mockResolvedValue({ error: '版本不存在', code: 404 })
+        const res: any = await exportHandler({
             context: { auth: { user: { id: USER_A } } },
             __params: { versionId: '999' },
         })
