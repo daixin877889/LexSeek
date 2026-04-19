@@ -14,6 +14,8 @@ import {
     getDocumentDraftDAO,
     updateDocumentDraftDAO,
     softDeleteDocumentDraftDAO,
+    updateDraftTitleDAO,
+    updateDraftTitleIfNotOverriddenDAO,
 } from './documentDraft.dao'
 import { randomUUID } from 'node:crypto'
 import dayjs from 'dayjs'
@@ -206,4 +208,38 @@ export async function deleteDraftService(
 
     await softDeleteDocumentDraftDAO(draftId)
     return { ok: true }
+}
+
+// ==================== updateDraftTitleService ====================
+
+/**
+ * 用户主动修改标题。owner-only；DAO 内部写入时置 titleOverridden=true，AI 不再覆盖。
+ * 空字符串 / 超长由 API 层 zod 拦截。
+ */
+export async function updateDraftTitleService(
+    userId: number,
+    draftId: number,
+    title: string,
+): Promise<{ draft: any } | ServiceError> {
+    const draft = await getDocumentDraftDAO(draftId)
+    if (!draft) return { error: '草稿不存在', code: 404 }
+    if (draft.userId !== userId) return { error: '无权修改此草稿', code: 403 }
+
+    const updated = await updateDraftTitleDAO(draftId, title)
+    return { draft: updated }
+}
+
+// ==================== applyAITitleIfAllowedService ====================
+
+/**
+ * AI 应用推断标题。仅在 titleOverridden=false 时更新（DAO 内部原子 UPDATE 保证无竞态）；
+ * 用户已改 / 空字符串 都跳过，返回是否真的写入。
+ */
+export async function applyAITitleIfAllowedService(
+    draftId: number,
+    aiTitle: string,
+): Promise<boolean> {
+    if (!aiTitle || !aiTitle.trim()) return false
+    const result = await updateDraftTitleIfNotOverriddenDAO(draftId, aiTitle.trim())
+    return result != null
 }
