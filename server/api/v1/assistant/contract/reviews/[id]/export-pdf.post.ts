@@ -27,7 +27,10 @@ const BodySchema = z
 
 export default defineEventHandler(async (event) => {
     // body 校验先于 guard：保持 fail-fast 语义
-    const rawBody = await readBody(event)
+    const rawBody = await readBody(event).catch(() => null)
+    if (!rawBody || typeof rawBody !== 'object') {
+        return resError(event, 400, '请求体无效')
+    }
     const parsed = BodySchema.safeParse(rawBody)
     if (!parsed.success) {
         return resError(event, 400, parsed.error.issues[0]?.message ?? '请求参数错误')
@@ -50,11 +53,16 @@ export default defineEventHandler(async (event) => {
     }
     catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
-        // service 层仍保留 owner 兜底校验；理论上 guard 已拦掉，剩下的属服务内部异常
+        // service 层"review not found"是业务明确定义的 404 映射；其他异常一律归口 500，
+        // 不向前端透出内部实现细节（路径、堆栈、SDK 错误信息等）
         if (msg === 'review not found') {
             return resError(event, 404, '合同审查不存在')
         }
-        logger.error('export-pdf failed', { reviewId: review.id, err: msg })
+        logger.error('export-pdf failed', {
+            reviewId: review.id,
+            userId: user.id,
+            err: msg,
+        })
         return resError(event, 500, 'PDF 生成失败')
     }
 })

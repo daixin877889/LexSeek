@@ -43,7 +43,15 @@ export default defineEventHandler(async (event) => {
         return resError(event, 409, `当前状态不允许编辑：${review.status}`)
     }
 
-    // patchReviewRisksDAO 在单语句 UPDATE 内同时置 hasUnsavedDocxChanges=true
-    await patchReviewRisksDAO(review.id, parsed.data.risks)
-    return resSuccess(event, '保存成功', { reviewId: review.id })
+    try {
+        // patchReviewRisksDAO 在单语句 UPDATE 内同时置 hasUnsavedDocxChanges=true
+        await patchReviewRisksDAO(review.id, parsed.data.risks)
+        return resSuccess(event, '保存成功', { reviewId: review.id })
+    } catch (err) {
+        logger.error('patch review risks 失败', {
+            reviewId: review.id,
+            err: err instanceof Error ? err.message : String(err),
+        })
+        return resError(event, 500, '保存风险清单失败，请稍后重试')
+    }
 })

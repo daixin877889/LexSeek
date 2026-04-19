@@ -29,7 +29,9 @@ const BodySchema = z.object({
 
 export default defineEventHandler(async (event) => {
     // body 校验先于 guard：保持 fail-fast 语义
-    const parsed = BodySchema.safeParse(await readBody(event))
+    const raw = await readBody(event).catch(() => null)
+    if (!raw || typeof raw !== 'object') return resError(event, 400, '请求体无效')
+    const parsed = BodySchema.safeParse(raw)
     if (!parsed.success) {
         return resError(event, 400, parsed.error.issues[0]?.message ?? '参数错误')
     }
