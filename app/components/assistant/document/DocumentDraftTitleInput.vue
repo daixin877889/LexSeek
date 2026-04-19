@@ -55,7 +55,7 @@ function onKeydown(e: KeyboardEvent) {
         </template>
         <template v-else>
             <input ref="inputRef" v-model="draft" type="text" maxlength="200"
-                class="text-lg md:text-xl font-semibold bg-transparent border-b border-primary outline-none min-w-[10rem] max-w-[32rem]"
+                class="text-lg md:text-xl font-semibold bg-transparent border-b border-primary outline-none px-1 py-0.5 min-w-[16rem] max-w-[32rem]"
                 @blur="commit" @keydown="onKeydown" />
         </template>
     </div>
