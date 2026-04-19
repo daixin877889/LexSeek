@@ -367,14 +367,21 @@ function onRetry() {
 // 中断出现时 toast 提示（复用小索）
 useInterruptToast(interruptData)
 
-// ========== 左右分栏：桌面端 Resizable，移动端改为竖向堆叠 ==========
-const isDesktop = useMediaQuery('(min-width: 768px)')
-const leftSize = useLocalStorage<number>('doc-draft-split-left-size-v3', 30)
+// ========== 布局分级：紧凑(Tab) / 标准分栏 / 宽屏分栏 ==========
+// - <1024px：Tabs 切换表单/预览
+// - 1024–1440px：左右分栏，默认左 40%
+// - >=1440px：左右分栏，默认左 32%
+const isSplit = useMediaQuery('(min-width: 1024px)')
+const isWide = useMediaQuery('(min-width: 1440px)')
+const narrowTab = ref<'form' | 'preview'>('form')
+const leftSizeStandard = useLocalStorage<number>('doc-draft-split-left-standard', 40)
+const leftSizeWide = useLocalStorage<number>('doc-draft-split-left-wide', 32)
+const activeLeftSize = computed(() => (isWide.value ? leftSizeWide.value : leftSizeStandard.value))
 function handlePanelResize(sizes: number[]) {
     const next = sizes[0]
-    if (typeof next === 'number' && Number.isFinite(next)) {
-        leftSize.value = next
-    }
+    if (typeof next !== 'number' || !Number.isFinite(next)) return
+    if (isWide.value) leftSizeWide.value = next
+    else leftSizeStandard.value = next
 }
 </script>
 
@@ -388,35 +395,38 @@ function handlePanelResize(sizes: number[]) {
                     返回
                 </Button>
                 <AssistantDocumentDraftTitleInput v-if="draft" :title="title" @save="updateTitle" />
-                <span v-if="caseId" class="text-sm text-muted-foreground">
+                <span v-if="caseId" class="hidden md:inline text-sm text-muted-foreground">
                     · 案件 #{{ caseId }}
                 </span>
             </div>
             <div class="flex items-center gap-2">
-                <Button variant="outline" size="sm" :disabled="!draft" @click="openHistory">
-                    <HistoryIcon class="size-4 mr-1" />
-                    历史
+                <Button variant="outline" size="sm" :disabled="!draft" title="历史" @click="openHistory">
+                    <HistoryIcon class="size-4" />
+                    <span class="hidden lg:inline ml-1">历史</span>
                 </Button>
-                <Button variant="outline" size="sm" :disabled="!draft" @click="openSaveVersionDialog">
-                    <SaveIcon class="size-4 mr-1" />
-                    保存当前为版本
+                <Button variant="outline" size="sm" :disabled="!draft" title="保存当前为版本"
+                    @click="openSaveVersionDialog">
+                    <SaveIcon class="size-4" />
+                    <span class="hidden lg:inline ml-1">保存当前为版本</span>
                 </Button>
-                <Button variant="default" class="shadow-sm" @click="openAgent">
+                <Button variant="default" class="shadow-sm" title="AI 生成" @click="openAgent">
                     <SparklesIcon class="size-4" />
-                    AI 生成
+                    <span class="hidden sm:inline ml-1">AI 生成</span>
                 </Button>
-                <Button :disabled="exportDisabled || isLoading || isExporting" @click="handleExport">
-                    <Loader2Icon v-if="isExporting" class="size-4 mr-2 animate-spin" />
+                <Button :disabled="exportDisabled || isLoading || isExporting"
+                    :title="isExporting ? '导出中...' : '导出 word'" @click="handleExport">
+                    <Loader2Icon v-if="isExporting" class="size-4 animate-spin" />
                     <DownloadIcon v-else class="size-4" />
-                    {{ isExporting ? '导出中...' : '导出 word' }}
+                    <span class="hidden sm:inline ml-1">{{ isExporting ? '导出中...' : '导出 word' }}</span>
                 </Button>
             </div>
         </header>
 
         <div v-if="previewVersionId !== null && draft"
             class="flex items-center justify-between rounded-md bg-amber-100 dark:bg-amber-900/40 px-3 py-2 text-sm">
-            <span>
-                预览中 · 版本 #{{ previewVersionId }}（点击"退出预览"回到当前工作区）
+            <span class="truncate">
+                <span class="hidden sm:inline">预览中 · 版本 #{{ previewVersionId }}（点击"退出预览"回到当前工作区）</span>
+                <span class="sm:hidden">预览 · v#{{ previewVersionId }}</span>
             </span>
             <Button size="sm" variant="ghost" @click="exitPreview">退出预览</Button>
         </div>
@@ -438,16 +448,18 @@ function handlePanelResize(sizes: number[]) {
             {{ error.message || '发生未知错误' }}
         </div>
 
-        <!-- 主体：左表单 / 右预览（预览模式下只留预览区）-->
+        <!-- 主体：预览模式 / 分栏 / 紧凑 Tab -->
         <div v-if="!loading && !loadError && draft && template" class="flex-1 min-h-0 overflow-hidden">
             <!-- 预览模式：全屏预览 -->
-            <div v-if="previewVersionId !== null" class="h-full min-h-0 overflow-y-auto rounded-lg border bg-muted/40 p-4">
+            <div v-if="previewVersionId !== null"
+                class="h-full min-h-0 overflow-y-auto rounded-lg border bg-muted/40 p-4">
                 <AssistantDocumentPreview :template-buffer="templateBuffer" :values="effectiveValues"
                     :disabled="exportDisabled || isLoading || isExporting" @export="handleExport" />
             </div>
-            <!-- 桌面：可拖拽分栏 -->
-            <ResizablePanelGroup v-else-if="isDesktop" direction="horizontal" class="h-full" @layout="handlePanelResize">
-                <ResizablePanel :default-size="leftSize" :min-size="25">
+            <!-- 分栏 (>=1024px)：可拖拽，宽/标准档用不同默认比例 -->
+            <ResizablePanelGroup v-else-if="isSplit" :key="isWide ? 'wide' : 'standard'" direction="horizontal"
+                class="h-full" @layout="handlePanelResize">
+                <ResizablePanel :default-size="activeLeftSize" :min-size="25">
                     <div class="h-full min-h-0 overflow-y-auto rounded-lg border bg-card p-4 mr-1">
                         <AssistantDocumentFieldForm :template="template" :values="effectiveValues"
                             :suggestions="suggestions" @change="onFieldChange" />
@@ -456,7 +468,7 @@ function handlePanelResize(sizes: number[]) {
 
                 <ResizableHandle with-handle class="bg-transparent" />
 
-                <ResizablePanel :default-size="100 - leftSize" :min-size="25">
+                <ResizablePanel :default-size="100 - activeLeftSize" :min-size="25">
                     <div class="h-full min-h-0 overflow-y-auto rounded-lg border bg-muted/40 p-4 ml-1">
                         <AssistantDocumentPreview :template-buffer="templateBuffer" :values="effectiveValues"
                             :disabled="exportDisabled || isLoading || isExporting" @export="handleExport" />
@@ -464,17 +476,23 @@ function handlePanelResize(sizes: number[]) {
                 </ResizablePanel>
             </ResizablePanelGroup>
 
-            <!-- 移动：竖向堆叠 -->
-            <div v-else class="h-full min-h-0 flex flex-col gap-4 overflow-y-auto">
-                <div class="rounded-lg border bg-card p-4">
-                    <AssistantDocumentFieldForm :template="template" :values="effectiveValues" :suggestions="suggestions"
-                        @change="onFieldChange" />
-                </div>
-                <div class="rounded-lg border bg-muted/40 p-4">
+            <!-- 紧凑 (<1024px)：Tabs 切换，避免无限滚 -->
+            <Tabs v-else v-model="narrowTab" class="h-full min-h-0 flex flex-col">
+                <TabsList class="grid grid-cols-2 w-full shrink-0">
+                    <TabsTrigger value="form">字段</TabsTrigger>
+                    <TabsTrigger value="preview">预览</TabsTrigger>
+                </TabsList>
+                <TabsContent value="form"
+                    class="mt-2 flex-1 min-h-0 overflow-y-auto rounded-lg border bg-card p-4">
+                    <AssistantDocumentFieldForm :template="template" :values="effectiveValues"
+                        :suggestions="suggestions" @change="onFieldChange" />
+                </TabsContent>
+                <TabsContent value="preview"
+                    class="mt-2 flex-1 min-h-0 overflow-y-auto rounded-lg border bg-muted/40 p-4">
                     <AssistantDocumentPreview :template-buffer="templateBuffer" :values="effectiveValues"
                         :disabled="exportDisabled || isLoading || isExporting" @export="handleExport" />
-                </div>
-            </div>
+                </TabsContent>
+            </Tabs>
         </div>
 
         <!-- 悬浮 Agent 窗 -->
@@ -517,16 +535,12 @@ function handlePanelResize(sizes: number[]) {
         <CaseAnalysisMaterialSelector ref="materialSelectorRef" :disabled-file-ids="selectedFileIds"
             @files-selected="handleFilesFromSelector" />
 
-        <AssistantDocumentHistorySheet v-if="draft && template" v-model:open="historyOpen"
-            :versions="versions" :snapshots="snapshots"
-            :current-values="currentValues"
+        <AssistantDocumentHistorySheet v-if="draft && template" v-model:open="historyOpen" :versions="versions"
+            :snapshots="snapshots" :current-values="currentValues"
             @preview-version="(v: DocumentDraftVersion) => { enterPreview(v.id); historyOpen = false }"
-            @restore-version="handleRestoreVersion"
-            @export-version="(v: DocumentDraftVersion) => exportVersion(v.id)"
-            @delete-version="handleDeleteVersion"
-            @rename-version="renameVersion"
-            @apply-snapshot-field="handleApplySnapshotField"
-            @apply-snapshot-all="handleApplySnapshotAll" />
+            @restore-version="handleRestoreVersion" @export-version="(v: DocumentDraftVersion) => exportVersion(v.id)"
+            @delete-version="handleDeleteVersion" @rename-version="renameVersion"
+            @apply-snapshot-field="handleApplySnapshotField" @apply-snapshot-all="handleApplySnapshotAll" />
 
         <Dialog v-model:open="saveVersionDialogOpen">
             <DialogContent class="sm:max-w-md">
@@ -547,7 +561,7 @@ function handlePanelResize(sizes: number[]) {
 
         <!-- 统一的破坏性操作二次确认（恢复版本 / 删除版本 / 覆盖工作区） -->
         <AlertDialog v-model:open="confirmOpen">
-            <AlertDialogContent class="z-[80]">
+            <AlertDialogContent class="z-80">
                 <AlertDialogHeader>
                     <AlertDialogTitle>{{ confirmTitle }}</AlertDialogTitle>
                     <AlertDialogDescription>{{ confirmMessage }}</AlertDialogDescription>

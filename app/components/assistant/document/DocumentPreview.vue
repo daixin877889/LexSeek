@@ -111,7 +111,7 @@ function handleExport() {
             <!-- DOCX 预览容器：白底与外层容器做对比 -->
             <div
                 ref="previewRoot"
-                class="docx-preview-root flex-1 min-h-0 overflow-y-auto rounded-md bg-background p-6"
+                class="docx-preview-root flex-1 min-h-0 overflow-y-auto rounded-md bg-background p-6 w-full max-w-5xl self-center"
             />
         </template>
     </div>
