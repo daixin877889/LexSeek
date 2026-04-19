@@ -39,36 +39,41 @@ function formatTime(iso: string) {
         <div v-if="!versions.length" class="text-sm text-muted-foreground p-6 text-center">
             还没有保存过版本，点顶部"保存当前为版本"记录里程碑
         </div>
-        <ul v-else class="divide-y">
-            <li v-for="v in versions" :key="v.id" class="p-3 space-y-1.5">
-                <div class="flex items-center gap-2">
+        <ul v-else class="divide-y rounded-md border">
+            <li v-for="v in versions" :key="v.id" class="p-3 space-y-2">
+                <div class="flex items-center gap-2 min-w-0">
                     <template v-if="editingId === v.id">
                         <input v-model="editingName" type="text" maxlength="100"
-                            class="flex-1 bg-transparent border-b border-primary outline-none text-sm"
+                            class="flex-1 bg-transparent border-b border-primary outline-none text-sm font-medium"
                             @blur="commitRename(v.id)"
                             @keydown.enter.prevent="commitRename(v.id)"
                             @keydown.escape="editingId = null" autofocus />
                     </template>
                     <template v-else>
-                        <span class="text-sm font-medium truncate flex-1" :title="v.name">{{ v.name }}</span>
-                        <button type="button" class="text-muted-foreground hover:text-foreground"
+                        <span class="text-sm font-medium truncate flex-1 min-w-0" :title="v.name">{{ v.name }}</span>
+                        <button type="button"
+                            class="shrink-0 text-muted-foreground hover:text-foreground transition"
                             @click="startRename(v)" aria-label="重命名">
-                            <PencilIcon class="size-3" />
+                            <PencilIcon class="size-3.5" />
                         </button>
                     </template>
+                    <span class="shrink-0 text-xs text-muted-foreground tabular-nums">
+                        {{ formatTime(v.createdAt) }}
+                    </span>
                 </div>
-                <div class="text-xs text-muted-foreground">{{ formatTime(v.createdAt) }}</div>
-                <div class="flex items-center gap-1">
-                    <Button size="sm" variant="ghost" @click="emit('preview', v)">
+                <div class="flex items-center justify-end gap-1">
+                    <Button size="sm" variant="ghost" class="h-7 px-2" @click="emit('preview', v)">
                         <EyeIcon class="size-3.5 mr-1" /> 预览
                     </Button>
-                    <Button size="sm" variant="ghost" @click="emit('restore', v)">
+                    <Button size="sm" variant="ghost" class="h-7 px-2" @click="emit('restore', v)">
                         <RotateCcwIcon class="size-3.5 mr-1" /> 恢复
                     </Button>
-                    <Button size="sm" variant="ghost" @click="emit('exportVersion', v)">
+                    <Button size="sm" variant="ghost" class="h-7 px-2" @click="emit('exportVersion', v)">
                         <DownloadIcon class="size-3.5 mr-1" /> 导出
                     </Button>
-                    <Button size="sm" variant="ghost" class="text-destructive" @click="emit('delete', v)">
+                    <div class="h-4 w-px bg-border mx-1" />
+                    <Button size="sm" variant="ghost" class="h-7 px-2 text-destructive hover:text-destructive"
+                        @click="emit('delete', v)">
                         <Trash2Icon class="size-3.5 mr-1" /> 删除
                     </Button>
                 </div>
