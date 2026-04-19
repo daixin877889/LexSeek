@@ -802,7 +802,7 @@ describe('文书模板 CRUD API', () => {
             expect(res.code).toBe(404)
         })
 
-        it('可删除任意用户的 user 模板', async () => {
+        it('拒绝删除 user 模板（仅管理系统模板）', async () => {
             const admin = await createTestUser()
             const owner = await createTestUser()
             userIds.push(admin.id, owner.id)
@@ -811,8 +811,8 @@ describe('文书模板 CRUD API', () => {
             const res: any = await adminDeleteHandler(
                 makeEvent({ userId: admin.id, params: { id: '3' } }) as any,
             )
-            expect(res.success).toBe(true)
-            expect(mockSoftDeleteDAO).toHaveBeenCalledWith(3)
+            expect(res.code).toBe(403)
+            expect(mockSoftDeleteDAO).not.toHaveBeenCalled()
         })
 
         it('可删除 global 模板', async () => {
@@ -875,7 +875,7 @@ describe('文书模板 CRUD API', () => {
             expect(res.code).toBe(404)
         })
 
-        it('可修改任意用户的 user 模板', async () => {
+        it('拒绝修改 user 模板（仅管理系统模板）', async () => {
             const admin = await createTestUser()
             const owner = await createTestUser()
             userIds.push(admin.id, owner.id)
@@ -889,8 +889,8 @@ describe('文书模板 CRUD API', () => {
                     body: { name: 'Admin改名' },
                 }) as any,
             )
-            expect(res.success).toBe(true)
-            expect(mockUpdateDAO).toHaveBeenCalledWith(5, expect.objectContaining({ name: 'Admin改名' }))
+            expect(res.code).toBe(403)
+            expect(mockUpdateDAO).not.toHaveBeenCalled()
         })
 
         it('可修改 global 模板', async () => {
@@ -919,7 +919,7 @@ describe('文书模板 CRUD API', () => {
             expect(res.code).toBe(401)
         })
 
-        it('不传 viewerUserId 给 DAO（可见全部模板）', async () => {
+        it('不传 viewerUserId 且强制 scope=global（只看系统模板）', async () => {
             const admin = await createTestUser()
             userIds.push(admin.id)
             mockListDAO.mockResolvedValue({ list: [], total: 0 })
@@ -930,9 +930,10 @@ describe('文书模板 CRUD API', () => {
             const arg = mockListDAO.mock.calls.at(-1)?.[0]
             expect(arg).toBeDefined()
             expect(arg).not.toHaveProperty('viewerUserId')
+            expect(arg.scope).toBe('global')
         })
 
-        it('透传 scope/category/q/skip/take 给 DAO', async () => {
+        it('透传 category/q/skip/take 给 DAO，scope 被强制为 global', async () => {
             const admin = await createTestUser()
             userIds.push(admin.id)
             mockListDAO.mockResolvedValue({ list: [], total: 0 })
@@ -945,7 +946,7 @@ describe('文书模板 CRUD API', () => {
             )
             expect(mockListDAO).toHaveBeenLastCalledWith(
                 expect.objectContaining({
-                    scope: 'user',
+                    scope: 'global',
                     category: '起诉状',
                     q: '张三',
                     skip: 10,
@@ -974,7 +975,7 @@ describe('文书模板 CRUD API', () => {
             expect(res.code).toBe(404)
         })
 
-        it('可查看他人的 user 模板（不做归属校验）', async () => {
+        it('拒绝查看他人的 user 模板（仅管理系统模板）', async () => {
             const admin = await createTestUser()
             const owner = await createTestUser()
             userIds.push(admin.id, owner.id)
@@ -983,8 +984,19 @@ describe('文书模板 CRUD API', () => {
             const res: any = await adminDetailHandler(
                 makeEvent({ userId: admin.id, params: { id: '7' } }) as any,
             )
+            expect(res.code).toBe(403)
+        })
+
+        it('可查看 global 模板', async () => {
+            const admin = await createTestUser()
+            userIds.push(admin.id)
+            mockGetDAO.mockResolvedValue({ id: 10, name: '系统模板', scope: 'global', userId: null })
+
+            const res: any = await adminDetailHandler(
+                makeEvent({ userId: admin.id, params: { id: '10' } }) as any,
+            )
             expect(res.success).toBe(true)
-            expect(res.data.id).toBe(7)
+            expect(res.data.id).toBe(10)
         })
     })
 
@@ -998,7 +1010,7 @@ describe('文书模板 CRUD API', () => {
             expect(res.code).toBe(401)
         })
 
-        it('可为他人 user 模板生成下载链接', async () => {
+        it('拒绝为 user 模板生成下载链接（仅管理系统模板）', async () => {
             const admin = await createTestUser()
             const owner = await createTestUser()
             userIds.push(admin.id, owner.id)
@@ -1010,14 +1022,33 @@ describe('文书模板 CRUD API', () => {
                 userId: owner.id,
                 ossFileId: 100,
             })
-            mockFindOssFileDao.mockResolvedValue({ id: 100, filePath: '/p/f.docx' })
-            mockGenerateSignedUrl.mockResolvedValue('https://signed.example/x')
 
             const res: any = await adminDownloadUrlHandler(
                 makeEvent({ userId: admin.id, params: { id: '8' } }) as any,
             )
+            expect(res.code).toBe(403)
+            expect(mockGenerateSignedUrl).not.toHaveBeenCalled()
+        })
+
+        it('可为 global 模板生成下载链接', async () => {
+            const admin = await createTestUser()
+            userIds.push(admin.id)
+
+            mockGetDAO.mockResolvedValue({
+                id: 11,
+                name: '系统模板',
+                scope: 'global',
+                userId: null,
+                ossFileId: 101,
+            })
+            mockFindOssFileDao.mockResolvedValue({ id: 101, filePath: '/g/f.docx' })
+            mockGenerateSignedUrl.mockResolvedValue('https://signed.example/global')
+
+            const res: any = await adminDownloadUrlHandler(
+                makeEvent({ userId: admin.id, params: { id: '11' } }) as any,
+            )
             expect(res.success).toBe(true)
-            expect(res.data.downloadUrl).toBe('https://signed.example/x')
+            expect(res.data.downloadUrl).toBe('https://signed.example/global')
         })
     })
 })

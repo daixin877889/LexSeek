@@ -22,6 +22,9 @@ export default defineEventHandler(async (event) => {
     try {
         const template = await getDocumentTemplateDAO(id)
         if (!template) return resError(event, 404, '模板不存在')
+        if (template.scope !== 'global') {
+            return resError(event, 403, '后台仅管理系统模板，用户私人模板不可下载')
+        }
 
         const ossFile = await findOssFileByIdDao(template.ossFileId)
         if (!ossFile) return resError(event, 404, '模板文件不存在')

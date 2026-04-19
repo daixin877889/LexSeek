@@ -3,8 +3,8 @@
  *
  * 后台管理端软删除文书模板。权限由 03.permission 中间件统一拦截
  * （非 super_admin 访问 /api/v1/admin/** 会被直接 403）。
- * - 可删除任意 scope 的模板（global/user）
- * - 已软删幂等
+ * 作用域约束：仅允许删除 scope='global' 的系统模板，拒绝用户私人模板。
+ * 已软删幂等。
  *
  * 与 /api/v1/assistant/document/templates/:id（用户端 owner-only）分离。
  */
@@ -27,6 +27,9 @@ export default defineEventHandler(async (event) => {
     try {
         const template = await getDocumentTemplateDAO(id)
         if (!template) return resError(event, 404, '模板不存在')
+        if (template.scope !== 'global') {
+            return resError(event, 403, '后台仅管理系统模板，用户私人模板不可删除')
+        }
 
         await softDeleteDocumentTemplateDAO(id)
         return resSuccess(event, '删除成功', { id })

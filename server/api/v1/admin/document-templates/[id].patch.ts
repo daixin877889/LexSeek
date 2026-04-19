@@ -40,6 +40,9 @@ export default defineEventHandler(async (event) => {
     try {
         const template = await getDocumentTemplateDAO(id)
         if (!template) return resError(event, 404, '模板不存在')
+        if (template.scope !== 'global') {
+            return resError(event, 403, '后台仅管理系统模板，用户私人模板不可修改')
+        }
 
         const updated = await updateDocumentTemplateDAO(id, parsed.data)
         return resSuccess(event, '更新成功', updated)

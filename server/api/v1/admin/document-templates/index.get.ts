@@ -3,11 +3,12 @@
  *
  * 后台管理端列出文书模板。权限由 03.permission 中间件拦截
  * （非 super_admin 访问 /api/v1/admin/** 直接 403）。
- * - 与用户端 /api/v1/assistant/document/templates 不同：不按 viewerUserId 过滤，
- *   能列出任意用户的 user 模板 + 全部 global 模板。
+ *
+ * 作用域约束（隐私保护）：
+ *   仅返回 `scope='global'` 系统模板。用户私人模板（scope='user'）属于个人数据，
+ *   不对后台开放浏览。即便入参试图指定 scope='user' 也会被强制改回 global。
  *
  * Query 参数：
- * - scope: 'global' | 'user'（可选）
  * - category: 分类 key（可选）
  * - q: 名称模糊搜索（可选）
  * - skip: 偏移量，默认 0
@@ -18,7 +19,6 @@ import { z } from 'zod'
 import { listDocumentTemplatesDAO } from '~~/server/services/assistant/document/documentTemplate.dao'
 
 const QuerySchema = z.object({
-    scope: z.enum(['global', 'user']).optional(),
     category: z.string().optional(),
     q: z.string().optional(),
     skip: z.coerce.number().int().nonnegative().optional().default(0),
@@ -35,10 +35,10 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-        const { scope, category, q, skip, take } = parsed.data
-        // 管理端不传 viewerUserId —— DAO 将不做用户维度过滤，返回全部模板
+        const { category, q, skip, take } = parsed.data
+        // 管理端强制 scope=global；不传 viewerUserId，DAO 对 global 模板本就不做用户维度过滤
         const result = await listDocumentTemplatesDAO({
-            scope,
+            scope: 'global',
             category,
             q,
             skip,
