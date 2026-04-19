@@ -3,33 +3,33 @@
 /// 文本内容记录表
 /// 对齐 docRecognitionRecords 结构，为 CASE_CONTENT 类型材料提供独立存储
 model textContentRecords {
-    /// 记录ID，主键，自增
-    id              Int       @id @default(autoincrement())
-    /// 用户ID
-    userId          Int       @map("user_id")
-    /// 关联的案件ID
-    caseId          Int       @map("case_id")
-    /// 关联的案件材料ID（可选，材料可能在关联前就创建）
-    materialId      Int?      @map("material_id")
-    /// 文本内容（Markdown格式）
-    content         String?   @db.Text
-    /// HTML格式内容
-    htmlContent     String?   @map("html_content") @db.Text
-    /// 处理状态：0-待处理 1-处理中 2-成功 3-失败
-    status          Int       @default(0)
-    /// 向量ID列表
-    vectorIds       Json?     @default("[]") @map("vector_ids")
-    /// 最后嵌入时间（非null表示已完成嵌入）
-    lastEmbeddingAt DateTime? @map("last_embedding_at") @db.Timestamptz(6)
-    /// 创建时间
-    createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-    /// 删除时间（软删除）
-    deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+  /// 记录ID，主键，自增
+  id              Int       @id @default(autoincrement())
+  /// 用户ID
+  userId          Int       @map("user_id")
+  /// 关联的案件ID
+  caseId          Int       @map("case_id")
+  /// 关联的案件材料ID（可选，材料可能在关联前就创建）
+  materialId      Int?      @map("material_id")
+  /// 文本内容（Markdown格式）
+  content         String?   @db.Text
+  /// HTML格式内容
+  htmlContent     String?   @map("html_content") @db.Text
+  /// 处理状态：0-待处理 1-处理中 2-成功 3-失败
+  status          Int       @default(0)
+  /// 向量ID列表
+  vectorIds       Json?     @default("[]") @map("vector_ids")
+  /// 最后嵌入时间（非null表示已完成嵌入）
+  lastEmbeddingAt DateTime? @map("last_embedding_at") @db.Timestamptz(6)
+  /// 创建时间
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间（软删除）
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-    @@index([userId], map: "idx_text_content_records_user_id")
-    @@index([caseId], map: "idx_text_content_records_case_id")
-    @@index([materialId], map: "idx_text_content_records_material_id")
-    @@map("text_content_records")
+  @@index([userId], map: "idx_text_content_records_user_id")
+  @@index([caseId], map: "idx_text_content_records_case_id")
+  @@index([materialId], map: "idx_text_content_records_material_id")
+  @@map("text_content_records")
 }

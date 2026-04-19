@@ -1,146 +1,146 @@
 /// 节点分组表 - 用于组织和管理相关节点
 model nodeGroups {
-    /// 分组ID，主键，自增
-    id          Int       @id @default(autoincrement())
-    /// 分组名称
-    name        String    @db.VarChar(100)
-    /// 分组描述
-    description String?   @db.VarChar(255)
-    /// 排序优先级，数字越小越靠前
-    priority    Int       @default(100)
-    /// 创建时间
-    createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-    /// 删除时间，为 NULL 表示未删除
-    deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  /// 分组ID，主键，自增
+  id          Int       @id @default(autoincrement())
+  /// 分组名称
+  name        String    @db.VarChar(100)
+  /// 分组描述
+  description String?   @db.VarChar(255)
+  /// 排序优先级，数字越小越靠前
+  priority    Int       @default(100)
+  /// 创建时间
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为 NULL 表示未删除
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-    /// 关联的节点
-    nodes nodes[]
+  /// 关联的节点
+  nodes nodes[]
 
-    @@index([priority], map: "idx_node_groups_priority")
-    @@index([deletedAt], map: "idx_node_groups_deleted_at")
-    @@map("node_groups")
+  @@index([priority], map: "idx_node_groups_priority")
+  @@index([deletedAt], map: "idx_node_groups_deleted_at")
+  @@map("node_groups")
 }
 
 /// 节点表 - 工作流中的分析节点，定义分析任务的配置和行为
 model nodes {
-    /// 节点ID，主键，自增
-    id          Int       @id @default(autoincrement())
-    /// 节点名称（唯一标识，如 case_summary）
-    name        String    @unique @db.VarChar(100)
-    /// 节点显示标题
-    title       String?   @db.VarChar(100)
-    /// 节点描述
-    description String?   @db.VarChar(255)
-    /// 节点类型：analysis-分析模块，document-文书模块，extraction-数据提取，agent-主代理
-    type        String    @db.VarChar(100)
-    /// 排序优先级，数字越小越靠前
-    priority    Int       @default(100)
-    /// 关联的模型ID
-    modelId     Int       @map("model_id")
-    /// 工具列表（JSON 数组）
-    tools       Json      @default("[]")
-    /// 结构化输出 schema（JSON Schema 格式，用于 extraction 类型节点）
-    outputSchema Json?     @map("output_schema") @db.JsonB
-    /// 关联的分组ID
-    groupId     Int?      @map("group_id")
-    /// 状态：1-启用，0-禁用
-    status      Int       @default(1)
-    /// 创建时间
-    createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-    /// 删除时间，为 NULL 表示未删除
-    deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  /// 节点ID，主键，自增
+  id           Int       @id @default(autoincrement())
+  /// 节点名称（唯一标识，如 case_summary）
+  name         String    @unique @db.VarChar(100)
+  /// 节点显示标题
+  title        String?   @db.VarChar(100)
+  /// 节点描述
+  description  String?   @db.VarChar(255)
+  /// 节点类型：analysis-分析模块，document-文书模块，extraction-数据提取，agent-主代理
+  type         String    @db.VarChar(100)
+  /// 排序优先级，数字越小越靠前
+  priority     Int       @default(100)
+  /// 关联的模型ID
+  modelId      Int       @map("model_id")
+  /// 工具列表（JSON 数组）
+  tools        Json      @default("[]")
+  /// 结构化输出 schema（JSON Schema 格式，用于 extraction 类型节点）
+  outputSchema Json?     @map("output_schema") @db.JsonB
+  /// 关联的分组ID
+  groupId      Int?      @map("group_id")
+  /// 状态：1-启用，0-禁用
+  status       Int       @default(1)
+  /// 创建时间
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为 NULL 表示未删除
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-    /// 关联的分组
-    group nodeGroups? @relation(fields: [groupId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的分组
+  group nodeGroups? @relation(fields: [groupId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    /// 关联的模型
-    model models @relation(fields: [modelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的模型
+  model models @relation(fields: [modelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    /// 关联的提示词
-    prompts prompts[]
+  /// 关联的提示词
+  prompts prompts[]
 
-    /// 关联的会员节点权限
-    levelNodeAccess levelNodeAccess[]
+  /// 关联的会员节点权限
+  levelNodeAccess levelNodeAccess[]
 
-    /// 关联的案件分析结果
-    caseAnalyses caseAnalyses[]
+  /// 关联的案件分析结果
+  caseAnalyses caseAnalyses[]
 
-    @@index([name], map: "idx_nodes_name")
-    @@index([type], map: "idx_nodes_type")
-    @@index([priority], map: "idx_nodes_priority")
-    @@index([groupId], map: "idx_nodes_group_id")
-    @@index([modelId], map: "idx_nodes_model_id")
-    @@index([status], map: "idx_nodes_status")
-    @@index([deletedAt], map: "idx_nodes_deleted_at")
-    @@map("nodes")
+  @@index([name], map: "idx_nodes_name")
+  @@index([type], map: "idx_nodes_type")
+  @@index([priority], map: "idx_nodes_priority")
+  @@index([groupId], map: "idx_nodes_group_id")
+  @@index([modelId], map: "idx_nodes_model_id")
+  @@index([status], map: "idx_nodes_status")
+  @@index([deletedAt], map: "idx_nodes_deleted_at")
+  @@map("nodes")
 }
 
 /// 提示词表 - 节点使用的 AI 提示词模板，支持版本管理
 model prompts {
-    /// 提示词ID，主键，自增
-    id        Int       @id @default(autoincrement())
-    /// 提示词名称
-    name      String    @db.VarChar(100)
-    /// 提示词显示标题
-    title     String?   @db.VarChar(100)
-    /// 提示词内容
-    content   String    @db.Text
-    /// 变量列表（JSON 数组，如 ["caseInfo", "materials"]）
-    variables Json      @default("[]")
-    /// 版本号
-    version   String    @db.VarChar(100)
-    /// 提示词类型：system-系统提示词，user-用户提示词，assistant-助手提示词
-    type      String    @db.VarChar(100)
-    /// 状态：0-未生效，1-生效
-    status    Int       @default(0)
-    /// 关联的节点ID
-    nodeId    Int       @map("node_id")
-    /// 创建时间
-    createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-    /// 删除时间，为 NULL 表示未删除
-    deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  /// 提示词ID，主键，自增
+  id        Int       @id @default(autoincrement())
+  /// 提示词名称
+  name      String    @db.VarChar(100)
+  /// 提示词显示标题
+  title     String?   @db.VarChar(100)
+  /// 提示词内容
+  content   String    @db.Text
+  /// 变量列表（JSON 数组，如 ["caseInfo", "materials"]）
+  variables Json      @default("[]")
+  /// 版本号
+  version   String    @db.VarChar(100)
+  /// 提示词类型：system-系统提示词，user-用户提示词，assistant-助手提示词
+  type      String    @db.VarChar(100)
+  /// 状态：0-未生效，1-生效
+  status    Int       @default(0)
+  /// 关联的节点ID
+  nodeId    Int       @map("node_id")
+  /// 创建时间
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为 NULL 表示未删除
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-    /// 关联的节点
-    node nodes @relation(fields: [nodeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的节点
+  node nodes @relation(fields: [nodeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    @@index([name], map: "idx_prompts_name")
-    @@index([nodeId], map: "idx_prompts_node_id")
-    @@index([type], map: "idx_prompts_type")
-    @@index([status], map: "idx_prompts_status")
-    @@index([deletedAt], map: "idx_prompts_deleted_at")
-    @@map("prompts")
+  @@index([name], map: "idx_prompts_name")
+  @@index([nodeId], map: "idx_prompts_node_id")
+  @@index([type], map: "idx_prompts_type")
+  @@index([status], map: "idx_prompts_status")
+  @@index([deletedAt], map: "idx_prompts_deleted_at")
+  @@map("prompts")
 }
 
 /// 会员节点权限表 - 控制不同会员级别可以访问哪些分析节点
 model levelNodeAccess {
-    /// 权限ID，主键，自增
-    id        Int       @id @default(autoincrement())
-    /// 会员级别ID
-    levelId   Int       @map("level_id")
-    /// 节点ID
-    nodeId    Int       @map("node_id")
-    /// 创建时间
-    createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-    /// 删除时间，为 NULL 表示未删除
-    deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  /// 权限ID，主键，自增
+  id        Int       @id @default(autoincrement())
+  /// 会员级别ID
+  levelId   Int       @map("level_id")
+  /// 节点ID
+  nodeId    Int       @map("node_id")
+  /// 创建时间
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为 NULL 表示未删除
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-    /// 关联的会员级别
-    level membershipLevels @relation(fields: [levelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的会员级别
+  level membershipLevels @relation(fields: [levelId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    /// 关联的节点
-    node nodes @relation(fields: [nodeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的节点
+  node nodes @relation(fields: [nodeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    @@unique([levelId, nodeId])
-    @@index([levelId], map: "idx_level_node_access_level_id")
-    @@index([nodeId], map: "idx_level_node_access_node_id")
-    @@index([deletedAt], map: "idx_level_node_access_deleted_at")
-    @@map("level_node_access")
+  @@unique([levelId, nodeId])
+  @@index([levelId], map: "idx_level_node_access_level_id")
+  @@index([nodeId], map: "idx_level_node_access_node_id")
+  @@index([deletedAt], map: "idx_level_node_access_deleted_at")
+  @@map("level_node_access")
 }

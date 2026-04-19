@@ -1,235 +1,235 @@
 /// 文档识别记录表 - 存储 PDF 转换结果
 model docRecognitionRecords {
-    /// 记录ID，主键，自增
-    id              Int       @id @default(autoincrement())
-    /// 关联的用户ID
-    userId          Int       @map("user_id")
-    /// 关联的 OSS 文件ID
-    ossFileId       Int       @map("oss_file_id")
-    /// 识别状态：0-待处理，1-处理中，2-成功，3-失败
-    status          Int       @default(0)
-    /// HTML 内容
-    htmlContent     String?   @map("html_content") @db.Text
-    /// Markdown 内容
-    markdownContent String?   @map("markdown_content") @db.Text
-    /// 关键词（JSON 数组）
-    keywords        Json?     @default("[]")
-    /// 摘要
-    summary         String?   @db.Text
-    /// 向量存储 ID 集合（JSON 数组）
-    vectorIds       Json?     @default("[]") @map("vector_ids")
-    /// 最后嵌入时间
-    lastEmbeddingAt DateTime? @map("last_embedding_at") @db.Timestamptz(6)
-    /// 最后编辑时间
-    lastEditAt      DateTime? @map("last_edit_at") @db.Timestamptz(6)
-    /// 创建时间
-    createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-    /// 删除时间，为 NULL 表示未删除
-    deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+  /// 记录ID，主键，自增
+  id              Int       @id @default(autoincrement())
+  /// 关联的用户ID
+  userId          Int       @map("user_id")
+  /// 关联的 OSS 文件ID
+  ossFileId       Int       @map("oss_file_id")
+  /// 识别状态：0-待处理，1-处理中，2-成功，3-失败
+  status          Int       @default(0)
+  /// HTML 内容
+  htmlContent     String?   @map("html_content") @db.Text
+  /// Markdown 内容
+  markdownContent String?   @map("markdown_content") @db.Text
+  /// 关键词（JSON 数组）
+  keywords        Json?     @default("[]")
+  /// 摘要
+  summary         String?   @db.Text
+  /// 向量存储 ID 集合（JSON 数组）
+  vectorIds       Json?     @default("[]") @map("vector_ids")
+  /// 最后嵌入时间
+  lastEmbeddingAt DateTime? @map("last_embedding_at") @db.Timestamptz(6)
+  /// 最后编辑时间
+  lastEditAt      DateTime? @map("last_edit_at") @db.Timestamptz(6)
+  /// 创建时间
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为 NULL 表示未删除
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-    /// 关联的用户
-    user users @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的用户
+  user users @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    @@index([userId], map: "idx_doc_recognition_records_user_id")
-    @@index([ossFileId], map: "idx_doc_recognition_records_oss_file_id")
-    @@index([status], map: "idx_doc_recognition_records_status")
-    @@index([deletedAt], map: "idx_doc_recognition_records_deleted_at")
-    @@map("doc_recognition_records")
+  @@index([userId], map: "idx_doc_recognition_records_user_id")
+  @@index([ossFileId], map: "idx_doc_recognition_records_oss_file_id")
+  @@index([status], map: "idx_doc_recognition_records_status")
+  @@index([deletedAt], map: "idx_doc_recognition_records_deleted_at")
+  @@map("doc_recognition_records")
 }
 
 /// 图片识别记录表 - 存储 OCR 识别结果
 model imageRecognitionRecords {
-    /// 记录ID，主键，自增
-    id              Int       @id @default(autoincrement())
-    /// 关联的用户ID
-    userId          Int       @map("user_id")
-    /// 关联的 OSS 文件ID
-    ossFileId       Int       @map("oss_file_id")
-    /// 识别状态：0-待处理，1-处理中，2-成功，3-失败
-    status          Int       @default(0)
-    /// 图片类型：doc-文档，photo-照片
-    imageType       String?   @map("image_type") @db.VarChar(50)
-    /// HTML 内容
-    htmlContent     String?   @map("html_content") @db.Text
-    /// Markdown 内容
-    markdownContent String?   @map("markdown_content") @db.Text
-    /// 关键词（JSON 数组）
-    keywords        Json?     @default("[]")
-    /// 摘要
-    summary         String?   @db.Text
-    /// 向量存储 ID 集合（JSON 数组）
-    vectorIds       Json?     @default("[]") @map("vector_ids")
-    /// 最后嵌入时间
-    lastEmbeddingAt DateTime? @map("last_embedding_at") @db.Timestamptz(6)
-    /// 最后编辑时间
-    lastEditAt      DateTime? @map("last_edit_at") @db.Timestamptz(6)
-    /// 创建时间
-    createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-    /// 删除时间，为 NULL 表示未删除
-    deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+  /// 记录ID，主键，自增
+  id              Int       @id @default(autoincrement())
+  /// 关联的用户ID
+  userId          Int       @map("user_id")
+  /// 关联的 OSS 文件ID
+  ossFileId       Int       @map("oss_file_id")
+  /// 识别状态：0-待处理，1-处理中，2-成功，3-失败
+  status          Int       @default(0)
+  /// 图片类型：doc-文档，photo-照片
+  imageType       String?   @map("image_type") @db.VarChar(50)
+  /// HTML 内容
+  htmlContent     String?   @map("html_content") @db.Text
+  /// Markdown 内容
+  markdownContent String?   @map("markdown_content") @db.Text
+  /// 关键词（JSON 数组）
+  keywords        Json?     @default("[]")
+  /// 摘要
+  summary         String?   @db.Text
+  /// 向量存储 ID 集合（JSON 数组）
+  vectorIds       Json?     @default("[]") @map("vector_ids")
+  /// 最后嵌入时间
+  lastEmbeddingAt DateTime? @map("last_embedding_at") @db.Timestamptz(6)
+  /// 最后编辑时间
+  lastEditAt      DateTime? @map("last_edit_at") @db.Timestamptz(6)
+  /// 创建时间
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为 NULL 表示未删除
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-    /// 关联的用户
-    user users @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的用户
+  user users @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    @@index([userId], map: "idx_image_recognition_records_user_id")
-    @@index([ossFileId], map: "idx_image_recognition_records_oss_file_id")
-    @@index([status], map: "idx_image_recognition_records_status")
-    @@index([imageType], map: "idx_image_recognition_records_image_type")
-    @@index([deletedAt], map: "idx_image_recognition_records_deleted_at")
-    @@map("image_recognition_records")
+  @@index([userId], map: "idx_image_recognition_records_user_id")
+  @@index([ossFileId], map: "idx_image_recognition_records_oss_file_id")
+  @@index([status], map: "idx_image_recognition_records_status")
+  @@index([imageType], map: "idx_image_recognition_records_image_type")
+  @@index([deletedAt], map: "idx_image_recognition_records_deleted_at")
+  @@map("image_recognition_records")
 }
 
 /// ASR 任务表 - 存储语音识别任务记录
 model asrTasks {
-    /// 任务ID，主键，自增
-    id          Int       @id @default(autoincrement())
-    /// ASR 服务返回的任务ID
-    taskId      String?   @map("task_id") @db.VarChar(100)
-    /// 任务状态：0-待处理，1-处理中，2-成功，3-失败
-    status      Int       @default(0)
-    /// 是否为加密文件
-    isEncrypted Boolean   @default(false) @map("is_encrypted")
-    /// 任务原始数据（提交参数等）
-    taskRawData Json?     @default("{}") @map("task_raw_data")
-    /// 识别结果
-    result      Json?     @default("{}")
-    /// 创建时间
-    createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-    /// 删除时间，为 NULL 表示未删除
-    deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  /// 任务ID，主键，自增
+  id          Int       @id @default(autoincrement())
+  /// ASR 服务返回的任务ID
+  taskId      String?   @map("task_id") @db.VarChar(100)
+  /// 任务状态：0-待处理，1-处理中，2-成功，3-失败
+  status      Int       @default(0)
+  /// 是否为加密文件
+  isEncrypted Boolean   @default(false) @map("is_encrypted")
+  /// 任务原始数据（提交参数等）
+  taskRawData Json?     @default("{}") @map("task_raw_data")
+  /// 识别结果
+  result      Json?     @default("{}")
+  /// 创建时间
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为 NULL 表示未删除
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-    /// 关联的 ASR 识别记录
-    asrRecords asrRecords[]
+  /// 关联的 ASR 识别记录
+  asrRecords asrRecords[]
 
-    @@index([taskId], map: "idx_asr_tasks_task_id")
-    @@index([status], map: "idx_asr_tasks_status")
-    @@index([deletedAt], map: "idx_asr_tasks_deleted_at")
-    @@map("asr_tasks")
+  @@index([taskId], map: "idx_asr_tasks_task_id")
+  @@index([status], map: "idx_asr_tasks_status")
+  @@index([deletedAt], map: "idx_asr_tasks_deleted_at")
+  @@map("asr_tasks")
 }
 
 /// ASR 识别记录表 - 存储语音识别结果
 model asrRecords {
-    /// 记录ID，主键，自增
-    id              Int       @id @default(autoincrement())
-    /// 关联的用户ID
-    userId          Int       @map("user_id")
-    /// 关联的 OSS 文件ID
-    ossFileId       Int       @map("oss_file_id")
-    /// 关联的 ASR 任务ID
-    asrTasksId      Int?      @map("asr_tasks_id")
-    /// 识别状态：0-待处理，1-处理中，2-成功，3-失败
-    status          Int       @default(0)
-    /// 提交的音频 URL（签名 URL 可能很长，使用 Text 类型）
-    audioUrl        String?   @map("audio_url") @db.Text
-    /// 音频时长（秒）
-    audioDuration   Int?      @map("audio_duration")
-    /// 识别结果
-    result          Json?     @default("{}")
-    /// 转录原始 JSON 的 OSS 文件 ID
-    jsonOssFileId   Int?      @map("json_oss_file_id")
-    /// 临时文件路径（加密文件解密后上传的路径，识别完成后需清理）
-    tempFilePath    String?   @map("temp_file_path") @db.VarChar(500)
-    /// 说话人列表（JSON 数组）
-    speakers        Json?     @default("[]")
-    /// 关键词（JSON 数组）
-    keywords        Json?     @default("[]")
-    /// 摘要
-    summary         String?   @db.Text
-    /// 向量存储 ID 集合（JSON 数组）
-    vectorIds       Json?     @default("[]") @map("vector_ids")
-    /// 最后嵌入时间
-    lastEmbeddingAt DateTime? @map("last_embedding_at") @db.Timestamptz(6)
-    /// 最后编辑时间
-    lastEditAt      DateTime? @map("last_edit_at") @db.Timestamptz(6)
-    /// 创建时间
-    createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-    /// 删除时间，为 NULL 表示未删除
-    deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+  /// 记录ID，主键，自增
+  id              Int       @id @default(autoincrement())
+  /// 关联的用户ID
+  userId          Int       @map("user_id")
+  /// 关联的 OSS 文件ID
+  ossFileId       Int       @map("oss_file_id")
+  /// 关联的 ASR 任务ID
+  asrTasksId      Int?      @map("asr_tasks_id")
+  /// 识别状态：0-待处理，1-处理中，2-成功，3-失败
+  status          Int       @default(0)
+  /// 提交的音频 URL（签名 URL 可能很长，使用 Text 类型）
+  audioUrl        String?   @map("audio_url") @db.Text
+  /// 音频时长（秒）
+  audioDuration   Int?      @map("audio_duration")
+  /// 识别结果
+  result          Json?     @default("{}")
+  /// 转录原始 JSON 的 OSS 文件 ID
+  jsonOssFileId   Int?      @map("json_oss_file_id")
+  /// 临时文件路径（加密文件解密后上传的路径，识别完成后需清理）
+  tempFilePath    String?   @map("temp_file_path") @db.VarChar(500)
+  /// 说话人列表（JSON 数组）
+  speakers        Json?     @default("[]")
+  /// 关键词（JSON 数组）
+  keywords        Json?     @default("[]")
+  /// 摘要
+  summary         String?   @db.Text
+  /// 向量存储 ID 集合（JSON 数组）
+  vectorIds       Json?     @default("[]") @map("vector_ids")
+  /// 最后嵌入时间
+  lastEmbeddingAt DateTime? @map("last_embedding_at") @db.Timestamptz(6)
+  /// 最后编辑时间
+  lastEditAt      DateTime? @map("last_edit_at") @db.Timestamptz(6)
+  /// 创建时间
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt       DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为 NULL 表示未删除
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-    /// 关联的用户
-    user users @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的用户
+  user users @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    /// 关联的 ASR 任务
-    asrTask asrTasks? @relation(fields: [asrTasksId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的 ASR 任务
+  asrTask asrTasks? @relation(fields: [asrTasksId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    @@index([userId], map: "idx_asr_records_user_id")
-    @@index([ossFileId], map: "idx_asr_records_oss_file_id")
-    @@index([asrTasksId], map: "idx_asr_records_asr_tasks_id")
-    @@index([status], map: "idx_asr_records_status")
-    @@index([deletedAt], map: "idx_asr_records_deleted_at")
-    @@map("asr_records")
+  @@index([userId], map: "idx_asr_records_user_id")
+  @@index([ossFileId], map: "idx_asr_records_oss_file_id")
+  @@index([asrTasksId], map: "idx_asr_records_asr_tasks_id")
+  @@index([status], map: "idx_asr_records_status")
+  @@index([deletedAt], map: "idx_asr_records_deleted_at")
+  @@map("asr_records")
 }
 
 /// MinerU Token 表 - 存储 MinerU API 访问凭证
 model mineruTokens {
-    /// Token ID，主键，自增
-    id        Int       @id @default(autoincrement())
-    /// Token 名称
-    name      String    @db.VarChar(100)
-    /// Token 值（加密存储）
-    token     String    @db.VarChar(500)
-    /// 备注
-    remark    String?   @db.VarChar(255)
-    /// 状态：1-启用，0-禁用
-    status    Int       @default(1)
-    /// 创建时间
-    createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-    /// 删除时间，为 NULL 表示未删除
-    deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  /// Token ID，主键，自增
+  id        Int       @id @default(autoincrement())
+  /// Token 名称
+  name      String    @db.VarChar(100)
+  /// Token 值（加密存储）
+  token     String    @db.VarChar(500)
+  /// 备注
+  remark    String?   @db.VarChar(255)
+  /// 状态：1-启用，0-禁用
+  status    Int       @default(1)
+  /// 创建时间
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为 NULL 表示未删除
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-    @@index([status], map: "idx_mineru_tokens_status")
-    @@index([deletedAt], map: "idx_mineru_tokens_deleted_at")
-    @@map("mineru_tokens")
+  @@index([status], map: "idx_mineru_tokens_status")
+  @@index([deletedAt], map: "idx_mineru_tokens_deleted_at")
+  @@map("mineru_tokens")
 }
 
 /// MinerU 任务表 - 存储 PDF 转换任务记录
 model mineruTasks {
-    /// 任务ID，主键，自增
-    id          Int       @id @default(autoincrement())
-    /// MinerU 服务返回的任务ID
-    taskId      String?   @map("task_id") @db.VarChar(100)
-    /// 关联的 OSS 文件ID
-    ossFileId   Int       @map("oss_file_id")
-    /// 关联的用户ID
-    userId      Int       @map("user_id")
-    /// 任务状态：0-待处理，1-处理中，2-成功，3-失败
-    status      Int       @default(0)
-    /// 是否为加密文件
-    isEncrypted Boolean   @default(false) @map("is_encrypted")
-    /// 任务原始数据（提交参数等）
-    taskRawData Json?     @default("{}") @map("task_raw_data")
-    /// 转换结果
-    result      Json?     @default("{}")
-    /// 错误信息
-    errorMsg    String?   @map("error_msg") @db.Text
-    /// 重试次数
-    retryCount  Int       @default(0) @map("retry_count")
-    /// 完成时间
-    completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
-    /// 创建时间
-    createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-    /// 删除时间，为 NULL 表示未删除
-    deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  /// 任务ID，主键，自增
+  id          Int       @id @default(autoincrement())
+  /// MinerU 服务返回的任务ID
+  taskId      String?   @map("task_id") @db.VarChar(100)
+  /// 关联的 OSS 文件ID
+  ossFileId   Int       @map("oss_file_id")
+  /// 关联的用户ID
+  userId      Int       @map("user_id")
+  /// 任务状态：0-待处理，1-处理中，2-成功，3-失败
+  status      Int       @default(0)
+  /// 是否为加密文件
+  isEncrypted Boolean   @default(false) @map("is_encrypted")
+  /// 任务原始数据（提交参数等）
+  taskRawData Json?     @default("{}") @map("task_raw_data")
+  /// 转换结果
+  result      Json?     @default("{}")
+  /// 错误信息
+  errorMsg    String?   @map("error_msg") @db.Text
+  /// 重试次数
+  retryCount  Int       @default(0) @map("retry_count")
+  /// 完成时间
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
+  /// 创建时间
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为 NULL 表示未删除
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-    /// 关联的用户
-    user users @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的用户
+  user users @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    @@index([taskId], map: "idx_mineru_tasks_task_id")
-    @@index([ossFileId], map: "idx_mineru_tasks_oss_file_id")
-    @@index([userId], map: "idx_mineru_tasks_user_id")
-    @@index([status], map: "idx_mineru_tasks_status")
-    @@index([deletedAt], map: "idx_mineru_tasks_deleted_at")
-    @@map("mineru_tasks")
+  @@index([taskId], map: "idx_mineru_tasks_task_id")
+  @@index([ossFileId], map: "idx_mineru_tasks_oss_file_id")
+  @@index([userId], map: "idx_mineru_tasks_user_id")
+  @@index([status], map: "idx_mineru_tasks_status")
+  @@index([deletedAt], map: "idx_mineru_tasks_deleted_at")
+  @@map("mineru_tasks")
 }

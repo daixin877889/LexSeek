@@ -1,44 +1,44 @@
 /// Agent 执行记录表 - 存储 Agent 后台任务队列的执行记录
 model agentRuns {
-    /// 执行记录ID，主键，UUID
-    id          String    @id @default(uuid())
-    /// 关联的会话ID
-    sessionId   String    @map("session_id")
-    /// LangGraph thread_id
-    threadId    String    @map("thread_id")
-    /// 关联的用户ID
-    userId      Int       @map("user_id")
-    /// 关联的案件ID（关联 session 的 scope=assistant 时为空）
-    caseId      Int?      @map("case_id")
+  /// 执行记录ID，主键，UUID
+  id        String @id @default(uuid())
+  /// 关联的会话ID
+  sessionId String @map("session_id")
+  /// LangGraph thread_id
+  threadId  String @map("thread_id")
+  /// 关联的用户ID
+  userId    Int    @map("user_id")
+  /// 关联的案件ID（关联 session 的 scope=assistant 时为空）
+  caseId    Int?   @map("case_id")
 
-    /// 输入参数（{ message: string, command?: any }）
-    input       Json
+  /// 输入参数（{ message: string, command?: any }）
+  input Json
 
-    /// 执行状态：pending / running / completed / failed / cancelled
-    status      String    @default("pending")
+  /// 执行状态：pending / running / completed / failed / cancelled
+  status String @default("pending")
 
-    /// 执行该任务的 Worker ID
-    workerId    String?   @map("worker_id")
-    /// 最后心跳时间
-    heartbeatAt DateTime? @map("heartbeat_at") @db.Timestamptz(6)
+  /// 执行该任务的 Worker ID
+  workerId    String?   @map("worker_id")
+  /// 最后心跳时间
+  heartbeatAt DateTime? @map("heartbeat_at") @db.Timestamptz(6)
 
-    /// 开始执行时间
-    startedAt   DateTime? @map("started_at") @db.Timestamptz(6)
-    /// 完成时间
-    completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
-    /// 错误信息
-    error       String?
+  /// 开始执行时间
+  startedAt   DateTime? @map("started_at") @db.Timestamptz(6)
+  /// 完成时间
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
+  /// 错误信息
+  error       String?
 
-    /// 元数据（用于存储 resumeCount 等系统信息）- nullable，无默认值
-    metadata    Json?     @map("metadata")
+  /// 元数据（用于存储 resumeCount 等系统信息）- nullable，无默认值
+  metadata Json? @map("metadata")
 
-    /// 创建时间
-    createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// 创建时间
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-    @@index([status, createdAt], map: "idx_agent_runs_status_created_at")
-    @@index([sessionId, createdAt], map: "idx_agent_runs_session_id_created_at")
-    @@index([userId], map: "idx_agent_runs_user_id")
-    @@map("agent_runs")
+  @@index([status, createdAt], map: "idx_agent_runs_status_created_at")
+  @@index([sessionId, createdAt], map: "idx_agent_runs_session_id_created_at")
+  @@index([userId], map: "idx_agent_runs_user_id")
+  @@map("agent_runs")
 }

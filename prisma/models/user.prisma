@@ -1,122 +1,122 @@
 /// 用户表
 model users {
-    /// 用户ID，主键，自增
-    id              Int       @id @default(autoincrement())
-    /// 用户姓名
-    name            String    @db.VarChar(100)
-    /// 用户名，可选
-    username        String?   @unique @db.VarChar(100)
-    /// 电子邮箱，可选
-    email           String?   @unique @db.VarChar(100)
-    /// 手机号，唯一标识
-    phone           String    @unique @db.VarChar(11)
-    /// 密码，加密存储
-    password        String?   @db.VarChar(100)
-    /// 用户状态：1-启用，0-禁用
-    status          Int       @default(1)
-    /// 所属公司/律所，可选
-    company         String?   @db.VarChar(100)
-    /// 个人简介，可选
-    profile         String?
-    /// 邀请码，唯一
-    inviteCode      String?   @unique @map("invite_code") @db.VarChar(10)
-    /// 邀请人用户ID，外键关联用户表
-    invitedBy       Int?      @map("invited_by")
-    /// 微信小程序openid
-    openid          String?   @map("openid") @db.VarChar(100)
-    /// 微信小程序unionid
-    unionid         String?   @map("unionid") @db.VarChar(100)
-    /// 用户注册渠道
-    registerChannel String?   @map("register_channel") @db.VarChar(100)
-    /// 创建时间
-    createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz()
-    /// 最后更新时间
-    updatedAt       DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
-    /// 删除时间
-    deletedAt       DateTime? @map("deleted_at") @db.Timestamptz()
+  /// 用户ID，主键，自增
+  id              Int       @id @default(autoincrement())
+  /// 用户姓名
+  name            String    @db.VarChar(100)
+  /// 用户名，可选
+  username        String?   @unique @db.VarChar(100)
+  /// 电子邮箱，可选
+  email           String?   @unique @db.VarChar(100)
+  /// 手机号，唯一标识
+  phone           String    @unique @db.VarChar(11)
+  /// 密码，加密存储
+  password        String?   @db.VarChar(100)
+  /// 用户状态：1-启用，0-禁用
+  status          Int       @default(1)
+  /// 所属公司/律所，可选
+  company         String?   @db.VarChar(100)
+  /// 个人简介，可选
+  profile         String?
+  /// 邀请码，唯一
+  inviteCode      String?   @unique @map("invite_code") @db.VarChar(10)
+  /// 邀请人用户ID，外键关联用户表
+  invitedBy       Int?      @map("invited_by")
+  /// 微信小程序openid
+  openid          String?   @map("openid") @db.VarChar(100)
+  /// 微信小程序unionid
+  unionid         String?   @map("unionid") @db.VarChar(100)
+  /// 用户注册渠道
+  registerChannel String?   @map("register_channel") @db.VarChar(100)
+  /// 创建时间
+  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  /// 最后更新时间
+  updatedAt       DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
+  /// 删除时间
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz()
 
-    /// 用户角色关联（多对多）
-    userRoles userRoles[]
+  /// 用户角色关联（多对多）
+  userRoles userRoles[]
 
-    /// 用户积分记录（一对多）
-    pointRecords pointRecords[]
+  /// 用户积分记录（一对多）
+  pointRecords pointRecords[]
 
-    /// 用户积分消耗记录（一对多）
-    pointConsumptionRecords pointConsumptionRecords[]
+  /// 用户积分消耗记录（一对多）
+  pointConsumptionRecords pointConsumptionRecords[]
 
-    /// 用户会员记录（一对多）
-    userMemberships userMemberships[]
+  /// 用户会员记录（一对多）
+  userMemberships userMemberships[]
 
-    /// 用户兑换记录（一对多）
-    redemptionRecords redemptionRecords[]
+  /// 用户兑换记录（一对多）
+  redemptionRecords redemptionRecords[]
 
-    /// 用户订单（一对多）
-    orders orders[]
+  /// 用户订单（一对多）
+  orders orders[]
 
-    /// 用户会员升级记录（一对多）
-    membershipUpgradeRecords membershipUpgradeRecords[]
+  /// 用户会员升级记录（一对多）
+  membershipUpgradeRecords membershipUpgradeRecords[]
 
-    /// 权限审计日志（一对多）
-    permissionAuditLogs permissionAuditLogs[]
+  /// 权限审计日志（一对多）
+  permissionAuditLogs permissionAuditLogs[]
 
-    /// 用户权益记录（一对多）
-    userBenefits userBenefits[]
+  /// 用户权益记录（一对多）
+  userBenefits userBenefits[]
 
-    /// 用户案件（一对多）
-    cases cases[]
+  /// 用户案件（一对多）
+  cases cases[]
 
-    /// 关联的会话（case 域 + assistant 域）
-    caseSessions caseSessions[]
+  /// 关联的会话（case 域 + assistant 域）
+  caseSessions caseSessions[]
 
-    /// 用户文档识别记录（一对多）
-    docRecognitionRecords docRecognitionRecords[]
+  /// 用户文档识别记录（一对多）
+  docRecognitionRecords docRecognitionRecords[]
 
-    /// 用户图片识别记录（一对多）
-    imageRecognitionRecords imageRecognitionRecords[]
+  /// 用户图片识别记录（一对多）
+  imageRecognitionRecords imageRecognitionRecords[]
 
-    /// 用户 ASR 识别记录（一对多）
-    asrRecords asrRecords[]
+  /// 用户 ASR 识别记录（一对多）
+  asrRecords asrRecords[]
 
-    /// 用户 MinerU 任务（一对多）
-    mineruTasks mineruTasks[]
+  /// 用户 MinerU 任务（一对多）
+  mineruTasks mineruTasks[]
 
-    /// 用户文书模板（一对多，scope=personal 时）
-    documentTemplates documentTemplates[]
+  /// 用户文书模板（一对多，scope=personal 时）
+  documentTemplates documentTemplates[]
 
-    /// 用户文书草稿（一对多）
-    documentDrafts documentDrafts[]
+  /// 用户文书草稿（一对多）
+  documentDrafts documentDrafts[]
 
-    /// 用户合同审查记录（一对多）
-    contractReviews contractReviews[]
+  /// 用户合同审查记录（一对多）
+  contractReviews contractReviews[]
 
-    @@index([id], map: "idx_users_id")
-    @@index([status], map: "idx_users_status")
-    @@index([deletedAt], map: "idx_users_deleted_at")
-    @@map("users")
+  @@index([id], map: "idx_users_id")
+  @@index([status], map: "idx_users_status")
+  @@index([deletedAt], map: "idx_users_deleted_at")
+  @@map("users")
 }
 
 /// token 黑名单
 model tokenBlacklist {
-    /// token 黑名单ID，主键，uuid
-    id        String    @id @default(uuid(7)) @db.Uuid
-    /// tokenS
-    token     String?   @db.Text()
-    /// 用户ID
-    userId    Int       @map("user_id")
-    /// 过期时间
-    expiredAt DateTime  @map("expired_at") @db.Timestamptz()
-    /// 创建时间
-    createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz()
-    /// 最后更新时间
-    updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
-    /// 删除时间
-    deletedAt DateTime? @map("deleted_at") @db.Timestamptz()
+  /// token 黑名单ID，主键，uuid
+  id        String    @id @default(uuid(7)) @db.Uuid
+  /// tokenS
+  token     String?   @db.Text()
+  /// 用户ID
+  userId    Int       @map("user_id")
+  /// 过期时间
+  expiredAt DateTime  @map("expired_at") @db.Timestamptz()
+  /// 创建时间
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  /// 最后更新时间
+  updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamptz()
+  /// 删除时间
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz()
 
-    @@index([userId], map: "idx_token_blacklist_user_id")
-    @@index([expiredAt], map: "idx_token_blacklist_expired_at")
-    @@index([token], map: "idx_token_blacklist_token")
-    @@index([createdAt], map: "idx_token_blacklist_created_at")
-    @@index([updatedAt], map: "idx_token_blacklist_updated_at")
-    @@index([deletedAt], map: "idx_token_blacklist_deleted_at")
-    @@map("token_blacklist")
+  @@index([userId], map: "idx_token_blacklist_user_id")
+  @@index([expiredAt], map: "idx_token_blacklist_expired_at")
+  @@index([token], map: "idx_token_blacklist_token")
+  @@index([createdAt], map: "idx_token_blacklist_created_at")
+  @@index([updatedAt], map: "idx_token_blacklist_updated_at")
+  @@index([deletedAt], map: "idx_token_blacklist_deleted_at")
+  @@map("token_blacklist")
 }

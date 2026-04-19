@@ -1,117 +1,117 @@
 /// 模型提供商表
 model modelProviders {
-    /// 模型提供商ID，主键，自增
-    id          Int       @id @default(autoincrement())
-    /// 模型提供商名称，唯一
-    name        String    @unique @db.VarChar(100)
-    /// 模型提供商API基础URL
-    baseUrl     String    @map("base_url") @db.VarChar(255)
-    /// 模型提供商描述
-    description String?
-    /// 创建时间
-    createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-    /// 删除时间，为NULL表示未删除
-    deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  /// 模型提供商ID，主键，自增
+  id          Int       @id @default(autoincrement())
+  /// 模型提供商名称，唯一
+  name        String    @unique @db.VarChar(100)
+  /// 模型提供商API基础URL
+  baseUrl     String    @map("base_url") @db.VarChar(255)
+  /// 模型提供商描述
+  description String?
+  /// 创建时间
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-    /// 关联的 API 密钥
-    modelApiKeys modelApiKeys[]
-    /// 关联的模型
-    models       models[]
+  /// 关联的 API 密钥
+  modelApiKeys modelApiKeys[]
+  /// 关联的模型
+  models       models[]
 
-    @@index([deletedAt], map: "idx_model_providers_deleted_at")
-    @@index([name], map: "idx_model_providers_name")
-    @@map("model_providers")
+  @@index([deletedAt], map: "idx_model_providers_deleted_at")
+  @@index([name], map: "idx_model_providers_name")
+  @@map("model_providers")
 }
 
 /// 模型API密钥表
 model modelApiKeys {
-    /// 模型API密钥ID，主键，自增
-    id           Int       @id @default(autoincrement())
-    /// 关联的模型提供商ID
-    providerId   Int       @map("provider_id")
-    /// API密钥名称
-    name         String    @db.VarChar(100)
-    /// API密钥值
-    apiKey       String    @map("api_key") @db.VarChar(255)
-    /// 是否默认：true-是，false-否
-    isDefault    Boolean   @default(false) @map("is_default")
-    /// 状态：1-启用，0-禁用
-    status       Int       @default(1)
-    /// 日调用限制次数
-    dailyLimit   Int?      @map("daily_limit")
-    /// 月调用限制次数
-    monthlyLimit Int?      @map("monthly_limit")
-    /// 创建时间
-    createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-    /// 删除时间，为NULL表示未删除
-    deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+  /// 模型API密钥ID，主键，自增
+  id           Int       @id @default(autoincrement())
+  /// 关联的模型提供商ID
+  providerId   Int       @map("provider_id")
+  /// API密钥名称
+  name         String    @db.VarChar(100)
+  /// API密钥值
+  apiKey       String    @map("api_key") @db.VarChar(255)
+  /// 是否默认：true-是，false-否
+  isDefault    Boolean   @default(false) @map("is_default")
+  /// 状态：1-启用，0-禁用
+  status       Int       @default(1)
+  /// 日调用限制次数
+  dailyLimit   Int?      @map("daily_limit")
+  /// 月调用限制次数
+  monthlyLimit Int?      @map("monthly_limit")
+  /// 创建时间
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-    /// 关联的提供商
-    modelProvider modelProviders @relation(fields: [providerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的提供商
+  modelProvider modelProviders @relation(fields: [providerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    @@unique([providerId, name])
-    @@index([providerId], map: "idx_model_api_keys_provider_id")
-    @@index([isDefault], map: "idx_model_api_keys_is_default")
-    @@index([status], map: "idx_model_api_keys_status")
-    @@index([deletedAt], map: "idx_model_api_keys_deleted_at")
-    @@map("model_api_keys")
+  @@unique([providerId, name])
+  @@index([providerId], map: "idx_model_api_keys_provider_id")
+  @@index([isDefault], map: "idx_model_api_keys_is_default")
+  @@index([status], map: "idx_model_api_keys_status")
+  @@index([deletedAt], map: "idx_model_api_keys_deleted_at")
+  @@map("model_api_keys")
 }
 
 /// 模型配置表
 model models {
-    /// 模型ID，主键，自增
-    id                         Int       @id @default(autoincrement())
-    /// 关联的模型提供商ID
-    providerId                 Int       @map("provider_id")
-    /// 模型名称
-    name                       String    @db.VarChar(100)
-    /// 模型显示名称
-    displayName                String    @map("display_name") @db.VarChar(100)
-    /// 模型类型：chat-对话模型，embedding-嵌入模型，asr-音频识别模型
-    modelType                  String    @map("model_type") @db.VarChar(20)
-    /// LangChain SDK 类型：openai、deepseek、gemini、anthropic
-    sdkType                    String    @default("openai") @map("sdk_type") @db.VarChar(20)
-    /// 模型版本
-    modelVersion               String?   @map("model_version") @db.VarChar(50)
-    /// 上下文窗口大小
-    contextWindow              Int?      @map("context_window")
-    /// 嵌入维度（embedding 模型专用）
-    dimensions                 Int?
-    /// 批处理大小
-    batchSize                  Int?      @map("batch_size")
-    /// 是否默认：true-是，false-否
-    isDefault                  Boolean   @default(false) @map("is_default")
-    /// 状态：1-启用，0-禁用
-    status                     Int       @default(1)
-    /// 优先级，数字越小优先级越高
-    priority                   Int       @default(10)
-    /// 输入成本（每百万tokens）
-    inputCostPerMillionTokens  Decimal?  @map("input_cost_per_million_tokens") @db.Decimal(12, 4)
-    /// 输出成本（每百万tokens）
-    outputCostPerMillionTokens Decimal?  @map("output_cost_per_million_tokens") @db.Decimal(12, 4)
-    /// 创建时间
-    createdAt                  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt                  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-    /// 删除时间，为NULL表示未删除
-    deletedAt                  DateTime? @map("deleted_at") @db.Timestamptz(6)
+  /// 模型ID，主键，自增
+  id                         Int       @id @default(autoincrement())
+  /// 关联的模型提供商ID
+  providerId                 Int       @map("provider_id")
+  /// 模型名称
+  name                       String    @db.VarChar(100)
+  /// 模型显示名称
+  displayName                String    @map("display_name") @db.VarChar(100)
+  /// 模型类型：chat-对话模型，embedding-嵌入模型，asr-音频识别模型
+  modelType                  String    @map("model_type") @db.VarChar(20)
+  /// LangChain SDK 类型：openai、deepseek、gemini、anthropic
+  sdkType                    String    @default("openai") @map("sdk_type") @db.VarChar(20)
+  /// 模型版本
+  modelVersion               String?   @map("model_version") @db.VarChar(50)
+  /// 上下文窗口大小
+  contextWindow              Int?      @map("context_window")
+  /// 嵌入维度（embedding 模型专用）
+  dimensions                 Int?
+  /// 批处理大小
+  batchSize                  Int?      @map("batch_size")
+  /// 是否默认：true-是，false-否
+  isDefault                  Boolean   @default(false) @map("is_default")
+  /// 状态：1-启用，0-禁用
+  status                     Int       @default(1)
+  /// 优先级，数字越小优先级越高
+  priority                   Int       @default(10)
+  /// 输入成本（每百万tokens）
+  inputCostPerMillionTokens  Decimal?  @map("input_cost_per_million_tokens") @db.Decimal(12, 4)
+  /// 输出成本（每百万tokens）
+  outputCostPerMillionTokens Decimal?  @map("output_cost_per_million_tokens") @db.Decimal(12, 4)
+  /// 创建时间
+  createdAt                  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt                  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为NULL表示未删除
+  deletedAt                  DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-    /// 关联的提供商
-    modelProvider modelProviders @relation(fields: [providerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的提供商
+  modelProvider modelProviders @relation(fields: [providerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    /// 关联的节点
-    nodes nodes[]
+  /// 关联的节点
+  nodes nodes[]
 
-    @@unique([providerId, name])
-    @@index([providerId], map: "idx_models_provider_id")
-    @@index([modelType], map: "idx_models_model_type")
-    @@index([isDefault], map: "idx_models_is_default")
-    @@index([status], map: "idx_models_status")
-    @@index([priority], map: "idx_models_priority")
-    @@index([deletedAt], map: "idx_models_deleted_at")
-    @@map("models")
+  @@unique([providerId, name])
+  @@index([providerId], map: "idx_models_provider_id")
+  @@index([modelType], map: "idx_models_model_type")
+  @@index([isDefault], map: "idx_models_is_default")
+  @@index([status], map: "idx_models_status")
+  @@index([priority], map: "idx_models_priority")
+  @@index([deletedAt], map: "idx_models_deleted_at")
+  @@map("models")
 }

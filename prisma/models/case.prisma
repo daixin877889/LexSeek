@@ -1,286 +1,286 @@
 /// 案件类型表 - 存储案件的分类类型
 model caseTypes {
-    /// 案件类型ID，主键，自增
-    id          Int       @id @default(autoincrement())
-    /// 类型名称
-    name        String    @db.VarChar(100)
-    /// 类型描述
-    description String?   @db.VarChar(255)
-    /// 图标（可选）
-    icon        String?   @db.VarChar(100)
-    /// 排序优先级，数字越小越靠前
-    priority    Int       @default(100)
-    /// 状态：1-启用，0-禁用
-    status      Int       @default(1)
-    /// 创建时间
-    createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-    /// 删除时间，为 NULL 表示未删除
-    deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  /// 案件类型ID，主键，自增
+  id          Int       @id @default(autoincrement())
+  /// 类型名称
+  name        String    @db.VarChar(100)
+  /// 类型描述
+  description String?   @db.VarChar(255)
+  /// 图标（可选）
+  icon        String?   @db.VarChar(100)
+  /// 排序优先级，数字越小越靠前
+  priority    Int       @default(100)
+  /// 状态：1-启用，0-禁用
+  status      Int       @default(1)
+  /// 创建时间
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为 NULL 表示未删除
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-    /// 关联的案件
-    cases     cases[]
-    /// 关联的示范案例
-    demoCases demoCases[]
+  /// 关联的案件
+  cases     cases[]
+  /// 关联的示范案例
+  demoCases demoCases[]
 
-    @@index([priority], map: "idx_case_types_priority")
-    @@index([status], map: "idx_case_types_status")
-    @@index([deletedAt], map: "idx_case_types_deleted_at")
-    @@map("case_types")
+  @@index([priority], map: "idx_case_types_priority")
+  @@index([status], map: "idx_case_types_status")
+  @@index([deletedAt], map: "idx_case_types_deleted_at")
+  @@map("case_types")
 }
 
 /// 案件表 - 存储用户创建的法律案件实体
 model cases {
-    /// 案件ID，主键，自增
-    id            Int       @id @default(autoincrement())
-    /// 案件标题
-    title         String    @db.VarChar(500)
-    /// 案件内容/描述
-    content       String?   @db.Text
-    /// 关联的用户ID
-    userId        Int       @map("user_id")
-    /// 案件类型ID
-    caseTypeId    Int       @map("case_type_id")
-    /// 原告信息（JSON 格式）
-    plaintiff     Json?
-    /// 被告信息（JSON 格式）
-    defendant     Json?
-    /// 案件概述（从提取结果同步）
-    summary       String?   @db.Text
-    /// 全量提取结果（固定字段+动态扩展字段）
-    extractedInfo Json?     @map("extracted_info") @db.JsonB
-    /// 案件状态：1-进行中，2-已完成，3-已关闭
-    status        Int       @default(1)
-    /// 是否为示范案件
-    isDemo        Boolean   @default(false) @map("is_demo")
-    /// 创建时间
-    createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-    /// 删除时间，为 NULL 表示未删除
-    deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
+  /// 案件ID，主键，自增
+  id            Int       @id @default(autoincrement())
+  /// 案件标题
+  title         String    @db.VarChar(500)
+  /// 案件内容/描述
+  content       String?   @db.Text
+  /// 关联的用户ID
+  userId        Int       @map("user_id")
+  /// 案件类型ID
+  caseTypeId    Int       @map("case_type_id")
+  /// 原告信息（JSON 格式）
+  plaintiff     Json?
+  /// 被告信息（JSON 格式）
+  defendant     Json?
+  /// 案件概述（从提取结果同步）
+  summary       String?   @db.Text
+  /// 全量提取结果（固定字段+动态扩展字段）
+  extractedInfo Json?     @map("extracted_info") @db.JsonB
+  /// 案件状态：1-进行中，2-已完成，3-已关闭
+  status        Int       @default(1)
+  /// 是否为示范案件
+  isDemo        Boolean   @default(false) @map("is_demo")
+  /// 创建时间
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为 NULL 表示未删除
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-    /// 关联的用户
-    user users @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的用户
+  user users @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    /// 关联的案件类型
-    caseType caseTypes @relation(fields: [caseTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的案件类型
+  caseType caseTypes @relation(fields: [caseTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    /// 关联的案件会话
-    caseSessions   caseSessions[]
-    /// 关联的案件材料
-    caseMaterials  caseMaterials[]
-    /// 关联的案件分析结果
-    caseAnalyses   caseAnalyses[]
-    /// 关联的文书草稿
-    documentDrafts documentDrafts[]
-    /// 关联的合同审查（case 软删/硬删时 contract_reviews.case_id 自动置 null，不级联删）
-    contractReviews contractReviews[]
+  /// 关联的案件会话
+  caseSessions    caseSessions[]
+  /// 关联的案件材料
+  caseMaterials   caseMaterials[]
+  /// 关联的案件分析结果
+  caseAnalyses    caseAnalyses[]
+  /// 关联的文书草稿
+  documentDrafts  documentDrafts[]
+  /// 关联的合同审查（case 软删/硬删时 contract_reviews.case_id 自动置 null，不级联删）
+  contractReviews contractReviews[]
 
-    @@index([userId], map: "idx_cases_user_id")
-    @@index([caseTypeId], map: "idx_cases_case_type_id")
-    @@index([status], map: "idx_cases_status")
-    @@index([isDemo], map: "idx_cases_is_demo")
-    @@index([deletedAt], map: "idx_cases_deleted_at")
-    @@map("cases")
+  @@index([userId], map: "idx_cases_user_id")
+  @@index([caseTypeId], map: "idx_cases_case_type_id")
+  @@index([status], map: "idx_cases_status")
+  @@index([isDemo], map: "idx_cases_is_demo")
+  @@index([deletedAt], map: "idx_cases_deleted_at")
+  @@map("cases")
 }
 
 /// 案件会话表 - 存储案件分析的会话上下文，对应 LangGraph 的 thread_id
 /// 通过 scope 字段扩展为双域：case（案件内）与 assistant（通用法律助手）
 model caseSessions {
-    /// 会话ID，主键，自增
-    id        Int       @id @default(autoincrement())
-    /// 会话唯一标识，对应 LangGraph thread_id
-    sessionId String    @unique @map("session_id") @db.VarChar(100)
-    /// 会话归属域：case（案件内）/ assistant（通用法律助手）
-    scope     String    @default("case") @db.VarChar(20)
-    /// 会话所有者用户ID
-    /// - scope=assistant：必须存在（应用层校验）
-    /// - scope=case：冗余字段，便于列表按用户查询（存量可为 NULL，鉴权回退到 case.userId）
-    userId    Int?      @map("user_id")
-    /// 关联的案件ID
-    /// - scope=case：必须存在（应用层校验）
-    /// - scope=assistant：必须为 NULL
-    caseId    Int?      @map("case_id")
-    /// 会话状态：1-进行中，2-已完成，3-已中断，4-已失败
-    status    Int       @default(1)
-    /// 会话类型：1-普通对话，2-初始化分析（仅 case 域使用）
-    type      Int       @default(1)
-    /// 会话标题（assistant 场景由首条消息自动生成，用户可重命名）
-    title     String?   @db.VarChar(200)
-    /// 会话元数据（JSON），type=2 时存储 { selectedModules: string[] } 等
-    metadata  Json?     @db.JsonB
-    /// 创建时间
-    createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-    /// 删除时间，为 NULL 表示未删除
-    deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  /// 会话ID，主键，自增
+  id        Int       @id @default(autoincrement())
+  /// 会话唯一标识，对应 LangGraph thread_id
+  sessionId String    @unique @map("session_id") @db.VarChar(100)
+  /// 会话归属域：case（案件内）/ assistant（通用法律助手）
+  scope     String    @default("case") @db.VarChar(20)
+  /// 会话所有者用户ID
+  /// - scope=assistant：必须存在（应用层校验）
+  /// - scope=case：冗余字段，便于列表按用户查询（存量可为 NULL，鉴权回退到 case.userId）
+  userId    Int?      @map("user_id")
+  /// 关联的案件ID
+  /// - scope=case：必须存在（应用层校验）
+  /// - scope=assistant：必须为 NULL
+  caseId    Int?      @map("case_id")
+  /// 会话状态：1-进行中，2-已完成，3-已中断，4-已失败
+  status    Int       @default(1)
+  /// 会话类型：1-普通对话，2-初始化分析（仅 case 域使用）
+  type      Int       @default(1)
+  /// 会话标题（assistant 场景由首条消息自动生成，用户可重命名）
+  title     String?   @db.VarChar(200)
+  /// 会话元数据（JSON），type=2 时存储 { selectedModules: string[] } 等
+  metadata  Json?     @db.JsonB
+  /// 创建时间
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为 NULL 表示未删除
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-    /// 关联的案件（scope=assistant 时为 null）
-    case cases? @relation(fields: [caseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的案件（scope=assistant 时为 null）
+  case cases? @relation(fields: [caseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    /// 关联的用户（scope=assistant 必存在；scope=case 存量可为 null）
-    user users? @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的用户（scope=assistant 必存在；scope=case 存量可为 null）
+  user users? @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    /// 关联的案件分析结果
-    caseAnalyses caseAnalyses[]
+  /// 关联的案件分析结果
+  caseAnalyses caseAnalyses[]
 
-    @@index([userId, scope, deletedAt], map: "idx_case_sessions_user_scope")
-    @@index([caseId], map: "idx_case_sessions_case_id")
-    @@index([scope, status], map: "idx_case_sessions_scope_status")
-    @@index([type], map: "idx_case_sessions_type")
-    @@index([deletedAt], map: "idx_case_sessions_deleted_at")
-    @@map("case_sessions")
+  @@index([userId, scope, deletedAt], map: "idx_case_sessions_user_scope")
+  @@index([caseId], map: "idx_case_sessions_case_id")
+  @@index([scope, status], map: "idx_case_sessions_scope_status")
+  @@index([type], map: "idx_case_sessions_type")
+  @@index([deletedAt], map: "idx_case_sessions_deleted_at")
+  @@map("case_sessions")
 }
 
 /// 案件材料表 - 存储案件相关的输入材料
 model caseMaterials {
-    /// 材料ID，主键，自增
-    id          Int       @id @default(autoincrement())
-    /// 关联的案件ID（文书生成场景下可为 NULL，此时由 draftId 关联）
-    caseId      Int?      @map("case_id")
-    /// 关联的文书草稿ID（文书生成场景使用，与 caseId 互斥）
-    draftId     Int?      @map("draft_id")
-    /// 材料名称
-    name        String    @db.VarChar(255)
-    /// 材料类型：1-文本，2-文档，3-图片，4-音频
-    type        Int
-    /// 关联的 OSS 文件ID
-    ossFileId   Int?      @map("oss_file_id")
-    /// 是否加密
-    isEncrypted Boolean   @default(false) @map("is_encrypted")
-    /// 材料状态：1-待处理，2-处理中，3-已完成，4-处理失败
-    status      Int       @default(1)
-    /// 创建时间
-    createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-    /// 删除时间，为 NULL 表示未删除
-    deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
-    /// 材料摘要缓存（首次生成后缓存，复用时不重复提取）
-    summary     String?   @db.Text
+  /// 材料ID，主键，自增
+  id          Int       @id @default(autoincrement())
+  /// 关联的案件ID（文书生成场景下可为 NULL，此时由 draftId 关联）
+  caseId      Int?      @map("case_id")
+  /// 关联的文书草稿ID（文书生成场景使用，与 caseId 互斥）
+  draftId     Int?      @map("draft_id")
+  /// 材料名称
+  name        String    @db.VarChar(255)
+  /// 材料类型：1-文本，2-文档，3-图片，4-音频
+  type        Int
+  /// 关联的 OSS 文件ID
+  ossFileId   Int?      @map("oss_file_id")
+  /// 是否加密
+  isEncrypted Boolean   @default(false) @map("is_encrypted")
+  /// 材料状态：1-待处理，2-处理中，3-已完成，4-处理失败
+  status      Int       @default(1)
+  /// 创建时间
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为 NULL 表示未删除
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  /// 材料摘要缓存（首次生成后缓存，复用时不重复提取）
+  summary     String?   @db.Text
 
-    /// 关联的案件（caseId 不为 NULL 时有效）
-    case  cases?          @relation(fields: [caseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-    /// 关联的文书草稿（draftId 不为 NULL 时有效）
-    draft documentDrafts? @relation(fields: [draftId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的案件（caseId 不为 NULL 时有效）
+  case  cases?          @relation(fields: [caseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的文书草稿（draftId 不为 NULL 时有效）
+  draft documentDrafts? @relation(fields: [draftId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    @@index([caseId], map: "idx_case_materials_case_id")
-    @@index([draftId], map: "idx_case_materials_draft")
-    @@index([type], map: "idx_case_materials_type")
-    @@index([status], map: "idx_case_materials_status")
-    @@index([deletedAt], map: "idx_case_materials_deleted_at")
-    @@map("case_materials")
+  @@index([caseId], map: "idx_case_materials_case_id")
+  @@index([draftId], map: "idx_case_materials_draft")
+  @@index([type], map: "idx_case_materials_type")
+  @@index([status], map: "idx_case_materials_status")
+  @@index([deletedAt], map: "idx_case_materials_deleted_at")
+  @@map("case_materials")
 }
 
 /// 案件分析结果表 - 存储各分析模块的分析结果
 model caseAnalyses {
-    /// 分析结果ID，主键，自增
-    id             Int       @id @default(autoincrement())
-    /// 关联的案件ID
-    caseId         Int       @map("case_id")
-    /// 关联的会话ID
-    sessionId      String    @map("session_id") @db.VarChar(100)
-    /// 关联的节点ID
-    nodeId         Int       @map("node_id")
-    /// 分析类型（节点名称）
-    analysisType   String    @map("analysis_type") @db.VarChar(100)
-    /// 分析结果（Markdown 格式）
-    analysisResult String?   @map("analysis_result") @db.Text
-    /// 还原后的结果（解密后的内容）
-    originalResult String?   @map("original_result") @db.Text
-    /// 版本号
-    version        Int       @default(1)
-    /// 分析状态：1-进行中，2-已完成，3-已失败
-    status         Int       @default(1)
-    /// 是否为激活版本（同一 caseId+nodeId 只有一条为 true）
-    isActive       Boolean   @default(false) @map("is_active")
-    /// 积分是否已扣减
-    pointDeducted  Boolean   @default(false) @map("point_deducted")
-    /// 消耗的千 token 数（积分扣减单位）
-    tokenCount     Int?      @map("token_count")
-    /// 实际 token 总数
-    tokens         Int?
-    /// 创建时间
-    createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-    /// 删除时间，为 NULL 表示未删除
-    deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+  /// 分析结果ID，主键，自增
+  id             Int       @id @default(autoincrement())
+  /// 关联的案件ID
+  caseId         Int       @map("case_id")
+  /// 关联的会话ID
+  sessionId      String    @map("session_id") @db.VarChar(100)
+  /// 关联的节点ID
+  nodeId         Int       @map("node_id")
+  /// 分析类型（节点名称）
+  analysisType   String    @map("analysis_type") @db.VarChar(100)
+  /// 分析结果（Markdown 格式）
+  analysisResult String?   @map("analysis_result") @db.Text
+  /// 还原后的结果（解密后的内容）
+  originalResult String?   @map("original_result") @db.Text
+  /// 版本号
+  version        Int       @default(1)
+  /// 分析状态：1-进行中，2-已完成，3-已失败
+  status         Int       @default(1)
+  /// 是否为激活版本（同一 caseId+nodeId 只有一条为 true）
+  isActive       Boolean   @default(false) @map("is_active")
+  /// 积分是否已扣减
+  pointDeducted  Boolean   @default(false) @map("point_deducted")
+  /// 消耗的千 token 数（积分扣减单位）
+  tokenCount     Int?      @map("token_count")
+  /// 实际 token 总数
+  tokens         Int?
+  /// 创建时间
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为 NULL 表示未删除
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-    /// 关联的案件
-    case cases @relation(fields: [caseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的案件
+  case cases @relation(fields: [caseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    /// 关联的会话
-    caseSession caseSessions @relation(fields: [sessionId], references: [sessionId], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的会话
+  caseSession caseSessions @relation(fields: [sessionId], references: [sessionId], onDelete: NoAction, onUpdate: NoAction)
 
-    /// 关联的节点
-    node nodes @relation(fields: [nodeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的节点
+  node nodes @relation(fields: [nodeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    @@index([caseId], map: "idx_case_analyses_case_id")
-    @@index([sessionId], map: "idx_case_analyses_session_id")
-    @@index([nodeId], map: "idx_case_analyses_node_id")
-    @@index([analysisType], map: "idx_case_analyses_analysis_type")
-    @@index([status], map: "idx_case_analyses_status")
-    @@index([caseId, nodeId, isActive], map: "idx_case_analyses_active_version")
-    @@index([deletedAt], map: "idx_case_analyses_deleted_at")
-    @@map("case_analyses")
+  @@index([caseId], map: "idx_case_analyses_case_id")
+  @@index([sessionId], map: "idx_case_analyses_session_id")
+  @@index([nodeId], map: "idx_case_analyses_node_id")
+  @@index([analysisType], map: "idx_case_analyses_analysis_type")
+  @@index([status], map: "idx_case_analyses_status")
+  @@index([caseId, nodeId, isActive], map: "idx_case_analyses_active_version")
+  @@index([deletedAt], map: "idx_case_analyses_deleted_at")
+  @@map("case_analyses")
 }
 
 /// 示范案例表 - 存储预设的示范案例，供用户快速体验分析流程
 model demoCases {
-    /// 示范案例ID，主键，自增
-    id          Int       @id @default(autoincrement())
-    /// 案例标题
-    title       String    @db.VarChar(200)
-    /// 案例简介
-    description String?   @db.VarChar(500)
-    /// 示范案例的文本案情描述（点击后填入用户输入框）
-    content     String?   @db.Text
-    /// 案件类型ID
-    caseTypeId  Int       @map("case_type_id")
-    /// 预设材料列表（JSON 数组）
-    materials   Json      @default("[]")
-    /// 封面图片 URL
-    coverImage  String?   @map("cover_image") @db.VarChar(500)
-    /// 排序优先级，数字越小越靠前
-    priority    Int       @default(100)
-    /// 状态：1-启用，0-禁用
-    status      Int       @default(1)
-    /// 创建时间
-    createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-    /// 最后更新时间
-    updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-    /// 删除时间，为 NULL 表示未删除
-    deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  /// 示范案例ID，主键，自增
+  id          Int       @id @default(autoincrement())
+  /// 案例标题
+  title       String    @db.VarChar(200)
+  /// 案例简介
+  description String?   @db.VarChar(500)
+  /// 示范案例的文本案情描述（点击后填入用户输入框）
+  content     String?   @db.Text
+  /// 案件类型ID
+  caseTypeId  Int       @map("case_type_id")
+  /// 预设材料列表（JSON 数组）
+  materials   Json      @default("[]")
+  /// 封面图片 URL
+  coverImage  String?   @map("cover_image") @db.VarChar(500)
+  /// 排序优先级，数字越小越靠前
+  priority    Int       @default(100)
+  /// 状态：1-启用，0-禁用
+  status      Int       @default(1)
+  /// 创建时间
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 最后更新时间
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  /// 删除时间，为 NULL 表示未删除
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-    /// 关联的案件类型
-    caseType caseTypes @relation(fields: [caseTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 关联的案件类型
+  caseType caseTypes @relation(fields: [caseTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    @@index([caseTypeId], map: "idx_demo_cases_case_type_id")
-    @@index([priority], map: "idx_demo_cases_priority")
-    @@index([status], map: "idx_demo_cases_status")
-    @@index([deletedAt], map: "idx_demo_cases_deleted_at")
-    @@map("demo_cases")
+  @@index([caseTypeId], map: "idx_demo_cases_case_type_id")
+  @@index([priority], map: "idx_demo_cases_priority")
+  @@index([status], map: "idx_demo_cases_status")
+  @@index([deletedAt], map: "idx_demo_cases_deleted_at")
+  @@map("demo_cases")
 }
 
 /// 案件材料向量表 - 存储案件材料的向量化数据用于语义检索
 /// 使用 pgvector 扩展进行向量存储和相似度搜索
 /// 注意：此表结构不允许修改，必须保持原有设计
 model caseMaterialEmbeddings {
-    /// 主键，UUID 类型
-    id        String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    /// 材料内容片段
-    text      String?                @db.Text
-    /// 元数据（JSON 格式，包含 caseId、materialId、sessionId、materialName、materialType、chunkIndex）
-    metadata  Json?
-    /// 材料内容向量嵌入
-    embedding Unsupported("vector")?
-    /// 中文全文搜索向量（由 trigger 自动维护）
-    tsv       Unsupported("tsvector")?
+  /// 主键，UUID 类型
+  id        String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// 材料内容片段
+  text      String?                  @db.Text
+  /// 元数据（JSON 格式，包含 caseId、materialId、sessionId、materialName、materialType、chunkIndex）
+  metadata  Json?
+  /// 材料内容向量嵌入
+  embedding Unsupported("vector")?
+  /// 中文全文搜索向量（由 trigger 自动维护）
+  tsv       Unsupported("tsvector")?
 
-    @@index([tsv], type: Gin, map: "idx_case_material_tsv")
-    @@map("case_material_embeddings")
+  @@index([tsv], type: Gin, map: "idx_case_material_tsv")
+  @@map("case_material_embeddings")
 }

@@ -1,142 +1,142 @@
 /// 法律主表 - 存储法律法规的基本信息
 model legalMain {
-    /// 主键，使用 UUID v7
-    id               String          @id @default(uuid(7))
-    /// 法律名称
-    name             String
-    /// 法律代码
-    code             String
-    /// 法律类型：law(法律)、regulation(行政法规)、judicial_interp(司法解释)、guideline(指导意见)
-    type             String
-    /// 法律分类
-    category         String?
-    /// 法律内容
-    content          String          @db.Text
-    /// 发文机关
-    issuingAuthority String?         @map("issuing_authority")
-    /// 文号
-    documentNumber   String?         @map("document_number")
-    /// 法律发布日期
-    publishDate      DateTime?       @map("publish_date") @db.Date
-    /// 法律生效日期
-    effectiveDate    DateTime?       @map("effective_date") @db.Date
-    /// 法律失效日期
-    invalidDate      DateTime?       @map("invalid_date") @db.Date
-    /// 最后编辑时间
-    lastEditedAt     DateTime?       @default(now()) @map("last_edited_at") @db.Timestamptz()
-    /// 最后嵌入时间
-    lastEmbeddingAt  DateTime?       @map("last_embedding_at") @db.Timestamptz()
-    /// 创建时间
-    createdAt        DateTime?       @default(now()) @map("created_at") @db.Timestamptz()
-    /// 最后更新时间
-    updatedAt        DateTime?       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
-    /// 删除时间，为 NULL 表示未删除
-    deletedAt        DateTime?       @map("deleted_at") @db.Timestamptz()
-    /// 法律条文关联
-    legalArticles    legalArticles[]
+  /// 主键，使用 UUID v7
+  id               String          @id @default(uuid(7))
+  /// 法律名称
+  name             String
+  /// 法律代码
+  code             String
+  /// 法律类型：law(法律)、regulation(行政法规)、judicial_interp(司法解释)、guideline(指导意见)
+  type             String
+  /// 法律分类
+  category         String?
+  /// 法律内容
+  content          String          @db.Text
+  /// 发文机关
+  issuingAuthority String?         @map("issuing_authority")
+  /// 文号
+  documentNumber   String?         @map("document_number")
+  /// 法律发布日期
+  publishDate      DateTime?       @map("publish_date") @db.Date
+  /// 法律生效日期
+  effectiveDate    DateTime?       @map("effective_date") @db.Date
+  /// 法律失效日期
+  invalidDate      DateTime?       @map("invalid_date") @db.Date
+  /// 最后编辑时间
+  lastEditedAt     DateTime?       @default(now()) @map("last_edited_at") @db.Timestamptz()
+  /// 最后嵌入时间
+  lastEmbeddingAt  DateTime?       @map("last_embedding_at") @db.Timestamptz()
+  /// 创建时间
+  createdAt        DateTime?       @default(now()) @map("created_at") @db.Timestamptz()
+  /// 最后更新时间
+  updatedAt        DateTime?       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  /// 删除时间，为 NULL 表示未删除
+  deletedAt        DateTime?       @map("deleted_at") @db.Timestamptz()
+  /// 法律条文关联
+  legalArticles    legalArticles[]
 
-    @@index([type], map: "idx_legal_main_type")
-    @@index([code], map: "idx_legal_main_code")
-    @@index([issuingAuthority], map: "idx_legal_main_issuing_authority")
-    @@index([deletedAt], map: "idx_legal_main_deleted_at")
-    @@map("legal_main")
+  @@index([type], map: "idx_legal_main_type")
+  @@index([code], map: "idx_legal_main_code")
+  @@index([issuingAuthority], map: "idx_legal_main_issuing_authority")
+  @@index([deletedAt], map: "idx_legal_main_deleted_at")
+  @@map("legal_main")
 }
 
 /// 法律条文表 - 存储法律法规对应的具体条款内容
 model legalArticles {
-    /// 主键，使用 UUID v7
-    id              String    @id @default(uuid(7))
-    /// 法律 ID，关联法律主表
-    legalId         String    @map("legal_id")
-    /// 条文类型：notice(通知)、header(正文头部)、footer(正文尾部)、annex(附件)、l1-l5(各级标题)
-    type            String
-    /// 一级标题(编)
-    l1              String?
-    /// 一级标题序号
-    l1I             Int?      @map("l1_i")
-    /// 二级标题(分编)
-    l2              String?
-    /// 二级标题序号
-    l2I             Int?      @map("l2_i")
-    /// 三级标题(章)
-    l3              String?
-    /// 三级标题序号
-    l3I             Int?      @map("l3_i")
-    /// 四级标题(节)
-    l4              String?
-    /// 四级标题序号
-    l4I             Int?      @map("l4_i")
-    /// 五级标题(条)
-    l5              String?
-    /// 五级标题序号
-    l5I             Int?      @map("l5_i")
-    /// 块排序
-    order           Int?
-    /// 法律条文内容
-    content         String?   @db.Text
-    /// 法律条文发布日期
-    publishDate     DateTime? @map("publish_date") @db.Date
-    /// 法律条文生效日期
-    effectiveDate   DateTime? @map("effective_date") @db.Date
-    /// 法律条文失效日期
-    invalidDate     DateTime? @map("invalid_date") @db.Date
-    /// 最后编辑时间
-    lastEditedAt    DateTime? @default(now()) @map("last_edited_at") @db.Timestamptz()
-    /// 最后嵌入时间
-    lastEmbeddingAt DateTime? @map("last_embedding_at") @db.Timestamptz()
-    /// 创建时间
-    createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz()
-    /// 最后更新时间
-    updatedAt       DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
-    /// 删除时间，为 NULL 表示未删除
-    deletedAt       DateTime? @map("deleted_at") @db.Timestamptz()
-    /// 法律主表关联
-    legalMain       legalMain @relation(fields: [legalId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// 主键，使用 UUID v7
+  id              String    @id @default(uuid(7))
+  /// 法律 ID，关联法律主表
+  legalId         String    @map("legal_id")
+  /// 条文类型：notice(通知)、header(正文头部)、footer(正文尾部)、annex(附件)、l1-l5(各级标题)
+  type            String
+  /// 一级标题(编)
+  l1              String?
+  /// 一级标题序号
+  l1I             Int?      @map("l1_i")
+  /// 二级标题(分编)
+  l2              String?
+  /// 二级标题序号
+  l2I             Int?      @map("l2_i")
+  /// 三级标题(章)
+  l3              String?
+  /// 三级标题序号
+  l3I             Int?      @map("l3_i")
+  /// 四级标题(节)
+  l4              String?
+  /// 四级标题序号
+  l4I             Int?      @map("l4_i")
+  /// 五级标题(条)
+  l5              String?
+  /// 五级标题序号
+  l5I             Int?      @map("l5_i")
+  /// 块排序
+  order           Int?
+  /// 法律条文内容
+  content         String?   @db.Text
+  /// 法律条文发布日期
+  publishDate     DateTime? @map("publish_date") @db.Date
+  /// 法律条文生效日期
+  effectiveDate   DateTime? @map("effective_date") @db.Date
+  /// 法律条文失效日期
+  invalidDate     DateTime? @map("invalid_date") @db.Date
+  /// 最后编辑时间
+  lastEditedAt    DateTime? @default(now()) @map("last_edited_at") @db.Timestamptz()
+  /// 最后嵌入时间
+  lastEmbeddingAt DateTime? @map("last_embedding_at") @db.Timestamptz()
+  /// 创建时间
+  createdAt       DateTime? @default(now()) @map("created_at") @db.Timestamptz()
+  /// 最后更新时间
+  updatedAt       DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+  /// 删除时间，为 NULL 表示未删除
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz()
+  /// 法律主表关联
+  legalMain       legalMain @relation(fields: [legalId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-    @@index([legalId], map: "idx_legal_articles_legal_id")
-    @@index([deletedAt], map: "idx_legal_articles_deleted_at")
-    @@map("legal_articles")
+  @@index([legalId], map: "idx_legal_articles_legal_id")
+  @@index([deletedAt], map: "idx_legal_articles_deleted_at")
+  @@map("legal_articles")
 }
 
 /// 法条内容嵌入表 - 存储法律条文的向量化数据用于语义检索
 /// 注意：此表结构不允许修改，必须保持原有设计
 model lawEmbeddings {
-    /// 主键，UUID 类型
-    id        String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-    /// 法律内容文本
-    text      String?                @db.Text
-    /// 法律内容元数据（JSON 格式）
-    metadata  Json?
-    /// 法律内容向量嵌入
-    embedding Unsupported("vector")?
-    /// 中文全文搜索向量（由 trigger 自动维护）
-    tsv       Unsupported("tsvector")?
+  /// 主键，UUID 类型
+  id        String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// 法律内容文本
+  text      String?                  @db.Text
+  /// 法律内容元数据（JSON 格式）
+  metadata  Json?
+  /// 法律内容向量嵌入
+  embedding Unsupported("vector")?
+  /// 中文全文搜索向量（由 trigger 自动维护）
+  tsv       Unsupported("tsvector")?
 
-    @@index([tsv], type: Gin, map: "idx_law_embeddings_tsv")
-    @@index([text(ops: raw("gin_trgm_ops"))], type: Gin, map: "idx_law_embeddings_text_trgm")
-    @@map("law_embeddings")
+  @@index([tsv], type: Gin, map: "idx_law_embeddings_tsv")
+  @@index([text(ops: raw("gin_trgm_ops"))], type: Gin, map: "idx_law_embeddings_text_trgm")
+  @@map("law_embeddings")
 }
 
 /// zhparser 扩展自动创建的自定义词典类型，不由 Prisma 管理
 enum dictType {
-    extra
-    it
-    edu
-    gov
-    medical
-    other
+  extra
+  it
+  edu
+  gov
+  medical
+  other
 
-    @@map("dict_type")
+  @@map("dict_type")
 }
 
 /// zhparser 扩展自动创建的自定义词表，不由 Prisma 管理
 model pgTsCustomWord {
-    word   String                    @id @map("word") @db.Char(255)
-    tf     Float                     @default(10.0) @map("tf")
-    idf    Float                     @default(2.0) @map("idf")
-    attr   String                    @default("n") @map("attr") @db.Char(1)
-    tsType dictType                  @default(extra) @map("ts_type")
+  word   String   @id @map("word") @db.Char(255)
+  tf     Float    @default(10.0) @map("tf")
+  idf    Float    @default(2.0) @map("idf")
+  attr   String   @default("n") @map("attr") @db.Char(1)
+  tsType dictType @default(extra) @map("ts_type")
 
-    @@ignore
-    @@map("pg_ts_custom_word")
+  @@map("pg_ts_custom_word")
+  @@ignore
 }
