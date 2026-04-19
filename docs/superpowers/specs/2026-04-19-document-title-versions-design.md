@@ -53,18 +53,19 @@ UPDATE "public"."document_drafts" d
  WHERE d."template_id" = t."id" AND d."title" = '';
 ```
 
+**日期格式化职责划分：** 上面的 SQL 仅用于**迁移时一次性回填老数据**（SQL 原生 `AT TIME ZONE` 是最简洁可靠的方式）。**应用代码层创建新草稿** 时的默认标题由 Service 用 `dayjs().format('YYMMDD')` 生成（遵循 `.claude/rules/main.md` "日期处理使用 dayjs"）；数据库时区 Asia/Shanghai，Prisma 连接 UTC，dayjs 按服务器本地时间即可。
+
 ### 4.2 新表 `documentDraftSnapshots`
 
 ```prisma
 model documentDraftSnapshots {
-    id          Int      @id @default(autoincrement())
-    draftId     Int      @map("draft_id")
+    id        Int      @id @default(autoincrement())
+    draftId   Int      @map("draft_id")
     /// 来源：ai-extract（AI 生成后落盘）、workspace-backup（覆盖工作区前自动备份）
-    source      String   @db.VarChar(30)
-    values      Json     @default("{}") @db.JsonB
-    suggestions Json?    @db.JsonB
-    aiTitle     String?  @map("ai_title") @db.VarChar(200)
-    createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+    source    String   @db.VarChar(30)
+    values    Json     @default("{}") @db.JsonB
+    aiTitle   String?  @map("ai_title") @db.VarChar(200)
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
     draft documentDrafts @relation(fields: [draftId], references: [id], onDelete: Cascade)
 
@@ -75,6 +76,7 @@ model documentDraftSnapshots {
 
 - 插入后**同事务内**执行 `DELETE WHERE draft_id=? AND id NOT IN (SELECT id ... ORDER BY created_at DESC LIMIT 10)`
 - 清理失败仅日志 warn 不阻塞主流程
+- 不存 `suggestions`：当前业务场景下恢复只用 values，存了也无人消费；待后续真有"恢复 suggestions"需求再加列
 
 ### 4.3 新表 `documentDraftVersions`
 
@@ -115,10 +117,10 @@ model documentDraftVersions {
 - `createDraftDAO` 调整，初始化 `title` + `titleOverridden=false`
 
 `server/services/assistant/document/documentDraftSnapshot.dao.ts`（新）
-- `createSnapshotDAO(draftId, source, values, suggestions?, aiTitle?)`
-- `listSnapshotsDAO(draftId, { limit?, order? })`
+- `createSnapshotDAO(draftId, source, values, aiTitle?)`
+- `listSnapshotsDAO(draftId)`
 - `getSnapshotByIdDAO(id)`
-- `deleteOldestSnapshotsDAO(draftId, keep=10)`
+- 清理最旧快照的逻辑 **内联在 Service 层事务中**（用 `$executeRaw` 直接 DELETE NOT IN ... ORDER BY created_at DESC LIMIT 10），不单独开 DAO 方法（一处调用，没有复用价值）
 
 `server/services/assistant/document/documentDraftVersion.dao.ts`（新）
 - `createVersionDAO(draftId, versionNo, name, values, titleAt)`
@@ -126,7 +128,7 @@ model documentDraftVersions {
 - `getVersionByIdDAO(id)`
 - `updateVersionNameDAO(id, name)`
 - `deleteVersionDAO(id)`
-- `getMaxVersionNoDAO(draftId)`
+- 取下一个版本号的 `SELECT MAX(version_no)+1` **内联在 `createVersionService` 的事务中**，不单独开 DAO 方法
 
 ### 5.2 Service 层
 
@@ -135,11 +137,11 @@ model documentDraftVersions {
 - `applyAITitleIfAllowedService(draftId, aiTitle)` — 仅 `titleOverridden=false` 时写入；原子 `UPDATE ... WHERE id=? AND title_overridden=false`
 
 `documentDraftSnapshot.service.ts`（新）
-- `createSnapshotService(draftId, source, { values, suggestions?, aiTitle? })` — 事务内 insert + prune
+- `createSnapshotService(draftId, source, { values, aiTitle? })` — 事务内 insert + 清理最旧保留 10 条
 - `listSnapshotsForUserService(userId, draftId)`
 - `applySnapshotFieldsService(userId, draftId, snapshotId, fieldNames?)`
   1. 先 `createSnapshotService(draftId, 'workspace-backup', { values: 当前 draft.values })`
-  2. 合并 fieldNames（`undefined` = 全量覆盖；unknown field 忽略且日志 warn）
+  2. 合并 fieldNames（`undefined` = 全量覆盖；unknown field 忽略）
   3. `UPDATE draft SET values = merged`
 
 `documentDraftVersion.service.ts`（新）
@@ -148,32 +150,52 @@ model documentDraftVersions {
   - `name` 必填（非空，由 API 层 zod 校验保障；前端默认填充 "第 X 版"）
   - 失败一次（P2002）重试
 - `listVersionsForUserService(userId, draftId)`
-- `restoreVersionService(userId, draftId, versionId)` — 同快照恢复：先自动快照工作区 → 再覆盖 draft.values
+- `restoreVersionService(userId, draftId, versionId)` — 先自动快照工作区 → 再覆盖 draft.values
 - `renameVersionService(userId, versionId, name)` — owner 校验 + 原子 UPDATE
 - `deleteVersionService(userId, versionId)`
-- `exportVersionService(userId, versionId)` — 复用 `documentExport.service.ts`，输入改为 version.values，导出文件名 `${version.titleAt}-${version.name}.docx`
+
+**导出复用策略（不新增 exportVersionService）：**
+把现有 `documentExport.service.ts` 的核心渲染逻辑抽成纯函数 `renderDraftToDocx(template, values, fileName): Promise<OssUploadResult>`，工作区导出和版本导出两处都调用它。版本导出在 `documentExport.service.ts` 中新增 `exportVersionByIdService(userId, versionId)`，内部取 version → 取 template → 调 `renderDraftToDocx(template, version.values, \`\${version.titleAt}-\${version.name}.docx\`)`。
 
 ### 5.3 API 路由（用户端，严格 owner-only）
 
-```
-PATCH  /api/v1/assistant/document/drafts/:id/title
-         body: { title: string (1..200) }
+**路由结构遵循项目规范（`.claude/rules/api.md`）：动态参数放文件名末尾；为避免双层动态参数嵌套，跨 draft 的子资源路由走扁平路径，通过子资源 ID 反查 draftId 做 owner 校验。**
 
-GET    /api/v1/assistant/document/drafts/:id/snapshots
-POST   /api/v1/assistant/document/drafts/:id/snapshots/:snapshotId/apply
+```
+# 草稿本体：直接操作字段
+PATCH  /api/v1/assistant/document/drafts/[id]/title
+         → 文件 drafts/[id]/title.patch.ts（mirrors drafts/[id]/export.post.ts 现有模式）
+         body: { title: string(1..200) }
+
+# 快照：list 走 draft 作用域；apply 走快照 ID 作用域（扁平化）
+GET    /api/v1/assistant/document/drafts/[id]/snapshots
+         → drafts/[id]/snapshots.get.ts
+POST   /api/v1/assistant/document/drafts/snapshots/apply/[snapshotId]
+         → drafts/snapshots/apply/[snapshotId].post.ts
          body: { fieldNames?: string[] }
 
-GET    /api/v1/assistant/document/drafts/:id/versions
-POST   /api/v1/assistant/document/drafts/:id/versions
-         body: { name: string (1..100) }
-POST   /api/v1/assistant/document/drafts/:id/versions/:versionId/restore
-PATCH  /api/v1/assistant/document/drafts/:id/versions/:versionId
-         body: { name: string (1..100) }
-DELETE /api/v1/assistant/document/drafts/:id/versions/:versionId
-GET    /api/v1/assistant/document/drafts/:id/versions/:versionId/export
+# 版本：list/create 走 draft 作用域；单条操作走版本 ID 作用域（扁平化）
+GET    /api/v1/assistant/document/drafts/[id]/versions
+         → drafts/[id]/versions.get.ts
+POST   /api/v1/assistant/document/drafts/[id]/versions
+         → drafts/[id]/versions.post.ts
+         body: { name: string(1..100) }
+PATCH  /api/v1/assistant/document/drafts/versions/[versionId]
+         → drafts/versions/[versionId].patch.ts
+         body: { name: string(1..100) }
+DELETE /api/v1/assistant/document/drafts/versions/[versionId]
+         → drafts/versions/[versionId].delete.ts
+POST   /api/v1/assistant/document/drafts/versions/restore/[versionId]
+         → drafts/versions/restore/[versionId].post.ts
+GET    /api/v1/assistant/document/drafts/versions/export/[versionId]
+         → drafts/versions/export/[versionId].get.ts
 ```
 
-管理端接口本轮不做。
+**Handler 规范：**
+- 所有 handler 从 `event.context.auth?.user?.id` 取 userId；无则 `resError(event, 401, '请先登录')`
+- 用户端**严格 owner-only**，不得在 handler 内用 `checkIsSuperAdmin` 开旁路
+- 入参用 zod 校验；错误统一 `resError(event, 400, ...)`；业务错误（403/404/409）按规范返回
+- 管理端接口本轮不做
 
 ### 5.4 Agent 结构化输出改造
 
@@ -186,14 +208,14 @@ return z.object({
 })
 ```
 
-`server/services/workflow/middleware/draftResultPersistenceMiddleware.ts`（改造）
+`server/services/workflow/middleware/draftResultPersistence.middleware.ts`（改造现有文件）
 
 每次 Agent 完成时，同一事务内：
-1. `createSnapshotService(draftId, 'ai-extract', { values, suggestions, aiTitle })`
+1. `createSnapshotService(draftId, 'ai-extract', { values, aiTitle })`
 2. `UPDATE draft SET values=?, metadata=jsonb_set(..., 'suggestions', ?)`
 3. `aiTitle` 非空时 `applyAITitleIfAllowedService(draftId, aiTitle)`
 
-任一步失败事务回滚；本改造不触达 caseMainAgent / 小索 / 其他 Agent。
+任一步失败事务回滚；本改造不触达 caseMainAgent / 小索 / 其他 Agent（该中间件专属文书链路）。
 
 ### 5.5 seedData.sql
 
@@ -207,38 +229,52 @@ return z.object({
 `app/pages/dashboard/document/drafts/[id].vue`
 
 - 模板名文本替换为 `<DocumentDraftTitleInput :title="draft.title" @save="updateTitle" />`
-- 按钮新增："保存当前为版本" → 弹 `DocumentSaveVersionDialog`；"历史" → 打开 `DocumentHistorySheet`
+- 按钮新增："保存当前为版本" → 弹 shadcn `<Dialog>`（就地拼装输入框）；"历史" → 打开 `DocumentHistorySheet`
 - 保留原"AI 生成" / "导出 word"
 
 ### 6.2 组件清单（`app/components/assistant/document/`）
 
+> **复用基建：** Sheet 结构直接参考 `app/components/case/AnalysisVersionSheet.vue`（两 tab、shadcn Sheet 原子件）；Dialog 直接使用 `app/components/ui/dialog/*` 与 `ui/input/*`，不再单独造"保存/重命名"专用 Dialog 组件。
+
 | 组件 | 职责 |
 |------|------|
 | `DocumentDraftTitleInput.vue` | inline 编辑标题；空/超长拦截；blur/回车保存；Esc 取消 |
-| `DocumentSaveVersionDialog.vue` | 创建版本；打开前先确保 versions 已加载（`loadVersions()`），输入框默认 `第 ${nextVersionNo} 版`（`nextVersionNo = max(versions.versionNo) + 1`，列表为空时 = 1）；submit 调 `saveVersion` |
-| `DocumentRenameVersionDialog.vue` | 重命名版本；默认值 = 当前 name |
-| `DocumentHistorySheet.vue` | 右侧 Sheet；两 tab：版本 / 快照；顶部提示语"自动快照最多保留 10 条" |
-| `DocumentVersionList.vue` | 版本列表项：名称 + 时间 + [预览][恢复][重命名][导出][删除] |
+| `DocumentHistorySheet.vue` | 右侧 Sheet（参考 AnalysisVersionSheet.vue 模式）；两 tab：版本 / 快照；顶部提示语 "自动快照最多保留 10 条" |
+| `DocumentVersionList.vue` | 版本列表项：名称（支持 inline 重命名，类似 Google Docs）+ 时间 + [预览][恢复][导出][删除] |
 | `DocumentSnapshotList.vue` | 快照列表项：来源图标 + 时间 + [查看详情] |
-| `DocumentSnapshotDetail.vue` | 字段级对比表（当前 vs 快照）+ 单字段"用这个值" / 全部"采用全部"按钮 |
+| `DocumentSnapshotDetail.vue` | 字段级对比表（当前 vs 快照）+ 单字段 "用这个值" / 全部 "采用全部" 按钮 |
 
-### 6.3 `useDocumentDraft.ts` 扩展
+**"保存当前为版本" 交互：** 点击顶栏按钮 → 复用 shadcn `<Dialog>` 就地拼一个简单输入框（`<Input>` 默认值 `第 ${nextVersionNo} 版`，submit 调 `saveVersion`）。不新建独立组件。
+**"版本重命名" 交互：** 在 `DocumentVersionList.vue` 的名称上 double-click 或点击"编辑"小图标，就地切换为 inline `<Input>`（类似标题编辑），blur/回车保存调 `renameVersion`，Esc 取消。
 
-新增响应式状态与方法：
+### 6.3 `useDocumentDraft.ts` 扩展（保持单文件 + 分区注释）
+
+现有 `app/composables/useDocumentDraft.ts` 已约 370 行，承担 SSE 流、Agent 交互、消息队列等职责。本轮不拆分文件，沿用项目单-composable-per-feature 惯例，在文件内追加以分区注释分隔的新代码块：
 
 ```ts
+// ========== Title ==========
 title, updateTitle(newTitle)
-versions, loadVersions(), saveVersion(name), restoreVersion(id),
-  renameVersion(id, name), deleteVersion(id), exportVersion(id)
+
+// ========== Versions ==========
+versions, nextVersionNo (computed),
+loadVersions(), saveVersion(name), restoreVersion(id),
+renameVersion(id, name), deleteVersion(id), exportVersion(id)
+
+// ========== Snapshots ==========
 snapshots, loadSnapshots(), applySnapshot(id, fieldNames?)
-previewVersionId (ref<number|null>),    // 预览态标记
-previewValues (computed<Record<string,string|null>|null>)
+
+// ========== Preview ==========
+previewVersionId (ref<number|null>), previewValues (computed<Record<string,string|null>|null>)
 ```
+
+**类型约束（避免 `useApiFetch` 双重包装）：** 所有新接口的响应类型直接是业务数据（e.g. `VersionInfo[]`、`SnapshotInfo[]`），不再包 `{ data: T }`。符合 `.claude/rules/fetch.md` 要求。
 
 - `updateTitle` 乐观更新本地 title + titleOverridden=true；失败回滚并 toast
 - `restoreVersion` / `applySnapshot` 成功后刷新 `draft` + `snapshots`（workspace-backup 会冒出来）
 - 预览态：`previewVersionId` 非空时 `<AssistantDocumentPreview>` 的 values 绑到该版本 values；字段表单 disabled；顶部 banner "预览中 · ${versionName} · [退出预览]"
 - 退出预览 = `previewVersionId = null`
+
+**实施时若文件超过 500 行 →** 再拆分（遵循 `.claude/rules/main.md` "超过 500 行需拆分"）；建议分法：`useDocumentDraft.ts`（主流）+ `useDocumentDraftHistory.ts`（版本 + 快照 + 预览），由主 composable 聚合导出。
 
 ### 6.4 历史面板 UI 细节
 
@@ -261,7 +297,7 @@ previewValues (computed<Record<string,string|null>|null>)
 | 标题空 / >200 | resError 400，前端也做 maxlength |
 | 版本名空 / >100 | resError 400；前端兜底默认"第 X 版" |
 | 版本号并发冲突 | 捕获 P2002 重试一次，仍失败 409 |
-| `applySnapshot` 未知 fieldName | 忽略 + 日志 warn，不中断 |
+| `applySnapshot` 未知 fieldName | 直接跳过该字段（前端传进来的字段不可信度低，但服务端只需忽略即可，无需日志） |
 | snapshot/version 不存在或跨 draft | 404 |
 | 自动清理 snapshot 异常 | try-catch 日志 warn 不阻塞 |
 | Agent 中间件落盘异常 | 同事务回滚（已有错误路径 + 日志扩展） |
@@ -333,12 +369,12 @@ previewValues (computed<Record<string,string|null>|null>)
 - `prisma/models/document.prisma`（改）
 - `prisma/seeds/seedData.sql`（documentMain_system prompt 升 v4）
 - `server/services/assistant/document/`（新增两个 service + 两个 dao，扩展 documentDraft.*）
-- `server/services/workflow/middleware/draftResultPersistenceMiddleware.ts`（改造）
+- `server/services/workflow/middleware/draftResultPersistence.middleware.ts`（改造）
 - `server/services/workflow/agents/documentMainAgent.ts` 通过 `buildDraftSchema` 间接受益（schema 自动带 aiTitle）
 - `server/api/v1/assistant/document/drafts/`（新增若干路由）
 - `app/composables/useDocumentDraft.ts`（扩展）
 - `app/pages/dashboard/document/drafts/[id].vue`（顶栏 + 历史抽屉 + 预览态）
-- `app/components/assistant/document/`（新增 6 个组件）
+- `app/components/assistant/document/`（新增 5 个组件：Title 输入、History Sheet、Version 列表、Snapshot 列表、Snapshot 字段对比；保存/重命名用 shadcn Dialog + Input 就地拼，不新建专用组件）
 
 **不触达：**
 - `caseMainAgent` 及相关小索流程
