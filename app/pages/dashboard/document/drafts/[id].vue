@@ -104,20 +104,20 @@ const effectiveValues = computed<Record<string, string | null>>(() =>
 )
 
 // ========== 模板 Buffer 加载（用于 docx-preview 实时预览）==========
-// 复用自 DocumentDraftPanel 的模式：watch template 拉取下载链接并下载为 ArrayBuffer，
-// 通过 fetchSeq 防止过期请求覆盖最新结果。
+// watch 按 template.id 触发：mountDraft/applySnapshot/restoreVersion 可能刷新 template
+// 引用（对象新实例）但 id 未变，不必重下；fetchSeq 处理并发覆盖。
 const templateBuffer = ref<ArrayBuffer | null>(null)
 let fetchSeq = 0
 
-watch(template, async (tpl) => {
-    if (!tpl) {
+watch(() => template.value?.id ?? null, async (tplId) => {
+    if (!tplId) {
         templateBuffer.value = null
         return
     }
     const seq = ++fetchSeq
     try {
         const result = await useApiFetch<{ downloadUrl: string }>(
-            `/api/v1/assistant/document/templates/download-url/${tpl.id}`,
+            `/api/v1/assistant/document/templates/download-url/${tplId}`,
             { showError: false } as any,
         )
         if (seq !== fetchSeq || !result?.downloadUrl) return

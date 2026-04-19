@@ -95,21 +95,17 @@ export function useDocumentDraft() {
             }
         }
 
+        // 用 isLoading 的 true→false 作为单一信号触发 refetch：
+        // - 涵盖正常完成（completed）与异常（failed/cancelled）
+        // - 避免 runStatus/isLoading 双 watch 同一次流结束发两次 GET
+        // runStatus 仅用来立即响应 failed（避免等 isLoading 掉落产生视觉延迟）
         const stopStatusWatch = scope.run(() => watch(
             () => s.runStatus.value,
-            async (status) => {
-                if (status === 'failed') {
-                    runStatus.value = 'failed'
-                    return
-                }
-                if (status === 'completed') {
-                    await refetchLatestDraft()
-                }
+            (status) => {
+                if (status === 'failed') runStatus.value = 'failed'
             },
         ))!
 
-        // 兜底：runStatus 偶发不会切到 completed（如服务端 status_change 事件丢失），
-        // 此时用 isLoading true→false 作为补偿信号再拉一次最新 draft
         const stopLoadingWatch = scope.run(() => watch(
             () => s.isLoading.value,
             async (loading, prev) => {
@@ -235,13 +231,7 @@ export function useDocumentDraft() {
         )
         if (!result?.downloadUrl) return
 
-        const a = document.createElement('a')
-        a.href = result.downloadUrl
-        a.download = ''
-        a.style.display = 'none'
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
+        triggerBrowserDownloadUrl(result.downloadUrl)
 
         runStatus.value = 'exported'
     }
@@ -419,13 +409,7 @@ export function useDocumentDraft() {
             `/api/v1/assistant/document/drafts/versions/export/${versionId}`,
         )
         if (!r?.downloadUrl) return
-        const a = document.createElement('a')
-        a.href = r.downloadUrl
-        a.download = ''
-        a.style.display = 'none'
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
+        triggerBrowserDownloadUrl(r.downloadUrl)
     }
 
     // ========== Snapshots ==========
