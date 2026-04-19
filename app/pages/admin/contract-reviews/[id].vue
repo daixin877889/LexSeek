@@ -131,20 +131,30 @@
                             class="border rounded-md p-4 space-y-2">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="font-medium">
-                                    {{ idx + 1 }}. {{ risk.title || '（无标题）' }}
+                                    {{ idx + 1 }}. {{ risk.problem || risk.category || '（无标题）' }}
+                                    <span v-if="risk.clauseIndex !== undefined" class="text-xs text-muted-foreground ml-1">#条款 {{ risk.clauseIndex }}</span>
                                 </div>
-                                <Badge v-if="risk.severity" :variant="getSeverityVariant(risk.severity)">
-                                    {{ risk.severity }}
+                                <Badge v-if="risk.level" :variant="getSeverityVariant(risk.level)">
+                                    {{ risk.level === 'high' ? '高' : risk.level === 'medium' ? '中' : risk.level === 'low' ? '低' : risk.level }}
                                 </Badge>
                             </div>
-                            <div v-if="risk.description" class="text-sm text-muted-foreground whitespace-pre-wrap">
-                                {{ risk.description }}
+                            <div v-if="risk.clauseText" class="text-xs bg-muted/50 rounded px-2 py-1.5 whitespace-pre-wrap">
+                                <span class="text-muted-foreground">原条款：</span>{{ risk.clauseText }}
                             </div>
-                            <div v-if="risk.clause" class="text-xs bg-muted/50 rounded px-2 py-1.5 whitespace-pre-wrap">
-                                <span class="text-muted-foreground">原条款：</span>{{ risk.clause }}
+                            <div v-if="risk.analysis" class="text-sm text-muted-foreground whitespace-pre-wrap">
+                                <span class="text-muted-foreground">分析：</span>{{ risk.analysis }}
+                            </div>
+                            <div v-if="risk.risk" class="text-sm whitespace-pre-wrap">
+                                <span class="text-muted-foreground">风险点：</span>{{ risk.risk }}
+                            </div>
+                            <div v-if="risk.legalBasis" class="text-xs text-muted-foreground">
+                                法律依据：{{ risk.legalBasis }}
                             </div>
                             <div v-if="risk.suggestion" class="text-sm">
                                 <span class="text-muted-foreground">建议：</span>{{ risk.suggestion }}
+                            </div>
+                            <div v-if="risk.suggestedClauseText" class="text-xs bg-emerald-50 dark:bg-emerald-950/30 rounded px-2 py-1.5 whitespace-pre-wrap text-emerald-800 dark:text-emerald-200">
+                                <span class="text-muted-foreground">建议条款：</span>{{ risk.suggestedClauseText }}
                             </div>
                         </li>
                     </ul>
@@ -199,11 +209,16 @@ if (!Number.isInteger(id) || id <= 0) {
 
 // ─── 风险条目类型（仅前端展示） ─────────────────────────────────────────────────
 interface RiskItem {
-    title?: string
-    description?: string
-    severity?: string
+    problem?: string
+    analysis?: string
+    risk?: string
+    level?: string
+    category?: string
+    legalBasis?: string
     suggestion?: string
-    clause?: string
+    suggestedClauseText?: string
+    clauseIndex?: number
+    clauseText?: string
 }
 
 // ─── 状态 ────────────────────────────────────────────────────────────────────
@@ -216,17 +231,21 @@ const { data: detail, refresh } = await useApi<AdminReviewDetail>(
 const deleteDialogOpen = ref(false)
 const deleting = ref(false)
 
-// risks 原样 JSON，做防御式解析
 const risks = computed<RiskItem[]>(() => {
     const raw = detail.value?.risks
     if (!Array.isArray(raw)) return []
     return raw.filter((x): x is Record<string, unknown> => typeof x === 'object' && x !== null)
         .map((x) => ({
-            title: typeof x.title === 'string' ? x.title : undefined,
-            description: typeof x.description === 'string' ? x.description : undefined,
-            severity: typeof x.severity === 'string' ? x.severity : undefined,
+            problem: typeof x.problem === 'string' ? x.problem : undefined,
+            analysis: typeof x.analysis === 'string' ? x.analysis : undefined,
+            risk: typeof x.risk === 'string' ? x.risk : undefined,
+            level: typeof x.level === 'string' ? x.level : undefined,
+            category: typeof x.category === 'string' ? x.category : undefined,
+            legalBasis: typeof x.legalBasis === 'string' ? x.legalBasis : undefined,
             suggestion: typeof x.suggestion === 'string' ? x.suggestion : undefined,
-            clause: typeof x.clause === 'string' ? x.clause : undefined,
+            suggestedClauseText: typeof x.suggestedClauseText === 'string' ? x.suggestedClauseText : undefined,
+            clauseIndex: typeof x.clauseIndex === 'number' ? x.clauseIndex : undefined,
+            clauseText: typeof x.clauseText === 'string' ? x.clauseText : undefined,
         }))
 })
 

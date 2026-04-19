@@ -18,6 +18,7 @@
 import pdfmakeSingleton from 'pdfmake'
 import type { TDocumentDefinitions, TFontDictionary, Content } from 'pdfmake/interfaces'
 import path from 'node:path'
+import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { getContractReviewDAO } from './contractReview.dao'
 import type { Risk, RiskLevel } from '#shared/types/contract'
@@ -33,9 +34,15 @@ export interface ExportPdfOptions {
     includeRisks: boolean
 }
 
-// 字体文件位于本模块同级 fonts/ 子目录。使用 import.meta.url 在 Nitro 构建后仍可追踪到资源路径。
-const FONT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'fonts')
-const FONT_PATH = path.join(FONT_DIR, 'NotoSansSC-Regular.ttf')
+// 字体文件位于 server/services/assistant/contract/fonts/NotoSansSC-Regular.ttf。
+// Nitro 开发 / 构建时会把 server 代码打包到 .nuxt/{dev,output}/，此时 import.meta.url
+// 指向 bundle 输出目录，相对路径会 ENOENT。改用 process.cwd() + 源码相对路径定位，
+// 并在测试场景（cwd 为 worktree 根目录）也能命中；同时保留 bundle 旁边 fonts/ 目录作为 fallback。
+const SOURCE_FONT_DIR = path.resolve(process.cwd(), 'server/services/assistant/contract/fonts')
+const BUNDLED_FONT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'fonts')
+const FONT_FILENAME = 'NotoSansSC-Regular.ttf'
+const FONT_PATH = [path.join(SOURCE_FONT_DIR, FONT_FILENAME), path.join(BUNDLED_FONT_DIR, FONT_FILENAME)]
+    .find(p => fs.existsSync(p)) ?? path.join(SOURCE_FONT_DIR, FONT_FILENAME)
 
 const FONT_DESCRIPTORS = {
     NotoSansSC: {
