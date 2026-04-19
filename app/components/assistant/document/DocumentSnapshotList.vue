@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SparklesIcon, HistoryIcon } from 'lucide-vue-next'
+import { SparklesIcon, HistoryIcon, InfoIcon } from 'lucide-vue-next'
 import type { DocumentDraftSnapshot } from '#shared/types/document'
 
 defineProps<{
@@ -13,8 +13,9 @@ const emit = defineEmits<{
 
 <template>
     <div>
-        <div class="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground mb-2">
-            自动快照最多保留 10 条，新快照产生时会清理最早一条
+        <div class="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-900 mb-3 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+            <InfoIcon class="size-4 shrink-0 mt-0.5" />
+            <span>最多保留 10 条快照，超出后新快照会覆盖最早的一条</span>
         </div>
         <div v-if="!snapshots.length" class="text-sm text-muted-foreground p-6 text-center">
             还没有 AI 生成或覆盖记录
