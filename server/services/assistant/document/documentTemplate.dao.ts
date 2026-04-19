@@ -52,6 +52,8 @@ export interface ListDocumentTemplatesInput {
      * 前台 API 必须传入当前登录用户 id，防止越权暴露他人私人模板。
      */
     viewerUserId?: number
+    /** 仅返回启用态（status=1）。用户端必须传 true，管理端可省略以看到全量 */
+    activeOnly?: boolean
 }
 
 // ==================== DAO 方法 ====================
@@ -101,6 +103,7 @@ export async function listDocumentTemplatesDAO(input: ListDocumentTemplatesInput
 
     if (input.category) where.category = input.category
     if (input.q) where.name = { contains: input.q, mode: 'insensitive' }
+    if (input.activeOnly) where.status = 1
 
     // 作用域 + 用户维度过滤：
     //  - scope='global' → 全局模板（viewerUserId 无影响）

@@ -414,10 +414,12 @@ const loadTemplates = async () => {
     try {
         // 该页面仅管理用户个人模板（scope='user' + 当前用户的 userId，由后端 DAO 过滤）。
         // 不展示系统全局模板；配额计数直接使用 total。
+        // activeOnly=false：管理页需要看到禁用的模板以便重新启用
         const params: Record<string, any> = {
             scope: 'user',
             skip: 0,
             take: 100,
+            activeOnly: false,
         }
         if (categoryFilter.value !== 'all') params.category = categoryFilter.value
         if (keyword.value.trim()) params.q = keyword.value.trim()

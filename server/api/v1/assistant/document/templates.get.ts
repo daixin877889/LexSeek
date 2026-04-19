@@ -23,6 +23,11 @@ const QuerySchema = z.object({
     q: z.string().optional(),
     skip: z.coerce.number().int().nonnegative().optional().default(0),
     take: z.coerce.number().int().positive().max(100).optional().default(20),
+    /**
+     * 仅返回启用态（status=1）。不传或 true 视为启用过滤；
+     * "我的模板"管理页传 false 以展示含禁用的全量。
+     */
+    activeOnly: z.coerce.boolean().optional().default(true),
 })
 
 export default defineEventHandler(async (event) => {
@@ -35,7 +40,7 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-        const { scope, category, q, skip, take } = parsed.data
+        const { scope, category, q, skip, take, activeOnly } = parsed.data
         const result = await listDocumentTemplatesDAO({
             scope,
             category,
@@ -43,6 +48,7 @@ export default defineEventHandler(async (event) => {
             skip,
             take,
             viewerUserId: user.id,
+            activeOnly,
         })
         return resSuccess(event, '获取模板列表成功', {
             list: result.list,
