@@ -385,7 +385,7 @@ function handlePanelResize(sizes: number[]) {
                     <ArrowLeftIcon class="size-4 mr-1" />
                     返回
                 </Button>
-                <DocumentDraftTitleInput v-if="draft" :title="title" @save="updateTitle" />
+                <AssistantDocumentDraftTitleInput v-if="draft" :title="title" @save="updateTitle" />
                 <span v-if="caseId" class="text-sm text-muted-foreground">
                     · 案件 #{{ caseId }}
                 </span>
@@ -510,7 +510,7 @@ function handlePanelResize(sizes: number[]) {
         <CaseAnalysisMaterialSelector ref="materialSelectorRef" :disabled-file-ids="selectedFileIds"
             @files-selected="handleFilesFromSelector" />
 
-        <DocumentHistorySheet v-if="draft && template" v-model:open="historyOpen"
+        <AssistantDocumentHistorySheet v-if="draft && template" v-model:open="historyOpen"
             :versions="versions" :snapshots="snapshots"
             :current-values="currentValues"
             @preview-version="(v: DocumentDraftVersion) => enterPreview(v.id)"

@@ -58,7 +58,7 @@ function onApplyAll() {
                     <TabsTrigger value="snapshots">快照（{{ snapshots.length }}）</TabsTrigger>
                 </TabsList>
                 <TabsContent value="versions" class="mt-2">
-                    <DocumentVersionList :versions="versions"
+                    <AssistantDocumentVersionList :versions="versions"
                         @preview="(v: DocumentDraftVersion) => emit('preview-version', v)"
                         @restore="(v: DocumentDraftVersion) => emit('restore-version', v)"
                         @export-version="(v: DocumentDraftVersion) => emit('export-version', v)"
@@ -67,14 +67,14 @@ function onApplyAll() {
                 </TabsContent>
                 <TabsContent value="snapshots" class="mt-2">
                     <div v-if="!activeSnapshot">
-                        <DocumentSnapshotList :snapshots="snapshots"
+                        <AssistantDocumentSnapshotList :snapshots="snapshots"
                             @view-detail="onViewSnapshot" />
                     </div>
                     <div v-else class="space-y-2">
                         <Button size="sm" variant="ghost" @click="onBackToList">
                             ← 返回列表
                         </Button>
-                        <DocumentSnapshotDetail :snapshot="activeSnapshot"
+                        <AssistantDocumentSnapshotDetail :snapshot="activeSnapshot"
                             :current-values="currentValues"
                             @apply-field="onApplyField"
                             @apply-all="onApplyAll" />
