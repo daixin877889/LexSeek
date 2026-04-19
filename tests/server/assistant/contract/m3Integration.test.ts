@@ -62,7 +62,7 @@ describe('M3 集成：结果持久化语义', () => {
         })
         const after = getAfterHook(mw)
         const fakeRisks = [{
-            id: 'r1',
+            id: '00000000-0000-4000-8000-000000000001',
             clauseIndex: 0,
             clauseText: 'P0',
             level: 'low',

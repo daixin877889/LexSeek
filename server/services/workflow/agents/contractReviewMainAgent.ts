@@ -13,6 +13,7 @@
 import {
     createAgent,
     summarizationMiddleware,
+    toolStrategy,
     type ReactAgent,
 } from 'langchain'
 import { HumanMessage } from '@langchain/core/messages'
@@ -166,7 +167,11 @@ export async function runContractReviewChat(
     ])
 
     // 8. 构造 responseFormat schema
+    // 显式 toolStrategy 包装：强制所有 SDK（含 DeepSeek）通过结构化工具调用返回最终结果，
+    // 避免模型把 JSON 写进消息正文导致 state.structuredResponse 为空（后续 persistence 置 failed）。
+    // 与 documentMainAgent 保持一致。
     const riskSchema = buildRiskSchema()
+    const responseFormat = toolStrategy(riskSchema)
 
     // 9. 组装 Agent
     const agent: ReactAgent = createAgent({
@@ -175,7 +180,7 @@ export async function runContractReviewChat(
         checkpointer,
         store,
         tools,
-        responseFormat: riskSchema,
+        responseFormat,
         middleware,
     })
 

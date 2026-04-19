@@ -152,6 +152,40 @@ const modelCreators: Record<SdkType, (config: ChatModelConfig) => BaseChatModel>
  *
  * @see Requirements 5.1, 5.2, 5.3, 5.4, 5.5
  */
+/**
+ * 根据 apiKey 前缀软校验 sdkType：不匹配时 logger.warn，不抛错。
+ *
+ * 为什么只 warn：
+ *   - DeepSeek / OpenAI / OpenAI 兼容网关（Azure / SiliconFlow / 硅基流动等）都用 `sk-...` 前缀，无法严格区分
+ *   - 用户可能通过自定义 baseUrl 让任意 key 走 openai SDK（OpenAI 兼容协议）
+ *   - 但 Anthropic 和 Gemini 的 key 有独特前缀，错配几乎肯定是运营配错
+ *
+ * 触发场景（线上）：
+ *   - contractReviewMain 节点的 sdkType='anthropic' 但 apiKey 形如 'sk-...'
+ *     → 走 ChatAnthropic，实际请求 /v1/messages，用 deepseek key 必然 401
+ */
+function warnIfSdkKeyMismatch(sdkType: SdkType, apiKey: string): void {
+    const isAnthropicKey = apiKey.startsWith('sk-ant-')
+    const isGeminiKey = apiKey.startsWith('AIza')
+
+    if (sdkType === 'anthropic' && !isAnthropicKey) {
+        logger.warn('[chatModelFactory] sdkType=anthropic 但 apiKey 不像 Anthropic key（通常以 sk-ant- 开头）', {
+            sdkType,
+            apiKeyPrefix: apiKey.slice(0, 8) + '***',
+        })
+    } else if (sdkType !== 'anthropic' && isAnthropicKey) {
+        logger.warn('[chatModelFactory] apiKey 像 Anthropic key 但 sdkType 是其它值', {
+            sdkType,
+            apiKeyPrefix: apiKey.slice(0, 8) + '***',
+        })
+    } else if (sdkType === 'gemini' && !isGeminiKey) {
+        logger.warn('[chatModelFactory] sdkType=gemini 但 apiKey 不像 Gemini key（通常以 AIza 开头）', {
+            sdkType,
+            apiKeyPrefix: apiKey.slice(0, 8) + '***',
+        })
+    }
+}
+
 export function createChatModel(config: ChatModelConfig): BaseChatModel {
     // 验证配置参数
     if (!config.sdkType) {
@@ -165,6 +199,8 @@ export function createChatModel(config: ChatModelConfig): BaseChatModel {
     if (!config.apiKey) {
         throw new Error('创建聊天模型失败：缺少 apiKey 参数')
     }
+
+    warnIfSdkKeyMismatch(config.sdkType, config.apiKey)
 
     // 获取对应的模型创建器
     const creator = modelCreators[config.sdkType]

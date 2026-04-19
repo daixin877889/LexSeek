@@ -27,6 +27,12 @@ import {
 
 const schema = z.object({})
 
+const VALID_STANCES: readonly Stance[] = ['partyA', 'partyB', 'neutral']
+
+function isValidStance(value: unknown): value is Stance {
+    return typeof value === 'string' && (VALID_STANCES as readonly string[]).includes(value)
+}
+
 const STANCE_LABELS: Record<Stance, string> = {
     partyA: '甲方',
     partyB: '乙方',
@@ -77,22 +83,35 @@ export const createTool = (context: ToolContext) => tool(
             partyA,
             partyB,
             contractType,
-        }) as { stance: Stance, partyA?: string, partyB?: string }
+        }) as unknown
 
-        const finalPartyA = resumed.partyA ?? partyA ?? null
-        const finalPartyB = resumed.partyB ?? partyB ?? null
+        // resume 来自 /stance 端点（zod 已校验），但 tool 作为 workflow 边界仍需防御：
+        // 旧 run 手工 resume / 外部脚本调用 / 测试场景都可能传入任意 payload。
+        if (!resumed || typeof resumed !== 'object') {
+            throw new Error(`parseAndAskStance: resume payload 非法 (${typeof resumed})`)
+        }
+        const payload = resumed as { stance?: unknown; partyA?: unknown; partyB?: unknown }
+        if (!isValidStance(payload.stance)) {
+            throw new Error(`parseAndAskStance: stance 必须是 partyA/partyB/neutral，收到 "${String(payload.stance)}"`)
+        }
+        const stance: Stance = payload.stance
+        const resumedPartyA = typeof payload.partyA === 'string' ? payload.partyA : undefined
+        const resumedPartyB = typeof payload.partyB === 'string' ? payload.partyB : undefined
+
+        const finalPartyA = resumedPartyA ?? partyA ?? null
+        const finalPartyB = resumedPartyB ?? partyB ?? null
 
         await updateContractReviewDAO(reviewId, {
-            stance: resumed.stance,
+            stance,
             partyA: finalPartyA,
             partyB: finalPartyB,
             status: 'reviewing',
         })
 
         return {
-            stance: resumed.stance,
-            stanceLabel: STANCE_LABELS[resumed.stance],
-            stanceFocus: STANCE_FOCUS_TABLE[resumed.stance],
+            stance,
+            stanceLabel: STANCE_LABELS[stance],
+            stanceFocus: STANCE_FOCUS_TABLE[stance],
             partyA: finalPartyA,
             partyB: finalPartyB,
             contractType: contractType ?? null,

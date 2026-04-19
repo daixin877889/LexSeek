@@ -58,7 +58,7 @@ describe('docx 端到端集成', () => {
         ]
         const injected = await injectComments(buf, risks)
 
-        const { value } = await mammoth.extractRawText({ buffer: injected })
+        const { value } = await mammoth.extractRawText({ buffer: injected.buffer })
         expect(value.length).toBeGreaterThan(0)
     })
 
@@ -84,7 +84,7 @@ describe('docx 端到端集成', () => {
             },
         ]
         const injected = await injectComments(docxBuf, risks)
-        const { value } = await mammoth.extractRawText({ buffer: injected })
+        const { value } = await mammoth.extractRawText({ buffer: injected.buffer })
         expect(value).toContain('甲方')
     })
 })

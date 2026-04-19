@@ -124,14 +124,32 @@ function injectRangeMarkers(
 }
 
 /**
- * 注入 Word 原生批注，返回新 .docx Buffer。
+ * 注入结果：
+ * - buffer: 新 .docx（包含有效 risks 的批注）
+ * - validRisks: clauseIndex 落在文档段落范围内、实际被写进批注的 risks
+ * - skippedIndices: 越界被丢弃的 clauseIndex 列表（供上层决定是否也从 DB 中剔除）
+ *
+ * 约定：持久化侧应使用 `validRisks` 回写 DB，保证 risks JSON 与 docx 批注一致。
  */
-export async function injectComments(docxBuffer: Buffer, risks: Risk[]): Promise<Buffer> {
+export interface InjectCommentsResult {
+    buffer: Buffer
+    validRisks: Risk[]
+    skippedIndices: number[]
+}
+
+/**
+ * 注入 Word 原生批注，返回新 .docx Buffer 及越界信息。
+ */
+export async function injectComments(docxBuffer: Buffer, risks: Risk[]): Promise<InjectCommentsResult> {
     const zip = await loadDocxZip(docxBuffer)
 
     if (risks.length === 0) {
         zip.remove('word/comments.xml')
-        return await zipToBuffer(zip)
+        return {
+            buffer: await zipToBuffer(zip),
+            validRisks: [],
+            skippedIndices: [],
+        }
     }
 
     const documentXml = await readTextFromZip(zip, 'word/document.xml')
@@ -149,15 +167,23 @@ export async function injectComments(docxBuffer: Buffer, risks: Risk[]): Promise
         else skippedIndices.push(r.clauseIndex)
     }
     if (skippedIndices.length > 0) {
+        // 大量越界时不一一打印，避免日志刷屏
+        const preview = skippedIndices.length > 10
+            ? skippedIndices.slice(0, 10).concat(['...' as unknown as number])
+            : skippedIndices
         logger.warn('[commentInjector] 跳过越界 risk', {
             total: risks.length,
             skipped: skippedIndices.length,
-            indices: skippedIndices,
+            indicesPreview: preview,
             nonEmptyCount,
         })
     }
     if (validRisks.length === 0) {
-        return Buffer.from(docxBuffer)
+        return {
+            buffer: Buffer.from(docxBuffer),
+            validRisks: [],
+            skippedIndices,
+        }
     }
 
     const injections = validRisks.map((r, i) => ({ index: r.clauseIndex, id: i }))
@@ -181,5 +207,9 @@ export async function injectComments(docxBuffer: Buffer, risks: Risk[]): Promise
         )
     }
 
-    return await zipToBuffer(zip)
+    return {
+        buffer: await zipToBuffer(zip),
+        validRisks,
+        skippedIndices,
+    }
 }

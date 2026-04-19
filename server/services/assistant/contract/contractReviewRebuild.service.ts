@@ -21,6 +21,7 @@ import {
     downloadFileService,
     uploadFileService,
     generateSignedUrlService,
+    deleteFileService,
 } from '~~/server/services/storage/storage.service'
 import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageConfig.dao'
 import { StorageProviderType } from '~~/server/lib/storage/types'
@@ -40,8 +41,10 @@ export async function rebuildDocxService(review: contractReviews): Promise<Rebui
 
     const origBuffer = await downloadFileService(origOssFile.filePath)
     const risks = (review.risks ?? []) as unknown as Risk[]
-    const newDocxBuffer = await injectComments(origBuffer, risks)
-    const buffer = Buffer.isBuffer(newDocxBuffer) ? newDocxBuffer : Buffer.from(newDocxBuffer)
+    const injectResult = await injectComments(origBuffer, risks)
+    const buffer = Buffer.isBuffer(injectResult.buffer)
+        ? injectResult.buffer
+        : Buffer.from(injectResult.buffer)
 
     // OSS 路径与 M3 contractReview.service 保持同构：contract-review/<userId>/<uuid>.docx
     const ossPath = `contract-review/${review.userId}/rebuild-${randomUUID()}.docx`
@@ -54,26 +57,41 @@ export async function rebuildDocxService(review: contractReviews): Promise<Rebui
     ])
     const bucketName = storageConfig?.bucket ?? ''
 
-    // 先生成签名 URL（若失败，此时 reviewedFileId 尚未更新，handler catch 里 rollback 能正确还原 status）
-    const downloadUrl = await generateSignedUrlService(uploadResult.name, {
-        expires: 3600,
-        userId: review.userId,
-    })
+    // OSS 已上传成功；后续 DB 写入失败需清理 OSS 以免留孤儿文件。
+    // 用局部 try 捕获生成签名 URL / createOssFile / setCompleted 三步中的任意失败。
+    try {
+        const downloadUrl = await generateSignedUrlService(uploadResult.name, {
+            expires: 3600,
+            userId: review.userId,
+        })
 
-    const newOssFile = await createOssFileDao({
-        userId: review.userId,
-        bucketName,
-        fileName: `合同审查-${review.id}.docx`,
-        filePath: uploadResult.name,
-        fileSize: buffer.byteLength,
-        fileType: DOCX_MIME,
-        source: FileSource.CASE_ANALYSIS,
-        status: OssFileStatus.UPLOADED,
-        encrypted: false,
-    })
+        const newOssFile = await createOssFileDao({
+            userId: review.userId,
+            bucketName,
+            fileName: `合同审查-${review.id}.docx`,
+            filePath: uploadResult.name,
+            fileSize: buffer.byteLength,
+            fileType: DOCX_MIME,
+            source: FileSource.CASE_ANALYSIS,
+            status: OssFileStatus.UPLOADED,
+            encrypted: false,
+        })
 
-    // 最后落库 reviewedFileId：OSS + 签名 URL + ossFiles 行都就绪，失败只发生在此 DB 写入
-    await setCompletedAfterRebuildDAO(review.id, newOssFile.id)
+        // 最后落库 reviewedFileId：OSS + 签名 URL + ossFiles 行都就绪，失败只发生在此 DB 写入
+        await setCompletedAfterRebuildDAO(review.id, newOssFile.id)
 
-    return { reviewedFileId: newOssFile.id, downloadUrl }
+        return { reviewedFileId: newOssFile.id, downloadUrl }
+    } catch (err) {
+        // 清理 OSS 孤儿文件。失败只记日志，不覆盖原始错误。
+        // Promise.resolve(...) 包裹防御性：测试中 deleteFileService mock 未返回 Promise 时也不炸。
+        await Promise.resolve(deleteFileService(uploadResult.name, { userId: review.userId }))
+            .catch((cleanupErr) => {
+                logger.warn('rebuildDocx: OSS 孤儿文件清理失败', {
+                    reviewId: review.id,
+                    ossPath: uploadResult.name,
+                    cleanupErr: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
+                })
+            })
+        throw err
+    }
 }

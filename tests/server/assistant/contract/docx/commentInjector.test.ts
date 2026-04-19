@@ -29,7 +29,7 @@ function makeRisk(index: number, overrides: Partial<Risk> = {}): Risk {
 describe('injectComments', () => {
     it('空 risks 数组时产出 .docx 与原文等效（不新增 comments.xml）', async () => {
         const original = await readFile(SAMPLE)
-        const buf = await injectComments(original, [])
+        const { buffer: buf } = await injectComments(original, [])
         const zip = await loadDocxZip(buf)
         expect(zip.file('word/comments.xml')).toBeNull()
         const { value } = await mammoth.extractRawText({ buffer: buf })
@@ -42,7 +42,7 @@ describe('injectComments', () => {
         const risks = [makeRisk(1), makeRisk(2), makeRisk(3)].filter(
             (r) => r.clauseIndex < paragraphs.length,
         )
-        const buf = await injectComments(original, risks)
+        const { buffer: buf } = await injectComments(original, risks)
         const zip = await loadDocxZip(buf)
         const comments = await readTextFromZip(zip, 'word/comments.xml')
         const matches = comments.match(/<w:comment\s/g) ?? []
@@ -55,7 +55,7 @@ describe('injectComments', () => {
         const risks = [makeRisk(1), makeRisk(2), makeRisk(3)].filter(
             (r) => r.clauseIndex < paragraphs.length,
         )
-        const buf = await injectComments(original, risks)
+        const { buffer: buf } = await injectComments(original, risks)
         const zip = await loadDocxZip(buf)
         const comments = await readTextFromZip(zip, 'word/comments.xml')
         expect(comments).toContain('w:id="0"')
@@ -66,13 +66,13 @@ describe('injectComments', () => {
 
     it('对同一 docx 重复执行两次 injectComments，两次输出的 id 均从 0 开始（spec §10.3 硬要求）', async () => {
         const original = await readFile(SAMPLE)
-        const buf1 = await injectComments(original, [makeRisk(2)])
+        const { buffer: buf1 } = await injectComments(original, [makeRisk(2)])
         const zip1 = await loadDocxZip(buf1)
         const comments1 = await readTextFromZip(zip1, 'word/comments.xml')
         expect(comments1).toContain('w:id="0"')
         expect(comments1).not.toContain('w:id="1"')
 
-        const buf2 = await injectComments(original, [makeRisk(1), makeRisk(2)])
+        const { buffer: buf2 } = await injectComments(original, [makeRisk(1), makeRisk(2)])
         const zip2 = await loadDocxZip(buf2)
         const comments2 = await readTextFromZip(zip2, 'word/comments.xml')
         expect(comments2).toContain('w:id="0"')
@@ -83,7 +83,7 @@ describe('injectComments', () => {
     it('document.xml 含 commentRangeStart / commentRangeEnd / commentReference', async () => {
         const original = await readFile(SAMPLE)
         const risks = [makeRisk(2)]
-        const buf = await injectComments(original, risks)
+        const { buffer: buf } = await injectComments(original, risks)
         const zip = await loadDocxZip(buf)
         const doc = await readTextFromZip(zip, 'word/document.xml')
         expect(doc).toContain('<w:commentRangeStart w:id="0"')
@@ -93,7 +93,7 @@ describe('injectComments', () => {
 
     it('[Content_Types].xml 含 comments Override', async () => {
         const original = await readFile(SAMPLE)
-        const buf = await injectComments(original, [makeRisk(2)])
+        const { buffer: buf } = await injectComments(original, [makeRisk(2)])
         const zip = await loadDocxZip(buf)
         const types = await readTextFromZip(zip, '[Content_Types].xml')
         expect(types).toContain('PartName="/word/comments.xml"')
@@ -104,7 +104,7 @@ describe('injectComments', () => {
 
     it('word/_rels/document.xml.rels 含 comments Relationship', async () => {
         const original = await readFile(SAMPLE)
-        const buf = await injectComments(original, [makeRisk(2)])
+        const { buffer: buf } = await injectComments(original, [makeRisk(2)])
         const zip = await loadDocxZip(buf)
         const rels = await readTextFromZip(zip, 'word/_rels/document.xml.rels')
         expect(rels).toContain('Target="comments.xml"')
@@ -115,7 +115,7 @@ describe('injectComments', () => {
 
     it('批注文本含五模块结构（高风险 + category + 法律依据 + 条款分析 + 法律风险 + 修改建议）', async () => {
         const original = await readFile(SAMPLE)
-        const buf = await injectComments(original, [makeRisk(2)])
+        const { buffer: buf } = await injectComments(original, [makeRisk(2)])
         const zip = await loadDocxZip(buf)
         const comments = await readTextFromZip(zip, 'word/comments.xml')
         expect(comments).toContain('[高风险] 付款条件')
@@ -128,7 +128,7 @@ describe('injectComments', () => {
     it('legalBasis 为空时省略【法律依据】段', async () => {
         const original = await readFile(SAMPLE)
         const risk = makeRisk(2, { legalBasis: undefined })
-        const buf = await injectComments(original, [risk])
+        const { buffer: buf } = await injectComments(original, [risk])
         const zip = await loadDocxZip(buf)
         const comments = await readTextFromZip(zip, 'word/comments.xml')
         expect(comments).not.toContain('【法律依据】')
@@ -141,7 +141,7 @@ describe('injectComments', () => {
         ['low', '低风险'],
     ] as const)('level %s 映射为 %s', async (level, label) => {
         const original = await readFile(SAMPLE)
-        const buf = await injectComments(original, [makeRisk(2, { level })])
+        const { buffer: buf } = await injectComments(original, [makeRisk(2, { level })])
         const zip = await loadDocxZip(buf)
         const comments = await readTextFromZip(zip, 'word/comments.xml')
         expect(comments).toContain(`[${label}]`)
@@ -152,7 +152,7 @@ describe('injectComments', () => {
         const { paragraphs } = await parseContractDocx(original)
         const maxIndex = Math.min(paragraphs.length - 1, 25)
         const risks = Array.from({ length: 22 }, (_, i) => makeRisk(Math.min(i + 1, maxIndex)))
-        const buf = await injectComments(original, risks)
+        const { buffer: buf } = await injectComments(original, risks)
         const zip = await loadDocxZip(buf)
         expect(zip.file('word/comments.xml')).not.toBeNull()
         const { value } = await mammoth.extractRawText({ buffer: buf })
@@ -165,7 +165,7 @@ describe('injectComments', () => {
             problem: '条款 "A" 与 <B> 冲突 & 数字 123',
             analysis: '引号 "双引号" 与 \'单引号\'，括号（中文）(英文)',
         })
-        const buf = await injectComments(original, [risk])
+        const { buffer: buf } = await injectComments(original, [risk])
         const zip = await loadDocxZip(buf)
         const comments = await readTextFromZip(zip, 'word/comments.xml')
         expect(comments).toContain('&quot;A&quot;')
@@ -178,7 +178,7 @@ describe('injectComments', () => {
     it('clauseIndex 越界时跳过该批注（spec §13 R4 缓释策略）', async () => {
         const original = await readFile(SAMPLE)
         const risks = [makeRisk(1), makeRisk(99999), makeRisk(2)]
-        const buf = await injectComments(original, risks)
+        const { buffer: buf } = await injectComments(original, risks)
         const zip = await loadDocxZip(buf)
         const comments = await readTextFromZip(zip, 'word/comments.xml')
         const matches = comments.match(/<w:comment\s/g) ?? []

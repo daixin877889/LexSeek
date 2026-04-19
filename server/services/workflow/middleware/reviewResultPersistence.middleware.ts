@@ -3,18 +3,22 @@
  *
  * beforeAgent: 置 status='reviewing'
  * afterAgent:
- *   - structuredResponse 缺失 → status='failed'（risks=null，不可 rebuild）
- *   - structuredResponse 有值 → 写 risks/summary（失败态 rebuild 的前提）→ 注入批注 + 两步写 OSS → status='completed'
- *   - 注入/上传失败 → status='failed'（risks 已落库，用户可通过 rebuild-docx 重试）
+ *   - structuredResponse 有值 → 用 riskSchema 校验并走正常流程
+ *   - structuredResponse 缺失 → fallback：尝试从最后一条 AIMessage 消息体解析 ```json``` 代码块
+ *     （DeepSeek 等 SDK 在未用 toolStrategy 时会把 JSON 写进正文）
+ *   - fallback 仍失败 → status='failed'（risks=null，不可 rebuild）
+ *   - schema 校验/注入/上传失败 → status='failed'（risks 已落库时用户可通过 rebuild-docx 重试）
  */
 
 import { createMiddleware } from 'langchain'
+import { randomUUID } from 'node:crypto'
 import type { Prisma } from '~~/generated/prisma/client'
 import {
     getContractReviewDAO,
     updateContractReviewDAO,
 } from '../../assistant/contract/contractReview.dao'
 import { injectComments } from '../../assistant/contract/docx'
+import { buildRiskSchema } from '../../assistant/contract/riskSchema.builder'
 import {
     downloadFileService,
     uploadFileService,
@@ -32,6 +36,63 @@ import type { Risk } from '#shared/types/contract'
 interface ReviewResultPersistenceOptions {
     reviewId: number
     sessionId: string
+}
+
+interface StructuredReviewResult {
+    risks: Risk[]
+    summary: string
+}
+
+/**
+ * 从 AI 消息文本里兜底解析 JSON：
+ *  1. 优先匹配 ```json ... ``` 代码块（支持多个 fence，取第一个能解析的）
+ *  2. 退化匹配首个 `{` 到最后一个 `}` 的子串
+ * 解析失败返回 null，让上层走 failed 分支。
+ * 与 draftResultPersistence.middleware.ts 的 tryParseStructuredFromText 思路一致。
+ */
+function tryParseStructuredFromText(text: string): unknown {
+    if (!text || typeof text !== 'string') return null
+
+    const candidates: string[] = []
+    const fenceRegex = /```(?:json)?\s*([\s\S]*?)```/gi
+    let m: RegExpExecArray | null
+    while ((m = fenceRegex.exec(text)) !== null) {
+        if (m[1]) candidates.push(m[1])
+    }
+
+    const firstBrace = text.indexOf('{')
+    const lastBrace = text.lastIndexOf('}')
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+        candidates.push(text.slice(firstBrace, lastBrace + 1))
+    }
+
+    for (const raw of candidates) {
+        try {
+            return JSON.parse(raw.trim())
+        } catch {
+            // 继续
+        }
+    }
+    return null
+}
+
+/** 从 state.messages 末尾倒序找 AIMessage，提取纯文本后尝试解析 */
+function extractStructuredFromMessages(state: any): unknown {
+    const messages = Array.isArray(state?.messages) ? state.messages : []
+    for (let i = messages.length - 1; i >= 0; i--) {
+        const msg = messages[i]
+        const type = msg?.getType?.() ?? msg?._getType?.() ?? msg?.role
+        const isAi = type === 'ai' || type === 'assistant'
+        if (!isAi) continue
+        const content = typeof msg.content === 'string'
+            ? msg.content
+            : Array.isArray(msg.content)
+                ? msg.content.map((c: any) => (typeof c === 'string' ? c : (c?.text ?? ''))).join('')
+                : ''
+        const parsed = tryParseStructuredFromText(content)
+        if (parsed) return parsed
+    }
+    return null
 }
 
 export const reviewResultPersistenceMiddleware = (
@@ -53,17 +114,30 @@ export const reviewResultPersistenceMiddleware = (
 
     afterAgent: {
         hook: async (state: any) => {
-            const structured = state.structuredResponse as
-                | { risks: Risk[]; summary: string }
-                | undefined
+            // 1) 先从 structuredResponse 取，失败再从消息体兜底解析
+            let raw: unknown = state?.structuredResponse ?? null
+            if (!raw) {
+                raw = extractStructuredFromMessages(state)
+                if (raw) {
+                    logger.info('reviewResultPersistence: 从消息体解析 JSON 兜底成功', {
+                        reviewId: options.reviewId,
+                    })
+                }
+            }
 
-            if (!structured) {
+            // 2) zod 校验。AI 输出格式不对时直接 failed，避免脏数据落库
+            const schema = buildRiskSchema()
+            const validation = schema.safeParse(raw)
+            if (!validation.success) {
                 await updateContractReviewDAO(options.reviewId, { status: 'failed' })
-                logger.warn('reviewResultPersistence: structuredResponse 缺失', {
+                logger.warn('reviewResultPersistence: 结构化结果缺失或校验失败', {
                     reviewId: options.reviewId,
+                    hadRaw: !!raw,
+                    issue: validation.success ? null : validation.error.issues[0]?.message,
                 })
                 return
             }
+            const structured: StructuredReviewResult = validation.data
 
             // Step 1: 先落库 risks/summary（失败态 rebuild 的前提）
             // Risk[] 是 POJO 结构，Prisma Json 字段需显式转为 InputJsonValue
@@ -89,10 +163,12 @@ export const reviewResultPersistenceMiddleware = (
                 if (!originalOssFile.filePath) throw new Error(`original oss file ${review.originalFileId} has no filePath`)
 
                 const originalBuffer = await downloadFileService(originalOssFile.filePath)
-                const reviewedBuffer = await injectComments(originalBuffer, structured.risks)
+                const injectResult = await injectComments(originalBuffer, structured.risks)
 
-                const ossPath = `users/${review.userId}/contract-review/reviewed-${options.reviewId}-${Date.now()}.docx`
-                const uploadResult = await uploadFileService(ossPath, reviewedBuffer, {
+                // OSS 路径与 contractReviewRebuild.service 保持同构：
+                // contract-review/<userId>/reviewed-<uuid>.docx
+                const ossPath = `contract-review/${review.userId}/reviewed-${randomUUID()}.docx`
+                const uploadResult = await uploadFileService(ossPath, injectResult.buffer, {
                     contentType: DOCX_MIME,
                     userId: review.userId,
                 })
@@ -105,17 +181,28 @@ export const reviewResultPersistenceMiddleware = (
                     bucketName,
                     fileName: `reviewed-${options.reviewId}.docx`,
                     filePath: uploadResult.name,
-                    fileSize: reviewedBuffer.length,
+                    fileSize: injectResult.buffer.length,
                     fileType: DOCX_MIME,
                     source: FileSource.CASE_ANALYSIS,
                     status: OssFileStatus.UPLOADED,
                     encrypted: false,
                 })
 
-                await updateContractReviewDAO(options.reviewId, {
+                // 若注入时丢掉了越界 risks，DB 只保存有效的 risks，
+                // 避免 risks JSON 与 docx 批注不一致（用户看见的风险清单数量与 Word 内批注数量差异）
+                const updatePayload: Prisma.contractReviewsUpdateInput = {
                     reviewedFileId: ossFileRow.id,
                     status: 'completed',
-                })
+                }
+                if (injectResult.skippedIndices.length > 0) {
+                    updatePayload.risks = injectResult.validRisks as unknown as Prisma.InputJsonValue
+                    logger.warn('reviewResultPersistence: clauseIndex 越界的 risks 已从 DB 剔除', {
+                        reviewId: options.reviewId,
+                        skipped: injectResult.skippedIndices.length,
+                        kept: injectResult.validRisks.length,
+                    })
+                }
+                await updateContractReviewDAO(options.reviewId, updatePayload)
             } catch (err) {
                 logger.error('reviewResultPersistence: 批注/上传失败', {
                     reviewId: options.reviewId, err,

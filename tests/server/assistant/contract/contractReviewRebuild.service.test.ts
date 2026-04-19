@@ -39,6 +39,7 @@ vi.mock('~~/server/services/storage/storage.service', () => ({
     downloadFileService: vi.fn(),
     uploadFileService: vi.fn(),
     generateSignedUrlService: vi.fn(),
+    deleteFileService: vi.fn(),
 }))
 
 vi.mock('~~/server/services/storage/storageConfig.dao', () => ({
@@ -55,6 +56,7 @@ import {
     downloadFileService,
     uploadFileService,
     generateSignedUrlService,
+    deleteFileService,
 } from '~~/server/services/storage/storage.service'
 import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageConfig.dao'
 
@@ -66,6 +68,13 @@ const mockDownload = downloadFileService as ReturnType<typeof vi.fn>
 const mockUpload = uploadFileService as ReturnType<typeof vi.fn>
 const mockSignUrl = generateSignedUrlService as ReturnType<typeof vi.fn>
 const mockGetCfg = getDefaultStorageConfigDao as ReturnType<typeof vi.fn>
+const mockDelete = deleteFileService as ReturnType<typeof vi.fn>
+
+// 新 injectComments 返回 { buffer, validRisks, skippedIndices }。
+// 测试里大多只关心 buffer，helper 简化构造。
+function injResult(buf: Buffer | Uint8Array) {
+    return { buffer: buf, validRisks: [], skippedIndices: [] }
+}
 
 // ==================== 动态 import service ====================
 
@@ -102,7 +111,7 @@ describe('rebuildDocxService', () => {
     it('happy path：下载→注入→上传→签名→createOssFile→setCompleted 顺序正确', async () => {
         mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: 'orig/path.docx' } as any)
         mockDownload.mockResolvedValue(Buffer.from('orig-docx'))
-        mockInject.mockResolvedValue(Buffer.from('new-docx'))
+        mockInject.mockResolvedValue(injResult(Buffer.from('new-docx')))
         mockUpload.mockResolvedValue({
             name: 'contract-review/1001/rebuild-xxx.docx',
             etag: 'e',
@@ -165,7 +174,7 @@ describe('rebuildDocxService', () => {
     it('setCompletedAfterRebuildDAO 抛异常 → 错误冒泡（service 不 catch）', async () => {
         mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: 'orig/path.docx' } as any)
         mockDownload.mockResolvedValue(Buffer.from('orig'))
-        mockInject.mockResolvedValue(Buffer.from('new'))
+        mockInject.mockResolvedValue(injResult(Buffer.from('new')))
         mockUpload.mockResolvedValue({ name: 'contract-review/1001/rebuild-x.docx', etag: 'e', url: 'u' })
         mockGetCfg.mockResolvedValue({ bucket: 'b' } as any)
         mockSignUrl.mockResolvedValue('https://signed')
@@ -178,7 +187,7 @@ describe('rebuildDocxService', () => {
     it('generateSignedUrlService 抛异常 → createOssFileDao / setCompletedAfterRebuildDAO 都未被调（P0-4 时序）', async () => {
         mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: 'orig/path.docx' } as any)
         mockDownload.mockResolvedValue(Buffer.from('orig'))
-        mockInject.mockResolvedValue(Buffer.from('new'))
+        mockInject.mockResolvedValue(injResult(Buffer.from('new')))
         mockUpload.mockResolvedValue({ name: 'contract-review/1001/rebuild-x.docx', etag: 'e', url: 'u' })
         mockGetCfg.mockResolvedValue({ bucket: 'b' } as any)
         mockSignUrl.mockRejectedValue(new Error('signed-url failed'))
@@ -192,7 +201,7 @@ describe('rebuildDocxService', () => {
     it('review.risks 为 null → 注入器接到空数组，不报错', async () => {
         mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: 'orig/path.docx' } as any)
         mockDownload.mockResolvedValue(Buffer.from('orig'))
-        mockInject.mockResolvedValue(Buffer.from('new'))
+        mockInject.mockResolvedValue(injResult(Buffer.from('new')))
         mockUpload.mockResolvedValue({ name: 'contract-review/1001/rebuild-x.docx', etag: 'e', url: 'u' })
         mockGetCfg.mockResolvedValue({ bucket: 'b' } as any)
         mockSignUrl.mockResolvedValue('https://signed')
@@ -208,7 +217,7 @@ describe('rebuildDocxService', () => {
     it('storageConfig 为 null → bucketName 回退空字符串，流程仍继续', async () => {
         mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: 'orig/path.docx' } as any)
         mockDownload.mockResolvedValue(Buffer.from('orig'))
-        mockInject.mockResolvedValue(Buffer.from('new'))
+        mockInject.mockResolvedValue(injResult(Buffer.from('new')))
         mockUpload.mockResolvedValue({ name: 'contract-review/1001/rebuild-x.docx', etag: 'e', url: 'u' })
         mockGetCfg.mockResolvedValue(null)
         mockSignUrl.mockResolvedValue('https://signed')
@@ -224,7 +233,7 @@ describe('rebuildDocxService', () => {
         mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: 'orig/path.docx' } as any)
         mockDownload.mockResolvedValue(Buffer.from('orig'))
         // 返回非 Buffer 的 Uint8Array
-        mockInject.mockResolvedValue(new Uint8Array([1, 2, 3]))
+        mockInject.mockResolvedValue(injResult(new Uint8Array([1, 2, 3])))
         mockUpload.mockResolvedValue({ name: 'contract-review/1001/rebuild-x.docx', etag: 'e', url: 'u' })
         mockGetCfg.mockResolvedValue({ bucket: 'b' } as any)
         mockSignUrl.mockResolvedValue('https://signed')
