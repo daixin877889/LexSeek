@@ -122,3 +122,111 @@ export async function rollbackRebuildDAO(id: number): Promise<void> {
         data: { status: 'completed', updatedAt: new Date() },
     })
 }
+
+// ==================== 用户端列表（M6.1A Task 4）====================
+
+/** 列表项字段白名单（不含 userId / deletedAt） */
+export type ReviewListItem = {
+    id: number
+    sessionId: string
+    contractType: string | null
+    partyA: string | null
+    partyB: string | null
+    stance: string | null
+    status: string
+    summary: string | null
+    originalFileName: string | null
+    hasUnsavedDocxChanges: boolean
+    createdAt: Date
+    updatedAt: Date
+}
+
+/** 列表查询入参 */
+export interface ListUserReviewsInput {
+    userId: number
+    skip: number
+    take: number
+    status?: string
+    q?: string
+}
+
+const SUMMARY_TRUNCATE = 120
+
+/**
+ * 查询当前用户的合同审查列表。
+ *
+ * - owner-only：where.userId = params.userId；deletedAt: null 过滤软删
+ * - status：精确匹配 contract_reviews.status
+ * - q：模糊匹配关联 oss_files.file_name（case-insensitive）
+ *   contractReviews 未在 prisma 里建 originalFile 关系字段，因此分两步查询：
+ *   先 ossFiles.findMany 拿命中的 id 集合，再以 originalFileId IN (...) 过滤 reviews
+ * - summary 截断到前 120 字符
+ */
+export async function listUserReviewsDAO(
+    params: ListUserReviewsInput,
+): Promise<{ items: ReviewListItem[]; total: number }> {
+    const where: Prisma.contractReviewsWhereInput = {
+        userId: params.userId,
+        deletedAt: null,
+    }
+    if (params.status) {
+        where.status = params.status
+    }
+
+    // q：先查 ossFiles 命中的 id 集合（限定到当前用户名下的文件）
+    if (params.q) {
+        const fileRows = await prisma.ossFiles.findMany({
+            where: {
+                userId: params.userId,
+                deletedAt: null,
+                fileName: { contains: params.q, mode: 'insensitive' },
+            },
+            select: { id: true },
+        })
+        const fileIds = fileRows.map(f => f.id)
+        if (fileIds.length === 0) {
+            return { items: [], total: 0 }
+        }
+        where.originalFileId = { in: fileIds }
+    }
+
+    const [rows, total] = await Promise.all([
+        prisma.contractReviews.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            skip: params.skip,
+            take: params.take,
+        }),
+        prisma.contractReviews.count({ where }),
+    ])
+
+    // 批量取 fileName：一次 IN 查询，memory join
+    const fileIds = Array.from(new Set(rows.map(r => r.originalFileId))).filter(id => id > 0)
+    const fileNameMap = new Map<number, string>()
+    if (fileIds.length > 0) {
+        const files = await prisma.ossFiles.findMany({
+            where: { id: { in: fileIds } },
+            select: { id: true, fileName: true },
+        })
+        for (const f of files) {
+            fileNameMap.set(f.id, f.fileName)
+        }
+    }
+
+    const items: ReviewListItem[] = rows.map(r => ({
+        id: r.id,
+        sessionId: r.sessionId,
+        contractType: r.contractType,
+        partyA: r.partyA,
+        partyB: r.partyB,
+        stance: r.stance,
+        status: r.status,
+        summary: r.summary ? r.summary.slice(0, SUMMARY_TRUNCATE) : null,
+        originalFileName: fileNameMap.get(r.originalFileId) ?? null,
+        hasUnsavedDocxChanges: r.hasUnsavedDocxChanges,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+    }))
+
+    return { items, total }
+}
