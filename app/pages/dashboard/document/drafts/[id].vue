@@ -10,8 +10,9 @@
  * - 顶部：返回、模板名称（含关联案件）、AI 生成、导出 .docx
  * - 悬浮 Agent 对话窗 + 队列 / 中断 确认 Dialog
  */
-import { ArrowLeftIcon, Loader2Icon, DownloadIcon, SparklesIcon, RefreshCw as RefreshCwIcon } from 'lucide-vue-next'
+import { ArrowLeftIcon, Loader2Icon, DownloadIcon, SparklesIcon, RefreshCw as RefreshCwIcon, HistoryIcon, SaveIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import type { DocumentDraftVersion } from '#shared/types/document'
 import { useMediaQuery, useLocalStorage } from '@vueuse/core'
 import type { documentDrafts } from '~~/generated/prisma/client'
 import { QUEUE_MAX_SIZE } from '~/composables/chatQueueActions'
@@ -48,6 +49,15 @@ const {
     removeQueueItem,
     clearQueue,
     resumeQueue,
+    // 标题
+    title, updateTitle,
+    // 版本
+    versions, nextVersionNo, loadVersions, saveVersion,
+    renameVersion, deleteVersion, restoreVersion, exportVersion,
+    // 快照
+    snapshots, loadSnapshots, applySnapshot,
+    // 预览
+    previewVersionId, previewValues, enterPreview, exitPreview,
 } = useDocumentDraft()
 
 const loading = ref(true)
@@ -88,6 +98,10 @@ const exportDisabled = computed(
 )
 
 const caseId = computed(() => (draft.value as documentDrafts | null)?.caseId ?? null)
+
+const effectiveValues = computed<Record<string, string | null>>(() =>
+    (previewValues.value ?? currentValues.value) as Record<string, string | null>,
+)
 
 // ========== 模板 Buffer 加载（用于 docx-preview 实时预览）==========
 // 复用自 DocumentDraftPanel 的模式：watch template 拉取下载链接并下载为 ArrayBuffer，
@@ -136,6 +150,87 @@ async function handleExport() {
 }
 
 // ========== Task 10：悬浮 Agent 窗 + 队列 / 中断 ==========
+
+// ========== 历史面板 / 保存版本 Dialog ==========
+const historyOpen = ref(false)
+const saveVersionDialogOpen = ref(false)
+const saveVersionName = ref('')
+
+// 统一的"破坏性操作"二次确认弹窗（shadcn AlertDialog）
+const confirmOpen = ref(false)
+const confirmTitle = ref('')
+const confirmMessage = ref('')
+let pendingAction: (() => void | Promise<void>) | null = null
+
+function askConfirm(titleText: string, message: string, action: () => void | Promise<void>) {
+    confirmTitle.value = titleText
+    confirmMessage.value = message
+    pendingAction = action
+    confirmOpen.value = true
+}
+
+async function handleConfirmOk() {
+    const act = pendingAction
+    pendingAction = null
+    confirmOpen.value = false
+    if (act) await act()
+}
+
+async function openHistory() {
+    historyOpen.value = true
+    await Promise.all([loadVersions(), loadSnapshots()])
+}
+
+function openSaveVersionDialog() {
+    saveVersionName.value = `第 ${nextVersionNo.value} 版`
+    saveVersionDialogOpen.value = true
+}
+
+async function confirmSaveVersion() {
+    const name = saveVersionName.value.trim()
+    if (!name) return
+    saveVersionDialogOpen.value = false
+    const v = await saveVersion(name)
+    if (v) toast.success(`已保存：${v.name}`)
+}
+
+function handleRestoreVersion(v: DocumentDraftVersion) {
+    askConfirm(
+        '恢复该版本到工作区？',
+        '当前工作区内容将自动备份为快照再被覆盖。',
+        async () => {
+            await restoreVersion(v.id)
+            toast.success('已恢复到该版本')
+        },
+    )
+}
+
+function handleDeleteVersion(v: DocumentDraftVersion) {
+    askConfirm(
+        `删除「${v.name}」？`,
+        '删除后无法恢复。',
+        async () => {
+            await deleteVersion(v.id)
+            toast.success('已删除')
+        },
+    )
+}
+
+function handleApplySnapshotAll(snapshotId: number) {
+    askConfirm(
+        '用该快照全部覆盖工作区？',
+        '当前工作区内容将自动备份为快照再被覆盖。',
+        async () => {
+            await applySnapshot(snapshotId)
+            toast.success('已覆盖工作区')
+        },
+    )
+}
+
+async function handleApplySnapshotField(snapshotId: number, fieldName: string) {
+    // 单字段改动小，不弹确认
+    await applySnapshot(snapshotId, [fieldName])
+}
 
 const agentOpen = ref(false)
 const isStopping = ref(false)
@@ -290,14 +385,20 @@ function handlePanelResize(sizes: number[]) {
                     <ArrowLeftIcon class="size-4 mr-1" />
                     返回
                 </Button>
-                <h1 v-if="template" class="text-lg md:text-xl font-semibold truncate">
-                    {{ template.name }}
-                    <span v-if="caseId" class="text-sm text-muted-foreground ml-2">
-                        · 案件 #{{ caseId }}
-                    </span>
-                </h1>
+                <DocumentDraftTitleInput v-if="draft" :title="title" @save="updateTitle" />
+                <span v-if="caseId" class="text-sm text-muted-foreground">
+                    · 案件 #{{ caseId }}
+                </span>
             </div>
             <div class="flex items-center gap-2">
+                <Button variant="outline" size="sm" :disabled="!draft" @click="openHistory">
+                    <HistoryIcon class="size-4 mr-1" />
+                    历史
+                </Button>
+                <Button variant="outline" size="sm" :disabled="!draft" @click="openSaveVersionDialog">
+                    <SaveIcon class="size-4 mr-1" />
+                    保存当前为版本
+                </Button>
                 <Button variant="default" class="shadow-sm" @click="openAgent">
                     <SparklesIcon class="size-4" />
                     AI 生成
@@ -309,6 +410,14 @@ function handlePanelResize(sizes: number[]) {
                 </Button>
             </div>
         </header>
+
+        <div v-if="previewVersionId !== null && draft"
+            class="flex items-center justify-between rounded-md bg-amber-100 dark:bg-amber-900/40 px-3 py-2 text-sm">
+            <span>
+                预览中 · 版本 #{{ previewVersionId }}（点击"退出预览"回到当前工作区）
+            </span>
+            <Button size="sm" variant="ghost" @click="exitPreview">退出预览</Button>
+        </div>
 
         <!-- 加载态 -->
         <div v-if="loading" class="flex-1 flex items-center justify-center text-muted-foreground">
@@ -333,7 +442,7 @@ function handlePanelResize(sizes: number[]) {
             <ResizablePanelGroup v-if="isDesktop" direction="horizontal" class="h-full" @layout="handlePanelResize">
                 <ResizablePanel :default-size="leftSize" :min-size="25">
                     <div class="h-full min-h-0 overflow-y-auto rounded-lg border bg-card p-4 mr-1">
-                        <AssistantDocumentFieldForm :template="template" :values="currentValues"
+                        <AssistantDocumentFieldForm :template="template" :values="effectiveValues"
                             :suggestions="suggestions" @change="onFieldChange" />
                     </div>
                 </ResizablePanel>
@@ -342,7 +451,7 @@ function handlePanelResize(sizes: number[]) {
 
                 <ResizablePanel :default-size="100 - leftSize" :min-size="25">
                     <div class="h-full min-h-0 overflow-y-auto rounded-lg border bg-muted/40 p-4 ml-1">
-                        <AssistantDocumentPreview :template-buffer="templateBuffer" :values="currentValues"
+                        <AssistantDocumentPreview :template-buffer="templateBuffer" :values="effectiveValues"
                             :disabled="exportDisabled || isLoading || isExporting" @export="handleExport" />
                     </div>
                 </ResizablePanel>
@@ -351,11 +460,11 @@ function handlePanelResize(sizes: number[]) {
             <!-- 移动：竖向堆叠 -->
             <div v-else class="h-full min-h-0 flex flex-col gap-4 overflow-y-auto">
                 <div class="rounded-lg border bg-card p-4">
-                    <AssistantDocumentFieldForm :template="template" :values="currentValues" :suggestions="suggestions"
+                    <AssistantDocumentFieldForm :template="template" :values="effectiveValues" :suggestions="suggestions"
                         @change="onFieldChange" />
                 </div>
                 <div class="rounded-lg border bg-muted/40 p-4">
-                    <AssistantDocumentPreview :template-buffer="templateBuffer" :values="currentValues"
+                    <AssistantDocumentPreview :template-buffer="templateBuffer" :values="effectiveValues"
                         :disabled="exportDisabled || isLoading || isExporting" @export="handleExport" />
                 </div>
             </div>
@@ -400,5 +509,47 @@ function handlePanelResize(sizes: number[]) {
         <!-- 材料选择弹框（点击 AiChat 文件按钮触发） -->
         <CaseAnalysisMaterialSelector ref="materialSelectorRef" :disabled-file-ids="selectedFileIds"
             @files-selected="handleFilesFromSelector" />
+
+        <DocumentHistorySheet v-if="draft && template" v-model:open="historyOpen"
+            :versions="versions" :snapshots="snapshots"
+            :current-values="currentValues"
+            @preview-version="(v: DocumentDraftVersion) => enterPreview(v.id)"
+            @restore-version="handleRestoreVersion"
+            @export-version="(v: DocumentDraftVersion) => exportVersion(v.id)"
+            @delete-version="handleDeleteVersion"
+            @rename-version="renameVersion"
+            @apply-snapshot-field="handleApplySnapshotField"
+            @apply-snapshot-all="handleApplySnapshotAll" />
+
+        <Dialog v-model:open="saveVersionDialogOpen">
+            <DialogContent class="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>保存当前为版本</DialogTitle>
+                    <DialogDescription>给这一版起个名字方便之后查找</DialogDescription>
+                </DialogHeader>
+                <div class="py-2">
+                    <Input v-model="saveVersionName" maxlength="100" placeholder="例如：客户反馈前版"
+                        @keydown.enter="confirmSaveVersion" />
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" @click="saveVersionDialogOpen = false">取消</Button>
+                    <Button :disabled="!saveVersionName.trim()" @click="confirmSaveVersion">保存</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <!-- 统一的破坏性操作二次确认（恢复版本 / 删除版本 / 覆盖工作区） -->
+        <AlertDialog v-model:open="confirmOpen">
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>{{ confirmTitle }}</AlertDialogTitle>
+                    <AlertDialogDescription>{{ confirmMessage }}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>取消</AlertDialogCancel>
+                    <AlertDialogAction @click="handleConfirmOk">确定</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </div>
 </template>
