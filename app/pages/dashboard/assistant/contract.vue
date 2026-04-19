@@ -27,6 +27,6 @@ const caseId = computed(() => {
 
 <template>
     <div class="h-full min-h-0">
-        <AssistantContractContractReviewPanel :review-id="reviewId" :case-id="caseId" />
+        <AssistantContractReviewPanel :review-id="reviewId" :case-id="caseId" />
     </div>
 </template>

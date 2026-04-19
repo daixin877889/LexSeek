@@ -47,6 +47,12 @@ export function useContractReview() {
     const stream = shallowRef<ReturnType<typeof useStreamChat> | null>(null)
     // 上一个 stream 的 watcher 停止句柄，防止重启时泄漏
     let stopStreamWatch: (() => void) | null = null
+    /**
+     * useStream 内部会注册 onScopeDispose；但 mountStream 从 async 事件处理器中调用，
+     * Vue 当前 active effect scope 已退出。用 detached effectScope 包裹，
+     * 既能承接 onScopeDispose 的注册，又能在重启/卸载时显式 stop() 释放。
+     */
+    let streamScope: ReturnType<typeof effectScope> | null = null
 
     const messages = computed(() => stream.value?.messages.value ?? [])
     const isLoading = computed(() => stream.value?.isLoading.value ?? false)
@@ -98,24 +104,29 @@ export function useContractReview() {
 
     function mountStream(sessionId: string) {
         stopStreamWatch?.()
+        streamScope?.stop()
+        streamScope = effectScope(true)
 
-        const s = useStreamChat({
-            apiUrl: '/api/v1/assistant/contract/chat',
-            threadId: sessionId,
-            messagesKey: 'messages',
+        let s!: ReturnType<typeof useStreamChat>
+        streamScope.run(() => {
+            s = useStreamChat({
+                apiUrl: '/api/v1/assistant/contract/chat',
+                threadId: sessionId,
+                messagesKey: 'messages',
+            })
+
+            // 后端 contractReviewPersistenceMiddleware 完成后未必推 SSE custom event，
+            // 因此 completed/failed 时主动 GET 拉最新 review 写回（与 useDocumentDraft 一致）
+            stopStreamWatch = watch(
+                () => s.runStatus.value,
+                async (status) => {
+                    if (status !== 'completed' && status !== 'failed') return
+                    if (!reviewId.value) return
+                    await refreshReview(reviewId.value)
+                },
+            )
         })
         stream.value = s
-
-        // 后端 contractReviewPersistenceMiddleware 完成后未必推 SSE custom event，
-        // 因此 completed/failed 时主动 GET 拉最新 review 写回（与 useDocumentDraft 一致）
-        stopStreamWatch = watch(
-            () => s.runStatus.value,
-            async (status) => {
-                if (status !== 'completed' && status !== 'failed') return
-                if (!reviewId.value) return
-                await refreshReview(reviewId.value)
-            },
-        )
 
         return s
     }
@@ -198,6 +209,8 @@ export function useContractReview() {
             { method: 'POST', body: payload },
         )
         if (!result) return
+        // await 期间 stream 可能已被 cancelReview / 路由切换置空
+        if (!stream.value) return
 
         // 复位底层 stream runStatus 再 submit，保证 watch(runStatus) 的 completed/failed 分支能再次触发
         stream.value.runStatus.value = 'idle'
@@ -356,6 +369,8 @@ export function useContractReview() {
         await stream.value?.stop()
         stopStreamWatch?.()
         stopStreamWatch = null
+        streamScope?.stop()
+        streamScope = null
         stream.value = null
         review.value = null
         reviewId.value = null
@@ -363,6 +378,7 @@ export function useContractReview() {
 
     onUnmounted(() => {
         stopStreamWatch?.()
+        streamScope?.stop()
     })
 
     return {

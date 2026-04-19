@@ -78,7 +78,13 @@ function handleSubmit(payload: CreateReviewRequest) {
 }
 
 function handleStanceConfirm(payload: StanceRequest) {
-    onStance(payload)
+    // confirm 会同时触发子组件的 emit('update:open', false)；
+    // 用 isConfirming 遮蔽那一次 dialog 关闭，防止父层误走 cancel 分支
+    // 把正在 await 的 stream 置空，导致 onStance 中断、流不续跑。
+    isConfirming = true
+    onStance(payload).finally(() => {
+        isConfirming = false
+    })
 }
 
 /**
@@ -92,6 +98,8 @@ function handleStanceConfirm(payload: StanceRequest) {
  * 通过 isCancelling 去重避免重复调用 cancelReview。
  */
 let isCancelling = false
+// 正在处理用户点击的"确认"，此期间 dialog 的 open=false 不能走 cancel
+let isConfirming = false
 
 async function handleStanceCancel() {
     if (isCancelling) return
@@ -104,7 +112,7 @@ async function handleStanceCancel() {
 }
 
 function handleDialogOpenChange(open: boolean) {
-    if (!open) handleStanceCancel()
+    if (!open && !isConfirming) handleStanceCancel()
 }
 
 /**
@@ -136,7 +144,7 @@ function handleFocusRisk(_riskId: string) {
         <div v-if="showSourceInput" class="flex-1 flex items-center justify-center p-6">
             <div class="w-full max-w-xl">
                 <h1 class="text-xl font-semibold mb-3">提交合同</h1>
-                <AssistantContractContractSourceInput @submit="handleSubmit" />
+                <AssistantContractSourceInput @submit="handleSubmit" />
             </div>
         </div>
 
@@ -156,7 +164,7 @@ function handleFocusRisk(_riskId: string) {
             v-if="review && !showSourceInput"
             class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1fr_400px]"
         >
-            <AssistantContractContractDocxPreview
+            <AssistantContractDocxPreview
                 :reviewed-file-id="review?.reviewedFileId ?? null"
                 :original-file-id="review?.originalFileId ?? null"
             />
