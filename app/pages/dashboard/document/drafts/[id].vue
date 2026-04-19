@@ -545,7 +545,7 @@ function handlePanelResize(sizes: number[]) {
 
         <!-- 统一的破坏性操作二次确认（恢复版本 / 删除版本 / 覆盖工作区） -->
         <AlertDialog v-model:open="confirmOpen">
-            <AlertDialogContent>
+            <AlertDialogContent class="z-[80]">
                 <AlertDialogHeader>
                     <AlertDialogTitle>{{ confirmTitle }}</AlertDialogTitle>
                     <AlertDialogDescription>{{ confirmMessage }}</AlertDialogDescription>
