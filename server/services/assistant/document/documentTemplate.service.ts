@@ -5,6 +5,8 @@
  * 参见 spec §2.2
  */
 
+import PizZip from 'pizzip'
+import Docxtemplater from 'docxtemplater'
 import { uploadFileService } from '~~/server/services/storage/storage.service'
 import { createOssFileDao } from '~~/server/services/files/ossFiles.dao'
 import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageConfig.dao'
@@ -60,6 +62,13 @@ export async function createDocumentTemplateService(
     const placeholders = await scanPlaceholders(params.file)
     if (placeholders.length === 0) {
         return { error: '未扫描到占位符，请检查模板', code: 400 }
+    }
+
+    // docxtemplater 预编译校验：提前暴露不匹配花括号 / 未闭合标签等错误，
+    // 避免上传后到导出时才报错让用户不知道哪里有问题。
+    const compileError = tryCompileTemplate(params.file)
+    if (compileError) {
+        return { error: `模板占位符不合法：${compileError}。请确认所有占位符都使用双花括号 {{name}} 格式。`, code: 400 }
     }
 
     if (params.isAdmin) {
@@ -139,4 +148,39 @@ async function uploadAndCreate(opts: {
     )
 
     return { templateId: template.id }
+}
+
+/**
+ * 用 docxtemplater 预编译模板，触发词法器检查；成功返回 null，失败返回首条可读错误信息。
+ * 仅做语法校验，不做真实渲染，所以 nullGetter 直接返回空字符串即可。
+ */
+function tryCompileTemplate(buffer: Buffer): string | null {
+    try {
+        const zip = new PizZip(buffer)
+        new Docxtemplater(zip, {
+            paragraphLoop: true,
+            linebreaks: true,
+            nullGetter: () => '',
+            delimiters: { start: '{{', end: '}}' },
+        })
+        return null
+    } catch (err) {
+        const anyErr = err as {
+            message?: string
+            properties?: {
+                explanation?: string
+                xtag?: string
+                errors?: Array<{ properties?: { explanation?: string; xtag?: string } }>
+            }
+        }
+        const first = anyErr?.properties?.errors?.[0]?.properties
+        if (first?.explanation) {
+            return `${first.explanation}${first.xtag ? `（位置：${first.xtag}）` : ''}`
+        }
+        const top = anyErr?.properties
+        if (top?.explanation) {
+            return `${top.explanation}${top.xtag ? `（位置：${top.xtag}）` : ''}`
+        }
+        return anyErr?.message ?? '未知错误'
+    }
 }

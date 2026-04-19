@@ -61,15 +61,29 @@ export async function exportDraftService(
     const templateBuffer = await downloadFileService(templateOssFile.filePath, { userId })
 
     // 5. 用 docxtemplater 渲染
+    // 模板作者有可能写成单花括号（如 `{证据和证据来源}}`），
+    // docxtemplater 会以 Unopened/Unclosed tag 抛错，此处兜底抓取并返回可读错误，
+    // 避免把底层栈透给用户。
     const zip = new PizZip(templateBuffer)
-    const doc = new Docxtemplater(zip, {
-        paragraphLoop: true,
-        linebreaks: true,
-        nullGetter: () => '',   // 缺字段返回空字符串，不抛错
-        delimiters: { start: '{{', end: '}}' },
-    })
-    doc.render(draft.values as Record<string, unknown>)
-    const renderedBuffer = doc.getZip().generate({ type: 'nodebuffer' }) as Buffer
+    let renderedBuffer: Buffer
+    try {
+        const doc = new Docxtemplater(zip, {
+            paragraphLoop: true,
+            linebreaks: true,
+            nullGetter: () => '',
+            delimiters: { start: '{{', end: '}}' },
+        })
+        doc.render(draft.values as Record<string, unknown>)
+        renderedBuffer = doc.getZip().generate({ type: 'nodebuffer' }) as Buffer
+    } catch (err) {
+        const detail = extractDocxtemplaterErrorDetail(err)
+        logger.error('docxtemplater 渲染失败', {
+            draftId,
+            templateId: template.id,
+            detail,
+        })
+        return { error: `模板占位符不合法：${detail}。请检查模板文件并修正（占位符需用双花括号 {{name}}）。`, code: 400 }
+    }
 
     // 6. 并行上传 + 获取存储配置（与模板上传服务保持一致）
     const ossPath = `users/${userId}/document-exports/${Date.now()}_${template.name}.docx`
@@ -108,4 +122,24 @@ export async function exportDraftService(
     })
 
     return { ossFileId: ossFile.id, downloadUrl }
+}
+
+/**
+ * 从 docxtemplater 抛出的 MultiError/TemplateError 中提取首条可读错误。
+ * 兼容单错误（properties.explanation/xtag）与多错误（properties.errors[]）两种形态。
+ */
+function extractDocxtemplaterErrorDetail(err: unknown): string {
+    const anyErr = err as {
+        message?: string
+        properties?: {
+            explanation?: string
+            xtag?: string
+            errors?: Array<{ properties?: { explanation?: string; xtag?: string } }>
+        }
+    }
+    const nested = anyErr?.properties?.errors?.[0]?.properties
+    if (nested?.explanation) return `${nested.explanation}${nested.xtag ? `（位置：${nested.xtag}）` : ''}`
+    const top = anyErr?.properties
+    if (top?.explanation) return `${top.explanation}${top.xtag ? `（位置：${top.xtag}）` : ''}`
+    return anyErr?.message ?? '未知错误'
 }
