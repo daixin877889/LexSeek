@@ -47,7 +47,7 @@ function onApplyAll() {
 
 <template>
     <Sheet :open="open" @update:open="onUpdate">
-        <SheetContent side="right" class="w-[480px] sm:w-[520px] overflow-y-auto">
+        <SheetContent side="right" class="w-[50vw] sm:max-w-[50vw] overflow-y-auto">
             <SheetHeader>
                 <SheetTitle>历史</SheetTitle>
                 <SheetDescription>查看已保存的版本与 AI 自动快照</SheetDescription>
