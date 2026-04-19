@@ -163,6 +163,58 @@ describe('useContractReview.mountReview', () => {
         expect(c.review.value).toBeNull()
         expect(mockStreamSubmit).not.toHaveBeenCalled()
     })
+
+    it('mountReview 成功：review.hasUnsavedDocxChanges=true → composable ref 回填为 true', async () => {
+        const reviewData = {
+            id: 999,
+            sessionId: 'sess-999',
+            status: 'completed',
+            contractType: '买卖合同',
+            partyA: '甲方',
+            partyB: '乙方',
+            stance: 'partyA',
+            risks: [],
+            summary: null,
+            originalFileId: 1,
+            reviewedFileId: 2,
+            hasUnsavedDocxChanges: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        }
+        mockFetch.mockResolvedValueOnce({ review: reviewData } as any)
+
+        const c = useContractReview()
+        await c.mountReview(999)
+
+        expect(c.hasUnsavedDocxChanges.value).toBe(true)
+    })
+
+    it('mountReview 成功：review.hasUnsavedDocxChanges=false → composable ref 回填为 false（覆盖旧 true）', async () => {
+        const reviewData = {
+            id: 1000,
+            sessionId: 'sess-1000',
+            status: 'completed',
+            contractType: '买卖合同',
+            partyA: '甲方',
+            partyB: '乙方',
+            stance: 'partyA',
+            risks: [],
+            summary: null,
+            originalFileId: 1,
+            reviewedFileId: 2,
+            hasUnsavedDocxChanges: false,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        }
+        mockFetch.mockResolvedValueOnce({ review: reviewData } as any)
+
+        const c = useContractReview()
+        // 先手动置 true，模拟跨会话遗留
+        c.hasUnsavedDocxChanges.value = true
+        await c.mountReview(1000)
+
+        expect(c.hasUnsavedDocxChanges.value).toBe(false)
+    })
 })
 
 describe('useContractReview.onStance + awaitingStance', () => {
