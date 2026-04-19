@@ -22,6 +22,10 @@ vi.mock('~~/server/services/assistant/document/documentTemplate.dao', () => ({
     getDocumentTemplateDAO: vi.fn(),
 }))
 
+vi.mock('~~/server/services/assistant/document/documentDraftVersion.dao', () => ({
+    getVersionByIdDAO: vi.fn(),
+}))
+
 vi.mock('~~/server/services/files/ossFiles.dao', () => ({
     findOssFileByIdDao: vi.fn(),
     createOssFileDao: vi.fn(),
@@ -39,9 +43,10 @@ vi.mock('~~/server/services/storage/storageConfig.dao', () => ({
 
 // ==================== 导入被测模块（在 mock 之后） ====================
 
-import { exportDraftService } from '~~/server/services/assistant/document/documentExport.service'
+import { exportDraftService, exportVersionByIdService } from '~~/server/services/assistant/document/documentExport.service'
 import { getDocumentDraftDAO, updateDocumentDraftDAO } from '~~/server/services/assistant/document/documentDraft.dao'
 import { getDocumentTemplateDAO } from '~~/server/services/assistant/document/documentTemplate.dao'
+import { getVersionByIdDAO } from '~~/server/services/assistant/document/documentDraftVersion.dao'
 import { findOssFileByIdDao, createOssFileDao } from '~~/server/services/files/ossFiles.dao'
 import {
     downloadFileService,
@@ -55,6 +60,7 @@ import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageCo
 const mockGetDocumentDraftDAO = getDocumentDraftDAO as ReturnType<typeof vi.fn>
 const mockUpdateDocumentDraftDAO = updateDocumentDraftDAO as ReturnType<typeof vi.fn>
 const mockGetDocumentTemplateDAO = getDocumentTemplateDAO as ReturnType<typeof vi.fn>
+const mockGetVersionByIdDAO = getVersionByIdDAO as ReturnType<typeof vi.fn>
 const mockFindOssFileByIdDao = findOssFileByIdDao as ReturnType<typeof vi.fn>
 const mockCreateOssFileDao = createOssFileDao as ReturnType<typeof vi.fn>
 const mockDownloadFileService = downloadFileService as ReturnType<typeof vi.fn>
@@ -159,6 +165,7 @@ beforeEach(async () => {
     // 默认成功路径
     mockGetDocumentDraftDAO.mockResolvedValue(MOCK_DRAFT_READY)
     mockGetDocumentTemplateDAO.mockResolvedValue(MOCK_TEMPLATE)
+    mockGetVersionByIdDAO.mockResolvedValue(null)
     mockFindOssFileByIdDao.mockResolvedValue(MOCK_OSS_FILE)
     mockGetDefaultStorageConfigDao.mockResolvedValue(MOCK_STORAGE_CONFIG)
     mockDownloadFileService.mockResolvedValue(await buildMinimalDocxBuffer('原告：{{plaintiff}}，被告：{{defendant}}'))
@@ -335,5 +342,41 @@ describe('exportDraftService - 缺字段处理', () => {
         await expect(exportDraftService(100, 10)).resolves.not.toThrow()
         const result = await exportDraftService(100, 10)
         expect(result).toHaveProperty('ossFileId')
+    })
+})
+
+// ==================== exportVersionByIdService ====================
+
+describe('exportVersionByIdService', () => {
+    const MOCK_VERSION = {
+        id: 7,
+        draftId: 10,
+        versionNo: 1,
+        name: '第一稿',
+        titleAt: '民事起诉状',
+        values: { plaintiff: '张三', defendant: '李四' },
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+    }
+
+    it('版本不存在时返回 { error, code: 404 }', async () => {
+        mockGetVersionByIdDAO.mockResolvedValue(null)
+
+        const result = await exportVersionByIdService(100, 999)
+
+        expect(result).toEqual({ error: '版本不存在', code: 404 })
+        expect(mockGetDocumentDraftDAO).not.toHaveBeenCalled()
+    })
+
+    it('版本存在但 draft 不属于当前用户时返回 { error, code: 403 }', async () => {
+        mockGetVersionByIdDAO.mockResolvedValue(MOCK_VERSION)
+        mockGetDocumentDraftDAO.mockResolvedValue({
+            ...MOCK_DRAFT_READY,
+            userId: 200, // 不是调用者
+        })
+
+        const result = await exportVersionByIdService(100, 7)
+
+        expect(result).toEqual({ error: '无权导出此版本', code: 403 })
+        expect(mockDownloadFileService).not.toHaveBeenCalled()
     })
 })
