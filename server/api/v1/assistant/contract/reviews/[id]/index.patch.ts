@@ -16,6 +16,7 @@ import { z } from 'zod'
 import {
     getContractReviewDAO,
     patchReviewRisksDAO,
+    setHasUnsavedTrueDAO,
 } from '~~/server/services/assistant/contract/contractReview.dao'
 import { RISK_SHAPE } from '~~/server/services/assistant/contract/riskSchema.builder'
 import { REVIEW_EDITABLE_STATUSES } from '#shared/types/contract'
@@ -53,5 +54,6 @@ export default defineEventHandler(async (event) => {
     }
 
     await patchReviewRisksDAO(id, parsed.data.risks)
+    await setHasUnsavedTrueDAO(id)
     return resSuccess(event, '保存成功', { reviewId: id })
 })

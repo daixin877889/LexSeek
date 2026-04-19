@@ -81,7 +81,34 @@ export async function setCompletedAfterRebuildDAO(
 ): Promise<contractReviews> {
     return prisma.contractReviews.update({
         where: { id, deletedAt: null },
-        data: { status: 'completed', reviewedFileId, updatedAt: new Date() },
+        data: {
+            status: 'completed',
+            reviewedFileId,
+            hasUnsavedDocxChanges: false,
+            updatedAt: new Date(),
+        },
+    })
+}
+
+/**
+ * 标记 session 的 risks 已编辑但未回写 docx。
+ * PATCH /reviews/:id（risks 分支）成功后调用。
+ */
+export async function setHasUnsavedTrueDAO(reviewId: number): Promise<void> {
+    await prisma.contractReviews.update({
+        where: { id: reviewId },
+        data: { hasUnsavedDocxChanges: true, updatedAt: new Date() },
+    })
+}
+
+/**
+ * 清除 session 的脏位标记。
+ * rebuild-docx 成功路径通过 setCompletedAfterRebuildDAO 已原地清零，此方法保留给手动清除 / 回滚等场景。
+ */
+export async function setHasUnsavedFalseDAO(reviewId: number): Promise<void> {
+    await prisma.contractReviews.update({
+        where: { id: reviewId },
+        data: { hasUnsavedDocxChanges: false, updatedAt: new Date() },
     })
 }
 
