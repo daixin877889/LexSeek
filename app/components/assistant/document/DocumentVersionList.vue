@@ -40,7 +40,8 @@ function formatTime(iso: string) {
             还没有保存过版本，点顶部"保存当前为版本"记录里程碑
         </div>
         <ul v-else class="divide-y rounded-md border">
-            <li v-for="v in versions" :key="v.id" class="flex items-center gap-4 p-3">
+            <li v-for="v in versions" :key="v.id"
+                class="flex items-center gap-4 p-3 transition-colors hover:bg-muted/40">
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-1.5 min-w-0">
                         <template v-if="editingId === v.id">
