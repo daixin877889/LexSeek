@@ -27,12 +27,12 @@ export default defineEventHandler(async (event) => {
             id,
             alreadyDeleted: result.status === 'already_deleted',
         })
-    } catch (error: any) {
+    } catch (error) {
         logger.error('[admin] 删除合同审查失败', {
             id,
             adminUserId: user.id,
-            error: error?.message,
+            error: error instanceof Error ? error.message : String(error),
         })
-        return resError(event, 500, error?.message || '删除失败')
+        return resError(event, 500, '删除失败')
     }
 })

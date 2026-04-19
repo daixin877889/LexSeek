@@ -23,12 +23,12 @@ export default defineEventHandler(async (event) => {
         const detail = await getAdminReviewDAO(id)
         if (!detail) return resError(event, 404, '审查记录不存在')
         return resSuccess(event, '获取成功', detail)
-    } catch (error: any) {
+    } catch (error) {
         logger.error('[admin] 获取合同审查详情失败', {
             id,
             adminUserId: user.id,
-            error: error?.message,
+            error: error instanceof Error ? error.message : String(error),
         })
-        return resError(event, 500, error?.message || '获取详情失败')
+        return resError(event, 500, '获取详情失败')
     }
 })

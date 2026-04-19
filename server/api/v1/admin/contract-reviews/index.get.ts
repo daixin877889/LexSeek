@@ -49,11 +49,11 @@ export default defineEventHandler(async (event) => {
             includeDeleted,
         })
         return resSuccess(event, '获取成功', { items, total, skip, take })
-    } catch (error: any) {
+    } catch (error) {
         logger.error('[admin] 获取合同审查列表失败', {
             adminUserId: user.id,
-            error: error?.message,
+            error: error instanceof Error ? error.message : String(error),
         })
-        return resError(event, 500, error?.message || '获取列表失败')
+        return resError(event, 500, '获取列表失败')
     }
 })
