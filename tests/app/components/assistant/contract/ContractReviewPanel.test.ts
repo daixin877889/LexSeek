@@ -40,6 +40,18 @@ vi.mock('lucide-vue-next', () => ({
         name: 'Loader2Icon',
         setup: () => () => h('i', { 'data-stub': 'Loader2Icon' }),
     }),
+    PinIcon: defineComponent({
+        name: 'PinIcon',
+        setup: () => () => h('i', { 'data-stub': 'PinIcon' }),
+    }),
+    MinusIcon: defineComponent({
+        name: 'MinusIcon',
+        setup: () => () => h('i', { 'data-stub': 'MinusIcon' }),
+    }),
+    XIcon: defineComponent({
+        name: 'XIcon',
+        setup: () => () => h('i', { 'data-stub': 'XIcon' }),
+    }),
 }))
 
 // ── mock useContractReview ──────────────────────────────────────────────────
@@ -57,6 +69,7 @@ const mockOnStart = vi.fn()
 const mockMountReview = vi.fn()
 const mockOnStance = vi.fn()
 const mockOnDownload = vi.fn()
+const mockOnExportPdf = vi.fn()
 const mockOnEditRisks = vi.fn()
 const mockOnRebuildDocx = vi.fn()
 const mockCancelReview = vi.fn().mockResolvedValue(undefined)
@@ -75,6 +88,7 @@ vi.mock('~/composables/useContractReview', () => ({
         mountReview: mockMountReview,
         onStance: mockOnStance,
         onDownload: mockOnDownload,
+        onExportPdf: mockOnExportPdf,
         onEditRisks: mockOnEditRisks,
         onRebuildDocx: mockOnRebuildDocx,
         cancelReview: mockCancelReview,
@@ -201,6 +215,7 @@ const stubs = {
     AssistantContractStanceSelectionDialog: StanceDialogStub,
     AssistantContractContractDocxPreview: DocxPreviewStub,
     AssistantContractRiskListPanel: RiskListPanelStub,
+    AssistantContractFloatingAnnotationPanel: true,
 }
 
 // ── 动态导入（确保 mock 先完成）─────────────────────────────────────────────
