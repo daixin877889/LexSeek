@@ -157,13 +157,6 @@
             </div>
           </div>
         </div>
-
-        <!-- 已选择文件提示 -->
-        <!-- <div v-if="selectedFiles.length > 0 && !isUploadMode"
-          class="flex items-center justify-between p-3 bg-primary/10 rounded-md">
-          <span class="text-sm font-medium"> 已选择 {{ selectedFiles.length }} 个文件 </span>
-          <Button variant="ghost" size="sm" @click="clearSelection"> 清除选择 </Button>
-        </div> -->
       </div>
 
       <!-- 底部操作栏（上传模式下隐藏） -->
@@ -370,9 +363,6 @@ function handleScroll(event: Event) {
   const threshold = 100;
   const isNearBottom = target.scrollHeight - target.scrollTop - target.clientHeight < threshold;
 
-  // 调试日志
-  // console.log('滚动检测:', { isNearBottom, hasMore: hasMore.value, loadingMore: loadingMore.value, loading: loading.value, allFilesCount: allFiles.value.length, totalFiles: totalFiles.value })
-
   if (isNearBottom && hasMore.value && !loadingMore.value && !loading.value) {
     loadMoreFiles();
   }
@@ -473,12 +463,6 @@ const toggleSelectAll = () => {
     const selectableIds = selectableFiles.value.map(file => file.id)
     selectedFiles.value = [...new Set([...selectedFiles.value, ...selectableIds])]
   }
-};
-
-// 清除选择（保留以备将来使用）
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const clearSelection = () => {
-  selectedFiles.value = [];
 };
 
 // 确认选择
