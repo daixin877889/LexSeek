@@ -82,3 +82,27 @@ export interface ExportDraftResponse {
     ossFileId: number
     downloadUrl: string
 }
+
+// ==================== 快照 & 版本 ====================
+
+/** 文书快照来源 */
+export type DraftSnapshotSource = 'ai-extract' | 'workspace-backup'
+
+export interface DocumentDraftSnapshot {
+    id: number
+    draftId: number
+    source: DraftSnapshotSource
+    values: Record<string, string | null>
+    aiTitle: string | null
+    createdAt: string
+}
+
+export interface DocumentDraftVersion {
+    id: number
+    draftId: number
+    versionNo: number
+    name: string
+    values: Record<string, string | null>
+    titleAt: string
+    createdAt: string
+}

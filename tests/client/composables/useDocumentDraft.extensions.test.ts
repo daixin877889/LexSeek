@@ -412,3 +412,230 @@ describe('useDocumentDraft queue', () => {
         expect(c.currentQueue.value).toHaveLength(1)
     })
 })
+
+// ── title / versions / snapshots / preview 扩展 ───────────────────────────
+
+describe('useDocumentDraft 扩展：title / versions / snapshots / preview', () => {
+    beforeEach(() => {
+        mockFetch.mockReset()
+        mockStreamSubmit.mockReset()
+        mockStreamStop.mockClear()
+        mockStreamValues.value = undefined
+        mockStreamMessages.value = []
+        mockStreamIsLoading.value = false
+    })
+
+    /** 挂载一个 ready 草稿，返回 composable 实例 */
+    async function mountReady() {
+        mockFetch
+            .mockResolvedValueOnce({
+                draft: { id: 5, sessionId: 's-5', values: {}, templateId: 7, status: 'ready', title: '原标题', titleOverridden: false },
+            })
+            .mockResolvedValueOnce({ id: 7, name: 't', placeholders: [] })
+        const c = useDocumentDraft()
+        await c.mountDraft(5)
+        mockStreamSubmit.mockClear()
+        mockFetch.mockReset()
+        return c
+    }
+
+    // ── title ──────────────────────────────────────────────────────────────
+
+    it('updateTitle 乐观更新：本地 draft.title 立即变为新值且 titleOverridden=true', async () => {
+        const c = await mountReady()
+
+        // API 正常返回
+        const updatedDraft = { id: 5, sessionId: 's-5', values: {}, templateId: 7, status: 'ready', title: '新标题', titleOverridden: true }
+        mockFetch.mockResolvedValueOnce({ draft: updatedDraft })
+
+        const updatePromise = c.updateTitle('新标题')
+
+        // 乐观更新在 await API 前就应生效
+        expect((c.draft.value as any)?.title).toBe('新标题')
+        expect((c.draft.value as any)?.titleOverridden).toBe(true)
+
+        await updatePromise
+        // API 返回后也保持正确
+        expect((c.draft.value as any)?.title).toBe('新标题')
+    })
+
+    it('updateTitle 失败时回滚到原始 draft', async () => {
+        const c = await mountReady()
+        const originalDraft = c.draft.value
+
+        // API 返回失败（null）
+        mockFetch.mockResolvedValueOnce(null)
+
+        await c.updateTitle('失败标题')
+
+        // 应回滚到原始 draft
+        expect(c.draft.value).toBe(originalDraft)
+    })
+
+    it('updateTitle 空字符串（trim 后为空）时不调用 API', async () => {
+        const c = await mountReady()
+        await c.updateTitle('   ')
+        expect(mockFetch).not.toHaveBeenCalled()
+    })
+
+    it('title computed 返回 draft.title，draft 为 null 时返回空字符串', () => {
+        const c = useDocumentDraft()
+        expect(c.title.value).toBe('')
+    })
+
+    // ── versions ──────────────────────────────────────────────────────────
+
+    it('saveVersion 成功后 versions 头部多一条', async () => {
+        const c = await mountReady()
+
+        // 先设置已有版本
+        c.versions.value = [
+            { id: 10, draftId: 5, versionNo: 1, name: 'v1', values: {}, titleAt: '', createdAt: '' },
+        ]
+
+        const newVersion = { id: 11, draftId: 5, versionNo: 2, name: 'v2', values: {}, titleAt: '', createdAt: '' }
+        mockFetch.mockResolvedValueOnce({ version: newVersion })
+
+        await c.saveVersion('v2')
+
+        expect(c.versions.value).toHaveLength(2)
+        expect(c.versions.value[0]!.id).toBe(11) // 头部是新的
+        expect(c.versions.value[1]!.id).toBe(10)
+    })
+
+    it('saveVersion draftId 为 null 时返回 null 不调用 API', async () => {
+        const c = useDocumentDraft()
+        const result = await c.saveVersion('v1')
+        expect(result).toBeNull()
+        expect(mockFetch).not.toHaveBeenCalled()
+    })
+
+    it('nextVersionNo 在空列表时为 1，有版本时为 max+1', async () => {
+        const c = await mountReady()
+        expect(c.nextVersionNo.value).toBe(1)
+
+        c.versions.value = [
+            { id: 1, draftId: 5, versionNo: 3, name: 'v3', values: {}, titleAt: '', createdAt: '' },
+            { id: 2, draftId: 5, versionNo: 1, name: 'v1', values: {}, titleAt: '', createdAt: '' },
+        ]
+        expect(c.nextVersionNo.value).toBe(4)
+    })
+
+    it('renameVersion 成功后本地列表中对应版本更新', async () => {
+        const c = await mountReady()
+        c.versions.value = [
+            { id: 20, draftId: 5, versionNo: 1, name: '旧名', values: {}, titleAt: '', createdAt: '' },
+        ]
+        const renamed = { id: 20, draftId: 5, versionNo: 1, name: '新名', values: {}, titleAt: '', createdAt: '' }
+        mockFetch.mockResolvedValueOnce({ version: renamed })
+
+        await c.renameVersion(20, '新名')
+
+        expect(c.versions.value[0]!.name).toBe('新名')
+        expect(mockFetch).toHaveBeenCalledWith(
+            '/api/v1/assistant/document/drafts/versions/20',
+            expect.objectContaining({ method: 'PATCH', body: { name: '新名' } }),
+        )
+    })
+
+    it('deleteVersion 成功后本地列表移除对应条目', async () => {
+        const c = await mountReady()
+        c.versions.value = [
+            { id: 30, draftId: 5, versionNo: 1, name: 'v1', values: {}, titleAt: '', createdAt: '' },
+            { id: 31, draftId: 5, versionNo: 2, name: 'v2', values: {}, titleAt: '', createdAt: '' },
+        ]
+        mockFetch.mockResolvedValueOnce({ ok: true })
+
+        await c.deleteVersion(30)
+
+        expect(c.versions.value).toHaveLength(1)
+        expect(c.versions.value[0]!.id).toBe(31)
+    })
+
+    // ── snapshots ─────────────────────────────────────────────────────────
+
+    it('loadSnapshots 成功后更新 snapshots 列表', async () => {
+        const c = await mountReady()
+        const snaps = [
+            { id: 1, draftId: 5, source: 'ai-extract', values: {}, aiTitle: null, createdAt: '' },
+        ]
+        mockFetch.mockResolvedValueOnce({ snapshots: snaps })
+
+        await c.loadSnapshots()
+
+        expect(c.snapshots.value).toHaveLength(1)
+        expect(c.snapshots.value[0]!.source).toBe('ai-extract')
+    })
+
+    it('applySnapshot 传 fieldNames 时 body 正确传入', async () => {
+        const c = await mountReady()
+        const updatedDraft = { id: 5, sessionId: 's-5', values: { 甲方: '李四' }, templateId: 7, status: 'ready' }
+        // applySnapshot 后会调 loadSnapshots，共两次 mockFetch
+        mockFetch
+            .mockResolvedValueOnce({ draft: updatedDraft })
+            .mockResolvedValueOnce({ snapshots: [] })
+
+        await c.applySnapshot(99, ['甲方'])
+
+        expect(mockFetch).toHaveBeenCalledWith(
+            '/api/v1/assistant/document/drafts/snapshots/apply/99',
+            expect.objectContaining({
+                method: 'POST',
+                body: { fieldNames: ['甲方'] },
+            }),
+        )
+        expect(c.draft.value?.values).toEqual({ 甲方: '李四' })
+    })
+
+    it('applySnapshot 不传 fieldNames 时 body 为空对象', async () => {
+        const c = await mountReady()
+        const updatedDraft = { id: 5, sessionId: 's-5', values: {}, templateId: 7, status: 'ready' }
+        mockFetch
+            .mockResolvedValueOnce({ draft: updatedDraft })
+            .mockResolvedValueOnce({ snapshots: [] })
+
+        await c.applySnapshot(88)
+
+        expect(mockFetch).toHaveBeenCalledWith(
+            '/api/v1/assistant/document/drafts/snapshots/apply/88',
+            expect.objectContaining({
+                method: 'POST',
+                body: {},
+            }),
+        )
+    })
+
+    // ── preview ───────────────────────────────────────────────────────────
+
+    it('previewValues 在 previewVersionId 非空时指向版本的 values', async () => {
+        const c = await mountReady()
+        c.versions.value = [
+            { id: 50, draftId: 5, versionNo: 1, name: 'v1', values: { 甲方: '王五' }, titleAt: '', createdAt: '' },
+        ]
+
+        expect(c.previewValues.value).toBeNull()
+
+        c.enterPreview(50)
+        expect(c.previewVersionId.value).toBe(50)
+        expect(c.previewValues.value).toEqual({ 甲方: '王五' })
+    })
+
+    it('exitPreview 后 previewVersionId=null，previewValues=null', async () => {
+        const c = await mountReady()
+        c.versions.value = [
+            { id: 60, draftId: 5, versionNo: 1, name: 'v1', values: { 甲方: '赵六' }, titleAt: '', createdAt: '' },
+        ]
+        c.enterPreview(60)
+        expect(c.previewValues.value).not.toBeNull()
+
+        c.exitPreview()
+        expect(c.previewVersionId.value).toBeNull()
+        expect(c.previewValues.value).toBeNull()
+    })
+
+    it('previewVersionId 对应版本不存在时 previewValues=null', async () => {
+        const c = await mountReady()
+        c.enterPreview(9999) // 不存在的 id
+        expect(c.previewValues.value).toBeNull()
+    })
+})

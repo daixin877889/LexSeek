@@ -18,6 +18,8 @@ import type {
     PatchDraftRequest,
     ExportDraftResponse,
     DocumentTemplate,
+    DocumentDraftVersion,
+    DocumentDraftSnapshot,
 } from '#shared/types/document'
 import { QUEUE_MAX_SIZE, type QueueItem, type QueuePauseReason } from './chatQueueActions'
 
@@ -337,6 +339,128 @@ export function useDocumentDraft() {
         },
     )
 
+    // ========== Title ==========
+    const title = computed(() => draft.value?.title ?? '')
+
+    async function updateTitle(newTitle: string) {
+        if (!draftId.value) return
+        const clean = newTitle.trim()
+        if (!clean) return
+        const prev = draft.value
+        if (prev) {
+            draft.value = { ...prev, title: clean, titleOverridden: true } as documentDrafts
+        }
+        const result = await useApiFetch<{ draft: documentDrafts }>(
+            `/api/v1/assistant/document/drafts/${draftId.value}/title`,
+            { method: 'PATCH', body: { title: clean }, showError: true } as any,
+        )
+        if (!result?.draft) {
+            if (prev) draft.value = prev // 回滚
+            return
+        }
+        draft.value = result.draft
+    }
+
+    // ========== Versions ==========
+    const versions = ref<DocumentDraftVersion[]>([])
+    const nextVersionNo = computed(() =>
+        (versions.value.reduce((m, v) => Math.max(m, v.versionNo), 0)) + 1,
+    )
+
+    async function loadVersions() {
+        if (!draftId.value) return
+        const r = await useApiFetch<{ versions: DocumentDraftVersion[] }>(
+            `/api/v1/assistant/document/drafts/${draftId.value}/versions`,
+        )
+        versions.value = r?.versions ?? []
+    }
+
+    async function saveVersion(name: string) {
+        if (!draftId.value) return null
+        const r = await useApiFetch<{ version: DocumentDraftVersion }>(
+            `/api/v1/assistant/document/drafts/${draftId.value}/versions`,
+            { method: 'POST', body: { name } } as any,
+        )
+        if (r?.version) versions.value = [r.version, ...versions.value]
+        return r?.version ?? null
+    }
+
+    async function renameVersion(versionId: number, name: string) {
+        const r = await useApiFetch<{ version: DocumentDraftVersion }>(
+            `/api/v1/assistant/document/drafts/versions/${versionId}`,
+            { method: 'PATCH', body: { name } } as any,
+        )
+        if (r?.version) {
+            versions.value = versions.value.map(v => v.id === versionId ? r.version : v)
+        }
+    }
+
+    async function deleteVersion(versionId: number) {
+        const r = await useApiFetch<{ ok: true }>(
+            `/api/v1/assistant/document/drafts/versions/${versionId}`,
+            { method: 'DELETE' } as any,
+        )
+        if (r?.ok) versions.value = versions.value.filter(v => v.id !== versionId)
+    }
+
+    async function restoreVersion(versionId: number) {
+        const r = await useApiFetch<{ draft: documentDrafts }>(
+            `/api/v1/assistant/document/drafts/versions/restore/${versionId}`,
+            { method: 'POST' } as any,
+        )
+        if (r?.draft) {
+            draft.value = r.draft
+            await loadSnapshots() // workspace-backup 会冒出来
+        }
+    }
+
+    async function exportVersion(versionId: number) {
+        const r = await useApiFetch<{ ossFileId: number; downloadUrl: string }>(
+            `/api/v1/assistant/document/drafts/versions/export/${versionId}`,
+        )
+        if (!r?.downloadUrl) return
+        const a = document.createElement('a')
+        a.href = r.downloadUrl
+        a.download = ''
+        a.style.display = 'none'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+    }
+
+    // ========== Snapshots ==========
+    const snapshots = ref<DocumentDraftSnapshot[]>([])
+
+    async function loadSnapshots() {
+        if (!draftId.value) return
+        const r = await useApiFetch<{ snapshots: DocumentDraftSnapshot[] }>(
+            `/api/v1/assistant/document/drafts/${draftId.value}/snapshots`,
+        )
+        snapshots.value = r?.snapshots ?? []
+    }
+
+    async function applySnapshot(snapshotId: number, fieldNames?: string[]) {
+        const r = await useApiFetch<{ draft: documentDrafts }>(
+            `/api/v1/assistant/document/drafts/snapshots/apply/${snapshotId}`,
+            { method: 'POST', body: fieldNames ? { fieldNames } : {} } as any,
+        )
+        if (r?.draft) {
+            draft.value = r.draft
+            await loadSnapshots() // workspace-backup 新增
+        }
+    }
+
+    // ========== Preview ==========
+    const previewVersionId = ref<number | null>(null)
+    const previewValues = computed<Record<string, string | null> | null>(() => {
+        if (previewVersionId.value == null) return null
+        const v = versions.value.find(x => x.id === previewVersionId.value)
+        return v ? (v.values as Record<string, string | null>) : null
+    })
+
+    function enterPreview(id: number) { previewVersionId.value = id }
+    function exitPreview() { previewVersionId.value = null }
+
     onUnmounted(() => {
         stopStreamWatch?.()
         streamScope?.stop()
@@ -366,5 +490,15 @@ export function useDocumentDraft() {
         removeQueueItem,
         clearQueue,
         resumeQueue,
+        // title
+        title, updateTitle,
+        // versions
+        versions, nextVersionNo,
+        loadVersions, saveVersion, renameVersion, deleteVersion,
+        restoreVersion, exportVersion,
+        // snapshots
+        snapshots, loadSnapshots, applySnapshot,
+        // preview
+        previewVersionId, previewValues, enterPreview, exitPreview,
     }
 }
