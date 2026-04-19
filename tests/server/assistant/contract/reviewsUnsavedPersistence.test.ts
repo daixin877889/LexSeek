@@ -3,8 +3,7 @@
  *
  * 覆盖 M6.1A-e：
  *   - 默认 false
- *   - setHasUnsavedTrueDAO 置 true
- *   - setHasUnsavedFalseDAO 置 false
+ *   - patchReviewRisksDAO 原子置 true
  *   - setCompletedAfterRebuildDAO 在 completed 的同时清零 hasUnsavedDocxChanges
  *
  * **Feature: contract-review-m6.1A**
@@ -12,8 +11,7 @@
 import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import {
     createContractReviewDAO,
-    setHasUnsavedTrueDAO,
-    setHasUnsavedFalseDAO,
+    patchReviewRisksDAO,
     setCompletedAfterRebuildDAO,
 } from '~~/server/services/assistant/contract/contractReview.dao'
 import { prisma } from '~~/server/utils/db'
@@ -50,7 +48,7 @@ describe('contractReview.dao hasUnsavedDocxChanges 持久化', () => {
         expect(found?.hasUnsavedDocxChanges).toBe(false)
     })
 
-    it('setHasUnsavedTrueDAO 应置 true', async () => {
+    it('patchReviewRisksDAO 应在写 risks 的同时置 hasUnsavedDocxChanges=true', async () => {
         const row = await createContractReviewDAO({
             userId: testUserId,
             sessionId: `test-session-${Date.now()}-${Math.random()}`,
@@ -58,23 +56,9 @@ describe('contractReview.dao hasUnsavedDocxChanges 持久化', () => {
             status: 'completed',
         })
         createdIds.push(row.id)
-        await setHasUnsavedTrueDAO(row.id)
+        await patchReviewRisksDAO(row.id, [])
         const found = await prisma.contractReviews.findUnique({ where: { id: row.id } })
         expect(found?.hasUnsavedDocxChanges).toBe(true)
-    })
-
-    it('setHasUnsavedFalseDAO 应置 false', async () => {
-        const row = await createContractReviewDAO({
-            userId: testUserId,
-            sessionId: `test-session-${Date.now()}-${Math.random()}`,
-            originalFileId: 0,
-            status: 'completed',
-        })
-        createdIds.push(row.id)
-        await setHasUnsavedTrueDAO(row.id)
-        await setHasUnsavedFalseDAO(row.id)
-        const found = await prisma.contractReviews.findUnique({ where: { id: row.id } })
-        expect(found?.hasUnsavedDocxChanges).toBe(false)
     })
 
     it('setCompletedAfterRebuildDAO 应在置 completed 的同时清 hasUnsavedDocxChanges', async () => {
@@ -86,7 +70,7 @@ describe('contractReview.dao hasUnsavedDocxChanges 持久化', () => {
         })
         createdIds.push(row.id)
         // 模拟真实流程：先标记脏，再进入 rebuilding，再重生完成
-        await setHasUnsavedTrueDAO(row.id)
+        await patchReviewRisksDAO(row.id, [])
         await prisma.contractReviews.update({
             where: { id: row.id },
             data: { status: 'rebuilding' },

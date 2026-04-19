@@ -45,8 +45,10 @@ export async function updateContractReviewDAO(
 }
 
 /**
- * 全量替换 risks 字段（仅 PATCH /reviews/:id 端点调用，status 校验在 handler 层）。
- * where 带 deletedAt: null 守护软删竞态。
+ * 全量替换 risks 字段 + 置 hasUnsavedDocxChanges=true。
+ *
+ * 仅 PATCH /reviews/:id 端点调用；risks 与脏位必须原子写入，避免两次 UPDATE
+ * 之间有 rebuild 介入导致脏位漂移。where 带 deletedAt: null 守护软删竞态。
  */
 export async function patchReviewRisksDAO(
     id: number,
@@ -54,7 +56,11 @@ export async function patchReviewRisksDAO(
 ): Promise<contractReviews> {
     return prisma.contractReviews.update({
         where: { id, deletedAt: null },
-        data: { risks: risks as unknown as Prisma.InputJsonValue, updatedAt: new Date() },
+        data: {
+            risks: risks as unknown as Prisma.InputJsonValue,
+            hasUnsavedDocxChanges: true,
+            updatedAt: new Date(),
+        },
     })
 }
 
@@ -92,28 +98,6 @@ export async function setCompletedAfterRebuildDAO(
             hasUnsavedDocxChanges: false,
             updatedAt: new Date(),
         },
-    })
-}
-
-/**
- * 标记 session 的 risks 已编辑但未回写 docx。
- * PATCH /reviews/:id（risks 分支）成功后调用。
- */
-export async function setHasUnsavedTrueDAO(reviewId: number): Promise<void> {
-    await prisma.contractReviews.update({
-        where: { id: reviewId },
-        data: { hasUnsavedDocxChanges: true, updatedAt: new Date() },
-    })
-}
-
-/**
- * 清除 session 的脏位标记。
- * rebuild-docx 成功路径通过 setCompletedAfterRebuildDAO 已原地清零，此方法保留给手动清除 / 回滚等场景。
- */
-export async function setHasUnsavedFalseDAO(reviewId: number): Promise<void> {
-    await prisma.contractReviews.update({
-        where: { id: reviewId },
-        data: { hasUnsavedDocxChanges: false, updatedAt: new Date() },
     })
 }
 

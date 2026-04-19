@@ -16,7 +16,6 @@ import { z } from 'zod'
 import {
     getContractReviewDAO,
     patchReviewRisksDAO,
-    setHasUnsavedTrueDAO,
 } from '~~/server/services/assistant/contract/contractReview.dao'
 import { RISK_SHAPE } from '~~/server/services/assistant/contract/riskSchema.builder'
 import { REVIEW_EDITABLE_STATUSES } from '#shared/types/contract'
@@ -53,7 +52,7 @@ export default defineEventHandler(async (event) => {
         return resError(event, 409, `当前状态不允许编辑：${review.status}`)
     }
 
+    // patchReviewRisksDAO 在单语句 UPDATE 内同时置 hasUnsavedDocxChanges=true
     await patchReviewRisksDAO(id, parsed.data.risks)
-    await setHasUnsavedTrueDAO(id)
     return resSuccess(event, '保存成功', { reviewId: id })
 })
