@@ -88,7 +88,7 @@ export type caseMaterialEmbeddings = Prisma.caseMaterialEmbeddingsModel
 /**
  * Model contractReviews
  * 合同审查记录表
- * MVP 不含 caseId 列（案件页复用 M6+ 再通过 ALTER TABLE 补齐）
+ * caseId 可空：null 表示独立审查（assistant 入口），非 null 表示归属某案件（案件详情 Tab 入口）
  */
 export type contractReviews = Prisma.contractReviewsModel
 /**

@@ -1,9 +1,11 @@
 /// 合同审查记录表
-/// MVP 不含 caseId 列（案件页复用 M6+ 再通过 ALTER TABLE 补齐）
+/// caseId 可空：null 表示独立审查（assistant 入口），非 null 表示归属某案件（案件详情 Tab 入口）
 model contractReviews {
     id             Int       @id @default(autoincrement())
     /// 发起审查的用户 id
     userId         Int       @map("user_id")
+    /// 关联的案件 id（可选；null=独立审查，非 null=案件下合同审查）
+    caseId         Int?      @map("case_id")
     /// LangGraph thread_id；重审 = 新建 review = 新 sessionId（1:1 映射）
     sessionId      String    @map("session_id") @db.VarChar(100)
     /// 原始合同 OSS 文件 id
@@ -32,9 +34,12 @@ model contractReviews {
     deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
 
     user users @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+    /// 关联的案件（caseId 为 null 时为独立审查）
+    case cases? @relation(fields: [caseId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
     @@unique([sessionId], map: "idx_contract_reviews_session")
     @@index([userId, deletedAt], map: "idx_contract_reviews_user")
     @@index([status], map: "idx_contract_reviews_status")
+    @@index([caseId], map: "idx_contract_reviews_case")
     @@map("contract_reviews")
 }

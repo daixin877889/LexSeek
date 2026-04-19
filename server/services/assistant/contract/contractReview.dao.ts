@@ -129,6 +129,7 @@ export async function rollbackRebuildDAO(id: number): Promise<void> {
 export type ReviewListItem = {
     id: number
     sessionId: string
+    caseId: number | null
     contractType: string | null
     partyA: string | null
     partyB: string | null
@@ -148,6 +149,8 @@ export interface ListUserReviewsInput {
     take: number
     status?: string
     q?: string
+    /** 可选：按 caseId 过滤；未传则不过滤（即返回所有归属状态的 review） */
+    caseId?: number
 }
 
 const SUMMARY_TRUNCATE = 120
@@ -171,6 +174,9 @@ export async function listUserReviewsDAO(
     }
     if (params.status) {
         where.status = params.status
+    }
+    if (params.caseId !== undefined) {
+        where.caseId = params.caseId
     }
 
     // q：先查 ossFiles 命中的 id 集合（限定到当前用户名下的文件）
@@ -216,6 +222,7 @@ export async function listUserReviewsDAO(
     const items: ReviewListItem[] = rows.map(r => ({
         id: r.id,
         sessionId: r.sessionId,
+        caseId: r.caseId,
         contractType: r.contractType,
         partyA: r.partyA,
         partyB: r.partyB,
@@ -341,6 +348,7 @@ export async function listAdminReviewsDAO(
     const items: AdminReviewListItem[] = rows.map(r => ({
         id: r.id,
         sessionId: r.sessionId,
+        caseId: r.caseId,
         contractType: r.contractType,
         partyA: r.partyA,
         partyB: r.partyB,

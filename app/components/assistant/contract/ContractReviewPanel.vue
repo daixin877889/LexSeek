@@ -11,11 +11,16 @@
  */
 import { Loader2Icon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import type { Risk, ContractReviewStatus, StanceRequest } from '#shared/types/contract'
+import type { Risk, ContractReviewStatus, StanceRequest, CreateReviewRequest } from '#shared/types/contract'
 
 const props = defineProps<{
     /** 外部传入时通过 reviewId 恢复审查（页面层从 URL ?reviewId= 读取） */
     reviewId?: number | null
+    /**
+     * 可选：把本次审查归属到案件。案件详情 Tab 入口会把路由的 caseId 传下来；
+     * 独立合同审查页面（/dashboard/assistant/contract）则为空。
+     */
+    caseId?: number | null
 }>()
 
 const {
@@ -62,6 +67,15 @@ const showBusy = computed(() => {
     const s = review.value?.status
     return s === 'pending' || s === 'reviewing'
 })
+
+function handleSubmit(payload: CreateReviewRequest) {
+    // 把页面层注入的 caseId 合并到创建 payload，后端校验归属后写入 review.caseId
+    const caseId = props.caseId
+    if (caseId && caseId > 0) {
+        return onStart({ ...payload, caseId })
+    }
+    return onStart(payload)
+}
 
 function handleStanceConfirm(payload: StanceRequest) {
     onStance(payload)
@@ -122,7 +136,7 @@ function handleFocusRisk(_riskId: string) {
         <div v-if="showSourceInput" class="flex-1 flex items-center justify-center p-6">
             <div class="w-full max-w-xl">
                 <h1 class="text-xl font-semibold mb-3">提交合同</h1>
-                <AssistantContractContractSourceInput @submit="onStart" />
+                <AssistantContractContractSourceInput @submit="handleSubmit" />
             </div>
         </div>
 

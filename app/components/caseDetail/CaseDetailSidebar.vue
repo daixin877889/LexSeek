@@ -7,6 +7,7 @@ import {
   SparklesIcon,
   ListTodoIcon,
   FileEditIcon,
+  FileSearchIcon,
 } from 'lucide-vue-next'
 
 interface SidebarMenuItem {
@@ -24,6 +25,7 @@ const menuItems: SidebarMenuItem[] = [
   { id: 'materials', label: '案件材料', icon: FolderIcon },
   { id: 'analysis', label: '分析结果', icon: SparklesIcon },
   { id: 'documents', label: '文书生成', icon: FileEditIcon },
+  { id: 'contracts', label: '合同审查', icon: FileSearchIcon },
 ]
 
 const futureItems: Array<{ label: string; icon: Component }> = [

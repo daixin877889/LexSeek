@@ -351,6 +351,7 @@ export type CaseMaterialEmbeddingsScalarFieldEnum = (typeof CaseMaterialEmbeddin
 export const ContractReviewsScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
+  caseId: 'caseId',
   sessionId: 'sessionId',
   originalFileId: 'originalFileId',
   reviewedFileId: 'reviewedFileId',

@@ -9,7 +9,7 @@ import { toast } from 'vue-sonner'
 type ModuleStatusItem = InitAnalysisStatusResponse['modules'][number]
 
 /** 案件详情页视图类型（包含未来扩展） */
-export type ActiveView = 'overview' | 'materials' | 'analysis' | 'todos' | 'documents'
+export type ActiveView = 'overview' | 'materials' | 'analysis' | 'todos' | 'documents' | 'contracts'
 
 /** CaseDetailMaterialItem 接口（案件详情页材料，与 API 返回对齐） */
 export interface CaseDetailMaterialItem {
