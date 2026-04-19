@@ -87,7 +87,6 @@
 
 <script lang="ts" setup>
 import { CalendarIcon, LightbulbIcon } from 'lucide-vue-next'
-import { useDebounceFn } from '@vueuse/core'
 import type { DateValue } from 'reka-ui'
 import type { DocumentTemplate, Placeholder } from '#shared/types/document'
 
@@ -129,14 +128,12 @@ function inferFieldType(name: string, value: string | null | undefined): 'date' 
   return 'input'
 }
 
-// 防抖 emit，500ms
-const debouncedEmit = useDebounceFn((fieldName: string, value: string) => {
-  emit('change', fieldName, value)
-}, 500)
-
+// 直接 emit：debounce 由 composable 层统一处理（单字段键打算按字段累积 batch PATCH）。
+// 组件自带 debounce 会与上层 500ms 叠加成 ~1s 延迟，并在 watch 重置 localValues 时
+// 误删当前正在键入的字符。
 function onInputChange(fieldName: string, value: string) {
   localValues.value = { ...localValues.value, [fieldName]: value }
-  debouncedEmit(fieldName, value)
+  emit('change', fieldName, value)
 }
 
 function onDateSelect(fieldName: string, dateValue: DateValue | undefined) {
