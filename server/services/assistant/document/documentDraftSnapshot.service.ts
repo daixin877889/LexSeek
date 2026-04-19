@@ -35,16 +35,19 @@ export async function createSnapshotService(
 
     const db = tx ?? prisma
     try {
-        await db.$executeRaw`
-            DELETE FROM "document_draft_snapshots"
-            WHERE "draft_id" = ${draftId}
-              AND "id" NOT IN (
-                SELECT "id" FROM "document_draft_snapshots"
+        const total = await db.documentDraftSnapshots.count({ where: { draftId } })
+        if (total > SNAPSHOT_KEEP) {
+            await db.$executeRaw`
+                DELETE FROM "document_draft_snapshots"
                 WHERE "draft_id" = ${draftId}
-                ORDER BY "created_at" DESC
-                LIMIT ${SNAPSHOT_KEEP}
-              )
-        `
+                  AND "id" NOT IN (
+                    SELECT "id" FROM "document_draft_snapshots"
+                    WHERE "draft_id" = ${draftId}
+                    ORDER BY "created_at" DESC
+                    LIMIT ${SNAPSHOT_KEEP}
+                  )
+            `
+        }
     } catch (err) {
         logger.warn('清理旧快照失败（不阻塞）', { draftId, error: err })
     }
@@ -78,11 +81,12 @@ export async function applySnapshotFieldsService(
     snapshotId: number,
     fieldNames?: string[],
 ): Promise<{ draft: any } | ServiceError> {
-    const draft = await getDocumentDraftDAO(draftId)
+    const [draft, snap] = await Promise.all([
+        getDocumentDraftDAO(draftId),
+        getSnapshotByIdDAO(snapshotId),
+    ])
     if (!draft) return { error: '草稿不存在', code: 404 }
     if (draft.userId !== userId) return { error: '无权访问此草稿', code: 403 }
-
-    const snap = await getSnapshotByIdDAO(snapshotId)
     if (!snap || snap.draftId !== draftId) return { error: '快照不存在', code: 404 }
 
     const currentValues = (draft.values as Record<string, unknown>) ?? {}

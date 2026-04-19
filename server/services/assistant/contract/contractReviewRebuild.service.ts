@@ -25,9 +25,8 @@ import {
 import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageConfig.dao'
 import { StorageProviderType } from '~~/server/lib/storage/types'
 import { FileSource, OssFileStatus } from '#shared/types/file'
+import { DOCX_MIME } from '#shared/utils/mime'
 import type { Risk } from '#shared/types/contract'
-
-const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
 export interface RebuildDocxResult {
     reviewedFileId: number
@@ -46,12 +45,13 @@ export async function rebuildDocxService(review: contractReviews): Promise<Rebui
 
     // OSS 路径与 M3 contractReview.service 保持同构：contract-review/<userId>/<uuid>.docx
     const ossPath = `contract-review/${review.userId}/rebuild-${randomUUID()}.docx`
-    const uploadResult = await uploadFileService(ossPath, buffer, {
-        contentType: DOCX_MIME,
-        userId: review.userId,
-    })
-
-    const storageConfig = await getDefaultStorageConfigDao(StorageProviderType.ALIYUN_OSS, review.userId)
+    const [uploadResult, storageConfig] = await Promise.all([
+        uploadFileService(ossPath, buffer, {
+            contentType: DOCX_MIME,
+            userId: review.userId,
+        }),
+        getDefaultStorageConfigDao(StorageProviderType.ALIYUN_OSS, review.userId),
+    ])
     const bucketName = storageConfig?.bucket ?? ''
 
     // 先生成签名 URL（若失败，此时 reviewedFileId 尚未更新，handler catch 里 rollback 能正确还原 status）

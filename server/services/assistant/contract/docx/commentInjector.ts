@@ -75,9 +75,9 @@ function scanNonEmptyParagraphs(
     documentXml: string,
 ): Array<{ text: string; start: number; end: number }> {
     const result: Array<{ text: string; start: number; end: number }> = []
-    const regex = new RegExp(PARA_REGEX.source, 'g')
+    PARA_REGEX.lastIndex = 0
     let m: RegExpExecArray | null
-    while ((m = regex.exec(documentXml)) !== null) {
+    while ((m = PARA_REGEX.exec(documentXml)) !== null) {
         if (/<w:r[\s>]/.test(m[0])) {
             result.push({ text: m[0], start: m.index, end: m.index + m[0].length })
         }
@@ -141,18 +141,21 @@ export async function injectComments(docxBuffer: Buffer, risks: Risk[]): Promise
     const nonEmpty = scanNonEmptyParagraphs(documentXml)
     const nonEmptyCount = nonEmpty.length
 
-    const skipped = risks.filter((r) => r.clauseIndex < 0 || r.clauseIndex >= nonEmptyCount)
-    if (skipped.length > 0) {
+    // 单次遍历：按 clauseIndex 越界与否分桶，避免对 risks 做 3 次过滤
+    const validRisks: Risk[] = []
+    const skippedIndices: number[] = []
+    for (const r of risks) {
+        if (r.clauseIndex >= 0 && r.clauseIndex < nonEmptyCount) validRisks.push(r)
+        else skippedIndices.push(r.clauseIndex)
+    }
+    if (skippedIndices.length > 0) {
         logger.warn('[commentInjector] 跳过越界 risk', {
             total: risks.length,
-            skipped: skipped.length,
-            indices: skipped.map((r) => r.clauseIndex),
+            skipped: skippedIndices.length,
+            indices: skippedIndices,
             nonEmptyCount,
         })
     }
-    const validRisks = risks.filter(
-        (r) => r.clauseIndex >= 0 && r.clauseIndex < nonEmptyCount,
-    )
     if (validRisks.length === 0) {
         return Buffer.from(docxBuffer)
     }

@@ -77,11 +77,12 @@ export async function restoreVersionService(
     draftId: number,
     versionId: number,
 ): Promise<{ draft: Awaited<ReturnType<typeof prisma.documentDrafts.update>> } | ServiceError> {
-    const draft = await getDocumentDraftDAO(draftId)
+    const [draft, version] = await Promise.all([
+        getDocumentDraftDAO(draftId),
+        getVersionByIdDAO(versionId),
+    ])
     if (!draft) return { error: '草稿不存在', code: 404 }
     if (draft.userId !== userId) return { error: '无权访问此草稿', code: 403 }
-
-    const version = await getVersionByIdDAO(versionId)
     if (!version || version.draftId !== draftId) {
         return { error: '版本不存在', code: 404 }
     }
