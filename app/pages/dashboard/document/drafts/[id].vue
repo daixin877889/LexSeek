@@ -436,10 +436,15 @@ function handlePanelResize(sizes: number[]) {
             {{ error.message || '发生未知错误' }}
         </div>
 
-        <!-- 主体：左表单 / 右预览 -->
+        <!-- 主体：左表单 / 右预览（预览模式下只留预览区）-->
         <div v-if="!loading && !loadError && draft && template" class="flex-1 min-h-0 overflow-hidden">
+            <!-- 预览模式：全屏预览 -->
+            <div v-if="previewVersionId !== null" class="h-full min-h-0 overflow-y-auto rounded-lg border bg-muted/40 p-4">
+                <AssistantDocumentPreview :template-buffer="templateBuffer" :values="effectiveValues"
+                    :disabled="exportDisabled || isLoading || isExporting" @export="handleExport" />
+            </div>
             <!-- 桌面：可拖拽分栏 -->
-            <ResizablePanelGroup v-if="isDesktop" direction="horizontal" class="h-full" @layout="handlePanelResize">
+            <ResizablePanelGroup v-else-if="isDesktop" direction="horizontal" class="h-full" @layout="handlePanelResize">
                 <ResizablePanel :default-size="leftSize" :min-size="25">
                     <div class="h-full min-h-0 overflow-y-auto rounded-lg border bg-card p-4 mr-1">
                         <AssistantDocumentFieldForm :template="template" :values="effectiveValues"
@@ -513,7 +518,7 @@ function handlePanelResize(sizes: number[]) {
         <AssistantDocumentHistorySheet v-if="draft && template" v-model:open="historyOpen"
             :versions="versions" :snapshots="snapshots"
             :current-values="currentValues"
-            @preview-version="(v: DocumentDraftVersion) => enterPreview(v.id)"
+            @preview-version="(v: DocumentDraftVersion) => { enterPreview(v.id); historyOpen = false }"
             @restore-version="handleRestoreVersion"
             @export-version="(v: DocumentDraftVersion) => exportVersion(v.id)"
             @delete-version="handleDeleteVersion"
