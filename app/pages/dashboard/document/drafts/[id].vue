@@ -200,6 +200,7 @@ function handleRestoreVersion(v: DocumentDraftVersion) {
         '当前工作区内容将自动备份为快照再被覆盖。',
         async () => {
             await restoreVersion(v.id)
+            historyOpen.value = false
             toast.success('已恢复到该版本')
         },
     )
@@ -222,6 +223,7 @@ function handleApplySnapshotAll(snapshotId: number) {
         '当前工作区内容将自动备份为快照再被覆盖。',
         async () => {
             await applySnapshot(snapshotId)
+            historyOpen.value = false
             toast.success('已覆盖工作区')
         },
     )
