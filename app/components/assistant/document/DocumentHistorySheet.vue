@@ -47,17 +47,17 @@ function onApplyAll() {
 
 <template>
     <Sheet :open="open" @update:open="onUpdate">
-        <SheetContent side="right" class="w-[50vw] sm:max-w-[50vw] overflow-y-auto z-[70]">
-            <SheetHeader>
+        <SheetContent side="right" class="w-[50vw] sm:max-w-[50vw] z-[70] p-0 flex flex-col">
+            <SheetHeader class="shrink-0">
                 <SheetTitle>历史</SheetTitle>
                 <SheetDescription>查看已保存的版本与 AI 自动快照</SheetDescription>
             </SheetHeader>
-            <Tabs v-model="activeTab" class="mt-4 px-4">
-                <TabsList class="grid grid-cols-2 w-full">
+            <Tabs v-model="activeTab" class="flex-1 min-h-0 flex flex-col px-4 pb-4">
+                <TabsList class="grid grid-cols-2 w-full shrink-0">
                     <TabsTrigger value="versions">版本（{{ versions.length }}）</TabsTrigger>
                     <TabsTrigger value="snapshots">快照（{{ snapshots.length }}）</TabsTrigger>
                 </TabsList>
-                <TabsContent value="versions" class="mt-2">
+                <TabsContent value="versions" class="mt-2 flex-1 min-h-0 overflow-y-auto">
                     <AssistantDocumentVersionList :versions="versions"
                         @preview="(v: DocumentDraftVersion) => emit('preview-version', v)"
                         @restore="(v: DocumentDraftVersion) => emit('restore-version', v)"
@@ -65,7 +65,7 @@ function onApplyAll() {
                         @delete="(v: DocumentDraftVersion) => emit('delete-version', v)"
                         @rename="(id: number, n: string) => emit('rename-version', id, n)" />
                 </TabsContent>
-                <TabsContent value="snapshots" class="mt-2">
+                <TabsContent value="snapshots" class="mt-2 flex-1 min-h-0 overflow-y-auto">
                     <div v-if="!activeSnapshot">
                         <AssistantDocumentSnapshotList :snapshots="snapshots"
                             @view-detail="onViewSnapshot" />
