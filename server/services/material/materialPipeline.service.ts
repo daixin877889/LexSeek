@@ -45,12 +45,21 @@ function collectSettledFailures<T>(
     return failures
 }
 
-export async function ensureMaterialsReadyService(
-    caseId: number,
+/**
+ * 公共「识别 → 嵌入 → 复查」三阶段流水线。
+ *
+ * 抽给 ensureMaterialsReadyService（caseId）/ ensureMaterialsReadyByDraftService（draftId）
+ * 复用，差异仅在材料来源；本函数只看 materials 列表。
+ *
+ * - 异步识别（PDF MinerU / 音频 ASR）会返回 PROCESSING，调用方约定后续轮询
+ * - 识别失败的材料不再尝试嵌入（避免空内容嵌入）
+ * - initialFailed 用于把上游 per-file 预处理产生的失败项一起带入结果
+ */
+async function runRecognitionAndEmbeddingPipeline(
+    materials: MaterialWithFile[],
     userId: number,
+    initialFailed: MaterialFailedItem[] = [],
 ): Promise<MaterialReadyResult> {
-    // 1. 获取全部材料
-    const materials = await getMaterialsByCaseIdService(caseId)
     if (materials.length === 0) {
         return {
             materials: [],
@@ -58,51 +67,44 @@ export async function ensureMaterialsReadyService(
             alreadyEmbedded: 0,
             newlyProcessed: 0,
             embeddedMap: new Map(),
-            failed: [],
+            failed: initialFailed,
         }
     }
 
-    const failed: MaterialFailedItem[] = []
+    const failed: MaterialFailedItem[] = [...initialFailed]
 
-    // 2. 识别阶段：检查识别状态，对未识别的触发识别
+    // 识别阶段：检查识别状态，对未识别的触发识别
     const recognizedMap = await batchCheckMaterialRecognizedService(materials)
     const notRecognized = materials.filter(m => !recognizedMap.get(m.id))
-
     if (notRecognized.length > 0) {
-        // 对于异步识别的材料（PDF via MinerU、音频 via ASR），
-        // processMaterialService 可能返回 PROCESSING 状态，
-        // 后续嵌入会因内容为空而失败，这是预期行为。
         // TODO: 大量材料时考虑添加并发限制（p-limit）
         const recognitionResults = await Promise.allSettled(
-            notRecognized.map(material => processMaterialService(material.id, userId))
+            notRecognized.map(material => processMaterialService(material.id, userId)),
         )
         failed.push(...collectSettledFailures(recognitionResults, notRecognized))
     }
 
-    // 3. 嵌入阶段：检查嵌入状态，对未嵌入的触发嵌入
+    // 嵌入阶段：检查嵌入状态，对未嵌入的触发嵌入
     const ids = materials.map(m => m.id)
     const embeddedMap = await batchCheckMaterialEmbeddedService(ids)
-
     const alreadyEmbedded = materials.filter(m => embeddedMap.get(m.id)).length
     const notEmbedded = materials.filter(m => !embeddedMap.get(m.id))
 
     let newlyProcessed = 0
-
     if (notEmbedded.length > 0) {
         // 排除识别阶段已失败的材料（不需要再尝试嵌入）
         const failedIds = new Set(failed.map(f => f.materialId))
         const toEmbed = notEmbedded.filter(m => !failedIds.has(m.id))
 
         const embeddingResults = await Promise.allSettled(
-            toEmbed.map(material => embedMaterialUnifiedService(material.id, userId))
+            toEmbed.map(material => embedMaterialUnifiedService(material.id, userId)),
         )
-
         const embeddingFailures = collectSettledFailures(embeddingResults, toEmbed)
         newlyProcessed = toEmbed.length - embeddingFailures.length
         failed.push(...embeddingFailures)
     }
 
-    // 4. 获取最终嵌入状态
+    // 复查最终嵌入状态：本轮新嵌入的材料若成功会反映在新 map 上
     const finalEmbeddedMap = notEmbedded.length > 0
         ? await batchCheckMaterialEmbeddedService(ids)
         : embeddedMap
@@ -115,6 +117,14 @@ export async function ensureMaterialsReadyService(
         embeddedMap: finalEmbeddedMap,
         failed,
     }
+}
+
+export async function ensureMaterialsReadyService(
+    caseId: number,
+    userId: number,
+): Promise<MaterialReadyResult> {
+    const materials = await getMaterialsByCaseIdService(caseId)
+    return runRecognitionAndEmbeddingPipeline(materials, userId)
 }
 
 /**
@@ -138,7 +148,7 @@ export async function ensureMaterialsReadyByDraftService(
     userId: number,
     options: { fileIds?: number[] } = {},
 ): Promise<MaterialReadyResult> {
-    const failed: MaterialFailedItem[] = []
+    const initialFailed: MaterialFailedItem[] = []
 
     // 1. 对于用户新选的 fileIds，先走单文件 pipeline 保证 caseMaterials 行存在且跑完
     //    （ensureMaterialsReadyForDraftService 内部幂等，已 COMPLETED 会立即返回）
@@ -149,7 +159,7 @@ export async function ensureMaterialsReadyByDraftService(
         for (let i = 0; i < perFileResults.length; i++) {
             const r = perFileResults[i]!
             if (r.status === 'rejected') {
-                failed.push({
+                initialFailed.push({
                     materialId: 0,
                     name: `ossFile_${options.fileIds[i]}`,
                     error: r.reason instanceof Error ? r.reason.message : String(r.reason),
@@ -158,63 +168,13 @@ export async function ensureMaterialsReadyByDraftService(
         }
     }
 
-    // 2. 拉取 draft 全量材料（或仅过滤出本次关心的 ossFileId）
+    // 2. 拉取 draft 全量材料（或仅过滤出本次关心的 ossFileId），交给共享流水线
     const allMaterials = await getMaterialsByDraftIdService(draftId)
     const materials = options.fileIds && options.fileIds.length > 0
         ? allMaterials.filter(m => m.ossFileId != null && options.fileIds!.includes(m.ossFileId))
         : allMaterials
 
-    if (materials.length === 0) {
-        return {
-            materials: [],
-            totalMaterials: 0,
-            alreadyEmbedded: 0,
-            newlyProcessed: 0,
-            embeddedMap: new Map(),
-            failed,
-        }
-    }
-
-    // 3. 识别阶段：对未识别的触发识别
-    const recognizedMap = await batchCheckMaterialRecognizedService(materials)
-    const notRecognized = materials.filter(m => !recognizedMap.get(m.id))
-    if (notRecognized.length > 0) {
-        const recognitionResults = await Promise.allSettled(
-            notRecognized.map(m => processMaterialService(m.id, userId)),
-        )
-        failed.push(...collectSettledFailures(recognitionResults, notRecognized))
-    }
-
-    // 4. 嵌入阶段：对未嵌入的触发嵌入
-    const ids = materials.map(m => m.id)
-    const embeddedMap = await batchCheckMaterialEmbeddedService(ids)
-    const alreadyEmbedded = materials.filter(m => embeddedMap.get(m.id)).length
-    const notEmbedded = materials.filter(m => !embeddedMap.get(m.id))
-
-    let newlyProcessed = 0
-    if (notEmbedded.length > 0) {
-        const failedIds = new Set(failed.map(f => f.materialId))
-        const toEmbed = notEmbedded.filter(m => !failedIds.has(m.id))
-        const embeddingResults = await Promise.allSettled(
-            toEmbed.map(m => embedMaterialUnifiedService(m.id, userId)),
-        )
-        const embeddingFailures = collectSettledFailures(embeddingResults, toEmbed)
-        newlyProcessed = toEmbed.length - embeddingFailures.length
-        failed.push(...embeddingFailures)
-    }
-
-    const finalEmbeddedMap = notEmbedded.length > 0
-        ? await batchCheckMaterialEmbeddedService(ids)
-        : embeddedMap
-
-    return {
-        materials,
-        totalMaterials: materials.length,
-        alreadyEmbedded,
-        newlyProcessed,
-        embeddedMap: finalEmbeddedMap,
-        failed,
-    }
+    return runRecognitionAndEmbeddingPipeline(materials, userId, initialFailed)
 }
 
 // ==================== 材料上下文服务 ====================
@@ -543,14 +503,6 @@ export function buildIncrementalMaterialMessage(context: MaterialContextResult):
 
 // ==================== 材料检索服务 ====================
 
-import { Document } from '@langchain/core/documents'
-import {
-    similaritySearchWithScore,
-} from '~~/server/services/legal/vectorStore.service'
-import {
-    caseMaterialVectorConfig,
-    type ContentEmbeddingMetadata,
-} from './materialEmbedding.service'
 import { retrievalRouterService } from '../retrieval/retrievalRouter.service'
 
 export interface MaterialSearchToolResult {
@@ -565,25 +517,25 @@ export interface MaterialSearchToolResult {
 }
 
 /**
- * 材料检索核心逻辑（供工具层调用）
+ * 在已选定 materials 集合内执行检索（共享实现）。
  *
- * 支持三种检索模式：
- * - query only: 语义搜索，通过 caseId→sourceId 集合限定范围
- * - query + sourceId: 语义搜索，限定到指定 sourceId
- * - sourceId only: 精确查询完整内容
+ * 三种模式：
+ * - 无 query → 精确返回每份材料的完整内容
+ * - 有 query / sourceId → 走统一检索路由器做向量召回
+ *
+ * sourceId 作 in-memory 过滤，对小集合（< 几十份材料）够用；上游 case/draft
+ * 入口分别按各自维度拉取材料后再调用本函数。
  */
-export async function searchMaterialsService(
+async function searchWithinMaterialsService(
     userId: number,
-    caseId: number,
+    materials: MaterialWithFile[],
     options: { query?: string; sourceId?: number; k?: number },
 ): Promise<MaterialSearchToolResult[]> {
     const { query, sourceId, k = 5 } = options
 
-    const allMaterials = await getMaterialsByCaseIdService(caseId)
-
     const targetMaterials = sourceId
-        ? allMaterials.filter(m => getSourceId(m) === sourceId)
-        : allMaterials
+        ? materials.filter(m => getSourceId(m) === sourceId)
+        : materials
 
     if (targetMaterials.length === 0) return []
 
@@ -620,6 +572,23 @@ export async function searchMaterialsService(
         },
         relevanceScore: r.score,
     }))
+}
+
+/**
+ * 材料检索核心逻辑（供工具层调用）
+ *
+ * 支持三种检索模式：
+ * - query only: 语义搜索，通过 caseId→sourceId 集合限定范围
+ * - query + sourceId: 语义搜索，限定到指定 sourceId
+ * - sourceId only: 精确查询完整内容
+ */
+export async function searchMaterialsService(
+    userId: number,
+    caseId: number,
+    options: { query?: string; sourceId?: number; k?: number },
+): Promise<MaterialSearchToolResult[]> {
+    const allMaterials = await getMaterialsByCaseIdService(caseId)
+    return searchWithinMaterialsService(userId, allMaterials, options)
 }
 
 // ==================== draftId-based 并行扩展函数 ====================
@@ -639,49 +608,8 @@ export async function searchMaterialsByDraftService(
     draftId: number,
     options: { query?: string; sourceId?: number; k?: number },
 ): Promise<MaterialSearchToolResult[]> {
-    const { query, sourceId, k = 5 } = options
-
     const allMaterials = await getMaterialsByDraftIdService(draftId)
-
-    const targetMaterials = sourceId
-        ? allMaterials.filter(m => getSourceId(m) === sourceId)
-        : allMaterials
-
-    if (targetMaterials.length === 0) return []
-
-    // 无 query → 精确查询完整内容
-    if (!query) {
-        const contentMap = await fetchMaterialContents(targetMaterials)
-        return targetMaterials.map((m, index) => ({
-            index: index + 1,
-            content: contentMap.get(m.id) || '[暂无内容]',
-            source: {
-                sourceId: getSourceId(m),
-                sourceName: m.name,
-            },
-        }))
-    }
-
-    // 有 query → 走统一检索路由器
-    const sourceIds = targetMaterials.map(m => String(getSourceId(m)))
-    const results = await retrievalRouterService({
-        query,
-        type: 'case_material',
-        k,
-        metadataFilter: { userId: String(userId) },
-        sourceIds,
-    })
-
-    return results.map((r, index) => ({
-        index: index + 1,
-        content: r.content,
-        source: {
-            sourceId: Number(r.metadata.sourceId),
-            sourceName: r.metadata.sourceName as string,
-            chunkIndex: r.metadata.chunkIndex as number | undefined,
-        },
-        relevanceScore: r.score,
-    }))
+    return searchWithinMaterialsService(userId, allMaterials, options)
 }
 
 /**
