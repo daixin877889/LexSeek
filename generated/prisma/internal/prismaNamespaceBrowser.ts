@@ -67,6 +67,8 @@ export const ModelName = {
   contractReviews: 'contractReviews',
   documentTemplates: 'documentTemplates',
   documentDrafts: 'documentDrafts',
+  documentDraftSnapshots: 'documentDraftSnapshots',
+  documentDraftVersions: 'documentDraftVersions',
   ossFiles: 'ossFiles',
   legalMain: 'legalMain',
   legalArticles: 'legalArticles',
@@ -398,12 +400,39 @@ export const DocumentDraftsScalarFieldEnum = {
   metadata: 'metadata',
   outputFileId: 'outputFileId',
   status: 'status',
+  title: 'title',
+  titleOverridden: 'titleOverridden',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
 } as const
 
 export type DocumentDraftsScalarFieldEnum = (typeof DocumentDraftsScalarFieldEnum)[keyof typeof DocumentDraftsScalarFieldEnum]
+
+
+export const DocumentDraftSnapshotsScalarFieldEnum = {
+  id: 'id',
+  draftId: 'draftId',
+  source: 'source',
+  values: 'values',
+  aiTitle: 'aiTitle',
+  createdAt: 'createdAt'
+} as const
+
+export type DocumentDraftSnapshotsScalarFieldEnum = (typeof DocumentDraftSnapshotsScalarFieldEnum)[keyof typeof DocumentDraftSnapshotsScalarFieldEnum]
+
+
+export const DocumentDraftVersionsScalarFieldEnum = {
+  id: 'id',
+  draftId: 'draftId',
+  versionNo: 'versionNo',
+  name: 'name',
+  values: 'values',
+  titleAt: 'titleAt',
+  createdAt: 'createdAt'
+} as const
+
+export type DocumentDraftVersionsScalarFieldEnum = (typeof DocumentDraftVersionsScalarFieldEnum)[keyof typeof DocumentDraftVersionsScalarFieldEnum]
 
 
 export const OssFilesScalarFieldEnum = {

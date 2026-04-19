@@ -400,6 +400,8 @@ export const ModelName = {
   contractReviews: 'contractReviews',
   documentTemplates: 'documentTemplates',
   documentDrafts: 'documentDrafts',
+  documentDraftSnapshots: 'documentDraftSnapshots',
+  documentDraftVersions: 'documentDraftVersions',
   ossFiles: 'ossFiles',
   legalMain: 'legalMain',
   legalArticles: 'legalArticles',
@@ -457,7 +459,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "contractReviews" | "documentTemplates" | "documentDrafts" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
+    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "contractReviews" | "documentTemplates" | "documentDrafts" | "documentDraftSnapshots" | "documentDraftVersions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1642,6 +1644,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.documentDraftsCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.DocumentDraftsCountAggregateOutputType> | number
+        }
+      }
+    }
+    documentDraftSnapshots: {
+      payload: Prisma.$documentDraftSnapshotsPayload<ExtArgs>
+      fields: Prisma.documentDraftSnapshotsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.documentDraftSnapshotsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftSnapshotsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.documentDraftSnapshotsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftSnapshotsPayload>
+        }
+        findFirst: {
+          args: Prisma.documentDraftSnapshotsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftSnapshotsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.documentDraftSnapshotsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftSnapshotsPayload>
+        }
+        findMany: {
+          args: Prisma.documentDraftSnapshotsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftSnapshotsPayload>[]
+        }
+        create: {
+          args: Prisma.documentDraftSnapshotsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftSnapshotsPayload>
+        }
+        createMany: {
+          args: Prisma.documentDraftSnapshotsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.documentDraftSnapshotsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftSnapshotsPayload>[]
+        }
+        delete: {
+          args: Prisma.documentDraftSnapshotsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftSnapshotsPayload>
+        }
+        update: {
+          args: Prisma.documentDraftSnapshotsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftSnapshotsPayload>
+        }
+        deleteMany: {
+          args: Prisma.documentDraftSnapshotsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.documentDraftSnapshotsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.documentDraftSnapshotsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftSnapshotsPayload>[]
+        }
+        upsert: {
+          args: Prisma.documentDraftSnapshotsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftSnapshotsPayload>
+        }
+        aggregate: {
+          args: Prisma.DocumentDraftSnapshotsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateDocumentDraftSnapshots>
+        }
+        groupBy: {
+          args: Prisma.documentDraftSnapshotsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DocumentDraftSnapshotsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.documentDraftSnapshotsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DocumentDraftSnapshotsCountAggregateOutputType> | number
+        }
+      }
+    }
+    documentDraftVersions: {
+      payload: Prisma.$documentDraftVersionsPayload<ExtArgs>
+      fields: Prisma.documentDraftVersionsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.documentDraftVersionsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftVersionsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.documentDraftVersionsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftVersionsPayload>
+        }
+        findFirst: {
+          args: Prisma.documentDraftVersionsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftVersionsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.documentDraftVersionsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftVersionsPayload>
+        }
+        findMany: {
+          args: Prisma.documentDraftVersionsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftVersionsPayload>[]
+        }
+        create: {
+          args: Prisma.documentDraftVersionsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftVersionsPayload>
+        }
+        createMany: {
+          args: Prisma.documentDraftVersionsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.documentDraftVersionsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftVersionsPayload>[]
+        }
+        delete: {
+          args: Prisma.documentDraftVersionsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftVersionsPayload>
+        }
+        update: {
+          args: Prisma.documentDraftVersionsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftVersionsPayload>
+        }
+        deleteMany: {
+          args: Prisma.documentDraftVersionsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.documentDraftVersionsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.documentDraftVersionsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftVersionsPayload>[]
+        }
+        upsert: {
+          args: Prisma.documentDraftVersionsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$documentDraftVersionsPayload>
+        }
+        aggregate: {
+          args: Prisma.DocumentDraftVersionsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateDocumentDraftVersions>
+        }
+        groupBy: {
+          args: Prisma.documentDraftVersionsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DocumentDraftVersionsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.documentDraftVersionsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DocumentDraftVersionsCountAggregateOutputType> | number
         }
       }
     }
@@ -5063,12 +5213,39 @@ export const DocumentDraftsScalarFieldEnum = {
   metadata: 'metadata',
   outputFileId: 'outputFileId',
   status: 'status',
+  title: 'title',
+  titleOverridden: 'titleOverridden',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
 } as const
 
 export type DocumentDraftsScalarFieldEnum = (typeof DocumentDraftsScalarFieldEnum)[keyof typeof DocumentDraftsScalarFieldEnum]
+
+
+export const DocumentDraftSnapshotsScalarFieldEnum = {
+  id: 'id',
+  draftId: 'draftId',
+  source: 'source',
+  values: 'values',
+  aiTitle: 'aiTitle',
+  createdAt: 'createdAt'
+} as const
+
+export type DocumentDraftSnapshotsScalarFieldEnum = (typeof DocumentDraftSnapshotsScalarFieldEnum)[keyof typeof DocumentDraftSnapshotsScalarFieldEnum]
+
+
+export const DocumentDraftVersionsScalarFieldEnum = {
+  id: 'id',
+  draftId: 'draftId',
+  versionNo: 'versionNo',
+  name: 'name',
+  values: 'values',
+  titleAt: 'titleAt',
+  createdAt: 'createdAt'
+} as const
+
+export type DocumentDraftVersionsScalarFieldEnum = (typeof DocumentDraftVersionsScalarFieldEnum)[keyof typeof DocumentDraftVersionsScalarFieldEnum]
 
 
 export const OssFilesScalarFieldEnum = {
@@ -6089,6 +6266,8 @@ export type GlobalOmitConfig = {
   contractReviews?: Prisma.contractReviewsOmit
   documentTemplates?: Prisma.documentTemplatesOmit
   documentDrafts?: Prisma.documentDraftsOmit
+  documentDraftSnapshots?: Prisma.documentDraftSnapshotsOmit
+  documentDraftVersions?: Prisma.documentDraftVersionsOmit
   ossFiles?: Prisma.ossFilesOmit
   legalMain?: Prisma.legalMainOmit
   legalArticles?: Prisma.legalArticlesOmit

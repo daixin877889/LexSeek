@@ -58,6 +58,10 @@ model documentDrafts {
     outputFileId Int?      @map("output_file_id")
     /// 草稿状态：drafting-草稿中，reviewing-审核中，completed-已完成
     status       String    @default("drafting") @db.VarChar(30)
+    /// 文书标题（创建时默认 "模板名-YYMMDD"；AI 仅在 titleOverridden=false 时覆盖）
+    title           String    @default("") @db.VarChar(200)
+    /// 用户是否手动修改过标题；为 true 后 AI 不再覆盖
+    titleOverridden Boolean   @default(false) @map("title_overridden")
     /// 创建时间
     createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
     /// 最后更新时间
@@ -73,10 +77,53 @@ model documentDrafts {
     template  documentTemplates @relation(fields: [templateId], references: [id], onDelete: NoAction, onUpdate: NoAction)
     /// 关联的素材（文书生成时上传的附件材料）
     materials caseMaterials[]
+    /// AI 历史快照与覆盖前自动备份
+    snapshots documentDraftSnapshots[]
+    /// 用户主动保存的版本
+    versions  documentDraftVersions[]
 
     @@unique([sessionId], map: "idx_doc_drafts_session")
     @@index([userId, deletedAt], map: "idx_doc_drafts_user")
     @@index([caseId], map: "idx_doc_drafts_case")
     @@index([templateId], map: "idx_doc_drafts_template")
     @@map("document_drafts")
+}
+
+/// 文书草稿快照表 - AI 重跑 / 覆盖工作区前的自动历史记录（10 条共享上限）
+model documentDraftSnapshots {
+    id        Int      @id @default(autoincrement())
+    draftId   Int      @map("draft_id")
+    /// 来源：ai-extract（AI 生成后落盘）、workspace-backup（覆盖工作区前自动备份）
+    source    String   @db.VarChar(30)
+    /// 快照时的 values 全量拷贝
+    values    Json     @default("{}") @db.JsonB
+    /// AI 本轮产出的推断标题（可空）
+    aiTitle   String?  @map("ai_title") @db.VarChar(200)
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+    draft documentDrafts @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+    @@index([draftId, createdAt(sort: Desc)], map: "idx_doc_snapshots_draft_time")
+    @@map("document_draft_snapshots")
+}
+
+/// 文书草稿版本表 - 用户主动保存的里程碑，只读、永久保留、无上限
+model documentDraftVersions {
+    id        Int      @id @default(autoincrement())
+    draftId   Int      @map("draft_id")
+    /// 版本序号，1 基；同 draftId 内自增，删除不回收
+    versionNo Int      @map("version_no")
+    /// 用户命名（默认建议"第 X 版"由前端带出）
+    name      String   @db.VarChar(100)
+    /// 版本的 values 全量拷贝
+    values    Json     @default("{}") @db.JsonB
+    /// 版本创建时 draft 的标题（用于导出文件名 / 历史显示）
+    titleAt   String   @map("title_at") @db.VarChar(200)
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+    draft documentDrafts @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+    @@unique([draftId, versionNo], map: "idx_doc_versions_draft_no")
+    @@index([draftId, createdAt(sort: Desc)], map: "idx_doc_versions_draft_time")
+    @@map("document_draft_versions")
 }

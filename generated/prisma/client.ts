@@ -126,6 +126,16 @@ export type documentTemplates = Prisma.documentTemplatesModel
  */
 export type documentDrafts = Prisma.documentDraftsModel
 /**
+ * Model documentDraftSnapshots
+ * 文书草稿快照表 - AI 重跑 / 覆盖工作区前的自动历史记录（10 条共享上限）
+ */
+export type documentDraftSnapshots = Prisma.documentDraftSnapshotsModel
+/**
+ * Model documentDraftVersions
+ * 文书草稿版本表 - 用户主动保存的里程碑，只读、永久保留、无上限
+ */
+export type documentDraftVersions = Prisma.documentDraftVersionsModel
+/**
  * Model ossFiles
  * OSS 文件表
  */
