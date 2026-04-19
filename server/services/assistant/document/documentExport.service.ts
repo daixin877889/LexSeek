@@ -18,6 +18,7 @@
 import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
 import { FileSource, OssFileStatus } from '#shared/types/file'
+import { DOCX_MIME } from '#shared/utils/mime'
 import { downloadFileService, generateSignedUrlService, uploadFileService } from '~~/server/services/storage/storage.service'
 import { createOssFileDao, findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageConfig.dao'
@@ -86,7 +87,7 @@ async function renderAndUploadDocx(params: {
     const ossPath = `users/${userId}/document-exports/${Date.now()}_${safeBaseName}.docx`
     const [uploadResult, storageConfig] = await Promise.all([
         uploadFileService(ossPath, renderedBuffer, {
-            contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            contentType: DOCX_MIME,
             userId,
         }),
         getDefaultStorageConfigDao(StorageProviderType.ALIYUN_OSS, userId),
@@ -100,7 +101,7 @@ async function renderAndUploadDocx(params: {
         fileName: `${safeBaseName}.docx`,
         filePath: uploadResult.name,
         fileSize: renderedBuffer.length,
-        fileType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        fileType: DOCX_MIME,
         source: FileSource.DOCUMENT_EXPORT,
         status: OssFileStatus.UPLOADED,
         encrypted: false,

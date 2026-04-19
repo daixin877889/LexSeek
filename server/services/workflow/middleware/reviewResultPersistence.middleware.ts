@@ -26,14 +26,13 @@ import {
 } from '../../files/ossFiles.dao'
 import { FileSource, OssFileStatus } from '#shared/types/file'
 import { StorageProviderType } from '~~/server/lib/storage/types'
+import { DOCX_MIME } from '#shared/utils/mime'
 import type { Risk } from '#shared/types/contract'
 
 interface ReviewResultPersistenceOptions {
     reviewId: number
     sessionId: string
 }
-
-const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
 export const reviewResultPersistenceMiddleware = (
     options: ReviewResultPersistenceOptions,

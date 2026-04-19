@@ -19,9 +19,9 @@ import { createOssFileDao, findOssFileByIdDao } from '~~/server/services/files/o
 import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
 import { textToDocxService } from './textToDocx.service'
 import { createContractReviewDAO } from './contractReview.dao'
+import { DOCX_MIME } from '#shared/utils/mime'
 import type { CreateReviewRequest, CreateReviewResponse } from '#shared/types/contract'
 
-const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 const MAX_PASTE_LENGTH = 50000
 
 export interface CreateAndStartOptions extends CreateReviewRequest {

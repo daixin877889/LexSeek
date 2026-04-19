@@ -10,10 +10,10 @@
 
 <script lang="ts" setup>
 import { toast } from 'vue-sonner'
+import { DOCX_MIME } from '#shared/utils/mime'
 import type { AiPromptSubmitData } from '~/components/ai/AiPromptInput.vue'
 import type { CreateReviewRequest } from '#shared/types/contract'
 
-const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 const MAX_SIZE_BYTES = 20 * 1024 * 1024
 
 const emit = defineEmits<{

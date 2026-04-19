@@ -17,3 +17,6 @@ mimeInstance.define({ "audio/x-m4a": ["m4a"] }, true);
 
 
 export const mime = mimeInstance;
+
+/** application/vnd.openxmlformats-officedocument.wordprocessingml.document — .docx 文件的标准 MIME */
+export const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'

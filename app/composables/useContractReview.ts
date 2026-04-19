@@ -275,13 +275,7 @@ export function useContractReview() {
         hasUnsavedDocxChanges.value = false
         toast.success('批注已重新生成')
 
-        const a = document.createElement('a')
-        a.href = resp.downloadUrl
-        a.download = ''
-        a.style.display = 'none'
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
+        triggerBrowserDownloadUrl(resp.downloadUrl)
     }
 
     /**
@@ -313,15 +307,7 @@ export function useContractReview() {
                 toast.error('PDF 生成失败')
                 return
             }
-            const objUrl = URL.createObjectURL(data)
-            const a = document.createElement('a')
-            a.href = objUrl
-            a.download = `contract-review-${reviewId.value}.pdf`
-            a.style.display = 'none'
-            document.body.appendChild(a)
-            a.click()
-            document.body.removeChild(a)
-            URL.revokeObjectURL(objUrl)
+            triggerBrowserDownloadBlob(data, `contract-review-${reviewId.value}.pdf`)
             toast.success('PDF 已下载')
         } catch (e: unknown) {
             const msg = (e as { data?: { message?: string } })?.data?.message ?? 'PDF 生成失败'
@@ -338,13 +324,7 @@ export function useContractReview() {
         )
         if (!result?.downloadUrl) return
 
-        const a = document.createElement('a')
-        a.href = result.downloadUrl
-        a.download = ''
-        a.style.display = 'none'
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
+        triggerBrowserDownloadUrl(result.downloadUrl)
     }
 
     /** 提交 interrupt resume 指令（M4 不主动调，保留接口给 M5 扩展用） */
