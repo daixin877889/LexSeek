@@ -30,7 +30,7 @@
                 <CardHeader>
                     <CardTitle class="flex items-center gap-3">
                         基本信息
-                        <Badge :variant="getStatusVariant(detail.status)">
+                        <Badge :variant="getReviewStatusBadgeVariant(detail.status)">
                             {{ getStatusLabel(detail.status) }}
                         </Badge>
                         <Badge v-if="detail.deletedAt" variant="destructive">已删除</Badge>
@@ -134,7 +134,7 @@
                                     {{ idx + 1 }}. {{ risk.problem || risk.category || '（无标题）' }}
                                     <span v-if="risk.clauseIndex !== undefined" class="text-xs text-muted-foreground ml-1">#条款 {{ risk.clauseIndex }}</span>
                                 </div>
-                                <Badge v-if="risk.level" :variant="getSeverityVariant(risk.level)">
+                                <Badge v-if="risk.level" :variant="getRiskLevelBadgeVariant(risk.level)">
                                     {{ getSeverityLabel(risk.level) }}
                                 </Badge>
                             </div>
@@ -226,23 +226,8 @@ const risks = computed<Risk[]>(() => {
 })
 
 // ─── Badge 映射 ─────────────────────────────────────────────────────────────
-type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline'
-
 function getStatusLabel(status: string) {
     return REVIEW_STATUS_LABEL[status as keyof typeof REVIEW_STATUS_LABEL] ?? status
-}
-
-function getStatusVariant(status: string): BadgeVariant {
-    if (status === 'completed') return 'default'
-    if (status === 'failed') return 'destructive'
-    if (status === 'reviewing' || status === 'awaiting_stance') return 'secondary'
-    return 'outline'
-}
-
-function getSeverityVariant(level: string): BadgeVariant {
-    if (level === 'high') return 'destructive'
-    if (level === 'medium') return 'default'
-    return 'secondary'
 }
 
 function getSeverityLabel(level: string) {

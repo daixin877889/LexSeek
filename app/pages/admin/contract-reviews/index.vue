@@ -96,7 +96,7 @@
                             <TableCell class="text-sm">{{ row.contractType ?? '—' }}</TableCell>
                             <TableCell class="text-sm">{{ row.stance ?? '—' }}</TableCell>
                             <TableCell>
-                                <Badge :variant="getStatusVariant(row.status)">
+                                <Badge :variant="getReviewStatusBadgeVariant(row.status)">
                                     {{ getStatusLabel(row.status) }}
                                 </Badge>
                             </TableCell>
@@ -204,17 +204,8 @@ const rows = computed<AdminReviewListItem[]>(() => data.value?.items ?? [])
 const total = computed(() => data.value?.total ?? 0)
 
 // ─── 状态 Badge 映射 ─────────────────────────────────────────────────────────
-type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline'
-
 function getStatusLabel(status: string) {
     return REVIEW_STATUS_LABEL[status as keyof typeof REVIEW_STATUS_LABEL] ?? status
-}
-
-function getStatusVariant(status: string): BadgeVariant {
-    if (status === 'completed') return 'default'
-    if (status === 'failed') return 'destructive'
-    if (status === 'reviewing' || status === 'awaiting_stance') return 'secondary'
-    return 'outline'
 }
 
 // ─── 事件 ────────────────────────────────────────────────────────────────────

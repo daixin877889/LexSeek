@@ -35,19 +35,16 @@ export async function createSnapshotService(
 
     const db = tx ?? prisma
     try {
-        const total = await db.documentDraftSnapshots.count({ where: { draftId } })
-        if (total > SNAPSHOT_KEEP) {
-            await db.$executeRaw`
-                DELETE FROM "document_draft_snapshots"
+        await db.$executeRaw`
+            DELETE FROM "document_draft_snapshots"
+            WHERE "draft_id" = ${draftId}
+              AND "id" NOT IN (
+                SELECT "id" FROM "document_draft_snapshots"
                 WHERE "draft_id" = ${draftId}
-                  AND "id" NOT IN (
-                    SELECT "id" FROM "document_draft_snapshots"
-                    WHERE "draft_id" = ${draftId}
-                    ORDER BY "created_at" DESC
-                    LIMIT ${SNAPSHOT_KEEP}
-                  )
-            `
-        }
+                ORDER BY "created_at" DESC
+                LIMIT ${SNAPSHOT_KEEP}
+              )
+        `
     } catch (err) {
         logger.warn('清理旧快照失败（不阻塞）', { draftId, error: err })
     }

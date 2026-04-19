@@ -42,14 +42,15 @@ export interface ExportPdfOptions {
 }
 
 // 字体文件位于 server/services/assistant/contract/fonts/NotoSansSC-Regular.ttf。
-// Nitro 开发 / 构建时会把 server 代码打包到 .nuxt/{dev,output}/，此时 import.meta.url
-// 指向 bundle 输出目录，相对路径会 ENOENT。改用 process.cwd() + 源码相对路径定位，
-// 并在测试场景（cwd 为 worktree 根目录）也能命中；同时保留 bundle 旁边 fonts/ 目录作为 fallback。
-const SOURCE_FONT_DIR = path.resolve(process.cwd(), 'server/services/assistant/contract/fonts')
-const BUNDLED_FONT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'fonts')
-const FONT_FILENAME = 'NotoSansSC-Regular.ttf'
-const FONT_PATH = [path.join(SOURCE_FONT_DIR, FONT_FILENAME), path.join(BUNDLED_FONT_DIR, FONT_FILENAME)]
-    .find(p => fs.existsSync(p)) ?? path.join(SOURCE_FONT_DIR, FONT_FILENAME)
+// dev 时 cwd=工程根，build 后 import.meta.url 指向 .nuxt/output/server，两条候选路径二选一。
+const FONT_CANDIDATES = [
+    path.resolve(process.cwd(), 'server/services/assistant/contract/fonts/NotoSansSC-Regular.ttf'),
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'fonts/NotoSansSC-Regular.ttf'),
+]
+const FONT_PATH = FONT_CANDIDATES.find(p => fs.existsSync(p))
+if (!FONT_PATH) {
+    throw new Error(`NotoSansSC 字体缺失，已检查：${FONT_CANDIDATES.join(', ')}`)
+}
 
 const FONT_DESCRIPTORS = {
     NotoSansSC: {

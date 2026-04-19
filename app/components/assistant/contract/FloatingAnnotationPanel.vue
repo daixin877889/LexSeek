@@ -13,7 +13,7 @@
  * **Feature: contract-review-m6.2**
  */
 import { MinusIcon, XIcon, PinIcon } from 'lucide-vue-next'
-import type { Risk } from '#shared/types/contract'
+import { RISK_LEVEL_LABEL, type Risk, type RiskLevel } from '#shared/types/contract'
 
 interface Props {
     risks: Risk[]
@@ -112,23 +112,17 @@ onBeforeUnmount(() => {
 // ── 风险列表派生 ───────────────────────────────────────────────────────────
 
 const groupedRisks = computed(() => {
-    const groups: Record<'high' | 'medium' | 'low', Risk[]> = { high: [], medium: [], low: [] }
+    const groups: Record<RiskLevel, Risk[]> = { high: [], medium: [], low: [] }
     for (const r of props.risks) {
         groups[r.level].push(r)
     }
-    // 组内按 clauseIndex 升序（原地排序，避免一次额外数组分配）
     groups.high.sort((a, b) => a.clauseIndex - b.clauseIndex)
     groups.medium.sort((a, b) => a.clauseIndex - b.clauseIndex)
     groups.low.sort((a, b) => a.clauseIndex - b.clauseIndex)
     return groups
 })
 
-const LEVEL_LABEL: Record<'high' | 'medium' | 'low', string> = {
-    high: '高风险',
-    medium: '中风险',
-    low: '低风险',
-}
-const LEVEL_BADGE: Record<'high' | 'medium' | 'low', string> = {
+const LEVEL_BADGE: Record<RiskLevel, string> = {
     high: 'bg-red-500',
     medium: 'bg-orange-500',
     low: 'bg-gray-400',
@@ -215,7 +209,7 @@ const panelStyle = computed(() => {
                             <div class="flex items-center gap-1.5 px-1">
                                 <span class="size-2 rounded-full" :class="LEVEL_BADGE[level]" />
                                 <span class="text-xs font-medium text-muted-foreground">
-                                    {{ LEVEL_LABEL[level] }}（{{ groupedRisks[level].length }}）
+                                    {{ RISK_LEVEL_LABEL[level] }}风险（{{ groupedRisks[level].length }}）
                                 </span>
                             </div>
                             <button

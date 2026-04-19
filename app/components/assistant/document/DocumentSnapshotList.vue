@@ -9,10 +9,6 @@ defineProps<{
 const emit = defineEmits<{
     viewDetail: [snapshot: DocumentDraftSnapshot]
 }>()
-
-function formatTime(iso: string) {
-    return formatDate(iso, 'YYYY-MM-DD HH:mm')
-}
 </script>
 
 <template>
@@ -32,7 +28,7 @@ function formatTime(iso: string) {
                         {{ s.source === 'ai-extract' ? 'AI 生成' : '覆盖前自动备份' }}
                         <span v-if="s.aiTitle" class="text-muted-foreground">· {{ s.aiTitle }}</span>
                     </div>
-                    <div class="text-xs text-muted-foreground">{{ formatTime(s.createdAt) }}</div>
+                    <div class="text-xs text-muted-foreground">{{ formatDate(s.createdAt, 'YYYY-MM-DD HH:mm') }}</div>
                 </div>
                 <Button size="sm" variant="ghost" @click="emit('viewDetail', s)">查看详情</Button>
             </li>
