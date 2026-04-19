@@ -4,6 +4,12 @@
  * 列出文书模板。支持 scope/category/q 过滤和 skip/take 分页。
  * 普通用户可见所有 global 模板 + 自己的 user 模板（在 DAO 层做权限过滤）。
  *
+ * 启用态过滤由 scope 隐式决定，不再暴露 activeOnly query：
+ *   - scope='user'              → 返回当前用户全部模板（含禁用，供「我的模板」管理）
+ *   - scope='global' / 未指定   → 仅启用态（status=1），避免泄露禁用的全局模板
+ *
+ * 管理端浏览全部 global（含禁用）请走 /api/v1/admin/document-templates。
+ *
  * Query 参数：
  * - scope: 'global' | 'user'（可选）
  * - category: 分类 key（可选）
@@ -23,11 +29,6 @@ const QuerySchema = z.object({
     q: z.string().optional(),
     skip: z.coerce.number().int().nonnegative().optional().default(0),
     take: z.coerce.number().int().positive().max(100).optional().default(20),
-    /**
-     * 仅返回启用态（status=1）。不传或 true 视为启用过滤；
-     * "我的模板"管理页传 false 以展示含禁用的全量。
-     */
-    activeOnly: z.coerce.boolean().optional().default(true),
 })
 
 export default defineEventHandler(async (event) => {
@@ -40,7 +41,10 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-        const { scope, category, q, skip, take, activeOnly } = parsed.data
+        const { scope, category, q, skip, take } = parsed.data
+        // scope='user' 即「我的模板」管理视图，DAO 已强制按 viewerUserId 过滤为
+        // 当前用户私有模板，可安全返回禁用项；其他场景保持仅启用态。
+        const activeOnly = scope !== 'user'
         const result = await listDocumentTemplatesDAO({
             scope,
             category,
@@ -56,8 +60,11 @@ export default defineEventHandler(async (event) => {
             skip,
             take,
         })
-    } catch (error: any) {
-        logger.error('获取文书模板列表失败', { userId: user.id, error: error?.message })
-        return resError(event, 500, error?.message || '获取模板列表失败')
+    } catch (error: unknown) {
+        logger.error('获取文书模板列表失败', {
+            userId: user.id,
+            error: error instanceof Error ? error.message : String(error),
+        })
+        return resError(event, 500, '获取模板列表失败')
     }
 })
