@@ -20,12 +20,18 @@ export function buildDraftSchema(placeholders: Placeholder[]): z.ZodObject<any> 
       .describe(`占位符 {{${name}}} 的填充值，若无法推断则返回 null`)
   }
 
-  // 返回包含 values 和可选 suggestions 的 schema
+  // 返回包含 values 和可选 suggestions、aiTitle 的 schema
   return z.object({
     values: z.object(valuesShape).describe('按模板占位符填充的键值对'),
     suggestions: z
       .record(z.string(), z.string())
       .optional()
       .describe('字段填充依据或建议（key = 占位符名称）'),
+    aiTitle: z
+      .string()
+      .min(1)
+      .max(200)
+      .optional()
+      .describe('AI 推断的文书标题（10~30 字），用于列表/顶栏识别；非文书正文内容'),
   })
 }

@@ -121,4 +121,23 @@ describe('buildDraftSchema', () => {
       plaintiff_name: '从案件当事人推断',
     })
   })
+
+  describe('aiTitle 字段', () => {
+    it('schema 包含可选 aiTitle', () => {
+      const schema = buildDraftSchema([{ name: 'f1', firstContext: '' }] as any)
+      const parsed = schema.parse({ values: { f1: 'x' }, aiTitle: '我的标题' })
+      expect((parsed as any).aiTitle).toBe('我的标题')
+    })
+
+    it('aiTitle 可省略', () => {
+      const schema = buildDraftSchema([{ name: 'f1', firstContext: '' }] as any)
+      const parsed = schema.parse({ values: { f1: 'x' } })
+      expect((parsed as any).aiTitle).toBeUndefined()
+    })
+
+    it('aiTitle 超长（>200）校验失败', () => {
+      const schema = buildDraftSchema([{ name: 'f1', firstContext: '' }] as any)
+      expect(() => schema.parse({ values: { f1: 'x' }, aiTitle: 'a'.repeat(201) })).toThrow()
+    })
+  })
 })
