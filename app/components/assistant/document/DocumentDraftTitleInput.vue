@@ -41,7 +41,7 @@ function onKeydown(e: KeyboardEvent) {
 </script>
 
 <template>
-    <div class="flex items-center gap-2 min-w-0 flex-1">
+    <div class="flex items-center gap-2 min-w-0">
         <template v-if="!editing">
             <h1 data-testid="title-display"
                 class="text-base md:text-lg font-semibold truncate cursor-pointer hover:bg-muted/60 rounded px-1 py-0.5"
@@ -55,7 +55,7 @@ function onKeydown(e: KeyboardEvent) {
         </template>
         <template v-else>
             <input ref="inputRef" v-model="draft" type="text" maxlength="200"
-                class="text-base md:text-lg font-semibold bg-transparent border-b border-primary outline-none px-1 py-0.5 w-full max-w-[40rem]"
+                class="text-base md:text-lg font-semibold bg-transparent border-b border-primary outline-none px-1 py-0.5 w-[22rem] max-w-full"
                 @blur="commit" @keydown="onKeydown" />
         </template>
     </div>
