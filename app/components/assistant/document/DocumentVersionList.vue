@@ -19,6 +19,10 @@ const editingName = ref('')
 const originalName = ref('')
 const inputRef = ref<HTMLInputElement | null>(null)
 
+function setInputRef(el: unknown) {
+    inputRef.value = (el as HTMLInputElement | null) ?? null
+}
+
 function startRename(v: DocumentDraftVersion) {
     editingId.value = v.id
     editingName.value = v.name
@@ -51,7 +55,7 @@ function cancelRename() {
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-1.5 min-w-0">
                         <template v-if="editingId === v.id">
-                            <input ref="inputRef" v-model="editingName" type="text" maxlength="100"
+                            <input :ref="setInputRef" v-model="editingName" type="text" maxlength="100"
                                 class="flex-1 min-w-0 bg-transparent border-b border-primary outline-none text-sm font-medium px-1 py-0.5"
                                 @blur="commitRename(v.id)"
                                 @keydown.enter.prevent="commitRename(v.id)"
