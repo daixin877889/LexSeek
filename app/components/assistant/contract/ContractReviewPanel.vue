@@ -27,6 +27,7 @@ const {
     review,
     isLoading,
     awaitingStance,
+    runStatus,
     onStart,
     mountReview,
     onStance,
@@ -48,22 +49,39 @@ watch(
     { immediate: true },
 )
 
+/**
+ * 状态文案派生顺序：
+ * 1. stream runStatus 活跃（reviewing/completed/failed）→ 立即反映最新 SSE 状态
+ *    —— 避免 stance confirm 之后 review.status 还是 'awaiting_stance'（要等 stream
+ *    completed 触发 refreshReview 才会刷），体感"点了确认没反应"。
+ * 2. runStatus 是 awaiting_stance 时不落在文案条上（由 Dialog 承载），
+ *    此时 review.status 的 awaiting_stance 也不显示。
+ * 3. 其它情况回退到 review.status（例如 rebuilding / 刷新后恢复的终态）。
+ */
 const statusLabel = computed(() => {
     if (!review.value) return ''
+    const rs = runStatus.value
+    if (rs === 'reviewing') return 'AI 正在逐条审查合同条款...'
+    if (rs === 'completed') return '审查完成'
+    if (rs === 'failed') return '审查失败'
     switch (review.value.status) {
         case 'pending': return '准备中...'
         case 'reviewing': return 'AI 正在逐条审查合同条款...'
-        case 'awaiting_stance': return '等待您确认审查立场'
+        case 'awaiting_stance': return ''
         case 'completed': return '审查完成'
         case 'failed': return '审查失败'
+        case 'rebuilding': return '正在重新生成批注...'
         default: return ''
     }
 })
 
 // 三屏切换：提交屏与结果屏互斥；isLoading 时不闪回提交屏
 const showSourceInput = computed(() => !review.value && !isLoading.value)
+// busy 条：stream 仍在跑 / review 仍在 pending|reviewing；stance confirm 之后
+// review.status 尚未刷新时也应继续显示，防止面板误切到"空闲"观感。
 const showBusy = computed(() => {
     if (isLoading.value) return true
+    if (runStatus.value === 'reviewing') return true
     const s = review.value?.status
     return s === 'pending' || s === 'reviewing'
 })

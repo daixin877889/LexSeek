@@ -37,8 +37,17 @@ async function loadDocx(fileId: number) {
         if (!resp.ok) throw new Error(`下载合同失败: ${resp.status}`)
         const buffer = await resp.arrayBuffer()
         if (seq !== fetchSeq || !containerRef.value) return
-        containerRef.value.innerHTML = ''
-        await renderAsync(buffer, containerRef.value, undefined, { inWrapper: true })
+        // renderAsync 可能耗时几百 ms，期间若用户切换到新文件必须整体放弃。
+        // 用本地 target 捕获当前 containerRef，避免渲染到过期的 DOM 节点。
+        const target = containerRef.value
+        target.innerHTML = ''
+        await renderAsync(buffer, target, undefined, { inWrapper: true })
+        if (seq !== fetchSeq) {
+            // 新的 loadDocx 已经开始，本次渲染产物作废。
+            // 不强制清空 target.innerHTML：新 loadDocx 会在它那次 renderAsync 前自行清空，
+            // 贸然清空反而可能抹掉新 render 已完成的内容。
+            return
+        }
     } catch (err) {
         console.warn('合同预览渲染失败', err)
     } finally {

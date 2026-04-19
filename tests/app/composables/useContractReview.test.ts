@@ -338,6 +338,8 @@ describe('useContractReview.onDownload', () => {
 
         expect(mockFetch).toHaveBeenLastCalledWith(
             '/api/v1/assistant/contract/reviews/55/download',
+            // onDownload 现在传 { showError: false }，为失败分支显式弹 toast.error 服务
+            expect.objectContaining({ showError: false }),
         )
         expect(createSpy).toHaveBeenCalledWith('a')
         expect(appendSpy).toHaveBeenCalled()

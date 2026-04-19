@@ -98,7 +98,9 @@ vi.mock('~/composables/useContractReview', () => ({
 // ── 子组件 stubs：记录 props 便于断言 ───────────────────────────────────────
 
 const SourceInputStub = defineComponent({
-    name: 'AssistantContractContractSourceInput',
+    // Nuxt 4 自动导入折叠重复路径段：assistant/contract/ContractSourceInput.vue
+    // → AssistantContractSourceInput（而非 AssistantContractContractSourceInput）
+    name: 'AssistantContractSourceInput',
     emits: ['submit'],
     setup(_, { emit }) {
         return () =>
@@ -156,7 +158,8 @@ const StanceDialogStub = defineComponent({
 })
 
 const DocxPreviewStub = defineComponent({
-    name: 'AssistantContractContractDocxPreview',
+    // 同上，折叠为 AssistantContractDocxPreview
+    name: 'AssistantContractDocxPreview',
     props: {
         reviewedFileId: { type: [Number, null] as unknown as () => number | null, default: null },
         originalFileId: { type: [Number, null] as unknown as () => number | null, default: null },
@@ -211,9 +214,10 @@ const RiskListPanelStub = defineComponent({
 })
 
 const stubs = {
-    AssistantContractContractSourceInput: SourceInputStub,
+    // 字段名必须与模板里的组件名严格匹配（Nuxt 4 自动导入折叠 assistant/contract/Contract* → AssistantContract*）
+    AssistantContractSourceInput: SourceInputStub,
     AssistantContractStanceSelectionDialog: StanceDialogStub,
-    AssistantContractContractDocxPreview: DocxPreviewStub,
+    AssistantContractDocxPreview: DocxPreviewStub,
     AssistantContractRiskListPanel: RiskListPanelStub,
     AssistantContractFloatingAnnotationPanel: true,
 }
@@ -346,9 +350,12 @@ describe('ContractReviewPanel', () => {
         expect(risk.attributes('data-status')).toBe('failed')
     })
 
-    it('status=pending 时 busy 条显示"准备中..."', async () => {
+    it('status=pending 时 busy 条显示"准备中..."（runStatus=idle）', async () => {
         reviewRef.value = makeReview({ status: 'pending' })
-        runStatusRef.value = 'reviewing'
+        // runStatus=idle 时 fallback 到 review.status → "准备中..."。
+        // statusLabel 的派生顺序：runStatus 活跃态（reviewing/completed/failed）优先 →
+        // 否则按 review.status 映射，保留 "pending → 准备中..." 语义。
+        runStatusRef.value = 'idle'
         const w = mountPanel()
         await nextTick()
         expect(w.text()).toContain('准备中...')

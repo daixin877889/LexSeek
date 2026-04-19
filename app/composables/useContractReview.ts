@@ -53,6 +53,13 @@ export function useContractReview() {
      * 既能承接 onScopeDispose 的注册，又能在重启/卸载时显式 stop() 释放。
      */
     let streamScope: ReturnType<typeof effectScope> | null = null
+    /**
+     * stream 版本号。每次 mountStream 自增一次；
+     * 所有跨 await 边界的 stream 事件回调（refreshReview、submit 后的状态切换）
+     * 必须对 seen 与 current 做版本校验，避免快速切换 review 时旧 stream 的
+     * completed/failed 事件触发 refreshReview，把新 review 的 risks 覆盖为 stale 数据。
+     */
+    let streamGeneration = 0
 
     const messages = computed(() => stream.value?.messages.value ?? [])
     const isLoading = computed(() => stream.value?.isLoading.value ?? false)
@@ -99,13 +106,20 @@ export function useContractReview() {
             `/api/v1/assistant/contract/reviews/${id}`,
             { showError: false } as any,
         )
-        if (latest?.review) review.value = latest.review
+        if (latest?.review) {
+            review.value = latest.review
+            lastServerRisks = latest.review.risks ?? []
+            if (typeof latest.review.hasUnsavedDocxChanges === 'boolean') {
+                lastServerUnsaved = latest.review.hasUnsavedDocxChanges
+            }
+        }
     }
 
     function mountStream(sessionId: string) {
         stopStreamWatch?.()
         streamScope?.stop()
         streamScope = effectScope(true)
+        const myGeneration = ++streamGeneration
 
         let s!: ReturnType<typeof useStreamChat>
         streamScope.run(() => {
@@ -121,7 +135,16 @@ export function useContractReview() {
                 () => s.runStatus.value,
                 async (status) => {
                     if (status !== 'completed' && status !== 'failed') return
+                    // 旧 stream 的事件若在 await 队列中晚于新 mountStream 到达，
+                    // 绝不能触发 refreshReview 污染新 review。
+                    if (myGeneration !== streamGeneration) return
                     if (!reviewId.value) return
+                    if (status === 'failed') {
+                        // 覆盖两种场景：SSE 网络中断 / 后端 workflow 解析失败
+                        // 文案统一，UI 层 statusLabel 会显示"审查失败"，此 toast 兜底
+                        // 避免用户切屏/滚动时完全错过失败事件
+                        toast.error('审查未能完成，请刷新页面或稍后重试')
+                    }
                     await refreshReview(reviewId.value)
                 },
             )
@@ -138,6 +161,8 @@ export function useContractReview() {
         reviewId.value = null
         stream.value = null
         hasUnsavedDocxChanges.value = false
+        lastServerRisks = null
+        lastServerUnsaved = false
 
         const resp = await useApiFetch<CreateReviewResponse>(
             '/api/v1/assistant/contract/reviews',
@@ -167,6 +192,8 @@ export function useContractReview() {
         reviewId.value = null
         stream.value = null
         hasUnsavedDocxChanges.value = false
+        lastServerRisks = null
+        lastServerUnsaved = false
 
         const resp = await useApiFetch<{ review: ReviewWithParsedRisks }>(
             `/api/v1/assistant/contract/reviews/${id}`,
@@ -177,6 +204,8 @@ export function useContractReview() {
         const r = resp.review
         review.value = r
         reviewId.value = r.id
+        lastServerRisks = r.risks ?? []
+        lastServerUnsaved = typeof r.hasUnsavedDocxChanges === 'boolean' ? r.hasUnsavedDocxChanges : false
 
         // 回填持久化的未保存标志：仅在字段为明确 boolean 时覆盖（M6.1A-e）
         // 不同 status 下该字段可能为 null/undefined，避免误改写 ref
@@ -223,26 +252,45 @@ export function useContractReview() {
     }
 
     /**
-     * 用户编辑 risks 后 debounce 500ms PATCH 到后端。
+     * 用户编辑 risks：
+     *   1. 立即乐观更新 review.risks + 置 hasUnsavedDocxChanges=true，UI 不等待网络
+     *   2. debounce 500ms 后 PATCH 到后端，失败回滚到 pre-edit 快照（risks + hasUnsavedDocxChanges）
      *
-     * 成功：review.value.risks 本地同步更新 + hasUnsavedDocxChanges=true
-     * 失败（含 409 状态不允许）：toast.error 提示，hasUnsavedDocxChanges 保持原值
+     * lastServerRisks 在 mountReview/refreshReview 时同步 baseline，
+     * 保证连续编辑并于最后一次 PATCH 失败时能回到"最后一次服务端确认"的状态。
      */
-    const onEditRisks = useDebounceFn(async (risks: Risk[]) => {
+    let lastServerRisks: Risk[] | null = null
+    let lastServerUnsaved: boolean | null = null
+
+    const patchRisks = useDebounceFn(async (risks: Risk[]) => {
         if (!reviewId.value) return
+        const risksSnapshot = lastServerRisks ?? (review.value?.risks ?? [])
+        const unsavedSnapshot = lastServerUnsaved ?? false
         const resp = await useApiFetch<{ reviewId: number }>(
             `/api/v1/assistant/contract/reviews/${reviewId.value}`,
             { method: 'PATCH', body: { risks }, showError: false } as any,
         )
         if (!resp) {
+            if (review.value) {
+                review.value = { ...review.value, risks: risksSnapshot }
+            }
+            hasUnsavedDocxChanges.value = unsavedSnapshot
             toast.error('保存风险清单失败')
             return
         }
+        lastServerRisks = risks
+        lastServerUnsaved = true
+    }, 500)
+
+    function onEditRisks(risks: Risk[]) {
+        if (!reviewId.value) return
+        // 立即乐观更新，避免用户连续编辑时因 debounce 延迟导致 UI 闪回旧值
         if (review.value) {
             review.value = { ...review.value, risks }
         }
         hasUnsavedDocxChanges.value = true
-    }, 500)
+        patchRisks(risks)
+    }
 
     /**
      * 根据最新 risks 触发后端重新生成批注 Word，成功后自动下载新文件。
@@ -321,8 +369,12 @@ export function useContractReview() {
 
         const result = await useApiFetch<DownloadResponse>(
             `/api/v1/assistant/contract/reviews/${reviewId.value}/download`,
+            { showError: false } as any,
         )
-        if (!result?.downloadUrl) return
+        if (!result?.downloadUrl) {
+            toast.error('下载失败，请稍后重试')
+            return
+        }
 
         triggerBrowserDownloadUrl(result.downloadUrl)
     }
@@ -347,6 +399,8 @@ export function useContractReview() {
         stream.value = null
         review.value = null
         reviewId.value = null
+        lastServerRisks = null
+        lastServerUnsaved = false
     }
 
     onUnmounted(() => {
