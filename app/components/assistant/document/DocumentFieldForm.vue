@@ -80,10 +80,6 @@
         />
       </template>
 
-      <!-- 来源提示 -->
-      <p v-if="placeholder.firstContext" class="text-xs text-muted-foreground truncate">
-        文书原文：{{ placeholder.firstContext }}
-      </p>
     </div>
 
     <div v-if="!placeholders.length" class="flex items-center justify-center py-8 text-muted-foreground">

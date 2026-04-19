@@ -84,7 +84,7 @@ function handleExport() {
 </script>
 
 <template>
-    <div class="space-y-3">
+    <div class="h-full flex flex-col gap-3">
         <!-- 无模板时：仅显示导出按钮 -->
         <div
             v-if="!templateBuffer"
@@ -98,16 +98,8 @@ function handleExport() {
             </Button>
         </div>
 
-        <!-- 有模板时：实时预览 + 导出按钮 -->
+        <!-- 有模板时：实时预览 -->
         <template v-else>
-            <div class="flex items-center justify-between">
-                <h3 class="text-sm font-medium text-muted-foreground">实时预览</h3>
-                <Button :disabled="disabled" size="sm" @click="handleExport">
-                    <DownloadIcon class="size-4 mr-2" />
-                    导出 .docx
-                </Button>
-            </div>
-
             <!-- 渲染出错时显示提示，但仍可导出 -->
             <div
                 v-if="renderError"
@@ -119,7 +111,7 @@ function handleExport() {
             <!-- DOCX 预览容器 -->
             <div
                 ref="previewRoot"
-                class="docx-preview-root rounded-lg border bg-background p-6 max-h-[600px] overflow-y-auto"
+                class="docx-preview-root flex-1 min-h-0 overflow-y-auto"
             />
         </template>
     </div>
@@ -135,5 +127,21 @@ function handleExport() {
 .docx-preview-root :deep(.docx) {
     box-shadow: none !important;
     margin: 0 !important;
+}
+/* docx-preview 默认 line-height 偏紧，正文挤在一起；统一放宽到 1.8 */
+.docx-preview-root :deep(p),
+.docx-preview-root :deep(li),
+.docx-preview-root :deep(h1),
+.docx-preview-root :deep(h2),
+.docx-preview-root :deep(h3),
+.docx-preview-root :deep(h4),
+.docx-preview-root :deep(h5),
+.docx-preview-root :deep(h6) {
+    line-height: 1.8 !important;
+}
+/* 未填占位符（{{xxx}}）：颜色比正文更浅，做视觉降权 */
+.docx-preview-root :deep(.docx-placeholder-unfilled) {
+    color: var(--muted-foreground, #94a3b8);
+    opacity: 0.6;
 }
 </style>

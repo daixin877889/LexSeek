@@ -78,24 +78,49 @@ export function useDocumentDraft() {
 
         // 后端 draftResultPersistenceMiddleware 只写库未推 SSE custom event，
         // 所以 stream 完成后主动 GET draft 同步 values/status，让 UI 切出 filling 态
-        stopStreamWatch = scope.run(() => watch(
+        async function refetchLatestDraft() {
+            if (!draftId.value) return
+            const latest = await useApiFetch<{ draft: documentDrafts }>(
+                `/api/v1/assistant/document/drafts/${draftId.value}`,
+                { showError: false } as any,
+            )
+            if (!latest?.draft) return
+            draft.value = latest.draft
+            if (latest.draft.status !== 'drafting' && latest.draft.status !== 'filling') {
+                runStatus.value = latest.draft.status === 'failed'
+                    ? 'failed'
+                    : (latest.draft.status === 'exported' ? 'exported' : 'ready')
+            }
+        }
+
+        const stopStatusWatch = scope.run(() => watch(
             () => s.runStatus.value,
             async (status) => {
                 if (status === 'failed') {
                     runStatus.value = 'failed'
                     return
                 }
-                if (status === 'completed' && draftId.value) {
-                    const latest = await useApiFetch<{ draft: documentDrafts }>(
-                        `/api/v1/assistant/document/drafts/${draftId.value}`,
-                        { showError: false } as any,
-                    )
-                    if (!latest?.draft) return
-                    draft.value = latest.draft
-                    runStatus.value = latest.draft.status === 'failed' ? 'failed' : 'ready'
+                if (status === 'completed') {
+                    await refetchLatestDraft()
                 }
             },
         ))!
+
+        // 兜底：runStatus 偶发不会切到 completed（如服务端 status_change 事件丢失），
+        // 此时用 isLoading true→false 作为补偿信号再拉一次最新 draft
+        const stopLoadingWatch = scope.run(() => watch(
+            () => s.isLoading.value,
+            async (loading, prev) => {
+                if (prev && !loading) {
+                    await refetchLatestDraft()
+                }
+            },
+        ))!
+
+        stopStreamWatch = () => {
+            stopStatusWatch()
+            stopLoadingWatch()
+        }
     }
 
     async function onStart(params: CreateDraftRequest) {
@@ -166,7 +191,18 @@ export function useDocumentDraft() {
             : (draftResp.status === 'exported' ? 'exported' : 'ready')
 
         mountStream(draftResp.sessionId)
-        stream.value!.submit(undefined)
+        // 仅在确实存在 checkpoint 时才 submit(undefined) 回放历史；
+        // 全新且无材料的草稿（sourceRef 为 null）从未跑过 Agent，submit 会触发空跑
+        const sourceRef = draftResp.sourceRef as { text?: string; fileIds?: number[] } | null
+        const hasEverRun = !!sourceRef?.text || (sourceRef?.fileIds?.length ?? 0) > 0
+            || draftResp.status === 'ready' && Object.keys((draftResp.values ?? {}) as Record<string, unknown>).length > 0
+            || draftResp.status === 'exported'
+            || draftResp.status === 'failed'
+            || draftResp.status === 'drafting'
+            || draftResp.status === 'filling'
+        if (hasEverRun) {
+            stream.value!.submit(undefined)
+        }
     }
 
     // 409 表示正在生成中，showError: false 由调用方决定如何展示

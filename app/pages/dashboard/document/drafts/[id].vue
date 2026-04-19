@@ -12,6 +12,7 @@
  */
 import { ArrowLeftIcon, Loader2Icon, DownloadIcon, SparklesIcon, RefreshCw as RefreshCwIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { useMediaQuery, useLocalStorage } from '@vueuse/core'
 import type { documentDrafts } from '~~/generated/prisma/client'
 import { QUEUE_MAX_SIZE } from '~/composables/chatQueueActions'
 import type { OssFileItem } from '~/store/file'
@@ -120,6 +121,20 @@ function goBack() {
     navigateTo('/dashboard/document')
 }
 
+const isExporting = ref(false)
+async function handleExport() {
+    if (isExporting.value) return
+    isExporting.value = true
+    try {
+        await onExport()
+    } catch (err) {
+        console.error('[document-draft-export] failed', err)
+        toast.error('导出失败，请重试')
+    } finally {
+        isExporting.value = false
+    }
+}
+
 // ========== Task 10：悬浮 Agent 窗 + 队列 / 中断 ==========
 
 const agentOpen = ref(false)
@@ -165,9 +180,44 @@ function handleChatSubmit(data: { text: string; files?: unknown[] }) {
             aiChatRef.value?.resetPrompt()
         }
     } else {
-        sendMessage(data.text)
-        aiChatRef.value?.resetPrompt()
+        void submitWithFiles(data)
     }
+}
+
+// 把附件挂到 draft 后再发消息，确保 search_case_materials 工具能命中
+async function submitWithFiles(data: { text: string; files?: unknown[] }) {
+    const fileIds = extractFileIds(data.files)
+    let promptPrefix = ''
+    if (fileIds.length > 0 && draftId.value) {
+        const result = await useApiFetch<{ succeeded: number[]; failed: Array<{ fileId: number; reason: string }> }>(
+            `/api/v1/assistant/document/drafts/${draftId.value}/materials`,
+            { method: 'POST', body: { fileIds }, showError: false } as any,
+        )
+        const ok = result?.succeeded?.length ?? 0
+        const fail = result?.failed?.length ?? 0
+        if (fail > 0) {
+            toast.warning(`${fail} 份材料处理失败，已忽略`)
+        }
+        if (ok > 0) {
+            promptPrefix = `已上传 ${ok} 份新材料，请通过 search_case_materials 检索后补充提取并回填字段。\n\n`
+        }
+    }
+    const finalText = `${promptPrefix}${data.text || ''}`.trim()
+    if (!finalText) return
+    sendMessage(finalText)
+    aiChatRef.value?.resetPrompt()
+}
+
+function extractFileIds(files: unknown[] | undefined): number[] {
+    if (!Array.isArray(files)) return []
+    const ids: number[] = []
+    for (const f of files) {
+        if (f && typeof f === 'object' && 'id' in f) {
+            const id = Number((f as { id: unknown }).id)
+            if (Number.isInteger(id) && id > 0) ids.push(id)
+        }
+    }
+    return ids
 }
 
 async function handleStop() {
@@ -222,6 +272,16 @@ function onRetry() {
 
 // 中断出现时 toast 提示（复用小索）
 useInterruptToast(interruptData)
+
+// ========== 左右分栏：桌面端 Resizable，移动端改为竖向堆叠 ==========
+const isDesktop = useMediaQuery('(min-width: 768px)')
+const leftSize = useLocalStorage<number>('doc-draft-split-left-size-v3', 30)
+function handlePanelResize(sizes: number[]) {
+    const next = sizes[0]
+    if (typeof next === 'number' && Number.isFinite(next)) {
+        leftSize.value = next
+    }
+}
 </script>
 
 <template>
@@ -245,9 +305,10 @@ useInterruptToast(interruptData)
                     <SparklesIcon class="size-4 mr-2" />
                     AI 生成
                 </Button>
-                <Button :disabled="exportDisabled || isLoading" @click="onExport">
-                    <DownloadIcon class="size-4 mr-2" />
-                    导出 .docx
+                <Button :disabled="exportDisabled || isLoading || isExporting" @click="handleExport">
+                    <Loader2Icon v-if="isExporting" class="size-4 mr-2 animate-spin" />
+                    <DownloadIcon v-else class="size-4 mr-2" />
+                    {{ isExporting ? '导出中...' : '导出 .docx' }}
                 </Button>
             </div>
         </header>
@@ -274,24 +335,58 @@ useInterruptToast(interruptData)
         <!-- 主体：左表单 / 右预览 -->
         <div
             v-if="!loading && !loadError && draft && template"
-            class="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 gap-4 overflow-hidden"
+            class="flex-1 min-h-0 overflow-hidden"
         >
-            <div class="min-h-0 overflow-y-auto rounded-lg border bg-card p-4">
-                <h2 class="text-sm font-medium text-muted-foreground mb-3">编辑字段</h2>
-                <AssistantDocumentFieldForm
-                    :template="template"
-                    :values="currentValues"
-                    :suggestions="suggestions"
-                    @change="onFieldChange"
-                />
-            </div>
-            <div class="min-h-0 overflow-y-auto rounded-lg border bg-card p-4">
-                <AssistantDocumentPreview
-                    :template-buffer="templateBuffer"
-                    :values="currentValues"
-                    :disabled="exportDisabled || isLoading"
-                    @export="onExport"
-                />
+            <!-- 桌面：可拖拽分栏 -->
+            <ResizablePanelGroup
+                v-if="isDesktop"
+                direction="horizontal"
+                class="h-full"
+                @layout="handlePanelResize"
+            >
+                <ResizablePanel :default-size="leftSize" :min-size="25">
+                    <div class="h-full min-h-0 overflow-y-auto rounded-lg border bg-card p-4 mr-1">
+                        <AssistantDocumentFieldForm
+                            :template="template"
+                            :values="currentValues"
+                            :suggestions="suggestions"
+                            @change="onFieldChange"
+                        />
+                    </div>
+                </ResizablePanel>
+
+                <ResizableHandle with-handle class="bg-transparent" />
+
+                <ResizablePanel :default-size="100 - leftSize" :min-size="25">
+                    <div class="h-full min-h-0 overflow-y-auto rounded-lg border bg-card p-4 ml-1">
+                        <AssistantDocumentPreview
+                            :template-buffer="templateBuffer"
+                            :values="currentValues"
+                            :disabled="exportDisabled || isLoading || isExporting"
+                            @export="handleExport"
+                        />
+                    </div>
+                </ResizablePanel>
+            </ResizablePanelGroup>
+
+            <!-- 移动：竖向堆叠 -->
+            <div v-else class="h-full min-h-0 flex flex-col gap-4 overflow-y-auto">
+                <div class="rounded-lg border bg-card p-4">
+                    <AssistantDocumentFieldForm
+                        :template="template"
+                        :values="currentValues"
+                        :suggestions="suggestions"
+                        @change="onFieldChange"
+                    />
+                </div>
+                <div class="rounded-lg border bg-card p-4">
+                    <AssistantDocumentPreview
+                        :template-buffer="templateBuffer"
+                        :values="currentValues"
+                        :disabled="exportDisabled || isLoading || isExporting"
+                        @export="handleExport"
+                    />
+                </div>
             </div>
         </div>
 
