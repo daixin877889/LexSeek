@@ -16,6 +16,7 @@ import {
     softDeleteDocumentDraftDAO,
 } from './documentDraft.dao'
 import { randomUUID } from 'node:crypto'
+import dayjs from 'dayjs'
 import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
 import { ensureMaterialsReadyForDraftService } from '~~/server/services/material/materialPipeline.service'
 import type { DocumentDraftStatus } from '#shared/types/document'
@@ -83,6 +84,8 @@ export async function createDraftService(
     // 避免 Agent 在没有任何输入的情况下空跑产出无用消息
     const hasSource = !!sourceText || (sourceFileIds?.length ?? 0) > 0
 
+    const defaultTitle = `${template.name}-${dayjs().format('YYMMDD')}`
+
     const draft = await createDocumentDraftDAO({
         userId,
         templateId,
@@ -92,6 +95,8 @@ export async function createDraftService(
         sourceRef: Object.keys(sourceRef).length > 0 ? sourceRef : null,
         metadata: null,
         caseId: caseId ?? null,
+        title: defaultTitle,
+        titleOverridden: false,
     })
 
     if (sourceFileIds?.length) {

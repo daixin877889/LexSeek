@@ -26,6 +26,8 @@ import {
     updateDocumentDraftDAO,
     listDocumentDraftsDAO,
     softDeleteDocumentDraftDAO,
+    updateDraftTitleDAO,
+    updateDraftTitleIfNotOverriddenDAO,
 } from '../../../../server/services/assistant/document/documentDraft.dao'
 
 // ==================== 本地测试数据扩展 ====================
@@ -497,5 +499,63 @@ describe('documentDraft.dao', () => {
             const fetched = await getDocumentDraftDAO(draft.id)
             expect(fetched).toBeNull()
         })
+    })
+})
+
+describe('updateDraftTitleDAO (无条件写)', () => {
+    const localDraftIds: number[] = []
+
+    afterEach(async () => {
+        if (localDraftIds.length > 0) {
+            await getTestPrisma().documentDrafts.deleteMany({ where: { id: { in: localDraftIds } } })
+            localDraftIds.length = 0
+        }
+    })
+
+    it('应当更新 title 并置 titleOverridden=true', async () => {
+        const draft = await createDocumentDraftDAO({
+            userId: 1, templateId: 1,
+            sessionId: `sid-title-1-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            status: 'ready', values: {}, sourceRef: null, metadata: null, caseId: null,
+        })
+        localDraftIds.push(draft.id)
+        const updated = await updateDraftTitleDAO(draft.id, '我的起诉状')
+        expect(updated.title).toBe('我的起诉状')
+        expect(updated.titleOverridden).toBe(true)
+    })
+})
+
+describe('updateDraftTitleIfNotOverriddenDAO (AI 安全写)', () => {
+    const localDraftIds: number[] = []
+
+    afterEach(async () => {
+        if (localDraftIds.length > 0) {
+            await getTestPrisma().documentDrafts.deleteMany({ where: { id: { in: localDraftIds } } })
+            localDraftIds.length = 0
+        }
+    })
+
+    it('overridden=false 时正常写入 title，保持 titleOverridden=false', async () => {
+        const draft = await createDocumentDraftDAO({
+            userId: 1, templateId: 1,
+            sessionId: `sid-title-2-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            status: 'ready', values: {}, sourceRef: null, metadata: null, caseId: null,
+        })
+        localDraftIds.push(draft.id)
+        const result = await updateDraftTitleIfNotOverriddenDAO(draft.id, 'AI 标题')
+        expect(result?.title).toBe('AI 标题')
+        expect(result?.titleOverridden).toBe(false)
+    })
+
+    it('overridden=true 时原子 UPDATE 未命中，返回 null', async () => {
+        const draft = await createDocumentDraftDAO({
+            userId: 1, templateId: 1,
+            sessionId: `sid-title-3-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            status: 'ready', values: {}, sourceRef: null, metadata: null, caseId: null,
+        })
+        localDraftIds.push(draft.id)
+        await updateDraftTitleDAO(draft.id, '用户命名')
+        const result = await updateDraftTitleIfNotOverriddenDAO(draft.id, 'AI 尝试覆盖')
+        expect(result).toBeNull()
     })
 })

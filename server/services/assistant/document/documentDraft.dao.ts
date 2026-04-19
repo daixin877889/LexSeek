@@ -22,6 +22,10 @@ export interface CreateDocumentDraftInput {
     sourceRef: Record<string, unknown> | null
     metadata: Record<string, unknown> | null
     caseId: number | null
+    /** 初始标题；不传走数据库默认空串 */
+    title?: string
+    /** 初始覆盖位，默认 false */
+    titleOverridden?: boolean
 }
 
 /** 列表查询过滤参数 */
@@ -54,6 +58,8 @@ export async function createDocumentDraftDAO(
             sourceRef: input.sourceRef as any,
             metadata: input.metadata as any,
             caseId: input.caseId,
+            title: input.title ?? '',
+            titleOverridden: input.titleOverridden ?? false,
         },
     })
 }
@@ -159,4 +165,39 @@ export async function softDeleteDocumentDraftDAO(id: number, tx?: Prisma.Transac
         where: { id },
         data: { deletedAt: new Date() },
     })
+}
+
+/**
+ * 用户路径：无条件更新 title，并锁定 titleOverridden=true。
+ * AI 以后不会再覆盖此标题。
+ */
+export async function updateDraftTitleDAO(
+    id: number,
+    title: string,
+    tx?: Prisma.TransactionClient,
+) {
+    const db = tx ?? prisma
+    return db.documentDrafts.update({
+        where: { id },
+        data: { title, titleOverridden: true, updatedAt: new Date() },
+    })
+}
+
+/**
+ * AI 路径：仅在 titleOverridden=false 时更新 title（原子 updateMany 避免竞态）。
+ * 命中 → 返回更新后记录；未命中（用户已改过）→ 返回 null。
+ * 不会触碰 titleOverridden 本身。
+ */
+export async function updateDraftTitleIfNotOverriddenDAO(
+    id: number,
+    title: string,
+    tx?: Prisma.TransactionClient,
+) {
+    const db = tx ?? prisma
+    const result = await db.documentDrafts.updateMany({
+        where: { id, deletedAt: null, titleOverridden: false },
+        data: { title, updatedAt: new Date() },
+    })
+    if (result.count === 0) return null
+    return db.documentDrafts.findFirst({ where: { id, deletedAt: null } })
 }
