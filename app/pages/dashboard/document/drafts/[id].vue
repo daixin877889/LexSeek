@@ -380,7 +380,7 @@ function handlePanelResize(sizes: number[]) {
     <div class="p-4 md:p-6 flex flex-col gap-4" style="height: calc(100vh - 48px)">
         <!-- 顶部工具栏 -->
         <header class="flex items-center justify-between gap-4 flex-wrap">
-            <div class="flex items-center gap-2 min-w-0">
+            <div class="flex items-center gap-2 min-w-0 flex-1">
                 <Button variant="ghost" size="sm" @click="goBack">
                     <ArrowLeftIcon class="size-4 mr-1" />
                     返回
