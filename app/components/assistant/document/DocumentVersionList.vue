@@ -40,9 +40,9 @@ function formatTime(iso: string) {
             还没有保存过版本，点顶部"保存当前为版本"记录里程碑
         </div>
         <ul v-else class="divide-y rounded-md border">
-            <li v-for="v in versions" :key="v.id" class="p-3 space-y-2">
-                <div class="flex items-center gap-2 min-w-0">
-                    <div class="flex items-center gap-1.5 min-w-0 flex-1">
+            <li v-for="v in versions" :key="v.id" class="flex items-center gap-4 p-3">
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-1.5 min-w-0">
                         <template v-if="editingId === v.id">
                             <input v-model="editingName" type="text" maxlength="100"
                                 class="flex-1 min-w-0 bg-transparent border-b border-primary outline-none text-sm font-medium px-1 py-0.5"
@@ -60,11 +60,11 @@ function formatTime(iso: string) {
                             </button>
                         </template>
                     </div>
-                    <span class="shrink-0 text-xs text-muted-foreground tabular-nums">
+                    <div class="text-xs text-muted-foreground tabular-nums mt-0.5 px-1">
                         {{ formatTime(v.createdAt) }}
-                    </span>
+                    </div>
                 </div>
-                <div class="flex items-center justify-end gap-1">
+                <div class="flex items-center gap-0.5 shrink-0">
                     <Button size="sm" variant="ghost" class="h-7 px-2" @click="emit('preview', v)">
                         <EyeIcon class="size-3.5 mr-1" /> 预览
                     </Button>
