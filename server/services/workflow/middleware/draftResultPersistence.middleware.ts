@@ -11,10 +11,13 @@
 
 import { createMiddleware } from 'langchain'
 import { updateDocumentDraftDAO } from '../../assistant/document/documentDraft.dao'
+import { createSnapshotService } from '../../assistant/document/documentDraftSnapshot.service'
+import { applyAITitleIfAllowedService } from '../../assistant/document/documentDraft.service'
 
 interface DraftStructured {
     values?: Record<string, string | null>
     suggestions?: Record<string, string>
+    aiTitle?: string
 }
 
 /**
@@ -111,12 +114,39 @@ export const draftResultPersistenceMiddleware = (options: DraftResultPersistence
 
                     const values = structured.values ?? {}
                     const suggestions = structured.suggestions
+                    const aiTitle = typeof structured.aiTitle === 'string' ? structured.aiTitle.trim() : ''
+
+                    // 先写 ai-extract 快照（失败仅 warn 不阻塞）
+                    try {
+                        await createSnapshotService(draftId, 'ai-extract', {
+                            values,
+                            aiTitle: aiTitle || null,
+                        })
+                    } catch (err) {
+                        logger.warn('draft 持久化：写 ai-extract 快照失败（不阻塞）', { draftId, error: err })
+                    }
+
+                    // 主写入 —— 这一步是必须成功的，失败走外层 catch
                     await updateDocumentDraftDAO(draftId, {
                         values,
                         metadata: suggestions ? { suggestions } : undefined,
                         status: 'ready',
                     })
-                    logger.info('draft 持久化：置 ready', { draftId, fieldCount: Object.keys(values).length })
+
+                    // 有 aiTitle 则尝试应用（仅 titleOverridden=false 生效；失败仅 warn）
+                    if (aiTitle) {
+                        try {
+                            await applyAITitleIfAllowedService(draftId, aiTitle)
+                        } catch (err) {
+                            logger.warn('draft 持久化：应用 AI 标题失败（不阻塞）', { draftId, error: err })
+                        }
+                    }
+
+                    logger.info('draft 持久化：置 ready', {
+                        draftId,
+                        fieldCount: Object.keys(values).length,
+                        hasAITitle: !!aiTitle,
+                    })
                 } catch (error) {
                     logger.error('draft 持久化 afterAgent 失败', { draftId, error })
                     try {
