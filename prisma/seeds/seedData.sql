@@ -267,6 +267,12 @@ INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at",
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (547, 'admin-document-templates', '文书模板', '系统级文书模板管理', '/admin/document-templates', 't', NULL, 'FileTextIcon', 3, 2, '知识库管理', 4, '2026-04-18 16:00:00+08', '2026-04-18 16:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
 INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (188, 1, 547, '2026-04-18 16:00:00+08', '2026-04-18 16:00:00+08', NULL) ON CONFLICT (role_id, router_id) DO NOTHING;
 
+-- 管理端：合同审查记录（超管可见，知识库管理菜单组）
+-- 对应页面：app/pages/admin/contract-reviews/index.vue
+-- **Feature: contract-review-m6.1b**
+INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (548, 'admin-contract-reviews', '合同审查记录', '查看并管理全部用户合同审查记录', '/admin/contract-reviews', 't', NULL, 'FileTextIcon', 3, 3, '知识库管理', 4, '2026-04-19 10:00:00+08', '2026-04-19 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
+INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (189, 1, 548, '2026-04-19 10:00:00+08', '2026-04-19 10:00:00+08', NULL) ON CONFLICT (role_id, router_id) DO NOTHING;
+
 
 -- 会员级别
 INSERT INTO "public"."membership_levels" ("id", "name", "description", "sort_order", "status", "created_at", "updated_at", "deleted_at") VALUES (1, '基础版', '基础功能，包含案情分析和摘要生成。', 1, 1, '2025-12-27 19:01:37.905382+08', '2025-12-27 19:01:37.905382+08', NULL);
