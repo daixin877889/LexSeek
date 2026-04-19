@@ -41,21 +41,21 @@ function onKeydown(e: KeyboardEvent) {
 </script>
 
 <template>
-    <div class="inline-flex items-center gap-2 min-w-0">
+    <div class="flex items-center gap-2 min-w-0 flex-1">
         <template v-if="!editing">
-            <span data-testid="title-display"
-                class="truncate cursor-pointer hover:bg-muted/60 rounded px-1 py-0.5"
+            <h1 data-testid="title-display"
+                class="text-base md:text-lg font-semibold truncate cursor-pointer hover:bg-muted/60 rounded px-1 py-0.5"
                 :title="title" @click="startEdit">
                 {{ title }}
-            </span>
-            <button type="button" class="text-muted-foreground hover:text-foreground transition"
+            </h1>
+            <button type="button" class="shrink-0 text-muted-foreground hover:text-foreground transition"
                 @click="startEdit" aria-label="编辑标题">
                 <PencilIcon class="size-3.5" />
             </button>
         </template>
         <template v-else>
             <input ref="inputRef" v-model="draft" type="text" maxlength="200"
-                class="text-lg md:text-xl font-semibold bg-transparent border-b border-primary outline-none px-1 py-0.5 min-w-[16rem] max-w-[32rem]"
+                class="text-base md:text-lg font-semibold bg-transparent border-b border-primary outline-none px-1 py-0.5 w-full max-w-[40rem]"
                 @blur="commit" @keydown="onKeydown" />
         </template>
     </div>
