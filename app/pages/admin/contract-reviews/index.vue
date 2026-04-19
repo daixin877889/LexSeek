@@ -153,7 +153,8 @@
 <script setup lang="ts">
 import { Loader2, FileText, Search } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import type { AdminReviewListItem } from '~~/server/services/assistant/contract/contractReview.dao'
+import type { AdminReviewListItem } from '#shared/types/contract'
+import { REVIEW_STATUS_LABEL } from '#shared/types/contract'
 
 definePageMeta({ layout: 'admin-layout', title: '合同审查记录' })
 
@@ -195,11 +196,9 @@ const queryUrl = computed(() => {
     return `/api/v1/admin/contract-reviews?${params.toString()}`
 })
 
-// ─── 数据请求（useApi：响应式 url + 自动重取）──────────────────────────────────
-const { data, pending, refresh } = await useApi<ListResponse>(queryUrl, {
-    // 筛选变更时重新拉取
-    watch: [queryUrl],
-})
+// ─── 数据请求 ──────────────────────────────────────────────────────────────
+// useApi 传入 computed URL 会自动追踪变化并 refetch；无需显式 watch / refresh。
+const { data, pending, refresh } = await useApi<ListResponse>(queryUrl)
 
 const rows = computed<AdminReviewListItem[]>(() => data.value?.items ?? [])
 const total = computed(() => data.value?.total ?? 0)
@@ -207,42 +206,21 @@ const total = computed(() => data.value?.total ?? 0)
 // ─── 状态 Badge 映射 ─────────────────────────────────────────────────────────
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline'
 
-const STATUS_LABEL_MAP: Record<string, string> = {
-    pending: '待处理',
-    reviewing: '审查中',
-    awaiting_stance: '等待立场',
-    completed: '已完成',
-    failed: '失败',
-    rebuilding: '重建中',
-}
-
 function getStatusLabel(status: string) {
-    return STATUS_LABEL_MAP[status] ?? status
+    return REVIEW_STATUS_LABEL[status as keyof typeof REVIEW_STATUS_LABEL] ?? status
 }
 
 function getStatusVariant(status: string): BadgeVariant {
-    switch (status) {
-        case 'completed':
-        case 'failed':
-        case 'reviewing':
-        case 'awaiting_stance':
-            // 用 default/destructive/secondary 三种 shadcn 变体 + 自定义颜色不搭，保持 outline 基调
-            // 靠 class 控色：下面在模板里已用 Badge variant 设定基础风格
-            return status === 'completed'
-                ? 'default'
-                : status === 'failed'
-                    ? 'destructive'
-                    : 'secondary'
-        default:
-            return 'outline'
-    }
+    if (status === 'completed') return 'default'
+    if (status === 'failed') return 'destructive'
+    if (status === 'reviewing' || status === 'awaiting_stance') return 'secondary'
+    return 'outline'
 }
 
 // ─── 事件 ────────────────────────────────────────────────────────────────────
 function handleSearch() {
+    // 重置到第一页；queryUrl 变化由 useApi 自动 refetch
     page.value = 1
-    // queryUrl 变化会自动触发 watch → refresh；显式再 refresh 防同值无变化场景
-    refresh()
 }
 
 function handleReset() {

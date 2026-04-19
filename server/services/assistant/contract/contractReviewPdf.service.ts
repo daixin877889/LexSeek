@@ -21,8 +21,15 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { getContractReviewDAO } from './contractReview.dao'
+import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import type { Risk, RiskLevel } from '#shared/types/contract'
-import { prisma } from '~~/server/utils/db'
+import {
+    REVIEW_STATUS_LABEL,
+    STANCE_LABEL,
+    RISK_LEVEL_LABEL,
+    type ContractReviewStatus,
+    type Stance,
+} from '#shared/types/contract'
 
 interface PdfMakeSingleton {
     setFonts: (fonts: TFontDictionary) => void
@@ -55,24 +62,9 @@ const FONT_DESCRIPTORS = {
 
 const SEVERITY_ORDER: RiskLevel[] = ['high', 'medium', 'low']
 const SEVERITY_META: Record<RiskLevel, { label: string; color: string; fill: string }> = {
-    high: { label: '高', color: '#b91c1c', fill: '#fee2e2' },
-    medium: { label: '中', color: '#b45309', fill: '#fef3c7' },
-    low: { label: '低', color: '#15803d', fill: '#dcfce7' },
-}
-
-const STANCE_LABEL: Record<string, string> = {
-    partyA: '甲方',
-    partyB: '乙方',
-    neutral: '中立',
-}
-
-const STATUS_LABEL: Record<string, string> = {
-    pending: '待开始',
-    reviewing: '审查中',
-    awaiting_stance: '等待立场',
-    completed: '已完成',
-    rebuilding: '批注重生中',
-    failed: '失败',
+    high: { label: RISK_LEVEL_LABEL.high, color: '#b91c1c', fill: '#fee2e2' },
+    medium: { label: RISK_LEVEL_LABEL.medium, color: '#b45309', fill: '#fef3c7' },
+    low: { label: RISK_LEVEL_LABEL.low, color: '#15803d', fill: '#dcfce7' },
 }
 
 /** 只去除 Markdown 常见标记符，不做富文本解析 */
@@ -111,10 +103,7 @@ export async function exportReviewPdfService(
     }
 
     const originalFile = review.originalFileId
-        ? await prisma.ossFiles.findFirst({
-              where: { id: review.originalFileId },
-              select: { fileName: true },
-          })
+        ? await findOssFileByIdDao(review.originalFileId)
         : null
     const originalFileName = originalFile?.fileName ?? '未命名合同'
 
@@ -164,7 +153,10 @@ function buildDocDefinition(ctx: BuildContext): TDocumentDefinitions {
                     { text: '合同类型', style: 'infoLabel' },
                     { text: ctx.contractType ?? '-', style: 'infoValue' },
                     { text: '审查立场', style: 'infoLabel' },
-                    { text: STANCE_LABEL[ctx.stance ?? ''] ?? ctx.stance ?? '-', style: 'infoValue' },
+                    {
+                        text: ctx.stance ? STANCE_LABEL[ctx.stance as Stance] ?? ctx.stance : '-',
+                        style: 'infoValue',
+                    },
                 ],
                 [
                     { text: '甲方', style: 'infoLabel' },
@@ -174,7 +166,10 @@ function buildDocDefinition(ctx: BuildContext): TDocumentDefinitions {
                 ],
                 [
                     { text: '当前状态', style: 'infoLabel' },
-                    { text: STATUS_LABEL[ctx.status] ?? ctx.status, style: 'infoValue' },
+                    {
+                        text: REVIEW_STATUS_LABEL[ctx.status as ContractReviewStatus] ?? ctx.status,
+                        style: 'infoValue',
+                    },
                     { text: '审查时间', style: 'infoLabel' },
                     { text: formatDateTime(ctx.createdAt), style: 'infoValue' },
                 ],

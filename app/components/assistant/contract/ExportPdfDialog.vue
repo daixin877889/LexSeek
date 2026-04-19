@@ -18,7 +18,6 @@ const emit = defineEmits<{
     cancel: []
 }>()
 
-// RadioGroup 值只能是 string，转布尔时用 'true' / 'false'
 const mode = ref<'summary' | 'full'>('summary')
 
 function handleConfirm() {

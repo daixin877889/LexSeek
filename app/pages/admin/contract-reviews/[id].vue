@@ -135,7 +135,7 @@
                                     <span v-if="risk.clauseIndex !== undefined" class="text-xs text-muted-foreground ml-1">#条款 {{ risk.clauseIndex }}</span>
                                 </div>
                                 <Badge v-if="risk.level" :variant="getSeverityVariant(risk.level)">
-                                    {{ risk.level === 'high' ? '高' : risk.level === 'medium' ? '中' : risk.level === 'low' ? '低' : risk.level }}
+                                    {{ getSeverityLabel(risk.level) }}
                                 </Badge>
                             </div>
                             <div v-if="risk.clauseText" class="text-xs bg-muted/50 rounded px-2 py-1.5 whitespace-pre-wrap">
@@ -194,7 +194,8 @@
 <script setup lang="ts">
 import { ArrowLeft, FileX, Loader2, Trash2 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
-import type { AdminReviewDetail } from '~~/server/services/assistant/contract/contractReview.dao'
+import type { AdminReviewDetail, Risk } from '#shared/types/contract'
+import { REVIEW_STATUS_LABEL, RISK_LEVEL_LABEL } from '#shared/types/contract'
 
 definePageMeta({ layout: 'admin-layout', title: '合同审查详情' })
 
@@ -207,20 +208,6 @@ if (!Number.isInteger(id) || id <= 0) {
     await navigateTo('/admin/contract-reviews', { replace: true })
 }
 
-// ─── 风险条目类型（仅前端展示） ─────────────────────────────────────────────────
-interface RiskItem {
-    problem?: string
-    analysis?: string
-    risk?: string
-    level?: string
-    category?: string
-    legalBasis?: string
-    suggestion?: string
-    suggestedClauseText?: string
-    clauseIndex?: number
-    clauseText?: string
-}
-
 // ─── 状态 ────────────────────────────────────────────────────────────────────
 const { formatDate } = useFormatters()
 
@@ -231,38 +218,18 @@ const { data: detail, refresh } = await useApi<AdminReviewDetail>(
 const deleteDialogOpen = ref(false)
 const deleting = ref(false)
 
-const risks = computed<RiskItem[]>(() => {
+// DAO 层未强制 narrow risks 结构（可能包含历史版本或写入异常），这里仅做 Array 守护后 as 回 Risk。
+// 管理端只读展示，字段缺失会 fallthrough 到模板的 v-if 保护，不再逐字段运行时校验。
+const risks = computed<Risk[]>(() => {
     const raw = detail.value?.risks
-    if (!Array.isArray(raw)) return []
-    return raw.filter((x): x is Record<string, unknown> => typeof x === 'object' && x !== null)
-        .map((x) => ({
-            problem: typeof x.problem === 'string' ? x.problem : undefined,
-            analysis: typeof x.analysis === 'string' ? x.analysis : undefined,
-            risk: typeof x.risk === 'string' ? x.risk : undefined,
-            level: typeof x.level === 'string' ? x.level : undefined,
-            category: typeof x.category === 'string' ? x.category : undefined,
-            legalBasis: typeof x.legalBasis === 'string' ? x.legalBasis : undefined,
-            suggestion: typeof x.suggestion === 'string' ? x.suggestion : undefined,
-            suggestedClauseText: typeof x.suggestedClauseText === 'string' ? x.suggestedClauseText : undefined,
-            clauseIndex: typeof x.clauseIndex === 'number' ? x.clauseIndex : undefined,
-            clauseText: typeof x.clauseText === 'string' ? x.clauseText : undefined,
-        }))
+    return Array.isArray(raw) ? (raw as Risk[]) : []
 })
 
 // ─── Badge 映射 ─────────────────────────────────────────────────────────────
 type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline'
 
-const STATUS_LABEL_MAP: Record<string, string> = {
-    pending: '待处理',
-    reviewing: '审查中',
-    awaiting_stance: '等待立场',
-    completed: '已完成',
-    failed: '失败',
-    rebuilding: '重建中',
-}
-
 function getStatusLabel(status: string) {
-    return STATUS_LABEL_MAP[status] ?? status
+    return REVIEW_STATUS_LABEL[status as keyof typeof REVIEW_STATUS_LABEL] ?? status
 }
 
 function getStatusVariant(status: string): BadgeVariant {
@@ -272,11 +239,14 @@ function getStatusVariant(status: string): BadgeVariant {
     return 'outline'
 }
 
-function getSeverityVariant(severity: string): BadgeVariant {
-    const s = severity.toLowerCase()
-    if (s.includes('high') || s.includes('高')) return 'destructive'
-    if (s.includes('medium') || s.includes('中')) return 'default'
+function getSeverityVariant(level: string): BadgeVariant {
+    if (level === 'high') return 'destructive'
+    if (level === 'medium') return 'default'
     return 'secondary'
+}
+
+function getSeverityLabel(level: string) {
+    return RISK_LEVEL_LABEL[level as keyof typeof RISK_LEVEL_LABEL] ?? level
 }
 
 async function confirmDelete() {

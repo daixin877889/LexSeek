@@ -8,7 +8,8 @@
  * 数据源：GET /api/v1/assistant/contract/reviews?caseId={caseId}&skip=0&take=50
  */
 import { FileSearchIcon, PlusIcon, Loader2Icon, FileTextIcon } from 'lucide-vue-next'
-import type { ReviewListItem } from '~~/server/services/assistant/contract/contractReview.dao'
+import type { ReviewListItem } from '#shared/types/contract'
+import { REVIEW_STATUS_LABEL } from '#shared/types/contract'
 
 const props = defineProps<{
     caseId: number
@@ -21,8 +22,10 @@ interface ListResponse {
     take: number
 }
 
-// 列表取数：useApi 走 SSR，SourceContractList 随案件详情页 tab 切换挂载 / 卸载
-const { data, pending, refresh } = await useApi<ListResponse>(
+const { formatDate } = useFormatters()
+
+// query 用 computed 传入，useApi 追踪其变化并自动 refetch；不需要额外 watch。
+const { data, pending } = await useApi<ListResponse>(
     '/api/v1/assistant/contract/reviews',
     {
         query: computed(() => ({ caseId: props.caseId, skip: 0, take: 50 })),
@@ -32,9 +35,6 @@ const { data, pending, refresh } = await useApi<ListResponse>(
 const items = computed<ReviewListItem[]>(() => data.value?.items ?? [])
 const total = computed(() => data.value?.total ?? 0)
 
-// 切 Tab 重新挂载时 key 变了会自动重新请求，但同一个 caseId 用 refresh 走轻量路径
-watch(() => props.caseId, () => { refresh() })
-
 function handleCreate() {
     navigateTo(`/dashboard/assistant/contract?caseId=${props.caseId}`)
 }
@@ -43,25 +43,11 @@ function handleOpen(row: ReviewListItem) {
     navigateTo(`/dashboard/assistant/contract?reviewId=${row.id}`)
 }
 
-/** 状态 badge 文案映射（与用户端列表保持一致） */
-const statusLabelMap: Record<string, string> = {
-    pending: '准备中',
-    reviewing: '审查中',
-    awaiting_stance: '等待立场',
-    completed: '已完成',
-    failed: '失败',
-    rebuilding: '重建中',
-}
-
 /** 状态对应 badge 色调，失败红，完成绿，其他中性 */
 function statusBadgeVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
     if (status === 'completed') return 'default'
     if (status === 'failed') return 'destructive'
     return 'secondary'
-}
-
-function formatDate(d: Date | string): string {
-    return new Date(d).toLocaleString('zh-CN', { hour12: false })
 }
 </script>
 
@@ -118,11 +104,11 @@ function formatDate(d: Date | string): string {
                         </div>
                         <div class="text-xs text-muted-foreground mt-1">
                             <template v-if="row.contractType">{{ row.contractType }} · </template>
-                            {{ formatDate(row.createdAt) }}
+                            {{ formatDate(String(row.createdAt)) }}
                         </div>
                     </div>
                     <Badge :variant="statusBadgeVariant(row.status)" class="shrink-0">
-                        {{ statusLabelMap[row.status] ?? row.status }}
+                        {{ REVIEW_STATUS_LABEL[row.status as keyof typeof REVIEW_STATUS_LABEL] ?? row.status }}
                     </Badge>
                 </div>
 

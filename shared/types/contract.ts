@@ -79,3 +79,75 @@ export type ReviewWithParsedRisks = Omit<contractReviews, 'risks'> & {
  * pending / reviewing / awaiting_stance / failed / rebuilding 均返回 409。
  */
 export const REVIEW_EDITABLE_STATUSES: readonly ContractReviewStatus[] = ['completed'] as const
+
+export const REVIEW_STATUS_LABEL: Record<ContractReviewStatus, string> = {
+    pending: '待处理',
+    reviewing: '审查中',
+    awaiting_stance: '等待立场',
+    completed: '已完成',
+    rebuilding: '重建中',
+    failed: '失败',
+}
+
+export const STANCE_LABEL: Record<Stance, string> = {
+    partyA: '甲方',
+    partyB: '乙方',
+    neutral: '中立',
+}
+
+export const RISK_LEVEL_LABEL: Record<RiskLevel, string> = {
+    high: '高',
+    medium: '中',
+    low: '低',
+}
+
+// ==================== 列表/详情 DTO（用户端 + 管理端共享） ====================
+
+/** 用户端列表项（无 userId / deletedAt 等超管字段） */
+export interface ReviewListItem {
+    id: number
+    sessionId: string
+    caseId: number | null
+    contractType: string | null
+    partyA: string | null
+    partyB: string | null
+    stance: string | null
+    status: string
+    summary: string | null
+    originalFileName: string | null
+    hasUnsavedDocxChanges: boolean
+    createdAt: Date
+    updatedAt: Date
+}
+
+/** 管理端列表项：在用户端基础上补充用户归属与软删时间 */
+export type AdminReviewListItem = ReviewListItem & {
+    userId: number
+    userPhone: string | null
+    userNickname: string | null
+    deletedAt: Date | null
+}
+
+/** 管理端详情：summary 完整、risks 原样 JSON 返回，不截断、不解析 */
+export interface AdminReviewDetail {
+    id: number
+    sessionId: string
+    userId: number
+    userPhone: string | null
+    userNickname: string | null
+    originalFileId: number
+    originalFileName: string | null
+    reviewedFileId: number | null
+    reviewedFileName: string | null
+    contractType: string | null
+    partyA: string | null
+    partyB: string | null
+    stance: string | null
+    status: string
+    summary: string | null
+    risks: unknown
+    hasUnsavedDocxChanges: boolean
+    createdAt: Date
+    updatedAt: Date
+    deletedAt: Date | null
+}

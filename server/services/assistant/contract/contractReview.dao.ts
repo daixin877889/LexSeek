@@ -8,7 +8,12 @@
  */
 import { prisma } from '~~/server/utils/db'
 import type { contractReviews, Prisma } from '~~/generated/prisma/client'
-import type { Risk } from '#shared/types/contract'
+import type {
+    AdminReviewDetail,
+    AdminReviewListItem,
+    ReviewListItem,
+    Risk,
+} from '#shared/types/contract'
 
 type CreateInput = Omit<Prisma.contractReviewsUncheckedCreateInput, 'id' | 'createdAt' | 'updatedAt'>
 type UpdateInput = Prisma.contractReviewsUncheckedUpdateInput
@@ -125,23 +130,6 @@ export async function rollbackRebuildDAO(id: number): Promise<void> {
 
 // ==================== 用户端列表（M6.1A Task 4）====================
 
-/** 列表项字段白名单（不含 userId / deletedAt） */
-export type ReviewListItem = {
-    id: number
-    sessionId: string
-    caseId: number | null
-    contractType: string | null
-    partyA: string | null
-    partyB: string | null
-    stance: string | null
-    status: string
-    summary: string | null
-    originalFileName: string | null
-    hasUnsavedDocxChanges: boolean
-    createdAt: Date
-    updatedAt: Date
-}
-
 /** 列表查询入参 */
 export interface ListUserReviewsInput {
     userId: number
@@ -154,6 +142,8 @@ export interface ListUserReviewsInput {
 }
 
 const SUMMARY_TRUNCATE = 120
+/** q 关键词命中 ossFiles 的上限：防止百万级同名命中被塞进 IN(...) */
+const Q_FILE_MATCH_LIMIT = 1000
 
 /**
  * 查询当前用户的合同审查列表。
@@ -188,6 +178,7 @@ export async function listUserReviewsDAO(
                 fileName: { contains: params.q, mode: 'insensitive' },
             },
             select: { id: true },
+            take: Q_FILE_MATCH_LIMIT,
         })
         const fileIds = fileRows.map(f => f.id)
         if (fileIds.length === 0) {
@@ -202,12 +193,27 @@ export async function listUserReviewsDAO(
             orderBy: { createdAt: 'desc' },
             skip: params.skip,
             take: params.take,
+            select: {
+                id: true,
+                sessionId: true,
+                caseId: true,
+                contractType: true,
+                partyA: true,
+                partyB: true,
+                stance: true,
+                status: true,
+                summary: true,
+                originalFileId: true,
+                hasUnsavedDocxChanges: true,
+                createdAt: true,
+                updatedAt: true,
+            },
         }),
         prisma.contractReviews.count({ where }),
     ])
 
     // 批量取 fileName：一次 IN 查询，memory join
-    const fileIds = Array.from(new Set(rows.map(r => r.originalFileId))).filter(id => id > 0)
+    const fileIds = Array.from(new Set(rows.map(r => r.originalFileId)))
     const fileNameMap = new Map<number, string>()
     if (fileIds.length > 0) {
         const files = await prisma.ossFiles.findMany({
@@ -239,41 +245,6 @@ export async function listUserReviewsDAO(
 }
 
 // ==================== 管理端（M6.1B）====================
-
-/**
- * 管理端列表项：在用户端 ReviewListItem 基础上额外暴露用户归属与软删时间。
- * `userNickname` 取自 users.name（schema 中用户昵称/姓名的实际字段）。
- */
-export type AdminReviewListItem = ReviewListItem & {
-    userId: number
-    userPhone: string | null
-    userNickname: string | null
-    deletedAt: Date | null
-}
-
-/** 管理端详情：summary 完整、risks 原样 JSON 返回，不截断、不解析。 */
-export type AdminReviewDetail = {
-    id: number
-    sessionId: string
-    userId: number
-    userPhone: string | null
-    userNickname: string | null
-    originalFileId: number
-    originalFileName: string | null
-    reviewedFileId: number | null
-    reviewedFileName: string | null
-    contractType: string | null
-    partyA: string | null
-    partyB: string | null
-    stance: string | null
-    status: string
-    summary: string | null
-    risks: unknown
-    hasUnsavedDocxChanges: boolean
-    createdAt: Date
-    updatedAt: Date
-    deletedAt: Date | null
-}
 
 export interface ListAdminReviewsInput {
     skip: number
@@ -312,6 +283,7 @@ export async function listAdminReviewsDAO(
                 fileName: { contains: params.q, mode: 'insensitive' },
             },
             select: { id: true },
+            take: Q_FILE_MATCH_LIMIT,
         })
         const fileIds = fileRows.map(f => f.id)
         if (fileIds.length === 0) {
@@ -326,14 +298,29 @@ export async function listAdminReviewsDAO(
             orderBy: { createdAt: 'desc' },
             skip: params.skip,
             take: params.take,
-            include: {
-                user: { select: { id: true, phone: true, name: true } },
+            select: {
+                id: true,
+                sessionId: true,
+                caseId: true,
+                userId: true,
+                contractType: true,
+                partyA: true,
+                partyB: true,
+                stance: true,
+                status: true,
+                summary: true,
+                originalFileId: true,
+                hasUnsavedDocxChanges: true,
+                createdAt: true,
+                updatedAt: true,
+                deletedAt: true,
+                user: { select: { phone: true, name: true } },
             },
         }),
         prisma.contractReviews.count({ where }),
     ])
 
-    const fileIds = Array.from(new Set(rows.map(r => r.originalFileId))).filter(id => id > 0)
+    const fileIds = Array.from(new Set(rows.map(r => r.originalFileId)))
     const fileNameMap = new Map<number, string>()
     if (fileIds.length > 0) {
         const files = await prisma.ossFiles.findMany({
@@ -422,19 +409,24 @@ export async function getAdminReviewDAO(id: number): Promise<AdminReviewDetail |
  * - 不存在 → not_found
  * - 已软删 → already_deleted（幂等）
  * - 否则写入 deletedAt → deleted
+ *
+ * 优先走 updateMany 原子写入（只更新 deletedAt=null 的行），count=1 表示本次写入成功；
+ * count=0 时再做一次 findFirst 区分 not_found / already_deleted。
+ * 单语句原子性避开 TOCTOU，也省掉 happy path 的第二次查询。
  */
 export async function softDeleteAdminReviewDAO(
     id: number,
 ): Promise<{ status: 'not_found' } | { status: 'already_deleted' } | { status: 'deleted' }> {
-    const row = await prisma.contractReviews.findFirst({
-        where: { id },
-        select: { id: true, deletedAt: true },
+    const now = new Date()
+    const result = await prisma.contractReviews.updateMany({
+        where: { id, deletedAt: null },
+        data: { deletedAt: now, updatedAt: now },
     })
-    if (!row) return { status: 'not_found' }
-    if (row.deletedAt) return { status: 'already_deleted' }
-    await prisma.contractReviews.update({
+    if (result.count === 1) return { status: 'deleted' }
+
+    const exists = await prisma.contractReviews.findFirst({
         where: { id },
-        data: { deletedAt: new Date(), updatedAt: new Date() },
+        select: { id: true },
     })
-    return { status: 'deleted' }
+    return exists ? { status: 'already_deleted' } : { status: 'not_found' }
 }
