@@ -12,7 +12,7 @@
  *
  * **Feature: contract-review-m5**
  */
-import { DownloadIcon, ChevronDownIcon, Loader2Icon, PlusIcon, PencilIcon, Trash2Icon } from 'lucide-vue-next'
+import { DownloadIcon, ChevronDownIcon, Loader2Icon, PlusIcon, PencilIcon, Trash2Icon, FileTextIcon } from 'lucide-vue-next'
 import type { Risk, ContractReviewStatus } from '#shared/types/contract'
 
 const props = defineProps<{
@@ -28,6 +28,7 @@ const emit = defineEmits<{
     download: []
     rebuild: []
     editRisks: [risks: Risk[]]
+    exportPdf: [includeRisks: boolean]
 }>()
 
 const sorted = computed(() => [...props.risks].sort((a, b) => a.clauseIndex - b.clauseIndex))
@@ -85,6 +86,16 @@ const LEVEL_CLASS: Record<Risk['level'], string> = {
     high: 'bg-red-500 text-white',
     medium: 'bg-orange-500 text-white',
     low: 'bg-gray-400 text-white',
+}
+
+// 导出 PDF 对话框
+const exportPdfDialogOpen = ref(false)
+function openExportPdf() {
+    if (!canDownload.value) return
+    exportPdfDialogOpen.value = true
+}
+function handleExportPdfConfirm(includeRisks: boolean) {
+    emit('exportPdf', includeRisks)
 }
 </script>
 
@@ -147,9 +158,14 @@ const LEVEL_CLASS: Record<Risk['level'], string> = {
             <Button class="w-full" :disabled="!canDownload" @click="emit('download')">
                 <DownloadIcon class="size-4 mr-1" />下载批注 Word
             </Button>
+            <Button class="w-full" variant="outline" :disabled="!canDownload" @click="openExportPdf">
+                <FileTextIcon class="size-4 mr-1" />导出 PDF
+            </Button>
         </div>
 
         <AssistantContractRiskEditDialog v-model:open="editDialogOpen" :risk="editingRisk" @confirm="handleEditConfirm" />
+
+        <AssistantContractExportPdfDialog v-model:open="exportPdfDialogOpen" @confirm="handleExportPdfConfirm" />
 
         <AlertDialog v-model:open="deleteDialogOpen">
             <AlertDialogContent>

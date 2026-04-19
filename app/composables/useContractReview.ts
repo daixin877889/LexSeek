@@ -271,6 +271,51 @@ export function useContractReview() {
         document.body.removeChild(a)
     }
 
+    /**
+     * 导出 PDF（可选是否包含风险批注）。
+     *
+     * 直接请求后端返回 PDF 二进制流（非 JSON envelope），因此绕开 useApiFetch，
+     * 使用 $fetch.raw + responseType: 'blob' 拿原始 Blob + Content-Disposition。
+     *
+     * - 入口 toast.info 提示生成中
+     * - 成功：Blob → createObjectURL → <a download> 触发浏览器保存
+     * - 失败：解析 e.data.message，fallback 固定文案
+     */
+    async function onExportPdf(includeRisks: boolean) {
+        if (!reviewId.value) return
+        toast.info('正在生成 PDF...')
+        try {
+            // 后端返回 PDF 二进制流（非 JSON envelope），绕开 useApiFetch。
+            // Nitro 强类型路由推断在 responseType:'blob' 下深度展开会触发 TS2589，
+            // 因此把 $fetch 窄化为纯函数签名后调用，运行时不受影响。
+            type BlobFetch = (url: string, opts: Record<string, unknown>) => Promise<unknown>
+            const fetcher = $fetch as unknown as BlobFetch
+            const url = `/api/v1/assistant/contract/reviews/${reviewId.value}/export-pdf`
+            const data = await fetcher(url, {
+                method: 'POST',
+                body: { includeRisks },
+                responseType: 'blob',
+            })
+            if (!(data instanceof Blob)) {
+                toast.error('PDF 生成失败')
+                return
+            }
+            const objUrl = URL.createObjectURL(data)
+            const a = document.createElement('a')
+            a.href = objUrl
+            a.download = `contract-review-${reviewId.value}.pdf`
+            a.style.display = 'none'
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            URL.revokeObjectURL(objUrl)
+            toast.success('PDF 已下载')
+        } catch (e: unknown) {
+            const msg = (e as { data?: { message?: string } })?.data?.message ?? 'PDF 生成失败'
+            toast.error(msg)
+        }
+    }
+
     /** 拉取签名 URL 并通过隐藏 <a download> 触发浏览器下载 */
     async function onDownload() {
         if (!reviewId.value) return
@@ -337,6 +382,7 @@ export function useContractReview() {
         mountReview,
         onStance,
         onDownload,
+        onExportPdf,
         onEditRisks,
         onRebuildDocx,
         resumeInterrupt,

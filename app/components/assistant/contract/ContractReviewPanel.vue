@@ -26,6 +26,7 @@ const {
     mountReview,
     onStance,
     onDownload,
+    onExportPdf,
     onEditRisks,
     onRebuildDocx,
     isRebuilding,
@@ -105,6 +106,14 @@ watch(isRebuilding, (rebuilding, wasRebuilding) => {
         toast.info('批注正在重新生成，请稍候...')
     }
 })
+
+// 浮动风险速览面板：默认显示，用户关闭后可通过 toolbar 重开
+const showFloatingPanel = ref(true)
+
+// TODO (Phase 3 案件页复用)：接入 Word 预览滚动定位；当前仅作为占位，保留 emit 不做动作
+function handleFocusRisk(_riskId: string) {
+    // noop
+}
 </script>
 
 <template>
@@ -155,8 +164,18 @@ watch(isRebuilding, (rebuilding, wasRebuilding) => {
                     @download="onDownload"
                     @rebuild="onRebuildDocx"
                     @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
+                    @export-pdf="(includeRisks: boolean) => onExportPdf(includeRisks)"
                 />
             </div>
         </div>
+
+        <!-- 浮动风险速览（仅在结果屏挂载） -->
+        <AssistantContractFloatingAnnotationPanel
+            v-if="review && !showSourceInput"
+            :risks="review?.risks ?? []"
+            :visible="showFloatingPanel"
+            @update:visible="(v: boolean) => (showFloatingPanel = v)"
+            @focus-risk="handleFocusRisk"
+        />
     </div>
 </template>

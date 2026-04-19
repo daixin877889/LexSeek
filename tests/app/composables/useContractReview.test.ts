@@ -15,7 +15,7 @@
  * **Feature: contract-review-m4**
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { shallowRef, nextTick } from 'vue'
 
 // ── mock vue-sonner toast（在顶层，避免后续分支 hoist 问题）───────────────────
@@ -729,3 +729,129 @@ describe('useContractReview M5 扩展', () => {
 //   useDebounceFn 的节流本身由 @vueuse/core 单元测试保证，我们验证 onEditRisks
 //   的"逻辑在调用后立即生效"（debounce 已被取消为 identity）已足够覆盖行为。
 //   若后续需验证真实 500ms 节流，可新建独立文件 + vi.useFakeTimers。
+
+// ── M6.2 扩展：onExportPdf ─────────────────────────────────────────────────
+
+describe('useContractReview.onExportPdf', () => {
+    async function mountReviewed() {
+        mockFetch.mockResolvedValueOnce({
+            review: {
+                id: 500,
+                sessionId: 's-500',
+                status: 'completed',
+                contractType: null,
+                partyA: null,
+                partyB: null,
+                stance: null,
+                risks: [],
+                summary: null,
+                originalFileId: 1,
+                reviewedFileId: 2,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+        })
+        const c = useContractReview()
+        await c.mountReview(500)
+        mockFetch.mockReset()
+        mockToast.info.mockReset()
+        mockToast.success.mockReset()
+        mockToast.error.mockReset()
+        return c
+    }
+
+    const originalFetch = (globalThis as any).$fetch
+    const originalCreateObjectURL = URL.createObjectURL
+    const originalRevokeObjectURL = URL.revokeObjectURL
+
+    beforeEach(() => {
+        mockFetch.mockReset()
+        mockToast.info.mockReset()
+        mockToast.success.mockReset()
+        mockToast.error.mockReset()
+        URL.createObjectURL = vi.fn(() => 'blob:mock-url')
+        URL.revokeObjectURL = vi.fn()
+    })
+
+    afterEach(() => {
+        ; (globalThis as any).$fetch = originalFetch
+        URL.createObjectURL = originalCreateObjectURL
+        URL.revokeObjectURL = originalRevokeObjectURL
+    })
+
+    it('成功：toast.info + <a download> 触发 + toast.success', async () => {
+        const c = await mountReviewed()
+
+        const blob = new Blob(['%PDF-1.4 mock'], { type: 'application/pdf' })
+        const fetchFn = vi.fn().mockResolvedValue(blob)
+        ; (globalThis as any).$fetch = fetchFn
+
+        const appendSpy = vi.spyOn(document.body, 'appendChild')
+        const removeSpy = vi.spyOn(document.body, 'removeChild')
+
+        await c.onExportPdf(true)
+
+        expect(mockToast.info).toHaveBeenCalledWith('正在生成 PDF...')
+        expect(fetchFn).toHaveBeenCalledWith(
+            '/api/v1/assistant/contract/reviews/500/export-pdf',
+            expect.objectContaining({
+                method: 'POST',
+                body: { includeRisks: true },
+                responseType: 'blob',
+            }),
+        )
+        const anchor = appendSpy.mock.calls.find(
+            (args) => (args[0] as HTMLElement).tagName === 'A',
+        )?.[0] as HTMLAnchorElement
+        expect(anchor).toBeDefined()
+        expect(anchor.download).toBe('contract-review-500.pdf')
+        expect(removeSpy).toHaveBeenCalled()
+        expect(mockToast.success).toHaveBeenCalledWith('PDF 已下载')
+
+        appendSpy.mockRestore()
+        removeSpy.mockRestore()
+    })
+
+    it('返回非 Blob 时 toast.error', async () => {
+        const c = await mountReviewed()
+        const fetchFn = vi.fn().mockResolvedValue({ not: 'a blob' })
+        ; (globalThis as any).$fetch = fetchFn
+
+        await c.onExportPdf(false)
+
+        expect(mockToast.info).toHaveBeenCalled()
+        expect(mockToast.error).toHaveBeenCalledWith('PDF 生成失败')
+        expect(mockToast.success).not.toHaveBeenCalled()
+    })
+
+    it('$fetch 抛错时解析 e.data.message 提示', async () => {
+        const c = await mountReviewed()
+        const fetchFn = vi.fn().mockRejectedValue({ data: { message: '后端炸了' } })
+        ; (globalThis as any).$fetch = fetchFn
+
+        await c.onExportPdf(false)
+
+        expect(mockToast.error).toHaveBeenCalledWith('后端炸了')
+    })
+
+    it('$fetch 抛错且无 message 时 fallback 固定文案', async () => {
+        const c = await mountReviewed()
+        const fetchFn = vi.fn().mockRejectedValue(new Error('network'))
+        ; (globalThis as any).$fetch = fetchFn
+
+        await c.onExportPdf(false)
+
+        expect(mockToast.error).toHaveBeenCalledWith('PDF 生成失败')
+    })
+
+    it('reviewId 为空 → 静默不发请求', async () => {
+        const c = useContractReview()
+        const fetchFn = vi.fn()
+        ; (globalThis as any).$fetch = fetchFn
+
+        await c.onExportPdf(true)
+
+        expect(fetchFn).not.toHaveBeenCalled()
+        expect(mockToast.info).not.toHaveBeenCalled()
+    })
+})
