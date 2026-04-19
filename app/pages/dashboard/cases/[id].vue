@@ -16,7 +16,7 @@ const router = useRouter()
 const caseId = computed(() => Number(route.params.id))
 
 // --- 路由 query 持久化状态 ---
-const validViews: ActiveView[] = ['overview', 'materials', 'analysis', 'todos', 'documents']
+const validViews: ActiveView[] = ['overview', 'materials', 'analysis', 'todos', 'documents', 'contracts']
 const initialView = validViews.includes(route.query.tab as ActiveView)
   ? (route.query.tab as ActiveView)
   : 'overview'
@@ -91,6 +91,7 @@ const viewLabelMap: Record<ActiveView, string> = {
   analysis: '分析结果',
   todos: '待办事项',
   documents: '文书生成',
+  contracts: '合同审查',
 }
 
 // --- 材料预览弹窗状态（复用 init-analysis 的模式） ---
@@ -300,6 +301,7 @@ onMounted(() => {
           <div v-else-if="activeView === 'documents'" :key="'documents'" class="h-full overflow-y-auto p-4 md:p-6">
             <AssistantDocumentDraftPanel :case-id="caseId" />
           </div>
+          <CaseDetailContracts v-else-if="activeView === 'contracts'" :key="'contracts'" :case-id="caseId" />
           <!-- 其他视图占位 -->
           <div v-else :key="'placeholder'" class="flex items-center justify-center h-full text-muted-foreground">
             当前视图：{{ activeView }}
