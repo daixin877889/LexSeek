@@ -13,12 +13,7 @@ import { createMiddleware } from 'langchain'
 import { updateDocumentDraftDAO } from '../../assistant/document/documentDraft.dao'
 import { createSnapshotService } from '../../assistant/document/documentDraftSnapshot.service'
 import { applyAITitleIfAllowedService } from '../../assistant/document/documentDraft.service'
-
-interface DraftStructured {
-    values?: Record<string, string | null>
-    suggestions?: Record<string, string>
-    aiTitle?: string
-}
+import type { DocumentDraftStructured } from '#shared/types/document'
 
 /**
  * 从 AI 消息文本里兜底解析 JSON：
@@ -26,7 +21,7 @@ interface DraftStructured {
  *  2. 退化匹配第一个平衡的 `{...}`
  * 解析失败返回 null，让上层走 failed 分支。
  */
-function tryParseStructuredFromText(text: string): DraftStructured | null {
+function tryParseStructuredFromText(text: string): DocumentDraftStructured | null {
     if (!text || typeof text !== 'string') return null
 
     const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
@@ -42,7 +37,7 @@ function tryParseStructuredFromText(text: string): DraftStructured | null {
 
     for (const raw of candidates) {
         try {
-            const parsed = JSON.parse(raw.trim()) as DraftStructured
+            const parsed = JSON.parse(raw.trim()) as DocumentDraftStructured
             if (parsed && typeof parsed === 'object' && parsed.values && typeof parsed.values === 'object') {
                 return parsed
             }
@@ -84,7 +79,7 @@ export const draftResultPersistenceMiddleware = (options: DraftResultPersistence
         afterAgent: {
             hook: async (state: any) => {
                 try {
-                    let structured: DraftStructured | null = state.structuredResponse ?? null
+                    let structured: DocumentDraftStructured | null = state.structuredResponse ?? null
 
                     // fallback：模型把 JSON 写到消息体里时尝试解析最后一条 AI 消息
                     if (!structured) {

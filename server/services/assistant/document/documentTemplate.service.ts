@@ -14,6 +14,7 @@ import { StorageProviderType } from '~~/server/lib/storage/types'
 import { FileSource, OssFileStatus } from '~~/shared/types/file'
 import { scanPlaceholders } from './templateScanner'
 import { createDocumentTemplateDAO, countUserTemplatesDAO } from './documentTemplate.dao'
+import { extractDocxtemplaterErrorDetail } from './docxtemplaterError.util'
 import type { Prisma } from '#shared/types/prisma'
 import type { DocumentCategoryKey, Placeholder } from '#shared/types/document'
 
@@ -165,22 +166,6 @@ function tryCompileTemplate(buffer: Buffer): string | null {
         })
         return null
     } catch (err) {
-        const anyErr = err as {
-            message?: string
-            properties?: {
-                explanation?: string
-                xtag?: string
-                errors?: Array<{ properties?: { explanation?: string; xtag?: string } }>
-            }
-        }
-        const first = anyErr?.properties?.errors?.[0]?.properties
-        if (first?.explanation) {
-            return `${first.explanation}${first.xtag ? `（位置：${first.xtag}）` : ''}`
-        }
-        const top = anyErr?.properties
-        if (top?.explanation) {
-            return `${top.explanation}${top.xtag ? `（位置：${top.xtag}）` : ''}`
-        }
-        return anyErr?.message ?? '未知错误'
+        return extractDocxtemplaterErrorDetail(err)
     }
 }

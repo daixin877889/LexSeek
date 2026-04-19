@@ -61,6 +61,16 @@ export interface DocumentDraftMetadata {
     suggestions?: Record<string, string>
 }
 
+/**
+ * Agent 结构化输出（文书主 Agent 返回 JSON，或从消息文本兜底解析出来）。
+ * builder 层 zod schema 与 middleware 层解析结果、前端回填逻辑都依赖此形状。
+ */
+export interface DocumentDraftStructured {
+    values?: Record<string, string | null>
+    suggestions?: Record<string, string>
+    aiTitle?: string
+}
+
 // ==================== API 请求/响应 ====================
 export interface CreateDraftRequest {
     templateId: number

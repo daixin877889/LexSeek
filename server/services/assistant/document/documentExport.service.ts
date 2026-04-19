@@ -26,6 +26,7 @@ import { StorageProviderType } from '~~/server/lib/storage/types'
 import { getDocumentDraftDAO, updateDocumentDraftDAO } from './documentDraft.dao'
 import { getDocumentTemplateDAO } from './documentTemplate.dao'
 import { getVersionByIdDAO } from './documentDraftVersion.dao'
+import { extractDocxtemplaterErrorDetail } from './docxtemplaterError.util'
 import type { ExportDraftResponse } from '#shared/types/document'
 
 /** 导出错误响应 */
@@ -181,24 +182,4 @@ export async function exportVersionByIdService(
         values: version.values as Record<string, unknown>,
         fileBaseName: `${version.titleAt}-${version.name}`,
     })
-}
-
-/**
- * 从 docxtemplater 抛出的 MultiError/TemplateError 中提取首条可读错误。
- * 兼容单错误（properties.explanation/xtag）与多错误（properties.errors[]）两种形态。
- */
-function extractDocxtemplaterErrorDetail(err: unknown): string {
-    const anyErr = err as {
-        message?: string
-        properties?: {
-            explanation?: string
-            xtag?: string
-            errors?: Array<{ properties?: { explanation?: string; xtag?: string } }>
-        }
-    }
-    const nested = anyErr?.properties?.errors?.[0]?.properties
-    if (nested?.explanation) return `${nested.explanation}${nested.xtag ? `（位置：${nested.xtag}）` : ''}`
-    const top = anyErr?.properties
-    if (top?.explanation) return `${top.explanation}${top.xtag ? `（位置：${top.xtag}）` : ''}`
-    return anyErr?.message ?? '未知错误'
 }
