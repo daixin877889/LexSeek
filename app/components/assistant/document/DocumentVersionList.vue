@@ -16,21 +16,27 @@ const emit = defineEmits<{
 
 const editingId = ref<number | null>(null)
 const editingName = ref('')
+const originalName = ref('')
+const inputRef = ref<HTMLInputElement | null>(null)
 
 function startRename(v: DocumentDraftVersion) {
     editingId.value = v.id
     editingName.value = v.name
+    originalName.value = v.name
+    nextTick(() => inputRef.value?.focus())
 }
 
 function commitRename(id: number) {
+    if (editingId.value !== id) return
     const clean = editingName.value.trim()
     editingId.value = null
-    if (!clean) return
+    if (!clean || clean === originalName.value) return
     emit('rename', id, clean)
 }
 
-function formatTime(iso: string) {
-    return formatDate(iso, 'YYYY-MM-DD HH:mm')
+function cancelRename() {
+    editingId.value = null
+    editingName.value = originalName.value
 }
 </script>
 
@@ -45,11 +51,11 @@ function formatTime(iso: string) {
                 <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-1.5 min-w-0">
                         <template v-if="editingId === v.id">
-                            <input v-model="editingName" type="text" maxlength="100"
+                            <input ref="inputRef" v-model="editingName" type="text" maxlength="100"
                                 class="flex-1 min-w-0 bg-transparent border-b border-primary outline-none text-sm font-medium px-1 py-0.5"
                                 @blur="commitRename(v.id)"
                                 @keydown.enter.prevent="commitRename(v.id)"
-                                @keydown.escape="editingId = null" autofocus />
+                                @keydown.escape="cancelRename" />
                         </template>
                         <template v-else>
                             <span class="text-sm font-medium truncate cursor-pointer hover:bg-muted/60 rounded px-1 py-0.5"
@@ -62,7 +68,7 @@ function formatTime(iso: string) {
                         </template>
                     </div>
                     <div class="text-xs text-muted-foreground tabular-nums mt-0.5 px-1">
-                        {{ formatTime(v.createdAt) }}
+                        {{ formatDate(v.createdAt, 'YYYY-MM-DD HH:mm') }}
                     </div>
                 </div>
                 <div class="flex items-center gap-0.5 shrink-0">
