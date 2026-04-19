@@ -52,7 +52,7 @@ function onApplyAll() {
                 <SheetTitle>历史</SheetTitle>
                 <SheetDescription>查看已保存的版本与 AI 自动快照</SheetDescription>
             </SheetHeader>
-            <Tabs v-model="activeTab" class="mt-4">
+            <Tabs v-model="activeTab" class="mt-4 px-4">
                 <TabsList class="grid grid-cols-2 w-full">
                     <TabsTrigger value="versions">版本（{{ versions.length }}）</TabsTrigger>
                     <TabsTrigger value="snapshots">快照（{{ snapshots.length }}）</TabsTrigger>
