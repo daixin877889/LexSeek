@@ -554,14 +554,14 @@ describe('useContractReview M5 扩展', () => {
 
             await c.onRebuildDocx()
 
-            expect(mockToast.info).toHaveBeenCalledWith('正在重新生成批注，请稍候...')
+            expect(mockToast.info).toHaveBeenCalledWith('批注正在重新生成，请稍候...')
             expect(mockFetch).toHaveBeenNthCalledWith(
                 1,
                 '/api/v1/assistant/contract/reviews/100/rebuild-docx',
                 expect.objectContaining({ method: 'POST' }),
             )
             expect(c.hasUnsavedDocxChanges.value).toBe(false)
-            expect(mockToast.success).toHaveBeenCalledWith('批注已重生')
+            expect(mockToast.success).toHaveBeenCalledWith('批注已重新生成')
 
             expect(createSpy).toHaveBeenCalledWith('a')
             expect(appendSpy).toHaveBeenCalled()
@@ -576,7 +576,7 @@ describe('useContractReview M5 扩展', () => {
             createSpy.mockRestore()
         })
 
-        it('429 → toast.warning 提示重生中', async () => {
+        it('429 → toast.warning 提示重新生成中', async () => {
             const c = await mountReviewed('completed')
             // 模拟 useApiFetch onBusinessError 注入 code=429 后返回 null
             mockFetch.mockImplementationOnce((_url: string, opts: any) => {
@@ -600,7 +600,7 @@ describe('useContractReview M5 扩展', () => {
 
             await c.onRebuildDocx()
 
-            expect(mockToast.error).toHaveBeenCalledWith('重生批注失败，请稍后重试')
+            expect(mockToast.error).toHaveBeenCalledWith('重新生成批注失败，请稍后重试')
             expect(mockToast.warning).not.toHaveBeenCalled()
         })
 
