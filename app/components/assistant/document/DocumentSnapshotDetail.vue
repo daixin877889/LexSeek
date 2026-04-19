@@ -74,7 +74,7 @@ const changedCount = computed(() => diffs.value.filter(r => r.changed).length)
                     </div>
                 </div>
                 <div v-else class="px-3 py-2">
-                    <div class="text-xs text-muted-foreground mb-1">值相同</div>
+                    <div class="text-xs text-muted-foreground mb-1">和当前版本一致</div>
                     <div class="text-sm break-words whitespace-pre-wrap" :class="!row.current && 'text-muted-foreground'">
                         {{ row.current || '—' }}
                     </div>
