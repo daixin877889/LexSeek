@@ -294,6 +294,7 @@ export type casesWhereInput = {
   caseMaterials?: Prisma.CaseMaterialsListRelationFilter
   caseAnalyses?: Prisma.CaseAnalysesListRelationFilter
   documentDrafts?: Prisma.DocumentDraftsListRelationFilter
+  contractReviews?: Prisma.ContractReviewsListRelationFilter
 }
 
 export type casesOrderByWithRelationInput = {
@@ -317,6 +318,7 @@ export type casesOrderByWithRelationInput = {
   caseMaterials?: Prisma.caseMaterialsOrderByRelationAggregateInput
   caseAnalyses?: Prisma.caseAnalysesOrderByRelationAggregateInput
   documentDrafts?: Prisma.documentDraftsOrderByRelationAggregateInput
+  contractReviews?: Prisma.contractReviewsOrderByRelationAggregateInput
 }
 
 export type casesWhereUniqueInput = Prisma.AtLeast<{
@@ -343,6 +345,7 @@ export type casesWhereUniqueInput = Prisma.AtLeast<{
   caseMaterials?: Prisma.CaseMaterialsListRelationFilter
   caseAnalyses?: Prisma.CaseAnalysesListRelationFilter
   documentDrafts?: Prisma.DocumentDraftsListRelationFilter
+  contractReviews?: Prisma.ContractReviewsListRelationFilter
 }, "id">
 
 export type casesOrderByWithAggregationInput = {
@@ -405,6 +408,7 @@ export type casesCreateInput = {
   caseMaterials?: Prisma.caseMaterialsCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesCreateNestedManyWithoutCaseInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutCaseInput
+  contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutCaseInput
 }
 
 export type casesUncheckedCreateInput = {
@@ -426,6 +430,7 @@ export type casesUncheckedCreateInput = {
   caseMaterials?: Prisma.caseMaterialsUncheckedCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedCreateNestedManyWithoutCaseInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutCaseInput
+  contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type casesUpdateInput = {
@@ -446,6 +451,7 @@ export type casesUpdateInput = {
   caseMaterials?: Prisma.caseMaterialsUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUpdateManyWithoutCaseNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutCaseNestedInput
+  contractReviews?: Prisma.contractReviewsUpdateManyWithoutCaseNestedInput
 }
 
 export type casesUncheckedUpdateInput = {
@@ -467,6 +473,7 @@ export type casesUncheckedUpdateInput = {
   caseMaterials?: Prisma.caseMaterialsUncheckedUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedUpdateManyWithoutCaseNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutCaseNestedInput
+  contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type casesCreateManyInput = {
@@ -684,6 +691,22 @@ export type casesUpdateOneRequiredWithoutCaseAnalysesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.casesUpdateToOneWithWhereWithoutCaseAnalysesInput, Prisma.casesUpdateWithoutCaseAnalysesInput>, Prisma.casesUncheckedUpdateWithoutCaseAnalysesInput>
 }
 
+export type casesCreateNestedOneWithoutContractReviewsInput = {
+  create?: Prisma.XOR<Prisma.casesCreateWithoutContractReviewsInput, Prisma.casesUncheckedCreateWithoutContractReviewsInput>
+  connectOrCreate?: Prisma.casesCreateOrConnectWithoutContractReviewsInput
+  connect?: Prisma.casesWhereUniqueInput
+}
+
+export type casesUpdateOneWithoutContractReviewsNestedInput = {
+  create?: Prisma.XOR<Prisma.casesCreateWithoutContractReviewsInput, Prisma.casesUncheckedCreateWithoutContractReviewsInput>
+  connectOrCreate?: Prisma.casesCreateOrConnectWithoutContractReviewsInput
+  upsert?: Prisma.casesUpsertWithoutContractReviewsInput
+  disconnect?: Prisma.casesWhereInput | boolean
+  delete?: Prisma.casesWhereInput | boolean
+  connect?: Prisma.casesWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.casesUpdateToOneWithWhereWithoutContractReviewsInput, Prisma.casesUpdateWithoutContractReviewsInput>, Prisma.casesUncheckedUpdateWithoutContractReviewsInput>
+}
+
 export type casesCreateNestedOneWithoutDocumentDraftsInput = {
   create?: Prisma.XOR<Prisma.casesCreateWithoutDocumentDraftsInput, Prisma.casesUncheckedCreateWithoutDocumentDraftsInput>
   connectOrCreate?: Prisma.casesCreateOrConnectWithoutDocumentDraftsInput
@@ -759,6 +782,7 @@ export type casesCreateWithoutCaseTypeInput = {
   caseMaterials?: Prisma.caseMaterialsCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesCreateNestedManyWithoutCaseInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutCaseInput
+  contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutCaseInput
 }
 
 export type casesUncheckedCreateWithoutCaseTypeInput = {
@@ -779,6 +803,7 @@ export type casesUncheckedCreateWithoutCaseTypeInput = {
   caseMaterials?: Prisma.caseMaterialsUncheckedCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedCreateNestedManyWithoutCaseInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutCaseInput
+  contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type casesCreateOrConnectWithoutCaseTypeInput = {
@@ -844,6 +869,7 @@ export type casesCreateWithoutCaseSessionsInput = {
   caseMaterials?: Prisma.caseMaterialsCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesCreateNestedManyWithoutCaseInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutCaseInput
+  contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutCaseInput
 }
 
 export type casesUncheckedCreateWithoutCaseSessionsInput = {
@@ -864,6 +890,7 @@ export type casesUncheckedCreateWithoutCaseSessionsInput = {
   caseMaterials?: Prisma.caseMaterialsUncheckedCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedCreateNestedManyWithoutCaseInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutCaseInput
+  contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type casesCreateOrConnectWithoutCaseSessionsInput = {
@@ -899,6 +926,7 @@ export type casesUpdateWithoutCaseSessionsInput = {
   caseMaterials?: Prisma.caseMaterialsUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUpdateManyWithoutCaseNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutCaseNestedInput
+  contractReviews?: Prisma.contractReviewsUpdateManyWithoutCaseNestedInput
 }
 
 export type casesUncheckedUpdateWithoutCaseSessionsInput = {
@@ -919,6 +947,7 @@ export type casesUncheckedUpdateWithoutCaseSessionsInput = {
   caseMaterials?: Prisma.caseMaterialsUncheckedUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedUpdateManyWithoutCaseNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutCaseNestedInput
+  contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type casesCreateWithoutCaseMaterialsInput = {
@@ -938,6 +967,7 @@ export type casesCreateWithoutCaseMaterialsInput = {
   caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesCreateNestedManyWithoutCaseInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutCaseInput
+  contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutCaseInput
 }
 
 export type casesUncheckedCreateWithoutCaseMaterialsInput = {
@@ -958,6 +988,7 @@ export type casesUncheckedCreateWithoutCaseMaterialsInput = {
   caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedCreateNestedManyWithoutCaseInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutCaseInput
+  contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type casesCreateOrConnectWithoutCaseMaterialsInput = {
@@ -993,6 +1024,7 @@ export type casesUpdateWithoutCaseMaterialsInput = {
   caseSessions?: Prisma.caseSessionsUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUpdateManyWithoutCaseNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutCaseNestedInput
+  contractReviews?: Prisma.contractReviewsUpdateManyWithoutCaseNestedInput
 }
 
 export type casesUncheckedUpdateWithoutCaseMaterialsInput = {
@@ -1013,6 +1045,7 @@ export type casesUncheckedUpdateWithoutCaseMaterialsInput = {
   caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedUpdateManyWithoutCaseNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutCaseNestedInput
+  contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type casesCreateWithoutCaseAnalysesInput = {
@@ -1032,6 +1065,7 @@ export type casesCreateWithoutCaseAnalysesInput = {
   caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutCaseInput
   caseMaterials?: Prisma.caseMaterialsCreateNestedManyWithoutCaseInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutCaseInput
+  contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutCaseInput
 }
 
 export type casesUncheckedCreateWithoutCaseAnalysesInput = {
@@ -1052,6 +1086,7 @@ export type casesUncheckedCreateWithoutCaseAnalysesInput = {
   caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutCaseInput
   caseMaterials?: Prisma.caseMaterialsUncheckedCreateNestedManyWithoutCaseInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutCaseInput
+  contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type casesCreateOrConnectWithoutCaseAnalysesInput = {
@@ -1087,6 +1122,7 @@ export type casesUpdateWithoutCaseAnalysesInput = {
   caseSessions?: Prisma.caseSessionsUpdateManyWithoutCaseNestedInput
   caseMaterials?: Prisma.caseMaterialsUpdateManyWithoutCaseNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutCaseNestedInput
+  contractReviews?: Prisma.contractReviewsUpdateManyWithoutCaseNestedInput
 }
 
 export type casesUncheckedUpdateWithoutCaseAnalysesInput = {
@@ -1107,6 +1143,105 @@ export type casesUncheckedUpdateWithoutCaseAnalysesInput = {
   caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutCaseNestedInput
   caseMaterials?: Prisma.caseMaterialsUncheckedUpdateManyWithoutCaseNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutCaseNestedInput
+  contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutCaseNestedInput
+}
+
+export type casesCreateWithoutContractReviewsInput = {
+  title: string
+  content?: string | null
+  plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: number
+  isDemo?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  user: Prisma.usersCreateNestedOneWithoutCasesInput
+  caseType: Prisma.caseTypesCreateNestedOneWithoutCasesInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutCaseInput
+  caseMaterials?: Prisma.caseMaterialsCreateNestedManyWithoutCaseInput
+  caseAnalyses?: Prisma.caseAnalysesCreateNestedManyWithoutCaseInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutCaseInput
+}
+
+export type casesUncheckedCreateWithoutContractReviewsInput = {
+  id?: number
+  title: string
+  content?: string | null
+  userId: number
+  caseTypeId: number
+  plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: number
+  isDemo?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutCaseInput
+  caseMaterials?: Prisma.caseMaterialsUncheckedCreateNestedManyWithoutCaseInput
+  caseAnalyses?: Prisma.caseAnalysesUncheckedCreateNestedManyWithoutCaseInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutCaseInput
+}
+
+export type casesCreateOrConnectWithoutContractReviewsInput = {
+  where: Prisma.casesWhereUniqueInput
+  create: Prisma.XOR<Prisma.casesCreateWithoutContractReviewsInput, Prisma.casesUncheckedCreateWithoutContractReviewsInput>
+}
+
+export type casesUpsertWithoutContractReviewsInput = {
+  update: Prisma.XOR<Prisma.casesUpdateWithoutContractReviewsInput, Prisma.casesUncheckedUpdateWithoutContractReviewsInput>
+  create: Prisma.XOR<Prisma.casesCreateWithoutContractReviewsInput, Prisma.casesUncheckedCreateWithoutContractReviewsInput>
+  where?: Prisma.casesWhereInput
+}
+
+export type casesUpdateToOneWithWhereWithoutContractReviewsInput = {
+  where?: Prisma.casesWhereInput
+  data: Prisma.XOR<Prisma.casesUpdateWithoutContractReviewsInput, Prisma.casesUncheckedUpdateWithoutContractReviewsInput>
+}
+
+export type casesUpdateWithoutContractReviewsInput = {
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  user?: Prisma.usersUpdateOneRequiredWithoutCasesNestedInput
+  caseType?: Prisma.caseTypesUpdateOneRequiredWithoutCasesNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutCaseNestedInput
+  caseMaterials?: Prisma.caseMaterialsUpdateManyWithoutCaseNestedInput
+  caseAnalyses?: Prisma.caseAnalysesUpdateManyWithoutCaseNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutCaseNestedInput
+}
+
+export type casesUncheckedUpdateWithoutContractReviewsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  content?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  userId?: Prisma.IntFieldUpdateOperationsInput | number
+  caseTypeId?: Prisma.IntFieldUpdateOperationsInput | number
+  plaintiff?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  defendant?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  extractedInfo?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  isDemo?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutCaseNestedInput
+  caseMaterials?: Prisma.caseMaterialsUncheckedUpdateManyWithoutCaseNestedInput
+  caseAnalyses?: Prisma.caseAnalysesUncheckedUpdateManyWithoutCaseNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type casesCreateWithoutDocumentDraftsInput = {
@@ -1126,6 +1261,7 @@ export type casesCreateWithoutDocumentDraftsInput = {
   caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutCaseInput
   caseMaterials?: Prisma.caseMaterialsCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesCreateNestedManyWithoutCaseInput
+  contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutCaseInput
 }
 
 export type casesUncheckedCreateWithoutDocumentDraftsInput = {
@@ -1146,6 +1282,7 @@ export type casesUncheckedCreateWithoutDocumentDraftsInput = {
   caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutCaseInput
   caseMaterials?: Prisma.caseMaterialsUncheckedCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedCreateNestedManyWithoutCaseInput
+  contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type casesCreateOrConnectWithoutDocumentDraftsInput = {
@@ -1181,6 +1318,7 @@ export type casesUpdateWithoutDocumentDraftsInput = {
   caseSessions?: Prisma.caseSessionsUpdateManyWithoutCaseNestedInput
   caseMaterials?: Prisma.caseMaterialsUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUpdateManyWithoutCaseNestedInput
+  contractReviews?: Prisma.contractReviewsUpdateManyWithoutCaseNestedInput
 }
 
 export type casesUncheckedUpdateWithoutDocumentDraftsInput = {
@@ -1201,6 +1339,7 @@ export type casesUncheckedUpdateWithoutDocumentDraftsInput = {
   caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutCaseNestedInput
   caseMaterials?: Prisma.caseMaterialsUncheckedUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedUpdateManyWithoutCaseNestedInput
+  contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type casesCreateWithoutUserInput = {
@@ -1220,6 +1359,7 @@ export type casesCreateWithoutUserInput = {
   caseMaterials?: Prisma.caseMaterialsCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesCreateNestedManyWithoutCaseInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutCaseInput
+  contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutCaseInput
 }
 
 export type casesUncheckedCreateWithoutUserInput = {
@@ -1240,6 +1380,7 @@ export type casesUncheckedCreateWithoutUserInput = {
   caseMaterials?: Prisma.caseMaterialsUncheckedCreateNestedManyWithoutCaseInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedCreateNestedManyWithoutCaseInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutCaseInput
+  contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutCaseInput
 }
 
 export type casesCreateOrConnectWithoutUserInput = {
@@ -1301,6 +1442,7 @@ export type casesUpdateWithoutCaseTypeInput = {
   caseMaterials?: Prisma.caseMaterialsUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUpdateManyWithoutCaseNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutCaseNestedInput
+  contractReviews?: Prisma.contractReviewsUpdateManyWithoutCaseNestedInput
 }
 
 export type casesUncheckedUpdateWithoutCaseTypeInput = {
@@ -1321,6 +1463,7 @@ export type casesUncheckedUpdateWithoutCaseTypeInput = {
   caseMaterials?: Prisma.caseMaterialsUncheckedUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedUpdateManyWithoutCaseNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutCaseNestedInput
+  contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type casesUncheckedUpdateManyWithoutCaseTypeInput = {
@@ -1372,6 +1515,7 @@ export type casesUpdateWithoutUserInput = {
   caseMaterials?: Prisma.caseMaterialsUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUpdateManyWithoutCaseNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutCaseNestedInput
+  contractReviews?: Prisma.contractReviewsUpdateManyWithoutCaseNestedInput
 }
 
 export type casesUncheckedUpdateWithoutUserInput = {
@@ -1392,6 +1536,7 @@ export type casesUncheckedUpdateWithoutUserInput = {
   caseMaterials?: Prisma.caseMaterialsUncheckedUpdateManyWithoutCaseNestedInput
   caseAnalyses?: Prisma.caseAnalysesUncheckedUpdateManyWithoutCaseNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutCaseNestedInput
+  contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutCaseNestedInput
 }
 
 export type casesUncheckedUpdateManyWithoutUserInput = {
@@ -1420,6 +1565,7 @@ export type CasesCountOutputType = {
   caseMaterials: number
   caseAnalyses: number
   documentDrafts: number
+  contractReviews: number
 }
 
 export type CasesCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1427,6 +1573,7 @@ export type CasesCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.
   caseMaterials?: boolean | CasesCountOutputTypeCountCaseMaterialsArgs
   caseAnalyses?: boolean | CasesCountOutputTypeCountCaseAnalysesArgs
   documentDrafts?: boolean | CasesCountOutputTypeCountDocumentDraftsArgs
+  contractReviews?: boolean | CasesCountOutputTypeCountContractReviewsArgs
 }
 
 /**
@@ -1467,6 +1614,13 @@ export type CasesCountOutputTypeCountDocumentDraftsArgs<ExtArgs extends runtime.
   where?: Prisma.documentDraftsWhereInput
 }
 
+/**
+ * CasesCountOutputType without action
+ */
+export type CasesCountOutputTypeCountContractReviewsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.contractReviewsWhereInput
+}
+
 
 export type casesSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1489,6 +1643,7 @@ export type casesSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   caseMaterials?: boolean | Prisma.cases$caseMaterialsArgs<ExtArgs>
   caseAnalyses?: boolean | Prisma.cases$caseAnalysesArgs<ExtArgs>
   documentDrafts?: boolean | Prisma.cases$documentDraftsArgs<ExtArgs>
+  contractReviews?: boolean | Prisma.cases$contractReviewsArgs<ExtArgs>
   _count?: boolean | Prisma.CasesCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["cases"]>
 
@@ -1555,6 +1710,7 @@ export type casesInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   caseMaterials?: boolean | Prisma.cases$caseMaterialsArgs<ExtArgs>
   caseAnalyses?: boolean | Prisma.cases$caseAnalysesArgs<ExtArgs>
   documentDrafts?: boolean | Prisma.cases$documentDraftsArgs<ExtArgs>
+  contractReviews?: boolean | Prisma.cases$contractReviewsArgs<ExtArgs>
   _count?: boolean | Prisma.CasesCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type casesIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1593,6 +1749,10 @@ export type $casesPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
      * 关联的文书草稿
      */
     documentDrafts: Prisma.$documentDraftsPayload<ExtArgs>[]
+    /**
+     * 关联的合同审查（case 软删/硬删时 contract_reviews.case_id 自动置 null，不级联删）
+     */
+    contractReviews: Prisma.$contractReviewsPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     /**
@@ -2051,6 +2211,7 @@ export interface Prisma__casesClient<T, Null = never, ExtArgs extends runtime.Ty
   caseMaterials<T extends Prisma.cases$caseMaterialsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.cases$caseMaterialsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$caseMaterialsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   caseAnalyses<T extends Prisma.cases$caseAnalysesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.cases$caseAnalysesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$caseAnalysesPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   documentDrafts<T extends Prisma.cases$documentDraftsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.cases$documentDraftsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$documentDraftsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  contractReviews<T extends Prisma.cases$contractReviewsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.cases$contractReviewsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$contractReviewsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2588,6 +2749,30 @@ export type cases$documentDraftsArgs<ExtArgs extends runtime.Types.Extensions.In
   take?: number
   skip?: number
   distinct?: Prisma.DocumentDraftsScalarFieldEnum | Prisma.DocumentDraftsScalarFieldEnum[]
+}
+
+/**
+ * cases.contractReviews
+ */
+export type cases$contractReviewsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the contractReviews
+   */
+  select?: Prisma.contractReviewsSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the contractReviews
+   */
+  omit?: Prisma.contractReviewsOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.contractReviewsInclude<ExtArgs> | null
+  where?: Prisma.contractReviewsWhereInput
+  orderBy?: Prisma.contractReviewsOrderByWithRelationInput | Prisma.contractReviewsOrderByWithRelationInput[]
+  cursor?: Prisma.contractReviewsWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ContractReviewsScalarFieldEnum | Prisma.ContractReviewsScalarFieldEnum[]
 }
 
 /**

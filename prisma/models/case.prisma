@@ -75,6 +75,8 @@ model cases {
     caseAnalyses   caseAnalyses[]
     /// 关联的文书草稿
     documentDrafts documentDrafts[]
+    /// 关联的合同审查（case 软删/硬删时 contract_reviews.case_id 自动置 null，不级联删）
+    contractReviews contractReviews[]
 
     @@index([userId], map: "idx_cases_user_id")
     @@index([caseTypeId], map: "idx_cases_case_type_id")
