@@ -35,11 +35,25 @@ export type CreateAndStartResult =
 /**
  * 创建合同审查并入队 Worker。
  * 按 sourceType 分流取到 originalFileId，再建 session / review / enqueue。
+ *
+ * caseId（可选）：若传入，需校验案件归属当前用户，否则返回 403。写入 review.caseId 后
+ * 列表接口可按 caseId 过滤（案件详情 Tab 复用场景）。
  */
 export async function createAndStartContractReviewService(
     options: CreateAndStartOptions,
 ): Promise<CreateAndStartResult> {
-    const { userId, sourceType, ossFileId, text } = options
+    const { userId, sourceType, ossFileId, text, caseId } = options
+
+    // caseId 归属校验：owner-only，软删的案件视为不可用
+    if (caseId !== undefined) {
+        const caseRow = await prisma.cases.findFirst({
+            where: { id: caseId, userId, deletedAt: null },
+            select: { id: true },
+        })
+        if (!caseRow) {
+            return { error: '案件不存在或无权访问', code: 403 }
+        }
+    }
 
     let originalFileId: number
 
@@ -113,6 +127,7 @@ export async function createAndStartContractReviewService(
         sessionId,
         originalFileId,
         status: 'pending',
+        ...(caseId !== undefined ? { caseId } : {}),
     })
 
     await enqueueRunService({

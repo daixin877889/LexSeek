@@ -35,6 +35,8 @@ export interface CreateReviewRequest {
     sourceType: 'upload' | 'paste'
     ossFileId?: number
     text?: string
+    /** 可选：归属案件 id；传入后校验案件属于当前用户，写入 contractReviews.caseId */
+    caseId?: number
 }
 
 export interface CreateReviewResponse {

@@ -129,7 +129,37 @@ describe('GET /api/v1/assistant/contract/reviews - handler 分支', () => {
             take: 10,
             status: 'completed',
             q: '劳动',
+            caseId: undefined,
         })
+    })
+
+    it('handler 正确转发 caseId 给 DAO（M6.3）', async () => {
+        mockList.mockResolvedValue({ items: [], total: 0 })
+        const res: any = await listHandler(
+            makeEvent({
+                userId: 1001,
+                query: { caseId: '42' },
+            }),
+        )
+        expect(res.success).toBe(true)
+        expect(mockList).toHaveBeenCalledWith({
+            userId: 1001,
+            skip: 0,
+            take: 20,
+            status: undefined,
+            q: undefined,
+            caseId: 42,
+        })
+    })
+
+    it('caseId 为 0 / 负数 / 非整数返回 400', async () => {
+        for (const bad of ['0', '-1', 'abc']) {
+            const res: any = await listHandler(
+                makeEvent({ userId: 1001, query: { caseId: bad } }),
+            )
+            expect(res.code).toBe(400)
+        }
+        expect(mockList).not.toHaveBeenCalled()
     })
 })
 
@@ -196,6 +226,7 @@ describe('listUserReviewsDAO - 真实数据库', () => {
         contractType?: string | null
         createdAt?: Date
         deletedAt?: Date | null
+        caseId?: number | null
     }) {
         const row = await prisma.contractReviews.create({
             data: {
@@ -207,6 +238,7 @@ describe('listUserReviewsDAO - 真实数据库', () => {
                 contractType: opts.contractType ?? null,
                 ...(opts.createdAt ? { createdAt: opts.createdAt } : {}),
                 ...(opts.deletedAt !== undefined ? { deletedAt: opts.deletedAt } : {}),
+                ...(opts.caseId !== undefined ? { caseId: opts.caseId } : {}),
             },
         })
         createdReviewIds.push(row.id)
@@ -347,7 +379,7 @@ describe('listUserReviewsDAO - 真实数据库', () => {
         expect(res.items[0].summary!.length).toBe(120)
     })
 
-    it('item 字段白名单：不含 userId / deletedAt', async () => {
+    it('item 字段白名单：不含 userId / deletedAt，含 caseId（默认 null）', async () => {
         await createReview({
             userId: testUserId,
             originalFileId: testFileIdA,
@@ -363,6 +395,7 @@ describe('listUserReviewsDAO - 真实数据库', () => {
         const item = res.items[0]
         expect(item).toHaveProperty('id')
         expect(item).toHaveProperty('sessionId')
+        expect(item).toHaveProperty('caseId', null)
         expect(item).toHaveProperty('contractType', '劳动合同')
         expect(item).toHaveProperty('partyA')
         expect(item).toHaveProperty('partyB')
@@ -375,5 +408,70 @@ describe('listUserReviewsDAO - 真实数据库', () => {
         expect(item).toHaveProperty('updatedAt')
         expect(item).not.toHaveProperty('userId')
         expect(item).not.toHaveProperty('deletedAt')
+    })
+
+    it('按 caseId 精确过滤（M6.3）', async () => {
+        // 动态拿一个已有的 caseType（seedData 已写入 "合同纠纷"、"劳动争议"），避免依赖固定 id
+        const caseType = await prisma.caseTypes.findFirst({
+            where: { deletedAt: null },
+            select: { id: true },
+        })
+        expect(caseType).not.toBeNull()
+
+        // 建两个案件，分别挂不同 review
+        const caseA = await prisma.cases.create({
+            data: {
+                title: `m6.3-caseA-${Date.now()}`,
+                userId: testUserId,
+                caseTypeId: caseType!.id,
+            },
+        })
+        const caseB = await prisma.cases.create({
+            data: {
+                title: `m6.3-caseB-${Date.now()}`,
+                userId: testUserId,
+                caseTypeId: caseType!.id,
+            },
+        })
+        try {
+            const rA = await createReview({
+                userId: testUserId,
+                originalFileId: testFileIdA,
+                status: 'completed',
+                caseId: caseA.id,
+            })
+            await createReview({
+                userId: testUserId,
+                originalFileId: testFileIdA,
+                status: 'completed',
+                caseId: caseB.id,
+            })
+            // 无 caseId 的独立审查（不应在 caseId=caseA 过滤里出现）
+            await createReview({
+                userId: testUserId,
+                originalFileId: testFileIdA,
+                status: 'completed',
+            })
+
+            const onlyCaseA = await listUserReviewsDAOReal({
+                userId: testUserId,
+                skip: 0,
+                take: 20,
+                caseId: caseA.id,
+            })
+            expect(onlyCaseA.total).toBe(1)
+            expect(onlyCaseA.items[0].id).toBe(rA.id)
+            expect(onlyCaseA.items[0].caseId).toBe(caseA.id)
+
+            // 不传 caseId 时三条都可见
+            const all = await listUserReviewsDAOReal({
+                userId: testUserId,
+                skip: 0,
+                take: 20,
+            })
+            expect(all.total).toBe(3)
+        } finally {
+            await prisma.cases.deleteMany({ where: { id: { in: [caseA.id, caseB.id] } } })
+        }
     })
 })

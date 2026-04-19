@@ -23,6 +23,7 @@ const BodySchema = z.object({
     sourceType: z.enum(['upload', 'paste']),
     ossFileId: z.number().int().positive().optional(),
     text: z.string().optional(),
+    caseId: z.number().int().positive().optional(),
 })
 
 export default defineEventHandler(async (event) => {

@@ -40,6 +40,7 @@ vi.mock('~~/server/services/agent/agentRun.service', () => ({
 vi.mock('~~/server/utils/db', () => ({
     prisma: {
         caseSessions: { create: vi.fn() },
+        cases: { findFirst: vi.fn() },
     },
 }))
 
@@ -64,6 +65,7 @@ const mockTextToDocxService = textToDocxService as ReturnType<typeof vi.fn>
 const mockCreateContractReviewDAO = createContractReviewDAO as ReturnType<typeof vi.fn>
 const mockEnqueueRunService = enqueueRunService as ReturnType<typeof vi.fn>
 const mockCaseSessionsCreate = (prisma.caseSessions.create as unknown) as ReturnType<typeof vi.fn>
+const mockCasesFindFirst = (prisma.cases.findFirst as unknown) as ReturnType<typeof vi.fn>
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
@@ -246,6 +248,61 @@ describe('createAndStartContractReviewService', () => {
                 sourceType: 'unknown' as unknown as 'upload',
             })
             expect(result).toEqual({ error: '不支持的 sourceType', code: 400 })
+        })
+    })
+
+    describe('caseId 关联（M6.3）', () => {
+        it('传 caseId 且归属当前用户 → 写入 review.caseId', async () => {
+            mockCasesFindFirst.mockResolvedValue({ id: 777 })
+
+            const result = await createAndStartContractReviewService({
+                userId: 100,
+                sourceType: 'upload',
+                ossFileId: 501,
+                caseId: 777,
+            })
+
+            expect(mockCasesFindFirst).toHaveBeenCalledWith({
+                where: { id: 777, userId: 100, deletedAt: null },
+                select: { id: true },
+            })
+            expect(mockCreateContractReviewDAO).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    userId: 100,
+                    originalFileId: 501,
+                    status: 'pending',
+                    caseId: 777,
+                }),
+            )
+            expect(result).toEqual({ reviewId: 42, sessionId: expect.any(String) })
+        })
+
+        it('不传 caseId → 不校验案件、review.caseId 为 undefined', async () => {
+            await createAndStartContractReviewService({
+                userId: 100,
+                sourceType: 'upload',
+                ossFileId: 501,
+            })
+
+            expect(mockCasesFindFirst).not.toHaveBeenCalled()
+            const daoArg = mockCreateContractReviewDAO.mock.calls[0]?.[0]
+            expect(daoArg).toBeDefined()
+            expect(daoArg.caseId).toBeUndefined()
+        })
+
+        it('传 caseId 但案件不存在或不归属当前用户 → 403', async () => {
+            mockCasesFindFirst.mockResolvedValue(null)
+
+            const result = await createAndStartContractReviewService({
+                userId: 100,
+                sourceType: 'upload',
+                ossFileId: 501,
+                caseId: 999,
+            })
+
+            expect(result).toEqual({ error: '案件不存在或无权访问', code: 403 })
+            expect(mockCreateContractReviewDAO).not.toHaveBeenCalled()
+            expect(mockEnqueueRunService).not.toHaveBeenCalled()
         })
     })
 })
