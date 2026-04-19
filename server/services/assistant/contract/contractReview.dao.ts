@@ -230,3 +230,203 @@ export async function listUserReviewsDAO(
 
     return { items, total }
 }
+
+// ==================== 管理端（M6.1B）====================
+
+/**
+ * 管理端列表项：在用户端 ReviewListItem 基础上额外暴露用户归属与软删时间。
+ * `userNickname` 取自 users.name（schema 中用户昵称/姓名的实际字段）。
+ */
+export type AdminReviewListItem = ReviewListItem & {
+    userId: number
+    userPhone: string | null
+    userNickname: string | null
+    deletedAt: Date | null
+}
+
+/** 管理端详情：summary 完整、risks 原样 JSON 返回，不截断、不解析。 */
+export type AdminReviewDetail = {
+    id: number
+    sessionId: string
+    userId: number
+    userPhone: string | null
+    userNickname: string | null
+    originalFileId: number
+    originalFileName: string | null
+    reviewedFileId: number | null
+    reviewedFileName: string | null
+    contractType: string | null
+    partyA: string | null
+    partyB: string | null
+    stance: string | null
+    status: string
+    summary: string | null
+    risks: unknown
+    hasUnsavedDocxChanges: boolean
+    createdAt: Date
+    updatedAt: Date
+    deletedAt: Date | null
+}
+
+export interface ListAdminReviewsInput {
+    skip: number
+    take: number
+    status?: string
+    q?: string
+    userId?: number
+    includeDeleted?: boolean
+}
+
+/**
+ * 管理端列表。与 listUserReviewsDAO 同构，差异：
+ * - 无 owner 过滤；可选 userId filter
+ * - includeDeleted=false（默认）仍过滤 deletedAt IS NULL
+ * - q 跨用户模糊匹配 ossFiles.fileName，不限制 ossFiles.userId
+ * - 附带 user.phone / user.name（作为 userNickname）
+ */
+export async function listAdminReviewsDAO(
+    params: ListAdminReviewsInput,
+): Promise<{ items: AdminReviewListItem[]; total: number }> {
+    const where: Prisma.contractReviewsWhereInput = {}
+    if (!params.includeDeleted) {
+        where.deletedAt = null
+    }
+    if (params.status) {
+        where.status = params.status
+    }
+    if (params.userId !== undefined) {
+        where.userId = params.userId
+    }
+
+    if (params.q) {
+        const fileRows = await prisma.ossFiles.findMany({
+            where: {
+                deletedAt: null,
+                fileName: { contains: params.q, mode: 'insensitive' },
+            },
+            select: { id: true },
+        })
+        const fileIds = fileRows.map(f => f.id)
+        if (fileIds.length === 0) {
+            return { items: [], total: 0 }
+        }
+        where.originalFileId = { in: fileIds }
+    }
+
+    const [rows, total] = await Promise.all([
+        prisma.contractReviews.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            skip: params.skip,
+            take: params.take,
+            include: {
+                user: { select: { id: true, phone: true, name: true } },
+            },
+        }),
+        prisma.contractReviews.count({ where }),
+    ])
+
+    const fileIds = Array.from(new Set(rows.map(r => r.originalFileId))).filter(id => id > 0)
+    const fileNameMap = new Map<number, string>()
+    if (fileIds.length > 0) {
+        const files = await prisma.ossFiles.findMany({
+            where: { id: { in: fileIds } },
+            select: { id: true, fileName: true },
+        })
+        for (const f of files) {
+            fileNameMap.set(f.id, f.fileName)
+        }
+    }
+
+    const items: AdminReviewListItem[] = rows.map(r => ({
+        id: r.id,
+        sessionId: r.sessionId,
+        contractType: r.contractType,
+        partyA: r.partyA,
+        partyB: r.partyB,
+        stance: r.stance,
+        status: r.status,
+        summary: r.summary ? r.summary.slice(0, SUMMARY_TRUNCATE) : null,
+        originalFileName: fileNameMap.get(r.originalFileId) ?? null,
+        hasUnsavedDocxChanges: r.hasUnsavedDocxChanges,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+        userId: r.userId,
+        userPhone: r.user?.phone ?? null,
+        userNickname: r.user?.name ?? null,
+        deletedAt: r.deletedAt,
+    }))
+
+    return { items, total }
+}
+
+/**
+ * 管理端详情：可查已软删记录；summary 不截断、risks 原样返回。
+ * 分两步查 ossFiles 取 originalFileName / reviewedFileName。
+ */
+export async function getAdminReviewDAO(id: number): Promise<AdminReviewDetail | null> {
+    const row = await prisma.contractReviews.findFirst({
+        where: { id },
+        include: {
+            user: { select: { id: true, phone: true, name: true } },
+        },
+    })
+    if (!row) return null
+
+    const fileIdsToLookup: number[] = [row.originalFileId]
+    if (row.reviewedFileId) fileIdsToLookup.push(row.reviewedFileId)
+
+    const files = await prisma.ossFiles.findMany({
+        where: { id: { in: fileIdsToLookup } },
+        select: { id: true, fileName: true },
+    })
+    const fileNameMap = new Map<number, string>()
+    for (const f of files) fileNameMap.set(f.id, f.fileName)
+
+    return {
+        id: row.id,
+        sessionId: row.sessionId,
+        userId: row.userId,
+        userPhone: row.user?.phone ?? null,
+        userNickname: row.user?.name ?? null,
+        originalFileId: row.originalFileId,
+        originalFileName: fileNameMap.get(row.originalFileId) ?? null,
+        reviewedFileId: row.reviewedFileId,
+        reviewedFileName: row.reviewedFileId
+            ? fileNameMap.get(row.reviewedFileId) ?? null
+            : null,
+        contractType: row.contractType,
+        partyA: row.partyA,
+        partyB: row.partyB,
+        stance: row.stance,
+        status: row.status,
+        summary: row.summary,
+        risks: row.risks,
+        hasUnsavedDocxChanges: row.hasUnsavedDocxChanges,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        deletedAt: row.deletedAt,
+    }
+}
+
+/**
+ * 管理端软删：
+ * - 不存在 → not_found
+ * - 已软删 → already_deleted（幂等）
+ * - 否则写入 deletedAt → deleted
+ */
+export async function softDeleteAdminReviewDAO(
+    id: number,
+): Promise<{ status: 'not_found' } | { status: 'already_deleted' } | { status: 'deleted' }> {
+    const row = await prisma.contractReviews.findFirst({
+        where: { id },
+        select: { id: true, deletedAt: true },
+    })
+    if (!row) return { status: 'not_found' }
+    if (row.deletedAt) return { status: 'already_deleted' }
+    await prisma.contractReviews.update({
+        where: { id },
+        data: { deletedAt: new Date(), updatedAt: new Date() },
+    })
+    return { status: 'deleted' }
+}
