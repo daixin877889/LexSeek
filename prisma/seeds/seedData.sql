@@ -1956,7 +1956,7 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 请直接输出标题（不要包含"标题："或其他前缀）：', '["firstUserMessage", "firstAssistantReply"]', 'v1', 'system', 1, 16, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL);
 -- documentMain 系统提示词 v1（node_id 通过子查询获取，保证与运行时 seed 一致）
 INSERT INTO "public"."prompts" ("name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at")
-SELECT 'documentMain_system', '文书生成主Agent系统提示词 v3',
+SELECT 'documentMain_system', '文书生成主Agent系统提示词 v4',
 '你是 LexSeek 的文书生成助手，负责按模板占位符逐一填充法律文书内容。
 
 # 当前模板
@@ -1980,7 +1980,11 @@ SELECT 'documentMain_system', '文书生成主Agent系统提示词 v3',
 
 # 结果输出（非常重要）
 
-信息收集完成后，**必须**通过系统注入的结构化输出工具（tool call）返回结果，工具入参即模板 placeholders 对应的 values 对象与 suggestions 对象。
+信息收集完成后，**必须**通过系统注入的结构化输出工具（tool call）返回结果，工具入参包含：
+- values：模板 placeholders 对应的键值对
+- suggestions：每个字段的填充依据（可选）
+- aiTitle：根据所填字段推断的简短文书标题，10~30 字，如"张三诉李四借款合同纠纷起诉状"，用于列表/顶栏识别；非文书正文内容；若难以推断可省略
+
 **严禁**在消息正文中自行写出 JSON、代码块或长篇自然语言描述最终答案——正文仅用于思考过程以及相邻工具调用之间的简要衔接。
 
 # 约束
@@ -1994,9 +1998,9 @@ WHERE n.name = 'documentMain' AND n.deleted_at IS NULL
   AND NOT EXISTS (
     SELECT 1 FROM prompts p WHERE p.node_id = n.id AND p.name = 'documentMain_system' AND p.deleted_at IS NULL
   );
--- 对已存在的 documentMain_system 提示词刷为 v3（加入 process_materials 引导）
+-- 对已存在的 documentMain_system 提示词刷为 v4（要求返回 aiTitle）
 UPDATE "public"."prompts" AS p
-   SET "title" = '文书生成主Agent系统提示词 v3',
+   SET "title" = '文书生成主Agent系统提示词 v4',
        "content" = '你是 LexSeek 的文书生成助手，负责按模板占位符逐一填充法律文书内容。
 
 # 当前模板
@@ -2020,7 +2024,11 @@ UPDATE "public"."prompts" AS p
 
 # 结果输出（非常重要）
 
-信息收集完成后，**必须**通过系统注入的结构化输出工具（tool call）返回结果，工具入参即模板 placeholders 对应的 values 对象与 suggestions 对象。
+信息收集完成后，**必须**通过系统注入的结构化输出工具（tool call）返回结果，工具入参包含：
+- values：模板 placeholders 对应的键值对
+- suggestions：每个字段的填充依据（可选）
+- aiTitle：根据所填字段推断的简短文书标题，10~30 字，如"张三诉李四借款合同纠纷起诉状"，用于列表/顶栏识别；非文书正文内容；若难以推断可省略
+
 **严禁**在消息正文中自行写出 JSON、代码块或长篇自然语言描述最终答案——正文仅用于思考过程以及相邻工具调用之间的简要衔接。
 
 # 约束
@@ -2033,7 +2041,7 @@ UPDATE "public"."prompts" AS p
  WHERE p.node_id = n.id
    AND n.name = 'documentMain' AND n.deleted_at IS NULL
    AND p.name = 'documentMain_system' AND p.deleted_at IS NULL
-   AND p.title <> '文书生成主Agent系统提示词 v3';
+   AND p.title <> '文书生成主Agent系统提示词 v4';
 
 -- contractReviewMain 系统提示词 v1（node_id 通过子查询获取）
 INSERT INTO "public"."prompts" ("name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at")
