@@ -13,12 +13,12 @@
  * **Feature: contract-review-m3**
  */
 import { z } from 'zod'
-import { getContractReviewDAO } from '~~/server/services/assistant/contract/contractReview.dao'
 import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
 import {
     findActiveRunBySessionIdDAO,
     updateRunStatusDAO,
 } from '~~/server/services/agent/agentRun.dao'
+import { loadOwnedReview } from '~~/server/services/assistant/contract/reviewGuard'
 import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
 
 const BodySchema = z.object({
@@ -28,39 +28,22 @@ const BodySchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-    // 1. 鉴权
-    const user = event.context.auth?.user
-    if (!user) {
-        return resError(event, 401, '请先登录')
-    }
-
-    // 2. 校验 reviewId
-    const reviewId = Number(getRouterParam(event, 'id'))
-    if (!Number.isInteger(reviewId) || reviewId <= 0) {
-        return resError(event, 400, 'id 无效')
-    }
-
-    // 3. 校验 body
+    // body 校验先于 guard：保持 fail-fast 语义
     const parsed = BodySchema.safeParse(await readBody(event))
     if (!parsed.success) {
         return resError(event, 400, parsed.error.issues[0]?.message ?? '参数错误')
     }
 
-    // 4. 查 review + 归属校验
-    const review = await getContractReviewDAO(reviewId)
-    if (!review) {
-        return resError(event, 404, '审查不存在')
-    }
-    if (review.userId !== user.id) {
-        return resError(event, 403, '无权操作')
-    }
+    const guard = await loadOwnedReview(event, { actionLabel: '操作' })
+    if (!guard.ok) return resError(event, guard.status, guard.message)
+    const { user, review } = guard
 
-    // 5. 非 awaiting_stance → 幂等返回（不调入队，避免重复触发）
+    // 非 awaiting_stance → 幂等返回（不调入队，避免重复触发）
     if (review.status !== 'awaiting_stance') {
-        return resSuccess(event, `立场已提交（状态：${review.status}）`, { reviewId })
+        return resSuccess(event, `立场已提交（状态：${review.status}）`, { reviewId: review.id })
     }
 
-    // 6. resume 前释放 INTERRUPTED 旧 run，对齐 document/chat.post.ts:59-64
+    // resume 前释放 INTERRUPTED 旧 run，对齐 document/chat.post.ts:59-64
     const activeRun = await findActiveRunBySessionIdDAO(review.sessionId)
     if (activeRun && activeRun.status === AGENT_RUN_STATUS.INTERRUPTED) {
         await updateRunStatusDAO(activeRun.id, AGENT_RUN_STATUS.COMPLETED, {
@@ -68,7 +51,7 @@ export default defineEventHandler(async (event) => {
         })
     }
 
-    // 7. 入队 resume run（携带 command={stance, partyA?, partyB?}）
+    // 入队 resume run（携带 command={stance, partyA?, partyB?}）
     const result = await enqueueRunService({
         sessionId: review.sessionId,
         threadId: review.sessionId,
@@ -84,7 +67,7 @@ export default defineEventHandler(async (event) => {
     }
 
     return resSuccess(event, '立场已提交，审查继续', {
-        reviewId,
+        reviewId: review.id,
         runId: result.runId,
     })
 })

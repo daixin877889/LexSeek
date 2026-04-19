@@ -41,9 +41,18 @@ vi.mock('~~/server/services/assistant/contract/contractReviewPdf.service', () =>
     exportReviewPdfService: vi.fn(),
 }))
 
+// loadOwnedReview 内部依赖 contractReview.dao.getContractReviewDAO；
+// 默认返回与 makeEvent 默认 userId 匹配的 owned review，让 guard 通过；
+// 个别需要 404/403 的测试可在用例内 override mock 返回值。
+vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
+    getContractReviewDAO: vi.fn(),
+}))
+
 import { exportReviewPdfService } from '~~/server/services/assistant/contract/contractReviewPdf.service'
+import { getContractReviewDAO } from '~~/server/services/assistant/contract/contractReview.dao'
 
 const mockExport = exportReviewPdfService as unknown as ReturnType<typeof vi.fn>
+const mockGetReview = getContractReviewDAO as unknown as ReturnType<typeof vi.fn>
 
 // ==================== 动态 import handler ====================
 
@@ -73,6 +82,8 @@ function makeEvent(opts: {
 describe('POST /api/v1/assistant/contract/reviews/:id/export-pdf handler', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        // 默认让 guard 通过：mock review 归属于 userId=10
+        mockGetReview.mockResolvedValue({ id: 1, userId: 10, status: 'completed' } as any)
     })
 
     it('未登录返回 401', async () => {
@@ -129,6 +140,7 @@ describe('POST /api/v1/assistant/contract/reviews/:id/export-pdf handler', () =>
 
     it('正常路径：返回 PDF Buffer 且设置 Content-Type', async () => {
         const fakeBuf = Buffer.from('%PDF-1.3\nfake-content')
+        mockGetReview.mockResolvedValueOnce({ id: 42, userId: 10, status: 'completed' } as any)
         mockExport.mockResolvedValueOnce(fakeBuf)
         const event = makeEvent({
             userId: 10,

@@ -18,18 +18,12 @@
  * 参见 spec §11 - 合同审查
  */
 
-import { getContractReviewDAO } from '~~/server/services/assistant/contract/contractReview.dao'
+import { loadOwnedReview } from '~~/server/services/assistant/contract/reviewGuard'
 
 export default defineEventHandler(async (event) => {
-    const user = event.context.auth?.user
-    if (!user) return resError(event, 401, '请先登录')
-
-    const id = Number(getRouterParam(event, 'id'))
-    if (!Number.isInteger(id) || id <= 0) return resError(event, 400, 'id 无效')
-
-    const review = await getContractReviewDAO(id)
-    if (!review) return resError(event, 404, '审查不存在')
-    if (review.userId !== user.id) return resError(event, 403, '无权访问')
+    const guard = await loadOwnedReview(event)
+    if (!guard.ok) return resError(event, guard.status, guard.message)
+    const { review } = guard
 
     return resSuccess(event, '获取成功', {
         review: {

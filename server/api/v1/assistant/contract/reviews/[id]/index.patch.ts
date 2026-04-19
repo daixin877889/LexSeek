@@ -13,11 +13,9 @@
  *   401 / 400(id) / 400(body) / 400(Zod) / 404 / 403 / 409 / 200
  */
 import { z } from 'zod'
-import {
-    getContractReviewDAO,
-    patchReviewRisksDAO,
-} from '~~/server/services/assistant/contract/contractReview.dao'
+import { patchReviewRisksDAO } from '~~/server/services/assistant/contract/contractReview.dao'
 import { RISK_SHAPE } from '~~/server/services/assistant/contract/riskSchema.builder'
+import { loadOwnedReview } from '~~/server/services/assistant/contract/reviewGuard'
 import { REVIEW_EDITABLE_STATUSES } from '#shared/types/contract'
 import type { ContractReviewStatus } from '#shared/types/contract'
 
@@ -26,15 +24,7 @@ const BodySchema = z.object({
 }).strict()
 
 export default defineEventHandler(async (event) => {
-    const user = event.context.auth?.user
-    if (!user) return resError(event, 401, '请先登录')
-
-    const idStr = getRouterParam(event, 'id')
-    const id = Number(idStr)
-    if (!idStr || !Number.isInteger(id) || id <= 0) {
-        return resError(event, 400, 'reviewId 无效')
-    }
-
+    // body 校验先于 guard：保持 fail-fast 语义，避免无效 body 也产生 review DB 查询
     const raw = await readBody(event).catch(() => null)
     if (!raw || typeof raw !== 'object') return resError(event, 400, '请求体无效')
 
@@ -45,14 +35,15 @@ export default defineEventHandler(async (event) => {
         return resError(event, 400, `${path || 'body'}: ${first?.message ?? '参数校验失败'}`)
     }
 
-    const review = await getContractReviewDAO(id)
-    if (!review) return resError(event, 404, '合同审查不存在')
-    if (review.userId !== user.id) return resError(event, 403, '无权编辑该审查')
+    const guard = await loadOwnedReview(event, { actionLabel: '编辑该审查' })
+    if (!guard.ok) return resError(event, guard.status, guard.message)
+    const { review } = guard
+
     if (!REVIEW_EDITABLE_STATUSES.includes(review.status as ContractReviewStatus)) {
         return resError(event, 409, `当前状态不允许编辑：${review.status}`)
     }
 
     // patchReviewRisksDAO 在单语句 UPDATE 内同时置 hasUnsavedDocxChanges=true
-    await patchReviewRisksDAO(id, parsed.data.risks)
-    return resSuccess(event, '保存成功', { reviewId: id })
+    await patchReviewRisksDAO(review.id, parsed.data.risks)
+    return resSuccess(event, '保存成功', { reviewId: review.id })
 })
