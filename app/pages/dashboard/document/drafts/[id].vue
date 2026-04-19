@@ -19,7 +19,7 @@ import type { OssFileItem } from '~/store/file'
 
 definePageMeta({
     layout: 'dashboard-layout',
-    title: '文书草稿',
+    title: '工作区',
 })
 
 const route = useRoute()
@@ -184,28 +184,25 @@ function handleChatSubmit(data: { text: string; files?: unknown[] }) {
     }
 }
 
-// 把附件挂到 draft 后再发消息，确保 search_case_materials 工具能命中
+// 把 fileIds 前置在消息里，由 Agent 通过 process_materials 工具处理；
+// 前端不再单独调 /materials 预挂接口，识别+嵌入进度由工具调用气泡呈现。
 async function submitWithFiles(data: { text: string; files?: unknown[] }) {
     const fileIds = extractFileIds(data.files)
-    let promptPrefix = ''
-    if (fileIds.length > 0 && draftId.value) {
-        const result = await useApiFetch<{ succeeded: number[]; failed: Array<{ fileId: number; reason: string }> }>(
-            `/api/v1/assistant/document/drafts/${draftId.value}/materials`,
-            { method: 'POST', body: { fileIds }, showError: false } as any,
+
+    // 立即清空输入框，给用户即时反馈
+    aiChatRef.value?.resetPrompt()
+
+    const segments: string[] = []
+    if (fileIds.length > 0) {
+        segments.push(
+            `新增材料 fileIds: [${fileIds.join(', ')}]，请先调用 process_materials(fileIds=[${fileIds.join(', ')}]) 完成识别+嵌入后再继续。`,
         )
-        const ok = result?.succeeded?.length ?? 0
-        const fail = result?.failed?.length ?? 0
-        if (fail > 0) {
-            toast.warning(`${fail} 份材料处理失败，已忽略`)
-        }
-        if (ok > 0) {
-            promptPrefix = `已上传 ${ok} 份新材料，请通过 search_case_materials 检索后补充提取并回填字段。\n\n`
-        }
     }
-    const finalText = `${promptPrefix}${data.text || ''}`.trim()
+    if (data.text) segments.push(data.text)
+
+    const finalText = segments.join('\n\n').trim()
     if (!finalText) return
     sendMessage(finalText)
-    aiChatRef.value?.resetPrompt()
 }
 
 function extractFileIds(files: unknown[] | undefined): number[] {
@@ -302,13 +299,13 @@ function handlePanelResize(sizes: number[]) {
             </div>
             <div class="flex items-center gap-2">
                 <Button variant="default" class="shadow-sm" @click="openAgent">
-                    <SparklesIcon class="size-4 mr-2" />
+                    <SparklesIcon class="size-4" />
                     AI 生成
                 </Button>
                 <Button :disabled="exportDisabled || isLoading || isExporting" @click="handleExport">
                     <Loader2Icon v-if="isExporting" class="size-4 mr-2 animate-spin" />
-                    <DownloadIcon v-else class="size-4 mr-2" />
-                    {{ isExporting ? '导出中...' : '导出 .docx' }}
+                    <DownloadIcon v-else class="size-4" />
+                    {{ isExporting ? '导出中...' : '导出 word' }}
                 </Button>
             </div>
         </header>
@@ -325,46 +322,28 @@ function handlePanelResize(sizes: number[]) {
         </div>
 
         <!-- stream 错误提示（不阻塞主体渲染） -->
-        <div
-            v-else-if="error"
-            class="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
-        >
+        <div v-else-if="error"
+            class="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
             {{ error.message || '发生未知错误' }}
         </div>
 
         <!-- 主体：左表单 / 右预览 -->
-        <div
-            v-if="!loading && !loadError && draft && template"
-            class="flex-1 min-h-0 overflow-hidden"
-        >
+        <div v-if="!loading && !loadError && draft && template" class="flex-1 min-h-0 overflow-hidden">
             <!-- 桌面：可拖拽分栏 -->
-            <ResizablePanelGroup
-                v-if="isDesktop"
-                direction="horizontal"
-                class="h-full"
-                @layout="handlePanelResize"
-            >
+            <ResizablePanelGroup v-if="isDesktop" direction="horizontal" class="h-full" @layout="handlePanelResize">
                 <ResizablePanel :default-size="leftSize" :min-size="25">
                     <div class="h-full min-h-0 overflow-y-auto rounded-lg border bg-card p-4 mr-1">
-                        <AssistantDocumentFieldForm
-                            :template="template"
-                            :values="currentValues"
-                            :suggestions="suggestions"
-                            @change="onFieldChange"
-                        />
+                        <AssistantDocumentFieldForm :template="template" :values="currentValues"
+                            :suggestions="suggestions" @change="onFieldChange" />
                     </div>
                 </ResizablePanel>
 
                 <ResizableHandle with-handle class="bg-transparent" />
 
                 <ResizablePanel :default-size="100 - leftSize" :min-size="25">
-                    <div class="h-full min-h-0 overflow-y-auto rounded-lg border bg-card p-4 ml-1">
-                        <AssistantDocumentPreview
-                            :template-buffer="templateBuffer"
-                            :values="currentValues"
-                            :disabled="exportDisabled || isLoading || isExporting"
-                            @export="handleExport"
-                        />
+                    <div class="h-full min-h-0 overflow-y-auto rounded-lg border bg-muted/40 p-4 ml-1">
+                        <AssistantDocumentPreview :template-buffer="templateBuffer" :values="currentValues"
+                            :disabled="exportDisabled || isLoading || isExporting" @export="handleExport" />
                     </div>
                 </ResizablePanel>
             </ResizablePanelGroup>
@@ -372,99 +351,54 @@ function handlePanelResize(sizes: number[]) {
             <!-- 移动：竖向堆叠 -->
             <div v-else class="h-full min-h-0 flex flex-col gap-4 overflow-y-auto">
                 <div class="rounded-lg border bg-card p-4">
-                    <AssistantDocumentFieldForm
-                        :template="template"
-                        :values="currentValues"
-                        :suggestions="suggestions"
-                        @change="onFieldChange"
-                    />
+                    <AssistantDocumentFieldForm :template="template" :values="currentValues" :suggestions="suggestions"
+                        @change="onFieldChange" />
                 </div>
-                <div class="rounded-lg border bg-card p-4">
-                    <AssistantDocumentPreview
-                        :template-buffer="templateBuffer"
-                        :values="currentValues"
-                        :disabled="exportDisabled || isLoading || isExporting"
-                        @export="handleExport"
-                    />
+                <div class="rounded-lg border bg-muted/40 p-4">
+                    <AssistantDocumentPreview :template-buffer="templateBuffer" :values="currentValues"
+                        :disabled="exportDisabled || isLoading || isExporting" @export="handleExport" />
                 </div>
             </div>
         </div>
 
         <!-- 悬浮 Agent 窗 -->
-        <CaseChatWindowShell
-            v-model:open="agentOpen"
-            title="AI 生成助手"
-            :initial-width="420"
-            :initial-height="560"
-        >
-            <AiChat
-                ref="aiChatRef"
-                :messages="chatMessages"
-                :loading="chatLoading"
-                :is-interrupted="isInterrupted"
-                :enable-file-upload="true"
-                :queue-length="queueLen"
-                :queue-full="queueFull"
-                :is-stopping="isStopping"
-                prompt-placeholder="告诉 AI 你想怎么填..."
-                :show-header="false"
-                panel-mode="left"
-                :on-file-button-click="openMaterialSelector"
-                @submit="handleChatSubmit"
-                @stop="handleStop"
-            >
+        <CaseChatWindowShell v-model:open="agentOpen" title="文书生成助手" :initial-width="420" :initial-height="560">
+            <AiChat ref="aiChatRef" :messages="chatMessages" :loading="chatLoading" :is-interrupted="isInterrupted"
+                :enable-file-upload="true" :queue-length="queueLen" :queue-full="queueFull" :is-stopping="isStopping"
+                prompt-placeholder="告诉 AI 你想怎么填..." :show-header="false" panel-mode="left"
+                :on-file-button-click="openMaterialSelector" @submit="handleChatSubmit" @stop="handleStop">
                 <template #prompt-actions>
-                    <div
-                        v-if="showRetryButton && currentQueue.length === 0"
-                        class="flex items-center gap-2 px-4 py-2"
-                    >
+                    <div v-if="showRetryButton && currentQueue.length === 0" class="flex items-center gap-2 px-4 py-2">
                         <Button size="sm" variant="outline" @click="onRetry">
                             <RefreshCwIcon class="w-4 h-4 mr-1" />
                             重试
                         </Button>
                     </div>
-                    <AiChatQueueChips
-                        :queue="currentQueue"
-                        :max="QUEUE_MAX_SIZE"
-                        :paused="isQueuePaused"
-                        :pause-reason="queuePauseReason"
-                        @remove="(id) => removeQueueItem(id)"
-                        @resume="() => resumeQueue()"
-                        @clear="() => clearQueue()"
-                    />
+                    <AiChatQueueChips :queue="currentQueue" :max="QUEUE_MAX_SIZE" :paused="isQueuePaused"
+                        :pause-reason="queuePauseReason" @remove="(id) => removeQueueItem(id)"
+                        @resume="() => resumeQueue()" @clear="() => clearQueue()" />
                 </template>
             </AiChat>
         </CaseChatWindowShell>
 
         <!-- 中断确认弹窗 -->
-        <Dialog :open="!!interruptData" @update:open="() => {}">
-            <DialogContent
-                class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0 z-[70]"
-                overlay-class="z-[70]"
-                :show-close-button="false"
-                @pointer-down-outside.prevent
-                @escape-key-down.prevent
-                @open-auto-focus.prevent
-            >
+        <Dialog :open="!!interruptData" @update:open="() => { }">
+            <DialogContent class="sm:max-w-2xl max-h-[95vh] overflow-y-auto p-0 z-70" overlay-class="z-[70]"
+                :show-close-button="false" @pointer-down-outside.prevent @escape-key-down.prevent
+                @open-auto-focus.prevent>
                 <DialogHeader class="sr-only">
                     <DialogTitle>需要您的确认</DialogTitle>
                     <DialogDescription>请查看并回应 AI 的请求</DialogDescription>
                 </DialogHeader>
                 <div v-if="interruptData" class="p-6">
-                    <CaseInterruptConfirmation
-                        :interrupt="interruptData"
-                        @submit="handleResumeInterrupt"
-                        @cancel="() => {}"
-                    />
+                    <CaseInterruptConfirmation :interrupt="interruptData" @submit="handleResumeInterrupt"
+                        @cancel="() => { }" />
                 </div>
             </DialogContent>
         </Dialog>
 
         <!-- 材料选择弹框（点击 AiChat 文件按钮触发） -->
-        <CaseAnalysisMaterialSelector
-            ref="materialSelectorRef"
-            :disabled-file-ids="selectedFileIds"
-            @files-selected="handleFilesFromSelector"
-        />
+        <CaseAnalysisMaterialSelector ref="materialSelectorRef" :disabled-file-ids="selectedFileIds"
+            @files-selected="handleFilesFromSelector" />
     </div>
 </template>

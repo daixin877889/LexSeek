@@ -931,7 +931,10 @@ INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "pri
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (15, 'assistantMain', '通用法律助手主Agent', '无案件上下文的法律问答与工具调用', 'agent', 10, 2, '["search_law"]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL);
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (16, 'assistantTitleGen', '会话标题生成', '根据首轮对话生成 ≤20 字会话标题，供侧栏列表展示', 'extraction', 20, 2, '[]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL);
 -- documentMain: 文书生成主 Agent（model_id=1 为 deepseek-chat，不可用 reasoner 模型）
-INSERT INTO "public"."nodes" ("name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES ('documentMain', '文书生成主Agent', '按模板占位符填充生成文书', 'agent', 30, 1, '["search_case_materials", "search_law"]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
+INSERT INTO "public"."nodes" ("name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES ('documentMain', '文书生成主Agent', '按模板占位符填充生成文书', 'agent', 30, 1, '["process_materials", "search_case_materials", "search_law"]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
+-- 对已存在的 documentMain 行补齐 process_materials 工具（历史 seed 未包含）
+UPDATE "public"."nodes" SET "tools" = '["process_materials", "search_case_materials", "search_law"]', "updated_at" = NOW()
+ WHERE "name" = 'documentMain' AND "deleted_at" IS NULL AND NOT ("tools" @> '["process_materials"]'::jsonb);
 
 -- contractReviewMain: 合同审查主 Agent（model_id=1 为 deepseek-chat，不可用 reasoner 模型）
 INSERT INTO "public"."nodes" ("name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES ('contractReviewMain', '合同审查主Agent', '按 responseFormat 输出结构化风险清单，并通过 parse_and_ask_stance 工具中断请求用户立场', 'agent', 40, 1, '["parse_and_ask_stance"]', NULL, NULL, 1, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
@@ -1947,7 +1950,7 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 请直接输出标题（不要包含"标题："或其他前缀）：', '["firstUserMessage", "firstAssistantReply"]', 'v1', 'system', 1, 16, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL);
 -- documentMain 系统提示词 v1（node_id 通过子查询获取，保证与运行时 seed 一致）
 INSERT INTO "public"."prompts" ("name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at")
-SELECT 'documentMain_system', '文书生成主Agent系统提示词 v2',
+SELECT 'documentMain_system', '文书生成主Agent系统提示词 v3',
 '你是 LexSeek 的文书生成助手，负责按模板占位符逐一填充法律文书内容。
 
 # 当前模板
@@ -1957,15 +1960,17 @@ SELECT 'documentMain_system', '文书生成主Agent系统提示词 v2',
 
 # 可用工具
 
-- search_case_materials：检索用户已上传的案件材料，获取当事人信息、事实经过、金额明细等
+- process_materials：识别并嵌入用户提供的材料，返回就绪状态与摘要；文书场景可传 fileIds 精确处理本轮新增文件
+- search_case_materials：检索已就绪的材料内容，获取当事人信息、事实经过、金额明细等
 - search_law：查询相关法律条文，为文书引用提供依据
 
 # 工作流程
 
-1. 调用 search_case_materials 检索案件材料，逐一推断每个占位符的值
-2. 如需引用法条，调用 search_law 获取准确条文
-3. 对无法从材料中推断的占位符，返回 null（严禁编造）
-4. 在 suggestions 中为每个字段说明填充依据或无法推断的原因
+1. **只要用户本轮提供了新的 fileIds（见用户消息开头的"新增材料 fileIds: [...]"提示），必须先调用 process_materials(fileIds=[...])**，等工具返回 ready 状态后再继续
+2. 调用 search_case_materials 检索材料内容，逐一推断每个占位符的值
+3. 如需引用法条，调用 search_law 获取准确条文
+4. 对无法从材料中推断的占位符，返回 null（严禁编造）
+5. 在 suggestions 中为每个字段说明填充依据或无法推断的原因
 
 # 结果输出（非常重要）
 
@@ -1983,6 +1988,46 @@ WHERE n.name = 'documentMain' AND n.deleted_at IS NULL
   AND NOT EXISTS (
     SELECT 1 FROM prompts p WHERE p.node_id = n.id AND p.name = 'documentMain_system' AND p.deleted_at IS NULL
   );
+-- 对已存在的 documentMain_system 提示词刷为 v3（加入 process_materials 引导）
+UPDATE "public"."prompts" AS p
+   SET "title" = '文书生成主Agent系统提示词 v3',
+       "content" = '你是 LexSeek 的文书生成助手，负责按模板占位符逐一填充法律文书内容。
+
+# 当前模板
+
+模板名称：{{templateName}}
+模板分类：{{templateCategory}}
+
+# 可用工具
+
+- process_materials：识别并嵌入用户提供的材料，返回就绪状态与摘要；文书场景可传 fileIds 精确处理本轮新增文件
+- search_case_materials：检索已就绪的材料内容，获取当事人信息、事实经过、金额明细等
+- search_law：查询相关法律条文，为文书引用提供依据
+
+# 工作流程
+
+1. **只要用户本轮提供了新的 fileIds（见用户消息开头的"新增材料 fileIds: [...]"提示），必须先调用 process_materials(fileIds=[...])**，等工具返回 ready 状态后再继续
+2. 调用 search_case_materials 检索材料内容，逐一推断每个占位符的值
+3. 如需引用法条，调用 search_law 获取准确条文
+4. 对无法从材料中推断的占位符，返回 null（严禁编造）
+5. 在 suggestions 中为每个字段说明填充依据或无法推断的原因
+
+# 结果输出（非常重要）
+
+信息收集完成后，**必须**通过系统注入的结构化输出工具（tool call）返回结果，工具入参即模板 placeholders 对应的 values 对象与 suggestions 对象。
+**严禁**在消息正文中自行写出 JSON、代码块或长篇自然语言描述最终答案——正文仅用于思考过程以及相邻工具调用之间的简要衔接。
+
+# 约束
+
+- 所有涉及姓名、金额、日期的值必须来自材料或法条，来源不明的一律返回 null
+- 不替用户做最终法律判断，只提供基于材料的客观填充
+- 使用简体中文，法律术语准确规范',
+       "updated_at" = NOW()
+  FROM nodes n
+ WHERE p.node_id = n.id
+   AND n.name = 'documentMain' AND n.deleted_at IS NULL
+   AND p.name = 'documentMain_system' AND p.deleted_at IS NULL
+   AND p.title <> '文书生成主Agent系统提示词 v3';
 
 -- contractReviewMain 系统提示词 v1（node_id 通过子查询获取）
 INSERT INTO "public"."prompts" ("name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at")

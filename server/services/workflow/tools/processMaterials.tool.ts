@@ -3,6 +3,10 @@
  *
  * 检查材料状态、触发识别/嵌入、从各识别记录表获取实际内容、
  * 评估 token 量决定提供模式（全量/摘要）
+ *
+ * 两种上下文模式：
+ * - caseId（小索/案件分析）：扫案件下全部材料。行为保持不变。
+ * - draftId（文书生成）：扫 draft 下关联材料；可传 fileIds 仅处理本次新加的文件。
  */
 
 import { tool } from '@langchain/core/tools'
@@ -10,37 +14,48 @@ import { z } from 'zod'
 import type { ToolDefinition, ToolContext } from './types'
 import {
     ensureMaterialsReadyService,
+    ensureMaterialsReadyByDraftService,
     getMaterialContextService,
     estimateTokens,
     getSourceId,
     TOKEN_THRESHOLD,
 } from '../../material/materialPipeline.service'
 
-const schema = z.object({})
+const schema = z.object({
+    fileIds: z.array(z.number().int().positive()).optional().describe('文书生成场景可选：仅处理这些 OSS 文件 ID。案件分析场景忽略此参数。'),
+})
 
 export const toolDefinition: ToolDefinition<typeof schema> = {
     name: 'process_materials',
-    description: '检查并处理当前案件的所有材料。检查材料识别和嵌入状态，触发未完成的处理，评估 token 量决定提供模式（全量/摘要）。在开始分析前调用此工具。',
+    description: '检查并处理当前案件或文书草稿的材料。触发未完成的识别和嵌入，评估 token 量决定提供模式（全量/摘要）。在开始分析或回填字段前调用此工具；文书生成场景可传 fileIds 精确处理本轮新增文件。',
     schema,
 }
 
 export function createTool(context: ToolContext) {
-    const { userId, caseId } = context
+    const { userId, caseId, draftId } = context
 
     return tool(
-        async () => {
-            logger.info('执行材料处理工具', { userId, caseId })
+        async (input) => {
+            const fileIds = input?.fileIds
+            logger.info('执行材料处理工具', { userId, caseId, draftId, fileIds })
 
             try {
-                if (caseId == null) {
-                    throw new Error('process_materials 工具需要 caseId，当前上下文缺失（可能 scope 路由错误）')
+                if (caseId == null && draftId == null) {
+                    throw new Error('process_materials 工具需要 caseId 或 draftId，当前上下文均缺失')
                 }
-                // 1. 通过 pipeline 确保材料已识别+嵌入
-                const { materials, embeddedMap } = await ensureMaterialsReadyService(caseId, userId)
+
+                // 1. 按优先级选择批处理入口（draftId 优先，保持小索/案件路径原样）
+                const ready = draftId != null
+                    ? await ensureMaterialsReadyByDraftService(draftId, userId, { fileIds })
+                    : await ensureMaterialsReadyService(caseId!, userId)
+                const { materials, embeddedMap } = ready
+
                 if (materials.length === 0) {
                     return JSON.stringify({
                         mode: 'empty',
-                        message: '当前案件没有任何材料，请先上传案件材料。',
+                        message: draftId != null
+                            ? '当前文书草稿还没有材料，请先在输入框里上传/选择文件。'
+                            : '当前案件没有任何材料，请先上传案件材料。',
                         materials: [],
                     })
                 }
@@ -76,6 +91,7 @@ export function createTool(context: ToolContext) {
 
                 logger.info('材料处理完成', {
                     caseId,
+                    draftId,
                     mode: result.mode,
                     totalTokens: materialContext.totalTokens,
                     materialCount: materials.length,

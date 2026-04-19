@@ -4,7 +4,7 @@
  * 确保案件所有材料已完成识别和嵌入，供中间件和工具复用。
  * 只对未识别的触发识别，只对未嵌入的触发嵌入，避免重复处理。
  */
-import { getMaterialsByCaseIdService, getMaterialsByDraftIdService, type MaterialWithFile } from './material.service'
+import { getMaterialByIdService, getMaterialsByCaseIdService, getMaterialsByDraftIdService, updateMaterialStatusService, type MaterialWithFile } from './material.service'
 import { batchCheckMaterialEmbeddedService, embedMaterialUnifiedService } from './materialEmbedding.service'
 import { processMaterialService, batchCheckMaterialRecognizedService, MaterialProcessError } from './materialProcess.service'
 import { CaseMaterialType, getMaterialTypeFromMime } from '#shared/types/case'
@@ -103,6 +103,106 @@ export async function ensureMaterialsReadyService(
     }
 
     // 4. 获取最终嵌入状态
+    const finalEmbeddedMap = notEmbedded.length > 0
+        ? await batchCheckMaterialEmbeddedService(ids)
+        : embeddedMap
+
+    return {
+        materials,
+        totalMaterials: materials.length,
+        alreadyEmbedded,
+        newlyProcessed,
+        embeddedMap: finalEmbeddedMap,
+        failed,
+    }
+}
+
+/**
+ * 文书草稿批处理：按 draftId 扫描关联材料并确保识别+嵌入。
+ *
+ * 与 ensureMaterialsReadyService 对偶（后者按 caseId），用于文书生成 Agent 的
+ * process_materials 工具 draftId 分支。
+ *
+ * 可选 fileIds 参数：
+ * - 不传 → 扫 draft 下现有 caseMaterials 全部
+ * - 传 → 仅处理指定 OSS 文件。若这些 fileId 尚未绑定到 draft（用户刚在输入框选的新文件），
+ *   会自动通过 ensureMaterialsReadyForDraftService 建立 (draftId, ossFileId) 记录并触发
+ *   完整识别+嵌入+轮询流水线；随后再按处理后的全量 caseMaterials 走统一识别/嵌入补齐。
+ *
+ * @param draftId 文书草稿 ID
+ * @param userId 调用用户
+ * @param options.fileIds 可选：仅处理这些 OSS 文件
+ */
+export async function ensureMaterialsReadyByDraftService(
+    draftId: number,
+    userId: number,
+    options: { fileIds?: number[] } = {},
+): Promise<MaterialReadyResult> {
+    const failed: MaterialFailedItem[] = []
+
+    // 1. 对于用户新选的 fileIds，先走单文件 pipeline 保证 caseMaterials 行存在且跑完
+    //    （ensureMaterialsReadyForDraftService 内部幂等，已 COMPLETED 会立即返回）
+    if (options.fileIds && options.fileIds.length > 0) {
+        const perFileResults = await Promise.allSettled(
+            options.fileIds.map(fid => ensureMaterialsReadyForDraftService(fid, draftId, userId)),
+        )
+        for (let i = 0; i < perFileResults.length; i++) {
+            const r = perFileResults[i]!
+            if (r.status === 'rejected') {
+                failed.push({
+                    materialId: 0,
+                    name: `ossFile_${options.fileIds[i]}`,
+                    error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+                })
+            }
+        }
+    }
+
+    // 2. 拉取 draft 全量材料（或仅过滤出本次关心的 ossFileId）
+    const allMaterials = await getMaterialsByDraftIdService(draftId)
+    const materials = options.fileIds && options.fileIds.length > 0
+        ? allMaterials.filter(m => m.ossFileId != null && options.fileIds!.includes(m.ossFileId))
+        : allMaterials
+
+    if (materials.length === 0) {
+        return {
+            materials: [],
+            totalMaterials: 0,
+            alreadyEmbedded: 0,
+            newlyProcessed: 0,
+            embeddedMap: new Map(),
+            failed,
+        }
+    }
+
+    // 3. 识别阶段：对未识别的触发识别
+    const recognizedMap = await batchCheckMaterialRecognizedService(materials)
+    const notRecognized = materials.filter(m => !recognizedMap.get(m.id))
+    if (notRecognized.length > 0) {
+        const recognitionResults = await Promise.allSettled(
+            notRecognized.map(m => processMaterialService(m.id, userId)),
+        )
+        failed.push(...collectSettledFailures(recognitionResults, notRecognized))
+    }
+
+    // 4. 嵌入阶段：对未嵌入的触发嵌入
+    const ids = materials.map(m => m.id)
+    const embeddedMap = await batchCheckMaterialEmbeddedService(ids)
+    const alreadyEmbedded = materials.filter(m => embeddedMap.get(m.id)).length
+    const notEmbedded = materials.filter(m => !embeddedMap.get(m.id))
+
+    let newlyProcessed = 0
+    if (notEmbedded.length > 0) {
+        const failedIds = new Set(failed.map(f => f.materialId))
+        const toEmbed = notEmbedded.filter(m => !failedIds.has(m.id))
+        const embeddingResults = await Promise.allSettled(
+            toEmbed.map(m => embedMaterialUnifiedService(m.id, userId)),
+        )
+        const embeddingFailures = collectSettledFailures(embeddingResults, toEmbed)
+        newlyProcessed = toEmbed.length - embeddingFailures.length
+        failed.push(...embeddingFailures)
+    }
+
     const finalEmbeddedMap = notEmbedded.length > 0
         ? await batchCheckMaterialEmbeddedService(ids)
         : embeddedMap
@@ -625,6 +725,28 @@ export async function ensureMaterialsReadyForDraftService(
             type: materialType,
         })
         materialId = newMaterial.id
+    }
+
+    // 跨 draft 复用：该 ossFile 已识别且已嵌入（lastEmbeddingAt 命中），
+    // 直接置当前 caseMaterial 为 COMPLETED，跳过 processMaterialService，
+    // 避免重复识别 + 重复写向量。
+    const materialDetail = await getMaterialByIdService(materialId)
+    if (materialDetail) {
+        const [recognizedMap, embeddedMap] = await Promise.all([
+            batchCheckMaterialRecognizedService([materialDetail]),
+            batchCheckMaterialEmbeddedService([materialId]),
+        ])
+        if (recognizedMap.get(materialId) && embeddedMap.get(materialId)) {
+            if (materialDetail.status !== MaterialStatus.COMPLETED) {
+                await updateMaterialStatusService(materialId, MaterialStatus.COMPLETED)
+            }
+            return {
+                id: materialId,
+                status: MaterialStatus.COMPLETED,
+                draftId: materialDetail.draftId,
+                ossFileId: materialDetail.ossFileId,
+            }
+        }
     }
 
     // 触发识别 + 嵌入（内部负责状态机 PENDING→PROCESSING→COMPLETED/FAILED）

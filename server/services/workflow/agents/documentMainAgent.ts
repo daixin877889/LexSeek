@@ -41,14 +41,17 @@ function buildInitialPromptFromDraft(
     const sourceRef = (draft.sourceRef as Record<string, unknown> | null) ?? {}
     const segments: string[] = [`请为《${templateName}》按字段 schema 生成文书内容。`]
 
+    const fileIds = Array.isArray(sourceRef.fileIds)
+        ? (sourceRef.fileIds as unknown[]).map(x => Number(x)).filter(n => Number.isInteger(n) && n > 0)
+        : []
+    if (fileIds.length > 0) {
+        // 显式前置：让模型第一步就调 process_materials(fileIds=[...])
+        segments.push(`新增材料 fileIds: [${fileIds.join(', ')}]，请先调用 process_materials(fileIds=[${fileIds.join(', ')}]) 处理这些文件，再用 search_case_materials 检索内容回填字段。`)
+    }
+
     const text = typeof sourceRef.text === 'string' ? sourceRef.text.trim() : ''
     if (text) {
         segments.push(`用户补充说明：\n${text}`)
-    }
-
-    const fileIds = Array.isArray(sourceRef.fileIds) ? sourceRef.fileIds : []
-    if (fileIds.length > 0) {
-        segments.push(`已提供 ${fileIds.length} 份材料文件，请通过 search_case_materials 工具检索内容后填充字段。`)
     }
 
     segments.push('收集到足够信息后，必须通过结构化输出工具返回 values + suggestions，严禁在消息正文自行写 JSON 或代码块；未知字段返回 null，不要编造。')

@@ -70,6 +70,8 @@ vi.mock('~~/server/services/material/material.dao', () => ({
 const mocksMaterialService = vi.hoisted(() => ({
     getMaterialsByDraftIdService: vi.fn(),
     getMaterialsByCaseIdService: vi.fn(),
+    getMaterialByIdService: vi.fn(),
+    updateMaterialStatusService: vi.fn(),
 }))
 
 // 注意：materialPipeline.service 内部 import 了 getMaterialsByDraftIdService。
@@ -78,10 +80,14 @@ const mocksMaterialService = vi.hoisted(() => ({
 vi.mock('../../../server/services/material/material.service', () => ({
     getMaterialsByCaseIdService: mocksMaterialService.getMaterialsByCaseIdService,
     getMaterialsByDraftIdService: mocksMaterialService.getMaterialsByDraftIdService,
+    getMaterialByIdService: mocksMaterialService.getMaterialByIdService,
+    updateMaterialStatusService: mocksMaterialService.updateMaterialStatusService,
 }))
 vi.mock('~~/server/services/material/material.service', () => ({
     getMaterialsByCaseIdService: mocksMaterialService.getMaterialsByCaseIdService,
     getMaterialsByDraftIdService: mocksMaterialService.getMaterialsByDraftIdService,
+    getMaterialByIdService: mocksMaterialService.getMaterialByIdService,
+    updateMaterialStatusService: mocksMaterialService.updateMaterialStatusService,
 }))
 
 // ===========================================================
@@ -105,7 +111,7 @@ vi.mock('~~/server/services/retrieval/retrievalRouter.service', () => ({
 
 const mocksEmbedding = vi.hoisted(() => ({
     embedMaterialUnifiedService: vi.fn(),
-    batchCheckMaterialEmbeddedService: vi.fn(),
+    batchCheckMaterialEmbeddedService: vi.fn().mockResolvedValue(new Map()),
 }))
 
 vi.mock('../../../server/services/material/materialEmbedding.service', () => ({
@@ -116,13 +122,17 @@ vi.mock('~~/server/services/material/materialEmbedding.service', () => ({
     batchCheckMaterialEmbeddedService: mocksEmbedding.batchCheckMaterialEmbeddedService,
     embedMaterialUnifiedService: mocksEmbedding.embedMaterialUnifiedService,
 }))
-vi.mock('../../../server/services/material/materialProcess.service', () => ({
+const mocksProcess = vi.hoisted(() => ({
     processMaterialService: vi.fn(),
-    batchCheckMaterialRecognizedService: vi.fn(),
+    batchCheckMaterialRecognizedService: vi.fn().mockResolvedValue(new Map()),
+}))
+vi.mock('../../../server/services/material/materialProcess.service', () => ({
+    processMaterialService: mocksProcess.processMaterialService,
+    batchCheckMaterialRecognizedService: mocksProcess.batchCheckMaterialRecognizedService,
 }))
 vi.mock('~~/server/services/material/materialProcess.service', () => ({
-    processMaterialService: vi.fn(),
-    batchCheckMaterialRecognizedService: vi.fn(),
+    processMaterialService: mocksProcess.processMaterialService,
+    batchCheckMaterialRecognizedService: mocksProcess.batchCheckMaterialRecognizedService,
 }))
 
 import {
@@ -303,6 +313,25 @@ describe('ensureMaterialsReadyForDraftService', () => {
 
         expect(result.id).toBe(204)
         expect(mocksMaterialDao.createMaterialDao).not.toHaveBeenCalled()
+    })
+
+    it('该 ossFile 已识别且已嵌入（跨 draft 复用）时短路，不再跑 processMaterialService', async () => {
+        // 当前 draft 已存在 caseMaterial 但尚未置 COMPLETED（status=PENDING=1）
+        const existing = { id: 205, draftId, ossFileId, status: 1, name: 'shared.pdf', type: 2, caseId: null, isEncrypted: false, createdAt: new Date(), updatedAt: new Date(), deletedAt: null, summary: null }
+        mocksMaterialDao.findMaterialByDraftIdAndOssFileIdDao.mockResolvedValue(existing)
+        // 详情查询返回同一条（给短路使用）
+        mocksMaterialService.getMaterialByIdService.mockResolvedValue(existing)
+        // 命中跨 draft 识别 + 嵌入
+        mocksProcess.batchCheckMaterialRecognizedService.mockResolvedValue(new Map([[205, true]]))
+        mocksEmbedding.batchCheckMaterialEmbeddedService.mockResolvedValue(new Map([[205, true]]))
+
+        const result = await ensureMaterialsReadyForDraftService(ossFileId, draftId, userId)
+
+        expect(result.id).toBe(205)
+        expect(result.status).toBe(3)
+        expect(mocksMaterialService.updateMaterialStatusService).toHaveBeenCalledWith(205, 3)
+        expect(mocksProcess.processMaterialService).not.toHaveBeenCalled()
+        expect(mocksMaterialDao.findMaterialByIdDao).not.toHaveBeenCalled()
     })
 })
 
