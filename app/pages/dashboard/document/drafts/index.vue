@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const router = useRouter()
 /**
  * /dashboard/document/drafts 中间路由占位页
  *
@@ -10,11 +11,11 @@
  */
 definePageMeta({
     layout: 'dashboard-layout',
-    title: '文书草稿',
+    title: '编辑器',
 })
-
 onMounted(() => {
-    navigateTo('/dashboard/document', { replace: true })
+
+    router.back()
 })
 </script>
 

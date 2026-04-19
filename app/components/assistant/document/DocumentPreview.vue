@@ -108,10 +108,10 @@ function handleExport() {
                 预览出错：{{ renderError }}（仍可导出 .docx）
             </div>
 
-            <!-- DOCX 预览容器 -->
+            <!-- DOCX 预览容器：白底与外层容器做对比 -->
             <div
                 ref="previewRoot"
-                class="docx-preview-root flex-1 min-h-0 overflow-y-auto"
+                class="docx-preview-root flex-1 min-h-0 overflow-y-auto rounded-md bg-background p-6"
             />
         </template>
     </div>

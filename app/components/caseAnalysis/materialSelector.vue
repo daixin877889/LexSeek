@@ -1,7 +1,8 @@
 <template>
   <Dialog v-model:open="open">
     <DialogContent
-      :class="['max-w-4xl min-w-[80vw] md:min-w-[70vw] h-[85vh] md:h-[90vh]', 'grid grid-rows-[auto_1fr] overflow-hidden', isUploadMode ? '' : 'grid-rows-[auto_1fr_auto]']"
+      :class="['max-w-4xl min-w-[80vw] md:min-w-[70vw] h-[85vh] md:h-[90vh] z-[70]', 'grid grid-rows-[auto_1fr] overflow-hidden', isUploadMode ? '' : 'grid-rows-[auto_1fr_auto]']"
+      overlay-class="z-[70]"
       @interactOutside="(e) => e.preventDefault()">
       <DialogHeader>
         <DialogTitle>选择案情材料</DialogTitle>

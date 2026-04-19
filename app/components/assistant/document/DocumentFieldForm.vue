@@ -9,18 +9,15 @@
         <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
           {{ placeholder.name }}
         </label>
-        <!-- 建议值提示 -->
+        <!-- 建议值提示（hover 查看） -->
         <TooltipProvider v-if="suggestions?.[placeholder.name]">
           <Tooltip>
             <TooltipTrigger as-child>
-              <button
-                type="button"
-                class="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary hover:bg-primary/20 transition-colors"
-                @click="applysuggestion(placeholder.name)"
+              <span
+                class="inline-flex items-center text-muted-foreground/70 cursor-help"
               >
-                <SparklesIcon class="size-3 mr-1" />
-                AI 建议
-              </button>
+                <LightbulbIcon class="size-3.5" />
+              </span>
             </TooltipTrigger>
             <TooltipContent side="right" class="max-w-xs">
               <p class="text-xs">{{ suggestions[placeholder.name] }}</p>
@@ -89,7 +86,7 @@
 </template>
 
 <script lang="ts" setup>
-import { CalendarIcon, SparklesIcon } from 'lucide-vue-next'
+import { CalendarIcon, LightbulbIcon } from 'lucide-vue-next'
 import { useDebounceFn } from '@vueuse/core'
 import type { DateValue } from 'reka-ui'
 import type { DocumentTemplate, Placeholder } from '#shared/types/document'
@@ -150,11 +147,4 @@ function onDateSelect(fieldName: string, dateValue: DateValue | undefined) {
   emit('change', fieldName, formatted)
 }
 
-/** 应用 AI 建议值 */
-function applysuggestion(fieldName: string) {
-  const suggested = props.suggestions?.[fieldName]
-  if (!suggested) return
-  localValues.value = { ...localValues.value, [fieldName]: suggested }
-  emit('change', fieldName, suggested)
-}
 </script>
