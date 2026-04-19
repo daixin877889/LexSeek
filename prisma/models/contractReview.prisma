@@ -24,6 +24,9 @@ model contractReviews {
     risks          Json?     @db.JsonB
     /// 审查摘要 Markdown
     summary        String?   @db.Text
+    /// 本次 session 是否编辑过 risks 且尚未重新生成 docx
+    /// PATCH /reviews/:id → true；POST /rebuild-docx 成功 → false
+    hasUnsavedDocxChanges Boolean @default(false) @map("has_unsaved_docx_changes")
     createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
     updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
     deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)

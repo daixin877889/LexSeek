@@ -53,6 +53,7 @@ const resSuccess = (_event: any, message: string, data: any) => ({
 vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
     getContractReviewDAO: vi.fn(),
     patchReviewRisksDAO: vi.fn(),
+    setHasUnsavedTrueDAO: vi.fn(),
 }))
 
 import {

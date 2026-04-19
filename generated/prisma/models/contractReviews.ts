@@ -53,6 +53,7 @@ export type ContractReviewsMinAggregateOutputType = {
   stance: string | null
   status: string | null
   summary: string | null
+  hasUnsavedDocxChanges: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -70,6 +71,7 @@ export type ContractReviewsMaxAggregateOutputType = {
   stance: string | null
   status: string | null
   summary: string | null
+  hasUnsavedDocxChanges: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -88,6 +90,7 @@ export type ContractReviewsCountAggregateOutputType = {
   status: number
   risks: number
   summary: number
+  hasUnsavedDocxChanges: number
   createdAt: number
   updatedAt: number
   deletedAt: number
@@ -121,6 +124,7 @@ export type ContractReviewsMinAggregateInputType = {
   stance?: true
   status?: true
   summary?: true
+  hasUnsavedDocxChanges?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -138,6 +142,7 @@ export type ContractReviewsMaxAggregateInputType = {
   stance?: true
   status?: true
   summary?: true
+  hasUnsavedDocxChanges?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -156,6 +161,7 @@ export type ContractReviewsCountAggregateInputType = {
   status?: true
   risks?: true
   summary?: true
+  hasUnsavedDocxChanges?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -261,6 +267,7 @@ export type ContractReviewsGroupByOutputType = {
   status: string
   risks: runtime.JsonValue | null
   summary: string | null
+  hasUnsavedDocxChanges: boolean
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
@@ -302,6 +309,7 @@ export type contractReviewsWhereInput = {
   status?: Prisma.StringFilter<"contractReviews"> | string
   risks?: Prisma.JsonNullableFilter<"contractReviews">
   summary?: Prisma.StringNullableFilter<"contractReviews"> | string | null
+  hasUnsavedDocxChanges?: Prisma.BoolFilter<"contractReviews"> | boolean
   createdAt?: Prisma.DateTimeFilter<"contractReviews"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"contractReviews"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"contractReviews"> | Date | string | null
@@ -321,6 +329,7 @@ export type contractReviewsOrderByWithRelationInput = {
   status?: Prisma.SortOrder
   risks?: Prisma.SortOrderInput | Prisma.SortOrder
   summary?: Prisma.SortOrderInput | Prisma.SortOrder
+  hasUnsavedDocxChanges?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -343,6 +352,7 @@ export type contractReviewsWhereUniqueInput = Prisma.AtLeast<{
   status?: Prisma.StringFilter<"contractReviews"> | string
   risks?: Prisma.JsonNullableFilter<"contractReviews">
   summary?: Prisma.StringNullableFilter<"contractReviews"> | string | null
+  hasUnsavedDocxChanges?: Prisma.BoolFilter<"contractReviews"> | boolean
   createdAt?: Prisma.DateTimeFilter<"contractReviews"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"contractReviews"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"contractReviews"> | Date | string | null
@@ -362,6 +372,7 @@ export type contractReviewsOrderByWithAggregationInput = {
   status?: Prisma.SortOrder
   risks?: Prisma.SortOrderInput | Prisma.SortOrder
   summary?: Prisma.SortOrderInput | Prisma.SortOrder
+  hasUnsavedDocxChanges?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -388,6 +399,7 @@ export type contractReviewsScalarWhereWithAggregatesInput = {
   status?: Prisma.StringWithAggregatesFilter<"contractReviews"> | string
   risks?: Prisma.JsonNullableWithAggregatesFilter<"contractReviews">
   summary?: Prisma.StringNullableWithAggregatesFilter<"contractReviews"> | string | null
+  hasUnsavedDocxChanges?: Prisma.BoolWithAggregatesFilter<"contractReviews"> | boolean
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"contractReviews"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"contractReviews"> | Date | string
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"contractReviews"> | Date | string | null
@@ -404,6 +416,7 @@ export type contractReviewsCreateInput = {
   status?: string
   risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: string | null
+  hasUnsavedDocxChanges?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -423,6 +436,7 @@ export type contractReviewsUncheckedCreateInput = {
   status?: string
   risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: string | null
+  hasUnsavedDocxChanges?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -439,6 +453,7 @@ export type contractReviewsUpdateInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  hasUnsavedDocxChanges?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -458,6 +473,7 @@ export type contractReviewsUncheckedUpdateInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  hasUnsavedDocxChanges?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -476,6 +492,7 @@ export type contractReviewsCreateManyInput = {
   status?: string
   risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: string | null
+  hasUnsavedDocxChanges?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -492,6 +509,7 @@ export type contractReviewsUpdateManyMutationInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  hasUnsavedDocxChanges?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -510,6 +528,7 @@ export type contractReviewsUncheckedUpdateManyInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  hasUnsavedDocxChanges?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -528,6 +547,7 @@ export type contractReviewsCountOrderByAggregateInput = {
   status?: Prisma.SortOrder
   risks?: Prisma.SortOrder
   summary?: Prisma.SortOrder
+  hasUnsavedDocxChanges?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -552,6 +572,7 @@ export type contractReviewsMaxOrderByAggregateInput = {
   stance?: Prisma.SortOrder
   status?: Prisma.SortOrder
   summary?: Prisma.SortOrder
+  hasUnsavedDocxChanges?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -569,6 +590,7 @@ export type contractReviewsMinOrderByAggregateInput = {
   stance?: Prisma.SortOrder
   status?: Prisma.SortOrder
   summary?: Prisma.SortOrder
+  hasUnsavedDocxChanges?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -644,6 +666,7 @@ export type contractReviewsCreateWithoutUserInput = {
   status?: string
   risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: string | null
+  hasUnsavedDocxChanges?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -661,6 +684,7 @@ export type contractReviewsUncheckedCreateWithoutUserInput = {
   status?: string
   risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: string | null
+  hasUnsavedDocxChanges?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -708,6 +732,7 @@ export type contractReviewsScalarWhereInput = {
   status?: Prisma.StringFilter<"contractReviews"> | string
   risks?: Prisma.JsonNullableFilter<"contractReviews">
   summary?: Prisma.StringNullableFilter<"contractReviews"> | string | null
+  hasUnsavedDocxChanges?: Prisma.BoolFilter<"contractReviews"> | boolean
   createdAt?: Prisma.DateTimeFilter<"contractReviews"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"contractReviews"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"contractReviews"> | Date | string | null
@@ -725,6 +750,7 @@ export type contractReviewsCreateManyUserInput = {
   status?: string
   risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: string | null
+  hasUnsavedDocxChanges?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -741,6 +767,7 @@ export type contractReviewsUpdateWithoutUserInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  hasUnsavedDocxChanges?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -758,6 +785,7 @@ export type contractReviewsUncheckedUpdateWithoutUserInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  hasUnsavedDocxChanges?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -775,6 +803,7 @@ export type contractReviewsUncheckedUpdateManyWithoutUserInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   summary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  hasUnsavedDocxChanges?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -795,6 +824,7 @@ export type contractReviewsSelect<ExtArgs extends runtime.Types.Extensions.Inter
   status?: boolean
   risks?: boolean
   summary?: boolean
+  hasUnsavedDocxChanges?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -814,6 +844,7 @@ export type contractReviewsSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   status?: boolean
   risks?: boolean
   summary?: boolean
+  hasUnsavedDocxChanges?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -833,6 +864,7 @@ export type contractReviewsSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   status?: boolean
   risks?: boolean
   summary?: boolean
+  hasUnsavedDocxChanges?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -852,12 +884,13 @@ export type contractReviewsSelectScalar = {
   status?: boolean
   risks?: boolean
   summary?: boolean
+  hasUnsavedDocxChanges?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
 }
 
-export type contractReviewsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "sessionId" | "originalFileId" | "reviewedFileId" | "contractType" | "partyA" | "partyB" | "stance" | "status" | "risks" | "summary" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["contractReviews"]>
+export type contractReviewsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "sessionId" | "originalFileId" | "reviewedFileId" | "contractType" | "partyA" | "partyB" | "stance" | "status" | "risks" | "summary" | "hasUnsavedDocxChanges" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["contractReviews"]>
 export type contractReviewsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
 }
@@ -919,6 +952,11 @@ export type $contractReviewsPayload<ExtArgs extends runtime.Types.Extensions.Int
      * 审查摘要 Markdown
      */
     summary: string | null
+    /**
+     * 本次 session 是否编辑过 risks 且尚未重新生成 docx
+     * PATCH /reviews/:id → true；POST /rebuild-docx 成功 → false
+     */
+    hasUnsavedDocxChanges: boolean
     createdAt: Date
     updatedAt: Date
     deletedAt: Date | null
@@ -1358,6 +1396,7 @@ export interface contractReviewsFieldRefs {
   readonly status: Prisma.FieldRef<"contractReviews", 'String'>
   readonly risks: Prisma.FieldRef<"contractReviews", 'Json'>
   readonly summary: Prisma.FieldRef<"contractReviews", 'String'>
+  readonly hasUnsavedDocxChanges: Prisma.FieldRef<"contractReviews", 'Boolean'>
   readonly createdAt: Prisma.FieldRef<"contractReviews", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"contractReviews", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"contractReviews", 'DateTime'>

@@ -167,6 +167,12 @@ export function useContractReview() {
         review.value = r
         reviewId.value = r.id
 
+        // 回填持久化的未保存标志：仅在字段为明确 boolean 时覆盖（M6.1A-e）
+        // 不同 status 下该字段可能为 null/undefined，避免误改写 ref
+        if (typeof review.value?.hasUnsavedDocxChanges === 'boolean') {
+            hasUnsavedDocxChanges.value = review.value.hasUnsavedDocxChanges
+        }
+
         const s = mountStream(r.sessionId)
         try {
             await s.submit(undefined)
