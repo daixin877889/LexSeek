@@ -44,7 +44,7 @@ const changedCount = computed(() => diffs.value.filter(r => r.changed).length)
                 全部采用此快照
             </Button>
         </div>
-        <ul class="space-y-2">
+        <ul class="space-y-4">
             <li v-for="row in diffs" :key="row.name"
                 class="rounded-md border overflow-hidden transition-colors"
                 :class="row.changed
@@ -52,13 +52,13 @@ const changedCount = computed(() => diffs.value.filter(r => r.changed).length)
                     : 'bg-muted/20'">
                 <div class="flex items-center justify-between gap-2 px-3 py-2 border-b bg-background/40">
                     <span class="text-sm font-medium truncate" :title="row.name">{{ row.name }}</span>
-                    <Button :data-testid="`apply-field-${row.name}`" size="sm" variant="ghost"
+                    <Button v-if="row.changed" :data-testid="`apply-field-${row.name}`" size="sm" variant="ghost"
                         class="h-7 px-2 shrink-0"
-                        :disabled="!row.changed" @click="emit('applyField', row.name)">
+                        @click="emit('applyField', row.name)">
                         用这个值
                     </Button>
                 </div>
-                <div class="divide-y">
+                <div v-if="row.changed" class="divide-y">
                     <div class="px-3 py-2">
                         <div class="text-xs text-muted-foreground mb-1">当前值</div>
                         <div class="text-sm break-words whitespace-pre-wrap" :class="!row.current && 'text-muted-foreground'">
@@ -67,13 +67,16 @@ const changedCount = computed(() => diffs.value.filter(r => r.changed).length)
                     </div>
                     <div class="px-3 py-2">
                         <div class="text-xs text-muted-foreground mb-1">快照值</div>
-                        <div class="text-sm break-words whitespace-pre-wrap"
-                            :class="[
-                                !row.snapshot && 'text-muted-foreground',
-                                row.changed && row.snapshot && 'font-medium',
-                            ]">
+                        <div class="text-sm break-words whitespace-pre-wrap font-medium"
+                            :class="!row.snapshot && 'text-muted-foreground font-normal'">
                             {{ row.snapshot || '—' }}
                         </div>
+                    </div>
+                </div>
+                <div v-else class="px-3 py-2">
+                    <div class="text-xs text-muted-foreground mb-1">值相同</div>
+                    <div class="text-sm break-words whitespace-pre-wrap" :class="!row.current && 'text-muted-foreground'">
+                        {{ row.current || '—' }}
                     </div>
                 </div>
             </li>
