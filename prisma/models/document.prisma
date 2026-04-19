@@ -62,6 +62,8 @@ model documentDrafts {
   title           String    @default("") @db.VarChar(200)
   /// 用户是否手动修改过标题；为 true 后 AI 不再覆盖
   titleOverridden Boolean   @default(false) @map("title_overridden")
+  /// 已发放版本号单调计数器（只增不减；物理删除版本不回收号）
+  maxVersionNo    Int       @default(0) @map("max_version_no")
   /// 创建时间
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   /// 最后更新时间

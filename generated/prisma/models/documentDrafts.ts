@@ -32,6 +32,7 @@ export type DocumentDraftsAvgAggregateOutputType = {
   caseId: number | null
   templateId: number | null
   outputFileId: number | null
+  maxVersionNo: number | null
 }
 
 export type DocumentDraftsSumAggregateOutputType = {
@@ -40,6 +41,7 @@ export type DocumentDraftsSumAggregateOutputType = {
   caseId: number | null
   templateId: number | null
   outputFileId: number | null
+  maxVersionNo: number | null
 }
 
 export type DocumentDraftsMinAggregateOutputType = {
@@ -52,6 +54,7 @@ export type DocumentDraftsMinAggregateOutputType = {
   status: string | null
   title: string | null
   titleOverridden: boolean | null
+  maxVersionNo: number | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -67,6 +70,7 @@ export type DocumentDraftsMaxAggregateOutputType = {
   status: string | null
   title: string | null
   titleOverridden: boolean | null
+  maxVersionNo: number | null
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
@@ -85,6 +89,7 @@ export type DocumentDraftsCountAggregateOutputType = {
   status: number
   title: number
   titleOverridden: number
+  maxVersionNo: number
   createdAt: number
   updatedAt: number
   deletedAt: number
@@ -98,6 +103,7 @@ export type DocumentDraftsAvgAggregateInputType = {
   caseId?: true
   templateId?: true
   outputFileId?: true
+  maxVersionNo?: true
 }
 
 export type DocumentDraftsSumAggregateInputType = {
@@ -106,6 +112,7 @@ export type DocumentDraftsSumAggregateInputType = {
   caseId?: true
   templateId?: true
   outputFileId?: true
+  maxVersionNo?: true
 }
 
 export type DocumentDraftsMinAggregateInputType = {
@@ -118,6 +125,7 @@ export type DocumentDraftsMinAggregateInputType = {
   status?: true
   title?: true
   titleOverridden?: true
+  maxVersionNo?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -133,6 +141,7 @@ export type DocumentDraftsMaxAggregateInputType = {
   status?: true
   title?: true
   titleOverridden?: true
+  maxVersionNo?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -151,6 +160,7 @@ export type DocumentDraftsCountAggregateInputType = {
   status?: true
   title?: true
   titleOverridden?: true
+  maxVersionNo?: true
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
@@ -256,6 +266,7 @@ export type DocumentDraftsGroupByOutputType = {
   status: string
   title: string
   titleOverridden: boolean
+  maxVersionNo: number
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
@@ -297,6 +308,7 @@ export type documentDraftsWhereInput = {
   status?: Prisma.StringFilter<"documentDrafts"> | string
   title?: Prisma.StringFilter<"documentDrafts"> | string
   titleOverridden?: Prisma.BoolFilter<"documentDrafts"> | boolean
+  maxVersionNo?: Prisma.IntFilter<"documentDrafts"> | number
   createdAt?: Prisma.DateTimeFilter<"documentDrafts"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"documentDrafts"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"documentDrafts"> | Date | string | null
@@ -321,6 +333,7 @@ export type documentDraftsOrderByWithRelationInput = {
   status?: Prisma.SortOrder
   title?: Prisma.SortOrder
   titleOverridden?: Prisma.SortOrder
+  maxVersionNo?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -348,6 +361,7 @@ export type documentDraftsWhereUniqueInput = Prisma.AtLeast<{
   status?: Prisma.StringFilter<"documentDrafts"> | string
   title?: Prisma.StringFilter<"documentDrafts"> | string
   titleOverridden?: Prisma.BoolFilter<"documentDrafts"> | boolean
+  maxVersionNo?: Prisma.IntFilter<"documentDrafts"> | number
   createdAt?: Prisma.DateTimeFilter<"documentDrafts"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"documentDrafts"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"documentDrafts"> | Date | string | null
@@ -372,6 +386,7 @@ export type documentDraftsOrderByWithAggregationInput = {
   status?: Prisma.SortOrder
   title?: Prisma.SortOrder
   titleOverridden?: Prisma.SortOrder
+  maxVersionNo?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -398,6 +413,7 @@ export type documentDraftsScalarWhereWithAggregatesInput = {
   status?: Prisma.StringWithAggregatesFilter<"documentDrafts"> | string
   title?: Prisma.StringWithAggregatesFilter<"documentDrafts"> | string
   titleOverridden?: Prisma.BoolWithAggregatesFilter<"documentDrafts"> | boolean
+  maxVersionNo?: Prisma.IntWithAggregatesFilter<"documentDrafts"> | number
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"documentDrafts"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"documentDrafts"> | Date | string
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"documentDrafts"> | Date | string | null
@@ -412,6 +428,7 @@ export type documentDraftsCreateInput = {
   status?: string
   title?: string
   titleOverridden?: boolean
+  maxVersionNo?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -436,6 +453,7 @@ export type documentDraftsUncheckedCreateInput = {
   status?: string
   title?: string
   titleOverridden?: boolean
+  maxVersionNo?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -453,6 +471,7 @@ export type documentDraftsUpdateInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   titleOverridden?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -477,6 +496,7 @@ export type documentDraftsUncheckedUpdateInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   titleOverridden?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -498,6 +518,7 @@ export type documentDraftsCreateManyInput = {
   status?: string
   title?: string
   titleOverridden?: boolean
+  maxVersionNo?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -512,6 +533,7 @@ export type documentDraftsUpdateManyMutationInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   titleOverridden?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -530,6 +552,7 @@ export type documentDraftsUncheckedUpdateManyInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   titleOverridden?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -563,6 +586,7 @@ export type documentDraftsCountOrderByAggregateInput = {
   status?: Prisma.SortOrder
   title?: Prisma.SortOrder
   titleOverridden?: Prisma.SortOrder
+  maxVersionNo?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -574,6 +598,7 @@ export type documentDraftsAvgOrderByAggregateInput = {
   caseId?: Prisma.SortOrder
   templateId?: Prisma.SortOrder
   outputFileId?: Prisma.SortOrder
+  maxVersionNo?: Prisma.SortOrder
 }
 
 export type documentDraftsMaxOrderByAggregateInput = {
@@ -586,6 +611,7 @@ export type documentDraftsMaxOrderByAggregateInput = {
   status?: Prisma.SortOrder
   title?: Prisma.SortOrder
   titleOverridden?: Prisma.SortOrder
+  maxVersionNo?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -601,6 +627,7 @@ export type documentDraftsMinOrderByAggregateInput = {
   status?: Prisma.SortOrder
   title?: Prisma.SortOrder
   titleOverridden?: Prisma.SortOrder
+  maxVersionNo?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
@@ -612,6 +639,7 @@ export type documentDraftsSumOrderByAggregateInput = {
   caseId?: Prisma.SortOrder
   templateId?: Prisma.SortOrder
   outputFileId?: Prisma.SortOrder
+  maxVersionNo?: Prisma.SortOrder
 }
 
 export type DocumentDraftsScalarRelationFilter = {
@@ -798,6 +826,7 @@ export type documentDraftsCreateWithoutCaseInput = {
   status?: string
   title?: string
   titleOverridden?: boolean
+  maxVersionNo?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -820,6 +849,7 @@ export type documentDraftsUncheckedCreateWithoutCaseInput = {
   status?: string
   title?: string
   titleOverridden?: boolean
+  maxVersionNo?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -870,6 +900,7 @@ export type documentDraftsScalarWhereInput = {
   status?: Prisma.StringFilter<"documentDrafts"> | string
   title?: Prisma.StringFilter<"documentDrafts"> | string
   titleOverridden?: Prisma.BoolFilter<"documentDrafts"> | boolean
+  maxVersionNo?: Prisma.IntFilter<"documentDrafts"> | number
   createdAt?: Prisma.DateTimeFilter<"documentDrafts"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"documentDrafts"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"documentDrafts"> | Date | string | null
@@ -884,6 +915,7 @@ export type documentDraftsCreateWithoutMaterialsInput = {
   status?: string
   title?: string
   titleOverridden?: boolean
+  maxVersionNo?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -907,6 +939,7 @@ export type documentDraftsUncheckedCreateWithoutMaterialsInput = {
   status?: string
   title?: string
   titleOverridden?: boolean
+  maxVersionNo?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -939,6 +972,7 @@ export type documentDraftsUpdateWithoutMaterialsInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   titleOverridden?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -962,6 +996,7 @@ export type documentDraftsUncheckedUpdateWithoutMaterialsInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   titleOverridden?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -978,6 +1013,7 @@ export type documentDraftsCreateWithoutTemplateInput = {
   status?: string
   title?: string
   titleOverridden?: boolean
+  maxVersionNo?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1000,6 +1036,7 @@ export type documentDraftsUncheckedCreateWithoutTemplateInput = {
   status?: string
   title?: string
   titleOverridden?: boolean
+  maxVersionNo?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1043,6 +1080,7 @@ export type documentDraftsCreateWithoutSnapshotsInput = {
   status?: string
   title?: string
   titleOverridden?: boolean
+  maxVersionNo?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1066,6 +1104,7 @@ export type documentDraftsUncheckedCreateWithoutSnapshotsInput = {
   status?: string
   title?: string
   titleOverridden?: boolean
+  maxVersionNo?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1098,6 +1137,7 @@ export type documentDraftsUpdateWithoutSnapshotsInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   titleOverridden?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1121,6 +1161,7 @@ export type documentDraftsUncheckedUpdateWithoutSnapshotsInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   titleOverridden?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1137,6 +1178,7 @@ export type documentDraftsCreateWithoutVersionsInput = {
   status?: string
   title?: string
   titleOverridden?: boolean
+  maxVersionNo?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1160,6 +1202,7 @@ export type documentDraftsUncheckedCreateWithoutVersionsInput = {
   status?: string
   title?: string
   titleOverridden?: boolean
+  maxVersionNo?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1192,6 +1235,7 @@ export type documentDraftsUpdateWithoutVersionsInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   titleOverridden?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1215,6 +1259,7 @@ export type documentDraftsUncheckedUpdateWithoutVersionsInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   titleOverridden?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1231,6 +1276,7 @@ export type documentDraftsCreateWithoutUserInput = {
   status?: string
   title?: string
   titleOverridden?: boolean
+  maxVersionNo?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1253,6 +1299,7 @@ export type documentDraftsUncheckedCreateWithoutUserInput = {
   status?: string
   title?: string
   titleOverridden?: boolean
+  maxVersionNo?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1299,6 +1346,7 @@ export type documentDraftsCreateManyCaseInput = {
   status?: string
   title?: string
   titleOverridden?: boolean
+  maxVersionNo?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1313,6 +1361,7 @@ export type documentDraftsUpdateWithoutCaseInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   titleOverridden?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1335,6 +1384,7 @@ export type documentDraftsUncheckedUpdateWithoutCaseInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   titleOverridden?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1355,6 +1405,7 @@ export type documentDraftsUncheckedUpdateManyWithoutCaseInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   titleOverridden?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1372,6 +1423,7 @@ export type documentDraftsCreateManyTemplateInput = {
   status?: string
   title?: string
   titleOverridden?: boolean
+  maxVersionNo?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1386,6 +1438,7 @@ export type documentDraftsUpdateWithoutTemplateInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   titleOverridden?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1408,6 +1461,7 @@ export type documentDraftsUncheckedUpdateWithoutTemplateInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   titleOverridden?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1428,6 +1482,7 @@ export type documentDraftsUncheckedUpdateManyWithoutTemplateInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   titleOverridden?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1445,6 +1500,7 @@ export type documentDraftsCreateManyUserInput = {
   status?: string
   title?: string
   titleOverridden?: boolean
+  maxVersionNo?: number
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
@@ -1459,6 +1515,7 @@ export type documentDraftsUpdateWithoutUserInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   titleOverridden?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1481,6 +1538,7 @@ export type documentDraftsUncheckedUpdateWithoutUserInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   titleOverridden?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1501,6 +1559,7 @@ export type documentDraftsUncheckedUpdateManyWithoutUserInput = {
   status?: Prisma.StringFieldUpdateOperationsInput | string
   title?: Prisma.StringFieldUpdateOperationsInput | string
   titleOverridden?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1568,6 +1627,7 @@ export type documentDraftsSelect<ExtArgs extends runtime.Types.Extensions.Intern
   status?: boolean
   title?: boolean
   titleOverridden?: boolean
+  maxVersionNo?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1593,6 +1653,7 @@ export type documentDraftsSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   status?: boolean
   title?: boolean
   titleOverridden?: boolean
+  maxVersionNo?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1614,6 +1675,7 @@ export type documentDraftsSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   status?: boolean
   title?: boolean
   titleOverridden?: boolean
+  maxVersionNo?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
@@ -1635,12 +1697,13 @@ export type documentDraftsSelectScalar = {
   status?: boolean
   title?: boolean
   titleOverridden?: boolean
+  maxVersionNo?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
 }
 
-export type documentDraftsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "caseId" | "sessionId" | "templateId" | "values" | "sourceRef" | "metadata" | "outputFileId" | "status" | "title" | "titleOverridden" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["documentDrafts"]>
+export type documentDraftsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "caseId" | "sessionId" | "templateId" | "values" | "sourceRef" | "metadata" | "outputFileId" | "status" | "title" | "titleOverridden" | "maxVersionNo" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["documentDrafts"]>
 export type documentDraftsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
   case?: boolean | Prisma.documentDrafts$caseArgs<ExtArgs>
@@ -1735,6 +1798,10 @@ export type $documentDraftsPayload<ExtArgs extends runtime.Types.Extensions.Inte
      * 用户是否手动修改过标题；为 true 后 AI 不再覆盖
      */
     titleOverridden: boolean
+    /**
+     * 已发放版本号单调计数器（只增不减；物理删除版本不回收号）
+     */
+    maxVersionNo: number
     /**
      * 创建时间
      */
@@ -2188,6 +2255,7 @@ export interface documentDraftsFieldRefs {
   readonly status: Prisma.FieldRef<"documentDrafts", 'String'>
   readonly title: Prisma.FieldRef<"documentDrafts", 'String'>
   readonly titleOverridden: Prisma.FieldRef<"documentDrafts", 'Boolean'>
+  readonly maxVersionNo: Prisma.FieldRef<"documentDrafts", 'Int'>
   readonly createdAt: Prisma.FieldRef<"documentDrafts", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"documentDrafts", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"documentDrafts", 'DateTime'>

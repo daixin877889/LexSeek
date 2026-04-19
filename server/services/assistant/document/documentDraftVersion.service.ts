@@ -2,7 +2,7 @@
  * DocumentDraftVersion Service
  *
  * 用户主动保存的版本（里程碑），owner-only。
- * - createVersionService: 事务内 MAX+1 + P2002 重试 1 次
+ * - createVersionService: 原子递增 draft.maxVersionNo 保证删除不回收版本号
  * - restoreVersionService: 先 workspace-backup 再覆盖 draft.values
  * - renameVersionService / deleteVersionService: owner-only
  */
@@ -21,7 +21,7 @@ import { createSnapshotService } from './documentDraftSnapshot.service'
 type ServiceError = { error: string; code: number }
 
 /**
- * 在事务内以 MAX+1 创建版本，P2002 唯一冲突时重试 1 次。
+ * 原子递增 draft.maxVersionNo 后创建版本，版本号永不回收。
  */
 export async function createVersionService(
     userId: number,
@@ -32,35 +32,25 @@ export async function createVersionService(
     if (!draft) return { error: '草稿不存在', code: 404 }
     if (draft.userId !== userId) return { error: '无权访问此草稿', code: 403 }
 
-    const attempt = () =>
-        prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-            const agg = await tx.documentDraftVersions.aggregate({
-                _max: { versionNo: true },
-                where: { draftId },
-            })
-            const nextNo = (agg._max.versionNo ?? 0) + 1
-            return createVersionDAO(
-                {
-                    draftId,
-                    versionNo: nextNo,
-                    name,
-                    values: (draft.values as Record<string, unknown>) ?? {},
-                    titleAt: draft.title ?? '',
-                },
-                tx,
-            )
+    const version = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        const bumped = await tx.documentDrafts.update({
+            where: { id: draftId },
+            data: { maxVersionNo: { increment: 1 } },
+            select: { maxVersionNo: true, values: true, title: true },
         })
+        return createVersionDAO(
+            {
+                draftId,
+                versionNo: bumped.maxVersionNo,
+                name,
+                values: (bumped.values as Record<string, unknown>) ?? {},
+                titleAt: bumped.title ?? '',
+            },
+            tx,
+        )
+    })
 
-    try {
-        const version = await attempt()
-        return { version }
-    } catch (err: unknown) {
-        if ((err as { code?: string })?.code === 'P2002') {
-            const version = await attempt()
-            return { version }
-        }
-        throw err
-    }
+    return { version }
 }
 
 /**

@@ -5216,6 +5216,7 @@ export const DocumentDraftsScalarFieldEnum = {
   status: 'status',
   title: 'title',
   titleOverridden: 'titleOverridden',
+  maxVersionNo: 'maxVersionNo',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'

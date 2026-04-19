@@ -166,7 +166,7 @@ describe('createVersionService', () => {
         expect('error' in r && r.code).toBe(403)
     })
 
-    it('连续创建三条版本号为 1/2/3', async () => {
+    it('删除后版本号不回收（V3 删除后下一个仍是 V4）', async () => {
         const { draft, user } = await makeDraft(testIds)
         const r1 = await createVersionService(user.id, draft.id, 'V1')
         const r2 = await createVersionService(user.id, draft.id, 'V2')
@@ -174,11 +174,14 @@ describe('createVersionService', () => {
 
         if ('version' in r1) testIds.versionIds.push(r1.version.id)
         if ('version' in r2) testIds.versionIds.push(r2.version.id)
-        if ('version' in r3) testIds.versionIds.push(r3.version.id)
 
-        expect('version' in r1 && r1.version.versionNo).toBe(1)
-        expect('version' in r2 && r2.version.versionNo).toBe(2)
-        expect('version' in r3 && r3.version.versionNo).toBe(3)
+        // 删除 V3，版本号 3 不回收
+        if ('version' in r3) await deleteVersionService(user.id, r3.version.id)
+
+        const r4 = await createVersionService(user.id, draft.id, 'V4')
+        if ('version' in r4) testIds.versionIds.push(r4.version.id)
+
+        expect('version' in r4 && r4.version.versionNo).toBe(4)
     })
 })
 
