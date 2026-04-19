@@ -11,6 +11,7 @@
  * **Feature: contract-review-m5**
  */
 import type { Risk, RiskLevel } from '#shared/types/contract'
+import { RISK_LEVEL_LABEL } from '#shared/types/contract'
 
 const props = defineProps<{ open: boolean; risk: Risk | null }>()
 const emit = defineEmits<{
@@ -95,11 +96,9 @@ const textFields: Array<{ key: keyof FormState; label: string; rows: number; pla
     { key: 'suggestion', label: '修改建议', rows: 3, placeholder: '修改建议文本' },
 ]
 
-const levelOptions: Array<{ value: RiskLevel; label: string }> = [
-    { value: 'high', label: '高' },
-    { value: 'medium', label: '中' },
-    { value: 'low', label: '低' },
-]
+const levelOptions: Array<{ value: RiskLevel; label: string }> = (
+    Object.entries(RISK_LEVEL_LABEL) as [RiskLevel, string][]
+).map(([value, label]) => ({ value, label }))
 </script>
 
 <template>

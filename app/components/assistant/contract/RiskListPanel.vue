@@ -14,6 +14,7 @@
  */
 import { DownloadIcon, ChevronDownIcon, Loader2Icon, PlusIcon, PencilIcon, Trash2Icon, FileTextIcon } from 'lucide-vue-next'
 import type { Risk, ContractReviewStatus } from '#shared/types/contract'
+import { RISK_LEVEL_LABEL } from '#shared/types/contract'
 
 const props = defineProps<{
     risks: Risk[]
@@ -38,10 +39,11 @@ function toggle(id: string) {
     expandedId.value = expandedId.value === id ? null : id
 }
 
-const canDownload = computed(() => props.status === 'completed' && props.reviewedFileId !== null)
-const canRebuild = computed(() => props.hasUnsavedDocxChanges && !props.isRebuilding && props.status === 'completed')
-// CRUD 按钮仅在审查完成、非重新生成中可用
-const editable = computed(() => !props.isRebuilding && props.status === 'completed')
+// status === 'completed' 是下载/重生/CRUD 的共同前置条件，集中派生避免三处各自写
+const isCompleted = computed(() => props.status === 'completed')
+const canDownload = computed(() => isCompleted.value && props.reviewedFileId !== null)
+const canRebuild = computed(() => props.hasUnsavedDocxChanges && !props.isRebuilding && isCompleted.value)
+const editable = computed(() => !props.isRebuilding && isCompleted.value)
 
 // 编辑对话框状态
 const editDialogOpen = ref(false)
@@ -81,7 +83,6 @@ function confirmDelete() {
     deletingRiskId.value = null
 }
 
-const LEVEL_LABEL: Record<Risk['level'], string> = { high: '高', medium: '中', low: '低' }
 const LEVEL_CLASS: Record<Risk['level'], string> = {
     high: 'bg-red-500 text-white',
     medium: 'bg-orange-500 text-white',
@@ -119,7 +120,7 @@ function handleExportPdfConfirm(includeRisks: boolean) {
                 <Card v-for="r in sorted" :key="r.id" class="cursor-pointer" @click="toggle(r.id)">
                     <CardHeader class="py-2 px-3">
                         <div class="flex items-center gap-2">
-                            <span class="inline-block px-2 py-0.5 rounded text-xs" :class="LEVEL_CLASS[r.level]">{{ LEVEL_LABEL[r.level] }}</span>
+                            <span class="inline-block px-2 py-0.5 rounded text-xs" :class="LEVEL_CLASS[r.level]">{{ RISK_LEVEL_LABEL[r.level] }}</span>
                             <span class="text-sm font-medium">{{ r.category }}</span>
                             <ChevronDownIcon class="ml-auto size-4 transition-transform" :class="{ 'rotate-180': expandedId === r.id }" />
                         </div>

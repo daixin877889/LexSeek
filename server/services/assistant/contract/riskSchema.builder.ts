@@ -8,8 +8,9 @@
  * **Feature: contract-review-m3**
  */
 import { z } from 'zod'
+import type { RiskLevel } from '#shared/types/contract'
 
-const RISK_LEVEL = ['high', 'medium', 'low'] as const
+const RISK_LEVEL = ['high', 'medium', 'low'] as const satisfies readonly RiskLevel[]
 
 export const RISK_SHAPE = z.object({
     id: z.string().uuid().describe('UUID，前端渲染 key'),

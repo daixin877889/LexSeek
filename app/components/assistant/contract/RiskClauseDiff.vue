@@ -1,3 +1,11 @@
+<script lang="ts">
+import DiffMatchPatch from 'diff-match-patch'
+
+// dmp 实例无状态，挂到 <script>（非 setup）作模块级单例，
+// 避免每个 RiskClauseDiff 卡片实例重复构造。
+const dmp = new DiffMatchPatch()
+</script>
+
 <script setup lang="ts">
 /**
  * 单条风险的条款对照（M5：字符级 diff 着色）
@@ -6,7 +14,6 @@
  * 建议栏仅显示"相同 + 新增"。删除红底删除线，新增绿底加粗。
  * 当 suggestedClauseText 为空时 fallback 到 M4 的纯文本行为。
  */
-import DiffMatchPatch from 'diff-match-patch'
 
 const props = defineProps<{
     clauseText: string
@@ -14,8 +21,6 @@ const props = defineProps<{
 }>()
 
 type DiffSegment = { kind: 'equal' | 'delete' | 'insert'; text: string }
-
-const dmp = new DiffMatchPatch()
 
 const diff = computed<{ original: DiffSegment[]; revised: DiffSegment[] } | null>(() => {
     if (!props.suggestedClauseText) return null

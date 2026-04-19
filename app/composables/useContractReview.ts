@@ -327,13 +327,6 @@ export function useContractReview() {
         triggerBrowserDownloadUrl(result.downloadUrl)
     }
 
-    /** 提交 interrupt resume 指令（M4 不主动调，保留接口给 M5 扩展用） */
-    function resumeInterrupt(data: unknown) {
-        if (!stream.value) return
-        stream.value.runStatus.value = 'idle'
-        stream.value.submit(undefined, { command: { resume: data } } as any)
-    }
-
     /** 停止当前 stream */
     async function stopGeneration() {
         await stream.value?.stop()
@@ -381,7 +374,6 @@ export function useContractReview() {
         onExportPdf,
         onEditRisks,
         onRebuildDocx,
-        resumeInterrupt,
         stopGeneration,
         cancelReview,
     }
