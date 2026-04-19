@@ -42,21 +42,24 @@ function formatTime(iso: string) {
         <ul v-else class="divide-y rounded-md border">
             <li v-for="v in versions" :key="v.id" class="p-3 space-y-2">
                 <div class="flex items-center gap-2 min-w-0">
-                    <template v-if="editingId === v.id">
-                        <input v-model="editingName" type="text" maxlength="100"
-                            class="flex-1 bg-transparent border-b border-primary outline-none text-sm font-medium"
-                            @blur="commitRename(v.id)"
-                            @keydown.enter.prevent="commitRename(v.id)"
-                            @keydown.escape="editingId = null" autofocus />
-                    </template>
-                    <template v-else>
-                        <span class="text-sm font-medium truncate flex-1 min-w-0" :title="v.name">{{ v.name }}</span>
-                        <button type="button"
-                            class="shrink-0 text-muted-foreground hover:text-foreground transition"
-                            @click="startRename(v)" aria-label="重命名">
-                            <PencilIcon class="size-3.5" />
-                        </button>
-                    </template>
+                    <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                        <template v-if="editingId === v.id">
+                            <input v-model="editingName" type="text" maxlength="100"
+                                class="flex-1 min-w-0 bg-transparent border-b border-primary outline-none text-sm font-medium px-1 py-0.5"
+                                @blur="commitRename(v.id)"
+                                @keydown.enter.prevent="commitRename(v.id)"
+                                @keydown.escape="editingId = null" autofocus />
+                        </template>
+                        <template v-else>
+                            <span class="text-sm font-medium truncate cursor-pointer hover:bg-muted/60 rounded px-1 py-0.5"
+                                :title="v.name" @click="startRename(v)">{{ v.name }}</span>
+                            <button type="button"
+                                class="shrink-0 text-muted-foreground hover:text-foreground transition"
+                                @click="startRename(v)" aria-label="重命名">
+                                <PencilIcon class="size-3.5" />
+                            </button>
+                        </template>
+                    </div>
                     <span class="shrink-0 text-xs text-muted-foreground tabular-nums">
                         {{ formatTime(v.createdAt) }}
                     </span>
