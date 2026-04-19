@@ -9,7 +9,7 @@
  * 参见 spec §6.7
  */
 
-import { createAgent, summarizationMiddleware, type ReactAgent } from 'langchain'
+import { createAgent, summarizationMiddleware, toolStrategy, type ReactAgent } from 'langchain'
 import { HumanMessage } from '@langchain/core/messages'
 import { Command } from '@langchain/langgraph'
 import { getCheckpointer, getStore } from '../checkpointer'
@@ -51,7 +51,7 @@ function buildInitialPromptFromDraft(
         segments.push(`已提供 ${fileIds.length} 份材料文件，请通过 search_case_materials 工具检索内容后填充字段。`)
     }
 
-    segments.push('必须用 responseFormat 定义的 schema 输出结构化结果；未知字段填空字符串，不要编造。')
+    segments.push('收集到足够信息后，必须通过结构化输出工具返回 values + suggestions，严禁在消息正文自行写 JSON 或代码块；未知字段返回 null，不要编造。')
     return segments.join('\n\n')
 }
 
@@ -108,7 +108,10 @@ export async function runDocumentChat(
     }
 
     // 3. 构造 responseFormat schema（由占位符列表动态生成）
+    // 显式使用 toolStrategy：强制所有模型（含 DeepSeek）通过专用结构化工具返回最终结果，
+    // 避免模型把 JSON 写到消息正文里导致 state.structuredResponse 缺失。
     const schema = buildDraftSchema(template.placeholders as unknown as Placeholder[])
+    const responseFormat = toolStrategy(schema)
 
     // 4. 创建模型实例
     const model = createChatModel({
@@ -160,7 +163,7 @@ export async function runDocumentChat(
         checkpointer,
         store,
         tools,
-        responseFormat: schema,
+        responseFormat,
         middleware: [
             pointConsumptionMiddleware(userId, 'document_draft_token', sessionId),
             summarizationMiddleware({

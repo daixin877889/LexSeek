@@ -78,11 +78,16 @@ export async function createDraftService(
     if (sourceFileIds?.length) sourceRef.fileIds = sourceFileIds
     if (caseId !== undefined) sourceRef.caseId = caseId
 
+    // 是否提供了原始材料（文本或文件）：决定是否立即触发 Agent 提取
+    // 没有材料时（用户从模板直接进入工作区手填或后续再用 AI 补填），不提前入队，
+    // 避免 Agent 在没有任何输入的情况下空跑产出无用消息
+    const hasSource = !!sourceText || (sourceFileIds?.length ?? 0) > 0
+
     const draft = await createDocumentDraftDAO({
         userId,
         templateId,
         sessionId,
-        status: 'drafting',
+        status: hasSource ? 'drafting' : 'ready',
         values: {},
         sourceRef: Object.keys(sourceRef).length > 0 ? sourceRef : null,
         metadata: null,
@@ -97,13 +102,15 @@ export async function createDraftService(
         )
     }
 
-    await enqueueRunService({
-        sessionId,
-        threadId: sessionId,
-        userId,
-        caseId: caseId ?? null,
-        input: {},
-    })
+    if (hasSource) {
+        await enqueueRunService({
+            sessionId,
+            threadId: sessionId,
+            userId,
+            caseId: caseId ?? null,
+            input: {},
+        })
+    }
 
     return { draftId: draft.id, sessionId }
 }

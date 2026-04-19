@@ -4,11 +4,51 @@
  * beforeAgent: 将 draft.status 置为 'filling'，表示 Agent 开始填写
  * afterAgent:
  *   - structuredResponse 有值 → 写入 values + metadata.suggestions，status='ready'
- *   - structuredResponse 缺失 → status='failed'
+ *   - structuredResponse 缺失 → fallback：尝试从最后一条 AIMessage 文本中解析 ```json 代码块
+ *     （部分模型未严格走 responseFormat 工具调用，会把 JSON 写在消息体里）
+ *   - fallback 仍失败 → status='failed'
  */
 
 import { createMiddleware } from 'langchain'
 import { updateDocumentDraftDAO } from '../../assistant/document/documentDraft.dao'
+
+interface DraftStructured {
+    values?: Record<string, string | null>
+    suggestions?: Record<string, string>
+}
+
+/**
+ * 从 AI 消息文本里兜底解析 JSON：
+ *  1. 优先匹配 ```json ... ``` 代码块
+ *  2. 退化匹配第一个平衡的 `{...}`
+ * 解析失败返回 null，让上层走 failed 分支。
+ */
+function tryParseStructuredFromText(text: string): DraftStructured | null {
+    if (!text || typeof text !== 'string') return null
+
+    const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
+    const candidates: string[] = []
+    if (fenceMatch?.[1]) candidates.push(fenceMatch[1])
+
+    // 兜底：找首个 `{` 到末尾最后一个 `}` 的子串
+    const firstBrace = text.indexOf('{')
+    const lastBrace = text.lastIndexOf('}')
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+        candidates.push(text.slice(firstBrace, lastBrace + 1))
+    }
+
+    for (const raw of candidates) {
+        try {
+            const parsed = JSON.parse(raw.trim()) as DraftStructured
+            if (parsed && typeof parsed === 'object' && parsed.values && typeof parsed.values === 'object') {
+                return parsed
+            }
+        } catch {
+            // 继续尝试下一个候选
+        }
+    }
+    return null
+}
 
 /** 中间件参数 */
 interface DraftResultPersistenceOptions {
@@ -41,12 +81,34 @@ export const draftResultPersistenceMiddleware = (options: DraftResultPersistence
         afterAgent: {
             hook: async (state: any) => {
                 try {
-                    const structured = state.structuredResponse
+                    let structured: DraftStructured | null = state.structuredResponse ?? null
+
+                    // fallback：模型把 JSON 写到消息体里时尝试解析最后一条 AI 消息
+                    if (!structured) {
+                        const messages = Array.isArray(state.messages) ? state.messages : []
+                        for (let i = messages.length - 1; i >= 0; i--) {
+                            const m = messages[i]
+                            const isAi = m?.getType?.() === 'ai' || m?._getType?.() === 'ai' || m?.role === 'assistant'
+                            if (!isAi) continue
+                            const content = typeof m.content === 'string'
+                                ? m.content
+                                : Array.isArray(m.content)
+                                    ? m.content.map((c: any) => (typeof c === 'string' ? c : c?.text ?? '')).join('')
+                                    : ''
+                            structured = tryParseStructuredFromText(content)
+                            if (structured) {
+                                logger.info('draft 持久化：从消息体解析 JSON 兜底成功', { draftId })
+                                break
+                            }
+                        }
+                    }
+
                     if (!structured) {
                         await updateDocumentDraftDAO(draftId, { status: 'failed' })
-                        logger.warn('draft 持久化：structuredResponse 缺失，置 failed', { draftId })
+                        logger.warn('draft 持久化：structuredResponse 缺失且消息体无可解析 JSON，置 failed', { draftId })
                         return
                     }
+
                     const values = structured.values ?? {}
                     const suggestions = structured.suggestions
                     await updateDocumentDraftDAO(draftId, {
