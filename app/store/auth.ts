@@ -47,8 +47,7 @@ export const useAuthStore = defineStore("auth", () => {
   }): Promise<LoginResult> => {
     loading.value = true;
     error.value = null;
-    let businessErrorMessage: string | null = null;
-    let businessErrorCode: number | null = null;
+    const capture = useBusinessErrorCapture();
 
     const data = await useApiFetch<{ token: string; user: SafeUserInfo }>(
       "/api/v1/auth/login/password",
@@ -56,20 +55,17 @@ export const useAuthStore = defineStore("auth", () => {
         method: "POST",
         body: { phone, password, captchaVerifyParam },
         showError: false,
-        onBusinessError: (response) => {
-          businessErrorCode = response.code;
-          businessErrorMessage = response.message;
-        },
+        onBusinessError: capture.onBusinessError,
       }
     );
 
     loading.value = false;
 
     if (!data || !data.token) {
-      error.value = businessErrorMessage || "登录失败";
+      error.value = capture.message.value || "登录失败";
       return {
         success: false,
-        requiresCaptcha: businessErrorCode === 429,
+        requiresCaptcha: capture.code.value === 429,
       };
     }
 
@@ -154,26 +150,22 @@ export const useAuthStore = defineStore("auth", () => {
   }): Promise<SendSmsCodeResult> => {
     loading.value = true;
     error.value = null;
-    let businessErrorMessage: string | null = null;
-    let businessErrorRetryAfterSec: number | null = null;
+    const capture = useBusinessErrorCapture<{ retryAfterSec?: number }>();
 
     const data = await useApiFetch<{ expiredAt?: string; retryAfterSec?: number }>("/api/v1/sms/send", {
       method: "POST",
       body: { phone, type, captchaVerifyParam },
       showError: false,
-      onBusinessError: (response) => {
-        businessErrorMessage = response.message;
-        const retryAfterSec = Number(response.data?.retryAfterSec);
-        businessErrorRetryAfterSec = Number.isFinite(retryAfterSec) && retryAfterSec > 0
-          ? retryAfterSec
-          : null;
-      },
+      onBusinessError: capture.onBusinessError,
     });
 
     loading.value = false;
 
     if (!data) {
-      error.value = businessErrorMessage || "发送验证码失败";
+      error.value = capture.message.value || "发送验证码失败";
+      const retryAfterRaw = Number(capture.data.value?.retryAfterSec);
+      const businessErrorRetryAfterSec =
+        Number.isFinite(retryAfterRaw) && retryAfterRaw > 0 ? retryAfterRaw : null;
       return {
         success: false,
         message: error.value,

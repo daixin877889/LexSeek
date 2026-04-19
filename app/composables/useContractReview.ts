@@ -7,7 +7,7 @@
  * - onStance：立场选择后让 workflow 续跑（通过 stance 端点，不走 LangGraph command.resume）
  * - onDownload：下载已完成的批注版 .docx
  * - onEditRisks：debounce 500ms PATCH risks，成功后标记 hasUnsavedDocxChanges
- * - onRebuildDocx：重生批注 Word，成功后清标记 + 自动下载
+ * - onRebuildDocx：重新生成批注 Word，成功后清标记 + 自动下载
  *
  * 参见 spec §11（合同审查）与 M4/M5 plan。
  */
@@ -35,7 +35,7 @@ export function useContractReview() {
     const review = ref<ReviewWithParsedRisks | null>(null)
 
     /**
-     * 本次会话内是否编辑过 risks 且尚未重生 docx。
+     * 本次会话内是否编辑过 risks 且尚未重新生成 docx。
      * 仅本会话内有效，跨会话持久化登记留给 M6+。
      */
     const hasUnsavedDocxChanges = ref(false)
@@ -226,35 +226,35 @@ export function useContractReview() {
     }, 500)
 
     /**
-     * 根据最新 risks 触发后端重生批注 Word，成功后自动下载新文件。
+     * 根据最新 risks 触发后端重新生成批注 Word，成功后自动下载新文件。
      *
      * 关键行为：
      * - 入口立即 toast.info 等待中（rebuild 耗时 > 10s 常见）
-     * - 用 useApiFetch.onBusinessError 捕获 code，区分 429（占位中）vs 500（失败）
+     * - 用 useBusinessErrorCapture 捕获业务码，区分 429（占位中）vs 500（失败）
      * - 成功：刷 review + hasUnsavedDocxChanges=false + toast.success + <a download> 触发浏览器下载
      */
     async function onRebuildDocx() {
         if (!reviewId.value) return
-        toast.info('正在重新生成批注，请稍候...')
+        toast.info('批注正在重新生成，请稍候...')
 
-        let bizCode: number | null = null
+        const capture = useBusinessErrorCapture()
         const resp = await useApiFetch<{ reviewedFileId: number; downloadUrl: string }>(
             `/api/v1/assistant/contract/reviews/${reviewId.value}/rebuild-docx`,
             {
                 method: 'POST',
                 showError: false,
-                onBusinessError: (r: { code: number }) => { bizCode = r.code },
-            } as any,
+                onBusinessError: capture.onBusinessError,
+            },
         )
         if (!resp) {
-            if (bizCode === 429) toast.warning('批注正在重新生成中，请稍候')
-            else toast.error('重生批注失败，请稍后重试')
+            if (capture.code.value === 429) toast.warning('批注正在重新生成中，请稍候')
+            else toast.error('重新生成批注失败，请稍后重试')
             return
         }
 
         await refreshReview(reviewId.value)
         hasUnsavedDocxChanges.value = false
-        toast.success('批注已重生')
+        toast.success('批注已重新生成')
 
         const a = document.createElement('a')
         a.href = resp.downloadUrl

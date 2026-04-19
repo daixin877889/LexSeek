@@ -6,7 +6,7 @@
  * - 顶部「新增风险」按钮 + 每条风险的「编辑 / 删除」按钮
  * - 删除走 AlertDialog 二次确认
  * - 底部「下载批注 Word」上方插入「重新生成批注 Word」
- * - isRebuilding 态：所有编辑/新增/删除/重生按钮禁用，顶部条状提示「批注正在重新生成...」
+ * - isRebuilding 态：所有编辑/新增/删除/重新生成按钮禁用，顶部条状提示「批注正在重新生成...」
  *
  * 组件为纯展示 + 交互，CRUD 结果通过 `editRisks` 事件把新 risks 数组整体交还父组件持久化。
  *
@@ -39,7 +39,7 @@ function toggle(id: string) {
 
 const canDownload = computed(() => props.status === 'completed' && props.reviewedFileId !== null)
 const canRebuild = computed(() => props.hasUnsavedDocxChanges && !props.isRebuilding && props.status === 'completed')
-// CRUD 按钮仅在审查完成、非重生时可用
+// CRUD 按钮仅在审查完成、非重新生成中可用
 const editable = computed(() => !props.isRebuilding && props.status === 'completed')
 
 // 编辑对话框状态

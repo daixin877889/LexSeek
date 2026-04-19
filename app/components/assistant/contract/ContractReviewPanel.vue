@@ -93,9 +93,12 @@ function handleDialogOpenChange(open: boolean) {
 }
 
 /**
- * 非用户触发路径（例如轮询 GET 回填）首次把 review.status 从 completed 切到 rebuilding
- * 时，补一个 toast 给用户提示。用户主动点击「重新生成」入口时，
- * onRebuildDocx 内部已经 toast.info 过一次，这里同时弹出也可接受（vue-sonner 自动合并）。
+ * 非用户触发路径（例如多标签页 / 刷新后 GET 回填）首次把 review.status 从 completed
+ * 切到 rebuilding 时，给用户弹个 toast。
+ *
+ * 注：用户点击「重新生成」的本地同步路径走 useContractReview.onRebuildDocx，自带
+ * toast.info；且 rebuild-docx API 同步返回（服务端内部完成状态切换），客户端不会
+ * 观察到 rebuilding 中间态，因此此 watch 在该路径下不会触发。
  */
 watch(isRebuilding, (rebuilding, wasRebuilding) => {
     if (rebuilding && !wasRebuilding) {
