@@ -2,7 +2,7 @@
   <SidebarGroup>
     <SidebarGroupContent>
       <SidebarMenu>
-        <template v-for="item in roleStore.currentRoleRouters.filter((item: any) => item.isMenu)" :key="item.title">
+        <template v-for="item in roleStore.currentRoleRouters.filter((item: any) => item.isMenu && item.groupId === 1)" :key="item.title">
           <SidebarMenuItem :class="isActive(item.path) ? 'bg-primary/10 rounded-md' : ''">
             <SidebarMenuButton as-child :tooltip="item.title" :class="[
               'p-4 pt-5 pb-5 text-base',
