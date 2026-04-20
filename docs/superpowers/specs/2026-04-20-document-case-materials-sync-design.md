@@ -67,8 +67,30 @@ ensureMaterialsReadyForDraftService(ossFileId, draftId, userId, caseId?: number 
 
 **行为：**
 
-- 创建 `case_materials` 记录时 `caseId: caseId ?? null`
-- 幂等性仍按 `(draftId, ossFileId)` 判重，避免重复建记录
+- 查重逻辑升级为"按 `ossFileId` 查活跃记录后分支 upsert"，避免同一文件在 case_materials 表产生多条记录：
+
+  ```ts
+  // 伪代码
+  const existing = await prisma.caseMaterials.findFirst({
+      where: { userId, ossFileId, deletedAt: null },
+  })
+  if (!existing) {
+      // 无活跃记录 → 新建
+      return prisma.caseMaterials.create({ data: { userId, ossFileId, caseId: caseId ?? null, draftId, ... } })
+  }
+  // 已有活跃记录：按字段缺失方向补齐，不会产生第二条
+  const patch: Partial<CaseMaterials> = {}
+  if (caseId != null && existing.caseId == null) patch.caseId = caseId
+  if (existing.draftId !== draftId)               patch.draftId = draftId  // draft 上传即绑到当前 draft
+  if (Object.keys(patch).length > 0) {
+      await prisma.caseMaterials.update({ where: { id: existing.id }, data: patch })
+  }
+  return existing.id
+  ```
+
+  - 结果：同一 `(userId, ossFileId)` 在活跃记录里**最多一条**，draft 上传已存在的案件文件时，旧记录的 `draftId` 被更新为当前 draft，**不新建第二条** → 案件材料 Tab 不会出现重复项
+  - 若 draft 已关联另一份 ossFile 且当前 caseId 与既有 caseId 不同（理论上不该发生——同 userId 同 ossFileId 已被 case A 占用再从 case B 的 draft 用），此时覆盖会把 caseId 从 A 改为 B；当前业务不支持跨案件共享同一 draft，可忽略，若发生属于异常数据
+
 - 识别记录按 `ossFileId` 查既有表，若已 COMPLETED 则跳过识别（沿用现有逻辑，无需改动）
 
 **调用点同步：**
@@ -129,7 +151,7 @@ const results = await searchMaterialsByCaseOrDraftService(
 
 ### 3.4 删除 draft 时 draftId 置空（级联策略 A）
 
-在 `softDeleteDraftService`（或等价位置）里软删 draft 记录之前/之后，加一步：
+在 `server/services/assistant/document/documentDraft.service.ts` 的 `softDeleteDraftService` 函数内（软删 draft 记录**之前**），加一步：
 
 ```ts
 await prisma.caseMaterials.updateMany({
@@ -205,7 +227,18 @@ const relatedOssFileIds = computed(() =>
 </Button>
 ```
 
-**D. 预览 state：** 照抄 `cases/[id].vue:98-116` 的 `previewMaterial` / `showPreview` / `showTextPreview` / `textContent` / `openMaterialPreview`；模板末尾照抄三个预览 Dialog 块（`cases/[id].vue:345-372`）。
+**D. 预览 state：** 引入与 `cases/[id].vue:98-116` 同构的 `previewMaterial` / `showPreview` / `showTextPreview` / `textContent` / `openMaterialPreview`；模板末尾引入同一套三种预览 Dialog 块（`cases/[id].vue:345-372`）。
+
+**必需 import（Nuxt 不自动导入的部分）：**
+
+```ts
+import { CaseMaterialType } from '#shared/types/case'   // openMaterialPreview 分派判断
+import { VisuallyHidden } from 'reka-ui'                 // 文本预览 Dialog 中的无障碍包装
+```
+
+其余（`Dialog` / `DialogContent` / `DialogHeader` / `DialogTitle` / `DialogDescription` / `useApiFetch` / `FileTextIcon` 等）均为 Nuxt 自动导入。
+
+> 本次不强制抽取预览逻辑为共享 composable 或组件。若 plan 阶段或日后 drafts/[id].vue 与 cases/[id].vue 的预览需求继续分化，再评估抽 `useMaterialPreview`。当前以"两处结构对齐"为优先，避免过早抽象。
 
 ### 4.2 `AssistantDocumentAllMaterialsSheet.vue`（新组件）
 
@@ -305,7 +338,7 @@ defineEmits<{
 5. 案件材料 Tab 解绑某条"原本由文书助手上传"的材料 → 草稿的 Sheet 立刻少了这条，agent 再查也搜不到
 6. 在文书列表删除整个草稿 → 该草稿关联的 case_materials 记录 `draftId` 被置空、`caseId` 保留 → 案件材料 Tab 这些材料仍在
 7. 独立文书页（无 caseId）新建草稿 → 上传材料 → 行为与改造前一致（draftId-only 记录，Sheet 只显示自己的）
-8. 同一 ossFile 在另一个案件复用时不重跑 MinerU/ASR（识别表按 ossFileId 命中）
+8. （回归验证，非本次新增行为）同一 ossFile 在另一个案件复用时不重跑 MinerU/ASR（识别表按 ossFileId 命中机制在本次改动下未受影响）
 
 ---
 
