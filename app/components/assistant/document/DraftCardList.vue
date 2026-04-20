@@ -124,5 +124,3 @@ function formatDraftDate(s: string) {
     transform: translateY(-8px) scale(0.99);
 }
 </style>
-</content>
-</invoke>

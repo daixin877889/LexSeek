@@ -98,5 +98,3 @@ const hasDrafts = computed(() => props.drafts.length > 0)
         <AssistantDocumentDraftCardList v-else :items="drafts" :view-mode="viewMode" show-delete @delete="onDelete" />
     </div>
 </template>
-</content>
-</invoke>
