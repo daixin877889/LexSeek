@@ -168,7 +168,17 @@ const statusStyle = (s: string) =>
                         <TableCell class="text-sm text-muted-foreground truncate max-w-[240px]" :title="templateLabel(row)">
                             {{ templateLabel(row) }}
                         </TableCell>
-                        <TableCell v-if="!hideCaseColumn">{{ row.caseId ? `#${row.caseId}` : '—' }}</TableCell>
+                        <TableCell v-if="!hideCaseColumn" class="max-w-[160px]">
+                            <NuxtLink
+                                v-if="row.caseId"
+                                :to="`/dashboard/cases/${row.caseId}?tab=documents`"
+                                class="text-foreground hover:text-primary transition-colors truncate inline-block max-w-full align-middle"
+                                :title="row.caseTitle ?? `案件 #${row.caseId}`"
+                            >
+                                {{ row.caseTitle ?? `案件 #${row.caseId}` }}
+                            </NuxtLink>
+                            <span v-else class="text-muted-foreground">—</span>
+                        </TableCell>
                         <TableCell class="text-sm text-muted-foreground">
                             {{ formatDate(row.updatedAt) }}
                         </TableCell>
@@ -230,7 +240,13 @@ const statusStyle = (s: string) =>
                         <span>{{ formatDate(row.updatedAt) }}</span>
                         <template v-if="row.caseId">
                             <span class="text-muted-foreground/60 mx-1">·</span>
-                            <span>案件 #{{ row.caseId }}</span>
+                            <NuxtLink
+                                :to="`/dashboard/cases/${row.caseId}?tab=documents`"
+                                class="hover:text-primary transition-colors"
+                                @click.stop
+                            >
+                                {{ row.caseTitle ?? `案件 #${row.caseId}` }}
+                            </NuxtLink>
                         </template>
                     </div>
                 </div>

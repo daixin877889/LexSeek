@@ -38,6 +38,7 @@ export default defineEventHandler(async (event) => {
         templateId: draft.templateId,
         templateName: draft.template?.name ?? null,
         caseId: draft.caseId,
+        caseTitle: draft.case?.title ?? null,
         sessionId: draft.sessionId,
         status: draft.status,
         createdAt: draft.createdAt,
