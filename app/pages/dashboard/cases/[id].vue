@@ -413,7 +413,7 @@ onMounted(() => {
   </ClientOnly>
 
   <!-- 案件文书：模板选择 Sheet（documents Tab + overview 板块共享） -->
-  <AssistantDocumentDocumentTemplatePickerSheet
+  <AssistantDocumentTemplatePickerSheet
     v-if="documentSheetOpen"
     v-model:open="documentSheetOpen"
     @select="handleTemplateSelect"
