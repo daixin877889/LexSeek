@@ -22,6 +22,7 @@ const commonStubs = {
     SheetTitle: { template: '<div><slot /></div>' },
     SheetDescription: { template: '<div><slot /></div>' },
     FolderIcon: { template: '<span class="folder-icon" />' },
+    Trash2Icon: { template: '<span class="trash-icon" />' },
 }
 
 function makeMaterial(partial: Partial<CaseDetailMaterialItem> & { id: number }): CaseDetailMaterialItem {
@@ -84,5 +85,33 @@ describe('AllMaterialsSheet', () => {
         expect(events).toBeTruthy()
         expect(events!.length).toBe(1)
         expect(events![0]![0]).toMatchObject({ id: 22, name: 'B.pdf' })
+    })
+
+    it('showDelete 为 false 时不渲染删除按钮', () => {
+        const wrapper = mount(AllMaterialsSheet, {
+            props: { open: true, materials: [makeMaterial({ id: 1 })] },
+            global: { stubs: commonStubs },
+        })
+        expect(wrapper.find('button[title="删除该材料"]').exists()).toBe(false)
+    })
+
+    it('showDelete 为 true 时点击删除按钮 emit delete 且不触发 preview-material', async () => {
+        const materials: CaseDetailMaterialItem[] = [
+            makeMaterial({ id: 11, name: 'A.pdf' }),
+            makeMaterial({ id: 22, name: 'B.pdf' }),
+        ]
+        const wrapper = mount(AllMaterialsSheet, {
+            props: { open: true, materials, showDelete: true },
+            global: { stubs: commonStubs },
+        })
+        const deleteButtons = wrapper.findAll('button[title="删除该材料"]')
+        expect(deleteButtons.length).toBe(2)
+        await deleteButtons[1]!.trigger('click')
+        const deleteEvents = wrapper.emitted('delete')
+        expect(deleteEvents).toBeTruthy()
+        expect(deleteEvents!.length).toBe(1)
+        expect(deleteEvents![0]![0]).toMatchObject({ id: 22, name: 'B.pdf' })
+        // 点击删除按钮不应冒泡触发行的 preview-material
+        expect(wrapper.emitted('preview-material')).toBeFalsy()
     })
 })

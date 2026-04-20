@@ -31,7 +31,8 @@
 - 不修改 `case_materials` 表 schema（现有字段已够用）。
 - 不回迁独立文书页历史产生的 `(caseId=null, draftId=Y)` 记录——保留原语义。
 - 不重复造材料预览组件，复用现有 `CaseAnalysisDocPreviewDialog` / `CaseAnalysisAudioPreviewDialog` / 内嵌文本 Dialog。
-- 不在文书编辑页提供"从 draft 解绑单条材料"的独立 UI（解绑仅经案件材料 Tab）。
+- 不提供细粒度"仅解除 draft 绑定、保留案件绑定"的操作——Sheet 内删除与案件材料 Tab 解绑完全等价（软删 case_materials 记录）。
+  - 历史版本曾将 Sheet 设为只读，但独立文书页上传的材料没有其它删除入口会成为死锁，故改为 Sheet 内支持删除。
 
 ---
 
@@ -289,7 +290,10 @@ defineEmits<{
 }>()
 ```
 
-**只读约束（明确设计意图，非未实现）：** Sheet 不含任何上传/编辑/解绑按钮，仅 emit `preview-material`。新增/编辑/解绑走已有通道（agent chat 文件按钮 上传；案件材料 Tab 解绑）。这是刻意保持 Sheet 轻量的决定。
+**交互约束：**
+- 上传 / 编辑走已有通道（agent chat 文件按钮上传）。Sheet 内不提供上传入口。
+- 删除（解绑）：Sheet 内提供逐条删除按钮（hover 显隐），行为与案件材料 Tab 解绑等价（软删 `case_materials` + 清理 embedding）。设计理由：独立文书页（无 caseId）上传的材料在此前的只读版本下无任何删除入口。
+- 绑定 props 新增 `showDelete?: boolean`，emits 新增 `delete: [material]`；父级收到 delete 后走确认弹框 → 调 `DELETE /api/v1/assistant/document/drafts/:id/materials/:materialId` → 成功后重拉 relatedMaterials。
 
 **模板结构：**
 

@@ -283,6 +283,28 @@ const relatedOssFileIds = computed<number[]>(() =>
 
 const allMaterialsOpen = ref(false)
 
+function handleDeleteRelatedMaterial(material: CaseDetailMaterialItem) {
+    if (!Number.isFinite(draftId.value) || draftId.value <= 0) return
+    const alertDialogStore = useAlertDialogStore()
+    alertDialogStore.showErrorDialog({
+        title: '删除材料',
+        message: `确定要删除「${material.name}」吗？删除后本草稿与所属案件都将不再看到该材料，且无法恢复。`,
+        confirmText: '确认删除',
+        cancelText: '取消',
+        zIndex: 9999,
+        onConfirm: async () => {
+            const ok = await useApiFetch(
+                `/api/v1/assistant/document/drafts/${draftId.value}/materials/${material.id}`,
+                { method: 'DELETE' },
+            )
+            if (ok !== null) {
+                toast.success('已删除')
+                await loadRelatedMaterials()
+            }
+        },
+    })
+}
+
 // --- 材料预览弹窗状态（与 cases/[id].vue:98-116 同构）---
 const previewMaterial = ref<CaseDetailMaterialItem | null>(null)
 const showPreview = ref(false)
@@ -629,8 +651,8 @@ function handlePanelResize(sizes: number[]) {
         </AlertDialog>
 
         <!-- 所有材料 Sheet（本草稿 + 所属案件共享） -->
-        <AssistantDocumentAllMaterialsSheet v-model:open="allMaterialsOpen" :materials="relatedMaterials"
-            @preview-material="openMaterialPreview" />
+        <AssistantDocumentAllMaterialsSheet v-model:open="allMaterialsOpen" :materials="relatedMaterials" show-delete
+            @preview-material="openMaterialPreview" @delete="handleDeleteRelatedMaterial" />
 
         <!-- 文档/图片预览弹窗 -->
         <CaseAnalysisDocPreviewDialog

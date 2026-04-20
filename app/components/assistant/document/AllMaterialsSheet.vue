@@ -1,26 +1,28 @@
 <script setup lang="ts">
 /**
- * AllMaterialsSheet —— 文书助手"所有材料"只读 Sheet
+ * AllMaterialsSheet —— 文书助手"所有材料" Sheet
  *
- * **Feature: document-case-materials-sync (Task 10)**
+ * **Feature: document-case-materials-sync**
  *
- * 只读约束：
- * - 不含任何上传/编辑/解绑按钮，仅 emit preview-material
- * - 新增/编辑/解绑走已有通道（agent chat 文件按钮上传；案件材料 Tab 解绑）
+ * - 列表显示本草稿与所属案件共享的材料
+ * - 点击行 emit preview-material
+ * - 悬停行右侧显示删除按钮，emit delete（软删 case_materials，与案件材料 Tab 行为等价）
  */
 
-import { FolderIcon } from 'lucide-vue-next'
+import { FolderIcon, Trash2Icon } from 'lucide-vue-next'
 import type { CaseDetailMaterialItem } from '~/composables/useCaseDetail'
 
 defineProps<{
     open: boolean
     materials: CaseDetailMaterialItem[]
     loading?: boolean
+    showDelete?: boolean
 }>()
 
 const emit = defineEmits<{
     'update:open': [value: boolean]
     'preview-material': [material: CaseDetailMaterialItem]
+    'delete': [material: CaseDetailMaterialItem]
 }>()
 </script>
 
@@ -40,7 +42,7 @@ const emit = defineEmits<{
                 </div>
                 <ul v-else class="divide-y">
                     <li v-for="m in materials" :key="m.id"
-                        class="flex items-center gap-3 p-3 hover:bg-muted/40 cursor-pointer"
+                        class="group flex items-center gap-3 p-3 hover:bg-muted/40 cursor-pointer"
                         @click="emit('preview-material', m)">
                         <component :is="getMaterialIcon(m.type)" class="size-5 shrink-0" />
                         <div class="flex-1 min-w-0">
@@ -49,6 +51,11 @@ const emit = defineEmits<{
                                 {{ m.typeText }}<span v-if="m.fileSize"> · {{ formatByteSize(m.fileSize, 0) }}</span>
                             </p>
                         </div>
+                        <button v-if="showDelete" type="button" title="删除该材料"
+                            class="shrink-0 p-1 rounded-md text-muted-foreground hover:bg-accent hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+                            @click.stop="emit('delete', m)">
+                            <Trash2Icon class="size-4" />
+                        </button>
                     </li>
                 </ul>
             </div>
