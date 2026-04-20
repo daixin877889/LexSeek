@@ -8,7 +8,7 @@
 
 import { tool } from '@langchain/core/tools'
 import { z } from 'zod'
-import { searchMaterialsService, searchMaterialsByDraftService } from '../../material/materialPipeline.service'
+import { searchMaterialsByCaseOrDraftService } from '../../material/materialPipeline.service'
 import type { ToolDefinition, ToolContext } from './types'
 import { truncateToolResults } from '../context/toolResultTruncator'
 
@@ -49,15 +49,17 @@ export function createTool(context: ToolContext) {
             logger.info('执行材料检索工作流工具', { userId, caseId, draftId: effectiveDraftId, query, sourceId, k })
 
             try {
-                // 两者都无时抛错
+                // 两者都无时显式抛错（不允许静默 fallback 为空）
                 if (caseId == null && !effectiveDraftId) {
-                    throw new Error('search_case_materials 工具需要 caseId 或 draftId，当前上下文均缺失')
+                    throw new Error('search_case_materials 需要 caseId 或 draftId')
                 }
 
-                // 分流：优先使用 draftId，其次使用 caseId
-                const results = effectiveDraftId
-                    ? await searchMaterialsByDraftService(userId, effectiveDraftId, { query, sourceId, k })
-                    : await searchMaterialsService(userId, caseId!, { query, sourceId, k })
+                // 合并检索：同时传 caseId/draftId 由服务层 OR 查询 + 天然去重
+                const results = await searchMaterialsByCaseOrDraftService(
+                    userId,
+                    { caseId: caseId ?? null, draftId: effectiveDraftId ?? null },
+                    { query, sourceId, k },
+                )
 
                 if (results.length === 0) {
                     return JSON.stringify({ error: '未找到指定材料' })
