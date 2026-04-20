@@ -1,13 +1,19 @@
 -- 安装 vector 扩展
 CREATE EXTENSION IF NOT EXISTS vector;
 
+-- 安装 pg_trgm 扩展
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+-- CreateEnum
+CREATE TYPE "dict_type" AS ENUM ('extra', 'it', 'edu', 'gov', 'medical', 'other');
+
 -- CreateTable
 CREATE TABLE "agent_runs" (
     "id" TEXT NOT NULL,
     "session_id" TEXT NOT NULL,
     "thread_id" TEXT NOT NULL,
     "user_id" INTEGER NOT NULL,
-    "case_id" INTEGER NOT NULL,
+    "case_id" INTEGER,
     "input" JSONB NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'pending',
     "worker_id" TEXT,
@@ -15,6 +21,7 @@ CREATE TABLE "agent_runs" (
     "started_at" TIMESTAMPTZ(6),
     "completed_at" TIMESTAMPTZ(6),
     "error" TEXT,
+    "metadata" JSONB,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL,
 
@@ -138,9 +145,12 @@ CREATE TABLE "cases" (
 CREATE TABLE "case_sessions" (
     "id" SERIAL NOT NULL,
     "session_id" VARCHAR(100) NOT NULL,
-    "case_id" INTEGER NOT NULL,
+    "scope" VARCHAR(20) NOT NULL DEFAULT 'case',
+    "user_id" INTEGER,
+    "case_id" INTEGER,
     "status" INTEGER NOT NULL DEFAULT 1,
     "type" INTEGER NOT NULL DEFAULT 1,
+    "title" VARCHAR(200),
     "metadata" JSONB,
     "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -152,7 +162,8 @@ CREATE TABLE "case_sessions" (
 -- CreateTable
 CREATE TABLE "case_materials" (
     "id" SERIAL NOT NULL,
-    "case_id" INTEGER NOT NULL,
+    "case_id" INTEGER,
+    "draft_id" INTEGER,
     "name" VARCHAR(255) NOT NULL,
     "type" INTEGER NOT NULL,
     "oss_file_id" INTEGER,
@@ -193,6 +204,7 @@ CREATE TABLE "demo_cases" (
     "id" SERIAL NOT NULL,
     "title" VARCHAR(200) NOT NULL,
     "description" VARCHAR(500),
+    "content" TEXT,
     "case_type_id" INTEGER NOT NULL,
     "materials" JSONB NOT NULL DEFAULT '[]',
     "cover_image" VARCHAR(500),
@@ -211,8 +223,98 @@ CREATE TABLE "case_material_embeddings" (
     "text" TEXT,
     "metadata" JSONB,
     "embedding" vector,
+    "tsv" tsvector,
 
     CONSTRAINT "case_material_embeddings_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "contract_reviews" (
+    "id" SERIAL NOT NULL,
+    "user_id" INTEGER NOT NULL,
+    "case_id" INTEGER,
+    "session_id" VARCHAR(100) NOT NULL,
+    "original_file_id" INTEGER NOT NULL,
+    "reviewed_file_id" INTEGER,
+    "contract_type" VARCHAR(50),
+    "party_a" VARCHAR(200),
+    "party_b" VARCHAR(200),
+    "stance" VARCHAR(20),
+    "status" VARCHAR(30) NOT NULL DEFAULT 'pending',
+    "risks" JSONB,
+    "summary" TEXT,
+    "has_unsaved_docx_changes" BOOLEAN NOT NULL DEFAULT false,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "contract_reviews_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "document_templates" (
+    "id" SERIAL NOT NULL,
+    "name" VARCHAR(200) NOT NULL,
+    "category" VARCHAR(100) NOT NULL,
+    "scope" VARCHAR(20) NOT NULL DEFAULT 'global',
+    "user_id" INTEGER,
+    "oss_file_id" INTEGER NOT NULL,
+    "placeholders" JSONB NOT NULL DEFAULT '[]',
+    "description" VARCHAR(500),
+    "priority" INTEGER NOT NULL DEFAULT 100,
+    "status" INTEGER NOT NULL DEFAULT 1,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "document_templates_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "document_drafts" (
+    "id" SERIAL NOT NULL,
+    "user_id" INTEGER NOT NULL,
+    "case_id" INTEGER,
+    "session_id" VARCHAR(100) NOT NULL,
+    "template_id" INTEGER NOT NULL,
+    "values" JSONB NOT NULL DEFAULT '{}',
+    "source_ref" JSONB,
+    "metadata" JSONB,
+    "output_file_id" INTEGER,
+    "status" VARCHAR(30) NOT NULL DEFAULT 'drafting',
+    "title" VARCHAR(200) NOT NULL DEFAULT '',
+    "title_overridden" BOOLEAN NOT NULL DEFAULT false,
+    "max_version_no" INTEGER NOT NULL DEFAULT 0,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deleted_at" TIMESTAMPTZ(6),
+
+    CONSTRAINT "document_drafts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "document_draft_snapshots" (
+    "id" SERIAL NOT NULL,
+    "draft_id" INTEGER NOT NULL,
+    "source" VARCHAR(30) NOT NULL,
+    "values" JSONB NOT NULL DEFAULT '{}',
+    "ai_title" VARCHAR(200),
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "document_draft_snapshots_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "document_draft_versions" (
+    "id" SERIAL NOT NULL,
+    "draft_id" INTEGER NOT NULL,
+    "version_no" INTEGER NOT NULL,
+    "name" VARCHAR(100) NOT NULL,
+    "values" JSONB NOT NULL DEFAULT '{}',
+    "title_at" VARCHAR(200) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "document_draft_versions_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -293,8 +395,20 @@ CREATE TABLE "law_embeddings" (
     "text" TEXT,
     "metadata" JSONB,
     "embedding" vector,
+    "tsv" tsvector,
 
     CONSTRAINT "law_embeddings_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "pg_ts_custom_word" (
+    "word" CHAR(255) NOT NULL,
+    "tf" DOUBLE PRECISION NOT NULL DEFAULT 10.0,
+    "idf" DOUBLE PRECISION NOT NULL DEFAULT 2.0,
+    "attr" CHAR(1) NOT NULL DEFAULT 'n',
+    "ts_type" "dict_type" NOT NULL DEFAULT 'extra',
+
+    CONSTRAINT "pg_ts_custom_word_pkey" PRIMARY KEY ("word")
 );
 
 -- CreateTable
@@ -1089,10 +1203,13 @@ CREATE INDEX "idx_cases_deleted_at" ON "cases"("deleted_at");
 CREATE UNIQUE INDEX "case_sessions_session_id_key" ON "case_sessions"("session_id");
 
 -- CreateIndex
+CREATE INDEX "idx_case_sessions_user_scope" ON "case_sessions"("user_id", "scope", "deleted_at");
+
+-- CreateIndex
 CREATE INDEX "idx_case_sessions_case_id" ON "case_sessions"("case_id");
 
 -- CreateIndex
-CREATE INDEX "idx_case_sessions_status" ON "case_sessions"("status");
+CREATE INDEX "idx_case_sessions_scope_status" ON "case_sessions"("scope", "status");
 
 -- CreateIndex
 CREATE INDEX "idx_case_sessions_type" ON "case_sessions"("type");
@@ -1102,6 +1219,9 @@ CREATE INDEX "idx_case_sessions_deleted_at" ON "case_sessions"("deleted_at");
 
 -- CreateIndex
 CREATE INDEX "idx_case_materials_case_id" ON "case_materials"("case_id");
+
+-- CreateIndex
+CREATE INDEX "idx_case_materials_draft" ON "case_materials"("draft_id");
 
 -- CreateIndex
 CREATE INDEX "idx_case_materials_type" ON "case_materials"("type");
@@ -1146,6 +1266,51 @@ CREATE INDEX "idx_demo_cases_status" ON "demo_cases"("status");
 CREATE INDEX "idx_demo_cases_deleted_at" ON "demo_cases"("deleted_at");
 
 -- CreateIndex
+CREATE INDEX "idx_case_material_tsv" ON "case_material_embeddings" USING GIN ("tsv");
+
+-- CreateIndex
+CREATE INDEX "idx_contract_reviews_user" ON "contract_reviews"("user_id", "deleted_at");
+
+-- CreateIndex
+CREATE INDEX "idx_contract_reviews_status" ON "contract_reviews"("status");
+
+-- CreateIndex
+CREATE INDEX "idx_contract_reviews_case" ON "contract_reviews"("case_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "idx_contract_reviews_session" ON "contract_reviews"("session_id");
+
+-- CreateIndex
+CREATE INDEX "idx_doc_templates_scope_user" ON "document_templates"("scope", "user_id");
+
+-- CreateIndex
+CREATE INDEX "idx_doc_templates_category" ON "document_templates"("category");
+
+-- CreateIndex
+CREATE INDEX "idx_doc_templates_status" ON "document_templates"("status", "deleted_at");
+
+-- CreateIndex
+CREATE INDEX "idx_doc_drafts_user" ON "document_drafts"("user_id", "deleted_at");
+
+-- CreateIndex
+CREATE INDEX "idx_doc_drafts_case" ON "document_drafts"("case_id");
+
+-- CreateIndex
+CREATE INDEX "idx_doc_drafts_template" ON "document_drafts"("template_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "idx_doc_drafts_session" ON "document_drafts"("session_id");
+
+-- CreateIndex
+CREATE INDEX "idx_doc_snapshots_draft_time" ON "document_draft_snapshots"("draft_id", "created_at" DESC);
+
+-- CreateIndex
+CREATE INDEX "idx_doc_versions_draft_time" ON "document_draft_versions"("draft_id", "created_at" DESC);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "idx_doc_versions_draft_no" ON "document_draft_versions"("draft_id", "version_no");
+
+-- CreateIndex
 CREATE INDEX "idx_oss_files_user_id" ON "oss_files"("user_id");
 
 -- CreateIndex
@@ -1167,6 +1332,9 @@ CREATE INDEX "idx_oss_files_deleted_at" ON "oss_files"("deleted_at");
 CREATE INDEX "idx_oss_files_encrypted" ON "oss_files"("encrypted");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "idx_oss_files_user_bucket_path" ON "oss_files"("user_id", "bucket_name", "file_path");
+
+-- CreateIndex
 CREATE INDEX "idx_legal_main_type" ON "legal_main"("type");
 
 -- CreateIndex
@@ -1183,6 +1351,12 @@ CREATE INDEX "idx_legal_articles_legal_id" ON "legal_articles"("legal_id");
 
 -- CreateIndex
 CREATE INDEX "idx_legal_articles_deleted_at" ON "legal_articles"("deleted_at");
+
+-- CreateIndex
+CREATE INDEX "idx_law_embeddings_tsv" ON "law_embeddings" USING GIN ("tsv");
+
+-- CreateIndex
+CREATE INDEX "idx_law_embeddings_text_trgm" ON "law_embeddings" USING GIN ("text" gin_trgm_ops);
 
 -- CreateIndex
 CREATE INDEX "idx_text_content_records_user_id" ON "text_content_records"("user_id");
@@ -1821,7 +1995,13 @@ ALTER TABLE "cases" ADD CONSTRAINT "cases_case_type_id_fkey" FOREIGN KEY ("case_
 ALTER TABLE "case_sessions" ADD CONSTRAINT "case_sessions_case_id_fkey" FOREIGN KEY ("case_id") REFERENCES "cases"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
+ALTER TABLE "case_sessions" ADD CONSTRAINT "case_sessions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
 ALTER TABLE "case_materials" ADD CONSTRAINT "case_materials_case_id_fkey" FOREIGN KEY ("case_id") REFERENCES "cases"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "case_materials" ADD CONSTRAINT "case_materials_draft_id_fkey" FOREIGN KEY ("draft_id") REFERENCES "document_drafts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
 -- AddForeignKey
 ALTER TABLE "case_analyses" ADD CONSTRAINT "case_analyses_case_id_fkey" FOREIGN KEY ("case_id") REFERENCES "cases"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
@@ -1834,6 +2014,30 @@ ALTER TABLE "case_analyses" ADD CONSTRAINT "case_analyses_node_id_fkey" FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE "demo_cases" ADD CONSTRAINT "demo_cases_case_type_id_fkey" FOREIGN KEY ("case_type_id") REFERENCES "case_types"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "contract_reviews" ADD CONSTRAINT "contract_reviews_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "contract_reviews" ADD CONSTRAINT "contract_reviews_case_id_fkey" FOREIGN KEY ("case_id") REFERENCES "cases"("id") ON DELETE SET NULL ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "document_templates" ADD CONSTRAINT "document_templates_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "document_drafts" ADD CONSTRAINT "document_drafts_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "document_drafts" ADD CONSTRAINT "document_drafts_case_id_fkey" FOREIGN KEY ("case_id") REFERENCES "cases"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "document_drafts" ADD CONSTRAINT "document_drafts_template_id_fkey" FOREIGN KEY ("template_id") REFERENCES "document_templates"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+-- AddForeignKey
+ALTER TABLE "document_draft_snapshots" ADD CONSTRAINT "document_draft_snapshots_draft_id_fkey" FOREIGN KEY ("draft_id") REFERENCES "document_drafts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "document_draft_versions" ADD CONSTRAINT "document_draft_versions_draft_id_fkey" FOREIGN KEY ("draft_id") REFERENCES "document_drafts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "legal_articles" ADD CONSTRAINT "legal_articles_legal_id_fkey" FOREIGN KEY ("legal_id") REFERENCES "legal_main"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
