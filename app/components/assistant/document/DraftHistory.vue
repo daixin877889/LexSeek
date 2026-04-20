@@ -13,11 +13,34 @@ import { useMediaQuery } from '@vueuse/core'
 import { toast } from 'vue-sonner'
 import type { DraftRow } from '#shared/types/document'
 
+const props = defineProps<{
+    /** 外部传入列表数据；未传则组件内部自拉 */
+    items?: DraftRow[]
+    /** 外部控制 loading 态（仅受控模式有效） */
+    loading?: boolean
+    /** 按 caseId 过滤（仅内部自拉模式有效） */
+    caseId?: number
+    /** 隐藏"关联案件"列（桌面表格） */
+    hideCaseColumn?: boolean
+}>()
+
+const emit = defineEmits<{
+    /** 删除完成（父组件据此触发刷新） */
+    changed: []
+}>()
+
 const { formatDate } = useFormatters()
 
-const loading = ref(false)
-const drafts = ref<DraftRow[]>([])
+const innerLoading = ref(false)
+const innerDrafts = ref<DraftRow[]>([])
 const pagination = ref({ page: 1, pageSize: 10, total: 0 })
+
+/** 是否受控：有 items prop 即受控 */
+const controlled = computed(() => props.items !== undefined)
+
+/** 对外暴露的列表 / loading 来源 */
+const drafts = computed(() => (controlled.value ? (props.items ?? []) : innerDrafts.value))
+const loading = computed(() => (controlled.value ? !!props.loading : innerLoading.value))
 
 const isDesktop = useMediaQuery('(min-width: 768px)')
 
@@ -25,23 +48,31 @@ const templateLabel = (row: DraftRow) => row.templateName || `模板 #${row.temp
 const titleLabel = (row: DraftRow) => row.title?.trim() || templateLabel(row)
 
 async function loadDrafts() {
-    loading.value = true
+    if (controlled.value) return // 受控模式由父组件刷新
+    innerLoading.value = true
     try {
         const skip = (pagination.value.page - 1) * pagination.value.pageSize
+        const query: Record<string, number> = {
+            skip,
+            take: pagination.value.pageSize,
+        }
+        if (props.caseId != null) query.caseId = props.caseId
         const result = await useApiFetch<{ items: DraftRow[]; total: number }>(
             '/api/v1/assistant/document/drafts',
-            { query: { skip, take: pagination.value.pageSize } },
+            { query },
         )
         if (result) {
-            drafts.value = result.items
+            innerDrafts.value = result.items
             pagination.value.total = result.total
         }
     } finally {
-        loading.value = false
+        innerLoading.value = false
     }
 }
 
-onMounted(loadDrafts)
+onMounted(() => {
+    if (!controlled.value) loadDrafts()
+})
 
 async function handleDelete(row: DraftRow) {
     const alertDialogStore = useAlertDialogStore()
@@ -57,7 +88,8 @@ async function handleDelete(row: DraftRow) {
             )
             if (ok !== null) {
                 toast.success('已删除')
-                loadDrafts()
+                if (controlled.value) emit('changed')
+                else loadDrafts()
             }
         },
     })
@@ -105,7 +137,9 @@ const statusStyle = (s: string) =>
             class="flex flex-col items-center justify-center py-10 text-muted-foreground"
         >
             <FileTextIcon class="size-10 mb-2 opacity-40" />
-            <p class="text-sm">还没有历史文书，去「文书模板」开始吧</p>
+            <p class="text-sm">
+                {{ caseId != null ? '本案件还没有文书，点「+ 新建文书」开始' : '还没有历史文书，去「文书模板」开始吧' }}
+            </p>
         </div>
 
         <!-- 桌面：表格 -->
@@ -115,7 +149,7 @@ const statusStyle = (s: string) =>
                     <TableRow>
                         <TableHead>文书名称</TableHead>
                         <TableHead>模板</TableHead>
-                        <TableHead class="w-[120px]">关联案件</TableHead>
+                        <TableHead v-if="!hideCaseColumn" class="w-[120px]">关联案件</TableHead>
                         <TableHead class="w-[160px]">更新时间</TableHead>
                         <TableHead class="w-[120px] text-center">操作</TableHead>
                     </TableRow>
@@ -134,7 +168,7 @@ const statusStyle = (s: string) =>
                         <TableCell class="text-sm text-muted-foreground truncate max-w-[240px]" :title="templateLabel(row)">
                             {{ templateLabel(row) }}
                         </TableCell>
-                        <TableCell>{{ row.caseId ? `#${row.caseId}` : '—' }}</TableCell>
+                        <TableCell v-if="!hideCaseColumn">{{ row.caseId ? `#${row.caseId}` : '—' }}</TableCell>
                         <TableCell class="text-sm text-muted-foreground">
                             {{ formatDate(row.updatedAt) }}
                         </TableCell>
@@ -223,7 +257,7 @@ const statusStyle = (s: string) =>
         </div>
 
         <GeneralPagination
-            v-if="drafts.length"
+            v-if="!controlled && drafts.length"
             :current-page="pagination.page"
             :page-size="pagination.pageSize"
             :total="pagination.total"
