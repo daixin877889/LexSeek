@@ -142,19 +142,21 @@ export async function ensureMaterialsReadyService(
  * @param draftId 文书草稿 ID
  * @param userId 调用用户
  * @param options.fileIds 可选：仅处理这些 OSS 文件
+ * @param options.caseId 可选：草稿所属案件 ID，传入后每个 fileId 会透传给单文件 pipeline 实现 case/draft 双绑
  */
 export async function ensureMaterialsReadyByDraftService(
     draftId: number,
     userId: number,
-    options: { fileIds?: number[] } = {},
+    options: { fileIds?: number[]; caseId?: number | null } = {},
 ): Promise<MaterialReadyResult> {
     const initialFailed: MaterialFailedItem[] = []
+    const caseId = options.caseId ?? null
 
     // 1. 对于用户新选的 fileIds，先走单文件 pipeline 保证 caseMaterials 行存在且跑完
     //    （ensureMaterialsReadyForDraftService 内部幂等，已 COMPLETED 会立即返回）
     if (options.fileIds && options.fileIds.length > 0) {
         const perFileResults = await Promise.allSettled(
-            options.fileIds.map(fid => ensureMaterialsReadyForDraftService(fid, draftId, userId)),
+            options.fileIds.map(fid => ensureMaterialsReadyForDraftService(fid, draftId, userId, caseId)),
         )
         for (let i = 0; i < perFileResults.length; i++) {
             const r = perFileResults[i]!

@@ -46,7 +46,7 @@ export function createTool(context: ToolContext) {
 
                 // 1. 按优先级选择批处理入口（draftId 优先，保持小索/案件路径原样）
                 const ready = draftId != null
-                    ? await ensureMaterialsReadyByDraftService(draftId, userId, { fileIds })
+                    ? await ensureMaterialsReadyByDraftService(draftId, userId, { fileIds, caseId: caseId ?? null })
                     : await ensureMaterialsReadyService(caseId!, userId)
                 const { materials, embeddedMap } = ready
 

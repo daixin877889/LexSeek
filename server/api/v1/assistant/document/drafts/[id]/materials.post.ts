@@ -45,9 +45,10 @@ export default defineEventHandler(async (event) => {
     if (draft.userId !== user.id) return resError(event, 403, '无权操作此草稿')
 
     // 并行处理（ensureMaterialsReadyForDraftService 内部幂等且会轮询至 COMPLETED）
+    // 透传 draft.caseId：若 draft 绑定了案件，则材料同时双绑到 case 和 draft
     const results = await Promise.allSettled(
         parsed.data.fileIds.map(fileId =>
-            ensureMaterialsReadyForDraftService(fileId, draftId, user.id),
+            ensureMaterialsReadyForDraftService(fileId, draftId, user.id, draft.caseId ?? null),
         ),
     )
 
