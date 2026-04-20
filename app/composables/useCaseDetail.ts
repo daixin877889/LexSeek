@@ -1,4 +1,5 @@
 import type { AnalysisResult, AnalysisModuleCard } from '#shared/types/case'
+import type { DraftRow } from '#shared/types/document'
 import type { InitAnalysisStatusResponse } from '#shared/types/initAnalysis'
 import type { OssFileItem } from '~/store/file'
 import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
@@ -66,6 +67,14 @@ export function useCaseDetail(
   const { data: materials, refresh: refreshMaterials } = useApi<CaseDetailMaterialItem[]>(
     () => `/api/v1/case/${id.value}/materials`,
   )
+
+  // 文书草稿列表（响应式，按 caseId 过滤）
+  // take: 100 足以覆盖单案件业务场景；若未来出现 >100 草稿需改为分页或无限滚动
+  const { data: draftsResp, refresh: refreshDrafts } = useApi<{ items: DraftRow[]; total: number }>(
+    () => `/api/v1/assistant/document/drafts`,
+    { query: computed(() => ({ caseId: id.value, take: 100 })) },
+  )
+  const drafts = computed<DraftRow[]>(() => draftsResp.value?.items ?? [])
 
   // 分析状态和结果
   const { data: analysisStatus, refresh: refreshAnalysis } = useApi<InitAnalysisStatusResponse>(
@@ -322,6 +331,8 @@ export function useCaseDetail(
     refreshCase,
     refreshMaterials,
     refreshAnalysis,
+    drafts,
+    refreshDrafts,
     // 添加材料相关
     addMaterials,
     retryMaterial,
