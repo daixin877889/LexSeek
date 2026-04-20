@@ -9,7 +9,7 @@ import { batchCheckMaterialEmbeddedService, embedMaterialUnifiedService } from '
 import { processMaterialService, batchCheckMaterialRecognizedService, MaterialProcessError } from './materialProcess.service'
 import { CaseMaterialType, getMaterialTypeFromMime } from '#shared/types/case'
 import { MaterialStatus } from '#shared/types/material'
-import { createMaterialDao, findMaterialByIdDao, findMaterialByDraftIdAndOssFileIdDao } from './material.dao'
+import { createMaterialDao, findMaterialByIdDao, findActiveMaterialByOssFileIdDao } from './material.dao'
 
 export interface MaterialFailedItem {
     materialId: number
@@ -626,15 +626,47 @@ export async function ensureMaterialsReadyForDraftService(
     ossFileId: number,
     draftId: number,
     userId: number,
+    caseId?: number | null,
 ): Promise<{ id: number; status: number; draftId: number | null; ossFileId: number | null }> {
-    const existing = await findMaterialByDraftIdAndOssFileIdDao(draftId, ossFileId)
+    // 查重：按 ossFileId 找活跃记录，避免同一 ossFile 产生多条记录
+    // 安全性由 ossFiles.userId 单 owner 保证（调用方传入的 ossFileId 必属当前 user）
+    const existing = await findActiveMaterialByOssFileIdDao(ossFileId)
 
     let materialId: number
 
     if (existing) {
         materialId = existing.id
+
+        // 按需补齐缺失字段：case-only → 补 draftId；draft-only → 补 caseId；双绑 → 无变更
+        const patch: Partial<{ caseId: number; draftId: number }> = {}
+        if (caseId != null && existing.caseId == null) {
+            patch.caseId = caseId
+        } else if (caseId != null && existing.caseId != null && existing.caseId !== caseId) {
+            // 异常场景：ossFile 已绑定到另一 case（当前业务不会发生），记警告但不覆盖
+            logger.warn('case_materials caseId 冲突，保留原值不覆盖', {
+                materialId: existing.id,
+                existingCaseId: existing.caseId,
+                incomingCaseId: caseId,
+            })
+        }
+        if (existing.draftId !== draftId) {
+            if (existing.draftId != null) {
+                // 异常场景：同 case 下两个活跃 draft 用同文件，后写赢
+                logger.warn('case_materials draftId 被覆盖', {
+                    materialId: existing.id,
+                    oldDraftId: existing.draftId,
+                    newDraftId: draftId,
+                })
+            }
+            patch.draftId = draftId
+        }
+        if (Object.keys(patch).length > 0) {
+            await prisma.caseMaterials.update({ where: { id: existing.id }, data: patch })
+        }
+
+        // 已 COMPLETED 直接返回（跳过识别）
         if (existing.status === MaterialStatus.COMPLETED) {
-            return { id: existing.id, status: existing.status, draftId: existing.draftId, ossFileId: existing.ossFileId }
+            return { id: existing.id, status: existing.status, draftId, ossFileId: existing.ossFileId }
         }
     } else {
         const ossFile = await prisma.ossFiles.findFirst({
@@ -646,7 +678,7 @@ export async function ensureMaterialsReadyForDraftService(
         }
         const materialType = getMaterialTypeFromMime(ossFile.fileType)
         const newMaterial = await createMaterialDao({
-            caseId: null,
+            caseId: caseId ?? null,
             draftId,
             ossFileId,
             name: ossFile.fileName ?? `材料_${ossFileId}`,
