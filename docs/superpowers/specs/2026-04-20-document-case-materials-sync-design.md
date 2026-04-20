@@ -65,31 +65,64 @@ ensureMaterialsReadyForDraftService(ossFileId, draftId, userId)
 ensureMaterialsReadyForDraftService(ossFileId, draftId, userId, caseId?: number | null)
 ```
 
-**行为：**
+**关键改动 — 替换现有查重逻辑：**
 
-- 查重逻辑升级为"按 `ossFileId` 查活跃记录后分支 upsert"，避免同一文件在 case_materials 表产生多条记录：
+现有实现（`materialPipeline.service.ts:630`）是 `findMaterialByDraftIdAndOssFileIdDao(draftId, ossFileId)`——按 `(draftId, ossFileId)` 找现有记录，找不到就新建。**此逻辑下 bug**：case 已有 `(caseId=X, draftId=null, ossFileId=Z)` 时，draft 上传同 ossFile 按 draftId=Y 查不到 → 新建 `(X, Y, Z)` → 同一 ossFile 两条记录并存 → 案件材料 Tab 显示重复项。
 
-  ```ts
-  // 伪代码
-  const existing = await prisma.caseMaterials.findFirst({
-      where: { userId, ossFileId, deletedAt: null },
-  })
-  if (!existing) {
-      // 无活跃记录 → 新建
-      return prisma.caseMaterials.create({ data: { userId, ossFileId, caseId: caseId ?? null, draftId, ... } })
-  }
-  // 已有活跃记录：按字段缺失方向补齐，不会产生第二条
-  const patch: Partial<CaseMaterials> = {}
-  if (caseId != null && existing.caseId == null) patch.caseId = caseId
-  if (existing.draftId !== draftId)               patch.draftId = draftId  // draft 上传即绑到当前 draft
-  if (Object.keys(patch).length > 0) {
-      await prisma.caseMaterials.update({ where: { id: existing.id }, data: patch })
-  }
-  return existing.id
-  ```
+**替换为"按 `(userId, ossFileId)` 查活跃记录后分支 upsert"**，保证同一 ossFile 最多一条活跃记录：
 
-  - 结果：同一 `(userId, ossFileId)` 在活跃记录里**最多一条**，draft 上传已存在的案件文件时，旧记录的 `draftId` 被更新为当前 draft，**不新建第二条** → 案件材料 Tab 不会出现重复项
-  - 若 draft 已关联另一份 ossFile 且当前 caseId 与既有 caseId 不同（理论上不该发生——同 userId 同 ossFileId 已被 case A 占用再从 case B 的 draft 用），此时覆盖会把 caseId 从 A 改为 B；当前业务不支持跨案件共享同一 draft，可忽略，若发生属于异常数据
+```ts
+// 新 DAO（可放 material.dao.ts）
+export async function findActiveMaterialByOssFileIdDao(userId: number, ossFileId: number) {
+    return prisma.caseMaterials.findFirst({
+        where: { userId, ossFileId, deletedAt: null },
+    })
+}
+
+// ensureMaterialsReadyForDraftService 主体改为：
+export async function ensureMaterialsReadyForDraftService(
+    ossFileId: number,
+    draftId: number,
+    userId: number,
+    caseId?: number | null,
+) {
+    const existing = await findActiveMaterialByOssFileIdDao(userId, ossFileId)
+
+    let materialId: number
+    if (!existing) {
+        // 无活跃记录 → 新建双绑或半绑
+        const created = await prisma.caseMaterials.create({
+            data: { userId, ossFileId, caseId: caseId ?? null, draftId, /* type/name/status 等沿用旧逻辑 */ },
+        })
+        materialId = created.id
+    } else {
+        materialId = existing.id
+        // 已有活跃记录：按需补齐缺失字段
+        const patch: Record<string, unknown> = {}
+        if (caseId != null && existing.caseId == null) patch.caseId = caseId
+        if (existing.draftId !== draftId)               patch.draftId = draftId
+        if (Object.keys(patch).length > 0) {
+            await prisma.caseMaterials.update({ where: { id: existing.id }, data: patch })
+        }
+        // 已 COMPLETED 则直接返回（沿用既有短路行为）
+        if (existing.status === MaterialStatus.COMPLETED) {
+            return { id: existing.id, status: existing.status, draftId: draftId, ossFileId: existing.ossFileId }
+        }
+    }
+    // 识别 + 嵌入流水线走原有逻辑（按 ossFileId 查既有识别表，COMPLETED 跳过）
+    ...
+}
+```
+
+**边界场景处理（写在实现中的注释，非代码）：**
+
+| existing 状态 | 本次入参 | upsert 结果 | 语义 |
+|---|---|---|---|
+| `(X, null, Z)` case-only | caseId=X, draftId=Y | 变 `(X, Y, Z)` 双绑 | ✅ 用户原需求 |
+| `(null, Y, Z)` draft-only（独立文书页） | caseId=X, draftId=Y | 变 `(X, Y, Z)` 双绑 | ✅ 补齐 caseId |
+| `(X, Y, Z)` 双绑已存在 | caseId=X, draftId=Y | 无变更 | ✅ 幂等 |
+| `(X, Y_other, Z)` 案件已被另一 draft 绑定 | caseId=X, draftId=Y | 变 `(X, Y, Z)`，原 draft_other 不再绑此材料 | ⚠️ 异常数据：同一 case 下两个活跃 draft 用同文件，本次覆盖原绑定；当前业务不构造该场景，实现时加 `logger.warn` |
+| `(X_other, Y_other, Z)` 属于另一用户案件 | - | 不会命中（DAO where 带 `userId`） | ✅ |
 
 - 识别记录按 `ossFileId` 查既有表，若已 COMPLETED 则跳过识别（沿用现有逻辑，无需改动）
 
@@ -316,7 +349,8 @@ defineEmits<{
 | 测试 | 覆盖点 |
 | --- | --- |
 | `findMaterialsByCaseOrDraftIdDao` | 只 caseId / 只 draftId / 都有 / 都无返回空 / 软删记录不返回 / 多条双绑记录不同 ossFileId 各自返回一次 |
-| `ensureMaterialsReadyForDraftService` 新签名 | 传 caseId 时记录包含 caseId + draftId；不传时等价原行为（向后兼容） |
+| `findActiveMaterialByOssFileIdDao` | 同 userId 同 ossFileId 的活跃记录唯一返回；软删记录不返回；跨 userId 不串 |
+| `ensureMaterialsReadyForDraftService` upsert 四场景 | ① case-only `(X,null,Z)` + 上传(X,Y) → 变 `(X,Y,Z)`；② draft-only `(null,Y,Z)` + 上传(X,Y) → 变 `(X,Y,Z)`；③ 双绑 `(X,Y,Z)` + 重复上传 → 幂等不改；④ 无活跃记录 + 上传 → 新建 `(X,Y,Z)` |
 | `searchMaterialsByCaseOrDraftService` | 去重 by id、embedding 检索结果合并排序 |
 | `softDeleteDraftService`（级联 draftId 置空） | `case_materials where draftId=Y` 的 `draftId` 被置 null、`caseId` 保留 |
 | `searchCaseMaterials` tool | 三种 context（只 draftId / 只 caseId / 双有）都能正确检索 |
@@ -348,7 +382,7 @@ defineEmits<{
 
 | 文件 | 动作 |
 | --- | --- |
-| `server/services/material/material.dao.ts` | 新增 `findMaterialsByCaseOrDraftIdDao` |
+| `server/services/material/material.dao.ts` | 新增 `findMaterialsByCaseOrDraftIdDao` + `findActiveMaterialByOssFileIdDao` |
 | `server/services/material/materialPipeline.service.ts` | 新增 `searchMaterialsByCaseOrDraftService`；`ensureMaterialsReadyForDraftService` 签名加 `caseId` 并写入记录 |
 | `server/services/assistant/document/documentDraft.service.ts` | `createDraftService` 调用 ensureMaterials 传入 draft.caseId；`softDeleteDraftService` 级联 draftId 置空 |
 | `server/services/workflow/tools/searchCaseMaterials.tool.ts` | 替换分流逻辑调用新合并 service |
