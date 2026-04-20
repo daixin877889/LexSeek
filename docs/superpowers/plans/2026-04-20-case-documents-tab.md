@@ -917,7 +917,17 @@ import type { DraftRow } from '#shared/types/document'
       </div>
 
       <div class="p-4 pt-3">
+        <!-- 空态：spec §4.4 要求的专属 UI（FileTextIcon + 暂无文书） -->
+        <div
+          v-if="(drafts?.length ?? 0) === 0"
+          class="text-center py-6 text-sm text-muted-foreground"
+        >
+          <FileTextIcon class="size-8 mx-auto mb-2 opacity-50" />
+          暂无文书
+        </div>
+        <!-- 非空：复用 DraftHistory（受控模式 + 隐藏关联案件列） -->
         <AssistantDocumentDraftHistory
+          v-else
           :items="drafts ?? []"
           :loading="false"
           hide-case-column
@@ -925,7 +935,7 @@ import type { DraftRow } from '#shared/types/document'
       </div>
 ```
 
-> 注意：这里 `DraftHistory` 传入 `items`（即便为空数组也触发受控模式，不会自拉），空态文案不带 caseId 分支（因为组件内 `caseId` prop 未传，回退到通用文案"还没有历史文书..."）。这与 § 4.4 spec 一致——overview 板块不进入"本案件还没有文书"的专属文案。如果要求专属文案，传 `:case-id="caseId"`，但 spec 未要求，此处不加以免过度设计。
+> 注意：spec §4.4 明确 overview 板块的空态 UI 为「`<FileTextIcon size-8 opacity-50 />` + "暂无文书"」，与 materials 板块空态一致（参考 `CaseDetailOverview.vue:253-256`）。非空时才交给 `DraftHistory` 渲染列表，避免 DraftHistory 自带的通用空态文案出现在 overview 上下文。
 
 - [ ] **Step 3: 运行 typecheck**
 
