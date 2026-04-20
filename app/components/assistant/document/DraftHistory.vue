@@ -147,11 +147,11 @@ const statusStyle = (s: string) =>
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>文书名称</TableHead>
-                        <TableHead>模板</TableHead>
-                        <TableHead v-if="!hideCaseColumn" class="w-[120px]">关联案件</TableHead>
-                        <TableHead class="w-[160px]">更新时间</TableHead>
-                        <TableHead class="w-[120px] text-center">操作</TableHead>
+                        <TableHead class="min-w-[220px]">文书名称</TableHead>
+                        <TableHead class="w-[260px]">模板</TableHead>
+                        <TableHead v-if="!hideCaseColumn" class="w-[220px]">关联案件</TableHead>
+                        <TableHead class="w-[150px]">更新时间</TableHead>
+                        <TableHead class="w-[96px] text-center">操作</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -159,27 +159,29 @@ const statusStyle = (s: string) =>
                         <TableCell class="font-medium">
                             <NuxtLink
                                 :to="`/dashboard/document/drafts/${row.id}?from=document-history`"
-                                class="text-foreground hover:text-primary transition-colors truncate inline-block max-w-[360px] align-middle"
+                                class="text-foreground hover:text-primary transition-colors truncate block max-w-full align-middle"
                                 :title="titleLabel(row)"
                             >
                                 {{ titleLabel(row) }}
                             </NuxtLink>
                         </TableCell>
-                        <TableCell class="text-sm text-muted-foreground truncate max-w-[240px]" :title="templateLabel(row)">
-                            {{ templateLabel(row) }}
+                        <TableCell class="text-sm text-muted-foreground">
+                            <span class="truncate block max-w-full" :title="templateLabel(row)">
+                                {{ templateLabel(row) }}
+                            </span>
                         </TableCell>
-                        <TableCell v-if="!hideCaseColumn" class="max-w-[160px]">
+                        <TableCell v-if="!hideCaseColumn">
                             <NuxtLink
                                 v-if="row.caseId"
                                 :to="`/dashboard/cases/${row.caseId}?tab=documents`"
-                                class="text-foreground hover:text-primary transition-colors truncate inline-block max-w-full align-middle"
+                                class="text-foreground hover:text-primary transition-colors truncate block max-w-full align-middle"
                                 :title="row.caseTitle ?? `案件 #${row.caseId}`"
                             >
                                 {{ row.caseTitle ?? `案件 #${row.caseId}` }}
                             </NuxtLink>
                             <span v-else class="text-muted-foreground">—</span>
                         </TableCell>
-                        <TableCell class="text-sm text-muted-foreground">
+                        <TableCell class="text-sm text-muted-foreground whitespace-nowrap">
                             {{ formatDate(row.updatedAt) }}
                         </TableCell>
                         <TableCell>
