@@ -56,8 +56,6 @@
   标题栏: [← 返回案件 #caseId]（仅 draft.caseId 存在时显示）
 ```
 
-底部 Tab 栏顺序不变：`概览 / 材料 / 分析 / 文书 / 合同`。
-
 ### 3.2 数据层
 
 在 `useCaseDetail` composable 中新增 `drafts` 状态，与 `materials` / `analysisResults` 同级：
@@ -94,6 +92,7 @@ Promise.all([loadMaterials(), loadAnalysisResults(), loadDrafts()])
 
 | 文件 | 改动 |
 | --- | --- |
+| `shared/types/document.ts` | 新增 `DraftRow` 接口（id/title/templateId/templateName/caseId/status/updatedAt），供 `DraftHistory`、`useCaseDetail`、`CaseDetailDocuments`、`CaseDetailOverview` 共用；`DraftHistory.vue` 内原有 local interface 删除改为 `import type` |
 | `app/components/assistant/document/DraftHistory.vue` | 新增 `caseId?: number`、`items?: DraftRow[]`、`loading?: boolean`、`hideCaseColumn?: boolean` props；外部传 items 时不自拉；空态文案按 caseId 分支 |
 | `app/pages/dashboard/cases/[id].vue` | `tab=documents` 分支改渲染 `<CaseDetailDocuments :case-id>`；`overview` 分支多传 `drafts` 和 `createDocument`/`navigateView` 相关 emit |
 | `app/components/caseDetail/CaseDetailOverview.vue` | 分析结果下方新增"案件文书"板块；新增 `documents` prop；emit 新增 `createDocument`、`navigateView('documents')` |
@@ -156,7 +155,7 @@ emits: {
 </div>
 ```
 
-**Sheet 不由本组件持有。** Sheet 与新建→POST→跳转的完整流程放在 `cases/[id].vue` 父级（与 overview 板块共享），避免两套 Sheet 状态。
+**Sheet 不由本组件持有。** Sheet 与"新建→POST→跳转"的完整流程放在 `cases/[id].vue` 父级（与 overview 板块共享），避免两套 Sheet 状态；父级在 POST 成功后跳转时，把当前 `activeView`（`documents` 或 `overview`）作为 `returnTab` 写入 URL。
 
 ### 4.2 `DocumentTemplatePickerSheet.vue`
 
@@ -241,11 +240,9 @@ defineProps<{
 ```ts
 const backToCase = computed(() => {
   const caseId = draft.value?.caseId
-  if (!caseId) return '/dashboard/cases'
-  const tab = route.query.returnTab && typeof route.query.returnTab === 'string'
-    ? route.query.returnTab
-    : 'documents'
-  return `/dashboard/cases/${caseId}?tab=${tab}`
+  if (!caseId) return null
+  const returnTab = route.query.returnTab === 'overview' ? 'overview' : 'documents'
+  return `/dashboard/cases/${caseId}?tab=${returnTab}`
 })
 ```
 
@@ -268,17 +265,23 @@ const backToCase = computed(() => {
 **跳转 Query：** 从案件进入编辑页时：
 
 ```
-/dashboard/document/drafts/:id?from=case&caseId=:caseId&returnTab=documents
+/dashboard/document/drafts/:id?from=case&caseId=:caseId&returnTab=:returnTab
 ```
 
-**返回规则：**
+- `returnTab` 取值：`documents` 或 `overview`
+- 触发来源：
+  - 从 documents Tab 的「+ 新建文书」触发 → `returnTab=documents`
+  - 从 overview 板块的「+ 新建文书」触发 → `returnTab=overview`
+- 由 `cases/[id].vue` 父级在 POST 成功后 `navigateTo` 时，把"当前 activeView"写入 `returnTab`（天然来自已有的 `activeView` ref）
 
-| `route.query.from` | `route.query.returnTab` | 跳转目标 |
-| --- | --- | --- |
-| `"case"` | 任意非空字符串 | `/dashboard/cases/:caseId?tab=:returnTab` |
-| 其它 | — | `/dashboard/cases/:caseId?tab=documents`（只要 `draft.caseId` 存在） |
+**返回规则（`drafts/[id].vue`）：**
 
-> 说明：`returnTab` 机制预留扩展性——以后若从 overview 直接跳编辑页，可带 `returnTab=overview`，自动回到概览。
+- 若 `draft.caseId` 存在：
+  - `route.query.returnTab === 'overview'` → `/dashboard/cases/:caseId?tab=overview`
+  - 其他（包含缺省、其他值） → `/dashboard/cases/:caseId?tab=documents`
+- 否则不显示返回按钮
+
+这样用户从哪个 Tab 进编辑页，就回到哪个 Tab。对直链进入编辑页（无 `returnTab`）的场景，默认兜底到 documents Tab。
 
 ---
 
