@@ -96,7 +96,7 @@ async function handleDelete(row: DraftRow) {
 }
 
 function openDraft(row: DraftRow) {
-    navigateTo(`/dashboard/document/drafts/${row.id}`)
+    navigateTo(`/dashboard/document/drafts/${row.id}?from=document-history`)
 }
 
 function changePage(page: number) {
@@ -158,7 +158,7 @@ const statusStyle = (s: string) =>
                     <TableRow v-for="row in drafts" :key="row.id">
                         <TableCell class="font-medium">
                             <NuxtLink
-                                :to="`/dashboard/document/drafts/${row.id}`"
+                                :to="`/dashboard/document/drafts/${row.id}?from=document-history`"
                                 class="text-foreground hover:text-primary transition-colors truncate inline-block max-w-[360px] align-middle"
                                 :title="titleLabel(row)"
                             >
@@ -184,7 +184,7 @@ const statusStyle = (s: string) =>
                                 >
                                     <Trash2Icon class="size-4" />
                                 </Button>
-                                <NuxtLink :to="`/dashboard/document/drafts/${row.id}`">
+                                <NuxtLink :to="`/dashboard/document/drafts/${row.id}?from=document-history`">
                                     <Button
                                         variant="ghost"
                                         size="icon"

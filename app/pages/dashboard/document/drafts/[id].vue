@@ -137,6 +137,11 @@ watch(() => template.value?.id ?? null, async (tplId) => {
 })
 
 function goBack() {
+    // 从历史文书 Tab 进入时，返回仍然回到历史 Tab（优先级最高，否则带 caseId 的会跳案件详情）
+    if (route.query.from === 'document-history') {
+        navigateTo('/dashboard/document?tab=history')
+        return
+    }
     const cid = caseId.value
     if (cid != null) {
         const returnTab = route.query.returnTab === 'overview' ? 'overview' : 'documents'
