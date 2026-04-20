@@ -67,33 +67,6 @@ const hasDrafts = computed(() => (props.drafts?.length ?? 0) > 0)
 const materialViewMode = ref<'grid' | 'list'>('grid')
 const draftViewMode = ref<'grid' | 'list'>('grid')
 
-const DRAFT_STATUS_LABEL: Record<string, string> = {
-  drafting: '生成中',
-  filling: '生成中',
-  pending: '生成中',
-  ready: '可编辑',
-  exported: '已导出',
-  failed: '失败',
-}
-const DRAFT_STATUS_STYLE: Record<string, string> = {
-  drafting: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200',
-  filling: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200',
-  pending: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200',
-  ready: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200',
-  exported: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200',
-  failed: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200',
-}
-const draftStatusLabel = (s: string) => DRAFT_STATUS_LABEL[s] ?? s
-const draftStatusStyle = (s: string) => DRAFT_STATUS_STYLE[s] ?? 'bg-muted text-muted-foreground'
-
-function formatDraftDate(s: string) {
-  if (!s) return ''
-  const d = new Date(s)
-  if (Number.isNaN(d.getTime())) return ''
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
-
 // 概览中分析结果始终为 dashboard 模式
 const analysisViewMode = ref<'dashboard' | 'detail'>('dashboard')
 const analysisActiveModule = ref<string | null>(null)
@@ -405,55 +378,7 @@ function getMaterialDisplayStatus(material: CaseDetailMaterialItem): { text: str
           <FileEditIcon class="size-8 mx-auto mb-2 opacity-50" />
           暂无文书
         </div>
-        <Transition v-else name="view-fade" mode="out-in">
-          <!-- 网格视图：长方形卡片（参考历史文书卡片布局） -->
-          <div v-if="draftViewMode === 'grid'" key="grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-            <NuxtLink v-for="d in drafts!" :key="d.id" :to="`/dashboard/document/drafts/${d.id}`"
-              class="group relative flex items-start gap-3 rounded-xl border bg-card p-3 transition-all hover:border-primary/60 hover:shadow-md hover:-translate-y-0.5">
-              <div class="flex size-12 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400 group-hover:bg-indigo-500/20 transition-colors">
-                <FileEditIcon class="size-6" />
-              </div>
-              <div class="flex-1 min-w-0 space-y-0.5 pr-14">
-                <div class="text-sm font-medium leading-snug line-clamp-1 group-hover:text-primary transition-colors">
-                  {{ d.title }}
-                </div>
-                <div class="text-xs text-muted-foreground line-clamp-1" :title="d.templateName ?? ''">
-                  模板：{{ d.templateName ?? '—' }}
-                </div>
-                <div class="text-xs text-muted-foreground">
-                  {{ formatDraftDate(d.updatedAt) }}
-                </div>
-              </div>
-              <span v-if="d.status !== 'ready'" :class="['absolute top-2 right-2 rounded px-1.5 py-0.5 text-[10px] font-medium', draftStatusStyle(d.status)]">
-                {{ draftStatusLabel(d.status) }}
-              </span>
-            </NuxtLink>
-          </div>
-
-          <!-- 列表视图：紧凑单行 -->
-          <div v-else key="list" class="space-y-1">
-            <NuxtLink v-for="d in drafts!" :key="d.id" :to="`/dashboard/document/drafts/${d.id}`"
-              class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors group border border-transparent hover:border-border/50">
-              <div class="flex items-center justify-center size-9 rounded-lg shrink-0 bg-indigo-500/10 dark:bg-indigo-500/20">
-                <FileEditIcon class="size-5 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <div class="flex-1 min-w-0 text-left">
-                <div class="text-sm font-medium truncate group-hover:text-primary transition-colors">
-                  {{ d.title }}
-                </div>
-                <div class="text-[11px] text-muted-foreground/60 truncate">
-                  {{ d.templateName ?? '—' }}
-                </div>
-              </div>
-              <div class="shrink-0 flex flex-col items-end gap-0.5">
-                <span :class="['inline-flex items-center px-1.5 py-0 h-5 rounded text-[10px] font-medium', draftStatusStyle(d.status)]">
-                  {{ draftStatusLabel(d.status) }}
-                </span>
-                <span class="text-[10px] text-muted-foreground/60">{{ formatDraftDate(d.updatedAt) }}</span>
-              </div>
-            </NuxtLink>
-          </div>
-        </Transition>
+        <AssistantDocumentDraftCardList v-else :items="drafts ?? []" :view-mode="draftViewMode" />
       </div>
 
       <!-- 材料选择器弹窗 -->
