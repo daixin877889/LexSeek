@@ -4,7 +4,7 @@
  * 确保案件所有材料已完成识别和嵌入，供中间件和工具复用。
  * 只对未识别的触发识别，只对未嵌入的触发嵌入，避免重复处理。
  */
-import { getMaterialByIdService, getMaterialsByCaseIdService, getMaterialsByDraftIdService, updateMaterialStatusService, type MaterialWithFile } from './material.service'
+import { getMaterialByIdService, getMaterialsByCaseIdService, getMaterialsByCaseOrDraftIdService, getMaterialsByDraftIdService, updateMaterialStatusService, type MaterialWithFile } from './material.service'
 import { batchCheckMaterialEmbeddedService, embedMaterialUnifiedService } from './materialEmbedding.service'
 import { processMaterialService, batchCheckMaterialRecognizedService, MaterialProcessError } from './materialProcess.service'
 import { CaseMaterialType, getMaterialTypeFromMime } from '#shared/types/case'
@@ -609,6 +609,22 @@ export async function searchMaterialsByDraftService(
     options: { query?: string; sourceId?: number; k?: number },
 ): Promise<MaterialSearchToolResult[]> {
     const allMaterials = await getMaterialsByDraftIdService(draftId)
+    return searchWithinMaterialsService(userId, allMaterials, options)
+}
+
+/**
+ * 按 caseId 或 draftId 合并检索材料（search_case_materials 工具用）
+ *
+ * 合并 caseId/draftId 两个范围的材料后走相同的 embedding retrieval / 精确查询逻辑。
+ * Prisma OR 查询天然对同一条记录去重。
+ */
+export async function searchMaterialsByCaseOrDraftService(
+    userId: number,
+    ids: { caseId: number | null; draftId: number | null },
+    options: { query?: string; sourceId?: number; k?: number },
+): Promise<MaterialSearchToolResult[]> {
+    if (ids.caseId == null && ids.draftId == null) return []
+    const allMaterials = await getMaterialsByCaseOrDraftIdService(ids.caseId, ids.draftId)
     return searchWithinMaterialsService(userId, allMaterials, options)
 }
 
