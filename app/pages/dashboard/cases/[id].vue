@@ -77,6 +77,8 @@ const {
   isDeleting,
   isSelectMode,
   toggleSelectMode,
+  drafts,
+  refreshDrafts,
   toggleMaterialSelection,
 } = useCaseDetail(caseId, {
   generatingModules: moduleChatManager.generatingModules,
@@ -90,7 +92,7 @@ const viewLabelMap: Record<ActiveView, string> = {
   materials: '案件材料',
   analysis: '分析结果',
   todos: '待办事项',
-  documents: '文书生成',
+  documents: '案件文书',
   contracts: '合同审查',
 }
 
@@ -210,6 +212,29 @@ watch(moduleChatManager.generatingModules, (modules) => {
   }
 })
 
+// --- 案件文书：Sheet + 创建流程 ---
+const documentSheetOpen = ref(false)
+
+function handleCreateDocument() {
+  documentSheetOpen.value = true
+}
+
+async function handleTemplateSelect(templateId: number) {
+  const result = await useApiFetch<{ draftId: number; sessionId: string }>(
+    '/api/v1/assistant/document/drafts',
+    { method: 'POST', body: { templateId, caseId: caseId.value } },
+  )
+  if (!result) return
+  // activeView 当前值作为 returnTab（documents 或 overview）
+  const returnTab = activeView.value === 'overview' ? 'overview' : 'documents'
+  // 先跳转再关 Sheet：页面卸载时 Sheet 自然销毁，避免关闭动画与路由切换并发闪烁
+  await navigateTo(
+    `/dashboard/document/drafts/${result.draftId}`
+    + `?from=case&caseId=${caseId.value}&returnTab=${returnTab}`,
+  )
+  documentSheetOpen.value = false
+}
+
 // 页面刷新后恢复活跃 session
 onMounted(() => {
   moduleChatManager.restoreActiveSessions()
@@ -265,6 +290,7 @@ onMounted(() => {
             :is-adding-materials="isAddingMaterials"
             :file-recognition-status="fileRecognitionStatus"
             :get-recognition-status="getRecognitionStatus"
+            :drafts="drafts"
             @navigate-view="navigateToView" @preview-material="openMaterialPreview"
             @navigate-analysis="navigateToAnalysis" @updated="refreshCase"
             @add-materials="addMaterials"
@@ -273,7 +299,8 @@ onMounted(() => {
             @navigate-to-select-mode="navigateToSelectMode"
             @generate-module="handleGenerateModule"
             @batch-generate="handleBatchGenerate"
-            @go-to-interrupt="handleGoToInterrupt" />
+            @go-to-interrupt="handleGoToInterrupt"
+            @create-document="handleCreateDocument" />
           <CaseDetailMaterials v-else-if="activeView === 'materials'" :key="'materials'" :materials="materials ?? []"
             :disabled-oss-file-ids="disabledOssFileIds"
             :is-adding="isAddingMaterials"
@@ -298,9 +325,14 @@ onMounted(() => {
             @generate-module="handleGenerateModule"
             @batch-generate="handleBatchGenerate"
             @go-to-interrupt="handleGoToInterrupt" />
-          <div v-else-if="activeView === 'documents'" :key="'documents'" class="h-full overflow-y-auto p-4 md:p-6">
-            <AssistantDocumentDraftPanel :case-id="caseId" />
-          </div>
+          <CaseDetailDocuments
+            v-else-if="activeView === 'documents'"
+            :key="'documents'"
+            :case-id="caseId"
+            :drafts="drafts"
+            @create-document="handleCreateDocument"
+            @refresh="refreshDrafts"
+          />
           <CaseDetailContracts v-else-if="activeView === 'contracts'" :key="'contracts'" :case-id="caseId" />
           <!-- 其他视图占位 -->
           <div v-else :key="'placeholder'" class="flex items-center justify-center h-full text-muted-foreground">
@@ -379,6 +411,12 @@ onMounted(() => {
       :results="analysisResults ?? []"
     />
   </ClientOnly>
+
+  <!-- 案件文书：模板选择 Sheet（documents Tab + overview 板块共享） -->
+  <AssistantDocumentDocumentTemplatePickerSheet
+    v-model:open="documentSheetOpen"
+    @select="handleTemplateSelect"
+  />
 </template>
 
 <style scoped>
