@@ -45,7 +45,6 @@ function buildInitialPromptFromDraft(
         ? (sourceRef.fileIds as unknown[]).map(x => Number(x)).filter(n => Number.isInteger(n) && n > 0)
         : []
     if (fileIds.length > 0) {
-        // 显式前置：让模型第一步就调 process_materials(fileIds=[...])
         segments.push(`新增材料 fileIds: [${fileIds.join(', ')}]，请先调用 process_materials(fileIds=[${fileIds.join(', ')}]) 处理这些文件，再用 search_case_materials 检索内容回填字段。`)
     }
     else if (draft.caseId != null) {

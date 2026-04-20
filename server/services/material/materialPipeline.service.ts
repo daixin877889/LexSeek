@@ -91,6 +91,7 @@ async function runRecognitionAndEmbeddingPipeline(
     const notEmbedded = materials.filter(m => !embeddedMap.get(m.id))
 
     let newlyProcessed = 0
+    const finalEmbeddedMap = new Map(embeddedMap)
     if (notEmbedded.length > 0) {
         // 排除识别阶段已失败的材料（不需要再尝试嵌入）
         const failedIds = new Set(failed.map(f => f.materialId))
@@ -100,14 +101,13 @@ async function runRecognitionAndEmbeddingPipeline(
             toEmbed.map(material => embedMaterialUnifiedService(material.id, userId)),
         )
         const embeddingFailures = collectSettledFailures(embeddingResults, toEmbed)
+        const embeddingFailedIds = new Set(embeddingFailures.map(f => f.materialId))
+        for (const m of toEmbed) {
+            if (!embeddingFailedIds.has(m.id)) finalEmbeddedMap.set(m.id, true)
+        }
         newlyProcessed = toEmbed.length - embeddingFailures.length
         failed.push(...embeddingFailures)
     }
-
-    // 复查最终嵌入状态：本轮新嵌入的材料若成功会反映在新 map 上
-    const finalEmbeddedMap = notEmbedded.length > 0
-        ? await batchCheckMaterialEmbeddedService(ids)
-        : embeddedMap
 
     return {
         materials,
