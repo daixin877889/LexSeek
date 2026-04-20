@@ -66,6 +66,7 @@ const isEditingCaseInfo = ref(false)
 const isSavingCaseInfo = ref(false)
 
 // 材料视图模式
+const hasDrafts = computed(() => (props.drafts?.length ?? 0) > 0)
 const materialViewMode = ref<'grid' | 'list'>('grid')
 
 // 概览中分析结果始终为 dashboard 模式
@@ -361,7 +362,7 @@ function getMaterialIconColor(type: number) {
         <h3 class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
           <FileEditIcon class="size-4" />
           案件文书
-          <Badge v-if="(drafts?.length ?? 0) > 0" variant="secondary" class="font-normal px-1.5 py-0 h-4 text-[10px]">
+          <Badge v-if="hasDrafts" variant="secondary" class="font-normal px-1.5 py-0 h-4 text-[10px]">
             {{ drafts!.length }}
           </Badge>
         </h3>
@@ -374,9 +375,9 @@ function getMaterialIconColor(type: number) {
             <PlusIcon class="size-3" />
             <span class="hidden lg:inline">新建文书</span>
           </button>
-          <div v-if="(drafts?.length ?? 0) > 0" class="w-px h-3 bg-border" />
+          <div v-if="hasDrafts" class="w-px h-3 bg-border" />
           <button
-            v-if="(drafts?.length ?? 0) > 0"
+            v-if="hasDrafts"
             class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
             title="查看全部"
             @click="emit('navigateView', 'documents')"
@@ -388,9 +389,8 @@ function getMaterialIconColor(type: number) {
       </div>
 
       <div class="p-4 pt-3">
-        <!-- 空态：spec §4.4 要求的专属 UI（FileTextIcon + 暂无文书） -->
         <div
-          v-if="(drafts?.length ?? 0) === 0"
+          v-if="!hasDrafts"
           class="text-center py-6 text-sm text-muted-foreground"
         >
           <FileTextIcon class="size-8 mx-auto mb-2 opacity-50" />
