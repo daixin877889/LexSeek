@@ -5,7 +5,7 @@
  * - 用 docx-preview 的 renderAsync 渲染已注入批注的 .docx
  * - 优先加载 reviewedFileId；为空则 fallback 到 originalFileId（审查进行中先看原始合同）
  * - 两个都为空 → 显示"等待合同上传..."
- * - fetchSeq 机制避免快速切换时过期请求覆盖最新渲染（参照 DocumentDraftPanel）
+ * - fetchSeq 机制避免快速切换时过期请求覆盖最新渲染（参照 DocumentPreview）
  * - M4 纯展示：不做段落浮层（M5）/ 不与 RiskListPanel 联动（M6）
  */
 import { renderAsync } from 'docx-preview'
