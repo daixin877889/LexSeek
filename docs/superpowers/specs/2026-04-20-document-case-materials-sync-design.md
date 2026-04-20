@@ -152,7 +152,14 @@ await prisma.caseMaterials.updateMany({
 - 鉴权 + owner 校验（沿用现有 draft 接口的保护模式）
 - 读 draft → 取 `draft.caseId`
 - 调 `findMaterialsByCaseOrDraftIdDao({ caseId: draft.caseId, draftId: draft.id })`
-- 返回 `CaseDetailMaterialItem[]`（字段对齐 `/api/v1/case/:caseId/materials` 的返回结构，便于前端复用类型）
+- 响应：`return resSuccess(event, '获取相关材料成功', items)`，其中 `items` 字段对齐前端 `CaseDetailMaterialItem` 接口（`app/composables/useCaseDetail.ts:15-27`）
+
+**类型策略：** handler 内部自己组装返回结构，不从前端 import 类型、也不提升 `CaseDetailMaterialItem` 到 `shared/types/`——当前该类型仅前端消费；若日后后端有多处需要同结构，再提升到 `shared/types/material.ts`。
+
+**为什么不复用 `/api/v1/case/:caseId/materials`：**
+- 现有接口只支持 `where caseId=X`，无法覆盖独立文书页 draft（`caseId=null, draftId=Y`）的查询场景
+- 合并参数到老接口会污染案件专属语义
+- 新接口绑定在 `/assistant/document/drafts/:id` 路径下，语义清晰
 
 前端只需这一个接口同时驱动 "禁用列表" 和 "查看所有材料 Sheet"。
 
@@ -214,6 +221,8 @@ defineEmits<{
 }>()
 ```
 
+**只读约束（明确设计意图，非未实现）：** Sheet 不含任何上传/编辑/解绑按钮，仅 emit `preview-material`。新增/编辑/解绑走已有通道（agent chat 文件按钮 上传；案件材料 Tab 解绑）。这是刻意保持 Sheet 轻量的决定。
+
 **模板结构：**
 
 ```vue
@@ -273,7 +282,7 @@ defineEmits<{
 
 | 测试 | 覆盖点 |
 | --- | --- |
-| `findMaterialsByCaseOrDraftIdDao` | 只 caseId / 只 draftId / 都有 / 都无返回空 / 软删记录不返回 / 双绑记录同 ossFileId 只一次 |
+| `findMaterialsByCaseOrDraftIdDao` | 只 caseId / 只 draftId / 都有 / 都无返回空 / 软删记录不返回 / 多条双绑记录不同 ossFileId 各自返回一次 |
 | `ensureMaterialsReadyForDraftService` 新签名 | 传 caseId 时记录包含 caseId + draftId；不传时等价原行为（向后兼容） |
 | `searchMaterialsByCaseOrDraftService` | 去重 by id、embedding 检索结果合并排序 |
 | `softDeleteDraftService`（级联 draftId 置空） | `case_materials where draftId=Y` 的 `draftId` 被置 null、`caseId` 保留 |
