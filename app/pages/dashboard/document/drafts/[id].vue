@@ -132,6 +132,12 @@ watch(() => template.value?.id ?? null, async (tplId) => {
 })
 
 function goBack() {
+    const cid = caseId.value
+    if (cid != null) {
+        const returnTab = route.query.returnTab === 'overview' ? 'overview' : 'documents'
+        navigateTo(`/dashboard/cases/${cid}?tab=${returnTab}`)
+        return
+    }
     navigateTo('/dashboard/document')
 }
 
@@ -392,12 +398,9 @@ function handlePanelResize(sizes: number[]) {
             <div class="flex items-center gap-2 min-w-0 flex-1">
                 <Button variant="ghost" size="sm" @click="goBack">
                     <ArrowLeftIcon class="size-4 mr-1" />
-                    返回
+                    {{ caseId != null ? `返回案件 #${caseId}` : '返回' }}
                 </Button>
                 <AssistantDocumentDraftTitleInput v-if="draft" :title="title" @save="updateTitle" />
-                <span v-if="caseId" class="hidden md:inline text-sm text-muted-foreground">
-                    · 案件 #{{ caseId }}
-                </span>
             </div>
             <div class="flex items-center gap-2">
                 <Button variant="outline" size="sm" :disabled="!draft" title="历史" @click="openHistory">
