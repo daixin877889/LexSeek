@@ -144,14 +144,15 @@ const statusStyle = (s: string) =>
 
         <!-- 桌面：表格 -->
         <div v-else-if="isDesktop" class="rounded-md border">
-            <Table>
+            <Table class="table-fixed">
                 <TableHeader>
                     <TableRow>
-                        <TableHead class="min-w-[220px]">文书名称</TableHead>
-                        <TableHead class="w-[260px]">模板</TableHead>
-                        <TableHead v-if="!hideCaseColumn" class="w-[220px]">关联案件</TableHead>
-                        <TableHead class="w-[150px]">更新时间</TableHead>
-                        <TableHead class="w-[96px] text-center">操作</TableHead>
+                        <!-- 文书名称：未声明宽度，占剩余空间，优先级最高 -->
+                        <TableHead>文书名称</TableHead>
+                        <TableHead class="w-[200px]">模板</TableHead>
+                        <TableHead v-if="!hideCaseColumn" class="w-[180px]">关联案件</TableHead>
+                        <TableHead class="w-[140px]">更新时间</TableHead>
+                        <TableHead class="w-[84px] text-center">操作</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
