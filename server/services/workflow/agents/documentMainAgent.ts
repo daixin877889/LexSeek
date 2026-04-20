@@ -35,7 +35,7 @@ const DOCUMENT_MAIN_NODE_NAME = 'documentMain'
  * 用户没额外发消息时（前端仅 submit(undefined)），用此 prompt 引导模型按 schema 填充占位符。
  */
 function buildInitialPromptFromDraft(
-    draft: { sourceRef: unknown },
+    draft: { sourceRef: unknown; caseId: number | null },
     templateName: string,
 ): string {
     const sourceRef = (draft.sourceRef as Record<string, unknown> | null) ?? {}
@@ -47,6 +47,14 @@ function buildInitialPromptFromDraft(
     if (fileIds.length > 0) {
         // 显式前置：让模型第一步就调 process_materials(fileIds=[...])
         segments.push(`新增材料 fileIds: [${fileIds.join(', ')}]，请先调用 process_materials(fileIds=[${fileIds.join(', ')}]) 处理这些文件，再用 search_case_materials 检索内容回填字段。`)
+    }
+    else if (draft.caseId != null) {
+        // 从案件入口进入的草稿：案件已有材料，强制模型先检索，避免跳过 tool 直接问用户
+        segments.push('本草稿关联案件已有案件材料，请先调用 search_case_materials 检索相关材料内容（可分别对关键实体如当事人、事实、金额、证据清单等发起多次检索），再根据检索结果回填模板字段；无需等待用户追加材料。')
+    }
+    else {
+        // 独立文书页场景，无案件、无 fileIds：先查 draft 作用域材料；若也为空，再向用户索要
+        segments.push('请先调用 search_case_materials 查询本草稿已就绪的材料；若确无任何材料，再向用户询问需要补充的具体内容。')
     }
 
     const text = typeof sourceRef.text === 'string' ? sourceRef.text.trim() : ''
