@@ -2,13 +2,10 @@
 import type { CaseDetailMaterialItem } from '~/composables/useCaseDetail'
 import type { OssFileItem } from '~/store/file'
 import type { RecognitionStatus } from '~/composables/useFileRecognition'
-import { CaseMaterialType } from '#shared/types/case'
 import { formatByteSize } from '#shared/utils/unitConverision'
+import { getMaterialIcon, getMaterialBgColor, getMaterialIconColor } from '~/utils/caseMaterial'
 import {
   FileTextIcon,
-  FileIcon,
-  ImageIcon,
-  FileAudioIcon,
   LayoutGridIcon,
   ListIcon,
   PlusIcon,
@@ -105,35 +102,6 @@ function getMaterialDisplayStatus(material: CaseDetailMaterialItem): { text: str
   return null
 }
 
-function getMaterialIcon(type: number) {
-  switch (type) {
-    case CaseMaterialType.DOCUMENT: return FileTextIcon
-    case CaseMaterialType.IMAGE: return ImageIcon
-    case CaseMaterialType.AUDIO: return FileAudioIcon
-    case CaseMaterialType.CASE_CONTENT: return FileIcon
-    default: return FileIcon
-  }
-}
-
-function getMaterialBgColor(type: number) {
-  switch (type) {
-    case CaseMaterialType.DOCUMENT: return 'bg-blue-500/10 dark:bg-blue-500/20'
-    case CaseMaterialType.IMAGE: return 'bg-green-500/10 dark:bg-green-500/20'
-    case CaseMaterialType.AUDIO: return 'bg-purple-500/10 dark:bg-purple-500/20'
-    case CaseMaterialType.CASE_CONTENT: return 'bg-orange-500/10 dark:bg-orange-500/20'
-    default: return 'bg-muted'
-  }
-}
-
-function getMaterialIconColor(type: number) {
-  switch (type) {
-    case CaseMaterialType.DOCUMENT: return 'text-blue-600 dark:text-blue-400'
-    case CaseMaterialType.IMAGE: return 'text-green-600 dark:text-green-400'
-    case CaseMaterialType.AUDIO: return 'text-purple-600 dark:text-purple-400'
-    case CaseMaterialType.CASE_CONTENT: return 'text-orange-600 dark:text-orange-400'
-    default: return 'text-muted-foreground'
-  }
-}
 </script>
 
 <template>
