@@ -136,19 +136,23 @@ watch(() => template.value?.id ?? null, async (tplId) => {
     }
 })
 
-function goBack() {
-    // 从历史文书 Tab 进入时，返回仍然回到历史 Tab（优先级最高，否则带 caseId 的会跳案件详情）
+/** 按"入口优先级 > 案件归属 > 兜底"决定返回目标与按钮文案，保持一致 */
+function resolveBackTarget(): { path: string; label: string } {
     if (route.query.from === 'document-history') {
-        navigateTo('/dashboard/document?tab=history')
-        return
+        return { path: '/dashboard/document?tab=history', label: '返回历史文书' }
     }
     const cid = caseId.value
     if (cid != null) {
         const returnTab = route.query.returnTab === 'overview' ? 'overview' : 'documents'
-        navigateTo(`/dashboard/cases/${cid}?tab=${returnTab}`)
-        return
+        return { path: `/dashboard/cases/${cid}?tab=${returnTab}`, label: `返回案件 #${cid}` }
     }
-    navigateTo('/dashboard/document')
+    return { path: '/dashboard/document', label: '返回' }
+}
+
+const backLabel = computed(() => resolveBackTarget().label)
+
+function goBack() {
+    navigateTo(resolveBackTarget().path)
 }
 
 const isExporting = ref(false)
@@ -471,7 +475,7 @@ function handlePanelResize(sizes: number[]) {
             <div class="flex items-center gap-2 min-w-0 flex-1">
                 <Button variant="ghost" size="sm" @click="goBack">
                     <ArrowLeftIcon class="size-4 mr-1" />
-                    {{ caseId != null ? `返回案件 #${caseId}` : '返回' }}
+                    {{ backLabel }}
                 </Button>
                 <AssistantDocumentDraftTitleInput v-if="draft" :title="title" @save="updateTitle" />
             </div>
