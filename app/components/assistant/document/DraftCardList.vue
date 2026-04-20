@@ -9,7 +9,8 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-    delete: [row: DraftRow]
+    /** 删除成功后触发，父级据此刷新列表 */
+    changed: []
 }>()
 
 const DRAFT_STATUS_LABEL: Record<string, string> = {
@@ -38,6 +39,26 @@ function formatDraftDate(s: string) {
     const pad = (n: number) => String(n).padStart(2, '0')
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
+
+function handleDelete(row: DraftRow) {
+    const alertDialogStore = useAlertDialogStore()
+    alertDialogStore.showErrorDialog({
+        title: '确认删除',
+        message: `确定要删除文书「${row.title}」吗？删除后将无法恢复。`,
+        confirmText: '确认删除',
+        cancelText: '取消',
+        onConfirm: async () => {
+            const ok = await useApiFetch(
+                `/api/v1/assistant/document/drafts/${row.id}`,
+                { method: 'DELETE' },
+            )
+            if (ok !== null) {
+                toast.success('已删除')
+                emit('changed')
+            }
+        },
+    })
+}
 </script>
 
 <template>
@@ -62,13 +83,12 @@ function formatDraftDate(s: string) {
                     </div>
                 </div>
                 <div class="absolute top-2 right-2 flex items-center gap-1">
-                    <span v-if="d.status !== 'ready'"
-                        :class="['rounded px-1.5 py-0.5 text-[10px] font-medium', draftStatusStyle(d.status)]">
+                    <span :class="['rounded px-1.5 py-0.5 text-[10px] font-medium', draftStatusStyle(d.status)]">
                         {{ draftStatusLabel(d.status) }}
                     </span>
                     <button v-if="showDelete" type="button"
-                        class="p-1 rounded-md text-muted-foreground hover:bg-accent hover:text-destructive transition-colors"
-                        aria-label="删除草稿" @click.stop.prevent="emit('delete', d)">
+                        class="p-1 rounded-md text-muted-foreground hover:bg-accent hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+                        aria-label="删除草稿" @click.stop.prevent="handleDelete(d)">
                         <Trash2Icon class="size-3.5" />
                     </button>
                 </div>
@@ -100,7 +120,7 @@ function formatDraftDate(s: string) {
                 </div>
                 <button v-if="showDelete" type="button"
                     class="shrink-0 p-1 rounded-md text-muted-foreground hover:bg-accent hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-                    aria-label="删除草稿" @click.stop.prevent="emit('delete', d)">
+                    aria-label="删除草稿" @click.stop.prevent="handleDelete(d)">
                     <Trash2Icon class="size-3.5" />
                 </button>
             </NuxtLink>

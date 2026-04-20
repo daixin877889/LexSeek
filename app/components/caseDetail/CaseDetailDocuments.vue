@@ -4,9 +4,7 @@
  *
  * 布局对齐 CaseDetailMaterials：
  * - 顶部栏：标题 + 数量 Badge + 「+ 新建文书」+ grid/list 视图切换
- * - 下方：AssistantDocumentDraftCardList（与 overview 板块共用）
- *
- * Sheet 不在本组件内持有，而是由 cases/[id].vue 父级统一管理（与 overview 板块共享）。
+ * - 下方：AssistantDocumentDraftCardList（与 overview 板块共用，删除逻辑内置）
  */
 import { FileEditIcon, LayoutGridIcon, ListIcon, Loader2Icon, PlusIcon } from 'lucide-vue-next'
 import type { DraftRow } from '#shared/types/document'
@@ -25,27 +23,6 @@ const emit = defineEmits<{
 }>()
 
 const viewMode = ref<'grid' | 'list'>('grid')
-
-async function onDelete(row: DraftRow) {
-    const alertDialogStore = useAlertDialogStore()
-    alertDialogStore.showErrorDialog({
-        title: '确认删除',
-        message: `确定要删除文书「${row.title}」吗？删除后将无法恢复。`,
-        confirmText: '确认删除',
-        cancelText: '取消',
-        onConfirm: async () => {
-            const ok = await useApiFetch(
-                `/api/v1/assistant/document/drafts/${row.id}`,
-                { method: 'DELETE' },
-            )
-            if (ok !== null) {
-                toast.success('已删除')
-                emit('refresh')
-            }
-        },
-    })
-}
-
 const hasDrafts = computed(() => props.drafts.length > 0)
 </script>
 
@@ -95,6 +72,7 @@ const hasDrafts = computed(() => props.drafts.length > 0)
         </div>
 
         <!-- 列表 -->
-        <AssistantDocumentDraftCardList v-else :items="drafts" :view-mode="viewMode" show-delete @delete="onDelete" />
+        <AssistantDocumentDraftCardList v-else :items="drafts" :view-mode="viewMode" show-delete
+            @changed="emit('refresh')" />
     </div>
 </template>

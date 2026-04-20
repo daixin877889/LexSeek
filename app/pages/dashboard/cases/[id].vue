@@ -300,7 +300,8 @@ onMounted(() => {
             @generate-module="handleGenerateModule"
             @batch-generate="handleBatchGenerate"
             @go-to-interrupt="handleGoToInterrupt"
-            @create-document="handleCreateDocument" />
+            @create-document="handleCreateDocument"
+            @refresh-drafts="refreshDrafts" />
           <CaseDetailMaterials v-else-if="activeView === 'materials'" :key="'materials'" :materials="materials ?? []"
             :disabled-oss-file-ids="disabledOssFileIds"
             :is-adding="isAddingMaterials"

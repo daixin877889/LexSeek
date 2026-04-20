@@ -52,6 +52,7 @@ const emit = defineEmits<{
   batchGenerate: []
   goToInterrupt: []
   createDocument: []
+  refreshDrafts: []
 }>()
 
 const infoCardRef = ref<{
@@ -378,7 +379,8 @@ function getMaterialDisplayStatus(material: CaseDetailMaterialItem): { text: str
           <FileEditIcon class="size-8 mx-auto mb-2 opacity-50" />
           暂无文书
         </div>
-        <AssistantDocumentDraftCardList v-else :items="drafts ?? []" :view-mode="draftViewMode" />
+        <AssistantDocumentDraftCardList v-else :items="drafts ?? []" :view-mode="draftViewMode" show-delete
+          @changed="emit('refreshDrafts')" />
       </div>
 
       <!-- 材料选择器弹窗 -->
