@@ -5,7 +5,7 @@
  * **Validates: spec §3.2**
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { searchMaterialsByCaseOrDraftService } from '~~/server/services/material/materialPipeline.service'
+import { searchMaterialsByCaseOrDraftService, type MaterialSearchToolResult } from '~~/server/services/material/materialPipeline.service'
 import { createMaterialDao } from '~~/server/services/material/material.dao'
 import { CaseMaterialType } from '#shared/types/case'
 import {
@@ -75,13 +75,14 @@ describe('searchMaterialsByCaseOrDraftService', () => {
         await createMaterialDao({ caseId: caseRow.id, draftId: draft.id, ossFileId: oss3.id, name: 'c', type: CaseMaterialType.DOCUMENT })
 
         // 用 sourceId 精确查，避开 embedding retrieval
-        const results: any[] = []
+        const results: MaterialSearchToolResult[] = []
         for (const oss of [oss1, oss2, oss3]) {
             const r = await searchMaterialsByCaseOrDraftService(
                 user.id,
                 { caseId: caseRow.id, draftId: draft.id },
                 { sourceId: oss.id },
             )
+            expect(r).toHaveLength(1)
             results.push(...r)
         }
         // 三条记录各自被查到，无重复
@@ -101,8 +102,9 @@ describe('searchMaterialsByCaseOrDraftService', () => {
             { caseId: caseRow.id, draftId: null },
             { sourceId: oss1.id },
         )
-        expect(r.length).toBeGreaterThanOrEqual(1)
-        expect(r.some((x: any) => x.source.sourceId === oss2.id)).toBe(false)
+        expect(r).toHaveLength(1)
+        expect(r[0]!.source.sourceId).toBe(oss1.id)
+        expect(r.some(x => x.source.sourceId === oss2.id)).toBe(false)
     })
 
     it('两个 id 都为 null 时返回空', async () => {
