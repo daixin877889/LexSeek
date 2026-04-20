@@ -8,18 +8,10 @@
  *
  * 两种视图共享加载/删除/跳转逻辑，仅 DOM 结构不同。
  */
-import { FileTextIcon, Loader2Icon, Trash2Icon } from 'lucide-vue-next'
+import { EyeIcon, FileTextIcon, Loader2Icon, Trash2Icon } from 'lucide-vue-next'
 import { useMediaQuery } from '@vueuse/core'
 import { toast } from 'vue-sonner'
-
-interface DraftRow {
-    id: number
-    templateId: number
-    templateName: string | null
-    caseId: number | null
-    status: string
-    updatedAt: string
-}
+import type { DraftRow } from '#shared/types/document'
 
 const { formatDate } = useFormatters()
 
@@ -29,7 +21,8 @@ const pagination = ref({ page: 1, pageSize: 10, total: 0 })
 
 const isDesktop = useMediaQuery('(min-width: 768px)')
 
-const displayName = (row: DraftRow) => row.templateName || `模板 #${row.templateId}`
+const templateLabel = (row: DraftRow) => row.templateName || `模板 #${row.templateId}`
+const titleLabel = (row: DraftRow) => row.title?.trim() || templateLabel(row)
 
 async function loadDrafts() {
     loading.value = true
@@ -51,15 +44,23 @@ async function loadDrafts() {
 onMounted(loadDrafts)
 
 async function handleDelete(row: DraftRow) {
-    if (!confirm(`确认删除「${displayName(row)}」？删除后无法恢复。`)) return
-    const ok = await useApiFetch(
-        `/api/v1/assistant/document/drafts/${row.id}`,
-        { method: 'DELETE' },
-    )
-    if (ok !== null) {
-        toast.success('已删除')
-        loadDrafts()
-    }
+    const alertDialogStore = useAlertDialogStore()
+    alertDialogStore.showErrorDialog({
+        title: '确认删除',
+        message: `确认删除「${titleLabel(row)}」？删除后无法恢复。`,
+        confirmText: '确认删除',
+        cancelText: '取消',
+        onConfirm: async () => {
+            const ok = await useApiFetch(
+                `/api/v1/assistant/document/drafts/${row.id}`,
+                { method: 'DELETE' },
+            )
+            if (ok !== null) {
+                toast.success('已删除')
+                loadDrafts()
+            }
+        },
+    })
 }
 
 function openDraft(row: DraftRow) {
@@ -112,29 +113,55 @@ const statusStyle = (s: string) =>
             <Table>
                 <TableHeader>
                     <TableRow>
+                        <TableHead>文书名称</TableHead>
                         <TableHead>模板</TableHead>
                         <TableHead class="w-[120px]">关联案件</TableHead>
                         <TableHead class="w-[160px]">更新时间</TableHead>
-                        <TableHead class="w-[140px] text-center">操作</TableHead>
+                        <TableHead class="w-[120px] text-center">操作</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     <TableRow v-for="row in drafts" :key="row.id">
-                        <TableCell class="font-medium">{{ displayName(row) }}</TableCell>
+                        <TableCell class="font-medium">
+                            <NuxtLink
+                                :to="`/dashboard/document/drafts/${row.id}`"
+                                class="text-foreground hover:text-primary transition-colors truncate inline-block max-w-[360px] align-middle"
+                                :title="titleLabel(row)"
+                            >
+                                {{ titleLabel(row) }}
+                            </NuxtLink>
+                        </TableCell>
+                        <TableCell class="text-sm text-muted-foreground truncate max-w-[240px]" :title="templateLabel(row)">
+                            {{ templateLabel(row) }}
+                        </TableCell>
                         <TableCell>{{ row.caseId ? `#${row.caseId}` : '—' }}</TableCell>
                         <TableCell class="text-sm text-muted-foreground">
                             {{ formatDate(row.updatedAt) }}
                         </TableCell>
-                        <TableCell class="text-center">
-                            <Button variant="ghost" size="sm" @click="openDraft(row)">进入</Button>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                aria-label="删除草稿"
-                                @click="handleDelete(row)"
-                            >
-                                <Trash2Icon class="size-4" />
-                            </Button>
+                        <TableCell>
+                            <div class="flex items-center justify-center gap-1">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    class="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    title="删除草稿"
+                                    aria-label="删除草稿"
+                                    @click="handleDelete(row)"
+                                >
+                                    <Trash2Icon class="size-4" />
+                                </Button>
+                                <NuxtLink :to="`/dashboard/document/drafts/${row.id}`">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        class="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary"
+                                        title="查看详情"
+                                        aria-label="查看详情"
+                                    >
+                                        <EyeIcon class="size-4" />
+                                    </Button>
+                                </NuxtLink>
+                            </div>
                         </TableCell>
                     </TableRow>
                 </TableBody>
@@ -152,15 +179,18 @@ const statusStyle = (s: string) =>
             >
                 <!-- 左侧文档图标 -->
                 <div
-                    class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors"
+                    class="flex size-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors"
                 >
-                    <FileTextIcon class="size-4" />
+                    <FileTextIcon class="size-6" />
                 </div>
 
-                <!-- 中间：名称 + 元信息（为右上角控件留出空间） -->
+                <!-- 中间：文书标题 + 模板 + 元信息（为右上角控件留出空间） -->
                 <div class="flex-1 min-w-0 space-y-0.5 pr-20">
                     <div class="text-sm font-medium leading-snug line-clamp-1">
-                        {{ displayName(row) }}
+                        {{ titleLabel(row) }}
+                    </div>
+                    <div class="text-xs text-muted-foreground line-clamp-1">
+                        模板：{{ templateLabel(row) }}
                     </div>
                     <div class="text-xs text-muted-foreground">
                         <span>{{ formatDate(row.updatedAt) }}</span>

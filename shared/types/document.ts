@@ -116,3 +116,20 @@ export interface DocumentDraftVersion {
     titleAt: string
     createdAt: string
 }
+
+// ==================== 文书草稿行（列表视图专用） ====================
+/**
+ * 文书草稿列表视图数据结构
+ *
+ * 与 GET /api/v1/assistant/document/drafts 返回的 items 元素对齐。
+ * 仅含列表渲染与跳转所需字段，不是 Prisma row 全量。
+ */
+export interface DraftRow {
+    id: number
+    title: string
+    templateId: number
+    templateName: string | null
+    caseId: number | null
+    status: string
+    updatedAt: string
+}
