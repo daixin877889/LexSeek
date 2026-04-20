@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+import type { PrismaClient } from '~~/generated/prisma/client'
 import '../../case/test-setup'
 
 // ==================== Mock 外部依赖（必须在 import 被测模块之前） ====================
@@ -124,14 +125,15 @@ const MOCK_DRAFT_READY = {
 
 // createDraftService 内部直接用 prisma.caseSessions.create（而非 DAO），
 // Prisma Proxy 不支持 vi.spyOn，改用属性替换；保留原函数在 afterEach 复位
-let __origCaseSessionsCreate: any = null
+type CaseSessionsCreate = PrismaClient['caseSessions']['create']
+const testPrisma = (globalThis as unknown as { prisma: PrismaClient }).prisma
+let __origCaseSessionsCreate: CaseSessionsCreate | null = null
 
 beforeEach(() => {
     vi.resetAllMocks()
 
-    const _prisma = (globalThis as any).prisma
-    __origCaseSessionsCreate = _prisma.caseSessions.create.bind(_prisma.caseSessions)
-    _prisma.caseSessions.create = vi.fn().mockResolvedValue(MOCK_SESSION)
+    __origCaseSessionsCreate = testPrisma.caseSessions.create.bind(testPrisma.caseSessions)
+    testPrisma.caseSessions.create = vi.fn().mockResolvedValue(MOCK_SESSION) as unknown as CaseSessionsCreate
 
     // 默认：成功路径
     mockGetDocumentTemplateDAO.mockResolvedValue(MOCK_GLOBAL_TEMPLATE)
@@ -161,7 +163,7 @@ beforeEach(() => {
 afterEach(() => {
     vi.clearAllMocks()
     if (__origCaseSessionsCreate) {
-        (globalThis as any).prisma.caseSessions.create = __origCaseSessionsCreate
+        testPrisma.caseSessions.create = __origCaseSessionsCreate
         __origCaseSessionsCreate = null
     }
 })

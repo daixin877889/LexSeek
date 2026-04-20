@@ -102,8 +102,7 @@ export async function createDraftService(
     })
 
     if (sourceFileIds?.length) {
-        // Task 4：透传 draft.caseId，让 caseMaterials 在创建时即建立 (caseId+draftId+ossFileId) 双绑，
-        // 为"文书助手从案件入口新建草稿后查询案件材料"的闭环铺路
+        // 透传 draft.caseId，让 caseMaterials 形成 (caseId+draftId+ossFileId) 双绑
         await Promise.all(
             sourceFileIds.map(ossFileId =>
                 ensureMaterialsReadyForDraftService(ossFileId, draft.id, userId, draft.caseId ?? null),
