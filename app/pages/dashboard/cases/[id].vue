@@ -162,13 +162,13 @@ async function handleGenerateModule(moduleName: string, moduleTitle: string) {
       return
     }
 
-    // idle 或 failed → 创建 instance + 自动发消息
-    await moduleChatManager.getOrCreateInstance(
-      moduleName,
-      moduleTitle,
-      { autoMessage: `请为本案件生成${moduleTitle}分析报告` },
-    )
+    // idle 或 failed → 创建 instance、立即展开窗口、后台触发自动消息
+    // 注意：不能 await sendMessage —— 它要等到整轮 SSE 流结束才 resolve，
+    // 期间 expandedModule 仍为 null，对话框不渲染（仅显示右下角状态条）。
+    const instance = await moduleChatManager.getOrCreateInstance(moduleName, moduleTitle)
     moduleChatManager.expandModule(moduleName)
+    void instance.sendMessage(`请为本案件生成${moduleTitle}分析报告`)
+      ?.catch(err => console.error('[handleGenerateModule] autoMessage failed', err))
   } finally {
     generatingGuard.delete(moduleName)
   }

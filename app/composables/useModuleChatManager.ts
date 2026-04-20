@@ -49,7 +49,6 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
     async function getOrCreateModuleManager(
         moduleName: string,
         moduleTitle: string,
-        instanceOptions?: { autoMessage?: string },
     ): Promise<ModuleChatInstance> {
         if (instances[moduleName]) return instances[moduleName]
 
@@ -89,11 +88,6 @@ export function useModuleChatManager(caseId: Ref<number>, options: ModuleChatMan
 
         // 自动初始化 session 列表（等价于小索的 init），否则 sendMessage 时 currentChat 为 null
         await manager.init()
-
-        // 自动发送生成消息（仅首次创建时，instance 已存在时走上面的 early return 不会到这里）
-        if (instanceOptions?.autoMessage && manager.sendMessage) {
-            await manager.sendMessage(instanceOptions.autoMessage)
-        }
 
         return instance
     }
