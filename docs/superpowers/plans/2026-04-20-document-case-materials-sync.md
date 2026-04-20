@@ -4,7 +4,7 @@
 
 **Goal:** 打通文书助手与案件材料的双向数据通路 —— 从案件进入的草稿能查到案件材料，从草稿上传的文件自动成为案件材料，任一侧解绑同步生效。
 
-**Architecture:** `case_materials` 表保持 schema 不变，在应用层启用"一条记录可同时带 caseId + draftId"的双绑语义；`ensureMaterialsReadyForDraftService` 的查重逻辑从 `(draftId, ossFileId)` 换成 `(userId, ossFileId)` 的 upsert，防止重复记录；`searchCaseMaterials` tool 的二选一分流替换为 `OR [{caseId}, {draftId}]` 合并查询；前端新增「查看所有材料」Sheet，复用三类既有预览 Dialog。
+**Architecture:** `case_materials` 表保持 schema 不变，在应用层启用"一条记录可同时带 caseId + draftId"的双绑语义；`ensureMaterialsReadyForDraftService` 的查重逻辑从 `(draftId, ossFileId)` 换成 `(ossFileId)` 的 upsert（`ossFiles.userId` 单 owner 保证同 ossFileId 不会跨用户串），防止重复记录；`searchCaseMaterials` tool 的二选一分流替换为 `OR [{caseId}, {draftId}]` 合并查询；前端新增「查看所有材料」Sheet，复用三类既有预览 Dialog。
 
 **Tech Stack:** Nuxt 4 + Vue 3 + TypeScript + Prisma + PostgreSQL + Vitest + shadcn-vue + Tailwind v4
 
@@ -81,37 +81,33 @@ describe('findActiveMaterialByOssFileIdDao', () => {
     it('无活跃记录时返回 null', async () => {
         const user = await prisma.users.create({ data: { phone: '13000000001', password: 'x' } })
         const oss = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'a.pdf', fileType: 'application/pdf', ossKey: 'k1', fileSize: 10 } })
-        const r = await findActiveMaterialByOssFileIdDao(user.id, oss.id)
+        const r = await findActiveMaterialByOssFileIdDao(oss.id)
         expect(r).toBeNull()
     })
 
-    it('命中同 userId 同 ossFileId 的活跃记录', async () => {
+    it('命中同 ossFileId 的活跃记录', async () => {
         const user = await prisma.users.create({ data: { phone: '13000000002', password: 'x' } })
         const oss = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'a.pdf', fileType: 'application/pdf', ossKey: 'k2', fileSize: 10 } })
         const caseRow = await prisma.cases.create({ data: { userId: user.id, title: 't' } })
-        const m = await createMaterialDao({ userId: user.id, caseId: caseRow.id, ossFileId: oss.id, name: 'a.pdf', type: CaseMaterialType.DOCUMENT })
-        const r = await findActiveMaterialByOssFileIdDao(user.id, oss.id)
+        const m = await createMaterialDao({ caseId: caseRow.id, ossFileId: oss.id, name: 'a.pdf', type: CaseMaterialType.DOCUMENT })
+        const r = await findActiveMaterialByOssFileIdDao(oss.id)
         expect(r?.id).toBe(m.id)
-    })
-
-    it('跨 userId 不串', async () => {
-        const u1 = await prisma.users.create({ data: { phone: '13000000003', password: 'x' } })
-        const u2 = await prisma.users.create({ data: { phone: '13000000004', password: 'x' } })
-        const oss = await prisma.ossFiles.create({ data: { userId: u1.id, fileName: 'a.pdf', fileType: 'application/pdf', ossKey: 'k3', fileSize: 10 } })
-        await createMaterialDao({ userId: u1.id, ossFileId: oss.id, name: 'a.pdf', type: CaseMaterialType.DOCUMENT })
-        const r = await findActiveMaterialByOssFileIdDao(u2.id, oss.id)
-        expect(r).toBeNull()
     })
 
     it('软删记录不返回', async () => {
         const user = await prisma.users.create({ data: { phone: '13000000005', password: 'x' } })
         const oss = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'a.pdf', fileType: 'application/pdf', ossKey: 'k4', fileSize: 10 } })
-        const m = await createMaterialDao({ userId: user.id, ossFileId: oss.id, name: 'a.pdf', type: CaseMaterialType.DOCUMENT })
+        const caseRow = await prisma.cases.create({ data: { userId: user.id, title: 't' } })
+        const m = await createMaterialDao({ caseId: caseRow.id, ossFileId: oss.id, name: 'a.pdf', type: CaseMaterialType.DOCUMENT })
         await prisma.caseMaterials.update({ where: { id: m.id }, data: { deletedAt: new Date() } })
-        const r = await findActiveMaterialByOssFileIdDao(user.id, oss.id)
+        const r = await findActiveMaterialByOssFileIdDao(oss.id)
         expect(r).toBeNull()
     })
 })
+
+// 说明：不加 "跨 userId 不串" 测试——caseMaterials 表无 userId 字段；
+// 业务上 ossFiles.userId 是单一 owner，调用方传入的 ossFileId 必属当前 user，
+// 因此查到的 existing 必然归属同一用户，无需 DAO 层做 user 过滤。
 
 describe('findMaterialsByCaseOrDraftIdDao', () => {
     beforeEach(async () => { await cleanupAllTestData() })
@@ -134,8 +130,8 @@ describe('findMaterialsByCaseOrDraftIdDao', () => {
         const { user, caseRow, draft } = await setup()
         const oss1 = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'a.pdf', fileType: 'application/pdf', ossKey: 'ka', fileSize: 1 } })
         const oss2 = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'b.pdf', fileType: 'application/pdf', ossKey: 'kb', fileSize: 1 } })
-        await createMaterialDao({ userId: user.id, caseId: caseRow.id, ossFileId: oss1.id, name: 'a', type: CaseMaterialType.DOCUMENT })
-        await createMaterialDao({ userId: user.id, draftId: draft.id, ossFileId: oss2.id, name: 'b', type: CaseMaterialType.DOCUMENT })
+        await createMaterialDao({ caseId: caseRow.id, ossFileId: oss1.id, name: 'a', type: CaseMaterialType.DOCUMENT })
+        await createMaterialDao({ draftId: draft.id, ossFileId: oss2.id, name: 'b', type: CaseMaterialType.DOCUMENT })
         const r = await findMaterialsByCaseOrDraftIdDao(caseRow.id, null)
         expect(r).toHaveLength(1)
         expect(r[0]!.ossFileId).toBe(oss1.id)
@@ -145,7 +141,7 @@ describe('findMaterialsByCaseOrDraftIdDao', () => {
         const { user, caseRow, draft } = await setup()
         const oss = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'dual.pdf', fileType: 'application/pdf', ossKey: 'kd', fileSize: 1 } })
         // 一条双绑记录
-        await createMaterialDao({ userId: user.id, caseId: caseRow.id, draftId: draft.id, ossFileId: oss.id, name: 'dual', type: CaseMaterialType.DOCUMENT })
+        await createMaterialDao({ caseId: caseRow.id, draftId: draft.id, ossFileId: oss.id, name: 'dual', type: CaseMaterialType.DOCUMENT })
         const r = await findMaterialsByCaseOrDraftIdDao(caseRow.id, draft.id)
         expect(r).toHaveLength(1)
     })
@@ -153,7 +149,7 @@ describe('findMaterialsByCaseOrDraftIdDao', () => {
     it('软删记录不返回', async () => {
         const { user, caseRow } = await setup()
         const oss = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'x.pdf', fileType: 'application/pdf', ossKey: 'kx', fileSize: 1 } })
-        const m = await createMaterialDao({ userId: user.id, caseId: caseRow.id, ossFileId: oss.id, name: 'x', type: CaseMaterialType.DOCUMENT })
+        const m = await createMaterialDao({ caseId: caseRow.id, ossFileId: oss.id, name: 'x', type: CaseMaterialType.DOCUMENT })
         await prisma.caseMaterials.update({ where: { id: m.id }, data: { deletedAt: new Date() } })
         const r = await findMaterialsByCaseOrDraftIdDao(caseRow.id, null)
         expect(r).toEqual([])
@@ -177,17 +173,17 @@ Expected: FAIL（`findActiveMaterialByOssFileIdDao` / `findMaterialsByCaseOrDraf
 
 ```typescript
 /**
- * 按 ossFileId + userId 查活跃材料记录（upsert 用）
- * 保证同一用户同一 ossFile 最多命中一条未软删记录
+ * 按 ossFileId 查活跃材料记录（upsert 用）
+ * 业务约束：ossFiles.userId 是单一 owner，调用方传入的 ossFileId 必属当前 user，
+ * 所以查到的 existing 必然归属同一用户，无需 DAO 层做 user 过滤。
  */
 export const findActiveMaterialByOssFileIdDao = async (
-    userId: number,
     ossFileId: number,
     tx?: Prisma.TransactionClient,
 ): Promise<caseMaterials | null> => {
     try {
         return await (tx || prisma).caseMaterials.findFirst({
-            where: { userId, ossFileId, deletedAt: null },
+            where: { ossFileId, deletedAt: null },
         })
     } catch (error) {
         logger.error('按 ossFileId 查活跃材料失败：', error)
@@ -220,45 +216,15 @@ export const findMaterialsByCaseOrDraftIdDao = async (
 }
 ```
 
-- [ ] **Step 4: 检查 `CreateMaterialInput` 类型是否包含 `userId`**
-
-打开 `shared/types/material.ts`，查找 `CreateMaterialInput`。如果已有 `userId: number` 字段，跳过；否则加上：
-
-```typescript
-export interface CreateMaterialInput {
-    userId: number  // 本次新增：按 ossFileId 查活跃记录需要 userId 隔离
-    caseId?: number | null
-    draftId?: number | null
-    name: string
-    type: number
-    ossFileId?: number | null
-    isEncrypted?: boolean
-    status?: number
-}
-```
-
-同步修改 `createMaterialDao`（`material.dao.ts:20-29`）把 `userId` 写入 `data`：
-
-```typescript
-data: {
-    userId: data.userId,
-    caseId: data.caseId ?? null,
-    draftId: data.draftId ?? null,
-    // ... 其余不变
-}
-```
-
-> 若 `caseMaterials` 表没有 `userId` 字段，停下来报 BLOCKED（需数据模型确认）。若表已有 `userId` 字段但 DAO 未使用，补上。
-
-- [ ] **Step 5: 运行测试确认通过**
+- [ ] **Step 4: 运行测试确认通过**
 
 ```bash
 npx vitest run tests/server/material/material.dao.caseOrDraft.test.ts --reporter=verbose
 ```
 
-Expected: 7/7 PASS。
+Expected: 6/6 PASS（2 个 findActive 场景 + 4 个 findMaterialsByCaseOrDraft 场景）。
 
-- [ ] **Step 6: typecheck**
+- [ ] **Step 5: typecheck**
 
 ```bash
 npx nuxi typecheck 2>&1 | tail -5
@@ -266,15 +232,14 @@ npx nuxi typecheck 2>&1 | tail -5
 
 Expected: 无新增 TS 错误。
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add server/services/material/material.dao.ts shared/types/material.ts tests/server/material/material.dao.caseOrDraft.test.ts
+git add server/services/material/material.dao.ts tests/server/material/material.dao.caseOrDraft.test.ts
 git commit -m "feat(material): DAO 新增 findActiveMaterialByOssFileIdDao + findMaterialsByCaseOrDraftIdDao
 
-- findActiveMaterialByOssFileIdDao: 按 (userId, ossFileId) 查活跃记录，供 upsert 去重
-- findMaterialsByCaseOrDraftIdDao: OR 合并查询，供 search_case_materials 用
-- CreateMaterialInput 补 userId（如 schema 已有字段）"
+- findActiveMaterialByOssFileIdDao: 按 ossFileId 查活跃记录（ossFile.userId 单 owner 保证跨用户不串）
+- findMaterialsByCaseOrDraftIdDao: OR 合并查询，供 search_case_materials 用"
 ```
 
 ---
@@ -328,7 +293,7 @@ describe('ensureMaterialsReadyForDraftService upsert', () => {
 
     it('场景① case-only + draft 上传 → 变双绑', async () => {
         const { user, caseRow, draft, oss } = await seed()
-        const caseMat = await createMaterialDao({ userId: user.id, caseId: caseRow.id, ossFileId: oss.id, name: 'a', type: CaseMaterialType.DOCUMENT, status: 3 })
+        const caseMat = await createMaterialDao({ caseId: caseRow.id, ossFileId: oss.id, name: 'a', type: CaseMaterialType.DOCUMENT, status: 3 })
 
         await ensureMaterialsReadyForDraftService(oss.id, draft.id, user.id, caseRow.id)
 
@@ -342,7 +307,7 @@ describe('ensureMaterialsReadyForDraftService upsert', () => {
 
     it('场景② draft-only + 带 caseId 上传 → 补齐 caseId 变双绑', async () => {
         const { user, caseRow, draft, oss } = await seed()
-        const draftMat = await createMaterialDao({ userId: user.id, draftId: draft.id, ossFileId: oss.id, name: 'a', type: CaseMaterialType.DOCUMENT, status: 3 })
+        const draftMat = await createMaterialDao({ draftId: draft.id, ossFileId: oss.id, name: 'a', type: CaseMaterialType.DOCUMENT, status: 3 })
 
         await ensureMaterialsReadyForDraftService(oss.id, draft.id, user.id, caseRow.id)
 
@@ -353,7 +318,7 @@ describe('ensureMaterialsReadyForDraftService upsert', () => {
 
     it('场景③ 双绑已存在 + 同一 draft 重复上传 → 幂等', async () => {
         const { user, caseRow, draft, oss } = await seed()
-        const dual = await createMaterialDao({ userId: user.id, caseId: caseRow.id, draftId: draft.id, ossFileId: oss.id, name: 'a', type: CaseMaterialType.DOCUMENT, status: 3 })
+        const dual = await createMaterialDao({ caseId: caseRow.id, draftId: draft.id, ossFileId: oss.id, name: 'a', type: CaseMaterialType.DOCUMENT, status: 3 })
 
         await ensureMaterialsReadyForDraftService(oss.id, draft.id, user.id, caseRow.id)
 
@@ -403,8 +368,9 @@ export async function ensureMaterialsReadyForDraftService(
     userId: number,
     caseId?: number | null,
 ): Promise<{ id: number; status: number; draftId: number | null; ossFileId: number | null }> {
-    // 查重：按 (userId, ossFileId) 找活跃记录，避免同一 ossFile 产生多条记录
-    const existing = await findActiveMaterialByOssFileIdDao(userId, ossFileId)
+    // 查重：按 ossFileId 找活跃记录，避免同一 ossFile 产生多条记录
+    // 安全性由 ossFiles.userId 单 owner 保证（调用方传入的 ossFileId 必属当前 user）
+    const existing = await findActiveMaterialByOssFileIdDao(ossFileId)
 
     let materialId: number
 
@@ -534,7 +500,7 @@ git add server/services/material/materialPipeline.service.ts tests/server/materi
 git commit -m "feat(material): ensureMaterialsReadyForDraftService 改 upsert
 
 - 签名扩展: 新增 caseId?: number | null 参数
-- 查重逻辑: 从 (draftId, ossFileId) 换为 (userId, ossFileId) 活跃记录
+- 查重逻辑: 从 (draftId, ossFileId) 换为 (ossFileId) 活跃记录（ossFiles.userId 单 owner 保证安全）
 - 四种 upsert 场景按 spec §3.1 边界表处理
 - 识别/嵌入复用逻辑保留"
 ```
@@ -584,11 +550,11 @@ describe('searchMaterialsByCaseOrDraftService', () => {
         const oss2 = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'b.pdf', fileType: 'application/pdf', ossKey: 'kkb', fileSize: 1 } })
         const oss3 = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'c.pdf', fileType: 'application/pdf', ossKey: 'kkc', fileSize: 1 } })
         // case-only
-        await createMaterialDao({ userId: user.id, caseId: caseRow.id, ossFileId: oss1.id, name: 'a', type: CaseMaterialType.DOCUMENT })
+        await createMaterialDao({ caseId: caseRow.id, ossFileId: oss1.id, name: 'a', type: CaseMaterialType.DOCUMENT })
         // draft-only
-        await createMaterialDao({ userId: user.id, draftId: draft.id, ossFileId: oss2.id, name: 'b', type: CaseMaterialType.DOCUMENT })
+        await createMaterialDao({ draftId: draft.id, ossFileId: oss2.id, name: 'b', type: CaseMaterialType.DOCUMENT })
         // 双绑
-        await createMaterialDao({ userId: user.id, caseId: caseRow.id, draftId: draft.id, ossFileId: oss3.id, name: 'c', type: CaseMaterialType.DOCUMENT })
+        await createMaterialDao({ caseId: caseRow.id, draftId: draft.id, ossFileId: oss3.id, name: 'c', type: CaseMaterialType.DOCUMENT })
 
         // 用 sourceId 精确查走不触发 embedding
         const results: any[] = []
@@ -608,10 +574,10 @@ describe('searchMaterialsByCaseOrDraftService', () => {
     it('只传 caseId 时等价 searchMaterialsService', async () => {
         const { user, caseRow, draft } = await seed()
         const oss = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'x.pdf', fileType: 'application/pdf', ossKey: 'kkx', fileSize: 1 } })
-        await createMaterialDao({ userId: user.id, caseId: caseRow.id, ossFileId: oss.id, name: 'x', type: CaseMaterialType.DOCUMENT })
+        await createMaterialDao({ caseId: caseRow.id, ossFileId: oss.id, name: 'x', type: CaseMaterialType.DOCUMENT })
         // draft-only 不应命中
         const oss2 = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'y.pdf', fileType: 'application/pdf', ossKey: 'kky', fileSize: 1 } })
-        await createMaterialDao({ userId: user.id, draftId: draft.id, ossFileId: oss2.id, name: 'y', type: CaseMaterialType.DOCUMENT })
+        await createMaterialDao({ draftId: draft.id, ossFileId: oss2.id, name: 'y', type: CaseMaterialType.DOCUMENT })
 
         const r = await searchMaterialsByCaseOrDraftService(
             user.id,
@@ -1159,7 +1125,7 @@ describe('deleteDraftService 级联 draftId 置空', () => {
         const tpl = await prisma.documentTemplates.create({ data: { userId: user.id, name: 'n', scope: 'user', category: 'general', placeholders: [], ossFileId: null } })
         const draft = await prisma.documentDrafts.create({ data: { userId: user.id, templateId: tpl.id, sessionId: 's', status: 'ready', values: {}, sourceRef: null, metadata: null, caseId: caseRow.id, title: 't', titleOverridden: false } })
         const oss = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'a.pdf', fileType: 'application/pdf', ossKey: 'k', fileSize: 1 } })
-        const m = await createMaterialDao({ userId: user.id, caseId: caseRow.id, draftId: draft.id, ossFileId: oss.id, name: 'a', type: CaseMaterialType.DOCUMENT })
+        const m = await createMaterialDao({ caseId: caseRow.id, draftId: draft.id, ossFileId: oss.id, name: 'a', type: CaseMaterialType.DOCUMENT })
 
         const r = await deleteDraftService(user.id, draft.id)
         expect(r).toEqual({ ok: true })
@@ -1174,7 +1140,7 @@ describe('deleteDraftService 级联 draftId 置空', () => {
         const tpl = await prisma.documentTemplates.create({ data: { userId: user.id, name: 'n', scope: 'user', category: 'general', placeholders: [], ossFileId: null } })
         const draft = await prisma.documentDrafts.create({ data: { userId: user.id, templateId: tpl.id, sessionId: 's2', status: 'ready', values: {}, sourceRef: null, metadata: null, caseId: null, title: 't', titleOverridden: false } })
         const oss = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'b.pdf', fileType: 'application/pdf', ossKey: 'k2', fileSize: 1 } })
-        const m = await createMaterialDao({ userId: user.id, draftId: draft.id, ossFileId: oss.id, name: 'b', type: CaseMaterialType.DOCUMENT })
+        const m = await createMaterialDao({ draftId: draft.id, ossFileId: oss.id, name: 'b', type: CaseMaterialType.DOCUMENT })
 
         await deleteDraftService(user.id, draft.id)
 
@@ -1190,7 +1156,7 @@ describe('deleteDraftService 级联 draftId 置空', () => {
         const draft1 = await prisma.documentDrafts.create({ data: { userId: user.id, templateId: tpl.id, sessionId: 's3', status: 'ready', values: {}, sourceRef: null, metadata: null, caseId: null, title: 't', titleOverridden: false } })
         const draft2 = await prisma.documentDrafts.create({ data: { userId: user.id, templateId: tpl.id, sessionId: 's4', status: 'ready', values: {}, sourceRef: null, metadata: null, caseId: null, title: 't', titleOverridden: false } })
         const oss = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'c.pdf', fileType: 'application/pdf', ossKey: 'k3', fileSize: 1 } })
-        const m2 = await createMaterialDao({ userId: user.id, draftId: draft2.id, ossFileId: oss.id, name: 'c', type: CaseMaterialType.DOCUMENT })
+        const m2 = await createMaterialDao({ draftId: draft2.id, ossFileId: oss.id, name: 'c', type: CaseMaterialType.DOCUMENT })
 
         await deleteDraftService(user.id, draft1.id)
 
@@ -1939,7 +1905,7 @@ bun dev
 **2. 无占位符：** 全部 step 有实际代码/命令/断言，无 TBD/TODO。
 
 **3. 类型一致性：**
-- `findActiveMaterialByOssFileIdDao(userId, ossFileId)`：Task 1 定义 → Task 2 调用，签名一致
+- `findActiveMaterialByOssFileIdDao(ossFileId)`：Task 1 定义 → Task 2 调用，单参签名一致
 - `findMaterialsByCaseOrDraftIdDao(caseId, draftId)`：Task 1 定义 → Task 3 调用，签名一致
 - `searchMaterialsByCaseOrDraftService(userId, { caseId, draftId }, options)`：Task 3 定义 → Task 6 调用，签名一致
 - `ensureMaterialsReadyForDraftService(ossFileId, draftId, userId, caseId?)`：Task 2 定义 → Task 4/5 调用（各在对应步骤中以四参形式调用）

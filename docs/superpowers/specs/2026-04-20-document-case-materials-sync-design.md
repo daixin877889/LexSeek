@@ -69,13 +69,15 @@ ensureMaterialsReadyForDraftService(ossFileId, draftId, userId, caseId?: number 
 
 现有实现（`materialPipeline.service.ts:630`）是 `findMaterialByDraftIdAndOssFileIdDao(draftId, ossFileId)`——按 `(draftId, ossFileId)` 找现有记录，找不到就新建。**此逻辑下 bug**：case 已有 `(caseId=X, draftId=null, ossFileId=Z)` 时，draft 上传同 ossFile 按 draftId=Y 查不到 → 新建 `(X, Y, Z)` → 同一 ossFile 两条记录并存 → 案件材料 Tab 显示重复项。
 
-**替换为"按 `(userId, ossFileId)` 查活跃记录后分支 upsert"**，保证同一 ossFile 最多一条活跃记录：
+**替换为"按 `ossFileId` 查活跃记录后分支 upsert"**，保证同一 ossFile 最多一条活跃记录：
+
+> **安全性依赖**：`case_materials` 表不含 `userId` 字段（归属靠 `caseId → cases.userId` / `draftId → documentDrafts.userId` 推导）。同 ossFileId 的活跃记录在 `case_materials` 表中必然归属同一用户——这是因为 `ossFiles.userId` 是单一 owner，调用方传入的 `ossFileId` 必来自当前 authenticated user 的 OSS 文件，所以 upsert 匹配到的 existing 一定归属同一用户。
 
 ```ts
 // 新 DAO（可放 material.dao.ts）
-export async function findActiveMaterialByOssFileIdDao(userId: number, ossFileId: number) {
+export async function findActiveMaterialByOssFileIdDao(ossFileId: number) {
     return prisma.caseMaterials.findFirst({
-        where: { userId, ossFileId, deletedAt: null },
+        where: { ossFileId, deletedAt: null },
     })
 }
 
@@ -86,13 +88,13 @@ export async function ensureMaterialsReadyForDraftService(
     userId: number,
     caseId?: number | null,
 ) {
-    const existing = await findActiveMaterialByOssFileIdDao(userId, ossFileId)
+    const existing = await findActiveMaterialByOssFileIdDao(ossFileId)
 
     let materialId: number
     if (!existing) {
         // 无活跃记录 → 新建双绑或半绑
         const created = await prisma.caseMaterials.create({
-            data: { userId, ossFileId, caseId: caseId ?? null, draftId, /* type/name/status 等沿用旧逻辑 */ },
+            data: { ossFileId, caseId: caseId ?? null, draftId, /* type/name/status 等沿用旧逻辑 */ },
         })
         materialId = created.id
     } else {
@@ -122,7 +124,7 @@ export async function ensureMaterialsReadyForDraftService(
 | `(null, Y, Z)` draft-only（独立文书页） | caseId=X, draftId=Y | 变 `(X, Y, Z)` 双绑 | ✅ 补齐 caseId |
 | `(X, Y, Z)` 双绑已存在 | caseId=X, draftId=Y | 无变更 | ✅ 幂等 |
 | `(X, Y_other, Z)` 案件已被另一 draft 绑定 | caseId=X, draftId=Y | 变 `(X, Y, Z)`，原 draft_other 不再绑此材料 | ⚠️ 异常数据：同一 case 下两个活跃 draft 用同文件，本次覆盖原绑定；当前业务不构造该场景，实现时加 `logger.warn` |
-| `(X_other, Y_other, Z)` 属于另一用户案件 | - | 不会命中（DAO where 带 `userId`） | ✅ |
+| `(X_other, Y_other, Z)` 属于另一用户案件 | - | 不会出现（`ossFiles.userId` 单一 owner 保证：Z 若属于 user A，则不可能被 user B 传入此函数） | ✅ |
 
 - 识别记录按 `ossFileId` 查既有表，若已 COMPLETED 则跳过识别（沿用现有逻辑，无需改动）
 
@@ -349,7 +351,7 @@ defineEmits<{
 | 测试 | 覆盖点 |
 | --- | --- |
 | `findMaterialsByCaseOrDraftIdDao` | 只 caseId / 只 draftId / 都有 / 都无返回空 / 软删记录不返回 / 多条双绑记录不同 ossFileId 各自返回一次 |
-| `findActiveMaterialByOssFileIdDao` | 同 userId 同 ossFileId 的活跃记录唯一返回；软删记录不返回；跨 userId 不串 |
+| `findActiveMaterialByOssFileIdDao` | 同 ossFileId 的活跃记录唯一返回；软删记录不返回 |
 | `ensureMaterialsReadyForDraftService` upsert 四场景 | ① case-only `(X,null,Z)` + 上传(X,Y) → 变 `(X,Y,Z)`；② draft-only `(null,Y,Z)` + 上传(X,Y) → 变 `(X,Y,Z)`；③ 双绑 `(X,Y,Z)` + 重复上传 → 幂等不改；④ 无活跃记录 + 上传 → 新建 `(X,Y,Z)` |
 | `searchMaterialsByCaseOrDraftService` | 去重 by id、embedding 检索结果合并排序 |
 | `softDeleteDraftService`（级联 draftId 置空） | `case_materials where draftId=Y` 的 `draftId` 被置 null、`caseId` 保留 |
