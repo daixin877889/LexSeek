@@ -270,7 +270,7 @@ async function loadRelatedMaterials() {
     if (!Number.isFinite(draftId.value) || draftId.value <= 0) return
     const res = await useApiFetch<CaseDetailMaterialItem[]>(
         `/api/v1/assistant/document/drafts/${draftId.value}/related-materials`,
-        { showError: false } as any,
+        { showError: false },
     )
     relatedMaterials.value = Array.isArray(res) ? res : []
 }
@@ -629,7 +629,7 @@ function handlePanelResize(sizes: number[]) {
         </AlertDialog>
 
         <!-- 所有材料 Sheet（本草稿 + 所属案件共享） -->
-        <AssistantDocumentAllMaterialsSheet v-model:open="allMaterialsOpen" :materials="relatedMaterials ?? []"
+        <AssistantDocumentAllMaterialsSheet v-model:open="allMaterialsOpen" :materials="relatedMaterials"
             @preview-material="openMaterialPreview" />
 
         <!-- 文档/图片预览弹窗 -->
