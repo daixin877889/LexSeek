@@ -645,7 +645,7 @@ function handlePanelResize(sizes: number[]) {
 
         <!-- 文本内容预览弹窗 -->
         <Dialog v-model:open="showTextPreview">
-            <DialogContent class="w-full max-h-[80vh] md:min-w-[70vw] flex flex-col">
+            <DialogContent class="w-full max-h-[80vh] md:min-w-[70vw] flex flex-col z-[80]" overlay-class="z-[75]">
                 <DialogHeader class="shrink-0">
                     <DialogTitle class="flex items-center gap-2">
                         <FileTextIcon class="size-5 text-blue-500" />
