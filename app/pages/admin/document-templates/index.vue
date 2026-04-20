@@ -59,26 +59,29 @@
 
         <!-- 模板列表 -->
         <template v-else>
-            <div class="rounded-md border">
-                <Table>
+            <!-- 桌面：表格 -->
+            <div v-if="isDesktop" class="rounded-md border">
+                <Table class="table-fixed">
                     <TableHeader>
                         <TableRow>
                             <TableHead class="w-[60px]">ID</TableHead>
                             <TableHead>模板名称</TableHead>
-                            <TableHead class="w-[160px]">分类</TableHead>
-                            <TableHead class="w-[100px]">占位符数</TableHead>
+                            <TableHead class="w-[140px]">分类</TableHead>
+                            <TableHead class="w-[90px]">占位符</TableHead>
                             <TableHead class="w-[80px]">状态</TableHead>
                             <TableHead class="w-[160px]">创建时间</TableHead>
-                            <TableHead class="w-[100px] text-right">操作</TableHead>
+                            <TableHead class="w-[80px] text-right">操作</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         <TableRow v-for="tpl in templates" :key="tpl.id">
                             <TableCell class="font-medium">{{ tpl.id }}</TableCell>
                             <TableCell>
-                                <div>
-                                    <div class="font-medium">{{ tpl.name }}</div>
-                                    <div v-if="tpl.description" class="text-xs text-muted-foreground mt-0.5 truncate max-w-[300px]">
+                                <div class="min-w-0">
+                                    <div class="font-medium truncate" :title="tpl.name">{{ tpl.name }}</div>
+                                    <div v-if="tpl.description"
+                                        class="text-xs text-muted-foreground mt-0.5 truncate"
+                                        :title="tpl.description">
                                         {{ tpl.description }}
                                     </div>
                                 </div>
@@ -96,7 +99,7 @@
                                     {{ tpl.status === 1 ? '启用' : '禁用' }}
                                 </Badge>
                             </TableCell>
-                            <TableCell class="text-sm text-muted-foreground">
+                            <TableCell class="text-sm text-muted-foreground whitespace-nowrap">
                                 {{ formatDate(String(tpl.createdAt)) }}
                             </TableCell>
                             <TableCell class="text-right">
@@ -126,6 +129,61 @@
                         </TableRow>
                     </TableBody>
                 </Table>
+            </div>
+
+            <!-- 移动：卡片 -->
+            <div v-else class="space-y-2">
+                <div v-for="tpl in templates" :key="tpl.id"
+                    class="relative rounded-xl border bg-card p-3 flex items-start gap-3">
+                    <div
+                        class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <FileText class="size-5" />
+                    </div>
+                    <div class="flex-1 min-w-0 pr-8">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-sm font-medium line-clamp-1 break-all">{{ tpl.name }}</span>
+                            <Badge :variant="tpl.status === 1 ? 'default' : 'secondary'"
+                                class="shrink-0 h-5 text-[10px] px-1.5">
+                                {{ tpl.status === 1 ? '启用' : '禁用' }}
+                            </Badge>
+                        </div>
+                        <p v-if="tpl.description" class="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                            {{ tpl.description }}
+                        </p>
+                        <div class="mt-1.5 flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
+                            <Badge variant="secondary" class="h-5 text-[10px] px-1.5">
+                                {{ getCategoryLabel(tpl.category) }}
+                            </Badge>
+                            <span>占位符 {{ Array.isArray(tpl.placeholders) ? tpl.placeholders.length : 0 }} 个</span>
+                            <span class="text-muted-foreground/60">·</span>
+                            <span>{{ formatDate(String(tpl.createdAt)) }}</span>
+                        </div>
+                    </div>
+                    <div class="absolute top-2 right-2">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger as-child>
+                                <Button variant="ghost" size="icon" class="size-8">
+                                    <MoreHorizontal class="size-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem @click="openEditDialog(tpl)">
+                                    <Pencil class="h-4 w-4 mr-2" />
+                                    编辑元信息
+                                </DropdownMenuItem>
+                                <DropdownMenuItem @click="handleToggleStatus(tpl)">
+                                    <Power class="h-4 w-4 mr-2" />
+                                    {{ tpl.status === 1 ? '禁用' : '启用' }}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem class="text-destructive" @click="handleDelete(tpl)">
+                                    <Trash2 class="h-4 w-4 mr-2" />
+                                    删除
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                </div>
             </div>
 
             <!-- 分页 -->
@@ -280,12 +338,16 @@ import {
     Upload, Loader2, FileText, Search,
     MoreHorizontal, Pencil, Trash2, Power
 } from 'lucide-vue-next'
+import { useMediaQuery } from '@vueuse/core'
 import { toast } from 'vue-sonner'
 import { DOCUMENT_CATEGORIES } from '#shared/types/document'
 import type { DocumentCategoryKey } from '#shared/types/document'
 import type { documentTemplates } from '#shared/types/prisma'
 
 definePageMeta({ layout: 'admin-layout', title: '文书模板管理' })
+
+// PC 表格 / 移动卡片（阈值 768px，与其它列表保持一致）
+const isDesktop = useMediaQuery('(min-width: 768px)')
 
 // ─── 类型 ───────────────────────────────────────────────────────────────────
 type TemplateRow = Pick<documentTemplates,
