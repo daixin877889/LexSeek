@@ -10,13 +10,16 @@
  * - 顶部：返回、模板名称（含关联案件）、AI 生成、导出 .docx
  * - 悬浮 Agent 对话窗 + 队列 / 中断 确认 Dialog
  */
-import { ArrowLeftIcon, Loader2Icon, DownloadIcon, SparklesIcon, RefreshCw as RefreshCwIcon, HistoryIcon, SaveIcon } from 'lucide-vue-next'
+import { ArrowLeftIcon, Loader2Icon, DownloadIcon, SparklesIcon, RefreshCw as RefreshCwIcon, HistoryIcon, SaveIcon, FolderIcon, FileTextIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { VisuallyHidden } from 'reka-ui'
 import type { DocumentDraftVersion } from '#shared/types/document'
 import { useMediaQuery, useLocalStorage } from '@vueuse/core'
 import type { documentDrafts } from '~~/generated/prisma/client'
 import { QUEUE_MAX_SIZE } from '~/composables/chatQueueActions'
 import type { OssFileItem } from '~/store/file'
+import type { CaseDetailMaterialItem } from '~/composables/useCaseDetail'
+import { CaseMaterialType } from '#shared/types/case'
 
 definePageMeta({
     layout: 'dashboard-layout',
@@ -73,6 +76,8 @@ onMounted(async () => {
         await mountDraft(draftId.value)
         if (!draft.value) {
             loadError.value = '草稿不存在或已被删除'
+        } else {
+            await loadRelatedMaterials()
         }
     } catch (e) {
         loadError.value = e instanceof Error ? e.message : '加载草稿失败'
@@ -258,6 +263,47 @@ const queueFull = computed(() => queueLen.value >= QUEUE_MAX_SIZE)
 // 已选文件 ID（传给 MaterialSelector 禁用已选项）
 const selectedFileIds = computed(() => aiChatRef.value?.selectedFileIds ?? [])
 
+// ========== 所有材料（本草稿 + 所属案件共享）==========
+const relatedMaterials = ref<CaseDetailMaterialItem[]>([])
+
+async function loadRelatedMaterials() {
+    if (!Number.isFinite(draftId.value) || draftId.value <= 0) return
+    const res = await useApiFetch<CaseDetailMaterialItem[]>(
+        `/api/v1/assistant/document/drafts/${draftId.value}/related-materials`,
+        { showError: false } as any,
+    )
+    relatedMaterials.value = Array.isArray(res) ? res : []
+}
+
+const relatedOssFileIds = computed<number[]>(() =>
+    relatedMaterials.value
+        .map((m: CaseDetailMaterialItem) => m.ossFileId)
+        .filter((id): id is number => id != null),
+)
+
+const allMaterialsOpen = ref(false)
+
+// --- 材料预览弹窗状态（与 cases/[id].vue:98-116 同构）---
+const previewMaterial = ref<CaseDetailMaterialItem | null>(null)
+const showPreview = ref(false)
+const showTextPreview = ref(false)
+const textContent = ref<string | null>(null)
+
+async function openMaterialPreview(material: CaseDetailMaterialItem) {
+    if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
+    }
+    previewMaterial.value = material
+    if (material.type === CaseMaterialType.CASE_CONTENT) {
+        showTextPreview.value = true
+        textContent.value = null
+        const res = await useApiFetch<{ content: string | null }>(`/api/v1/material/content/${material.id}`)
+        textContent.value = res?.content ?? null
+    } else {
+        showPreview.value = true
+    }
+}
+
 function openAgent() {
     agentOpen.value = true
 }
@@ -407,6 +453,11 @@ function handlePanelResize(sizes: number[]) {
                     <HistoryIcon class="size-4" />
                     <span class="hidden lg:inline ml-1">历史</span>
                 </Button>
+                <Button variant="outline" size="sm" :disabled="!draft" title="所有材料"
+                    @click="allMaterialsOpen = true">
+                    <FolderIcon class="size-4" />
+                    <span class="hidden md:inline ml-1">材料</span>
+                </Button>
                 <Button variant="outline" size="sm" :disabled="!draft" title="保存当前为版本"
                     @click="openSaveVersionDialog">
                     <SaveIcon class="size-4" />
@@ -535,7 +586,8 @@ function handlePanelResize(sizes: number[]) {
         </Dialog>
 
         <!-- 材料选择弹框（点击 AiChat 文件按钮触发） -->
-        <CaseAnalysisMaterialSelector ref="materialSelectorRef" :disabled-file-ids="selectedFileIds"
+        <CaseAnalysisMaterialSelector ref="materialSelectorRef"
+            :disabled-file-ids="[...selectedFileIds, ...relatedOssFileIds]"
             @files-selected="handleFilesFromSelector" />
 
         <AssistantDocumentHistorySheet v-if="draft && template" v-model:open="historyOpen" :versions="versions"
@@ -575,5 +627,43 @@ function handlePanelResize(sizes: number[]) {
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
+
+        <!-- 所有材料 Sheet（本草稿 + 所属案件共享） -->
+        <AssistantDocumentAllMaterialsSheet v-model:open="allMaterialsOpen" :materials="relatedMaterials ?? []"
+            @preview-material="openMaterialPreview" />
+
+        <!-- 文档/图片预览弹窗 -->
+        <CaseAnalysisDocPreviewDialog
+            v-if="previewMaterial?.type === CaseMaterialType.DOCUMENT || previewMaterial?.type === CaseMaterialType.IMAGE"
+            v-model:open="showPreview" :oss-file-id="previewMaterial!.ossFileId!" :file-name="previewMaterial!.name"
+            :file-type="previewMaterial!.fileType || 'document'" />
+
+        <!-- 音频预览弹窗 -->
+        <CaseAnalysisAudioPreviewDialog v-if="previewMaterial?.type === CaseMaterialType.AUDIO"
+            v-model:open="showPreview" :oss-file-id="previewMaterial!.ossFileId!"
+            :file-name="previewMaterial!.name" />
+
+        <!-- 文本内容预览弹窗 -->
+        <Dialog v-model:open="showTextPreview">
+            <DialogContent class="w-full max-h-[80vh] md:min-w-[70vw] flex flex-col">
+                <DialogHeader class="shrink-0">
+                    <DialogTitle class="flex items-center gap-2">
+                        <FileTextIcon class="size-5 text-blue-500" />
+                        {{ previewMaterial?.name }}
+                    </DialogTitle>
+                    <VisuallyHidden>
+                        <DialogDescription>文本内容预览</DialogDescription>
+                    </VisuallyHidden>
+                </DialogHeader>
+                <div class="flex-1 min-h-0 overflow-y-auto">
+                    <div v-if="textContent" class="text-sm leading-relaxed whitespace-pre-wrap">
+                        {{ textContent }}
+                    </div>
+                    <div v-else class="text-sm text-muted-foreground text-center py-8">
+                        暂无文本内容
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
     </div>
 </template>
