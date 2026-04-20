@@ -28,61 +28,16 @@
 
 ### 1.3 非目标
 
-- 不回迁独立文书页历史产生的 `(caseId=null, draftId=Y)` 记录的 caseId 字段——保留原语义。
+- 不修改 `case_materials` 表 schema（现有字段已够用）。
+- 不回迁独立文书页历史产生的 `(caseId=null, draftId=Y)` 记录——保留原语义。
 - 不重复造材料预览组件，复用现有 `CaseAnalysisDocPreviewDialog` / `CaseAnalysisAudioPreviewDialog` / 内嵌文本 Dialog。
 - 不在文书编辑页提供"从 draft 解绑单条材料"的独立 UI（解绑仅经案件材料 Tab）。
-
-### 1.4 Schema 变更（修订：spec 初版遗漏）
-
-初版 spec 声称"不修改 `case_materials` 表 schema"，但实际实现时发现：`case_materials` 表**不存在 `userId` 字段**，归属是通过 `caseId → cases.userId` 或 `draftId → documentDrafts.userId` **间接推导**。本次 spec 的 upsert 查重逻辑 `(userId, ossFileId)` 无法直接实现，方案取舍：
-
-| 方案 | 评估 |
-| --- | --- |
-| 不加 userId，改查重逻辑为 `(ossFileId)` + 业务约束兜底 | 依赖 `ossFiles.userId` 的单用户归属，层级较深，防御性弱 |
-| **加 userId 字段到 `case_materials`（本次采纳）** | 语义显式、查询走单索引、与 `cases`/`drafts`/`ossFiles` 同构 |
-
-决定：本 spec **新增 `case_materials.userId` 字段**，并配套一次性回填 migration。
 
 ---
 
 ## 2. 数据模型
 
-`case_materials` 表新增 `userId: Int` 字段（NOT NULL，带索引）；其余字段保持不变：`caseId: Int?`、`draftId: Int?`、`ossFileId: Int?`、无唯一约束、具 `deletedAt`。
-
-**Prisma schema 片段（需加到 `prisma/models/case.prisma` 的 `model caseMaterials`）：**
-
-```prisma
-model caseMaterials {
-  id          Int       @id @default(autoincrement())
-  userId      Int       @map("user_id")   // 新增：材料归属用户（与 cases/drafts/ossFiles 一致）
-  caseId      Int?      @map("case_id")
-  draftId     Int?      @map("draft_id")
-  // ... 其余保持原样
-
-  user  users           @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  // 其余 relation 不变
-
-  @@index([userId, ossFileId], map: "idx_case_materials_user_oss")
-  @@index([userId], map: "idx_case_materials_user")
-  // 其余 index 不变
-}
-```
-
-**一次性数据迁移（回填现有记录的 userId）：**
-
-```sql
-UPDATE case_materials
-SET user_id = COALESCE(
-    (SELECT user_id FROM cases WHERE cases.id = case_materials.case_id),
-    (SELECT user_id FROM document_drafts WHERE document_drafts.id = case_materials.draft_id)
-)
-WHERE user_id IS NULL;
-```
-
-migration 执行顺序：
-1. `ALTER TABLE` 先加 `user_id INT` 可空列
-2. 跑上面回填 SQL
-3. 再 `ALTER COLUMN user_id SET NOT NULL`（若有少数既无 caseId 也无 draftId 的孤儿记录回填失败，先人工清理或加个兜底）
+`case_materials` 表字段现状保持不变：`caseId: Int?`、`draftId: Int?`、`ossFileId: Int?`、无唯一约束，具 `deletedAt`。
 
 应用层新增一种语义合法组合：
 
@@ -457,15 +412,11 @@ defineEmits<{
 
 ## 7. 回滚策略
 
-**代码回滚（标准）：** 后端 DAO/Service/Tool/API 和前端组件/页面改动均为可 revert，`git revert` 一个个 commit 即回退。
+本次改动**不改 schema、不做数据迁移**：
 
-**Schema 回滚（本次新增项）：**
-
-- 反向 migration：`ALTER TABLE case_materials DROP COLUMN user_id;`
-- 新增的 `@@index([userId, ossFileId])` / `@@index([userId])` 会随 column 一起消失
-- 已产生的双绑记录 `(userId=U, caseId=X, draftId=Y, ossFileId=Z)` 回滚后仍符合旧 schema（其余字段可空、无唯一约束）；新建的 `userId` 列会随 DROP COLUMN 消失
-- 查询回退到 `searchMaterialsByDraftService` / `searchMaterialsService` 的二选一分流模式仍可工作（双绑记录通过 caseId 或 draftId 分支任一命中）
-
-**数据损失风险：**
-
-- 删除 draft 时级联置空 draftId 的行为一旦生效，已被置空的 draftId 无法还原；但这是 spec §3.4 决策的预期行为，不算损失
+- 后端扩展 DAO/Service/Tool 分支逻辑，`git revert` 即可回退
+- 前端新增组件和 wiring，删除 `AllMaterialsSheet.vue` + 还原 `drafts/[id].vue` 的两处改动
+- 已产生的双绑记录 `(caseId=X, draftId=Y)` 回滚后仍符合旧 schema（字段可空、无唯一约束）：
+  - `searchMaterialsByDraftService` 下仍能通过 draftId 分支查到
+  - `searchMaterialsService` 下仍能通过 caseId 查到
+  - 不会丢失，只是"同时被两侧看到"这件事回退成 schema 允许但应用层不利用
