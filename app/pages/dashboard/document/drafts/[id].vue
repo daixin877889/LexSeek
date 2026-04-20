@@ -139,7 +139,7 @@ watch(() => template.value?.id ?? null, async (tplId) => {
 /** 按"入口优先级 > 案件归属 > 兜底"决定返回目标与按钮文案，保持一致 */
 function resolveBackTarget(): { path: string; label: string } {
     if (route.query.from === 'document-history') {
-        return { path: '/dashboard/document?tab=history', label: '返回历史文书' }
+        return { path: '/dashboard/document?tab=history', label: '返回' }
     }
     const cid = caseId.value
     if (cid != null) {
