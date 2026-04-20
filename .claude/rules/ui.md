@@ -70,3 +70,30 @@ definePageMeta({
 - 使用 Tailwind v4 语法和类名
 - 组件需支持深色模式
 - 复杂业务逻辑应提取为 composables
+
+## 确认 / 警告对话框
+
+**严禁使用浏览器原生 `confirm()` / `alert()` / `prompt()`**（样式与产品脱节、阻塞主线程、移动端不友好、无法携带异步回调）。
+
+优先使用项目内置的全局 `useAlertDialogStore`（基于 shadcn Dialog，已在 `app.vue` 全局挂载）：
+
+```ts
+const alertDialogStore = useAlertDialogStore()
+alertDialogStore.showErrorDialog({
+    title: '确认删除',
+    message: `确认删除「${name}」？删除后无法恢复。`,
+    confirmText: '确认删除',
+    cancelText: '取消',
+    onConfirm: async () => {
+        await useApiFetch(`/api/v1/xxx/${id}`, { method: 'DELETE' })
+        toast.success('已删除')
+        reload()
+    },
+})
+```
+
+- 删除 / 不可恢复操作用 `showErrorDialog`（红色主按钮）
+- 普通确认用 `showDialog` 或 `showSuccessDialog`
+- 需要与页面内 shadcn Sheet/Drawer 共存时，传 `zIndex` 覆盖遮罩层级（Sheet 默认 z-[70]，传 `zIndex: 9999` 即可压过）
+
+当确认流程需要在组件内持有独立状态（如删除前额外输入、带表单校验），才使用本地 shadcn `AlertDialog` 组件（参考 `components/cases/CasesDeleteDialog.vue`）。
