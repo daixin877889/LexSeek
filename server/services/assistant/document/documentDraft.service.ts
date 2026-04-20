@@ -207,6 +207,14 @@ export async function deleteDraftService(
         return { error: '无权删除此草稿', code: 403 }
     }
 
+    // 级联：把该 draft 绑定的 case_materials 记录 draftId 置空，caseId 保留（spec §3.4 策略 A）
+    // 双绑 (X, Y, Z) → (X, null, Z)：案件材料 Tab 仍可见
+    // draft-only (null, Y, Z) → (null, null, Z)：兼容现状，允许孤儿态，不做额外清理
+    await prisma.caseMaterials.updateMany({
+        where: { draftId, deletedAt: null },
+        data: { draftId: null },
+    })
+
     await softDeleteDocumentDraftDAO(draftId)
     return { ok: true }
 }
