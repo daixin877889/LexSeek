@@ -131,38 +131,37 @@
                 </Table>
             </div>
 
-            <!-- 移动：卡片 -->
-            <div v-else class="space-y-2">
+            <!-- 移动：卡片（对齐用户端 TemplateCard 的视觉规范） -->
+            <div v-else class="space-y-3">
                 <div v-for="tpl in templates" :key="tpl.id"
-                    class="relative rounded-xl border bg-card p-3 flex items-start gap-3">
+                    class="group relative flex items-start gap-4 rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/60 hover:shadow-md">
                     <div
-                        class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                        <FileText class="size-5" />
+                        class="flex size-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary/20">
+                        <FileText class="size-6" />
                     </div>
-                    <div class="flex-1 min-w-0 pr-8">
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="text-sm font-medium line-clamp-1 break-all">{{ tpl.name }}</span>
+                    <div class="flex-1 min-w-0 pr-9">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-medium leading-tight line-clamp-1 flex-1 min-w-0">
+                                {{ tpl.name }}
+                            </span>
                             <Badge :variant="tpl.status === 1 ? 'default' : 'secondary'"
                                 class="shrink-0 h-5 text-[10px] px-1.5">
                                 {{ tpl.status === 1 ? '启用' : '禁用' }}
                             </Badge>
                         </div>
-                        <p v-if="tpl.description" class="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                        <p v-if="tpl.description" class="mt-1 text-xs text-muted-foreground line-clamp-1">
                             {{ tpl.description }}
                         </p>
-                        <div class="mt-1.5 flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
-                            <Badge variant="secondary" class="h-5 text-[10px] px-1.5">
-                                {{ getCategoryLabel(tpl.category) }}
-                            </Badge>
-                            <span>占位符 {{ Array.isArray(tpl.placeholders) ? tpl.placeholders.length : 0 }} 个</span>
-                            <span class="text-muted-foreground/60">·</span>
+                        <div class="mt-1 flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground/80">
+                            <span>{{ getCategoryLabel(tpl.category) }}</span>
+                            <span class="opacity-50">·</span>
                             <span>{{ formatDate(String(tpl.createdAt)) }}</span>
                         </div>
                     </div>
-                    <div class="absolute top-2 right-2">
+                    <div class="absolute top-3 right-2">
                         <DropdownMenu>
                             <DropdownMenuTrigger as-child>
-                                <Button variant="ghost" size="icon" class="size-8">
+                                <Button variant="ghost" size="icon" class="size-7 text-muted-foreground">
                                     <MoreHorizontal class="size-4" />
                                 </Button>
                             </DropdownMenuTrigger>
@@ -229,7 +228,7 @@
                 <div class="space-y-2">
                     <Label>分类 <span class="text-destructive">*</span></Label>
                     <Select v-model="uploadForm.category">
-                        <SelectTrigger>
+                        <SelectTrigger class="w-full">
                             <SelectValue placeholder="请选择分类" />
                         </SelectTrigger>
                         <SelectContent>
@@ -273,7 +272,7 @@
                 <div class="space-y-2">
                     <Label>分类</Label>
                     <Select v-model="editForm.category">
-                        <SelectTrigger>
+                        <SelectTrigger class="w-full">
                             <SelectValue placeholder="请选择分类" />
                         </SelectTrigger>
                         <SelectContent>
@@ -293,7 +292,7 @@
                 <div class="space-y-2">
                     <Label>状态</Label>
                     <Select v-model="editForm.statusStr">
-                        <SelectTrigger>
+                        <SelectTrigger class="w-full">
                             <SelectValue placeholder="请选择状态" />
                         </SelectTrigger>
                         <SelectContent>
