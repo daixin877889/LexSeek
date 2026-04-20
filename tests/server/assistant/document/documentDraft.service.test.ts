@@ -122,8 +122,16 @@ const MOCK_DRAFT_READY = {
 
 // ==================== beforeEach 默认 mock 设置 ====================
 
+// createDraftService 内部直接用 prisma.caseSessions.create（而非 DAO），
+// Prisma Proxy 不支持 vi.spyOn，改用属性替换；保留原函数在 afterEach 复位
+let __origCaseSessionsCreate: any = null
+
 beforeEach(() => {
     vi.resetAllMocks()
+
+    const _prisma = (globalThis as any).prisma
+    __origCaseSessionsCreate = _prisma.caseSessions.create.bind(_prisma.caseSessions)
+    _prisma.caseSessions.create = vi.fn().mockResolvedValue(MOCK_SESSION)
 
     // 默认：成功路径
     mockGetDocumentTemplateDAO.mockResolvedValue(MOCK_GLOBAL_TEMPLATE)
@@ -152,6 +160,10 @@ beforeEach(() => {
 
 afterEach(() => {
     vi.clearAllMocks()
+    if (__origCaseSessionsCreate) {
+        (globalThis as any).prisma.caseSessions.create = __origCaseSessionsCreate
+        __origCaseSessionsCreate = null
+    }
 })
 
 // ==================== createDraftService ====================
@@ -248,7 +260,7 @@ describe('createDraftService', () => {
             )
         })
 
-        it('传入 sourceFileIds 时循环调用 ensureMaterialsReadyForDraftService', async () => {
+        it('传入 sourceFileIds 时循环调用 ensureMaterialsReadyForDraftService（无 caseId 透传 null）', async () => {
             const result = await createDraftService({
                 userId: 100,
                 templateId: 1,
@@ -256,9 +268,26 @@ describe('createDraftService', () => {
             })
 
             expect(mockEnsureMaterialsReadyForDraftService).toHaveBeenCalledTimes(2)
-            expect(mockEnsureMaterialsReadyForDraftService).toHaveBeenCalledWith(5, MOCK_DRAFT.id, 100)
-            expect(mockEnsureMaterialsReadyForDraftService).toHaveBeenCalledWith(6, MOCK_DRAFT.id, 100)
+            expect(mockEnsureMaterialsReadyForDraftService).toHaveBeenCalledWith(5, MOCK_DRAFT.id, 100, null)
+            expect(mockEnsureMaterialsReadyForDraftService).toHaveBeenCalledWith(6, MOCK_DRAFT.id, 100, null)
             expect(result).toHaveProperty('draftId')
+        })
+
+        it('传入 caseId + sourceFileIds 时，将 caseId 透传给 ensureMaterialsReadyForDraftService（双绑）', async () => {
+            // Task 4: createDraftService 需把 draft.caseId 透传到 ensureMaterialsReady，
+            // 以便 upsert 分支写入 caseMaterials 的 caseId 字段，形成 (caseId+draftId+ossFileId) 双绑
+            const DRAFT_WITH_CASE = { ...MOCK_DRAFT, caseId: 77 }
+            mockCreateDocumentDraftDAO.mockResolvedValue(DRAFT_WITH_CASE)
+
+            await createDraftService({
+                userId: 100,
+                templateId: 1,
+                caseId: 77,
+                sourceFileIds: [5],
+            })
+
+            expect(mockEnsureMaterialsReadyForDraftService).toHaveBeenCalledTimes(1)
+            expect(mockEnsureMaterialsReadyForDraftService).toHaveBeenCalledWith(5, DRAFT_WITH_CASE.id, 100, 77)
         })
 
         it('不传 sourceFileIds 时不调用 ensureMaterialsReadyForDraftService', async () => {
