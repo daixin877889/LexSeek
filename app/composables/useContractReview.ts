@@ -20,6 +20,7 @@ import type {
     DownloadResponse,
     Risk,
     ReviewWithParsedRisks,
+    ContractReviewEvent,
 } from '#shared/types/contract'
 
 type ContractRunStatus = 'idle' | 'reviewing' | 'awaiting_stance' | 'completed' | 'failed'
@@ -39,6 +40,20 @@ export function useContractReview() {
      * 仅本会话内有效，跨会话持久化登记留给 M6+。
      */
     const hasUnsavedDocxChanges = ref(false)
+
+    // M6.1：阶段进度状态
+    const stageStatus = ref<{
+        detect: 'wait' | 'running' | 'done'
+        stance: 'wait' | 'running' | 'done'
+        segment: 'wait' | 'running' | 'done'
+        analyze: 'wait' | 'running' | 'done'
+        summarize: 'wait' | 'running' | 'done'
+    }>({
+        detect: 'wait', stance: 'wait', segment: 'wait', analyze: 'wait', summarize: 'wait',
+    })
+    const totalClauses = ref<number | null>(null)
+    const analyzingClauseIndex = ref<number | null>(null)
+    const analyzeWarnings = ref<string[]>([])
 
     /** review.status === 'rebuilding' 时 UI 禁用编辑 + 显示进度 */
     const isRebuilding = computed(() => review.value?.status === 'rebuilding')
@@ -115,6 +130,51 @@ export function useContractReview() {
         }
     }
 
+    /**
+     * M6.1：合同审查 SSE 自定义事件分发器
+     * 由 mountStream 里的 onCustomEvent 调用。事件类型仅 4 种。
+     */
+    function handleContractEvent(event: ContractReviewEvent) {
+        switch (event.type) {
+            case 'stage': {
+                stageStatus.value = {
+                    ...stageStatus.value,
+                    [event.stage]: event.status,
+                }
+                if (event.stage === 'segment' && event.status === 'done') {
+                    totalClauses.value = event.totalClauses ?? null
+                }
+                if (event.stage === 'analyze' && event.status === 'done' && event.warnings?.length) {
+                    analyzeWarnings.value = event.warnings
+                    toast.warning(`${event.warnings.length} 条条款分析失败，已跳过`)
+                }
+                break
+            }
+            case 'progress': {
+                analyzingClauseIndex.value = event.current
+                if (event.error) {
+                    toast.warning(`第 ${event.current} 条分析失败，已跳过：${event.error}`)
+                }
+                break
+            }
+            case 'risk': {
+                // 子期 2 实现：把 risk 增量 append 到 review.risks
+                if (review.value) {
+                    const existing = review.value.risks ?? []
+                    review.value = { ...review.value, risks: [...existing, event.risk] }
+                }
+                break
+            }
+            case 'overview': {
+                // 子期 3 实现：替换 summary
+                if (review.value) {
+                    review.value = { ...review.value, summary: event.overview }
+                }
+                break
+            }
+        }
+    }
+
     function mountStream(sessionId: string) {
         stopStreamWatch?.()
         streamScope?.stop()
@@ -127,6 +187,20 @@ export function useContractReview() {
                 apiUrl: '/api/v1/assistant/contract/chat',
                 threadId: sessionId,
                 messagesKey: 'messages',
+                onCustomEvent: (data: unknown) => {
+                    // 后端 emitter 包装成 AgentCustomEvent = { type, runId, sessionId, name, data }
+                    // useStreamChat 已过滤 status_change；剩余事件通过 data.name 识别归属
+                    if (
+                        data && typeof data === 'object'
+                        && (data as any).name === 'contract_review'
+                        && (data as any).data
+                    ) {
+                        const payload = (data as any).data
+                        if (['stage', 'progress', 'risk', 'overview'].includes(payload.type)) {
+                            handleContractEvent(payload as ContractReviewEvent)
+                        }
+                    }
+                },
             })
 
             // 后端 contractReviewPersistenceMiddleware 完成后未必推 SSE custom event，
@@ -420,6 +494,11 @@ export function useContractReview() {
         awaitingStance,
         hasUnsavedDocxChanges,
         isRebuilding,
+        // M6.1 阶段进度状态
+        stageStatus,
+        totalClauses,
+        analyzingClauseIndex,
+        analyzeWarnings,
         // 动作
         onStart,
         mountReview,
@@ -430,5 +509,6 @@ export function useContractReview() {
         onRebuildDocx,
         stopGeneration,
         cancelReview,
+        handleContractEvent,
     }
 }
