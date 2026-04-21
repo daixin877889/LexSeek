@@ -30,6 +30,7 @@ const emit = defineEmits<{
     rebuild: []
     editRisks: [risks: Risk[]]
     exportPdf: [includeRisks: boolean]
+    focusRisk: [riskId: string]
 }>()
 
 const sorted = computed(() => [...props.risks].sort((a, b) => a.clauseIndex - b.clauseIndex))
@@ -121,7 +122,11 @@ function handleExportPdfConfirm(includeRisks: boolean) {
 
 <template>
     <div class="flex flex-col h-full">
-        <div v-if="summary?.overall" class="p-3 border-b text-sm text-muted-foreground whitespace-pre-wrap">{{ summary.overall }}</div>
+        <AssistantContractOverviewPanel
+            :risks="risks"
+            :summary="summary"
+            @focus-risk="(id: string) => emit('focusRisk', id)"
+        />
 
         <div v-if="isRebuilding" class="p-3 border-b bg-muted/30 text-sm text-muted-foreground flex items-center gap-2">
             <Loader2Icon class="size-4 animate-spin" />
