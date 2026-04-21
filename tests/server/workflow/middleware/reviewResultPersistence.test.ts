@@ -102,7 +102,8 @@ describe('reviewResultPersistenceMiddleware', () => {
         })
         expect(updateContractReviewDAO).toHaveBeenNthCalledWith(1, 42, {
             risks: [risk],
-            summary: 'ok',
+            // M6.1 Task 1.2：持久化层把 LLM 字符串 summary 包装为 ContractOverview 形态
+            summary: { highlights: null, overall: 'ok' },
         })
         expect(injectComments).toHaveBeenCalled()
         // 无越界时：只更新 reviewedFileId + status，不重写 risks
@@ -140,7 +141,8 @@ describe('reviewResultPersistenceMiddleware', () => {
         // 第一次：写 risks/summary（可 rebuild 恢复的关键）
         expect(updateContractReviewDAO).toHaveBeenNthCalledWith(1, 42, {
             risks: [risk],
-            summary: 'ok',
+            // M6.1 Task 1.2：持久化层把 LLM 字符串 summary 包装为 ContractOverview 形态
+            summary: { highlights: null, overall: 'ok' },
         })
         // 最后一次：status=failed
         expect(updateContractReviewDAO).toHaveBeenLastCalledWith(42, { status: 'failed' })

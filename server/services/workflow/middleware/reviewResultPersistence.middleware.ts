@@ -140,11 +140,20 @@ export const reviewResultPersistenceMiddleware = (
             const structured: StructuredReviewResult = validation.data
 
             // Step 1: 先落库 risks/summary（失败态 rebuild 的前提）
-            // Risk[] 是 POJO 结构，Prisma Json 字段需显式转为 InputJsonValue
+            // Risk[] 是 POJO 结构，Prisma Json 字段需显式转为 InputJsonValue。
+            // M6.1 Task 1.2：LLM 仍输出字符串 summary，为了让前端/PDF 按统一
+            // ContractOverview 形态消费，此处把它包装为 { highlights: null, overall }。
+            // 子期 3 升级 summarize 节点后再替换为真正的 highlights；
+            // 子期 1 Task 1.3 把 contractReviews.summary 从 String 迁移为 Json 前，
+            // Prisma 类型仍要求 string，所以这里双重断言绕过编译期校验。
+            const summaryPayload = {
+                highlights: null,
+                overall: structured.summary,
+            } as unknown as Prisma.InputJsonValue
             try {
                 await updateContractReviewDAO(options.reviewId, {
                     risks: structured.risks as unknown as Prisma.InputJsonValue,
-                    summary: structured.summary,
+                    summary: summaryPayload as unknown as string,
                 })
             } catch (err) {
                 logger.error('reviewResultPersistence: 写 risks/summary 失败', {

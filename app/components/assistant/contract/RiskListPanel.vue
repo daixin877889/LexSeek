@@ -13,14 +13,14 @@
  * **Feature: contract-review-m5**
  */
 import { DownloadIcon, ChevronDownIcon, Loader2Icon, PlusIcon, PencilIcon, Trash2Icon, FileTextIcon } from 'lucide-vue-next'
-import type { Risk, ContractReviewStatus } from '#shared/types/contract'
+import type { ContractOverview, Risk, ContractReviewStatus } from '#shared/types/contract'
 import { RISK_LEVEL_LABEL } from '#shared/types/contract'
 
 const props = defineProps<{
     risks: Risk[]
     status: ContractReviewStatus
     reviewedFileId: number | null
-    summary: string | null
+    summary: ContractOverview | null
     isRebuilding: boolean
     hasUnsavedDocxChanges: boolean
 }>()
@@ -102,7 +102,7 @@ function handleExportPdfConfirm(includeRisks: boolean) {
 
 <template>
     <div class="flex flex-col h-full">
-        <div v-if="summary" class="p-3 border-b text-sm text-muted-foreground whitespace-pre-wrap">{{ summary }}</div>
+        <div v-if="summary?.overall" class="p-3 border-b text-sm text-muted-foreground whitespace-pre-wrap">{{ summary.overall }}</div>
 
         <div v-if="isRebuilding" class="p-3 border-b bg-muted/30 text-sm text-muted-foreground flex items-center gap-2">
             <Loader2Icon class="size-4 animate-spin" />

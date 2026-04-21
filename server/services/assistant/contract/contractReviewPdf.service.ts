@@ -22,7 +22,7 @@ import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { getContractReviewDAO } from './contractReview.dao'
 import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
-import type { Risk, RiskLevel } from '#shared/types/contract'
+import type { ContractOverview, Risk, RiskLevel } from '#shared/types/contract'
 import {
     REVIEW_STATUS_LABEL,
     STANCE_LABEL,
@@ -108,6 +108,18 @@ export async function exportReviewPdfService(
         : null
     const originalFileName = originalFile?.fileName ?? '未命名合同'
 
+    // Task 1.2（M6.1 子期 1）：DB 层 summary 暂仍是 string，子期 3 的迁移完成前，
+    // 在 PDF 入口把字符串临时包装成 ContractOverview（highlights 置 null），
+    // 让下游渲染逻辑统一按 ContractOverview 访问；迁移后 DAO 直接返回 JSON 时兼容
+    // 透传的 Record 形态，无需再改此处逻辑。
+    const rawSummary = review.summary as unknown
+    let overview: ContractOverview | null = null
+    if (typeof rawSummary === 'string' && rawSummary.length > 0) {
+        overview = { highlights: null, overall: rawSummary }
+    } else if (rawSummary && typeof rawSummary === 'object') {
+        overview = rawSummary as ContractOverview
+    }
+
     const docDefinition = buildDocDefinition({
         originalFileName,
         contractType: review.contractType,
@@ -116,7 +128,7 @@ export async function exportReviewPdfService(
         stance: review.stance,
         status: review.status,
         createdAt: review.createdAt,
-        summary: review.summary,
+        summary: overview,
         risks: (review.risks as unknown as Risk[] | null) ?? null,
         includeRisks: options.includeRisks,
     })
@@ -136,7 +148,7 @@ interface BuildContext {
     stance: string | null
     status: string
     createdAt: Date
-    summary: string | null
+    summary: ContractOverview | null
     risks: Risk[] | null
     includeRisks: boolean
 }
@@ -181,7 +193,7 @@ function buildDocDefinition(ctx: BuildContext): TDocumentDefinitions {
     })
 
     content.push({ text: '审查摘要', style: 'sectionTitle', margin: [0, 0, 0, 6] })
-    const summaryText = ctx.summary ? stripMarkdown(ctx.summary) : ''
+    const summaryText = ctx.summary?.overall ? stripMarkdown(ctx.summary.overall) : ''
     if (summaryText) {
         for (const para of summaryText.split(/\n{2,}/)) {
             content.push({ text: para.replace(/\n/g, ' '), style: 'body', margin: [0, 0, 0, 6] })

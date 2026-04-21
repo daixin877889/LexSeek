@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { defineComponent, h, nextTick } from 'vue'
 import RiskListPanel from '~/components/assistant/contract/RiskListPanel.vue'
-import type { Risk, ContractReviewStatus } from '#shared/types/contract'
+import type { ContractOverview, Risk, ContractReviewStatus } from '#shared/types/contract'
 
 /**
  * RiskListPanel 单元测试
@@ -181,7 +181,7 @@ function mountPanel(props: Partial<{
     risks: Risk[]
     status: ContractReviewStatus
     reviewedFileId: number | null
-    summary: string | null
+    summary: ContractOverview | null
     isRebuilding: boolean
     hasUnsavedDocxChanges: boolean
 }> = {}) {
@@ -343,7 +343,8 @@ describe('RiskListPanel', () => {
     })
 
     it('summary 非空时渲染摘要；为 null 时不渲染', () => {
-        const w1 = mountPanel({ summary: '合同整体风险可控，需重点关注违约金条款。' })
+        // M6.1 Task 1.2：summary 从 string 收敛为 ContractOverview，overall 字段承载总评
+        const w1 = mountPanel({ summary: { highlights: null, overall: '合同整体风险可控，需重点关注违约金条款。' } })
         expect(w1.text()).toContain('合同整体风险可控，需重点关注违约金条款。')
 
         const w2 = mountPanel({ summary: null })
