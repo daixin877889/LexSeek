@@ -309,6 +309,22 @@ describe('ContractDocxPreview M6.1 风险标记联动', () => {
         expect(el!.classList.contains('bg-yellow-200')).toBe(false)
     })
 
+    it('risks 连续触发 decorateRisks 不重复叠加 LEVEL_BG class', async () => {
+        const risk = makeRisk('rx', '连续触发 decorate 不叠加', 'high')
+        const w = await setupWithRisk(risk)
+
+        const el = w.element.querySelector('[data-risk-id="rx"]') as HTMLElement
+        expect(el).not.toBeNull()
+        const classNameBefore = el.className
+
+        // 触发 watch(() => props.risks, decorateRisks)：传入等价数组（新引用）
+        await w.setProps({ risks: [risk] })
+        await flushPromises()
+
+        // 同一段已装饰，class 不应被再次追加（守卫跳过）
+        expect(el.className).toBe(classNameBefore)
+    })
+
     it('locateClauseElement 返回 null 时跳过该 risk，不报错', async () => {
         const risk = makeRisk('r8', '找不到的条款文本')
         mockRenderAsync.mockImplementation((_buf: unknown, container: HTMLElement) => {

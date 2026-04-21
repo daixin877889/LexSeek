@@ -52,6 +52,9 @@ function decorateRisks() {
     for (const risk of props.risks) {
         const el = locateClauseElement(containerRef.value, risk.clauseText)
         if (!el || !(el instanceof HTMLElement)) continue
+        // 幂等：已装饰（由 dataset.riskId 标记）直接跳过，避免 LEVEL_BG class 叠加
+        // 叠加 border-l-4 会和 focused 态的 border-l-[5px] 冲突，CSS 优先级不确定
+        if (el.dataset.riskId === risk.id) continue
         el.dataset.riskId = risk.id
         el.dataset.riskLevel = risk.level
         el.classList.add(...LEVEL_BG[risk.level])
