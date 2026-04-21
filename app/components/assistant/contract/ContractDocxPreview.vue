@@ -40,11 +40,16 @@ const empty = computed(() => !props.reviewedFileId && !props.originalFileId)
 // 每次 load 触发时递增；仅最新 seq 允许继续写入 DOM，防止过期请求覆盖
 let fetchSeq = 0
 
-/** 风险等级对应的底色 + 左边框基础样式（含 dark 变体） */
+/**
+ * 风险等级对应的底色 + 左边框基础样式。
+ *
+ * 注：文档"纸面"保持白色（Word 预览惯例），不随全局 dark 主题翻转；
+ * 因此段落高亮只用 light 变体，避免在白纸上出现暗色块的突兀对比。
+ */
 const LEVEL_BG: Record<RiskLevel, string[]> = {
-    high: ['bg-red-50', 'dark:bg-red-950/40', 'border-l-4', 'border-red-400', 'dark:border-red-500'],
-    medium: ['bg-orange-50', 'dark:bg-orange-950/40', 'border-l-4', 'border-orange-400', 'dark:border-orange-500'],
-    low: ['bg-slate-50', 'dark:bg-slate-800/60', 'border-l-4', 'border-slate-400', 'dark:border-slate-500'],
+    high: ['bg-red-50', 'border-l-4', 'border-red-400'],
+    medium: ['bg-orange-50', 'border-l-4', 'border-orange-400'],
+    low: ['bg-slate-50', 'border-l-4', 'border-slate-400'],
 }
 
 /** renderAsync 完成后遍历 risks，用 clauseLocator 找到对应段落，注入属性和事件 */
@@ -170,3 +175,20 @@ watch(
         </template>
     </div>
 </template>
+
+<!--
+  docx-preview 注入 .docx-wrapper > section.docx 结构。
+  section.docx 默认 padding=0，纯文本粘贴场景下没有 Word 原生页边距，
+  导致正文（及风险高亮段的左边框）直接贴到纸面边。此处补页边距。
+  文档纸面保持白色（Word 预览惯例，与风险段浅色底配合），不随主题翻转。
+-->
+<style scoped>
+:deep(.docx-preview-container) .docx-wrapper {
+    background: transparent;
+    padding: 24px 0 0;
+}
+:deep(.docx-preview-container) section.docx {
+    padding: 32px 48px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.12);
+}
+</style>
