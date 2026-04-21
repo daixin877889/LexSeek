@@ -62,6 +62,7 @@ import {
     findContractReviewBySessionIdDAO,
     updateContractReviewDAO,
 } from '../../assistant/contract/contractReview.dao'
+import { listEnabledPlaybookPointsDAO } from '../../assistant/contract/contractPlaybook.dao'
 import { loadContractFullText } from '../../assistant/contract/docx/loadContractFullText'
 import { segmentClauses } from '../../assistant/contract/docx/clauseSegmenter'
 import { analyzeSingleClause } from '../../assistant/contract/analyzeSingleClause'
@@ -71,7 +72,7 @@ import {
     type ContractReviewEmitterCtx,
 } from '../nodes/contractReviewStageEmitter'
 import type { Prisma } from '~~/generated/prisma/client'
-import type { Risk, Stance, ClauseSegment } from '#shared/types/contract'
+import type { Risk, Stance, ClauseSegment, PlaybookSnapshot } from '#shared/types/contract'
 import { resolveContextWindow } from '../context/messageCompressor'
 
 /** 合同审查主代理节点名称 */
@@ -108,6 +109,8 @@ export interface AnalyzeLoopContext {
     partyA: string | null
     partyB: string | null
     contractType: string | null
+    /** M7 Playbook 快照；null/undefined 表示无清单，analyzeSingleClause 内部回退到无清单 prompt */
+    playbookSnapshot?: PlaybookSnapshot | null
     emitterCtx: ContractReviewEmitterCtx
 }
 
@@ -139,6 +142,7 @@ export async function runAnalyzeLoop(ctx: AnalyzeLoopContext): Promise<{ risks: 
                 partyA: ctx.partyA,
                 partyB: ctx.partyB,
                 contractType: ctx.contractType,
+                playbookSnapshot: ctx.playbookSnapshot,
             })
             if (risk) {
                 risks.push(risk)
@@ -350,6 +354,32 @@ export async function runContractReviewChat(
                         type: 'stage', stage: 'stance', status: 'done',
                     })
 
+                    // M7：写入 playbook 快照（在 stance 落库后、analyze 开始前）
+                    let playbookSnapshot: PlaybookSnapshot | null = null
+                    if (review.contractType && review.contractType !== '其他') {
+                        try {
+                            const points = await listEnabledPlaybookPointsDAO(review.contractType)
+                            if (points.length > 0) {
+                                playbookSnapshot = {
+                                    contractType: review.contractType,
+                                    points,
+                                    snapshotAt: new Date().toISOString(),
+                                }
+                                await updateContractReviewDAO(review.id, { playbookSnapshot: playbookSnapshot as unknown as Prisma.InputJsonValue })
+                                logger.info('Playbook 快照写入', {
+                                    reviewId: review.id,
+                                    contractType: review.contractType,
+                                    pointCount: points.length,
+                                })
+                            }
+                        } catch (err) {
+                            logger.warn('Playbook 快照写入失败，降级为无清单审查', {
+                                reviewId: review.id,
+                                err: err instanceof Error ? err.message : String(err),
+                            })
+                        }
+                    }
+
                     // Bug 1 fail-fast：segments 为空 = 切分失败或合同为空，不能继续 analyze。
                     // 若不拦截，runAnalyzeLoop 会把空数组写回 DB，runAnnotateAndUpload 再把
                     // risks=[] 误判为"无风险合同"置 completed，用户看到"审查完成，无风险"。
@@ -374,6 +404,7 @@ export async function runContractReviewChat(
                         partyA: finalPartyA,
                         partyB: finalPartyB,
                         contractType: review.contractType,
+                        playbookSnapshot,
                         emitterCtx,
                     })
 
