@@ -101,18 +101,18 @@ LexSeek 所有对用户开放的对话型 Agent（小索、案件分析、合同
 | `upload_workspace_file` | **强约束**：`filePath` 必须已在 `write_skill_file` 的 state 记录里（即必须是 Agent 本次会话内主动写入的文件），不允许上传任意 workspace 内文件；这样即便攻击者让 Agent `cp /etc/passwd workspace/` 也上传不了 |
 | `run_skill_script` | 白名单字符校验（已在工具层实现，保留原逻辑）；额外校验 `skillName` 若非 `_workspace` 必须在已注册 skill 列表内 |
 | `search_case_materials` / `search_law` / `process_materials` | 参数中若出现 `caseId`，必须等于 context.caseId；若出现 `userId`，必须等于 context.userId |
-| `save_analysis_result` / `parseAndAskStance` | 要求 context 必须提供对应的 `runId` / `reviewId` / `draftId`（context 里缺失时直接拒绝）；若工具参数里也带这些字段，必须与 context 一致 |
+| `save_analysis_result` / `parseAndAskStance` | 若工具参数里带 `runId` / `reviewId` / `draftId`，必须与 context 对应字段一致（不一致视为越权） |
 | 所有工具 | 参数值中不得包含"**模仿 AI 模板分隔符**"类典型污染标记（详见下方清单，本期实施；仅作为纵深防御的兜底层） |
 
 **关于 context 字段缺失的处理**：LangChain 的 `ToolContext` 里 `caseId/runId/draftId/reviewId` 均为可选字段（见 `server/services/workflow/tools/types.ts`）。scopeGuard 的原则是：
-- 工具的参数里**必须**满足校验条件；
-- context 字段缺失等同于"无权限使用该字段"，工具参数不得伪造（例如 context 里没 caseId 但参数里硬塞一个 caseId，视为越权，直接拒绝）。
+- context 字段缺失等同于"当前会话无权限使用该字段"，工具参数不得伪造（例如 context 里没 caseId 但参数里硬塞一个 caseId，视为越权，直接拒绝）。
+- 上述 `save_analysis_result / parseAndAskStance` 工具本身需要这些字段才能工作，其 context 是否应该存在属于 workflow 主流程编排责任，**本 scope 不做额外校验**，只确保"参数 与 context 不一致时立即拒绝"。
 
 **污染标记黑名单清单**（本期实施，只扫工具参数的 string 值，不扫参数名/返回值/原始材料）：
 
 | 类别 | 拦截内容 | 拦截理由 |
 |---|---|---|
-| **模仿 AI 模板分隔符** | `<\|`（通用模板边界前缀）、`<\|im_start\|>` / `<\|im_end\|>`（ChatML）、`<\|begin_of_text\|>` / `<\|eot_id\|>`（Llama 3）、`[INST]` / `[/INST]`（Llama 2、Mistral）、`<s>` / `</s>`（BOS/EOS）、`### Instruction:` / `### Response:`（Alpaca/Vicuna） | 模型训练时的内部格式符号，正常法律文本不会出现；攻击者用这些试图让 AI 以为进入新对话轮次 |
+| **模仿 AI 模板分隔符** | `<\|`（通用模板边界前缀）、`<\|im_start\|>` / `<\|im_end\|>`（ChatML）、`<\|begin_of_text\|>` / `<\|eot_id\|>`（Llama 3）、`[INST]` / `[/INST]`（Llama 2、Mistral）、`<s>` / `</s>`（BOS/EOS）、`### Instruction:` / `### Response:`（Alpaca/Vicuna） | 模型训练时的内部格式符号，正常法律文本不会出现；攻击者用这些试图让 AI 以为进入新对话轮次。**注**：`<s>` / `</s>` 在 HTML 片段/删除线标签里理论可能误伤，但法律业务文本中几乎不会以裸 token 形式出现，误报可接受 |
 
 **不拦截的（产品决策，避免误伤合法业务）**：
 - 自然语言的"忽略以上 / ignore previous / disregard above / 忽略前款"等——这些在合同、判决书、法规条款里**合法高频出现**（例："不受前款约定影响"），拦截会大量误伤合同审查流程
@@ -124,6 +124,10 @@ LexSeek 所有对用户开放的对话型 Agent（小索、案件分析、合同
 - 规则配置为**工具名 → 校验函数**的纯函数 map，无 LLM 调用。
 - 校验失败时 `wrapToolCall` 不调用 `handler(request)`，直接返回 `ToolMessage({ content: "Error: <deny reason>", ... })`，Agent 收到后自然回退，不 crash。
 - 拒绝事件同时推送给 `auditMiddleware`（通过 state 或直接写库）。
+- **文件拆分**（遵循 `.claude/rules/common/coding-style.md` 200-400 行约束）：
+    - `server/services/workflow/middleware/scopeGuard.middleware.ts`：主入口 + `wrapToolCall` 钩子
+    - `server/services/workflow/middleware/scopeGuard.rules.ts`：工具名 → 校验函数的规则 map
+    - `server/services/workflow/middleware/scopeGuard.blacklist.ts`：模板分隔符黑名单常量 + 扫描函数
 
 **对 Prompt Injection 的防护机理**：
 - 攻击者即便让 LLM 生成越界参数（如 `path: "../../etc/passwd"`、`caseId: 9999`），**scopeGuard 是确定性代码规则**，不会被自然语言迷惑。
@@ -195,14 +199,16 @@ execFile(binary, [...prependedArgs, ...execArgs], { ... }, callback)
 **记录字段**（参见 4.5 表结构）：
 - 调用元数据：`userId`、`sessionId`、`caseId`、`runId`、`draftId`、`reviewId`、`toolName`、`verdict`（`allowed` / `denied` / `error`）、`denyReason`、`latencyMs`、`createdAt`
 - **完整参数原文**（`argsDigest`，jsonb）：保留工具调用的完整参数结构和字段名，**不做 PII 脱敏**
-    - 字符串值长度 > 2000 字符时一刀切截断到 2000 字符（防止单条记录膨胀，非脱敏）
-    - `write_skill_file` 的 `content` 例外：即便不脱敏，单条 content 动辄几百 KB 价值低于成本——只记录内容的 SHA-256 摘要 + 长度 + 文件路径，完整内容 Agent 侧 workspace 文件本身已有（24h TTL）
+    - 字符串值长度 > 2000 字符时一刀切截断到 2000 字符（此为**存储成本规避**，非安全脱敏；防止单条记录膨胀）
+    - `write_skill_file` 的 `content` 单独摘要化——存储成本规避（单条几百 KB × 数千次调用 = 数 GB），**非安全脱敏**；只记录内容的 SHA-256 摘要 + 长度 + 文件路径；完整内容可在 workspace 文件本身获取（24h TTL）
 
 **审计不脱敏的设计决策**：
 - 法律业务的排查场景必须基于真实原文，脱敏会让"为什么被拒"无法复盘
 - 审计表访问严格限定 super_admin（`server/middleware/03.permission.ts` 兜底），作为组织级 RBAC 的信任边界
 - 审计表一旦泄露即意味着组织内部已失陷，此时脱敏与否差异微小
-- 运维层面建议审计表的数据库访问权限与主库分离（可选，由 DBA 配置）
+- **强烈建议**审计表的数据库访问权限与主库分离（独立 PG role 或独立 schema 权限控制），上线前与运维确认——此为"不脱敏"决策的关键兜底，未做则风险等级升高
+
+**TS 类型约束**：`argsDigest` 在 TypeScript 侧类型为 `Record<string, unknown>`（**禁止 `any`**，遵循 `.claude/rules/types.md`）；前端展示时用 `JSON.stringify(value, null, 2)`。
 
 **实现要点**：
 - `wrapToolCall` 钩子在 handler 执行前记录起始时间，执行后（或拒绝后）生成记录异步入库（不阻塞工具返回）。
@@ -222,18 +228,15 @@ model agentToolAuditLogs {
     sessionId    String   @map("session_id") @db.VarChar(128)
     caseId       Int?     @map("case_id")
     runId        String?  @map("run_id") @db.VarChar(64)
-    draftId      Int?     @map("draft_id")
-    reviewId     Int?     @map("review_id")
     toolName     String   @map("tool_name") @db.VarChar(64)
     verdict      String   @db.VarChar(16)              // allowed / denied / error
     denyReason   String?  @map("deny_reason") @db.VarChar(256)
-    argsDigest   Json     @map("args_digest")           // 完整参数原文（不脱敏）
+    argsDigest   Json     @map("args_digest")           // 完整参数原文（不脱敏），JSON 内含 draftId/reviewId 等辅助字段
     latencyMs    Int      @map("latency_ms")
     createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
     @@index([userId, createdAt], map: "idx_agent_tool_audit_logs_user_id_created_at")
-    @@index([toolName, verdict, createdAt], map: "idx_agent_tool_audit_logs_tool_verdict_created_at")
-    @@index([sessionId], map: "idx_agent_tool_audit_logs_session_id")
+    @@index([verdict, createdAt], map: "idx_agent_tool_audit_logs_verdict_created_at")
     @@index([createdAt], map: "idx_agent_tool_audit_logs_created_at")
     @@map("agent_tool_audit_logs")
 }
@@ -244,16 +247,49 @@ model agentToolAuditLogs {
     - UUIDv7 前 48 位是 Unix 时间戳（ms），天然按创建时间单调递增，避免 UUIDv4 随机分布带来的 B-tree 索引碎片问题
     - 选型说明：项目现有 `uuid()` 默认生成 v4（如 `agentRun.prisma`），本表是审计场景的小幅演进——审计表量级更大且自带时间属性，v7 是刚性优势；未来可评估是否推广到其他高写入表
 - **审计不可变**：**不设 `updatedAt / deletedAt`**（审计记录一旦写入不得修改；清理走硬删，见 §4.6）
-- **四个索引**：
-    - `idx_agent_tool_audit_logs_user_id_created_at`：按用户时间查询
-    - `idx_agent_tool_audit_logs_tool_verdict_created_at`：按工具+判决组合（用于 stats 接口）
-    - `idx_agent_tool_audit_logs_session_id`：按会话追踪整条调用链
+- **字段精简**：
+    - 不单独列 `draftId` / `reviewId` 列（无 API 筛选路径、无索引覆盖）；调用发生时完整参数已在 `argsDigest` JSON 中，排查需要时 JSON 字段查询即可
+    - 保留 `caseId`（列表筛选用）与 `runId`（会话追溯链路排查用，未来可能扩展索引）
+- **三个索引**：
+    - `idx_agent_tool_audit_logs_user_id_created_at`：按用户时间查询（管理端主筛选路径）
+    - `idx_agent_tool_audit_logs_verdict_created_at`：按判决时间范围查询（stats 接口 count by verdict 的主查询路径；前导列为 verdict 以匹配 stats 查询）
     - `idx_agent_tool_audit_logs_created_at`：按日期清理的批量删除
+    - 不设 `sessionId` 单列索引：按 session 追踪属二级排查路径，走 `userId + sessionId` 过滤即可
 - **分区**：初版不做。数据量达 5000 万条前 PG 单表性能足够；达到后再按月 partition
 - **`argsDigest` 用 Json（jsonb）**：便于 PG jsonb GIN 索引和后续复杂条件查询
 - **不含 `resultDigest` 字段**：工具返回值摘要初版不记录（存储成本高、查询价值低；错误信息直接写入 `denyReason` 即可；需要看返回值时看业务日志 `logger.info`）
 
-**前端类型定义**：新建 `shared/types/agentAudit.ts`，导出 `AuditRecord`、`AuditVerdict = 'allowed' | 'denied' | 'error'` 等共享类型；管理端 API 的返回体、前端页面从此处 `import type`（参考 `.claude/rules/types.md`）。
+**前端类型定义**：新建 `shared/types/agentAudit.ts`（命名风格对齐现有 `shared/types/agentRun.ts` 的 camelCase 文件名），导出：
+
+```typescript
+export enum AgentAuditVerdict {
+    ALLOWED = 'allowed',
+    DENIED = 'denied',
+    ERROR = 'error',
+}
+
+export const AgentAuditVerdictText: Record<AgentAuditVerdict, string> = {
+    [AgentAuditVerdict.ALLOWED]: '允许',
+    [AgentAuditVerdict.DENIED]: '拒绝',
+    [AgentAuditVerdict.ERROR]: '错误',
+}
+
+export interface AgentAuditRecord {
+    id: string
+    userId: number
+    sessionId: string
+    caseId: number | null
+    runId: string | null
+    toolName: string
+    verdict: AgentAuditVerdict
+    denyReason: string | null
+    argsDigest: Record<string, unknown>  // 禁止 any
+    latencyMs: number
+    createdAt: string  // ISO 8601
+}
+```
+
+管理端 API 的返回体、前端页面从此处 `import type`（参考 `.claude/rules/types.md`）。**类型名加 `Agent` 前缀**以避免与未来可能的权限审计类型（`AuditRecord` 等）冲突。
 
 ### 4.6 管理端 API
 
@@ -264,37 +300,74 @@ model agentToolAuditLogs {
 - 分页参数 `page` + `pageSize`（对齐 `/api/v1/admin/audit`）
 - 返回字段用 `items`（对齐 `/api/v1/admin/contract-reviews`）
 - 所有 handler 响应通过 `resSuccess(event, '...', data)` / `resError(event, code, msg)` 包装（HTTP 永远 200）
-- 所有 query / body 用 zod schema 校验；失败走 `resError(event, 400, ...)`
+- 所有 query / body 用 zod schema 校验；失败走 `resError(event, 400, result.error.issues[0].message)`（对齐 `.claude/rules/api.md`）
 
-**路由文件结构**：
+**路由文件结构**（Nitro 约定：**API 路径段**中动态参数位于末尾；文件命名 `[id].get.ts`）：
 ```
 server/api/v1/admin/agent-audit-logs/
     index.get.ts       # 列表查询
-    stats.get.ts       # 统计指标（静态路由优先匹配，不会被 :id 吃掉）
-    [id].get.ts        # 详情（动态参数必须在文件名末尾，对齐 api.md 规范）
+    stats.get.ts       # 统计指标（静态路径段优先于 [id]，不会被吃掉）
+    [id].get.ts        # 详情（动态路径段位于末尾，对齐 api.md 规范）
     index.delete.ts    # 按日期清理
 ```
 
 **`GET /api/v1/admin/agent-audit-logs`** - 列表查询
-- Query 参数：`page`（默认 1）、`pageSize`（默认 20，最大 100）、`userId?`、`toolName?`、`verdict?`、`from?`（ISO 日期）、`to?`（ISO 日期）；后端额外支持 `caseId?` / `sessionId?`（点记录行时前端可用）
-- 返回：`resSuccess(event, '查询成功', { items: AuditRecord[], total, page, pageSize })`
+
+Query schema（zod）：
+```ts
+const querySchema = z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    userId: z.coerce.number().int().optional(),
+    toolName: z.string().max(64).optional(),
+    verdict: z.enum(['allowed', 'denied', 'error']).optional(),
+    caseId: z.coerce.number().int().optional(),
+    sessionId: z.string().max(128).optional(),
+    from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),  // YYYY-MM-DD
+    to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+})
+```
+
+- 返回：`resSuccess(event, '查询成功', { items: AgentAuditRecord[], total, page, pageSize })`
 - 排序：`createdAt desc`
 
 **`GET /api/v1/admin/agent-audit-logs/:id`** - 详情
+- `:id` 为 UUIDv7 字符串，用 `z.string().uuid()` 校验
 - 返回单条完整记录（`argsDigest` 完整 JSON）
 - 便于排查某次拒绝/异常的全量上下文
 
 **`DELETE /api/v1/admin/agent-audit-logs`** - 按日期清理（**单步**）
-- Body: `{ beforeDate: "2026-01-01" }`（zod 校验，ISO 日期字符串）
+
+Body schema（zod）：
+```ts
+const bodySchema = z.object({
+    beforeDate: z.string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/, '日期格式需为 YYYY-MM-DD')
+        .refine(v => !Number.isNaN(new Date(v).getTime()), '无效日期'),
+})
+```
+
 - 返回：`resSuccess(event, '清理完成', { deleted: N })`
 - 硬删（审计表软删无意义）
-- 为避免一次删太多锁表，分批删除（每批 10_000 条，循环到无记录）
+- 分批 Prisma 调用（每批最多 10_000 条，循环到返回 count=0）：
+  ```ts
+  let deleted = 0
+  while (true) {
+      const result = await prisma.agentToolAuditLogs.deleteMany({
+          where: { createdAt: { lt: new Date(beforeDate) } },
+          // Prisma deleteMany 无 take 参数，用 LIMIT 子查询或保持单次全删
+          // 若表量大（>10万），建议改用 raw SQL: DELETE ... WHERE ... LIMIT 10000
+      })
+      deleted += result.count
+      if (result.count === 0) break
+  }
+  ```
 - 预估条数前端本地通过一次列表接口（`pageSize=1`）拿 `total` 展示，无需单独预检接口
 
 **`GET /api/v1/admin/agent-audit-logs/stats`** - 概览指标（**初版实施**）
 - 返回：`resSuccess(event, '查询成功', { today: { allowed, denied, error }, last7d: { allowed, denied, error } })`
 - 用途：管理端列表页顶部统计卡片，一眼看出当日拒绝/错误量是否异常
-- 实现：两条 count-by-verdict 聚合查询，走 `idx_agent_tool_audit_logs_tool_verdict_created_at`，毫秒级
+- 实现：两组 `groupBy(['verdict'])` + `count` 聚合查询，WHERE 走 `idx_agent_tool_audit_logs_verdict_created_at`，毫秒级
 
 ### 4.7 管理端页面
 
@@ -310,20 +383,38 @@ server/api/v1/admin/agent-audit-logs/
 - **顶部统计卡片区**（3 张并排，仅本 Tab 显示）：
     - 卡片标题："今日允许" / "今日拒绝" / "今日错误"（绿色/红色/橙色 Badge 着色）
     - 副标题小字显示"近 7 天"的对应数字，便于对比
-    - 点击卡片自动回填主筛选器（verdict = 对应类型）
+    - **纯展示，不做点击回填筛选器**（避免 UI 联动复杂度；管理员直接用主筛选器即可）
     - 数据来源：`GET /api/v1/admin/agent-audit-logs/stats`
-- **筛选栏**（3 个主筛选器）：用户（`Input`）、工具（`Select`，枚举来自 `getAllToolNamesService()`）、判决（`Select`：全部/允许/拒绝/错误）、日期范围（`DateRangePicker`）
+- **筛选栏**（4 个主筛选器）：用户（`Input`）、工具（`Select`，枚举来自 `getAllToolNamesService()`）、判决（`Select`：全部/允许/拒绝/错误）、日期范围（**两个独立 `GeneralDatePicker`**，分别对应 `from` / `to`，与 `/admin/mineru-tasks`、`/admin/asr-tasks` 等现有 admin 页面一致）
 - **表格列**：时间、用户、工具、判决（`Badge` 着色）、案件 ID（可空）、拒绝原因（截断显示 + `Tooltip` 全文）、耗时 ms、操作（详情）
-- **分页**：复用现有 `GeneralPagination` 组件（参考现有 `/admin/audit` 页面）
+- **分页**：复用现有 `GeneralPagination` 组件（`app/components/general/pagination.vue`，参考现有 `/admin/audit` 页面的使用方式）
 - **详情**：点击行或"详情"按钮 → 抽屉（`Sheet`）显示完整 `argsDigest` 的 JSON（`<pre>` + `JSON.stringify(value, null, 2)`，不引入语法高亮库）
+    - **与 Tab 1 用 `Dialog` 展示详情不一致的权衡说明**：`argsDigest` 可能含数千字符的工具参数（如合同原文），`Sheet` 抽屉更适合长内容滚动浏览；Tab 1 权限审计日志内容短，用 `Dialog` 合适。两 Tab 详情组件**有意不同**，不强行统一。
 - **清理按钮**（Tab 右上角）→ 调用 `useAlertDialogStore.showErrorDialog`：
     - `title`: "确认清理审计日志"
     - `message`: "将删除 YYYY-MM-DD 之前的 N 条记录，操作不可撤销。"（N 从列表 total 本地计算）
     - `confirmText`: "确认删除"（红色主按钮，`showErrorDialog` 默认）
     - 若当前正在看详情 Sheet（Sheet 默认 `z-[70]`），`showErrorDialog` 需传 `zIndex: 9999` 避免被遮罩（项目既有约定，见全局记忆 `feedback_sheet_dialog_zindex`）
-    - `onConfirm` 中调用 `useApiFetch('/api/v1/admin/agent-audit-logs', { method: 'DELETE', body: { beforeDate } })`，成功后 `toast.success` + `refresh()`
+    - `onConfirm` 中调用：
+      ```ts
+      const resp = await useApiFetch<{ deleted: number }>(
+          '/api/v1/admin/agent-audit-logs',
+          { method: 'DELETE', body: { beforeDate } },
+      )
+      // 注意：useApiFetch 自动提取 data，直接访问 resp?.deleted，勿写 resp?.data?.deleted
+      if (resp) {
+          toast.success(`已清理 ${resp.deleted} 条记录`)
+          await refresh()
+      }
+      ```
 
-**数据请求**：用 `useApi` 或 `useApiFetch`（注意 `useApiFetch` 自动提取 `data` 字段，类型直接定义数据本身，不要包 `{ code, data }` 外层——详见 `.claude/rules/fetch.md`）
+**数据请求分工**（按 `.claude/rules/fetch.md`）：
+- 列表（setup 阶段且需 SSR）→ `useApi<{ items: AgentAuditRecord[], total: number, page: number, pageSize: number }>(...)`
+- 详情（点击时触发）→ `useApiFetch<AgentAuditRecord>(...)`
+- 统计（setup 阶段）→ `useApi<StatsPayload>(...)`
+- 清理（按钮点击）→ `useApiFetch<{ deleted: number }>(...)`
+
+**注**：所有 `useApiFetch` / `useApi` 调用的泛型直接定义数据本身，**不包** `{ code, data }` 外层——`useApiFetch` 会自动提取 `data` 字段。
 
 **权限**：页面仍位于 `/admin/audit`，由 `server/middleware/03.permission.ts` 统一拦截非 `super_admin`。
 
@@ -351,7 +442,16 @@ createAgent({
 - **scopeGuard 在最前**：拒绝的请求不占频次额度，不浪费 DB 写入。
 - **audit 在最后**：能同时捕获"被 scopeGuard 拒"、"被 limit 熔断"、"正常执行"、"工具抛异常"四种情况。
 
-需要统一装配到：`caseMainAgent`、`contractReviewMainAgent`、`documentMainAgent`、`assistantAgent`、`moduleAgent`，以及 `subAgentToolFactory` 构造的 sub-agent。
+需要统一装配到以下文件（实施时逐个 PR 或一次性批量）：
+
+| Agent | 文件路径 |
+|---|---|
+| 案件分析主 Agent | `server/services/workflow/agents/caseMainAgent.ts` |
+| 合同审查主 Agent | `server/services/workflow/agents/contractReviewMainAgent.ts` |
+| 文书草稿主 Agent | `server/services/workflow/agents/documentMainAgent.ts` |
+| 通用法律助手 Agent | `server/services/workflow/agents/assistantAgent.ts` |
+| 模块对话 Agent | `server/services/workflow/agents/moduleAgent.ts` |
+| Sub-agent 工厂 | `server/services/workflow/agents/subAgentToolFactory.ts` |
 
 ## 6. 错误处理
 
@@ -365,6 +465,10 @@ createAgent({
 | skill 子进程外网访问被拒 | 子进程自身收到 `ENETUNREACH`，工具返回值里自然带错误；已是子进程视角的正常行为 |
 
 ## 7. 测试策略
+
+**TDD 工作顺序**（项目规范 `.claude/rules/common/testing.md`）：
+- P0 核心每个中间件都先写测试（红灯）→ 再写实现（绿灯）→ 重构
+- 工期表（§10）的"scopeGuard 中间件 / audit 中间件"子项隐含此顺序：先编写对应的 `*.test.ts`，再实现 `*.middleware.ts`
 
 **测试命令**：`npx vitest run <路径>`（项目规范，见 `.claude/rules/commands.md`；**不使用** `bun test`）。
 
@@ -407,6 +511,7 @@ bunx prisma migrate dev --name add_agent_tool_audit_logs
 - [ ] Docker 镜像包含 `util-linux`（Debian/Ubuntu/Alpine 默认都有，确认 Dockerfile 无自定义精简）
 - [ ] k8s/云厂商容器编排策略允许 user namespace
 - [ ] 启动日志中能看到"skill 子进程外网隔离已启用"（Linux）或"开发环境未启用"（macOS）
+- [ ] **与运维确认**：`agent_tool_audit_logs` 表的数据库访问权限与主库分离（独立 PG role 或独立 schema 权限控制）；审计表因不脱敏存储完整参数原文，此权限分离是"不脱敏"决策的关键兜底
 
 ### 8.3 观测
 
@@ -426,7 +531,7 @@ bunx prisma migrate dev --name add_agent_tool_audit_logs
 | macOS 开发环境无 unshare，开发机是潜在攻击面 | 开发机可信；且所有审计仍生效；真实攻击在生产触发 |
 | Node.js 主进程仍可访问任何外网（正常业务需要） | 攻击者要外泄必须走 skill 子进程或诱导主进程中已有工具，后者由 scopeGuard 拦截 |
 | 无法防"Agent 被诱导生成错误但合规的分析结果" | 本方案不防"语义正确性"，该问题属于模型对齐领域，不在 scope 内 |
-| 审计表完整存储工具调用原文（不脱敏），一旦数据库访问权失陷即大量敏感信息泄露 | 访问严格限定 super_admin（`03.permission.ts` 兜底）；运维层面建议审计表的数据库访问权限与主库分离（可选） |
+| 审计表完整存储工具调用原文（不脱敏），一旦数据库访问权失陷即大量敏感信息泄露 | 访问严格限定 super_admin（`03.permission.ts` 兜底）；**强烈建议**审计表权限与主库分离（见 §8.2 部署清单）；若运维未做分离，此风险等级升高 |
 
 ### 9.2 未来演进方向（不在本 spec 范围）
 
@@ -448,18 +553,22 @@ bunx prisma migrate dev --name add_agent_tool_audit_logs
 
 ## 11. 评审决议记录
 
-- **2026-04-21 首轮**：黑名单条目初版——拦"伪装系统消息" + "模仿 AI 模板分隔符"两类；**不拦**自然语言的"忽略以上"等（法律场景合法出现）
-- **2026-04-21 首轮**：主键改 UUIDv7；熔断同批上线；管理端加顶部统计卡片
-- **2026-04-21 4 维度审查后**：基于需求对齐/基建复用/规范合规/过度设计四维审查，做以下调整：
-    - 黑名单**进一步收窄**：砍掉"伪装系统消息"类（`system:` / `role: system`），理由：英文技术合同、API 文档引用段落可能合法出现；只保留结构化模板分隔符兜底
-    - 审计**不做任何脱敏**（砍掉身份证/手机号/银行卡 mask），原因：法律场景需要完整原文排查；审计表访问限定 super_admin 已是组织级信任边界
-    - 砍掉 `resultDigest` 字段（工具返回值摘要），错误信息合并进 `denyReason` 即可；价值低于存储成本
-    - 清理 API 改**单步**（原预检+真删两步），前端从列表 total 本地算预估条数
-    - 表名/模型名对齐现有 `permissionAuditLogs` 惯例，改 `agentToolAuditLogs` / `agent_tool_audit_logs`；索引命名 `idx_xxx_yyy`
-    - API 分页参数 `page/pageSize`（对齐 `admin/audit`），返回字段 `items`（对齐 `admin/contract-reviews`），响应包 `resSuccess/resError`，query 走 zod 校验
-    - 前端页面**合并到现有 `/admin/audit` 用 Tab 切换**（权限审计 / Agent 工具审计同族），`definePageMeta` 三件套 `layout: 'admin-layout' / title / icon` 对齐项目惯例
-    - 清理弹窗明示 `useAlertDialogStore.showErrorDialog`，并处理 Sheet + Dialog `zIndex: 9999`
-    - `toolCallLimit` 配置内联到 middleware 文件顶部常量（对齐 `pointConsumption.middleware.ts` 风格），不单独建 config 文件
-    - 新增 `shared/types/agentAudit.ts` 放 `AuditRecord` / `AuditVerdict` 共享类型
-    - 砍掉"模拟 prompt injection 集成测试"（构造攻击向量局限于开发者想象，真实样本应从上线后审计表复盘）；`runSkillScript.netns` 测试合并到既有 `runSkillScript.test.ts`
-    - 手工验证清单精简为 2 条
+经首轮评审 + 4 维度并行审查（需求对齐 / 基建复用 / 规范合规 / 过度设计）两轮循环迭代，关键决议：
+
+- **安全层设计**：LangChain 官方中间件 + Linux network namespace，**纯代码规则**（无 LLM 判官，无运行时人工确认，满足无感 + 无人值守硬约束）
+- **主键**：UUIDv7（时间有序减少 B-tree 碎片；复用项目 `uuid@^13` 依赖）
+- **黑名单范围**：只拦结构化 AI 模板分隔符，**不拦**自然语言"忽略以上"、`system:` 等（法律/英文文本合法出现）
+- **审计**：完整原文不脱敏（法律场景排查刚需），配合 super_admin 访问限制 + **数据库权限分离**（见 §8.2）
+- **熔断**：与主防御同批上线，分层配置优雅降级
+- **管理端**：合并到现有 `/admin/audit` 用 Tab 切换，不新开独立页
+- **命名 / API / 前端组件**全面对齐项目现有 `permissionAuditLogs`、`admin/audit`、`GeneralPagination`、`GeneralDatePicker`、`useAlertDialogStore` 等既有基建
+- **字段精简**：砍 `resultDigest` / `draftId` / `reviewId` 独立列（并入 `argsDigest` JSON）；索引从 4 个精简到 3 个
+
+## 12. 提交约定
+
+- Commit scope：`.claude/rules/git.md` 的 scope 白名单**没有 `security`**。本模块提交使用现有最贴近的 scope：
+    - 工作流中间件改动：`feat(workflow): 新增 scopeGuard 中间件`
+    - 管理端 API/页面改动：`feat(api): 新增 agent 审计接口`、`feat(ui): 新增 agent 审计页面 Tab`
+    - Prisma 模型改动：`feat(db): 新增 agent_tool_audit_logs 表`
+- 如团队希望未来统一到 `security` scope，由架构负责人另起 PR 更新 `.claude/rules/git.md`
+- 提交信息用中文（对齐项目现有提交风格）
