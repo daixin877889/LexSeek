@@ -32,10 +32,15 @@ import { FileSource, OssFileStatus } from '#shared/types/file'
 import { StorageProviderType } from '~~/server/lib/storage/types'
 import { DOCX_MIME } from '#shared/utils/mime'
 import type { Risk } from '#shared/types/contract'
+import {
+    emitContractReviewEvent,
+} from '../nodes/contractReviewStageEmitter'
 
 interface ReviewResultPersistenceOptions {
     reviewId: number
     sessionId: string
+    /** agent run ID，用于 SSE 事件路由（可选；缺省时跳过事件发送）*/
+    runId?: string
 }
 
 interface StructuredReviewResult {
@@ -104,6 +109,13 @@ export const reviewResultPersistenceMiddleware = (
         hook: async (_state: any) => {
             try {
                 await updateContractReviewDAO(options.reviewId, { status: 'reviewing' })
+                // M6.1：agent 启动即视为 detect 阶段 running
+                if (options.runId) {
+                    await emitContractReviewEvent(
+                        { runId: options.runId, sessionId: options.sessionId },
+                        { type: 'stage', stage: 'detect', status: 'running' },
+                    )
+                }
             } catch (err) {
                 logger.error('reviewResultPersistence beforeAgent 失败', {
                     reviewId: options.reviewId, err,
@@ -114,6 +126,18 @@ export const reviewResultPersistenceMiddleware = (
 
     afterAgent: {
         hook: async (state: any) => {
+            // M6.1：agent 完成即视为 analyze + summarize 阶段 done
+            if (options.runId) {
+                await emitContractReviewEvent(
+                    { runId: options.runId, sessionId: options.sessionId },
+                    { type: 'stage', stage: 'analyze', status: 'done' },
+                )
+                await emitContractReviewEvent(
+                    { runId: options.runId, sessionId: options.sessionId },
+                    { type: 'stage', stage: 'summarize', status: 'done' },
+                )
+            }
+
             // 1) 先从 structuredResponse 取，失败再从消息体兜底解析
             let raw: unknown = state?.structuredResponse ?? null
             if (!raw) {

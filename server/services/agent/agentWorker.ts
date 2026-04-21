@@ -198,6 +198,7 @@ export class AgentWorker {
         const { runContractReviewChat } = await import('../workflow/agents/contractReviewMainAgent')
         stream = await runContractReviewChat(run.sessionId, {
           userId: session.userId,
+          runId: run.id,
           command: input.command,
           signal: abortController.signal,
         })

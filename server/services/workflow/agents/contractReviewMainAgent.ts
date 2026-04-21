@@ -8,6 +8,19 @@
  * - 唯一工具 parseAndAskStance 由 toolModules 加载
  *
  * 参见 spec §6.2 / §6.6
+ *
+ * M6.1 事件顺序（与前端 useContractReview 状态机对齐）：
+ *
+ *   1. [middleware.beforeAgent] stage:detect,running
+ *   2. [tool.parseAndAskStance 开头] stage:detect,done + partyA/B/contractType
+ *   3. [tool.parseAndAskStance 开头] stage:stance,running
+ *   4. [用户立场选择] interrupt 挂起
+ *   5. [resume 后 tool 内部] stage:stance,done
+ *   6. [tool 结尾] stage:analyze,running
+ *   7. [runContractReviewChat 启动前] stage:segment,running
+ *   8. [切分完成] stage:segment,done + totalClauses
+ *   9. [agent.stream 执行完成] 由 middleware.afterAgent 发 stage:analyze,done
+ *  10. [middleware.afterAgent] stage:summarize,done
  */
 
 import {
@@ -33,6 +46,14 @@ import {
 } from '../middleware'
 import { findContractReviewBySessionIdDAO } from '../../assistant/contract/contractReview.dao'
 import { buildRiskSchema } from '../../assistant/contract/riskSchema.builder'
+import { findOssFileByIdDao } from '../../files/ossFiles.dao'
+import { downloadFileService } from '../../storage/storage.service'
+import { parseContractDocx } from '../../assistant/contract/docx'
+import { segmentClauses } from '../../assistant/contract/docx/clauseSegmenter'
+import {
+    emitContractReviewEvent,
+    type ContractReviewEmitterCtx,
+} from '../nodes/contractReviewStageEmitter'
 
 /** 合同审查主代理节点名称 */
 const CONTRACT_MAIN_NODE_NAME = 'contractReviewMain'
@@ -55,6 +76,8 @@ function buildInitialPrompt(reviewId: number): string {
 export interface ContractReviewAgentOptions {
     /** 用户 ID */
     userId: number
+    /** agent run ID（agentWorker.executeRun 持有的 run.id，供 SSE 事件路由） */
+    runId?: string
     /** 来自 agentWorker.executeRun 的 AbortController，用户取消/超时时传入 */
     signal?: AbortSignal
     /** 中断恢复命令（若存在则走 resume 分支） */
@@ -75,7 +98,7 @@ export async function runContractReviewChat(
     sessionId: string,
     options: ContractReviewAgentOptions,
 ): Promise<ReadableStream<Uint8Array>> {
-    const { userId, signal, command } = options
+    const { userId, runId = '', signal, command } = options
 
     // 1. 并发加载基础设施 + 反查 review
     const [checkpointer, store, nodeConfig, review] = await Promise.all([
@@ -88,6 +111,9 @@ export async function runContractReviewChat(
     if (!review) {
         throw new Error(`No contract review found for session ${sessionId}`)
     }
+
+    // M6.1：构造 emitter 上下文，供后续所有 SSE 事件调用复用
+    const emitterCtx: ContractReviewEmitterCtx = { runId, sessionId }
 
     // 2. 获取可用 API Key
     const activeApiKey = nodeConfig.modelApiKeys.find(k => k.status === 1)
@@ -115,6 +141,7 @@ export async function runContractReviewChat(
     const toolContext = {
         userId,
         sessionId,
+        runId,
         reviewId: review.id,
     }
     const tools = nodeConfig.tools.length > 0
@@ -160,6 +187,7 @@ export async function runContractReviewChat(
             middleware: reviewResultPersistenceMiddleware({
                 reviewId: review.id,
                 sessionId,
+                runId,
             }),
             priority: MIDDLEWARE_PRIORITY.RESULT_PERSISTENCE,
             name: MIDDLEWARE_NAMES.REVIEW_RESULT_PERSISTENCE,
@@ -183,6 +211,34 @@ export async function runContractReviewChat(
         responseFormat,
         middleware,
     })
+
+    // M6.1 子期 1：在 agent 启动前预切分条款并发 segment 事件
+    // analyze/summarize 阶段事件由 reviewResultPersistenceMiddleware 的 before/afterAgent 负责
+    try {
+        await emitContractReviewEvent(emitterCtx, {
+            type: 'stage', stage: 'segment', status: 'running',
+        })
+        // 取原文：review 没有 originalText 字段，从 OSS 下载原始 .docx 解析段落拼接
+        // （实际字段名：review.originalFileId → 下载 → parseContractDocx → paragraphs）
+        const ossFile = await findOssFileByIdDao(review.originalFileId)
+        let totalClauses = 0
+        if (ossFile?.filePath) {
+            const docxBuffer = await downloadFileService(ossFile.filePath)
+            const { paragraphs } = await parseContractDocx(docxBuffer)
+            const fullText = paragraphs.join('\n')
+            const segments = await segmentClauses(fullText)
+            totalClauses = segments.length
+        }
+        await emitContractReviewEvent(emitterCtx, {
+            type: 'stage', stage: 'segment', status: 'done', totalClauses,
+        })
+        logger.info('合同切分完成', { reviewId: review.id, totalClauses })
+    } catch (err) {
+        logger.warn('合同切分失败，降级整篇分析', { reviewId: review.id, err })
+        await emitContractReviewEvent(emitterCtx, {
+            type: 'stage', stage: 'segment', status: 'done', totalClauses: 0,
+        })
+    }
 
     // 10. 构造输入：中断恢复时使用 Command；否则用首轮启动指令
     const input: Command | { messages: HumanMessage[] } = command
