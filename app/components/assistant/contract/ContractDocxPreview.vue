@@ -174,7 +174,7 @@ watch(
             <!-- 白纸：bg-background 浅色=白 / 暗色=深主题色；.docx 原生白纸居中陈列 -->
             <div
                 ref="containerRef"
-                class="docx-preview-container flex-1 min-h-0 overflow-y-auto rounded-md bg-background p-6 w-full max-w-5xl self-center"
+                class="docx-preview-container flex-1 min-h-0 overflow-y-auto rounded-md bg-background p-6"
             />
         </template>
     </div>
@@ -195,6 +195,9 @@ watch(
 .docx-preview-container :deep(.docx) {
     box-shadow: none !important;
     margin: 0 !important;
+    /* Word 风格内页边距：纯文本粘贴场景下 docx-preview 给 section 默认 padding=0，
+       会让正文和风险左边框直接贴纸面边。这里补回 32px 48px 页边距。 */
+    padding: 32px 48px !important;
 }
 .docx-preview-container :deep(p),
 .docx-preview-container :deep(li),
