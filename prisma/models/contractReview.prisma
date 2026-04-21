@@ -26,6 +26,9 @@ model contractReviews {
   risks                 Json?     @db.JsonB
   /// 审查摘要（M6.1 升级为 ContractOverview JSON：{ highlights, overall }）
   summary               Json?     @db.JsonB
+  /// 审查清单快照（M7 Playbook）：审查提交时写入，永久冻结
+  /// 结构见 #shared/types/contract 的 PlaybookSnapshot；null 表示"其他"类型或无启用要点
+  playbookSnapshot      Json?     @map("playbook_snapshot") @db.JsonB
   /// 本次 session 是否编辑过 risks 且尚未重新生成 docx
   /// PATCH /reviews/:id → true；POST /rebuild-docx 成功 → false
   hasUnsavedDocxChanges Boolean   @default(false) @map("has_unsaved_docx_changes")

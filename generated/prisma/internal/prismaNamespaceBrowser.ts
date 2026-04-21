@@ -65,6 +65,7 @@ export const ModelName = {
   caseAnalyses: 'caseAnalyses',
   demoCases: 'demoCases',
   caseMaterialEmbeddings: 'caseMaterialEmbeddings',
+  contractPlaybooks: 'contractPlaybooks',
   contractReviews: 'contractReviews',
   documentTemplates: 'documentTemplates',
   documentDrafts: 'documentDrafts',
@@ -366,6 +367,24 @@ export const CaseMaterialEmbeddingsScalarFieldEnum = {
 export type CaseMaterialEmbeddingsScalarFieldEnum = (typeof CaseMaterialEmbeddingsScalarFieldEnum)[keyof typeof CaseMaterialEmbeddingsScalarFieldEnum]
 
 
+export const ContractPlaybooksScalarFieldEnum = {
+  id: 'id',
+  contractType: 'contractType',
+  code: 'code',
+  title: 'title',
+  defaultLevel: 'defaultLevel',
+  stancePreference: 'stancePreference',
+  checkContent: 'checkContent',
+  legalBasis: 'legalBasis',
+  suggestion: 'suggestion',
+  enabled: 'enabled',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ContractPlaybooksScalarFieldEnum = (typeof ContractPlaybooksScalarFieldEnum)[keyof typeof ContractPlaybooksScalarFieldEnum]
+
+
 export const ContractReviewsScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -380,6 +399,7 @@ export const ContractReviewsScalarFieldEnum = {
   status: 'status',
   risks: 'risks',
   summary: 'summary',
+  playbookSnapshot: 'playbookSnapshot',
   hasUnsavedDocxChanges: 'hasUnsavedDocxChanges',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',

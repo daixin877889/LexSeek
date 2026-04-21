@@ -398,6 +398,7 @@ export const ModelName = {
   caseAnalyses: 'caseAnalyses',
   demoCases: 'demoCases',
   caseMaterialEmbeddings: 'caseMaterialEmbeddings',
+  contractPlaybooks: 'contractPlaybooks',
   contractReviews: 'contractReviews',
   documentTemplates: 'documentTemplates',
   documentDrafts: 'documentDrafts',
@@ -460,7 +461,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "agentToolAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "contractReviews" | "documentTemplates" | "documentDrafts" | "documentDraftSnapshots" | "documentDraftVersions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
+    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "agentToolAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "contractPlaybooks" | "contractReviews" | "documentTemplates" | "documentDrafts" | "documentDraftSnapshots" | "documentDraftVersions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1497,6 +1498,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.caseMaterialEmbeddingsCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.CaseMaterialEmbeddingsCountAggregateOutputType> | number
+        }
+      }
+    }
+    contractPlaybooks: {
+      payload: Prisma.$contractPlaybooksPayload<ExtArgs>
+      fields: Prisma.contractPlaybooksFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.contractPlaybooksFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.contractPlaybooksFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload>
+        }
+        findFirst: {
+          args: Prisma.contractPlaybooksFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.contractPlaybooksFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload>
+        }
+        findMany: {
+          args: Prisma.contractPlaybooksFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload>[]
+        }
+        create: {
+          args: Prisma.contractPlaybooksCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload>
+        }
+        createMany: {
+          args: Prisma.contractPlaybooksCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.contractPlaybooksCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload>[]
+        }
+        delete: {
+          args: Prisma.contractPlaybooksDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload>
+        }
+        update: {
+          args: Prisma.contractPlaybooksUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload>
+        }
+        deleteMany: {
+          args: Prisma.contractPlaybooksDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.contractPlaybooksUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.contractPlaybooksUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload>[]
+        }
+        upsert: {
+          args: Prisma.contractPlaybooksUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload>
+        }
+        aggregate: {
+          args: Prisma.ContractPlaybooksAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateContractPlaybooks>
+        }
+        groupBy: {
+          args: Prisma.contractPlaybooksGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ContractPlaybooksGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.contractPlaybooksCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ContractPlaybooksCountAggregateOutputType> | number
         }
       }
     }
@@ -5253,6 +5328,24 @@ export const CaseMaterialEmbeddingsScalarFieldEnum = {
 export type CaseMaterialEmbeddingsScalarFieldEnum = (typeof CaseMaterialEmbeddingsScalarFieldEnum)[keyof typeof CaseMaterialEmbeddingsScalarFieldEnum]
 
 
+export const ContractPlaybooksScalarFieldEnum = {
+  id: 'id',
+  contractType: 'contractType',
+  code: 'code',
+  title: 'title',
+  defaultLevel: 'defaultLevel',
+  stancePreference: 'stancePreference',
+  checkContent: 'checkContent',
+  legalBasis: 'legalBasis',
+  suggestion: 'suggestion',
+  enabled: 'enabled',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ContractPlaybooksScalarFieldEnum = (typeof ContractPlaybooksScalarFieldEnum)[keyof typeof ContractPlaybooksScalarFieldEnum]
+
+
 export const ContractReviewsScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -5267,6 +5360,7 @@ export const ContractReviewsScalarFieldEnum = {
   status: 'status',
   risks: 'risks',
   summary: 'summary',
+  playbookSnapshot: 'playbookSnapshot',
   hasUnsavedDocxChanges: 'hasUnsavedDocxChanges',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
@@ -6358,6 +6452,7 @@ export type GlobalOmitConfig = {
   caseAnalyses?: Prisma.caseAnalysesOmit
   demoCases?: Prisma.demoCasesOmit
   caseMaterialEmbeddings?: Prisma.caseMaterialEmbeddingsOmit
+  contractPlaybooks?: Prisma.contractPlaybooksOmit
   contractReviews?: Prisma.contractReviewsOmit
   documentTemplates?: Prisma.documentTemplatesOmit
   documentDrafts?: Prisma.documentDraftsOmit
