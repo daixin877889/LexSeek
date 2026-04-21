@@ -147,7 +147,10 @@ export type AdminReviewListItem = ReviewListItem & {
     deletedAt: Date | null
 }
 
-/** 管理端详情：summary 完整、risks 原样 JSON 返回，不截断、不解析 */
+/**
+ * 管理端详情：summary 按结构化形态返回（M6.1 Task 1.3 起字段类型已升级为 Json），
+ * risks 原样 JSON 返回，不截断、不解析
+ */
 export interface AdminReviewDetail {
     id: number
     sessionId: string
@@ -163,7 +166,7 @@ export interface AdminReviewDetail {
     partyB: string | null
     stance: string | null
     status: string
-    summary: string | null
+    summary: ContractOverview | null
     risks: unknown
     hasUnsavedDocxChanges: boolean
     createdAt: Date
