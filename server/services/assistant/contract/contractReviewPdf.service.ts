@@ -213,10 +213,10 @@ function buildDocDefinition(ctx: BuildContext): TDocumentDefinitions {
     if (ctx.summary?.highlights) {
         // 新结构：分档要点 + 总评段
         const hl = ctx.summary.highlights
-        const hlGroups: Array<{ level: RiskLevel; label: string; color: string; items: Array<{ text: string; riskId: string }> }> = [
-            { level: 'high', label: '【高风险要点】', color: '#b91c1c', items: hl.high },
-            { level: 'medium', label: '【中风险要点】', color: '#b45309', items: hl.medium },
-            { level: 'low', label: '【低风险要点】', color: '#15803d', items: hl.low },
+        const hlGroups: Array<{ label: string; color: string; items: Array<{ text: string; riskId: string }> }> = [
+            { label: '【高风险要点】', color: SEVERITY_META.high.color, items: hl.high },
+            { label: '【中风险要点】', color: SEVERITY_META.medium.color, items: hl.medium },
+            { label: '【低风险要点】', color: SEVERITY_META.low.color, items: hl.low },
         ]
         for (const group of hlGroups) {
             if (group.items.length === 0) continue
