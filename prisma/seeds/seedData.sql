@@ -1083,6 +1083,7 @@ INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "pri
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (17, 'documentMain', '文书生成主Agent', '按模板占位符填充生成文书', 'agent', 30, 1, '["process_materials", "search_case_materials", "search_law"]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (18, 'contractReviewMain', '合同审查主Agent', '按 responseFormat 输出结构化风险清单，并通过 parse_and_ask_stance 工具中断请求用户立场', 'agent', 40, 1, '["parse_and_ask_stance"]', NULL, NULL, 1, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (19, 'contractReviewSummarize', '合同审查·总览总结', '读完 analyze 阶段生成的所有 risks，做跨条款归纳，输出分档要点（highlights）+ 总评（overall）', 'extraction', 45, 1, '[]', NULL, NULL, 1, '2026-04-21 20:00:00+08', '2026-04-21 20:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
+INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (20, 'contractReviewAnalyzeClause', '合同审查·逐条条款分析', 'analyze 阶段按条款循环调用：给一条 clauseText + 立场上下文，输出 0 或 1 条 Risk（skip=true 表示无风险）', 'extraction', 42, 1, '[]', NULL, NULL, 1, '2026-04-21 20:30:00+08', '2026-04-21 20:30:00+08', NULL) ON CONFLICT (name) DO NOTHING;
 
 -- ==================== 提示词种子数据 ====================
 INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (1, 'caseInfoCheck_system', '案情信息检查-系统提示词', '你是一位专业的法律案件分析助手，专门负责评估案件材料中的案情信息是否充足。
@@ -2180,6 +2181,34 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 
 严格按如下 JSON 输出，不要解释、不要代码块标记：
 {"highlights": {"high":[{"text":"...","riskId":"..."}], "medium":[...], "low":[...]}, "overall":"..."}', '["stance", "contractType", "riskList"]', 'v1', 'system', 1, 19, '2026-04-21 20:00:00+08', '2026-04-21 20:00:00+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (28, 'contractReviewAnalyzeClause_system', '合同审查·逐条条款分析提示词 v1', '你正在审查合同（{{contractType}}），站在{{stanceLabel}}立场。
+甲方：{{partyA}}；乙方：{{partyB}}。
+当前条款（第 {{clauseIndex}} 条，编号 {{clauseNumber}}）：
+"""
+{{clauseText}}
+"""
+请判断该条款是否有风险。严格按 JSON 输出，字段如下：
+
+- 有风险：
+  {
+    "risk": {
+      "id": "<UUID v4>",
+      "clauseIndex": {{clauseIndex}},
+      "clauseText": "<被分析的条款原文片段>",
+      "level": "high" | "medium" | "low",
+      "category": "<风险类别，如 ''付款'' / ''违约'' / ''知识产权'' 等>",
+      "problem": "<简短问题描述>",
+      "analysis": "<详细分析>",
+      "risk": "<对己方的风险点>",
+      "suggestion": "<改进建议>",
+      "suggestedClauseText": "<可选，推荐改写后的条款>"
+    },
+    "skip": false
+  }
+
+- 无风险：{ "risk": null, "skip": true }
+
+只输出 JSON，不要任何解释。', '["stanceLabel", "contractType", "partyA", "partyB", "clauseIndex", "clauseNumber", "clauseText"]', 'v1', 'system', 1, 20, '2026-04-21 20:30:00+08', '2026-04-21 20:30:00+08', NULL);
 
 
 

@@ -4,14 +4,22 @@
  * 给定一条 clauseText + 立场 + 合同上下文，调用 LLM 返回 0 或 1 条 Risk。
  * 本函数**不**进 state / checkpointer，是工具层一次性 invoke。
  *
- * 失败时抛错；调用方决定是否 swallow 为 progress.error。
+ * - 提示词从 DB 节点 `contractReviewAnalyzeClause` 的 system prompt 加载（运营可在后台热更新）
+ * - 失败时抛错；调用方决定是否 swallow 为 progress.error
  */
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { createChatModel } from '~~/server/services/node/chatModelFactory'
 import { getValidNodeConfig } from '~~/server/services/node/node.service'
+import { renderContent } from '~~/server/services/node/prompt.service'
+import { logContextOverflow } from '~~/server/services/workflow/context/contextErrorLogger'
 import { RISK_SHAPE } from './riskSchema.builder'
 import type { Risk, Stance, ClauseSegment } from '#shared/types/contract'
+
+/** 单条条款文本硬截断（字符），防止单条超大条款把整个 prompt 撑爆 */
+const MAX_CLAUSE_CHARS = 20000
+
+const NODE_NAME = 'contractReviewAnalyzeClause'
 
 /** 单条输出 schema：要么返回 risk，要么 skip */
 const SingleClauseResponse = z.object({
@@ -29,9 +37,15 @@ export interface AnalyzeClauseContext {
 
 /** 返回 null 表示该条款无风险；返回 Risk 则已校验通过 */
 export async function analyzeSingleClause(ctx: AnalyzeClauseContext): Promise<Risk | null> {
-    const config = await getValidNodeConfig('contractReviewMain')
+    const config = await getValidNodeConfig(NODE_NAME)
     const activeKey = config.modelApiKeys.find(k => k.status === 1)
-    if (!activeKey) throw new Error('contractReviewMain 节点无可用 API 密钥')
+    if (!activeKey) throw new Error(`${NODE_NAME}: 无可用 API 密钥`)
+
+    // 从 DB 加载 system prompt 模板（运营可在 /admin/nodes/20 里热更）
+    const template = config.prompts.find(p => p.type === 'system' && p.status === 1)?.content
+    if (!template) {
+        throw new Error(`${NODE_NAME}: DB 未配置 system 类型的启用态提示词`)
+    }
 
     const model = createChatModel({
         sdkType: config.modelSdkType,
@@ -41,8 +55,24 @@ export async function analyzeSingleClause(ctx: AnalyzeClauseContext): Promise<Ri
         temperature: 0,
     })
 
-    const prompt = buildPrompt(ctx)
-    const response = await model.invoke(prompt)
+    const prompt = renderPromptTemplate(template, ctx)
+    let response
+    try {
+        response = await model.invoke(prompt)
+    } catch (err) {
+        logContextOverflow(err, {
+            source: 'analyzeSingleClause',
+            modelName: config.modelName,
+            sdkType: config.modelSdkType,
+            contextWindow: config.modelContextWindow,
+            extra: {
+                clauseIndex: ctx.clause.index,
+                clauseLength: ctx.clause.text.length,
+                promptLength: prompt.length,
+            },
+        })
+        throw err
+    }
     const content = typeof response.content === 'string' ? response.content : ''
 
     // 宽容解析：仅取首个完整 JSON 块即可
@@ -82,35 +112,37 @@ export async function analyzeSingleClause(ctx: AnalyzeClauseContext): Promise<Ri
     return { ...parsed.data.risk, id: randomUUID() } as Risk
 }
 
-function buildPrompt(ctx: AnalyzeClauseContext): string {
-    return [
-        `你正在审查合同（${ctx.contractType ?? '未知类型'}），站在${ctx.stance === 'partyA' ? '甲方' : ctx.stance === 'partyB' ? '乙方' : '中立第三方'}立场。`,
-        `甲方：${ctx.partyA ?? '未知'}；乙方：${ctx.partyB ?? '未知'}。`,
-        `当前条款（第 ${ctx.clause.index} 条，编号 ${ctx.clause.number ?? '无'}）：`,
-        `"""`,
-        ctx.clause.text,
-        `"""`,
-        `请判断该条款是否有风险。严格按 JSON 输出，字段如下：`,
-        ``,
-        `- 有风险：`,
-        `  {`,
-        `    "risk": {`,
-        `      "id": "<UUID v4>",`,
-        `      "clauseIndex": ${ctx.clause.index},`,
-        `      "clauseText": "<被分析的条款原文片段>",`,
-        `      "level": "high" | "medium" | "low",`,
-        `      "category": "<风险类别，如 '付款' / '违约' / '知识产权' 等>",`,
-        `      "problem": "<简短问题描述>",`,
-        `      "analysis": "<详细分析>",`,
-        `      "risk": "<对己方的风险点>",`,
-        `      "suggestion": "<改进建议>",`,
-        `      "suggestedClauseText": "<可选，推荐改写后的条款>"`,
-        `    },`,
-        `    "skip": false`,
-        `  }`,
-        ``,
-        `- 无风险：{ "risk": null, "skip": true }`,
-        ``,
-        `只输出 JSON，不要任何解释。`,
-    ].join('\n')
+/**
+ * 渲染 DB 模板：替换 7 个占位符
+ *  - stanceLabel 在代码侧把 partyA/partyB/neutral 映射为"甲方/乙方/中立第三方"
+ *    （DB 模板只认字符串变量，不适合做条件分支）
+ *  - clauseText 硬截断到 MAX_CLAUSE_CHARS 防 prompt 爆炸
+ */
+function renderPromptTemplate(template: string, ctx: AnalyzeClauseContext): string {
+    const stanceLabel = ctx.stance === 'partyA'
+        ? '甲方'
+        : ctx.stance === 'partyB'
+            ? '乙方'
+            : '中立第三方'
+    const clauseText = ctx.clause.text.length > MAX_CLAUSE_CHARS
+        ? `${ctx.clause.text.slice(0, MAX_CLAUSE_CHARS)}…(已截断)`
+        : ctx.clause.text
+
+    const rendered = renderContent(template, {
+        stanceLabel,
+        contractType: ctx.contractType ?? '未知类型',
+        partyA: ctx.partyA ?? '未知',
+        partyB: ctx.partyB ?? '未知',
+        clauseIndex: String(ctx.clause.index),
+        clauseNumber: ctx.clause.number ?? '无',
+        clauseText,
+    })
+    const unreplaced = rendered.match(/\{\{(\w+)\}\}/g)
+    if (unreplaced) {
+        logger.warn('analyzeSingleClause: 提示词存在未替换的模板变量', {
+            clauseIndex: ctx.clause.index,
+            unreplacedVars: unreplaced,
+        })
+    }
+    return rendered
 }

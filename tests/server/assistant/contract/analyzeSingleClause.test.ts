@@ -20,6 +20,14 @@ vi.mock('~~/server/services/node/node.service', () => ({
     getValidNodeConfig: vi.fn().mockResolvedValue({
         modelApiKeys: [{ apiKey: 'sk-test', status: 1 }],
         modelSdkType: 'openai', modelName: 'gpt-4', modelProviderBaseUrl: 'https://api.openai.com/v1',
+        // DB 加载的 system prompt 模板——测试用最小可渲染版本
+        prompts: [
+            {
+                type: 'system',
+                status: 1,
+                content: '立场={{stanceLabel}} · 类型={{contractType}} · 第{{clauseIndex}}条\n甲方:{{partyA}} 乙方:{{partyB}}\n{{clauseText}}\n请输出 JSON。',
+            },
+        ],
     }),
 }))
 
