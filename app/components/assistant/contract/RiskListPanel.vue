@@ -228,12 +228,14 @@ function handleExportPdfConfirm(includeRisks: boolean) {
                 <Loader2Icon v-if="isRebuilding" class="size-4 mr-1 animate-spin" />
                 {{ isRebuilding ? '批注生成中...' : '重新生成批注 Word' }}
             </Button>
-            <Button class="w-full" :disabled="!canDownload" @click="emit('download')">
-                <DownloadIcon class="size-4 mr-1" />下载批注 Word
-            </Button>
-            <Button class="w-full" variant="outline" :disabled="!canDownload" @click="openExportPdf">
-                <FileTextIcon class="size-4 mr-1" />导出 PDF
-            </Button>
+            <div class="flex gap-2">
+                <Button class="flex-1" variant="outline" :disabled="!canDownload" @click="openExportPdf">
+                    <FileTextIcon class="size-4 mr-1" />导出评审报告
+                </Button>
+                <Button class="flex-1" :disabled="!canDownload" @click="emit('download')">
+                    <DownloadIcon class="size-4 mr-1" />下载批注 Word
+                </Button>
+            </div>
         </div>
 
         <AssistantContractRiskEditDialog v-model:open="editDialogOpen" :risk="editingRisk" @confirm="handleEditConfirm" />

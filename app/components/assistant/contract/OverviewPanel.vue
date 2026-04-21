@@ -115,8 +115,11 @@ const arcDeg = computed(() => (score.value / 100) * 360)
         </template>
 
         <!-- 总评 -->
-        <div v-if="overall" class="text-xs text-muted-foreground italic pt-2 border-t border-dashed">
-            总评：{{ overall }}
+        <div
+            v-if="overall"
+            class="text-xs leading-relaxed rounded-md border-l-4 border-primary bg-primary/5 dark:bg-primary/10 px-2.5 py-2 text-foreground"
+        >
+            <span class="font-semibold text-primary">总评：</span>{{ overall }}
         </div>
     </div>
 </template>
