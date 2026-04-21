@@ -24,8 +24,8 @@ model contractReviews {
   status                String    @default("pending") @db.VarChar(30)
   /// 结构化风险清单（Risk[] JSON）
   risks                 Json?     @db.JsonB
-  /// 审查摘要 Markdown
-  summary               String?   @db.Text
+  /// 审查摘要（M6.1 升级为 ContractOverview JSON：{ highlights, overall }）
+  summary               Json?     @db.JsonB
   /// 本次 session 是否编辑过 risks 且尚未重新生成 docx
   /// PATCH /reviews/:id → true；POST /rebuild-docx 成功 → false
   hasUnsavedDocxChanges Boolean   @default(false) @map("has_unsaved_docx_changes")
