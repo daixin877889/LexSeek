@@ -16,6 +16,7 @@ import { uuidv7 } from '~~/shared/utils/uuid'
 ;(globalThis as any).logger = { error: vi.fn(), warn: vi.fn(), info: vi.fn() }
 
 const { default: listHandler } = await import('../../../server/api/v1/admin/agent-audit-logs/index.get')
+const { default: detailHandler } = await import('../../../server/api/v1/admin/agent-audit-logs/[id].get')
 
 function makeEvent(opts: {
     query?: Record<string, string | number>
@@ -70,6 +71,38 @@ describe('GET /api/v1/admin/agent-audit-logs', () => {
     it('非法 verdict 参数返回 400', async () => {
         const event = makeEvent({ query: { page: 1, pageSize: 20, verdict: 'invalid' } })
         const res = await listHandler(event)
+        expect(res.code).toBe(400)
+    })
+})
+
+describe('GET /api/v1/admin/agent-audit-logs/:id', () => {
+    let testId: string
+    beforeEach(async () => {
+        testId = uuidv7()
+        await prisma.agentToolAuditLogs.create({
+            data: { id: testId, userId: 9002, sessionId: 's1', toolName: 'read_skill_file', verdict: 'allowed', argsDigest: { path: 'a' }, latencyMs: 10 },
+        })
+    })
+    afterEach(async () => {
+        await prisma.agentToolAuditLogs.deleteMany({ where: { userId: 9002 } })
+    })
+
+    it('返回单条完整记录', async () => {
+        const event = makeEvent({ params: { id: testId } })
+        const res = await detailHandler(event)
+        expect(res.code).toBe(0)
+        expect(res.data.id).toBe(testId)
+    })
+
+    it('不存在的 id 返回 404', async () => {
+        const event = makeEvent({ params: { id: uuidv7() } })
+        const res = await detailHandler(event)
+        expect(res.code).toBe(404)
+    })
+
+    it('非 UUID 的 id 返回 400', async () => {
+        const event = makeEvent({ params: { id: 'not-uuid' } })
+        const res = await detailHandler(event)
         expect(res.code).toBe(400)
     })
 })
