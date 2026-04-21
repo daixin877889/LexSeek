@@ -390,12 +390,13 @@ const bodySchema = z.object({
 - **分页**：复用现有 `GeneralPagination` 组件（`app/components/general/pagination.vue`，参考现有 `/admin/audit` 页面的使用方式）
 - **详情**：点击行或"详情"按钮 → 抽屉（`Sheet`）显示完整 `argsDigest` 的 JSON（`<pre>` + `JSON.stringify(value, null, 2)`，不引入语法高亮库）
     - **与 Tab 1 用 `Dialog` 展示详情不一致的权衡说明**：`argsDigest` 可能含数千字符的工具参数（如合同原文），`Sheet` 抽屉更适合长内容滚动浏览；Tab 1 权限审计日志内容短，用 `Dialog` 合适。两 Tab 详情组件**有意不同**，不强行统一。
-- **清理按钮**（Tab 右上角）→ 调用 `useAlertDialogStore.showErrorDialog`：
-    - `title`: "确认清理审计日志"
-    - `message`: "将删除 YYYY-MM-DD 之前的 N 条记录，操作不可撤销。"（N 从列表 total 本地计算）
-    - `confirmText`: "确认删除"（红色主按钮，`showErrorDialog` 默认）
-    - 若当前正在看详情 Sheet（Sheet 默认 `z-[70]`），`showErrorDialog` 需传 `zIndex: 9999` 避免被遮罩（项目既有约定，见全局记忆 `feedback_sheet_dialog_zindex`）
-    - `onConfirm` 中调用：
+- **清理按钮**（Tab 右上角）→ 弹出**本地 `AlertDialog` + `GeneralDatePicker`** 组件（参考 `app/components/cases/CasesDeleteDialog.vue` 模式）：
+    - **为何用本地 AlertDialog 而非全局 `useAlertDialogStore.showErrorDialog`**：后者的 `message` 仅支持 string，无法内嵌 `GeneralDatePicker` 让管理员选日期；按 `.claude/rules/ui.md` 最后一段"需要组件内持有独立状态（删除前额外输入、带表单校验）"的场景规定，使用本地 shadcn `AlertDialog`
+    - 组件标题"确认清理审计日志"；描述里显示"当前总记录数 N 条，将删除指定日期之前"
+    - 日期选择用 `GeneralDatePicker` 单日期；未选时"确认删除"按钮 disabled
+    - 确认按钮红色主按钮样式（`bg-destructive`）
+    - 若详情 Sheet 已打开（Sheet 默认 `z-[70]`），本地 `AlertDialog` 的 overlay 默认 `z-50` 会被压住——**需显式设置对话框 z-index > 70**（如 `class="z-[9999]"`）
+    - 点确认后调用：
       ```ts
       const resp = await useApiFetch<{ deleted: number }>(
           '/api/v1/admin/agent-audit-logs',
@@ -404,7 +405,7 @@ const bodySchema = z.object({
       // 注意：useApiFetch 自动提取 data，直接访问 resp?.deleted，勿写 resp?.data?.deleted
       if (resp) {
           toast.success(`已清理 ${resp.deleted} 条记录`)
-          await refresh()
+          emit('cleaned')  // 父组件接收后 refresh 列表
       }
       ```
 
@@ -563,6 +564,12 @@ bunx prisma migrate dev --name add_agent_tool_audit_logs
 - **管理端**：合并到现有 `/admin/audit` 用 Tab 切换，不新开独立页
 - **命名 / API / 前端组件**全面对齐项目现有 `permissionAuditLogs`、`admin/audit`、`GeneralPagination`、`GeneralDatePicker`、`useAlertDialogStore` 等既有基建
 - **字段精简**：砍 `resultDigest` / `draftId` / `reviewId` 独立列（并入 `argsDigest` JSON）；索引从 4 个精简到 3 个
+- **2026-04-21 plan 两轮审查后修订**：
+    - 清理弹窗从 `useAlertDialogStore.showErrorDialog` 改为**本地 `AlertDialog` + `GeneralDatePicker`**。原因：`showErrorDialog` 的 `message` 仅支持 string，不能内嵌日期选择器；按 `.claude/rules/ui.md` "组件内持有独立状态"场景的规定应用本地 AlertDialog（详见 §4.7）
+    - scopeGuard 对 `process_materials` / `search_law` / `save_analysis_result` / `parse_and_ask_stance` 的规则**仅保留黑名单扫描，不做身份字段绑定**（这些工具的 schema 经查证无 `caseId`/`userId`/`runId`/`reviewId` 字段，caseId 等由 context 注入）
+    - `toolCallLimitMiddleware` 按 LangChain 1.3.x 原生 API **按工具名分别创建实例并返回数组**（原生 `threadLimit` 是 `number` 不是 `Record`，一次只能限一个工具）
+    - `run_skill_script` scopeGuard 不再做 `skillName` 注册表校验（工具层已有白名单字符校验，避免重复）
+    - UUIDv7 生成**复用项目已有** `shared/utils/uuid.ts` 的 `uuidv7()` 函数（避免两处 `import { v7 as uuidv7 } from 'uuid'` 造成命名漂移）
 
 ## 12. 提交约定
 

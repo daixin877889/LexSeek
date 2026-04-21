@@ -732,7 +732,7 @@ npx vitest run tests/server/workflow/middleware/audit.middleware.test.ts
  * 是因为自动导入的 prisma 无法用 vi.mock 替换。
  */
 
-import { v7 as uuidv7 } from 'uuid'
+import { uuidv7 } from '~~/shared/utils/uuid'  // 复用项目已有 uuid 工具（避免两处 import 造成命名漂移）
 import type { AgentAuditRecord, AgentAuditVerdict } from '#shared/types/agentAudit'
 
 /** 写入请求参数（中间件构造） */
@@ -912,16 +912,18 @@ EOF
 
 ---
 
-### Task 4：toolCallLimit 中间件（薄封装 LangChain 原生）
+### Task 4：toolCallLimit 中间件（数组式薄封装 LangChain 原生）
 
 **Files:**
 - Create: `tests/server/workflow/middleware/toolCallLimit.middleware.test.ts`
 - Create: `server/services/workflow/middleware/toolCallLimit.middleware.ts`
 
-**设计要点**：
-- **复用** `toolCallLimitMiddleware from 'langchain'`（不造轮子）
+**设计要点**（关键修正，对齐 LangChain 1.3.1 原生签名）：
+- LangChain 原生 `toolCallLimitMiddleware` 接受的参数是 `{ toolName?, threadLimit?: number, runLimit?: number, exitBehavior: 'continue' | 'end' | 'error' }`——`threadLimit` 是 `number`（不是 `Record`），**一次只能限一个工具**
+- 因此实现方式：**为 `LIMITED_TOOL_NAMES` 中每个工具分别创建一个 middleware 实例**，返回数组，由 agent 装配处用 `...` 展开
+- `exitBehavior` 选 `'continue'`（不选 `'end'`，`'end'` 在并发 tool call 下可能触发 NotImplementedError）：超限后当前工具调用返回 error ToolMessage，Agent 可继续推进其他动作
 - 限额来自 `shared/types/agentAudit.ts` 的 `DEFAULT_TOOL_LIMITS`（双端共用）
-- 薄封装的职责：把默认配置注入 + 超限时把 `ToolCallLimitExceededError` 转成友好 ToolMessage（Agent 收到后优雅降级）
+- per-session 计数：LangGraph 的 `thread_id == sessionId`，原生 `threadLimit` 天然等价 per-session
 
 - [ ] **Step 1: 先写测试**
 
@@ -933,8 +935,8 @@ EOF
  * Validates: spec §4.3
  */
 import { describe, it, expect } from 'vitest'
-import { DEFAULT_TOOL_LIMITS } from '#shared/types/agentAudit'
-import { createToolCallLimitMiddleware } from '../../../../server/services/workflow/middleware/toolCallLimit.middleware'
+import { DEFAULT_TOOL_LIMITS, LIMITED_TOOL_NAMES } from '#shared/types/agentAudit'
+import { createToolCallLimitMiddlewares } from '../../../../server/services/workflow/middleware/toolCallLimit.middleware'
 
 describe('toolCallLimit.middleware', () => {
     it('导出 DEFAULT_TOOL_LIMITS 与 spec §4.3 一致', () => {
@@ -947,15 +949,18 @@ describe('toolCallLimit.middleware', () => {
         })
     })
 
-    it('createToolCallLimitMiddleware 返回 LangChain middleware 对象（带 name 字段）', () => {
-        const mw = createToolCallLimitMiddleware()
-        expect(mw).toBeDefined()
-        expect(typeof mw).toBe('object')
+    it('createToolCallLimitMiddlewares 为每个受限工具创建一个 middleware 实例', () => {
+        const list = createToolCallLimitMiddlewares()
+        expect(Array.isArray(list)).toBe(true)
+        expect(list.length).toBe(LIMITED_TOOL_NAMES.length)
+        for (const mw of list) {
+            expect(mw).toBeDefined()
+        }
     })
 })
 ```
 
-**注**：超限行为的 E2E 测试由 Task 9 集成测试覆盖（需要真实 agent 跑 >10 次 `run_skill_script`）；单测不模拟 LangChain 运行时，仅断言配置/导出正确，避免脆弱测试。
+**注**：per-session 计数 / 超限返回 ToolMessage 的行为测试，需要完整 LangGraph 运行时才能断言，单测层面仅覆盖"工具名 × 限额数量"与"返回数组长度正确"；真实熔断行为在 Task 15 手工验证清单里覆盖（案件分析连续触发 `run_skill_script` >10 次观察第 11 次是否被优雅阻止）。
 
 - [ ] **Step 2: 跑测试（红灯）**
 
@@ -967,34 +972,30 @@ npx vitest run tests/server/workflow/middleware/toolCallLimit.middleware.test.ts
 
 ```ts
 /**
- * toolCallLimit 中间件
+ * toolCallLimit 中间件（数组式薄封装）
  *
- * 薄封装 LangChain 原生 toolCallLimitMiddleware，注入分层限额。
- * 超限时原生会抛 ToolCallLimitExceededError；由 agent runtime 捕获转为
- * 字符串 ToolMessage 让模型继续推进，不 crash（spec §4.3 优雅降级）。
+ * LangChain 1.3.1 原生 toolCallLimitMiddleware 一次只能限一个工具名；
+ * 对多工具分层配额必须为每个工具创建一个实例，装配时 spread 展开。
+ *
+ * exitBehavior 'continue'：超限后当前工具调用返回 error 结果，Agent 可继续
+ * 推进（不会终止整个会话）。对齐 spec §4.3 优雅降级。
  */
 
-import { toolCallLimitMiddleware } from 'langchain'
-import { DEFAULT_TOOL_LIMITS, type LimitedToolName } from '#shared/types/agentAudit'
+import { toolCallLimitMiddleware, type AgentMiddleware } from 'langchain'
+import { DEFAULT_TOOL_LIMITS, LIMITED_TOOL_NAMES } from '#shared/types/agentAudit'
 
-export function createToolCallLimitMiddleware() {
-    // LangChain 原生接受 { toolName: limit } 映射；超限默认抛 ToolCallLimitExceededError
-    const limits: Record<string, number> = {}
-    for (const [name, limit] of Object.entries(DEFAULT_TOOL_LIMITS) as [LimitedToolName, number][]) {
-        limits[name] = limit
-    }
-
-    return toolCallLimitMiddleware({
-        // 按 per-thread 计数（LangGraph 的 thread_id == session_id，对齐 spec §4.3 "per-session"）
-        threadLimit: limits,
-        // 超限行为：返回 error ToolMessage 而非抛异常（对齐 spec §4.3 优雅降级）
-        // 若原生不支持 exit behavior 的结构化配置，此处可 catch 并改写
-        exitBehavior: 'end',
-    } as Parameters<typeof toolCallLimitMiddleware>[0])
+/**
+ * 为 LIMITED_TOOL_NAMES 中每个工具创建一个 toolCallLimitMiddleware 实例。
+ * 返回数组，由 agent 装配处用 `...createToolCallLimitMiddlewares()` 展开到 middleware 数组。
+ */
+export function createToolCallLimitMiddlewares(): AgentMiddleware[] {
+    return LIMITED_TOOL_NAMES.map(name => toolCallLimitMiddleware({
+        toolName: name,
+        threadLimit: DEFAULT_TOOL_LIMITS[name],
+        exitBehavior: 'continue',
+    }))
 }
 ```
-
-**如果原生 `toolCallLimitMiddleware` 的 exitBehavior 不支持 `'end'` 或不符合需要**，回退实现：用 `createMiddleware` 自写一个薄的 per-session counter，超限返回 ToolMessage（而非 `throw`）。实现时先 `npx vitest run tests/server/workflow/middleware/toolCallLimit.middleware.test.ts` 确认原生 API 行为；如果原生抛错无法 catch 为 ToolMessage，改走自写路径（依然用 LangChain 原生的 `ModelCallLimitMiddleware` 等作为参考，不是完全从头写）。
 
 - [ ] **Step 4: 跑测试（绿灯）** + `npx nuxi typecheck`
 
@@ -1179,19 +1180,19 @@ EOF
 ```ts
 export { createScopeGuardMiddleware } from './scopeGuard.middleware'
 export { createAuditMiddleware } from './audit.middleware'
-export { createToolCallLimitMiddleware } from './toolCallLimit.middleware'
+export { createToolCallLimitMiddlewares } from './toolCallLimit.middleware'
 ```
 
 - [ ] **Step 2: 逐个文件装配**
 
-每个 agent 构造处（`createAgent({..., middleware: [...] })`）把中间件数组改成：
+每个 agent 构造处（`createAgent({..., middleware: [...] })`）把中间件数组改成（注意 `createToolCallLimitMiddlewares()` 返回数组，必须用 `...` 展开）：
 
 ```ts
 middleware: [
-    createScopeGuardMiddleware(),       // 1. 先拦越权参数
-    createToolCallLimitMiddleware(),    // 2. 再判熔断
-    createAuditMiddleware(),            // 3. 记录所有结果
-    ...existingMiddlewares,             // 已有：pointConsumption / safetyTrim 等
+    createScopeGuardMiddleware(),            // 1. 先拦越权参数
+    ...createToolCallLimitMiddlewares(),     // 2. 展开 5 个熔断器（每个工具一个实例）
+    createAuditMiddleware(),                 // 3. 记录所有结果
+    ...existingMiddlewares,                  // 已有：pointConsumption / safetyTrim 等
 ],
 ```
 
@@ -1240,30 +1241,43 @@ EOF
  * Validates: spec §4.6
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { v7 as uuidv7 } from 'uuid'
+import { uuidv7 } from '~~/shared/utils/uuid'
 import listHandler from '../../../../server/api/v1/admin/agent-audit-logs/index.get'
 
-// 测试辅助：直接调 handler，绕过 Nitro router
-function makeEvent(query: Record<string, string | number> = {}, auth?: { userId: number, role?: string }) {
-    const event = {
-        context: {
-            auth: auth ? { user: { id: auth.userId }, role: auth.role ?? 'super_admin' } : undefined,
-        },
-        node: {
-            req: { url: '/api/v1/admin/agent-audit-logs', method: 'GET' },
-        },
+/**
+ * 测试辅助：直接调 handler，绕过 Nitro router。
+ *
+ * 关键点：Nitro `getQuery(event)` 内部读的是 `event.node.req.url` 的 querystring
+ * 部分，因此 query 必须序列化到 URL 里，**不能**挂在 globalThis 上。
+ */
+function makeEvent(query: Record<string, string | number> = {}) {
+    const qs = new URLSearchParams()
+    for (const [k, v] of Object.entries(query)) qs.set(k, String(v))
+    const url = qs.toString()
+        ? `/api/v1/admin/agent-audit-logs?${qs.toString()}`
+        : '/api/v1/admin/agent-audit-logs'
+    // 03.permission.ts 会在 Nitro 层拦截 super_admin，单测不经过中间件，
+    // handler 本身不读 auth/role，无需注入 auth 上下文
+    return {
+        context: {},
+        node: { req: { url, method: 'GET' } },
     } as any
-    // mock getQuery
-    ;(globalThis as any).__query = query
-    return event
+}
+
+// 构造 delete handler 的带 body 事件（Task 10 使用）
+function makeDeleteEvent(body: Record<string, unknown>) {
+    return {
+        context: {},
+        node: { req: { url: '/api/v1/admin/agent-audit-logs', method: 'DELETE' } },
+        // readBody(event) 在 h3 里会读取 req.body 或 _requestBody，vitest 下
+        // 最直接的 mock 是挂 _body 到 event 并在测试前 `vi.mock('h3')` 覆盖 readBody
+        _body: body,
+    } as any
 }
 
 describe('GET /api/v1/admin/agent-audit-logs', () => {
-    const superAdminId = 9001
-
     beforeEach(async () => {
-        await prisma.agentToolAuditLogs.deleteMany({ where: { userId: { in: [superAdminId, 9002] } } })
-        // 创建 3 条测试数据
+        await prisma.agentToolAuditLogs.deleteMany({ where: { userId: { in: [9001, 9002] } } })
         await prisma.agentToolAuditLogs.createMany({
             data: [
                 { id: uuidv7(), userId: 9002, sessionId: 'sA', toolName: 'read_skill_file', verdict: 'allowed', argsDigest: { path: 'a' }, latencyMs: 10 },
@@ -1274,14 +1288,15 @@ describe('GET /api/v1/admin/agent-audit-logs', () => {
     })
 
     afterEach(async () => {
-        await prisma.agentToolAuditLogs.deleteMany({ where: { userId: { in: [superAdminId, 9002] } } })
+        await prisma.agentToolAuditLogs.deleteMany({ where: { userId: { in: [9001, 9002] } } })
     })
 
-    it('列表返回 items + total + page + pageSize', async () => {
+    it('列表返回 items + total + page + pageSize（成功响应 code: 0）', async () => {
         const event = makeEvent({ page: 1, pageSize: 20 })
         const res = await listHandler(event)
         expect(res).toMatchObject({
-            code: 0,
+            code: 0,  // 项目 resSuccess 返回 code: 0（参见 shared/utils/apiResponse.ts）
+            success: true,
             data: {
                 items: expect.any(Array),
                 total: expect.any(Number),
@@ -1305,7 +1320,11 @@ describe('GET /api/v1/admin/agent-audit-logs', () => {
 })
 ```
 
-**注**：`makeEvent` 的具体形态需对齐项目现有 admin 接口测试——实际实现时先 `Read tests/server/api/admin/` 下一个已有文件（如 Task 4 阶段曾参考的 `server/api/v1/admin/audit/index.get.ts` 的测试）学 mock 模式；如果项目里 admin handler 的集成测试以别的姿势写，按那个走。目标：**不引入 `@nuxt/test-utils/e2e` 新姿势**，对齐现有风格即可。
+**测试姿势对齐项目既有风格**：
+- 直接 `await handler(event)`，不用 `@nuxt/test-utils/e2e`（对齐 `tests/server/admin/demoCaseMaterials.test.ts` 的风格）
+- `prisma` 走真库（测试数据库 `ls_new_testing`），不 mock（审计表操作是 `prisma.agentToolAuditLogs` 的直接读写，mock 反而意义低）
+- `handler` 本身不读 `event.context.auth`：super_admin 拦截由 `server/middleware/03.permission.ts` 统一做，handler 里无此判断，集成测试绕过中间件不需要 mock auth
+- 成功响应 `code: 0`（**不是 200**；见 `shared/utils/apiResponse.ts:30`）
 
 - [ ] **Step 2: 跑测试（红灯）**
 
@@ -1789,10 +1808,12 @@ git commit -m "feat(ui): /admin/audit 改造为 Tabs 容器，原内容搬入 Pe
             </div>
             <div>
                 <label class="text-xs text-muted-foreground">工具</label>
+                <!-- 注意：shadcn-vue SelectItem 的 value 不允许空字符串（会抛运行时错误）；
+                     用 ALL 特殊值代表"全部"，fetchList 里过滤掉 -->
                 <Select v-model="filters.toolName">
                     <SelectTrigger class="w-48"><SelectValue placeholder="全部工具" /></SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="">全部</SelectItem>
+                        <SelectItem value="__all__">全部</SelectItem>
                         <SelectItem v-for="name in LIMITED_TOOL_NAMES" :key="name" :value="name">{{ name }}</SelectItem>
                     </SelectContent>
                 </Select>
@@ -1802,7 +1823,7 @@ git commit -m "feat(ui): /admin/audit 改造为 Tabs 容器，原内容搬入 Pe
                 <Select v-model="filters.verdict">
                     <SelectTrigger class="w-32"><SelectValue placeholder="全部" /></SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="">全部</SelectItem>
+                        <SelectItem value="__all__">全部</SelectItem>
                         <SelectItem value="allowed">允许</SelectItem>
                         <SelectItem value="denied">拒绝</SelectItem>
                         <SelectItem value="error">错误</SelectItem>
@@ -1875,11 +1896,14 @@ import {
     type AgentAuditVerdict,
 } from '#shared/types/agentAudit'
 
+/** "全部" 的 Select 特殊值（shadcn-vue SelectItem 不接受空字符串 value） */
+const ALL = '__all__'
+
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 const items = ref<AgentAuditRecord[]>([])
-const filters = reactive({ userId: '', toolName: '', verdict: '', from: '', to: '' })
+const filters = reactive({ userId: '', toolName: ALL, verdict: ALL, from: '', to: '' })
 
 const detailOpen = ref(false)
 const detailId = ref<string>('')
@@ -1890,19 +1914,27 @@ function verdictVariant(v: AgentAuditVerdict) {
     return v === 'allowed' ? 'default' : v === 'denied' ? 'destructive' : 'secondary'
 }
 
-async function fetchList() {
-    const query: Record<string, string | number> = { page: page.value, pageSize: pageSize.value }
-    if (filters.userId) query.userId = Number(filters.userId)
-    if (filters.toolName) query.toolName = filters.toolName
-    if (filters.verdict) query.verdict = filters.verdict
-    if (filters.from) query.from = filters.from
-    if (filters.to) query.to = filters.to
-
-    const { data } = await useApi<{ items: AgentAuditRecord[], total: number }>('/api/v1/admin/agent-audit-logs', { query, immediate: false })
-    await (data as any).execute?.()
-    items.value = data.value?.items ?? []
-    total.value = data.value?.total ?? 0
+/** 构造查询参数（把 ALL 特殊值映射为"不传该字段"） */
+function buildQuery(): Record<string, string | number> {
+    const q: Record<string, string | number> = { page: page.value, pageSize: pageSize.value }
+    if (filters.userId) q.userId = Number(filters.userId)
+    if (filters.toolName !== ALL) q.toolName = filters.toolName
+    if (filters.verdict !== ALL) q.verdict = filters.verdict
+    if (filters.from) q.from = filters.from
+    if (filters.to) q.to = filters.to
+    return q
 }
+
+// useApi 返回 { data, refresh, execute, ... }；用响应式 query 让参数变化触发重新 fetch
+const queryParams = computed(buildQuery)
+const { data: listData, refresh: refreshList } = await useApi<{ items: AgentAuditRecord[], total: number, page: number, pageSize: number }>(
+    '/api/v1/admin/agent-audit-logs',
+    { query: queryParams },
+)
+watchEffect(() => {
+    items.value = listData.value?.items ?? []
+    total.value = listData.value?.total ?? 0
+})
 
 const { data: statsData } = await useApi<AgentAuditStatsPayload>('/api/v1/admin/agent-audit-logs/stats')
 const statsCards = computed(() => {
@@ -1915,16 +1947,14 @@ const statsCards = computed(() => {
     ]
 })
 
-function applyFilters() { page.value = 1; return fetchList() }
+function applyFilters() { page.value = 1; return refreshList() }
 function resetFilters() {
-    filters.userId = ''; filters.toolName = ''; filters.verdict = ''; filters.from = ''; filters.to = ''
+    filters.userId = ''; filters.toolName = ALL; filters.verdict = ALL; filters.from = ''; filters.to = ''
     return applyFilters()
 }
 
 function openDetail(id: string) { detailId.value = id; detailOpen.value = true }
-async function onCleaned() { await fetchList() }
-
-await fetchList()
+async function onCleaned() { await refreshList() }
 </script>
 ```
 
@@ -2125,18 +2155,21 @@ npx nuxi typecheck
 
 ## Self-Review Checklist（实施前 + 每完成一个 Task）
 
-- [ ] 工具名全部 snake_case（`parse_and_ask_stance` 非 `parseAndAskStance`）
-- [ ] scopeGuard 规则只校验 schema 中真实存在的字段
+- [ ] **LLM 可见的工具 name 字段**全部 snake_case（工具注册名如 `parse_and_ask_stance`；与 TS 导出符号名 `scopeGuardMiddleware` 是两回事，后者是驼峰正常）
+- [ ] scopeGuard 规则只校验 schema 中真实存在的字段（见 §1.3 对照表）
 - [ ] 黑名单只含模板分隔符（不含 `system:` / `role: system`）
-- [ ] `LIMITED_TOOL_NAMES` / `DEFAULT_TOOL_LIMITS` 在 `shared/types/agentAudit.ts`
+- [ ] `LIMITED_TOOL_NAMES` / `DEFAULT_TOOL_LIMITS` 在 `shared/types/agentAudit.ts`（双端共用）
 - [ ] 前端 `AgentAuditTab.vue` 不 `import '~~/server/**'`
-- [ ] `toolCallLimitMiddleware` 复用 LangChain 原生
+- [ ] `toolCallLimitMiddleware` 按工具**循环创建实例返回数组**（`threadLimit` 是 number 非 Record；`exitBehavior: 'continue'`）
+- [ ] UUIDv7 生成**复用** `shared/utils/uuid.ts` 的 `uuidv7()`（不直接 `import { v7 } from 'uuid'`）
 - [ ] `process.platform` 通过 `getPlatform()` 包装以便 `vi.spyOn`
 - [ ] `rawPath.includes('\0')`（不是空格）
 - [ ] 审计不做 PII 脱敏（无身份证/手机号/银行卡 mask）
-- [ ] 清理弹窗用本地 `AlertDialog` + `GeneralDatePicker`
+- [ ] 清理弹窗用**本地 `AlertDialog` + `GeneralDatePicker`**（不用 `useAlertDialogStore.showErrorDialog`，因 message 不支持嵌组件）
 - [ ] `/admin/audit` `definePageMeta` 保留原状（不加 icon）
-- [ ] API 响应走 `resSuccess/resError`
+- [ ] API handler 响应走 `resSuccess/resError`；**成功响应 `code: 0`**（`shared/utils/apiResponse.ts`，不是 200）
+- [ ] 集成测试 `makeEvent` 把 query **序列化到 URL** 里（`getQuery(event)` 从 `event.node.req.url` 读，不是 `globalThis`）
 - [ ] 每个 handler 的 query/body 都有 zod schema
+- [ ] shadcn-vue `SelectItem` 的 value **不为空字符串**（用 `__all__` 等特殊值代表"全部"）
 - [ ] TDD 顺序：每个中间件/handler 先写测试再写实现
 - [ ] 每完成一个 Task 立即 commit
