@@ -130,3 +130,23 @@ model permissionAuditLogs {
   @@index([createdAt], map: "idx_permission_audit_logs_created_at")
   @@map("permission_audit_logs")
 }
+
+// Agent 工具调用审计日志（详见 docs/superpowers/specs/2026-04-21-agent-security-guardrails-design.md §4.5）
+model agentToolAuditLogs {
+    id           String   @id @db.Uuid                 // UUIDv7（应用层生成）
+    userId       Int      @map("user_id")
+    sessionId    String   @map("session_id") @db.VarChar(128)
+    caseId       Int?     @map("case_id")
+    runId        String?  @map("run_id") @db.VarChar(64)
+    toolName     String   @map("tool_name") @db.VarChar(64)
+    verdict      String   @db.VarChar(16)              // allowed / denied / error
+    denyReason   String?  @map("deny_reason") @db.VarChar(256)
+    argsDigest   Json     @map("args_digest")           // 完整参数原文（不脱敏），含 draftId/reviewId 等辅助字段
+    latencyMs    Int      @map("latency_ms")
+    createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+    @@index([userId, createdAt], map: "idx_agent_tool_audit_logs_user_id_created_at")
+    @@index([verdict, createdAt], map: "idx_agent_tool_audit_logs_verdict_created_at")
+    @@index([createdAt], map: "idx_agent_tool_audit_logs_created_at")
+    @@map("agent_tool_audit_logs")
+}
