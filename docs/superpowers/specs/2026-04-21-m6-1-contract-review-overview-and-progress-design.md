@@ -5,14 +5,17 @@
 **作者**: 产品（戴鑫）× Claude
 **状态**: 设计已定稿，待 review 后进入 writing-plans
 
-**v2 修订**（基于 R1-R9 审查）：
+**v2 修订**（基于 R1-R9 审查 + P1-P4 复核）：
 - 删除冗余字段 `counts` / `scoreLabel`，风险总分改为前端加权派生
 - 定位兜底回到严格三级（精确 → 模糊 → 显式）
 - 进度阶段从 6 段回到 5 段（rebuild 改为完成后隐形步骤）
-- SSE 事件精简为 4 种（`stage/progress/risk/overview`），复用现有 `SSEMessageType`
+- SSE 事件精简为 4 种（`stage/progress/risk/overview`），复用现有 `publishCustomEvent` + `onCustomEvent`
 - `clauseSegments` 改为内存对象不落库，去除字符偏移字段
 - 子期 1 与子期 2 合并（让首个子期上线即有用户可感知价值）
 - 明确 `ContractOverview` 类型放 `shared/types/contract.ts`
+- `progress` 事件补 `error?` 字段，单条分析失败实时 toast（不等 analyze 阶段结束）
+- rebuild 完成走现有 `refreshReview` 机制，不新增通知链路
+- §9.1 增加"不同编号格式的定位兜底回归测试"
 
 ---
 
@@ -224,13 +227,14 @@ interface ClauseSegment {
 ```ts
 type ContractReviewEvent =
   | { type: 'stage'; stage: 'detect' | 'stance' | 'segment' | 'analyze' | 'summarize'; status: 'running' | 'done'; warnings?: string[]; totalClauses?: number; partyA?: string; partyB?: string; contractType?: string }
-  | { type: 'progress'; current: number; total: number }
+  | { type: 'progress'; current: number; total: number; error?: string }  // v2.1: 单条失败走 error 字段，实时推送
   | { type: 'risk'; risk: Risk }
   | { type: 'overview'; overview: ContractOverview }
 ```
 
-- `warn` 事件去除，失败统一合入 `stage` 事件的可选 `warnings: string[]` 字段（v2 R7）
+- `warn` 事件去除，失败信息分两档：**实时**随 `progress.error` 单条推送（前端可立刻 toast "第 N 条分析失败"），**终态**在 `stage:analyze,status:done` 的 `warnings[]` 里做最终汇总供日志与审计（v2.1 修订，避免"刚发生的失败要等整个阶段结束才看到"）
 - `clauseSegment` 事件去除，切分结果随 `stage:segment,status:done` 的 `totalClauses` 字段携带（v2 R7）
+- rebuild 不发自定义事件，依赖现有 stream 机制：rebuild 完成 → backend workflow 正常结束 → `useStreamChat` 的 `runStatus` 变为 `completed` → 现有 `refreshReview` 拉新 review 带回 `reviewedFileId`（无需新增通知链路）
 
 **新管线**（5 段进度 + rebuild 隐形）：
 
@@ -292,10 +296,10 @@ type ContractReviewEvent =
 ### 6.1 新组件 / 改造组件
 
 **A. 右侧面板顶部总览区**（新组件，替换现 `RiskListPanel` 里的 `<div v-if="summary">`）
-- 风险总分仪表盘（SVG 或 conic-gradient 实现）
-- 三色计数卡（点击跳到右侧列表对应分组，不跳文档）
-- 分档要点列表（每条可点，点击 → 触发跳转入口 ②）
-- 总评
+- 风险总分仪表盘（SVG 或 conic-gradient 实现）— 由 `useContractOverview` composable 从 `risks` 现算，组件不直接读 DB 字段
+- 三色计数卡（点击跳到右侧列表对应分组，不跳文档）— 同上现算
+- 分档要点列表（每条可点，点击 → 触发跳转入口 ②）— 读 `summary.highlights`，null 时整块隐藏
+- 总评 — 读 `summary.overall`
 
 **B. 风险卡片（改造 `RiskListPanel` 中现有卡片）**
 - 右上角新增📌 按钮
@@ -314,27 +318,30 @@ type ContractReviewEvent =
 - `focusRisk` emit 连到 `ContractReviewPanel` 统一调度器
 - 点条目 → 同样跳文档并激活卡片
 
-**E. 进度组件（新）**
-- 5 段阶段进度条（含"分析中 X / Y"计数和进度条）
-- 在审查中时悬浮在面板顶部
-- 所有完成后自动收起
+**E. 进度组件（新 · `ContractReviewProgress`）**
+- 5 段阶段进度条（识别 → 等立场 → 切分 → 分析 → 汇总），含"分析第 X / Y 条"计数和细进度条
+- `summarize` 阶段 done 后自动收起（rebuild 不占槽位）
+- 组件名遵循 Nuxt 自动导入折叠规则，最终可用的自动导入名为 `AssistantContractReviewProgress`
 
 ### 6.2 状态管理（`useContractReview` 扩展）
 
-**新增状态：**
+**扩展现有 `app/composables/useContractReview.ts`**（v2 审查确认为扩展而非新建；保持当前"手动 import"的导入模式，与 Nuxt 自动导入一致）。
+
+**新增状态（5 个阶段，rebuild 不入）：**
 
 ```ts
 const stageStatus = ref<{
-  detect: 'wait' | 'running' | 'done' | 'error'
+  detect: 'wait' | 'running' | 'done'
   stance: 'wait' | 'running' | 'done'
   segment: 'wait' | 'running' | 'done'
   analyze: 'wait' | 'running' | 'done'
   summarize: 'wait' | 'running' | 'done'
-  rebuild: 'wait' | 'running' | 'done' | 'skipped'
 }>
 
 const totalClauses = ref<number | null>(null)
 const analyzingClauseIndex = ref<number | null>(null)
+/** analyze 阶段累计警告（单条失败等），来自 stage:analyze,done 事件的 warnings[] */
+const analyzeWarnings = ref<string[]>([])
 
 /** 当前聚焦的 riskId。null = 无聚焦 */
 const focusedRiskId = ref<string | null>(null)
@@ -365,10 +372,13 @@ function clearAllPins()
 
 ### 6.3 SSE 消费
 
-现有 `useStreamChat` 已支持 custom event 透传。在本期扩展：
-- 识别新的事件类型：`stage` / `progress` / `risk` / `overview` / `warn`
-- 逐事件更新 `stageStatus` / `totalClauses` / `risks`（追加）/ `overview`
-- `risk` 事件用"刚刚"角标 3 秒，便于用户察觉新增
+所有合同审查的新事件走 `useStreamChat.onCustomEvent`（现有能力，无需改造底层）。事件类型仅 4 种：`stage` / `progress` / `risk` / `overview`。
+
+- 事件分派：在 `useContractReview` 内注册一个 `handleContractEvent(payload)`，按 `payload.type` 路由到对应状态 ref
+- `stage` 事件：更新对应阶段 status；若 `stage==='segment' && status==='done'` 则把 `totalClauses` 存下；若 `stage==='analyze' && status==='done' && warnings?.length` 则把 warnings 存下，UI 弹 toast
+- `progress` 事件：更新 `analyzingClauseIndex = current`；若带 `error` 字段则 toast "第 N 条分析失败，已跳过"（不阻塞流程）
+- `risk` 事件：`risks.value = [...risks.value, risk]`；UI 打 3 秒"刚刚"角标
+- `overview` 事件：`review.value.summary = overview`
 
 ---
 
@@ -395,11 +405,12 @@ function clearAllPins()
 
 ### 7.3 过程透明
 
-- 阶段条目：done 绿点、running 橙点光晕（呼吸动画）、wait 灰点
-- 分析中：`正在分析第 14 / 24 条…` 文案 + 细进度条
+- 阶段条目（5 段）：done 绿点、running 橙点光晕（呼吸动画）、wait 灰点
+- 分析中：`正在分析第 14 / 24 条…` 文案 + 细进度条（current / total）
 - 每新增一条 risk：卡片从顶部滑入 + 淡黄色过渡 3 秒 + "刚刚" 角标
-- 总分仪表盘：在 summarize 完成前显示骨架屏（shimmer）
+- 总分仪表盘：`risks.length === 0` 时骨架屏（shimmer）；首条 risk 到达后立即按当前 counts 显示初值（随后每条 risk 更新）
 - 全部完成：阶段条自动折叠为 2 行摘要"✓ 审查完成 · 10 条风险 · 总分 55/100"
+- rebuild 后台进行时仅"下载批注 Word"按钮保持 disabled + 小 spinner，不在主进度条占槽位
 
 ---
 
@@ -408,13 +419,14 @@ function clearAllPins()
 | 场景 | 行为 |
 |---|---|
 | SSE 中断 | `useStreamChat` 已有重连；重连后状态由后端快照补齐（读 review GET 拉一次） |
-| 某条条款分析失败 | SSE `warn` 事件，前端 `stageStatus.analyze = done` 时统计失败数并 toast "N 条条款分析失败，已跳过" |
-| `summary.highlights`/`counts`/`score` 缺失（历史数据） | 前端渲染 `summary.overall` 一段文字 + 客户端从 `risks[]` 现算 counts；要点区隐藏 |
-| 定位失败 | 三级兜底（§5 - 4.2）；最终仍失败 → 卡片显示"⚠ 未定位"标签 |
-| 合同极短（< 3 条条款） | 跳过切分，直接整篇分析；仍出 overview |
-| 合同极长（> 200 条条款） | 给一个硬上限（比如 150 条），超过后分批 + 告知用户可能不完整 |
+| 某条条款分析失败 | **实时**：`progress.error` 字段附错误摘要，前端立即 toast "第 N 条分析失败，已跳过"；**终态**：`stage:analyze,done.warnings[]` 包含所有失败汇总用于审计 |
+| rebuild 后台完成 | 不发自定义事件；走现有 stream runStatus=completed → refreshReview → `reviewedFileId` 就绪后"下载批注 Word"按钮自动启用 |
+| `summary.highlights` 缺失（历史数据 / summarize 未完成） | 前端渲染 `summary.overall` 一段文字；仪表盘 + 三色计数仍展示（前端现算）；要点区隐藏 |
+| 定位失败 | 三级兜底（精确 → 模糊 → 显式，见 §US-6）；最终仍失败 → 卡片显示"⚠ 未定位"标签，点击仅展开 |
+| 合同极短（< 3 条条款） | 跳过 `segment` 阶段（阶段条将该槽位自动标 done），直接整篇分析；仍出 overview |
+| 合同极长（> 200 条条款） | 硬上限 150 条，超过后分批 + 告知用户"可能不完整"；warnings 中标明 |
 | 用户中途取消 | 停止分析循环；已出的 risks 保留；review 状态置为 `failed` 但保留数据 |
-| 钉住数量 | 不限制数量；但全高亮时文档观感会乱 → UI 给一个"清除所有钉"按钮 |
+| 钉住数量 | 不限制数量；UI 提供"清除所有钉"按钮（位于总览区末端） |
 
 ---
 
@@ -423,18 +435,21 @@ function clearAllPins()
 ### 9.1 后端
 
 - **clauseSegmenter**：准备 5 份样本合同（不同编号风格：第X条 / 1.1 / 一、/ 混合 / 无编号），正则命中率 ≥ 90%，LLM 兜底覆盖剩余
-- **clauseAnalyzer**：单条条款分析失败不影响整体；LLM 返回非法 risk 时用 zod 拒绝并 warn
-- **流式事件顺序**：stage → progress → risk → overview → rebuild 的严格顺序用 property 测试验证
-- **持久化**：增量写时的并发一致性（模拟 SSE 乱序到达）
-- **PDF**：新老 summary 各渲染一份样本
+- **clauseAnalyzer**：单条条款分析失败不影响整体；LLM 返回非法 risk 时用 zod 拒绝并合入 `warnings[]`
+- **流式事件顺序**：stage(detect) → stage(stance) → stage(segment,done+totalClauses) → stage(analyze)+progress+risk* → stage(analyze,done+warnings?) → stage(summarize) → overview → stage(summarize,done) 的严格顺序用 property 测试验证
+- **持久化**：增量写 risks 时基于 `updatedAt` 的乐观锁（模拟 SSE 乱序到达）
+- **PDF**：新老 summary 各渲染一份样本（兼容性回归）
+- **定位兜底**（§US-6 三级）：准备 5 种常见编号格式样本（`5.2 xxx` / `第5条 xxx` / `第五条 xxx` / `一、xxx` / 无编号散段），验证"前 20 字关键词模糊匹配"在每种编号格式下都能按预期命中或显式"未定位"
+- **测试命令**：按项目规范统一使用 `npx vitest run`（非 `bun test`，见 `.claude/rules/commands.md`）
 
 ### 9.2 前端
 
-- **useContractReview**：`focusRisk` / `togglePin` / `clearAllPins` 状态机
+- **useContractReview**：`focusRisk` / `togglePin` / `clearAllPins` 状态机；`handleContractEvent` 对 4 种事件的正确路由
+- **useContractOverview**（新 composable）：score 加权公式 `3h + 1.5m + 0.5l`（上限 100）与 scoreLabel 分段派生
 - **ContractDocxPreview**：挂载后能正确注入 data-risk-id；外部 focusClause 能滚到正确位置；悬停 emit 节流 200ms
-- **RiskListPanel**（新总览区）：overview 缺失时降级渲染；要点点击 emit 正确 riskId
+- **新总览区组件**：overview 缺失时降级渲染；要点点击 emit 正确 riskId；`risks` 为空时仪表盘骨架屏
 - **ContractReviewPanel**：三入口统一调度；pinned + focused 组合视觉
-- **进度组件**：5 阶段切换；阶段切换动画；完成后自动折叠
+- **进度组件**：5 阶段切换；阶段切换动画；summarize 完成后自动折叠；rebuild 不占槽位
 
 ### 9.3 E2E（可选）
 
@@ -444,48 +459,44 @@ function clearAllPins()
 
 ## 10. 里程碑拆分（供 writing-plans 参考）
 
-工期预估 **10-12 天**。建议按独立可上线的子期拆：
+工期预估 **10-12 天**。v2 把原 5 子期合并为 4 个，让**首个子期上线即有用户可感知价值**（避免原子期 1 "和现在一样"的空转交付）：
 
-**子期 1（基础 · 4 天）**：数据结构升级 + 流式骨架 + 阶段进度组件
-- DB migration（summary → JSON / 新增 clauseSegments）
-- 后端 stage 事件透传（不改分析逻辑）
-- 前端阶段进度条
-- **交付物**：用户提交合同能看到 5 阶段状态，审查结果和现在一样
+**子期 1（基础 + 阶段 + 计数 · 4-5 天）**：数据结构升级 + 流式骨架 + 阶段进度条 + 条款切分 + 分析进度
+- DB 迁移：`summary: String → Json`；`ContractOverview` 类型加入 `shared/types/contract.ts`
+- 后端：`clauseSegmenter` 节点 + `stage` + `progress`（含 `error`）两种自定义事件协议
+- 前端：`ContractReviewProgress` 进度组件 + `handleContractEvent` 事件路由
+- `risk` / `overview` 本子期仍随原有"整体一次性"路径返回（不立即改造 `clauseAnalyzer` 与 `summarize`，留到子期 2/3）
+- **子期 1 的用户可感知价值**（✅ 非"和现在一样"）：从现在的"黑盒等 45 秒转圈" → 变成能看到"识别甲乙方 ✓ / 正在切分条款 / 共 24 条 / 正在分析第 14 条 / 仍在汇总中"的完整进度链路；最终 risks/overview 出现的时机和现在一样，但等待体验从焦虑变成可感知
+- **交付物**：用户提交合同后能看到 5 阶段进度 + "共 24 条条款 / 正在分析第 14 条"
 
-**子期 2（切分 + 计数 · 2 天）**：clauseSegmenter + progress 事件
-- 条款切分节点
-- progress SSE
-- 前端 X / Y 计数
-- **交付物**：切分完成能看到总条款数，分析过程能看到进度
+**子期 2（逐条流式 · 2 天）**：`clauseAnalyzer` 改造
+- 后端：按条款循环 LLM 调用，`risk` 事件增量推送；基于 `updatedAt` 的乐观锁增量写 `risks[]`
+- 前端：卡片从顶部流式冒出 + 3 秒"刚刚"角标 + 顶部仪表盘 + 三色计数跟着 risks 增量更新
+- **交付物**：风险卡片边审边看，不用等 45 秒
 
-**子期 3（逐条流式 · 2 天）**：clauseAnalyzer 改造
-- 按条款循环 LLM 调用
-- risk 事件增量推送
-- 前端卡片流式冒出 + "刚刚"角标
-- **交付物**：风险卡片不再一次性出现，边审边看
+**子期 3（总览结构 · 2 天）**：`overview` 结构生成 + 新总览区组件 + PDF 同步
+- 后端：`summarize` 节点输出 `ContractOverview`（仅 `highlights` + `overall`）
+- 前端：新总览区组件（仪表盘 + 三色计数 + 可点要点 + 总评）；`useContractOverview` composable 封装 score / counts / scoreLabel 派生
+- PDF 服务同步渲染新结构 + 历史数据降级
+- **交付物**：审查结果顶部是新总览，PDF 同步
 
-**子期 4（总览页面 · 2 天）**：overview 结构 + 新总览区
-- overview schema 生成
-- 前端仪表盘 / 三色计数 / 可点要点 / 总评 4 件套
-- PDF 同步
-- **交付物**：审查结果顶部是新总览
-
-**子期 5（跳转联动 · 2 天）**：三入口 + 反向悬停 + 钉多条
-- 文档预览注入 + 统一调度器
-- 卡片📌 按钮 + Shift 快捷键
-- 浮动面板接线
+**子期 4（跳转联动 · 2 天）**：三入口统一调度 + 反向悬停 + 钉多条 + 定位兜底
+- 前端：`ContractDocxPreview` 注入 `data-risk-id` + 风险段落彩色底 + 右上徽章
+- `useContractReview` 扩展 `focusRisk` / `togglePin` / `clearAllPins` + 统一调度器
+- 卡片 📌 按钮 + Shift 快捷键 + 浮动面板接线
 - 三级定位兜底
 - **交付物**：完整交互达到 mockup 最终形态
 
-各子期之间后向兼容：即便只上到子期 3，产品仍然完整可用。
+各子期之间后向兼容：即便只上到子期 2，产品仍然完整可用。
 
 ---
 
 ## 11. 开放问题（写在这里等 writing-plans 再查）
 
 - `clauseSegmenter` 的正则具体规则：是否覆盖"附件X"/"补充条款"等非标准编号？
-- 风险总分 0-100 的计算口径是 LLM 自评还是前端按 count 加权（3×high + 1.5×medium + 0.5×low）？ — 推荐后者（更稳定）
-- 钉住数量是否设软上限（比如超过 10 条提示"钉太多了"）？
-- 切分失败（LLM 兜底也败）时该置失败态还是降级整篇分析？ — 默认降级整篇
+- 切分失败（LLM 兜底也败）时该置失败态还是降级整篇分析？ — 默认降级整篇，跳过 `segment` 阶段
+- 乐观锁字段选型：用 `updatedAt` 还是新增 `version` 列？ — 默认先用 `updatedAt`，必要时再升级
 
-这几个留到实施计划阶段再敲细。
+已在 v2 确定不再是开放问题的项：
+- ~~风险总分计算口径~~ → 前端加权（见 §4.1）
+- ~~钉住数量软上限~~ → 不设上限，提供"清除所有钉"按钮
