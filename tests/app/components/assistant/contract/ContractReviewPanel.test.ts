@@ -197,7 +197,7 @@ const DocxPreviewStub = defineComponent({
         hoveredRiskId: { type: [String, null] as unknown as () => string | null, default: null },
         highlightedRiskIds: { type: Object as unknown as () => Set<string>, default: () => new Set() },
     },
-    emits: ['focusRisk', 'hoverClause'],
+    emits: ['focusRisk', 'hoverClause', 'locateResult'],
     setup(props, { emit }) {
         return () =>
             h('div', {
@@ -215,6 +215,10 @@ const DocxPreviewStub = defineComponent({
                     'data-stub-btn': 'focus-risk-from-preview',
                     onClick: () => emit('focusRisk', 'risk-from-preview'),
                 }, 'focus'),
+                h('button', {
+                    'data-stub-btn': 'locate-result-with-r1',
+                    onClick: () => emit('locateResult', new Set(['r1'])),
+                }, 'locate-result'),
             ])
     },
 })
@@ -231,6 +235,7 @@ const RiskListPanelStub = defineComponent({
         focusedRiskId: { type: [String, null] as unknown as () => string | null, default: null },
         hoveredRiskId: { type: [String, null] as unknown as () => string | null, default: null },
         pinnedRiskIds: { type: Object as unknown as () => Set<string>, default: () => new Set() },
+        notLocatedIds: { type: Object as unknown as () => Set<string>, default: () => new Set() },
     },
     emits: ['download', 'rebuild', 'editRisks', 'focusRisk', 'togglePin'],
     setup(props, { emit }) {
@@ -246,6 +251,7 @@ const RiskListPanelStub = defineComponent({
                     'data-has-unsaved': String(props.hasUnsavedDocxChanges),
                     'data-focused-risk-id': props.focusedRiskId ?? '',
                     'data-hovered-risk-id': props.hoveredRiskId ?? '',
+                    'data-not-located-count': String((props.notLocatedIds as Set<string>).size),
                 },
                 [
                     h('button', { 'data-stub-btn': 'download', onClick: () => emit('download') }, 'download'),
@@ -265,6 +271,14 @@ const RiskListPanelStub = defineComponent({
                             onClick: () => emit('focusRisk', 'risk-from-list'),
                         },
                         'focus-risk',
+                    ),
+                    h(
+                        'button',
+                        {
+                            'data-stub-btn': 'focus-risk-not-located',
+                            onClick: () => emit('focusRisk', 'r1'),
+                        },
+                        'focus-risk-not-located',
                     ),
                 ],
             )
@@ -729,5 +743,49 @@ describe('ContractReviewPanel Task 4.5：焦点/悬停/钉调度', () => {
         const panel = w.find('[data-stub="FloatingAnnotationPanel"]')
         expect(panel.exists()).toBe(true)
         expect(panel.attributes('data-active-risk-id')).toBe('risk-focused')
+    })
+})
+
+describe('ContractReviewPanel Task 4.6.1：未定位拦截 + notLocatedIds 下传', () => {
+    it('DocxPreview emit locateResult → notLocatedIds 下传给 RiskListPanel', async () => {
+        reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
+        const w = mountPanel()
+        await nextTick()
+
+        // 触发 DocxPreview emit locateResult，Set 含 'r1'
+        await w.find('[data-stub-btn="locate-result-with-r1"]').trigger('click')
+        await nextTick()
+
+        const riskPanel = w.find('[data-stub="RiskListPanel"]')
+        expect(riskPanel.attributes('data-not-located-count')).toBe('1')
+    })
+
+    it('未定位 risk 点击 focusRisk → handleFocusRisk early return，不调 focusRisk', async () => {
+        reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
+        const w = mountPanel()
+        await nextTick()
+
+        // 先让 notLocatedIds 含 'r1'（通过 locate-result）
+        await w.find('[data-stub-btn="locate-result-with-r1"]').trigger('click')
+        await nextTick()
+
+        // 点击已被标记为未定位的 r1 focusRisk
+        await w.find('[data-stub-btn="focus-risk-not-located"]').trigger('click')
+        await nextTick()
+
+        expect(mockFocusRisk).not.toHaveBeenCalled()
+    })
+
+    it('已定位 risk 点击 focusRisk → 正常调用 focusRisk', async () => {
+        reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
+        const w = mountPanel()
+        await nextTick()
+
+        // risk-from-list 不在 notLocatedIds 中，应正常调用
+        await w.find('[data-stub-btn="focus-risk"]').trigger('click')
+        await nextTick()
+
+        expect(mockFocusRisk).toHaveBeenCalledTimes(1)
+        expect(mockFocusRisk).toHaveBeenCalledWith('risk-from-list')
     })
 })

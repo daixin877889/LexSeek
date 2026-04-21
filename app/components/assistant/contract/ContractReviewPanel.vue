@@ -157,6 +157,22 @@ watch(isRebuilding, (rebuilding, wasRebuilding) => {
     }
 })
 
+// 未定位 risk id 集合（由 ContractDocxPreview decorateRisks 完成后上报）
+const notLocatedIds = ref<Set<string>>(new Set())
+
+function handleLocateResult(ids: Set<string>) {
+    notLocatedIds.value = ids
+}
+
+/**
+ * 聚焦 risk 的拦截层：未定位的 risk 不跳转文档（元素不存在），
+ * RiskListPanel 侧的 toggle 展开/收起照常执行（由 RiskListPanel 内部维护）。
+ */
+function handleFocusRisk(id: string) {
+    if (notLocatedIds.value.has(id)) return
+    focusRisk(id)
+}
+
 // 浮动风险速览面板：默认显示，用户关闭后可通过 toolbar 重开
 const showFloatingPanel = ref(true)
 
@@ -206,8 +222,9 @@ function handleContainerClick(e: MouseEvent) {
                 :focused-risk-id="focusedRiskId"
                 :hovered-risk-id="hoveredRiskId"
                 :highlighted-risk-ids="highlightedRiskIds"
-                @focus-risk="focusRisk"
+                @focus-risk="handleFocusRisk"
                 @hover-clause="setHoveredRisk"
+                @locate-result="handleLocateResult"
             />
             <div class="border-l flex flex-col min-h-0">
                 <AssistantContractReviewProgress
@@ -232,11 +249,12 @@ function handleContainerClick(e: MouseEvent) {
                     :focused-risk-id="focusedRiskId"
                     :hovered-risk-id="hoveredRiskId"
                     :pinned-risk-ids="pinnedRiskIds"
+                    :not-located-ids="notLocatedIds"
                     @download="onDownload"
                     @rebuild="onRebuildDocx"
                     @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
                     @export-pdf="(includeRisks: boolean) => onExportPdf(includeRisks)"
-                    @focus-risk="focusRisk"
+                    @focus-risk="handleFocusRisk"
                     @toggle-pin="togglePin"
                 />
             </div>
@@ -248,7 +266,7 @@ function handleContainerClick(e: MouseEvent) {
             :risks="review?.risks ?? []"
             :visible="showFloatingPanel"
             :active-risk-id="focusedRiskId ?? undefined"
-            @focus-risk="focusRisk"
+            @focus-risk="handleFocusRisk"
             @update:visible="(v: boolean) => (showFloatingPanel = v)"
         />
     </div>

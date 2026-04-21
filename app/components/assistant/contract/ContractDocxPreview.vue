@@ -30,6 +30,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
     focusRisk: [riskId: string]
     hoverClause: [riskId: string | null]
+    locateResult: [notLocatedIds: Set<string>]
 }>()
 
 const containerRef = ref<HTMLElement | null>(null)
@@ -49,9 +50,13 @@ const LEVEL_BG: Record<RiskLevel, string[]> = {
 /** renderAsync 完成后遍历 risks，用 clauseLocator 找到对应段落，注入属性和事件 */
 function decorateRisks() {
     if (!containerRef.value) return
+    const notLocatedIds = new Set<string>()
     for (const risk of props.risks) {
         const el = locateClauseElement(containerRef.value, risk.clauseText)
-        if (!el || !(el instanceof HTMLElement)) continue
+        if (!el || !(el instanceof HTMLElement)) {
+            notLocatedIds.add(risk.id)
+            continue
+        }
         // 幂等：已装饰（由 dataset.riskId 标记）直接跳过，避免 LEVEL_BG class 叠加
         // 叠加 border-l-4 会和 focused 态的 border-l-[5px] 冲突，CSS 优先级不确定
         if (el.dataset.riskId === risk.id) continue
@@ -66,6 +71,7 @@ function decorateRisks() {
             el.dataset.hoverHooked = '1'
         }
     }
+    emit('locateResult', notLocatedIds)
 }
 
 async function loadDocx(fileId: number) {

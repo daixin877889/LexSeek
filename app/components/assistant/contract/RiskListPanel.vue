@@ -12,7 +12,7 @@
  *
  * **Feature: contract-review-m5**
  */
-import { DownloadIcon, ChevronDownIcon, Loader2Icon, PlusIcon, PencilIcon, Trash2Icon, FileTextIcon, Pin } from 'lucide-vue-next'
+import { DownloadIcon, ChevronDownIcon, Loader2Icon, PlusIcon, PencilIcon, Trash2Icon, FileTextIcon, Pin, TriangleAlert } from 'lucide-vue-next'
 import type { ContractOverview, Risk, ContractReviewStatus } from '#shared/types/contract'
 import { RISK_LEVEL_LABEL } from '#shared/types/contract'
 
@@ -26,6 +26,7 @@ const props = defineProps<{
     focusedRiskId: string | null
     hoveredRiskId: string | null
     pinnedRiskIds: Set<string>
+    notLocatedIds: Set<string>
 }>()
 
 const emit = defineEmits<{
@@ -185,6 +186,13 @@ function handleExportPdfConfirm(includeRisks: boolean) {
                         <div class="flex items-center gap-2">
                             <span class="inline-block px-2 py-0.5 rounded text-xs" :class="LEVEL_CLASS[r.level]">{{ RISK_LEVEL_LABEL[r.level] }}</span>
                             <span class="text-sm font-medium">{{ r.category }}</span>
+                            <span
+                                v-if="notLocatedIds.has(r.id)"
+                                class="text-[10px] px-1.5 rounded bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-0.5"
+                            >
+                                <TriangleAlert class="size-2.5" />
+                                未定位
+                            </span>
                             <ChevronDownIcon class="ml-auto size-4 transition-transform" :class="{ 'rotate-180': expandedId === r.id }" />
                         </div>
                         <div class="mt-1 text-xs text-muted-foreground line-clamp-2">{{ r.problem }}</div>

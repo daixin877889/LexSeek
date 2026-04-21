@@ -187,6 +187,7 @@ function mountPanel(props: Partial<{
     focusedRiskId: string | null
     hoveredRiskId: string | null
     pinnedRiskIds: Set<string>
+    notLocatedIds: Set<string>
 }> = {}) {
     return mount(RiskListPanel, {
         props: {
@@ -199,6 +200,7 @@ function mountPanel(props: Partial<{
             focusedRiskId: null,
             hoveredRiskId: null,
             pinnedRiskIds: new Set<string>(),
+            notLocatedIds: new Set<string>(),
             ...props,
         },
         global: { stubs },
@@ -563,7 +565,7 @@ describe('RiskListPanel · M6.1 流式冒出', () => {
     })
 })
 
-// mountPanel 辅助：带 Task 4.4 新增 props 的版本
+// mountPanel 辅助：带 Task 4.4 + 4.6.1 新增 props 的版本
 function mountPanelWithPin(props: Partial<{
     risks: Risk[]
     status: ContractReviewStatus
@@ -574,6 +576,7 @@ function mountPanelWithPin(props: Partial<{
     focusedRiskId: string | null
     hoveredRiskId: string | null
     pinnedRiskIds: Set<string>
+    notLocatedIds: Set<string>
 }> = {}) {
     return mount(RiskListPanel, {
         props: {
@@ -586,11 +589,44 @@ function mountPanelWithPin(props: Partial<{
             focusedRiskId: null,
             hoveredRiskId: null,
             pinnedRiskIds: new Set<string>(),
+            notLocatedIds: new Set<string>(),
             ...props,
         },
         global: { stubs },
     })
 }
+
+describe('RiskListPanel · M6.1 Task 4.6.1 未定位标签', () => {
+    it('未定位 risk 的卡片渲染 TriangleAlert 图标 + "未定位"文字', () => {
+        const w = mountPanelWithPin({
+            risks: [makeRisk({ id: 'r1' })],
+            notLocatedIds: new Set(['r1']),
+        })
+        const card = w.find('[data-risk-id="r1"]')
+        expect(card.text()).toContain('未定位')
+        // lucide TriangleAlert 会渲染出包含 lucide-triangle-alert 类的 svg
+        expect(card.find('.lucide-triangle-alert').exists()).toBe(true)
+    })
+
+    it('不在 notLocatedIds 中的卡片不渲染"未定位"标签', () => {
+        const w = mountPanelWithPin({
+            risks: [makeRisk({ id: 'r1' }), makeRisk({ id: 'r2', clauseIndex: 1 })],
+            notLocatedIds: new Set(['r1']),
+        })
+        // r1 有未定位标签
+        expect(w.find('[data-risk-id="r1"]').text()).toContain('未定位')
+        // r2 没有
+        expect(w.find('[data-risk-id="r2"]').text()).not.toContain('未定位')
+    })
+
+    it('notLocatedIds 为空时所有卡片均不渲染未定位标签', () => {
+        const w = mountPanelWithPin({
+            risks: [makeRisk({ id: 'r1' })],
+            notLocatedIds: new Set<string>(),
+        })
+        expect(w.find('[data-risk-id="r1"]').text()).not.toContain('未定位')
+    })
+})
 
 describe('RiskListPanel · M6.1 Task 4.4 钉住 + 聚焦态', () => {
     it('卡片右上渲染未钉状态的 Pin 图标按钮', () => {
