@@ -56,6 +56,7 @@ export const ModelName = {
   apiPermissions: 'apiPermissions',
   roleApiPermissions: 'roleApiPermissions',
   permissionAuditLogs: 'permissionAuditLogs',
+  agentToolAuditLogs: 'agentToolAuditLogs',
   campaigns: 'campaigns',
   caseTypes: 'caseTypes',
   cases: 'cases',
@@ -207,6 +208,23 @@ export const PermissionAuditLogsScalarFieldEnum = {
 } as const
 
 export type PermissionAuditLogsScalarFieldEnum = (typeof PermissionAuditLogsScalarFieldEnum)[keyof typeof PermissionAuditLogsScalarFieldEnum]
+
+
+export const AgentToolAuditLogsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  sessionId: 'sessionId',
+  caseId: 'caseId',
+  runId: 'runId',
+  toolName: 'toolName',
+  verdict: 'verdict',
+  denyReason: 'denyReason',
+  argsDigest: 'argsDigest',
+  latencyMs: 'latencyMs',
+  createdAt: 'createdAt'
+} as const
+
+export type AgentToolAuditLogsScalarFieldEnum = (typeof AgentToolAuditLogsScalarFieldEnum)[keyof typeof AgentToolAuditLogsScalarFieldEnum]
 
 
 export const CampaignsScalarFieldEnum = {

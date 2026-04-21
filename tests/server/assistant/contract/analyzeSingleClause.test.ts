@@ -20,6 +20,14 @@ vi.mock('~~/server/services/node/node.service', () => ({
     getValidNodeConfig: vi.fn().mockResolvedValue({
         modelApiKeys: [{ apiKey: 'sk-test', status: 1 }],
         modelSdkType: 'openai', modelName: 'gpt-4', modelProviderBaseUrl: 'https://api.openai.com/v1',
+        // DB 加载的 system prompt 模板——测试用最小可渲染版本
+        prompts: [
+            {
+                type: 'system',
+                status: 1,
+                content: '立场={{stanceLabel}} · 类型={{contractType}} · 第{{clauseIndex}}条\n甲方:{{partyA}} 乙方:{{partyB}}\n{{clauseText}}\n请输出 JSON。',
+            },
+        ],
     }),
 }))
 
@@ -32,6 +40,22 @@ describe('analyzeSingleClause', () => {
         })
         expect(result).not.toBeNull()
         expect(result?.level).toBe('high')
+        // 服务端强制覆盖 id，不使用 LLM 返回的 id（防重复 UUID 联动 bug）
+        expect(result?.id).not.toBe('a0000000-0000-4000-8000-000000000001')
+        expect(result?.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+    })
+
+    it('两次连续调用：LLM 返回相同 id 时服务端覆盖为不同 UUID', async () => {
+        const { analyzeSingleClause } = await import('~~/server/services/assistant/contract/analyzeSingleClause')
+        const ctx = {
+            clause: { index: 1, number: '3.2', text: '3.2 首付 40%，尾款 60%' },
+            stance: 'partyB' as const, partyA: 'A', partyB: 'B', contractType: '技术服务',
+        }
+        const a = await analyzeSingleClause(ctx)
+        const b = await analyzeSingleClause(ctx)
+        expect(a?.id).toBeTruthy()
+        expect(b?.id).toBeTruthy()
+        expect(a?.id).not.toBe(b?.id)
     })
 
     it('skip=true 返回 null', async () => {

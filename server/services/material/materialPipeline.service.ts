@@ -191,12 +191,16 @@ export function getSourceId(material: MaterialWithFile): number {
     return material.ossFileId!
 }
 
-/** 简单 token 估算（中文约 2 字符/token，英文约 4 字符/token） */
+/**
+ * 简单 token 估算（中文约 1 字符/token，英文约 4 字符/token）
+ * Anthropic tokenizer 对中文字符按 UTF-8 字节编码，1 个中文字符约 1-2 tokens，
+ * 用 1:1 比例估算，避免低估导致安全截断失效。
+ */
 export function estimateTokens(text: string): number {
     if (!text) return 0
     const chineseChars = (text.match(/[\u4e00-\u9fff]/g) || []).length
     const otherChars = text.length - chineseChars
-    return Math.ceil(chineseChars / 2 + otherChars / 4)
+    return Math.ceil(chineseChars + otherChars / 4)
 }
 
 /**

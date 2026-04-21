@@ -52,6 +52,11 @@ vi.mock('lucide-vue-next', () => ({
         name: 'XIcon',
         setup: () => () => h('i', { 'data-stub': 'XIcon' }),
     }),
+    // ResizableHandle 的 with-handle 槽里使用（分栏拖拽把手）
+    GripVertical: defineComponent({
+        name: 'GripVertical',
+        setup: () => () => h('i', { 'data-stub': 'GripVertical' }),
+    }),
 }))
 
 // ── mock useContractReview ──────────────────────────────────────────────────
@@ -303,36 +308,12 @@ const ReviewProgressStub = defineComponent({
     },
 })
 
-const FloatingAnnotationPanelStub = defineComponent({
-    name: 'AssistantContractFloatingAnnotationPanel',
-    props: {
-        risks: { type: Array, default: () => [] },
-        visible: { type: Boolean, default: true },
-        activeRiskId: { type: [String, null] as unknown as () => string | undefined, default: undefined },
-    },
-    emits: ['update:visible', 'focusRisk'],
-    setup(props, { emit }) {
-        return () =>
-            h('div', {
-                'data-stub': 'FloatingAnnotationPanel',
-                'data-active-risk-id': props.activeRiskId ?? '',
-                'data-visible': String(props.visible),
-            }, [
-                h('button', {
-                    'data-stub-btn': 'floating-focus-risk',
-                    onClick: () => emit('focusRisk', 'risk-from-floating'),
-                }, 'focus-risk'),
-            ])
-    },
-})
-
 const stubs = {
     // 字段名必须与模板里的组件名严格匹配（Nuxt 4 自动导入折叠 assistant/contract/Contract* → AssistantContract*）
     AssistantContractSourceInput: SourceInputStub,
     AssistantContractStanceSelectionDialog: StanceDialogStub,
     AssistantContractDocxPreview: DocxPreviewStub,
     AssistantContractRiskListPanel: RiskListPanelStub,
-    AssistantContractFloatingAnnotationPanel: FloatingAnnotationPanelStub,
     AssistantContractReviewProgress: ReviewProgressStub,
 }
 
@@ -685,15 +666,6 @@ describe('ContractReviewPanel Task 4.5：焦点/悬停/钉调度', () => {
         expect(mockFocusRisk).toHaveBeenCalledWith('risk-from-preview')
     })
 
-    it('FloatingPanel @focus-risk emit → focusRisk 被调用', async () => {
-        reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
-        const w = mountPanel()
-        await nextTick()
-        await w.find('[data-stub-btn="floating-focus-risk"]').trigger('click')
-        expect(mockFocusRisk).toHaveBeenCalledTimes(1)
-        expect(mockFocusRisk).toHaveBeenCalledWith('risk-from-floating')
-    })
-
     it('容器 Shift+click 含 data-risk-id 元素 → togglePin 被调用', async () => {
         reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
         const w = mountPanel()
@@ -735,15 +707,6 @@ describe('ContractReviewPanel Task 4.5：焦点/悬停/钉调度', () => {
         el.removeChild(childNoRiskId)
     })
 
-    it('FloatingAnnotationPanel 收到 :active-risk-id=focusedRiskId', async () => {
-        reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
-        focusedRiskIdRef.value = 'risk-focused'
-        const w = mountPanel()
-        await nextTick()
-        const panel = w.find('[data-stub="FloatingAnnotationPanel"]')
-        expect(panel.exists()).toBe(true)
-        expect(panel.attributes('data-active-risk-id')).toBe('risk-focused')
-    })
 })
 
 describe('ContractReviewPanel Task 4.6.1：未定位拦截 + notLocatedIds 下传', () => {

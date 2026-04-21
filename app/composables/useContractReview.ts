@@ -329,6 +329,27 @@ export function useContractReview() {
         lastServerRisks = r.risks ?? []
         lastServerUnsaved = typeof r.hasUnsavedDocxChanges === 'boolean' ? r.hasUnsavedDocxChanges : false
 
+        // 根据 review.status 回填 stageStatus，避免挂载历史 review 时 5 段 dot 仍为灰色。
+        // SSE 流事件只覆盖当前会话期间的阶段切换，挂载已有 review 需从 status 推断历史进度。
+        if (r.status === 'completed' || r.status === 'rebuilding' || r.status === 'failed') {
+            // 终态：五段全部 done（failed 也视为"流程已走完、只是结果标记失败"）
+            stageStatus.value = {
+                detect: 'done', stance: 'done', segment: 'done', analyze: 'done', summarize: 'done',
+            }
+            totalClauses.value = Array.isArray(r.risks) ? r.risks.length : null
+        } else if (r.status === 'reviewing') {
+            // 进行中：识别/立场已经完成，切分至少走到；analyze 视为 running
+            stageStatus.value = {
+                detect: 'done', stance: 'done', segment: 'done', analyze: 'running', summarize: 'wait',
+            }
+        } else if (r.status === 'awaiting_stance') {
+            // 等立场：识别已完成，立场 running
+            stageStatus.value = {
+                detect: 'done', stance: 'running', segment: 'wait', analyze: 'wait', summarize: 'wait',
+            }
+        }
+        // pending 保持初始全 wait
+
         // 回填持久化的未保存标志：仅在字段为明确 boolean 时覆盖（M6.1A-e）
         // 不同 status 下该字段可能为 null/undefined，避免误改写 ref
         if (typeof review.value?.hasUnsavedDocxChanges === 'boolean') {
@@ -351,25 +372,31 @@ export function useContractReview() {
      * INTERRUPTED → COMPLETED 释放 + enqueue 新 run，前端只需重新订阅 SSE。
      * 使用 command.resume 会与服务端重复入队，触发 agentRuns 的 P2002 唯一索引冲突。
      */
-    async function onStance(payload: StanceRequest) {
-        if (!reviewId.value) return
-        if (!stream.value) return
+    /**
+     * 立场选择提交。成功返回 true，任意分支失败返回 false。
+     * 调用方据此决定是否允许用户重试（例如 Dialog 关闭态）。
+     */
+    async function onStance(payload: StanceRequest): Promise<boolean> {
+        if (!reviewId.value) return false
+        if (!stream.value) return false
 
         const result = await useApiFetch<{ reviewId: number; runId: number }>(
             `/api/v1/assistant/contract/reviews/${reviewId.value}/stance`,
             { method: 'POST', body: payload },
         )
-        if (!result) return
+        if (!result) return false
         // await 期间 stream 可能已被 cancelReview / 路由切换置空
-        if (!stream.value) return
+        if (!stream.value) return false
 
         // 复位底层 stream runStatus 再 submit，保证 watch(runStatus) 的 completed/failed 分支能再次触发
         stream.value.runStatus.value = 'idle'
         try {
             await stream.value.submit(undefined)
+            return true
         } catch (err) {
             console.warn('立场提交后续订失败', err)
             toast.error('连接中断，请重试')
+            return false
         }
     }
 

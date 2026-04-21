@@ -7,10 +7,11 @@
  * **Validates: 脚本执行、路径安全、参数传递、运行时推断、workspace 执行**
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import { mkdir, writeFile, rm, chmod } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { tmpdir } from 'node:os'
+import * as runSkillScriptModule from '../../../../server/services/workflow/tools/runSkillScript.tool'
 import { createTool, toolDefinition } from '../../../../server/services/workflow/tools/runSkillScript.tool'
 
 /** 测试上下文 */
@@ -216,5 +217,36 @@ describe('run_skill_script 工具 - workspace 执行', () => {
 
         const parsed = JSON.parse(result.trim())
         expect(parsed.wsDir).toBe(workspaceDir)
+    })
+})
+
+// ==================== 子进程网络隔离（unshare -rn）相关测试 ====================
+
+/**
+ * 注：`getPlatform` / `hasUnshare` 在生产环境下由 Linux 容器内真实调用 `unshare -rn`
+ * 来验证；在 macOS 开发机上 ES module 静态 import 导致 `vi.spyOn` 无法拦截模块内部调用，
+ * 这里只做"导出存在性 + 缓存可重置"的冒烟测试，真正功能验证交给集成环境（Task 15 手工清单）。
+ */
+
+describe('run_skill_script 子进程网络隔离（冒烟）', () => {
+    beforeEach(() => {
+        runSkillScriptModule._resetUnshareDetection()
+    })
+
+    it('getPlatform / hasUnshare / _resetUnshareDetection 三个辅助函数均已导出', () => {
+        expect(typeof runSkillScriptModule.getPlatform).toBe('function')
+        expect(typeof runSkillScriptModule.hasUnshare).toBe('function')
+        expect(typeof runSkillScriptModule._resetUnshareDetection).toBe('function')
+        expect(runSkillScriptModule.getPlatform()).toBe(process.platform)
+    })
+
+    it('hasUnshare 的缓存机制：多次调用不重复触发 execFile', async () => {
+        runSkillScriptModule._resetUnshareDetection()
+        // 同时发起两次调用，缓存命中后第二次不应再探测
+        const [r1, r2] = await Promise.all([
+            runSkillScriptModule.hasUnshare(),
+            runSkillScriptModule.hasUnshare(),
+        ])
+        expect(r1).toBe(r2)  // 探测结果稳定一致
     })
 })

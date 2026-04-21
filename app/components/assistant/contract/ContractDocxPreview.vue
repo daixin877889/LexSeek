@@ -40,7 +40,12 @@ const empty = computed(() => !props.reviewedFileId && !props.originalFileId)
 // 每次 load 触发时递增；仅最新 seq 允许继续写入 DOM，防止过期请求覆盖
 let fetchSeq = 0
 
-/** 风险等级对应的底色 + 左边框基础样式 */
+/**
+ * 风险等级对应的底色 + 左边框基础样式。
+ *
+ * 注：文档"纸面"保持白色（Word 预览惯例），不随全局 dark 主题翻转；
+ * 因此段落高亮只用 light 变体，避免在白纸上出现暗色块的突兀对比。
+ */
 const LEVEL_BG: Record<RiskLevel, string[]> = {
     high: ['bg-red-50', 'border-l-4', 'border-red-400'],
     medium: ['bg-orange-50', 'border-l-4', 'border-orange-400'],
@@ -158,15 +163,50 @@ watch(
 </script>
 
 <template>
-    <div class="relative h-full bg-muted/20">
-        <div v-if="empty" class="flex h-full items-center justify-center text-sm text-muted-foreground">
+    <div class="relative h-full flex flex-col">
+        <div v-if="empty" class="flex-1 flex items-center justify-center text-sm text-muted-foreground">
             等待合同上传...
         </div>
         <template v-else>
-            <div v-if="loading" class="absolute top-2 left-1/2 -translate-x-1/2 text-xs text-muted-foreground">
+            <div v-if="loading" class="absolute top-2 left-1/2 -translate-x-1/2 text-xs text-muted-foreground z-10">
                 合同加载中...
             </div>
-            <div ref="containerRef" class="docx-preview-container h-full overflow-auto p-4" />
+            <!-- 白纸：bg-background 浅色=白 / 暗色=深主题色；.docx 原生白纸居中陈列 -->
+            <div
+                ref="containerRef"
+                class="docx-preview-container flex-1 min-h-0 overflow-y-auto rounded-md bg-background p-6"
+            />
         </template>
     </div>
 </template>
+
+<!--
+  对齐文书编辑器 DocumentPreview 的纸面约定：
+  - .docx-wrapper 透明 + 无阴影（外层容器已提供背景）
+  - section.docx 保留 docx-preview 默认白色纸面，仅去 margin/阴影避免重复
+  - 正文行距统一 1.8，与 DocumentPreview 一致
+-->
+<style scoped>
+.docx-preview-container :deep(.docx-wrapper) {
+    background: transparent;
+    padding: 0;
+    box-shadow: none;
+}
+.docx-preview-container :deep(.docx) {
+    box-shadow: none !important;
+    margin: 0 !important;
+    /* Word 风格内页边距：纯文本粘贴场景下 docx-preview 给 section 默认 padding=0，
+       会让正文和风险左边框直接贴纸面边。这里补回 32px 48px 页边距。 */
+    padding: 32px 48px !important;
+}
+.docx-preview-container :deep(p),
+.docx-preview-container :deep(li),
+.docx-preview-container :deep(h1),
+.docx-preview-container :deep(h2),
+.docx-preview-container :deep(h3),
+.docx-preview-container :deep(h4),
+.docx-preview-container :deep(h5),
+.docx-preview-container :deep(h6) {
+    line-height: 1.8 !important;
+}
+</style>

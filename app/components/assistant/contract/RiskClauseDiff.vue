@@ -43,8 +43,8 @@ const diff = computed<{ original: DiffSegment[]; revised: DiffSegment[] } | null
 
 const CLASS_MAP: Record<DiffSegment['kind'], string> = {
     equal: '',
-    delete: 'bg-red-100 dark:bg-red-900/30 line-through',
-    insert: 'bg-emerald-100 dark:bg-emerald-900/30 font-medium',
+    delete: 'bg-red-100 dark:bg-red-900/50 text-red-900 dark:text-red-100 line-through',
+    insert: 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-900 dark:text-emerald-100 font-medium',
 }
 </script>
 
@@ -59,7 +59,7 @@ const CLASS_MAP: Record<DiffSegment['kind'], string> = {
         </div>
         <div class="space-y-1">
             <div class="text-xs text-muted-foreground">建议改写</div>
-            <div v-if="diff" class="p-3 rounded-md bg-emerald-50 dark:bg-emerald-950/30 whitespace-pre-wrap">
+            <div v-if="diff" class="p-3 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-foreground whitespace-pre-wrap">
                 <span v-for="(seg, i) in diff.revised" :key="`r-${i}`" :class="CLASS_MAP[seg.kind]">{{ seg.text }}</span>
             </div>
             <div v-else class="p-3 rounded-md bg-muted/20 text-muted-foreground italic">无建议改写</div>

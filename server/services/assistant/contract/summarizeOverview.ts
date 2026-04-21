@@ -5,12 +5,15 @@
  * 返回 ContractOverview 结构。
  *
  * - 0 条风险时直接返回默认，不调 LLM（省 token）
+ * - 提示词从 DB 节点 `contractReviewSummarize` 的 system prompt 加载（运营可在后台热更新）
  * - LLM 返回不符合 schema 时抛错，调用方决定降级策略
  */
 import { z } from 'zod'
 import type { Risk, ContractOverview, Stance } from '#shared/types/contract'
 import { createChatModel } from '~~/server/services/node/chatModelFactory'
 import { getValidNodeConfig } from '~~/server/services/node/node.service'
+import { renderContent } from '~~/server/services/node/prompt.service'
+import { logContextOverflow } from '~~/server/services/workflow/context/contextErrorLogger'
 
 const OverviewResponse = z.object({
     highlights: z.object({
@@ -20,6 +23,8 @@ const OverviewResponse = z.object({
     }),
     overall: z.string().max(120),
 })
+
+const NODE_NAME = 'contractReviewSummarize'
 
 export async function summarizeOverview(
     risks: Risk[],
@@ -33,9 +38,15 @@ export async function summarizeOverview(
         }
     }
 
-    const config = await getValidNodeConfig('contractReviewMain')
+    const config = await getValidNodeConfig(NODE_NAME)
     const activeKey = config.modelApiKeys.find(k => k.status === 1)
-    if (!activeKey) throw new Error('summarizeOverview: 无可用 API 密钥')
+    if (!activeKey) throw new Error(`${NODE_NAME}: 无可用 API 密钥`)
+
+    // 从 DB 加载 system prompt 模板（运营可在 /admin/nodes/:id 里热更）
+    const template = config.prompts.find(p => p.type === 'system' && p.status === 1)?.content
+    if (!template) {
+        throw new Error(`${NODE_NAME}: DB 未配置 system 类型的启用态提示词`)
+    }
 
     const model = createChatModel({
         sdkType: config.modelSdkType,
@@ -45,8 +56,25 @@ export async function summarizeOverview(
         temperature: 0.3, // 略放松，让总评自然
     })
 
-    const prompt = buildPrompt(risks, stance, contractType)
-    const response = await model.invoke(prompt)
+    const prompt = renderPromptTemplate(template, risks, stance, contractType)
+    let response
+    try {
+        response = await model.invoke(prompt)
+    } catch (err) {
+        logContextOverflow(err, {
+            source: 'summarizeOverview',
+            modelName: config.modelName,
+            sdkType: config.modelSdkType,
+            contextWindow: config.modelContextWindow,
+            extra: {
+                riskCount: risks.length,
+                promptLength: prompt.length,
+                stance,
+                contractType,
+            },
+        })
+        throw err
+    }
     const content = typeof response.content === 'string' ? response.content : ''
 
     const jsonMatch = content.match(/\{[\s\S]*\}/)
@@ -82,14 +110,31 @@ export async function summarizeOverview(
     return parsed.data
 }
 
-function buildPrompt(risks: Risk[], stance: Stance, contractType: string | null): string {
-    const riskList = risks.map(r => `${r.level.toUpperCase()} · ${r.id} · ${r.category} · ${r.problem}`).join('\n')
-    return [
-        `我刚完成一份${contractType ?? '合同'}的风险审查（立场=${stance}）。以下是所有风险点：`,
+/**
+ * 渲染 DB 模板：替换 {{stance}} / {{contractType}} / {{riskList}} 占位符
+ *
+ * riskList 是长文本（每条 risk 一行），不适合直接放在模板的 variables 字段里——
+ * variables 是 JSON 数组只做字段名声明；实际值在调用处拼接好再 renderContent。
+ */
+function renderPromptTemplate(
+    template: string,
+    risks: Risk[],
+    stance: Stance,
+    contractType: string | null,
+): string {
+    const riskList = risks
+        .map(r => `${r.level.toUpperCase()} · ${r.id} · ${r.category} · ${r.problem}`)
+        .join('\n')
+    const rendered = renderContent(template, {
+        stance,
+        contractType: contractType ?? '合同',
         riskList,
-        ``,
-        `请按"高/中/低"三档输出分档要点（每条 ≤ 60 字，挂原 risk 的 id），再写一段总评（≤ 120 字）。`,
-        `严格按如下 JSON 输出，不要解释：`,
-        `{"highlights": {"high":[{"text":"...","riskId":"..."}], "medium":[...], "low":[...]}, "overall":"..."}`,
-    ].join('\n')
+    })
+    const unreplaced = rendered.match(/\{\{(\w+)\}\}/g)
+    if (unreplaced) {
+        logger.warn('summarizeOverview: 提示词存在未替换的模板变量', {
+            unreplacedVars: unreplaced,
+        })
+    }
+    return rendered
 }

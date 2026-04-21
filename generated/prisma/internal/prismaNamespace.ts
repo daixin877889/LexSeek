@@ -389,6 +389,7 @@ export const ModelName = {
   apiPermissions: 'apiPermissions',
   roleApiPermissions: 'roleApiPermissions',
   permissionAuditLogs: 'permissionAuditLogs',
+  agentToolAuditLogs: 'agentToolAuditLogs',
   campaigns: 'campaigns',
   caseTypes: 'caseTypes',
   cases: 'cases',
@@ -459,7 +460,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "contractReviews" | "documentTemplates" | "documentDrafts" | "documentDraftSnapshots" | "documentDraftVersions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
+    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "agentToolAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "contractReviews" | "documentTemplates" | "documentDrafts" | "documentDraftSnapshots" | "documentDraftVersions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -830,6 +831,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.permissionAuditLogsCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.PermissionAuditLogsCountAggregateOutputType> | number
+        }
+      }
+    }
+    agentToolAuditLogs: {
+      payload: Prisma.$agentToolAuditLogsPayload<ExtArgs>
+      fields: Prisma.agentToolAuditLogsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.agentToolAuditLogsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$agentToolAuditLogsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.agentToolAuditLogsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$agentToolAuditLogsPayload>
+        }
+        findFirst: {
+          args: Prisma.agentToolAuditLogsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$agentToolAuditLogsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.agentToolAuditLogsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$agentToolAuditLogsPayload>
+        }
+        findMany: {
+          args: Prisma.agentToolAuditLogsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$agentToolAuditLogsPayload>[]
+        }
+        create: {
+          args: Prisma.agentToolAuditLogsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$agentToolAuditLogsPayload>
+        }
+        createMany: {
+          args: Prisma.agentToolAuditLogsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.agentToolAuditLogsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$agentToolAuditLogsPayload>[]
+        }
+        delete: {
+          args: Prisma.agentToolAuditLogsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$agentToolAuditLogsPayload>
+        }
+        update: {
+          args: Prisma.agentToolAuditLogsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$agentToolAuditLogsPayload>
+        }
+        deleteMany: {
+          args: Prisma.agentToolAuditLogsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.agentToolAuditLogsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.agentToolAuditLogsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$agentToolAuditLogsPayload>[]
+        }
+        upsert: {
+          args: Prisma.agentToolAuditLogsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$agentToolAuditLogsPayload>
+        }
+        aggregate: {
+          args: Prisma.AgentToolAuditLogsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAgentToolAuditLogs>
+        }
+        groupBy: {
+          args: Prisma.agentToolAuditLogsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AgentToolAuditLogsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.agentToolAuditLogsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AgentToolAuditLogsCountAggregateOutputType> | number
         }
       }
     }
@@ -5022,6 +5097,23 @@ export const PermissionAuditLogsScalarFieldEnum = {
 export type PermissionAuditLogsScalarFieldEnum = (typeof PermissionAuditLogsScalarFieldEnum)[keyof typeof PermissionAuditLogsScalarFieldEnum]
 
 
+export const AgentToolAuditLogsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  sessionId: 'sessionId',
+  caseId: 'caseId',
+  runId: 'runId',
+  toolName: 'toolName',
+  verdict: 'verdict',
+  denyReason: 'denyReason',
+  argsDigest: 'argsDigest',
+  latencyMs: 'latencyMs',
+  createdAt: 'createdAt'
+} as const
+
+export type AgentToolAuditLogsScalarFieldEnum = (typeof AgentToolAuditLogsScalarFieldEnum)[keyof typeof AgentToolAuditLogsScalarFieldEnum]
+
+
 export const CampaignsScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -6257,6 +6349,7 @@ export type GlobalOmitConfig = {
   apiPermissions?: Prisma.apiPermissionsOmit
   roleApiPermissions?: Prisma.roleApiPermissionsOmit
   permissionAuditLogs?: Prisma.permissionAuditLogsOmit
+  agentToolAuditLogs?: Prisma.agentToolAuditLogsOmit
   campaigns?: Prisma.campaignsOmit
   caseTypes?: Prisma.caseTypesOmit
   cases?: Prisma.casesOmit

@@ -9,12 +9,20 @@ import { tool } from '@langchain/core/tools'
 import { z } from 'zod'
 import type { StructuredToolInterface } from '@langchain/core/tools'
 import { HumanMessage } from '@langchain/core/messages'
-import { createAgent } from 'langchain'
+import { createAgent, summarizationMiddleware } from 'langchain'
 import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
-import { pointConsumptionMiddleware, analysisResultPersistenceMiddleware } from '../middleware'
+import {
+    createAuditMiddleware,
+    createScopeGuardMiddleware,
+    createToolCallLimitMiddlewares,
+    pointConsumptionMiddleware,
+    analysisResultPersistenceMiddleware,
+    safetyTrimMiddleware,
+} from '../middleware'
 import { getCheckpointer, getStore } from '../checkpointer'
 import { renderSystemPrompt } from '../utils/promptRenderer'
+import { resolveContextWindow } from '../context/messageCompressor'
 import type { NodeConfig } from '../../node/node.service'
 
 /** 子代理工具上下文 */
@@ -185,6 +193,9 @@ export async function createSubAgentTools(
                         ]
                         : [new HumanMessage(input.question)]
 
+                    // 上下文压缩参数（与主 agent 同规格）
+                    const { triggerTokens, maxTokens } = resolveContextWindow(config.modelContextWindow)
+
                     // 创建子代理
                     const agent = createAgent({
                         model,
@@ -193,12 +204,20 @@ export async function createSubAgentTools(
                         checkpointer,
                         store,
                         middleware: [
+                            createScopeGuardMiddleware(),
+                            ...createToolCallLimitMiddlewares(),
                             pointConsumptionMiddleware(context.userId, 'case_analysis_token', context.sessionId),
+                            summarizationMiddleware({
+                                model,
+                                trigger: [{ tokens: triggerTokens }],
+                            }),
+                            safetyTrimMiddleware({ model, maxTokens, systemPrompt }),
                             analysisResultPersistenceMiddleware({
                                 agentName: config.name,
                                 caseId: context.caseId,
                                 sessionId: context.sessionId,
                             }),
+                            createAuditMiddleware(),
                         ],
                     })
 

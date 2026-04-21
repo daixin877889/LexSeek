@@ -22,20 +22,19 @@ export async function countTokens(text: string): Promise<number> {
     return enc.encode(text).length
 }
 
-/**
- * 同步版 token 计数（编码已初始化时使用，fallback 为字符估算）
- */
+/** 同步版 token 计数（tiktoken cl100k_base，初始化失败时 fallback 为字符估算） */
 export function countTokensSync(text: string): number {
     if (!text) return 0
-    if (!encoding) {
+    try {
+        return getEncodingInstance().encode(text).length
+    } catch {
         return estimateTokensFallback(text)
     }
-    return encoding.encode(text).length
 }
 
-/** 字符估算 fallback（中文约 2 字符/token，英文约 4 字符/token） */
+/** 字符估算 fallback（中文约 1 字符/token，英文约 4 字符/token） */
 function estimateTokensFallback(text: string): number {
     const chineseChars = (text.match(/[\u4e00-\u9fff]/g) || []).length
     const otherChars = text.length - chineseChars
-    return Math.ceil(chineseChars / 2 + otherChars / 4)
+    return Math.ceil(chineseChars + otherChars / 4)
 }

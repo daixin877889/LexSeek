@@ -50,6 +50,9 @@ import {
     pointConsumptionMiddleware,
     safetyTrimMiddleware,
     reviewResultPersistenceMiddleware,
+    createScopeGuardMiddleware,
+    createToolCallLimitMiddlewares,
+    createAuditMiddleware,
     buildMiddlewareStack,
     MIDDLEWARE_PRIORITY,
     MIDDLEWARE_NAMES,
@@ -69,6 +72,7 @@ import {
 } from '../nodes/contractReviewStageEmitter'
 import type { Prisma } from '~~/generated/prisma/client'
 import type { Risk, Stance, ClauseSegment } from '#shared/types/contract'
+import { resolveContextWindow } from '../context/messageCompressor'
 
 /** 合同审查主代理节点名称 */
 const CONTRACT_MAIN_NODE_NAME = 'contractReviewMain'
@@ -232,12 +236,20 @@ export async function runContractReviewChat(
         isResume: !!command,
     })
 
-    // 6. 计算 summarization 触发阈值
-    const contextWindow = nodeConfig.modelContextWindow || 128000
-    const triggerTokens = Math.max(Math.floor(contextWindow * 0.6), 30000)
+    const { triggerTokens, maxTokens } = resolveContextWindow(nodeConfig.modelContextWindow)
 
-    // 7. 组装中间件栈（按 priority 排序：计费 → 摘要 → 安全裁剪 → 结果持久化）
+    // 7. 组装中间件栈（按 priority 排序：scope → toolCallLimit → 计费 → 摘要 → 安全裁剪 → 结果持久化 → 审计）
     const middleware = buildMiddlewareStack([
+        {
+            middleware: createScopeGuardMiddleware(),
+            priority: MIDDLEWARE_PRIORITY.SCOPE_GUARD,
+            name: MIDDLEWARE_NAMES.SCOPE_GUARD,
+        },
+        ...createToolCallLimitMiddlewares().map((mw, idx) => ({
+            middleware: mw,
+            priority: MIDDLEWARE_PRIORITY.TOOL_CALL_LIMIT,
+            name: `${MIDDLEWARE_NAMES.TOOL_CALL_LIMIT}:${idx}`,
+        })),
         {
             middleware: pointConsumptionMiddleware(userId, 'contract_review_token', sessionId),
             priority: MIDDLEWARE_PRIORITY.POINT_CONSUMPTION,
@@ -254,7 +266,8 @@ export async function runContractReviewChat(
         {
             middleware: safetyTrimMiddleware({
                 model,
-                maxTokens: Math.floor(contextWindow * 0.8),
+                maxTokens,
+                systemPrompt,
             }),
             priority: MIDDLEWARE_PRIORITY.SAFETY_TRIM,
             name: MIDDLEWARE_NAMES.SAFETY_TRIM,
@@ -267,6 +280,11 @@ export async function runContractReviewChat(
             }),
             priority: MIDDLEWARE_PRIORITY.RESULT_PERSISTENCE,
             name: MIDDLEWARE_NAMES.REVIEW_RESULT_PERSISTENCE,
+        },
+        {
+            middleware: createAuditMiddleware(),
+            priority: MIDDLEWARE_PRIORITY.AUDIT,
+            name: MIDDLEWARE_NAMES.AUDIT,
         },
     ])
 

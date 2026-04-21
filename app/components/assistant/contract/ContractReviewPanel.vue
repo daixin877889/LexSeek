@@ -11,6 +11,7 @@
  */
 import { Loader2Icon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
+import { useMediaQuery, useLocalStorage } from '@vueuse/core'
 import type { Risk, ContractReviewStatus, StanceRequest, CreateReviewRequest } from '#shared/types/contract'
 
 const props = defineProps<{
@@ -109,9 +110,14 @@ function handleStanceConfirm(payload: StanceRequest) {
     // confirm 会同时触发子组件的 emit('update:open', false)；
     // 用 isConfirming 遮蔽那一次 dialog 关闭，防止父层误走 cancel 分支
     // 把正在 await 的 stream 置空，导致 onStance 中断、流不续跑。
-    isConfirming = true
-    onStance(payload).finally(() => {
-        isConfirming = false
+    //
+    // 同时 isConfirming 参与 stanceDialogOpen 派生：用户确认后立即关 Dialog
+    // （不必等 awaitingStance 随新 stream 变 null）。API 失败时回退以便重试。
+    isConfirming.value = true
+    onStance(payload).then((ok) => {
+        if (!ok) isConfirming.value = false
+    }).catch(() => {
+        isConfirming.value = false
     })
 }
 
@@ -126,8 +132,9 @@ function handleStanceConfirm(payload: StanceRequest) {
  * 通过 isCancelling 去重避免重复调用 cancelReview。
  */
 let isCancelling = false
-// 正在处理用户点击的"确认"，此期间 dialog 的 open=false 不能走 cancel
-let isConfirming = false
+// 正在处理用户点击的"确认"；此状态同时驱动 Dialog 立即关闭 + 遮蔽 cancel 误触发。
+// 改为 ref 以便 stanceDialogOpen computed 派生。
+const isConfirming = ref(false)
 
 async function handleStanceCancel() {
     if (isCancelling) return
@@ -140,8 +147,24 @@ async function handleStanceCancel() {
 }
 
 function handleDialogOpenChange(open: boolean) {
-    if (!open && !isConfirming) handleStanceCancel()
+    if (!open && !isConfirming.value) handleStanceCancel()
 }
+
+/**
+ * Dialog open 状态：awaitingStance 真值 + 未在确认中。
+ *
+ * 为什么不直接用 !!awaitingStance：后端 stance API 返回后，前端 stream.submit
+ * 重订阅，但底层 LangGraph streamValues 里的 __interrupt__ 要等**下一个** state
+ * 事件才会被覆盖为 null。这中间有 1~3 秒空窗，awaitingStance 仍然 truthy，
+ * Dialog 继续显示给用户"卡住"的观感。用 isConfirming 短路这段窗口。
+ */
+const stanceDialogOpen = computed(() => !!awaitingStance.value && !isConfirming.value)
+
+// awaitingStance 真正变 null 后复位 isConfirming，保证同一 review 再次
+// 触发 awaiting_stance（罕见：服务端二次中断）时 Dialog 能正常重开。
+watch(awaitingStance, (v) => {
+    if (!v) isConfirming.value = false
+})
 
 /**
  * 非用户触发路径（例如多标签页 / 刷新后 GET 回填）首次把 review.status 从 completed
@@ -160,7 +183,39 @@ watch(isRebuilding, (rebuilding, wasRebuilding) => {
 // 未定位 risk id 集合（由 ContractDocxPreview decorateRisks 完成后上报）
 const notLocatedIds = ref<Set<string>>(new Set())
 
+/**
+ * 结果屏左右分栏。对齐文书编辑器工作区（`dashboard/document/drafts/[id].vue`）：
+ * - 右侧（风险清单）占比 = 文书编辑器左侧表单占比
+ * - <1024px 走堆叠（预览上 + 风险下），避免无限横滚
+ * - 比例按断点分两档并持久化到 localStorage，避免窄/宽屏互相覆盖偏好
+ */
+const isSplit = useMediaQuery('(min-width: 1024px)')
+const isWide = useMediaQuery('(min-width: 1440px)')
+const rightSizeStandard = useLocalStorage<number>('contract-review-split-right-standard', 40)
+const rightSizeWide = useLocalStorage<number>('contract-review-split-right-wide', 32)
+const activeRightSize = computed(() => (isWide.value ? rightSizeWide.value : rightSizeStandard.value))
+function handlePanelResize(sizes: number[]) {
+    const right = sizes[1]
+    if (typeof right !== 'number' || !Number.isFinite(right)) return
+    if (isWide.value) rightSizeWide.value = right
+    else rightSizeStandard.value = right
+}
+
+/**
+ * 断死循环：DocxPreview 的 watch(props.risks) 每次都会 emit locateResult；
+ * 若每次无条件写 notLocatedIds，Panel 重渲 → props.risks 引用变（模板里
+ * `review?.risks ?? []` 等表达式在 re-render 时可能创建新引用）→ 再触发
+ * decorateRisks → 死循环。此处按内容等价性短路，内容相同就不写入。
+ */
+function setsEqual(a: Set<string>, b: Set<string>): boolean {
+    if (a === b) return true
+    if (a.size !== b.size) return false
+    for (const v of a) if (!b.has(v)) return false
+    return true
+}
+
 function handleLocateResult(ids: Set<string>) {
+    if (setsEqual(ids, notLocatedIds.value)) return
     notLocatedIds.value = ids
 }
 
@@ -172,9 +227,6 @@ function handleFocusRisk(id: string) {
     if (notLocatedIds.value.has(id)) return
     focusRisk(id)
 }
-
-// 浮动风险速览面板：默认显示，用户关闭后可通过 toolbar 重开
-const showFloatingPanel = ref(true)
 
 // Shift+click 快捷键委托（冒泡，不用 capture，避免干扰 dialog/popover 外部关闭）
 function handleContainerClick(e: MouseEvent) {
@@ -199,9 +251,9 @@ function handleContainerClick(e: MouseEvent) {
             </div>
         </div>
 
-        <!-- Step 2 立场 Dialog：始终挂载，open 由 awaitingStance 驱动 -->
+        <!-- Step 2 立场 Dialog：始终挂载，open 由 stanceDialogOpen 派生 -->
         <AssistantContractStanceSelectionDialog
-            :open="!!awaitingStance"
+            :open="stanceDialogOpen"
             :party-a="awaitingStance?.partyA ?? null"
             :party-b="awaitingStance?.partyB ?? null"
             :contract-type="awaitingStance?.contractType ?? null"
@@ -211,63 +263,118 @@ function handleContainerClick(e: MouseEvent) {
         />
 
         <!-- Step 3 结果屏 -->
-        <div
-            v-if="review && !showSourceInput"
-            class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1fr_400px]"
-        >
-            <AssistantContractDocxPreview
-                :reviewed-file-id="review?.reviewedFileId ?? null"
-                :original-file-id="review?.originalFileId ?? null"
-                :risks="review?.risks ?? []"
-                :focused-risk-id="focusedRiskId"
-                :hovered-risk-id="hoveredRiskId"
-                :highlighted-risk-ids="highlightedRiskIds"
-                @focus-risk="handleFocusRisk"
-                @hover-clause="setHoveredRisk"
-                @locate-result="handleLocateResult"
-            />
-            <div class="border-l flex flex-col min-h-0">
-                <AssistantContractReviewProgress
-                    :stages="stageStatus"
-                    :total-clauses="totalClauses"
-                    :analyzing-index="analyzingClauseIndex"
-                />
-                <div
-                    v-if="showBusy"
-                    class="flex items-center gap-2 p-3 border-b text-sm text-muted-foreground"
-                >
-                    <Loader2Icon class="size-4 animate-spin" />
-                    <span>{{ statusLabel }}</span>
+        <div v-if="review && !showSourceInput" class="flex-1 min-h-0 flex flex-col">
+            <!-- 分栏（>=1024px）：对齐文书编辑器工作区。右侧风险面板比例 = 文书编辑器左侧表单比例 -->
+            <ResizablePanelGroup
+                v-if="isSplit"
+                :key="isWide ? 'wide' : 'standard'"
+                direction="horizontal"
+                class="h-full"
+                @layout="handlePanelResize"
+            >
+                <ResizablePanel :default-size="100 - activeRightSize" :min-size="25">
+                    <div class="h-full min-h-0 overflow-hidden rounded-lg border bg-muted/40 p-4 mr-1">
+                        <AssistantContractDocxPreview
+                            :reviewed-file-id="review?.reviewedFileId ?? null"
+                            :original-file-id="review?.originalFileId ?? null"
+                            :risks="review?.risks ?? []"
+                            :focused-risk-id="focusedRiskId"
+                            :hovered-risk-id="hoveredRiskId"
+                            :highlighted-risk-ids="highlightedRiskIds"
+                            @focus-risk="handleFocusRisk"
+                            @hover-clause="setHoveredRisk"
+                            @locate-result="handleLocateResult"
+                        />
+                    </div>
+                </ResizablePanel>
+
+                <ResizableHandle with-handle class="bg-transparent" />
+
+                <ResizablePanel :default-size="activeRightSize" :min-size="25">
+                    <div class="h-full min-h-0 flex flex-col overflow-hidden rounded-lg border bg-card ml-1">
+                        <AssistantContractReviewProgress
+                            :stages="stageStatus"
+                            :total-clauses="totalClauses"
+                            :analyzing-index="analyzingClauseIndex"
+                        />
+                        <div
+                            v-if="showBusy"
+                            class="flex items-center gap-2 p-3 border-b text-sm text-muted-foreground"
+                        >
+                            <Loader2Icon class="size-4 animate-spin" />
+                            <span>{{ statusLabel }}</span>
+                        </div>
+                        <AssistantContractRiskListPanel
+                            :risks="review?.risks ?? []"
+                            :status="(review?.status ?? 'pending') as ContractReviewStatus"
+                            :reviewed-file-id="review?.reviewedFileId ?? null"
+                            :summary="review?.summary ?? null"
+                            :is-rebuilding="isRebuilding"
+                            :has-unsaved-docx-changes="hasUnsavedDocxChanges"
+                            :focused-risk-id="focusedRiskId"
+                            :hovered-risk-id="hoveredRiskId"
+                            :pinned-risk-ids="pinnedRiskIds"
+                            :not-located-ids="notLocatedIds"
+                            @download="onDownload"
+                            @rebuild="onRebuildDocx"
+                            @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
+                            @export-pdf="(includeRisks: boolean) => onExportPdf(includeRisks)"
+                            @focus-risk="handleFocusRisk"
+                            @toggle-pin="togglePin"
+                        />
+                    </div>
+                </ResizablePanel>
+            </ResizablePanelGroup>
+
+            <!-- 窄屏（<1024px）：上下堆叠，避免无限横滚 -->
+            <div v-else class="flex-1 min-h-0 flex flex-col gap-2">
+                <div class="flex-1 min-h-0 overflow-hidden rounded-lg border bg-muted/40 p-4">
+                    <AssistantContractDocxPreview
+                        :reviewed-file-id="review?.reviewedFileId ?? null"
+                        :original-file-id="review?.originalFileId ?? null"
+                        :risks="review?.risks ?? []"
+                        :focused-risk-id="focusedRiskId"
+                        :hovered-risk-id="hoveredRiskId"
+                        :highlighted-risk-ids="highlightedRiskIds"
+                        @focus-risk="handleFocusRisk"
+                        @hover-clause="setHoveredRisk"
+                        @locate-result="handleLocateResult"
+                    />
                 </div>
-                <AssistantContractRiskListPanel
-                    :risks="review?.risks ?? []"
-                    :status="(review?.status ?? 'pending') as ContractReviewStatus"
-                    :reviewed-file-id="review?.reviewedFileId ?? null"
-                    :summary="review?.summary ?? null"
-                    :is-rebuilding="isRebuilding"
-                    :has-unsaved-docx-changes="hasUnsavedDocxChanges"
-                    :focused-risk-id="focusedRiskId"
-                    :hovered-risk-id="hoveredRiskId"
-                    :pinned-risk-ids="pinnedRiskIds"
-                    :not-located-ids="notLocatedIds"
-                    @download="onDownload"
-                    @rebuild="onRebuildDocx"
-                    @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
-                    @export-pdf="(includeRisks: boolean) => onExportPdf(includeRisks)"
-                    @focus-risk="handleFocusRisk"
-                    @toggle-pin="togglePin"
-                />
+                <div class="flex-1 min-h-0 flex flex-col overflow-hidden rounded-lg border bg-card">
+                    <AssistantContractReviewProgress
+                        :stages="stageStatus"
+                        :total-clauses="totalClauses"
+                        :analyzing-index="analyzingClauseIndex"
+                    />
+                    <div
+                        v-if="showBusy"
+                        class="flex items-center gap-2 p-3 border-b text-sm text-muted-foreground"
+                    >
+                        <Loader2Icon class="size-4 animate-spin" />
+                        <span>{{ statusLabel }}</span>
+                    </div>
+                    <AssistantContractRiskListPanel
+                        :risks="review?.risks ?? []"
+                        :status="(review?.status ?? 'pending') as ContractReviewStatus"
+                        :reviewed-file-id="review?.reviewedFileId ?? null"
+                        :summary="review?.summary ?? null"
+                        :is-rebuilding="isRebuilding"
+                        :has-unsaved-docx-changes="hasUnsavedDocxChanges"
+                        :focused-risk-id="focusedRiskId"
+                        :hovered-risk-id="hoveredRiskId"
+                        :pinned-risk-ids="pinnedRiskIds"
+                        :not-located-ids="notLocatedIds"
+                        @download="onDownload"
+                        @rebuild="onRebuildDocx"
+                        @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
+                        @export-pdf="(includeRisks: boolean) => onExportPdf(includeRisks)"
+                        @focus-risk="handleFocusRisk"
+                        @toggle-pin="togglePin"
+                    />
+                </div>
             </div>
         </div>
 
-        <!-- 浮动风险速览（仅在结果屏挂载） -->
-        <AssistantContractFloatingAnnotationPanel
-            v-if="review && !showSourceInput"
-            :risks="review?.risks ?? []"
-            :visible="showFloatingPanel"
-            :active-risk-id="focusedRiskId ?? undefined"
-            @focus-risk="handleFocusRisk"
-            @update:visible="(v: boolean) => (showFloatingPanel = v)"
-        />
     </div>
 </template>

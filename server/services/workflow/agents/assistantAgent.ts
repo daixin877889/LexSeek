@@ -19,9 +19,13 @@ import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import {
+    createAuditMiddleware,
+    createScopeGuardMiddleware,
+    createToolCallLimitMiddlewares,
     pointConsumptionMiddleware,
     safetyTrimMiddleware,
 } from '../middleware'
+import { resolveContextWindow } from '../context/messageCompressor'
 
 /** 通用法律助手主代理节点名称 */
 const ASSISTANT_MAIN_NODE_NAME = 'assistantMain'
@@ -95,12 +99,7 @@ export async function runAssistantChat(
         toolNames: tools.map(t => t.name),
     })
 
-    // 6. 计算 summarization 触发阈值：
-    // - 取上下文窗口的 60% 作为触发点，留冗余给工具输出与最终响应
-    // - 下限 30k 防止窗口过小时摘要过于频繁
-    // - 未配置 modelContextWindow 时回退到 128k（主流模型保守默认）
-    const contextWindow = mainConfig.modelContextWindow || 128000
-    const triggerTokens = Math.max(Math.floor(contextWindow * 0.6), 30000)
+    const { triggerTokens, maxTokens } = resolveContextWindow(mainConfig.modelContextWindow)
 
     const agent: ReactAgent = createAgent({
         model,
@@ -109,6 +108,9 @@ export async function runAssistantChat(
         store,
         tools,
         middleware: [
+            // Agent 安全三层（scope 校验 / 工具调用熔断 / 审计归档）
+            createScopeGuardMiddleware(),
+            ...createToolCallLimitMiddlewares(),
             // assistant_token 独立计费（与 case_analysis_token 分开）
             pointConsumptionMiddleware(userId, 'assistant_token', sessionId),
             summarizationMiddleware({
@@ -117,8 +119,11 @@ export async function runAssistantChat(
             }),
             safetyTrimMiddleware({
                 model,
-                maxTokens: Math.floor(contextWindow * 0.8),
+                maxTokens,
+                systemPrompt,
             }),
+            // audit 放最后：能同时捕获 scopeGuard 拒绝 / toolCallLimit 熔断 / 正常执行 / 异常四种情况
+            createAuditMiddleware(),
         ],
     })
 

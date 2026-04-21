@@ -27,6 +27,10 @@ export interface MiddlewareWithPriority {
  * 间隔为 10 方便后续插入新中间件。
  */
 export const MIDDLEWARE_PRIORITY = {
+    /** Agent 安全：scope 校验（最前，拒绝的调用不占后续资源） */
+    SCOPE_GUARD: 5,
+    /** Agent 安全：工具调用次数熔断（spread 多实例） */
+    TOOL_CALL_LIMIT: 7,
     /** 案件材料预处理（需在材料上下文之前完成） */
     PROCESS_MATERIAL: 10,
     /** 积分消耗（需在实际推理之前扣点） */
@@ -45,10 +49,14 @@ export const MIDDLEWARE_PRIORITY = {
     TODO_LIST: 80,
     /** 分析结果持久化（必须最后执行） */
     RESULT_PERSISTENCE: 90,
+    /** Agent 安全：审计归档（必须最后，能捕获前两者拒绝/熔断的结果） */
+    AUDIT: 100,
 } as const
 
 /** 中间件名称常量，统一命名避免硬编码 */
 export const MIDDLEWARE_NAMES = {
+    SCOPE_GUARD: 'scopeGuard',
+    TOOL_CALL_LIMIT: 'toolCallLimit',
     PROCESS_MATERIAL: 'caseProcessMaterial',
     POINT_CONSUMPTION: 'pointConsumption',
     MATERIAL_CONTEXT: 'caseMaterialContext',
@@ -60,6 +68,7 @@ export const MIDDLEWARE_NAMES = {
     RESULT_PERSISTENCE: 'analysisResultPersistence',
     /** 合同审查结果持久化（与 RESULT_PERSISTENCE 语义对等，独立 agent 使用） */
     REVIEW_RESULT_PERSISTENCE: 'reviewResultPersistence',
+    AUDIT: 'audit',
 } as const
 
 /**
