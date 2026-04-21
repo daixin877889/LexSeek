@@ -19,6 +19,14 @@ vi.mock('~~/server/services/assistant/contract/analyzeSingleClause', () => ({
     analyzeSingleClause: vi.fn(),
 }))
 
+// Mock summarizeOverview（Task 3.1 新增：resume 路径会调用）
+vi.mock('~~/server/services/assistant/contract/summarizeOverview', () => ({
+    summarizeOverview: vi.fn().mockResolvedValue({
+        highlights: { high: [], medium: [], low: [] },
+        overall: '测试总评',
+    }),
+}))
+
 // 以下 mock 仅 resume 分支测试需要（runAnalyzeLoop 纯函数测试不依赖）
 vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
     findContractReviewBySessionIdDAO: vi.fn(),

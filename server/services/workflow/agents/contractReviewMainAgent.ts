@@ -27,7 +27,9 @@
  *     8. [runAnalyzeLoop 开头]           stage:analyze,running
  *     9. [runAnalyzeLoop 循环中]         progress × N + risk × M
  *    10. [runAnalyzeLoop 结尾]           stage:analyze,done
- *    11. [runAnnotateAndUpload 完成后]   —— status=completed ——
+ *    11. [summarizeOverview 开头]        stage:summarize,running
+ *    12. [summarizeOverview 完成后]      overview（成功时）+ stage:summarize,done
+ *    13. [runAnnotateAndUpload 完成后]   —— status=completed ——
  *
  * 前端 useContractReview 状态机按用户心智顺序呈现：识别→立场→切分→分析→汇总，
  * 即使后端 Phase A 的 segment 事件实际先发，前端也等 detect/stance 完成后才显示。
@@ -60,6 +62,7 @@ import {
 import { loadContractFullText } from '../../assistant/contract/docx/loadContractFullText'
 import { segmentClauses } from '../../assistant/contract/docx/clauseSegmenter'
 import { analyzeSingleClause } from '../../assistant/contract/analyzeSingleClause'
+import { summarizeOverview } from '../../assistant/contract/summarizeOverview'
 import {
     emitContractReviewEvent,
     type ContractReviewEmitterCtx,
@@ -360,6 +363,21 @@ export async function runContractReviewChat(
                     await updateContractReviewDAO(review.id, {
                         risks: risks as unknown as Prisma.InputJsonValue,
                     })
+
+                    // 生成结构化总览（summarize 阶段）
+                    await emitContractReviewEvent(emitterCtx, { type: 'stage', stage: 'summarize', status: 'running' })
+                    try {
+                        const overview = await summarizeOverview(risks, stance, review.contractType)
+                        await updateContractReviewDAO(review.id, { summary: overview as unknown as Prisma.InputJsonValue })
+                        await emitContractReviewEvent(emitterCtx, { type: 'overview', overview })
+                        await emitContractReviewEvent(emitterCtx, { type: 'stage', stage: 'summarize', status: 'done' })
+                    } catch (err) {
+                        logger.warn('summarizeOverview 失败，降级为仅 overall', { reviewId: review.id, err })
+                        await updateContractReviewDAO(review.id, {
+                            summary: { highlights: null, overall: `本合同识别到 ${risks.length} 条风险。` } as unknown as Prisma.InputJsonValue,
+                        })
+                        await emitContractReviewEvent(emitterCtx, { type: 'stage', stage: 'summarize', status: 'done' })
+                    }
 
                     // 注入批注 + 上传 OSS + 置 completed
                     try {
