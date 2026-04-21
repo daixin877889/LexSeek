@@ -276,7 +276,7 @@ function handleContainerClick(e: MouseEvent) {
                 @layout="handlePanelResize"
             >
                 <ResizablePanel :default-size="100 - activeRightSize" :min-size="25">
-                    <div class="h-full min-h-0 overflow-hidden rounded-lg border bg-muted/40 mr-1">
+                    <div class="h-full min-h-0 overflow-hidden rounded-lg border bg-muted/40 p-4 mr-1">
                         <AssistantContractDocxPreview
                             :reviewed-file-id="review?.reviewedFileId ?? null"
                             :original-file-id="review?.originalFileId ?? null"
@@ -331,7 +331,7 @@ function handleContainerClick(e: MouseEvent) {
 
             <!-- 窄屏（<1024px）：上下堆叠，避免无限横滚 -->
             <div v-else class="flex-1 min-h-0 flex flex-col gap-2">
-                <div class="flex-1 min-h-0 overflow-hidden rounded-lg border bg-muted/40">
+                <div class="flex-1 min-h-0 overflow-hidden rounded-lg border bg-muted/40 p-4">
                     <AssistantContractDocxPreview
                         :reviewed-file-id="review?.reviewedFileId ?? null"
                         :original-file-id="review?.originalFileId ?? null"

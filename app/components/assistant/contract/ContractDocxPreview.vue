@@ -163,25 +163,28 @@ watch(
 </script>
 
 <template>
-    <div class="relative h-full">
-        <div v-if="empty" class="flex h-full items-center justify-center text-sm text-muted-foreground">
+    <div class="relative h-full flex flex-col">
+        <div v-if="empty" class="flex-1 flex items-center justify-center text-sm text-muted-foreground">
             等待合同上传...
         </div>
         <template v-else>
-            <div v-if="loading" class="absolute top-2 left-1/2 -translate-x-1/2 text-xs text-muted-foreground">
+            <div v-if="loading" class="absolute top-2 left-1/2 -translate-x-1/2 text-xs text-muted-foreground z-10">
                 合同加载中...
             </div>
-            <div ref="containerRef" class="docx-preview-container h-full overflow-y-auto p-6 text-foreground" />
+            <!-- 白纸：bg-background 浅色=白 / 暗色=深主题色；.docx 原生白纸居中陈列 -->
+            <div
+                ref="containerRef"
+                class="docx-preview-container flex-1 min-h-0 overflow-y-auto rounded-md bg-background p-6 w-full max-w-5xl self-center"
+            />
         </template>
     </div>
 </template>
 
 <!--
-  对齐文书编辑器 DocumentPreview 的样式约定：
-  消除 docx-preview 默认注入的白纸/阴影，让文档内容直接融入容器 bg-muted/40 背景。
-  - .docx-wrapper 透明、无 padding/box-shadow
-  - section.docx 去阴影、去 margin；只保留"单张纸"的内部页边距以避免文字贴边
-  - 正文行距统一到 1.8（和 DocumentPreview 保持一致）
+  对齐文书编辑器 DocumentPreview 的纸面约定：
+  - .docx-wrapper 透明 + 无阴影（外层容器已提供背景）
+  - section.docx 保留 docx-preview 默认白色纸面，仅去 margin/阴影避免重复
+  - 正文行距统一 1.8，与 DocumentPreview 一致
 -->
 <style scoped>
 .docx-preview-container :deep(.docx-wrapper) {
@@ -189,13 +192,9 @@ watch(
     padding: 0;
     box-shadow: none;
 }
-.docx-preview-container :deep(section.docx) {
+.docx-preview-container :deep(.docx) {
     box-shadow: none !important;
     margin: 0 !important;
-    padding: 0 !important;
-    background: transparent !important;
-    width: 100% !important;
-    color: inherit !important;
 }
 .docx-preview-container :deep(p),
 .docx-preview-container :deep(li),
