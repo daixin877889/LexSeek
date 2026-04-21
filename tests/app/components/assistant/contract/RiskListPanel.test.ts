@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { defineComponent, h, nextTick } from 'vue'
 import RiskListPanel from '~/components/assistant/contract/RiskListPanel.vue'
-import type { ContractOverview, Risk, ContractReviewStatus } from '#shared/types/contract'
+import type { ContractOverview, Risk, ContractReviewStatus, PlaybookSnapshot } from '#shared/types/contract'
 
 /**
  * RiskListPanel 单元测试
@@ -716,5 +716,121 @@ describe('RiskListPanel · M6.1 Task 4.4 钉住 + 聚焦态', () => {
         // 其它卡片不受影响
         const card2 = w.find('[data-risk-id="r2"]')
         expect(card2.classes()).not.toContain('bg-yellow-50')
+    })
+})
+
+describe('RiskListPanel · Task 2.6 清单要点徽章', () => {
+    const snapshot: PlaybookSnapshot = {
+        contractType: '劳动合同',
+        snapshotAt: '2024-01-01T00:00:00.000Z',
+        points: [
+            {
+                code: 'P001',
+                title: '试用期约定合规性',
+                defaultLevel: 'high',
+                stancePreference: 'party_a',
+                checkContent: '是否约定了合法试用期',
+                legalBasis: '《劳动合同法》第19条',
+                suggestion: '试用期不超过6个月',
+            },
+            {
+                code: 'P002',
+                title: '工资支付条款',
+                defaultLevel: 'medium',
+                stancePreference: 'balanced',
+                checkContent: '工资支付方式是否合法',
+                legalBasis: undefined,
+                suggestion: undefined,
+            },
+        ],
+    }
+
+    it('risk.matchedPointCode 命中 snapshot 时，卡片显示对应要点标题徽章', () => {
+        const risk = makeRisk({ id: 'r1', matchedPointCode: 'P001' })
+        const w = mount(RiskListPanel, {
+            props: {
+                risks: [risk],
+                status: 'completed' as ContractReviewStatus,
+                reviewedFileId: 123,
+                summary: null,
+                isRebuilding: false,
+                hasUnsavedDocxChanges: false,
+                focusedRiskId: null,
+                hoveredRiskId: null,
+                pinnedRiskIds: new Set<string>(),
+                notLocatedIds: new Set<string>(),
+                playbookSnapshot: snapshot,
+            },
+            global: { stubs },
+        })
+        const card = w.find('[data-risk-id="r1"]')
+        expect(card.text()).toContain('试用期约定合规性')
+    })
+
+    it('risk.matchedPointCode 为空时，卡片不显示清单要点徽章', () => {
+        const risk = makeRisk({ id: 'r1' })
+        const w = mount(RiskListPanel, {
+            props: {
+                risks: [risk],
+                status: 'completed' as ContractReviewStatus,
+                reviewedFileId: 123,
+                summary: null,
+                isRebuilding: false,
+                hasUnsavedDocxChanges: false,
+                focusedRiskId: null,
+                hoveredRiskId: null,
+                pinnedRiskIds: new Set<string>(),
+                notLocatedIds: new Set<string>(),
+                playbookSnapshot: snapshot,
+            },
+            global: { stubs },
+        })
+        const card = w.find('[data-risk-id="r1"]')
+        expect(card.text()).not.toContain('试用期约定合规性')
+        expect(card.text()).not.toContain('工资支付条款')
+    })
+
+    it('matchedPointCode 有值但 playbookSnapshot 为 null 时，不显示徽章', () => {
+        const risk = makeRisk({ id: 'r1', matchedPointCode: 'P001' })
+        const w = mount(RiskListPanel, {
+            props: {
+                risks: [risk],
+                status: 'completed' as ContractReviewStatus,
+                reviewedFileId: 123,
+                summary: null,
+                isRebuilding: false,
+                hasUnsavedDocxChanges: false,
+                focusedRiskId: null,
+                hoveredRiskId: null,
+                pinnedRiskIds: new Set<string>(),
+                notLocatedIds: new Set<string>(),
+                playbookSnapshot: null,
+            },
+            global: { stubs },
+        })
+        const card = w.find('[data-risk-id="r1"]')
+        expect(card.text()).not.toContain('试用期约定合规性')
+    })
+
+    it('matchedPointCode 在 snapshot 中找不到对应 point 时，不显示徽章', () => {
+        const risk = makeRisk({ id: 'r1', matchedPointCode: 'UNKNOWN' })
+        const w = mount(RiskListPanel, {
+            props: {
+                risks: [risk],
+                status: 'completed' as ContractReviewStatus,
+                reviewedFileId: 123,
+                summary: null,
+                isRebuilding: false,
+                hasUnsavedDocxChanges: false,
+                focusedRiskId: null,
+                hoveredRiskId: null,
+                pinnedRiskIds: new Set<string>(),
+                notLocatedIds: new Set<string>(),
+                playbookSnapshot: snapshot,
+            },
+            global: { stubs },
+        })
+        const card = w.find('[data-risk-id="r1"]')
+        expect(card.text()).not.toContain('试用期约定合规性')
     })
 })
