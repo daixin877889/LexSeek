@@ -185,6 +185,7 @@ function mountPanel(props: Partial<{
     isRebuilding: boolean
     hasUnsavedDocxChanges: boolean
     focusedRiskId: string | null
+    hoveredRiskId: string | null
     pinnedRiskIds: Set<string>
 }> = {}) {
     return mount(RiskListPanel, {
@@ -196,6 +197,7 @@ function mountPanel(props: Partial<{
             isRebuilding: false,
             hasUnsavedDocxChanges: false,
             focusedRiskId: null,
+            hoveredRiskId: null,
             pinnedRiskIds: new Set<string>(),
             ...props,
         },
@@ -570,6 +572,7 @@ function mountPanelWithPin(props: Partial<{
     isRebuilding: boolean
     hasUnsavedDocxChanges: boolean
     focusedRiskId: string | null
+    hoveredRiskId: string | null
     pinnedRiskIds: Set<string>
 }> = {}) {
     return mount(RiskListPanel, {
@@ -581,6 +584,7 @@ function mountPanelWithPin(props: Partial<{
             isRebuilding: false,
             hasUnsavedDocxChanges: false,
             focusedRiskId: null,
+            hoveredRiskId: null,
             pinnedRiskIds: new Set<string>(),
             ...props,
         },
@@ -659,5 +663,22 @@ describe('RiskListPanel · M6.1 Task 4.4 钉住 + 聚焦态', () => {
         expect(card.classes()).toContain('border-red-500')
         expect(card.classes()).not.toContain('bg-orange-50')
         expect(card.classes()).not.toContain('border-orange-500')
+    })
+
+    it('hoveredRiskId 命中的 card 加 bg-yellow-50（不加 border-l / 不加红色边框）', () => {
+        const w = mountPanelWithPin({
+            risks: [makeRisk({ id: 'r1' }), makeRisk({ id: 'r2', clauseIndex: 1 })],
+            focusedRiskId: null,
+            hoveredRiskId: 'r1',
+            pinnedRiskIds: new Set<string>(),
+        })
+        const card1 = w.find('[data-risk-id="r1"]')
+        expect(card1.classes()).toContain('bg-yellow-50')
+        // hover 态不加边框/焦点标识
+        expect(card1.classes()).not.toContain('border-red-500')
+        expect(card1.classes()).not.toContain('border-l-4')
+        // 其它卡片不受影响
+        const card2 = w.find('[data-risk-id="r2"]')
+        expect(card2.classes()).not.toContain('bg-yellow-50')
     })
 })

@@ -24,6 +24,7 @@ const props = defineProps<{
     isRebuilding: boolean
     hasUnsavedDocxChanges: boolean
     focusedRiskId: string | null
+    hoveredRiskId: string | null
     pinnedRiskIds: Set<string>
 }>()
 
@@ -165,6 +166,7 @@ function handleExportPdfConfirm(includeRisks: boolean) {
                         'bg-yellow-50 ring-1 ring-yellow-300': justAddedIds.has(r.id),
                         'bg-yellow-50 border-l-4 border-red-500': focusedRiskId === r.id,
                         'bg-orange-50 border-l-4 border-orange-500': pinnedRiskIds.has(r.id) && focusedRiskId !== r.id,
+                        'bg-yellow-50': hoveredRiskId === r.id && focusedRiskId !== r.id && !pinnedRiskIds.has(r.id),
                     }"
                     @click="toggle(r.id); emit('focusRisk', r.id)"
                 >
