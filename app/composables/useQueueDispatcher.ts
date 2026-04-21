@@ -3,8 +3,7 @@
  *
  * 核心职责：
  * - watch(runStatus) → failed/cancelled 自动暂停；真正 completed 触发派发
- * - maybeDispatch：六个守卫（暂停 / interrupt / isLoading / currentChat / 队列空 / Web Lock）
- * - doDispatch：pop 队头 + 调用 sendMessage + 广播；同步抛错 → 显式暂停
+ * - maybeDispatch：六个守卫 + 出队（锁内同步）+ sendMessage（锁外 await）
  * - broadcastState：跨标签同步的唯一对外出口
  *
  * 必须在 manager 的 setup 顶层注册（自动绑定调用方 setup scope），
@@ -92,51 +91,48 @@ export function useQueueDispatcher(deps: QueueDispatcherDeps) {
     if (queue.length === 0) return                          // 守卫 5：队列空
 
     // 守卫 6：跨标签分布式互斥（Web Locks API）
+    // 锁的范围仅覆盖"出队"这一瞬间操作，不持有到 sendMessage 结束。
+    // 原因：stream.submit 在整个 SSE 流结束后才 resolve，若锁覆盖 await sendMessage，
+    // 则 watch(canDispatch) 触发的 nextTick(maybeDispatch) 会因 ifAvailable=null 放弃，
+    // 导致下一条队列消息永远无法派发（锁释放时没有任何东西重新触发 maybeDispatch）。
+    let popped: QueueItem | undefined
+
+    const tryPop = () => {
+      const latest = deps.queuesBySession.get(sid) ?? []
+      const [h, ...rest] = latest
+      if (!h) return
+      popped = h
+      deps.lastLocalSendSeq.value++
+      deps.queuesBySession.set(sid, rest)
+      broadcastState(sid)
+    }
+
     if (typeof navigator !== 'undefined' && navigator.locks) {
       await navigator.locks.request(
         `chat-queue-dispatch:${sid}`,
         { mode: 'exclusive', ifAvailable: true },
-        async (lock) => {
+        (lock) => {
           if (!lock) return // 另一 tab 已拿到锁，本 tab 放弃派发
-          await doDispatch(sid)
+          tryPop()
         },
       )
     }
     else {
-      await doDispatch(sid)
+      tryPop()
     }
-  }
 
-  async function doDispatch(sid: string) {
-    // 锁内再次读取最新队列（其他 tab 可能已 pop）
-    const latest = deps.queuesBySession.get(sid) ?? []
-    if (latest.length === 0) return
+    if (!popped) return
 
-    const [head, ...rest] = latest
-    if (!head) return
-
+    // sendMessage 在锁释放后执行，避免锁持有期间 nextTick(maybeDispatch) 无法获锁。
+    // fetch 建立失败 / 4xx / 5xx 会 reject 进 catch；后端执行失败走 watch(runStatus='failed')。
     try {
-      // 【关键】必须在 sendMessage 之前自增 lastLocalSendSeq。
-      // dispatcher 直接调用 currentChat.sendMessage（useCaseChat 原始方法），
-      // 绕过了 useChatSessionManager 的 sendMessage wrapper，wrapper 中的 ++ 不生效。
-      // 若缺失此行，派发第一条后 lastDispatchedSeq=1 会永远等于 lastLocalSendSeq=1，
-      // watch 守卫 `seq > lastDispatchedSeq` 永远为 false，队列死锁。
-      deps.lastLocalSendSeq.value++
-
-      // await sendMessage：useCaseChat 把 stream.submit Promise 透传出来，
-      // fetch 建立失败 / 4xx / 5xx 会 reject 进本 try/catch。
-      // 成功只代表 SSE 已启动（后端执行失败走 watch(runStatus='failed') 自动暂停）。
-      // 注意：files 字段在当前阶段不传递（见 spec §5.6）。
-      await deps.currentChat.value?.sendMessage(head.text, { thinking: head.thinking })
-
-      // 成功则 pop 并广播
-      deps.queuesBySession.set(sid, rest)
-      broadcastState(sid)
+      await deps.currentChat.value?.sendMessage(popped.text, { thinking: popped.thinking })
     }
     catch (err) {
-      // sendMessage 抛错（同步或异步）：队头保留在 queue（set 未执行），
-      // 显式标 paused='failed' 并广播，用户点"恢复队列"时从队头重试
-      console.error('[chat-queue] dispatch failed', { sessionId: sid, itemId: head.id, err })
+      console.error('[chat-queue] dispatch failed', { sessionId: sid, itemId: popped.id, err })
+      // 用当前队列头部合并而非 rest 快照，避免覆盖 sendMessage 期间新入队的消息
+      const current = deps.queuesBySession.get(sid) ?? []
+      deps.queuesBySession.set(sid, [popped, ...current])
       deps.queuePausedBy.set(sid, 'failed')
       broadcastState(sid)
     }

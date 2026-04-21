@@ -199,14 +199,8 @@ export function useChatSessionManager(options: ChatSessionManagerOptions) {
         queuesBySession.delete(sessionId)
         queuePausedBy.delete(sessionId)
         lastAppliedVersion.delete(sessionId)
-        // 通知其他 tab 清理（payload 为空队列 + 非暂停）
-        postCrossTabEvent('chat-queue:sync', {
-            sessionId,
-            tabId,
-            queue: [],
-            pauseReason: null,
-            version: performance.now() + Math.random(),
-        })
+        // 通知其他 tab 清理：maps 已清，broadcastState 读到空队列 + 非暂停
+        dispatcher.broadcastState(sessionId)
 
         sessions.value = sessions.value.filter(s => s.sessionId !== sessionId)
 
@@ -262,6 +256,9 @@ export function useChatSessionManager(options: ChatSessionManagerOptions) {
             // reactive Map 的 set 触发响应式
             queuesBySession.set(sid, next.get(sid)!)
             dispatcher.broadcastState(sid)
+            // canDispatch 可能已经为 true（AI 空闲）但 watch(canDispatch) 不会再触发
+            // 需主动尝试一次派发，与 resumeQueue 的处理方式一致
+            nextTick(() => dispatcher.maybeDispatch())
         }
         return ok
     }
