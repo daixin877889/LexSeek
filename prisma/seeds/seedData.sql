@@ -4,6 +4,17 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- 安装 pg_trgm 扩展
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
+-- 安装 zhparser 扩展（中文全文搜索）
+CREATE EXTENSION IF NOT EXISTS zhparser;
+
+-- 创建中文全文搜索配置
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_ts_config WHERE cfgname = 'chinese') THEN
+    CREATE TEXT SEARCH CONFIGURATION chinese (PARSER = zhparser);
+    ALTER TEXT SEARCH CONFIGURATION chinese ADD MAPPING FOR n,v,a,i,e,l WITH simple;
+  END IF;
+END $$;
+
 -- 由 zhparser 扩展管理的自定义词典类型
 -- 此 enum 在真实数据库中由扩展创建，此迁移仅用于 shadow DB 重放
 CREATE TYPE "dict_type" AS ENUM ('extra', 'it', 'edu', 'gov', 'medical', 'other');
