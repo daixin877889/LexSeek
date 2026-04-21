@@ -823,6 +823,27 @@ describe('useContractReview M6.1 Task 4.2 · 聚焦/钉状态机', () => {
         vi.useRealTimers()
     })
 
+    it('旧 timer 过期后不污染 hoveredRiskId（双向清理回归）', () => {
+        vi.useFakeTimers()
+        const { setHoveredRisk, hoveredRiskId } = useContractReview()
+        // 1. 先设 r1（启动 3s 定时器 A）
+        setHoveredRisk('r1')
+        expect(hoveredRiskId.value).toBe('r1')
+        // 2. 2s 后改为 null（应立即清零 + clear 定时器 A，hoverTimer 置 null）
+        vi.advanceTimersByTime(2000)
+        setHoveredRisk(null)
+        expect(hoveredRiskId.value).toBeNull()
+        // 3. 再等 3s：定时器 A 若未被 clear，残留回调不应误置状态
+        vi.advanceTimersByTime(3000)
+        expect(hoveredRiskId.value).toBeNull()
+        // 4. 再次 setHoveredRisk('x')：不受旧 handle 干扰，新 3s 定时器正常工作
+        setHoveredRisk('x')
+        expect(hoveredRiskId.value).toBe('x')
+        vi.advanceTimersByTime(3000)
+        expect(hoveredRiskId.value).toBeNull()
+        vi.useRealTimers()
+    })
+
     it('hoveredRiskId 不进入 highlightedRiskIds（与 focused/pinned 独立）', () => {
         const { setHoveredRisk, hoveredRiskId, highlightedRiskIds } = useContractReview()
         setHoveredRisk('r-hover')

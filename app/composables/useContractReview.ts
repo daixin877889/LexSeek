@@ -82,11 +82,17 @@ export function useContractReview() {
     }
 
     function setHoveredRisk(riskId: string | null) {
-        if (hoverTimer) clearTimeout(hoverTimer)
+        if (hoverTimer) {
+            clearTimeout(hoverTimer)
+            hoverTimer = null
+        }
         hoveredRiskId.value = riskId
         if (riskId) {
             // 3 秒后自动清零；鼠标再次离开也会传 null 立即清零
-            hoverTimer = setTimeout(() => { hoveredRiskId.value = null }, 3000)
+            hoverTimer = setTimeout(() => {
+                hoveredRiskId.value = null
+                hoverTimer = null
+            }, 3000)
         }
     }
 
