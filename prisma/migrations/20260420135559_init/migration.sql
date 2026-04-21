@@ -4,6 +4,9 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- 安装 pg_trgm 扩展
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
+-- 安装 zhparser 扩展（中文全文搜索）
+CREATE EXTENSION IF NOT EXISTS zhparser;
+
 -- CreateEnum
 CREATE TYPE "dict_type" AS ENUM ('extra', 'it', 'edu', 'gov', 'medical', 'other');
 
