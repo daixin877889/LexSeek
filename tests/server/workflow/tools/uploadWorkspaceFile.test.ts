@@ -95,10 +95,16 @@ const testContext = {
 const SMALL_FILE_NAME = 'test.txt'
 const SMALL_FILE_CONTENT = 'Hello, 测试文件内容'
 
+/** 子目录测试文件 */
+const SUBDIR_FILE_PATH = 'output/litigation-visualization.md'
+const SUBDIR_FILE_CONTENT = '# 诉讼可视化\n\n```mermaid\nflowchart TD\n  A[开始] --> B[结束]\n```'
+
 beforeAll(async () => {
-    // 提前创建 workspace 目录和测试文件
+    // 提前创建 workspace 目录、测试文件和子目录文件
     await mkdir(testWorkspaceDir, { recursive: true })
     await writeFile(resolve(testWorkspaceDir, SMALL_FILE_NAME), SMALL_FILE_CONTENT, 'utf-8')
+    await mkdir(resolve(testWorkspaceDir, 'output'), { recursive: true })
+    await writeFile(resolve(testWorkspaceDir, SUBDIR_FILE_PATH), SUBDIR_FILE_CONTENT, 'utf-8')
 })
 
 afterAll(async () => {
@@ -120,8 +126,8 @@ describe('upload_workspace_file 工具 - 工具定义', () => {
         expect(uploadTool.name).toBe('upload_workspace_file')
     })
 
-    it('schema 应包含 fileName 字段', () => {
-        expect(toolDefinition.schema.shape).toHaveProperty('fileName')
+    it('schema 应包含 filePath 字段', () => {
+        expect(toolDefinition.schema.shape).toHaveProperty('filePath')
     })
 })
 
@@ -145,28 +151,28 @@ describe('upload_workspace_file 工具 - sessionId 校验', () => {
     })
 })
 
-describe('upload_workspace_file 工具 - 文件名安全校验', () => {
-    it('应拒绝包含路径遍历的文件名（..）', async () => {
+describe('upload_workspace_file 工具 - 路径安全校验', () => {
+    it('应拒绝包含路径遍历的路径（..）', async () => {
         const uploadTool = createTool(testContext, testWorkspaceBase)
-        const result = await uploadTool.invoke({ fileName: '../etc/passwd' })
+        const result = await uploadTool.invoke({ filePath: '../etc/passwd' })
         expect(result).toContain('Error')
     })
 
-    it('应拒绝包含斜杠的文件名', async () => {
+    it('应拒绝绝对路径', async () => {
         const uploadTool = createTool(testContext, testWorkspaceBase)
-        const result = await uploadTool.invoke({ fileName: 'dir/evil.txt' })
+        const result = await uploadTool.invoke({ filePath: '/etc/passwd' })
         expect(result).toContain('Error')
     })
 
-    it('应拒绝包含 NULL 字节的文件名', async () => {
+    it('应拒绝包含 NULL 字节的路径', async () => {
         const uploadTool = createTool(testContext, testWorkspaceBase)
-        const result = await uploadTool.invoke({ fileName: 'file\x00.txt' })
+        const result = await uploadTool.invoke({ filePath: 'file\x00.txt' })
         expect(result).toContain('Error')
     })
 
-    it('应拒绝反斜杠文件名', async () => {
+    it('应拒绝反斜杠路径', async () => {
         const uploadTool = createTool(testContext, testWorkspaceBase)
-        const result = await uploadTool.invoke({ fileName: 'bad\\file.txt' })
+        const result = await uploadTool.invoke({ filePath: 'bad\\file.txt' })
         expect(result).toContain('Error')
     })
 })
@@ -174,7 +180,7 @@ describe('upload_workspace_file 工具 - 文件名安全校验', () => {
 describe('upload_workspace_file 工具 - 文件存在性和大小校验', () => {
     it('应拒绝不存在的文件', async () => {
         const uploadTool = createTool(testContext, testWorkspaceBase)
-        const result = await uploadTool.invoke({ fileName: 'nonexistent.txt' })
+        const result = await uploadTool.invoke({ filePath: 'nonexistent.txt' })
         expect(result).toContain('Error')
     })
 
@@ -188,7 +194,7 @@ describe('upload_workspace_file 工具 - 文件存在性和大小校验', () => 
             testWorkspaceBase,
             async (_path: string) => ({ size: 51 * 1024 * 1024 })
         )
-        const result = await uploadTool.invoke({ fileName: bigFileName })
+        const result = await uploadTool.invoke({ filePath: bigFileName })
         expect(result).toContain('Error')
         expect(result).toContain('50MB')
     })
@@ -197,33 +203,40 @@ describe('upload_workspace_file 工具 - 文件存在性和大小校验', () => 
 describe('upload_workspace_file 工具 - 正常上传流程', () => {
     it('应返回 [file-card] 格式', async () => {
         const uploadTool = createTool(testContext, testWorkspaceBase)
-        const result = await uploadTool.invoke({ fileName: SMALL_FILE_NAME })
+        const result = await uploadTool.invoke({ filePath: SMALL_FILE_NAME })
         expect(result).toContain('[file-card]')
         expect(result).toContain('[/file-card]')
     })
 
     it('file-card 应包含 fileId 字段', async () => {
         const uploadTool = createTool(testContext, testWorkspaceBase)
-        const result = await uploadTool.invoke({ fileName: SMALL_FILE_NAME })
+        const result = await uploadTool.invoke({ filePath: SMALL_FILE_NAME })
         expect(result).toMatch(/fileId:\s*\d+/)
     })
 
     it('file-card 应包含 fileName 字段', async () => {
         const uploadTool = createTool(testContext, testWorkspaceBase)
-        const result = await uploadTool.invoke({ fileName: SMALL_FILE_NAME })
+        const result = await uploadTool.invoke({ filePath: SMALL_FILE_NAME })
         expect(result).toContain(`fileName: ${SMALL_FILE_NAME}`)
     })
 
     it('file-card 应包含 fileSize 字段', async () => {
         const uploadTool = createTool(testContext, testWorkspaceBase)
-        const result = await uploadTool.invoke({ fileName: SMALL_FILE_NAME })
+        const result = await uploadTool.invoke({ filePath: SMALL_FILE_NAME })
         expect(result).toMatch(/fileSize:\s*\d+/)
     })
 
     it('file-card 应包含 mimeType 字段', async () => {
         const uploadTool = createTool(testContext, testWorkspaceBase)
-        const result = await uploadTool.invoke({ fileName: SMALL_FILE_NAME })
+        const result = await uploadTool.invoke({ filePath: SMALL_FILE_NAME })
         expect(result).toMatch(/mimeType:\s*.+/)
+    })
+
+    it('应支持子目录路径上传（如 output/litigation-visualization.md）', async () => {
+        const uploadTool = createTool(testContext, testWorkspaceBase)
+        const result = await uploadTool.invoke({ filePath: SUBDIR_FILE_PATH })
+        expect(result).toContain('[file-card]')
+        expect(result).toContain('fileName: litigation-visualization.md')
     })
 })
 
@@ -244,7 +257,7 @@ describe('upload_workspace_file 工具 - 配额不足兜底流程', () => {
         })
 
         const uploadTool = createTool(testContext, testWorkspaceBase)
-        const result = await uploadTool.invoke({ fileName: SMALL_FILE_NAME })
+        const result = await uploadTool.invoke({ filePath: SMALL_FILE_NAME })
 
         // 临时上传也应返回 file-card，但含 temporary 标识
         expect(result).toContain('[file-card]')

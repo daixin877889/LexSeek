@@ -9,7 +9,7 @@
 import { tool } from '@langchain/core/tools'
 import { stat as fsStat } from 'node:fs/promises'
 import { createReadStream } from 'node:fs'
-import { extname, resolve } from 'node:path'
+import { basename, extname, resolve } from 'node:path'
 import { z } from 'zod'
 import { uploadFileService } from '~~/server/services/storage/storage.service'
 import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageConfig.dao'
@@ -63,16 +63,26 @@ function inferMimeType(fileName: string): string {
     return MIME_MAP[ext] ?? 'application/octet-stream'
 }
 
+/** 路径段白名单：字母、数字、下划线、连字符、点、中文（与 writeSkillFile 保持一致） */
+const SAFE_PATH_SEGMENT = /^[\w.\-一-鿿]+$/
+
 /**
- * 校验文件名安全性（仅文件名，不含路径分隔符）
+ * 校验相对路径安全性（支持子目录，与 writeSkillFile 保持一致）
  *
  * @returns 错误描述字符串，无错误返回 null
  */
-function validateFileName(fileName: string): string | null {
-    if (fileName.includes('\0')) return 'Error: 文件名包含非法字符（NULL 字节）'
-    if (fileName.includes('/')) return 'Error: 文件名不允许包含斜杠（/）'
-    if (fileName.includes('\\')) return 'Error: 文件名不允许包含反斜杠（\\）'
-    if (fileName.includes('..')) return 'Error: 文件名不允许包含路径遍历（..）'
+function validateFilePath(filePath: string): string | null {
+    if (filePath.includes('\0')) return 'Error: 路径包含非法字符（NULL 字节）'
+    if (filePath.startsWith('/')) return 'Error: 不允许使用绝对路径'
+    if (filePath.includes('..')) return 'Error: 不允许路径遍历（..）'
+    if (filePath.includes('\\')) return 'Error: 路径不允许包含反斜杠（\\）'
+    const segments = filePath.split('/')
+    for (const segment of segments) {
+        if (!segment) continue
+        if (!SAFE_PATH_SEGMENT.test(segment)) {
+            return `Error: 路径段 "${segment}" 包含非法字符`
+        }
+    }
     return null
 }
 
@@ -104,7 +114,7 @@ type StatFn = (path: string) => Promise<{ size: number }>
 
 /** 参数 schema（唯一数据源） */
 const schema = z.object({
-    fileName: z.string().min(1).describe('workspace 中的文件名（不含路径），如 output.txt 或 analysis.pdf'),
+    filePath: z.string().min(1).describe('workspace 中的文件相对路径，支持子目录，如 output.txt 或 subdir/analysis.pdf'),
 })
 
 /** 工具定义（单一数据源） */
@@ -130,23 +140,25 @@ export function createTool(context: ToolContext, workspaceBase?: string, statFn?
     const statFile = statFn ?? fsStat
 
     return tool(
-        async ({ fileName }) => {
-            const nameError = validateFileName(fileName)
-            if (nameError) return nameError
+        async ({ filePath: relativePath }) => {
+            const pathError = validateFilePath(relativePath)
+            if (pathError) return pathError
 
-            const filePath = resolve(workspaceDir, fileName)
+            const fullPath = resolve(workspaceDir, relativePath)
 
             // resolve 后二次边界检查，防止意外越界
-            if (!filePath.startsWith(workspaceDir + '/') && filePath !== workspaceDir) {
+            if (!fullPath.startsWith(workspaceDir + '/') && fullPath !== workspaceDir) {
                 return 'Error: 文件路径不在 workspace 目录内'
             }
 
+            const fileName = basename(relativePath)
+
             let fileSize: number
             try {
-                const statResult = await statFile(filePath)
+                const statResult = await statFile(fullPath)
                 fileSize = statResult.size
             } catch {
-                return `Error: 文件不存在或无法访问 - ${fileName}`
+                return `Error: 文件不存在或无法访问 - ${relativePath}`
             }
 
             if (fileSize > MAX_FILE_SIZE) {
@@ -166,9 +178,9 @@ export function createTool(context: ToolContext, workspaceBase?: string, statFn?
             }
 
             if (quotaAllowed) {
-                return await uploadToUserStorage(context.userId, context.sessionId, filePath, fileName, fileSize, mimeType)
+                return await uploadToUserStorage(context.userId, context.sessionId, fullPath, fileName, fileSize, mimeType)
             }
-            return await uploadToTempStorage(context.userId, context.sessionId, filePath, fileName, fileSize, mimeType)
+            return await uploadToTempStorage(context.userId, context.sessionId, fullPath, fileName, fileSize, mimeType)
         },
         {
             name: toolDefinition.name,
