@@ -27,4 +27,13 @@ describe('clauseLocator · 三级兜底', () => {
         const el = locateClauseElement(container, '完全不相干的文字')
         expect(el).toBeNull()
     })
+
+    it('单字符 DOM 节点不应被 fuzzy 误命中', () => {
+        const short = new DOMParser().parseFromString(
+            '<div><p>甲</p><p>乙</p><p>完全不相干内容</p></div>',
+            'text/html'
+        ).body
+        const el = locateClauseElement(short, '甲方委托乙方完成某项目（包括但不限于）')
+        expect(el).toBeNull()
+    })
 })

@@ -34,8 +34,9 @@ function findFuzzyMatch(container: Element, keyword: string): Element | null {
     const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
     while (walker.nextNode()) {
         const norm = (walker.currentNode.textContent ?? '').replace(/[\s，。、；：（）()【】""'']+/g, '')
+        if (norm.length < 3) continue  // norm 太短跳过，避免单字符误命中
         // 双向命中：DOM 文本包含 keyword，或 keyword 以 DOM 文本开头（DOM 文本是输入的前缀段落）
-        if (norm.length > 0 && (norm.includes(keyword) || keyword.startsWith(norm))) {
+        if (norm.includes(keyword) || keyword.startsWith(norm)) {
             return (walker.currentNode.parentElement ?? null)
         }
     }
