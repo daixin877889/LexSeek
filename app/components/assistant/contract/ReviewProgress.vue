@@ -39,28 +39,28 @@ const progressText = computed(() => {
 
 <template>
     <div v-if="!allDone" class="p-3 border-b bg-muted/20 text-sm space-y-2">
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <template v-for="key in STAGE_ORDER" :key="key">
-                <div class="flex items-center gap-1.5">
+                <div class="flex items-center gap-1.5 whitespace-nowrap">
                     <span
                         data-stage-dot
                         :data-stage="key"
                         :data-stage-status="stages[key]"
-                        class="size-2.5 rounded-full transition-colors"
+                        class="size-2.5 rounded-full transition-colors shrink-0"
                         :class="{
-                            'bg-gray-300': stages[key] === 'wait',
+                            'bg-gray-300 dark:bg-gray-600': stages[key] === 'wait',
                             'bg-amber-500 shadow-[0_0_0_3px_rgba(245,158,11,0.25)] animate-pulse': stages[key] === 'running',
                             'bg-emerald-600': stages[key] === 'done',
                         }"
                     />
                     <span class="text-xs text-muted-foreground">{{ STAGE_LABEL[key] }}</span>
                 </div>
-                <span v-if="key !== 'summarize'" class="text-gray-300">·</span>
+                <span v-if="key !== 'summarize'" class="text-gray-300 dark:text-gray-600">·</span>
             </template>
         </div>
         <div v-if="progressText" class="text-xs text-muted-foreground flex items-center gap-2">
-            <span>{{ progressText }}</span>
-            <div v-if="totalClauses" class="flex-1 h-1 bg-gray-200 rounded overflow-hidden">
+            <span class="whitespace-nowrap">{{ progressText }}</span>
+            <div v-if="totalClauses" class="flex-1 h-1 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden min-w-[40px]">
                 <div
                     class="h-full bg-blue-500 transition-all"
                     :style="{ width: `${((analyzingIndex ?? 0) / totalClauses) * 100}%` }"

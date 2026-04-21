@@ -40,11 +40,11 @@ const empty = computed(() => !props.reviewedFileId && !props.originalFileId)
 // 每次 load 触发时递增；仅最新 seq 允许继续写入 DOM，防止过期请求覆盖
 let fetchSeq = 0
 
-/** 风险等级对应的底色 + 左边框基础样式 */
+/** 风险等级对应的底色 + 左边框基础样式（含 dark 变体） */
 const LEVEL_BG: Record<RiskLevel, string[]> = {
-    high: ['bg-red-50', 'border-l-4', 'border-red-400'],
-    medium: ['bg-orange-50', 'border-l-4', 'border-orange-400'],
-    low: ['bg-slate-50', 'border-l-4', 'border-slate-400'],
+    high: ['bg-red-50', 'dark:bg-red-950/40', 'border-l-4', 'border-red-400', 'dark:border-red-500'],
+    medium: ['bg-orange-50', 'dark:bg-orange-950/40', 'border-l-4', 'border-orange-400', 'dark:border-orange-500'],
+    low: ['bg-slate-50', 'dark:bg-slate-800/60', 'border-l-4', 'border-slate-400', 'dark:border-slate-500'],
 }
 
 /** renderAsync 完成后遍历 risks，用 clauseLocator 找到对应段落，注入属性和事件 */
@@ -166,7 +166,7 @@ watch(
             <div v-if="loading" class="absolute top-2 left-1/2 -translate-x-1/2 text-xs text-muted-foreground">
                 合同加载中...
             </div>
-            <div ref="containerRef" class="docx-preview-container h-full overflow-auto p-4" />
+            <div ref="containerRef" class="docx-preview-container h-full overflow-auto px-6 py-4 md:px-10 text-foreground" />
         </template>
     </div>
 </template>

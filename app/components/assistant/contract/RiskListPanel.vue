@@ -164,36 +164,36 @@ function handleExportPdfConfirm(includeRisks: boolean) {
                     :data-just-added="justAddedIds.has(r.id) ? 'true' : 'false'"
                     class="cursor-pointer relative transition-all"
                     :class="{
-                        'bg-yellow-50 ring-1 ring-yellow-300': justAddedIds.has(r.id),
-                        'bg-yellow-50 border-l-4 border-red-500': focusedRiskId === r.id,
-                        'bg-orange-50 border-l-4 border-orange-500': pinnedRiskIds.has(r.id) && focusedRiskId !== r.id,
-                        'bg-yellow-50': hoveredRiskId === r.id && focusedRiskId !== r.id && !pinnedRiskIds.has(r.id),
+                        'bg-yellow-50 dark:bg-yellow-950/40 ring-1 ring-yellow-300 dark:ring-yellow-700': justAddedIds.has(r.id),
+                        'bg-yellow-50 dark:bg-yellow-950/40 border-l-4 border-red-500 dark:border-red-400': focusedRiskId === r.id,
+                        'bg-orange-50 dark:bg-orange-950/40 border-l-4 border-orange-500 dark:border-orange-400': pinnedRiskIds.has(r.id) && focusedRiskId !== r.id,
+                        'bg-yellow-50 dark:bg-yellow-950/30': hoveredRiskId === r.id && focusedRiskId !== r.id && !pinnedRiskIds.has(r.id),
                     }"
                     @click="toggle(r.id); emit('focusRisk', r.id)"
                 >
-                    <span v-if="justAddedIds.has(r.id)" class="absolute top-1 right-1 bg-yellow-200 text-yellow-900 text-[10px] px-1.5 rounded">刚刚</span>
-                    <CardHeader class="py-2 px-3 relative">
-                        <!-- 钉住按钮：@click.stop 阻止触发 Card 的 focusRisk -->
-                        <button
-                            class="absolute top-1 right-1 text-xs px-1.5 py-0.5 rounded hover:bg-muted flex items-center gap-1"
-                            :class="{ 'bg-orange-100 text-orange-700': pinnedRiskIds.has(r.id) }"
-                            :aria-label="pinnedRiskIds.has(r.id) ? '取消钉住' : '钉住'"
-                            @click.stop="emit('togglePin', r.id)"
-                        >
-                            <Pin class="size-3" />
-                            <span v-if="pinnedRiskIds.has(r.id)">已钉</span>
-                        </button>
+                    <span v-if="justAddedIds.has(r.id)" class="absolute top-1 left-1 bg-yellow-200 dark:bg-yellow-800 text-yellow-900 dark:text-yellow-100 text-[10px] px-1.5 rounded">刚刚</span>
+                    <CardHeader class="py-2 px-3">
                         <div class="flex items-center gap-2">
-                            <span class="inline-block px-2 py-0.5 rounded text-xs" :class="LEVEL_CLASS[r.level]">{{ RISK_LEVEL_LABEL[r.level] }}</span>
-                            <span class="text-sm font-medium">{{ r.category }}</span>
+                            <span class="inline-block px-2 py-0.5 rounded text-xs shrink-0" :class="LEVEL_CLASS[r.level]">{{ RISK_LEVEL_LABEL[r.level] }}</span>
+                            <span class="text-sm font-medium truncate">{{ r.category }}</span>
                             <span
                                 v-if="notLocatedIds.has(r.id)"
-                                class="text-[10px] px-1.5 rounded bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-0.5"
+                                class="text-[10px] px-1.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700 flex items-center gap-0.5 shrink-0"
                             >
                                 <TriangleAlert class="size-2.5" />
                                 未定位
                             </span>
-                            <ChevronDownIcon class="ml-auto size-4 transition-transform" :class="{ 'rotate-180': expandedId === r.id }" />
+                            <!-- 钉住按钮：@click.stop 阻止触发 Card 的 focusRisk；放到行内并靠右对齐，避免与 ChevronDownIcon 重叠 -->
+                            <button
+                                class="ml-auto text-xs px-1.5 py-0.5 rounded hover:bg-muted flex items-center gap-1 shrink-0"
+                                :class="{ 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-200': pinnedRiskIds.has(r.id) }"
+                                :aria-label="pinnedRiskIds.has(r.id) ? '取消钉住' : '钉住'"
+                                @click.stop="emit('togglePin', r.id)"
+                            >
+                                <Pin class="size-3" />
+                                <span v-if="pinnedRiskIds.has(r.id)">已钉</span>
+                            </button>
+                            <ChevronDownIcon class="size-4 transition-transform shrink-0 text-muted-foreground" :class="{ 'rotate-180': expandedId === r.id }" />
                         </div>
                         <div class="mt-1 text-xs text-muted-foreground line-clamp-2">{{ r.problem }}</div>
                     </CardHeader>
