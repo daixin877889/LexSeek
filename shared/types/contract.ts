@@ -47,6 +47,8 @@ export interface Risk {
     risk: string
     suggestion: string
     suggestedClauseText?: string
+    /** 命中的要点 code；清单外风险留空（M7 Playbook） */
+    matchedPointCode?: string
 }
 
 export interface CreateReviewRequest {
