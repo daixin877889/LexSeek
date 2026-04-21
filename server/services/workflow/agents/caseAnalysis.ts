@@ -4,6 +4,7 @@ import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { caseMaterialContextMiddleware, caseProcessMaterialMiddleware, pointConsumptionMiddleware, analysisResultPersistenceMiddleware, safetyTrimMiddleware } from '../middleware'
 import { renderSystemPrompt } from '../utils/promptRenderer'
+import { resolveContextWindow } from '../context/messageCompressor'
 
 
 export interface AnalysisAgentOptions {
@@ -94,9 +95,7 @@ export const caseAnalysisAgent = async (
         toolsCount: tools.length,
     })
 
-    // 根据模型上下文窗口动态计算 summarization 触发阈值（窗口 * 60%，下限 30k）
-    const contextWindow = nodeConfig.modelContextWindow || 128000
-    const triggerTokens = Math.max(Math.floor(contextWindow * 0.6), 30000)
+    const { triggerTokens, maxTokens } = resolveContextWindow(nodeConfig.modelContextWindow)
 
     const agent: ReactAgent = createAgent({
         model,
@@ -115,7 +114,8 @@ export const caseAnalysisAgent = async (
             }),
             safetyTrimMiddleware({
                 model,
-                maxTokens: Math.floor(contextWindow * 0.8),
+                maxTokens,
+                systemPrompt,
             }),
             // 末位：afterAgent 在所有其他中间件之后执行
             analysisResultPersistenceMiddleware({
