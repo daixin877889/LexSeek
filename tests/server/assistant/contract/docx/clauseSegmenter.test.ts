@@ -52,6 +52,8 @@ describe('clauseSegmenter · 正则切分', () => {
         ].join('\n')
         const segments = segmentClausesByRegex(text)
         expect(segments).toHaveLength(5)
+        expect(segments.map(s => s.number)).toEqual(['第一条', '1.1', '1.2', '第二条', '2.1'])
+        expect(segments.map(s => s.index)).toEqual([1, 2, 3, 4, 5])
     })
 
     it('返回结果 index 从 1 开始且连续', () => {

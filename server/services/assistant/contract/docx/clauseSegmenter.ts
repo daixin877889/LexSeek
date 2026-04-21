@@ -13,19 +13,43 @@
  */
 import type { ClauseSegment } from '#shared/types/contract'
 
-/** 中文数字到阿拉伯数字映射（仅支持条款常用的简单序数） */
-const CN_NUM: Record<string, number> = {
-    一: 1, 二: 2, 三: 3, 四: 4, 五: 5,
-    六: 6, 七: 7, 八: 8, 九: 9, 十: 10,
-    十一: 11, 十二: 12, 十三: 13, 十四: 14, 十五: 15,
-    十六: 16, 十七: 17, 十八: 18, 十九: 19, 二十: 20,
+/** 中文个位数字到阿拉伯数字映射 */
+const CN_DIGIT: Record<string, number> = {
+    零: 0, 一: 1, 二: 2, 三: 3, 四: 4,
+    五: 5, 六: 6, 七: 7, 八: 8, 九: 9,
+}
+
+/**
+ * 将中文数字解析为阿拉伯数字，支持到九十九。
+ * 规则：
+ *  - 单字：「一」~「九」→ 1~9，「零」→ 0
+ *  - 「十」→ 10，「十X」→ 10+X，「X十」→ X*10，「X十Y」→ X*10+Y
+ *  - 无法解析返回 null
+ */
+function cnNumToInt(cn: string): number | null {
+    if (!cn) return null
+    if (cn === '十') return 10
+    const tenIdx = cn.indexOf('十')
+    if (tenIdx >= 0) {
+        const head = cn.slice(0, tenIdx)
+        const tail = cn.slice(tenIdx + 1)
+        const tens = head === '' ? 1 : (CN_DIGIT[head] ?? null)
+        if (tens === null) return null
+        const units = tail === '' ? 0 : (CN_DIGIT[tail] ?? null)
+        if (units === null) return null
+        return tens * 10 + units
+    }
+    return CN_DIGIT[cn] ?? null
 }
 
 /** 从「第X条」标号中提取序号（阿拉伯数字）；提取失败返回 null */
-function extractDiXTiaoIndex(number: string): number | null {
+function extractDiTiaoIndex(number: string): number | null {
     // 匹配「第一条」「第二条」等中文序数
-    const cnMatch = number.match(/^第([一二三四五六七八九十]+)条$/)
-    if (cnMatch?.[1] && CN_NUM[cnMatch[1]] !== undefined) return CN_NUM[cnMatch[1]]!
+    const cnMatch = number.match(/^第([一二三四五六七八九十零]+)条$/)
+    if (cnMatch?.[1]) {
+        const v = cnNumToInt(cnMatch[1])
+        if (v !== null) return v
+    }
     // 匹配「第1条」「第2条」等阿拉伯数字序数
     const numMatch = number.match(/^第(\d+)条$/)
     if (numMatch?.[1]) return parseInt(numMatch[1], 10)
@@ -72,7 +96,7 @@ export function segmentClausesByRegex(fullText: string): ClauseSegment[] {
         // 「第X条」优先
         const m0 = line.match(RE_DI_TIAO)
         if (m0?.[1]) {
-            currentDiTiaoIdx = extractDiXTiaoIndex(m0[1])
+            currentDiTiaoIdx = extractDiTiaoIndex(m0[1])
             matches.push({ lineIdx: i, number: m0[1] })
             continue
         }
