@@ -1240,38 +1240,37 @@ EOF
  * Feature: agent-security-guardrails
  * Validates: spec §4.6
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { uuidv7 } from '~~/shared/utils/uuid'
-import listHandler from '../../../../server/api/v1/admin/agent-audit-logs/index.get'
+
+// ==================== 全局 Stub（对齐 tests/server/assistant/contract/reviewsList.api.test.ts 等既有测试风格）====================
+// 项目里 admin handler 集成测试一律用此模式：stub h3 自动导入函数为 global，handler 里的 `getQuery(event)` 会读到 event.__query
+
+;(globalThis as any).defineEventHandler = (h: any) => h
+;(globalThis as any).getQuery = (event: any) => event.__query ?? {}
+;(globalThis as any).getRouterParam = (event: any, key: string) => event.__params?.[key]
+;(globalThis as any).readBody = async (event: any) => event.__body
+;(globalThis as any).resSuccess = (_e: any, message: string, data: any) => ({ code: 0, success: true, message, data })
+;(globalThis as any).resError = (_e: any, code: number, message: string) => ({ code, success: false, message, data: null })
+;(globalThis as any).logger = { error: vi.fn(), warn: vi.fn(), info: vi.fn() }
+
+// 动态 import handler（必须在 stub 之后，确保 handler 里的自动导入引用到 stub）
+const { default: listHandler } = await import('../../../../server/api/v1/admin/agent-audit-logs/index.get')
 
 /**
- * 测试辅助：直接调 handler，绕过 Nitro router。
- *
- * 关键点：Nitro `getQuery(event)` 内部读的是 `event.node.req.url` 的 querystring
- * 部分，因此 query 必须序列化到 URL 里，**不能**挂在 globalThis 上。
+ * 构造单测用 event：query 挂 __query，params 挂 __params，body 挂 __body
+ * handler 里的 `getQuery(event)` / `getRouterParam(event, 'id')` / `readBody(event)` 都从 stub 转发到这几个字段
  */
-function makeEvent(query: Record<string, string | number> = {}) {
-    const qs = new URLSearchParams()
-    for (const [k, v] of Object.entries(query)) qs.set(k, String(v))
-    const url = qs.toString()
-        ? `/api/v1/admin/agent-audit-logs?${qs.toString()}`
-        : '/api/v1/admin/agent-audit-logs'
-    // 03.permission.ts 会在 Nitro 层拦截 super_admin，单测不经过中间件，
-    // handler 本身不读 auth/role，无需注入 auth 上下文
+function makeEvent(opts: {
+    query?: Record<string, string | number>
+    params?: Record<string, string>
+    body?: Record<string, unknown>
+} = {}) {
     return {
-        context: {},
-        node: { req: { url, method: 'GET' } },
-    } as any
-}
-
-// 构造 delete handler 的带 body 事件（Task 10 使用）
-function makeDeleteEvent(body: Record<string, unknown>) {
-    return {
-        context: {},
-        node: { req: { url: '/api/v1/admin/agent-audit-logs', method: 'DELETE' } },
-        // readBody(event) 在 h3 里会读取 req.body 或 _requestBody，vitest 下
-        // 最直接的 mock 是挂 _body 到 event 并在测试前 `vi.mock('h3')` 覆盖 readBody
-        _body: body,
+        context: {},  // handler 本身不读 auth，super_admin 拦截由 03.permission.ts 统一做
+        __query: opts.query ?? {},
+        __params: opts.params ?? {},
+        __body: opts.body ?? {},
     } as any
 }
 
@@ -1292,7 +1291,7 @@ describe('GET /api/v1/admin/agent-audit-logs', () => {
     })
 
     it('列表返回 items + total + page + pageSize（成功响应 code: 0）', async () => {
-        const event = makeEvent({ page: 1, pageSize: 20 })
+        const event = makeEvent({ query: { page: 1, pageSize: 20 } })
         const res = await listHandler(event)
         expect(res).toMatchObject({
             code: 0,  // 项目 resSuccess 返回 code: 0（参见 shared/utils/apiResponse.ts）
@@ -1307,23 +1306,25 @@ describe('GET /api/v1/admin/agent-audit-logs', () => {
     })
 
     it('verdict 筛选：只返回 denied', async () => {
-        const event = makeEvent({ page: 1, pageSize: 20, verdict: 'denied' })
+        const event = makeEvent({ query: { page: 1, pageSize: 20, verdict: 'denied' } })
         const res = await listHandler(event)
         expect(res.data.items.every((x: any) => x.verdict === 'denied')).toBe(true)
     })
 
     it('非法 verdict 参数返回 400', async () => {
-        const event = makeEvent({ page: 1, pageSize: 20, verdict: 'invalid' })
+        const event = makeEvent({ query: { page: 1, pageSize: 20, verdict: 'invalid' } })
         const res = await listHandler(event)
         expect(res.code).toBe(400)
     })
 })
 ```
 
-**测试姿势对齐项目既有风格**：
-- 直接 `await handler(event)`，不用 `@nuxt/test-utils/e2e`（对齐 `tests/server/admin/demoCaseMaterials.test.ts` 的风格）
-- `prisma` 走真库（测试数据库 `ls_new_testing`），不 mock（审计表操作是 `prisma.agentToolAuditLogs` 的直接读写，mock 反而意义低）
-- `handler` 本身不读 `event.context.auth`：super_admin 拦截由 `server/middleware/03.permission.ts` 统一做，handler 里无此判断，集成测试绕过中间件不需要 mock auth
+**测试姿势对齐项目既有风格**（参考 `tests/server/assistant/contract/reviewsList.api.test.ts`、`tests/server/assistant/sessions.api.test.ts` 等既有 API 测试）：
+- **全局 stub 自动导入函数**：`getQuery` / `getRouterParam` / `readBody` / `resSuccess` / `resError` / `defineEventHandler` / `logger` 全部挂 `globalThis`。原因：handler 里写的是 Nuxt 自动导入的这些符号，测试环境没有 Nitro runtime，必须 stub
+- **`makeEvent` 约定字段**：`__query` / `__params` / `__body`。stub 的 `getQuery` 从 `event.__query` 读、`getRouterParam` 从 `event.__params[key]` 读、`readBody` 从 `event.__body` 读
+- **动态 import handler**：`const { default: handler } = await import('...')` 必须在 stub 之后（确保 handler 里的自动导入引用拿到的是 stub 版本）
+- `prisma` 走真库（测试数据库 `ls_new_testing`），审计表操作直接读写不 mock
+- `handler` 本身不读 `event.context.auth`：super_admin 拦截由 `server/middleware/03.permission.ts` 统一做，集成测试绕过中间件不需要 mock auth
 - 成功响应 `code: 0`（**不是 200**；见 `shared/utils/apiResponse.ts:30`）
 
 - [ ] **Step 2: 跑测试（红灯）**
@@ -1457,20 +1458,20 @@ describe('GET /api/v1/admin/agent-audit-logs/:id', () => {
     })
 
     it('返回单条完整记录', async () => {
-        const event = { ...makeEvent(), context: { ...makeEvent().context, params: { id: testId } } }
+        const event = makeEvent({ params: { id: testId } })
         const res = await detailHandler(event)
         expect(res.code).toBe(0)
         expect(res.data.id).toBe(testId)
     })
 
     it('不存在的 id 返回 404', async () => {
-        const event = { ...makeEvent(), context: { ...makeEvent().context, params: { id: uuidv7() } } }
+        const event = makeEvent({ params: { id: uuidv7() } })
         const res = await detailHandler(event)
         expect(res.code).toBe(404)
     })
 
     it('非 UUID 的 id 返回 400', async () => {
-        const event = { ...makeEvent(), context: { ...makeEvent().context, params: { id: 'not-uuid' } } }
+        const event = makeEvent({ params: { id: 'not-uuid' } })
         const res = await detailHandler(event)
         expect(res.code).toBe(400)
     })
@@ -1623,10 +1624,6 @@ git commit -m "feat(api): 新增 agent 审计日志统计接口 stats.get.ts"
 ```ts
 import deleteHandler from '../../../../server/api/v1/admin/agent-audit-logs/index.delete'
 
-function makeEventWithBody(body: Record<string, unknown>) {
-    return { ...makeEvent(), __body: body } as any
-}
-
 describe('DELETE /api/v1/admin/agent-audit-logs', () => {
     beforeEach(async () => {
         await prisma.agentToolAuditLogs.deleteMany({ where: { userId: 9002 } })
@@ -1645,7 +1642,7 @@ describe('DELETE /api/v1/admin/agent-audit-logs', () => {
     })
 
     it('删除指定日期之前的记录', async () => {
-        const event = makeEventWithBody({ beforeDate: '2026-02-01' })
+        const event = makeEvent({ body: { beforeDate: '2026-02-01' } })
         const res = await deleteHandler(event)
         expect(res.code).toBe(0)
         expect(res.data.deleted).toBe(2)
@@ -1655,7 +1652,7 @@ describe('DELETE /api/v1/admin/agent-audit-logs', () => {
     })
 
     it('非法日期格式返回 400', async () => {
-        const event = makeEventWithBody({ beforeDate: '2026/01/01' })
+        const event = makeEvent({ body: { beforeDate: '2026/01/01' } })
         const res = await deleteHandler(event)
         expect(res.code).toBe(400)
     })
@@ -2168,7 +2165,7 @@ npx nuxi typecheck
 - [ ] 清理弹窗用**本地 `AlertDialog` + `GeneralDatePicker`**（不用 `useAlertDialogStore.showErrorDialog`，因 message 不支持嵌组件）
 - [ ] `/admin/audit` `definePageMeta` 保留原状（不加 icon）
 - [ ] API handler 响应走 `resSuccess/resError`；**成功响应 `code: 0`**（`shared/utils/apiResponse.ts`，不是 200）
-- [ ] 集成测试 `makeEvent` 把 query **序列化到 URL** 里（`getQuery(event)` 从 `event.node.req.url` 读，不是 `globalThis`）
+- [ ] 集成测试全局 stub `getQuery` / `readBody` / `getRouterParam` / `resSuccess` / `resError` / `defineEventHandler` / `logger`（对齐 `tests/server/assistant/contract/reviewsList.api.test.ts` 模式）；`makeEvent` 用 `__query` / `__params` / `__body` 字段
 - [ ] 每个 handler 的 query/body 都有 zod schema
 - [ ] shadcn-vue `SelectItem` 的 value **不为空字符串**（用 `__all__` 等特殊值代表"全部"）
 - [ ] TDD 顺序：每个中间件/handler 先写测试再写实现
