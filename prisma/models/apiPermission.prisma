@@ -133,20 +133,31 @@ model permissionAuditLogs {
 
 // Agent 工具调用审计日志（详见 docs/superpowers/specs/2026-04-21-agent-security-guardrails-design.md §4.5）
 model agentToolAuditLogs {
-    id           String   @id @db.Uuid                 // UUIDv7（应用层生成）
-    userId       Int      @map("user_id")
-    sessionId    String   @map("session_id") @db.VarChar(128)
-    caseId       Int?     @map("case_id")
-    runId        String?  @map("run_id") @db.VarChar(64)
-    toolName     String   @map("tool_name") @db.VarChar(64)
-    verdict      String   @db.VarChar(16)              // allowed / denied / error
-    denyReason   String?  @map("deny_reason") @db.VarChar(256)
-    argsDigest   Json     @map("args_digest")           // 完整参数原文（不脱敏），含 draftId/reviewId 等辅助字段
-    latencyMs    Int      @map("latency_ms")
-    createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  /// 主键（UUIDv7，应用层生成）
+  id           String   @id @db.Uuid
+  /// 操作人用户 ID
+  userId       Int      @map("user_id")
+  /// 会话 ID（LangGraph thread_id）
+  sessionId    String   @map("session_id") @db.VarChar(128)
+  /// 关联案件 ID（可空）
+  caseId       Int?     @map("case_id")
+  /// 关联 agent 运行 ID（可空）
+  runId        String?  @map("run_id") @db.VarChar(64)
+  /// 工具注册名（snake_case，如 read_skill_file）
+  toolName     String   @map("tool_name") @db.VarChar(64)
+  /// 判决：allowed / denied / error
+  verdict      String   @db.VarChar(16)
+  /// 拒绝原因（verdict=denied/error 时有值）
+  denyReason   String?  @map("deny_reason") @db.VarChar(256)
+  /// 完整参数原文（不脱敏），含 draftId/reviewId 等辅助字段
+  argsDigest   Json     @map("args_digest")
+  /// 工具调用耗时（毫秒）
+  latencyMs    Int      @map("latency_ms")
+  /// 创建时间（UTC 存储，查询时按 Asia/Shanghai 显示）
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-    @@index([userId, createdAt], map: "idx_agent_tool_audit_logs_user_id_created_at")
-    @@index([verdict, createdAt], map: "idx_agent_tool_audit_logs_verdict_created_at")
-    @@index([createdAt], map: "idx_agent_tool_audit_logs_created_at")
-    @@map("agent_tool_audit_logs")
+  @@index([userId, createdAt], map: "idx_agent_tool_audit_logs_user_id_created_at")
+  @@index([verdict, createdAt], map: "idx_agent_tool_audit_logs_verdict_created_at")
+  @@index([createdAt], map: "idx_agent_tool_audit_logs_created_at")
+  @@map("agent_tool_audit_logs")
 }
