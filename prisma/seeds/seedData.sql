@@ -2181,15 +2181,26 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 
 严格按如下 JSON 输出，不要解释、不要代码块标记：
 {"highlights": {"high":[{"text":"...","riskId":"..."}], "medium":[...], "low":[...]}, "overall":"..."}', '["stance", "contractType", "riskList"]', 'v1', 'system', 1, 19, '2026-04-21 20:00:00+08', '2026-04-21 20:00:00+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (28, 'contractReviewAnalyzeClause_system', '合同审查·逐条条款分析提示词 v1', '你正在审查合同（{{contractType}}），站在{{stanceLabel}}立场。
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (28, 'contractReviewAnalyzeClause_system', '合同审查·逐条条款分析提示词 v2', '你正在审查合同（{{contractType}}），站在{{stanceLabel}}立场。
 甲方：{{partyA}}；乙方：{{partyB}}。
 当前条款（第 {{clauseIndex}} 条，编号 {{clauseNumber}}）：
 """
 {{clauseText}}
 """
+
+{{playbookSection}}
+
+## 立场偏好使用规则
+若上方存在审查清单，每条要点标注了"立场:strict/balanced/lenient"，组合判定口径：
+- strict 要点：在用户当前立场下必须严格审查，任何模糊表述都出风险
+- balanced 要点：按一般法律合规性审查，不偏不倚
+- lenient 要点：若属行业商业惯例可接受，则可不报或降级为低风险
+用户立场为"中立"时，所有要点按 balanced 处理。
+
+## 输出要求
 请判断该条款是否有风险。严格按 JSON 输出，字段如下：
 
-- 有风险：
+- 有风险（若违反清单某条，matchedPointCode 填对应 code；清单外风险 matchedPointCode 留空）：
   {
     "risk": {
       "id": "<UUID v4>",
@@ -2201,14 +2212,15 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
       "analysis": "<详细分析>",
       "risk": "<对己方的风险点>",
       "suggestion": "<改进建议>",
-      "suggestedClauseText": "<可选，推荐改写后的条款>"
+      "suggestedClauseText": "<可选，推荐改写后的条款>",
+      "matchedPointCode": "<若命中清单要点，填其 code 原文，如 \"probation\"；否则留空或不返此字段>"
     },
     "skip": false
   }
 
 - 无风险：{ "risk": null, "skip": true }
 
-只输出 JSON，不要任何解释。', '["stanceLabel", "contractType", "partyA", "partyB", "clauseIndex", "clauseNumber", "clauseText"]', 'v1', 'system', 1, 20, '2026-04-21 20:30:00+08', '2026-04-21 20:30:00+08', NULL);
+注意：matchedPointCode 只能使用上方清单里列出的 code 原文，不要编号（如不要写 P1/P2）；清单外风险 matchedPointCode 留空字符串或不返此字段。只输出 JSON，不要任何解释。', '["stanceLabel", "contractType", "partyA", "partyB", "clauseIndex", "clauseNumber", "clauseText", "playbookSection"]', 'v2', 'system', 1, 20, '2026-04-21 20:30:00+08', '2026-04-22 03:00:00+08', NULL);
 
 
 
