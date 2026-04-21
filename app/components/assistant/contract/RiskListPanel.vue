@@ -35,6 +35,25 @@ const emit = defineEmits<{
 const sorted = computed(() => [...props.risks].sort((a, b) => a.clauseIndex - b.clauseIndex))
 const expandedId = ref<string | null>(null)
 
+// 流式冒出：追踪新增的 risk id，3 秒后自动移除
+const justAddedIds = ref<Set<string>>(new Set())
+
+watch(
+    () => props.risks,
+    (newRisks, oldRisks) => {
+        const oldIds = new Set((oldRisks ?? []).map(r => r.id))
+        const newlyAdded = newRisks.filter(r => !oldIds.has(r.id)).map(r => r.id)
+        if (newlyAdded.length === 0) return
+        newlyAdded.forEach(id => justAddedIds.value.add(id))
+        // 3 秒后自动 evict，重新赋值触发 Vue 响应
+        setTimeout(() => {
+            newlyAdded.forEach(id => justAddedIds.value.delete(id))
+            justAddedIds.value = new Set(justAddedIds.value)
+        }, 3000)
+    },
+    { deep: false },
+)
+
 function toggle(id: string) {
     expandedId.value = expandedId.value === id ? null : id
 }
@@ -117,7 +136,16 @@ function handleExportPdfConfirm(includeRisks: boolean) {
 
                 <div v-if="!sorted.length" class="p-6 text-sm text-muted-foreground text-center">暂无风险条目</div>
 
-                <Card v-for="r in sorted" :key="r.id" class="cursor-pointer" @click="toggle(r.id)">
+                <Card
+                    v-for="r in sorted"
+                    :key="r.id"
+                    :data-risk-id="r.id"
+                    :data-just-added="justAddedIds.has(r.id) ? 'true' : 'false'"
+                    class="cursor-pointer relative transition-all"
+                    :class="{ 'bg-yellow-50 ring-1 ring-yellow-300': justAddedIds.has(r.id) }"
+                    @click="toggle(r.id)"
+                >
+                    <span v-if="justAddedIds.has(r.id)" class="absolute top-1 right-1 bg-yellow-200 text-yellow-900 text-[10px] px-1.5 rounded">刚刚</span>
                     <CardHeader class="py-2 px-3">
                         <div class="flex items-center gap-2">
                             <span class="inline-block px-2 py-0.5 rounded text-xs" :class="LEVEL_CLASS[r.level]">{{ RISK_LEVEL_LABEL[r.level] }}</span>

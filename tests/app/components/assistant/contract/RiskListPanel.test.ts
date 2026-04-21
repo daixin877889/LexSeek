@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { defineComponent, h, nextTick } from 'vue'
 import RiskListPanel from '~/components/assistant/contract/RiskListPanel.vue'
@@ -522,5 +522,37 @@ describe('RiskListPanel M5 扩展', () => {
         await findCards(w)[0]!.trigger('click')
         expect((findButtonByText(w, '编辑')!.element as HTMLButtonElement).disabled).toBe(true)
         expect((findButtonByText(w, '删除')!.element as HTMLButtonElement).disabled).toBe(true)
+    })
+})
+
+describe('RiskListPanel · M6.1 流式冒出', () => {
+    it('新增 risk 挂 data-just-added 属性 3 秒后移除', async () => {
+        vi.useFakeTimers()
+        const w = mountPanel({
+            risks: [],
+            status: 'reviewing' as ContractReviewStatus,
+            reviewedFileId: null,
+            summary: null,
+            isRebuilding: false,
+            hasUnsavedDocxChanges: false,
+        })
+        await w.setProps({
+            risks: [makeRisk({
+                id: 'r1',
+                clauseIndex: 1,
+                level: 'high',
+                category: '违约责任',
+                problem: '违约金比例过高',
+                analysis: '分析内容',
+                risk: '法律风险说明',
+                suggestion: '修改建议说明',
+            })],
+        })
+        await nextTick()
+        expect(w.find('[data-risk-id="r1"][data-just-added="true"]').exists()).toBe(true)
+        vi.advanceTimersByTime(3000)
+        await nextTick()
+        expect(w.find('[data-risk-id="r1"][data-just-added="true"]').exists()).toBe(false)
+        vi.useRealTimers()
     })
 })
