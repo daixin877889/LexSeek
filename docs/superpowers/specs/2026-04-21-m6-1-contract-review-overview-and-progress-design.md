@@ -1,9 +1,18 @@
 # M6.1 合同审查 · 分档总览 + 双向跳转 + 过程可视化 设计文档
 
-**版本**: v1
+**版本**: v2（经 4 维度审查修订）
 **日期**: 2026-04-21
 **作者**: 产品（戴鑫）× Claude
 **状态**: 设计已定稿，待 review 后进入 writing-plans
+
+**v2 修订**（基于 R1-R9 审查）：
+- 删除冗余字段 `counts` / `scoreLabel`，风险总分改为前端加权派生
+- 定位兜底回到严格三级（精确 → 模糊 → 显式）
+- 进度阶段从 6 段回到 5 段（rebuild 改为完成后隐形步骤）
+- SSE 事件精简为 4 种（`stage/progress/risk/overview`），复用现有 `SSEMessageType`
+- `clauseSegments` 改为内存对象不落库，去除字符偏移字段
+- 子期 1 与子期 2 合并（让首个子期上线即有用户可感知价值）
+- 明确 `ContractOverview` 类型放 `shared/types/contract.ts`
 
 ---
 
@@ -30,11 +39,11 @@
 
 | # | 决策项 | 选择 | 备注 |
 |---|---|---|---|
-| ① | 整体总览形态 | **方案 1C** | 风险总分仪表盘 0-100 + 三色计数 + 每档可点要点 + 总评 |
+| ① | 整体总览形态 | **方案 1C** | 风险总分仪表盘 0-100（前端加权派生）+ 三色计数（前端现算）+ 每档可点要点 + 总评 |
 | ② | 跳转入口 | **1 + 2 + 4** | 点卡片 / 点要点 / 悬停文档段 |
 | ③ | 反向触发方式 | **方式 B** | 有风险段落自带彩色底 + 徽章 + 悬停展开卡片 |
 | ④ | 聚焦态视觉 | **方案 C** | 持续高亮 + 左侧红粗竖条 |
-| ⑤ | 定位兜底 | **方案 D · 三级兜底** | 精确匹配 → 编号兜底 → 模糊匹配 → 显式"未定位" |
+| ⑤ | 定位兜底 | **方案 D · 三级兜底** | 精确匹配 → 模糊匹配（关键词片段）→ 显式"未定位" |
 | ⑥ | 浮动风险面板接线 | **纳入本期** | 补完已有的 `focusRisk` emit 链路 |
 | ⑦ | PDF 导出同步 | **纳入本期** | 封面/摘要页用新结构 |
 | ⑧ | 钉多条聚焦 | **方式 2AB** | 卡片右上📌 按钮 + Shift 点击快捷键 |
@@ -52,20 +61,21 @@
 作为律师，在我提交合同后，我希望能看到 AI 正在做什么、做到第几步，而不是盯一个转圈 60 秒。
 
 **验收**：
-- 提交完成 1 秒内右侧面板出现阶段进度条（5 个阶段）
+- 提交完成 1 秒内右侧面板出现阶段进度条（5 个阶段：识别 → 等立场 → 切分 → 分析 → 汇总）
 - 切分完成后显示"共 X 条条款"，分析过程显示"正在分析第 N / X 条"
 - 每完成一条高/中/低风险，卡片立即出现在风险列表顶部（带"刚刚"角标 3 秒）
 - 阶段切换有明显视觉差异（已完成绿点、进行中橙点 + 光晕、待进入灰点）
+- 汇总完成后 Word 批注重建在后台进行，不占阶段槽位（下载按钮就绪时即视为全流程完成）
 
 ### US-2：审查完成后能一眼看懂风险全貌
 
 作为律师，审查刚完成时我希望 0.5 秒内知道：这合同有多严重、严重在哪、该不该谈。
 
 **验收**：
-- 顶部仪表盘显示风险总分 0-100 + 一句话定性（如"风险偏高，建议谈判"）
-- 三色计数卡清晰显示高/中/低数量
+- 顶部仪表盘显示风险总分 0-100（前端按加权公式现算）+ 一句话定性（前端按分段派生："极高/高/中/低风险"）
+- 三色计数卡清晰显示高/中/低数量（前端 `risks.filter(...)` 现算）
 - 每档列出 1-5 条可点击要点
-- 最下方一行总评（≤ 60 字）
+- 最下方一行总评（≤ 120 字，后端 LLM 生成）
 
 ### US-3：点任意入口都能跳回合同原文
 
@@ -100,10 +110,10 @@
 
 作为律师，如果 AI 给的风险在文档里实际找不到，我希望得到明确提示而不是静默失败。
 
-**验收**：
-- 精确匹配失败 → 自动按条款编号定位（如"第 5.2 条"）
-- 编号也匹配不到 → 按前 20 字模糊定位
-- 全都失败 → 卡片显示"⚠ 未定位"标签，附关键词片段供用户自查；点击卡片只展开不跳转
+**验收**（三级兜底）：
+- 第 1 级 — 精确匹配：按 `clauseText` 全文查找，命中即定位
+- 第 2 级 — 模糊匹配：取 `clauseText` 前 20 字作为关键词，忽略标点与空白做子串匹配
+- 第 3 级 — 显式未定位：前两级都失败 → 卡片显示"⚠ 未定位"标签，附关键词片段供用户自查；点击卡片只展开不跳转
 
 ### US-7：PDF 报告与页面视觉一致
 
@@ -123,31 +133,44 @@
 
 **决策**：`summary` 字段类型从 `String` 升级为 `JSON`，**不新增字段**。
 
-**新结构**（`contractReviews.summary` 的 TS 类型，取名 `ContractOverview`）：
+**类型定义位置**：新增 `ContractOverview` 类型到 `shared/types/contract.ts`（与 `Risk`、`ContractReviewStatus` 等合同审查类型同文件）。
+
+**新结构**（`contractReviews.summary` 的 TS 类型）：
 
 ```ts
 interface ContractOverview {
-  /** 合同风险总分 0-100 */
-  score: number | null
-  /** 一句话定性，≤ 24 字：「风险偏高，建议谈判」 */
-  scoreLabel: string | null
-  /** 分档计数（冗余，避免前端再算） */
-  counts: { high: number; medium: number; low: number } | null
-  /** 分档要点，每档 1-5 条，挂 riskId 用于可点跳转 */
+  /** 分档要点，每档 1-5 条，挂 riskId 用于可点跳转。历史数据此字段为 null */
   highlights: {
     high: Array<{ text: string; riskId: string }>
     medium: Array<{ text: string; riskId: string }>
     low: Array<{ text: string; riskId: string }>
   } | null
-  /** 总评，≤ 120 字。历史 M4/M5 生成的 string 迁移后只填这个字段 */
+  /** 总评（后端 LLM 生成，≤ 120 字）。历史 M4/M5 的 string 迁移后填这个字段 */
   overall: string
 }
 ```
 
+**为什么删了 score / scoreLabel / counts**（v2 审查结论）：
+
+- `counts` 从 `risks[]` 一行就能算，冗余落库只会带来一致性负担
+- `score` 从 `counts` 加权派生即可（见下），后端存储等于重复数据源
+- `scoreLabel` 可完全由 `score` 分段派生（≥70 极高、≥50 高、≥30 中、<30 低），没有独立数据价值
+
+**风险总分 / 定性的派生规则**（前端计算，单一来源）：
+
+```
+counts = { high, medium, low } = 前端按 risks.level 分组计数
+score  = min(100, round(3 × high + 1.5 × medium + 0.5 × low))
+scoreLabel = score ≥ 70 ? '极高风险'
+           : score ≥ 50 ? '风险偏高，建议谈判'
+           : score ≥ 30 ? '风险可控'
+           : '低风险'
+```
+
 **兼容策略**（避免破坏性）：
 
-- DB 迁移：`summary: String?` → `summary: Json?`。迁移脚本把历史 string 包成 `{ overall: <old>, score: null, scoreLabel: null, counts: null, highlights: null }`
-- 前端层：统一读 `review.summary.overall` 渲染总评；若 `summary.counts` 为 null 则客户端从 `risks[]` 现算；若 `summary.highlights` 为 null 则降级为"只展示风险卡片列表"
+- DB 迁移：`summary: String?` → `summary: Json?`。迁移脚本把历史 string 包成 `{ highlights: null, overall: <old_string> }`
+- 前端层：统一读 `review.summary.overall` 渲染总评；`summary.highlights` 为 null（历史数据或 summarize 未完成）时要点区隐藏，仅展示仪表盘（score）+ 三色计数（counts）+ 风险卡片列表
 - PDF 服务：同前端降级规则
 
 ### 4.2 `Risk` 结构补充
@@ -156,9 +179,9 @@ interface ContractOverview {
 
 - 无新字段。`riskId`、`clauseIndex`、`clauseText`、`level` 已足够
 
-### 4.3 条款切分结果新增（⑩）
+### 4.3 条款切分结果（⑩，不落库）
 
-新增表或 JSON 字段：`contractReviews.clauseSegments`（JSON）：
+条款切分结果为**审查流程内的中间数据**，仅存在于 workflow 内存里，不写入 DB。
 
 ```ts
 interface ClauseSegment {
@@ -168,16 +191,19 @@ interface ClauseSegment {
   number: string | null
   /** 条款正文 */
   text: string
-  /** 在原文中的字符起止（供前端精确定位） */
-  offset: { start: number; end: number }
 }
 ```
 
 用途：
 
-- 流式分析的迭代对象（分析第 N / X 条的 N 和 X）
-- 定位兜底的"按编号匹配"数据源
-- 为 M7 Playbook 对照铺底
+- `clauseAnalyzer` 的迭代对象（分析第 N / X 条的 N 和 X）
+- 为 M7 Playbook 对照铺底时再考虑是否持久化
+
+**为什么不落库**（v2 审查结论）：
+
+- 三级兜底（精确 → 模糊 → 显式）不依赖字符偏移，删除 `offset` 字段
+- 切分结果只在审查流程中使用一次，后续页面刷新不需要再回溯
+- 落库会引入"切分与 risks 的一致性"额外负担，ROI 低
 
 ---
 
@@ -187,44 +213,70 @@ interface ClauseSegment {
 
 当前：`contractReviewMainAgent` 整篇合同一次性给 LLM，`toolStrategy(riskSchema)` 出一个 `{ risks, summary }` 结构化结果 → `reviewResultPersistenceMiddleware` 一次性落库。
 
-**新管线**：
+**复用现有 SSE 基建**（v2 审查结论）：
+
+- 新事件**全部**经 `publishCustomEvent()` 发出，前端通过 `useStreamChat` 的 `onCustomEvent` 回调消费
+- **不**新增 `SSEMessageType` 枚举值；合同审查的阶段事件归属为"自定义 payload 中的 type 字段"
+- 详见 `docs/tech-docs/patterns/sse-event-bridge.md`
+
+**SSE 事件协议**（v2 精简为 4 种）：
+
+```ts
+type ContractReviewEvent =
+  | { type: 'stage'; stage: 'detect' | 'stance' | 'segment' | 'analyze' | 'summarize'; status: 'running' | 'done'; warnings?: string[]; totalClauses?: number; partyA?: string; partyB?: string; contractType?: string }
+  | { type: 'progress'; current: number; total: number }
+  | { type: 'risk'; risk: Risk }
+  | { type: 'overview'; overview: ContractOverview }
+```
+
+- `warn` 事件去除，失败统一合入 `stage` 事件的可选 `warnings: string[]` 字段（v2 R7）
+- `clauseSegment` 事件去除，切分结果随 `stage:segment,status:done` 的 `totalClauses` 字段携带（v2 R7）
+
+**新管线**（5 段进度 + rebuild 隐形）：
 
 ```
-[partyDetector]           → SSE: { type:"stage", stage:"detect", status:"done", partyA, partyB, contractType }
+[partyDetector]           → SSE: { type:'stage', stage:'detect', status:'running' }
+                            → SSE: { type:'stage', stage:'detect', status:'done', partyA, partyB, contractType }
     ↓
-[awaitingStance]          → SSE: { type:"stage", stage:"await-stance", status:"wait" }
+[awaitingStance]          → SSE: { type:'stage', stage:'stance', status:'running' }
     ↓  (interrupt + resume)
-[clauseSegmenter] (新)    → SSE: { type:"stage", stage:"segment", status:"done", totalClauses: 24 }
+                            → SSE: { type:'stage', stage:'stance', status:'done' }
     ↓
-[clauseAnalyzer] (新)     → 遍历 24 条，每条输出一次 LLM:
-                            → SSE: { type:"progress", current:14, total:24 }
-                            → 若产出 risk：SSE: { type:"risk", risk:{...Risk} }
+[clauseSegmenter] (新)    → SSE: { type:'stage', stage:'segment', status:'running' }
+                            → SSE: { type:'stage', stage:'segment', status:'done', totalClauses: 24 }
     ↓
-[summarize] (新/改造)     → 汇总所有 risks 生成 overview:
-                            → SSE: { type:"overview", overview:{...ContractOverview} }
+[clauseAnalyzer] (新)     → SSE: { type:'stage', stage:'analyze', status:'running' }
+                            → 遍历 24 条，每条：
+                              · SSE: { type:'progress', current:14, total:24 }
+                              · 若产出 risk：SSE: { type:'risk', risk:{...Risk} }
+                            → 单条失败累积到 stage-done 的 warnings[]
+                            → SSE: { type:'stage', stage:'analyze', status:'done', warnings:[...] }
     ↓
-[rebuild]                 → SSE: { type:"stage", stage:"rebuild", status:"running" }
-                            → SSE: { type:"stage", stage:"rebuild", status:"done", reviewedFileId: 123 }
+[summarize] (新/改造)     → SSE: { type:'stage', stage:'summarize', status:'running' }
+                            → SSE: { type:'overview', overview:{...ContractOverview} }
+                            → SSE: { type:'stage', stage:'summarize', status:'done' }
     ↓
-[persistence]             → DB 分阶段写：切分后写 clauseSegments；每 risk 出立即增量追加 risks[]；
-                            overview 拿到后更新；最终 reviewedFileId 更新
+[rebuild]（隐形，不占阶段槽位）→ 不再 emit stage 事件；完成后走现有 reviewedFileId 写 DB
+    ↓
+[persistence]             → DB 分阶段写：每 risk 出立即增量追加 risks[]；overview 拿到后更新 summary；rebuild 完成后更新 reviewedFileId
 ```
 
 **要点：**
 
 - `clauseSegmenter`：优先正则（识别"第X条"/"1.1"/"一、"等），兜底用轻量 LLM
 - `clauseAnalyzer`：按条款循环，每条独立 LLM 调用，允许某些条款跳过；risk 字段生成仍用 `buildRiskSchema` 校验
-- 失败容忍：单条条款分析失败不阻塞后续，只在 SSE 报 `{ type:"warn", clauseIndex, message }`
+- 失败容忍：单条条款分析失败不阻塞后续，累积到 `stage:analyze,status:done` 的 `warnings[]`
 - 事件序号：每个 SSE 事件带 `seq` 递增，前端可去重
 - 取消：用户中途放弃 → 停止循环 + 保留已分析的 risks（最佳努力）
+- rebuild 作为"用户不必等待"的后台步骤；"下载批注 Word"按钮在 `reviewedFileId` 就绪后自动启用
 
 ### 5.2 持久化中间件改造
 
 - 从"一次性写 risks + summary"改成"增量写"：
-  - segmenter 完成 → 写 `clauseSegments`
-  - 每 risk 出 → `risks = [...risks, newRisk]`（需要合并时的乐观锁，避免 SSE 乱序）
-  - summarize 完成 → 写 `summary`（新 JSON 结构）
+  - 每 risk 出 → `risks = [...risks, newRisk]`（用 `contractReviews.updatedAt` 作为乐观锁基线，避免 SSE 乱序时覆盖）
+  - summarize 完成 → 写 `summary`（新 JSON 结构 `ContractOverview`）
   - rebuild 完成 → 写 `reviewedFileId`
+- 切分结果（`clauseSegments`）不落库，仅在 workflow 内存中流转
 
 ### 5.3 PDF 导出（⑦）
 
