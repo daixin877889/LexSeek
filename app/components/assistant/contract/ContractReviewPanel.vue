@@ -182,7 +182,21 @@ watch(isRebuilding, (rebuilding, wasRebuilding) => {
 // 未定位 risk id 集合（由 ContractDocxPreview decorateRisks 完成后上报）
 const notLocatedIds = ref<Set<string>>(new Set())
 
+/**
+ * 断死循环：DocxPreview 的 watch(props.risks) 每次都会 emit locateResult；
+ * 若每次无条件写 notLocatedIds，Panel 重渲 → props.risks 引用变（模板里
+ * `review?.risks ?? []` 等表达式在 re-render 时可能创建新引用）→ 再触发
+ * decorateRisks → 死循环。此处按内容等价性短路，内容相同就不写入。
+ */
+function setsEqual(a: Set<string>, b: Set<string>): boolean {
+    if (a === b) return true
+    if (a.size !== b.size) return false
+    for (const v of a) if (!b.has(v)) return false
+    return true
+}
+
 function handleLocateResult(ids: Set<string>) {
+    if (setsEqual(ids, notLocatedIds.value)) return
     notLocatedIds.value = ids
 }
 
