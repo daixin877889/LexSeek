@@ -47,6 +47,8 @@ export interface Risk {
     risk: string
     suggestion: string
     suggestedClauseText?: string
+    /** 命中的要点 code；清单外风险留空（M7 Playbook） */
+    matchedPointCode?: string
 }
 
 export interface CreateReviewRequest {
@@ -112,6 +114,16 @@ export const STANCE_LABEL: Record<Stance, string> = {
     partyA: '甲方',
     partyB: '乙方',
     neutral: '中立',
+}
+
+export type StancePreference = 'strict' | 'balanced' | 'lenient'
+
+export const STANCE_PREFERENCE_OPTIONS = ['strict', 'balanced', 'lenient'] as const
+
+export const STANCE_PREFERENCE_LABEL: Record<StancePreference, string> = {
+    strict: '严格',
+    balanced: '中性',
+    lenient: '宽松',
 }
 
 export const RISK_LEVEL_LABEL: Record<RiskLevel, string> = {
@@ -203,6 +215,29 @@ export interface ClauseSegment {
     number: string | null
     /** 条款正文 */
     text: string
+}
+
+/**
+ * 清单要点的快照形态（冻结在 contract_reviews.playbookSnapshot JSON 中）
+ * 不直接等同于 contract_playbooks 行——后者可能被运营修改，快照不变。
+ *
+ * **Feature: contract-review-playbook (M7)**
+ */
+export interface PlaybookPointSnapshot {
+    code: string
+    title: string
+    defaultLevel: 'high' | 'medium' | 'low'
+    stancePreference: StancePreference
+    checkContent: string
+    legalBasis?: string
+    suggestion?: string
+}
+
+export interface PlaybookSnapshot {
+    contractType: string
+    points: PlaybookPointSnapshot[]
+    /** ISO 时间戳，便于 UI 显示"本审查使用清单版本快照于 YYYY-MM-DD" */
+    snapshotAt: string
 }
 
 /**
