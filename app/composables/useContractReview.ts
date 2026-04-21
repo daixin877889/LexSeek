@@ -351,25 +351,31 @@ export function useContractReview() {
      * INTERRUPTED → COMPLETED 释放 + enqueue 新 run，前端只需重新订阅 SSE。
      * 使用 command.resume 会与服务端重复入队，触发 agentRuns 的 P2002 唯一索引冲突。
      */
-    async function onStance(payload: StanceRequest) {
-        if (!reviewId.value) return
-        if (!stream.value) return
+    /**
+     * 立场选择提交。成功返回 true，任意分支失败返回 false。
+     * 调用方据此决定是否允许用户重试（例如 Dialog 关闭态）。
+     */
+    async function onStance(payload: StanceRequest): Promise<boolean> {
+        if (!reviewId.value) return false
+        if (!stream.value) return false
 
         const result = await useApiFetch<{ reviewId: number; runId: number }>(
             `/api/v1/assistant/contract/reviews/${reviewId.value}/stance`,
             { method: 'POST', body: payload },
         )
-        if (!result) return
+        if (!result) return false
         // await 期间 stream 可能已被 cancelReview / 路由切换置空
-        if (!stream.value) return
+        if (!stream.value) return false
 
         // 复位底层 stream runStatus 再 submit，保证 watch(runStatus) 的 completed/failed 分支能再次触发
         stream.value.runStatus.value = 'idle'
         try {
             await stream.value.submit(undefined)
+            return true
         } catch (err) {
             console.warn('立场提交后续订失败', err)
             toast.error('连接中断，请重试')
+            return false
         }
     }
 

@@ -109,9 +109,14 @@ function handleStanceConfirm(payload: StanceRequest) {
     // confirm 会同时触发子组件的 emit('update:open', false)；
     // 用 isConfirming 遮蔽那一次 dialog 关闭，防止父层误走 cancel 分支
     // 把正在 await 的 stream 置空，导致 onStance 中断、流不续跑。
-    isConfirming = true
-    onStance(payload).finally(() => {
-        isConfirming = false
+    //
+    // 同时 isConfirming 参与 stanceDialogOpen 派生：用户确认后立即关 Dialog
+    // （不必等 awaitingStance 随新 stream 变 null）。API 失败时回退以便重试。
+    isConfirming.value = true
+    onStance(payload).then((ok) => {
+        if (!ok) isConfirming.value = false
+    }).catch(() => {
+        isConfirming.value = false
     })
 }
 
@@ -126,8 +131,9 @@ function handleStanceConfirm(payload: StanceRequest) {
  * 通过 isCancelling 去重避免重复调用 cancelReview。
  */
 let isCancelling = false
-// 正在处理用户点击的"确认"，此期间 dialog 的 open=false 不能走 cancel
-let isConfirming = false
+// 正在处理用户点击的"确认"；此状态同时驱动 Dialog 立即关闭 + 遮蔽 cancel 误触发。
+// 改为 ref 以便 stanceDialogOpen computed 派生。
+const isConfirming = ref(false)
 
 async function handleStanceCancel() {
     if (isCancelling) return
@@ -140,8 +146,24 @@ async function handleStanceCancel() {
 }
 
 function handleDialogOpenChange(open: boolean) {
-    if (!open && !isConfirming) handleStanceCancel()
+    if (!open && !isConfirming.value) handleStanceCancel()
 }
+
+/**
+ * Dialog open 状态：awaitingStance 真值 + 未在确认中。
+ *
+ * 为什么不直接用 !!awaitingStance：后端 stance API 返回后，前端 stream.submit
+ * 重订阅，但底层 LangGraph streamValues 里的 __interrupt__ 要等**下一个** state
+ * 事件才会被覆盖为 null。这中间有 1~3 秒空窗，awaitingStance 仍然 truthy，
+ * Dialog 继续显示给用户"卡住"的观感。用 isConfirming 短路这段窗口。
+ */
+const stanceDialogOpen = computed(() => !!awaitingStance.value && !isConfirming.value)
+
+// awaitingStance 真正变 null 后复位 isConfirming，保证同一 review 再次
+// 触发 awaiting_stance（罕见：服务端二次中断）时 Dialog 能正常重开。
+watch(awaitingStance, (v) => {
+    if (!v) isConfirming.value = false
+})
 
 /**
  * 非用户触发路径（例如多标签页 / 刷新后 GET 回填）首次把 review.status 从 completed
@@ -199,9 +221,9 @@ function handleContainerClick(e: MouseEvent) {
             </div>
         </div>
 
-        <!-- Step 2 立场 Dialog：始终挂载，open 由 awaitingStance 驱动 -->
+        <!-- Step 2 立场 Dialog：始终挂载，open 由 stanceDialogOpen 派生 -->
         <AssistantContractStanceSelectionDialog
-            :open="!!awaitingStance"
+            :open="stanceDialogOpen"
             :party-a="awaitingStance?.partyA ?? null"
             :party-b="awaitingStance?.partyB ?? null"
             :contract-type="awaitingStance?.contractType ?? null"

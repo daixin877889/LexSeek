@@ -6,6 +6,7 @@
  *
  * 失败时抛错；调用方决定是否 swallow 为 progress.error。
  */
+import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { createChatModel } from '~~/server/services/node/chatModelFactory'
 import { getValidNodeConfig } from '~~/server/services/node/node.service'
@@ -76,7 +77,9 @@ export async function analyzeSingleClause(ctx: AnalyzeClauseContext): Promise<Ri
     }
 
     if (parsed.data.skip || !parsed.data.risk) return null
-    return parsed.data.risk as Risk
+    // 服务端强制覆盖 id：LLM 偶发对多条 risk 返回相同 UUID，导致前端 data-risk-id
+    // 冲突（多张卡片/文档段被同一 focus/pin 联动）。用 randomUUID 保证唯一。
+    return { ...parsed.data.risk, id: randomUUID() } as Risk
 }
 
 function buildPrompt(ctx: AnalyzeClauseContext): string {
