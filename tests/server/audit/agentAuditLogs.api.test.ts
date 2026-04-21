@@ -18,6 +18,7 @@ import { uuidv7 } from '~~/shared/utils/uuid'
 const { default: listHandler } = await import('../../../server/api/v1/admin/agent-audit-logs/index.get')
 const { default: detailHandler } = await import('../../../server/api/v1/admin/agent-audit-logs/[id].get')
 const { default: statsHandler } = await import('../../../server/api/v1/admin/agent-audit-logs/stats.get')
+const { default: deleteHandler } = await import('../../../server/api/v1/admin/agent-audit-logs/index.delete')
 
 function makeEvent(opts: {
     query?: Record<string, string | number>
@@ -132,5 +133,39 @@ describe('GET /api/v1/admin/agent-audit-logs/stats', () => {
             last7d: { allowed: expect.any(Number), denied: expect.any(Number), error: expect.any(Number) },
         })
         expect(res.data.today.allowed).toBeGreaterThanOrEqual(1)
+    })
+})
+
+describe('DELETE /api/v1/admin/agent-audit-logs', () => {
+    beforeEach(async () => {
+        await prisma.agentToolAuditLogs.deleteMany({ where: { userId: 9002 } })
+        const old = new Date('2026-01-01')
+        const fresh = new Date()
+        await prisma.agentToolAuditLogs.createMany({
+            data: [
+                { id: uuidv7(), userId: 9002, sessionId: 's', toolName: 'x', verdict: 'allowed', argsDigest: {}, latencyMs: 1, createdAt: old },
+                { id: uuidv7(), userId: 9002, sessionId: 's', toolName: 'x', verdict: 'allowed', argsDigest: {}, latencyMs: 1, createdAt: old },
+                { id: uuidv7(), userId: 9002, sessionId: 's', toolName: 'x', verdict: 'allowed', argsDigest: {}, latencyMs: 1, createdAt: fresh },
+            ],
+        })
+    })
+    afterEach(async () => {
+        await prisma.agentToolAuditLogs.deleteMany({ where: { userId: 9002 } })
+    })
+
+    it('删除指定日期之前的记录', async () => {
+        const event = makeEvent({ body: { beforeDate: '2026-02-01' } })
+        const res = await deleteHandler(event)
+        expect(res.code).toBe(0)
+        expect(res.data.deleted).toBe(2)
+
+        const left = await prisma.agentToolAuditLogs.count({ where: { userId: 9002 } })
+        expect(left).toBe(1)
+    })
+
+    it('非法日期格式返回 400', async () => {
+        const event = makeEvent({ body: { beforeDate: '2026/01/01' } })
+        const res = await deleteHandler(event)
+        expect(res.code).toBe(400)
     })
 })
