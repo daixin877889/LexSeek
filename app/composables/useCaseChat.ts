@@ -32,7 +32,12 @@ export function useCaseChat(options: CaseChatOptions) {
             await stream.submit({
                 messages: [{ type: 'human', content: message }],
                 thinking: opts?.thinking,
-            } as any)
+            } as any, {
+                // SDK 在 submit 开始时会把 streamValues 重置为空的 historyValues（{}），
+                // 导致消息列表短暂清空后再重新加载历史。传入当前值作为 optimisticValues
+                // 可在过渡期间保留现有消息，消除闪烁。
+                optimisticValues: stream.values.value,
+            })
         },
         resumeInterrupt: (data: any) => {
             // interrupt 恢复也是新一轮，同样重置 runStatus 防止粘滞
