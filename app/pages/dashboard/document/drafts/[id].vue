@@ -484,13 +484,11 @@ function handlePanelResize(sizes: number[]) {
                     <HistoryIcon class="size-4" />
                     <span class="hidden lg:inline ml-1">历史</span>
                 </Button>
-                <Button variant="outline" size="sm" :disabled="!draft" title="所有材料"
-                    @click="allMaterialsOpen = true">
+                <Button variant="outline" size="sm" :disabled="!draft" title="所有材料" @click="allMaterialsOpen = true">
                     <FolderIcon class="size-4" />
                     <span class="hidden md:inline ml-1">材料</span>
                 </Button>
-                <Button variant="outline" size="sm" :disabled="!draft" title="保存当前为版本"
-                    @click="openSaveVersionDialog">
+                <Button variant="outline" size="sm" :disabled="!draft" title="保存当前为版本" @click="openSaveVersionDialog">
                     <SaveIcon class="size-4" />
                     <span class="hidden lg:inline ml-1">保存当前为版本</span>
                 </Button>
@@ -567,8 +565,7 @@ function handlePanelResize(sizes: number[]) {
                     <TabsTrigger value="form">字段</TabsTrigger>
                     <TabsTrigger value="preview">预览</TabsTrigger>
                 </TabsList>
-                <TabsContent value="form"
-                    class="mt-2 flex-1 min-h-0 overflow-y-auto rounded-lg border bg-card p-4">
+                <TabsContent value="form" class="mt-2 flex-1 min-h-0 overflow-y-auto rounded-lg border bg-card p-4">
                     <AssistantDocumentFieldForm :template="template" :values="effectiveValues"
                         :suggestions="suggestions" @change="onFieldChange" />
                 </TabsContent>
@@ -618,8 +615,7 @@ function handlePanelResize(sizes: number[]) {
 
         <!-- 材料选择弹框（点击 AiChat 文件按钮触发） -->
         <CaseAnalysisMaterialSelector ref="materialSelectorRef"
-            :disabled-file-ids="[...selectedFileIds, ...relatedOssFileIds]"
-            @files-selected="handleFilesFromSelector" />
+            :disabled-file-ids="[...selectedFileIds, ...relatedOssFileIds]" @files-selected="handleFilesFromSelector" />
 
         <AssistantDocumentHistorySheet v-if="draft && template" v-model:open="historyOpen" :versions="versions"
             :snapshots="snapshots" :current-values="currentValues"
@@ -671,12 +667,11 @@ function handlePanelResize(sizes: number[]) {
 
         <!-- 音频预览弹窗 -->
         <CaseAnalysisAudioPreviewDialog v-if="previewMaterial?.type === CaseMaterialType.AUDIO"
-            v-model:open="showPreview" :oss-file-id="previewMaterial!.ossFileId!"
-            :file-name="previewMaterial!.name" />
+            v-model:open="showPreview" :oss-file-id="previewMaterial!.ossFileId!" :file-name="previewMaterial!.name" />
 
         <!-- 文本内容预览弹窗 -->
         <Dialog v-model:open="showTextPreview">
-            <DialogContent class="w-full max-h-[80vh] md:min-w-[70vw] flex flex-col z-[80]" overlay-class="z-[75]">
+            <DialogContent class="w-full max-h-[80vh] md:min-w-[70vw] flex flex-col z-80" overlay-class="z-[75]">
                 <DialogHeader class="shrink-0">
                     <DialogTitle class="flex items-center gap-2">
                         <FileTextIcon class="size-5 text-blue-500" />
