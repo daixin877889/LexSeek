@@ -29,7 +29,7 @@ LexSeek 所有对用户开放的对话型 Agent（小索、案件分析、合同
 
 - **不做**用户误操作防护（A）——由现有业务校验覆盖。
 - **不做**资源滥用/DoS 防护（D）——本次仅做基础频次熔断，完整 DoS 防护属于基础设施层。
-- **不做**输入/输出 PII 脱敏——与法律业务直接冲突（文书必须包含当事人真实身份信息）；仅在审计日志侧 mask。
+- **不做**输入/输出 PII 脱敏——与法律业务直接冲突（文书必须包含当事人真实身份信息）；审计日志也**不脱敏**（见 §4.4 设计决策）。
 - **不做**内容扫描 / LLM 判官 / Dual LLM 改造——成本高、假阳性率高、且 Guard LLM 同样会被 prompt injection 绕过。本方案**纯代码规则**，不依赖任何 LLM 做安全判断。
 - **不做**运行时人工确认——违反"无感 + 无人值守"硬约束。
 
@@ -67,19 +67,20 @@ LexSeek 所有对用户开放的对话型 Agent（小索、案件分析、合同
             │                            网络命名空间隔离 │
             └─────────────────┘
 
-    ┌────────────────────────────────┐
-    │ 管理端审计查询 / 清理           │
-    │  /admin/agent-audit            │
-    │  GET  /api/v1/admin/agent-audit│
-    │  DEL  /api/v1/admin/agent-audit│
-    └────────────────────────────────┘
+    ┌────────────────────────────────────────┐
+    │ 管理端审计查询 / 清理                   │
+    │  /admin/audit  ← Tab 「Agent 工具审计」 │
+    │  GET  /api/v1/admin/agent-audit-logs   │
+    │  GET  /api/v1/admin/agent-audit-logs/stats │
+    │  DEL  /api/v1/admin/agent-audit-logs   │
+    └────────────────────────────────────────┘
 ```
 
 | # | 组件 | 类型 | 防御点 |
 |---|---|---|---|
 | 1 | `scopeGuardMiddleware` | 自定义 `wrapToolCall` 中间件 | **B + C**：参数 scope 硬校验 |
-| 2 | `toolCallLimitMiddleware` | LangChain 原生 | **C + D**：分层次数熔断，优雅降级 |
-| 3 | `auditMiddleware` | 自定义 `wrapToolCall` 中间件 | **E**：审计归档 + 脱敏 |
+| 2 | `toolCallLimitMiddleware` | LangChain 原生 | **C**：分层次数熔断账号越权试探，优雅降级 |
+| 3 | `auditMiddleware` | 自定义 `wrapToolCall` 中间件 | **E**：审计归档（不脱敏，完整原文入库） |
 | 4 | `run_skill_script` 网络隔离 | 子进程 `unshare -rn` 包装 | **B**：物理切断外泄路径 |
 | 5 | 管理端审计查询 / 清理 | API + Vue 页面 | **E**：可视化追溯 + 数据生命周期 |
 
@@ -101,7 +102,7 @@ LexSeek 所有对用户开放的对话型 Agent（小索、案件分析、合同
 | `run_skill_script` | 白名单字符校验（已在工具层实现，保留原逻辑）；额外校验 `skillName` 若非 `_workspace` 必须在已注册 skill 列表内 |
 | `search_case_materials` / `search_law` / `process_materials` | 参数中若出现 `caseId`，必须等于 context.caseId；若出现 `userId`，必须等于 context.userId |
 | `save_analysis_result` / `parseAndAskStance` | 要求 context 必须提供对应的 `runId` / `reviewId` / `draftId`（context 里缺失时直接拒绝）；若工具参数里也带这些字段，必须与 context 一致 |
-| 所有工具 | 参数值中不得包含"**伪装系统消息**"或"**模仿 AI 模板分隔符**"两类典型污染标记（详见下方清单，本期实施；仅作为纵深防御的兜底层） |
+| 所有工具 | 参数值中不得包含"**模仿 AI 模板分隔符**"类典型污染标记（详见下方清单，本期实施；仅作为纵深防御的兜底层） |
 
 **关于 context 字段缺失的处理**：LangChain 的 `ToolContext` 里 `caseId/runId/draftId/reviewId` 均为可选字段（见 `server/services/workflow/tools/types.ts`）。scopeGuard 的原则是：
 - 工具的参数里**必须**满足校验条件；
@@ -111,12 +112,11 @@ LexSeek 所有对用户开放的对话型 Agent（小索、案件分析、合同
 
 | 类别 | 拦截内容 | 拦截理由 |
 |---|---|---|
-| **伪装系统消息** | `system:`（大小写不敏感）、`role: system` 及其 JSON 变体 `"role":"system"` | 攻击者试图让 AI 以为收到新的系统指令；法律业务场景下英文的 `system:` 后接指令几乎不会合法出现 |
 | **模仿 AI 模板分隔符** | `<\|`（通用模板边界前缀）、`<\|im_start\|>` / `<\|im_end\|>`（ChatML）、`<\|begin_of_text\|>` / `<\|eot_id\|>`（Llama 3）、`[INST]` / `[/INST]`（Llama 2、Mistral）、`<s>` / `</s>`（BOS/EOS）、`### Instruction:` / `### Response:`（Alpaca/Vicuna） | 模型训练时的内部格式符号，正常法律文本不会出现；攻击者用这些试图让 AI 以为进入新对话轮次 |
 
 **不拦截的（产品决策，避免误伤合法业务）**：
 - 自然语言的"忽略以上 / ignore previous / disregard above / 忽略前款"等——这些在合同、判决书、法规条款里**合法高频出现**（例："不受前款约定影响"），拦截会大量误伤合同审查流程
-- 中文的"系统："（全角冒号）——合同里可能出现"系统错误"、"系统自动生成"等合法表述
+- 中/英文 `system:` / `role: system` 及其 JSON 变体——英文合同/技术协议/系统日志引用段落里可能合法出现（例："System: Microsoft Windows 11"、`"role":"system"` 出现在 API 文档引用段落），改由结构化模板符号兜底
 
 **命中后的行为**：直接返回 `ToolMessage("Error: 参数包含可疑内容")`；**不做清洗重写**（清洗会给攻击者反复试探的空间）。
 
@@ -184,34 +184,39 @@ execFile(binary, [...prependedArgs, ...execArgs], { ... }, callback)
 - **不限总次数**：避免复杂案件分析因为总次数超限而失败。
 - **per-session 隔离**：每个 session 独立计数，防止跨会话污染。
 
-**参数可调**：配置写入 `server/services/workflow/middleware/toolCallLimit.config.ts`，后续可按实际运行数据调整（例如观察到复杂合同审查真的需要 30 次 `write_skill_file`，可上调）。
+**参数可调**：配置以常量形式内联在 `toolCallLimit.middleware.ts` 顶部（对齐项目现有 middleware 风格，参考 `pointConsumption.middleware.ts` 的 `CHARS_PER_TOKEN`），后续可按实际运行数据调整。
 
 ### 4.4 auditMiddleware（审计归档）
 
 **位置**：`server/services/workflow/middleware/audit.middleware.ts`
 
-**职责**：所有工具调用（含被 scopeGuard 拒绝、被 toolCallLimit 熔断）全部写入 `agent_tool_audit` 表。
+**职责**：所有工具调用（含被 scopeGuard 拒绝、被 toolCallLimit 熔断）全部写入 `agent_tool_audit_logs` 表。
 
 **记录字段**（参见 4.5 表结构）：
 - 调用元数据：`userId`、`sessionId`、`caseId`、`runId`、`draftId`、`reviewId`、`toolName`、`verdict`（`allowed` / `denied` / `error`）、`denyReason`、`latencyMs`、`createdAt`
-- **脱敏后的参数摘要**（`argsDigest`，JSON）：
-    - 保留结构和字段名
-    - 字符串值长度 > 200 字符截断为"前 100 + ... + 后 50"
-    - **身份证/手机号/银行卡** 按正则匹配 mask（保留首 3 尾 4，中间 `*` 填充）——注意这里**只对审计日志 mask**，不影响 Agent 看到的原文
-    - 不记录 `write_skill_file` 的 `content` 原文（避免审计表被拖时反而成为敏感信息集中地），只记录 SHA-256 摘要 + 长度 + 文件路径
-- **工具返回值摘要**（`resultDigest`）：成功时记录长度；`verdict=denied` 时记录拒绝原因；错误时记录 error message 前 500 字符
+- **完整参数原文**（`argsDigest`，jsonb）：保留工具调用的完整参数结构和字段名，**不做 PII 脱敏**
+    - 字符串值长度 > 2000 字符时一刀切截断到 2000 字符（防止单条记录膨胀，非脱敏）
+    - `write_skill_file` 的 `content` 例外：即便不脱敏，单条 content 动辄几百 KB 价值低于成本——只记录内容的 SHA-256 摘要 + 长度 + 文件路径，完整内容 Agent 侧 workspace 文件本身已有（24h TTL）
+
+**审计不脱敏的设计决策**：
+- 法律业务的排查场景必须基于真实原文，脱敏会让"为什么被拒"无法复盘
+- 审计表访问严格限定 super_admin（`server/middleware/03.permission.ts` 兜底），作为组织级 RBAC 的信任边界
+- 审计表一旦泄露即意味着组织内部已失陷，此时脱敏与否差异微小
+- 运维层面建议审计表的数据库访问权限与主库分离（可选，由 DBA 配置）
 
 **实现要点**：
 - `wrapToolCall` 钩子在 handler 执行前记录起始时间，执行后（或拒绝后）生成记录异步入库（不阻塞工具返回）。
-- **异步写库失败不影响业务流程**：`.catch(err => logger.error(...))`。
-- 写库走 `prisma.agent_tool_audit.create`。
+- **异步写库失败不影响业务流程**：`.catch(err => logger.error(...))`（`logger` 自动导入，无需额外封装）。
+- 写库走 `prisma.agentToolAuditLogs.create`（`prisma` 自动导入）。
 
 ### 4.5 数据模型
 
-**新增表**：`agent_tool_audit`（放在 `prisma/models/audit.prisma`）
+**新增表**：`agent_tool_audit_logs`（放在 `prisma/models/apiPermission.prisma` 或新建 `prisma/models/audit.prisma`；建议合并到 `apiPermission.prisma`，与现有 `permissionAuditLogs` 同族集中管理）
+
+**命名对齐**：表名、模型名、索引命名均对齐项目现有 `permissionAuditLogs`（`permission_audit_logs`）惯例——表名复数 + `_logs` 后缀、索引用 `idx_xxx_yyy` 命名。
 
 ```prisma
-model agent_tool_audit {
+model agentToolAuditLogs {
     id           String   @id @db.Uuid                 // UUIDv7（应用层生成，按时间单调递增）
     userId       Int      @map("user_id")
     sessionId    String   @map("session_id") @db.VarChar(128)
@@ -222,70 +227,109 @@ model agent_tool_audit {
     toolName     String   @map("tool_name") @db.VarChar(64)
     verdict      String   @db.VarChar(16)              // allowed / denied / error
     denyReason   String?  @map("deny_reason") @db.VarChar(256)
-    argsDigest   Json     @map("args_digest")           // 脱敏后的参数结构
-    resultDigest Json?    @map("result_digest")         // 返回值摘要
+    argsDigest   Json     @map("args_digest")           // 完整参数原文（不脱敏）
     latencyMs    Int      @map("latency_ms")
     createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-    @@index([userId, createdAt])
-    @@index([toolName, verdict, createdAt])
-    @@index([sessionId])
-    @@index([createdAt])
-    @@map("agent_tool_audit")
+    @@index([userId, createdAt], map: "idx_agent_tool_audit_logs_user_id_created_at")
+    @@index([toolName, verdict, createdAt], map: "idx_agent_tool_audit_logs_tool_verdict_created_at")
+    @@index([sessionId], map: "idx_agent_tool_audit_logs_session_id")
+    @@index([createdAt], map: "idx_agent_tool_audit_logs_created_at")
+    @@map("agent_tool_audit_logs")
 }
 ```
 
 - **UUIDv7 主键**（PG 原生 `uuid` 类型 16 字节存储）：
-    - 应用层用 `uuid` npm 包的 `v7()` 生成，写入时显式赋值，例：`id: uuidv7()`
+    - **复用项目现有依赖** `uuid@^13`（见 `package.json`），`import { v7 as uuidv7 } from 'uuid'`，**无需新增包**
     - UUIDv7 前 48 位是 Unix 时间戳（ms），天然按创建时间单调递增，避免 UUIDv4 随机分布带来的 B-tree 索引碎片问题
-    - 优势：全局唯一（未来冷热分离/归档不会冲突）；管理端 URL 暴露 id 不泄露"每日审计总量"这类元信息
-- **四个索引**：覆盖"按用户查"、"按工具 + 结果查"、"按 session 追踪整条调用链"、"按日期清理"
+    - 选型说明：项目现有 `uuid()` 默认生成 v4（如 `agentRun.prisma`），本表是审计场景的小幅演进——审计表量级更大且自带时间属性，v7 是刚性优势；未来可评估是否推广到其他高写入表
+- **审计不可变**：**不设 `updatedAt / deletedAt`**（审计记录一旦写入不得修改；清理走硬删，见 §4.6）
+- **四个索引**：
+    - `idx_agent_tool_audit_logs_user_id_created_at`：按用户时间查询
+    - `idx_agent_tool_audit_logs_tool_verdict_created_at`：按工具+判决组合（用于 stats 接口）
+    - `idx_agent_tool_audit_logs_session_id`：按会话追踪整条调用链
+    - `idx_agent_tool_audit_logs_created_at`：按日期清理的批量删除
 - **分区**：初版不做。数据量达 5000 万条前 PG 单表性能足够；达到后再按月 partition
-- **`argsDigest` 用 Json**：便于 PG 的 jsonb GIN 索引和后续复杂条件查询
+- **`argsDigest` 用 Json（jsonb）**：便于 PG jsonb GIN 索引和后续复杂条件查询
+- **不含 `resultDigest` 字段**：工具返回值摘要初版不记录（存储成本高、查询价值低；错误信息直接写入 `denyReason` 即可；需要看返回值时看业务日志 `logger.info`）
+
+**前端类型定义**：新建 `shared/types/agentAudit.ts`，导出 `AuditRecord`、`AuditVerdict = 'allowed' | 'denied' | 'error'` 等共享类型；管理端 API 的返回体、前端页面从此处 `import type`（参考 `.claude/rules/types.md`）。
 
 ### 4.6 管理端 API
 
 严格遵循项目 `/admin/` 隔离规则（`server/middleware/03.permission.ts` 会拦截非 super_admin）。
 
-**`GET /api/v1/admin/agent-audit`** - 列表查询
-- Query 参数：`page`、`limit`（默认 20，最大 100）、`userId?`、`toolName?`、`verdict?`、`caseId?`、`sessionId?`、`from?`（ISO 日期）、`to?`（ISO 日期）
-- 返回：`{ list: AuditRecord[], total: number, page, limit }`
+**路径命名与风格对齐**：
+- 路径前缀 `/api/v1/admin/agent-audit-logs`（复数 + `-logs` 后缀，对齐现有 `admin/audit` 与表名 `agent_tool_audit_logs` 命名惯例）
+- 分页参数 `page` + `pageSize`（对齐 `/api/v1/admin/audit`）
+- 返回字段用 `items`（对齐 `/api/v1/admin/contract-reviews`）
+- 所有 handler 响应通过 `resSuccess(event, '...', data)` / `resError(event, code, msg)` 包装（HTTP 永远 200）
+- 所有 query / body 用 zod schema 校验；失败走 `resError(event, 400, ...)`
+
+**路由文件结构**：
+```
+server/api/v1/admin/agent-audit-logs/
+    index.get.ts       # 列表查询
+    stats.get.ts       # 统计指标（静态路由优先匹配，不会被 :id 吃掉）
+    [id].get.ts        # 详情（动态参数必须在文件名末尾，对齐 api.md 规范）
+    index.delete.ts    # 按日期清理
+```
+
+**`GET /api/v1/admin/agent-audit-logs`** - 列表查询
+- Query 参数：`page`（默认 1）、`pageSize`（默认 20，最大 100）、`userId?`、`toolName?`、`verdict?`、`from?`（ISO 日期）、`to?`（ISO 日期）；后端额外支持 `caseId?` / `sessionId?`（点记录行时前端可用）
+- 返回：`resSuccess(event, '查询成功', { items: AuditRecord[], total, page, pageSize })`
 - 排序：`createdAt desc`
 
-**`GET /api/v1/admin/agent-audit/:id`** - 详情
+**`GET /api/v1/admin/agent-audit-logs/:id`** - 详情
 - 返回单条完整记录（`argsDigest` 完整 JSON）
 - 便于排查某次拒绝/异常的全量上下文
 
-**`DELETE /api/v1/admin/agent-audit`** - 按日期清理
-- Body: `{ beforeDate: "2026-01-01", confirm: true }`
-- `confirm=false`（预检）：返回 `{ count: N }` 告知将删除多少条，不真删
-- `confirm=true`：真删，返回 `{ deleted: N }`
+**`DELETE /api/v1/admin/agent-audit-logs`** - 按日期清理（**单步**）
+- Body: `{ beforeDate: "2026-01-01" }`（zod 校验，ISO 日期字符串）
+- 返回：`resSuccess(event, '清理完成', { deleted: N })`
 - 硬删（审计表软删无意义）
 - 为避免一次删太多锁表，分批删除（每批 10_000 条，循环到无记录）
+- 预估条数前端本地通过一次列表接口（`pageSize=1`）拿 `total` 展示，无需单独预检接口
 
-**`GET /api/v1/admin/agent-audit/stats`** - 概览指标（**初版实施**）
-- 返回：`{ today: { allowed, denied, error }, last7d: { allowed, denied, error } }`
+**`GET /api/v1/admin/agent-audit-logs/stats`** - 概览指标（**初版实施**）
+- 返回：`resSuccess(event, '查询成功', { today: { allowed, denied, error }, last7d: { allowed, denied, error } })`
 - 用途：管理端列表页顶部统计卡片，一眼看出当日拒绝/错误量是否异常
-- 实现：两条 count-by-verdict 聚合查询，走 `createdAt` 索引，毫秒级
+- 实现：两条 count-by-verdict 聚合查询，走 `idx_agent_tool_audit_logs_tool_verdict_created_at`，毫秒级
 
 ### 4.7 管理端页面
 
-**`/admin/agent-audit`** - 列表页
+**合并到现有 `/admin/audit` 页面，以 Tab 切换**（产品决议：跟权限审计页语义同族，不新开独立页）：
 
-按 LexSeek 现有管理页面范式（参考 `app/pages/admin/`）：
+- 改造 `app/pages/admin/audit/index.vue`，把原有内容包进 Tab 1「权限审计」；新增 Tab 2「Agent 工具审计」承载本期新内容
+- 两个 Tab 共用 admin layout 顶部导航，各自维护独立的筛选/分页状态
+- Tab 切换用 shadcn-vue `Tabs` 组件
+- 页面元信息：`definePageMeta({ layout: 'admin-layout', title: '审计日志', icon: 'ShieldCheck' })`（对齐 `.claude/rules/ui.md` 三件套要求，layout 名称对齐项目既有 `admin-layout`）
 
-- **顶部统计卡片区**（3 张并排）：
-    - "今日允许" / "今日拒绝" / "今日错误"（橙色/红色 Badge 着色，点击卡片自动回填筛选器看明细）
-    - 副标题小字显示"近 7 天" 的对应数字，便于对比
-- 筛选栏：用户（input）、工具（select 枚举）、verdict（select：全部/允许/拒绝/错误）、日期范围（DatePicker）、caseId/sessionId
-- 表格列：时间、用户、工具、verdict（Badge 着色）、caseId、denyReason（截断显示 + tooltip 全文）、latencyMs、操作（详情）
-- 分页：shadcn-vue Pagination 组件
-- 点击行或"详情"按钮 → 抽屉（Sheet）显示 argsDigest / resultDigest 完整 JSON（`<pre>` + 语法高亮可选）
-- 右上角"清理"按钮 → 弹出确认对话框（选日期 → 预检 → 确认 → 执行）
+**Tab 2「Agent 工具审计」内容**：
 
-**UI 风格**：跟已有 `/admin/*` 页面完全一致，表格用 shadcn `Table`，筛选用已有的 `AdminTableToolbar` 或复用现有管理列表骨架。
+- **顶部统计卡片区**（3 张并排，仅本 Tab 显示）：
+    - 卡片标题："今日允许" / "今日拒绝" / "今日错误"（绿色/红色/橙色 Badge 着色）
+    - 副标题小字显示"近 7 天"的对应数字，便于对比
+    - 点击卡片自动回填主筛选器（verdict = 对应类型）
+    - 数据来源：`GET /api/v1/admin/agent-audit-logs/stats`
+- **筛选栏**（3 个主筛选器）：用户（`Input`）、工具（`Select`，枚举来自 `getAllToolNamesService()`）、判决（`Select`：全部/允许/拒绝/错误）、日期范围（`DateRangePicker`）
+- **表格列**：时间、用户、工具、判决（`Badge` 着色）、案件 ID（可空）、拒绝原因（截断显示 + `Tooltip` 全文）、耗时 ms、操作（详情）
+- **分页**：复用现有 `GeneralPagination` 组件（参考现有 `/admin/audit` 页面）
+- **详情**：点击行或"详情"按钮 → 抽屉（`Sheet`）显示完整 `argsDigest` 的 JSON（`<pre>` + `JSON.stringify(value, null, 2)`，不引入语法高亮库）
+- **清理按钮**（Tab 右上角）→ 调用 `useAlertDialogStore.showErrorDialog`：
+    - `title`: "确认清理审计日志"
+    - `message`: "将删除 YYYY-MM-DD 之前的 N 条记录，操作不可撤销。"（N 从列表 total 本地计算）
+    - `confirmText`: "确认删除"（红色主按钮，`showErrorDialog` 默认）
+    - 若当前正在看详情 Sheet（Sheet 默认 `z-[70]`），`showErrorDialog` 需传 `zIndex: 9999` 避免被遮罩（项目既有约定，见全局记忆 `feedback_sheet_dialog_zindex`）
+    - `onConfirm` 中调用 `useApiFetch('/api/v1/admin/agent-audit-logs', { method: 'DELETE', body: { beforeDate } })`，成功后 `toast.success` + `refresh()`
 
-**权限**：页面 `definePageMeta({ layout: 'admin' })`，admin layout 已经会跳非 super_admin 用户。
+**数据请求**：用 `useApi` 或 `useApiFetch`（注意 `useApiFetch` 自动提取 `data` 字段，类型直接定义数据本身，不要包 `{ code, data }` 外层——详见 `.claude/rules/fetch.md`）
+
+**权限**：页面仍位于 `/admin/audit`，由 `server/middleware/03.permission.ts` 统一拦截非 `super_admin`。
+
+**禁止事项**：
+- 不使用浏览器原生 `confirm()/alert()/prompt()`
+- 不修改 `app/components/ui/` 下的 shadcn-vue 组件
 
 ## 5. 中间件装配顺序
 
@@ -322,28 +366,29 @@ createAgent({
 
 ## 7. 测试策略
 
+**测试命令**：`npx vitest run <路径>`（项目规范，见 `.claude/rules/commands.md`；**不使用** `bun test`）。
+
 ### 7.1 单元测试
 
 | 文件 | 覆盖范围 |
 |---|---|
 | `tests/server/workflow/middleware/scopeGuard.test.ts` | 每种工具的合法/非法参数组合；路径穿越；caseId/userId 篡改；`upload_workspace_file` 的"必须先 write"强约束；state 持久化 |
-| `tests/server/workflow/middleware/audit.test.ts` | 正常调用记录、拒绝记录、异常记录；`argsDigest` 脱敏；写库失败不影响流程；大 content 摘要为 SHA + 长度 |
+| `tests/server/workflow/middleware/audit.test.ts` | 正常调用记录、拒绝记录、异常记录；完整原文入库（不脱敏）；大 content 摘要为 SHA + 长度；写库失败不影响流程 |
 | `tests/server/workflow/middleware/toolCallLimit.test.ts` | 分层配置正确；per-session 隔离；超限返回 Error 字符串而非异常 |
-| `tests/server/workflow/tools/runSkillScript.netns.test.ts` | Linux 路径：mock `execFile` 断言 `unshare -rn` 被调用；macOS 路径：不调 unshare；`hasUnshare` 启动探测 |
+| `tests/server/workflow/tools/runSkillScript.test.ts`（扩展已有文件） | 增加 netns 断言用例：Linux 路径 mock `execFile` 断言 `unshare -rn` 被调用；macOS 路径不调 unshare；`hasUnshare` 启动探测（合并到既有测试文件，不新建独立 netns 测试文件） |
 
 ### 7.2 集成测试
 
 | 文件 | 场景 |
 |---|---|
-| `tests/server/api/admin/agentAudit.test.ts` | 列表筛选 / 详情 / 按日期清理 / 非 super_admin 403 |
-| `tests/server/workflow/agentSecurity.integration.test.ts` | 构造一个模拟 prompt injection 的 workflow：Agent 输入被诱导要求 `upload_workspace_file("/etc/passwd")`，断言 scopeGuard 拒绝；断言审计表有记录；断言工具最终返回 Error ToolMessage |
+| `tests/server/api/admin/agentAuditLogs.test.ts` | 列表筛选（含对齐 `page/pageSize` 分页）/ 详情 / 按日期清理 / 非 super_admin 403 / stats 返回结构 |
+
+（**不做** "模拟 prompt injection 的 workflow 集成测试"：构造的攻击向量局限于开发者想象，真实攻击样本应从上线后审计表复盘，工作量放到迭代 2。scopeGuard 的单元测试已覆盖所有拒绝路径。）
 
 ### 7.3 手工验证清单（集成环境）
 
-- [ ] 在 Linux 容器内手动跑 `unshare -rn curl google.com`，应超时失败
-- [ ] 调 `run_skill_script` 执行一个 `curl attacker.com` 的脚本，应因网络不可达失败
-- [ ] 管理端访问 `/admin/agent-audit` 能看到最近一次分析的全部工具调用
-- [ ] 管理员按"删除 2026-01-01 之前"触发清理，列表更新
+- [ ] 在 Linux 容器内调 `run_skill_script` 执行 `curl attacker.com` 的脚本，应因网络不可达失败（同时验证 `unshare -rn` 生效）
+- [ ] 管理端 `/admin/audit` 页面切到「Agent 工具审计」Tab，能看到最近一次分析的全部工具调用、顶部 3 个统计卡片数字合理、清理按钮工作
 
 ## 8. 数据迁移与上线
 
@@ -351,10 +396,11 @@ createAgent({
 
 ```bash
 bun run prisma:generate
-bun run prisma:migrate --name add_agent_tool_audit
+bunx prisma migrate dev --name add_agent_tool_audit_logs
 ```
 
-- 新表无历史数据，迁移零风险。
+- 项目 `package.json` 的 `prisma:migrate` 脚本不透传 `--name`，按 `.claude/rules/commands.md` 惯例直接走 `bunx prisma migrate dev`
+- 新表无历史数据，迁移零风险
 
 ### 8.2 部署检查清单
 
@@ -364,9 +410,10 @@ bun run prisma:migrate --name add_agent_tool_audit
 
 ### 8.3 观测
 
-- 上线一周内每天检查 `agent_tool_audit` 表：
+- 上线一周内每天检查 `agent_tool_audit_logs` 表：
     - `verdict=denied` 数量 vs 总调用量（基线应 < 1%，过高说明合法场景被误伤）
     - `latencyMs` P99（中间件开销应 < 5ms）
+    - 每工具的 toolCallLimit 触达次数（用于首周判断分层阈值是否合理；阈值过紧可调整 `toolCallLimit.middleware.ts` 顶部常量）
 - 若 denied 率高，针对性放宽 scopeGuard 规则（记 spec 补充说明）
 
 ## 9. 风险与局限
@@ -375,11 +422,11 @@ bun run prisma:migrate --name add_agent_tool_audit
 
 | 局限 | 缓解 |
 |---|---|
-| scopeGuard 的"启发式黑名单"（prompt injection token）是兜底，不能替代结构防御 | 主防御是 scope 强校验 + 外网切断；黑名单仅作为三线防御，误报少量时可容忍 |
+| scopeGuard 的"模板分隔符黑名单"是兜底，不能替代结构防御 | 主防御是 scope 强校验 + 外网切断；黑名单仅作为三线防御，误报少量时可容忍 |
 | macOS 开发环境无 unshare，开发机是潜在攻击面 | 开发机可信；且所有审计仍生效；真实攻击在生产触发 |
 | Node.js 主进程仍可访问任何外网（正常业务需要） | 攻击者要外泄必须走 skill 子进程或诱导主进程中已有工具，后者由 scopeGuard 拦截 |
 | 无法防"Agent 被诱导生成错误但合规的分析结果" | 本方案不防"语义正确性"，该问题属于模型对齐领域，不在 scope 内 |
-| 审计表可能被拥有数据库访问权的内部人员查询 | 同 LexSeek 现有数据敏感性规则，靠组织层面 RBAC；审计表本身已对高风险字段脱敏 |
+| 审计表完整存储工具调用原文（不脱敏），一旦数据库访问权失陷即大量敏感信息泄露 | 访问严格限定 super_admin（`03.permission.ts` 兜底）；运维层面建议审计表的数据库访问权限与主库分离（可选） |
 
 ### 9.2 未来演进方向（不在本 spec 范围）
 
@@ -393,15 +440,26 @@ bun run prisma:migrate --name add_agent_tool_audit
 
 | 阶段 | 工作 | 预计 |
 |---|---|---|
-| P0 核心 | scopeGuard + audit 中间件 + `agent_tool_audit` 表 + unshare 网络隔离 + 装配到 5 个 agent | 3-4 天 |
-| P0 管理端 | API + 列表页 + 顶部统计卡片 + 清理弹窗 + 测试 | 2.5 天 |
+| P0 核心 | scopeGuard + audit 中间件 + `agent_tool_audit_logs` 表 + unshare 网络隔离 + 装配到 5 个 agent + `shared/types/agentAudit.ts` | 3-4 天 |
+| P0 管理端 | 合并 Tab 改造现有 `/admin/audit` 页面 + 4 个 API（list/detail/stats/delete）+ 顶部统计卡片 + 清理（单步）弹窗 + 测试 | 2 天 |
 | P1 熔断 | toolCallLimit 装配 + 分层配置 + 测试 | 0.5-1 天 |
-| 集成验证 | 手工验证清单 + prompt injection 模拟测试 | 0.5-1 天 |
-| **合计** | — | **6.5-8.5 天** |
+| 集成验证 | 手工验证 2 条 | 0.5 天 |
+| **合计** | — | **6-7.5 天** |
 
 ## 11. 评审决议记录
 
-- **2026-04-21**：黑名单条目最终清单确认——拦"伪装系统消息" + "模仿 AI 模板分隔符"两类；**不拦**自然语言的"忽略以上"等（法律场景合法出现）。详见第 4.1 节污染标记黑名单清单。
-- **2026-04-21**：`agent_tool_audit` 表主键改为 UUIDv7（原方案 BigInt 自增），原因：避免 id 暴露到管理端 URL 时泄露审计总量；未来冷热分离/归档天然全局唯一；按时间单调递增，无索引碎片。
-- **2026-04-21**：熔断功能（`toolCallLimitMiddleware`）与 scopeGuard/audit **同批上线**，默认值保守，后续按运行数据调整。
-- **2026-04-21**：管理端列表页增加顶部统计卡片（今日允许/拒绝/错误 + 近 7 天对比），点击卡片自动回填筛选器看明细。对应 API `GET /api/v1/admin/agent-audit/stats` 纳入初版实施。
+- **2026-04-21 首轮**：黑名单条目初版——拦"伪装系统消息" + "模仿 AI 模板分隔符"两类；**不拦**自然语言的"忽略以上"等（法律场景合法出现）
+- **2026-04-21 首轮**：主键改 UUIDv7；熔断同批上线；管理端加顶部统计卡片
+- **2026-04-21 4 维度审查后**：基于需求对齐/基建复用/规范合规/过度设计四维审查，做以下调整：
+    - 黑名单**进一步收窄**：砍掉"伪装系统消息"类（`system:` / `role: system`），理由：英文技术合同、API 文档引用段落可能合法出现；只保留结构化模板分隔符兜底
+    - 审计**不做任何脱敏**（砍掉身份证/手机号/银行卡 mask），原因：法律场景需要完整原文排查；审计表访问限定 super_admin 已是组织级信任边界
+    - 砍掉 `resultDigest` 字段（工具返回值摘要），错误信息合并进 `denyReason` 即可；价值低于存储成本
+    - 清理 API 改**单步**（原预检+真删两步），前端从列表 total 本地算预估条数
+    - 表名/模型名对齐现有 `permissionAuditLogs` 惯例，改 `agentToolAuditLogs` / `agent_tool_audit_logs`；索引命名 `idx_xxx_yyy`
+    - API 分页参数 `page/pageSize`（对齐 `admin/audit`），返回字段 `items`（对齐 `admin/contract-reviews`），响应包 `resSuccess/resError`，query 走 zod 校验
+    - 前端页面**合并到现有 `/admin/audit` 用 Tab 切换**（权限审计 / Agent 工具审计同族），`definePageMeta` 三件套 `layout: 'admin-layout' / title / icon` 对齐项目惯例
+    - 清理弹窗明示 `useAlertDialogStore.showErrorDialog`，并处理 Sheet + Dialog `zIndex: 9999`
+    - `toolCallLimit` 配置内联到 middleware 文件顶部常量（对齐 `pointConsumption.middleware.ts` 风格），不单独建 config 文件
+    - 新增 `shared/types/agentAudit.ts` 放 `AuditRecord` / `AuditVerdict` 共享类型
+    - 砍掉"模拟 prompt injection 集成测试"（构造攻击向量局限于开发者想象，真实样本应从上线后审计表复盘）；`runSkillScript.netns` 测试合并到既有 `runSkillScript.test.ts`
+    - 手工验证清单精简为 2 条
