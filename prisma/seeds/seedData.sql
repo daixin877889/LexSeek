@@ -1052,12 +1052,16 @@ INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "d
 
 
 -- ==================== MinerU Token 种子数据 ====================
-INSERT INTO "public"."mineru_tokens" ("id", "name", "token", "remark", "status", "created_at", "updated_at", "deleted_at") VALUES (1, 'daixin', 'eyJ0eXBlIjoiSldUIiwiYWxnIjoiSFM1MTIifQ.eyJqdGkiOiI0MzMwNTE1MSIsInJvbCI6IlJPTEVfUkVHSVNURVIiLCJpc3MiOiJPcGVuWExhYiIsImlhdCI6MTc3MTgwODk5MywiY2xpZW50SWQiOiJsa3pkeDU3bnZ5MjJqa3BxOXgydyIsInBob25lIjoiIiwib3BlbklkIjpudWxsLCJ1dWlkIjoiYjM0MzhmNTAtODAyZi00MDgwLTljN2UtYzRkYmZmMmQyYzdhIiwiZW1haWwiOiJkYWl4aW5tYWlsQHFxLmNvbSIsImV4cCI6MTc3OTU4NDk5M30.Q4CHzmuAeOwpM1nad4AVMzpWt4NyvSg-igXQtXXSYnTDyYXTNLpIbrgaQcGMo9hSPFk84hG6IJ0pb6ypEZwjOw', '过期时间 2026-05-24 09:09', 1, '2026-01-07 10:00:00+08', '2026-03-20 23:01:23.915+08', NULL);
+INSERT INTO "public"."mineru_tokens" ("id", "name", "token", "remark", "status", "created_at", "updated_at", "deleted_at") VALUES (1, 'daixin', 'eyJ0eXBlIjoiSldUIiwiYWxnIjoiSFM1MTIifQ.eyJqdGkiOiI0MzMwNTE1MSIsInJvbCI6IlJPTEVfUkVHSVNURVIiLCJpc3MiOiJPcGVuWExhYiIsImlhdCI6MTc3Njc3MDE4NSwiY2xpZW50SWQiOiJsa3pkeDU3bnZ5MjJqa3BxOXgydyIsInBob25lIjoiIiwib3BlbklkIjpudWxsLCJ1dWlkIjoiZWU5MTViOWYtNWFiNi00MTM3LWJhYjctNDAyNGU2OTNjMmQzIiwiZW1haWwiOiJkYWl4aW5tYWlsQHFxLmNvbSIsImV4cCI6MTc4NDU0NjE4NX0.iQ0OCJfyw4-MrmaFus0RvwAYWXKkEQCmkyPeBIGsnryjDBjItETAZcnIXJObQexHhkMVc204bqwWz11gte7tuA', '过期时间 2026-07-20 19:16', 1, '2026-01-07 10:00:00+08', '2026-04-21 19:17:04.167+08', NULL);
+INSERT INTO "public"."mineru_tokens" ("id", "name", "token", "remark", "status", "created_at", "updated_at", "deleted_at") VALUES (2, 'X1524', 'eyJ0eXBlIjoiSldUIiwiYWxnIjoiSFM1MTIifQ.eyJqdGkiOiIzODcwNTgwMiIsInJvbCI6IlJPTEVfUkVHSVNURVIiLCJpc3MiOiJPcGVuWExhYiIsImlhdCI6MTc3Njc2OTk0OCwiY2xpZW50SWQiOiJsa3pkeDU3bnZ5MjJqa3BxOXgydyIsInBob25lIjoiMTkzNzA3MjE1MjQiLCJvcGVuSWQiOm51bGwsInV1aWQiOiIxM2M3YjkzOS01MGI4LTRiMTItOGZjOS04YWQ4NDYyNDUxZTUiLCJlbWFpbCI6IiIsImV4cCI6MTc4NDU0NTk0OH0.b92gwx5nRMQBLE_rYL3ZydGj0kKq_hTbDtw1Qrqvn-Tlht7n93fIvI2E90q4Y84jIxlICgPxWmOI4SK-pApSdQ', '20260820 到期', 1, '2026-04-21 19:15:40.954+08', '2026-04-21 19:15:40.954+08', NULL);
+INSERT INTO "public"."mineru_tokens" ("id", "name", "token", "remark", "status", "created_at", "updated_at", "deleted_at") VALUES (3, 'X2042', 'eyJ0eXBlIjoiSldUIiwiYWxnIjoiSFM1MTIifQ.eyJqdGkiOiIyMDkwNzQxNCIsInJvbCI6IlJPTEVfUkVHSVNURVIiLCJpc3MiOiJPcGVuWExhYiIsImlhdCI6MTc3Njc3MzgzNSwiY2xpZW50SWQiOiJsa3pkeDU3bnZ5MjJqa3BxOXgydyIsInBob25lIjoiMTgxMTYwMzIwNDIiLCJvcGVuSWQiOm51bGwsInV1aWQiOiJlODJmZDc2NC04YzU4LTRkMzQtYWU4OC04NjRiN2IzMDhhMDUiLCJlbWFpbCI6IjE4MTE2MDMyMDQyQDE2My5jb20iLCJleHAiOjE3ODQ1NDk4MzV9.NmGKOeo3flSFmxvncQeenBci5cOO3Ddna8kk8QP2yLo7cwMeyuk0urN4Klw6gsucARGsr1natXno5eCuTm9ttg', '2026-07-20 20:17 到期', 1, '2026-04-21 20:18:24.516+08', '2026-04-21 20:18:24.516+08', NULL);
+
 
 -- ==================== 节点分组种子数据 ====================
 INSERT INTO "public"."node_groups" ("id", "name", "description", "priority", "created_at", "updated_at", "deleted_at") VALUES (1, '工作流节点', '案件分析工作流中的核心节点，包括案情检查、信息提取等', 10, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
 INSERT INTO "public"."node_groups" ("id", "name", "description", "priority", "created_at", "updated_at", "deleted_at") VALUES (2, '分析模块', '案件分析模块，包括案件概要、大事记、诉讼请求等', 20, '2026-01-07 10:00:02+08', '2026-01-07 10:00:00+08', NULL);
 INSERT INTO "public"."node_groups" ("id", "name", "description", "priority", "created_at", "updated_at", "deleted_at") VALUES (3, '文书模块', '法律文书生成模块，包括起诉状、答辩状等', 30, '2026-01-07 10:00:03+08', '2026-01-07 10:00:00+08', NULL);
+
 
 -- ==================== 节点种子数据 ====================
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (1, 'caseInfoCheck', '案情信息检查', '检查案件材料中是否包含足够的案情信息，如果不足则提示用户补充', 'analysis', 10, 1, '["search_case_materials"]', NULL, 1, 1, '2026-01-07 10:00:00+08', '2026-03-21 12:46:54.761+08', NULL);
@@ -1078,6 +1082,7 @@ INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "pri
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (16, 'assistantTitleGen', '会话标题生成', '根据首轮对话生成 ≤20 字会话标题，供侧栏列表展示', 'extraction', 20, 2, '[]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL);
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (17, 'documentMain', '文书生成主Agent', '按模板占位符填充生成文书', 'agent', 30, 1, '["process_materials", "search_case_materials", "search_law"]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (18, 'contractReviewMain', '合同审查主Agent', '按 responseFormat 输出结构化风险清单，并通过 parse_and_ask_stance 工具中断请求用户立场', 'agent', 40, 1, '["parse_and_ask_stance"]', NULL, NULL, 1, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
+INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (19, 'contractReviewSummarize', '合同审查·总览总结', '读完 analyze 阶段生成的所有 risks，做跨条款归纳，输出分档要点（highlights）+ 总评（overall）', 'extraction', 45, 1, '[]', NULL, NULL, 1, '2026-04-21 20:00:00+08', '2026-04-21 20:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
 
 -- ==================== 提示词种子数据 ====================
 INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (1, 'caseInfoCheck_system', '案情信息检查-系统提示词', '你是一位专业的法律案件分析助手，专门负责评估案件材料中的案情信息是否充足。
@@ -2153,6 +2158,28 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 - clauseIndex 从工具返回的 paragraphs 数组索引取值（0-based）
 - clauseText 必须是 paragraphs 中对应段落的完整文本
 - 禁止编造段落', '[]', 'v1', 'system', 1, 18, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (27, 'contractReviewSummarize_system', '合同审查·总览总结提示词 v1', '你正在帮律师完成{{contractType}}审查的"一览视图"（立场={{stance}}）。
+
+以下是我已经逐条分析出的所有风险点（格式："级别 · riskId · 类别 · 问题描述"）：
+
+{{riskList}}
+
+你的任务：**做真正的跨条款归纳**，而不是把原问题复述一遍。具体要求：
+
+1. 识别哪些 risk 本质上是**同一类**问题（相同主题 / 相同法律依据 / 相同后果），
+   将它们**合并成一条要点**。例如 3 条都涉及"试用期约定违法"，就合并为
+   一条"试用期条款多处违法（涵盖 3 条）"，而不是分别列 3 条。
+2. 每条要点写在共性层面（一句话概括"这一类问题是什么、为什么是风险"），
+   不要出现单条 risk 原文，也不要出现"第 X 条"这种具体编号。
+3. 要点挂的 riskId 选**该类问题里最有代表性的那一条**（仅一个 id），
+   用户点击会跳到该条款定位。
+4. 每档（高/中/低）最多 5 条；如果整档都能合并为 1-2 条就只出 1-2 条，
+   避免强行凑数。若某档无风险则输出空数组。
+5. 最后写一段总评（≤ 120 字）：从合同整体合规度/履约风险角度定性，
+   不要重复要点内容。
+
+严格按如下 JSON 输出，不要解释、不要代码块标记：
+{"highlights": {"high":[{"text":"...","riskId":"..."}], "medium":[...], "low":[...]}, "overall":"..."}', '["stance", "contractType", "riskList"]', 'v1', 'system', 1, 19, '2026-04-21 20:00:00+08', '2026-04-21 20:00:00+08', NULL);
 
 
 

@@ -5,12 +5,14 @@
  * 返回 ContractOverview 结构。
  *
  * - 0 条风险时直接返回默认，不调 LLM（省 token）
+ * - 提示词从 DB 节点 `contractReviewSummarize` 的 system prompt 加载（运营可在后台热更新）
  * - LLM 返回不符合 schema 时抛错，调用方决定降级策略
  */
 import { z } from 'zod'
 import type { Risk, ContractOverview, Stance } from '#shared/types/contract'
 import { createChatModel } from '~~/server/services/node/chatModelFactory'
 import { getValidNodeConfig } from '~~/server/services/node/node.service'
+import { renderContent } from '~~/server/services/node/prompt.service'
 import { logContextOverflow } from '~~/server/services/workflow/context/contextErrorLogger'
 
 const OverviewResponse = z.object({
@@ -21,6 +23,8 @@ const OverviewResponse = z.object({
     }),
     overall: z.string().max(120),
 })
+
+const NODE_NAME = 'contractReviewSummarize'
 
 export async function summarizeOverview(
     risks: Risk[],
@@ -34,9 +38,15 @@ export async function summarizeOverview(
         }
     }
 
-    const config = await getValidNodeConfig('contractReviewMain')
+    const config = await getValidNodeConfig(NODE_NAME)
     const activeKey = config.modelApiKeys.find(k => k.status === 1)
-    if (!activeKey) throw new Error('summarizeOverview: 无可用 API 密钥')
+    if (!activeKey) throw new Error(`${NODE_NAME}: 无可用 API 密钥`)
+
+    // 从 DB 加载 system prompt 模板（运营可在 /admin/nodes/:id 里热更）
+    const template = config.prompts.find(p => p.type === 'system' && p.status === 1)?.content
+    if (!template) {
+        throw new Error(`${NODE_NAME}: DB 未配置 system 类型的启用态提示词`)
+    }
 
     const model = createChatModel({
         sdkType: config.modelSdkType,
@@ -46,7 +56,7 @@ export async function summarizeOverview(
         temperature: 0.3, // 略放松，让总评自然
     })
 
-    const prompt = buildPrompt(risks, stance, contractType)
+    const prompt = renderPromptTemplate(template, risks, stance, contractType)
     let response
     try {
         response = await model.invoke(prompt)
@@ -100,32 +110,31 @@ export async function summarizeOverview(
     return parsed.data
 }
 
-function buildPrompt(risks: Risk[], stance: Stance, contractType: string | null): string {
-    const riskList = risks.map((r) => {
-        const line = `${r.level.toUpperCase()} · ${r.id} · ${r.category} · ${r.problem}`
-        return line.length > MAX_RISK_LINE_CHARS ? line.slice(0, MAX_RISK_LINE_CHARS) + '…' : line
-    }).join('\n')
-    return [
-        `你正在帮律师完成${contractType ?? '合同'}审查的"一览视图"（立场=${stance}）。`,
-        `以下是我已经逐条分析出的所有风险点（格式："级别 · riskId · 类别 · 问题描述"）：`,
-        ``,
+/**
+ * 渲染 DB 模板：替换 {{stance}} / {{contractType}} / {{riskList}} 占位符
+ *
+ * riskList 是长文本（每条 risk 一行），不适合直接放在模板的 variables 字段里——
+ * variables 是 JSON 数组只做字段名声明；实际值在调用处拼接好再 renderContent。
+ */
+function renderPromptTemplate(
+    template: string,
+    risks: Risk[],
+    stance: Stance,
+    contractType: string | null,
+): string {
+    const riskList = risks
+        .map(r => `${r.level.toUpperCase()} · ${r.id} · ${r.category} · ${r.problem}`)
+        .join('\n')
+    const rendered = renderContent(template, {
+        stance,
+        contractType: contractType ?? '合同',
         riskList,
-        ``,
-        `你的任务：**做真正的跨条款归纳**，而不是把原问题复述一遍。具体要求：`,
-        ``,
-        `1. 识别哪些 risk 本质上是**同一类**问题（相同主题 / 相同法律依据 / 相同后果），`,
-        `   将它们**合并成一条要点**。例如 3 条都涉及"试用期约定违法"，就合并为`,
-        `   一条"试用期条款多处违法（涵盖 3 条）"，而不是分别列 3 条。`,
-        `2. 每条要点写在共性层面（一句话概括"这一类问题是什么、为什么是风险"），`,
-        `   不要出现单条 risk 原文，也不要出现"第 X 条"这种具体编号。`,
-        `3. 要点挂的 riskId 选**该类问题里最有代表性的那一条**（仅一个 id），`,
-        `   用户点击会跳到该条款定位。`,
-        `4. 每档（高/中/低）最多 5 条；如果整档都能合并为 1-2 条就只出 1-2 条，`,
-        `   避免强行凑数。若某档无风险则输出空数组。`,
-        `5. 最后写一段总评（≤ 120 字）：从合同整体合规度/履约风险角度定性，`,
-        `   不要重复要点内容。`,
-        ``,
-        `严格按如下 JSON 输出，不要解释、不要代码块标记：`,
-        `{"highlights": {"high":[{"text":"...","riskId":"..."}], "medium":[...], "low":[...]}, "overall":"..."}`,
-    ].join('\n')
+    })
+    const unreplaced = rendered.match(/\{\{(\w+)\}\}/g)
+    if (unreplaced) {
+        logger.warn('summarizeOverview: 提示词存在未替换的模板变量', {
+            unreplacedVars: unreplaced,
+        })
+    }
+    return rendered
 }
