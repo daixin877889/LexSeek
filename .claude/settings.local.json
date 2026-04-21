@@ -1,10 +1,4 @@
 {
-  "enabledPlugins": {
-    "minimax-skills@minimax-skills": false,
-    "ralph-wiggum@claude-code-plugins": false,
-    "basedpyright@claude-code-lsps": false,
-    "bsl-lsp@claude-code-lsps": false
-  },
   "permissions": {
     "allow": [
       "Bash(cd:*)",
@@ -24,7 +18,15 @@
       "Bash(node:*)",
       "Bash(pg_lsclusters)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(mkdir -p ~/.claude/plugins/claude-hud)",
+      "Read(//Users/daixin/.claude/plugins/claude-hud/**)"
     ]
+  },
+  "enabledPlugins": {
+    "minimax-skills@minimax-skills": false,
+    "ralph-wiggum@claude-code-plugins": false,
+    "basedpyright@claude-code-lsps": false,
+    "bsl-lsp@claude-code-lsps": false
   }
 }
