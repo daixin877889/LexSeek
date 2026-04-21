@@ -244,6 +244,14 @@ export type ContractReviewEvent =
  */
 export type StancePreference = 'strict' | 'balanced' | 'lenient'
 
+export const STANCE_PREFERENCE_OPTIONS = ['strict', 'balanced', 'lenient'] as const
+
+export const STANCE_PREFERENCE_LABEL: Record<StancePreference, string> = {
+    strict: '严格',
+    balanced: '中性',
+    lenient: '宽松',
+}
+
 /**
  * 写入 contractReviews.playbookSnapshot 的单条快照结构。
  * 字段对齐 contractPlaybooks，仅取快照写入所需字段。
@@ -256,4 +264,15 @@ export interface PlaybookPointSnapshot {
     checkContent: string
     legalBasis?: string
     suggestion?: string
+}
+
+/**
+ * 冻结在 contract_reviews.playbookSnapshot JSON 中的完整快照。
+ * 运营后续修改 contract_playbooks 不影响历史审查的快照数据。
+ */
+export interface PlaybookSnapshot {
+    contractType: string
+    points: PlaybookPointSnapshot[]
+    /** ISO 时间戳，便于 UI 显示"本审查使用清单版本快照于 YYYY-MM-DD" */
+    snapshotAt: string
 }
