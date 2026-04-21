@@ -20,7 +20,7 @@ model contractPlaybooks {
   suggestion       String?  @db.Text
   enabled          Boolean  @default(true)
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
 
   @@unique([contractType, code], map: "idx_contract_playbooks_type_code")
   @@index([contractType, enabled, code], map: "idx_contract_playbooks_lookup")
