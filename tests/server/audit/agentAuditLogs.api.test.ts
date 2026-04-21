@@ -17,6 +17,7 @@ import { uuidv7 } from '~~/shared/utils/uuid'
 
 const { default: listHandler } = await import('../../../server/api/v1/admin/agent-audit-logs/index.get')
 const { default: detailHandler } = await import('../../../server/api/v1/admin/agent-audit-logs/[id].get')
+const { default: statsHandler } = await import('../../../server/api/v1/admin/agent-audit-logs/stats.get')
 
 function makeEvent(opts: {
     query?: Record<string, string | number>
@@ -104,5 +105,32 @@ describe('GET /api/v1/admin/agent-audit-logs/:id', () => {
         const event = makeEvent({ params: { id: 'not-uuid' } })
         const res = await detailHandler(event)
         expect(res.code).toBe(400)
+    })
+})
+
+describe('GET /api/v1/admin/agent-audit-logs/stats', () => {
+    beforeEach(async () => {
+        await prisma.agentToolAuditLogs.deleteMany({ where: { userId: 9002 } })
+        await prisma.agentToolAuditLogs.createMany({
+            data: [
+                { id: uuidv7(), userId: 9002, sessionId: 's', toolName: 'x', verdict: 'allowed', argsDigest: {}, latencyMs: 1 },
+                { id: uuidv7(), userId: 9002, sessionId: 's', toolName: 'x', verdict: 'denied', argsDigest: {}, latencyMs: 1 },
+                { id: uuidv7(), userId: 9002, sessionId: 's', toolName: 'x', verdict: 'error', argsDigest: {}, latencyMs: 1 },
+            ],
+        })
+    })
+    afterEach(async () => {
+        await prisma.agentToolAuditLogs.deleteMany({ where: { userId: 9002 } })
+    })
+
+    it('返回 today + last7d 的 verdict 分布', async () => {
+        const event = makeEvent()
+        const res = await statsHandler(event)
+        expect(res.code).toBe(0)
+        expect(res.data).toMatchObject({
+            today: { allowed: expect.any(Number), denied: expect.any(Number), error: expect.any(Number) },
+            last7d: { allowed: expect.any(Number), denied: expect.any(Number), error: expect.any(Number) },
+        })
+        expect(res.data.today.allowed).toBeGreaterThanOrEqual(1)
     })
 })
