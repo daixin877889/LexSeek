@@ -108,13 +108,11 @@ export const createTool = (context: ToolContext) => tool(
         const finalPartyA = resumedPartyA ?? partyA ?? null
         const finalPartyB = resumedPartyB ?? partyB ?? null
 
-        // M6.1：用户立场已确认，发送 stance done + analyze running
+        // M6.1：用户立场已确认，发送 stance done
+        // analyze:running 由 runAnalyzeLoop 统一发出（M6.1 子期 2）
         if (emitterCtx) {
             await emitContractReviewEvent(emitterCtx, {
                 type: 'stage', stage: 'stance', status: 'done',
-            })
-            await emitContractReviewEvent(emitterCtx, {
-                type: 'stage', stage: 'analyze', status: 'running',
             })
         }
 
