@@ -88,8 +88,9 @@ export interface DownloadResponse {
  * 后端 API 层统一在返回前把 `risks: Json` 当成 `Risk[] | null` 使用，
  * 前端即可免去 `as Risk[]` 散落。
  */
-export type ReviewWithParsedRisks = Omit<contractReviews, 'risks'> & {
+export type ReviewWithParsedRisks = Omit<contractReviews, 'risks' | 'summary'> & {
     risks: Risk[] | null
+    summary: ContractOverview | null
 }
 
 /**
@@ -169,3 +170,61 @@ export interface AdminReviewDetail {
     updatedAt: Date
     deletedAt: Date | null
 }
+
+// ==================== M6.1 ====================
+
+/**
+ * 分档总览（contractReviews.summary 升级为 JSON 后的结构）
+ *
+ * - counts / score / scoreLabel 三个派生值不进 schema，由前端 useContractOverview 实时派生
+ * - highlights 为 null 时说明"历史数据"或"summarize 未完成"，前端降级为只显示卡片列表
+ */
+export interface ContractOverview {
+    /** 分档要点，每档 1-5 条，挂 riskId 用于可点跳转 */
+    highlights: {
+        high: Array<{ text: string; riskId: string }>
+        medium: Array<{ text: string; riskId: string }>
+        low: Array<{ text: string; riskId: string }>
+    } | null
+    /** 总评（后端 LLM 生成，≤120 字）。历史 M4/M5 的 string 迁移后填这个字段 */
+    overall: string
+}
+
+/**
+ * 条款切分结果（仅在 workflow 内存中流转，不落库）
+ */
+export interface ClauseSegment {
+    /** 顺序号，从 1 开始 */
+    index: number
+    /** 条款编号文本，如 "3.2"、"第五条"、null（无标号散段） */
+    number: string | null
+    /** 条款正文 */
+    text: string
+}
+
+/**
+ * 合同审查的 SSE 自定义事件联合（经 publishCustomEvent 发出，前端 onCustomEvent 接收）
+ *
+ * 只有 4 种 type：
+ *  - stage：阶段状态切换（running / done），done 事件可能携带阶段产出
+ *  - progress：分析进度，单条失败走可选 error 字段
+ *  - risk：增量 risk（子期 2 才开始用）
+ *  - overview：汇总总览（子期 3 才开始用）
+ */
+export type ContractReviewEvent =
+    | {
+        type: 'stage'
+        stage: 'detect' | 'stance' | 'segment' | 'analyze' | 'summarize'
+        status: 'running' | 'done'
+        /** analyze 阶段累积的非致命失败 */
+        warnings?: string[]
+        /** segment 阶段 done 时携带 */
+        totalClauses?: number
+        /** detect 阶段 done 时携带 */
+        partyA?: string
+        partyB?: string
+        contractType?: string
+    }
+    | { type: 'progress'; current: number; total: number; error?: string }
+    | { type: 'risk'; risk: Risk }
+    | { type: 'overview'; overview: ContractOverview }
