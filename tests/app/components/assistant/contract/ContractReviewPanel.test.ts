@@ -64,6 +64,10 @@ const isLoadingRef = ref(false)
 const interruptDataRef = ref<Record<string, unknown> | null>(null)
 const awaitingStanceRef = ref<{ partyA?: string; partyB?: string; contractType?: string } | null>(null)
 const hasUnsavedDocxChangesRef = ref(false)
+const stageStatusRef = ref({ detect: 'wait', stance: 'wait', segment: 'wait', analyze: 'wait', summarize: 'wait' })
+const totalClausesRef = ref<number | null>(null)
+const analyzingClauseIndexRef = ref<number | null>(null)
+const analyzeWarningsRef = ref<string[]>([])
 
 const mockOnStart = vi.fn()
 const mockMountReview = vi.fn()
@@ -84,6 +88,10 @@ vi.mock('~/composables/useContractReview', () => ({
         awaitingStance: computed(() => awaitingStanceRef.value),
         isRebuilding: computed(() => reviewRef.value?.status === 'rebuilding'),
         hasUnsavedDocxChanges: hasUnsavedDocxChangesRef,
+        stageStatus: stageStatusRef,
+        totalClauses: totalClausesRef,
+        analyzingClauseIndex: analyzingClauseIndexRef,
+        analyzeWarnings: analyzeWarningsRef,
         onStart: mockOnStart,
         mountReview: mockMountReview,
         onStance: mockOnStance,
@@ -213,6 +221,24 @@ const RiskListPanelStub = defineComponent({
     },
 })
 
+const ReviewProgressStub = defineComponent({
+    name: 'AssistantContractReviewProgress',
+    props: {
+        stages: { type: Object, default: () => ({}) },
+        totalClauses: { type: [Number, null] as unknown as () => number | null, default: null },
+        analyzingIndex: { type: [Number, null] as unknown as () => number | null, default: null },
+    },
+    setup(props) {
+        return () => h('div', {
+            'data-stub': 'ReviewProgress',
+            'data-all-done': String(
+                ['detect', 'stance', 'segment', 'analyze', 'summarize'].every(k => (props.stages as Record<string, string>)[k] === 'done')
+            ),
+            'data-analyzing-index': props.analyzingIndex ?? '',
+        })
+    },
+})
+
 const stubs = {
     // 字段名必须与模板里的组件名严格匹配（Nuxt 4 自动导入折叠 assistant/contract/Contract* → AssistantContract*）
     AssistantContractSourceInput: SourceInputStub,
@@ -220,6 +246,7 @@ const stubs = {
     AssistantContractDocxPreview: DocxPreviewStub,
     AssistantContractRiskListPanel: RiskListPanelStub,
     AssistantContractFloatingAnnotationPanel: true,
+    AssistantContractReviewProgress: ReviewProgressStub,
 }
 
 // ── 动态导入（确保 mock 先完成）─────────────────────────────────────────────
@@ -267,6 +294,10 @@ function resetRefs() {
     interruptDataRef.value = null
     awaitingStanceRef.value = null
     hasUnsavedDocxChangesRef.value = false
+    stageStatusRef.value = { detect: 'wait', stance: 'wait', segment: 'wait', analyze: 'wait', summarize: 'wait' }
+    totalClausesRef.value = null
+    analyzingClauseIndexRef.value = null
+    analyzeWarningsRef.value = []
 }
 
 beforeEach(() => {
@@ -442,6 +473,31 @@ describe('ContractReviewPanel', () => {
         const w = mountPanel()
         await nextTick()
         expect(w.find('[data-stub="ContractSourceInput"]').exists()).toBe(false)
+    })
+
+    it('审查期间在右侧面板顶部渲染 ReviewProgress', async () => {
+        reviewRef.value = makeReview({ status: 'reviewing' })
+        runStatusRef.value = 'reviewing'
+        // 通过 useContractReview mock 注入 stageStatus 等
+        stageStatusRef.value = { detect: 'done', stance: 'done', segment: 'done', analyze: 'running', summarize: 'wait' }
+        totalClausesRef.value = 24
+        analyzingClauseIndexRef.value = 14
+
+        const w = mountPanel()
+        await nextTick()
+        expect(w.find('[data-stub="ReviewProgress"]').exists()).toBe(true)
+    })
+
+    it('全流程完成后 ReviewProgress 由组件自身 v-if 隐藏（父不干预）', async () => {
+        reviewRef.value = makeReview({ status: 'completed' })
+        stageStatusRef.value = { detect: 'done', stance: 'done', segment: 'done', analyze: 'done', summarize: 'done' }
+        const w = mountPanel()
+        await nextTick()
+        // 父始终挂，由 ReviewProgress 内部 v-if="!allDone" 决定
+        const stub = w.find('[data-stub="ReviewProgress"]')
+        expect(stub.exists()).toBe(true)  // 组件存在
+        // stub 接收到的 props 能让实际组件隐藏；test 用 stub 直接断 props
+        expect(stub.attributes('data-all-done')).toBe('true')
     })
 })
 

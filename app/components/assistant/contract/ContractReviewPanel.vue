@@ -38,6 +38,9 @@ const {
     isRebuilding,
     hasUnsavedDocxChanges,
     cancelReview,
+    stageStatus,
+    totalClauses,
+    analyzingClauseIndex,
 } = useContractReview()
 
 // 外部 reviewId 注入：仅 immediate 触发一次 mountReview；composable 未监听后续变化
@@ -182,6 +185,11 @@ const showFloatingPanel = ref(true)
                 :original-file-id="review?.originalFileId ?? null"
             />
             <div class="border-l flex flex-col min-h-0">
+                <AssistantContractReviewProgress
+                    :stages="stageStatus"
+                    :total-clauses="totalClauses"
+                    :analyzing-index="analyzingClauseIndex"
+                />
                 <div
                     v-if="showBusy"
                     class="flex items-center gap-2 p-3 border-b text-sm text-muted-foreground"
