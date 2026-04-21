@@ -152,6 +152,24 @@ watch(isRebuilding, (rebuilding, wasRebuilding) => {
 
 // 浮动风险速览面板：默认显示，用户关闭后可通过 toolbar 重开
 const showFloatingPanel = ref(true)
+
+// 风险聚焦与钉住状态（Task 4.4）
+const focusedRiskId = ref<string | null>(null)
+const pinnedRiskIds = ref<Set<string>>(new Set())
+
+function handleFocusRisk(riskId: string) {
+    focusedRiskId.value = riskId
+}
+
+function handleTogglePin(riskId: string) {
+    const next = new Set(pinnedRiskIds.value)
+    if (next.has(riskId)) {
+        next.delete(riskId)
+    } else {
+        next.add(riskId)
+    }
+    pinnedRiskIds.value = next
+}
 </script>
 
 <template>
@@ -204,10 +222,14 @@ const showFloatingPanel = ref(true)
                     :summary="review?.summary ?? null"
                     :is-rebuilding="isRebuilding"
                     :has-unsaved-docx-changes="hasUnsavedDocxChanges"
+                    :focused-risk-id="focusedRiskId"
+                    :pinned-risk-ids="pinnedRiskIds"
                     @download="onDownload"
                     @rebuild="onRebuildDocx"
                     @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
                     @export-pdf="(includeRisks: boolean) => onExportPdf(includeRisks)"
+                    @focus-risk="handleFocusRisk"
+                    @toggle-pin="handleTogglePin"
                 />
             </div>
         </div>

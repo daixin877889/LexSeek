@@ -184,6 +184,8 @@ function mountPanel(props: Partial<{
     summary: ContractOverview | null
     isRebuilding: boolean
     hasUnsavedDocxChanges: boolean
+    focusedRiskId: string | null
+    pinnedRiskIds: Set<string>
 }> = {}) {
     return mount(RiskListPanel, {
         props: {
@@ -193,6 +195,8 @@ function mountPanel(props: Partial<{
             summary: null,
             isRebuilding: false,
             hasUnsavedDocxChanges: false,
+            focusedRiskId: null,
+            pinnedRiskIds: new Set<string>(),
             ...props,
         },
         global: { stubs },
@@ -554,5 +558,106 @@ describe('RiskListPanel · M6.1 流式冒出', () => {
         await nextTick()
         expect(w.find('[data-risk-id="r1"][data-just-added="true"]').exists()).toBe(false)
         vi.useRealTimers()
+    })
+})
+
+// mountPanel 辅助：带 Task 4.4 新增 props 的版本
+function mountPanelWithPin(props: Partial<{
+    risks: Risk[]
+    status: ContractReviewStatus
+    reviewedFileId: number | null
+    summary: ContractOverview | null
+    isRebuilding: boolean
+    hasUnsavedDocxChanges: boolean
+    focusedRiskId: string | null
+    pinnedRiskIds: Set<string>
+}> = {}) {
+    return mount(RiskListPanel, {
+        props: {
+            risks: [],
+            status: 'pending' as ContractReviewStatus,
+            reviewedFileId: null,
+            summary: null,
+            isRebuilding: false,
+            hasUnsavedDocxChanges: false,
+            focusedRiskId: null,
+            pinnedRiskIds: new Set<string>(),
+            ...props,
+        },
+        global: { stubs },
+    })
+}
+
+describe('RiskListPanel · M6.1 Task 4.4 钉住 + 聚焦态', () => {
+    it('卡片右上渲染未钉状态的 Pin 图标按钮', () => {
+        const w = mountPanelWithPin({ risks: [makeRisk({ id: 'r1' })], pinnedRiskIds: new Set() })
+        // 未钉时按钮 aria-label="钉住"
+        const pinBtn = w.find('[aria-label="钉住"]')
+        expect(pinBtn.exists()).toBe(true)
+    })
+
+    it('已钉住时按钮 aria-label 变为"取消钉住"', () => {
+        const w = mountPanelWithPin({
+            risks: [makeRisk({ id: 'r1' })],
+            pinnedRiskIds: new Set(['r1']),
+        })
+        const pinBtn = w.find('[aria-label="取消钉住"]')
+        expect(pinBtn.exists()).toBe(true)
+    })
+
+    it('点击钉按钮 emit togglePin，不触发 focusRisk（@click.stop）', async () => {
+        const w = mountPanelWithPin({ risks: [makeRisk({ id: 'r1' })], pinnedRiskIds: new Set() })
+        const pinBtn = w.find('[aria-label="钉住"]')
+        await pinBtn.trigger('click')
+        expect(w.emitted('togglePin')).toBeTruthy()
+        expect(w.emitted('togglePin')![0]).toEqual(['r1'])
+        // focusRisk 不应该被触发（@click.stop）
+        expect(w.emitted('focusRisk')).toBeUndefined()
+    })
+
+    it('点击卡片 emit focusRisk', async () => {
+        const w = mountPanelWithPin({ risks: [makeRisk({ id: 'r1' })], pinnedRiskIds: new Set() })
+        const card = w.find('[data-stub="Card"]')
+        await card.trigger('click')
+        expect(w.emitted('focusRisk')).toBeTruthy()
+        expect(w.emitted('focusRisk')![0]).toEqual(['r1'])
+    })
+
+    it('focusedRiskId 匹配时卡片带 bg-yellow-50 border-l-4 border-red-500 class', () => {
+        const w = mountPanelWithPin({
+            risks: [makeRisk({ id: 'r1' })],
+            focusedRiskId: 'r1',
+            pinnedRiskIds: new Set(),
+        })
+        const card = w.find('[data-risk-id="r1"]')
+        expect(card.classes()).toContain('bg-yellow-50')
+        expect(card.classes()).toContain('border-l-4')
+        expect(card.classes()).toContain('border-red-500')
+    })
+
+    it('已钉且 focusedRiskId 不是该 id 时卡片带 bg-orange-50 border-l-4 border-orange-500 class', () => {
+        const w = mountPanelWithPin({
+            risks: [makeRisk({ id: 'r1' })],
+            focusedRiskId: null,
+            pinnedRiskIds: new Set(['r1']),
+        })
+        const card = w.find('[data-risk-id="r1"]')
+        expect(card.classes()).toContain('bg-orange-50')
+        expect(card.classes()).toContain('border-l-4')
+        expect(card.classes()).toContain('border-orange-500')
+    })
+
+    it('已钉且 focusedRiskId 是该 id 时，焦点 class 优先（bg-yellow-50 border-red-500）', () => {
+        const w = mountPanelWithPin({
+            risks: [makeRisk({ id: 'r1' })],
+            focusedRiskId: 'r1',
+            pinnedRiskIds: new Set(['r1']),
+        })
+        const card = w.find('[data-risk-id="r1"]')
+        // 焦点态优先
+        expect(card.classes()).toContain('bg-yellow-50')
+        expect(card.classes()).toContain('border-red-500')
+        expect(card.classes()).not.toContain('bg-orange-50')
+        expect(card.classes()).not.toContain('border-orange-500')
     })
 })
