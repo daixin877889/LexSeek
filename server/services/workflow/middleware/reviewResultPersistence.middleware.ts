@@ -2,11 +2,13 @@
  * 合同审查结果持久化中间件（contractReviewMain 专用，末位）
  *
  * M6.1 子期 2 改造后职责：
- * beforeAgent: 置 status='reviewing'（仅首轮；resume 后由 parseAndAskStance 工具自行置 reviewing）
- * afterAgent:
- *   M6.1 子期 2：risks 已由外层 runAnalyzeLoop 写进 DB；这里只做"读 DB → 注入批注 → 上传"
+ * beforeAgent: 首轮 agent.stream 启动前置 status='reviewing'。
+ *   注：M6.1 子期 2 改造后，resume 路径直接由 runContractReviewChat 处理
+ *   （不再经过此 middleware），故 resume 分支的 status 由 runContractReviewChat 直接写。
+ * afterAgent（异常兜底，正常流程下不走此分支）:
+ *   risks 已由 runAnalyzeLoop 写进 DB；这里只做兜底路径 "读 DB → 注入批注 → 上传"
  *   - DB risks 有值 → 调 runAnnotateAndUpload 注入批注 + 上传 OSS → status='completed'
- *   - DB risks 为空或无 → status='failed'
+ *   - DB risks 为空 → status='failed'（见下方注释说明为何这里 risks=[] 判 failed）
  *
  * runAnnotateAndUpload：独立导出，供 runContractReviewChat 在 resume 分支直接调用。
  */
@@ -58,8 +60,10 @@ export async function runAnnotateAndUpload(reviewId: number): Promise<void> {
 
     const risks = Array.isArray(review.risks) ? review.risks as unknown as Risk[] : []
     if (risks.length === 0) {
-        logger.warn('runAnnotateAndUpload: risks 为空，跳过注入，置 completed', { reviewId })
-        // risks 为空时（无风险合同）仍置 completed（不是失败），只是没有批注文件
+        // 主路径 risks=[] = 正常 analyze 循环完成，每条都 skip（真无风险合同）。
+        // 注：runContractReviewChat 在 segments.length===0 时已提前置 failed，
+        // 所以进到这里的 risks=[] 一定是分析结果而非切分失败。
+        logger.info('runAnnotateAndUpload: 无风险合同，跳过注入，置 completed', { reviewId })
         await updateContractReviewDAO(reviewId, { status: 'completed' })
         return
     }
@@ -157,8 +161,13 @@ export const reviewResultPersistenceMiddleware = (
 
             const risks = Array.isArray(review.risks) ? review.risks as unknown as Risk[] : []
             if (risks.length === 0) {
+                // 兜底路径 risks=[] = agent.stream 走完但未触发 parseAndAskStance interrupt
+                // （M6.1 子期 2 改造后主流程应直接走 runContractReviewChat resume 分支，
+                //  走到这里意味着流程出错）→ 置 failed 更安全。
+                // 这与 runAnnotateAndUpload 主路径 risks=[] 置 completed 的语义差异是刻意的：
+                // 主路径是 analyze 循环正常结束的结果；兜底路径是异常流程的征兆。
                 await updateContractReviewDAO(options.reviewId, { status: 'failed' })
-                logger.warn('reviewResultPersistence afterAgent: risks 为空，置 failed', {
+                logger.warn('reviewResultPersistence afterAgent: DB risks 为空（异常流程），置 failed', {
                     reviewId: options.reviewId,
                 })
                 return

@@ -329,6 +329,23 @@ export async function runContractReviewChat(
                         type: 'stage', stage: 'stance', status: 'done',
                     })
 
+                    // Bug 1 fail-fast：segments 为空 = 切分失败或合同为空，不能继续 analyze。
+                    // 若不拦截，runAnalyzeLoop 会把空数组写回 DB，runAnnotateAndUpload 再把
+                    // risks=[] 误判为"无风险合同"置 completed，用户看到"审查完成，无风险"。
+                    // 这里直接置 failed，M5 rebuild-docx 可据此引导用户重新上传。
+                    if (segments.length === 0) {
+                        logger.warn('runContractReviewChat resume: 无可分析条款（切分失败或合同为空），置 failed', {
+                            reviewId: review.id, sessionId,
+                        })
+                        await updateContractReviewDAO(review.id, { status: 'failed' })
+                        await emitContractReviewEvent(emitterCtx, {
+                            type: 'stage', stage: 'analyze', status: 'done',
+                            warnings: ['no_segments'],
+                        })
+                        controller.close()
+                        return
+                    }
+
                     // 执行 analyze loop（发 analyze:running / progress / risk / analyze:done）
                     const { risks } = await runAnalyzeLoop({
                         segments,

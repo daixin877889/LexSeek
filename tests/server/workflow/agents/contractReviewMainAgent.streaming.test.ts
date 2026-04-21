@@ -1,8 +1,9 @@
 /**
- * contractReviewMainAgent runAnalyzeLoop 单元测试
+ * contractReviewMainAgent runAnalyzeLoop + resume 分支单元测试
  *
  * 测试按条款循环逐条分析 + risk/progress 事件增量推送的行为。
- * 直接测 runAnalyzeLoop export，不涉及 agent.stream，避免整合层 mock 复杂度。
+ * 主要测 runAnalyzeLoop export，不涉及 agent.stream，避免整合层 mock 复杂度。
+ * resume 分支 fail-fast 通过 mock 全部基础设施做最小可跑链路。
  *
  * **Feature: m6-1-contract-review Task 2.2**
  */
@@ -18,9 +19,85 @@ vi.mock('~~/server/services/assistant/contract/analyzeSingleClause', () => ({
     analyzeSingleClause: vi.fn(),
 }))
 
-import { runAnalyzeLoop } from '~~/server/services/workflow/agents/contractReviewMainAgent'
+// 以下 mock 仅 resume 分支测试需要（runAnalyzeLoop 纯函数测试不依赖）
+vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
+    findContractReviewBySessionIdDAO: vi.fn(),
+    updateContractReviewDAO: vi.fn().mockResolvedValue({}),
+}))
+
+vi.mock('~~/server/services/workflow/checkpointer', () => ({
+    getCheckpointer: vi.fn().mockResolvedValue({}),
+    getStore: vi.fn().mockResolvedValue({}),
+}))
+
+vi.mock('~~/server/services/node/node.service', () => ({
+    getValidNodeConfig: vi.fn().mockResolvedValue({
+        modelApiKeys: [{ status: 1, apiKey: 'test-key' }],
+        modelSdkType: 'openai',
+        modelName: 'test-model',
+        modelProviderBaseUrl: 'https://test',
+        modelContextWindow: 128000,
+        tools: [],
+        systemPrompt: '',
+    }),
+}))
+
+vi.mock('~~/server/services/node/chatModelFactory', () => ({
+    createChatModel: vi.fn().mockReturnValue({ invoke: vi.fn() }),
+}))
+
+vi.mock('~~/server/services/workflow/tools', () => ({
+    getToolInstancesService: vi.fn().mockReturnValue([]),
+}))
+
+vi.mock('~~/server/services/workflow/utils/promptRenderer', () => ({
+    renderSystemPrompt: vi.fn().mockReturnValue(''),
+}))
+
+vi.mock('~~/server/services/assistant/contract/docx/loadContractFullText', () => ({
+    loadContractFullText: vi.fn().mockResolvedValue({ fullText: '', paragraphs: [] }),
+}))
+
+vi.mock('~~/server/services/assistant/contract/docx/clauseSegmenter', () => ({
+    segmentClauses: vi.fn(),
+}))
+
+vi.mock('~~/server/services/workflow/middleware', () => ({
+    pointConsumptionMiddleware: vi.fn(),
+    safetyTrimMiddleware: vi.fn(),
+    reviewResultPersistenceMiddleware: vi.fn(),
+    buildMiddlewareStack: vi.fn().mockReturnValue([]),
+    MIDDLEWARE_PRIORITY: {
+        POINT_CONSUMPTION: 1, SUMMARIZATION: 2, SAFETY_TRIM: 3, RESULT_PERSISTENCE: 4,
+    },
+    MIDDLEWARE_NAMES: {
+        POINT_CONSUMPTION: 'p', SUMMARIZATION: 's', SAFETY_TRIM: 'st', REVIEW_RESULT_PERSISTENCE: 'r',
+    },
+}))
+
+vi.mock('~~/server/services/workflow/middleware/reviewResultPersistence.middleware', () => ({
+    reviewResultPersistenceMiddleware: vi.fn(),
+    runAnnotateAndUpload: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('langchain', async () => {
+    const actual = await vi.importActual<any>('langchain')
+    return {
+        ...actual,
+        createAgent: vi.fn().mockReturnValue({ stream: vi.fn() }),
+        summarizationMiddleware: vi.fn(),
+    }
+})
+
+import { runAnalyzeLoop, runContractReviewChat } from '~~/server/services/workflow/agents/contractReviewMainAgent'
 import { emitContractReviewEvent } from '~~/server/services/workflow/nodes/contractReviewStageEmitter'
 import { analyzeSingleClause } from '~~/server/services/assistant/contract/analyzeSingleClause'
+import {
+    findContractReviewBySessionIdDAO,
+    updateContractReviewDAO,
+} from '~~/server/services/assistant/contract/contractReview.dao'
+import { segmentClauses } from '~~/server/services/assistant/contract/docx/clauseSegmenter'
+import { runAnnotateAndUpload } from '~~/server/services/workflow/middleware/reviewResultPersistence.middleware'
 import type { ClauseSegment, Risk } from '#shared/types/contract'
 
 const emitterCtx = { runId: 'run-1', sessionId: 'sess-1' }
@@ -164,6 +241,61 @@ describe('runAnalyzeLoop', () => {
                 status: 'done',
                 warnings: expect.arrayContaining([expect.stringContaining('zod 失败')]),
             }),
+        )
+    })
+})
+
+describe('runContractReviewChat resume 分支 - segments fail-fast', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
+    it('切分失败 segments=[] → resume 分支直接置 failed，不走 analyze', async () => {
+        // 基础设施准备：返回 review
+        ;(findContractReviewBySessionIdDAO as any).mockResolvedValueOnce({
+            id: 123,
+            userId: 7,
+            sessionId: 'sess-empty',
+            originalFileId: 99,
+            partyA: '甲方',
+            partyB: '乙方',
+            contractType: '服务合同',
+            stance: null,
+            status: 'awaiting_stance',
+        })
+        // 切分返回空数组（模拟切分失败的降级场景）
+        ;(segmentClauses as any).mockResolvedValueOnce([])
+
+        const stream = await runContractReviewChat('sess-empty', {
+            userId: 7,
+            runId: 'run-empty',
+            command: { stance: 'partyA' },
+        })
+
+        // 消费 stream 触发 start 回调
+        const reader = stream.getReader()
+        while (true) {
+            const { done } = await reader.read()
+            if (done) break
+        }
+
+        // analyzeSingleClause 应从未被调用（fail-fast 先于 runAnalyzeLoop）
+        expect(analyzeSingleClause).toHaveBeenCalledTimes(0)
+
+        // runAnnotateAndUpload 也不应被调用（跳过注入+上传）
+        expect(runAnnotateAndUpload).toHaveBeenCalledTimes(0)
+
+        // updateContractReviewDAO 至少有一次调用 status=failed
+        const failedCall = (updateContractReviewDAO as any).mock.calls.find(
+            (call: any[]) => call[1]?.status === 'failed',
+        )
+        expect(failedCall).toBeDefined()
+        expect(failedCall![0]).toBe(123)
+
+        // 发出 stage:analyze,done + warnings: ['no_segments']
+        expect(emitContractReviewEvent).toHaveBeenCalledWith(
+            { runId: 'run-empty', sessionId: 'sess-empty' },
+            { type: 'stage', stage: 'analyze', status: 'done', warnings: ['no_segments'] },
         )
     })
 })
