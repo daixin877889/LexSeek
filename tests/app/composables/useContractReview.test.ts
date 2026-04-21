@@ -774,6 +774,93 @@ describe('M6.1 · stage 事件', () => {
     })
 })
 
+// ── M6.1 Task 4.2：聚焦/钉状态机 ─────────────────────────────────────────────
+
+describe('useContractReview M6.1 Task 4.2 · 聚焦/钉状态机', () => {
+    beforeEach(() => {
+        mockFetch.mockReset()
+        mockStreamSubmit.mockReset()
+        mockStreamValues.value = undefined
+        mockStreamMessages.value = []
+    })
+
+    it('focusRisk 切换 focusedRiskId', () => {
+        const { focusRisk, focusedRiskId } = useContractReview()
+        expect(focusedRiskId.value).toBeNull()
+        focusRisk('r1')
+        expect(focusedRiskId.value).toBe('r1')
+        focusRisk(null)
+        expect(focusedRiskId.value).toBeNull()
+    })
+
+    it('setHoveredRisk 设置 hoveredRiskId', () => {
+        const { setHoveredRisk, hoveredRiskId } = useContractReview()
+        expect(hoveredRiskId.value).toBeNull()
+        setHoveredRisk('r2')
+        expect(hoveredRiskId.value).toBe('r2')
+    })
+
+    it('setHoveredRisk 3 秒后自动清零', () => {
+        vi.useFakeTimers()
+        const { setHoveredRisk, hoveredRiskId } = useContractReview()
+        setHoveredRisk('r1')
+        expect(hoveredRiskId.value).toBe('r1')
+        vi.advanceTimersByTime(3000)
+        expect(hoveredRiskId.value).toBeNull()
+        vi.useRealTimers()
+    })
+
+    it('setHoveredRisk(null) 立即清零并停计时器', () => {
+        vi.useFakeTimers()
+        const { setHoveredRisk, hoveredRiskId } = useContractReview()
+        setHoveredRisk('r3')
+        expect(hoveredRiskId.value).toBe('r3')
+        setHoveredRisk(null)
+        expect(hoveredRiskId.value).toBeNull()
+        // 3 秒后也不应有副作用（timer 已被 clear）
+        vi.advanceTimersByTime(3000)
+        expect(hoveredRiskId.value).toBeNull()
+        vi.useRealTimers()
+    })
+
+    it('hoveredRiskId 不进入 highlightedRiskIds（与 focused/pinned 独立）', () => {
+        const { setHoveredRisk, hoveredRiskId, highlightedRiskIds } = useContractReview()
+        setHoveredRisk('r-hover')
+        expect(hoveredRiskId.value).toBe('r-hover')
+        expect(highlightedRiskIds.value.has('r-hover')).toBe(false)
+    })
+
+    it('togglePin 第一次加入 / 第二次移除', () => {
+        const { togglePin, pinnedRiskIds } = useContractReview()
+        expect(pinnedRiskIds.value.size).toBe(0)
+        togglePin('r4')
+        expect(pinnedRiskIds.value.has('r4')).toBe(true)
+        togglePin('r4')
+        expect(pinnedRiskIds.value.has('r4')).toBe(false)
+    })
+
+    it('highlightedRiskIds = focused + pinned 合集', () => {
+        const { focusRisk, togglePin, highlightedRiskIds } = useContractReview()
+        focusRisk('focused-1')
+        togglePin('pinned-1')
+        togglePin('pinned-2')
+        const ids = highlightedRiskIds.value
+        expect(ids.has('focused-1')).toBe(true)
+        expect(ids.has('pinned-1')).toBe(true)
+        expect(ids.has('pinned-2')).toBe(true)
+        expect(ids.size).toBe(3)
+    })
+
+    it('clearAllPins 清空 pinnedRiskIds', () => {
+        const { togglePin, clearAllPins, pinnedRiskIds } = useContractReview()
+        togglePin('r5')
+        togglePin('r6')
+        expect(pinnedRiskIds.value.size).toBe(2)
+        clearAllPins()
+        expect(pinnedRiskIds.value.size).toBe(0)
+    })
+})
+
 // ── debounce 真实节流用例：单独在顶层换 mock 不便，这里用 spy 验证接入即可 ──
 //   useDebounceFn 的节流本身由 @vueuse/core 单元测试保证，我们验证 onEditRisks
 //   的"逻辑在调用后立即生效"（debounce 已被取消为 identity）已足够覆盖行为。

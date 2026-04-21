@@ -59,6 +59,47 @@ export function useContractReview() {
     /** review.status === 'rebuilding' 时 UI 禁用编辑 + 显示进度 */
     const isRebuilding = computed(() => review.value?.status === 'rebuilding')
 
+    // M6.1 Task 4.2：聚焦/悬停/钉多条状态
+    const focusedRiskId = ref<string | null>(null)
+    /**
+     * 悬停态（临时）：spec §6.2 明确"悬停不入 focused 态，仅让对应卡片短暂高亮"。
+     * 3 秒后自动清零；鼠标移开也清零。与 focusedRiskId 独立。
+     */
+    const hoveredRiskId = ref<string | null>(null)
+    let hoverTimer: ReturnType<typeof setTimeout> | null = null
+
+    const pinnedRiskIds = ref<Set<string>>(new Set())
+
+    /** 文档/卡片需要持续高亮的 riskId 集合 = focused + pinned（hover 不进来，视觉另一档） */
+    const highlightedRiskIds = computed(() => {
+        const s = new Set(pinnedRiskIds.value)
+        if (focusedRiskId.value) s.add(focusedRiskId.value)
+        return s
+    })
+
+    function focusRisk(riskId: string | null) {
+        focusedRiskId.value = riskId
+    }
+
+    function setHoveredRisk(riskId: string | null) {
+        if (hoverTimer) clearTimeout(hoverTimer)
+        hoveredRiskId.value = riskId
+        if (riskId) {
+            // 3 秒后自动清零；鼠标再次离开也会传 null 立即清零
+            hoverTimer = setTimeout(() => { hoveredRiskId.value = null }, 3000)
+        }
+    }
+
+    function togglePin(riskId: string) {
+        const s = new Set(pinnedRiskIds.value)
+        if (s.has(riskId)) s.delete(riskId); else s.add(riskId)
+        pinnedRiskIds.value = s
+    }
+
+    function clearAllPins() {
+        pinnedRiskIds.value = new Set()
+    }
+
     // 延迟创建，在 onStart / mountReview 获取 sessionId 后初始化
     const stream = shallowRef<ReturnType<typeof useStreamChat> | null>(null)
     // 上一个 stream 的 watcher 停止句柄，防止重启时泄漏
@@ -500,6 +541,11 @@ export function useContractReview() {
         totalClauses,
         analyzingClauseIndex,
         analyzeWarnings,
+        // M6.1 Task 4.2 聚焦/悬停/钉状态
+        focusedRiskId,
+        hoveredRiskId,
+        pinnedRiskIds,
+        highlightedRiskIds,
         // 动作
         onStart,
         mountReview,
@@ -511,5 +557,9 @@ export function useContractReview() {
         stopGeneration,
         cancelReview,
         handleContractEvent,
+        focusRisk,
+        setHoveredRisk,
+        togglePin,
+        clearAllPins,
     }
 }
