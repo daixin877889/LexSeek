@@ -21,6 +21,39 @@ const DEFAULT_SKILLS_ROOT = resolve(process.cwd(), '.deepagents/skills')
 /** 项目依赖目录，供子进程 NODE_PATH 使用 */
 const PROJECT_NODE_MODULES = resolve(process.cwd(), 'node_modules')
 
+/**
+ * 获取当前平台（导出为函数以便 vitest 用 vi.spyOn 替换；
+ * 直接 `process.platform` 是 getter 在 Node 中不可 mock）
+ */
+export function getPlatform(): NodeJS.Platform {
+    return process.platform
+}
+
+/** unshare 探测缓存（模块级；测试可用 _resetUnshareDetection 清零） */
+let _unshareCache: Promise<boolean> | null = null
+
+/**
+ * 探测 unshare 命令是否可用（Linux 生产环境依赖）。
+ *
+ * 用 `unshare -rn echo ok` 尝试创建 user namespace + network namespace，
+ * 成功返回 true；失败（命令缺失、权限不足、PSP 拦截）返回 false。
+ * 结果缓存在模块级 Promise，启动后只探测一次。
+ */
+export async function hasUnshare(): Promise<boolean> {
+    if (_unshareCache) return _unshareCache
+    _unshareCache = new Promise<boolean>((done) => {
+        execFile('unshare', ['-rn', 'echo', 'ok'], { timeout: 3000 }, (err) => {
+            done(!err)
+        })
+    })
+    return _unshareCache
+}
+
+/** 测试用：重置 unshare 探测缓存（仅测试调用；生产不应使用） */
+export function _resetUnshareDetection(): void {
+    _unshareCache = null
+}
+
 /** 支持的文件扩展名 → 运行时二进制映射 */
 const EXT_TO_RUNTIME: Record<string, string> = {
     js: 'node',
@@ -119,10 +152,26 @@ export function createTool(context: ToolContext, skillsRoot?: string) {
                 WORKSPACE_DIR: workspaceDir,
             }
 
+            // 子进程外网隔离：Linux 生产用 `unshare -rn` 包装（切断网卡），
+            // macOS 开发环境裸跑并一次性 warn（攻击面限于开发机，可接受）
+            const platform = getPlatform()
+            let binary = runtimeBin
+            let prepended: string[] = []
+            if (platform === 'linux') {
+                const ok = await hasUnshare()
+                if (!ok) {
+                    return 'Error: unshare 不可用，请确认 Docker 基础镜像包含 util-linux 且允许 user namespace'
+                }
+                binary = 'unshare'
+                prepended = ['-rn', runtimeBin]
+            } else {
+                logger.warn('开发环境未启用 skill 子进程外网隔离', { platform })
+            }
+
             try {
                 return await withTimeout(
                     new Promise<string>((done) => {
-                        execFile(runtimeBin, execArgs, { timeout: 30_000, cwd: scriptsDir, env: execEnv },
+                        execFile(binary, [...prepended, ...execArgs], { timeout: 30_000, cwd: scriptsDir, env: execEnv },
                             (err, stdout, stderr) => {
                                 if (err) {
                                     // ENOENT（运行时找不到）或 MODULE_NOT_FOUND（node 运行不存在的脚本）均视为脚本不存在
