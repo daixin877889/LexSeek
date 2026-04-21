@@ -30,6 +30,7 @@ import {
     type ContractReviewStatus,
     type Stance,
 } from '#shared/types/contract'
+import { computeCounts, computeScore, computeScoreLabel } from '#shared/utils/contractOverviewScore'
 
 interface PdfMakeSingleton {
     setFonts: (fonts: TFontDictionary) => void
@@ -193,13 +194,54 @@ function buildDocDefinition(ctx: BuildContext): TDocumentDefinitions {
     })
 
     content.push({ text: '审查摘要', style: 'sectionTitle', margin: [0, 0, 0, 6] })
-    const summaryText = ctx.summary?.overall ? stripMarkdown(ctx.summary.overall) : ''
-    if (summaryText) {
-        for (const para of summaryText.split(/\n{2,}/)) {
-            content.push({ text: para.replace(/\n/g, ' '), style: 'body', margin: [0, 0, 0, 6] })
+
+    // 有 risks 数据时输出风险计分行（文字形式，不画仪表盘）
+    const risks = ctx.risks ?? []
+    if (risks.length > 0) {
+        const counts = computeCounts(risks)
+        const score = computeScore(counts)
+        const label = computeScoreLabel(score)
+        content.push({
+            text: [
+                { text: `风险分  ${score}/100（${label}）`, style: 'riskScoreLine' },
+                { text: `　高风险 ${counts.high} 项　中风险 ${counts.medium} 项　低风险 ${counts.low} 项`, style: 'riskCountLine' },
+            ],
+            margin: [0, 0, 0, 8],
+        })
+    }
+
+    if (ctx.summary?.highlights) {
+        // 新结构：分档要点 + 总评段
+        const hl = ctx.summary.highlights
+        const hlGroups: Array<{ level: RiskLevel; label: string; color: string; items: Array<{ text: string; riskId: string }> }> = [
+            { level: 'high', label: '【高风险要点】', color: '#b91c1c', items: hl.high },
+            { level: 'medium', label: '【中风险要点】', color: '#b45309', items: hl.medium },
+            { level: 'low', label: '【低风险要点】', color: '#15803d', items: hl.low },
+        ]
+        for (const group of hlGroups) {
+            if (group.items.length === 0) continue
+            content.push({ text: group.label, style: 'groupTitle', color: group.color, margin: [0, 4, 0, 2] })
+            for (const item of group.items) {
+                content.push({ text: `• ${item.text}`, style: 'body', margin: [8, 0, 0, 3] })
+            }
+        }
+        if (ctx.summary.overall) {
+            content.push({ text: '总评', style: 'subSectionTitle', margin: [0, 8, 0, 4] })
+            const overallText = stripMarkdown(ctx.summary.overall)
+            for (const para of overallText.split(/\n{2,}/)) {
+                content.push({ text: para.replace(/\n/g, ' '), style: 'body', margin: [0, 0, 0, 6] })
+            }
         }
     } else {
-        content.push({ text: '（暂无摘要）', style: 'bodyMuted', margin: [0, 0, 0, 6] })
+        // 历史数据或 highlights 未完成：降级为只渲染 overall 一段
+        const summaryText = ctx.summary?.overall ? stripMarkdown(ctx.summary.overall) : ''
+        if (summaryText) {
+            for (const para of summaryText.split(/\n{2,}/)) {
+                content.push({ text: para.replace(/\n/g, ' '), style: 'body', margin: [0, 0, 0, 6] })
+            }
+        } else {
+            content.push({ text: '（暂无摘要）', style: 'bodyMuted', margin: [0, 0, 0, 6] })
+        }
     }
 
     if (ctx.includeRisks) {
@@ -210,7 +252,6 @@ function buildDocDefinition(ctx: BuildContext): TDocumentDefinitions {
             pageBreak: 'before',
         })
 
-        const risks = ctx.risks ?? []
         if (risks.length === 0) {
             content.push({ text: '无风险记录', style: 'bodyMuted' })
         } else {
@@ -251,12 +292,15 @@ function buildDocDefinition(ctx: BuildContext): TDocumentDefinitions {
         styles: {
             docTitle: { fontSize: 16, bold: true },
             sectionTitle: { fontSize: 13, bold: true, color: '#111827' },
+            subSectionTitle: { fontSize: 12, bold: true, color: '#374151' },
             groupTitle: { fontSize: 12, bold: true },
             infoLabel: { bold: true, color: '#374151', fontSize: 10, margin: [0, 3, 0, 3] },
             infoValue: { color: '#111827', fontSize: 10, margin: [0, 3, 0, 3] },
             body: { fontSize: 11, color: '#1f2937' },
             bodyMuted: { fontSize: 11, color: '#6b7280', italics: true },
             badge: { fontSize: 10, bold: true, color: '#ffffff' },
+            riskScoreLine: { fontSize: 12, bold: true, color: '#111827' },
+            riskCountLine: { fontSize: 11, color: '#374151' },
             riskTitle: { fontSize: 12, bold: true, color: '#111827' },
             riskLabel: { fontSize: 10, bold: true, color: '#374151' },
             riskClause: { fontSize: 10, color: '#6b7280', italics: true },
