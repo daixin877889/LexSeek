@@ -233,3 +233,27 @@ export type ContractReviewEvent =
     | { type: 'progress'; current: number; total: number; error?: string }
     | { type: 'risk'; risk: Risk }
     | { type: 'overview'; overview: ContractOverview }
+
+// ==================== M7 Playbook ====================
+
+/**
+ * 要点客观严格度
+ * - strict：从严解读，保护当事人利益
+ * - balanced：均衡解读（默认）
+ * - lenient：从宽解读，减少过度风险标记
+ */
+export type StancePreference = 'strict' | 'balanced' | 'lenient'
+
+/**
+ * 写入 contractReviews.playbookSnapshot 的单条快照结构。
+ * 字段对齐 contractPlaybooks，仅取快照写入所需字段。
+ */
+export interface PlaybookPointSnapshot {
+    code: string
+    title: string
+    defaultLevel: 'high' | 'medium' | 'low'
+    stancePreference: StancePreference
+    checkContent: string
+    legalBasis?: string
+    suggestion?: string
+}
