@@ -13,7 +13,7 @@
  * **Feature: contract-review-m5**
  */
 import { DownloadIcon, ChevronDownIcon, Loader2Icon, PlusIcon, PencilIcon, Trash2Icon, FileTextIcon, Pin, TriangleAlert } from 'lucide-vue-next'
-import type { ContractOverview, Risk, ContractReviewStatus } from '#shared/types/contract'
+import type { ContractOverview, Risk, ContractReviewStatus, PlaybookSnapshot } from '#shared/types/contract'
 import { RISK_LEVEL_LABEL } from '#shared/types/contract'
 
 const props = defineProps<{
@@ -27,6 +27,7 @@ const props = defineProps<{
     hoveredRiskId: string | null
     pinnedRiskIds: Set<string>
     notLocatedIds: Set<string>
+    playbookSnapshot?: PlaybookSnapshot | null
 }>()
 
 const emit = defineEmits<{
@@ -148,6 +149,7 @@ function handleExportPdfConfirm(includeRisks: boolean) {
             <AssistantContractOverviewPanel
                 :risks="risks"
                 :summary="summary"
+                :playbook-snapshot="playbookSnapshot ?? null"
                 @focus-risk="(id: string) => emit('focusRisk', id)"
             />
             <div ref="containerRef" class="p-3 space-y-2">

@@ -17,6 +17,18 @@ import { defineComponent, h, computed, type Ref } from 'vue'
 
 import type { Risk, ContractOverview } from '#shared/types/contract'
 
+// mock useContractPlaybookMatch，避免依赖实际实现
+vi.mock('~/composables/useContractPlaybookMatch', () => ({
+    useContractPlaybookMatch: () => ({
+        enabled: computed(() => false),
+        total: computed(() => 0),
+        hitCount: computed(() => 0),
+        hits: computed(() => []),
+        misses: computed(() => []),
+        extras: computed(() => []),
+    }),
+}))
+
 // mock useContractOverview，避免依赖 Nuxt 自动导入上下文
 vi.mock('~/composables/useContractOverview', () => ({
     useContractOverview: (risks: Ref<Risk[] | null>) => {
@@ -52,6 +64,14 @@ vi.mock('lucide-vue-next', () => ({
     Info: defineComponent({
         name: 'Info',
         setup: () => () => h('i', { 'data-stub': 'Info' }),
+    }),
+    ClipboardList: defineComponent({
+        name: 'ClipboardList',
+        setup: () => () => h('i', { 'data-stub': 'ClipboardList' }),
+    }),
+    ChevronDown: defineComponent({
+        name: 'ChevronDown',
+        setup: () => () => h('i', { 'data-stub': 'ChevronDown' }),
     }),
 }))
 
@@ -93,7 +113,7 @@ describe('OverviewPanel', () => {
             makeRisk({ id: 'l1', level: 'low' }),
         ]
         const summary = makeSummary()
-        const w = mount(OverviewPanel, { props: { risks, summary } })
+        const w = mount(OverviewPanel, { props: { risks, summary, playbookSnapshot: null } })
 
         // 仪表盘：risk score 存在（3*1 + 1.5*1 + 0.5*1 = 5）
         expect(w.html()).toContain('合同风险分')
@@ -117,7 +137,7 @@ describe('OverviewPanel', () => {
             highlights: null,
             overall: '总评内容，highlights 缺失降级显示。',
         }
-        const w = mount(OverviewPanel, { props: { risks: [], summary } })
+        const w = mount(OverviewPanel, { props: { risks: [], summary, playbookSnapshot: null } })
 
         // 仪表盘 + 计数仍渲染
         expect(w.find('[data-count="high"]').exists()).toBe(true)
@@ -133,7 +153,7 @@ describe('OverviewPanel', () => {
 
     it('点击某条要点 emit focusRisk(riskId)', async () => {
         const summary = makeSummary()
-        const w = mount(OverviewPanel, { props: { risks: [], summary } })
+        const w = mount(OverviewPanel, { props: { risks: [], summary, playbookSnapshot: null } })
 
         // 找高风险要点按钮（data-riskid="risk-h1"）
         const btn = w.find('[data-riskid="risk-h1"]')
@@ -145,7 +165,7 @@ describe('OverviewPanel', () => {
     })
 
     it('三色计数卡为纯展示不可点，tagName !== button', () => {
-        const w = mount(OverviewPanel, { props: { risks: [], summary: null } })
+        const w = mount(OverviewPanel, { props: { risks: [], summary: null, playbookSnapshot: null } })
 
         const highCard = w.find('[data-count="high"]')
         const medCard = w.find('[data-count="medium"]')

@@ -12,7 +12,7 @@
 import { Loader2Icon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useMediaQuery, useLocalStorage } from '@vueuse/core'
-import type { Risk, ContractReviewStatus, StanceRequest, CreateReviewRequest } from '#shared/types/contract'
+import type { Risk, ContractReviewStatus, StanceRequest, CreateReviewRequest, PlaybookSnapshot } from '#shared/types/contract'
 
 const props = defineProps<{
     /** 外部传入时通过 reviewId 恢复审查（页面层从 URL ?reviewId= 读取） */
@@ -315,6 +315,7 @@ function handleContainerClick(e: MouseEvent) {
                             :hovered-risk-id="hoveredRiskId"
                             :pinned-risk-ids="pinnedRiskIds"
                             :not-located-ids="notLocatedIds"
+                            :playbook-snapshot="(review?.playbookSnapshot ?? null) as PlaybookSnapshot | null"
                             @download="onDownload"
                             @rebuild="onRebuildDocx"
                             @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
@@ -365,6 +366,7 @@ function handleContainerClick(e: MouseEvent) {
                         :hovered-risk-id="hoveredRiskId"
                         :pinned-risk-ids="pinnedRiskIds"
                         :not-located-ids="notLocatedIds"
+                        :playbook-snapshot="(review?.playbookSnapshot ?? null) as PlaybookSnapshot | null"
                         @download="onDownload"
                         @rebuild="onRebuildDocx"
                         @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
