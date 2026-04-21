@@ -77,6 +77,19 @@ const mockOnExportPdf = vi.fn()
 const mockOnEditRisks = vi.fn()
 const mockOnRebuildDocx = vi.fn()
 const mockCancelReview = vi.fn().mockResolvedValue(undefined)
+// Task 4.5 新增：聚焦/悬停/钉状态与动作
+const focusedRiskIdRef = ref<string | null>(null)
+const hoveredRiskIdRef = ref<string | null>(null)
+const pinnedRiskIdsRef = ref<Set<string>>(new Set())
+const highlightedRiskIdsRef = computed(() => {
+    const s = new Set(pinnedRiskIdsRef.value)
+    if (focusedRiskIdRef.value) s.add(focusedRiskIdRef.value)
+    return s
+})
+const mockFocusRisk = vi.fn()
+const mockTogglePin = vi.fn()
+const mockSetHoveredRisk = vi.fn()
+const mockClearAllPins = vi.fn()
 
 vi.mock('~/composables/useContractReview', () => ({
     useContractReview: () => ({
@@ -92,6 +105,10 @@ vi.mock('~/composables/useContractReview', () => ({
         totalClauses: totalClausesRef,
         analyzingClauseIndex: analyzingClauseIndexRef,
         analyzeWarnings: analyzeWarningsRef,
+        focusedRiskId: focusedRiskIdRef,
+        hoveredRiskId: hoveredRiskIdRef,
+        pinnedRiskIds: pinnedRiskIdsRef,
+        highlightedRiskIds: highlightedRiskIdsRef,
         onStart: mockOnStart,
         mountReview: mockMountReview,
         onStance: mockOnStance,
@@ -100,6 +117,10 @@ vi.mock('~/composables/useContractReview', () => ({
         onEditRisks: mockOnEditRisks,
         onRebuildDocx: mockOnRebuildDocx,
         cancelReview: mockCancelReview,
+        focusRisk: mockFocusRisk,
+        togglePin: mockTogglePin,
+        setHoveredRisk: mockSetHoveredRisk,
+        clearAllPins: mockClearAllPins,
     }),
 }))
 
@@ -171,14 +192,30 @@ const DocxPreviewStub = defineComponent({
     props: {
         reviewedFileId: { type: [Number, null] as unknown as () => number | null, default: null },
         originalFileId: { type: [Number, null] as unknown as () => number | null, default: null },
+        risks: { type: Array, default: () => [] },
+        focusedRiskId: { type: [String, null] as unknown as () => string | null, default: null },
+        hoveredRiskId: { type: [String, null] as unknown as () => string | null, default: null },
+        highlightedRiskIds: { type: Object as unknown as () => Set<string>, default: () => new Set() },
     },
-    setup(props) {
+    emits: ['focusRisk', 'hoverClause'],
+    setup(props, { emit }) {
         return () =>
             h('div', {
                 'data-stub': 'ContractDocxPreview',
                 'data-reviewed-file-id': props.reviewedFileId ?? '',
                 'data-original-file-id': props.originalFileId ?? '',
-            })
+                'data-focused-risk-id': props.focusedRiskId ?? '',
+                'data-hovered-risk-id': props.hoveredRiskId ?? '',
+            }, [
+                h('button', {
+                    'data-stub-btn': 'hover-clause',
+                    onClick: () => emit('hoverClause', 'risk-hover-1'),
+                }, 'hover'),
+                h('button', {
+                    'data-stub-btn': 'focus-risk-from-preview',
+                    onClick: () => emit('focusRisk', 'risk-from-preview'),
+                }, 'focus'),
+            ])
     },
 })
 
@@ -191,8 +228,11 @@ const RiskListPanelStub = defineComponent({
         summary: { type: [String, null] as unknown as () => string | null, default: null },
         isRebuilding: { type: Boolean, default: false },
         hasUnsavedDocxChanges: { type: Boolean, default: false },
+        focusedRiskId: { type: [String, null] as unknown as () => string | null, default: null },
+        hoveredRiskId: { type: [String, null] as unknown as () => string | null, default: null },
+        pinnedRiskIds: { type: Object as unknown as () => Set<string>, default: () => new Set() },
     },
-    emits: ['download', 'rebuild', 'editRisks'],
+    emits: ['download', 'rebuild', 'editRisks', 'focusRisk', 'togglePin'],
     setup(props, { emit }) {
         return () =>
             h(
@@ -204,6 +244,8 @@ const RiskListPanelStub = defineComponent({
                     'data-summary': props.summary ?? '',
                     'data-is-rebuilding': String(props.isRebuilding),
                     'data-has-unsaved': String(props.hasUnsavedDocxChanges),
+                    'data-focused-risk-id': props.focusedRiskId ?? '',
+                    'data-hovered-risk-id': props.hoveredRiskId ?? '',
                 },
                 [
                     h('button', { 'data-stub-btn': 'download', onClick: () => emit('download') }, 'download'),
@@ -215,6 +257,14 @@ const RiskListPanelStub = defineComponent({
                             onClick: () => emit('editRisks', [{ id: 'nr', clauseIndex: 0 }]),
                         },
                         'edit-risks',
+                    ),
+                    h(
+                        'button',
+                        {
+                            'data-stub-btn': 'focus-risk',
+                            onClick: () => emit('focusRisk', 'risk-from-list'),
+                        },
+                        'focus-risk',
                     ),
                 ],
             )
@@ -239,13 +289,36 @@ const ReviewProgressStub = defineComponent({
     },
 })
 
+const FloatingAnnotationPanelStub = defineComponent({
+    name: 'AssistantContractFloatingAnnotationPanel',
+    props: {
+        risks: { type: Array, default: () => [] },
+        visible: { type: Boolean, default: true },
+        activeRiskId: { type: [String, null] as unknown as () => string | undefined, default: undefined },
+    },
+    emits: ['update:visible', 'focusRisk'],
+    setup(props, { emit }) {
+        return () =>
+            h('div', {
+                'data-stub': 'FloatingAnnotationPanel',
+                'data-active-risk-id': props.activeRiskId ?? '',
+                'data-visible': String(props.visible),
+            }, [
+                h('button', {
+                    'data-stub-btn': 'floating-focus-risk',
+                    onClick: () => emit('focusRisk', 'risk-from-floating'),
+                }, 'focus-risk'),
+            ])
+    },
+})
+
 const stubs = {
     // 字段名必须与模板里的组件名严格匹配（Nuxt 4 自动导入折叠 assistant/contract/Contract* → AssistantContract*）
     AssistantContractSourceInput: SourceInputStub,
     AssistantContractStanceSelectionDialog: StanceDialogStub,
     AssistantContractDocxPreview: DocxPreviewStub,
     AssistantContractRiskListPanel: RiskListPanelStub,
-    AssistantContractFloatingAnnotationPanel: true,
+    AssistantContractFloatingAnnotationPanel: FloatingAnnotationPanelStub,
     AssistantContractReviewProgress: ReviewProgressStub,
 }
 
@@ -298,6 +371,9 @@ function resetRefs() {
     totalClausesRef.value = null
     analyzingClauseIndexRef.value = null
     analyzeWarningsRef.value = []
+    focusedRiskIdRef.value = null
+    hoveredRiskIdRef.value = null
+    pinnedRiskIdsRef.value = new Set()
 }
 
 beforeEach(() => {
@@ -313,6 +389,10 @@ beforeEach(() => {
     mockToastError.mockReset()
     mockToastSuccess.mockReset()
     mockToastWarning.mockReset()
+    mockFocusRisk.mockReset()
+    mockTogglePin.mockReset()
+    mockSetHoveredRisk.mockReset()
+    mockClearAllPins.mockReset()
 })
 
 afterEach(() => {
@@ -559,5 +639,95 @@ describe('ContractReviewPanel M5 接线', () => {
         reviewRef.value = makeReview({ status: 'rebuilding', reviewedFileId: 2 } as unknown as Partial<contractReviews>)
         await nextTick()
         expect(mockToastInfo).not.toHaveBeenCalled()
+    })
+})
+
+describe('ContractReviewPanel Task 4.5：焦点/悬停/钉调度', () => {
+    it('RiskListPanel @focus-risk emit → focusRisk 被调用', async () => {
+        reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
+        const w = mountPanel()
+        await nextTick()
+        await w.find('[data-stub-btn="focus-risk"]').trigger('click')
+        expect(mockFocusRisk).toHaveBeenCalledTimes(1)
+        expect(mockFocusRisk).toHaveBeenCalledWith('risk-from-list')
+    })
+
+    it('DocxPreview @hover-clause emit → setHoveredRisk 被调用，focusRisk 不被调用', async () => {
+        reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
+        const w = mountPanel()
+        await nextTick()
+        await w.find('[data-stub-btn="hover-clause"]').trigger('click')
+        expect(mockSetHoveredRisk).toHaveBeenCalledTimes(1)
+        expect(mockSetHoveredRisk).toHaveBeenCalledWith('risk-hover-1')
+        expect(mockFocusRisk).not.toHaveBeenCalled()
+    })
+
+    it('DocxPreview @focus-risk emit → focusRisk 被调用', async () => {
+        reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
+        const w = mountPanel()
+        await nextTick()
+        await w.find('[data-stub-btn="focus-risk-from-preview"]').trigger('click')
+        expect(mockFocusRisk).toHaveBeenCalledTimes(1)
+        expect(mockFocusRisk).toHaveBeenCalledWith('risk-from-preview')
+    })
+
+    it('FloatingPanel @focus-risk emit → focusRisk 被调用', async () => {
+        reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
+        const w = mountPanel()
+        await nextTick()
+        await w.find('[data-stub-btn="floating-focus-risk"]').trigger('click')
+        expect(mockFocusRisk).toHaveBeenCalledTimes(1)
+        expect(mockFocusRisk).toHaveBeenCalledWith('risk-from-floating')
+    })
+
+    it('容器 Shift+click 含 data-risk-id 元素 → togglePin 被调用', async () => {
+        reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
+        const w = mountPanel()
+        await nextTick()
+        // 在容器根元素上触发 Shift+click，并模拟 closest('[data-risk-id]') 有命中
+        // 直接在容器上新增带 data-risk-id 的 DOM，通过 trigger 传入 shiftKey
+        const container = w.find('.h-full.flex.flex-col')
+        // 创建 CustomEvent，用 detail 传递 shiftKey 语义——
+        // @vue/test-utils trigger 方法支持传入 eventInit 对象
+        const el = container.element
+        const childWithRiskId = document.createElement('div')
+        childWithRiskId.dataset.riskId = 'risk-shift-1'
+        el.appendChild(childWithRiskId)
+
+        const event = new MouseEvent('click', { bubbles: true, shiftKey: true })
+        childWithRiskId.dispatchEvent(event)
+        await nextTick()
+
+        expect(mockTogglePin).toHaveBeenCalledTimes(1)
+        expect(mockTogglePin).toHaveBeenCalledWith('risk-shift-1')
+        el.removeChild(childWithRiskId)
+    })
+
+    it('容器 Shift+click 不含 data-risk-id 元素 → togglePin 不被调用', async () => {
+        reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
+        const w = mountPanel()
+        await nextTick()
+        // 在容器根元素上 Shift+click 不含 data-risk-id 的元素
+        const container = w.find('.h-full.flex.flex-col')
+        const el = container.element
+        const childNoRiskId = document.createElement('div')
+        el.appendChild(childNoRiskId)
+
+        const event = new MouseEvent('click', { bubbles: true, shiftKey: true })
+        childNoRiskId.dispatchEvent(event)
+        await nextTick()
+
+        expect(mockTogglePin).not.toHaveBeenCalled()
+        el.removeChild(childNoRiskId)
+    })
+
+    it('FloatingAnnotationPanel 收到 :active-risk-id=focusedRiskId', async () => {
+        reviewRef.value = makeReview({ status: 'completed', reviewedFileId: 1 })
+        focusedRiskIdRef.value = 'risk-focused'
+        const w = mountPanel()
+        await nextTick()
+        const panel = w.find('[data-stub="FloatingAnnotationPanel"]')
+        expect(panel.exists()).toBe(true)
+        expect(panel.attributes('data-active-risk-id')).toBe('risk-focused')
     })
 })

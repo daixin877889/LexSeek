@@ -41,6 +41,13 @@ const {
     stageStatus,
     totalClauses,
     analyzingClauseIndex,
+    focusedRiskId,
+    hoveredRiskId,
+    pinnedRiskIds,
+    highlightedRiskIds,
+    focusRisk,
+    setHoveredRisk,
+    togglePin,
 } = useContractReview()
 
 // 外部 reviewId 注入：仅 immediate 触发一次 mountReview；composable 未监听后续变化
@@ -153,27 +160,21 @@ watch(isRebuilding, (rebuilding, wasRebuilding) => {
 // 浮动风险速览面板：默认显示，用户关闭后可通过 toolbar 重开
 const showFloatingPanel = ref(true)
 
-// 风险聚焦与钉住状态（Task 4.4）
-const focusedRiskId = ref<string | null>(null)
-const pinnedRiskIds = ref<Set<string>>(new Set())
-
-function handleFocusRisk(riskId: string) {
-    focusedRiskId.value = riskId
-}
-
-function handleTogglePin(riskId: string) {
-    const next = new Set(pinnedRiskIds.value)
-    if (next.has(riskId)) {
-        next.delete(riskId)
-    } else {
-        next.add(riskId)
+// Shift+click 快捷键委托（冒泡，不用 capture，避免干扰 dialog/popover 外部关闭）
+function handleContainerClick(e: MouseEvent) {
+    if (!e.shiftKey) return
+    const target = (e.target as HTMLElement).closest('[data-risk-id]')
+    if (!target) return
+    const id = (target as HTMLElement).dataset.riskId
+    if (id) {
+        e.preventDefault()
+        togglePin(id)
     }
-    pinnedRiskIds.value = next
 }
 </script>
 
 <template>
-    <div class="h-full flex flex-col">
+    <div class="h-full flex flex-col" @click="handleContainerClick">
         <!-- Step 1 提交屏 -->
         <div v-if="showSourceInput" class="flex-1 flex items-center justify-center p-6">
             <div class="w-full max-w-xl">
@@ -201,6 +202,12 @@ function handleTogglePin(riskId: string) {
             <AssistantContractDocxPreview
                 :reviewed-file-id="review?.reviewedFileId ?? null"
                 :original-file-id="review?.originalFileId ?? null"
+                :risks="review?.risks ?? []"
+                :focused-risk-id="focusedRiskId"
+                :hovered-risk-id="hoveredRiskId"
+                :highlighted-risk-ids="highlightedRiskIds"
+                @focus-risk="focusRisk"
+                @hover-clause="setHoveredRisk"
             />
             <div class="border-l flex flex-col min-h-0">
                 <AssistantContractReviewProgress
@@ -223,13 +230,14 @@ function handleTogglePin(riskId: string) {
                     :is-rebuilding="isRebuilding"
                     :has-unsaved-docx-changes="hasUnsavedDocxChanges"
                     :focused-risk-id="focusedRiskId"
+                    :hovered-risk-id="hoveredRiskId"
                     :pinned-risk-ids="pinnedRiskIds"
                     @download="onDownload"
                     @rebuild="onRebuildDocx"
                     @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
                     @export-pdf="(includeRisks: boolean) => onExportPdf(includeRisks)"
-                    @focus-risk="handleFocusRisk"
-                    @toggle-pin="handleTogglePin"
+                    @focus-risk="focusRisk"
+                    @toggle-pin="togglePin"
                 />
             </div>
         </div>
@@ -239,6 +247,8 @@ function handleTogglePin(riskId: string) {
             v-if="review && !showSourceInput"
             :risks="review?.risks ?? []"
             :visible="showFloatingPanel"
+            :active-risk-id="focusedRiskId ?? undefined"
+            @focus-risk="focusRisk"
             @update:visible="(v: boolean) => (showFloatingPanel = v)"
         />
     </div>
