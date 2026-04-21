@@ -1,6 +1,6 @@
 <template>
     <Sheet v-model:open="isOpen">
-        <SheetContent class="sm:max-w-2xl overflow-y-auto">
+        <SheetContent class="sm:max-w-2xl overflow-y-auto p-6">
             <SheetHeader>
                 <SheetTitle>审计记录详情</SheetTitle>
                 <SheetDescription class="font-mono text-xs">{{ record?.id }}</SheetDescription>

@@ -11,6 +11,7 @@
 import { createHash } from 'node:crypto'
 import { createMiddleware } from 'langchain'
 import { ToolMessage } from '@langchain/core/messages'
+import { isGraphBubbleUp } from '@langchain/langgraph'
 import { z } from 'zod'
 import { writeAgentToolAuditLogService } from '~~/server/services/audit/agentToolAudit.service'
 import { AgentAuditVerdict } from '#shared/types/agentAudit'
@@ -82,9 +83,15 @@ export function createAuditMiddleware() {
 
             const latencyMs = Date.now() - startedAt
 
-            const { verdict, denyReason } = thrown
+            // LangGraph 的 bubble-up 异常（GraphInterrupt / ParentCommand）是控制流，不是真正的错误。
+            // 例如 parseAndAskStance 通过 interrupt() 等待用户立场，会抛 GraphInterrupt；
+            // 这种情况工具本身成功执行了，按 ALLOWED 归档。
+            const isBubbleUp = thrown != null && isGraphBubbleUp(thrown)
+            const { verdict, denyReason } = thrown && !isBubbleUp
                 ? { verdict: AgentAuditVerdict.ERROR, denyReason: (thrown instanceof Error ? thrown.message : String(thrown)).slice(0, 256) }
-                : verdictOf(result)
+                : isBubbleUp
+                    ? { verdict: AgentAuditVerdict.ALLOWED, denyReason: null }
+                    : verdictOf(result)
 
             writeAgentToolAuditLogService({
                 userId: ctx.userId,
