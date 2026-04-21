@@ -68,7 +68,11 @@ const hasDrafts = computed(() => props.drafts.length > 0)
         <!-- 空态 -->
         <div v-else-if="!hasDrafts" class="flex flex-col items-center justify-center py-14 text-muted-foreground">
             <FileEditIcon class="size-10 mb-2 opacity-40" />
-            <p class="text-sm">本案件还没有文书，点「+ 新建文书」开始</p>
+            <p class="text-sm mb-4">本案件还没有文书，开始生成第一份吧</p>
+            <Button size="sm" class="gap-1" @click="emit('createDocument')">
+                <PlusIcon class="size-4" />
+                新建文书
+            </Button>
         </div>
 
         <!-- 列表 -->
