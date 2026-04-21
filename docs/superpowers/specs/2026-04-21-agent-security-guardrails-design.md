@@ -212,7 +212,7 @@ execFile(binary, [...prependedArgs, ...execArgs], { ... }, callback)
 
 ```prisma
 model agent_tool_audit {
-    id           BigInt   @id @default(autoincrement())
+    id           String   @id @db.Uuid                 // UUIDv7（应用层生成，按时间单调递增）
     userId       Int      @map("user_id")
     sessionId    String   @map("session_id") @db.VarChar(128)
     caseId       Int?     @map("case_id")
@@ -235,10 +235,13 @@ model agent_tool_audit {
 }
 ```
 
-- **`BigInt` 主键**：审计量大，`Int` 会在 2-3 年内爆掉。
-- **四个索引**：覆盖"按用户查"、"按工具 + 结果查"、"按 session 追踪整条调用链"、"按日期清理"。
-- **分区**：初版不做。数据量达 5000 万条前 PG 单表性能足够；达到后再按月 partition。
-- **`argsDigest` 用 Json**：便于 PG 的 jsonb GIN 索引和后续复杂条件查询。
+- **UUIDv7 主键**（PG 原生 `uuid` 类型 16 字节存储）：
+    - 应用层用 `uuid` npm 包的 `v7()` 生成，写入时显式赋值，例：`id: uuidv7()`
+    - UUIDv7 前 48 位是 Unix 时间戳（ms），天然按创建时间单调递增，避免 UUIDv4 随机分布带来的 B-tree 索引碎片问题
+    - 优势：全局唯一（未来冷热分离/归档不会冲突）；管理端 URL 暴露 id 不泄露"每日审计总量"这类元信息
+- **四个索引**：覆盖"按用户查"、"按工具 + 结果查"、"按 session 追踪整条调用链"、"按日期清理"
+- **分区**：初版不做。数据量达 5000 万条前 PG 单表性能足够；达到后再按月 partition
+- **`argsDigest` 用 Json**：便于 PG 的 jsonb GIN 索引和后续复杂条件查询
 
 ### 4.6 管理端 API
 
@@ -260,9 +263,10 @@ model agent_tool_audit {
 - 硬删（审计表软删无意义）
 - 为避免一次删太多锁表，分批删除（每批 10_000 条，循环到无记录）
 
-**`GET /api/v1/admin/agent-audit/stats`** - 概览指标（可选，初版可省）
-- 返回 24h / 7d 内 `allowed/denied/error` 数量、Top 10 活跃 user、Top 10 被拒工具
-- **初版不做**，留待二期
+**`GET /api/v1/admin/agent-audit/stats`** - 概览指标（**初版实施**）
+- 返回：`{ today: { allowed, denied, error }, last7d: { allowed, denied, error } }`
+- 用途：管理端列表页顶部统计卡片，一眼看出当日拒绝/错误量是否异常
+- 实现：两条 count-by-verdict 聚合查询，走 `createdAt` 索引，毫秒级
 
 ### 4.7 管理端页面
 
@@ -270,7 +274,10 @@ model agent_tool_audit {
 
 按 LexSeek 现有管理页面范式（参考 `app/pages/admin/`）：
 
-- 顶部筛选栏：用户（input）、工具（select 枚举）、verdict（select：全部/允许/拒绝/错误）、日期范围（DatePicker）、caseId/sessionId
+- **顶部统计卡片区**（3 张并排）：
+    - "今日允许" / "今日拒绝" / "今日错误"（橙色/红色 Badge 着色，点击卡片自动回填筛选器看明细）
+    - 副标题小字显示"近 7 天" 的对应数字，便于对比
+- 筛选栏：用户（input）、工具（select 枚举）、verdict（select：全部/允许/拒绝/错误）、日期范围（DatePicker）、caseId/sessionId
 - 表格列：时间、用户、工具、verdict（Badge 着色）、caseId、denyReason（截断显示 + tooltip 全文）、latencyMs、操作（详情）
 - 分页：shadcn-vue Pagination 组件
 - 点击行或"详情"按钮 → 抽屉（Sheet）显示 argsDigest / resultDigest 完整 JSON（`<pre>` + 语法高亮可选）
@@ -387,16 +394,14 @@ bun run prisma:migrate --name add_agent_tool_audit
 | 阶段 | 工作 | 预计 |
 |---|---|---|
 | P0 核心 | scopeGuard + audit 中间件 + `agent_tool_audit` 表 + unshare 网络隔离 + 装配到 5 个 agent | 3-4 天 |
-| P0 管理端 | API + 列表页 + 清理弹窗 + 测试 | 2 天 |
+| P0 管理端 | API + 列表页 + 顶部统计卡片 + 清理弹窗 + 测试 | 2.5 天 |
 | P1 熔断 | toolCallLimit 装配 + 分层配置 + 测试 | 0.5-1 天 |
 | 集成验证 | 手工验证清单 + prompt injection 模拟测试 | 0.5-1 天 |
-| **合计** | — | **6-8 天** |
+| **合计** | — | **6.5-8.5 天** |
 
-## 11. 开放问题（评审请回答）
-
-1. **工具调用次数限制的部署节奏**：是否与 scopeGuard/audit 同批上线？还是先让前两者稳定运行 1-2 周再加熔断？建议**同批上线**，默认值保守，后续按运行数据调整。
-2. **管理端页面的观测指标**：除列表 + 清理外，是否需要在列表页顶部加一个"今日拒绝次数 / 错误次数"小卡片？（工作量约 0.5 天）
-
-## 12. 评审决议记录
+## 11. 评审决议记录
 
 - **2026-04-21**：黑名单条目最终清单确认——拦"伪装系统消息" + "模仿 AI 模板分隔符"两类；**不拦**自然语言的"忽略以上"等（法律场景合法出现）。详见第 4.1 节污染标记黑名单清单。
+- **2026-04-21**：`agent_tool_audit` 表主键改为 UUIDv7（原方案 BigInt 自增），原因：避免 id 暴露到管理端 URL 时泄露审计总量；未来冷热分离/归档天然全局唯一；按时间单调递增，无索引碎片。
+- **2026-04-21**：熔断功能（`toolCallLimitMiddleware`）与 scopeGuard/audit **同批上线**，默认值保守，后续按运行数据调整。
+- **2026-04-21**：管理端列表页增加顶部统计卡片（今日允许/拒绝/错误 + 近 7 天对比），点击卡片自动回填筛选器看明细。对应 API `GET /api/v1/admin/agent-audit/stats` 纳入初版实施。
