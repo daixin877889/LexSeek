@@ -137,19 +137,19 @@ function handleExportPdfConfirm(includeRisks: boolean) {
 </script>
 
 <template>
-    <div class="flex flex-col h-full">
-        <AssistantContractOverviewPanel
-            :risks="risks"
-            :summary="summary"
-            @focus-risk="(id: string) => emit('focusRisk', id)"
-        />
-
-        <div v-if="isRebuilding" class="p-3 border-b bg-muted/30 text-sm text-muted-foreground flex items-center gap-2">
+    <div class="flex flex-col h-full min-h-0">
+        <div v-if="isRebuilding" class="p-3 border-b bg-muted/30 text-sm text-muted-foreground flex items-center gap-2 shrink-0">
             <Loader2Icon class="size-4 animate-spin" />
             <span>批注正在重新生成...</span>
         </div>
 
-        <ScrollArea class="flex-1">
+        <!-- 总览 + 风险卡片在同一 ScrollArea 内滚动；底部下载/导出按钮留在外层 flex-col 末尾固定可见 -->
+        <ScrollArea class="flex-1 min-h-0">
+            <AssistantContractOverviewPanel
+                :risks="risks"
+                :summary="summary"
+                @focus-risk="(id: string) => emit('focusRisk', id)"
+            />
             <div ref="containerRef" class="p-3 space-y-2">
                 <Button variant="outline" class="w-full" :disabled="!editable" @click="openCreate">
                     <PlusIcon class="size-4 mr-1" />新增风险
@@ -216,7 +216,8 @@ function handleExportPdfConfirm(includeRisks: boolean) {
             </div>
         </ScrollArea>
 
-        <div class="p-3 border-t space-y-2">
+        <!-- 底部操作栏：shrink-0 防止被 ScrollArea 的 flex-1 挤出视口 -->
+        <div class="p-3 border-t space-y-2 shrink-0 bg-card">
             <Button
                 v-if="hasUnsavedDocxChanges || isRebuilding"
                 class="w-full"
