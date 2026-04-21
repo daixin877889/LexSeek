@@ -287,9 +287,12 @@ async function repairSingleScope(
     if (blobs.length === 0 || !blobs[0]!.blob || blobs[0]!.type !== 'json') return 0
 
     // 3. 反序列化、修复、序列化
+    // LangGraph 存储的 JSON blob 可能含尾部 null bytes（参见 langgraph-checkpoint-postgres
+    // 源码中 metadata 解析时的 .replace(/\0/g, "")），需在 parse 前先去除
     let messages: SerializedMessage[]
     try {
-        const parsed = JSON.parse(blobs[0]!.blob.toString('utf8'))
+        const jsonStr = blobs[0]!.blob.toString('utf8').replace(/\0/g, '')
+        const parsed = JSON.parse(jsonStr)
         if (!Array.isArray(parsed)) return 0
         messages = parsed
     } catch (err) {
