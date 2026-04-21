@@ -11,6 +11,7 @@ import { z } from 'zod'
 import type { Risk, ContractOverview, Stance } from '#shared/types/contract'
 import { createChatModel } from '~~/server/services/node/chatModelFactory'
 import { getValidNodeConfig } from '~~/server/services/node/node.service'
+import { logContextOverflow } from '~~/server/services/workflow/context/contextErrorLogger'
 
 const OverviewResponse = z.object({
     highlights: z.object({
@@ -46,7 +47,24 @@ export async function summarizeOverview(
     })
 
     const prompt = buildPrompt(risks, stance, contractType)
-    const response = await model.invoke(prompt)
+    let response
+    try {
+        response = await model.invoke(prompt)
+    } catch (err) {
+        logContextOverflow(err, {
+            source: 'summarizeOverview',
+            modelName: config.modelName,
+            sdkType: config.modelSdkType,
+            contextWindow: config.modelContextWindow,
+            extra: {
+                riskCount: risks.length,
+                promptLength: prompt.length,
+                stance,
+                contractType,
+            },
+        })
+        throw err
+    }
     const content = typeof response.content === 'string' ? response.content : ''
 
     const jsonMatch = content.match(/\{[\s\S]*\}/)
@@ -83,13 +101,31 @@ export async function summarizeOverview(
 }
 
 function buildPrompt(risks: Risk[], stance: Stance, contractType: string | null): string {
-    const riskList = risks.map(r => `${r.level.toUpperCase()} · ${r.id} · ${r.category} · ${r.problem}`).join('\n')
+    const riskList = risks.map((r) => {
+        const line = `${r.level.toUpperCase()} · ${r.id} · ${r.category} · ${r.problem}`
+        return line.length > MAX_RISK_LINE_CHARS ? line.slice(0, MAX_RISK_LINE_CHARS) + '…' : line
+    }).join('\n')
     return [
-        `我刚完成一份${contractType ?? '合同'}的风险审查（立场=${stance}）。以下是所有风险点：`,
+        `你正在帮律师完成${contractType ?? '合同'}审查的"一览视图"（立场=${stance}）。`,
+        `以下是我已经逐条分析出的所有风险点（格式："级别 · riskId · 类别 · 问题描述"）：`,
+        ``,
         riskList,
         ``,
-        `请按"高/中/低"三档输出分档要点（每条 ≤ 60 字，挂原 risk 的 id），再写一段总评（≤ 120 字）。`,
-        `严格按如下 JSON 输出，不要解释：`,
+        `你的任务：**做真正的跨条款归纳**，而不是把原问题复述一遍。具体要求：`,
+        ``,
+        `1. 识别哪些 risk 本质上是**同一类**问题（相同主题 / 相同法律依据 / 相同后果），`,
+        `   将它们**合并成一条要点**。例如 3 条都涉及"试用期约定违法"，就合并为`,
+        `   一条"试用期条款多处违法（涵盖 3 条）"，而不是分别列 3 条。`,
+        `2. 每条要点写在共性层面（一句话概括"这一类问题是什么、为什么是风险"），`,
+        `   不要出现单条 risk 原文，也不要出现"第 X 条"这种具体编号。`,
+        `3. 要点挂的 riskId 选**该类问题里最有代表性的那一条**（仅一个 id），`,
+        `   用户点击会跳到该条款定位。`,
+        `4. 每档（高/中/低）最多 5 条；如果整档都能合并为 1-2 条就只出 1-2 条，`,
+        `   避免强行凑数。若某档无风险则输出空数组。`,
+        `5. 最后写一段总评（≤ 120 字）：从合同整体合规度/履约风险角度定性，`,
+        `   不要重复要点内容。`,
+        ``,
+        `严格按如下 JSON 输出，不要解释、不要代码块标记：`,
         `{"highlights": {"high":[{"text":"...","riskId":"..."}], "medium":[...], "low":[...]}, "overall":"..."}`,
     ].join('\n')
 }

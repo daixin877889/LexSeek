@@ -228,9 +228,6 @@ function handleFocusRisk(id: string) {
     focusRisk(id)
 }
 
-// 浮动风险速览面板：默认显示，用户关闭后可通过 toolbar 重开
-const showFloatingPanel = ref(true)
-
 // Shift+click 快捷键委托（冒泡，不用 capture，避免干扰 dialog/popover 外部关闭）
 function handleContainerClick(e: MouseEvent) {
     if (!e.shiftKey) return
@@ -379,14 +376,5 @@ function handleContainerClick(e: MouseEvent) {
             </div>
         </div>
 
-        <!-- 浮动风险速览（仅在结果屏挂载） -->
-        <AssistantContractFloatingAnnotationPanel
-            v-if="review && !showSourceInput"
-            :risks="review?.risks ?? []"
-            :visible="showFloatingPanel"
-            :active-risk-id="focusedRiskId ?? undefined"
-            @focus-risk="handleFocusRisk"
-            @update:visible="(v: boolean) => (showFloatingPanel = v)"
-        />
     </div>
 </template>
