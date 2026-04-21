@@ -14,6 +14,9 @@ interface Props {
 const props = defineProps<Props>()
 const slots = useSlots()
 
+// 推理内容一般只是思考文本，但 LLM 偶尔也会输出 mermaid；保持和 MessageResponse 一致的高清 PNG 导出
+const { markdownControls } = useMermaidHdPng()
+
 const slotContent = computed<string | undefined>(() => {
   const nodes = slots.default?.()
   if (!Array.isArray(nodes)) {
@@ -40,6 +43,6 @@ const md = computed(() => (slotContent.value ?? props.content ?? '') as string)
       props.class,
     )"
   >
-    <Markdown :content="md" />
+    <Markdown :content="md" :controls="markdownControls" />
   </CollapsibleContent>
 </template>

@@ -132,7 +132,7 @@
     "vue-router": "^4.6.4",
     "vue-sonner": "^2.0.9",
     "vue-stick-to-bottom": "^0.1.0",
-    "vue-stream-markdown": "^0.6.5",
+    "vue-stream-markdown": "^0.7.1",
     "xlsx": "^0.18.5",
     "zod": "^4.2.1"
   },
