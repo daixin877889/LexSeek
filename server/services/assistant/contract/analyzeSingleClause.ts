@@ -44,11 +44,36 @@ export async function analyzeSingleClause(ctx: AnalyzeClauseContext): Promise<Ri
     const response = await model.invoke(prompt)
     const content = typeof response.content === 'string' ? response.content : ''
 
-    // 宽容解析：匹配第一个 {...}
+    // 宽容解析：仅取首个完整 JSON 块即可
     const jsonMatch = content.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) throw new Error('LLM 未返回 JSON')
-    const parsed = SingleClauseResponse.safeParse(JSON.parse(jsonMatch[0]))
-    if (!parsed.success) throw new Error(`LLM 输出不符合 schema: ${parsed.error.issues[0]?.message}`)
+    if (!jsonMatch) {
+        logger.warn('analyzeSingleClause: LLM 未返回 JSON', {
+            clauseIndex: ctx.clause.index,
+            rawContent: content.slice(0, 200),
+        })
+        throw new Error(`条款 #${ctx.clause.index} LLM 未返回 JSON`)
+    }
+
+    let rawJson: unknown
+    try {
+        rawJson = JSON.parse(jsonMatch[0])
+    } catch (err) {
+        logger.warn('analyzeSingleClause: JSON.parse 失败', {
+            clauseIndex: ctx.clause.index,
+            raw: jsonMatch[0].slice(0, 200),
+            err,
+        })
+        throw new Error(`条款 #${ctx.clause.index} JSON 解析失败`)
+    }
+
+    const parsed = SingleClauseResponse.safeParse(rawJson)
+    if (!parsed.success) {
+        logger.warn('analyzeSingleClause: schema 校验失败', {
+            clauseIndex: ctx.clause.index,
+            issue: parsed.error.issues[0]?.message,
+        })
+        throw new Error(`条款 #${ctx.clause.index} LLM 输出不符合 schema: ${parsed.error.issues[0]?.message}`)
+    }
 
     if (parsed.data.skip || !parsed.data.risk) return null
     return parsed.data.risk as Risk
@@ -62,9 +87,27 @@ function buildPrompt(ctx: AnalyzeClauseContext): string {
         `"""`,
         ctx.clause.text,
         `"""`,
-        `请判断该条款是否有风险。严格按 JSON 输出：`,
-        `- 有风险：{"risk": {...}, "skip": false}，risk 字段结构见 RISK_SHAPE`,
-        `- 无风险：{"risk": null, "skip": true}`,
+        `请判断该条款是否有风险。严格按 JSON 输出，字段如下：`,
+        ``,
+        `- 有风险：`,
+        `  {`,
+        `    "risk": {`,
+        `      "id": "<UUID v4>",`,
+        `      "clauseIndex": ${ctx.clause.index},`,
+        `      "clauseText": "<被分析的条款原文片段>",`,
+        `      "level": "high" | "medium" | "low",`,
+        `      "category": "<风险类别，如 '付款' / '违约' / '知识产权' 等>",`,
+        `      "problem": "<简短问题描述>",`,
+        `      "analysis": "<详细分析>",`,
+        `      "risk": "<对己方的风险点>",`,
+        `      "suggestion": "<改进建议>",`,
+        `      "suggestedClauseText": "<可选，推荐改写后的条款>"`,
+        `    },`,
+        `    "skip": false`,
+        `  }`,
+        ``,
+        `- 无风险：{ "risk": null, "skip": true }`,
+        ``,
         `只输出 JSON，不要任何解释。`,
     ].join('\n')
 }

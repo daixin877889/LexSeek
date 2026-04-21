@@ -48,4 +48,16 @@ describe('analyzeSingleClause', () => {
         })
         expect(result).toBeNull()
     })
+
+    it('LLM 返回非 JSON → 抛错含条款序号', async () => {
+        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+        ;(createChatModel as any).mockReturnValueOnce({
+            invoke: vi.fn().mockResolvedValue({ content: 'no json here' }),
+        })
+        const { analyzeSingleClause } = await import('~~/server/services/assistant/contract/analyzeSingleClause')
+        await expect(analyzeSingleClause({
+            clause: { index: 5, number: '5.1', text: 'xxx' },
+            stance: 'partyA', partyA: 'A', partyB: 'B', contractType: '技服',
+        })).rejects.toThrow(/#5/)
+    })
 })
