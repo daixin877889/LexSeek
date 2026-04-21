@@ -50,22 +50,22 @@ const arcDeg = computed(() => (score.value / 100) * 360)
                 </div>
             </div>
             <div class="text-xs">
-                <div class="text-red-700 font-semibold">合同风险分 {{ score }}/100</div>
+                <div class="text-red-700 dark:text-red-300 font-semibold">合同风险分 {{ score }}/100</div>
                 <div class="text-muted-foreground">{{ scoreLabel }}</div>
             </div>
         </div>
 
         <!-- 三色计数卡（只读，不可点；用 div 而非 button） -->
         <div class="grid grid-cols-3 gap-1.5">
-            <div class="bg-red-100 text-red-700 rounded p-2 text-center" data-count="high">
+            <div class="bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-200 rounded p-2 text-center" data-count="high">
                 <div class="text-lg font-bold">{{ counts.high }}</div>
                 <div class="text-xs">高</div>
             </div>
-            <div class="bg-orange-100 text-orange-700 rounded p-2 text-center" data-count="medium">
+            <div class="bg-orange-100 dark:bg-orange-950/50 text-orange-700 dark:text-orange-200 rounded p-2 text-center" data-count="medium">
                 <div class="text-lg font-bold">{{ counts.medium }}</div>
                 <div class="text-xs">中</div>
             </div>
-            <div class="bg-slate-100 text-slate-700 rounded p-2 text-center" data-count="low">
+            <div class="bg-slate-100 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 rounded p-2 text-center" data-count="low">
                 <div class="text-lg font-bold">{{ counts.low }}</div>
                 <div class="text-xs">低</div>
             </div>
@@ -74,7 +74,7 @@ const arcDeg = computed(() => (score.value / 100) * 360)
         <!-- 分档要点（仅 highlights 非空时显示） -->
         <template v-if="hasHighlights">
             <div v-if="summary!.highlights!.high.length" class="space-y-1">
-                <div class="text-xs font-semibold text-red-700 flex items-center gap-1">
+                <div class="text-xs font-semibold text-red-700 dark:text-red-300 flex items-center gap-1">
                     <TriangleAlert class="size-3" />
                     高风险要点
                 </div>
@@ -82,12 +82,12 @@ const arcDeg = computed(() => (score.value / 100) * 360)
                     v-for="h in summary!.highlights!.high"
                     :key="h.riskId"
                     :data-riskid="h.riskId"
-                    class="block text-left text-xs px-1 py-0.5 rounded hover:bg-blue-50 hover:text-blue-700 transition w-full"
+                    class="block w-full text-left text-xs px-1.5 py-1 rounded hover:bg-accent hover:text-accent-foreground transition-colors"
                     @click="emit('focusRisk', h.riskId)"
                 >· {{ h.text }}</button>
             </div>
             <div v-if="summary!.highlights!.medium.length" class="space-y-1">
-                <div class="text-xs font-semibold text-orange-700 flex items-center gap-1">
+                <div class="text-xs font-semibold text-orange-700 dark:text-orange-300 flex items-center gap-1">
                     <TriangleAlert class="size-3" />
                     中风险要点
                 </div>
@@ -95,12 +95,12 @@ const arcDeg = computed(() => (score.value / 100) * 360)
                     v-for="h in summary!.highlights!.medium"
                     :key="h.riskId"
                     :data-riskid="h.riskId"
-                    class="block text-left text-xs px-1 py-0.5 rounded hover:bg-blue-50 hover:text-blue-700 transition w-full"
+                    class="block w-full text-left text-xs px-1.5 py-1 rounded hover:bg-accent hover:text-accent-foreground transition-colors"
                     @click="emit('focusRisk', h.riskId)"
                 >· {{ h.text }}</button>
             </div>
             <div v-if="summary!.highlights!.low.length" class="space-y-1">
-                <div class="text-xs font-semibold text-slate-700 flex items-center gap-1">
+                <div class="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
                     <Info class="size-3" />
                     低风险要点
                 </div>
@@ -108,7 +108,7 @@ const arcDeg = computed(() => (score.value / 100) * 360)
                     v-for="h in summary!.highlights!.low"
                     :key="h.riskId"
                     :data-riskid="h.riskId"
-                    class="block text-left text-xs px-1 py-0.5 rounded hover:bg-blue-50 hover:text-blue-700 transition w-full"
+                    class="block w-full text-left text-xs px-1.5 py-1 rounded hover:bg-accent hover:text-accent-foreground transition-colors"
                     @click="emit('focusRisk', h.riskId)"
                 >· {{ h.text }}</button>
             </div>
