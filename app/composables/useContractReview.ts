@@ -24,6 +24,7 @@ import type {
 } from '#shared/types/contract'
 
 type ContractRunStatus = 'idle' | 'reviewing' | 'awaiting_stance' | 'completed' | 'failed'
+type StageStepStatus = 'wait' | 'running' | 'done'
 
 interface AwaitingStancePayload {
     partyA?: string
@@ -43,11 +44,11 @@ export function useContractReview() {
 
     // M6.1：阶段进度状态
     const stageStatus = ref<{
-        detect: 'wait' | 'running' | 'done'
-        stance: 'wait' | 'running' | 'done'
-        segment: 'wait' | 'running' | 'done'
-        analyze: 'wait' | 'running' | 'done'
-        summarize: 'wait' | 'running' | 'done'
+        detect: StageStepStatus
+        stance: StageStepStatus
+        segment: StageStepStatus
+        analyze: StageStepStatus
+        summarize: StageStepStatus
     }>({
         detect: 'wait', stance: 'wait', segment: 'wait', analyze: 'wait', summarize: 'wait',
     })
