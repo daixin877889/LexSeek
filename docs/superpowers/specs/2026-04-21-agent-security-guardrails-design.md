@@ -101,11 +101,24 @@ LexSeek 所有对用户开放的对话型 Agent（小索、案件分析、合同
 | `run_skill_script` | 白名单字符校验（已在工具层实现，保留原逻辑）；额外校验 `skillName` 若非 `_workspace` 必须在已注册 skill 列表内 |
 | `search_case_materials` / `search_law` / `process_materials` | 参数中若出现 `caseId`，必须等于 context.caseId；若出现 `userId`，必须等于 context.userId |
 | `save_analysis_result` / `parseAndAskStance` | 要求 context 必须提供对应的 `runId` / `reviewId` / `draftId`（context 里缺失时直接拒绝）；若工具参数里也带这些字段，必须与 context 一致 |
-| 所有工具 | 参数中不得出现 `<|`、`system:`、`role: system`、prompt injection 典型 token（最小启发式黑名单，本期实施；仅作为纵深防御的一层兜底，不依赖它独立挡住攻击，**不做内容理解**） |
+| 所有工具 | 参数值中不得包含"**伪装系统消息**"或"**模仿 AI 模板分隔符**"两类典型污染标记（详见下方清单，本期实施；仅作为纵深防御的兜底层） |
 
 **关于 context 字段缺失的处理**：LangChain 的 `ToolContext` 里 `caseId/runId/draftId/reviewId` 均为可选字段（见 `server/services/workflow/tools/types.ts`）。scopeGuard 的原则是：
 - 工具的参数里**必须**满足校验条件；
 - context 字段缺失等同于"无权限使用该字段"，工具参数不得伪造（例如 context 里没 caseId 但参数里硬塞一个 caseId，视为越权，直接拒绝）。
+
+**污染标记黑名单清单**（本期实施，只扫工具参数的 string 值，不扫参数名/返回值/原始材料）：
+
+| 类别 | 拦截内容 | 拦截理由 |
+|---|---|---|
+| **伪装系统消息** | `system:`（大小写不敏感）、`role: system` 及其 JSON 变体 `"role":"system"` | 攻击者试图让 AI 以为收到新的系统指令；法律业务场景下英文的 `system:` 后接指令几乎不会合法出现 |
+| **模仿 AI 模板分隔符** | `<\|`（通用模板边界前缀）、`<\|im_start\|>` / `<\|im_end\|>`（ChatML）、`<\|begin_of_text\|>` / `<\|eot_id\|>`（Llama 3）、`[INST]` / `[/INST]`（Llama 2、Mistral）、`<s>` / `</s>`（BOS/EOS）、`### Instruction:` / `### Response:`（Alpaca/Vicuna） | 模型训练时的内部格式符号，正常法律文本不会出现；攻击者用这些试图让 AI 以为进入新对话轮次 |
+
+**不拦截的（产品决策，避免误伤合法业务）**：
+- 自然语言的"忽略以上 / ignore previous / disregard above / 忽略前款"等——这些在合同、判决书、法规条款里**合法高频出现**（例："不受前款约定影响"），拦截会大量误伤合同审查流程
+- 中文的"系统："（全角冒号）——合同里可能出现"系统错误"、"系统自动生成"等合法表述
+
+**命中后的行为**：直接返回 `ToolMessage("Error: 参数包含可疑内容")`；**不做清洗重写**（清洗会给攻击者反复试探的空间）。
 
 **实现要点**：
 - 规则配置为**工具名 → 校验函数**的纯函数 map，无 LLM 调用。
@@ -381,6 +394,9 @@ bun run prisma:migrate --name add_agent_tool_audit
 
 ## 11. 开放问题（评审请回答）
 
-1. **scopeGuard 黑名单初始条目**：本期黑名单暂定 `<|`、`system:`、`role: system` 三条。是否有其他 token 需要追加？（该规则是纵深防御的第三层兜底，误拦风险低）
-2. **工具调用次数限制的部署节奏**：`toolCallLimitMiddleware` 是否与 scopeGuard/audit 同批上线？还是先让前两者稳定运行 1-2 周，再加熔断？建议**同批上线**，默认值保守。
-3. **管理端页面的观测指标**：除列表 + 清理外，是否需要在列表页顶部加一个"今日拒绝次数 / 错误次数"小卡片？（属于 4.6 stats 接口的轻量版本，工作量约 0.5 天）
+1. **工具调用次数限制的部署节奏**：是否与 scopeGuard/audit 同批上线？还是先让前两者稳定运行 1-2 周再加熔断？建议**同批上线**，默认值保守，后续按运行数据调整。
+2. **管理端页面的观测指标**：除列表 + 清理外，是否需要在列表页顶部加一个"今日拒绝次数 / 错误次数"小卡片？（工作量约 0.5 天）
+
+## 12. 评审决议记录
+
+- **2026-04-21**：黑名单条目最终清单确认——拦"伪装系统消息" + "模仿 AI 模板分隔符"两类；**不拦**自然语言的"忽略以上"等（法律场景合法出现）。详见第 4.1 节污染标记黑名单清单。
