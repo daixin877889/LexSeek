@@ -14,16 +14,13 @@ import { z } from 'zod'
 import type { ToolContext, ToolDefinition } from './types'
 import { InterruptType } from '#shared/types/case'
 import type { Stance } from '#shared/types/contract'
+import { emitContractReviewEvent } from '../nodes/contractReviewStageEmitter'
 import {
     getContractReviewDAO,
     updateContractReviewDAO,
 } from '~~/server/services/assistant/contract/contractReview.dao'
-import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
-import { downloadFileService } from '~~/server/services/storage/storage.service'
-import {
-    parseContractDocx,
-    detectParties,
-} from '~~/server/services/assistant/contract/docx'
+import { detectParties } from '~~/server/services/assistant/contract/docx'
+import { loadContractFullText } from '~~/server/services/assistant/contract/docx/loadContractFullText'
 
 const schema = z.object({})
 
@@ -56,19 +53,29 @@ export const toolDefinition: ToolDefinition<typeof schema> = {
 /** 工具工厂（`ToolModule.createTool`——注册表通过 `import * as` 聚合此模块导出） */
 export const createTool = (context: ToolContext) => tool(
     async () => {
-        const { reviewId } = context
+        const { reviewId, sessionId, runId } = context
         if (!reviewId) throw new Error('parseAndAskStance: reviewId 缺失')
+        // emitter 上下文：仅当 runId 存在时发送 SSE 事件
+        const emitterCtx = runId ? { runId, sessionId } : null
 
         const review = await getContractReviewDAO(reviewId)
         if (!review) throw new Error(`parseAndAskStance: review ${reviewId} not found`)
 
-        const ossFile = await findOssFileByIdDao(review.originalFileId)
-        if (!ossFile) throw new Error(`OSS file ${review.originalFileId} not found`)
-        if (!ossFile.filePath) throw new Error(`OSS file ${review.originalFileId} filePath 缺失`)
-
-        const docxBuffer = await downloadFileService(ossFile.filePath)
-        const { paragraphs } = await parseContractDocx(docxBuffer)
+        const { paragraphs } = await loadContractFullText(review.originalFileId)
         const { partyA, partyB, contractType } = await detectParties(paragraphs)
+
+        // M6.1：detect 完成，发送 detect done 并紧接 stance running
+        if (emitterCtx) {
+            await emitContractReviewEvent(emitterCtx, {
+                type: 'stage', stage: 'detect', status: 'done',
+                partyA: partyA ?? undefined,
+                partyB: partyB ?? undefined,
+                contractType: contractType ?? undefined,
+            })
+            await emitContractReviewEvent(emitterCtx, {
+                type: 'stage', stage: 'stance', status: 'running',
+            })
+        }
 
         await updateContractReviewDAO(reviewId, {
             contractType: contractType ?? null,
@@ -100,6 +107,14 @@ export const createTool = (context: ToolContext) => tool(
 
         const finalPartyA = resumedPartyA ?? partyA ?? null
         const finalPartyB = resumedPartyB ?? partyB ?? null
+
+        // M6.1：用户立场已确认，发送 stance done
+        // analyze:running 由 runAnalyzeLoop 统一发出（M6.1 子期 2）
+        if (emitterCtx) {
+            await emitContractReviewEvent(emitterCtx, {
+                type: 'stage', stage: 'stance', status: 'done',
+            })
+        }
 
         await updateContractReviewDAO(reviewId, {
             stance,

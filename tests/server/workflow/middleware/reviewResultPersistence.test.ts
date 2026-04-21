@@ -1,3 +1,12 @@
+/**
+ * reviewResultPersistenceMiddleware 单元测试（M6.1 子期 2 改造后）
+ *
+ * 说明：risks 由 runAnalyzeLoop 在 agent resume 分支直接写 DB；
+ * middleware.afterAgent 只负责"读 DB → 调 runAnnotateAndUpload"兜底路径。
+ *
+ * 完整注入链路（原始文件 + injectComments + OSS 上传）由 m3Integration.test.ts
+ * 用真实 DB 覆盖；本单测只验证中间件对 DB 状态分支的路由逻辑。
+ */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
@@ -44,11 +53,9 @@ function getHooks(mw: any) {
     }
 }
 
-describe('reviewResultPersistenceMiddleware', () => {
+describe('reviewResultPersistenceMiddleware (M6.1 子期 2 改造后)', () => {
     const opts = { reviewId: 42, sessionId: 's1' }
 
-    // riskSchema 校验要求完整字段：中间件 P2 引入 schema.safeParse 后，
-    // 测试里的 structuredResponse.risks 必须符合 RISK_SHAPE（含必填项）。
     function makeRisk(overrides: Partial<Record<string, unknown>> = {}): Record<string, unknown> {
         return {
             id: '00000000-0000-4000-8000-000000000001',
@@ -75,11 +82,17 @@ describe('reviewResultPersistenceMiddleware', () => {
         expect(updateContractReviewDAO).toHaveBeenCalledWith(42, { status: 'reviewing' })
     })
 
-    it('afterAgent happy path：写 risks/summary → 注入 → 上传 → 写 ossFile → status=completed', async () => {
+    it('afterAgent：DB risks 有值 → runAnnotateAndUpload 被调（完整注入+上传链路触发）', async () => {
         const risk = makeRisk()
-        ;(getContractReviewDAO as any).mockResolvedValueOnce({
-            id: 42, userId: 7, originalFileId: 99,
-        })
+        // 第一次 getContractReviewDAO：afterAgent 自己读 DB 判断 status/risks
+        // 第二次 getContractReviewDAO：runAnnotateAndUpload 内部再读一遍取完整 review 对象
+        ;(getContractReviewDAO as any)
+            .mockResolvedValueOnce({
+                id: 42, userId: 7, originalFileId: 99, status: 'reviewing', risks: [risk],
+            })
+            .mockResolvedValueOnce({
+                id: 42, userId: 7, originalFileId: 99, status: 'reviewing', risks: [risk],
+            })
         ;(findOssFileByIdDao as any).mockResolvedValueOnce({ id: 99, filePath: 'orig.docx' })
         ;(downloadFileService as any).mockResolvedValueOnce(Buffer.from('orig'))
         ;(injectComments as any).mockResolvedValueOnce({
@@ -94,121 +107,43 @@ describe('reviewResultPersistenceMiddleware', () => {
 
         const mw = reviewResultPersistenceMiddleware(opts)
         const { after } = getHooks(mw)
-        await after({
-            structuredResponse: {
-                risks: [risk],
-                summary: 'ok',
-            },
-        })
-        expect(updateContractReviewDAO).toHaveBeenNthCalledWith(1, 42, {
-            risks: [risk],
-            summary: 'ok',
-        })
+        await after({})
+
+        // 注入链路被触发
         expect(injectComments).toHaveBeenCalled()
-        // 无越界时：只更新 reviewedFileId + status，不重写 risks
+        expect(uploadFileService).toHaveBeenCalled()
+        expect(createOssFileDao).toHaveBeenCalled()
+        // 终局 update：status=completed + reviewedFileId
         expect(updateContractReviewDAO).toHaveBeenLastCalledWith(42, {
             reviewedFileId: 200, status: 'completed',
         })
     })
 
-    it('structuredResponse 缺失 → status=failed，不调 injectComments', async () => {
+    it('afterAgent：DB risks 为空 → status=failed，不调 injectComments', async () => {
+        ;(getContractReviewDAO as any).mockResolvedValueOnce({
+            id: 42, userId: 7, originalFileId: 99, status: 'reviewing', risks: [],
+        })
+        ;(updateContractReviewDAO as any).mockResolvedValue({})
+
         const mw = reviewResultPersistenceMiddleware(opts)
         const { after } = getHooks(mw)
         await after({})
+
         expect(updateContractReviewDAO).toHaveBeenCalledWith(42, { status: 'failed' })
         expect(injectComments).not.toHaveBeenCalled()
     })
 
-    it('injectComments 抛错 → risks/summary 已写库 + status=failed', async () => {
-        const risk = makeRisk()
+    it('afterAgent：review.status=completed → 跳过（幂等，主流程已处理）', async () => {
         ;(getContractReviewDAO as any).mockResolvedValueOnce({
-            id: 42, userId: 7, originalFileId: 99,
+            id: 42, userId: 7, originalFileId: 99, status: 'completed', risks: [makeRisk()],
         })
-        ;(findOssFileByIdDao as any).mockResolvedValueOnce({ id: 99, filePath: 'orig.docx' })
-        ;(downloadFileService as any).mockResolvedValueOnce(Buffer.from('orig'))
-        ;(injectComments as any).mockRejectedValueOnce(new Error('xml parse fail'))
-        ;(updateContractReviewDAO as any).mockResolvedValue({})
 
         const mw = reviewResultPersistenceMiddleware(opts)
         const { after } = getHooks(mw)
-        await after({
-            structuredResponse: {
-                risks: [risk],
-                summary: 'ok',
-            },
-        })
-        // 第一次：写 risks/summary（可 rebuild 恢复的关键）
-        expect(updateContractReviewDAO).toHaveBeenNthCalledWith(1, 42, {
-            risks: [risk],
-            summary: 'ok',
-        })
-        // 最后一次：status=failed
-        expect(updateContractReviewDAO).toHaveBeenLastCalledWith(42, { status: 'failed' })
-    })
+        await after({})
 
-    it('fallback：structuredResponse 缺失但消息体含 ```json``` 代码块 → 解析成功走正常分支', async () => {
-        const risk = makeRisk()
-        ;(getContractReviewDAO as any).mockResolvedValueOnce({
-            id: 42, userId: 7, originalFileId: 99,
-        })
-        ;(findOssFileByIdDao as any).mockResolvedValueOnce({ id: 99, filePath: 'orig.docx' })
-        ;(downloadFileService as any).mockResolvedValueOnce(Buffer.from('orig'))
-        ;(injectComments as any).mockResolvedValueOnce({
-            buffer: Buffer.from('reviewed'),
-            validRisks: [risk],
-            skippedIndices: [],
-        })
-        ;(uploadFileService as any).mockResolvedValueOnce({ name: 'contract-review/7/reviewed-xyz.docx' })
-        ;(getDefaultStorageConfigDao as any).mockResolvedValueOnce({ bucket: 'test-bucket' })
-        ;(createOssFileDao as any).mockResolvedValueOnce({ id: 201 })
-        ;(updateContractReviewDAO as any).mockResolvedValue({})
-
-        const content = '这里是 AI 的分析：\n```json\n' + JSON.stringify({ risks: [risk], summary: '兜底 ok' }) + '\n```'
-        const mw = reviewResultPersistenceMiddleware(opts)
-        const { after } = getHooks(mw)
-        await after({
-            // 没有 structuredResponse，messages 里最后一条 AI 消息携带 JSON fence
-            messages: [
-                { getType: () => 'ai', content },
-            ],
-        })
-        expect(injectComments).toHaveBeenCalled()
-        expect(updateContractReviewDAO).toHaveBeenLastCalledWith(42, {
-            reviewedFileId: 201, status: 'completed',
-        })
-    })
-
-    it('clauseIndex 越界被注入时丢弃 → DB risks 改写为 validRisks', async () => {
-        const risk0 = makeRisk({ id: '00000000-0000-4000-8000-000000000010', clauseIndex: 0 })
-        const risk999 = makeRisk({ id: '00000000-0000-4000-8000-000000000999', clauseIndex: 999 })
-        ;(getContractReviewDAO as any).mockResolvedValueOnce({
-            id: 42, userId: 7, originalFileId: 99,
-        })
-        ;(findOssFileByIdDao as any).mockResolvedValueOnce({ id: 99, filePath: 'orig.docx' })
-        ;(downloadFileService as any).mockResolvedValueOnce(Buffer.from('orig'))
-        ;(injectComments as any).mockResolvedValueOnce({
-            buffer: Buffer.from('reviewed'),
-            validRisks: [risk0],
-            skippedIndices: [999],
-        })
-        ;(uploadFileService as any).mockResolvedValueOnce({ name: 'contract-review/7/reviewed-xyz.docx' })
-        ;(getDefaultStorageConfigDao as any).mockResolvedValueOnce({ bucket: 'test-bucket' })
-        ;(createOssFileDao as any).mockResolvedValueOnce({ id: 202 })
-        ;(updateContractReviewDAO as any).mockResolvedValue({})
-
-        const mw = reviewResultPersistenceMiddleware(opts)
-        const { after } = getHooks(mw)
-        await after({
-            structuredResponse: {
-                risks: [risk0, risk999],
-                summary: 'ok',
-            },
-        })
-        // 终局 update 应同时带 risks（剔除越界项）+ reviewedFileId + status
-        expect(updateContractReviewDAO).toHaveBeenLastCalledWith(42, {
-            reviewedFileId: 202,
-            status: 'completed',
-            risks: [risk0],
-        })
+        // 已 completed：不应再次触发 updateContractReviewDAO，也不应触发注入链路
+        expect(updateContractReviewDAO).not.toHaveBeenCalled()
+        expect(injectComments).not.toHaveBeenCalled()
     })
 })

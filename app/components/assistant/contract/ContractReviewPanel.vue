@@ -38,6 +38,16 @@ const {
     isRebuilding,
     hasUnsavedDocxChanges,
     cancelReview,
+    stageStatus,
+    totalClauses,
+    analyzingClauseIndex,
+    focusedRiskId,
+    hoveredRiskId,
+    pinnedRiskIds,
+    highlightedRiskIds,
+    focusRisk,
+    setHoveredRisk,
+    togglePin,
 } = useContractReview()
 
 // 外部 reviewId 注入：仅 immediate 触发一次 mountReview；composable 未监听后续变化
@@ -147,12 +157,40 @@ watch(isRebuilding, (rebuilding, wasRebuilding) => {
     }
 })
 
+// 未定位 risk id 集合（由 ContractDocxPreview decorateRisks 完成后上报）
+const notLocatedIds = ref<Set<string>>(new Set())
+
+function handleLocateResult(ids: Set<string>) {
+    notLocatedIds.value = ids
+}
+
+/**
+ * 聚焦 risk 的拦截层：未定位的 risk 不跳转文档（元素不存在），
+ * RiskListPanel 侧的 toggle 展开/收起照常执行（由 RiskListPanel 内部维护）。
+ */
+function handleFocusRisk(id: string) {
+    if (notLocatedIds.value.has(id)) return
+    focusRisk(id)
+}
+
 // 浮动风险速览面板：默认显示，用户关闭后可通过 toolbar 重开
 const showFloatingPanel = ref(true)
+
+// Shift+click 快捷键委托（冒泡，不用 capture，避免干扰 dialog/popover 外部关闭）
+function handleContainerClick(e: MouseEvent) {
+    if (!e.shiftKey) return
+    const target = (e.target as HTMLElement).closest('[data-risk-id]')
+    if (!target) return
+    const id = (target as HTMLElement).dataset.riskId
+    if (id) {
+        e.preventDefault()
+        togglePin(id)
+    }
+}
 </script>
 
 <template>
-    <div class="h-full flex flex-col">
+    <div class="h-full flex flex-col" @click="handleContainerClick">
         <!-- Step 1 提交屏 -->
         <div v-if="showSourceInput" class="flex-1 flex items-center justify-center p-6">
             <div class="w-full max-w-xl">
@@ -180,8 +218,20 @@ const showFloatingPanel = ref(true)
             <AssistantContractDocxPreview
                 :reviewed-file-id="review?.reviewedFileId ?? null"
                 :original-file-id="review?.originalFileId ?? null"
+                :risks="review?.risks ?? []"
+                :focused-risk-id="focusedRiskId"
+                :hovered-risk-id="hoveredRiskId"
+                :highlighted-risk-ids="highlightedRiskIds"
+                @focus-risk="handleFocusRisk"
+                @hover-clause="setHoveredRisk"
+                @locate-result="handleLocateResult"
             />
             <div class="border-l flex flex-col min-h-0">
+                <AssistantContractReviewProgress
+                    :stages="stageStatus"
+                    :total-clauses="totalClauses"
+                    :analyzing-index="analyzingClauseIndex"
+                />
                 <div
                     v-if="showBusy"
                     class="flex items-center gap-2 p-3 border-b text-sm text-muted-foreground"
@@ -196,10 +246,16 @@ const showFloatingPanel = ref(true)
                     :summary="review?.summary ?? null"
                     :is-rebuilding="isRebuilding"
                     :has-unsaved-docx-changes="hasUnsavedDocxChanges"
+                    :focused-risk-id="focusedRiskId"
+                    :hovered-risk-id="hoveredRiskId"
+                    :pinned-risk-ids="pinnedRiskIds"
+                    :not-located-ids="notLocatedIds"
                     @download="onDownload"
                     @rebuild="onRebuildDocx"
                     @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
                     @export-pdf="(includeRisks: boolean) => onExportPdf(includeRisks)"
+                    @focus-risk="handleFocusRisk"
+                    @toggle-pin="togglePin"
                 />
             </div>
         </div>
@@ -209,6 +265,8 @@ const showFloatingPanel = ref(true)
             v-if="review && !showSourceInput"
             :risks="review?.risks ?? []"
             :visible="showFloatingPanel"
+            :active-risk-id="focusedRiskId ?? undefined"
+            @focus-risk="handleFocusRisk"
             @update:visible="(v: boolean) => (showFloatingPanel = v)"
         />
     </div>
