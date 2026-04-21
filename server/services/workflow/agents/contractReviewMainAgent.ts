@@ -9,18 +9,24 @@
  *
  * 参见 spec §6.2 / §6.6
  *
- * M6.1 事件顺序（与前端 useContractReview 状态机对齐）：
+ * M6.1 事件顺序（按代码触发时机）：
  *
- *   1. [middleware.beforeAgent] stage:detect,running
- *   2. [tool.parseAndAskStance 开头] stage:detect,done + partyA/B/contractType
- *   3. [tool.parseAndAskStance 开头] stage:stance,running
- *   4. [用户立场选择] interrupt 挂起
- *   5. [resume 后 tool 内部] stage:stance,done
- *   6. [tool 结尾] stage:analyze,running
- *   7. [runContractReviewChat 启动前] stage:segment,running
- *   8. [切分完成] stage:segment,done + totalClauses
- *   9. [agent.stream 执行完成] 由 middleware.afterAgent 发 stage:analyze,done
- *  10. [middleware.afterAgent] stage:summarize,done
+ *   Phase A（agent 启动前，runContractReviewChat 同步执行）：
+ *     1. stage:segment,running
+ *     2. stage:segment,done + totalClauses（失败时带 warnings: ['segment_failed']）
+ *
+ *   Phase B（agent.stream 运行期，事件顺序由 LangGraph 调度决定）：
+ *     3. [middleware.beforeAgent]        stage:detect,running
+ *     4. [tool.parseAndAskStance 开头]   stage:detect,done + partyA/B/contractType
+ *     5. [tool.parseAndAskStance 开头]   stage:stance,running
+ *     6. [用户立场选择 interrupt]        —— 挂起 ——
+ *     7. [resume 后 tool]                stage:stance,done
+ *     8. [tool 结尾]                     stage:analyze,running
+ *     9. [middleware.afterAgent]         stage:analyze,done
+ *    10. [middleware.afterAgent]         stage:summarize,done
+ *
+ * 前端 useContractReview 状态机按用户心智顺序呈现：识别→立场→切分→分析→汇总，
+ * 即使后端 Phase A 的 segment 事件实际先发，前端也等 detect/stance 完成后才显示。
  */
 
 import {
@@ -46,9 +52,7 @@ import {
 } from '../middleware'
 import { findContractReviewBySessionIdDAO } from '../../assistant/contract/contractReview.dao'
 import { buildRiskSchema } from '../../assistant/contract/riskSchema.builder'
-import { findOssFileByIdDao } from '../../files/ossFiles.dao'
-import { downloadFileService } from '../../storage/storage.service'
-import { parseContractDocx } from '../../assistant/contract/docx'
+import { loadContractFullText } from '../../assistant/contract/docx/loadContractFullText'
 import { segmentClauses } from '../../assistant/contract/docx/clauseSegmenter'
 import {
     emitContractReviewEvent,
@@ -218,25 +222,20 @@ export async function runContractReviewChat(
         await emitContractReviewEvent(emitterCtx, {
             type: 'stage', stage: 'segment', status: 'running',
         })
-        // 取原文：review 没有 originalText 字段，从 OSS 下载原始 .docx 解析段落拼接
-        // （实际字段名：review.originalFileId → 下载 → parseContractDocx → paragraphs）
-        const ossFile = await findOssFileByIdDao(review.originalFileId)
-        let totalClauses = 0
-        if (ossFile?.filePath) {
-            const docxBuffer = await downloadFileService(ossFile.filePath)
-            const { paragraphs } = await parseContractDocx(docxBuffer)
-            const fullText = paragraphs.join('\n')
-            const segments = await segmentClauses(fullText)
-            totalClauses = segments.length
-        }
+        // 合同原文加载复用 loadContractFullText（与 parseAndAskStance 共享，避免重复下载/解析）
+        const { fullText } = await loadContractFullText(review.originalFileId)
+        const segments = await segmentClauses(fullText)
         await emitContractReviewEvent(emitterCtx, {
-            type: 'stage', stage: 'segment', status: 'done', totalClauses,
+            type: 'stage', stage: 'segment', status: 'done',
+            totalClauses: segments.length,
         })
-        logger.info('合同切分完成', { reviewId: review.id, totalClauses })
+        logger.info('合同切分完成', { reviewId: review.id, totalClauses: segments.length })
     } catch (err) {
         logger.warn('合同切分失败，降级整篇分析', { reviewId: review.id, err })
         await emitContractReviewEvent(emitterCtx, {
-            type: 'stage', stage: 'segment', status: 'done', totalClauses: 0,
+            type: 'stage', stage: 'segment', status: 'done',
+            totalClauses: 0,
+            warnings: ['segment_failed'],
         })
     }
 

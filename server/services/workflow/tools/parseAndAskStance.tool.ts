@@ -19,12 +19,8 @@ import {
     getContractReviewDAO,
     updateContractReviewDAO,
 } from '~~/server/services/assistant/contract/contractReview.dao'
-import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
-import { downloadFileService } from '~~/server/services/storage/storage.service'
-import {
-    parseContractDocx,
-    detectParties,
-} from '~~/server/services/assistant/contract/docx'
+import { detectParties } from '~~/server/services/assistant/contract/docx'
+import { loadContractFullText } from '~~/server/services/assistant/contract/docx/loadContractFullText'
 
 const schema = z.object({})
 
@@ -65,12 +61,7 @@ export const createTool = (context: ToolContext) => tool(
         const review = await getContractReviewDAO(reviewId)
         if (!review) throw new Error(`parseAndAskStance: review ${reviewId} not found`)
 
-        const ossFile = await findOssFileByIdDao(review.originalFileId)
-        if (!ossFile) throw new Error(`OSS file ${review.originalFileId} not found`)
-        if (!ossFile.filePath) throw new Error(`OSS file ${review.originalFileId} filePath 缺失`)
-
-        const docxBuffer = await downloadFileService(ossFile.filePath)
-        const { paragraphs } = await parseContractDocx(docxBuffer)
+        const { paragraphs } = await loadContractFullText(review.originalFileId)
         const { partyA, partyB, contractType } = await detectParties(paragraphs)
 
         // M6.1：detect 完成，发送 detect done 并紧接 stance running
