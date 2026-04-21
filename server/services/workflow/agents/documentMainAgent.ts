@@ -18,6 +18,9 @@ import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import {
+    createAuditMiddleware,
+    createScopeGuardMiddleware,
+    createToolCallLimitMiddlewares,
     pointConsumptionMiddleware,
     safetyTrimMiddleware,
     draftResultPersistenceMiddleware,
@@ -26,6 +29,7 @@ import { findDraftBySessionIdDAO } from '../../assistant/document/documentDraft.
 import { getDocumentTemplateDAO } from '../../assistant/document/documentTemplate.dao'
 import { buildDraftSchema } from '../../assistant/document/draftSchema.builder'
 import type { Placeholder } from '#shared/types/document'
+import { resolveContextWindow } from '../context/messageCompressor'
 
 /** 文书主代理节点名称 */
 const DOCUMENT_MAIN_NODE_NAME = 'documentMain'
@@ -161,9 +165,7 @@ export async function runDocumentChat(
         toolsCount: tools.length,
     })
 
-    // 7. 计算 summarization 触发阈值
-    const contextWindow = nodeConfig.modelContextWindow || 128000
-    const triggerTokens = Math.max(Math.floor(contextWindow * 0.6), 30000)
+    const { triggerTokens, maxTokens } = resolveContextWindow(nodeConfig.modelContextWindow)
 
     // 8. 组装 Agent（中间件顺序：计费 → 摘要 → 安全裁剪 → 持久化）
     // draftResultPersistenceMiddleware 必须最后，确保拿到最终 structuredResponse
@@ -175,6 +177,8 @@ export async function runDocumentChat(
         tools,
         responseFormat,
         middleware: [
+            createScopeGuardMiddleware(),
+            ...createToolCallLimitMiddlewares(),
             pointConsumptionMiddleware(userId, 'document_draft_token', sessionId),
             summarizationMiddleware({
                 model,
@@ -182,9 +186,11 @@ export async function runDocumentChat(
             }),
             safetyTrimMiddleware({
                 model,
-                maxTokens: Math.floor(contextWindow * 0.8),
+                maxTokens,
+                systemPrompt,
             }),
             draftResultPersistenceMiddleware({ draftId: draft.id, sessionId }),
+            createAuditMiddleware(),
         ],
     })
 

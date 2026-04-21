@@ -89,6 +89,7 @@
     "heic2any": "^0.0.4",
     "html-docx-js-typescript": "^0.1.5",
     "ioredis": "^5.10.1",
+    "js-tiktoken": "^1.0.21",
     "json-editor-vue": "^0.18.1",
     "jszip": "^3.10.1",
     "katex": "^0.16.27",

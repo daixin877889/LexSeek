@@ -7,3 +7,7 @@ export * from './moduleContext.middleware'
 export * from './safetyTrim.middleware'
 export { draftResultPersistenceMiddleware } from './draftResultPersistence.middleware'
 export { reviewResultPersistenceMiddleware } from './reviewResultPersistence.middleware'
+// Agent 安全防护三大中间件（详见 docs/superpowers/specs/2026-04-21-agent-security-guardrails-design.md）
+export { createScopeGuardMiddleware } from './scopeGuard.middleware'
+export { createAuditMiddleware } from './audit.middleware'
+export { createToolCallLimitMiddlewares } from './toolCallLimit.middleware'
