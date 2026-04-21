@@ -255,7 +255,7 @@
                 <div class="space-y-2">
                     <Label>分类 <span class="text-destructive">*</span></Label>
                     <Select v-model="uploadForm.category">
-                        <SelectTrigger>
+                        <SelectTrigger class="w-full">
                             <SelectValue placeholder="请选择分类" />
                         </SelectTrigger>
                         <SelectContent>
@@ -299,7 +299,7 @@
                 <div class="space-y-2">
                     <Label>分类</Label>
                     <Select v-model="editForm.category">
-                        <SelectTrigger>
+                        <SelectTrigger class="w-full">
                             <SelectValue placeholder="请选择分类" />
                         </SelectTrigger>
                         <SelectContent>
@@ -319,7 +319,7 @@
                 <div class="space-y-2">
                     <Label>状态</Label>
                     <Select v-model="editForm.statusStr">
-                        <SelectTrigger>
+                        <SelectTrigger class="w-full">
                             <SelectValue placeholder="请选择状态" />
                         </SelectTrigger>
                         <SelectContent>

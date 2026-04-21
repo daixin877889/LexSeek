@@ -130,6 +130,8 @@ export interface DraftRow {
     templateId: number
     templateName: string | null
     caseId: number | null
+    /** 关联案件标题（后端 join cases.title 注入，列表展示用，无关联时为 null） */
+    caseTitle: string | null
     status: string
     updatedAt: string
 }

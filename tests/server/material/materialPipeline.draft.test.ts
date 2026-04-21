@@ -44,7 +44,7 @@ const mocksMaterialDao = vi.hoisted(() => ({
     findMaterialByIdDao: vi.fn(),
     createMaterialDao: vi.fn(),
     findMaterialsByCaseIdDao: vi.fn(),
-    findMaterialByDraftIdAndOssFileIdDao: vi.fn(),
+    findActiveMaterialByOssFileIdDao: vi.fn(),
 }))
 
 vi.mock('../../../server/services/material/material.dao', () => ({
@@ -52,7 +52,7 @@ vi.mock('../../../server/services/material/material.dao', () => ({
     findMaterialByIdDao: mocksMaterialDao.findMaterialByIdDao,
     createMaterialDao: mocksMaterialDao.createMaterialDao,
     findMaterialsByCaseIdDao: mocksMaterialDao.findMaterialsByCaseIdDao,
-    findMaterialByDraftIdAndOssFileIdDao: mocksMaterialDao.findMaterialByDraftIdAndOssFileIdDao,
+    findActiveMaterialByOssFileIdDao: mocksMaterialDao.findActiveMaterialByOssFileIdDao,
 }))
 
 vi.mock('~~/server/services/material/material.dao', () => ({
@@ -60,7 +60,7 @@ vi.mock('~~/server/services/material/material.dao', () => ({
     findMaterialByIdDao: mocksMaterialDao.findMaterialByIdDao,
     createMaterialDao: mocksMaterialDao.createMaterialDao,
     findMaterialsByCaseIdDao: mocksMaterialDao.findMaterialsByCaseIdDao,
-    findMaterialByDraftIdAndOssFileIdDao: mocksMaterialDao.findMaterialByDraftIdAndOssFileIdDao,
+    findActiveMaterialByOssFileIdDao: mocksMaterialDao.findActiveMaterialByOssFileIdDao,
 }))
 
 // ===========================================================
@@ -233,7 +233,7 @@ describe('ensureMaterialsReadyForDraftService', () => {
 
     it('已有 draftId + ossFileId 记录且已处理完成时直接返回', async () => {
         // 模拟精确查找已有记录（status=3 表示已完成）
-        mocksMaterialDao.findMaterialByDraftIdAndOssFileIdDao.mockResolvedValue(
+        mocksMaterialDao.findActiveMaterialByOssFileIdDao.mockResolvedValue(
             { id: 99, draftId, ossFileId, status: 3, name: '已有材料', type: 2, caseId: null, isEncrypted: false, createdAt: new Date(), updatedAt: new Date(), deletedAt: null, summary: null }
         )
 
@@ -247,7 +247,7 @@ describe('ensureMaterialsReadyForDraftService', () => {
 
     it('不存在记录时应创建新材料（caseId=null, draftId=X）', async () => {
         // 精确查找返回 null（无记录）
-        mocksMaterialDao.findMaterialByDraftIdAndOssFileIdDao.mockResolvedValue(null)
+        mocksMaterialDao.findActiveMaterialByOssFileIdDao.mockResolvedValue(null)
         // prisma.ossFiles.findFirst 返回 null（fallback 文件名）
         prismaMock.ossFiles.findFirst.mockResolvedValue(null)
         // 创建后返回新材料
@@ -269,7 +269,7 @@ describe('ensureMaterialsReadyForDraftService', () => {
     })
 
     it('材料处理失败时应抛出错误', async () => {
-        mocksMaterialDao.findMaterialByDraftIdAndOssFileIdDao.mockResolvedValue(null)
+        mocksMaterialDao.findActiveMaterialByOssFileIdDao.mockResolvedValue(null)
         prismaMock.ossFiles.findFirst.mockResolvedValue(null)
         const newMaterial = { id: 201, draftId, ossFileId, status: 1, name: `材料_${ossFileId}`, type: 2, caseId: null, isEncrypted: false, createdAt: new Date(), updatedAt: new Date(), deletedAt: null, summary: null }
         mocksMaterialDao.createMaterialDao.mockResolvedValue(newMaterial)
@@ -283,7 +283,7 @@ describe('ensureMaterialsReadyForDraftService', () => {
     })
 
     it('XOR 校验：创建的材料记录 caseId 必须为 null', async () => {
-        mocksMaterialDao.findMaterialByDraftIdAndOssFileIdDao.mockResolvedValue(null)
+        mocksMaterialDao.findActiveMaterialByOssFileIdDao.mockResolvedValue(null)
         prismaMock.ossFiles.findFirst.mockResolvedValue({ fileName: 'doc.pdf' })
         const newMaterial = { id: 203, draftId, ossFileId, status: 3, name: 'doc.pdf', type: 2, caseId: null, isEncrypted: false, createdAt: new Date(), updatedAt: new Date(), deletedAt: null, summary: null }
         mocksMaterialDao.createMaterialDao.mockResolvedValue(newMaterial)
@@ -300,7 +300,7 @@ describe('ensureMaterialsReadyForDraftService', () => {
 
     it('已有记录但处于 processing 状态时应轮询等待', async () => {
         // 精确查找已存在记录但未处理完（status=2）
-        mocksMaterialDao.findMaterialByDraftIdAndOssFileIdDao.mockResolvedValue(
+        mocksMaterialDao.findActiveMaterialByOssFileIdDao.mockResolvedValue(
             { id: 204, draftId, ossFileId, status: 2, name: '处理中材料', type: 2, caseId: null, isEncrypted: false, createdAt: new Date(), updatedAt: new Date(), deletedAt: null, summary: null }
         )
         // 不需要创建新材料，不需要触发 embed
@@ -318,7 +318,7 @@ describe('ensureMaterialsReadyForDraftService', () => {
     it('该 ossFile 已识别且已嵌入（跨 draft 复用）时短路，不再跑 processMaterialService', async () => {
         // 当前 draft 已存在 caseMaterial 但尚未置 COMPLETED（status=PENDING=1）
         const existing = { id: 205, draftId, ossFileId, status: 1, name: 'shared.pdf', type: 2, caseId: null, isEncrypted: false, createdAt: new Date(), updatedAt: new Date(), deletedAt: null, summary: null }
-        mocksMaterialDao.findMaterialByDraftIdAndOssFileIdDao.mockResolvedValue(existing)
+        mocksMaterialDao.findActiveMaterialByOssFileIdDao.mockResolvedValue(existing)
         // 详情查询返回同一条（给短路使用）
         mocksMaterialService.getMaterialByIdService.mockResolvedValue(existing)
         // 命中跨 draft 识别 + 嵌入

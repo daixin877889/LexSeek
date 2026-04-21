@@ -24,7 +24,7 @@ const menuItems: SidebarMenuItem[] = [
   { id: 'overview', label: '概览', icon: LayoutDashboardIcon },
   { id: 'materials', label: '案件材料', icon: FolderIcon },
   { id: 'analysis', label: '分析结果', icon: SparklesIcon },
-  { id: 'documents', label: '文书生成', icon: FileEditIcon },
+  { id: 'documents', label: '案件文书', icon: FileEditIcon },
   { id: 'contracts', label: '合同审查', icon: FileSearchIcon },
 ]
 

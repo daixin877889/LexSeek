@@ -11,6 +11,7 @@ import type { contractReviews, Prisma } from '~~/generated/prisma/client'
 import type {
     AdminReviewDetail,
     AdminReviewListItem,
+    ContractOverview,
     ReviewListItem,
     Risk,
 } from '#shared/types/contract'
@@ -130,6 +131,23 @@ const SUMMARY_TRUNCATE = 120
 const Q_FILE_MATCH_LIMIT = 1000
 
 /**
+ * 从 ContractOverview JSON 中提取摘要预览字符串。
+ *
+ * M6.1 Task 1.3 后 summary 字段存的是 { highlights, overall } JSON。
+ * 列表场景仍希望看到一段纯文字预览，这里取 overall 截断；兼容历史脏数据
+ * （若恰好是 string 形态则直接截断）。
+ */
+function extractSummaryPreview(raw: unknown, truncate: number): string | null {
+    if (raw == null) return null
+    if (typeof raw === 'string') return raw.slice(0, truncate)
+    if (typeof raw === 'object' && 'overall' in raw) {
+        const overall = (raw as { overall?: unknown }).overall
+        if (typeof overall === 'string') return overall.slice(0, truncate)
+    }
+    return null
+}
+
+/**
  * 查询当前用户的合同审查列表。
  *
  * - owner-only：where.userId = params.userId；deletedAt: null 过滤软删
@@ -218,7 +236,8 @@ export async function listUserReviewsDAO(
         partyB: r.partyB,
         stance: r.stance,
         status: r.status,
-        summary: r.summary ? r.summary.slice(0, SUMMARY_TRUNCATE) : null,
+        // M6.1 Task 1.3：summary 现为 ContractOverview JSON，列表项仍返回字符串预览，从 overall 字段截取
+summary: extractSummaryPreview(r.summary, SUMMARY_TRUNCATE),
         originalFileName: fileNameMap.get(r.originalFileId) ?? null,
         hasUnsavedDocxChanges: r.hasUnsavedDocxChanges,
         createdAt: r.createdAt,
@@ -325,7 +344,8 @@ export async function listAdminReviewsDAO(
         partyB: r.partyB,
         stance: r.stance,
         status: r.status,
-        summary: r.summary ? r.summary.slice(0, SUMMARY_TRUNCATE) : null,
+        // M6.1 Task 1.3：summary 现为 ContractOverview JSON，列表项仍返回字符串预览，从 overall 字段截取
+summary: extractSummaryPreview(r.summary, SUMMARY_TRUNCATE),
         originalFileName: fileNameMap.get(r.originalFileId) ?? null,
         hasUnsavedDocxChanges: r.hasUnsavedDocxChanges,
         createdAt: r.createdAt,
@@ -379,7 +399,8 @@ export async function getAdminReviewDAO(id: number): Promise<AdminReviewDetail |
         partyB: row.partyB,
         stance: row.stance,
         status: row.status,
-        summary: row.summary,
+        // M6.1 Task 1.3：DB 字段已是 Json，管理端详情返回结构化 ContractOverview
+        summary: row.summary as ContractOverview | null,
         risks: row.risks,
         hasUnsavedDocxChanges: row.hasUnsavedDocxChanges,
         createdAt: row.createdAt,

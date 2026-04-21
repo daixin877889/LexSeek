@@ -43,7 +43,7 @@
             <div>
               <label for="verificationCode" class="block text-sm font-medium mb-1"> <span
                   class="text-red-500 ml-0.5">*</span>验证码</label>
-              <Input id="verificationCode" v-model="formData.verificationCode" type="text" required
+              <Input id="verificationCode" v-model="formData.verificationCode" type="text" autocomplete="one-time-code" required
                 @input="verificationCodeMsg" class="h-10 w-full px-3 py-2 border rounded-md text-base"
                 placeholder="请输入短信验证码" />
               <span v-show="errMsg.verificationCode" class="text-red-500 ml-0.5 text-xs">{{ errMsg.verificationCode

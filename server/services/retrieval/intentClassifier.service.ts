@@ -13,6 +13,7 @@ import { getValidNodeConfig } from '../node/node.service'
 import { createChatModel } from '../node/chatModelFactory'
 import { normalizeQuery, tryExactRegex } from './queryNormalizer'
 import { getRedisClient } from '../../lib/redis'
+import { logContextOverflow } from '../workflow/context/contextErrorLogger'
 import type { IntentClassification } from './types'
 
 // ============================================================================
@@ -174,9 +175,22 @@ export async function classifyIntentService(
 
         // 调用模型获取结构化结果
         // tags: ['internal'] 用于 agentWorker 过滤，不将此消息发送到前端消息流
-        const result = await structuredModel.invoke(messages, {
-            tags: ['internal'],
-        }) as IntentClassification
+        let result: IntentClassification
+        try {
+            result = await structuredModel.invoke(messages, {
+                tags: ['internal'],
+            }) as IntentClassification
+        } catch (err) {
+            logContextOverflow(err, {
+                source: 'intentClassifier',
+                modelName: config.modelName,
+                sdkType: config.modelSdkType,
+                contextWindow: config.modelContextWindow,
+                systemPrompt: systemPromptContent + typeHint,
+                extra: { queryLength: query.length, type },
+            })
+            throw err
+        }
 
         // 校验 intent 合法性，无效时降级为 semantic
         if (!result?.intent || !['exact', 'hybrid', 'semantic'].includes(result.intent)) {

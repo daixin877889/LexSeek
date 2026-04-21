@@ -300,7 +300,8 @@ onMounted(() => {
             @generate-module="handleGenerateModule"
             @batch-generate="handleBatchGenerate"
             @go-to-interrupt="handleGoToInterrupt"
-            @create-document="handleCreateDocument" />
+            @create-document="handleCreateDocument"
+            @refresh-drafts="refreshDrafts" />
           <CaseDetailMaterials v-else-if="activeView === 'materials'" :key="'materials'" :materials="materials ?? []"
             :disabled-oss-file-ids="disabledOssFileIds"
             :is-adding="isAddingMaterials"
@@ -413,7 +414,8 @@ onMounted(() => {
   </ClientOnly>
 
   <!-- 案件文书：模板选择 Sheet（documents Tab + overview 板块共享） -->
-  <AssistantDocumentDocumentTemplatePickerSheet
+  <AssistantDocumentTemplatePickerSheet
+    v-if="documentSheetOpen"
     v-model:open="documentSheetOpen"
     @select="handleTemplateSelect"
   />

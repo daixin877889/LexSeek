@@ -145,6 +145,7 @@ export async function listDocumentDraftsDAO(
             take: filters.take,
             include: {
                 template: { select: { id: true, name: true } },
+                case: { select: { id: true, title: true } },
             },
         }),
         db.documentDrafts.count({ where }),

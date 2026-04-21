@@ -16,6 +16,9 @@ import { getToolInstancesService } from '../tools'
 import { createSubAgentTools } from './subAgentToolFactory'
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import {
+    createAuditMiddleware,
+    createScopeGuardMiddleware,
+    createToolCallLimitMiddlewares,
     pointConsumptionMiddleware,
     caseProcessMaterialMiddleware,
     moduleContextMiddleware,
@@ -26,6 +29,7 @@ import { createTool as createReadSkillFileTool } from '../tools/readSkillFile.to
 import { createTool as createWriteSkillFileTool } from '../tools/writeSkillFile.tool'
 import { createTool as createRunSkillScriptTool } from '../tools/runSkillScript.tool'
 import { createTool as createUploadWorkspaceFileTool } from '../tools/uploadWorkspaceFile.tool'
+import { resolveContextWindow } from '../context/messageCompressor'
 
 /** 主代理节点名称 */
 const CASE_MAIN_NODE_NAME = 'caseMain'
@@ -131,12 +135,7 @@ export async function runCaseChat(
     })
 
     // 8. 创建主代理
-    // 根据模型上下文窗口动态计算 summarization 触发阈值：
-    // - 取窗口的 60% 作为触发点，为工具输出与最终响应留出冗余
-    // - 下限 30k 防止窗口过小时摘要过于频繁
-    // - 未配置 modelContextWindow 时回退到 128k（主流模型保守默认）
-    const contextWindow = mainConfig.modelContextWindow || 128000
-    const triggerTokens = Math.max(Math.floor(contextWindow * 0.6), 30000)
+    const { triggerTokens, maxTokens } = resolveContextWindow(mainConfig.modelContextWindow)
 
     const agent: ReactAgent = createAgent({
         model,
@@ -145,6 +144,8 @@ export async function runCaseChat(
         store,
         tools: allTools,
         middleware: [
+            createScopeGuardMiddleware(),
+            ...createToolCallLimitMiddlewares(),
             pointConsumptionMiddleware(userId, 'case_analysis_token', sessionId),
             caseProcessMaterialMiddleware(userId, caseId),
             moduleContextMiddleware(caseId),
@@ -154,9 +155,11 @@ export async function runCaseChat(
             }),
             safetyTrimMiddleware({
                 model,
-                maxTokens: Math.floor(contextWindow * 0.8),
+                maxTokens,
+                systemPrompt,
             }),
             skillsMiddleware,
+            createAuditMiddleware(),
         ],
     })
 

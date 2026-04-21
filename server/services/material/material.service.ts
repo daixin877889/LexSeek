@@ -11,6 +11,7 @@ import {
     findMaterialByIdDao,
     findManyMaterialsDao,
     findMaterialsByCaseIdDao,
+    findMaterialsByCaseOrDraftIdDao,
     findMaterialsByDraftIdDao,
     findMaterialsByIdsDao,
     updateMaterialDao,
@@ -174,17 +175,14 @@ export interface MaterialWithRealStatus extends MaterialWithFile {
 }
 
 /**
- * 获取案件的所有材料（带真实状态）
- * 状态通过关联的识别表判断，不依赖 case_materials.status
+ * 根据识别表判断材料的真实状态，并附加到材料项上（不依赖 case_materials.status）
+ *
+ * 抽公共函数供 caseId / caseId|draftId 两个入口复用。
  */
-export const getMaterialsByCaseIdWithStatusService = async (
-    caseId: number
-): Promise<MaterialWithRealStatus[]> => {
-    const materials = await getMaterialsByCaseIdService(caseId)
-
-    if (materials.length === 0) {
-        return []
-    }
+async function computeRealStatusForMaterials(
+    materials: MaterialWithFile[],
+): Promise<MaterialWithRealStatus[]> {
+    if (materials.length === 0) return []
 
     // 收集需要查询的 ossFileId 和 materialId
     const ossFileIds = materials
@@ -196,12 +194,15 @@ export const getMaterialsByCaseIdWithStatusService = async (
         .map(m => m.id)
 
     // 并行查询各识别表
-    const { docRecords, imageRecords, asrRecords, textRecords } = await findRecognitionRecordsByOssFileIdsDao(ossFileIds, materialIds)
+    const { docRecords, imageRecords, asrRecords, textRecords } =
+        await findRecognitionRecordsByOssFileIdsDao(ossFileIds, materialIds)
 
     const docMap = new Map(docRecords.map(r => [r.ossFileId, r.status]))
     const imageMap = new Map(imageRecords.map(r => [r.ossFileId, r.status]))
     const asrMap = new Map(asrRecords.map(r => [r.ossFileId, r.status]))
-    const textMap = new Map(textRecords.filter(r => r.materialId !== null).map(r => [r.materialId as number, !!r.content]))
+    const textMap = new Map(
+        textRecords.filter(r => r.materialId !== null).map(r => [r.materialId as number, !!r.content]),
+    )
 
     // 根据识别表判断真实状态
     function getRealStatus(material: MaterialWithFile): number {
@@ -242,10 +243,42 @@ export const getMaterialsByCaseIdWithStatusService = async (
         }
     }
 
-    return materials.map(material => ({
-        ...material,
-        realStatus: getRealStatus(material),
-    }))
+    return materials.map(material => ({ ...material, realStatus: getRealStatus(material) }))
+}
+
+/**
+ * 获取案件的所有材料（带真实状态）
+ * 状态通过关联的识别表判断，不依赖 case_materials.status
+ */
+export const getMaterialsByCaseIdWithStatusService = async (
+    caseId: number,
+): Promise<MaterialWithRealStatus[]> => {
+    const materials = await getMaterialsByCaseIdService(caseId)
+    return computeRealStatusForMaterials(materials)
+}
+
+/**
+ * 按 caseId 或 draftId 合并获取材料（无 realStatus，供检索/工具用）
+ *
+ * OR 合并：caseId 命中 ∪ draftId 命中，DAO 层走 Prisma OR 天然去重。
+ */
+export const getMaterialsByCaseOrDraftIdService = async (
+    caseId: number | null,
+    draftId: number | null,
+): Promise<MaterialWithFile[]> => {
+    const materials = await findMaterialsByCaseOrDraftIdDao(caseId, draftId)
+    return attachOssFileInfo(materials)
+}
+
+/**
+ * 按 caseId 或 draftId 合并获取材料（带真实状态，供 related-materials API 用）
+ */
+export const getMaterialsByCaseOrDraftIdWithStatusService = async (
+    caseId: number | null,
+    draftId: number | null,
+): Promise<MaterialWithRealStatus[]> => {
+    const materials = await getMaterialsByCaseOrDraftIdService(caseId, draftId)
+    return computeRealStatusForMaterials(materials)
 }
 
 /**

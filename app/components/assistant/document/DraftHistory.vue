@@ -96,7 +96,7 @@ async function handleDelete(row: DraftRow) {
 }
 
 function openDraft(row: DraftRow) {
-    navigateTo(`/dashboard/document/drafts/${row.id}`)
+    navigateTo(`/dashboard/document/drafts/${row.id}?from=document-history`)
 }
 
 function changePage(page: number) {
@@ -144,32 +144,45 @@ const statusStyle = (s: string) =>
 
         <!-- 桌面：表格 -->
         <div v-else-if="isDesktop" class="rounded-md border">
-            <Table>
+            <Table class="table-fixed">
                 <TableHeader>
                     <TableRow>
+                        <!-- 文书名称：未声明宽度，占剩余空间，优先级最高 -->
                         <TableHead>文书名称</TableHead>
-                        <TableHead>模板</TableHead>
-                        <TableHead v-if="!hideCaseColumn" class="w-[120px]">关联案件</TableHead>
-                        <TableHead class="w-[160px]">更新时间</TableHead>
-                        <TableHead class="w-[120px] text-center">操作</TableHead>
+                        <TableHead class="w-[200px]">模板</TableHead>
+                        <TableHead v-if="!hideCaseColumn" class="w-[180px]">关联案件</TableHead>
+                        <TableHead class="w-[140px]">更新时间</TableHead>
+                        <TableHead class="w-[84px] text-center">操作</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     <TableRow v-for="row in drafts" :key="row.id">
                         <TableCell class="font-medium">
                             <NuxtLink
-                                :to="`/dashboard/document/drafts/${row.id}`"
-                                class="text-foreground hover:text-primary transition-colors truncate inline-block max-w-[360px] align-middle"
+                                :to="`/dashboard/document/drafts/${row.id}?from=document-history`"
+                                class="text-foreground hover:text-primary transition-colors truncate block max-w-full align-middle"
                                 :title="titleLabel(row)"
                             >
                                 {{ titleLabel(row) }}
                             </NuxtLink>
                         </TableCell>
-                        <TableCell class="text-sm text-muted-foreground truncate max-w-[240px]" :title="templateLabel(row)">
-                            {{ templateLabel(row) }}
-                        </TableCell>
-                        <TableCell v-if="!hideCaseColumn">{{ row.caseId ? `#${row.caseId}` : '—' }}</TableCell>
                         <TableCell class="text-sm text-muted-foreground">
+                            <span class="truncate block max-w-full" :title="templateLabel(row)">
+                                {{ templateLabel(row) }}
+                            </span>
+                        </TableCell>
+                        <TableCell v-if="!hideCaseColumn">
+                            <NuxtLink
+                                v-if="row.caseId"
+                                :to="`/dashboard/cases/${row.caseId}?tab=documents`"
+                                class="text-foreground hover:text-primary transition-colors truncate block max-w-full align-middle"
+                                :title="row.caseTitle ?? `案件 #${row.caseId}`"
+                            >
+                                {{ row.caseTitle ?? `案件 #${row.caseId}` }}
+                            </NuxtLink>
+                            <span v-else class="text-muted-foreground">—</span>
+                        </TableCell>
+                        <TableCell class="text-sm text-muted-foreground whitespace-nowrap">
                             {{ formatDate(row.updatedAt) }}
                         </TableCell>
                         <TableCell>
@@ -184,7 +197,7 @@ const statusStyle = (s: string) =>
                                 >
                                     <Trash2Icon class="size-4" />
                                 </Button>
-                                <NuxtLink :to="`/dashboard/document/drafts/${row.id}`">
+                                <NuxtLink :to="`/dashboard/document/drafts/${row.id}?from=document-history`">
                                     <Button
                                         variant="ghost"
                                         size="icon"
@@ -230,7 +243,13 @@ const statusStyle = (s: string) =>
                         <span>{{ formatDate(row.updatedAt) }}</span>
                         <template v-if="row.caseId">
                             <span class="text-muted-foreground/60 mx-1">·</span>
-                            <span>案件 #{{ row.caseId }}</span>
+                            <NuxtLink
+                                :to="`/dashboard/cases/${row.caseId}?tab=documents`"
+                                class="hover:text-primary transition-colors"
+                                @click.stop
+                            >
+                                {{ row.caseTitle ?? `案件 #${row.caseId}` }}
+                            </NuxtLink>
                         </template>
                     </div>
                 </div>

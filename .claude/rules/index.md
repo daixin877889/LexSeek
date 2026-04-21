@@ -9,6 +9,7 @@
 - **main.md** - 语言要求、TDD 模式、框架约定、自动导入
 - **git.md** - Git 提交规范
 - **types.md** - shared/types 组织、导入规范
+- **database.md** - 数据库迁移强制规则（schema + migrate dev + 禁止手工改 migrations）
 
 ## 范围限定规范
 

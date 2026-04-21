@@ -23,6 +23,7 @@ import type {
 import { getValidNodeConfig } from '../node/node.service'
 import { createChatModel } from '../node/chatModelFactory'
 import { renderContent } from '../node/prompt.service'
+import { logContextOverflow } from '../workflow/context/contextErrorLogger'
 
 /**
  * 标题生成节点名称。
@@ -191,7 +192,23 @@ export async function generateSessionTitleAsync(
             firstAssistantReply,
         })
 
-        const response = await model.invoke(prompt)
+        let response
+        try {
+            response = await model.invoke(prompt)
+        } catch (err) {
+            logContextOverflow(err, {
+                source: 'assistantSession.generateTitle',
+                modelName: nodeConfig.modelName,
+                sdkType: nodeConfig.modelSdkType,
+                contextWindow: nodeConfig.modelContextWindow,
+                extra: {
+                    sessionId,
+                    userId,
+                    promptLength: prompt.length,
+                },
+            })
+            throw err
+        }
         const rawText = typeof response?.content === 'string'
             ? response.content
             : Array.isArray(response?.content)

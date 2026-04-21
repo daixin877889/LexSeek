@@ -15,7 +15,7 @@ import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { prisma } from '~~/server/utils/db'
 import { ensureTestUser, cleanupTestData } from '../test-db-helper'
 import { exportReviewPdfService } from '~~/server/services/assistant/contract/contractReviewPdf.service'
-import type { Risk } from '#shared/types/contract'
+import type { Risk, ContractOverview } from '#shared/types/contract'
 
 describe('exportReviewPdfService', () => {
     let ownerUserId: number
@@ -103,9 +103,10 @@ describe('exportReviewPdfService', () => {
 
     async function createReview(opts: {
         userId: number
-        summary?: string | null
+        summary?: string | ContractOverview | null
         risks?: Risk[] | null
     }) {
+        const defaultSummary = '# 摘要\n本合同存在**付款**和 **违约金** 两项主要风险。'
         const row = await prisma.contractReviews.create({
             data: {
                 userId: opts.userId,
@@ -116,7 +117,7 @@ describe('exportReviewPdfService', () => {
                 partyA: '甲方公司',
                 partyB: '乙方个人',
                 stance: 'partyB',
-                summary: opts.summary === undefined ? '# 摘要\n本合同存在**付款**和 **违约金** 两项主要风险。' : opts.summary,
+                summary: opts.summary === undefined ? defaultSummary : (opts.summary as any),
                 risks: (opts.risks === undefined ? [] : opts.risks) as any,
             },
         })
@@ -172,5 +173,33 @@ describe('exportReviewPdfService', () => {
         await expect(
             exportReviewPdfService(review.id, otherUserId, { includeRisks: false }),
         ).rejects.toThrow('review not found')
+    })
+
+    it('新结构 summary（有 highlights）正常渲染，PDF 为合法文件', async () => {
+        const newSummary: ContractOverview = {
+            highlights: {
+                high: [{ text: '付款期限过短，资金风险高', riskId: '11111111-1111-1111-1111-111111111111' }],
+                medium: [{ text: '违约金比例偏高，执行有争议', riskId: '22222222-2222-2222-2222-222222222222' }],
+                low: [{ text: '管辖条款对乙方略不利', riskId: '33333333-3333-3333-3333-333333333333' }],
+            },
+            overall: '本合同整体风险偏高，付款条款和违约金条款需重点关注，建议在谈判阶段优先修订。',
+        }
+        const review = await createReview({ userId: ownerUserId, summary: newSummary, risks: makeRisks() })
+        const buf = await exportReviewPdfService(review.id, ownerUserId, { includeRisks: false })
+        expect(buf).toBeInstanceOf(Buffer)
+        expect(buf.subarray(0, 4).toString()).toBe('%PDF')
+        expect(buf.length).toBeGreaterThan(1000)
+    })
+
+    it('历史 summary（只有 overall，无 highlights）降级渲染，PDF 为合法文件', async () => {
+        const legacySummary: ContractOverview = {
+            highlights: null,
+            overall: '历史审查记录：本合同存在付款风险，建议补充违约条款。',
+        }
+        const review = await createReview({ userId: ownerUserId, summary: legacySummary })
+        const buf = await exportReviewPdfService(review.id, ownerUserId, { includeRisks: false })
+        expect(buf).toBeInstanceOf(Buffer)
+        expect(buf.subarray(0, 4).toString()).toBe('%PDF')
+        expect(buf.length).toBeGreaterThan(1000)
     })
 })

@@ -13,6 +13,7 @@ const PUBLIC_ROUTES = [
     '/',
     '/login',
     '/register',
+    '/reset-password',
     '/403',
     '/404',
 ]

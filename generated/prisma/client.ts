@@ -67,6 +67,11 @@ export type roleApiPermissions = Prisma.roleApiPermissionsModel
  */
 export type permissionAuditLogs = Prisma.permissionAuditLogsModel
 /**
+ * Model agentToolAuditLogs
+ * 
+ */
+export type agentToolAuditLogs = Prisma.agentToolAuditLogsModel
+/**
  * Model campaigns
  * 营销活动表
  */

@@ -21,6 +21,8 @@ import {
 import { repairOrphanToolUseCheckpoint } from '../workflow/repairOrphanToolUse'
 import { generateSessionTitleAsync } from '../assistant/assistantSession.service'
 import { getRedisSubscriber } from '~~/server/lib/redis'
+import { isContextOverflowError, logContextOverflow } from '../workflow/context/contextErrorLogger'
+import { getCheckpointer } from '../workflow/checkpointer'
 
 export interface AgentWorkerConfig {
   maxConcurrent: number
@@ -198,6 +200,7 @@ export class AgentWorker {
         const { runContractReviewChat } = await import('../workflow/agents/contractReviewMainAgent')
         stream = await runContractReviewChat(run.sessionId, {
           userId: session.userId,
+          runId: run.id,
           command: input.command,
           signal: abortController.signal,
         })
@@ -410,6 +413,13 @@ export class AgentWorker {
       const errorMessage = err?.message ?? '未知错误'
       const isCancelled = errorMessage.includes('cancelled') || errorMessage.includes('aborted')
       const status = isCancelled ? AGENT_RUN_STATUS.CANCELLED : AGENT_RUN_STATUS.FAILED
+
+      // 识别上下文超限错误并打印结构化日志（含当前 checkpoint 消息分布）
+      if (!isCancelled && isContextOverflowError(err)) {
+        await logContextOverflowFromCheckpoint(run, err).catch((logErr) => {
+          logger.warn(`[ContextOverflow] 读取 checkpoint 失败 (run=${run.id}):`, logErr)
+        })
+      }
 
       // 只在非取消情况下更新为 failed（取消由 cancelRunService 处理）
       if (!isCancelled) {
@@ -706,4 +716,27 @@ function stripSystemMessages(event: string, data: unknown): unknown | null {
   }
 
   return data
+}
+
+/**
+ * 从 checkpointer 取最新 messages，结合错误信息打印结构化日志。
+ * run 对象没有 scope/modelContextWindow 字段，打印出 sessionId/userId/caseId 供定位。
+ */
+async function logContextOverflowFromCheckpoint(run: agentRuns, err: unknown): Promise<void> {
+  const checkpointer = await getCheckpointer()
+  const tuple = await checkpointer.getTuple({
+    configurable: { thread_id: run.sessionId },
+  })
+  const messages = (tuple?.checkpoint?.channel_values as any)?.messages
+  logContextOverflow(err, {
+    source: 'agentWorker.executeRun',
+    messages: Array.isArray(messages) ? messages : undefined,
+    extra: {
+      runId: run.id,
+      sessionId: run.sessionId,
+      threadId: run.threadId,
+      userId: run.userId,
+      caseId: run.caseId,
+    },
+  })
 }

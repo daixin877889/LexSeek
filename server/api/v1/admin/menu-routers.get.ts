@@ -28,8 +28,15 @@ interface AdminRouterItem {
 /**
  * 递归扫描 `app/pages/admin` 下的 `*\/index.vue` 页面，把静态目录作为菜单项吐出。
  * 动态段（`[id]`）与以 `_` 开头的目录会被跳过。
+ *
+ * 生产构建后源码目录通常不存在，整体扫描会静默返回空。
+ * 进程内永久缓存：开发热更新时菜单变化只需重启 dev server，避免每次请求都跑一遍 fs.readdir。
  */
+let pagesCache: Array<{ path: string; name: string }> | null = null
+
 async function discoverAdminMenuPages(): Promise<Array<{ path: string; name: string }>> {
+    if (pagesCache) return pagesCache
+
     const pagesRoot = resolve(process.cwd(), 'app/pages/admin')
     const results: Array<{ path: string; name: string }> = []
 
@@ -37,15 +44,18 @@ async function discoverAdminMenuPages(): Promise<Array<{ path: string; name: str
         let entries
         try {
             entries = await fs.readdir(dir, { withFileTypes: true })
-        } catch {
+        } catch (err) {
+            const code = (err as NodeJS.ErrnoException)?.code
+            // ENOENT 在生产构建后是预期情况，不刷日志
+            if (code !== 'ENOENT') {
+                logger.warn('扫描 admin 菜单页面失败', { dir, code, message: (err as Error)?.message })
+            }
             return
         }
-        // 当前目录下有 index.vue → 目录本身就是一个菜单项
         const hasIndex = entries.some(e => e.isFile() && e.name === 'index.vue')
         if (hasIndex && urlPrefix !== '') {
             results.push({
                 path: `/admin${urlPrefix}`,
-                // 用 `admin-xxx-yyy` 的命名风格，和 seedData.sql 保持一致
                 name: `admin${urlPrefix.replace(/\//g, '-')}`,
             })
         }
@@ -58,6 +68,7 @@ async function discoverAdminMenuPages(): Promise<Array<{ path: string; name: str
     }
 
     await walk(pagesRoot, '')
+    pagesCache = results
     return results
 }
 

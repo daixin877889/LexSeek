@@ -19,6 +19,10 @@ interface Props {
 
 const props = defineProps<Props>()
 
+// 拦截 mermaid 下拉里 PNG 那一项，改走高清导出（带 viewBox → 像素 + DPR × scale 的修复）
+// SVG / MMD 继续走 vue-stream-markdown 原生逻辑
+const { markdownControls } = useMermaidHdPng()
+
 const slots = useSlots()
 const slotContent = computed<string | undefined>(() => {
   const nodes = slots.default?.()
@@ -57,6 +61,7 @@ const cleanedContent = computed(() =>
     <Markdown
       :content="cleanedContent"
       :mode="props.mode === 'streaming' ? 'streaming' : 'static'"
+      :controls="markdownControls"
       class="size-full [&>*:first-child]:mt-0! [&>*:last-child]:mb-0!"
     />
   </div>

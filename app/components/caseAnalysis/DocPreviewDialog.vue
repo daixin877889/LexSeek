@@ -1,6 +1,6 @@
 <template>
     <Dialog v-model:open="open">
-        <DialogContent class="w-full max-h-[80vh] md:min-w-[70vw] flex flex-col"
+        <DialogContent class="w-full max-h-[80vh] md:min-w-[70vw] flex flex-col z-[80]" overlay-class="z-[75]"
             @interactOutside="(e) => e.preventDefault()">
             <DialogHeader>
                 <DialogTitle class="flex items-center gap-2">

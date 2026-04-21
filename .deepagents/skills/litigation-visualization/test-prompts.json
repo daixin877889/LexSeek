@@ -1,0 +1,109 @@
+{
+  "test_prompts": [
+    {
+      "prompt": "帮我画一个建设工程合同纠纷的案件事实图，涉及多方主体和复杂的时间关系。",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "明确可视化目标、选择合适图表类型"
+    },
+    {
+      "prompt": "画一个股权转让纠纷的法律关系图，主体很多，关系复杂，帮助客户理解。",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "关系图设计、多主体梳理"
+    },
+    {
+      "prompt": "帮我制作一张案件事实图，展示双方在合同履行过程中的行为对比。",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "案件事实图、时间图、行为对比"
+    },
+    {
+      "prompt": "用图表向法官展示这个融资性贸易案件的真实交易结构和资金流向。",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "关系图、交易结构展示、图表说话"
+    },
+    {
+      "prompt": "帮我分析这个案件应该画什么类型的图表，时间图还是关系图？",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "图表类型选择、案件分析"
+    },
+    {
+      "prompt": "用可视化方式向当事人解释再审流程。",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "明确对象、流程图设计"
+    },
+    {
+      "prompt": "这个案件的保证期间很复杂，涉及多个司法解释，帮我用图表表达。",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "时间图、时间区间表达、横向划分"
+    },
+    {
+      "prompt": "我画了一张时间图，但感觉信息太多太乱了，帮我优化。",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "内容确定、精简内容、图表优化"
+    },
+    {
+      "prompt": "需要在庭审中提交给法官的图表，应该注意什么？",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "明确对象、图表内容侧重、客观性"
+    },
+    {
+      "prompt": "帮我设计这个让与担保案件的法律关系图，突出真实意思表示。",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "关系图设计、突出观点、事实支撑"
+    },
+    {
+      "prompt": "这个案件有很多程序性事实，帮我用图表清晰展示。",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "流程图设计、行为分层、程序梳理"
+    },
+    {
+      "prompt": "帮我通过图表的设计来突出我方在案件中的有利事实。",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "图表说话、突出观点、颜色和构图"
+    },
+    {
+      "prompt": "合同审查中发现可能存在诉讼风险，帮我用可视化方式帮助客户理解。",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "可视化在合同工作中的应用、客户沟通"
+    },
+    {
+      "prompt": "准备庭审时，应该准备哪几张图表？每张图表的重点是什么？",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "庭审准备、两张图工作法、不同图表的配合"
+    },
+    {
+      "prompt": "画一个涉及多方公司的股权纠纷关系图，关系复杂，需要可视化分析。",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "关系图设计、股权架构展示、多主体梳理"
+    },
+    {
+      "prompt": "帮我梳理一下这个案件的关系，主体太多，看不清楚。",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "智能分析、未指定图表类型时的场景"
+    },
+    {
+      "prompt": "用可视化的方式帮我梳理一下这个借款担保案件的关系。",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "智能分析、动词触发、关系梳理"
+    },
+    {
+      "prompt": "这个案件时间线很乱，帮我可视化一下。",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "智能分析、时间要素为主的场景"
+    },
+    {
+      "prompt": "帮我画一个买卖合同纠纷的时间图。",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "用户指定图表类型、仅制作指定图表"
+    },
+    {
+      "prompt": "需要准备庭审图表，帮我分析应该做哪些类型的图表。",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "智能分析、庭审准备场景"
+    },
+    {
+      "prompt": "制作一个建设工程纠纷的关系图。",
+      "expected_skill": "litigation-visualization",
+      "test_focus": "动词触发、用户指定关系图"
+    }
+  ]
+}

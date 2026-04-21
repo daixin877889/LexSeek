@@ -22,7 +22,7 @@ import {
 } from '../../material/materialPipeline.service'
 
 const schema = z.object({
-    fileIds: z.array(z.number().int().positive()).optional().describe('文书生成场景可选：仅处理这些 OSS 文件 ID。案件分析场景忽略此参数。'),
+    fileIds: z.array(z.number().int().positive()).optional().describe('可选：仅处理这些 OSS 文件 ID（不传则处理当前上下文下的全部材料）'),
 })
 
 export const toolDefinition: ToolDefinition<typeof schema> = {
@@ -46,7 +46,7 @@ export function createTool(context: ToolContext) {
 
                 // 1. 按优先级选择批处理入口（draftId 优先，保持小索/案件路径原样）
                 const ready = draftId != null
-                    ? await ensureMaterialsReadyByDraftService(draftId, userId, { fileIds })
+                    ? await ensureMaterialsReadyByDraftService(draftId, userId, { fileIds, caseId: caseId ?? null })
                     : await ensureMaterialsReadyService(caseId!, userId)
                 const { materials, embeddedMap } = ready
 

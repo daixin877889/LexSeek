@@ -19,7 +19,12 @@ import { getCheckpointer, getStore } from '../checkpointer'
 import { getValidNodeConfig } from '../../node/node.service'
 import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
-import { pointConsumptionMiddleware } from '../middleware'
+import {
+    createAuditMiddleware,
+    createScopeGuardMiddleware,
+    createToolCallLimitMiddlewares,
+    pointConsumptionMiddleware,
+} from '../middleware'
 import { moduleContextMiddleware } from '../middleware/moduleContext.middleware'
 import { safetyTrimMiddleware } from '../middleware/safetyTrim.middleware'
 import { createTool as createSaveAnalysisResultTool } from '../tools/saveAnalysisResult.tool'
@@ -31,6 +36,7 @@ import { createTool as createRunSkillScriptTool } from '../tools/runSkillScript.
 import { createTool as createUploadWorkspaceFileTool } from '../tools/uploadWorkspaceFile.tool'
 import type { ToolContext } from '../tools/types'
 import { getSessionState } from '../state/storage'
+import { resolveContextWindow } from '../context/messageCompressor'
 
 /** Skills 中间件（模块级单例） */
 const skillsMiddleware = createSkillsMiddleware({
@@ -125,10 +131,7 @@ export async function runModuleChat(
     ].filter(Boolean)
     const systemPrompt = systemPromptParts.join('\n\n')
 
-    // 创建 Agent
-    // 根据模型上下文窗口动态计算 summarization 触发阈值（窗口 * 60%，下限 30k）
-    const contextWindow = nodeConfig.modelContextWindow || 128000
-    const triggerTokens = Math.max(Math.floor(contextWindow * 0.6), 30000)
+    const { triggerTokens, maxTokens } = resolveContextWindow(nodeConfig.modelContextWindow)
 
     const agent: ReactAgent = createAgent({
         model,
@@ -137,6 +140,8 @@ export async function runModuleChat(
         store,
         tools: allTools,
         middleware: [
+            createScopeGuardMiddleware(),
+            ...createToolCallLimitMiddlewares(),
             pointConsumptionMiddleware(userId, 'case_analysis_token', sessionId),
             moduleContextMiddleware(caseId, moduleName),
             summarizationMiddleware({
@@ -145,9 +150,11 @@ export async function runModuleChat(
             }),
             safetyTrimMiddleware({
                 model,
-                maxTokens: Math.floor(contextWindow * 0.8),
+                maxTokens,
+                systemPrompt,
             }),
             skillsMiddleware,
+            createAuditMiddleware(),
         ],
     })
 

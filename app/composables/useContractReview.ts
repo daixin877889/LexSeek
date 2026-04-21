@@ -20,9 +20,11 @@ import type {
     DownloadResponse,
     Risk,
     ReviewWithParsedRisks,
+    ContractReviewEvent,
 } from '#shared/types/contract'
 
 type ContractRunStatus = 'idle' | 'reviewing' | 'awaiting_stance' | 'completed' | 'failed'
+type StageStepStatus = 'wait' | 'running' | 'done'
 
 interface AwaitingStancePayload {
     partyA?: string
@@ -40,8 +42,69 @@ export function useContractReview() {
      */
     const hasUnsavedDocxChanges = ref(false)
 
+    // M6.1：阶段进度状态
+    const stageStatus = ref<{
+        detect: StageStepStatus
+        stance: StageStepStatus
+        segment: StageStepStatus
+        analyze: StageStepStatus
+        summarize: StageStepStatus
+    }>({
+        detect: 'wait', stance: 'wait', segment: 'wait', analyze: 'wait', summarize: 'wait',
+    })
+    const totalClauses = ref<number | null>(null)
+    const analyzingClauseIndex = ref<number | null>(null)
+    const analyzeWarnings = ref<string[]>([])
+
     /** review.status === 'rebuilding' 时 UI 禁用编辑 + 显示进度 */
     const isRebuilding = computed(() => review.value?.status === 'rebuilding')
+
+    // M6.1 Task 4.2：聚焦/悬停/钉多条状态
+    const focusedRiskId = ref<string | null>(null)
+    /**
+     * 悬停态（临时）：spec §6.2 明确"悬停不入 focused 态，仅让对应卡片短暂高亮"。
+     * 3 秒后自动清零；鼠标移开也清零。与 focusedRiskId 独立。
+     */
+    const hoveredRiskId = ref<string | null>(null)
+    let hoverTimer: ReturnType<typeof setTimeout> | null = null
+
+    const pinnedRiskIds = ref<Set<string>>(new Set())
+
+    /** 文档/卡片需要持续高亮的 riskId 集合 = focused + pinned（hover 不进来，视觉另一档） */
+    const highlightedRiskIds = computed(() => {
+        const s = new Set(pinnedRiskIds.value)
+        if (focusedRiskId.value) s.add(focusedRiskId.value)
+        return s
+    })
+
+    function focusRisk(riskId: string | null) {
+        focusedRiskId.value = riskId
+    }
+
+    function setHoveredRisk(riskId: string | null) {
+        if (hoverTimer) {
+            clearTimeout(hoverTimer)
+            hoverTimer = null
+        }
+        hoveredRiskId.value = riskId
+        if (riskId) {
+            // 3 秒后自动清零；鼠标再次离开也会传 null 立即清零
+            hoverTimer = setTimeout(() => {
+                hoveredRiskId.value = null
+                hoverTimer = null
+            }, 3000)
+        }
+    }
+
+    function togglePin(riskId: string) {
+        const s = new Set(pinnedRiskIds.value)
+        if (s.has(riskId)) s.delete(riskId); else s.add(riskId)
+        pinnedRiskIds.value = s
+    }
+
+    function clearAllPins() {
+        pinnedRiskIds.value = new Set()
+    }
 
     // 延迟创建，在 onStart / mountReview 获取 sessionId 后初始化
     const stream = shallowRef<ReturnType<typeof useStreamChat> | null>(null)
@@ -115,6 +178,51 @@ export function useContractReview() {
         }
     }
 
+    /**
+     * M6.1：合同审查 SSE 自定义事件分发器
+     * 由 mountStream 里的 onCustomEvent 调用。事件类型仅 4 种。
+     */
+    function handleContractEvent(event: ContractReviewEvent) {
+        switch (event.type) {
+            case 'stage': {
+                stageStatus.value = {
+                    ...stageStatus.value,
+                    [event.stage]: event.status,
+                }
+                if (event.stage === 'segment' && event.status === 'done') {
+                    totalClauses.value = event.totalClauses ?? null
+                }
+                if (event.stage === 'analyze' && event.status === 'done' && event.warnings?.length) {
+                    analyzeWarnings.value = event.warnings
+                    toast.warning(`${event.warnings.length} 条条款分析失败，已跳过`)
+                }
+                break
+            }
+            case 'progress': {
+                analyzingClauseIndex.value = event.current
+                if (event.error) {
+                    toast.warning(`第 ${event.current} 条分析失败，已跳过：${event.error}`)
+                }
+                break
+            }
+            case 'risk': {
+                // 子期 2 实现：把 risk 增量 append 到 review.risks
+                if (review.value) {
+                    const existing = review.value.risks ?? []
+                    review.value = { ...review.value, risks: [...existing, event.risk] }
+                }
+                break
+            }
+            case 'overview': {
+                // 子期 3 实现：替换 summary
+                if (review.value) {
+                    review.value = { ...review.value, summary: event.overview }
+                }
+                break
+            }
+        }
+    }
+
     function mountStream(sessionId: string) {
         stopStreamWatch?.()
         streamScope?.stop()
@@ -127,6 +235,20 @@ export function useContractReview() {
                 apiUrl: '/api/v1/assistant/contract/chat',
                 threadId: sessionId,
                 messagesKey: 'messages',
+                onCustomEvent: (data: unknown) => {
+                    // 后端 emitter 包装成 AgentCustomEvent = { type, runId, sessionId, name, data }
+                    // useStreamChat 已过滤 status_change；剩余事件通过 data.name 识别归属
+                    if (
+                        data && typeof data === 'object'
+                        && (data as any).name === 'contract_review'
+                        && (data as any).data
+                    ) {
+                        const payload = (data as any).data
+                        if (['stage', 'progress', 'risk', 'overview'].includes(payload.type)) {
+                            handleContractEvent(payload as ContractReviewEvent)
+                        }
+                    }
+                },
             })
 
             // 后端 contractReviewPersistenceMiddleware 完成后未必推 SSE custom event，
@@ -207,6 +329,27 @@ export function useContractReview() {
         lastServerRisks = r.risks ?? []
         lastServerUnsaved = typeof r.hasUnsavedDocxChanges === 'boolean' ? r.hasUnsavedDocxChanges : false
 
+        // 根据 review.status 回填 stageStatus，避免挂载历史 review 时 5 段 dot 仍为灰色。
+        // SSE 流事件只覆盖当前会话期间的阶段切换，挂载已有 review 需从 status 推断历史进度。
+        if (r.status === 'completed' || r.status === 'rebuilding' || r.status === 'failed') {
+            // 终态：五段全部 done（failed 也视为"流程已走完、只是结果标记失败"）
+            stageStatus.value = {
+                detect: 'done', stance: 'done', segment: 'done', analyze: 'done', summarize: 'done',
+            }
+            totalClauses.value = Array.isArray(r.risks) ? r.risks.length : null
+        } else if (r.status === 'reviewing') {
+            // 进行中：识别/立场已经完成，切分至少走到；analyze 视为 running
+            stageStatus.value = {
+                detect: 'done', stance: 'done', segment: 'done', analyze: 'running', summarize: 'wait',
+            }
+        } else if (r.status === 'awaiting_stance') {
+            // 等立场：识别已完成，立场 running
+            stageStatus.value = {
+                detect: 'done', stance: 'running', segment: 'wait', analyze: 'wait', summarize: 'wait',
+            }
+        }
+        // pending 保持初始全 wait
+
         // 回填持久化的未保存标志：仅在字段为明确 boolean 时覆盖（M6.1A-e）
         // 不同 status 下该字段可能为 null/undefined，避免误改写 ref
         if (typeof review.value?.hasUnsavedDocxChanges === 'boolean') {
@@ -229,25 +372,31 @@ export function useContractReview() {
      * INTERRUPTED → COMPLETED 释放 + enqueue 新 run，前端只需重新订阅 SSE。
      * 使用 command.resume 会与服务端重复入队，触发 agentRuns 的 P2002 唯一索引冲突。
      */
-    async function onStance(payload: StanceRequest) {
-        if (!reviewId.value) return
-        if (!stream.value) return
+    /**
+     * 立场选择提交。成功返回 true，任意分支失败返回 false。
+     * 调用方据此决定是否允许用户重试（例如 Dialog 关闭态）。
+     */
+    async function onStance(payload: StanceRequest): Promise<boolean> {
+        if (!reviewId.value) return false
+        if (!stream.value) return false
 
         const result = await useApiFetch<{ reviewId: number; runId: number }>(
             `/api/v1/assistant/contract/reviews/${reviewId.value}/stance`,
             { method: 'POST', body: payload },
         )
-        if (!result) return
+        if (!result) return false
         // await 期间 stream 可能已被 cancelReview / 路由切换置空
-        if (!stream.value) return
+        if (!stream.value) return false
 
         // 复位底层 stream runStatus 再 submit，保证 watch(runStatus) 的 completed/failed 分支能再次触发
         stream.value.runStatus.value = 'idle'
         try {
             await stream.value.submit(undefined)
+            return true
         } catch (err) {
             console.warn('立场提交后续订失败', err)
             toast.error('连接中断，请重试')
+            return false
         }
     }
 
@@ -420,6 +569,16 @@ export function useContractReview() {
         awaitingStance,
         hasUnsavedDocxChanges,
         isRebuilding,
+        // M6.1 阶段进度状态
+        stageStatus,
+        totalClauses,
+        analyzingClauseIndex,
+        analyzeWarnings,
+        // M6.1 Task 4.2 聚焦/悬停/钉状态
+        focusedRiskId,
+        hoveredRiskId,
+        pinnedRiskIds,
+        highlightedRiskIds,
         // 动作
         onStart,
         mountReview,
@@ -430,5 +589,10 @@ export function useContractReview() {
         onRebuildDocx,
         stopGeneration,
         cancelReview,
+        handleContractEvent,
+        focusRisk,
+        setHoveredRisk,
+        togglePin,
+        clearAllPins,
     }
 }

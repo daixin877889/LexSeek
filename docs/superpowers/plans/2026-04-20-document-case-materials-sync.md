@@ -1,0 +1,1914 @@
+# 文书助手与案件材料双向同步 Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** 打通文书助手与案件材料的双向数据通路 —— 从案件进入的草稿能查到案件材料，从草稿上传的文件自动成为案件材料，任一侧解绑同步生效。
+
+**Architecture:** `case_materials` 表保持 schema 不变，在应用层启用"一条记录可同时带 caseId + draftId"的双绑语义；`ensureMaterialsReadyForDraftService` 的查重逻辑从 `(draftId, ossFileId)` 换成 `(ossFileId)` 的 upsert（`ossFiles.userId` 单 owner 保证同 ossFileId 不会跨用户串），防止重复记录；`searchCaseMaterials` tool 的二选一分流替换为 `OR [{caseId}, {draftId}]` 合并查询；前端新增「查看所有材料」Sheet，复用三类既有预览 Dialog。
+
+**Tech Stack:** Nuxt 4 + Vue 3 + TypeScript + Prisma + PostgreSQL + Vitest + shadcn-vue + Tailwind v4
+
+**Spec:** [2026-04-20-document-case-materials-sync-design.md](../specs/2026-04-20-document-case-materials-sync-design.md)
+
+---
+
+## 文件结构
+
+**后端新增/修改：**
+| 文件 | 动作 |
+| --- | --- |
+| `server/services/material/material.dao.ts` | 新增 `findActiveMaterialByOssFileIdDao` + `findMaterialsByCaseOrDraftIdDao` |
+| `server/services/material/material.service.ts` | 新增 `getMaterialsByCaseOrDraftIdWithStatusService` |
+| `server/services/material/materialPipeline.service.ts` | 改 `ensureMaterialsReadyForDraftService` 签名 + upsert 逻辑；改 `ensureMaterialsReadyByDraftService` 透传 caseId；新增 `searchMaterialsByCaseOrDraftService` |
+| `server/services/assistant/document/documentDraft.service.ts` | `createDraftService` 传 caseId 给 ensureMaterials；`deleteDraftService` 级联置空 draftId |
+| `server/services/workflow/tools/searchCaseMaterials.tool.ts` | 替换分流逻辑为合并检索 |
+| `server/services/workflow/tools/processMaterials.tool.ts` | 调用 ensureMaterials 时透传 caseId |
+| `server/api/v1/assistant/document/drafts/[id]/materials.post.ts` | 从 draft 读 caseId 传给 ensureMaterials |
+| `server/api/v1/assistant/document/drafts/[id]/related-materials.get.ts` | **新接口** |
+
+**前端新增/修改：**
+| 文件 | 动作 |
+| --- | --- |
+| `app/utils/caseMaterial.ts` | 追加 `getMaterialIcon` / `getMaterialBgColor` / `getMaterialIconColor` export |
+| `app/components/caseDetail/CaseDetailOverview.vue` | 改为 import 工具函数 |
+| `app/components/caseDetail/CaseDetailMaterials.vue` | 改为 import 工具函数 |
+| `app/components/assistant/document/AllMaterialsSheet.vue` | **新组件** |
+| `app/pages/dashboard/document/drafts/[id].vue` | 接线：relatedMaterials / disabledFileIds / 顶部按钮 / Sheet / 预览 state |
+
+**测试新增：**
+| 文件 | 动作 |
+| --- | --- |
+| `tests/server/material/material.dao.caseOrDraft.test.ts` | DAO 两方法单测 |
+| `tests/server/material/ensureMaterialsReady.upsert.test.ts` | upsert 四场景单测 |
+| `tests/server/material/searchMaterialsByCaseOrDraft.service.test.ts` | Service 合并检索单测 |
+| `tests/server/assistant/document/documentDraft.deleteCascade.test.ts` | 删除 draft 级联单测 |
+| `tests/server/workflow/tools/searchCaseMaterials.tool.test.ts` | tool 三种 context 分支 |
+| `tests/client/components/AllMaterialsSheet.test.ts` | 组件单测 |
+
+---
+
+### Task 1: DAO 新增 `findActiveMaterialByOssFileIdDao` + `findMaterialsByCaseOrDraftIdDao`
+
+**Files:**
+- Modify: `server/services/material/material.dao.ts`
+- Test: `tests/server/material/material.dao.caseOrDraft.test.ts`
+
+- [ ] **Step 1: 写失败测试**
+
+创建 `tests/server/material/material.dao.caseOrDraft.test.ts`：
+
+```typescript
+/**
+ * caseOrDraft 材料查询 DAO 单测
+ *
+ * **Feature: document-case-materials-sync**
+ * **Validates: spec §3.2, §5.1**
+ */
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import {
+    findActiveMaterialByOssFileIdDao,
+    findMaterialsByCaseOrDraftIdDao,
+    createMaterialDao,
+} from '~~/server/services/material/material.dao'
+import { CaseMaterialType } from '#shared/types/case'
+import { MaterialStatus } from '#shared/types/material'
+import { cleanupAllTestData } from '~~/tests/server/membership/test-db-helper'
+
+describe('findActiveMaterialByOssFileIdDao', () => {
+    beforeEach(async () => { await cleanupAllTestData() })
+    afterEach(async () => { await cleanupAllTestData() })
+
+    it('无活跃记录时返回 null', async () => {
+        const user = await prisma.users.create({ data: { phone: '13000000001', password: 'x' } })
+        const oss = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'a.pdf', fileType: 'application/pdf', ossKey: 'k1', fileSize: 10 } })
+        const r = await findActiveMaterialByOssFileIdDao(oss.id)
+        expect(r).toBeNull()
+    })
+
+    it('命中同 ossFileId 的活跃记录', async () => {
+        const user = await prisma.users.create({ data: { phone: '13000000002', password: 'x' } })
+        const oss = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'a.pdf', fileType: 'application/pdf', ossKey: 'k2', fileSize: 10 } })
+        const caseRow = await prisma.cases.create({ data: { userId: user.id, title: 't' } })
+        const m = await createMaterialDao({ caseId: caseRow.id, ossFileId: oss.id, name: 'a.pdf', type: CaseMaterialType.DOCUMENT })
+        const r = await findActiveMaterialByOssFileIdDao(oss.id)
+        expect(r?.id).toBe(m.id)
+    })
+
+    it('软删记录不返回', async () => {
+        const user = await prisma.users.create({ data: { phone: '13000000005', password: 'x' } })
+        const oss = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'a.pdf', fileType: 'application/pdf', ossKey: 'k4', fileSize: 10 } })
+        const caseRow = await prisma.cases.create({ data: { userId: user.id, title: 't' } })
+        const m = await createMaterialDao({ caseId: caseRow.id, ossFileId: oss.id, name: 'a.pdf', type: CaseMaterialType.DOCUMENT })
+        await prisma.caseMaterials.update({ where: { id: m.id }, data: { deletedAt: new Date() } })
+        const r = await findActiveMaterialByOssFileIdDao(oss.id)
+        expect(r).toBeNull()
+    })
+})
+
+// 说明：不加 "跨 userId 不串" 测试——caseMaterials 表无 userId 字段；
+// 业务上 ossFiles.userId 是单一 owner，调用方传入的 ossFileId 必属当前 user，
+// 因此查到的 existing 必然归属同一用户，无需 DAO 层做 user 过滤。
+
+describe('findMaterialsByCaseOrDraftIdDao', () => {
+    beforeEach(async () => { await cleanupAllTestData() })
+    afterEach(async () => { await cleanupAllTestData() })
+
+    async function setup() {
+        const user = await prisma.users.create({ data: { phone: '13010000001', password: 'x' } })
+        const caseRow = await prisma.cases.create({ data: { userId: user.id, title: 't' } })
+        const tpl = await prisma.documentTemplates.create({ data: { userId: user.id, name: 'n', scope: 'user', category: 'general', placeholders: [], ossFileId: null } })
+        const draft = await prisma.documentDrafts.create({ data: { userId: user.id, templateId: tpl.id, sessionId: 's1', status: 'ready', values: {}, sourceRef: null, metadata: null, caseId: caseRow.id, title: 't', titleOverridden: false } })
+        return { user, caseRow, draft }
+    }
+
+    it('两者都无时返回空数组', async () => {
+        const r = await findMaterialsByCaseOrDraftIdDao(null, null)
+        expect(r).toEqual([])
+    })
+
+    it('只 caseId 时只返回匹配 caseId 的记录', async () => {
+        const { user, caseRow, draft } = await setup()
+        const oss1 = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'a.pdf', fileType: 'application/pdf', ossKey: 'ka', fileSize: 1 } })
+        const oss2 = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'b.pdf', fileType: 'application/pdf', ossKey: 'kb', fileSize: 1 } })
+        await createMaterialDao({ caseId: caseRow.id, ossFileId: oss1.id, name: 'a', type: CaseMaterialType.DOCUMENT })
+        await createMaterialDao({ draftId: draft.id, ossFileId: oss2.id, name: 'b', type: CaseMaterialType.DOCUMENT })
+        const r = await findMaterialsByCaseOrDraftIdDao(caseRow.id, null)
+        expect(r).toHaveLength(1)
+        expect(r[0]!.ossFileId).toBe(oss1.id)
+    })
+
+    it('双 id 时合并去重（双绑记录只出现一次）', async () => {
+        const { user, caseRow, draft } = await setup()
+        const oss = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'dual.pdf', fileType: 'application/pdf', ossKey: 'kd', fileSize: 1 } })
+        // 一条双绑记录
+        await createMaterialDao({ caseId: caseRow.id, draftId: draft.id, ossFileId: oss.id, name: 'dual', type: CaseMaterialType.DOCUMENT })
+        const r = await findMaterialsByCaseOrDraftIdDao(caseRow.id, draft.id)
+        expect(r).toHaveLength(1)
+    })
+
+    it('软删记录不返回', async () => {
+        const { user, caseRow } = await setup()
+        const oss = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'x.pdf', fileType: 'application/pdf', ossKey: 'kx', fileSize: 1 } })
+        const m = await createMaterialDao({ caseId: caseRow.id, ossFileId: oss.id, name: 'x', type: CaseMaterialType.DOCUMENT })
+        await prisma.caseMaterials.update({ where: { id: m.id }, data: { deletedAt: new Date() } })
+        const r = await findMaterialsByCaseOrDraftIdDao(caseRow.id, null)
+        expect(r).toEqual([])
+    })
+})
+```
+
+> 注：`createMaterialDao` 现签名不支持 `userId` 参数（见 `material.dao.ts:15-36`）。本测试用的 `userId` 通过 `caseMaterials` 表字段实际写入，如果 DAO 入参还没支持此字段，在 Task 1 Step 3 改动 `createMaterialDao` 时一并加上。若表无 `userId` 字段请停下来报告 BLOCKED（需先核查 schema）。
+
+- [ ] **Step 2: 运行测试确认失败**
+
+```bash
+npx vitest run tests/server/material/material.dao.caseOrDraft.test.ts --reporter=verbose
+```
+
+Expected: FAIL（`findActiveMaterialByOssFileIdDao` / `findMaterialsByCaseOrDraftIdDao` 不存在）。
+
+- [ ] **Step 3: 在 material.dao.ts 追加两个新 DAO**
+
+在 `server/services/material/material.dao.ts` 文件末尾（最后一个 `export` 后）追加：
+
+```typescript
+/**
+ * 按 ossFileId 查活跃材料记录（upsert 用）
+ * 业务约束：ossFiles.userId 是单一 owner，调用方传入的 ossFileId 必属当前 user，
+ * 所以查到的 existing 必然归属同一用户，无需 DAO 层做 user 过滤。
+ */
+export const findActiveMaterialByOssFileIdDao = async (
+    ossFileId: number,
+    tx?: Prisma.TransactionClient,
+): Promise<caseMaterials | null> => {
+    try {
+        return await (tx || prisma).caseMaterials.findFirst({
+            where: { ossFileId, deletedAt: null },
+        })
+    } catch (error) {
+        logger.error('按 ossFileId 查活跃材料失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 按 caseId 或 draftId 合并查询活跃材料（search_case_materials 工具用）
+ * OR 条件：返回 caseId 命中 ∪ draftId 命中的全部材料，Prisma 天然去重
+ */
+export const findMaterialsByCaseOrDraftIdDao = async (
+    caseId: number | null,
+    draftId: number | null,
+    tx?: Prisma.TransactionClient,
+): Promise<caseMaterials[]> => {
+    if (caseId == null && draftId == null) return []
+    const orBranches: Prisma.caseMaterialsWhereInput[] = []
+    if (caseId != null) orBranches.push({ caseId })
+    if (draftId != null) orBranches.push({ draftId })
+    try {
+        return await (tx || prisma).caseMaterials.findMany({
+            where: { OR: orBranches, deletedAt: null },
+            orderBy: { createdAt: 'asc' },
+        })
+    } catch (error) {
+        logger.error('按 caseId/draftId 合并查询材料失败：', error)
+        throw error
+    }
+}
+```
+
+- [ ] **Step 4: 运行测试确认通过**
+
+```bash
+npx vitest run tests/server/material/material.dao.caseOrDraft.test.ts --reporter=verbose
+```
+
+Expected: 6/6 PASS（2 个 findActive 场景 + 4 个 findMaterialsByCaseOrDraft 场景）。
+
+- [ ] **Step 5: typecheck**
+
+```bash
+npx nuxi typecheck 2>&1 | tail -5
+```
+
+Expected: 无新增 TS 错误。
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add server/services/material/material.dao.ts tests/server/material/material.dao.caseOrDraft.test.ts
+git commit -m "feat(material): DAO 新增 findActiveMaterialByOssFileIdDao + findMaterialsByCaseOrDraftIdDao
+
+- findActiveMaterialByOssFileIdDao: 按 ossFileId 查活跃记录（ossFile.userId 单 owner 保证跨用户不串）
+- findMaterialsByCaseOrDraftIdDao: OR 合并查询，供 search_case_materials 用"
+```
+
+---
+
+### Task 2: `ensureMaterialsReadyForDraftService` upsert 改造
+
+**Files:**
+- Modify: `server/services/material/materialPipeline.service.ts:625-656`
+- Test: `tests/server/material/ensureMaterialsReady.upsert.test.ts`
+
+- [ ] **Step 1: 写失败测试（四场景）**
+
+创建 `tests/server/material/ensureMaterialsReady.upsert.test.ts`：
+
+```typescript
+/**
+ * ensureMaterialsReadyForDraftService upsert 四场景单测
+ *
+ * **Feature: document-case-materials-sync**
+ * **Validates: spec §3.1 边界场景表**
+ */
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { createMaterialDao } from '~~/server/services/material/material.dao'
+import { CaseMaterialType } from '#shared/types/case'
+import { ensureMaterialsReadyForDraftService } from '~~/server/services/material/materialPipeline.service'
+import { cleanupAllTestData } from '~~/tests/server/membership/test-db-helper'
+
+// 跳过识别+嵌入的真实执行：mock processMaterialService 为 no-op
+vi.mock('~~/server/services/material/material.service', async (orig) => {
+    const actual = await orig<any>()
+    return {
+        ...actual,
+        processMaterialService: vi.fn(async (id: number) => {
+            await prisma.caseMaterials.update({ where: { id }, data: { status: 3 } })
+        }),
+    }
+})
+
+describe('ensureMaterialsReadyForDraftService upsert', () => {
+    beforeEach(async () => { await cleanupAllTestData() })
+    afterEach(async () => { await cleanupAllTestData() })
+
+    async function seed() {
+        const user = await prisma.users.create({ data: { phone: '13020000001', password: 'x' } })
+        const caseRow = await prisma.cases.create({ data: { userId: user.id, title: 't' } })
+        const oss = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'a.pdf', fileType: 'application/pdf', ossKey: 'up', fileSize: 10 } })
+        const tpl = await prisma.documentTemplates.create({ data: { userId: user.id, name: 'n', scope: 'user', category: 'general', placeholders: [], ossFileId: null } })
+        const draft = await prisma.documentDrafts.create({ data: { userId: user.id, templateId: tpl.id, sessionId: 's', status: 'ready', values: {}, sourceRef: null, metadata: null, caseId: caseRow.id, title: 't', titleOverridden: false } })
+        return { user, caseRow, draft, oss }
+    }
+
+    it('场景① case-only + draft 上传 → 变双绑', async () => {
+        const { user, caseRow, draft, oss } = await seed()
+        const caseMat = await createMaterialDao({ caseId: caseRow.id, ossFileId: oss.id, name: 'a', type: CaseMaterialType.DOCUMENT, status: 3 })
+
+        await ensureMaterialsReadyForDraftService(oss.id, draft.id, user.id, caseRow.id)
+
+        const [allForCase] = await Promise.all([
+            prisma.caseMaterials.findMany({ where: { caseId: caseRow.id, deletedAt: null } }),
+        ])
+        expect(allForCase).toHaveLength(1) // 关键：不产生第二条
+        expect(allForCase[0]!.id).toBe(caseMat.id)
+        expect(allForCase[0]!.draftId).toBe(draft.id) // draftId 已补齐
+    })
+
+    it('场景② draft-only + 带 caseId 上传 → 补齐 caseId 变双绑', async () => {
+        const { user, caseRow, draft, oss } = await seed()
+        const draftMat = await createMaterialDao({ draftId: draft.id, ossFileId: oss.id, name: 'a', type: CaseMaterialType.DOCUMENT, status: 3 })
+
+        await ensureMaterialsReadyForDraftService(oss.id, draft.id, user.id, caseRow.id)
+
+        const after = await prisma.caseMaterials.findUnique({ where: { id: draftMat.id } })
+        expect(after?.caseId).toBe(caseRow.id)
+        expect(after?.draftId).toBe(draft.id)
+    })
+
+    it('场景③ 双绑已存在 + 同一 draft 重复上传 → 幂等', async () => {
+        const { user, caseRow, draft, oss } = await seed()
+        const dual = await createMaterialDao({ caseId: caseRow.id, draftId: draft.id, ossFileId: oss.id, name: 'a', type: CaseMaterialType.DOCUMENT, status: 3 })
+
+        await ensureMaterialsReadyForDraftService(oss.id, draft.id, user.id, caseRow.id)
+
+        const all = await prisma.caseMaterials.findMany({ where: { ossFileId: oss.id, deletedAt: null } })
+        expect(all).toHaveLength(1)
+        expect(all[0]!.id).toBe(dual.id)
+    })
+
+    it('场景④ 无活跃记录 + 上传 → 新建双绑记录', async () => {
+        const { user, caseRow, draft, oss } = await seed()
+        await ensureMaterialsReadyForDraftService(oss.id, draft.id, user.id, caseRow.id)
+
+        const all = await prisma.caseMaterials.findMany({ where: { ossFileId: oss.id, deletedAt: null } })
+        expect(all).toHaveLength(1)
+        expect(all[0]!.caseId).toBe(caseRow.id)
+        expect(all[0]!.draftId).toBe(draft.id)
+    })
+
+    it('不传 caseId 时退化为 draft-only（向后兼容独立文书页）', async () => {
+        const { user, draft, oss } = await seed()
+        await ensureMaterialsReadyForDraftService(oss.id, draft.id, user.id)
+
+        const all = await prisma.caseMaterials.findMany({ where: { ossFileId: oss.id, deletedAt: null } })
+        expect(all).toHaveLength(1)
+        expect(all[0]!.caseId).toBeNull()
+        expect(all[0]!.draftId).toBe(draft.id)
+    })
+})
+```
+
+- [ ] **Step 2: 运行测试确认失败**
+
+```bash
+npx vitest run tests/server/material/ensureMaterialsReady.upsert.test.ts --reporter=verbose
+```
+
+Expected: 多数 FAIL（签名不支持 caseId 参数；查重逻辑按 draftId 未切换）。
+
+- [ ] **Step 3: 改造 `ensureMaterialsReadyForDraftService`**
+
+打开 `server/services/material/materialPipeline.service.ts`，定位第 625-656 行。整段替换为：
+
+```typescript
+export async function ensureMaterialsReadyForDraftService(
+    ossFileId: number,
+    draftId: number,
+    userId: number,
+    caseId?: number | null,
+): Promise<{ id: number; status: number; draftId: number | null; ossFileId: number | null }> {
+    // 查重：按 ossFileId 找活跃记录，避免同一 ossFile 产生多条记录
+    // 安全性由 ossFiles.userId 单 owner 保证（调用方传入的 ossFileId 必属当前 user）
+    const existing = await findActiveMaterialByOssFileIdDao(ossFileId)
+
+    let materialId: number
+
+    if (existing) {
+        materialId = existing.id
+
+        // 补齐缺失字段：case-only → 补 draftId；draft-only → 补 caseId；双绑 → 无变更
+        const patch: Partial<{ caseId: number; draftId: number }> = {}
+        if (caseId != null && existing.caseId == null) patch.caseId = caseId
+        if (existing.draftId !== draftId) {
+            // 异常场景：同 case 下两个活跃 draft 用同文件时会覆盖 draftId 绑定
+            if (existing.draftId != null && existing.draftId !== draftId) {
+                logger.warn('case_materials draftId 被覆盖', {
+                    materialId: existing.id,
+                    oldDraftId: existing.draftId,
+                    newDraftId: draftId,
+                })
+            }
+            patch.draftId = draftId
+        }
+        if (Object.keys(patch).length > 0) {
+            await prisma.caseMaterials.update({ where: { id: existing.id }, data: patch })
+        }
+
+        // 已 COMPLETED 直接返回（跳过识别）
+        if (existing.status === MaterialStatus.COMPLETED) {
+            return { id: existing.id, status: existing.status, draftId: draftId, ossFileId: existing.ossFileId }
+        }
+    } else {
+        const ossFile = await prisma.ossFiles.findFirst({
+            where: { id: ossFileId, deletedAt: null },
+            select: { fileName: true, fileType: true },
+        })
+        if (!ossFile) {
+            throw new Error(`OSS 文件不存在: ${ossFileId}`)
+        }
+        const materialType = getMaterialTypeFromMime(ossFile.fileType)
+        const newMaterial = await createMaterialDao({
+            userId,
+            caseId: caseId ?? null,
+            draftId,
+            ossFileId,
+            name: ossFile.fileName ?? `材料_${ossFileId}`,
+            type: materialType,
+        })
+        materialId = newMaterial.id
+    }
+
+    // 跨 draft 复用：该 ossFile 已识别且已嵌入 → 跳过 processMaterialService
+    const materialDetail = await getMaterialByIdService(materialId)
+    if (materialDetail) {
+        const [recognizedMap, embeddedMap] = await Promise.all([
+            batchCheckMaterialRecognizedService([materialDetail]),
+            batchCheckMaterialEmbeddedService([materialId]),
+        ])
+        if (recognizedMap.get(materialId) && embeddedMap.get(materialId)) {
+            if (materialDetail.status !== MaterialStatus.COMPLETED) {
+                await updateMaterialStatusService(materialId, MaterialStatus.COMPLETED)
+            }
+            return {
+                id: materialId,
+                status: MaterialStatus.COMPLETED,
+                draftId: materialDetail.draftId,
+                ossFileId: materialDetail.ossFileId,
+            }
+        }
+    }
+
+    // 触发识别 + 嵌入流水线
+    try {
+        await processMaterialService(materialId, userId)
+    } catch (err) {
+        if (!(err instanceof MaterialProcessError) || err.code !== 400) {
+            throw err
+        }
+    }
+
+    // 轮询直至终态
+    for (let i = 0; i < MAX_POLLS; i++) {
+        const updated = await findMaterialByIdDao(materialId)
+        if (updated?.status === MaterialStatus.COMPLETED) {
+            return { id: updated.id, status: updated.status, draftId: updated.draftId, ossFileId: updated.ossFileId }
+        }
+        if (updated?.status === MaterialStatus.FAILED) {
+            throw new Error(`材料处理失败: ${materialId}`)
+        }
+        await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
+    }
+
+    throw new Error(`材料处理超时: ${materialId}`)
+}
+```
+
+**导入更新**：在文件顶部 imports 区把 `findMaterialByDraftIdAndOssFileIdDao` 替换（或追加）`findActiveMaterialByOssFileIdDao`：
+
+```typescript
+import {
+    createMaterialDao,
+    findActiveMaterialByOssFileIdDao,  // 新增
+    findMaterialByIdDao,
+    // 其余保留，若 findMaterialByDraftIdAndOssFileIdDao 其他地方未用则删除
+} from './material.dao'
+```
+
+运行 `rg "findMaterialByDraftIdAndOssFileIdDao" server/ app/ tests/ 2>&1`：如果仅 `material.dao.ts` 自己的定义处有引用（本文件改造后不再调用），可将该 DAO 保留备用但不删除（YAGNI 不要求删）。
+
+- [ ] **Step 4: 运行测试确认通过**
+
+```bash
+npx vitest run tests/server/material/ensureMaterialsReady.upsert.test.ts --reporter=verbose
+```
+
+Expected: 5/5 PASS。
+
+- [ ] **Step 5: typecheck**
+
+```bash
+npx nuxi typecheck 2>&1 | tail -5
+```
+
+Expected: 无新增 TS 错误。
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add server/services/material/materialPipeline.service.ts tests/server/material/ensureMaterialsReady.upsert.test.ts
+git commit -m "feat(material): ensureMaterialsReadyForDraftService 改 upsert
+
+- 签名扩展: 新增 caseId?: number | null 参数
+- 查重逻辑: 从 (draftId, ossFileId) 换为 (ossFileId) 活跃记录（ossFiles.userId 单 owner 保证安全）
+- 四种 upsert 场景按 spec §3.1 边界表处理
+- 识别/嵌入复用逻辑保留"
+```
+
+---
+
+### Task 3: `searchMaterialsByCaseOrDraftService` + 新 `getMaterialsByCaseOrDraftIdWithStatusService`
+
+**Files:**
+- Modify: `server/services/material/material.service.ts`
+- Modify: `server/services/material/materialPipeline.service.ts`
+- Test: `tests/server/material/searchMaterialsByCaseOrDraft.service.test.ts`
+
+- [ ] **Step 1: 写失败测试**
+
+创建 `tests/server/material/searchMaterialsByCaseOrDraft.service.test.ts`：
+
+```typescript
+/**
+ * searchMaterialsByCaseOrDraftService 合并检索单测
+ *
+ * **Feature: document-case-materials-sync**
+ * **Validates: spec §3.2**
+ */
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { searchMaterialsByCaseOrDraftService } from '~~/server/services/material/materialPipeline.service'
+import { cleanupAllTestData } from '~~/tests/server/membership/test-db-helper'
+import { createMaterialDao } from '~~/server/services/material/material.dao'
+import { CaseMaterialType } from '#shared/types/case'
+
+// 绕开 embedding retrieval（走 sourceId 精确路径）
+describe('searchMaterialsByCaseOrDraftService', () => {
+    beforeEach(async () => { await cleanupAllTestData() })
+    afterEach(async () => { await cleanupAllTestData() })
+
+    async function seed() {
+        const user = await prisma.users.create({ data: { phone: '13030000001', password: 'x' } })
+        const caseRow = await prisma.cases.create({ data: { userId: user.id, title: 't' } })
+        const tpl = await prisma.documentTemplates.create({ data: { userId: user.id, name: 'n', scope: 'user', category: 'general', placeholders: [], ossFileId: null } })
+        const draft = await prisma.documentDrafts.create({ data: { userId: user.id, templateId: tpl.id, sessionId: 's', status: 'ready', values: {}, sourceRef: null, metadata: null, caseId: caseRow.id, title: 't', titleOverridden: false } })
+        return { user, caseRow, draft }
+    }
+
+    it('caseId + draftId 都传时返回合集（双绑记录去重一次）', async () => {
+        const { user, caseRow, draft } = await seed()
+        const oss1 = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'a.pdf', fileType: 'application/pdf', ossKey: 'kka', fileSize: 1 } })
+        const oss2 = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'b.pdf', fileType: 'application/pdf', ossKey: 'kkb', fileSize: 1 } })
+        const oss3 = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'c.pdf', fileType: 'application/pdf', ossKey: 'kkc', fileSize: 1 } })
+        // case-only
+        await createMaterialDao({ caseId: caseRow.id, ossFileId: oss1.id, name: 'a', type: CaseMaterialType.DOCUMENT })
+        // draft-only
+        await createMaterialDao({ draftId: draft.id, ossFileId: oss2.id, name: 'b', type: CaseMaterialType.DOCUMENT })
+        // 双绑
+        await createMaterialDao({ caseId: caseRow.id, draftId: draft.id, ossFileId: oss3.id, name: 'c', type: CaseMaterialType.DOCUMENT })
+
+        // 用 sourceId 精确查走不触发 embedding
+        const results: any[] = []
+        for (const oss of [oss1, oss2, oss3]) {
+            const r = await searchMaterialsByCaseOrDraftService(
+                user.id,
+                { caseId: caseRow.id, draftId: draft.id },
+                { sourceId: oss.id },
+            )
+            results.push(...r)
+        }
+        // 三条记录各自被查到，无重复
+        const idSet = new Set(results.map(r => r.id))
+        expect(idSet.size).toBe(3)
+    })
+
+    it('只传 caseId 时等价 searchMaterialsService', async () => {
+        const { user, caseRow, draft } = await seed()
+        const oss = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'x.pdf', fileType: 'application/pdf', ossKey: 'kkx', fileSize: 1 } })
+        await createMaterialDao({ caseId: caseRow.id, ossFileId: oss.id, name: 'x', type: CaseMaterialType.DOCUMENT })
+        // draft-only 不应命中
+        const oss2 = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'y.pdf', fileType: 'application/pdf', ossKey: 'kky', fileSize: 1 } })
+        await createMaterialDao({ draftId: draft.id, ossFileId: oss2.id, name: 'y', type: CaseMaterialType.DOCUMENT })
+
+        const r = await searchMaterialsByCaseOrDraftService(
+            user.id,
+            { caseId: caseRow.id, draftId: null },
+            { sourceId: oss.id },
+        )
+        expect(r.length).toBeGreaterThanOrEqual(1)
+        expect(r.some(x => x.ossFileId === oss2.id)).toBe(false)
+    })
+
+    it('两个 id 都为 null 时返回空', async () => {
+        const { user } = await seed()
+        const r = await searchMaterialsByCaseOrDraftService(user.id, { caseId: null, draftId: null }, { k: 5 })
+        expect(r).toEqual([])
+    })
+})
+```
+
+- [ ] **Step 2: 运行测试确认失败**
+
+```bash
+npx vitest run tests/server/material/searchMaterialsByCaseOrDraft.service.test.ts --reporter=verbose
+```
+
+Expected: FAIL（`searchMaterialsByCaseOrDraftService` 不存在）。
+
+- [ ] **Step 3: 在 `material.service.ts` 追加 `getMaterialsByCaseOrDraftIdWithStatusService`**
+
+打开 `server/services/material/material.service.ts`，在 `getMaterialsByCaseIdWithStatusService`（第 180 行附近）之后追加：
+
+```typescript
+/**
+ * 按 caseId 或 draftId 合并获取材料（带真实状态）
+ * 复用 getMaterialsByCaseIdWithStatusService 的状态计算逻辑
+ */
+export const getMaterialsByCaseOrDraftIdWithStatusService = async (
+    caseId: number | null,
+    draftId: number | null,
+): Promise<MaterialWithRealStatus[]> => {
+    const rawMaterials = await findMaterialsByCaseOrDraftIdDao(caseId, draftId)
+    if (rawMaterials.length === 0) return []
+
+    // 复用 attachOssFileInfo 与状态计算：把 raw 转为 MaterialWithFile 再走同样流程
+    const withFile = await attachOssFileInfo(rawMaterials)
+    return computeRealStatusForMaterials(withFile)
+}
+```
+
+**`computeRealStatusForMaterials` 抽取：** 定位 `getMaterialsByCaseIdWithStatusService` 第 183-249 行，把从 `if (materials.length === 0)` 之后到 `return materials.map(...)` 的整段"真实状态计算"代码抽成独立函数 `computeRealStatusForMaterials`，两个 service 复用：
+
+```typescript
+async function computeRealStatusForMaterials(
+    materials: MaterialWithFile[],
+): Promise<MaterialWithRealStatus[]> {
+    const ossFileIds = materials.filter(m => m.ossFileId !== null).map(m => m.ossFileId as number)
+    const materialIds = materials.filter(m => m.type === CaseMaterialType.CASE_CONTENT).map(m => m.id)
+    const { docRecords, imageRecords, asrRecords, textRecords } =
+        await findRecognitionRecordsByOssFileIdsDao(ossFileIds, materialIds)
+    const docMap = new Map(docRecords.map(r => [r.ossFileId, r.status]))
+    const imageMap = new Map(imageRecords.map(r => [r.ossFileId, r.status]))
+    const asrMap = new Map(asrRecords.map(r => [r.ossFileId, r.status]))
+    const textMap = new Map(textRecords.filter(r => r.materialId !== null).map(r => [r.materialId as number, !!r.content]))
+
+    function getRealStatus(material: MaterialWithFile): number {
+        switch (material.type) {
+            case CaseMaterialType.CASE_CONTENT: {
+                const hasContent = textMap.get(material.id)
+                return hasContent ? 3 : 1
+            }
+            case CaseMaterialType.DOCUMENT: {
+                if (!material.ossFileId) return 1
+                const status = docMap.get(material.ossFileId)
+                if (status === undefined) return 1
+                if (status === 2) return 3
+                if (status === 1) return 2
+                if (status === 3) return 4
+                return 1
+            }
+            case CaseMaterialType.IMAGE: {
+                if (!material.ossFileId) return 1
+                const status = imageMap.get(material.ossFileId)
+                if (status === undefined) return 1
+                if (status === 2) return 3
+                if (status === 1) return 2
+                if (status === 3) return 4
+                return 1
+            }
+            case CaseMaterialType.AUDIO: {
+                if (!material.ossFileId) return 1
+                const status = asrMap.get(material.ossFileId)
+                if (status === undefined) return 1
+                if (status === 2) return 3
+                if (status === 1) return 2
+                if (status === 3) return 4
+                return 1
+            }
+            default:
+                return 1
+        }
+    }
+
+    return materials.map(material => ({ ...material, realStatus: getRealStatus(material) }))
+}
+```
+
+并把 `getMaterialsByCaseIdWithStatusService` 的函数体简化为：
+
+```typescript
+export const getMaterialsByCaseIdWithStatusService = async (
+    caseId: number,
+): Promise<MaterialWithRealStatus[]> => {
+    const materials = await getMaterialsByCaseIdService(caseId)
+    if (materials.length === 0) return []
+    return computeRealStatusForMaterials(materials)
+}
+```
+
+**imports 补充：** 顶部加入 `findMaterialsByCaseOrDraftIdDao`：
+
+```typescript
+import {
+    // ...
+    findMaterialsByCaseOrDraftIdDao,
+} from './material.dao'
+```
+
+- [ ] **Step 4: 在 `materialPipeline.service.ts` 追加 `searchMaterialsByCaseOrDraftService`**
+
+定位 `searchMaterialsByDraftService`（第 606-613 行）之后，追加：
+
+```typescript
+/**
+ * 按 caseId 或 draftId 合并检索材料（search_case_materials 工具用）
+ *
+ * 合并 caseId / draftId 两个范围的材料后走相同的 embedding retrieval / 精确查询逻辑。
+ * Prisma OR 查询天然对同一条记录去重。
+ */
+export async function searchMaterialsByCaseOrDraftService(
+    userId: number,
+    ids: { caseId: number | null; draftId: number | null },
+    options: { query?: string; sourceId?: number; k?: number },
+): Promise<MaterialSearchToolResult[]> {
+    if (ids.caseId == null && ids.draftId == null) return []
+    const allMaterials = await getMaterialsByCaseOrDraftIdService(ids.caseId, ids.draftId)
+    return searchWithinMaterialsService(userId, allMaterials, options)
+}
+```
+
+**imports 补充：** 顶部 `import ... from './material.service'` 加入 `getMaterialsByCaseOrDraftIdService`。若 `material.service.ts` 里还没有该方法（无 realStatus 版本），同时添加：
+
+```typescript
+/** 按 caseId 或 draftId 合并获取材料（无 realStatus，供检索用） */
+export const getMaterialsByCaseOrDraftIdService = async (
+    caseId: number | null,
+    draftId: number | null,
+): Promise<MaterialWithFile[]> => {
+    const materials = await findMaterialsByCaseOrDraftIdDao(caseId, draftId)
+    return attachOssFileInfo(materials)
+}
+```
+
+- [ ] **Step 5: 运行测试确认通过**
+
+```bash
+npx vitest run tests/server/material/searchMaterialsByCaseOrDraft.service.test.ts --reporter=verbose
+```
+
+Expected: 3/3 PASS。
+
+- [ ] **Step 6: 跑既有测试回归**
+
+```bash
+npx vitest run tests/server/material --reporter=default 2>&1 | tail -15
+```
+
+Expected: 与改动无关的既有测试（`getMaterialsByCaseIdWithStatusService` 相关）仍通过。
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add server/services/material/material.service.ts server/services/material/materialPipeline.service.ts tests/server/material/searchMaterialsByCaseOrDraft.service.test.ts
+git commit -m "feat(material): 新增 searchMaterialsByCaseOrDraftService 合并检索
+
+- material.service.ts 抽 computeRealStatusForMaterials 给两个 WithStatus 入口复用
+- 新增 getMaterialsByCaseOrDraftIdService / getMaterialsByCaseOrDraftIdWithStatusService
+- materialPipeline 新增 searchMaterialsByCaseOrDraftService"
+```
+
+---
+
+### Task 4: `createDraftService` 传入 caseId
+
+**Files:**
+- Modify: `server/services/assistant/document/documentDraft.service.ts:107`
+
+- [ ] **Step 1: 定位原调用**
+
+打开 `server/services/assistant/document/documentDraft.service.ts`，找到第 104-109 行：
+
+```typescript
+if (sourceFileIds?.length) {
+    await Promise.all(
+        sourceFileIds.map(ossFileId =>
+            ensureMaterialsReadyForDraftService(ossFileId, draft.id, userId),
+        ),
+    )
+}
+```
+
+- [ ] **Step 2: 传入 caseId**
+
+修改为：
+
+```typescript
+if (sourceFileIds?.length) {
+    await Promise.all(
+        sourceFileIds.map(ossFileId =>
+            ensureMaterialsReadyForDraftService(ossFileId, draft.id, userId, caseId ?? null),
+        ),
+    )
+}
+```
+
+> `caseId` 是 `createDraftService` 函数入参（第 52 行已有 `const { userId, templateId, sourceText, sourceFileIds, caseId } = params`），直接引用。
+
+- [ ] **Step 3: typecheck**
+
+```bash
+npx nuxi typecheck 2>&1 | tail -5
+```
+
+Expected: 无新增错误。
+
+- [ ] **Step 4: 跑既有测试回归**
+
+```bash
+npx vitest run tests/server/assistant/document/documentDraft.service.test.ts --reporter=default 2>&1 | tail -10
+```
+
+Expected: 测试现状（在 Task 1 前已 9 fail/15 pass）不因本次改动**新增**失败。
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add server/services/assistant/document/documentDraft.service.ts
+git commit -m "feat(assistant): createDraftService 传入 caseId 给 ensureMaterials
+
+让从案件新建 draft 时，sourceFileIds 的材料直接生成双绑记录"
+```
+
+---
+
+### Task 5: `POST /drafts/:id/materials` 和 `ensureMaterialsReadyByDraftService` + `processMaterials` tool 同步传 caseId
+
+**Files:**
+- Modify: `server/api/v1/assistant/document/drafts/[id]/materials.post.ts`
+- Modify: `server/services/material/materialPipeline.service.ts:146-169`
+- Modify: `server/services/workflow/tools/processMaterials.tool.ts:48`
+
+- [ ] **Step 1: 改 `materials.post.ts` 从 draft 读 caseId 传下**
+
+打开 `server/api/v1/assistant/document/drafts/[id]/materials.post.ts`，修改第 47-52 行：
+
+```typescript
+    // 并行处理（ensureMaterialsReadyForDraftService 内部幂等且会轮询至 COMPLETED）
+    const results = await Promise.allSettled(
+        parsed.data.fileIds.map(fileId =>
+            ensureMaterialsReadyForDraftService(fileId, draftId, user.id, draft.caseId),
+        ),
+    )
+```
+
+`draft` 已在上文（第 43 行）加载，含 `caseId` 字段，直接用。
+
+- [ ] **Step 2: 改 `ensureMaterialsReadyByDraftService` 签名加 caseId**
+
+打开 `server/services/material/materialPipeline.service.ts`，定位第 146-150 行：
+
+```typescript
+export async function ensureMaterialsReadyByDraftService(
+    draftId: number,
+    userId: number,
+    options: { fileIds?: number[] } = {},
+): Promise<MaterialReadyResult> {
+```
+
+改为：
+
+```typescript
+export async function ensureMaterialsReadyByDraftService(
+    draftId: number,
+    userId: number,
+    options: { fileIds?: number[]; caseId?: number | null } = {},
+): Promise<MaterialReadyResult> {
+```
+
+修改内部 ensureMaterials 调用（第 157 行左右）：
+
+```typescript
+const perFileResults = await Promise.allSettled(
+    options.fileIds.map(fid => ensureMaterialsReadyForDraftService(fid, draftId, userId, options.caseId ?? null)),
+)
+```
+
+- [ ] **Step 3: 改 `processMaterialsTool` 从 context 取 caseId 传下**
+
+打开 `server/services/workflow/tools/processMaterials.tool.ts`，定位第 47-50 行：
+
+```typescript
+// 1. 按优先级选择批处理入口（draftId 优先，保持小索/案件路径原样）
+const ready = draftId != null
+    ? await ensureMaterialsReadyByDraftService(draftId, userId, { fileIds })
+    : await ensureMaterialsReadyService(caseId!, userId)
+```
+
+改为：
+
+```typescript
+// 1. 按优先级选择批处理入口（draftId 优先，保持小索/案件路径原样）
+const ready = draftId != null
+    ? await ensureMaterialsReadyByDraftService(draftId, userId, { fileIds, caseId: caseId ?? null })
+    : await ensureMaterialsReadyService(caseId!, userId)
+```
+
+`caseId` 来自 context 解构（第 35 行 `const { userId, caseId, draftId } = context`），直接用。
+
+- [ ] **Step 4: typecheck**
+
+```bash
+npx nuxi typecheck 2>&1 | tail -5
+```
+
+Expected: 无新增错误。
+
+- [ ] **Step 5: 跑 upsert 测试回归，确保不同入口都走同一 upsert 逻辑**
+
+```bash
+npx vitest run tests/server/material/ensureMaterialsReady.upsert.test.ts --reporter=default 2>&1 | tail -10
+```
+
+Expected: 5/5 PASS。
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add server/api/v1/assistant/document/drafts/[id]/materials.post.ts server/services/material/materialPipeline.service.ts server/services/workflow/tools/processMaterials.tool.ts
+git commit -m "feat(material): ensureMaterials 所有入口透传 caseId
+
+- ensureMaterialsReadyByDraftService 签名加 caseId 选项
+- processMaterialsTool 从 context 取 caseId
+- POST /drafts/:id/materials 从 draft.caseId 取"
+```
+
+---
+
+### Task 6: `searchCaseMaterials` tool 分流替换
+
+**Files:**
+- Modify: `server/services/workflow/tools/searchCaseMaterials.tool.ts:57-60`
+- Test: `tests/server/workflow/tools/searchCaseMaterials.tool.test.ts`
+
+- [ ] **Step 1: 写失败测试**
+
+创建 `tests/server/workflow/tools/searchCaseMaterials.tool.test.ts`：
+
+```typescript
+/**
+ * searchCaseMaterials tool 分流单测
+ *
+ * **Feature: document-case-materials-sync**
+ * **Validates: spec §3.3**
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { createTool } from '~~/server/services/workflow/tools/searchCaseMaterials.tool'
+
+vi.mock('~~/server/services/material/materialPipeline.service', () => ({
+    searchMaterialsByCaseOrDraftService: vi.fn(),
+}))
+
+const { searchMaterialsByCaseOrDraftService } = await import('~~/server/services/material/materialPipeline.service')
+
+describe('searchCaseMaterials tool', () => {
+    beforeEach(() => { vi.clearAllMocks() })
+
+    it('context 有 caseId+draftId 时走合并检索', async () => {
+        vi.mocked(searchMaterialsByCaseOrDraftService).mockResolvedValue([{ id: 1, name: 'x', content: 'c' } as any])
+        const t = createTool({ userId: 1, caseId: 42, draftId: 99, sessionId: 's' })
+        const out = await t.invoke({ query: 'hello' })
+        expect(searchMaterialsByCaseOrDraftService).toHaveBeenCalledWith(
+            1,
+            { caseId: 42, draftId: 99 },
+            { query: 'hello', sourceId: undefined, k: 5 },
+        )
+        expect(out).toContain('x')
+    })
+
+    it('只有 caseId 时仍合并（draftId=null）', async () => {
+        vi.mocked(searchMaterialsByCaseOrDraftService).mockResolvedValue([])
+        const t = createTool({ userId: 1, caseId: 42, draftId: null as any, sessionId: 's' })
+        await t.invoke({ query: 'q' })
+        expect(searchMaterialsByCaseOrDraftService).toHaveBeenCalledWith(
+            1,
+            { caseId: 42, draftId: null },
+            expect.any(Object),
+        )
+    })
+
+    it('只有 draftId 时仍合并（caseId=null）', async () => {
+        vi.mocked(searchMaterialsByCaseOrDraftService).mockResolvedValue([])
+        const t = createTool({ userId: 1, caseId: null as any, draftId: 99, sessionId: 's' })
+        await t.invoke({ query: 'q' })
+        expect(searchMaterialsByCaseOrDraftService).toHaveBeenCalledWith(
+            1,
+            { caseId: null, draftId: 99 },
+            expect.any(Object),
+        )
+    })
+
+    it('两者都无时返回错误 JSON', async () => {
+        const t = createTool({ userId: 1, caseId: null as any, draftId: null as any, sessionId: 's' })
+        const out = await t.invoke({ query: 'q' })
+        expect(out).toContain('需要 caseId 或 draftId')
+    })
+
+    it('input.draftId 覆盖 context.draftId', async () => {
+        vi.mocked(searchMaterialsByCaseOrDraftService).mockResolvedValue([])
+        const t = createTool({ userId: 1, caseId: 42, draftId: 99, sessionId: 's' })
+        await t.invoke({ query: 'q', draftId: 111 })
+        expect(searchMaterialsByCaseOrDraftService).toHaveBeenCalledWith(
+            1,
+            { caseId: 42, draftId: 111 },
+            expect.any(Object),
+        )
+    })
+})
+```
+
+- [ ] **Step 2: 运行测试确认失败**
+
+```bash
+npx vitest run tests/server/workflow/tools/searchCaseMaterials.tool.test.ts --reporter=verbose
+```
+
+Expected: FAIL（现在调用旧的 `searchMaterialsByDraftService`/`searchMaterialsService`，不是 `searchMaterialsByCaseOrDraftService`）。
+
+- [ ] **Step 3: 改 tool 分流**
+
+打开 `server/services/workflow/tools/searchCaseMaterials.tool.ts`，定位第 51-60 行：
+
+```typescript
+try {
+    // 两者都无时抛错
+    if (caseId == null && !effectiveDraftId) {
+        throw new Error('search_case_materials 工具需要 caseId 或 draftId，当前上下文均缺失')
+    }
+
+    // 分流：优先使用 draftId，其次使用 caseId
+    const results = effectiveDraftId
+        ? await searchMaterialsByDraftService(userId, effectiveDraftId, { query, sourceId, k })
+        : await searchMaterialsService(userId, caseId!, { query, sourceId, k })
+```
+
+整段替换为：
+
+```typescript
+try {
+    if (caseId == null && !effectiveDraftId) {
+        throw new Error('search_case_materials 工具需要 caseId 或 draftId，当前上下文均缺失')
+    }
+
+    // 合并检索：同时查 caseId 和 draftId 范围，Prisma OR 天然去重
+    const results = await searchMaterialsByCaseOrDraftService(
+        userId,
+        { caseId: caseId ?? null, draftId: effectiveDraftId ?? null },
+        { query, sourceId, k },
+    )
+```
+
+**imports 更新**（文件顶部）：
+
+- 旧：`import { searchMaterialsByDraftService, searchMaterialsService } from '~~/server/services/material/materialPipeline.service'`
+- 新：`import { searchMaterialsByCaseOrDraftService } from '~~/server/services/material/materialPipeline.service'`
+
+如果项目里 `searchMaterialsByDraftService` / `searchMaterialsService` 仍有其他调用点（`rg "searchMaterialsByDraftService|searchMaterialsService" server/ 2>&1`），保留原 import；本 tool 只改自己的调用。
+
+- [ ] **Step 4: 运行测试确认通过**
+
+```bash
+npx vitest run tests/server/workflow/tools/searchCaseMaterials.tool.test.ts --reporter=verbose
+```
+
+Expected: 5/5 PASS。
+
+- [ ] **Step 5: typecheck**
+
+```bash
+npx nuxi typecheck 2>&1 | tail -5
+```
+
+Expected: 无新增错误。
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add server/services/workflow/tools/searchCaseMaterials.tool.ts tests/server/workflow/tools/searchCaseMaterials.tool.test.ts
+git commit -m "feat(workflow): searchCaseMaterials tool 改合并检索
+
+- 替换原 case/draft 二选一分流为 searchMaterialsByCaseOrDraftService
+- 从案件进入的 draft 能同时检索案件材料 + draft 材料
+- 修复 Issue: 从案件 Tab 新建文书助手查不到案件材料"
+```
+
+---
+
+### Task 7: `deleteDraftService` 级联置空 draftId
+
+**Files:**
+- Modify: `server/services/assistant/document/documentDraft.service.ts:196-211`
+- Test: `tests/server/assistant/document/documentDraft.deleteCascade.test.ts`
+
+- [ ] **Step 1: 写失败测试**
+
+创建 `tests/server/assistant/document/documentDraft.deleteCascade.test.ts`：
+
+```typescript
+/**
+ * deleteDraftService 级联 draftId 置空单测
+ *
+ * **Feature: document-case-materials-sync**
+ * **Validates: spec §3.4**
+ */
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { deleteDraftService } from '~~/server/services/assistant/document/documentDraft.service'
+import { createMaterialDao } from '~~/server/services/material/material.dao'
+import { CaseMaterialType } from '#shared/types/case'
+import { cleanupAllTestData } from '~~/tests/server/membership/test-db-helper'
+
+describe('deleteDraftService 级联 draftId 置空', () => {
+    beforeEach(async () => { await cleanupAllTestData() })
+    afterEach(async () => { await cleanupAllTestData() })
+
+    it('双绑记录: draft 删除后 draftId 置 null, caseId 保留', async () => {
+        const user = await prisma.users.create({ data: { phone: '13040000001', password: 'x' } })
+        const caseRow = await prisma.cases.create({ data: { userId: user.id, title: 't' } })
+        const tpl = await prisma.documentTemplates.create({ data: { userId: user.id, name: 'n', scope: 'user', category: 'general', placeholders: [], ossFileId: null } })
+        const draft = await prisma.documentDrafts.create({ data: { userId: user.id, templateId: tpl.id, sessionId: 's', status: 'ready', values: {}, sourceRef: null, metadata: null, caseId: caseRow.id, title: 't', titleOverridden: false } })
+        const oss = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'a.pdf', fileType: 'application/pdf', ossKey: 'k', fileSize: 1 } })
+        const m = await createMaterialDao({ caseId: caseRow.id, draftId: draft.id, ossFileId: oss.id, name: 'a', type: CaseMaterialType.DOCUMENT })
+
+        const r = await deleteDraftService(user.id, draft.id)
+        expect(r).toEqual({ ok: true })
+
+        const after = await prisma.caseMaterials.findUnique({ where: { id: m.id } })
+        expect(after?.draftId).toBeNull()
+        expect(after?.caseId).toBe(caseRow.id)
+    })
+
+    it('draft-only 记录: draft 删除后 draftId 置 null（变孤儿，应用层查不到但不破坏数据）', async () => {
+        const user = await prisma.users.create({ data: { phone: '13040000002', password: 'x' } })
+        const tpl = await prisma.documentTemplates.create({ data: { userId: user.id, name: 'n', scope: 'user', category: 'general', placeholders: [], ossFileId: null } })
+        const draft = await prisma.documentDrafts.create({ data: { userId: user.id, templateId: tpl.id, sessionId: 's2', status: 'ready', values: {}, sourceRef: null, metadata: null, caseId: null, title: 't', titleOverridden: false } })
+        const oss = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'b.pdf', fileType: 'application/pdf', ossKey: 'k2', fileSize: 1 } })
+        const m = await createMaterialDao({ draftId: draft.id, ossFileId: oss.id, name: 'b', type: CaseMaterialType.DOCUMENT })
+
+        await deleteDraftService(user.id, draft.id)
+
+        const after = await prisma.caseMaterials.findUnique({ where: { id: m.id } })
+        expect(after?.draftId).toBeNull()
+        expect(after?.caseId).toBeNull()
+        expect(after?.deletedAt).toBeNull() // 材料本身不被软删，仅解绑
+    })
+
+    it('无关的 draft 材料不受影响', async () => {
+        const user = await prisma.users.create({ data: { phone: '13040000003', password: 'x' } })
+        const tpl = await prisma.documentTemplates.create({ data: { userId: user.id, name: 'n', scope: 'user', category: 'general', placeholders: [], ossFileId: null } })
+        const draft1 = await prisma.documentDrafts.create({ data: { userId: user.id, templateId: tpl.id, sessionId: 's3', status: 'ready', values: {}, sourceRef: null, metadata: null, caseId: null, title: 't', titleOverridden: false } })
+        const draft2 = await prisma.documentDrafts.create({ data: { userId: user.id, templateId: tpl.id, sessionId: 's4', status: 'ready', values: {}, sourceRef: null, metadata: null, caseId: null, title: 't', titleOverridden: false } })
+        const oss = await prisma.ossFiles.create({ data: { userId: user.id, fileName: 'c.pdf', fileType: 'application/pdf', ossKey: 'k3', fileSize: 1 } })
+        const m2 = await createMaterialDao({ draftId: draft2.id, ossFileId: oss.id, name: 'c', type: CaseMaterialType.DOCUMENT })
+
+        await deleteDraftService(user.id, draft1.id)
+
+        const after = await prisma.caseMaterials.findUnique({ where: { id: m2.id } })
+        expect(after?.draftId).toBe(draft2.id) // draft2 的材料不受影响
+    })
+
+    it('owner 校验: 非所有者无权删除', async () => {
+        const u1 = await prisma.users.create({ data: { phone: '13040000004', password: 'x' } })
+        const u2 = await prisma.users.create({ data: { phone: '13040000005', password: 'x' } })
+        const tpl = await prisma.documentTemplates.create({ data: { userId: u1.id, name: 'n', scope: 'user', category: 'general', placeholders: [], ossFileId: null } })
+        const draft = await prisma.documentDrafts.create({ data: { userId: u1.id, templateId: tpl.id, sessionId: 's5', status: 'ready', values: {}, sourceRef: null, metadata: null, caseId: null, title: 't', titleOverridden: false } })
+        const r = await deleteDraftService(u2.id, draft.id)
+        expect(r).toEqual({ error: '无权删除此草稿', code: 403 })
+    })
+})
+```
+
+- [ ] **Step 2: 运行测试确认失败**
+
+```bash
+npx vitest run tests/server/assistant/document/documentDraft.deleteCascade.test.ts --reporter=verbose
+```
+
+Expected: 前三个 FAIL（deleteDraftService 未级联置空）；owner 测试 PASS（已有逻辑）。
+
+- [ ] **Step 3: 修改 `deleteDraftService` 加级联**
+
+打开 `server/services/assistant/document/documentDraft.service.ts`，定位第 196-211 行。整段替换为：
+
+```typescript
+export async function deleteDraftService(
+    userId: number,
+    draftId: number,
+): Promise<{ ok: true } | ServiceError> {
+    const draft = await getDocumentDraftDAO(draftId)
+    if (!draft) {
+        return { error: '草稿不存在', code: 404 }
+    }
+
+    if (draft.userId !== userId) {
+        return { error: '无权删除此草稿', code: 403 }
+    }
+
+    // 级联：把该 draft 绑定的 case_materials 记录 draftId 置空，caseId 保留
+    // 双绑 (X, Y, Z) → (X, null, Z) 仍可被案件材料 Tab 看到
+    // draft-only (null, Y, Z) → (null, null, Z) 孤儿（应用层查不到但不破坏数据）
+    await prisma.caseMaterials.updateMany({
+        where: { draftId, deletedAt: null },
+        data: { draftId: null },
+    })
+
+    await softDeleteDocumentDraftDAO(draftId)
+    return { ok: true }
+}
+```
+
+- [ ] **Step 4: 运行测试确认通过**
+
+```bash
+npx vitest run tests/server/assistant/document/documentDraft.deleteCascade.test.ts --reporter=verbose
+```
+
+Expected: 4/4 PASS。
+
+- [ ] **Step 5: typecheck**
+
+```bash
+npx nuxi typecheck 2>&1 | tail -5
+```
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add server/services/assistant/document/documentDraft.service.ts tests/server/assistant/document/documentDraft.deleteCascade.test.ts
+git commit -m "feat(assistant): deleteDraftService 级联置空 case_materials.draftId
+
+- draft 软删前先把所有绑定该 draft 的材料记录 draftId=null
+- 双绑记录保留 caseId，案件材料 Tab 仍可见
+- spec §3.4 级联策略 A"
+```
+
+---
+
+### Task 8: 新接口 `GET /drafts/:id/related-materials`
+
+**Files:**
+- Create: `server/api/v1/assistant/document/drafts/[id]/related-materials.get.ts`
+
+- [ ] **Step 1: 写接口文件**
+
+创建 `server/api/v1/assistant/document/drafts/[id]/related-materials.get.ts`：
+
+```typescript
+/**
+ * GET /api/v1/assistant/document/drafts/:id/related-materials
+ *
+ * 返回本 draft 能看到的所有材料（本案件材料 ∪ 本 draft 材料，双绑记录去重一次）
+ * 响应结构对齐前端 CaseDetailMaterialItem（app/composables/useCaseDetail.ts:15-27）。
+ *
+ * 错误码：
+ * - 400 草稿 ID 无效
+ * - 401 未登录
+ * - 403 非草稿所有者
+ * - 404 草稿不存在
+ */
+
+import { getDocumentDraftDAO } from '~~/server/services/assistant/document/documentDraft.dao'
+import { getMaterialsByCaseOrDraftIdWithStatusService } from '~~/server/services/material/material.service'
+import { CaseMaterialType, CaseMaterialTypeText } from '#shared/types/case'
+
+export default defineEventHandler(async (event) => {
+    const user = event.context.auth?.user
+    if (!user) return resError(event, 401, '请先登录')
+
+    const draftId = Number(getRouterParam(event, 'id'))
+    if (!Number.isInteger(draftId) || draftId <= 0) {
+        return resError(event, 400, '草稿 ID 无效')
+    }
+
+    const draft = await getDocumentDraftDAO(draftId)
+    if (!draft) return resError(event, 404, '草稿不存在')
+    if (draft.userId !== user.id) return resError(event, 403, '无权访问此草稿')
+
+    const materials = await getMaterialsByCaseOrDraftIdWithStatusService(draft.caseId, draft.id)
+
+    const responseData = materials.map(m => ({
+        id: m.id,
+        name: m.name,
+        type: m.type,
+        typeText: CaseMaterialTypeText[m.type as CaseMaterialType] ?? '未知',
+        ossFileId: m.ossFileId,
+        isEncrypted: m.isEncrypted,
+        status: m.realStatus,
+        summary: m.summary,
+        createdAt: m.createdAt,
+        fileName: m.fileName,
+        fileSize: m.fileSize,
+        fileType: m.fileType,
+    }))
+
+    return resSuccess(event, '获取相关材料成功', responseData)
+})
+```
+
+- [ ] **Step 2: typecheck**
+
+```bash
+npx nuxi typecheck 2>&1 | tail -5
+```
+
+Expected: 无新增错误。
+
+- [ ] **Step 3: 手动 smoke-test**
+
+```bash
+bun dev
+# 浏览器打开任意带 caseId 的 draft：/dashboard/document/drafts/<id>
+# devtools network 查看请求是否有 /related-materials，返回 200 + data 数组
+```
+
+不强制，能查到再跳到下步。
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add server/api/v1/assistant/document/drafts/[id]/related-materials.get.ts
+git commit -m "feat(assistant): 新增 GET /drafts/:id/related-materials
+
+- 返回本 draft 能看到的全部材料（案件 ∪ draft 合集）
+- 字段对齐前端 CaseDetailMaterialItem 结构
+- 供 drafts/[id].vue 禁用列表 + 查看所有材料 Sheet 共用"
+```
+
+---
+
+### Task 9: 抽取 `getMaterialIcon` / `getMaterialBgColor` / `getMaterialIconColor` 到 utils
+
+**Files:**
+- Modify: `app/utils/caseMaterial.ts`
+- Modify: `app/components/caseDetail/CaseDetailOverview.vue:130-160`
+- Modify: `app/components/caseDetail/CaseDetailMaterials.vue:108-140`（查实际行号）
+
+- [ ] **Step 1: 在 `app/utils/caseMaterial.ts` 追加三个函数**
+
+打开 `app/utils/caseMaterial.ts`，整个文件内容替换为：
+
+```typescript
+/**
+ * 案件材料相关工具函数
+ *
+ * 前端包装层，复用 shared 中的共享映射逻辑，并提供视觉样式函数。
+ */
+
+import { FileTextIcon, FileIcon, ImageIcon, FileAudioIcon } from 'lucide-vue-next'
+import { CaseMaterialType } from '#shared/types/case'
+
+export { getMaterialTypeFromMime as getMaterialType } from '#shared/types/case'
+
+/** 按材料类型返回对应的 lucide 图标组件 */
+export function getMaterialIcon(type: number) {
+    switch (type) {
+        case CaseMaterialType.DOCUMENT: return FileTextIcon
+        case CaseMaterialType.IMAGE: return ImageIcon
+        case CaseMaterialType.AUDIO: return FileAudioIcon
+        case CaseMaterialType.CASE_CONTENT: return FileIcon
+        default: return FileIcon
+    }
+}
+
+/** 按材料类型返回图标容器背景色 class */
+export function getMaterialBgColor(type: number): string {
+    switch (type) {
+        case CaseMaterialType.DOCUMENT: return 'bg-blue-500/10 dark:bg-blue-500/20'
+        case CaseMaterialType.IMAGE: return 'bg-green-500/10 dark:bg-green-500/20'
+        case CaseMaterialType.AUDIO: return 'bg-purple-500/10 dark:bg-purple-500/20'
+        case CaseMaterialType.CASE_CONTENT: return 'bg-orange-500/10 dark:bg-orange-500/20'
+        default: return 'bg-muted'
+    }
+}
+
+/** 按材料类型返回图标颜色 class */
+export function getMaterialIconColor(type: number): string {
+    switch (type) {
+        case CaseMaterialType.DOCUMENT: return 'text-blue-600 dark:text-blue-400'
+        case CaseMaterialType.IMAGE: return 'text-green-600 dark:text-green-400'
+        case CaseMaterialType.AUDIO: return 'text-purple-600 dark:text-purple-400'
+        case CaseMaterialType.CASE_CONTENT: return 'text-orange-600 dark:text-orange-400'
+        default: return 'text-muted-foreground'
+    }
+}
+```
+
+- [ ] **Step 2: `CaseDetailOverview.vue` 改为 import**
+
+打开 `app/components/caseDetail/CaseDetailOverview.vue`，定位第 130-160 行的三个函数定义（`getMaterialIcon` / `getMaterialBgColor` / `getMaterialIconColor`）——**整段删除**。
+
+在顶部 `<script lang="ts" setup>` imports 区追加：
+
+```typescript
+import { getMaterialIcon, getMaterialBgColor, getMaterialIconColor } from '~/utils/caseMaterial'
+```
+
+删除 script 顶部仅被这三个函数使用的图标 imports（`FileIcon`、`ImageIcon`、`FileAudioIcon`）——如果其他地方还用，保留。用 Grep 核实：
+
+```bash
+grep -n "FileIcon\|ImageIcon\|FileAudioIcon" app/components/caseDetail/CaseDetailOverview.vue | head
+```
+
+只出现在那三个函数定义和 imports 里，则从 imports 里移除它们。如果出现在模板，保留。
+
+- [ ] **Step 3: `CaseDetailMaterials.vue` 改为 import**
+
+打开 `app/components/caseDetail/CaseDetailMaterials.vue`。用 Grep 找到三个函数定义：
+
+```bash
+grep -n "function getMaterialIcon\|function getMaterialBgColor\|function getMaterialIconColor" app/components/caseDetail/CaseDetailMaterials.vue
+```
+
+整段删除这三个函数（包括 switch 语句）。顶部 imports 区加：
+
+```typescript
+import { getMaterialIcon, getMaterialBgColor, getMaterialIconColor } from '~/utils/caseMaterial'
+```
+
+同上，删除仅被这三个函数用的图标 imports（按实际 grep 决定）。
+
+- [ ] **Step 4: typecheck**
+
+```bash
+npx nuxi typecheck 2>&1 | tail -10
+```
+
+Expected: 无新增错误。
+
+- [ ] **Step 5: 手动 smoke-test**
+
+```bash
+bun dev
+# 访问一个有材料的案件：/dashboard/cases/<id>?tab=overview
+# 看材料板块图标/颜色是否正常
+# 访问 ?tab=materials，同样检查
+```
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add app/utils/caseMaterial.ts app/components/caseDetail/CaseDetailOverview.vue app/components/caseDetail/CaseDetailMaterials.vue
+git commit -m "refactor(case): 抽取材料图标/颜色工具函数到 caseMaterial.ts
+
+- getMaterialIcon / getMaterialBgColor / getMaterialIconColor 三处 inline 定义合并
+- CaseDetailOverview 与 CaseDetailMaterials 改 import
+- 为后续 AllMaterialsSheet 复用做准备"
+```
+
+---
+
+### Task 10: 新组件 `AllMaterialsSheet.vue` + 单测
+
+**Files:**
+- Create: `app/components/assistant/document/AllMaterialsSheet.vue`
+- Test: `tests/client/components/AllMaterialsSheet.test.ts`
+
+- [ ] **Step 1: 写失败测试**
+
+创建 `tests/client/components/AllMaterialsSheet.test.ts`：
+
+```typescript
+/**
+ * AllMaterialsSheet 组件测试
+ *
+ * **Feature: document-case-materials-sync**
+ * **Validates: spec §4.2**
+ */
+import { describe, it, expect, vi } from 'vitest'
+import { mount } from '@vue/test-utils'
+import AllMaterialsSheet from '~/components/assistant/document/AllMaterialsSheet.vue'
+
+vi.stubGlobal('useFormatters', () => ({ formatDate: (v: string) => v }))
+
+const commonStubs = {
+    Sheet: { template: '<div><slot /></div>' },
+    SheetContent: { template: '<div><slot /></div>' },
+    SheetHeader: { template: '<div><slot /></div>' },
+    SheetTitle: { template: '<div><slot /></div>' },
+    SheetDescription: { template: '<div><slot /></div>' },
+    FolderIcon: { template: '<span />' },
+    FileTextIcon: { template: '<span />' },
+    FileIcon: { template: '<span />' },
+    ImageIcon: { template: '<span />' },
+    FileAudioIcon: { template: '<span />' },
+}
+
+describe('AllMaterialsSheet', () => {
+    it('空态渲染"暂无材料"', () => {
+        const w = mount(AllMaterialsSheet, {
+            props: { open: true, materials: [] },
+            global: { stubs: commonStubs },
+        })
+        expect(w.text()).toContain('暂无材料')
+    })
+
+    it('有材料时列表项数量正确', () => {
+        const w = mount(AllMaterialsSheet, {
+            props: {
+                open: true,
+                materials: [
+                    { id: 1, name: 'a.pdf', type: 2, typeText: '文档', ossFileId: 10, isEncrypted: false, status: 3, summary: null, fileName: 'a.pdf', fileSize: 100, fileType: 'application/pdf' },
+                    { id: 2, name: 'b.png', type: 3, typeText: '图片', ossFileId: 11, isEncrypted: false, status: 3, summary: null, fileName: 'b.png', fileSize: 50, fileType: 'image/png' },
+                ] as any,
+            },
+            global: { stubs: commonStubs },
+        })
+        expect(w.findAll('li')).toHaveLength(2)
+    })
+
+    it('点击行 emit preview-material 带上对应材料对象', async () => {
+        const mat = { id: 1, name: 'a.pdf', type: 2, typeText: '文档', ossFileId: 10, isEncrypted: false, status: 3, summary: null, fileName: 'a.pdf', fileSize: 100, fileType: 'application/pdf' }
+        const w = mount(AllMaterialsSheet, {
+            props: { open: true, materials: [mat] as any },
+            global: { stubs: commonStubs },
+        })
+        await w.find('li').trigger('click')
+        const evts = w.emitted('preview-material')
+        expect(evts).toBeTruthy()
+        expect(evts![0]![0]).toEqual(mat)
+    })
+})
+```
+
+- [ ] **Step 2: 运行测试确认失败**
+
+```bash
+npx vitest run tests/client/components/AllMaterialsSheet.test.ts --reporter=verbose
+```
+
+Expected: FAIL（组件不存在）。
+
+- [ ] **Step 3: 写组件**
+
+创建 `app/components/assistant/document/AllMaterialsSheet.vue`：
+
+```vue
+<script setup lang="ts">
+/**
+ * 文书编辑页 - 查看所有材料 Sheet
+ *
+ * 只读展示本 draft 能看到的全部材料（案件 ∪ draft 合集），点击行 emit 预览事件。
+ *
+ * **只读约束**：Sheet 不含上传 / 编辑 / 解绑按钮。
+ * - 新增走 agent chat 文件按钮
+ * - 解绑走案件材料 Tab（软删该行 case_materials 记录）
+ */
+import { FolderIcon } from 'lucide-vue-next'
+import { formatByteSize } from '#shared/utils/unitConverision'
+import { getMaterialIcon, getMaterialBgColor, getMaterialIconColor } from '~/utils/caseMaterial'
+import type { CaseDetailMaterialItem } from '~/composables/useCaseDetail'
+
+defineProps<{
+    open: boolean
+    materials: CaseDetailMaterialItem[]
+    loading?: boolean
+}>()
+
+const emit = defineEmits<{
+    'update:open': [value: boolean]
+    'preview-material': [material: CaseDetailMaterialItem]
+}>()
+
+function onOpenChange(v: boolean) {
+    emit('update:open', v)
+}
+</script>
+
+<template>
+    <Sheet :open="open" @update:open="onOpenChange">
+        <SheetContent side="right" class="w-full sm:w-[50vw] sm:max-w-[720px] z-[70] p-0 flex flex-col">
+            <SheetHeader class="shrink-0 p-4 border-b">
+                <SheetTitle>所有材料</SheetTitle>
+                <SheetDescription>
+                    本草稿与所属案件共享的全部材料（{{ materials.length }}）
+                </SheetDescription>
+            </SheetHeader>
+            <div class="flex-1 min-h-0 overflow-y-auto p-4">
+                <div v-if="!materials.length" class="text-center py-10 text-muted-foreground">
+                    <FolderIcon class="size-10 opacity-40 mx-auto mb-2" />
+                    暂无材料
+                </div>
+                <ul v-else class="divide-y rounded-md border">
+                    <li
+                        v-for="m in materials"
+                        :key="m.id"
+                        class="flex items-center gap-3 p-3 hover:bg-muted/40 cursor-pointer transition-colors"
+                        @click="emit('preview-material', m)"
+                    >
+                        <div :class="['flex items-center justify-center size-9 rounded-lg shrink-0', getMaterialBgColor(m.type)]">
+                            <component :is="getMaterialIcon(m.type)" :class="['size-5', getMaterialIconColor(m.type)]" />
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium truncate">{{ m.name }}</p>
+                            <p class="text-xs text-muted-foreground">
+                                {{ m.typeText }}
+                                <span v-if="m.fileSize">· {{ formatByteSize(m.fileSize, 0) }}</span>
+                            </p>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </SheetContent>
+    </Sheet>
+</template>
+```
+
+- [ ] **Step 4: 运行测试确认通过**
+
+```bash
+npx vitest run tests/client/components/AllMaterialsSheet.test.ts --reporter=verbose
+```
+
+Expected: 3/3 PASS。
+
+- [ ] **Step 5: typecheck**
+
+```bash
+npx nuxi typecheck 2>&1 | tail -5
+```
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add app/components/assistant/document/AllMaterialsSheet.vue tests/client/components/AllMaterialsSheet.test.ts
+git commit -m "feat(document): 新增 AllMaterialsSheet 组件
+
+- 只读展示本 draft 能看到的全部材料
+- 点击行 emit preview-material，实际预览由父组件分派到既有 Dialog"
+```
+
+---
+
+### Task 11: `drafts/[id].vue` 接线
+
+**Files:**
+- Modify: `app/pages/dashboard/document/drafts/[id].vue`
+
+这是最复杂的 task，改动多处。严格按步骤做。
+
+- [ ] **Step 1: 新增 imports 和 relatedMaterials state**
+
+打开 `app/pages/dashboard/document/drafts/[id].vue`。
+
+在顶部 `import { ArrowLeftIcon, ... } from 'lucide-vue-next'` 这一行追加 `FolderIcon`：
+
+```typescript
+import { ArrowLeftIcon, Loader2Icon, DownloadIcon, SparklesIcon, RefreshCw as RefreshCwIcon, HistoryIcon, SaveIcon, FolderIcon } from 'lucide-vue-next'
+```
+
+在顶部 imports 区追加（靠近其他 type import）：
+
+```typescript
+import { CaseMaterialType } from '#shared/types/case'
+import { VisuallyHidden } from 'reka-ui'
+import type { CaseDetailMaterialItem } from '~/composables/useCaseDetail'
+```
+
+在 `const caseId = computed(...)`（文件内找一下，第 100 行附近）后追加：
+
+```typescript
+// 本 draft 能看到的所有材料（本案件 + 本 draft 合集），用于：
+// 1. MaterialSelector 的 disabledFileIds 禁用已关联文件
+// 2. AllMaterialsSheet 列表展示
+const { data: relatedMaterials } = useApi<CaseDetailMaterialItem[]>(
+    () => draftId.value ? `/api/v1/assistant/document/drafts/${draftId.value}/related-materials` : null,
+)
+const relatedOssFileIds = computed(() =>
+    (relatedMaterials.value ?? [])
+        .map(m => m.ossFileId)
+        .filter((id): id is number => id != null),
+)
+
+// 查看所有材料 Sheet 状态
+const allMaterialsOpen = ref(false)
+```
+
+- [ ] **Step 2: 新增预览 state 和 openMaterialPreview**
+
+继续在同文件 script 内，`onMounted` 函数块之前插入：
+
+```typescript
+// 材料预览 state（与 cases/[id].vue 同构）
+const previewMaterial = ref<CaseDetailMaterialItem | null>(null)
+const showPreview = ref(false)
+const showTextPreview = ref(false)
+const textContent = ref<string | null>(null)
+
+async function openMaterialPreview(material: CaseDetailMaterialItem) {
+    if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
+    }
+    previewMaterial.value = material
+    if (material.type === CaseMaterialType.CASE_CONTENT) {
+        showTextPreview.value = true
+        textContent.value = null
+        const res = await useApiFetch<{ content: string | null }>(`/api/v1/material/content/${material.id}`)
+        textContent.value = res?.content ?? null
+    } else {
+        showPreview.value = true
+    }
+}
+```
+
+- [ ] **Step 3: 合并 disabledFileIds**
+
+找到 materialSelector 调用（大约第 538 行）：
+
+```vue
+<CaseAnalysisMaterialSelector ref="materialSelectorRef" :disabled-file-ids="selectedFileIds"
+    @files-selected="handleFilesFromSelector" />
+```
+
+把 `:disabled-file-ids` 改为合并表达式（模板中不能写复杂表达式，所以加一个 computed）：
+
+先在 script 里追加：
+
+```typescript
+// 合并：已上传的（relatedOssFileIds）+ agent chat 本轮临时勾选的（selectedFileIds）
+const disabledFileIdsMerged = computed(() => {
+    const set = new Set<number>(relatedOssFileIds.value)
+    for (const id of selectedFileIds.value) set.add(id)
+    return Array.from(set)
+})
+```
+
+然后把模板改为：
+
+```vue
+<CaseAnalysisMaterialSelector ref="materialSelectorRef" :disabled-file-ids="disabledFileIdsMerged"
+    @files-selected="handleFilesFromSelector" />
+```
+
+- [ ] **Step 4: 顶部栏加「材料」按钮**
+
+定位顶部栏的第 403-426 行，找到"历史"按钮：
+
+```vue
+<Button variant="outline" size="sm" :disabled="!draft" title="历史" @click="openHistory">
+    <HistoryIcon class="size-4" />
+```
+
+在它的 **前面** 插入"材料"按钮：
+
+```vue
+<Button variant="outline" size="sm" :disabled="!draft" title="所有材料" @click="allMaterialsOpen = true">
+    <FolderIcon class="size-4" />
+    <span class="hidden md:inline ml-1">材料</span>
+</Button>
+```
+
+- [ ] **Step 5: 挂载 AllMaterialsSheet + 三种预览 Dialog**
+
+定位模板里 materialSelector 所在那一段附近（第 537-540 行）。在 `</CaseAnalysisMaterialSelector>` 之后（或等价关闭行）、模板末尾 `</template>` 之前，追加：
+
+```vue
+        <!-- 查看所有材料 Sheet -->
+        <AssistantDocumentAllMaterialsSheet
+            v-model:open="allMaterialsOpen"
+            :materials="relatedMaterials ?? []"
+            @preview-material="openMaterialPreview"
+        />
+
+        <!-- 文档/图片预览 -->
+        <CaseAnalysisDocPreviewDialog
+            v-if="previewMaterial?.type === CaseMaterialType.DOCUMENT || previewMaterial?.type === CaseMaterialType.IMAGE"
+            v-model:open="showPreview"
+            :oss-file-id="previewMaterial!.ossFileId!"
+            :file-name="previewMaterial!.name"
+            :file-type="previewMaterial!.fileType || 'document'"
+        />
+
+        <!-- 音频预览 -->
+        <CaseAnalysisAudioPreviewDialog
+            v-if="previewMaterial?.type === CaseMaterialType.AUDIO"
+            v-model:open="showPreview"
+            :oss-file-id="previewMaterial!.ossFileId!"
+            :file-name="previewMaterial!.name"
+        />
+
+        <!-- 文本预览 -->
+        <Dialog v-model:open="showTextPreview">
+            <DialogContent class="w-full max-h-[80vh] md:min-w-[70vw] flex flex-col">
+                <DialogHeader class="shrink-0">
+                    <DialogTitle class="flex items-center gap-2">
+                        <FileTextIcon class="size-5 text-blue-500" />
+                        {{ previewMaterial?.name }}
+                    </DialogTitle>
+                    <VisuallyHidden><DialogDescription>文本内容预览</DialogDescription></VisuallyHidden>
+                </DialogHeader>
+                <div class="flex-1 min-h-0 overflow-y-auto">
+                    <div v-if="textContent" class="text-sm leading-relaxed whitespace-pre-wrap">
+                        {{ textContent }}
+                    </div>
+                    <div v-else class="text-sm text-muted-foreground text-center py-8">
+                        暂无文本内容
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+```
+
+顶部栏已有 `FileTextIcon` 图标 import（第 13 行）——文本预览 Dialog 使用的 `FileTextIcon` 复用该 import，无需再加。
+
+- [ ] **Step 6: typecheck**
+
+```bash
+npx nuxi typecheck 2>&1 | tail -10
+```
+
+Expected: 无新增错误。
+
+- [ ] **Step 7: 手动 smoke-test**
+
+```bash
+bun dev
+```
+
+依次验证：
+1. 从案件 Tab（`/dashboard/cases/<id>?tab=documents`）点「+ 新建文书」→ 选模板 → 跳转到 drafts/[id]
+2. 顶部栏看到「材料」按钮，点开 Sheet → 列表显示本案件的材料
+3. 点击文档/图片/音频/文本材料 → 对应预览 Dialog 正确弹出
+4. 点 chat 文件按钮 → materialSelector 弹出 → 本案件已有 ossFile 显示"已添加"灰显
+5. 从独立文书页 `/dashboard/document` 新建无 caseId 的 draft → 「材料」Sheet 依然可用（显示本 draft 的 draft-only 材料）
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add app/pages/dashboard/document/drafts/[id].vue
+git commit -m "feat(document): 编辑页接入 relatedMaterials + AllMaterialsSheet + 预览
+
+- 拉 /drafts/:id/related-materials 作为 disabledFileIds + Sheet 数据源
+- 顶部栏加「材料」按钮打开 AllMaterialsSheet
+- 引入材料预览 state 与三种 Dialog（复用 cases/[id].vue 同构实现）"
+```
+
+---
+
+### Task 12: 全量验证
+
+- [ ] **Step 1: 跑全量前端/后端测试**
+
+```bash
+bun run test 2>&1 | tail -30
+```
+
+Expected: 本次新增的所有测试 PASS；既有测试的 pre-existing failures 数量不因本次改动增加。
+
+- [ ] **Step 2: typecheck**
+
+```bash
+npx nuxi typecheck 2>&1 | tail -10
+```
+
+Expected: 无新增错误。
+
+- [ ] **Step 3: 启动 dev 走手动 E2E 清单（spec §5.3）**
+
+```bash
+bun dev
+```
+
+逐条执行：
+
+1. 从案件 Tab 新建草稿 → agent chat 发问 "列出当前案件的所有材料" → agent 回复命中案件已有材料
+2. 在同一草稿上传一份新材料 → 案件材料 Tab 立刻看见
+3. 点顶部「材料」按钮 → Sheet 列出案件+草稿合集
+4. 点击文档 → CaseAnalysisDocPreviewDialog 弹出
+5. 点击音频 → CaseAnalysisAudioPreviewDialog 弹出
+6. 点击文本 → 文本 Dialog 弹出
+7. 点 chat 文件按钮 → selector 里本案件已有 ossFile 灰显"已添加"
+8. 案件材料 Tab 解绑一条由 draft 上传的材料 → Sheet 列表立刻少了这条
+9. 在文书列表删除整个 draft → 该 draft 的 case_materials 记录 `draftId` 置空、`caseId` 保留 → 案件材料 Tab 仍可见
+10. 独立文书页新建草稿 → 上传材料 → Sheet 只看到本 draft 自己的材料（无 caseId 分支）
+11. 回归：同一 ossFile 换个案件的 draft 用 → 不重跑 MinerU/ASR（识别记录按 ossFileId 命中）
+
+- [ ] **Step 4: 若任何步骤失败**
+
+按 Task 编号回溯定位（测试或手动 E2E 失败对应的原始 Task），修复后重跑全量验证。
+
+---
+
+## Self-Review
+
+**1. Spec 覆盖检查：**
+
+| Spec 章节 | Plan 实现 |
+| --- | --- |
+| §2 数据模型双绑 | Task 2（upsert 产生双绑记录） |
+| §3.1 ensureMaterials 签名 + upsert | Task 2 完整实现；Task 4/5 透传 caseId |
+| §3.2 新 DAO + Service | Task 1（DAO）+ Task 3（Service） |
+| §3.3 tool 分流替换 | Task 6 |
+| §3.4 删除 draft 级联 | Task 7 |
+| §3.5 新接口 | Task 8 |
+| §4.1 drafts/[id].vue 接线 | Task 11 |
+| §4.2 AllMaterialsSheet 组件 | Task 10 |
+| §4.1D 预览三件套 | Task 11 Step 2+Step 5 |
+| §5 测试清单 | Task 1/2/3/6/7/10 的 Step 1 |
+
+**2. 无占位符：** 全部 step 有实际代码/命令/断言，无 TBD/TODO。
+
+**3. 类型一致性：**
+- `findActiveMaterialByOssFileIdDao(ossFileId)`：Task 1 定义 → Task 2 调用，单参签名一致
+- `findMaterialsByCaseOrDraftIdDao(caseId, draftId)`：Task 1 定义 → Task 3 调用，签名一致
+- `searchMaterialsByCaseOrDraftService(userId, { caseId, draftId }, options)`：Task 3 定义 → Task 6 调用，签名一致
+- `ensureMaterialsReadyForDraftService(ossFileId, draftId, userId, caseId?)`：Task 2 定义 → Task 4/5 调用（各在对应步骤中以四参形式调用）
+- `getMaterialsByCaseOrDraftIdWithStatusService(caseId, draftId)`：Task 3 定义 → Task 8 调用，签名一致
+- `computeRealStatusForMaterials(materials)`：Task 3 定义并替换到 `getMaterialsByCaseIdWithStatusService` 内部，两处复用
+- 前端 `CaseDetailMaterialItem` 类型：Task 11 从 `~/composables/useCaseDetail` 导入，与后端 Task 8 handler 字段对齐

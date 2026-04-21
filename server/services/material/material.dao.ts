@@ -302,3 +302,48 @@ export const findRecognitionRecordsByOssFileIdsDao = async (
 
     return { docRecords, imageRecords, asrRecords, textRecords }
 }
+
+/**
+ * 按 ossFileId 查活跃材料记录（upsert 用）
+ *
+ * 业务约束：ossFiles.userId 是单一 owner，调用方传入的 ossFileId 必属当前 user，
+ * 所以查到的 existing 必然归属同一用户，无需 DAO 层做 user 过滤。
+ */
+export const findActiveMaterialByOssFileIdDao = async (
+    ossFileId: number,
+    tx?: Prisma.TransactionClient,
+): Promise<caseMaterials | null> => {
+    try {
+        return await (tx || prisma).caseMaterials.findFirst({
+            where: { ossFileId, deletedAt: null },
+        })
+    } catch (error) {
+        logger.error('按 ossFileId 查活跃材料失败：', error)
+        throw error
+    }
+}
+
+/**
+ * 按 caseId 或 draftId 合并查询活跃材料（search_case_materials 工具用）
+ *
+ * OR 条件：返回 caseId 命中 ∪ draftId 命中的全部材料，Prisma 天然去重
+ */
+export const findMaterialsByCaseOrDraftIdDao = async (
+    caseId: number | null,
+    draftId: number | null,
+    tx?: Prisma.TransactionClient,
+): Promise<caseMaterials[]> => {
+    if (caseId == null && draftId == null) return []
+    const orBranches: Prisma.caseMaterialsWhereInput[] = []
+    if (caseId != null) orBranches.push({ caseId })
+    if (draftId != null) orBranches.push({ draftId })
+    try {
+        return await (tx || prisma).caseMaterials.findMany({
+            where: { OR: orBranches, deletedAt: null },
+            orderBy: { createdAt: 'asc' },
+        })
+    } catch (error) {
+        logger.error('按 caseId/draftId 合并查询材料失败：', error)
+        throw error
+    }
+}

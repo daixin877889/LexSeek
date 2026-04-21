@@ -5,15 +5,12 @@ import type { DraftRow } from '#shared/types/document'
 import type { ActiveView, CaseDetailMaterialItem } from '~/composables/useCaseDetail'
 import type { OssFileItem } from '~/store/file'
 import type { RecognitionStatus } from '~/composables/useFileRecognition'
-import { CaseMaterialType } from '#shared/types/case'
 import { formatByteSize } from '#shared/utils/unitConverision'
+import { getMaterialIcon, getMaterialBgColor, getMaterialIconColor } from '~/utils/caseMaterial'
 import {
   EyeIcon,
   FileTextIcon,
   FileEditIcon,
-  FileIcon,
-  ImageIcon,
-  FileAudioIcon,
   PencilIcon,
   CheckIcon,
   XIcon,
@@ -55,6 +52,7 @@ const emit = defineEmits<{
   batchGenerate: []
   goToInterrupt: []
   createDocument: []
+  refreshDrafts: []
 }>()
 
 const infoCardRef = ref<{
@@ -66,7 +64,9 @@ const isEditingCaseInfo = ref(false)
 const isSavingCaseInfo = ref(false)
 
 // 材料视图模式
+const hasDrafts = computed(() => (props.drafts?.length ?? 0) > 0)
 const materialViewMode = ref<'grid' | 'list'>('grid')
+const draftViewMode = ref<'grid' | 'list'>('grid')
 
 // 概览中分析结果始终为 dashboard 模式
 const analysisViewMode = ref<'dashboard' | 'detail'>('dashboard')
@@ -126,35 +126,6 @@ function getMaterialDisplayStatus(material: CaseDetailMaterialItem): { text: str
   return null
 }
 
-function getMaterialIcon(type: number) {
-  switch (type) {
-    case CaseMaterialType.DOCUMENT: return FileTextIcon
-    case CaseMaterialType.IMAGE: return ImageIcon
-    case CaseMaterialType.AUDIO: return FileAudioIcon
-    case CaseMaterialType.CASE_CONTENT: return FileIcon
-    default: return FileIcon
-  }
-}
-
-function getMaterialBgColor(type: number) {
-  switch (type) {
-    case CaseMaterialType.DOCUMENT: return 'bg-blue-500/10 dark:bg-blue-500/20'
-    case CaseMaterialType.IMAGE: return 'bg-green-500/10 dark:bg-green-500/20'
-    case CaseMaterialType.AUDIO: return 'bg-purple-500/10 dark:bg-purple-500/20'
-    case CaseMaterialType.CASE_CONTENT: return 'bg-orange-500/10 dark:bg-orange-500/20'
-    default: return 'bg-muted'
-  }
-}
-
-function getMaterialIconColor(type: number) {
-  switch (type) {
-    case CaseMaterialType.DOCUMENT: return 'text-blue-600 dark:text-blue-400'
-    case CaseMaterialType.IMAGE: return 'text-green-600 dark:text-green-400'
-    case CaseMaterialType.AUDIO: return 'text-purple-600 dark:text-purple-400'
-    case CaseMaterialType.CASE_CONTENT: return 'text-orange-600 dark:text-orange-400'
-    default: return 'text-muted-foreground'
-  }
-}
 </script>
 
 <template>
@@ -347,7 +318,8 @@ function getMaterialIconColor(type: number) {
       <Separator class="mx-4 opacity-50" />
 
       <!-- 分析结果（AnalysisResults 内部 header 统一管理按钮：批量分析 + 查看全部 + 视图切换） -->
-      <CaseAnalysisResults :results="analysisResults" :module-cards="moduleCards" v-model:view-mode="analysisViewMode"
+      <!-- 传 h-auto 覆盖组件自带的 h-full，避免在 overview 纵向流式布局中撑满高度把后续板块挤出视口 -->
+      <CaseAnalysisResults class="h-auto" :results="analysisResults" :module-cards="moduleCards" v-model:view-mode="analysisViewMode"
         v-model:active-module="analysisActiveModule" :show-regenerate="false" :show-copy="false"
         :show-batch-button="showBatchButton" :has-pending-interrupt="hasPendingInterrupt"
         :show-view-all="true"
@@ -361,7 +333,7 @@ function getMaterialIconColor(type: number) {
         <h3 class="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-2">
           <FileEditIcon class="size-4" />
           案件文书
-          <Badge v-if="(drafts?.length ?? 0) > 0" variant="secondary" class="font-normal px-1.5 py-0 h-4 text-[10px]">
+          <Badge v-if="hasDrafts" variant="secondary" class="font-normal px-1.5 py-0 h-4 text-[10px]">
             {{ drafts!.length }}
           </Badge>
         </h3>
@@ -374,9 +346,9 @@ function getMaterialIconColor(type: number) {
             <PlusIcon class="size-3" />
             <span class="hidden lg:inline">新建文书</span>
           </button>
-          <div v-if="(drafts?.length ?? 0) > 0" class="w-px h-3 bg-border" />
+          <div v-if="hasDrafts" class="w-px h-3 bg-border" />
           <button
-            v-if="(drafts?.length ?? 0) > 0"
+            v-if="hasDrafts"
             class="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
             title="查看全部"
             @click="emit('navigateView', 'documents')"
@@ -384,25 +356,31 @@ function getMaterialIconColor(type: number) {
             <EyeIcon class="size-3" />
             <span class="hidden lg:inline">查看全部</span>
           </button>
+          <div v-if="hasDrafts" class="w-px h-3 bg-border" />
+          <!-- 视图切换 -->
+          <div v-if="hasDrafts" class="flex items-center bg-muted/50 rounded-lg p-0.5">
+            <button class="size-7 flex items-center justify-center rounded-md transition-all"
+              :class="draftViewMode === 'grid' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
+              @click="draftViewMode = 'grid'">
+              <LayoutGridIcon class="size-3.5" />
+            </button>
+            <button class="size-7 flex items-center justify-center rounded-md transition-all"
+              :class="draftViewMode === 'list' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'"
+              @click="draftViewMode = 'list'">
+              <ListIcon class="size-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
       <div class="p-4 pt-3">
-        <!-- 空态：spec §4.4 要求的专属 UI（FileTextIcon + 暂无文书） -->
-        <div
-          v-if="(drafts?.length ?? 0) === 0"
-          class="text-center py-6 text-sm text-muted-foreground"
-        >
-          <FileTextIcon class="size-8 mx-auto mb-2 opacity-50" />
+        <!-- 空状态 -->
+        <div v-if="!hasDrafts" class="text-center py-6 text-sm text-muted-foreground">
+          <FileEditIcon class="size-8 mx-auto mb-2 opacity-50" />
           暂无文书
         </div>
-        <!-- 非空：复用 DraftHistory（受控模式 + 隐藏关联案件列） -->
-        <AssistantDocumentDraftHistory
-          v-else
-          :items="drafts ?? []"
-          :loading="false"
-          hide-case-column
-        />
+        <AssistantDocumentDraftCardList v-else :items="drafts ?? []" :view-mode="draftViewMode" show-delete
+          @changed="emit('refreshDrafts')" />
       </div>
 
       <!-- 材料选择器弹窗 -->

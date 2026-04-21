@@ -4,12 +4,12 @@
  * 确保案件所有材料已完成识别和嵌入，供中间件和工具复用。
  * 只对未识别的触发识别，只对未嵌入的触发嵌入，避免重复处理。
  */
-import { getMaterialByIdService, getMaterialsByCaseIdService, getMaterialsByDraftIdService, updateMaterialStatusService, type MaterialWithFile } from './material.service'
+import { getMaterialByIdService, getMaterialsByCaseIdService, getMaterialsByCaseOrDraftIdService, getMaterialsByDraftIdService, updateMaterialStatusService, type MaterialWithFile } from './material.service'
 import { batchCheckMaterialEmbeddedService, embedMaterialUnifiedService } from './materialEmbedding.service'
 import { processMaterialService, batchCheckMaterialRecognizedService, MaterialProcessError } from './materialProcess.service'
 import { CaseMaterialType, getMaterialTypeFromMime } from '#shared/types/case'
 import { MaterialStatus } from '#shared/types/material'
-import { createMaterialDao, findMaterialByIdDao, findMaterialByDraftIdAndOssFileIdDao } from './material.dao'
+import { createMaterialDao, findMaterialByIdDao, findActiveMaterialByOssFileIdDao } from './material.dao'
 
 export interface MaterialFailedItem {
     materialId: number
@@ -91,6 +91,7 @@ async function runRecognitionAndEmbeddingPipeline(
     const notEmbedded = materials.filter(m => !embeddedMap.get(m.id))
 
     let newlyProcessed = 0
+    const finalEmbeddedMap = new Map(embeddedMap)
     if (notEmbedded.length > 0) {
         // 排除识别阶段已失败的材料（不需要再尝试嵌入）
         const failedIds = new Set(failed.map(f => f.materialId))
@@ -100,14 +101,13 @@ async function runRecognitionAndEmbeddingPipeline(
             toEmbed.map(material => embedMaterialUnifiedService(material.id, userId)),
         )
         const embeddingFailures = collectSettledFailures(embeddingResults, toEmbed)
+        const embeddingFailedIds = new Set(embeddingFailures.map(f => f.materialId))
+        for (const m of toEmbed) {
+            if (!embeddingFailedIds.has(m.id)) finalEmbeddedMap.set(m.id, true)
+        }
         newlyProcessed = toEmbed.length - embeddingFailures.length
         failed.push(...embeddingFailures)
     }
-
-    // 复查最终嵌入状态：本轮新嵌入的材料若成功会反映在新 map 上
-    const finalEmbeddedMap = notEmbedded.length > 0
-        ? await batchCheckMaterialEmbeddedService(ids)
-        : embeddedMap
 
     return {
         materials,
@@ -142,19 +142,21 @@ export async function ensureMaterialsReadyService(
  * @param draftId 文书草稿 ID
  * @param userId 调用用户
  * @param options.fileIds 可选：仅处理这些 OSS 文件
+ * @param options.caseId 可选：草稿所属案件 ID，传入后每个 fileId 会透传给单文件 pipeline 实现 case/draft 双绑
  */
 export async function ensureMaterialsReadyByDraftService(
     draftId: number,
     userId: number,
-    options: { fileIds?: number[] } = {},
+    options: { fileIds?: number[]; caseId?: number | null } = {},
 ): Promise<MaterialReadyResult> {
     const initialFailed: MaterialFailedItem[] = []
+    const caseId = options.caseId ?? null
 
     // 1. 对于用户新选的 fileIds，先走单文件 pipeline 保证 caseMaterials 行存在且跑完
     //    （ensureMaterialsReadyForDraftService 内部幂等，已 COMPLETED 会立即返回）
     if (options.fileIds && options.fileIds.length > 0) {
         const perFileResults = await Promise.allSettled(
-            options.fileIds.map(fid => ensureMaterialsReadyForDraftService(fid, draftId, userId)),
+            options.fileIds.map(fid => ensureMaterialsReadyForDraftService(fid, draftId, userId, caseId)),
         )
         for (let i = 0; i < perFileResults.length; i++) {
             const r = perFileResults[i]!
@@ -189,12 +191,16 @@ export function getSourceId(material: MaterialWithFile): number {
     return material.ossFileId!
 }
 
-/** 简单 token 估算（中文约 2 字符/token，英文约 4 字符/token） */
+/**
+ * 简单 token 估算（中文约 1 字符/token，英文约 4 字符/token）
+ * Anthropic tokenizer 对中文字符按 UTF-8 字节编码，1 个中文字符约 1-2 tokens，
+ * 用 1:1 比例估算，避免低估导致安全截断失效。
+ */
 export function estimateTokens(text: string): number {
     if (!text) return 0
     const chineseChars = (text.match(/[\u4e00-\u9fff]/g) || []).length
     const otherChars = text.length - chineseChars
-    return Math.ceil(chineseChars / 2 + otherChars / 4)
+    return Math.ceil(chineseChars + otherChars / 4)
 }
 
 /**
@@ -613,6 +619,22 @@ export async function searchMaterialsByDraftService(
 }
 
 /**
+ * 按 caseId 或 draftId 合并检索材料（search_case_materials 工具用）
+ *
+ * 合并 caseId/draftId 两个范围的材料后走相同的 embedding retrieval / 精确查询逻辑。
+ * Prisma OR 查询天然对同一条记录去重。
+ */
+export async function searchMaterialsByCaseOrDraftService(
+    userId: number,
+    ids: { caseId: number | null; draftId: number | null },
+    options: { query?: string; sourceId?: number; k?: number },
+): Promise<MaterialSearchToolResult[]> {
+    if (ids.caseId == null && ids.draftId == null) return []
+    const allMaterials = await getMaterialsByCaseOrDraftIdService(ids.caseId, ids.draftId)
+    return searchWithinMaterialsService(userId, allMaterials, options)
+}
+
+/**
  * 单文件材料就绪保障（文书草稿场景）
  *
  * 1. 按 (draftId, ossFileId) 去重查询或创建 caseMaterials 记录
@@ -626,15 +648,47 @@ export async function ensureMaterialsReadyForDraftService(
     ossFileId: number,
     draftId: number,
     userId: number,
+    caseId?: number | null,
 ): Promise<{ id: number; status: number; draftId: number | null; ossFileId: number | null }> {
-    const existing = await findMaterialByDraftIdAndOssFileIdDao(draftId, ossFileId)
+    // 查重：按 ossFileId 找活跃记录，避免同一 ossFile 产生多条记录
+    // 安全性由 ossFiles.userId 单 owner 保证（调用方传入的 ossFileId 必属当前 user）
+    const existing = await findActiveMaterialByOssFileIdDao(ossFileId)
 
     let materialId: number
 
     if (existing) {
         materialId = existing.id
+
+        // 按需补齐缺失字段：case-only → 补 draftId；draft-only → 补 caseId；双绑 → 无变更
+        const patch: Partial<{ caseId: number; draftId: number }> = {}
+        if (caseId != null && existing.caseId == null) {
+            patch.caseId = caseId
+        } else if (caseId != null && existing.caseId != null && existing.caseId !== caseId) {
+            // 异常场景：ossFile 已绑定到另一 case（当前业务不会发生），记警告但不覆盖
+            logger.warn('case_materials caseId 冲突，保留原值不覆盖', {
+                materialId: existing.id,
+                existingCaseId: existing.caseId,
+                incomingCaseId: caseId,
+            })
+        }
+        if (existing.draftId !== draftId) {
+            if (existing.draftId != null) {
+                // 异常场景：同 case 下两个活跃 draft 用同文件，后写赢
+                logger.warn('case_materials draftId 被覆盖', {
+                    materialId: existing.id,
+                    oldDraftId: existing.draftId,
+                    newDraftId: draftId,
+                })
+            }
+            patch.draftId = draftId
+        }
+        if (Object.keys(patch).length > 0) {
+            await prisma.caseMaterials.update({ where: { id: existing.id }, data: patch })
+        }
+
+        // 已 COMPLETED 直接返回（跳过识别）
         if (existing.status === MaterialStatus.COMPLETED) {
-            return { id: existing.id, status: existing.status, draftId: existing.draftId, ossFileId: existing.ossFileId }
+            return { id: existing.id, status: existing.status, draftId, ossFileId: existing.ossFileId }
         }
     } else {
         const ossFile = await prisma.ossFiles.findFirst({
@@ -646,7 +700,7 @@ export async function ensureMaterialsReadyForDraftService(
         }
         const materialType = getMaterialTypeFromMime(ossFile.fileType)
         const newMaterial = await createMaterialDao({
-            caseId: null,
+            caseId: caseId ?? null,
             draftId,
             ossFileId,
             name: ossFile.fileName ?? `材料_${ossFileId}`,

@@ -1,9 +1,29 @@
 -- 安装 vector 扩展
 CREATE EXTENSION IF NOT EXISTS vector;
 
+-- 安装 pg_trgm 扩展
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+-- 安装 zhparser 扩展（中文全文搜索）
+CREATE EXTENSION IF NOT EXISTS zhparser;
+
+-- 创建中文全文搜索配置
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_ts_config WHERE cfgname = 'chinese') THEN
+    CREATE TEXT SEARCH CONFIGURATION chinese (PARSER = zhparser);
+    ALTER TEXT SEARCH CONFIGURATION chinese ADD MAPPING FOR n,v,a,i,e,l WITH simple;
+  END IF;
+END $$;
+
+-- 由 zhparser 扩展管理的自定义词典类型
+-- 此 enum 在真实数据库中由扩展创建，此迁移仅用于 shadow DB 重放
+CREATE TYPE "dict_type" AS ENUM ('extra', 'it', 'edu', 'gov', 'medical', 'other');
+
 -- 用户
 INSERT INTO "public"."users" ("id", "name", "username", "email", "phone", "password", "status", "company", "profile", "invite_code", "invited_by", "openid", "unionid", "register_channel", "created_at", "updated_at", "deleted_at") VALUES (1, 'dx', 'daixin87', NULL, '13064768490', '$2b$10$eG3wGRFMnJUh4VXO0tI...WzhS9yGmWS6SMBnylOMddiigFseJa2G', 1, '上海智要网络科技有限公司', '一个处女座的产品经理', '40XF1F', NULL, NULL, NULL, 'web', '2025-12-20 16:24:07.975+08', '2025-12-23 12:12:06.261+08', NULL);
 INSERT INTO "public"."users" ("id", "name", "username", "email", "phone", "password", "status", "company", "profile", "invite_code", "invited_by", "openid", "unionid", "register_channel", "created_at", "updated_at", "deleted_at") VALUES (2, 'Leslie', 'Leslie', NULL, '17521034516', '$2b$10$X87qtwUmE3R.7TpUvtxGIOjwiGO2mtpfEOJBcCX11OFFQ0yvARI.C', 1, NULL, NULL, 'RXJ1IS', NULL, NULL, NULL, 'web', '2026-04-02 00:05:43.815688+08', '2026-04-02 00:13:01.024+08', NULL);
+INSERT INTO "public"."users" ("id", "name", "username", "email", "phone", "password", "status", "company", "profile", "invite_code", "invited_by", "openid", "unionid", "register_channel", "created_at", "updated_at", "deleted_at") VALUES (3, '陆律师', '用户3601', NULL, '15261663601', '$2b$10$RWBdnhXTOXgoNS4g4AJPiOXJLZ3NbjT4DkK39Po/XdyMPZWl2PG.W', 1, NULL, NULL, 'UOXYBZ', NULL, NULL, NULL, 'web', '2026-04-16 15:43:44.733+08', '2026-04-16 15:43:44.733+08', NULL);
+INSERT INTO "public"."users" ("id", "name", "username", "email", "phone", "password", "status", "company", "profile", "invite_code", "invited_by", "openid", "unionid", "register_channel", "created_at", "updated_at", "deleted_at") VALUES (4, '用户 3099', '用户3099', NULL, '18888853099', '$2b$10$Op3hVY3scs50pKniDoHNFOIjWkX1kO7HrcOU77/B2AVsw0CeZH22q', 1, NULL, NULL, 'N1SVQ7', NULL, NULL, NULL, 'web', '2026-04-18 18:21:40.529+08', '2026-04-18 18:21:40.529+08', NULL);
 
 -- 角色
 INSERT INTO "public"."roles" ("id", "name", "code", "description", "status", "created_at", "updated_at", "deleted_at") VALUES (1, '普通用户', 'user', '普通用户', 1, '2025-12-21 17:39:55.999778+08', '2025-12-21 17:39:55.999778+08', NULL);
@@ -31,10 +51,10 @@ INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "i
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (3, 'caseDetail', '案件详情', NULL, '/dashboard/cases/:id', 'f', NULL, '', 1, 3, NULL, 0, '2025-12-21 16:53:24.514531+08', '2025-12-21 16:53:24.514531+08', NULL);
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (4, 'analysis', '案件分析', NULL, '/dashboard/analysis/agent', 'f', NULL, 'lucideIcons.SearchIcon', 1, 4, NULL, 0, '2025-12-21 16:56:12.528999+08', '2025-12-21 16:56:12.528999+08', NULL);
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (5, 'analysisAgentSession', '案件分析会话', NULL, '/dashboard/analysis/agent/:sessionId', 'f', NULL, 'lucideIcons.SearchIcon', 1, 5, NULL, 0, '2025-12-21 16:57:34.700435+08', '2025-12-21 16:57:34.700435+08', NULL);
-INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (6, 'tools', '办案工具', NULL, '/dashboard/tools', 't', NULL, 'lucideIcons.Wrench', 1, 6, NULL, 0, '2025-12-21 16:58:40.353423+08', '2025-12-21 16:58:40.353423+08', NULL);
-INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (7, 'diskSpace', '云盘空间', NULL, '/dashboard/disk-space', 't', NULL, 'lucideIcons.Cloudy', 1, 7, NULL, 0, '2025-12-21 17:00:22.10699+08', '2025-12-21 17:00:22.10699+08', NULL);
-INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (8, 'membership', '会员中心', NULL, '/dashboard/membership', 't', NULL, 'lucideIcons.Crown', 1, 8, NULL, 0, '2025-12-21 17:01:29.551359+08', '2025-12-21 17:01:29.551359+08', NULL);
-INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (9, 'settings', '账户设置', NULL, '/dashboard/settings', 't', NULL, 'lucideIcons.SettingsIcon', 1, 9, NULL, 0, '2025-12-21 17:02:03.852831+08', '2025-12-21 17:02:03.852831+08', NULL);
+INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (6, 'tools', '办案工具', NULL, '/dashboard/tools', 't', NULL, 'lucideIcons.Wrench', 1, 8, NULL, 0, '2025-12-21 16:58:40.353423+08', '2025-12-21 16:58:40.353423+08', NULL);
+INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (7, 'diskSpace', '云盘空间', NULL, '/dashboard/disk-space', 't', NULL, 'lucideIcons.Cloudy', 1, 9, NULL, 0, '2025-12-21 17:00:22.10699+08', '2025-12-21 17:00:22.10699+08', NULL);
+INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (8, 'membership', '会员中心', NULL, '/dashboard/membership', 't', NULL, 'lucideIcons.Crown', 1, 10, NULL, 0, '2025-12-21 17:01:29.551359+08', '2025-12-21 17:01:29.551359+08', NULL);
+INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (9, 'settings', '账户设置', NULL, '/dashboard/settings', 't', NULL, 'lucideIcons.SettingsIcon', 1, 11, NULL, 0, '2025-12-21 17:02:03.852831+08', '2025-12-21 17:02:03.852831+08', NULL);
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (10, 'buy', '购买会员', NULL, '/dashboard/buy/:id', 'f', NULL, '', 1, 10, NULL, 0, '2025-12-21 17:02:55.701647+08', '2025-12-21 17:02:55.701647+08', NULL);
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (11, 'order', '订单详情', NULL, '/dashboard/order/:id', 'f', NULL, NULL, 1, 11, NULL, 0, '2025-12-21 17:04:02.91961+08', '2025-12-21 17:04:02.91961+08', NULL);
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (12, 'dashboard-analysis', '案件分析', NULL, '/dashboard/analysis', 'f', NULL, 'lucideIcons.SearchIcon', 1, 4, NULL, 0, '2025-12-31 11:08:02.004+08', '2026-04-01 23:41:28.971+08', NULL);
@@ -108,11 +128,20 @@ INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "i
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (80, 'admin-mineru-tasks', 'MinerU 任务管理', NULL, '/admin/mineru-tasks', 't', NULL, 'FileTextIcon', 3, 2, '材料处理', 8, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (81, 'admin-mineru-tokens', 'MinerU Token 管理', NULL, '/admin/mineru-tokens', 't', NULL, 'KeyIcon', 3, 1, '材料处理', 8, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (82, 'dashboard-analysis-:sessionId', '案件分析', NULL, '/dashboard/analysis/:sessionId', 'f', NULL, NULL, 4, 0, NULL, 0, '2026-03-20 14:55:26.67+08', '2026-03-20 14:55:26.67+08', NULL);
-INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (83, 'dashboard-legal', '法律法规', NULL, '/dashboard/legal', 't', NULL, 'lucideIcons.BookMarked', 1, 5, NULL, 0, '2026-03-20 14:55:26.67+08', '2026-03-31 19:08:53.756+08', NULL);
+INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (83, 'dashboard-legal', '法律法规', NULL, '/dashboard/legal', 't', NULL, 'lucideIcons.BookMarked', 1, 7, NULL, 0, '2026-03-20 14:55:26.67+08', '2026-03-31 19:08:53.756+08', NULL);
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (84, 'dashboard-legal-preview-:id', '法律法规详情', NULL, '/dashboard/legal/preview/:id', 'f', NULL, NULL, 4, 0, NULL, 0, '2026-03-20 14:55:26.67+08', '2026-03-20 14:55:26.67+08', NULL);
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (189, 'dashboard-cases-create', '创建案件', NULL, '/dashboard/cases/create', 't', NULL, 'lucideIcons.SearchIcon', 1, 3, NULL, 0, '2026-04-01 23:40:11.449+08', '2026-04-01 23:42:09.018+08', NULL);
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (190, 'dashboard-cases-init-analysis', '初始化分析', NULL, '/dashboard/cases/init-analysis', 'f', NULL, NULL, 4, 0, NULL, 0, '2026-04-01 23:40:11.449+08', '2026-04-01 23:40:11.449+08', NULL);
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (191, 'dashboard-cases-init-analysis-:sessionId', '初始化分析', NULL, '/dashboard/cases/init-analysis/:sessionId', 'f', NULL, NULL, 4, 0, NULL, 0, '2026-04-01 23:40:11.449+08', '2026-04-01 23:40:11.449+08', NULL);
+INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (192, 'dashboard-assistant-chat', '法律助手', '无案件上下文的通用法律助手对话入口', '/dashboard/assistant', 't', NULL, 'lucideIcons.MessageSquareIcon', 1, 4, NULL, 0, '2026-04-17 15:32:55.038+08', '2026-04-17 15:32:55.038+08', NULL);
+INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (193, 'dashboard-assistant-contract', '合同审查', '合同审查（占位，开发中）', '/dashboard/assistant/contract', 't', NULL, 'lucideIcons.FileSearchIcon', 1, 5, NULL, 0, '2026-04-17 15:32:55.063+08', '2026-04-18 22:36:14.172791+08', NULL);
+INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (194, 'dashboard-document', '文书生成', '法律文书生成（占位，开发中）', '/dashboard/document', 't', NULL, 'lucideIcons.FileTextIcon', 1, 6, NULL, 0, '2026-04-17 15:32:55.067+08', '2026-04-17 15:32:55.067+08', NULL);
+INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (323, 'admin-document-templates', '文书模板', NULL, '/admin/document-templates', 't', NULL, 'FileTextIcon', 3, 0, '知识库管理', 4, '2026-04-18 11:12:55.785+08', '2026-04-19 08:33:14.458137+08', NULL);
+INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (324, 'dashboard-document-templates', '文书模板', NULL, '/dashboard/document/templates', 'f', NULL, NULL, 4, 0, NULL, 0, '2026-04-18 11:12:55.785+08', '2026-04-18 11:12:55.785+08', NULL);
+INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (337, 'dashboard-document-drafts', '文书草稿', NULL, '/dashboard/document/drafts', 'f', NULL, NULL, 4, 0, NULL, 0, '2026-04-19 08:29:30.711+08', '2026-04-19 08:29:30.711+08', NULL);
+INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (338, 'dashboard-document-drafts-:id', '文书草稿', NULL, '/dashboard/document/drafts/:id', 'f', NULL, NULL, 4, 0, NULL, 0, '2026-04-19 08:29:30.711+08', '2026-04-19 08:29:30.711+08', NULL);
+INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (339, 'admin-contract-reviews-:id', '合同审查详情', NULL, '/admin/contract-reviews/:id', 'f', NULL, NULL, 3, 0, NULL, 0, '2026-04-20 20:58:29.021+08', '2026-04-20 20:58:29.021+08', NULL);
+INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (548, 'admin-contract-reviews', '合同审查记录', '查看并管理全部用户合同审查记录', '/admin/contract-reviews', 't', NULL, 'FileTextIcon', 3, 3, '知识库管理', 4, '2026-04-19 10:00:00+08', '2026-04-19 10:00:00+08', NULL);
 
 -- 角色路由
 INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (1, 1, 1, '2025-12-31 09:53:05.425+08', '2025-12-31 09:53:05.425+08', NULL);
@@ -251,27 +280,18 @@ INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at",
 INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (134, 2, 190, '2026-04-01 23:45:06.331+08', '2026-04-01 23:45:06.331+08', NULL);
 INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (135, 2, 191, '2026-04-01 23:45:06.333+08', '2026-04-01 23:45:06.333+08', NULL);
 INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (136, 1, 189, '2026-04-01 23:45:41.626+08', '2026-04-01 23:45:41.626+08', NULL);
-INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (137, 1, 43, '2026-04-01 23:45:41.629+08', '2026-04-01 23:45:41.629+08', NULL);
 INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (176, 1, 190, '2026-04-01 23:45:41.702+08', '2026-04-01 23:45:41.702+08', NULL);
 INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (177, 1, 191, '2026-04-01 23:45:41.704+08', '2026-04-01 23:45:41.704+08', NULL);
-
--- 文书生成 - 模板管理子路由（isMenu=false，从文书生成页内部按钮进入）
--- 对应页面：app/pages/dashboard/document/templates.vue
--- 顶级菜单 `/dashboard/document` 由 prisma/seed.ts 的 seedAssistantRouters 负责 upsert
-INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (324, 'dashboard-document-templates', '文书模板', '用户个人文书模板管理（从文书生成页进入）', '/dashboard/document/templates', 'f', NULL, 'lucideIcons.FileTextIcon', 1, 0, NULL, 0, '2026-04-18 11:12:55.785+08', '2026-04-18 11:12:55.785+08', NULL) ON CONFLICT (name) DO NOTHING;
-INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (186, 1, 324, '2026-04-18 14:20:00+08', '2026-04-18 14:20:00+08', NULL) ON CONFLICT (role_id, router_id) DO NOTHING;
-INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (187, 2, 324, '2026-04-18 14:20:00+08', '2026-04-18 14:20:00+08', NULL) ON CONFLICT (role_id, router_id) DO NOTHING;
-
--- 管理端：文书模板管理（超管可见，知识库管理菜单组）
--- 对应页面：app/pages/admin/document-templates/index.vue
-INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (547, 'admin-document-templates', '文书模板', '系统级文书模板管理', '/admin/document-templates', 't', NULL, 'FileTextIcon', 3, 2, '知识库管理', 4, '2026-04-18 16:00:00+08', '2026-04-18 16:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
-INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (188, 1, 547, '2026-04-18 16:00:00+08', '2026-04-18 16:00:00+08', NULL) ON CONFLICT (role_id, router_id) DO NOTHING;
-
--- 管理端：合同审查记录（超管可见，知识库管理菜单组）
--- 对应页面：app/pages/admin/contract-reviews/index.vue
--- **Feature: contract-review-m6.1b**
-INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (548, 'admin-contract-reviews', '合同审查记录', '查看并管理全部用户合同审查记录', '/admin/contract-reviews', 't', NULL, 'FileTextIcon', 3, 3, '知识库管理', 4, '2026-04-19 10:00:00+08', '2026-04-19 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
-INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (189, 1, 548, '2026-04-19 10:00:00+08', '2026-04-19 10:00:00+08', NULL) ON CONFLICT (role_id, router_id) DO NOTHING;
+INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (178, 1, 192, '2026-04-17 15:32:55.082+08', '2026-04-17 15:32:55.082+08', NULL);
+INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (179, 1, 193, '2026-04-17 15:32:55.088+08', '2026-04-17 15:32:55.088+08', NULL);
+INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (180, 1, 194, '2026-04-17 15:32:55.091+08', '2026-04-17 15:32:55.091+08', NULL);
+INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (181, 2, 192, '2026-04-17 15:32:55.093+08', '2026-04-17 15:32:55.093+08', NULL);
+INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (182, 2, 193, '2026-04-17 15:32:55.096+08', '2026-04-17 15:32:55.096+08', NULL);
+INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (183, 2, 194, '2026-04-17 15:32:55.099+08', '2026-04-17 15:32:55.099+08', NULL);
+INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (186, 1, 324, '2026-04-18 14:20:39.555475+08', '2026-04-18 14:20:39.555475+08', NULL);
+INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (187, 2, 324, '2026-04-18 14:20:39.555475+08', '2026-04-18 14:20:39.555475+08', NULL);
+INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (189, 1, 548, '2026-04-19 10:00:00+08', '2026-04-19 10:00:00+08', NULL);
+INSERT INTO "public"."role_routers" ("id", "role_id", "router_id", "created_at", "updated_at", "deleted_at") VALUES (229, 1, 323, '2026-04-19 08:33:14.484811+08', '2026-04-19 08:33:14.484811+08', NULL);
 
 
 -- 会员级别
@@ -581,6 +601,56 @@ INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "descrip
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (275, '/api/v1/dashboard', 'GET', 'GET dashboard', NULL, 'f', NULL, 1, '2026-04-16 15:47:35.294+08', '2026-04-16 15:47:35.294+08', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (276, '/api/v1/demo-cases/prepare/:id', 'POST', 'POST demo cases / prepare / [id]', NULL, 'f', NULL, 1, '2026-04-16 15:47:35.295+08', '2026-04-16 15:47:35.295+08', NULL);
 INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (277, '/api/v1/files/download/:fileId', 'GET', 'GET files / download / [fileId]', NULL, 'f', NULL, 1, '2026-04-16 15:47:35.296+08', '2026-04-16 15:47:35.296+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (278, '/api/v1/admin/contract-reviews', 'GET', 'GET admin / contract reviews', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.545+08', '2026-04-20 20:58:20.545+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (279, '/api/v1/admin/contract-reviews/:id', 'DELETE', 'DELETE admin / contract reviews / [id]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.566+08', '2026-04-20 20:58:20.566+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (280, '/api/v1/admin/contract-reviews/:id', 'GET', 'GET admin / contract reviews / [id]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.568+08', '2026-04-20 20:58:20.568+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (281, '/api/v1/admin/document-templates', 'GET', 'GET admin / document templates', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.569+08', '2026-04-20 20:58:20.569+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (282, '/api/v1/admin/document-templates', 'POST', 'POST admin / document templates', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.57+08', '2026-04-20 20:58:20.57+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (283, '/api/v1/admin/document-templates/:id', 'DELETE', 'DELETE admin / document templates / [id]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.571+08', '2026-04-20 20:58:20.571+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (284, '/api/v1/admin/document-templates/:id', 'GET', 'GET admin / document templates / [id]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.572+08', '2026-04-20 20:58:20.572+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (285, '/api/v1/admin/document-templates/:id', 'PATCH', 'PATCH admin / document templates / [id]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.573+08', '2026-04-20 20:58:20.573+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (286, '/api/v1/admin/document-templates/download-url/:id', 'GET', 'GET admin / document templates / download url / [id]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.574+08', '2026-04-20 20:58:20.574+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (287, '/api/v1/assistant/chat', 'POST', 'POST assistant / chat', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.575+08', '2026-04-20 20:58:20.575+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (288, '/api/v1/assistant/contract/chat', 'POST', 'POST assistant / contract / chat', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.576+08', '2026-04-20 20:58:20.576+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (289, '/api/v1/assistant/contract/reviews', 'GET', 'GET assistant / contract / reviews', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.576+08', '2026-04-20 20:58:20.576+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (290, '/api/v1/assistant/contract/reviews', 'POST', 'POST assistant / contract / reviews', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.577+08', '2026-04-20 20:58:20.577+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (291, '/api/v1/assistant/contract/reviews/:id', 'GET', 'GET assistant / contract / reviews / [id]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.578+08', '2026-04-20 20:58:20.578+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (292, '/api/v1/assistant/contract/reviews/[id]', 'PATCH', 'PATCH assistant / contract / reviews / [id]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.578+08', '2026-04-20 20:58:20.578+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (293, '/api/v1/assistant/contract/reviews/[id]/download', 'GET', 'GET assistant / contract / reviews / [id] / download', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.579+08', '2026-04-20 20:58:20.579+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (294, '/api/v1/assistant/contract/reviews/[id]/export-pdf', 'POST', 'POST assistant / contract / reviews / [id] / export pdf', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.58+08', '2026-04-20 20:58:20.58+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (295, '/api/v1/assistant/contract/reviews/[id]/rebuild-docx', 'POST', 'POST assistant / contract / reviews / [id] / rebuild docx', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.581+08', '2026-04-20 20:58:20.581+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (296, '/api/v1/assistant/contract/reviews/[id]/stance', 'POST', 'POST assistant / contract / reviews / [id] / stance', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.582+08', '2026-04-20 20:58:20.582+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (297, '/api/v1/assistant/document/chat', 'POST', 'POST assistant / document / chat', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.583+08', '2026-04-20 20:58:20.583+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (298, '/api/v1/assistant/document/drafts', 'GET', 'GET assistant / document / drafts', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.584+08', '2026-04-20 20:58:20.584+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (299, '/api/v1/assistant/document/drafts', 'POST', 'POST assistant / document / drafts', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.586+08', '2026-04-20 20:58:20.586+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (300, '/api/v1/assistant/document/drafts/:id', 'DELETE', 'DELETE assistant / document / drafts / [id]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.586+08', '2026-04-20 20:58:20.586+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (301, '/api/v1/assistant/document/drafts/:id', 'GET', 'GET assistant / document / drafts / [id]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.587+08', '2026-04-20 20:58:20.587+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (302, '/api/v1/assistant/document/drafts/:id', 'PATCH', 'PATCH assistant / document / drafts / [id]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.589+08', '2026-04-20 20:58:20.589+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (303, '/api/v1/assistant/document/drafts/[id]/export', 'POST', 'POST assistant / document / drafts / [id] / export', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.59+08', '2026-04-20 20:58:20.59+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (304, '/api/v1/assistant/document/drafts/[id]/materials', 'POST', 'POST assistant / document / drafts / [id] / materials', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.591+08', '2026-04-20 20:58:20.591+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (305, '/api/v1/assistant/document/drafts/[id]/materials/:materialId', 'DELETE', 'DELETE assistant / document / drafts / [id] / materials / [materialId]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.591+08', '2026-04-20 20:58:20.591+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (306, '/api/v1/assistant/document/drafts/[id]/related-materials', 'GET', 'GET assistant / document / drafts / [id] / related materials', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.592+08', '2026-04-20 20:58:20.592+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (307, '/api/v1/assistant/document/drafts/[id]/snapshots', 'GET', 'GET assistant / document / drafts / [id] / snapshots', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.593+08', '2026-04-20 20:58:20.593+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (308, '/api/v1/assistant/document/drafts/[id]/title', 'PATCH', 'PATCH assistant / document / drafts / [id] / title', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.594+08', '2026-04-20 20:58:20.594+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (309, '/api/v1/assistant/document/drafts/[id]/versions', 'GET', 'GET assistant / document / drafts / [id] / versions', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.594+08', '2026-04-20 20:58:20.594+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (310, '/api/v1/assistant/document/drafts/[id]/versions', 'POST', 'POST assistant / document / drafts / [id] / versions', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.595+08', '2026-04-20 20:58:20.595+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (311, '/api/v1/assistant/document/drafts/snapshots/apply/:snapshotId', 'POST', 'POST assistant / document / drafts / snapshots / apply / [snapshotId]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.596+08', '2026-04-20 20:58:20.596+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (312, '/api/v1/assistant/document/drafts/versions/:versionId', 'DELETE', 'DELETE assistant / document / drafts / versions / [versionId]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.597+08', '2026-04-20 20:58:20.597+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (313, '/api/v1/assistant/document/drafts/versions/:versionId', 'PATCH', 'PATCH assistant / document / drafts / versions / [versionId]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.597+08', '2026-04-20 20:58:20.597+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (314, '/api/v1/assistant/document/drafts/versions/export/:versionId', 'GET', 'GET assistant / document / drafts / versions / export / [versionId]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.598+08', '2026-04-20 20:58:20.598+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (315, '/api/v1/assistant/document/drafts/versions/restore/:versionId', 'POST', 'POST assistant / document / drafts / versions / restore / [versionId]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.599+08', '2026-04-20 20:58:20.599+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (316, '/api/v1/assistant/document/templates', 'GET', 'GET assistant / document / templates', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.6+08', '2026-04-20 20:58:20.6+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (317, '/api/v1/assistant/document/templates', 'POST', 'POST assistant / document / templates', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.602+08', '2026-04-20 20:58:20.602+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (318, '/api/v1/assistant/document/templates/:id', 'DELETE', 'DELETE assistant / document / templates / [id]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.603+08', '2026-04-20 20:58:20.603+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (319, '/api/v1/assistant/document/templates/:id', 'GET', 'GET assistant / document / templates / [id]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.605+08', '2026-04-20 20:58:20.605+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (320, '/api/v1/assistant/document/templates/:id', 'PATCH', 'PATCH assistant / document / templates / [id]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.606+08', '2026-04-20 20:58:20.606+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (321, '/api/v1/assistant/document/templates/download-url/:id', 'GET', 'GET assistant / document / templates / download url / [id]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.607+08', '2026-04-20 20:58:20.607+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (322, '/api/v1/assistant/runs/cancel/:runId', 'POST', 'POST assistant / runs / cancel / [runId]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.609+08', '2026-04-20 20:58:20.609+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (323, '/api/v1/assistant/sessions', 'GET', 'GET assistant / sessions', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.61+08', '2026-04-20 20:58:20.61+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (324, '/api/v1/assistant/sessions', 'POST', 'POST assistant / sessions', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.611+08', '2026-04-20 20:58:20.611+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (325, '/api/v1/assistant/sessions/:id', 'DELETE', 'DELETE assistant / sessions / [id]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.612+08', '2026-04-20 20:58:20.612+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (326, '/api/v1/assistant/sessions/:id', 'GET', 'GET assistant / sessions / [id]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.612+08', '2026-04-20 20:58:20.612+08', NULL);
+INSERT INTO "public"."api_permissions" ("id", "path", "method", "name", "description", "is_public", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (327, '/api/v1/assistant/sessions/:id', 'PATCH', 'PATCH assistant / sessions / [id]', NULL, 'f', NULL, 1, '2026-04-20 20:58:20.613+08', '2026-04-20 20:58:20.613+08', NULL);
 
 -- 角色 API
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (165, 2, 1, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
@@ -656,10 +726,10 @@ INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (235, 2, 100, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (236, 2, 101, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (237, 2, 102, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (238, 2, 1024, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (239, 2, 1025, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (240, 2, 1026, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (241, 2, 1027, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (238, 2, 156, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (239, 2, 157, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (240, 2, 158, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (241, 2, 159, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (242, 2, 2, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (243, 2, 3, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (244, 2, 7, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
@@ -670,11 +740,11 @@ INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (249, 2, 5, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (250, 2, 6, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (251, 2, 11, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (252, 2, 1028, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (253, 2, 1029, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (254, 2, 1030, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (255, 2, 1031, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (256, 2, 1032, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (252, 2, 160, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (253, 2, 161, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (254, 2, 162, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (255, 2, 163, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (256, 2, 164, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (257, 2, 12, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (258, 2, 103, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (259, 2, 104, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
@@ -682,17 +752,17 @@ INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (261, 2, 105, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (262, 2, 107, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (263, 2, 108, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (264, 2, 1033, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (265, 2, 1034, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (266, 2, 1035, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (267, 2, 1036, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (268, 2, 1037, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (269, 2, 1038, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (270, 2, 1039, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (271, 2, 1041, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (272, 2, 1040, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (273, 2, 1042, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (274, 2, 1043, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (264, 2, 165, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (265, 2, 166, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (266, 2, 167, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (267, 2, 168, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (268, 2, 169, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (269, 2, 170, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (270, 2, 171, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (271, 2, 173, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (272, 2, 172, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (273, 2, 174, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (274, 2, 175, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (275, 2, 109, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (276, 2, 111, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (277, 2, 110, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
@@ -715,16 +785,16 @@ INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (294, 2, 128, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (295, 2, 129, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (296, 2, 153, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (297, 2, 1044, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (298, 2, 1045, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (299, 2, 1046, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (300, 2, 1047, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (301, 2, 1048, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (302, 2, 1049, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (303, 2, 1050, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (304, 2, 1051, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (305, 2, 1052, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (306, 2, 1053, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (297, 2, 176, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (298, 2, 177, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (299, 2, 178, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (300, 2, 179, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (301, 2, 180, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (302, 2, 181, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (303, 2, 182, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (304, 2, 183, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (305, 2, 184, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (306, 2, 185, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (307, 2, 130, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (308, 2, 131, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (309, 2, 135, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
@@ -742,71 +812,151 @@ INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (321, 2, 143, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (322, 2, 145, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
 INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (323, 2, 144, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (324, 2, 1054, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (325, 2, 1055, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (326, 2, 1057, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (327, 2, 1056, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (328, 2, 1058, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (329, 2, 1059, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (488, 1, 82, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (489, 1, 1, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (490, 1, 27, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (491, 1, 28, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (492, 1, 29, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (493, 1, 30, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (494, 1, 31, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (495, 1, 32, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (496, 1, 33, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (497, 1, 34, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (498, 1, 35, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (499, 1, 36, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (500, 1, 37, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (501, 1, 38, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (502, 1, 40, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (503, 1, 41, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (504, 1, 39, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (505, 1, 42, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (506, 1, 43, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (507, 1, 44, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (508, 1, 45, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (509, 1, 46, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (510, 1, 47, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (511, 1, 48, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (512, 1, 49, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (513, 1, 50, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (514, 1, 51, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (515, 1, 52, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (516, 1, 53, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (517, 1, 54, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (518, 1, 55, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (519, 1, 56, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (520, 1, 57, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (521, 1, 58, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (522, 1, 59, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (523, 1, 60, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (524, 1, 61, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (525, 1, 62, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (526, 1, 63, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (527, 1, 64, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (528, 1, 65, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (529, 1, 66, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (530, 1, 67, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (531, 1, 68, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (532, 1, 69, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (533, 1, 70, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (534, 1, 71, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (535, 1, 72, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (536, 1, 73, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (537, 1, 74, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (538, 1, 75, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (539, 1, 76, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (540, 1, 77, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (541, 1, 78, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (542, 1, 79, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (543, 1, 80, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (544, 1, 81, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (545, 1, 90, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
-INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (546, 1, 91, '2026-04-01 23:45:37.863+08', '2026-04-01 23:45:37.863+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (324, 2, 186, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (325, 2, 187, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (326, 2, 189, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (327, 2, 188, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (328, 2, 190, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (329, 2, 191, '2026-04-01 23:45:01.523+08', '2026-04-01 23:45:01.523+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (824, 1, 82, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (825, 1, 1, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (826, 1, 27, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (827, 1, 28, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (828, 1, 29, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (829, 1, 30, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (830, 1, 31, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (831, 1, 32, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (832, 1, 33, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (833, 1, 34, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (834, 1, 35, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (835, 1, 36, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (836, 1, 37, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (837, 1, 38, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (838, 1, 40, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (839, 1, 41, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (840, 1, 39, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (841, 1, 42, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (842, 1, 43, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (843, 1, 44, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (844, 1, 45, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (845, 1, 46, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (846, 1, 47, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (847, 1, 48, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (848, 1, 49, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (849, 1, 50, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (850, 1, 51, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (851, 1, 52, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (852, 1, 53, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (853, 1, 54, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (854, 1, 55, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (855, 1, 56, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (856, 1, 57, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (857, 1, 58, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (858, 1, 59, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (859, 1, 60, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (860, 1, 61, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (861, 1, 62, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (862, 1, 63, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (863, 1, 64, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (864, 1, 65, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (865, 1, 66, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (866, 1, 67, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (867, 1, 68, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (868, 1, 69, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (869, 1, 70, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (870, 1, 71, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (871, 1, 72, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (872, 1, 73, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (873, 1, 74, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (874, 1, 75, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (875, 1, 76, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (876, 1, 77, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (877, 1, 78, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (878, 1, 79, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (879, 1, 80, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (880, 1, 81, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (881, 1, 90, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (882, 1, 91, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (883, 1, 210, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (884, 1, 211, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (885, 1, 216, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (886, 1, 217, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (887, 1, 266, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (888, 1, 267, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (889, 1, 269, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (890, 1, 268, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (891, 1, 219, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (892, 1, 220, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (893, 1, 218, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (894, 1, 270, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (895, 1, 221, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (896, 1, 222, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (897, 1, 223, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (898, 1, 225, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (899, 1, 224, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (900, 1, 271, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (901, 1, 273, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (902, 1, 272, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (903, 1, 214, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (904, 1, 213, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (905, 1, 215, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (906, 1, 226, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (907, 1, 227, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (908, 1, 228, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (909, 1, 229, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (910, 1, 230, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (911, 1, 231, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (912, 1, 232, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (913, 1, 235, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (914, 1, 274, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (915, 1, 236, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (916, 1, 233, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (917, 1, 234, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (918, 1, 212, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (919, 1, 275, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (920, 1, 237, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (921, 1, 238, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (922, 1, 276, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (923, 1, 277, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (924, 1, 239, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (925, 1, 240, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (926, 1, 241, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (927, 1, 242, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (928, 1, 243, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (929, 1, 244, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (930, 1, 245, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (931, 1, 246, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (932, 1, 247, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (933, 1, 248, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (934, 1, 249, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (935, 1, 250, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (936, 1, 251, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (937, 1, 254, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (938, 1, 253, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (939, 1, 252, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (940, 1, 255, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (941, 1, 256, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (942, 1, 257, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (943, 1, 258, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (944, 1, 259, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (945, 1, 260, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (946, 1, 261, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (947, 1, 262, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (948, 1, 263, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (949, 1, 264, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (950, 1, 265, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (951, 1, 88, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+INSERT INTO "public"."role_api_permissions" ("id", "role_id", "permission_id", "created_at", "updated_at", "deleted_at") VALUES (952, 1, 89, '2026-04-18 15:02:18.663+08', '2026-04-18 15:02:18.663+08', NULL);
+
+
+-- ==================== 案件类型种子数据 ====================
+INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (1, '民商事案件', '包括合同纠纷、侵权纠纷、婚姻家庭纠纷等民事案件', 'ScaleIcon', 10, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (2, '刑事案件', '包括盗窃、诈骗、故意伤害等刑事犯罪案件', 'ShieldAlertIcon', 20, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (3, '股权纠纷案件', '包括行政处罚、行政许可、行政强制等行政案件', 'BuildingIcon', 30, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (4, '强制执行案件', '包括劳动合同纠纷、工伤赔偿、社保争议等劳动案件', 'BriefcaseIcon', 40, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (5, '知识产权案件', '包括专利侵权、商标侵权、著作权纠纷等知识产权案件', 'LightbulbIcon', 50, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (6, '涉外案件', '包括股权纠纷、公司治理、商业合同等商事案件', 'Building2Icon', 60, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
+INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (7, '行政案件', '包括房屋买卖、租赁纠纷、物业管理等房产案件', 'HomeIcon', 70, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
 
 -- 示范案例
 INSERT INTO "public"."demo_cases" ("id", "title", "description", "case_type_id", "materials", "cover_image", "priority", "status", "created_at", "updated_at", "deleted_at", "content") VALUES (1, '消费者诉健身房清算责任纠纷', NULL, 1, '[]', NULL, 100, 1, '2026-04-13 15:32:51.982+08', '2026-04-13 15:32:51.982+08', NULL, '我叫王某月，今天来是想向您咨询一件烦心事，希望能得到您的法律帮助。
@@ -897,27 +1047,21 @@ INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "d
 INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES (10, 'defense', 'analysisModules', '抗辩分析及应对策略预测', '抗辩分析及应对策略预测', '次', 5, 1, '2026-03-16 20:28:50.428246+08', '2026-03-16 20:28:50.428246+08', NULL, '1.00');
 INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES (11, 'evidence', 'analysisModules', '证据清单预梳理', '证据清单预梳理', '次', 7, 1, '2026-03-16 20:28:50.428623+08', '2026-03-16 20:28:50.428623+08', NULL, '0.70');
 INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES (12, 'case_analysis_token', 'agentToken', '案件分析 Token 消耗', '模型调用按 token 用量扣减积分', '千tokens', 10, 1, '2026-03-26 00:00:00+08', '2026-03-26 00:00:00+08', NULL, '1.00');
--- document_draft_token: 文书生成 token 计费规则（由 seed.ts 的 seedDocumentDraftTokenRule 幂等写入，此处为等幂备份）
-INSERT INTO "public"."point_consumption_items" ("key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES ('document_draft_token', 'agentToken', '文书生成 token 计费', '文书生成按模型 token 用量扣减积分', '千tokens', 1, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL, '1.00') ON CONFLICT (key) DO NOTHING;
--- contract_review_token: 合同审查 token 计费规则
-INSERT INTO "public"."point_consumption_items" ("key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES ('contract_review_token', 'agentToken', '合同审查 token 计费', '合同审查按模型 token 用量扣减积分', '千tokens', 1, 1, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL, '1.00') ON CONFLICT (key) DO NOTHING;
+INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES (13,'document_draft_token', 'agentToken', '文书生成 token 计费', '文书生成按模型 token 用量扣减积分', '千tokens', 1, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL, '1.00') ON CONFLICT (key) DO NOTHING;
+INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES (14,'contract_review_token', 'agentToken', '合同审查 token 计费', '合同审查按模型 token 用量扣减积分', '千tokens', 1, 1, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL, '1.00') ON CONFLICT (key) DO NOTHING;
 
--- ==================== 案件类型种子数据 ====================
-INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (1, '民商事案件', '包括合同纠纷、侵权纠纷、婚姻家庭纠纷等民事案件', 'ScaleIcon', 10, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
-INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (2, '刑事案件', '包括盗窃、诈骗、故意伤害等刑事犯罪案件', 'ShieldAlertIcon', 20, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
-INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (3, '股权纠纷案件', '包括行政处罚、行政许可、行政强制等行政案件', 'BuildingIcon', 30, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
-INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (4, '强制执行案件', '包括劳动合同纠纷、工伤赔偿、社保争议等劳动案件', 'BriefcaseIcon', 40, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
-INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (5, '知识产权案件', '包括专利侵权、商标侵权、著作权纠纷等知识产权案件', 'LightbulbIcon', 50, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
-INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (6, '涉外案件', '包括股权纠纷、公司治理、商业合同等商事案件', 'Building2Icon', 60, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
-INSERT INTO "public"."case_types" ("id", "name", "description", "icon", "priority", "status", "created_at", "updated_at", "deleted_at") VALUES (7, '行政案件', '包括房屋买卖、租赁纠纷、物业管理等房产案件', 'HomeIcon', 70, 1, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
 
 -- ==================== MinerU Token 种子数据 ====================
-INSERT INTO "public"."mineru_tokens" ("id", "name", "token", "remark", "status", "created_at", "updated_at", "deleted_at") VALUES (1, 'daixin', 'eyJ0eXBlIjoiSldUIiwiYWxnIjoiSFM1MTIifQ.eyJqdGkiOiI0MzMwNTE1MSIsInJvbCI6IlJPTEVfUkVHSVNURVIiLCJpc3MiOiJPcGVuWExhYiIsImlhdCI6MTc3MTgwODk5MywiY2xpZW50SWQiOiJsa3pkeDU3bnZ5MjJqa3BxOXgydyIsInBob25lIjoiIiwib3BlbklkIjpudWxsLCJ1dWlkIjoiYjM0MzhmNTAtODAyZi00MDgwLTljN2UtYzRkYmZmMmQyYzdhIiwiZW1haWwiOiJkYWl4aW5tYWlsQHFxLmNvbSIsImV4cCI6MTc3OTU4NDk5M30.Q4CHzmuAeOwpM1nad4AVMzpWt4NyvSg-igXQtXXSYnTDyYXTNLpIbrgaQcGMo9hSPFk84hG6IJ0pb6ypEZwjOw', '过期时间 2026-05-24 09:09', 1, '2026-01-07 10:00:00+08', '2026-03-20 23:01:23.915+08', NULL);
+INSERT INTO "public"."mineru_tokens" ("id", "name", "token", "remark", "status", "created_at", "updated_at", "deleted_at") VALUES (1, 'daixin', 'eyJ0eXBlIjoiSldUIiwiYWxnIjoiSFM1MTIifQ.eyJqdGkiOiI0MzMwNTE1MSIsInJvbCI6IlJPTEVfUkVHSVNURVIiLCJpc3MiOiJPcGVuWExhYiIsImlhdCI6MTc3Njc3MDE4NSwiY2xpZW50SWQiOiJsa3pkeDU3bnZ5MjJqa3BxOXgydyIsInBob25lIjoiIiwib3BlbklkIjpudWxsLCJ1dWlkIjoiZWU5MTViOWYtNWFiNi00MTM3LWJhYjctNDAyNGU2OTNjMmQzIiwiZW1haWwiOiJkYWl4aW5tYWlsQHFxLmNvbSIsImV4cCI6MTc4NDU0NjE4NX0.iQ0OCJfyw4-MrmaFus0RvwAYWXKkEQCmkyPeBIGsnryjDBjItETAZcnIXJObQexHhkMVc204bqwWz11gte7tuA', '过期时间 2026-07-20 19:16', 1, '2026-01-07 10:00:00+08', '2026-04-21 19:17:04.167+08', NULL);
+INSERT INTO "public"."mineru_tokens" ("id", "name", "token", "remark", "status", "created_at", "updated_at", "deleted_at") VALUES (2, 'X1524', 'eyJ0eXBlIjoiSldUIiwiYWxnIjoiSFM1MTIifQ.eyJqdGkiOiIzODcwNTgwMiIsInJvbCI6IlJPTEVfUkVHSVNURVIiLCJpc3MiOiJPcGVuWExhYiIsImlhdCI6MTc3Njc2OTk0OCwiY2xpZW50SWQiOiJsa3pkeDU3bnZ5MjJqa3BxOXgydyIsInBob25lIjoiMTkzNzA3MjE1MjQiLCJvcGVuSWQiOm51bGwsInV1aWQiOiIxM2M3YjkzOS01MGI4LTRiMTItOGZjOS04YWQ4NDYyNDUxZTUiLCJlbWFpbCI6IiIsImV4cCI6MTc4NDU0NTk0OH0.b92gwx5nRMQBLE_rYL3ZydGj0kKq_hTbDtw1Qrqvn-Tlht7n93fIvI2E90q4Y84jIxlICgPxWmOI4SK-pApSdQ', '20260820 到期', 1, '2026-04-21 19:15:40.954+08', '2026-04-21 19:15:40.954+08', NULL);
+INSERT INTO "public"."mineru_tokens" ("id", "name", "token", "remark", "status", "created_at", "updated_at", "deleted_at") VALUES (3, 'X2042', 'eyJ0eXBlIjoiSldUIiwiYWxnIjoiSFM1MTIifQ.eyJqdGkiOiIyMDkwNzQxNCIsInJvbCI6IlJPTEVfUkVHSVNURVIiLCJpc3MiOiJPcGVuWExhYiIsImlhdCI6MTc3Njc3MzgzNSwiY2xpZW50SWQiOiJsa3pkeDU3bnZ5MjJqa3BxOXgydyIsInBob25lIjoiMTgxMTYwMzIwNDIiLCJvcGVuSWQiOm51bGwsInV1aWQiOiJlODJmZDc2NC04YzU4LTRkMzQtYWU4OC04NjRiN2IzMDhhMDUiLCJlbWFpbCI6IjE4MTE2MDMyMDQyQDE2My5jb20iLCJleHAiOjE3ODQ1NDk4MzV9.NmGKOeo3flSFmxvncQeenBci5cOO3Ddna8kk8QP2yLo7cwMeyuk0urN4Klw6gsucARGsr1natXno5eCuTm9ttg', '2026-07-20 20:17 到期', 1, '2026-04-21 20:18:24.516+08', '2026-04-21 20:18:24.516+08', NULL);
+
 
 -- ==================== 节点分组种子数据 ====================
 INSERT INTO "public"."node_groups" ("id", "name", "description", "priority", "created_at", "updated_at", "deleted_at") VALUES (1, '工作流节点', '案件分析工作流中的核心节点，包括案情检查、信息提取等', 10, '2026-01-07 10:00:00+08', '2026-01-07 10:00:00+08', NULL);
 INSERT INTO "public"."node_groups" ("id", "name", "description", "priority", "created_at", "updated_at", "deleted_at") VALUES (2, '分析模块', '案件分析模块，包括案件概要、大事记、诉讼请求等', 20, '2026-01-07 10:00:02+08', '2026-01-07 10:00:00+08', NULL);
 INSERT INTO "public"."node_groups" ("id", "name", "description", "priority", "created_at", "updated_at", "deleted_at") VALUES (3, '文书模块', '法律文书生成模块，包括起诉状、答辩状等', 30, '2026-01-07 10:00:03+08', '2026-01-07 10:00:00+08', NULL);
+
 
 -- ==================== 节点种子数据 ====================
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (1, 'caseInfoCheck', '案情信息检查', '检查案件材料中是否包含足够的案情信息，如果不足则提示用户补充', 'analysis', 10, 1, '["search_case_materials"]', NULL, 1, 1, '2026-01-07 10:00:00+08', '2026-03-21 12:46:54.761+08', NULL);
@@ -936,14 +1080,10 @@ INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "pri
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (14, 'search_intent_router', '检索意图路由器', '根据查询内容分类检索意图（精确/混合/语义），用于统一检索路由器的意图分发', 'extraction', 100, 1, '[]', '{"type": "object", "required": ["intent"], "properties": {"intent": {"enum": ["exact", "hybrid", "semantic"], "description": "检索意图类型"}, "keywords": {"type": "array", "items": {"type": "string"}, "description": "提取的法律术语关键词"}, "legalName": {"type": "string", "description": "识别到的法律名称"}, "articleRef": {"type": "string", "description": "条文编号，如 第一千条"}, "rewrittenQuery": {"type": "string", "description": "改写后的语义查询"}}}', NULL, 1, '2026-04-09 10:00:00+08', '2026-04-10 00:05:33.799+08', NULL);
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (15, 'assistantMain', '通用法律助手主Agent', '无案件上下文的法律问答与工具调用', 'agent', 10, 2, '["search_law"]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL);
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (16, 'assistantTitleGen', '会话标题生成', '根据首轮对话生成 ≤20 字会话标题，供侧栏列表展示', 'extraction', 20, 2, '[]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL);
--- documentMain: 文书生成主 Agent（model_id=1 为 deepseek-chat，不可用 reasoner 模型）
-INSERT INTO "public"."nodes" ("name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES ('documentMain', '文书生成主Agent', '按模板占位符填充生成文书', 'agent', 30, 1, '["process_materials", "search_case_materials", "search_law"]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
--- 对已存在的 documentMain 行补齐 process_materials 工具（历史 seed 未包含）
-UPDATE "public"."nodes" SET "tools" = '["process_materials", "search_case_materials", "search_law"]', "updated_at" = NOW()
- WHERE "name" = 'documentMain' AND "deleted_at" IS NULL AND NOT ("tools" @> '["process_materials"]'::jsonb);
-
--- contractReviewMain: 合同审查主 Agent（model_id=1 为 deepseek-chat，不可用 reasoner 模型）
-INSERT INTO "public"."nodes" ("name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES ('contractReviewMain', '合同审查主Agent', '按 responseFormat 输出结构化风险清单，并通过 parse_and_ask_stance 工具中断请求用户立场', 'agent', 40, 1, '["parse_and_ask_stance"]', NULL, NULL, 1, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
+INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (17, 'documentMain', '文书生成主Agent', '按模板占位符填充生成文书', 'agent', 30, 1, '["process_materials", "search_case_materials", "search_law"]', NULL, NULL, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
+INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (18, 'contractReviewMain', '合同审查主Agent', '按 responseFormat 输出结构化风险清单，并通过 parse_and_ask_stance 工具中断请求用户立场', 'agent', 40, 1, '["parse_and_ask_stance"]', NULL, NULL, 1, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
+INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (19, 'contractReviewSummarize', '合同审查·总览总结', '读完 analyze 阶段生成的所有 risks，做跨条款归纳，输出分档要点（highlights）+ 总评（overall）', 'extraction', 45, 1, '[]', NULL, NULL, 1, '2026-04-21 20:00:00+08', '2026-04-21 20:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
+INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (20, 'contractReviewAnalyzeClause', '合同审查·逐条条款分析', 'analyze 阶段按条款循环调用：给一条 clauseText + 立场上下文，输出 0 或 1 条 Risk（skip=true 表示无风险）', 'extraction', 42, 1, '[]', NULL, NULL, 1, '2026-04-21 20:30:00+08', '2026-04-21 20:30:00+08', NULL) ON CONFLICT (name) DO NOTHING;
 
 -- ==================== 提示词种子数据 ====================
 INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (1, 'caseInfoCheck_system', '案情信息检查-系统提示词', '你是一位专业的法律案件分析助手，专门负责评估案件材料中的案情信息是否充足。
@@ -1940,7 +2080,7 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 # 不做的事
 - 不替用户做最终法律决定，只提供分析与建议。
 - 不编造案例编号、当事人姓名、未经检索的法条内容。
-- 不讨论与法律无关的话题（礼貌拒绝并引导回法律咨询）。', '[]', 'v1', 'system', 1, 15, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL);
+- 不讨论与法律无关的话题（礼貌拒绝并引导回法律咨询）。', '[]', 'v1', 'system', 1, 15, '2026-04-17 13:36:07.856+08', '2026-04-17 13:36:07.856+08', NULL);
 INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (19, 'assistantTitleGen_system', '会话标题生成系统提示词 v1', '你是一个会话标题生成助手。请根据下面的首轮对话，生成一个简洁的会话标题。
 
 要求：
@@ -1953,11 +2093,8 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 
 助手回复：{{firstAssistantReply}}
 
-请直接输出标题（不要包含"标题："或其他前缀）：', '["firstUserMessage", "firstAssistantReply"]', 'v1', 'system', 1, 16, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL);
--- documentMain 系统提示词 v1（node_id 通过子查询获取，保证与运行时 seed 一致）
-INSERT INTO "public"."prompts" ("name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at")
-SELECT 'documentMain_system', '文书生成主Agent系统提示词 v4',
-'你是 LexSeek 的文书生成助手，负责按模板占位符逐一填充法律文书内容。
+请直接输出标题（不要包含"标题："或其他前缀）：', '["firstUserMessage", "firstAssistantReply"]', 'v1', 'system', 1, 16, '2026-04-17 18:14:36.213+08', '2026-04-17 18:14:36.213+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (20, 'documentMain_system', '文书生成主Agent系统提示词 v5', '你是 LexSeek 的文书生成助手，负责按模板占位符逐一填充法律文书内容。
 
 # 当前模板
 
@@ -1970,13 +2107,15 @@ SELECT 'documentMain_system', '文书生成主Agent系统提示词 v4',
 - search_case_materials：检索已就绪的材料内容，获取当事人信息、事实经过、金额明细等
 - search_law：查询相关法律条文，为文书引用提供依据
 
-# 工作流程
+# 工作流程（严格按顺序执行，不允许跳步）
 
-1. **只要用户本轮提供了新的 fileIds（见用户消息开头的"新增材料 fileIds: [...]"提示），必须先调用 process_materials(fileIds=[...])**，等工具返回 ready 状态后再继续
-2. 调用 search_case_materials 检索材料内容，逐一推断每个占位符的值
-3. 如需引用法条，调用 search_law 获取准确条文
-4. 对无法从材料中推断的占位符，返回 null（严禁编造）
-5. 在 suggestions 中为每个字段说明填充依据或无法推断的原因
+1. **每次对话的第一步都必须先调用 search_case_materials 检索本草稿/所属案件可见的材料**，即便用户没有明确要求，也不要先向用户索要材料：工具内部会合并案件与草稿的材料。针对关键主题发起多次检索（当事人/身份信息、事实经过、金额与日期、证据清单、法律关系等）。
+2. 仅当用户本轮提供了新的 fileIds（见用户消息开头的"新增材料 fileIds: [...]"提示），在第 1 步之前插入一次 process_materials(fileIds=[...]) 处理这些文件，等工具返回 ready 状态后再继续第 1 步。
+3. 如需引用法条，调用 search_law 获取准确条文。
+4. 基于检索到的材料与法条，逐一推断每个占位符的值；对无法从材料中推断的占位符返回 null（严禁编造）。
+5. 在 suggestions 中为每个字段说明填充依据或无法推断的原因。
+
+**严禁在未调用 search_case_materials 的情况下，因"不知道是否有材料"而直接向用户索要材料。**只有当 search_case_materials 真的返回空结果，且当前草稿不含 caseId 时，才可以在正文中简要请求用户补充必要信息。
 
 # 结果输出（非常重要）
 
@@ -1991,62 +2130,8 @@ SELECT 'documentMain_system', '文书生成主Agent系统提示词 v4',
 
 - 所有涉及姓名、金额、日期的值必须来自材料或法条，来源不明的一律返回 null
 - 不替用户做最终法律判断，只提供基于材料的客观填充
-- 使用简体中文，法律术语准确规范',
-'["templateName", "templateCategory"]', 'v1', 'system', 1, n.id, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL
-FROM nodes n
-WHERE n.name = 'documentMain' AND n.deleted_at IS NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM prompts p WHERE p.node_id = n.id AND p.name = 'documentMain_system' AND p.deleted_at IS NULL
-  );
--- 对已存在的 documentMain_system 提示词刷为 v4（要求返回 aiTitle）
-UPDATE "public"."prompts" AS p
-   SET "title" = '文书生成主Agent系统提示词 v4',
-       "content" = '你是 LexSeek 的文书生成助手，负责按模板占位符逐一填充法律文书内容。
-
-# 当前模板
-
-模板名称：{{templateName}}
-模板分类：{{templateCategory}}
-
-# 可用工具
-
-- process_materials：识别并嵌入用户提供的材料，返回就绪状态与摘要；文书场景可传 fileIds 精确处理本轮新增文件
-- search_case_materials：检索已就绪的材料内容，获取当事人信息、事实经过、金额明细等
-- search_law：查询相关法律条文，为文书引用提供依据
-
-# 工作流程
-
-1. **只要用户本轮提供了新的 fileIds（见用户消息开头的"新增材料 fileIds: [...]"提示），必须先调用 process_materials(fileIds=[...])**，等工具返回 ready 状态后再继续
-2. 调用 search_case_materials 检索材料内容，逐一推断每个占位符的值
-3. 如需引用法条，调用 search_law 获取准确条文
-4. 对无法从材料中推断的占位符，返回 null（严禁编造）
-5. 在 suggestions 中为每个字段说明填充依据或无法推断的原因
-
-# 结果输出（非常重要）
-
-信息收集完成后，**必须**通过系统注入的结构化输出工具（tool call）返回结果，工具入参包含：
-- values：模板 placeholders 对应的键值对
-- suggestions：每个字段的填充依据（可选）
-- aiTitle：根据所填字段推断的简短文书标题，10~30 字，如"张三诉李四借款合同纠纷起诉状"，用于列表/顶栏识别；非文书正文内容；若难以推断可省略
-
-**严禁**在消息正文中自行写出 JSON、代码块或长篇自然语言描述最终答案——正文仅用于思考过程以及相邻工具调用之间的简要衔接。
-
-# 约束
-
-- 所有涉及姓名、金额、日期的值必须来自材料或法条，来源不明的一律返回 null
-- 不替用户做最终法律判断，只提供基于材料的客观填充
-- 使用简体中文，法律术语准确规范',
-       "updated_at" = NOW()
-  FROM nodes n
- WHERE p.node_id = n.id
-   AND n.name = 'documentMain' AND n.deleted_at IS NULL
-   AND p.name = 'documentMain_system' AND p.deleted_at IS NULL
-   AND p.title <> '文书生成主Agent系统提示词 v4';
-
--- contractReviewMain 系统提示词 v1（node_id 通过子查询获取）
-INSERT INTO "public"."prompts" ("name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at")
-SELECT 'contractReview_system', '合同审查系统提示词 v1',
-'你是 LexSeek 的合同审查助手。用户上传了一份合同，你按下面的流程审查：
+- 使用简体中文，法律术语准确规范', '["templateName", "templateCategory"]', 'v2', 'system', 1, 17, '2026-04-18 01:18:11.463+08', '2026-04-20 18:57:05.912258+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (26, 'contractReview_system', '合同审查系统提示词 v1', '你是 LexSeek 的合同审查助手。用户上传了一份合同，你按下面的流程审查：
 
 # 任务流程
 1. 调用 parse_and_ask_stance 工具：工具会解析合同、识别甲乙方、请求用户审查立场。该工具会 interrupt 暂停等待用户输入。
@@ -2073,13 +2158,59 @@ SELECT 'contractReview_system', '合同审查系统提示词 v1',
 # 段落引用规则
 - clauseIndex 从工具返回的 paragraphs 数组索引取值（0-based）
 - clauseText 必须是 paragraphs 中对应段落的完整文本
-- 禁止编造段落',
-'[]', 'v1', 'system', 1, n.id, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL
-FROM nodes n
-WHERE n.name = 'contractReviewMain' AND n.deleted_at IS NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM prompts p WHERE p.node_id = n.id AND p.name = 'contractReview_system' AND p.deleted_at IS NULL
-  );
+- 禁止编造段落', '[]', 'v1', 'system', 1, 18, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (27, 'contractReviewSummarize_system', '合同审查·总览总结提示词 v1', '你正在帮律师完成{{contractType}}审查的"一览视图"（立场={{stance}}）。
+
+以下是我已经逐条分析出的所有风险点（格式："级别 · riskId · 类别 · 问题描述"）：
+
+{{riskList}}
+
+你的任务：**做真正的跨条款归纳**，而不是把原问题复述一遍。具体要求：
+
+1. 识别哪些 risk 本质上是**同一类**问题（相同主题 / 相同法律依据 / 相同后果），
+   将它们**合并成一条要点**。例如 3 条都涉及"试用期约定违法"，就合并为
+   一条"试用期条款多处违法（涵盖 3 条）"，而不是分别列 3 条。
+2. 每条要点写在共性层面（一句话概括"这一类问题是什么、为什么是风险"），
+   不要出现单条 risk 原文，也不要出现"第 X 条"这种具体编号。
+3. 要点挂的 riskId 选**该类问题里最有代表性的那一条**（仅一个 id），
+   用户点击会跳到该条款定位。
+4. 每档（高/中/低）最多 5 条；如果整档都能合并为 1-2 条就只出 1-2 条，
+   避免强行凑数。若某档无风险则输出空数组。
+5. 最后写一段总评（≤ 120 字）：从合同整体合规度/履约风险角度定性，
+   不要重复要点内容。
+
+严格按如下 JSON 输出，不要解释、不要代码块标记：
+{"highlights": {"high":[{"text":"...","riskId":"..."}], "medium":[...], "low":[...]}, "overall":"..."}', '["stance", "contractType", "riskList"]', 'v1', 'system', 1, 19, '2026-04-21 20:00:00+08', '2026-04-21 20:00:00+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (28, 'contractReviewAnalyzeClause_system', '合同审查·逐条条款分析提示词 v1', '你正在审查合同（{{contractType}}），站在{{stanceLabel}}立场。
+甲方：{{partyA}}；乙方：{{partyB}}。
+当前条款（第 {{clauseIndex}} 条，编号 {{clauseNumber}}）：
+"""
+{{clauseText}}
+"""
+请判断该条款是否有风险。严格按 JSON 输出，字段如下：
+
+- 有风险：
+  {
+    "risk": {
+      "id": "<UUID v4>",
+      "clauseIndex": {{clauseIndex}},
+      "clauseText": "<被分析的条款原文片段>",
+      "level": "high" | "medium" | "low",
+      "category": "<风险类别，如 ''付款'' / ''违约'' / ''知识产权'' 等>",
+      "problem": "<简短问题描述>",
+      "analysis": "<详细分析>",
+      "risk": "<对己方的风险点>",
+      "suggestion": "<改进建议>",
+      "suggestedClauseText": "<可选，推荐改写后的条款>"
+    },
+    "skip": false
+  }
+
+- 无风险：{ "risk": null, "skip": true }
+
+只输出 JSON，不要任何解释。', '["stanceLabel", "contractType", "partyA", "partyB", "clauseIndex", "clauseNumber", "clauseText"]', 'v1', 'system', 1, 20, '2026-04-21 20:30:00+08', '2026-04-21 20:30:00+08', NULL);
+
+
 
 -- 重置所有序列，确保新插入的记录不会与种子数据冲突
 -- Reset all sequences to avoid ID conflicts with seed data
