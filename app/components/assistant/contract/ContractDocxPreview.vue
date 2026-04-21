@@ -163,7 +163,7 @@ watch(
 </script>
 
 <template>
-    <div class="relative h-full bg-muted/20">
+    <div class="relative h-full">
         <div v-if="empty" class="flex h-full items-center justify-center text-sm text-muted-foreground">
             等待合同上传...
         </div>
@@ -171,24 +171,40 @@ watch(
             <div v-if="loading" class="absolute top-2 left-1/2 -translate-x-1/2 text-xs text-muted-foreground">
                 合同加载中...
             </div>
-            <div ref="containerRef" class="docx-preview-container h-full overflow-auto px-6 py-4 md:px-10 text-foreground" />
+            <div ref="containerRef" class="docx-preview-container h-full overflow-y-auto p-6 text-foreground" />
         </template>
     </div>
 </template>
 
 <!--
-  docx-preview 注入 .docx-wrapper > section.docx 结构。
-  section.docx 默认 padding=0，纯文本粘贴场景下没有 Word 原生页边距，
-  导致正文（及风险高亮段的左边框）直接贴到纸面边。此处补页边距。
-  文档纸面保持白色（Word 预览惯例，与风险段浅色底配合），不随主题翻转。
+  对齐文书编辑器 DocumentPreview 的样式约定：
+  消除 docx-preview 默认注入的白纸/阴影，让文档内容直接融入容器 bg-muted/40 背景。
+  - .docx-wrapper 透明、无 padding/box-shadow
+  - section.docx 去阴影、去 margin；只保留"单张纸"的内部页边距以避免文字贴边
+  - 正文行距统一到 1.8（和 DocumentPreview 保持一致）
 -->
 <style scoped>
-:deep(.docx-preview-container) .docx-wrapper {
+.docx-preview-container :deep(.docx-wrapper) {
     background: transparent;
-    padding: 24px 0 0;
+    padding: 0;
+    box-shadow: none;
 }
-:deep(.docx-preview-container) section.docx {
-    padding: 32px 48px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.12);
+.docx-preview-container :deep(section.docx) {
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    width: 100% !important;
+    color: inherit !important;
+}
+.docx-preview-container :deep(p),
+.docx-preview-container :deep(li),
+.docx-preview-container :deep(h1),
+.docx-preview-container :deep(h2),
+.docx-preview-container :deep(h3),
+.docx-preview-container :deep(h4),
+.docx-preview-container :deep(h5),
+.docx-preview-container :deep(h6) {
+    line-height: 1.8 !important;
 }
 </style>

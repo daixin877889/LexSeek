@@ -52,6 +52,11 @@ vi.mock('lucide-vue-next', () => ({
         name: 'XIcon',
         setup: () => () => h('i', { 'data-stub': 'XIcon' }),
     }),
+    // ResizableHandle 的 with-handle 槽里使用（分栏拖拽把手）
+    GripVertical: defineComponent({
+        name: 'GripVertical',
+        setup: () => () => h('i', { 'data-stub': 'GripVertical' }),
+    }),
 }))
 
 // ── mock useContractReview ──────────────────────────────────────────────────
