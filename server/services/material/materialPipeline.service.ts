@@ -10,6 +10,7 @@ import { processMaterialService, batchCheckMaterialRecognizedService, MaterialPr
 import { CaseMaterialType, getMaterialTypeFromMime } from '#shared/types/case'
 import { MaterialStatus } from '#shared/types/material'
 import { createMaterialDao, findMaterialByIdDao, findActiveMaterialByOssFileIdDao } from './material.dao'
+import { countTokensSync } from '~~/server/utils/tokenCounter'
 
 export interface MaterialFailedItem {
     materialId: number
@@ -181,7 +182,12 @@ export async function ensureMaterialsReadyByDraftService(
 
 // ==================== 材料上下文服务 ====================
 
-export const TOKEN_THRESHOLD = 32000
+/**
+ * 材料上下文 token 预算阈值（tiktoken 估算）
+ * 小于此阈值全文返回；超过则切到 graded/summary 模式。
+ * 预算保守设置为 15K，给 system prompt、工具定义、历史消息及模型输出留足余量。
+ */
+export const TOKEN_THRESHOLD = 15000
 
 /** 按材料类型返回向量表中的 sourceId */
 export function getSourceId(material: MaterialWithFile): number {
@@ -192,15 +198,14 @@ export function getSourceId(material: MaterialWithFile): number {
 }
 
 /**
- * 简单 token 估算（中文约 1 字符/token，英文约 4 字符/token）
- * Anthropic tokenizer 对中文字符按 UTF-8 字节编码，1 个中文字符约 1-2 tokens，
- * 用 1:1 比例估算，避免低估导致安全截断失效。
+ * Token 估算：统一走 tiktoken (cl100k_base)，tiktoken 初始化失败时自动回退到字符估算。
+ *
+ * 调用 countTokensSync 而非字符估算，避免中文/JSON 结构序列化后 token 数被严重低估，
+ * 进而导致 TOKEN_THRESHOLD 形同虚设（材料上下文仍可能把模型窗口撑爆）。
  */
 export function estimateTokens(text: string): number {
     if (!text) return 0
-    const chineseChars = (text.match(/[\u4e00-\u9fff]/g) || []).length
-    const otherChars = text.length - chineseChars
-    return Math.ceil(chineseChars + otherChars / 4)
+    return countTokensSync(text)
 }
 
 /**
