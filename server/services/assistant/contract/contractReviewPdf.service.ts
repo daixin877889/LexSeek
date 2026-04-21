@@ -22,7 +22,7 @@ import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { getContractReviewDAO } from './contractReview.dao'
 import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
-import type { ContractOverview, Risk, RiskLevel } from '#shared/types/contract'
+import type { ContractOverview, Risk, RiskLevel, PlaybookSnapshot } from '#shared/types/contract'
 import {
     REVIEW_STATUS_LABEL,
     STANCE_LABEL,
@@ -121,6 +121,10 @@ export async function exportReviewPdfService(
         overview = rawSummary as ContractOverview
     }
 
+    const playbookSnapshot = review.playbookSnapshot
+        ? (review.playbookSnapshot as unknown as PlaybookSnapshot)
+        : null
+
     const docDefinition = buildDocDefinition({
         originalFileName,
         contractType: review.contractType,
@@ -131,6 +135,7 @@ export async function exportReviewPdfService(
         createdAt: review.createdAt,
         summary: overview,
         risks: (review.risks as unknown as Risk[] | null) ?? null,
+        playbookSnapshot,
         includeRisks: options.includeRisks,
     })
 
@@ -151,6 +156,7 @@ interface BuildContext {
     createdAt: Date
     summary: ContractOverview | null
     risks: Risk[] | null
+    playbookSnapshot: PlaybookSnapshot | null
     includeRisks: boolean
 }
 
@@ -241,6 +247,53 @@ function buildDocDefinition(ctx: BuildContext): TDocumentDefinitions {
             }
         } else {
             content.push({ text: '（暂无摘要）', style: 'bodyMuted', margin: [0, 0, 0, 6] })
+        }
+    }
+
+    // 审查清单对照节：snapshot 存在且有要点时渲染
+    const snapshot = ctx.playbookSnapshot
+    if (snapshot && snapshot.points.length > 0) {
+        const risks = ctx.risks ?? []
+        const hitCodes = new Set(
+            risks
+                .filter(r => r.matchedPointCode && snapshot.points.some(p => p.code === r.matchedPointCode))
+                .map(r => r.matchedPointCode!),
+        )
+        const hitPoints = snapshot.points.filter(p => hitCodes.has(p.code))
+        const cleanPoints = snapshot.points.filter(p => !hitCodes.has(p.code))
+        const levelZh = (lvl: string) => lvl === 'high' ? '高' : lvl === 'medium' ? '中' : '低'
+
+        content.push({
+            text: `审查清单对照 · ${snapshot.contractType}  命中 ${hitPoints.length}/${snapshot.points.length}`,
+            style: 'sectionTitle',
+            margin: [0, 14, 0, 8],
+            pageBreak: 'before',
+        })
+
+        if (hitPoints.length > 0) {
+            content.push({ text: '命中风险项', style: 'subSectionTitle', margin: [0, 0, 0, 4] })
+            for (const p of hitPoints) {
+                content.push({
+                    text: `• ${p.title}（${levelZh(p.defaultLevel)}）`,
+                    style: 'body',
+                    margin: [8, 0, 0, 3],
+                })
+            }
+        }
+
+        if (cleanPoints.length > 0) {
+            content.push({
+                text: `已检查无风险的项（${cleanPoints.length} 条）`,
+                style: 'subSectionTitle',
+                margin: [0, 8, 0, 4],
+            })
+            for (const p of cleanPoints) {
+                content.push({
+                    text: `• ${p.title}`,
+                    style: 'bodyMuted',
+                    margin: [8, 0, 0, 2],
+                })
+            }
         }
     }
 
