@@ -27,6 +27,8 @@ export interface MiddlewareWithPriority {
  * 间隔为 10 方便后续插入新中间件。
  */
 export const MIDDLEWARE_PRIORITY = {
+    /** 消息完整性兜底（必须最最前，补齐 orphan tool_use 防 Provider 400） */
+    MESSAGE_INTEGRITY: 1,
     /** Agent 安全：scope 校验（最前，拒绝的调用不占后续资源） */
     SCOPE_GUARD: 5,
     /** Agent 安全：工具调用次数熔断（spread 多实例） */
@@ -55,6 +57,7 @@ export const MIDDLEWARE_PRIORITY = {
 
 /** 中间件名称常量，统一命名避免硬编码 */
 export const MIDDLEWARE_NAMES = {
+    MESSAGE_INTEGRITY: 'messageIntegrity',
     SCOPE_GUARD: 'scopeGuard',
     TOOL_CALL_LIMIT: 'toolCallLimit',
     PROCESS_MATERIAL: 'caseProcessMaterial',

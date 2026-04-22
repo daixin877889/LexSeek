@@ -17,6 +17,7 @@ import { createSubAgentTools } from './subAgentToolFactory'
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import {
     createAuditMiddleware,
+    createMessageIntegrityMiddleware,
     createScopeGuardMiddleware,
     createToolCallLimitMiddlewares,
     pointConsumptionMiddleware,
@@ -144,6 +145,8 @@ export async function runCaseChat(
         store,
         tools: allTools,
         middleware: [
+            // 消息完整性兜底必须最先：防止 orphan tool_use 流入其他 middleware 或模型
+            createMessageIntegrityMiddleware(),
             createScopeGuardMiddleware(),
             ...createToolCallLimitMiddlewares(),
             pointConsumptionMiddleware(userId, 'case_analysis_token', sessionId),

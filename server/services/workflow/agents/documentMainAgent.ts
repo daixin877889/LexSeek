@@ -19,6 +19,7 @@ import { getToolInstancesService } from '../tools'
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import {
     createAuditMiddleware,
+    createMessageIntegrityMiddleware,
     createScopeGuardMiddleware,
     createToolCallLimitMiddlewares,
     pointConsumptionMiddleware,
@@ -177,6 +178,8 @@ export async function runDocumentChat(
         tools,
         responseFormat,
         middleware: [
+            // 消息完整性放在最前：所有后续 middleware 和模型调用拿到的 state.messages 都是完整的
+            createMessageIntegrityMiddleware(),
             createScopeGuardMiddleware(),
             ...createToolCallLimitMiddlewares(),
             pointConsumptionMiddleware(userId, 'document_draft_token', sessionId),

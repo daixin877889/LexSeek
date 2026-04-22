@@ -20,6 +20,7 @@ import { getToolInstancesService } from '../tools'
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import {
     createAuditMiddleware,
+    createMessageIntegrityMiddleware,
     createScopeGuardMiddleware,
     createToolCallLimitMiddlewares,
     pointConsumptionMiddleware,
@@ -108,6 +109,8 @@ export async function runAssistantChat(
         store,
         tools,
         middleware: [
+            // 消息完整性兜底：必须最先，补齐 orphan tool_use 防 Provider 400
+            createMessageIntegrityMiddleware(),
             // Agent 安全三层（scope 校验 / 工具调用熔断 / 审计归档）
             createScopeGuardMiddleware(),
             ...createToolCallLimitMiddlewares(),

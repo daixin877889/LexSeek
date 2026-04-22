@@ -50,6 +50,7 @@ import {
     pointConsumptionMiddleware,
     safetyTrimMiddleware,
     reviewResultPersistenceMiddleware,
+    createMessageIntegrityMiddleware,
     createScopeGuardMiddleware,
     createToolCallLimitMiddlewares,
     createAuditMiddleware,
@@ -244,6 +245,11 @@ export async function runContractReviewChat(
 
     // 7. 组装中间件栈（按 priority 排序：scope → toolCallLimit → 计费 → 摘要 → 安全裁剪 → 结果持久化 → 审计）
     const middleware = buildMiddlewareStack([
+        {
+            middleware: createMessageIntegrityMiddleware(),
+            priority: MIDDLEWARE_PRIORITY.MESSAGE_INTEGRITY,
+            name: MIDDLEWARE_NAMES.MESSAGE_INTEGRITY,
+        },
         {
             middleware: createScopeGuardMiddleware(),
             priority: MIDDLEWARE_PRIORITY.SCOPE_GUARD,
