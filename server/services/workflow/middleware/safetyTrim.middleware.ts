@@ -46,11 +46,12 @@ export interface SafetyTrimMiddlewareOptions {
 export function safetyTrimMiddleware(options: SafetyTrimMiddlewareOptions) {
     const inflation = options.tokenizerInflation ?? 1.5
 
-    // 模型真实 messages 上限 = maxTokens - completion预留(4096) - systemTokens × 膨胀系数
+    // 模型真实 messages 上限 = maxTokens - completion预留(8192) - systemTokens × 膨胀系数
+    // completion 预留需与 chatModelFactory 中 DEFAULT_MAX_TOKENS 一致，否则 input budget 失真
     // 换算为 tiktoken 等效预算：真实上限 / 膨胀系数
     const systemTokens = options.systemPrompt ? countTokensSync(options.systemPrompt) : 0
     const realBudget = Math.max(
-        options.maxTokens - 4096 - Math.ceil(systemTokens * inflation),
+        options.maxTokens - 8192 - Math.ceil(systemTokens * inflation),
         10000,
     )
     const tiktokenBudget = Math.floor(realBudget / inflation)
