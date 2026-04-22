@@ -128,11 +128,10 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
             { method: 'PATCH', body: { archivedStatus } },
         )
         if (resp) {
-            const risk = workspace.value.risks.find(r => r.id === riskId)
-            if (risk) {
-                risk.archivedStatus = archivedStatus
-                risk.archivedAt = archivedStatus ? new Date().toISOString() : null
-            }
+            const archivedAt = archivedStatus ? new Date().toISOString() : null
+            workspace.value.risks = workspace.value.risks.map(r =>
+                r.id === riskId ? { ...r, archivedStatus, archivedAt } : r,
+            )
         }
     }
 
@@ -155,7 +154,11 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
     const pendingAnnotationContent = new Map<number, string>()
 
     const flushAnnotationContent = useDebounceFn(async () => {
-        if (pendingAnnotationContent.size === 0) return
+        // 切到历史版本或已卸载场景下丢弃 pending，避免错误写回
+        if (isReadOnly.value || pendingAnnotationContent.size === 0) {
+            pendingAnnotationContent.clear()
+            return
+        }
         const entries = Array.from(pendingAnnotationContent.entries())
         pendingAnnotationContent.clear()
         await Promise.all(entries.map(async ([annotationId, content]) => {
@@ -164,8 +167,9 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
                 { method: 'PATCH', body: { content } },
             )
             if (resp) {
-                const ann = workspace.value.annotations.find(a => a.id === annotationId)
-                if (ann) ann.content = content
+                workspace.value.annotations = workspace.value.annotations.map(a =>
+                    a.id === annotationId ? { ...a, content } : a,
+                )
             }
         }))
     }, 500)
@@ -173,8 +177,9 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
     /** 编辑批注内容（走 debounce，高频输入合并后统一提交） */
     async function updateAnnotation(annotationId: number, content: string) {
         if (isReadOnly.value) return
-        const ann = workspace.value.annotations.find(a => a.id === annotationId)
-        if (ann) ann.content = content
+        workspace.value.annotations = workspace.value.annotations.map(a =>
+            a.id === annotationId ? { ...a, content } : a,
+        )
         pendingAnnotationContent.set(annotationId, content)
         flushAnnotationContent()
     }
@@ -198,8 +203,9 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
             { method: 'PATCH', body: { lawyerNote } },
         )
         if (resp) {
-            const v = versions.value.find(x => x.id === versionId)
-            if (v) v.lawyerNote = lawyerNote
+            versions.value = versions.value.map(v =>
+                v.id === versionId ? { ...v, lawyerNote } : v,
+            )
         }
     }
 

@@ -419,12 +419,9 @@ describe('useContractReviewVersion.updateAnnotation debounce 500ms', () => {
         vi.useRealTimers()
     })
 
-    // 这个 describe 单独用真实 debounce 测试，需要重新 import 不受 vueuse mock 影响的版本
-    // 但当前文件顶层已经 mock 了 @vueuse/core，所以改用 spy 验证 pending map 逻辑：
-    // pending map 中已有值 → flush 后发一次请求（最终值）
+    // 顶层 mock 把 useDebounceFn 变成 identity，此处只验证调用后 PATCH 能正常发出；
+    // 真实 debounce 500ms 合并行为在 useContractReviewVersion.debounce.test.ts 中独立验证
     it('连续调用 updateAnnotation 在 500ms 后合并成一次 PATCH', async () => {
-        // 由于顶层 mock 把 useDebounceFn 变成 identity，此处直接验证调用后 PATCH 发出
-        // 真实 debounce 500ms 合并在独立文件 useContractReviewVersion.debounce.test.ts 中验证
         mockFetch.mockResolvedValueOnce({ id: 1, content: '最终内容' })
 
         const c = useContractReviewVersion(ref(1))
