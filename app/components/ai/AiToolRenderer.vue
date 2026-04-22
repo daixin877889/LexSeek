@@ -36,5 +36,8 @@ const emit = defineEmits<{
   <AiToolsLawSearchTool v-else-if="toolCall.name === 'search_law'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
   <AiToolsExtractInfoTool v-else-if="toolCall.name === 'extract_case_info'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
   <AiToolsUploadWorkspaceFileTool v-else-if="toolCall.name === 'upload_workspace_file'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
+  <AiToolsReadSkillFileTool v-else-if="toolCall.name === 'read_skill_file'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
+  <AiToolsWriteSkillFileTool v-else-if="toolCall.name === 'write_skill_file'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
+  <AiToolsRunSkillScriptTool v-else-if="toolCall.name === 'run_skill_script'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
   <AiToolsDefaultTool v-else :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
 </template>
