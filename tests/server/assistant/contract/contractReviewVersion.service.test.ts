@@ -84,8 +84,9 @@ describe('contractReviewVersion.service', () => {
         })
 
         const loaded = await loadContractReviewVersionSnapshotService(v1.id)
-        expect(loaded.snapshot.risks.length).toBe(1)
-        expect(loaded.snapshot.annotations.length).toBe(1)
+        if ('error' in loaded) throw new Error('snapshot 应返回 data')
+        expect(loaded.data.snapshot.risks.length).toBe(1)
+        expect(loaded.data.snapshot.annotations.length).toBe(1)
     })
 
     it('软删的批注不进入 snapshot', async () => {
@@ -119,7 +120,8 @@ describe('contractReviewVersion.service', () => {
         })
 
         const loaded = await loadContractReviewVersionSnapshotService(v1.id)
-        expect(loaded.snapshot.annotations.length).toBe(0)
+        if ('error' in loaded) throw new Error('snapshot 应返回 data')
+        expect(loaded.data.snapshot.annotations.length).toBe(0)
     })
 
     it('显式传入 docxText 时存入 snapshot', async () => {
@@ -131,7 +133,8 @@ describe('contractReviewVersion.service', () => {
         })
 
         const loaded = await loadContractReviewVersionSnapshotService(v1.id)
-        expect(loaded.snapshot.docxText).toBe('合同正文内容')
+        if ('error' in loaded) throw new Error('snapshot 应返回 data')
+        expect(loaded.data.snapshot.docxText).toBe('合同正文内容')
     })
 
     it('不传 docxText 时从 currentVersion 继承', async () => {
@@ -151,10 +154,12 @@ describe('contractReviewVersion.service', () => {
         })
 
         const loaded = await loadContractReviewVersionSnapshotService(v2.id)
-        expect(loaded.snapshot.docxText).toBe('继承测试正文')
+        if ('error' in loaded) throw new Error('snapshot 应返回 data')
+        expect(loaded.data.snapshot.docxText).toBe('继承测试正文')
     })
 
-    it('loadContractReviewVersionSnapshotService 对不存在的版本抛错', async () => {
-        await expect(loadContractReviewVersionSnapshotService(999999999)).rejects.toThrow()
+    it('loadContractReviewVersionSnapshotService 对不存在的版本返回 error', async () => {
+        const result = await loadContractReviewVersionSnapshotService(999999999)
+        expect('error' in result && result.error).toBe('version_not_found')
     })
 })

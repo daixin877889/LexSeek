@@ -8,6 +8,9 @@
 import type { H3Event } from 'h3'
 import type { contractReviews } from '~~/generated/prisma/client'
 import { getContractReviewDAO } from './contractReview.dao'
+import { getContractReviewVersionByIdDAO } from './contractReviewVersion.dao'
+import { getContractRiskByIdDAO } from './contractRisk.dao'
+import { getContractAnnotationByIdDAO } from './contractAnnotation.dao'
 
 interface AuthUser {
     id: number
@@ -102,10 +105,8 @@ export async function loadOwnedReviewByVersionId(
     options: LoadOptions = {},
 ): Promise<ReviewGuardResult> {
     return loadOwnedReviewFromSubResource(event, 'versionId', async (id) => {
-        return prisma.contractReviewVersions.findUnique({
-            where: { id },
-            select: { reviewId: true },
-        })
+        const v = await getContractReviewVersionByIdDAO(id)
+        return v ? { reviewId: v.reviewId } : null
     }, options)
 }
 
@@ -118,16 +119,16 @@ export async function loadOwnedReviewByRiskId(
     options: LoadOptions = {},
 ): Promise<ReviewGuardResult> {
     return loadOwnedReviewFromSubResource(event, 'riskId', async (id) => {
-        return prisma.contractRisks.findUnique({
-            where: { id },
-            select: { reviewId: true },
-        })
+        const r = await getContractRiskByIdDAO(id)
+        return r ? { reviewId: r.reviewId } : null
     }, options)
 }
 
 /**
  * 通过批注 ID（annotationId）校验当前用户是否拥有对应的合同审查。
- * lookup 额外返回 authorUserId，供 handler 校验"只能改自己的批注"。
+ * 注意：handler 层需要校验"只能改自己的批注"时，在 service 层自己查 annotation
+ * 拿 authorUserId 做判断（见 contractAnnotation.service.ts）；guard 层只负责
+ * review 归属校验，不额外返回 annotation 字段。
  * 适用于 PATCH/DELETE /reviews/annotations/:annotationId 端点。
  */
 export async function loadOwnedReviewByAnnotationId(
@@ -135,9 +136,7 @@ export async function loadOwnedReviewByAnnotationId(
     options: LoadOptions = {},
 ): Promise<ReviewGuardResult> {
     return loadOwnedReviewFromSubResource(event, 'annotationId', async (id) => {
-        return prisma.contractAnnotations.findUnique({
-            where: { id },
-            select: { reviewId: true, authorUserId: true },
-        })
+        const a = await getContractAnnotationByIdDAO(id)
+        return a ? { reviewId: a.reviewId } : null
     }, options)
 }

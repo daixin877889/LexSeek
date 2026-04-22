@@ -89,10 +89,16 @@ export async function saveContractReviewVersionService(input: SaveVersionInput) 
     })
 }
 
-/** 读取版本完整快照（含 snapshotData 反序列化） */
-export async function loadContractReviewVersionSnapshotService(versionId: number): Promise<ContractReviewVersionSnapshotResponse> {
+/**
+ * 读取版本完整快照（含 snapshotData 反序列化）
+ * 返回 `{ data }` / `{ error: 'version_not_found' }`，与 contractAnnotation.service / contractRisk.service 的错误模式统一。
+ */
+export async function loadContractReviewVersionSnapshotService(versionId: number): Promise<
+    | { data: ContractReviewVersionSnapshotResponse }
+    | { error: 'version_not_found' }
+> {
     const version = await getContractReviewVersionByIdDAO(versionId)
-    if (!version) throw new Error(`Version ${versionId} not found`)
+    if (!version) return { error: 'version_not_found' as const }
 
     // 查询 createdBy 用户名
     const createdByUser = await prisma.users.findUnique({
@@ -107,14 +113,16 @@ export async function loadContractReviewVersionSnapshotService(versionId: number
     }
 
     return {
-        id: version.id,
-        reviewId: version.reviewId,
-        versionNumber: version.versionNumber,
-        systemLabel: version.systemLabel as VersionSystemLabel,
-        lawyerNote: version.lawyerNote,
-        createdById: version.createdById,
-        createdByName: createdByUser?.name ?? '',
-        createdAt: version.createdAt.toISOString(),
-        snapshot,
+        data: {
+            id: version.id,
+            reviewId: version.reviewId,
+            versionNumber: version.versionNumber,
+            systemLabel: version.systemLabel as VersionSystemLabel,
+            lawyerNote: version.lawyerNote,
+            createdById: version.createdById,
+            createdByName: createdByUser?.name ?? '',
+            createdAt: version.createdAt.toISOString(),
+            snapshot,
+        },
     }
 }
