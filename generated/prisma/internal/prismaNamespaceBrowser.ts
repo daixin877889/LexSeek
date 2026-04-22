@@ -65,8 +65,15 @@ export const ModelName = {
   caseAnalyses: 'caseAnalyses',
   demoCases: 'demoCases',
   caseMaterialEmbeddings: 'caseMaterialEmbeddings',
+  checkpoint_blobs: 'checkpoint_blobs',
+  checkpoint_migrations: 'checkpoint_migrations',
+  checkpoint_writes: 'checkpoint_writes',
+  checkpoints: 'checkpoints',
+  store: 'store',
+  store_migrations: 'store_migrations',
   contractPlaybooks: 'contractPlaybooks',
   contractReviews: 'contractReviews',
+  contractReviewLegacyRisksBackup: 'contractReviewLegacyRisksBackup',
   contractReviewVersions: 'contractReviewVersions',
   contractRisks: 'contractRisks',
   contractAnnotations: 'contractAnnotations',
@@ -370,6 +377,71 @@ export const CaseMaterialEmbeddingsScalarFieldEnum = {
 export type CaseMaterialEmbeddingsScalarFieldEnum = (typeof CaseMaterialEmbeddingsScalarFieldEnum)[keyof typeof CaseMaterialEmbeddingsScalarFieldEnum]
 
 
+export const Checkpoint_blobsScalarFieldEnum = {
+  thread_id: 'thread_id',
+  checkpoint_ns: 'checkpoint_ns',
+  channel: 'channel',
+  version: 'version',
+  type: 'type',
+  blob: 'blob'
+} as const
+
+export type Checkpoint_blobsScalarFieldEnum = (typeof Checkpoint_blobsScalarFieldEnum)[keyof typeof Checkpoint_blobsScalarFieldEnum]
+
+
+export const Checkpoint_migrationsScalarFieldEnum = {
+  v: 'v'
+} as const
+
+export type Checkpoint_migrationsScalarFieldEnum = (typeof Checkpoint_migrationsScalarFieldEnum)[keyof typeof Checkpoint_migrationsScalarFieldEnum]
+
+
+export const Checkpoint_writesScalarFieldEnum = {
+  thread_id: 'thread_id',
+  checkpoint_ns: 'checkpoint_ns',
+  checkpoint_id: 'checkpoint_id',
+  task_id: 'task_id',
+  idx: 'idx',
+  channel: 'channel',
+  type: 'type',
+  blob: 'blob'
+} as const
+
+export type Checkpoint_writesScalarFieldEnum = (typeof Checkpoint_writesScalarFieldEnum)[keyof typeof Checkpoint_writesScalarFieldEnum]
+
+
+export const CheckpointsScalarFieldEnum = {
+  thread_id: 'thread_id',
+  checkpoint_ns: 'checkpoint_ns',
+  checkpoint_id: 'checkpoint_id',
+  parent_checkpoint_id: 'parent_checkpoint_id',
+  type: 'type',
+  checkpoint: 'checkpoint',
+  metadata: 'metadata'
+} as const
+
+export type CheckpointsScalarFieldEnum = (typeof CheckpointsScalarFieldEnum)[keyof typeof CheckpointsScalarFieldEnum]
+
+
+export const StoreScalarFieldEnum = {
+  namespace_path: 'namespace_path',
+  key: 'key',
+  value: 'value',
+  created_at: 'created_at',
+  updated_at: 'updated_at',
+  expires_at: 'expires_at'
+} as const
+
+export type StoreScalarFieldEnum = (typeof StoreScalarFieldEnum)[keyof typeof StoreScalarFieldEnum]
+
+
+export const Store_migrationsScalarFieldEnum = {
+  v: 'v'
+} as const
+
+export type Store_migrationsScalarFieldEnum = (typeof Store_migrationsScalarFieldEnum)[keyof typeof Store_migrationsScalarFieldEnum]
+
+
 export const ContractPlaybooksScalarFieldEnum = {
   id: 'id',
   contractType: 'contractType',
@@ -414,6 +486,15 @@ export const ContractReviewsScalarFieldEnum = {
 export type ContractReviewsScalarFieldEnum = (typeof ContractReviewsScalarFieldEnum)[keyof typeof ContractReviewsScalarFieldEnum]
 
 
+export const ContractReviewLegacyRisksBackupScalarFieldEnum = {
+  reviewId: 'reviewId',
+  risks: 'risks',
+  backedUpAt: 'backedUpAt'
+} as const
+
+export type ContractReviewLegacyRisksBackupScalarFieldEnum = (typeof ContractReviewLegacyRisksBackupScalarFieldEnum)[keyof typeof ContractReviewLegacyRisksBackupScalarFieldEnum]
+
+
 export const ContractReviewVersionsScalarFieldEnum = {
   id: 'id',
   reviewId: 'reviewId',
@@ -422,7 +503,8 @@ export const ContractReviewVersionsScalarFieldEnum = {
   lawyerNote: 'lawyerNote',
   snapshotData: 'snapshotData',
   createdById: 'createdById',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  docxFileId: 'docxFileId'
 } as const
 
 export type ContractReviewVersionsScalarFieldEnum = (typeof ContractReviewVersionsScalarFieldEnum)[keyof typeof ContractReviewVersionsScalarFieldEnum]
@@ -447,7 +529,9 @@ export const ContractRisksScalarFieldEnum = {
   anchorCharStart: 'anchorCharStart',
   anchorCharEnd: 'anchorCharEnd',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  originalAnchorQuote: 'originalAnchorQuote',
+  orphaned: 'orphaned'
 } as const
 
 export type ContractRisksScalarFieldEnum = (typeof ContractRisksScalarFieldEnum)[keyof typeof ContractRisksScalarFieldEnum]
@@ -463,7 +547,10 @@ export const ContractAnnotationsScalarFieldEnum = {
   authorUserId: 'authorUserId',
   content: 'content',
   deletedAt: 'deletedAt',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  wordCommentRef: 'wordCommentRef',
+  removedByClient: 'removedByClient',
+  suppressInExport: 'suppressInExport'
 } as const
 
 export type ContractAnnotationsScalarFieldEnum = (typeof ContractAnnotationsScalarFieldEnum)[keyof typeof ContractAnnotationsScalarFieldEnum]
@@ -756,6 +843,7 @@ export const ModelsScalarFieldEnum = {
   sdkType: 'sdkType',
   modelVersion: 'modelVersion',
   contextWindow: 'contextWindow',
+  maxOutputTokens: 'maxOutputTokens',
   dimensions: 'dimensions',
   batchSize: 'batchSize',
   isDefault: 'isDefault',

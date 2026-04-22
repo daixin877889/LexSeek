@@ -295,19 +295,25 @@ export interface PlaybookSnapshot {
 
 // ===== 多版本：枚举 =====
 // Phase A 只声明当前用到的值；Phase B/C 扩展时再加
-export const VERSION_SYSTEM_LABELS = ['initial_upload', 'lawyer_save'] as const
+export const VERSION_SYSTEM_LABELS = [
+    'initial_upload',
+    'lawyer_save',
+    'client_return',
+    'auto_backup',
+] as const
 export type VersionSystemLabel = typeof VERSION_SYSTEM_LABELS[number]
 
-// Phase B 扩展：client_return 映射 '客户回传'、auto_backup 映射 '自动备份'
 export const VERSION_SYSTEM_LABEL_DISPLAY: Record<VersionSystemLabel, string> = {
     initial_upload: '初次上传',
     lawyer_save: '律师保存',
+    client_return: '客户回传',
+    auto_backup: '自动备份',
 }
 
-export const RISK_SOURCES = ['ai'] as const  // Phase B 加 'external_new'；Phase C 加 'global_review'
+export const RISK_SOURCES = ['ai', 'external_new', 'global_review'] as const
 export type RiskSource = typeof RISK_SOURCES[number]
 
-export const ANNOTATION_AUTHOR_TYPES = ['ai', 'lawyer'] as const  // Phase B 加 'external'
+export const ANNOTATION_AUTHOR_TYPES = ['ai', 'lawyer', 'external'] as const
 export type AnnotationAuthorType = typeof ANNOTATION_AUTHOR_TYPES[number]
 
 export const RISK_ARCHIVED_STATUSES = ['handled', 'ignored'] as const  // Phase B 加 'client_removed'
@@ -334,6 +340,9 @@ export interface ContractRiskEntity {
     anchorCharEnd: number | null
     createdAt: string
     updatedAt: string
+    // Phase B
+    originalAnchorQuote: string | null
+    orphaned: boolean
 }
 
 export interface ContractAnnotationEntity {
@@ -347,6 +356,10 @@ export interface ContractAnnotationEntity {
     content: string
     createdAt: string
     // 软删的批注不出现在 API 响应中（service 层过滤 deletedAt IS NULL）
+    // Phase B
+    wordCommentRef: string | null
+    removedByClient: boolean
+    suppressInExport: boolean
 }
 
 export interface ContractReviewVersionEntity {
@@ -358,6 +371,8 @@ export interface ContractReviewVersionEntity {
     createdById: number
     createdByName: string
     createdAt: string
+    // Phase B
+    docxFileId: number | null
     // Phase B 再加 stats（变更徽章用）
 }
 
@@ -376,4 +391,36 @@ export interface ContractReviewVersionSnapshotResponse extends ContractReviewVer
         docxText: string
         // Phase B 扩展 paragraphs
     }
+}
+
+// ===== Phase B：客户回传版本上传 SSE 事件 =====
+
+export const CONTRACT_UPLOAD_VERSION_SSE_EVENT = {
+    PROGRESS: 'upload-version-progress',
+    COMPLETE: 'upload-version-complete',
+    ERROR: 'upload-version-error',
+} as const
+
+export type UploadVersionStep = 'backup' | 'parse' | 'diff' | 'ai' | 'merge'
+export type UploadVersionStatus = 'done' | 'progress'
+
+export interface UploadVersionProgressData {
+    step: UploadVersionStep
+    status: UploadVersionStatus
+    externalChangeCount?: number
+    clauseModifiedCount?: number
+    total?: number
+    current?: number
+    newVersionId?: number
+}
+
+export interface UploadVersionCompleteData {
+    newVersionId: number
+    summary: string
+}
+
+export interface UploadVersionErrorData {
+    step: UploadVersionStep
+    code: string
+    message: string
 }

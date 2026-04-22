@@ -122,6 +122,7 @@ export async function loadContractReviewVersionSnapshotService(versionId: number
             createdById: version.createdById,
             createdByName: createdByUser?.name ?? '',
             createdAt: version.createdAt.toISOString(),
+            docxFileId: version.docxFileId,
             snapshot,
         },
     }

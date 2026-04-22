@@ -133,6 +133,12 @@ export type contractPlaybooks = Prisma.contractPlaybooksModel
  */
 export type contractReviews = Prisma.contractReviewsModel
 /**
+ * Model contractReviewLegacyRisksBackup
+ * 合同审查存量 risks JSON 一次性备份（Phase A 数据迁移回滚兜底）
+ * 由 prisma migrate dev --create-only 生成，手工追加 INSERT...SELECT 备份数据
+ */
+export type contractReviewLegacyRisksBackup = Prisma.contractReviewLegacyRisksBackupModel
+/**
  * Model contractReviewVersions
  * 合同审查历史版本快照（不可变）
  */
