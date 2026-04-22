@@ -98,6 +98,8 @@ export interface NodeConfig {
     outputSchema: Record<string, unknown> | null
     /** 模型上下文窗口大小（tokens） */
     modelContextWindow?: number
+    /** 模型单次调用最大输出 tokens（模型物理上限） */
+    modelMaxOutputTokens?: number
 }
 
 // ==================== 节点分组服务 ====================
@@ -428,6 +430,7 @@ export const getNodeConfigService = async (name: string): Promise<NodeConfig | n
             tools: (nodeConfig.tools as string[]) || [],
             outputSchema: (nodeConfig.outputSchema as Record<string, unknown>) ?? null,
             modelContextWindow: nodeConfig.model.contextWindow ?? undefined,
+            modelMaxOutputTokens: nodeConfig.model.maxOutputTokens ?? undefined,
         }
 
         return config
@@ -527,6 +530,7 @@ export const getNodeConfigByIdService = async (id: number): Promise<NodeConfig |
             tools: (nodeConfig.tools as string[]) || [],
             outputSchema: (nodeConfig.outputSchema as Record<string, unknown>) ?? null,
             modelContextWindow: nodeConfig.model.contextWindow ?? undefined,
+            modelMaxOutputTokens: nodeConfig.model.maxOutputTokens ?? undefined,
         }
 
         return config
@@ -618,5 +622,6 @@ export const getNodeConfigsByTypes = async (
             tools: (node.tools as string[]) || [],
             outputSchema: (node.outputSchema as Record<string, unknown>) ?? null,
             modelContextWindow: node.model!.contextWindow ?? undefined,
+            modelMaxOutputTokens: node.model!.maxOutputTokens ?? undefined,
         }))
 }

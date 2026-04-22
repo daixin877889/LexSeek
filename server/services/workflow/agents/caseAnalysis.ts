@@ -74,6 +74,7 @@ export const caseAnalysisAgent = async (
         temperature: 0.7,
         streaming: true,
         thinking,
+        maxTokens: nodeConfig.modelMaxOutputTokens,
     })
 
     // 获取系统提示词（优先使用数据库配置，并渲染模板变量）
@@ -95,7 +96,10 @@ export const caseAnalysisAgent = async (
         toolsCount: tools.length,
     })
 
-    const { triggerTokens, maxTokens } = resolveContextWindow(nodeConfig.modelContextWindow)
+    const { triggerTokens, maxTokens, maxOutputTokens } = resolveContextWindow(
+        nodeConfig.modelContextWindow,
+        nodeConfig.modelMaxOutputTokens,
+    )
 
     const agent: ReactAgent = createAgent({
         model,
@@ -118,6 +122,7 @@ export const caseAnalysisAgent = async (
                 model,
                 maxTokens,
                 systemPrompt,
+                maxOutputTokens,
             }),
             // 末位：afterAgent 在所有其他中间件之后执行
             analysisResultPersistenceMiddleware({

@@ -274,6 +274,7 @@ export async function runContractReviewChat(
         baseUrl: nodeConfig.modelProviderBaseUrl,
         temperature: 0,
         streaming: true,
+        maxTokens: nodeConfig.modelMaxOutputTokens,
     })
 
     // 4. 渲染系统提示词（注入 reviewId + contractType）
@@ -302,7 +303,10 @@ export async function runContractReviewChat(
         isResume: !!command,
     })
 
-    const { triggerTokens, maxTokens } = resolveContextWindow(nodeConfig.modelContextWindow)
+    const { triggerTokens, maxTokens, maxOutputTokens } = resolveContextWindow(
+        nodeConfig.modelContextWindow,
+        nodeConfig.modelMaxOutputTokens,
+    )
 
     // 7. 组装中间件栈（按 priority 排序：scope → toolCallLimit → 计费 → 摘要 → 安全裁剪 → 结果持久化 → 审计）
     const middleware = buildMiddlewareStack([
@@ -334,6 +338,7 @@ export async function runContractReviewChat(
                 model,
                 maxTokens,
                 systemPrompt,
+                maxOutputTokens,
             }),
             priority: MIDDLEWARE_PRIORITY.SAFETY_TRIM,
             name: MIDDLEWARE_NAMES.SAFETY_TRIM,

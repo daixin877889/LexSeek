@@ -91,6 +91,7 @@ export async function runModuleChat(
         temperature: 0.7,
         streaming: true,
         thinking: options.thinking,
+        maxTokens: nodeConfig.modelMaxOutputTokens,
     })
 
     // 工具上下文（扩展 ModuleToolContext）
@@ -131,7 +132,10 @@ export async function runModuleChat(
     ].filter(Boolean)
     const systemPrompt = systemPromptParts.join('\n\n')
 
-    const { triggerTokens, maxTokens } = resolveContextWindow(nodeConfig.modelContextWindow)
+    const { triggerTokens, maxTokens, maxOutputTokens } = resolveContextWindow(
+        nodeConfig.modelContextWindow,
+        nodeConfig.modelMaxOutputTokens,
+    )
 
     const agent: ReactAgent = createAgent({
         model,
@@ -153,6 +157,7 @@ export async function runModuleChat(
                 model,
                 maxTokens,
                 systemPrompt,
+                maxOutputTokens,
             }),
             skillsMiddleware,
             createAuditMiddleware(),

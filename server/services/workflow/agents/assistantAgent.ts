@@ -81,6 +81,7 @@ export async function runAssistantChat(
         temperature: 0.7,
         streaming: true,
         thinking,
+        maxTokens: mainConfig.modelMaxOutputTokens,
     })
 
     // 4. 渲染系统提示词：assistantMain 的 v1 提示词无模板变量
@@ -99,7 +100,10 @@ export async function runAssistantChat(
         toolNames: tools.map(t => t.name),
     })
 
-    const { triggerTokens, maxTokens } = resolveContextWindow(mainConfig.modelContextWindow)
+    const { triggerTokens, maxTokens, maxOutputTokens } = resolveContextWindow(
+        mainConfig.modelContextWindow,
+        mainConfig.modelMaxOutputTokens,
+    )
 
     const agent: ReactAgent = createAgent({
         model,
@@ -122,6 +126,7 @@ export async function runAssistantChat(
                 model,
                 maxTokens,
                 systemPrompt,
+                maxOutputTokens,
             }),
             // audit 放最后：能同时捕获 scopeGuard 拒绝 / toolCallLimit 熔断 / 正常执行 / 异常四种情况
             createAuditMiddleware(),

@@ -127,6 +127,12 @@ export type contractPlaybooks = Prisma.contractPlaybooksModel
  */
 export type contractReviews = Prisma.contractReviewsModel
 /**
+ * Model contractReviewLegacyRisksBackup
+ * 合同审查存量 risks JSON 一次性备份（Phase A 数据迁移回滚兜底）
+ * 由 prisma migrate dev --create-only 生成，手工追加 INSERT...SELECT 备份数据
+ */
+export type contractReviewLegacyRisksBackup = Prisma.contractReviewLegacyRisksBackupModel
+/**
  * Model contractReviewVersions
  * 合同审查历史版本快照（不可变）
  */
@@ -167,6 +173,36 @@ export type documentDraftVersions = Prisma.documentDraftVersionsModel
  * OSS 文件表
  */
 export type ossFiles = Prisma.ossFilesModel
+/**
+ * Model checkpoint_blobs
+ * 
+ */
+export type checkpoint_blobs = Prisma.checkpoint_blobsModel
+/**
+ * Model checkpoint_migrations
+ * 
+ */
+export type checkpoint_migrations = Prisma.checkpoint_migrationsModel
+/**
+ * Model checkpoint_writes
+ * 
+ */
+export type checkpoint_writes = Prisma.checkpoint_writesModel
+/**
+ * Model checkpoints
+ * 
+ */
+export type checkpoints = Prisma.checkpointsModel
+/**
+ * Model store
+ * 
+ */
+export type store = Prisma.storeModel
+/**
+ * Model store_migrations
+ * 
+ */
+export type store_migrations = Prisma.store_migrationsModel
 /**
  * Model legalMain
  * 法律主表 - 存储法律法规的基本信息

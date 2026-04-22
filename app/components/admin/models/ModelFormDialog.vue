@@ -69,10 +69,21 @@
                     </div>
                 </div>
                 <!-- 对话模型专用字段 -->
-                <div v-if="form.modelType === 'chat'" class="space-y-2">
-                    <Label>上下文窗口</Label>
-                    <Input v-model.number="form.contextWindow" type="number" min="1" placeholder="如：128000" />
-                </div>
+                <template v-if="form.modelType === 'chat'">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-2">
+                            <Label>上下文窗口</Label>
+                            <Input v-model.number="form.contextWindow" type="number" min="1" placeholder="如：128000" />
+                        </div>
+                        <div class="space-y-2">
+                            <Label>最大输出 tokens</Label>
+                            <Input v-model.number="form.maxOutputTokens" type="number" min="1" placeholder="如：8192 / 65536" />
+                            <p class="text-xs text-muted-foreground">
+                                模型单次调用输出上限。deepseek-chat=8192、deepseek-reasoner=65536、claude/gemini 视模型而定；留空则默认 8192。
+                            </p>
+                        </div>
+                    </div>
+                </template>
                 <!-- 嵌入模型专用字段 -->
                 <template v-if="form.modelType === 'embedding'">
                     <div class="grid grid-cols-2 gap-4">
@@ -192,6 +203,7 @@ function getDefaultForm() {
         sdkType: DEFAULT_SDK_TYPE as SdkType, // SDK 类型，默认为 openai
         modelVersion: '',
         contextWindow: undefined as number | undefined,
+        maxOutputTokens: undefined as number | undefined,
         dimensions: undefined as number | undefined,
         batchSize: undefined as number | undefined,
         isDefault: false,
@@ -228,6 +240,7 @@ const openEdit = (model: Model) => {
         sdkType: (model.sdkType as SdkType) || DEFAULT_SDK_TYPE, // 编辑时加载当前模型的 SDK 类型
         modelVersion: model.modelVersion || '',
         contextWindow: model.contextWindow ?? undefined,
+        maxOutputTokens: model.maxOutputTokens ?? undefined,
         dimensions: model.dimensions ?? undefined,
         batchSize: model.batchSize ?? undefined,
         isDefault: model.isDefault,
@@ -267,6 +280,7 @@ const handleSubmit = async () => {
             sdkType: form.value.sdkType, // 提交时包含 SDK 类型
             modelVersion: form.value.modelVersion || null,
             contextWindow: form.value.contextWindow || null,
+            maxOutputTokens: form.value.maxOutputTokens || null,
             dimensions: form.value.dimensions || null,
             batchSize: form.value.batchSize || null,
             isDefault: form.value.isDefault,

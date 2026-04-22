@@ -42,6 +42,11 @@ const bodySchema = z.object({
         .positive('上下文窗口必须是正整数')
         .optional()
         .nullable(),
+    maxOutputTokens: z.number()
+        .int('最大输出 tokens 必须是整数')
+        .positive('最大输出 tokens 必须是正整数')
+        .optional()
+        .nullable(),
     dimensions: z.number()
         .int('嵌入维度必须是整数')
         .positive('嵌入维度必须是正整数')

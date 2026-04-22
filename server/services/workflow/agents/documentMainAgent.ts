@@ -135,6 +135,7 @@ export async function runDocumentChat(
         baseUrl: nodeConfig.modelProviderBaseUrl,
         temperature: 0.7,
         streaming: true,
+        maxTokens: nodeConfig.modelMaxOutputTokens,
     })
 
     // 5. 渲染系统提示词（注入模板名称和类别）
@@ -165,7 +166,10 @@ export async function runDocumentChat(
         toolsCount: tools.length,
     })
 
-    const { triggerTokens, maxTokens } = resolveContextWindow(nodeConfig.modelContextWindow)
+    const { triggerTokens, maxTokens, maxOutputTokens } = resolveContextWindow(
+        nodeConfig.modelContextWindow,
+        nodeConfig.modelMaxOutputTokens,
+    )
 
     // 8. 组装 Agent（中间件顺序：计费 → 摘要 → 安全裁剪 → 持久化）
     // draftResultPersistenceMiddleware 必须最后，确保拿到最终 structuredResponse
@@ -189,6 +193,7 @@ export async function runDocumentChat(
                 model,
                 maxTokens,
                 systemPrompt,
+                maxOutputTokens,
             }),
             draftResultPersistenceMiddleware({ draftId: draft.id, sessionId }),
             createAuditMiddleware(),

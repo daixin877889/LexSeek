@@ -96,6 +96,7 @@ export async function runCaseChat(
         temperature: 0.7,
         streaming: true,
         thinking,
+        maxTokens: mainConfig.modelMaxOutputTokens,
     })
 
     // 4. 获取系统提示词（渲染模板变量）
@@ -135,7 +136,10 @@ export async function runCaseChat(
     })
 
     // 8. 创建主代理
-    const { triggerTokens, maxTokens } = resolveContextWindow(mainConfig.modelContextWindow)
+    const { triggerTokens, maxTokens, maxOutputTokens } = resolveContextWindow(
+        mainConfig.modelContextWindow,
+        mainConfig.modelMaxOutputTokens,
+    )
 
     const agent: ReactAgent = createAgent({
         model,
@@ -158,6 +162,7 @@ export async function runCaseChat(
                 model,
                 maxTokens,
                 systemPrompt,
+                maxOutputTokens,
             }),
             skillsMiddleware,
             createAuditMiddleware(),

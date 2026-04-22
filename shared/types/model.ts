@@ -146,6 +146,8 @@ export interface CreateModelInput {
     sdkType?: SdkType
     modelVersion?: string | null
     contextWindow?: number | null
+    /** 单次调用最大输出 tokens（模型物理上限，如 deepseek-chat=8K、deepseek-reasoner=64K） */
+    maxOutputTokens?: number | null
     dimensions?: number | null
     batchSize?: number | null
     isDefault?: boolean
@@ -164,6 +166,8 @@ export interface UpdateModelInput {
     sdkType?: SdkType
     modelVersion?: string | null
     contextWindow?: number | null
+    /** 单次调用最大输出 tokens（模型物理上限） */
+    maxOutputTokens?: number | null
     dimensions?: number | null
     batchSize?: number | null
     isDefault?: boolean

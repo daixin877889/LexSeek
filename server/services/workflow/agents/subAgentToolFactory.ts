@@ -148,6 +148,7 @@ export async function createSubAgentTools(
                         baseUrl: config.modelProviderBaseUrl,
                         temperature: 0.7,
                         streaming: true,
+                        maxTokens: config.modelMaxOutputTokens,
                     })
 
                     // 加载子代理工具
@@ -194,7 +195,10 @@ export async function createSubAgentTools(
                         : [new HumanMessage(input.question)]
 
                     // 上下文压缩参数（与主 agent 同规格）
-                    const { triggerTokens, maxTokens } = resolveContextWindow(config.modelContextWindow)
+                    const { triggerTokens, maxTokens, maxOutputTokens } = resolveContextWindow(
+                        config.modelContextWindow,
+                        config.modelMaxOutputTokens,
+                    )
 
                     // 创建子代理
                     const agent = createAgent({
@@ -212,7 +216,7 @@ export async function createSubAgentTools(
                                 model,
                                 trigger: [{ tokens: triggerTokens }],
                             }),
-                            safetyTrimMiddleware({ model, maxTokens, systemPrompt }),
+                            safetyTrimMiddleware({ model, maxTokens, systemPrompt, maxOutputTokens }),
                             analysisResultPersistenceMiddleware({
                                 agentName: config.name,
                                 caseId: context.caseId,

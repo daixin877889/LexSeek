@@ -32,6 +32,12 @@ export interface SafetyTrimMiddlewareOptions {
     /** 系统提示词文本（createAgent 的 systemPrompt）；用于从预算里扣除其 tokens */
     systemPrompt?: string
     /**
+     * 模型单次调用最大输出 tokens（nodes 表模型的 maxOutputTokens）。
+     * 未配置时默认 8192。safetyTrim 会从 input budget 里扣除这部分，保证 output 有足够余量。
+     * 例如 deepseek-reasoner 可以到 64K，若不扣除，模型大概率因 input+output>contextWindow 被拒。
+     */
+    maxOutputTokens?: number
+    /**
      * tiktoken → 模型真实 tokenizer 的膨胀系数
      * DeepSeek: ~1.5（中文为主时 cl100k_base 比模型 tokenizer 低估约 50%）
      * OpenAI/Anthropic: ~1.0（cl100k_base 原生匹配）
@@ -45,13 +51,14 @@ export interface SafetyTrimMiddlewareOptions {
  */
 export function safetyTrimMiddleware(options: SafetyTrimMiddlewareOptions) {
     const inflation = options.tokenizerInflation ?? 1.5
+    const outputReserve = options.maxOutputTokens ?? 8192
 
-    // 模型真实 messages 上限 = maxTokens - completion预留(8192) - systemTokens × 膨胀系数
-    // completion 预留需与 chatModelFactory 中 DEFAULT_MAX_TOKENS 一致，否则 input budget 失真
+    // 模型真实 messages 上限 = maxTokens - output 预留 - systemTokens × 膨胀系数
+    // output 预留随模型而变：deepseek-chat=8K / deepseek-reasoner=64K / claude=64K...
     // 换算为 tiktoken 等效预算：真实上限 / 膨胀系数
     const systemTokens = options.systemPrompt ? countTokensSync(options.systemPrompt) : 0
     const realBudget = Math.max(
-        options.maxTokens - 8192 - Math.ceil(systemTokens * inflation),
+        options.maxTokens - outputReserve - Math.ceil(systemTokens * inflation),
         10000,
     )
     const tiktokenBudget = Math.floor(realBudget / inflation)
@@ -87,6 +94,7 @@ export function safetyTrimMiddleware(options: SafetyTrimMiddlewareOptions) {
                     before: estimated,
                     after: estimateMessagesTokens(replacement),
                     maxTokens: options.maxTokens,
+                    outputReserve,
                     systemTokens,
                     inflation,
                     tiktokenBudget,
