@@ -14,11 +14,11 @@ import {
     SendIcon, MessageCircleIcon, UserIcon, BotIcon, EyeOffIcon,
 } from 'lucide-vue-next'
 import { useLocalStorage } from '@vueuse/core'
-import type { ContractOverview, Risk, ContractReviewStatus, PlaybookSnapshot, ContractAnnotationEntity, RiskArchivedStatus } from '#shared/types/contract'
+import type { ContractOverview, Risk, RiskDisplay, ContractReviewStatus, PlaybookSnapshot, ContractAnnotationEntity, RiskArchivedStatus } from '#shared/types/contract'
 import { RISK_LEVEL_LABEL } from '#shared/types/contract'
 
 const props = defineProps<{
-    risks: Risk[]
+    risks: RiskDisplay[]
     /** Phase A：工作区或历史快照的批注列表 */
     annotations?: ContractAnnotationEntity[]
     /** Phase A：只读模式（历史版本预览时为 true） */
@@ -171,23 +171,33 @@ const ARCHIVED_STATUS_LABEL: Record<RiskArchivedStatus, string> = {
     ignored: '已忽略',
 }
 
-/** 从 risk 对象上安全读取 archivedStatus（Phase A 通过类型扩展注入，旧 Risk 类型没有此字段） */
-function getArchivedStatus(r: Risk): RiskArchivedStatus | null | undefined {
-    return (r as Risk & { archivedStatus?: RiskArchivedStatus | null }).archivedStatus
+/** 从 risk 对象上读取 archivedStatus（RiskDisplay 扩展字段，未迁移数据下为 undefined） */
+function getArchivedStatus(r: RiskDisplay): RiskArchivedStatus | null | undefined {
+    return r.archivedStatus
 }
 
-/** 过滤后的排序 risks（已处置放底部 / 隐藏） */
-const filteredSorted = computed(() => {
-    const all = [...props.risks].sort((a, b) => a.clauseIndex - b.clauseIndex)
-    if (hideArchived.value) return all.filter(r => !getArchivedStatus(r))
-    // 未处置在前，已处置在后
-    return [
-        ...all.filter(r => !getArchivedStatus(r)),
-        ...all.filter(r => getArchivedStatus(r)),
-    ]
-})
+/** 未处置 risks（按条款索引升序）——始终在清单主区显示 */
+const unarchivedRisks = computed(() =>
+    [...props.risks].filter(r => !getArchivedStatus(r)).sort((a, b) => a.clauseIndex - b.clauseIndex),
+)
 
-const archivedCount = computed(() => props.risks.filter(r => getArchivedStatus(r)).length)
+/** 已处置 risks（按条款索引升序） */
+const archivedRisks = computed(() =>
+    [...props.risks].filter(r => getArchivedStatus(r)).sort((a, b) => a.clauseIndex - b.clauseIndex),
+)
+
+const archivedCount = computed(() => archivedRisks.value.length)
+
+/**
+ * 主清单渲染顺序：
+ * - hideArchived=false（展开态，默认）：未处置 + 已处置（带降权样式）按顺序连续展示
+ * - hideArchived=true（折叠态）：只展示未处置；主列表底部额外渲染"已处置（N）· 点击展开"按钮
+ *   用户点击展开即切 hideArchived=false，所有已处置风险回到主列表（降权样式）
+ */
+const filteredSorted = computed(() => {
+    if (hideArchived.value) return unarchivedRisks.value
+    return [...unarchivedRisks.value, ...archivedRisks.value]
+})
 
 /** 获取某个 risk 关联的批注（按创建时间升序）；riskStringId 是 Risk.id（entity id 的字符串化） */
 function annotationsForRisk(riskStringId: string): ContractAnnotationEntity[] {
@@ -443,6 +453,16 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                         </div>
                     </CardContent>
                 </Card>
+
+                <!-- 已处置折叠区（仅 hideArchived=true 且确有已处置时显示）-->
+                <button
+                    v-if="hideArchived && archivedCount > 0"
+                    type="button"
+                    class="w-full text-xs text-muted-foreground hover:text-primary hover:bg-muted/60 border border-dashed rounded-md py-1.5 transition-colors"
+                    @click="hideArchived = false"
+                >
+                    已处置（{{ archivedCount }}）· 点击展开
+                </button>
             </div>
         </ScrollArea>
 

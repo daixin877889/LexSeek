@@ -32,9 +32,10 @@ export default defineEventHandler(async (event) => {
     if (!guard.ok) return resError(event, guard.status, guard.message)
     const { review } = guard
 
-    // 兼容：currentVersionId === null 表示存量未迁移数据，fallback 读 legacy risks JSON
+    // 兼容：currentVersionId 为 null/undefined 表示存量未迁移数据，fallback 读 legacy risks JSON
+    // 用 == null 同时命中 null 与 undefined（部分 select 场景字段不返回时为 undefined）
     let risksWithAnnotations: unknown[]
-    if (review.currentVersionId === null) {
+    if (review.currentVersionId == null) {
         risksWithAnnotations = (review.risks as unknown[]) ?? []
     } else {
         const [risks, annotations] = await Promise.all([

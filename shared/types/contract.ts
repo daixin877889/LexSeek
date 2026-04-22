@@ -51,6 +51,16 @@ export interface Risk {
     matchedPointCode?: string
 }
 
+/**
+ * Phase A：RiskListPanel 消费的 Risk 显示类型扩展。
+ * 在 Risk 基础上注入 archivedStatus（工作区处置状态）和 entityId（ContractRisk 数据库主键）。
+ * 用于 ContractReviewPanel 把 ContractRiskEntity 映射给 RiskListPanel 时保留处置态。
+ */
+export type RiskDisplay = Risk & {
+    archivedStatus?: RiskArchivedStatus | null
+    entityId?: number
+}
+
 export interface CreateReviewRequest {
     sourceType: 'upload' | 'paste'
     ossFileId?: number
