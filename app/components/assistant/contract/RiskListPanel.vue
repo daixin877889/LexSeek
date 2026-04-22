@@ -12,8 +12,8 @@
  *
  * **Feature: contract-review-m5**
  */
-import { DownloadIcon, ChevronDownIcon, Loader2Icon, PlusIcon, PencilIcon, Trash2Icon, FileTextIcon, Pin, TriangleAlert } from 'lucide-vue-next'
-import type { ContractOverview, Risk, ContractReviewStatus } from '#shared/types/contract'
+import { DownloadIcon, ChevronDownIcon, Loader2Icon, PlusIcon, PencilIcon, Trash2Icon, FileTextIcon, Pin, TriangleAlert, ClipboardList } from 'lucide-vue-next'
+import type { ContractOverview, Risk, ContractReviewStatus, PlaybookSnapshot } from '#shared/types/contract'
 import { RISK_LEVEL_LABEL } from '#shared/types/contract'
 
 const props = defineProps<{
@@ -27,6 +27,7 @@ const props = defineProps<{
     hoveredRiskId: string | null
     pinnedRiskIds: Set<string>
     notLocatedIds: Set<string>
+    playbookSnapshot?: PlaybookSnapshot | null
 }>()
 
 const emit = defineEmits<{
@@ -125,6 +126,15 @@ const LEVEL_CLASS: Record<Risk['level'], string> = {
     low: 'bg-gray-400 text-white',
 }
 
+function pointByCode(code: string) {
+    return props.playbookSnapshot?.points.find(p => p.code === code) ?? null
+}
+
+function titleForRisk(r: Risk): string | null {
+    if (!r.matchedPointCode) return null
+    return pointByCode(r.matchedPointCode)?.title ?? null
+}
+
 // 导出 PDF 对话框
 const exportPdfDialogOpen = ref(false)
 function openExportPdf() {
@@ -148,6 +158,7 @@ function handleExportPdfConfirm(includeRisks: boolean) {
             <AssistantContractOverviewPanel
                 :risks="risks"
                 :summary="summary"
+                :playbook-snapshot="playbookSnapshot ?? null"
                 @focus-risk="(id: string) => emit('focusRisk', id)"
             />
             <div ref="containerRef" class="p-3 space-y-2">
@@ -176,6 +187,32 @@ function handleExportPdfConfirm(includeRisks: boolean) {
                         <div class="flex items-center gap-2">
                             <span class="inline-block px-2 py-0.5 rounded text-xs shrink-0" :class="LEVEL_CLASS[r.level]">{{ RISK_LEVEL_LABEL[r.level] }}</span>
                             <span class="text-sm font-medium truncate">{{ r.category }}</span>
+                            <TooltipProvider v-if="titleForRisk(r)">
+                                <Tooltip>
+                                    <TooltipTrigger as-child>
+                                        <Badge
+                                            variant="secondary"
+                                            class="text-[10px] px-1.5 py-0 font-normal shrink-0 gap-0.5 flex items-center cursor-help"
+                                            @click.stop
+                                        >
+                                            <ClipboardList class="size-2.5" />
+                                            {{ titleForRisk(r) }}
+                                        </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent class="max-w-xs text-xs space-y-1">
+                                        <div class="font-semibold">{{ titleForRisk(r) }}</div>
+                                        <div v-if="pointByCode(r.matchedPointCode!)?.checkContent">
+                                            <span class="text-muted-foreground">检查：</span>{{ pointByCode(r.matchedPointCode!)?.checkContent }}
+                                        </div>
+                                        <div v-if="pointByCode(r.matchedPointCode!)?.legalBasis">
+                                            <span class="text-muted-foreground">法律依据：</span>{{ pointByCode(r.matchedPointCode!)?.legalBasis }}
+                                        </div>
+                                        <div v-if="pointByCode(r.matchedPointCode!)?.suggestion">
+                                            <span class="text-muted-foreground">建议：</span>{{ pointByCode(r.matchedPointCode!)?.suggestion }}
+                                        </div>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                             <span
                                 v-if="notLocatedIds.has(r.id)"
                                 class="text-[10px] px-1.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700 flex items-center gap-0.5 shrink-0"

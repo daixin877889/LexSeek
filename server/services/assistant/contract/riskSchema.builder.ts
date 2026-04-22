@@ -24,6 +24,7 @@ export const RISK_SHAPE = z.object({
     risk: z.string().min(1).max(2000).describe('对当前立场方的法律风险'),
     suggestion: z.string().min(1).max(2000).describe('修改建议（文字描述）'),
     suggestedClauseText: z.string().max(10000).optional().describe('AI 重写后的完整条款（high/medium 必填）'),
+    matchedPointCode: z.string().optional().describe('命中的审查清单要点 code（由 AI 填写，服务端白名单校验后透传）'),
 }).refine(
     r => r.level === 'low' || !!r.suggestedClauseText,
     { message: 'high/medium 级别必须提供 suggestedClauseText', path: ['suggestedClauseText'] },

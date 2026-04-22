@@ -6,18 +6,23 @@
  * - conic-gradient 仪表盘 + 加权风险分 + 定性标签
  * - 三色计数卡（高/中/低）——纯展示不可点（spec 入口 1+2+4，未选入口 3）
  * - 分档要点（highlights 非空时显示，每条 button 化，emit focusRisk）
+ * - 清单对照（playbookSnapshot 非空时显示，命中/未命中折叠）
  * - 总评文字
  *
  * highlights 为 null 时降级为仅显示仪表盘 + 计数 + 总评。
  *
  * **Feature: contract-review-m6-1 Task 3.3**
+ * **Feature: contract-review-playbook (M7) Task 2.5**
  */
-import { TriangleAlert, Info } from 'lucide-vue-next'
-import type { Risk, ContractOverview } from '#shared/types/contract'
+import { TriangleAlert, Info, ClipboardList, ChevronDown } from 'lucide-vue-next'
+import { toRef } from 'vue'
+import type { Risk, ContractOverview, PlaybookSnapshot } from '#shared/types/contract'
+import { useContractPlaybookMatch } from '~/composables/useContractPlaybookMatch'
 
 const props = defineProps<{
     risks: Risk[]
     summary: ContractOverview | null
+    playbookSnapshot: PlaybookSnapshot | null
 }>()
 
 const emit = defineEmits<{
@@ -32,6 +37,13 @@ const overall = computed(() => props.summary?.overall ?? '')
 
 /** conic-gradient 角度（风险分 → 0~360deg） */
 const arcDeg = computed(() => (score.value / 100) * 360)
+
+/** 清单对照 */
+const playbookMatch = useContractPlaybookMatch(
+    toRef(props, 'playbookSnapshot'),
+    toRef(props, 'risks') as ReturnType<typeof toRef<typeof props, 'risks'>>,
+)
+const missesExpanded = ref(false)
 </script>
 
 <template>
@@ -113,6 +125,55 @@ const arcDeg = computed(() => (score.value / 100) * 360)
                 >· {{ h.text }}</button>
             </div>
         </template>
+
+        <!-- 清单对照（仅 playbookMatch.enabled 时显示） -->
+        <div
+            v-if="playbookMatch.enabled.value"
+            class="rounded-md border bg-background px-3 py-2 space-y-2"
+        >
+            <div class="flex items-center gap-2 text-xs font-semibold">
+                <ClipboardList class="size-3.5" />
+                <span>审查清单 · {{ playbookSnapshot!.contractType }}</span>
+                <span class="ml-auto text-muted-foreground">
+                    命中 {{ playbookMatch.hitCount.value }} / {{ playbookMatch.total.value }}
+                </span>
+            </div>
+
+            <!-- 命中项 -->
+            <div v-if="playbookMatch.hits.value.length" class="space-y-1">
+                <button
+                    v-for="h in playbookMatch.hits.value"
+                    :key="h.point.code"
+                    :data-riskid="h.risk.id"
+                    class="block w-full text-left text-xs px-1.5 py-1 rounded hover:bg-accent hover:text-accent-foreground transition-colors"
+                    @click="emit('focusRisk', h.risk.id)"
+                >
+                    <span class="text-red-600 dark:text-red-300 mr-1">⚠</span>
+                    <span class="font-medium">{{ h.point.title }}</span>
+                    <span class="text-muted-foreground ml-1">（{{ h.point.defaultLevel === 'high' ? '高' : h.point.defaultLevel === 'medium' ? '中' : '低' }}）</span>
+                </button>
+            </div>
+
+            <!-- 未命中项 -->
+            <div v-if="playbookMatch.misses.value.length" class="border-t pt-1.5">
+                <button
+                    class="w-full flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    @click="missesExpanded = !missesExpanded"
+                >
+                    <ChevronDown class="size-3 transition-transform" :class="{ 'rotate-180': missesExpanded }" />
+                    <span>未命中 {{ playbookMatch.misses.value.length }} 条</span>
+                </button>
+                <div v-if="missesExpanded" class="mt-1 pl-4 space-y-0.5">
+                    <div
+                        v-for="p in playbookMatch.misses.value"
+                        :key="p.code"
+                        class="text-xs text-muted-foreground"
+                    >
+                        · {{ p.title }}
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- 总评 -->
         <div

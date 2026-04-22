@@ -2181,15 +2181,26 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 
 严格按如下 JSON 输出，不要解释、不要代码块标记：
 {"highlights": {"high":[{"text":"...","riskId":"..."}], "medium":[...], "low":[...]}, "overall":"..."}', '["stance", "contractType", "riskList"]', 'v1', 'system', 1, 19, '2026-04-21 20:00:00+08', '2026-04-21 20:00:00+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (28, 'contractReviewAnalyzeClause_system', '合同审查·逐条条款分析提示词 v1', '你正在审查合同（{{contractType}}），站在{{stanceLabel}}立场。
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (28, 'contractReviewAnalyzeClause_system', '合同审查·逐条条款分析提示词 v2', '你正在审查合同（{{contractType}}），站在{{stanceLabel}}立场。
 甲方：{{partyA}}；乙方：{{partyB}}。
 当前条款（第 {{clauseIndex}} 条，编号 {{clauseNumber}}）：
 """
 {{clauseText}}
 """
+
+{{playbookSection}}
+
+## 立场偏好使用规则
+若上方存在审查清单，每条要点标注了"立场:strict/balanced/lenient"，组合判定口径：
+- strict 要点：在用户当前立场下必须严格审查，任何模糊表述都出风险
+- balanced 要点：按一般法律合规性审查，不偏不倚
+- lenient 要点：若属行业商业惯例可接受，则可不报或降级为低风险
+用户立场为"中立"时，所有要点按 balanced 处理。
+
+## 输出要求
 请判断该条款是否有风险。严格按 JSON 输出，字段如下：
 
-- 有风险：
+- 有风险（若违反清单某条，matchedPointCode 填对应 code；清单外风险 matchedPointCode 留空）：
   {
     "risk": {
       "id": "<UUID v4>",
@@ -2201,14 +2212,15 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
       "analysis": "<详细分析>",
       "risk": "<对己方的风险点>",
       "suggestion": "<改进建议>",
-      "suggestedClauseText": "<可选，推荐改写后的条款>"
+      "suggestedClauseText": "<可选，推荐改写后的条款>",
+      "matchedPointCode": "<若命中清单要点，填其 code 原文，如 \"probation\"；否则留空或不返此字段>"
     },
     "skip": false
   }
 
 - 无风险：{ "risk": null, "skip": true }
 
-只输出 JSON，不要任何解释。', '["stanceLabel", "contractType", "partyA", "partyB", "clauseIndex", "clauseNumber", "clauseText"]', 'v1', 'system', 1, 20, '2026-04-21 20:30:00+08', '2026-04-21 20:30:00+08', NULL);
+注意：matchedPointCode 只能使用上方清单里列出的 code 原文，不要编号（如不要写 P1/P2）；清单外风险 matchedPointCode 留空字符串或不返此字段。只输出 JSON，不要任何解释。', '["stanceLabel", "contractType", "partyA", "partyB", "clauseIndex", "clauseNumber", "clauseText", "playbookSection"]', 'v2', 'system', 1, 20, '2026-04-21 20:30:00+08', '2026-04-22 03:00:00+08', NULL);
 
 
 
@@ -2260,3 +2272,50 @@ $$;
 -- SELECT setval('case_types_id_seq',(SELECT COALESCE(MAX(id), 0) FROM case_types) + 1, false);
 -- SELECT setval('mineru_tokens_id_seq',(SELECT COALESCE(MAX(id), 0) FROM mineru_tokens) + 1, false);
 
+
+-- ==================== 合同审查清单要点（M7 Playbook） ====================
+-- 每个类型预置 1 条占位要点，保证 seedData 可执行；运营在后台补齐其余
+-- 后续法律顾问审校后的要点替换这里的 INSERT 即可
+
+INSERT INTO "public"."contract_playbooks"
+  ("contract_type", "code", "title", "default_level", "stance_preference", "check_content", "legal_basis", "suggestion", "enabled", "created_at", "updated_at")
+VALUES
+  ('劳动合同', 'probation', '试用期约定合规性', 'high', 'strict',
+   '检查合同是否约定试用期；试用期长度是否超过《劳动合同法》第十九条规定的上限（3 个月合同无试用期；3 年以下不超 2 个月；3 年以上不超 6 个月）；试用期工资是否低于转正工资 80% 或低于当地最低工资。',
+   '《劳动合同法》第十九条、第二十条',
+   '建议将试用期调整为不超过法定上限，且试用期工资不低于转正工资 80%。',
+   true, NOW(), NOW()),
+  ('租赁合同', 'rent_increase', '租金调整机制', 'medium', 'balanced',
+   '检查合同是否约定租金调整条款；调整频率、幅度、触发条件是否明确；是否赋予单方面调价权。',
+   '《民法典》第七百零三条、第七百二十一条',
+   '建议约定固定周期（如每 24 个月）调整一次，调整幅度上限不超过 CPI 涨幅。',
+   true, NOW(), NOW()),
+  ('买卖合同', 'delivery_risk', '交付与风险转移', 'high', 'balanced',
+   '检查合同是否明确约定交付时间、地点、方式；风险转移节点是否清晰（交付 vs 所有权转移）；验收标准是否可操作。',
+   '《民法典》第六百零四条、第六百零五条',
+   '建议明确交付地点为"买方指定仓库签收"，风险自签收时转移，验收期 7 日。',
+   true, NOW(), NOW()),
+  ('服务合同', 'acceptance_criteria', '服务验收标准', 'high', 'balanced',
+   '检查合同是否约定明确的服务交付物和验收标准；验收不通过的救济路径是否清晰；尾款支付是否与验收挂钩。',
+   '《民法典》第七百七十二条',
+   '建议将尾款 30% 与验收合格挂钩，验收周期 10 个工作日。',
+   true, NOW(), NOW()),
+  ('借款合同', 'interest_cap', '利率合规性', 'high', 'strict',
+   '检查合同约定的利率、违约金、服务费等综合年化成本是否超过 LPR 的 4 倍（最高人民法院司法解释红线）。',
+   '《最高人民法院关于审理民间借贷案件适用法律若干问题的规定》',
+   '建议将综合年化成本控制在 LPR 4 倍以内，超过部分不受司法保护。',
+   true, NOW(), NOW()),
+  ('保密协议', 'scope_and_term', '保密范围与期限', 'medium', 'balanced',
+   '检查保密范围是否具体（避免过宽的兜底条款）；保密期限是否合理；违反后果是否约定。',
+   '《反不正当竞争法》第九条',
+   '建议保密范围限定为明确列举的技术/商务信息；期限不超过 5 年；违约金设定为实际损失的 2 倍。',
+   true, NOW(), NOW())
+ON CONFLICT (contract_type, code) DO UPDATE SET
+  title            = EXCLUDED.title,
+  default_level    = EXCLUDED.default_level,
+  stance_preference = EXCLUDED.stance_preference,
+  check_content    = EXCLUDED.check_content,
+  legal_basis      = EXCLUDED.legal_basis,
+  suggestion       = EXCLUDED.suggestion,
+  enabled          = EXCLUDED.enabled,
+  updated_at       = NOW();

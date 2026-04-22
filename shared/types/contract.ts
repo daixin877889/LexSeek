@@ -116,16 +116,6 @@ export const STANCE_LABEL: Record<Stance, string> = {
     neutral: '中立',
 }
 
-export type StancePreference = 'strict' | 'balanced' | 'lenient'
-
-export const STANCE_PREFERENCE_OPTIONS = ['strict', 'balanced', 'lenient'] as const
-
-export const STANCE_PREFERENCE_LABEL: Record<StancePreference, string> = {
-    strict: '严格',
-    balanced: '中性',
-    lenient: '宽松',
-}
-
 export const RISK_LEVEL_LABEL: Record<RiskLevel, string> = {
     high: '高',
     medium: '中',
@@ -218,29 +208,6 @@ export interface ClauseSegment {
 }
 
 /**
- * 清单要点的快照形态（冻结在 contract_reviews.playbookSnapshot JSON 中）
- * 不直接等同于 contract_playbooks 行——后者可能被运营修改，快照不变。
- *
- * **Feature: contract-review-playbook (M7)**
- */
-export interface PlaybookPointSnapshot {
-    code: string
-    title: string
-    defaultLevel: 'high' | 'medium' | 'low'
-    stancePreference: StancePreference
-    checkContent: string
-    legalBasis?: string
-    suggestion?: string
-}
-
-export interface PlaybookSnapshot {
-    contractType: string
-    points: PlaybookPointSnapshot[]
-    /** ISO 时间戳，便于 UI 显示"本审查使用清单版本快照于 YYYY-MM-DD" */
-    snapshotAt: string
-}
-
-/**
  * 合同审查的 SSE 自定义事件联合（经 publishCustomEvent 发出，前端 onCustomEvent 接收）
  *
  * 只有 4 种 type：
@@ -266,3 +233,46 @@ export type ContractReviewEvent =
     | { type: 'progress'; current: number; total: number; error?: string }
     | { type: 'risk'; risk: Risk }
     | { type: 'overview'; overview: ContractOverview }
+
+// ==================== M7 Playbook ====================
+
+/**
+ * 要点客观严格度
+ * - strict：从严解读，保护当事人利益
+ * - balanced：均衡解读（默认）
+ * - lenient：从宽解读，减少过度风险标记
+ */
+export type StancePreference = 'strict' | 'balanced' | 'lenient'
+
+export const STANCE_PREFERENCE_OPTIONS = ['strict', 'balanced', 'lenient'] as const
+
+export const STANCE_PREFERENCE_LABEL: Record<StancePreference, string> = {
+    strict: '严格',
+    balanced: '中性',
+    lenient: '宽松',
+}
+
+/**
+ * 写入 contractReviews.playbookSnapshot 的单条快照结构。
+ * 字段对齐 contractPlaybooks，仅取快照写入所需字段。
+ */
+export interface PlaybookPointSnapshot {
+    code: string
+    title: string
+    defaultLevel: 'high' | 'medium' | 'low'
+    stancePreference: StancePreference
+    checkContent: string
+    legalBasis?: string
+    suggestion?: string
+}
+
+/**
+ * 冻结在 contract_reviews.playbookSnapshot JSON 中的完整快照。
+ * 运营后续修改 contract_playbooks 不影响历史审查的快照数据。
+ */
+export interface PlaybookSnapshot {
+    contractType: string
+    points: PlaybookPointSnapshot[]
+    /** ISO 时间戳，便于 UI 显示"本审查使用清单版本快照于 YYYY-MM-DD" */
+    snapshotAt: string
+}

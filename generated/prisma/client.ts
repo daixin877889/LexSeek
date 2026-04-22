@@ -115,6 +115,12 @@ export type demoCases = Prisma.demoCasesModel
  */
 export type caseMaterialEmbeddings = Prisma.caseMaterialEmbeddingsModel
 /**
+ * Model contractPlaybooks
+ * 合同审查清单要点（按合同类型维护）
+ * v1 不支持硬删除，只通过 enabled=false 停用
+ */
+export type contractPlaybooks = Prisma.contractPlaybooksModel
+/**
  * Model contractReviews
  * 合同审查记录表
  * caseId 可空：null 表示独立审查（assistant 入口），非 null 表示归属某案件（案件详情 Tab 入口）

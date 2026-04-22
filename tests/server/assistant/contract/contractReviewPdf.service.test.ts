@@ -15,7 +15,7 @@ import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { prisma } from '~~/server/utils/db'
 import { ensureTestUser, cleanupTestData } from '../test-db-helper'
 import { exportReviewPdfService } from '~~/server/services/assistant/contract/contractReviewPdf.service'
-import type { Risk, ContractOverview } from '#shared/types/contract'
+import type { Risk, ContractOverview, PlaybookSnapshot } from '#shared/types/contract'
 
 describe('exportReviewPdfService', () => {
     let ownerUserId: number
@@ -201,5 +201,62 @@ describe('exportReviewPdfService', () => {
         expect(buf).toBeInstanceOf(Buffer)
         expect(buf.subarray(0, 4).toString()).toBe('%PDF')
         expect(buf.length).toBeGreaterThan(1000)
+    })
+
+    it('snapshot 存在时 PDF 含"审查清单对照"节，体积大于无 snapshot 版本', async () => {
+        const snapshot: PlaybookSnapshot = {
+            contractType: '劳动合同',
+            snapshotAt: new Date().toISOString(),
+            points: [
+                {
+                    code: 'P001',
+                    title: '付款期限条款',
+                    defaultLevel: 'high',
+                    stancePreference: 'both',
+                    checkContent: '检查付款期限是否合理',
+                },
+                {
+                    code: 'P002',
+                    title: '违约金条款',
+                    defaultLevel: 'medium',
+                    stancePreference: 'both',
+                    checkContent: '检查违约金比例是否过高',
+                },
+            ],
+        }
+        // risk 命中 P001
+        const risks: Risk[] = [
+            {
+                ...makeRisks()[0],
+                matchedPointCode: 'P001',
+            },
+        ]
+        const reviewWithSnapshot = await prisma.contractReviews.create({
+            data: {
+                userId: ownerUserId,
+                sessionId: `pdf-snap-test-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+                originalFileId: fileId,
+                status: 'completed',
+                contractType: '劳动合同',
+                partyA: '甲方公司',
+                partyB: '乙方个人',
+                stance: 'partyB',
+                summary: '审查摘要',
+                risks: risks as any,
+                playbookSnapshot: snapshot as any,
+            },
+        })
+        createdReviewIds.push(reviewWithSnapshot.id)
+
+        const reviewWithoutSnapshot = await createReview({ userId: ownerUserId, risks: makeRisks() })
+
+        const [bufWith, bufWithout] = await Promise.all([
+            exportReviewPdfService(reviewWithSnapshot.id, ownerUserId, { includeRisks: false }),
+            exportReviewPdfService(reviewWithoutSnapshot.id, ownerUserId, { includeRisks: false }),
+        ])
+
+        expect(bufWith.subarray(0, 4).toString()).toBe('%PDF')
+        // 有清单对照节的 PDF 应比无 snapshot 的更大
+        expect(bufWith.length).toBeGreaterThan(bufWithout.length)
     })
 })
