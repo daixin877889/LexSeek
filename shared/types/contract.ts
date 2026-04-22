@@ -221,6 +221,10 @@ export interface ClauseSegment {
     number: string | null
     /** 条款正文 */
     text: string
+    /** Phase B：该条款在 docxText 中的起始字符偏移（闭区间） */
+    offsetStart: number
+    /** Phase B：该条款在 docxText 中的结束字符偏移（开区间，即 offsetStart + text.length） */
+    offsetEnd: number
 }
 
 /**
@@ -291,6 +295,19 @@ export interface PlaybookSnapshot {
     points: PlaybookPointSnapshot[]
     /** ISO 时间戳，便于 UI 显示"本审查使用清单版本快照于 YYYY-MM-DD" */
     snapshotAt: string
+}
+
+/**
+ * Phase B：版本快照 clauses 数组的元素类型。
+ * 是 ClauseSegment 的持久化子集（去掉 number 字段，只保留 diff/定位所需字段）。
+ * SaveVersionInput.clauses、persistRisksAndCreateV1Snapshot 等凡写入或读取 snapshot.clauses
+ * 的地方都应使用此类型，避免内联重复。
+ */
+export interface ClauseSnapshotItem {
+    index: number
+    text: string
+    offsetStart: number
+    offsetEnd: number
 }
 
 // ===== 多版本：枚举 =====
@@ -389,7 +406,8 @@ export interface ContractReviewVersionSnapshotResponse extends ContractReviewVer
         risks: ContractRiskEntity[]
         annotations: ContractAnnotationEntity[]
         docxText: string
-        // Phase B 扩展 paragraphs
+        /** Phase B：条款切分结果，含字符偏移，未落库时为空数组 */
+        clauses: ClauseSnapshotItem[]
     }
 }
 

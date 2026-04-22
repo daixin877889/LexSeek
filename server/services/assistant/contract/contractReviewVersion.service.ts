@@ -6,11 +6,13 @@
  *
  * **Feature: contract-review-versioning-phase-a**
  */
+import type { Prisma } from '~~/generated/prisma/client'
 import type {
     VersionSystemLabel,
     ContractReviewVersionSnapshotResponse,
     ContractRiskEntity,
     ContractAnnotationEntity,
+    ClauseSnapshotItem,
 } from '#shared/types/contract'
 import { getContractReviewVersionByIdDAO } from './contractReviewVersion.dao'
 
@@ -24,6 +26,16 @@ export interface SaveVersionInput {
      * lawyer_save 传 undefined → 从 currentVersion snapshot 继承。
      */
     docxText?: string
+    /**
+     * 上传的 docx 文件 ID（落库到 contractReviewVersions.docxFileId）。
+     * Phase B initial_upload 时传入；其他快照类型传 undefined → null。
+     */
+    docxFileId?: number | null
+    /**
+     * 条款切分结果。Phase B initial_upload 时由 segmentClauses 产出传入；
+     * 其他快照类型传 undefined → 从 currentVersion snapshot 继承，没有退 []。
+     */
+    clauses?: ClauseSnapshotItem[]
 }
 
 /**
@@ -42,16 +54,17 @@ export async function saveContractReviewVersionService(input: SaveVersionInput) 
         })
         const versionNumber = review.maxVersionNo
 
-        // 2. 从入参或当前版本继承 docxText
-        let docxText = input.docxText ?? ''
-        if (input.docxText === undefined && review.currentVersionId) {
+        // 2. 从入参或当前版本继承 docxText 和 clauses
+        let prevSnap: { docxText?: string; clauses?: ClauseSnapshotItem[] } | undefined
+        if ((input.docxText === undefined || input.clauses === undefined) && review.currentVersionId) {
             const prev = await tx.contractReviewVersions.findUnique({
                 where: { id: review.currentVersionId },
                 select: { snapshotData: true },
             })
-            const prevSnap = prev?.snapshotData as { docxText?: string } | undefined
-            docxText = prevSnap?.docxText ?? ''
+            prevSnap = prev?.snapshotData as typeof prevSnap
         }
+        const docxText = input.docxText ?? prevSnap?.docxText ?? ''
+        const clauses = input.clauses ?? prevSnap?.clauses ?? []
 
         // 3. 拿当前工作区 risks + annotations（软删的不进 snapshot）
         const [risks, annotations] = await Promise.all([
@@ -65,7 +78,7 @@ export async function saveContractReviewVersionService(input: SaveVersionInput) 
             }),
         ])
 
-        const snapshotData = { risks, annotations, docxText }
+        const snapshotData = { risks, annotations, docxText, clauses } as unknown as Prisma.InputJsonValue
 
         // 4. 创建版本记录
         const version = await tx.contractReviewVersions.create({
@@ -76,6 +89,7 @@ export async function saveContractReviewVersionService(input: SaveVersionInput) 
                 lawyerNote: lawyerNote ?? null,
                 snapshotData,
                 createdById,
+                docxFileId: input.docxFileId ?? null,
             },
         })
 
@@ -110,6 +124,7 @@ export async function loadContractReviewVersionSnapshotService(versionId: number
         risks: ContractRiskEntity[]
         annotations: ContractAnnotationEntity[]
         docxText: string
+        clauses: ClauseSnapshotItem[]
     }
 
     return {

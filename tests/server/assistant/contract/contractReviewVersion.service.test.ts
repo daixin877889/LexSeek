@@ -162,4 +162,51 @@ describe('contractReviewVersion.service', () => {
         const result = await loadContractReviewVersionSnapshotService(999999999)
         expect('error' in result && result.error).toBe('version_not_found')
     })
+
+    it('显式传入 clauses 时存入 snapshot，snapshot.clauses 包含 offsetStart/offsetEnd', async () => {
+        const clauses = [
+            { index: 1, text: '第一条 合同标的', offsetStart: 0, offsetEnd: 8 },
+            { index: 2, text: '第二条 付款方式', offsetStart: 10, offsetEnd: 18 },
+        ]
+        const v1 = await saveContractReviewVersionService({
+            reviewId,
+            systemLabel: 'initial_upload',
+            createdById: userId,
+            docxText: '第一条 合同标的\n第二条 付款方式',
+            clauses,
+        })
+
+        const loaded = await loadContractReviewVersionSnapshotService(v1.id)
+        if ('error' in loaded) throw new Error('snapshot 应返回 data')
+        expect(loaded.data.snapshot.clauses).toHaveLength(2)
+        expect(loaded.data.snapshot.clauses[0]).toMatchObject({ index: 1, offsetStart: 0, offsetEnd: 8 })
+        expect(loaded.data.snapshot.clauses[1]).toMatchObject({ index: 2, offsetStart: 10, offsetEnd: 18 })
+    })
+
+    it('不传 clauses 时从 currentVersion 继承', async () => {
+        const clauses = [
+            { index: 1, text: '第一条 定义', offsetStart: 0, offsetEnd: 6 },
+        ]
+        // v1 有 clauses
+        const v1 = await saveContractReviewVersionService({
+            reviewId,
+            systemLabel: 'initial_upload',
+            createdById: userId,
+            docxText: '第一条 定义',
+            clauses,
+        })
+
+        // v2 不传 clauses，应继承 v1 的
+        const v2 = await saveContractReviewVersionService({
+            reviewId,
+            systemLabel: 'lawyer_save',
+            createdById: userId,
+        })
+
+        expect(v2.id).not.toBe(v1.id)
+        const loaded = await loadContractReviewVersionSnapshotService(v2.id)
+        if ('error' in loaded) throw new Error('snapshot 应返回 data')
+        expect(loaded.data.snapshot.clauses).toHaveLength(1)
+        expect(loaded.data.snapshot.clauses[0]).toMatchObject({ index: 1, offsetStart: 0, offsetEnd: 6 })
+    })
 })
