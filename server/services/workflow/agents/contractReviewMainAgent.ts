@@ -79,19 +79,7 @@ import type { Prisma } from '~~/generated/prisma/client'
 import type { Risk, Stance, ClauseSegment, PlaybookSnapshot, StancePreference, RiskLevel } from '#shared/types/contract'
 import { resolveContextWindow } from '../context/messageCompressor'
 
-/**
- * 把 AI 风险对象渲染为批注文本（五段式）
- * 供 createContractAnnotationDAO content 字段使用
- */
-function renderRiskAsAnnotationText(risk: Risk): string {
-    const parts: string[] = []
-    parts.push(`【${risk.level === 'high' ? '高风险' : risk.level === 'medium' ? '中风险' : '低风险'}】${risk.category}`)
-    parts.push(`问题：${risk.problem}`)
-    if (risk.legalBasis) parts.push(`法律依据：${risk.legalBasis}`)
-    parts.push(`分析：${risk.analysis}`)
-    parts.push(`建议：${risk.suggestion}`)
-    return parts.join('\n')
-}
+import { renderRiskAsAnnotationText } from '~~/server/services/assistant/contract/contractRiskRender'
 
 /**
  * AI 审查完成后，把每条 Risk 写入 ContractRisk + ContractAnnotation 表，

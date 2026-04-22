@@ -14,21 +14,7 @@ import type { RiskLevel, StancePreference, Risk } from '#shared/types/contract'
 import { createContractRiskDAO } from './contractRisk.dao'
 import { createContractAnnotationDAO } from './contractAnnotation.dao'
 import { saveContractReviewVersionService } from './contractReviewVersion.service'
-
-/**
- * 把 AI 风险对象（legacy Risk / migrate Record）渲染为批注文本（五段式）
- */
-function renderRiskAsAnnotationText(lr: Record<string, unknown>): string {
-    const level = lr.level as string
-    const levelLabel = level === 'high' ? '高风险' : level === 'medium' ? '中风险' : '低风险'
-    const parts: string[] = []
-    parts.push(`【${levelLabel}】${lr.category ?? '未分类'}`)
-    parts.push(`问题：${lr.problem ?? ''}`)
-    if (lr.legalBasis) parts.push(`法律依据：${lr.legalBasis}`)
-    parts.push(`分析：${(lr.analysis ?? lr.risk) ?? ''}`)
-    parts.push(`建议：${lr.suggestion ?? ''}`)
-    return parts.join('\n')
-}
+import { renderRiskAsAnnotationText } from './contractRiskRender'
 
 /**
  * 迁移单条 review 的 legacy risks JSON 到 ContractRisk/Annotation 表 + 生成 v1 快照
