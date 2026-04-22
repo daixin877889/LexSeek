@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import type { ToolCallRequest } from 'langchain'
-import { createScopeGuardMiddleware, _resetSessionWrittenFiles } from '../../../../server/services/workflow/middleware/scopeGuard.middleware'
+import { createScopeGuardMiddleware } from '../../../../server/services/workflow/middleware/scopeGuard.middleware'
 
 const SESSION_ID = 'sess-test-001'
 const USER_ID = 42
@@ -27,7 +27,6 @@ describe('scopeGuard.middleware', () => {
     let handler: (req: ToolCallRequest) => Promise<unknown>
 
     beforeEach(() => {
-        _resetSessionWrittenFiles()
         middleware = createScopeGuardMiddleware()
         handlerCalled = 0
         handler = async () => {
@@ -65,21 +64,25 @@ describe('scopeGuard.middleware', () => {
         })
     })
 
-    describe('upload_workspace_file 强约束', () => {
-        it('未在会话内 write 过的文件被拒', async () => {
-            const req = makeRequest('upload_workspace_file', { filePath: 'unknown.txt' })
-            const result = await middleware.wrapToolCall!(req, handler as Parameters<typeof middleware.wrapToolCall!>[1])
-            expect(handlerCalled).toBe(0)
-            expect(JSON.stringify(result)).toContain('必须先通过 write_skill_file 写入')
+    describe('upload_workspace_file 路径校验', () => {
+        it('合法相对路径放行（skill 脚本产物也属合法来源）', async () => {
+            const req = makeRequest('upload_workspace_file', { filePath: 'output.docx' })
+            await middleware.wrapToolCall!(req, handler as Parameters<typeof middleware.wrapToolCall!>[1])
+            expect(handlerCalled).toBe(1)
         })
 
-        it('先 write 后 upload 放行', async () => {
-            const writeReq = makeRequest('write_skill_file', { path: 'report.md', content: 'hi' })
-            await middleware.wrapToolCall!(writeReq, handler as Parameters<typeof middleware.wrapToolCall!>[1])
+        it('绝对路径被拒', async () => {
+            const req = makeRequest('upload_workspace_file', { filePath: '/etc/passwd' })
+            const result = await middleware.wrapToolCall!(req, handler as Parameters<typeof middleware.wrapToolCall!>[1])
+            expect(handlerCalled).toBe(0)
+            expect(JSON.stringify(result)).toContain('非法路径')
+        })
 
-            const uploadReq = makeRequest('upload_workspace_file', { filePath: 'report.md' })
-            await middleware.wrapToolCall!(uploadReq, handler as Parameters<typeof middleware.wrapToolCall!>[1])
-            expect(handlerCalled).toBe(2)
+        it('`..` 路径穿越被拒', async () => {
+            const req = makeRequest('upload_workspace_file', { filePath: '../../etc/passwd' })
+            const result = await middleware.wrapToolCall!(req, handler as Parameters<typeof middleware.wrapToolCall!>[1])
+            expect(handlerCalled).toBe(0)
+            expect(JSON.stringify(result)).toContain('非法路径')
         })
     })
 
