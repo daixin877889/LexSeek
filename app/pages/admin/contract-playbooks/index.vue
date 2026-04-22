@@ -223,7 +223,7 @@ onMounted(async () => {
                 <SheetHeader>
                     <SheetTitle>{{ isEdit ? '编辑要点' : '新增要点' }}</SheetTitle>
                 </SheetHeader>
-                <div class="space-y-4 py-4">
+                <div class="space-y-4 px-6 py-4">
                     <div>
                         <Label>合同类型</Label>
                         <div class="text-sm text-muted-foreground mt-1">{{ editing.contractType }}</div>

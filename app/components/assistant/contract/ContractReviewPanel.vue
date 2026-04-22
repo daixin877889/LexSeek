@@ -19,7 +19,7 @@ const props = defineProps<{
     reviewId?: number | null
     /**
      * 可选：把本次审查归属到案件。案件详情 Tab 入口会把路由的 caseId 传下来；
-     * 独立合同审查页面（/dashboard/assistant/contract）则为空。
+     * 独立合同审查页面（/dashboard/contract/:id）则为空。
      */
     caseId?: number | null
 }>()
