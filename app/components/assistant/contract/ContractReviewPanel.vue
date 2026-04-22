@@ -16,6 +16,10 @@ import { toast } from 'vue-sonner'
 import { useMediaQuery, useLocalStorage } from '@vueuse/core'
 import type { Risk, ContractReviewStatus, StanceRequest, CreateReviewRequest, PlaybookSnapshot } from '#shared/types/contract'
 
+// 当前登录用户 id，用于 RiskListPanel 判断"自己创建的批注"（允许删除/修改）
+const userStore = useUserStore()
+const currentUserId = computed<number | null>(() => userStore.userInfo.id || null)
+
 const props = defineProps<{
     /** 外部传入时通过 reviewId 恢复审查（页面层从 URL ?reviewId= 读取） */
     reviewId?: number | null
@@ -460,7 +464,7 @@ function handleContainerClick(e: MouseEvent) {
                                     :risks="effectiveRisks"
                                     :annotations="versionedAnnotations"
                                     :read-only="versioning.isReadOnly.value"
-                                    :current-user-id="null"
+                                    :current-user-id="currentUserId"
                                     :status="(review?.status ?? 'pending') as ContractReviewStatus"
                                     :reviewed-file-id="review?.reviewedFileId ?? null"
                                     :summary="review?.summary ?? null"
@@ -518,7 +522,7 @@ function handleContainerClick(e: MouseEvent) {
                                 :risks="effectiveRisks"
                                 :annotations="versionedAnnotations"
                                 :read-only="versioning.isReadOnly.value"
-                                :current-user-id="null"
+                                :current-user-id="currentUserId"
                                 :status="(review?.status ?? 'pending') as ContractReviewStatus"
                                 :reviewed-file-id="review?.reviewedFileId ?? null"
                                 :summary="review?.summary ?? null"
