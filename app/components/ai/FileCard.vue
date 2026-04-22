@@ -137,14 +137,41 @@ async function handleDownload() {
       return
     }
 
-    // 通过隐藏 <a> 标签触发浏览器下载
-    const anchor = document.createElement('a')
-    anchor.href = result.downloadUrl
-    anchor.download = result.fileName ?? props.fileName
-    anchor.style.display = 'none'
-    document.body.appendChild(anchor)
-    anchor.click()
-    document.body.removeChild(anchor)
+    // 跨域 OSS URL 上 <a download> 会被浏览器忽略（变成在线打开）。
+    // 改为 fetch → blob → 同源 blob URL，a[download] 才能强制下载。
+    // 后端已带 response-content-disposition=attachment，但部分中文文件名场景下
+    // OSS 仍会按 Content-Type 回退到预览，blob 方案是最可靠的兜底。
+    const downloadName = result.fileName ?? props.fileName
+    let blobUrl: string | null = null
+    try {
+      const resp = await fetch(result.downloadUrl)
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      const blob = await resp.blob()
+      blobUrl = URL.createObjectURL(blob)
+
+      const anchor = document.createElement('a')
+      anchor.href = blobUrl
+      anchor.download = downloadName
+      anchor.style.display = 'none'
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+    } catch (fetchErr) {
+      // OSS 未配置 CORS 或网络异常时，降级到原直链方式
+      // 此时仍可能在浏览器内打开（取决于 mime），至少不丢失"能拿到文件"的能力
+      console.warn('[FileCard] blob 下载失败，降级到直链', fetchErr)
+      const anchor = document.createElement('a')
+      anchor.href = result.downloadUrl
+      anchor.download = downloadName
+      anchor.target = '_blank'
+      anchor.rel = 'noopener'
+      anchor.style.display = 'none'
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+    } finally {
+      if (blobUrl) URL.revokeObjectURL(blobUrl)
+    }
   } catch (err: any) {
     if (err?.status === 404 || err?.data?.code === 404) {
       deleted.value = true
