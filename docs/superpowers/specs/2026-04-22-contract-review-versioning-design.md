@@ -45,9 +45,10 @@
 ### 2.3 产品能力承诺（给律师看的话术）
 
 1. **合同可以多次上传，历史不丢**
-2. **律师在系统里的批注和回复，导出 Word 时自动带上**
-3. **客户在 Word 里加的批注，系统能识别并展示**
-4. **客户改过的内容 AI 会重新看一眼，律师之前处置过的风险不会被推翻**
+2. **律师在系统里的批注和回复，导出 Word 时自动带上**（Phase B 全量落地；Phase A 只保证 AI 批注导出正常）
+3. **客户在 Word 里加的批注，系统能识别并展示**（Phase B）
+4. **客户改过的内容 AI 会重新看一眼，律师之前处置过的风险不会被推翻**（Phase B）
+5. **下载的 docx 文件名带版本号**（Phase A 生效；工作区未保存的导出用 `工作区` 标识）
 
 ### 2.4 不做的事（本期边界）
 
@@ -139,78 +140,101 @@ ContractReviewVersion（历史版本快照 · 不可变）
 ### 5.2 `ContractReview`（现有表 · 扩展）
 
 新增字段：
-- `currentVersionId: bigint?` — 当前工作区基于哪个快照
-- `maxVersionNo: int default 0` — 已产生的版本号上限
+- `currentVersionId: Int?` — 当前工作区基于哪个快照
+- `maxVersionNo: Int default 0` — 已产生的版本号上限
 - 原 `risks: Json` 字段 → **数据迁移到 ContractRisk 表后清空**（保留字段名但留空，或移除，取决于存量数据量）
+
+> **字段渐进原则**：本章节的表结构采用"Phase 按需加字段"的策略。Phase A 只声明**当期需要**的字段；Phase B/C 的新增字段（Word 批注对齐、锚点迁移等）在各自 Phase 的迁移里通过 `ALTER TABLE ADD COLUMN` 追加，避免 Phase A schema 塞入永不使用的列。每节表格会明确标注"Phase A 字段"和"Phase B/C 延后字段"。
 
 ### 5.3 `ContractReviewVersion`（新表 · 版本快照）
 
+**Phase A 字段**
+
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | bigint PK | |
-| reviewId | bigint FK (cascade) | 归属合同审查 |
-| versionNumber | int | v1/v2/v3... review 内单调递增 |
-| systemLabel | enum | `initial_upload` / `client_return` / `lawyer_save` / `auto_backup` |
-| lawyerNote | text? | 律师备注 |
-| docxFileId | bigint? | 本版 docx 在 OSS 的文件 ID（上传类版本必有；纯逻辑快照可空） |
-| snapshotData | jsonb | 完整快照 `{ risks[], annotations[], docxText, paragraphs }`  |
-| createdById | bigint FK | 创建人 |
-| createdAt | datetime | |
+| id | Int PK | |
+| reviewId | Int FK (cascade) | 归属合同审查 |
+| versionNumber | Int | v1/v2/v3... review 内单调递增 |
+| systemLabel | String(20) | Phase A：`initial_upload` / `lawyer_save`；Phase B 扩展：`client_return` / `auto_backup` |
+| lawyerNote | Text? | 律师备注 |
+| snapshotData | JsonB | 完整快照 `{ risks[], annotations[], docxText }` |
+| createdById | Int FK | 创建人 |
+| createdAt | DateTime | |
+
+**Phase B 延后追加**
+
+| 字段 | 用途 |
+|---|---|
+| docxFileId | Int? | `client_return` 版本的 docx 原始文件 id |
 
 约束：
 - `@@unique([reviewId, versionNumber])`
-- 索引：`(reviewId, createdAt desc)` 用于时间线排序
+- `@@index([reviewId, createdAt(sort: Desc)])` 用于时间线排序
 
 ### 5.4 `ContractRisk`（新表 · 工作区实时）
 
+**Phase A 字段**
+
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | bigint PK | |
-| reviewId | bigint FK (cascade) | |
-| source | enum | `ai` / `external_new` / `global_review` |
-| code | string? | playbook code，仅 `ai` 来源有值 |
-| category, level, stance, problem, legalBasis, analysis, suggestion | 五段式内容 | |
-| archivedStatus | enum? | `handled` / `ignored` / `client_removed` — 工作区内的处置状态 |
-| archivedAt | datetime? | |
-| anchorQuote | text | 当前锚点原文 |
-| anchorParagraphIndex, anchorCharStart, anchorCharEnd | int? | 锚点坐标 |
-| originalAnchorQuote | text? | 如发生过迁移，保留首次原文（UI "原文已修改" 提示用）|
-| orphaned | boolean default false | 当前版本无法定位锚点（孤立批注）|
-| createdAt, updatedAt | datetime | |
+| id | Int PK | |
+| reviewId | Int FK (cascade) | |
+| source | String(20) | Phase A 仅 `ai`；Phase B 扩展 `external_new`；Phase C 扩展 `global_review` |
+| code | String(30)? | playbook code，仅 `ai` 来源有值 |
+| category, level, stance, problem, legalBasis, analysis, suggestion | — | 五段式内容 |
+| archivedStatus | String(20)? | `handled` / `ignored`（Phase B 扩展 `client_removed`）|
+| archivedAt | DateTime? | |
+| anchorQuote | Text | 当前锚点原文 |
+| anchorParagraphIndex, anchorCharStart, anchorCharEnd | Int? | 锚点坐标 |
+| createdAt, updatedAt | DateTime | |
+
+**Phase B 延后追加**
+
+| 字段 | 用途 |
+|---|---|
+| originalAnchorQuote | Text? | 锚点迁移前原文（"原文已修改" 提示用）|
+| orphaned | Boolean | 锚点无法定位（孤立批注）|
 
 注意：**没有 versionId/firstSeenInVersionId 字段**。工作区是当前快照层，历史版本通过 `ContractReviewVersion.snapshotData` 还原。
 
 ### 5.5 `ContractAnnotation`（新表 · 工作区实时）
 
+**Phase A 字段**
+
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| id | bigint PK | |
-| reviewId | bigint FK (cascade) | |
-| riskId | bigint FK (cascade) | 挂载的风险 |
-| parentAnnotationId | bigint FK? | Word reply 机制承载的父子关系 |
-| authorType | enum | `ai` / `lawyer` / `external` |
-| authorName | string | 展示名（AI=固定 "AI"；lawyer=律师姓名；external=Word author 原值） |
-| authorUserId | bigint FK? | 律师才有 |
-| content | text | 内容 |
-| wordCommentRef | string? | 系统给批注的稳定身份证（下次导出时塞入 Word，回传时用来匹配） |
-| removedByClient | boolean default false | 客户在 Word 里删了该批注 |
-| suppressInExport | boolean default false | 下次导出跳过（默认 = removedByClient） |
-| createdAt | datetime | |
+| id | Int PK | |
+| reviewId | Int FK (cascade) | |
+| riskId | Int FK (cascade) | 挂载的风险 |
+| parentAnnotationId | Int FK? | 承载对话线父子关系（Phase B Word reply 机制补上；Phase A 只在 AI→律师回复链里会用到）|
+| authorType | String(10) | Phase A 仅 `ai` / `lawyer`；Phase B 扩展 `external` |
+| authorName | String(100) | 展示名（AI=固定 "AI"；lawyer=律师姓名）|
+| authorUserId | Int FK? | 律师才有 |
+| content | Text | 内容 |
+| deletedAt | DateTime? | **软删**（决策 11 铁律：批注永不物理删除。律师删自己批注走软删） |
+| createdAt | DateTime | |
 
-索引：`(riskId, createdAt)` 用于对话线排序；`(wordCommentRef)` 用于回传比对。
+**Phase B 延后追加**
 
-### 5.6 `snapshotData` JSON 结构
+| 字段 | 用途 |
+|---|---|
+| wordCommentRef | String? | Word 批注稳定身份证，回传时比对用 |
+| removedByClient | Boolean | 客户在 Word 里删了该批注 |
+| suppressInExport | Boolean | 下次导出跳过 |
+
+索引：`(riskId, createdAt)` 用于对话线排序。Phase B 加 `wordCommentRef` 时再补 `(wordCommentRef)` 索引。
+
+### 5.6 `snapshotData` JSON 结构（Phase A）
 
 ```json
 {
   "risks": [ { /* ContractRisk 完整字段 */ } ],
-  "annotations": [ { /* ContractAnnotation 完整字段含 wordCommentRef */ } ],
-  "docxText": "...",
-  "paragraphs": [ { "index": 0, "text": "...", "offsetStart": 0, "offsetEnd": 123 } ]
+  "annotations": [ { /* ContractAnnotation 完整字段（软删的不进快照）*/ } ],
+  "docxText": "..."
 }
 ```
 
-> `paragraphs` 是正文结构化表示（索引/文本/字符偏移），给 diff 和锚点定位复用。
+> Phase B 引入正文 diff 时，扩展为 `{ ..., paragraphs: [ { index, text, offsetStart, offsetEnd } ] }`。Phase A 不存段落结构。
 
 ### 5.7 playbookSnapshot 锁死在 v1
 
@@ -421,25 +445,39 @@ Word 的"答复批注"功能产生的子 comment 有 `w:parentId` 指向父 comm
 
 ## 9. 异常与兜底
 
-| 场景 | 行为 |
-|---|---|
-| 正文大改、锚点完全无法定位 | 批注进 `orphaned=true`（孤立批注区），历史讨论保留 |
-| AI 增量审查失败 | 版本仍产生，AI 部分标失败，律师可手动重试 |
-| 上传一半失败（断网、解析错） | `auto_backup` 已完成 → 律师回到 `auto_backup` 状态 |
-| 多标签页并发编辑 | 后端乐观锁：PATCH 带 `If-Match` 版本号；冲突返回 409 让前端合并 |
-| 律师切版本时有未保存编辑 | 前端弹确认 "切换会丢失 N 处未保存编辑，先保存吗？" |
-| 全局复核可能推翻律师已处置 | **不允许**：增量审查和全局复核只能新增、不能改律师人工标过 `archivedStatus` 的风险 |
+| 场景 | 行为 | Phase |
+|---|---|---|
+| 律师切版本时有未保存编辑 | 前端弹确认 "切换会丢失 N 处未保存编辑，先保存吗？" | A |
+| 全局复核可能推翻律师已处置 | **不允许**：增量审查和全局复核只能新增、不能改律师人工标过 `archivedStatus` 的风险 | B |
+| 正文大改、锚点完全无法定位 | 批注进 `orphaned=true`（孤立批注区），历史讨论保留 | B |
+| AI 增量审查失败 | 版本仍产生，AI 部分标失败，律师可手动重试 | B |
+| 上传一半失败（断网、解析错） | `auto_backup` 已完成 → 律师回到 `auto_backup` 状态 | B |
+
+> **保存版本的并发**：`saveContractReviewVersionService` 依赖 `@@unique([reviewId, versionNumber])` 数据库约束保护并发冲突。冲突时 handler 捕 P2002 返回 409 让前端重试。不做乐观锁（原始需求未要求，且 owner-only 场景冲突概率极低）。
 
 ---
 
 ## 10. 现有地基复用
 
-- `commentInjector.ts`：改造为 "读入现有 comments.xml + 按 `wordCommentRef` 比对 + 合并生成新 comments.xml"，核心 5 段式文本生成逻辑保留
+- `server/services/assistant/contract/reviewGuard.ts` 的 `loadOwnedReview(event, { actionLabel })`：**所有新增用户端 API 必须复用**此 guard 完成 401/400/404/403 四步校验，不允许 handler 内手写 `prisma.contractReviews.findUnique + userId !== user.id` 分支。子资源端点（version/risk/annotation）需要扩展 guard 以支持从子资源 id 反查 reviewId（见 §10.1）
+- `server/utils/response.ts`（自动导入）：`resSuccess(event, message, data)` 和 `resError(event, code, message)` 是响应统一基建，所有新接口必须用此签名
+- `commentInjector.ts`：Phase B 改造为 "读入现有 comments.xml + 按 `wordCommentRef` 比对 + 合并生成新 comments.xml"，核心 5 段式文本生成逻辑保留
 - `ContractReview` 表：加两个字段（`currentVersionId`, `maxVersionNo`）
-- `useContractReview` composable：SSE 流程不变，"客户回传触发增量审查"走同一条 stream 通道
+- `useContractReview` composable：SSE 流程不变，Phase B 的"客户回传触发增量审查"走同一条 stream 通道
 - 风险清单、docx 预览、锚点定位等 M4-M7 UI 组件：直接继承
 - 文书生成的 `useDocumentDraft` 模式（debounce PATCH、版本列表 composable、恢复预览）：参考实现合同审查的 `useContractReviewVersion`
 - 文书的版本接口（`POST /versions` / `GET /versions` / 版本快照读取）：参考路由和 service 分层
+
+### 10.1 子资源端点的 owner 校验
+
+新增的 version / risk / annotation 单资源端点的路径参数是子资源 id（不是 reviewId），需要扩展 `reviewGuard.ts` 支持三种变体：
+
+- `loadOwnedReview(event, opts)`：现有，从 `:id` 拿 reviewId
+- `loadOwnedReviewByVersionId(event, opts)`：从 `:versionId` 反查 version.reviewId，再走 owner 校验
+- `loadOwnedReviewByRiskId(event, opts)`：从 `:riskId` 反查 risk.reviewId，再走 owner 校验
+- `loadOwnedReviewByAnnotationId(event, opts)`：从 `:annotationId` 反查 annotation.reviewId，再走 owner 校验
+
+实现上可抽一个内部通用函数 `loadOwnedReviewFromParam(event, kind, paramName, lookup)`，三个变体只是不同 lookup。
 
 ---
 
@@ -453,23 +491,23 @@ Word 的"答复批注"功能产生的子 comment 有 `w:parentId` 指向父 comm
 ### 11.2 迁移脚本大纲
 
 ```
-FOR each existing ContractReview:
+FOR each existing ContractReview（currentVersionId IS NULL 的才处理，幂等）:
   risks_array = review.risks  // 老 JSON
 
   FOR each risk in risks_array:
     INSERT ContractRisk (reviewId, source='ai', level=risk.level, ...)
     INSERT ContractAnnotation (riskId, authorType='ai', content=risk.generated_text, ...)
 
-  snapshot = build_snapshot(ContractRisk, ContractAnnotation, review.docxText, review.paragraphs)
+  snapshot = { risks, annotations, docxText: '' }   // Phase A 存量不回填 docxText
 
-  INSERT ContractReviewVersion (reviewId, versionNumber=1, systemLabel='initial_upload', snapshotData=snapshot, docxFileId=review.reviewedFileId)
+  INSERT ContractReviewVersion (reviewId, versionNumber=1, systemLabel='initial_upload', snapshotData=snapshot)
 
   UPDATE ContractReview SET currentVersionId=<新版本.id>, maxVersionNo=1
 ```
 
 ### 11.3 回滚方案
 
-迁移前备份 `ContractReview.risks` JSON 到 `contract_review_legacy_risks_backup` 表。如出问题可直接反向同步。
+在 Phase A 数据迁移执行**之前**单独生成一个迁移（`bun run prisma:migrate --name contract_review_legacy_risks_backup`）创建 `contract_review_legacy_risks_backup` 表，把 `ContractReview.risks` JSON 备份进去。如出问题可反向同步。**不允许**把备份 DDL 手工追加到既有 migration 文件尾部（违反 `.claude/rules/database.md` §3）。
 
 ---
 
