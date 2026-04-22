@@ -127,6 +127,22 @@ export type contractPlaybooks = Prisma.contractPlaybooksModel
  */
 export type contractReviews = Prisma.contractReviewsModel
 /**
+ * Model contractReviewVersions
+ * 合同审查历史版本快照（不可变）
+ */
+export type contractReviewVersions = Prisma.contractReviewVersionsModel
+/**
+ * Model contractRisks
+ * 合同审查风险（工作区实时态）
+ */
+export type contractRisks = Prisma.contractRisksModel
+/**
+ * Model contractAnnotations
+ * 合同审查批注（对话气泡单元）
+ * 决策 11 铁律：批注永不物理删除。律师删自己批注走软删（deletedAt）。
+ */
+export type contractAnnotations = Prisma.contractAnnotationsModel
+/**
  * Model documentTemplates
  * 文书模板表 - 存储可复用的法律文书模板
  */

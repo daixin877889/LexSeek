@@ -1,0 +1,68 @@
+/// 合同审查风险（工作区实时态）
+model contractRisks {
+  id         Int    @id @default(autoincrement())
+  reviewId   Int    @map("review_id")
+  /// 来源：Phase A 仅 ai；Phase B 扩展 external_new；Phase C 扩展 global_review
+  source     String @db.VarChar(20)
+  /// playbook code（仅 source=ai 有值）
+  code       String? @db.VarChar(30)
+  category   String  @db.VarChar(50)
+  /// 风险等级：high / medium / low
+  level      String  @db.VarChar(10)
+  /// 立场偏好：strict / balanced / lenient
+  stance     String  @default("balanced") @db.VarChar(10)
+  problem    String  @db.Text
+  legalBasis String? @map("legal_basis") @db.Text
+  analysis   String? @db.Text
+  suggestion String? @db.Text
+
+  /// 处置状态：Phase A 仅 handled / ignored；Phase B 扩展 client_removed
+  archivedStatus String?   @map("archived_status") @db.VarChar(20)
+  archivedAt     DateTime? @map("archived_at")
+
+  /// 当前锚点原文
+  anchorQuote          String  @map("anchor_quote") @db.Text
+  anchorParagraphIndex Int?    @map("anchor_paragraph_index")
+  anchorCharStart      Int?    @map("anchor_char_start")
+  anchorCharEnd        Int?    @map("anchor_char_end")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  review      contractReviews       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  annotations contractAnnotations[]
+
+  @@index([reviewId, source])
+  @@index([reviewId, archivedStatus])
+  @@map("contract_risks")
+}
+
+/// 合同审查批注（对话气泡单元）
+/// 决策 11 铁律：批注永不物理删除。律师删自己批注走软删（deletedAt）。
+model contractAnnotations {
+  id                 Int     @id @default(autoincrement())
+  reviewId           Int     @map("review_id")
+  riskId             Int     @map("risk_id")
+  /// 承载对话线父子关系（Phase A 只在 AI→律师回复链使用；Phase B 对齐 Word reply）
+  parentAnnotationId Int?    @map("parent_annotation_id")
+  /// 作者类型：Phase A 仅 ai / lawyer；Phase B 扩展 external
+  authorType         String  @map("author_type") @db.VarChar(10)
+  /// 展示名（AI=固定 "AI" / lawyer=律师姓名）
+  authorName         String  @map("author_name") @db.VarChar(100)
+  /// 律师批注才有
+  authorUserId       Int?    @map("author_user_id")
+  content            String  @db.Text
+  /// 软删时间（律师删自己批注时填）；不为 null 时在工作区与 snapshot 中均不显示
+  deletedAt          DateTime? @map("deleted_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  review           contractReviews       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  risk             contractRisks         @relation(fields: [riskId], references: [id], onDelete: Cascade)
+  parentAnnotation contractAnnotations?  @relation("AnnotationReply", fields: [parentAnnotationId], references: [id])
+  replies          contractAnnotations[] @relation("AnnotationReply")
+  authorUser       users?                @relation(fields: [authorUserId], references: [id])
+
+  @@index([riskId, createdAt])
+  @@map("contract_annotations")
+}

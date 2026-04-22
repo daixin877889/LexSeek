@@ -36,13 +36,24 @@ model contractReviews {
   updatedAt             DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
   deletedAt             DateTime? @map("deleted_at") @db.Timestamptz(6)
 
+  /// 当前工作区基于哪个快照版本
+  currentVersionId Int? @map("current_version_id")
+  /// 已产生的版本号上限（每次 snapshot 原子 +1）
+  maxVersionNo     Int  @default(0) @map("max_version_no")
+
   user users  @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// 关联的案件（caseId 为 null 时为独立审查）
   case cases? @relation(fields: [caseId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  /// 反向关系
+  versions    contractReviewVersions[]
+  risks2      contractRisks[]
+  annotations contractAnnotations[]
 
   @@unique([sessionId], map: "idx_contract_reviews_session")
   @@index([userId, deletedAt], map: "idx_contract_reviews_user")
   @@index([status], map: "idx_contract_reviews_status")
   @@index([caseId], map: "idx_contract_reviews_case")
+  @@index([currentVersionId])
   @@map("contract_reviews")
 }
