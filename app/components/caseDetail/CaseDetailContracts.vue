@@ -3,7 +3,8 @@
  * 案件详情 - 合同审查 Tab（M6.3）
  *
  * 显示当前案件下的合同审查列表，每条可点击进入合同审查工作区，
- * 顶部提供「新建合同审查」入口跳转到 /dashboard/assistant/contract?caseId=xxx。
+ * 顶部提供「新建合同审查」入口跳转到 /dashboard/contract?new=1&caseId=xxx
+ * （合同审查已从法律助手下独立为顶级模块）。
  *
  * 数据源：GET /api/v1/assistant/contract/reviews?caseId={caseId}&skip=0&take=50
  */
@@ -36,11 +37,11 @@ const items = computed<ReviewListItem[]>(() => data.value?.items ?? [])
 const total = computed(() => data.value?.total ?? 0)
 
 function handleCreate() {
-    navigateTo(`/dashboard/assistant/contract?caseId=${props.caseId}`)
+    navigateTo(`/dashboard/contract?new=1&caseId=${props.caseId}`)
 }
 
 function handleOpen(row: ReviewListItem) {
-    navigateTo(`/dashboard/assistant/contract?reviewId=${row.id}`)
+    navigateTo(`/dashboard/contract/${row.id}`)
 }
 
 /** 状态对应 badge 色调，失败红，完成绿，其他中性 */
