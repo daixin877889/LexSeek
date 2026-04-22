@@ -72,9 +72,83 @@ import {
     emitContractReviewEvent,
     type ContractReviewEmitterCtx,
 } from '../nodes/contractReviewStageEmitter'
+import { createContractRiskDAO } from '../../assistant/contract/contractRisk.dao'
+import { createContractAnnotationDAO } from '../../assistant/contract/contractAnnotation.dao'
+import { saveContractReviewVersionService } from '../../assistant/contract/contractReviewVersion.service'
 import type { Prisma } from '~~/generated/prisma/client'
-import type { Risk, Stance, ClauseSegment, PlaybookSnapshot } from '#shared/types/contract'
+import type { Risk, Stance, ClauseSegment, PlaybookSnapshot, StancePreference, RiskLevel } from '#shared/types/contract'
 import { resolveContextWindow } from '../context/messageCompressor'
+
+/**
+ * 把 AI 风险对象渲染为批注文本（五段式）
+ * 供 createContractAnnotationDAO content 字段使用
+ */
+function renderRiskAsAnnotationText(risk: Risk): string {
+    const parts: string[] = []
+    parts.push(`【${risk.level === 'high' ? '高风险' : risk.level === 'medium' ? '中风险' : '低风险'}】${risk.category}`)
+    parts.push(`问题：${risk.problem}`)
+    if (risk.legalBasis) parts.push(`法律依据：${risk.legalBasis}`)
+    parts.push(`分析：${risk.analysis}`)
+    parts.push(`建议：${risk.suggestion}`)
+    return parts.join('\n')
+}
+
+/**
+ * AI 审查完成后，把每条 Risk 写入 ContractRisk + ContractAnnotation 表，
+ * 并生成 v1 initial_upload 快照。
+ *
+ * 幂等：若 review 已有 currentVersionId 则跳过（避免重复触发写入）。
+ */
+async function persistRisksAndCreateV1Snapshot(
+    reviewId: number,
+    userId: number,
+    risks: Risk[],
+    docxText: string,
+): Promise<void> {
+    // 幂等守卫：已有 currentVersionId 说明 v1 快照已存在，跳过
+    const current = await prisma.contractReviews.findUnique({
+        where: { id: reviewId },
+        select: { currentVersionId: true },
+    })
+    if (current?.currentVersionId != null) {
+        logger.info('persistRisksAndCreateV1Snapshot: currentVersionId 已存在，跳过', { reviewId })
+        return
+    }
+
+    // 写 ContractRisk + ContractAnnotation（每条 AI 风险各一条）
+    for (const aiRisk of risks) {
+        const risk = await createContractRiskDAO({
+            reviewId,
+            source: 'ai',
+            code: aiRisk.matchedPointCode ?? null,
+            category: aiRisk.category,
+            level: aiRisk.level as RiskLevel,
+            stance: 'balanced' as StancePreference,
+            problem: aiRisk.problem,
+            legalBasis: aiRisk.legalBasis ?? null,
+            analysis: aiRisk.analysis,
+            suggestion: aiRisk.suggestion,
+            anchorQuote: aiRisk.clauseText,
+            anchorParagraphIndex: aiRisk.clauseIndex,
+        })
+        await createContractAnnotationDAO({
+            reviewId,
+            riskId: risk.id,
+            authorType: 'ai',
+            authorName: 'AI',
+            content: renderRiskAsAnnotationText(aiRisk),
+        })
+    }
+
+    // 创建 v1 initial_upload 快照（显式传 docxText）
+    await saveContractReviewVersionService({
+        reviewId,
+        systemLabel: 'initial_upload',
+        createdById: userId,
+        docxText,
+    })
+    logger.info('persistRisksAndCreateV1Snapshot: v1 快照已创建', { reviewId, risksCount: risks.length })
+}
 
 /** 合同审查主代理节点名称 */
 const CONTRACT_MAIN_NODE_NAME = 'contractReviewMain'
@@ -311,11 +385,14 @@ export async function runContractReviewChat(
     // M6.1 子期 1：在 agent 启动前预切分条款并发 segment 事件
     // 首轮和 resume 均执行（resume 时 segments 是 runAnalyzeLoop 的输入）
     let segments: ClauseSegment[] = []
+    // docxText 供 Phase A v1 快照使用（resume 分支写入 snapshot）
+    let parsedDocxText = ''
     try {
         await emitContractReviewEvent(emitterCtx, {
             type: 'stage', stage: 'segment', status: 'running',
         })
         const { fullText } = await loadContractFullText(review.originalFileId)
+        parsedDocxText = fullText
         segments = await segmentClauses(fullText)
         await emitContractReviewEvent(emitterCtx, {
             type: 'stage', stage: 'segment', status: 'done',
@@ -432,6 +509,20 @@ export async function runContractReviewChat(
                             summary: { highlights: null, overall: `本合同识别到 ${risks.length} 条风险。` } as unknown as Prisma.InputJsonValue,
                         })
                         await emitContractReviewEvent(emitterCtx, { type: 'stage', stage: 'summarize', status: 'done' })
+                    }
+
+                    // Phase A：写 ContractRisk + ContractAnnotation + 创建 v1 initial_upload 快照
+                    // 必须在 runAnnotateAndUpload 之前执行（annotate 需要 risks 已落库）
+                    try {
+                        await persistRisksAndCreateV1Snapshot(
+                            review.id,
+                            userId,
+                            risks,
+                            parsedDocxText,
+                        )
+                    } catch (err) {
+                        // 新表写入失败不影响主流程（向下兼容：旧 risks JSON 已落库）
+                        logger.error('persistRisksAndCreateV1Snapshot 失败，降级继续主流程', { reviewId: review.id, err })
                     }
 
                     // 注入批注 + 上传 OSS + 置 completed
