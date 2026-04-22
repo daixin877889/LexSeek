@@ -36,6 +36,7 @@ export default defineEventHandler(async (event) => {
             stance: review.stance,
             risks: review.risks,
             summary: review.summary,
+            playbookSnapshot: review.playbookSnapshot,
             originalFileId: review.originalFileId,
             reviewedFileId: review.reviewedFileId,
             createdAt: review.createdAt,
