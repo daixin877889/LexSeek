@@ -578,9 +578,12 @@ async function searchWithinMaterialsService(
     if (targetMaterials.length === 0) return []
 
     // 无 query → 精确查询完整内容
+    // 浏览模式（无 query + 无 sourceId）按 k 限流避免一次返回过多材料；
+    // 精确查询（指定 sourceId）只会命中单份材料，k 不再生效。
     if (!query) {
-        const contentMap = await fetchMaterialContents(targetMaterials)
-        return targetMaterials.map((m, index) => ({
+        const limitedMaterials = sourceId ? targetMaterials : targetMaterials.slice(0, k)
+        const contentMap = await fetchMaterialContents(limitedMaterials)
+        return limitedMaterials.map((m, index) => ({
             index: index + 1,
             content: contentMap.get(m.id) || '[暂无内容]',
             source: {
