@@ -189,27 +189,15 @@ describe('ContractVersionTimeline', () => {
             // 输入备注
             const textarea = w.find('textarea')
             await textarea.setValue('新备注内容')
-            // 点击保存（第一个 button 是保存）
-            const saveBtn = w.findAll('button').find(b => b.attributes('title') === undefined && !b.text().includes('←') && b.element !== w.find('button[title]').element)
-            // 使用更可靠的方式：找 Check 图标所在 button
-            // 保存按钮是编辑区内第一个 button
-            const editArea = w.find('[data-stub="Button"]') // ButtonStub 渲染的 button
-            // 直接找所有 button，过滤出编辑区的保存按钮
-            const allButtons = w.findAll('button')
-            // 编辑态的两个 button：save（带 Check icon）和 cancel（带 X icon）
-            // 它们在 textarea 后面
-            const textareaEl = textarea.element
-            const buttonAfterTextarea = allButtons.find(btn => {
-                return btn.element.compareDocumentPosition(textareaEl) & Node.DOCUMENT_POSITION_PRECEDING
-            })
-            if (buttonAfterTextarea) {
-                await buttonAfterTextarea.trigger('click')
-                await nextTick()
-                const emitted = w.emitted('update-note')
-                expect(emitted).toBeTruthy()
-                expect(emitted![0][0]).toBe(3)
-                expect(emitted![0][1]).toBe('新备注内容')
-            }
+            // 点击保存按钮（通过 data-testid 精准定位）
+            const saveBtn = w.find('[data-testid="save-note"]')
+            expect(saveBtn.exists()).toBe(true)
+            await saveBtn.trigger('click')
+            await nextTick()
+            const emitted = w.emitted('update-note')
+            expect(emitted).toBeTruthy()
+            expect(emitted![0][0]).toBe(3)
+            expect(emitted![0][1]).toBe('新备注内容')
         })
 
         it('点击取消后退出编辑态，textarea 消失', async () => {
@@ -218,19 +206,12 @@ describe('ContractVersionTimeline', () => {
             await addBtn.trigger('click')
             await nextTick()
             expect(w.find('textarea').exists()).toBe(true)
-            // 取消按钮：最后一个在编辑区
-            const allButtons = w.findAll('button')
-            const textareaEl = w.find('textarea').element
-            const btnsAfter = allButtons.filter(btn =>
-                btn.element.compareDocumentPosition(textareaEl) & Node.DOCUMENT_POSITION_PRECEDING,
-            )
-            // 最后一个是取消按钮
-            const cancelBtn = btnsAfter[btnsAfter.length - 1]
-            if (cancelBtn) {
-                await cancelBtn.trigger('click')
-                await nextTick()
-                expect(w.find('textarea').exists()).toBe(false)
-            }
+            // 通过 data-testid 精准定位取消按钮
+            const cancelBtn = w.find('[data-testid="cancel-note"]')
+            expect(cancelBtn.exists()).toBe(true)
+            await cancelBtn.trigger('click')
+            await nextTick()
+            expect(w.find('textarea').exists()).toBe(false)
         })
     })
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 自动导入：ref/computed 不要显式 import
 import { useLocalStorage } from '@vueuse/core'
-import { ChevronLeft, ChevronRight, Pencil, Check, X } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, Pencil, Check, X, ArrowLeft } from 'lucide-vue-next'
 import type { ContractReviewVersionEntity } from '#shared/types/contract'
 import { VERSION_SYSTEM_LABEL_DISPLAY } from '#shared/types/contract'
 
@@ -128,10 +128,23 @@ function formatDate(s: string) {
                                 class="text-[11px]"
                             />
                             <div class="flex gap-1 mt-1">
-                                <Button size="icon" class="size-6" @click="saveEditNote(v)">
+                                <Button
+                                    size="icon"
+                                    class="size-6"
+                                    aria-label="保存备注"
+                                    data-testid="save-note"
+                                    @click="saveEditNote(v)"
+                                >
                                     <Check class="size-3" />
                                 </Button>
-                                <Button variant="outline" size="icon" class="size-6" @click="cancelEditNote">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    class="size-6"
+                                    aria-label="取消编辑"
+                                    data-testid="cancel-note"
+                                    @click="cancelEditNote"
+                                >
                                     <X class="size-3" />
                                 </Button>
                             </div>
@@ -144,10 +157,11 @@ function formatDate(s: string) {
         <!-- 返回工作区按钮（历史版本只读态时可见）-->
         <button
             v-if="!collapsed && previewVersionId !== null"
-            class="mt-3 text-xs text-primary underline shrink-0"
+            class="mt-3 text-xs text-primary underline shrink-0 flex items-center gap-1"
             @click="emit('exit-preview')"
         >
-            ← 返回工作区
+            <ArrowLeft class="size-3" />
+            返回工作区
         </button>
     </aside>
 </template>

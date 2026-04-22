@@ -4,6 +4,8 @@ import { Loader2 } from 'lucide-vue-next'
 
 const props = defineProps<{
     open: boolean
+    /** 保存请求进行中（由父组件控制，用来禁用按钮并显示 Loader）*/
+    submitting?: boolean
 }>()
 const emit = defineEmits<{
     'update:open': [value: boolean]
@@ -11,22 +13,13 @@ const emit = defineEmits<{
 }>()
 
 const lawyerNote = ref('')
-const submitting = ref(false)
 
 watch(() => props.open, (v) => {
-    if (!v) {
-        lawyerNote.value = ''
-        submitting.value = false
-    }
+    if (!v) lawyerNote.value = ''
 })
 
-async function handleConfirm() {
-    submitting.value = true
-    try {
-        emit('confirm', lawyerNote.value.trim() || null)
-    } finally {
-        submitting.value = false
-    }
+function handleConfirm() {
+    emit('confirm', lawyerNote.value.trim() || null)
 }
 </script>
 
@@ -53,7 +46,7 @@ async function handleConfirm() {
                 </div>
             </div>
             <DialogFooter>
-                <Button variant="outline" @click="emit('update:open', false)">取消</Button>
+                <Button variant="outline" :disabled="submitting" @click="emit('update:open', false)">取消</Button>
                 <Button :disabled="submitting" @click="handleConfirm">
                     <Loader2 v-if="submitting" class="size-4 mr-1 animate-spin" />
                     保存版本
