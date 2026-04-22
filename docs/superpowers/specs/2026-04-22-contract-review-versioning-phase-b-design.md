@@ -90,7 +90,7 @@ orphaned            Boolean  @default(false)
 ```
 
 - 枚举 `source` 扩展：`ai` / `external_new`（客户新增独立批注升格）/ `global_review`（全局复核）
-- 枚举 `archivedStatus` 扩展：`handled` / `ignored` / `client_removed`（客户在 Word 里删的 AI 风险对应的状态，下次导出不推送）
+- 枚举 `archivedStatus` **不扩展**。客户删 AI 批注对应风险的"已移除"状态通过批注侧 `ContractAnnotation.removedByClient + suppressInExport` 表达（见 §4.3），不在风险侧重复建模
 
 ### 4.3 `ContractAnnotation`（现有表加 3 字段 + 扩 1 枚举）
 
@@ -166,42 +166,76 @@ suppressInExport Boolean  @default(false) @map("suppress_in_export")
    - ContractReview.currentVersionId 指向新版本
 ```
 
-### 5.2 SSE 事件协议（复用现有 contract review stream 通道）
+### 5.2 SSE 事件协议（**独立 SSE 端点**，不复用 contract review stream）
 
-服务端按步骤发送事件：
+**重要修正**：Phase A 的 `emitContractReviewEvent` 通道绑定在 LangGraph agent run（需 `runId + sessionId`），上传新版本是独立 HTTP POST 不跑 agent，**无法复用该通道**。Phase B 的上传端点必须自己直接返回 `text/event-stream` 响应体，前端用 `EventSource` 或 `fetch + reader` 消费。
 
-```jsonc
-{ "event": "upload-version-progress", "data": { "step": "backup",  "status": "running" } }
-{ "event": "upload-version-progress", "data": { "step": "backup",  "status": "done" } }
-{ "event": "upload-version-progress", "data": { "step": "parse",   "status": "running" } }
-{ "event": "upload-version-progress", "data": { "step": "parse",   "status": "done" } }
-{ "event": "upload-version-progress", "data": { "step": "diff",    "status": "running" } }
-{ "event": "upload-version-progress", "data": { "step": "diff",    "status": "done", "changedClauseCount": 2, "clientAddedCount": 1, "clientRemovedCount": 1 } }
-{ "event": "upload-version-progress", "data": { "step": "ai",      "status": "running", "total": 2, "current": 1 } }
-{ "event": "upload-version-progress", "data": { "step": "ai",      "status": "done" } }
-{ "event": "upload-version-progress", "data": { "step": "merge",   "status": "running" } }
-{ "event": "upload-version-progress", "data": { "step": "merge",   "status": "done", "newVersionId": 123 } }
+端点签名：
+
+```
+POST /api/v1/assistant/contract/reviews/:id/upload-version
+  Content-Type: application/json
+  body: { ossFileId: number }
+  Response: text/event-stream（分步事件流，结束时 close）
 ```
 
-前端展示：5 个步骤圆点 + 当前 active 步带动画，完成后关闭 dialog 跳到新版本工作区并显示本轮变化横幅。
+事件类型（每步仅发一次 `done`，不发 running；前端自己把"未发 done 的步骤"视为进行中）：
+
+```jsonc
+{ "event": "upload-version-progress", "data": { "step": "backup",  "status": "done" } }
+{ "event": "upload-version-progress", "data": { "step": "parse",   "status": "done" } }
+{ "event": "upload-version-progress", "data": { "step": "diff",    "status": "done", "externalChangeCount": 4, "clauseModifiedCount": 1 } }
+{ "event": "upload-version-progress", "data": { "step": "ai",      "status": "progress", "total": 2, "current": 1 } }
+{ "event": "upload-version-progress", "data": { "step": "ai",      "status": "done" } }
+{ "event": "upload-version-progress", "data": { "step": "merge",   "status": "done", "newVersionId": 123 } }
+{ "event": "upload-version-complete", "data": { "newVersionId": 123, "summary": "4 条外部变更 · 1 条正文修改 · AI 已重审" } }
+```
+
+事件类型枚举放 `#shared/types/contract.ts` 的 SSE 常量表（和项目现有字符串枚举规范一致），前后端共用避免字符串硬编码漂移。
+
+前端展示：5 个步骤圆点，收到某步 `done` 事件切下一步为 active；ai 步骤的 `progress` 事件用于显示"正在重审第 N/M 条"。
 
 ### 5.3 自动备份幂等规则（Phase A spec §4.3.1 落地）
 
 若工作区相对 `currentVersionId` 无任何编辑差异（`ContractRisk.updatedAt` 和 `ContractAnnotation.createdAt` 的最大值 ≤ currentVersion.createdAt），**跳过 auto_backup**，直接处理新 docx → 生成 `client_return`。避免产生冗余快照。
 
+**跳过 auto_backup 时的失败回退**：若未生成 auto_backup（无工作区编辑）且 Step 2-6 中任一步失败，律师回到**上传前的 currentVersion 状态**（原 currentVersion 未变，工作区状态未动）；若已生成 auto_backup 后某步失败，则回到 auto_backup 状态（currentVersionId 指向 auto_backup）。
+
 ---
 
 ## 6. wordCommentRef 机制
 
-### 6.1 生成与写入
+### 6.1 commentInjector 重写（不是改造）
 
-系统导出 docx 时，`commentInjector.ts` 对每条需要导出的 annotation：
+**重要修正**：现有 `server/services/assistant/contract/docx/commentInjector.ts` 的入口是 `injectComments(docxBuffer, risks: Risk[])`，按 Risk 索引生成 `w:id`，`w:author` 硬编码为 "LexSeek 审查助手"，**没有 annotation 概念**。Phase B 需要**重写**为按 annotation 注入的新入口（保留旧入口作为向下兼容兜底，或一次性迁移替换）：
 
-1. 若 `annotation.wordCommentRef` 非空 → 直接用
-2. 否则新生成：`LEXSEEK-{annotationId}-{random8}` + 写回 DB
-3. 组装 comments.xml 时，`<w:comment w:id="N" w:initials="LS:LEXSEEK-{annotationId}-{random8}" ...>`
+```ts
+// 新入口（子期 B1 实现）
+injectAnnotations(docxBuffer: Buffer, annotations: ContractAnnotationForExport[]): Buffer
 
-**前缀 `LS:`** 让客户看 Word 批注时能识别"这是系统自动生成的标识，不是真实作者名"。
+interface ContractAnnotationForExport {
+    id: number
+    riskId: number
+    authorType: 'ai' | 'lawyer' | 'external'
+    authorName: string        // AI=固定 "AI"，lawyer=律师姓名，external=Word author 原值
+    content: string
+    parentAnnotationId: number | null  // Word answer reply 父子关系
+    anchorQuote: string       // 挂在文档的哪段文字上
+    anchorParagraphIndex: number
+    wordCommentRef: string | null   // 已存在则沿用；为 null 则函数内部生成
+}
+```
+
+内部逻辑：
+1. 对每条 annotation，若 `wordCommentRef` 非空沿用；否则新生成 `LEXSEEK-{annotationId}-{random8}` 并**回写 DB**
+2. 组装每条 `<w:comment>` 元素时：
+   - `w:id` = 按顺序 0, 1, 2, ...（Word 本地 id）
+   - `w:author` = 作者名，**加 `LS:` 前缀**（如 `LS:AI`、`LS:张律师`、`LS:外部/某某某`）—— 保证客户在 Word 主视图一眼看到 `LS:` 标识
+   - `w:initials` = `LEXSEEK-{annotationId}-{random8}`（作为系统稳定身份证，无 `LS:` 前缀以节省长度）
+   - `parentAnnotationId` 非空时，同时输出对应的 Word "答复批注" XML 结构（引用父 comment 的 `w:id`）
+3. 返回新 docx buffer + 每条 annotation 的 `wordCommentRef`（调用方可用于 DB 回写）
+
+**关于客户可见性**：Word 批注卡片的头像位置显示 `w:author`（主字段），通常也会显示 `w:initials` 的前两字符作为头像文字。两处都带 `LS` 前缀，确保客户**在主视图**就能识别系统标识而非真实作者名。
 
 ### 6.2 回传时识别
 
@@ -209,28 +243,27 @@ suppressInExport Boolean  @default(false) @map("suppress_in_export")
 
 ```
 initials = comment.attr('w:initials')
-if initials starts with 'LS:LEXSEEK-':
+if initials matches /^LEXSEEK-\d+-[a-zA-Z0-9]{8}$/:
     systemAnnotationId = parse(initials).annotationId
     → 命中系统 annotation（按 id 查 DB）
-    → 检查 content 是否变化：
-        - 内容相同：保留
-        - 内容不同（客户改了 AI 批注文本）：标记 "客户改过" / 保留 DB 原内容 + UI 提示
+    → DB 原 content 保留（不管客户是否改过文本，Phase B 统一以系统库为准；
+       "客户改过 AI 批注文本" 的识别与 UI 提示放 Phase C，避免引入额外展示维度）
 else:
     → 识别为客户新增（建立新 annotation，authorType='external'）
 ```
 
-客户用 Word 的"答复批注"功能生成的子 comment：
+客户用 Word 的"答复批注"功能生成的子 comment（注：`initials` 不含 `LS:` 前缀）：
 
 ```
-parent w:id → 找到父 comment → 若父命中系统 annotation：
+parent w:id → 找到父 comment → 若父的 initials 命中系统 annotation：
     子 comment 作为 child annotation 入库：authorType='external', parentAnnotationId=父 DB id
-若父 comment 没有 wordCommentRef（是客户新增的根）：
+若父 comment 没有匹配 initials（是客户新增的根）：
     父+子 都作为独立 annotation 入库，保持父子关系
 ```
 
 ### 6.3 客户删除 AI 批注的识别
 
-DB 里 annotation 存在但回传 docx 里找不到对应 `wordCommentRef`：
+DB 里 annotation 存在但回传 docx 里找不到匹配的 `LEXSEEK-{id}-{rand}` initials：
 
 ```
 annotation.removedByClient = true
@@ -256,19 +289,15 @@ UI 在"客户已移除"分组折叠显示；"恢复推送"按钮点后仅将 `su
 - **A**: `oldClauses: Clause[]`（来自 currentVersion.snapshotData.clauses，或 Phase A 存量的为空数组）
 - **B**: `newClauses: Clause[]`（当前解析的新 docx）
 
-### 7.2 算法：LCS 对齐 + 字符相似度判定修改
+### 7.2 算法：LCS 对齐（`diff-match-patch@^1.0.5` · 已在 package.json）
 
-1. 用 `diff-match-patch` 或 `fast-diff` 库对 A/B 的条款**文本**序列做 LCS 对齐：
+1. 用 `diff-match-patch`（项目已有依赖，含 TypeScript 定义）对 A/B 的条款**文本**序列做 LCS 对齐：
    - 完全相同的条款 → `kept`
    - A 有 B 没有 → `removed`
    - B 有 A 没有 → `added`
-   - **同位置但文本不同**（LCS 允许这种配对）→ 候选 `modified`
+   - **同位置但文本不同**（LCS 允许这种配对）→ 归入 `modified`，不再引入相似度阈值做"拆删+增"的分支（简化实施；即便相似度低，后续锚点迁移失败会自然走孤立批注区，效果等价）
 
-2. 对候选 `modified` 的每对 `(oldClause, newClause)`，计算字符级相似度（Levenshtein / 归一化到 [0,1]）：
-   - 相似度 ≥ 0.5：视为"同一条款的修改"
-   - 相似度 < 0.5：视为"删 + 增"（拆成一个 `removed` 一个 `added`）
-
-3. 输出 `{ added[], removed[], modified[] }` 三个数组
+2. 输出 `{ added[], removed[], modified[] }` 三个数组
 
 ### 7.3 兜底
 
@@ -312,20 +341,26 @@ UI 在"客户已移除"分组折叠显示；"恢复推送"按钮点后仅将 `su
 
 ### 9.1 增量审查
 
-**复用 M4 的 LangGraph 子图**（`contractReviewMainAgent` 的 `analyzeSingleClause` 节点）：
+**复用 M4 的 `analyzeSingleClause` 函数**（位于 `server/services/assistant/contract/analyzeSingleClause.ts`，已是独立导出的纯函数）：
 
-- 输入：`modified[].newClause`（改动后的条款原文）+ `playbookSnapshot`（锁 v1）
+- 输入：`modified[].newClause`（改动后的条款原文）+ 以下上下文字段（**都从 `contractReviews` 表直接读**，不要求客户重新选择立场或合同类型）：
+  - `stance`、`partyA`、`partyB`、`contractType`
+  - `playbookSnapshot`（锁 v1，直接读 `review.playbookSnapshot`）
 - 输出：0-N 条新的 `ContractRisk`（source=ai）
-- **处置保护**：已存在的 AI 风险如果标了 `archivedStatus != null`，增量审查**不允许**覆盖（即便同一条款上 AI 识别出"类似风险"，也只新增 risk 条目，不改旧的）
+- **处置保护**：已存在的 AI 风险如果标了 `archivedStatus != null`，增量审查**不允许**覆盖；即便同一条款上 AI 识别出"类似风险"，也只新增 risk 条目，不改旧的
 
 实现细节：
 - 旧风险挂在 `oldClause`；锚点迁移后挂到 `newClause`
-- 增量审查新产生的风险挂到 `newClause`
-- 两者可能重叠（新老都识别出"违约金过高"）→ 按产出时机并列存在，律师人工决定如何处理
+- 增量审查新产生的风险也挂到 `newClause`
+- **重叠风险（新旧都识别出"违约金过高"）的展示**：Phase B 不做特殊合并/去重；两条并列在 RiskListPanel 里显示，律师自行处理。后续观察到需要合并再 Phase C 补
 
 ### 9.2 全局复核
 
-**简化 prompt，单次 chatModel 调用**（不走子图）：
+**简化 prompt，单次 chatModel 调用**（不走 LangGraph 子图）：
+
+- 模型通过 `createChatModel(getValidNodeConfig('contractReviewGlobalReview'))` 统一走项目 node 配置（和 `analyzeSingleClause` 保持同一套模型选择机制）
+- 在 DB `node` 表新增节点 `contractReviewGlobalReview` + 对应 prompt 条目（挂在 `server/services/workflow/nodes/contractReviewGlobalReview/prompts/` 或项目现有 prompts 组织路径）—— 保持"prompt 可运营热更"的现有约定，不要硬编码在 TS 文件里
+- Prompt 骨架（写入 DB 时的初版）：
 
 ```
 System: 你是合同审查专家。
@@ -341,7 +376,7 @@ User:
 
 - 有输出 → 创建 1 条 `source=global_review` 的风险
 - 无输出 → 跳过
-- 触发条件：只要 `modified[].length > 0` 就跑（后续观察到无用可升级为阈值触发）
+- 触发条件：只要 `modified[].length > 0` 就跑（后续观察到无用可升级为阈值触发，决策 8）
 
 ### 9.3 失败处理
 
@@ -382,7 +417,8 @@ User:
 | 上传中断（断网、解析错）| auto_backup 已完成 → 回到 auto_backup 状态；client_return 不生成 |
 | 工作区无差异时上传 | 跳过 auto_backup；直接产 client_return |
 | 客户在 Word 里改了 AI 批注的文本 | DB 原 content 保留；UI 显示"客户编辑过"标记（Phase B 不做，Phase C 补）|
-| 客户上传一份完全不相干的 docx | 条款 LCS 大量 removed/added；锚点全失败 → 所有历史风险进孤立区。律师看到 UI 顶部警告"回传文件与历史版本差异极大，疑似传错文件" |
+| 客户在 Word 里改了 AI 批注的文本 | Phase B **统一以系统库为准**（客户的文本编辑被忽略），不做"客户编辑过"徽章；Phase C 再决定是否需要暴露"客户改过批注文本"的信号 |
+| 客户上传一份完全不相干的 docx | 条款 LCS 大量 removed/added；锚点全失败 → 所有历史风险进孤立区。属于兜底兼容（非 Phase B 必做的 UI）：可以不加 UI 警告，让律师通过"孤立批注数 = 几乎全部"自然感知 |
 
 ---
 
@@ -399,26 +435,31 @@ User:
 - shadcn `Dialog` + `DialogContent`
 - 标题："上传新版本 — 客户回传的 docx"
 - 提示 banner（`bg-primary/5 border-primary/20`）："上传后系统会自动备份你当前的编辑，防止工作内容丢失"
-- 文件选择：拖拽 + 点击，仅 accept `.docx`
+- 文件选择：拖拽 + 点击，仅 accept `.docx`。**走项目现有 OSS 预签名上传链路**（复用 `useBatchUpload`，和 `NewReviewDialog` 首次上传保持一致）：前端先拿 `ossFileId`，再 POST `{ossFileId}` 到 `/upload-version` 端点
 - 选文件后变为分步进度列表（5 步），每步一个圆点 + 文案
   - 未开始：灰色空心圆
   - 进行中：蓝色实心圆 + `animate-pulse`
   - 完成：绿色实心圆 + Check 图标
   - 失败：红色实心圆 + X 图标
-- 所有步骤完成 → Dialog 自动关闭 + toast "v4 客户回传已就绪 · 4 条外部变更"
+- 所有步骤完成 → Dialog 自动关闭 + toast "新版本已就绪 · N 处变更"（文案不暴露 `client_return` / `external` 等技术词）
 
 ### 12.3 本轮变化横幅
 
 - 位置：结果屏顶部（只读横幅之下，如两者并存）
 - 样式：`bg-primary/5 text-primary` + 信息图标
-- 内容："v3 本轮变化 · 客户回传 · 回复 2 条 · 删除 1 条 · 新增 1 条 · 修改正文 1 处 · AI 已重审"
-- 仅在切换到 `client_return` 类型的版本（或工作区基于 client_return 的首次访问）时显示；点 X 关闭后持久化到 localStorage（本版本不再弹）
+- 内容：精简为 **2 项统计**（diff 事件回传 `externalChangeCount` + `clauseModifiedCount`）：
+  - 示例："v3 客户回传 · 外部变更 4 处 · 正文改 1 处 · AI 已重审"
+  - "外部变更" 包含客户的回复 / 新增 / 删除（合并成一个数字，UI 不再细分三类）
+  - 用户可见文案不出现技术词（不用 `client_return` / `external_new` 字符串）
+- 关闭态持久化：`localStorage['lexseek:contractReview:bannerDismissed:<versionId>'] = '1'`（统一 key 前缀，避免冲突）
+- 仅在切换到 `client_return` 类型的版本（或工作区基于 client_return 的首次访问）时显示
 
 ### 12.4 风险卡片新增徽章
 
-- "AI 已重审"：`bg-primary-100 text-primary-700` 小徽章（在 category 行右侧）
-- "风险降级" / "风险升级"：对应绿/红色徽章
-- "原文已修改"：卡片正文锚点旁小 i 图标，悬浮显示 `originalAnchorQuote`
+- "AI 已重审"：`bg-primary/10 text-primary` 小徽章（Tailwind v4 主题 token，不用 `-100 / -700` 刻度）
+- "风险降级"：`bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200` —— 用现有风险等级色 token
+- "风险升级"：`bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-200`
+- "原文已修改"：卡片正文锚点旁小 i 图标（`Info` from lucide-vue-next），悬浮显示 `originalAnchorQuote`
 
 ### 12.5 分组显示
 
@@ -434,19 +475,24 @@ User:
 
 ---
 
-## 13. 现有地基复用
+## 13. 现有地基复用（精确路径）
 
 | 地基 | Phase B 如何用 |
 |---|---|
-| `commentInjector.ts` | 改造：导出时给每条 annotation 生成/读取 wordCommentRef，写入 `<w:comment w:initials="LS:...">` |
-| `segment` 服务（M4）| 复用：解析新 docx 时走同一条 segment 逻辑切条款 |
-| `analyzeSingleClause` 子图（M4）| 复用：增量审查把 modified clauses 逐条送入 |
-| `chatModel` factory | 复用：全局复核走简化 prompt 单次调用 |
-| `useContractReview` composable 的 SSE 通道 | 复用：添加 `upload-version-progress` 事件类型 |
-| `useContractReviewVersion` composable | 扩展：增加 `uploadNewVersion(file)` 方法 |
-| `reviewGuard.ts` | 复用：上传端点用 `loadOwnedReview` |
-| Phase A 的时间线组件 | 复用：新 systemLabel 两种类型的展示（`VERSION_SYSTEM_LABEL_DISPLAY` 加新 key）|
-| `RiskListPanel.vue` | 扩展：支持显示外部新增/客户已移除/孤立批注三个新分组 |
+| `server/services/assistant/contract/docx/commentInjector.ts` | **重写**（不是改造）：新增 `injectAnnotations(buf, annotations[])` 入口（见 §6.1），保留旧 `injectComments(buf, risks[])` 入口作为兜底或迁移替换 |
+| `server/services/assistant/contract/docx/clauseSegmenter.ts` 的 `segmentClauses(fullText, options)` | 复用：Step 2 解析新 docx 时，先 `loadContractFullText(ossFileId)` 拿 fullText，再 `segmentClauses` 切条款 |
+| `server/services/assistant/contract/analyzeSingleClause.ts` | 复用（独立导出的纯函数）：增量审查把 modified.newClause 逐条送入；入参 `stance/partyA/partyB/contractType/playbookSnapshot` 全部从 `contractReviews` 表字段直接读 |
+| `createChatModel` + `getValidNodeConfig` | 全局复核通过 `createChatModel(getValidNodeConfig('contractReviewGlobalReview'))` 走统一的模型选择，不硬编码 chatModel |
+| `diff-match-patch@^1.0.5` + `@types/diff-match-patch`（**package.json 已存在**）| 直接用于条款 LCS diff |
+| `app/composables/useBatchUpload.ts` 的 `uploadToOSS(file, sig, onProgress)` | 复用：前端上传走 OSS 预签名，拿到 `ossFileId` 后再调 `/upload-version` 端点 |
+| `app/composables/useContractReviewVersion.ts` | 扩展：增加 `uploadNewVersion(ossFileId)` 方法，内部用 `EventSource` 或 `fetch + reader` 消费上传端点的 SSE 响应 |
+| `server/services/assistant/contract/reviewGuard.ts` 的 `loadOwnedReview(event, {actionLabel})` | 复用：`POST /reviews/:id/upload-version` 端点首行调 `loadOwnedReview`，禁止手写归属校验或走 `checkIsSuperAdmin` 旁路 |
+| Phase A 的时间线组件 `ContractVersionTimeline.vue` | 复用：`VERSION_SYSTEM_LABEL_DISPLAY` 加 `client_return='客户回传'` / `auto_backup='自动备份'` 两个 key |
+| `app/components/assistant/contract/RiskListPanel.vue` | 扩展：支持"外部新增"顶置分组、"客户已移除"折叠分组、"孤立批注"区 |
+
+**关键注意事项**：
+- `emitContractReviewEvent` 通道（Phase A 已有的 contract review stream）**不能复用**—— 它绑定在 LangGraph agent 的 `runId + sessionId`，上传端点不跑 agent。上传端点必须自己直接返回 `text/event-stream` 响应体
+- Phase B 上线后，`saveContractReviewVersionService`（Phase A 已有）的 `snapshotData` 必须**同时写 `clauses` 字段**（不止 `initial_upload` 和 `client_return`，`lawyer_save` 和 `auto_backup` 也要写），确保后续 diff 有 `oldClauses` 可对齐。这要求修改 `persistRisksAndCreateV1Snapshot`（M4 链路）和 `saveContractReviewVersionService` 本身。
 
 ---
 
@@ -454,32 +500,51 @@ User:
 
 ### 14.1 子期 B1 · 数据层 + 上传骨架（~1.5 天）
 
-- Phase B Prisma 迁移（6 字段 + 3 枚举扩 + 1 索引）
-- shared/types 扩展新枚举值和实体字段
-- `commentInjector` 改造：为每条 annotation 生成/读取 wordCommentRef 写入 `w:initials`
-- `POST /api/v1/assistant/contract/reviews/:id/upload-version` 端点骨架：parse + auto_backup + 占位 client_return（尚无 diff 和 AI）
-- `useContractReviewVersion.uploadNewVersion()` 前端方法
-- `ContractReviewPanel` 加"上传新版本"按钮 + Dialog 分步进度 UI（此期分步只有 backup + parse + merge 三步）
+**新 service 文件（命名统一）**：
+- `server/services/assistant/contract/uploadClientVersion.service.ts`（上传链路编排）
+- `server/services/assistant/contract/wordCommentRef.service.ts`（生成/解析/对齐稳定身份证）
+- `server/services/assistant/contract/clauseDiff.service.ts`（条款 LCS diff，B2 用）
+- `server/services/assistant/contract/anchorMigrate.service.ts`（锚点模糊匹配，B2 用）
+
+**B1 清单**：
+- Phase B Prisma 迁移：用 `bun run prisma:migrate --name add_contract_review_phase_b_fields --create-only` 生成 → 人工审阅 SQL（确保仅 `ALTER TABLE ADD COLUMN` + `CREATE INDEX`，不要 DROP 或改 risks JSON 字段）→ `bun run prisma:migrate` 应用到本地 + `prisma:deploy` 到测试库
+- shared/types 扩展：新枚举值（`VersionSystemLabel`、`RiskSource`、`AnnotationAuthorType`）+ 新实体字段 + SSE 事件类型枚举（如 `ContractReviewSSEEvent.UPLOAD_VERSION_PROGRESS`）
+- `commentInjector.ts` 新增 `injectAnnotations` 入口（旧 `injectComments` 保留，M5 原路径不中断）
+- `wordCommentRef.service.ts`：生成 `LEXSEEK-{id}-{rand8}`、校验 initials 格式、反解析 annotationId
+- 改造 `persistRisksAndCreateV1Snapshot` + `saveContractReviewVersionService`：snapshotData 同时写 `clauses` 字段（Phase B 上线后所有新版本都要写，Phase A 存量 fallback 空数组）
+- 端点骨架 `POST /api/v1/assistant/contract/reviews/[id]/upload-version.post.ts`：body `{ossFileId}` + 首行 `loadOwnedReview(event, {actionLabel: '上传新版本'})` + 返回 `text/event-stream`
+- 此期端点只实现 backup + parse + merge 三步（diff 和 ai 步骤占位跳过，client_return 只复制 auto_backup 的数据；留着子期 B2/B3 填充）
+- `useBatchUpload` 集成：前端先 OSS 预签名上传拿 `ossFileId` 再调端点
+- `useContractReviewVersion.uploadNewVersion(ossFileId)` 前端方法（消费 SSE 流）
+- `ContractReviewPanel` 加"上传新版本"按钮（lucide `UploadIcon`，只读态禁用）+ Dialog 分步进度 UI（B1 阶段先渲染 3 步骨架：备份 / 解析 / 合并；B2/B3 扩展到 5 步）
+- 验证收尾：`npx nuxi typecheck` + 相关单元测试 + `prisma migrate status` 无 drift
 
 ### 14.2 子期 B2 · 批注识别 + 条款 diff + 锚点迁移（~2 天）
 
-- 解析 comments.xml 提取 raw 批注
-- 按 wordCommentRef 比对出 4 类批注：kept / modifiedContent / removed / newByClient
-- 条款 LCS diff（引入 diff 库）
-- 锚点模糊匹配（字符相似度 + 关键词兜底）
-- 孤立批注区 UI + "原文已修改"提示
-- 客户已移除分组 UI + "恢复推送"确认 Dialog
-- 外部新增分组 UI（顶置）
-- SSE 进度事件扩展（加 diff 步骤）
+- 解析 comments.xml 提取 raw 批注（作者名 / initials / content / parent）
+- 按 initials 的 `LEXSEEK-{id}-{rand8}` 格式比对识别：kept / removed / newByClient（"modifiedContent" 场景不识别，以系统库为准，见 §6.2）
+- `clauseDiff.service.ts`：用 `diff-match-patch` 做条款 LCS 对齐
+- `anchorMigrate.service.ts`：字符级 Levenshtein 模糊匹配；失败标 `orphaned=true`（关键词兜底推迟到观察线上数据后再决定，见 §15）
+- `originalAnchorQuote` 首次迁移时记录
+- 孤立批注区 UI + "原文已修改"Tooltip（主题 token：`bg-primary/10 text-primary`）
+- 客户已移除分组 UI（折叠在清单底部）+ "恢复推送"确认 Dialog（保留 destructive 变体 + 警告文案，不改 toast）
+- 外部新增分组 UI（顶置，琥珀色竖条）
+- SSE 进度事件扩展（加 diff 步骤，回传 `externalChangeCount` + `clauseModifiedCount` 两项统计）
+- 验证收尾：`npx nuxi typecheck` + 测试 + `prisma migrate status`
 
 ### 14.3 子期 B3 · AI 增量审查 + 全局复核 + 联调（~1.5 天）
 
-- 增量审查：把 modified[].newClause 送入 M4 子图
-- 全局复核：简化 prompt + chatModel 调用 + 创建 global_review 风险条目
-- SSE 进度事件扩展（加 ai 步骤）
-- "AI 已重审" / "风险降级" 徽章
-- 本轮变化横幅
-- 端到端手测 + 已知 edge case 覆盖
+- 增量审查：把 modified[].newClause 逐条送入 `analyzeSingleClause`（`stance/partyA/partyB/contractType/playbookSnapshot` 从 review 表读）
+- 全局复核：
+  - 在 DB `node` 表新建节点 `contractReviewGlobalReview`（含 prompt 条目）
+  - 通过 `createChatModel(getValidNodeConfig('contractReviewGlobalReview'))` 调用
+  - 有产出时创建 1 条 `source=global_review` 的 ContractRisk
+- 处置保护：增量审查不覆盖 `archivedStatus != null` 的风险
+- SSE 进度事件扩展（加 ai 步骤，支持 `progress: {current, total}` 事件）
+- "AI 已重审" / "风险降级" / "风险升级" 徽章（主题 token：`bg-primary/10 text-primary` + rose/emerald 等级色）
+- 本轮变化横幅（2 项统计简化版）
+- 端到端手测 + 已知 edge case 覆盖（空白调整、整段重写、客户 docx 无关、客户用 WPS 洗 initials）
+- 验证收尾：`npx nuxi typecheck` + 全量 vitest + `prisma migrate status`
 
 **合计工期：5 天**（与 Phase A 同节奏）
 
@@ -487,11 +552,12 @@ User:
 
 ## 15. 开放问题（实施时再定）
 
-- 字符相似度阈值（0.5 / 0.6 / 0.7）：实现阶段跑真实合同样本调参
-- 关键词提取算法：简单 TF（频率）还是用 jieba 等中文分词库 —— 先用最简 TF + 停用词过滤
-- 全局复核的 prompt 模板：按 §9.2 骨架出初版，实施时在 `server/services/workflow/prompts/` 或类似位置定型
-- wordCommentRef 随机段长度（`random8` = 8 位）：碰撞概率极低，8 位够用
-- 上传 dialog 的错误态具体文案：失败时是否分步显示哪一步失败 + 重试按钮（Phase B 先不做重试，直接"上传失败，请重试"笼统 toast）
+- 字符相似度阈值（`0.5` / `0.6` / `0.7`）：实现阶段跑真实合同样本调参，`anchorMigrate.service` 支持可配置阈值
+- 关键词兜底算法（Phase C 再决定是否加）：若上线观察到纯字符匹配的 orphaned 率高，再引入。候选方案：简单 TF + 停用词 / jieba 中文分词 / embedding 相似度
+- 全局复核 prompt 模板：按 §9.2 骨架写 DB 节点 `contractReviewGlobalReview` 初版，prompt 文本在 `server/services/workflow/nodes/<node>/prompts/` 或按项目现有组织位置
+- 上传失败态文案：Phase B 先用笼统 toast "上传失败，请重试"；具体分步失败信息 + 重试按钮放 Phase C
+- 客户可见标识 `LS:`（决策 14）客户感知度：上线后收集反馈，Phase C 可考虑把 `w:author` 从 `LS:AI` 改为更友好的 `LexSeek 合同审查系统` 之类
+- `LS:LEXSEEK-{id}-{rand8}` 直接暴露系统 id 给客户的产品风险：Phase B 接受；若客户反馈困惑，Phase C 再混淆为短 hash
 
 ---
 
@@ -499,12 +565,12 @@ User:
 
 | # | 决策 | 选项 |
 |---|---|---|
-| 1 | `wordCommentRef` 存放位置 | **A**: `w:initials` + `LS:` 前缀视觉隔离 |
+| 1 | `wordCommentRef` 存放位置 | **A**: `w:initials` 存 `LEXSEEK-{id}-{rand8}` 稳定标识 + `w:author` 双写加 `LS:` 前缀让客户主视图可见 |
 | 2 | 正文 diff 对齐单位 | **A**: 条款（Clause，复用 M4 segment）|
 | 3 | 条款对齐算法 | **B**: LCS 最长公共子序列（`diff-match-patch` 或 `fast-diff`）|
-| 4 | 锚点模糊匹配算法 | **A + B**: 字符级 Levenshtein 相似度 + 关键词兜底，阈值 0.6 |
+| 4 | 锚点模糊匹配算法 | **A**: Phase B 先只用字符级 Levenshtein（阈值 0.6），关键词兜底推迟到观察 orphaned 率后 Phase C 再决定 |
 | 5 | AI 增量审查实现 | **C**: 增量审查复用 M4 子图；全局复核走简化 prompt 单次调用 |
-| 6 | 上传 SSE 协议 | **A**: 复用现有 contract review stream 通道，扩 `upload-version-progress` 事件 |
+| 6 | 上传 SSE 协议 | 上传端点**独立**返回 `text/event-stream`（不复用 LangGraph contract review stream，因绑 agent run 不适用）；事件枚举放 `#shared/types/contract.ts` 共用 |
 | 7 | 失败/中断恢复 | **A**: auto_backup 已成功 → 回到 auto_backup 状态；不做分步 checkpoint 续跑 |
 | 8 | 全局复核触发条件 | **A**: 只要有任意改动条款就跑（先无脑覆盖所有场景）|
 | 9 | 实施分期 | B1 数据地基+上传骨架 / B2 批注识别+锚点迁移 / B3 AI 增量审查+联调 |
