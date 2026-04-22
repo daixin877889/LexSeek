@@ -33,6 +33,8 @@ export type ContractReviewsAvgAggregateOutputType = {
   caseId: number | null
   originalFileId: number | null
   reviewedFileId: number | null
+  currentVersionId: number | null
+  maxVersionNo: number | null
 }
 
 export type ContractReviewsSumAggregateOutputType = {
@@ -41,6 +43,8 @@ export type ContractReviewsSumAggregateOutputType = {
   caseId: number | null
   originalFileId: number | null
   reviewedFileId: number | null
+  currentVersionId: number | null
+  maxVersionNo: number | null
 }
 
 export type ContractReviewsMinAggregateOutputType = {
@@ -59,6 +63,8 @@ export type ContractReviewsMinAggregateOutputType = {
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
+  currentVersionId: number | null
+  maxVersionNo: number | null
 }
 
 export type ContractReviewsMaxAggregateOutputType = {
@@ -77,6 +83,8 @@ export type ContractReviewsMaxAggregateOutputType = {
   createdAt: Date | null
   updatedAt: Date | null
   deletedAt: Date | null
+  currentVersionId: number | null
+  maxVersionNo: number | null
 }
 
 export type ContractReviewsCountAggregateOutputType = {
@@ -98,6 +106,8 @@ export type ContractReviewsCountAggregateOutputType = {
   createdAt: number
   updatedAt: number
   deletedAt: number
+  currentVersionId: number
+  maxVersionNo: number
   _all: number
 }
 
@@ -108,6 +118,8 @@ export type ContractReviewsAvgAggregateInputType = {
   caseId?: true
   originalFileId?: true
   reviewedFileId?: true
+  currentVersionId?: true
+  maxVersionNo?: true
 }
 
 export type ContractReviewsSumAggregateInputType = {
@@ -116,6 +128,8 @@ export type ContractReviewsSumAggregateInputType = {
   caseId?: true
   originalFileId?: true
   reviewedFileId?: true
+  currentVersionId?: true
+  maxVersionNo?: true
 }
 
 export type ContractReviewsMinAggregateInputType = {
@@ -134,6 +148,8 @@ export type ContractReviewsMinAggregateInputType = {
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
+  currentVersionId?: true
+  maxVersionNo?: true
 }
 
 export type ContractReviewsMaxAggregateInputType = {
@@ -152,6 +168,8 @@ export type ContractReviewsMaxAggregateInputType = {
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
+  currentVersionId?: true
+  maxVersionNo?: true
 }
 
 export type ContractReviewsCountAggregateInputType = {
@@ -173,6 +191,8 @@ export type ContractReviewsCountAggregateInputType = {
   createdAt?: true
   updatedAt?: true
   deletedAt?: true
+  currentVersionId?: true
+  maxVersionNo?: true
   _all?: true
 }
 
@@ -281,6 +301,8 @@ export type ContractReviewsGroupByOutputType = {
   createdAt: Date
   updatedAt: Date
   deletedAt: Date | null
+  currentVersionId: number | null
+  maxVersionNo: number
   _count: ContractReviewsCountAggregateOutputType | null
   _avg: ContractReviewsAvgAggregateOutputType | null
   _sum: ContractReviewsSumAggregateOutputType | null
@@ -325,8 +347,13 @@ export type contractReviewsWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"contractReviews"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"contractReviews"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"contractReviews"> | Date | string | null
+  currentVersionId?: Prisma.IntNullableFilter<"contractReviews"> | number | null
+  maxVersionNo?: Prisma.IntFilter<"contractReviews"> | number
   user?: Prisma.XOR<Prisma.UsersScalarRelationFilter, Prisma.usersWhereInput>
   case?: Prisma.XOR<Prisma.CasesNullableScalarRelationFilter, Prisma.casesWhereInput> | null
+  versions?: Prisma.ContractReviewVersionsListRelationFilter
+  risks2?: Prisma.ContractRisksListRelationFilter
+  annotations?: Prisma.ContractAnnotationsListRelationFilter
 }
 
 export type contractReviewsOrderByWithRelationInput = {
@@ -348,8 +375,13 @@ export type contractReviewsOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  currentVersionId?: Prisma.SortOrderInput | Prisma.SortOrder
+  maxVersionNo?: Prisma.SortOrder
   user?: Prisma.usersOrderByWithRelationInput
   case?: Prisma.casesOrderByWithRelationInput
+  versions?: Prisma.contractReviewVersionsOrderByRelationAggregateInput
+  risks2?: Prisma.contractRisksOrderByRelationAggregateInput
+  annotations?: Prisma.contractAnnotationsOrderByRelationAggregateInput
 }
 
 export type contractReviewsWhereUniqueInput = Prisma.AtLeast<{
@@ -374,8 +406,13 @@ export type contractReviewsWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"contractReviews"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"contractReviews"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"contractReviews"> | Date | string | null
+  currentVersionId?: Prisma.IntNullableFilter<"contractReviews"> | number | null
+  maxVersionNo?: Prisma.IntFilter<"contractReviews"> | number
   user?: Prisma.XOR<Prisma.UsersScalarRelationFilter, Prisma.usersWhereInput>
   case?: Prisma.XOR<Prisma.CasesNullableScalarRelationFilter, Prisma.casesWhereInput> | null
+  versions?: Prisma.ContractReviewVersionsListRelationFilter
+  risks2?: Prisma.ContractRisksListRelationFilter
+  annotations?: Prisma.ContractAnnotationsListRelationFilter
 }, "id" | "sessionId">
 
 export type contractReviewsOrderByWithAggregationInput = {
@@ -397,6 +434,8 @@ export type contractReviewsOrderByWithAggregationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  currentVersionId?: Prisma.SortOrderInput | Prisma.SortOrder
+  maxVersionNo?: Prisma.SortOrder
   _count?: Prisma.contractReviewsCountOrderByAggregateInput
   _avg?: Prisma.contractReviewsAvgOrderByAggregateInput
   _max?: Prisma.contractReviewsMaxOrderByAggregateInput
@@ -426,6 +465,8 @@ export type contractReviewsScalarWhereWithAggregatesInput = {
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"contractReviews"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"contractReviews"> | Date | string
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"contractReviews"> | Date | string | null
+  currentVersionId?: Prisma.IntNullableWithAggregatesFilter<"contractReviews"> | number | null
+  maxVersionNo?: Prisma.IntWithAggregatesFilter<"contractReviews"> | number
 }
 
 export type contractReviewsCreateInput = {
@@ -444,8 +485,13 @@ export type contractReviewsCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
+  currentVersionId?: number | null
+  maxVersionNo?: number
   user: Prisma.usersCreateNestedOneWithoutContractReviewsInput
   case?: Prisma.casesCreateNestedOneWithoutContractReviewsInput
+  versions?: Prisma.contractReviewVersionsCreateNestedManyWithoutReviewInput
+  risks2?: Prisma.contractRisksCreateNestedManyWithoutReviewInput
+  annotations?: Prisma.contractAnnotationsCreateNestedManyWithoutReviewInput
 }
 
 export type contractReviewsUncheckedCreateInput = {
@@ -467,6 +513,11 @@ export type contractReviewsUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
+  currentVersionId?: number | null
+  maxVersionNo?: number
+  versions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutReviewInput
+  risks2?: Prisma.contractRisksUncheckedCreateNestedManyWithoutReviewInput
+  annotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutReviewInput
 }
 
 export type contractReviewsUpdateInput = {
@@ -485,8 +536,13 @@ export type contractReviewsUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  currentVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   user?: Prisma.usersUpdateOneRequiredWithoutContractReviewsNestedInput
   case?: Prisma.casesUpdateOneWithoutContractReviewsNestedInput
+  versions?: Prisma.contractReviewVersionsUpdateManyWithoutReviewNestedInput
+  risks2?: Prisma.contractRisksUpdateManyWithoutReviewNestedInput
+  annotations?: Prisma.contractAnnotationsUpdateManyWithoutReviewNestedInput
 }
 
 export type contractReviewsUncheckedUpdateInput = {
@@ -508,6 +564,11 @@ export type contractReviewsUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  currentVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
+  versions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutReviewNestedInput
+  risks2?: Prisma.contractRisksUncheckedUpdateManyWithoutReviewNestedInput
+  annotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutReviewNestedInput
 }
 
 export type contractReviewsCreateManyInput = {
@@ -529,6 +590,8 @@ export type contractReviewsCreateManyInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
+  currentVersionId?: number | null
+  maxVersionNo?: number
 }
 
 export type contractReviewsUpdateManyMutationInput = {
@@ -547,6 +610,8 @@ export type contractReviewsUpdateManyMutationInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  currentVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
 }
 
 export type contractReviewsUncheckedUpdateManyInput = {
@@ -568,6 +633,8 @@ export type contractReviewsUncheckedUpdateManyInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  currentVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
 }
 
 export type ContractReviewsListRelationFilter = {
@@ -599,6 +666,8 @@ export type contractReviewsCountOrderByAggregateInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
+  currentVersionId?: Prisma.SortOrder
+  maxVersionNo?: Prisma.SortOrder
 }
 
 export type contractReviewsAvgOrderByAggregateInput = {
@@ -607,6 +676,8 @@ export type contractReviewsAvgOrderByAggregateInput = {
   caseId?: Prisma.SortOrder
   originalFileId?: Prisma.SortOrder
   reviewedFileId?: Prisma.SortOrder
+  currentVersionId?: Prisma.SortOrder
+  maxVersionNo?: Prisma.SortOrder
 }
 
 export type contractReviewsMaxOrderByAggregateInput = {
@@ -625,6 +696,8 @@ export type contractReviewsMaxOrderByAggregateInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
+  currentVersionId?: Prisma.SortOrder
+  maxVersionNo?: Prisma.SortOrder
 }
 
 export type contractReviewsMinOrderByAggregateInput = {
@@ -643,6 +716,8 @@ export type contractReviewsMinOrderByAggregateInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
+  currentVersionId?: Prisma.SortOrder
+  maxVersionNo?: Prisma.SortOrder
 }
 
 export type contractReviewsSumOrderByAggregateInput = {
@@ -651,6 +726,13 @@ export type contractReviewsSumOrderByAggregateInput = {
   caseId?: Prisma.SortOrder
   originalFileId?: Prisma.SortOrder
   reviewedFileId?: Prisma.SortOrder
+  currentVersionId?: Prisma.SortOrder
+  maxVersionNo?: Prisma.SortOrder
+}
+
+export type ContractReviewsScalarRelationFilter = {
+  is?: Prisma.contractReviewsWhereInput
+  isNot?: Prisma.contractReviewsWhereInput
 }
 
 export type contractReviewsCreateNestedManyWithoutCaseInput = {
@@ -693,6 +775,48 @@ export type contractReviewsUncheckedUpdateManyWithoutCaseNestedInput = {
   update?: Prisma.contractReviewsUpdateWithWhereUniqueWithoutCaseInput | Prisma.contractReviewsUpdateWithWhereUniqueWithoutCaseInput[]
   updateMany?: Prisma.contractReviewsUpdateManyWithWhereWithoutCaseInput | Prisma.contractReviewsUpdateManyWithWhereWithoutCaseInput[]
   deleteMany?: Prisma.contractReviewsScalarWhereInput | Prisma.contractReviewsScalarWhereInput[]
+}
+
+export type contractReviewsCreateNestedOneWithoutVersionsInput = {
+  create?: Prisma.XOR<Prisma.contractReviewsCreateWithoutVersionsInput, Prisma.contractReviewsUncheckedCreateWithoutVersionsInput>
+  connectOrCreate?: Prisma.contractReviewsCreateOrConnectWithoutVersionsInput
+  connect?: Prisma.contractReviewsWhereUniqueInput
+}
+
+export type contractReviewsUpdateOneRequiredWithoutVersionsNestedInput = {
+  create?: Prisma.XOR<Prisma.contractReviewsCreateWithoutVersionsInput, Prisma.contractReviewsUncheckedCreateWithoutVersionsInput>
+  connectOrCreate?: Prisma.contractReviewsCreateOrConnectWithoutVersionsInput
+  upsert?: Prisma.contractReviewsUpsertWithoutVersionsInput
+  connect?: Prisma.contractReviewsWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.contractReviewsUpdateToOneWithWhereWithoutVersionsInput, Prisma.contractReviewsUpdateWithoutVersionsInput>, Prisma.contractReviewsUncheckedUpdateWithoutVersionsInput>
+}
+
+export type contractReviewsCreateNestedOneWithoutRisks2Input = {
+  create?: Prisma.XOR<Prisma.contractReviewsCreateWithoutRisks2Input, Prisma.contractReviewsUncheckedCreateWithoutRisks2Input>
+  connectOrCreate?: Prisma.contractReviewsCreateOrConnectWithoutRisks2Input
+  connect?: Prisma.contractReviewsWhereUniqueInput
+}
+
+export type contractReviewsUpdateOneRequiredWithoutRisks2NestedInput = {
+  create?: Prisma.XOR<Prisma.contractReviewsCreateWithoutRisks2Input, Prisma.contractReviewsUncheckedCreateWithoutRisks2Input>
+  connectOrCreate?: Prisma.contractReviewsCreateOrConnectWithoutRisks2Input
+  upsert?: Prisma.contractReviewsUpsertWithoutRisks2Input
+  connect?: Prisma.contractReviewsWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.contractReviewsUpdateToOneWithWhereWithoutRisks2Input, Prisma.contractReviewsUpdateWithoutRisks2Input>, Prisma.contractReviewsUncheckedUpdateWithoutRisks2Input>
+}
+
+export type contractReviewsCreateNestedOneWithoutAnnotationsInput = {
+  create?: Prisma.XOR<Prisma.contractReviewsCreateWithoutAnnotationsInput, Prisma.contractReviewsUncheckedCreateWithoutAnnotationsInput>
+  connectOrCreate?: Prisma.contractReviewsCreateOrConnectWithoutAnnotationsInput
+  connect?: Prisma.contractReviewsWhereUniqueInput
+}
+
+export type contractReviewsUpdateOneRequiredWithoutAnnotationsNestedInput = {
+  create?: Prisma.XOR<Prisma.contractReviewsCreateWithoutAnnotationsInput, Prisma.contractReviewsUncheckedCreateWithoutAnnotationsInput>
+  connectOrCreate?: Prisma.contractReviewsCreateOrConnectWithoutAnnotationsInput
+  upsert?: Prisma.contractReviewsUpsertWithoutAnnotationsInput
+  connect?: Prisma.contractReviewsWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.contractReviewsUpdateToOneWithWhereWithoutAnnotationsInput, Prisma.contractReviewsUpdateWithoutAnnotationsInput>, Prisma.contractReviewsUncheckedUpdateWithoutAnnotationsInput>
 }
 
 export type contractReviewsCreateNestedManyWithoutUserInput = {
@@ -753,7 +877,12 @@ export type contractReviewsCreateWithoutCaseInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
+  currentVersionId?: number | null
+  maxVersionNo?: number
   user: Prisma.usersCreateNestedOneWithoutContractReviewsInput
+  versions?: Prisma.contractReviewVersionsCreateNestedManyWithoutReviewInput
+  risks2?: Prisma.contractRisksCreateNestedManyWithoutReviewInput
+  annotations?: Prisma.contractAnnotationsCreateNestedManyWithoutReviewInput
 }
 
 export type contractReviewsUncheckedCreateWithoutCaseInput = {
@@ -774,6 +903,11 @@ export type contractReviewsUncheckedCreateWithoutCaseInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
+  currentVersionId?: number | null
+  maxVersionNo?: number
+  versions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutReviewInput
+  risks2?: Prisma.contractRisksUncheckedCreateNestedManyWithoutReviewInput
+  annotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutReviewInput
 }
 
 export type contractReviewsCreateOrConnectWithoutCaseInput = {
@@ -824,6 +958,350 @@ export type contractReviewsScalarWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"contractReviews"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"contractReviews"> | Date | string
   deletedAt?: Prisma.DateTimeNullableFilter<"contractReviews"> | Date | string | null
+  currentVersionId?: Prisma.IntNullableFilter<"contractReviews"> | number | null
+  maxVersionNo?: Prisma.IntFilter<"contractReviews"> | number
+}
+
+export type contractReviewsCreateWithoutVersionsInput = {
+  sessionId: string
+  originalFileId: number
+  reviewedFileId?: number | null
+  contractType?: string | null
+  partyA?: string | null
+  partyB?: string | null
+  stance?: string | null
+  status?: string
+  risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  playbookSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  hasUnsavedDocxChanges?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  currentVersionId?: number | null
+  maxVersionNo?: number
+  user: Prisma.usersCreateNestedOneWithoutContractReviewsInput
+  case?: Prisma.casesCreateNestedOneWithoutContractReviewsInput
+  risks2?: Prisma.contractRisksCreateNestedManyWithoutReviewInput
+  annotations?: Prisma.contractAnnotationsCreateNestedManyWithoutReviewInput
+}
+
+export type contractReviewsUncheckedCreateWithoutVersionsInput = {
+  id?: number
+  userId: number
+  caseId?: number | null
+  sessionId: string
+  originalFileId: number
+  reviewedFileId?: number | null
+  contractType?: string | null
+  partyA?: string | null
+  partyB?: string | null
+  stance?: string | null
+  status?: string
+  risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  playbookSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  hasUnsavedDocxChanges?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  currentVersionId?: number | null
+  maxVersionNo?: number
+  risks2?: Prisma.contractRisksUncheckedCreateNestedManyWithoutReviewInput
+  annotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutReviewInput
+}
+
+export type contractReviewsCreateOrConnectWithoutVersionsInput = {
+  where: Prisma.contractReviewsWhereUniqueInput
+  create: Prisma.XOR<Prisma.contractReviewsCreateWithoutVersionsInput, Prisma.contractReviewsUncheckedCreateWithoutVersionsInput>
+}
+
+export type contractReviewsUpsertWithoutVersionsInput = {
+  update: Prisma.XOR<Prisma.contractReviewsUpdateWithoutVersionsInput, Prisma.contractReviewsUncheckedUpdateWithoutVersionsInput>
+  create: Prisma.XOR<Prisma.contractReviewsCreateWithoutVersionsInput, Prisma.contractReviewsUncheckedCreateWithoutVersionsInput>
+  where?: Prisma.contractReviewsWhereInput
+}
+
+export type contractReviewsUpdateToOneWithWhereWithoutVersionsInput = {
+  where?: Prisma.contractReviewsWhereInput
+  data: Prisma.XOR<Prisma.contractReviewsUpdateWithoutVersionsInput, Prisma.contractReviewsUncheckedUpdateWithoutVersionsInput>
+}
+
+export type contractReviewsUpdateWithoutVersionsInput = {
+  sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  originalFileId?: Prisma.IntFieldUpdateOperationsInput | number
+  reviewedFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  contractType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  partyA?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  partyB?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stance?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  playbookSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  hasUnsavedDocxChanges?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  currentVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
+  user?: Prisma.usersUpdateOneRequiredWithoutContractReviewsNestedInput
+  case?: Prisma.casesUpdateOneWithoutContractReviewsNestedInput
+  risks2?: Prisma.contractRisksUpdateManyWithoutReviewNestedInput
+  annotations?: Prisma.contractAnnotationsUpdateManyWithoutReviewNestedInput
+}
+
+export type contractReviewsUncheckedUpdateWithoutVersionsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  userId?: Prisma.IntFieldUpdateOperationsInput | number
+  caseId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  originalFileId?: Prisma.IntFieldUpdateOperationsInput | number
+  reviewedFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  contractType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  partyA?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  partyB?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stance?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  playbookSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  hasUnsavedDocxChanges?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  currentVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
+  risks2?: Prisma.contractRisksUncheckedUpdateManyWithoutReviewNestedInput
+  annotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutReviewNestedInput
+}
+
+export type contractReviewsCreateWithoutRisks2Input = {
+  sessionId: string
+  originalFileId: number
+  reviewedFileId?: number | null
+  contractType?: string | null
+  partyA?: string | null
+  partyB?: string | null
+  stance?: string | null
+  status?: string
+  risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  playbookSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  hasUnsavedDocxChanges?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  currentVersionId?: number | null
+  maxVersionNo?: number
+  user: Prisma.usersCreateNestedOneWithoutContractReviewsInput
+  case?: Prisma.casesCreateNestedOneWithoutContractReviewsInput
+  versions?: Prisma.contractReviewVersionsCreateNestedManyWithoutReviewInput
+  annotations?: Prisma.contractAnnotationsCreateNestedManyWithoutReviewInput
+}
+
+export type contractReviewsUncheckedCreateWithoutRisks2Input = {
+  id?: number
+  userId: number
+  caseId?: number | null
+  sessionId: string
+  originalFileId: number
+  reviewedFileId?: number | null
+  contractType?: string | null
+  partyA?: string | null
+  partyB?: string | null
+  stance?: string | null
+  status?: string
+  risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  playbookSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  hasUnsavedDocxChanges?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  currentVersionId?: number | null
+  maxVersionNo?: number
+  versions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutReviewInput
+  annotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutReviewInput
+}
+
+export type contractReviewsCreateOrConnectWithoutRisks2Input = {
+  where: Prisma.contractReviewsWhereUniqueInput
+  create: Prisma.XOR<Prisma.contractReviewsCreateWithoutRisks2Input, Prisma.contractReviewsUncheckedCreateWithoutRisks2Input>
+}
+
+export type contractReviewsUpsertWithoutRisks2Input = {
+  update: Prisma.XOR<Prisma.contractReviewsUpdateWithoutRisks2Input, Prisma.contractReviewsUncheckedUpdateWithoutRisks2Input>
+  create: Prisma.XOR<Prisma.contractReviewsCreateWithoutRisks2Input, Prisma.contractReviewsUncheckedCreateWithoutRisks2Input>
+  where?: Prisma.contractReviewsWhereInput
+}
+
+export type contractReviewsUpdateToOneWithWhereWithoutRisks2Input = {
+  where?: Prisma.contractReviewsWhereInput
+  data: Prisma.XOR<Prisma.contractReviewsUpdateWithoutRisks2Input, Prisma.contractReviewsUncheckedUpdateWithoutRisks2Input>
+}
+
+export type contractReviewsUpdateWithoutRisks2Input = {
+  sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  originalFileId?: Prisma.IntFieldUpdateOperationsInput | number
+  reviewedFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  contractType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  partyA?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  partyB?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stance?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  playbookSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  hasUnsavedDocxChanges?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  currentVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
+  user?: Prisma.usersUpdateOneRequiredWithoutContractReviewsNestedInput
+  case?: Prisma.casesUpdateOneWithoutContractReviewsNestedInput
+  versions?: Prisma.contractReviewVersionsUpdateManyWithoutReviewNestedInput
+  annotations?: Prisma.contractAnnotationsUpdateManyWithoutReviewNestedInput
+}
+
+export type contractReviewsUncheckedUpdateWithoutRisks2Input = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  userId?: Prisma.IntFieldUpdateOperationsInput | number
+  caseId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  originalFileId?: Prisma.IntFieldUpdateOperationsInput | number
+  reviewedFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  contractType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  partyA?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  partyB?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stance?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  playbookSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  hasUnsavedDocxChanges?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  currentVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
+  versions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutReviewNestedInput
+  annotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutReviewNestedInput
+}
+
+export type contractReviewsCreateWithoutAnnotationsInput = {
+  sessionId: string
+  originalFileId: number
+  reviewedFileId?: number | null
+  contractType?: string | null
+  partyA?: string | null
+  partyB?: string | null
+  stance?: string | null
+  status?: string
+  risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  playbookSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  hasUnsavedDocxChanges?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  currentVersionId?: number | null
+  maxVersionNo?: number
+  user: Prisma.usersCreateNestedOneWithoutContractReviewsInput
+  case?: Prisma.casesCreateNestedOneWithoutContractReviewsInput
+  versions?: Prisma.contractReviewVersionsCreateNestedManyWithoutReviewInput
+  risks2?: Prisma.contractRisksCreateNestedManyWithoutReviewInput
+}
+
+export type contractReviewsUncheckedCreateWithoutAnnotationsInput = {
+  id?: number
+  userId: number
+  caseId?: number | null
+  sessionId: string
+  originalFileId: number
+  reviewedFileId?: number | null
+  contractType?: string | null
+  partyA?: string | null
+  partyB?: string | null
+  stance?: string | null
+  status?: string
+  risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  playbookSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  hasUnsavedDocxChanges?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  currentVersionId?: number | null
+  maxVersionNo?: number
+  versions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutReviewInput
+  risks2?: Prisma.contractRisksUncheckedCreateNestedManyWithoutReviewInput
+}
+
+export type contractReviewsCreateOrConnectWithoutAnnotationsInput = {
+  where: Prisma.contractReviewsWhereUniqueInput
+  create: Prisma.XOR<Prisma.contractReviewsCreateWithoutAnnotationsInput, Prisma.contractReviewsUncheckedCreateWithoutAnnotationsInput>
+}
+
+export type contractReviewsUpsertWithoutAnnotationsInput = {
+  update: Prisma.XOR<Prisma.contractReviewsUpdateWithoutAnnotationsInput, Prisma.contractReviewsUncheckedUpdateWithoutAnnotationsInput>
+  create: Prisma.XOR<Prisma.contractReviewsCreateWithoutAnnotationsInput, Prisma.contractReviewsUncheckedCreateWithoutAnnotationsInput>
+  where?: Prisma.contractReviewsWhereInput
+}
+
+export type contractReviewsUpdateToOneWithWhereWithoutAnnotationsInput = {
+  where?: Prisma.contractReviewsWhereInput
+  data: Prisma.XOR<Prisma.contractReviewsUpdateWithoutAnnotationsInput, Prisma.contractReviewsUncheckedUpdateWithoutAnnotationsInput>
+}
+
+export type contractReviewsUpdateWithoutAnnotationsInput = {
+  sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  originalFileId?: Prisma.IntFieldUpdateOperationsInput | number
+  reviewedFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  contractType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  partyA?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  partyB?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stance?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  playbookSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  hasUnsavedDocxChanges?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  currentVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
+  user?: Prisma.usersUpdateOneRequiredWithoutContractReviewsNestedInput
+  case?: Prisma.casesUpdateOneWithoutContractReviewsNestedInput
+  versions?: Prisma.contractReviewVersionsUpdateManyWithoutReviewNestedInput
+  risks2?: Prisma.contractRisksUpdateManyWithoutReviewNestedInput
+}
+
+export type contractReviewsUncheckedUpdateWithoutAnnotationsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  userId?: Prisma.IntFieldUpdateOperationsInput | number
+  caseId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  sessionId?: Prisma.StringFieldUpdateOperationsInput | string
+  originalFileId?: Prisma.IntFieldUpdateOperationsInput | number
+  reviewedFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  contractType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  partyA?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  partyB?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stance?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  risks?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  summary?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  playbookSnapshot?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  hasUnsavedDocxChanges?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  currentVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
+  versions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutReviewNestedInput
+  risks2?: Prisma.contractRisksUncheckedUpdateManyWithoutReviewNestedInput
 }
 
 export type contractReviewsCreateWithoutUserInput = {
@@ -842,7 +1320,12 @@ export type contractReviewsCreateWithoutUserInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
+  currentVersionId?: number | null
+  maxVersionNo?: number
   case?: Prisma.casesCreateNestedOneWithoutContractReviewsInput
+  versions?: Prisma.contractReviewVersionsCreateNestedManyWithoutReviewInput
+  risks2?: Prisma.contractRisksCreateNestedManyWithoutReviewInput
+  annotations?: Prisma.contractAnnotationsCreateNestedManyWithoutReviewInput
 }
 
 export type contractReviewsUncheckedCreateWithoutUserInput = {
@@ -863,6 +1346,11 @@ export type contractReviewsUncheckedCreateWithoutUserInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
+  currentVersionId?: number | null
+  maxVersionNo?: number
+  versions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutReviewInput
+  risks2?: Prisma.contractRisksUncheckedCreateNestedManyWithoutReviewInput
+  annotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutReviewInput
 }
 
 export type contractReviewsCreateOrConnectWithoutUserInput = {
@@ -909,6 +1397,8 @@ export type contractReviewsCreateManyCaseInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
+  currentVersionId?: number | null
+  maxVersionNo?: number
 }
 
 export type contractReviewsUpdateWithoutCaseInput = {
@@ -927,7 +1417,12 @@ export type contractReviewsUpdateWithoutCaseInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  currentVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   user?: Prisma.usersUpdateOneRequiredWithoutContractReviewsNestedInput
+  versions?: Prisma.contractReviewVersionsUpdateManyWithoutReviewNestedInput
+  risks2?: Prisma.contractRisksUpdateManyWithoutReviewNestedInput
+  annotations?: Prisma.contractAnnotationsUpdateManyWithoutReviewNestedInput
 }
 
 export type contractReviewsUncheckedUpdateWithoutCaseInput = {
@@ -948,6 +1443,11 @@ export type contractReviewsUncheckedUpdateWithoutCaseInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  currentVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
+  versions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutReviewNestedInput
+  risks2?: Prisma.contractRisksUncheckedUpdateManyWithoutReviewNestedInput
+  annotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutReviewNestedInput
 }
 
 export type contractReviewsUncheckedUpdateManyWithoutCaseInput = {
@@ -968,6 +1468,8 @@ export type contractReviewsUncheckedUpdateManyWithoutCaseInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  currentVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
 }
 
 export type contractReviewsCreateManyUserInput = {
@@ -988,6 +1490,8 @@ export type contractReviewsCreateManyUserInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   deletedAt?: Date | string | null
+  currentVersionId?: number | null
+  maxVersionNo?: number
 }
 
 export type contractReviewsUpdateWithoutUserInput = {
@@ -1006,7 +1510,12 @@ export type contractReviewsUpdateWithoutUserInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  currentVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
   case?: Prisma.casesUpdateOneWithoutContractReviewsNestedInput
+  versions?: Prisma.contractReviewVersionsUpdateManyWithoutReviewNestedInput
+  risks2?: Prisma.contractRisksUpdateManyWithoutReviewNestedInput
+  annotations?: Prisma.contractAnnotationsUpdateManyWithoutReviewNestedInput
 }
 
 export type contractReviewsUncheckedUpdateWithoutUserInput = {
@@ -1027,6 +1536,11 @@ export type contractReviewsUncheckedUpdateWithoutUserInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  currentVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
+  versions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutReviewNestedInput
+  risks2?: Prisma.contractRisksUncheckedUpdateManyWithoutReviewNestedInput
+  annotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutReviewNestedInput
 }
 
 export type contractReviewsUncheckedUpdateManyWithoutUserInput = {
@@ -1047,8 +1561,57 @@ export type contractReviewsUncheckedUpdateManyWithoutUserInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  currentVersionId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  maxVersionNo?: Prisma.IntFieldUpdateOperationsInput | number
 }
 
+
+/**
+ * Count Type ContractReviewsCountOutputType
+ */
+
+export type ContractReviewsCountOutputType = {
+  versions: number
+  risks2: number
+  annotations: number
+}
+
+export type ContractReviewsCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  versions?: boolean | ContractReviewsCountOutputTypeCountVersionsArgs
+  risks2?: boolean | ContractReviewsCountOutputTypeCountRisks2Args
+  annotations?: boolean | ContractReviewsCountOutputTypeCountAnnotationsArgs
+}
+
+/**
+ * ContractReviewsCountOutputType without action
+ */
+export type ContractReviewsCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ContractReviewsCountOutputType
+   */
+  select?: Prisma.ContractReviewsCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * ContractReviewsCountOutputType without action
+ */
+export type ContractReviewsCountOutputTypeCountVersionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.contractReviewVersionsWhereInput
+}
+
+/**
+ * ContractReviewsCountOutputType without action
+ */
+export type ContractReviewsCountOutputTypeCountRisks2Args<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.contractRisksWhereInput
+}
+
+/**
+ * ContractReviewsCountOutputType without action
+ */
+export type ContractReviewsCountOutputTypeCountAnnotationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.contractAnnotationsWhereInput
+}
 
 
 export type contractReviewsSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1070,8 +1633,14 @@ export type contractReviewsSelect<ExtArgs extends runtime.Types.Extensions.Inter
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
+  currentVersionId?: boolean
+  maxVersionNo?: boolean
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
   case?: boolean | Prisma.contractReviews$caseArgs<ExtArgs>
+  versions?: boolean | Prisma.contractReviews$versionsArgs<ExtArgs>
+  risks2?: boolean | Prisma.contractReviews$risks2Args<ExtArgs>
+  annotations?: boolean | Prisma.contractReviews$annotationsArgs<ExtArgs>
+  _count?: boolean | Prisma.ContractReviewsCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["contractReviews"]>
 
 export type contractReviewsSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -1093,6 +1662,8 @@ export type contractReviewsSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
+  currentVersionId?: boolean
+  maxVersionNo?: boolean
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
   case?: boolean | Prisma.contractReviews$caseArgs<ExtArgs>
 }, ExtArgs["result"]["contractReviews"]>
@@ -1116,6 +1687,8 @@ export type contractReviewsSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
+  currentVersionId?: boolean
+  maxVersionNo?: boolean
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
   case?: boolean | Prisma.contractReviews$caseArgs<ExtArgs>
 }, ExtArgs["result"]["contractReviews"]>
@@ -1139,12 +1712,18 @@ export type contractReviewsSelectScalar = {
   createdAt?: boolean
   updatedAt?: boolean
   deletedAt?: boolean
+  currentVersionId?: boolean
+  maxVersionNo?: boolean
 }
 
-export type contractReviewsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "caseId" | "sessionId" | "originalFileId" | "reviewedFileId" | "contractType" | "partyA" | "partyB" | "stance" | "status" | "risks" | "summary" | "playbookSnapshot" | "hasUnsavedDocxChanges" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["contractReviews"]>
+export type contractReviewsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "caseId" | "sessionId" | "originalFileId" | "reviewedFileId" | "contractType" | "partyA" | "partyB" | "stance" | "status" | "risks" | "summary" | "playbookSnapshot" | "hasUnsavedDocxChanges" | "createdAt" | "updatedAt" | "deletedAt" | "currentVersionId" | "maxVersionNo", ExtArgs["result"]["contractReviews"]>
 export type contractReviewsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
   case?: boolean | Prisma.contractReviews$caseArgs<ExtArgs>
+  versions?: boolean | Prisma.contractReviews$versionsArgs<ExtArgs>
+  risks2?: boolean | Prisma.contractReviews$risks2Args<ExtArgs>
+  annotations?: boolean | Prisma.contractReviews$annotationsArgs<ExtArgs>
+  _count?: boolean | Prisma.ContractReviewsCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type contractReviewsIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.usersDefaultArgs<ExtArgs>
@@ -1163,6 +1742,12 @@ export type $contractReviewsPayload<ExtArgs extends runtime.Types.Extensions.Int
      * 关联的案件（caseId 为 null 时为独立审查）
      */
     case: Prisma.$casesPayload<ExtArgs> | null
+    /**
+     * 反向关系
+     */
+    versions: Prisma.$contractReviewVersionsPayload<ExtArgs>[]
+    risks2: Prisma.$contractRisksPayload<ExtArgs>[]
+    annotations: Prisma.$contractAnnotationsPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: number
@@ -1227,6 +1812,14 @@ export type $contractReviewsPayload<ExtArgs extends runtime.Types.Extensions.Int
     createdAt: Date
     updatedAt: Date
     deletedAt: Date | null
+    /**
+     * 当前工作区基于哪个快照版本
+     */
+    currentVersionId: number | null
+    /**
+     * 已产生的版本号上限（每次 snapshot 原子 +1）
+     */
+    maxVersionNo: number
   }, ExtArgs["result"]["contractReviews"]>
   composites: {}
 }
@@ -1623,6 +2216,9 @@ export interface Prisma__contractReviewsClient<T, Null = never, ExtArgs extends 
   readonly [Symbol.toStringTag]: "PrismaPromise"
   user<T extends Prisma.usersDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.usersDefaultArgs<ExtArgs>>): Prisma.Prisma__usersClient<runtime.Types.Result.GetResult<Prisma.$usersPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   case<T extends Prisma.contractReviews$caseArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.contractReviews$caseArgs<ExtArgs>>): Prisma.Prisma__casesClient<runtime.Types.Result.GetResult<Prisma.$casesPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  versions<T extends Prisma.contractReviews$versionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.contractReviews$versionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$contractReviewVersionsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  risks2<T extends Prisma.contractReviews$risks2Args<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.contractReviews$risks2Args<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$contractRisksPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  annotations<T extends Prisma.contractReviews$annotationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.contractReviews$annotationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$contractAnnotationsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1670,6 +2266,8 @@ export interface contractReviewsFieldRefs {
   readonly createdAt: Prisma.FieldRef<"contractReviews", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"contractReviews", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"contractReviews", 'DateTime'>
+  readonly currentVersionId: Prisma.FieldRef<"contractReviews", 'Int'>
+  readonly maxVersionNo: Prisma.FieldRef<"contractReviews", 'Int'>
 }
     
 
@@ -2087,6 +2685,78 @@ export type contractReviews$caseArgs<ExtArgs extends runtime.Types.Extensions.In
    */
   include?: Prisma.casesInclude<ExtArgs> | null
   where?: Prisma.casesWhereInput
+}
+
+/**
+ * contractReviews.versions
+ */
+export type contractReviews$versionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the contractReviewVersions
+   */
+  select?: Prisma.contractReviewVersionsSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the contractReviewVersions
+   */
+  omit?: Prisma.contractReviewVersionsOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.contractReviewVersionsInclude<ExtArgs> | null
+  where?: Prisma.contractReviewVersionsWhereInput
+  orderBy?: Prisma.contractReviewVersionsOrderByWithRelationInput | Prisma.contractReviewVersionsOrderByWithRelationInput[]
+  cursor?: Prisma.contractReviewVersionsWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ContractReviewVersionsScalarFieldEnum | Prisma.ContractReviewVersionsScalarFieldEnum[]
+}
+
+/**
+ * contractReviews.risks2
+ */
+export type contractReviews$risks2Args<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the contractRisks
+   */
+  select?: Prisma.contractRisksSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the contractRisks
+   */
+  omit?: Prisma.contractRisksOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.contractRisksInclude<ExtArgs> | null
+  where?: Prisma.contractRisksWhereInput
+  orderBy?: Prisma.contractRisksOrderByWithRelationInput | Prisma.contractRisksOrderByWithRelationInput[]
+  cursor?: Prisma.contractRisksWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ContractRisksScalarFieldEnum | Prisma.ContractRisksScalarFieldEnum[]
+}
+
+/**
+ * contractReviews.annotations
+ */
+export type contractReviews$annotationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the contractAnnotations
+   */
+  select?: Prisma.contractAnnotationsSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the contractAnnotations
+   */
+  omit?: Prisma.contractAnnotationsOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.contractAnnotationsInclude<ExtArgs> | null
+  where?: Prisma.contractAnnotationsWhereInput
+  orderBy?: Prisma.contractAnnotationsOrderByWithRelationInput | Prisma.contractAnnotationsOrderByWithRelationInput[]
+  cursor?: Prisma.contractAnnotationsWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ContractAnnotationsScalarFieldEnum | Prisma.ContractAnnotationsScalarFieldEnum[]
 }
 
 /**

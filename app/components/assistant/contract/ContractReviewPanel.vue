@@ -1,15 +1,17 @@
 <script setup lang="ts">
 /**
- * 合同审查主容器（M4）
+ * 合同审查主容器（M4 + Phase A 版本管理集成）
  *
- * 职责：组合 useContractReview + 6 个子组件，承载三屏状态机。
+ * 职责：组合 useContractReview + useContractReviewVersion + 多个子组件，承载三屏状态机。
  * - Step 1 提交屏：review == null && !isLoading → 居中 ContractSourceInput
  * - Step 2 立场 Dialog（始终挂载；open 受 awaitingStance 驱动，避免条件挂载动画异常）
- * - Step 3 结果屏：review != null → 左 ContractDocxPreview + 右 busy 条 + RiskListPanel
+ * - Step 3 结果屏：左侧时间线 + 中部 DocxPreview + 右侧 RiskListPanel
+ *   - 只读态（历史版本预览）：顶部显示只读横幅；工具栏显示"返回工作区"按钮
+ *   - 工作区：工具栏显示"N 处未保存编辑"徽章 + "保存新版本"按钮
  *
  * runStatus 文案内联（不拆 ContractReviewStatus.vue），见 spec §9.2。
  */
-import { Loader2Icon } from 'lucide-vue-next'
+import { Loader2Icon, SaveIcon, HistoryIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useMediaQuery, useLocalStorage } from '@vueuse/core'
 import type { Risk, ContractReviewStatus, StanceRequest, CreateReviewRequest, PlaybookSnapshot } from '#shared/types/contract'
@@ -59,6 +61,101 @@ watch(
     },
     { immediate: true },
 )
+
+// ===== Phase A：版本管理集成 =====
+const versioningReviewId = computed(() => review.value?.id ?? 0)
+const versioning = useContractReviewVersion(versioningReviewId as Ref<number>)
+
+// review 加载后，初始化版本工作区数据
+watch(
+    () => review.value?.id,
+    async (id) => {
+        if (!id) return
+        await Promise.all([versioning.refreshWorkspace(), versioning.refreshVersions()])
+    },
+    { immediate: true },
+)
+
+// 保存新版本 dialog 状态
+const saveVersionDialogOpen = ref(false)
+const isSavingVersion = ref(false)
+
+async function handleSaveVersion(lawyerNote: string | null) {
+    isSavingVersion.value = true
+    try {
+        const ok = await versioning.saveNewVersion(lawyerNote)
+        if (ok) {
+            saveVersionDialogOpen.value = false
+            toast.success('版本已保存')
+        }
+    } finally {
+        isSavingVersion.value = false
+    }
+}
+
+// 时间线事件
+function handleSelectVersion(versionId: number) {
+    versioning.enterPreview(versionId)
+}
+function handleExitPreview() {
+    versioning.exitPreview()
+}
+function handleUpdateVersionNote(versionId: number, note: string | null) {
+    versioning.updateVersionNote(versionId, note)
+}
+
+/**
+ * Phase A：把 ContractRiskEntity[] 映射成 RiskListPanel 能消费的 Risk[]，
+ * 并携带 archivedStatus（通过类型扩展传入，RiskListPanel 里用 (r as any).archivedStatus 访问）。
+ *
+ * 策略：
+ * - 有 workspace.risks（已迁移）时，把 entity 转成 Risk 结构，entity.id（number）stringified 作为 Risk.id
+ * - 否则 fallback 用 review.risks（旧 JSON 字段）
+ */
+type RiskWithArchivedStatus = Risk & { archivedStatus?: string | null; entityId?: number }
+
+const effectiveRisks = computed<RiskWithArchivedStatus[]>(() => {
+    const entities = versioning.currentView.value.risks
+    if (entities.length > 0) {
+        return entities.map(e => ({
+            id: String(e.id),
+            entityId: e.id,
+            clauseIndex: e.anchorParagraphIndex ?? 0,
+            clauseText: e.anchorQuote,
+            level: e.level as Risk['level'],
+            category: e.category,
+            problem: e.problem,
+            legalBasis: e.legalBasis ?? undefined,
+            analysis: e.analysis ?? '',
+            risk: e.problem,
+            suggestion: e.suggestion ?? '',
+            archivedStatus: e.archivedStatus,
+        }))
+    }
+    return (review.value?.risks ?? []).map(r => ({ ...r }))
+})
+
+const versionedAnnotations = computed(() => versioning.currentView.value.annotations)
+
+// 风险处置：Risk.id 是 entity id 的 string 化（只在已迁移数据下有效）
+async function handleArchiveRisk(riskStringId: string, status: import('#shared/types/contract').RiskArchivedStatus | null) {
+    const entityId = parseInt(riskStringId, 10)
+    if (!Number.isFinite(entityId)) return
+    await versioning.updateRiskArchivedStatus(entityId, status)
+}
+
+// 批注操作：riskStringId 是 entity id 的 string 化
+async function handleAddAnnotation(riskStringId: string, content: string, parentAnnotationId?: number) {
+    const entityId = parseInt(riskStringId, 10)
+    if (!Number.isFinite(entityId)) return
+    await versioning.addLawyerAnnotation(entityId, content, parentAnnotationId)
+}
+async function handleUpdateAnnotation(annotationId: number, content: string) {
+    await versioning.updateAnnotation(annotationId, content)
+}
+async function handleDeleteAnnotation(annotationId: number) {
+    await versioning.deleteAnnotation(annotationId)
+}
 
 /**
  * 状态文案派生顺序：
@@ -264,119 +361,198 @@ function handleContainerClick(e: MouseEvent) {
 
         <!-- Step 3 结果屏 -->
         <div v-if="review && !showSourceInput" class="flex-1 min-h-0 flex flex-col">
-            <!-- 分栏（>=1024px）：对齐文书编辑器工作区。右侧风险面板比例 = 文书编辑器左侧表单比例 -->
-            <ResizablePanelGroup
-                v-if="isSplit"
-                :key="isWide ? 'wide' : 'standard'"
-                direction="horizontal"
-                class="h-full"
-                @layout="handlePanelResize"
+            <!-- 只读横幅：历史版本预览时显示 -->
+            <div
+                v-if="versioning.isReadOnly.value"
+                class="flex items-center gap-2 px-4 py-2 border-b bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 text-sm shrink-0"
             >
-                <ResizablePanel :default-size="100 - activeRightSize" :min-size="25">
-                    <div class="h-full min-h-0 overflow-hidden rounded-lg border bg-muted/40 p-4 mr-1">
-                        <AssistantContractDocxPreview
-                            :reviewed-file-id="review?.reviewedFileId ?? null"
-                            :original-file-id="review?.originalFileId ?? null"
-                            :risks="review?.risks ?? []"
-                            :focused-risk-id="focusedRiskId"
-                            :hovered-risk-id="hoveredRiskId"
-                            :highlighted-risk-ids="highlightedRiskIds"
-                            @focus-risk="handleFocusRisk"
-                            @hover-clause="setHoveredRisk"
-                            @locate-result="handleLocateResult"
-                        />
-                    </div>
-                </ResizablePanel>
+                <HistoryIcon class="size-4 shrink-0" />
+                <span class="font-medium">只读模式 — 正在查看历史版本，无法编辑</span>
+                <button
+                    class="ml-auto text-xs underline hover:opacity-80"
+                    @click="handleExitPreview"
+                >
+                    返回工作区
+                </button>
+            </div>
 
-                <ResizableHandle with-handle class="bg-transparent" />
+            <!-- 工作区版本操作栏：非只读且有版本时显示 -->
+            <div
+                v-else-if="versioning.versions.value.length > 0"
+                class="flex items-center gap-2 px-4 py-1.5 border-b bg-card shrink-0"
+            >
+                <span
+                    v-if="versioning.hasUnsavedEdits.value"
+                    class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300"
+                >
+                    <span class="size-1.5 rounded-full bg-orange-500 shrink-0" />
+                    有未保存的编辑
+                </span>
+                <span class="flex-1" />
+                <Button
+                    size="sm"
+                    variant="outline"
+                    class="h-7 text-xs"
+                    :disabled="versioning.isReadOnly.value"
+                    @click="saveVersionDialogOpen = true"
+                >
+                    <SaveIcon class="size-3 mr-1" />
+                    保存新版本
+                </Button>
+            </div>
 
-                <ResizablePanel :default-size="activeRightSize" :min-size="25">
-                    <div class="h-full min-h-0 flex flex-col overflow-hidden rounded-lg border bg-card ml-1">
-                        <AssistantContractReviewProgress
-                            :stages="stageStatus"
-                            :total-clauses="totalClauses"
-                            :analyzing-index="analyzingClauseIndex"
-                        />
-                        <div
-                            v-if="showBusy"
-                            class="flex items-center gap-2 px-3 py-2 border-b border-primary/30 bg-primary/10 dark:bg-primary/15 text-sm font-medium text-primary"
-                        >
-                            <Loader2Icon class="size-4 animate-spin shrink-0" />
-                            <span class="animate-pulse">{{ statusLabel }}</span>
-                        </div>
-                        <AssistantContractRiskListPanel
-                            :risks="review?.risks ?? []"
-                            :status="(review?.status ?? 'pending') as ContractReviewStatus"
-                            :reviewed-file-id="review?.reviewedFileId ?? null"
-                            :summary="review?.summary ?? null"
-                            :is-rebuilding="isRebuilding"
-                            :has-unsaved-docx-changes="hasUnsavedDocxChanges"
-                            :focused-risk-id="focusedRiskId"
-                            :hovered-risk-id="hoveredRiskId"
-                            :pinned-risk-ids="pinnedRiskIds"
-                            :not-located-ids="notLocatedIds"
-                            :playbook-snapshot="(review?.playbookSnapshot ?? null) as PlaybookSnapshot | null"
-                            @download="onDownload"
-                            @rebuild="onRebuildDocx"
-                            @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
-                            @export-pdf="(includeRisks: boolean) => onExportPdf(includeRisks)"
-                            @focus-risk="handleFocusRisk"
-                            @toggle-pin="togglePin"
-                        />
-                    </div>
-                </ResizablePanel>
-            </ResizablePanelGroup>
+            <!-- 主体：时间线 + 内容区 -->
+            <div class="flex-1 min-h-0 flex flex-row">
+                <!-- 左侧版本时间线：有版本记录时才显示 -->
+                <AssistantContractVersionTimeline
+                    v-if="versioning.versions.value.length > 0"
+                    :versions="versioning.versions.value"
+                    :current-version-id="versioning.workspace.value.currentVersionId"
+                    :preview-version-id="versioning.previewVersionId.value"
+                    @select-version="handleSelectVersion"
+                    @exit-preview="handleExitPreview"
+                    @update-note="handleUpdateVersionNote"
+                />
 
-            <!-- 窄屏（<1024px）：上下堆叠，避免无限横滚 -->
-            <div v-else class="flex-1 min-h-0 flex flex-col gap-2">
-                <div class="flex-1 min-h-0 overflow-hidden rounded-lg border bg-muted/40 p-4">
-                    <AssistantContractDocxPreview
-                        :reviewed-file-id="review?.reviewedFileId ?? null"
-                        :original-file-id="review?.originalFileId ?? null"
-                        :risks="review?.risks ?? []"
-                        :focused-risk-id="focusedRiskId"
-                        :hovered-risk-id="hoveredRiskId"
-                        :highlighted-risk-ids="highlightedRiskIds"
-                        @focus-risk="handleFocusRisk"
-                        @hover-clause="setHoveredRisk"
-                        @locate-result="handleLocateResult"
-                    />
-                </div>
-                <div class="flex-1 min-h-0 flex flex-col overflow-hidden rounded-lg border bg-card">
-                    <AssistantContractReviewProgress
-                        :stages="stageStatus"
-                        :total-clauses="totalClauses"
-                        :analyzing-index="analyzingClauseIndex"
-                    />
-                    <div
-                        v-if="showBusy"
-                        class="flex items-center gap-2 px-3 py-2 border-b border-primary/30 bg-primary/10 dark:bg-primary/15 text-sm font-medium text-primary"
+                <!-- 右侧内容区 -->
+                <div class="flex-1 min-h-0 flex flex-col">
+                    <!-- 分栏（>=1024px）：对齐文书编辑器工作区。右侧风险面板比例 = 文书编辑器左侧表单比例 -->
+                    <ResizablePanelGroup
+                        v-if="isSplit"
+                        :key="isWide ? 'wide' : 'standard'"
+                        direction="horizontal"
+                        class="h-full"
+                        @layout="handlePanelResize"
                     >
-                        <Loader2Icon class="size-4 animate-spin shrink-0" />
-                        <span class="animate-pulse">{{ statusLabel }}</span>
+                        <ResizablePanel :default-size="100 - activeRightSize" :min-size="25">
+                            <div class="h-full min-h-0 overflow-hidden rounded-lg border bg-muted/40 p-4 mr-1">
+                                <AssistantContractDocxPreview
+                                    :reviewed-file-id="review?.reviewedFileId ?? null"
+                                    :original-file-id="review?.originalFileId ?? null"
+                                    :risks="review?.risks ?? []"
+                                    :focused-risk-id="focusedRiskId"
+                                    :hovered-risk-id="hoveredRiskId"
+                                    :highlighted-risk-ids="highlightedRiskIds"
+                                    @focus-risk="handleFocusRisk"
+                                    @hover-clause="setHoveredRisk"
+                                    @locate-result="handleLocateResult"
+                                />
+                            </div>
+                        </ResizablePanel>
+
+                        <ResizableHandle with-handle class="bg-transparent" />
+
+                        <ResizablePanel :default-size="activeRightSize" :min-size="25">
+                            <div class="h-full min-h-0 flex flex-col overflow-hidden rounded-lg border bg-card ml-1">
+                                <AssistantContractReviewProgress
+                                    :stages="stageStatus"
+                                    :total-clauses="totalClauses"
+                                    :analyzing-index="analyzingClauseIndex"
+                                />
+                                <div
+                                    v-if="showBusy"
+                                    class="flex items-center gap-2 px-3 py-2 border-b border-primary/30 bg-primary/10 dark:bg-primary/15 text-sm font-medium text-primary"
+                                >
+                                    <Loader2Icon class="size-4 animate-spin shrink-0" />
+                                    <span class="animate-pulse">{{ statusLabel }}</span>
+                                </div>
+                                <AssistantContractRiskListPanel
+                                    :risks="effectiveRisks"
+                                    :annotations="versionedAnnotations"
+                                    :read-only="versioning.isReadOnly.value"
+                                    :current-user-id="null"
+                                    :status="(review?.status ?? 'pending') as ContractReviewStatus"
+                                    :reviewed-file-id="review?.reviewedFileId ?? null"
+                                    :summary="review?.summary ?? null"
+                                    :is-rebuilding="isRebuilding"
+                                    :has-unsaved-docx-changes="hasUnsavedDocxChanges"
+                                    :focused-risk-id="focusedRiskId"
+                                    :hovered-risk-id="hoveredRiskId"
+                                    :pinned-risk-ids="pinnedRiskIds"
+                                    :not-located-ids="notLocatedIds"
+                                    :playbook-snapshot="(review?.playbookSnapshot ?? null) as PlaybookSnapshot | null"
+                                    @download="onDownload"
+                                    @rebuild="onRebuildDocx"
+                                    @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
+                                    @export-pdf="(includeRisks: boolean) => onExportPdf(includeRisks)"
+                                    @focus-risk="handleFocusRisk"
+                                    @toggle-pin="togglePin"
+                                    @archive="handleArchiveRisk"
+                                    @add-annotation="handleAddAnnotation"
+                                    @update-annotation="handleUpdateAnnotation"
+                                    @delete-annotation="handleDeleteAnnotation"
+                                />
+                            </div>
+                        </ResizablePanel>
+                    </ResizablePanelGroup>
+
+                    <!-- 窄屏（<1024px）：上下堆叠，避免无限横滚 -->
+                    <div v-else class="flex-1 min-h-0 flex flex-col gap-2">
+                        <div class="flex-1 min-h-0 overflow-hidden rounded-lg border bg-muted/40 p-4">
+                            <AssistantContractDocxPreview
+                                :reviewed-file-id="review?.reviewedFileId ?? null"
+                                :original-file-id="review?.originalFileId ?? null"
+                                :risks="review?.risks ?? []"
+                                :focused-risk-id="focusedRiskId"
+                                :hovered-risk-id="hoveredRiskId"
+                                :highlighted-risk-ids="highlightedRiskIds"
+                                @focus-risk="handleFocusRisk"
+                                @hover-clause="setHoveredRisk"
+                                @locate-result="handleLocateResult"
+                            />
+                        </div>
+                        <div class="flex-1 min-h-0 flex flex-col overflow-hidden rounded-lg border bg-card">
+                            <AssistantContractReviewProgress
+                                :stages="stageStatus"
+                                :total-clauses="totalClauses"
+                                :analyzing-index="analyzingClauseIndex"
+                            />
+                            <div
+                                v-if="showBusy"
+                                class="flex items-center gap-2 px-3 py-2 border-b border-primary/30 bg-primary/10 dark:bg-primary/15 text-sm font-medium text-primary"
+                            >
+                                <Loader2Icon class="size-4 animate-spin shrink-0" />
+                                <span class="animate-pulse">{{ statusLabel }}</span>
+                            </div>
+                            <AssistantContractRiskListPanel
+                                :risks="effectiveRisks"
+                                :annotations="versionedAnnotations"
+                                :read-only="versioning.isReadOnly.value"
+                                :current-user-id="null"
+                                :status="(review?.status ?? 'pending') as ContractReviewStatus"
+                                :reviewed-file-id="review?.reviewedFileId ?? null"
+                                :summary="review?.summary ?? null"
+                                :is-rebuilding="isRebuilding"
+                                :has-unsaved-docx-changes="hasUnsavedDocxChanges"
+                                :focused-risk-id="focusedRiskId"
+                                :hovered-risk-id="hoveredRiskId"
+                                :pinned-risk-ids="pinnedRiskIds"
+                                :not-located-ids="notLocatedIds"
+                                :playbook-snapshot="(review?.playbookSnapshot ?? null) as PlaybookSnapshot | null"
+                                @download="onDownload"
+                                @rebuild="onRebuildDocx"
+                                @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
+                                @export-pdf="(includeRisks: boolean) => onExportPdf(includeRisks)"
+                                @focus-risk="handleFocusRisk"
+                                @toggle-pin="togglePin"
+                                @archive="handleArchiveRisk"
+                                @add-annotation="handleAddAnnotation"
+                                @update-annotation="handleUpdateAnnotation"
+                                @delete-annotation="handleDeleteAnnotation"
+                            />
+                        </div>
                     </div>
-                    <AssistantContractRiskListPanel
-                        :risks="review?.risks ?? []"
-                        :status="(review?.status ?? 'pending') as ContractReviewStatus"
-                        :reviewed-file-id="review?.reviewedFileId ?? null"
-                        :summary="review?.summary ?? null"
-                        :is-rebuilding="isRebuilding"
-                        :has-unsaved-docx-changes="hasUnsavedDocxChanges"
-                        :focused-risk-id="focusedRiskId"
-                        :hovered-risk-id="hoveredRiskId"
-                        :pinned-risk-ids="pinnedRiskIds"
-                        :not-located-ids="notLocatedIds"
-                        :playbook-snapshot="(review?.playbookSnapshot ?? null) as PlaybookSnapshot | null"
-                        @download="onDownload"
-                        @rebuild="onRebuildDocx"
-                        @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
-                        @export-pdf="(includeRisks: boolean) => onExportPdf(includeRisks)"
-                        @focus-risk="handleFocusRisk"
-                        @toggle-pin="togglePin"
-                    />
                 </div>
             </div>
         </div>
+
+        <!-- 保存新版本 Dialog -->
+        <AssistantContractSaveVersionDialog
+            :open="saveVersionDialogOpen"
+            :submitting="isSavingVersion"
+            @update:open="saveVersionDialogOpen = $event"
+            @confirm="handleSaveVersion"
+        />
 
     </div>
 </template>

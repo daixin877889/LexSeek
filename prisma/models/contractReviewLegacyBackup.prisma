@@ -1,0 +1,9 @@
+/// 合同审查存量 risks JSON 一次性备份（Phase A 数据迁移回滚兜底）
+/// 由 prisma migrate dev --create-only 生成，手工追加 INSERT...SELECT 备份数据
+model contractReviewLegacyRisksBackup {
+  reviewId   Int      @id @map("review_id")
+  risks      Json
+  backedUpAt DateTime @default(now()) @map("backed_up_at")
+
+  @@map("contract_review_legacy_risks_backup")
+}

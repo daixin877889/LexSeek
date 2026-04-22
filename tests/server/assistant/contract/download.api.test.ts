@@ -94,6 +94,8 @@ function completedReview(overrides: Partial<Record<string, any>> = {}) {
         sessionId: 'sess-contract-uuid',
         status: 'completed',
         reviewedFileId: 888,
+        maxVersionNo: 3,
+        currentVersionId: 99,
         ...overrides,
     }
 }
@@ -205,12 +207,19 @@ describe('GET /api/v1/assistant/contract/reviews/:id/download', () => {
         expect(res.data.downloadUrl.length).toBeGreaterThan(0)
         expect(res.data.downloadUrl.startsWith('https://')).toBe(true)
 
-        // 关键：签名参数正确传递
+        // Task 4.3: filename 带版本号，格式 {原名}_v{N}_{YYYY-MM-DD}.docx
+        expect(typeof res.data.filename).toBe('string')
+        expect(res.data.filename).toMatch(/^contract-review_v\d+_\d{4}-\d{2}-\d{2}\.docx$/)
+
+        // 关键：签名参数包含 Content-Disposition（文件名）
         expect(mockGenerateSignedUrl).toHaveBeenCalledWith(
             'users/1001/contract-reviews/42.docx',
             expect.objectContaining({
                 expires: 3600,
                 userId: USER_A,
+                response: expect.objectContaining({
+                    contentDisposition: expect.stringContaining('attachment'),
+                }),
             }),
         )
     })

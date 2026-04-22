@@ -338,6 +338,8 @@ export type usersWhereInput = {
   documentTemplates?: Prisma.DocumentTemplatesListRelationFilter
   documentDrafts?: Prisma.DocumentDraftsListRelationFilter
   contractReviews?: Prisma.ContractReviewsListRelationFilter
+  contractReviewVersions?: Prisma.ContractReviewVersionsListRelationFilter
+  contractAnnotations?: Prisma.ContractAnnotationsListRelationFilter
 }
 
 export type usersOrderByWithRelationInput = {
@@ -376,6 +378,8 @@ export type usersOrderByWithRelationInput = {
   documentTemplates?: Prisma.documentTemplatesOrderByRelationAggregateInput
   documentDrafts?: Prisma.documentDraftsOrderByRelationAggregateInput
   contractReviews?: Prisma.contractReviewsOrderByRelationAggregateInput
+  contractReviewVersions?: Prisma.contractReviewVersionsOrderByRelationAggregateInput
+  contractAnnotations?: Prisma.contractAnnotationsOrderByRelationAggregateInput
 }
 
 export type usersWhereUniqueInput = Prisma.AtLeast<{
@@ -417,6 +421,8 @@ export type usersWhereUniqueInput = Prisma.AtLeast<{
   documentTemplates?: Prisma.DocumentTemplatesListRelationFilter
   documentDrafts?: Prisma.DocumentDraftsListRelationFilter
   contractReviews?: Prisma.ContractReviewsListRelationFilter
+  contractReviewVersions?: Prisma.ContractReviewVersionsListRelationFilter
+  contractAnnotations?: Prisma.ContractAnnotationsListRelationFilter
 }, "id" | "username" | "email" | "phone" | "inviteCode">
 
 export type usersOrderByWithAggregationInput = {
@@ -502,6 +508,8 @@ export type usersCreateInput = {
   documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersUncheckedCreateInput = {
@@ -540,6 +548,8 @@ export type usersUncheckedCreateInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersUpdateInput = {
@@ -577,6 +587,8 @@ export type usersUpdateInput = {
   documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersUncheckedUpdateInput = {
@@ -615,6 +627,8 @@ export type usersUncheckedUpdateInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersCreateManyInput = {
@@ -814,6 +828,36 @@ export type usersUpdateOneRequiredWithoutContractReviewsNestedInput = {
   upsert?: Prisma.usersUpsertWithoutContractReviewsInput
   connect?: Prisma.usersWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.usersUpdateToOneWithWhereWithoutContractReviewsInput, Prisma.usersUpdateWithoutContractReviewsInput>, Prisma.usersUncheckedUpdateWithoutContractReviewsInput>
+}
+
+export type usersCreateNestedOneWithoutContractReviewVersionsInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutContractReviewVersionsInput, Prisma.usersUncheckedCreateWithoutContractReviewVersionsInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutContractReviewVersionsInput
+  connect?: Prisma.usersWhereUniqueInput
+}
+
+export type usersUpdateOneRequiredWithoutContractReviewVersionsNestedInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutContractReviewVersionsInput, Prisma.usersUncheckedCreateWithoutContractReviewVersionsInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutContractReviewVersionsInput
+  upsert?: Prisma.usersUpsertWithoutContractReviewVersionsInput
+  connect?: Prisma.usersWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.usersUpdateToOneWithWhereWithoutContractReviewVersionsInput, Prisma.usersUpdateWithoutContractReviewVersionsInput>, Prisma.usersUncheckedUpdateWithoutContractReviewVersionsInput>
+}
+
+export type usersCreateNestedOneWithoutContractAnnotationsInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutContractAnnotationsInput, Prisma.usersUncheckedCreateWithoutContractAnnotationsInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutContractAnnotationsInput
+  connect?: Prisma.usersWhereUniqueInput
+}
+
+export type usersUpdateOneWithoutContractAnnotationsNestedInput = {
+  create?: Prisma.XOR<Prisma.usersCreateWithoutContractAnnotationsInput, Prisma.usersUncheckedCreateWithoutContractAnnotationsInput>
+  connectOrCreate?: Prisma.usersCreateOrConnectWithoutContractAnnotationsInput
+  upsert?: Prisma.usersUpsertWithoutContractAnnotationsInput
+  disconnect?: Prisma.usersWhereInput | boolean
+  delete?: Prisma.usersWhereInput | boolean
+  connect?: Prisma.usersWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.usersUpdateToOneWithWhereWithoutContractAnnotationsInput, Prisma.usersUpdateWithoutContractAnnotationsInput>, Prisma.usersUncheckedUpdateWithoutContractAnnotationsInput>
 }
 
 export type usersCreateNestedOneWithoutDocumentTemplatesInput = {
@@ -1048,6 +1092,8 @@ export type usersCreateWithoutPermissionAuditLogsInput = {
   documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersUncheckedCreateWithoutPermissionAuditLogsInput = {
@@ -1085,6 +1131,8 @@ export type usersUncheckedCreateWithoutPermissionAuditLogsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersCreateOrConnectWithoutPermissionAuditLogsInput = {
@@ -1137,6 +1185,8 @@ export type usersUpdateWithoutPermissionAuditLogsInput = {
   documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutPermissionAuditLogsInput = {
@@ -1174,6 +1224,8 @@ export type usersUncheckedUpdateWithoutPermissionAuditLogsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersCreateWithoutCasesInput = {
@@ -1210,6 +1262,8 @@ export type usersCreateWithoutCasesInput = {
   documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersUncheckedCreateWithoutCasesInput = {
@@ -1247,6 +1301,8 @@ export type usersUncheckedCreateWithoutCasesInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersCreateOrConnectWithoutCasesInput = {
@@ -1299,6 +1355,8 @@ export type usersUpdateWithoutCasesInput = {
   documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutCasesInput = {
@@ -1336,6 +1394,8 @@ export type usersUncheckedUpdateWithoutCasesInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersCreateWithoutCaseSessionsInput = {
@@ -1372,6 +1432,8 @@ export type usersCreateWithoutCaseSessionsInput = {
   documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersUncheckedCreateWithoutCaseSessionsInput = {
@@ -1409,6 +1471,8 @@ export type usersUncheckedCreateWithoutCaseSessionsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersCreateOrConnectWithoutCaseSessionsInput = {
@@ -1461,6 +1525,8 @@ export type usersUpdateWithoutCaseSessionsInput = {
   documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutCaseSessionsInput = {
@@ -1498,6 +1564,8 @@ export type usersUncheckedUpdateWithoutCaseSessionsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersCreateWithoutContractReviewsInput = {
@@ -1534,6 +1602,8 @@ export type usersCreateWithoutContractReviewsInput = {
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
   documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersUncheckedCreateWithoutContractReviewsInput = {
@@ -1571,6 +1641,8 @@ export type usersUncheckedCreateWithoutContractReviewsInput = {
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
   documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersCreateOrConnectWithoutContractReviewsInput = {
@@ -1623,6 +1695,8 @@ export type usersUpdateWithoutContractReviewsInput = {
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
   documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutContractReviewsInput = {
@@ -1660,6 +1734,348 @@ export type usersUncheckedUpdateWithoutContractReviewsInput = {
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
   documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutAuthorUserNestedInput
+}
+
+export type usersCreateWithoutContractReviewVersionsInput = {
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
+  userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutUserInput
+  cases?: Prisma.casesCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutUserInput
+  docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
+  asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
+  mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
+  contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutUserInput
+  contractAnnotations?: Prisma.contractAnnotationsCreateNestedManyWithoutAuthorUserInput
+}
+
+export type usersUncheckedCreateWithoutContractReviewVersionsInput = {
+  id?: number
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesUncheckedCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsUncheckedCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsUncheckedCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersUncheckedCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
+  userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutUserInput
+  cases?: Prisma.casesUncheckedCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutUserInput
+  docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
+  asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
+  mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
+  contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutUserInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutAuthorUserInput
+}
+
+export type usersCreateOrConnectWithoutContractReviewVersionsInput = {
+  where: Prisma.usersWhereUniqueInput
+  create: Prisma.XOR<Prisma.usersCreateWithoutContractReviewVersionsInput, Prisma.usersUncheckedCreateWithoutContractReviewVersionsInput>
+}
+
+export type usersUpsertWithoutContractReviewVersionsInput = {
+  update: Prisma.XOR<Prisma.usersUpdateWithoutContractReviewVersionsInput, Prisma.usersUncheckedUpdateWithoutContractReviewVersionsInput>
+  create: Prisma.XOR<Prisma.usersCreateWithoutContractReviewVersionsInput, Prisma.usersUncheckedCreateWithoutContractReviewVersionsInput>
+  where?: Prisma.usersWhereInput
+}
+
+export type usersUpdateToOneWithWhereWithoutContractReviewVersionsInput = {
+  where?: Prisma.usersWhereInput
+  data: Prisma.XOR<Prisma.usersUpdateWithoutContractReviewVersionsInput, Prisma.usersUncheckedUpdateWithoutContractReviewVersionsInput>
+}
+
+export type usersUpdateWithoutContractReviewVersionsInput = {
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
+  userBenefits?: Prisma.userBenefitsUpdateManyWithoutUserNestedInput
+  cases?: Prisma.casesUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutUserNestedInput
+  docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
+  asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
+  mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
+  contractReviews?: Prisma.contractReviewsUpdateManyWithoutUserNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUpdateManyWithoutAuthorUserNestedInput
+}
+
+export type usersUncheckedUpdateWithoutContractReviewVersionsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUncheckedUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUncheckedUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUncheckedUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
+  userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutUserNestedInput
+  cases?: Prisma.casesUncheckedUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutUserNestedInput
+  docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
+  mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutUserNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutAuthorUserNestedInput
+}
+
+export type usersCreateWithoutContractAnnotationsInput = {
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsCreateNestedManyWithoutOperatorInput
+  userBenefits?: Prisma.userBenefitsCreateNestedManyWithoutUserInput
+  cases?: Prisma.casesCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsCreateNestedManyWithoutUserInput
+  docRecognitionRecords?: Prisma.docRecognitionRecordsCreateNestedManyWithoutUserInput
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsCreateNestedManyWithoutUserInput
+  asrRecords?: Prisma.asrRecordsCreateNestedManyWithoutUserInput
+  mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
+  contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsCreateNestedManyWithoutCreatedByInput
+}
+
+export type usersUncheckedCreateWithoutContractAnnotationsInput = {
+  id?: number
+  name: string
+  username?: string | null
+  email?: string | null
+  phone: string
+  password?: string | null
+  status?: number
+  company?: string | null
+  profile?: string | null
+  inviteCode?: string | null
+  invitedBy?: number | null
+  openid?: string | null
+  unionid?: string | null
+  registerChannel?: string | null
+  createdAt?: Date | string | null
+  updatedAt?: Date | string | null
+  deletedAt?: Date | string | null
+  userRoles?: Prisma.userRolesUncheckedCreateNestedManyWithoutUserInput
+  pointRecords?: Prisma.pointRecordsUncheckedCreateNestedManyWithoutUsersInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedCreateNestedManyWithoutUsersInput
+  userMemberships?: Prisma.userMembershipsUncheckedCreateNestedManyWithoutUserInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedCreateNestedManyWithoutUserInput
+  orders?: Prisma.ordersUncheckedCreateNestedManyWithoutUserInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedCreateNestedManyWithoutUserInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedCreateNestedManyWithoutOperatorInput
+  userBenefits?: Prisma.userBenefitsUncheckedCreateNestedManyWithoutUserInput
+  cases?: Prisma.casesUncheckedCreateNestedManyWithoutUserInput
+  caseSessions?: Prisma.caseSessionsUncheckedCreateNestedManyWithoutUserInput
+  docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedCreateNestedManyWithoutUserInput
+  asrRecords?: Prisma.asrRecordsUncheckedCreateNestedManyWithoutUserInput
+  mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
+  documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
+  contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutCreatedByInput
+}
+
+export type usersCreateOrConnectWithoutContractAnnotationsInput = {
+  where: Prisma.usersWhereUniqueInput
+  create: Prisma.XOR<Prisma.usersCreateWithoutContractAnnotationsInput, Prisma.usersUncheckedCreateWithoutContractAnnotationsInput>
+}
+
+export type usersUpsertWithoutContractAnnotationsInput = {
+  update: Prisma.XOR<Prisma.usersUpdateWithoutContractAnnotationsInput, Prisma.usersUncheckedUpdateWithoutContractAnnotationsInput>
+  create: Prisma.XOR<Prisma.usersCreateWithoutContractAnnotationsInput, Prisma.usersUncheckedCreateWithoutContractAnnotationsInput>
+  where?: Prisma.usersWhereInput
+}
+
+export type usersUpdateToOneWithWhereWithoutContractAnnotationsInput = {
+  where?: Prisma.usersWhereInput
+  data: Prisma.XOR<Prisma.usersUpdateWithoutContractAnnotationsInput, Prisma.usersUncheckedUpdateWithoutContractAnnotationsInput>
+}
+
+export type usersUpdateWithoutContractAnnotationsInput = {
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUpdateManyWithoutOperatorNestedInput
+  userBenefits?: Prisma.userBenefitsUpdateManyWithoutUserNestedInput
+  cases?: Prisma.casesUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUpdateManyWithoutUserNestedInput
+  docRecognitionRecords?: Prisma.docRecognitionRecordsUpdateManyWithoutUserNestedInput
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsUpdateManyWithoutUserNestedInput
+  asrRecords?: Prisma.asrRecordsUpdateManyWithoutUserNestedInput
+  mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
+  contractReviews?: Prisma.contractReviewsUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUpdateManyWithoutCreatedByNestedInput
+}
+
+export type usersUncheckedUpdateWithoutContractAnnotationsInput = {
+  id?: Prisma.IntFieldUpdateOperationsInput | number
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  email?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  phone?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.IntFieldUpdateOperationsInput | number
+  company?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  profile?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  inviteCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  invitedBy?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  openid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unionid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registerChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  updatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  userRoles?: Prisma.userRolesUncheckedUpdateManyWithoutUserNestedInput
+  pointRecords?: Prisma.pointRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  pointConsumptionRecords?: Prisma.pointConsumptionRecordsUncheckedUpdateManyWithoutUsersNestedInput
+  userMemberships?: Prisma.userMembershipsUncheckedUpdateManyWithoutUserNestedInput
+  redemptionRecords?: Prisma.redemptionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  orders?: Prisma.ordersUncheckedUpdateManyWithoutUserNestedInput
+  membershipUpgradeRecords?: Prisma.membershipUpgradeRecordsUncheckedUpdateManyWithoutUserNestedInput
+  permissionAuditLogs?: Prisma.permissionAuditLogsUncheckedUpdateManyWithoutOperatorNestedInput
+  userBenefits?: Prisma.userBenefitsUncheckedUpdateManyWithoutUserNestedInput
+  cases?: Prisma.casesUncheckedUpdateManyWithoutUserNestedInput
+  caseSessions?: Prisma.caseSessionsUncheckedUpdateManyWithoutUserNestedInput
+  docRecognitionRecords?: Prisma.docRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  imageRecognitionRecords?: Prisma.imageRecognitionRecordsUncheckedUpdateManyWithoutUserNestedInput
+  asrRecords?: Prisma.asrRecordsUncheckedUpdateManyWithoutUserNestedInput
+  mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
+  documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
+  documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type usersCreateWithoutDocumentTemplatesInput = {
@@ -1696,6 +2112,8 @@ export type usersCreateWithoutDocumentTemplatesInput = {
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersUncheckedCreateWithoutDocumentTemplatesInput = {
@@ -1733,6 +2151,8 @@ export type usersUncheckedCreateWithoutDocumentTemplatesInput = {
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersCreateOrConnectWithoutDocumentTemplatesInput = {
@@ -1785,6 +2205,8 @@ export type usersUpdateWithoutDocumentTemplatesInput = {
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutDocumentTemplatesInput = {
@@ -1822,6 +2244,8 @@ export type usersUncheckedUpdateWithoutDocumentTemplatesInput = {
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersCreateWithoutDocumentDraftsInput = {
@@ -1858,6 +2282,8 @@ export type usersCreateWithoutDocumentDraftsInput = {
   mineruTasks?: Prisma.mineruTasksCreateNestedManyWithoutUserInput
   documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersUncheckedCreateWithoutDocumentDraftsInput = {
@@ -1895,6 +2321,8 @@ export type usersUncheckedCreateWithoutDocumentDraftsInput = {
   mineruTasks?: Prisma.mineruTasksUncheckedCreateNestedManyWithoutUserInput
   documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersCreateOrConnectWithoutDocumentDraftsInput = {
@@ -1947,6 +2375,8 @@ export type usersUpdateWithoutDocumentDraftsInput = {
   mineruTasks?: Prisma.mineruTasksUpdateManyWithoutUserNestedInput
   documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutDocumentDraftsInput = {
@@ -1984,6 +2414,8 @@ export type usersUncheckedUpdateWithoutDocumentDraftsInput = {
   mineruTasks?: Prisma.mineruTasksUncheckedUpdateManyWithoutUserNestedInput
   documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersCreateWithoutUserMembershipsInput = {
@@ -2020,6 +2452,8 @@ export type usersCreateWithoutUserMembershipsInput = {
   documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersUncheckedCreateWithoutUserMembershipsInput = {
@@ -2057,6 +2491,8 @@ export type usersUncheckedCreateWithoutUserMembershipsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersCreateOrConnectWithoutUserMembershipsInput = {
@@ -2109,6 +2545,8 @@ export type usersUpdateWithoutUserMembershipsInput = {
   documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutUserMembershipsInput = {
@@ -2146,6 +2584,8 @@ export type usersUncheckedUpdateWithoutUserMembershipsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersCreateWithoutUserBenefitsInput = {
@@ -2182,6 +2622,8 @@ export type usersCreateWithoutUserBenefitsInput = {
   documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersUncheckedCreateWithoutUserBenefitsInput = {
@@ -2219,6 +2661,8 @@ export type usersUncheckedCreateWithoutUserBenefitsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersCreateOrConnectWithoutUserBenefitsInput = {
@@ -2271,6 +2715,8 @@ export type usersUpdateWithoutUserBenefitsInput = {
   documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutUserBenefitsInput = {
@@ -2308,6 +2754,8 @@ export type usersUncheckedUpdateWithoutUserBenefitsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersCreateWithoutOrdersInput = {
@@ -2344,6 +2792,8 @@ export type usersCreateWithoutOrdersInput = {
   documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersUncheckedCreateWithoutOrdersInput = {
@@ -2381,6 +2831,8 @@ export type usersUncheckedCreateWithoutOrdersInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersCreateOrConnectWithoutOrdersInput = {
@@ -2433,6 +2885,8 @@ export type usersUpdateWithoutOrdersInput = {
   documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutOrdersInput = {
@@ -2470,6 +2924,8 @@ export type usersUncheckedUpdateWithoutOrdersInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersCreateWithoutMembershipUpgradeRecordsInput = {
@@ -2506,6 +2962,8 @@ export type usersCreateWithoutMembershipUpgradeRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersUncheckedCreateWithoutMembershipUpgradeRecordsInput = {
@@ -2543,6 +3001,8 @@ export type usersUncheckedCreateWithoutMembershipUpgradeRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersCreateOrConnectWithoutMembershipUpgradeRecordsInput = {
@@ -2595,6 +3055,8 @@ export type usersUpdateWithoutMembershipUpgradeRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutMembershipUpgradeRecordsInput = {
@@ -2632,6 +3094,8 @@ export type usersUncheckedUpdateWithoutMembershipUpgradeRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersCreateWithoutPointRecordsInput = {
@@ -2668,6 +3132,8 @@ export type usersCreateWithoutPointRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersUncheckedCreateWithoutPointRecordsInput = {
@@ -2705,6 +3171,8 @@ export type usersUncheckedCreateWithoutPointRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersCreateOrConnectWithoutPointRecordsInput = {
@@ -2757,6 +3225,8 @@ export type usersUpdateWithoutPointRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutPointRecordsInput = {
@@ -2794,6 +3264,8 @@ export type usersUncheckedUpdateWithoutPointRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersCreateWithoutPointConsumptionRecordsInput = {
@@ -2830,6 +3302,8 @@ export type usersCreateWithoutPointConsumptionRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersUncheckedCreateWithoutPointConsumptionRecordsInput = {
@@ -2867,6 +3341,8 @@ export type usersUncheckedCreateWithoutPointConsumptionRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersCreateOrConnectWithoutPointConsumptionRecordsInput = {
@@ -2919,6 +3395,8 @@ export type usersUpdateWithoutPointConsumptionRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutPointConsumptionRecordsInput = {
@@ -2956,6 +3434,8 @@ export type usersUncheckedUpdateWithoutPointConsumptionRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersCreateWithoutUserRolesInput = {
@@ -2992,6 +3472,8 @@ export type usersCreateWithoutUserRolesInput = {
   documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersUncheckedCreateWithoutUserRolesInput = {
@@ -3029,6 +3511,8 @@ export type usersUncheckedCreateWithoutUserRolesInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersCreateOrConnectWithoutUserRolesInput = {
@@ -3081,6 +3565,8 @@ export type usersUpdateWithoutUserRolesInput = {
   documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutUserRolesInput = {
@@ -3118,6 +3604,8 @@ export type usersUncheckedUpdateWithoutUserRolesInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersCreateWithoutDocRecognitionRecordsInput = {
@@ -3154,6 +3642,8 @@ export type usersCreateWithoutDocRecognitionRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersUncheckedCreateWithoutDocRecognitionRecordsInput = {
@@ -3191,6 +3681,8 @@ export type usersUncheckedCreateWithoutDocRecognitionRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersCreateOrConnectWithoutDocRecognitionRecordsInput = {
@@ -3243,6 +3735,8 @@ export type usersUpdateWithoutDocRecognitionRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutDocRecognitionRecordsInput = {
@@ -3280,6 +3774,8 @@ export type usersUncheckedUpdateWithoutDocRecognitionRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersCreateWithoutImageRecognitionRecordsInput = {
@@ -3316,6 +3812,8 @@ export type usersCreateWithoutImageRecognitionRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersUncheckedCreateWithoutImageRecognitionRecordsInput = {
@@ -3353,6 +3851,8 @@ export type usersUncheckedCreateWithoutImageRecognitionRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersCreateOrConnectWithoutImageRecognitionRecordsInput = {
@@ -3405,6 +3905,8 @@ export type usersUpdateWithoutImageRecognitionRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutImageRecognitionRecordsInput = {
@@ -3442,6 +3944,8 @@ export type usersUncheckedUpdateWithoutImageRecognitionRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersCreateWithoutAsrRecordsInput = {
@@ -3478,6 +3982,8 @@ export type usersCreateWithoutAsrRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersUncheckedCreateWithoutAsrRecordsInput = {
@@ -3515,6 +4021,8 @@ export type usersUncheckedCreateWithoutAsrRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersCreateOrConnectWithoutAsrRecordsInput = {
@@ -3567,6 +4075,8 @@ export type usersUpdateWithoutAsrRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutAsrRecordsInput = {
@@ -3604,6 +4114,8 @@ export type usersUncheckedUpdateWithoutAsrRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersCreateWithoutMineruTasksInput = {
@@ -3640,6 +4152,8 @@ export type usersCreateWithoutMineruTasksInput = {
   documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersUncheckedCreateWithoutMineruTasksInput = {
@@ -3677,6 +4191,8 @@ export type usersUncheckedCreateWithoutMineruTasksInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersCreateOrConnectWithoutMineruTasksInput = {
@@ -3729,6 +4245,8 @@ export type usersUpdateWithoutMineruTasksInput = {
   documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutMineruTasksInput = {
@@ -3766,6 +4284,8 @@ export type usersUncheckedUpdateWithoutMineruTasksInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersCreateWithoutRedemptionRecordsInput = {
@@ -3802,6 +4322,8 @@ export type usersCreateWithoutRedemptionRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersUncheckedCreateWithoutRedemptionRecordsInput = {
@@ -3839,6 +4361,8 @@ export type usersUncheckedCreateWithoutRedemptionRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedCreateNestedManyWithoutUserInput
   documentDrafts?: Prisma.documentDraftsUncheckedCreateNestedManyWithoutUserInput
   contractReviews?: Prisma.contractReviewsUncheckedCreateNestedManyWithoutUserInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedCreateNestedManyWithoutCreatedByInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutAuthorUserInput
 }
 
 export type usersCreateOrConnectWithoutRedemptionRecordsInput = {
@@ -3891,6 +4415,8 @@ export type usersUpdateWithoutRedemptionRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUpdateManyWithoutAuthorUserNestedInput
 }
 
 export type usersUncheckedUpdateWithoutRedemptionRecordsInput = {
@@ -3928,6 +4454,8 @@ export type usersUncheckedUpdateWithoutRedemptionRecordsInput = {
   documentTemplates?: Prisma.documentTemplatesUncheckedUpdateManyWithoutUserNestedInput
   documentDrafts?: Prisma.documentDraftsUncheckedUpdateManyWithoutUserNestedInput
   contractReviews?: Prisma.contractReviewsUncheckedUpdateManyWithoutUserNestedInput
+  contractReviewVersions?: Prisma.contractReviewVersionsUncheckedUpdateManyWithoutCreatedByNestedInput
+  contractAnnotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutAuthorUserNestedInput
 }
 
 
@@ -3954,6 +4482,8 @@ export type UsersCountOutputType = {
   documentTemplates: number
   documentDrafts: number
   contractReviews: number
+  contractReviewVersions: number
+  contractAnnotations: number
 }
 
 export type UsersCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -3975,6 +4505,8 @@ export type UsersCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.
   documentTemplates?: boolean | UsersCountOutputTypeCountDocumentTemplatesArgs
   documentDrafts?: boolean | UsersCountOutputTypeCountDocumentDraftsArgs
   contractReviews?: boolean | UsersCountOutputTypeCountContractReviewsArgs
+  contractReviewVersions?: boolean | UsersCountOutputTypeCountContractReviewVersionsArgs
+  contractAnnotations?: boolean | UsersCountOutputTypeCountContractAnnotationsArgs
 }
 
 /**
@@ -4113,6 +4645,20 @@ export type UsersCountOutputTypeCountContractReviewsArgs<ExtArgs extends runtime
   where?: Prisma.contractReviewsWhereInput
 }
 
+/**
+ * UsersCountOutputType without action
+ */
+export type UsersCountOutputTypeCountContractReviewVersionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.contractReviewVersionsWhereInput
+}
+
+/**
+ * UsersCountOutputType without action
+ */
+export type UsersCountOutputTypeCountContractAnnotationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.contractAnnotationsWhereInput
+}
+
 
 export type usersSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -4150,6 +4696,8 @@ export type usersSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   documentTemplates?: boolean | Prisma.users$documentTemplatesArgs<ExtArgs>
   documentDrafts?: boolean | Prisma.users$documentDraftsArgs<ExtArgs>
   contractReviews?: boolean | Prisma.users$contractReviewsArgs<ExtArgs>
+  contractReviewVersions?: boolean | Prisma.users$contractReviewVersionsArgs<ExtArgs>
+  contractAnnotations?: boolean | Prisma.users$contractAnnotationsArgs<ExtArgs>
   _count?: boolean | Prisma.UsersCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["users"]>
 
@@ -4233,6 +4781,8 @@ export type usersInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   documentTemplates?: boolean | Prisma.users$documentTemplatesArgs<ExtArgs>
   documentDrafts?: boolean | Prisma.users$documentDraftsArgs<ExtArgs>
   contractReviews?: boolean | Prisma.users$contractReviewsArgs<ExtArgs>
+  contractReviewVersions?: boolean | Prisma.users$contractReviewVersionsArgs<ExtArgs>
+  contractAnnotations?: boolean | Prisma.users$contractAnnotationsArgs<ExtArgs>
   _count?: boolean | Prisma.UsersCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type usersIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -4313,6 +4863,14 @@ export type $usersPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs 
      * 用户合同审查记录（一对多）
      */
     contractReviews: Prisma.$contractReviewsPayload<ExtArgs>[]
+    /**
+     * 用户创建的合同版本快照（一对多）
+     */
+    contractReviewVersions: Prisma.$contractReviewVersionsPayload<ExtArgs>[]
+    /**
+     * 用户创建的合同批注（一对多）
+     */
+    contractAnnotations: Prisma.$contractAnnotationsPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     /**
@@ -4795,6 +5353,8 @@ export interface Prisma__usersClient<T, Null = never, ExtArgs extends runtime.Ty
   documentTemplates<T extends Prisma.users$documentTemplatesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$documentTemplatesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$documentTemplatesPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   documentDrafts<T extends Prisma.users$documentDraftsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$documentDraftsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$documentDraftsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   contractReviews<T extends Prisma.users$contractReviewsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$contractReviewsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$contractReviewsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  contractReviewVersions<T extends Prisma.users$contractReviewVersionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$contractReviewVersionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$contractReviewVersionsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  contractAnnotations<T extends Prisma.users$contractAnnotationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.users$contractAnnotationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$contractAnnotationsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -5663,6 +6223,54 @@ export type users$contractReviewsArgs<ExtArgs extends runtime.Types.Extensions.I
   take?: number
   skip?: number
   distinct?: Prisma.ContractReviewsScalarFieldEnum | Prisma.ContractReviewsScalarFieldEnum[]
+}
+
+/**
+ * users.contractReviewVersions
+ */
+export type users$contractReviewVersionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the contractReviewVersions
+   */
+  select?: Prisma.contractReviewVersionsSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the contractReviewVersions
+   */
+  omit?: Prisma.contractReviewVersionsOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.contractReviewVersionsInclude<ExtArgs> | null
+  where?: Prisma.contractReviewVersionsWhereInput
+  orderBy?: Prisma.contractReviewVersionsOrderByWithRelationInput | Prisma.contractReviewVersionsOrderByWithRelationInput[]
+  cursor?: Prisma.contractReviewVersionsWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ContractReviewVersionsScalarFieldEnum | Prisma.ContractReviewVersionsScalarFieldEnum[]
+}
+
+/**
+ * users.contractAnnotations
+ */
+export type users$contractAnnotationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the contractAnnotations
+   */
+  select?: Prisma.contractAnnotationsSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the contractAnnotations
+   */
+  omit?: Prisma.contractAnnotationsOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.contractAnnotationsInclude<ExtArgs> | null
+  where?: Prisma.contractAnnotationsWhereInput
+  orderBy?: Prisma.contractAnnotationsOrderByWithRelationInput | Prisma.contractAnnotationsOrderByWithRelationInput[]
+  cursor?: Prisma.contractAnnotationsWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ContractAnnotationsScalarFieldEnum | Prisma.ContractAnnotationsScalarFieldEnum[]
 }
 
 /**
