@@ -11,12 +11,14 @@
  *   确保 setCompletedAfterRebuildDAO 之后无 throw 点，回滚不会出现 reviewedFileId 漂移。
  *
  * **Feature: contract-review-m5**
+ * **Phase B 改造**：批注来源从 review.risks JSON 切换为 contractAnnotations 表。
  */
 import { randomUUID } from 'node:crypto'
 import type { contractReviews } from '~~/generated/prisma/client'
 import { findOssFileByIdDao, createOssFileDao } from '~~/server/services/files/ossFiles.dao'
 import { setCompletedAfterRebuildDAO } from './contractReview.dao'
-import { injectComments } from './docx'
+import { injectAnnotations } from './docx'
+import { listAnnotationsForExportDAO } from './contractAnnotation.dao'
 import {
     downloadFileService,
     uploadFileService,
@@ -27,7 +29,7 @@ import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageCo
 import { StorageProviderType } from '~~/server/lib/storage/types'
 import { FileSource, OssFileStatus } from '#shared/types/file'
 import { DOCX_MIME } from '#shared/utils/mime'
-import type { Risk } from '#shared/types/contract'
+import type { ContractAnnotationForExport } from './docx'
 
 export interface RebuildDocxResult {
     reviewedFileId: number
@@ -40,8 +42,49 @@ export async function rebuildDocxService(review: contractReviews): Promise<Rebui
     if (!origOssFile?.filePath) throw new Error('原始文件已丢失，无法重生批注')
 
     const origBuffer = await downloadFileService(origOssFile.filePath)
-    const risks = (review.risks ?? []) as unknown as Risk[]
-    const injectResult = await injectComments(origBuffer, risks)
+
+    // Phase B：从 contractAnnotations 表读取批注，而非 review.risks JSON 字段
+    const dbAnnotations = await listAnnotationsForExportDAO(review.id)
+
+    // 过滤掉锚点未定位的批注（anchorParagraphIndex 为 null = 孤立批注，不导出）
+    const exportable = dbAnnotations.filter(a => {
+        if (a.risk.anchorParagraphIndex === null || a.risk.anchorParagraphIndex === undefined) {
+            logger.warn(
+                '[contract export] 跳过未定位锚点的批注（anchorParagraphIndex 为空），视为孤立批注',
+                { reviewId: review.id, annotationId: a.id, riskId: a.riskId },
+            )
+            return false
+        }
+        return true
+    })
+
+    const annotations: ContractAnnotationForExport[] = exportable.map(a => ({
+        id: a.id,
+        riskId: a.riskId,
+        authorType: a.authorType as ContractAnnotationForExport['authorType'],
+        authorName: a.authorName,
+        content: a.content,
+        parentAnnotationId: a.parentAnnotationId,
+        anchorQuote: a.risk.anchorQuote,
+        anchorParagraphIndex: a.risk.anchorParagraphIndex!,
+        wordCommentRef: a.wordCommentRef,
+    }))
+
+    const injectResult = await injectAnnotations(origBuffer, annotations)
+
+    // 将新生成的 wordCommentRef 批量回写到 DB（只更新已导出且 wordCommentRef 为 null 的条目）
+    const toUpdate = exportable.filter(a => a.wordCommentRef === null)
+    if (toUpdate.length > 0) {
+        await prisma.$transaction(
+            toUpdate.map(a =>
+                prisma.contractAnnotations.update({
+                    where: { id: a.id },
+                    data: { wordCommentRef: injectResult.refsByAnnotationId.get(a.id) },
+                }),
+            ),
+        )
+    }
+
     const buffer = Buffer.isBuffer(injectResult.buffer)
         ? injectResult.buffer
         : Buffer.from(injectResult.buffer)

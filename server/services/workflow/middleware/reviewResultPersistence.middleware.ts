@@ -15,12 +15,12 @@
 
 import { createMiddleware } from 'langchain'
 import { randomUUID } from 'node:crypto'
-import type { Prisma } from '~~/generated/prisma/client'
 import {
     getContractReviewDAO,
     updateContractReviewDAO,
 } from '../../assistant/contract/contractReview.dao'
-import { injectComments } from '../../assistant/contract/docx'
+import { injectAnnotations } from '../../assistant/contract/docx'
+import { listAnnotationsForExportDAO } from '../../assistant/contract/contractAnnotation.dao'
 import {
     downloadFileService,
     uploadFileService,
@@ -33,7 +33,7 @@ import {
 import { FileSource, OssFileStatus } from '#shared/types/file'
 import { StorageProviderType } from '~~/server/lib/storage/types'
 import { DOCX_MIME } from '#shared/utils/mime'
-import type { Risk } from '#shared/types/contract'
+import type { ContractAnnotationForExport } from '../../assistant/contract/docx'
 
 interface ReviewResultPersistenceOptions {
     reviewId: number
@@ -58,22 +58,66 @@ export async function runAnnotateAndUpload(reviewId: number): Promise<void> {
     const review = await getContractReviewDAO(reviewId)
     if (!review) throw new Error(`review ${reviewId} not found`)
 
-    const risks = Array.isArray(review.risks) ? review.risks as unknown as Risk[] : []
-    if (risks.length === 0) {
-        // 主路径 risks=[] = 正常 analyze 循环完成，每条都 skip（真无风险合同）。
-        // 注：runContractReviewChat 在 segments.length===0 时已提前置 failed，
-        // 所以进到这里的 risks=[] 一定是分析结果而非切分失败。
-        logger.info('runAnnotateAndUpload: 无风险合同，跳过注入，置 completed', { reviewId })
-        await updateContractReviewDAO(reviewId, { status: 'completed' })
-        return
-    }
-
+    // 1. 先加载原始文件（失败直接抛，让调用方 catch 置 failed）
+    //    必须在查 annotations 之前，保证 originalFile 不存在时能正确置 failed
     const originalOssFile = await findOssFileByIdDao(review.originalFileId)
     if (!originalOssFile) throw new Error(`original oss file ${review.originalFileId} not found`)
     if (!originalOssFile.filePath) throw new Error(`original oss file ${review.originalFileId} has no filePath`)
 
     const originalBuffer = await downloadFileService(originalOssFile.filePath)
-    const injectResult = await injectComments(originalBuffer, risks)
+
+    // 2. 从 contractAnnotations 表读取批注（过滤软删和 suppressInExport）
+    const dbAnnotations = await listAnnotationsForExportDAO(reviewId)
+    if (dbAnnotations.length === 0) {
+        const risks = Array.isArray(review.risks) ? review.risks : []
+        if (risks.length === 0) {
+            // 合理跳过：无风险 + 无批注（真无风险合同）
+            logger.info('runAnnotateAndUpload: 无风险无批注，跳过注入，置 completed', { reviewId })
+            await updateContractReviewDAO(reviewId, { status: 'completed' })
+            return
+        }
+        // 流程异常：risks 已产出但批注未初始化，应由调用方 catch 置 failed
+        throw new Error(`runAnnotateAndUpload: review ${reviewId} 有 ${risks.length} 条风险但未找到批注记录，流程异常`)
+    }
+
+    // 过滤掉锚点未定位的批注（anchorParagraphIndex 为 null = 孤立批注，不导出）
+    const exportable = dbAnnotations.filter(a => {
+        if (a.risk.anchorParagraphIndex === null || a.risk.anchorParagraphIndex === undefined) {
+            logger.warn(
+                '[contract export] 跳过未定位锚点的批注（anchorParagraphIndex 为空），视为孤立批注',
+                { reviewId, annotationId: a.id, riskId: a.riskId },
+            )
+            return false
+        }
+        return true
+    })
+
+    const annotations: ContractAnnotationForExport[] = exportable.map(a => ({
+        id: a.id,
+        riskId: a.riskId,
+        authorType: a.authorType as ContractAnnotationForExport['authorType'],
+        authorName: a.authorName,
+        content: a.content,
+        parentAnnotationId: a.parentAnnotationId,
+        anchorQuote: a.risk.anchorQuote,
+        anchorParagraphIndex: a.risk.anchorParagraphIndex!,
+        wordCommentRef: a.wordCommentRef,
+    }))
+
+    const injectResult = await injectAnnotations(originalBuffer, annotations)
+
+    // 将新生成的 wordCommentRef 批量回写到 DB（只更新已导出且 wordCommentRef 为 null 的条目）
+    const toUpdate = exportable.filter(a => a.wordCommentRef === null)
+    if (toUpdate.length > 0) {
+        await prisma.$transaction(
+            toUpdate.map(a =>
+                prisma.contractAnnotations.update({
+                    where: { id: a.id },
+                    data: { wordCommentRef: injectResult.refsByAnnotationId.get(a.id) },
+                }),
+            ),
+        )
+    }
 
     // OSS 路径与 contractReviewRebuild.service 保持同构：
     // contract-review/<userId>/reviewed-<uuid>.docx
@@ -98,21 +142,7 @@ export async function runAnnotateAndUpload(reviewId: number): Promise<void> {
         encrypted: false,
     })
 
-    // 若注入时丢掉了越界 risks，DB 只保存有效的 risks，
-    // 避免 risks JSON 与 docx 批注不一致
-    const updatePayload: Prisma.contractReviewsUpdateInput = {
-        reviewedFileId: ossFileRow.id,
-        status: 'completed',
-    }
-    if (injectResult.skippedIndices.length > 0) {
-        updatePayload.risks = injectResult.validRisks as unknown as Prisma.InputJsonValue
-        logger.warn('runAnnotateAndUpload: clauseIndex 越界的 risks 已从 DB 剔除', {
-            reviewId,
-            skipped: injectResult.skippedIndices.length,
-            kept: injectResult.validRisks.length,
-        })
-    }
-    await updateContractReviewDAO(reviewId, updatePayload)
+    await updateContractReviewDAO(reviewId, { reviewedFileId: ossFileRow.id, status: 'completed' })
 }
 
 export const reviewResultPersistenceMiddleware = (
@@ -159,13 +189,11 @@ export const reviewResultPersistenceMiddleware = (
                 return
             }
 
-            const risks = Array.isArray(review.risks) ? review.risks as unknown as Risk[] : []
+            // Phase B：兜底路径检查 review.risks（旧字段）是否有值来判断是否出错。
+            // risks=[] 说明 agent.stream 走完但未触发 parseAndAskStance interrupt（异常流程），
+            // 置 failed 比调用 runAnnotateAndUpload 更安全。
+            const risks = Array.isArray(review.risks) ? review.risks : []
             if (risks.length === 0) {
-                // 兜底路径 risks=[] = agent.stream 走完但未触发 parseAndAskStance interrupt
-                // （M6.1 子期 2 改造后主流程应直接走 runContractReviewChat resume 分支，
-                //  走到这里意味着流程出错）→ 置 failed 更安全。
-                // 这与 runAnnotateAndUpload 主路径 risks=[] 置 completed 的语义差异是刻意的：
-                // 主路径是 analyze 循环正常结束的结果；兜底路径是异常流程的征兆。
                 await updateContractReviewDAO(options.reviewId, { status: 'failed' })
                 logger.warn('reviewResultPersistence afterAgent: DB risks 为空（异常流程），置 failed', {
                     reviewId: options.reviewId,

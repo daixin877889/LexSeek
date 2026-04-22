@@ -1,7 +1,8 @@
 /**
  * Word 原生批注注入：按 spec §10.1 改四处文件，按 §10.2 五模块格式写 comments.xml。
+ * Phase B 新增 injectAnnotations：按 annotation 逐条注入，支持 wordCommentRef / 答复批注。
  */
-import type { Risk, RiskLevel } from '#shared/types/contract'
+import type { Risk, RiskLevel, AnnotationAuthorType } from '#shared/types/contract'
 import {
     loadDocxZip,
     readTextFromZip,
@@ -9,6 +10,7 @@ import {
     zipToBuffer,
 } from './zipRewriter'
 import { appendChildXml, escapeXml } from './xmlUtils'
+import { generateWordCommentRef } from '../utils/wordCommentRef'
 
 const LEVEL_LABEL: Record<RiskLevel, string> = {
     high: '高风险',
@@ -212,4 +214,145 @@ export async function injectComments(docxBuffer: Buffer, risks: Risk[]): Promise
         validRisks,
         skippedIndices,
     }
+}
+
+// ============================================================
+// Phase B：injectAnnotations —— 按 annotation 逐条注入批注
+// ============================================================
+
+/**
+ * 导出入参：每条 annotation 的导出所需数据。
+ * anchorParagraphIndex 通过 riskId 反查 contractRisks 表获得（调用方负责填入）。
+ */
+export interface ContractAnnotationForExport {
+    id: number
+    riskId: number
+    authorType: AnnotationAuthorType
+    /** AI=固定 "AI"；lawyer=律师姓名；external=Word author 原值 */
+    authorName: string
+    content: string
+    parentAnnotationId: number | null
+    /** 锚点原文（用于 document.xml 段落定位，暂按 anchorParagraphIndex 定位） */
+    anchorQuote: string
+    /** 条款索引，与 injectComments 的 clauseIndex 语义一致 */
+    anchorParagraphIndex: number
+    /** 已存在则沿用；为 null 时内部按 generateWordCommentRef(id) 生成 */
+    wordCommentRef: string | null
+}
+
+export interface InjectAnnotationsResult {
+    buffer: Buffer
+    /** 每条 annotation 最终使用的 wordCommentRef（供调用方回写 DB） */
+    refsByAnnotationId: Map<number, string>
+}
+
+/**
+ * 按 annotation 注入 Word 批注。Phase B 新入口，与现有 injectComments 并存。
+ *
+ * 规则：
+ * - 每条 annotation 生成一个 <w:comment>，w:id 按数组顺序 0,1,2...
+ * - w:author = 'LS:' + annotation.authorName（LS 前缀使客户 Word 可见来源）
+ * - w:initials = wordCommentRef（LEXSEEK-{id}-{rand8} 格式，回传识别用）
+ * - parentAnnotationId 非空且父 annotation 在本批次中 → 写 w:parentId 实现"答复批注"
+ * - anchorParagraphIndex 越界时该 annotation 跳过（仍写入 refsByAnnotationId 供回写）
+ */
+export async function injectAnnotations(
+    docxBuffer: Buffer,
+    annotations: ContractAnnotationForExport[],
+): Promise<InjectAnnotationsResult> {
+    // 1. 为每条 annotation 确定 wordCommentRef（已有则沿用，为 null 则新生成）
+    const refsByAnnotationId = new Map<number, string>()
+
+    if (annotations.length === 0) {
+        const zip = await loadDocxZip(docxBuffer)
+        zip.remove('word/comments.xml')
+        return { buffer: await zipToBuffer(zip), refsByAnnotationId }
+    }
+
+    for (const a of annotations) {
+        refsByAnnotationId.set(a.id, a.wordCommentRef ?? generateWordCommentRef(a.id))
+    }
+
+    const zip = await loadDocxZip(docxBuffer)
+    const documentXml = await readTextFromZip(zip, 'word/document.xml')
+    const contentTypesXml = await readTextFromZip(zip, '[Content_Types].xml')
+    const relsXml = await readTextFromZip(zip, 'word/_rels/document.xml.rels')
+
+    const nonEmpty = scanNonEmptyParagraphs(documentXml)
+    const nonEmptyCount = nonEmpty.length
+
+    // 2. 按原顺序分配 Word 本地 w:id（0,1,2...），越界的也分配 id 但不写入 document.xml
+    const wordIdByAnnotationId = new Map<number, number>()
+    annotations.forEach((a, idx) => wordIdByAnnotationId.set(a.id, idx))
+
+    // 3. 过滤越界 annotation，记录跳过情况
+    const validAnnotations = annotations.filter(a => {
+        const inRange = a.anchorParagraphIndex >= 0 && a.anchorParagraphIndex < nonEmptyCount
+        if (!inRange) {
+            logger.warn('[commentInjector] injectAnnotations: 跳过越界 annotation', {
+                annotationId: a.id,
+                anchorParagraphIndex: a.anchorParagraphIndex,
+                nonEmptyCount,
+            })
+        }
+        return inRange
+    })
+
+    if (validAnnotations.length === 0) {
+        return { buffer: Buffer.from(docxBuffer), refsByAnnotationId }
+    }
+
+    // 4. 组装 comments.xml（含全部 annotations，包含越界的，保持 w:id 连续）
+    writeTextToZip(
+        zip,
+        'word/comments.xml',
+        buildCommentsXmlFromAnnotations(annotations, refsByAnnotationId, wordIdByAnnotationId),
+    )
+
+    // 5. 在 document.xml 的对应段落处插入 commentRangeStart/End/Reference
+    const injections = validAnnotations.map(a => ({
+        index: a.anchorParagraphIndex,
+        id: wordIdByAnnotationId.get(a.id)!,
+    }))
+    writeTextToZip(zip, 'word/document.xml', injectRangeMarkers(documentXml, injections, nonEmpty))
+
+    // 6. 确保 [Content_Types].xml 和 rels 中包含 comments 注册项
+    if (!contentTypesXml.includes('PartName="/word/comments.xml"')) {
+        writeTextToZip(
+            zip,
+            '[Content_Types].xml',
+            appendChildXml(contentTypesXml, 'Types', COMMENTS_OVERRIDE),
+        )
+    }
+    if (!relsXml.includes('Target="comments.xml"')) {
+        writeTextToZip(
+            zip,
+            'word/_rels/document.xml.rels',
+            appendChildXml(relsXml, 'Relationships', COMMENTS_REL),
+        )
+    }
+
+    return { buffer: await zipToBuffer(zip), refsByAnnotationId }
+}
+
+/** 构造 Phase B 格式的 comments.xml */
+function buildCommentsXmlFromAnnotations(
+    annotations: ContractAnnotationForExport[],
+    refs: Map<number, string>,
+    wordIds: Map<number, number>,
+): string {
+    const now = new Date().toISOString()
+    const items = annotations.map(a => {
+        const wId = wordIds.get(a.id)!
+        const initials = refs.get(a.id)!
+        const author = `LS:${a.authorName}`
+        const parentAttr =
+            a.parentAnnotationId !== null && wordIds.has(a.parentAnnotationId)
+                ? ` w:parentId="${wordIds.get(a.parentAnnotationId)}"`
+                : ''
+        return `<w:comment w:id="${wId}" w:author="${escapeXml(author)}" w:initials="${escapeXml(initials)}" w:date="${now}"${parentAttr}><w:p><w:r><w:t xml:space="preserve">${escapeXml(a.content)}</w:t></w:r></w:p></w:comment>`
+    }).join('')
+
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">${items}</w:comments>`
 }
