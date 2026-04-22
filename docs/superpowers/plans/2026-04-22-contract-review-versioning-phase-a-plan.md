@@ -1463,7 +1463,7 @@ git commit -m "feat(contract): 版本/风险/批注 REST API + 集成测试"
 定位现有代码：AI 审查跑完、把结果写回 `contractReviews.risks` JSON 的那一步。改造成：
 1. 依然保留写 `risks` JSON（过渡期兼容）
 2. **同时**把每条风险拆成 `ContractRisk` 行，每条 AI 风险生成一条 `authorType=ai` 的 annotation（内容 = 风险的五段式拼接文本）
-3. 在调 `saveContractReviewVersionService` 时**显式传入** `docxText` 和 `paragraphs`（从合同解析阶段拿到），这两份内容会存进 snapshot；后续版本（lawyer_save / auto_backup）通过 currentVersionId 自动继承这两份内容
+3. 在调 `saveContractReviewVersionService` 时**显式传入** `docxText`（从合同解析阶段拿到），会存进 snapshot；后续版本（lawyer_save）通过 currentVersionId 自动继承。`paragraphs` 是 Phase B 字段，本 Phase 不传。
 4. 调 `saveContractReviewVersionService` 创建 v1 快照（`systemLabel=initial_upload`, `createdById=user.id`, `docxText`）
 
 代码片段：
@@ -1541,6 +1541,10 @@ export async function migrateLegacyRisksService(reviewId: number): Promise<{ mig
   if (review.currentVersionId) return { migrated: false, risksCreated: 0 } // 已迁移
 
   const legacy = (review.risks as Array<Record<string, unknown>>) ?? []
+  // 守卫：跳过"存量异常行"（currentVersionId=null 但 risks JSON 也空的 review，
+  // 比如审查失败/状态异常的。防止给它们也硬生成 v1 initial_upload 快照）
+  if (legacy.length === 0) return { migrated: false, risksCreated: 0 }
+
   let created = 0
   for (const lr of legacy) {
     const risk = await createContractRiskDAO({
