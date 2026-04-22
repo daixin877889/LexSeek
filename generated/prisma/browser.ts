@@ -91,6 +91,36 @@ export type demoCases = Prisma.demoCasesModel
  */
 export type caseMaterialEmbeddings = Prisma.caseMaterialEmbeddingsModel
 /**
+ * Model checkpoint_blobs
+ * 
+ */
+export type checkpoint_blobs = Prisma.checkpoint_blobsModel
+/**
+ * Model checkpoint_migrations
+ * 
+ */
+export type checkpoint_migrations = Prisma.checkpoint_migrationsModel
+/**
+ * Model checkpoint_writes
+ * 
+ */
+export type checkpoint_writes = Prisma.checkpoint_writesModel
+/**
+ * Model checkpoints
+ * 
+ */
+export type checkpoints = Prisma.checkpointsModel
+/**
+ * Model store
+ * 
+ */
+export type store = Prisma.storeModel
+/**
+ * Model store_migrations
+ * 
+ */
+export type store_migrations = Prisma.store_migrationsModel
+/**
  * Model contractPlaybooks
  * 合同审查清单要点（按合同类型维护）
  * v1 不支持硬删除，只通过 enabled=false 停用
