@@ -2224,6 +2224,54 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 
 
 
+-- ==================== 合同审查清单要点（M7 Playbook） ====================
+-- 每个类型预置 1 条占位要点，保证 seedData 可执行；运营在后台补齐其余
+-- 后续法律顾问审校后的要点替换这里的 INSERT 即可
+
+INSERT INTO "public"."contract_playbooks"
+  ("contract_type", "code", "title", "default_level", "stance_preference", "check_content", "legal_basis", "suggestion", "enabled", "created_at", "updated_at")
+VALUES
+  ('劳动合同', 'probation', '试用期约定合规性', 'high', 'strict',
+   '检查合同是否约定试用期；试用期长度是否超过《劳动合同法》第十九条规定的上限（3 个月合同无试用期；3 年以下不超 2 个月；3 年以上不超 6 个月）；试用期工资是否低于转正工资 80% 或低于当地最低工资。',
+   '《劳动合同法》第十九条、第二十条',
+   '建议将试用期调整为不超过法定上限，且试用期工资不低于转正工资 80%。',
+   true, NOW(), NOW()),
+  ('租赁合同', 'rent_increase', '租金调整机制', 'medium', 'balanced',
+   '检查合同是否约定租金调整条款；调整频率、幅度、触发条件是否明确；是否赋予单方面调价权。',
+   '《民法典》第七百零三条、第七百二十一条',
+   '建议约定固定周期（如每 24 个月）调整一次，调整幅度上限不超过 CPI 涨幅。',
+   true, NOW(), NOW()),
+  ('买卖合同', 'delivery_risk', '交付与风险转移', 'high', 'balanced',
+   '检查合同是否明确约定交付时间、地点、方式；风险转移节点是否清晰（交付 vs 所有权转移）；验收标准是否可操作。',
+   '《民法典》第六百零四条、第六百零五条',
+   '建议明确交付地点为"买方指定仓库签收"，风险自签收时转移，验收期 7 日。',
+   true, NOW(), NOW()),
+  ('服务合同', 'acceptance_criteria', '服务验收标准', 'high', 'balanced',
+   '检查合同是否约定明确的服务交付物和验收标准；验收不通过的救济路径是否清晰；尾款支付是否与验收挂钩。',
+   '《民法典》第七百七十二条',
+   '建议将尾款 30% 与验收合格挂钩，验收周期 10 个工作日。',
+   true, NOW(), NOW()),
+  ('借款合同', 'interest_cap', '利率合规性', 'high', 'strict',
+   '检查合同约定的利率、违约金、服务费等综合年化成本是否超过 LPR 的 4 倍（最高人民法院司法解释红线）。',
+   '《最高人民法院关于审理民间借贷案件适用法律若干问题的规定》',
+   '建议将综合年化成本控制在 LPR 4 倍以内，超过部分不受司法保护。',
+   true, NOW(), NOW()),
+  ('保密协议', 'scope_and_term', '保密范围与期限', 'medium', 'balanced',
+   '检查保密范围是否具体（避免过宽的兜底条款）；保密期限是否合理；违反后果是否约定。',
+   '《反不正当竞争法》第九条',
+   '建议保密范围限定为明确列举的技术/商务信息；期限不超过 5 年；违约金设定为实际损失的 2 倍。',
+   true, NOW(), NOW())
+ON CONFLICT (contract_type, code) DO UPDATE SET
+  title            = EXCLUDED.title,
+  default_level    = EXCLUDED.default_level,
+  stance_preference = EXCLUDED.stance_preference,
+  check_content    = EXCLUDED.check_content,
+  legal_basis      = EXCLUDED.legal_basis,
+  suggestion       = EXCLUDED.suggestion,
+  enabled          = EXCLUDED.enabled,
+  updated_at       = NOW();
+
+
 -- 重置所有序列，确保新插入的记录不会与种子数据冲突
 -- Reset all sequences to avoid ID conflicts with seed data
 DO $$
@@ -2272,50 +2320,3 @@ $$;
 -- SELECT setval('case_types_id_seq',(SELECT COALESCE(MAX(id), 0) FROM case_types) + 1, false);
 -- SELECT setval('mineru_tokens_id_seq',(SELECT COALESCE(MAX(id), 0) FROM mineru_tokens) + 1, false);
 
-
--- ==================== 合同审查清单要点（M7 Playbook） ====================
--- 每个类型预置 1 条占位要点，保证 seedData 可执行；运营在后台补齐其余
--- 后续法律顾问审校后的要点替换这里的 INSERT 即可
-
-INSERT INTO "public"."contract_playbooks"
-  ("contract_type", "code", "title", "default_level", "stance_preference", "check_content", "legal_basis", "suggestion", "enabled", "created_at", "updated_at")
-VALUES
-  ('劳动合同', 'probation', '试用期约定合规性', 'high', 'strict',
-   '检查合同是否约定试用期；试用期长度是否超过《劳动合同法》第十九条规定的上限（3 个月合同无试用期；3 年以下不超 2 个月；3 年以上不超 6 个月）；试用期工资是否低于转正工资 80% 或低于当地最低工资。',
-   '《劳动合同法》第十九条、第二十条',
-   '建议将试用期调整为不超过法定上限，且试用期工资不低于转正工资 80%。',
-   true, NOW(), NOW()),
-  ('租赁合同', 'rent_increase', '租金调整机制', 'medium', 'balanced',
-   '检查合同是否约定租金调整条款；调整频率、幅度、触发条件是否明确；是否赋予单方面调价权。',
-   '《民法典》第七百零三条、第七百二十一条',
-   '建议约定固定周期（如每 24 个月）调整一次，调整幅度上限不超过 CPI 涨幅。',
-   true, NOW(), NOW()),
-  ('买卖合同', 'delivery_risk', '交付与风险转移', 'high', 'balanced',
-   '检查合同是否明确约定交付时间、地点、方式；风险转移节点是否清晰（交付 vs 所有权转移）；验收标准是否可操作。',
-   '《民法典》第六百零四条、第六百零五条',
-   '建议明确交付地点为"买方指定仓库签收"，风险自签收时转移，验收期 7 日。',
-   true, NOW(), NOW()),
-  ('服务合同', 'acceptance_criteria', '服务验收标准', 'high', 'balanced',
-   '检查合同是否约定明确的服务交付物和验收标准；验收不通过的救济路径是否清晰；尾款支付是否与验收挂钩。',
-   '《民法典》第七百七十二条',
-   '建议将尾款 30% 与验收合格挂钩，验收周期 10 个工作日。',
-   true, NOW(), NOW()),
-  ('借款合同', 'interest_cap', '利率合规性', 'high', 'strict',
-   '检查合同约定的利率、违约金、服务费等综合年化成本是否超过 LPR 的 4 倍（最高人民法院司法解释红线）。',
-   '《最高人民法院关于审理民间借贷案件适用法律若干问题的规定》',
-   '建议将综合年化成本控制在 LPR 4 倍以内，超过部分不受司法保护。',
-   true, NOW(), NOW()),
-  ('保密协议', 'scope_and_term', '保密范围与期限', 'medium', 'balanced',
-   '检查保密范围是否具体（避免过宽的兜底条款）；保密期限是否合理；违反后果是否约定。',
-   '《反不正当竞争法》第九条',
-   '建议保密范围限定为明确列举的技术/商务信息；期限不超过 5 年；违约金设定为实际损失的 2 倍。',
-   true, NOW(), NOW())
-ON CONFLICT (contract_type, code) DO UPDATE SET
-  title            = EXCLUDED.title,
-  default_level    = EXCLUDED.default_level,
-  stance_preference = EXCLUDED.stance_preference,
-  check_content    = EXCLUDED.check_content,
-  legal_basis      = EXCLUDED.legal_basis,
-  suggestion       = EXCLUDED.suggestion,
-  enabled          = EXCLUDED.enabled,
-  updated_at       = NOW();
