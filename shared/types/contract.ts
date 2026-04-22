@@ -288,10 +288,10 @@ export interface PlaybookSnapshot {
 export const VERSION_SYSTEM_LABELS = ['initial_upload', 'lawyer_save'] as const
 export type VersionSystemLabel = typeof VERSION_SYSTEM_LABELS[number]
 
+// Phase B 扩展：client_return 映射 '客户回传'、auto_backup 映射 '自动备份'
 export const VERSION_SYSTEM_LABEL_DISPLAY: Record<VersionSystemLabel, string> = {
     initial_upload: '初次上传',
     lawyer_save: '律师保存',
-    // Phase B 加：client_return: '客户回传', auto_backup: '自动备份'
 }
 
 export const RISK_SOURCES = ['ai'] as const  // Phase B 加 'external_new'；Phase C 加 'global_review'

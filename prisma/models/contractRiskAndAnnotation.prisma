@@ -59,9 +59,9 @@ model contractAnnotations {
 
   review           contractReviews       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   risk             contractRisks         @relation(fields: [riskId], references: [id], onDelete: Cascade)
-  parentAnnotation contractAnnotations?  @relation("AnnotationReply", fields: [parentAnnotationId], references: [id])
+  parentAnnotation contractAnnotations?  @relation("AnnotationReply", fields: [parentAnnotationId], references: [id], onDelete: SetNull)
   replies          contractAnnotations[] @relation("AnnotationReply")
-  authorUser       users?                @relation(fields: [authorUserId], references: [id])
+  authorUser       users?                @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
 
   @@index([riskId, createdAt])
   @@map("contract_annotations")

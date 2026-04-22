@@ -13,7 +13,7 @@ model contractReviewVersions {
   createdAt     DateTime @default(now()) @map("created_at")
 
   review    contractReviews @relation(fields: [reviewId], references: [id], onDelete: Cascade)
-  createdBy users           @relation(fields: [createdById], references: [id])
+  createdBy users           @relation(fields: [createdById], references: [id], onDelete: Restrict)
 
   @@unique([reviewId, versionNumber], map: "uk_contract_review_version_number")
   @@index([reviewId, createdAt(sort: Desc)])
