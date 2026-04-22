@@ -89,6 +89,12 @@ model users {
   /// 用户合同审查记录（一对多）
   contractReviews contractReviews[]
 
+  /// 用户创建的合同版本快照（一对多）
+  contractReviewVersions contractReviewVersions[]
+
+  /// 用户创建的合同批注（一对多）
+  contractAnnotations contractAnnotations[]
+
   @@index([id], map: "idx_users_id")
   @@index([status], map: "idx_users_status")
   @@index([deletedAt], map: "idx_users_deleted_at")

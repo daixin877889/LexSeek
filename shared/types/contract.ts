@@ -47,6 +47,8 @@ export interface Risk {
     risk: string
     suggestion: string
     suggestedClauseText?: string
+    /** 命中的要点 code；清单外风险留空（M7 Playbook） */
+    matchedPointCode?: string
 }
 
 export interface CreateReviewRequest {
@@ -135,6 +137,12 @@ export interface ReviewListItem {
     summary: string | null
     originalFileName: string | null
     hasUnsavedDocxChanges: boolean
+    /** 高风险条目数（后端从 risks JSONB 派生，列表页用于展示） */
+    highRiskCount: number
+    /** 中风险条目数 */
+    mediumRiskCount: number
+    /** 总风险数 */
+    totalRiskCount: number
     createdAt: Date
     updatedAt: Date
 }
@@ -231,3 +239,131 @@ export type ContractReviewEvent =
     | { type: 'progress'; current: number; total: number; error?: string }
     | { type: 'risk'; risk: Risk }
     | { type: 'overview'; overview: ContractOverview }
+
+// ==================== M7 Playbook ====================
+
+/**
+ * 要点客观严格度
+ * - strict：从严解读，保护当事人利益
+ * - balanced：均衡解读（默认）
+ * - lenient：从宽解读，减少过度风险标记
+ */
+export type StancePreference = 'strict' | 'balanced' | 'lenient'
+
+export const STANCE_PREFERENCE_OPTIONS = ['strict', 'balanced', 'lenient'] as const
+
+export const STANCE_PREFERENCE_LABEL: Record<StancePreference, string> = {
+    strict: '严格',
+    balanced: '中性',
+    lenient: '宽松',
+}
+
+/**
+ * 写入 contractReviews.playbookSnapshot 的单条快照结构。
+ * 字段对齐 contractPlaybooks，仅取快照写入所需字段。
+ */
+export interface PlaybookPointSnapshot {
+    code: string
+    title: string
+    defaultLevel: 'high' | 'medium' | 'low'
+    stancePreference: StancePreference
+    checkContent: string
+    legalBasis?: string
+    suggestion?: string
+}
+
+/**
+ * 冻结在 contract_reviews.playbookSnapshot JSON 中的完整快照。
+ * 运营后续修改 contract_playbooks 不影响历史审查的快照数据。
+ */
+export interface PlaybookSnapshot {
+    contractType: string
+    points: PlaybookPointSnapshot[]
+    /** ISO 时间戳，便于 UI 显示"本审查使用清单版本快照于 YYYY-MM-DD" */
+    snapshotAt: string
+}
+
+// ===== 多版本：枚举 =====
+// Phase A 只声明当前用到的值；Phase B/C 扩展时再加
+export const VERSION_SYSTEM_LABELS = ['initial_upload', 'lawyer_save'] as const
+export type VersionSystemLabel = typeof VERSION_SYSTEM_LABELS[number]
+
+// Phase B 扩展：client_return 映射 '客户回传'、auto_backup 映射 '自动备份'
+export const VERSION_SYSTEM_LABEL_DISPLAY: Record<VersionSystemLabel, string> = {
+    initial_upload: '初次上传',
+    lawyer_save: '律师保存',
+}
+
+export const RISK_SOURCES = ['ai'] as const  // Phase B 加 'external_new'；Phase C 加 'global_review'
+export type RiskSource = typeof RISK_SOURCES[number]
+
+export const ANNOTATION_AUTHOR_TYPES = ['ai', 'lawyer'] as const  // Phase B 加 'external'
+export type AnnotationAuthorType = typeof ANNOTATION_AUTHOR_TYPES[number]
+
+export const RISK_ARCHIVED_STATUSES = ['handled', 'ignored'] as const  // Phase B 加 'client_removed'
+export type RiskArchivedStatus = typeof RISK_ARCHIVED_STATUSES[number]
+
+// ===== 多版本：实体 =====
+export interface ContractRiskEntity {
+    id: number
+    reviewId: number
+    source: RiskSource
+    code: string | null
+    category: string
+    level: RiskLevel
+    stance: StancePreference
+    problem: string
+    legalBasis: string | null
+    analysis: string | null
+    suggestion: string | null
+    archivedStatus: RiskArchivedStatus | null
+    archivedAt: string | null
+    anchorQuote: string
+    anchorParagraphIndex: number | null
+    anchorCharStart: number | null
+    anchorCharEnd: number | null
+    createdAt: string
+    updatedAt: string
+}
+
+export interface ContractAnnotationEntity {
+    id: number
+    reviewId: number
+    riskId: number
+    parentAnnotationId: number | null
+    authorType: AnnotationAuthorType
+    authorName: string
+    authorUserId: number | null
+    content: string
+    createdAt: string
+    // 软删的批注不出现在 API 响应中（service 层过滤 deletedAt IS NULL）
+}
+
+export interface ContractReviewVersionEntity {
+    id: number
+    reviewId: number
+    versionNumber: number
+    systemLabel: VersionSystemLabel
+    lawyerNote: string | null
+    createdById: number
+    createdByName: string
+    createdAt: string
+    // Phase B 再加 stats（变更徽章用）
+}
+
+/** 版本列表响应（不含 snapshotData，只有元信息） */
+export interface ContractReviewVersionListResponse {
+    versions: ContractReviewVersionEntity[]
+    currentVersionId: number | null
+    maxVersionNo: number
+}
+
+/** 版本快照响应（包含完整 snapshot 内容用于只读渲染） */
+export interface ContractReviewVersionSnapshotResponse extends ContractReviewVersionEntity {
+    snapshot: {
+        risks: ContractRiskEntity[]
+        annotations: ContractAnnotationEntity[]
+        docxText: string
+        // Phase B 扩展 paragraphs
+    }
+}

@@ -153,14 +153,58 @@ describe('search_case_materials 工具', () => {
         })
     })
 
-    describe('schema 参数验证', () => {
-        it('query 和 sourceId 都缺失时 schema 验证会失败', async () => {
+    describe('浏览模式（无 query 无 sourceId）', () => {
+        it('应直接调用合并服务，由服务层按 k 限流返回概览', async () => {
             const context: ToolContext = { userId, caseId: 456, sessionId }
-            const tool = createTool(context)
 
-            await expect(
-                tool.invoke({ draftId: 123 } as any),
-            ).rejects.toThrow(/至少需要提供 query 或 sourceId/)
+            const mockResults = [
+                { index: 1, content: '材料 1 全文', source: { sourceId: 1, sourceName: '起诉状草稿' } },
+                { index: 2, content: '材料 2 全文', source: { sourceId: 2, sourceName: '证据清单' } },
+            ]
+            vi.mocked(searchMaterialsByCaseOrDraftService).mockResolvedValue(mockResults)
+
+            const tool = createTool(context)
+            const result = await tool.invoke({ k: 10 } as any)
+
+            expect(searchMaterialsByCaseOrDraftService).toHaveBeenCalledWith(
+                userId,
+                { caseId: 456, draftId: null },
+                { query: undefined, sourceId: undefined, k: 10 },
+            )
+            const parsed = JSON.parse(result as string)
+            expect(parsed).toHaveLength(2)
+        })
+    })
+
+    describe('k 参数 clamp', () => {
+        it('k 超过 10 时应 clamp 到 10 传给服务层，不报错', async () => {
+            const context: ToolContext = { userId, caseId: 456, sessionId }
+
+            vi.mocked(searchMaterialsByCaseOrDraftService).mockResolvedValue([])
+
+            const tool = createTool(context)
+            await tool.invoke({ query: '关键词', k: 50 })
+
+            expect(searchMaterialsByCaseOrDraftService).toHaveBeenCalledWith(
+                userId,
+                { caseId: 456, draftId: null },
+                { query: '关键词', sourceId: undefined, k: 10 },
+            )
+        })
+
+        it('k 小于 1 时应 clamp 到 1', async () => {
+            const context: ToolContext = { userId, caseId: 456, sessionId }
+
+            vi.mocked(searchMaterialsByCaseOrDraftService).mockResolvedValue([])
+
+            const tool = createTool(context)
+            await tool.invoke({ query: '关键词', k: 0 })
+
+            expect(searchMaterialsByCaseOrDraftService).toHaveBeenCalledWith(
+                userId,
+                { caseId: 456, draftId: null },
+                { query: '关键词', sourceId: undefined, k: 1 },
+            )
         })
     })
 

@@ -20,8 +20,8 @@ import { getToolInstancesService } from '../tools'
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import {
     createAuditMiddleware,
+    createMessageIntegrityMiddleware,
     createScopeGuardMiddleware,
-    createToolCallLimitMiddlewares,
     pointConsumptionMiddleware,
     safetyTrimMiddleware,
 } from '../middleware'
@@ -108,9 +108,10 @@ export async function runAssistantChat(
         store,
         tools,
         middleware: [
-            // Agent 安全三层（scope 校验 / 工具调用熔断 / 审计归档）
+            // 消息完整性兜底：必须最先，补齐 orphan tool_use 防 Provider 400
+            createMessageIntegrityMiddleware(),
+            // Agent 安全两层（scope 校验 / 审计归档；工具调用熔断防 DoS 不在威胁模型内）
             createScopeGuardMiddleware(),
-            ...createToolCallLimitMiddlewares(),
             // assistant_token 独立计费（与 case_analysis_token 分开）
             pointConsumptionMiddleware(userId, 'assistant_token', sessionId),
             summarizationMiddleware({

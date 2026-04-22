@@ -2,7 +2,7 @@ import { createAgent, todoListMiddleware, summarizationMiddleware, type ReactAge
 import type { LangGraphRunnableConfig } from "@langchain/langgraph";
 import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
-import { caseMaterialContextMiddleware, caseProcessMaterialMiddleware, pointConsumptionMiddleware, analysisResultPersistenceMiddleware, safetyTrimMiddleware } from '../middleware'
+import { caseMaterialContextMiddleware, caseProcessMaterialMiddleware, createMessageIntegrityMiddleware, pointConsumptionMiddleware, analysisResultPersistenceMiddleware, safetyTrimMiddleware } from '../middleware'
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import { resolveContextWindow } from '../context/messageCompressor'
 
@@ -104,6 +104,8 @@ export const caseAnalysisAgent = async (
         tools,
         store,
         middleware: [
+            // 消息完整性兜底必须最先：防止 orphan tool_use 引发 Provider 400
+            createMessageIntegrityMiddleware(),
             pointConsumptionMiddleware(userId!, 'case_analysis_token', sessionId),
             caseProcessMaterialMiddleware(userId!, caseId!),
             caseMaterialContextMiddleware(userId!, caseId!),

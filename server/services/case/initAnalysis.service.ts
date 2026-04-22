@@ -99,7 +99,21 @@ export const getInitAnalysisStatusService = async (
         }
     } else {
         const type2Session = sessions.find(s => s.type === 2)
-        primarySession = type2Session ?? sessions[0]!
+        if (!type2Session) {
+            // 案件没走过初始化分析（无 type=2 session），但可能在模块对话（type=3）
+            // 里通过 save_analysis_result 工具直接生成了部分模块结果。
+            // 这种情况下不能把 type=3 模块对话当作 init-analysis 的 primarySession——
+            // 模块对话 session 永远 status=1 且 metadata 没有 selectedModules，
+            // 会让自动修复条件失效，接口永远返回 in_progress，进而把"批量分析"按钮锁死。
+            const hasAnyComplete = modules.some(m => m.status === 'complete')
+            return {
+                status: hasAnyComplete ? 'completed' : 'not_started',
+                modules,
+                result: buildResultMap(analyses),
+                hasPendingInterrupt: false,
+            }
+        }
+        primarySession = type2Session
     }
 
     // 检查是否有待处理的 interrupt（INTERRUPTED 状态的 run）

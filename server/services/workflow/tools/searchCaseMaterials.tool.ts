@@ -12,21 +12,21 @@ import { searchMaterialsByCaseOrDraftService } from '../../material/materialPipe
 import type { ToolDefinition, ToolContext } from './types'
 import { truncateToolResults } from '../context/toolResultTruncator'
 
+/** k 参数上限，超过一律 clamp 到该值，避免模型因超限报错 */
+const MAX_K = 10
+
 /** 参数 schema（唯一数据源） */
 const schema = z.object({
     query: z.string().optional().describe('语义查询内容，用于搜索相关的材料片段'),
     sourceId: z.number().optional().describe('材料 sourceId，精确检索或限定语义搜索范围到指定材料'),
     draftId: z.number().optional().describe('文书 draft ID（文书生成场景传入）'),
-    k: z.number().max(20).optional().default(5).describe('返回结果数量，默认为 5，最多 20 条'),
-}).refine(
-    data => data.query || data.sourceId,
-    { message: '至少需要提供 query 或 sourceId' }
-)
+    k: z.number().optional().default(5).describe(`返回结果数量，默认为 5，最多 ${MAX_K} 条（超过 ${MAX_K} 按 ${MAX_K} 处理）`),
+})
 
 /** 工具定义（单一数据源） */
 export const toolDefinition: ToolDefinition<typeof schema> = {
     name: 'search_case_materials',
-    description: '检索当前案件或文书 draft 的材料内容。支持语义搜索（传 query）、精确检索（传 sourceId）、或组合检索。返回最相关的材料内容片段及来源信息。',
+    description: `检索当前案件或文书 draft 的材料内容。四种模式：(1) 传 query 做语义搜索；(2) 传 sourceId 精确返回该材料全文；(3) query + sourceId 限定范围语义搜索；(4) 不传 query 也不传 sourceId 时，返回前 k 份材料的完整内容（默认 5 份，最多 ${MAX_K} 份），用于快速浏览本次会话可见的全部材料概览。返回内容包含材料片段及来源信息。`,
     schema,
 }
 
@@ -46,7 +46,10 @@ export function createTool(context: ToolContext) {
             // input 中的 draftId 覆盖 context 中的 draftId
             const effectiveDraftId = inputDraftId ?? ctxDraftId
 
-            logger.info('执行材料检索工作流工具', { userId, caseId, draftId: effectiveDraftId, query, sourceId, k })
+            // 模型传入的 k 值 clamp 到 [1, MAX_K]，避免因超限报错（用户要求"超过 MAX_K 统一按 MAX_K 返回"）
+            const safeK = Math.min(Math.max(1, Math.floor(k)), MAX_K)
+
+            logger.info('执行材料检索工作流工具', { userId, caseId, draftId: effectiveDraftId, query, sourceId, k: safeK })
 
             try {
                 // 两者都无时显式抛错（不允许静默 fallback 为空）
@@ -58,7 +61,7 @@ export function createTool(context: ToolContext) {
                 const results = await searchMaterialsByCaseOrDraftService(
                     userId,
                     { caseId: caseId ?? null, draftId: effectiveDraftId ?? null },
-                    { query, sourceId, k },
+                    { query, sourceId, k: safeK },
                 )
 
                 if (results.length === 0) {

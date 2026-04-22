@@ -10,6 +10,7 @@ import { processMaterialService, batchCheckMaterialRecognizedService, MaterialPr
 import { CaseMaterialType, getMaterialTypeFromMime } from '#shared/types/case'
 import { MaterialStatus } from '#shared/types/material'
 import { createMaterialDao, findMaterialByIdDao, findActiveMaterialByOssFileIdDao } from './material.dao'
+import { countTokensSync } from '~~/server/utils/tokenCounter'
 
 export interface MaterialFailedItem {
     materialId: number
@@ -181,7 +182,12 @@ export async function ensureMaterialsReadyByDraftService(
 
 // ==================== 材料上下文服务 ====================
 
-export const TOKEN_THRESHOLD = 32000
+/**
+ * 材料上下文 token 预算阈值（tiktoken 估算）
+ * 小于此阈值全文返回；超过则切到 graded/summary 模式。
+ * 预算保守设置为 15K，给 system prompt、工具定义、历史消息及模型输出留足余量。
+ */
+export const TOKEN_THRESHOLD = 15000
 
 /** 按材料类型返回向量表中的 sourceId */
 export function getSourceId(material: MaterialWithFile): number {
@@ -192,15 +198,14 @@ export function getSourceId(material: MaterialWithFile): number {
 }
 
 /**
- * 简单 token 估算（中文约 1 字符/token，英文约 4 字符/token）
- * Anthropic tokenizer 对中文字符按 UTF-8 字节编码，1 个中文字符约 1-2 tokens，
- * 用 1:1 比例估算，避免低估导致安全截断失效。
+ * Token 估算：统一走 tiktoken (cl100k_base)，tiktoken 初始化失败时自动回退到字符估算。
+ *
+ * 调用 countTokensSync 而非字符估算，避免中文/JSON 结构序列化后 token 数被严重低估，
+ * 进而导致 TOKEN_THRESHOLD 形同虚设（材料上下文仍可能把模型窗口撑爆）。
  */
 export function estimateTokens(text: string): number {
     if (!text) return 0
-    const chineseChars = (text.match(/[\u4e00-\u9fff]/g) || []).length
-    const otherChars = text.length - chineseChars
-    return Math.ceil(chineseChars + otherChars / 4)
+    return countTokensSync(text)
 }
 
 /**
@@ -413,7 +418,15 @@ export async function getMaterialContextService(
     let allSummary = true
     const materialList: MaterialContextItem[] = []
 
-    // 逐份材料累加 token：预算内注入全文，超出后注入摘要
+    // 索引模式占位文案（用于预算完全耗尽时，仅告知 AI 该材料存在）
+    const INDEX_ONLY_HINT = '[材料索引，请使用 search_case_materials 工具按关键字检索完整内容]'
+    const indexOnlyTokens = estimateTokens(INDEX_ONLY_HINT)
+
+    // 逐份材料按三档分配预算：
+    // 1) full  — 全文（content）
+    // 2) summary — 摘要（summary 字段或内容前 200 字）
+    // 3) index — 只保留名称/类型占位，AI 需通过 search_case_materials 按需调档
+    // summary 分支也必须累加实际 tokens，否则 totalTokens 与返回 payload 严重不符。
     for (const m of sorted) {
         const content = contentMap.get(m.id)
         if (!content) {
@@ -429,8 +442,8 @@ export async function getMaterialContextService(
             continue
         }
 
-        const tokens = estimateTokens(content)
-        if (usedTokens + tokens <= tokenBudget) {
+        const fullTokens = estimateTokens(content)
+        if (usedTokens + fullTokens <= tokenBudget) {
             materialList.push({
                 sourceId: getSourceId(m),
                 name: m.name,
@@ -439,20 +452,39 @@ export async function getMaterialContextService(
                 mode: 'full',
                 content,
             })
-            usedTokens += tokens
+            usedTokens += fullTokens
             allSummary = false
-        } else {
-            // 超出预算 → 降级为摘要
+            continue
+        }
+
+        // 超出全文预算 → 尝试降级为摘要
+        const summaryText = m.summary || content.substring(0, 200) + '...'
+        const summaryTokens = estimateTokens(summaryText)
+        if (usedTokens + summaryTokens <= tokenBudget) {
             materialList.push({
                 sourceId: getSourceId(m),
                 name: m.name,
                 type: m.type,
                 hasContent: true,
                 mode: 'summary',
-                summary: m.summary || content.substring(0, 200) + '...',
+                summary: summaryText,
             })
+            usedTokens += summaryTokens
             allFull = false
+            continue
         }
+
+        // 摘要也超预算 → 降级为索引模式（名称 + 占位文案）
+        materialList.push({
+            sourceId: getSourceId(m),
+            name: m.name,
+            type: m.type,
+            hasContent: true,
+            mode: 'summary',
+            summary: INDEX_ONLY_HINT,
+        })
+        usedTokens += indexOnlyTokens
+        allFull = false
     }
 
     // 为需要摘要但尚无摘要（仅有截断文本）的材料批量生成摘要并缓存
@@ -546,9 +578,12 @@ async function searchWithinMaterialsService(
     if (targetMaterials.length === 0) return []
 
     // 无 query → 精确查询完整内容
+    // 浏览模式（无 query + 无 sourceId）按 k 限流避免一次返回过多材料；
+    // 精确查询（指定 sourceId）只会命中单份材料，k 不再生效。
     if (!query) {
-        const contentMap = await fetchMaterialContents(targetMaterials)
-        return targetMaterials.map((m, index) => ({
+        const limitedMaterials = sourceId ? targetMaterials : targetMaterials.slice(0, k)
+        const contentMap = await fetchMaterialContents(limitedMaterials)
+        return limitedMaterials.map((m, index) => ({
             index: index + 1,
             content: contentMap.get(m.id) || '[暂无内容]',
             source: {

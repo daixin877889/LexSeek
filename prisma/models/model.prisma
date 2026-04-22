@@ -79,6 +79,8 @@ model models {
   modelVersion               String?   @map("model_version") @db.VarChar(50)
   /// 上下文窗口大小
   contextWindow              Int?      @map("context_window")
+  /// 单次调用最大输出 tokens（模型物理上限，如 deepseek-chat=8K、deepseek-reasoner=64K）
+  maxOutputTokens            Int?      @map("max_output_tokens")
   /// 嵌入维度（embedding 模型专用）
   dimensions                 Int?
   /// 批处理大小

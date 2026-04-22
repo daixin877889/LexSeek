@@ -65,7 +65,11 @@ export const ModelName = {
   caseAnalyses: 'caseAnalyses',
   demoCases: 'demoCases',
   caseMaterialEmbeddings: 'caseMaterialEmbeddings',
+  contractPlaybooks: 'contractPlaybooks',
   contractReviews: 'contractReviews',
+  contractReviewVersions: 'contractReviewVersions',
+  contractRisks: 'contractRisks',
+  contractAnnotations: 'contractAnnotations',
   documentTemplates: 'documentTemplates',
   documentDrafts: 'documentDrafts',
   documentDraftSnapshots: 'documentDraftSnapshots',
@@ -366,6 +370,24 @@ export const CaseMaterialEmbeddingsScalarFieldEnum = {
 export type CaseMaterialEmbeddingsScalarFieldEnum = (typeof CaseMaterialEmbeddingsScalarFieldEnum)[keyof typeof CaseMaterialEmbeddingsScalarFieldEnum]
 
 
+export const ContractPlaybooksScalarFieldEnum = {
+  id: 'id',
+  contractType: 'contractType',
+  code: 'code',
+  title: 'title',
+  defaultLevel: 'defaultLevel',
+  stancePreference: 'stancePreference',
+  checkContent: 'checkContent',
+  legalBasis: 'legalBasis',
+  suggestion: 'suggestion',
+  enabled: 'enabled',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ContractPlaybooksScalarFieldEnum = (typeof ContractPlaybooksScalarFieldEnum)[keyof typeof ContractPlaybooksScalarFieldEnum]
+
+
 export const ContractReviewsScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -380,13 +402,71 @@ export const ContractReviewsScalarFieldEnum = {
   status: 'status',
   risks: 'risks',
   summary: 'summary',
+  playbookSnapshot: 'playbookSnapshot',
   hasUnsavedDocxChanges: 'hasUnsavedDocxChanges',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  deletedAt: 'deletedAt'
+  deletedAt: 'deletedAt',
+  currentVersionId: 'currentVersionId',
+  maxVersionNo: 'maxVersionNo'
 } as const
 
 export type ContractReviewsScalarFieldEnum = (typeof ContractReviewsScalarFieldEnum)[keyof typeof ContractReviewsScalarFieldEnum]
+
+
+export const ContractReviewVersionsScalarFieldEnum = {
+  id: 'id',
+  reviewId: 'reviewId',
+  versionNumber: 'versionNumber',
+  systemLabel: 'systemLabel',
+  lawyerNote: 'lawyerNote',
+  snapshotData: 'snapshotData',
+  createdById: 'createdById',
+  createdAt: 'createdAt'
+} as const
+
+export type ContractReviewVersionsScalarFieldEnum = (typeof ContractReviewVersionsScalarFieldEnum)[keyof typeof ContractReviewVersionsScalarFieldEnum]
+
+
+export const ContractRisksScalarFieldEnum = {
+  id: 'id',
+  reviewId: 'reviewId',
+  source: 'source',
+  code: 'code',
+  category: 'category',
+  level: 'level',
+  stance: 'stance',
+  problem: 'problem',
+  legalBasis: 'legalBasis',
+  analysis: 'analysis',
+  suggestion: 'suggestion',
+  archivedStatus: 'archivedStatus',
+  archivedAt: 'archivedAt',
+  anchorQuote: 'anchorQuote',
+  anchorParagraphIndex: 'anchorParagraphIndex',
+  anchorCharStart: 'anchorCharStart',
+  anchorCharEnd: 'anchorCharEnd',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ContractRisksScalarFieldEnum = (typeof ContractRisksScalarFieldEnum)[keyof typeof ContractRisksScalarFieldEnum]
+
+
+export const ContractAnnotationsScalarFieldEnum = {
+  id: 'id',
+  reviewId: 'reviewId',
+  riskId: 'riskId',
+  parentAnnotationId: 'parentAnnotationId',
+  authorType: 'authorType',
+  authorName: 'authorName',
+  authorUserId: 'authorUserId',
+  content: 'content',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type ContractAnnotationsScalarFieldEnum = (typeof ContractAnnotationsScalarFieldEnum)[keyof typeof ContractAnnotationsScalarFieldEnum]
 
 
 export const DocumentTemplatesScalarFieldEnum = {

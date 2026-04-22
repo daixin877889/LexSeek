@@ -8,6 +8,9 @@
 import type { H3Event } from 'h3'
 import type { contractReviews } from '~~/generated/prisma/client'
 import { getContractReviewDAO } from './contractReview.dao'
+import { getContractReviewVersionByIdDAO } from './contractReviewVersion.dao'
+import { getContractRiskByIdDAO } from './contractRisk.dao'
+import { getContractAnnotationByIdDAO } from './contractAnnotation.dao'
 
 interface AuthUser {
     id: number
@@ -56,4 +59,84 @@ export async function loadOwnedReview(
     }
 
     return { ok: true, user, review }
+}
+
+// ==================== 子资源 guard（版本 / 风险 / 批注）====================
+
+/** 从子资源 id 反查 review（通用内部函数） */
+type ReviewLookup = (subId: number) => Promise<{ reviewId: number } | null>
+
+/**
+ * 通用：从任意子资源 id 反查 review 并做 owner 校验。
+ * 复用 loadOwnedReview 的 401/400/404/403 语义。
+ */
+async function loadOwnedReviewFromSubResource(
+    event: H3Event,
+    paramName: string,
+    lookup: ReviewLookup,
+    options: LoadOptions = {},
+): Promise<ReviewGuardResult> {
+    const user = event.context.auth?.user as AuthUser | undefined
+    if (!user) return { ok: false, status: 401, message: '请先登录' }
+
+    const subId = Number(getRouterParam(event, paramName))
+    if (!Number.isInteger(subId) || subId <= 0) {
+        return { ok: false, status: 400, message: `${paramName} 无效` }
+    }
+
+    const sub = await lookup(subId)
+    if (!sub) return { ok: false, status: 404, message: '资源不存在' }
+
+    const review = await getContractReviewDAO(sub.reviewId)
+    if (!review) return { ok: false, status: 404, message: '合同审查不存在' }
+    if (review.userId !== user.id) {
+        return { ok: false, status: 403, message: `无权${options.actionLabel ?? '访问该合同审查'}` }
+    }
+
+    return { ok: true, user, review }
+}
+
+/**
+ * 通过版本 ID（versionId）校验当前用户是否拥有对应的合同审查。
+ * 适用于 GET/PATCH /reviews/versions/:versionId 端点。
+ */
+export async function loadOwnedReviewByVersionId(
+    event: H3Event,
+    options: LoadOptions = {},
+): Promise<ReviewGuardResult> {
+    return loadOwnedReviewFromSubResource(event, 'versionId', async (id) => {
+        const v = await getContractReviewVersionByIdDAO(id)
+        return v ? { reviewId: v.reviewId } : null
+    }, options)
+}
+
+/**
+ * 通过风险 ID（riskId）校验当前用户是否拥有对应的合同审查。
+ * 适用于 PATCH /reviews/risks/:riskId 端点。
+ */
+export async function loadOwnedReviewByRiskId(
+    event: H3Event,
+    options: LoadOptions = {},
+): Promise<ReviewGuardResult> {
+    return loadOwnedReviewFromSubResource(event, 'riskId', async (id) => {
+        const r = await getContractRiskByIdDAO(id)
+        return r ? { reviewId: r.reviewId } : null
+    }, options)
+}
+
+/**
+ * 通过批注 ID（annotationId）校验当前用户是否拥有对应的合同审查。
+ * 注意：handler 层需要校验"只能改自己的批注"时，在 service 层自己查 annotation
+ * 拿 authorUserId 做判断（见 contractAnnotation.service.ts）；guard 层只负责
+ * review 归属校验，不额外返回 annotation 字段。
+ * 适用于 PATCH/DELETE /reviews/annotations/:annotationId 端点。
+ */
+export async function loadOwnedReviewByAnnotationId(
+    event: H3Event,
+    options: LoadOptions = {},
+): Promise<ReviewGuardResult> {
+    return loadOwnedReviewFromSubResource(event, 'annotationId', async (id) => {
+        const a = await getContractAnnotationByIdDAO(id)
+        return a ? { reviewId: a.reviewId } : null
+    }, options)
 }

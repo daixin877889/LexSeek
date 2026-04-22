@@ -398,7 +398,11 @@ export const ModelName = {
   caseAnalyses: 'caseAnalyses',
   demoCases: 'demoCases',
   caseMaterialEmbeddings: 'caseMaterialEmbeddings',
+  contractPlaybooks: 'contractPlaybooks',
   contractReviews: 'contractReviews',
+  contractReviewVersions: 'contractReviewVersions',
+  contractRisks: 'contractRisks',
+  contractAnnotations: 'contractAnnotations',
   documentTemplates: 'documentTemplates',
   documentDrafts: 'documentDrafts',
   documentDraftSnapshots: 'documentDraftSnapshots',
@@ -460,7 +464,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "agentToolAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "contractReviews" | "documentTemplates" | "documentDrafts" | "documentDraftSnapshots" | "documentDraftVersions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
+    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "agentToolAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "contractPlaybooks" | "contractReviews" | "contractReviewVersions" | "contractRisks" | "contractAnnotations" | "documentTemplates" | "documentDrafts" | "documentDraftSnapshots" | "documentDraftVersions" | "ossFiles" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1500,6 +1504,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    contractPlaybooks: {
+      payload: Prisma.$contractPlaybooksPayload<ExtArgs>
+      fields: Prisma.contractPlaybooksFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.contractPlaybooksFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.contractPlaybooksFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload>
+        }
+        findFirst: {
+          args: Prisma.contractPlaybooksFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.contractPlaybooksFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload>
+        }
+        findMany: {
+          args: Prisma.contractPlaybooksFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload>[]
+        }
+        create: {
+          args: Prisma.contractPlaybooksCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload>
+        }
+        createMany: {
+          args: Prisma.contractPlaybooksCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.contractPlaybooksCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload>[]
+        }
+        delete: {
+          args: Prisma.contractPlaybooksDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload>
+        }
+        update: {
+          args: Prisma.contractPlaybooksUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload>
+        }
+        deleteMany: {
+          args: Prisma.contractPlaybooksDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.contractPlaybooksUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.contractPlaybooksUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload>[]
+        }
+        upsert: {
+          args: Prisma.contractPlaybooksUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractPlaybooksPayload>
+        }
+        aggregate: {
+          args: Prisma.ContractPlaybooksAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateContractPlaybooks>
+        }
+        groupBy: {
+          args: Prisma.contractPlaybooksGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ContractPlaybooksGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.contractPlaybooksCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ContractPlaybooksCountAggregateOutputType> | number
+        }
+      }
+    }
     contractReviews: {
       payload: Prisma.$contractReviewsPayload<ExtArgs>
       fields: Prisma.contractReviewsFieldRefs
@@ -1571,6 +1649,228 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.contractReviewsCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.ContractReviewsCountAggregateOutputType> | number
+        }
+      }
+    }
+    contractReviewVersions: {
+      payload: Prisma.$contractReviewVersionsPayload<ExtArgs>
+      fields: Prisma.contractReviewVersionsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.contractReviewVersionsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractReviewVersionsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.contractReviewVersionsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractReviewVersionsPayload>
+        }
+        findFirst: {
+          args: Prisma.contractReviewVersionsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractReviewVersionsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.contractReviewVersionsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractReviewVersionsPayload>
+        }
+        findMany: {
+          args: Prisma.contractReviewVersionsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractReviewVersionsPayload>[]
+        }
+        create: {
+          args: Prisma.contractReviewVersionsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractReviewVersionsPayload>
+        }
+        createMany: {
+          args: Prisma.contractReviewVersionsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.contractReviewVersionsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractReviewVersionsPayload>[]
+        }
+        delete: {
+          args: Prisma.contractReviewVersionsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractReviewVersionsPayload>
+        }
+        update: {
+          args: Prisma.contractReviewVersionsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractReviewVersionsPayload>
+        }
+        deleteMany: {
+          args: Prisma.contractReviewVersionsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.contractReviewVersionsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.contractReviewVersionsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractReviewVersionsPayload>[]
+        }
+        upsert: {
+          args: Prisma.contractReviewVersionsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractReviewVersionsPayload>
+        }
+        aggregate: {
+          args: Prisma.ContractReviewVersionsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateContractReviewVersions>
+        }
+        groupBy: {
+          args: Prisma.contractReviewVersionsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ContractReviewVersionsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.contractReviewVersionsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ContractReviewVersionsCountAggregateOutputType> | number
+        }
+      }
+    }
+    contractRisks: {
+      payload: Prisma.$contractRisksPayload<ExtArgs>
+      fields: Prisma.contractRisksFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.contractRisksFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractRisksPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.contractRisksFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractRisksPayload>
+        }
+        findFirst: {
+          args: Prisma.contractRisksFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractRisksPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.contractRisksFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractRisksPayload>
+        }
+        findMany: {
+          args: Prisma.contractRisksFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractRisksPayload>[]
+        }
+        create: {
+          args: Prisma.contractRisksCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractRisksPayload>
+        }
+        createMany: {
+          args: Prisma.contractRisksCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.contractRisksCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractRisksPayload>[]
+        }
+        delete: {
+          args: Prisma.contractRisksDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractRisksPayload>
+        }
+        update: {
+          args: Prisma.contractRisksUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractRisksPayload>
+        }
+        deleteMany: {
+          args: Prisma.contractRisksDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.contractRisksUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.contractRisksUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractRisksPayload>[]
+        }
+        upsert: {
+          args: Prisma.contractRisksUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractRisksPayload>
+        }
+        aggregate: {
+          args: Prisma.ContractRisksAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateContractRisks>
+        }
+        groupBy: {
+          args: Prisma.contractRisksGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ContractRisksGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.contractRisksCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ContractRisksCountAggregateOutputType> | number
+        }
+      }
+    }
+    contractAnnotations: {
+      payload: Prisma.$contractAnnotationsPayload<ExtArgs>
+      fields: Prisma.contractAnnotationsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.contractAnnotationsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractAnnotationsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.contractAnnotationsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractAnnotationsPayload>
+        }
+        findFirst: {
+          args: Prisma.contractAnnotationsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractAnnotationsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.contractAnnotationsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractAnnotationsPayload>
+        }
+        findMany: {
+          args: Prisma.contractAnnotationsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractAnnotationsPayload>[]
+        }
+        create: {
+          args: Prisma.contractAnnotationsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractAnnotationsPayload>
+        }
+        createMany: {
+          args: Prisma.contractAnnotationsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.contractAnnotationsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractAnnotationsPayload>[]
+        }
+        delete: {
+          args: Prisma.contractAnnotationsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractAnnotationsPayload>
+        }
+        update: {
+          args: Prisma.contractAnnotationsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractAnnotationsPayload>
+        }
+        deleteMany: {
+          args: Prisma.contractAnnotationsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.contractAnnotationsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.contractAnnotationsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractAnnotationsPayload>[]
+        }
+        upsert: {
+          args: Prisma.contractAnnotationsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$contractAnnotationsPayload>
+        }
+        aggregate: {
+          args: Prisma.ContractAnnotationsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateContractAnnotations>
+        }
+        groupBy: {
+          args: Prisma.contractAnnotationsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ContractAnnotationsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.contractAnnotationsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ContractAnnotationsCountAggregateOutputType> | number
         }
       }
     }
@@ -5253,6 +5553,24 @@ export const CaseMaterialEmbeddingsScalarFieldEnum = {
 export type CaseMaterialEmbeddingsScalarFieldEnum = (typeof CaseMaterialEmbeddingsScalarFieldEnum)[keyof typeof CaseMaterialEmbeddingsScalarFieldEnum]
 
 
+export const ContractPlaybooksScalarFieldEnum = {
+  id: 'id',
+  contractType: 'contractType',
+  code: 'code',
+  title: 'title',
+  defaultLevel: 'defaultLevel',
+  stancePreference: 'stancePreference',
+  checkContent: 'checkContent',
+  legalBasis: 'legalBasis',
+  suggestion: 'suggestion',
+  enabled: 'enabled',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ContractPlaybooksScalarFieldEnum = (typeof ContractPlaybooksScalarFieldEnum)[keyof typeof ContractPlaybooksScalarFieldEnum]
+
+
 export const ContractReviewsScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -5267,13 +5585,71 @@ export const ContractReviewsScalarFieldEnum = {
   status: 'status',
   risks: 'risks',
   summary: 'summary',
+  playbookSnapshot: 'playbookSnapshot',
   hasUnsavedDocxChanges: 'hasUnsavedDocxChanges',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  deletedAt: 'deletedAt'
+  deletedAt: 'deletedAt',
+  currentVersionId: 'currentVersionId',
+  maxVersionNo: 'maxVersionNo'
 } as const
 
 export type ContractReviewsScalarFieldEnum = (typeof ContractReviewsScalarFieldEnum)[keyof typeof ContractReviewsScalarFieldEnum]
+
+
+export const ContractReviewVersionsScalarFieldEnum = {
+  id: 'id',
+  reviewId: 'reviewId',
+  versionNumber: 'versionNumber',
+  systemLabel: 'systemLabel',
+  lawyerNote: 'lawyerNote',
+  snapshotData: 'snapshotData',
+  createdById: 'createdById',
+  createdAt: 'createdAt'
+} as const
+
+export type ContractReviewVersionsScalarFieldEnum = (typeof ContractReviewVersionsScalarFieldEnum)[keyof typeof ContractReviewVersionsScalarFieldEnum]
+
+
+export const ContractRisksScalarFieldEnum = {
+  id: 'id',
+  reviewId: 'reviewId',
+  source: 'source',
+  code: 'code',
+  category: 'category',
+  level: 'level',
+  stance: 'stance',
+  problem: 'problem',
+  legalBasis: 'legalBasis',
+  analysis: 'analysis',
+  suggestion: 'suggestion',
+  archivedStatus: 'archivedStatus',
+  archivedAt: 'archivedAt',
+  anchorQuote: 'anchorQuote',
+  anchorParagraphIndex: 'anchorParagraphIndex',
+  anchorCharStart: 'anchorCharStart',
+  anchorCharEnd: 'anchorCharEnd',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ContractRisksScalarFieldEnum = (typeof ContractRisksScalarFieldEnum)[keyof typeof ContractRisksScalarFieldEnum]
+
+
+export const ContractAnnotationsScalarFieldEnum = {
+  id: 'id',
+  reviewId: 'reviewId',
+  riskId: 'riskId',
+  parentAnnotationId: 'parentAnnotationId',
+  authorType: 'authorType',
+  authorName: 'authorName',
+  authorUserId: 'authorUserId',
+  content: 'content',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type ContractAnnotationsScalarFieldEnum = (typeof ContractAnnotationsScalarFieldEnum)[keyof typeof ContractAnnotationsScalarFieldEnum]
 
 
 export const DocumentTemplatesScalarFieldEnum = {
@@ -6358,7 +6734,11 @@ export type GlobalOmitConfig = {
   caseAnalyses?: Prisma.caseAnalysesOmit
   demoCases?: Prisma.demoCasesOmit
   caseMaterialEmbeddings?: Prisma.caseMaterialEmbeddingsOmit
+  contractPlaybooks?: Prisma.contractPlaybooksOmit
   contractReviews?: Prisma.contractReviewsOmit
+  contractReviewVersions?: Prisma.contractReviewVersionsOmit
+  contractRisks?: Prisma.contractRisksOmit
+  contractAnnotations?: Prisma.contractAnnotationsOmit
   documentTemplates?: Prisma.documentTemplatesOmit
   documentDrafts?: Prisma.documentDraftsOmit
   documentDraftSnapshots?: Prisma.documentDraftSnapshotsOmit

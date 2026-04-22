@@ -159,8 +159,17 @@ export class AgentWorker {
       // 上一轮若在工具调用中途被取消/崩溃，catch 块的 repair 与 LangGraph
       // 异步写 checkpoint 存在 race condition，可能漏网；在本轮 invoke 前
       // 再扫一次，确保发给 LLM 的历史消息中每个 tool_use 都有配对 tool_result
-      await repairOrphanToolUseCheckpoint(run.sessionId, '上一轮对话被用户取消')
-        .catch(e => logger.warn(`Lazy repair 失败 (run=${run.id}):`, e))
+      try {
+        const lazyResult = await repairOrphanToolUseCheckpoint(run.sessionId, '上一轮对话被用户取消')
+        if (lazyResult.parseFailures > 0) {
+          // blob 解析失败意味着 orphan 可能存在但未修——升级到 error，防止静默失败
+          logger.error(
+            `[Lazy repair] session=${run.sessionId} 有 ${lazyResult.parseFailures} 个 scope 的 blob 解析失败，orphan 可能未修；messageIntegrityMiddleware 会在模型调用前兜底补救`,
+          )
+        }
+      } catch (e) {
+        logger.error(`[Lazy repair] 整体失败 (run=${run.id}):`, e)
+      }
 
       // === scope 分流（spec §5.2） ===
       if (session.scope === 'document') {
@@ -433,8 +442,16 @@ export class AgentWorker {
       // LangGraph step-level checkpoint 在工具节点中断时会留下 AIMessage(tool_use)
       // 没有对应的 ToolMessage，导致用户"继续"对话时 Anthropic API 返回 400
       // invalid_request_error。cancel 和 fail 路径都可能留下 orphan，都需要修复
-      await repairOrphanToolUseCheckpoint(run.sessionId, errorMessage)
-        .catch(e => logger.error(`修复 orphan tool_use 失败 (run=${run.id}):`, e))
+      try {
+        const catchResult = await repairOrphanToolUseCheckpoint(run.sessionId, errorMessage)
+        if (catchResult.parseFailures > 0) {
+          logger.error(
+            `[Catch repair] session=${run.sessionId} 有 ${catchResult.parseFailures} 个 scope 的 blob 解析失败，orphan 可能未修`,
+          )
+        }
+      } catch (e) {
+        logger.error(`[Catch repair] 整体失败 (run=${run.id}):`, e)
+      }
 
       await publishStatusChange({
         type: 'status_change',

@@ -134,7 +134,7 @@ INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "i
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (190, 'dashboard-cases-init-analysis', '初始化分析', NULL, '/dashboard/cases/init-analysis', 'f', NULL, NULL, 4, 0, NULL, 0, '2026-04-01 23:40:11.449+08', '2026-04-01 23:40:11.449+08', NULL);
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (191, 'dashboard-cases-init-analysis-:sessionId', '初始化分析', NULL, '/dashboard/cases/init-analysis/:sessionId', 'f', NULL, NULL, 4, 0, NULL, 0, '2026-04-01 23:40:11.449+08', '2026-04-01 23:40:11.449+08', NULL);
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (192, 'dashboard-assistant-chat', '法律助手', '无案件上下文的通用法律助手对话入口', '/dashboard/assistant', 't', NULL, 'lucideIcons.MessageSquareIcon', 1, 4, NULL, 0, '2026-04-17 15:32:55.038+08', '2026-04-17 15:32:55.038+08', NULL);
-INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (193, 'dashboard-assistant-contract', '合同审查', '合同审查（占位，开发中）', '/dashboard/assistant/contract', 't', NULL, 'lucideIcons.FileSearchIcon', 1, 5, NULL, 0, '2026-04-17 15:32:55.063+08', '2026-04-18 22:36:14.172791+08', NULL);
+INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (193, 'dashboard-contract', '合同审查', '合同审查顶级模块', '/dashboard/contract', 't', NULL, 'lucideIcons.FileSearchIcon', 1, 5, NULL, 0, '2026-04-17 15:32:55.063+08', '2026-04-22 10:00:00+08', NULL);
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (194, 'dashboard-document', '文书生成', '法律文书生成（占位，开发中）', '/dashboard/document', 't', NULL, 'lucideIcons.FileTextIcon', 1, 6, NULL, 0, '2026-04-17 15:32:55.067+08', '2026-04-17 15:32:55.067+08', NULL);
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (323, 'admin-document-templates', '文书模板', NULL, '/admin/document-templates', 't', NULL, 'FileTextIcon', 3, 0, '知识库管理', 4, '2026-04-18 11:12:55.785+08', '2026-04-19 08:33:14.458137+08', NULL);
 INSERT INTO "public"."routers" ("id", "name", "title", "description", "path", "is_menu", "parent_id", "icon", "group_id", "sort", "menu_group", "menu_group_sort", "created_at", "updated_at", "deleted_at") VALUES (324, 'dashboard-document-templates', '文书模板', NULL, '/dashboard/document/templates', 'f', NULL, NULL, 4, 0, NULL, 0, '2026-04-18 11:12:55.785+08', '2026-04-18 11:12:55.785+08', NULL);
@@ -1046,10 +1046,10 @@ INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "d
 INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES (9, 'trend', 'analysisModules', '法律合理性审查和判决趋势预测', '法律合理性审查和判决趋势预测', '次', 9, 1, '2026-03-16 20:28:50.427855+08', '2026-03-16 20:28:50.427855+08', NULL, '0.70');
 INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES (10, 'defense', 'analysisModules', '抗辩分析及应对策略预测', '抗辩分析及应对策略预测', '次', 5, 1, '2026-03-16 20:28:50.428246+08', '2026-03-16 20:28:50.428246+08', NULL, '1.00');
 INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES (11, 'evidence', 'analysisModules', '证据清单预梳理', '证据清单预梳理', '次', 7, 1, '2026-03-16 20:28:50.428623+08', '2026-03-16 20:28:50.428623+08', NULL, '0.70');
-INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES (12, 'case_analysis_token', 'agentToken', '案件分析 Token 消耗', '模型调用按 token 用量扣减积分', '千tokens', 10, 1, '2026-03-26 00:00:00+08', '2026-03-26 00:00:00+08', NULL, '1.00');
-INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES (13,'document_draft_token', 'agentToken', '文书生成 token 计费', '文书生成按模型 token 用量扣减积分', '千tokens', 1, 1, '2026-04-17 10:00:00+08', '2026-04-17 10:00:00+08', NULL, '1.00') ON CONFLICT (key) DO NOTHING;
-INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES (14,'contract_review_token', 'agentToken', '合同审查 token 计费', '合同审查按模型 token 用量扣减积分', '千tokens', 1, 1, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL, '1.00') ON CONFLICT (key) DO NOTHING;
-
+INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES (12, 'case_analysis_token', 'agentToken', '案件分析词元消耗', '模型调用按 token 用量扣减积分', '千tokens', 1, 1, '2026-03-26 00:00:00+08', '2026-04-21 00:03:14.221+08', NULL, '0.10');
+INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES (13, 'document_draft_token', 'agentToken', '文书生成词元消耗', '文书生成按模型 token 用量扣减积分', '千tokens', 1, 1, '2026-04-17 10:00:00+08', '2026-04-21 00:03:22.141+08', NULL, '0.10');
+INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES (14, 'contract_review_token', 'agentToken', '合同审查词元消耗', '合同审查按模型 token 用量扣减积分', '千tokens', 1, 1, '2026-04-18 10:00:00+08', '2026-04-22 11:41:50.071+08', NULL, '0.10');
+INSERT INTO "public"."point_consumption_items" ("id", "key", "group", "name", "description", "unit", "point_amount", "status", "created_at", "updated_at", "deleted_at", "discount") VALUES (15, 'assistant_token', 'agentToken', '法律助手词元消耗', '通用法律助手词按模型 token 用量扣减积分', '千tokens', 1, 1, '2026-04-22 11:41:31.823+08', '2026-04-22 11:42:04.801+08', NULL, '0.10');
 
 -- ==================== MinerU Token 种子数据 ====================
 INSERT INTO "public"."mineru_tokens" ("id", "name", "token", "remark", "status", "created_at", "updated_at", "deleted_at") VALUES (1, 'daixin', 'eyJ0eXBlIjoiSldUIiwiYWxnIjoiSFM1MTIifQ.eyJqdGkiOiI0MzMwNTE1MSIsInJvbCI6IlJPTEVfUkVHSVNURVIiLCJpc3MiOiJPcGVuWExhYiIsImlhdCI6MTc3Njc3MDE4NSwiY2xpZW50SWQiOiJsa3pkeDU3bnZ5MjJqa3BxOXgydyIsInBob25lIjoiIiwib3BlbklkIjpudWxsLCJ1dWlkIjoiZWU5MTViOWYtNWFiNi00MTM3LWJhYjctNDAyNGU2OTNjMmQzIiwiZW1haWwiOiJkYWl4aW5tYWlsQHFxLmNvbSIsImV4cCI6MTc4NDU0NjE4NX0.iQ0OCJfyw4-MrmaFus0RvwAYWXKkEQCmkyPeBIGsnryjDBjItETAZcnIXJObQexHhkMVc204bqwWz11gte7tuA', '过期时间 2026-07-20 19:16', 1, '2026-01-07 10:00:00+08', '2026-04-21 19:17:04.167+08', NULL);
@@ -2181,15 +2181,26 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 
 严格按如下 JSON 输出，不要解释、不要代码块标记：
 {"highlights": {"high":[{"text":"...","riskId":"..."}], "medium":[...], "low":[...]}, "overall":"..."}', '["stance", "contractType", "riskList"]', 'v1', 'system', 1, 19, '2026-04-21 20:00:00+08', '2026-04-21 20:00:00+08', NULL);
-INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (28, 'contractReviewAnalyzeClause_system', '合同审查·逐条条款分析提示词 v1', '你正在审查合同（{{contractType}}），站在{{stanceLabel}}立场。
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (28, 'contractReviewAnalyzeClause_system', '合同审查·逐条条款分析提示词 v2', '你正在审查合同（{{contractType}}），站在{{stanceLabel}}立场。
 甲方：{{partyA}}；乙方：{{partyB}}。
 当前条款（第 {{clauseIndex}} 条，编号 {{clauseNumber}}）：
 """
 {{clauseText}}
 """
+
+{{playbookSection}}
+
+## 立场偏好使用规则
+若上方存在审查清单，每条要点标注了"立场:strict/balanced/lenient"，组合判定口径：
+- strict 要点：在用户当前立场下必须严格审查，任何模糊表述都出风险
+- balanced 要点：按一般法律合规性审查，不偏不倚
+- lenient 要点：若属行业商业惯例可接受，则可不报或降级为低风险
+用户立场为"中立"时，所有要点按 balanced 处理。
+
+## 输出要求
 请判断该条款是否有风险。严格按 JSON 输出，字段如下：
 
-- 有风险：
+- 有风险（若违反清单某条，matchedPointCode 填对应 code；清单外风险 matchedPointCode 留空）：
   {
     "risk": {
       "id": "<UUID v4>",
@@ -2201,15 +2212,64 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
       "analysis": "<详细分析>",
       "risk": "<对己方的风险点>",
       "suggestion": "<改进建议>",
-      "suggestedClauseText": "<可选，推荐改写后的条款>"
+      "suggestedClauseText": "<可选，推荐改写后的条款>",
+      "matchedPointCode": "<若命中清单要点，填其 code 原文，如 \"probation\"；否则留空或不返此字段>"
     },
     "skip": false
   }
 
 - 无风险：{ "risk": null, "skip": true }
 
-只输出 JSON，不要任何解释。', '["stanceLabel", "contractType", "partyA", "partyB", "clauseIndex", "clauseNumber", "clauseText"]', 'v1', 'system', 1, 20, '2026-04-21 20:30:00+08', '2026-04-21 20:30:00+08', NULL);
+注意：matchedPointCode 只能使用上方清单里列出的 code 原文，不要编号（如不要写 P1/P2）；清单外风险 matchedPointCode 留空字符串或不返此字段。只输出 JSON，不要任何解释。', '["stanceLabel", "contractType", "partyA", "partyB", "clauseIndex", "clauseNumber", "clauseText", "playbookSection"]', 'v2', 'system', 1, 20, '2026-04-21 20:30:00+08', '2026-04-22 03:00:00+08', NULL);
 
+
+
+-- ==================== 合同审查清单要点（M7 Playbook） ====================
+-- 每个类型预置 1 条占位要点，保证 seedData 可执行；运营在后台补齐其余
+-- 后续法律顾问审校后的要点替换这里的 INSERT 即可
+
+INSERT INTO "public"."contract_playbooks"
+  ("contract_type", "code", "title", "default_level", "stance_preference", "check_content", "legal_basis", "suggestion", "enabled", "created_at", "updated_at")
+VALUES
+  ('劳动合同', 'probation', '试用期约定合规性', 'high', 'strict',
+   '检查合同是否约定试用期；试用期长度是否超过《劳动合同法》第十九条规定的上限（3 个月合同无试用期；3 年以下不超 2 个月；3 年以上不超 6 个月）；试用期工资是否低于转正工资 80% 或低于当地最低工资。',
+   '《劳动合同法》第十九条、第二十条',
+   '建议将试用期调整为不超过法定上限，且试用期工资不低于转正工资 80%。',
+   true, NOW(), NOW()),
+  ('租赁合同', 'rent_increase', '租金调整机制', 'medium', 'balanced',
+   '检查合同是否约定租金调整条款；调整频率、幅度、触发条件是否明确；是否赋予单方面调价权。',
+   '《民法典》第七百零三条、第七百二十一条',
+   '建议约定固定周期（如每 24 个月）调整一次，调整幅度上限不超过 CPI 涨幅。',
+   true, NOW(), NOW()),
+  ('买卖合同', 'delivery_risk', '交付与风险转移', 'high', 'balanced',
+   '检查合同是否明确约定交付时间、地点、方式；风险转移节点是否清晰（交付 vs 所有权转移）；验收标准是否可操作。',
+   '《民法典》第六百零四条、第六百零五条',
+   '建议明确交付地点为"买方指定仓库签收"，风险自签收时转移，验收期 7 日。',
+   true, NOW(), NOW()),
+  ('服务合同', 'acceptance_criteria', '服务验收标准', 'high', 'balanced',
+   '检查合同是否约定明确的服务交付物和验收标准；验收不通过的救济路径是否清晰；尾款支付是否与验收挂钩。',
+   '《民法典》第七百七十二条',
+   '建议将尾款 30% 与验收合格挂钩，验收周期 10 个工作日。',
+   true, NOW(), NOW()),
+  ('借款合同', 'interest_cap', '利率合规性', 'high', 'strict',
+   '检查合同约定的利率、违约金、服务费等综合年化成本是否超过 LPR 的 4 倍（最高人民法院司法解释红线）。',
+   '《最高人民法院关于审理民间借贷案件适用法律若干问题的规定》',
+   '建议将综合年化成本控制在 LPR 4 倍以内，超过部分不受司法保护。',
+   true, NOW(), NOW()),
+  ('保密协议', 'scope_and_term', '保密范围与期限', 'medium', 'balanced',
+   '检查保密范围是否具体（避免过宽的兜底条款）；保密期限是否合理；违反后果是否约定。',
+   '《反不正当竞争法》第九条',
+   '建议保密范围限定为明确列举的技术/商务信息；期限不超过 5 年；违约金设定为实际损失的 2 倍。',
+   true, NOW(), NOW())
+ON CONFLICT (contract_type, code) DO UPDATE SET
+  title            = EXCLUDED.title,
+  default_level    = EXCLUDED.default_level,
+  stance_preference = EXCLUDED.stance_preference,
+  check_content    = EXCLUDED.check_content,
+  legal_basis      = EXCLUDED.legal_basis,
+  suggestion       = EXCLUDED.suggestion,
+  enabled          = EXCLUDED.enabled,
+  updated_at       = NOW();
 
 
 -- 重置所有序列，确保新插入的记录不会与种子数据冲突

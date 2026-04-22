@@ -34,6 +34,7 @@
  * 作为所有异常退出的兜底。
  */
 
+import { AIMessage, AIMessageChunk, ToolMessage, type BaseMessage } from '@langchain/core/messages'
 import { logger } from '#shared/utils/logger'
 
 /**
@@ -180,6 +181,95 @@ function createSyntheticToolMessage(
 }
 
 // ────────────────────────────────────────────────────────────────
+// 运行时消息修复：对内存中的 BaseMessage[] 做 orphan 检测 + 补齐
+// （供 messageIntegrityMiddleware 在 beforeModel 钩子调用，不触及 checkpoint）
+// ────────────────────────────────────────────────────────────────
+
+interface RuntimeToolCall {
+    id: string
+    name?: string
+}
+
+function getRuntimeToolCalls(m: BaseMessage): RuntimeToolCall[] {
+    if (!(m instanceof AIMessage) && !(m instanceof AIMessageChunk)) return []
+    const raw = (m as AIMessage | AIMessageChunk).tool_calls
+    if (!Array.isArray(raw)) return []
+    const result: RuntimeToolCall[] = []
+    for (const tc of raw) {
+        if (!tc || typeof tc !== 'object') continue
+        const id = (tc as { id?: unknown }).id
+        if (typeof id !== 'string') continue
+        result.push({ id, name: (tc as { name?: string }).name })
+    }
+    return result
+}
+
+/**
+ * 纯函数：扫描运行时 BaseMessage 数组，对每个 orphan tool_use 插入合成 ToolMessage
+ *
+ * 与 `repairSerializedMessages` 逻辑完全对齐，但操作对象是反序列化后的 BaseMessage
+ * 实例（middleware.beforeModel 钩子拿到的即时 state）。
+ *
+ * @param messages LangChain BaseMessage 数组（beforeModel 钩子的 state.messages）
+ * @param errorMessage 合成 ToolMessage 的错误描述
+ * @returns `{ patched, fixed }`——修复后的新数组 + orphan 修复数
+ */
+export function repairRuntimeMessages(
+    messages: BaseMessage[],
+    errorMessage: string,
+): { patched: BaseMessage[], fixed: number } {
+    interface RuntimeOrphan {
+        insertAfterIndex: number
+        toolCallId: string
+        toolName: string | undefined
+    }
+    const orphans: RuntimeOrphan[] = []
+
+    for (let i = 0; i < messages.length; i++) {
+        const toolCalls = getRuntimeToolCalls(messages[i]!)
+        if (toolCalls.length === 0) continue
+
+        const matched = new Set<string>()
+        let lastMatchedIndex = i
+        for (let j = i + 1; j < messages.length && matched.size < toolCalls.length; j++) {
+            const next = messages[j]!
+            if (!(next instanceof ToolMessage)) break
+            const tcid = next.tool_call_id
+            if (!tcid || !toolCalls.some(t => t.id === tcid)) break
+            matched.add(tcid)
+            lastMatchedIndex = j
+        }
+
+        for (const tc of toolCalls) {
+            if (!matched.has(tc.id)) {
+                orphans.push({
+                    insertAfterIndex: lastMatchedIndex,
+                    toolCallId: tc.id,
+                    toolName: tc.name,
+                })
+            }
+        }
+    }
+
+    if (orphans.length === 0) return { patched: messages, fixed: 0 }
+
+    // 从后往前插入，避免索引偏移
+    const result = [...messages]
+    const sorted = [...orphans].sort((a, b) => b.insertAfterIndex - a.insertAfterIndex)
+    for (const o of sorted) {
+        const synthetic = new ToolMessage({
+            status: 'error',
+            content: `工具执行被中断：${errorMessage}`,
+            tool_call_id: o.toolCallId,
+            name: o.toolName,
+            id: `repair-${o.toolCallId}`,
+        })
+        result.splice(o.insertAfterIndex + 1, 0, synthetic)
+    }
+    return { patched: result, fixed: orphans.length }
+}
+
+// ────────────────────────────────────────────────────────────────
 // 数据库集成：读取 checkpoint blob → 修复 → 写回
 // ────────────────────────────────────────────────────────────────
 
@@ -192,6 +282,21 @@ interface CheckpointRow {
 interface BlobRow {
     blob: Buffer | null
     type: string
+}
+
+/**
+ * repair 执行结果
+ *
+ * 把"无 orphan"和"扫描失败静默跳过"从 return 0 的混淆里拆开：
+ * - fixed=0 / parseFailures=0：真的干净
+ * - fixed=0 / parseFailures>0：blob 解析失败，orphan 可能存在但未被修（需告警）
+ * - fixed>0：有 orphan 被修掉（正常兜底路径）
+ */
+export interface RepairResult {
+    /** 成功修复的 orphan 总数（跨所有 thread/ns 累加） */
+    fixed: number
+    /** 因 blob 解析失败被跳过的 (thread_id, checkpoint_ns) scope 数；>0 表示漏扫，调用方必须升级告警 */
+    parseFailures: number
 }
 
 /**
@@ -213,16 +318,16 @@ interface BlobRow {
  * 同一工具会从该 thread 读历史，同样会踩 orphan。
  *
  * 直接就地更新 checkpoint_blobs 的对应 version，不创建新 checkpoint、
- * 不影响父子链。幂等：扫过无 orphan 的 scope 返回 0，多次调用无副作用。
+ * 不影响父子链。幂等：扫过无 orphan 的 scope 返回 fixed=0，多次调用无副作用。
  *
  * @param sessionId 会话 ID（对应主 LangGraph thread_id）
  * @param errorMessage 合成 ToolMessage 的错误描述
- * @returns 所有 scope 修复的 orphan 总数；0 表示无需修复
+ * @returns `RepairResult`——fixed 是修复数，parseFailures>0 必须上报
  */
 export async function repairOrphanToolUseCheckpoint(
     sessionId: string,
     errorMessage: string,
-): Promise<number> {
+): Promise<RepairResult> {
     // 1. 枚举该 session 的所有相关 thread_id
     const subPattern = `${sessionId}_sub_%`
     const threads = await prisma.$queryRaw<{ thread_id: string }[]>`
@@ -231,9 +336,10 @@ export async function repairOrphanToolUseCheckpoint(
         WHERE thread_id = ${sessionId}
            OR thread_id LIKE ${subPattern}
     `
-    if (threads.length === 0) return 0
+    if (threads.length === 0) return { fixed: 0, parseFailures: 0 }
 
-    let total = 0
+    let fixed = 0
+    let parseFailures = 0
     for (const { thread_id } of threads) {
         // 2. 枚举该 thread 下所有 checkpoint_ns
         const namespaces = await prisma.$queryRaw<{ checkpoint_ns: string }[]>`
@@ -242,23 +348,27 @@ export async function repairOrphanToolUseCheckpoint(
             WHERE thread_id = ${thread_id}
         `
         for (const { checkpoint_ns } of namespaces) {
-            total += await repairSingleScope(thread_id, checkpoint_ns, errorMessage)
+            const r = await repairSingleScope(thread_id, checkpoint_ns, errorMessage)
+            fixed += r.fixed
+            if (r.parseFailed) parseFailures += 1
         }
     }
-    return total
+    return { fixed, parseFailures }
 }
 
 /**
  * 修复单个 (thread_id, checkpoint_ns) scope 下最新 checkpoint 的 messages blob
  *
- * 内部实现：原 repairOrphanToolUseCheckpoint 的 SQL 逻辑，仅把
- * checkpoint_ns 从硬编码 '' 改为参数化。
+ * 返回 `{ fixed, parseFailed }`：
+ * - 正常无 orphan → `{ fixed: 0, parseFailed: false }`
+ * - 正常修复 N 条 → `{ fixed: N, parseFailed: false }`
+ * - blob 解析失败 → `{ fixed: 0, parseFailed: true }`（orphan 可能存在但未修）
  */
 async function repairSingleScope(
     threadId: string,
     checkpointNs: string,
     errorMessage: string,
-): Promise<number> {
+): Promise<{ fixed: number, parseFailed: boolean }> {
     // 1. 查最新 checkpoint 获取 messages 的 version
     const checkpoints = await prisma.$queryRaw<CheckpointRow[]>`
         SELECT checkpoint
@@ -268,10 +378,10 @@ async function repairSingleScope(
         ORDER BY checkpoint_id DESC
         LIMIT 1
     `
-    if (checkpoints.length === 0) return 0
+    if (checkpoints.length === 0) return { fixed: 0, parseFailed: false }
 
     const messagesVersion = checkpoints[0]!.checkpoint?.channel_versions?.messages
-    if (messagesVersion === undefined || messagesVersion === null) return 0
+    if (messagesVersion === undefined || messagesVersion === null) return { fixed: 0, parseFailed: false }
 
     const versionStr = String(messagesVersion)
 
@@ -284,7 +394,9 @@ async function repairSingleScope(
           AND channel = 'messages'
           AND version = ${versionStr}
     `
-    if (blobs.length === 0 || !blobs[0]!.blob || blobs[0]!.type !== 'json') return 0
+    if (blobs.length === 0 || !blobs[0]!.blob || blobs[0]!.type !== 'json') {
+        return { fixed: 0, parseFailed: false }
+    }
 
     // 3. 反序列化、修复、序列化
     // LangGraph 存储的 JSON blob 可能含尾部 null bytes（参见 langgraph-checkpoint-postgres
@@ -293,15 +405,19 @@ async function repairSingleScope(
     try {
         const jsonStr = blobs[0]!.blob.toString('utf8').replace(/\0/g, '')
         const parsed = JSON.parse(jsonStr)
-        if (!Array.isArray(parsed)) return 0
+        if (!Array.isArray(parsed)) return { fixed: 0, parseFailed: false }
         messages = parsed
     } catch (err) {
-        logger.warn(`[repairOrphanToolUse] thread=${threadId} ns='${checkpointNs}' JSON parse 失败，跳过`, err)
-        return 0
+        // 升级到 error：解析失败意味着 orphan 可能存在但未修；需要被监控系统捕获
+        logger.error(
+            `[repairOrphanToolUse] thread=${threadId} ns='${checkpointNs}' JSON parse 失败，orphan 漏扫`,
+            err,
+        )
+        return { fixed: 0, parseFailed: true }
     }
 
     const { patched, count } = repairSerializedMessages(messages, errorMessage)
-    if (count === 0) return 0
+    if (count === 0) return { fixed: 0, parseFailed: false }
 
     // 4. 写回同一 version 的 blob
     const patchedBuffer = Buffer.from(JSON.stringify(patched), 'utf8')
@@ -317,5 +433,5 @@ async function repairSingleScope(
     logger.info(
         `[repairOrphanToolUse] thread=${threadId} ns='${checkpointNs}' 修复 ${count} 个 orphan tool_use`,
     )
-    return count
+    return { fixed: count, parseFailed: false }
 }

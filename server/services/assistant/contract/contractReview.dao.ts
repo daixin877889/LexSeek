@@ -46,6 +46,17 @@ export async function updateContractReviewDAO(
 }
 
 /**
+ * 软删除审查：把 deletedAt 置为 now，列表读接口自动过滤。
+ * 不级联：相关 ossFiles / risks JSON 仍保留（便于超管排查）。
+ */
+export async function softDeleteContractReviewDAO(id: number): Promise<contractReviews> {
+    return prisma.contractReviews.update({
+        where: { id },
+        data: { deletedAt: new Date(), updatedAt: new Date() },
+    })
+}
+
+/**
  * 全量替换 risks 字段 + 置 hasUnsavedDocxChanges=true。
  *
  * 仅 PATCH /reviews/:id 端点调用；risks 与脏位必须原子写入，避免两次 UPDATE
@@ -205,6 +216,8 @@ export async function listUserReviewsDAO(
                 stance: true,
                 status: true,
                 summary: true,
+                // risks 只用于派生 highRiskCount / mediumRiskCount / totalRiskCount，不向前端回传
+                risks: true,
                 originalFileId: true,
                 hasUnsavedDocxChanges: true,
                 createdAt: true,
@@ -227,22 +240,30 @@ export async function listUserReviewsDAO(
         }
     }
 
-    const items: ReviewListItem[] = rows.map(r => ({
-        id: r.id,
-        sessionId: r.sessionId,
-        caseId: r.caseId,
-        contractType: r.contractType,
-        partyA: r.partyA,
-        partyB: r.partyB,
-        stance: r.stance,
-        status: r.status,
-        // M6.1 Task 1.3：summary 现为 ContractOverview JSON，列表项仍返回字符串预览，从 overall 字段截取
-summary: extractSummaryPreview(r.summary, SUMMARY_TRUNCATE),
-        originalFileName: fileNameMap.get(r.originalFileId) ?? null,
-        hasUnsavedDocxChanges: r.hasUnsavedDocxChanges,
-        createdAt: r.createdAt,
-        updatedAt: r.updatedAt,
-    }))
+    const items: ReviewListItem[] = rows.map((r) => {
+        const risksArr = Array.isArray(r.risks) ? r.risks as Array<{ level?: string }> : []
+        const highRiskCount = risksArr.filter(x => x?.level === 'high').length
+        const mediumRiskCount = risksArr.filter(x => x?.level === 'medium').length
+        return {
+            id: r.id,
+            sessionId: r.sessionId,
+            caseId: r.caseId,
+            contractType: r.contractType,
+            partyA: r.partyA,
+            partyB: r.partyB,
+            stance: r.stance,
+            status: r.status,
+            // M6.1 Task 1.3：summary 现为 ContractOverview JSON，列表项仍返回字符串预览，从 overall 字段截取
+            summary: extractSummaryPreview(r.summary, SUMMARY_TRUNCATE),
+            originalFileName: fileNameMap.get(r.originalFileId) ?? null,
+            hasUnsavedDocxChanges: r.hasUnsavedDocxChanges,
+            highRiskCount,
+            mediumRiskCount,
+            totalRiskCount: risksArr.length,
+            createdAt: r.createdAt,
+            updatedAt: r.updatedAt,
+        }
+    })
 
     return { items, total }
 }
@@ -312,6 +333,7 @@ export async function listAdminReviewsDAO(
                 stance: true,
                 status: true,
                 summary: true,
+                risks: true,
                 originalFileId: true,
                 hasUnsavedDocxChanges: true,
                 createdAt: true,
@@ -335,26 +357,34 @@ export async function listAdminReviewsDAO(
         }
     }
 
-    const items: AdminReviewListItem[] = rows.map(r => ({
-        id: r.id,
-        sessionId: r.sessionId,
-        caseId: r.caseId,
-        contractType: r.contractType,
-        partyA: r.partyA,
-        partyB: r.partyB,
-        stance: r.stance,
-        status: r.status,
-        // M6.1 Task 1.3：summary 现为 ContractOverview JSON，列表项仍返回字符串预览，从 overall 字段截取
-summary: extractSummaryPreview(r.summary, SUMMARY_TRUNCATE),
-        originalFileName: fileNameMap.get(r.originalFileId) ?? null,
-        hasUnsavedDocxChanges: r.hasUnsavedDocxChanges,
-        createdAt: r.createdAt,
-        updatedAt: r.updatedAt,
-        userId: r.userId,
-        userPhone: r.user?.phone ?? null,
-        userNickname: r.user?.name ?? null,
-        deletedAt: r.deletedAt,
-    }))
+    const items: AdminReviewListItem[] = rows.map((r) => {
+        const risksArr = Array.isArray(r.risks) ? r.risks as Array<{ level?: string }> : []
+        const highRiskCount = risksArr.filter(x => x?.level === 'high').length
+        const mediumRiskCount = risksArr.filter(x => x?.level === 'medium').length
+        return {
+            id: r.id,
+            sessionId: r.sessionId,
+            caseId: r.caseId,
+            contractType: r.contractType,
+            partyA: r.partyA,
+            partyB: r.partyB,
+            stance: r.stance,
+            status: r.status,
+            // M6.1 Task 1.3：summary 现为 ContractOverview JSON，列表项仍返回字符串预览，从 overall 字段截取
+            summary: extractSummaryPreview(r.summary, SUMMARY_TRUNCATE),
+            originalFileName: fileNameMap.get(r.originalFileId) ?? null,
+            hasUnsavedDocxChanges: r.hasUnsavedDocxChanges,
+            highRiskCount,
+            mediumRiskCount,
+            totalRiskCount: risksArr.length,
+            createdAt: r.createdAt,
+            updatedAt: r.updatedAt,
+            userId: r.userId,
+            userPhone: r.user?.phone ?? null,
+            userNickname: r.user?.name ?? null,
+            deletedAt: r.deletedAt,
+        }
+    })
 
     return { items, total }
 }

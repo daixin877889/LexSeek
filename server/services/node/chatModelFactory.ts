@@ -39,7 +39,17 @@ export interface ChatModelConfig {
     streaming?: boolean
     /** 是否启用 extended thinking（仅 anthropic SDK 生效） */
     thinking?: boolean
+    /**
+     * 单次调用输出 tokens 上限（max_tokens）。
+     *
+     * 不传时使用各 SDK 合理默认值（8192），避免默认 4096 导致证据清单、辩护思路等
+     * 长报告模块被硬截断在 stop_reason='max_tokens'。
+     */
+    maxTokens?: number
 }
+
+/** 各 SDK 的 output tokens 默认上限（取各厂商 API 支持的较大合理值） */
+const DEFAULT_MAX_TOKENS = 8192
 
 // ============================================================================
 // 模型创建器映射
@@ -62,6 +72,7 @@ const modelCreators: Record<SdkType, (config: ChatModelConfig) => BaseChatModel>
             configuration: config.baseUrl ? { baseURL: config.baseUrl } : undefined,
             temperature: config.temperature ?? 0.7,
             streaming: config.streaming ?? true,
+            maxTokens: config.maxTokens ?? DEFAULT_MAX_TOKENS,
         })
     },
 
@@ -77,6 +88,7 @@ const modelCreators: Record<SdkType, (config: ChatModelConfig) => BaseChatModel>
             configuration: config.baseUrl ? { baseURL: config.baseUrl } : undefined,
             temperature: config.temperature ?? 0.7,
             streaming: config.streaming ?? true,
+            maxTokens: config.maxTokens ?? DEFAULT_MAX_TOKENS,
         })
     },
 
@@ -93,6 +105,7 @@ const modelCreators: Record<SdkType, (config: ChatModelConfig) => BaseChatModel>
             baseUrl: config.baseUrl,
             temperature: config.temperature ?? 0.7,
             streaming: config.streaming ?? true,
+            maxOutputTokens: config.maxTokens ?? DEFAULT_MAX_TOKENS,
             ...(config.thinking && {
                 thinkingConfig: { thinkingBudget: 10_000 },
             }),
@@ -111,6 +124,7 @@ const modelCreators: Record<SdkType, (config: ChatModelConfig) => BaseChatModel>
             anthropicApiUrl: config.baseUrl,
             temperature: config.thinking ? 1 : (config.temperature ?? 0.7),
             streaming: config.streaming ?? true,
+            maxTokens: config.maxTokens ?? DEFAULT_MAX_TOKENS,
             ...(config.thinking && {
                 thinking: { type: 'enabled' as const, budget_tokens: 10_000 },
             }),

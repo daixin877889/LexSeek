@@ -11,3 +11,5 @@ export { reviewResultPersistenceMiddleware } from './reviewResultPersistence.mid
 export { createScopeGuardMiddleware } from './scopeGuard.middleware'
 export { createAuditMiddleware } from './audit.middleware'
 export { createToolCallLimitMiddlewares } from './toolCallLimit.middleware'
+// 消息完整性兜底：beforeModel 补齐 orphan tool_use，防 Provider 400
+export { createMessageIntegrityMiddleware } from './messageIntegrity.middleware'

@@ -31,17 +31,6 @@ const BLACKLIST_PATTERNS = [
     '### Instruction:', '### Response:', // Alpaca / Vicuna
 ]
 
-/** 单会话最多记录的写入路径数（防止 write_skill_file 刷新字符串 OOM） */
-const MAX_WRITTEN_PATHS_PER_SESSION = 200
-
-/** 会话 → 已通过 write_skill_file 写入的相对路径集合（upload 强约束依赖） */
-const sessionWrittenFiles = new Map<string, Set<string>>()
-
-/** 导出给测试的重置函数（仅测试用；生产不应调用） */
-export function _resetSessionWrittenFiles(): void {
-    sessionWrittenFiles.clear()
-}
-
 /** 递归扫描 JSON 对象，返回命中黑名单的 token（或 null） */
 function scanBlacklist(value: unknown): string | null {
     if (typeof value === 'string') {
@@ -105,26 +94,17 @@ const TOOL_RULES: Record<string, ToolRule> = {
         return null
     },
 
-    write_skill_file: (args, ctx, id) => {
+    write_skill_file: (args, _ctx, id) => {
         if (isPathUnsafe(args.path)) return deny(id, '非法路径')
-        // 记录本会话已写入的相对路径，供 upload_workspace_file 强约束使用
-        const set = sessionWrittenFiles.get(ctx.sessionId) ?? new Set<string>()
-        // TODO(task 6 装配): 在 agent 会话结束时清理对应 sessionId 的 Set；当前方案只做单会话上限防御
-        if (set.size >= MAX_WRITTEN_PATHS_PER_SESSION) {
-            return deny(id, `单会话写入路径数已达上限 ${MAX_WRITTEN_PATHS_PER_SESSION}，请减少写入`)
-        }
-        set.add(String(args.path))
-        sessionWrittenFiles.set(ctx.sessionId, set)
         return null
     },
 
-    upload_workspace_file: (args, ctx, id) => {
-        const fp = args.filePath
-        if (isPathUnsafe(fp)) return deny(id, '非法路径')
-        const set = sessionWrittenFiles.get(ctx.sessionId)
-        if (!set || !set.has(String(fp))) {
-            return deny(id, '必须先通过 write_skill_file 写入，才能上传同一文件')
-        }
+    upload_workspace_file: (args, _ctx, id) => {
+        // upload_workspace_file 工具本身已通过 WORKSPACE_BASE/{sessionId} 做会话隔离，
+        // 且内部会做 `fullPath.startsWith(workspaceDir + '/')` 二次边界检查；
+        // 这里只兜底一次参数层路径安全校验，不再强制 "必须先写入" ——
+        // skill 脚本（如 minimax-docx）生成的文件也属于合法上传来源。
+        if (isPathUnsafe(args.filePath)) return deny(id, '非法路径')
         return null
     },
 

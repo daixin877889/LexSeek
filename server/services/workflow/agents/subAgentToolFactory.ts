@@ -14,8 +14,8 @@ import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import {
     createAuditMiddleware,
+    createMessageIntegrityMiddleware,
     createScopeGuardMiddleware,
-    createToolCallLimitMiddlewares,
     pointConsumptionMiddleware,
     analysisResultPersistenceMiddleware,
     safetyTrimMiddleware,
@@ -204,8 +204,9 @@ export async function createSubAgentTools(
                         checkpointer,
                         store,
                         middleware: [
+                            // 消息完整性兜底必须最先：子 agent 独立 thread 同样会遗留 orphan tool_use
+                            createMessageIntegrityMiddleware(),
                             createScopeGuardMiddleware(),
-                            ...createToolCallLimitMiddlewares(),
                             pointConsumptionMiddleware(context.userId, 'case_analysis_token', context.sessionId),
                             summarizationMiddleware({
                                 model,

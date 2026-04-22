@@ -1,0 +1,28 @@
+/// 合同审查清单要点（按合同类型维护）
+/// v1 不支持硬删除，只通过 enabled=false 停用
+model contractPlaybooks {
+  id               Int      @id @default(autoincrement())
+  /// 合同类型；与 CONTRACT_TYPE_OPTIONS 对齐的字符串，DB 不加外键约束
+  contractType     String   @map("contract_type") @db.VarChar(50)
+  /// 稳定标识，快照引用使用（如 "probation"、"overtime"）
+  code             String   @db.VarChar(20)
+  /// 要点简称
+  title            String   @db.VarChar(30)
+  /// AI 判定风险级别的基线：high / medium / low
+  defaultLevel     String   @map("default_level") @db.VarChar(10)
+  /// 要点客观严格度：strict / balanced / lenient；默认 balanced
+  stancePreference String   @default("balanced") @map("stance_preference") @db.VarChar(10)
+  /// 给 AI 的指导语
+  checkContent     String   @map("check_content") @db.Text
+  /// 法律依据（可选）
+  legalBasis       String?  @map("legal_basis") @db.Text
+  /// 标准建议（可选，#4 追踪修订会用作修订文本基线）
+  suggestion       String?  @db.Text
+  enabled          Boolean  @default(true)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([contractType, code], map: "idx_contract_playbooks_type_code")
+  @@index([contractType, enabled, code], map: "idx_contract_playbooks_lookup")
+  @@map("contract_playbooks")
+}

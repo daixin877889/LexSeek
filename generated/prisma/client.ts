@@ -115,11 +115,33 @@ export type demoCases = Prisma.demoCasesModel
  */
 export type caseMaterialEmbeddings = Prisma.caseMaterialEmbeddingsModel
 /**
+ * Model contractPlaybooks
+ * 合同审查清单要点（按合同类型维护）
+ * v1 不支持硬删除，只通过 enabled=false 停用
+ */
+export type contractPlaybooks = Prisma.contractPlaybooksModel
+/**
  * Model contractReviews
  * 合同审查记录表
  * caseId 可空：null 表示独立审查（assistant 入口），非 null 表示归属某案件（案件详情 Tab 入口）
  */
 export type contractReviews = Prisma.contractReviewsModel
+/**
+ * Model contractReviewVersions
+ * 合同审查历史版本快照（不可变）
+ */
+export type contractReviewVersions = Prisma.contractReviewVersionsModel
+/**
+ * Model contractRisks
+ * 合同审查风险（工作区实时态）
+ */
+export type contractRisks = Prisma.contractRisksModel
+/**
+ * Model contractAnnotations
+ * 合同审查批注（对话气泡单元）
+ * 决策 11 铁律：批注永不物理删除。律师删自己批注走软删（deletedAt）。
+ */
+export type contractAnnotations = Prisma.contractAnnotationsModel
 /**
  * Model documentTemplates
  * 文书模板表 - 存储可复用的法律文书模板

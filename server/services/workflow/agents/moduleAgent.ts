@@ -21,8 +21,8 @@ import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import {
     createAuditMiddleware,
+    createMessageIntegrityMiddleware,
     createScopeGuardMiddleware,
-    createToolCallLimitMiddlewares,
     pointConsumptionMiddleware,
 } from '../middleware'
 import { moduleContextMiddleware } from '../middleware/moduleContext.middleware'
@@ -140,8 +140,9 @@ export async function runModuleChat(
         store,
         tools: allTools,
         middleware: [
+            // 消息完整性兜底必须最先：防止 orphan tool_use 引发 Provider 400
+            createMessageIntegrityMiddleware(),
             createScopeGuardMiddleware(),
-            ...createToolCallLimitMiddlewares(),
             pointConsumptionMiddleware(userId, 'case_analysis_token', sessionId),
             moduleContextMiddleware(caseId, moduleName),
             summarizationMiddleware({
