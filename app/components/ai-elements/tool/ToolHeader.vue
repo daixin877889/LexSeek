@@ -35,13 +35,17 @@ const derivedName = computed(() =>
     "
     v-bind="$attrs"
   >
-    <div class="flex items-center gap-2">
+    <div class="flex min-w-0 items-center gap-2">
       <WrenchIcon class="size-4 text-muted-foreground" />
       <span class="font-medium text-sm">{{ props.title ?? derivedName }}</span>
       <StatusBadge :state="props.state" />
     </div>
-    <ChevronDownIcon
-      class="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
-    />
+    <div class="flex items-center gap-2">
+      <!-- 工具组件可通过 extra slot 在右侧追加结果数等辅助信息 -->
+      <slot name="extra" />
+      <ChevronDownIcon
+        class="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180"
+      />
+    </div>
   </CollapsibleTrigger>
 </template>

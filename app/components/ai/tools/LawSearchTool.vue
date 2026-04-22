@@ -25,7 +25,11 @@ function formatChapter(hierarchy: unknown): string {
 
 <template>
     <AiElementsTool>
-        <AiElementsToolHeader title="法律检索" type="tool-search_law" :state="state" />
+        <AiElementsToolHeader title="法律检索" type="tool-search_law" :state="state">
+            <template v-if="state === 'output-available' && results.length" #extra>
+                <span class="text-xs text-muted-foreground">找到 {{ results.length }} 条结果</span>
+            </template>
+        </AiElementsToolHeader>
         <AiElementsToolContent v-if="input || output != null">
             <div class="p-4 space-y-3">
                 <div v-if="input" class="flex items-center gap-2">

@@ -24,8 +24,10 @@ const emit = defineEmits<{
   </AiElementsMessage>
 
   <!-- AI 消息 -->
+  <!-- MessageContent 默认 w-fit 会让工具卡片按内容宽度自适应，导致同一工具在不同消息里宽度不一。
+       这里覆盖为 w-full，让所有工具调用与消息容器同宽（max-w-[80%]） -->
   <AiElementsMessage v-else-if="msg.type === 'ai'" from="assistant" class="max-w-full">
-    <AiElementsMessageContent>
+    <AiElementsMessageContent class="w-full">
       <!-- 思考过程 -->
       <AiElementsReasoning v-if="msg.thinking" :is-streaming="loading && isLast">
         <AiElementsReasoningTrigger />
