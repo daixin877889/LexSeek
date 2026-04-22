@@ -140,7 +140,15 @@ onMounted(async () => {
 </script>
 
 <template>
-    <div class="flex h-full">
+    <div class="flex flex-col h-full gap-4">
+        <!-- 页面标题 -->
+        <div>
+            <h1 class="text-2xl md:text-3xl font-bold mb-1">审查清单管理</h1>
+            <p class="text-muted-foreground text-sm">按合同类型维护审查要点，AI 逐条审查时会对照清单产出命中结果</p>
+        </div>
+
+        <!-- 正文：左右分栏 -->
+        <div class="flex flex-1 min-h-0 border rounded-lg overflow-hidden bg-card">
         <!-- 左侧类型 Tab -->
         <div class="w-[200px] shrink-0 border-r bg-card p-2 space-y-1">
             <button
@@ -206,6 +214,7 @@ onMounted(async () => {
                     </TableBody>
                 </Table>
             </div>
+        </div>
         </div>
 
         <!-- 编辑抽屉 -->

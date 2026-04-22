@@ -299,10 +299,10 @@ function handleContainerClick(e: MouseEvent) {
                         />
                         <div
                             v-if="showBusy"
-                            class="flex items-center gap-2 p-3 border-b text-sm text-muted-foreground"
+                            class="flex items-center gap-2 px-3 py-2 border-b border-primary/30 bg-primary/10 dark:bg-primary/15 text-sm font-medium text-primary"
                         >
-                            <Loader2Icon class="size-4 animate-spin" />
-                            <span>{{ statusLabel }}</span>
+                            <Loader2Icon class="size-4 animate-spin shrink-0" />
+                            <span class="animate-pulse">{{ statusLabel }}</span>
                         </div>
                         <AssistantContractRiskListPanel
                             :risks="review?.risks ?? []"
@@ -350,10 +350,10 @@ function handleContainerClick(e: MouseEvent) {
                     />
                     <div
                         v-if="showBusy"
-                        class="flex items-center gap-2 p-3 border-b text-sm text-muted-foreground"
+                        class="flex items-center gap-2 px-3 py-2 border-b border-primary/30 bg-primary/10 dark:bg-primary/15 text-sm font-medium text-primary"
                     >
-                        <Loader2Icon class="size-4 animate-spin" />
-                        <span>{{ statusLabel }}</span>
+                        <Loader2Icon class="size-4 animate-spin shrink-0" />
+                        <span class="animate-pulse">{{ statusLabel }}</span>
                     </div>
                     <AssistantContractRiskListPanel
                         :risks="review?.risks ?? []"
