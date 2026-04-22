@@ -137,6 +137,12 @@ export interface ReviewListItem {
     summary: string | null
     originalFileName: string | null
     hasUnsavedDocxChanges: boolean
+    /** 高风险条目数（后端从 risks JSONB 派生，列表页用于展示） */
+    highRiskCount: number
+    /** 中风险条目数 */
+    mediumRiskCount: number
+    /** 总风险数 */
+    totalRiskCount: number
     createdAt: Date
     updatedAt: Date
 }
