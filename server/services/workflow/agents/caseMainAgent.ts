@@ -19,7 +19,6 @@ import {
     createAuditMiddleware,
     createMessageIntegrityMiddleware,
     createScopeGuardMiddleware,
-    createToolCallLimitMiddlewares,
     pointConsumptionMiddleware,
     caseProcessMaterialMiddleware,
     moduleContextMiddleware,
@@ -148,7 +147,6 @@ export async function runCaseChat(
             // 消息完整性兜底必须最先：防止 orphan tool_use 流入其他 middleware 或模型
             createMessageIntegrityMiddleware(),
             createScopeGuardMiddleware(),
-            ...createToolCallLimitMiddlewares(),
             pointConsumptionMiddleware(userId, 'case_analysis_token', sessionId),
             caseProcessMaterialMiddleware(userId, caseId),
             moduleContextMiddleware(caseId),

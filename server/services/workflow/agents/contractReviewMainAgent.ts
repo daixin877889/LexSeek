@@ -52,7 +52,6 @@ import {
     reviewResultPersistenceMiddleware,
     createMessageIntegrityMiddleware,
     createScopeGuardMiddleware,
-    createToolCallLimitMiddlewares,
     createAuditMiddleware,
     buildMiddlewareStack,
     MIDDLEWARE_PRIORITY,
@@ -255,11 +254,6 @@ export async function runContractReviewChat(
             priority: MIDDLEWARE_PRIORITY.SCOPE_GUARD,
             name: MIDDLEWARE_NAMES.SCOPE_GUARD,
         },
-        ...createToolCallLimitMiddlewares().map((mw, idx) => ({
-            middleware: mw,
-            priority: MIDDLEWARE_PRIORITY.TOOL_CALL_LIMIT,
-            name: `${MIDDLEWARE_NAMES.TOOL_CALL_LIMIT}:${idx}`,
-        })),
         {
             middleware: pointConsumptionMiddleware(userId, 'contract_review_token', sessionId),
             priority: MIDDLEWARE_PRIORITY.POINT_CONSUMPTION,
