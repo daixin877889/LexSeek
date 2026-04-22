@@ -1,0 +1,59 @@
+/**
+ * POST /api/v1/assistant/contract/reviews/:id/annotations
+ *
+ * 新增律师批注（针对特定风险的回复）。
+ *
+ * 请求体：
+ * - riskId: number（必填）
+ * - content: string（必填，1-2000 字）
+ * - parentAnnotationId?: number | null（父批注 ID，用于对话线）
+ *
+ * 错误码：
+ * - 400：参数错误
+ * - 401：未登录
+ * - 403：审查不属于当前用户
+ * - 404：审查/风险不存在
+ */
+
+import { z } from 'zod'
+import { loadOwnedReview } from '~~/server/services/assistant/contract/reviewGuard'
+import { createLawyerAnnotationService } from '~~/server/services/assistant/contract/contractAnnotation.service'
+
+const bodySchema = z.object({
+    riskId: z.number().int().positive(),
+    content: z.string().trim().min(1).max(2000),
+    parentAnnotationId: z.number().int().positive().nullish(),
+})
+
+export default defineEventHandler(async (event) => {
+    const guard = await loadOwnedReview(event, { actionLabel: '新增批注' })
+    if (!guard.ok) return resError(event, guard.status, guard.message)
+
+    const { user, review } = guard
+
+    const raw = await readBody(event)
+    const parsed = bodySchema.safeParse(raw)
+    if (!parsed.success) return resError(event, 400, parsed.error.issues[0]?.message ?? '参数错误')
+
+    const result = await createLawyerAnnotationService({
+        reviewId: review.id,
+        riskId: parsed.data.riskId,
+        content: parsed.data.content,
+        parentAnnotationId: parsed.data.parentAnnotationId ?? null,
+        user: { id: user.id, name: (user as { name?: string }).name ?? '律师' },
+    })
+
+    if ('error' in result) return resError(event, 404, '风险不存在或不属于该审查')
+
+    const { annotation } = result
+    return resSuccess(event, '已发送', {
+        id: annotation.id,
+        riskId: annotation.riskId,
+        parentAnnotationId: annotation.parentAnnotationId,
+        authorType: annotation.authorType,
+        authorName: annotation.authorName,
+        authorUserId: annotation.authorUserId,
+        content: annotation.content,
+        createdAt: annotation.createdAt.toISOString(),
+    })
+})
