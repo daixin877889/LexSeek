@@ -12,4 +12,9 @@ export default defineConfig({
   datasource: {
     url: process.env["DATABASE_URL"],
   },
+  // 添加 generator 配置
+  generator: {
+    provider: "prisma-client-js",
+    previewFeatures: ["partialIndexes"]
+  }
 });
