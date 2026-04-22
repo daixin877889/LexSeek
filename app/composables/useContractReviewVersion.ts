@@ -27,6 +27,21 @@ export interface WorkspaceState {
     maxVersionNo: number
 }
 
+/** GET /reviews/:id 响应中每条 risk 附带内联 annotations */
+type WorkspaceApiResponse = {
+    risks: Array<ContractRiskEntity & { annotations?: ContractAnnotationEntity[] }>
+    currentVersionId: number | null
+    maxVersionNo: number
+}
+
+/** 返回 ISO 时间字符串数组中最大时间戳（毫秒），空数组返回 0 */
+function maxTimestamp(dates: string[]): number {
+    return dates.reduce((acc, d) => {
+        const t = new Date(d).getTime()
+        return t > acc ? t : acc
+    }, 0)
+}
+
 export function useContractReviewVersion(reviewId: Ref<number>) {
     const workspace = ref<WorkspaceState>({
         risks: [],
@@ -59,9 +74,9 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
 
     /** 从服务端拉取工作区数据，摊平 annotations */
     async function refreshWorkspace() {
-        const resp = await useApiFetch<any>(`/api/v1/assistant/contract/reviews/${reviewId.value}`)
+        const resp = await useApiFetch<WorkspaceApiResponse>(`/api/v1/assistant/contract/reviews/${reviewId.value}`)
         if (!resp) return
-        const risksWithAnnotations = (resp.risks ?? []) as Array<ContractRiskEntity & { annotations?: ContractAnnotationEntity[] }>
+        const risksWithAnnotations = resp.risks ?? []
         workspace.value.risks = risksWithAnnotations.map(({ annotations: _annotations, ...rest }) => rest)
         workspace.value.annotations = risksWithAnnotations.flatMap(r => r.annotations ?? [])
         workspace.value.currentVersionId = resp.currentVersionId ?? null
@@ -113,7 +128,6 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
             { method: 'PATCH', body: { archivedStatus } },
         )
         if (resp) {
-            // 乐观更新本地状态
             const risk = workspace.value.risks.find(r => r.id === riskId)
             if (risk) {
                 risk.archivedStatus = archivedStatus
@@ -159,7 +173,6 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
     /** 编辑批注内容（走 debounce，高频输入合并后统一提交） */
     async function updateAnnotation(annotationId: number, content: string) {
         if (isReadOnly.value) return
-        // 乐观更新，UI 即时响应
         const ann = workspace.value.annotations.find(a => a.id === annotationId)
         if (ann) ann.content = content
         pendingAnnotationContent.set(annotationId, content)
@@ -197,18 +210,13 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
     const hasUnsavedEdits = computed(() => {
         if (isReadOnly.value) return false
         if (!workspace.value.currentVersionId) return false
-        const latestRisk = workspace.value.risks.reduce((acc, r) => {
-            const t = new Date(r.updatedAt).getTime()
-            return t > acc ? t : acc
-        }, 0)
-        const latestAnn = workspace.value.annotations.reduce((acc, a) => {
-            const t = new Date(a.createdAt).getTime()
-            return t > acc ? t : acc
-        }, 0)
+        const latestEdit = Math.max(
+            maxTimestamp(workspace.value.risks.map(r => r.updatedAt)),
+            maxTimestamp(workspace.value.annotations.map(a => a.createdAt)),
+        )
         const currentVer = versions.value.find(v => v.id === workspace.value.currentVersionId)
         if (!currentVer) return false
-        const verTime = new Date(currentVer.createdAt).getTime()
-        return Math.max(latestRisk, latestAnn) > verTime
+        return latestEdit > new Date(currentVer.createdAt).getTime()
     })
 
     return {

@@ -92,6 +92,24 @@ function makeVersion(id: number, reviewId: number = 1, versionNumber: number = 1
     }
 }
 
+function makeSnap(overrides: { risks?: any[]; annotations?: any[]; docxText?: string } = {}) {
+    return {
+        id: 5,
+        reviewId: 1,
+        versionNumber: 1,
+        systemLabel: 'initial_upload' as const,
+        lawyerNote: null,
+        createdById: 1,
+        createdByName: '张三',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        snapshot: {
+            risks: overrides.risks ?? [],
+            annotations: overrides.annotations ?? [],
+            docxText: overrides.docxText ?? '',
+        },
+    }
+}
+
 function makeWorkspaceResponse(opts: { risks?: any[]; currentVersionId?: number | null; maxVersionNo?: number } = {}) {
     const risk = makeRisk(1)
     const ann = makeAnnotation(1, 1)
@@ -178,22 +196,11 @@ describe('useContractReviewVersion enterPreview / exitPreview', () => {
     beforeEach(() => { mockFetch.mockReset() })
 
     it('enterPreview 成功后 isReadOnly=true，previewSnapshot 有值', async () => {
-        const snap = {
-            id: 5,
-            reviewId: 1,
-            versionNumber: 1,
-            systemLabel: 'initial_upload' as const,
-            lawyerNote: null,
-            createdById: 1,
-            createdByName: '张三',
-            createdAt: '2026-01-01T00:00:00.000Z',
-            snapshot: {
-                risks: [makeRisk(10)],
-                annotations: [makeAnnotation(20, 10)],
-                docxText: '合同原文',
-            },
-        }
-        mockFetch.mockResolvedValueOnce(snap)
+        mockFetch.mockResolvedValueOnce(makeSnap({
+            risks: [makeRisk(10)],
+            annotations: [makeAnnotation(20, 10)],
+            docxText: '合同原文',
+        }))
 
         const c = useContractReviewVersion(ref(1))
         expect(c.isReadOnly.value).toBe(false)
@@ -214,18 +221,7 @@ describe('useContractReviewVersion enterPreview / exitPreview', () => {
     })
 
     it('exitPreview 清除 previewVersionId 和 previewSnapshot', async () => {
-        const snap = {
-            id: 5,
-            reviewId: 1,
-            versionNumber: 1,
-            systemLabel: 'initial_upload' as const,
-            lawyerNote: null,
-            createdById: 1,
-            createdByName: '张三',
-            createdAt: '2026-01-01T00:00:00.000Z',
-            snapshot: { risks: [], annotations: [], docxText: '' },
-        }
-        mockFetch.mockResolvedValueOnce(snap)
+        mockFetch.mockResolvedValueOnce(makeSnap())
 
         const c = useContractReviewVersion(ref(1))
         await c.enterPreview(5)
@@ -239,22 +235,7 @@ describe('useContractReviewVersion enterPreview / exitPreview', () => {
     })
 
     it('currentView 在预览态返回快照数据', async () => {
-        const snap = {
-            id: 5,
-            reviewId: 1,
-            versionNumber: 1,
-            systemLabel: 'initial_upload' as const,
-            lawyerNote: null,
-            createdById: 1,
-            createdByName: '张三',
-            createdAt: '2026-01-01T00:00:00.000Z',
-            snapshot: {
-                risks: [makeRisk(77)],
-                annotations: [],
-                docxText: '历史合同正文',
-            },
-        }
-        mockFetch.mockResolvedValueOnce(snap)
+        mockFetch.mockResolvedValueOnce(makeSnap({ risks: [makeRisk(77)], docxText: '历史合同正文' }))
 
         const c = useContractReviewVersion(ref(1))
         await c.enterPreview(5)
@@ -268,18 +249,7 @@ describe('useContractReviewVersion 只读态守护', () => {
     beforeEach(() => { mockFetch.mockReset() })
 
     async function mountInPreview() {
-        const snap = {
-            id: 5,
-            reviewId: 1,
-            versionNumber: 1,
-            systemLabel: 'initial_upload' as const,
-            lawyerNote: null,
-            createdById: 1,
-            createdByName: '张三',
-            createdAt: '2026-01-01T00:00:00.000Z',
-            snapshot: { risks: [], annotations: [], docxText: '' },
-        }
-        mockFetch.mockResolvedValueOnce(snap)
+        mockFetch.mockResolvedValueOnce(makeSnap())
         const c = useContractReviewVersion(ref(1))
         await c.enterPreview(5)
         mockFetch.mockReset()
