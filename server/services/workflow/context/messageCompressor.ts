@@ -49,28 +49,110 @@ export function getContextBudget(contextWindow?: number): {
     return { budget, compressThreshold }
 }
 
+/** 单次输出 tokens 保底值（模型未配置 maxOutputTokens 时使用） */
+export const DEFAULT_MAX_OUTPUT_TOKENS = 8192
+
 /**
  * 统一计算 Agent 上下文压缩参数
  *
  * 所有 agent 文件统一调用此函数，避免魔法数字分散在各处。
  *
  * @param contextWindow nodes 表中的 model.contextWindow（可能为 undefined/null）
+ * @param maxOutputTokens 模型最大输出 tokens（可选，用于给下游 safetyTrim 预留 output 预算）
  * @returns
- *   - contextWindow  实际使用的窗口大小（含保底值）
- *   - triggerTokens  summarizationMiddleware 触发阈值（60%，下限 30k）
- *   - maxTokens      safetyTrimMiddleware 截断上限（80%）
+ *   - contextWindow     实际使用的窗口大小（含保底值）
+ *   - triggerTokens     summarizationMiddleware 触发阈值（60%，下限 30k）
+ *   - maxTokens         safetyTrimMiddleware 截断上限（80%）
+ *   - maxOutputTokens   模型最大输出 tokens（含保底值 8192），供下游预留 output 预算
  */
-export function resolveContextWindow(contextWindow?: number | null): {
+export function resolveContextWindow(
+    contextWindow?: number | null,
+    maxOutputTokens?: number | null,
+): {
     contextWindow: number
     triggerTokens: number
     maxTokens: number
+    maxOutputTokens: number
 } {
     const window = contextWindow || DEFAULT_CONTEXT_WINDOW
     return {
         contextWindow: window,
         triggerTokens: Math.max(Math.floor(window * 0.6), 30000),
         maxTokens: Math.floor(window * 0.8),
+        maxOutputTokens: maxOutputTokens || DEFAULT_MAX_OUTPUT_TOKENS,
     }
+}
+
+/**
+ * 单轮 ReAct 最多新增的消息条数（AI + 若干 tool_result + AI 结束）
+ * 用于摘要缓存的"增量容忍度"——新 middle 只增加这么多条（全是之前在 recent 段里 AI 已经看过的），
+ * 可以复用上一次的摘要，跳过 LLM 调用。
+ */
+const CACHE_REUSE_DELTA_LIMIT = KEEP_RECENT_ROUNDS * 3
+
+/**
+ * 切出"被压缩段"和"保留段"，用于摘要缓存命中判断
+ *
+ * 约定：压缩永远保留 system（第 1 条） + 最近 KEEP_RECENT_ROUNDS 轮。
+ * middleMessages 就是被 LLM 摘要掉的那段；对其 message id 集合做比对，
+ * 若相邻 ReAct 轮次里新 middleIds 是旧的严格超集且新增不多，就复用上一次的摘要，不重新调 LLM。
+ *
+ * @returns
+ *   - systemMessage   第 1 条 system 消息（必保留）
+ *   - middleMessages  被摘要的中间段
+ *   - recentMessages  最近 N 轮（必保留）
+ *   - middleIds       middleMessages 的 id 集合（无 id 消息会被过滤）
+ */
+export function sliceForCompression(messages: BaseMessage[]): {
+    systemMessage: BaseMessage | undefined
+    middleMessages: BaseMessage[]
+    recentMessages: BaseMessage[]
+    middleIds: string[]
+} {
+    if (messages.length <= KEEP_RECENT_ROUNDS * 3 + 2) {
+        return {
+            systemMessage: messages[0],
+            middleMessages: [],
+            recentMessages: messages.slice(1),
+            middleIds: [],
+        }
+    }
+
+    const systemMessage = messages[0]
+    const recentCount = KEEP_RECENT_ROUNDS * 3
+    // 与 compressMessages 完全一致的切点边界对齐逻辑：避免 recentMessages 以 ToolMessage 起始
+    let recentStart = Math.max(1, messages.length - recentCount)
+    while (recentStart > 1 && messages[recentStart]?.getType?.() === 'tool') {
+        recentStart--
+    }
+    const recentMessages = messages.slice(recentStart)
+    const middleMessages = messages.slice(1, recentStart)
+
+    const middleIds = middleMessages
+        .map(m => m.id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0)
+
+    return { systemMessage, middleMessages, recentMessages, middleIds }
+}
+
+/**
+ * 判断"新一轮的 middleIds 是否可以复用已有摘要缓存"
+ *
+ * 命中条件（两个必须同时满足）：
+ *   1. 旧 middleIds 全部出现在新 middleIds 中（严格超集，消息没被删/改）
+ *   2. 新增条数 ≤ CACHE_REUSE_DELTA_LIMIT（约等于一轮 ReAct 产物，属于"AI 上一轮在 recent 里看过的内容"）
+ *
+ * 没命中时应重新调用 LLM 摘要并更新缓存。
+ */
+export function canReuseSummaryCache(oldMiddleIds: string[], newMiddleIds: string[]): boolean {
+    if (oldMiddleIds.length === 0) return false
+    if (newMiddleIds.length < oldMiddleIds.length) return false
+
+    const delta = newMiddleIds.length - oldMiddleIds.length
+    if (delta > CACHE_REUSE_DELTA_LIMIT) return false
+
+    const newIdSet = new Set(newMiddleIds)
+    return oldMiddleIds.every(id => newIdSet.has(id))
 }
 
 /**

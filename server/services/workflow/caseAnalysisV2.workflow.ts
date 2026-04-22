@@ -14,7 +14,7 @@ import type { GraphNode } from "@langchain/langgraph"
 import { HumanMessage, isAIMessage } from '@langchain/core/messages'
 import { getCheckpointer } from './checkpointer'
 import { buildModuleContext } from './context/moduleContextBuilder'
-import { estimateMessagesTokens, getContextBudget, compressMessages, safetyTrimMessages } from './context/messageCompressor'
+import { estimateMessagesTokens, getContextBudget, compressMessages, safetyTrimMessages, sliceForCompression, canReuseSummaryCache } from './context/messageCompressor'
 import { z } from "zod/v4"
 import { getNodeConfigsByTypes, getValidNodeConfig, getNodeByNameService } from '../node/node.service'
 import { createChatModel } from '../node/chatModelFactory'
@@ -263,18 +263,76 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                     (p: any) => p.type === 'system' && p.status === 1,
                 )?.content ?? ''
 
-                const InnerState = Annotation.Root({ ...MessagesAnnotation.spec })
+                // InnerState 扩展 _summaryCache：仅 callModel 内部使用，不影响 state.messages（律师可见的完整历史）
+                //
+                // 缓存判定策略：ReAct 每轮会新增 AI + tool_result 消息，随着消息增多，compressMessages 切出的
+                // middleMessages 会缓慢向尾部扩展（原属 recent 段的消息被"挤进" middle）。只要新 middleIds 是
+                // 旧 middleIds 的严格超集 + 新增条数不多（约一轮 ReAct 量），AI 上一轮就已经在 recent 段看过
+                // 这些新增消息、并据此产生了输出，完全可以复用上一次的摘要，不必重新调 LLM 摘要。
+                //
+                // 这解决"后期一直在循环调用压缩"的问题，同时满足 2026-03-31 案件分析上下文优化 spec 的硬性
+                // 要求：state.messages 始终保留完整原始消息。
+                const InnerState = Annotation.Root({
+                    ...MessagesAnnotation.spec,
+                    _summaryCache: Annotation<{ middleIds: string[], summaryMessage: HumanMessage } | null>({
+                        reducer: (_prev, next) => next,
+                        default: () => null,
+                    }),
+                })
 
                 const { budget: contextBudget, compressThreshold } = getContextBudget(nodeConfig.modelContextWindow)
 
                 const callModel = async (innerState: typeof InnerState.State) => {
                     let messagesToSend = innerState.messages
+                    let nextSummaryCache = innerState._summaryCache ?? null
 
-                    // 防线2：动态摘要压缩
+                    // 防线2：动态摘要压缩（带缓存，避免 ReAct 循环里反复调 LLM 摘要）
                     const roughEstimate = estimateMessagesTokens(innerState.messages)
                     if (roughEstimate > compressThreshold) {
-                        logger.info('触发消息压缩', { agentName, roughEstimate, compressThreshold })
-                        messagesToSend = await compressMessages(innerState.messages, contextBudget, model)
+                        const slice = sliceForCompression(innerState.messages)
+
+                        if (slice.middleMessages.length === 0) {
+                            // 没有可压缩段（消息太少），保持原样
+                            messagesToSend = innerState.messages
+                        } else if (
+                            innerState._summaryCache
+                            && canReuseSummaryCache(innerState._summaryCache.middleIds, slice.middleIds)
+                        ) {
+                            // ✅ 命中缓存：直接复用上次摘要，跳过 LLM 调用
+                            logger.info('摘要缓存命中，跳过 LLM 摘要', {
+                                agentName,
+                                cachedMiddleCount: innerState._summaryCache.middleIds.length,
+                                currentMiddleCount: slice.middleIds.length,
+                                delta: slice.middleIds.length - innerState._summaryCache.middleIds.length,
+                            })
+                            messagesToSend = [
+                                ...(slice.systemMessage ? [slice.systemMessage] : []),
+                                innerState._summaryCache.summaryMessage,
+                                ...slice.recentMessages,
+                            ]
+                        } else {
+                            // ❌ 未命中（首次 / 中间段变化大 / 有消息缺失 id）：真的调 LLM 摘要，更新缓存
+                            logger.info('触发消息压缩', {
+                                agentName,
+                                roughEstimate,
+                                compressThreshold,
+                                middleCount: slice.middleMessages.length,
+                                cachedMiddleCount: innerState._summaryCache?.middleIds.length ?? 0,
+                            })
+                            const compressed = await compressMessages(innerState.messages, contextBudget, model)
+                            messagesToSend = compressed
+
+                            // 摘要成功时（返回结构为 [system, summary, ...recent]），提取摘要消息写入缓存
+                            // 必须有有效的 middleIds 才能缓存（无 id 的消息集合无法做超集比对）
+                            if (
+                                compressed !== innerState.messages
+                                && compressed.length >= 2
+                                && slice.middleIds.length === slice.middleMessages.length
+                            ) {
+                                const summaryMessage = compressed[1] as HumanMessage
+                                nextSummaryCache = { middleIds: slice.middleIds, summaryMessage }
+                            }
+                        }
                     }
 
                     // 防线3：safetyTrimMessages 兜底（临时截断用于模型调用，不写回 state 避免 checkpoint 丢失完整历史）
@@ -292,7 +350,11 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
                     }
 
                     const response = await modelWithTools.invoke(messagesToSend)
-                    return { messages: [response] }  // state 保留完整历史
+                    // state.messages 只 append response（保留完整原始历史）；缓存通过 _summaryCache 字段持久化
+                    return {
+                        messages: [response],
+                        ...(nextSummaryCache !== innerState._summaryCache && { _summaryCache: nextSummaryCache }),
+                    }
                 }
 
                 const shouldContinue = (innerState: typeof InnerState.State) => {
