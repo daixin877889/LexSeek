@@ -418,7 +418,15 @@ export async function getMaterialContextService(
     let allSummary = true
     const materialList: MaterialContextItem[] = []
 
-    // 逐份材料累加 token：预算内注入全文，超出后注入摘要
+    // 索引模式占位文案（用于预算完全耗尽时，仅告知 AI 该材料存在）
+    const INDEX_ONLY_HINT = '[材料索引，请使用 search_case_materials 工具按关键字检索完整内容]'
+    const indexOnlyTokens = estimateTokens(INDEX_ONLY_HINT)
+
+    // 逐份材料按三档分配预算：
+    // 1) full  — 全文（content）
+    // 2) summary — 摘要（summary 字段或内容前 200 字）
+    // 3) index — 只保留名称/类型占位，AI 需通过 search_case_materials 按需调档
+    // summary 分支也必须累加实际 tokens，否则 totalTokens 与返回 payload 严重不符。
     for (const m of sorted) {
         const content = contentMap.get(m.id)
         if (!content) {
@@ -434,8 +442,8 @@ export async function getMaterialContextService(
             continue
         }
 
-        const tokens = estimateTokens(content)
-        if (usedTokens + tokens <= tokenBudget) {
+        const fullTokens = estimateTokens(content)
+        if (usedTokens + fullTokens <= tokenBudget) {
             materialList.push({
                 sourceId: getSourceId(m),
                 name: m.name,
@@ -444,20 +452,39 @@ export async function getMaterialContextService(
                 mode: 'full',
                 content,
             })
-            usedTokens += tokens
+            usedTokens += fullTokens
             allSummary = false
-        } else {
-            // 超出预算 → 降级为摘要
+            continue
+        }
+
+        // 超出全文预算 → 尝试降级为摘要
+        const summaryText = m.summary || content.substring(0, 200) + '...'
+        const summaryTokens = estimateTokens(summaryText)
+        if (usedTokens + summaryTokens <= tokenBudget) {
             materialList.push({
                 sourceId: getSourceId(m),
                 name: m.name,
                 type: m.type,
                 hasContent: true,
                 mode: 'summary',
-                summary: m.summary || content.substring(0, 200) + '...',
+                summary: summaryText,
             })
+            usedTokens += summaryTokens
             allFull = false
+            continue
         }
+
+        // 摘要也超预算 → 降级为索引模式（名称 + 占位文案）
+        materialList.push({
+            sourceId: getSourceId(m),
+            name: m.name,
+            type: m.type,
+            hasContent: true,
+            mode: 'summary',
+            summary: INDEX_ONLY_HINT,
+        })
+        usedTokens += indexOnlyTokens
+        allFull = false
     }
 
     // 为需要摘要但尚无摘要（仅有截断文本）的材料批量生成摘要并缓存
