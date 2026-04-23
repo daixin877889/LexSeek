@@ -11,13 +11,13 @@
 import { StateGraph, StateSchema, Annotation, MessagesAnnotation, MessagesValue, ReducedValue, START, END, interrupt, isGraphInterrupt } from "@langchain/langgraph"
 import { ToolNode } from '@langchain/langgraph/prebuilt'
 import type { GraphNode } from "@langchain/langgraph"
-import { HumanMessage, isAIMessage } from '@langchain/core/messages'
+import { HumanMessage, SystemMessage, isAIMessage } from '@langchain/core/messages'
 import { getCheckpointer } from './checkpointer'
-import { buildModuleContext } from './context/moduleContextBuilder'
+import { buildContextSegments, toCachedPrompt } from './context/moduleContextBuilder'
 import { estimateMessagesTokens, getContextBudget, compressMessages, safetyTrimMessages, sliceForCompression, canReuseSummaryCache } from './context/messageCompressor'
 import { z } from "zod/v4"
 import { getNodeConfigsByTypes, getValidNodeConfig, getNodeByNameService } from '../node/node.service'
-import { createChatModel } from '../node/chatModelFactory'
+import { createChatModel, cachedPromptToAnthropicContent, cachedPromptToPlainText } from '../node/chatModelFactory'
 import { getToolInstancesService } from './tools'
 import { findAnalysisBySessionAndNodeDao, findLatestAnalysisBySessionAndNodeDao, AnalysisStatus } from '../case/analysis.dao'
 import { markAnalysisFailedById } from './middleware/analysisResultPersistence.middleware'
@@ -378,18 +378,23 @@ function createAnalysisNode(agentName: string, moduleTitle: string): GraphNode<t
 
                 const innerGraph = innerBuilder.compile()
 
-                // 构建模块上下文（案件信息 + 材料 + 已完成分析结果 + 记忆）
-                const moduleContext = await buildModuleContext({
+                // 构建 5 段式上下文
+                const segs = await buildContextSegments({
                     caseId: state.caseId,
                     agentName,
-                    contextWindow: nodeConfig.modelContextWindow || 128000,
+                    userQuery: state.prompt ?? '',
+                    roleAndFlowTemplate: systemPrompt,
                 })
 
-                // 合并到 system prompt（被 Worker stripSystemMessages 自动过滤，不到达前端）
-                const enrichedSystemPrompt = [systemPrompt, moduleContext].filter(Boolean).join('\n\n')
+                let systemContent: string | Array<Record<string, unknown>>
+                if (nodeConfig.modelSdkType === 'anthropic') {
+                    systemContent = cachedPromptToAnthropicContent(toCachedPrompt(segs))
+                } else {
+                    systemContent = cachedPromptToPlainText(toCachedPrompt(segs))
+                }
 
                 const initialMessages = [
-                    ...(enrichedSystemPrompt ? [{ role: 'system' as const, content: enrichedSystemPrompt }] : []),
+                    ...(systemContent ? [new SystemMessage({ content: systemContent as any })] : []),
                     new HumanMessage(`现在请开始"${moduleTitle}"分析。`),
                 ]
 

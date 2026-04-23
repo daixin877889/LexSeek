@@ -6,9 +6,8 @@
  *
  * 检测维度：
  * 1. 案件材料（sourceId 列表对比）
- * 2. 长期记忆（hash 对比）
- * 3. 其他模块分析结果（hash 对比）
- * 4. 当前模块分析结果（版本号对比）
+ * 2. 其他模块分析结果（hash 对比）
+ * 3. 当前模块分析结果（版本号对比）
  */
 
 import { createMiddleware } from 'langchain'
@@ -23,8 +22,6 @@ import {
     buildIncrementalMaterialMessage,
 } from '../../material/materialPipeline.service'
 import { loadCompletedResultsService } from '../../case/initAnalysis.service'
-import { getCaseMemory } from '../context/moduleContextBuilder'
-
 /** 模块上下文注入中间件 */
 export const moduleContextMiddleware = (caseId: number, moduleName?: string) => {
     return createMiddleware({
@@ -44,14 +41,12 @@ export const moduleContextMiddleware = (caseId: number, moduleName?: string) => 
                 try {
                     const sections: string[] = []
                     let newSourceIds = state._injectedSourceIds ?? []
-                    let newMemoryHash = state._lastMemoryHash ?? null
                     const newResultVersions: Record<string, string> = { ...((state._injectedResultVersions ?? {}) as Record<string, string>) }
                     let newCurrentHash = state._currentModuleResultHash ?? null
 
-                    // 并发加载 4 种上下文的当前状态
-                    const [materials, memory, completedResults] = await Promise.all([
+                    // 并发加载上下文的当前状态
+                    const [materials, completedResults] = await Promise.all([
                         getMaterialsByCaseIdService(caseId).catch(() => []),
-                        getCaseMemory(caseId).catch(() => null),
                         loadCompletedResultsService(caseId).catch((): Record<string, string> => ({})),
                     ])
 
@@ -85,18 +80,7 @@ export const moduleContextMiddleware = (caseId: number, moduleName?: string) => 
                         newSourceIds = currentSourceIds
                     }
 
-                    // 2. 长期记忆变更检测
-                    const memoryHash = memory
-                        ? createHash('md5').update(memory).digest('hex')
-                        : null
-                    if (memoryHash !== newMemoryHash) {
-                        if (memory) {
-                            sections.push(`## 案件基本信息（长期记忆）\n${memory}`)
-                        }
-                        newMemoryHash = memoryHash
-                    }
-
-                    // 3. 其他模块分析结果变更检测
+                    // 2. 其他模块分析结果变更检测
                     const otherResults = moduleName != null
                         ? Object.entries(completedResults).filter(([key]) => key !== moduleName)
                         : Object.entries(completedResults)
@@ -108,7 +92,7 @@ export const moduleContextMiddleware = (caseId: number, moduleName?: string) => 
                         }
                     }
 
-                    // 4. 当前模块结果变更检测（首次或内容变化时注入）
+                    // 3. 当前模块结果变更检测（首次或内容变化时注入）
                     if (moduleName != null) {
                         const currentModuleResult = completedResults[moduleName]
                         const currentModuleHash = currentModuleResult
@@ -150,7 +134,6 @@ export const moduleContextMiddleware = (caseId: number, moduleName?: string) => 
 
                     return {
                         _injectedSourceIds: newSourceIds,
-                        _lastMemoryHash: newMemoryHash,
                         _injectedResultVersions: newResultVersions,
                         _currentModuleResultHash: newCurrentHash,
                     }
