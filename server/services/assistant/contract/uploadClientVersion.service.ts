@@ -16,15 +16,21 @@ import type {
     UploadVersionErrorData,
     ClauseSnapshotItem,
 } from '#shared/types/contract'
+import { logger } from '#shared/utils/logger'
+import type { ClauseSegment, PlaybookSnapshot, Stance } from '#shared/types/contract'
 import { loadContractFullText } from './docx/loadContractFullText'
 import { segmentClauses } from './docx/clauseSegmenter'
 import { saveContractReviewVersionService } from './contractReviewVersion.service'
+import { analyzeSingleClause } from './analyzeSingleClause'
 import { diffClauses } from './utils/clauseDiff'
 import { migrateAnchor } from './utils/anchorMigrate'
 import { parseWordComments, type ParsedWordComment } from './docx/wordCommentParser'
 import { parseWordCommentRef } from './utils/wordCommentRef'
 import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import { downloadFileService } from '~~/server/services/storage/storage.service'
+import { renderContent } from '~~/server/services/node/prompt.service'
+import { createChatModel } from '~~/server/services/node/chatModelFactory'
+import { getValidNodeConfig } from '~~/server/services/node/node.service'
 
 type UploadEvent =
     | { type: 'progress'; data: UploadVersionProgressData }
@@ -154,7 +160,145 @@ export async function* uploadClientVersionService(params: {
         data: { step: 'diff', status: 'done', externalChangeCount, clauseModifiedCount },
     }
 
-    // ============ Step 4: AI 增量审查（B3 填充）============
+    // ============ Step 4: AI 增量审查 + 全局复核 ============
+    let aiReviewCount = 0
+    let globalReviewNewRiskCount = 0
+
+    // 4a. 对 diff.modified 的每个条款跑增量 AI 审查
+    for (const [i, m] of clauseDiffResult.modified.entries()) {
+        const item = newClauses[m.newIndex]!
+        const clause: ClauseSegment = {
+            index: item.index,
+            number: null,
+            text: item.text,
+            offsetStart: item.offsetStart,
+            offsetEnd: item.offsetEnd,
+        }
+        try {
+            const risk = await analyzeSingleClause({
+                clause,
+                stance: (review.stance ?? 'balanced') as Stance,
+                partyA: review.partyA,
+                partyB: review.partyB,
+                contractType: review.contractType,
+                playbookSnapshot: review.playbookSnapshot as PlaybookSnapshot | null,
+            })
+            if (risk) {
+                // 同条款已有未处置 AI 风险 → 只更新 level/suggestion，不改 archivedStatus
+                const existingRisk = dbRisks.find(
+                    (r) => r.source === 'ai' && r.anchorParagraphIndex === m.oldIndex && r.archivedStatus === null,
+                )
+                if (existingRisk) {
+                    await prisma.contractRisks.update({
+                        where: { id: existingRisk.id },
+                        data: { level: risk.level, suggestion: risk.suggestion ?? null },
+                    })
+                } else {
+                    const newRisk = await prisma.contractRisks.create({
+                        data: {
+                            reviewId: review.id,
+                            source: 'ai',
+                            code: risk.matchedPointCode ?? null,
+                            category: risk.category,
+                            level: risk.level,
+                            stance: review.stance ?? 'balanced',
+                            problem: risk.problem,
+                            legalBasis: risk.legalBasis ?? null,
+                            analysis: risk.analysis ?? null,
+                            suggestion: risk.suggestion ?? null,
+                            anchorQuote: clause.text.slice(0, 50),
+                            anchorParagraphIndex: m.newIndex,
+                        },
+                    })
+                    await prisma.contractAnnotations.create({
+                        data: {
+                            reviewId: review.id,
+                            riskId: newRisk.id,
+                            authorType: 'ai',
+                            authorName: 'AI',
+                            content: risk.problem,
+                        },
+                    })
+                }
+                aiReviewCount++
+            }
+        } catch (err) {
+            logger.warn(`条款 #${clause.index} 增量 AI 审查失败，跳过`, { err })
+        }
+        yield {
+            type: 'progress',
+            data: { step: 'ai', status: 'progress', total: clauseDiffResult.modified.length, current: i + 1 },
+        }
+    }
+
+    // 4b. 全局复核：对整篇新文本做平衡性检查
+    try {
+        const globalConfig = await getValidNodeConfig('contractReviewGlobalReview')
+        const globalActiveKey = globalConfig.modelApiKeys.find((k) => k.status === 1)
+        if (globalActiveKey) {
+            const globalTemplate = globalConfig.prompts.find((p) => p.type === 'system' && p.status === 1)?.content
+            if (globalTemplate) {
+                const globalModel = createChatModel({
+                    sdkType: globalConfig.modelSdkType,
+                    modelName: globalConfig.modelName,
+                    apiKey: globalActiveKey.apiKey,
+                    baseUrl: globalConfig.modelProviderBaseUrl,
+                    temperature: 0,
+                })
+                const rendered = renderContent(globalTemplate, {
+                    contractType: review.contractType ?? '合同',
+                    partyA: review.partyA ?? '甲方',
+                    partyB: review.partyB ?? '乙方',
+                    contractText: newDocxText,
+                })
+                const globalResp = await globalModel.invoke(rendered)
+                const globalContent = typeof globalResp.content === 'string' ? globalResp.content : ''
+                const jsonMatch = globalContent.match(/\[[\s\S]*\]/)
+                if (jsonMatch) {
+                    const rawRisks = JSON.parse(jsonMatch[0]) as Array<{
+                        category: string
+                        level: string
+                        problem: string
+                        legalBasis?: string
+                        analysis?: string
+                        suggestion?: string
+                    }>
+                    for (const r of rawRisks) {
+                        const validLevel =
+                            r.level === 'high' || r.level === 'medium' || r.level === 'low' ? r.level : 'medium'
+                        const newRisk = await prisma.contractRisks.create({
+                            data: {
+                                reviewId: review.id,
+                                source: 'global_review',
+                                category: r.category ?? '全局复核',
+                                level: validLevel,
+                                stance: review.stance ?? 'balanced',
+                                problem: r.problem ?? '',
+                                legalBasis: r.legalBasis ?? null,
+                                analysis: r.analysis ?? null,
+                                suggestion: r.suggestion ?? null,
+                                anchorQuote: (r.problem ?? '').slice(0, 50),
+                                anchorParagraphIndex: 0,
+                            },
+                        })
+                        await prisma.contractAnnotations.create({
+                            data: {
+                                reviewId: review.id,
+                                riskId: newRisk.id,
+                                authorType: 'ai',
+                                authorName: 'AI',
+                                content: r.problem ?? '',
+                            },
+                        })
+                        globalReviewNewRiskCount++
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        logger.warn('全局复核失败，跳过', { err })
+    }
+
     yield { type: 'progress', data: { step: 'ai', status: 'done' } }
 
     // ============ Step 5+6: 一次事务写入 + 保存快照 ============
@@ -258,7 +402,7 @@ export async function* uploadClientVersionService(params: {
             }
         })
 
-        const summary = `本轮变化：${externalChangeCount} 处外部变更 · ${clauseModifiedCount} 处条款修改 · AI 已重审`
+        const summary = `本轮变化：${externalChangeCount} 处外部变更 · ${clauseModifiedCount} 处条款修改 · AI 增量重审 ${aiReviewCount} 条 · 全局复核 ${globalReviewNewRiskCount} 条`
         const newVersion = await saveContractReviewVersionService({
             reviewId: review.id,
             systemLabel: 'client_return',
