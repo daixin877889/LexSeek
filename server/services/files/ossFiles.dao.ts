@@ -245,6 +245,60 @@ const getMimeTypeByFileType = (fileType: FileType): string[] => {
 }
 
 /**
+ * 查找孤儿 OSS 文件（所有业务表都不再引用的已上传文件，bug #15）。
+ *
+ * 业务引用表（穷举）：
+ * - contract_reviews.original_file_id / reviewed_file_id
+ * - contract_review_versions.docx_file_id
+ * - document_templates.oss_file_id
+ * - document_drafts.output_file_id
+ * - case_materials.oss_file_id
+ * - doc_recognition_records.oss_file_id
+ * - image_recognition_records.oss_file_id
+ * - asr_records.oss_file_id / json_oss_file_id
+ * - mineru_tasks.oss_file_id
+ *
+ * 任何一个表新增 ossFileId 外键，必须同步更新此查询，否则会误删在用文件。
+ */
+export async function findOrphanOssFilesDAO(limit = 100): Promise<number[]> {
+    const rows = await prisma.$queryRaw<{ id: number }[]>`
+        SELECT id FROM oss_files
+        WHERE deleted_at IS NULL
+          AND NOT EXISTS (
+              SELECT 1 FROM contract_reviews
+              WHERE original_file_id = oss_files.id OR reviewed_file_id = oss_files.id
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM contract_review_versions WHERE docx_file_id = oss_files.id
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM document_templates WHERE oss_file_id = oss_files.id
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM document_drafts WHERE output_file_id = oss_files.id
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM case_materials WHERE oss_file_id = oss_files.id
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM doc_recognition_records WHERE oss_file_id = oss_files.id
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM image_recognition_records WHERE oss_file_id = oss_files.id
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM asr_records
+              WHERE oss_file_id = oss_files.id OR json_oss_file_id = oss_files.id
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM mineru_tasks WHERE oss_file_id = oss_files.id
+          )
+        LIMIT ${limit}
+    `
+    return rows.map((r) => r.id)
+}
+
+/**
  * 根据用户 ID 获取 OSS 文件列表
  */
 export async function findOssFilesByUserIdDao(userId: number, options: {
