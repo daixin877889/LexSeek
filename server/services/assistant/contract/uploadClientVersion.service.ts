@@ -212,14 +212,38 @@ export async function* uploadClientVersionService(params: {
         }
         // 非系统批注（无 customXml ref 也无 LEXSEEK initials）不是匹配失败，算真新批注
     }
+    // 增强诊断：把上传 docx 里所有 comment 的 initials 快照打出来，
+    // 便于区分"客户编辑工具清掉了 w:initials"(非 LEXSEEK 格式) vs "LEXSEEK 但 id 不在 DB"(串库/DB 不一致)。
+    const commentInitialsSnapshot = newComments.map(c => ({
+        wId: c.wId,
+        author: c.wAuthor,
+        initials: c.wInitials,
+        isLexseek: /^LEXSEEK-\d+-[a-zA-Z0-9]{8}$/.test(c.wInitials ?? ''),
+        contentPreview: (c.content ?? '').slice(0, 40),
+    }))
+    const lexseekCount = commentInitialsSnapshot.filter(c => c.isLexseek).length
+    const nonLexseekCount = commentInitialsSnapshot.length - lexseekCount
     logger.info('本次上传批注匹配统计', {
         reviewId: review.id,
+        dbAnnotationsCount: dbAnnotations.length,
         totalNewComments: newComments.length,
         matched: commentByAnnId.size,
         customXmlHit,
         wInitialsHit,
         fallbackFail,
+        lexseekFormatCount: lexseekCount,
+        nonLexseekFormatCount: nonLexseekCount,
+        dbAnnotationIds: dbAnnotations.map(a => a.id),
+        commentInitialsSnapshot,
     })
+    if (commentByAnnId.size === 0 && dbAnnotations.length > 0 && newComments.length > 0) {
+        logger.warn(
+            '批注 0 命中：所有原 AI 批注将被当成"客户已移除"，新 comment 全进 external_new。'
+            + '常见原因：(1) 客户用 WPS/在线工具编辑清掉了 w:initials；'
+            + '(2) 客户上传的 docx 不是 LexSeek 下载版；(3) 跨 review 文件串扰。',
+            { reviewId: review.id },
+        )
+    }
 
     /**
      * 判断一个 comment 是否为系统生成（LexSeek 注入）的批注。
@@ -494,6 +518,14 @@ export async function* uploadClientVersionService(params: {
 
             // 客户新增独立批注 → external_new risk + external annotation
             for (const c of newIndependent) {
+                // 锚点：优先用 comment 实际挂载的段落（parseWordComments 新增字段），
+                // 回退到 0 只是兜底——以前硬写 0 会让所有外部批注都挤在文档开头显示"未定位"。
+                // 同时用 docx 条款全文做 anchorQuote，前端 locate 才能真找到那段。
+                const paraIdx = c.anchorParagraphIndex
+                const anchorParagraphIndex = paraIdx !== null && paraIdx >= 0 && paraIdx < newClauses.length
+                    ? paraIdx
+                    : 0
+                const anchorQuote = newClauses[anchorParagraphIndex]?.text ?? c.content.slice(0, 50)
                 const risk = await tx.contractRisks.create({
                     data: {
                         reviewId: review.id,
@@ -502,8 +534,8 @@ export async function* uploadClientVersionService(params: {
                         stance: 'balanced',
                         category: '外部批注',
                         problem: c.content.slice(0, 100),
-                        anchorQuote: c.content.slice(0, 50),
-                        anchorParagraphIndex: 0,
+                        anchorQuote,
+                        anchorParagraphIndex,
                     },
                 })
                 const newAnn = await tx.contractAnnotations.create({

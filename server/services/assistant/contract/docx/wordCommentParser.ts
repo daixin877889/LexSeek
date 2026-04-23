@@ -15,6 +15,12 @@ export interface ParsedWordComment {
     content: string
     parentWId: number | null
     dateIso: string | null
+    /**
+     * 批注锚点所在的"非空段落"序号（0-based）；
+     * 若 document.xml 中找不到 commentRangeStart 为 null。
+     * 与 commentInjector 的 scanNonEmptyParagraphs 序号体系一致，前端 locate 时同口径。
+     */
+    anchorParagraphIndex: number | null
 }
 
 export interface AnnotationRefEntry {
@@ -107,7 +113,19 @@ export async function parseWordComments(docxBuffer: Buffer): Promise<ParsedDocxC
             content: unescapeXml(extractContent(inner)),
             parentWId: parentWId !== null && !isNaN(parentWId) ? parentWId : null,
             dateIso: extractAttr(attrs, 'date'),
+            anchorParagraphIndex: null, // 下面由 document.xml 填充
         })
+    }
+
+    // 从 document.xml 反查每条 comment 的锚点段落序号（与 commentInjector 的 scanNonEmptyParagraphs 同口径）
+    const docFile = zip.file('word/document.xml')
+    if (docFile) {
+        const docXml = await docFile.async('string')
+        const wIdToParaIdx = buildCommentAnchorMap(docXml)
+        for (const c of comments) {
+            const idx = wIdToParaIdx.get(c.wId)
+            if (typeof idx === 'number') c.anchorParagraphIndex = idx
+        }
     }
 
     const annotationRefsByWId = new Map<number, AnnotationRefEntry>()
@@ -119,4 +137,32 @@ export async function parseWordComments(docxBuffer: Buffer): Promise<ParsedDocxC
     }
 
     return { comments, annotationRefsByWId }
+}
+
+/**
+ * 扫描 document.xml，为每个 w:commentRangeStart 标记找到它所在的"非空段落"序号。
+ * 非空段落定义：含 <w:r> 的 <w:p>，与 commentInjector 一致，保证前端/服务端 locate 同口径。
+ */
+function buildCommentAnchorMap(documentXml: string): Map<number, number> {
+    const result = new Map<number, number>()
+    const paraRe = /<w:p(?:\s[^>]*)?\/>|<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g
+    const rangeStartRe = /<w:commentRangeStart\s[^/]*w:id="(\d+)"/g
+
+    let nonEmptyIdx = 0
+    let pm: RegExpExecArray | null
+    while ((pm = paraRe.exec(documentXml)) !== null) {
+        const pText = pm[0]
+        if (!/<w:r[\s>]/.test(pText)) continue
+        rangeStartRe.lastIndex = 0
+        let sm: RegExpExecArray | null
+        while ((sm = rangeStartRe.exec(pText)) !== null) {
+            const wId = parseInt(sm[1]!, 10)
+            if (!isNaN(wId) && !result.has(wId)) {
+                // 一条 comment 可能跨多段，记首次出现的段落
+                result.set(wId, nonEmptyIdx)
+            }
+        }
+        nonEmptyIdx++
+    }
+    return result
 }
