@@ -193,9 +193,9 @@ async function handlePasteSubmit() {
         <DialogContent class="sm:max-w-[560px]">
             <DialogHeader>
                 <DialogTitle>新建合同审查</DialogTitle>
-                <!-- <DialogDescription>
+                <DialogDescription class="sr-only">
                     选择上传 .docx 合同文件，或粘贴合同全文，AI 会自动识别风险条款并生成审查报告。
-                </DialogDescription> -->
+                </DialogDescription>
             </DialogHeader>
 
             <Tabs v-model="activeTab" class="w-full">
