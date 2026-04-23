@@ -7,6 +7,7 @@
 
 import { closeAgentDbPool, closeRedisConnections } from '~~/server/lib/redis'
 import { cleanExpiredWorkspacesService } from '~~/server/services/workflow/tools/workspace'
+import { cleanupStaleContractReviewsService } from '~~/server/services/assistant/contract/contractReviewCleanup.service'
 
 export default defineNitroPlugin((nitroApp) => {
   const { redis: redisConfig } = useRuntimeConfig()
@@ -65,6 +66,14 @@ export default defineNitroPlugin((nitroApp) => {
     intervalMs: 60 * 60 * 1000,
     lockTtlSeconds: 60,
     fn: cleanExpiredWorkspacesService,
+  })
+
+  // 合同审查僵死清理（每小时，清理 24h 停在 reviewing 的记录；bug #14）
+  scheduler.register({
+    name: 'contract-reviewing-cleanup',
+    intervalMs: 60 * 60 * 1000,
+    lockTtlSeconds: 120,
+    fn: cleanupStaleContractReviewsService,
   })
 
   scheduler.start()

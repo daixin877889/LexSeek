@@ -440,6 +440,24 @@ export async function getAdminReviewDAO(id: number): Promise<AdminReviewDetail |
 }
 
 /**
+ * 查找 status=reviewing 且 updatedAt 早于阈值的僵死审查。
+ * bug #14：进程崩溃 / SSE 异常断开会把 review 永久卡在 reviewing，
+ * 此函数配合 cron 兜底，只返回 id 列表供 updateMany 使用。
+ */
+export async function findReviewingTimeoutDAO(thresholdMs: number): Promise<number[]> {
+    const cutoff = new Date(Date.now() - thresholdMs)
+    const rows = await prisma.contractReviews.findMany({
+        where: {
+            status: 'reviewing',
+            updatedAt: { lt: cutoff },
+            deletedAt: null,
+        },
+        select: { id: true },
+    })
+    return rows.map((r) => r.id)
+}
+
+/**
  * 管理端软删：
  * - 不存在 → not_found
  * - 已软删 → already_deleted（幂等）
