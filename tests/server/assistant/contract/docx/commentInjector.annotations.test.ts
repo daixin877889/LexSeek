@@ -224,4 +224,47 @@ describe('injectAnnotations', () => {
         expect(paraWithRange!).toContain('第一条')
         expect(paraWithRange!).not.toContain('甲方义务条款')
     })
+
+    it('anchorQuote 含多行内容（\\n 分隔）时，取首行定位段落——模拟 Phase B 条款完整内容形态', async () => {
+        // 构造 3 段落 docx：
+        //   段落 0 = "合同编号 ABC-001"
+        //   段落 1 = "第一条 合同期限与试用期"（条款标题行）
+        //   段落 2 = "第二条 工作内容与职位"
+        const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+            `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">` +
+            `<w:body>` +
+            `<w:p><w:r><w:t>合同编号 ABC-001</w:t></w:r></w:p>` +
+            `<w:p><w:r><w:t>第一条 合同期限与试用期</w:t></w:r></w:p>` +
+            `<w:p><w:r><w:t>第二条 工作内容与职位</w:t></w:r></w:p>` +
+            `</w:body></w:document>`
+
+        const zip = new JSZip()
+        zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`)
+        zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`)
+        zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`)
+        zip.file('word/document.xml', docXml)
+        const docxBuffer = Buffer.from(await zip.generateAsync({ type: 'nodebuffer' }))
+
+        // Phase B 真实形态：anchor_quote 是条款完整内容，多段落用 \n 拼接
+        // anchorParagraphIndex=0 故意填错，期望 anchorQuote 首行 "第一条 合同期限与试用期" 命中段落 1
+        const multiLineQuote = '第一条 合同期限与试用期\n合同期限：本合同期限为 3年，自 2026年2月18日起算\n试用期：试用期为 6个月'
+        const annotation: ContractAnnotationForExport = makeAnnotation({
+            id: 1,
+            anchorQuote: multiLineQuote,
+            anchorParagraphIndex: 0, // 故意填错
+        })
+
+        const { buffer: result } = await injectAnnotations(docxBuffer, [annotation])
+        const resultZip = await loadDocxZip(result)
+        const resultDocXml = await readTextFromZip(resultZip, 'word/document.xml')
+
+        // 找到含 commentRangeStart 的段落
+        const allParas = resultDocXml.match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) ?? []
+        const paraWithRange = allParas.find(p => p.includes('<w:commentRangeStart'))
+        expect(paraWithRange).not.toBeUndefined()
+
+        // 必须挂在"第一条 合同期限与试用期"段落，而不是"合同编号 ABC-001"段落
+        expect(paraWithRange!).toContain('第一条 合同期限与试用期')
+        expect(paraWithRange!).not.toContain('合同编号 ABC-001')
+    })
 })

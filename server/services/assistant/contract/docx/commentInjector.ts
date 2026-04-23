@@ -83,15 +83,30 @@ function extractTextFromParagraphXml(paraXml: string): string {
 /**
  * 按 anchorQuote 在非空段落列表中搜索，返回第一个包含该字符串的段落索引。
  * 找不到时返回 -1。
+ *
+ * Phase B 数据形态：anchor_quote 存的是条款完整内容（多段落拼接，\n 分隔），
+ * 而 docx 中每段是独立 <w:p>，需要按行拆出锚点片段逐行匹配。
+ * 依次尝试前 3 个有效行，任一命中即返回；单行 quote 等价于全量匹配，不影响原语义。
  */
 function findParagraphIndexByQuote(
     nonEmpty: Array<{ text: string; start: number; end: number }>,
     quote: string,
 ): number {
-    const q = quote.trim()
-    if (!q) return -1
-    for (let i = 0; i < nonEmpty.length; i++) {
-        if (extractTextFromParagraphXml(nonEmpty[i]!.text).includes(q)) return i
+    if (!quote) return -1
+
+    // 按行拆分，过滤掉过短的噪音行（单字符标点等），保留 2 个字符以上的有效行
+    const lines = quote
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(l => l.length >= 2)
+
+    if (lines.length === 0) return -1
+
+    // 依次尝试前 3 行，任一命中即返回
+    for (const line of lines.slice(0, 3)) {
+        for (let i = 0; i < nonEmpty.length; i++) {
+            if (extractTextFromParagraphXml(nonEmpty[i]!.text).includes(line)) return i
+        }
     }
     return -1
 }
