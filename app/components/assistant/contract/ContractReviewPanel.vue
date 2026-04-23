@@ -11,7 +11,7 @@
  *
  * runStatus 文案内联（不拆 ContractReviewStatus.vue），见 spec §9.2。
  */
-import { Loader2Icon, SaveIcon, HistoryIcon } from 'lucide-vue-next'
+import { Loader2Icon, SaveIcon, HistoryIcon, UploadIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useMediaQuery, useLocalStorage } from '@vueuse/core'
 import type { Risk, RiskDisplay, ContractReviewStatus, StanceRequest, CreateReviewRequest, PlaybookSnapshot, RiskArchivedStatus } from '#shared/types/contract'
@@ -83,6 +83,21 @@ watch(
 // 保存新版本 dialog 状态
 const saveVersionDialogOpen = ref(false)
 const isSavingVersion = ref(false)
+
+// 上传新版本 dialog 状态
+const uploadVersionDialogOpen = ref(false)
+
+/** 审查处于忙碌态（进行中）时禁止上传新版本 */
+const isBusyForUpload = computed(() => {
+    const s = review.value?.status
+    return s === 'pending' || s === 'reviewing' || s === 'awaiting_stance' || s === 'rebuilding'
+})
+
+async function handleUploadComplete(payload: { newVersionId: number; summary: string }) {
+    uploadVersionDialogOpen.value = false
+    toast.success(payload.summary || '新版本已生成')
+    await Promise.all([versioning.refreshWorkspace(), versioning.refreshVersions()])
+}
 
 async function handleSaveVersion(lawyerNote: string | null) {
     isSavingVersion.value = true
@@ -397,6 +412,17 @@ function handleContainerClick(e: MouseEvent) {
                     size="sm"
                     variant="outline"
                     class="h-7 text-xs"
+                    :disabled="isBusyForUpload"
+                    :title="isBusyForUpload ? '审查进行中，请等待完成后再上传' : ''"
+                    @click="uploadVersionDialogOpen = true"
+                >
+                    <UploadIcon class="size-3 mr-1" />
+                    上传新版本
+                </Button>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    class="h-7 text-xs"
                     :disabled="!versioning.hasUnsavedEdits.value"
                     @click="saveVersionDialogOpen = true"
                 >
@@ -556,6 +582,15 @@ function handleContainerClick(e: MouseEvent) {
             :submitting="isSavingVersion"
             @update:open="saveVersionDialogOpen = $event"
             @confirm="handleSaveVersion"
+        />
+
+        <!-- 上传新版本 Dialog -->
+        <AssistantContractUploadNewVersionDialog
+            v-if="review"
+            :open="uploadVersionDialogOpen"
+            :review-id="review.id"
+            @update:open="uploadVersionDialogOpen = $event"
+            @complete="handleUploadComplete"
         />
 
     </div>
