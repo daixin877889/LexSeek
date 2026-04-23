@@ -26,11 +26,19 @@ export function appendChildXml(xml: string, parentTag: string, fragment: string)
 
 /**
  * XML 5 字符标准转义：& < > " '
+ * 同时剥离 XML 1.0 禁止的非法控制字符（否则生成的 docx 无法被 Word 打开）。
+ *
+ * 允许字符：U+0009 \t / U+000A \n / U+000D \r；
+ * 禁止字符：U+0000-U+0008、U+000B-U+000C、U+000E-U+001F、U+FFFE、U+FFFF。
+ * 客户姓名从剪贴板粘贴时偶尔混入 U+0008 退格、U+001B ESC 等，必须过滤。
  *
  * 供 commentInjector 写批注文本、textToDocxService 写纯文本段落共用。
  */
+// eslint-disable-next-line no-control-regex
+const ILLEGAL_XML_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g
 export function escapeXml(input: string): string {
     return input
+        .replace(ILLEGAL_XML_CHARS, '')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')

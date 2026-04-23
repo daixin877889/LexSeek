@@ -234,14 +234,34 @@ export async function* uploadClientVersionService(params: {
         dbAnnotationIds: dbAnnotations.map(a => a.id),
         commentInitialsSnapshot,
     })
+    // 业务安全底线：如果 DB 里有系统批注、上传 docx 里也有批注，但一条都匹配不上，
+    // 那"把所有 AI 标 removed + 把所有 comment 建 external_new"几乎 100% 是错的决定
+    // （863 事故正是如此被静默执行）。此时中止流程，让用户判断：
+    //   - 上传错了文件？（比如另一份合同的 docx）
+    //   - 客户用了会破坏身份证的工具？（强烈建议重新从 LexSeek 下载）
+    //   - 确实是全新版本，AI 批注全删了？（极少见，如需继续需走另一个 "force" 入口）
     if (commentByAnnId.size === 0 && dbAnnotations.length > 0 && newComments.length > 0) {
-        logger.warn(
-            '批注 0 命中：所有原 AI 批注将被当成"客户已移除"，新 comment 全进 external_new。'
-            + '常见原因：(1) 客户上传的 docx 不是 LexSeek 下载版；'
-            + '(2) docx 是 Phase C 改造前的老导出（w:initials 被 Word 截断）；'
-            + '(3) 跨 review 文件串扰。',
-            { reviewId: review.id },
+        logger.error(
+            '批注 0 命中：拒绝自动应用"全删+全新增"，保护数据不被误改',
+            {
+                reviewId: review.id,
+                dbAnnotationsCount: dbAnnotations.length,
+                newCommentsCount: newComments.length,
+                commentInitialsSnapshot,
+            },
         )
+        yield {
+            type: 'error',
+            data: {
+                step: 'diff',
+                code: 'NO_ANNOTATION_MATCH',
+                message:
+                    '上传 docx 中的批注与系统中任何一条都对不上，已中止处理以免误删。'
+                    + '可能原因：1) 上传了非本次审查的 docx；2) 客户使用了会破坏批注标识的工具编辑；'
+                    + '3) 当前 docx 是改造前的老导出，请重新从系统下载最新版发给客户。',
+            },
+        }
+        return
     }
 
     /**

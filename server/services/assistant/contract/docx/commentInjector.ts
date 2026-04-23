@@ -255,6 +255,10 @@ export interface InjectCommentsResult {
 
 /**
  * 注入 Word 原生批注，返回新 .docx Buffer 及越界信息。
+ *
+ * @deprecated Phase A 老 API，不写 LEXSEEK / customXml / [#id-rand8] 身份证，
+ * 产出的 docx 回传时**完全无法识别**，会触发"全删+全新增"保护（NO_ANNOTATION_MATCH）。
+ * 生产代码请使用 `injectAnnotations`。本函数仅供尚未迁移的历史测试用。
  */
 export async function injectComments(docxBuffer: Buffer, risks: Risk[]): Promise<InjectCommentsResult> {
     const zip = await loadDocxZip(docxBuffer)

@@ -27,10 +27,15 @@ const AUTHOR_REF_PATTERN = /\[#(\d+)-([a-zA-Z0-9]{8})\][\s\u00A0\u200B\u200C]*$/
 /** Phase B：w:initials 里的老格式，仅作 fallback（两个捕获组：id + rand8） */
 const INITIALS_REF_PATTERN = /^LEXSEEK-(\d+)-([a-zA-Z0-9]{8})$/
 
+// 用 node:crypto 避免 Math.random() 的跨进程/同 tick 相关性问题；
+// 62^8 ≈ 2e14，在百万级 annotation 下仍有 ~10^-3 生日碰撞概率，crypto 源保证
+// 各次调用独立、测试的 deterministic seed 也不会让 rand8 重复触发 @unique 冲突。
+import { randomBytes } from 'node:crypto'
+const CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 function random8(): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  const bytes = randomBytes(8)
   let s = ''
-  for (let i = 0; i < 8; i++) s += chars[Math.floor(Math.random() * chars.length)]
+  for (let i = 0; i < 8; i++) s += CHARS[bytes[i]! % CHARS.length]
   return s
 }
 
