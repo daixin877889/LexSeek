@@ -4,8 +4,52 @@
  * 三层存储：DB 固定字段 + JSONB + PostgresStore 长期记忆
  */
 
+import { z } from 'zod'
 import type { ExtractedCaseInfo } from '#shared/types/case'
 import { getStore } from '../workflow/checkpointer'
+
+/**
+ * AI 案件信息抽取结果的 Zod schema
+ *
+ * 用于校验 LLM 结构化输出与用户确认后的最终提取结果。
+ * 除 title 外均可选（LLM 材料未提及时应留空，不得编造）。
+ */
+export const CaseExtractionSchema = z.object({
+    title: z.string().describe('案件标题'),
+    plaintiff: z.array(z.string()).optional().describe('原告列表'),
+    defendant: z.array(z.string()).optional().describe('被告列表'),
+    caseType: z.string().optional().describe('案件类型（必须匹配 case_types 表）'),
+    summary: z.string().optional().describe('案件概述'),
+    extraFields: z
+        .array(
+            z.object({
+                name: z.string(),
+                title: z.string(),
+                value: z.string(),
+            }),
+        )
+        .optional()
+        .describe('扩展字段（根据案件类型动态抽取的额外信息）'),
+    courtName: z.string().optional().describe('法院名称，如"北京市朝阳区人民法院"'),
+    firstInstanceCaseNo: z.string().optional().describe('一审案件编号，如"(2023)京0105民初12345号"'),
+    secondInstanceCaseNo: z.string().optional().describe('二审案件编号，如"(2024)京03民终6789号"'),
+    firstInstanceJudge: z.string().optional().describe('一审法官姓名'),
+    secondInstanceJudge: z.string().optional().describe('二审法官姓名'),
+})
+
+/**
+ * 抽取 prompt 追加段：法院 / 案号 / 法官 5 字段说明
+ *
+ * 供 extract API 在拼接 systemPrompt 时追加。DB 中的 prompt 模板无需改动，
+ * 运行时动态追加即可保证材料中提及这些字段时 LLM 会一并输出。
+ */
+export const CASE_COURT_FIELDS_PROMPT_APPENDIX = `
+## 法院 / 案号 / 法官（M1 新增 5 字段，均可选）
+- 法院名称（courtName）：如材料提及审理法院，填入
+- 一审/二审案件编号（firstInstanceCaseNo / secondInstanceCaseNo）：格式通常为"(YYYY)XXX民初/民终 XXXXX号"
+- 一审/二审法官姓名（firstInstanceJudge / secondInstanceJudge）：如材料提及审判长或承办法官，填入
+以上 5 字段均可选，材料未提及则留空（不要编造）。
+`.trim()
 
 /**
  * 三层存储：DB 固定字段 + JSONB + PostgresStore 长期记忆
