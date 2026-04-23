@@ -117,7 +117,7 @@ export async function rerankAndFilterService(
     query: string,
     results: SearchResultItem[],
     k: number,
-    type: 'law' | 'case_material',
+    type: 'law' | 'case_material' | 'case_memory',
 ): Promise<SearchResultItem[]> {
     if (results.length === 0) return []
 
