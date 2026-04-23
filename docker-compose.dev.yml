@@ -26,6 +26,21 @@ services:
       retries: 5
       start_period: 30s
 
+  bge-reranker:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
+    command:
+      - --model-id=BAAI/bge-reranker-v2-m3
+      - --port=8080
+    ports:
+      - "8090:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+
 volumes:
   lexseek-pgdata:
     driver: local
