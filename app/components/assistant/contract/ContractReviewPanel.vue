@@ -95,7 +95,7 @@ const isBusyForUpload = computed(() => {
 
 async function handleUploadComplete(payload: { newVersionId: number; summary: string }) {
     uploadVersionDialogOpen.value = false
-    toast.success(payload.summary || '新版本已生成')
+    // toast 由 Dialog 的 uploadResult watcher 负责（bug #16：对话框提前关闭也能看到提示）
     versioning.lastUploadResult.value = { newVersionId: payload.newVersionId, summary: payload.summary }
     await Promise.all([versioning.refreshWorkspace(), versioning.refreshVersions()])
 }
@@ -297,8 +297,45 @@ watch(isRebuilding, (rebuilding, wasRebuilding) => {
     }
 })
 
+/** bug #4：历史版本预览态下对应的版本号，用于下载按钮文案区分工作区与历史版本 */
+const previewVersionNumber = computed<number | null>(() => {
+    const vid = versioning.previewVersionId.value
+    if (vid === null) return null
+    const v = versioning.versions.value.find(x => x.id === vid)
+    return v?.versionNumber ?? null
+})
+
+/**
+ * 下载按钮的路由：
+ *   - 预览历史版本 → /reviews/versions/:versionId/download（按快照重建）
+ *   - 工作区（含 review.currentVersion）→ /reviews/:id/download（走实时 rebuild）
+ * 两条路径都返回 { downloadUrl, filename }，前端只负责触发浏览器下载。
+ */
+async function handleDownload() {
+    const previewVid = versioning.previewVersionId.value
+    if (previewVid === null) {
+        await onDownload()
+        return
+    }
+    const resp = await useApiFetch<{ downloadUrl: string; filename: string }>(
+        `/api/v1/assistant/contract/reviews/versions/${previewVid}/download`,
+        { showError: false } as any,
+    )
+    if (!resp?.downloadUrl) {
+        toast.error('历史版本下载失败，请稍后重试')
+        return
+    }
+    triggerBrowserDownloadUrl(resp.downloadUrl, resp.filename)
+}
+
 // 未定位 risk id 集合（由 ContractDocxPreview decorateRisks 完成后上报）
 const notLocatedIds = ref<Set<string>>(new Set())
+/**
+ * 首次 decorateRisks 完成前，notLocatedIds 恒为空，会让 RiskListPanel 短暂把
+ * 所有风险都判为"已定位"；渲染完成后又突变为"未定位"集合，产生肉眼可见的闪烁。
+ * 用 hasLocated 作为门控：首次 emit 后置 true，切换文档/版本时重置为 false。
+ */
+const hasLocated = ref(false)
 
 /**
  * 结果屏左右分栏。对齐文书编辑器工作区（`dashboard/document/drafts/[id].vue`）：
@@ -332,9 +369,24 @@ function setsEqual(a: Set<string>, b: Set<string>): boolean {
 }
 
 function handleLocateResult(ids: Set<string>) {
+    hasLocated.value = true
     if (setsEqual(ids, notLocatedIds.value)) return
     notLocatedIds.value = ids
 }
+
+// 切文档（原件 / 批注版）或切版本预览时，重置定位状态；DocxPreview 会在新一次
+// renderAsync 完成后再通过 handleLocateResult 把 hasLocated 置回 true。
+watch(
+    [
+        () => review.value?.reviewedFileId,
+        () => review.value?.originalFileId,
+        () => versioning.previewVersionId.value,
+    ],
+    () => {
+        hasLocated.value = false
+        notLocatedIds.value = new Set()
+    },
+)
 
 /**
  * 聚焦 risk 的拦截层：未定位的 risk 不跳转文档（元素不存在），
@@ -519,8 +571,10 @@ function handleContainerClick(e: MouseEvent) {
                                     :hovered-risk-id="hoveredRiskId"
                                     :pinned-risk-ids="pinnedRiskIds"
                                     :not-located-ids="notLocatedIds"
+                                :has-located="hasLocated"
                                     :playbook-snapshot="(review?.playbookSnapshot ?? null) as PlaybookSnapshot | null"
-                                    @download="onDownload"
+                                    :preview-version-number="previewVersionNumber"
+                                    @download="handleDownload"
                                     @rebuild="onRebuildDocx"
                                     @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
                                     @export-pdf="(includeRisks: boolean) => onExportPdf(includeRisks)"
@@ -577,6 +631,7 @@ function handleContainerClick(e: MouseEvent) {
                                 :hovered-risk-id="hoveredRiskId"
                                 :pinned-risk-ids="pinnedRiskIds"
                                 :not-located-ids="notLocatedIds"
+                                :has-located="hasLocated"
                                 :playbook-snapshot="(review?.playbookSnapshot ?? null) as PlaybookSnapshot | null"
                                 @download="onDownload"
                                 @rebuild="onRebuildDocx"

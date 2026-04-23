@@ -47,6 +47,17 @@ const props = defineProps<{
     hoveredRiskId: string | null
     pinnedRiskIds: Set<string>
     notLocatedIds: Set<string>
+    /**
+     * DocxPreview 是否已完成首次定位上报。
+     * 默认 true 仅为兼容旧调用；父组件传入时可避免 docx 渲染期间把所有风险误判为"已定位"，
+     * 随后又突变为"未定位"的视觉闪烁。
+     */
+    hasLocated?: boolean
+    /**
+     * 历史版本预览态下的版本号（null = 工作区）。仅用于区分下载按钮的文案与 tooltip，
+     * 避免用户误把下载误解为"下载最新版"。
+     */
+    previewVersionNumber?: number | null
     playbookSnapshot?: PlaybookSnapshot | null
 }>()
 
@@ -335,12 +346,13 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                         :key="r.id"
                         :data-risk-id="r.id"
                         :data-just-added="justAddedIds.has(r.id) ? 'true' : 'false'"
-                        class="cursor-pointer relative transition-all border-l-4 border-warning bg-warning/5"
+                        title="客户在新版本中新增的批注 / 条款变更，点击跳转到原文对应位置"
+                        class="cursor-pointer relative transition-all border-l-4 border-orange-500 bg-orange-50 dark:border-orange-400 dark:bg-orange-950/30"
                         :class="{
                             'opacity-60 grayscale-[0.2]': !!getArchivedStatus(r),
                             'ring-1 ring-yellow-300 dark:ring-yellow-700': justAddedIds.has(r.id),
-                            'bg-yellow-50 dark:bg-yellow-950/40': focusedRiskId === r.id,
-                            'bg-orange-50 dark:bg-orange-950/40': pinnedRiskIds.has(r.id) && focusedRiskId !== r.id,
+                            'bg-yellow-100 dark:bg-yellow-950/40': focusedRiskId === r.id,
+                            'bg-orange-100 dark:bg-orange-950/50': pinnedRiskIds.has(r.id) && focusedRiskId !== r.id,
                         }"
                         @click="toggle(r.id); emit('focusRisk', r.id)"
                     >
@@ -547,7 +559,7 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                                 </Tooltip>
                             </TooltipProvider>
                             <span
-                                v-if="notLocatedIds.has(r.id)"
+                                v-if="hasLocated !== false && notLocatedIds.has(r.id)"
                                 class="text-[10px] px-1.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700 flex items-center gap-0.5 shrink-0"
                             >
                                 <TriangleAlert class="size-2.5" />
@@ -809,8 +821,18 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                 <Button class="flex-1" variant="outline" :disabled="!canDownload" @click="openExportPdf">
                     <FileTextIcon class="size-4 mr-1" />导出评审报告
                 </Button>
-                <Button class="flex-1" :disabled="!canDownload" @click="emit('download')">
-                    <DownloadIcon class="size-4 mr-1" />下载批注 Word
+                <Button
+                    class="flex-1"
+                    :disabled="!canDownload"
+                    :title="previewVersionNumber !== null && previewVersionNumber !== undefined
+                        ? `下载 v${previewVersionNumber} 历史版本的批注 Word`
+                        : '下载当前工作区的批注 Word'"
+                    @click="emit('download')"
+                >
+                    <DownloadIcon class="size-4 mr-1" />
+                    {{ previewVersionNumber !== null && previewVersionNumber !== undefined
+                        ? `下载 v${previewVersionNumber} 历史版本`
+                        : '下载批注 Word' }}
                 </Button>
             </div>
         </div>

@@ -18,13 +18,14 @@ import { ensureTestUser } from '../test-db-helper'
 import type { ParsedDocxComments } from '~~/server/services/assistant/contract/docx/wordCommentParser'
 
 // ============ mock storage.service：避免真实 OSS 下载 ============
-// parseContractDocx 会被间接调用，给它一份有效的 docx buffer 代替
+// parseContractDocx 会被间接调用，给它一份有效的 docx buffer 代替。
+// bug #9：service 对 buffer 做 PK\x03\x04 文件头校验，故必须以 ZIP magic number 开头。
+const FAKE_DOCX_BUFFER = Buffer.concat([
+    Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+    Buffer.from('FAKE-DOCX-BODY'),
+])
 vi.mock('~~/server/services/storage/storage.service', () => ({
-    downloadFileService: vi.fn(async () => {
-        // 返回最小合法 docx：一段简单文本（测试不需要真实 Word 段落结构，
-        // parseContractDocx 对空 buffer 会抛错，但我们直接 mock 整个 loadContractFullText 更稳妥）
-        return Buffer.from('FAKE-DOCX')
-    }),
+    downloadFileService: vi.fn(async () => FAKE_DOCX_BUFFER),
     uploadFileService: vi.fn(),
     generateSignedUrlService: vi.fn(),
 }))

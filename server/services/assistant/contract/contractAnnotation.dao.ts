@@ -72,13 +72,14 @@ export async function listAnnotationsForExportDAO(
             select: {
                 anchorQuote: true
                 anchorParagraphIndex: true
+                orphaned: true
             }
         }
     }
 }>[]> {
     return prisma.contractAnnotations.findMany({
         where: { reviewId, deletedAt: null, suppressInExport: false },
-        include: { risk: { select: { anchorQuote: true, anchorParagraphIndex: true } } },
+        include: { risk: { select: { anchorQuote: true, anchorParagraphIndex: true, orphaned: true } } },
         orderBy: [{ riskId: 'asc' }, { createdAt: 'asc' }],
     })
 }

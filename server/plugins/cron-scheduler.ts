@@ -7,6 +7,8 @@
 
 import { closeAgentDbPool, closeRedisConnections } from '~~/server/lib/redis'
 import { cleanExpiredWorkspacesService } from '~~/server/services/workflow/tools/workspace'
+import { cleanupStaleContractReviewsService } from '~~/server/services/assistant/contract/contractReviewCleanup.service'
+import { gcOrphanOssFilesService } from '~~/server/services/files/ossFilesGc.service'
 
 export default defineNitroPlugin((nitroApp) => {
   const { redis: redisConfig } = useRuntimeConfig()
@@ -65,6 +67,22 @@ export default defineNitroPlugin((nitroApp) => {
     intervalMs: 60 * 60 * 1000,
     lockTtlSeconds: 60,
     fn: cleanExpiredWorkspacesService,
+  })
+
+  // 合同审查僵死清理（每小时，清理 24h 停在 reviewing 的记录；bug #14）
+  scheduler.register({
+    name: 'contract-reviewing-cleanup',
+    intervalMs: 60 * 60 * 1000,
+    lockTtlSeconds: 120,
+    fn: cleanupStaleContractReviewsService,
+  })
+
+  // OSS 孤儿文件 GC（每 24h，软删所有业务表都不再引用的 oss_files；bug #15）
+  scheduler.register({
+    name: 'oss-orphan-gc',
+    intervalMs: 24 * 60 * 60 * 1000,
+    lockTtlSeconds: 300,
+    fn: gcOrphanOssFilesService,
   })
 
   scheduler.start()

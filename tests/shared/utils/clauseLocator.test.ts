@@ -36,4 +36,34 @@ describe('clauseLocator · 三级兜底', () => {
         const el = locateClauseElement(short, '甲方委托乙方完成某项目（包括但不限于）')
         expect(el).toBeNull()
     })
+
+    it('多行 clauseText：按 \\n 拆行后任一行命中即返回对应段落', () => {
+        const multiline = [
+            '第五条 违约责任',
+            '5.2 乙方违反本合同约定造成损失……',
+            '5.3 违约金按合同总额 20% 计算',
+        ].join('\n')
+        const el = locateClauseElement(container, multiline)
+        expect(el).toBeTruthy()
+        // 至少命中首行或第二行（两者都在 container 内）
+        expect(el?.textContent).toMatch(/第五条 违约责任|5\.2 乙方违反本合同约定/)
+    })
+
+    it('多行 clauseText：首行无法匹配时，第二行兜底命中', () => {
+        const multiline = [
+            '不存在的首行文字',
+            '甲方委托乙方完成某项目',
+        ].join('\n')
+        const el = locateClauseElement(container, multiline)
+        expect(el?.textContent).toContain('甲方委托乙方完成某项目')
+    })
+
+    it('DOM 段落包含多余空白也能精确命中', () => {
+        const spaced = new DOMParser().parseFromString(
+            '<div><p>   甲方  委托   乙方   完成某项目   </p></div>',
+            'text/html'
+        ).body
+        const el = locateClauseElement(spaced, '甲方 委托 乙方 完成某项目')
+        expect(el).toBeTruthy()
+    })
 })

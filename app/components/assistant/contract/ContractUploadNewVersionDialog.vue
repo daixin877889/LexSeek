@@ -54,12 +54,34 @@ watch(() => props.open, (v) => {
     if (!v) resetState()
 })
 
+/**
+ * bug #16：SSE 异常 / 完成仅显示在对话框内，用户若未点「完成」就关闭就完全丢失。
+ * 这里在状态 ref 变为有值时**立即**弹 toast，让关闭对话框后通知仍能留在全局。
+ * 用 tostedFor 记录已 toast 的终态标识，避免 watcher 重触发时重复弹。
+ */
+let toastedFor: string | null = null
+watch(uploadResult, (v) => {
+    if (!v) return
+    const key = `result:${v.newVersionId}`
+    if (toastedFor === key) return
+    toastedFor = key
+    toast.success(`增量重审完成：${v.summary || '新版本已生成'}`)
+})
+watch(uploadError, (v) => {
+    if (!v) return
+    const key = `error:${v.step}:${v.message}`
+    if (toastedFor === key) return
+    toastedFor = key
+    toast.error(`新版本处理失败：${v.message}`)
+})
+
 function resetState() {
     selectedFile.value = null
     ossUploading.value = false
     ossProgress.value = 0
     sseState.value = null
     isDragging.value = false
+    toastedFor = null
 }
 
 function processFile(file: File) {
@@ -85,6 +107,20 @@ function handleDrop(e: DragEvent) {
     isDragging.value = false
     const file = e.dataTransfer?.files?.[0]
     if (!file) return
+    // bug #19：已选文件时再次拖入须二次确认，避免误操作替换后丢失当前选择
+    if (selectedFile.value) {
+        const alertDialogStore = useAlertDialogStore()
+        const oldName = selectedFile.value.name
+        const newName = file.name
+        alertDialogStore.showDialog({
+            title: '替换文件',
+            message: `已选「${oldName}」，确认替换为「${newName}」？`,
+            confirmText: '替换',
+            cancelText: '保留原文件',
+            onConfirm: () => processFile(file),
+        })
+        return
+    }
     processFile(file)
 }
 
@@ -141,7 +177,9 @@ function stepIcon(status: StepStatus) {
 }
 
 function stepColorClass(status: StepStatus) {
-    if (status === 'done') return 'text-green-600'
+    // bug #17：深色模式下 text-green-600 对比度不足，补 dark:text-green-400；
+    // destructive / primary / muted-foreground 已是语义色，可随主题自动翻转。
+    if (status === 'done') return 'text-green-600 dark:text-green-400'
     if (status === 'error') return 'text-destructive'
     if (status === 'progress') return 'text-primary'
     return 'text-muted-foreground'
@@ -153,23 +191,22 @@ function stepColorClass(status: StepStatus) {
         <DialogContent class="sm:max-w-[480px]">
             <DialogHeader>
                 <DialogTitle>上传新版本</DialogTitle>
+                <DialogDescription>
+                    上传客户回传的 .docx 文件，系统会自动对比差异、重新分析条款并生成新版本快照。
+                </DialogDescription>
             </DialogHeader>
 
             <!-- 文件选择阶段 -->
             <template v-if="!sseState && !ossUploading">
                 <div class="space-y-4 py-2">
-                    <p class="text-sm text-muted-foreground">
-                        上传客户回传的 .docx 文件，系统将自动对比差异并生成新版本。
-                    </p>
-
                     <!-- 文件选择区 -->
                     <div
                         data-testid="dropzone"
                         class="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors"
                         :class="[
                             isDragging
-                                ? 'border-primary bg-primary/5'
-                                : 'border-muted-foreground/25 hover:border-primary/50'
+                                ? 'border-primary bg-primary/5 dark:bg-primary/15'
+                                : 'border-muted-foreground/25 dark:border-muted-foreground/40 hover:border-primary/50'
                         ]"
                         @click="fileInputRef?.click()"
                         @dragover.prevent="isDragging = true"

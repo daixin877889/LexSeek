@@ -63,7 +63,7 @@ model contractAnnotations {
   /// Phase B：内容被律师修改时更新（用于 detectUnsavedEdits 幂等判断）
   updatedAt DateTime @updatedAt @map("updated_at")
   /// Phase B：Word 批注稳定身份证（格式 LEXSEEK-{annotationId}-{random8}）
-  wordCommentRef   String?  @map("word_comment_ref") @db.VarChar(60)
+  wordCommentRef   String?  @unique @map("word_comment_ref") @db.VarChar(60)
   /// Phase B：客户在 Word 里删了该批注
   removedByClient  Boolean  @default(false) @map("removed_by_client")
   /// Phase B：下次导出 docx 时跳过（removedByClient=true 时默认 true；律师"恢复推送"可将此置 false）
