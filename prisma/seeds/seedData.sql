@@ -1084,6 +1084,7 @@ INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "pri
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (18, 'contractReviewMain', '合同审查主Agent', '按 responseFormat 输出结构化风险清单，并通过 parse_and_ask_stance 工具中断请求用户立场', 'agent', 40, 1, '["parse_and_ask_stance"]', NULL, NULL, 1, '2026-04-18 10:00:00+08', '2026-04-18 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (19, 'contractReviewSummarize', '合同审查·总览总结', '读完 analyze 阶段生成的所有 risks，做跨条款归纳，输出分档要点（highlights）+ 总评（overall）', 'extraction', 45, 1, '[]', NULL, NULL, 1, '2026-04-21 20:00:00+08', '2026-04-21 20:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
 INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (20, 'contractReviewAnalyzeClause', '合同审查·逐条条款分析', 'analyze 阶段按条款循环调用：给一条 clauseText + 立场上下文，输出 0 或 1 条 Risk（skip=true 表示无风险）', 'extraction', 42, 1, '[]', NULL, NULL, 1, '2026-04-21 20:30:00+08', '2026-04-21 20:30:00+08', NULL) ON CONFLICT (name) DO NOTHING;
+INSERT INTO "public"."nodes" ("id", "name", "title", "description", "type", "priority", "model_id", "tools", "output_schema", "group_id", "status", "created_at", "updated_at", "deleted_at") VALUES (21, 'contractReviewGlobalReview', '合同审查·全局复核', '客户回传修改后的合同，对整篇新上传的完整文本做全局平衡性复核，检查条款间的一致性与权利义务平衡', 'extraction', 46, 1, '[]', NULL, NULL, 1, '2026-04-23 10:00:00+08', '2026-04-23 10:00:00+08', NULL) ON CONFLICT (name) DO NOTHING;
 
 -- ==================== 提示词种子数据 ====================
 INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (1, 'caseInfoCheck_system', '案情信息检查-系统提示词', '你是一位专业的法律案件分析助手，专门负责评估案件材料中的案情信息是否充足。
@@ -2221,6 +2222,43 @@ INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "
 - 无风险：{ "risk": null, "skip": true }
 
 注意：matchedPointCode 只能使用上方清单里列出的 code 原文，不要编号（如不要写 P1/P2）；清单外风险 matchedPointCode 留空字符串或不返此字段。只输出 JSON，不要任何解释。', '["stanceLabel", "contractType", "partyA", "partyB", "clauseIndex", "clauseNumber", "clauseText", "playbookSection"]', 'v2', 'system', 1, 20, '2026-04-21 20:30:00+08', '2026-04-22 03:00:00+08', NULL);
+INSERT INTO "public"."prompts" ("id", "name", "title", "content", "variables", "version", "type", "status", "node_id", "created_at", "updated_at", "deleted_at") VALUES (29, 'contractReviewGlobalReview_system', '合同审查·全局复核提示词 v1', '你正在对一份{{contractType}}（甲方：{{partyA}}；乙方：{{partyB}}）进行全局平衡性复核。用户已在客户版本的基础上做了修改，现在需要对整篇新上传的完整合同文本做综合检查。
+
+## 任务目标
+
+基于合同整体，复审客户回传修改后的条款平衡性。重点识别：
+1. 条款之间是否出现不一致或矛盾（例如相同概念在不同条款定义不同、某条款修改后导致其他条款关联失效）
+2. 某条款的修订是否引发其他条款需要同步调整但未调整的情况
+3. 整体权利义务是否失衡（例如一方权利过多，另一方义务过重；或责任豁免条款过于宽泛）
+
+## 输入信息
+
+完整合同文本如下：
+{{contractText}}
+
+## 输出要求
+
+严格按 JSON 数组格式输出，每项包含以下字段：
+
+```json
+[
+  {
+    "category": "<风险类别，如 ''条款不一致'' / ''权利义务失衡'' / ''逻辑漏洞'' / ''修改遗漏'' 等>",
+    "level": "high" | "medium" | "low",
+    "problem": "<问题简述>",
+    "legalBasis": "<相关法律依据>",
+    "analysis": "<详细分析，指出问题涉及哪些条款，为什么构成风险>",
+    "suggestion": "<改进建议>"
+  }
+]
+```
+
+**重要说明**：
+- 如果未发现任何全局性平衡问题，返回空数组 `[]`
+- 每项 analysis 中必须具体指出涉及的条款位置（如 "第 X 条"或"条款标题"）
+- level 评级：high = 影响合同整体效力或造成重大权利义务失衡；medium = 可能导致履约歧义或局部风险；low = 表述不够精准但整体风险可控
+- 禁用感叹号，使用简体中文和专业法律术语
+- 仅输出 JSON，不要任何解释或代码块标记', '["contractType", "partyA", "partyB", "contractText"]', 'v1', 'system', 1, 21, '2026-04-23 10:00:00+08', '2026-04-23 10:00:00+08', NULL);
 
 
 
