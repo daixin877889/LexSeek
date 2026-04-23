@@ -32,14 +32,18 @@ export function diffClauses(
     const matchedOldIndices = new Set<number>()
 
     for (let ni = 0; ni < newClauses.length; ni++) {
-        const newText = newClauses[ni].text
+        const newClause = newClauses[ni]
+        if (!newClause) continue
+        const newText = newClause.text
         let bestSimilarity = -1
         let bestOldIndex = -1
 
         for (let oi = 0; oi < oldClauses.length; oi++) {
             // 已被匹配的 old 不再参与竞争
             if (matchedOldIndices.has(oi)) continue
-            const sim = calcSimilarity(oldClauses[oi].text, newText)
+            const oldClause = oldClauses[oi]
+            if (!oldClause) continue
+            const sim = calcSimilarity(oldClause.text, newText)
             if (sim > bestSimilarity) {
                 bestSimilarity = sim
                 bestOldIndex = oi

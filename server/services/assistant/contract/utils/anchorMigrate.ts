@@ -86,7 +86,9 @@ export function migrateAnchor(params: MigrateAnchorParams): AnchorMigrateResult 
 
     for (let i = 0; i < newClauses.length; i++) {
         if (i === oldParagraphIndex) continue
-        const match = findBestSubstring(newClauses[i].text, oldAnchorQuote)
+        const clause = newClauses[i]
+        if (!clause) continue
+        const match = findBestSubstring(clause.text, oldAnchorQuote)
         if (match && match.similarity > globalBestSim) {
             globalBestSim = match.similarity
             globalBestResult = {
