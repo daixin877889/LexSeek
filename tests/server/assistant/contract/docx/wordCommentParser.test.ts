@@ -86,7 +86,7 @@ describe('parseWordComments', () => {
         expect(ids).toEqual([0, 1])
     })
 
-    it('wAuthor 包含 LS: 前缀', async () => {
+    it('wAuthor 含 LS: 前缀 + [#id-rand8] 稳定身份证（Phase C）', async () => {
         const original = await readFile(SAMPLE)
         const { paragraphs } = await parseContractDocx(original)
         const maxIdx = paragraphs.length - 1
@@ -98,7 +98,7 @@ describe('parseWordComments', () => {
         const { buffer } = await injectAnnotations(original, annotations)
         const { comments } = await parseWordComments(buffer)
 
-        expect(comments[0].wAuthor).toBe('LS:张律师')
+        expect(comments[0].wAuthor).toMatch(/^LS:张律师 \[#1-[a-zA-Z0-9]{8}\]$/)
     })
 
     it('wInitials 为 LEXSEEK 格式时原样返回', async () => {
@@ -248,13 +248,13 @@ describe('parseWordComments', () => {
         const { buffer } = await injectAnnotations(original, annotations)
         const { annotationRefsByWId } = await parseWordComments(buffer)
 
-        // 三条 annotation 应都能通过 wId 查到对应的 annotationId
+        // 三条 annotation 应都能通过 wId 查到对应的 annotationId（Phase C：从 w:author 解析）
         expect(annotationRefsByWId.size).toBe(3)
         expect(annotationRefsByWId.get(0)?.annotationId).toBe(325)
         expect(annotationRefsByWId.get(1)?.annotationId).toBe(297)
         expect(annotationRefsByWId.get(2)?.annotationId).toBe(284)
-        // ref 字段也应保持原值
-        expect(annotationRefsByWId.get(0)?.ref).toBe('LEXSEEK-325-a3f9b2c1')
+        // ref 字段现在是 w:author 的完整值（含 [#id-rand8]），不是 LEXSEEK 字面量
+        expect(annotationRefsByWId.get(0)?.ref).toMatch(/\[#325-a3f9b2c1\]$/)
     })
 
     it('不含 customXml 的旧格式 docx → annotationRefsByWId 为空 Map，不抛错', async () => {
@@ -276,7 +276,7 @@ describe('parseWordComments', () => {
         expect(annotationRefsByWId.size).toBe(0)
     })
 
-    it('wInitials 中 LEXSEEK ref 从 annotationRefsByWId 正确取回', async () => {
+    it('annotationId 42 的 ref 从 w:author [#42-xxx] 正确取回（Phase C 主通路）', async () => {
         const original = await readFile(SAMPLE)
         const { paragraphs } = await parseContractDocx(original)
         const maxIdx = paragraphs.length - 1
@@ -288,6 +288,28 @@ describe('parseWordComments', () => {
         const { buffer } = await injectAnnotations(original, annotations)
         const { annotationRefsByWId } = await parseWordComments(buffer)
 
-        expect(annotationRefsByWId.get(0)?.ref).toBe('LEXSEEK-42-abc12345')
+        expect(annotationRefsByWId.get(0)?.annotationId).toBe(42)
+        expect(annotationRefsByWId.get(0)?.ref).toMatch(/\[#42-abc12345\]$/)
+    })
+
+    it('Word 截断 w:initials 为 "LEXSEEK-3" 时仍能从 w:author 恢复 annotationId', async () => {
+        // 模拟 Microsoft Word 保存后的 docx：
+        // - 所有 LS:* 作者的 w:initials 都被统一截断为第一条 ID 对应的字符串
+        // - w:author 完整保留（含 [#id-rand8]）
+        const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>条款一</w:t></w:r></w:p><w:p><w:r><w:t>条款二</w:t></w:r></w:p></w:body></w:document>`
+        const commentsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:comment w:id="0" w:author="LS:AI [#101-ab12cd34]" w:initials="LEXSEEK-3" w:date="2026-01-01T00:00:00Z"><w:p><w:r><w:t>AI 意见一</w:t></w:r></w:p></w:comment><w:comment w:id="1" w:author="LS:律师 [#205-xy98ab7c]" w:initials="LEXSEEK-3" w:date="2026-01-01T00:00:00Z"><w:p><w:r><w:t>律师意见</w:t></w:r></w:p></w:comment></w:comments>`
+
+        const zip = new JSZip()
+        zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/comments.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml"/></Types>`)
+        zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`)
+        zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`)
+        zip.file('word/document.xml', docXml)
+        zip.file('word/comments.xml', commentsXml)
+        const docxBuffer = Buffer.from(await zip.generateAsync({ type: 'nodebuffer' }))
+
+        const { annotationRefsByWId } = await parseWordComments(docxBuffer)
+        expect(annotationRefsByWId.size).toBe(2)
+        expect(annotationRefsByWId.get(0)?.annotationId).toBe(101)
+        expect(annotationRefsByWId.get(1)?.annotationId).toBe(205)
     })
 })

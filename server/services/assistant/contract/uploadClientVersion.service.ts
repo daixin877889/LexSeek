@@ -27,7 +27,7 @@ import { analyzeSingleClause } from './analyzeSingleClause'
 import { diffClauses } from './utils/clauseDiff'
 import { migrateAnchor } from './utils/anchorMigrate'
 import { parseWordComments, type ParsedWordComment, type AnnotationRefEntry } from './docx/wordCommentParser'
-import { parseWordCommentRef, generateWordCommentRef } from './utils/wordCommentRef'
+import { parseCommentRef, generateWordCommentRef, stripAuthorRef } from './utils/wordCommentRef'
 import { updateContractReviewDAO } from './contractReview.dao'
 import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import { downloadFileService } from '~~/server/services/storage/storage.service'
@@ -170,15 +170,14 @@ export async function* uploadClientVersionService(params: {
     // bug #12：记录命中/失败来源，便于后续监控"系统批注被误升级为 external_new"的情况。
     const annById = new Map(dbAnnotations.map((a) => [a.id, a]))
     const commentByAnnId = new Map<number, ParsedWordComment>()
-    let customXmlHit = 0
-    let wInitialsHit = 0
     let fallbackFail = 0
     for (const c of newComments) {
-        const refFromCustomXml = annotationRefsByWId.get(c.wId)
-        if (refFromCustomXml) {
-            if (annById.has(refFromCustomXml.annotationId)) {
-                commentByAnnId.set(refFromCustomXml.annotationId, c)
-                customXmlHit++
+        // Phase C：parseCommentRef 按 author 后缀 → initials LEXSEEK 的优先级提取 id
+        // （parser 已把识别结果塞进 annotationRefsByWId，这里只消费）
+        const refFromMap = annotationRefsByWId.get(c.wId)
+        if (refFromMap) {
+            if (annById.has(refFromMap.annotationId)) {
+                commentByAnnId.set(refFromMap.annotationId, c)
                 continue
             }
             fallbackFail++
@@ -187,82 +186,65 @@ export async function* uploadClientVersionService(params: {
                 wId: c.wId,
                 initials: c.wInitials,
                 author: c.wAuthor,
-                attemptedAnnotationId: refFromCustomXml.annotationId,
-                reason: 'customXml.annotationId 已不在 DB（可能被硬删或跨 review 串扰）',
+                attemptedAnnotationId: refFromMap.annotationId,
+                reason: '解析出的 annotationId 已不在 DB（可能被硬删或跨 review 串扰）',
             })
             continue
         }
-        const refFromInitials = parseWordCommentRef(c.wInitials)
-        if (refFromInitials) {
-            if (annById.has(refFromInitials.annotationId)) {
-                commentByAnnId.set(refFromInitials.annotationId, c)
-                wInitialsHit++
-                continue
-            }
-            fallbackFail++
-            logger.warn('批注匹配失败被升级为 external_new', {
-                reviewId: review.id,
-                wId: c.wId,
-                initials: c.wInitials,
-                author: c.wAuthor,
-                attemptedAnnotationId: refFromInitials.annotationId,
-                reason: 'wInitials.annotationId 已不在 DB',
-            })
-            continue
-        }
-        // 非系统批注（无 customXml ref 也无 LEXSEEK initials）不是匹配失败，算真新批注
+        // 非系统批注（author 里没 [#id-rand8]、initials 也非 LEXSEEK 格式）→ 真新批注
     }
-    // 增强诊断：把上传 docx 里所有 comment 的 initials 快照打出来，
-    // 便于区分"客户编辑工具清掉了 w:initials"(非 LEXSEEK 格式) vs "LEXSEEK 但 id 不在 DB"(串库/DB 不一致)。
-    const commentInitialsSnapshot = newComments.map(c => ({
-        wId: c.wId,
-        author: c.wAuthor,
-        initials: c.wInitials,
-        isLexseek: /^LEXSEEK-\d+-[a-zA-Z0-9]{8}$/.test(c.wInitials ?? ''),
-        contentPreview: (c.content ?? '').slice(0, 40),
-    }))
-    const lexseekCount = commentInitialsSnapshot.filter(c => c.isLexseek).length
-    const nonLexseekCount = commentInitialsSnapshot.length - lexseekCount
+    // 诊断快照：author + initials + parse 结果，帮助定位匹配失败原因
+    const commentInitialsSnapshot = newComments.map(c => {
+        const parsed = parseCommentRef(c.wAuthor, c.wInitials)
+        return {
+            wId: c.wId,
+            author: c.wAuthor,
+            initials: c.wInitials,
+            parsedAnnotationId: parsed?.annotationId ?? null,
+            contentPreview: (c.content ?? '').slice(0, 40),
+        }
+    })
+    const sysCount = commentInitialsSnapshot.filter(c => c.parsedAnnotationId !== null).length
+    const nonSysCount = commentInitialsSnapshot.length - sysCount
     logger.info('本次上传批注匹配统计', {
         reviewId: review.id,
         dbAnnotationsCount: dbAnnotations.length,
         totalNewComments: newComments.length,
         matched: commentByAnnId.size,
-        customXmlHit,
-        wInitialsHit,
         fallbackFail,
-        lexseekFormatCount: lexseekCount,
-        nonLexseekFormatCount: nonLexseekCount,
+        systemRefParsed: sysCount,
+        noSystemRef: nonSysCount,
         dbAnnotationIds: dbAnnotations.map(a => a.id),
         commentInitialsSnapshot,
     })
     if (commentByAnnId.size === 0 && dbAnnotations.length > 0 && newComments.length > 0) {
         logger.warn(
             '批注 0 命中：所有原 AI 批注将被当成"客户已移除"，新 comment 全进 external_new。'
-            + '常见原因：(1) 客户用 WPS/在线工具编辑清掉了 w:initials；'
-            + '(2) 客户上传的 docx 不是 LexSeek 下载版；(3) 跨 review 文件串扰。',
+            + '常见原因：(1) 客户上传的 docx 不是 LexSeek 下载版；'
+            + '(2) docx 是 Phase C 改造前的老导出（w:initials 被 Word 截断）；'
+            + '(3) 跨 review 文件串扰。',
             { reviewId: review.id },
         )
     }
 
     /**
      * 判断一个 comment 是否为系统生成（LexSeek 注入）的批注。
-     * 优先查 customXml，fallback 到 wInitials 解析。
+     * Phase C：author 里 [#id-rand8] 或 initials 里 LEXSEEK 字面量任一命中即算系统批注。
      */
     function isSystemComment(c: ParsedWordComment): boolean {
-        return annotationRefsByWId.has(c.wId) || parseWordCommentRef(c.wInitials) !== null
+        return annotationRefsByWId.has(c.wId) || parseCommentRef(c.wAuthor, c.wInitials) !== null
     }
 
     /**
      * 获取一个 comment 对应的 annotationId（系统批注专用）。
-     * 优先查 customXml，fallback 到 wInitials 解析。
-     * 非系统批注返回 null。
+     * 与 isSystemComment 口径一致：先看 annotationRefsByWId，fallback 到
+     * author/initials 混合解析。非系统批注返回 null。
      */
     function getAnnotationId(c: ParsedWordComment): number | null {
-        const refFromCustomXml = annotationRefsByWId.get(c.wId)
-        if (refFromCustomXml) return refFromCustomXml.annotationId
-        const refFromInitials = parseWordCommentRef(c.wInitials)
-        return refFromInitials ? refFromInitials.annotationId : null
+        const refFromMap = annotationRefsByWId.get(c.wId)
+        if (refFromMap) return refFromMap.annotationId
+        const parsed = parseCommentRef(c.wAuthor, c.wInitials)
+        return parsed ? parsed.annotationId : null
     }
 
     // 客户删除：workspace annotation 在 newComments 里找不到命中
@@ -486,7 +468,7 @@ export async function* uploadClientVersionService(params: {
                         riskId: parent.riskId,
                         parentAnnotationId: parentAnnId,
                         authorType: 'external',
-                        authorName: c.wAuthor.replace(/^LS:/, '') || '客户',
+                        authorName: stripAuthorRef(c.wAuthor) || '客户',
                         content: c.content,
                     },
                 })
@@ -506,7 +488,7 @@ export async function* uploadClientVersionService(params: {
                         riskId: parent.riskId,
                         parentAnnotationId: parentAnnId,
                         authorType: 'external',
-                        authorName: c.wAuthor.replace(/^LS:/, '') || '客户',
+                        authorName: stripAuthorRef(c.wAuthor) || '客户',
                         content: `客户修改了批注内容为：${c.content}`,
                     },
                 })
@@ -543,7 +525,7 @@ export async function* uploadClientVersionService(params: {
                         reviewId: review.id,
                         riskId: risk.id,
                         authorType: 'external',
-                        authorName: c.wAuthor.replace(/^LS:/, '') || '客户',
+                        authorName: stripAuthorRef(c.wAuthor) || '客户',
                         content: c.content,
                     },
                 })

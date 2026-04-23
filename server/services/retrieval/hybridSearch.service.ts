@@ -62,9 +62,13 @@ export async function vectorSearchService(
 /**
  * 提取文档唯一标识，用于 RRF 去重
  */
-export function extractDocId(item: SearchResultItem, type: 'law' | 'case_material'): string {
+export function extractDocId(item: SearchResultItem, type: 'law' | 'case_material' | 'case_memory'): string {
     if (type === 'law') {
         return (item.metadata.articles_id as string) || `${item.content.slice(0, 50)}`
+    }
+    if (type === 'case_memory') {
+        const m = item.metadata as Record<string, unknown>
+        return (m?.id as string) ?? (m?.subjectKey ? `${m.caseId}_${m.subjectKey}` : item.content.slice(0, 50))
     }
     return `${item.metadata.sourceId}_${item.metadata.chunkIndex ?? 0}`
 }
@@ -75,7 +79,7 @@ export function extractDocId(item: SearchResultItem, type: 'law' | 'case_materia
 export function reciprocalRankFusion(
     bm25Results: SearchResultItem[],
     vectorResults: SearchResultItem[],
-    type: 'law' | 'case_material',
+    type: 'law' | 'case_material' | 'case_memory',
     k: number = 60,
 ): SearchResultItem[] {
     const scoreMap = new Map<string, { score: number; item: SearchResultItem }>()
@@ -108,7 +112,12 @@ export async function hybridSearchService(
     intent: IntentClassification,
     request: RetrievalRequest,
 ): Promise<SearchResultItem[]> {
-    const tableName = request.type === 'law' ? 'law_embeddings' : 'case_material_embeddings'
+    const tableNameMap: Record<string, string> = {
+        law: 'law_embeddings',
+        case_material: 'case_material_embeddings',
+        case_memory: 'case_memories',
+    }
+    const tableName = tableNameMap[request.type] ?? 'case_material_embeddings'
     const searchK = request.k * 3  // 粗检索取 3 倍
     const searchQuery = intent.rewrittenQuery || request.query
 

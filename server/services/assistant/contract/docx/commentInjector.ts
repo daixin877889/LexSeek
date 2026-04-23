@@ -10,7 +10,7 @@ import {
     zipToBuffer,
 } from './zipRewriter'
 import { appendChildXml, escapeXml } from './xmlUtils'
-import { generateWordCommentRef } from '../utils/wordCommentRef'
+import { generateWordCommentRef, buildAuthorField } from '../utils/wordCommentRef'
 
 const LEVEL_LABEL: Record<RiskLevel, string> = {
     high: '高风险',
@@ -349,8 +349,10 @@ export interface InjectAnnotationsResult {
  *
  * 规则：
  * - 每条 annotation 生成一个 <w:comment>，w:id 按数组顺序 0,1,2...
- * - w:author = 'LS:' + annotation.authorName（LS 前缀使客户 Word 可见来源）
- * - w:initials = wordCommentRef（LEXSEEK-{id}-{rand8} 格式，回传识别用）
+ * - w:author = 'LS:{authorName} [#{annotationId}-{rand8}]'
+ *   （Phase C：稳定身份证写在 author 末尾方括号，Word 保证不截断此字段）
+ * - w:initials = wordCommentRef（LEXSEEK-{id}-{rand8}，仅供非 Word 编辑器场景冗余识别；
+ *   Word 会把此字段截断到 ~9 字符并按 people.xml 统一成同一值，不可靠）
  * - parentAnnotationId 非空且父 annotation 在本批次中 → 写 w:parentId 实现"答复批注"
  * - anchorParagraphIndex 越界时该 annotation 跳过（仍写入 refsByAnnotationId 供回写）
  */
@@ -469,7 +471,7 @@ export async function injectAnnotations(
     return { buffer: await zipToBuffer(zip), refsByAnnotationId }
 }
 
-/** 构造 Phase B 格式的 comments.xml */
+/** 构造 Phase C 格式的 comments.xml：稳定身份证写在 w:author 末尾 */
 function buildCommentsXmlFromAnnotations(
     annotations: ContractAnnotationForExport[],
     refs: Map<number, string>,
@@ -478,13 +480,16 @@ function buildCommentsXmlFromAnnotations(
     const now = new Date().toISOString()
     const items = annotations.map(a => {
         const wId = wordIds.get(a.id)!
-        const initials = refs.get(a.id)!
-        const author = `LS:${a.authorName}`
+        const ref = refs.get(a.id)!
+        // Phase C：w:author 末尾嵌入 [#id-rand8]，Word 保留完整不截断
+        const author = buildAuthorField(a.authorName, ref)
+        // w:initials 保留 LEXSEEK 格式作为非 Word 编辑器场景的冗余识别
+        // （Word 会截断此字段到 9 字符并统一同类作者，不可靠但不冲突）
         const parentAttr =
             a.parentAnnotationId !== null && wordIds.has(a.parentAnnotationId)
                 ? ` w:parentId="${wordIds.get(a.parentAnnotationId)}"`
                 : ''
-        return `<w:comment w:id="${wId}" w:author="${escapeXml(author)}" w:initials="${escapeXml(initials)}" w:date="${now}"${parentAttr}><w:p><w:r><w:t xml:space="preserve">${escapeXml(a.content)}</w:t></w:r></w:p></w:comment>`
+        return `<w:comment w:id="${wId}" w:author="${escapeXml(author)}" w:initials="${escapeXml(ref)}" w:date="${now}"${parentAttr}><w:p><w:r><w:t xml:space="preserve">${escapeXml(a.content)}</w:t></w:r></w:p></w:comment>`
     }).join('')
 
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>

@@ -6,7 +6,7 @@
  * 用正则字符串扫描，与项目现有 xmlUtils.ts 保持一致，不引入 fast-xml-parser。
  */
 import { loadDocxZip } from './zipRewriter'
-import { parseWordCommentRef } from '../utils/wordCommentRef'
+import { parseCommentRef } from '../utils/wordCommentRef'
 
 export interface ParsedWordComment {
     wId: number
@@ -128,11 +128,17 @@ export async function parseWordComments(docxBuffer: Buffer): Promise<ParsedDocxC
         }
     }
 
+    // Phase C：优先从 w:author 末尾 [#id-rand8] 取 id（Word 保留完整不截断）；
+    // fallback 从 w:initials 的 LEXSEEK 字面量取（Word 会截断这个字段，仅适用 LibreOffice/WPS）。
     const annotationRefsByWId = new Map<number, AnnotationRefEntry>()
     for (const c of comments) {
-        const parsed = parseWordCommentRef(c.wInitials)
+        const parsed = parseCommentRef(c.wAuthor, c.wInitials)
         if (parsed) {
-            annotationRefsByWId.set(c.wId, { annotationId: parsed.annotationId, ref: c.wInitials })
+            // ref 字段用 author/initials 里能识别出来的那个完整字符串，便于后续比对
+            annotationRefsByWId.set(c.wId, {
+                annotationId: parsed.annotationId,
+                ref: c.wAuthor ?? c.wInitials ?? '',
+            })
         }
     }
 

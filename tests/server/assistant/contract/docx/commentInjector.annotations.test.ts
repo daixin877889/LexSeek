@@ -79,7 +79,7 @@ describe('injectAnnotations', () => {
         }
     })
 
-    it('w:author 带 LS: 前缀，authorName 正确写入', async () => {
+    it('w:author 带 LS: 前缀和 [#id-rand8] 稳定身份证（Phase C：Word 不截断 author）', async () => {
         const original = await readFile(SAMPLE)
         const { paragraphs } = await parseContractDocx(original)
 
@@ -93,9 +93,11 @@ describe('injectAnnotations', () => {
         const zip = await loadDocxZip(buffer)
         const commentsXml = await readTextFromZip(zip, 'word/comments.xml')
 
-        expect(commentsXml).toContain('w:author="LS:AI"')
-        expect(commentsXml).toContain('w:author="LS:张律师"')
-        expect(commentsXml).toContain('w:author="LS:客户甲"')
+        // author 前缀保持 "LS:" 品牌标识，后面紧跟方括号嵌入的稳定 ID
+        // `w:author` 字段需要 XML 转义，方括号里的 # 字符本身不转义
+        expect(commentsXml).toMatch(/w:author="LS:AI \[#1-[a-zA-Z0-9]{8}\]"/)
+        expect(commentsXml).toMatch(/w:author="LS:张律师 \[#2-[a-zA-Z0-9]{8}\]"/)
+        expect(commentsXml).toMatch(/w:author="LS:客户甲 \[#3-[a-zA-Z0-9]{8}\]"/)
     })
 
     it('答复批注写入 w:parentId 引用父 w:id', async () => {
