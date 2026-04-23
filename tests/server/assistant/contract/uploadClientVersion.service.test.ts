@@ -155,6 +155,67 @@ describe('uploadClientVersionService（B1 骨架）', () => {
         expect(versions).toHaveLength(2)
     })
 
+    it('律师修改批注内容后触发 auto_backup（覆盖 annotation.updatedAt 漏检修复验证）', async () => {
+        // 先创建 v1 快照并设为 currentVersionId
+        const v1 = await saveContractReviewVersionService({
+            reviewId,
+            systemLabel: 'lawyer_save',
+            createdById: userId,
+        })
+        expect(v1.id).toBeGreaterThan(0)
+
+        // 在 v1 快照之后预埋一条 risk + annotation（模拟律师在 v1 之后添加了批注）
+        const risk = await prisma.contractRisks.create({
+            data: {
+                reviewId,
+                source: 'ai',
+                code: 'TEST-001',
+                category: '测试分类',
+                level: 'medium',
+                problem: '测试风险',
+                anchorQuote: '第一条',
+            },
+        })
+
+        // 先创建批注（updatedAt == createdAt，此时已晚于 v1.createdAt）
+        const ann = await prisma.contractAnnotations.create({
+            data: {
+                reviewId,
+                riskId: risk.id,
+                authorType: 'lawyer',
+                authorName: '测试律师',
+                authorUserId: userId,
+                content: '初始批注内容',
+            },
+        })
+
+        // 再 update content，触发 updatedAt 自动刷新（确保 updatedAt > v1.createdAt）
+        await prisma.contractAnnotations.update({
+            where: { id: ann.id },
+            data: { content: '律师修订后的批注内容' },
+        })
+
+        const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+        const events = await collectEvents(
+            uploadClientVersionService({ review, ossFileId, userId }),
+        )
+
+        const errorEvents = events.filter((e) => e.type === 'error')
+        expect(errorEvents).toHaveLength(0)
+
+        // 验证 auto_backup 版本已被创建
+        const versions = await prisma.contractReviewVersions.findMany({
+            where: { reviewId },
+            orderBy: { versionNumber: 'asc' },
+            select: { systemLabel: true, versionNumber: true },
+        })
+        const labels = versions.map((v) => v.systemLabel)
+        expect(labels).toContain('auto_backup')
+        expect(labels).toContain('client_return')
+        // 共 3 条：lawyer_save + auto_backup + client_return
+        expect(versions).toHaveLength(3)
+    })
+
     it('OSS 文件不存在 → error 事件（step=parse, code=PARSE_FAILED）', async () => {
         const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
         // 使用一个确实不存在于 DB 的 ossFileId

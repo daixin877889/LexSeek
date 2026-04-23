@@ -123,8 +123,11 @@ export async function* uploadClientVersionService(params: {
  * 判断工作区相对 currentVersion 是否有未保存编辑。
  *
  * 判断依据（Phase A §4.3.1 自动备份幂等规则）：
- * - 取工作区最新 risk.updatedAt 和最新 annotation.createdAt 中的较大值
+ * - 取工作区最新 risk.updatedAt 和最新 annotation.updatedAt 中的较大值
  * - 若大于 currentVersion.createdAt，则认为有未保存编辑
+ *
+ * 注意：annotation 不过滤 deletedAt——软删（deletedAt 被设置）也属于律师"编辑"，
+ * 应触发 auto_backup，避免丢失该编辑动作。
  *
  * 当 currentVersionId 为 null（尚未创建过快照）时，保守返回 false，
  * 不触发备份（此场景本就没有可备份的基线版本）。
@@ -142,9 +145,9 @@ async function detectUnsavedEdits(
             select: { updatedAt: true },
         }),
         prisma.contractAnnotations.findFirst({
-            where: { reviewId, deletedAt: null },
-            orderBy: { createdAt: 'desc' },
-            select: { createdAt: true },
+            where: { reviewId },
+            orderBy: { updatedAt: 'desc' },
+            select: { updatedAt: true },
         }),
         prisma.contractReviewVersions.findUnique({
             where: { id: currentVersionId },
@@ -156,7 +159,7 @@ async function detectUnsavedEdits(
 
     const latestEditMs = Math.max(
         latestRisk?.updatedAt?.getTime() ?? 0,
-        latestAnn?.createdAt?.getTime() ?? 0,
+        latestAnn?.updatedAt?.getTime() ?? 0,
     )
     return latestEditMs > currentVer.createdAt.getTime()
 }

@@ -548,6 +548,7 @@ export const ContractAnnotationsScalarFieldEnum = {
   content: 'content',
   deletedAt: 'deletedAt',
   createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
   wordCommentRef: 'wordCommentRef',
   removedByClient: 'removedByClient',
   suppressInExport: 'suppressInExport'
