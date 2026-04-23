@@ -65,6 +65,7 @@ export const ModelName = {
   caseAnalyses: 'caseAnalyses',
   demoCases: 'demoCases',
   caseMaterialEmbeddings: 'caseMaterialEmbeddings',
+  caseMemories: 'caseMemories',
   contractPlaybooks: 'contractPlaybooks',
   contractReviews: 'contractReviews',
   contractReviewLegacyRisksBackup: 'contractReviewLegacyRisksBackup',
@@ -380,6 +381,15 @@ export const CaseMaterialEmbeddingsScalarFieldEnum = {
 } as const
 
 export type CaseMaterialEmbeddingsScalarFieldEnum = (typeof CaseMaterialEmbeddingsScalarFieldEnum)[keyof typeof CaseMaterialEmbeddingsScalarFieldEnum]
+
+
+export const CaseMemoriesScalarFieldEnum = {
+  id: 'id',
+  text: 'text',
+  metadata: 'metadata'
+} as const
+
+export type CaseMemoriesScalarFieldEnum = (typeof CaseMemoriesScalarFieldEnum)[keyof typeof CaseMemoriesScalarFieldEnum]
 
 
 export const ContractPlaybooksScalarFieldEnum = {

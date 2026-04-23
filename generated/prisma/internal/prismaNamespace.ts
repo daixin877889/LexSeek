@@ -398,6 +398,7 @@ export const ModelName = {
   caseAnalyses: 'caseAnalyses',
   demoCases: 'demoCases',
   caseMaterialEmbeddings: 'caseMaterialEmbeddings',
+  caseMemories: 'caseMemories',
   contractPlaybooks: 'contractPlaybooks',
   contractReviews: 'contractReviews',
   contractReviewLegacyRisksBackup: 'contractReviewLegacyRisksBackup',
@@ -471,7 +472,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "agentToolAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "contractPlaybooks" | "contractReviews" | "contractReviewLegacyRisksBackup" | "contractReviewVersions" | "contractRisks" | "contractAnnotations" | "documentTemplates" | "documentDrafts" | "documentDraftSnapshots" | "documentDraftVersions" | "ossFiles" | "checkpoint_blobs" | "checkpoint_migrations" | "checkpoint_writes" | "checkpoints" | "store" | "store_migrations" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
+    modelProps: "agentRuns" | "apiPermissionGroups" | "apiPermissions" | "roleApiPermissions" | "permissionAuditLogs" | "agentToolAuditLogs" | "campaigns" | "caseTypes" | "cases" | "caseSessions" | "caseMaterials" | "caseAnalyses" | "demoCases" | "caseMaterialEmbeddings" | "caseMemories" | "contractPlaybooks" | "contractReviews" | "contractReviewLegacyRisksBackup" | "contractReviewVersions" | "contractRisks" | "contractAnnotations" | "documentTemplates" | "documentDrafts" | "documentDraftSnapshots" | "documentDraftVersions" | "ossFiles" | "checkpoint_blobs" | "checkpoint_migrations" | "checkpoint_writes" | "checkpoints" | "store" | "store_migrations" | "legalMain" | "legalArticles" | "lawEmbeddings" | "textContentRecords" | "membershipLevels" | "userMemberships" | "benefits" | "membershipBenefits" | "userBenefits" | "modelProviders" | "modelApiKeys" | "models" | "nodeGroups" | "nodes" | "prompts" | "levelNodeAccess" | "orders" | "paymentTransactions" | "membershipUpgradeRecords" | "pointRecords" | "pointConsumptionItems" | "pointConsumptionRecords" | "products" | "roles" | "roleRouters" | "userRoles" | "docRecognitionRecords" | "imageRecognitionRecords" | "asrTasks" | "asrRecords" | "mineruTokens" | "mineruTasks" | "redemptionCodes" | "redemptionRecords" | "routers" | "routerGroups" | "smsRecords" | "storageConfigs" | "systemConfigs" | "users" | "tokenBlacklist"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1508,6 +1509,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.caseMaterialEmbeddingsCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.CaseMaterialEmbeddingsCountAggregateOutputType> | number
+        }
+      }
+    }
+    caseMemories: {
+      payload: Prisma.$caseMemoriesPayload<ExtArgs>
+      fields: Prisma.caseMemoriesFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.caseMemoriesFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseMemoriesPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.caseMemoriesFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseMemoriesPayload>
+        }
+        findFirst: {
+          args: Prisma.caseMemoriesFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseMemoriesPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.caseMemoriesFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseMemoriesPayload>
+        }
+        findMany: {
+          args: Prisma.caseMemoriesFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseMemoriesPayload>[]
+        }
+        create: {
+          args: Prisma.caseMemoriesCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseMemoriesPayload>
+        }
+        createMany: {
+          args: Prisma.caseMemoriesCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.caseMemoriesCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseMemoriesPayload>[]
+        }
+        delete: {
+          args: Prisma.caseMemoriesDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseMemoriesPayload>
+        }
+        update: {
+          args: Prisma.caseMemoriesUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseMemoriesPayload>
+        }
+        deleteMany: {
+          args: Prisma.caseMemoriesDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.caseMemoriesUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.caseMemoriesUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseMemoriesPayload>[]
+        }
+        upsert: {
+          args: Prisma.caseMemoriesUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$caseMemoriesPayload>
+        }
+        aggregate: {
+          args: Prisma.CaseMemoriesAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateCaseMemories>
+        }
+        groupBy: {
+          args: Prisma.caseMemoriesGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CaseMemoriesGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.caseMemoriesCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.CaseMemoriesCountAggregateOutputType> | number
         }
       }
     }
@@ -6083,6 +6158,15 @@ export const CaseMaterialEmbeddingsScalarFieldEnum = {
 export type CaseMaterialEmbeddingsScalarFieldEnum = (typeof CaseMaterialEmbeddingsScalarFieldEnum)[keyof typeof CaseMaterialEmbeddingsScalarFieldEnum]
 
 
+export const CaseMemoriesScalarFieldEnum = {
+  id: 'id',
+  text: 'text',
+  metadata: 'metadata'
+} as const
+
+export type CaseMemoriesScalarFieldEnum = (typeof CaseMemoriesScalarFieldEnum)[keyof typeof CaseMemoriesScalarFieldEnum]
+
+
 export const ContractPlaybooksScalarFieldEnum = {
   id: 'id',
   contractType: 'contractType',
@@ -7360,6 +7444,7 @@ export type GlobalOmitConfig = {
   caseAnalyses?: Prisma.caseAnalysesOmit
   demoCases?: Prisma.demoCasesOmit
   caseMaterialEmbeddings?: Prisma.caseMaterialEmbeddingsOmit
+  caseMemories?: Prisma.caseMemoriesOmit
   contractPlaybooks?: Prisma.contractPlaybooksOmit
   contractReviews?: Prisma.contractReviewsOmit
   contractReviewLegacyRisksBackup?: Prisma.contractReviewLegacyRisksBackupOmit

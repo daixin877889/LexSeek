@@ -115,6 +115,13 @@ export type demoCases = Prisma.demoCasesModel
  */
 export type caseMaterialEmbeddings = Prisma.caseMaterialEmbeddingsModel
 /**
+ * Model caseMemories
+ * 案件记忆向量表（LangChain PGVectorStore 同构）
+ * 写入走 addDocumentsToVectorStore；业务字段放 metadata JSON
+ * 注意：此表结构对齐 LangChain 约定，不允许新增查询列（会破坏框架写入）
+ */
+export type caseMemories = Prisma.caseMemoriesModel
+/**
  * Model contractPlaybooks
  * 合同审查清单要点（按合同类型维护）
  * v1 不支持硬删除，只通过 enabled=false 停用

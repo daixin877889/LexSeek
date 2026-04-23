@@ -294,3 +294,17 @@ model caseMaterialEmbeddings {
   @@index([tsv], type: Gin, map: "idx_case_material_tsv")
   @@map("case_material_embeddings")
 }
+
+/// 案件记忆向量表（LangChain PGVectorStore 同构）
+/// 写入走 addDocumentsToVectorStore；业务字段放 metadata JSON
+/// 注意：此表结构对齐 LangChain 约定，不允许新增查询列（会破坏框架写入）
+model caseMemories {
+  id        String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  text      String?                  @db.Text
+  metadata  Json?
+  embedding Unsupported("vector")?
+  tsv       Unsupported("tsvector")?
+
+  @@index([tsv], type: Gin, map: "idx_case_memories_tsv")
+  @@map("case_memories")
+}
