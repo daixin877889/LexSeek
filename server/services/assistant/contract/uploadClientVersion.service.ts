@@ -239,7 +239,9 @@ export async function* uploadClientVersionService(params: {
                             legalBasis: risk.legalBasis ?? null,
                             analysis: risk.analysis ?? null,
                             suggestion: risk.suggestion ?? null,
-                            anchorQuote: clause.text.slice(0, 50),
+                            // 与 Phase A 原始 AI risk 保持一致：存条款全文，
+                            // 不再截断（bug #11）。截断会导致后续 diff/锚点匹配失真。
+                            anchorQuote: clause.text,
                             anchorParagraphIndex: m.newIndex,
                         },
                     })

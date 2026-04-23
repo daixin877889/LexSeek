@@ -28,6 +28,10 @@ const COMMENTS_REL =
 const ANNOTATION_REFS_OVERRIDE =
     '<Override PartName="/word/customXml/annotationRefs.xml" ContentType="application/xml"/>'
 
+/** customXml part 在 document.xml.rels 中的关系注册节点 */
+const ANNOTATION_REFS_REL =
+    '<Relationship Id="rIdAnnRefs" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml" Target="customXml/annotationRefs.xml"/>'
+
 /** customXml part 的命名空间 URI */
 const ANNOTATION_REFS_NS = 'urn:lexseek:contract-review'
 
@@ -88,6 +92,44 @@ function extractTextFromParagraphXml(paraXml: string): string {
 }
 
 /**
+ * 中英文标点 / 全角半角归一映射表。
+ * 用于锚点匹配时规避"客户端是中文标点、docx 里是英文标点"等等价差异。
+ */
+const PUNCT_NORMALIZE_MAP: Record<string, string> = {
+    '“': '"', '”': '"', '„': '"', '‟': '"',
+    '‘': "'", '’': "'", '‚': "'", '‛': "'",
+    '，': ',', '。': '.', '；': ';', '：': ':',
+    '（': '(', '）': ')', '【': '[', '】': ']',
+    '《': '<', '》': '>',
+    '？': '?', '！': '!',
+    '、': ',',
+    '—': '-', '–': '-', '－': '-', '─': '-',
+    '…': '...',
+    '\u3000': ' ', // 全角空格
+    '\u00A0': ' ', // 非断行空格
+}
+
+/**
+ * 锚点匹配文本规范化：
+ * 1. NFKC Unicode 标准化（半角化字母数字、合成字符拆解）
+ * 2. 中英文标点统一为英文标点
+ * 3. 多个空白压缩成单个空格
+ * 4. trim 首尾空白
+ *
+ * 注意：仅在锚点匹配时使用；写回 docx / DB 的原文必须用规范化前的字符串，
+ * 避免破坏客户原稿的标点风格。
+ */
+function normalizeForMatch(text: string): string {
+    if (!text) return ''
+    const nfkc = text.normalize('NFKC')
+    let out = ''
+    for (const ch of nfkc) {
+        out += PUNCT_NORMALIZE_MAP[ch] ?? ch
+    }
+    return out.replace(/\s+/g, ' ').trim()
+}
+
+/**
  * 按 anchorQuote 在非空段落列表中搜索，返回第一个包含该字符串的段落索引。
  * 找不到时返回 -1。
  *
@@ -104,15 +146,18 @@ function findParagraphIndexByQuote(
     // 按行拆分，过滤掉过短的噪音行（单字符标点等），保留 2 个字符以上的有效行
     const lines = quote
         .split(/\r?\n/)
-        .map(l => l.trim())
+        .map(l => normalizeForMatch(l))
         .filter(l => l.length >= 2)
 
     if (lines.length === 0) return -1
 
+    // 预先把段落文本规范化一次，避免内层循环重复计算
+    const normalizedParas = nonEmpty.map(p => normalizeForMatch(extractTextFromParagraphXml(p.text)))
+
     // 依次尝试前 3 行，任一命中即返回
     for (const line of lines.slice(0, 3)) {
-        for (let i = 0; i < nonEmpty.length; i++) {
-            if (extractTextFromParagraphXml(nonEmpty[i]!.text).includes(line)) return i
+        for (let i = 0; i < normalizedParas.length; i++) {
+            if (normalizedParas[i]!.includes(line)) return i
         }
     }
     return -1
@@ -370,24 +415,16 @@ export async function injectAnnotations(
     }))
     writeTextToZip(zip, 'word/document.xml', injectRangeMarkers(documentXml, injections, nonEmpty))
 
-    // 6. 确保 [Content_Types].xml 和 rels 中包含 comments 注册项
-    // 需要在写 customXml 前先读取最新的 contentTypesXml（之前已读，这里直接用变量）
+    // 6. 写入 customXml part：word/customXml/annotationRefs.xml
+    //    Word 打开保存时不会删除此文件，是比 w:initials 更可靠的 annotationId 身份证
+    const annotationRefXml = buildAnnotationRefsXml(annotations, refsByAnnotationId, wordIdByAnnotationId)
+    writeTextToZip(zip, 'word/customXml/annotationRefs.xml', annotationRefXml)
+
+    // 7. 累积式更新 [Content_Types].xml（comments + customXml 两个 Override 幂等追加）
     let latestContentTypesXml = contentTypesXml
     if (!latestContentTypesXml.includes('PartName="/word/comments.xml"')) {
         latestContentTypesXml = appendChildXml(latestContentTypesXml, 'Types', COMMENTS_OVERRIDE)
     }
-    if (!relsXml.includes('Target="comments.xml"')) {
-        writeTextToZip(
-            zip,
-            'word/_rels/document.xml.rels',
-            appendChildXml(relsXml, 'Relationships', COMMENTS_REL),
-        )
-    }
-
-    // 7. 写入 customXml part：word/customXml/annotationRefs.xml
-    //    Word 打开保存时不会删除此文件，是比 w:initials 更可靠的 annotationId 身份证
-    const annotationRefXml = buildAnnotationRefsXml(annotations, refsByAnnotationId, wordIdByAnnotationId)
-    writeTextToZip(zip, 'word/customXml/annotationRefs.xml', annotationRefXml)
     if (!latestContentTypesXml.includes('PartName="/word/customXml/annotationRefs.xml"')) {
         latestContentTypesXml = appendChildXml(
             latestContentTypesXml,
@@ -396,6 +433,18 @@ export async function injectAnnotations(
         )
     }
     writeTextToZip(zip, '[Content_Types].xml', latestContentTypesXml)
+
+    // 8. 累积式更新 word/_rels/document.xml.rels
+    //    必须同时注册 comments 和 customXml 关系；漏掉 customXml 关系会导致 Word
+    //    在二次保存时丢弃 annotationRefs.xml（即使 [Content_Types] 注册了 Override）
+    let latestRelsXml = relsXml
+    if (!latestRelsXml.includes('Target="comments.xml"')) {
+        latestRelsXml = appendChildXml(latestRelsXml, 'Relationships', COMMENTS_REL)
+    }
+    if (!latestRelsXml.includes('Target="customXml/annotationRefs.xml"')) {
+        latestRelsXml = appendChildXml(latestRelsXml, 'Relationships', ANNOTATION_REFS_REL)
+    }
+    writeTextToZip(zip, 'word/_rels/document.xml.rels', latestRelsXml)
 
     return { buffer: await zipToBuffer(zip), refsByAnnotationId }
 }
