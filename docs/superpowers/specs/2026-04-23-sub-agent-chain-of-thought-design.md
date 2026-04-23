@@ -147,30 +147,62 @@
 
 遍历子 thread 的 messages 数组（已过滤 `injectedBy=SubAgentContext` 注入消息），按以下规则打标：
 
-| 子 thread 消息 | 映射为 | 图标 | status |
+**重要：一条 AIMessage 可能同时含 thinking / content text / tool_calls，需要拆解为多个 Step。**
+
+「思考过程」在项目里是独立字段而非 `content`，来自 `extractThinking(m)`（`useMessageParser.ts:72`），兼容三种传输格式：
+- `contentBlocks[].type === 'reasoning'`（LGP transport 路径）
+- `content[].type === 'thinking'`（FetchStreamTransport 路径）
+- `additional_kwargs.reasoning_content`（Ollama / DeepSeek）
+
+### 4.0 拆解规则
+
+对每一条 `AIMessage`（非最后一条）：
+1. 若 `extractThinking(m)` 非空 → 产出一个「思考」Step
+2. 若 `content` 去掉 thinking 块后仍有 text 且非空 → 产出一个「分析」Step（模型在 tool_call 之间说的"过渡/推理说明"）
+3. 若 `tool_calls[]` 非空 → 按数组顺序，**每个 tool_call 独立一个「调用 X」Step**
+
+对**最后一条** `AIMessage`（子 Agent 给主 Agent 的最终回复）：
+1. 若 `extractThinking(m)` 非空 → 先产出一个「思考」Step（结束后全部 complete）
+2. 最终 content text → 产出一个「得出结论」Step（token 流入中时 active，走 throttle）
+
+**ToolMessage 始终不单独成 Step**，按 `tool_call_id` 挂到对应的 tool_call Step 的 `<ChainOfThoughtContent>` 里。
+
+### 4.1 映射对照表
+
+| 子 thread 原始数据 | 映射结果 | 图标（lucide） | status 规则 |
 |---|---|---|---|
-| `HumanMessage(injectedBy=SubAgentContext)` | **隐藏**（现有 `useMessageParser` 已过滤） | — | — |
-| `HumanMessage`（子 Agent 首个问题） | 不进 step，作为 header 下方的问题摘要 | — | — |
-| `AIMessage`（纯 content，非最后一条） | Step `label="思考"`, **折叠视图**显示 content 前 80 字摘要；展开后 `<ChainOfThoughtContent>` 内用 `<Response>` 渲染全文 Markdown | `Brain` | 非最后步骤全 `complete` |
-| `AIMessage.tool_calls[]` | **每个 tool_call 独立一个 step**，label=`"调用 " + toolTitle`, description=args 精简摘要（一行） | `Wrench` | tool_call 出现后到 ToolMessage 到达前为 `active` |
-| `ToolMessage` | **不单独成 step**，挂到对应 tool_call step 的 `<ChainOfThoughtContent>` 里（检索类 → SearchResults；其它 → 复用 AiToolRenderer） | — | 到达即把对应 tool_call step 翻成 `complete` |
-| 最后一条 `AIMessage`（给主 Agent 的最终回复） | Step `label="得出结论"`，**折叠视图**显示 content 前 80 字摘要；展开后 `<ChainOfThoughtContent>` 内用 `<Response>` 渲染全文 Markdown | `CheckCircle2` | 子 Agent 整体结束时 `complete`；否则 `active`（token 流入中，走 throttle） |
+| `HumanMessage(injectedBy=SubAgentContext)` | **隐藏**（`useMessageParser` 已过滤） | — | — |
+| `HumanMessage`（子 Agent 首个问题，来自 `ask_*_expert` 的 question 入参） | **不成 Step**，放在 Header 下方的「问题摘要」条 | — | — |
+| `AIMessage.thinking`（通过 extractThinking 提取，可能为纯 reasoning 块） | 「思考」Step：折叠态显示 thinking 前 80 字；展开用 `<Response>` 渲染完整 thinking（等同 Reasoning 组件风格） | `Brain` | 非最后一条 AIMessage → complete；最后一条且子 Agent 还在跑 → active |
+| `AIMessage.content` 的 text 部分（剥离 thinking 块后剩余的字符串） | 「分析」Step：折叠态 80 字摘要；展开用 `<Response>` 渲染完整 Markdown | `FileText` | 与上条同 |
+| `AIMessage.tool_calls[]`（每个 tool_call） | 「调用 {toolTitle}」Step × N，description = args 一行摘要 | `Wrench` | 出现后 → active；对应 ToolMessage 到达 → complete |
+| `ToolMessage` | **不成 Step**，内嵌到对应 tool_call Step 的 `<ChainOfThoughtContent>`（检索类 → SearchResults；其它 → AiToolRenderer） | — | 到达即翻上方 tool_call Step 为 complete |
+| **最后一条 `AIMessage`** 的 content text（final answer） | 「得出结论」Step：折叠态 80 字摘要；展开用 `<Response>` 渲染完整 Markdown | `CheckCircle2` | 子 Agent 整体结束 → complete；token 流入中 → active（走 30ms throttle） |
 
-**关于"摘要"与"全文"的分工**：
-- ChainOfThoughtStep 的 `description` 是**折叠视图**（step 头部一行简摘，供扫视）
-- ChainOfThoughtContent 是**展开视图**（点开步骤后看完整内容，`<Response>` 渲染 Markdown）
-- throttle 30ms 仅作用于 active step 的 description（折叠视图），content 内部的 Response 组件自带增量渲染机制，不额外 throttle
+### 4.2 折叠态 vs 展开态的分工
 
-### 4.1 ToolMessage 展示细节
+- **ChainOfThoughtStep 的 `description`** = 折叠视图（step 头部一行简摘，供扫视，~80 字）
+- **ChainOfThoughtContent** = 展开视图（点开步骤后看完整内容，`<Response>` 渲染 Markdown）
+- throttle 30ms 仅作用于 **active step 的 description**（折叠视图），ChainOfThoughtContent 内部的 `<Response>` 组件自带增量渲染，不额外 throttle
+
+### 4.3 纯 thinking 阶段的处理
+
+流式中模型可能先输出 thinking、尚未输出 content 也未产生 tool_call，此时最后一条 AIMessage 只有 thinking。按上面规则：
+- 最后一条 AIMessage → 产出「思考」Step（active，thinking token 实时流入，走 30ms throttle）
+- 还不存在「得出结论」Step（直到 content 出现或子 Agent 结束）
+
+`useMessageParser:218-219` 已经处理了"纯 thinking 阶段不要过滤掉"的场景，我们遵从现有过滤逻辑。
+
+### 4.4 ToolMessage 展示细节
 - `toolName` 属于检索类（`search_case_materials` / `search_law` / `search_case_memory` 等）且 `toolResult` 是数组 → 用 `<ChainOfThoughtSearchResults>` + `<ChainOfThoughtSearchResult>` 列出每条命中
 - 其它工具 → 复用 `<AiToolRenderer>`（同款小卡片），保持与主 Agent 工具风格一致
 - 检索类白名单在 `isSearchTool()` 里集中维护，初始集合：`['search_case_materials', 'search_law', 'search_case_memory']`，后续增加工具时维护此列表
 
-### 4.2 状态流转
+### 4.5 状态流转
 - 子 Agent 开始（首条 callback 事件到）→ `subThread.status = 'running'`，卡片 `isOpen = true`
 - 每新增一个 tool_call → 新建 `active` step，上一个 `active` step 翻 `complete`
-- 子 Agent 结束：**主触发**为 callbacks 的 `handleChainEnd` 在 root runId（即 agent 本体）回调 → `status = 'completed'`；**兜底触发**为主 thread 该 `toolCallId` 对应的 `ToolMessage` 出现（防止 callback 丢事件卡死前端）。所有 step 翻 `complete`
-- 子 Agent 失败（catch 分支）→ `status = 'failed'`，最后 active step 翻 `complete`（不是 `pending`，避免永久转圈）
+- 子 Agent 结束：主触发为 callbacks 的 `handleChainEnd` 在 root runId 回调 → `status = 'completed'`；兜底触发为 ToolMessage 返回主 thread
+- 子 Agent 失败（catch 分支）→ `status = 'failed'`，最后 active step 翻 complete（避免永久转圈），失败信息显示在 Header 徽章
 
 ## 5. 流式与 throttle 策略
 
@@ -326,6 +358,40 @@ const result = await agent.invoke(
 - 仍使用 `invoke` 取返回值，`result.messages` 末尾找最后一条 AI → 作为工具字符串返回值
 - callbacks 是副作用通道，不参与返回值
 - `context` 需把 `runId` 和当前 `toolCallId` 透传进工具（当前签名里没有，需要通过 LangChain tool 的 `config.toolCall.id` 或 RunnableConfig 拿）
+
+## 9.5 主题与深浅模式适配（硬性约束）
+
+**项目支持 7 种主题色（Zinc / Violet / Rose / Blue / Green / Orange / Red / Yellow）× 浅/深模式，所有颜色必须在 14 种组合下均清晰可读、视觉协调。**
+
+### 9.5.1 色彩职责分层
+
+| 职责 | 使用的色系 | 主题变动响应 |
+|---|---|---|
+| 背景 / 文字 / 边框 / 分隔线 | shadcn token：`bg-card / bg-muted / text-foreground / text-muted-foreground / border-border / border-input` | ✅ 跟随 7 种主题变化 |
+| 失败 / 删除态 | `text-destructive` / `bg-destructive/10` | ✅ 跟随主题（destructive 也是 token） |
+| **语义色**（思考 / 分析 / 调用工具 / 结论）| Tailwind 固定色板 + `dark:` 变体 | ❌ **固定**（不跟随 primary 主题，保证语义稳定） |
+| 焦点环 | `ring-ring` | ✅ 跟随主题 |
+
+**为什么语义色不用 `primary`**：项目切换到 Violet / Green / Rose 主题时 `--primary` 会变色，会让「思考 Step 是什么颜色」变得不确定。所以把语义色做成"固定色板 + 深浅模式变体"，只有**文字/底色/边框**跟主题走。
+
+### 9.5.2 语义色映射（固定）
+
+| 语义 | icon 色 | 徽章底色 | 深色模式 icon | 深色徽章底 |
+|---|---|---|---|---|
+| 思考（thinking） | `text-violet-600` | `bg-violet-500/10` | `dark:text-violet-400` | `dark:bg-violet-500/15` |
+| 分析（content text） | `text-blue-600` | `bg-blue-500/10` | `dark:text-blue-400` | `dark:bg-blue-500/15` |
+| 调用工具（tool_call） | `text-amber-600` | `bg-amber-500/10` | `dark:text-amber-400` | `dark:bg-amber-500/15` |
+| 得出结论（conclusion） | `text-emerald-600` | `bg-emerald-500/10` | `dark:text-emerald-400` | `dark:bg-emerald-500/15` |
+| 失败（failed） | `text-destructive` | `bg-destructive/10` | — | — |
+| 进行中（active） | 在上述语义色基础上附加 `animate-pulse` | — | — | — |
+
+### 9.5.3 铁律
+
+- **禁止硬编码十六进制颜色**（如 `#2563eb` / `#fafbfc`），一律使用 Tailwind 类
+- **每一处 light 模式颜色必须配 `dark:` 变体**（除非 shadcn token 本身已自动适配）
+- Chain of Thought 组件本身的 `bg-card / border-border` 使用 shadcn token，在深色模式下自动反色
+- Response（Markdown 渲染）、SearchResults、AiToolRenderer 已内建深浅适配，直接复用不额外处理
+- 参考样板：`app/components/ai/AiChatQueueChips.vue`（amber 语义）、`app/components/ai-elements/commit/CommitFileStatus.vue`（多语义色）
 
 ## 10. 非功能需求
 
