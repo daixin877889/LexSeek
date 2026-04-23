@@ -432,6 +432,16 @@ export interface UpdateCaseInput {
     defendant?: PartyInfo[] | null
     /** 案件状态 */
     status?: number
+    /** 法院名称 */
+    courtName?: string | null
+    /** 一审案件编号 */
+    firstInstanceCaseNo?: string | null
+    /** 二审案件编号 */
+    secondInstanceCaseNo?: string | null
+    /** 一审法官姓名 */
+    firstInstanceJudge?: string | null
+    /** 二审法官姓名 */
+    secondInstanceJudge?: string | null
 }
 
 /** 案件列表查询参数 */
