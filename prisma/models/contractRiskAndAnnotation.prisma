@@ -28,6 +28,10 @@ model contractRisks {
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+  /// Phase B：锚点首次迁移前的原文（UI "原文已修改" Tooltip 展示）
+  originalAnchorQuote String?  @map("original_anchor_quote") @db.Text
+  /// Phase B：当前版本无法定位锚点（孤立批注区）
+  orphaned            Boolean  @default(false) @map("orphaned")
 
   review      contractReviews       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   annotations contractAnnotations[]
@@ -56,6 +60,14 @@ model contractAnnotations {
   deletedAt          DateTime? @map("deleted_at")
 
   createdAt DateTime @default(now()) @map("created_at")
+  /// Phase B：内容被律师修改时更新（用于 detectUnsavedEdits 幂等判断）
+  updatedAt DateTime @updatedAt @map("updated_at")
+  /// Phase B：Word 批注稳定身份证（格式 LEXSEEK-{annotationId}-{random8}）
+  wordCommentRef   String?  @map("word_comment_ref") @db.VarChar(60)
+  /// Phase B：客户在 Word 里删了该批注
+  removedByClient  Boolean  @default(false) @map("removed_by_client")
+  /// Phase B：下次导出 docx 时跳过（removedByClient=true 时默认 true；律师"恢复推送"可将此置 false）
+  suppressInExport Boolean  @default(false) @map("suppress_in_export")
 
   review           contractReviews       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   risk             contractRisks         @relation(fields: [riskId], references: [id], onDelete: Cascade)
@@ -64,5 +76,6 @@ model contractAnnotations {
   authorUser       users?                @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
 
   @@index([riskId, createdAt])
+  @@index([wordCommentRef])
   @@map("contract_annotations")
 }

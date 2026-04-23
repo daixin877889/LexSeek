@@ -75,7 +75,7 @@ import { createContractRiskDAO } from '../../assistant/contract/contractRisk.dao
 import { createContractAnnotationDAO } from '../../assistant/contract/contractAnnotation.dao'
 import { saveContractReviewVersionService } from '../../assistant/contract/contractReviewVersion.service'
 import type { Prisma } from '~~/generated/prisma/client'
-import type { Risk, Stance, ClauseSegment, PlaybookSnapshot, StancePreference, RiskLevel } from '#shared/types/contract'
+import type { Risk, Stance, ClauseSegment, ClauseSnapshotItem, PlaybookSnapshot, StancePreference, RiskLevel } from '#shared/types/contract'
 import { resolveContextWindow } from '../context/messageCompressor'
 
 import { renderRiskAsAnnotationText } from '~~/server/services/assistant/contract/contractRiskRender'
@@ -91,6 +91,7 @@ async function persistRisksAndCreateV1Snapshot(
     userId: number,
     risks: Risk[],
     docxText: string,
+    clauses: ClauseSnapshotItem[],
 ): Promise<void> {
     // 幂等守卫：已有 currentVersionId 说明 v1 快照已存在，跳过
     const current = await prisma.contractReviews.findUnique({
@@ -127,12 +128,13 @@ async function persistRisksAndCreateV1Snapshot(
         })
     }
 
-    // 创建 v1 initial_upload 快照（显式传 docxText）
+    // 创建 v1 initial_upload 快照（显式传 docxText + clauses）
     await saveContractReviewVersionService({
         reviewId,
         systemLabel: 'initial_upload',
         createdById: userId,
         docxText,
+        clauses,
     })
     logger.info('persistRisksAndCreateV1Snapshot: v1 快照已创建', { reviewId, risksCount: risks.length })
 }
@@ -372,15 +374,18 @@ export async function runContractReviewChat(
     // M6.1 子期 1：在 agent 启动前预切分条款并发 segment 事件
     // 首轮和 resume 均执行（resume 时 segments 是 runAnalyzeLoop 的输入）
     let segments: ClauseSegment[] = []
-    // docxText 供 Phase A v1 快照使用（resume 分支写入 snapshot）
-    let parsedDocxText = ''
+    // normalizedText：\r\n 已折为 \n 的归一化全文，与 segments 的 offset 同空间。
+    // Phase A v1 快照写入 snapshot.docxText 时用此值，保证 Phase B diff 时
+    // docxText.slice(offsetStart, offsetEnd) 能精确还原 segment.text
+    let normalizedText = ''
     try {
         await emitContractReviewEvent(emitterCtx, {
             type: 'stage', stage: 'segment', status: 'running',
         })
         const { fullText } = await loadContractFullText(review.originalFileId)
-        parsedDocxText = fullText
-        segments = await segmentClauses(fullText)
+        const segmentResult = await segmentClauses(fullText)
+        segments = segmentResult.segments
+        normalizedText = segmentResult.normalizedText
         await emitContractReviewEvent(emitterCtx, {
             type: 'stage', stage: 'segment', status: 'done',
             totalClauses: segments.length,
@@ -501,11 +506,18 @@ export async function runContractReviewChat(
                     // Phase A：写 ContractRisk + ContractAnnotation + 创建 v1 initial_upload 快照
                     // 必须在 runAnnotateAndUpload 之前执行（annotate 需要 risks 已落库）
                     try {
+                        const clausesForSnapshot = segments.map(s => ({
+                            index: s.index,
+                            text: s.text,
+                            offsetStart: s.offsetStart,
+                            offsetEnd: s.offsetEnd,
+                        }))
                         await persistRisksAndCreateV1Snapshot(
                             review.id,
                             userId,
                             risks,
-                            parsedDocxText,
+                            normalizedText,
+                            clausesForSnapshot,
                         )
                     } catch (err) {
                         // 新表写入失败不影响主流程（向下兼容：旧 risks JSON 已落库）

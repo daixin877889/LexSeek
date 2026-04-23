@@ -13,6 +13,18 @@
  */
 import type { ClauseSegment } from '#shared/types/contract'
 
+/**
+ * segmentClausesByRegex 的返回结构。
+ * normalizedText 是将 \r\n 折成 \n 后的全文，与 segments 的 offsetStart/offsetEnd 同空间。
+ * 调用方在写入 snapshot 时必须用 normalizedText 而非原始 fullText，保证 Phase B diff 时
+ * docxText.slice(offsetStart, offsetEnd) 能精确还原 segment.text。
+ */
+export interface SegmentClausesResult {
+    segments: ClauseSegment[]
+    /** 与 segments offset 同空间的归一化文本（\r\n 已折为 \n） */
+    normalizedText: string
+}
+
 /** 中文个位数字到阿拉伯数字映射 */
 const CN_DIGIT: Record<string, number> = {
     零: 0, 一: 1, 二: 2, 三: 3, 四: 4,
@@ -68,11 +80,13 @@ const RE_CN_COMMA = /^([一二三四五六七八九十百千]+、)/
  * 前缀对应已识别的「第X条」序号时才被识别为子条款起点；孤立的「X.X」行（如「3.1 首付 40%」
  * 出现在没有「第三条」的文本中）会被忽略，归入上一个条款的正文。
  *
- * @param fullText 合同全文（预处理后的纯文本）
- * @returns ClauseSegment 数组；若无任何编号被匹配，返回单个 null-number 兜底段
+ * @param fullText 合同全文（预处理后的纯文本，允许含 \r\n）
+ * @returns SegmentClausesResult，包含 segments 和与之 offset 同空间的 normalizedText
  */
-export function segmentClausesByRegex(fullText: string): ClauseSegment[] {
+export function segmentClausesByRegex(fullText: string): SegmentClausesResult {
     const lines = fullText.split(/\r?\n/)
+    /** \r\n 已折为 \n 的全文，所有 offset 均以此为参照空间 */
+    const normalizedText = lines.join('\n')
 
     // 第一遍：判断文本是否包含「第X条」格式
     let hasDiTiao = false
@@ -120,9 +134,23 @@ export function segmentClausesByRegex(fullText: string): ClauseSegment[] {
 
     if (matches.length === 0) {
         // 无标号散段：整篇视为一个 segment
-        const text = fullText.trim()
-        if (!text) return []
-        return [{ index: 1, number: null, text }]
+        const text = normalizedText.trim()
+        if (!text) return { segments: [], normalizedText }
+        // trim() 可能截掉头部空白，offsetStart 需找到 trim 后第一个字符的位置
+        const offsetStart = normalizedText.indexOf(text)
+        return {
+            segments: [{ index: 1, number: null, text, offsetStart, offsetEnd: offsetStart + text.length }],
+            normalizedText,
+        }
+    }
+
+    // 预计算每行在 normalizedText 空间中的起始字符偏移
+    // lines[0] 从 0 开始，lines[i] 从 lineStarts[i] 开始，行间分隔符为 1 个 '\n'
+    const lineStarts: number[] = []
+    let cursor = 0
+    for (const line of lines) {
+        lineStarts.push(cursor)
+        cursor += line.length + 1 // +1 for '\n'
     }
 
     // 按行号切分：每个 match 到下一个 match 之前（或文末）的所有行拼起来作为 text
@@ -130,20 +158,34 @@ export function segmentClausesByRegex(fullText: string): ClauseSegment[] {
     for (let i = 0; i < matches.length; i++) {
         const start = matches[i]!.lineIdx
         const end = i + 1 < matches.length ? matches[i + 1]!.lineIdx : lines.length
-        const text = lines.slice(start, end).join('\n').trim()
+        const raw = lines.slice(start, end).join('\n')
+        const text = raw.trim()
         if (!text) continue
+
+        // raw 在 normalizedText 中的起始位置
+        const rawStart = lineStarts[start]!
+        // trim() 可能截掉 raw 头部空白，offsetStart 是 raw 内 text 的起始相对位移
+        const trimOffset = raw.indexOf(text)
+        const offsetStart = rawStart + trimOffset
         segments.push({
             index: segments.length + 1,
             number: matches[i]!.number,
             text,
+            offsetStart,
+            offsetEnd: offsetStart + text.length,
         })
     }
-    return segments
+    return { segments, normalizedText }
 }
 
 export interface SegmentOptions {
-    /** LLM 兜底策略：当正则命中 0 条或低于阈值时调用。默认不兜底。 */
-    llmFallback?: (fullText: string) => Promise<ClauseSegment[]>
+    /**
+     * LLM 兜底策略：当正则命中 0 条或低于阈值时调用。默认不兜底。
+     *
+     * 要求：返回的 segments 的 offsetStart/offsetEnd 必须以 normalizedText（\r\n→\n）为空间。
+     * 若 llmFallback 内部基于原始 fullText 计算 offset，需先在调用方归一化文本或转换 offset。
+     */
+    llmFallback?: (fullText: string) => Promise<SegmentClausesResult>
     /** 正则命中 <minRegexHits 时认为失败，触发 llmFallback。默认 3 */
     minRegexHits?: number
 }
@@ -151,17 +193,18 @@ export interface SegmentOptions {
 /**
  * 切分入口：正则 → 命中不足走 LLM 兜底（可选）。
  * 上层 workflow 节点应当传入 llmFallback 以提升鲁棒性。
+ * 返回 SegmentClausesResult，调用方写入 snapshot 时用 normalizedText 代替原始 fullText。
  */
 export async function segmentClauses(
     fullText: string,
     options: SegmentOptions = {},
-): Promise<ClauseSegment[]> {
-    const regexSegments = segmentClausesByRegex(fullText)
+): Promise<SegmentClausesResult> {
+    const regexResult = segmentClausesByRegex(fullText)
     const minHits = options.minRegexHits ?? 3
 
-    const regexHits = regexSegments.filter(s => s.number !== null).length
+    const regexHits = regexResult.segments.filter(s => s.number !== null).length
     if (regexHits >= minHits || !options.llmFallback) {
-        return regexSegments
+        return regexResult
     }
 
     logger.info('clauseSegmenter: 正则命中不足，走 LLM 兜底', {
@@ -169,11 +212,11 @@ export async function segmentClauses(
         minHits,
     })
     try {
-        const llmSegments = await options.llmFallback(fullText)
-        if (llmSegments.length > 0) return llmSegments
-        return regexSegments
+        const llmResult = await options.llmFallback(fullText)
+        if (llmResult.segments.length > 0) return llmResult
+        return regexResult
     } catch (err) {
         logger.warn('clauseSegmenter: LLM 兜底失败，降级返回正则结果', { err })
-        return regexSegments
+        return regexResult
     }
 }

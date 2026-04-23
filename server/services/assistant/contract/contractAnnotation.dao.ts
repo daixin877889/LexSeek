@@ -7,7 +7,7 @@
  *
  * **Feature: contract-review-versioning-phase-a**
  */
-import type { contractAnnotations } from '~~/generated/prisma/client'
+import type { contractAnnotations, Prisma } from '~~/generated/prisma/client'
 import type { AnnotationAuthorType } from '#shared/types/contract'
 
 export interface CreateContractAnnotationInput {
@@ -61,4 +61,24 @@ export async function softDeleteContractAnnotationDAO(id: number): Promise<void>
 /** 按 id 查询单条批注（包含软删的），供 service 层做 owner 校验 */
 export async function getContractAnnotationByIdDAO(id: number): Promise<contractAnnotations | null> {
     return prisma.contractAnnotations.findUnique({ where: { id } })
+}
+
+/** 导出用：按 reviewId 查询需要写入 docx 的批注（未软删 + suppressInExport=false），关联 risk 取锚点信息 */
+export async function listAnnotationsForExportDAO(
+    reviewId: number,
+): Promise<Prisma.contractAnnotationsGetPayload<{
+    include: {
+        risk: {
+            select: {
+                anchorQuote: true
+                anchorParagraphIndex: true
+            }
+        }
+    }
+}>[]> {
+    return prisma.contractAnnotations.findMany({
+        where: { reviewId, deletedAt: null, suppressInExport: false },
+        include: { risk: { select: { anchorQuote: true, anchorParagraphIndex: true } } },
+        orderBy: [{ riskId: 'asc' }, { createdAt: 'asc' }],
+    })
 }

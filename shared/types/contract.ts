@@ -51,6 +51,16 @@ export interface Risk {
     matchedPointCode?: string
 }
 
+/**
+ * Phase A：RiskListPanel 消费的 Risk 显示类型扩展。
+ * 在 Risk 基础上注入 archivedStatus（工作区处置状态）和 entityId（ContractRisk 数据库主键）。
+ * 用于 ContractReviewPanel 把 ContractRiskEntity 映射给 RiskListPanel 时保留处置态。
+ */
+export type RiskDisplay = Risk & {
+    archivedStatus?: RiskArchivedStatus | null
+    entityId?: number
+}
+
 export interface CreateReviewRequest {
     sourceType: 'upload' | 'paste'
     ossFileId?: number
@@ -211,6 +221,10 @@ export interface ClauseSegment {
     number: string | null
     /** 条款正文 */
     text: string
+    /** Phase B：该条款在 docxText 中的起始字符偏移（闭区间） */
+    offsetStart: number
+    /** Phase B：该条款在 docxText 中的结束字符偏移（开区间，即 offsetStart + text.length） */
+    offsetEnd: number
 }
 
 /**
@@ -283,21 +297,40 @@ export interface PlaybookSnapshot {
     snapshotAt: string
 }
 
+/**
+ * Phase B：版本快照 clauses 数组的元素类型。
+ * 是 ClauseSegment 的持久化子集（去掉 number 字段，只保留 diff/定位所需字段）。
+ * SaveVersionInput.clauses、persistRisksAndCreateV1Snapshot 等凡写入或读取 snapshot.clauses
+ * 的地方都应使用此类型，避免内联重复。
+ */
+export interface ClauseSnapshotItem {
+    index: number
+    text: string
+    offsetStart: number
+    offsetEnd: number
+}
+
 // ===== 多版本：枚举 =====
 // Phase A 只声明当前用到的值；Phase B/C 扩展时再加
-export const VERSION_SYSTEM_LABELS = ['initial_upload', 'lawyer_save'] as const
+export const VERSION_SYSTEM_LABELS = [
+    'initial_upload',
+    'lawyer_save',
+    'client_return',
+    'auto_backup',
+] as const
 export type VersionSystemLabel = typeof VERSION_SYSTEM_LABELS[number]
 
-// Phase B 扩展：client_return 映射 '客户回传'、auto_backup 映射 '自动备份'
 export const VERSION_SYSTEM_LABEL_DISPLAY: Record<VersionSystemLabel, string> = {
     initial_upload: '初次上传',
     lawyer_save: '律师保存',
+    client_return: '客户回传',
+    auto_backup: '自动备份',
 }
 
-export const RISK_SOURCES = ['ai'] as const  // Phase B 加 'external_new'；Phase C 加 'global_review'
+export const RISK_SOURCES = ['ai', 'external_new', 'global_review'] as const
 export type RiskSource = typeof RISK_SOURCES[number]
 
-export const ANNOTATION_AUTHOR_TYPES = ['ai', 'lawyer'] as const  // Phase B 加 'external'
+export const ANNOTATION_AUTHOR_TYPES = ['ai', 'lawyer', 'external'] as const
 export type AnnotationAuthorType = typeof ANNOTATION_AUTHOR_TYPES[number]
 
 export const RISK_ARCHIVED_STATUSES = ['handled', 'ignored'] as const  // Phase B 加 'client_removed'
@@ -324,6 +357,9 @@ export interface ContractRiskEntity {
     anchorCharEnd: number | null
     createdAt: string
     updatedAt: string
+    // Phase B
+    originalAnchorQuote: string | null
+    orphaned: boolean
 }
 
 export interface ContractAnnotationEntity {
@@ -337,6 +373,10 @@ export interface ContractAnnotationEntity {
     content: string
     createdAt: string
     // 软删的批注不出现在 API 响应中（service 层过滤 deletedAt IS NULL）
+    // Phase B
+    wordCommentRef: string | null
+    removedByClient: boolean
+    suppressInExport: boolean
 }
 
 export interface ContractReviewVersionEntity {
@@ -348,6 +388,8 @@ export interface ContractReviewVersionEntity {
     createdById: number
     createdByName: string
     createdAt: string
+    // Phase B
+    docxFileId: number | null
     // Phase B 再加 stats（变更徽章用）
 }
 
@@ -364,6 +406,39 @@ export interface ContractReviewVersionSnapshotResponse extends ContractReviewVer
         risks: ContractRiskEntity[]
         annotations: ContractAnnotationEntity[]
         docxText: string
-        // Phase B 扩展 paragraphs
+        /** Phase B：条款切分结果，含字符偏移，未落库时为空数组 */
+        clauses: ClauseSnapshotItem[]
     }
+}
+
+// ===== Phase B：客户回传版本上传 SSE 事件 =====
+
+export const CONTRACT_UPLOAD_VERSION_SSE_EVENT = {
+    PROGRESS: 'upload-version-progress',
+    COMPLETE: 'upload-version-complete',
+    ERROR: 'upload-version-error',
+} as const
+
+export type UploadVersionStep = 'backup' | 'parse' | 'diff' | 'ai' | 'merge'
+export type UploadVersionStatus = 'done' | 'progress'
+
+export interface UploadVersionProgressData {
+    step: UploadVersionStep
+    status: UploadVersionStatus
+    externalChangeCount?: number
+    clauseModifiedCount?: number
+    total?: number
+    current?: number
+    newVersionId?: number
+}
+
+export interface UploadVersionCompleteData {
+    newVersionId: number
+    summary: string
+}
+
+export interface UploadVersionErrorData {
+    step: UploadVersionStep
+    code: string
+    message: string
 }

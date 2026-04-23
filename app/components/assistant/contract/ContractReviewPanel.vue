@@ -11,10 +11,14 @@
  *
  * runStatus 文案内联（不拆 ContractReviewStatus.vue），见 spec §9.2。
  */
-import { Loader2Icon, SaveIcon, HistoryIcon } from 'lucide-vue-next'
+import { Loader2Icon, SaveIcon, HistoryIcon, UploadIcon, TrendingUpIcon, XIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useMediaQuery, useLocalStorage } from '@vueuse/core'
-import type { Risk, ContractReviewStatus, StanceRequest, CreateReviewRequest, PlaybookSnapshot } from '#shared/types/contract'
+import type { Risk, RiskDisplay, ContractReviewStatus, StanceRequest, CreateReviewRequest, PlaybookSnapshot, RiskArchivedStatus } from '#shared/types/contract'
+
+// 当前登录用户 id，用于 RiskListPanel 判断"自己创建的批注"（允许删除/修改）
+const userStore = useUserStore()
+const currentUserId = computed<number | null>(() => userStore.userInfo.id || null)
 
 const props = defineProps<{
     /** 外部传入时通过 reviewId 恢复审查（页面层从 URL ?reviewId= 读取） */
@@ -80,6 +84,22 @@ watch(
 const saveVersionDialogOpen = ref(false)
 const isSavingVersion = ref(false)
 
+// 上传新版本 dialog 状态
+const uploadVersionDialogOpen = ref(false)
+
+/** 审查处于忙碌态（进行中）时禁止上传新版本 */
+const isBusyForUpload = computed(() => {
+    const s = review.value?.status
+    return s === 'pending' || s === 'reviewing' || s === 'awaiting_stance' || s === 'rebuilding'
+})
+
+async function handleUploadComplete(payload: { newVersionId: number; summary: string }) {
+    uploadVersionDialogOpen.value = false
+    toast.success(payload.summary || '新版本已生成')
+    versioning.lastUploadResult.value = { newVersionId: payload.newVersionId, summary: payload.summary }
+    await Promise.all([versioning.refreshWorkspace(), versioning.refreshVersions()])
+}
+
 async function handleSaveVersion(lawyerNote: string | null) {
     isSavingVersion.value = true
     try {
@@ -87,6 +107,8 @@ async function handleSaveVersion(lawyerNote: string | null) {
         if (ok) {
             saveVersionDialogOpen.value = false
             toast.success('版本已保存')
+        } else {
+            toast.error('保存失败，请稍后重试')
         }
     } finally {
         isSavingVersion.value = false
@@ -105,24 +127,22 @@ function handleUpdateVersionNote(versionId: number, note: string | null) {
 }
 
 /**
- * Phase A：把 ContractRiskEntity[] 映射成 RiskListPanel 能消费的 Risk[]，
- * 并携带 archivedStatus（通过类型扩展传入，RiskListPanel 里用 (r as any).archivedStatus 访问）。
+ * Phase A：把 ContractRiskEntity[] 映射成 RiskListPanel 能消费的 RiskDisplay[]，
+ * 并携带 archivedStatus（RiskDisplay 的扩展字段，供已处置降权渲染使用）。
  *
  * 策略：
- * - 有 workspace.risks（已迁移）时，把 entity 转成 Risk 结构，entity.id（number）stringified 作为 Risk.id
+ * - 有 workspace.risks（已迁移）时，把 entity 转成 RiskDisplay 结构，entity.id（number）stringified 作为 Risk.id
  * - 否则 fallback 用 review.risks（旧 JSON 字段）
  */
-type RiskWithArchivedStatus = Risk & { archivedStatus?: string | null; entityId?: number }
-
-const effectiveRisks = computed<RiskWithArchivedStatus[]>(() => {
+const effectiveRisks = computed<RiskDisplay[]>(() => {
     const entities = versioning.currentView.value.risks
     if (entities.length > 0) {
-        return entities.map(e => ({
+        return entities.map<RiskDisplay>(e => ({
             id: String(e.id),
             entityId: e.id,
             clauseIndex: e.anchorParagraphIndex ?? 0,
             clauseText: e.anchorQuote,
-            level: e.level as Risk['level'],
+            level: e.level,
             category: e.category,
             problem: e.problem,
             legalBasis: e.legalBasis ?? undefined,
@@ -132,13 +152,13 @@ const effectiveRisks = computed<RiskWithArchivedStatus[]>(() => {
             archivedStatus: e.archivedStatus,
         }))
     }
-    return (review.value?.risks ?? []).map(r => ({ ...r }))
+    return (review.value?.risks ?? []).map<RiskDisplay>(r => ({ ...r }))
 })
 
 const versionedAnnotations = computed(() => versioning.currentView.value.annotations)
 
 // 风险处置：Risk.id 是 entity id 的 string 化（只在已迁移数据下有效）
-async function handleArchiveRisk(riskStringId: string, status: import('#shared/types/contract').RiskArchivedStatus | null) {
+async function handleArchiveRisk(riskStringId: string, status: RiskArchivedStatus | null) {
     const entityId = parseInt(riskStringId, 10)
     if (!Number.isFinite(entityId)) return
     await versioning.updateRiskArchivedStatus(entityId, status)
@@ -364,12 +384,12 @@ function handleContainerClick(e: MouseEvent) {
             <!-- 只读横幅：历史版本预览时显示 -->
             <div
                 v-if="versioning.isReadOnly.value"
-                class="flex items-center gap-2 px-4 py-2 border-b bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 text-sm shrink-0"
+                class="flex items-center gap-2 px-4 py-2 border-b bg-muted text-muted-foreground text-sm shrink-0"
             >
                 <HistoryIcon class="size-4 shrink-0" />
-                <span class="font-medium">只读模式 — 正在查看历史版本，无法编辑</span>
+                <span class="font-medium text-foreground">只读模式 — 正在查看历史版本，无法编辑</span>
                 <button
-                    class="ml-auto text-xs underline hover:opacity-80"
+                    class="ml-auto text-xs underline hover:opacity-80 text-primary"
                     @click="handleExitPreview"
                 >
                     返回工作区
@@ -383,9 +403,9 @@ function handleContainerClick(e: MouseEvent) {
             >
                 <span
                     v-if="versioning.hasUnsavedEdits.value"
-                    class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300"
+                    class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary"
                 >
-                    <span class="size-1.5 rounded-full bg-orange-500 shrink-0" />
+                    <span class="size-1.5 rounded-full bg-primary shrink-0" />
                     有未保存的编辑
                 </span>
                 <span class="flex-1" />
@@ -393,12 +413,41 @@ function handleContainerClick(e: MouseEvent) {
                     size="sm"
                     variant="outline"
                     class="h-7 text-xs"
-                    :disabled="versioning.isReadOnly.value"
+                    :disabled="isBusyForUpload"
+                    :title="isBusyForUpload ? '审查进行中，请等待完成后再上传' : ''"
+                    @click="uploadVersionDialogOpen = true"
+                >
+                    <UploadIcon class="size-3 mr-1" />
+                    上传新版本
+                </Button>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    class="h-7 text-xs"
+                    :disabled="!versioning.hasUnsavedEdits.value"
                     @click="saveVersionDialogOpen = true"
                 >
                     <SaveIcon class="size-3 mr-1" />
                     保存新版本
                 </Button>
+            </div>
+
+            <!-- 本轮变化横幅：上传新版本完成后显示，可手动关闭 -->
+            <div
+                v-if="versioning.lastUploadResult.value"
+                class="flex items-center gap-2 px-4 py-2.5 border-b bg-primary/5 border-primary/20 text-sm shrink-0"
+            >
+                <TrendingUpIcon class="size-4 shrink-0 text-primary" />
+                <span class="font-medium text-foreground">本轮变化</span>
+                <span class="text-xs text-muted-foreground flex-1 truncate">{{ versioning.lastUploadResult.value.summary }}</span>
+                <button
+                    data-testid="dismiss-upload-banner"
+                    class="text-muted-foreground hover:text-foreground shrink-0"
+                    aria-label="关闭本轮变化横幅"
+                    @click="versioning.dismissUploadBanner()"
+                >
+                    <XIcon class="size-4" />
+                </button>
             </div>
 
             <!-- 主体：时间线 + 内容区 -->
@@ -460,7 +509,7 @@ function handleContainerClick(e: MouseEvent) {
                                     :risks="effectiveRisks"
                                     :annotations="versionedAnnotations"
                                     :read-only="versioning.isReadOnly.value"
-                                    :current-user-id="null"
+                                    :current-user-id="currentUserId"
                                     :status="(review?.status ?? 'pending') as ContractReviewStatus"
                                     :reviewed-file-id="review?.reviewedFileId ?? null"
                                     :summary="review?.summary ?? null"
@@ -518,7 +567,7 @@ function handleContainerClick(e: MouseEvent) {
                                 :risks="effectiveRisks"
                                 :annotations="versionedAnnotations"
                                 :read-only="versioning.isReadOnly.value"
-                                :current-user-id="null"
+                                :current-user-id="currentUserId"
                                 :status="(review?.status ?? 'pending') as ContractReviewStatus"
                                 :reviewed-file-id="review?.reviewedFileId ?? null"
                                 :summary="review?.summary ?? null"
@@ -552,6 +601,15 @@ function handleContainerClick(e: MouseEvent) {
             :submitting="isSavingVersion"
             @update:open="saveVersionDialogOpen = $event"
             @confirm="handleSaveVersion"
+        />
+
+        <!-- 上传新版本 Dialog -->
+        <AssistantContractUploadNewVersionDialog
+            v-if="review"
+            :open="uploadVersionDialogOpen"
+            :review-id="review.id"
+            @update:open="uploadVersionDialogOpen = $event"
+            @complete="handleUploadComplete"
         />
 
     </div>

@@ -2,7 +2,7 @@
  * rebuildDocxService 单元测试
  *
  * 覆盖路径：
- *   - happy path：下载→注入→上传→签名→createOssFile→setCompleted 顺序正确
+ *   - happy path：下载→查 annotation→注入→上传→签名→createOssFile→setCompleted 顺序正确
  *   - originalFileId 为空 → 抛错 "没有原始文件"
  *   - findOssFileByIdDao 返回 null → 抛错 "原始文件已丢失"
  *   - origOssFile.filePath 为空 → 抛错 "原始文件已丢失"
@@ -10,6 +10,7 @@
  *   - generateSignedUrlService 抛异常 → 错误冒泡，createOssFileDao / setCompletedAfterRebuildDAO 都未被调（P0-4 关键时序验证）
  *
  * **Feature: contract-review-m5**
+ * **Phase B 改造**：注入来源切换为 contractAnnotations 表
  * **Validates: Task 3（contractReviewRebuild.service.ts）**
  */
 
@@ -18,7 +19,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // ==================== 全局 Stub ====================
 
 ;(globalThis as any).logger = { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() }
-;(globalThis as any).prisma = {}
+;(globalThis as any).prisma = {
+    contractAnnotations: { update: vi.fn().mockResolvedValue({}) },
+    $transaction: vi.fn().mockImplementation((ops: any[]) => Promise.all(ops)),
+}
 
 // ==================== Mock 所有外部依赖 ====================
 
@@ -32,7 +36,11 @@ vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
 }))
 
 vi.mock('~~/server/services/assistant/contract/docx', () => ({
-    injectComments: vi.fn(),
+    injectAnnotations: vi.fn(),
+}))
+
+vi.mock('~~/server/services/assistant/contract/contractAnnotation.dao', () => ({
+    listAnnotationsForExportDAO: vi.fn(),
 }))
 
 vi.mock('~~/server/services/storage/storage.service', () => ({
@@ -51,7 +59,8 @@ import {
     createOssFileDao,
 } from '~~/server/services/files/ossFiles.dao'
 import { setCompletedAfterRebuildDAO } from '~~/server/services/assistant/contract/contractReview.dao'
-import { injectComments } from '~~/server/services/assistant/contract/docx'
+import { injectAnnotations } from '~~/server/services/assistant/contract/docx'
+import { listAnnotationsForExportDAO } from '~~/server/services/assistant/contract/contractAnnotation.dao'
 import {
     downloadFileService,
     uploadFileService,
@@ -63,17 +72,35 @@ import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageCo
 const mockFindOss = findOssFileByIdDao as ReturnType<typeof vi.fn>
 const mockCreateOss = createOssFileDao as ReturnType<typeof vi.fn>
 const mockSetCompleted = setCompletedAfterRebuildDAO as ReturnType<typeof vi.fn>
-const mockInject = injectComments as ReturnType<typeof vi.fn>
+const mockInjectAnnotations = injectAnnotations as ReturnType<typeof vi.fn>
+const mockListAnnotations = listAnnotationsForExportDAO as ReturnType<typeof vi.fn>
 const mockDownload = downloadFileService as ReturnType<typeof vi.fn>
 const mockUpload = uploadFileService as ReturnType<typeof vi.fn>
 const mockSignUrl = generateSignedUrlService as ReturnType<typeof vi.fn>
 const mockGetCfg = getDefaultStorageConfigDao as ReturnType<typeof vi.fn>
 const mockDelete = deleteFileService as ReturnType<typeof vi.fn>
 
-// 新 injectComments 返回 { buffer, validRisks, skippedIndices }。
-// 测试里大多只关心 buffer，helper 简化构造。
+/** 构造 injectAnnotations 返回值 */
 function injResult(buf: Buffer | Uint8Array) {
-    return { buffer: buf, validRisks: [], skippedIndices: [] }
+    return { buffer: buf, refsByAnnotationId: new Map<number, string>() }
+}
+
+/** 构造一条模拟 annotation（带 risk 关联） */
+function makeDbAnnotation(id: number, overrides: Record<string, any> = {}) {
+    return {
+        id,
+        reviewId: REVIEW_ID,
+        riskId: 1,
+        parentAnnotationId: null,
+        authorType: 'ai',
+        authorName: 'AI',
+        content: '审查意见',
+        deletedAt: null,
+        suppressInExport: false,
+        wordCommentRef: null,
+        risk: { anchorQuote: '条款原文', anchorParagraphIndex: 1 },
+        ...overrides,
+    }
 }
 
 // ==================== 动态 import service ====================
@@ -108,10 +135,11 @@ describe('rebuildDocxService', () => {
         vi.clearAllMocks()
     })
 
-    it('happy path：下载→注入→上传→签名→createOssFile→setCompleted 顺序正确', async () => {
+    it('happy path：下载→查 annotation→注入→上传→签名→createOssFile→setCompleted 顺序正确', async () => {
         mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: 'orig/path.docx' } as any)
         mockDownload.mockResolvedValue(Buffer.from('orig-docx'))
-        mockInject.mockResolvedValue(injResult(Buffer.from('new-docx')))
+        mockListAnnotations.mockResolvedValue([makeDbAnnotation(1), makeDbAnnotation(2)])
+        mockInjectAnnotations.mockResolvedValue(injResult(Buffer.from('new-docx')))
         mockUpload.mockResolvedValue({
             name: 'contract-review/1001/rebuild-xxx.docx',
             etag: 'e',
@@ -138,7 +166,8 @@ describe('rebuildDocxService', () => {
 
         // 关键断言：每个都被调 1 次
         expect(mockDownload).toHaveBeenCalledWith('orig/path.docx')
-        expect(mockInject).toHaveBeenCalledTimes(1)
+        expect(mockListAnnotations).toHaveBeenCalledWith(REVIEW_ID)
+        expect(mockInjectAnnotations).toHaveBeenCalledTimes(1)
         expect(mockUpload).toHaveBeenCalledTimes(1)
         expect(mockSignUrl).toHaveBeenCalledWith(
             'contract-review/1001/rebuild-xxx.docx',
@@ -174,7 +203,8 @@ describe('rebuildDocxService', () => {
     it('setCompletedAfterRebuildDAO 抛异常 → 错误冒泡（service 不 catch）', async () => {
         mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: 'orig/path.docx' } as any)
         mockDownload.mockResolvedValue(Buffer.from('orig'))
-        mockInject.mockResolvedValue(injResult(Buffer.from('new')))
+        mockListAnnotations.mockResolvedValue([makeDbAnnotation(1)])
+        mockInjectAnnotations.mockResolvedValue(injResult(Buffer.from('new')))
         mockUpload.mockResolvedValue({ name: 'contract-review/1001/rebuild-x.docx', etag: 'e', url: 'u' })
         mockGetCfg.mockResolvedValue({ bucket: 'b' } as any)
         mockSignUrl.mockResolvedValue('https://signed')
@@ -187,7 +217,8 @@ describe('rebuildDocxService', () => {
     it('generateSignedUrlService 抛异常 → createOssFileDao / setCompletedAfterRebuildDAO 都未被调（P0-4 时序）', async () => {
         mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: 'orig/path.docx' } as any)
         mockDownload.mockResolvedValue(Buffer.from('orig'))
-        mockInject.mockResolvedValue(injResult(Buffer.from('new')))
+        mockListAnnotations.mockResolvedValue([makeDbAnnotation(1)])
+        mockInjectAnnotations.mockResolvedValue(injResult(Buffer.from('new')))
         mockUpload.mockResolvedValue({ name: 'contract-review/1001/rebuild-x.docx', etag: 'e', url: 'u' })
         mockGetCfg.mockResolvedValue({ bucket: 'b' } as any)
         mockSignUrl.mockRejectedValue(new Error('signed-url failed'))
@@ -198,26 +229,29 @@ describe('rebuildDocxService', () => {
         expect(mockSetCompleted).not.toHaveBeenCalled()
     })
 
-    it('review.risks 为 null → 注入器接到空数组，不报错', async () => {
+    it('annotation 列表为空 → listAnnotationsForExportDAO 返回空数组，仍走 inject 流程（空 docx）', async () => {
         mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: 'orig/path.docx' } as any)
         mockDownload.mockResolvedValue(Buffer.from('orig'))
-        mockInject.mockResolvedValue(injResult(Buffer.from('new')))
+        mockListAnnotations.mockResolvedValue([])
+        mockInjectAnnotations.mockResolvedValue(injResult(Buffer.from('new')))
         mockUpload.mockResolvedValue({ name: 'contract-review/1001/rebuild-x.docx', etag: 'e', url: 'u' })
         mockGetCfg.mockResolvedValue({ bucket: 'b' } as any)
         mockSignUrl.mockResolvedValue('https://signed')
         mockCreateOss.mockResolvedValue({ id: 123 } as any)
         mockSetCompleted.mockResolvedValue({ id: REVIEW_ID } as any)
 
-        await rebuildDocxService(review({ risks: null }))
-        // injectComments 收到空数组 risks 时仍按原路径执行
-        const injectCall = mockInject.mock.calls[0]
+        await rebuildDocxService(review())
+        // 空 annotations 时 injectAnnotations 仍被调用（它内部会 remove comments.xml）
+        expect(mockInjectAnnotations).toHaveBeenCalledTimes(1)
+        const injectCall = mockInjectAnnotations.mock.calls[0]
         expect(injectCall?.[1]).toEqual([])
     })
 
     it('storageConfig 为 null → bucketName 回退空字符串，流程仍继续', async () => {
         mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: 'orig/path.docx' } as any)
         mockDownload.mockResolvedValue(Buffer.from('orig'))
-        mockInject.mockResolvedValue(injResult(Buffer.from('new')))
+        mockListAnnotations.mockResolvedValue([makeDbAnnotation(1)])
+        mockInjectAnnotations.mockResolvedValue(injResult(Buffer.from('new')))
         mockUpload.mockResolvedValue({ name: 'contract-review/1001/rebuild-x.docx', etag: 'e', url: 'u' })
         mockGetCfg.mockResolvedValue(null)
         mockSignUrl.mockResolvedValue('https://signed')
@@ -229,11 +263,12 @@ describe('rebuildDocxService', () => {
         expect(ossArg.bucketName).toBe('')
     })
 
-    it('injectComments 返回 Uint8Array（非 Buffer）→ Buffer.from 分支正确处理', async () => {
+    it('injectAnnotations 返回 Uint8Array（非 Buffer）→ Buffer.from 分支正确处理', async () => {
         mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: 'orig/path.docx' } as any)
         mockDownload.mockResolvedValue(Buffer.from('orig'))
+        mockListAnnotations.mockResolvedValue([makeDbAnnotation(1)])
         // 返回非 Buffer 的 Uint8Array
-        mockInject.mockResolvedValue(injResult(new Uint8Array([1, 2, 3])))
+        mockInjectAnnotations.mockResolvedValue(injResult(new Uint8Array([1, 2, 3])))
         mockUpload.mockResolvedValue({ name: 'contract-review/1001/rebuild-x.docx', etag: 'e', url: 'u' })
         mockGetCfg.mockResolvedValue({ bucket: 'b' } as any)
         mockSignUrl.mockResolvedValue('https://signed')

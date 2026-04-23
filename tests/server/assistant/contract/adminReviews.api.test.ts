@@ -194,10 +194,11 @@ describe('GET /api/v1/admin/contract-reviews', () => {
         await createReview({ userId: userB, originalFileId: fileB, status: 'completed' }) // 租赁合同 完成
         await createReview({ userId: userA, originalFileId: fileA, status: 'pending' })
 
+        // 限定 userId=userA 避免跨测试文件数据污染（11 个合同测试文件都使用含"劳动"的 fileName）
         const res: any = await listHandler(
             makeEvent({
                 adminUserId,
-                query: { status: 'completed', q: '劳动', skip: 0, take: 20 },
+                query: { userId: userA, status: 'completed', q: '劳动', skip: 0, take: 20 },
             }),
         )
         expect(res.success).toBe(true)

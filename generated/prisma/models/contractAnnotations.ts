@@ -54,6 +54,10 @@ export type ContractAnnotationsMinAggregateOutputType = {
   content: string | null
   deletedAt: Date | null
   createdAt: Date | null
+  updatedAt: Date | null
+  wordCommentRef: string | null
+  removedByClient: boolean | null
+  suppressInExport: boolean | null
 }
 
 export type ContractAnnotationsMaxAggregateOutputType = {
@@ -67,6 +71,10 @@ export type ContractAnnotationsMaxAggregateOutputType = {
   content: string | null
   deletedAt: Date | null
   createdAt: Date | null
+  updatedAt: Date | null
+  wordCommentRef: string | null
+  removedByClient: boolean | null
+  suppressInExport: boolean | null
 }
 
 export type ContractAnnotationsCountAggregateOutputType = {
@@ -80,6 +88,10 @@ export type ContractAnnotationsCountAggregateOutputType = {
   content: number
   deletedAt: number
   createdAt: number
+  updatedAt: number
+  wordCommentRef: number
+  removedByClient: number
+  suppressInExport: number
   _all: number
 }
 
@@ -111,6 +123,10 @@ export type ContractAnnotationsMinAggregateInputType = {
   content?: true
   deletedAt?: true
   createdAt?: true
+  updatedAt?: true
+  wordCommentRef?: true
+  removedByClient?: true
+  suppressInExport?: true
 }
 
 export type ContractAnnotationsMaxAggregateInputType = {
@@ -124,6 +140,10 @@ export type ContractAnnotationsMaxAggregateInputType = {
   content?: true
   deletedAt?: true
   createdAt?: true
+  updatedAt?: true
+  wordCommentRef?: true
+  removedByClient?: true
+  suppressInExport?: true
 }
 
 export type ContractAnnotationsCountAggregateInputType = {
@@ -137,6 +157,10 @@ export type ContractAnnotationsCountAggregateInputType = {
   content?: true
   deletedAt?: true
   createdAt?: true
+  updatedAt?: true
+  wordCommentRef?: true
+  removedByClient?: true
+  suppressInExport?: true
   _all?: true
 }
 
@@ -237,6 +261,10 @@ export type ContractAnnotationsGroupByOutputType = {
   content: string
   deletedAt: Date | null
   createdAt: Date
+  updatedAt: Date
+  wordCommentRef: string | null
+  removedByClient: boolean
+  suppressInExport: boolean
   _count: ContractAnnotationsCountAggregateOutputType | null
   _avg: ContractAnnotationsAvgAggregateOutputType | null
   _sum: ContractAnnotationsSumAggregateOutputType | null
@@ -273,6 +301,10 @@ export type contractAnnotationsWhereInput = {
   content?: Prisma.StringFilter<"contractAnnotations"> | string
   deletedAt?: Prisma.DateTimeNullableFilter<"contractAnnotations"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"contractAnnotations"> | Date | string
+  updatedAt?: Prisma.DateTimeFilter<"contractAnnotations"> | Date | string
+  wordCommentRef?: Prisma.StringNullableFilter<"contractAnnotations"> | string | null
+  removedByClient?: Prisma.BoolFilter<"contractAnnotations"> | boolean
+  suppressInExport?: Prisma.BoolFilter<"contractAnnotations"> | boolean
   review?: Prisma.XOR<Prisma.ContractReviewsScalarRelationFilter, Prisma.contractReviewsWhereInput>
   risk?: Prisma.XOR<Prisma.ContractRisksScalarRelationFilter, Prisma.contractRisksWhereInput>
   parentAnnotation?: Prisma.XOR<Prisma.ContractAnnotationsNullableScalarRelationFilter, Prisma.contractAnnotationsWhereInput> | null
@@ -291,6 +323,10 @@ export type contractAnnotationsOrderByWithRelationInput = {
   content?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
+  wordCommentRef?: Prisma.SortOrderInput | Prisma.SortOrder
+  removedByClient?: Prisma.SortOrder
+  suppressInExport?: Prisma.SortOrder
   review?: Prisma.contractReviewsOrderByWithRelationInput
   risk?: Prisma.contractRisksOrderByWithRelationInput
   parentAnnotation?: Prisma.contractAnnotationsOrderByWithRelationInput
@@ -312,6 +348,10 @@ export type contractAnnotationsWhereUniqueInput = Prisma.AtLeast<{
   content?: Prisma.StringFilter<"contractAnnotations"> | string
   deletedAt?: Prisma.DateTimeNullableFilter<"contractAnnotations"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"contractAnnotations"> | Date | string
+  updatedAt?: Prisma.DateTimeFilter<"contractAnnotations"> | Date | string
+  wordCommentRef?: Prisma.StringNullableFilter<"contractAnnotations"> | string | null
+  removedByClient?: Prisma.BoolFilter<"contractAnnotations"> | boolean
+  suppressInExport?: Prisma.BoolFilter<"contractAnnotations"> | boolean
   review?: Prisma.XOR<Prisma.ContractReviewsScalarRelationFilter, Prisma.contractReviewsWhereInput>
   risk?: Prisma.XOR<Prisma.ContractRisksScalarRelationFilter, Prisma.contractRisksWhereInput>
   parentAnnotation?: Prisma.XOR<Prisma.ContractAnnotationsNullableScalarRelationFilter, Prisma.contractAnnotationsWhereInput> | null
@@ -330,6 +370,10 @@ export type contractAnnotationsOrderByWithAggregationInput = {
   content?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
+  wordCommentRef?: Prisma.SortOrderInput | Prisma.SortOrder
+  removedByClient?: Prisma.SortOrder
+  suppressInExport?: Prisma.SortOrder
   _count?: Prisma.contractAnnotationsCountOrderByAggregateInput
   _avg?: Prisma.contractAnnotationsAvgOrderByAggregateInput
   _max?: Prisma.contractAnnotationsMaxOrderByAggregateInput
@@ -351,6 +395,10 @@ export type contractAnnotationsScalarWhereWithAggregatesInput = {
   content?: Prisma.StringWithAggregatesFilter<"contractAnnotations"> | string
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"contractAnnotations"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"contractAnnotations"> | Date | string
+  updatedAt?: Prisma.DateTimeWithAggregatesFilter<"contractAnnotations"> | Date | string
+  wordCommentRef?: Prisma.StringNullableWithAggregatesFilter<"contractAnnotations"> | string | null
+  removedByClient?: Prisma.BoolWithAggregatesFilter<"contractAnnotations"> | boolean
+  suppressInExport?: Prisma.BoolWithAggregatesFilter<"contractAnnotations"> | boolean
 }
 
 export type contractAnnotationsCreateInput = {
@@ -359,6 +407,10 @@ export type contractAnnotationsCreateInput = {
   content: string
   deletedAt?: Date | string | null
   createdAt?: Date | string
+  updatedAt?: Date | string
+  wordCommentRef?: string | null
+  removedByClient?: boolean
+  suppressInExport?: boolean
   review: Prisma.contractReviewsCreateNestedOneWithoutAnnotationsInput
   risk: Prisma.contractRisksCreateNestedOneWithoutAnnotationsInput
   parentAnnotation?: Prisma.contractAnnotationsCreateNestedOneWithoutRepliesInput
@@ -377,6 +429,10 @@ export type contractAnnotationsUncheckedCreateInput = {
   content: string
   deletedAt?: Date | string | null
   createdAt?: Date | string
+  updatedAt?: Date | string
+  wordCommentRef?: string | null
+  removedByClient?: boolean
+  suppressInExport?: boolean
   replies?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutParentAnnotationInput
 }
 
@@ -386,6 +442,10 @@ export type contractAnnotationsUpdateInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wordCommentRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  removedByClient?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  suppressInExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
   review?: Prisma.contractReviewsUpdateOneRequiredWithoutAnnotationsNestedInput
   risk?: Prisma.contractRisksUpdateOneRequiredWithoutAnnotationsNestedInput
   parentAnnotation?: Prisma.contractAnnotationsUpdateOneWithoutRepliesNestedInput
@@ -404,6 +464,10 @@ export type contractAnnotationsUncheckedUpdateInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wordCommentRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  removedByClient?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  suppressInExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
   replies?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutParentAnnotationNestedInput
 }
 
@@ -418,6 +482,10 @@ export type contractAnnotationsCreateManyInput = {
   content: string
   deletedAt?: Date | string | null
   createdAt?: Date | string
+  updatedAt?: Date | string
+  wordCommentRef?: string | null
+  removedByClient?: boolean
+  suppressInExport?: boolean
 }
 
 export type contractAnnotationsUpdateManyMutationInput = {
@@ -426,6 +494,10 @@ export type contractAnnotationsUpdateManyMutationInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wordCommentRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  removedByClient?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  suppressInExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type contractAnnotationsUncheckedUpdateManyInput = {
@@ -439,6 +511,10 @@ export type contractAnnotationsUncheckedUpdateManyInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wordCommentRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  removedByClient?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  suppressInExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type ContractAnnotationsListRelationFilter = {
@@ -467,6 +543,10 @@ export type contractAnnotationsCountOrderByAggregateInput = {
   content?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
+  wordCommentRef?: Prisma.SortOrder
+  removedByClient?: Prisma.SortOrder
+  suppressInExport?: Prisma.SortOrder
 }
 
 export type contractAnnotationsAvgOrderByAggregateInput = {
@@ -488,6 +568,10 @@ export type contractAnnotationsMaxOrderByAggregateInput = {
   content?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
+  wordCommentRef?: Prisma.SortOrder
+  removedByClient?: Prisma.SortOrder
+  suppressInExport?: Prisma.SortOrder
 }
 
 export type contractAnnotationsMinOrderByAggregateInput = {
@@ -501,6 +585,10 @@ export type contractAnnotationsMinOrderByAggregateInput = {
   content?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
+  wordCommentRef?: Prisma.SortOrder
+  removedByClient?: Prisma.SortOrder
+  suppressInExport?: Prisma.SortOrder
 }
 
 export type contractAnnotationsSumOrderByAggregateInput = {
@@ -701,6 +789,10 @@ export type contractAnnotationsCreateWithoutReviewInput = {
   content: string
   deletedAt?: Date | string | null
   createdAt?: Date | string
+  updatedAt?: Date | string
+  wordCommentRef?: string | null
+  removedByClient?: boolean
+  suppressInExport?: boolean
   risk: Prisma.contractRisksCreateNestedOneWithoutAnnotationsInput
   parentAnnotation?: Prisma.contractAnnotationsCreateNestedOneWithoutRepliesInput
   replies?: Prisma.contractAnnotationsCreateNestedManyWithoutParentAnnotationInput
@@ -717,6 +809,10 @@ export type contractAnnotationsUncheckedCreateWithoutReviewInput = {
   content: string
   deletedAt?: Date | string | null
   createdAt?: Date | string
+  updatedAt?: Date | string
+  wordCommentRef?: string | null
+  removedByClient?: boolean
+  suppressInExport?: boolean
   replies?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutParentAnnotationInput
 }
 
@@ -760,6 +856,10 @@ export type contractAnnotationsScalarWhereInput = {
   content?: Prisma.StringFilter<"contractAnnotations"> | string
   deletedAt?: Prisma.DateTimeNullableFilter<"contractAnnotations"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"contractAnnotations"> | Date | string
+  updatedAt?: Prisma.DateTimeFilter<"contractAnnotations"> | Date | string
+  wordCommentRef?: Prisma.StringNullableFilter<"contractAnnotations"> | string | null
+  removedByClient?: Prisma.BoolFilter<"contractAnnotations"> | boolean
+  suppressInExport?: Prisma.BoolFilter<"contractAnnotations"> | boolean
 }
 
 export type contractAnnotationsCreateWithoutRiskInput = {
@@ -768,6 +868,10 @@ export type contractAnnotationsCreateWithoutRiskInput = {
   content: string
   deletedAt?: Date | string | null
   createdAt?: Date | string
+  updatedAt?: Date | string
+  wordCommentRef?: string | null
+  removedByClient?: boolean
+  suppressInExport?: boolean
   review: Prisma.contractReviewsCreateNestedOneWithoutAnnotationsInput
   parentAnnotation?: Prisma.contractAnnotationsCreateNestedOneWithoutRepliesInput
   replies?: Prisma.contractAnnotationsCreateNestedManyWithoutParentAnnotationInput
@@ -784,6 +888,10 @@ export type contractAnnotationsUncheckedCreateWithoutRiskInput = {
   content: string
   deletedAt?: Date | string | null
   createdAt?: Date | string
+  updatedAt?: Date | string
+  wordCommentRef?: string | null
+  removedByClient?: boolean
+  suppressInExport?: boolean
   replies?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutParentAnnotationInput
 }
 
@@ -819,6 +927,10 @@ export type contractAnnotationsCreateWithoutRepliesInput = {
   content: string
   deletedAt?: Date | string | null
   createdAt?: Date | string
+  updatedAt?: Date | string
+  wordCommentRef?: string | null
+  removedByClient?: boolean
+  suppressInExport?: boolean
   review: Prisma.contractReviewsCreateNestedOneWithoutAnnotationsInput
   risk: Prisma.contractRisksCreateNestedOneWithoutAnnotationsInput
   parentAnnotation?: Prisma.contractAnnotationsCreateNestedOneWithoutRepliesInput
@@ -836,6 +948,10 @@ export type contractAnnotationsUncheckedCreateWithoutRepliesInput = {
   content: string
   deletedAt?: Date | string | null
   createdAt?: Date | string
+  updatedAt?: Date | string
+  wordCommentRef?: string | null
+  removedByClient?: boolean
+  suppressInExport?: boolean
 }
 
 export type contractAnnotationsCreateOrConnectWithoutRepliesInput = {
@@ -849,6 +965,10 @@ export type contractAnnotationsCreateWithoutParentAnnotationInput = {
   content: string
   deletedAt?: Date | string | null
   createdAt?: Date | string
+  updatedAt?: Date | string
+  wordCommentRef?: string | null
+  removedByClient?: boolean
+  suppressInExport?: boolean
   review: Prisma.contractReviewsCreateNestedOneWithoutAnnotationsInput
   risk: Prisma.contractRisksCreateNestedOneWithoutAnnotationsInput
   replies?: Prisma.contractAnnotationsCreateNestedManyWithoutParentAnnotationInput
@@ -865,6 +985,10 @@ export type contractAnnotationsUncheckedCreateWithoutParentAnnotationInput = {
   content: string
   deletedAt?: Date | string | null
   createdAt?: Date | string
+  updatedAt?: Date | string
+  wordCommentRef?: string | null
+  removedByClient?: boolean
+  suppressInExport?: boolean
   replies?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutParentAnnotationInput
 }
 
@@ -895,6 +1019,10 @@ export type contractAnnotationsUpdateWithoutRepliesInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wordCommentRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  removedByClient?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  suppressInExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
   review?: Prisma.contractReviewsUpdateOneRequiredWithoutAnnotationsNestedInput
   risk?: Prisma.contractRisksUpdateOneRequiredWithoutAnnotationsNestedInput
   parentAnnotation?: Prisma.contractAnnotationsUpdateOneWithoutRepliesNestedInput
@@ -912,6 +1040,10 @@ export type contractAnnotationsUncheckedUpdateWithoutRepliesInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wordCommentRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  removedByClient?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  suppressInExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type contractAnnotationsUpsertWithWhereUniqueWithoutParentAnnotationInput = {
@@ -936,6 +1068,10 @@ export type contractAnnotationsCreateWithoutAuthorUserInput = {
   content: string
   deletedAt?: Date | string | null
   createdAt?: Date | string
+  updatedAt?: Date | string
+  wordCommentRef?: string | null
+  removedByClient?: boolean
+  suppressInExport?: boolean
   review: Prisma.contractReviewsCreateNestedOneWithoutAnnotationsInput
   risk: Prisma.contractRisksCreateNestedOneWithoutAnnotationsInput
   parentAnnotation?: Prisma.contractAnnotationsCreateNestedOneWithoutRepliesInput
@@ -952,6 +1088,10 @@ export type contractAnnotationsUncheckedCreateWithoutAuthorUserInput = {
   content: string
   deletedAt?: Date | string | null
   createdAt?: Date | string
+  updatedAt?: Date | string
+  wordCommentRef?: string | null
+  removedByClient?: boolean
+  suppressInExport?: boolean
   replies?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutParentAnnotationInput
 }
 
@@ -991,6 +1131,10 @@ export type contractAnnotationsCreateManyReviewInput = {
   content: string
   deletedAt?: Date | string | null
   createdAt?: Date | string
+  updatedAt?: Date | string
+  wordCommentRef?: string | null
+  removedByClient?: boolean
+  suppressInExport?: boolean
 }
 
 export type contractAnnotationsUpdateWithoutReviewInput = {
@@ -999,6 +1143,10 @@ export type contractAnnotationsUpdateWithoutReviewInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wordCommentRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  removedByClient?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  suppressInExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
   risk?: Prisma.contractRisksUpdateOneRequiredWithoutAnnotationsNestedInput
   parentAnnotation?: Prisma.contractAnnotationsUpdateOneWithoutRepliesNestedInput
   replies?: Prisma.contractAnnotationsUpdateManyWithoutParentAnnotationNestedInput
@@ -1015,6 +1163,10 @@ export type contractAnnotationsUncheckedUpdateWithoutReviewInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wordCommentRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  removedByClient?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  suppressInExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
   replies?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutParentAnnotationNestedInput
 }
 
@@ -1028,6 +1180,10 @@ export type contractAnnotationsUncheckedUpdateManyWithoutReviewInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wordCommentRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  removedByClient?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  suppressInExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type contractAnnotationsCreateManyRiskInput = {
@@ -1040,6 +1196,10 @@ export type contractAnnotationsCreateManyRiskInput = {
   content: string
   deletedAt?: Date | string | null
   createdAt?: Date | string
+  updatedAt?: Date | string
+  wordCommentRef?: string | null
+  removedByClient?: boolean
+  suppressInExport?: boolean
 }
 
 export type contractAnnotationsUpdateWithoutRiskInput = {
@@ -1048,6 +1208,10 @@ export type contractAnnotationsUpdateWithoutRiskInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wordCommentRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  removedByClient?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  suppressInExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
   review?: Prisma.contractReviewsUpdateOneRequiredWithoutAnnotationsNestedInput
   parentAnnotation?: Prisma.contractAnnotationsUpdateOneWithoutRepliesNestedInput
   replies?: Prisma.contractAnnotationsUpdateManyWithoutParentAnnotationNestedInput
@@ -1064,6 +1228,10 @@ export type contractAnnotationsUncheckedUpdateWithoutRiskInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wordCommentRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  removedByClient?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  suppressInExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
   replies?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutParentAnnotationNestedInput
 }
 
@@ -1077,6 +1245,10 @@ export type contractAnnotationsUncheckedUpdateManyWithoutRiskInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wordCommentRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  removedByClient?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  suppressInExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type contractAnnotationsCreateManyParentAnnotationInput = {
@@ -1089,6 +1261,10 @@ export type contractAnnotationsCreateManyParentAnnotationInput = {
   content: string
   deletedAt?: Date | string | null
   createdAt?: Date | string
+  updatedAt?: Date | string
+  wordCommentRef?: string | null
+  removedByClient?: boolean
+  suppressInExport?: boolean
 }
 
 export type contractAnnotationsUpdateWithoutParentAnnotationInput = {
@@ -1097,6 +1273,10 @@ export type contractAnnotationsUpdateWithoutParentAnnotationInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wordCommentRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  removedByClient?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  suppressInExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
   review?: Prisma.contractReviewsUpdateOneRequiredWithoutAnnotationsNestedInput
   risk?: Prisma.contractRisksUpdateOneRequiredWithoutAnnotationsNestedInput
   replies?: Prisma.contractAnnotationsUpdateManyWithoutParentAnnotationNestedInput
@@ -1113,6 +1293,10 @@ export type contractAnnotationsUncheckedUpdateWithoutParentAnnotationInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wordCommentRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  removedByClient?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  suppressInExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
   replies?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutParentAnnotationNestedInput
 }
 
@@ -1126,6 +1310,10 @@ export type contractAnnotationsUncheckedUpdateManyWithoutParentAnnotationInput =
   content?: Prisma.StringFieldUpdateOperationsInput | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wordCommentRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  removedByClient?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  suppressInExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type contractAnnotationsCreateManyAuthorUserInput = {
@@ -1138,6 +1326,10 @@ export type contractAnnotationsCreateManyAuthorUserInput = {
   content: string
   deletedAt?: Date | string | null
   createdAt?: Date | string
+  updatedAt?: Date | string
+  wordCommentRef?: string | null
+  removedByClient?: boolean
+  suppressInExport?: boolean
 }
 
 export type contractAnnotationsUpdateWithoutAuthorUserInput = {
@@ -1146,6 +1338,10 @@ export type contractAnnotationsUpdateWithoutAuthorUserInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wordCommentRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  removedByClient?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  suppressInExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
   review?: Prisma.contractReviewsUpdateOneRequiredWithoutAnnotationsNestedInput
   risk?: Prisma.contractRisksUpdateOneRequiredWithoutAnnotationsNestedInput
   parentAnnotation?: Prisma.contractAnnotationsUpdateOneWithoutRepliesNestedInput
@@ -1162,6 +1358,10 @@ export type contractAnnotationsUncheckedUpdateWithoutAuthorUserInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wordCommentRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  removedByClient?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  suppressInExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
   replies?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutParentAnnotationNestedInput
 }
 
@@ -1175,6 +1375,10 @@ export type contractAnnotationsUncheckedUpdateManyWithoutAuthorUserInput = {
   content?: Prisma.StringFieldUpdateOperationsInput | string
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  wordCommentRef?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  removedByClient?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  suppressInExport?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 
@@ -1219,6 +1423,10 @@ export type contractAnnotationsSelect<ExtArgs extends runtime.Types.Extensions.I
   content?: boolean
   deletedAt?: boolean
   createdAt?: boolean
+  updatedAt?: boolean
+  wordCommentRef?: boolean
+  removedByClient?: boolean
+  suppressInExport?: boolean
   review?: boolean | Prisma.contractReviewsDefaultArgs<ExtArgs>
   risk?: boolean | Prisma.contractRisksDefaultArgs<ExtArgs>
   parentAnnotation?: boolean | Prisma.contractAnnotations$parentAnnotationArgs<ExtArgs>
@@ -1238,6 +1446,10 @@ export type contractAnnotationsSelectCreateManyAndReturn<ExtArgs extends runtime
   content?: boolean
   deletedAt?: boolean
   createdAt?: boolean
+  updatedAt?: boolean
+  wordCommentRef?: boolean
+  removedByClient?: boolean
+  suppressInExport?: boolean
   review?: boolean | Prisma.contractReviewsDefaultArgs<ExtArgs>
   risk?: boolean | Prisma.contractRisksDefaultArgs<ExtArgs>
   parentAnnotation?: boolean | Prisma.contractAnnotations$parentAnnotationArgs<ExtArgs>
@@ -1255,6 +1467,10 @@ export type contractAnnotationsSelectUpdateManyAndReturn<ExtArgs extends runtime
   content?: boolean
   deletedAt?: boolean
   createdAt?: boolean
+  updatedAt?: boolean
+  wordCommentRef?: boolean
+  removedByClient?: boolean
+  suppressInExport?: boolean
   review?: boolean | Prisma.contractReviewsDefaultArgs<ExtArgs>
   risk?: boolean | Prisma.contractRisksDefaultArgs<ExtArgs>
   parentAnnotation?: boolean | Prisma.contractAnnotations$parentAnnotationArgs<ExtArgs>
@@ -1272,9 +1488,13 @@ export type contractAnnotationsSelectScalar = {
   content?: boolean
   deletedAt?: boolean
   createdAt?: boolean
+  updatedAt?: boolean
+  wordCommentRef?: boolean
+  removedByClient?: boolean
+  suppressInExport?: boolean
 }
 
-export type contractAnnotationsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "reviewId" | "riskId" | "parentAnnotationId" | "authorType" | "authorName" | "authorUserId" | "content" | "deletedAt" | "createdAt", ExtArgs["result"]["contractAnnotations"]>
+export type contractAnnotationsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "reviewId" | "riskId" | "parentAnnotationId" | "authorType" | "authorName" | "authorUserId" | "content" | "deletedAt" | "createdAt" | "updatedAt" | "wordCommentRef" | "removedByClient" | "suppressInExport", ExtArgs["result"]["contractAnnotations"]>
 export type contractAnnotationsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   review?: boolean | Prisma.contractReviewsDefaultArgs<ExtArgs>
   risk?: boolean | Prisma.contractRisksDefaultArgs<ExtArgs>
@@ -1331,6 +1551,22 @@ export type $contractAnnotationsPayload<ExtArgs extends runtime.Types.Extensions
      */
     deletedAt: Date | null
     createdAt: Date
+    /**
+     * Phase B：内容被律师修改时更新（用于 detectUnsavedEdits 幂等判断）
+     */
+    updatedAt: Date
+    /**
+     * Phase B：Word 批注稳定身份证（格式 LEXSEEK-{annotationId}-{random8}）
+     */
+    wordCommentRef: string | null
+    /**
+     * Phase B：客户在 Word 里删了该批注
+     */
+    removedByClient: boolean
+    /**
+     * Phase B：下次导出 docx 时跳过（removedByClient=true 时默认 true；律师"恢复推送"可将此置 false）
+     */
+    suppressInExport: boolean
   }, ExtArgs["result"]["contractAnnotations"]>
   composites: {}
 }
@@ -1769,6 +2005,10 @@ export interface contractAnnotationsFieldRefs {
   readonly content: Prisma.FieldRef<"contractAnnotations", 'String'>
   readonly deletedAt: Prisma.FieldRef<"contractAnnotations", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"contractAnnotations", 'DateTime'>
+  readonly updatedAt: Prisma.FieldRef<"contractAnnotations", 'DateTime'>
+  readonly wordCommentRef: Prisma.FieldRef<"contractAnnotations", 'String'>
+  readonly removedByClient: Prisma.FieldRef<"contractAnnotations", 'Boolean'>
+  readonly suppressInExport: Prisma.FieldRef<"contractAnnotations", 'Boolean'>
 }
     
 

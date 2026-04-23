@@ -31,6 +31,7 @@ export type ContractReviewVersionsAvgAggregateOutputType = {
   reviewId: number | null
   versionNumber: number | null
   createdById: number | null
+  docxFileId: number | null
 }
 
 export type ContractReviewVersionsSumAggregateOutputType = {
@@ -38,6 +39,7 @@ export type ContractReviewVersionsSumAggregateOutputType = {
   reviewId: number | null
   versionNumber: number | null
   createdById: number | null
+  docxFileId: number | null
 }
 
 export type ContractReviewVersionsMinAggregateOutputType = {
@@ -48,6 +50,7 @@ export type ContractReviewVersionsMinAggregateOutputType = {
   lawyerNote: string | null
   createdById: number | null
   createdAt: Date | null
+  docxFileId: number | null
 }
 
 export type ContractReviewVersionsMaxAggregateOutputType = {
@@ -58,6 +61,7 @@ export type ContractReviewVersionsMaxAggregateOutputType = {
   lawyerNote: string | null
   createdById: number | null
   createdAt: Date | null
+  docxFileId: number | null
 }
 
 export type ContractReviewVersionsCountAggregateOutputType = {
@@ -69,6 +73,7 @@ export type ContractReviewVersionsCountAggregateOutputType = {
   snapshotData: number
   createdById: number
   createdAt: number
+  docxFileId: number
   _all: number
 }
 
@@ -78,6 +83,7 @@ export type ContractReviewVersionsAvgAggregateInputType = {
   reviewId?: true
   versionNumber?: true
   createdById?: true
+  docxFileId?: true
 }
 
 export type ContractReviewVersionsSumAggregateInputType = {
@@ -85,6 +91,7 @@ export type ContractReviewVersionsSumAggregateInputType = {
   reviewId?: true
   versionNumber?: true
   createdById?: true
+  docxFileId?: true
 }
 
 export type ContractReviewVersionsMinAggregateInputType = {
@@ -95,6 +102,7 @@ export type ContractReviewVersionsMinAggregateInputType = {
   lawyerNote?: true
   createdById?: true
   createdAt?: true
+  docxFileId?: true
 }
 
 export type ContractReviewVersionsMaxAggregateInputType = {
@@ -105,6 +113,7 @@ export type ContractReviewVersionsMaxAggregateInputType = {
   lawyerNote?: true
   createdById?: true
   createdAt?: true
+  docxFileId?: true
 }
 
 export type ContractReviewVersionsCountAggregateInputType = {
@@ -116,6 +125,7 @@ export type ContractReviewVersionsCountAggregateInputType = {
   snapshotData?: true
   createdById?: true
   createdAt?: true
+  docxFileId?: true
   _all?: true
 }
 
@@ -214,6 +224,7 @@ export type ContractReviewVersionsGroupByOutputType = {
   snapshotData: runtime.JsonValue
   createdById: number
   createdAt: Date
+  docxFileId: number | null
   _count: ContractReviewVersionsCountAggregateOutputType | null
   _avg: ContractReviewVersionsAvgAggregateOutputType | null
   _sum: ContractReviewVersionsSumAggregateOutputType | null
@@ -248,6 +259,7 @@ export type contractReviewVersionsWhereInput = {
   snapshotData?: Prisma.JsonFilter<"contractReviewVersions">
   createdById?: Prisma.IntFilter<"contractReviewVersions"> | number
   createdAt?: Prisma.DateTimeFilter<"contractReviewVersions"> | Date | string
+  docxFileId?: Prisma.IntNullableFilter<"contractReviewVersions"> | number | null
   review?: Prisma.XOR<Prisma.ContractReviewsScalarRelationFilter, Prisma.contractReviewsWhereInput>
   createdBy?: Prisma.XOR<Prisma.UsersScalarRelationFilter, Prisma.usersWhereInput>
 }
@@ -261,6 +273,7 @@ export type contractReviewVersionsOrderByWithRelationInput = {
   snapshotData?: Prisma.SortOrder
   createdById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  docxFileId?: Prisma.SortOrderInput | Prisma.SortOrder
   review?: Prisma.contractReviewsOrderByWithRelationInput
   createdBy?: Prisma.usersOrderByWithRelationInput
 }
@@ -278,6 +291,7 @@ export type contractReviewVersionsWhereUniqueInput = Prisma.AtLeast<{
   snapshotData?: Prisma.JsonFilter<"contractReviewVersions">
   createdById?: Prisma.IntFilter<"contractReviewVersions"> | number
   createdAt?: Prisma.DateTimeFilter<"contractReviewVersions"> | Date | string
+  docxFileId?: Prisma.IntNullableFilter<"contractReviewVersions"> | number | null
   review?: Prisma.XOR<Prisma.ContractReviewsScalarRelationFilter, Prisma.contractReviewsWhereInput>
   createdBy?: Prisma.XOR<Prisma.UsersScalarRelationFilter, Prisma.usersWhereInput>
 }, "id" | "reviewId_versionNumber">
@@ -291,6 +305,7 @@ export type contractReviewVersionsOrderByWithAggregationInput = {
   snapshotData?: Prisma.SortOrder
   createdById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  docxFileId?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.contractReviewVersionsCountOrderByAggregateInput
   _avg?: Prisma.contractReviewVersionsAvgOrderByAggregateInput
   _max?: Prisma.contractReviewVersionsMaxOrderByAggregateInput
@@ -310,6 +325,7 @@ export type contractReviewVersionsScalarWhereWithAggregatesInput = {
   snapshotData?: Prisma.JsonWithAggregatesFilter<"contractReviewVersions">
   createdById?: Prisma.IntWithAggregatesFilter<"contractReviewVersions"> | number
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"contractReviewVersions"> | Date | string
+  docxFileId?: Prisma.IntNullableWithAggregatesFilter<"contractReviewVersions"> | number | null
 }
 
 export type contractReviewVersionsCreateInput = {
@@ -318,6 +334,7 @@ export type contractReviewVersionsCreateInput = {
   lawyerNote?: string | null
   snapshotData: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
+  docxFileId?: number | null
   review: Prisma.contractReviewsCreateNestedOneWithoutVersionsInput
   createdBy: Prisma.usersCreateNestedOneWithoutContractReviewVersionsInput
 }
@@ -331,6 +348,7 @@ export type contractReviewVersionsUncheckedCreateInput = {
   snapshotData: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdById: number
   createdAt?: Date | string
+  docxFileId?: number | null
 }
 
 export type contractReviewVersionsUpdateInput = {
@@ -339,6 +357,7 @@ export type contractReviewVersionsUpdateInput = {
   lawyerNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   snapshotData?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  docxFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   review?: Prisma.contractReviewsUpdateOneRequiredWithoutVersionsNestedInput
   createdBy?: Prisma.usersUpdateOneRequiredWithoutContractReviewVersionsNestedInput
 }
@@ -352,6 +371,7 @@ export type contractReviewVersionsUncheckedUpdateInput = {
   snapshotData?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdById?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  docxFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
 }
 
 export type contractReviewVersionsCreateManyInput = {
@@ -363,6 +383,7 @@ export type contractReviewVersionsCreateManyInput = {
   snapshotData: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdById: number
   createdAt?: Date | string
+  docxFileId?: number | null
 }
 
 export type contractReviewVersionsUpdateManyMutationInput = {
@@ -371,6 +392,7 @@ export type contractReviewVersionsUpdateManyMutationInput = {
   lawyerNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   snapshotData?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  docxFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
 }
 
 export type contractReviewVersionsUncheckedUpdateManyInput = {
@@ -382,6 +404,7 @@ export type contractReviewVersionsUncheckedUpdateManyInput = {
   snapshotData?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdById?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  docxFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
 }
 
 export type ContractReviewVersionsListRelationFilter = {
@@ -408,6 +431,7 @@ export type contractReviewVersionsCountOrderByAggregateInput = {
   snapshotData?: Prisma.SortOrder
   createdById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  docxFileId?: Prisma.SortOrder
 }
 
 export type contractReviewVersionsAvgOrderByAggregateInput = {
@@ -415,6 +439,7 @@ export type contractReviewVersionsAvgOrderByAggregateInput = {
   reviewId?: Prisma.SortOrder
   versionNumber?: Prisma.SortOrder
   createdById?: Prisma.SortOrder
+  docxFileId?: Prisma.SortOrder
 }
 
 export type contractReviewVersionsMaxOrderByAggregateInput = {
@@ -425,6 +450,7 @@ export type contractReviewVersionsMaxOrderByAggregateInput = {
   lawyerNote?: Prisma.SortOrder
   createdById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  docxFileId?: Prisma.SortOrder
 }
 
 export type contractReviewVersionsMinOrderByAggregateInput = {
@@ -435,6 +461,7 @@ export type contractReviewVersionsMinOrderByAggregateInput = {
   lawyerNote?: Prisma.SortOrder
   createdById?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  docxFileId?: Prisma.SortOrder
 }
 
 export type contractReviewVersionsSumOrderByAggregateInput = {
@@ -442,6 +469,7 @@ export type contractReviewVersionsSumOrderByAggregateInput = {
   reviewId?: Prisma.SortOrder
   versionNumber?: Prisma.SortOrder
   createdById?: Prisma.SortOrder
+  docxFileId?: Prisma.SortOrder
 }
 
 export type contractReviewVersionsCreateNestedManyWithoutReviewInput = {
@@ -534,6 +562,7 @@ export type contractReviewVersionsCreateWithoutReviewInput = {
   lawyerNote?: string | null
   snapshotData: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
+  docxFileId?: number | null
   createdBy: Prisma.usersCreateNestedOneWithoutContractReviewVersionsInput
 }
 
@@ -545,6 +574,7 @@ export type contractReviewVersionsUncheckedCreateWithoutReviewInput = {
   snapshotData: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdById: number
   createdAt?: Date | string
+  docxFileId?: number | null
 }
 
 export type contractReviewVersionsCreateOrConnectWithoutReviewInput = {
@@ -585,6 +615,7 @@ export type contractReviewVersionsScalarWhereInput = {
   snapshotData?: Prisma.JsonFilter<"contractReviewVersions">
   createdById?: Prisma.IntFilter<"contractReviewVersions"> | number
   createdAt?: Prisma.DateTimeFilter<"contractReviewVersions"> | Date | string
+  docxFileId?: Prisma.IntNullableFilter<"contractReviewVersions"> | number | null
 }
 
 export type contractReviewVersionsCreateWithoutCreatedByInput = {
@@ -593,6 +624,7 @@ export type contractReviewVersionsCreateWithoutCreatedByInput = {
   lawyerNote?: string | null
   snapshotData: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
+  docxFileId?: number | null
   review: Prisma.contractReviewsCreateNestedOneWithoutVersionsInput
 }
 
@@ -604,6 +636,7 @@ export type contractReviewVersionsUncheckedCreateWithoutCreatedByInput = {
   lawyerNote?: string | null
   snapshotData: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
+  docxFileId?: number | null
 }
 
 export type contractReviewVersionsCreateOrConnectWithoutCreatedByInput = {
@@ -640,6 +673,7 @@ export type contractReviewVersionsCreateManyReviewInput = {
   snapshotData: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdById: number
   createdAt?: Date | string
+  docxFileId?: number | null
 }
 
 export type contractReviewVersionsUpdateWithoutReviewInput = {
@@ -648,6 +682,7 @@ export type contractReviewVersionsUpdateWithoutReviewInput = {
   lawyerNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   snapshotData?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  docxFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdBy?: Prisma.usersUpdateOneRequiredWithoutContractReviewVersionsNestedInput
 }
 
@@ -659,6 +694,7 @@ export type contractReviewVersionsUncheckedUpdateWithoutReviewInput = {
   snapshotData?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdById?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  docxFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
 }
 
 export type contractReviewVersionsUncheckedUpdateManyWithoutReviewInput = {
@@ -669,6 +705,7 @@ export type contractReviewVersionsUncheckedUpdateManyWithoutReviewInput = {
   snapshotData?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdById?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  docxFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
 }
 
 export type contractReviewVersionsCreateManyCreatedByInput = {
@@ -679,6 +716,7 @@ export type contractReviewVersionsCreateManyCreatedByInput = {
   lawyerNote?: string | null
   snapshotData: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
+  docxFileId?: number | null
 }
 
 export type contractReviewVersionsUpdateWithoutCreatedByInput = {
@@ -687,6 +725,7 @@ export type contractReviewVersionsUpdateWithoutCreatedByInput = {
   lawyerNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   snapshotData?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  docxFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   review?: Prisma.contractReviewsUpdateOneRequiredWithoutVersionsNestedInput
 }
 
@@ -698,6 +737,7 @@ export type contractReviewVersionsUncheckedUpdateWithoutCreatedByInput = {
   lawyerNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   snapshotData?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  docxFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
 }
 
 export type contractReviewVersionsUncheckedUpdateManyWithoutCreatedByInput = {
@@ -708,6 +748,7 @@ export type contractReviewVersionsUncheckedUpdateManyWithoutCreatedByInput = {
   lawyerNote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   snapshotData?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  docxFileId?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
 }
 
 
@@ -721,6 +762,7 @@ export type contractReviewVersionsSelect<ExtArgs extends runtime.Types.Extension
   snapshotData?: boolean
   createdById?: boolean
   createdAt?: boolean
+  docxFileId?: boolean
   review?: boolean | Prisma.contractReviewsDefaultArgs<ExtArgs>
   createdBy?: boolean | Prisma.usersDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["contractReviewVersions"]>
@@ -734,6 +776,7 @@ export type contractReviewVersionsSelectCreateManyAndReturn<ExtArgs extends runt
   snapshotData?: boolean
   createdById?: boolean
   createdAt?: boolean
+  docxFileId?: boolean
   review?: boolean | Prisma.contractReviewsDefaultArgs<ExtArgs>
   createdBy?: boolean | Prisma.usersDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["contractReviewVersions"]>
@@ -747,6 +790,7 @@ export type contractReviewVersionsSelectUpdateManyAndReturn<ExtArgs extends runt
   snapshotData?: boolean
   createdById?: boolean
   createdAt?: boolean
+  docxFileId?: boolean
   review?: boolean | Prisma.contractReviewsDefaultArgs<ExtArgs>
   createdBy?: boolean | Prisma.usersDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["contractReviewVersions"]>
@@ -760,9 +804,10 @@ export type contractReviewVersionsSelectScalar = {
   snapshotData?: boolean
   createdById?: boolean
   createdAt?: boolean
+  docxFileId?: boolean
 }
 
-export type contractReviewVersionsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "reviewId" | "versionNumber" | "systemLabel" | "lawyerNote" | "snapshotData" | "createdById" | "createdAt", ExtArgs["result"]["contractReviewVersions"]>
+export type contractReviewVersionsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "reviewId" | "versionNumber" | "systemLabel" | "lawyerNote" | "snapshotData" | "createdById" | "createdAt" | "docxFileId", ExtArgs["result"]["contractReviewVersions"]>
 export type contractReviewVersionsInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   review?: boolean | Prisma.contractReviewsDefaultArgs<ExtArgs>
   createdBy?: boolean | Prisma.usersDefaultArgs<ExtArgs>
@@ -800,6 +845,10 @@ export type $contractReviewVersionsPayload<ExtArgs extends runtime.Types.Extensi
     snapshotData: runtime.JsonValue
     createdById: number
     createdAt: Date
+    /**
+     * Phase B：client_return 版本绑定的客户上传 docx 文件（initial_upload/lawyer_save/auto_backup 为 null）
+     */
+    docxFileId: number | null
   }, ExtArgs["result"]["contractReviewVersions"]>
   composites: {}
 }
@@ -1233,6 +1282,7 @@ export interface contractReviewVersionsFieldRefs {
   readonly snapshotData: Prisma.FieldRef<"contractReviewVersions", 'Json'>
   readonly createdById: Prisma.FieldRef<"contractReviewVersions", 'Int'>
   readonly createdAt: Prisma.FieldRef<"contractReviewVersions", 'DateTime'>
+  readonly docxFileId: Prisma.FieldRef<"contractReviewVersions", 'Int'>
 }
     
 

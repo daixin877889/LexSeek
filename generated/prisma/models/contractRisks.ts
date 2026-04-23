@@ -62,6 +62,8 @@ export type ContractRisksMinAggregateOutputType = {
   anchorCharEnd: number | null
   createdAt: Date | null
   updatedAt: Date | null
+  originalAnchorQuote: string | null
+  orphaned: boolean | null
 }
 
 export type ContractRisksMaxAggregateOutputType = {
@@ -84,6 +86,8 @@ export type ContractRisksMaxAggregateOutputType = {
   anchorCharEnd: number | null
   createdAt: Date | null
   updatedAt: Date | null
+  originalAnchorQuote: string | null
+  orphaned: boolean | null
 }
 
 export type ContractRisksCountAggregateOutputType = {
@@ -106,6 +110,8 @@ export type ContractRisksCountAggregateOutputType = {
   anchorCharEnd: number
   createdAt: number
   updatedAt: number
+  originalAnchorQuote: number
+  orphaned: number
   _all: number
 }
 
@@ -146,6 +152,8 @@ export type ContractRisksMinAggregateInputType = {
   anchorCharEnd?: true
   createdAt?: true
   updatedAt?: true
+  originalAnchorQuote?: true
+  orphaned?: true
 }
 
 export type ContractRisksMaxAggregateInputType = {
@@ -168,6 +176,8 @@ export type ContractRisksMaxAggregateInputType = {
   anchorCharEnd?: true
   createdAt?: true
   updatedAt?: true
+  originalAnchorQuote?: true
+  orphaned?: true
 }
 
 export type ContractRisksCountAggregateInputType = {
@@ -190,6 +200,8 @@ export type ContractRisksCountAggregateInputType = {
   anchorCharEnd?: true
   createdAt?: true
   updatedAt?: true
+  originalAnchorQuote?: true
+  orphaned?: true
   _all?: true
 }
 
@@ -299,6 +311,8 @@ export type ContractRisksGroupByOutputType = {
   anchorCharEnd: number | null
   createdAt: Date
   updatedAt: Date
+  originalAnchorQuote: string | null
+  orphaned: boolean
   _count: ContractRisksCountAggregateOutputType | null
   _avg: ContractRisksAvgAggregateOutputType | null
   _sum: ContractRisksSumAggregateOutputType | null
@@ -344,6 +358,8 @@ export type contractRisksWhereInput = {
   anchorCharEnd?: Prisma.IntNullableFilter<"contractRisks"> | number | null
   createdAt?: Prisma.DateTimeFilter<"contractRisks"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"contractRisks"> | Date | string
+  originalAnchorQuote?: Prisma.StringNullableFilter<"contractRisks"> | string | null
+  orphaned?: Prisma.BoolFilter<"contractRisks"> | boolean
   review?: Prisma.XOR<Prisma.ContractReviewsScalarRelationFilter, Prisma.contractReviewsWhereInput>
   annotations?: Prisma.ContractAnnotationsListRelationFilter
 }
@@ -368,6 +384,8 @@ export type contractRisksOrderByWithRelationInput = {
   anchorCharEnd?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  originalAnchorQuote?: Prisma.SortOrderInput | Prisma.SortOrder
+  orphaned?: Prisma.SortOrder
   review?: Prisma.contractReviewsOrderByWithRelationInput
   annotations?: Prisma.contractAnnotationsOrderByRelationAggregateInput
 }
@@ -395,6 +413,8 @@ export type contractRisksWhereUniqueInput = Prisma.AtLeast<{
   anchorCharEnd?: Prisma.IntNullableFilter<"contractRisks"> | number | null
   createdAt?: Prisma.DateTimeFilter<"contractRisks"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"contractRisks"> | Date | string
+  originalAnchorQuote?: Prisma.StringNullableFilter<"contractRisks"> | string | null
+  orphaned?: Prisma.BoolFilter<"contractRisks"> | boolean
   review?: Prisma.XOR<Prisma.ContractReviewsScalarRelationFilter, Prisma.contractReviewsWhereInput>
   annotations?: Prisma.ContractAnnotationsListRelationFilter
 }, "id">
@@ -419,6 +439,8 @@ export type contractRisksOrderByWithAggregationInput = {
   anchorCharEnd?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  originalAnchorQuote?: Prisma.SortOrderInput | Prisma.SortOrder
+  orphaned?: Prisma.SortOrder
   _count?: Prisma.contractRisksCountOrderByAggregateInput
   _avg?: Prisma.contractRisksAvgOrderByAggregateInput
   _max?: Prisma.contractRisksMaxOrderByAggregateInput
@@ -449,6 +471,8 @@ export type contractRisksScalarWhereWithAggregatesInput = {
   anchorCharEnd?: Prisma.IntNullableWithAggregatesFilter<"contractRisks"> | number | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"contractRisks"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"contractRisks"> | Date | string
+  originalAnchorQuote?: Prisma.StringNullableWithAggregatesFilter<"contractRisks"> | string | null
+  orphaned?: Prisma.BoolWithAggregatesFilter<"contractRisks"> | boolean
 }
 
 export type contractRisksCreateInput = {
@@ -469,6 +493,8 @@ export type contractRisksCreateInput = {
   anchorCharEnd?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  originalAnchorQuote?: string | null
+  orphaned?: boolean
   review: Prisma.contractReviewsCreateNestedOneWithoutRisks2Input
   annotations?: Prisma.contractAnnotationsCreateNestedManyWithoutRiskInput
 }
@@ -493,6 +519,8 @@ export type contractRisksUncheckedCreateInput = {
   anchorCharEnd?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  originalAnchorQuote?: string | null
+  orphaned?: boolean
   annotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutRiskInput
 }
 
@@ -514,6 +542,8 @@ export type contractRisksUpdateInput = {
   anchorCharEnd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalAnchorQuote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  orphaned?: Prisma.BoolFieldUpdateOperationsInput | boolean
   review?: Prisma.contractReviewsUpdateOneRequiredWithoutRisks2NestedInput
   annotations?: Prisma.contractAnnotationsUpdateManyWithoutRiskNestedInput
 }
@@ -538,6 +568,8 @@ export type contractRisksUncheckedUpdateInput = {
   anchorCharEnd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalAnchorQuote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  orphaned?: Prisma.BoolFieldUpdateOperationsInput | boolean
   annotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutRiskNestedInput
 }
 
@@ -561,6 +593,8 @@ export type contractRisksCreateManyInput = {
   anchorCharEnd?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  originalAnchorQuote?: string | null
+  orphaned?: boolean
 }
 
 export type contractRisksUpdateManyMutationInput = {
@@ -581,6 +615,8 @@ export type contractRisksUpdateManyMutationInput = {
   anchorCharEnd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalAnchorQuote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  orphaned?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type contractRisksUncheckedUpdateManyInput = {
@@ -603,6 +639,8 @@ export type contractRisksUncheckedUpdateManyInput = {
   anchorCharEnd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalAnchorQuote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  orphaned?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type ContractRisksListRelationFilter = {
@@ -635,6 +673,8 @@ export type contractRisksCountOrderByAggregateInput = {
   anchorCharEnd?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  originalAnchorQuote?: Prisma.SortOrder
+  orphaned?: Prisma.SortOrder
 }
 
 export type contractRisksAvgOrderByAggregateInput = {
@@ -665,6 +705,8 @@ export type contractRisksMaxOrderByAggregateInput = {
   anchorCharEnd?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  originalAnchorQuote?: Prisma.SortOrder
+  orphaned?: Prisma.SortOrder
 }
 
 export type contractRisksMinOrderByAggregateInput = {
@@ -687,6 +729,8 @@ export type contractRisksMinOrderByAggregateInput = {
   anchorCharEnd?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
+  originalAnchorQuote?: Prisma.SortOrder
+  orphaned?: Prisma.SortOrder
 }
 
 export type contractRisksSumOrderByAggregateInput = {
@@ -776,6 +820,8 @@ export type contractRisksCreateWithoutReviewInput = {
   anchorCharEnd?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  originalAnchorQuote?: string | null
+  orphaned?: boolean
   annotations?: Prisma.contractAnnotationsCreateNestedManyWithoutRiskInput
 }
 
@@ -798,6 +844,8 @@ export type contractRisksUncheckedCreateWithoutReviewInput = {
   anchorCharEnd?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  originalAnchorQuote?: string | null
+  orphaned?: boolean
   annotations?: Prisma.contractAnnotationsUncheckedCreateNestedManyWithoutRiskInput
 }
 
@@ -850,6 +898,8 @@ export type contractRisksScalarWhereInput = {
   anchorCharEnd?: Prisma.IntNullableFilter<"contractRisks"> | number | null
   createdAt?: Prisma.DateTimeFilter<"contractRisks"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"contractRisks"> | Date | string
+  originalAnchorQuote?: Prisma.StringNullableFilter<"contractRisks"> | string | null
+  orphaned?: Prisma.BoolFilter<"contractRisks"> | boolean
 }
 
 export type contractRisksCreateWithoutAnnotationsInput = {
@@ -870,6 +920,8 @@ export type contractRisksCreateWithoutAnnotationsInput = {
   anchorCharEnd?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  originalAnchorQuote?: string | null
+  orphaned?: boolean
   review: Prisma.contractReviewsCreateNestedOneWithoutRisks2Input
 }
 
@@ -893,6 +945,8 @@ export type contractRisksUncheckedCreateWithoutAnnotationsInput = {
   anchorCharEnd?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  originalAnchorQuote?: string | null
+  orphaned?: boolean
 }
 
 export type contractRisksCreateOrConnectWithoutAnnotationsInput = {
@@ -929,6 +983,8 @@ export type contractRisksUpdateWithoutAnnotationsInput = {
   anchorCharEnd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalAnchorQuote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  orphaned?: Prisma.BoolFieldUpdateOperationsInput | boolean
   review?: Prisma.contractReviewsUpdateOneRequiredWithoutRisks2NestedInput
 }
 
@@ -952,6 +1008,8 @@ export type contractRisksUncheckedUpdateWithoutAnnotationsInput = {
   anchorCharEnd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalAnchorQuote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  orphaned?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 export type contractRisksCreateManyReviewInput = {
@@ -973,6 +1031,8 @@ export type contractRisksCreateManyReviewInput = {
   anchorCharEnd?: number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  originalAnchorQuote?: string | null
+  orphaned?: boolean
 }
 
 export type contractRisksUpdateWithoutReviewInput = {
@@ -993,6 +1053,8 @@ export type contractRisksUpdateWithoutReviewInput = {
   anchorCharEnd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalAnchorQuote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  orphaned?: Prisma.BoolFieldUpdateOperationsInput | boolean
   annotations?: Prisma.contractAnnotationsUpdateManyWithoutRiskNestedInput
 }
 
@@ -1015,6 +1077,8 @@ export type contractRisksUncheckedUpdateWithoutReviewInput = {
   anchorCharEnd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalAnchorQuote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  orphaned?: Prisma.BoolFieldUpdateOperationsInput | boolean
   annotations?: Prisma.contractAnnotationsUncheckedUpdateManyWithoutRiskNestedInput
 }
 
@@ -1037,6 +1101,8 @@ export type contractRisksUncheckedUpdateManyWithoutReviewInput = {
   anchorCharEnd?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  originalAnchorQuote?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  orphaned?: Prisma.BoolFieldUpdateOperationsInput | boolean
 }
 
 
@@ -1090,6 +1156,8 @@ export type contractRisksSelect<ExtArgs extends runtime.Types.Extensions.Interna
   anchorCharEnd?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  originalAnchorQuote?: boolean
+  orphaned?: boolean
   review?: boolean | Prisma.contractReviewsDefaultArgs<ExtArgs>
   annotations?: boolean | Prisma.contractRisks$annotationsArgs<ExtArgs>
   _count?: boolean | Prisma.ContractRisksCountOutputTypeDefaultArgs<ExtArgs>
@@ -1115,6 +1183,8 @@ export type contractRisksSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   anchorCharEnd?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  originalAnchorQuote?: boolean
+  orphaned?: boolean
   review?: boolean | Prisma.contractReviewsDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["contractRisks"]>
 
@@ -1138,6 +1208,8 @@ export type contractRisksSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   anchorCharEnd?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  originalAnchorQuote?: boolean
+  orphaned?: boolean
   review?: boolean | Prisma.contractReviewsDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["contractRisks"]>
 
@@ -1161,9 +1233,11 @@ export type contractRisksSelectScalar = {
   anchorCharEnd?: boolean
   createdAt?: boolean
   updatedAt?: boolean
+  originalAnchorQuote?: boolean
+  orphaned?: boolean
 }
 
-export type contractRisksOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "reviewId" | "source" | "code" | "category" | "level" | "stance" | "problem" | "legalBasis" | "analysis" | "suggestion" | "archivedStatus" | "archivedAt" | "anchorQuote" | "anchorParagraphIndex" | "anchorCharStart" | "anchorCharEnd" | "createdAt" | "updatedAt", ExtArgs["result"]["contractRisks"]>
+export type contractRisksOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "reviewId" | "source" | "code" | "category" | "level" | "stance" | "problem" | "legalBasis" | "analysis" | "suggestion" | "archivedStatus" | "archivedAt" | "anchorQuote" | "anchorParagraphIndex" | "anchorCharStart" | "anchorCharEnd" | "createdAt" | "updatedAt" | "originalAnchorQuote" | "orphaned", ExtArgs["result"]["contractRisks"]>
 export type contractRisksInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   review?: boolean | Prisma.contractReviewsDefaultArgs<ExtArgs>
   annotations?: boolean | Prisma.contractRisks$annotationsArgs<ExtArgs>
@@ -1220,6 +1294,14 @@ export type $contractRisksPayload<ExtArgs extends runtime.Types.Extensions.Inter
     anchorCharEnd: number | null
     createdAt: Date
     updatedAt: Date
+    /**
+     * Phase B：锚点首次迁移前的原文（UI "原文已修改" Tooltip 展示）
+     */
+    originalAnchorQuote: string | null
+    /**
+     * Phase B：当前版本无法定位锚点（孤立批注区）
+     */
+    orphaned: boolean
   }, ExtArgs["result"]["contractRisks"]>
   composites: {}
 }
@@ -1664,6 +1746,8 @@ export interface contractRisksFieldRefs {
   readonly anchorCharEnd: Prisma.FieldRef<"contractRisks", 'Int'>
   readonly createdAt: Prisma.FieldRef<"contractRisks", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"contractRisks", 'DateTime'>
+  readonly originalAnchorQuote: Prisma.FieldRef<"contractRisks", 'String'>
+  readonly orphaned: Prisma.FieldRef<"contractRisks", 'Boolean'>
 }
     
 

@@ -6139,7 +6139,8 @@ export const ContractReviewVersionsScalarFieldEnum = {
   lawyerNote: 'lawyerNote',
   snapshotData: 'snapshotData',
   createdById: 'createdById',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  docxFileId: 'docxFileId'
 } as const
 
 export type ContractReviewVersionsScalarFieldEnum = (typeof ContractReviewVersionsScalarFieldEnum)[keyof typeof ContractReviewVersionsScalarFieldEnum]
@@ -6164,7 +6165,9 @@ export const ContractRisksScalarFieldEnum = {
   anchorCharStart: 'anchorCharStart',
   anchorCharEnd: 'anchorCharEnd',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
+  updatedAt: 'updatedAt',
+  originalAnchorQuote: 'originalAnchorQuote',
+  orphaned: 'orphaned'
 } as const
 
 export type ContractRisksScalarFieldEnum = (typeof ContractRisksScalarFieldEnum)[keyof typeof ContractRisksScalarFieldEnum]
@@ -6180,7 +6183,11 @@ export const ContractAnnotationsScalarFieldEnum = {
   authorUserId: 'authorUserId',
   content: 'content',
   deletedAt: 'deletedAt',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  wordCommentRef: 'wordCommentRef',
+  removedByClient: 'removedByClient',
+  suppressInExport: 'suppressInExport'
 } as const
 
 export type ContractAnnotationsScalarFieldEnum = (typeof ContractAnnotationsScalarFieldEnum)[keyof typeof ContractAnnotationsScalarFieldEnum]

@@ -21,14 +21,21 @@ import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from 'vitest
 ;(globalThis as any).readBody = (e: any) => Promise.resolve(e.__body)
 ;(globalThis as any).logger = { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() }
 
-// ==================== mock 对外依赖（OSS / docx 注入 / 存储配置）====================
+// ==================== mock 对外依赖（OSS / docx 注入 / 存储配置 / 批注查询）====================
 vi.mock('~~/server/services/storage/storage.service', () => ({
     downloadFileService: vi.fn(async () => Buffer.from('FAKE-ORIG-DOCX')),
     uploadFileService: vi.fn(async (path: string) => ({ name: path, url: `https://oss.example.com/${path}` })),
     generateSignedUrlService: vi.fn(async (path: string) => `https://oss.example.com/${path}?sig=fake&expires=3600`),
 }))
 vi.mock('~~/server/services/assistant/contract/docx', () => ({
-    injectComments: vi.fn(async () => Buffer.from('FAKE-REVIEWED-DOCX')),
+    // Phase B：injectAnnotations 替代 injectComments 作为 rebuildDocxService 的入口
+    injectAnnotations: vi.fn(async () => ({
+        buffer: Buffer.from('FAKE-REVIEWED-DOCX'),
+        refsByAnnotationId: new Map(),
+    })),
+}))
+vi.mock('~~/server/services/assistant/contract/contractAnnotation.dao', () => ({
+    listAnnotationsForExportDAO: vi.fn(async () => []),
 }))
 vi.mock('~~/server/services/storage/storageConfig.dao', () => ({
     getDefaultStorageConfigDao: vi.fn(async () => ({ bucket: 'test-bucket' })),
@@ -40,7 +47,8 @@ const { default: patchHandler } = await import(
 const { default: rebuildHandler } = await import(
     '../../../../server/api/v1/assistant/contract/reviews/[id]/rebuild-docx.post'
 )
-import { injectComments } from '~~/server/services/assistant/contract/docx'
+import { injectAnnotations } from '~~/server/services/assistant/contract/docx'
+import { listAnnotationsForExportDAO } from '~~/server/services/assistant/contract/contractAnnotation.dao'
 import {
     createContractReviewDAO,
     getContractReviewDAO,
@@ -157,9 +165,9 @@ describe('M5 合同审查闭环（PATCH + rebuild-docx + 真实 DB 链路）', (
         expect(res.success).toBe(false)
     }, 30_000)
 
-    it('rebuild-docx 失败（injectComments 抛异常）→ status 回滚 completed 且 reviewedFileId 未变', async () => {
+    it('rebuild-docx 失败（injectAnnotations 抛异常）→ status 回滚 completed 且 reviewedFileId 未变', async () => {
         const { reviewId, oldReviewedFileId } = await seedCompletedReview()
-        vi.mocked(injectComments).mockRejectedValueOnce(new Error('mock inject fail'))
+        vi.mocked(injectAnnotations).mockRejectedValueOnce(new Error('mock inject fail'))
 
         const res: any = await rebuildHandler(makeEvent(userId, String(reviewId)))
         expect(res.code).toBe(500)

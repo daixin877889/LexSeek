@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { defineComponent, h, nextTick } from 'vue'
 import RiskListPanel from '~/components/assistant/contract/RiskListPanel.vue'
-import type { ContractOverview, Risk, ContractReviewStatus, PlaybookSnapshot } from '#shared/types/contract'
+import type { ContractOverview, Risk, ContractReviewStatus, PlaybookSnapshot, ContractAnnotationEntity } from '#shared/types/contract'
 
 /**
  * RiskListPanel 单元测试
@@ -832,5 +832,225 @@ describe('RiskListPanel · Task 2.6 清单要点徽章', () => {
         })
         const card = w.find('[data-risk-id="r1"]')
         expect(card.text()).not.toContain('试用期约定合规性')
+    })
+})
+
+// ===== Phase B：三分组 UI 测试 =====
+
+type RiskDisplayPhaseB = Risk & {
+    archivedStatus?: string | null
+    entityId?: number
+    source?: 'ai' | 'external_new' | 'global_review'
+    orphaned?: boolean
+    originalAnchorQuote?: string | null
+}
+
+function makeAnnotation(over: Partial<ContractAnnotationEntity> = {}): ContractAnnotationEntity {
+    return {
+        id: 1,
+        reviewId: 1,
+        riskId: 1,
+        parentAnnotationId: null,
+        authorType: 'lawyer',
+        authorName: '张律师',
+        authorUserId: 1,
+        content: '批注内容',
+        createdAt: '2024-01-01T00:00:00.000Z',
+        wordCommentRef: null,
+        removedByClient: false,
+        suppressInExport: false,
+        ...over,
+    }
+}
+
+function mountPanelPhaseB(props: Partial<{
+    risks: RiskDisplayPhaseB[]
+    annotations: ContractAnnotationEntity[]
+    status: ContractReviewStatus
+    reviewedFileId: number | null
+    summary: ContractOverview | null
+    isRebuilding: boolean
+    hasUnsavedDocxChanges: boolean
+    focusedRiskId: string | null
+    hoveredRiskId: string | null
+    pinnedRiskIds: Set<string>
+    notLocatedIds: Set<string>
+}> = {}) {
+    return mount(RiskListPanel, {
+        props: {
+            risks: [],
+            status: 'completed' as ContractReviewStatus,
+            reviewedFileId: 123,
+            summary: null,
+            isRebuilding: false,
+            hasUnsavedDocxChanges: false,
+            focusedRiskId: null,
+            hoveredRiskId: null,
+            pinnedRiskIds: new Set<string>(),
+            notLocatedIds: new Set<string>(),
+            ...props,
+        },
+        global: { stubs },
+    })
+}
+
+describe('RiskListPanel · Phase B 外部新增分组', () => {
+    it('source=external_new 的风险渲染在顶部外部新增分组，显示"外部新增"标题', () => {
+        const extRisk: RiskDisplayPhaseB = { ...makeRisk({ id: 'ext-1', clauseIndex: 5 }), source: 'external_new' }
+        const w = mountPanelPhaseB({ risks: [extRisk] })
+        expect(w.text()).toContain('外部新增')
+    })
+
+    it('外部新增分组卡片带 border-warning 竖条样式', () => {
+        const extRisk: RiskDisplayPhaseB = { ...makeRisk({ id: 'ext-1' }), source: 'external_new' }
+        const w = mountPanelPhaseB({ risks: [extRisk] })
+        expect(w.html()).toContain('border-warning')
+    })
+
+    it('外部新增分组显示外部批注 authorName + "外部批注"标签', () => {
+        const extRisk: RiskDisplayPhaseB = { ...makeRisk({ id: '1' }), source: 'external_new' }
+        const ann = makeAnnotation({ id: 10, riskId: 1, authorType: 'external', authorName: '王先生' })
+        const w = mountPanelPhaseB({ risks: [extRisk], annotations: [ann] })
+        expect(w.text()).toContain('王先生')
+        expect(w.text()).toContain('外部批注')
+    })
+
+    it('没有 external_new 风险时不渲染外部新增分组', () => {
+        const aiRisk: RiskDisplayPhaseB = { ...makeRisk({ id: 'ai-1' }), source: 'ai' }
+        const w = mountPanelPhaseB({ risks: [aiRisk] })
+        expect(w.text()).not.toContain('外部新增（')
+    })
+
+    it('外部新增分组标题显示数量', () => {
+        const r1: RiskDisplayPhaseB = { ...makeRisk({ id: 'e1', clauseIndex: 0 }), source: 'external_new' }
+        const r2: RiskDisplayPhaseB = { ...makeRisk({ id: 'e2', clauseIndex: 1 }), source: 'external_new' }
+        const w = mountPanelPhaseB({ risks: [r1, r2] })
+        expect(w.text()).toContain('外部新增（2）')
+    })
+})
+
+describe('RiskListPanel · Phase B 孤立批注区', () => {
+    it('orphaned=true 的风险渲染在孤立批注区，显示"原文已修改·无法定位"标题', () => {
+        const orphanRisk: RiskDisplayPhaseB = { ...makeRisk({ id: 'o-1', clauseIndex: 3 }), orphaned: true }
+        const w = mountPanelPhaseB({ risks: [orphanRisk] })
+        expect(w.text()).toContain('原文已修改')
+        expect(w.text()).toContain('无法定位')
+    })
+
+    it('孤立批注区标题显示数量', () => {
+        const r1: RiskDisplayPhaseB = { ...makeRisk({ id: 'o-1', clauseIndex: 0 }), orphaned: true }
+        const r2: RiskDisplayPhaseB = { ...makeRisk({ id: 'o-2', clauseIndex: 1 }), orphaned: true }
+        const w = mountPanelPhaseB({ risks: [r1, r2] })
+        expect(w.text()).toContain('无法定位（2）')
+    })
+
+    it('没有 orphaned 风险时不渲染孤立批注区', () => {
+        const aiRisk: RiskDisplayPhaseB = { ...makeRisk({ id: 'ai-1' }), orphaned: false }
+        const w = mountPanelPhaseB({ risks: [aiRisk] })
+        expect(w.text()).not.toContain('无法定位（')
+    })
+
+    it('孤立风险卡片展开后显示 originalAnchorQuote 原锚点', async () => {
+        const orphanRisk: RiskDisplayPhaseB = {
+            ...makeRisk({ id: 'o-1' }),
+            orphaned: true,
+            originalAnchorQuote: '此处为原合同第三条款内容',
+        }
+        const w = mountPanelPhaseB({ risks: [orphanRisk] })
+        await w.find('[data-risk-id="o-1"]').trigger('click')
+        expect(w.text()).toContain('此处为原合同第三条款内容')
+    })
+
+    it('孤立风险卡片展开后有"查看原始语境"按钮，点击 emit jump-to-original', async () => {
+        const orphanRisk: RiskDisplayPhaseB = {
+            ...makeRisk({ id: 'o-1' }),
+            orphaned: true,
+            originalAnchorQuote: '原文片段',
+        }
+        const w = mountPanelPhaseB({ risks: [orphanRisk] })
+        await w.find('[data-risk-id="o-1"]').trigger('click')
+        const btn = w.findAll('button').find(b => b.text().includes('查看原始语境'))
+        expect(btn).toBeTruthy()
+        await btn!.trigger('click')
+        expect(w.emitted('jump-to-original')).toBeTruthy()
+        expect(w.emitted('jump-to-original')![0]).toEqual(['o-1'])
+    })
+})
+
+describe('RiskListPanel · Phase B 客户已移除分组', () => {
+    it('有 removedByClient=true 的批注时渲染"客户已移除"分组，默认折叠', () => {
+        const removedAnn = makeAnnotation({ id: 20, removedByClient: true, content: '被删内容X' })
+        const w = mountPanelPhaseB({ risks: [makeRisk()], annotations: [removedAnn] })
+        expect(w.text()).toContain('客户已移除')
+        expect(w.text()).not.toContain('被删内容X')
+    })
+
+    it('客户已移除分组标题显示数量', () => {
+        const a1 = makeAnnotation({ id: 21, removedByClient: true })
+        const a2 = makeAnnotation({ id: 22, removedByClient: true })
+        const w = mountPanelPhaseB({ risks: [makeRisk()], annotations: [a1, a2] })
+        expect(w.text()).toContain('客户已移除（2）')
+    })
+
+    it('点击"客户已移除"分组标题后展开，显示被删除批注内容', async () => {
+        const removedAnn = makeAnnotation({ id: 23, removedByClient: true, content: '已删批注内容' })
+        const w = mountPanelPhaseB({ risks: [makeRisk()], annotations: [removedAnn] })
+        const toggleBtn = w.findAll('button').find(b => b.text().includes('客户已移除'))
+        await toggleBtn!.trigger('click')
+        expect(w.text()).toContain('已删批注内容')
+    })
+
+    it('展开后显示"恢复推送"按钮，点击弹出 AlertDialog 确认', async () => {
+        const removedAnn = makeAnnotation({ id: 24, removedByClient: true })
+        const w = mountPanelPhaseB({ risks: [makeRisk()], annotations: [removedAnn] })
+        const toggleBtn = w.findAll('button').find(b => b.text().includes('客户已移除'))
+        await toggleBtn!.trigger('click')
+        const restoreBtn = w.findAll('button').find(b => b.text().includes('恢复推送'))
+        expect(restoreBtn).toBeTruthy()
+        await restoreBtn!.trigger('click')
+        await nextTick()
+        expect(w.text()).toContain('客户已明确删除过这条')
+    })
+
+    it('AlertDialog 确认恢复后 emit restore-annotation', async () => {
+        const removedAnn = makeAnnotation({ id: 25, removedByClient: true })
+        const w = mountPanelPhaseB({ risks: [makeRisk()], annotations: [removedAnn] })
+        const toggleBtn = w.findAll('button').find(b => b.text().includes('客户已移除'))
+        await toggleBtn!.trigger('click')
+        const restoreBtn = w.findAll('button').find(b => b.text().includes('恢复推送'))
+        await restoreBtn!.trigger('click')
+        await nextTick()
+        const confirmBtn = w.find('[data-stub="AlertDialogAction"]')
+        await confirmBtn.trigger('click')
+        expect(w.emitted('restore-annotation')).toBeTruthy()
+        expect(w.emitted('restore-annotation')![0]).toEqual([25])
+    })
+
+    it('没有 removedByClient 批注时不渲染客户已移除分组', () => {
+        const ann = makeAnnotation({ id: 30, removedByClient: false })
+        const w = mountPanelPhaseB({ risks: [makeRisk()], annotations: [ann] })
+        expect(w.text()).not.toContain('客户已移除（')
+    })
+})
+
+describe('RiskListPanel · Phase B 渲染顺序', () => {
+    it('外部新增分组渲染在主清单之前', () => {
+        const extRisk: RiskDisplayPhaseB = { ...makeRisk({ id: 'ext-1', clauseIndex: 10 }), source: 'external_new' }
+        const aiRisk: RiskDisplayPhaseB = { ...makeRisk({ id: 'ai-1', clauseIndex: 1 }), source: 'ai' }
+        const w = mountPanelPhaseB({ risks: [aiRisk, extRisk] })
+        const html = w.html()
+        const extIdx = html.indexOf('外部新增')
+        const aiCardIdx = html.indexOf('data-risk-id="ai-1"')
+        expect(extIdx).toBeLessThan(aiCardIdx)
+    })
+
+    it('孤立批注区渲染在主清单之后', () => {
+        const aiRisk: RiskDisplayPhaseB = { ...makeRisk({ id: 'ai-1', clauseIndex: 1 }), source: 'ai' }
+        const orphanRisk: RiskDisplayPhaseB = { ...makeRisk({ id: 'o-1', clauseIndex: 2 }), orphaned: true }
+        const w = mountPanelPhaseB({ risks: [aiRisk, orphanRisk] })
+        const html = w.html()
+        const aiCardIdx = html.indexOf('data-risk-id="ai-1"')
+        const orphanSectionIdx = html.indexOf('无法定位')
+        expect(aiCardIdx).toBeLessThan(orphanSectionIdx)
     })
 })

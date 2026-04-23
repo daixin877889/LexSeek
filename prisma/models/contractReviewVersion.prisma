@@ -11,6 +11,8 @@ model contractReviewVersions {
   snapshotData  Json     @map("snapshot_data")
   createdById   Int      @map("created_by_id")
   createdAt     DateTime @default(now()) @map("created_at")
+  /// Phase B：client_return 版本绑定的客户上传 docx 文件（initial_upload/lawyer_save/auto_backup 为 null）
+  docxFileId    Int?     @map("docx_file_id")
 
   review    contractReviews @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   createdBy users           @relation(fields: [createdById], references: [id], onDelete: Restrict)
