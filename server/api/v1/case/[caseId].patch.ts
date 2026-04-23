@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
   try {
     await validateCaseAccessService(caseId, user.id)
     await updateCaseService(caseId, { status: result.data.status })
-    return resSuccess(event, '更新成功', null)
+    return resSuccess(event, '更新成功', { id: caseId })
   }
   catch (error: any) {
     logger.error('更新案件状态失败', { caseId, error: error.message })
