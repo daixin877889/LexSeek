@@ -168,22 +168,35 @@ function scanNonEmptyParagraphs(
 }
 
 /**
- * 在第 N 个非空 <w:p> 内插入批注范围标记。
- * 按倒序修改以避免字符串偏移量错位。
+ * 在非空 <w:p> 内插入批注范围标记。
+ *
+ * 关键：同一段落可能承载多条 annotation（AI 批注 + 律师答复 + 客户评论常常
+ * 都挂在同一条款）。必须先按段落分组，一次性把该组所有 rangeStart/End/Reference
+ * 写进同一次 slice 替换，否则后一次循环会用原始 text/start/end 覆盖前一次结果，
+ * 产出"只在 comments.xml 有 <w:comment>、document.xml 里却没有对应 commentRangeStart"
+ * 的孤儿批注，直接导致 Word/LibreOffice 报"文件损坏"。
  */
 function injectRangeMarkers(
     documentXml: string,
     injections: Array<{ index: number; id: number }>,
     nonEmpty: Array<{ text: string; start: number; end: number }>,
 ): string {
-    const sortedInjections = [...injections]
-        .map((inj) => ({ ...inj, target: nonEmpty[inj.index] }))
-        .filter((inj) => inj.target !== undefined)
-        .sort((a, b) => b.target!.start - a.target!.start)
+    // 按段落 index 分组；每组内保持 injection 的原始顺序（与 w:id 递增顺序一致）
+    const groupByIndex = new Map<number, number[]>()
+    for (const inj of injections) {
+        if (!nonEmpty[inj.index]) continue
+        const ids = groupByIndex.get(inj.index)
+        if (ids) ids.push(inj.id)
+        else groupByIndex.set(inj.index, [inj.id])
+    }
+
+    // 按 target.start 倒序回写，避免早期替换影响后续偏移
+    const groups = [...groupByIndex.entries()]
+        .map(([index, ids]) => ({ target: nonEmpty[index]!, ids }))
+        .sort((a, b) => b.target.start - a.target.start)
 
     let result = documentXml
-    for (const inj of sortedInjections) {
-        const target = inj.target!
+    for (const { target, ids } of groups) {
         const pText = target.text
 
         const openTagMatch = /^<w:p(?:\s[^>]*)?>/.exec(pText)
@@ -192,11 +205,16 @@ function injectRangeMarkers(
         const closeTagStart = pText.lastIndexOf('</w:p>')
         if (closeTagStart < 0) continue
 
+        const rangeStarts = ids.map(id => `<w:commentRangeStart w:id="${id}"/>`).join('')
+        const rangeEndsAndRefs = ids
+            .map(id => `<w:commentRangeEnd w:id="${id}"/><w:r><w:commentReference w:id="${id}"/></w:r>`)
+            .join('')
+
         const newP =
             pText.slice(0, openTagEnd) +
-            `<w:commentRangeStart w:id="${inj.id}"/>` +
+            rangeStarts +
             pText.slice(openTagEnd, closeTagStart) +
-            `<w:commentRangeEnd w:id="${inj.id}"/><w:r><w:commentReference w:id="${inj.id}"/></w:r>` +
+            rangeEndsAndRefs +
             pText.slice(closeTagStart)
 
         result = result.slice(0, target.start) + newP + result.slice(target.end)

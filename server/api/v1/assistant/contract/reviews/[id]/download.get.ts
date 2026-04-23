@@ -27,6 +27,10 @@ import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import { generateSignedUrlService } from '~~/server/services/storage/storage.service'
 import { loadOwnedReview } from '~~/server/services/assistant/contract/reviewGuard'
 import { rebuildDocxService } from '~~/server/services/assistant/contract/contractReviewRebuild.service'
+import {
+    buildContractReviewFilename,
+    buildContentDispositionForFilename,
+} from '~~/server/services/assistant/contract/contractReviewFilename'
 
 // 与文书导出（documentExport.service.ts）保持 1h 对齐
 const DOWNLOAD_URL_EXPIRES_SECONDS = 3600
@@ -57,17 +61,13 @@ export default defineEventHandler(async (event) => {
         return resError(event, 404, '审查结果文件已丢失')
     }
 
-    // 文件名：取原始合同文件名（非重建产物名）+ 版本号/工作区 + 日期
-    // 规则见 spec §4.4：{合同名}_{版本号或"工作区"}_{日期}.docx
+    // spec §4.4 规范：{合同名}_{版本号或"工作区"}_{日期}.docx
     const originalOssFile = await findOssFileByIdDao(review.originalFileId)
-    const versionLabel = review.maxVersionNo > 0 ? `v${review.maxVersionNo}` : '工作区'
-    const dateStr = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
-    const baseName = (originalOssFile?.fileName ?? '合同审查').replace(/\.docx$/i, '')
-    const filename = `${baseName}_${versionLabel}_${dateStr}.docx`
-
-    // RFC 5987 编码，让 OSS 通过 response-content-disposition 返回正确文件名
-    const encodedFilename = encodeURIComponent(filename)
-    const contentDisposition = `attachment; filename*=UTF-8''${encodedFilename}`
+    const filename = buildContractReviewFilename({
+        originalFileName: originalOssFile?.fileName,
+        versionNumber: review.maxVersionNo,
+    })
+    const contentDisposition = buildContentDispositionForFilename(filename)
 
     // 生成 1 小时签名 URL（含 Content-Disposition 参数）
     const downloadUrl = await generateSignedUrlService(ossFile.filePath, {

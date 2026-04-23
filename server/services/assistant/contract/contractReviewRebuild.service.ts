@@ -30,10 +30,15 @@ import { StorageProviderType } from '~~/server/lib/storage/types'
 import { FileSource, OssFileStatus } from '#shared/types/file'
 import { DOCX_MIME } from '#shared/utils/mime'
 import type { ContractAnnotationForExport } from './docx'
+import {
+    buildContractReviewFilename,
+    buildContentDispositionForFilename,
+} from './contractReviewFilename'
 
 export interface RebuildDocxResult {
     reviewedFileId: number
     downloadUrl: string
+    filename: string
 }
 
 export async function rebuildDocxService(review: contractReviews): Promise<RebuildDocxResult> {
@@ -110,18 +115,26 @@ export async function rebuildDocxService(review: contractReviews): Promise<Rebui
     ])
     const bucketName = storageConfig?.bucket ?? ''
 
+    // 构造 spec §4.4 规范的用户可见文件名：{合同名}_{版本号/"工作区"}_{日期}.docx
+    const filename = buildContractReviewFilename({
+        originalFileName: origOssFile.fileName,
+        versionNumber: review.maxVersionNo,
+    })
+    const contentDisposition = buildContentDispositionForFilename(filename)
+
     // OSS 已上传成功；后续 DB 写入失败需清理 OSS 以免留孤儿文件。
     // 用局部 try 捕获生成签名 URL / createOssFile / setCompleted 三步中的任意失败。
     try {
         const downloadUrl = await generateSignedUrlService(uploadResult.name, {
             expires: 3600,
             userId: review.userId,
+            response: { contentDisposition },
         })
 
         const newOssFile = await createOssFileDao({
             userId: review.userId,
             bucketName,
-            fileName: `合同审查-${review.id}.docx`,
+            fileName: filename,
             filePath: uploadResult.name,
             fileSize: buffer.byteLength,
             fileType: DOCX_MIME,
@@ -133,7 +146,7 @@ export async function rebuildDocxService(review: contractReviews): Promise<Rebui
         // 最后落库 reviewedFileId：OSS + 签名 URL + ossFiles 行都就绪，失败只发生在此 DB 写入
         await setCompletedAfterRebuildDAO(review.id, newOssFile.id)
 
-        return { reviewedFileId: newOssFile.id, downloadUrl }
+        return { reviewedFileId: newOssFile.id, downloadUrl, filename }
     } catch (err) {
         // 清理 OSS 孤儿文件。失败只记日志，不覆盖原始错误。
         // Promise.resolve(...) 包裹防御性：测试中 deleteFileService mock 未返回 Promise 时也不炸。

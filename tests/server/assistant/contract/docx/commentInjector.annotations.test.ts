@@ -27,12 +27,20 @@ function makeAnnotation(
 }
 
 describe('injectAnnotations', () => {
-    it('空数组时移除 word/comments.xml，返回空 refsByAnnotationId', async () => {
+    it('空数组时移除 word/comments.xml 并清理 [Content_Types].xml 和 rels 中的注册项，返回空 refsByAnnotationId', async () => {
         const original = await readFile(SAMPLE)
         const { buffer, refsByAnnotationId } = await injectAnnotations(original, [])
         const zip = await loadDocxZip(buffer)
         expect(zip.file('word/comments.xml')).toBeNull()
         expect(refsByAnnotationId.size).toBe(0)
+
+        // [Content_Types].xml 中不应有 comments.xml 的 Override（否则 Word 会找不到文件而报错）
+        const types = await readTextFromZip(zip, '[Content_Types].xml')
+        expect(types).not.toContain('PartName="/word/comments.xml"')
+
+        // _rels 中不应有 comments.xml 的 Relationship
+        const rels = await readTextFromZip(zip, 'word/_rels/document.xml.rels')
+        expect(rels).not.toContain('Target="comments.xml"')
     })
 
     it('注入 3 条 annotation 后 comments.xml 含 3 个 w:comment', async () => {
@@ -106,6 +114,43 @@ describe('injectAnnotations', () => {
 
         // id=2 的 annotation 对应 w:id="1"（0-indexed），其父 id=1 对应 w:id="0"
         expect(commentsXml).toMatch(/w:parentId="0"/)
+    })
+
+    it('同段落 N 条 annotation 在 document.xml 必须有 N 个 commentRangeStart（防孤儿批注致 Word 报"文件损坏"）', async () => {
+        const original = await readFile(SAMPLE)
+        const { paragraphs } = await parseContractDocx(original)
+
+        const idx = Math.min(1, paragraphs.length - 1)
+        // 3 条 annotation 都落在同一段落：AI 主批 + 律师答复 + 外部评论
+        const annotations: ContractAnnotationForExport[] = [
+            makeAnnotation({ id: 1, authorType: 'ai', authorName: 'AI', anchorParagraphIndex: idx }),
+            makeAnnotation({ id: 2, authorType: 'lawyer', authorName: '张律师', parentAnnotationId: 1, anchorParagraphIndex: idx }),
+            makeAnnotation({ id: 3, authorType: 'external', authorName: '客户甲', anchorParagraphIndex: idx }),
+        ]
+
+        const { buffer } = await injectAnnotations(original, annotations)
+        const zip = await loadDocxZip(buffer)
+        const docXml = await readTextFromZip(zip, 'word/document.xml')
+        const commentsXml = await readTextFromZip(zip, 'word/comments.xml')
+
+        // comments.xml 有 3 条 comment
+        const commentMatches = commentsXml.match(/<w:comment\s/g) ?? []
+        expect(commentMatches.length).toBe(3)
+
+        // document.xml 必须有 3 个 commentRangeStart 与之对应，否则产生孤儿 comment
+        const rangeStartMatches = docXml.match(/<w:commentRangeStart\s/g) ?? []
+        expect(rangeStartMatches.length).toBe(3)
+
+        // 每个 w:id（0/1/2）都要在 document.xml 里出现至少一次 rangeStart
+        expect(docXml).toMatch(/<w:commentRangeStart[^/]*w:id="0"/)
+        expect(docXml).toMatch(/<w:commentRangeStart[^/]*w:id="1"/)
+        expect(docXml).toMatch(/<w:commentRangeStart[^/]*w:id="2"/)
+
+        // 对应的 commentRangeEnd 和 commentReference 也各 3 个
+        const rangeEndMatches = docXml.match(/<w:commentRangeEnd\s/g) ?? []
+        const commentRefMatches = docXml.match(/<w:commentReference\s/g) ?? []
+        expect(rangeEndMatches.length).toBe(3)
+        expect(commentRefMatches.length).toBe(3)
     })
 
     it('已有 wordCommentRef 的 annotation 沿用原值不新生成', async () => {
@@ -268,75 +313,4 @@ describe('injectAnnotations', () => {
         expect(paraWithRange!).not.toContain('合同编号 ABC-001')
     })
 
-    // ============ Phase B：customXml annotationRefs 相关测试 ============
-
-    it('注入 3 条 annotation 后 customXml annotationRefs.xml 存在且内容正确', async () => {
-        const original = await readFile(SAMPLE)
-        const { paragraphs } = await parseContractDocx(original)
-        const maxIdx = paragraphs.length - 1
-
-        const annotations: ContractAnnotationForExport[] = [
-            makeAnnotation({ id: 325, wordCommentRef: 'LEXSEEK-325-a3f9b2c1', anchorParagraphIndex: Math.min(1, maxIdx) }),
-            makeAnnotation({ id: 297, wordCommentRef: 'LEXSEEK-297-k8f2m9d4', anchorParagraphIndex: Math.min(2, maxIdx) }),
-            makeAnnotation({ id: 284, wordCommentRef: 'LEXSEEK-284-x1y7q3r8', anchorParagraphIndex: Math.min(3, maxIdx) }),
-        ]
-
-        const { buffer } = await injectAnnotations(original, annotations)
-        const zip = await loadDocxZip(buffer)
-
-        // 验证 customXml 文件存在
-        const customXmlFile = zip.file('word/customXml/annotationRefs.xml')
-        expect(customXmlFile).not.toBeNull()
-
-        const customXml = await customXmlFile!.async('string')
-        // 验证三条 ref 均写入
-        expect(customXml).toContain('annotationId="325"')
-        expect(customXml).toContain('annotationId="297"')
-        expect(customXml).toContain('annotationId="284"')
-        // 验证 wId 按数组顺序分配
-        expect(customXml).toContain('wId="0"')
-        expect(customXml).toContain('wId="1"')
-        expect(customXml).toContain('wId="2"')
-        // 验证 ref 值原样写入
-        expect(customXml).toContain('ref="LEXSEEK-325-a3f9b2c1"')
-    })
-
-    it('[Content_Types].xml 包含 customXml annotationRefs.xml 的 Override 注册', async () => {
-        const original = await readFile(SAMPLE)
-        const { paragraphs } = await parseContractDocx(original)
-
-        const annotations: ContractAnnotationForExport[] = [
-            makeAnnotation({ id: 1, anchorParagraphIndex: Math.min(1, paragraphs.length - 1) }),
-        ]
-
-        const { buffer } = await injectAnnotations(original, annotations)
-        const zip = await loadDocxZip(buffer)
-
-        const types = await readTextFromZip(zip, '[Content_Types].xml')
-        expect(types).toContain('PartName="/word/customXml/annotationRefs.xml"')
-        expect(types).toContain('ContentType="application/xml"')
-    })
-
-    it('customXml 中 annotationId 为自动生成 ref 时也正确记录', async () => {
-        // wordCommentRef=null，由 injectAnnotations 内部 generateWordCommentRef 生成
-        const original = await readFile(SAMPLE)
-        const { paragraphs } = await parseContractDocx(original)
-        const maxIdx = paragraphs.length - 1
-
-        const annotations: ContractAnnotationForExport[] = [
-            makeAnnotation({ id: 42, wordCommentRef: null, anchorParagraphIndex: Math.min(1, maxIdx) }),
-        ]
-
-        const { buffer, refsByAnnotationId } = await injectAnnotations(original, annotations)
-        const generatedRef = refsByAnnotationId.get(42)!
-        expect(generatedRef).toMatch(/^LEXSEEK-42-[a-zA-Z0-9]{8}$/)
-
-        const zip = await loadDocxZip(buffer)
-        const customXmlFile = zip.file('word/customXml/annotationRefs.xml')
-        expect(customXmlFile).not.toBeNull()
-
-        const customXml = await customXmlFile!.async('string')
-        expect(customXml).toContain(`annotationId="42"`)
-        expect(customXml).toContain(`ref="${generatedRef}"`)
-    })
 })

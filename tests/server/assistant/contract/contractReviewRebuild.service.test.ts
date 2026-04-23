@@ -136,7 +136,7 @@ describe('rebuildDocxService', () => {
     })
 
     it('happy path：下载→查 annotation→注入→上传→签名→createOssFile→setCompleted 顺序正确', async () => {
-        mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: 'orig/path.docx' } as any)
+        mockFindOss.mockResolvedValue({ id: ORIG_FILE_ID, filePath: 'orig/path.docx', fileName: '劳动合同.docx' } as any)
         mockDownload.mockResolvedValue(Buffer.from('orig-docx'))
         mockListAnnotations.mockResolvedValue([makeDbAnnotation(1), makeDbAnnotation(2)])
         mockInjectAnnotations.mockResolvedValue(injResult(Buffer.from('new-docx')))
@@ -150,12 +150,12 @@ describe('rebuildDocxService', () => {
         mockCreateOss.mockResolvedValue({ id: 999 } as any)
         mockSetCompleted.mockResolvedValue({ id: REVIEW_ID } as any)
 
-        const result = await rebuildDocxService(review())
+        const result = await rebuildDocxService(review({ maxVersionNo: 2 }))
 
-        expect(result).toEqual({
-            reviewedFileId: 999,
-            downloadUrl: 'https://oss.signed/download',
-        })
+        // 用户可见文件名：{合同名}_{v 或 工作区}_{日期}.docx（spec §4.4）
+        expect(result.reviewedFileId).toBe(999)
+        expect(result.downloadUrl).toBe('https://oss.signed/download')
+        expect(result.filename).toMatch(/^劳动合同_v2_\d{4}-\d{2}-\d{2}\.docx$/)
 
         // 时序断言：signUrl 在 createOss 之前，createOss 在 setCompleted 之前
         const signUrlOrder = mockSignUrl.mock.invocationCallOrder[0]
@@ -169,15 +169,24 @@ describe('rebuildDocxService', () => {
         expect(mockListAnnotations).toHaveBeenCalledWith(REVIEW_ID)
         expect(mockInjectAnnotations).toHaveBeenCalledTimes(1)
         expect(mockUpload).toHaveBeenCalledTimes(1)
+        // 签名 URL 必须带 Content-Disposition，否则浏览器用 URL 最后一段作文件名
         expect(mockSignUrl).toHaveBeenCalledWith(
             'contract-review/1001/rebuild-xxx.docx',
-            { expires: 3600, userId: USER_ID },
+            expect.objectContaining({
+                expires: 3600,
+                userId: USER_ID,
+                response: expect.objectContaining({
+                    contentDisposition: expect.stringContaining('attachment'),
+                }),
+            }),
         )
         expect(mockCreateOss).toHaveBeenCalledTimes(1)
         const ossArg = mockCreateOss.mock.calls[0]?.[0] as any
         expect(ossArg.userId).toBe(USER_ID)
         expect(ossArg.bucketName).toBe('lexseek-bucket')
         expect(ossArg.filePath).toBe('contract-review/1001/rebuild-xxx.docx')
+        // ossFile.fileName 用规范文件名，方便 OSS 后台 / 后续功能识别
+        expect(ossArg.fileName).toBe(result.filename)
         expect(mockSetCompleted).toHaveBeenCalledWith(REVIEW_ID, 999)
     })
 

@@ -55,6 +55,8 @@ export default defineVitestConfig({
         exclude: [
             '**/node_modules/**',
             '**/.nuxt/**',
+            // 排除所有 git worktree 目录下的测试（避免并发 worktree 的旧代码串进主测试结果）
+            '**/.worktrees/**',
             '**/tests/server/api/**',
             // 排除需要 Nuxt 自动导入完整支持的测试
             '**/tests/server/case/case.service.test.ts',

@@ -29,6 +29,10 @@ import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageCo
 import { StorageProviderType } from '~~/server/lib/storage/types'
 import { FileSource, OssFileStatus } from '#shared/types/file'
 import { DOCX_MIME } from '#shared/utils/mime'
+import {
+    buildContractReviewFilename,
+    buildContentDispositionForFilename,
+} from './contractReviewFilename'
 
 export interface SaveVersionInput {
     reviewId: number
@@ -251,10 +255,11 @@ export async function downloadContractReviewVersionService(
         uploadName = uploadResult.name
         const bucketName = storageConfig?.bucket ?? ''
 
-        // 文件名：{合同名}_v{版本号}_{日期}.docx（spec §4.4）
-        const baseName = (contractFileName ?? '合同审查').replace(/\.docx$/i, '')
-        const dateStr = new Date().toISOString().slice(0, 10)
-        const filename = `${baseName}_v${version.versionNumber}_${dateStr}.docx`
+        // 文件名：spec §4.4 规范，历史版本必定有版本号，不会走"工作区"分支
+        const filename = buildContractReviewFilename({
+            originalFileName: contractFileName,
+            versionNumber: version.versionNumber,
+        })
 
         // 落一条 ossFiles 记录用于后续追踪；下载链走 Content-Disposition 带文件名
         await createOssFileDao({
@@ -269,8 +274,7 @@ export async function downloadContractReviewVersionService(
             encrypted: false,
         })
 
-        const encodedFilename = encodeURIComponent(filename)
-        const contentDisposition = `attachment; filename*=UTF-8''${encodedFilename}`
+        const contentDisposition = buildContentDispositionForFilename(filename)
         const downloadUrl = await generateSignedUrlService(uploadName, {
             expires: 3600,
             userId: review.userId,

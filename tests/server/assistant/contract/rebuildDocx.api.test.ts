@@ -185,12 +185,13 @@ describe('POST /api/v1/assistant/contract/reviews/:id/rebuild-docx', () => {
         expect(mockRollback).not.toHaveBeenCalled()
     })
 
-    it('成功路径：返回 { reviewedFileId, downloadUrl }', async () => {
+    it('成功路径：返回 { reviewedFileId, downloadUrl, filename }', async () => {
         mockGetReview.mockResolvedValue(review())
         mockAtomicSet.mockResolvedValue(true)
         mockRebuild.mockResolvedValue({
             reviewedFileId: 99,
             downloadUrl: 'https://oss.signed/x',
+            filename: '劳动合同_工作区_2026-04-23.docx',
         })
 
         const res: any = await rebuildHandler(
@@ -201,6 +202,7 @@ describe('POST /api/v1/assistant/contract/reviews/:id/rebuild-docx', () => {
         expect(res.data).toEqual({
             reviewedFileId: 99,
             downloadUrl: 'https://oss.signed/x',
+            filename: '劳动合同_工作区_2026-04-23.docx',
         })
         expect(mockAtomicSet).toHaveBeenCalledWith(42)
         expect(mockRebuild).toHaveBeenCalledTimes(1)

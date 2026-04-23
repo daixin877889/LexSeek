@@ -87,10 +87,14 @@ export interface PatchReviewRequest {
 export interface RebuildDocxResponse {
     reviewedFileId: number
     downloadUrl: string
+    /** spec §4.4: {合同名}_{版本号或"工作区"}_{日期}.docx */
+    filename: string
 }
 
 export interface DownloadResponse {
     downloadUrl: string
+    /** spec §4.4: {合同名}_{版本号或"工作区"}_{日期}.docx */
+    filename: string
 }
 
 /**

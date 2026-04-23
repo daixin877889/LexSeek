@@ -18,6 +18,7 @@ import type {
     CreateReviewResponse,
     StanceRequest,
     DownloadResponse,
+    RebuildDocxResponse,
     Risk,
     ReviewWithParsedRisks,
     ContractReviewEvent,
@@ -454,7 +455,7 @@ export function useContractReview() {
         toast.info('批注正在重新生成，请稍候...')
 
         const capture = useBusinessErrorCapture()
-        const resp = await useApiFetch<{ reviewedFileId: number; downloadUrl: string }>(
+        const resp = await useApiFetch<RebuildDocxResponse>(
             `/api/v1/assistant/contract/reviews/${reviewId.value}/rebuild-docx`,
             {
                 method: 'POST',
@@ -472,7 +473,8 @@ export function useContractReview() {
         hasUnsavedDocxChanges.value = false
         toast.success('批注已重新生成')
 
-        triggerBrowserDownloadUrl(resp.downloadUrl)
+        // 必须传 filename，否则浏览器会用 URL 最后一段（rebuild-xxx-uuid.docx）当文件名
+        triggerBrowserDownloadUrl(resp.downloadUrl, resp.filename)
     }
 
     /**
@@ -485,8 +487,11 @@ export function useContractReview() {
      * - 成功：Blob → createObjectURL → <a download> 触发浏览器保存
      * - 失败：解析 e.data.message，fallback 固定文案
      */
+    const isExportingPdf = ref(false)
+
     async function onExportPdf(includeRisks: boolean) {
         if (!reviewId.value) return
+        isExportingPdf.value = true
         toast.info('正在生成 PDF...')
         try {
             // 后端返回 PDF 二进制流（非 JSON envelope），绕开 useApiFetch。
@@ -509,6 +514,8 @@ export function useContractReview() {
         } catch (e: unknown) {
             const msg = (e as { data?: { message?: string } })?.data?.message ?? 'PDF 生成失败'
             toast.error(msg)
+        } finally {
+            isExportingPdf.value = false
         }
     }
 
@@ -525,7 +532,8 @@ export function useContractReview() {
             return
         }
 
-        triggerBrowserDownloadUrl(result.downloadUrl)
+        // 必须传 filename，否则浏览器会用 URL 最后一段（rebuild-xxx-uuid.docx）当文件名
+        triggerBrowserDownloadUrl(result.downloadUrl, result.filename)
     }
 
     /** 停止当前 stream */
@@ -583,6 +591,7 @@ export function useContractReview() {
         onStart,
         mountReview,
         onStance,
+        isExportingPdf,
         onDownload,
         onExportPdf,
         onEditRisks,
