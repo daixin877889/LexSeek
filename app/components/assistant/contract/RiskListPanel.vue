@@ -53,6 +53,11 @@ const props = defineProps<{
      * 随后又突变为"未定位"的视觉闪烁。
      */
     hasLocated?: boolean
+    /**
+     * 历史版本预览态下的版本号（null = 工作区）。仅用于区分下载按钮的文案与 tooltip，
+     * 避免用户误把下载误解为"下载最新版"。
+     */
+    previewVersionNumber?: number | null
     playbookSnapshot?: PlaybookSnapshot | null
 }>()
 
@@ -815,8 +820,18 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                 <Button class="flex-1" variant="outline" :disabled="!canDownload" @click="openExportPdf">
                     <FileTextIcon class="size-4 mr-1" />导出评审报告
                 </Button>
-                <Button class="flex-1" :disabled="!canDownload" @click="emit('download')">
-                    <DownloadIcon class="size-4 mr-1" />下载批注 Word
+                <Button
+                    class="flex-1"
+                    :disabled="!canDownload"
+                    :title="previewVersionNumber !== null && previewVersionNumber !== undefined
+                        ? `下载 v${previewVersionNumber} 历史版本的批注 Word`
+                        : '下载当前工作区的批注 Word'"
+                    @click="emit('download')"
+                >
+                    <DownloadIcon class="size-4 mr-1" />
+                    {{ previewVersionNumber !== null && previewVersionNumber !== undefined
+                        ? `下载 v${previewVersionNumber} 历史版本`
+                        : '下载批注 Word' }}
                 </Button>
             </div>
         </div>

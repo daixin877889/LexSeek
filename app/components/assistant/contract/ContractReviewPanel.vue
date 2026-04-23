@@ -297,6 +297,37 @@ watch(isRebuilding, (rebuilding, wasRebuilding) => {
     }
 })
 
+/** bug #4：历史版本预览态下对应的版本号，用于下载按钮文案区分工作区与历史版本 */
+const previewVersionNumber = computed<number | null>(() => {
+    const vid = versioning.previewVersionId.value
+    if (vid === null) return null
+    const v = versioning.versions.value.find(x => x.id === vid)
+    return v?.versionNumber ?? null
+})
+
+/**
+ * 下载按钮的路由：
+ *   - 预览历史版本 → /reviews/versions/:versionId/download（按快照重建）
+ *   - 工作区（含 review.currentVersion）→ /reviews/:id/download（走实时 rebuild）
+ * 两条路径都返回 { downloadUrl, filename }，前端只负责触发浏览器下载。
+ */
+async function handleDownload() {
+    const previewVid = versioning.previewVersionId.value
+    if (previewVid === null) {
+        await onDownload()
+        return
+    }
+    const resp = await useApiFetch<{ downloadUrl: string; filename: string }>(
+        `/api/v1/assistant/contract/reviews/versions/${previewVid}/download`,
+        { showError: false } as any,
+    )
+    if (!resp?.downloadUrl) {
+        toast.error('历史版本下载失败，请稍后重试')
+        return
+    }
+    triggerBrowserDownloadUrl(resp.downloadUrl, resp.filename)
+}
+
 // 未定位 risk id 集合（由 ContractDocxPreview decorateRisks 完成后上报）
 const notLocatedIds = ref<Set<string>>(new Set())
 /**
@@ -542,7 +573,8 @@ function handleContainerClick(e: MouseEvent) {
                                     :not-located-ids="notLocatedIds"
                                 :has-located="hasLocated"
                                     :playbook-snapshot="(review?.playbookSnapshot ?? null) as PlaybookSnapshot | null"
-                                    @download="onDownload"
+                                    :preview-version-number="previewVersionNumber"
+                                    @download="handleDownload"
                                     @rebuild="onRebuildDocx"
                                     @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
                                     @export-pdf="(includeRisks: boolean) => onExportPdf(includeRisks)"

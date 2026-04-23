@@ -6,7 +6,8 @@
  *
  * **Feature: contract-review-versioning-phase-a**
  */
-import type { Prisma } from '~~/generated/prisma/client'
+import { randomUUID } from 'node:crypto'
+import type { Prisma, contractReviews } from '~~/generated/prisma/client'
 import type {
     VersionSystemLabel,
     ContractReviewVersionSnapshotResponse,
@@ -15,6 +16,19 @@ import type {
     ClauseSnapshotItem,
 } from '#shared/types/contract'
 import { getContractReviewVersionByIdDAO } from './contractReviewVersion.dao'
+import { injectAnnotations } from './docx'
+import type { ContractAnnotationForExport } from './docx'
+import { findOssFileByIdDao, createOssFileDao } from '~~/server/services/files/ossFiles.dao'
+import {
+    downloadFileService,
+    uploadFileService,
+    generateSignedUrlService,
+    deleteFileService,
+} from '~~/server/services/storage/storage.service'
+import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageConfig.dao'
+import { StorageProviderType } from '~~/server/lib/storage/types'
+import { FileSource, OssFileStatus } from '#shared/types/file'
+import { DOCX_MIME } from '#shared/utils/mime'
 
 export interface SaveVersionInput {
     reviewId: number
@@ -140,5 +154,138 @@ export async function loadContractReviewVersionSnapshotService(versionId: number
             docxFileId: version.docxFileId,
             snapshot,
         },
+    }
+}
+
+// ============================================================
+// 历史版本 docx 下载
+// ============================================================
+
+export type DownloadVersionResult =
+    | { data: { downloadUrl: string; filename: string } }
+    | { error: 'version_not_found' | 'origin_file_missing' | 'snapshot_invalid' | 'inject_failed' }
+
+/**
+ * 依据历史版本 snapshotData（risks + annotations）在对应基底 docx 上重注入批注，
+ * 上传到 OSS 并返回 1h 签名 URL。只读操作：不修改 snapshotData，不回写 wordCommentRef。
+ *
+ * 基底文件优先级：version.docxFileId（客户回传原件）→ review.originalFileId。
+ * 过滤：
+ *   - annotation 关联的 risk.anchorParagraphIndex 为 null → 跳过（孤立批注无法注入）
+ *   - risk.orphaned === true → 跳过（原文已变更，批注无意义）
+ */
+export async function downloadContractReviewVersionService(
+    review: contractReviews,
+    versionId: number,
+): Promise<DownloadVersionResult> {
+    const version = await getContractReviewVersionByIdDAO(versionId)
+    if (!version) return { error: 'version_not_found' as const }
+
+    const snapshot = version.snapshotData as unknown as {
+        risks?: ContractRiskEntity[]
+        annotations?: ContractAnnotationEntity[]
+    }
+    if (!snapshot || !Array.isArray(snapshot.risks) || !Array.isArray(snapshot.annotations)) {
+        return { error: 'snapshot_invalid' as const }
+    }
+
+    // 基底 docx：优先用该版本当时的客户回传原件；没有再回落到 review 的原始合同
+    const baseFileId = version.docxFileId ?? review.originalFileId
+    if (!baseFileId) return { error: 'origin_file_missing' as const }
+    const baseOssFile = await findOssFileByIdDao(baseFileId)
+    if (!baseOssFile?.filePath) return { error: 'origin_file_missing' as const }
+
+    const baseBuffer = await downloadFileService(baseOssFile.filePath)
+
+    const riskById = new Map<number, ContractRiskEntity>()
+    for (const r of snapshot.risks) riskById.set(r.id, r)
+
+    const exportable: ContractAnnotationForExport[] = []
+    for (const a of snapshot.annotations) {
+        const risk = riskById.get(a.riskId)
+        if (!risk) continue
+        if (risk.orphaned) continue
+        if (risk.anchorParagraphIndex === null || risk.anchorParagraphIndex === undefined) continue
+        exportable.push({
+            id: a.id,
+            riskId: a.riskId,
+            authorType: a.authorType,
+            authorName: a.authorName,
+            content: a.content,
+            parentAnnotationId: a.parentAnnotationId,
+            anchorQuote: risk.anchorQuote,
+            anchorParagraphIndex: risk.anchorParagraphIndex,
+            wordCommentRef: a.wordCommentRef ?? null,
+        })
+    }
+
+    let injectedBuffer: Buffer
+    try {
+        const result = await injectAnnotations(baseBuffer, exportable)
+        injectedBuffer = Buffer.isBuffer(result.buffer) ? result.buffer : Buffer.from(result.buffer)
+    } catch (err) {
+        logger.error('[downloadContractReviewVersion] 注入批注失败', {
+            reviewId: review.id,
+            versionId,
+            err,
+        })
+        return { error: 'inject_failed' as const }
+    }
+
+    // 上传到 OSS：contract-review/<userId>/version-<versionId>-<uuid>.docx
+    const ossPath = `contract-review/${review.userId}/version-${versionId}-${randomUUID()}.docx`
+    let uploadName: string
+    try {
+        const [uploadResult, storageConfig] = await Promise.all([
+            uploadFileService(ossPath, injectedBuffer, {
+                contentType: DOCX_MIME,
+                userId: review.userId,
+            }),
+            getDefaultStorageConfigDao(StorageProviderType.ALIYUN_OSS, review.userId),
+        ])
+        uploadName = uploadResult.name
+        const bucketName = storageConfig?.bucket ?? ''
+
+        // 文件名：以原合同名为基底，附 v{版本号}，便于客户识别历史版本
+        const baseName = (baseOssFile.fileName ?? '合同审查').replace(/\.docx$/i, '')
+        const filename = `${baseName}_v${version.versionNumber}.docx`
+
+        // 落一条 ossFiles 记录用于后续追踪；下载链走 Content-Disposition 带文件名
+        await createOssFileDao({
+            userId: review.userId,
+            bucketName,
+            fileName: filename,
+            filePath: uploadName,
+            fileSize: injectedBuffer.byteLength,
+            fileType: DOCX_MIME,
+            source: FileSource.CASE_ANALYSIS,
+            status: OssFileStatus.UPLOADED,
+            encrypted: false,
+        })
+
+        const encodedFilename = encodeURIComponent(filename)
+        const contentDisposition = `attachment; filename*=UTF-8''${encodedFilename}`
+        const downloadUrl = await generateSignedUrlService(uploadName, {
+            expires: 3600,
+            userId: review.userId,
+            response: { contentDisposition },
+        })
+
+        return { data: { downloadUrl, filename } }
+    } catch (err) {
+        // createOssFile / 签名失败 → 清理 OSS 孤儿文件，不覆盖原始错误
+        if (uploadName!) {
+            await Promise.resolve(deleteFileService(uploadName, { userId: review.userId }))
+                .catch((cleanupErr) => {
+                    logger.warn('[downloadContractReviewVersion] OSS 孤儿清理失败', {
+                        reviewId: review.id,
+                        versionId,
+                        ossPath: uploadName,
+                        cleanupErr: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
+                    })
+                })
+        }
+        logger.error('[downloadContractReviewVersion] 上传/签名失败', { reviewId: review.id, versionId, err })
+        return { error: 'inject_failed' as const }
     }
 }
