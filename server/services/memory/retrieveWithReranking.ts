@@ -50,12 +50,15 @@ export async function retrieveWithReranking(input: RetrieveInput): Promise<Memor
   const hybridResults = await hybridSearchService(intent, request)
 
   // SearchResultItem → MemoryHit（id 从 metadata.id 读取）
-  const hybridHits: MemoryHit[] = hybridResults.map((r, i) => ({
-    id: ((r.metadata as CaseMemoryMetadata)?.id) ?? String(i),
-    text: r.content,
-    score: r.score,
-    metadata: r.metadata as CaseMemoryMetadata,
-  }))
+  const hybridHits: MemoryHit[] = hybridResults.map((r, i) => {
+    const meta = r.metadata as unknown as CaseMemoryMetadata
+    return {
+      id: meta?.id ?? String(i),
+      text: r.content,
+      score: r.score,
+      metadata: meta,
+    }
+  })
 
   // ③ Pre-filter
   const filtered = hybridHits.filter((h) => {
