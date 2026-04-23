@@ -47,6 +47,12 @@ const props = defineProps<{
     hoveredRiskId: string | null
     pinnedRiskIds: Set<string>
     notLocatedIds: Set<string>
+    /**
+     * DocxPreview 是否已完成首次定位上报。
+     * 默认 true 仅为兼容旧调用；父组件传入时可避免 docx 渲染期间把所有风险误判为"已定位"，
+     * 随后又突变为"未定位"的视觉闪烁。
+     */
+    hasLocated?: boolean
     playbookSnapshot?: PlaybookSnapshot | null
 }>()
 
@@ -547,7 +553,7 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                                 </Tooltip>
                             </TooltipProvider>
                             <span
-                                v-if="notLocatedIds.has(r.id)"
+                                v-if="hasLocated !== false && notLocatedIds.has(r.id)"
                                 class="text-[10px] px-1.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700 flex items-center gap-0.5 shrink-0"
                             >
                                 <TriangleAlert class="size-2.5" />

@@ -299,6 +299,12 @@ watch(isRebuilding, (rebuilding, wasRebuilding) => {
 
 // 未定位 risk id 集合（由 ContractDocxPreview decorateRisks 完成后上报）
 const notLocatedIds = ref<Set<string>>(new Set())
+/**
+ * 首次 decorateRisks 完成前，notLocatedIds 恒为空，会让 RiskListPanel 短暂把
+ * 所有风险都判为"已定位"；渲染完成后又突变为"未定位"集合，产生肉眼可见的闪烁。
+ * 用 hasLocated 作为门控：首次 emit 后置 true，切换文档/版本时重置为 false。
+ */
+const hasLocated = ref(false)
 
 /**
  * 结果屏左右分栏。对齐文书编辑器工作区（`dashboard/document/drafts/[id].vue`）：
@@ -332,9 +338,24 @@ function setsEqual(a: Set<string>, b: Set<string>): boolean {
 }
 
 function handleLocateResult(ids: Set<string>) {
+    hasLocated.value = true
     if (setsEqual(ids, notLocatedIds.value)) return
     notLocatedIds.value = ids
 }
+
+// 切文档（原件 / 批注版）或切版本预览时，重置定位状态；DocxPreview 会在新一次
+// renderAsync 完成后再通过 handleLocateResult 把 hasLocated 置回 true。
+watch(
+    [
+        () => review.value?.reviewedFileId,
+        () => review.value?.originalFileId,
+        () => versioning.previewVersionId.value,
+    ],
+    () => {
+        hasLocated.value = false
+        notLocatedIds.value = new Set()
+    },
+)
 
 /**
  * 聚焦 risk 的拦截层：未定位的 risk 不跳转文档（元素不存在），
@@ -519,6 +540,7 @@ function handleContainerClick(e: MouseEvent) {
                                     :hovered-risk-id="hoveredRiskId"
                                     :pinned-risk-ids="pinnedRiskIds"
                                     :not-located-ids="notLocatedIds"
+                                :has-located="hasLocated"
                                     :playbook-snapshot="(review?.playbookSnapshot ?? null) as PlaybookSnapshot | null"
                                     @download="onDownload"
                                     @rebuild="onRebuildDocx"
@@ -577,6 +599,7 @@ function handleContainerClick(e: MouseEvent) {
                                 :hovered-risk-id="hoveredRiskId"
                                 :pinned-risk-ids="pinnedRiskIds"
                                 :not-located-ids="notLocatedIds"
+                                :has-located="hasLocated"
                                 :playbook-snapshot="(review?.playbookSnapshot ?? null) as PlaybookSnapshot | null"
                                 @download="onDownload"
                                 @rebuild="onRebuildDocx"
