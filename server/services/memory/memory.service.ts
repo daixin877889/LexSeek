@@ -58,7 +58,7 @@ export async function writeMemoryService(input: MemoryWriteInput): Promise<{ id:
 
   // 3. 回填 tsv（addDocumentsToVectorStore 不写 tsv 列）
   await prisma.$executeRawUnsafe(
-    `UPDATE case_memories SET tsv = to_tsvector('simple', COALESCE(text, ''))
+    `UPDATE case_memories SET tsv = to_tsvector('chinese', COALESCE(text, ''))
      WHERE id = $1::uuid`,
     newId,
   )
