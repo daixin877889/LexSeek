@@ -6,7 +6,6 @@
 import dayjs from 'dayjs'
 import type { DashboardStatistics, DashboardPoints, DashboardMembership, DashboardRecentCase, DashboardResponse } from '#shared/types/dashboard'
 import type { CaseWithRelations } from './case/case.dao'
-import { CaseStatus } from '#shared/types/case'
 import { getUserPointSummary } from './point/pointRecords.service'
 import { getCurrentMembershipService } from './membership/userMembership.service'
 import { getUserCasesService } from './case/case.service'
@@ -105,7 +104,7 @@ export const getDashboardRecentCases = async (userId: number, limit: number = 5)
         title: c.title,
         date: dayjs(c.updatedAt).format('YYYY-MM-DD HH:mm'),
         type: c.caseType?.name ?? '',
-        status: c.status === CaseStatus.IN_PROGRESS ? 'in_progress' as const : 'completed' as const,
+        status: (c.status >= 1 && c.status <= 4) ? 'in_progress' as const : 'completed' as const,
     }))
 }
 

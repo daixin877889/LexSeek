@@ -19,12 +19,12 @@ export interface CaseTypeOption {
 
 /** 案件状态枚举 */
 export enum CaseStatus {
-    /** 进行中 */
-    IN_PROGRESS = 1,
-    /** 已完成 */
-    COMPLETED = 2,
-    /** 已关闭 */
-    CLOSED = 3,
+  CONSULTING   = 1,   // 咨询阶段（默认）
+  PREPARING    = 2,   // 准备阶段
+  FIRST_TRIAL  = 3,   // 一审阶段
+  SECOND_TRIAL = 4,   // 二审阶段
+  CLOSED       = 99,  // 结案
+  ARCHIVED     = 999, // 归档
 }
 
 /** 
@@ -95,9 +95,27 @@ export interface PromptSubmitData {
 
 /** 案件状态文本映射 */
 export const CaseStatusText: Record<CaseStatus, string> = {
-    [CaseStatus.IN_PROGRESS]: '进行中',
-    [CaseStatus.COMPLETED]: '已完成',
-    [CaseStatus.CLOSED]: '已关闭',
+  [CaseStatus.CONSULTING]:   '咨询阶段',
+  [CaseStatus.PREPARING]:    '准备阶段',
+  [CaseStatus.FIRST_TRIAL]:  '一审阶段',
+  [CaseStatus.SECOND_TRIAL]: '二审阶段',
+  [CaseStatus.CLOSED]:       '结案',
+  [CaseStatus.ARCHIVED]:     '归档',
+}
+
+/** 徽章 Tailwind 类（固定色系 + dark 变体） */
+export const CaseStatusBadgeClass: Record<CaseStatus, string> = {
+  [CaseStatus.CONSULTING]:   'bg-zinc-500/10 text-zinc-700 dark:bg-zinc-500/15 dark:text-zinc-300',
+  [CaseStatus.PREPARING]:    'bg-blue-500/10 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
+  [CaseStatus.FIRST_TRIAL]:  'bg-amber-500/10 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+  [CaseStatus.SECOND_TRIAL]: 'bg-orange-500/10 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300',
+  [CaseStatus.CLOSED]:       'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+  [CaseStatus.ARCHIVED]:     'bg-muted text-muted-foreground',
+}
+
+/** 判断状态是否只读（UI 禁用编辑/分析/写记忆入口） */
+export function isCaseReadOnly(status: CaseStatus | number): boolean {
+  return status === CaseStatus.ARCHIVED
 }
 
 /** 会话状态枚举 */

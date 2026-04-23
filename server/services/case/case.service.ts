@@ -392,7 +392,7 @@ export const completeCaseAnalysisService = async (
 ): Promise<void> => {
     await prisma.$transaction(async (tx) => {
         // 更新案件状态为已完成
-        await updateCaseDao(caseId, { status: CaseStatus.COMPLETED }, tx as any)
+        await updateCaseDao(caseId, { status: CaseStatus.CLOSED }, tx as any)
 
         // 更新会话状态为已完成
         await updateSessionStatusDao(sessionId, SessionStatus.COMPLETED, tx as any)

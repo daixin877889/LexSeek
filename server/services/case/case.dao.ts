@@ -47,7 +47,7 @@ export const createCaseDao = async (
                 plaintiff: (data.plaintiff ?? undefined) as any,
                 defendant: (data.defendant ?? undefined) as any,
                 isDemo: data.isDemo ?? false,
-                status: CaseStatus.IN_PROGRESS,
+                status: CaseStatus.CONSULTING,
                 summary: data.summary ?? undefined,
                 extractedInfo: (data.extractedInfo ?? undefined) as any,
             },
