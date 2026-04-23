@@ -24,17 +24,6 @@ const COMMENTS_OVERRIDE =
 const COMMENTS_REL =
     '<Relationship Id="rIdComments" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" Target="comments.xml"/>'
 
-/** customXml part 的 Content_Types Override 注册节点 */
-const ANNOTATION_REFS_OVERRIDE =
-    '<Override PartName="/word/customXml/annotationRefs.xml" ContentType="application/xml"/>'
-
-/** customXml part 在 document.xml.rels 中的关系注册节点 */
-const ANNOTATION_REFS_REL =
-    '<Relationship Id="rIdAnnRefs" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml" Target="customXml/annotationRefs.xml"/>'
-
-/** customXml part 的命名空间 URI */
-const ANNOTATION_REFS_NS = 'urn:lexseek:contract-review'
-
 /** 生成五模块批注文本（含问题摘要） */
 function buildCommentText(risk: Risk): string {
     const lines: string[] = []
@@ -357,6 +346,29 @@ export async function injectAnnotations(
     if (annotations.length === 0) {
         const zip = await loadDocxZip(docxBuffer)
         zip.remove('word/comments.xml')
+        zip.remove('word/_rels/comments.xml.rels')
+
+        // 清理 [Content_Types].xml 中对 comments.xml 的 Override 注册
+        // （原文件若有此注册但文件不存在，Word 会报"文件损坏"错误）
+        try {
+            const contentTypesXml = await readTextFromZip(zip, '[Content_Types].xml')
+            const cleaned = contentTypesXml.replace(
+                /<Override[^>]*PartName="\/word\/comments\.xml"[^>]*\/>/g,
+                '',
+            )
+            if (cleaned !== contentTypesXml) writeTextToZip(zip, '[Content_Types].xml', cleaned)
+        } catch { /* 无此文件则跳过 */ }
+
+        // 清理 word/_rels/document.xml.rels 中对 comments.xml 的 Relationship
+        try {
+            const relsXml = await readTextFromZip(zip, 'word/_rels/document.xml.rels')
+            const cleanedRels = relsXml.replace(
+                /<Relationship[^>]*Target="comments\.xml"[^>]*\/>/g,
+                '',
+            )
+            if (cleanedRels !== relsXml) writeTextToZip(zip, 'word/_rels/document.xml.rels', cleanedRels)
+        } catch { /* 无此文件则跳过 */ }
+
         return { buffer: await zipToBuffer(zip), refsByAnnotationId }
     }
 
@@ -407,6 +419,9 @@ export async function injectAnnotations(
         'word/comments.xml',
         buildCommentsXmlFromAnnotations(annotations, refsByAnnotationId, wordIdByAnnotationId),
     )
+    // 移除旧 comments.xml.rels：我们生成的 comments.xml 没有外部关系（无图片/超链接等），
+    // 若原文件存在该文件且指向已不存在的 part，Word 会报"文件损坏"
+    zip.remove('word/_rels/comments.xml.rels')
 
     // 5. 在 document.xml 的对应段落处插入 commentRangeStart/End/Reference
     const injections = validAnnotations.map(a => ({
@@ -415,66 +430,25 @@ export async function injectAnnotations(
     }))
     writeTextToZip(zip, 'word/document.xml', injectRangeMarkers(documentXml, injections, nonEmpty))
 
-    // 6. 写入 customXml part：word/customXml/annotationRefs.xml
-    //    Word 打开保存时不会删除此文件，是比 w:initials 更可靠的 annotationId 身份证
-    const annotationRefXml = buildAnnotationRefsXml(annotations, refsByAnnotationId, wordIdByAnnotationId)
-    writeTextToZip(zip, 'word/customXml/annotationRefs.xml', annotationRefXml)
-
-    // 7. 累积式更新 [Content_Types].xml（comments + customXml 两个 Override 幂等追加）
-    let latestContentTypesXml = contentTypesXml
-    if (!latestContentTypesXml.includes('PartName="/word/comments.xml"')) {
-        latestContentTypesXml = appendChildXml(latestContentTypesXml, 'Types', COMMENTS_OVERRIDE)
-    }
-    if (!latestContentTypesXml.includes('PartName="/word/customXml/annotationRefs.xml"')) {
-        latestContentTypesXml = appendChildXml(
-            latestContentTypesXml,
-            'Types',
-            ANNOTATION_REFS_OVERRIDE,
+    // 6. 更新 [Content_Types].xml（幂等追加 comments Override）
+    if (!contentTypesXml.includes('PartName="/word/comments.xml"')) {
+        writeTextToZip(
+            zip,
+            '[Content_Types].xml',
+            appendChildXml(contentTypesXml, 'Types', COMMENTS_OVERRIDE),
         )
     }
-    writeTextToZip(zip, '[Content_Types].xml', latestContentTypesXml)
 
-    // 8. 累积式更新 word/_rels/document.xml.rels
-    //    必须同时注册 comments 和 customXml 关系；漏掉 customXml 关系会导致 Word
-    //    在二次保存时丢弃 annotationRefs.xml（即使 [Content_Types] 注册了 Override）
-    let latestRelsXml = relsXml
-    if (!latestRelsXml.includes('Target="comments.xml"')) {
-        latestRelsXml = appendChildXml(latestRelsXml, 'Relationships', COMMENTS_REL)
+    // 7. 更新 word/_rels/document.xml.rels（幂等追加 comments 关系）
+    if (!relsXml.includes('Target="comments.xml"')) {
+        writeTextToZip(
+            zip,
+            'word/_rels/document.xml.rels',
+            appendChildXml(relsXml, 'Relationships', COMMENTS_REL),
+        )
     }
-    if (!latestRelsXml.includes('Target="customXml/annotationRefs.xml"')) {
-        latestRelsXml = appendChildXml(latestRelsXml, 'Relationships', ANNOTATION_REFS_REL)
-    }
-    writeTextToZip(zip, 'word/_rels/document.xml.rels', latestRelsXml)
 
     return { buffer: await zipToBuffer(zip), refsByAnnotationId }
-}
-
-/**
- * 构造 word/customXml/annotationRefs.xml 内容。
- *
- * 格式：
- * <annotationRefs xmlns="urn:lexseek:contract-review">
- *   <ref wId="0" annotationId="325" ref="LEXSEEK-325-a3f9b2c1"/>
- *   ...
- * </annotationRefs>
- *
- * 此文件作为 annotation 身份证的权威来源，替代因 Word 9 字符截断限制而失效的 w:initials 方案。
- */
-function buildAnnotationRefsXml(
-    annotations: ContractAnnotationForExport[],
-    refs: Map<number, string>,
-    wordIds: Map<number, number>,
-): string {
-    const refItems = annotations.map(a => {
-        const wId = wordIds.get(a.id)!
-        const ref = refs.get(a.id)!
-        return `  <ref wId="${wId}" annotationId="${a.id}" ref="${escapeXml(ref)}"/>`
-    }).join('\n')
-
-    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<annotationRefs xmlns="${ANNOTATION_REFS_NS}">
-${refItems}
-</annotationRefs>`
 }
 
 /** 构造 Phase B 格式的 comments.xml */
