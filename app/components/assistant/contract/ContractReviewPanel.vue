@@ -530,7 +530,7 @@ function handleContainerClick(e: MouseEvent) {
                                 <AssistantContractDocxPreview
                                     :reviewed-file-id="review?.reviewedFileId ?? null"
                                     :original-file-id="review?.originalFileId ?? null"
-                                    :risks="review?.risks ?? []"
+                                    :risks="effectiveRisks"
                                     :focused-risk-id="focusedRiskId"
                                     :hovered-risk-id="hoveredRiskId"
                                     :highlighted-risk-ids="highlightedRiskIds"
@@ -595,7 +595,7 @@ function handleContainerClick(e: MouseEvent) {
                             <AssistantContractDocxPreview
                                 :reviewed-file-id="review?.reviewedFileId ?? null"
                                 :original-file-id="review?.originalFileId ?? null"
-                                :risks="review?.risks ?? []"
+                                :risks="effectiveRisks"
                                 :focused-risk-id="focusedRiskId"
                                 :hovered-risk-id="hoveredRiskId"
                                 :highlighted-risk-ids="highlightedRiskIds"
