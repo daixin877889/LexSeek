@@ -121,7 +121,10 @@ watch(
 )
 
 // risks 变化时重新 decorate（新增风险场景）
-watch(() => props.risks, () => { decorateRisks() }, { deep: false })
+// 门控：文档加载中时跳过，loadDocx 完成后自己会调 decorateRisks。
+// 不跳过会导致分析完成时（reviewedFileId 从 null 变为新值，risks 同时刷新）
+// decorateRisks 跑在新文档渲染前，DOM 为空，所有风险被误报为"未定位"。
+watch(() => props.risks, () => { if (!loading.value) decorateRisks() }, { deep: false })
 
 // 聚焦/钉/悬停态样式切换（spec §7.1 视觉基线）
 watch(
