@@ -217,7 +217,7 @@ function stepColorClass(status: StepStatus) {
                             ref="fileInputRef"
                             type="file"
                             accept=".docx"
-                            class="hidden"
+                            class="sr-only"
                             @change="handleFileChange"
                         />
                         <template v-if="selectedFile">

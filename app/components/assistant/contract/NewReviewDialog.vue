@@ -221,7 +221,7 @@ async function handlePasteSubmit() {
                                 ref="fileInputRef"
                                 type="file"
                                 accept=".docx"
-                                class="hidden"
+                                class="sr-only"
                                 @change="handleFileSelect"
                             />
                             <UploadIcon class="size-8 mx-auto mb-3 text-muted-foreground" />
