@@ -15,6 +15,7 @@ import { ChatGoogleGenerativeAI } from '@langchain/google-genai'
 import { ChatAnthropic } from '@langchain/anthropic'
 import type { SdkType } from '#shared/types/model'
 import { SDK_TYPES } from '#shared/types/model'
+import type { CachedPrompt } from '#shared/types/prompt'
 
 // ============================================================================
 // 类型定义
@@ -249,4 +250,56 @@ export function isValidSdkType(sdkType: string): sdkType is SdkType {
  */
 export function getSupportedSdkTypes(): readonly SdkType[] {
     return SDK_TYPES
+}
+
+/**
+ * 把 CachedPrompt → Anthropic 风格的 content block 数组
+ * 用于构建 SystemMessage({ content: [...blocks] }) 传给 Anthropic 模型
+ *
+ * Anthropic cache_control 规则：
+ * - 1h TTL：{ type: 'ephemeral', ttl: '1h' }（显式传 ttl）
+ * - 5m TTL：{ type: 'ephemeral' }（不传 ttl，Anthropic 默认 5m）
+ * - 无 cache：只有 { type: 'text', text: '...' }
+ */
+export function cachedPromptToAnthropicContent(
+    segments: CachedPrompt,
+): Array<Record<string, unknown>> {
+    return segments.map((seg) => {
+        const block: Record<string, unknown> = { type: 'text', text: seg.text }
+        if (seg.cache) {
+            if (seg.cache.ttl === '1h') {
+                block.cache_control = { type: 'ephemeral', ttl: '1h' }
+            } else {
+                block.cache_control = { type: 'ephemeral' }
+            }
+        }
+        return block
+    })
+}
+
+/**
+ * 把 CachedPrompt → 纯字符串（OpenAI / DeepSeek 用）
+ * cache 字段被忽略，只要前缀稳定即可自动命中
+ */
+export function cachedPromptToPlainText(segments: CachedPrompt): string {
+    return segments.map((seg) => seg.text).join('\n\n')
+}
+
+/**
+ * 统一记录 prompt cache 命中率日志（Anthropic/OpenAI/DeepSeek 字段名不同）
+ */
+export function logPromptCacheMetrics(provider: string, model: string, usage: any): void {
+    let hit = 0
+    let total = 0
+    if (provider === 'anthropic') {
+        hit = usage?.cache_read_input_tokens ?? 0
+        total = (usage?.input_tokens ?? 0) + hit
+    } else if (provider === 'openai') {
+        hit = usage?.prompt_tokens_details?.cached_tokens ?? 0
+        total = usage?.prompt_tokens ?? 0
+    } else if (provider === 'deepseek') {
+        hit = usage?.prompt_cache_hit_tokens ?? 0
+        total = usage?.prompt_tokens ?? 0
+    }
+    logger.info('prompt_cache', { provider, model, hit, total, hitRate: total ? hit / total : 0 })
 }
