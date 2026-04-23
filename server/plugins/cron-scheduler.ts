@@ -9,6 +9,7 @@ import { closeAgentDbPool, closeRedisConnections } from '~~/server/lib/redis'
 import { cleanExpiredWorkspacesService } from '~~/server/services/workflow/tools/workspace'
 import { cleanupStaleContractReviewsService } from '~~/server/services/assistant/contract/contractReviewCleanup.service'
 import { gcOrphanOssFilesService } from '~~/server/services/files/ossFilesGc.service'
+import { drainDueSessions, consolidateSession } from '~~/server/services/memory/consolidator.service'
 
 export default defineNitroPlugin((nitroApp) => {
   const { redis: redisConfig } = useRuntimeConfig()
@@ -83,6 +84,19 @@ export default defineNitroPlugin((nitroApp) => {
     intervalMs: 24 * 60 * 60 * 1000,
     lockTtlSeconds: 300,
     fn: gcOrphanOssFilesService,
+  })
+
+  // consolidator 出队（每 10s，批量处理到期的 session 记忆抽取任务）
+  scheduler.register({
+    name: 'consolidator-drain',
+    intervalMs: 10_000,
+    lockTtlSeconds: 5,
+    fn: async () => {
+      const dueSessions = await drainDueSessions()
+      for (const sessionId of dueSessions) {
+        consolidateSession(sessionId).catch(() => {})
+      }
+    },
   })
 
   scheduler.start()
