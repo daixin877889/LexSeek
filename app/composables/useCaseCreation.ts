@@ -12,6 +12,13 @@ export interface CreateCaseParams {
   materials?: CaseMaterialParam[]
   summary?: string
   extractedInfo?: ExtraField[]
+  /** 案件状态（默认 1 咨询阶段） */
+  status?: number
+  courtName?: string
+  firstInstanceCaseNo?: string
+  secondInstanceCaseNo?: string
+  firstInstanceJudge?: string
+  secondInstanceJudge?: string
 }
 
 export interface ExtractedFormData {
@@ -20,6 +27,12 @@ export interface ExtractedFormData {
   plaintiff?: string[]
   defendant?: string[]
   content?: string
+  status?: number
+  courtName?: string
+  firstInstanceCaseNo?: string
+  secondInstanceCaseNo?: string
+  firstInstanceJudge?: string
+  secondInstanceJudge?: string
 }
 
 /** 前端控制器接口：由 AiPromptInput 的 defineExpose 实现 */
@@ -28,6 +41,27 @@ interface PromptInputController {
   addFiles: (files: OssFileDto[]) => void
   reset: () => void
   hasContent: () => boolean
+}
+
+/**
+ * AI 回填表单合并工具：仅填充用户未输入的空字段，保留用户已输入内容。
+ *
+ * - 用户字段视为"空"的条件：undefined / null / 空字符串
+ * - AI 字段为 undefined / null / 空字符串时跳过（不会覆盖）
+ */
+export function mergeAutofillPreservingUserInput<T extends Record<string, any>>(
+  userFilled: T,
+  aiExtracted: Partial<T>,
+): T {
+  const result = { ...userFilled }
+  for (const [key, aiValue] of Object.entries(aiExtracted)) {
+    if (aiValue === undefined || aiValue === null || aiValue === '') continue
+    const userValue = (result as any)[key]
+    if (userValue === undefined || userValue === null || userValue === '') {
+      ;(result as any)[key] = aiValue
+    }
+  }
+  return result
 }
 
 function mapExtractedInfoToFormData(info: ExtractedCaseInfo, types: CaseTypeOption[]): ExtractedFormData {
