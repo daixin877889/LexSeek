@@ -50,6 +50,16 @@ model cases {
   summary       String?   @db.Text
   /// 全量提取结果（固定字段+动态扩展字段）
   extractedInfo Json?     @map("extracted_info") @db.JsonB
+  /// 法院名称
+  courtName            String? @map("court_name")              @db.VarChar(200)
+  /// 一审案件编号
+  firstInstanceCaseNo  String? @map("first_instance_case_no") @db.VarChar(100)
+  /// 二审案件编号
+  secondInstanceCaseNo String? @map("second_instance_case_no") @db.VarChar(100)
+  /// 一审法官姓名
+  firstInstanceJudge   String? @map("first_instance_judge")    @db.VarChar(100)
+  /// 二审法官姓名
+  secondInstanceJudge  String? @map("second_instance_judge")   @db.VarChar(100)
   /// 案件状态：1-进行中，2-已完成，3-已关闭
   status        Int       @default(1)
   /// 是否为示范案件
