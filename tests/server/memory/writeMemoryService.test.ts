@@ -1,0 +1,98 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { prisma } from '~~/server/utils/db'
+import { writeMemoryService } from '~~/server/services/memory/memory.service'
+
+describe('writeMemoryService（集成测 · 需测试库）', () => {
+  let testCaseId: number
+  let testUserId: number
+
+  beforeEach(async () => {
+    // 创建临时测试用户
+    const suffix = Date.now().toString().slice(-8)
+    const user = await prisma.users.create({
+      data: {
+        name: `test_memory_user_${suffix}`,
+        phone: `199${suffix}`,
+        password: 'test_hash',
+        status: 1,
+      },
+    })
+    testUserId = user.id
+
+    // caseTypeId 使用测试库中实际存在的 id
+    const caseType = await prisma.caseTypes.findFirst()
+    const c = await prisma.cases.create({
+      data: { title: 'test case for memory', userId: testUserId, caseTypeId: caseType!.id },
+    })
+    testCaseId = c.id
+  })
+
+  afterEach(async () => {
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM case_memories WHERE metadata->>'caseId' = $1`,
+      testCaseId.toString(),
+    )
+    await prisma.cases.delete({ where: { id: testCaseId } })
+    await prisma.users.delete({ where: { id: testUserId } })
+  })
+
+  it('写入记忆后能查到', async () => {
+    const { id } = await writeMemoryService({
+      caseId: testCaseId,
+      kind: 'fact',
+      text: '被告承认 2025-08-14 逾期交货',
+      source: 'manual',
+    })
+    expect(id).toBeTruthy()
+
+    const rows: any[] = await prisma.$queryRawUnsafe(
+      `SELECT id, text, metadata FROM case_memories WHERE id = $1::uuid`, id,
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0].text).toBe('被告承认 2025-08-14 逾期交货')
+    expect(rows[0].metadata.caseId).toBe(testCaseId)
+  })
+
+  it('同 subjectKey 的新记忆触发旧的 invalidatedAt', async () => {
+    const { id: oldId } = await writeMemoryService({
+      caseId: testCaseId,
+      kind: 'fact',
+      text: '原告住址：北京',
+      subjectKey: 'plaintiff.address',
+      source: 'manual',
+    })
+    const { id: newId } = await writeMemoryService({
+      caseId: testCaseId,
+      kind: 'fact',
+      text: '原告住址：上海（2025-08 变更）',
+      subjectKey: 'plaintiff.address',
+      source: 'manual',
+    })
+
+    const rows: any[] = await prisma.$queryRawUnsafe(
+      `SELECT id, metadata FROM case_memories
+       WHERE metadata->>'caseId' = $1 AND metadata->>'subjectKey' = 'plaintiff.address'
+       ORDER BY metadata->>'createdAt' ASC`,
+      testCaseId.toString(),
+    )
+    expect(rows).toHaveLength(2)
+    const oldRow = rows.find((r: any) => r.id === oldId)
+    const newRow = rows.find((r: any) => r.id === newId)
+    expect(oldRow.metadata.invalidatedAt).toBeTruthy()
+    expect(newRow.metadata.invalidatedAt).toBeUndefined()
+    expect(newRow.metadata.supersedes).toBe(oldId)
+  })
+
+  it('tsv 被回填', async () => {
+    const { id } = await writeMemoryService({
+      caseId: testCaseId,
+      kind: 'fact',
+      text: '合同约定违约金 10%',
+      source: 'manual',
+    })
+    const rows: any[] = await prisma.$queryRawUnsafe(
+      `SELECT tsv IS NOT NULL AS has_tsv FROM case_memories WHERE id = $1::uuid`, id,
+    )
+    expect(rows[0].has_tsv).toBe(true)
+  })
+})
