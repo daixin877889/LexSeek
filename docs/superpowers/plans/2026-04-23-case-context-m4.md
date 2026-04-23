@@ -13,7 +13,7 @@
 **Phase:** 3（独立上线，依赖 Phase 2 发布的 retrieveWithReranking / generateSummary）· **预估:** ~3 工作日
 
 **前置条件：** Phase 2（M2+M3）已发布，以下基建可用：
-- `server/services/ai/summaryService.ts:generateSummary`
+- `server/services/ai/summaryService.ts:generateSummaryService`
 - `server/services/memory/retrieveWithReranking.ts`
 - `server/services/retrieval/types.ts:ALLOWED_TABLES`
 - `server/services/legal/vectorStore.service.ts:addDocumentsToVectorStore`
