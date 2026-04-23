@@ -107,6 +107,20 @@ function handleDrop(e: DragEvent) {
     isDragging.value = false
     const file = e.dataTransfer?.files?.[0]
     if (!file) return
+    // bug #19：已选文件时再次拖入须二次确认，避免误操作替换后丢失当前选择
+    if (selectedFile.value) {
+        const alertDialogStore = useAlertDialogStore()
+        const oldName = selectedFile.value.name
+        const newName = file.name
+        alertDialogStore.showDialog({
+            title: '替换文件',
+            message: `已选「${oldName}」，确认替换为「${newName}」？`,
+            confirmText: '替换',
+            cancelText: '保留原文件',
+            onConfirm: () => processFile(file),
+        })
+        return
+    }
     processFile(file)
 }
 
@@ -177,15 +191,14 @@ function stepColorClass(status: StepStatus) {
         <DialogContent class="sm:max-w-[480px]">
             <DialogHeader>
                 <DialogTitle>上传新版本</DialogTitle>
+                <DialogDescription>
+                    上传客户回传的 .docx 文件，系统会自动对比差异、重新分析条款并生成新版本快照。
+                </DialogDescription>
             </DialogHeader>
 
             <!-- 文件选择阶段 -->
             <template v-if="!sseState && !ossUploading">
                 <div class="space-y-4 py-2">
-                    <p class="text-sm text-muted-foreground">
-                        上传客户回传的 .docx 文件，系统将自动对比差异并生成新版本。
-                    </p>
-
                     <!-- 文件选择区 -->
                     <div
                         data-testid="dropzone"

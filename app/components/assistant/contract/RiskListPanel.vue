@@ -346,12 +346,13 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                         :key="r.id"
                         :data-risk-id="r.id"
                         :data-just-added="justAddedIds.has(r.id) ? 'true' : 'false'"
-                        class="cursor-pointer relative transition-all border-l-4 border-warning bg-warning/5"
+                        title="客户在新版本中新增的批注 / 条款变更，点击跳转到原文对应位置"
+                        class="cursor-pointer relative transition-all border-l-4 border-orange-500 bg-orange-50 dark:border-orange-400 dark:bg-orange-950/30"
                         :class="{
                             'opacity-60 grayscale-[0.2]': !!getArchivedStatus(r),
                             'ring-1 ring-yellow-300 dark:ring-yellow-700': justAddedIds.has(r.id),
-                            'bg-yellow-50 dark:bg-yellow-950/40': focusedRiskId === r.id,
-                            'bg-orange-50 dark:bg-orange-950/40': pinnedRiskIds.has(r.id) && focusedRiskId !== r.id,
+                            'bg-yellow-100 dark:bg-yellow-950/40': focusedRiskId === r.id,
+                            'bg-orange-100 dark:bg-orange-950/50': pinnedRiskIds.has(r.id) && focusedRiskId !== r.id,
                         }"
                         @click="toggle(r.id); emit('focusRisk', r.id)"
                     >

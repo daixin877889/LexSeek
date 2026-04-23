@@ -90,7 +90,22 @@ function handleFileSelect(e: Event) {
 function handleDrop(e: DragEvent) {
     isDragOver.value = false
     const file = e.dataTransfer?.files?.[0]
-    if (file) applyFile(file)
+    if (!file) return
+    // bug #19：已选文件时再次拖入须二次确认，避免误操作替换后丢失当前选择
+    if (selectedFile.value) {
+        const alertDialogStore = useAlertDialogStore()
+        const oldName = selectedFile.value.name
+        const newName = file.name
+        alertDialogStore.showDialog({
+            title: '替换文件',
+            message: `已选「${oldName}」，确认替换为「${newName}」？`,
+            confirmText: '替换',
+            cancelText: '保留原文件',
+            onConfirm: () => applyFile(file),
+        })
+        return
+    }
+    applyFile(file)
 }
 
 function clearFile() {
@@ -178,6 +193,9 @@ async function handlePasteSubmit() {
         <DialogContent class="sm:max-w-[560px]">
             <DialogHeader>
                 <DialogTitle>新建合同审查</DialogTitle>
+                <DialogDescription>
+                    选择上传 .docx 合同文件，或粘贴合同全文，AI 会自动识别风险条款并生成审查报告。
+                </DialogDescription>
             </DialogHeader>
 
             <Tabs v-model="activeTab" class="w-full">
