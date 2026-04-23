@@ -80,10 +80,10 @@
 
 | 组件 / 文件 | 职责 |
 |---|---|
-| `app/components/ai/SubAgentChainOfThought.vue` | 单个子 Agent 的可视化卡片（折叠 + 步骤 + 状态） |
-| `app/components/ai/composables/useAutoCollapseOnStreamEnd.ts` | 复用 Reasoning 的"边沿触发 1s 自动收起 + 用户手动闸门"逻辑 |
-| `app/components/ai/composables/useSubThreadMessages.ts` | 从 `subThreadsMap` 提取指定 `toolCallId` 的子 Agent 消息流 |
+| `app/components/ai/SubAgentChainOfThought.vue` | 单个子 Agent 的可视化卡片（折叠 + 步骤 + 状态）；自动收起逻辑与子 thread 取数均**内联**在组件 `<script setup>` 中，不另抽 composable（后续出现第 3 处使用方再抽） |
 | `server/services/sse/agentEventBridge.ts` | 扩展 event payload 字段（向后兼容） |
+
+**说明**：若 `SubAgentChainOfThought.vue` 实际行数超过 **200 行**，把「消息 → Step 映射」的纯函数（`mapMessagesToSteps(messages, isRunning)`）拆成 `app/components/ai/lib/mapMessagesToSteps.ts`；其它逻辑保持内联。
 
 ### 3.2 现有组件改动
 
@@ -97,18 +97,24 @@
 
 ### 3.3 SubAgentChainOfThought 组件结构
 
+**关键约束（来自官方 API 核对）**：
+- `ChainOfThoughtHeader` **只有默认 slot**（内部硬编码 `<BrainIcon>` + `<ChevronDownIcon>`），**没有 `#icon` named slot**
+- `ChainOfThoughtStep.status` **仅支持** `'complete' | 'active' | 'pending'`，**没有 `'failed'`**
+- `ChainOfThoughtStep` **有 `#icon` named slot**（见本地 `ChainOfThoughtStep.vue:38`），可用
+
+据此设计：
+- 状态徽章（运行中 / 失败 / 思考耗时）**放在 Header 默认 slot 内**，紧跟标题，与 Header 硬编码的 BrainIcon 共存
+- 失败态不传 `status='failed'`，**改用 `ChainOfThoughtStep` 的 `class` prop 叠加 `text-destructive`** + Header 层的红色徽章表达失败信息
+
 ```vue
 <template>
   <ChainOfThought v-model="isOpen">
     <ChainOfThoughtHeader>
-      <template #icon>
-        <Loader2 v-if="isRunning" class="animate-spin size-4" />
-        <AlertCircle v-else-if="isFailed" class="size-4 text-destructive" />
-        <Brain v-else class="size-4" />
-      </template>
-      {{ agentTitle }}
-      <span v-if="isRunning" class="ml-2 text-xs text-muted-foreground">思考中…</span>
-      <span v-else-if="isFailed" class="ml-2 text-xs text-destructive">失败</span>
+      <!-- Header 默认 slot：标题 + 状态徽章（无 #icon slot 可用） -->
+      <span class="font-semibold">{{ agentTitle }}</span>
+      <Loader2 v-if="isRunning" class="ml-2 size-3 animate-spin text-muted-foreground" />
+      <span v-if="isRunning" class="ml-1 text-xs text-muted-foreground">思考中…</span>
+      <span v-else-if="isFailed" class="ml-2 text-xs text-destructive">失败：{{ failureReason }}</span>
       <span v-else-if="durationSec" class="ml-2 text-xs text-muted-foreground">
         思考 {{ durationSec }}s
       </span>
@@ -119,19 +125,24 @@
       :key="step.key"
       :label="step.label"
       :description="step.isActive ? throttledActiveDescription : step.description"
-      :status="step.status"
+      :status="step.isFailed ? 'complete' : step.status"
+      :class="step.isFailed ? 'text-destructive' : undefined"
     >
-      <template #icon><!-- Brain / Wrench / CheckCircle2 按 step.kind 切换 --></template>
+      <template #icon>
+        <!-- 语义图标：Brain / FileText / Wrench / CheckCircle2，按 step.kind 切换 -->
+        <component :is="iconFor(step.kind)" class="size-3.5" />
+      </template>
+
       <ChainOfThoughtContent v-if="step.kind === 'tool_call'">
-        <ChainOfThoughtSearchResults v-if="isSearchTool(step.toolName) && step.toolResult">
+        <ChainOfThoughtSearchResults v-if="looksLikeSearchResult(step.toolResult)">
           <ChainOfThoughtSearchResult
-            v-for="hit in step.toolResult" :key="hit.id"
+            v-for="hit in step.toolResult" :key="hit.id ?? hit.title ?? hit.text"
           >{{ hit.title || hit.text }}</ChainOfThoughtSearchResult>
         </ChainOfThoughtSearchResults>
         <AiToolRenderer v-else v-bind="toToolPart(step)" />
       </ChainOfThoughtContent>
-      <ChainOfThoughtContent v-else-if="step.kind === 'conclusion'">
-        <Response :content="step.description" />
+      <ChainOfThoughtContent v-else-if="step.kind === 'conclusion' || step.kind === 'thinking' || step.kind === 'analysis'">
+        <Response :content="step.fullContent" />
       </ChainOfThoughtContent>
     </ChainOfThoughtStep>
   </ChainOfThought>
@@ -139,9 +150,10 @@
 ```
 
 **约束**：
-- 不修改 `ChainOfThought*` 源文件；失败态靠 Header 的 slot 叠加红色徽章实现
+- 不修改 `ChainOfThought*` 源文件；失败靠 `class="text-destructive"` + Header 红徽章，不靠 status
 - 所有图标来自 `lucide-vue-next`
 - `<Response>` 用 ai-elements 的 Markdown 渲染（与主 Agent 回复观感一致）
+- `looksLikeSearchResult(r)` = `Array.isArray(r) && r.length > 0 && (r[0]?.title || r[0]?.text)`，**不维护工具名白名单**（新增检索类工具零成本接入）
 
 ## 4. 消息 → Step 映射规则
 
@@ -176,8 +188,10 @@
 | `AIMessage.thinking`（通过 extractThinking 提取，可能为纯 reasoning 块） | 「思考」Step：折叠态显示 thinking 前 80 字；展开用 `<Response>` 渲染完整 thinking（等同 Reasoning 组件风格） | `Brain` | 非最后一条 AIMessage → complete；最后一条且子 Agent 还在跑 → active |
 | `AIMessage.content` 的 text 部分（剥离 thinking 块后剩余的字符串） | 「分析」Step：折叠态 80 字摘要；展开用 `<Response>` 渲染完整 Markdown | `FileText` | 与上条同 |
 | `AIMessage.tool_calls[]`（每个 tool_call） | 「调用 {toolTitle}」Step × N，description = args 一行摘要 | `Wrench` | 出现后 → active；对应 ToolMessage 到达 → complete |
-| `ToolMessage` | **不成 Step**，内嵌到对应 tool_call Step 的 `<ChainOfThoughtContent>`（检索类 → SearchResults；其它 → AiToolRenderer） | — | 到达即翻上方 tool_call Step 为 complete |
+| `ToolMessage` | **不成 Step**，内嵌到对应 tool_call Step 的 `<ChainOfThoughtContent>`（结构识别 `looksLikeSearchResult()` → SearchResults；否则 → AiToolRenderer） | — | 到达即翻上方 tool_call Step 为 complete |
 | **最后一条 `AIMessage`** 的 content text（final answer） | 「得出结论」Step：折叠态 80 字摘要；展开用 `<Response>` 渲染完整 Markdown | `CheckCircle2` | 子 Agent 整体结束 → complete；token 流入中 → active（走 30ms throttle） |
+
+**关于失败态**：Step 级失败不用 `status='failed'`（API 不支持），改用 `class="text-destructive"` 叠加视觉 + Header 红色徽章显示失败原因。详见 §3.3 组件结构。
 
 ### 4.2 折叠态 vs 展开态的分工
 
@@ -194,15 +208,15 @@
 `useMessageParser:218-219` 已经处理了"纯 thinking 阶段不要过滤掉"的场景，我们遵从现有过滤逻辑。
 
 ### 4.4 ToolMessage 展示细节
-- `toolName` 属于检索类（`search_case_materials` / `search_law` / `search_case_memory` 等）且 `toolResult` 是数组 → 用 `<ChainOfThoughtSearchResults>` + `<ChainOfThoughtSearchResult>` 列出每条命中
-- 其它工具 → 复用 `<AiToolRenderer>`（同款小卡片），保持与主 Agent 工具风格一致
-- 检索类白名单在 `isSearchTool()` 里集中维护，初始集合：`['search_case_materials', 'search_law', 'search_case_memory']`，后续增加工具时维护此列表
+- **结构识别 `looksLikeSearchResult(toolResult)`**：`Array.isArray(r) && r.length > 0 && (r[0]?.title || r[0]?.text)` → 用 `<ChainOfThoughtSearchResults>` + `<ChainOfThoughtSearchResult>` 列出每条命中
+- 其它形状 → 复用 `<AiToolRenderer>`（同款小卡片），保持与主 Agent 工具风格一致
+- **不维护工具名白名单**：新增检索类工具只要 tool_result 结构一致即自动识别
 
 ### 4.5 状态流转
 - 子 Agent 开始（首条 callback 事件到）→ `subThread.status = 'running'`，卡片 `isOpen = true`
 - 每新增一个 tool_call → 新建 `active` step，上一个 `active` step 翻 `complete`
-- 子 Agent 结束：主触发为 callbacks 的 `handleChainEnd` 在 root runId 回调 → `status = 'completed'`；兜底触发为 ToolMessage 返回主 thread
-- 子 Agent 失败（catch 分支）→ `status = 'failed'`，最后 active step 翻 complete（避免永久转圈），失败信息显示在 Header 徽章
+- 子 Agent 结束：**唯一触发**为 callbacks 的 `handleChainEnd` 在 root runId 回调 → `status = 'completed'`。ToolMessage 返回主 thread 只翻主 thread 的 tool_call 显示态，不反向操作子 thread 状态（避免双触发竞态）
+- 子 Agent 失败（catch 分支 / SSE 收到 `status_change=failed`）→ `status = 'failed'`，最后 active step 翻 `complete` + 加 `class="text-destructive"`（避免永久转圈），失败信息显示在 Header 红色徽章
 
 ## 5. 流式与 throttle 策略
 
@@ -212,18 +226,19 @@
 - **每 token 都累积**到 `content` 字符串里（无丢失），确保刷新恢复内容完整
 
 ### 5.2 渲染层（throttle 30ms）
-- 仅 `SubAgentChainOfThought` 里的 **active step 的 description** 用 `useThrottleFn(fn, 30)` 包装
+- 仅 `SubAgentChainOfThought` 里的 **active step 的 description** 用 `useThrottleFn(fn, 30, true)` 包装
+- **`trailing=true` 必须显式传**：VueUse `useThrottleFn` 的 `trailing` 默认为 `false`，会吞掉最后一个 token；显式设 `true` 保证流结束最后一次刷新
 - 实现形式：
   ```ts
   const activeContent = computed(() => steps.value.find(s => s.isActive)?.raw ?? '')
   const throttledActiveDescription = ref('')
   const updateThrottled = useThrottleFn((text: string) => {
     throttledActiveDescription.value = truncate(text, 80) // 或全文，看 step.kind
-  }, 30)
+  }, 30, /* trailing */ true)
   watch(activeContent, updateThrottled)
   ```
-- **不 throttle**：历史 step（`complete` / `failed`）的 description、header 的状态徽章、其它主 Agent 消息
-- 离开 active（step 翻 complete）时，把完整 content 一次性写入 step.description，后续不再更新
+- **不 throttle**：历史 step（`complete`）的 description、header 的状态徽章、其它主 Agent 消息
+- 离开 active（step 翻 complete）时，把完整 content 一次性写入 step.description，后续不再更新（防止尾字段因 throttle 残缺）
 
 ### 5.3 SSE 层（不 throttle）
 服务端 callback 每个 token 完整转发，不合并批。原因：
@@ -233,43 +248,44 @@
 
 ## 6. 自动折叠策略
 
-**复用 `Reasoning.vue:73-101` 成熟实现**（抽成 composable）：
+**参考 `Reasoning.vue:73-101` 实现逻辑，直接内联在 `SubAgentChainOfThought.vue` 的 `<script setup>` 中**（不抽 composable，理由：目前只此一处使用方，Reasoning 自己也是内联的；出现第 3 处再抽）：
 
 ```ts
-// useAutoCollapseOnStreamEnd.ts
-export function useAutoCollapseOnStreamEnd(isStreaming: Ref<boolean>, opts?: {
-  defaultOpen?: boolean
-  autoCloseDelay?: number   // 默认 1000ms
-}) {
-  const isOpen = ref(opts?.defaultOpen ?? false)
-  const hasAutoClosed = ref(false)
-  let timer: ReturnType<typeof setTimeout> | null = null
+// SubAgentChainOfThought.vue <script setup>
+const AUTO_CLOSE_DELAY = 1000
+const isOpen = ref(false)
+const hasAutoClosed = ref(false)
+let autoCloseTimer: ReturnType<typeof setTimeout> | null = null
 
-  watch(isStreaming, (next, prev) => {
-    if (next) { isOpen.value = true; return }
-    if (prev === true && !hasAutoClosed.value) {
-      timer = setTimeout(() => {
-        timer = null
-        hasAutoClosed.value = true
-        isOpen.value = false
-      }, opts?.autoCloseDelay ?? 1000)
-    }
-  }, { immediate: true })
-
-  // 关键闸门：用户手动切换 → 取消 timer + 永久关闸
-  watch(isOpen, () => {
-    if (timer !== null) { clearTimeout(timer); timer = null; hasAutoClosed.value = true }
-  })
-
-  onBeforeUnmount(() => { if (timer !== null) clearTimeout(timer) })
-
-  return { isOpen }
+function cancelAutoCloseTimer() {
+  if (autoCloseTimer !== null) {
+    clearTimeout(autoCloseTimer)
+    autoCloseTimer = null
+    hasAutoClosed.value = true   // 永久关闸
+  }
 }
+
+// 边沿触发：isRunning 由 true → false 且未被关闸 → 启动一次性 1s timer
+watch(() => props.isRunning, (next, prev) => {
+  if (next) { isOpen.value = true; return }
+  if (prev === true && !hasAutoClosed.value) {
+    autoCloseTimer = setTimeout(() => {
+      autoCloseTimer = null
+      hasAutoClosed.value = true
+      isOpen.value = false
+    }, AUTO_CLOSE_DELAY)
+  }
+}, { immediate: true })
+
+// 用户手动展开/收起 → 取消 timer + 关闸
+watch(isOpen, () => cancelAutoCloseTimer())
+
+onBeforeUnmount(() => { if (autoCloseTimer !== null) clearTimeout(autoCloseTimer) })
 ```
 
-- 参数：子 Agent `isRunning` → 包进 `isStreaming`
-- 失败态：`isFailed=true` 不触发自动收起（让用户看到红徽章），也不强制保持展开（允许用户手动收起）
-- 并发子 Agent：每个 `<SubAgentChainOfThought>` 实例**各自独立**一个 auto-collapse 状态
+- 参数：用 `props.isRunning` 作为边沿源
+- 失败态：`isFailed=true` **不触发**自动收起（让用户看到红徽章），也不强制保持展开（用户可手动收起）
+- 并发子 Agent：每个 `<SubAgentChainOfThought>` 实例**各自独立**一份 auto-collapse 状态
 
 ## 7. 双份显示
 
@@ -286,25 +302,33 @@ export function useAutoCollapseOnStreamEnd(isStreaming: Ref<boolean>, opts?: {
 
 ### 8.1 事件结构扩展（向后兼容）
 
-`publishAgentEvent` 的 payload 在原字段基础上新增：
+在 `shared/types/agentRun.ts` 新增强类型 interface：
 
 ```ts
-interface AgentEventPayload {
-  // 现有字段（不动）
-  event: 'messages' | 'values' | 'updates' | 'token' | 'analysis_result_saved' | ...
-  data: unknown
+/** 子 Agent 事件专属元数据；仅子 Agent 相关事件携带，主 Agent 事件全空 */
+export interface SubAgentEventMetadata {
+  agentName: string          // 如 "risk_assessment_expert"
+  threadId: string           // 子 thread id，如 "{sessionId}_sub_risk_assessment_expert"
+  parentToolCallId: string   // 主 Agent 那次 tool_call 的 id，**前端分桶 key**
+  messageId?: string         // 子 Agent AIMessage 的 id（callback runId），用于 token 合并
+  delta?: string             // token 增量（仅 event='token' 时携带）
+}
 
-  // 新增（仅子 Agent 事件携带，主 Agent 事件不带）
-  agentName?: string         // 如 "risk_assessment_expert"
-  threadId?: string          // 如 "{sessionId}_sub_risk_assessment_expert"
-  parentThreadId?: string    // 如 sessionId
-  parentToolCallId?: string  // 主 Agent 那次 tool_call 的 id，用于前端分桶
-  messageId?: string         // 子 Agent AIMessage 的 id，用于 token 合并
-  delta?: string             // token 增量（仅 token 事件）
+// AgentStreamEvent（现有）扩展一个可选 metadata 字段
+export interface AgentStreamEvent {
+  event: 'messages' | 'values' | 'updates' | 'token' | 'status_change' | 'analysis_result_saved' | /* ... */
+  data: unknown
+  metadata?: SubAgentEventMetadata   // 新增
 }
 ```
 
-旧前端忽略这些新字段仍正常工作；旧事件不带这些字段，新前端回退到现有行为。
+**字段选型说明**：
+- 砍掉 `parentThreadId` —— 前端已持有当前 sessionId，冗余字段
+- `agentName` / `threadId` / `parentToolCallId` / `messageId` / `delta` 共 5 个为分桶 + 消息合并 + token 累积所必需
+
+**双向兼容**：
+- **旧前端 / 新后端**：旧前端不知道 `metadata` 字段，直接忽略；子 Agent 事件的 `event/data` 现状行为不变（主 thread 看不到子 Agent 消息，与当前行为一致）
+- **新前端 / 旧后端**：旧后端不发 `metadata`，新前端在 §8.2 的 `if (!ev.metadata?.parentToolCallId) return fallthroughToMainThread(ev)` 处回退主 thread 分支
 
 ### 8.2 前端分桶
 
@@ -313,12 +337,13 @@ interface AgentEventPayload {
 const subThreadsMap = reactive<Record<string /*parentToolCallId*/, SubThreadState>>({})
 
 onSseEvent(ev => {
-  if (!ev.parentToolCallId) return fallthroughToMainThread(ev)
+  if (!ev.metadata?.parentToolCallId) return fallthroughToMainThread(ev)
+  const md = ev.metadata
 
-  const bucket = subThreadsMap[ev.parentToolCallId] ??= {
-    agentName: ev.agentName!, threadId: ev.threadId!, messages: [], status: 'running',
+  const bucket = subThreadsMap[md.parentToolCallId] ??= {
+    agentName: md.agentName, threadId: md.threadId, messages: [], status: 'running',
   }
-  mergeEventIntoBucket(bucket, ev) // 按 messageId / tool_call_id 合并
+  mergeEventIntoBucket(bucket, ev)   // 按 messageId / tool_call_id 合并
 })
 ```
 
@@ -330,40 +355,94 @@ onSseEvent(ev => {
 
 ## 9. 子 Agent 服务端回调接入
 
+### 9.1 获取 toolCallId
+LangChain `tool()` 的函数第二参是 `ToolRunnableConfig`（`@langchain/core/dist/tools/types.d.ts:78-80`），其中 `toolCall?: ToolCall`。**扩展当前 `subAgentToolFactory.ts:141` 的 handler 签名从 `async (input) =>` 到 `async (input, config) =>`**，取 `config?.toolCall?.id` 作为 `parentToolCallId`。不在 `SubAgentToolContext` 类型中新增字段（避免双重记账）。
+
+### 9.2 callbacks 签名（已按 `@langchain/core` 官方文档核对）
+
 ```ts
-// subAgentToolFactory.ts（伪代码片段，仅示意）
-const result = await agent.invoke(
-  { messages: initialMessages },
-  {
-    configurable: { thread_id: subThreadId },
-    recursionLimit: 1000,
-    callbacks: [{
-      handleLLMNewToken(token, { runId: cbRunId, parentRunId }, runId) {
-        publishAgentEvent(context.runId, {
-          event: 'token',
-          agentName: config.name, threadId: subThreadId,
-          parentThreadId: context.sessionId, parentToolCallId: context.toolCallId,
-          messageId: cbRunId, delta: token,
-        })
+// subAgentToolFactory.ts 伪代码片段
+const subAgentTool = tool(
+  async (input: { question: string }, config): Promise<string> => {
+    const parentToolCallId = config?.toolCall?.id
+    const runId = context.runId    // 主 Agent run id，仍通过 context 透传
+    // ... 其它初始化
+
+    const result = await agent.invoke(
+      { messages: initialMessages },
+      {
+        configurable: { thread_id: subThreadId },
+        recursionLimit: 1000,
+        callbacks: [{
+          // 官方签名：(token, idx, runId, parentRunId?, tags?, fields?)
+          handleLLMNewToken(token, _idx, cbRunId, _parentRunId) {
+            publishAgentEvent(runId, {
+              event: 'token',
+              data: undefined,
+              metadata: {
+                // 注意：这里的 config 是外层闭包捕获的 NodeConfig（subAgentToolFactory 入参），
+                // 不是 tool() 的 RunnableConfig 参数，勿与上面 async (input, config) 的 config 混淆
+                agentName: config.name,
+                threadId: subThreadId,
+                parentToolCallId: parentToolCallId ?? '',
+                messageId: cbRunId,         // ← 用 runId 作为 messageId
+                delta: token,
+              },
+            })
+          },
+
+          // 官方签名：(tool, input, runId, parentRunId?, tags?, metadata?, runName?, toolCallId?)
+          // 注意：toolCallId 是第 8 参（子 Agent 内部 tool_call 的 id，不是外层的 parentToolCallId）
+          handleToolStart(_tool, input, cbRunId, _parentRunId, _tags, _metadata, _runName, innerToolCallId) {
+            publishAgentEvent(runId, {
+              event: 'messages',
+              data: { type: 'tool_call_start', innerToolCallId, input, runId: cbRunId },
+              metadata: { agentName: config.name, threadId: subThreadId, parentToolCallId: parentToolCallId ?? '' },
+            })
+          },
+
+          // 官方签名：(output, runId, parentRunId?, tags?)
+          // 注意：handleToolEnd 拿不到 toolCallId，需前端自己维护 runId → innerToolCallId 映射表
+          handleToolEnd(output, cbRunId) {
+            publishAgentEvent(runId, {
+              event: 'messages',
+              data: { type: 'tool_call_end', runId: cbRunId, output },
+              metadata: { agentName: config.name, threadId: subThreadId, parentToolCallId: parentToolCallId ?? '' },
+            })
+          },
+
+          // 官方签名：(outputs, runId, parentRunId?, tags?, kwargs?)
+          // 仅当 cbRunId === agent 本体 root runId 时视为子 Agent 结束
+          handleChainEnd(_outputs, cbRunId, cbParentRunId) {
+            if (cbParentRunId !== undefined) return   // 非 root，跳过
+            publishAgentEvent(runId, {
+              event: 'status_change',
+              data: { status: 'completed' },
+              metadata: { agentName: config.name, threadId: subThreadId, parentToolCallId: parentToolCallId ?? '' },
+            })
+          },
+        }],
       },
-      handleToolStart(...) { /* 转发 tool_call step 开始 */ },
-      handleToolEnd(...)   { /* 转发 ToolMessage */ },
-      handleChainEnd(output, ...) { /* 转发 on_chain_end，用来翻 completed */ },
-    }],
+    )
+    // 返回值仍走 result.messages 末尾找最后一条 AI（现有逻辑不动）
   },
+  { name: toolName, description, schema: z.object({ question: z.string() }) },
 )
 ```
 
-**铁律**：
+### 9.3 铁律（编码时核验）
 - 仍使用 `invoke` 取返回值，`result.messages` 末尾找最后一条 AI → 作为工具字符串返回值
-- callbacks 是副作用通道，不参与返回值
-- `context` 需把 `runId` 和当前 `toolCallId` 透传进工具（当前签名里没有，需要通过 LangChain tool 的 `config.toolCall.id` 或 RunnableConfig 拿）
+- callbacks 是副作用通道，不参与返回值（历史教训 `feedback_subagent_stream_pitfall.md`）
+- `handleToolEnd` **收不到 toolCallId**，前端 `mergeEventIntoBucket` 需维护 `cbRunId(tool start) → innerToolCallId` 映射，tool_end 时用 runId 回查
+- `handleLLMNewToken` 第 2 参是 `NewTokenIndices`（`{ prompt, completion }`），不是 runId；真正的 runId 是第 3 参
+- `handleChainEnd` 会在每个 sub-chain 结束都触发，用 `parentRunId === undefined` 识别"agent 本体根链结束"
+- `streaming: true` 必须保持（`subAgentToolFactory.ts:150` 现有），否则 callback 不会逐 token 触发
 
-## 9.5 主题与深浅模式适配（硬性约束）
+## 10. 主题与深浅模式适配（硬性约束）
 
 **项目支持 7 种主题色（Zinc / Violet / Rose / Blue / Green / Orange / Red / Yellow）× 浅/深模式，所有颜色必须在 14 种组合下均清晰可读、视觉协调。**
 
-### 9.5.1 色彩职责分层
+### 10.1 色彩职责分层
 
 | 职责 | 使用的色系 | 主题变动响应 |
 |---|---|---|
@@ -374,7 +453,7 @@ const result = await agent.invoke(
 
 **为什么语义色不用 `primary`**：项目切换到 Violet / Green / Rose 主题时 `--primary` 会变色，会让「思考 Step 是什么颜色」变得不确定。所以把语义色做成"固定色板 + 深浅模式变体"，只有**文字/底色/边框**跟主题走。
 
-### 9.5.2 语义色映射（固定）
+### 10.2 语义色映射（固定）
 
 | 语义 | icon 色 | 徽章底色 | 深色模式 icon | 深色徽章底 |
 |---|---|---|---|---|
@@ -385,7 +464,7 @@ const result = await agent.invoke(
 | 失败（failed） | `text-destructive` | `bg-destructive/10` | — | — |
 | 进行中（active） | 在上述语义色基础上附加 `animate-pulse` | — | — | — |
 
-### 9.5.3 铁律
+### 10.3 铁律
 
 - **禁止硬编码十六进制颜色**（如 `#2563eb` / `#fafbfc`），一律使用 Tailwind 类
 - **每一处 light 模式颜色必须配 `dark:` 变体**（除非 shadcn token 本身已自动适配）
@@ -393,7 +472,7 @@ const result = await agent.invoke(
 - Response（Markdown 渲染）、SearchResults、AiToolRenderer 已内建深浅适配，直接复用不额外处理
 - 参考样板：`app/components/ai/AiChatQueueChips.vue`（amber 语义）、`app/components/ai-elements/commit/CommitFileStatus.vue`（多语义色）
 
-## 10. 非功能需求
+## 11. 非功能需求
 
 | 维度 | 要求 |
 |---|---|
@@ -403,44 +482,26 @@ const result = await agent.invoke(
 | 可访问性 | 折叠卡片键盘可操作（Chain of Thought 原生支持 Reka UI Collapsible） |
 | 暗色模式 | 全部组件需支持（Chain of Thought 与 lucide 天然兼容） |
 
-## 11. 风险与回归点
+## 12. 风险与回归点
 
 | 风险 | 缓解 |
 |---|---|
 | 虚拟列表（`AiMessageListVirtual.vue`）对动态高度卡片测量不准 | 在 SubAgentChainOfThought 外层包 `<AiElementsMessage>` / 现有消息容器，使用现有 item 高度感知方式；落地时重点回归"卡片展开/收起时虚拟列表抖动"场景 |
-| 子 Agent 失败或抛异常导致 SSE 流中断，前端卡在 `running` | 子 Agent 工厂 catch 分支显式 `publishAgentEvent({ event: 'status_change', status: 'failed' })`，前端收到后翻 `isFailed=true` |
-| 并发子 Agent 同时流式时渲染压力 | 已在渲染层做 30ms throttle；必要时把非 active 子 Agent 的 content 字符串改为浅层 ref（减少响应式开销） |
-| 前端过滤规则（`SubAgentContext`）意外屏蔽了子 Agent 的主消息 | 子 thread 消息在服务端已经过 `stripSystemMessages` 过滤注入消息，剩下的业务消息不带 `injectedBy`，前端过滤规则不会误伤；编码时加单测锁定映射规则 |
-| `tool_call_id` 在主 Agent 回调和子 Agent 侧对齐问题 | 透传 `toolCallId` 进 `SubAgentToolContext`，作为分桶 key；单测覆盖"同一 session 连续调同一专家两次"场景 |
-| 旧历史会话没有子 thread（如 4/7 之前的案件）打开时 | `subThreadsMap` 空 → 卡片降级为只显示 Header + "无详细思考记录可展示"占位；不报错 |
-| auto-close 误杀用户手动展开 | 严格遵循 `Reasoning.vue` 现版实现的闸门逻辑（`hasAutoClosed` 标志 + `clearTimeout`），单测覆盖"用户 500ms 时点开 → 不应被收起" |
+| 子 Agent 失败或抛异常导致 SSE 流中断，前端卡在 `running` | 子 Agent 工厂 catch 分支显式 `publishAgentEvent({ event: 'status_change', data: { status: 'failed', reason } })`，前端收到后翻 `isFailed=true` + 取出 reason 显示到 Header 徽章 |
+| 并发子 Agent 同时流式时渲染压力 | 已在渲染层做 30ms throttle（含 `trailing=true`）；必要时把非 active 子 Agent 的 content 字符串改为浅层 ref（减少响应式开销） |
+| `parentToolCallId` 在 handleToolEnd 拿不到（LangChain callbacks 签名限制） | 前端 `mergeEventIntoBucket` 维护 `cbRunId → innerToolCallId` 映射表：handleToolStart 记录，handleToolEnd 回查；单测覆盖"同一子 Agent 内连续调多个工具"场景 |
 
-## 12. 测试策略
+## 13. 测试策略
 
 - **单测**：
-  - `useAutoCollapseOnStreamEnd` 四种时序（streaming 边沿、用户手动、失败、并发）
-  - `mapMessagesToSteps` 对若干典型消息数组（纯 AI / 多 tool_call / ToolMessage 后接 AI / 中途失败）的映射正确性
-  - `subThreadsMap` 分桶逻辑（同 toolCallId 多事件合并、不同 toolCallId 隔离）
-- **集成测**：
-  - 服务端 subAgentToolFactory 的 callbacks 真的在 invoke 期间被调用（不依赖 stream）
-  - loadSubAgentThreads 返回结构与前端灌入路径对齐
-- **E2E（手工）**：
-  - 单子 Agent 流式 + 结束 1s 自动收起
-  - 用户中途点开卡片 + 不被 auto-close
-  - 并发三个子 Agent
-  - 断线重连回放
-  - 刷新页面后历史回放
-  - 子 Agent 失败 → 红色徽章 + 卡片保持状态
+  - `mapMessagesToSteps` 纯函数：典型消息数组（纯 thinking / thinking+content / 多 tool_call / ToolMessage 后接 AI / 中途失败）的映射正确性
+  - 组件内 auto-collapse 时序：streaming 边沿 true→false 1s 后收起；用户中途点开后 timer 不再收起；失败态不触发 auto-close
+  - `subThreadsMap` 分桶 + token 合并：同 parentToolCallId 多事件累积 / 不同 parentToolCallId 隔离 / cbRunId→innerToolCallId 映射在 handleToolEnd 回查
 
-## 13. 实施阶段（仅概述，详见 writing-plans 产物）
-
-1. composable `useAutoCollapseOnStreamEnd`
-2. 组件 `SubAgentChainOfThought.vue`（mock 数据先行，单独可视化验收）
-3. 后端事件扩展（`publishAgentEvent` 字段 + `subAgentToolFactory` callbacks）
-4. 前端 `useStreamChat` 分桶 + 灌入
-5. `AiToolRenderer` 路由分支
-6. 恢复接口增加 `subThreads` 返回
-7. 虚拟列表高度回归 + 单测 + E2E
+- **E2E（手工，3 条核心路径）**：
+  - 路径 A：单子 Agent 流式 + 结束 1s 自动收起 + 点开历史看完整思考链
+  - 路径 B：用户中途点开卡片 + 结束后不被 auto-close 收起
+  - 路径 C：刷新页面后子 Agent 历史完整回放（验证 loadSubAgentThreads 路径）
 
 ## 14. 铁律清单（编码时逐条核验）
 
