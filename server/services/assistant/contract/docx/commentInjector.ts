@@ -24,6 +24,22 @@ const COMMENTS_OVERRIDE =
 const COMMENTS_REL =
     '<Relationship Id="rIdComments" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" Target="comments.xml"/>'
 
+/**
+ * customXml 批注身份证注册（Content_Types + document.xml.rels）
+ *
+ * Phase C+ 关键改造：把 wId → annotationId 的权威映射写到
+ * `word/customXml/annotationRefs.xml`。Word / WPS / LibreOffice 对 customXml
+ * part 基本不做任何干涉（既不截断也不统一），是真正不可篡改的身份证。
+ * w:author 的方括号后缀 + w:initials 的 LEXSEEK 字面量只作 fallback。
+ *
+ * 设计来源：spec `2026-04-22-contract-review-versioning-design.md` §425。
+ */
+const CUSTOMXML_OVERRIDE =
+    '<Override PartName="/word/customXml/annotationRefs.xml" ContentType="application/xml"/>'
+
+const CUSTOMXML_REL =
+    '<Relationship Id="rIdLexseekRefs" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml" Target="customXml/annotationRefs.xml"/>'
+
 /** 生成五模块批注文本（含问题摘要） */
 function buildCommentText(risk: Risk): string {
     const lines: string[] = []
@@ -450,48 +466,110 @@ export async function injectAnnotations(
     }))
     writeTextToZip(zip, 'word/document.xml', injectRangeMarkers(documentXml, injections, nonEmpty))
 
-    // 6. 更新 [Content_Types].xml（幂等追加 comments Override）
-    if (!contentTypesXml.includes('PartName="/word/comments.xml"')) {
-        writeTextToZip(
-            zip,
-            '[Content_Types].xml',
-            appendChildXml(contentTypesXml, 'Types', COMMENTS_OVERRIDE),
-        )
+    // 6. 写入 customXml 身份证映射（Phase C+ 终极信任根，Word 不会篡改）
+    writeTextToZip(
+        zip,
+        'word/customXml/annotationRefs.xml',
+        buildAnnotationRefsXml(annotations, refsByAnnotationId, wordIdByAnnotationId),
+    )
+
+    // 7. 累积更新 [Content_Types].xml：comments + customXml 两个 Override 幂等追加
+    let latestContentTypes = contentTypesXml
+    if (!latestContentTypes.includes('PartName="/word/comments.xml"')) {
+        latestContentTypes = appendChildXml(latestContentTypes, 'Types', COMMENTS_OVERRIDE)
+    }
+    if (!latestContentTypes.includes('PartName="/word/customXml/annotationRefs.xml"')) {
+        latestContentTypes = appendChildXml(latestContentTypes, 'Types', CUSTOMXML_OVERRIDE)
+    }
+    if (latestContentTypes !== contentTypesXml) {
+        writeTextToZip(zip, '[Content_Types].xml', latestContentTypes)
     }
 
-    // 7. 更新 word/_rels/document.xml.rels（幂等追加 comments 关系）
-    if (!relsXml.includes('Target="comments.xml"')) {
-        writeTextToZip(
-            zip,
-            'word/_rels/document.xml.rels',
-            appendChildXml(relsXml, 'Relationships', COMMENTS_REL),
-        )
+    // 8. 累积更新 word/_rels/document.xml.rels：comments + customXml 两个 Relationship 幂等追加
+    let latestRels = relsXml
+    if (!latestRels.includes('Target="comments.xml"')) {
+        latestRels = appendChildXml(latestRels, 'Relationships', COMMENTS_REL)
+    }
+    if (!latestRels.includes('Target="customXml/annotationRefs.xml"')) {
+        latestRels = appendChildXml(latestRels, 'Relationships', CUSTOMXML_REL)
+    }
+    if (latestRels !== relsXml) {
+        writeTextToZip(zip, 'word/_rels/document.xml.rels', latestRels)
     }
 
     return { buffer: await zipToBuffer(zip), refsByAnnotationId }
 }
 
-/** 构造 Phase C 格式的 comments.xml：稳定身份证写在 w:author 末尾 */
+/**
+ * 构造 word/customXml/annotationRefs.xml 内容。
+ *
+ * 结构：
+ *   <lexseekAnnotationRefs xmlns="urn:lexseek:contract-review:v1">
+ *     <ref wId="0" annotationId="101" reviewId="863" rand="abc12345"/>
+ *     ...
+ *   </lexseekAnnotationRefs>
+ *
+ * parser 读取时优先用此文件做 wId → annotationId 映射；
+ * 上传时若此文件缺失或损坏，再 fallback 到 w:author / w:initials。
+ */
+function buildAnnotationRefsXml(
+    annotations: ContractAnnotationForExport[],
+    refs: Map<number, string>,
+    wordIds: Map<number, number>,
+): string {
+    const items = annotations.map(a => {
+        const wId = wordIds.get(a.id)!
+        const ref = refs.get(a.id)!
+        // 从 LEXSEEK-{id}-{rand} 字面量拆出 rand（仅为调试/溯源用）
+        const randMatch = /-([a-zA-Z0-9]{8})$/.exec(ref)
+        const rand = randMatch ? randMatch[1] : ''
+        return `<ref wId="${wId}" annotationId="${a.id}" rand="${escapeXml(rand)}"/>`
+    }).join('')
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<lexseekAnnotationRefs xmlns="urn:lexseek:contract-review:v1">${items}</lexseekAnnotationRefs>`
+}
+
+/**
+ * 构造 Phase C+ 格式的 comments.xml。
+ *
+ * 身份证的三重防线：
+ *   1. customXml/annotationRefs.xml（权威，Word 不篡改）
+ *   2. w:author 尾 [#id-rand8]（Word 保留完整 author 字段）
+ *   3. （不再写）w:initials 不再承载 LEXSEEK 字面量——Word 会按 people.xml
+ *      把同类作者的 initials 统一成同一完整值，会让 fallback parser 把
+ *      所有 comment 解析到同一个 annotationId，丢失 N-1 条。给头像缩写
+ *      用一个短 label（"AI" / "律" / "客"）即可。
+ */
 function buildCommentsXmlFromAnnotations(
     annotations: ContractAnnotationForExport[],
     refs: Map<number, string>,
     wordIds: Map<number, number>,
 ): string {
-    const now = new Date().toISOString()
     const items = annotations.map(a => {
         const wId = wordIds.get(a.id)!
         const ref = refs.get(a.id)!
-        // Phase C：w:author 末尾嵌入 [#id-rand8]，Word 保留完整不截断
         const author = buildAuthorField(a.authorName, ref)
-        // w:initials 保留 LEXSEEK 格式作为非 Word 编辑器场景的冗余识别
-        // （Word 会截断此字段到 9 字符并统一同类作者，不可靠但不冲突）
+        const initials = initialsFor(a.authorType)
+        // w:date 沿用导出时刻（annotation.createdAt 未传入 ContractAnnotationForExport，
+        // 展示新鲜时间也算可接受折中）
+        const now = new Date().toISOString()
         const parentAttr =
             a.parentAnnotationId !== null && wordIds.has(a.parentAnnotationId)
                 ? ` w:parentId="${wordIds.get(a.parentAnnotationId)}"`
                 : ''
-        return `<w:comment w:id="${wId}" w:author="${escapeXml(author)}" w:initials="${escapeXml(ref)}" w:date="${now}"${parentAttr}><w:p><w:r><w:t xml:space="preserve">${escapeXml(a.content)}</w:t></w:r></w:p></w:comment>`
+        return `<w:comment w:id="${wId}" w:author="${escapeXml(author)}" w:initials="${escapeXml(initials)}" w:date="${now}"${parentAttr}><w:p><w:r><w:t xml:space="preserve">${escapeXml(a.content)}</w:t></w:r></w:p></w:comment>`
     }).join('')
 
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">${items}</w:comments>`
+}
+
+/** 批注头像缩写：Word UI 在批注圆形头像里显示此两字符 */
+function initialsFor(authorType: AnnotationAuthorType): string {
+    switch (authorType) {
+        case 'ai': return 'AI'
+        case 'lawyer': return '律'
+        case 'external': return '客'
+        default: return 'LS'
+    }
 }

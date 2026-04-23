@@ -171,12 +171,29 @@ export async function* uploadClientVersionService(params: {
     const annById = new Map(dbAnnotations.map((a) => [a.id, a]))
     const commentByAnnId = new Map<number, ParsedWordComment>()
     let fallbackFail = 0
+    // 多条 comment 解析到同一个 annotationId 时的"异常落点"集合：
+    // 典型场景——老 docx（Phase C 改造前）在 Word 里被 people.xml 统一 initials，
+    // 所有批注的 LEXSEEK 被设成同一个完整值，parser 解析出同一个 annotationId。
+    // 这时 commentByAnnId.set 静默覆盖会导致前面所有 comment 被丢失。
+    const collidedComments: Array<{ annotationId: number; c: ParsedWordComment }> = []
     for (const c of newComments) {
-        // Phase C：parseCommentRef 按 author 后缀 → initials LEXSEEK 的优先级提取 id
-        // （parser 已把识别结果塞进 annotationRefsByWId，这里只消费）
         const refFromMap = annotationRefsByWId.get(c.wId)
         if (refFromMap) {
             if (annById.has(refFromMap.annotationId)) {
+                if (commentByAnnId.has(refFromMap.annotationId)) {
+                    // 同 annotationId 已被另一条 comment 匹配 → 本条降级为外部新增
+                    // 避免 .set 覆盖让前面那条"消失"（bug: N-1 条 AI 被判已移除）
+                    collidedComments.push({ annotationId: refFromMap.annotationId, c })
+                    logger.warn('同 annotationId 被多条 comment 解析命中，本条降级为 external_new', {
+                        reviewId: review.id,
+                        wId: c.wId,
+                        author: c.wAuthor,
+                        initials: c.wInitials,
+                        collidedAnnotationId: refFromMap.annotationId,
+                        reason: '可能是 Word 把 people.xml 里同类作者的 initials 统一成一个值',
+                    })
+                    continue
+                }
                 commentByAnnId.set(refFromMap.annotationId, c)
                 continue
             }
@@ -191,7 +208,7 @@ export async function* uploadClientVersionService(params: {
             })
             continue
         }
-        // 非系统批注（author 里没 [#id-rand8]、initials 也非 LEXSEEK 格式）→ 真新批注
+        // 非系统批注（author/initials/customXml 都识别不到）→ 真新批注，交给下面分支处理
     }
     // 诊断快照：author + initials + parse 结果，帮助定位匹配失败原因
     const commentInitialsSnapshot = newComments.map(c => {
@@ -267,25 +284,41 @@ export async function* uploadClientVersionService(params: {
     }
 
     // 客户回复：父 comment 是系统批注，子 comment 不是系统批注
+    // 孤儿 reply（parent 找不到或父不是系统批注）降级为 newIndependent，避免静默丢失。
     const replies: Array<{ parentAnnId: number; c: ParsedWordComment }> = []
+    const orphanReplies: ParsedWordComment[] = []
     for (const c of newComments) {
         if (c.parentWId == null) continue
+        if (isSystemComment(c)) continue // 子 comment 自己是系统批注，不算回复
         const parent = newComments.find((p) => p.wId === c.parentWId)
-        if (!parent) continue
+        if (!parent) {
+            // 父 comment 找不到（可能客户删除了父但保留 reply）
+            logger.warn('孤儿 reply（父 comment 不存在）降级为 external_new', {
+                reviewId: review.id,
+                wId: c.wId,
+                parentWId: c.parentWId,
+            })
+            orphanReplies.push(c)
+            continue
+        }
         const parentAnnId = getAnnotationId(parent)
-        if (parentAnnId == null) continue
-        // 子 comment 本身也是系统批注（不该是回复）
-        if (isSystemComment(c)) continue
+        if (parentAnnId == null) {
+            // 父 comment 不是系统批注 → 整条对话是客户自己的，同等降级为独立外部
+            orphanReplies.push(c)
+            continue
+        }
         replies.push({ parentAnnId, c })
     }
 
-    // 客户新增独立批注：no parent + 非系统批注
+    // 客户新增独立批注：no parent + 非系统批注；加上孤儿 reply + 同 id 冲突降级的 comment
     const newIndependent: ParsedWordComment[] = []
     for (const c of newComments) {
         if (c.parentWId != null) continue
         if (isSystemComment(c)) continue
         newIndependent.push(c)
     }
+    for (const c of orphanReplies) newIndependent.push(c)
+    for (const { c } of collidedComments) newIndependent.push(c)
 
     const clauseDiffResult = diffClauses(oldClauses, newClauses)
     const externalChangeCount =

@@ -18,8 +18,12 @@
  * 两种都能识别成功。
  */
 
-/** Phase C：w:author 末尾嵌入的稳定身份证，Word 不截断 */
-const AUTHOR_REF_PATTERN = /\[#(\d+)-([a-zA-Z0-9]{8})\]$/
+/**
+ * Phase C：w:author 末尾嵌入的稳定身份证。
+ * 允许尾部空白（Word / WPS 保存时有可能在 author 尾追加空格或 NBSP），
+ * 否则任何轻微篡改都会让 parser 退到二级兜底。
+ */
+const AUTHOR_REF_PATTERN = /\[#(\d+)-([a-zA-Z0-9]{8})\][\s\u00A0\u200B\u200C]*$/
 /** Phase B：w:initials 里的老格式，仅作 fallback（两个捕获组：id + rand8） */
 const INITIALS_REF_PATTERN = /^LEXSEEK-(\d+)-([a-zA-Z0-9]{8})$/
 
@@ -64,14 +68,20 @@ export function buildAuthorField(authorName: string, ref: string): string {
 /**
  * 从 w:author 字段里剥掉 "LS:" 前缀和 " [#id-rand8]" 技术标识后缀，
  * 得到可落库为 annotation.authorName 的纯人名。
- * 例：
- *   "LS:AI [#101-abc12345]" → "AI"
- *   "LS:张律师" → "张律师"（老格式）
- *   "office7371" → "office7371"（客户自己的 author）
+ *
+ * **关键**：只在确认 author 里有 Phase C 身份证（方括号段）时才剥 "LS:" 前缀；
+ * 否则保留 author 原值。这样：
+ *   - 真·系统批注（author 有方括号） → "LS:AI [#101-abc]" → "AI"
+ *   - 客户自定义了 displayName="LS:张" 的真·外部批注 → 保留 "LS:张" 不误伤
+ *   - 客户 author 为空 → 返回空串（调用方自行用兜底默认名）
  */
 export function stripAuthorRef(author: string | null | undefined): string {
   if (!author) return ''
-  return author.replace(/\s*\[#\d+-[a-zA-Z0-9]{8}\]\s*$/, '').replace(/^LS:/, '')
+  const tailRe = /\s*\[#\d+-[a-zA-Z0-9]{8}\][\s\u00A0\u200B\u200C]*$/
+  const hadSystemRef = tailRe.test(author)
+  const withoutTail = author.replace(tailRe, '')
+  if (!hadSystemRef) return withoutTail // 非系统批注，保留原 author
+  return withoutTail.replace(/^LS:/, '')
 }
 
 /** 判断字符串是否为合法 wordCommentRef（LEXSEEK 字面量） */

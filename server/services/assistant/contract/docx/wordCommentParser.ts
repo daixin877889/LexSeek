@@ -5,6 +5,7 @@
  *
  * 用正则字符串扫描，与项目现有 xmlUtils.ts 保持一致，不引入 fast-xml-parser。
  */
+import type JSZip from 'jszip'
 import { loadDocxZip } from './zipRewriter'
 import { parseCommentRef } from '../utils/wordCommentRef'
 
@@ -128,21 +129,58 @@ export async function parseWordComments(docxBuffer: Buffer): Promise<ParsedDocxC
         }
     }
 
-    // Phase C：优先从 w:author 末尾 [#id-rand8] 取 id（Word 保留完整不截断）；
-    // fallback 从 w:initials 的 LEXSEEK 字面量取（Word 会截断这个字段，仅适用 LibreOffice/WPS）。
+    // 识别优先级（Phase C+）：
+    //   1. customXml/annotationRefs.xml（Word 不篡改的信任根，最稳）
+    //   2. w:author 尾部 [#id-rand8]（Word 保留但有 corner case）
+    //   3. w:initials 的 LEXSEEK 字面量（Word 会截断 + 按 people.xml 统一，危险，仅 LibreOffice 兼容）
     const annotationRefsByWId = new Map<number, AnnotationRefEntry>()
+    const customXmlMap = await readCustomXmlRefs(zip)
     for (const c of comments) {
+        const fromCustomXml = customXmlMap.get(c.wId)
+        if (fromCustomXml) {
+            annotationRefsByWId.set(c.wId, fromCustomXml)
+            continue
+        }
         const parsed = parseCommentRef(c.wAuthor, c.wInitials)
         if (parsed) {
-            // ref 字段用 author/initials 里能识别出来的那个完整字符串，便于后续比对
             annotationRefsByWId.set(c.wId, {
                 annotationId: parsed.annotationId,
-                ref: c.wAuthor ?? c.wInitials ?? '',
+                ref: c.wAuthor || c.wInitials || '',
             })
         }
     }
 
     return { comments, annotationRefsByWId }
+}
+
+/**
+ * 读 word/customXml/annotationRefs.xml 的 wId → annotationId 映射。
+ * 文件不存在 / 损坏时返回空 Map（上层自动走 author/initials fallback）。
+ */
+async function readCustomXmlRefs(zip: JSZip): Promise<Map<number, AnnotationRefEntry>> {
+    const result = new Map<number, AnnotationRefEntry>()
+    const file = zip.file('word/customXml/annotationRefs.xml')
+    if (!file) return result
+    try {
+        const xml = await file.async('string')
+        const re = /<ref\s([^/>]*)\/>/g
+        let m: RegExpExecArray | null
+        while ((m = re.exec(xml)) !== null) {
+            const attrs = m[1] ?? ''
+            const wIdM = /wId="(\d+)"/.exec(attrs)
+            const annIdM = /annotationId="(\d+)"/.exec(attrs)
+            const randM = /rand="([^"]*)"/.exec(attrs)
+            if (!wIdM || !annIdM) continue
+            const wId = parseInt(wIdM[1]!, 10)
+            const annotationId = parseInt(annIdM[1]!, 10)
+            if (isNaN(wId) || isNaN(annotationId)) continue
+            result.set(wId, {
+                annotationId,
+                ref: randM ? `LEXSEEK-${annotationId}-${randM[1]}` : `LEXSEEK-${annotationId}`,
+            })
+        }
+    } catch { /* 文件损坏，走 fallback */ }
+    return result
 }
 
 /**

@@ -101,20 +101,26 @@ describe('parseWordComments', () => {
         expect(comments[0].wAuthor).toMatch(/^LS:张律师 \[#1-[a-zA-Z0-9]{8}\]$/)
     })
 
-    it('wInitials 为 LEXSEEK 格式时原样返回', async () => {
+    it('wInitials 写短头像缩写而非 LEXSEEK（Phase C+：避免 Word people.xml 中毒）', async () => {
+        // 关键设计变更：w:initials 不再承载身份证，只放 "AI"/"律"/"客" 短头像缩写。
+        // 原因：Word 会按 people.xml 把同类作者的 initials 统一成同一完整值，
+        // 如果还写 LEXSEEK 字面量，fallback parser 会把所有 comment 解析到同一 id。
         const original = await readFile(SAMPLE)
         const { paragraphs } = await parseContractDocx(original)
         const maxIdx = paragraphs.length - 1
 
-        const existingRef = 'LEXSEEK-42-ab12cd34'
         const annotations: ContractAnnotationForExport[] = [
-            makeAnnotation({ id: 42, wordCommentRef: existingRef, anchorParagraphIndex: Math.min(1, maxIdx) }),
+            makeAnnotation({ id: 42, authorType: 'ai', authorName: 'AI', wordCommentRef: 'LEXSEEK-42-ab12cd34', anchorParagraphIndex: Math.min(1, maxIdx) }),
+            makeAnnotation({ id: 55, authorType: 'lawyer', authorName: '张律师', wordCommentRef: 'LEXSEEK-55-ef45gh67', anchorParagraphIndex: Math.min(1, maxIdx) }),
+            makeAnnotation({ id: 77, authorType: 'external', authorName: '客户甲', wordCommentRef: 'LEXSEEK-77-ij89kl12', anchorParagraphIndex: Math.min(2, maxIdx) }),
         ]
 
         const { buffer } = await injectAnnotations(original, annotations)
         const { comments } = await parseWordComments(buffer)
 
-        expect(comments[0].wInitials).toBe(existingRef)
+        expect(comments[0]?.wInitials).toBe('AI')
+        expect(comments[1]?.wInitials).toBe('律')
+        expect(comments[2]?.wInitials).toBe('客')
     })
 
     it('答复批注 parentAnnotationId 非空时 parentWId 正确', async () => {
@@ -248,13 +254,14 @@ describe('parseWordComments', () => {
         const { buffer } = await injectAnnotations(original, annotations)
         const { annotationRefsByWId } = await parseWordComments(buffer)
 
-        // 三条 annotation 应都能通过 wId 查到对应的 annotationId（Phase C：从 w:author 解析）
+        // Phase C+：parser 优先读 customXml/annotationRefs.xml，其次 author，最后 initials
         expect(annotationRefsByWId.size).toBe(3)
         expect(annotationRefsByWId.get(0)?.annotationId).toBe(325)
         expect(annotationRefsByWId.get(1)?.annotationId).toBe(297)
         expect(annotationRefsByWId.get(2)?.annotationId).toBe(284)
-        // ref 字段现在是 w:author 的完整值（含 [#id-rand8]），不是 LEXSEEK 字面量
-        expect(annotationRefsByWId.get(0)?.ref).toMatch(/\[#325-a3f9b2c1\]$/)
+        // ref 字段由 parser 内部构造：customXml 命中时拼 LEXSEEK-{id}-{rand}，
+        // author fallback 时用 author 完整值。此处 customXml 已写入，按 LEXSEEK 格式断言。
+        expect(annotationRefsByWId.get(0)?.ref).toMatch(/LEXSEEK-325-a3f9b2c1/)
     })
 
     it('不含 customXml 的旧格式 docx → annotationRefsByWId 为空 Map，不抛错', async () => {
@@ -276,7 +283,7 @@ describe('parseWordComments', () => {
         expect(annotationRefsByWId.size).toBe(0)
     })
 
-    it('annotationId 42 的 ref 从 w:author [#42-xxx] 正确取回（Phase C 主通路）', async () => {
+    it('annotationId 42 从 customXml 正确取回（Phase C+ 信任根）', async () => {
         const original = await readFile(SAMPLE)
         const { paragraphs } = await parseContractDocx(original)
         const maxIdx = paragraphs.length - 1
@@ -289,7 +296,31 @@ describe('parseWordComments', () => {
         const { annotationRefsByWId } = await parseWordComments(buffer)
 
         expect(annotationRefsByWId.get(0)?.annotationId).toBe(42)
-        expect(annotationRefsByWId.get(0)?.ref).toMatch(/\[#42-abc12345\]$/)
+    })
+
+    it('Word 同时破坏 w:author 和 w:initials（"删除个人信息"）时，customXml 仍能救回 id（Phase C+ 终极兜底）', async () => {
+        // 极端场景：Word 勾选"删除个人信息"后保存，
+        //   - w:author 被重写为空/"Author"/当前用户名
+        //   - w:initials 也被清空或截断
+        // 此时 Phase C 的 author/initials 都废，必须依赖 customXml。
+        const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>条款一</w:t></w:r></w:p><w:p><w:r><w:t>条款二</w:t></w:r></w:p></w:body></w:document>`
+        const commentsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:comment w:id="0" w:author="Author" w:initials="A" w:date="2026-01-01T00:00:00Z"><w:p><w:r><w:t>被匿名化的 AI 批注</w:t></w:r></w:p></w:comment><w:comment w:id="1" w:author="Author" w:initials="A" w:date="2026-01-01T00:00:00Z"><w:p><w:r><w:t>另一条被匿名化的批注</w:t></w:r></w:p></w:comment></w:comments>`
+        const customXmlContent = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><lexseekAnnotationRefs xmlns="urn:lexseek:contract-review:v1"><ref wId="0" annotationId="888" rand="ab12cd34"/><ref wId="1" annotationId="999" rand="xy98zw76"/></lexseekAnnotationRefs>`
+
+        const zip = new JSZip()
+        zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/comments.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml"/><Override PartName="/word/customXml/annotationRefs.xml" ContentType="application/xml"/></Types>`)
+        zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`)
+        zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`)
+        zip.file('word/document.xml', docXml)
+        zip.file('word/comments.xml', commentsXml)
+        zip.file('word/customXml/annotationRefs.xml', customXmlContent)
+        const docxBuffer = Buffer.from(await zip.generateAsync({ type: 'nodebuffer' }))
+
+        const { annotationRefsByWId } = await parseWordComments(docxBuffer)
+        // 两条 comment 都通过 customXml 救回了不同的 annotationId（不会被 .set 覆盖）
+        expect(annotationRefsByWId.size).toBe(2)
+        expect(annotationRefsByWId.get(0)?.annotationId).toBe(888)
+        expect(annotationRefsByWId.get(1)?.annotationId).toBe(999)
     })
 
     it('Word 截断 w:initials 为 "LEXSEEK-3" 时仍能从 w:author 恢复 annotationId', async () => {
