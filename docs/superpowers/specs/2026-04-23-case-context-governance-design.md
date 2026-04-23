@@ -36,6 +36,22 @@
 - 案件记忆从"只创建一次"演进为"对话中自动抽取 + Agent 工具按需读写"
 - 分析报告支持语义检索与多版本切换，跨模块引用成本下降
 
+> **P9 语境说明**：用户原话"不破坏模型供应商的缓存机制"——项目当前**未启用** Prompt Caching，M2 是**新建立**符合三家供应商缓存规则的分段结构（不是改造现有缓存）。"不破坏"在此语境下的含义是：所建分段必须从一开始就 cache-friendly（字段稳定、顺序固定、不带随机值）。
+
+## 0.5 四层上下文职责分离总表（防回归）
+
+| 层 | 职责 | 存储 | 进 prompt 方式 | 配套工具 |
+|---|---|---|---|---|
+| **A · 案件档案** | 身份证：当事人、法院/案号/法官、案由、诉请、标的、状态 | `cases` 表结构化字段（M1 新增 5 字段） | 每次对话全量渲染进 ③ 段 system（JSON 形态） | — |
+| **B · 案件记忆** | 笔记本：对话抽取事实、用户偏好、对话要点 | `case_memories` 表（M3 新建）| 按本轮问题语义召回 top-K 进 ⑤ 段 system（非缓存） | `search/write/update_case_memory` 3 个工具 |
+| **C · 案件材料** | 卷宗：合同、证据、笔录原文 | `caseMaterials` 表 + `caseMaterialEmbeddings` 向量表 | **不进** system；系统只塞"清单 + 100 字摘要"到 ⑤ 段；全文按需调工具 | `search_case_materials`（现有）|
+| **D · 分析产物** | 阶段报告：模块分析结论 | `caseAnalyses`（新加 `summary`）+ `case_analysis_embeddings`（M4 新建）| 摘要进 ④ 段 system；全文按需调工具 | `search_case_analysis`（M4 新增）|
+
+**不重叠铁律**：
+- 结构化字段只由 A 层负责，B 层不重复存（废弃 `basic_info` 的根因）
+- 长文本（材料 / 分析报告正文）只由 C / D 负责，不进 system prompt
+- B 层记忆条目不包含 A / C / D 已有的原文，只存"抽取结论"（如"甲方承认逾期交货"而不是合同原文）
+
 ---
 
 ## 1. M1 · 案件字段 + 状态扩展
@@ -136,6 +152,8 @@ const CaseExtractionSchema = z.object({
 
 ### 2.1 五段式 system prompt 结构
 
+> **前置说明**：项目当前未启用任何供应商的 Prompt Caching。本节是**建立**新的 cache-friendly 结构，而非改造已有缓存（不存在"破坏旧缓存"的风险）。
+
 重构 `server/services/workflow/context/moduleContextBuilder.ts`，从现有的"四层平铺"改为"稳定 → 动态"五段，带 cache_control 断点：
 
 ```
@@ -209,18 +227,16 @@ export type CachedPrompt = PromptSegment[]
 
 `server/services/node/chatModelFactory.ts` 各 adapter 翻译：
 
-| 供应商 | 翻译规则 |
-|---|---|
-| **Anthropic** | 每段包装成 `{type:'text', text, cache_control?: {type:'ephemeral', ttl: segment.cache.ttl}}`；1h TTL 段排在 5m TTL 段前 |
-| **OpenAI** | 自动识别（`prompt_caching_enabled`），无需 breakpoint；仅保证顺序稳定即可命中 |
-| **DeepSeek** | 同 OpenAI 兼容协议；响应里读 `usage.prompt_cache_hit_tokens` 落 `agentRuns.tokenBreakdown` 用于监控 |
+| 供应商 | 翻译规则 | 响应字段（命中率监控） |
+|---|---|---|
+| **Anthropic** | 每段包装成 `{type:'text', text, cache_control?: {type:'ephemeral', ttl: segment.cache.ttl}}`；**1h TTL 段必须排在 5m TTL 段前**；单次请求最多 4 个 `cache_control` 断点（本方案用 2 个，在限内）；ttl `'1h'` / `'5m'` 均为 GA 无需 beta header | `usage.cache_read_input_tokens` / `usage.cache_creation_input_tokens`；混合 TTL 时读 `usage.cache_creation.ephemeral_1h_input_tokens` / `ephemeral_5m_input_tokens` |
+| **OpenAI** | **零配置自动启用**（无 `prompt_caching_enabled` 之类参数）；仅保证系统提示前缀字节稳定即可命中 | `usage.prompt_tokens_details.cached_tokens` |
+| **DeepSeek** | 协议与 OpenAI 兼容，**cache 也是零配置**；但响应字段名自有（不要照 OpenAI 抄） | `usage.prompt_cache_hit_tokens` |
 
-**监控**：新增 `server/services/agent/cacheMetrics.service.ts`，每次 chat 完成后写入 Redis：
-```
-cache_hit:{model}:{date} += prompt_cache_hit_tokens
-cache_miss:{model}:{date} += prompt_tokens - prompt_cache_hit_tokens
-```
-管理后台新增"Prompt 缓存命中率"卡片（M2 结束再做或延后）。
+**监控策略**（一期简化）：
+- 各次 chat 结束后按供应商读对应字段，打结构化日志：`logger.info('prompt_cache', { provider, model, hit_tokens, total_tokens })`
+- **不建** `cacheMetrics.service.ts`、**不做**后台卡片（用户未要求；二期再加）
+- 命中率核查：日志聚合（`grep prompt_cache | jq ...`）或 LangSmith trace 即可
 
 ### 2.4 案件材料改造（Q2.1 A）
 
@@ -233,10 +249,11 @@ cache_miss:{model}:{date} += prompt_tokens - prompt_cache_hit_tokens
   ```
 - 材料全文走 `search_case_materials` 工具按需召回（项目已有）
 
-**摘要生成**：
+**摘要生成**（时机：立即生成，非懒生成）：
 - `caseMaterials.summary` 字段已存在（见 `case.prisma:162`），复用
-- 首次被引用时：取材料 OCR/文本前 500 字 → Haiku 4.5 生成 100 字摘要 → 写入 `summary` 字段
-- 后续命中缓存不重算
+- 材料文本就绪（OCR/ASR 完成，即 `status=3/已完成`）时**异步触发**生成：取正文前 500 字 → Haiku 4.5 生成 100 字摘要 → 写入 `summary`
+- 生成位置：`materialPipeline.service.ts` 现有的 "OCR/ASR 完成 → embedding 入库" 流水线末尾串联一步
+- 对话热路径只读 `summary` 字段，不再触发懒生成，避免首次对话延迟叠加
 
 **token 预算调整**：
 - 原 `moduleContextBuilder` 的 `materialBudget = totalBudget * 0.4` → 降到 `~5%`（仅容纳清单）
@@ -273,7 +290,8 @@ cache_miss:{model}:{date} += prompt_tokens - prompt_cache_hit_tokens
 model caseMemories {
   id              String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   caseId          Int                      @map("case_id")
-  /// 记忆类型：fact / preference / module_summary / dialogue_note
+  /// 记忆类型：fact / preference / dialogue_note
+  /// 注：分析模块摘要不走 case_memories，独立落 caseAnalyses.summary + case_analysis_embeddings（见 §4）
   kind            String                   @db.VarChar(32)
   /// 主题指纹（如 "plaintiff.address" / "contract.delivery_date"），同主题新事实覆盖旧
   subjectKey      String?                  @map("subject_key") @db.VarChar(200)
@@ -307,9 +325,15 @@ model caseMemories {
 **tsv trigger**（迁移 SQL 手工补，与 `caseMaterialEmbeddings` 同款）：
 
 ```sql
+-- 用项目已安装的 zhparser 中文分词配置（与 caseMaterialEmbeddings 保持一致）
 CREATE TRIGGER tsv_case_memories_update BEFORE INSERT OR UPDATE ON case_memories
-FOR EACH ROW EXECUTE FUNCTION tsvector_update_trigger(tsv, 'pg_catalog.simple', text);
-CREATE INDEX IF NOT EXISTS idx_case_memories_embedding ON case_memories USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+FOR EACH ROW EXECUTE FUNCTION tsvector_update_trigger(tsv, 'chinese', text);
+
+-- 向量索引用 HNSW（pgvector 0.7+ 推荐，比 ivfflat 召回率更高）
+-- m=16（每节点连接数，默认）、ef_construction=64（构建 ef，默认）
+CREATE INDEX IF NOT EXISTS idx_case_memories_embedding
+  ON case_memories USING hnsw (embedding vector_cosine_ops)
+  WITH (m = 16, ef_construction = 64);
 ```
 
 需在 `prisma/migrations/<timestamp>_add_case_memories/migration.sql` 用 `--create-only` 后手工追加（遵循数据库规范）。
@@ -321,7 +345,7 @@ CREATE INDEX IF NOT EXISTS idx_case_memories_embedding ON case_memories USING iv
 ```ts
 export interface MemoryWriteInput {
   caseId: number
-  kind: 'fact' | 'preference' | 'module_summary' | 'dialogue_note'
+  kind: 'fact' | 'preference' | 'dialogue_note'
   text: string
   subjectKey?: string
   confidence?: number
@@ -366,15 +390,15 @@ if (input.subjectKey) {
 **`server/services/memory/recall.pipeline.ts`（新建）**：
 
 ```
-① Query Rewrite（Haiku 4.5）
-  输入：原 query + 最近 5 轮对话
-  输出：自足化 query（消解"他""上次"等指代）
+① Query 上下文补齐（**仅代词触发才调 LLM**）
+  默认：query 前拼接最近 3 轮 user turn 文本，直接进 embedding 输入（零 LLM 调用，零延迟）
+  LLM 兜底：仅当 query 正则命中代词/指代词（"他/她/它/上次/之前/刚才/那个"）时才调 Haiku 4.5 做重写
   短 query（≤3 字）跳过此步
 
 ② Hybrid Recall (top-50)
   并行：
     - vector_search(pgvector cosine, query_embedding, limit=50)
-    - bm25_search(tsv @@ plainto_tsquery('simple', query), limit=50)
+    - bm25_search(tsv @@ plainto_tsquery('chinese', query), limit=50)
   融合：RRF(k=60) → 合并去重 → top-50
 
 ③ Pre-filter
@@ -418,7 +442,7 @@ export const toolDefinition = {
   description: '语义检索当前案件的长期记忆（事实/偏好/模块摘要/对话要点）。当需要回忆之前讨论过的内容时调用。',
   schema: z.object({
     query: z.string().describe('检索关键词或问题'),
-    kind: z.enum(['fact', 'preference', 'module_summary', 'dialogue_note']).optional(),
+    kind: z.enum(['fact', 'preference', 'dialogue_note']).optional(),
     top_k: z.number().default(5),
   }),
 }
@@ -486,27 +510,40 @@ async function consolidateSession({ caseId, sessionId, lastMessageIdx }): Promis
 ```yaml
 services:
   bge-reranker:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9
     command:
       - --model-id=BAAI/bge-reranker-v2-m3
       - --port=8080
-      - --pooling=mean
+    # 注：reranker 是 cross-encoder 类型，TEI 自动识别模型 task，不需要 --pooling 参数
     ports:
       - "8090:8080"
     restart: unless-stopped
-    # 可选：GPU 镜像 tei:latest-grpc-cuda + deploy 段
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s   # 首次冷启 CPU 约 2-3min
 ```
 
 **客户端封装**（`server/services/memory/rerankerClient.ts`）：
 
 ```ts
-export async function rerankDocuments(query: string, docs: Array<{ id: string; text: string }>): Promise<Array<{ id: string; score: number }>> {
-  const res = await $fetch<{ scores: number[] }>('http://localhost:8090/rerank', {
-    method: 'POST',
-    body: { query, texts: docs.map(d => d.text) },
-    timeout: 5000,
-  })
-  return docs.map((d, i) => ({ id: d.id, score: res.scores[i] })).sort((a, b) => b.score - a.score)
+// TEI /rerank 响应格式（官方）：`[{ index: number, score: number, text?: string }]`
+// 数组**已按分数倒序**，但 `index` 指向原 texts 数组位置，我们用 index 回填 doc.id
+export async function rerankDocuments(
+  query: string,
+  docs: Array<{ id: string; text: string }>,
+): Promise<Array<{ id: string; score: number }>> {
+  const res = await $fetch<Array<{ index: number; score: number }>>(
+    `${process.env.RERANKER_URL}/rerank`,
+    {
+      method: 'POST',
+      body: { query, texts: docs.map(d => d.text), raw_scores: false },
+      timeout: 5000,
+    },
+  )
+  return res.map(r => ({ id: docs[r.index]!.id, score: r.score }))
 }
 ```
 
@@ -595,7 +632,7 @@ async function completeAnalysisService({ analysisId, result, model }) {
 
 ### 4.3 切版本同步 metadata
 
-`setActiveVersionService`（现有）增加 embedding 同步：
+`switchActiveVersionService`（现有）增加 embedding 同步：
 
 ```ts
 await prisma.$transaction(async tx => {
@@ -609,14 +646,14 @@ await prisma.$transaction(async tx => {
   // 2. 同步 embeddings.metadata.isActive（新增）
   await tx.$executeRawUnsafe(`
     UPDATE case_analysis_embeddings
-    SET metadata = jsonb_set(metadata, '{isActive}', 'false')
+    SET metadata = jsonb_set(metadata, '{isActive}', to_jsonb(false))
     WHERE metadata->>'caseId' = $1
       AND metadata->>'nodeId' = $2
       AND (metadata->>'version')::int <> $3
   `, caseId.toString(), nodeId.toString(), newVersion)
   await tx.$executeRawUnsafe(`
     UPDATE case_analysis_embeddings
-    SET metadata = jsonb_set(metadata, '{isActive}', 'true')
+    SET metadata = jsonb_set(metadata, '{isActive}', to_jsonb(true))
     WHERE metadata->>'analysisId' = $1
   `, newActiveId.toString())
 })
@@ -724,7 +761,7 @@ async function buildCompletedResultsSection(caseId: number, excludeModule: strin
 - `server/services/material/material.service.ts`：摘要生成 helper
 - `server/services/case/caseExtraction.service.ts`：schema +5 字段 / 移除 basic_info 写入
 - `server/services/case/initAnalysis.service.ts`：分析完成时同步生成 summary + embedding
-- `server/services/case/caseAnalysis.service.ts`：`setActiveVersionService` 同步 metadata.isActive
+- `server/services/case/caseAnalysis.service.ts`：`switchActiveVersionService` 同步 metadata.isActive
 - `server/services/node/chatModelFactory.ts`：三家 adapter 接受 `CachedPrompt`
 - `server/services/memory/memory.service.ts`：新建（writeMemoryService / updateMemoryService / recallMemoryService）
 - `server/services/memory/memory.dao.ts`：新建
@@ -774,7 +811,7 @@ async function buildCompletedResultsSection(caseId: number, excludeModule: strin
 | 风险 | 缓解 |
 |---|---|
 | Prompt Cache 命中率不达预期 | `cacheMetrics.service` 监控；未达 60% 定位 diff 段位（多半是 caseProfile JSON 字段顺序抖动）|
-| consolidator 死循环 / 抽取成本飙升 | debounce 30s + 单次最多处理 20 条 messages + confidence<0.6 丢弃 + 失败熔断（连续 3 次失败该 session 暂停 consolidator 10min） |
+| consolidator 死循环 / 抽取成本飙升 | debounce 30s + 单次最多处理 20 条 messages + confidence<0.6 丢弃 + best-effort 失败直接丢（日志 warn，不熔断，下一轮 schedule 自动重试） |
 | bge-reranker Docker 容器启动慢（CPU 首次 2-5min） | 启动时预热 + healthcheck；未 healthy 时降级走 hybrid 分数 |
 | 状态迁移 SQL 在生产跑误伤 | 脚本附带 `BEGIN; <update>; SELECT ... LIMIT 20; ROLLBACK;` 预演步骤；正式执行前 DBA 复核 |
 | 5 段 prompt 结构改动破坏现有 Agent | 灰度：先在 `initAnalysis` 模块启用 M2，观察 3 天；再推广到小索/法律助手 |
@@ -791,7 +828,7 @@ async function buildCompletedResultsSection(caseId: number, excludeModule: strin
 - `recallPipeline.spec.ts`：6 阶段各自纯函数 + 打分公式
 - `consolidator.spec.ts`：debounce / 抽取 schema / confidence 过滤 / 动作集
 - `moduleContextBuilder.spec.ts`：5 段结构输出正确，cache_control 标记位置正确
-- `setActiveVersionService.spec.ts`：metadata.isActive 原子同步
+- `switchActiveVersionService.spec.ts`：metadata.isActive 原子同步
 
 ### 集成测
 - 状态迁移 SQL dry-run（测试库跑一遍预期结果）
