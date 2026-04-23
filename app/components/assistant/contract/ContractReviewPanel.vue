@@ -11,7 +11,7 @@
  *
  * runStatus 文案内联（不拆 ContractReviewStatus.vue），见 spec §9.2。
  */
-import { Loader2Icon, SaveIcon, HistoryIcon, UploadIcon } from 'lucide-vue-next'
+import { Loader2Icon, SaveIcon, HistoryIcon, UploadIcon, TrendingUpIcon, XIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useMediaQuery, useLocalStorage } from '@vueuse/core'
 import type { Risk, RiskDisplay, ContractReviewStatus, StanceRequest, CreateReviewRequest, PlaybookSnapshot, RiskArchivedStatus } from '#shared/types/contract'
@@ -96,6 +96,7 @@ const isBusyForUpload = computed(() => {
 async function handleUploadComplete(payload: { newVersionId: number; summary: string }) {
     uploadVersionDialogOpen.value = false
     toast.success(payload.summary || '新版本已生成')
+    versioning.lastUploadResult.value = { newVersionId: payload.newVersionId, summary: payload.summary }
     await Promise.all([versioning.refreshWorkspace(), versioning.refreshVersions()])
 }
 
@@ -429,6 +430,24 @@ function handleContainerClick(e: MouseEvent) {
                     <SaveIcon class="size-3 mr-1" />
                     保存新版本
                 </Button>
+            </div>
+
+            <!-- 本轮变化横幅：上传新版本完成后显示，可手动关闭 -->
+            <div
+                v-if="versioning.lastUploadResult.value"
+                class="flex items-center gap-2 px-4 py-2.5 border-b bg-primary/5 border-primary/20 text-sm shrink-0"
+            >
+                <TrendingUpIcon class="size-4 shrink-0 text-primary" />
+                <span class="font-medium text-foreground">本轮变化</span>
+                <span class="text-xs text-muted-foreground flex-1 truncate">{{ versioning.lastUploadResult.value.summary }}</span>
+                <button
+                    data-testid="dismiss-upload-banner"
+                    class="text-muted-foreground hover:text-foreground shrink-0"
+                    aria-label="关闭本轮变化横幅"
+                    @click="versioning.dismissUploadBanner()"
+                >
+                    <XIcon class="size-4" />
+                </button>
             </div>
 
             <!-- 主体：时间线 + 内容区 -->

@@ -459,3 +459,36 @@ describe('useContractReviewVersion.currentView', () => {
         expect(c.currentView.value.docxText).toBe('')
     })
 })
+
+// ── lastUploadResult & dismissUploadBanner （Task 3.3）────────────────────────
+
+describe('useContractReviewVersion.lastUploadResult & dismissUploadBanner', () => {
+    beforeEach(() => {
+        mockFetch.mockReset()
+    })
+
+    it('初始状态 lastUploadResult 为 null', () => {
+        const c = useContractReviewVersion(ref(1))
+        expect(c.lastUploadResult.value).toBeNull()
+    })
+
+    it('dismissUploadBanner 将 lastUploadResult 置为 null', () => {
+        const c = useContractReviewVersion(ref(1))
+        c.lastUploadResult.value = { newVersionId: 10, summary: '测试摘要' }
+        expect(c.lastUploadResult.value).not.toBeNull()
+
+        c.dismissUploadBanner()
+        expect(c.lastUploadResult.value).toBeNull()
+    })
+
+    it('lastUploadResult 可直接赋值，dismissUploadBanner 后归零（Panel 集成模型）', () => {
+        const c = useContractReviewVersion(ref(1))
+
+        c.lastUploadResult.value = { newVersionId: 99, summary: '新版本已生成，发现 3 处外部变更' }
+        expect(c.lastUploadResult.value?.newVersionId).toBe(99)
+        expect(c.lastUploadResult.value?.summary).toBe('新版本已生成，发现 3 处外部变更')
+
+        c.dismissUploadBanner()
+        expect(c.lastUploadResult.value).toBeNull()
+    })
+})

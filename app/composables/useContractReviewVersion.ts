@@ -80,6 +80,14 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
     const previewVersionId = ref<number | null>(null)
     const previewSnapshot = ref<ContractReviewVersionSnapshotResponse | null>(null)
 
+    /** 上传新版本完成后的结果摘要，用于显示"本轮变化"横幅 */
+    const lastUploadResult = ref<{ newVersionId: number; summary: string } | null>(null)
+
+    /** 关闭"本轮变化"横幅 */
+    function dismissUploadBanner() {
+        lastUploadResult.value = null
+    }
+
     const isReadOnly = computed(() => previewVersionId.value !== null)
 
     /** 当前渲染视图：工作区或历史快照 */
@@ -290,6 +298,7 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
                             } else if (eventName === CONTRACT_UPLOAD_VERSION_SSE_EVENT.COMPLETE) {
                                 const c = data as UploadVersionCompleteData
                                 result.value = { newVersionId: c.newVersionId, summary: c.summary }
+                                lastUploadResult.value = { newVersionId: c.newVersionId, summary: c.summary }
                                 done.value = true
                             } else if (eventName === CONTRACT_UPLOAD_VERSION_SSE_EVENT.ERROR) {
                                 const e = data as UploadVersionErrorData
@@ -348,6 +357,8 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
         isReadOnly,
         currentView,
         hasUnsavedEdits,
+        lastUploadResult,
+        dismissUploadBanner,
         refreshWorkspace,
         refreshVersions,
         enterPreview,

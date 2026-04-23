@@ -17,6 +17,7 @@ import {
     DownloadIcon, ChevronDownIcon, Loader2Icon, PlusIcon, PencilIcon, Trash2Icon,
     FileTextIcon, Pin, TriangleAlert, ClipboardList, CheckCircle2Icon, XCircleIcon,
     SendIcon, MessageCircleIcon, UserIcon, BotIcon, EyeOffIcon, RotateCcwIcon,
+    SparklesIcon,
 } from 'lucide-vue-next'
 import { useLocalStorage } from '@vueuse/core'
 import type { ContractOverview, Risk, RiskDisplay, ContractReviewStatus, PlaybookSnapshot, ContractAnnotationEntity, RiskArchivedStatus, RiskSource } from '#shared/types/contract'
@@ -356,6 +357,15 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                                     <CheckCircle2Icon class="size-2.5" />
                                     {{ ARCHIVED_STATUS_LABEL[getArchivedStatus(r)!] }}
                                 </Badge>
+                                <!-- AI 已重审徽章 -->
+                                <Badge
+                                    v-if="r.originalAnchorQuote"
+                                    variant="secondary"
+                                    class="text-[10px] px-1.5 py-0 shrink-0 flex items-center gap-0.5 bg-primary/10 text-primary"
+                                >
+                                    <SparklesIcon class="size-2.5" />
+                                    AI 已重审
+                                </Badge>
                                 <!-- 外部批注来源标签 -->
                                 <template v-for="ann in externalAnnotationsForRisk(r.id)" :key="ann.id">
                                     <Badge variant="secondary" class="text-[10px] px-1.5 py-0 shrink-0 flex items-center gap-0.5">
@@ -500,6 +510,15 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                             >
                                 <CheckCircle2Icon class="size-2.5" />
                                 {{ ARCHIVED_STATUS_LABEL[getArchivedStatus(r)!] }}
+                            </Badge>
+                            <!-- AI 已重审徽章：经历过锚点迁移的风险条目 -->
+                            <Badge
+                                v-if="r.originalAnchorQuote"
+                                variant="secondary"
+                                class="text-[10px] px-1.5 py-0 shrink-0 flex items-center gap-0.5 bg-primary/10 text-primary"
+                            >
+                                <SparklesIcon class="size-2.5" />
+                                AI 已重审
                             </Badge>
                             <TooltipProvider v-if="titleForRisk(r)">
                                 <Tooltip>
