@@ -17,6 +17,7 @@ import { findCaseBySessionIdService } from '~~/server/services/case/caseSession.
 import { enqueueRunService, getActiveRunService, getLatestRunService } from '~~/server/services/agent/agentRun.service'
 import { updateRunStatusDAO } from '~~/server/services/agent/agentRun.dao'
 import { createAgentSseStream } from '~~/server/services/sse/agentSseStream'
+import { scheduleConsolidation } from '~~/server/services/memory/consolidator.service'
 import { AGENT_RUN_STATUS } from '#shared/types/agentRun'
 import {
   shouldRejectMessage,
@@ -104,6 +105,8 @@ export default defineEventHandler(async (event) => {
       return resError(event, 429, result.error)
     }
     runId = result.runId
+    scheduleConsolidation({ caseId: caseInfo.id, sessionId })
+      .catch((e: any) => logger.warn('scheduleConsolidation 失败', { sessionId, error: e }))
   }
   else if (activeRun) {
     // 已有活跃 run + 有新消息 + run 正在运行 → 返回错误
@@ -138,6 +141,8 @@ export default defineEventHandler(async (event) => {
         return resError(event, 429, result.error)
       }
       runId = result.runId
+      scheduleConsolidation({ caseId: caseInfo.id, sessionId })
+        .catch((e: any) => logger.warn('scheduleConsolidation 失败', { sessionId, error: e }))
     }
   }
 
