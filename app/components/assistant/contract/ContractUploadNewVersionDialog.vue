@@ -1,0 +1,252 @@
+<script setup lang="ts">
+/**
+ * 上传新版本对话框
+ *
+ * 流程：选择 .docx 文件 → OSS 上传 → SSE 五步骤进度 → 完成/错误
+ * 完成后 emit complete(payload)，由父组件刷新时间线。
+ */
+import { UploadIcon, CheckCircleIcon, AlertCircleIcon, Loader2Icon, FileIcon, XIcon } from 'lucide-vue-next'
+import { toast } from 'vue-sonner'
+import { FileSource } from '#shared/types/file'
+import { DOCX_MIME } from '#shared/utils/mime'
+import { useBatchUpload } from '~/composables/useBatchUpload'
+import type { StepState, StepStatus } from '~/composables/useContractReviewVersion'
+import type { Ref } from 'vue'
+
+const props = defineProps<{
+    open: boolean
+    reviewId: number
+}>()
+
+const emit = defineEmits<{
+    'update:open': [value: boolean]
+    'complete': [payload: { newVersionId: number; summary: string }]
+}>()
+
+const { uploadNewVersion } = useContractReviewVersion(computed(() => props.reviewId))
+
+// OSS 上传状态
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const selectedFile = ref<File | null>(null)
+const ossUploading = ref(false)
+const ossProgress = ref(0)
+
+// SSE 状态容器（uploadNewVersion 返回的 refs）
+type SseState = {
+    steps: Ref<StepState[]>
+    done: Ref<boolean>
+    result: Ref<{ newVersionId: number; summary: string } | null>
+    error: Ref<{ step: string; message: string } | null>
+}
+const sseState = shallowRef<SseState | null>(null)
+
+// 从 sseState 派生的计算属性
+const steps = computed(() => sseState.value?.steps.value ?? [])
+const uploadDone = computed(() => sseState.value?.done.value ?? false)
+const uploadResult = computed(() => sseState.value?.result.value ?? null)
+const uploadError = computed(() => sseState.value?.error.value ?? null)
+
+// 关闭时重置
+watch(() => props.open, (v) => {
+    if (!v) resetState()
+})
+
+function resetState() {
+    selectedFile.value = null
+    ossUploading.value = false
+    ossProgress.value = 0
+    sseState.value = null
+}
+
+function handleFileChange(e: Event) {
+    const file = (e.target as HTMLInputElement).files?.[0]
+    if (fileInputRef.value) fileInputRef.value.value = ''
+    if (!file) return
+    if (!file.name.toLowerCase().endsWith('.docx')) {
+        toast.warning('仅支持 .docx 文件')
+        return
+    }
+    if (file.size > 20 * 1024 * 1024) {
+        toast.warning('文件不得超过 20 MB')
+        return
+    }
+    selectedFile.value = file
+}
+
+const fileStore = useFileStore()
+const { uploadToOSS } = useBatchUpload()
+
+async function handleUpload() {
+    const file = selectedFile.value
+    if (!file || ossUploading.value) return
+    ossUploading.value = true
+    ossProgress.value = 0
+    try {
+        // 1. 获取 OSS 预签名 URL
+        const signatures = await fileStore.getBatchPresignedUrls({
+            source: FileSource.CASE_ANALYSIS,
+            files: [{ originalFileName: file.name, fileSize: file.size, mimeType: DOCX_MIME }],
+            encrypted: false,
+        })
+        const sig = signatures?.[0]
+        if (!sig) {
+            toast.error('获取上传签名失败，请稍后重试')
+            return
+        }
+        // 2. 上传至 OSS
+        const ossResult = await uploadToOSS(file, sig, (p: number) => { ossProgress.value = p })
+        const ossFileId = (ossResult?.fileId ?? ossResult?.id) as number | undefined
+        if (!ossFileId) {
+            toast.error('上传成功但缺少文件标识')
+            return
+        }
+        ossUploading.value = false
+        // 3. 触发 SSE 处理流程
+        sseState.value = await uploadNewVersion(ossFileId)
+    } catch (err) {
+        toast.error(err instanceof Error ? err.message : '上传失败')
+    } finally {
+        ossUploading.value = false
+    }
+}
+
+function handleClose() {
+    if (uploadDone.value && uploadResult.value) {
+        emit('complete', uploadResult.value)
+    }
+    emit('update:open', false)
+}
+
+/** 根据步骤状态返回图标和样式 */
+function stepIcon(status: StepStatus) {
+    if (status === 'done') return CheckCircleIcon
+    if (status === 'error') return AlertCircleIcon
+    if (status === 'progress') return Loader2Icon
+    return null
+}
+
+function stepColorClass(status: StepStatus) {
+    if (status === 'done') return 'text-green-600'
+    if (status === 'error') return 'text-destructive'
+    if (status === 'progress') return 'text-primary'
+    return 'text-muted-foreground'
+}
+</script>
+
+<template>
+    <Dialog :open="open" @update:open="emit('update:open', $event)">
+        <DialogContent class="sm:max-w-[480px]">
+            <DialogHeader>
+                <DialogTitle>上传新版本</DialogTitle>
+            </DialogHeader>
+
+            <!-- 文件选择阶段 -->
+            <template v-if="!sseState && !ossUploading">
+                <div class="space-y-4 py-2">
+                    <p class="text-sm text-muted-foreground">
+                        上传客户回传的 .docx 文件，系统将自动对比差异并生成新版本。
+                    </p>
+
+                    <!-- 文件选择区 -->
+                    <div
+                        class="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                        @click="fileInputRef?.click()"
+                    >
+                        <input
+                            ref="fileInputRef"
+                            type="file"
+                            accept=".docx"
+                            class="hidden"
+                            @change="handleFileChange"
+                        />
+                        <template v-if="selectedFile">
+                            <FileIcon class="size-8 mx-auto mb-2 text-primary" />
+                            <p class="text-sm font-medium">{{ selectedFile.name }}</p>
+                            <p class="text-xs text-muted-foreground mt-1">
+                                {{ (selectedFile.size / 1024 / 1024).toFixed(2) }} MB
+                            </p>
+                        </template>
+                        <template v-else>
+                            <UploadIcon class="size-8 mx-auto mb-2 text-muted-foreground" />
+                            <p class="text-sm text-muted-foreground">点击选择 .docx 文件</p>
+                        </template>
+                    </div>
+                </div>
+
+                <DialogFooter>
+                    <Button variant="outline" @click="emit('update:open', false)">取消</Button>
+                    <Button :disabled="!selectedFile" @click="handleUpload">
+                        <UploadIcon class="size-4 mr-1" />
+                        上传
+                    </Button>
+                </DialogFooter>
+            </template>
+
+            <!-- OSS 上传中 -->
+            <template v-else-if="ossUploading">
+                <div class="py-4 space-y-3">
+                    <p class="text-sm text-center text-muted-foreground">正在上传文件...</p>
+                    <div class="w-full bg-muted rounded-full h-2">
+                        <div
+                            class="bg-primary h-2 rounded-full transition-all"
+                            :style="{ width: `${ossProgress}%` }"
+                        />
+                    </div>
+                    <p class="text-xs text-center text-muted-foreground">{{ ossProgress }}%</p>
+                </div>
+            </template>
+
+            <!-- SSE 步骤进度 -->
+            <template v-else-if="sseState">
+                <div class="py-2 space-y-1">
+                    <div
+                        v-for="step in steps"
+                        :key="step.key"
+                        :data-step="step.key"
+                        :data-status="step.status"
+                        class="flex items-center gap-3 py-2 px-1 rounded"
+                    >
+                        <!-- 状态图标 -->
+                        <div class="size-5 flex-shrink-0 flex items-center justify-center">
+                            <Loader2Icon
+                                v-if="step.status === 'progress'"
+                                :class="['size-4 animate-spin', stepColorClass(step.status)]"
+                            />
+                            <CheckCircleIcon
+                                v-else-if="step.status === 'done'"
+                                :class="['size-4', stepColorClass(step.status)]"
+                            />
+                            <AlertCircleIcon
+                                v-else-if="step.status === 'error'"
+                                :class="['size-4', stepColorClass(step.status)]"
+                            />
+                            <div v-else class="size-3 rounded-full bg-muted-foreground/30" />
+                        </div>
+
+                        <!-- 步骤名称 -->
+                        <span :class="['text-sm flex-1', stepColorClass(step.status)]">
+                            {{ step.label }}
+                        </span>
+                    </div>
+
+                    <!-- 错误信息 -->
+                    <div v-if="uploadError" class="mt-3 p-3 rounded bg-destructive/10 text-destructive text-sm">
+                        {{ uploadError.message }}
+                    </div>
+
+                    <!-- 完成摘要 -->
+                    <div v-if="uploadResult" class="mt-3 p-3 rounded bg-primary/10 text-sm">
+                        {{ uploadResult.summary }}
+                    </div>
+                </div>
+
+                <DialogFooter>
+                    <Button v-if="uploadDone || uploadError" @click="handleClose">
+                        完成
+                    </Button>
+                    <span v-else class="text-xs text-muted-foreground">处理中，请稍候...</span>
+                </DialogFooter>
+            </template>
+        </DialogContent>
+    </Dialog>
+</template>

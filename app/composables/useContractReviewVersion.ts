@@ -8,6 +8,7 @@
  * - updateRiskArchivedStatus / addLawyerAnnotation / deleteAnnotation：离散动作直连 API
  * - updateAnnotation：批注内容编辑走 debounce 500ms，合并高频输入
  * - updateVersionNote：更新版本备注
+ * - uploadNewVersion：客户回传 docx，通过 SSE 流实时返回各步骤进度
  *
  * 只读态守护：previewVersionId !== null 时，所有编辑动作静默返回不发请求。
  */
@@ -18,7 +19,32 @@ import type {
     ContractReviewVersionEntity,
     ContractReviewVersionSnapshotResponse,
     RiskArchivedStatus,
+    UploadVersionStep,
+    UploadVersionProgressData,
+    UploadVersionCompleteData,
+    UploadVersionErrorData,
 } from '#shared/types/contract'
+import { CONTRACT_UPLOAD_VERSION_SSE_EVENT } from '#shared/types/contract'
+
+// ===== 上传新版本：步骤状态类型 =====
+
+export type StepStatus = 'idle' | 'progress' | 'done' | 'error'
+
+export interface StepState {
+    key: UploadVersionStep
+    label: string
+    status: StepStatus
+}
+
+const UPLOAD_STEP_LABELS: Record<UploadVersionStep, string> = {
+    backup: '备份当前版本',
+    parse: '解析新文档',
+    diff: '对比变更',
+    ai: 'AI 分析',
+    merge: '合并与更新',
+}
+
+const UPLOAD_STEP_KEYS: UploadVersionStep[] = ['backup', 'parse', 'diff', 'ai', 'merge']
 
 export interface WorkspaceState {
     risks: ContractRiskEntity[]
@@ -196,6 +222,95 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
         }
     }
 
+    /**
+     * 客户回传 docx：通过 SSE 流驱动 5 步骤处理（backup→parse→diff→ai→merge）。
+     * 立即返回响应式状态 refs，SSE 消费在后台异步进行。
+     * 使用 fetch + ReadableStream 消费 POST SSE（EventSource 不支持 POST body）。
+     */
+    async function uploadNewVersion(ossFileId: number): Promise<{
+        steps: Ref<StepState[]>
+        done: Ref<boolean>
+        result: Ref<{ newVersionId: number; summary: string } | null>
+        error: Ref<{ step: string; message: string } | null>
+    }> {
+        const steps = ref<StepState[]>(
+            UPLOAD_STEP_KEYS.map(key => ({ key, label: UPLOAD_STEP_LABELS[key], status: 'idle' as StepStatus }))
+        )
+        const done = ref(false)
+        const result = ref<{ newVersionId: number; summary: string } | null>(null)
+        const error = ref<{ step: string; message: string } | null>(null)
+
+        void (async () => {
+            try {
+                const resp = await fetch(
+                    `/api/v1/assistant/contract/reviews/${reviewId.value}/upload-version`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ossFileId }),
+                    }
+                )
+
+                if (!resp.ok || !resp.body) {
+                    error.value = { step: 'backup', message: resp.ok ? '服务器返回空响应' : `服务器错误 (${resp.status})` }
+                    return
+                }
+
+                const reader = resp.body.getReader()
+                const decoder = new TextDecoder()
+                let buffer = ''
+
+                while (true) {
+                    const { value, done: streamDone } = await reader.read()
+                    if (streamDone) break
+                    buffer += decoder.decode(value, { stream: true })
+
+                    const parts = buffer.split('\n\n')
+                    buffer = parts.pop() ?? ''
+
+                    for (const part of parts) {
+                        if (!part.trim()) continue
+                        const lines = part.split('\n')
+                        let eventName = ''
+                        let dataStr = ''
+                        for (const line of lines) {
+                            if (line.startsWith('event: ')) eventName = line.slice(7).trim()
+                            else if (line.startsWith('data: ')) dataStr = line.slice(6).trim()
+                        }
+                        if (!eventName || !dataStr) continue
+
+                        try {
+                            const data = JSON.parse(dataStr)
+
+                            if (eventName === CONTRACT_UPLOAD_VERSION_SSE_EVENT.PROGRESS) {
+                                const p = data as UploadVersionProgressData
+                                steps.value = steps.value.map(s =>
+                                    s.key === p.step ? { ...s, status: p.status === 'done' ? 'done' : 'progress' } : s
+                                )
+                            } else if (eventName === CONTRACT_UPLOAD_VERSION_SSE_EVENT.COMPLETE) {
+                                const c = data as UploadVersionCompleteData
+                                result.value = { newVersionId: c.newVersionId, summary: c.summary }
+                                done.value = true
+                            } else if (eventName === CONTRACT_UPLOAD_VERSION_SSE_EVENT.ERROR) {
+                                const e = data as UploadVersionErrorData
+                                steps.value = steps.value.map(s =>
+                                    s.key === e.step ? { ...s, status: 'error' } : s
+                                )
+                                error.value = { step: e.step, message: e.message }
+                            }
+                        } catch {
+                            // 忽略无法解析的 SSE 事件
+                        }
+                    }
+                }
+            } catch (e) {
+                error.value = { step: 'backup', message: e instanceof Error ? e.message : '连接失败' }
+            }
+        })()
+
+        return { steps, done, result, error }
+    }
+
     /** 更新版本备注（不受 isReadOnly 约束，历史版本也可加备注） */
     async function updateVersionNote(versionId: number, lawyerNote: string | null) {
         const resp = await useApiFetch(
@@ -243,5 +358,6 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
         updateAnnotation,
         deleteAnnotation,
         updateVersionNote,
+        uploadNewVersion,
     }
 }
