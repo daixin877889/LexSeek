@@ -199,16 +199,15 @@ function stepColorClass(status: StepStatus) {
             <!-- 文件选择阶段 -->
             <template v-if="!sseState && !ossUploading">
                 <div class="space-y-4 py-2">
-                    <!-- 文件选择区 -->
-                    <div
+                    <!-- 文件选择区（用 label 让原生 click 关联 input，避免 Dialog Portal 内 programmatic click 失败） -->
+                    <label
                         data-testid="dropzone"
-                        class="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors"
+                        class="block border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors"
                         :class="[
                             isDragging
                                 ? 'border-primary bg-primary/5 dark:bg-primary/15'
                                 : 'border-muted-foreground/25 dark:border-muted-foreground/40 hover:border-primary/50'
                         ]"
-                        @click="fileInputRef?.click()"
                         @dragover.prevent="isDragging = true"
                         @dragleave="isDragging = false"
                         @drop.prevent="handleDrop"
@@ -233,7 +232,7 @@ function stepColorClass(status: StepStatus) {
                                 {{ isDragging ? '释放以上传' : '点击或拖拽 .docx 文件到此处' }}
                             </p>
                         </template>
-                    </div>
+                    </label>
                 </div>
 
                 <DialogFooter>

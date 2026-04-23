@@ -193,9 +193,9 @@ async function handlePasteSubmit() {
         <DialogContent class="sm:max-w-[560px]">
             <DialogHeader>
                 <DialogTitle>新建合同审查</DialogTitle>
-                <DialogDescription>
+                <!-- <DialogDescription>
                     选择上传 .docx 合同文件，或粘贴合同全文，AI 会自动识别风险条款并生成审查报告。
-                </DialogDescription>
+                </DialogDescription> -->
             </DialogHeader>
 
             <Tabs v-model="activeTab" class="w-full">
@@ -207,55 +207,39 @@ async function handlePasteSubmit() {
                 <!-- 上传 Tab -->
                 <TabsContent value="upload" class="pt-4">
                     <div class="space-y-3">
-                        <!-- 未选文件：dropzone -->
-                        <div
-                            v-if="!selectedFile"
-                            class="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors"
+                        <!-- 未选文件：dropzone（用 label 包裹让原生 click → input 关联，不依赖 programmatic click） -->
+                        <label v-if="!selectedFile"
+                            class="block border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors"
                             :class="isDragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'"
-                            @click="triggerFileInput"
                             @dragover.prevent="isDragOver = true"
-                            @dragleave.prevent="isDragOver = false"
-                            @drop.prevent="handleDrop"
-                        >
-                            <input
-                                ref="fileInputRef"
-                                type="file"
-                                accept=".docx"
-                                class="sr-only"
-                                @change="handleFileSelect"
-                            />
+                            @dragleave.prevent="isDragOver = false" @drop.prevent="handleDrop">
+                            <input ref="fileInputRef" type="file" accept=".docx" class="sr-only"
+                                :disabled="uploading" @change="handleFileSelect" />
                             <UploadIcon class="size-8 mx-auto mb-3 text-muted-foreground" />
                             <p class="text-sm font-medium">点击选择文件 或 拖拽到此处</p>
                             <p class="text-xs text-muted-foreground mt-1">仅支持 .docx 格式，≤ 20 MB</p>
-                        </div>
+                        </label>
 
                         <!-- 已选文件：展示 + 移除 + 进度 -->
                         <div v-else class="border rounded-lg p-4 space-y-3">
                             <div class="flex items-center gap-3">
-                                <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                <div
+                                    class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                                     <FileTextIcon class="size-5" />
                                 </div>
                                 <div class="flex-1 min-w-0">
                                     <div class="text-sm font-medium truncate">{{ selectedFile.name }}</div>
                                     <div class="text-xs text-muted-foreground">{{ formatSize(selectedFile.size) }}</div>
                                 </div>
-                                <Button
-                                    v-if="!uploading"
-                                    variant="ghost"
-                                    size="icon"
-                                    class="size-8 shrink-0"
-                                    aria-label="移除文件"
-                                    @click="clearFile"
-                                >
+                                <Button v-if="!uploading" variant="ghost" size="icon" class="size-8 shrink-0"
+                                    aria-label="移除文件" @click="clearFile">
                                     <XIcon class="size-4" />
                                 </Button>
                             </div>
                             <div v-if="uploading" class="space-y-1">
                                 <div class="h-1.5 rounded-full bg-muted overflow-hidden">
-                                    <div
-                                        class="h-full bg-primary transition-all"
-                                        :style="{ width: `${uploadProgress}%` }"
-                                    />
+                                    <div class="h-full bg-primary transition-all"
+                                        :style="{ width: `${uploadProgress}%` }" />
                                 </div>
                                 <div class="text-xs text-muted-foreground text-right">
                                     {{ uploadProgress }}%
@@ -264,10 +248,7 @@ async function handlePasteSubmit() {
                         </div>
 
                         <div class="flex justify-end">
-                            <Button
-                                :disabled="!selectedFile || uploading"
-                                @click="handleUploadSubmit"
-                            >
+                            <Button :disabled="!selectedFile || uploading" @click="handleUploadSubmit">
                                 <Loader2Icon v-if="uploading" class="size-4 mr-1 animate-spin" />
                                 {{ uploading ? '上传中...' : '开始审查' }}
                             </Button>
@@ -278,13 +259,8 @@ async function handlePasteSubmit() {
                 <!-- 粘贴 Tab -->
                 <TabsContent value="paste" class="pt-4">
                     <div class="space-y-3">
-                        <Textarea
-                            v-model="pasteText"
-                            placeholder="粘贴合同全文..."
-                            :rows="10"
-                            :disabled="pasteSubmitting"
-                            class="font-mono text-sm"
-                        />
+                        <Textarea v-model="pasteText" placeholder="粘贴合同全文..." :rows="10" :disabled="pasteSubmitting"
+                            class="font-mono text-sm" />
                         <div class="flex items-center justify-between">
                             <span class="text-xs text-muted-foreground">{{ pasteText.length }} / 50,000 字</span>
                             <Button :disabled="pasteSubmitting || !pasteText.trim()" @click="handlePasteSubmit">
