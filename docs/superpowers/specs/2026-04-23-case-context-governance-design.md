@@ -281,66 +281,183 @@ export type CachedPrompt = PromptSegment[]
 
 ## 3. M3 · 记忆工具化 + 自动提取 + 召回 pipeline
 
-### 3.1 数据模型
+### 3.1 数据模型（LangChain PGVectorStore 兼容 schema）
 
-自建 `case_memories` 表（不走 LangGraph Store，理由：原生不支持 BM25 混合检索；自建与现有 `caseMaterialEmbeddings` 统一，运维简单，无 LangMem 外部依赖）。
+**决策依据**：
+- `caseMaterialEmbeddings` / `lawEmbeddings` 的 schema 本质是 **LangChain `PGVectorStore` 框架在首次 `addDocuments` 时自动建立**（`id / text / metadata(JSONB) / embedding(vector)`）；Prisma model 只是"占位声明"防止 `migrate diff` 把表判成漂移。`tsv` 列是项目自己追加的 BM25 扩展。
+- 新表 `case_memories` 维持同构形态，才能继续用 `addDocumentsToVectorStore`（见 `server/services/legal/vectorStore.service.ts:244`）写入，不打破框架约定
+- 所有"业务字段"（kind / subjectKey / invalidatedAt / caseId 等）都放 **metadata JSON**；查询通过 `metadata->>'field'` + expression index 加速
+
+**LangGraph Store 排除说明**：项目现有 `PostgresStore`（`server/services/workflow/checkpointer.ts`）是纯 KV 存储（无 vector / tsv 列，见 `prisma/models/langchain.prisma:41-53` 的 `store` 表），不支持 BM25 混合检索。排除走 Store 的方案。
 
 ```prisma
 // prisma/models/case.prisma
+/// 案件记忆向量表（LangChain PGVectorStore 同构）
+/// 写入走 addDocumentsToVectorStore；业务字段放 metadata JSON
+/// 注意：此表结构对齐 LangChain 约定，不允许新增查询列（会破坏框架写入）
 model caseMemories {
-  id              String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  caseId          Int                      @map("case_id")
-  /// 记忆类型：fact / preference / dialogue_note
-  /// 注：分析模块摘要不走 case_memories，独立落 caseAnalyses.summary + case_analysis_embeddings（见 §4）
-  kind            String                   @db.VarChar(32)
-  /// 主题指纹（如 "plaintiff.address" / "contract.delivery_date"），同主题新事实覆盖旧
-  subjectKey      String?                  @map("subject_key") @db.VarChar(200)
+  /// 主键，UUID 类型（框架生成）
+  id        String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   /// 记忆正文
-  text            String                   @db.Text
-  /// 抽取置信度（0-1），consolidator 产出
-  confidence      Float?
-  /// 来源：manual（热路径）/ consolidator（后台）/ module_summary
-  source          String?                  @db.VarChar(100)
-  /// 上一版记忆 id（版本链）
-  supersedes      String?                  @map("supersedes") @db.Uuid
-  /// 失效时间（不物理删除，召回默认过滤）
-  invalidatedAt   DateTime?                @map("invalidated_at") @db.Timestamptz(6)
-  /// 向量嵌入（pgvector）
-  embedding       Unsupported("vector")?
-  /// 中文全文搜索向量（trigger 自动维护）
-  tsv             Unsupported("tsvector")?
-  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime                 @default(now()) @map("updated_at") @db.Timestamptz(6)
+  text      String?                  @db.Text
+  /// 元数据（JSONB）：{ caseId: number, kind: 'fact'|'preference'|'dialogue_note',
+  ///                   subjectKey?: string, confidence?: number, source?: string,
+  ///                   supersedes?: string, invalidatedAt?: string(ISO) }
+  metadata  Json?
+  /// 向量嵌入
+  embedding Unsupported("vector")?
+  /// 中文全文搜索向量（由 setupRetrievalInfra.ts 手工回填）
+  tsv       Unsupported("tsvector")?
 
-  case cases @relation(fields: [caseId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([caseId, kind], map: "idx_case_memories_case_kind")
-  @@index([subjectKey], map: "idx_case_memories_subject_key")
-  @@index([invalidatedAt], map: "idx_case_memories_invalidated_at")
   @@index([tsv], type: Gin, map: "idx_case_memories_tsv")
   @@map("case_memories")
 }
 ```
 
-**tsv trigger**（迁移 SQL 手工补，与 `caseMaterialEmbeddings` 同款）：
+**业务字段 metadata schema**（TypeScript 侧定义在 `shared/types/memory.ts`）：
 
-```sql
--- 用项目已安装的 zhparser 中文分词配置（与 caseMaterialEmbeddings 保持一致）
-CREATE TRIGGER tsv_case_memories_update BEFORE INSERT OR UPDATE ON case_memories
-FOR EACH ROW EXECUTE FUNCTION tsvector_update_trigger(tsv, 'chinese', text);
-
--- 向量索引用 HNSW（pgvector 0.7+ 推荐，比 ivfflat 召回率更高）
--- m=16（每节点连接数，默认）、ef_construction=64（构建 ef，默认）
-CREATE INDEX IF NOT EXISTS idx_case_memories_embedding
-  ON case_memories USING hnsw (embedding vector_cosine_ops)
-  WITH (m = 16, ef_construction = 64);
+```ts
+export interface CaseMemoryMetadata {
+  caseId: number              // 案件 ID，硬过滤必需
+  kind: 'fact' | 'preference' | 'dialogue_note'
+  subjectKey?: string         // 主题指纹，版本链 group-by 用
+  confidence?: number         // consolidator 置信度 0-1
+  source?: 'manual' | 'consolidator'
+  supersedes?: string         // 上一版 id
+  invalidatedAt?: string      // ISO 时间串，非空即失效
+  createdAt: string           // ISO
+}
 ```
 
-需在 `prisma/migrations/<timestamp>_add_case_memories/migration.sql` 用 `--create-only` 后手工追加（遵循数据库规范）。
+**迁移（手工 SQL，与 caseMaterialEmbeddings 同款）**：`prisma/migrations/<ts>_add_case_memories/migration.sql` 用 `--create-only` 后追加：
 
-### 3.2 Service 层
+```sql
+-- LangChain PGVectorStore 首次写入会自建主表，此处显式建立同款 schema 让 Prisma diff 无漂移
+CREATE TABLE IF NOT EXISTS "case_memories" (
+  "id"        UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "text"      TEXT,
+  "metadata"  JSONB,
+  "embedding" vector,
+  "tsv"       tsvector,
+  CONSTRAINT "case_memories_pkey" PRIMARY KEY ("id")
+);
 
-**`server/services/memory/memory.service.ts`（新建）**：
+-- BM25 GIN 索引
+CREATE INDEX IF NOT EXISTS "idx_case_memories_tsv"
+  ON "case_memories" USING GIN ("tsv");
+
+-- 向量索引（HNSW，pgvector 0.7+ 推荐；规模 <10K 时用默认 m/ef_construction 够用）
+CREATE INDEX IF NOT EXISTS "idx_case_memories_embedding"
+  ON "case_memories" USING hnsw (embedding vector_cosine_ops);
+
+-- metadata 业务字段 expression index（对应热查询路径）
+CREATE INDEX IF NOT EXISTS "idx_case_memories_meta_case"
+  ON "case_memories" ((metadata->>'caseId'));
+CREATE INDEX IF NOT EXISTS "idx_case_memories_meta_subject"
+  ON "case_memories" ((metadata->>'caseId'), (metadata->>'subjectKey'))
+  WHERE metadata->>'invalidatedAt' IS NULL;
+CREATE INDEX IF NOT EXISTS "idx_case_memories_meta_kind"
+  ON "case_memories" ((metadata->>'caseId'), (metadata->>'kind'));
+```
+
+tsv 维护：模仿 `setupRetrievalInfra.ts` 在写入完成后手工 `UPDATE case_memories SET tsv = to_tsvector('chinese', COALESCE(text, '')) WHERE tsv IS NULL`；或在 writeMemoryService 写入后立即执行一次该 UPDATE。
+
+### 3.2 Service 层（**最大化复用现有 retrieval 基建**）
+
+**项目现有可复用基建**：
+
+| 函数 | 位置 | 新用途 |
+|---|---|---|
+| `addDocumentsToVectorStore(tableName, docs, { ids })` | `server/services/legal/vectorStore.service.ts:244` | 写入 case_memories / case_analysis_embeddings |
+| `getEmbeddingsAsync()` | 同上 | embedding 计算 |
+| `hybridSearchService(tableName, query, k, metadataFilter, sourceIds)` | `server/services/retrieval/hybridSearch.service.ts:107` | 召回 ①②③ 阶段 |
+| `vectorSearchService` / `fullTextSearchService` | `retrieval/` | hybridSearchService 内部已封装 |
+| `reciprocalRankFusion()` | `hybridSearch.service.ts:75` | RRF 融合 |
+| `ALLOWED_TABLES` 白名单 | `retrieval/types.ts` | 需要加入 `case_memories` 和 `case_analysis_embeddings` |
+
+**仅需新增的内容**：
+1. `shared/types/memory.ts`：`CaseMemoryMetadata` interface
+2. `server/services/memory/memory.service.ts`：
+   - `writeMemoryService` · 版本链处理 + 调 `addDocumentsToVectorStore` + 手工回填 tsv
+   - `updateMemoryService` · `jsonb_set` 翻 metadata.invalidatedAt
+   - `recallMemoryService` · 调 `hybridSearchService` + 后接 rerank / MMR / 版本链降权 三个纯函数
+3. `server/services/memory/rerankerClient.ts` · 调 TEI 服务
+4. `server/services/memory/postProcess.ts` · `mmrFilter()` / `subjectVersionScoring()` 两个纯函数
+5. `server/services/retrieval/types.ts` · `ALLOWED_TABLES` 加两个表名
+
+```ts
+// memory.service.ts 伪代码
+import { addDocumentsToVectorStore } from '~/server/services/legal/vectorStore.service'
+import { hybridSearchService } from '~/server/services/retrieval/hybridSearch.service'
+import { rerankDocuments } from './rerankerClient'
+import { mmrFilter, subjectVersionScoring } from './postProcess'
+
+export async function writeMemoryService(input: MemoryWriteInput): Promise<{ id: string }> {
+  // 1. 同 subjectKey 的最新未失效记录 → jsonb_set 打 invalidatedAt
+  if (input.subjectKey) {
+    await prisma.$executeRawUnsafe(`
+      UPDATE case_memories
+      SET metadata = jsonb_set(metadata, '{invalidatedAt}', to_jsonb(NOW()::text))
+      WHERE metadata->>'caseId' = $1
+        AND metadata->>'subjectKey' = $2
+        AND metadata->>'invalidatedAt' IS NULL
+    `, String(input.caseId), input.subjectKey)
+  }
+
+  // 2. 走 LangChain PGVectorStore 写入
+  const metadata: CaseMemoryMetadata = {
+    caseId: input.caseId,
+    kind: input.kind,
+    subjectKey: input.subjectKey,
+    confidence: input.confidence,
+    source: input.source,
+    createdAt: new Date().toISOString(),
+  }
+  const newId = crypto.randomUUID()
+  await addDocumentsToVectorStore('case_memories',
+    [{ pageContent: input.text, metadata }],
+    { ids: [newId] },
+  )
+
+  // 3. 手工回填 tsv（addDocuments 不写 tsv，参考 setupRetrievalInfra 模式）
+  await prisma.$executeRawUnsafe(`
+    UPDATE case_memories SET tsv = to_tsvector('chinese', COALESCE(text, ''))
+    WHERE id = $1::uuid
+  `, newId)
+
+  return { id: newId }
+}
+
+export async function recallMemoryService(params: {
+  caseId: number; query: string; kind?: MemoryKind; topK?: number
+}): Promise<Array<MemoryHit>> {
+  const { caseId, query, kind, topK = 5 } = params
+
+  // ①② 复用 hybridSearchService（已含 vector + BM25 RRF）
+  const metadataFilter: Record<string, string | number | boolean> = { caseId }
+  if (kind) metadataFilter.kind = kind
+  const hybridHits = await hybridSearchService('case_memories', query, 50, metadataFilter)
+
+  // ③ Pre-filter：失效 + 相似度阈值
+  const filtered = hybridHits.filter(h => {
+    const meta = h.metadata as CaseMemoryMetadata
+    if (meta.invalidatedAt) return false
+    if ((h.score ?? 0) < 0.3) return false
+    return true
+  })
+
+  // ④ Rerank（bge-reranker-v2-m3 HTTP）
+  const reranked = await rerankDocuments(query, filtered.slice(0, 20))
+
+  // ⑤ MMR 多样性过滤
+  const diverse = await mmrFilter(reranked, query, { lambda: 0.4, topK: topK * 2 })
+
+  // ⑥ Subject 版本链降权 + 最终打分
+  return subjectVersionScoring(diverse).slice(0, topK)
+}
+```
+
+完整签名：
 
 ```ts
 export interface MemoryWriteInput {
@@ -349,7 +466,13 @@ export interface MemoryWriteInput {
   text: string
   subjectKey?: string
   confidence?: number
-  source?: 'manual' | 'consolidator' | 'module_summary'
+  source?: 'manual' | 'consolidator'
+}
+export interface MemoryHit {
+  id: string
+  text: string
+  score: number
+  metadata: CaseMemoryMetadata
 }
 
 /** 写入记忆（含 subject 版本链处理） */
@@ -367,44 +490,30 @@ export async function recallMemoryService(params: {
 }): Promise<Array<{ id: string; text: string; score: number; kind: string }>>
 ```
 
-**版本链处理**（`writeMemoryService` 内部）：
+### 3.3 召回 pipeline 六阶段（复用现有 retrieval 基建 + 新增后处理）
 
-```ts
-if (input.subjectKey) {
-  // 1. 查同 subjectKey 的最新未失效记录
-  const prev = await tx.caseMemories.findFirst({
-    where: { caseId: input.caseId, subjectKey: input.subjectKey, invalidatedAt: null },
-    orderBy: { createdAt: 'desc' },
-  })
-  if (prev) {
-    // 2. 对旧记录打失效
-    await tx.caseMemories.update({ where: { id: prev.id }, data: { invalidatedAt: new Date() } })
-  }
-  // 3. 新记录 supersedes 指向旧
-  const newId = await tx.caseMemories.create({ data: { ...input, supersedes: prev?.id ?? null, embedding, tsv: <自动> } })
-}
-```
-
-### 3.3 召回 pipeline 六阶段（Q3.3 A：全量上）
-
-**`server/services/memory/recall.pipeline.ts`（新建）**：
+**实施位置**：召回主入口在 `memory.service.ts:recallMemoryService`；① ② ③ 阶段复用项目现有 `retrieval/hybridSearch.service.ts`（只需把 `case_memories` 加入 `ALLOWED_TABLES`）；④ ⑤ ⑥ 为新增后处理纯函数（放 `server/services/memory/postProcess.ts` + `rerankerClient.ts`）。
 
 ```
 ① Query 上下文补齐（**仅代词触发才调 LLM**）
-  默认：query 前拼接最近 3 轮 user turn 文本，直接进 embedding 输入（零 LLM 调用，零延迟）
-  LLM 兜底：仅当 query 正则命中代词/指代词（"他/她/它/上次/之前/刚才/那个"）时才调 Haiku 4.5 做重写
+  默认：query 前拼接最近 3 轮 user turn 文本（零 LLM 调用）
+  LLM 兜底：query 正则命中代词/指代词（"他/她/它/上次/之前/刚才/那个"）时调 Haiku 4.5 重写
   短 query（≤3 字）跳过此步
+  实施位置：memory.service.ts 内部简单 preprocess
 
-② Hybrid Recall (top-50)
-  并行：
-    - vector_search(pgvector cosine, query_embedding, limit=50)
-    - bm25_search(tsv @@ plainto_tsquery('chinese', query), limit=50)
-  融合：RRF(k=60) → 合并去重 → top-50
+② Hybrid Recall (top-50) · **直接复用** hybridSearchService
+  调用：hybridSearchService('case_memories', query, 50, { caseId, kind? })
+  内部已实现：
+    - vectorSearchService + $queryRaw + pgvector <=> 操作符
+    - fullTextSearchService + $queryRaw + plainto_tsquery('chinese', ...)
+    - reciprocalRankFusion RRF(k=60) 合并
+  metadata filter 由 retrieval/fullTextSearch.service.ts:buildParameterizedMetadataFilter 统一参数化
+  **不写新 SQL**，仅把 'case_memories' 加入 retrieval/types.ts ALLOWED_TABLES
 
-③ Pre-filter
-  - caseId 硬过滤（必须）
-  - invalidatedAt IS NOT NULL → 丢弃（除非 query 显含"历史/曾经"意图）
-  - cosine < 0.3 → 丢弃（避免硬凑 top-K）
+③ Pre-filter · memory.service.ts 内部 JS 过滤
+  - caseId 已通过 metadata filter 硬过滤（在 ② 阶段）
+  - 失效过滤：metadata.invalidatedAt 非空 → 丢弃（query 含"历史/曾经"意图时放开）
+  - 分数阈值：hybridHit.score < 0.3 → 丢弃
 
 ④ Rerank (bge-reranker-v2-m3)
   HTTP POST to http://bge-reranker:8080/rerank
@@ -571,13 +680,16 @@ model caseAnalyses {
 }
 ```
 
-**新表 `case_analysis_embeddings`**（结构参考 `caseMaterialEmbeddings`）：
+**新表 `case_analysis_embeddings`**（LangChain PGVectorStore 同构 schema，同 case_memories 决策）：
 
 ```prisma
+/// 案件分析产物向量表（LangChain PGVectorStore 同构）
+/// 写入走 addDocumentsToVectorStore；查询热字段放 metadata JSON + expression index
+/// 注意：此表结构对齐 LangChain 约定，不允许新增查询列（会破坏框架写入）
 model caseAnalysisEmbeddings {
   id        String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   text      String?                  @db.Text
-  /// { caseId, analysisId, nodeId, analysisType, version, isActive, chunkIndex }
+  /// metadata JSON：{ caseId, analysisId, nodeId, analysisType, version, isActive, chunkIndex }
   metadata  Json?
   embedding Unsupported("vector")?
   tsv       Unsupported("tsvector")?
@@ -587,48 +699,80 @@ model caseAnalysisEmbeddings {
 }
 ```
 
-同样需手工追加 tsv trigger + ivfflat 索引。
+**手工追加 SQL**（`prisma/migrations/<ts>_add_case_analysis_rag/migration.sql`，用 `--create-only` 后追加）：
+
+```sql
+-- 与 caseMaterialEmbeddings 同模式
+CREATE INDEX IF NOT EXISTS "idx_case_analysis_embedding"
+  ON "case_analysis_embeddings" USING hnsw (embedding vector_cosine_ops);
+
+-- metadata 热查询字段 expression index
+CREATE INDEX IF NOT EXISTS "idx_case_analysis_meta_active"
+  ON "case_analysis_embeddings" ((metadata->>'caseId'), (metadata->>'analysisType'))
+  WHERE metadata->>'isActive' = 'true';
+CREATE INDEX IF NOT EXISTS "idx_case_analysis_meta_analysis"
+  ON "case_analysis_embeddings" ((metadata->>'analysisId'));
+```
+
+**tsv 维护**：同 caseMemories，手工回填（setupRetrievalInfra 模式）。
 
 ### 4.2 生成路径（Q4.1 A：同步）
 
 修改 `initAnalysis.service.ts`（模块分析完成写库时）：
 
 ```ts
+import { addDocumentsToVectorStore } from '~/server/services/legal/vectorStore.service'
+
 async function completeAnalysisService({ analysisId, result, model }) {
-  await prisma.$transaction(async tx => {
+  // 先把主分析结果和 summary 落库（一个事务内）
+  const analysis = await prisma.$transaction(async tx => {
     // 1. 写 analysisResult
-    const analysis = await tx.caseAnalyses.update({
+    const updated = await tx.caseAnalyses.update({
       where: { id: analysisId },
       data: { status: 2, analysisResult: result, /* ... */ },
     })
 
-    // 2. 同步生成 summary（Q4.2 AI 拍板：主模型）
+    // 2. 同步生成 summary（主模型，与分析同源，Q4.2 AI 拍板）
     const summary = await generateSummary(model, result, { maxChars: 400 })
     await tx.caseAnalyses.update({ where: { id: analysisId }, data: { summary } })
 
-    // 3. 切块 + embedding
-    const chunks = splitByParagraph(result, { maxTokens: 500 })
-    for (const [i, chunk] of chunks.entries()) {
-      await tx.$executeRawUnsafe(`
-        INSERT INTO case_analysis_embeddings (text, metadata, embedding)
-        VALUES ($1, $2::jsonb, $3::vector)
-      `,
-        chunk,
-        JSON.stringify({
-          caseId: analysis.caseId, analysisId, nodeId: analysis.nodeId,
-          analysisType: analysis.analysisType, version: analysis.version,
-          isActive: true, chunkIndex: i,
-        }),
-        await embedText(chunk),
-      )
-    }
-  }, { timeout: 30_000 })
+    return updated
+  }, { timeout: 15_000 })
 
-  // 用户侧 toast："分析完成" + 后端 publishAgentEvent 一次 analysis_result_saved
+  // 3. 切块 + 写 embeddings（走 LangChain 框架 API，不进上一个事务）
+  //    失败不影响主分析落库（已 commit），仅影响 RAG 检索能力，日志告警即可
+  try {
+    const chunks = splitByParagraph(result, { maxTokens: 500 })
+    const docs = chunks.map((chunk, i) => ({
+      pageContent: chunk,
+      metadata: {
+        caseId: analysis.caseId,
+        analysisId: analysis.id,
+        nodeId: analysis.nodeId,
+        analysisType: analysis.analysisType,
+        version: analysis.version,
+        isActive: true,
+        chunkIndex: i,
+      },
+    }))
+    const ids = chunks.map(() => crypto.randomUUID())
+    await addDocumentsToVectorStore('case_analysis_embeddings', docs, { ids })
+
+    // 手工回填 tsv（addDocumentsToVectorStore 不写 tsv）
+    await prisma.$executeRawUnsafe(`
+      UPDATE case_analysis_embeddings
+      SET tsv = to_tsvector('chinese', COALESCE(text, ''))
+      WHERE id = ANY($1::uuid[]) AND tsv IS NULL
+    `, ids)
+  } catch (e) {
+    logger.warn('case_analysis_embeddings 写入失败，主分析已完成；RAG 检索此版本暂不可用', { analysisId, error: e })
+  }
+
+  // 用户侧 toast："分析完成"（界面给反馈，A6 拍板）
 }
 ```
 
-**延迟预算**：摘要 +embedding 约 3-5s，用户可接受。
+**事务边界说明**：主分析 + summary 一个事务（~1-3s）保证原子性；embedding 切块/写入在事务外（~2-3s），失败只影响 RAG 检索，不回滚主分析。两段串行总延迟 3-5s，界面显示进度。
 
 ### 4.3 切版本同步 metadata
 
@@ -675,12 +819,19 @@ export const toolDefinition = {
 
 export function createTool(context: ToolContext) {
   return tool(async ({ query, analysis_type, include_all_versions, top_k }) => {
-    // 复用 M3 的 6 阶段 pipeline，但查询对象改为 case_analysis_embeddings
-    const filter: Record<string, unknown> = { caseId: context.caseId }
-    if (analysis_type) filter.analysisType = analysis_type
-    if (!include_all_versions) filter.isActive = true
-    const hits = await recallAnalysisService({ filter, query, topK: top_k })
-    return JSON.stringify(hits)
+    // 复用 hybridSearchService（'case_analysis_embeddings' 已加入 ALLOWED_TABLES），
+    // 后接 M3 的 rerank / MMR 后处理（版本链降权在本场景下通过 isActive 过滤替代）
+    const metadataFilter: Record<string, string | number | boolean> = { caseId: context.caseId }
+    if (analysis_type) metadataFilter.analysisType = analysis_type
+    if (!include_all_versions) metadataFilter.isActive = true
+
+    const hybridHits = await hybridSearchService(
+      'case_analysis_embeddings', query, 20, metadataFilter,
+    )
+    const filtered = hybridHits.filter(h => (h.score ?? 0) >= 0.3)
+    const reranked = await rerankDocuments(query, filtered)
+    const diverse = await mmrFilter(reranked, query, { lambda: 0.4, topK: top_k })
+    return JSON.stringify(diverse)
   }, toolDefinition)
 }
 ```
@@ -714,13 +865,13 @@ async function buildCompletedResultsSection(caseId: number, excludeModule: strin
 
 ## 5. 数据模型汇总
 
-| 表 | 操作 | 字段改动 |
-|---|---|---|
-| `cases` | 修改 | +5 字段（法院/法官/案号）；`status` 语义扩展至 6 档 |
-| `caseAnalyses` | 修改 | +`summary` |
-| `caseMaterials` | 不动 | `summary` 字段已有 |
-| `case_memories` | 新建 | 完整新表 |
-| `case_analysis_embeddings` | 新建 | 完整新表 |
+| 表 | 操作 | 字段改动 | 备注 |
+|---|---|---|---|
+| `cases` | 修改 | +5 字段（法院/法官/案号）；`status` 语义扩展至 6 档 | Prisma 自建 |
+| `caseAnalyses` | 修改 | +`summary` | Prisma 自建 |
+| `caseMaterials` | 不动 | `summary` 字段已有 | Prisma 自建 |
+| `case_memories` | 新建 | `id/text/metadata/embedding/tsv`，LangChain PGVectorStore 同构 schema | **不允许新增查询列**（框架写入约束）；业务字段走 metadata JSON + expression index |
+| `case_analysis_embeddings` | 新建 | `id/text/metadata/embedding/tsv`，LangChain PGVectorStore 同构 schema | 同上 |
 
 **所有迁移**走 `bun run prisma:migrate --name <name>`（遵循 `.claude/rules/database.md`，禁止手工放独立 SQL；tsv trigger 用 `--create-only` 生成后追加）。
 
@@ -757,18 +908,20 @@ async function buildCompletedResultsSection(caseId: number, excludeModule: strin
 
 ### 后端 Service
 - `server/services/workflow/context/moduleContextBuilder.ts`：重构为 5 段式
-- `server/services/material/materialPipeline.service.ts`：清单+摘要
-- `server/services/material/material.service.ts`：摘要生成 helper
+- `server/services/material/materialPipeline.service.ts`：清单+摘要 + 材料就绪时触发 summary 生成
+- `server/services/material/material.service.ts`：100 字摘要生成 helper（Haiku 4.5）
 - `server/services/case/caseExtraction.service.ts`：schema +5 字段 / 移除 basic_info 写入
-- `server/services/case/initAnalysis.service.ts`：分析完成时同步生成 summary + embedding
-- `server/services/case/caseAnalysis.service.ts`：`switchActiveVersionService` 同步 metadata.isActive
-- `server/services/node/chatModelFactory.ts`：三家 adapter 接受 `CachedPrompt`
-- `server/services/memory/memory.service.ts`：新建（writeMemoryService / updateMemoryService / recallMemoryService）
-- `server/services/memory/memory.dao.ts`：新建
-- `server/services/memory/recall.pipeline.ts`：6 阶段召回
-- `server/services/memory/consolidator.service.ts`：新建（debounce 30s + Haiku 4.5 抽取）
-- `server/services/memory/rerankerClient.ts`：新建
-- `server/services/agent/cacheMetrics.service.ts`：新建（可选）
+- `server/services/case/initAnalysis.service.ts`：分析完成时同步生成 summary → 事务外走 addDocumentsToVectorStore 写 embeddings
+- `server/services/case/analysis.service.ts`：`switchActiveVersionService`（现有，analysis.service.ts:583）扩展为同步 metadata.isActive（`jsonb_set` + `to_jsonb(bool)`）
+- `server/services/node/chatModelFactory.ts`：三家 adapter 接受 `CachedPrompt` 分段输入 + 读对应响应字段落日志
+- **`server/services/retrieval/types.ts`：`ALLOWED_TABLES` 加 `case_memories` / `case_analysis_embeddings`**（关键复用点）
+- `server/services/memory/memory.service.ts`：新建
+  - `writeMemoryService` 复用 `addDocumentsToVectorStore` + 手工回填 tsv + 版本链 `jsonb_set(invalidatedAt)`
+  - `updateMemoryService` `jsonb_set` 更新 metadata
+  - `recallMemoryService` 调 `hybridSearchService`（①②③）+ 后接 postProcess 三函数（④⑤⑥）
+- `server/services/memory/postProcess.ts`：新建 `rerankPostProcess` / `mmrFilter` / `subjectVersionScoring` 三个纯函数
+- `server/services/memory/rerankerClient.ts`：新建（HTTP 调 TEI）
+- `server/services/memory/consolidator.service.ts`：新建（Redis SET debounce 30s + Haiku 4.5 抽取）
 
 ### Workflow 工具
 - `server/services/workflow/tools/search_case_memory.tool.ts`
@@ -865,7 +1018,10 @@ Phase 4 (M4)  caseAnalyses.summary + embedding 表     ~3 天
 
 ## 12. 铁律清单（编码时逐条核验）
 
-- [ ] 所有数据库变更走 `bun run prisma:migrate` 正式生成迁移；tsv trigger 手工补充需用 `--create-only` + 用户同意
+- [ ] 所有数据库变更走 `bun run prisma:migrate` 正式生成迁移；tsv/expression index 手工补充需用 `--create-only`
+- [ ] `case_memories` / `case_analysis_embeddings` **严格保持 LangChain PGVectorStore 同构 schema**（id/text/metadata/embedding/tsv），禁止新增业务字段列（会破坏 `addDocumentsToVectorStore` 写入）；查询字段一律走 metadata JSON + expression index
+- [ ] 写入走 `addDocumentsToVectorStore`，查询走 `hybridSearchService`（现有 retrieval 基建），**禁止再自建一套 CRUD**
+- [ ] 新增表必须加入 `server/services/retrieval/types.ts:ALLOWED_TABLES` 才能被 hybridSearchService 查
 - [ ] 召回 query 始终硬过滤 `caseId`（Agent 不能跨案件读记忆）
 - [ ] `write_case_memory` / `update_case_memory` / `initAnalysis` / `updateCase` 服务端全部 check `case.status !== ARCHIVED`
 - [ ] Prompt Cache 断点位置严格：1h TTL（案件档案）在 5m TTL（模块摘要）**之前**
