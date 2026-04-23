@@ -68,7 +68,7 @@
           </div>
           <div>
             <p class="text-xs text-muted-foreground uppercase font-medium">进行中</p>
-            <p class="text-2xl font-bold">{{cases.filter(c => c.status === 1).length}}<span
+            <p class="text-2xl font-bold">{{cases.filter(c => c.status >= 1 && c.status <= 4).length}}<span
                 class="text-sm font-normal text-muted-foreground ml-1">(当前页)</span></p>
           </div>
         </div>
@@ -80,8 +80,8 @@
             <CheckCircle class="h-5 w-5" />
           </div>
           <div>
-            <p class="text-xs text-muted-foreground uppercase font-medium">已完成</p>
-            <p class="text-2xl font-bold">{{cases.filter(c => c.status === 2).length}}<span
+            <p class="text-xs text-muted-foreground uppercase font-medium">结案</p>
+            <p class="text-2xl font-bold">{{cases.filter(c => c.status === 99).length}}<span
                 class="text-sm font-normal text-muted-foreground ml-1">(当前页)</span></p>
           </div>
         </div>
@@ -111,12 +111,12 @@
       <div class="space-y-4">
         <!-- 桌面端 -->
         <div class="hidden md:block">
-          <CasesTable v-if="viewMode === 'list'" :list="cases" :case-types="caseTypes" @delete="confirmDelete" />
-          <CasesGrid v-else :list="cases" :case-types="caseTypes" @delete="confirmDelete" />
+          <CasesTable v-if="viewMode === 'list'" :list="cases" :case-types="caseTypes" @delete="confirmDelete" @archived="fetchCases" />
+          <CasesGrid v-else :list="cases" :case-types="caseTypes" @delete="confirmDelete" @archived="fetchCases" />
         </div>
 
         <!-- 移动端卡片 -->
-        <CasesMobile :list="cases" :case-types="caseTypes" @delete="confirmDelete" />
+        <CasesMobile :list="cases" :case-types="caseTypes" @delete="confirmDelete" @archived="fetchCases" />
       </div>
 
       <!-- 分页 -->

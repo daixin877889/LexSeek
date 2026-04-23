@@ -60,6 +60,7 @@
 
 <script lang="ts" setup>
 import { Search, Filter, RotateCcw } from "lucide-vue-next";
+import { CaseStatus, CaseStatusText } from "#shared/types/case";
 
 // ==================== 类型定义 ====================
 
@@ -115,11 +116,11 @@ const internalStatus = computed({
 
 // ==================== 状态选项 ====================
 
-// 状态值：1-进行中，2-已完成，3-已关闭
+// 状态值：从 CaseStatusText 动态生成（排除 ARCHIVED，归档案件通过专门入口查看）
 const statusOptions = [
     { value: "all", label: "全部状态" },
-    { value: "1", label: "进行中" },
-    { value: "2", label: "已完成" },
-    { value: "3", label: "已关闭" },
+    ...Object.entries(CaseStatusText)
+        .filter(([key]) => Number(key) !== CaseStatus.ARCHIVED)
+        .map(([key, label]) => ({ value: key, label })),
 ];
 </script>

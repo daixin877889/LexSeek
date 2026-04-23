@@ -24,10 +24,7 @@
                             #{{ item.id }}</p>
                     </div>
                     <div class="flex items-center gap-2 mt-1">
-                        <Badge :class="getStatusBadgeClass(item.status)" variant="outline"
-                            class="rounded-md border-transparent px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">
-                            {{ getStatusText(item.status) }}
-                        </Badge>
+                        <CaseStatusBadge :status="item.status" />
                         <Badge v-if="item.isDemo" variant="secondary"
                             class="rounded-md bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 text-[9px] font-bold uppercase px-1.5 py-0 whitespace-nowrap">
                             演示
@@ -50,11 +47,19 @@
 
             <!-- 常驻操作栏 -->
             <div class="px-5 py-3 bg-muted/30 border-t border-border/50 flex items-center justify-between mt-auto">
-                <Button variant="ghost" size="icon"
-                    class="h-9 w-9 rounded-full text-destructive/50 active:bg-destructive/10 transition-all"
-                    @click="emit('delete', item.id)">
-                    <Trash2 class="h-4 w-4" />
-                </Button>
+                <div class="flex items-center gap-1">
+                    <Button v-if="!isCaseReadOnly(item.status)" variant="ghost" size="icon"
+                        class="h-9 w-9 rounded-full text-muted-foreground active:bg-muted transition-all"
+                        @click="handleArchive(item)" title="归档案件">
+                        <Archive class="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon"
+                        :disabled="isCaseReadOnly(item.status)"
+                        class="h-9 w-9 rounded-full text-destructive/50 active:bg-destructive/10 transition-all"
+                        @click="emit('delete', item.id)">
+                        <Trash2 class="h-4 w-4" />
+                    </Button>
+                </div>
                 <NuxtLink :to="`/dashboard/cases/${item.id}`">
                     <Button variant="link" size="sm"
                         class="h-9 p-0 text-muted-foreground active:text-primary font-bold hover:no-underline transition-colors flex items-center gap-1.5 group/btn">
@@ -64,11 +69,27 @@
                 </NuxtLink>
             </div>
         </div>
+
+        <!-- 归档确认弹框 -->
+        <Dialog v-model:open="showArchiveDialog">
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>确认归档</DialogTitle>
+                    <DialogDescription>归档后案件将变为只读，无法编辑、分析或写入记忆。此操作不可恢复。</DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" @click="showArchiveDialog = false">取消</Button>
+                    <Button variant="destructive" :disabled="archiving" @click="confirmArchive">确认归档</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     </div>
 </template>
 
 <script lang="ts" setup>
-import { Trash2, ArrowRight } from "lucide-vue-next";
+import { Trash2, ArrowRight, Archive } from "lucide-vue-next";
+import { toast } from "vue-sonner";
+import { CaseStatus, isCaseReadOnly } from "#shared/types/case";
 
 // ==================== 类型定义 ====================
 
@@ -108,6 +129,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     delete: [id: number];
+    archived: [id: number];
 }>();
 
 // ==================== Composables ====================
@@ -122,21 +144,33 @@ const getCaseTypeName = (typeId: number | null): string => {
     return type?.name ?? "未知类型";
 };
 
-const getStatusText = (status: number): string => {
-    switch (status) {
-        case 1: return "进行中";
-        case 2: return "已完成";
-        case 3: return "已关闭";
-        default: return "未知";
-    }
-};
+// ==================== 归档逻辑 ====================
 
-const getStatusBadgeClass = (status: number): string => {
-    switch (status) {
-        case 1: return "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400";
-        case 2: return "bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary";
-        case 3: return "bg-muted text-muted-foreground dark:bg-muted/50";
-        default: return "bg-muted text-muted-foreground";
+const showArchiveDialog = ref(false);
+const archiveTargetId = ref<number | null>(null);
+const archiving = ref(false);
+
+function handleArchive(item: { id: number; status: number }) {
+    archiveTargetId.value = item.id;
+    showArchiveDialog.value = true;
+}
+
+async function confirmArchive() {
+    if (!archiveTargetId.value || archiving.value) return;
+    archiving.value = true;
+    try {
+        const result = await useApiFetch(`/api/v1/case/${archiveTargetId.value}`, {
+            method: "PATCH",
+            body: { status: CaseStatus.ARCHIVED },
+        });
+        if (result !== null) {
+            toast.success("案件已归档");
+            emit("archived", archiveTargetId.value);
+            showArchiveDialog.value = false;
+            archiveTargetId.value = null;
+        }
+    } finally {
+        archiving.value = false;
     }
-};
+}
 </script>
