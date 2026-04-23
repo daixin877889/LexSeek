@@ -21,7 +21,7 @@ const COMMENT_BLOCK_RE = /<w:comment\s([^>]*)>([\s\S]*?)<\/w:comment>/g
 function extractAttr(attrs: string, name: string): string | null {
     const re = new RegExp(`w:${name}="([^"]*)"`)
     const m = re.exec(attrs)
-    return m ? m[1] : null
+    return m ? (m[1] ?? null) : null
 }
 
 // 提取段落内所有 <w:t> 文本，多段用 \n 分隔
@@ -34,7 +34,7 @@ function extractContent(inner: string): string {
         const parts: string[] = []
         let tm: RegExpExecArray | null
         while ((tm = tRe.exec(pm[0])) !== null) {
-            parts.push(tm[1])
+            parts.push(tm[1] ?? '')
         }
         paragraphs.push(parts.join(''))
     }
@@ -66,8 +66,8 @@ export async function parseWordComments(docxBuffer: Buffer): Promise<ParsedWordC
     COMMENT_BLOCK_RE.lastIndex = 0
     let m: RegExpExecArray | null
     while ((m = COMMENT_BLOCK_RE.exec(xml)) !== null) {
-        const attrs = m[1]
-        const inner = m[2]
+        const attrs = m[1] ?? ''
+        const inner = m[2] ?? ''
 
         const idStr = extractAttr(attrs, 'id')
         if (idStr === null) continue
