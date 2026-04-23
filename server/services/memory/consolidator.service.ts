@@ -7,6 +7,26 @@ import { getCheckpointer } from '~~/server/services/workflow/checkpointer'
 const DEBOUNCE_MS = 30 * 1000
 const QUEUE_KEY = 'consolidator:due'
 
+interface LangGraphMessage {
+  getType(): string
+  content: string | unknown
+}
+
+const extractionSchema = z.object({
+  facts: z.array(z.object({
+    subjectKey: z.string(),
+    text: z.string(),
+    confidence: z.number().min(0).max(1),
+  })),
+  preferences: z.array(z.object({
+    text: z.string(),
+    confidence: z.number().min(0).max(1),
+  })),
+  dialogueNotes: z.array(z.object({ text: z.string() })),
+})
+
+type Extracted = z.infer<typeof extractionSchema>
+
 export async function scheduleConsolidation(params: {
   caseId: number
   sessionId: string
@@ -35,61 +55,56 @@ export async function consolidateSession(sessionId: string): Promise<void> {
     const messages = await loadRecentAgentMessages(sessionId, 20)
     if (messages.length === 0) return
 
-    const haiku = createChatModel({
-      sdkType: 'anthropic',
-      modelName: 'claude-haiku-4-5-20251001',
-      apiKey: process.env.ANTHROPIC_API_KEY!,
-      streaming: false,
-      temperature: 0,
-    })
-
-    const schema = z.object({
-      facts: z.array(z.object({
-        subjectKey: z.string(),
-        text: z.string(),
-        confidence: z.number().min(0).max(1),
-      })),
-      preferences: z.array(z.object({
-        text: z.string(),
-        confidence: z.number().min(0).max(1),
-      })),
-      dialogueNotes: z.array(z.object({ text: z.string() })),
-    })
-
-    const extractPrompt = buildExtractPrompt(messages)
-    const extracted = await haiku.withStructuredOutput(schema).invoke(extractPrompt)
-
-    for (const f of extracted.facts) {
-      if (f.confidence < 0.6) continue
-      await writeMemoryService({
-        caseId: session.caseId,
-        kind: 'fact',
-        text: f.text,
-        subjectKey: f.subjectKey,
-        confidence: f.confidence,
-        source: 'consolidator',
-      })
-    }
-    for (const p of extracted.preferences) {
-      if (p.confidence < 0.6) continue
-      await writeMemoryService({
-        caseId: session.caseId,
-        kind: 'preference',
-        text: p.text,
-        confidence: p.confidence,
-        source: 'consolidator',
-      })
-    }
-    for (const n of extracted.dialogueNotes) {
-      await writeMemoryService({
-        caseId: session.caseId,
-        kind: 'dialogue_note',
-        text: n.text,
-        source: 'consolidator',
-      })
-    }
+    const extracted = await extractMemoriesFromMessages(messages)
+    await persistExtracted(session.caseId, extracted)
   } catch (e) {
     logger.warn('consolidator run 失败（best-effort，下轮自动重试）', { sessionId, error: e })
+  }
+}
+
+async function extractMemoriesFromMessages(
+  messages: Array<{ role: string; content: string }>,
+): Promise<Extracted> {
+  const haiku = createChatModel({
+    sdkType: 'anthropic',
+    modelName: 'claude-haiku-4-5-20251001',
+    apiKey: process.env.ANTHROPIC_API_KEY!,
+    streaming: false,
+    temperature: 0,
+  })
+  const extractPrompt = buildExtractPrompt(messages)
+  return haiku.withStructuredOutput(extractionSchema).invoke(extractPrompt)
+}
+
+async function persistExtracted(caseId: number, extracted: Extracted): Promise<void> {
+  for (const f of extracted.facts) {
+    if (f.confidence < 0.6) continue
+    await writeMemoryService({
+      caseId,
+      kind: 'fact',
+      text: f.text,
+      subjectKey: f.subjectKey,
+      confidence: f.confidence,
+      source: 'consolidator',
+    })
+  }
+  for (const p of extracted.preferences) {
+    if (p.confidence < 0.6) continue
+    await writeMemoryService({
+      caseId,
+      kind: 'preference',
+      text: p.text,
+      confidence: p.confidence,
+      source: 'consolidator',
+    })
+  }
+  for (const n of extracted.dialogueNotes) {
+    await writeMemoryService({
+      caseId,
+      kind: 'dialogue_note',
+      text: n.text,
+      source: 'consolidator',
+    })
   }
 }
 
@@ -101,11 +116,12 @@ async function loadRecentAgentMessages(
     const checkpointer = await getCheckpointer()
     const tuple = await checkpointer.getTuple({ configurable: { thread_id: sessionId } })
     if (!tuple) return []
-    const messages: any[] = (tuple.checkpoint.channel_values as any)?.messages ?? []
+    const rawMessages = (tuple.checkpoint.channel_values as Record<string, unknown>)?.messages
+    const messages: LangGraphMessage[] = Array.isArray(rawMessages) ? (rawMessages as LangGraphMessage[]) : []
     return messages
-      .filter((m: any) => m.getType() === 'human' || m.getType() === 'ai')
+      .filter((m) => m.getType() === 'human' || m.getType() === 'ai')
       .slice(-limit)
-      .map((m: any) => ({
+      .map((m) => ({
         role: m.getType(),
         content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
       }))
