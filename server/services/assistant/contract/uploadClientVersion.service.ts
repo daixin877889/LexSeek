@@ -19,6 +19,12 @@ import type {
 import { loadContractFullText } from './docx/loadContractFullText'
 import { segmentClauses } from './docx/clauseSegmenter'
 import { saveContractReviewVersionService } from './contractReviewVersion.service'
+import { diffClauses } from './utils/clauseDiff'
+import { migrateAnchor } from './utils/anchorMigrate'
+import { parseWordComments, type ParsedWordComment } from './docx/wordCommentParser'
+import { parseWordCommentRef } from './utils/wordCommentRef'
+import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
+import { downloadFileService } from '~~/server/services/storage/storage.service'
 
 type UploadEvent =
     | { type: 'progress'; data: UploadVersionProgressData }
@@ -59,11 +65,9 @@ export async function* uploadClientVersionService(params: {
     // ============ Step 2: 解析新上传 docx ============
     let newDocxText: string
     let newClauses: ClauseSnapshotItem[]
+    let newComments: ParsedWordComment[] = []
     try {
-        // loadContractFullText 内部已处理 findOssFileByIdDao 不存在时抛错
         const { fullText } = await loadContractFullText(ossFileId)
-
-        // segmentClauses 返回 normalizedText（\r\n→\n）与 segments 同空间
         const { segments, normalizedText } = await segmentClauses(fullText)
         newDocxText = normalizedText
         newClauses = segments.map((s) => ({
@@ -73,7 +77,16 @@ export async function* uploadClientVersionService(params: {
             offsetEnd: s.offsetEnd,
         }))
 
-        // B2 填充：解析 comments.xml 原始批注（此处预留，不做实现）
+        // 下载 docx Buffer 解析原生 Word 批注；解析失败不阻断主流程，降级为空批注列表
+        try {
+            const ossFile = await findOssFileByIdDao(ossFileId)
+            if (ossFile?.filePath) {
+                const docxBuffer = await downloadFileService(ossFile.filePath)
+                newComments = await parseWordComments(docxBuffer)
+            }
+        } catch {
+            newComments = []
+        }
 
         yield { type: 'progress', data: { step: 'parse', status: 'done' } }
     } catch (e: unknown) {
@@ -82,19 +95,170 @@ export async function* uploadClientVersionService(params: {
         return
     }
 
-    // ============ Step 3: 识别正文差异（B2 填充）============
+    // ============ Step 3: 识别正文差异 + 批注变更 ============
+    const [dbAnnotations, dbRisks, currentVersion] = await Promise.all([
+        prisma.contractAnnotations.findMany({ where: { reviewId: review.id, deletedAt: null } }),
+        prisma.contractRisks.findMany({ where: { reviewId: review.id } }),
+        review.currentVersionId
+            ? prisma.contractReviewVersions.findUnique({
+                where: { id: review.currentVersionId },
+                select: { snapshotData: true },
+            })
+            : Promise.resolve(null),
+    ])
+    const oldClauses: ClauseSnapshotItem[] =
+        ((currentVersion?.snapshotData as { clauses?: ClauseSnapshotItem[] } | null)?.clauses ?? [])
+
+    // 建 annotationId → ParsedWordComment 映射（仅 LEXSEEK 格式）
+    const annById = new Map(dbAnnotations.map((a) => [a.id, a]))
+    const commentByAnnId = new Map<number, ParsedWordComment>()
+    for (const c of newComments) {
+        const ref = parseWordCommentRef(c.wInitials)
+        if (ref && annById.has(ref.annotationId)) {
+            commentByAnnId.set(ref.annotationId, c)
+        }
+    }
+
+    // 客户删除：workspace annotation 在 newComments 里找不到命中
+    const removedAnnIds: number[] = []
+    for (const a of dbAnnotations) {
+        if (!commentByAnnId.has(a.id)) removedAnnIds.push(a.id)
+    }
+
+    // 客户回复：父 comment 命中 LEXSEEK，子 comment 无 LEXSEEK 格式
+    const replies: Array<{ parentAnnId: number; c: ParsedWordComment }> = []
+    for (const c of newComments) {
+        if (c.parentWId == null) continue
+        const parent = newComments.find((p) => p.wId === c.parentWId)
+        if (!parent) continue
+        const parentRef = parseWordCommentRef(parent.wInitials)
+        if (!parentRef) continue
+        if (parseWordCommentRef(c.wInitials)) continue
+        replies.push({ parentAnnId: parentRef.annotationId, c })
+    }
+
+    // 客户新增独立批注：no parent + non-LEXSEEK
+    const newIndependent: ParsedWordComment[] = []
+    for (const c of newComments) {
+        if (c.parentWId != null) continue
+        if (parseWordCommentRef(c.wInitials)) continue
+        newIndependent.push(c)
+    }
+
+    const clauseDiffResult = diffClauses(oldClauses, newClauses)
+    const externalChangeCount = removedAnnIds.length + replies.length + newIndependent.length
+    const clauseModifiedCount = clauseDiffResult.modified.length
+
     yield {
         type: 'progress',
-        data: { step: 'diff', status: 'done', externalChangeCount: 0, clauseModifiedCount: 0 },
+        data: { step: 'diff', status: 'done', externalChangeCount, clauseModifiedCount },
     }
 
     // ============ Step 4: AI 增量审查（B3 填充）============
     yield { type: 'progress', data: { step: 'ai', status: 'done' } }
 
-    // ============ Step 5: 历史批注锚点迁移（B2 填充，无独立事件，归入 merge 前处理）============
-
-    // ============ Step 6: 写工作区 + 新版本快照 ============
+    // ============ Step 5+6: 一次事务写入 + 保存快照 ============
     try {
+        await prisma.$transaction(async (tx) => {
+            // 标记客户删除的批注
+            if (removedAnnIds.length > 0) {
+                await tx.contractAnnotations.updateMany({
+                    where: { id: { in: removedAnnIds } },
+                    data: { removedByClient: true, suppressInExport: true },
+                })
+            }
+
+            // 客户回复：升格为 external annotation
+            for (const { parentAnnId, c } of replies) {
+                const parent = annById.get(parentAnnId)!
+                await tx.contractAnnotations.create({
+                    data: {
+                        reviewId: review.id,
+                        riskId: parent.riskId,
+                        parentAnnotationId: parentAnnId,
+                        authorType: 'external',
+                        authorName: c.wAuthor.replace(/^LS:/, '') || '客户',
+                        content: c.content,
+                    },
+                })
+            }
+
+            // 客户新增独立批注 → external_new risk + external annotation
+            for (const c of newIndependent) {
+                const risk = await tx.contractRisks.create({
+                    data: {
+                        reviewId: review.id,
+                        source: 'external_new',
+                        level: 'medium',
+                        stance: 'balanced',
+                        category: '外部批注',
+                        problem: c.content.slice(0, 100),
+                        anchorQuote: c.content.slice(0, 50),
+                        anchorParagraphIndex: 0,
+                    },
+                })
+                await tx.contractAnnotations.create({
+                    data: {
+                        reviewId: review.id,
+                        riskId: risk.id,
+                        authorType: 'external',
+                        authorName: c.wAuthor.replace(/^LS:/, '') || '客户',
+                        content: c.content,
+                    },
+                })
+            }
+
+            // 锚点迁移：modified / removed / unchanged 三种情况
+            for (const r of dbRisks) {
+                if (r.anchorParagraphIndex == null) continue
+                const isModified = clauseDiffResult.modified.some((m) => m.oldIndex === r.anchorParagraphIndex)
+                const isRemoved = clauseDiffResult.removed.includes(r.anchorParagraphIndex)
+
+                if (isModified || isRemoved) {
+                    const result = migrateAnchor({
+                        oldAnchorQuote: r.anchorQuote ?? '',
+                        oldParagraphIndex: r.anchorParagraphIndex,
+                        newClauses,
+                    })
+                    if (result) {
+                        await tx.contractRisks.update({
+                            where: { id: r.id },
+                            data: {
+                                anchorParagraphIndex: result.newClauseIndex,
+                                anchorCharStart: result.newCharStart,
+                                anchorCharEnd: result.newCharEnd,
+                                anchorQuote: newClauses[result.newClauseIndex]!.text.slice(
+                                    result.newCharStart,
+                                    result.newCharEnd,
+                                ),
+                                ...(r.originalAnchorQuote ? {} : { originalAnchorQuote: r.anchorQuote }),
+                            },
+                        })
+                    } else {
+                        await tx.contractRisks.update({
+                            where: { id: r.id },
+                            data: {
+                                orphaned: true,
+                                ...(r.originalAnchorQuote ? {} : { originalAnchorQuote: r.anchorQuote }),
+                            },
+                        })
+                    }
+                } else {
+                    // unchanged clause：位置可能变化，更新 anchorParagraphIndex
+                    const mapping = clauseDiffResult.unchanged.find(
+                        (u) => u.oldIndex === r.anchorParagraphIndex,
+                    )
+                    if (mapping && mapping.newIndex !== r.anchorParagraphIndex) {
+                        await tx.contractRisks.update({
+                            where: { id: r.id },
+                            data: { anchorParagraphIndex: mapping.newIndex },
+                        })
+                    }
+                }
+            }
+        })
+
+        const summary = `本轮变化：${externalChangeCount} 处外部变更 · ${clauseModifiedCount} 处条款修改 · AI 已重审`
         const newVersion = await saveContractReviewVersionService({
             reviewId: review.id,
             systemLabel: 'client_return',
@@ -108,10 +272,9 @@ export async function* uploadClientVersionService(params: {
             type: 'progress',
             data: { step: 'merge', status: 'done', newVersionId: newVersion.id },
         }
-        // B2/B3 填充具体变更统计；B1 阶段 summary 固定描述
         yield {
             type: 'complete',
-            data: { newVersionId: newVersion.id, summary: '新版本已就绪' },
+            data: { newVersionId: newVersion.id, summary },
         }
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : '合并失败'
