@@ -351,4 +351,40 @@ describe('ContractUploadNewVersionDialog', () => {
         expect(w.find('input[type="file"]').exists()).toBe(true)
         expect(w.findAll('[data-step]').length).toBe(0)
     })
+
+    it('拖拽 .docx 文件触发上传流程', async () => {
+        const w = mount(ContractUploadNewVersionDialog, {
+            props: { open: true, reviewId: 1 },
+            global: { stubs },
+        })
+        const dropzone = w.find('[data-testid="dropzone"]')
+        expect(dropzone.exists()).toBe(true)
+
+        const file = makeDocxFile('drag-test.docx')
+        const dataTransfer = { files: [file], items: [], types: ['Files'] }
+        await dropzone.trigger('drop', { dataTransfer })
+        await nextTick()
+
+        // 文件应被接受且显示在 UI 中
+        expect(w.text()).toContain('drag-test.docx')
+        expect(findButton(w, '上传')).toBeTruthy()
+    })
+
+    it('拖拽非 docx 文件被拒绝', async () => {
+        const w = mount(ContractUploadNewVersionDialog, {
+            props: { open: true, reviewId: 1 },
+            global: { stubs },
+        })
+        const dropzone = w.find('[data-testid="dropzone"]')
+
+        const txtFile = new File(['x'], 'test.txt', { type: 'text/plain' })
+        const dataTransfer = { files: [txtFile], items: [], types: ['Files'] }
+        await dropzone.trigger('drop', { dataTransfer })
+        await nextTick()
+
+        // toast.warning 应被调用
+        expect(mockToast.warning).toHaveBeenCalledWith(expect.stringMatching(/docx/i))
+        // 文件不应被显示
+        expect(w.text()).not.toContain('test.txt')
+    })
 })

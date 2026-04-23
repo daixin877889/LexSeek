@@ -46,6 +46,9 @@ const uploadDone = computed(() => sseState.value?.done.value ?? false)
 const uploadResult = computed(() => sseState.value?.result.value ?? null)
 const uploadError = computed(() => sseState.value?.error.value ?? null)
 
+// 拖拽状态
+const isDragging = ref(false)
+
 // 关闭时重置
 watch(() => props.open, (v) => {
     if (!v) resetState()
@@ -56,12 +59,10 @@ function resetState() {
     ossUploading.value = false
     ossProgress.value = 0
     sseState.value = null
+    isDragging.value = false
 }
 
-function handleFileChange(e: Event) {
-    const file = (e.target as HTMLInputElement).files?.[0]
-    if (fileInputRef.value) fileInputRef.value.value = ''
-    if (!file) return
+function processFile(file: File) {
     if (!file.name.toLowerCase().endsWith('.docx')) {
         toast.warning('仅支持 .docx 文件')
         return
@@ -71,6 +72,20 @@ function handleFileChange(e: Event) {
         return
     }
     selectedFile.value = file
+}
+
+function handleFileChange(e: Event) {
+    const file = (e.target as HTMLInputElement).files?.[0]
+    if (fileInputRef.value) fileInputRef.value.value = ''
+    if (!file) return
+    processFile(file)
+}
+
+function handleDrop(e: DragEvent) {
+    isDragging.value = false
+    const file = e.dataTransfer?.files?.[0]
+    if (!file) return
+    processFile(file)
 }
 
 const fileStore = useFileStore()
@@ -149,8 +164,17 @@ function stepColorClass(status: StepStatus) {
 
                     <!-- 文件选择区 -->
                     <div
-                        class="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                        data-testid="dropzone"
+                        class="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors"
+                        :class="[
+                            isDragging
+                                ? 'border-primary bg-primary/5'
+                                : 'border-muted-foreground/25 hover:border-primary/50'
+                        ]"
                         @click="fileInputRef?.click()"
+                        @dragover.prevent="isDragging = true"
+                        @dragleave="isDragging = false"
+                        @drop.prevent="handleDrop"
                     >
                         <input
                             ref="fileInputRef"
@@ -168,7 +192,9 @@ function stepColorClass(status: StepStatus) {
                         </template>
                         <template v-else>
                             <UploadIcon class="size-8 mx-auto mb-2 text-muted-foreground" />
-                            <p class="text-sm text-muted-foreground">点击选择 .docx 文件</p>
+                            <p class="text-sm text-muted-foreground">
+                                {{ isDragging ? '释放以上传' : '点击或拖拽 .docx 文件到此处' }}
+                            </p>
                         </template>
                     </div>
                 </div>
