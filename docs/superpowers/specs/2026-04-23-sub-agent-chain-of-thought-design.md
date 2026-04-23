@@ -83,7 +83,7 @@
 | `app/components/ai/SubAgentChainOfThought.vue` | 单个子 Agent 的可视化卡片（折叠 + 步骤 + 状态）；自动收起逻辑与子 thread 取数均**内联**在组件 `<script setup>` 中，不另抽 composable（后续出现第 3 处使用方再抽） |
 | `server/services/sse/agentEventBridge.ts` | 扩展 event payload 字段（向后兼容） |
 
-**说明**：若 `SubAgentChainOfThought.vue` 实际行数超过 **200 行**，把「消息 → Step 映射」的纯函数（`mapMessagesToSteps(messages, isRunning)`）拆成 `app/components/ai/lib/mapMessagesToSteps.ts`；其它逻辑保持内联。
+**说明**：若 `SubAgentChainOfThought.vue` 实际行数超过 **200 行**，把「消息 → Step 映射」的纯函数（`mapMessagesToSteps(messages, isRunning)`）拆成 `app/components/ai/composables/mapMessagesToSteps.ts`（与 `useMessageParser.ts` 同目录，遵循项目现有 `ai/composables/` 惯例）；其它逻辑保持内联。
 
 ### 3.2 现有组件改动
 
@@ -141,7 +141,10 @@
         </ChainOfThoughtSearchResults>
         <AiToolRenderer v-else v-bind="toToolPart(step)" />
       </ChainOfThoughtContent>
-      <ChainOfThoughtContent v-else-if="step.kind === 'conclusion' || step.kind === 'thinking' || step.kind === 'analysis'">
+      <!-- 仅当全文比折叠态摘要更长（hasMore）时才渲染展开区，避免短内容重复 -->
+      <ChainOfThoughtContent
+        v-else-if="step.hasMore && (step.kind === 'conclusion' || step.kind === 'thinking' || step.kind === 'analysis')"
+      >
         <Response :content="step.fullContent" />
       </ChainOfThoughtContent>
     </ChainOfThoughtStep>
@@ -233,7 +236,7 @@
   const activeContent = computed(() => steps.value.find(s => s.isActive)?.raw ?? '')
   const throttledActiveDescription = ref('')
   const updateThrottled = useThrottleFn((text: string) => {
-    throttledActiveDescription.value = truncate(text, 80) // 或全文，看 step.kind
+    throttledActiveDescription.value = truncate(text, 80)   // 固定 80 字折叠摘要（不走全文），避免 Header 行频繁重排
   }, 30, /* trailing */ true)
   watch(activeContent, updateThrottled)
   ```
@@ -300,9 +303,18 @@ onBeforeUnmount(() => { if (autoCloseTimer !== null) clearTimeout(autoCloseTimer
 
 ## 8. 数据流与事件
 
-### 8.1 事件结构扩展（向后兼容）
+### 8.1 事件结构扩展（沿用现有 AgentEvent discriminated union）
 
-在 `shared/types/agentRun.ts` 新增强类型 interface：
+**现有类型体系**（`shared/types/agentRun.ts:20-44`，不要破坏）：
+
+```ts
+export type AgentEvent = AgentStreamEvent | AgentStatusEvent | AgentCustomEvent
+// AgentStreamEvent: { type: 'stream_event', event: 'values'|'messages'|'updates', data }
+// AgentStatusEvent: { type: 'status_change', status, error? }
+// AgentCustomEvent: { type: 'custom_event', name: string, data }
+```
+
+**扩展方式**（只给三种事件类型各加一个可选 `metadata` 字段 + 定义子 Agent 事件命名规范，**不新增 `event` 枚举值**）：
 
 ```ts
 /** 子 Agent 事件专属元数据；仅子 Agent 相关事件携带，主 Agent 事件全空 */
@@ -311,61 +323,88 @@ export interface SubAgentEventMetadata {
   threadId: string           // 子 thread id，如 "{sessionId}_sub_risk_assessment_expert"
   parentToolCallId: string   // 主 Agent 那次 tool_call 的 id，**前端分桶 key**
   messageId?: string         // 子 Agent AIMessage 的 id（callback runId），用于 token 合并
-  delta?: string             // token 增量（仅 event='token' 时携带）
+  delta?: string             // token 增量（仅 sub_agent_token 事件时携带）
 }
 
-// AgentStreamEvent（现有）扩展一个可选 metadata 字段
-export interface AgentStreamEvent {
-  event: 'messages' | 'values' | 'updates' | 'token' | 'status_change' | 'analysis_result_saved' | /* ... */
-  data: unknown
-  metadata?: SubAgentEventMetadata   // 新增
-}
+// 对三种现有 Event 接口各加一个可选字段（不破坏现有消费方）
+export interface AgentStreamEvent  { /* existing */; metadata?: SubAgentEventMetadata }
+export interface AgentStatusEvent  { /* existing */; metadata?: SubAgentEventMetadata }
+export interface AgentCustomEvent  { /* existing */; metadata?: SubAgentEventMetadata }
 ```
 
+**子 Agent 事件落哪个 Event 类型**：
+
+| 子 Agent 场景 | 用哪类 Event | `name` / `event` 取值 | 说明 |
+|---|---|---|---|
+| 每个 token 流入 | `AgentCustomEvent` | `name: 'sub_agent_token'` | `data: undefined`，token 内容在 `metadata.delta` |
+| 工具调用开始 | `AgentCustomEvent` | `name: 'sub_agent_tool_start'` | `data: { innerToolCallId, input (string), cbRunId }` |
+| 工具调用结束 | `AgentCustomEvent` | `name: 'sub_agent_tool_end'` | `data: { cbRunId, output }` |
+| 子 Agent 整体结束 | `AgentStatusEvent` | `status: 'completed'` / `'failed'` | 复用现有状态通道；通过 `metadata.parentToolCallId` 区分子 vs 主 |
+
 **字段选型说明**：
-- 砍掉 `parentThreadId` —— 前端已持有当前 sessionId，冗余字段
-- `agentName` / `threadId` / `parentToolCallId` / `messageId` / `delta` 共 5 个为分桶 + 消息合并 + token 累积所必需
+- `parentThreadId` 已砍（冗余，前端已持有 sessionId）
+- **必需** 5 个字段：`agentName` / `threadId` / `parentToolCallId` 在所有子 Agent 事件中必须；`messageId` / `delta` 仅 token 事件
 
 **双向兼容**：
-- **旧前端 / 新后端**：旧前端不知道 `metadata` 字段，直接忽略；子 Agent 事件的 `event/data` 现状行为不变（主 thread 看不到子 Agent 消息，与当前行为一致）
-- **新前端 / 旧后端**：旧后端不发 `metadata`，新前端在 §8.2 的 `if (!ev.metadata?.parentToolCallId) return fallthroughToMainThread(ev)` 处回退主 thread 分支
+- **旧前端 / 新后端**：旧前端不知道 `metadata` 字段，直接忽略；`sub_agent_*` 这类新 name 在旧前端的 `AgentCustomEvent` switch-case 走 default 分支，不报错
+- **新前端 / 旧后端**：旧后端不发 `sub_agent_*` 事件、也不带 metadata，新前端在 §8.2 判 `if (!ev.metadata?.parentToolCallId) return fallthroughToMainThread(ev)` 回退主 thread 分支
+- 说明：双向兼容非用户显式需求，仅作部署安全基线
 
 ### 8.2 前端分桶
 
+`subThreadsMap` 状态和 `mergeEventIntoBucket` 函数都**内联在 `app/composables/useStreamChat.ts`** 里（不单独抽文件；作为 useStreamChat 返回值的一部分暴露）：
+
 ```ts
-// useStreamChat.ts（伪代码）
+// useStreamChat.ts（伪代码，在现有 transport 构造之后、onCustomEvent/onStreamEvent 回调里）
 const subThreadsMap = reactive<Record<string /*parentToolCallId*/, SubThreadState>>({})
 
-onSseEvent(ev => {
-  if (!ev.metadata?.parentToolCallId) return fallthroughToMainThread(ev)
+function mergeEventIntoBucket(bucket: SubThreadState, ev: AgentEvent) {
+  // 三类处理：
+  //   AgentCustomEvent name='sub_agent_token'     → 按 messageId 累积 content
+  //   AgentCustomEvent name='sub_agent_tool_start' → 建 tool_call step，记 cbRunId→innerToolCallId 映射
+  //   AgentCustomEvent name='sub_agent_tool_end'   → 用 cbRunId 回查映射，挂结果到对应 step
+  //   AgentStatusEvent status='completed'/'failed' → 翻 bucket.status
+}
+
+// 统一入口（来自 FetchStreamTransport / SSE 消费）
+function handleAgentEvent(ev: AgentEvent) {
+  if (!ev.metadata?.parentToolCallId) return   // 落回主 thread 现有路径
   const md = ev.metadata
 
   const bucket = subThreadsMap[md.parentToolCallId] ??= {
     agentName: md.agentName, threadId: md.threadId, messages: [], status: 'running',
+    runIdToInnerToolCallId: new Map<string, string>(),
   }
-  mergeEventIntoBucket(bucket, ev)   // 按 messageId / tool_call_id 合并
-})
+  mergeEventIntoBucket(bucket, ev)
+}
 ```
+
+> 实现位置：`useStreamChat.ts` 在当前 143 行基础上增加约 50 行。`SubThreadState` 类型定义放同文件，不单独抽。
 
 ### 8.3 恢复路径
 
-页面刷新 / 断线重连时，`chat.post.ts` 的 `loadHistory` 分支在返回主 thread 的 `initialValues` 同时，增加调用 `loadSubAgentThreads(sessionId, mainMessages)` → 把 `Record<parentToolCallId, SubThreadState>` 一并返回，前端初始化灌入 `subThreadsMap`。
+页面刷新 / 断线重连时，`server/api/v1/case/analysis/chat.post.ts`（~L113-126 的取历史分支）在现有 `getThreadValuesService(sessionId)` 拿到主 thread 状态之后，**额外调用** `loadSubAgentThreads(sessionId, mainMessages)` → 把 `Record<parentToolCallId, SubThreadState>` 挂在响应体里返回，前端初始化灌入 `subThreadsMap`。
 
-`loadSubAgentThreads` 现有函数位置：`server/services/workflow/agents/threadState.ts:120-176`。
+- 主 thread 加载：`threadState.ts:77-88` 的 `getThreadValuesService`（现有）
+- 子 thread 加载：`threadState.ts:120-176` 的 `loadSubAgentThreads`（现有，直接调用无需新建）
+- 现有响应结构加字段即可：`{ initialValues, subThreads?: Record<string, SubThreadState> }`
 
 ## 9. 子 Agent 服务端回调接入
 
 ### 9.1 获取 toolCallId
-LangChain `tool()` 的函数第二参是 `ToolRunnableConfig`（`@langchain/core/dist/tools/types.d.ts:78-80`），其中 `toolCall?: ToolCall`。**扩展当前 `subAgentToolFactory.ts:141` 的 handler 签名从 `async (input) =>` 到 `async (input, config) =>`**，取 `config?.toolCall?.id` 作为 `parentToolCallId`。不在 `SubAgentToolContext` 类型中新增字段（避免双重记账）。
+LangChain `tool()` 的函数第二参是 `ToolRunnableConfig`（`@langchain/core/dist/tools/types.d.ts:78-80`），其中 `toolCall?: ToolCall`。**扩展当前 `subAgentToolFactory.ts:141` 的 handler 签名从 `async (input) =>` 到 `async (input, cfg) =>`**（取名 `cfg` 避免与外层 NodeConfig 命名冲突），取 `cfg?.toolCall?.id` 作为 `parentToolCallId`。不在 `SubAgentToolContext` 类型中新增字段（避免双重记账）。
+
+另外：主 Agent 的 `runId`（即 `agentRuns.id`）仍通过 `context.runId` 由 `SubAgentToolContext` 透传进来（供 `publishAgentEvent.runId` 使用），此字段不是 tool_call_id，不冲突。
 
 ### 9.2 callbacks 签名（已按 `@langchain/core` 官方文档核对）
 
 ```ts
 // subAgentToolFactory.ts 伪代码片段
 const subAgentTool = tool(
-  async (input: { question: string }, config): Promise<string> => {
-    const parentToolCallId = config?.toolCall?.id
-    const runId = context.runId    // 主 Agent run id，仍通过 context 透传
+  async (input: { question: string }, cfg): Promise<string> => {
+    const parentToolCallId = cfg?.toolCall?.id
+    const mainRunId = context.runId    // 主 Agent run id（agentRuns.id），通过 context 透传
+    const nodeConfig = config          // 外层闭包：NodeConfig，命名区别于 cfg
     // ... 其它初始化
 
     const result = await agent.invoke(
@@ -376,49 +415,64 @@ const subAgentTool = tool(
         callbacks: [{
           // 官方签名：(token, idx, runId, parentRunId?, tags?, fields?)
           handleLLMNewToken(token, _idx, cbRunId, _parentRunId) {
-            publishAgentEvent(runId, {
-              event: 'token',
+            // 注意：外层闭包 `config` 是 NodeConfig（subAgentToolFactory 入参），
+            // 与本 handler 上方 async (input, config) 参数里的 RunnableConfig 不同名冲突，
+            // 上面已用 `cfg` 命名避免冲突（见下方说明）
+            publishAgentEvent({
+              type: 'custom_event',
+              runId: mainRunId,
+              sessionId: context.sessionId,
+              name: 'sub_agent_token',
               data: undefined,
               metadata: {
-                // 注意：这里的 config 是外层闭包捕获的 NodeConfig（subAgentToolFactory 入参），
-                // 不是 tool() 的 RunnableConfig 参数，勿与上面 async (input, config) 的 config 混淆
-                agentName: config.name,
+                agentName: nodeConfig.name,
                 threadId: subThreadId,
                 parentToolCallId: parentToolCallId ?? '',
-                messageId: cbRunId,         // ← 用 runId 作为 messageId
+                messageId: cbRunId,
                 delta: token,
               },
             })
           },
 
           // 官方签名：(tool, input, runId, parentRunId?, tags?, metadata?, runName?, toolCallId?)
-          // 注意：toolCallId 是第 8 参（子 Agent 内部 tool_call 的 id，不是外层的 parentToolCallId）
+          // 第 2 参 input 是 **string**（LangChain 内部已 JSON.stringify 过），前端要 JSON.parse 才能得到 args 对象
+          // 第 8 参 toolCallId 是子 Agent 内部 tool_call 的 id，前端用它建立与 tool_end 的关联
           handleToolStart(_tool, input, cbRunId, _parentRunId, _tags, _metadata, _runName, innerToolCallId) {
-            publishAgentEvent(runId, {
-              event: 'messages',
-              data: { type: 'tool_call_start', innerToolCallId, input, runId: cbRunId },
-              metadata: { agentName: config.name, threadId: subThreadId, parentToolCallId: parentToolCallId ?? '' },
+            publishAgentEvent({
+              type: 'custom_event',
+              runId: mainRunId,
+              sessionId: context.sessionId,
+              name: 'sub_agent_tool_start',
+              data: { innerToolCallId, input /* string */, cbRunId },
+              metadata: { agentName: nodeConfig.name, threadId: subThreadId, parentToolCallId: parentToolCallId ?? '' },
             })
           },
 
           // 官方签名：(output, runId, parentRunId?, tags?)
-          // 注意：handleToolEnd 拿不到 toolCallId，需前端自己维护 runId → innerToolCallId 映射表
+          // 拿不到 toolCallId，前端用 cbRunId 回查 sub_agent_tool_start 阶段建立的映射表
           handleToolEnd(output, cbRunId) {
-            publishAgentEvent(runId, {
-              event: 'messages',
-              data: { type: 'tool_call_end', runId: cbRunId, output },
-              metadata: { agentName: config.name, threadId: subThreadId, parentToolCallId: parentToolCallId ?? '' },
+            publishAgentEvent({
+              type: 'custom_event',
+              runId: mainRunId,
+              sessionId: context.sessionId,
+              name: 'sub_agent_tool_end',
+              data: { cbRunId, output },
+              metadata: { agentName: nodeConfig.name, threadId: subThreadId, parentToolCallId: parentToolCallId ?? '' },
             })
           },
 
           // 官方签名：(outputs, runId, parentRunId?, tags?, kwargs?)
-          // 仅当 cbRunId === agent 本体 root runId 时视为子 Agent 结束
-          handleChainEnd(_outputs, cbRunId, cbParentRunId) {
+          // root chain end 判定：`cbParentRunId === undefined`。在 `agent.invoke(..., { callbacks: [...] })`
+          // 场景下，LangChain 通过 CallbackManager.configure 新建 manager，root chain 的 parentRunId 确为 undefined；
+          // langgraph 内部节点/边的 chainEnd 都有 parentRunId 指向 root，因此此判定可靠。
+          handleChainEnd(_outputs, _cbRunId, cbParentRunId) {
             if (cbParentRunId !== undefined) return   // 非 root，跳过
-            publishAgentEvent(runId, {
-              event: 'status_change',
-              data: { status: 'completed' },
-              metadata: { agentName: config.name, threadId: subThreadId, parentToolCallId: parentToolCallId ?? '' },
+            publishAgentEvent({
+              type: 'status_change',
+              runId: mainRunId,
+              sessionId: context.sessionId,
+              status: 'completed',
+              metadata: { agentName: nodeConfig.name, threadId: subThreadId, parentToolCallId: parentToolCallId ?? '' },
             })
           },
         }],
@@ -453,16 +507,20 @@ const subAgentTool = tool(
 
 **为什么语义色不用 `primary`**：项目切换到 Violet / Green / Rose 主题时 `--primary` 会变色，会让「思考 Step 是什么颜色」变得不确定。所以把语义色做成"固定色板 + 深浅模式变体"，只有**文字/底色/边框**跟主题走。
 
-### 10.2 语义色映射（固定）
+### 10.2 语义色系（固定色系 + 必须配 dark 变体）
 
-| 语义 | icon 色 | 徽章底色 | 深色模式 icon | 深色徽章底 |
-|---|---|---|---|---|
-| 思考（thinking） | `text-violet-600` | `bg-violet-500/10` | `dark:text-violet-400` | `dark:bg-violet-500/15` |
-| 分析（content text） | `text-blue-600` | `bg-blue-500/10` | `dark:text-blue-400` | `dark:bg-blue-500/15` |
-| 调用工具（tool_call） | `text-amber-600` | `bg-amber-500/10` | `dark:text-amber-400` | `dark:bg-amber-500/15` |
-| 得出结论（conclusion） | `text-emerald-600` | `bg-emerald-500/10` | `dark:text-emerald-400` | `dark:bg-emerald-500/15` |
-| 失败（failed） | `text-destructive` | `bg-destructive/10` | — | — |
-| 进行中（active） | 在上述语义色基础上附加 `animate-pulse` | — | — | — |
+| 语义 | 固定色系 | 说明 |
+|---|---|---|
+| 思考（thinking） | **violet** | icon + 底色，含 `dark:` 变体 |
+| 分析（content text） | **blue** | 同上 |
+| 调用工具（tool_call） | **amber** | 同上 |
+| 得出结论（conclusion） | **emerald** | 同上 |
+| 失败（failed） | `text-destructive` / `bg-destructive/10` | shadcn token，跟随主题 |
+| 进行中（active） | 在上述语义色基础上附加 `animate-pulse` | — |
+
+**实现阶段细化取值**（具体 `-600 / -400 / /10 / /15` 等 Tailwind token 在 writing-plans / 编码时定稿），参考样板：
+- `app/components/ai/AiChatQueueChips.vue`（amber 语义 light/dark 双色完整样例）
+- `app/components/ai-elements/commit/CommitFileStatus.vue`（多语义色切换样例）
 
 ### 10.3 铁律
 
@@ -486,29 +544,21 @@ const subAgentTool = tool(
 
 | 风险 | 缓解 |
 |---|---|
-| 虚拟列表（`AiMessageListVirtual.vue`）对动态高度卡片测量不准 | 在 SubAgentChainOfThought 外层包 `<AiElementsMessage>` / 现有消息容器，使用现有 item 高度感知方式；落地时重点回归"卡片展开/收起时虚拟列表抖动"场景 |
-| 子 Agent 失败或抛异常导致 SSE 流中断，前端卡在 `running` | 子 Agent 工厂 catch 分支显式 `publishAgentEvent({ event: 'status_change', data: { status: 'failed', reason } })`，前端收到后翻 `isFailed=true` + 取出 reason 显示到 Header 徽章 |
+| 子 Agent 失败或抛异常导致 SSE 流中断，前端卡在 `running` | 子 Agent 工厂 catch 分支显式 publish `AgentStatusEvent{ status:'failed', error, metadata }`；前端收到后翻 `isFailed=true` + 取出 error 显示到 Header 徽章 |
 | 并发子 Agent 同时流式时渲染压力 | 已在渲染层做 30ms throttle（含 `trailing=true`）；必要时把非 active 子 Agent 的 content 字符串改为浅层 ref（减少响应式开销） |
-| `parentToolCallId` 在 handleToolEnd 拿不到（LangChain callbacks 签名限制） | 前端 `mergeEventIntoBucket` 维护 `cbRunId → innerToolCallId` 映射表：handleToolStart 记录，handleToolEnd 回查；单测覆盖"同一子 Agent 内连续调多个工具"场景 |
+
+> 已下沉到「测试 / 实施阶段」的常规项不再列入风险：虚拟列表高度测量（E2E 回归必查）、`cbRunId → innerToolCallId` 映射竞态（单测覆盖）。
 
 ## 13. 测试策略
 
 - **单测**：
   - `mapMessagesToSteps` 纯函数：典型消息数组（纯 thinking / thinking+content / 多 tool_call / ToolMessage 后接 AI / 中途失败）的映射正确性
   - 组件内 auto-collapse 时序：streaming 边沿 true→false 1s 后收起；用户中途点开后 timer 不再收起；失败态不触发 auto-close
-  - `subThreadsMap` 分桶 + token 合并：同 parentToolCallId 多事件累积 / 不同 parentToolCallId 隔离 / cbRunId→innerToolCallId 映射在 handleToolEnd 回查
+  - `subThreadsMap` 分桶 reducer：覆盖单桶累积 + 多桶隔离 + tool_end 通过 cbRunId 正确关联回 tool_call Step
 
 - **E2E（手工，3 条核心路径）**：
   - 路径 A：单子 Agent 流式 + 结束 1s 自动收起 + 点开历史看完整思考链
   - 路径 B：用户中途点开卡片 + 结束后不被 auto-close 收起
   - 路径 C：刷新页面后子 Agent 历史完整回放（验证 loadSubAgentThreads 路径）
 
-## 14. 铁律清单（编码时逐条核验）
-
-- [ ] 子 Agent 返回值继续用 `invoke` + `result.messages` 末尾取 AI，禁止让 stream 兼任返回值来源（教训记忆：`feedback_subagent_stream_pitfall.md`）
-- [ ] `useMessageParser` 过滤规则不改
-- [ ] 不修改 `app/components/ai-elements/**` 源文件，通过 slot + 外层状态实现差异化
-- [ ] 图标全部 `lucide-vue-next`，禁用 emoji
-- [ ] throttle 仅作用于 UI 渲染层（active step description），数据层每 token 累积
-- [ ] SSE 事件新增字段**只增不改**，保持向后兼容
-- [ ] 虚拟列表高度测量在卡片展开/收起时的回归测试必过
+<!-- §14 原铁律清单已删除：7 条均为其它章节的复读，冗余。编码时请核验各章节嵌入的「铁律」「约束」小段即可（§2 核心铁律 / §3.3 约束 / §5 / §8.1 双向兼容 / §9.3 / §10.3）。 -->
