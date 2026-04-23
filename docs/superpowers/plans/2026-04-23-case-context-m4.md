@@ -30,7 +30,9 @@
 
 ### 修改
 - `prisma/models/case.prisma` — `caseAnalyses` +`summary`；新增 `caseAnalysisEmbeddings` model
-- `server/services/retrieval/types.ts` — `ALLOWED_TABLES` 加 `case_analysis_embeddings`
+- `server/services/retrieval/types.ts` — `ALLOWED_TABLES` 加 `case_analysis_embeddings`；`RetrievalRequest.type` 加 `'case_analysis'`
+- `server/services/retrieval/hybridSearch.service.ts` — tableNameMap/extractDocId/reciprocalRankFusion 加 `'case_analysis'` 支持
+- `server/services/memory/retrieveWithReranking.ts` — typeMap 加 `case_analysis_embeddings: 'case_analysis'`
 - `server/services/case/initAnalysis.service.ts`（或 `caseAnalysisPersistence.middleware`）— 模块分析完成时生成 summary + embedding
 - `server/services/case/analysis.service.ts:583` — `switchActiveVersionService` 同步 metadata.isActive
 - `server/services/workflow/context/moduleContextBuilder.ts` — `moduleSummaries` 段只取 active 版本的 `caseAnalyses.summary`
@@ -135,12 +137,14 @@ spec §4.1"
 
 ---
 
-## Task 2: `ALLOWED_TABLES` 注册
+## Task 2: `ALLOWED_TABLES` 注册 + 检索路径扩展（`hybridSearch` / `retrieveWithReranking`）
 
 **Files:**
 - Modify: `server/services/retrieval/types.ts`
+- Modify: `server/services/retrieval/hybridSearch.service.ts`
+- Modify: `server/services/memory/retrieveWithReranking.ts`
 
-- [ ] **Step 1: 加到白名单**
+- [ ] **Step 1: 扩展 `types.ts`**
 
 编辑 `server/services/retrieval/types.ts`：
 
@@ -151,15 +155,108 @@ export const ALLOWED_TABLES = new Set<string>([
   'case_memories',             // Phase 2 已加
   'case_analysis_embeddings',  // Phase 3 新加
 ])
+
+// RetrievalRequest.type 加 'case_analysis'（对应 case_analysis_embeddings 表）
+export interface RetrievalRequest {
+  query: string
+  type: 'law' | 'case_material' | 'case_memory' | 'case_analysis'
+  k: number
+  metadataFilter?: Record<string, string | number | boolean>
+  sourceIds?: string[]
+  postFilters?: PostFilters
+}
 ```
 
-- [ ] **Step 2: Commit**
+> 注意：只修改 `type` 联合类型，其余字段保持不变。
+
+- [ ] **Step 2: 扩展 `hybridSearch.service.ts`**
+
+编辑 `server/services/retrieval/hybridSearch.service.ts`，修改三处：
+
+```ts
+// 1. extractDocId：加 'case_analysis' 分支
+export function extractDocId(
+  item: SearchResultItem,
+  type: 'law' | 'case_material' | 'case_memory' | 'case_analysis',
+): string {
+  if (type === 'law') {
+    return (item.metadata.articles_id as string) || `${item.content.slice(0, 50)}`
+  }
+  if (type === 'case_memory') {
+    const m = item.metadata as any
+    return m?.id ?? (m?.subjectKey ? `${m.caseId}_${m.subjectKey}` : item.content.slice(0, 50))
+  }
+  if (type === 'case_analysis') {
+    // 同 analysisId + chunkIndex 去重（同一份分析的同一块不重复）
+    const m = item.metadata as any
+    return m?.id ?? (m?.analysisId != null ? `${m.analysisId}_${m.chunkIndex ?? 0}` : item.content.slice(0, 50))
+  }
+  return `${item.metadata.sourceId}_${item.metadata.chunkIndex ?? 0}`
+}
+
+// 2. reciprocalRankFusion：type 参数扩展
+export function reciprocalRankFusion(
+  bm25Results: SearchResultItem[],
+  vectorResults: SearchResultItem[],
+  type: 'law' | 'case_material' | 'case_memory' | 'case_analysis',
+  k: number = 60,
+): SearchResultItem[] {
+  // 实现不变，只扩展 type 参数 union
+  ...
+}
+
+// 3. hybridSearchService：tableNameMap 加 case_analysis
+export async function hybridSearchService(
+  intent: IntentClassification,
+  request: RetrievalRequest,
+): Promise<SearchResultItem[]> {
+  const tableNameMap: Record<string, string> = {
+    law: 'law_embeddings',
+    case_material: 'case_material_embeddings',
+    case_memory: 'case_memories',
+    case_analysis: 'case_analysis_embeddings',  // M4 新增
+  }
+  const tableName = tableNameMap[request.type] ?? 'case_material_embeddings'
+  ...
+  return reciprocalRankFusion(bm25Results, vectorResults, request.type)
+}
+```
+
+- [ ] **Step 3: 扩展 `retrieveWithReranking.ts` typeMap**
+
+编辑 `server/services/memory/retrieveWithReranking.ts`，修改 typeMap：
+
+```ts
+// tableName → RetrievalRequest.type 映射
+const typeMap: Record<string, 'law' | 'case_material' | 'case_memory' | 'case_analysis'> = {
+  law_embeddings: 'law',
+  case_memories: 'case_memory',
+  case_analysis_embeddings: 'case_analysis',  // M4 新增
+}
+const request: RetrievalRequest = {
+  type: typeMap[tableName] ?? 'case_material',
+  query,
+  k: topK * 3,
+  metadataFilter,
+}
+```
+
+- [ ] **Step 4: 类型检查**
+
+Run: `npx nuxi typecheck 2>&1 | grep -i "retrieval\|hybridSearch\|RetrievalRequest" | head -10`
+Expected: 无错。
+
+- [ ] **Step 5: Commit**
 
 ```bash
-git add server/services/retrieval/types.ts
-git commit -m "feat(retrieval): ALLOWED_TABLES 加 case_analysis_embeddings
+git add server/services/retrieval/types.ts server/services/retrieval/hybridSearch.service.ts server/services/memory/retrieveWithReranking.ts
+git commit -m "feat(retrieval): 检索路径支持 case_analysis_embeddings 表
 
-允许 hybridSearchService 查询该表；供 Task 4 的 search_case_analysis 工具用"
+- RetrievalRequest.type 加 'case_analysis'
+- hybridSearchService tableNameMap: case_analysis → case_analysis_embeddings
+- extractDocId/reciprocalRankFusion 扩展 'case_analysis' 类型（分析 id+chunkIndex 去重）
+- retrieveWithReranking typeMap: case_analysis_embeddings → 'case_analysis'
+spec §4"
 ```
 
 ---
@@ -181,13 +278,11 @@ Create `tests/server/caseAnalysis.rag.test.ts`:
 
 ```ts
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import prisma from '~~/server/utils/prisma'
+import { prisma } from '~~/server/utils/db'
 
-// Mock 主模型 + embedding
-vi.mock('~~/server/services/node/chatModelFactory', () => ({
-  createChatModel: vi.fn(() => ({
-    invoke: vi.fn().mockResolvedValue({ content: '风险等级：中高。依据：违约条款明确，证据链完整。' }),
-  })),
+// Mock generateSummaryService（不 mock 底层模型，直接控制摘要输出）
+vi.mock('~~/server/services/ai/summaryService', () => ({
+  generateSummaryService: vi.fn().mockResolvedValue('风险等级：中高。依据：违约条款明确，证据链完整。'),
 }))
 vi.mock('~~/server/services/legal/vectorStore.service', async (orig) => {
   const actual: any = await orig()
@@ -276,7 +371,7 @@ Expected: 失败（`completeAnalysisWithRAG` 未定义）。
 ```ts
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import crypto from 'node:crypto'
-import { generateSummary } from '../ai/summaryService'
+import { generateSummaryService } from '../ai/summaryService'
 import { addDocumentsToVectorStore } from '../legal/vectorStore.service'
 
 export interface CompleteAnalysisWithRAGInput {
@@ -303,7 +398,7 @@ export async function completeAnalysisWithRAG(input: CompleteAnalysisWithRAGInpu
     })
     if (!existing) throw new Error(`caseAnalyses #${analysisId} not found`)
 
-    const summary = await generateSummary(model, analysisResult, {
+    const summary = await generateSummaryService(model, analysisResult, {
       maxChars: 400,
       systemPrompt: '你是法律助手。对下方分析报告正文生成 200-400 字的中文专业摘要，保留关键事实、结论、依据，不加开场白总结语。',
     })
@@ -338,6 +433,7 @@ export async function completeAnalysisWithRAG(input: CompleteAnalysisWithRAGInpu
     const docs = chunks.map((chunk, i) => ({
       pageContent: chunk,
       metadata: {
+        id: ids[i],              // 铁律：metadata.id 必须存入，供 retrieveWithReranking 取回 MemoryHit.id
         caseId: analysis.caseId,
         analysisId: analysis.id,
         nodeId: analysis.nodeId,
@@ -409,10 +505,11 @@ git add server/services/case/initAnalysis.service.ts tests/server/caseAnalysis.r
 git commit -m "feat(analysis): 模块分析完成同步生成 summary + 事务外写 embedding
 
 - completeAnalysisWithRAG 函数：两阶段
-  Stage 1 (事务内): 主分析 + summary（主模型，400 字）+ 切换 isActive
+  Stage 1 (事务内): 主分析 + summary（generateSummaryService，400 字）+ 切换 isActive
   Stage 2 (事务外): 切块 + addDocumentsToVectorStore + tsv 回填 + 老版本 metadata.isActive=false
 - Stage 2 失败只 warn 不回滚（主分析已 commit，RAG 检索能力降级）
 - splitByParagraph 按 \\n\\n 切块，每块 <= 500 字符
+- metadata.id = chunkUUID（铁律：必须存入供 retrieveWithReranking 取回 MemoryHit.id）
 spec §4.2 Q4.1-A 拍板"
 ```
 
@@ -637,6 +734,7 @@ Create `server/services/workflow/tools/search_case_analysis.tool.ts`:
 import { tool } from '@langchain/core/tools'
 import { z } from 'zod'
 import { retrieveWithReranking } from '../../memory/retrieveWithReranking'
+import type { ToolContext } from './types'  // 复用 tools/types.ts，不重定义
 
 export const toolDefinition = {
   name: 'search_case_analysis',
@@ -649,14 +747,9 @@ export const toolDefinition = {
   }),
 }
 
-export interface ToolContext {
-  caseId: number
-  userId: number
-  sessionId: string
-}
-
 export function createTool(context: ToolContext) {
   return tool(async ({ query, analysis_type, include_all_versions, top_k }) => {
+    if (!context.caseId) return JSON.stringify({ error: '未绑定案件，无法检索分析产物' })
     const metadataFilter: Record<string, string | number | boolean> = { caseId: context.caseId }
     if (analysis_type) metadataFilter.analysisType = analysis_type
     if (!include_all_versions) metadataFilter.isActive = true
@@ -707,6 +800,7 @@ git commit -m "feat(tools): search_case_analysis 工具
 - schema: query + analysis_type? + include_all_versions=false + top_k=5
 - 默认 filter.isActive=true 只返生效版本
 - 复用 retrieveWithReranking（enableVersionScoring=false，用 isActive 过滤替代）
+- ToolContext 从 ./types 导入（不重定义），caseId 加 null check
 - 注册到 toolModules
 spec §4.4"
 ```
@@ -864,11 +958,12 @@ docs/superpowers/plans/
 ## 铁律核验（编码时逐条检查）
 
 - [ ] `case_analysis_embeddings` 严格 LangChain PGVectorStore 同构 schema（同 `case_memories`）
-- [ ] 写入走 `addDocumentsToVectorStore(docs, ids, { tableName })`
-- [ ] 查询走 `hybridSearchService`（表必须在 `ALLOWED_TABLES`）
+- [ ] 写入走 `addDocumentsToVectorStore(docs, ids, { tableName })`，且 **metadata.id = chunk UUID**（铁律：retrieveWithReranking 依赖此字段）
+- [ ] 查询链路完整：`ALLOWED_TABLES` + `RetrievalRequest.type('case_analysis')` + `hybridSearchService` tableNameMap + `retrieveWithReranking` typeMap 四处全部注册
 - [ ] Stage 1（主分析 + summary）事务内；Stage 2（embedding）事务外
 - [ ] `switchActiveVersionService` 在同一事务内同步 caseAnalyses.isActive + embeddings metadata.isActive
 - [ ] 旧分析产物不补 summary / embedding（Q4.3 B）；召回不到不算 bug
-- [ ] `search_case_analysis` 默认 `filter.isActive=true`，`enableVersionScoring=false`
+- [ ] `search_case_analysis` 默认 `filter.isActive=true`，`enableVersionScoring=false`，`ToolContext` 从 `./types` 导入（不重定义）
 - [ ] Migration 幂等 `CREATE TEXT SEARCH CONFIGURATION chinese`
 - [ ] ARCHIVED 案件的分析触发已在 Phase 1 的 `initAnalysis.service` 入口加过守卫（无需在本 Phase 重复）
+- [ ] 测试用 `import { prisma } from '~~/server/utils/db'`；mock `generateSummaryService` 而非 createChatModel
