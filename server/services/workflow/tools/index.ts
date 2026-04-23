@@ -21,6 +21,9 @@ import * as runSkillScriptTool from './runSkillScript.tool'
 import * as writeSkillFileTool from './writeSkillFile.tool'
 import * as uploadWorkspaceFileTool from './uploadWorkspaceFile.tool'
 import * as parseAndAskStanceTool from './parseAndAskStance.tool'
+import * as searchCaseMemoryTool from './search_case_memory.tool'
+import * as writeCaseMemoryTool from './write_case_memory.tool'
+import * as updateCaseMemoryTool from './update_case_memory.tool'
 
 /** 工具模块映射 */
 const toolModules: Record<string, ToolModule> = {
@@ -35,6 +38,9 @@ const toolModules: Record<string, ToolModule> = {
     write_skill_file: writeSkillFileTool,
     upload_workspace_file: uploadWorkspaceFileTool,
     parse_and_ask_stance: parseAndAskStanceTool,
+    search_case_memory: searchCaseMemoryTool,
+    write_case_memory: writeCaseMemoryTool,
+    update_case_memory: updateCaseMemoryTool,
 }
 
 /**
