@@ -121,11 +121,6 @@ vi.mock('~/composables/useContractReviewVersion', () => ({
 
 // ── 通用 stubs ─────────────────────────────────────────────────────────────────
 const stubs = {
-    AssistantContractSourceInput: defineComponent({
-        name: 'AssistantContractSourceInput',
-        emits: ['submit'],
-        setup: () => () => h('div', { 'data-stub': 'SourceInput' }),
-    }),
     AssistantContractStanceSelectionDialog: defineComponent({
         name: 'AssistantContractStanceSelectionDialog',
         props: ['open', 'partyA', 'partyB', 'contractType'],

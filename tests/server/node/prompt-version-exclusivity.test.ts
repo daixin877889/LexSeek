@@ -13,6 +13,7 @@ import * as fc from 'fast-check'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../../../generated/prisma/client'
 import { config } from 'dotenv'
+import { resolve } from 'node:path'
 import {
     createPromptService,
     activatePromptService,
@@ -20,8 +21,8 @@ import {
 import { findActivePromptDao } from '../../../server/services/node/prompt.dao'
 import type { PromptType } from '#shared/types/node'
 
-// 加载环境变量
-config()
+// 加载测试环境变量（强制指向 .env.testing，避免误连生产库）
+config({ path: resolve(__dirname, '../../../.env.testing') })
 
 // 创建测试数据库连接
 const createTestPrisma = () => {

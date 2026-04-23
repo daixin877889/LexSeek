@@ -3,9 +3,8 @@
  * 合同审查主容器（M4 + Phase A 版本管理集成）
  *
  * 职责：组合 useContractReview + useContractReviewVersion + 多个子组件，承载三屏状态机。
- * - Step 1 提交屏：review == null && !isLoading → 居中 ContractSourceInput
- * - Step 2 立场 Dialog（始终挂载；open 受 awaitingStance 驱动，避免条件挂载动画异常）
- * - Step 3 结果屏：左侧时间线 + 中部 DocxPreview + 右侧 RiskListPanel
+ * - Step 1 立场 Dialog（始终挂载；open 受 awaitingStance 驱动，避免条件挂载动画异常）
+ * - Step 2 结果屏：左侧时间线 + 中部 DocxPreview + 右侧 RiskListPanel
  *   - 只读态（历史版本预览）：顶部显示只读横幅；工具栏显示"返回工作区"按钮
  *   - 工作区：工具栏显示"N 处未保存编辑"徽章 + "保存新版本"按钮
  *
@@ -14,7 +13,7 @@
 import { Loader2Icon, SaveIcon, HistoryIcon, UploadIcon, TrendingUpIcon, XIcon } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
 import { useMediaQuery, useLocalStorage } from '@vueuse/core'
-import type { Risk, RiskDisplay, ContractReviewStatus, StanceRequest, CreateReviewRequest, PlaybookSnapshot, RiskArchivedStatus } from '#shared/types/contract'
+import type { Risk, RiskDisplay, ContractReviewStatus, StanceRequest, PlaybookSnapshot, RiskArchivedStatus } from '#shared/types/contract'
 
 // 当前登录用户 id，用于 RiskListPanel 判断"自己创建的批注"（允许删除/修改）
 const userStore = useUserStore()
@@ -40,6 +39,7 @@ const {
     onStance,
     onDownload,
     onExportPdf,
+    isExportingPdf,
     onEditRisks,
     onRebuildDocx,
     isRebuilding,
@@ -203,8 +203,6 @@ const statusLabel = computed(() => {
     }
 })
 
-// 三屏切换：提交屏与结果屏互斥；isLoading 时不闪回提交屏
-const showSourceInput = computed(() => !review.value && !isLoading.value)
 // busy 条：stream 仍在跑 / review 仍在 pending|reviewing；stance confirm 之后
 // review.status 尚未刷新时也应继续显示，防止面板误切到"空闲"观感。
 const showBusy = computed(() => {
@@ -213,15 +211,6 @@ const showBusy = computed(() => {
     const s = review.value?.status
     return s === 'pending' || s === 'reviewing'
 })
-
-function handleSubmit(payload: CreateReviewRequest) {
-    // 把页面层注入的 caseId 合并到创建 payload，后端校验归属后写入 review.caseId
-    const caseId = props.caseId
-    if (caseId && caseId > 0) {
-        return onStart({ ...payload, caseId })
-    }
-    return onStart(payload)
-}
 
 function handleStanceConfirm(payload: StanceRequest) {
     // confirm 会同时触发子组件的 emit('update:open', false)；
@@ -311,21 +300,29 @@ const previewVersionNumber = computed<number | null>(() => {
  *   - 工作区（含 review.currentVersion）→ /reviews/:id/download（走实时 rebuild）
  * 两条路径都返回 { downloadUrl, filename }，前端只负责触发浏览器下载。
  */
+const isDownloading = ref(false)
+
 async function handleDownload() {
-    const previewVid = versioning.previewVersionId.value
-    if (previewVid === null) {
-        await onDownload()
-        return
+    if (isDownloading.value) return
+    isDownloading.value = true
+    try {
+        const previewVid = versioning.previewVersionId.value
+        if (previewVid === null) {
+            await onDownload()
+            return
+        }
+        const resp = await useApiFetch<{ downloadUrl: string; filename: string }>(
+            `/api/v1/assistant/contract/reviews/versions/${previewVid}/download`,
+            { showError: false } as any,
+        )
+        if (!resp?.downloadUrl) {
+            toast.error('历史版本下载失败，请稍后重试')
+            return
+        }
+        triggerBrowserDownloadUrl(resp.downloadUrl, resp.filename)
+    } finally {
+        isDownloading.value = false
     }
-    const resp = await useApiFetch<{ downloadUrl: string; filename: string }>(
-        `/api/v1/assistant/contract/reviews/versions/${previewVid}/download`,
-        { showError: false } as any,
-    )
-    if (!resp?.downloadUrl) {
-        toast.error('历史版本下载失败，请稍后重试')
-        return
-    }
-    triggerBrowserDownloadUrl(resp.downloadUrl, resp.filename)
 }
 
 // 未定位 risk id 集合（由 ContractDocxPreview decorateRisks 完成后上报）
@@ -412,15 +409,7 @@ function handleContainerClick(e: MouseEvent) {
 
 <template>
     <div class="h-full flex flex-col" @click="handleContainerClick">
-        <!-- Step 1 提交屏 -->
-        <div v-if="showSourceInput" class="flex-1 flex items-center justify-center p-6">
-            <div class="w-full max-w-xl">
-                <h1 class="text-xl font-semibold mb-3">提交合同</h1>
-                <AssistantContractSourceInput @submit="handleSubmit" />
-            </div>
-        </div>
-
-        <!-- Step 2 立场 Dialog：始终挂载，open 由 stanceDialogOpen 派生 -->
+        <!-- Step 1 立场 Dialog：始终挂载，open 由 stanceDialogOpen 派生 -->
         <AssistantContractStanceSelectionDialog
             :open="stanceDialogOpen"
             :party-a="awaitingStance?.partyA ?? null"
@@ -431,8 +420,8 @@ function handleContainerClick(e: MouseEvent) {
             @update:open="handleDialogOpenChange"
         />
 
-        <!-- Step 3 结果屏 -->
-        <div v-if="review && !showSourceInput" class="flex-1 min-h-0 flex flex-col">
+        <!-- Step 2 结果屏 -->
+        <div v-if="review" class="flex-1 min-h-0 flex flex-col">
             <!-- 只读横幅：历史版本预览时显示 -->
             <div
                 v-if="versioning.isReadOnly.value"
@@ -567,6 +556,8 @@ function handleContainerClick(e: MouseEvent) {
                                     :summary="review?.summary ?? null"
                                     :is-rebuilding="isRebuilding"
                                     :has-unsaved-docx-changes="hasUnsavedDocxChanges"
+                                    :is-downloading="isDownloading"
+                                    :is-exporting-pdf="isExportingPdf"
                                     :focused-risk-id="focusedRiskId"
                                     :hovered-risk-id="hoveredRiskId"
                                     :pinned-risk-ids="pinnedRiskIds"
@@ -627,13 +618,15 @@ function handleContainerClick(e: MouseEvent) {
                                 :summary="review?.summary ?? null"
                                 :is-rebuilding="isRebuilding"
                                 :has-unsaved-docx-changes="hasUnsavedDocxChanges"
+                                :is-downloading="isDownloading"
+                                :is-exporting-pdf="isExportingPdf"
                                 :focused-risk-id="focusedRiskId"
                                 :hovered-risk-id="hoveredRiskId"
                                 :pinned-risk-ids="pinnedRiskIds"
                                 :not-located-ids="notLocatedIds"
                                 :has-located="hasLocated"
                                 :playbook-snapshot="(review?.playbookSnapshot ?? null) as PlaybookSnapshot | null"
-                                @download="onDownload"
+                                @download="handleDownload"
                                 @rebuild="onRebuildDocx"
                                 @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
                                 @export-pdf="(includeRisks: boolean) => onExportPdf(includeRisks)"

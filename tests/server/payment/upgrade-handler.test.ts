@@ -14,6 +14,7 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../../../generated/prisma/client'
 import { config } from 'dotenv'
+import { resolve } from 'node:path'
 import { OrderStatus, OrderType } from '../../../shared/types/payment'
 import { ProductType } from '../../../shared/types/product'
 import { MembershipStatus, UserMembershipSourceType } from '../../../shared/types/membership'
@@ -21,8 +22,8 @@ import { MembershipStatus, UserMembershipSourceType } from '../../../shared/type
 // 导入被测试的处理器
 import { upgradeHandler } from '../../../server/services/payment/handlers/upgradeHandler'
 
-// 加载环境变量
-config()
+// 加载测试环境变量（强制指向 .env.testing，避免误连生产库）
+config({ path: resolve(__dirname, '../../../.env.testing') })
 
 // 创建测试数据库连接
 const createTestPrisma = () => {

@@ -11,9 +11,10 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../../../generated/prisma/client'
 import { config } from 'dotenv'
+import { resolve } from 'node:path'
 
-// 加载环境变量
-config()
+// 加载测试环境变量（强制指向 .env.testing，避免误连生产库）
+config({ path: resolve(__dirname, '../../../.env.testing') })
 
 // 创建测试数据库连接
 const createTestPrisma = () => {

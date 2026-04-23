@@ -13,9 +13,8 @@ import { PrismaClient } from '../../../generated/prisma/client'
 import { config } from 'dotenv'
 import { resolve } from 'node:path'
 
-// 加载测试环境变量
+// 加载测试环境变量（强制指向 .env.testing，避免误连生产库）
 config({ path: resolve(__dirname, '../../../.env.testing') })
-config()
 
 const createTestPrismaClient = () => {
     const connectionString = process.env.DATABASE_URL

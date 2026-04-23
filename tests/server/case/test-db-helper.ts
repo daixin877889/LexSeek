@@ -11,12 +11,13 @@
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient, Prisma } from '../../../generated/prisma/client'
 import { config } from 'dotenv'
+import { resolve } from 'node:path'
 import { v7 as uuidv7 } from 'uuid'
 import { CaseStatus, SessionStatus, CaseMaterialType } from '../../../shared/types/case'
 import { MaterialStatus } from '../../../shared/types/material'
 
-// 加载环境变量
-config()
+// 加载测试环境变量（强制指向 .env.testing，避免误连生产库）
+config({ path: resolve(__dirname, '../../../.env.testing') })
 
 // 创建 Prisma 客户端实例
 const createTestPrismaClient = () => {

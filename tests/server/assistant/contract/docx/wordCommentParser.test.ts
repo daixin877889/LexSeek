@@ -232,7 +232,7 @@ describe('parseWordComments', () => {
         expect(comments[0].wInitials).toBe('')
     })
 
-    // ============ Phase B：customXml annotationRefs 相关测试 ============
+    // ============ annotationRefsByWId：从 wInitials 派生 ============
 
     it('injectAnnotations 注入后 annotationRefsByWId 非空，wId 正确映射到 annotationId', async () => {
         const original = await readFile(SAMPLE)
@@ -276,12 +276,11 @@ describe('parseWordComments', () => {
         expect(annotationRefsByWId.size).toBe(0)
     })
 
-    it('customXml 中特殊字符 ref 正确 XML 解码', async () => {
+    it('wInitials 中 LEXSEEK ref 从 annotationRefsByWId 正确取回', async () => {
         const original = await readFile(SAMPLE)
         const { paragraphs } = await parseContractDocx(original)
         const maxIdx = paragraphs.length - 1
 
-        // ref 中不含特殊字符，但验证 XML 属性解码路径
         const annotations: ContractAnnotationForExport[] = [
             makeAnnotation({ id: 42, wordCommentRef: 'LEXSEEK-42-abc12345', anchorParagraphIndex: Math.min(1, maxIdx) }),
         ]

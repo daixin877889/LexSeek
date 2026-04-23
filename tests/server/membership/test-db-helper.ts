@@ -11,9 +11,10 @@
 import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient, Prisma } from '../../../generated/prisma/client'
 import { config } from 'dotenv'
+import { resolve } from 'node:path'
 
-// 加载环境变量（vitest.config.ts 已全局配置加载 .env.testing）
-config()
+// 加载测试环境变量（强制指向 .env.testing，避免误连生产库）
+config({ path: resolve(__dirname, '../../../.env.testing') })
 
 // 创建 Prisma 客户端实例（使用 pg 适配器）
 const createTestPrismaClient = () => {

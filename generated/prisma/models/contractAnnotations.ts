@@ -336,6 +336,7 @@ export type contractAnnotationsOrderByWithRelationInput = {
 
 export type contractAnnotationsWhereUniqueInput = Prisma.AtLeast<{
   id?: number
+  wordCommentRef?: string
   AND?: Prisma.contractAnnotationsWhereInput | Prisma.contractAnnotationsWhereInput[]
   OR?: Prisma.contractAnnotationsWhereInput[]
   NOT?: Prisma.contractAnnotationsWhereInput | Prisma.contractAnnotationsWhereInput[]
@@ -349,7 +350,6 @@ export type contractAnnotationsWhereUniqueInput = Prisma.AtLeast<{
   deletedAt?: Prisma.DateTimeNullableFilter<"contractAnnotations"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"contractAnnotations"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"contractAnnotations"> | Date | string
-  wordCommentRef?: Prisma.StringNullableFilter<"contractAnnotations"> | string | null
   removedByClient?: Prisma.BoolFilter<"contractAnnotations"> | boolean
   suppressInExport?: Prisma.BoolFilter<"contractAnnotations"> | boolean
   review?: Prisma.XOR<Prisma.ContractReviewsScalarRelationFilter, Prisma.contractReviewsWhereInput>
@@ -357,7 +357,7 @@ export type contractAnnotationsWhereUniqueInput = Prisma.AtLeast<{
   parentAnnotation?: Prisma.XOR<Prisma.ContractAnnotationsNullableScalarRelationFilter, Prisma.contractAnnotationsWhereInput> | null
   replies?: Prisma.ContractAnnotationsListRelationFilter
   authorUser?: Prisma.XOR<Prisma.UsersNullableScalarRelationFilter, Prisma.usersWhereInput> | null
-}, "id">
+}, "id" | "wordCommentRef">
 
 export type contractAnnotationsOrderByWithAggregationInput = {
   id?: Prisma.SortOrder

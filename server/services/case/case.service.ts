@@ -138,12 +138,15 @@ export const createCaseService = async (
             summary: data.summary ?? '',
             extraFields: data.extractedInfo,
         }
-        saveCaseInfoService(result.caseRecord.id, confirmedData, enabledCaseTypes).catch(error => {
-            logger.error('保存提取结果到长期记忆失败', {
-                error: error instanceof Error ? error.message : String(error),
-                caseId: result.caseRecord.id,
-            })
-        })
+        // M2 废弃：案件基础信息已通过 cases 表 + extractedInfo 足够表示，
+        // 不再写 PostgresStore ('cases', caseId, 'basic_info') 避免和案件档案 JSON 重复灌 prompt。
+        // 存量数据保留不读，后续观察无引用再清理。
+        // saveCaseInfoService(result.caseRecord.id, confirmedData, enabledCaseTypes).catch(error => {
+        //     logger.error('保存提取结果到长期记忆失败', {
+        //         error: error instanceof Error ? error.message : String(error),
+        //         caseId: result.caseRecord.id,
+        //     })
+        // })
     }
 
     return {

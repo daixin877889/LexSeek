@@ -3,14 +3,12 @@
  *
  * **Feature: contract-review-m4**
  *
- * 主容器组件职责（M4 三屏 + Dialog）：
- * - review == null && !isLoading → 显示 ContractSourceInput（提交屏）
+ * 主容器组件职责（M4 两屏 + Dialog）：
  * - review != null → 显示结果屏（左 DocxPreview + 右 RiskListPanel）
  * - awaitingStance 非空 → StanceSelectionDialog open=true（始终挂载）
  * - runStatus 文案：pending/reviewing/awaiting_stance/completed/failed 内联映射
  * - 顶部 busy 条（Loader2Icon + statusLabel）仅在 isLoading || status in (pending,reviewing) 时显示
  * - props.reviewId 传入时 immediate 触发 mountReview 一次
- * - ContractSourceInput @submit → onStart
  * - StanceSelectionDialog @confirm → onStance
  * - RiskListPanel @download → onDownload
  */
@@ -130,24 +128,6 @@ vi.mock('~/composables/useContractReview', () => ({
 }))
 
 // ── 子组件 stubs：记录 props 便于断言 ───────────────────────────────────────
-
-const SourceInputStub = defineComponent({
-    // Nuxt 4 自动导入折叠重复路径段：assistant/contract/ContractSourceInput.vue
-    // → AssistantContractSourceInput（而非 AssistantContractContractSourceInput）
-    name: 'AssistantContractSourceInput',
-    emits: ['submit'],
-    setup(_, { emit }) {
-        return () =>
-            h(
-                'button',
-                {
-                    'data-stub': 'ContractSourceInput',
-                    onClick: () => emit('submit', { sourceType: 'paste', text: 'hello' }),
-                },
-                '提交',
-            )
-    },
-})
 
 const StanceDialogStub = defineComponent({
     name: 'AssistantContractStanceSelectionDialog',
@@ -310,7 +290,6 @@ const ReviewProgressStub = defineComponent({
 
 const stubs = {
     // 字段名必须与模板里的组件名严格匹配（Nuxt 4 自动导入折叠 assistant/contract/Contract* → AssistantContract*）
-    AssistantContractSourceInput: SourceInputStub,
     AssistantContractStanceSelectionDialog: StanceDialogStub,
     AssistantContractDocxPreview: DocxPreviewStub,
     AssistantContractRiskListPanel: RiskListPanelStub,
@@ -397,13 +376,6 @@ afterEach(() => {
 })
 
 describe('ContractReviewPanel', () => {
-    it('初始状态（review=null，!isLoading）显示提交屏，不渲染结果屏', () => {
-        const w = mountPanel()
-        expect(w.find('[data-stub="ContractSourceInput"]').exists()).toBe(true)
-        expect(w.find('[data-stub="ContractDocxPreview"]').exists()).toBe(false)
-        expect(w.find('[data-stub="RiskListPanel"]').exists()).toBe(false)
-    })
-
     it('StanceSelectionDialog 始终挂载（初始关闭态 open=false）', () => {
         const w = mountPanel()
         const dlg = w.find('[data-stub="StanceSelectionDialog"]')
@@ -411,13 +383,12 @@ describe('ContractReviewPanel', () => {
         expect(dlg.attributes('data-open')).toBe('false')
     })
 
-    it('review 非空时显示结果屏（DocxPreview + RiskListPanel），隐藏提交屏', async () => {
+    it('review 非空时显示结果屏（DocxPreview + RiskListPanel）', async () => {
         reviewRef.value = makeReview({ status: 'reviewing', originalFileId: 77, reviewedFileId: null })
         runStatusRef.value = 'reviewing'
         const w = mountPanel()
         await nextTick()
 
-        expect(w.find('[data-stub="ContractSourceInput"]').exists()).toBe(false)
         const preview = w.find('[data-stub="ContractDocxPreview"]')
         expect(preview.exists()).toBe(true)
         expect(preview.attributes('data-original-file-id')).toBe('77')
@@ -480,13 +451,6 @@ describe('ContractReviewPanel', () => {
         expect(confirmBtn.attributes('data-contract-type')).toBe('购销合同')
     })
 
-    it('ContractSourceInput @submit 触发 onStart', async () => {
-        const w = mountPanel()
-        await w.find('[data-stub="ContractSourceInput"]').trigger('click')
-        expect(mockOnStart).toHaveBeenCalledTimes(1)
-        expect(mockOnStart).toHaveBeenCalledWith({ sourceType: 'paste', text: 'hello' })
-    })
-
     it('StanceSelectionDialog @confirm 触发 onStance', async () => {
         awaitingStanceRef.value = { partyA: 'A', partyB: 'B' }
         const w = mountPanel()
@@ -541,13 +505,6 @@ describe('ContractReviewPanel', () => {
         const risk = w.find('[data-stub="RiskListPanel"]')
         expect(risk.attributes('data-risk-count')).toBe('2')
         expect(risk.attributes('data-summary')).toBe('整体风险可控')
-    })
-
-    it('isLoading=true 且 review=null 时不显示提交屏（防止闪烁）', async () => {
-        isLoadingRef.value = true
-        const w = mountPanel()
-        await nextTick()
-        expect(w.find('[data-stub="ContractSourceInput"]').exists()).toBe(false)
     })
 
     it('审查期间在右侧面板顶部渲染 ReviewProgress', async () => {

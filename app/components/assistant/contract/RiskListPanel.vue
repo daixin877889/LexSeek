@@ -43,6 +43,8 @@ const props = defineProps<{
     summary: ContractOverview | null
     isRebuilding: boolean
     hasUnsavedDocxChanges: boolean
+    isDownloading?: boolean
+    isExportingPdf?: boolean
     focusedRiskId: string | null
     hoveredRiskId: string | null
     pinnedRiskIds: Set<string>
@@ -818,21 +820,24 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                 {{ isRebuilding ? '批注生成中...' : '重新生成批注 Word' }}
             </Button>
             <div class="flex gap-2">
-                <Button class="flex-1" variant="outline" :disabled="!canDownload" @click="openExportPdf">
-                    <FileTextIcon class="size-4 mr-1" />导出评审报告
+                <Button class="flex-1" variant="outline" :disabled="!canDownload || isExportingPdf" @click="openExportPdf">
+                    <Loader2Icon v-if="isExportingPdf" class="size-4 mr-1 animate-spin" />
+                    <FileTextIcon v-else class="size-4 mr-1" />
+                    {{ isExportingPdf ? '生成中...' : '导出评审报告' }}
                 </Button>
                 <Button
                     class="flex-1"
-                    :disabled="!canDownload"
+                    :disabled="!canDownload || isDownloading"
                     :title="previewVersionNumber !== null && previewVersionNumber !== undefined
                         ? `下载 v${previewVersionNumber} 历史版本的批注 Word`
                         : '下载当前工作区的批注 Word'"
                     @click="emit('download')"
                 >
-                    <DownloadIcon class="size-4 mr-1" />
-                    {{ previewVersionNumber !== null && previewVersionNumber !== undefined
+                    <Loader2Icon v-if="isDownloading" class="size-4 mr-1 animate-spin" />
+                    <DownloadIcon v-else class="size-4 mr-1" />
+                    {{ isDownloading ? '下载中...' : (previewVersionNumber !== null && previewVersionNumber !== undefined
                         ? `下载 v${previewVersionNumber} 历史版本`
-                        : '下载批注 Word' }}
+                        : '下载批注 Word') }}
                 </Button>
             </div>
         </div>

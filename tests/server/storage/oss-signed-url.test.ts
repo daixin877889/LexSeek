@@ -9,9 +9,10 @@
 
 import { describe, it, expect } from 'vitest'
 import { config } from 'dotenv'
+import { resolve } from 'node:path'
 
-// 加载环境变量
-config()
+// 加载测试环境变量（强制指向 .env.testing，避免误连生产库）
+config({ path: resolve(__dirname, '../../../.env.testing') })
 
 // 从环境变量获取配置
 const ossConfig = {

@@ -84,7 +84,10 @@ export default defineEventHandler(async (event) => {
         }
 
         // 8. 三层写入
-        await saveCaseInfoService(caseId, merged, caseTypes)
+        // M2 废弃：案件基础信息已通过 cases 表 + extractedInfo 足够表示，
+        // 不再写 PostgresStore ('cases', caseId, 'basic_info') 避免和案件档案 JSON 重复灌 prompt。
+        // 存量数据保留不读，后续观察无引用再清理。
+        // await saveCaseInfoService(caseId, merged, caseTypes)
 
         return resSuccess(event, '更新成功', null)
     }

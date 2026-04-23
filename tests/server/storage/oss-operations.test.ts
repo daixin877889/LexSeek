@@ -9,8 +9,10 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { config } from 'dotenv'
+import { resolve } from 'node:path'
 
-config()
+// 加载测试环境变量（强制指向 .env.testing，避免误连生产库）
+config({ path: resolve(__dirname, '../../../.env.testing') })
 
 const ossConfig = {
     accessKeyId: process.env.NUXT_STORAGE_ALIYUN_OSS_ACCESS_KEY_ID || '',
