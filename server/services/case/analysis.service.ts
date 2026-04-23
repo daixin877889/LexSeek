@@ -31,6 +31,7 @@ import {
 
 // 导入案件服务
 import { getCaseByIdService, getSessionByIdService } from './case.service'
+import { isCaseReadOnly } from '#shared/types/case'
 
 // 注意：类型和枚举请直接从 './analysis.dao' 导入
 // 避免 Nuxt 自动导入时产生重复警告
@@ -173,6 +174,11 @@ export const startAnalysisService = async (
     const caseRecord = await getCaseByIdService(data.caseId, false)
     if (!caseRecord) {
         throw new Error('案件不存在')
+    }
+
+    // ARCHIVED 只读守卫（spec §1.4 / §12 铁律）
+    if (isCaseReadOnly(caseRecord.status)) {
+        throw new Error('案件已归档，无法启动分析')
     }
 
     // 验证会话是否存在

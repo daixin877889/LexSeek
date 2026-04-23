@@ -22,7 +22,7 @@ import {
     findLatestSessionByCaseIdDao,
     checkCaseOwnershipDao,
 } from './case.dao'
-import { CaseStatus, SessionStatus, CaseMaterialType } from '#shared/types/case'
+import { CaseStatus, SessionStatus, CaseMaterialType, isCaseReadOnly } from '#shared/types/case'
 
 // 导入案件类型服务
 import { getCaseTypeByIdService } from './caseType.service'
@@ -236,6 +236,11 @@ export const updateCaseService = async (
     const existing = await findCaseByIdDao(caseId)
     if (!existing) {
         throw new Error('案件不存在')
+    }
+
+    // ARCHIVED 只读守卫（spec §1.4 / §12 铁律）
+    if (isCaseReadOnly(existing.status)) {
+        throw new Error('案件已归档，不可编辑')
     }
 
     // 如果更新案件类型，验证新类型是否存在且启用
