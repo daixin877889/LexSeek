@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import JSZip from 'jszip'
 import { parseWordComments } from '~~/server/services/assistant/contract/docx/wordCommentParser'
 import { injectAnnotations } from '~~/server/services/assistant/contract/docx/commentInjector'
 import type { ContractAnnotationForExport } from '~~/server/services/assistant/contract/docx/commentInjector'
@@ -44,11 +45,12 @@ function makeRisk(index: number, overrides: Partial<Risk> = {}): Risk {
 }
 
 describe('parseWordComments', () => {
-    it('docx 无 word/comments.xml 时返回空数组', async () => {
+    it('docx 无 word/comments.xml 时 comments 为空数组，annotationRefsByWId 为空 Map', async () => {
         // labor.docx 原始文件无批注
         const original = await readFile(SAMPLE)
-        const result = await parseWordComments(original)
-        expect(result).toEqual([])
+        const { comments, annotationRefsByWId } = await parseWordComments(original)
+        expect(comments).toEqual([])
+        expect(annotationRefsByWId.size).toBe(0)
     })
 
     it('注入 3 条 annotation 后解析出 3 条记录', async () => {
@@ -63,8 +65,8 @@ describe('parseWordComments', () => {
         ]
 
         const { buffer } = await injectAnnotations(original, annotations)
-        const result = await parseWordComments(buffer)
-        expect(result).toHaveLength(3)
+        const { comments } = await parseWordComments(buffer)
+        expect(comments).toHaveLength(3)
     })
 
     it('wId 从 0 连续递增', async () => {
@@ -78,9 +80,9 @@ describe('parseWordComments', () => {
         ]
 
         const { buffer } = await injectAnnotations(original, annotations)
-        const result = await parseWordComments(buffer)
+        const { comments } = await parseWordComments(buffer)
 
-        const ids = result.map(c => c.wId).sort((a, b) => a - b)
+        const ids = comments.map(c => c.wId).sort((a, b) => a - b)
         expect(ids).toEqual([0, 1])
     })
 
@@ -94,9 +96,9 @@ describe('parseWordComments', () => {
         ]
 
         const { buffer } = await injectAnnotations(original, annotations)
-        const result = await parseWordComments(buffer)
+        const { comments } = await parseWordComments(buffer)
 
-        expect(result[0].wAuthor).toBe('LS:张律师')
+        expect(comments[0].wAuthor).toBe('LS:张律师')
     })
 
     it('wInitials 为 LEXSEEK 格式时原样返回', async () => {
@@ -110,9 +112,9 @@ describe('parseWordComments', () => {
         ]
 
         const { buffer } = await injectAnnotations(original, annotations)
-        const result = await parseWordComments(buffer)
+        const { comments } = await parseWordComments(buffer)
 
-        expect(result[0].wInitials).toBe(existingRef)
+        expect(comments[0].wInitials).toBe(existingRef)
     })
 
     it('答复批注 parentAnnotationId 非空时 parentWId 正确', async () => {
@@ -128,9 +130,9 @@ describe('parseWordComments', () => {
         ]
 
         const { buffer } = await injectAnnotations(original, annotations)
-        const result = await parseWordComments(buffer)
+        const { comments } = await parseWordComments(buffer)
 
-        const reply = result.find(c => c.wId === 1)
+        const reply = comments.find(c => c.wId === 1)
         expect(reply).toBeDefined()
         expect(reply?.parentWId).toBe(0)
     })
@@ -145,9 +147,9 @@ describe('parseWordComments', () => {
         ]
 
         const { buffer } = await injectAnnotations(original, annotations)
-        const result = await parseWordComments(buffer)
+        const { comments } = await parseWordComments(buffer)
 
-        expect(result[0].parentWId).toBeNull()
+        expect(comments[0].parentWId).toBeNull()
     })
 
     it('content 正确提取批注文本', async () => {
@@ -160,9 +162,9 @@ describe('parseWordComments', () => {
         ]
 
         const { buffer } = await injectAnnotations(original, annotations)
-        const result = await parseWordComments(buffer)
+        const { comments } = await parseWordComments(buffer)
 
-        expect(result[0].content).toBe('这是批注正文')
+        expect(comments[0].content).toBe('这是批注正文')
     })
 
     it('多段落内容（injectComments 五模块格式）用 \\n 分隔', async () => {
@@ -172,13 +174,13 @@ describe('parseWordComments', () => {
 
         const risk = makeRisk(Math.min(2, maxIdx), { legalBasis: undefined })
         const { buffer } = await injectComments(original, [risk])
-        const result = await parseWordComments(buffer)
+        const { comments } = await parseWordComments(buffer)
 
-        expect(result).toHaveLength(1)
+        expect(comments).toHaveLength(1)
         // 五模块内容必须包含换行
-        expect(result[0].content).toContain('\n')
-        expect(result[0].content).toContain('【条款分析】')
-        expect(result[0].content).toContain('【修改建议】')
+        expect(comments[0].content).toContain('\n')
+        expect(comments[0].content).toContain('【条款分析】')
+        expect(comments[0].content).toContain('【修改建议】')
     })
 
     it('含特殊字符的 content XML 转义后可正确解码', async () => {
@@ -195,9 +197,9 @@ describe('parseWordComments', () => {
         ]
 
         const { buffer } = await injectAnnotations(original, annotations)
-        const result = await parseWordComments(buffer)
+        const { comments } = await parseWordComments(buffer)
 
-        expect(result[0].content).toBe('条款 "A" 与 <B> 冲突 & 引号 \'单引号\'')
+        expect(comments[0].content).toBe('条款 "A" 与 <B> 冲突 & 引号 \'单引号\'')
     })
 
     it('dateIso 正确提取（ISO 格式字符串）', async () => {
@@ -210,11 +212,11 @@ describe('parseWordComments', () => {
         ]
 
         const { buffer } = await injectAnnotations(original, annotations)
-        const result = await parseWordComments(buffer)
+        const { comments } = await parseWordComments(buffer)
 
-        expect(result[0].dateIso).not.toBeNull()
+        expect(comments[0].dateIso).not.toBeNull()
         // ISO 8601 格式
-        expect(result[0].dateIso).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+        expect(comments[0].dateIso).toMatch(/^\d{4}-\d{2}-\d{2}T/)
     })
 
     it('无 w:initials 属性时 wInitials 为空字符串', async () => {
@@ -225,8 +227,68 @@ describe('parseWordComments', () => {
         // injectComments（旧 API）不写 w:initials
         const risk = makeRisk(Math.min(1, maxIdx))
         const { buffer } = await injectComments(original, [risk])
-        const result = await parseWordComments(buffer)
+        const { comments } = await parseWordComments(buffer)
 
-        expect(result[0].wInitials).toBe('')
+        expect(comments[0].wInitials).toBe('')
+    })
+
+    // ============ Phase B：customXml annotationRefs 相关测试 ============
+
+    it('injectAnnotations 注入后 annotationRefsByWId 非空，wId 正确映射到 annotationId', async () => {
+        const original = await readFile(SAMPLE)
+        const { paragraphs } = await parseContractDocx(original)
+        const maxIdx = paragraphs.length - 1
+
+        const annotations: ContractAnnotationForExport[] = [
+            makeAnnotation({ id: 325, wordCommentRef: 'LEXSEEK-325-a3f9b2c1', anchorParagraphIndex: Math.min(1, maxIdx) }),
+            makeAnnotation({ id: 297, wordCommentRef: 'LEXSEEK-297-k8f2m9d4', anchorParagraphIndex: Math.min(2, maxIdx) }),
+            makeAnnotation({ id: 284, wordCommentRef: 'LEXSEEK-284-x1y7q3r8', anchorParagraphIndex: Math.min(3, maxIdx) }),
+        ]
+
+        const { buffer } = await injectAnnotations(original, annotations)
+        const { annotationRefsByWId } = await parseWordComments(buffer)
+
+        // 三条 annotation 应都能通过 wId 查到对应的 annotationId
+        expect(annotationRefsByWId.size).toBe(3)
+        expect(annotationRefsByWId.get(0)?.annotationId).toBe(325)
+        expect(annotationRefsByWId.get(1)?.annotationId).toBe(297)
+        expect(annotationRefsByWId.get(2)?.annotationId).toBe(284)
+        // ref 字段也应保持原值
+        expect(annotationRefsByWId.get(0)?.ref).toBe('LEXSEEK-325-a3f9b2c1')
+    })
+
+    it('不含 customXml 的旧格式 docx → annotationRefsByWId 为空 Map，不抛错', async () => {
+        // 用最小 docx 构造：只有 comments.xml，没有 customXml/annotationRefs.xml
+        const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>测试段落</w:t></w:r></w:p></w:body></w:document>`
+        const commentsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:comment w:id="0" w:author="LS:AI" w:initials="LEXSEEK-1" w:date="2026-01-01T00:00:00Z"><w:p><w:r><w:t>旧格式批注</w:t></w:r></w:p></w:comment></w:comments>`
+
+        const zip = new JSZip()
+        zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/comments.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml"/></Types>`)
+        zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`)
+        zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`)
+        zip.file('word/document.xml', docXml)
+        zip.file('word/comments.xml', commentsXml)
+        const docxBuffer = Buffer.from(await zip.generateAsync({ type: 'nodebuffer' }))
+
+        // 不应抛错，annotationRefsByWId 为空 Map
+        const { comments, annotationRefsByWId } = await parseWordComments(docxBuffer)
+        expect(comments).toHaveLength(1)
+        expect(annotationRefsByWId.size).toBe(0)
+    })
+
+    it('customXml 中特殊字符 ref 正确 XML 解码', async () => {
+        const original = await readFile(SAMPLE)
+        const { paragraphs } = await parseContractDocx(original)
+        const maxIdx = paragraphs.length - 1
+
+        // ref 中不含特殊字符，但验证 XML 属性解码路径
+        const annotations: ContractAnnotationForExport[] = [
+            makeAnnotation({ id: 42, wordCommentRef: 'LEXSEEK-42-abc12345', anchorParagraphIndex: Math.min(1, maxIdx) }),
+        ]
+
+        const { buffer } = await injectAnnotations(original, annotations)
+        const { annotationRefsByWId } = await parseWordComments(buffer)
+
+        expect(annotationRefsByWId.get(0)?.ref).toBe('LEXSEEK-42-abc12345')
     })
 })

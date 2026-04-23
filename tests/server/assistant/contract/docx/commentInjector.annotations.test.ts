@@ -267,4 +267,76 @@ describe('injectAnnotations', () => {
         expect(paraWithRange!).toContain('第一条 合同期限与试用期')
         expect(paraWithRange!).not.toContain('合同编号 ABC-001')
     })
+
+    // ============ Phase B：customXml annotationRefs 相关测试 ============
+
+    it('注入 3 条 annotation 后 customXml annotationRefs.xml 存在且内容正确', async () => {
+        const original = await readFile(SAMPLE)
+        const { paragraphs } = await parseContractDocx(original)
+        const maxIdx = paragraphs.length - 1
+
+        const annotations: ContractAnnotationForExport[] = [
+            makeAnnotation({ id: 325, wordCommentRef: 'LEXSEEK-325-a3f9b2c1', anchorParagraphIndex: Math.min(1, maxIdx) }),
+            makeAnnotation({ id: 297, wordCommentRef: 'LEXSEEK-297-k8f2m9d4', anchorParagraphIndex: Math.min(2, maxIdx) }),
+            makeAnnotation({ id: 284, wordCommentRef: 'LEXSEEK-284-x1y7q3r8', anchorParagraphIndex: Math.min(3, maxIdx) }),
+        ]
+
+        const { buffer } = await injectAnnotations(original, annotations)
+        const zip = await loadDocxZip(buffer)
+
+        // 验证 customXml 文件存在
+        const customXmlFile = zip.file('word/customXml/annotationRefs.xml')
+        expect(customXmlFile).not.toBeNull()
+
+        const customXml = await customXmlFile!.async('string')
+        // 验证三条 ref 均写入
+        expect(customXml).toContain('annotationId="325"')
+        expect(customXml).toContain('annotationId="297"')
+        expect(customXml).toContain('annotationId="284"')
+        // 验证 wId 按数组顺序分配
+        expect(customXml).toContain('wId="0"')
+        expect(customXml).toContain('wId="1"')
+        expect(customXml).toContain('wId="2"')
+        // 验证 ref 值原样写入
+        expect(customXml).toContain('ref="LEXSEEK-325-a3f9b2c1"')
+    })
+
+    it('[Content_Types].xml 包含 customXml annotationRefs.xml 的 Override 注册', async () => {
+        const original = await readFile(SAMPLE)
+        const { paragraphs } = await parseContractDocx(original)
+
+        const annotations: ContractAnnotationForExport[] = [
+            makeAnnotation({ id: 1, anchorParagraphIndex: Math.min(1, paragraphs.length - 1) }),
+        ]
+
+        const { buffer } = await injectAnnotations(original, annotations)
+        const zip = await loadDocxZip(buffer)
+
+        const types = await readTextFromZip(zip, '[Content_Types].xml')
+        expect(types).toContain('PartName="/word/customXml/annotationRefs.xml"')
+        expect(types).toContain('ContentType="application/xml"')
+    })
+
+    it('customXml 中 annotationId 为自动生成 ref 时也正确记录', async () => {
+        // wordCommentRef=null，由 injectAnnotations 内部 generateWordCommentRef 生成
+        const original = await readFile(SAMPLE)
+        const { paragraphs } = await parseContractDocx(original)
+        const maxIdx = paragraphs.length - 1
+
+        const annotations: ContractAnnotationForExport[] = [
+            makeAnnotation({ id: 42, wordCommentRef: null, anchorParagraphIndex: Math.min(1, maxIdx) }),
+        ]
+
+        const { buffer, refsByAnnotationId } = await injectAnnotations(original, annotations)
+        const generatedRef = refsByAnnotationId.get(42)!
+        expect(generatedRef).toMatch(/^LEXSEEK-42-[a-zA-Z0-9]{8}$/)
+
+        const zip = await loadDocxZip(buffer)
+        const customXmlFile = zip.file('word/customXml/annotationRefs.xml')
+        expect(customXmlFile).not.toBeNull()
+
+        const customXml = await customXmlFile!.async('string')
+        expect(customXml).toContain(`annotationId="42"`)
+        expect(customXml).toContain(`ref="${generatedRef}"`)
+    })
 })

@@ -15,6 +15,7 @@ import { uploadClientVersionService } from '~~/server/services/assistant/contrac
 import { createOssFileDao } from '~~/server/services/files/ossFiles.dao'
 import { saveContractReviewVersionService } from '~~/server/services/assistant/contract/contractReviewVersion.service'
 import { ensureTestUser } from '../test-db-helper'
+import type { ParsedDocxComments } from '~~/server/services/assistant/contract/docx/wordCommentParser'
 
 // ============ mock storage.service：避免真实 OSS 下载 ============
 // parseContractDocx 会被间接调用，给它一份有效的 docx buffer 代替
@@ -235,5 +236,126 @@ describe('uploadClientVersionService（B1 骨架）', () => {
         // backup progress 应已产出（backup 先于 parse）
         const progressEvents = events.filter((e) => e.type === 'progress')
         expect(progressEvents[0]).toMatchObject({ data: { step: 'backup', status: 'done' } })
+    })
+})
+
+// ============================================================
+// Phase B：customXml annotationRefs 映射识别测试
+// ============================================================
+
+// mock wordCommentParser，精确控制 annotationRefsByWId
+vi.mock('~~/server/services/assistant/contract/docx/wordCommentParser', () => ({
+    parseWordComments: vi.fn(async (): Promise<ParsedDocxComments> => ({
+        comments: [],
+        annotationRefsByWId: new Map(),
+    })),
+}))
+
+describe('uploadClientVersionService（customXml 映射识别）', () => {
+    let userId: number
+    let reviewId: number
+    let ossFileId: number
+    const createdOssFileIds: number[] = []
+
+    beforeEach(async () => {
+        userId = await ensureTestUser()
+
+        const review = await prisma.contractReviews.create({
+            data: {
+                userId,
+                status: 'completed',
+                risks: [],
+                sessionId: `upload-customxml-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                originalFileId: 0,
+                maxVersionNo: 0,
+            },
+        })
+        reviewId = review.id
+
+        const oss = await createOssFileDao({
+            userId,
+            bucketName: 'test-bucket',
+            fileName: 'client-customxml.docx',
+            filePath: `users/${userId}/contract-reviews/customxml-${Date.now()}.docx`,
+            fileSize: 1024,
+            fileType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            status: 1,
+        })
+        ossFileId = oss.id
+        createdOssFileIds.push(oss.id)
+    })
+
+    afterEach(async () => {
+        await prisma.contractReviewVersions.deleteMany({ where: { reviewId } })
+        await prisma.contractAnnotations.deleteMany({ where: { reviewId } })
+        await prisma.contractRisks.deleteMany({ where: { reviewId } })
+        await prisma.contractReviews.delete({ where: { id: reviewId } })
+        if (createdOssFileIds.length > 0) {
+            await prisma.ossFiles.deleteMany({ where: { id: { in: createdOssFileIds } } })
+            createdOssFileIds.length = 0
+        }
+        await prisma.users.deleteMany({ where: { id: userId } })
+    })
+
+    it('customXml 映射命中：系统 annotation 不产生 removedByClient 也不产生 external_new', async () => {
+        // 预置：1 条系统 AI annotation（id 动态分配）
+        const risk = await prisma.contractRisks.create({
+            data: {
+                reviewId,
+                source: 'ai',
+                category: '合同风险',
+                level: 'medium',
+                problem: '违约金偏高',
+                anchorQuote: '第一条',
+            },
+        })
+        const ann = await prisma.contractAnnotations.create({
+            data: {
+                reviewId,
+                riskId: risk.id,
+                authorType: 'ai',
+                authorName: 'AI',
+                content: '违约金偏高，建议调整',
+                wordCommentRef: `LEXSEEK-${risk.id}-abc12345`,
+            },
+        })
+
+        // mock parseWordComments 返回：系统批注通过 customXml 映射到 ann.id
+        const { parseWordComments } = await import('~~/server/services/assistant/contract/docx/wordCommentParser')
+        const mockFn = parseWordComments as ReturnType<typeof vi.fn>
+        mockFn.mockResolvedValueOnce({
+            comments: [
+                {
+                    wId: 0,
+                    wAuthor: 'LS:AI',
+                    // 模拟 Word 截断后的 initials（不含完整格式，但 customXml 有完整映射）
+                    wInitials: 'LEXSEEK-',
+                    content: '违约金偏高，建议调整',
+                    parentWId: null,
+                    dateIso: new Date().toISOString(),
+                },
+            ],
+            annotationRefsByWId: new Map([
+                [0, { annotationId: ann.id, ref: `LEXSEEK-${ann.id}-abc12345` }],
+            ]),
+        } satisfies ParsedDocxComments)
+
+        const review = await prisma.contractReviews.findUniqueOrThrow({ where: { id: reviewId } })
+        const events = await collectEvents(
+            uploadClientVersionService({ review, ossFileId, userId }),
+        )
+
+        const errorEvents = events.filter(e => e.type === 'error')
+        expect(errorEvents).toHaveLength(0)
+
+        // 关键断言：系统 annotation 被正确识别，不应被标记 removedByClient
+        const updatedAnn = await prisma.contractAnnotations.findUniqueOrThrow({ where: { id: ann.id } })
+        expect(updatedAnn.removedByClient).toBe(false)
+
+        // 不应有 external_new source 的 risk 产生
+        const externalRisks = await prisma.contractRisks.findMany({
+            where: { reviewId, source: 'external_new' },
+        })
+        expect(externalRisks).toHaveLength(0)
     })
 })

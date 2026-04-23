@@ -24,7 +24,7 @@ import { saveContractReviewVersionService } from './contractReviewVersion.servic
 import { analyzeSingleClause } from './analyzeSingleClause'
 import { diffClauses } from './utils/clauseDiff'
 import { migrateAnchor } from './utils/anchorMigrate'
-import { parseWordComments, type ParsedWordComment } from './docx/wordCommentParser'
+import { parseWordComments, type ParsedWordComment, type AnnotationRefEntry } from './docx/wordCommentParser'
 import { parseWordCommentRef } from './utils/wordCommentRef'
 import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import { downloadFileService } from '~~/server/services/storage/storage.service'
@@ -72,6 +72,7 @@ export async function* uploadClientVersionService(params: {
     let newDocxText: string
     let newClauses: ClauseSnapshotItem[]
     let newComments: ParsedWordComment[] = []
+    let annotationRefsByWId = new Map<number, AnnotationRefEntry>()
     try {
         const { fullText } = await loadContractFullText(ossFileId)
         const { segments, normalizedText } = await segmentClauses(fullText)
@@ -88,10 +89,13 @@ export async function* uploadClientVersionService(params: {
             const ossFile = await findOssFileByIdDao(ossFileId)
             if (ossFile?.filePath) {
                 const docxBuffer = await downloadFileService(ossFile.filePath)
-                newComments = await parseWordComments(docxBuffer)
+                const parsed = await parseWordComments(docxBuffer)
+                newComments = parsed.comments
+                annotationRefsByWId = parsed.annotationRefsByWId
             }
         } catch {
             newComments = []
+            annotationRefsByWId = new Map()
         }
 
         yield { type: 'progress', data: { step: 'parse', status: 'done' } }
@@ -115,14 +119,42 @@ export async function* uploadClientVersionService(params: {
     const oldClauses: ClauseSnapshotItem[] =
         ((currentVersion?.snapshotData as { clauses?: ClauseSnapshotItem[] } | null)?.clauses ?? [])
 
-    // 建 annotationId → ParsedWordComment 映射（仅 LEXSEEK 格式）
+    // 建 annotationId → ParsedWordComment 映射
+    // 优先从 customXml annotationRefs 查（Phase B 新导出的 docx），
+    // fallback 到 wInitials 正则解析（旧格式或 Word 截断后的降级路径）
     const annById = new Map(dbAnnotations.map((a) => [a.id, a]))
     const commentByAnnId = new Map<number, ParsedWordComment>()
     for (const c of newComments) {
-        const ref = parseWordCommentRef(c.wInitials)
-        if (ref && annById.has(ref.annotationId)) {
-            commentByAnnId.set(ref.annotationId, c)
+        const refFromCustomXml = annotationRefsByWId.get(c.wId)
+        if (refFromCustomXml && annById.has(refFromCustomXml.annotationId)) {
+            commentByAnnId.set(refFromCustomXml.annotationId, c)
+            continue
         }
+        // fallback：老 wInitials 格式（兼容旧 docx，Word 截断后通常已失效）
+        const refFromInitials = parseWordCommentRef(c.wInitials)
+        if (refFromInitials && annById.has(refFromInitials.annotationId)) {
+            commentByAnnId.set(refFromInitials.annotationId, c)
+        }
+    }
+
+    /**
+     * 判断一个 comment 是否为系统生成（LexSeek 注入）的批注。
+     * 优先查 customXml，fallback 到 wInitials 解析。
+     */
+    function isSystemComment(c: ParsedWordComment): boolean {
+        return annotationRefsByWId.has(c.wId) || parseWordCommentRef(c.wInitials) !== null
+    }
+
+    /**
+     * 获取一个 comment 对应的 annotationId（系统批注专用）。
+     * 优先查 customXml，fallback 到 wInitials 解析。
+     * 非系统批注返回 null。
+     */
+    function getAnnotationId(c: ParsedWordComment): number | null {
+        const refFromCustomXml = annotationRefsByWId.get(c.wId)
+        if (refFromCustomXml) return refFromCustomXml.annotationId
+        const refFromInitials = parseWordCommentRef(c.wInitials)
+        return refFromInitials ? refFromInitials.annotationId : null
     }
 
     // 客户删除：workspace annotation 在 newComments 里找不到命中
@@ -131,23 +163,24 @@ export async function* uploadClientVersionService(params: {
         if (!commentByAnnId.has(a.id)) removedAnnIds.push(a.id)
     }
 
-    // 客户回复：父 comment 命中 LEXSEEK，子 comment 无 LEXSEEK 格式
+    // 客户回复：父 comment 是系统批注，子 comment 不是系统批注
     const replies: Array<{ parentAnnId: number; c: ParsedWordComment }> = []
     for (const c of newComments) {
         if (c.parentWId == null) continue
         const parent = newComments.find((p) => p.wId === c.parentWId)
         if (!parent) continue
-        const parentRef = parseWordCommentRef(parent.wInitials)
-        if (!parentRef) continue
-        if (parseWordCommentRef(c.wInitials)) continue
-        replies.push({ parentAnnId: parentRef.annotationId, c })
+        const parentAnnId = getAnnotationId(parent)
+        if (parentAnnId == null) continue
+        // 子 comment 本身也是系统批注（不该是回复）
+        if (isSystemComment(c)) continue
+        replies.push({ parentAnnId, c })
     }
 
-    // 客户新增独立批注：no parent + non-LEXSEEK
+    // 客户新增独立批注：no parent + 非系统批注
     const newIndependent: ParsedWordComment[] = []
     for (const c of newComments) {
         if (c.parentWId != null) continue
-        if (parseWordCommentRef(c.wInitials)) continue
+        if (isSystemComment(c)) continue
         newIndependent.push(c)
     }
 
