@@ -641,12 +641,30 @@ export async function generateMaterialSummaryService(materialId: number): Promis
   }
 }
 
-// loadMaterialText：按项目现有读文本的函数实现（OCR 结果 / CASE_CONTENT 文本 等）
+/**
+ * 读材料正文（从 OCR/ASR 结果 或 type=1 的 content 字段）
+ * 现状路径（编码时 grep 验证并按此接入）：
+ *   - type=2 文档：ocrResults.text via `server/services/material/recognition.service.ts`
+ *   - type=3 图片：同上 OCR
+ *   - type=4 音频：asrResults.text
+ *   - type=1 文本：caseMaterials.content 字段
+ */
 async function loadMaterialText(materialId: number, maxChars: number): Promise<string> {
-  // TODO 编码时用项目现有"读材料正文"逻辑替换（本函数仅占位签名）
-  // 约定：从对应 OCR/ASR 结果表 或 CASE_CONTENT 拼接原文，截前 maxChars 字符
-  const raw = '' /* 实际实现 */
-  return raw.slice(0, maxChars)
+  const m = await prisma.caseMaterials.findUnique({
+    where: { id: materialId },
+    select: { id: true, type: true, content: true },
+  })
+  if (!m) return ''
+  // type=1 直接返回 content 字段
+  if (m.type === 1 && m.content) return m.content.slice(0, maxChars)
+  // type=2/3/4 走现有 recognition/asr 结果表（编码时用项目里 load OCR/ASR text 的 service 替换下面这行）
+  const raw = await loadRecognizedTextByMaterialId(materialId) // 由项目现有服务提供
+  return (raw ?? '').slice(0, maxChars)
+}
+
+// 兜底签名（编码时用项目现有读文本 API 替换；若仅用于 type=1 文本材料，也可删此函数）
+async function loadRecognizedTextByMaterialId(_materialId: number): Promise<string> {
+  return ''
 }
 ```
 
