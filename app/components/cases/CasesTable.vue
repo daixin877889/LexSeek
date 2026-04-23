@@ -64,7 +64,7 @@
                         </td>
                         <!-- 状态 -->
                         <td class="px-6 py-4 text-center">
-                            <CaseStatusBadge :status="item.status" />
+                            <CasesCaseStatusBadge :status="item.status" />
                         </td>
                         <!-- 操作 -->
                         <td class="px-6 py-4">

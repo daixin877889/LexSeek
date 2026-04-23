@@ -24,7 +24,7 @@
                             #{{ item.id }}</p>
                     </div>
                     <div class="flex items-center gap-2 mt-1">
-                        <CaseStatusBadge :status="item.status" />
+                        <CasesCaseStatusBadge :status="item.status" />
                         <Badge v-if="item.isDemo" variant="secondary"
                             class="rounded-md bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 text-[9px] font-bold uppercase px-1.5 py-0 whitespace-nowrap">
                             演示
