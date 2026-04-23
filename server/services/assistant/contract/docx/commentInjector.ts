@@ -72,6 +72,30 @@ function buildCommentsXml(risks: Risk[]): string {
 
 const PARA_REGEX = /<w:p(?:\s[^>]*)?\/>|<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g
 
+/**
+ * 从段落 XML 中提取纯文本（去除所有 XML 标签）。
+ * 用于 anchorQuote 字符串匹配定位段落。
+ */
+function extractTextFromParagraphXml(paraXml: string): string {
+    return paraXml.replace(/<[^>]+>/g, '')
+}
+
+/**
+ * 按 anchorQuote 在非空段落列表中搜索，返回第一个包含该字符串的段落索引。
+ * 找不到时返回 -1。
+ */
+function findParagraphIndexByQuote(
+    nonEmpty: Array<{ text: string; start: number; end: number }>,
+    quote: string,
+): number {
+    const q = quote.trim()
+    if (!q) return -1
+    for (let i = 0; i < nonEmpty.length; i++) {
+        if (extractTextFromParagraphXml(nonEmpty[i]!.text).includes(q)) return i
+    }
+    return -1
+}
+
 /** 扫描 document.xml，返回非空段落列表（含有 <w:r> 的 <w:p>）及其位置信息 */
 function scanNonEmptyParagraphs(
     documentXml: string,
@@ -285,18 +309,26 @@ export async function injectAnnotations(
     const wordIdByAnnotationId = new Map<number, number>()
     annotations.forEach((a, idx) => wordIdByAnnotationId.set(a.id, idx))
 
-    // 3. 过滤越界 annotation，记录跳过情况
-    const validAnnotations = annotations.filter(a => {
-        const inRange = a.anchorParagraphIndex >= 0 && a.anchorParagraphIndex < nonEmptyCount
-        if (!inRange) {
-            logger.warn('[commentInjector] injectAnnotations: 跳过越界 annotation', {
+    // 3. 为每条 annotation 解析最终段落索引：anchorQuote 字符串匹配优先，找不到再 fallback 到 anchorParagraphIndex
+    const resolvedParagraphIndex = new Map<number, number>()
+    const validAnnotations: ContractAnnotationForExport[] = []
+    for (const a of annotations) {
+        const quoteIdx = findParagraphIndexByQuote(nonEmpty, a.anchorQuote)
+        if (quoteIdx >= 0) {
+            resolvedParagraphIndex.set(a.id, quoteIdx)
+            validAnnotations.push(a)
+        } else if (a.anchorParagraphIndex >= 0 && a.anchorParagraphIndex < nonEmptyCount) {
+            resolvedParagraphIndex.set(a.id, a.anchorParagraphIndex)
+            validAnnotations.push(a)
+        } else {
+            logger.warn('[commentInjector] injectAnnotations: anchorQuote 未命中且 anchorParagraphIndex 越界，跳过', {
                 annotationId: a.id,
+                anchorQuote: a.anchorQuote,
                 anchorParagraphIndex: a.anchorParagraphIndex,
                 nonEmptyCount,
             })
         }
-        return inRange
-    })
+    }
 
     if (validAnnotations.length === 0) {
         return { buffer: Buffer.from(docxBuffer), refsByAnnotationId }
@@ -311,7 +343,7 @@ export async function injectAnnotations(
 
     // 5. 在 document.xml 的对应段落处插入 commentRangeStart/End/Reference
     const injections = validAnnotations.map(a => ({
-        index: a.anchorParagraphIndex,
+        index: resolvedParagraphIndex.get(a.id)!,
         id: wordIdByAnnotationId.get(a.id)!,
     }))
     writeTextToZip(zip, 'word/document.xml', injectRangeMarkers(documentXml, injections, nonEmpty))

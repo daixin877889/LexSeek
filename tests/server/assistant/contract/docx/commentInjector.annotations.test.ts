@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import JSZip from 'jszip'
 import { injectAnnotations } from '~~/server/services/assistant/contract/docx/commentInjector'
 import type { ContractAnnotationForExport } from '~~/server/services/assistant/contract/docx/commentInjector'
 import { loadDocxZip, readTextFromZip } from '~~/server/services/assistant/contract/docx/zipRewriter'
@@ -185,5 +186,42 @@ describe('injectAnnotations', () => {
         expect(commentsXml).toContain('&lt;B&gt;')
         expect(commentsXml).toContain('&amp;')
         expect(commentsXml).toContain('&apos;单引号&apos;')
+    })
+
+    it('anchorQuote 定位优先于 anchorParagraphIndex：批注标记插入 anchorQuote 所在段落而非第 0 个段落', async () => {
+        // 手工构造三段落 docx：段落 0="甲方义务条款"、段落 1="第一条 乙方应当履行"、段落 2="乙方权利事项"
+        const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+            `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">` +
+            `<w:body>` +
+            `<w:p><w:r><w:t>甲方义务条款</w:t></w:r></w:p>` +
+            `<w:p><w:r><w:t>第一条 乙方应当履行</w:t></w:r></w:p>` +
+            `<w:p><w:r><w:t>乙方权利事项</w:t></w:r></w:p>` +
+            `</w:body></w:document>`
+
+        const zip = new JSZip()
+        zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`)
+        zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`)
+        zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`)
+        zip.file('word/document.xml', docXml)
+        const docxBuffer = Buffer.from(await zip.generateAsync({ type: 'nodebuffer' }))
+
+        // anchorParagraphIndex=0（错误），anchorQuote='第一条'（正确，应定位到段落 1）
+        const annotation: ContractAnnotationForExport = makeAnnotation({
+            id: 1,
+            anchorQuote: '第一条',
+            anchorParagraphIndex: 0,
+        })
+
+        const { buffer: result } = await injectAnnotations(docxBuffer, [annotation])
+        const resultZip = await loadDocxZip(result)
+        const resultDocXml = await readTextFromZip(resultZip, 'word/document.xml')
+
+        // 分割所有 <w:p>...</w:p> 段落，找到含 commentRangeStart 的那一个
+        const allParas = resultDocXml.match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) ?? []
+        const paraWithRange = allParas.find(p => p.includes('<w:commentRangeStart'))
+        expect(paraWithRange).not.toBeUndefined()
+        // 该段落必须包含 "第一条"，不能是 "甲方义务条款"
+        expect(paraWithRange!).toContain('第一条')
+        expect(paraWithRange!).not.toContain('甲方义务条款')
     })
 })
