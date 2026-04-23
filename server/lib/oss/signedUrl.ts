@@ -22,18 +22,26 @@ export async function generateSignedUrl(
     const method = options.method ?? 'GET'
 
     // 构建签名选项
+    // 注意：ali-oss 的 signatureUrl 要求 response-* 头放在 `response` 子对象里，
+    // 子 key 用不带 `response-` 前缀的标准 HTTP 头名（`content-disposition` / `content-type`），
+    // ali-oss 会自动加前缀拼到 URL 查询串。
+    // 此前顶层平铺成 `response-content-disposition` 会被 signatureUrl 静默丢弃，
+    // 导致 OSS 返回的 Content-Disposition 为空，浏览器只能退回用 URL 最后一段当文件名。
     const signOptions: Record<string, any> = {
         expires,
         method
     }
 
-    // 添加响应头设置（作为 URL 查询参数）
     if (options.response) {
+        const responseHeaders: Record<string, string> = {}
         if (options.response.contentType) {
-            signOptions['response-content-type'] = options.response.contentType
+            responseHeaders['content-type'] = options.response.contentType
         }
         if (options.response.contentDisposition) {
-            signOptions['response-content-disposition'] = options.response.contentDisposition
+            responseHeaders['content-disposition'] = options.response.contentDisposition
+        }
+        if (Object.keys(responseHeaders).length > 0) {
+            signOptions.response = responseHeaders
         }
     }
 
