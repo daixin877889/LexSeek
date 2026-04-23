@@ -54,12 +54,34 @@ watch(() => props.open, (v) => {
     if (!v) resetState()
 })
 
+/**
+ * bug #16：SSE 异常 / 完成仅显示在对话框内，用户若未点「完成」就关闭就完全丢失。
+ * 这里在状态 ref 变为有值时**立即**弹 toast，让关闭对话框后通知仍能留在全局。
+ * 用 tostedFor 记录已 toast 的终态标识，避免 watcher 重触发时重复弹。
+ */
+let toastedFor: string | null = null
+watch(uploadResult, (v) => {
+    if (!v) return
+    const key = `result:${v.newVersionId}`
+    if (toastedFor === key) return
+    toastedFor = key
+    toast.success(`增量重审完成：${v.summary || '新版本已生成'}`)
+})
+watch(uploadError, (v) => {
+    if (!v) return
+    const key = `error:${v.step}:${v.message}`
+    if (toastedFor === key) return
+    toastedFor = key
+    toast.error(`新版本处理失败：${v.message}`)
+})
+
 function resetState() {
     selectedFile.value = null
     ossUploading.value = false
     ossProgress.value = 0
     sseState.value = null
     isDragging.value = false
+    toastedFor = null
 }
 
 function processFile(file: File) {
@@ -141,7 +163,9 @@ function stepIcon(status: StepStatus) {
 }
 
 function stepColorClass(status: StepStatus) {
-    if (status === 'done') return 'text-green-600'
+    // bug #17：深色模式下 text-green-600 对比度不足，补 dark:text-green-400；
+    // destructive / primary / muted-foreground 已是语义色，可随主题自动翻转。
+    if (status === 'done') return 'text-green-600 dark:text-green-400'
     if (status === 'error') return 'text-destructive'
     if (status === 'progress') return 'text-primary'
     return 'text-muted-foreground'
@@ -168,8 +192,8 @@ function stepColorClass(status: StepStatus) {
                         class="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors"
                         :class="[
                             isDragging
-                                ? 'border-primary bg-primary/5'
-                                : 'border-muted-foreground/25 hover:border-primary/50'
+                                ? 'border-primary bg-primary/5 dark:bg-primary/15'
+                                : 'border-muted-foreground/25 dark:border-muted-foreground/40 hover:border-primary/50'
                         ]"
                         @click="fileInputRef?.click()"
                         @dragover.prevent="isDragging = true"

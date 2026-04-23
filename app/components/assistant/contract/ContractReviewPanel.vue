@@ -95,7 +95,7 @@ const isBusyForUpload = computed(() => {
 
 async function handleUploadComplete(payload: { newVersionId: number; summary: string }) {
     uploadVersionDialogOpen.value = false
-    toast.success(payload.summary || '新版本已生成')
+    // toast 由 Dialog 的 uploadResult watcher 负责（bug #16：对话框提前关闭也能看到提示）
     versioning.lastUploadResult.value = { newVersionId: payload.newVersionId, summary: payload.summary }
     await Promise.all([versioning.refreshWorkspace(), versioning.refreshVersions()])
 }
