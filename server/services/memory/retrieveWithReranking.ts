@@ -32,7 +32,7 @@ export async function retrieveWithReranking(input: RetrieveInput): Promise<Memor
     metadataFilter,
     filterInvalidated = true,
     enableVersionScoring = false,
-    minScore = 0.3,
+    minScore = 0,
   } = input
 
   // ①② Hybrid Recall

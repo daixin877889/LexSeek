@@ -1,7 +1,8 @@
 import crypto from 'node:crypto'
 import type { Document } from '@langchain/core/documents'
 import { addDocumentsToVectorStore } from '../legal/vectorStore.service'
-import type { CaseMemoryMetadata, MemoryKind } from '#shared/types/memory'
+import type { CaseMemoryMetadata, MemoryHit, MemoryKind } from '#shared/types/memory'
+import { retrieveWithReranking } from './retrieveWithReranking'
 
 export interface MemoryWriteInput {
   caseId: number
@@ -103,4 +104,26 @@ export async function updateMemoryService(
       new Date().toISOString(),
     )
   }
+}
+
+export async function recallMemoryService(params: {
+  caseId: number
+  query: string
+  kind?: MemoryKind
+  topK?: number
+  includeInvalidated?: boolean
+}): Promise<MemoryHit[]> {
+  const { caseId, query, kind, topK = 5, includeInvalidated = false } = params
+
+  const metadataFilter: Record<string, string | number | boolean> = { caseId }
+  if (kind) metadataFilter.kind = kind
+
+  return retrieveWithReranking({
+    tableName: 'case_memories',
+    query,
+    topK,
+    metadataFilter,
+    filterInvalidated: !includeInvalidated,
+    enableVersionScoring: true,
+  })
 }
