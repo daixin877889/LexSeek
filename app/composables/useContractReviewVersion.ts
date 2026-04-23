@@ -53,11 +53,20 @@ export interface WorkspaceState {
     maxVersionNo: number
 }
 
-/** GET /reviews/:id 响应中每条 risk 附带内联 annotations */
-type WorkspaceApiResponse = {
+/**
+ * GET /reviews/:id 响应形态。
+ *
+ * 注意：后端 handler（server/api/v1/assistant/contract/reviews/[id].get.ts）返回
+ * `{ review: { ... } }` 的嵌套结构，不是扁平对象。过去这里曾误按扁平解构，
+ * 导致 workspace 永远是空，UI 走 Phase A JSON 回退，最终表现为"全部未定位"。
+ */
+type ReviewPayload = {
     risks: Array<ContractRiskEntity & { annotations?: ContractAnnotationEntity[] }>
     currentVersionId: number | null
     maxVersionNo: number
+}
+type WorkspaceApiResponse = {
+    review: ReviewPayload
 }
 
 /** 返回 ISO 时间字符串数组中最大时间戳（毫秒），空数组返回 0 */
@@ -109,12 +118,15 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
     /** 从服务端拉取工作区数据，摊平 annotations */
     async function refreshWorkspace() {
         const resp = await useApiFetch<WorkspaceApiResponse>(`/api/v1/assistant/contract/reviews/${reviewId.value}`)
-        if (!resp) return
-        const risksWithAnnotations = resp.risks ?? []
+        // bug #20：后端返回 { review: {...} }，此前错误地当作扁平结构解构，
+        // 导致 workspace.risks 恒为空、UI 回退到 Phase A legacy JSON，出现全部"未定位"。
+        const payload = resp?.review
+        if (!payload) return
+        const risksWithAnnotations = payload.risks ?? []
         workspace.value.risks = risksWithAnnotations.map(({ annotations: _annotations, ...rest }) => rest)
         workspace.value.annotations = risksWithAnnotations.flatMap(r => r.annotations ?? [])
-        workspace.value.currentVersionId = resp.currentVersionId ?? null
-        workspace.value.maxVersionNo = resp.maxVersionNo ?? 0
+        workspace.value.currentVersionId = payload.currentVersionId ?? null
+        workspace.value.maxVersionNo = payload.maxVersionNo ?? 0
     }
 
     /** 从服务端拉取版本列表 */
