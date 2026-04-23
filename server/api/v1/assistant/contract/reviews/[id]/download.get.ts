@@ -1,29 +1,32 @@
 /**
  * GET /api/v1/assistant/contract/reviews/:id/download
  *
- * 取合同审查已完成的批注版 .docx 的 1 小时签名下载 URL。
+ * 下载批注版 .docx 的 1 小时签名 URL。
+ * 每次调用都实时调用 rebuildDocxService 重新注入 Phase B 格式批注，
+ * 确保下载产物的 wordCommentRef 符合 LEXSEEK-xxx 格式，避免客户回传
+ * 后被 uploadClientVersion 误判为外部新增（external_new）。
  *
- * 返回 `{ downloadUrl, filename }`，由前端直接拼在 `<a download>` 或 window.open 上使用。
- * filename 格式：`{原文件名}_v{版本号}_{YYYY-MM-DD}.docx`（Phase A 简化：永远用 maxVersionNo）
+ * 返回 `{ downloadUrl, filename }`，由前端直接拼在 `<a download>` 上。
+ * filename 格式：`{原文件名}_v{版本号}_{YYYY-MM-DD}.docx`
  *
- * 错误分支（6 条）：
+ * 错误分支：
  *  - 401 未登录
  *  - 400 reviewId 无效（非整数 / ≤ 0）
  *  - 404 review 不存在（含软删）
  *  - 403 review 属于他人
  *  - 400 review 尚未完成（reviewedFileId 为空）
- *  - 404 ossFile 记录丢失或 filePath 缺失
- *
- * 成功分支（1 条）：
- *  - 200 data.downloadUrl 为 https 签名 URL（1 小时有效），data.filename 为建议文件名
+ *  - 500 重生批注失败
+ *  - 404 新产物 ossFile 丢失
  *
  * **Feature: contract-review-m4**
  * **Feature: contract-review-versioning-phase-a（Phase A Task 4.3 文件名带版本号）**
+ * **Phase B 改造**：切换到实时 injectAnnotations，修复旧产物无 wordCommentRef 问题
  */
 
 import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import { generateSignedUrlService } from '~~/server/services/storage/storage.service'
 import { loadOwnedReview } from '~~/server/services/assistant/contract/reviewGuard'
+import { rebuildDocxService } from '~~/server/services/assistant/contract/contractReviewRebuild.service'
 
 // 与文书导出（documentExport.service.ts）保持 1h 对齐
 const DOWNLOAD_URL_EXPIRES_SECONDS = 3600
@@ -34,19 +37,27 @@ export default defineEventHandler(async (event) => {
     const { user, review } = guard
 
     // 校验审查是否已完成（reviewedFileId 是产物 id，未完成为 null）
-    const reviewedFileId = review.reviewedFileId
-    if (!reviewedFileId) {
+    if (!review.reviewedFileId) {
         return resError(event, 400, '审查尚未完成，暂无可下载文件')
     }
 
-    // 查 OSS 文件记录
-    const ossFile = await findOssFileByIdDao(reviewedFileId)
+    // 实时重注入 Phase B 批注：下载原件 → 注入 → 上传 → 更新 reviewedFileId + wordCommentRef
+    let newReviewedFileId: number
+    try {
+        const result = await rebuildDocxService(review)
+        newReviewedFileId = result.reviewedFileId
+    } catch (err) {
+        logger.error('[contract download] 重生批注失败', { reviewId: review.id, err })
+        return resError(event, 500, '生成批注文件失败，请稍后重试')
+    }
+
+    // 查新产物 OSS 文件记录（rebuildDocxService 已写入 DB）
+    const ossFile = await findOssFileByIdDao(newReviewedFileId)
     if (!ossFile || !ossFile.filePath) {
         return resError(event, 404, '审查结果文件已丢失')
     }
 
-    // Phase A Task 4.3：文件名带版本号
-    // 版本标识：Phase A 简化规则 —— 永远用 v{maxVersionNo}（当前总是指向最新快照）
+    // Phase A Task 4.3：文件名带版本号，永远用 v{maxVersionNo}
     const versionLabel = `v${review.maxVersionNo || 1}`
     const dateStr = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
     const baseName = (ossFile.fileName ?? '合同审查').replace(/\.docx$/i, '')
