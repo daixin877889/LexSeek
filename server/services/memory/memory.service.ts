@@ -76,3 +76,31 @@ export async function writeMemoryService(input: MemoryWriteInput): Promise<{ id:
 
   return { id: newId }
 }
+
+/**
+ * 更新记忆：改文本 和/或 打失效
+ */
+export async function updateMemoryService(
+  id: string,
+  patch: { text?: string; invalidate?: boolean },
+): Promise<void> {
+  if (patch.text !== undefined) {
+    await prisma.$executeRawUnsafe(
+      `UPDATE case_memories
+       SET text = $2,
+           tsv = to_tsvector('chinese', $2)
+       WHERE id = $1::uuid`,
+      id,
+      patch.text,
+    )
+  }
+  if (patch.invalidate) {
+    await prisma.$executeRawUnsafe(
+      `UPDATE case_memories
+       SET metadata = jsonb_set(metadata, '{invalidatedAt}', to_jsonb($2::text))
+       WHERE id = $1::uuid`,
+      id,
+      new Date().toISOString(),
+    )
+  }
+}

@@ -96,3 +96,69 @@ describe('writeMemoryService（集成测 · 需测试库）', () => {
     expect(rows[0].has_tsv).toBe(true)
   })
 })
+
+describe('updateMemoryService', () => {
+  let testCaseId: number
+  let testUserId: number
+
+  beforeEach(async () => {
+    const suffix = Date.now().toString().slice(-8)
+    const user = await prisma.users.create({
+      data: {
+        name: `test_memory_user_${suffix}`,
+        phone: `199${suffix}`,
+        password: 'test_hash',
+        status: 1,
+      },
+    })
+    testUserId = user.id
+
+    const caseType = await prisma.caseTypes.findFirst()
+    const c = await prisma.cases.create({
+      data: { title: 'test case for update memory', userId: testUserId, caseTypeId: caseType!.id },
+    })
+    testCaseId = c.id
+  })
+
+  afterEach(async () => {
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM case_memories WHERE metadata->>'caseId' = $1`,
+      testCaseId.toString(),
+    )
+    await prisma.cases.delete({ where: { id: testCaseId } })
+    await prisma.users.delete({ where: { id: testUserId } })
+  })
+
+  it('改文本同时同步 tsv', async () => {
+    const { updateMemoryService } = await import('~~/server/services/memory/memory.service')
+    const { id } = await writeMemoryService({
+      caseId: testCaseId,
+      kind: 'fact',
+      text: '原文本',
+      source: 'manual',
+    })
+    await updateMemoryService(id, { text: '新文本 with 合同' })
+    const rows: any[] = await prisma.$queryRawUnsafe(
+      `SELECT text, tsv::text AS tsv_text FROM case_memories WHERE id = $1::uuid`,
+      id,
+    )
+    expect(rows[0].text).toBe('新文本 with 合同')
+    expect(rows[0].tsv_text).toBeTruthy()
+  })
+
+  it('invalidate: true 打失效时间戳', async () => {
+    const { updateMemoryService } = await import('~~/server/services/memory/memory.service')
+    const { id } = await writeMemoryService({
+      caseId: testCaseId,
+      kind: 'fact',
+      text: 'x',
+      source: 'manual',
+    })
+    await updateMemoryService(id, { invalidate: true })
+    const rows: any[] = await prisma.$queryRawUnsafe(
+      `SELECT metadata FROM case_memories WHERE id = $1::uuid`,
+      id,
+    )
+    expect(rows[0].metadata.invalidatedAt).toBeTruthy()
+  })
+})
