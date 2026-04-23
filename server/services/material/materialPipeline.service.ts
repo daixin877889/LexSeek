@@ -4,7 +4,7 @@
  * 确保案件所有材料已完成识别和嵌入，供中间件和工具复用。
  * 只对未识别的触发识别，只对未嵌入的触发嵌入，避免重复处理。
  */
-import { getMaterialByIdService, getMaterialsByCaseIdService, getMaterialsByCaseOrDraftIdService, getMaterialsByDraftIdService, updateMaterialStatusService, type MaterialWithFile } from './material.service'
+import { getMaterialByIdService, getMaterialsByCaseIdService, getMaterialsByCaseOrDraftIdService, getMaterialsByDraftIdService, updateMaterialStatusService, generateMaterialSummaryService, type MaterialWithFile } from './material.service'
 import { batchCheckMaterialEmbeddedService, embedMaterialUnifiedService } from './materialEmbedding.service'
 import { processMaterialService, batchCheckMaterialRecognizedService, MaterialProcessError } from './materialProcess.service'
 import { CaseMaterialType, getMaterialTypeFromMime } from '#shared/types/case'
@@ -398,6 +398,11 @@ export interface MaterialContextResult {
     materialList: MaterialContextItem[]
 }
 
+/**
+ * @deprecated M2 起改用 getMaterialListWithSummariesService（清单+摘要）；
+ * 全文召回通过 search_case_materials 工具按需执行。
+ * 此函数仅在合同审查等需要全文的场景中保留。
+ */
 export async function getMaterialContextService(
     materials: MaterialWithFile[],
     tokenBudget: number = TOKEN_THRESHOLD,
@@ -757,6 +762,8 @@ export async function ensureMaterialsReadyForDraftService(
             if (materialDetail.status !== MaterialStatus.COMPLETED) {
                 await updateMaterialStatusService(materialId, MaterialStatus.COMPLETED)
             }
+            // 异步触发摘要生成（fire-and-forget，失败不阻塞）
+            generateMaterialSummaryService(materialId).catch(() => { /* 已在内部 catch */ })
             return {
                 id: materialId,
                 status: MaterialStatus.COMPLETED,
@@ -789,4 +796,21 @@ export async function ensureMaterialsReadyForDraftService(
     }
 
     throw new Error(`材料处理超时: ${materialId}`)
+}
+
+/**
+ * 返回案件材料清单 + 摘要（供 moduleContextBuilder ⑤ 段使用）
+ * 不返回全文；全文请通过 search_case_materials 工具按需召回。
+ */
+export async function getMaterialListWithSummariesService(caseId: number): Promise<Array<{
+    id: number
+    name: string
+    type: number
+    summary: string | null
+}>> {
+    return prisma.caseMaterials.findMany({
+        where: { caseId, deletedAt: null, status: 3 /* COMPLETED */ },
+        select: { id: true, name: true, type: true, summary: true },
+        orderBy: { createdAt: 'asc' },
+    })
 }

@@ -24,6 +24,9 @@ import { findRecognitionRecordsByOssFileIdsDao } from './material.dao'
 import type { CreateMaterialInput, UpdateMaterialInput, MaterialQueryOptions } from '#shared/types/material'
 import { MaterialStatus } from '#shared/types/material'
 import { CaseMaterialType } from '#shared/types/case'
+import { createChatModel } from '../node/chatModelFactory'
+import { generateSummaryService } from '../ai/summaryService'
+import { findDocRecognitionByOssFileIdDao } from './mineru.dao'
 
 /** 材料（包含文件信息） */
 export interface MaterialWithFile extends caseMaterials {
@@ -470,4 +473,67 @@ export const getMaterialsStatsService = async (
     ])
 
     return { total, pending, processing, completed, failed }
+}
+
+/**
+ * 为材料生成 100 字摘要并写入 caseMaterials.summary
+ * 触发时机：材料文本就绪（OCR/ASR 完成）后异步调用
+ * 失败不阻塞主流程，仅 logger.warn
+ */
+export async function generateMaterialSummaryService(materialId: number): Promise<void> {
+    try {
+        const material = await prisma.caseMaterials.findUnique({
+            where: { id: materialId },
+            select: { id: true, summary: true, ossFileId: true, type: true },
+        })
+        if (!material || material.summary) return
+
+        const content = await loadMaterialText(materialId, 500)
+        if (!content) return
+
+        const haiku = createChatModel({
+            sdkType: 'anthropic',
+            modelName: 'claude-haiku-4-5-20251001',
+            apiKey: process.env.ANTHROPIC_API_KEY!,
+            streaming: false,
+            temperature: 0,
+        })
+        const summary = await generateSummaryService(haiku, content, { maxChars: 100 })
+        await prisma.caseMaterials.update({
+            where: { id: materialId },
+            data: { summary },
+        })
+    } catch (e) {
+        logger.warn('generateMaterialSummaryService 失败（不阻塞主流程）', { materialId, error: e })
+    }
+}
+
+/**
+ * 读材料正文前 maxChars 字（用于摘要生成）
+ */
+async function loadMaterialText(materialId: number, maxChars: number): Promise<string> {
+    const m = await prisma.caseMaterials.findUnique({
+        where: { id: materialId },
+        select: { id: true, type: true, ossFileId: true },
+    })
+    if (!m) return ''
+    // type=1 文本：从 textContentRecords 读
+    if (m.type === 1) {
+        const record = await findTextContentRecordByMaterialIdDAO(materialId)
+        return (record?.content ?? '').slice(0, maxChars)
+    }
+    // type=2 文档 / type=3 图片：走 OCR（docRecognitionRecords → markdownContent）
+    if ((m.type === 2 || m.type === 3) && m.ossFileId) {
+        const record = await findDocRecognitionByOssFileIdDao(m.ossFileId)
+        return (record?.markdownContent ?? '').slice(0, maxChars)
+    }
+    // type=4 音频：从 asrRecords 读 summary
+    if (m.type === 4 && m.ossFileId) {
+        const asr = await prisma.asrRecords.findFirst({
+            where: { ossFileId: m.ossFileId, deletedAt: null },
+            select: { summary: true },
+        })
+        if (asr?.summary) return asr.summary.slice(0, maxChars)
+    }
+    return ''
 }
