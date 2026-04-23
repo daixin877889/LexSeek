@@ -438,9 +438,14 @@ export async function writeMemoryService(input: MemoryWriteInput): Promise<{ id:
 }
 
 export async function recallMemoryService(params: {
-  caseId: number; query: string; kind?: MemoryKind; topK?: number
+  caseId: number
+  query: string
+  kind?: MemoryKind
+  topK?: number
+  /** Agent 显式传入；true 时放开失效过滤，可看到历史版本链。默认 false（只返最新有效） */
+  includeInvalidated?: boolean
 }): Promise<Array<MemoryHit>> {
-  const { caseId, query, kind, topK = 5 } = params
+  const { caseId, query, kind, topK = 5, includeInvalidated = false } = params
 
   // 调公共入口 retrieveWithReranking（封装 ①②③④⑤⑥）
   const metadataFilter: Record<string, string | number | boolean> = { caseId }
@@ -450,7 +455,7 @@ export async function recallMemoryService(params: {
     query,
     topK,
     metadataFilter,
-    filterInvalidated: true,
+    filterInvalidated: !includeInvalidated,   // 用户/Agent 明确要历史时才放开
     enableVersionScoring: true,
   })
 }
@@ -486,7 +491,9 @@ export async function recallMemoryService(params: {
   query: string
   kind?: MemoryWriteInput['kind']
   topK?: number
-}): Promise<Array<{ id: string; text: string; score: number; kind: string }>>
+  /** 放开失效过滤，查询历史版本链（默认 false，仅返最新有效） */
+  includeInvalidated?: boolean
+}): Promise<Array<MemoryHit>>
 ```
 
 ### 3.3 召回 pipeline 六阶段（复用现有 retrieval 基建 + 新增后处理）
@@ -524,7 +531,7 @@ export async function recallMemoryService(params: {
   Adaptive K：
     - 简单 query（单实体指称）→ K=3
     - 多跳 query（"X 和 Y 的关系"）→ K=5
-    - 时序 query（"当初怎么...") → K=5 + 放开 invalidated 过滤
+    - 时序/历史查询：由上层（Agent 工具调用方）传 `includeInvalidated=true` 显式放开（不用正则猜意图）
 
 ⑥ Subject 版本链降权
   最终打分：
@@ -547,16 +554,24 @@ export async function recallMemoryService(params: {
 // search_case_memory.tool.ts
 export const toolDefinition = {
   name: 'search_case_memory',
-  description: '语义检索当前案件的长期记忆（事实/偏好/模块摘要/对话要点）。当需要回忆之前讨论过的内容时调用。',
+  description: '语义检索当前案件的长期记忆（事实/偏好/对话要点）。当需要回忆之前讨论过的内容时调用。',
   schema: z.object({
     query: z.string().describe('检索关键词或问题'),
     kind: z.enum(['fact', 'preference', 'dialogue_note']).optional(),
     top_k: z.number().default(5),
+    /** 当用户明确问"之前/历史/曾经/当初"这类时序追溯问题时，Agent 设为 true 以看到被新事实覆盖的历史版本 */
+    include_history: z.boolean().default(false).describe('是否放开已失效记忆（查询历史版本链时用）'),
   }),
 }
 export function createTool(context: ToolContext) {
-  return tool(async ({ query, kind, top_k }) => {
-    const hits = await recallMemoryService({ caseId: context.caseId, query, kind, topK: top_k })
+  return tool(async ({ query, kind, top_k, include_history }) => {
+    const hits = await recallMemoryService({
+      caseId: context.caseId,
+      query,
+      kind,
+      topK: top_k,
+      includeInvalidated: include_history,
+    })
     return JSON.stringify(hits)
   }, toolDefinition)
 }
