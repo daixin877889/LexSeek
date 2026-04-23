@@ -192,8 +192,13 @@ export async function downloadContractReviewVersionService(
     // 基底 docx：优先用该版本当时的客户回传原件；没有再回落到 review 的原始合同
     const baseFileId = version.docxFileId ?? review.originalFileId
     if (!baseFileId) return { error: 'origin_file_missing' as const }
-    const baseOssFile = await findOssFileByIdDao(baseFileId)
+    const [baseOssFile, originalOssFile] = await Promise.all([
+        findOssFileByIdDao(baseFileId),
+        review.originalFileId !== baseFileId ? findOssFileByIdDao(review.originalFileId) : null,
+    ])
     if (!baseOssFile?.filePath) return { error: 'origin_file_missing' as const }
+    // 文件名始终取自原始合同，而非基底文件（客户回传件可能是 UUID 名）
+    const contractFileName = (originalOssFile ?? baseOssFile)?.fileName
 
     const baseBuffer = await downloadFileService(baseOssFile.filePath)
 
@@ -246,9 +251,10 @@ export async function downloadContractReviewVersionService(
         uploadName = uploadResult.name
         const bucketName = storageConfig?.bucket ?? ''
 
-        // 文件名：以原合同名为基底，附 v{版本号}，便于客户识别历史版本
-        const baseName = (baseOssFile.fileName ?? '合同审查').replace(/\.docx$/i, '')
-        const filename = `${baseName}_v${version.versionNumber}.docx`
+        // 文件名：{合同名}_v{版本号}_{日期}.docx（spec §4.4）
+        const baseName = (contractFileName ?? '合同审查').replace(/\.docx$/i, '')
+        const dateStr = new Date().toISOString().slice(0, 10)
+        const filename = `${baseName}_v${version.versionNumber}_${dateStr}.docx`
 
         // 落一条 ossFiles 记录用于后续追踪；下载链走 Content-Disposition 带文件名
         await createOssFileDao({

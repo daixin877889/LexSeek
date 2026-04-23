@@ -57,10 +57,12 @@ export default defineEventHandler(async (event) => {
         return resError(event, 404, '审查结果文件已丢失')
     }
 
-    // Phase A Task 4.3：文件名带版本号，永远用 v{maxVersionNo}
-    const versionLabel = `v${review.maxVersionNo || 1}`
+    // 文件名：取原始合同文件名（非重建产物名）+ 版本号/工作区 + 日期
+    // 规则见 spec §4.4：{合同名}_{版本号或"工作区"}_{日期}.docx
+    const originalOssFile = await findOssFileByIdDao(review.originalFileId)
+    const versionLabel = review.maxVersionNo > 0 ? `v${review.maxVersionNo}` : '工作区'
     const dateStr = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
-    const baseName = (ossFile.fileName ?? '合同审查').replace(/\.docx$/i, '')
+    const baseName = (originalOssFile?.fileName ?? '合同审查').replace(/\.docx$/i, '')
     const filename = `${baseName}_${versionLabel}_${dateStr}.docx`
 
     // RFC 5987 编码，让 OSS 通过 response-content-disposition 返回正确文件名
