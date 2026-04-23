@@ -207,18 +207,19 @@ async function handlePasteSubmit() {
                 <!-- 上传 Tab -->
                 <TabsContent value="upload" class="pt-4">
                     <div class="space-y-3">
-                        <!-- 未选文件：dropzone（用 label 包裹让原生 click → input 关联，不依赖 programmatic click） -->
-                        <label v-if="!selectedFile"
-                            class="block border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors"
+                        <!-- 未选文件：dropzone，input 用 absolute inset-0 铺满父容器，opacity:0 保持不可见但可点击 -->
+                        <div v-if="!selectedFile"
+                            class="relative border-2 border-dashed rounded-lg p-8 text-center transition-colors"
                             :class="isDragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'"
                             @dragover.prevent="isDragOver = true"
                             @dragleave.prevent="isDragOver = false" @drop.prevent="handleDrop">
-                            <input ref="fileInputRef" type="file" accept=".docx" class="sr-only"
+                            <input ref="fileInputRef" type="file" accept=".docx"
+                                class="absolute inset-0 size-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                                 :disabled="uploading" @change="handleFileSelect" />
-                            <UploadIcon class="size-8 mx-auto mb-3 text-muted-foreground" />
-                            <p class="text-sm font-medium">点击选择文件 或 拖拽到此处</p>
-                            <p class="text-xs text-muted-foreground mt-1">仅支持 .docx 格式，≤ 20 MB</p>
-                        </label>
+                            <UploadIcon class="size-8 mx-auto mb-3 text-muted-foreground pointer-events-none" />
+                            <p class="text-sm font-medium pointer-events-none">点击选择文件 或 拖拽到此处</p>
+                            <p class="text-xs text-muted-foreground mt-1 pointer-events-none">仅支持 .docx 格式，≤ 20 MB</p>
+                        </div>
 
                         <!-- 已选文件：展示 + 移除 + 进度 -->
                         <div v-else class="border rounded-lg p-4 space-y-3">

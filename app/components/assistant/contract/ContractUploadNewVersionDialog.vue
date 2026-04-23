@@ -199,10 +199,10 @@ function stepColorClass(status: StepStatus) {
             <!-- 文件选择阶段 -->
             <template v-if="!sseState && !ossUploading">
                 <div class="space-y-4 py-2">
-                    <!-- 文件选择区（用 label 让原生 click 关联 input，避免 Dialog Portal 内 programmatic click 失败） -->
-                    <label
+                    <!-- 文件选择区：input absolute inset-0 铺满父容器 + opacity:0，自身即点击目标，最可靠 -->
+                    <div
                         data-testid="dropzone"
-                        class="block border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors"
+                        class="relative border-2 border-dashed rounded-lg p-6 text-center transition-colors"
                         :class="[
                             isDragging
                                 ? 'border-primary bg-primary/5 dark:bg-primary/15'
@@ -216,23 +216,23 @@ function stepColorClass(status: StepStatus) {
                             ref="fileInputRef"
                             type="file"
                             accept=".docx"
-                            class="sr-only"
+                            class="absolute inset-0 size-full opacity-0 cursor-pointer"
                             @change="handleFileChange"
                         />
                         <template v-if="selectedFile">
-                            <FileIcon class="size-8 mx-auto mb-2 text-primary" />
-                            <p class="text-sm font-medium">{{ selectedFile.name }}</p>
-                            <p class="text-xs text-muted-foreground mt-1">
+                            <FileIcon class="size-8 mx-auto mb-2 text-primary pointer-events-none" />
+                            <p class="text-sm font-medium pointer-events-none">{{ selectedFile.name }}</p>
+                            <p class="text-xs text-muted-foreground mt-1 pointer-events-none">
                                 {{ (selectedFile.size / 1024 / 1024).toFixed(2) }} MB
                             </p>
                         </template>
                         <template v-else>
-                            <UploadIcon class="size-8 mx-auto mb-2 text-muted-foreground" />
-                            <p class="text-sm text-muted-foreground">
+                            <UploadIcon class="size-8 mx-auto mb-2 text-muted-foreground pointer-events-none" />
+                            <p class="text-sm text-muted-foreground pointer-events-none">
                                 {{ isDragging ? '释放以上传' : '点击或拖拽 .docx 文件到此处' }}
                             </p>
                         </template>
-                    </label>
+                    </div>
                 </div>
 
                 <DialogFooter>
