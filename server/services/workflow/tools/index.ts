@@ -24,6 +24,7 @@ import * as parseAndAskStanceTool from './parseAndAskStance.tool'
 import * as searchCaseMemoryTool from './search_case_memory.tool'
 import * as writeCaseMemoryTool from './write_case_memory.tool'
 import * as updateCaseMemoryTool from './update_case_memory.tool'
+import * as searchCaseAnalysisTool from './search_case_analysis.tool'
 
 /** 工具模块映射 */
 const toolModules: Record<string, ToolModule> = {
@@ -41,6 +42,7 @@ const toolModules: Record<string, ToolModule> = {
     search_case_memory: searchCaseMemoryTool,
     write_case_memory: writeCaseMemoryTool,
     update_case_memory: updateCaseMemoryTool,
+    search_case_analysis: searchCaseAnalysisTool,
 }
 
 /**
