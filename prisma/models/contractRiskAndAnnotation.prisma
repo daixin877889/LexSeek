@@ -62,8 +62,11 @@ model contractAnnotations {
   createdAt DateTime @default(now()) @map("created_at")
   /// Phase B：内容被律师修改时更新（用于 detectUnsavedEdits 幂等判断）
   updatedAt DateTime @updatedAt @map("updated_at")
-  /// Phase B：Word 批注稳定身份证（格式 LEXSEEK-{annotationId}-{random8}）
-  wordCommentRef   String?  @unique @map("word_comment_ref") @db.VarChar(60)
+  /// Phase B：Word 批注稳定身份证（格式 LEXSEEK-{annotationId}-{random8}）。
+  /// **不加 @unique**：rand8 随机碰撞概率极小（62^8 ≈ 2e14），加 UNIQUE 约束
+  /// 反而在并发导出时（两个 request 几乎同时为 null ref 的 annotation 生成
+  /// rand8）会概率性抛 P2002 让整个上传失败。保留 @@index 加速查询即可。
+  wordCommentRef   String?  @map("word_comment_ref") @db.VarChar(60)
   /// Phase B：客户在 Word 里删了该批注
   removedByClient  Boolean  @default(false) @map("removed_by_client")
   /// Phase B：下次导出 docx 时跳过（removedByClient=true 时默认 true；律师"恢复推送"可将此置 false）
