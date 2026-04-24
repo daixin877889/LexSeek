@@ -40,6 +40,12 @@ const panelMode = ref<"left" | "right" | "both">("both");
 const threadHistory = await useApiFetch<{
   values: Record<string, unknown>;
   threadId: string;
+  subAgentThreads?: Array<{
+    toolCallId: string;
+    agentName: string;
+    threadId: string;
+    messages: Record<string, unknown>[];
+  }>;
 }>(`/api/v1/case/analysis/thread/${sessionId.value}`, {
   showError: false,
 });
@@ -48,6 +54,7 @@ const stream = useStreamChat({
   apiUrl: "/api/v1/case/analysis/chat",
   threadId: sessionId.value,
   initialValues: threadHistory?.values ?? undefined,
+  initialSubThreads: threadHistory?.subAgentThreads ?? undefined,
 });
 
 /** 将原始字典格式消息转为 BaseMessage 实例 */

@@ -95,6 +95,13 @@ export interface StreamChatOptions {
     onCustomEvent?: (data: unknown) => void
     /** 初始状态值（用于从 checkpoint 恢复） */
     initialValues?: Record<string, unknown>
+    /** 历史子代理 thread 列表（用于页面刷新后恢复子代理思考链） */
+    initialSubThreads?: Array<{
+        toolCallId: string
+        agentName: string
+        threadId: string
+        messages: Record<string, unknown>[]
+    }>
 }
 
 export function useStreamChat<T extends Record<string, unknown> = Record<string, unknown>>(options: StreamChatOptions) {
@@ -108,6 +115,19 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
 
     // 子 Agent 分桶：按 parentToolCallId 归集子 Agent 事件
     const subThreadsMap = reactive<Record<string, SubThreadState>>({})
+
+    // 历史恢复：将 loadHistory 返回的 subAgentThreads 灌入 subThreadsMap
+    if (options.initialSubThreads?.length) {
+        for (const sub of options.initialSubThreads) {
+            subThreadsMap[sub.toolCallId] = {
+                agentName: sub.agentName,
+                threadId: sub.threadId,
+                messages: sub.messages,
+                status: 'completed',
+                runIdToInnerToolCallId: new Map(),
+            }
+        }
+    }
 
     function handleAgentEvent(ev: AgentEvent) {
         if (!ev.metadata?.parentToolCallId) return
