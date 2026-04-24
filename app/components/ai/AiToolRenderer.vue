@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { inject } from 'vue'
 import type { Component } from 'vue'
 import type { ToolCallWithResult } from './composables/useMessageParser'
+import SubAgentChainOfThought from './SubAgentChainOfThought.vue'
 
 interface Props {
   toolCall: ToolCallWithResult
@@ -13,6 +15,32 @@ const emit = defineEmits<{
   (e: 'confirm', data: any): void
   (e: 'reject'): void
 }>()
+
+function isSubAgentTool(name: string): boolean {
+  return name.startsWith('ask_') && name.endsWith('_expert')
+}
+
+function subAgentTitleFromName(name: string): string {
+  return name.replace(/^ask_/, '').replace(/_expert$/, '').replace(/_/g, ' ')
+}
+
+interface SubAgentAccess {
+  subThreadsMap: Record<string, any>
+}
+const subAgentAccess = inject<SubAgentAccess | null>('subAgentAccess', null)
+
+function subAgentMessages(toolCallId: string): any[] {
+  return subAgentAccess?.subThreadsMap?.[toolCallId]?.messages ?? []
+}
+function subAgentIsRunning(toolCallId: string): boolean {
+  return subAgentAccess?.subThreadsMap?.[toolCallId]?.status === 'running'
+}
+function subAgentIsFailed(toolCallId: string): boolean {
+  return subAgentAccess?.subThreadsMap?.[toolCallId]?.status === 'failed'
+}
+function subAgentError(toolCallId: string): string | undefined {
+  return subAgentAccess?.subThreadsMap?.[toolCallId]?.error
+}
 </script>
 
 <template>
@@ -26,6 +54,15 @@ const emit = defineEmits<{
     :state="toolCall.state"
     @confirm="emit('confirm', $event)"
     @reject="emit('reject')"
+  />
+  <!-- 子 Agent 工具：用 Chain of Thought 展示内部思考过程 -->
+  <SubAgentChainOfThought
+    v-else-if="isSubAgentTool(toolCall.name)"
+    :agent-title="subAgentTitleFromName(toolCall.name)"
+    :sub-messages="subAgentMessages(toolCall.id)"
+    :is-running="subAgentIsRunning(toolCall.id)"
+    :is-failed="subAgentIsFailed(toolCall.id)"
+    :failure-reason="subAgentError(toolCall.id)"
   />
   <AiToolsMaterialProcessTool v-else-if="toolCall.name === 'process_materials'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
   <AiToolsPointsReserveTool v-else-if="toolCall.name === 'reserve_points'" :tool-name="toolCall.name" :input="toolCall.args" :output="toolCall.result" :state="toolCall.state" @confirm="emit('confirm', $event)" @reject="emit('reject')" />
