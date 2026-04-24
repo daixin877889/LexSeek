@@ -8,6 +8,8 @@ import crypto from 'node:crypto'
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { VALID_MODULE_NAMES, INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
 import type { InitAnalysisStatusResponse } from '#shared/types/initAnalysis'
+import { generateSummaryService } from '../ai/summaryService'
+import { addDocumentsToVectorStore } from '../legal/vectorStore.service'
 
 /**
  * 验证并排序选中的模块
@@ -314,21 +316,21 @@ export interface CompleteAnalysisWithRAGInput {
 export async function completeAnalysisWithRAG(input: CompleteAnalysisWithRAGInput): Promise<void> {
     const { analysisId, analysisResult, model } = input
 
-    // Stage 1: 主分析 + summary（事务内）
+    // 事务外先查 existing（只读），不占用事务连接
+    const existing = await prisma.caseAnalyses.findUnique({
+        where: { id: analysisId },
+        select: { id: true, caseId: true, nodeId: true, analysisType: true, version: true },
+    })
+    if (!existing) throw new Error(`caseAnalyses #${analysisId} not found`)
+
+    // LLM 调用在事务外：网络 IO 不受事务超时约束，LLM 慢不会拖垮主分析落库
+    const summary = await generateSummaryService(model, analysisResult, {
+        maxChars: 400,
+        systemPrompt: '你是法律助手。对下方分析报告正文生成 200-400 字的中文专业摘要，保留关键事实、结论、依据，不加开场白总结语。',
+    })
+
+    // Stage 1: 主分析 + summary（事务内；只做 DB 写入，无网络 IO）
     const analysis = await prisma.$transaction(async (tx) => {
-        const existing = await tx.caseAnalyses.findUnique({
-            where: { id: analysisId },
-            select: { id: true, caseId: true, nodeId: true, analysisType: true, version: true },
-        })
-        if (!existing) throw new Error(`caseAnalyses #${analysisId} not found`)
-
-        // 动态 import 避免循环依赖
-        const { generateSummaryService } = await import('../ai/summaryService')
-        const summary = await generateSummaryService(model, analysisResult, {
-            maxChars: 400,
-            systemPrompt: '你是法律助手。对下方分析报告正文生成 200-400 字的中文专业摘要，保留关键事实、结论、依据，不加开场白总结语。',
-        })
-
         const updated = await tx.caseAnalyses.update({
             where: { id: analysisId },
             data: {
@@ -350,11 +352,10 @@ export async function completeAnalysisWithRAG(input: CompleteAnalysisWithRAGInpu
         })
 
         return updated
-    }, { timeout: 15_000 })
+    }, { timeout: 5_000 })
 
     // Stage 2: embedding 切块写入（事务外，失败只 warn）
     try {
-        const { addDocumentsToVectorStore } = await import('../legal/vectorStore.service')
         const chunks = splitByParagraph(analysisResult, 500)
         const ids = chunks.map(() => crypto.randomUUID())
         const docs = chunks.map((chunk, i) => ({
