@@ -7,9 +7,48 @@ import { getCheckpointer } from '~~/server/services/workflow/checkpointer'
 const DEBOUNCE_MS = 30 * 1000
 const QUEUE_KEY = 'consolidator:due'
 
-interface LangGraphMessage {
+/** LangChain 序列化格式（checkpoint 存储） */
+interface SerializedLCMessage {
+  lc: number
+  type: 'constructor'
+  id: string[]
+  kwargs: { content: string | unknown }
+}
+
+/** 实例化格式（部分场景） */
+interface InstantiatedLCMessage {
   getType(): string
   content: string | unknown
+}
+
+type LangGraphMessage = SerializedLCMessage | InstantiatedLCMessage
+
+function resolveMessageRole(m: LangGraphMessage): string | null {
+  if (typeof (m as InstantiatedLCMessage).getType === 'function') {
+    return (m as InstantiatedLCMessage).getType()
+  }
+  const s = m as SerializedLCMessage
+  const className = s.id?.at(-1) ?? ''
+  if (className === 'HumanMessage') return 'human'
+  if (className === 'AIMessage' || className === 'AIMessageChunk') return 'ai'
+  return null
+}
+
+function resolveMessageContent(m: LangGraphMessage): string {
+  let raw: unknown
+  if (typeof (m as InstantiatedLCMessage).getType === 'function') {
+    raw = (m as InstantiatedLCMessage).content
+  } else {
+    raw = (m as SerializedLCMessage).kwargs?.content
+  }
+  if (typeof raw === 'string') return raw
+  if (Array.isArray(raw)) {
+    return raw
+      .filter((c): c is { type: string; text: string } => c?.type === 'text')
+      .map(c => c.text)
+      .join('')
+  }
+  return JSON.stringify(raw)
 }
 
 const extractionSchema = z.object({
@@ -119,11 +158,11 @@ async function loadRecentAgentMessages(
     const rawMessages = (tuple.checkpoint.channel_values as Record<string, unknown>)?.messages
     const messages: LangGraphMessage[] = Array.isArray(rawMessages) ? (rawMessages as LangGraphMessage[]) : []
     return messages
-      .filter((m) => m.getType() === 'human' || m.getType() === 'ai')
+      .filter((m) => { const r = resolveMessageRole(m); return r === 'human' || r === 'ai' })
       .slice(-limit)
       .map((m) => ({
-        role: m.getType(),
-        content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+        role: resolveMessageRole(m)!,
+        content: resolveMessageContent(m),
       }))
   } catch {
     return []

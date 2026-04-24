@@ -133,6 +133,40 @@ describe('consolidateSession', () => {
     expect(writeMemoryService).not.toHaveBeenCalled()
   })
 
+  it('LangChain 序列化格式消息（真实 checkpoint 场景）可被正确解析', async () => {
+    const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+    const { getCheckpointer } = await import('~~/server/services/workflow/checkpointer')
+    const { writeMemoryService } = await import('~~/server/services/memory/memory.service')
+    prismaMock.caseSessions.findUnique.mockResolvedValue({ caseId: 77 })
+    ;(getCheckpointer as ReturnType<typeof vi.fn>).mockResolvedValue({
+      getTuple: vi.fn().mockResolvedValue({
+        checkpoint: {
+          channel_values: {
+            messages: [
+              { lc: 1, type: 'constructor', id: ['langchain_core', 'messages', 'HumanMessage'], kwargs: { content: '原告叫张三' } },
+              { lc: 1, type: 'constructor', id: ['langchain_core', 'messages', 'AIMessageChunk'], kwargs: { content: [{ type: 'text', text: '已记录，原告为张三' }] } },
+            ],
+          },
+        },
+      }),
+    })
+    ;(createChatModel as ReturnType<typeof vi.fn>).mockReturnValue({
+      withStructuredOutput: () => ({
+        invoke: vi.fn().mockResolvedValue({
+          facts: [{ subjectKey: 'plaintiff.name', text: '原告叫张三', confidence: 0.95 }],
+          preferences: [],
+          dialogueNotes: [],
+        }),
+      }),
+    })
+
+    const { consolidateSession } = await import('~~/server/services/memory/consolidator.service')
+    await consolidateSession('sess-serialized')
+
+    expect(writeMemoryService).toHaveBeenCalledTimes(1)
+    expect(writeMemoryService).toHaveBeenCalledWith(expect.objectContaining({ kind: 'fact', caseId: 77, source: 'consolidator' }))
+  })
+
   it('正常路径：facts/preferences/dialogueNotes 都写入记忆', async () => {
     const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
     const { getCheckpointer } = await import('~~/server/services/workflow/checkpointer')
