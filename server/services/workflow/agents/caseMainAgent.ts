@@ -48,6 +48,8 @@ export interface CaseAgentOptions {
     userId: number
     /** 案件 ID */
     caseId: number
+    /** 主 Agent run id（agentRuns.id），供子代理 callbacks 转发事件到同一 SSE 流 */
+    runId: string
     /** 是否启用 extended thinking */
     thinking?: boolean
     /** 来自 agentWorker.executeRun 的 AbortController，用户取消/超时时传入 */
@@ -71,7 +73,7 @@ export async function runCaseChat(
     message: string | undefined,
     options: CaseAgentOptions & { command?: unknown },
 ): Promise<ReadableStream<Uint8Array>> {
-    const { command, userId, caseId, thinking = true, signal } = options
+    const { command, userId, caseId, runId, thinking = true, signal } = options
 
     // 1. 并发加载基础设施和配置
     const [checkpointer, store, mainConfig, subAgentConfigs] = await Promise.all([
@@ -103,7 +105,7 @@ export async function runCaseChat(
     const systemPrompt = renderSystemPrompt(mainConfig, { caseId })
 
     // 5. 加载主代理通用工具
-    const toolContext = { userId, caseId, sessionId }
+    const toolContext = { userId, caseId, sessionId, runId }
     const mainTools = mainConfig.tools.length > 0
         ? getToolInstancesService(mainConfig.tools, toolContext)
         : []

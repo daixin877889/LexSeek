@@ -33,6 +33,8 @@ export interface SubAgentToolContext {
     caseId: number
     /** 会话 ID */
     sessionId: string
+    /** 主 Agent run id（agentRuns.id），供 callbacks 转发事件到同一 SSE 流 */
+    runId: string
 }
 
 /**
@@ -138,7 +140,15 @@ export async function createSubAgentTools(
         const systemPrompt = renderSystemPrompt(config, { caseId: context.caseId })
 
         const subAgentTool = tool(
-            async (input: { question: string }): Promise<string> => {
+            async (input: { question: string }, cfg): Promise<string> => {
+                // 从 ToolRunnableConfig.toolCall.id 拿主 Agent 那次 ask_*_expert tool_call 的 id
+                const parentToolCallId = (cfg as any)?.toolCall?.id ?? ''
+                const mainRunId = context.runId
+                const nodeConfig = config   // 外层闭包的 NodeConfig（forEach 迭代变量）
+                void parentToolCallId
+                void mainRunId
+                void nodeConfig
+
                 try {
                     // 创建模型实例
                     const model = createChatModel({
