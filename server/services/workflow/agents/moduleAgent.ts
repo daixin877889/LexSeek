@@ -95,7 +95,7 @@ export async function runModuleChat(
     })
 
     // 工具上下文（扩展 ModuleToolContext）
-    const toolContext: ToolContext & { moduleName: string; nodeId: number; runId: string; getState: () => Promise<Record<string, any> | null> } = {
+    const toolContext: ToolContext & { moduleName: string; nodeId: number; runId: string; getState: () => Promise<Record<string, any> | null>; model: typeof model } = {
         userId,
         caseId,
         sessionId,
@@ -103,6 +103,7 @@ export async function runModuleChat(
         moduleName,
         nodeId,
         getState: async () => getSessionState(sessionId),
+        model,
     }
 
     // 加载节点配置的工具（同步函数）+ save_analysis_result 工具

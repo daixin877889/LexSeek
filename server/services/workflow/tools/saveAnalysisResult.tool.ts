@@ -10,8 +10,10 @@
 
 import { tool } from '@langchain/core/tools'
 import { z } from 'zod'
+import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { ToolContext, ToolDefinition } from './types'
 import { saveAndActivateAnalysisService } from '../../case/analysis.service'
+import { completeAnalysisWithRAG } from '../../case/initAnalysis.service'
 import { publishCustomEvent } from '../../agent/agentEventBridge'
 import { getTokenCount } from '../middleware/pointConsumption.middleware'
 
@@ -40,6 +42,8 @@ export interface ModuleToolContext extends ToolContext {
      * 用于读取 token 消耗等状态信息
      */
     getState?: () => Promise<Record<string, any> | null>
+    /** 用于 RAG summary 生成的模型实例 */
+    model: BaseChatModel
 }
 
 /**
@@ -96,6 +100,13 @@ export function createTool(context: ModuleToolContext) {
                     tokenCount,
                     tokens,
                 })
+
+                // Fire-and-forget：生成 summary + 写 embeddings，不阻塞工具响应
+                completeAnalysisWithRAG({
+                    analysisId: analysis.id,
+                    analysisResult: input.analysisResult,
+                    model: context.model,
+                }).catch((e) => logger.warn('completeAnalysisWithRAG fire-and-forget 失败', { error: e }))
 
                 // 发布自定义事件通知前端
                 await publishCustomEvent({

@@ -28,6 +28,12 @@ vi.mock('~~/server/services/case/analysis.service', () => ({
     saveAndActivateAnalysisService: (...args: any[]) => mockSaveAndActivate(...args),
 }))
 
+// Mock initAnalysis.service 中的 completeAnalysisWithRAG
+const mockCompleteAnalysisWithRAG = vi.fn()
+vi.mock('~~/server/services/case/initAnalysis.service', () => ({
+    completeAnalysisWithRAG: (...args: any[]) => mockCompleteAnalysisWithRAG(...args),
+}))
+
 // Mock agentEventBridge 中的 publishCustomEvent
 const mockPublishCustomEvent = vi.fn()
 vi.mock('~~/server/services/agent/agentEventBridge', () => ({
@@ -42,6 +48,7 @@ import {
 } from '~~/server/services/workflow/tools/saveAnalysisResult.tool'
 
 /** 构造最小 ModuleToolContext */
+const mockModel = {} as any
 const createContext = (overrides: Partial<ModuleToolContext> = {}): ModuleToolContext => ({
     userId: 1,
     caseId: 100,
@@ -49,12 +56,15 @@ const createContext = (overrides: Partial<ModuleToolContext> = {}): ModuleToolCo
     runId: 'run-xyz',
     moduleName: 'analysis_summary',
     nodeId: 10,
+    model: mockModel,
     ...overrides,
 })
 
 describe('save_analysis_result 工具', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        // 默认 completeAnalysisWithRAG 静默成功（fire-and-forget 不阻塞工具响应）
+        mockCompleteAnalysisWithRAG.mockResolvedValue(undefined)
     })
 
     describe('工具定义', () => {
@@ -123,6 +133,23 @@ describe('save_analysis_result 工具', () => {
             expect(eventArg.data.analysisId).toBe(11)
             expect(eventArg.data.tokens).toBe(3500)
             expect(eventArg.data.tokenCount).toBe(4)
+        })
+
+        it('保存成功后 fire-and-forget 触发 completeAnalysisWithRAG', async () => {
+            mockSaveAndActivate.mockResolvedValueOnce({ id: 99, version: 1 })
+            mockPublishCustomEvent.mockResolvedValueOnce(undefined)
+
+            const ctx = createContext()
+            const tool = createTool(ctx)
+            await tool.invoke({ analysisResult: '# 结论' })
+
+            // fire-and-forget 是异步 microtask，等待它完成
+            await vi.waitFor(() => expect(mockCompleteAnalysisWithRAG).toHaveBeenCalledTimes(1))
+
+            const ragArgs = mockCompleteAnalysisWithRAG.mock.calls[0][0]
+            expect(ragArgs.analysisId).toBe(99)
+            expect(ragArgs.analysisResult).toBe('# 结论')
+            expect(ragArgs.model).toBe(mockModel)
         })
 
         it('getState 返回 state 但 _totalTokensConsumed 为 0 时，从 config.configurable.state 回退读取', async () => {
