@@ -4,6 +4,8 @@
  * 提供初始化分析的业务逻辑，包括模块验证排序、状态查询、已完成结果加载
  */
 
+import crypto from 'node:crypto'
+import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { VALID_MODULE_NAMES, INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
 import type { InitAnalysisStatusResponse } from '#shared/types/initAnalysis'
 
@@ -292,4 +294,125 @@ export function buildTerminalSnapshotEvents(params: {
     events.push(`event: custom\ndata: ${JSON.stringify(statusPayload)}\n\n`)
 
     return events
+}
+
+// ==================== M4: RAG 落库入口 ====================
+
+export interface CompleteAnalysisWithRAGInput {
+    analysisId: number
+    analysisResult: string
+    model: BaseChatModel
+}
+
+/**
+ * 模块分析完成的落库入口（含 M4 RAG 流程）。
+ *
+ * 事务边界：
+ *   Stage 1（主分析 + summary）事务内 - 保证原子性
+ *   Stage 2（embedding 切块写入）事务外 - 失败不回滚主分析，只降级 RAG 检索能力
+ */
+export async function completeAnalysisWithRAG(input: CompleteAnalysisWithRAGInput): Promise<void> {
+    const { analysisId, analysisResult, model } = input
+
+    // Stage 1: 主分析 + summary（事务内）
+    const analysis = await prisma.$transaction(async (tx) => {
+        const existing = await tx.caseAnalyses.findUnique({
+            where: { id: analysisId },
+            select: { id: true, caseId: true, nodeId: true, analysisType: true, version: true },
+        })
+        if (!existing) throw new Error(`caseAnalyses #${analysisId} not found`)
+
+        // 动态 import 避免循环依赖
+        const { generateSummaryService } = await import('../ai/summaryService')
+        const summary = await generateSummaryService(model, analysisResult, {
+            maxChars: 400,
+            systemPrompt: '你是法律助手。对下方分析报告正文生成 200-400 字的中文专业摘要，保留关键事实、结论、依据，不加开场白总结语。',
+        })
+
+        const updated = await tx.caseAnalyses.update({
+            where: { id: analysisId },
+            data: {
+                status: 2,
+                analysisResult,
+                summary,
+                isActive: true,
+            },
+        })
+
+        // 同 nodeId 的其它版本 isActive=false
+        await tx.caseAnalyses.updateMany({
+            where: {
+                caseId: updated.caseId,
+                nodeId: updated.nodeId,
+                id: { not: updated.id },
+            },
+            data: { isActive: false },
+        })
+
+        return updated
+    }, { timeout: 15_000 })
+
+    // Stage 2: embedding 切块写入（事务外，失败只 warn）
+    try {
+        const { addDocumentsToVectorStore } = await import('../legal/vectorStore.service')
+        const chunks = splitByParagraph(analysisResult, 500)
+        const ids = chunks.map(() => crypto.randomUUID())
+        const docs = chunks.map((chunk, i) => ({
+            pageContent: chunk,
+            metadata: {
+                id: ids[i],
+                caseId: analysis.caseId,
+                analysisId: analysis.id,
+                nodeId: analysis.nodeId,
+                analysisType: analysis.analysisType,
+                version: analysis.version,
+                isActive: true,
+                chunkIndex: i,
+            },
+        }))
+
+        await addDocumentsToVectorStore(docs, ids, { tableName: 'case_analysis_embeddings' })
+
+        // 手工回填 tsv（addDocuments 不会写 tsv 列）
+        await prisma.$executeRawUnsafe(
+            `UPDATE case_analysis_embeddings
+             SET tsv = to_tsvector('chinese', COALESCE(text, ''))
+             WHERE id = ANY($1::uuid[]) AND tsv IS NULL`,
+            ids,
+        )
+
+        // 同步老版本 metadata.isActive=false
+        await prisma.$executeRawUnsafe(
+            `UPDATE case_analysis_embeddings
+             SET metadata = jsonb_set(metadata, '{isActive}', to_jsonb(false))
+             WHERE metadata->>'caseId' = $1
+               AND metadata->>'nodeId' = $2
+               AND metadata->>'analysisId' <> $3`,
+            String(analysis.caseId),
+            String(analysis.nodeId),
+            String(analysis.id),
+        )
+    } catch (e) {
+        logger.warn(
+            'case_analysis_embeddings 写入失败，主分析已 commit；RAG 检索暂不可用',
+            { analysisId, error: e },
+        )
+    }
+}
+
+/** 按段落切块（\n\n 分隔，每块最多 maxChars 字符） */
+function splitByParagraph(text: string, maxChars: number): string[] {
+    const paras = text.split(/\n\n+/).filter((p) => p.trim())
+    const chunks: string[] = []
+    let current = ''
+    for (const p of paras) {
+        if ((current + p).length > maxChars) {
+            if (current) chunks.push(current)
+            current = p
+        } else {
+            current = current ? `${current}\n\n${p}` : p
+        }
+    }
+    if (current) chunks.push(current)
+    return chunks
 }
