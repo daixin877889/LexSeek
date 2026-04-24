@@ -176,6 +176,9 @@ async function handleUpdateAnnotation(annotationId: number, content: string) {
 async function handleDeleteAnnotation(annotationId: number) {
     await versioning.deleteAnnotation(annotationId)
 }
+async function handleRestoreAnnotation(annotationId: number) {
+    await versioning.restoreAnnotationPush(annotationId)
+}
 
 /**
  * 状态文案派生顺序：
@@ -575,6 +578,7 @@ function handleContainerClick(e: MouseEvent) {
                                     @add-annotation="handleAddAnnotation"
                                     @update-annotation="handleUpdateAnnotation"
                                     @delete-annotation="handleDeleteAnnotation"
+                                    @restore-annotation="handleRestoreAnnotation"
                                 />
                             </div>
                         </ResizablePanel>
@@ -636,6 +640,7 @@ function handleContainerClick(e: MouseEvent) {
                                 @add-annotation="handleAddAnnotation"
                                 @update-annotation="handleUpdateAnnotation"
                                 @delete-annotation="handleDeleteAnnotation"
+                                @restore-annotation="handleRestoreAnnotation"
                             />
                         </div>
                     </div>

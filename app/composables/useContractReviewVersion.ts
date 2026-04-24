@@ -243,6 +243,23 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
     }
 
     /**
+     * 恢复推送（spec §12.6）：客户删过的批注由律师手动恢复为"下次导出依然写入"。
+     * 服务端将 suppressInExport 置 false、removedByClient=true 保留作历史证据。
+     */
+    async function restoreAnnotationPush(annotationId: number) {
+        if (isReadOnly.value) return
+        const resp = await useApiFetch(
+            `/api/v1/assistant/contract/reviews/annotations/${annotationId}/restore`,
+            { method: 'PATCH' },
+        )
+        if (resp) {
+            workspace.value.annotations = workspace.value.annotations.map(a =>
+                a.id === annotationId ? { ...a, suppressInExport: false } : a,
+            )
+        }
+    }
+
+    /**
      * 客户回传 docx：通过 SSE 流驱动 5 步骤处理（backup→parse→diff→ai→merge）。
      * 立即返回响应式状态 refs，SSE 消费在后台异步进行。
      * 使用 fetch + ReadableStream 消费 POST SSE（EventSource 不支持 POST body）。
@@ -380,6 +397,7 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
         addLawyerAnnotation,
         updateAnnotation,
         deleteAnnotation,
+        restoreAnnotationPush,
         updateVersionNote,
         uploadNewVersion,
     }

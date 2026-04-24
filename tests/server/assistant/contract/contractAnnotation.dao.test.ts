@@ -13,6 +13,7 @@ import {
     listContractAnnotationsByReviewDAO,
     softDeleteContractAnnotationDAO,
     getContractAnnotationByIdDAO,
+    restoreAnnotationPushDAO,
 } from '~~/server/services/assistant/contract/contractAnnotation.dao'
 import { createContractRiskDAO } from '~~/server/services/assistant/contract/contractRisk.dao'
 import { ensureTestUser } from '../test-db-helper'
@@ -178,5 +179,25 @@ describe('contractAnnotation.dao', () => {
         })
         const found = await getContractAnnotationByIdDAO(ann.id)
         expect(found?.id).toBe(ann.id)
+    })
+
+    it('restoreAnnotationPush 仅清 suppressInExport，removedByClient 保留为 true', async () => {
+        const ann = await createContractAnnotationDAO({
+            reviewId,
+            riskId,
+            authorType: 'ai',
+            authorName: 'AI',
+            content: '被客户删掉的批注',
+        })
+        // 模拟 uploadClientVersion 标记客户已删
+        await prisma.contractAnnotations.update({
+            where: { id: ann.id },
+            data: { removedByClient: true, suppressInExport: true },
+        })
+
+        const restored = await restoreAnnotationPushDAO(ann.id)
+        expect(restored.suppressInExport).toBe(false)
+        // removedByClient 必须保留作为历史证据
+        expect(restored.removedByClient).toBe(true)
     })
 })

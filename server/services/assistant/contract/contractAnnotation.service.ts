@@ -16,6 +16,7 @@ import {
     updateContractAnnotationDAO,
     softDeleteContractAnnotationDAO,
     getContractAnnotationByIdDAO,
+    restoreAnnotationPushDAO,
 } from './contractAnnotation.dao'
 import { getContractRiskByIdDAO } from './contractRisk.dao'
 
@@ -73,4 +74,25 @@ export async function softDeleteAnnotationService(params: {
     }
     await softDeleteContractAnnotationDAO(params.annotationId)
     return { ok: true }
+}
+
+/**
+ * 恢复推送（spec §12.6 / §4.3）
+ *
+ * 律师手动覆盖客户删除意图：仅清 suppressInExport，保留 removedByClient=true 作为历史证据。
+ * - 仅对 `removedByClient=true` 的批注有效；其他情况返回 `not_removed` 由 handler 转 409
+ * - 软删（deletedAt != null）的批注不能恢复（律师已主动撤回的内容优先于客户删除历史）
+ * - 与 authorType 无关：ai / lawyer / external 任何一种被客户删除的批注都允许律师恢复推送
+ * - review 归属已由 reviewGuard 保证，这里不再校验
+ */
+export async function restoreAnnotationPushService(params: {
+    annotationId: number
+}): Promise<{ ok: true; suppressInExport: boolean } | { error: 'not_found' | 'not_removed' }> {
+    const ann = await getContractAnnotationByIdDAO(params.annotationId)
+    if (!ann || ann.deletedAt) return { error: 'not_found' }
+    if (!ann.removedByClient) return { error: 'not_removed' }
+    // 幂等：已经恢复过（suppressInExport=false）直接返回成功
+    if (!ann.suppressInExport) return { ok: true, suppressInExport: false }
+    const updated = await restoreAnnotationPushDAO(params.annotationId)
+    return { ok: true, suppressInExport: updated.suppressInExport }
 }

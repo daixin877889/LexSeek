@@ -63,6 +63,21 @@ export async function getContractAnnotationByIdDAO(id: number): Promise<contract
     return prisma.contractAnnotations.findUnique({ where: { id } })
 }
 
+/**
+ * 恢复推送（spec §12.6 / §4.3）
+ *
+ * 律师手动覆盖客户删除意图：仅把 `suppressInExport` 置为 false，保留
+ * `removedByClient=true` 作为客户曾删除的历史记录；下次导出 docx 时会重新写入。
+ *
+ * 返回更新后的行；若行不存在抛错（调用方保证先用 getContractAnnotationByIdDAO 检查）。
+ */
+export async function restoreAnnotationPushDAO(id: number): Promise<contractAnnotations> {
+    return prisma.contractAnnotations.update({
+        where: { id },
+        data: { suppressInExport: false },
+    })
+}
+
 /** 导出用：按 reviewId 查询需要写入 docx 的批注（未软删 + suppressInExport=false），关联 risk 取锚点信息 */
 export async function listAnnotationsForExportDAO(
     reviewId: number,
