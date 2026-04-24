@@ -117,7 +117,7 @@ model lawEmbeddings {
   @@map("law_embeddings")
 }
 
-/// zhparser 扩展自动创建的自定义词典类型，不由 Prisma 管理
+/// zhparser 1.0 扩展成员，自定义词典枚举。不由应用代码使用。
 enum dictType {
   extra
   it
@@ -129,13 +129,14 @@ enum dictType {
   @@map("dict_type")
 }
 
-/// zhparser 扩展自动创建的自定义词表，不由 Prisma 管理
+/// zhparser 1.0 扩展成员表，自定义词典。不由应用代码使用。
+/// 列结构严格匹配 zhparser 1.0 CREATE EXTENSION 时创建的实际表结构。
 model pgTsCustomWord {
-  word   String   @id @map("word") @db.Char(255)
-  tf     Float    @default(10.0) @map("tf")
-  idf    Float    @default(2.0) @map("idf")
-  attr   String   @default("n") @map("attr") @db.Char(1)
-  tsType dictType @default(extra) @map("ts_type")
+  word   Unsupported("name") @id
+  tf     Float               @default(10.0)
+  idf    Float               @default(2.0)
+  attr   String              @default("n") @db.Char(3)
+  tsType dictType            @default(extra) @map("ts_type")
 
   @@map("pg_ts_custom_word")
   @@ignore

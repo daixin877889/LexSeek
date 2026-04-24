@@ -336,7 +336,6 @@ export type contractAnnotationsOrderByWithRelationInput = {
 
 export type contractAnnotationsWhereUniqueInput = Prisma.AtLeast<{
   id?: number
-  wordCommentRef?: string
   AND?: Prisma.contractAnnotationsWhereInput | Prisma.contractAnnotationsWhereInput[]
   OR?: Prisma.contractAnnotationsWhereInput[]
   NOT?: Prisma.contractAnnotationsWhereInput | Prisma.contractAnnotationsWhereInput[]
@@ -350,6 +349,7 @@ export type contractAnnotationsWhereUniqueInput = Prisma.AtLeast<{
   deletedAt?: Prisma.DateTimeNullableFilter<"contractAnnotations"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"contractAnnotations"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"contractAnnotations"> | Date | string
+  wordCommentRef?: Prisma.StringNullableFilter<"contractAnnotations"> | string | null
   removedByClient?: Prisma.BoolFilter<"contractAnnotations"> | boolean
   suppressInExport?: Prisma.BoolFilter<"contractAnnotations"> | boolean
   review?: Prisma.XOR<Prisma.ContractReviewsScalarRelationFilter, Prisma.contractReviewsWhereInput>
@@ -357,7 +357,7 @@ export type contractAnnotationsWhereUniqueInput = Prisma.AtLeast<{
   parentAnnotation?: Prisma.XOR<Prisma.ContractAnnotationsNullableScalarRelationFilter, Prisma.contractAnnotationsWhereInput> | null
   replies?: Prisma.ContractAnnotationsListRelationFilter
   authorUser?: Prisma.XOR<Prisma.UsersNullableScalarRelationFilter, Prisma.usersWhereInput> | null
-}, "id" | "wordCommentRef">
+}, "id">
 
 export type contractAnnotationsOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -1556,7 +1556,10 @@ export type $contractAnnotationsPayload<ExtArgs extends runtime.Types.Extensions
      */
     updatedAt: Date
     /**
-     * Phase B：Word 批注稳定身份证（格式 LEXSEEK-{annotationId}-{random8}）
+     * Phase B：Word 批注稳定身份证（格式 LEXSEEK-{annotationId}-{random8}）。
+     * **不加 @unique**：rand8 随机碰撞概率极小（62^8 ≈ 2e14），加 UNIQUE 约束
+     * 反而在并发导出时（两个 request 几乎同时为 null ref 的 annotation 生成
+     * rand8）会概率性抛 P2002 让整个上传失败。保留 @@index 加速查询即可。
      */
     wordCommentRef: string | null
     /**

@@ -15,10 +15,6 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- 由 zhparser 扩展管理的自定义词典类型
--- 此 enum 在真实数据库中由扩展创建，此迁移仅用于 shadow DB 重放
-CREATE TYPE "dict_type" AS ENUM ('extra', 'it', 'edu', 'gov', 'medical', 'other');
-
 -- 用户
 INSERT INTO "public"."users" ("id", "name", "username", "email", "phone", "password", "status", "company", "profile", "invite_code", "invited_by", "openid", "unionid", "register_channel", "created_at", "updated_at", "deleted_at") VALUES (1, 'dx', 'daixin87', NULL, '13064768490', '$2b$10$eG3wGRFMnJUh4VXO0tI...WzhS9yGmWS6SMBnylOMddiigFseJa2G', 1, '上海智要网络科技有限公司', '一个处女座的产品经理', '40XF1F', NULL, NULL, NULL, 'web', '2025-12-20 16:24:07.975+08', '2025-12-23 12:12:06.261+08', NULL);
 INSERT INTO "public"."users" ("id", "name", "username", "email", "phone", "password", "status", "company", "profile", "invite_code", "invited_by", "openid", "unionid", "register_channel", "created_at", "updated_at", "deleted_at") VALUES (2, 'Leslie', 'Leslie', NULL, '17521034516', '$2b$10$X87qtwUmE3R.7TpUvtxGIOjwiGO2mtpfEOJBcCX11OFFQ0yvARI.C', 1, NULL, NULL, 'RXJ1IS', NULL, NULL, NULL, 'web', '2026-04-02 00:05:43.815688+08', '2026-04-02 00:13:01.024+08', NULL);

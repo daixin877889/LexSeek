@@ -98,6 +98,13 @@ export type caseMaterialEmbeddings = Prisma.caseMaterialEmbeddingsModel
  */
 export type caseMemories = Prisma.caseMemoriesModel
 /**
+ * Model caseAnalysisEmbeddings
+ * 案件分析产物向量表（LangChain PGVectorStore 同构，与 caseMemories 同款约束）
+ * 写入走 addDocumentsToVectorStore；业务字段（caseId/analysisId/nodeId/version/isActive/analysisType/chunkIndex）走 metadata JSON + expression index
+ * 注意：此表结构对齐 LangChain 约定，不允许新增查询列（会破坏框架写入）
+ */
+export type caseAnalysisEmbeddings = Prisma.caseAnalysisEmbeddingsModel
+/**
  * Model contractPlaybooks
  * 合同审查清单要点（按合同类型维护）
  * v1 不支持硬删除，只通过 enabled=false 停用
@@ -156,36 +163,6 @@ export type documentDraftVersions = Prisma.documentDraftVersionsModel
  * OSS 文件表
  */
 export type ossFiles = Prisma.ossFilesModel
-/**
- * Model checkpoint_blobs
- * 
- */
-export type checkpoint_blobs = Prisma.checkpoint_blobsModel
-/**
- * Model checkpoint_migrations
- * 
- */
-export type checkpoint_migrations = Prisma.checkpoint_migrationsModel
-/**
- * Model checkpoint_writes
- * 
- */
-export type checkpoint_writes = Prisma.checkpoint_writesModel
-/**
- * Model checkpoints
- * 
- */
-export type checkpoints = Prisma.checkpointsModel
-/**
- * Model store
- * 
- */
-export type store = Prisma.storeModel
-/**
- * Model store_migrations
- * 
- */
-export type store_migrations = Prisma.store_migrationsModel
 /**
  * Model legalMain
  * 法律主表 - 存储法律法规的基本信息

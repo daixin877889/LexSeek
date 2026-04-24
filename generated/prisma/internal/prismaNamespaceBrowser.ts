@@ -66,6 +66,7 @@ export const ModelName = {
   demoCases: 'demoCases',
   caseMaterialEmbeddings: 'caseMaterialEmbeddings',
   caseMemories: 'caseMemories',
+  caseAnalysisEmbeddings: 'caseAnalysisEmbeddings',
   contractPlaybooks: 'contractPlaybooks',
   contractReviews: 'contractReviews',
   contractReviewLegacyRisksBackup: 'contractReviewLegacyRisksBackup',
@@ -77,12 +78,6 @@ export const ModelName = {
   documentDraftSnapshots: 'documentDraftSnapshots',
   documentDraftVersions: 'documentDraftVersions',
   ossFiles: 'ossFiles',
-  checkpoint_blobs: 'checkpoint_blobs',
-  checkpoint_migrations: 'checkpoint_migrations',
-  checkpoint_writes: 'checkpoint_writes',
-  checkpoints: 'checkpoints',
-  store: 'store',
-  store_migrations: 'store_migrations',
   legalMain: 'legalMain',
   legalArticles: 'legalArticles',
   lawEmbeddings: 'lawEmbeddings',
@@ -348,6 +343,7 @@ export const CaseAnalysesScalarFieldEnum = {
   pointDeducted: 'pointDeducted',
   tokenCount: 'tokenCount',
   tokens: 'tokens',
+  summary: 'summary',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   deletedAt: 'deletedAt'
@@ -390,6 +386,15 @@ export const CaseMemoriesScalarFieldEnum = {
 } as const
 
 export type CaseMemoriesScalarFieldEnum = (typeof CaseMemoriesScalarFieldEnum)[keyof typeof CaseMemoriesScalarFieldEnum]
+
+
+export const CaseAnalysisEmbeddingsScalarFieldEnum = {
+  id: 'id',
+  text: 'text',
+  metadata: 'metadata'
+} as const
+
+export type CaseAnalysisEmbeddingsScalarFieldEnum = (typeof CaseAnalysisEmbeddingsScalarFieldEnum)[keyof typeof CaseAnalysisEmbeddingsScalarFieldEnum]
 
 
 export const ContractPlaybooksScalarFieldEnum = {
@@ -592,71 +597,6 @@ export const OssFilesScalarFieldEnum = {
 } as const
 
 export type OssFilesScalarFieldEnum = (typeof OssFilesScalarFieldEnum)[keyof typeof OssFilesScalarFieldEnum]
-
-
-export const Checkpoint_blobsScalarFieldEnum = {
-  thread_id: 'thread_id',
-  checkpoint_ns: 'checkpoint_ns',
-  channel: 'channel',
-  version: 'version',
-  type: 'type',
-  blob: 'blob'
-} as const
-
-export type Checkpoint_blobsScalarFieldEnum = (typeof Checkpoint_blobsScalarFieldEnum)[keyof typeof Checkpoint_blobsScalarFieldEnum]
-
-
-export const Checkpoint_migrationsScalarFieldEnum = {
-  v: 'v'
-} as const
-
-export type Checkpoint_migrationsScalarFieldEnum = (typeof Checkpoint_migrationsScalarFieldEnum)[keyof typeof Checkpoint_migrationsScalarFieldEnum]
-
-
-export const Checkpoint_writesScalarFieldEnum = {
-  thread_id: 'thread_id',
-  checkpoint_ns: 'checkpoint_ns',
-  checkpoint_id: 'checkpoint_id',
-  task_id: 'task_id',
-  idx: 'idx',
-  channel: 'channel',
-  type: 'type',
-  blob: 'blob'
-} as const
-
-export type Checkpoint_writesScalarFieldEnum = (typeof Checkpoint_writesScalarFieldEnum)[keyof typeof Checkpoint_writesScalarFieldEnum]
-
-
-export const CheckpointsScalarFieldEnum = {
-  thread_id: 'thread_id',
-  checkpoint_ns: 'checkpoint_ns',
-  checkpoint_id: 'checkpoint_id',
-  parent_checkpoint_id: 'parent_checkpoint_id',
-  type: 'type',
-  checkpoint: 'checkpoint',
-  metadata: 'metadata'
-} as const
-
-export type CheckpointsScalarFieldEnum = (typeof CheckpointsScalarFieldEnum)[keyof typeof CheckpointsScalarFieldEnum]
-
-
-export const StoreScalarFieldEnum = {
-  namespace_path: 'namespace_path',
-  key: 'key',
-  value: 'value',
-  created_at: 'created_at',
-  updated_at: 'updated_at',
-  expires_at: 'expires_at'
-} as const
-
-export type StoreScalarFieldEnum = (typeof StoreScalarFieldEnum)[keyof typeof StoreScalarFieldEnum]
-
-
-export const Store_migrationsScalarFieldEnum = {
-  v: 'v'
-} as const
-
-export type Store_migrationsScalarFieldEnum = (typeof Store_migrationsScalarFieldEnum)[keyof typeof Store_migrationsScalarFieldEnum]
 
 
 export const LegalMainScalarFieldEnum = {

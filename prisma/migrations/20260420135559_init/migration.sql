@@ -4,11 +4,8 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- 安装 pg_trgm 扩展
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
--- 安装 zhparser 扩展（中文全文搜索）
-CREATE EXTENSION IF NOT EXISTS zhparser;
-
--- CreateEnum
-CREATE TYPE "dict_type" AS ENUM ('extra', 'it', 'edu', 'gov', 'medical', 'other');
+-- 注：dict_type 枚举和 pg_ts_custom_word 表是 zhparser 1.0 扩展成员，
+-- 由后续 20260420135600_enable_zhparser 迁移中的 CREATE EXTENSION zhparser VERSION '1.0' 自动创建。
 
 -- CreateTable
 CREATE TABLE "agent_runs" (
@@ -401,17 +398,6 @@ CREATE TABLE "law_embeddings" (
     "tsv" tsvector,
 
     CONSTRAINT "law_embeddings_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "pg_ts_custom_word" (
-    "word" CHAR(255) NOT NULL,
-    "tf" DOUBLE PRECISION NOT NULL DEFAULT 10.0,
-    "idf" DOUBLE PRECISION NOT NULL DEFAULT 2.0,
-    "attr" CHAR(1) NOT NULL DEFAULT 'n',
-    "ts_type" "dict_type" NOT NULL DEFAULT 'extra',
-
-    CONSTRAINT "pg_ts_custom_word_pkey" PRIMARY KEY ("word")
 );
 
 -- CreateTable

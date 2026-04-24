@@ -4,14 +4,16 @@
  * 使用 PostgresSaver 作为 LangGraph 工作流的检查点器
  * 支持工作流状态持久化、中断恢复和故障恢复
  *
- * PostgresSaver 会创建以下表（已在 prisma/models/checkpoint.prisma 中定义）：
+ * PostgresSaver 会创建以下表（位于独立 `langgraph` schema，不由 Prisma 管理）：
  * - checkpoint_migrations: 迁移版本记录
  * - checkpoints: 检查点主表
  * - checkpoint_blobs: 检查点数据块
  * - checkpoint_writes: 检查点写入记录
  *
+ * PostgresStore 同样建在 `langgraph` schema 下：
+ * - store / store_migrations
+ *
  * @see Requirements 2.1, 2.2, 11.3
- * @see prisma/models/checkpoint.prisma
  */
 
 import { PostgresSaver } from '@langchain/langgraph-checkpoint-postgres'
@@ -83,7 +85,8 @@ export async function getCheckpointer(): Promise<PostgresSaver> {
         const databaseUrl = getDatabaseUrl()
 
         // 使用连接字符串创建 PostgresSaver 实例
-        checkpointerInstance = PostgresSaver.fromConnString(databaseUrl)
+        // schema: 'langgraph' 使 checkpoint 相关表建在独立 schema，与 Prisma 托管的 public schema 隔离
+        checkpointerInstance = PostgresSaver.fromConnString(databaseUrl, { schema: 'langgraph' })
 
         // 首次使用时初始化数据库表结构
         // setup() 会创建必要的检查点表（如果不存在）
@@ -165,7 +168,7 @@ export async function getStore(): Promise<PostgresStore> {
     try {
         isStoreInitializing = true
         const databaseUrl = getDatabaseUrl()
-        storeInstance = PostgresStore.fromConnString(databaseUrl)
+        storeInstance = PostgresStore.fromConnString(databaseUrl, { schema: 'langgraph' })
         await storeInstance.setup()
         isStoreInitialized = true
         logger.info('LangGraph PostgresStore 初始化完成')
