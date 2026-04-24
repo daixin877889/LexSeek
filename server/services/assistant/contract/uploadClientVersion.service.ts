@@ -171,32 +171,31 @@ export async function* uploadClientVersionService(params: {
     const annById = new Map(dbAnnotations.map((a) => [a.id, a]))
     const commentByAnnId = new Map<number, ParsedWordComment>()
     let fallbackFail = 0
-    // 多条 comment 解析到同一个 annotationId 时的"异常落点"集合：
-    // 典型场景——老 docx（Phase C 改造前）在 Word 里被 people.xml 统一 initials，
-    // 所有批注的 LEXSEEK 被设成同一个完整值，parser 解析出同一个 annotationId。
-    // 这时 commentByAnnId.set 静默覆盖会导致前面所有 comment 被丢失。
+    let crossReviewRejected = 0
+    // 多条 comment 解析到同一个 annotationId 时的"异常落点"集合
     const collidedComments: Array<{ annotationId: number; c: ParsedWordComment }> = []
+    // 跨 review 串扰：身份证里的 reviewId 不等于当前 review.id
+    const crossReviewComments: Array<{ c: ParsedWordComment; declaredReviewId: number }> = []
+
     for (const c of newComments) {
         const refFromMap = annotationRefsByWId.get(c.wId)
-        if (refFromMap) {
-            if (annById.has(refFromMap.annotationId)) {
-                if (commentByAnnId.has(refFromMap.annotationId)) {
-                    // 同 annotationId 已被另一条 comment 匹配 → 本条降级为外部新增
-                    // 避免 .set 覆盖让前面那条"消失"（bug: N-1 条 AI 被判已移除）
-                    collidedComments.push({ annotationId: refFromMap.annotationId, c })
-                    logger.warn('同 annotationId 被多条 comment 解析命中，本条降级为 external_new', {
-                        reviewId: review.id,
-                        wId: c.wId,
-                        author: c.wAuthor,
-                        initials: c.wInitials,
-                        collidedAnnotationId: refFromMap.annotationId,
-                        reason: '可能是 Word 把 people.xml 里同类作者的 initials 统一成一个值',
-                    })
-                    continue
-                }
-                commentByAnnId.set(refFromMap.annotationId, c)
-                continue
-            }
+        if (!refFromMap) continue // 非系统批注 → 真新批注
+
+        // H7：身份证声明的 review 必须等于当前 review，否则拒绝（跨 review 文件串扰保护）
+        if (refFromMap.reviewId !== review.id) {
+            crossReviewRejected++
+            crossReviewComments.push({ c, declaredReviewId: refFromMap.reviewId })
+            logger.warn('跨 review 身份证被拒绝，降级为 external_new', {
+                uploadReviewId: review.id,
+                declaredReviewId: refFromMap.reviewId,
+                declaredAnnotationId: refFromMap.annotationId,
+                wId: c.wId,
+                source: refFromMap.source,
+            })
+            continue
+        }
+
+        if (!annById.has(refFromMap.annotationId)) {
             fallbackFail++
             logger.warn('批注匹配失败被升级为 external_new', {
                 reviewId: review.id,
@@ -204,35 +203,55 @@ export async function* uploadClientVersionService(params: {
                 initials: c.wInitials,
                 author: c.wAuthor,
                 attemptedAnnotationId: refFromMap.annotationId,
-                reason: '解析出的 annotationId 已不在 DB（可能被硬删或跨 review 串扰）',
+                source: refFromMap.source,
+                reason: '解析出的 annotationId 已不在 DB（可能被硬删）',
             })
             continue
         }
-        // 非系统批注（author/initials/customXml 都识别不到）→ 真新批注，交给下面分支处理
+
+        if (commentByAnnId.has(refFromMap.annotationId)) {
+            // 同 annotationId 已被另一条 comment 匹配 → 本条降级为外部新增
+            // 避免 .set 覆盖让前面那条"消失"
+            collidedComments.push({ annotationId: refFromMap.annotationId, c })
+            logger.warn('同 annotationId 被多条 comment 解析命中，本条降级为 external_new', {
+                reviewId: review.id,
+                wId: c.wId,
+                author: c.wAuthor,
+                source: refFromMap.source,
+                collidedAnnotationId: refFromMap.annotationId,
+            })
+            continue
+        }
+        commentByAnnId.set(refFromMap.annotationId, c)
     }
-    // 诊断快照：author + initials + parse 结果，帮助定位匹配失败原因
-    const commentInitialsSnapshot = newComments.map(c => {
-        const parsed = parseCommentRef(c.wAuthor, c.wInitials)
+    // 诊断快照：帮助定位匹配失败原因。大合同时（>50 条）只打前 50 条避免日志爆炸。
+    const SNAPSHOT_LIMIT = 50
+    const snapshotSource = newComments.slice(0, SNAPSHOT_LIMIT).map(c => {
+        const fromMap = annotationRefsByWId.get(c.wId)
         return {
             wId: c.wId,
             author: c.wAuthor,
-            initials: c.wInitials,
-            parsedAnnotationId: parsed?.annotationId ?? null,
+            source: fromMap?.source ?? null,
+            declaredReviewId: fromMap?.reviewId ?? null,
+            declaredAnnotationId: fromMap?.annotationId ?? null,
             contentPreview: (c.content ?? '').slice(0, 40),
         }
     })
-    const sysCount = commentInitialsSnapshot.filter(c => c.parsedAnnotationId !== null).length
-    const nonSysCount = commentInitialsSnapshot.length - sysCount
+    const parsedCount = newComments.filter(c => annotationRefsByWId.has(c.wId)).length
     logger.info('本次上传批注匹配统计', {
         reviewId: review.id,
         dbAnnotationsCount: dbAnnotations.length,
         totalNewComments: newComments.length,
         matched: commentByAnnId.size,
         fallbackFail,
-        systemRefParsed: sysCount,
-        noSystemRef: nonSysCount,
-        dbAnnotationIds: dbAnnotations.map(a => a.id),
-        commentInitialsSnapshot,
+        crossReviewRejected,
+        systemRefParsed: parsedCount,
+        noSystemRef: newComments.length - parsedCount,
+        dbAnnotationIds: dbAnnotations.length > SNAPSHOT_LIMIT
+            ? [...dbAnnotations.slice(0, SNAPSHOT_LIMIT).map(a => a.id), '...']
+            : dbAnnotations.map(a => a.id),
+        commentSnapshot: snapshotSource,
+        snapshotTruncated: newComments.length > SNAPSHOT_LIMIT,
     })
     // 业务安全底线：如果 DB 里有系统批注、上传 docx 里也有批注，但一条都匹配不上，
     // 那"把所有 AI 标 removed + 把所有 comment 建 external_new"几乎 100% 是错的决定
@@ -247,7 +266,8 @@ export async function* uploadClientVersionService(params: {
                 reviewId: review.id,
                 dbAnnotationsCount: dbAnnotations.length,
                 newCommentsCount: newComments.length,
-                commentInitialsSnapshot,
+                crossReviewRejected,
+                snapshotSource,
             },
         )
         yield {
@@ -255,33 +275,32 @@ export async function* uploadClientVersionService(params: {
             data: {
                 step: 'diff',
                 code: 'NO_ANNOTATION_MATCH',
-                message:
-                    '上传 docx 中的批注与系统中任何一条都对不上，已中止处理以免误删。'
-                    + '可能原因：1) 上传了非本次审查的 docx；2) 客户使用了会破坏批注标识的工具编辑；'
-                    + '3) 当前 docx 是改造前的老导出，请重新从系统下载最新版发给客户。',
+                message: crossReviewRejected > 0
+                    ? `上传的 docx 属于其他合同审查（身份证声明 reviewId 不匹配本审查），已拒绝处理。请确认上传的是 review #${review.id} 的最新导出版本。`
+                    : '上传 docx 中的批注与系统中任何一条都对不上，已中止处理以免误删。可能原因：1) 上传了非本次审查的 docx；2) 客户使用了会破坏批注标识的工具编辑；3) 当前 docx 是改造前的老导出，请重新从系统下载最新版发给客户。',
             },
         }
         return
     }
 
-    /**
-     * 判断一个 comment 是否为系统生成（LexSeek 注入）的批注。
-     * Phase C：author 里 [#id-rand8] 或 initials 里 LEXSEEK 字面量任一命中即算系统批注。
-     */
+    /** 判断一个 comment 是否为系统生成（LexSeek 注入）的批注 */
     function isSystemComment(c: ParsedWordComment): boolean {
         return annotationRefsByWId.has(c.wId) || parseCommentRef(c.wAuthor, c.wInitials) !== null
     }
 
     /**
-     * 获取一个 comment 对应的 annotationId（系统批注专用）。
-     * 与 isSystemComment 口径一致：先看 annotationRefsByWId，fallback 到
-     * author/initials 混合解析。非系统批注返回 null。
+     * 获取一个 comment 对应的 annotationId。口径与 isSystemComment 一致：
+     * 先看 annotationRefsByWId（customXml 或 author），fallback 单独 parse author。
+     * 非系统批注返回 null；跨 review 身份证也返回 null（外层已单独记日志）。
      */
     function getAnnotationId(c: ParsedWordComment): number | null {
         const refFromMap = annotationRefsByWId.get(c.wId)
-        if (refFromMap) return refFromMap.annotationId
+        if (refFromMap) {
+            return refFromMap.reviewId === review.id ? refFromMap.annotationId : null
+        }
         const parsed = parseCommentRef(c.wAuthor, c.wInitials)
-        return parsed ? parsed.annotationId : null
+        if (!parsed) return null
+        return parsed.reviewId === review.id ? parsed.annotationId : null
     }
 
     // 客户删除：workspace annotation 在 newComments 里找不到命中
@@ -339,6 +358,7 @@ export async function* uploadClientVersionService(params: {
     }
     for (const c of orphanReplies) newIndependent.push(c)
     for (const { c } of collidedComments) newIndependent.push(c)
+    for (const { c } of crossReviewComments) newIndependent.push(c)
 
     const clauseDiffResult = diffClauses(oldClauses, newClauses)
     const externalChangeCount =

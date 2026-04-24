@@ -29,7 +29,7 @@ function makeAnnotation(
 describe('injectAnnotations', () => {
     it('空数组时移除 word/comments.xml 并清理 [Content_Types].xml 和 rels 中的注册项，返回空 refsByAnnotationId', async () => {
         const original = await readFile(SAMPLE)
-        const { buffer, refsByAnnotationId } = await injectAnnotations(original, [])
+        const { buffer, refsByAnnotationId } = await injectAnnotations(original, [], 999)
         const zip = await loadDocxZip(buffer)
         expect(zip.file('word/comments.xml')).toBeNull()
         expect(refsByAnnotationId.size).toBe(0)
@@ -53,7 +53,7 @@ describe('injectAnnotations', () => {
             makeAnnotation({ id: 3, riskId: 20, authorType: 'external', authorName: '客户甲', content: '管辖法院改深圳', anchorParagraphIndex: Math.min(1, paragraphs.length - 1) }),
         ]
 
-        const { buffer, refsByAnnotationId } = await injectAnnotations(original, annotations)
+        const { buffer, refsByAnnotationId } = await injectAnnotations(original, annotations, 999)
         expect(refsByAnnotationId.size).toBe(3)
 
         const zip = await loadDocxZip(buffer)
@@ -62,7 +62,7 @@ describe('injectAnnotations', () => {
         expect(matches.length).toBe(3)
     })
 
-    it('w:initials 全部符合 LEXSEEK 格式，parseWordCommentRef 能提取 annotationId', async () => {
+    it('DB 存储用的 wordCommentRef 字面量格式为 LEXSEEK-{id}-{rand8}', async () => {
         const original = await readFile(SAMPLE)
         const { paragraphs } = await parseContractDocx(original)
 
@@ -71,11 +71,9 @@ describe('injectAnnotations', () => {
             makeAnnotation({ id: 2, anchorParagraphIndex: Math.min(2, paragraphs.length - 1) }),
         ]
 
-        const { refsByAnnotationId } = await injectAnnotations(original, annotations)
+        const { refsByAnnotationId } = await injectAnnotations(original, annotations, 999)
         for (const [id, ref] of refsByAnnotationId) {
-            const parsed = parseWordCommentRef(ref)
-            expect(parsed).not.toBeNull()
-            expect(parsed?.annotationId).toBe(id)
+            expect(ref).toMatch(new RegExp(`^LEXSEEK-${id}-[a-zA-Z0-9]{8}$`))
         }
     })
 
@@ -89,15 +87,14 @@ describe('injectAnnotations', () => {
             makeAnnotation({ id: 3, authorType: 'external', authorName: '客户甲', anchorParagraphIndex: Math.min(2, paragraphs.length - 1) }),
         ]
 
-        const { buffer } = await injectAnnotations(original, annotations)
+        const { buffer } = await injectAnnotations(original, annotations, 999)
         const zip = await loadDocxZip(buffer)
         const commentsXml = await readTextFromZip(zip, 'word/comments.xml')
 
-        // author 前缀保持 "LS:" 品牌标识，后面紧跟方括号嵌入的稳定 ID
-        // `w:author` 字段需要 XML 转义，方括号里的 # 字符本身不转义
-        expect(commentsXml).toMatch(/w:author="LS:AI \[#1-[a-zA-Z0-9]{8}\]"/)
-        expect(commentsXml).toMatch(/w:author="LS:张律师 \[#2-[a-zA-Z0-9]{8}\]"/)
-        expect(commentsXml).toMatch(/w:author="LS:客户甲 \[#3-[a-zA-Z0-9]{8}\]"/)
+        // Phase C+：author 尾部 [#reviewId-annotationId-rand8]，reviewId 固定 999
+        expect(commentsXml).toMatch(/w:author="LS:AI \[#999-1-[a-zA-Z0-9]{8}\]"/)
+        expect(commentsXml).toMatch(/w:author="LS:张律师 \[#999-2-[a-zA-Z0-9]{8}\]"/)
+        expect(commentsXml).toMatch(/w:author="LS:客户甲 \[#999-3-[a-zA-Z0-9]{8}\]"/)
     })
 
     it('答复批注写入 w:parentId 引用父 w:id', async () => {
@@ -110,7 +107,7 @@ describe('injectAnnotations', () => {
             makeAnnotation({ id: 2, authorName: '张律师', parentAnnotationId: 1, anchorParagraphIndex: idx }),
         ]
 
-        const { buffer } = await injectAnnotations(original, annotations)
+        const { buffer } = await injectAnnotations(original, annotations, 999)
         const zip = await loadDocxZip(buffer)
         const commentsXml = await readTextFromZip(zip, 'word/comments.xml')
 
@@ -130,7 +127,7 @@ describe('injectAnnotations', () => {
             makeAnnotation({ id: 3, authorType: 'external', authorName: '客户甲', anchorParagraphIndex: idx }),
         ]
 
-        const { buffer } = await injectAnnotations(original, annotations)
+        const { buffer } = await injectAnnotations(original, annotations, 999)
         const zip = await loadDocxZip(buffer)
         const docXml = await readTextFromZip(zip, 'word/document.xml')
         const commentsXml = await readTextFromZip(zip, 'word/comments.xml')
@@ -164,7 +161,7 @@ describe('injectAnnotations', () => {
             makeAnnotation({ id: 99, wordCommentRef: existingRef, anchorParagraphIndex: Math.min(1, paragraphs.length - 1) }),
         ]
 
-        const { refsByAnnotationId } = await injectAnnotations(original, annotations)
+        const { refsByAnnotationId } = await injectAnnotations(original, annotations, 999)
         expect(refsByAnnotationId.get(99)).toBe(existingRef)
     })
 
@@ -176,7 +173,7 @@ describe('injectAnnotations', () => {
             makeAnnotation({ id: 2, anchorParagraphIndex: 99999 }),
         ]
 
-        const { buffer, refsByAnnotationId } = await injectAnnotations(original, annotations)
+        const { buffer, refsByAnnotationId } = await injectAnnotations(original, annotations, 999)
         // 两条都应在 refsByAnnotationId（方便回写 DB）
         expect(refsByAnnotationId.size).toBe(2)
 
@@ -203,7 +200,7 @@ describe('injectAnnotations', () => {
             makeAnnotation({ id: 1, anchorParagraphIndex: Math.min(1, paragraphs.length - 1) }),
         ]
 
-        const { buffer } = await injectAnnotations(original, annotations)
+        const { buffer } = await injectAnnotations(original, annotations, 999)
         const zip = await loadDocxZip(buffer)
 
         const types = await readTextFromZip(zip, '[Content_Types].xml')
@@ -225,7 +222,7 @@ describe('injectAnnotations', () => {
             }),
         ]
 
-        const { buffer } = await injectAnnotations(original, annotations)
+        const { buffer } = await injectAnnotations(original, annotations, 999)
         const zip = await loadDocxZip(buffer)
         const commentsXml = await readTextFromZip(zip, 'word/comments.xml')
 
@@ -259,7 +256,7 @@ describe('injectAnnotations', () => {
             anchorParagraphIndex: 0,
         })
 
-        const { buffer: result } = await injectAnnotations(docxBuffer, [annotation])
+        const { buffer: result } = await injectAnnotations(docxBuffer, [annotation], 999)
         const resultZip = await loadDocxZip(result)
         const resultDocXml = await readTextFromZip(resultZip, 'word/document.xml')
 
@@ -301,7 +298,7 @@ describe('injectAnnotations', () => {
             anchorParagraphIndex: 0, // 故意填错
         })
 
-        const { buffer: result } = await injectAnnotations(docxBuffer, [annotation])
+        const { buffer: result } = await injectAnnotations(docxBuffer, [annotation], 999)
         const resultZip = await loadDocxZip(result)
         const resultDocXml = await readTextFromZip(resultZip, 'word/document.xml')
 

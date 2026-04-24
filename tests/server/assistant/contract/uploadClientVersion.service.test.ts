@@ -334,10 +334,17 @@ describe('uploadClientVersionService（customXml 映射识别）', () => {
                     content: '违约金偏高，建议调整',
                     parentWId: null,
                     dateIso: new Date().toISOString(),
+                    anchorParagraphIndex: 0,
                 },
             ],
             annotationRefsByWId: new Map([
-                [0, { annotationId: ann.id, ref: `LEXSEEK-${ann.id}-abc12345` }],
+                // Phase C+：reviewId + source 字段必填；reviewId 必须等于当前 review.id 才能通过 assert
+                [0, {
+                    reviewId,
+                    annotationId: ann.id,
+                    source: 'customXml',
+                    ref: `LEXSEEK-${ann.id}-abc12345`,
+                }],
             ]),
         } satisfies ParsedDocxComments)
 

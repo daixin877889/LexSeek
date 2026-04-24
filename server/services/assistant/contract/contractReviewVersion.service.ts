@@ -209,6 +209,24 @@ export async function downloadContractReviewVersionService(
     const riskById = new Map<number, ContractRiskEntity>()
     for (const r of snapshot.risks) riskById.set(r.id, r)
 
+    // bug H6：snapshot 里的 wordCommentRef 可能是 null（版本保存时 annotation 还没导出过），
+    // 直接传 null 给 injectAnnotations 会当场生成新 rand8 但不回写，下次同版本下载
+    // rand8 又变——客户手里的 docx rand8 永远和 DB / audit log 对不上。
+    //
+    // 修复：snapshot 里 ref 为 null 的，从当前 DB 读取一次 annotation.wordCommentRef
+    // 作为兜底。这样"首次触发过 export 之后，所有后续版本下载都会用同一个稳定 rand8"。
+    const snapshotNullRefIds = snapshot.annotations
+        .filter(a => a.wordCommentRef == null)
+        .map(a => a.id)
+    const dbRefByAnnId = new Map<number, string | null>()
+    if (snapshotNullRefIds.length > 0) {
+        const dbAnns = await prisma.contractAnnotations.findMany({
+            where: { id: { in: snapshotNullRefIds } },
+            select: { id: true, wordCommentRef: true },
+        })
+        for (const a of dbAnns) dbRefByAnnId.set(a.id, a.wordCommentRef)
+    }
+
     const exportable: ContractAnnotationForExport[] = []
     for (const a of snapshot.annotations) {
         const risk = riskById.get(a.riskId)
@@ -224,13 +242,15 @@ export async function downloadContractReviewVersionService(
             parentAnnotationId: a.parentAnnotationId,
             anchorQuote: risk.anchorQuote,
             anchorParagraphIndex: risk.anchorParagraphIndex,
-            wordCommentRef: a.wordCommentRef ?? null,
+            // 优先 snapshot 冻结值；null 时回退到 DB 当前值；仍 null → injectAnnotations
+            // 当场生成新的（单次下载内所有 ref 依然一致，只是跨下载会变）
+            wordCommentRef: a.wordCommentRef ?? dbRefByAnnId.get(a.id) ?? null,
         })
     }
 
     let injectedBuffer: Buffer
     try {
-        const result = await injectAnnotations(baseBuffer, exportable)
+        const result = await injectAnnotations(baseBuffer, exportable, review.id)
         injectedBuffer = Buffer.isBuffer(result.buffer) ? result.buffer : Buffer.from(result.buffer)
     } catch (err) {
         logger.error('[downloadContractReviewVersion] 注入批注失败', {

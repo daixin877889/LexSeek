@@ -114,7 +114,7 @@ export async function runAnnotateAndUpload(reviewId: number): Promise<void> {
         wordCommentRef: a.wordCommentRef,
     }))
 
-    const injectResult = await injectAnnotations(originalBuffer, annotations)
+    const injectResult = await injectAnnotations(originalBuffer, annotations, reviewId)
 
     // 将新生成的 wordCommentRef 批量回写到 DB（只更新已导出且 wordCommentRef 为 null 的条目）
     const toUpdate = exportable.filter(a => a.wordCommentRef === null)

@@ -340,18 +340,22 @@ export interface InjectAnnotationsResult {
  *
  * 规则：
  * - 每条 annotation 生成一个 <w:comment>，w:id 按数组顺序 0,1,2...
- * - w:author = 'LS:{authorName} [#{annotationId}-{rand8}]'
- *   （Phase C：稳定身份证写在 author 末尾方括号，Word 保证不截断 author 字段）
+ * - w:author = 'LS:{authorName} [#{reviewId}-{annotationId}-{rand8}]'
+ *   （Phase C+：稳定身份证含 reviewId，Word 保证不截断 author 字段）
  * - w:initials = 头像缩写（AI/律/客）——不再承载身份证，避免 Word 按
  *   people.xml 统一同类作者 initials 时 fallback parser 被中毒
- * - customXml/annotationRefs.xml 写权威 wId→annotationId 映射（Phase C+ 主防线）
+ * - customXml/annotationRefs.xml 写权威 reviewId/wId→annotationId 映射（主防线）
  * - parentAnnotationId 非空且父在本批次中 → 写 w:parentId 实现"答复批注"
  * - anchorParagraphIndex 越界 → 跳过 document.xml 注入（仍写入 comments.xml + customXml，
  *   以保持 w:id 连续）
+ *
+ * @param reviewId 必须传入——会被编入 author 尾部 + customXml 的 reviewId 字段，
+ *   upload 侧据此 assert 身份证归属，拒绝跨 review 文件串扰。
  */
 export async function injectAnnotations(
     docxBuffer: Buffer,
     annotations: ContractAnnotationForExport[],
+    reviewId: number,
 ): Promise<InjectAnnotationsResult> {
     const refsByAnnotationId = new Map<number, string>()
 
@@ -418,15 +422,15 @@ export async function injectAnnotations(
 
     // comments.xml：全 annotations（含越界的）以保持 w:id 连续
     writeTextToZip(zip, 'word/comments.xml',
-        buildCommentsXmlFromAnnotations(annotations, refsByAnnotationId, wordIdByAnnotationId),
+        buildCommentsXmlFromAnnotations(annotations, refsByAnnotationId, wordIdByAnnotationId, reviewId),
     )
     // 移除原文件残留的 comments.xml.rels（我们生成的 comments 无外部关系；
     // 原 rels 的悬空引用会让 Word 报"文件损坏"）
     zip.remove('word/_rels/comments.xml.rels')
 
-    // customXml：wId → annotationId 权威映射
+    // customXml：wId → annotationId 权威映射（含 reviewId 防跨 review 串扰）
     writeTextToZip(zip, 'word/customXml/annotationRefs.xml',
-        buildAnnotationRefsXml(annotations, refsByAnnotationId, wordIdByAnnotationId),
+        buildAnnotationRefsXml(annotations, refsByAnnotationId, wordIdByAnnotationId, reviewId),
     )
 
     await ensureContentTypesRegistered(zip, { comments: true, customXml: true })
@@ -484,6 +488,7 @@ function buildAnnotationRefsXml(
     annotations: ContractAnnotationForExport[],
     refs: Map<number, string>,
     wordIds: Map<number, number>,
+    reviewId: number,
 ): string {
     const children = annotations.map(a => {
         const wId = wordIds.get(a.id)!
@@ -492,6 +497,7 @@ function buildAnnotationRefsXml(
         const rand = randMatch ? randMatch[1]! : ''
         return makeLeaf('ref', {
             wId: String(wId),
+            reviewId: String(reviewId),
             annotationId: String(a.id),
             rand,
         })
@@ -513,12 +519,13 @@ function buildCommentsXmlFromAnnotations(
     annotations: ContractAnnotationForExport[],
     refs: Map<number, string>,
     wordIds: Map<number, number>,
+    reviewId: number,
 ): string {
     const now = new Date().toISOString()
     const children = annotations.map(a => {
         const wId = wordIds.get(a.id)!
         const ref = refs.get(a.id)!
-        const author = buildAuthorField(a.authorName, ref)
+        const author = buildAuthorField(a.authorName, reviewId, ref)
         const initials = initialsFor(a.authorType)
 
         const attrs: Record<string, string> = {

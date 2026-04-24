@@ -64,7 +64,7 @@ describe('parseWordComments', () => {
             makeAnnotation({ id: 3, anchorParagraphIndex: Math.min(2, maxIdx) }),
         ]
 
-        const { buffer } = await injectAnnotations(original, annotations)
+        const { buffer } = await injectAnnotations(original, annotations, 999)
         const { comments } = await parseWordComments(buffer)
         expect(comments).toHaveLength(3)
     })
@@ -79,7 +79,7 @@ describe('parseWordComments', () => {
             makeAnnotation({ id: 2, anchorParagraphIndex: Math.min(2, maxIdx) }),
         ]
 
-        const { buffer } = await injectAnnotations(original, annotations)
+        const { buffer } = await injectAnnotations(original, annotations, 999)
         const { comments } = await parseWordComments(buffer)
 
         const ids = comments.map(c => c.wId).sort((a, b) => a - b)
@@ -95,10 +95,10 @@ describe('parseWordComments', () => {
             makeAnnotation({ id: 1, authorName: '张律师', anchorParagraphIndex: Math.min(1, maxIdx) }),
         ]
 
-        const { buffer } = await injectAnnotations(original, annotations)
+        const { buffer } = await injectAnnotations(original, annotations, 999)
         const { comments } = await parseWordComments(buffer)
 
-        expect(comments[0].wAuthor).toMatch(/^LS:张律师 \[#1-[a-zA-Z0-9]{8}\]$/)
+        expect(comments[0].wAuthor).toMatch(/^LS:张律师 \[#999-1-[a-zA-Z0-9]{8}\]$/)
     })
 
     it('wInitials 写短头像缩写而非 LEXSEEK（Phase C+：避免 Word people.xml 中毒）', async () => {
@@ -115,7 +115,7 @@ describe('parseWordComments', () => {
             makeAnnotation({ id: 77, authorType: 'external', authorName: '客户甲', wordCommentRef: 'LEXSEEK-77-ij89kl12', anchorParagraphIndex: Math.min(2, maxIdx) }),
         ]
 
-        const { buffer } = await injectAnnotations(original, annotations)
+        const { buffer } = await injectAnnotations(original, annotations, 999)
         const { comments } = await parseWordComments(buffer)
 
         expect(comments[0]?.wInitials).toBe('AI')
@@ -135,7 +135,7 @@ describe('parseWordComments', () => {
             makeAnnotation({ id: 2, parentAnnotationId: 1, anchorParagraphIndex: idx }),
         ]
 
-        const { buffer } = await injectAnnotations(original, annotations)
+        const { buffer } = await injectAnnotations(original, annotations, 999)
         const { comments } = await parseWordComments(buffer)
 
         const reply = comments.find(c => c.wId === 1)
@@ -152,7 +152,7 @@ describe('parseWordComments', () => {
             makeAnnotation({ id: 1, anchorParagraphIndex: Math.min(1, maxIdx) }),
         ]
 
-        const { buffer } = await injectAnnotations(original, annotations)
+        const { buffer } = await injectAnnotations(original, annotations, 999)
         const { comments } = await parseWordComments(buffer)
 
         expect(comments[0].parentWId).toBeNull()
@@ -167,7 +167,7 @@ describe('parseWordComments', () => {
             makeAnnotation({ id: 1, content: '这是批注正文', anchorParagraphIndex: Math.min(1, maxIdx) }),
         ]
 
-        const { buffer } = await injectAnnotations(original, annotations)
+        const { buffer } = await injectAnnotations(original, annotations, 999)
         const { comments } = await parseWordComments(buffer)
 
         expect(comments[0].content).toBe('这是批注正文')
@@ -202,7 +202,7 @@ describe('parseWordComments', () => {
             }),
         ]
 
-        const { buffer } = await injectAnnotations(original, annotations)
+        const { buffer } = await injectAnnotations(original, annotations, 999)
         const { comments } = await parseWordComments(buffer)
 
         expect(comments[0].content).toBe('条款 "A" 与 <B> 冲突 & 引号 \'单引号\'')
@@ -217,7 +217,7 @@ describe('parseWordComments', () => {
             makeAnnotation({ id: 1, anchorParagraphIndex: Math.min(1, maxIdx) }),
         ]
 
-        const { buffer } = await injectAnnotations(original, annotations)
+        const { buffer } = await injectAnnotations(original, annotations, 999)
         const { comments } = await parseWordComments(buffer)
 
         expect(comments[0].dateIso).not.toBeNull()
@@ -251,7 +251,7 @@ describe('parseWordComments', () => {
             makeAnnotation({ id: 284, wordCommentRef: 'LEXSEEK-284-x1y7q3r8', anchorParagraphIndex: Math.min(3, maxIdx) }),
         ]
 
-        const { buffer } = await injectAnnotations(original, annotations)
+        const { buffer } = await injectAnnotations(original, annotations, 999)
         const { annotationRefsByWId } = await parseWordComments(buffer)
 
         // Phase C+：parser 优先读 customXml/annotationRefs.xml，其次 author，最后 initials
@@ -292,7 +292,7 @@ describe('parseWordComments', () => {
             makeAnnotation({ id: 42, wordCommentRef: 'LEXSEEK-42-abc12345', anchorParagraphIndex: Math.min(1, maxIdx) }),
         ]
 
-        const { buffer } = await injectAnnotations(original, annotations)
+        const { buffer } = await injectAnnotations(original, annotations, 999)
         const { annotationRefsByWId } = await parseWordComments(buffer)
 
         expect(annotationRefsByWId.get(0)?.annotationId).toBe(42)
@@ -305,7 +305,7 @@ describe('parseWordComments', () => {
         // 此时 Phase C 的 author/initials 都废，必须依赖 customXml。
         const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>条款一</w:t></w:r></w:p><w:p><w:r><w:t>条款二</w:t></w:r></w:p></w:body></w:document>`
         const commentsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:comment w:id="0" w:author="Author" w:initials="A" w:date="2026-01-01T00:00:00Z"><w:p><w:r><w:t>被匿名化的 AI 批注</w:t></w:r></w:p></w:comment><w:comment w:id="1" w:author="Author" w:initials="A" w:date="2026-01-01T00:00:00Z"><w:p><w:r><w:t>另一条被匿名化的批注</w:t></w:r></w:p></w:comment></w:comments>`
-        const customXmlContent = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><lexseekAnnotationRefs xmlns="urn:lexseek:contract-review:v1"><ref wId="0" annotationId="888" rand="ab12cd34"/><ref wId="1" annotationId="999" rand="xy98zw76"/></lexseekAnnotationRefs>`
+        const customXmlContent = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><lexseekAnnotationRefs xmlns="urn:lexseek:contract-review:v1"><ref wId="0" reviewId="863" annotationId="888" rand="ab12cd34"/><ref wId="1" reviewId="863" annotationId="999" rand="xy98zw76"/></lexseekAnnotationRefs>`
 
         const zip = new JSZip()
         zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/comments.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml"/><Override PartName="/word/customXml/annotationRefs.xml" ContentType="application/xml"/></Types>`)
@@ -328,7 +328,7 @@ describe('parseWordComments', () => {
         // - 所有 LS:* 作者的 w:initials 都被统一截断为第一条 ID 对应的字符串
         // - w:author 完整保留（含 [#id-rand8]）
         const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>条款一</w:t></w:r></w:p><w:p><w:r><w:t>条款二</w:t></w:r></w:p></w:body></w:document>`
-        const commentsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:comment w:id="0" w:author="LS:AI [#101-ab12cd34]" w:initials="LEXSEEK-3" w:date="2026-01-01T00:00:00Z"><w:p><w:r><w:t>AI 意见一</w:t></w:r></w:p></w:comment><w:comment w:id="1" w:author="LS:律师 [#205-xy98ab7c]" w:initials="LEXSEEK-3" w:date="2026-01-01T00:00:00Z"><w:p><w:r><w:t>律师意见</w:t></w:r></w:p></w:comment></w:comments>`
+        const commentsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:comment w:id="0" w:author="LS:AI [#863-101-ab12cd34]" w:initials="AI" w:date="2026-01-01T00:00:00Z"><w:p><w:r><w:t>AI 意见一</w:t></w:r></w:p></w:comment><w:comment w:id="1" w:author="LS:律师 [#863-205-xy98ab7c]" w:initials="律" w:date="2026-01-01T00:00:00Z"><w:p><w:r><w:t>律师意见</w:t></w:r></w:p></w:comment></w:comments>`
 
         const zip = new JSZip()
         zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/comments.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml"/></Types>`)

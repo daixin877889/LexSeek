@@ -35,7 +35,12 @@ export interface ParsedWordComment {
 }
 
 export interface AnnotationRefEntry {
+    /** docx 身份证里声明的归属 review；跨 review 上传时 upload 侧要拒绝 */
+    reviewId: number
     annotationId: number
+    /** 识别来源。customXml 是最稳的权威源；author 是 Word 不截断的兜底；initials 已弃用 */
+    source: 'customXml' | 'author'
+    /** 调试/审计用的原始字符串（customXml 里拼 LEXSEEK-{id}-{rand}，author 里是 w:author 原值） */
     ref: string
 }
 
@@ -78,7 +83,9 @@ export async function parseWordComments(docxBuffer: Buffer): Promise<ParsedDocxC
         }
     }
 
-    // 三重防线按优先级构建 wId → annotationId 映射
+    // 按优先级构建 wId → {reviewId, annotationId} 映射：
+    //   1. customXml（Word 不篡改的权威源）
+    //   2. w:author 尾 [#reviewId-annotationId-rand8]（LibreOffice 清 customXml 时兜底）
     const annotationRefsByWId = new Map<number, AnnotationRefEntry>()
     const customXmlMap = await readCustomXmlRefs(zip)
     for (const c of comments) {
@@ -90,8 +97,10 @@ export async function parseWordComments(docxBuffer: Buffer): Promise<ParsedDocxC
         const parsed = parseCommentRef(c.wAuthor, c.wInitials)
         if (parsed) {
             annotationRefsByWId.set(c.wId, {
+                reviewId: parsed.reviewId,
                 annotationId: parsed.annotationId,
-                ref: c.wAuthor || c.wInitials || '',
+                source: 'author',
+                ref: c.wAuthor || '',
             })
         }
     }
@@ -140,8 +149,8 @@ function collectCommentText(commentNode: Record<string, unknown>): string {
 }
 
 /**
- * 读 `word/customXml/annotationRefs.xml` 的 wId → annotationId 映射。
- * 文件不存在或损坏时返回空 Map，上层自动走 author/initials fallback。
+ * 读 `word/customXml/annotationRefs.xml` 的 wId → {reviewId, annotationId} 映射。
+ * 文件不存在、缺 reviewId 或损坏时跳过该条目，上层自动走 author fallback。
  */
 async function readCustomXmlRefs(zip: JSZip): Promise<Map<number, AnnotationRefEntry>> {
     const result = new Map<number, AnnotationRefEntry>()
@@ -153,13 +162,17 @@ async function readCustomXmlRefs(zip: JSZip): Promise<Map<number, AnnotationRefE
         for (const node of findAll(ast, 'ref')) {
             const wIdStr = getAttr(node, 'wId')
             const annIdStr = getAttr(node, 'annotationId')
-            if (!wIdStr || !annIdStr) continue
+            const reviewIdStr = getAttr(node, 'reviewId')
+            if (!wIdStr || !annIdStr || !reviewIdStr) continue
             const wId = parseInt(wIdStr, 10)
             const annotationId = parseInt(annIdStr, 10)
-            if (isNaN(wId) || isNaN(annotationId)) continue
+            const reviewId = parseInt(reviewIdStr, 10)
+            if (isNaN(wId) || isNaN(annotationId) || isNaN(reviewId)) continue
             const rand = getAttr(node, 'rand') ?? ''
             result.set(wId, {
+                reviewId,
                 annotationId,
+                source: 'customXml',
                 ref: rand ? `LEXSEEK-${annotationId}-${rand}` : `LEXSEEK-${annotationId}`,
             })
         }
