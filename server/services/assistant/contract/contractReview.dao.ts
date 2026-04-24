@@ -57,22 +57,96 @@ export async function softDeleteContractReviewDAO(id: number): Promise<contractR
 }
 
 /**
- * 全量替换 risks 字段 + 置 hasUnsavedDocxChanges=true。
+ * PATCH /reviews/:id 的存储实现。
  *
- * 仅 PATCH /reviews/:id 端点调用；risks 与脏位必须原子写入，避免两次 UPDATE
- * 之间有 rebuild 介入导致脏位漂移。where 带 deletedAt: null 守护软删竞态。
+ * 背景：Phase B 引入了 contract_risks 新表，但 PATCH 历史上只写 legacy
+ * `contractReviews.risks` JSON 字段。GET /reviews/:id 对已迁移 review
+ * （currentVersionId 非 null）**优先读新表**，导致用户编辑 risks 保存后
+ * 刷新页面看到的是老数据——静默数据丢失。
+ *
+ * 这里做双写以修复该 bug：
+ *   1. legacy JSON 始终写（GET fallback + rebuildDocxService 兼容）
+ *   2. 已迁移 review 同步把新 risks 数组里**已存在的**行 update 到新表
+ *      （按 risk.id 匹配，id 能 parseInt 且在本 review 的 contractRisks 里存在）
+ *
+ * **已知未覆盖**（TODO，P1+ 单独处理）：
+ *   - 用户前端"新增自定义风险"时前端生成的 id 不是 Int，insert 需要额外逻辑
+ *   - 用户前端"删除风险"时硬删 annotation 的外键级联风险；
+ *     建议让前端删除走 PATCH /risks/:id 设 archivedStatus='ignored'，
+ *     而非走 PATCH /reviews/:id 整数组替换
+ *
+ * 事务性：2 步写在 $transaction 里，一损俱损。
  */
 export async function patchReviewRisksDAO(
     id: number,
     risks: Risk[],
 ): Promise<contractReviews> {
-    return prisma.contractReviews.update({
-        where: { id, deletedAt: null },
-        data: {
-            risks: risks as unknown as Prisma.InputJsonValue,
-            hasUnsavedDocxChanges: true,
-            updatedAt: new Date(),
-        },
+    return prisma.$transaction(async (tx) => {
+        const updated = await tx.contractReviews.update({
+            where: { id, deletedAt: null },
+            data: {
+                risks: risks as unknown as Prisma.InputJsonValue,
+                hasUnsavedDocxChanges: true,
+                updatedAt: new Date(),
+            },
+            select: {
+                id: true,
+                currentVersionId: true,
+                userId: true,
+                sessionId: true,
+                status: true,
+                risks: true,
+                summary: true,
+                contractType: true,
+                partyA: true,
+                partyB: true,
+                stance: true,
+                originalFileId: true,
+                reviewedFileId: true,
+                maxVersionNo: true,
+                hasUnsavedDocxChanges: true,
+                playbookSnapshot: true,
+                createdAt: true,
+                updatedAt: true,
+                deletedAt: true,
+                caseId: true,
+            },
+        }) as unknown as contractReviews
+
+        // 已迁移 review 同步写新表；未迁移（currentVersionId=null）只写 legacy JSON
+        if (updated.currentVersionId != null) {
+            const riskIdsInBody = risks
+                .map(r => {
+                    const n = Number.parseInt(String(r.id ?? ''), 10)
+                    return Number.isFinite(n) && n > 0 ? n : null
+                })
+                .filter((x): x is number => x !== null)
+
+            if (riskIdsInBody.length > 0) {
+                const existing = await tx.contractRisks.findMany({
+                    where: { id: { in: riskIdsInBody }, reviewId: id },
+                    select: { id: true },
+                })
+                const existingIds = new Set(existing.map(r => r.id))
+                for (const r of risks) {
+                    const numId = Number.parseInt(String(r.id ?? ''), 10)
+                    if (!Number.isFinite(numId) || !existingIds.has(numId)) continue
+                    await tx.contractRisks.update({
+                        where: { id: numId },
+                        data: {
+                            level: r.level,
+                            category: r.category,
+                            problem: r.problem,
+                            legalBasis: r.legalBasis ?? null,
+                            analysis: r.analysis,
+                            suggestion: r.suggestion,
+                        },
+                    })
+                }
+            }
+        }
+
+        return updated
     })
 }
 
@@ -95,15 +169,22 @@ export async function atomicSetRebuildingDAO(id: number): Promise<boolean> {
 
 /**
  * 重生完成：把 status 回到 completed 并覆盖 reviewedFileId。
- * where 带 deletedAt: null 守护软删竞态。
- * 不校验入参 status（调用方负责只在 rebuilding 时调）。
+ *
+ * **加状态守卫**：只允许从 rebuilding 转为 completed。这样：
+ *   - 如果并发场景下该 review 已被他人改成其它状态（如 'failed'），不会被
+ *     本次写入强制翻回 'completed'
+ *   - 如果有野代码路径（比如历史曾存在的 download → rebuild 旁路）绕过了
+ *     atomicSetRebuildingDAO 占位直接调用本函数，update 会返回 count=0，
+ *     抛出明确错误便于定位
+ *
+ * 用 updateMany + count 断言代替 update，拿到"未命中"信号。
  */
 export async function setCompletedAfterRebuildDAO(
     id: number,
     reviewedFileId: number,
-): Promise<contractReviews> {
-    return prisma.contractReviews.update({
-        where: { id, deletedAt: null },
+): Promise<void> {
+    const result = await prisma.contractReviews.updateMany({
+        where: { id, deletedAt: null, status: 'rebuilding' },
         data: {
             status: 'completed',
             reviewedFileId,
@@ -111,6 +192,12 @@ export async function setCompletedAfterRebuildDAO(
             updatedAt: new Date(),
         },
     })
+    if (result.count !== 1) {
+        throw new Error(
+            `setCompletedAfterRebuildDAO: review ${id} 不在 rebuilding 状态或已被软删，`
+            + `拒绝写入（可能被并发操作抢占，调用方需确认是否先调过 atomicSetRebuildingDAO）`,
+        )
+    }
 }
 
 /**

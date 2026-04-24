@@ -195,36 +195,40 @@ describe('GET /api/v1/assistant/contract/reviews/:id/download', () => {
         expect(mockRebuildDocx).not.toHaveBeenCalled()
     })
 
-    it('rebuildDocxService 抛异常返回 500', async () => {
+    // 按 spec §8.5 回归后，download 不再调 rebuildDocxService
+    it('不调用 rebuildDocxService（spec §8.5：download 只取签名 URL，不做 rebuild）', async () => {
         mockGetReview.mockResolvedValue(completedReview())
-        mockRebuildDocx.mockRejectedValue(new Error('原始文件已丢失，无法重生批注'))
-        const res: any = await downloadHandler(
-            makeEvent({ userId: USER_A, params: { id: '42' } }) as any,
-        )
-        expect(res.code).toBe(500)
-        expect(mockFindOssFile).not.toHaveBeenCalled()
-        expect(mockGenerateSignedUrl).not.toHaveBeenCalled()
+        mockFindOssFile.mockResolvedValue(ossFile({ id: 888 }))
+        mockGenerateSignedUrl.mockResolvedValue('https://oss.example.com/x?sig=xxx')
+
+        await downloadHandler(makeEvent({ userId: USER_A, params: { id: '42' } }) as any)
+
+        expect(mockRebuildDocx).not.toHaveBeenCalled()
     })
 
-    it('新产物 ossFile 不存在返回 404', async () => {
+    it('reviewedFileId 对应的 OSS 文件丢失返回 404', async () => {
         mockGetReview.mockResolvedValue(completedReview())
-        mockRebuildDocx.mockResolvedValue(rebuildResult())
         mockFindOssFile.mockResolvedValue(null)
         const res: any = await downloadHandler(
             makeEvent({ userId: USER_A, params: { id: '42' } }) as any,
         )
         expect(res.code).toBe(404)
-        // 用新 reviewedFileId 查 OSS 文件
-        expect(mockFindOssFile).toHaveBeenCalledWith(NEW_FILE_ID)
+        // 直接用 review.reviewedFileId 查（不再通过 rebuildDocxService 拿新 id）
+        expect(mockFindOssFile).toHaveBeenCalledWith(888)
         expect(mockGenerateSignedUrl).not.toHaveBeenCalled()
     })
 
-    it('happy path 返回 downloadUrl（经过 Phase B injectAnnotations）', async () => {
+    it('happy path：直接用 review.reviewedFileId 生成签名 URL', async () => {
         mockGetReview.mockResolvedValue(completedReview())
-        mockRebuildDocx.mockResolvedValue(rebuildResult())
-        mockFindOssFile.mockResolvedValue(ossFile())
+        // 第一次调 findOssFile 是查 reviewedFileId=888 → 拿到 ossFile；
+        // 第二次调是查 originalFileId=777 取文件名；两次都走 reviewedFile mock 即可验证链路
+        mockFindOssFile.mockResolvedValue(ossFile({
+            id: 888,
+            fileName: 'contract-review.docx',
+            filePath: 'users/1001/contract-reviews/reviewed-888.docx',
+        }))
         mockGenerateSignedUrl.mockResolvedValue(
-            'https://oss.example.com/users/1001/contract-reviews/rebuild-new.docx?sig=xxx',
+            'https://oss.example.com/users/1001/contract-reviews/reviewed-888.docx?sig=xxx',
         )
 
         const res: any = await downloadHandler(
@@ -232,24 +236,20 @@ describe('GET /api/v1/assistant/contract/reviews/:id/download', () => {
         )
 
         expect(res.success).toBe(true)
-        expect(res.message).toContain('获取下载地址成功')
-        expect(typeof res.data.downloadUrl).toBe('string')
-        expect(res.data.downloadUrl.length).toBeGreaterThan(0)
         expect(res.data.downloadUrl.startsWith('https://')).toBe(true)
 
-        // Task 4.3: filename 带版本号，格式 {原名}_v{N}_{YYYY-MM-DD}.docx
-        expect(typeof res.data.filename).toBe('string')
+        // 文件名规则：{原合同名}_{v 版本号 | "工作区"}_{YYYY-MM-DD}.docx
         expect(res.data.filename).toMatch(/^contract-review_v\d+_\d{4}-\d{2}-\d{2}\.docx$/)
 
-        // Phase B: rebuildDocxService 被调用（实时注入批注）
-        expect(mockRebuildDocx).toHaveBeenCalledWith(expect.objectContaining({ id: 42 }))
+        // 确认：不再触发 rebuild
+        expect(mockRebuildDocx).not.toHaveBeenCalled()
 
-        // 用新 reviewedFileId 查 OSS 文件
-        expect(mockFindOssFile).toHaveBeenCalledWith(NEW_FILE_ID)
+        // 直接用 review.reviewedFileId=888 查 OSS
+        expect(mockFindOssFile).toHaveBeenCalledWith(888)
 
-        // 签名参数包含 Content-Disposition（文件名）
+        // 签名 URL 带 Content-Disposition
         expect(mockGenerateSignedUrl).toHaveBeenCalledWith(
-            'users/1001/contract-reviews/rebuild-new.docx',
+            'users/1001/contract-reviews/reviewed-888.docx',
             expect.objectContaining({
                 expires: 3600,
                 userId: USER_A,

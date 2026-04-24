@@ -1,32 +1,37 @@
 /**
  * GET /api/v1/assistant/contract/reviews/:id/download
  *
- * 下载批注版 .docx 的 1 小时签名 URL。
- * 每次调用都实时调用 rebuildDocxService 重新注入 Phase B 格式批注，
- * 确保下载产物的 wordCommentRef 符合 LEXSEEK-xxx 格式，避免客户回传
- * 后被 uploadClientVersion 误判为外部新增（external_new）。
+ * 返回 review.reviewedFileId 对应的 .docx 1 小时签名下载 URL。
  *
- * 返回 `{ downloadUrl, filename }`，由前端直接拼在 `<a download>` 上。
- * filename 格式：`{原文件名}_v{版本号}_{YYYY-MM-DD}.docx`
+ * **按 spec §8.5 设计**：本端点只做"取签名 URL"，不再触发 rebuild。
+ * 如果律师编辑过 risks 但还没手动"重生批注"，`hasUnsavedDocxChanges=true`，
+ * 前端 UI 会提示并引导律师先点"重新生成批注"按钮；显式的重生入口是
+ * POST /reviews/:id/rebuild-docx（见 RiskListPanel 的 @rebuild 事件）。
+ *
+ * 历史：早期曾在本端点里每次都跑 rebuildDocxService（Phase B 改造时为了
+ * 给"老 Phase A 产物补 LEXSEEK ref"做兼容）。现在 Phase C+ 三重身份证防线
+ * 已上线，那个兼容理由消失，"每次下载都全量 rebuild"会：
+ *   - 与 POST /rebuild-docx 的 atomicSetRebuildingDAO 占位锁撞
+ *   - 并发下载产生多个 OSS 孤儿文件
+ *   - 把 hasUnsavedDocxChanges 静默改为 false，让律师误以为"已保存"
+ * 回到 spec 后这些副作用都消失。
+ *
+ * 返回 `{ downloadUrl, filename }`，filename 格式见 spec §4.4。
  *
  * 错误分支：
  *  - 401 未登录
- *  - 400 reviewId 无效（非整数 / ≤ 0）
- *  - 404 review 不存在（含软删）
- *  - 403 review 属于他人
+ *  - 400 reviewId 无效
+ *  - 404 review 不存在 / 属于他人（403）
  *  - 400 review 尚未完成（reviewedFileId 为空）
- *  - 500 重生批注失败
- *  - 404 新产物 ossFile 丢失
+ *  - 404 reviewedFileId 指向的 OSS 文件已丢失
  *
  * **Feature: contract-review-m4**
- * **Feature: contract-review-versioning-phase-a（Phase A Task 4.3 文件名带版本号）**
- * **Phase B 改造**：切换到实时 injectAnnotations，修复旧产物无 wordCommentRef 问题
+ * **Feature: contract-review-versioning-phase-a（文件名带版本号）**
  */
 
 import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import { generateSignedUrlService } from '~~/server/services/storage/storage.service'
 import { loadOwnedReview } from '~~/server/services/assistant/contract/reviewGuard'
-import { rebuildDocxService } from '~~/server/services/assistant/contract/contractReviewRebuild.service'
 import {
     buildContractReviewFilename,
     buildContentDispositionForFilename,
@@ -40,28 +45,18 @@ export default defineEventHandler(async (event) => {
     if (!guard.ok) return resError(event, guard.status, guard.message)
     const { user, review } = guard
 
-    // 校验审查是否已完成（reviewedFileId 是产物 id，未完成为 null）
+    // 未完成：reviewedFileId 尚未就绪
     if (!review.reviewedFileId) {
         return resError(event, 400, '审查尚未完成，暂无可下载文件')
     }
 
-    // 实时重注入 Phase B 批注：下载原件 → 注入 → 上传 → 更新 reviewedFileId + wordCommentRef
-    let newReviewedFileId: number
-    try {
-        const result = await rebuildDocxService(review)
-        newReviewedFileId = result.reviewedFileId
-    } catch (err) {
-        logger.error('[contract download] 重生批注失败', { reviewId: review.id, err })
-        return resError(event, 500, '生成批注文件失败，请稍后重试')
-    }
-
-    // 查新产物 OSS 文件记录（rebuildDocxService 已写入 DB）
-    const ossFile = await findOssFileByIdDao(newReviewedFileId)
+    // 直接取 reviewedFileId 指向的 OSS 产物
+    const ossFile = await findOssFileByIdDao(review.reviewedFileId)
     if (!ossFile || !ossFile.filePath) {
         return resError(event, 404, '审查结果文件已丢失')
     }
 
-    // spec §4.4 规范：{合同名}_{版本号或"工作区"}_{日期}.docx
+    // 文件名：{原合同名}_{版本号或"工作区"}_{日期}.docx
     const originalOssFile = await findOssFileByIdDao(review.originalFileId)
     const filename = buildContractReviewFilename({
         originalFileName: originalOssFile?.fileName,
@@ -69,7 +64,6 @@ export default defineEventHandler(async (event) => {
     })
     const contentDisposition = buildContentDispositionForFilename(filename)
 
-    // 生成 1 小时签名 URL（含 Content-Disposition 参数）
     const downloadUrl = await generateSignedUrlService(ossFile.filePath, {
         expires: DOWNLOAD_URL_EXPIRES_SECONDS,
         userId: user.id,
