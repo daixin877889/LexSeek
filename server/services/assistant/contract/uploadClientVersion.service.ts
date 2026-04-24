@@ -215,6 +215,9 @@ export async function* uploadClientVersionService(params: {
     const collidedComments: Array<{ annotationId: number; c: ParsedWordComment }> = []
     // 跨 review 串扰：身份证里的 reviewId 不等于当前 review.id
     const crossReviewComments: Array<{ c: ParsedWordComment; declaredReviewId: number }> = []
+    // DOCX-H4：身份证命中但 annotationId 已不在 DB（律师硬删后客户又回复过），
+    // 原实现只打 warn 静默丢弃；现在降级为 external_new，避免数据悄无声息消失。
+    const fallbackFailComments: ParsedWordComment[] = []
 
     for (const c of newComments) {
         const refFromMap = annotationRefsByWId.get(c.wId)
@@ -236,6 +239,7 @@ export async function* uploadClientVersionService(params: {
 
         if (!annById.has(refFromMap.annotationId)) {
             fallbackFail++
+            fallbackFailComments.push(c)
             logger.warn('批注匹配失败被升级为 external_new', {
                 reviewId: review.id,
                 wId: c.wId,
@@ -298,12 +302,28 @@ export async function* uploadClientVersionService(params: {
     //   - 上传错了文件？（比如另一份合同的 docx）
     //   - 客户用了会破坏身份证的工具？（强烈建议重新从 LexSeek 下载）
     //   - 确实是全新版本，AI 批注全删了？（极少见，如需继续需走另一个 "force" 入口）
-    if (commentByAnnId.size === 0 && dbAnnotations.length > 0 && newComments.length > 0) {
+    //
+    // DOCX-H5 收紧：仅统计带 wordCommentRef 的系统批注（AI/lawyer），忽略 external
+    // （external 不参与身份证绑定）；命中比例 <20% 也触发保护——避免"10 条系统批注
+    // 只对上 1 条"也被放行导致 9 条被误删。
+    const systemDbAnnotations = dbAnnotations.filter(a => a.wordCommentRef != null)
+    const matchRatio = systemDbAnnotations.length > 0
+        ? commentByAnnId.size / systemDbAnnotations.length
+        : 1
+    const NO_MATCH_THRESHOLD = 0.2
+    const tripsSafety =
+        newComments.length > 0 && systemDbAnnotations.length > 0
+        && (commentByAnnId.size === 0 || matchRatio < NO_MATCH_THRESHOLD)
+    if (tripsSafety) {
         logger.error(
-            '批注 0 命中：拒绝自动应用"全删+全新增"，保护数据不被误改',
+            '批注命中率过低：拒绝自动应用"全删+全新增"，保护数据不被误改',
             {
                 reviewId: review.id,
                 dbAnnotationsCount: dbAnnotations.length,
+                systemDbAnnotationsCount: systemDbAnnotations.length,
+                matched: commentByAnnId.size,
+                matchRatio: Number(matchRatio.toFixed(3)),
+                threshold: NO_MATCH_THRESHOLD,
                 newCommentsCount: newComments.length,
                 crossReviewRejected,
                 snapshotSource,
@@ -398,6 +418,7 @@ export async function* uploadClientVersionService(params: {
     for (const c of orphanReplies) newIndependent.push(c)
     for (const { c } of collidedComments) newIndependent.push(c)
     for (const { c } of crossReviewComments) newIndependent.push(c)
+    for (const c of fallbackFailComments) newIndependent.push(c) // DOCX-H4
 
     const clauseDiffResult = diffClauses(oldClauses, newClauses)
     const externalChangeCount =
@@ -412,6 +433,11 @@ export async function* uploadClientVersionService(params: {
     // ============ Step 4: AI 增量审查 + 全局复核 ============
     let aiReviewCount = 0
     let globalReviewNewRiskCount = 0
+    // DOCX-H1 补偿式回滚：Step 4 在 tx 之外写 risks/annotations（AI 调用耗时较长，
+    // 不能长时间持有 pg 连接）。若 Step 5+6 事务失败，需回滚 Step 4 新建行，避免
+    // "风险条目凭空多出但无版本快照" 的数据不一致。
+    const step4CreatedRiskIds: number[] = []
+    const step4CreatedAnnIds: number[] = []
 
     // 4a. 对 diff.modified 的每个条款跑增量 AI 审查
     for (const [i, m] of clauseDiffResult.modified.entries()) {
@@ -433,15 +459,31 @@ export async function* uploadClientVersionService(params: {
                 playbookSnapshot: review.playbookSnapshot as PlaybookSnapshot | null,
             })
             if (risk) {
-                // 同条款已有未处置 AI 风险 → 只更新 level/suggestion，不改 archivedStatus
-                const existingRisk = dbRisks.find(
+                // DOCX-H2：同条款可能有多条未处置 AI 风险（"违约金过高"+"管辖条款不利"
+                // 是常见组合）。原 .find 只覆盖第一条导致其余过时文本滞留；现用 filter 全量
+                // 更新 level/problem/analysis/legalBasis/suggestion/anchorQuote/anchorParagraphIndex，
+                // 保留 archivedStatus（律师已处置的标记不覆盖）。
+                const existingRisks = dbRisks.filter(
                     (r) => r.source === 'ai' && r.anchorParagraphIndex === m.oldIndex && r.archivedStatus === null,
                 )
-                if (existingRisk) {
-                    await prisma.contractRisks.update({
-                        where: { id: existingRisk.id },
-                        data: { level: risk.level, suggestion: risk.suggestion ?? null },
-                    })
+                if (existingRisks.length > 0) {
+                    for (const existing of existingRisks) {
+                        await prisma.contractRisks.update({
+                            where: { id: existing.id },
+                            data: {
+                                level: risk.level,
+                                category: risk.category,
+                                problem: risk.problem,
+                                legalBasis: risk.legalBasis ?? null,
+                                analysis: risk.analysis ?? null,
+                                suggestion: risk.suggestion ?? null,
+                                anchorQuote: clause.text,
+                                // 把锚点迁移到新条款序号，避免 Step 5 的 diff.modified 逻辑再扫一次
+                                anchorParagraphIndex: m.newIndex,
+                                ...(existing.originalAnchorQuote ? {} : { originalAnchorQuote: existing.anchorQuote }),
+                            },
+                        })
+                    }
                 } else {
                     const newRisk = await prisma.contractRisks.create({
                         data: {
@@ -461,6 +503,7 @@ export async function* uploadClientVersionService(params: {
                             anchorParagraphIndex: m.newIndex,
                         },
                     })
+                    step4CreatedRiskIds.push(newRisk.id)
                     const newAnn = await prisma.contractAnnotations.create({
                         data: {
                             reviewId: review.id,
@@ -470,6 +513,7 @@ export async function* uploadClientVersionService(params: {
                             content: risk.problem,
                         },
                     })
+                    step4CreatedAnnIds.push(newAnn.id)
                     await prisma.contractAnnotations.update({
                         where: { id: newAnn.id },
                         data: { wordCommentRef: generateWordCommentRef(newAnn.id) },
@@ -543,6 +587,7 @@ export async function* uploadClientVersionService(params: {
                                 anchorParagraphIndex: null,
                             },
                         })
+                        step4CreatedRiskIds.push(newRisk.id)
                         const newAnn = await prisma.contractAnnotations.create({
                             data: {
                                 reviewId: review.id,
@@ -552,6 +597,7 @@ export async function* uploadClientVersionService(params: {
                                 content: r.problem ?? '',
                             },
                         })
+                        step4CreatedAnnIds.push(newAnn.id)
                         await prisma.contractAnnotations.update({
                             where: { id: newAnn.id },
                             data: { wordCommentRef: generateWordCommentRef(newAnn.id) },
@@ -734,6 +780,38 @@ export async function* uploadClientVersionService(params: {
         succeeded = true
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : '合并失败'
+        // DOCX-H1：Step 5+6 事务失败时回滚 Step 4 新建的 risks/annotations，
+        // 避免"风险条目凭空多出但无版本快照"的数据不一致（律师下次刷新工作区会看到
+        // 来历不明的新增条目）。删除顺序：先 annotation 再 risk（FK onDelete: Cascade 也能兜住，
+        // 但显式删更清楚）。
+        if (step4CreatedAnnIds.length > 0 || step4CreatedRiskIds.length > 0) {
+            try {
+                await prisma.$transaction(async (tx) => {
+                    if (step4CreatedAnnIds.length > 0) {
+                        await tx.contractAnnotations.deleteMany({
+                            where: { id: { in: step4CreatedAnnIds } },
+                        })
+                    }
+                    if (step4CreatedRiskIds.length > 0) {
+                        await tx.contractRisks.deleteMany({
+                            where: { id: { in: step4CreatedRiskIds } },
+                        })
+                    }
+                })
+                logger.warn('[uploadClientVersion] 合并失败，已回滚 Step 4 新建行', {
+                    reviewId: review.id,
+                    rolledBackRisks: step4CreatedRiskIds.length,
+                    rolledBackAnnotations: step4CreatedAnnIds.length,
+                })
+            } catch (rollbackErr) {
+                logger.error('[uploadClientVersion] 补偿回滚失败，可能留下孤立新风险', {
+                    reviewId: review.id,
+                    rolledBackRiskIds: step4CreatedRiskIds,
+                    rolledBackAnnIds: step4CreatedAnnIds,
+                    err: rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr),
+                })
+            }
+        }
         yield { type: 'error', data: { step: 'merge', code: 'MERGE_FAILED', message: msg } }
     }
     } finally {

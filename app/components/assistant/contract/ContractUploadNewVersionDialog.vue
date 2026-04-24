@@ -37,6 +37,8 @@ type SseState = {
     done: Ref<boolean>
     result: Ref<{ newVersionId: number; summary: string } | null>
     error: Ref<{ step: string; message: string } | null>
+    /** DOCX-H8：父组件关闭 / 组件卸载时主动中断 SSE 消费 */
+    abort: () => void
 }
 const sseState = shallowRef<SseState | null>(null)
 
@@ -49,9 +51,21 @@ const uploadError = computed(() => sseState.value?.error.value ?? null)
 // 拖拽状态
 const isDragging = ref(false)
 
-// 关闭时重置
+// 关闭时重置。DOCX-H8：如流式处理未终态（done/error 都没有）则主动 abort，
+// 避免用户关了 Dialog 后后台流仍在消耗流量 / 占用服务端资源。
 watch(() => props.open, (v) => {
-    if (!v) resetState()
+    if (!v) {
+        const s = sseState.value
+        if (s && !s.done.value && !s.error.value) {
+            s.abort()
+        }
+        resetState()
+    }
+})
+
+// 组件卸载（路由跳转等）时同样中断
+onBeforeUnmount(() => {
+    sseState.value?.abort()
 })
 
 /**

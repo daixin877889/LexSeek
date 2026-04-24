@@ -269,6 +269,8 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
         done: Ref<boolean>
         result: Ref<{ newVersionId: number; summary: string } | null>
         error: Ref<{ step: string; message: string } | null>
+        /** DOCX-H8：Dialog 关闭 / 组件卸载时调用，立即中断 SSE 消费，避免后台继续占用流量 */
+        abort: () => void
     }> {
         const steps = ref<StepState[]>(
             UPLOAD_STEP_KEYS.map(key => ({ key, label: UPLOAD_STEP_LABELS[key], status: 'idle' as StepStatus }))
@@ -276,6 +278,10 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
         const done = ref(false)
         const result = ref<{ newVersionId: number; summary: string } | null>(null)
         const error = ref<{ step: string; message: string } | null>(null)
+
+        // DOCX-H8：AbortController 让外部可主动中断（Dialog 关闭 / 路由离开）
+        const controller = new AbortController()
+        const abort = () => controller.abort()
 
         void (async () => {
             try {
@@ -285,6 +291,7 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ ossFileId }),
+                        signal: controller.signal,
                     }
                 )
 
@@ -298,6 +305,11 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
                 let buffer = ''
 
                 while (true) {
+                    if (controller.signal.aborted) {
+                        // 用户关闭 Dialog，礼貌地释放 reader 后退出
+                        await reader.cancel().catch(() => undefined)
+                        return
+                    }
                     const { value, done: streamDone } = await reader.read()
                     if (streamDone) break
                     buffer += decoder.decode(value, { stream: true })
@@ -342,11 +354,12 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
                     }
                 }
             } catch (e) {
+                if (controller.signal.aborted) return // 用户主动中断，不上报错误
                 error.value = { step: 'backup', message: e instanceof Error ? e.message : '连接失败' }
             }
         })()
 
-        return { steps, done, result, error }
+        return { steps, done, result, error, abort }
     }
 
     /** 更新版本备注（不受 isReadOnly 约束，历史版本也可加备注） */

@@ -29,7 +29,9 @@ export default defineEventHandler(async (event) => {
 
     const { user, review } = guard
 
-    const raw = await readBody(event)
+    // UX-M1：body 可能是 undefined（律师点"一键快存"不带 body），`z.object` 直接拒
+    // 会让产品侧体感"按了没反应"。默认成空对象保持 lawyerNote 走 nullish 的分支。
+    const raw = (await readBody(event)) ?? {}
     const parsed = bodySchema.safeParse(raw)
     if (!parsed.success) return resError(event, 400, parsed.error.issues[0]?.message ?? '参数错误')
 
