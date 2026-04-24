@@ -1,13 +1,23 @@
 /**
  * 解析 docx 文件中的 word/comments.xml，提取所有 Word 原生批注。
- * annotationRefsByWId 从 w:initials 字段（LEXSEEK-{id}-{rand8} 格式）派生，
- * 非 LEXSEEK 格式的批注（旧格式或外部批注）不写入此 Map。
  *
- * 用正则字符串扫描，与项目现有 xmlUtils.ts 保持一致，不引入 fast-xml-parser。
+ * 实现切换到 fast-xml-parser AST（见 xmlAst.ts）：
+ * - 不再用正则扫 `<w:comment>` / `<w:commentRangeStart>`
+ * - 属性读取、XML 实体解码、子节点文本合并都交给 parser
+ * - 保留原行为不变（见单测），但消除"正则能匹配 Word 的所有合法格式"的赌注
  */
 import type JSZip from 'jszip'
 import { loadDocxZip } from './zipRewriter'
 import { parseCommentRef } from '../utils/wordCommentRef'
+import {
+    parseOoxml,
+    tagOf,
+    childrenOf,
+    getAttr,
+    walk,
+    findAll,
+    textOf,
+} from './xmlAst'
 
 export interface ParsedWordComment {
     wId: number
@@ -19,7 +29,7 @@ export interface ParsedWordComment {
     /**
      * 批注锚点所在的"非空段落"序号（0-based）；
      * 若 document.xml 中找不到 commentRangeStart 为 null。
-     * 与 commentInjector 的 scanNonEmptyParagraphs 序号体系一致，前端 locate 时同口径。
+     * 与 commentInjector 的非空段落序号体系一致，前端 locate 时同口径。
      */
     anchorParagraphIndex: number | null
 }
@@ -33,92 +43,31 @@ export interface AnnotationRefEntry {
  * parseWordComments 的完整返回结构。
  *
  * - comments：全部 Word 批注
- * - annotationRefsByWId：wId → {annotationId, ref} 映射，从 w:initials（LEXSEEK 格式）派生。
- *   非 LEXSEEK 格式的批注（旧格式或外部批注）不写入此 Map。
+ * - annotationRefsByWId：wId → {annotationId, ref} 映射。识别优先级：
+ *     1. customXml/annotationRefs.xml（Word/WPS 不篡改，主防线）
+ *     2. w:author 尾部 `[#id-rand8]`（LibreOffice 清掉 customXml 时的兜底）
+ *     3. w:initials 的 LEXSEEK 字面量（Phase B 老 docx 兼容）
  */
 export interface ParsedDocxComments {
     comments: ParsedWordComment[]
     annotationRefsByWId: Map<number, AnnotationRefEntry>
 }
 
-// 匹配单个完整 <w:comment ...>...</w:comment> 块
-const COMMENT_BLOCK_RE = /<w:comment\s([^>]*)>([\s\S]*?)<\/w:comment>/g
-
-// 匹配属性值 w:name="value"
-function extractAttr(attrs: string, name: string): string | null {
-    const re = new RegExp(`w:${name}="([^"]*)"`)
-    const m = re.exec(attrs)
-    return m ? (m[1] ?? null) : null
-}
-
-// 提取段落内所有 <w:t> 文本，多段用 \n 分隔
-function extractContent(inner: string): string {
-    const paraRe = /<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g
-    const paragraphs: string[] = []
-    let pm: RegExpExecArray | null
-    while ((pm = paraRe.exec(inner)) !== null) {
-        const tRe = /<w:t(?:[^>]*)>([\s\S]*?)<\/w:t>/g
-        const parts: string[] = []
-        let tm: RegExpExecArray | null
-        while ((tm = tRe.exec(pm[0])) !== null) {
-            parts.push(tm[1] ?? '')
-        }
-        paragraphs.push(parts.join(''))
-    }
-    return paragraphs.join('\n')
-}
-
-// 解码 XML 5 字符标准转义
-function unescapeXml(s: string): string {
-    return s
-        .replace(/&quot;/g, '"')
-        .replace(/&apos;/g, "'")
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&amp;/g, '&')
-}
-
 /**
  * 解析 docx Buffer 中的所有 Word 批注。
- * annotationRefsByWId 从每条批注的 w:initials 字段派生：
- *   符合 LEXSEEK-{id}-{rand8} 格式的批注写入此 Map；其余忽略。
- * 若 docx 无 word/comments.xml，comments 为空数组，annotationRefsByWId 为空 Map。
+ *
+ * 若 docx 无 `word/comments.xml`，comments 为空数组，annotationRefsByWId 为空 Map。
  */
 export async function parseWordComments(docxBuffer: Buffer): Promise<ParsedDocxComments> {
     const zip = await loadDocxZip(docxBuffer)
 
-    const file = zip.file('word/comments.xml')
-    if (!file) return { comments: [], annotationRefsByWId: new Map() }
+    const commentsFile = zip.file('word/comments.xml')
+    if (!commentsFile) return { comments: [], annotationRefsByWId: new Map() }
 
-    const xml = await file.async('string')
-    const comments: ParsedWordComment[] = []
+    const commentsXml = await commentsFile.async('string')
+    const comments = parseCommentNodes(commentsXml)
 
-    COMMENT_BLOCK_RE.lastIndex = 0
-    let m: RegExpExecArray | null
-    while ((m = COMMENT_BLOCK_RE.exec(xml)) !== null) {
-        const attrs = m[1] ?? ''
-        const inner = m[2] ?? ''
-
-        const idStr = extractAttr(attrs, 'id')
-        if (idStr === null) continue
-        const wId = parseInt(idStr, 10)
-        if (isNaN(wId)) continue
-
-        const parentIdStr = extractAttr(attrs, 'parentId')
-        const parentWId = parentIdStr !== null ? parseInt(parentIdStr, 10) : null
-
-        comments.push({
-            wId,
-            wAuthor: unescapeXml(extractAttr(attrs, 'author') ?? ''),
-            wInitials: unescapeXml(extractAttr(attrs, 'initials') ?? ''),
-            content: unescapeXml(extractContent(inner)),
-            parentWId: parentWId !== null && !isNaN(parentWId) ? parentWId : null,
-            dateIso: extractAttr(attrs, 'date'),
-            anchorParagraphIndex: null, // 下面由 document.xml 填充
-        })
-    }
-
-    // 从 document.xml 反查每条 comment 的锚点段落序号（与 commentInjector 的 scanNonEmptyParagraphs 同口径）
+    // 从 document.xml 反查每条 comment 的锚点段落
     const docFile = zip.file('word/document.xml')
     if (docFile) {
         const docXml = await docFile.async('string')
@@ -129,10 +78,7 @@ export async function parseWordComments(docxBuffer: Buffer): Promise<ParsedDocxC
         }
     }
 
-    // 识别优先级（Phase C+）：
-    //   1. customXml/annotationRefs.xml（Word 不篡改的信任根，最稳）
-    //   2. w:author 尾部 [#id-rand8]（Word 保留但有 corner case）
-    //   3. w:initials 的 LEXSEEK 字面量（Word 会截断 + 按 people.xml 统一，危险，仅 LibreOffice 兼容）
+    // 三重防线按优先级构建 wId → annotationId 映射
     const annotationRefsByWId = new Map<number, AnnotationRefEntry>()
     const customXmlMap = await readCustomXmlRefs(zip)
     for (const c of comments) {
@@ -153,9 +99,49 @@ export async function parseWordComments(docxBuffer: Buffer): Promise<ParsedDocxC
     return { comments, annotationRefsByWId }
 }
 
+/** AST 解析 comments.xml 的所有 <w:comment> 节点 */
+function parseCommentNodes(xml: string): ParsedWordComment[] {
+    const ast = parseOoxml(xml)
+    const result: ParsedWordComment[] = []
+    for (const node of findAll(ast, 'w:comment')) {
+        const idStr = getAttr(node, 'w:id')
+        if (idStr == null) continue
+        const wId = parseInt(idStr, 10)
+        if (isNaN(wId)) continue
+
+        const parentStr = getAttr(node, 'w:parentId')
+        const parentWId = parentStr != null ? parseInt(parentStr, 10) : null
+
+        result.push({
+            wId,
+            wAuthor: getAttr(node, 'w:author') ?? '',
+            wInitials: getAttr(node, 'w:initials') ?? '',
+            content: collectCommentText(node),
+            parentWId: parentWId !== null && !isNaN(parentWId) ? parentWId : null,
+            dateIso: getAttr(node, 'w:date') ?? null,
+            anchorParagraphIndex: null, // 后续 document.xml 扫描填充
+        })
+    }
+    return result
+}
+
+/** 收集 <w:comment> 下所有段落的文本，多段用 \n 分隔 */
+function collectCommentText(commentNode: Record<string, unknown>): string {
+    const paragraphs: string[] = []
+    for (const para of childrenOf(commentNode)) {
+        if (tagOf(para) !== 'w:p') continue
+        const parts: string[] = []
+        walk([para], (n) => {
+            if (tagOf(n) === 'w:t') parts.push(textOf(n))
+        })
+        paragraphs.push(parts.join(''))
+    }
+    return paragraphs.join('\n')
+}
+
 /**
- * 读 word/customXml/annotationRefs.xml 的 wId → annotationId 映射。
- * 文件不存在 / 损坏时返回空 Map（上层自动走 author/initials fallback）。
+ * 读 `word/customXml/annotationRefs.xml` 的 wId → annotationId 映射。
+ * 文件不存在或损坏时返回空 Map，上层自动走 author/initials fallback。
  */
 async function readCustomXmlRefs(zip: JSZip): Promise<Map<number, AnnotationRefEntry>> {
     const result = new Map<number, AnnotationRefEntry>()
@@ -163,20 +149,18 @@ async function readCustomXmlRefs(zip: JSZip): Promise<Map<number, AnnotationRefE
     if (!file) return result
     try {
         const xml = await file.async('string')
-        const re = /<ref\s([^/>]*)\/>/g
-        let m: RegExpExecArray | null
-        while ((m = re.exec(xml)) !== null) {
-            const attrs = m[1] ?? ''
-            const wIdM = /wId="(\d+)"/.exec(attrs)
-            const annIdM = /annotationId="(\d+)"/.exec(attrs)
-            const randM = /rand="([^"]*)"/.exec(attrs)
-            if (!wIdM || !annIdM) continue
-            const wId = parseInt(wIdM[1]!, 10)
-            const annotationId = parseInt(annIdM[1]!, 10)
+        const ast = parseOoxml(xml)
+        for (const node of findAll(ast, 'ref')) {
+            const wIdStr = getAttr(node, 'wId')
+            const annIdStr = getAttr(node, 'annotationId')
+            if (!wIdStr || !annIdStr) continue
+            const wId = parseInt(wIdStr, 10)
+            const annotationId = parseInt(annIdStr, 10)
             if (isNaN(wId) || isNaN(annotationId)) continue
+            const rand = getAttr(node, 'rand') ?? ''
             result.set(wId, {
                 annotationId,
-                ref: randM ? `LEXSEEK-${annotationId}-${randM[1]}` : `LEXSEEK-${annotationId}`,
+                ref: rand ? `LEXSEEK-${annotationId}-${rand}` : `LEXSEEK-${annotationId}`,
             })
         }
     } catch { /* 文件损坏，走 fallback */ }
@@ -184,29 +168,41 @@ async function readCustomXmlRefs(zip: JSZip): Promise<Map<number, AnnotationRefE
 }
 
 /**
- * 扫描 document.xml，为每个 w:commentRangeStart 标记找到它所在的"非空段落"序号。
- * 非空段落定义：含 <w:r> 的 <w:p>，与 commentInjector 一致，保证前端/服务端 locate 同口径。
+ * 扫描 document.xml，建立 wId → 非空段落序号 的映射。
+ *
+ * "非空段落"：body 下直接子 `<w:p>` 中含 `<w:r>` 的那些，与 commentInjector
+ * 的段落扫描口径一致，确保前后端 locate 同步。
  */
 function buildCommentAnchorMap(documentXml: string): Map<number, number> {
+    const ast = parseOoxml(documentXml)
     const result = new Map<number, number>()
-    const paraRe = /<w:p(?:\s[^>]*)?\/>|<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g
-    const rangeStartRe = /<w:commentRangeStart\s[^/]*w:id="(\d+)"/g
+
+    // 找到 w:body 下的直接子 <w:p>（不递归进表格内的段落，和现有行为一致）
+    const body = findAll(ast, 'w:body')[0]
+    if (!body) return result
 
     let nonEmptyIdx = 0
-    let pm: RegExpExecArray | null
-    while ((pm = paraRe.exec(documentXml)) !== null) {
-        const pText = pm[0]
-        if (!/<w:r[\s>]/.test(pText)) continue
-        rangeStartRe.lastIndex = 0
-        let sm: RegExpExecArray | null
-        while ((sm = rangeStartRe.exec(pText)) !== null) {
-            const wId = parseInt(sm[1]!, 10)
-            if (!isNaN(wId) && !result.has(wId)) {
-                // 一条 comment 可能跨多段，记首次出现的段落
-                result.set(wId, nonEmptyIdx)
-            }
-        }
+    for (const para of childrenOf(body)) {
+        if (tagOf(para) !== 'w:p') continue
+        if (!hasRunChild(para)) continue
+        // 遍历段落内所有 commentRangeStart，记首次出现的段落（跨段 comment 取第一段）
+        walk([para], (n) => {
+            if (tagOf(n) !== 'w:commentRangeStart') return
+            const idStr = getAttr(n, 'w:id')
+            if (!idStr) return
+            const wId = parseInt(idStr, 10)
+            if (!isNaN(wId) && !result.has(wId)) result.set(wId, nonEmptyIdx)
+        })
         nonEmptyIdx++
     }
     return result
+}
+
+/** 段落是否含 <w:r>（直接或嵌套在 hyperlink/sdt 等里），判定为"非空段落" */
+function hasRunChild(paraNode: Record<string, unknown>): boolean {
+    let found = false
+    walk([paraNode], (n) => {
+        if (tagOf(n) === 'w:r') { found = true; return false }
+    })
+    return found
 }

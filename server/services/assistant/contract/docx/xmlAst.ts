@@ -1,0 +1,183 @@
+/**
+ * OOXML AST 轻封装（基于 fast-xml-parser）。
+ *
+ * 为什么不直接用 fxp：Office OOXML 对 whitespace / 属性顺序 / 命名空间声明
+ * 敏感，需要 `preserveOrder: true` + 一整套 attr 前缀约定。把这些"口径"统一
+ * 收束到本模块，让业务代码只看到"AST 节点怎么遍历/插入"，避免在各处重复
+ * 调 parser 配置（且各处配置跑偏会导致 round-trip 丢失信息 → Word 报损坏）。
+ *
+ * 术语：
+ *   - Node: fxp preserveOrder 模式下的节点，格式 { [tag]: Node[], ':@': attrs }
+ *     叶子文本节点格式 { '#text': string }
+ *   - Tag: 节点第一个非 `:@` / `#text` 的 key，即 XML 元素名
+ */
+import { XMLParser, XMLBuilder } from 'fast-xml-parser'
+
+const ATTR_PREFIX = '@_'
+const ATTR_GROUP = ':@'
+const TEXT_KEY = '#text'
+
+const parser = new XMLParser({
+    preserveOrder: true,
+    ignoreAttributes: false,
+    attributeNamePrefix: ATTR_PREFIX,
+    allowBooleanAttributes: true,
+    parseTagValue: false,
+    parseAttributeValue: false,
+    trimValues: false,
+    processEntities: true,
+})
+
+const builder = new XMLBuilder({
+    preserveOrder: true,
+    ignoreAttributes: false,
+    attributeNamePrefix: ATTR_PREFIX,
+    suppressBooleanAttributes: false,
+    // OOXML 约定：空元素用自闭合（<w:commentRangeStart/>）而非展开形式
+    // (<w:commentRangeStart></w:commentRangeStart>)。两种形式 Word 都能解析，
+    // 但自闭合是 Word/LibreOffice 的默认输出，保持一致有利于 round-trip 稳定性。
+    suppressEmptyNode: true,
+    processEntities: true,
+})
+
+export type Node = Record<string, unknown>
+export type NodeArray = Node[]
+
+/** 解析 OOXML 字符串为 AST 数组（顶层可能含 ?xml 声明节点，保留） */
+export function parseOoxml(xml: string): NodeArray {
+    return parser.parse(xml) as NodeArray
+}
+
+/** 把 AST 序列化回 XML 字符串（保留原始 XML 声明位置） */
+export function stringifyOoxml(ast: NodeArray): string {
+    return builder.build(ast) as string
+}
+
+/** 取节点的标签名（忽略 `:@` 属性组和 `#text` 键） */
+export function tagOf(node: Node): string | null {
+    for (const key of Object.keys(node)) {
+        if (key === ATTR_GROUP || key === TEXT_KEY) continue
+        return key
+    }
+    return null
+}
+
+/** 取节点的子节点数组（tag 对应的 value） */
+export function childrenOf(node: Node): NodeArray {
+    const t = tagOf(node)
+    if (!t) return []
+    const v = node[t]
+    return Array.isArray(v) ? (v as NodeArray) : []
+}
+
+/** 取节点的属性对象（可变引用，直接改会写回 AST） */
+export function attrsOf(node: Node): Record<string, string> {
+    const existing = node[ATTR_GROUP] as Record<string, string> | undefined
+    if (existing) return existing
+    const created: Record<string, string> = {}
+    node[ATTR_GROUP] = created
+    return created
+}
+
+/** 读单个属性（attrName 不带 w: 前缀时按字面量；需带 w: 的自己拼） */
+export function getAttr(node: Node, name: string): string | undefined {
+    const attrs = node[ATTR_GROUP] as Record<string, string> | undefined
+    return attrs?.[ATTR_PREFIX + name]
+}
+
+/** 写单个属性 */
+export function setAttr(node: Node, name: string, value: string): void {
+    const attrs = attrsOf(node)
+    attrs[ATTR_PREFIX + name] = value
+}
+
+/** 构造一个带属性的叶子 XML 节点（空元素） */
+export function makeLeaf(tag: string, attrs: Record<string, string>): Node {
+    const attrGroup: Record<string, string> = {}
+    for (const [k, v] of Object.entries(attrs)) attrGroup[ATTR_PREFIX + k] = v
+    return { [tag]: [], [ATTR_GROUP]: attrGroup }
+}
+
+/** 构造一个带属性和子节点的元素 */
+export function makeElement(tag: string, attrs: Record<string, string>, children: NodeArray): Node {
+    const attrGroup: Record<string, string> = {}
+    for (const [k, v] of Object.entries(attrs)) attrGroup[ATTR_PREFIX + k] = v
+    return { [tag]: children, [ATTR_GROUP]: attrGroup }
+}
+
+/** 构造 #text 节点 */
+export function makeText(text: string): Node {
+    return { [TEXT_KEY]: text }
+}
+
+/**
+ * 构造 XML 声明节点 `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`。
+ * fxp 对 PI 节点（tag 以 `?` 开头）有特殊要求：必须有一个空 #text 子节点。
+ */
+export function makeXmlDecl(attrs: Record<string, string> = {
+    version: '1.0',
+    encoding: 'UTF-8',
+    standalone: 'yes',
+}): Node {
+    const attrGroup: Record<string, string> = {}
+    for (const [k, v] of Object.entries(attrs)) attrGroup[ATTR_PREFIX + k] = v
+    return { '?xml': [{ [TEXT_KEY]: '' }], [ATTR_GROUP]: attrGroup }
+}
+
+/**
+ * 深度优先遍历 AST。回调返回 false 停止遍历。
+ * 不保证遍历顺序稳定，仅保证每个节点访问一次。
+ */
+export function walk(ast: NodeArray, visit: (node: Node, parent: NodeArray) => boolean | void): void {
+    const stack: Array<{ nodes: NodeArray; idx: number }> = [{ nodes: ast, idx: 0 }]
+    while (stack.length > 0) {
+        const top = stack[stack.length - 1]!
+        if (top.idx >= top.nodes.length) { stack.pop(); continue }
+        const n = top.nodes[top.idx]!
+        top.idx++
+        const result = visit(n, top.nodes)
+        if (result === false) return
+        const kids = childrenOf(n)
+        if (kids.length > 0) stack.push({ nodes: kids, idx: 0 })
+    }
+}
+
+/** 找到第一个匹配 tag 的节点（深度优先） */
+export function findFirst(ast: NodeArray, tag: string): Node | null {
+    let found: Node | null = null
+    walk(ast, (n) => {
+        if (tagOf(n) === tag) { found = n; return false }
+    })
+    return found
+}
+
+/** 找到所有匹配 tag 的节点（深度优先） */
+export function findAll(ast: NodeArray, tag: string): Node[] {
+    const result: Node[] = []
+    walk(ast, (n) => { if (tagOf(n) === tag) result.push(n) })
+    return result
+}
+
+/**
+ * 往 ast 的第一个 tag=parentTag 元素末尾追加新子节点（幂等由调用方用 getAttr 自己判断）。
+ * 用于往 [Content_Types].xml 的 <Types> / document.xml.rels 的 <Relationships> 追加条目。
+ */
+export function appendChildToFirst(ast: NodeArray, parentTag: string, child: Node): void {
+    const parent = findFirst(ast, parentTag)
+    if (!parent) throw new Error(`未找到父节点 <${parentTag}>`)
+    const tag = tagOf(parent)
+    if (!tag) throw new Error(`父节点 <${parentTag}> 无 tag`)
+    const kids = parent[tag] as NodeArray
+    kids.push(child)
+}
+
+/** 提取文本子节点的 #text 值（浅层，不深入递归到其他叶子） */
+export function textOf(node: Node): string {
+    const kids = childrenOf(node)
+    let s = ''
+    for (const k of kids) {
+        const t = k[TEXT_KEY]
+        if (typeof t === 'string') s += t
+    }
+    return s
+}
