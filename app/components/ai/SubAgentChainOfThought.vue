@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch, customRef, onBeforeUnmount } from 'vue'
 import type { Component } from 'vue'
 import type { BaseMessage } from '@langchain/core/messages'
+import { useThrottleFn } from '@vueuse/core'
 import {
   ChainOfThought,
   ChainOfThoughtHeader,
@@ -36,10 +37,80 @@ const props = withDefaults(defineProps<Props>(), {
   durationSec: 0,
 })
 
-// 临时用 defineModel：Task 4 会把这行替换为 ref + watch + defineEmits 的完整 auto-collapse 逻辑
-const isOpen = defineModel<boolean>('open', { default: false })
+// auto-collapse：isRunning false→true 立即展开；true→false 且非失败态 1s 后收起
+const AUTO_CLOSE_DELAY = 1000
+const emit = defineEmits<{ (e: 'update:open', value: boolean): void }>()
+const hasAutoClosed = ref(false)
+let autoCloseTimer: ReturnType<typeof setTimeout> | null = null
+
+function cancelAutoCloseTimer() {
+  if (autoCloseTimer !== null) {
+    clearTimeout(autoCloseTimer)
+    autoCloseTimer = null
+    hasAutoClosed.value = true   // 永久关闸：防止用户手动点开后又被 timer 收起
+  }
+}
+
+// 用 customRef 拦截每次写入（含同值赋值），确保用户任何交互都能取消 timer
+const isOpen = customRef<boolean>((track, trigger) => {
+  let _val = false
+  return {
+    get() {
+      track()
+      return _val
+    },
+    set(newVal: boolean) {
+      cancelAutoCloseTimer()   // 每次赋值都取消 timer（包括用户手动重复赋同值的情况）
+      _val = newVal
+      trigger()
+    },
+  }
+})
+
+// 边沿触发：isRunning 变化
+watch(() => props.isRunning, (next, prev) => {
+  if (next) {
+    isOpen.value = true
+    emit('update:open', true)
+    return
+  }
+  // 失败态不触发 auto-close（让用户看到红徽章）
+  if (props.isFailed) return
+  if (prev === true && !hasAutoClosed.value) {
+    autoCloseTimer = setTimeout(() => {
+      autoCloseTimer = null
+      hasAutoClosed.value = true
+      isOpen.value = false
+      emit('update:open', false)
+    }, AUTO_CLOSE_DELAY)
+  }
+}, { immediate: true })
+
+onBeforeUnmount(() => { if (autoCloseTimer !== null) clearTimeout(autoCloseTimer) })
+
+// 便于测试：暴露 isOpen 到实例
+defineExpose({ isOpen })
 
 const steps = computed<StepVM[]>(() => mapMessagesToSteps(props.subMessages, props.isRunning))
+
+// active step description throttle（避免高频流式更新导致 UI 抖动）
+const activeStep = computed(() => steps.value.find(s => s.isActive) ?? null)
+const activeRaw = computed(() => activeStep.value?.fullContent ?? '')
+const throttledActiveDescription = ref('')
+const updateThrottled = useThrottleFn(
+  (text: string) => {
+    // 固定 80 字摘要：active Step 折叠视图使用
+    throttledActiveDescription.value = text.length > 80 ? text.slice(0, 80) + '...' : text
+  },
+  30,
+  /* trailing */ true,
+)
+watch(activeRaw, (t) => updateThrottled(t), { immediate: true })
+
+// active step 读 throttled 值，否则读静态 description
+function displayDescription(step: StepVM): string {
+  return step.isActive ? throttledActiveDescription.value : step.description
+}
 
 const iconMap: Record<StepKind, Component> = {
   thinking: Brain,
@@ -97,7 +168,7 @@ const stepColorClass: Record<StepKind, string> = {
       v-for="step in steps"
       :key="step.key"
       :label="step.label"
-      :description="step.description"
+      :description="displayDescription(step)"
       :status="step.status"
       :class="step.isFailed ? 'text-destructive' : undefined"
     >
