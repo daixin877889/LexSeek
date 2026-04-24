@@ -12,9 +12,10 @@ import type { ContractReviewVersionEntity } from '#shared/types/contract'
  * 组件职责：
  * - 收缩/展开两种显示态（useLocalStorage 持久化）
  * - 节点列表：版本号 + 系统标签 + 日期 + 备注
- * - 点击节点触发 select-version
+ * - 点击非当前版本节点触发 select-version（进入只读预览）
+ * - 点击 currentVersionId 节点触发 exit-preview（回到工作区）
  * - 编辑备注流程（begin / save / cancel）
- * - 历史版本态时显示"返回工作区"按钮触发 exit-preview
+ * - selectedId 的派生规则：previewVersionId ?? currentVersionId
  */
 
 // useLocalStorage 使用实际存储会在测试间互相影响，mock 掉
@@ -136,27 +137,55 @@ describe('ContractVersionTimeline', () => {
             expect(highlighted.exists()).toBe(true)
         })
 
-        it('无高亮：previewVersionId 为 null 时没有 border-primary 节点', () => {
-            const w = mountTimeline({ previewVersionId: null })
-            // border-primary 不出现在节点 div（可能出现在返回按钮文字但不是容器）
+        it('默认高亮 currentVersionId：previewVersionId=null 时 currentVersionId 对应节点带 border-primary', () => {
+            const versions = [makeVersion({ id: 9 })]
+            const w = mountTimeline({ versions, currentVersionId: 9, previewVersionId: null })
+            const highlighted = w.find('.border-primary')
+            expect(highlighted.exists()).toBe(true)
+        })
+
+        it('previewVersionId 非空时按 preview 值高亮（覆盖 currentVersionId）', () => {
+            const versions = [
+                makeVersion({ id: 9, versionNumber: 2 }),
+                makeVersion({ id: 10, versionNumber: 1 }),
+            ]
+            const w = mountTimeline({ versions, currentVersionId: 9, previewVersionId: 10 })
+            // 预览态节点应含 border-primary，workspace 节点不应含
             const nodeContainers = w.findAll('.relative.pl-5')
-            nodeContainers.forEach(n => {
-                expect(n.classes()).not.toContain('border-primary')
-            })
+            expect(nodeContainers.length).toBe(2)
+            // 第一个是 id=9，第二个是 id=10；previewVersionId=10 ⇒ 第二个高亮
+            expect(nodeContainers[0]!.classes()).not.toContain('border-primary')
+            expect(nodeContainers[1]!.classes()).toContain('border-primary')
         })
     })
 
-    describe('节点点击触发 select-version', () => {
-        it('点击节点内容区触发 select-version', async () => {
-            const versions = [makeVersion({ id: 7 })]
-            const w = mountTimeline({ versions })
-            // 节点内的可点击 div
-            const clickable = w.find('.cursor-pointer')
-            expect(clickable.exists()).toBe(true)
+    describe('节点点击分流：select-version / exit-preview', () => {
+        it('点击非 currentVersion 节点触发 select-version', async () => {
+            const versions = [
+                makeVersion({ id: 7, versionNumber: 1 }),
+                makeVersion({ id: 8, versionNumber: 2 }),
+            ]
+            const w = mountTimeline({ versions, currentVersionId: 8, previewVersionId: null })
+            // 点击第一个节点（v1，非当前版本）
+            const clickable = w.findAll('.cursor-pointer')[0]!
             await clickable.trigger('click')
-            const emitted = w.emitted('select-version')
-            expect(emitted).toBeTruthy()
-            expect(emitted![0][0]).toBe(7)
+            const selectEmitted = w.emitted('select-version')
+            expect(selectEmitted).toBeTruthy()
+            expect(selectEmitted![0][0]).toBe(7)
+            expect(w.emitted('exit-preview')).toBeFalsy()
+        })
+
+        it('点击 currentVersionId 节点触发 exit-preview（回到工作区）', async () => {
+            const versions = [
+                makeVersion({ id: 7, versionNumber: 1 }),
+                makeVersion({ id: 8, versionNumber: 2 }),
+            ]
+            const w = mountTimeline({ versions, currentVersionId: 8, previewVersionId: 7 })
+            // 点击 v2（id=8，= currentVersionId）
+            const clickable = w.findAll('.cursor-pointer')[1]!
+            await clickable.trigger('click')
+            expect(w.emitted('exit-preview')).toBeTruthy()
+            expect(w.emitted('select-version')).toBeFalsy()
         })
     })
 
@@ -215,22 +244,12 @@ describe('ContractVersionTimeline', () => {
         })
     })
 
-    describe('返回工作区按钮', () => {
-        it('previewVersionId 为 null 时不显示返回按钮', () => {
-            const w = mountTimeline({ previewVersionId: null })
-            expect(w.text()).not.toContain('返回工作区')
-        })
-
-        it('previewVersionId 不为 null 时显示返回按钮', () => {
-            const w = mountTimeline({ previewVersionId: 1 })
-            expect(w.text()).toContain('返回工作区')
-        })
-
-        it('点击返回按钮触发 exit-preview', async () => {
-            const w = mountTimeline({ previewVersionId: 1 })
-            const backBtn = w.findAll('button').find(b => b.text().includes('返回工作区'))!
-            await backBtn.trigger('click')
-            expect(w.emitted('exit-preview')).toBeTruthy()
+    describe('不再显示"返回工作区"独立按钮（由点击 currentVersion 节点承担）', () => {
+        it('无论是否预览态，都不再渲染"返回工作区"文案', () => {
+            const wIdle = mountTimeline({ previewVersionId: null })
+            expect(wIdle.text()).not.toContain('返回工作区')
+            const wPreview = mountTimeline({ previewVersionId: 1 })
+            expect(wPreview.text()).not.toContain('返回工作区')
         })
     })
 })

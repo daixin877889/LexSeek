@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 自动导入：ref/computed 不要显式 import
 import { useLocalStorage } from '@vueuse/core'
-import { ChevronLeft, ChevronRight, Pencil, Check, X, ArrowLeft } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, Pencil, Check, X } from 'lucide-vue-next'
 import type { ContractReviewVersionEntity } from '#shared/types/contract'
 import { VERSION_SYSTEM_LABEL_DISPLAY } from '#shared/types/contract'
 
@@ -16,6 +16,25 @@ const emit = defineEmits<{
     'exit-preview': []
     'update-note': [versionId: number, note: string | null]
 }>()
+
+// 时间线里实际被选中的节点：
+// - 预览态（previewVersionId 非 null）→ 高亮预览的那条
+// - 非预览态 → 高亮 currentVersionId（= 工作区所对应的最新版本）
+// 这样页面加载时默认就有一条被高亮的节点（工作区），无需额外"返回工作区"按钮
+const selectedId = computed(() => props.previewVersionId ?? props.currentVersionId)
+
+/**
+ * 点击版本节点：
+ * - 点到 currentVersionId → 退出预览态（回到工作区，可编辑）
+ * - 点到其他版本 → 进入只读预览态
+ */
+function handleClick(v: ContractReviewVersionEntity) {
+    if (v.id === props.currentVersionId) {
+        emit('exit-preview')
+    } else {
+        emit('select-version', v.id)
+    }
+}
 
 const collapsed = useLocalStorage('contract-timeline-collapsed', false)
 
@@ -76,13 +95,13 @@ function formatDate(s: string) {
                     v-if="collapsed"
                     class="flex flex-col items-center relative"
                     :title="`v${v.versionNumber} · ${VERSION_SYSTEM_LABEL_DISPLAY[v.systemLabel]} · ${formatDate(v.createdAt)}`"
-                    @click="emit('select-version', v.id)"
+                    @click="handleClick(v)"
                 >
                     <div
                         class="size-3 rounded-full"
-                        :class="previewVersionId === v.id ? 'bg-primary ring-4 ring-primary/20' : 'bg-muted-foreground/40'"
+                        :class="selectedId === v.id ? 'bg-primary ring-4 ring-primary/20' : 'bg-muted-foreground/40'"
                     />
-                    <span class="text-[10px] mt-0.5" :class="previewVersionId === v.id ? 'font-semibold' : ''">
+                    <span class="text-[10px] mt-0.5" :class="selectedId === v.id ? 'font-semibold' : ''">
                         v{{ v.versionNumber }}
                     </span>
                     <div v-if="idx !== versions.length - 1" class="w-px h-4 bg-muted-foreground/30 mt-1" />
@@ -92,18 +111,18 @@ function formatDate(s: string) {
                 <div
                     v-else
                     class="relative pl-5 pb-3"
-                    :class="previewVersionId === v.id ? 'border-l-2 border-primary' : 'border-l-2 border-muted-foreground/30'"
+                    :class="selectedId === v.id ? 'border-l-2 border-primary' : 'border-l-2 border-muted-foreground/30'"
                 >
                     <div
                         class="absolute -left-[9px] top-0.5 size-4 rounded-full"
-                        :class="previewVersionId === v.id ? 'bg-primary ring-4 ring-primary/20' : 'bg-muted-foreground/40'"
+                        :class="selectedId === v.id ? 'bg-primary ring-4 ring-primary/20' : 'bg-muted-foreground/40'"
                     />
                     <div
                         class="rounded p-2 cursor-pointer"
-                        :class="previewVersionId === v.id ? 'bg-primary/10 border border-primary/30' : 'hover:bg-muted'"
-                        @click="emit('select-version', v.id)"
+                        :class="selectedId === v.id ? 'bg-primary/10 border border-primary/30' : 'hover:bg-muted'"
+                        @click="handleClick(v)"
                     >
-                        <div class="text-xs font-medium" :class="previewVersionId === v.id ? 'text-primary' : ''">
+                        <div class="text-xs font-medium" :class="selectedId === v.id ? 'text-primary' : ''">
                             v{{ v.versionNumber }} · {{ VERSION_SYSTEM_LABEL_DISPLAY[v.systemLabel] }}
                         </div>
                         <div class="text-[11px] text-muted-foreground">{{ formatDate(v.createdAt) }}</div>
@@ -154,14 +173,5 @@ function formatDate(s: string) {
             </template>
         </div>
 
-        <!-- 返回工作区按钮（历史版本只读态时可见）-->
-        <button
-            v-if="!collapsed && previewVersionId !== null"
-            class="mt-3 text-xs text-primary underline shrink-0 flex items-center gap-1"
-            @click="emit('exit-preview')"
-        >
-            <ArrowLeft class="size-3" />
-            返回工作区
-        </button>
     </aside>
 </template>

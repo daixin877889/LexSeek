@@ -116,8 +116,14 @@ async function handleSaveVersion(lawyerNote: string | null) {
 }
 
 // 时间线事件
+// select-version：点非 currentVersion 的节点 → 进入只读预览
+// exit-preview：点 currentVersion 节点（由 timeline 组件分流）→ 回到工作区
 function handleSelectVersion(versionId: number) {
-    versioning.enterPreview(versionId)
+    if (versionId === versioning.workspace.value.currentVersionId) {
+        versioning.exitPreview()
+    } else {
+        versioning.enterPreview(versionId)
+    }
 }
 function handleExitPreview() {
     versioning.exitPreview()
