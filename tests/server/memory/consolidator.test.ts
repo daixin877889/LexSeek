@@ -16,6 +16,14 @@ vi.mock('~~/server/services/workflow/checkpointer', () => ({
 vi.mock('~~/server/services/node/chatModelFactory', () => ({
   createChatModel: vi.fn(),
 }))
+vi.mock('~~/server/services/node/node.service', () => ({
+  getValidNodeConfig: vi.fn().mockResolvedValue({
+    modelSdkType: 'anthropic',
+    modelName: 'deepseek-chat',
+    modelProviderBaseUrl: 'https://api.deepseek.com',
+    modelApiKeys: [{ apiKey: 'test-key' }],
+  }),
+}))
 vi.mock('~~/server/services/memory/memory.service', () => ({
   writeMemoryService: vi.fn().mockResolvedValue(undefined),
 }))

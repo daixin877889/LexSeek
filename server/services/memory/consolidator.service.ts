@@ -1,8 +1,11 @@
 import { z } from 'zod'
 import { getRedisClient } from '~~/server/lib/redis'
 import { createChatModel } from '../node/chatModelFactory'
+import { getValidNodeConfig } from '../node/node.service'
 import { writeMemoryService } from './memory.service'
 import { getCheckpointer } from '~~/server/services/workflow/checkpointer'
+
+const EXTRACT_NODE = 'search_intent_router'
 
 const DEBOUNCE_MS = 30 * 1000
 const QUEUE_KEY = 'consolidator:due'
@@ -104,15 +107,19 @@ export async function consolidateSession(sessionId: string): Promise<void> {
 async function extractMemoriesFromMessages(
   messages: Array<{ role: string; content: string }>,
 ): Promise<Extracted> {
-  const haiku = createChatModel({
-    sdkType: 'anthropic',
-    modelName: 'claude-haiku-4-5-20251001',
-    apiKey: process.env.ANTHROPIC_API_KEY!,
+  const config = await getValidNodeConfig(EXTRACT_NODE)
+  const apiKey = config.modelApiKeys[0]?.apiKey
+  if (!apiKey) throw new Error(`节点 ${EXTRACT_NODE} 未配置 API Key`)
+  const model = createChatModel({
+    sdkType: config.modelSdkType,
+    modelName: config.modelName,
+    apiKey,
+    baseUrl: config.modelProviderBaseUrl,
     streaming: false,
     temperature: 0,
   })
   const extractPrompt = buildExtractPrompt(messages)
-  return haiku.withStructuredOutput(extractionSchema).invoke(extractPrompt)
+  return model.withStructuredOutput(extractionSchema).invoke(extractPrompt)
 }
 
 async function persistExtracted(caseId: number, extracted: Extracted): Promise<void> {
