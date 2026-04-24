@@ -13,7 +13,7 @@ const schema = z.object({
 
 export const toolDefinition: ToolDefinition<typeof schema> = {
     name: 'search_case_analysis',
-    description: '检索当前案件已完成的分析报告片段（诉请分析、风险评估等模块的正文）。默认只返回生效版本。当需要引用某个模块的具体分析细节时调用。',
+    description: '检索当前案件已完成的分析报告片段（诉请分析、风险评估等模块的正文）。默认只返回生效版本。当需要引用某个模块的具体分析细节时调用。analysis_type 可选值如：risk_assessment、claim_analysis、evidence_analysis、defense_strategy 等，具体以当前案件已完成的模块名为准。',
     schema,
 }
 
@@ -45,7 +45,7 @@ export function createTool(context: ToolContext) {
                     return {
                         id: h.id,
                         text: h.text,
-                        score: h.score.toFixed(3),
+                        score: Math.round(h.score * 1000) / 1000,
                         analysisType: meta.analysisType,
                         version: meta.version,
                     }
