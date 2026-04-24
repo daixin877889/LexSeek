@@ -91,11 +91,18 @@ const missesExpanded = ref(false)
                     高风险要点
                 </div>
                 <button
-                    v-for="h in summary!.highlights!.high"
-                    :key="h.riskId"
+                    v-for="(h, i) in summary!.highlights!.high"
+                    :key="h.riskId || `no-id-${i}`"
                     :data-riskid="h.riskId"
-                    class="block w-full text-left text-xs px-1.5 py-1 rounded hover:bg-accent hover:text-accent-foreground transition-colors"
-                    @click="emit('focusRisk', h.riskId)"
+                    :disabled="!h.riskId"
+                    :class="[
+                        'block w-full text-left text-xs px-1.5 py-1 rounded transition-colors',
+                        h.riskId
+                            ? 'hover:bg-accent hover:text-accent-foreground'
+                            : 'cursor-default text-muted-foreground'
+                    ]"
+                    :title="!h.riskId ? '该要点缺少关联风险编号，无法跳转' : undefined"
+                    @click="h.riskId && emit('focusRisk', h.riskId)"
                 >· {{ h.text }}</button>
             </div>
             <div v-if="summary!.highlights!.medium.length" class="space-y-1">
@@ -104,11 +111,18 @@ const missesExpanded = ref(false)
                     中风险要点
                 </div>
                 <button
-                    v-for="h in summary!.highlights!.medium"
-                    :key="h.riskId"
+                    v-for="(h, i) in summary!.highlights!.medium"
+                    :key="h.riskId || `no-id-${i}`"
                     :data-riskid="h.riskId"
-                    class="block w-full text-left text-xs px-1.5 py-1 rounded hover:bg-accent hover:text-accent-foreground transition-colors"
-                    @click="emit('focusRisk', h.riskId)"
+                    :disabled="!h.riskId"
+                    :class="[
+                        'block w-full text-left text-xs px-1.5 py-1 rounded transition-colors',
+                        h.riskId
+                            ? 'hover:bg-accent hover:text-accent-foreground'
+                            : 'cursor-default text-muted-foreground'
+                    ]"
+                    :title="!h.riskId ? '该要点缺少关联风险编号，无法跳转' : undefined"
+                    @click="h.riskId && emit('focusRisk', h.riskId)"
                 >· {{ h.text }}</button>
             </div>
             <div v-if="summary!.highlights!.low.length" class="space-y-1">
@@ -117,11 +131,18 @@ const missesExpanded = ref(false)
                     低风险要点
                 </div>
                 <button
-                    v-for="h in summary!.highlights!.low"
-                    :key="h.riskId"
+                    v-for="(h, i) in summary!.highlights!.low"
+                    :key="h.riskId || `no-id-${i}`"
                     :data-riskid="h.riskId"
-                    class="block w-full text-left text-xs px-1.5 py-1 rounded hover:bg-accent hover:text-accent-foreground transition-colors"
-                    @click="emit('focusRisk', h.riskId)"
+                    :disabled="!h.riskId"
+                    :class="[
+                        'block w-full text-left text-xs px-1.5 py-1 rounded transition-colors',
+                        h.riskId
+                            ? 'hover:bg-accent hover:text-accent-foreground'
+                            : 'cursor-default text-muted-foreground'
+                    ]"
+                    :title="!h.riskId ? '该要点缺少关联风险编号，无法跳转' : undefined"
+                    @click="h.riskId && emit('focusRisk', h.riskId)"
                 >· {{ h.text }}</button>
             </div>
         </template>

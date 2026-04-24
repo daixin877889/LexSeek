@@ -131,7 +131,39 @@ export async function summarizeOverview(
         throw new Error(`summarizeOverview schema 校验失败: ${pretty}`)
     }
 
-    return parsed.data
+    // UX-S2：LLM 可能返回空 riskId 或编造不存在的 riskId，前端点击要点时
+    // emit focusRisk('') 静默失效。这里在服务端做"riskId 必须在 risks 里存在"
+    // 的过滤：未命中的条目保留 text 但 riskId 设为空字符串，前端 OverviewPanel
+    // 会据此置不可点样式（见对应 UI 修改）。
+    const validIds = new Set(risks.map(r => String(r.id)))
+    const cleanHighlights = (arr: typeof parsed.data.highlights.high) =>
+        arr.map(item => ({
+            text: item.text,
+            riskId: validIds.has(String(item.riskId)) ? item.riskId : '',
+        }))
+    const cleaned: ContractOverview = {
+        overall: parsed.data.overall,
+        highlights: {
+            high: cleanHighlights(parsed.data.highlights.high),
+            medium: cleanHighlights(parsed.data.highlights.medium),
+            low: cleanHighlights(parsed.data.highlights.low),
+        },
+    }
+
+    // 诊断：统计 LLM 返回的无效 riskId 数量（≥1 说明 prompt 质量或模型能力需要关注）
+    const allItems = [
+        ...parsed.data.highlights.high,
+        ...parsed.data.highlights.medium,
+        ...parsed.data.highlights.low,
+    ]
+    const invalidCount = allItems.filter(i => !validIds.has(String(i.riskId))).length
+    if (invalidCount > 0) {
+        logger.warn('summarizeOverview: LLM 返回的 riskId 部分无效，已清空这些条目的 riskId', {
+            invalidCount, totalCount: allItems.length,
+        })
+    }
+
+    return cleaned
 }
 
 /**

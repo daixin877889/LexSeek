@@ -468,6 +468,11 @@ export async function runContractReviewChat(
                             type: 'stage', stage: 'analyze', status: 'done',
                             warnings: ['no_segments'],
                         })
+                        // UX-S1：补发 summarize 的 running + done，否则前端 5 段进度条
+                        // 的 allDone 永远不为真（summarize 段永远停在 wait），用户只能
+                        // 靠刷新页面自愈（review.status=failed 时前端从状态机回填）。
+                        await emitContractReviewEvent(emitterCtx, { type: 'stage', stage: 'summarize', status: 'running' })
+                        await emitContractReviewEvent(emitterCtx, { type: 'stage', stage: 'summarize', status: 'done' })
                         controller.close()
                         return
                     }
