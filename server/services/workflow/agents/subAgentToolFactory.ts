@@ -24,6 +24,10 @@ import { getCheckpointer, getStore } from '../checkpointer'
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import { resolveContextWindow } from '../context/messageCompressor'
 import type { NodeConfig } from '../../node/node.service'
+import {
+    publishCustomEvent,
+    publishStatusChange,
+} from '../../agent/agentEventBridge'
 
 /** 子代理工具上下文 */
 export interface SubAgentToolContext {
@@ -145,9 +149,9 @@ export async function createSubAgentTools(
                 const parentToolCallId = (cfg as any)?.toolCall?.id ?? ''
                 const mainRunId = context.runId
                 const nodeConfig = config   // 外层闭包的 NodeConfig（forEach 迭代变量）
-                void parentToolCallId
-                void mainRunId
-                void nodeConfig
+
+                // subThreadId 提前声明，catch 分支发 failed 事件时也需要
+                const subThreadId = `${context.sessionId}_sub_${safeName}`
 
                 try {
                     // 创建模型实例
@@ -176,8 +180,6 @@ export async function createSubAgentTools(
                         getCheckpointer(),
                         getStore(),
                     ])
-
-                    const subThreadId = `${context.sessionId}_sub_${safeName}`
 
                     // 从 checkpointer 读取历史，判断是否已注入过 SubAgentContext
                     const checkpointTuple = await checkpointer.getTuple({
@@ -237,7 +239,7 @@ export async function createSubAgentTools(
                         ],
                     })
 
-                    // 执行子代理
+                    // 执行子代理（挂 callbacks 旁路转发事件，返回值仍走 invoke + messages 末尾 AI）
                     const result = await agent.invoke(
                         { messages: initialMessages },
                         {
@@ -245,6 +247,77 @@ export async function createSubAgentTools(
                                 thread_id: subThreadId,
                             },
                             recursionLimit: 1000,
+                            callbacks: [{
+                                // token 流式转发
+                                handleLLMNewToken(token: string, _idx: unknown, cbRunId: string) {
+                                    publishCustomEvent({
+                                        type: 'custom_event',
+                                        runId: mainRunId,
+                                        sessionId: context.sessionId,
+                                        name: 'sub_agent_token',
+                                        data: undefined,
+                                        metadata: {
+                                            agentName: nodeConfig.name,
+                                            threadId: subThreadId,
+                                            parentToolCallId,
+                                            messageId: cbRunId,
+                                            delta: token,
+                                        },
+                                    }).catch((e: unknown) => logger.warn('publishAgentEvent(sub_agent_token) failed', { e }))
+                                },
+
+                                // 子 Agent 调用工具开始
+                                handleToolStart(
+                                    _tool: unknown, input: string, cbRunId: string,
+                                    _parentRunId?: string, _tags?: string[], _metadata?: Record<string, unknown>,
+                                    _runName?: string, innerToolCallId?: string,
+                                ) {
+                                    publishCustomEvent({
+                                        type: 'custom_event',
+                                        runId: mainRunId,
+                                        sessionId: context.sessionId,
+                                        name: 'sub_agent_tool_start',
+                                        data: { innerToolCallId, input, cbRunId },
+                                        metadata: {
+                                            agentName: nodeConfig.name,
+                                            threadId: subThreadId,
+                                            parentToolCallId,
+                                        },
+                                    }).catch((e: unknown) => logger.warn('publishAgentEvent(sub_agent_tool_start) failed', { e }))
+                                },
+
+                                // 子 Agent 调用工具结束
+                                handleToolEnd(output: unknown, cbRunId: string) {
+                                    publishCustomEvent({
+                                        type: 'custom_event',
+                                        runId: mainRunId,
+                                        sessionId: context.sessionId,
+                                        name: 'sub_agent_tool_end',
+                                        data: { cbRunId, output },
+                                        metadata: {
+                                            agentName: nodeConfig.name,
+                                            threadId: subThreadId,
+                                            parentToolCallId,
+                                        },
+                                    }).catch((e: unknown) => logger.warn('publishAgentEvent(sub_agent_tool_end) failed', { e }))
+                                },
+
+                                // root chain 完成时发 completed（cbParentRunId 为 undefined 即 root）
+                                handleChainEnd(_outputs: unknown, _cbRunId: string, cbParentRunId?: string) {
+                                    if (cbParentRunId !== undefined) return
+                                    publishStatusChange({
+                                        type: 'status_change',
+                                        runId: mainRunId,
+                                        sessionId: context.sessionId,
+                                        status: 'completed',
+                                        metadata: {
+                                            agentName: nodeConfig.name,
+                                            threadId: subThreadId,
+                                            parentToolCallId,
+                                        },
+                                    }).catch((e: unknown) => logger.warn('publishAgentEvent(sub_agent_status) failed', { e }))
+                                },
+                            }],
                         },
                     )
 
@@ -269,6 +342,21 @@ export async function createSubAgentTools(
                 } catch (error) {
                     const errorMessage = error instanceof Error ? error.message : '未知错误'
                     logger.error(`子代理 ${config.name} 执行失败`, { error: errorMessage })
+
+                    // 前端翻 isFailed=true + 显示 failureReason
+                    publishStatusChange({
+                        type: 'status_change',
+                        runId: mainRunId,
+                        sessionId: context.sessionId,
+                        status: 'failed',
+                        error: errorMessage,
+                        metadata: {
+                            agentName: nodeConfig.name,
+                            threadId: subThreadId,
+                            parentToolCallId,
+                        },
+                    }).catch(() => { /* best-effort */ })
+
                     return `子代理 ${config.title} 执行失败: ${errorMessage}`
                 }
             },
