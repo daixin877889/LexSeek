@@ -213,6 +213,8 @@ model caseAnalyses {
   tokenCount     Int?      @map("token_count")
   /// 实际 token 总数
   tokens         Int?
+  /// 分析结果摘要（200-400 字，模块完成时同步产出，主模型生成）
+  summary        String?   @db.Text
   /// 创建时间
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   /// 最后更新时间
@@ -307,4 +309,18 @@ model caseMemories {
 
   @@index([tsv], type: Gin, map: "idx_case_memories_tsv")
   @@map("case_memories")
+}
+
+/// 案件分析产物向量表（LangChain PGVectorStore 同构，与 caseMemories 同款约束）
+/// 写入走 addDocumentsToVectorStore；业务字段（caseId/analysisId/nodeId/version/isActive/analysisType/chunkIndex）走 metadata JSON + expression index
+/// 注意：此表结构对齐 LangChain 约定，不允许新增查询列（会破坏框架写入）
+model caseAnalysisEmbeddings {
+  id        String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  text      String?                  @db.Text
+  metadata  Json?
+  embedding Unsupported("vector")?
+  tsv       Unsupported("tsvector")?
+
+  @@index([tsv], type: Gin, map: "idx_case_analysis_tsv")
+  @@map("case_analysis_embeddings")
 }
