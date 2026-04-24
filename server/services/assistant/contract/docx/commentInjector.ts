@@ -138,30 +138,51 @@ function hasRunChild(paraNode: Node): boolean {
 }
 
 /**
- * 按 anchorQuote 在非空段落列表中搜索，返回第一个包含该字符串的段落索引。
- * 找不到时返回 -1。
+ * 按 anchorQuote 在非空段落列表中搜索，返回最"合适"的段落索引，找不到时返回 -1。
  *
- * Phase B 数据形态：anchor_quote 存的是条款完整内容（多段落拼接，\n 分隔），
- * 而 docx 中每段是独立 <w:p>，需要按行拆出锚点片段逐行匹配。
- * 依次尝试前 3 个有效行，任一命中即返回；单行 quote 等价于全量匹配。
+ * 历史 bug（#20）：原实现最低片段长度 2、总是返回第一个 `.includes()` 命中，导致
+ *   - 很短的 quote 首行（如"第三条"/"1.1"/"鉴于"）会命中 TOC 或无关段落
+ *   - 文档里多个段落重复出现相同短字串时，所有批注被挤到第一个
+ * 结果用户看到"某些没批注的段落被挂上了别条风险的批注"。
+ *
+ * 修复策略：
+ *   - 最低片段长度抬到 8，过滤短 header 误伤
+ *   - preferredIdx（= anchorParagraphIndex，若合法）用于多候选 tiebreaker —— 选距离它
+ *     最近的命中段落，保留"原索引附近的语义位置"
+ *   - 正文若只有很短的标题，额外保留一次 length>=4 的弱匹配兜底
  */
-function findParagraphIndexByQuote(nonEmpty: Node[], quote: string): number {
+function findParagraphIndexByQuote(
+    nonEmpty: Node[],
+    quote: string,
+    preferredIdx: number | null = null,
+): number {
     if (!quote) return -1
 
-    const lines = quote
-        .split(/\r?\n/)
-        .map(l => normalizeForMatch(l))
-        .filter(l => l.length >= 2)
+    // strongLines：>=8 字符，主匹配源（降低"第X条"/"1.1"等 TOC 短串误伤）
+    // weakLines：仅 strongLines 为空时兜底，允许 >=2 字符（保留 Phase A 短 quote 语义）
+    const allLines = quote.split(/\r?\n/).map(l => normalizeForMatch(l))
+    const strongLines = allLines.filter(l => l.length >= 8)
+    const weakLines = strongLines.length > 0 ? [] : allLines.filter(l => l.length >= 2)
+    const lines = strongLines.length > 0 ? strongLines : weakLines
     if (lines.length === 0) return -1
 
     const normalizedParas = nonEmpty.map(p => normalizeForMatch(paragraphText(p)))
 
+    const candidates = new Set<number>()
     for (const line of lines.slice(0, 3)) {
         for (let i = 0; i < normalizedParas.length; i++) {
-            if (normalizedParas[i]!.includes(line)) return i
+            if (normalizedParas[i]!.includes(line)) candidates.add(i)
         }
     }
-    return -1
+    if (candidates.size === 0) return -1
+    if (preferredIdx == null) return Math.min(...candidates)
+    let best = -1
+    let bestDist = Number.POSITIVE_INFINITY
+    for (const idx of candidates) {
+        const dist = Math.abs(idx - preferredIdx)
+        if (dist < bestDist) { best = idx; bestDist = dist }
+    }
+    return best
 }
 
 /**
@@ -387,16 +408,48 @@ export async function injectAnnotations(
     const wordIdByAnnotationId = new Map<number, number>()
     annotations.forEach((a, idx) => wordIdByAnnotationId.set(a.id, idx))
 
-    // 解析每条 annotation 的最终段落索引：anchorQuote 优先，找不到回退到 anchorParagraphIndex
+    // 解析每条 annotation 的最终段落索引（bug #20 修复后的顺序）：
+    //   1. anchorParagraphIndex 合法 + 该段落本身包含 quote 片段 → 直接锁定（精确优先）
+    //   2. 否则按 quote fuzzy 搜索，以 anchorParagraphIndex 为 preferredIdx 挑最近候选
+    //   3. 都不行但 anchorParagraphIndex 合法 → 回退到索引（信任 Phase B 的锚点迁移）
+    //   4. 都不行 → 跳过，logger.warn
+    //
+    // 为什么不再把 quote 放第一位：anchorQuote 前几行常含"第X条"/"1.1"等在 TOC/标题也
+    // 会出现的通用片段，优先 quote 会让所有批注被挤到首个命中，撞上没批注的段落。
     const resolvedParagraphIndex = new Map<number, number>()
     const validAnnotations: ContractAnnotationForExport[] = []
     for (const a of annotations) {
-        const quoteIdx = findParagraphIndexByQuote(nonEmpty, a.anchorQuote)
-        if (quoteIdx >= 0) {
-            resolvedParagraphIndex.set(a.id, quoteIdx)
-            validAnnotations.push(a)
-        } else if (a.anchorParagraphIndex >= 0 && a.anchorParagraphIndex < nonEmptyCount) {
-            resolvedParagraphIndex.set(a.id, a.anchorParagraphIndex)
+        const paraIdx = a.anchorParagraphIndex
+        const paraValid = paraIdx >= 0 && paraIdx < nonEmptyCount
+
+        let resolved = -1
+        if (paraValid) {
+            // 精确优先：段落本身含 quote 任一 >=8 字符片段 → 锁定
+            const paraText = normalizeForMatch(paragraphText(nonEmpty[paraIdx]!))
+            const quoteLines = (a.anchorQuote ?? '')
+                .split(/\r?\n/)
+                .map(l => normalizeForMatch(l))
+                .filter(l => l.length >= 8)
+            if (quoteLines.slice(0, 3).some(l => paraText.includes(l))) {
+                resolved = paraIdx
+            }
+        }
+        if (resolved < 0) {
+            const fuzzy = findParagraphIndexByQuote(nonEmpty, a.anchorQuote ?? '', paraValid ? paraIdx : null)
+            // paraValid 时给 fuzzy 一个距离容忍带——fuzzy 命中离 paraIdx 太远（>5 段）
+            // 大概率是 quote 首行在 TOC/标题里重复出现，迁移后的 paraIdx 更可信。
+            const DIST_TOLERANCE = 5
+            if (fuzzy >= 0 && (!paraValid || Math.abs(fuzzy - paraIdx) <= DIST_TOLERANCE)) {
+                resolved = fuzzy
+            } else if (paraValid) {
+                resolved = paraIdx
+            } else if (fuzzy >= 0) {
+                resolved = fuzzy
+            }
+        }
+
+        if (resolved >= 0) {
+            resolvedParagraphIndex.set(a.id, resolved)
             validAnnotations.push(a)
         } else {
             logger.warn('[commentInjector] injectAnnotations: anchorQuote 未命中且 anchorParagraphIndex 越界，跳过', {
