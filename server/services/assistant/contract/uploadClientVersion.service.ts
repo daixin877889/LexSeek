@@ -28,6 +28,15 @@ import { diffClauses } from './utils/clauseDiff'
 import { migrateAnchor } from './utils/anchorMigrate'
 import { parseWordComments, type ParsedWordComment, type AnnotationRefEntry } from './docx/wordCommentParser'
 import { parseCommentRef, generateWordCommentRef, stripAuthorRef } from './utils/wordCommentRef'
+
+/** 外部批注作者名落库默认值（stripAuthorRef 后仍为空时兜底）和长度上限。 */
+const DEFAULT_EXTERNAL_AUTHOR = '客户'
+/** annotation.authorName DB 字段长度 VarChar(100)，超长客户姓名 slice 截断避免 Prisma 报错。 */
+const AUTHOR_NAME_MAX_LEN = 100
+function safeAuthorName(raw: string | null | undefined): string {
+    const stripped = stripAuthorRef(raw) || DEFAULT_EXTERNAL_AUTHOR
+    return stripped.slice(0, AUTHOR_NAME_MAX_LEN)
+}
 import { updateContractReviewDAO } from './contractReview.dao'
 import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import { downloadFileService } from '~~/server/services/storage/storage.service'
@@ -541,7 +550,7 @@ export async function* uploadClientVersionService(params: {
                         riskId: parent.riskId,
                         parentAnnotationId: parentAnnId,
                         authorType: 'external',
-                        authorName: stripAuthorRef(c.wAuthor) || '客户',
+                        authorName: safeAuthorName(c.wAuthor),
                         content: c.content,
                     },
                 })
@@ -561,7 +570,7 @@ export async function* uploadClientVersionService(params: {
                         riskId: parent.riskId,
                         parentAnnotationId: parentAnnId,
                         authorType: 'external',
-                        authorName: stripAuthorRef(c.wAuthor) || '客户',
+                        authorName: safeAuthorName(c.wAuthor),
                         content: `客户修改了批注内容为：${c.content}`,
                     },
                 })
@@ -598,7 +607,7 @@ export async function* uploadClientVersionService(params: {
                         reviewId: review.id,
                         riskId: risk.id,
                         authorType: 'external',
-                        authorName: stripAuthorRef(c.wAuthor) || '客户',
+                        authorName: safeAuthorName(c.wAuthor),
                         content: c.content,
                     },
                 })

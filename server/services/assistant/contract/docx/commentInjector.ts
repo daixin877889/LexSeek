@@ -327,6 +327,11 @@ export interface ContractAnnotationForExport {
     anchorParagraphIndex: number
     /** 已存在则沿用；为 null 时内部 generateWordCommentRef(id) 生成 */
     wordCommentRef: string | null
+    /**
+     * annotation 创建时间。写入 w:date 让 Word UI 显示批注真实的创建时间，
+     * 而不是每次导出都刷新为"现在"。可选：传 null 时用当前时间兜底。
+     */
+    createdAt?: Date | null
 }
 
 export interface InjectAnnotationsResult {
@@ -521,18 +526,20 @@ function buildCommentsXmlFromAnnotations(
     wordIds: Map<number, number>,
     reviewId: number,
 ): string {
-    const now = new Date().toISOString()
+    const fallbackNow = new Date().toISOString()
     const children = annotations.map(a => {
         const wId = wordIds.get(a.id)!
         const ref = refs.get(a.id)!
         const author = buildAuthorField(a.authorName, reviewId, ref)
         const initials = initialsFor(a.authorType)
+        // M7：优先用 annotation.createdAt，回落到当前时间兜底
+        const dateIso = a.createdAt ? a.createdAt.toISOString() : fallbackNow
 
         const attrs: Record<string, string> = {
             'w:id': String(wId),
             'w:author': author,
             'w:initials': initials,
-            'w:date': now,
+            'w:date': dateIso,
         }
         if (a.parentAnnotationId !== null && wordIds.has(a.parentAnnotationId)) {
             attrs['w:parentId'] = String(wordIds.get(a.parentAnnotationId))

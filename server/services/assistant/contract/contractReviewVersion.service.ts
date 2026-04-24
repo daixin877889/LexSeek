@@ -245,6 +245,7 @@ export async function downloadContractReviewVersionService(
             // 优先 snapshot 冻结值；null 时回退到 DB 当前值；仍 null → injectAnnotations
             // 当场生成新的（单次下载内所有 ref 依然一致，只是跨下载会变）
             wordCommentRef: a.wordCommentRef ?? dbRefByAnnId.get(a.id) ?? null,
+            createdAt: typeof a.createdAt === 'string' ? new Date(a.createdAt) : (a.createdAt ?? null),
         })
     }
 

@@ -112,6 +112,7 @@ export async function runAnnotateAndUpload(reviewId: number): Promise<void> {
         anchorQuote: a.risk.anchorQuote,
         anchorParagraphIndex: a.risk.anchorParagraphIndex!,
         wordCommentRef: a.wordCommentRef,
+        createdAt: a.createdAt,
     }))
 
     const injectResult = await injectAnnotations(originalBuffer, annotations, reviewId)

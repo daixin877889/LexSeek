@@ -323,6 +323,31 @@ describe('parseWordComments', () => {
         expect(annotationRefsByWId.get(1)?.annotationId).toBe(999)
     })
 
+    it('Word "删除个人信息"匿名化 + 无 customXml 时 annotationRefsByWId 为空（上层走 NO_ANNOTATION_MATCH 保护）', async () => {
+        // 极端场景：Word 保存前勾选"检查文档 → 删除文档属性和个人信息"，
+        // author 被改成空字符串或"Author"，initials 被清，且 customXml 部件
+        // 也可能被去除（比如客户通过某些云端协作工具"扁平化"保存）。
+        // 此时所有三重防线都废，parser 应返回空 annotationRefsByWId，
+        // 上层 uploadClientVersion 的 NO_ANNOTATION_MATCH 保护会拒绝 upload，
+        // 保护 DB 不被"全删+全新增"误改。
+        const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>条款一</w:t></w:r></w:p></w:body></w:document>`
+        const commentsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:comment w:id="0" w:author="" w:initials="" w:date="2026-01-01T00:00:00Z"><w:p><w:r><w:t>匿名化批注</w:t></w:r></w:p></w:comment><w:comment w:id="1" w:author="Author" w:initials="A" w:date="2026-01-01T00:00:00Z"><w:p><w:r><w:t>被重命名的批注</w:t></w:r></w:p></w:comment></w:comments>`
+
+        const zip = new JSZip()
+        zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/comments.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml"/></Types>`)
+        zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`)
+        zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`)
+        zip.file('word/document.xml', docXml)
+        zip.file('word/comments.xml', commentsXml)
+        // 故意不写 customXml/annotationRefs.xml
+        const docxBuffer = Buffer.from(await zip.generateAsync({ type: 'nodebuffer' }))
+
+        const { comments, annotationRefsByWId } = await parseWordComments(docxBuffer)
+        expect(comments).toHaveLength(2)
+        // 身份证全部丢失 → 空 Map，上层不会把它们当"系统批注"
+        expect(annotationRefsByWId.size).toBe(0)
+    })
+
     it('Word 截断 w:initials 为 "LEXSEEK-3" 时仍能从 w:author 恢复 annotationId', async () => {
         // 模拟 Microsoft Word 保存后的 docx：
         // - 所有 LS:* 作者的 w:initials 都被统一截断为第一条 ID 对应的字符串

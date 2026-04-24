@@ -91,15 +91,15 @@ async function main() {
         if (refFromInitials) {
             if (opts.review) {
                 status = dbIds.has(refFromInitials.annotationId)
-                    ? `✅ LEXSEEK 命中 annotationId=${refFromInitials.annotationId}`
-                    : `⚠️ LEXSEEK 但 id=${refFromInitials.annotationId} 不在 DB（可能跨 review 或已硬删）`
+                    ? `[命中] LEXSEEK 命中 annotationId=${refFromInitials.annotationId}`
+                    : `[待核] LEXSEEK 但 id=${refFromInitials.annotationId} 不在 DB（可能跨 review 或已硬删）`
             } else {
-                status = `🔵 LEXSEEK id=${refFromInitials.annotationId}`
+                status = `[LEXSEEK id=${refFromInitials.annotationId}]`
             }
             if (opts.review && !dbIds.has(refFromInitials.annotationId)) lexseekStale++
             else lexseekMatched++
         } else {
-            status = '❌ 非 LEXSEEK 格式（会被当外部新增 external_new）'
+            status = '[失败] 非 LEXSEEK 格式（会被当外部新增 external_new）'
             noLexseek++
         }
         const paraIdxStr = c.anchorParagraphIndex === null ? 'null' : String(c.anchorParagraphIndex)
