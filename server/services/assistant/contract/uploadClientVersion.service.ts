@@ -123,6 +123,9 @@ export async function* uploadClientVersionService(params: {
         let newClauses: ClauseSnapshotItem[]
         let newComments: ParsedWordComment[] = []
         let annotationRefsByWId = new Map<number, AnnotationRefEntry>()
+        // DOCX-C4：external_new 锚点需要用"非空段落序号 + 段落原文"而不是 clauseIndex，
+        // 否则 paragraphIndex 可能远大于 newClauses.length 被误兜底为 0（挤到首段）。
+        let newParagraphs: string[] = []
         try {
             const ossFile = await findOssFileByIdDao(ossFileId)
             if (!ossFile?.filePath) throw new Error('OSS 文件记录不存在或已删除')
@@ -137,6 +140,7 @@ export async function* uploadClientVersionService(params: {
 
             // 用同一份 Buffer 解析段落 + 批注，避免重复下载
             const { paragraphs } = await parseContractDocx(docxBuffer)
+            newParagraphs = paragraphs
             const { segments, normalizedText } = await segmentClauses(paragraphs.join('\n'))
             newDocxText = normalizedText
             newClauses = segments.map((s) => ({
@@ -170,8 +174,34 @@ export async function* uploadClientVersionService(params: {
             })
             : Promise.resolve(null),
     ])
-    const oldClauses: ClauseSnapshotItem[] =
+    // DOCX-C2 兜底：Phase A 存量 snapshot 可能没有 clauses 字段（Phase B 才加），
+    // 直接用空数组会让 diffClauses 把新版所有条款都判成"新增"、锚点迁移完全失效。
+    // 兜底：snapshot 里还有 docxText，用 segmentClauses 即时切一次作为 oldClauses。
+    // 新建的 snapshot（Phase B 起）都含 clauses，此兜底只覆盖历史数据。
+    let oldClauses: ClauseSnapshotItem[] =
         ((currentVersion?.snapshotData as { clauses?: ClauseSnapshotItem[] } | null)?.clauses ?? [])
+    if (oldClauses.length === 0) {
+        const oldDocxText = (currentVersion?.snapshotData as { docxText?: string } | null)?.docxText
+        if (oldDocxText && oldDocxText.length > 0) {
+            try {
+                const { segments } = await segmentClauses(oldDocxText)
+                oldClauses = segments.map(s => ({
+                    index: s.index, text: s.text,
+                    offsetStart: s.offsetStart, offsetEnd: s.offsetEnd,
+                }))
+                logger.info('[uploadClientVersion] 对 Phase A 存量 snapshot 重切 clauses', {
+                    reviewId: review.id,
+                    versionId: review.currentVersionId,
+                    reconstructedCount: oldClauses.length,
+                })
+            } catch (err) {
+                logger.warn('[uploadClientVersion] 重切 oldClauses 失败，继续走空数组', {
+                    reviewId: review.id,
+                    errMessage: err instanceof Error ? err.message : String(err),
+                })
+            }
+        }
+    }
 
     // 建 annotationId → ParsedWordComment 映射
     // 优先从 customXml annotationRefs 查（Phase B 新导出的 docx），
@@ -491,6 +521,13 @@ export async function* uploadClientVersionService(params: {
                     for (const r of rawRisks) {
                         const validLevel =
                             r.level === 'high' || r.level === 'medium' || r.level === 'low' ? r.level : 'medium'
+                        // DOCX-C3：global_review 是整篇合同的"条款平衡性/连锁风险"
+                        // （spec §9.2），不对应任何具体段落。原实现硬写
+                        // anchorParagraphIndex=0 会让所有 global_review 风险都挤到合同
+                        // 首段并在导出时注入成 Word 批注；改为 null 后：
+                        //   - rebuildDocxService 会过滤（锚点为 null → 跳过注入）
+                        //   - 风险卡片仍在 RiskListPanel 展示（用户可点编辑/归档）
+                        //   - anchorQuote 改存完整 problem，便于前端展示
                         const newRisk = await prisma.contractRisks.create({
                             data: {
                                 reviewId: review.id,
@@ -502,8 +539,8 @@ export async function* uploadClientVersionService(params: {
                                 legalBasis: r.legalBasis ?? null,
                                 analysis: r.analysis ?? null,
                                 suggestion: r.suggestion ?? null,
-                                anchorQuote: (r.problem ?? '').slice(0, 50),
-                                anchorParagraphIndex: 0,
+                                anchorQuote: r.problem ?? '（全局复核）',
+                                anchorParagraphIndex: null,
                             },
                         })
                         const newAnn = await prisma.contractAnnotations.create({
@@ -582,14 +619,18 @@ export async function* uploadClientVersionService(params: {
 
             // 客户新增独立批注 → external_new risk + external annotation
             for (const c of newIndependent) {
-                // 锚点：优先用 comment 实际挂载的段落（parseWordComments 新增字段），
-                // 回退到 0 只是兜底——以前硬写 0 会让所有外部批注都挤在文档开头显示"未定位"。
-                // 同时用 docx 条款全文做 anchorQuote，前端 locate 才能真找到那段。
+                // DOCX-C4：锚点是"非空段落序号"（parseWordComments 返回的 anchorParagraphIndex
+                // 和 commentInjector scanNonEmptyParagraphs 同口径）。越界校验必须用
+                // newParagraphs.length（非空段落总数）而不是 newClauses.length（条款总数，
+                // 通常远小于段落数）；anchorQuote 用段落原文（不是条款文本），与 parseWordComments
+                // 语义对齐，后续 rebuildDocxService 注入时 findParagraphIndexByQuote 能
+                // 字符串匹配兜底定位。
                 const paraIdx = c.anchorParagraphIndex
-                const anchorParagraphIndex = paraIdx !== null && paraIdx >= 0 && paraIdx < newClauses.length
-                    ? paraIdx
-                    : 0
-                const anchorQuote = newClauses[anchorParagraphIndex]?.text ?? c.content.slice(0, 50)
+                const validPara = paraIdx !== null && paraIdx >= 0 && paraIdx < newParagraphs.length
+                const anchorParagraphIndex = validPara ? paraIdx : null
+                const anchorQuote = validPara
+                    ? (newParagraphs[paraIdx!] ?? c.content.slice(0, 50))
+                    : c.content.slice(0, 50)
                 const risk = await tx.contractRisks.create({
                     data: {
                         reviewId: review.id,
