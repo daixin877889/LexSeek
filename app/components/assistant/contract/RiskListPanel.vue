@@ -41,8 +41,6 @@ const props = defineProps<{
     status: ContractReviewStatus
     reviewedFileId: number | null
     summary: ContractOverview | null
-    isRebuilding: boolean
-    hasUnsavedDocxChanges: boolean
     isDownloading?: boolean
     isExportingPdf?: boolean
     focusedRiskId: string | null
@@ -65,7 +63,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     download: []
-    rebuild: []
     editRisks: [risks: Risk[]]
     exportPdf: [includeRisks: boolean]
     focusRisk: [riskId: string]
@@ -120,8 +117,7 @@ function toggle(id: string) {
 
 const isCompleted = computed(() => props.status === 'completed')
 const canDownload = computed(() => isCompleted.value && props.reviewedFileId !== null)
-const canRebuild = computed(() => props.hasUnsavedDocxChanges && !props.isRebuilding && isCompleted.value)
-const editable = computed(() => !props.isRebuilding && isCompleted.value)
+const editable = computed(() => isCompleted.value)
 
 // 编辑对话框状态
 const editDialogOpen = ref(false)
@@ -299,11 +295,6 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
 
 <template>
     <div class="flex flex-col h-full min-h-0">
-        <div v-if="isRebuilding" class="p-3 border-b bg-muted/30 text-sm text-muted-foreground flex items-center gap-2 shrink-0">
-            <Loader2Icon class="size-4 animate-spin" />
-            <span>批注正在重新生成...</span>
-        </div>
-
         <ScrollArea class="flex-1 min-h-0">
             <AssistantContractOverviewPanel
                 :risks="risks"
@@ -809,16 +800,6 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
 
         <!-- 底部操作栏 -->
         <div class="p-3 border-t space-y-2 shrink-0 bg-card">
-            <Button
-                v-if="hasUnsavedDocxChanges || isRebuilding"
-                class="w-full"
-                variant="secondary"
-                :disabled="!canRebuild"
-                @click="emit('rebuild')"
-            >
-                <Loader2Icon v-if="isRebuilding" class="size-4 mr-1 animate-spin" />
-                {{ isRebuilding ? '批注生成中...' : '重新生成批注 Word' }}
-            </Button>
             <div class="flex gap-2">
                 <Button class="flex-1" variant="outline" :disabled="!canDownload || isExportingPdf" @click="openExportPdf">
                     <Loader2Icon v-if="isExportingPdf" class="size-4 mr-1 animate-spin" />
@@ -851,7 +832,7 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>确认删除该风险？</AlertDialogTitle>
-                    <AlertDialogDescription>删除后需点击"重新生成批注 Word"才会同步到 Word 文档。</AlertDialogDescription>
+                    <AlertDialogDescription>删除后下次下载批注 Word 将自动同步，不会再写入该条批注。</AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>取消</AlertDialogCancel>

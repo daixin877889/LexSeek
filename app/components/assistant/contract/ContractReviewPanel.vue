@@ -41,9 +41,6 @@ const {
     onExportPdf,
     isExportingPdf,
     onEditRisks,
-    onRebuildDocx,
-    isRebuilding,
-    hasUnsavedDocxChanges,
     cancelReview,
     stageStatus,
     totalClauses,
@@ -281,20 +278,6 @@ watch(awaitingStance, (v) => {
     if (!v) isConfirming.value = false
 })
 
-/**
- * 非用户触发路径（例如多标签页 / 刷新后 GET 回填）首次把 review.status 从 completed
- * 切到 rebuilding 时，给用户弹个 toast。
- *
- * 注：用户点击「重新生成」的本地同步路径走 useContractReview.onRebuildDocx，自带
- * toast.info；且 rebuild-docx API 同步返回（服务端内部完成状态切换），客户端不会
- * 观察到 rebuilding 中间态，因此此 watch 在该路径下不会触发。
- */
-watch(isRebuilding, (rebuilding, wasRebuilding) => {
-    if (rebuilding && !wasRebuilding) {
-        toast.info('批注正在重新生成，请稍候...')
-    }
-})
-
 /** bug #4：历史版本预览态下对应的版本号，用于下载按钮文案区分工作区与历史版本 */
 const previewVersionNumber = computed<number | null>(() => {
     const vid = versioning.previewVersionId.value
@@ -328,7 +311,14 @@ async function handleDownload() {
             toast.error('历史版本下载失败，请稍后重试')
             return
         }
-        triggerBrowserDownloadUrl(resp.downloadUrl, resp.filename)
+        // 走 Blob 下载，文件名由前端强绑定（见 useContractReview.onDownload 同样修正）
+        try {
+            const httpResp = await fetch(resp.downloadUrl)
+            if (!httpResp.ok) throw new Error(`HTTP ${httpResp.status}`)
+            triggerBrowserDownloadBlob(await httpResp.blob(), resp.filename)
+        } catch {
+            triggerBrowserDownloadUrl(resp.downloadUrl, resp.filename)
+        }
     } finally {
         isDownloading.value = false
     }
@@ -563,8 +553,6 @@ function handleContainerClick(e: MouseEvent) {
                                     :status="(review?.status ?? 'pending') as ContractReviewStatus"
                                     :reviewed-file-id="review?.reviewedFileId ?? null"
                                     :summary="review?.summary ?? null"
-                                    :is-rebuilding="isRebuilding"
-                                    :has-unsaved-docx-changes="hasUnsavedDocxChanges"
                                     :is-downloading="isDownloading"
                                     :is-exporting-pdf="isExportingPdf"
                                     :focused-risk-id="focusedRiskId"
@@ -575,7 +563,6 @@ function handleContainerClick(e: MouseEvent) {
                                     :playbook-snapshot="(review?.playbookSnapshot ?? null) as PlaybookSnapshot | null"
                                     :preview-version-number="previewVersionNumber"
                                     @download="handleDownload"
-                                    @rebuild="onRebuildDocx"
                                     @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
                                     @export-pdf="(includeRisks: boolean) => onExportPdf(includeRisks)"
                                     @focus-risk="handleFocusRisk"
@@ -626,8 +613,6 @@ function handleContainerClick(e: MouseEvent) {
                                 :status="(review?.status ?? 'pending') as ContractReviewStatus"
                                 :reviewed-file-id="review?.reviewedFileId ?? null"
                                 :summary="review?.summary ?? null"
-                                :is-rebuilding="isRebuilding"
-                                :has-unsaved-docx-changes="hasUnsavedDocxChanges"
                                 :is-downloading="isDownloading"
                                 :is-exporting-pdf="isExportingPdf"
                                 :focused-risk-id="focusedRiskId"
@@ -637,7 +622,6 @@ function handleContainerClick(e: MouseEvent) {
                                 :has-located="hasLocated"
                                 :playbook-snapshot="(review?.playbookSnapshot ?? null) as PlaybookSnapshot | null"
                                 @download="handleDownload"
-                                @rebuild="onRebuildDocx"
                                 @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
                                 @export-pdf="(includeRisks: boolean) => onExportPdf(includeRisks)"
                                 @focus-risk="handleFocusRisk"

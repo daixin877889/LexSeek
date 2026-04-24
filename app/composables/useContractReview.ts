@@ -7,7 +7,9 @@
  * - onStance：立场选择后让 workflow 续跑（通过 stance 端点，不走 LangGraph command.resume）
  * - onDownload：下载已完成的批注版 .docx
  * - onEditRisks：debounce 500ms PATCH risks，成功后标记 hasUnsavedDocxChanges
- * - onRebuildDocx：重新生成批注 Word，成功后清标记 + 自动下载
+ *   （服务端状态，前端不再 UI 展示；下载时会自动包含最新改动）
+ * - onDownload：每次都触发后端 rebuild 生成最新产物再返回签名 URL，避免用户
+ *   需要再点一个"重新生成批注 Word"按钮（产品诉求 2026-04-24）
  *
  * 参见 spec §11（合同审查）与 M4/M5 plan。
  */
@@ -18,7 +20,6 @@ import type {
     CreateReviewResponse,
     StanceRequest,
     DownloadResponse,
-    RebuildDocxResponse,
     Risk,
     ReviewWithParsedRisks,
     ContractReviewEvent,
@@ -442,40 +443,9 @@ export function useContractReview() {
         patchRisks(risks)
     }
 
-    /**
-     * 根据最新 risks 触发后端重新生成批注 Word，成功后自动下载新文件。
-     *
-     * 关键行为：
-     * - 入口立即 toast.info 等待中（rebuild 耗时 > 10s 常见）
-     * - 用 useBusinessErrorCapture 捕获业务码，区分 429（占位中）vs 500（失败）
-     * - 成功：刷 review + hasUnsavedDocxChanges=false + toast.success + <a download> 触发浏览器下载
-     */
-    async function onRebuildDocx() {
-        if (!reviewId.value) return
-        toast.info('批注正在重新生成，请稍候...')
-
-        const capture = useBusinessErrorCapture()
-        const resp = await useApiFetch<RebuildDocxResponse>(
-            `/api/v1/assistant/contract/reviews/${reviewId.value}/rebuild-docx`,
-            {
-                method: 'POST',
-                showError: false,
-                onBusinessError: capture.onBusinessError,
-            },
-        )
-        if (!resp) {
-            if (capture.code.value === 429) toast.warning('批注正在重新生成中，请稍候')
-            else toast.error('重新生成批注失败，请稍后重试')
-            return
-        }
-
-        await refreshReview(reviewId.value)
-        hasUnsavedDocxChanges.value = false
-        toast.success('批注已重新生成')
-
-        // 必须传 filename，否则浏览器会用 URL 最后一段（rebuild-xxx-uuid.docx）当文件名
-        triggerBrowserDownloadUrl(resp.downloadUrl, resp.filename)
-    }
+    // 按客户 2026-04-24 诉求："每次下载都下载最新的并切换 OSS 中对应的版本"，
+    // onRebuildDocx 作为独立入口已经从 UI 移除（不再有"重新生成批注 Word"按钮）。
+    // 下载链路（onDownload）内部会每次触发 rebuild 生成最新产物。
 
     /**
      * 导出 PDF（可选是否包含风险批注）。
@@ -519,7 +489,12 @@ export function useContractReview() {
         }
     }
 
-    /** 拉取签名 URL 并通过隐藏 <a download> 触发浏览器下载 */
+    /** 拉取签名 URL，fetch 成 Blob 再触发下载 —— 避免 OSS 自定义域名 / CDN
+     * 下 `response-content-disposition` 被忽略导致浏览器 fallback 用 OSS 路径
+     * 最后一段当文件名（用户看到"reviewed-871.docx"而不是 spec §4.4 的
+     * "{合同名}_v{N}_{日期}.docx"）。走 Blob 后文件名由前端 `<a download>`
+     * 强绑定，100% 对齐 spec。
+     */
     async function onDownload() {
         if (!reviewId.value) return
 
@@ -532,8 +507,13 @@ export function useContractReview() {
             return
         }
 
-        // 必须传 filename，否则浏览器会用 URL 最后一段（rebuild-xxx-uuid.docx）当文件名
-        triggerBrowserDownloadUrl(result.downloadUrl, result.filename)
+        try {
+            const httpResp = await fetch(result.downloadUrl)
+            if (!httpResp.ok) throw new Error(`HTTP ${httpResp.status}`)
+            triggerBrowserDownloadBlob(await httpResp.blob(), result.filename)
+        } catch {
+            triggerBrowserDownloadUrl(result.downloadUrl, result.filename)
+        }
     }
 
     /** 停止当前 stream */
@@ -595,7 +575,6 @@ export function useContractReview() {
         onDownload,
         onExportPdf,
         onEditRisks,
-        onRebuildDocx,
         stopGeneration,
         cancelReview,
         handleContractEvent,

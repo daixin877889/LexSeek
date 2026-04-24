@@ -27,6 +27,17 @@ vi.mock('~~/server/services/storage/storage.service', () => ({
     generateSignedUrlService: vi.fn(async (path: string) => `https://oss.example.com/${path}?sig=fake&expires=3600`),
 }))
 
+// download 新语义（2026-04-24）：每次下载都触发 rebuildDocxService 生成最新产物。
+// rebuild 内部要真下原件 / 注入 / 上传 OSS，本 integration 不涵盖；只 mock 它的
+// 外层返回，保证 download 端点能继续测 atomic claim + 产物 URL 透传的链路完整性。
+vi.mock('~~/server/services/assistant/contract/contractReviewRebuild.service', () => ({
+    rebuildDocxService: vi.fn(async (review: any) => ({
+        reviewedFileId: review.reviewedFileId,
+        downloadUrl: `https://oss.example.com/rebuild-${review.id}.docx?sig=fake&expires=3600`,
+        filename: `contract-${review.id}_v${review.maxVersionNo ?? 0}_2026-04-24.docx`,
+    })),
+}))
+
 const { default: downloadHandler } = await import(
     '../../../../server/api/v1/assistant/contract/reviews/[id]/download.get'
 )
@@ -89,7 +100,7 @@ describe('M4 合同审查闭环（download 端点 + 真实 DB 链路）', () => 
 
     afterAll(async () => { await cleanupTestData() })
 
-    it('模拟 agent 完成 → download 返回 1h 签名 https URL', async () => {
+    it('模拟 agent 完成 → download 抢锁 + 跑 rebuild + 返回产物 URL/filename', async () => {
         const review = await seedReview('pending')
         const reviewed = await seedOssFile('reviewed')
         await updateContractReviewDAO(review.id, {
@@ -108,7 +119,10 @@ describe('M4 合同审查闭环（download 端点 + 真实 DB 链路）', () => 
         expect(res.success).toBe(true)
         expect(typeof res.data.downloadUrl).toBe('string')
         expect(res.data.downloadUrl.startsWith('https://')).toBe(true)
-        expect(res.data.downloadUrl).toContain(reviewed.filePath)
+        // rebuild 后 review.status 被 rebuildDocxService.setCompletedAfterRebuildDAO
+        // 切回 completed；本测试 mock 了 rebuild 出口所以 status 仍是 rebuilding，
+        // 这里不检查 status，只保证 URL/filename 透传。
+        expect(res.data.filename).toMatch(/\.docx$/)
     }, 30_000)
 
     it('review.status !== completed 时 download 返回 400（未完成不可下载）', async () => {

@@ -1,20 +1,20 @@
 /**
  * GET /api/v1/assistant/contract/reviews/:id/download handler 测试
  *
+ * 语义（客户 2026-04-24 诉求后）：
+ *   每次下载都 atomicSetRebuildingDAO 抢锁 + rebuildDocxService 生成最新产物
+ *   + 切换 reviewedFileId，再返回 { downloadUrl, filename }。不再有"重新生成"
+ *   独立按钮入口。
+ *
  * 覆盖分支：
  *  - 未登录 → 401
- *  - reviewId 无效（非整数 / 0 / 负数）→ 400
+ *  - reviewId 非整数/0/负数 → 400
  *  - review 不存在 → 404
  *  - review 属于他人 → 403
- *  - reviewedFileId 为空（review 尚未完成）→ 400
- *  - rebuildDocxService 抛异常 → 500
- *  - 新产物 ossFile 不存在 → 404
- *  - happy path → 200，downloadUrl 为非空 https 字符串，wordCommentRef 已更新
- *
- * 策略：纯 mock 风格——vi.mock 替换 DAO / service，直接调用 handler default export。
- *
- * **Feature: contract-review-m4**
- * **Validates: Task 1.2（download.get.ts）+ Phase B injectAnnotations**
+ *  - reviewedFileId 为空 → 400
+ *  - 抢锁失败（有并发 rebuild 正在跑）→ 409
+ *  - rebuildDocxService 抛错 → rollbackRebuildDAO 被调 + 500
+ *  - happy path → 200，downloadUrl + filename 来自 rebuildDocxService 返回
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -44,28 +44,24 @@ const resSuccess = (_event: any, message: string, data: any) => ({
 
 vi.mock('~~/server/services/assistant/contract/contractReview.dao', () => ({
     getContractReviewDAO: vi.fn(),
-}))
-
-vi.mock('~~/server/services/files/ossFiles.dao', () => ({
-    findOssFileByIdDao: vi.fn(),
-}))
-
-vi.mock('~~/server/services/storage/storage.service', () => ({
-    generateSignedUrlService: vi.fn(),
+    atomicSetRebuildingDAO: vi.fn(),
+    rollbackRebuildDAO: vi.fn(),
 }))
 
 vi.mock('~~/server/services/assistant/contract/contractReviewRebuild.service', () => ({
     rebuildDocxService: vi.fn(),
 }))
 
-import { getContractReviewDAO } from '~~/server/services/assistant/contract/contractReview.dao'
-import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
-import { generateSignedUrlService } from '~~/server/services/storage/storage.service'
+import {
+    getContractReviewDAO,
+    atomicSetRebuildingDAO,
+    rollbackRebuildDAO,
+} from '~~/server/services/assistant/contract/contractReview.dao'
 import { rebuildDocxService } from '~~/server/services/assistant/contract/contractReviewRebuild.service'
 
 const mockGetReview = getContractReviewDAO as ReturnType<typeof vi.fn>
-const mockFindOssFile = findOssFileByIdDao as ReturnType<typeof vi.fn>
-const mockGenerateSignedUrl = generateSignedUrlService as ReturnType<typeof vi.fn>
+const mockAtomicClaim = atomicSetRebuildingDAO as ReturnType<typeof vi.fn>
+const mockRollback = rollbackRebuildDAO as ReturnType<typeof vi.fn>
 const mockRebuildDocx = rebuildDocxService as ReturnType<typeof vi.fn>
 
 // ==================== 动态 import handler（必须在 mock 之后）====================
@@ -94,9 +90,6 @@ function makeEvent(opts: {
 const USER_A = 1001
 const USER_B = 1002
 
-// rebuild 后新 ossFile id
-const NEW_FILE_ID = 999
-
 function completedReview(overrides: Partial<Record<string, any>> = {}) {
     return {
         id: 42,
@@ -111,20 +104,12 @@ function completedReview(overrides: Partial<Record<string, any>> = {}) {
     }
 }
 
-function ossFile(overrides: Partial<Record<string, any>> = {}) {
+function rebuildResult(overrides: Partial<Record<string, any>> = {}) {
     return {
-        id: NEW_FILE_ID,
-        userId: USER_A,
-        filePath: 'users/1001/contract-reviews/rebuild-new.docx',
-        fileName: 'contract-review.docx',
-        ...overrides,
-    }
-}
-
-function rebuildResult() {
-    return {
-        reviewedFileId: NEW_FILE_ID,
+        reviewedFileId: 1234,
         downloadUrl: 'https://oss.example.com/tmp-rebuild.docx?sig=yyy',
+        filename: '劳动合同_v3_2026-04-24.docx',
+        ...overrides,
     }
 }
 
@@ -133,6 +118,9 @@ function rebuildResult() {
 describe('GET /api/v1/assistant/contract/reviews/:id/download', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        // 多数路径 rollback 不会被调用，但它在 catch 分支里做 `.catch()` 链式调用，
+        // mock 默认 returns undefined（没 .catch 方法）会让 handler 自己抛错。
+        mockRollback.mockResolvedValue(undefined)
     })
 
     it('未登录返回 401', async () => {
@@ -174,6 +162,7 @@ describe('GET /api/v1/assistant/contract/reviews/:id/download', () => {
         )
         expect(res.code).toBe(404)
         expect(mockGetReview).toHaveBeenCalledWith(999)
+        expect(mockAtomicClaim).not.toHaveBeenCalled()
         expect(mockRebuildDocx).not.toHaveBeenCalled()
     })
 
@@ -183,6 +172,7 @@ describe('GET /api/v1/assistant/contract/reviews/:id/download', () => {
             makeEvent({ userId: USER_B, params: { id: '42' } }) as any,
         )
         expect(res.code).toBe(403)
+        expect(mockAtomicClaim).not.toHaveBeenCalled()
         expect(mockRebuildDocx).not.toHaveBeenCalled()
     })
 
@@ -192,71 +182,48 @@ describe('GET /api/v1/assistant/contract/reviews/:id/download', () => {
             makeEvent({ userId: USER_A, params: { id: '42' } }) as any,
         )
         expect(res.code).toBe(400)
+        expect(mockAtomicClaim).not.toHaveBeenCalled()
         expect(mockRebuildDocx).not.toHaveBeenCalled()
     })
 
-    // 按 spec §8.5 回归后，download 不再调 rebuildDocxService
-    it('不调用 rebuildDocxService（spec §8.5：download 只取签名 URL，不做 rebuild）', async () => {
+    it('抢锁失败返回 409 且不跑 rebuild', async () => {
         mockGetReview.mockResolvedValue(completedReview())
-        mockFindOssFile.mockResolvedValue(ossFile({ id: 888 }))
-        mockGenerateSignedUrl.mockResolvedValue('https://oss.example.com/x?sig=xxx')
-
-        await downloadHandler(makeEvent({ userId: USER_A, params: { id: '42' } }) as any)
-
-        expect(mockRebuildDocx).not.toHaveBeenCalled()
-    })
-
-    it('reviewedFileId 对应的 OSS 文件丢失返回 404', async () => {
-        mockGetReview.mockResolvedValue(completedReview())
-        mockFindOssFile.mockResolvedValue(null)
+        mockAtomicClaim.mockResolvedValue(false)
         const res: any = await downloadHandler(
             makeEvent({ userId: USER_A, params: { id: '42' } }) as any,
         )
-        expect(res.code).toBe(404)
-        // 直接用 review.reviewedFileId 查（不再通过 rebuildDocxService 拿新 id）
-        expect(mockFindOssFile).toHaveBeenCalledWith(888)
-        expect(mockGenerateSignedUrl).not.toHaveBeenCalled()
+        expect(res.code).toBe(409)
+        expect(mockAtomicClaim).toHaveBeenCalledWith(42)
+        expect(mockRebuildDocx).not.toHaveBeenCalled()
+        expect(mockRollback).not.toHaveBeenCalled()
     })
 
-    it('happy path：直接用 review.reviewedFileId 生成签名 URL', async () => {
+    it('rebuildDocxService 抛错：回滚 + 500', async () => {
         mockGetReview.mockResolvedValue(completedReview())
-        // 第一次调 findOssFile 是查 reviewedFileId=888 → 拿到 ossFile；
-        // 第二次调是查 originalFileId=777 取文件名；两次都走 reviewedFile mock 即可验证链路
-        mockFindOssFile.mockResolvedValue(ossFile({
-            id: 888,
-            fileName: 'contract-review.docx',
-            filePath: 'users/1001/contract-reviews/reviewed-888.docx',
-        }))
-        mockGenerateSignedUrl.mockResolvedValue(
-            'https://oss.example.com/users/1001/contract-reviews/reviewed-888.docx?sig=xxx',
+        mockAtomicClaim.mockResolvedValue(true)
+        mockRollback.mockResolvedValue(undefined)
+        mockRebuildDocx.mockRejectedValue(new Error('OSS upload failed'))
+        const res: any = await downloadHandler(
+            makeEvent({ userId: USER_A, params: { id: '42' } }) as any,
         )
+        expect(res.code).toBe(500)
+        expect(mockRollback).toHaveBeenCalledWith(42)
+    })
+
+    it('happy path：claim → rebuild → 返回 { downloadUrl, filename }', async () => {
+        mockGetReview.mockResolvedValue(completedReview())
+        mockAtomicClaim.mockResolvedValue(true)
+        mockRebuildDocx.mockResolvedValue(rebuildResult())
 
         const res: any = await downloadHandler(
             makeEvent({ userId: USER_A, params: { id: '42' } }) as any,
         )
 
         expect(res.success).toBe(true)
-        expect(res.data.downloadUrl.startsWith('https://')).toBe(true)
-
-        // 文件名规则：{原合同名}_{v 版本号 | "工作区"}_{YYYY-MM-DD}.docx
-        expect(res.data.filename).toMatch(/^contract-review_v\d+_\d{4}-\d{2}-\d{2}\.docx$/)
-
-        // 确认：不再触发 rebuild
-        expect(mockRebuildDocx).not.toHaveBeenCalled()
-
-        // 直接用 review.reviewedFileId=888 查 OSS
-        expect(mockFindOssFile).toHaveBeenCalledWith(888)
-
-        // 签名 URL 带 Content-Disposition
-        expect(mockGenerateSignedUrl).toHaveBeenCalledWith(
-            'users/1001/contract-reviews/reviewed-888.docx',
-            expect.objectContaining({
-                expires: 3600,
-                userId: USER_A,
-                response: expect.objectContaining({
-                    contentDisposition: expect.stringContaining('attachment'),
-                }),
-            }),
-        )
+        expect(res.data.downloadUrl).toBe(rebuildResult().downloadUrl)
+        expect(res.data.filename).toBe(rebuildResult().filename)
+        expect(mockAtomicClaim).toHaveBeenCalledWith(42)
+        expect(mockRebuildDocx).toHaveBeenCalledTimes(1)
+        expect(mockRollback).not.toHaveBeenCalled()
     })
 })
