@@ -122,8 +122,8 @@ export async function classifyIntentService(
                 if (!parsed?.intent || !['exact', 'hybrid', 'semantic'].includes(parsed.intent)) {
                     throw new Error('缓存 intent 无效')
                 }
-                // 读取端降级：案件材料不支持 exact
-                if (type === 'case_material' && parsed.intent === 'exact') {
+                // 读取端降级：案件材料 / 案件分析不支持 exact
+                if ((type === 'case_material' || type === 'case_analysis') && parsed.intent === 'exact') {
                     return { ...parsed, intent: 'hybrid' }
                 }
                 return parsed
@@ -163,9 +163,9 @@ export async function classifyIntentService(
         const outputSchema = config.outputSchema ?? DEFAULT_OUTPUT_SCHEMA
         const structuredModel = model.withStructuredOutput(outputSchema)
 
-        // 案件材料检索额外提示：不支持 exact 通道
-        const typeHint = type === 'case_material'
-            ? '\n\n注意：这是案件材料检索，不存在精确通道。只能分类为 hybrid 或 semantic。'
+        // 案件材料 / 案件分析检索额外提示：不支持 exact 通道
+        const typeHint = (type === 'case_material' || type === 'case_analysis')
+            ? '\n\n注意：这是案件材料/分析检索，不存在精确通道。只能分类为 hybrid 或 semantic。'
             : ''
 
         const messages = [
@@ -208,8 +208,8 @@ export async function classifyIntentService(
             }
         }
 
-        // 案件材料检索不支持 exact，强制降级为 hybrid
-        if (type === 'case_material' && result.intent === 'exact') {
+        // 案件材料 / 案件分析检索不支持 exact，强制降级为 hybrid
+        if ((type === 'case_material' || type === 'case_analysis') && result.intent === 'exact') {
             return { ...result, intent: 'hybrid' }
         }
 
