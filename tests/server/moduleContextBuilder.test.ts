@@ -36,7 +36,7 @@ describe('buildContextSegments', () => {
       summary: '房屋租赁纠纷', status: 3,
     })
     mockCaseAnalysesFindMany.mockResolvedValue([
-      { analysisType: 'risk_assessment' },
+      { analysisType: 'claim_analysis', summary: '原告主张租金+违约金，证据链完整' },
     ])
 
     const { buildContextSegments } = await import('~~/server/services/workflow/context/moduleContextBuilder')
@@ -49,8 +49,23 @@ describe('buildContextSegments', () => {
     expect(segs.roleAndFlow).toBeDefined()
     expect(segs.caseProfile).toContain('朝阳法院')
     expect(segs.caseProfile).toContain('张李纠纷')
-    expect(segs.moduleSummaries).toContain('risk_assessment')
+    expect(segs.moduleSummaries).toContain('claim_analysis')
+    expect(segs.moduleSummaries).toContain('原告主张租金+违约金')
+    expect(segs.moduleSummaries).toContain('search_case_analysis')
     expect(segs.dynamicContext).toContain('被告承认逾期')
+  })
+
+  it('无 summary 的旧版本条目被跳过', async () => {
+    mockCasesFindUnique.mockResolvedValue({
+      id: 1, title: 'x', courtName: 'y', summary: 'z', status: 1,
+      plaintiff: ['a'], defendant: ['b'],
+    })
+    mockCaseAnalysesFindMany.mockResolvedValue([
+      { analysisType: 'legacy_no_summary', summary: null },
+    ])
+    const { buildContextSegments } = await import('~~/server/services/workflow/context/moduleContextBuilder')
+    const segs = await buildContextSegments({ caseId: 1, agentName: 'x', userQuery: 'q' })
+    expect(segs.moduleSummaries).toBe('')
   })
 
   it('caseProfile JSON 字段字典序稳定', async () => {

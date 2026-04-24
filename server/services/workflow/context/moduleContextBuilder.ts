@@ -40,7 +40,7 @@ export async function buildContextSegments(params: Params): Promise<ContextSegme
     }),
     prisma.caseAnalyses.findMany({
       where: { caseId, isActive: true, deletedAt: null, NOT: { analysisType: agentName } },
-      select: { analysisType: true },
+      select: { analysisType: true, summary: true },
       orderBy: { analysisType: 'asc' },
     }),
     getMaterialListWithSummariesService(caseId).catch(() => []),
@@ -71,12 +71,15 @@ export async function buildContextSegments(params: Params): Promise<ContextSegme
   }
   const caseProfile = `## 案件档案\n\`\`\`json\n${JSON.stringify(profile, Object.keys(profile).sort(), 2)}\n\`\`\``
 
-  // ④ 已完成模块摘要（列类型名）
+  // ④ 已完成模块摘要（只塞 summary，不塞全文；全文由 search_case_analysis 工具按需召回）
   let moduleSummaries = ''
   if (activeAnalyses.length > 0) {
-    const lines = ['## 已完成分析模块']
-    for (const a of activeAnalyses) lines.push(`### ${a.analysisType}`)
-    moduleSummaries = lines.join('\n\n')
+    const lines = ['## 已完成分析模块（全文请调用 search_case_analysis 工具）']
+    for (const a of activeAnalyses) {
+      if (!a.summary) continue // 无摘要的旧版本跳过（Q4.3 B 旧数据不补）
+      lines.push(`### ${a.analysisType}\n${a.summary}`)
+    }
+    moduleSummaries = lines.length > 1 ? lines.join('\n\n') : ''
   }
 
   // ⑤ 动态：召回记忆 + 材料清单
