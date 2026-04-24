@@ -126,6 +126,9 @@ const modelCreators: Record<SdkType, (config: ChatModelConfig) => BaseChatModel>
             temperature: config.thinking ? 1 : (config.temperature ?? 0.7),
             streaming: config.streaming ?? true,
             maxTokens: config.maxTokens ?? DEFAULT_MAX_TOKENS,
+            // 防止 Anthropic SDK 从 ANTHROPIC_AUTH_TOKEN 环境变量读取 Bearer token
+            // 并同时发送 X-Api-Key + Authorization: Bearer，导致 DeepSeek 等兼容接口 401
+            clientOptions: { authToken: null },
             ...(config.thinking && {
                 thinking: { type: 'enabled' as const, budget_tokens: 10_000 },
             }),
