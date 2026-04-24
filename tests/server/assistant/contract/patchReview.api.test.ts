@@ -10,7 +10,7 @@
  *   - 400 body 含 summary 字段（.strict() 明文禁止）
  *   - 400 risks 数组超过 200 条（DoS 防御）
  *   - 400 clauseText 超 10000 字符
- *   - 400 id 不是 uuid 格式
+ *   - 200 id 可为任意字符串（校验已放松，见 riskSchema.builder）
  *   - 404 review 不存在
  *   - 403 跨用户
  *   - 409 status=pending
@@ -258,7 +258,9 @@ describe('PATCH /api/v1/assistant/contract/reviews/:id', () => {
         expect(mockGetReview).not.toHaveBeenCalled()
     })
 
-    it('id 不是 uuid 格式返回 400', async () => {
+    it('id 非 uuid 字符串也接受（id 校验已放松：AI 路径 id 会被服务端覆盖、PATCH 路径按 JSON 覆盖整个 risks 不依赖 id 对齐）', async () => {
+        mockGetReview.mockResolvedValue(review())
+        mockPatchRisks.mockResolvedValue(undefined)
         const res: any = await patchHandler(
             makeEvent({
                 userId: USER_A,
@@ -266,8 +268,8 @@ describe('PATCH /api/v1/assistant/contract/reviews/:id', () => {
                 body: { risks: [validLowRisk({ id: 'not-a-uuid' })] },
             }) as any,
         )
-        expect(res.code).toBe(400)
-        expect(mockGetReview).not.toHaveBeenCalled()
+        expect(res.code).toBe(0) // resSuccess 的 code
+        expect(mockPatchRisks).toHaveBeenCalled()
     })
 
     it('review 不存在返回 404', async () => {

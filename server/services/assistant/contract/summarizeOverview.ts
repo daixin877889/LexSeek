@@ -14,14 +14,26 @@ import { createChatModel } from '~~/server/services/node/chatModelFactory'
 import { getValidNodeConfig } from '~~/server/services/node/node.service'
 import { renderContent } from '~~/server/services/node/prompt.service'
 import { logContextOverflow } from '~~/server/services/workflow/context/contextErrorLogger'
+import { extractFirstJsonObject, summarizeJsonShape } from './utils/llmJson'
 
+// 宽进策略：LLM 超长 / 超多条目时自动截断，而不是让整个 summarize 直接失败
+// 降级为"本合同识别到 N 条风险"兜底（用户看不到真正的 AI 总评）。
+// 配合 prompt 里的字数上限提示，实际很少真的超限。
+const highlightItem = z.object({
+    text: z.string().max(200).transform(s => s.slice(0, 60)),
+    riskId: z.string().optional().default(''),
+})
 const OverviewResponse = z.object({
     highlights: z.object({
-        high: z.array(z.object({ text: z.string().max(60), riskId: z.string() })).max(5),
-        medium: z.array(z.object({ text: z.string().max(60), riskId: z.string() })).max(5),
-        low: z.array(z.object({ text: z.string().max(60), riskId: z.string() })).max(5),
-    }),
-    overall: z.string().max(120),
+        high: z.array(highlightItem).max(10).transform(arr => arr.slice(0, 5)),
+        medium: z.array(highlightItem).max(10).transform(arr => arr.slice(0, 5)),
+        low: z.array(highlightItem).max(10).transform(arr => arr.slice(0, 5)),
+    }).partial().transform(h => ({
+        high: h.high ?? [],
+        medium: h.medium ?? [],
+        low: h.low ?? [],
+    })),
+    overall: z.string().max(300).transform(s => s.slice(0, 120)),
 })
 
 const NODE_NAME = 'contractReviewSummarize'
@@ -77,34 +89,46 @@ export async function summarizeOverview(
     }
     const content = typeof response.content === 'string' ? response.content : ''
 
-    const jsonMatch = content.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
+    const jsonText = extractFirstJsonObject(content)
+    if (!jsonText) {
         logger.warn('summarizeOverview: LLM 未返回 JSON', {
             riskCount: risks.length,
-            rawContent: content.slice(0, 200),
+            rawContent: content.slice(0, 500),
         })
         throw new Error('summarizeOverview: LLM 未返回 JSON')
     }
 
     let rawJson: unknown
     try {
-        rawJson = JSON.parse(jsonMatch[0])
+        rawJson = JSON.parse(jsonText)
     } catch (err) {
         logger.warn('summarizeOverview: JSON.parse 失败', {
             riskCount: risks.length,
-            raw: jsonMatch[0].slice(0, 200),
-            err,
+            jsonText: jsonText.slice(0, 500),
+            errMessage: err instanceof Error ? err.message : String(err),
         })
         throw new Error('summarizeOverview: JSON 解析失败')
     }
 
     const parsed = OverviewResponse.safeParse(rawJson)
     if (!parsed.success) {
+        // 打出 rawJson 的形态 + 全部 issues（含 path），便于定位 LLM 输出哪里偏了
+        const issues = parsed.error.issues.slice(0, 5).map(i => ({
+            path: i.path.join('.') || '(root)',
+            message: i.message,
+            code: i.code,
+        }))
         logger.warn('summarizeOverview: schema 校验失败', {
             riskCount: risks.length,
-            issue: parsed.error.issues[0]?.message,
+            rawShape: summarizeJsonShape(rawJson),
+            issues,
+            rawJsonPreview: JSON.stringify(rawJson).slice(0, 500),
         })
-        throw new Error(`summarizeOverview schema 校验失败: ${parsed.error.issues[0]?.message}`)
+        const firstIssue = parsed.error.issues[0]
+        const pretty = firstIssue
+            ? `${firstIssue.path.join('.') || '(root)'}: ${firstIssue.message}`
+            : 'unknown'
+        throw new Error(`summarizeOverview schema 校验失败: ${pretty}`)
     }
 
     return parsed.data

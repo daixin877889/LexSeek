@@ -13,7 +13,13 @@ import type { RiskLevel } from '#shared/types/contract'
 const RISK_LEVEL = ['high', 'medium', 'low'] as const satisfies readonly RiskLevel[]
 
 export const RISK_SHAPE = z.object({
-    id: z.string().uuid().describe('UUID，前端渲染 key'),
+    // id 定义为可选字符串而非 z.string().uuid()：
+    //   - AI 输出路径：analyzeSingleClause 会用 randomUUID() 强制覆盖 LLM 返回的 id，
+    //     LLM 返回任何格式都无意义；用 .uuid() 还会因为 LLM 偶发返回 "risk-1"、"" 这
+    //     种非 UUID 字符串而让整条 risk 被拒（用户看到"第 N 条 LLM 输出不符合 schema"）
+    //   - PATCH 路径：前端传的 id 来自之前 API 返回的已合法 UUID，不需要严格校验
+    // YAGNI：id 校验对业务流程没有防护价值，放松后上游容错更强
+    id: z.string().optional().describe('UUID，前端渲染 key；AI 路径会被服务端覆盖'),
     clauseIndex: z.number().int().nonnegative().describe('段落索引（0-based）'),
     clauseText: z.string().min(1).max(10000).describe('原文段落全文'),
     level: z.enum(RISK_LEVEL).describe('风险级别'),

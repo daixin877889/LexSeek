@@ -15,6 +15,7 @@ import { getValidNodeConfig } from '~~/server/services/node/node.service'
 import { renderContent } from '~~/server/services/node/prompt.service'
 import { logContextOverflow } from '~~/server/services/workflow/context/contextErrorLogger'
 import { RISK_SHAPE } from './riskSchema.builder'
+import { extractFirstJsonObject, summarizeJsonShape } from './utils/llmJson'
 import type { Risk, Stance, ClauseSegment, PlaybookSnapshot } from '#shared/types/contract'
 
 /** 单条条款文本硬截断（字符），防止单条超大条款把整个 prompt 撑爆 */
@@ -153,52 +154,6 @@ export async function analyzeSingleClause(ctx: AnalyzeClauseContext): Promise<Ri
     // 服务端强制覆盖 id：LLM 偶发对多条 risk 返回相同 UUID，导致前端 data-risk-id
     // 冲突（多张卡片/文档段被同一 focus/pin 联动）。用 randomUUID 保证唯一。
     return { ...rawRisk, id: randomUUID(), matchedPointCode } as Risk
-}
-
-/**
- * 从 LLM 输出里取第一个完整 JSON 对象。
- *
- * 为什么不用 `content.match(/\{[\s\S]*\}/)`：
- * - 该正则 greedy 会从第一个 `{` 一路贪到最后一个 `}`
- * - LLM 常见输出："思考一下{解释}，给出结果{JSON}"，被抓成 "解释}，给出结果{JSON"
- *   JSON.parse 失败；或 "{结果1}附加说明{结果2}" 被抓成一坨乱糟糟的东西
- *
- * 平衡括号扫描：遇到第一个 `{` 进入 JSON 模式，按深度配对 `{}`，
- * 同时尊重 `""` 字符串内部的 `{`/`}` / 转义字符。首个深度归零时返回子串。
- * 找不到合法 JSON 对象返回 null。
- */
-function extractFirstJsonObject(content: string): string | null {
-    const start = content.indexOf('{')
-    if (start < 0) return null
-    let depth = 0
-    let inStr = false
-    let escaped = false
-    for (let i = start; i < content.length; i++) {
-        const ch = content[i]
-        if (escaped) { escaped = false; continue }
-        if (inStr) {
-            if (ch === '\\') escaped = true
-            else if (ch === '"') inStr = false
-            continue
-        }
-        if (ch === '"') { inStr = true; continue }
-        if (ch === '{') depth++
-        else if (ch === '}') {
-            depth--
-            if (depth === 0) return content.slice(start, i + 1)
-        }
-    }
-    return null
-}
-
-/** 一句话总结 unknown 值的"形状"，用于 schema 失败时的诊断日志 */
-function summarizeJsonShape(v: unknown): string {
-    if (v === null) return 'null'
-    if (Array.isArray(v)) return `Array(len=${v.length})`
-    const t = typeof v
-    if (t !== 'object') return t
-    const keys = Object.keys(v as Record<string, unknown>)
-    return `Object{${keys.slice(0, 10).join(',')}${keys.length > 10 ? ',...' : ''}}`
 }
 
 /**

@@ -52,9 +52,9 @@ const LEVEL_BG: Record<RiskLevel, string[]> = {
     low: ['bg-slate-50', 'border-l-4', 'border-slate-400'],
 }
 
-/** renderAsync 完成后遍历 risks，用 clauseLocator 找到对应段落，注入属性和事件 */
-function decorateRisks() {
-    if (!containerRef.value) return
+/** 内部函数：在 DOM 里跑一次定位，返回没匹配到的 riskId 集合（不发 emit） */
+function runDecorateOnce(): Set<string> {
+    if (!containerRef.value) return new Set(props.risks.map(r => r.id))
     const notLocatedIds = new Set<string>()
     for (const risk of props.risks) {
         const el = locateClauseElement(containerRef.value, risk.clauseText)
@@ -63,7 +63,6 @@ function decorateRisks() {
             continue
         }
         // 幂等：已装饰（由 dataset.riskId 标记）直接跳过，避免 LEVEL_BG class 叠加
-        // 叠加 border-l-4 会和 focused 态的 border-l-[5px] 冲突，CSS 优先级不确定
         if (el.dataset.riskId === risk.id) continue
         el.dataset.riskId = risk.id
         el.dataset.riskLevel = risk.level
@@ -76,7 +75,48 @@ function decorateRisks() {
             el.dataset.hoverHooked = '1'
         }
     }
-    emit('locateResult', notLocatedIds)
+    return notLocatedIds
+}
+
+/** 等一帧浏览器 paint + 可选延迟 */
+function nextFrame(ms = 0): Promise<void> {
+    return new Promise(resolve => {
+        requestAnimationFrame(() => {
+            if (ms > 0) setTimeout(resolve, ms)
+            else resolve()
+        })
+    })
+}
+
+/**
+ * renderAsync 完成后遍历 risks 定位段落并注入样式。
+ *
+ * 为什么要重试：docx-preview 的 renderAsync 在某些场景下 Promise resolve 时
+ * DOM 并未真的稳定（字体/图片异步 load、段落 layout 异步计算），立即跑
+ * querySelectorAll('p') 可能返回空或元素 textContent 为空，所有风险都被
+ * 误判为"未定位"。用户表现：分析完立刻全部显示"未定位"，刷新页面后恢复。
+ *
+ * 策略：decorate 一次后检查"全未命中且 risks 非空"，若是说明 DOM 还没准备好，
+ * 等一帧（最多 rAF + 100ms）再跑，最多 3 次。一旦某次有命中就 emit 停止。
+ */
+async function decorateRisks(): Promise<void> {
+    if (!containerRef.value || props.risks.length === 0) {
+        emit('locateResult', runDecorateOnce())
+        return
+    }
+    let notLocated = runDecorateOnce()
+    // 首次就全命中或部分命中 → 认为 DOM 已稳定，直接 emit
+    if (notLocated.size < props.risks.length) {
+        emit('locateResult', notLocated)
+        return
+    }
+    // 全未命中 → 可能 DOM 还在异步渲染，重试最多 3 次
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        await nextFrame(attempt * 80) // 80 / 160 / 240ms 渐进等待
+        notLocated = runDecorateOnce()
+        if (notLocated.size < props.risks.length) break
+    }
+    emit('locateResult', notLocated)
 }
 
 async function loadDocx(fileId: number) {
