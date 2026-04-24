@@ -22,9 +22,15 @@ const MAX_CLAUSE_CHARS = 20000
 
 const NODE_NAME = 'contractReviewAnalyzeClause'
 
-/** 单条输出 schema：要么返回 risk，要么 skip */
+/**
+ * 单条输出 schema：要么返回 risk，要么 skip。
+ * 两个字段都 optional：
+ *   - LLM 只返回 `{"skip": true}` → risk=undefined（下面 line 112 当 null 处理）
+ *   - LLM 只返回 `{"risk": {...}}` → skip=false（default）
+ *   - LLM 返回 `{"risk": null, "skip": false}` → 无风险条款
+ */
 const SingleClauseResponse = z.object({
-    risk: RISK_SHAPE.nullable(),
+    risk: RISK_SHAPE.nullable().optional(),
     skip: z.boolean().default(false),
 })
 
@@ -78,35 +84,48 @@ export async function analyzeSingleClause(ctx: AnalyzeClauseContext): Promise<Ri
     }
     const content = typeof response.content === 'string' ? response.content : ''
 
-    // 宽容解析：仅取首个完整 JSON 块即可
-    const jsonMatch = content.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
+    const jsonText = extractFirstJsonObject(content)
+    if (!jsonText) {
         logger.warn('analyzeSingleClause: LLM 未返回 JSON', {
             clauseIndex: ctx.clause.index,
-            rawContent: content.slice(0, 200),
+            rawContent: content.slice(0, 500),
         })
         throw new Error(`条款 #${ctx.clause.index} LLM 未返回 JSON`)
     }
 
     let rawJson: unknown
     try {
-        rawJson = JSON.parse(jsonMatch[0])
+        rawJson = JSON.parse(jsonText)
     } catch (err) {
         logger.warn('analyzeSingleClause: JSON.parse 失败', {
             clauseIndex: ctx.clause.index,
-            raw: jsonMatch[0].slice(0, 200),
-            err,
+            jsonText: jsonText.slice(0, 500),
+            errMessage: err instanceof Error ? err.message : String(err),
         })
         throw new Error(`条款 #${ctx.clause.index} JSON 解析失败`)
     }
 
     const parsed = SingleClauseResponse.safeParse(rawJson)
     if (!parsed.success) {
+        // 打出 rawJson 的完整形态 + 全部 issues（含 path），便于定位 LLM 输出哪里偏了
+        const rawShape = summarizeJsonShape(rawJson)
+        const issues = parsed.error.issues.slice(0, 5).map(i => ({
+            path: i.path.join('.') || '(root)',
+            message: i.message,
+            code: i.code,
+        }))
         logger.warn('analyzeSingleClause: schema 校验失败', {
             clauseIndex: ctx.clause.index,
-            issue: parsed.error.issues[0]?.message,
+            rawShape,
+            issues,
+            rawJsonPreview: JSON.stringify(rawJson).slice(0, 500),
+            rawContentPreview: content.slice(0, 300),
         })
-        throw new Error(`条款 #${ctx.clause.index} LLM 输出不符合 schema: ${parsed.error.issues[0]?.message}`)
+        const firstIssue = parsed.error.issues[0]
+        const pretty = firstIssue
+            ? `${firstIssue.path.join('.') || '(root)'}: ${firstIssue.message}`
+            : 'unknown'
+        throw new Error(`条款 #${ctx.clause.index} LLM 输出不符合 schema: ${pretty}`)
     }
 
     if (parsed.data.skip || !parsed.data.risk) return null
@@ -134,6 +153,52 @@ export async function analyzeSingleClause(ctx: AnalyzeClauseContext): Promise<Ri
     // 服务端强制覆盖 id：LLM 偶发对多条 risk 返回相同 UUID，导致前端 data-risk-id
     // 冲突（多张卡片/文档段被同一 focus/pin 联动）。用 randomUUID 保证唯一。
     return { ...rawRisk, id: randomUUID(), matchedPointCode } as Risk
+}
+
+/**
+ * 从 LLM 输出里取第一个完整 JSON 对象。
+ *
+ * 为什么不用 `content.match(/\{[\s\S]*\}/)`：
+ * - 该正则 greedy 会从第一个 `{` 一路贪到最后一个 `}`
+ * - LLM 常见输出："思考一下{解释}，给出结果{JSON}"，被抓成 "解释}，给出结果{JSON"
+ *   JSON.parse 失败；或 "{结果1}附加说明{结果2}" 被抓成一坨乱糟糟的东西
+ *
+ * 平衡括号扫描：遇到第一个 `{` 进入 JSON 模式，按深度配对 `{}`，
+ * 同时尊重 `""` 字符串内部的 `{`/`}` / 转义字符。首个深度归零时返回子串。
+ * 找不到合法 JSON 对象返回 null。
+ */
+function extractFirstJsonObject(content: string): string | null {
+    const start = content.indexOf('{')
+    if (start < 0) return null
+    let depth = 0
+    let inStr = false
+    let escaped = false
+    for (let i = start; i < content.length; i++) {
+        const ch = content[i]
+        if (escaped) { escaped = false; continue }
+        if (inStr) {
+            if (ch === '\\') escaped = true
+            else if (ch === '"') inStr = false
+            continue
+        }
+        if (ch === '"') { inStr = true; continue }
+        if (ch === '{') depth++
+        else if (ch === '}') {
+            depth--
+            if (depth === 0) return content.slice(start, i + 1)
+        }
+    }
+    return null
+}
+
+/** 一句话总结 unknown 值的"形状"，用于 schema 失败时的诊断日志 */
+function summarizeJsonShape(v: unknown): string {
+    if (v === null) return 'null'
+    if (Array.isArray(v)) return `Array(len=${v.length})`
+    const t = typeof v
+    if (t !== 'object') return t
+    const keys = Object.keys(v as Record<string, unknown>)
+    return `Object{${keys.slice(0, 10).join(',')}${keys.length > 10 ? ',...' : ''}}`
 }
 
 /**

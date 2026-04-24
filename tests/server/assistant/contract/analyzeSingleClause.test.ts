@@ -100,6 +100,61 @@ describe('analyzeSingleClause', () => {
             stance: 'partyA', partyA: 'A', partyB: 'B', contractType: '技服',
         })).rejects.toThrow(/#5/)
     })
+
+    it('LLM 只返回 {"skip": true}（省略 risk 字段）→ 返回 null 不抛错', async () => {
+        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+        ;(createChatModel as any).mockReturnValueOnce({
+            invoke: vi.fn().mockResolvedValue({ content: '{"skip": true}' }),
+        })
+        const { analyzeSingleClause } = await import('~~/server/services/assistant/contract/analyzeSingleClause')
+        const result = await analyzeSingleClause({
+            clause: { index: 6, number: '6.1', text: 'xxx' },
+            stance: 'partyA', partyA: 'A', partyB: 'B', contractType: '技服',
+        })
+        expect(result).toBeNull()
+    })
+
+    it('LLM 输出前有解释文字 + JSON → 平衡括号扫描能正确提取，不被 greedy 匹配吞掉', async () => {
+        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+        ;(createChatModel as any).mockReturnValueOnce({
+            invoke: vi.fn().mockResolvedValue({
+                content: `我思考了一下{括号内是解释}，给出结论：{"skip": true}\n再补充说明{这个也不是JSON}`,
+            }),
+        })
+        const { analyzeSingleClause } = await import('~~/server/services/assistant/contract/analyzeSingleClause')
+        // greedy 匹配会抓到 "{括号内是解释}，给出结论：{\"skip\": true}\n再补充说明{这个也不是JSON}"，JSON.parse 挂
+        // 平衡括号扫描应该抓到第一个 "{括号内是解释}"，JSON.parse 会挂（缺键值对），
+        // 但抛错时报 JSON 解析失败而不是 schema 错，更准确
+        await expect(analyzeSingleClause({
+            clause: { index: 7, number: '7.1', text: 'xxx' },
+            stance: 'partyA', partyA: 'A', partyB: 'B', contractType: '技服',
+        })).rejects.toThrow(/#7.*(解析|schema)/)
+    })
+
+    it('schema 失败的错误信息含字段 path，便于日志定位', async () => {
+        const { createChatModel } = await import('~~/server/services/node/chatModelFactory')
+        ;(createChatModel as any).mockReturnValueOnce({
+            invoke: vi.fn().mockResolvedValue({
+                // risk.level 是不合法值 → schema 校验挂在 risk.level
+                content: JSON.stringify({
+                    risk: {
+                        id: 'a0000000-0000-4000-8000-000000000001',
+                        clauseIndex: 1, clauseText: 'x',
+                        level: 'VERY_HIGH', // 非法
+                        category: 'c', problem: 'p',
+                        analysis: 'a', risk: 'r', suggestion: 's',
+                        suggestedClauseText: 't',
+                    },
+                    skip: false,
+                }),
+            }),
+        })
+        const { analyzeSingleClause } = await import('~~/server/services/assistant/contract/analyzeSingleClause')
+        await expect(analyzeSingleClause({
+            clause: { index: 8, number: '8.1', text: 'xxx' },
+            stance: 'partyA', partyA: 'A', partyB: 'B', contractType: '技服',
+        })).rejects.toThrow(/risk\.level/)
+    })
 })
 
 const SNAPSHOT: PlaybookSnapshot = {
