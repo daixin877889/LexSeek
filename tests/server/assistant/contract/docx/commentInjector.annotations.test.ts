@@ -77,7 +77,10 @@ describe('injectAnnotations', () => {
         }
     })
 
-    it('w:author 带 LS: 前缀和 [#id-rand8] 稳定身份证（Phase C：Word 不截断 author）', async () => {
+    it('w:author 只写纯净的 LS:{人名}，不含身份证尾部（spec §14：身份证依赖 customXml）', async () => {
+        // 历史曾把身份证 [#reviewId-annotationId-rand8] 拼到 w:author 尾部，Word 批注卡片
+        // 用户端会显示 "LS:AI [#871-386-aOhj...]" 这种机器码，体验极差。现按 spec §14：
+        // author 只保留 "LS:{人名}" 作为可见系统标识，身份证交给 customXml 主防线。
         const original = await readFile(SAMPLE)
         const { paragraphs } = await parseContractDocx(original)
 
@@ -91,10 +94,11 @@ describe('injectAnnotations', () => {
         const zip = await loadDocxZip(buffer)
         const commentsXml = await readTextFromZip(zip, 'word/comments.xml')
 
-        // Phase C+：author 尾部 [#reviewId-annotationId-rand8]，reviewId 固定 999
-        expect(commentsXml).toMatch(/w:author="LS:AI \[#999-1-[a-zA-Z0-9]{8}\]"/)
-        expect(commentsXml).toMatch(/w:author="LS:张律师 \[#999-2-[a-zA-Z0-9]{8}\]"/)
-        expect(commentsXml).toMatch(/w:author="LS:客户甲 \[#999-3-[a-zA-Z0-9]{8}\]"/)
+        expect(commentsXml).toContain('w:author="LS:AI"')
+        expect(commentsXml).toContain('w:author="LS:张律师"')
+        expect(commentsXml).toContain('w:author="LS:客户甲"')
+        // 反向断言：不应再出现 [#...-...-...] 身份证机器码
+        expect(commentsXml).not.toMatch(/w:author="[^"]*\[#\d+-\d+-[a-zA-Z0-9]{8}\]"/)
     })
 
     it('答复批注写入 w:parentId 引用父 w:id', async () => {

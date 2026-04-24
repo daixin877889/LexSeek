@@ -86,7 +86,7 @@ describe('parseWordComments', () => {
         expect(ids).toEqual([0, 1])
     })
 
-    it('wAuthor 含 LS: 前缀 + [#id-rand8] 稳定身份证（Phase C）', async () => {
+    it('wAuthor 只含 LS: 前缀 + 人名（spec §14：身份证依赖 customXml）', async () => {
         const original = await readFile(SAMPLE)
         const { paragraphs } = await parseContractDocx(original)
         const maxIdx = paragraphs.length - 1
@@ -98,7 +98,7 @@ describe('parseWordComments', () => {
         const { buffer } = await injectAnnotations(original, annotations, 999)
         const { comments } = await parseWordComments(buffer)
 
-        expect(comments[0].wAuthor).toMatch(/^LS:张律师 \[#999-1-[a-zA-Z0-9]{8}\]$/)
+        expect(comments[0].wAuthor).toBe('LS:张律师')
     })
 
     it('wInitials 写短头像缩写而非 LEXSEEK（Phase C+：避免 Word people.xml 中毒）', async () => {

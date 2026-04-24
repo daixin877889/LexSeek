@@ -64,25 +64,20 @@ export function extractRandomFromRef(ref: string | null | undefined): string | n
 
 /**
  * 构造 Phase C+ 的 `w:author` 字段值。
- * 例：buildAuthorField('AI', 863, 'LEXSEEK-101-abc12345') → 'LS:AI [#863-101-abc12345]'
+ * 按 spec §14 决策：`w:author` 仅作为"系统标识 + 人名"可见标签，身份证（reviewId/
+ * annotationId/rand8）**不再**拼到 author 尾部——Word 批注卡片会原样显示 `w:author`，
+ * 拼进身份证后用户看到的是 "LS:AI [#871-386-aOhj...]" 这样的机器码，体验极差。
+ * 身份证依赖 customXml 主防线；客户执行 "删除个人信息" 清掉 customXml 的极端
+ * 场景会触发 NO_ANNOTATION_MATCH 保护提示重新下载，优于让所有客户主视图看到
+ * 机器码。
  *
- * **必须传 reviewId**：跨 review 上传 docx 时用来 assert 身份证归属。
- * ref 格式不合法时告警并退化为 `LS:{name}`（下游会因为解析不出 id 而进入
- * NO_ANNOTATION_MATCH 保护分支）。
+ * 例：buildAuthorField('AI', 863, 'LEXSEEK-101-abc12345') → 'LS:AI'
+ *
+ * reviewId/ref 参数保留以便未来回切，以及向后兼容老调用方；此处不再使用。
  */
-export function buildAuthorField(authorName: string, reviewId: number, ref: string): string {
-    const m = ref.match(INITIALS_REF_PATTERN)
-    if (!m) {
-        logger.warn('[wordCommentRef] buildAuthorField: ref 格式异常，身份证将失效', {
-            authorName,
-            reviewId,
-            ref,
-        })
-        return `LS:${authorName}`
-    }
-    const annotationId = m[1]
-    const rand = m[2]
-    return `LS:${authorName} [#${reviewId}-${annotationId}-${rand}]`
+export function buildAuthorField(authorName: string, _reviewId: number, _ref: string): string {
+    const safeName = (authorName ?? '').trim() || 'AI'
+    return `LS:${safeName}`
 }
 
 /**
