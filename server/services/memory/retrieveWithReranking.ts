@@ -14,9 +14,10 @@ export interface RetrieveInput {
   minScore?: number
 }
 
-const TABLE_TYPE_MAP: Record<string, 'law' | 'case_material' | 'case_memory'> = {
+const TABLE_TYPE_MAP: Record<string, 'law' | 'case_material' | 'case_memory' | 'case_analysis'> = {
   law_embeddings: 'law',
   case_memories: 'case_memory',
+  case_analysis_embeddings: 'case_analysis',
 }
 
 /**

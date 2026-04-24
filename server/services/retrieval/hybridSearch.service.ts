@@ -62,13 +62,17 @@ export async function vectorSearchService(
 /**
  * 提取文档唯一标识，用于 RRF 去重
  */
-export function extractDocId(item: SearchResultItem, type: 'law' | 'case_material' | 'case_memory'): string {
+export function extractDocId(item: SearchResultItem, type: 'law' | 'case_material' | 'case_memory' | 'case_analysis'): string {
     if (type === 'law') {
         return (item.metadata.articles_id as string) || `${item.content.slice(0, 50)}`
     }
     if (type === 'case_memory') {
         const m = item.metadata as Record<string, unknown>
         return (m?.id as string) ?? (m?.subjectKey ? `${m.caseId}_${m.subjectKey}` : item.content.slice(0, 50))
+    }
+    if (type === 'case_analysis') {
+        const m = item.metadata as Record<string, unknown>
+        return (m?.id as string) ?? (m?.analysisId != null ? `${m.analysisId}_${m.chunkIndex ?? 0}` : item.content.slice(0, 50))
     }
     return `${item.metadata.sourceId}_${item.metadata.chunkIndex ?? 0}`
 }
@@ -79,7 +83,7 @@ export function extractDocId(item: SearchResultItem, type: 'law' | 'case_materia
 export function reciprocalRankFusion(
     bm25Results: SearchResultItem[],
     vectorResults: SearchResultItem[],
-    type: 'law' | 'case_material' | 'case_memory',
+    type: 'law' | 'case_material' | 'case_memory' | 'case_analysis',
     k: number = 60,
 ): SearchResultItem[] {
     const scoreMap = new Map<string, { score: number; item: SearchResultItem }>()
@@ -116,6 +120,7 @@ export async function hybridSearchService(
         law: 'law_embeddings',
         case_material: 'case_material_embeddings',
         case_memory: 'case_memories',
+        case_analysis: 'case_analysis_embeddings',
     }
     const tableName = tableNameMap[request.type] ?? 'case_material_embeddings'
     const searchK = request.k * 3  // 粗检索取 3 倍

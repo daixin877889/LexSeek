@@ -33,7 +33,7 @@ export interface PostFilters {
 /** 检索请求 */
 export interface RetrievalRequest {
     query: string
-    type: 'law' | 'case_material' | 'case_memory'
+    type: 'law' | 'case_material' | 'case_memory' | 'case_analysis'
     k: number
     /** 简单等值过滤（key=value），由 buildParameterizedMetadataFilter 处理 */
     metadataFilter?: Record<string, string | number | boolean>
@@ -59,7 +59,7 @@ export interface SearchResultItem {
 }
 
 /** 允许查询的表名白名单 */
-export const ALLOWED_TABLES = new Set(['law_embeddings', 'case_material_embeddings', 'case_memories'])
+export const ALLOWED_TABLES = new Set(['law_embeddings', 'case_material_embeddings', 'case_memories', 'case_analysis_embeddings'])
 
 /** 允许的 metadata 过滤字段白名单 */
 export const ALLOWED_METADATA_KEYS = new Set([
