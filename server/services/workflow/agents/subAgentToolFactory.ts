@@ -221,6 +221,7 @@ export async function createSubAgentTools(
                                 agentName: config.name,
                                 caseId: context.caseId,
                                 sessionId: context.sessionId,
+                                model,
                             }),
                             createAuditMiddleware(),
                         ],

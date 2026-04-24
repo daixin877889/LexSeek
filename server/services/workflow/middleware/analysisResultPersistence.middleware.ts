@@ -9,15 +9,16 @@
 
 import { createMiddleware } from 'langchain'
 import { z } from 'zod'
+import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import {
     createAnalysisDao,
     updateAnalysisDao,
     getNextVersionDao,
-    deactivateVersionsDao,
     findAnalysisBySessionAndNodeDao,
     AnalysisStatus,
 } from '../../case/analysis.dao'
 import { failAnalysisService } from '../../case/analysis.service'
+import { completeAnalysisWithRAG } from '../../case/initAnalysis.service'
 import { getNodeByNameService } from '../../node/node.service'
 
 /** 中间件参数 */
@@ -28,6 +29,8 @@ interface AnalysisResultPersistenceOptions {
     caseId: number
     /** 会话 ID */
     sessionId: string
+    /** 用于生成 summary 的模型实例 */
+    model: BaseChatModel
 }
 
 /**
@@ -58,7 +61,7 @@ export function extractLastAIMessageContent(messages: any[]): string | null {
 export const analysisResultPersistenceMiddleware = (
     options: AnalysisResultPersistenceOptions
 ) => {
-    const { agentName, caseId, sessionId } = options
+    const { agentName, caseId, sessionId, model } = options
 
     return createMiddleware({
         name: 'AnalysisResultPersistenceMiddleware',
@@ -137,27 +140,22 @@ export const analysisResultPersistenceMiddleware = (
                 if (!analysisRecordId) return
 
                 try {
-                    const node = await getNodeByNameService(agentName)
-                    if (!node) return
-
                     const resultText = extractLastAIMessageContent(state.messages ?? [])
                     if (!resultText) {
-                        logger.warn('分析持久化：未找到 AIMessage 内容', { analysisRecordId, agentName })
+                        logger.warn('分析持久化：未找到 AIMessage 内容，跳过落库', { analysisRecordId, agentName })
+                        return
                     }
 
-                    await prisma.$transaction(async (tx: any) => {
-                        await deactivateVersionsDao(caseId, node.id, tx)
-                        await updateAnalysisDao(analysisRecordId, {
-                            analysisResult: resultText ?? '',
-                            status: AnalysisStatus.COMPLETED,
-                            isActive: true,
-                        }, tx)
+                    await completeAnalysisWithRAG({
+                        analysisId: analysisRecordId,
+                        analysisResult: resultText,
+                        model,
                     })
 
                     logger.info('分析持久化：完成分析记录', {
                         analysisId: analysisRecordId,
                         agentName,
-                        resultLength: resultText?.length ?? 0,
+                        resultLength: resultText.length,
                     })
                 } catch (error) {
                     logger.error('分析持久化 afterAgent 异常', {

@@ -129,6 +129,7 @@ export const caseAnalysisAgent = async (
                 agentName,
                 caseId: caseId!,
                 sessionId,
+                model,
             }),
         ],
     })
