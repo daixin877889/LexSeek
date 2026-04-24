@@ -596,7 +596,27 @@ export const switchActiveVersionService = async (
     if (existing.status !== AnalysisStatus.COMPLETED) {
         throw new Error('只能激活已完成的分析记录')
     }
-    await activateVersionDao(analysisId, existing.caseId, existing.nodeId)
+    await prisma.$transaction(async (tx) => {
+        await activateVersionDao(analysisId, existing.caseId, existing.nodeId, tx)
+        // 同步 case_analysis_embeddings.metadata.isActive：同节点其他版本 → false
+        await tx.$executeRawUnsafe(
+            `UPDATE case_analysis_embeddings
+             SET metadata = jsonb_set(metadata, '{isActive}', to_jsonb(false))
+             WHERE metadata->>'caseId' = $1
+               AND metadata->>'nodeId' = $2
+               AND (metadata->>'analysisId')::int <> $3`,
+            String(existing.caseId),
+            String(existing.nodeId),
+            analysisId,
+        )
+        // 激活当前版本 → true
+        await tx.$executeRawUnsafe(
+            `UPDATE case_analysis_embeddings
+             SET metadata = jsonb_set(metadata, '{isActive}', to_jsonb(true))
+             WHERE (metadata->>'analysisId')::int = $1`,
+            analysisId,
+        )
+    })
     const updated = await findAnalysisByIdDao(analysisId)
     return updated!
 }

@@ -195,3 +195,107 @@ describe('completeAnalysisWithRAG（集成测）', () => {
         expect(updated?.summary).toBeTruthy()
     })
 })
+
+describe('switchActiveVersionService · 同步 embeddings.metadata.isActive', () => {
+    const testIds: CaseTestIds = createEmptyTestIds()
+    const prisma = getTestPrisma()
+
+    let dbAvailable = false
+    let caseId: number
+    let nodeId: number
+    let sessionId: string
+    let v1: number
+    let v2: number
+
+    beforeAll(async () => {
+        dbAvailable = await isTestDbAvailable()
+    })
+
+    afterAll(async () => {
+        if (dbAvailable) {
+            await disconnectTestDb()
+        }
+    })
+
+    beforeEach(async () => {
+        if (!dbAvailable) return
+
+        const user = await createTestUser()
+        testIds.userIds.push(user.id)
+
+        const caseType = await createTestCaseType()
+        testIds.caseTypeIds.push(caseType.id)
+
+        const testCase = await createTestCase({ userId: user.id, caseTypeId: caseType.id })
+        testIds.caseIds.push(testCase.id)
+        caseId = testCase.id
+
+        const provider = await createTestModelProvider()
+        testIds.modelProviderIds.push(provider.id)
+
+        const model = await createTestModel({ providerId: provider.id })
+        testIds.modelIds.push(model.id)
+
+        const node = await createTestNode({ modelId: model.id })
+        testIds.nodeIds.push(node.id)
+        nodeId = node.id
+
+        const session = await createTestSession({ caseId, type: 2 })
+        testIds.sessionIds.push(session.sessionId)
+        sessionId = session.sessionId
+
+        const a1 = await prisma.caseAnalyses.create({
+            data: { caseId, sessionId, nodeId, analysisType: 'risk_assessment', status: 2, version: 1, isActive: true },
+        })
+        const a2 = await prisma.caseAnalyses.create({
+            data: { caseId, sessionId, nodeId, analysisType: 'risk_assessment', status: 2, version: 2, isActive: false },
+        })
+        v1 = a1.id
+        v2 = a2.id
+        testIds.analysisIds.push(v1, v2)
+
+        await prisma.$executeRawUnsafe(
+            `INSERT INTO case_analysis_embeddings (text, metadata) VALUES ('v1 text', $1::jsonb), ('v2 text', $2::jsonb)`,
+            JSON.stringify({ caseId, analysisId: v1, nodeId, version: 1, isActive: true, chunkIndex: 0 }),
+            JSON.stringify({ caseId, analysisId: v2, nodeId, version: 2, isActive: false, chunkIndex: 0 }),
+        )
+    })
+
+    afterEach(async () => {
+        if (!dbAvailable) return
+
+        await prisma.$executeRawUnsafe(
+            `DELETE FROM case_analysis_embeddings WHERE metadata->>'caseId' = $1`,
+            caseId.toString(),
+        )
+
+        await cleanupTestData(testIds)
+        testIds.userIds.length = 0
+        testIds.caseIds.length = 0
+        testIds.caseTypeIds.length = 0
+        testIds.sessionIds.length = 0
+        testIds.analysisIds.length = 0
+        testIds.nodeIds.length = 0
+        testIds.modelIds.length = 0
+        testIds.modelProviderIds.length = 0
+    })
+
+    it('切到 v2：v2 embedding.isActive=true，v1=false', async () => {
+        if (!dbAvailable) return
+
+        const { switchActiveVersionService } = await import('~~/server/services/case/analysis.service')
+        await switchActiveVersionService(v2)
+
+        const rows: any[] = await prisma.$queryRawUnsafe(
+            `SELECT metadata->>'analysisId' AS aid, metadata->>'isActive' AS active
+             FROM case_analysis_embeddings
+             WHERE metadata->>'caseId' = $1
+             ORDER BY (metadata->>'analysisId')::int ASC`,
+            caseId.toString(),
+        )
+        const v1Row = rows.find((r) => Number(r.aid) === v1)
+        const v2Row = rows.find((r) => Number(r.aid) === v2)
+        expect(v1Row?.active).toBe('false')
+        expect(v2Row?.active).toBe('true')
+    })
+})
