@@ -92,6 +92,8 @@ async function persistRisksAndCreateV1Snapshot(
     risks: Risk[],
     docxText: string,
     clauses: ClauseSnapshotItem[],
+    segments: ClauseSegment[],
+    paragraphs: string[],
 ): Promise<void> {
     // 幂等守卫：已有 currentVersionId 说明 v1 快照已存在，跳过
     const current = await prisma.contractReviews.findUnique({
@@ -103,8 +105,16 @@ async function persistRisksAndCreateV1Snapshot(
         return
     }
 
+    // Bug 修复：clauseIndex（segmentClauses 产出的"条款序号"）≠ anchorParagraphIndex
+    // （commentInjector / parseWordComments 使用的"非空段落序号"）。
+    // 先构造 clauseIndex → 非空段落序号 的映射：segment.offsetStart 落在哪一段，
+    // 该条款就归属哪一段。docxText 是 paragraphs.join('\n')，所以累加段落长度
+    // + 1 (for '\n') 就能找到对应段落序号。
+    const clauseIndexToParagraphIndex = buildClauseToParagraphMap(segments, paragraphs)
+
     // 写 ContractRisk + ContractAnnotation（每条 AI 风险各一条）
     for (const aiRisk of risks) {
+        const paragraphIndex = clauseIndexToParagraphIndex.get(aiRisk.clauseIndex) ?? null
         const risk = await createContractRiskDAO({
             reviewId,
             source: 'ai',
@@ -117,7 +127,7 @@ async function persistRisksAndCreateV1Snapshot(
             analysis: aiRisk.analysis,
             suggestion: aiRisk.suggestion,
             anchorQuote: aiRisk.clauseText,
-            anchorParagraphIndex: aiRisk.clauseIndex,
+            anchorParagraphIndex: paragraphIndex,
         })
         await createContractAnnotationDAO({
             reviewId,
@@ -137,6 +147,46 @@ async function persistRisksAndCreateV1Snapshot(
         clauses,
     })
     logger.info('persistRisksAndCreateV1Snapshot: v1 快照已创建', { reviewId, risksCount: risks.length })
+}
+
+/**
+ * 构造 "条款序号 → 非空段落序号" 映射。
+ *
+ * 规则：`fullText = paragraphs.join('\n')`；每段落 i 在 fullText 里的起始偏移
+ * = Σ(paragraphs[0..i-1].length) + i（i 个 '\n' 分隔符）。
+ * segment.offsetStart 落在 [start_i, end_i] 内 → 条款归属第 i 段。
+ *
+ * 找不到映射（理论上不应发生，除非 segment offset 越界）的条款返回 paragraphs.length-1
+ * 作为最后兜底，避免后续 anchorParagraphIndex 为 null 让批注丢失。
+ */
+function buildClauseToParagraphMap(
+    segments: ClauseSegment[],
+    paragraphs: string[],
+): Map<number, number> {
+    const map = new Map<number, number>()
+    if (segments.length === 0 || paragraphs.length === 0) return map
+
+    // 预计算每段起始偏移
+    const paragraphStarts: number[] = []
+    let cursor = 0
+    for (const p of paragraphs) {
+        paragraphStarts.push(cursor)
+        cursor += p.length + 1 // +1 for '\n'
+    }
+
+    for (const seg of segments) {
+        const offset = seg.offsetStart
+        // 二分找最大的 paragraphStarts[i] <= offset
+        let lo = 0
+        let hi = paragraphStarts.length - 1
+        while (lo < hi) {
+            const mid = Math.floor((lo + hi + 1) / 2)
+            if (paragraphStarts[mid]! <= offset) lo = mid
+            else hi = mid - 1
+        }
+        map.set(seg.index, lo)
+    }
+    return map
 }
 
 /** 合同审查主代理节点名称 */
@@ -378,12 +428,16 @@ export async function runContractReviewChat(
     // Phase A v1 快照写入 snapshot.docxText 时用此值，保证 Phase B diff 时
     // docxText.slice(offsetStart, offsetEnd) 能精确还原 segment.text
     let normalizedText = ''
+    // paragraphs：非空段落数组（parseContractDocx 产出），用于把 segment.offsetStart
+    // 映射到 commentInjector 使用的"非空段落序号"空间。
+    let paragraphs: string[] = []
     try {
         await emitContractReviewEvent(emitterCtx, {
             type: 'stage', stage: 'segment', status: 'running',
         })
-        const { fullText } = await loadContractFullText(review.originalFileId)
-        const segmentResult = await segmentClauses(fullText)
+        const loaded = await loadContractFullText(review.originalFileId)
+        paragraphs = loaded.paragraphs
+        const segmentResult = await segmentClauses(loaded.fullText)
         segments = segmentResult.segments
         normalizedText = segmentResult.normalizedText
         await emitContractReviewEvent(emitterCtx, {
@@ -523,6 +577,8 @@ export async function runContractReviewChat(
                             risks,
                             normalizedText,
                             clausesForSnapshot,
+                            segments,
+                            paragraphs,
                         )
                     } catch (err) {
                         // 新表写入失败不影响主流程（向下兼容：旧 risks JSON 已落库）

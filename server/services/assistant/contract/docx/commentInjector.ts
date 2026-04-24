@@ -435,16 +435,15 @@ export async function injectAnnotations(
             }
         }
         if (resolved < 0) {
+            // 段落自身不含 quote → paraIdx 大概率是错的（历史数据 anchorParagraphIndex
+            // 存的是"条款序号"而非"非空段落序号"），完全信任 fuzzy 的结果。
+            // 多候选时 findParagraphIndexByQuote 已用 preferredIdx tiebreaker 选最近者，
+            // 避免 TOC / 标题里的重复短片段乱命中。
             const fuzzy = findParagraphIndexByQuote(nonEmpty, a.anchorQuote ?? '', paraValid ? paraIdx : null)
-            // paraValid 时给 fuzzy 一个距离容忍带——fuzzy 命中离 paraIdx 太远（>5 段）
-            // 大概率是 quote 首行在 TOC/标题里重复出现，迁移后的 paraIdx 更可信。
-            const DIST_TOLERANCE = 5
-            if (fuzzy >= 0 && (!paraValid || Math.abs(fuzzy - paraIdx) <= DIST_TOLERANCE)) {
+            if (fuzzy >= 0) {
                 resolved = fuzzy
             } else if (paraValid) {
                 resolved = paraIdx
-            } else if (fuzzy >= 0) {
-                resolved = fuzzy
             }
         }
 
