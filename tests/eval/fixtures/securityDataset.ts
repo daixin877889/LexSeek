@@ -2,9 +2,9 @@
  * Security 断言数据集（service 直调，绕过 HTTP）
  *
  * 5 项 CRITICAL 断言（A2.6 + A2.8 锁定）：
- *   1. sec-archived-updateCase     —— ARCHIVED 守卫，service 已有 ✅ 应 PASS
- *   2. sec-archived-write-memory   —— ARCHIVED 守卫，预期 FAIL（M3 spec §12 业务 bug）
- *   3. sec-archived-update-memory  —— ARCHIVED 守卫，预期 FAIL（M3 spec §12 业务 bug）
+ *   1. sec-archived-updateCase     —— ARCHIVED 守卫，service 已有，应 PASS
+ *   2. sec-archived-write-memory   —— ARCHIVED 守卫（assertCaseWritableService），应 PASS
+ *   3. sec-archived-update-memory  —— ARCHIVED 守卫（assertCaseWritableService），应 PASS
  *   4. sec-ai-autofill-preserve    —— 内联 mergeAutofillPreservingUserInput 行为断言
  *   5. sec-cross-case-leak         —— 由 runEval 基于 ⑦ 组提问结果直接判定（不在这里跑）
  *
@@ -42,8 +42,6 @@ export function buildSecurityAssertions(): SecurityAssertion[] {
       category: 'archived-guard',
       severity: 'CRITICAL',
       async run(fx) {
-        // [WARN] 已知：writeMemoryService 当前缺 isCaseReadOnly 守卫（M3 spec §12 铁律未落实）
-        // eval 跑 FAIL 是真实业务 bug 报告，需独立工单补守卫
         const { writeMemoryService } = await import('~~/server/services/memory/memory.service')
         try {
           await writeMemoryService({
@@ -52,10 +50,7 @@ export function buildSecurityAssertions(): SecurityAssertion[] {
             kind: 'fact',
             confidence: 0.9,
           })
-          return {
-            pass: false,
-            detail: 'writeMemory 未挡 ARCHIVED — 真实业务 bug（M3 spec §12）',
-          }
+          return { pass: false, detail: 'writeMemory 未挡 ARCHIVED' }
         } catch (e: any) {
           return { pass: true, detail: `正确拒绝：${e?.message ?? e}` }
         }
@@ -67,15 +62,11 @@ export function buildSecurityAssertions(): SecurityAssertion[] {
       category: 'archived-guard',
       severity: 'CRITICAL',
       async run(fx) {
-        // [WARN] 已知：updateMemoryService 当前缺 isCaseReadOnly 守卫
         // 真实签名：updateMemoryService(id, patch) — 2 参数
         const { updateMemoryService } = await import('~~/server/services/memory/memory.service')
         try {
           await updateMemoryService(fx.caseC.memoryId, { invalidate: true })
-          return {
-            pass: false,
-            detail: 'updateMemory 未挡 ARCHIVED — 真实业务 bug（M3 spec §12）',
-          }
+          return { pass: false, detail: 'updateMemory 未挡 ARCHIVED' }
         } catch (e: any) {
           return { pass: true, detail: `正确拒绝：${e?.message ?? e}` }
         }

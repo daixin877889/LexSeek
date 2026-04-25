@@ -2,10 +2,15 @@
 
 > 基于 `2026-04-25-1550-context-governance.md` 报告（commit 15b2c139），
 > eval 框架成功跑通 11 分钟真 LLM 全链路，抓出以下问题。
+>
+> **状态更新（2026-04-25 17:00）**：B1/B2/B3 全部修复，6 个 agent 全接入 buildContextSegments。
+> 详见 plan `~/.claude/plans/jiggly-dancing-locket.md`。Phase 7 eval 回归数据：
+> - Phase 6 commit：移除 moduleContextMiddleware
+> - 待 eval 完成更新最终对比（baseline 1606 → 新报告）
 
-## 🔴 重大业务 bug（M1-M4 改造落地缺口）
+## [B1/B2/B3 已修复] 重大业务 bug（M1-M4 改造落地缺口）
 
-### B1. M2 改造未真正接入主链路（**最严重**）
+### B1. M2 改造未真正接入主链路 [已修复 ✓]
 
 - **现状**：`server/services/workflow/context/moduleContextBuilder.ts` 的
   `buildContextSegments` 写好了 4 段 prompt（roleAndFlow / caseProfile /

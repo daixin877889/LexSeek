@@ -114,6 +114,191 @@
         "versionChainCorrect",
         "sec-cross-case-leak"
       ]
+    },
+    {
+      "filename": "2026-04-25-1708-context-governance.json",
+      "runAt": "2026-04-25T17:08:08+08:00",
+      "commit": "c27fadac",
+      "overallPass": false,
+      "criticalFailures": [
+        "hallucinationRate",
+        "toolCallAccuracy",
+        "scenarioPassRate",
+        "versionChainCorrect",
+        "sec-cross-case-leak",
+        "stab-switch-active-atomic"
+      ]
+    },
+    {
+      "filename": "2026-04-25-1729-context-governance.json",
+      "runAt": "2026-04-25T17:29:51+08:00",
+      "commit": "23c122a1",
+      "overallPass": false,
+      "criticalFailures": [
+        "hallucinationRate",
+        "toolCallAccuracy",
+        "scenarioPassRate",
+        "versionChainCorrect",
+        "sec-cross-case-leak"
+      ]
+    },
+    {
+      "filename": "2026-04-25-1753-context-governance.json",
+      "runAt": "2026-04-25T17:53:13+08:00",
+      "commit": "23c122a1",
+      "overallPass": false,
+      "criticalFailures": [
+        "toolCallAccuracy",
+        "scenarioPassRate"
+      ]
+    },
+    {
+      "filename": "2026-04-25-1802-context-governance.json",
+      "runAt": "2026-04-25T18:02:23+08:00",
+      "commit": "23c122a1",
+      "overallPass": false,
+      "criticalFailures": [
+        "toolCallAccuracy",
+        "scenarioPassRate"
+      ]
+    },
+    {
+      "filename": "2026-04-25-1814-context-governance.json",
+      "runAt": "2026-04-25T18:14:58+08:00",
+      "commit": "23c122a1",
+      "overallPass": false,
+      "criticalFailures": [
+        "toolCallAccuracy",
+        "scenarioPassRate"
+      ]
+    },
+    {
+      "filename": "2026-04-25-1830-context-governance.json",
+      "runAt": "2026-04-25T18:30:41+08:00",
+      "commit": "23c122a1",
+      "overallPass": false,
+      "criticalFailures": [
+        "hallucinationRate",
+        "toolCallAccuracy",
+        "scenarioPassRate"
+      ]
+    },
+    {
+      "filename": "2026-04-25-1844-context-governance.json",
+      "runAt": "2026-04-25T18:44:14+08:00",
+      "commit": "23c122a1",
+      "overallPass": false,
+      "criticalFailures": [
+        "scenarioPassRate"
+      ]
+    },
+    {
+      "filename": "2026-04-25-1857-context-governance.json",
+      "runAt": "2026-04-25T18:57:29+08:00",
+      "commit": "23c122a1",
+      "overallPass": false,
+      "criticalFailures": [
+        "scenarioPassRate",
+        "stab-switch-active-atomic"
+      ]
+    },
+    {
+      "filename": "2026-04-25-2002-context-governance.json",
+      "runAt": "2026-04-25T20:02:35+08:00",
+      "commit": "092818b1",
+      "overallPass": false,
+      "criticalFailures": [
+        "scenarioPassRate"
+      ]
+    },
+    {
+      "filename": "2026-04-25-2018-context-governance.json",
+      "runAt": "2026-04-25T20:18:59+08:00",
+      "commit": "34ca2624",
+      "overallPass": false,
+      "criticalFailures": [
+        "hallucinationRate",
+        "scenarioPassRate"
+      ]
+    },
+    {
+      "filename": "2026-04-25-2030-context-governance.json",
+      "runAt": "2026-04-25T20:30:56+08:00",
+      "commit": "55739106",
+      "overallPass": false,
+      "criticalFailures": [
+        "scenarioPassRate"
+      ]
+    },
+    {
+      "filename": "2026-04-25-2044-context-governance.json",
+      "runAt": "2026-04-25T20:44:58+08:00",
+      "commit": "522c0251",
+      "overallPass": false,
+      "criticalFailures": [
+        "scenarioPassRate"
+      ]
+    },
+    {
+      "filename": "2026-04-25-2058-context-governance.json",
+      "runAt": "2026-04-25T20:58:09+08:00",
+      "commit": "522c0251",
+      "overallPass": false,
+      "criticalFailures": [
+        "toolCallAccuracy",
+        "scenarioPassRate"
+      ]
+    },
+    {
+      "filename": "2026-04-25-2108-context-governance.json",
+      "runAt": "2026-04-25T21:08:50+08:00",
+      "commit": "3022919c",
+      "overallPass": false,
+      "criticalFailures": [
+        "scenarioPassRate"
+      ]
+    },
+    {
+      "filename": "2026-04-25-2124-context-governance.json",
+      "runAt": "2026-04-25T21:24:46+08:00",
+      "commit": "adff043a",
+      "overallPass": true,
+      "criticalFailures": []
+    },
+    {
+      "filename": "2026-04-25-2138-context-governance.json",
+      "runAt": "2026-04-25T21:38:05+08:00",
+      "commit": "2cf5f14b",
+      "overallPass": true,
+      "criticalFailures": []
+    },
+    {
+      "filename": "2026-04-25-2149-context-governance.json",
+      "runAt": "2026-04-25T21:49:32+08:00",
+      "commit": "1231a3d5",
+      "overallPass": true,
+      "criticalFailures": []
+    },
+    {
+      "filename": "2026-04-25-2158-context-governance.json",
+      "runAt": "2026-04-25T21:58:25+08:00",
+      "commit": "1231a3d5",
+      "overallPass": true,
+      "criticalFailures": []
+    },
+    {
+      "filename": "2026-04-25-2208-context-governance.json",
+      "runAt": "2026-04-25T22:08:13+08:00",
+      "commit": "1231a3d5",
+      "overallPass": true,
+      "criticalFailures": []
+    },
+    {
+      "filename": "2026-04-25-2221-context-governance.json",
+      "runAt": "2026-04-25T22:21:29+08:00",
+      "commit": "d734d9c0",
+      "overallPass": true,
+      "criticalFailures": []
     }
   ]
 }
