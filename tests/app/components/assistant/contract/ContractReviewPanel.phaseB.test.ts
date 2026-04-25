@@ -77,9 +77,9 @@ vi.mock('~/composables/useContractReview', () => ({
     }),
 }))
 
-// UI-R8：聚焦/钉/悬停 + 定位状态拆到 useContractRiskFocus
-vi.mock('~/composables/useContractRiskFocus', () => ({
-    useContractRiskFocus: () => ({
+// 聚焦/钉/悬停 + 定位状态由 useContractRiskHighlight 提供
+vi.mock('~/composables/useContractRiskHighlight', () => ({
+    useContractRiskHighlight: () => ({
         focusedRiskId: ref(null),
         hoveredRiskId: ref(null),
         pinnedRiskIds: ref(new Set()),
@@ -88,7 +88,7 @@ vi.mock('~/composables/useContractRiskFocus', () => ({
         hasLocated: ref(false),
         focusRisk: vi.fn(),
         togglePin: vi.fn(),
-        setHovered: vi.fn(),
+        setHoveredRisk: vi.fn(),
         clearAllPins: vi.fn(),
         markLocated: vi.fn(),
         reset: vi.fn(),

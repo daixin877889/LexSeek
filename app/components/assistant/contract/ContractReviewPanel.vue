@@ -50,7 +50,7 @@ const {
     analyzingClauseIndex,
 } = useContractReview()
 
-// UI-R8：风险聚焦/钉/悬停 + 定位状态集中到 useContractRiskFocus
+// 风险高亮三态 + 定位状态集中到 useContractRiskHighlight
 // （原本 focusedRiskId / hoveredRiskId / pinnedRiskIds / notLocatedIds / hasLocated
 // 分散在 useContractReview + ContractReviewPanel 本地，整合后由 composable 接管）
 const {
@@ -61,11 +61,11 @@ const {
     notLocatedIds,
     hasLocated,
     focusRisk,
-    setHovered: setHoveredRisk,
+    setHoveredRisk,
     togglePin,
     markLocated,
     reset: resetRiskFocus,
-} = useContractRiskFocus()
+} = useContractRiskHighlight()
 
 // 外部 reviewId 注入：composable 未监听后续变化，全靠这里桥接
 // UI-H5：id 由 number 切换到 null（路由 SSR 切换 / 父 unmount 残留 watch）
@@ -356,7 +356,7 @@ async function handleDownload() {
     }
 }
 
-// notLocatedIds / hasLocated 由 useContractRiskFocus 提供，下面 watcher 触发 reset
+// notLocatedIds / hasLocated 由 useContractRiskHighlight 提供，下面 watcher 触发 reset
 
 /**
  * 结果屏左右分栏。对齐文书编辑器工作区（`dashboard/document/drafts/[id].vue`）：

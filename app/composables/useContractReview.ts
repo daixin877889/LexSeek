@@ -67,17 +67,9 @@ export function useContractReview() {
     /** review.status === 'rebuilding' 时 UI 禁用编辑 + 显示进度 */
     const isRebuilding = computed(() => review.value?.status === 'rebuilding')
 
-    // 风险卡片高亮三态（focused / hovered / pinned），见 useContractRiskHighlight
-    const {
-        focusedRiskId,
-        hoveredRiskId,
-        pinnedRiskIds,
-        highlightedRiskIds,
-        focusRisk,
-        setHoveredRisk,
-        togglePin,
-        clearAllPins,
-    } = useContractRiskHighlight()
+    // 风险高亮三态 + 定位状态由 useContractRiskHighlight 提供，
+    // 唯一消费者 ContractReviewPanel 自己调用并解构，避免在 useContractReview
+    // 内部再持有一份重复 state。
 
     // 延迟创建，在 onStart / mountReview 获取 sessionId 后初始化
     const stream = shallowRef<ReturnType<typeof useStreamChat> | null>(null)
@@ -500,11 +492,6 @@ export function useContractReview() {
         totalClauses,
         analyzingClauseIndex,
         analyzeWarnings,
-        // M6.1 Task 4.2 聚焦/悬停/钉状态
-        focusedRiskId,
-        hoveredRiskId,
-        pinnedRiskIds,
-        highlightedRiskIds,
         // 动作
         onStart,
         mountReview,
@@ -517,9 +504,5 @@ export function useContractReview() {
         stopGeneration,
         cancelReview,
         handleContractEvent,
-        focusRisk,
-        setHoveredRisk,
-        togglePin,
-        clearAllPins,
     }
 }

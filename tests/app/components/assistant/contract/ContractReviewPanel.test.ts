@@ -93,7 +93,7 @@ const mockFocusRisk = vi.fn()
 const mockTogglePin = vi.fn()
 const mockSetHoveredRisk = vi.fn()
 const mockClearAllPins = vi.fn()
-// UI-R8：notLocated/hasLocated 与 markLocated/reset 由 useContractRiskFocus 接管
+// notLocated/hasLocated 与 markLocated/reset 由 useContractRiskHighlight 接管
 const notLocatedIdsRef = ref<Set<string>>(new Set())
 const hasLocatedRef = ref(false)
 const mockMarkLocated = vi.fn((ids: Set<string>) => {
@@ -130,9 +130,9 @@ vi.mock('~/composables/useContractReview', () => ({
     }),
 }))
 
-// UI-R8：聚焦/钉/悬停 + 定位状态从 useContractReview 拆出，单独 mock
-vi.mock('~/composables/useContractRiskFocus', () => ({
-    useContractRiskFocus: () => ({
+// 聚焦/钉/悬停 + 定位状态由 useContractRiskHighlight 提供
+vi.mock('~/composables/useContractRiskHighlight', () => ({
+    useContractRiskHighlight: () => ({
         focusedRiskId: focusedRiskIdRef,
         hoveredRiskId: hoveredRiskIdRef,
         pinnedRiskIds: pinnedRiskIdsRef,
@@ -145,7 +145,7 @@ vi.mock('~/composables/useContractRiskFocus', () => ({
             mockFocusRisk(id)
         },
         togglePin: mockTogglePin,
-        setHovered: mockSetHoveredRisk,
+        setHoveredRisk: mockSetHoveredRisk,
         clearAllPins: mockClearAllPins,
         markLocated: mockMarkLocated,
         reset: mockResetRiskFocus,

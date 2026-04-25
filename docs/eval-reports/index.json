@@ -299,6 +299,13 @@
       "commit": "d734d9c0",
       "overallPass": true,
       "criticalFailures": []
+    },
+    {
+      "filename": "2026-04-25-2236-context-governance.json",
+      "runAt": "2026-04-25T22:36:34+08:00",
+      "commit": "f5db37ff",
+      "overallPass": true,
+      "criticalFailures": []
     }
   ]
 }
