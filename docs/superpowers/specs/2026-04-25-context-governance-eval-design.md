@@ -534,10 +534,10 @@ export async function runEval() {
 
 | 产物 | 给谁看 | 体积/份 | 入 git |
 |---|---|---|---|
-| `*.md` | 人 + PR review + git diff | ~15KB | ✅ 节选 |
-| `*.json` | 机器 + HTML viewer | ~80KB | ✅ 完整 |
-| `viewer.html` | 人（交互查看）| ~20KB | ✅（只有一份，永久）|
-| `index.json` | viewer 的报告索引 | ~2KB | ✅ |
+| `*.md` | 人 + PR review + git diff | ~15KB | [OK] 节选 |
+| `*.json` | 机器 + HTML viewer | ~80KB | [OK] 完整 |
+| `viewer.html` | 人（交互查看）| ~20KB | [OK]（只有一份，永久）|
+| `index.json` | viewer 的报告索引 | ~2KB | [OK] |
 
 一年按每周跑 1 次估算，git 增量约 5MB，可接受。
 

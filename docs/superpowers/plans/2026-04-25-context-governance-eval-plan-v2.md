@@ -1038,9 +1038,7 @@ import { consumeAgentSseStream } from '../utils/sseConsumer'
 export interface RunCaseInput {
   caseId: number
   userId: number
-  moduleId: string                 // 用于业务上下文，不进 runCaseChat 签名
-  agentName: string                // 真实 runCaseChat 用 agentName 选 agent
-  sessionId: string
+  sessionId: string                  // 取自 fx.caseA.sessions[i]
   question: string
   isWarmup?: boolean
 }
@@ -1049,9 +1047,8 @@ export interface RunCaseOutput {
   threadId: string
   answer: string
   latencyMs: number
-  promptTokens: number             // 从 LLM response usage 取
+  promptTokens: number               // 从 LLM response usage 取（聚合本次新增 records）
   cacheHitTokens: number
-  systemPromptTokens: number       // 通过 callback 抓到的 system block tokens
 }
 
 export async function runOneChat(input: RunCaseInput, handler: LLMUsageCallbackHandler): Promise<RunCaseOutput> {
@@ -1059,14 +1056,13 @@ export async function runOneChat(input: RunCaseInput, handler: LLMUsageCallbackH
   const before = handler.getRecords().length
   const startedAt = Date.now()
 
-  // 真实 runCaseChat 签名：(sessionId, message, options)
+  // 真实 CaseAgentOptions：{ userId, caseId, thinking?, signal?, callbacks? }
+  // callbacks 通过 agent.stream 的 RunnableConfig 透传到底层 LLM（A2.3 已改造）
   const stream = await runCaseChat(input.sessionId, input.question, {
     caseId: input.caseId,
     userId: input.userId,
-    agentName: input.agentName,                  // 按真实 CaseAgentOptions 字段补全
     callbacks: [handler],
-    // 其他 options 字段按真实 CaseAgentOptions 接口补
-  } as any)
+  })
 
   const consumed = await consumeAgentSseStream(stream)
   const latencyMs = Date.now() - startedAt
@@ -1076,10 +1072,7 @@ export async function runOneChat(input: RunCaseInput, handler: LLMUsageCallbackH
   const promptTokens = newRecords.reduce((s, r) => s + (r.usage.prompt_tokens ?? r.usage.input_tokens ?? 0), 0)
   const cacheHitTokens = newRecords.reduce((s, r) =>
     s + (r.usage.prompt_cache_hit_tokens ?? r.usage.cache_read_input_tokens ?? r.usage.prompt_tokens_details?.cached_tokens ?? 0), 0)
-
-  // systemPromptTokens：取本次第一次 LLM 调用的 prompt_tokens 作为近似（首次 LLM 进入时 system 段 + user 段）
-  // 精度 trade-off：tiktoken 重算会污染 cache 命中率（重复调 buildContextSegments 跑向量召回）
-  const systemPromptTokens = newRecords[0]?.usage.prompt_tokens ?? newRecords[0]?.usage.input_tokens ?? 0
+  // systemPromptTokens 不在此采集，由 stab-prompt-hash（Task 20）通过 buildContextSegments 输出复用算（spec §3.2 原意 4 段拼串走 tiktoken）
 
   return {
     threadId: consumed.threadId,
@@ -1087,7 +1080,6 @@ export async function runOneChat(input: RunCaseInput, handler: LLMUsageCallbackH
     latencyMs,
     promptTokens,
     cacheHitTokens,
-    systemPromptTokens,
   }
 }
 ```
@@ -1153,37 +1145,34 @@ async function main() {
       await runOneChat({
         caseId: fx.caseA.id,
         userId: OWNER_USER_ID,
-        moduleId,
-        agentName: moduleId,                    // 按项目实际 agent 命名约定调整
-        sessionId: fx.caseA.sessionIds[moduleId],
+        sessionId: fx.caseA.sessions[0],         // A2.4 fixture 返回 sessions: string[]（非 sessionIds map）
         question: '本案当前进入哪个阶段？',
         isWarmup: true,
       }, handler)
     } catch (e) {
       // eslint-disable-next-line no-console
-      console.warn('[eval] warmup failed', moduleId, e)
+      console.warn('[eval] warmup failed', e)
     }
+    break  // warmup 跑 1 次即可
   }
   handler.setWarmup(false)
 
-  // Part 1: cost-only smoke run（10 占位提问，Task 14 替换为 TEST_DATASET）
+  // Part 1: cost-only smoke run（10 占位提问，Task 16 替换为 TEST_DATASET 时整段删除）
   const placeholders = [
     '本案一审法官姓名？', '当前案件状态？', '甲方诉讼请求？',
     '主合同签订时间？', '存在哪些证据？', '乙方主要抗辩理由？',
     '调解过程？', '诉讼标的金额？', '本案二审法院？', '当前模块要点？',
   ]
   const promptTokensSamples: number[] = []
-  const sysTokensSamples: number[] = []
-  for (const moduleId of Object.keys(fx.caseA.sessionIds)) {
+  for (let i = 0; i < fx.caseA.sessions.length; i++) {
+    const sessionId = fx.caseA.sessions[i]!
     for (const q of placeholders) {
       try {
         const out = await runOneChat({
-          caseId: fx.caseA.id, userId: OWNER_USER_ID, moduleId,
-          agentName: moduleId, sessionId: fx.caseA.sessionIds[moduleId],
-          question: q,
+          caseId: fx.caseA.id, userId: OWNER_USER_ID,
+          sessionId, question: q,
         }, handler)
         promptTokensSamples.push(out.promptTokens)
-        sysTokensSamples.push(out.systemPromptTokens)
       } catch (e) {
         // eslint-disable-next-line no-console
         console.warn('[eval] case run failed', q, e)
@@ -1194,7 +1183,7 @@ async function main() {
   // Aggregate cost metrics
   const cost = aggregateCostMetrics({
     usageRecords: handler.getRecords(),
-    systemPromptTokensSamples: sysTokensSamples,
+    systemPromptTokensSamples: [],     // Phase 1 cost-only 阶段不采集；Task 20 stab-prompt-hash 接入后填充
     totalPromptTokensSamples: promptTokensSamples,
     memoryRecallLatencies: [],          // 一期作 WARN-only，后续在 service 加 timer
     analysisSummaryLatencies: [],
@@ -1277,6 +1266,18 @@ git commit -m "feat(eval): testDataset 29 条提问"
 
 按 v1 Task 11 + Task 12（judgeRunner 部分）实施，**改动**：
 - markdownReporter 测试只保留 facts 类（v1 Task 5 的 freeform case 测试已删，详见 Task 7）
+- **judgeRunner 处理 LangChain `resp.content`**：v1 写法 `typeof resp.content === 'string' ? resp.content : JSON.stringify(resp.content)` 会把 ContentBlock[] 序列化成带 `{type,text}` 的字符串，**丢失文本结构 → judge 解析 JSON 失败**。改为：
+
+```ts
+function extractText(content: unknown): string {
+  if (typeof content === 'string') return content
+  if (Array.isArray(content)) {
+    return content.filter((c: any) => c?.type === 'text').map((c: any) => c.text).join('')
+  }
+  return String(content ?? '')
+}
+const txt = extractText(resp.content)
+```
 
 ```bash
 git commit -m "feat(eval): quality 指标 + judge runner"
@@ -1371,7 +1372,7 @@ export function buildSecurityAssertions(): SecurityAssertion[] {
       category: 'archived-guard',
       severity: 'CRITICAL',
       async run(fx, ctx) {
-        // ⚠️ 已知：initAnalysis.service.ts 当前缺 isCaseReadOnly 守卫（M3/M4 spec §12 铁律未落实）
+        // [WARN] 已知：initAnalysis.service.ts 当前缺 isCaseReadOnly 守卫（M3/M4 spec §12 铁律未落实）
         // eval 跑 FAIL 是真实业务 bug 报告，需独立工单补守卫
         try {
           const initAnalysisModule = await import('~~/server/services/case/initAnalysis.service')
@@ -1390,7 +1391,7 @@ export function buildSecurityAssertions(): SecurityAssertion[] {
       category: 'archived-guard',
       severity: 'CRITICAL',
       async run(fx) {
-        // ⚠️ 已知：writeMemoryService 当前缺 isCaseReadOnly 守卫（M3 spec §12 铁律未落实）
+        // [WARN] 已知：writeMemoryService 当前缺 isCaseReadOnly 守卫（M3 spec §12 铁律未落实）
         const { writeMemoryService } = await import('~~/server/services/memory/memory.service')
         try {
           await writeMemoryService({ caseId: fx.caseC.id, text: '尝试写入', kind: 'fact', confidence: 0.9 } as any)
@@ -1406,7 +1407,7 @@ export function buildSecurityAssertions(): SecurityAssertion[] {
       category: 'archived-guard',
       severity: 'CRITICAL',
       async run(fx) {
-        // ⚠️ 已知：updateMemoryService 当前缺 isCaseReadOnly 守卫
+        // [WARN] 已知：updateMemoryService 当前缺 isCaseReadOnly 守卫
         const { updateMemoryService } = await import('~~/server/services/memory/memory.service')
         try {
           await updateMemoryService({ id: fx.caseC.memoryId, invalidate: true } as any)
@@ -1709,23 +1710,23 @@ psql 'postgresql://daixin:daixin88@localhost:5432/ls_eval' -f prisma/seeds/seedD
 
 | 依赖 | 真实事实（grep 验证） | 旧 plan 错误 |
 |---|---|---|
-| `runCaseChat` | `server/services/workflow/agents/caseMainAgent.ts:69`，`(sessionId: string, message: string \| undefined, options: CaseAgentOptions & { command?: unknown }) → Promise<ReadableStream<Uint8Array>>` | ✅ 正文 §1 已对 |
+| `runCaseChat` | `server/services/workflow/agents/caseMainAgent.ts:69`，`(sessionId: string, message: string \| undefined, options: CaseAgentOptions & { command?: unknown }) → Promise<ReadableStream<Uint8Array>>` | [OK] 正文 §1 已对 |
 | `CaseAgentOptions` 真实字段 | 同文件 L46-55：`{ userId: number, caseId: number, thinking?: boolean, signal?: AbortSignal }`。**没有 callbacks，也没有 agentName** | 正文 §1 写"加 callbacks"，但忘了警告：**没有 agentName，RunCaseInput 不要传** |
 | `agent.stream(input, config)` 调用点 | 同文件 L161-189：第二参数是 RunnableConfig `{ configurable, streamMode, subgraphs, encoding, recursionLimit, signal }` | **callbacks 注入应加在这里**（不是 ChatModelConfig） |
 | `ChatModelConfig` | `server/services/node/chatModelFactory.ts:28-50`，**没有也不需要加 callbacks**。LangChain BaseChatModel 的 callbacks 通过 RunnableConfig 在 invoke/stream 时传 | v2 正文 Task 4 + A.3 错误地说要扩展 ChatModelConfig + 三家供应商分支。**全部撤销**，只在 caseMainAgent.ts agent.stream 第二参数加 `callbacks: options.callbacks` |
-| `cases` 表 | `prisma/models/case.prisma:34`：必填 `userId` (Int @map "user_id") + `caseTypeId` (Int @map "case_type_id") + `title` | 正文 v2 写 `ownerUserId` ❌ → 改 `userId` |
-| `caseSessions` model | model 名 **`caseSessions`** @@map(`case_sessions`)。必填 `sessionId` (unique)；`caseId/userId` 都 nullable；`scope` default 'case'，`type` default 1 | 正文 v2 写 `prisma.chatSessions` ❌ → 改 `prisma.caseSessions`，且不设 moduleId 字段（不存在） |
+| `cases` 表 | `prisma/models/case.prisma:34`：必填 `userId` (Int @map "user_id") + `caseTypeId` (Int @map "case_type_id") + `title` | 正文 v2 写 `ownerUserId` [FAIL] → 改 `userId` |
+| `caseSessions` model | model 名 **`caseSessions`** @@map(`case_sessions`)。必填 `sessionId` (unique)；`caseId/userId` 都 nullable；`scope` default 'case'，`type` default 1 | 正文 v2 写 `prisma.chatSessions` [FAIL] → 改 `prisma.caseSessions`，且不设 moduleId 字段（不存在） |
 | `caseMaterials` 真实字段 | `prisma/models/case.prisma:149`：必填 `name` + `type` (Int 1-4) + `caseId?`；可选 `summary` (String? Text) + `status` (default 1) + `ossFileId?`。**没有 fileType / fileName / fileSize / fileUrl** | 正文 v2 fixture 全错 → 改 `name + type:2(文档)` |
-| `caseAnalyses` 真实字段 | `prisma/models/case.prisma:189`：必填 `caseId` + `sessionId` (FK case_sessions.sessionId, NOT NULL String) + `nodeId` (FK nodes.id, NOT NULL Int) + `analysisType`；可选 `analysisResult` (Text) + `summary` (Text) + `version` (default 1) + `isActive` (default false) + `status` (default 1)。**没有 `content` 字段** | 正文 v2 用 `content` ❌ → 改 `analysisResult`；必加 `sessionId`（取自 fixture 创建的 caseSessions.sessionId）+ `nodeId: 1`（来自 seedData） |
+| `caseAnalyses` 真实字段 | `prisma/models/case.prisma:189`：必填 `caseId` + `sessionId` (FK case_sessions.sessionId, NOT NULL String) + `nodeId` (FK nodes.id, NOT NULL Int) + `analysisType`；可选 `analysisResult` (Text) + `summary` (Text) + `version` (default 1) + `isActive` (default false) + `status` (default 1)。**没有 `content` 字段** | 正文 v2 用 `content` [FAIL] → 改 `analysisResult`；必加 `sessionId`（取自 fixture 创建的 caseSessions.sessionId）+ `nodeId: 1`（来自 seedData） |
 | `caseMemories` 真实表 | `prisma/models/case.prisma:303`：**LangChain PGVectorStore 同构 schema**，仅 5 列：`id` (uuid pk default gen_random_uuid()) + `text` (Text?) + `metadata` (Json?) + `embedding` (Unsupported "vector"?) + `tsv` (Unsupported "tsvector"?) | **关键：embedding 是 `Unsupported("vector")`** —— Prisma client **不能** `caseMemories.create()`（会报 "field of type Unsupported cannot be used"）。fixture **必须**用 raw SQL `INSERT INTO case_memories (id, text, metadata) VALUES (...)` 或者走项目 `addDocumentsToVectorStore` |
-| `users` 表 | `prisma/models/user.prisma`：必填 `name` + `phone` (unique) | 正文 v2 写 `nickname` ❌ → 改 `name` |
-| `consolidator QUEUE_KEY` | `server/services/memory/consolidator.service.ts:11` `'consolidator:due'` | ✅ |
-| `writeMemoryService` 签名 | `server/services/memory/memory.service.ts:22` `(input: MemoryWriteInput) → Promise<{ id: string }>`，`MemoryWriteInput = { caseId, kind, text, subjectKey?, confidence?, source? }` | ✅ |
+| `users` 表 | `prisma/models/user.prisma`：必填 `name` + `phone` (unique) | 正文 v2 写 `nickname` [FAIL] → 改 `name` |
+| `consolidator QUEUE_KEY` | `server/services/memory/consolidator.service.ts:11` `'consolidator:due'` | [OK] |
+| `writeMemoryService` 签名 | `server/services/memory/memory.service.ts:22` `(input: MemoryWriteInput) → Promise<{ id: string }>`，`MemoryWriteInput = { caseId, kind, text, subjectKey?, confidence?, source? }` | [OK] |
 | `updateMemoryService` 签名 | 同文件 L84，参数对象包含 `id` + `invalidate?: boolean` 等 | 实施前 grep 第 84-108 行确认完整签名 |
-| `updateCaseService` 真签名 | `server/services/case/case.service.ts:234` `(caseId: number, data: UpdateCaseInput) → Promise<cases>`。**不需要 ownerUserId 参数** | 正文 v2 写 `(fx.caseC.id, ctx.ownerUserId, {...})` ❌ → 改 2 参数 |
-| `updateCaseService` ARCHIVED 守卫 | 同文件 L245 `if (isCaseReadOnly(existing.status)) throw '案件已归档，不可编辑'` | ✅ 守卫存在，eval 测试会 PASS |
+| `updateCaseService` 真签名 | `server/services/case/case.service.ts:234` `(caseId: number, data: UpdateCaseInput) → Promise<cases>`。**不需要 ownerUserId 参数** | 正文 v2 写 `(fx.caseC.id, ctx.ownerUserId, {...})` [FAIL] → 改 2 参数 |
+| `updateCaseService` ARCHIVED 守卫 | 同文件 L245 `if (isCaseReadOnly(existing.status)) throw '案件已归档，不可编辑'` | [OK] 守卫存在，eval 测试会 PASS |
 | `initAnalysisService` | **不存在**。initAnalysis.service.ts 真实导出（L250 / L271 / L316）：`canShortCircuitSSE` / `buildTerminalSnapshotEvents` / `completeAnalysisWithRAG` 等 | 改用 service 直调 `createCaseService` 不行（ARCHIVED 案件已经存在），**改方案**：直接调 `prisma.cases.findUnique` + 手工触发 ARCHIVED case 的 init 流程，但项目 init 入口在 API handler 而非 service。**结论**：删除 `sec-archived-initAnalysis` 断言，改为 `sec-archived-write-analysis`（用 `prisma.caseAnalyses.create` 时项目代码层是否拦 ARCHIVED）；或者保留该断言并标注"由于 init 流程没有独立 service 入口，本断言改为通过 HTTP 测试"——需用户拍板 |
-| SSE 协议 | `server/services/sse/agentSseStream.ts:128-184`：`event: values\ndata: {messages, ...}\n\n` / `event: messages\ndata: {...}\n\n` / `event: custom\ndata: {type, ...}\n\n` | ✅ 正文 Task 6 sseConsumer 协议对 |
+| SSE 协议 | `server/services/sse/agentSseStream.ts:128-184`：`event: values\ndata: {messages, ...}\n\n` / `event: messages\ndata: {...}\n\n` / `event: custom\ndata: {type, ...}\n\n` | [OK] 正文 Task 6 sseConsumer 协议对 |
 | `mergeAutofillPreservingUserInput` | `app/composables/useCaseCreation.ts`（**前端**），10 行纯函数 | eval 内联同样的 10 行 |
 | `addDocumentsToVectorStore` | `server/services/legal/vectorStore.service.ts`，签名 `(docs, ids, { tableName })` | fixture 写 caseMemories 用此函数（推荐），或 raw SQL 直插 |
 | `seedData.sql` 含数据 | 7 caseTypes + 17 models + 21 nodes（id=1=caseInfoCheck/analysis；id=2=extractInfo/extraction 等） | fixture 不需要造这三张表 |
