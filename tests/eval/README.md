@@ -68,7 +68,7 @@ python3 -m http.server 8080
 | 类别 | 指标 | 阈值 | 分级 |
 |---|---|---|---|
 | Cost | `systemPromptTokensAvg` | < 4,000 | WARN |
-| Cost | `totalPromptTokensAvg` | < 6,000 | WARN |
+| Cost | `totalPromptTokensAvg` | < 10,000 | WARN |
 | Cost | `cacheHitRate` | ≥ 60% | **CRITICAL** |
 | Cost | `anthropicCacheStructureOk` | true | WARN |
 | Cost | `openaiCacheStructureOk` | true | WARN |

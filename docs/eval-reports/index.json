@@ -306,6 +306,20 @@
       "commit": "f5db37ff",
       "overallPass": true,
       "criticalFailures": []
+    },
+    {
+      "filename": "2026-04-25-2250-context-governance.json",
+      "runAt": "2026-04-25T22:50:01+08:00",
+      "commit": "03a30116",
+      "overallPass": true,
+      "criticalFailures": []
+    },
+    {
+      "filename": "2026-04-25-2259-context-governance.json",
+      "runAt": "2026-04-25T22:59:28+08:00",
+      "commit": "03a30116",
+      "overallPass": true,
+      "criticalFailures": []
     }
   ]
 }
