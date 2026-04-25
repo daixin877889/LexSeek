@@ -15,6 +15,12 @@ import { isAliyunOssConfig, isQiniuConfig, isTencentCosConfig } from './types'
 type AdapterConstructor = new (config: StorageConfig) => StorageAdapter
 
 /**
+ * Eval-only：注入的 fake storage adapter
+ * 生产代码不要读写此变量；仅供 tests/eval/utils/ossMock.ts 使用
+ */
+let __evalStorageOverride: StorageAdapter | null = null
+
+/**
  * 存储适配器工厂
  * 使用单例模式管理适配器实例
  */
@@ -47,6 +53,11 @@ export class StorageFactory {
      * @throws StorageConfigError 配置无效时抛出
      */
     static getAdapter(config: StorageConfig): StorageAdapter {
+        // Eval-only：注入的 fake adapter 优先返回（生产代码不会触发）
+        if (__evalStorageOverride) {
+            return __evalStorageOverride
+        }
+
         const key = this.generateConfigKey(config)
 
         // 检查缓存
@@ -159,4 +170,20 @@ export class StorageFactory {
         const key = this.generateConfigKey(config)
         return this.adapters.has(key)
     }
+}
+
+// ============================================================================
+// Eval-only override 钩子
+// ============================================================================
+
+/**
+ * Eval-only：注入 fake storage adapter
+ * 调用 StorageFactory.getAdapter() 时会优先返回该 adapter（绕过缓存与真实适配器构造）
+ *
+ * **生产代码不要调用此函数**，仅供 eval 框架使用
+ *
+ * @param adapter 注入的 adapter；传 null 卸载
+ */
+export function __setStorageAdapterOverrideForEval(adapter: StorageAdapter | null): void {
+    __evalStorageOverride = adapter
 }
