@@ -84,6 +84,7 @@ Step 9  exit             → CRITICAL 全过 exit 0；任一 CRITICAL FAIL exit 
 ├── 材料 8 份（合同×2 + 证据×4 + 笔录×2），每份含预生成 summary
 ├── 案件记忆 15 条（fact×5 + preference×5 + topic×5）
 ├── 分析产物 3 份 × 每份 2 个版本（active + 历史），共 6 条 caseAnalyses
+├── **旧分析产物 1 条**（`summary IS NULL` + 无 case_analysis_embeddings 行，模拟 M4 上线前已有的旧数据）
 └── 历史对话 20 轮（分 3 个模块，每模块约 6-7 轮）
 
 案件 B（诱饵，测跨案件隔离）
@@ -237,8 +238,8 @@ docs/eval-reports/
 | 3. 任务成功（Task） | 2 | 2 | 0 |
 | 4. 抽取质量（Extraction） | 4 | 2 | 2 |
 | 5. 安全/隔离（Security） | 6 | 6 | 0 |
-| 6. 稳定性（Stability） | 3 | 2 | 1 |
-| **合计** | **25** | **14** | **11** |
+| 6. 稳定性（Stability） | 4 | 3 | 1 |
+| **合计** | **26** | **15** | **11** |
 
 ### 3.2 成本（Cost）
 
@@ -392,6 +393,7 @@ extractionPrecision = 1 - precisionMisses / extracted.length
 |---|---|---|---|
 | `stab-prompt-hash` | 同案件同模块两次连发，取 `moduleContextBuilder` 返回的前 4 段 | `sha256` 两次相等 | **CRITICAL** |
 | `stab-switch-active-atomic` | Part 1 ④ 组第 5 题后手动触发 `switchActiveVersionService` | `caseAnalyses.isActive=true` 行数=1；同 caseAnalysisId 的 `case_analysis_embeddings.metadata.isActive=true` 行数全部同步 | **CRITICAL** |
+| `stab-old-data-graceful` | 用 fixture 中那条 `summary IS NULL` 的旧分析触发：① `search_case_analysis` 直接查；② moduleContextBuilder 渲染含此旧分析的 caseId | ① 不抛异常（召回不到也算合规）；② moduleSummaries 段不出现 `null` / `undefined` 字面量 | **CRITICAL** |
 | `stab-profile-key-order` | 拿 `buildCaseProfileJson` 输出 | `JSON.stringify` 后 key 顺序等于按字典序排后的顺序 | WARN |
 
 ---
@@ -445,7 +447,7 @@ export async function runEval() {
 ## 分级摘要
 | 级别 | 总数 | 通过 | 未通过 |
 |---|---|---|---|
-| CRITICAL | 14 | 12 | 2 [FAIL] |
+| CRITICAL | 15 | 13 | 2 [FAIL] |
 | WARN | 11 | 10 | 1 [WARN] |
 
 ## CRITICAL 未通过项
@@ -478,8 +480,8 @@ export async function runEval() {
   "commit": "93771108",
   "durationMs": 462000,
   "summary": {
-    "totalCritical": 14,
-    "passedCritical": 12,
+    "totalCritical": 15,
+    "passedCritical": 13,
     "totalWarn": 11,
     "passedWarn": 10,
     "criticalFailures": ["sec-cross-case-leak", "stab-prompt-hash"],
