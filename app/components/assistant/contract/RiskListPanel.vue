@@ -22,6 +22,8 @@ import {
 import { useLocalStorage } from '@vueuse/core'
 import type { ContractOverview, Risk, RiskDisplay, ContractReviewStatus, PlaybookSnapshot, ContractAnnotationEntity, RiskArchivedStatus, RiskSource } from '#shared/types/contract'
 import { RISK_LEVEL_LABEL } from '#shared/types/contract'
+// UI-L1：徽章配色集中到 app/utils/contractRiskLevelStyle，与 ContractDocxPreview 共享
+import { RISK_LEVEL_BADGE_CLASS as LEVEL_CLASS } from '~/utils/contractRiskLevelStyle'
 
 // Phase B 本地类型扩展（不修改 shared/types/contract.ts）
 type RiskDisplayPhaseB = RiskDisplay & {
@@ -91,7 +93,9 @@ const expandedId = ref<string | null>(null)
 watch(() => props.focusedRiskId, (id) => {
     if (!id) return
     nextTick(() => {
-        const el = containerRef.value?.querySelector(`[data-risk-id="${id}"]`)
+        // UI-M4：CSS.escape 包裹防 id 含特殊字符（双引号 / 反斜杠等）破坏 selector
+        const safeId = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(id) : id
+        const el = containerRef.value?.querySelector(`[data-risk-id="${safeId}"]`)
         el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     })
 })
@@ -168,12 +172,6 @@ function confirmDelete() {
     emit('editRisks', newRisks)
     deleteDialogOpen.value = false
     deletingRiskId.value = null
-}
-
-const LEVEL_CLASS: Record<Risk['level'], string> = {
-    high: 'bg-red-500 text-white',
-    medium: 'bg-orange-500 text-white',
-    low: 'bg-gray-400 text-white',
 }
 
 function pointByCode(code: string) {
@@ -520,7 +518,11 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                     }"
                     @click="toggle(r.id); emit('focusRisk', r.id)"
                 >
-                    <span v-if="justAddedIds.has(r.id)" class="absolute top-1 left-1 bg-yellow-200 dark:bg-yellow-800 text-yellow-900 dark:text-yellow-100 text-[10px] px-1.5 rounded">刚刚</span>
+                    <Badge
+                        v-if="justAddedIds.has(r.id)"
+                        variant="secondary"
+                        class="absolute top-1 left-1 bg-yellow-200 dark:bg-yellow-800 text-yellow-900 dark:text-yellow-100 text-[10px] px-1.5 py-0 shrink-0"
+                    >刚刚</Badge>
                     <CardHeader class="py-2 px-3">
                         <div class="flex items-center gap-2">
                             <span class="inline-block px-2 py-0.5 rounded text-xs shrink-0" :class="LEVEL_CLASS[r.level]">{{ RISK_LEVEL_LABEL[r.level] }}</span>

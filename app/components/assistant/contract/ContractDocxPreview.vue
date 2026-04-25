@@ -12,6 +12,9 @@ import { renderAsync } from 'docx-preview'
 import { toast } from 'vue-sonner'
 import { locateClauseElement } from '#shared/utils/clauseLocator'
 import type { Risk, RiskLevel } from '#shared/types/contract'
+// UI-L1：从 app/utils/contractRiskLevelStyle.ts 单一数据源 import，
+// 与 RiskListPanel 的徽章配色统一维护。
+import { RISK_LEVEL_DOCX_BG_CLASS as LEVEL_BG } from '~/utils/contractRiskLevelStyle'
 
 const props = withDefaults(defineProps<{
     reviewedFileId: number | null
@@ -47,12 +50,6 @@ let fetchSeq = 0
  * 注：文档"纸面"保持白色（Word 预览惯例），不随全局 dark 主题翻转；
  * 因此段落高亮只用 light 变体，避免在白纸上出现暗色块的突兀对比。
  */
-const LEVEL_BG: Record<RiskLevel, string[]> = {
-    high: ['bg-red-50', 'border-l-4', 'border-red-400'],
-    medium: ['bg-orange-50', 'border-l-4', 'border-orange-400'],
-    low: ['bg-slate-50', 'border-l-4', 'border-slate-400'],
-}
-
 /** 内部函数：在 DOM 里跑一次定位，返回没匹配到的 riskId 集合（不发 emit） */
 function runDecorateOnce(): Set<string> {
     if (!containerRef.value) return new Set(props.risks.map(r => r.id))

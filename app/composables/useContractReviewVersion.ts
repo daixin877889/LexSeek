@@ -424,13 +424,19 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
     /**
      * 工作区是否有相对最新版本的未保存编辑。
      * Phase A 启发式近似：取 risks/annotations 最新时间 vs 当前版本快照 createdAt 对比。
+     * UI-M6：annotations 取 createdAt + updatedAt 较大值（updateAnnotation 走
+     * debounce flush 时只刷 updatedAt 不动 createdAt）。同时 annotationDirty 本地
+     * 标记作 fast path：只要本会话有过 updateAnnotation 即视为未保存。
      */
     const hasUnsavedEdits = computed(() => {
         if (isReadOnly.value) return false
         if (!workspace.value.currentVersionId) return false
+        if (annotationDirty.value) return true
         const latestEdit = Math.max(
             maxTimestamp(workspace.value.risks.map(r => r.updatedAt)),
-            maxTimestamp(workspace.value.annotations.map(a => a.createdAt)),
+            maxTimestamp(workspace.value.annotations.flatMap(a =>
+                [a.createdAt, (a as { updatedAt?: string }).updatedAt].filter((x): x is string => !!x),
+            )),
         )
         const currentVer = versions.value.find(v => v.id === workspace.value.currentVersionId)
         if (!currentVer) return false

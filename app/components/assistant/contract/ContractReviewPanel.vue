@@ -203,6 +203,9 @@ async function handleRestoreAnnotation(annotationId: number) {
  */
 const statusLabel = computed(() => {
     if (!review.value) return ''
+    // UI-M1：立场提交后 1-3 秒 interruptData 仍未变，runStatus 还是
+    // awaiting_stance，文案条会闪到"无文案"再切到"审查中"。短路这段窗口。
+    if (isConfirming.value) return 'AI 正在逐条审查合同条款...'
     const rs = runStatus.value
     if (rs === 'reviewing') return 'AI 正在逐条审查合同条款...'
     if (rs === 'completed') return '审查完成'
@@ -222,6 +225,7 @@ const statusLabel = computed(() => {
 // review.status 尚未刷新时也应继续显示，防止面板误切到"空闲"观感。
 const showBusy = computed(() => {
     if (isLoading.value) return true
+    if (isConfirming.value) return true // UI-M1
     if (runStatus.value === 'reviewing') return true
     const s = review.value?.status
     return s === 'pending' || s === 'reviewing'
@@ -401,6 +405,15 @@ watch(
         notLocatedIds.value = new Set()
     },
 )
+
+// UI-M3：risks 流式 append 时（reviewedFileId 不变但 effectiveRisks.length 变多）
+// DocxPreview 还没 decorate 完，notLocatedIds 处于"上一帧"快照。短暂置 hasLocated=false
+// 让 RiskListPanel 不把新 risk 误标"已定位"再立即跳成"未定位"造成视觉闪烁。
+watch(() => effectiveRisks.value.length, (newLen, prevLen) => {
+    if (newLen > (prevLen ?? 0)) {
+        hasLocated.value = false
+    }
+})
 
 /**
  * 聚焦 risk 的拦截层：未定位的 risk 不跳转文档（元素不存在），
