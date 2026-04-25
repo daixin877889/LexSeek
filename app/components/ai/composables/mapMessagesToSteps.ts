@@ -165,6 +165,7 @@ export function mapMessagesToSteps(
   if (isRunning) {
     for (let i = steps.length - 1; i >= 0; i--) {
       const s = steps[i]
+      if (!s) continue
       if (s.kind !== 'tool_call' || s.status !== 'complete') {
         s.status = s.kind === 'tool_call' ? s.status : 'active'
         s.isActive = s.status === 'active'
