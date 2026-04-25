@@ -15,7 +15,7 @@
  */
 import {
     DownloadIcon, ChevronDownIcon, Loader2Icon, PlusIcon, PencilIcon, Trash2Icon,
-    FileTextIcon, Pin, TriangleAlert, ClipboardList, CheckCircle2Icon, XCircleIcon,
+    FileTextIcon, Pin, TriangleAlert, CheckCircle2Icon, XCircleIcon,
     SendIcon, MessageCircleIcon, UserIcon, EyeOffIcon, RotateCcwIcon,
     SparklesIcon,
 } from 'lucide-vue-next'
@@ -172,15 +172,6 @@ function confirmDelete() {
     emit('editRisks', newRisks)
     deleteDialogOpen.value = false
     deletingRiskId.value = null
-}
-
-function pointByCode(code: string) {
-    return props.playbookSnapshot?.points.find(p => p.code === code) ?? null
-}
-
-function titleForRisk(r: Risk): string | null {
-    if (!r.matchedPointCode) return null
-    return pointByCode(r.matchedPointCode)?.title ?? null
 }
 
 // 导出 PDF 对话框
@@ -486,177 +477,32 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                 </template>
 
                 <!-- ===== 主风险清单 ===== -->
-                <Card
+                <AssistantContractRiskCard
                     v-for="r in mainRisks"
                     :key="r.id"
-                    :data-risk-id="r.id"
-                    :data-just-added="justAddedIds.has(r.id) ? 'true' : 'false'"
-                    class="cursor-pointer relative transition-all"
-                    :class="{
-                        'opacity-60 grayscale-[0.2]': !!getArchivedStatus(r),
-                        'bg-yellow-50 dark:bg-yellow-950/40 ring-1 ring-yellow-300 dark:ring-yellow-700': justAddedIds.has(r.id),
-                        'bg-yellow-50 dark:bg-yellow-950/40 border-l-4 border-red-500 dark:border-red-400': focusedRiskId === r.id,
-                        'bg-orange-50 dark:bg-orange-950/40 border-l-4 border-orange-500 dark:border-orange-400': pinnedRiskIds.has(r.id) && focusedRiskId !== r.id,
-                        'bg-yellow-50 dark:bg-yellow-950/30': hoveredRiskId === r.id && focusedRiskId !== r.id && !pinnedRiskIds.has(r.id),
-                    }"
-                    @click="toggle(r.id); emit('focusRisk', r.id)"
-                >
-                    <Badge
-                        v-if="justAddedIds.has(r.id)"
-                        variant="secondary"
-                        class="absolute top-1 left-1 bg-yellow-200 dark:bg-yellow-800 text-yellow-900 dark:text-yellow-100 text-[10px] px-1.5 py-0 shrink-0"
-                    >刚刚</Badge>
-                    <CardHeader class="py-2 px-3">
-                        <div class="flex items-center gap-2">
-                            <span class="inline-block px-2 py-0.5 rounded text-xs shrink-0" :class="LEVEL_CLASS[r.level]">{{ RISK_LEVEL_LABEL[r.level] }}</span>
-                            <span class="text-sm font-medium truncate">{{ r.category }}</span>
-                            <!-- 已处置徽章 -->
-                            <Badge
-                                v-if="getArchivedStatus(r)"
-                                variant="secondary"
-                                class="text-[10px] px-1.5 py-0 shrink-0 flex items-center gap-0.5"
-                            >
-                                <CheckCircle2Icon class="size-2.5" />
-                                {{ ARCHIVED_STATUS_LABEL[getArchivedStatus(r)!] }}
-                            </Badge>
-                            <!-- AI 已重审徽章：经历过锚点迁移的风险条目 -->
-                            <Badge
-                                v-if="r.originalAnchorQuote"
-                                variant="secondary"
-                                class="text-[10px] px-1.5 py-0 shrink-0 flex items-center gap-0.5 bg-primary/10 text-primary"
-                            >
-                                <SparklesIcon class="size-2.5" />
-                                AI 已重审
-                            </Badge>
-                            <TooltipProvider v-if="titleForRisk(r)">
-                                <Tooltip>
-                                    <TooltipTrigger as-child>
-                                        <Badge
-                                            variant="secondary"
-                                            class="text-[10px] px-1.5 py-0 font-normal shrink-0 gap-0.5 flex items-center cursor-help"
-                                            @click.stop
-                                        >
-                                            <ClipboardList class="size-2.5" />
-                                            {{ titleForRisk(r) }}
-                                        </Badge>
-                                    </TooltipTrigger>
-                                    <TooltipContent class="max-w-xs text-xs space-y-1">
-                                        <div class="font-semibold">{{ titleForRisk(r) }}</div>
-                                        <div v-if="pointByCode(r.matchedPointCode!)?.checkContent">
-                                            <span class="text-muted-foreground">检查：</span>{{ pointByCode(r.matchedPointCode!)?.checkContent }}
-                                        </div>
-                                        <div v-if="pointByCode(r.matchedPointCode!)?.legalBasis">
-                                            <span class="text-muted-foreground">法律依据：</span>{{ pointByCode(r.matchedPointCode!)?.legalBasis }}
-                                        </div>
-                                        <div v-if="pointByCode(r.matchedPointCode!)?.suggestion">
-                                            <span class="text-muted-foreground">建议：</span>{{ pointByCode(r.matchedPointCode!)?.suggestion }}
-                                        </div>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                            <span
-                                v-if="hasLocated !== false && notLocatedIds.has(r.id)"
-                                class="text-[10px] px-1.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700 flex items-center gap-0.5 shrink-0"
-                            >
-                                <TriangleAlert class="size-2.5" />
-                                未定位
-                            </span>
-                            <button
-                                class="ml-auto text-xs px-1.5 py-0.5 rounded hover:bg-muted flex items-center gap-1 shrink-0"
-                                :class="{ 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-200': pinnedRiskIds.has(r.id) }"
-                                :aria-label="pinnedRiskIds.has(r.id) ? '取消钉住' : '钉住'"
-                                @click.stop="emit('togglePin', r.id)"
-                            >
-                                <Pin class="size-3" />
-                                <span v-if="pinnedRiskIds.has(r.id)">已钉</span>
-                            </button>
-                            <ChevronDownIcon class="size-4 transition-transform shrink-0 text-muted-foreground" :class="{ 'rotate-180': expandedId === r.id }" />
-                        </div>
-                        <div class="mt-1 text-xs text-muted-foreground line-clamp-2">{{ r.problem }}</div>
-                    </CardHeader>
-                    <CardContent v-if="expandedId === r.id" class="py-2 px-3 text-sm space-y-3" @click.stop>
-                        <AssistantContractRiskClauseDiff :clause-text="r.clauseText" :suggested-clause-text="r.suggestedClauseText" />
-                        <div v-if="r.legalBasis"><div class="text-xs text-muted-foreground">法律依据</div><div>{{ r.legalBasis }}</div></div>
-                        <div><div class="text-xs text-muted-foreground">条款分析</div><div class="whitespace-pre-wrap">{{ r.analysis }}</div></div>
-                        <div><div class="text-xs text-muted-foreground">法律风险</div><div class="whitespace-pre-wrap">{{ r.risk }}</div></div>
-                        <div><div class="text-xs text-muted-foreground">修改建议</div><div class="whitespace-pre-wrap">{{ r.suggestion }}</div></div>
-
-                        <div class="flex gap-2 pt-2 border-t flex-wrap">
-                            <Button size="sm" variant="outline" :disabled="!editable || readOnly" @click="openEdit(r)">
-                                <PencilIcon class="size-3 mr-1" />编辑
-                            </Button>
-                            <Button size="sm" variant="outline" class="text-destructive" :disabled="!editable || readOnly" @click="openDelete(r.id)">
-                                <Trash2Icon class="size-3 mr-1" />删除
-                            </Button>
-                            <template v-if="isCompleted && !readOnly && annotations !== undefined">
-                                <Button
-                                    v-if="!getArchivedStatus(r)"
-                                    size="sm"
-                                    variant="outline"
-                                    class="text-green-700 dark:text-green-400 border-green-300 dark:border-green-700"
-                                    @click="handleArchive(r.id, 'handled')"
-                                >
-                                    <CheckCircle2Icon class="size-3 mr-1" />标记已处理
-                                </Button>
-                                <Button
-                                    v-if="!getArchivedStatus(r)"
-                                    size="sm"
-                                    variant="outline"
-                                    class="text-muted-foreground"
-                                    @click="handleArchive(r.id, 'ignored')"
-                                >
-                                    <XCircleIcon class="size-3 mr-1" />标记忽略
-                                </Button>
-                                <Button
-                                    v-if="getArchivedStatus(r)"
-                                    size="sm"
-                                    variant="outline"
-                                    @click="handleArchive(r.id, null)"
-                                >
-                                    撤销处置
-                                </Button>
-                            </template>
-                        </div>
-
-                        <!-- 批注对话线 -->
-                        <div class="pt-2 border-t space-y-2">
-                            <div class="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                                <MessageCircleIcon class="size-3" />
-                                批注（{{ annotationsForRisk(r.id).length }}）
-                            </div>
-
-                            <AnnotationBubble
-                                v-for="ann in annotationsForRisk(r.id)"
-                                :key="ann.id"
-                                :annotation="ann"
-                                :can-delete="!readOnly && ann.authorType === 'lawyer' && ann.authorUserId === currentUserId"
-                                @delete="emit('deleteAnnotation', $event)"
-                            />
-
-                            <div v-if="!readOnly && isCompleted" class="flex gap-2 mt-2">
-                                <Textarea
-                                    v-model="replyContents[r.id]"
-                                    placeholder="添加批注..."
-                                    :rows="2"
-                                    :maxlength="500"
-                                    class="text-xs flex-1"
-                                    :disabled="readOnly"
-                                    @keydown.enter.ctrl.prevent="handleAddAnnotation(r.id)"
-                                />
-                                <Button
-                                    size="icon"
-                                    class="size-8 shrink-0 self-end"
-                                    :disabled="readOnly || !(replyContents[r.id]?.trim())"
-                                    aria-label="发送批注"
-                                    @click="handleAddAnnotation(r.id)"
-                                >
-                                    <SendIcon class="size-3.5" />
-                                </Button>
-                            </div>
-                            <div v-else-if="readOnly" class="text-xs text-muted-foreground italic">只读模式，无法添加批注</div>
-                        </div>
-                    </CardContent>
-                </Card>
+                    :risk="r"
+                    :expanded="expandedId === r.id"
+                    :annotations="annotationsForRisk(r.id)"
+                    :read-only="readOnly ?? false"
+                    :is-completed="isCompleted"
+                    :editable="editable"
+                    :current-user-id="currentUserId"
+                    :is-focused="focusedRiskId === r.id"
+                    :is-pinned="pinnedRiskIds.has(r.id)"
+                    :is-hovered="hoveredRiskId === r.id"
+                    :is-just-added="justAddedIds.has(r.id)"
+                    :archived-status="getArchivedStatus(r)"
+                    :not-located="hasLocated !== false && notLocatedIds.has(r.id)"
+                    :playbook-snapshot="playbookSnapshot ?? null"
+                    @toggle="toggle"
+                    @focus="(id: string) => emit('focusRisk', id)"
+                    @archive="(id: string, status) => emit('archive', id, status)"
+                    @add-annotation="(id: string, content: string, parentId?: number) => emit('addAnnotation', id, content, parentId)"
+                    @delete-annotation="(annId: number) => emit('deleteAnnotation', annId)"
+                    @toggle-pin="(id: string) => emit('togglePin', id)"
+                    @edit-risk="openEdit"
+                    @delete-risk="(risk) => openDelete(risk.id)"
+                />
 
                 <!-- 已处置折叠区（仅 hideArchived=true 且确有已处置时显示）-->
                 <button
@@ -675,60 +521,20 @@ function handleArchive(riskStringId: string, status: RiskArchivedStatus | null) 
                         原文已修改 · 无法定位（{{ orphanedRisks.length }}）
                     </div>
 
-                    <Card
+                    <AssistantContractRiskCard
                         v-for="r in orphanedRisks"
                         :key="r.id"
-                        :data-risk-id="r.id"
-                        class="cursor-pointer relative transition-all border-l-4 border-amber-400 bg-amber-50/40 dark:bg-amber-950/20"
-                        @click="toggle(r.id); emit('focusRisk', r.id)"
-                    >
-                        <CardHeader class="py-2 px-3">
-                            <div class="flex items-center gap-2">
-                                <span class="inline-block px-2 py-0.5 rounded text-xs shrink-0" :class="LEVEL_CLASS[r.level]">{{ RISK_LEVEL_LABEL[r.level] }}</span>
-                                <span class="text-sm font-medium truncate">{{ r.category }}</span>
-                                <Badge variant="secondary" class="text-[10px] px-1.5 py-0 shrink-0 flex items-center gap-0.5 text-amber-700 dark:text-amber-400">
-                                    <TriangleAlert class="size-2.5" />
-                                    原文已修改
-                                </Badge>
-                                <ChevronDownIcon class="ml-auto size-4 transition-transform shrink-0 text-muted-foreground" :class="{ 'rotate-180': expandedId === r.id }" />
-                            </div>
-                            <div class="mt-1 text-xs text-muted-foreground line-clamp-2">{{ r.problem }}</div>
-                        </CardHeader>
-                        <CardContent v-if="expandedId === r.id" class="py-2 px-3 text-sm space-y-3" @click.stop>
-                            <!-- 原锚点提示 -->
-                            <div v-if="r.originalAnchorQuote" class="rounded-md bg-muted p-2 text-xs text-muted-foreground space-y-1">
-                                <div class="font-medium flex items-center gap-1">
-                                    <TriangleAlert class="size-3 text-amber-500" />
-                                    原锚点引文
-                                </div>
-                                <div class="italic line-clamp-3">{{ r.originalAnchorQuote }}</div>
-                            </div>
-
-                            <div><div class="text-xs text-muted-foreground">条款分析</div><div class="whitespace-pre-wrap">{{ r.analysis }}</div></div>
-                            <div><div class="text-xs text-muted-foreground">法律风险</div><div class="whitespace-pre-wrap">{{ r.risk }}</div></div>
-                            <div><div class="text-xs text-muted-foreground">修改建议</div><div class="whitespace-pre-wrap">{{ r.suggestion }}</div></div>
-
-                            <!-- 历史批注链 -->
-                            <div class="pt-2 border-t space-y-2">
-                                <div class="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                                    <MessageCircleIcon class="size-3" />
-                                    历史讨论（{{ annotationsForRisk(r.id).length }}）
-                                </div>
-                                <AnnotationBubble
-                                    v-for="ann in annotationsForRisk(r.id)"
-                                    :key="ann.id"
-                                    :annotation="ann"
-                                />
-                            </div>
-
-                            <!-- 查看原始语境按钮 -->
-                            <div class="pt-2 border-t">
-                                <Button size="sm" variant="outline" @click="emit('jump-to-original', r.id)">
-                                    查看原始语境
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
+                        :risk="r"
+                        :expanded="expandedId === r.id"
+                        :annotations="annotationsForRisk(r.id)"
+                        :read-only="readOnly ?? false"
+                        :is-completed="isCompleted"
+                        :editable="editable"
+                        :is-orphaned="true"
+                        @toggle="toggle"
+                        @focus="(id: string) => emit('focusRisk', id)"
+                        @jump-to-original="(id: string) => emit('jump-to-original', id)"
+                    />
                 </template>
 
                 <!-- ===== 客户已移除分组（底部，默认折叠） ===== -->
