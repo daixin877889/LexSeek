@@ -11,7 +11,7 @@ import { diff_match_patch } from 'diff-match-patch'
 
 const dmp = new diff_match_patch()
 
-export function getDmp(): diff_match_patch {
+export function getDmp() {
     return dmp
 }
 

@@ -9,7 +9,12 @@
  * 行为保持和原实现一致（所有既有单测必须绿），但彻底消除"同段落多 comment
  * 互相字符串覆盖"这类 bug 的复发通道。
  */
-import type { Risk, RiskLevel, AnnotationAuthorType } from '#shared/types/contract'
+import type {
+    Risk,
+    RiskLevel,
+    AnnotationAuthorType,
+    ContractAnnotationEntity,
+} from '#shared/types/contract'
 import {
     loadDocxZip,
     readTextFromZip,
@@ -318,18 +323,18 @@ export async function injectComments(docxBuffer: Buffer, risks: Risk[]): Promise
 
 /**
  * 导出入参：每条 annotation 的导出所需数据。
+ *
+ * DOCX-R5：从 ContractAnnotationEntity Pick 派生避免字段重复定义。
+ * 不直接复用是因为：
+ *   - anchorQuote / anchorParagraphIndex 来自关联的 risk，不在 annotation 上
+ *   - createdAt 类型从 entity 的 string 收窄为 Date | null（Phase B 写 OOXML 用 Date）
  */
-export interface ContractAnnotationForExport {
-    id: number
-    riskId: number
-    authorType: AnnotationAuthorType
-    authorName: string
-    content: string
-    parentAnnotationId: number | null
+export type ContractAnnotationForExport = Pick<
+    ContractAnnotationEntity,
+    'id' | 'riskId' | 'authorType' | 'authorName' | 'content' | 'parentAnnotationId' | 'wordCommentRef'
+> & {
     anchorQuote: string
     anchorParagraphIndex: number
-    /** 已存在则沿用；为 null 时内部 generateWordCommentRef(id) 生成 */
-    wordCommentRef: string | null
     /**
      * annotation 创建时间。写入 w:date 让 Word UI 显示批注真实的创建时间，
      * 而不是每次导出都刷新为"现在"。可选：传 null 时用当前时间兜底。
