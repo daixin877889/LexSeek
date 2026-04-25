@@ -3,6 +3,7 @@
 - **日期**：2026-04-25
 - **评测对象**：`2026-04-23-case-context-governance-design.md` 里的 M1-M4 四子系统改造效果
 - **范围**：在 `tests/eval/` 下造一个独立于 vitest 的评测框架，手动触发、真 LLM 全链路跑，采六类指标、出 MD+JSON+HTML 三件套报告
+- **术语更正**：原始 spec 用"5 段 prompt"描述，实际代码 `ContextSegments` 为 4 段字段（`roleAndFlow` / `caseProfile` / `moduleSummaries` / `dynamicContext`）。本 spec 全文按 **4 段**描述，与代码一致
 - **不涉及**：上线前的一次性迁移验证（status 2/3 → 99 的 SQL）、基建底座的可用性探测（zhparser/chinese ts 配置 / bge-reranker 存活）—— 这些由 M1 plan 的迁移清单和 docker healthcheck 负责
 
 ---
@@ -20,7 +21,7 @@
 | 代码版本对比（改造前 vs 改造后）| M1-M4 已合入 dev，旧代码跑不起来（M1 加了必填字段）。只设绝对阈值 |
 | Feature flag 双跑 | 保留旧 `moduleContextBuilder` 污染代码 |
 | 线上真实案件抽样脱敏 | 脱敏 + 标注成本大，首版不做；后续如需扩充金标集可加 |
-| 接入 vitest | vitest 要求快+确定性，eval 走真 LLM ≥ 5 分钟、有随机性 |
+| eval 主框架跑在 vitest 里 | vitest 要求快+确定性，eval 走真 LLM ≥ 5 分钟、有随机性。但 `metrics/*.ts` 里的纯函数指标（cacheHitRate 算法、facts 匹配等）**可**配独立 vitest 单测，不冲突 |
 | CI PR 挂门禁 | 真 LLM 调用有网络抖动，会频繁误挂 PR |
 | 定时跑（GitHub Action cron）| 首版 defer，纯手动；JSON 报告 schema 稳定后随时可接 |
 | 旧版本 / 线上影子流量对比 | 超出一期范围 |
@@ -58,10 +59,10 @@ Step 9  exit             → CRITICAL 全过 exit 0；任一 CRITICAL FAIL exit 
 - **并发度 = 1**：Part 1 串行跑，避免打乱 cache 命中顺序。单轮 eval 总耗时预估 7-10 分钟
 - **失败不中断**：单条 case 抛异常 → 标 `errored`，继续；Runner 本身崩溃才退出 2
 - **超时保护**：单条 case 60s，extraction transcript 180s，超时标 errored 不判 FAIL
-- **LLM 全真调**：被测 + judge 都走真 DeepSeek，不 mock（否则测不到 cache 命中率 / 抽取真实性）
-- **OSS/文件存储**：走 LocalStorage adapter，跳过阿里云 OSS
-- **Eval 库独立**：`ls_eval`，每次跑前 fixture builder 清表
-- **确定性 seed**：`mulberry32(42)`，UUID/时间戳可复现（跨运行比较报告时 case id 稳定）
+- **LLM 全真调**：被测 + judge 都走真 DeepSeek，不 mock（否则测不到 cache 命中率 / 抽取真实性）。**例外**：§3.6 `sec-ai-autofill-preserve` 是独立于 Part 1 的安全断言 step，为验证合并服务的字段优先级逻辑，允许 mock AI 抽取返回，不违反本条主约束
+- **OSS/文件存储**：走 LocalStorage adapter，跳过阿里云 OSS。**注**：项目 `server/lib/storage/adapters/` 当前**只有** aliyun-oss / qiniu / tencent-cos 三家，**需 Phase 1 新建 `local.ts` adapter 或在 eval runner 里直接 mock OSS 客户端**（推荐 mock，侵入更小），见 §5.2
+- **Eval 库独立**：`ls_eval`，每次跑前 fixture builder 清表。**首次运行前需手工 `createdb ls_eval` + `DATABASE_URL='...ls_eval...' bun run prisma:push`**
+- **确定性 seed**：`mulberry32(42)`，UUID/时间戳可复现（跨运行比较报告时 case id 稳定）。**项目无现成 PRNG**，需在 `tests/eval/utils/prng.ts` 新建 mulberry32 纯函数（或引 `seedrandom` npm 包，但建议纯函数避免新依赖）
 
 ### 1.4 单次跑成本估算
 
@@ -241,23 +242,30 @@ docs/eval-reports/
 
 ### 3.2 成本（Cost）
 
-**采集方式**：复用现有 LangChain callback（`handleLLMStart` / `handleLLMEnd`），不侵入业务代码。
+**采集方式**：**新建** `server/services/workflow/callbacks/LLMUsageCallbackHandler.ts`（项目当前无现成 LLM usage 统一 callback）。在 eval runner 里把 handler 注册到 chat model 的 callbacks 数组，handler 在 `handleLLMEnd(output)` 中从 **`output.generations[0][0].message.response_metadata.usage`** 读**供应商原始 usage**（含 DeepSeek 的 `prompt_cache_hit_tokens`）。**不要**走 LangChain 标准化的 `usage_metadata.input_token_details.cache_read` —— 那里只有 Anthropic/OpenAI 的 cache_read，**没有** DeepSeek 的 `prompt_cache_hit_tokens` 字段。
 
 | 指标 | 算法 | 阈值 | 分级 |
 |---|---|---|---|
-| `systemPromptTokensAvg` | 拆 5 段取前 4 段拼串，`countTokens` 用 tiktoken（不走 LLM API）| < 4,000 | WARN |
-| `totalPromptTokensAvg` | LLM response `usage.input_tokens` 均值 | < 6,000 | WARN |
+| `systemPromptTokensAvg` | 取 `ContextSegments` 4 段（roleAndFlow + caseProfile + moduleSummaries + dynamicContext）拼串 → 用 `server/utils/tokenCounter.ts` 的 `countTokensSync`（js-tiktoken `cl100k_base`，不走 LLM API）| < 4,000 | WARN |
+| `totalPromptTokensAvg` | LLM response `usage.prompt_tokens`（DeepSeek）/ `usage.input_tokens`（Anthropic）均值 | < 6,000 | WARN |
 | `cacheHitRate` | DeepSeek 协议：`Σ usage.prompt_cache_hit_tokens / Σ usage.prompt_tokens`（跨整个 run 聚合）| **≥ 60%** | **CRITICAL** |
 | `anthropicCacheStructureOk` | Anthropic 协议端点：第 2 次请求 `usage.cache_read_input_tokens > 0` 布尔 | true | WARN |
 | `openaiCacheStructureOk` | OpenAI 协议端点：第 2 次请求 `usage.prompt_tokens_details.cached_tokens > 0` 布尔 | true | WARN |
 | `memoryRecallLatencyP95` | 每次 `recallMemoryService` 记时间，p95 | < 500ms | WARN |
 | `analysisSummaryLatencyP95` | 同上，针对 `generateSummaryService` | < 3000ms | WARN |
 
-**cacheHitRate 60% CRITICAL 的推导**：5 段结构下，同模块多轮对话理论命中率 `3000 cached / 4500 total ≈ 67%`；减 7% 网络/抖动 margin = 60%。低于 60% 基本表示 prompt 结构字节不稳（典型根因：某字段序列化带了时间戳/随机值），回归意义重大。
+**cacheHitRate 60% CRITICAL 的推导**：4 段结构下，同模块多轮对话理论命中率 `3000 cached / 4500 total ≈ 67%`；减 7% 网络/抖动 margin = 60%。低于 60% 基本表示 prompt 结构字节不稳（典型根因：某字段序列化带了时间戳/随机值），回归意义重大。
 
 **为什么不区分三家 cache 命中率**：项目 `chatModelFactory` 允许 baseUrl 可配（所有协议适配器都压到同一后端，通常 DeepSeek），独立三家无物理意义。保留三家**结构正确性**（布尔）WARN 断言，仅验证 `cache_read_input_tokens` / `cached_tokens` / `prompt_cache_hit_tokens` 三种协议字段都能正确回传。
 
 **样本量要求**：Anthropic/OpenAI 协议每个只跑 2 次同模块同提问（验证 2nd hit），DeepSeek 原生协议跑全部 29 case。
+
+**tiktoken 精度说明**：js-tiktoken 的 `cl100k_base` 是 OpenAI 编码，DeepSeek/Anthropic 用的是各自私有 tokenizer，对中文 DeepSeek 真实 tokens 约为 tiktoken 估算的 70-80%（tiktoken 会偏高 20-40%）。`systemPromptTokensAvg < 4000` 是**保守上界**估算 —— 当它达标时 DeepSeek 真实 tokens 必然也达标；当它未达标时需对照 LLM response 的真实 `usage.prompt_tokens` 再判（Cross-check 逻辑在 aggregator 里实现）。
+
+**协议字段参考来源**：
+- DeepSeek：`usage.prompt_cache_hit_tokens` + `prompt_cache_miss_tokens`；命中率语义 `hit / (hit+miss) = hit / prompt_tokens`（数学等价）；自动缓存，最小 prefix 64 tokens；无固定 TTL（best-effort LRU）
+- Anthropic：`usage.cache_read_input_tokens` + `cache_creation_input_tokens`（创建不算命中）；5m 默认 `{type:'ephemeral'}`，1h 需显式 `{type:'ephemeral', ttl:'1h'}`；cache_control 必须放 `messages` 里的 content block（放 system string 无效）
+- OpenAI：`usage.prompt_tokens_details.cached_tokens`；自动缓存，最小 prefix 1024 tokens
 
 ### 3.3 答案质量（Quality）
 
@@ -322,7 +330,7 @@ for each EvalCase where postRunAssertions is defined:
 
 ### 3.5 抽取质量（Extraction）
 
-**consolidator flush 方式**：在 `server/services/memory/consolidator.service.ts`（或相应文件）**新增 public `processNow(caseId: string)`** 方法，直接跳过 debounce 执行抽取。生产端预留给管理后台"立刻整理"按钮使用，eval 里同步调用。
+**consolidator flush 方式**：在 `server/services/memory/consolidator.service.ts`（已验证存在，含 `scheduleConsolidation` + `drainDueSessions`）**新增 public `processNowService(caseId: string)`** 方法，先 drain 该 caseId 的 ZSET 队列再同步执行抽取，跳过 30s debounce。生产端预留给管理后台"立刻整理"按钮使用，eval 里同步调用。
 
 **对齐算法**：
 
@@ -365,16 +373,18 @@ extractionPrecision = 1 - precisionMisses / extracted.length
 
 ### 3.6 安全 / 隔离（Security）
 
-独立阶段（Step 5），不依赖 LLM 生成，直接调服务 + HTTP。
+独立阶段（Step 5），不依赖 LLM 生成，直接调服务 + HTTP。**项目接口 HTTP 状态码恒为 200，错误码走 JSON `{ code, message }` 的 code 字段**（见 `.claude/rules/architecture.md`），下述所有 HTTP 断言的"不允许"都指"JSON code 字段非 200"。
+
+**`sec-ai-autofill-preserve` 注**：此断言是独立于 Part 1 的安全 step，为验证合并服务的字段优先级逻辑，**允许 mock AI 抽取返回**，不违反 §1.3 "LLM 全真调" 的 Part 1 约束。
 
 | 断言 ID | 触发方式 | 断言内容 | 分级 |
 |---|---|---|---|
 | `sec-cross-case-leak` | 跑 ⑦ 组 2 题，解析返回 JSON | 所有 caseId 均等于主案件 A 的 id，无 B 的数据 | **CRITICAL** |
-| `sec-archived-updateCase` | HTTP PATCH `/api/v1/cases/{caseC.id}` | 返回非 200 或带错误码 | **CRITICAL** |
-| `sec-archived-initAnalysis` | HTTP POST `/api/v1/cases/{caseC.id}/analysis/init` | 返回非 200 | **CRITICAL** |
+| `sec-archived-updateCase` | HTTP PUT `/api/v1/case/{caseC.id}`（实际项目路由为单数 `case`）| 响应 JSON `code !== 200` 且带错误消息 | **CRITICAL** |
+| `sec-archived-initAnalysis` | HTTP POST `/api/v1/case/init-analysis`（body 带 `caseId: caseC.id`）| 响应 JSON `code !== 200` | **CRITICAL** |
 | `sec-archived-write-memory` | 直接调 `writeMemoryService` 工具 handler，传 caseC 的 ctx | 返回拒绝消息 | **CRITICAL** |
 | `sec-archived-update-memory` | 直接调 `updateMemoryService` 工具 handler，传 caseC 的 ctx | 返回拒绝消息 | **CRITICAL** |
-| `sec-ai-autofill-preserve` | 预置案件 `firstInstanceJudge='张三'`，mock AI 抽取返回 `firstInstanceJudge='李四'`，调合并服务 | 最终字段值仍为 `'张三'`（用户输入优先） | **CRITICAL** |
+| `sec-ai-autofill-preserve` | 预置案件 `firstInstanceJudge='张三'`，**mock AI 抽取**返回 `firstInstanceJudge='李四'`，调合并服务 | 最终字段值仍为 `'张三'`（用户输入优先） | **CRITICAL** |
 
 ### 3.7 稳定性（Stability）
 
@@ -393,43 +403,50 @@ extractionPrecision = 1 - precisionMisses / extracted.length
 ```ts
 // tests/eval/runEval.ts
 export async function runEval() {
-  const fx = await buildFixture({ database: prisma, cleanFirst: true, deterministicSeed: 42 })
+  try {
+    const fx = await buildFixture({ database: prisma, cleanFirst: true, deterministicSeed: 42 })
 
-  await warmupCache({ caseId: fx.caseA.id, moduleIds: fx.caseA.sessionIds })
+    await warmupCache({ caseId: fx.caseA.id, moduleIds: fx.caseA.sessionIds })
 
-  const part1 = await runRetrievalTaskDataset(fx, testDataset)          // 29 case
-  const part2 = await runExtractionDataset(fx, extractionDataset)       // 3 transcripts
-  const part3 = await runSecurityStabilityChecks(fx, securityDataset)   // 独立断言
-  const judge = await runQualityJudge(
-    part1.filter(r => r.case.answerType === 'freeform'),
-    { repeat: 3, temperature: 0 }
-  )
+    const part1 = await runRetrievalTaskDataset(fx, testDataset)          // 29 case
+    const part2 = await runExtractionDataset(fx, extractionDataset)       // 3 transcripts
+    const part3 = await runSecurityStabilityChecks(fx, securityDataset)   // 独立断言
+    const judge = await runQualityJudge(
+      part1.filter(r => r.case.answerType === 'freeform'),
+      { repeat: 3, temperature: 0 }
+    )
 
-  const report = aggregate([part1, part2, part3, judge])
+    const report = aggregate([part1, part2, part3, judge])
 
-  await writeMarkdownReport(report, { excerptAnswers: true })
-  await writeJsonReport(report, { fullAnswers: true })
-  await updateReportIndex()  // docs/eval-reports/index.json
+    await writeMarkdownReport(report, { excerptAnswers: true })
+    await writeJsonReport(report, { fullAnswers: true })
+    await updateReportIndex()  // docs/eval-reports/index.json
 
-  logger.info(`Done. Critical failures: ${report.criticalFailures.length}`)
-  process.exit(report.criticalFailures.length > 0 ? 1 : 0)
+    logger.info(`Done. Critical failures: ${report.criticalFailures.length}`)
+    process.exit(report.criticalFailures.length > 0 ? 1 : 0)
+  } catch (err) {
+    logger.error('[eval] runner crashed before producing a report', err)
+    process.exit(2)  // Runner 本身崩溃
+  }
 }
 ```
 
 ### 4.2 Markdown 报告（节选版，~15KB）
+
+**报告文本不使用 emoji**（`CLAUDE.md §3` 铁律："纯文案里也不使用 emoji"），改用纯文字标签 `[PASS]` / `[FAIL]` / `[WARN]`。
 
 ```markdown
 # 上下文机制评测报告
 - 跑批时间：2026-04-25 14:30:12 +08:00
 - Commit：93771108
 - 总耗时：7 分 42 秒
-- **结论：❌ FAIL（2 项 CRITICAL 未达标）**
+- **结论：[FAIL]（2 项 CRITICAL 未达标）**
 
 ## 分级摘要
 | 级别 | 总数 | 通过 | 未通过 |
 |---|---|---|---|
-| CRITICAL | 14 | 12 | 2 ❌ |
-| WARN | 11 | 10 | 1 ⚠️ |
+| CRITICAL | 14 | 12 | 2 [FAIL] |
+| WARN | 11 | 10 | 1 [WARN] |
 
 ## CRITICAL 未通过项
 1. **sec-cross-case-leak**：q-sec-02 返回了案件 B 的 2 条记忆
@@ -439,7 +456,7 @@ export async function runEval() {
 ### 1. 成本（Cost）
 | 指标 | 实测 | 阈值 | 状态 |
 |---|---|---|---|
-| cacheHitRate | 42% | ≥ 60% | ❌ CRITICAL |
+| cacheHitRate | 42% | ≥ 60% | [FAIL] CRITICAL |
 | ... | | | |
 
 （其他类别同样表格化）
@@ -447,7 +464,7 @@ export async function runEval() {
 ## 逐 case 摘要表（节选 AI 回答前 200 字）
 | ID | 组 | 提问 | 回答节选 | facts | 工具 | 耗时 | 结果 |
 |---|---|---|---|---|---|---|---|
-| q-profile-01 | profile | 本案一审法官是谁？ | "本案一审法官为张三..." | 2/2 | - | 1.4s | ✅ |
+| q-profile-01 | profile | 本案一审法官是谁？ | "本案一审法官为张三..." | 2/2 | - | 1.4s | [PASS] |
 
 > 完整回答、judge reasoning、trace 链接请打开 `viewer.html` 加载本 JSON 查看。
 ```
@@ -533,13 +550,13 @@ export async function runEval() {
 
 ---
 
-## 5. consolidator `processNow` 接口约定
+## 5. 新建基建清单（项目现状已验证，需 Phase 1 补齐）
 
-为支持 eval 跳过 debounce，需要在现有 consolidator 服务里暴露公共方法：
+### 5.1 `processNowService` 接口
+
+**位置**：`server/services/memory/consolidator.service.ts`（已验证存在，含 `scheduleConsolidation` + `drainDueSessions`）
 
 ```ts
-// server/services/memory/consolidator.service.ts（或实际所在路径）
-
 /**
  * 立即处理指定案件的对话抽取，跳过 debounce 窗口。
  *
@@ -547,26 +564,63 @@ export async function runEval() {
  * - eval 跑 extraction dataset 时同步等待结果
  * - 管理后台的"立刻整理记忆"按钮（未来）
  *
- * 与 debounced 入队是互斥的：processNow 会先 drain 该 caseId 的 ZSET 队列再执行。
+ * 与 debounced 入队是互斥的：processNowService 会先 drain 该 caseId 的 ZSET 队列再执行。
  */
 export async function processNowService(caseId: string): Promise<ConsolidatorResult>
 ```
 
 **与正常路径的区别**：
 - 正常：`enqueue(caseId) → 30s debounce → CronScheduler tick → process`
-- processNow：`drain ZSET(caseId) → process（同步 await）→ 返回结果`
+- processNowService：`drain ZSET(caseId) → process（同步 await）→ 返回结果`
 
-**生产端可见性**：作为公共 service 暴露，但 eval 路径不是唯一调用方。管理后台若未来加"立刻整理"按钮可复用。
+**生产端可见性**：作为公共 service 暴露，eval 路径不是唯一调用方；管理后台未来加"立刻整理"按钮可复用。
+
+### 5.2 `LLMUsageCallbackHandler` 新建
+
+**位置**：`server/services/workflow/callbacks/LLMUsageCallbackHandler.ts`（新目录 + 新文件）
+
+**能力**：实现 `BaseCallbackHandler` 的 `handleLLMEnd(output, runId)`，从 `output.generations[0][0].message.response_metadata.usage` 读原始 usage（含 DeepSeek `prompt_cache_hit_tokens` / Anthropic `cache_read_input_tokens` / OpenAI `cached_tokens`）。附带 `isWarmup?` flag 让 eval 的 warmup 阶段请求不计入统计。
+
+**生产端使用**：作为可选 observability middleware，生产也可挂上用于线上 cache 命中率监控（非必须）。
+
+### 5.3 `local.ts` 存储 adapter 或 mock OSS
+
+**问题**：`server/lib/storage/adapters/` 只有 aliyun-oss / qiniu / tencent-cos 三家，无 local。eval 不能真的上传到阿里云 OSS。
+
+**推荐方案（侵入最小）**：eval runner 启动时 `vi.mock` 掉存储 adapter 模块（或用依赖注入替换），返回固定伪文件 URL，不真的走网络。
+
+**备选方案**：新建 `server/lib/storage/adapters/local.ts`，走 `fs.writeFile` + `file://` URL。如果生产有本地部署需求可复用；纯为 eval 建就略重。
+
+**决策**：一期走 mock；如需 local adapter 后续再提需求。
+
+### 5.4 `getToolCallTrace` 读取函数
+
+**位置**：`tests/eval/utils/traceReader.ts`（eval 专用，不污染业务代码）
+
+**能力**：从 `agent_runs` 表的 LangGraph checkpoint JSON 解析 `tool_calls` 列表，返回 `{ name, arguments, result }[]`。
+
+### 5.5 `mulberry32` PRNG
+
+**位置**：`tests/eval/utils/prng.ts`（纯函数，约 10 行）
+
+**能力**：确定性 PRNG，`mulberry32(seed)` 返回 `() => number` 在 [0, 1)。用于 fixture id / 时间戳生成。
+
+### 5.6 术语修正
+
+原 spec `2026-04-23-case-context-governance-design.md` 把 prompt 结构描述为"5 段"。实际代码 `server/services/workflow/context/moduleContextBuilder.ts` 的 `ContextSegments` 接口是 **4 段**：`roleAndFlow` / `caseProfile` / `moduleSummaries` / `dynamicContext`。本 eval spec 全文按**实际的 4 段**描述，不跟随原 spec 术语错误。
 
 ---
 
 ## 6. 实施阶段（估算 ~5-7 天）
 
 ```
-Phase 1 · 骨架 + Fixture + Cost 指标            ~2 天
-  - tests/eval/ 目录 + package.json script
-  - buildFixture.ts（3 案件完整数据）
-  - runEval 主循环 + callback 埋点
+Phase 1 · 骨架 + 新建基建 + Fixture + Cost 指标  ~2.5 天
+  - tests/eval/ 目录 + package.json script + prng.ts + traceReader.ts
+  - 新建 server/services/workflow/callbacks/LLMUsageCallbackHandler.ts
+  - 手工 createdb ls_eval + DATABASE_URL=...ls_eval bun run prisma:push
+  - 验证 bun runtime 能否解析 ~~/ 别名（如不能，回退到相对路径 import）
+  - buildFixture.ts（3 案件完整数据）+ OSS mock
+  - runEval 主循环 + LLMUsageCallbackHandler 注册到 chat model
   - Cost 指标采集
   - markdown/json reporter 雏形
   - 目标：能从头跑到尾产出仅含 Cost 的报告
@@ -601,7 +655,7 @@ Phase 5（可选，defer）· GitHub Action 定时      暂不做
 | 首次跑 CRITICAL 全挂 → 阈值定得激进 vs 改造真有问题区分不清 | Phase 4 留校准时间；首跑报告作为 baseline，阈值按实测分布做温和收紧（但 CRITICAL 项如跨案件隔离不放松） |
 | DeepSeek API 临时抖动导致 `cacheHitRate` 误挂 CRITICAL | 允许重跑（`bun run eval:context --retry-critical`）；连续 2 次失败才视为真回归 |
 | eval 库 `ls_eval` 与生产误操作 | fixture builder 强制检查 `DATABASE_URL` 包含 `ls_eval` 才允许清表；否则 refuse + log |
-| consolidator `processNow` 暴露给生产端可能被误调用 | 加 `requireAdminOrEval` 守卫；或通过模块内部 private + 通过 `@ts-expect-error` 暴露给 eval（侵入更小，推荐后者一期用）|
+| consolidator `processNowService` 暴露给生产端可能被误调用 | 作为公共 service 方法，不加额外守卫（现有 Service 层本来就在 server scope 内不会被随意外部调用）。管理后台若未来接按钮需走 admin 路由 + admin middleware，与 service 实现解耦 |
 | viewer.html 在 file:// 下 fetch 本地 JSON 被 CORS 拦 | README 注明用 `python3 -m http.server` 起静态服务；或在 HTML 内用 `<input type=file>` 让用户本地选择 JSON |
 | Cache warmup 本身污染命中率统计 | warmup 请求不计入统计（response callback 带 `isWarmup=true` flag 过滤）|
 | 评测框架代码没测试、eval 结果本身假阳性 | Phase 4 对 `metrics/*.ts` 的纯函数部分写 vitest 单测（覆盖边界：空数组、并列分、NaN）|
@@ -626,15 +680,19 @@ Phase 4 完成后，应满足：
 - [ ] `DATABASE_URL` 不含 `ls_eval` 时拒绝清表（防误删生产/testing）
 - [ ] fixture builder 用 `mulberry32(42)` 确定性 seed，每次跑 case id 稳定
 - [ ] 并发度严格 = 1（Part 1 串行跑，否则 cache 顺序错乱）
-- [ ] Cost 采集走现有 callback，不侵入 `moduleContextBuilder` / `runCaseChat`
+- [ ] Cost 采集走新建的 `LLMUsageCallbackHandler`，从 `response_metadata.usage` 读（非 `usage_metadata`），不侵入 `moduleContextBuilder` / `runCaseChat`
 - [ ] Judge prompt 匿名化：不告诉 judge 谁是 golden 谁是被评
 - [ ] Judge 3 次重复 + 标准差 > 1.0 标 `judgeUnstable`
 - [ ] security 断言跑在**独立 step**，与 Part 1/2 结果无耦合
-- [ ] `processNow` 跳过 debounce 但先 drain 队列，不抢跑
+- [ ] `processNowService` 跳过 debounce 但先 drain 队列，不抢跑
 - [ ] viewer.html 不引入构建步骤、不使用 ESM import（CDN Tailwind + vanilla 即可）
 - [ ] MD 报告节选 AI 回答前 200 字；完整文本只进 JSON
-- [ ] 图标全 lucide（若 viewer 里要图标）；禁 emoji
+- [ ] 报告文本无 emoji（[PASS]/[FAIL]/[WARN] 纯文字）；viewer 图标走 lucide SVG inline
 - [ ] 报告时区固定 `Asia/Shanghai`
-- [ ] eval 不跑 mock LLM，全真调（否则 cache 命中率统计失真）
+- [ ] eval 不跑 mock LLM，全真调（否则 cache 命中率统计失真）；**例外**：`sec-ai-autofill-preserve` 允许 mock AI 抽取，因其是独立安全 step
 - [ ] 单条 case 超时 60s / extraction 180s，超时标 errored 不判 FAIL
-- [ ] Exit code 严格：0 全 CRITICAL 过 / 1 CRITICAL 挂 / 2 Runner 崩
+- [ ] Exit code 严格：0 全 CRITICAL 过 / 1 CRITICAL 挂 / 2 Runner 崩（需 try-catch 映射 exit 2）
+- [ ] Security HTTP 断言用 `JSON code 字段 !== 200` 判定（HTTP status 恒 200，项目规范）
+- [ ] Security HTTP 路由使用单数 `/api/v1/case/...`（非 `/api/v1/cases/...`）
+- [ ] moduleContextBuilder 描述按**4 段**（实际代码），不跟随原 spec 的"5 段"措辞错误
+- [ ] `systemPromptTokensAvg` 阈值是 tiktoken 估算的**保守上界**，DeepSeek 真实 tokens 实际会比这个低 20-40%
