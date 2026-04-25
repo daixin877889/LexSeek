@@ -116,6 +116,15 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
 
         // 操作
         submit: (input?: any, config?: any) => s.submit(input, config) as Promise<void>,
+        /**
+         * 把 runStatus 复位到 'idle'，常用于"立场提交后想重新触发 watch(runStatus)
+         * completed/failed 分支"等场景，对外提供 public API 取代之前直接写
+         * `runStatus.value = 'idle'` 的越界访问。
+         */
+        reset: () => {
+            runStatus.value = 'idle'
+            runError.value = null
+        },
         // stop 关闭 SSE 流，同时本地立即将 runStatus 设为 'cancelled'：
         // 因为 SSE 流已关闭，后端发送的 cancelled 事件将收不到，需本地同步状态
         // 以便 watch(runStatus) 的下游逻辑（例如队列派发器的暂停分支）能正确触发。

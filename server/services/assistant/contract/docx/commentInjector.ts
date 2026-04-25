@@ -372,6 +372,8 @@ export async function injectAnnotations(
         zip.remove('word/comments.xml')
         zip.remove('word/_rels/comments.xml.rels')
         zip.remove('word/customXml/annotationRefs.xml')
+        // DOCX-H6：clean 残留的 customXml part rels 文件（极少存在但理论可能有）
+        zip.remove('word/customXml/_rels/annotationRefs.xml.rels')
         await ensureContentTypesRegistered(zip, { comments: false, customXml: false })
         await ensureDocumentRelsRegistered(zip, { comments: false, customXml: false })
         return { buffer: await zipToBuffer(zip), refsByAnnotationId }

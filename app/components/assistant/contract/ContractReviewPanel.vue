@@ -57,11 +57,17 @@ const {
     togglePin,
 } = useContractReview()
 
-// 外部 reviewId 注入：仅 immediate 触发一次 mountReview；composable 未监听后续变化
+// 外部 reviewId 注入：composable 未监听后续变化，全靠这里桥接
+// UI-H5：id 由 number 切换到 null（路由 SSR 切换 / 父 unmount 残留 watch）
+// 时主动 cancelReview，否则旧 review 状态残留页面让用户看到 stale 数据。
 watch(
     () => props.reviewId,
-    async (id) => {
-        if (id) await mountReview(id)
+    async (id, prev) => {
+        if (id) {
+            await mountReview(id)
+        } else if (prev) {
+            await cancelReview()
+        }
     },
     { immediate: true },
 )

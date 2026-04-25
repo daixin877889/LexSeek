@@ -397,8 +397,8 @@ export function useContractReview() {
         // await 期间 stream 可能已被 cancelReview / 路由切换置空
         if (!stream.value) return false
 
-        // 复位底层 stream runStatus 再 submit，保证 watch(runStatus) 的 completed/failed 分支能再次触发
-        stream.value.runStatus.value = 'idle'
+        // UI-H6：用 useStreamChat.reset() 替代越界写 runStatus.value，避免依赖私有 ref
+        stream.value.reset()
         try {
             await stream.value.submit(undefined)
             return true

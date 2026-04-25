@@ -58,6 +58,11 @@ export async function getContractRiskByIdDAO(id: number): Promise<contractRisks 
     return prisma.contractRisks.findUnique({ where: { id } })
 }
 
-export async function deleteContractRiskDAO(id: number): Promise<void> {
-    await prisma.contractRisks.delete({ where: { id } })
-}
+/**
+ * ANN-H2：物理删 contractRisks 会触发 FK onDelete: Cascade 级联物理删
+ * contractAnnotations 子行——违反"批注永不物理删"铁律（决策 11）。
+ * 该 DAO 已被生产路径完全弃用，仅留作"测试用例直接清表"的内部工具：
+ *   - 不再 export 给生产代码
+ *   - 测试若要清理 fixtures，应直接走 prisma.contractRisks.delete 并清楚
+ *     这次清理同时会丢批注（测试本身就该构造完整 fixture）
+ */

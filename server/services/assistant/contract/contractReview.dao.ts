@@ -58,25 +58,32 @@ export async function softDeleteContractReviewDAO(id: number): Promise<contractR
 }
 
 /**
- * PATCH /reviews/:id 的存储实现。
+ * CORE-H1：body 里 id 在 DB 中查无，PATCH 拒绝整数组替换。
+ * handler 据此区分 400。
+ */
+export class PatchReviewRisksUnknownIdsError extends Error {
+    constructor(public readonly unknownIds: string[]) {
+        super(`PATCH /reviews body 含未知 risk id：${unknownIds.join(', ')}（请用 POST 子接口新增、PATCH /risks/:id 软处置）`)
+        this.name = 'PatchReviewRisksUnknownIdsError'
+    }
+}
+
+/**
+ * PATCH /reviews/:id 的存储实现（CORE-H1 修复后）。
  *
- * 背景：Phase B 引入了 contract_risks 新表，但 PATCH 历史上只写 legacy
- * `contractReviews.risks` JSON 字段。GET /reviews/:id 对已迁移 review
- * （currentVersionId 非 null）**优先读新表**，导致用户编辑 risks 保存后
- * 刷新页面看到的是老数据——静默数据丢失。
+ * 背景：Phase B 引入 contract_risks 新表，PATCH 旧实现只写 legacy
+ * `contractReviews.risks` JSON。已迁移 review GET 优先读新表 →
+ * "前端整数组 PATCH 后刷新看到旧数据"静默丢失。
  *
- * 这里做双写以修复该 bug：
- *   1. legacy JSON 始终写（GET fallback + rebuildDocxService 兼容）
- *   2. 已迁移 review 同步把新 risks 数组里**已存在的**行 update 到新表
- *      （按 risk.id 匹配，id 能 parseInt 且在本 review 的 contractRisks 里存在）
+ * 三向 diff 行为（已迁移 review，currentVersionId != null）：
+ *   - keep（body 里 id 在 DB）：update 全字段（level/category/problem/...）
+ *   - new（body 里 id 解析失败 / 不在 DB）：直接抛 PatchReviewRisksUnknownIdsError
+ *     让 handler 转 400 提示前端"新增请走 POST /risks，不要混在整数组里"
+ *   - removed（DB 里有 id 但 body 漏了）：把 archivedStatus 置为 'ignored'
+ *     （决策 11 铁律：批注永不物理删；删 risk 等于软处置）
  *
- * **已知未覆盖**（TODO，P1+ 单独处理）：
- *   - 用户前端"新增自定义风险"时前端生成的 id 不是 Int，insert 需要额外逻辑
- *   - 用户前端"删除风险"时硬删 annotation 的外键级联风险；
- *     建议让前端删除走 PATCH /risks/:id 设 archivedStatus='ignored'，
- *     而非走 PATCH /reviews/:id 整数组替换
- *
- * 事务性：2 步写在 $transaction 里，一损俱损。
+ * 未迁移 review（currentVersionId == null）：legacy JSON 单写，不走三向 diff，
+ * 兼容 Phase A 数据。
  */
 export async function patchReviewRisksDAO(
     id: number,
@@ -114,37 +121,64 @@ export async function patchReviewRisksDAO(
             },
         }) as unknown as contractReviews
 
-        // 已迁移 review 同步写新表；未迁移（currentVersionId=null）只写 legacy JSON
-        if (updated.currentVersionId != null) {
-            const riskIdsInBody = risks
-                .map(r => {
-                    const n = Number.parseInt(String(r.id ?? ''), 10)
-                    return Number.isFinite(n) && n > 0 ? n : null
-                })
-                .filter((x): x is number => x !== null)
+        // 未迁移 review：只写 legacy JSON，不走三向 diff（Phase A 数据兼容）
+        if (updated.currentVersionId == null) return updated
 
-            if (riskIdsInBody.length > 0) {
-                const existing = await tx.contractRisks.findMany({
-                    where: { id: { in: riskIdsInBody }, reviewId: id },
-                    select: { id: true },
-                })
-                const existingIds = new Set(existing.map(r => r.id))
-                for (const r of risks) {
-                    const numId = Number.parseInt(String(r.id ?? ''), 10)
-                    if (!Number.isFinite(numId) || !existingIds.has(numId)) continue
-                    await tx.contractRisks.update({
-                        where: { id: numId },
-                        data: {
-                            level: r.level,
-                            category: r.category,
-                            problem: r.problem,
-                            legalBasis: r.legalBasis ?? null,
-                            analysis: r.analysis,
-                            suggestion: r.suggestion,
-                        },
-                    })
-                }
+        // 已迁移：先收集 DB 现有 risks（含已处置），用于 diff
+        const dbRisks = await tx.contractRisks.findMany({
+            where: { reviewId: id },
+            select: { id: true, archivedStatus: true },
+        })
+        const dbActiveIdSet = new Set(
+            dbRisks.filter(r => r.archivedStatus === null).map(r => r.id),
+        )
+        const dbAllIdSet = new Set(dbRisks.map(r => r.id))
+
+        // 解析 body 里每条 risk 的 id：
+        //   - 解析为正整数且属于本 review → keep
+        //   - 否则 → unknown（new / 非法 id）
+        const bodyKeepIds = new Set<number>()
+        const unknownIds: string[] = []
+        for (const r of risks) {
+            const numId = Number.parseInt(String(r.id ?? ''), 10)
+            if (Number.isFinite(numId) && numId > 0 && dbAllIdSet.has(numId)) {
+                bodyKeepIds.add(numId)
+            } else {
+                unknownIds.push(String(r.id ?? '<empty>'))
             }
+        }
+        if (unknownIds.length > 0) {
+            throw new PatchReviewRisksUnknownIdsError(unknownIds)
+        }
+
+        // keep：update 全字段
+        for (const r of risks) {
+            const numId = Number.parseInt(String(r.id ?? ''), 10)
+            if (!bodyKeepIds.has(numId)) continue
+            await tx.contractRisks.update({
+                where: { id: numId },
+                data: {
+                    level: r.level,
+                    category: r.category,
+                    problem: r.problem,
+                    legalBasis: r.legalBasis ?? null,
+                    analysis: r.analysis,
+                    suggestion: r.suggestion,
+                },
+            })
+        }
+
+        // removed：DB 里有未处置 risk 但 body 漏了 → archivedStatus='ignored' 软处置
+        // （未处置且 body 没传 = 用户删除意图。已 archived 的不回滚）
+        const removedIds: number[] = []
+        for (const dbId of dbActiveIdSet) {
+            if (!bodyKeepIds.has(dbId)) removedIds.push(dbId)
+        }
+        if (removedIds.length > 0) {
+            await tx.contractRisks.updateMany({
+                where: { id: { in: removedIds }, reviewId: id, archivedStatus: null },
+                data: { archivedStatus: 'ignored', archivedAt: new Date() },
+            })
         }
 
         return updated
@@ -247,6 +281,71 @@ function extractSummaryPreview(raw: unknown, truncate: number): string | null {
 }
 
 /**
+ * 批量按 originalFileId 查 ossFiles.fileName，返回 id → name Map。
+ *
+ * 用户列表 / 管理列表 / 详情等多处都要这一步；抽出来避免重复
+ * 写"去重 → IN 查询 → for-loop 灌 Map"样板。
+ */
+async function loadFileNameMap(
+    originalFileIds: number[],
+): Promise<Map<number, string>> {
+    const map = new Map<number, string>()
+    const fileIds = Array.from(new Set(originalFileIds))
+    if (fileIds.length === 0) return map
+    const files = await prisma.ossFiles.findMany({
+        where: { id: { in: fileIds } },
+        select: { id: true, fileName: true },
+    })
+    for (const f of files) map.set(f.id, f.fileName)
+    return map
+}
+
+/**
+ * 用户列表与管理列表共有的 ListItem 字段构造（17 字段）。
+ *
+ * 管理列表在此基础上叠加 userId / userPhone / userNickname / deletedAt，由调用方 spread。
+ */
+interface BaseReviewRow {
+    id: number
+    sessionId: string
+    caseId: number | null
+    contractType: string | null
+    partyA: string | null
+    partyB: string | null
+    stance: string
+    status: string
+    summary: unknown
+    risks: unknown
+    originalFileId: number
+    hasUnsavedDocxChanges: boolean
+    createdAt: Date
+    updatedAt: Date
+}
+
+function buildBaseReviewListItem(row: BaseReviewRow, fileName: string | null) {
+    const risksArr = Array.isArray(row.risks) ? row.risks as Risk[] : []
+    const counts = computeCounts(risksArr)
+    return {
+        id: row.id,
+        sessionId: row.sessionId,
+        caseId: row.caseId,
+        contractType: row.contractType,
+        partyA: row.partyA,
+        partyB: row.partyB,
+        stance: row.stance,
+        status: row.status,
+        summary: extractSummaryPreview(row.summary, SUMMARY_TRUNCATE),
+        originalFileName: fileName,
+        hasUnsavedDocxChanges: row.hasUnsavedDocxChanges,
+        highRiskCount: counts.high,
+        mediumRiskCount: counts.medium,
+        totalRiskCount: risksArr.length,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+    }
+}
+
+/**
  * 查询当前用户的合同审查列表。
  *
  * - owner-only：where.userId = params.userId；deletedAt: null 过滤软删
@@ -315,41 +414,11 @@ export async function listUserReviewsDAO(
         prisma.contractReviews.count({ where }),
     ])
 
-    // 批量取 fileName：一次 IN 查询，memory join
-    const fileIds = Array.from(new Set(rows.map(r => r.originalFileId)))
-    const fileNameMap = new Map<number, string>()
-    if (fileIds.length > 0) {
-        const files = await prisma.ossFiles.findMany({
-            where: { id: { in: fileIds } },
-            select: { id: true, fileName: true },
-        })
-        for (const f of files) {
-            fileNameMap.set(f.id, f.fileName)
-        }
-    }
+    const fileNameMap = await loadFileNameMap(rows.map(r => r.originalFileId))
 
-    const items: ReviewListItem[] = rows.map((r) => {
-        const risksArr = Array.isArray(r.risks) ? r.risks as Risk[] : []
-        const counts = computeCounts(risksArr)
-        return {
-            id: r.id,
-            sessionId: r.sessionId,
-            caseId: r.caseId,
-            contractType: r.contractType,
-            partyA: r.partyA,
-            partyB: r.partyB,
-            stance: r.stance,
-            status: r.status,
-            summary: extractSummaryPreview(r.summary, SUMMARY_TRUNCATE),
-            originalFileName: fileNameMap.get(r.originalFileId) ?? null,
-            hasUnsavedDocxChanges: r.hasUnsavedDocxChanges,
-            highRiskCount: counts.high,
-            mediumRiskCount: counts.medium,
-            totalRiskCount: risksArr.length,
-            createdAt: r.createdAt,
-            updatedAt: r.updatedAt,
-        }
-    })
+    const items: ReviewListItem[] = rows.map(r =>
+        buildBaseReviewListItem(r, fileNameMap.get(r.originalFileId) ?? null),
+    )
 
     return { items, total }
 }
@@ -431,44 +500,15 @@ export async function listAdminReviewsDAO(
         prisma.contractReviews.count({ where }),
     ])
 
-    const fileIds = Array.from(new Set(rows.map(r => r.originalFileId)))
-    const fileNameMap = new Map<number, string>()
-    if (fileIds.length > 0) {
-        const files = await prisma.ossFiles.findMany({
-            where: { id: { in: fileIds } },
-            select: { id: true, fileName: true },
-        })
-        for (const f of files) {
-            fileNameMap.set(f.id, f.fileName)
-        }
-    }
+    const fileNameMap = await loadFileNameMap(rows.map(r => r.originalFileId))
 
-    const items: AdminReviewListItem[] = rows.map((r) => {
-        const risksArr = Array.isArray(r.risks) ? r.risks as Risk[] : []
-        const counts = computeCounts(risksArr)
-        return {
-            id: r.id,
-            sessionId: r.sessionId,
-            caseId: r.caseId,
-            contractType: r.contractType,
-            partyA: r.partyA,
-            partyB: r.partyB,
-            stance: r.stance,
-            status: r.status,
-            summary: extractSummaryPreview(r.summary, SUMMARY_TRUNCATE),
-            originalFileName: fileNameMap.get(r.originalFileId) ?? null,
-            hasUnsavedDocxChanges: r.hasUnsavedDocxChanges,
-            highRiskCount: counts.high,
-            mediumRiskCount: counts.medium,
-            totalRiskCount: risksArr.length,
-            createdAt: r.createdAt,
-            updatedAt: r.updatedAt,
-            userId: r.userId,
-            userPhone: r.user?.phone ?? null,
-            userNickname: r.user?.name ?? null,
-            deletedAt: r.deletedAt,
-        }
-    })
+    const items: AdminReviewListItem[] = rows.map(r => ({
+        ...buildBaseReviewListItem(r, fileNameMap.get(r.originalFileId) ?? null),
+        userId: r.userId,
+        userPhone: r.user?.phone ?? null,
+        userNickname: r.user?.name ?? null,
+        deletedAt: r.deletedAt,
+    }))
 
     return { items, total }
 }
@@ -527,6 +567,10 @@ export async function getAdminReviewDAO(id: number): Promise<AdminReviewDetail |
  * 查找 status=reviewing 且 updatedAt 早于阈值的僵死审查。
  * bug #14：进程崩溃 / SSE 异常断开会把 review 永久卡在 reviewing，
  * 此函数配合 cron 兜底，只返回 id 列表供 updateMany 使用。
+ *
+ * CORE-H3 留档：本仓库目前没有 server/tasks 调度框架接入这个 DAO（grep 全仓
+ * 仅 dao 自身和测试引用），属于孤儿。短期保留以便接入 cron 时复用；如果到 M8
+ * 仍未接入，应考虑删除以避免误用。
  */
 export async function findReviewingTimeoutDAO(thresholdMs: number): Promise<number[]> {
     const cutoff = new Date(Date.now() - thresholdMs)

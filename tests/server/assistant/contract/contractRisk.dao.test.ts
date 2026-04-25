@@ -11,7 +11,6 @@ import {
     updateContractRiskDAO,
     listContractRisksDAO,
     getContractRiskByIdDAO,
-    deleteContractRiskDAO,
 } from '~~/server/services/assistant/contract/contractRisk.dao'
 import { ensureTestUser } from '../test-db-helper'
 
@@ -133,7 +132,7 @@ describe('contractRisk.dao', () => {
         expect(found).toBeNull()
     })
 
-    it('delete 后查询返回 null', async () => {
+    it('生产路径不再暴露物理删；fixtures 清理走 prisma 直删（同步级联清批注）', async () => {
         const risk = await createContractRiskDAO({
             reviewId,
             source: 'ai',
@@ -143,7 +142,9 @@ describe('contractRisk.dao', () => {
             problem: 'x',
             anchorQuote: 'x',
         })
-        await deleteContractRiskDAO(risk.id)
+        // 测试场景的"清 fixtures"用法：直接走 prisma 而非 DAO，
+        // 让生产代码无任何物理删入口（决策 11："批注永不物理删"）。
+        await prisma.contractRisks.delete({ where: { id: risk.id } })
         const found = await getContractRiskByIdDAO(risk.id)
         expect(found).toBeNull()
     })

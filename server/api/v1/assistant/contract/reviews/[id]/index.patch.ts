@@ -13,7 +13,10 @@
  *   401 / 400(id) / 400(body) / 400(Zod) / 404 / 403 / 409 / 200
  */
 import { z } from 'zod'
-import { patchReviewRisksDAO } from '~~/server/services/assistant/contract/contractReview.dao'
+import {
+    patchReviewRisksDAO,
+    PatchReviewRisksUnknownIdsError,
+} from '~~/server/services/assistant/contract/contractReview.dao'
 import { RISK_SHAPE } from '~~/server/services/assistant/contract/riskSchema.builder'
 import { loadOwnedReview } from '~~/server/services/assistant/contract/reviewGuard'
 import { REVIEW_EDITABLE_STATUSES } from '#shared/types/contract'
@@ -44,10 +47,18 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-        // patchReviewRisksDAO 在单语句 UPDATE 内同时置 hasUnsavedDocxChanges=true
+        // patchReviewRisksDAO 在单语句 UPDATE 内同时置 hasUnsavedDocxChanges=true，
+        // 并对已迁移 review 做 keep/new/removed 三向 diff（CORE-H1）
         await patchReviewRisksDAO(review.id, parsed.data.risks)
         return resSuccess(event, '保存成功', { reviewId: review.id })
     } catch (err) {
+        if (err instanceof PatchReviewRisksUnknownIdsError) {
+            return resError(
+                event,
+                400,
+                `存在未知风险 id：${err.unknownIds.slice(0, 5).join(', ')}。新增请用 POST /reviews/:id/annotations 等子接口；不要在 PATCH 整数组里混入新 id。`,
+            )
+        }
         logger.error('patch review risks 失败', {
             reviewId: review.id,
             err: err instanceof Error ? err.message : String(err),
