@@ -17,9 +17,12 @@ import type {
     ClauseSnapshotItem,
     Risk,
     RiskLevel,
+    StancePreference,
 } from '#shared/types/contract'
+import { DEFAULT_AI_RISK_STANCE } from '#shared/types/contract'
 import { logger } from '#shared/utils/logger'
 import type { ClauseSegment, PlaybookSnapshot, Stance } from '#shared/types/contract'
+import { persistAiRisksAsContractRows } from './contractRisk.service'
 import { segmentClauses } from './docx/clauseSegmenter'
 import { parseContractDocx } from './docx'
 import { saveContractReviewVersionService } from './contractReviewVersion.service'
@@ -45,6 +48,10 @@ import { renderContent } from '~~/server/services/node/prompt.service'
 import { createChatModel } from '~~/server/services/node/chatModelFactory'
 import { getValidNodeConfig } from '~~/server/services/node/node.service'
 import { DOCX_MIME } from '#shared/utils/mime'
+import pLimit from 'p-limit'
+
+/** Step 4a 增量审查的 LLM 并发上限：与主路径 ANALYZE_CONCURRENCY 同级。 */
+const STEP4A_CONCURRENCY = 8
 
 /**
  * upload-version 视为"忙任务"的状态集合。
@@ -474,98 +481,117 @@ export async function* uploadClientVersionService(params: {
     }
 
     // 4a. 对 diff.modified 的每个条款跑增量 AI 审查
-    for (const [i, m] of clauseDiffResult.modified.entries()) {
-        const item = newClauses[m.newIndex]!
-        const clause: ClauseSegment = {
-            index: item.index,
-            number: null,
-            text: item.text,
-            offsetStart: item.offsetStart,
-            offsetEnd: item.offsetEnd,
+    //   阶段 1：并发跑 LLM（pLimit STEP4A_CONCURRENCY）— 主耗时
+    //   阶段 2：按原顺序（newIndex 升序）写 DB + yield 进度，保证 step4CreatedRiskIds/AnnIds
+    //          顺序稳定 + 进度事件按 newIndex 单调
+    type LlmResult =
+        | { ok: true; i: number; m: typeof clauseDiffResult.modified[number]; clause: ClauseSegment; risk: Risk | null }
+        | { ok: false; i: number; m: typeof clauseDiffResult.modified[number]; clause: ClauseSegment; err: unknown }
+
+    const stage1Limit = pLimit(STEP4A_CONCURRENCY)
+    const llmResults: LlmResult[] = await Promise.all(
+        clauseDiffResult.modified.map((m, i) => stage1Limit(async () => {
+            const item = newClauses[m.newIndex]!
+            const clause: ClauseSegment = {
+                index: item.index,
+                number: null,
+                text: item.text,
+                offsetStart: item.offsetStart,
+                offsetEnd: item.offsetEnd,
+            }
+            try {
+                const risk = await analyzeSingleClause({
+                    clause,
+                    stance: (review.stance ?? 'balanced') as Stance,
+                    partyA: review.partyA,
+                    partyB: review.partyB,
+                    contractType: review.contractType,
+                    playbookSnapshot: review.playbookSnapshot as PlaybookSnapshot | null,
+                })
+                return { ok: true, i, m, clause, risk } as LlmResult
+            } catch (err) {
+                return { ok: false, i, m, clause, err } as LlmResult
+            }
+        })),
+    )
+
+    for (const result of llmResults) {
+        const { i, m, clause } = result
+        if (!result.ok) {
+            logger.warn(`条款 #${clause.index} 增量 AI 审查失败，跳过`, { err: result.err })
+            yield {
+                type: 'progress',
+                data: { step: 'ai', status: 'progress', total: clauseDiffResult.modified.length, current: i + 1 },
+            }
+            continue
         }
-        try {
-            const risk = await analyzeSingleClause({
-                clause,
-                stance: (review.stance ?? 'balanced') as Stance,
-                partyA: review.partyA,
-                partyB: review.partyB,
-                contractType: review.contractType,
-                playbookSnapshot: review.playbookSnapshot as PlaybookSnapshot | null,
-            })
-            if (risk) {
-                // DOCX-H2 + C2：同条款可能有多条未处置 AI 风险。
-                // 原比较 `r.anchorParagraphIndex === m.oldIndex` 把 DB 里"段落序号空间"
-                // 的 anchorParagraphIndex 与 oldClauses 数组下标错配，永不命中；改用
-                // anchorQuote 文本 prefix 匹配 oldClauses[m.oldIndex].text 来识别"老条款下的旧 risk"，
-                // 跨"历史 clauseIndex / 现段落 paragraphIndex"两种空间都能识别。
-                const oldClauseHead = (oldClauses[m.oldIndex]?.text ?? '').slice(0, 40)
-                const existingRisks = oldClauseHead.length >= 4
-                    ? dbRisks.filter(
-                        (r) =>
-                            r.source === 'ai'
-                            && r.archivedStatus === null
-                            && (r.anchorQuote ?? '').includes(oldClauseHead),
-                    )
-                    : []
-                // DOCX-C1：写入端 anchorParagraphIndex 用非空段落序号（commentInjector 期望空间）
-                const newParaIdx = newClauseArrayIdxToParaIdx(m.newIndex)
-                if (existingRisks.length > 0) {
-                    for (const existing of existingRisks) {
-                        await prisma.contractRisks.update({
-                            where: { id: existing.id },
-                            data: {
-                                level: risk.level,
-                                category: risk.category,
-                                problem: risk.problem,
-                                legalBasis: risk.legalBasis ?? null,
-                                analysis: risk.analysis ?? null,
-                                suggestion: risk.suggestion ?? null,
-                                anchorQuote: clause.text,
-                                // 锚点迁移到新条款对应的段落序号，避免 Step 5 再扫一次
-                                anchorParagraphIndex: newParaIdx,
-                                ...(existing.originalAnchorQuote ? {} : { originalAnchorQuote: existing.anchorQuote }),
-                            },
-                        })
-                    }
-                } else {
-                    const newRisk = await prisma.contractRisks.create({
+        const risk = result.risk
+        if (risk) {
+            // DOCX-H2 + C2：同条款可能有多条未处置 AI 风险。
+            // 原比较 `r.anchorParagraphIndex === m.oldIndex` 把 DB 里"段落序号空间"
+            // 的 anchorParagraphIndex 与 oldClauses 数组下标错配，永不命中；改用
+            // anchorQuote 文本 prefix 匹配 oldClauses[m.oldIndex].text 来识别"老条款下的旧 risk"，
+            // 跨"历史 clauseIndex / 现段落 paragraphIndex"两种空间都能识别。
+            const oldClauseHead = (oldClauses[m.oldIndex]?.text ?? '').slice(0, 40)
+            const existingRisks = oldClauseHead.length >= 4
+                ? dbRisks.filter(
+                    (r) =>
+                        r.source === 'ai'
+                        && r.archivedStatus === null
+                        && (r.anchorQuote ?? '').includes(oldClauseHead),
+                )
+                : []
+            // DOCX-C1：写入端 anchorParagraphIndex 用非空段落序号（commentInjector 期望空间）
+            const newParaIdx = newClauseArrayIdxToParaIdx(m.newIndex)
+            if (existingRisks.length > 0) {
+                for (const existing of existingRisks) {
+                    await prisma.contractRisks.update({
+                        where: { id: existing.id },
                         data: {
-                            reviewId: review.id,
-                            source: 'ai',
-                            code: risk.matchedPointCode ?? null,
-                            category: risk.category,
                             level: risk.level,
-                            stance: review.stance ?? 'balanced',
+                            category: risk.category,
                             problem: risk.problem,
                             legalBasis: risk.legalBasis ?? null,
                             analysis: risk.analysis ?? null,
                             suggestion: risk.suggestion ?? null,
-                            // 与 Phase A 原始 AI risk 保持一致：存条款全文，
-                            // 不再截断（bug #11）。截断会导致后续 diff/锚点匹配失真。
                             anchorQuote: clause.text,
+                            // 锚点迁移到新条款对应的段落序号，避免 Step 5 再扫一次
                             anchorParagraphIndex: newParaIdx,
+                            ...(existing.originalAnchorQuote ? {} : { originalAnchorQuote: existing.anchorQuote }),
                         },
-                    })
-                    step4CreatedRiskIds.push(newRisk.id)
-                    const newAnn = await prisma.contractAnnotations.create({
-                        data: {
-                            reviewId: review.id,
-                            riskId: newRisk.id,
-                            authorType: 'ai',
-                            authorName: 'AI',
-                            content: risk.problem,
-                        },
-                    })
-                    step4CreatedAnnIds.push(newAnn.id)
-                    await prisma.contractAnnotations.update({
-                        where: { id: newAnn.id },
-                        data: { wordCommentRef: generateWordCommentRef(newAnn.id) },
                     })
                 }
-                aiReviewCount++
+            } else {
+                // CORE-R2：与 Phase A 主路径共用 persistAiRisksAsContractRows，
+                // 字段映射收口到 contractRisk.service。anchorQuote 显式传 clause.text，
+                // 与 Phase A 原始 AI risk 一致存条款全文，不再截断（bug #11）。
+                const [newRisk] = await persistAiRisksAsContractRows({
+                    reviewId: review.id,
+                    rows: [{
+                        risk,
+                        anchorQuote: clause.text,
+                        anchorParagraphIndex: newParaIdx,
+                    }],
+                    stance: ((review.stance ?? DEFAULT_AI_RISK_STANCE) as unknown) as StancePreference,
+                })
+                if (!newRisk) throw new Error('persistAiRisksAsContractRows 未返回新风险')
+                step4CreatedRiskIds.push(newRisk.id)
+                const newAnn = await prisma.contractAnnotations.create({
+                    data: {
+                        reviewId: review.id,
+                        riskId: newRisk.id,
+                        authorType: 'ai',
+                        authorName: 'AI',
+                        content: risk.problem,
+                    },
+                })
+                step4CreatedAnnIds.push(newAnn.id)
+                await prisma.contractAnnotations.update({
+                    where: { id: newAnn.id },
+                    data: { wordCommentRef: generateWordCommentRef(newAnn.id) },
+                })
             }
-        } catch (err) {
-            logger.warn(`条款 #${clause.index} 增量 AI 审查失败，跳过`, { err })
+            aiReviewCount++
         }
         yield {
             type: 'progress',

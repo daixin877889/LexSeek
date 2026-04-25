@@ -41,6 +41,7 @@ import {
     type ReactAgent,
 } from 'langchain'
 import { HumanMessage } from '@langchain/core/messages'
+import pLimit from 'p-limit'
 import { getCheckpointer, getStore } from '../checkpointer'
 import { getValidNodeConfig } from '../../node/node.service'
 import { createChatModel } from '../../node/chatModelFactory'
@@ -72,13 +73,12 @@ import {
     emitContractReviewEvent,
     type ContractReviewEmitterCtx,
 } from '../nodes/contractReviewStageEmitter'
-import { createContractRiskDAO } from '../../assistant/contract/contractRisk.dao'
+import { persistAiRisksAsContractRows, type PersistAiRiskRow } from '../../assistant/contract/contractRisk.service'
 import { createContractAnnotationDAO } from '../../assistant/contract/contractAnnotation.dao'
 import { saveContractReviewVersionService } from '../../assistant/contract/contractReviewVersion.service'
 import { buildClauseToParagraphMap } from '../../assistant/contract/utils/clauseToParagraph'
 import type { Prisma } from '~~/generated/prisma/client'
-import type { Risk, Stance, ClauseSegment, ClauseSnapshotItem, PlaybookSnapshot, RiskLevel } from '#shared/types/contract'
-import { DEFAULT_AI_RISK_STANCE } from '#shared/types/contract'
+import type { Risk, Stance, ClauseSegment, ClauseSnapshotItem, PlaybookSnapshot } from '#shared/types/contract'
 import { resolveContextWindow } from '../context/messageCompressor'
 
 import { renderRiskAsAnnotationText } from '~~/server/services/assistant/contract/contractRiskRender'
@@ -116,28 +116,19 @@ async function persistRisksAndCreateV1Snapshot(
     const clauseIndexToParagraphIndex = buildClauseToParagraphMap(segments, paragraphs)
 
     // 写 ContractRisk + ContractAnnotation（每条 AI 风险各一条）
-    for (const aiRisk of risks) {
-        const paragraphIndex = clauseIndexToParagraphIndex.get(aiRisk.clauseIndex) ?? null
-        const risk = await createContractRiskDAO({
-            reviewId,
-            source: 'ai',
-            code: aiRisk.matchedPointCode ?? null,
-            category: aiRisk.category,
-            level: aiRisk.level as RiskLevel,
-            stance: DEFAULT_AI_RISK_STANCE,
-            problem: aiRisk.problem,
-            legalBasis: aiRisk.legalBasis ?? null,
-            analysis: aiRisk.analysis,
-            suggestion: aiRisk.suggestion,
-            anchorQuote: aiRisk.clauseText,
-            anchorParagraphIndex: paragraphIndex,
-        })
+    // CORE-R2：风险落库收口到 persistAiRisksAsContractRows，annotation 由调用方按需创建
+    const riskRows: PersistAiRiskRow[] = risks.map(aiRisk => ({
+        risk: aiRisk,
+        anchorParagraphIndex: clauseIndexToParagraphIndex.get(aiRisk.clauseIndex) ?? null,
+    }))
+    const createdRisks = await persistAiRisksAsContractRows({ reviewId, rows: riskRows })
+    for (let i = 0; i < createdRisks.length; i++) {
         await createContractAnnotationDAO({
             reviewId,
-            riskId: risk.id,
+            riskId: createdRisks[i]!.id,
             authorType: 'ai',
             authorName: 'AI',
-            content: renderRiskAsAnnotationText(aiRisk),
+            content: renderRiskAsAnnotationText(risks[i]!),
         })
     }
 
@@ -194,27 +185,35 @@ export interface AnalyzeLoopContext {
     emitterCtx: ContractReviewEmitterCtx
 }
 
+/** 单合同条款分析的并发上限：保守取 8，对 DeepSeek/Anthropic API 友好且单合同 30 条款 4 轮搞定。 */
+const ANALYZE_CONCURRENCY = 8
+
 /**
- * 按条款循环分析，逐条发 progress / risk 事件。
+ * 按条款并发分析，每条完成时发 progress / risk 事件。
  *
  * 独立 export 便于单测，不依赖 agent.stream。
  *
  * - 每条成功：若有风险则 risks.push + 发 risk 事件
  * - 每条失败：warnings.push + 发 progress.error（继续处理其余条款）
  * - 结束时：发 analyze:done（含 warnings 若非空）
+ *
+ * 并发说明：
+ * - pLimit(8) 控制同时在飞的 analyzeSingleClause 上限；30 条款典型耗时从 4 分钟 → 30-40 秒
+ * - progress 事件按"完成顺序"而非"条款顺序"发出，前端 analyzingClauseIndex 会跳跃但功能正确
+ *   （error toast 仍然准确：current=seg.index 指向真实失败的条款编号）
+ * - risks/warnings push 在 JS 单线程下天然安全，无需锁
  */
 export async function runAnalyzeLoop(ctx: AnalyzeLoopContext): Promise<{ risks: Risk[]; warnings: string[] }> {
     const risks: Risk[] = []
     const warnings: string[] = []
+    const total = ctx.segments.length
 
     await emitContractReviewEvent(ctx.emitterCtx, {
         type: 'stage', stage: 'analyze', status: 'running',
     })
 
-    for (const seg of ctx.segments) {
-        await emitContractReviewEvent(ctx.emitterCtx, {
-            type: 'progress', current: seg.index, total: ctx.segments.length,
-        })
+    const limit = pLimit(ANALYZE_CONCURRENCY)
+    await Promise.all(ctx.segments.map(seg => limit(async () => {
         try {
             const risk = await analyzeSingleClause({
                 clause: seg,
@@ -224,6 +223,9 @@ export async function runAnalyzeLoop(ctx: AnalyzeLoopContext): Promise<{ risks: 
                 contractType: ctx.contractType,
                 playbookSnapshot: ctx.playbookSnapshot,
             })
+            await emitContractReviewEvent(ctx.emitterCtx, {
+                type: 'progress', current: seg.index, total,
+            })
             if (risk) {
                 risks.push(risk)
                 await emitContractReviewEvent(ctx.emitterCtx, { type: 'risk', risk })
@@ -232,10 +234,10 @@ export async function runAnalyzeLoop(ctx: AnalyzeLoopContext): Promise<{ risks: 
             const msg = err instanceof Error ? err.message : String(err)
             warnings.push(`第 ${seg.index} 条：${msg}`)
             await emitContractReviewEvent(ctx.emitterCtx, {
-                type: 'progress', current: seg.index, total: ctx.segments.length, error: msg,
+                type: 'progress', current: seg.index, total, error: msg,
             })
         }
-    }
+    })))
 
     await emitContractReviewEvent(ctx.emitterCtx, {
         type: 'stage', stage: 'analyze', status: 'done',
