@@ -93,6 +93,17 @@ const mockFocusRisk = vi.fn()
 const mockTogglePin = vi.fn()
 const mockSetHoveredRisk = vi.fn()
 const mockClearAllPins = vi.fn()
+// UI-R8：notLocated/hasLocated 与 markLocated/reset 由 useContractRiskFocus 接管
+const notLocatedIdsRef = ref<Set<string>>(new Set())
+const hasLocatedRef = ref(false)
+const mockMarkLocated = vi.fn((ids: Set<string>) => {
+    hasLocatedRef.value = true
+    notLocatedIdsRef.value = ids
+})
+const mockResetRiskFocus = vi.fn(() => {
+    hasLocatedRef.value = false
+    notLocatedIdsRef.value = new Set()
+})
 
 vi.mock('~/composables/useContractReview', () => ({
     useContractReview: () => ({
@@ -108,10 +119,6 @@ vi.mock('~/composables/useContractReview', () => ({
         totalClauses: totalClausesRef,
         analyzingClauseIndex: analyzingClauseIndexRef,
         analyzeWarnings: analyzeWarningsRef,
-        focusedRiskId: focusedRiskIdRef,
-        hoveredRiskId: hoveredRiskIdRef,
-        pinnedRiskIds: pinnedRiskIdsRef,
-        highlightedRiskIds: highlightedRiskIdsRef,
         onStart: mockOnStart,
         mountReview: mockMountReview,
         onStance: mockOnStance,
@@ -120,10 +127,28 @@ vi.mock('~/composables/useContractReview', () => ({
         onEditRisks: mockOnEditRisks,
         onRebuildDocx: mockOnRebuildDocx,
         cancelReview: mockCancelReview,
-        focusRisk: mockFocusRisk,
+    }),
+}))
+
+// UI-R8：聚焦/钉/悬停 + 定位状态从 useContractReview 拆出，单独 mock
+vi.mock('~/composables/useContractRiskFocus', () => ({
+    useContractRiskFocus: () => ({
+        focusedRiskId: focusedRiskIdRef,
+        hoveredRiskId: hoveredRiskIdRef,
+        pinnedRiskIds: pinnedRiskIdsRef,
+        highlightedRiskIds: highlightedRiskIdsRef,
+        notLocatedIds: notLocatedIdsRef,
+        hasLocated: hasLocatedRef,
+        // 保留真实 composable 的"未定位拦截"语义：notLocatedIds 命中则不调 focusRisk
+        focusRisk: (id: string | null) => {
+            if (id && notLocatedIdsRef.value.has(id)) return
+            mockFocusRisk(id)
+        },
         togglePin: mockTogglePin,
-        setHoveredRisk: mockSetHoveredRisk,
+        setHovered: mockSetHoveredRisk,
         clearAllPins: mockClearAllPins,
+        markLocated: mockMarkLocated,
+        reset: mockResetRiskFocus,
     }),
 }))
 
@@ -348,6 +373,8 @@ function resetRefs() {
     focusedRiskIdRef.value = null
     hoveredRiskIdRef.value = null
     pinnedRiskIdsRef.value = new Set()
+    notLocatedIdsRef.value = new Set()
+    hasLocatedRef.value = false
 }
 
 beforeEach(() => {
@@ -367,6 +394,8 @@ beforeEach(() => {
     mockTogglePin.mockReset()
     mockSetHoveredRisk.mockReset()
     mockClearAllPins.mockReset()
+    mockMarkLocated.mockClear()
+    mockResetRiskFocus.mockClear()
 })
 
 afterEach(() => {

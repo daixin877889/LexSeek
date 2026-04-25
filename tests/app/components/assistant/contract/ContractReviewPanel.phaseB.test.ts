@@ -66,10 +66,6 @@ vi.mock('~/composables/useContractReview', () => ({
         totalClauses: ref(null),
         analyzingClauseIndex: ref(null),
         analyzeWarnings: ref([]),
-        focusedRiskId: ref(null),
-        hoveredRiskId: ref(null),
-        pinnedRiskIds: ref(new Set()),
-        highlightedRiskIds: computed(() => new Set()),
         onStart: vi.fn(),
         mountReview: vi.fn().mockResolvedValue(undefined),
         onStance: vi.fn().mockResolvedValue(true),
@@ -78,10 +74,24 @@ vi.mock('~/composables/useContractReview', () => ({
         onEditRisks: vi.fn(),
         onRebuildDocx: vi.fn(),
         cancelReview: vi.fn().mockResolvedValue(undefined),
+    }),
+}))
+
+// UI-R8：聚焦/钉/悬停 + 定位状态拆到 useContractRiskFocus
+vi.mock('~/composables/useContractRiskFocus', () => ({
+    useContractRiskFocus: () => ({
+        focusedRiskId: ref(null),
+        hoveredRiskId: ref(null),
+        pinnedRiskIds: ref(new Set()),
+        highlightedRiskIds: computed(() => new Set()),
+        notLocatedIds: ref(new Set()),
+        hasLocated: ref(false),
         focusRisk: vi.fn(),
         togglePin: vi.fn(),
-        setHoveredRisk: vi.fn(),
+        setHovered: vi.fn(),
         clearAllPins: vi.fn(),
+        markLocated: vi.fn(),
+        reset: vi.fn(),
     }),
 }))
 

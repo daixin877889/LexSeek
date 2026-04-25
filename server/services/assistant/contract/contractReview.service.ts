@@ -11,14 +11,12 @@
  */
 import { randomUUID } from 'node:crypto'
 import { prisma } from '~~/server/utils/db'
-import { FileSource, OssFileStatus } from '#shared/types/file'
-import { StorageProviderType } from '~~/server/lib/storage/types'
-import { uploadFileService, deleteFileService } from '~~/server/services/storage/storage.service'
-import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageConfig.dao'
-import { createOssFileDao, findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
+import { FileSource } from '#shared/types/file'
+import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import { enqueueRunService } from '~~/server/services/agent/agentRun.service'
 import { textToDocxService } from './textToDocx.service'
 import { createContractReviewDAO } from './contractReview.dao'
+import { uploadAndRegisterOssFile } from './utils/uploadAndRegisterOssFile'
 import { DOCX_MIME } from '#shared/utils/mime'
 import type { CreateReviewRequest, CreateReviewResponse } from '#shared/types/contract'
 
@@ -97,42 +95,18 @@ export async function createAndStartContractReviewService(
         const docxBuffer = await textToDocxService(text)
         const ossPath = `contract-review/${userId}/${randomUUID()}.docx`
 
-        const [uploadResult, storageConfig] = await Promise.all([
-            uploadFileService(ossPath, docxBuffer, {
-                contentType: DOCX_MIME,
-                userId,
-            }),
-            getDefaultStorageConfigDao(StorageProviderType.ALIYUN_OSS, userId),
-        ])
-        const bucketName = storageConfig?.bucket ?? ''
-
-        // CORE-M3：上传成功后 createOssFile 失败需清理 OSS，避免孤儿文件
-        try {
-            const ossFileRow = await createOssFileDao({
-                userId,
-                bucketName,
-                // CORE-M2：用粘贴文本头几字 + 时间戳生成区分度更高的文件名，
-                // 避免列表里多条粘贴 review 全部叫 pasted-contract.docx 难识别。
-                fileName: buildPastedFileName(text),
-                filePath: uploadResult.name,
-                fileSize: docxBuffer.length,
-                fileType: DOCX_MIME,
-                source: FileSource.CASE_ANALYSIS,
-                status: OssFileStatus.UPLOADED,
-                encrypted: false,
-            })
-            originalFileId = ossFileRow.id
-        } catch (err) {
-            await Promise.resolve(deleteFileService(uploadResult.name, { userId }))
-                .catch((cleanupErr) => {
-                    logger.warn('contractReview.create paste: OSS 孤儿清理失败', {
-                        userId,
-                        ossPath: uploadResult.name,
-                        cleanupErr: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
-                    })
-                })
-            throw err
-        }
+        // CORE-R3：上传 + 落 ossFiles + 失败清孤儿统一走 uploadAndRegisterOssFile。
+        // CORE-M2：fileName 仍用粘贴文本头几字 + 时间戳，避免列表里多条粘贴 review
+        // 全部叫 pasted-contract.docx 难识别。
+        const { ossFileId } = await uploadAndRegisterOssFile({
+            ossPath,
+            buffer: docxBuffer,
+            fileName: buildPastedFileName(text),
+            fileType: DOCX_MIME,
+            userId,
+            source: FileSource.CASE_ANALYSIS,
+        })
+        originalFileId = ossFileId
     }
     else {
         return { error: '不支持的 sourceType', code: 400 }

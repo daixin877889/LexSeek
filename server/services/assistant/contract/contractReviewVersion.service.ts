@@ -19,16 +19,14 @@ import { getContractReviewVersionByIdDAO } from './contractReviewVersion.dao'
 import { isAnnotationExportable } from './contractAnnotation.service'
 import { injectAnnotations } from './docx'
 import type { ContractAnnotationForExport } from './docx'
-import { findOssFileByIdDao, createOssFileDao } from '~~/server/services/files/ossFiles.dao'
+import { findOssFileByIdDao } from '~~/server/services/files/ossFiles.dao'
 import {
     downloadFileService,
-    uploadFileService,
     generateSignedUrlService,
     deleteFileService,
 } from '~~/server/services/storage/storage.service'
-import { getDefaultStorageConfigDao } from '~~/server/services/storage/storageConfig.dao'
-import { StorageProviderType } from '~~/server/lib/storage/types'
-import { FileSource, OssFileStatus } from '#shared/types/file'
+import { uploadAndRegisterOssFile } from './utils/uploadAndRegisterOssFile'
+import { FileSource } from '#shared/types/file'
 import { DOCX_MIME } from '#shared/utils/mime'
 import {
     buildContractReviewFilename,
@@ -310,38 +308,26 @@ export async function downloadContractReviewVersionService(
         return { error: 'inject_failed' as const }
     }
 
+    // 文件名：spec §4.4 规范，历史版本必定有版本号，不会走"工作区"分支
+    const filename = buildContractReviewFilename({
+        originalFileName: contractFileName,
+        versionNumber: version.versionNumber,
+    })
+
     // 上传到 OSS：contract-review/<userId>/version-<versionId>-<uuid>.docx
+    // CORE-R3：上传 + 落 ossFiles + 失败清孤儿统一走 uploadAndRegisterOssFile。
     const ossPath = `contract-review/${review.userId}/version-${versionId}-${randomUUID()}.docx`
     let uploadName: string
     try {
-        const [uploadResult, storageConfig] = await Promise.all([
-            uploadFileService(ossPath, injectedBuffer, {
-                contentType: DOCX_MIME,
-                userId: review.userId,
-            }),
-            getDefaultStorageConfigDao(StorageProviderType.ALIYUN_OSS, review.userId),
-        ])
-        uploadName = uploadResult.name
-        const bucketName = storageConfig?.bucket ?? ''
-
-        // 文件名：spec §4.4 规范，历史版本必定有版本号，不会走"工作区"分支
-        const filename = buildContractReviewFilename({
-            originalFileName: contractFileName,
-            versionNumber: version.versionNumber,
-        })
-
-        // 落一条 ossFiles 记录用于后续追踪；下载链走 Content-Disposition 带文件名
-        await createOssFileDao({
-            userId: review.userId,
-            bucketName,
+        const result = await uploadAndRegisterOssFile({
+            ossPath,
+            buffer: injectedBuffer,
             fileName: filename,
-            filePath: uploadName,
-            fileSize: injectedBuffer.byteLength,
             fileType: DOCX_MIME,
+            userId: review.userId,
             source: FileSource.CASE_ANALYSIS,
-            status: OssFileStatus.UPLOADED,
-            encrypted: false,
         })
+        uploadName = result.uploadName
 
         const contentDisposition = buildContentDispositionForFilename(filename)
         const downloadUrl = await generateSignedUrlService(uploadName, {
@@ -352,7 +338,8 @@ export async function downloadContractReviewVersionService(
 
         return { data: { downloadUrl, filename } }
     } catch (err) {
-        // createOssFile / 签名失败 → 清理 OSS 孤儿文件，不覆盖原始错误
+        // 上传/落库自身失败时 uploadAndRegisterOssFile 内部已清孤儿；
+        // 这里兜底处理"util 成功但后续 generateSignedUrl 失败"的孤儿场景。
         if (uploadName!) {
             await Promise.resolve(deleteFileService(uploadName, { userId: review.userId }))
                 .catch((cleanupErr) => {

@@ -48,14 +48,24 @@ const {
     stageStatus,
     totalClauses,
     analyzingClauseIndex,
+} = useContractReview()
+
+// UI-R8：风险聚焦/钉/悬停 + 定位状态集中到 useContractRiskFocus
+// （原本 focusedRiskId / hoveredRiskId / pinnedRiskIds / notLocatedIds / hasLocated
+// 分散在 useContractReview + ContractReviewPanel 本地，整合后由 composable 接管）
+const {
     focusedRiskId,
     hoveredRiskId,
     pinnedRiskIds,
     highlightedRiskIds,
+    notLocatedIds,
+    hasLocated,
     focusRisk,
-    setHoveredRisk,
+    setHovered: setHoveredRisk,
     togglePin,
-} = useContractReview()
+    markLocated,
+    reset: resetRiskFocus,
+} = useContractRiskFocus()
 
 // 外部 reviewId 注入：composable 未监听后续变化，全靠这里桥接
 // UI-H5：id 由 number 切换到 null（路由 SSR 切换 / 父 unmount 残留 watch）
@@ -346,14 +356,7 @@ async function handleDownload() {
     }
 }
 
-// 未定位 risk id 集合（由 ContractDocxPreview decorateRisks 完成后上报）
-const notLocatedIds = ref<Set<string>>(new Set())
-/**
- * 首次 decorateRisks 完成前，notLocatedIds 恒为空，会让 RiskListPanel 短暂把
- * 所有风险都判为"已定位"；渲染完成后又突变为"未定位"集合，产生肉眼可见的闪烁。
- * 用 hasLocated 作为门控：首次 emit 后置 true，切换文档/版本时重置为 false。
- */
-const hasLocated = ref(false)
+// notLocatedIds / hasLocated 由 useContractRiskFocus 提供，下面 watcher 触发 reset
 
 /**
  * 结果屏左右分栏。对齐文书编辑器工作区（`dashboard/document/drafts/[id].vue`）：
@@ -373,27 +376,8 @@ function handlePanelResize(sizes: number[]) {
     else rightSizeStandard.value = right
 }
 
-/**
- * 断死循环：DocxPreview 的 watch(props.risks) 每次都会 emit locateResult；
- * 若每次无条件写 notLocatedIds，Panel 重渲 → props.risks 引用变（模板里
- * `review?.risks ?? []` 等表达式在 re-render 时可能创建新引用）→ 再触发
- * decorateRisks → 死循环。此处按内容等价性短路，内容相同就不写入。
- */
-function setsEqual(a: Set<string>, b: Set<string>): boolean {
-    if (a === b) return true
-    if (a.size !== b.size) return false
-    for (const v of a) if (!b.has(v)) return false
-    return true
-}
-
-function handleLocateResult(ids: Set<string>) {
-    hasLocated.value = true
-    if (setsEqual(ids, notLocatedIds.value)) return
-    notLocatedIds.value = ids
-}
-
 // 切文档（原件 / 批注版）或切版本预览时，重置定位状态；DocxPreview 会在新一次
-// renderAsync 完成后再通过 handleLocateResult 把 hasLocated 置回 true。
+// renderAsync 完成后再通过 markLocated 把 hasLocated 置回 true。
 watch(
     [
         () => review.value?.reviewedFileId,
@@ -401,28 +385,19 @@ watch(
         () => versioning.previewVersionId.value,
     ],
     () => {
-        hasLocated.value = false
-        notLocatedIds.value = new Set()
+        resetRiskFocus()
     },
 )
 
 // UI-M3：risks 流式 append 时（reviewedFileId 不变但 effectiveRisks.length 变多）
 // DocxPreview 还没 decorate 完，notLocatedIds 处于"上一帧"快照。短暂置 hasLocated=false
 // 让 RiskListPanel 不把新 risk 误标"已定位"再立即跳成"未定位"造成视觉闪烁。
+// 仅置 hasLocated=false（不清 notLocatedIds），避免在新一帧 markLocated 之前丢失上一帧定位结果。
 watch(() => effectiveRisks.value.length, (newLen, prevLen) => {
     if (newLen > (prevLen ?? 0)) {
         hasLocated.value = false
     }
 })
-
-/**
- * 聚焦 risk 的拦截层：未定位的 risk 不跳转文档（元素不存在），
- * RiskListPanel 侧的 toggle 展开/收起照常执行（由 RiskListPanel 内部维护）。
- */
-function handleFocusRisk(id: string) {
-    if (notLocatedIds.value.has(id)) return
-    focusRisk(id)
-}
 
 // Shift+click 快捷键委托（冒泡，不用 capture，避免干扰 dialog/popover 外部关闭）
 // UI-M7：Dialog/Popover 内部的 [data-risk-id] 元素不应被 shift+click 钉住，
@@ -558,9 +533,9 @@ function handleContainerClick(e: MouseEvent) {
                                     :focused-risk-id="focusedRiskId"
                                     :hovered-risk-id="hoveredRiskId"
                                     :highlighted-risk-ids="highlightedRiskIds"
-                                    @focus-risk="handleFocusRisk"
+                                    @focus-risk="focusRisk"
                                     @hover-clause="setHoveredRisk"
-                                    @locate-result="handleLocateResult"
+                                    @locate-result="markLocated"
                                 />
                             </div>
                         </ResizablePanel>
@@ -604,7 +579,7 @@ function handleContainerClick(e: MouseEvent) {
                                     @rebuild="onRebuildDocx"
                                     @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
                                     @export-pdf="(includeRisks: boolean) => onExportPdf(includeRisks)"
-                                    @focus-risk="handleFocusRisk"
+                                    @focus-risk="focusRisk"
                                     @toggle-pin="togglePin"
                                     @archive="handleArchiveRisk"
                                     @add-annotation="handleAddAnnotation"
@@ -626,9 +601,9 @@ function handleContainerClick(e: MouseEvent) {
                                 :focused-risk-id="focusedRiskId"
                                 :hovered-risk-id="hoveredRiskId"
                                 :highlighted-risk-ids="highlightedRiskIds"
-                                @focus-risk="handleFocusRisk"
+                                @focus-risk="focusRisk"
                                 @hover-clause="setHoveredRisk"
-                                @locate-result="handleLocateResult"
+                                @locate-result="markLocated"
                             />
                         </div>
                         <div class="flex-1 min-h-0 flex flex-col overflow-hidden rounded-lg border bg-card">
@@ -666,7 +641,7 @@ function handleContainerClick(e: MouseEvent) {
                                 @rebuild="onRebuildDocx"
                                 @edit-risks="(risks: Risk[]) => onEditRisks(risks)"
                                 @export-pdf="(includeRisks: boolean) => onExportPdf(includeRisks)"
-                                @focus-risk="handleFocusRisk"
+                                @focus-risk="focusRisk"
                                 @toggle-pin="togglePin"
                                 @archive="handleArchiveRisk"
                                 @add-annotation="handleAddAnnotation"

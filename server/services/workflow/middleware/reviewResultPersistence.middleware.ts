@@ -24,16 +24,11 @@ import { listAnnotationsForExportDAO } from '../../assistant/contract/contractAn
 import { isAnnotationExportable } from '../../assistant/contract/contractAnnotation.service'
 import {
     downloadFileService,
-    uploadFileService,
     deleteFileService,
 } from '../../storage/storage.service'
-import { getDefaultStorageConfigDao } from '../../storage/storageConfig.dao'
-import {
-    findOssFileByIdDao,
-    createOssFileDao,
-} from '../../files/ossFiles.dao'
-import { FileSource, OssFileStatus } from '#shared/types/file'
-import { StorageProviderType } from '~~/server/lib/storage/types'
+import { findOssFileByIdDao } from '../../files/ossFiles.dao'
+import { uploadAndRegisterOssFile } from '../../assistant/contract/utils/uploadAndRegisterOssFile'
+import { FileSource } from '#shared/types/file'
 import { DOCX_MIME } from '#shared/utils/mime'
 import type { ContractAnnotationForExport } from '../../assistant/contract/docx'
 
@@ -125,37 +120,27 @@ export async function runAnnotateAndUpload(reviewId: number): Promise<void> {
 
     // OSS 路径与 contractReviewRebuild.service 保持同构：
     // contract-review/<userId>/reviewed-<uuid>.docx
+    // CORE-R3：上传 + 落 ossFiles + 失败清孤儿统一走 uploadAndRegisterOssFile。
     const ossPath = `contract-review/${review.userId}/reviewed-${randomUUID()}.docx`
-    const uploadResult = await uploadFileService(ossPath, injectResult.buffer, {
-        contentType: DOCX_MIME,
+    const { uploadName, ossFileId } = await uploadAndRegisterOssFile({
+        ossPath,
+        buffer: injectResult.buffer,
+        fileName: `reviewed-${reviewId}.docx`,
+        fileType: DOCX_MIME,
         userId: review.userId,
+        source: FileSource.CASE_ANALYSIS,
     })
 
-    // OSS 已上传成功；后续 createOssFile / 写 reviewedFileId 任一失败需清理 OSS 以免留孤儿文件。
+    // OSS + ossFiles 行已就绪；后续 updateContractReview 失败仍需清理 OSS 孤儿，
     // 与 contractReviewRebuild.service.ts 同构：deleteFileService 用 Promise.resolve 包裹兜底。
     try {
-        const storageConfig = await getDefaultStorageConfigDao(StorageProviderType.ALIYUN_OSS, review.userId)
-        const bucketName = storageConfig?.bucket ?? ''
-
-        const ossFileRow = await createOssFileDao({
-            userId: review.userId,
-            bucketName,
-            fileName: `reviewed-${reviewId}.docx`,
-            filePath: uploadResult.name,
-            fileSize: injectResult.buffer.length,
-            fileType: DOCX_MIME,
-            source: FileSource.CASE_ANALYSIS,
-            status: OssFileStatus.UPLOADED,
-            encrypted: false,
-        })
-
-        await updateContractReviewDAO(reviewId, { reviewedFileId: ossFileRow.id, status: 'completed' })
+        await updateContractReviewDAO(reviewId, { reviewedFileId: ossFileId, status: 'completed' })
     } catch (err) {
-        await Promise.resolve(deleteFileService(uploadResult.name, { userId: review.userId }))
+        await Promise.resolve(deleteFileService(uploadName, { userId: review.userId }))
             .catch((cleanupErr) => {
                 logger.warn('runAnnotateAndUpload: OSS 孤儿文件清理失败', {
                     reviewId,
-                    ossPath: uploadResult.name,
+                    ossPath: uploadName,
                     cleanupErr: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
                 })
             })
