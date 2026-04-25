@@ -377,11 +377,11 @@ async function seedMemories(caseId: number, rng: () => number): Promise<string[]
     { kind: 'preference', subjectKey: 'preference.timeline.urgency', text: '当事人希望 2 个月内结案' },
     { kind: 'preference', subjectKey: 'preference.disclosure.detail', text: '不愿公开具体合同金额' },
     { kind: 'preference', subjectKey: 'preference.report.format', text: '希望分析报告以表格输出' },
-    { kind: 'topic', subjectKey: 'topic.legal.basis', text: '讨论过《民法典》合同编关于违约金的条款' },
-    { kind: 'topic', subjectKey: 'topic.evidence.assessment', text: '已评估微信记录的证据效力' },
-    { kind: 'topic', subjectKey: 'topic.risk.financial', text: '评估了乙方的偿付能力风险' },
-    { kind: 'topic', subjectKey: 'topic.precedent.search', text: '检索了类案三起，均判决支持原告' },
-    { kind: 'topic', subjectKey: 'topic.strategy.mediation', text: '讨论过和解方案的可行性' },
+    { kind: 'dialogue_note', subjectKey: 'topic.legal.basis', text: '讨论过《民法典》合同编关于违约金的条款' },
+    { kind: 'dialogue_note', subjectKey: 'topic.evidence.assessment', text: '已评估微信记录的证据效力' },
+    { kind: 'dialogue_note', subjectKey: 'topic.risk.financial', text: '评估了乙方的偿付能力风险' },
+    { kind: 'dialogue_note', subjectKey: 'topic.precedent.search', text: '检索了类案三起，均判决支持原告' },
+    { kind: 'dialogue_note', subjectKey: 'topic.strategy.mediation', text: '讨论过和解方案的可行性' },
   ]
   const ids: string[] = []
   for (const item of items) {
@@ -509,7 +509,7 @@ async function buildCaseB(ownerUserId: number, rng: () => number): Promise<Fixtu
   const decoys = [
     { kind: 'fact', subjectKey: 'fact.contract.signed_at', text: '诱饵：合同签订于 2023-01-01' },
     { kind: 'preference', subjectKey: 'preference.contact.method', text: '诱饵：偏好邮件' },
-    { kind: 'topic', subjectKey: 'topic.legal.basis', text: '诱饵：讨论过《公司法》' },
+    { kind: 'dialogue_note', subjectKey: 'topic.legal.basis', text: '诱饵：讨论过《公司法》' },
   ]
   for (const m of decoys) {
     const id = generateUuidV4(rng)
