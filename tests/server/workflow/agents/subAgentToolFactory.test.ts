@@ -57,13 +57,26 @@ vi.mock('../../../../server/services/workflow/context/messageCompressor', () => 
     })),
 }))
 
-// mock buildContextSegments / toCachedPrompt（核心被测路径）
+// mock buildContextSegments / toCachedPrompt / buildSystemPromptForAgent（核心被测路径）
 const buildContextSegmentsMock = vi.fn(async (_params: any) => ({
     roleAndFlow: '你是分析助手',
     caseProfile: '## 案件档案\n```json\n{"title":"测试"}\n```',
     moduleSummaries: '',
     dynamicContext: '',
 }))
+const buildSystemPromptForAgentMock = vi.fn(async (sdkType: string, params: any) => {
+    const segments = await buildContextSegmentsMock(params)
+    const plainText = [segments.roleAndFlow, segments.caseProfile, segments.moduleSummaries, segments.dynamicContext]
+        .filter(Boolean).join('\n\n')
+    const content = sdkType === 'anthropic'
+        ? [{ type: 'text', text: plainText }]
+        : plainText
+    return {
+        segments,
+        systemMessage: { content, _getType: () => 'system' },
+        plainText,
+    }
+})
 vi.mock('../../../../server/services/workflow/context/moduleContextBuilder', () => ({
     buildContextSegments: (params: any) => buildContextSegmentsMock(params),
     toCachedPrompt: vi.fn((segs: any) => [
@@ -72,6 +85,7 @@ vi.mock('../../../../server/services/workflow/context/moduleContextBuilder', () 
         segs.moduleSummaries && { text: segs.moduleSummaries, cache: { ttl: '5m' } },
         segs.dynamicContext && { text: segs.dynamicContext },
     ].filter(Boolean)),
+    buildSystemPromptForAgent: (sdkType: string, params: any) => buildSystemPromptForAgentMock(sdkType, params),
 }))
 
 // mock 自动导入的 logger

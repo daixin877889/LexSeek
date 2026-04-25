@@ -13,12 +13,15 @@ import { createMiddleware } from 'langchain'
 import { updateDocumentDraftDAO } from '../../assistant/document/documentDraft.dao'
 import { createSnapshotService } from '../../assistant/document/documentDraftSnapshot.service'
 import { applyAITitleIfAllowedService } from '../../assistant/document/documentDraft.service'
+import { extractFirstJsonObject } from '../../assistant/contract/utils/llmJson'
+import { extractLastAIMessageContent } from './analysisResultPersistence.middleware'
 import type { DocumentDraftStructured } from '#shared/types/document'
 
 /**
  * 从 AI 消息文本里兜底解析 JSON：
  *  1. 优先匹配 ```json ... ``` 代码块
- *  2. 退化匹配第一个平衡的 `{...}`
+ *  2. 退化用 extractFirstJsonObject 平衡括号扫描首个 JSON 对象
+ *
  * 解析失败返回 null，让上层走 failed 分支。
  */
 function tryParseStructuredFromText(text: string): DocumentDraftStructured | null {
@@ -27,13 +30,8 @@ function tryParseStructuredFromText(text: string): DocumentDraftStructured | nul
     const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
     const candidates: string[] = []
     if (fenceMatch?.[1]) candidates.push(fenceMatch[1])
-
-    // 兜底：找首个 `{` 到末尾最后一个 `}` 的子串
-    const firstBrace = text.indexOf('{')
-    const lastBrace = text.lastIndexOf('}')
-    if (firstBrace >= 0 && lastBrace > firstBrace) {
-        candidates.push(text.slice(firstBrace, lastBrace + 1))
-    }
+    const fallback = extractFirstJsonObject(text)
+    if (fallback) candidates.push(fallback)
 
     for (const raw of candidates) {
         try {
@@ -84,19 +82,11 @@ export const draftResultPersistenceMiddleware = (options: DraftResultPersistence
                     // fallback：模型把 JSON 写到消息体里时尝试解析最后一条 AI 消息
                     if (!structured) {
                         const messages = Array.isArray(state.messages) ? state.messages : []
-                        for (let i = messages.length - 1; i >= 0; i--) {
-                            const m = messages[i]
-                            const isAi = m?.getType?.() === 'ai' || m?._getType?.() === 'ai' || m?.role === 'assistant'
-                            if (!isAi) continue
-                            const content = typeof m.content === 'string'
-                                ? m.content
-                                : Array.isArray(m.content)
-                                    ? m.content.map((c: any) => (typeof c === 'string' ? c : c?.text ?? '')).join('')
-                                    : ''
-                            structured = tryParseStructuredFromText(content)
+                        const lastAiContent = extractLastAIMessageContent(messages)
+                        if (lastAiContent) {
+                            structured = tryParseStructuredFromText(lastAiContent)
                             if (structured) {
                                 logger.info('draft 持久化：从消息体解析 JSON 兜底成功', { draftId })
-                                break
                             }
                         }
                     }

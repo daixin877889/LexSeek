@@ -10,18 +10,14 @@
  */
 
 import { createAgent, summarizationMiddleware, toolStrategy, type ReactAgent } from 'langchain'
-import { HumanMessage, SystemMessage } from '@langchain/core/messages'
+import { HumanMessage } from '@langchain/core/messages'
 import { Command } from '@langchain/langgraph'
 import { getCheckpointer, getStore } from '../checkpointer'
 import { getValidNodeConfig } from '../../node/node.service'
-import {
-    createChatModel,
-    cachedPromptToAnthropicContent,
-    cachedPromptToPlainText,
-} from '../../node/chatModelFactory'
+import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { renderSystemPrompt } from '../utils/promptRenderer'
-import { buildContextSegments, toCachedPrompt } from '../context/moduleContextBuilder'
+import { buildSystemPromptForAgent } from '../context/moduleContextBuilder'
 import {
     createAuditMiddleware,
     createMessageIntegrityMiddleware,
@@ -143,28 +139,22 @@ export async function runDocumentChat(
         maxTokens: nodeConfig.modelMaxOutputTokens,
     })
 
-    // 5. 渲染系统提示词（注入模板名称和类别）
+    // 5. 构建 5 段式系统提示词（caseId 可空：独立文书草稿场景传 null）
     const resolvedCaseId = draft.caseId ?? caseId
     const roleAndFlowTemplate = renderSystemPrompt(nodeConfig, {
         caseId: resolvedCaseId,
         templateName: template.name,
         templateCategory: template.category,
     })
-
-    // 5.1 构建 5 段式上下文（caseId 可空：独立文书草稿场景传 null）
-    const segs = await buildContextSegments({
-        caseId: resolvedCaseId ?? null,
-        agentName: DOCUMENT_MAIN_NODE_NAME,
-        userQuery: message ?? '',
-        roleAndFlowTemplate,
-    })
-    const cached = toCachedPrompt(segs)
-    const sysContent: string | Array<Record<string, unknown>> =
-        nodeConfig.modelSdkType === 'anthropic'
-            ? cachedPromptToAnthropicContent(cached)
-            : cachedPromptToPlainText(cached)
-    const systemMessage = new SystemMessage({ content: sysContent as any })
-    const systemPromptPlainText = cachedPromptToPlainText(cached)
+    const { systemMessage, plainText: systemPromptPlainText } = await buildSystemPromptForAgent(
+        nodeConfig.modelSdkType,
+        {
+            caseId: resolvedCaseId ?? null,
+            agentName: DOCUMENT_MAIN_NODE_NAME,
+            userQuery: message ?? '',
+            roleAndFlowTemplate,
+        },
+    )
 
     // 6. 加载工具（传入 draftId 关键上下文）
     const toolContext = {

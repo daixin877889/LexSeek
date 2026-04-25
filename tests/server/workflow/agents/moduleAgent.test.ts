@@ -39,19 +39,39 @@ vi.mock('../../../../server/services/node/chatModelFactory', () => ({
     ),
 }))
 
-// mock buildContextSegments
+// mock buildContextSegments + buildSystemPromptForAgent（helper 内部委托回 mock 链）
 const mockBuildContextSegments = vi.fn()
-vi.mock('../../../../server/services/workflow/context/moduleContextBuilder', () => ({
-    buildContextSegments: (...args: unknown[]) => mockBuildContextSegments(...args),
-    toCachedPrompt: (segs: { roleAndFlow: string; caseProfile: string; moduleSummaries: string; dynamicContext: string }) => {
+const mockBuildSystemPromptForAgent = vi.fn()
+vi.mock('../../../../server/services/workflow/context/moduleContextBuilder', async () => {
+    const chatFactoryMock = await import('../../../../server/services/node/chatModelFactory')
+    const messagesMock = await import('@langchain/core/messages')
+    const toCached = (segs: { roleAndFlow: string; caseProfile: string; moduleSummaries: string; dynamicContext: string }) => {
         const out: Array<{ text: string; cache?: { ttl?: '1h' } }> = []
         if (segs.roleAndFlow) out.push({ text: segs.roleAndFlow, cache: { ttl: '1h' } })
         if (segs.caseProfile) out.push({ text: segs.caseProfile, cache: { ttl: '1h' } })
         if (segs.moduleSummaries) out.push({ text: segs.moduleSummaries })
         if (segs.dynamicContext) out.push({ text: segs.dynamicContext })
         return out
-    },
-}))
+    }
+    mockBuildSystemPromptForAgent.mockImplementation(async (sdkType: string, params: unknown) => {
+        const segments = await mockBuildContextSegments(params)
+        const cached = toCached(segments)
+        const plainText = chatFactoryMock.cachedPromptToPlainText(cached as any)
+        const content = sdkType === 'anthropic'
+            ? chatFactoryMock.cachedPromptToAnthropicContent(cached as any)
+            : plainText
+        return {
+            segments,
+            systemMessage: new messagesMock.SystemMessage({ content: content as any }),
+            plainText,
+        }
+    })
+    return {
+        buildContextSegments: (...args: unknown[]) => mockBuildContextSegments(...args),
+        toCachedPrompt: toCached,
+        buildSystemPromptForAgent: (...args: unknown[]) => mockBuildSystemPromptForAgent(...args),
+    }
+})
 
 // mock messageCompressor
 vi.mock('../../../../server/services/workflow/context/messageCompressor', () => ({

@@ -33,6 +33,38 @@ import { batchAddCaseMaterialsService } from './caseMaterial.service'
 // 注意：类型和枚举请直接从 './case.dao' 导入
 // 避免 Nuxt 自动导入时产生重复警告
 
+/**
+ * ARCHIVED 写操作错误文案表（spec §12 铁律）。
+ *
+ * 多个写入入口（initAnalysis / writeMemory / updateMemory 等）共用同一套
+ * 「先查 status → isCaseReadOnly → throw」逻辑，只是文案不同；集中管理避免散点漂移。
+ */
+const ARCHIVED_WRITE_MESSAGES = {
+    ANALYSIS:      '案件已归档，不可启动分析',
+    WRITE_MEMORY:  '案件已归档，不可写入记忆',
+    UPDATE_MEMORY: '案件已归档，不可更新记忆',
+} as const
+
+export type ArchivedWriteAction = keyof typeof ARCHIVED_WRITE_MESSAGES
+
+/**
+ * 写操作前置守卫：案件不存在或处于 ARCHIVED 状态时直接抛错。
+ *
+ * 与 initAnalysis 中通过 caseAnalyses.case JOIN 取 status 的写法等价；
+ * 但调用方只持有 caseId 时（writeMemory / updateMemory）走这条路径少 1 段重复代码。
+ */
+export async function assertCaseWritableService(
+    caseId: number,
+    action: ArchivedWriteAction,
+): Promise<void> {
+    const c = await prisma.cases.findUnique({
+        where: { id: caseId },
+        select: { status: true },
+    })
+    if (!c) throw new Error(`case #${caseId} 不存在`)
+    if (isCaseReadOnly(c.status)) throw new Error(ARCHIVED_WRITE_MESSAGES[action])
+}
+
 /** 创建案件结果 */
 export interface CreateCaseResult {
     /** 案件 ID */

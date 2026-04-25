@@ -8,9 +8,9 @@
 import { tool } from '@langchain/core/tools'
 import { z } from 'zod'
 import type { StructuredToolInterface } from '@langchain/core/tools'
-import { HumanMessage, SystemMessage } from '@langchain/core/messages'
+import { HumanMessage } from '@langchain/core/messages'
 import { createAgent, summarizationMiddleware } from 'langchain'
-import { createChatModel, cachedPromptToAnthropicContent, cachedPromptToPlainText } from '../../node/chatModelFactory'
+import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import {
     createAuditMiddleware,
@@ -23,7 +23,7 @@ import {
 import { getCheckpointer, getStore } from '../checkpointer'
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import { resolveContextWindow } from '../context/messageCompressor'
-import { buildContextSegments, toCachedPrompt } from '../context/moduleContextBuilder'
+import { buildSystemPromptForAgent } from '../context/moduleContextBuilder'
 import type { NodeConfig } from '../../node/node.service'
 
 /** 子代理工具上下文 */
@@ -124,25 +124,18 @@ export async function createSubAgentTools(
 
                     const subThreadId = `${context.sessionId}_sub_${safeName}`
 
-                    // 构建 5 段式上下文（roleAndFlow + caseProfile + moduleSummaries + dynamicContext）
-                    const segs = await buildContextSegments({
-                        caseId: context.caseId,
-                        agentName,
-                        userQuery: input.question,
-                        roleAndFlowTemplate,
-                    })
+                    // 构建 5 段式上下文（与主 agent 同套 helper，保证 cache_control 行为一致）
+                    const { systemMessage, plainText: systemPromptPlainText } = await buildSystemPromptForAgent(
+                        config.modelSdkType,
+                        {
+                            caseId: context.caseId,
+                            agentName,
+                            userQuery: input.question,
+                            roleAndFlowTemplate,
+                        },
+                    )
 
-                    let systemContent: string | Array<Record<string, unknown>>
-                    if (config.modelSdkType === 'anthropic') {
-                        systemContent = cachedPromptToAnthropicContent(toCachedPrompt(segs))
-                    } else {
-                        systemContent = cachedPromptToPlainText(toCachedPrompt(segs))
-                    }
-
-                    const initialMessages = [
-                        ...(systemContent ? [new SystemMessage({ content: systemContent as any })] : []),
-                        new HumanMessage(input.question),
-                    ]
+                    const initialMessages = [systemMessage, new HumanMessage(input.question)]
 
                     // 上下文压缩参数（与主 agent 同规格）
                     const { triggerTokens, maxTokens, maxOutputTokens } = resolveContextWindow(
@@ -165,7 +158,8 @@ export async function createSubAgentTools(
                                 model,
                                 trigger: [{ tokens: triggerTokens }],
                             }),
-                            safetyTrimMiddleware({ model, maxTokens, systemPrompt: roleAndFlowTemplate, maxOutputTokens }),
+                            // 与主 agent 一致：用完整 5 段拼接的纯文本估算 token，避免低估
+                            safetyTrimMiddleware({ model, maxTokens, systemPrompt: systemPromptPlainText, maxOutputTokens }),
                             analysisResultPersistenceMiddleware({
                                 agentName,
                                 caseId: context.caseId,

@@ -1,6 +1,8 @@
+import { SystemMessage } from '@langchain/core/messages'
 import type { CachedPrompt } from '#shared/types/prompt'
 import { getMaterialListWithSummariesService } from '../../material/materialPipeline.service'
 import { recallMemoryService } from '../../memory/memory.service'
+import { cachedPromptToAnthropicContent, cachedPromptToPlainText } from '../../node/chatModelFactory'
 
 export interface ContextSegments {
   /** 角色 + 流程规范（来自 NodeConfig） */
@@ -40,6 +42,12 @@ export async function buildContextSegments(params: Params): Promise<ContextSegme
     }
   }
 
+  // 空 query 短路 recallMemoryService：中断恢复 / 重连时 userQuery 为 ''，
+  // 对空串调 embedQuery + BM25 + vector + rerank 全跑一遍是浪费且召回必然空
+  const memoryRecall = userQuery.trim().length === 0
+    ? Promise.resolve([])
+    : recallMemoryService({ caseId, query: userQuery, topK: 5 }).catch(() => [])
+
   const [caseRecord, activeAnalyses, materials, memoryHits] = await Promise.all([
     prisma.cases.findUnique({
       where: { id: caseId },
@@ -57,7 +65,7 @@ export async function buildContextSegments(params: Params): Promise<ContextSegme
       orderBy: { analysisType: 'asc' },
     }),
     getMaterialListWithSummariesService(caseId).catch(() => []),
-    recallMemoryService({ caseId, query: userQuery, topK: 5 }).catch(() => []),
+    memoryRecall,
   ])
 
   if (!caseRecord) {
@@ -123,4 +131,37 @@ export function toCachedPrompt(segs: ContextSegments): CachedPrompt {
   if (segs.moduleSummaries) out.push({ text: segs.moduleSummaries, cache: { ttl: '5m' } })
   if (segs.dynamicContext) out.push({ text: segs.dynamicContext })
   return out
+}
+
+export interface BuiltSystemPrompt {
+  /** 5 段式上下文原始数据 */
+  segments: ContextSegments
+  /** 包装好的 SystemMessage（Anthropic 走 content blocks 保留 cache_control，其它走纯文本） */
+  systemMessage: SystemMessage
+  /** safetyTrim 中间件 token 计数用的纯文本拼接 */
+  plainText: string
+}
+
+/**
+ * 一站式构建 agent 的 SystemMessage：
+ * buildContextSegments → toCachedPrompt → 按 sdkType 分流（anthropic content blocks / plain text） → SystemMessage。
+ *
+ * 6 个主代理 / 子代理之前各自重复这段 7-10 行样板，统一抽出后调用点缩成 1 行。
+ * 后续若 cache 协议变更（Anthropic 加新断点 / OpenAI 支持 cache 字段），只改本函数。
+ */
+export async function buildSystemPromptForAgent(
+  modelSdkType: string,
+  params: Params,
+): Promise<BuiltSystemPrompt> {
+  const segments = await buildContextSegments(params)
+  const cached = toCachedPrompt(segments)
+  const plainText = cachedPromptToPlainText(cached)
+  const content = modelSdkType === 'anthropic'
+    ? cachedPromptToAnthropicContent(cached)
+    : plainText
+  return {
+    segments,
+    systemMessage: new SystemMessage({ content: content as any }),
+    plainText,
+  }
 }

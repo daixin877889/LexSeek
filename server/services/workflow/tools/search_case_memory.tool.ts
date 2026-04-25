@@ -1,7 +1,6 @@
 import { tool } from '@langchain/core/tools'
 import { z } from 'zod'
 import { recallMemoryService } from '../../memory/memory.service'
-import { isCaseReadOnly } from '#shared/types/case'
 import type { ToolDefinition, ToolContext } from './types'
 
 const schema = z.object({
@@ -24,17 +23,7 @@ export function createTool(context: ToolContext) {
             if (!context.caseId) return JSON.stringify({ error: '未绑定案件，无法检索记忆' })
 
             try {
-                // ARCHIVED 案件只读：search 是读操作，允许召回历史记忆作为参考（spec §0.5）
-                const caseRecord = await prisma.cases.findUnique({
-                    where: { id: context.caseId },
-                    select: { status: true },
-                })
-                if (caseRecord && isCaseReadOnly(caseRecord.status)) {
-                    logger.debug('search_case_memory invoked on ARCHIVED case (read allowed)', {
-                        caseId: context.caseId,
-                    })
-                }
-
+                // 注：search 是只读操作，ARCHIVED 案件允许召回历史记忆作为参考（spec §0.5）
                 const hits = await recallMemoryService({
                     caseId: context.caseId,
                     query,

@@ -10,9 +10,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // ==================== Mock 定义 ====================
 
 const mockBuildContextSegments = vi.fn()
+const mockBuildSystemPromptForAgent = vi.fn()
 vi.mock('~~/server/services/workflow/context/moduleContextBuilder', () => ({
     buildContextSegments: (...args: unknown[]) => mockBuildContextSegments(...args),
     toCachedPrompt: () => [{ text: 'cached prompt' }],
+    buildSystemPromptForAgent: (...args: unknown[]) => mockBuildSystemPromptForAgent(...args),
 }))
 
 vi.mock('~~/server/services/node/chatModelFactory', () => ({
@@ -107,6 +109,14 @@ describe('runDocumentChat - buildContextSegments 接入', () => {
             caseProfile: '',
             moduleSummaries: '',
             dynamicContext: '',
+        })
+        mockBuildSystemPromptForAgent.mockImplementation(async (_sdkType: string, params: unknown) => {
+            const segments = await mockBuildContextSegments(params)
+            return {
+                segments,
+                systemMessage: { content: 'mock-sys' },
+                plainText: 'mock-plain',
+            }
         })
     })
 

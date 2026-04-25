@@ -103,3 +103,21 @@ export class LLMUsageCallbackHandler extends BaseCallbackHandler {
     this.opts.isWarmup = isWarmup
   }
 }
+
+/** 多协议兜底取 prompt tokens（DeepSeek prompt_tokens / Anthropic input_tokens） */
+export function extractPromptTokens(usage: RawLLMUsage): number {
+  return usage.prompt_tokens ?? usage.input_tokens ?? 0
+}
+
+/**
+ * 多协议兜底取 prompt cache 命中 tokens：
+ *  - DeepSeek 原生：prompt_cache_hit_tokens
+ *  - Anthropic 协议：cache_read_input_tokens
+ *  - OpenAI 协议：prompt_tokens_details.cached_tokens
+ */
+export function extractCacheHitTokens(usage: RawLLMUsage): number {
+  return usage.prompt_cache_hit_tokens
+    ?? usage.cache_read_input_tokens
+    ?? usage.prompt_tokens_details?.cached_tokens
+    ?? 0
+}

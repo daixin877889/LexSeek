@@ -86,12 +86,16 @@ vi.mock('../../../../server/services/workflow/utils/promptRenderer', () => ({
     renderSystemPrompt: vi.fn(() => '你是案件主代理，roleAndFlow 模板渲染结果'),
 }))
 
-// mock moduleContextBuilder
+// mock moduleContextBuilder：buildSystemPromptForAgent 内部委托回 buildContextSegments
+// + toCachedPrompt + cache helpers 的 mock，这样原有断言（mockBuildContextSegments /
+// mockCachedPromptToAnthropicContent / mockCachedPromptToPlainText）仍然成立
 const mockBuildContextSegments = vi.fn()
 const mockToCachedPrompt = vi.fn()
+const mockBuildSystemPromptForAgent = vi.fn()
 vi.mock('../../../../server/services/workflow/context/moduleContextBuilder', () => ({
     buildContextSegments: (...args: unknown[]) => mockBuildContextSegments(...args),
     toCachedPrompt: (...args: unknown[]) => mockToCachedPrompt(...args),
+    buildSystemPromptForAgent: (...args: unknown[]) => mockBuildSystemPromptForAgent(...args),
 }))
 
 // mock middleware（涵盖 caseMainAgent 用到的全部成员）
@@ -231,6 +235,15 @@ describe('runCaseChat 接入 buildContextSegments', () => {
         mockCreateSubAgentTools.mockResolvedValue([])
         mockBuildContextSegments.mockResolvedValue(defaultSegs)
         mockToCachedPrompt.mockReturnValue(defaultCached)
+        mockBuildSystemPromptForAgent.mockImplementation(async (sdkType: string, params: unknown) => {
+            const segments = await mockBuildContextSegments(params)
+            const cached = mockToCachedPrompt(segments)
+            const plainText = mockCachedPromptToPlainText(cached)
+            const content = sdkType === 'anthropic'
+                ? mockCachedPromptToAnthropicContent(cached)
+                : plainText
+            return { segments, systemMessage: new MockSystemMessage({ content }), plainText }
+        })
         mockStream.mockResolvedValue(mockReadableStream)
     })
 

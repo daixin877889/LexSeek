@@ -52,15 +52,32 @@ vi.mock('../../../../server/services/workflow/tools', () => ({
     getToolInstancesService: (...args: unknown[]) => mockGetToolInstances(...args),
 }))
 
-// mock buildContextSegments —— 关键：此处直接断言入参 caseId=null
+// mock buildContextSegments + buildSystemPromptForAgent —— ESM 内部绑定不会被 export 的 mock
+// 替换，所以新 helper 必须显式 mock 一份，同时让它内部 await mockBuildContextSegments，使
+// 现有「断言 mockBuildContextSegments 入参」继续生效
 const mockBuildContextSegments = vi.fn()
 vi.mock('../../../../server/services/workflow/context/moduleContextBuilder', async () => {
     const actual = await vi.importActual<typeof import('../../../../server/services/workflow/context/moduleContextBuilder')>(
         '../../../../server/services/workflow/context/moduleContextBuilder'
     )
+    const messages = await import('@langchain/core/messages')
     return {
         ...actual,
         buildContextSegments: (...args: unknown[]) => mockBuildContextSegments(...args),
+        async buildSystemPromptForAgent(sdkType: string, params: any) {
+            const segments = await mockBuildContextSegments(params)
+            const cached = actual.toCachedPrompt(segments)
+            const factory = await import('../../../../server/services/node/chatModelFactory')
+            const plainText = factory.cachedPromptToPlainText(cached)
+            const content = sdkType === 'anthropic'
+                ? factory.cachedPromptToAnthropicContent(cached)
+                : plainText
+            return {
+                segments,
+                systemMessage: new messages.SystemMessage({ content: content as any }),
+                plainText,
+            }
+        },
     }
 })
 
@@ -164,6 +181,7 @@ describe('runAssistantChat — buildContextSegments 接入（Phase 4）', () => 
 
     it('caseId=null 时 SystemMessage 退化为 roleAndFlow 单段（其余 3 段为空）', async () => {
         const { createAgent } = await import('langchain')
+        const { SystemMessage } = await import('@langchain/core/messages')
         const { runAssistantChat } = await import(
             '../../../../server/services/workflow/agents/assistantAgent'
         )
@@ -171,13 +189,13 @@ describe('runAssistantChat — buildContextSegments 接入（Phase 4）', () => 
         await runAssistantChat('session-assistant-2', '介绍一下', { userId: 2 })
 
         const createAgentArg = vi.mocked(createAgent).mock.calls[0][0] as {
-            systemPrompt: string | { content: unknown }
+            systemPrompt: InstanceType<typeof SystemMessage>
         }
 
-        // openai sdkType → systemPrompt 为纯文本字符串
-        expect(typeof createAgentArg.systemPrompt).toBe('string')
+        // 6 个 agent 统一通过 buildSystemPromptForAgent 包装为 SystemMessage（不再保留 OpenAI 走纯字符串的旧分支）
+        expect(createAgentArg.systemPrompt).toBeInstanceOf(SystemMessage)
         // 退化形态：cachedPromptToPlainText 把单段 roleAndFlow 直接拼成自身（无 \n\n 分隔符，因为只有一段）
-        expect(createAgentArg.systemPrompt).toBe('你是通用法律助手')
+        expect(createAgentArg.systemPrompt.content).toBe('你是通用法律助手')
     })
 
     it('Anthropic sdkType 时 SystemMessage 用 cache 块结构（仅 1h 角色段，无 caseProfile / 5m 段）', async () => {

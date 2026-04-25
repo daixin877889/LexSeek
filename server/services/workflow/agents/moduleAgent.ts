@@ -12,12 +12,12 @@
  */
 
 import { createAgent, summarizationMiddleware, type ReactAgent } from 'langchain'
-import { HumanMessage, SystemMessage } from '@langchain/core/messages'
+import { HumanMessage } from '@langchain/core/messages'
 import type { StructuredToolInterface } from '@langchain/core/tools'
 import { Command } from '@langchain/langgraph'
 import { getCheckpointer, getStore } from '../checkpointer'
 import { getValidNodeConfig } from '../../node/node.service'
-import { createChatModel, cachedPromptToAnthropicContent, cachedPromptToPlainText } from '../../node/chatModelFactory'
+import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import {
     createAuditMiddleware,
@@ -25,7 +25,7 @@ import {
     createScopeGuardMiddleware,
     pointConsumptionMiddleware,
 } from '../middleware'
-import { buildContextSegments, toCachedPrompt } from '../context/moduleContextBuilder'
+import { buildSystemPromptForAgent } from '../context/moduleContextBuilder'
 import { safetyTrimMiddleware } from '../middleware/safetyTrim.middleware'
 import { createTool as createSaveAnalysisResultTool } from '../tools/saveAnalysisResult.tool'
 import { renderSystemPrompt } from '../utils/promptRenderer'
@@ -136,21 +136,10 @@ export async function runModuleChat(
         '当你生成或更新了该模块的分析结果时，必须调用 save_analysis_result 工具保存结果。',
     ].filter(Boolean).join('\n\n')
 
-    const segs = await buildContextSegments({
-        caseId,
-        agentName: moduleName,
-        userQuery: message ?? '',
-        roleAndFlowTemplate,
-    })
-    const cachedPrompt = toCachedPrompt(segs)
-    const plainTextPrompt = cachedPromptToPlainText(cachedPrompt)
-
-    // Anthropic 走 content blocks（保留 cache_control 断点）；其它供应商走纯文本，均封装为 SystemMessage
-    const sysContent: string | Array<Record<string, unknown>> =
-        nodeConfig.modelSdkType === 'anthropic'
-            ? cachedPromptToAnthropicContent(cachedPrompt)
-            : plainTextPrompt
-    const systemMessage = new SystemMessage({ content: sysContent as any })
+    const { systemMessage, plainText: plainTextPrompt } = await buildSystemPromptForAgent(
+        nodeConfig.modelSdkType,
+        { caseId, agentName: moduleName, userQuery: message ?? '', roleAndFlowTemplate },
+    )
 
     const { triggerTokens, maxTokens, maxOutputTokens } = resolveContextWindow(
         nodeConfig.modelContextWindow,
