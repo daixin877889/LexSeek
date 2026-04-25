@@ -113,7 +113,8 @@ export async function runEvalMain(): Promise<{ criticalFailures: string[]; repor
         sessionId,
         question: ec2.question,
       }, handler)
-      promptTokensSamples.push(runResult.promptTokens)
+      // spec §8 totalPromptTokensAvg 期望"单次调用 < 6K"，按 LLM call 采样而非 case 级累加
+      promptTokensSamples.push(...runResult.promptTokensPerCall)
     } catch (e) {
       const reason = e instanceof Error ? e.message : String(e)
       erroredCases.push({ id: ec2.id, reason })

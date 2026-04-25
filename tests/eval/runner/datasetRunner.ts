@@ -34,6 +34,11 @@ export interface RunCaseOutput {
   promptTokens: number
   cacheHitTokens: number
   /**
+   * 本次 chat 各次 LLM 调用的 prompt_tokens 数组（每个 record 一个 sample）。
+   * spec §8 期望"单次调用 < 6K"，所以指标统计需要按"次"采样而非 case 级累加。
+   */
+  promptTokensPerCall: number[]
+  /**
    * 本次 chat 新增的 tool_call 名称列表（chat 前后从 langgraph.checkpoint_blobs
    * snapshot 取差集）。同一 sessionId 跑多个 case 时不会被前面 case 的累积污染。
    */
@@ -68,6 +73,7 @@ export async function runOneChat(
   const newRecords = handler.getRecords().slice(before)
   const promptTokens = newRecords.reduce((s, r) => s + extractPromptTokens(r.usage), 0)
   const cacheHitTokens = newRecords.reduce((s, r) => s + extractCacheHitTokens(r.usage), 0)
+  const promptTokensPerCall = newRecords.map(r => extractPromptTokens(r.usage)).filter(t => t > 0)
 
   // LangGraph 真实 thread_id 来自传给 runCaseChat 的 sessionId（PostgresSaver 持久化用），
   // sseConsumer 解析的 threadId 仅当后端在 SSE 中明确回传 thread_id 才有值。
@@ -81,6 +87,7 @@ export async function runOneChat(
     latencyMs,
     promptTokens,
     cacheHitTokens,
+    promptTokensPerCall,
     toolCalls,
   }
 }
