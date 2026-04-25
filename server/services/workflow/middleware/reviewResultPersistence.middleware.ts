@@ -24,6 +24,7 @@ import { listAnnotationsForExportDAO } from '../../assistant/contract/contractAn
 import {
     downloadFileService,
     uploadFileService,
+    deleteFileService,
 } from '../../storage/storage.service'
 import { getDefaultStorageConfigDao } from '../../storage/storageConfig.dao'
 import {
@@ -138,22 +139,36 @@ export async function runAnnotateAndUpload(reviewId: number): Promise<void> {
         userId: review.userId,
     })
 
-    const storageConfig = await getDefaultStorageConfigDao(StorageProviderType.ALIYUN_OSS, review.userId)
-    const bucketName = storageConfig?.bucket ?? ''
+    // OSS 已上传成功；后续 createOssFile / 写 reviewedFileId 任一失败需清理 OSS 以免留孤儿文件。
+    // 与 contractReviewRebuild.service.ts 同构：deleteFileService 用 Promise.resolve 包裹兜底。
+    try {
+        const storageConfig = await getDefaultStorageConfigDao(StorageProviderType.ALIYUN_OSS, review.userId)
+        const bucketName = storageConfig?.bucket ?? ''
 
-    const ossFileRow = await createOssFileDao({
-        userId: review.userId,
-        bucketName,
-        fileName: `reviewed-${reviewId}.docx`,
-        filePath: uploadResult.name,
-        fileSize: injectResult.buffer.length,
-        fileType: DOCX_MIME,
-        source: FileSource.CASE_ANALYSIS,
-        status: OssFileStatus.UPLOADED,
-        encrypted: false,
-    })
+        const ossFileRow = await createOssFileDao({
+            userId: review.userId,
+            bucketName,
+            fileName: `reviewed-${reviewId}.docx`,
+            filePath: uploadResult.name,
+            fileSize: injectResult.buffer.length,
+            fileType: DOCX_MIME,
+            source: FileSource.CASE_ANALYSIS,
+            status: OssFileStatus.UPLOADED,
+            encrypted: false,
+        })
 
-    await updateContractReviewDAO(reviewId, { reviewedFileId: ossFileRow.id, status: 'completed' })
+        await updateContractReviewDAO(reviewId, { reviewedFileId: ossFileRow.id, status: 'completed' })
+    } catch (err) {
+        await Promise.resolve(deleteFileService(uploadResult.name, { userId: review.userId }))
+            .catch((cleanupErr) => {
+                logger.warn('runAnnotateAndUpload: OSS 孤儿文件清理失败', {
+                    reviewId,
+                    ossPath: uploadResult.name,
+                    cleanupErr: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
+                })
+            })
+        throw err
+    }
 }
 
 export const reviewResultPersistenceMiddleware = (

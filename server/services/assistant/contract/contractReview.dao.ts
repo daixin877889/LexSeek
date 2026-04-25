@@ -15,6 +15,7 @@ import type {
     ReviewListItem,
     Risk,
 } from '#shared/types/contract'
+import { computeCounts } from '#shared/utils/contractOverviewScore'
 
 type CreateInput = Omit<Prisma.contractReviewsUncheckedCreateInput, 'id' | 'createdAt' | 'updatedAt'>
 type UpdateInput = Prisma.contractReviewsUncheckedUpdateInput
@@ -328,9 +329,8 @@ export async function listUserReviewsDAO(
     }
 
     const items: ReviewListItem[] = rows.map((r) => {
-        const risksArr = Array.isArray(r.risks) ? r.risks as Array<{ level?: string }> : []
-        const highRiskCount = risksArr.filter(x => x?.level === 'high').length
-        const mediumRiskCount = risksArr.filter(x => x?.level === 'medium').length
+        const risksArr = Array.isArray(r.risks) ? r.risks as Risk[] : []
+        const counts = computeCounts(risksArr)
         return {
             id: r.id,
             sessionId: r.sessionId,
@@ -340,12 +340,11 @@ export async function listUserReviewsDAO(
             partyB: r.partyB,
             stance: r.stance,
             status: r.status,
-            // M6.1 Task 1.3：summary 现为 ContractOverview JSON，列表项仍返回字符串预览，从 overall 字段截取
             summary: extractSummaryPreview(r.summary, SUMMARY_TRUNCATE),
             originalFileName: fileNameMap.get(r.originalFileId) ?? null,
             hasUnsavedDocxChanges: r.hasUnsavedDocxChanges,
-            highRiskCount,
-            mediumRiskCount,
+            highRiskCount: counts.high,
+            mediumRiskCount: counts.medium,
             totalRiskCount: risksArr.length,
             createdAt: r.createdAt,
             updatedAt: r.updatedAt,
@@ -445,9 +444,8 @@ export async function listAdminReviewsDAO(
     }
 
     const items: AdminReviewListItem[] = rows.map((r) => {
-        const risksArr = Array.isArray(r.risks) ? r.risks as Array<{ level?: string }> : []
-        const highRiskCount = risksArr.filter(x => x?.level === 'high').length
-        const mediumRiskCount = risksArr.filter(x => x?.level === 'medium').length
+        const risksArr = Array.isArray(r.risks) ? r.risks as Risk[] : []
+        const counts = computeCounts(risksArr)
         return {
             id: r.id,
             sessionId: r.sessionId,
@@ -457,12 +455,11 @@ export async function listAdminReviewsDAO(
             partyB: r.partyB,
             stance: r.stance,
             status: r.status,
-            // M6.1 Task 1.3：summary 现为 ContractOverview JSON，列表项仍返回字符串预览，从 overall 字段截取
             summary: extractSummaryPreview(r.summary, SUMMARY_TRUNCATE),
             originalFileName: fileNameMap.get(r.originalFileId) ?? null,
             hasUnsavedDocxChanges: r.hasUnsavedDocxChanges,
-            highRiskCount,
-            mediumRiskCount,
+            highRiskCount: counts.high,
+            mediumRiskCount: counts.medium,
             totalRiskCount: risksArr.length,
             createdAt: r.createdAt,
             updatedAt: r.updatedAt,
