@@ -40,17 +40,13 @@ import {
     summarizationMiddleware,
     type ReactAgent,
 } from 'langchain'
-import { HumanMessage, SystemMessage } from '@langchain/core/messages'
+import { HumanMessage } from '@langchain/core/messages'
 import { getCheckpointer, getStore } from '../checkpointer'
 import { getValidNodeConfig } from '../../node/node.service'
-import {
-    createChatModel,
-    cachedPromptToAnthropicContent,
-    cachedPromptToPlainText,
-} from '../../node/chatModelFactory'
+import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { renderSystemPrompt } from '../utils/promptRenderer'
-import { buildContextSegments, toCachedPrompt } from '../context/moduleContextBuilder'
+import { buildSystemPromptForAgent } from '../context/moduleContextBuilder'
 import {
     pointConsumptionMiddleware,
     safetyTrimMiddleware,
@@ -161,8 +157,8 @@ async function persistRisksAndCreateV1Snapshot(
  * = Σ(paragraphs[0..i-1].length) + i（i 个 '\n' 分隔符）。
  * segment.offsetStart 落在 [start_i, end_i] 内 → 条款归属第 i 段。
  *
- * 找不到映射（理论上不应发生，除非 segment offset 越界）的条款返回 paragraphs.length-1
- * 作为最后兜底，避免后续 anchorParagraphIndex 为 null 让批注丢失。
+ * offset 越界（>= 全文长度，即超出最后一段 end）兜底到 `paragraphs.length-1`，
+ * 避免后续 anchorParagraphIndex 为 null 让批注丢失。
  */
 function buildClauseToParagraphMap(
     segments: ClauseSegment[],
@@ -171,16 +167,23 @@ function buildClauseToParagraphMap(
     const map = new Map<number, number>()
     if (segments.length === 0 || paragraphs.length === 0) return map
 
-    // 预计算每段起始偏移
+    // 预计算每段起始偏移；同时记录全文 cursor（最后一段 end 之外即越界）
     const paragraphStarts: number[] = []
     let cursor = 0
     for (const p of paragraphs) {
         paragraphStarts.push(cursor)
         cursor += p.length + 1 // +1 for '\n'
     }
+    const fullTextLen = cursor
 
+    const lastIndex = paragraphs.length - 1
     for (const seg of segments) {
         const offset = seg.offsetStart
+        // 越界检测：offset 超过最后一段 end → 兜底到最后段
+        if (offset >= fullTextLen) {
+            map.set(seg.index, lastIndex)
+            continue
+        }
         // 二分找最大的 paragraphStarts[i] <= offset
         let lo = 0
         let hi = paragraphStarts.length - 1
@@ -334,26 +337,20 @@ export async function runContractReviewChat(
         maxTokens: nodeConfig.modelMaxOutputTokens,
     })
 
-    // 4. 渲染系统提示词（注入 reviewId + contractType）
+    // 4. 构建 5 段式系统提示词（合同审查 caseId 可空：独立审查场景传 null）
     const roleAndFlowTemplate = renderSystemPrompt(nodeConfig, {
         reviewId: review.id,
         contractType: review.contractType ?? undefined,
     })
-
-    // 4.1 构建 5 段式上下文：合同审查可空 caseId（独立审查时为 null）
-    const segs = await buildContextSegments({
-        caseId: review.caseId ?? null,
-        agentName: CONTRACT_MAIN_NODE_NAME,
-        userQuery: buildInitialPrompt(review.id),
-        roleAndFlowTemplate,
-    })
-    const cached = toCachedPrompt(segs)
-    const sysContent: string | Array<Record<string, unknown>> =
-        nodeConfig.modelSdkType === 'anthropic'
-            ? cachedPromptToAnthropicContent(cached)
-            : cachedPromptToPlainText(cached)
-    const systemMessage = new SystemMessage({ content: sysContent as any })
-    const systemPromptPlainText = cachedPromptToPlainText(cached)
+    const { systemMessage, plainText: systemPromptPlainText } = await buildSystemPromptForAgent(
+        nodeConfig.modelSdkType,
+        {
+            caseId: review.caseId ?? null,
+            agentName: CONTRACT_MAIN_NODE_NAME,
+            userQuery: buildInitialPrompt(review.id),
+            roleAndFlowTemplate,
+        },
+    )
 
     // 5. 加载工具（传入 reviewId 关键上下文，parseAndAskStance 工具依赖）
     const toolContext = {
@@ -584,6 +581,7 @@ export async function runContractReviewChat(
 
                     // Phase A：写 ContractRisk + ContractAnnotation + 创建 v1 initial_upload 快照
                     // 必须在 runAnnotateAndUpload 之前执行（annotate 需要 risks 已落库）
+                    let snapshotOk = true
                     try {
                         const clausesForSnapshot = segments.map(s => ({
                             index: s.index,
@@ -601,16 +599,22 @@ export async function runContractReviewChat(
                             paragraphs,
                         )
                     } catch (err) {
-                        // 新表写入失败不影响主流程（向下兼容：旧 risks JSON 已落库）
-                        logger.error('persistRisksAndCreateV1Snapshot 失败，降级继续主流程', { reviewId: review.id, err })
+                        // v1 快照写入失败：后续 rebuild-docx / 版本时间线都依赖 ContractRisk + 快照，
+                        // 不能在缺失这两者的情况下置 completed 误导用户"审查成功"。直接置 failed，
+                        // 跳过 runAnnotateAndUpload（summarize:done 已在上方发完）。
+                        logger.error('persistRisksAndCreateV1Snapshot 失败，置 failed', { reviewId: review.id, err })
+                        snapshotOk = false
+                        await updateContractReviewDAO(review.id, { status: 'failed' })
                     }
 
-                    // 注入批注 + 上传 OSS + 置 completed
-                    try {
-                        await runAnnotateAndUpload(review.id)
-                    } catch (err) {
-                        logger.error('runContractReviewChat: 批注/上传失败', { reviewId: review.id, err })
-                        await updateContractReviewDAO(review.id, { status: 'failed' })
+                    // 注入批注 + 上传 OSS + 置 completed（仅当 v1 快照成功才继续）
+                    if (snapshotOk) {
+                        try {
+                            await runAnnotateAndUpload(review.id)
+                        } catch (err) {
+                            logger.error('runContractReviewChat: 批注/上传失败', { reviewId: review.id, err })
+                            await updateContractReviewDAO(review.id, { status: 'failed' })
+                        }
                     }
 
                     controller.close()
