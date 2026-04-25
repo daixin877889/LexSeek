@@ -1,16 +1,12 @@
 <script lang="ts" setup>
 import type { AnalysisResult } from '#shared/types/case'
+import { INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
+import { getModuleIcon as resolveModuleIcon } from '~/utils/moduleIcons'
 import { VueDraggable } from 'vue-draggable-plus'
 import { VisuallyHidden } from 'reka-ui'
 import {
   GripVerticalIcon,
   FileTextIcon,
-  CalendarIcon,
-  ScaleIcon,
-  TrendingUpIcon,
-  TagIcon,
-  ShieldIcon,
-  ClipboardListIcon,
   Loader2Icon,
 } from 'lucide-vue-next'
 import { toast } from 'vue-sonner'
@@ -39,19 +35,10 @@ const exporting = ref(false)
 
 const selectedCount = computed(() => exportItems.value.filter(i => i.selected).length)
 
-// 模块图标映射
-const iconMap: Record<string, any> = {
-  summary: FileTextIcon,
-  chronicle: CalendarIcon,
-  claim: ScaleIcon,
-  trend: TrendingUpIcon,
-  cause: TagIcon,
-  defense: ShieldIcon,
-  evidence: ClipboardListIcon,
-}
-
-function getModuleIcon(name: string) {
-  return iconMap[name] || FileTextIcon
+// 模块名 → 图标：以 INIT_ANALYSIS_MODULES 为单一权威源，避免本组件与其它入口的图标映射漂移
+function getModuleIcon(moduleName: string) {
+  const def = INIT_ANALYSIS_MODULES.find(m => m.name === moduleName)
+  return def ? resolveModuleIcon(def.icon) : FileTextIcon
 }
 
 // 弹窗打开时初始化

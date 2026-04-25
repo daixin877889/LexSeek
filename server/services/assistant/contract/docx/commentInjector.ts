@@ -139,7 +139,7 @@ function normalizeForMatch(text: string): string {
  *   - 正文若只有很短的标题，额外保留一次 length>=4 的弱匹配兜底
  */
 function findParagraphIndexByQuote(
-    nonEmpty: Node[],
+    normalizedParas: string[],
     quote: string,
     preferredIdx: number | null = null,
 ): number {
@@ -152,8 +152,6 @@ function findParagraphIndexByQuote(
     const weakLines = strongLines.length > 0 ? [] : allLines.filter(l => l.length >= 2)
     const lines = strongLines.length > 0 ? strongLines : weakLines
     if (lines.length === 0) return -1
-
-    const normalizedParas = nonEmpty.map(p => normalizeForMatch(paragraphText(p)))
 
     const candidates = new Set<number>()
     for (const line of lines.slice(0, 3)) {
@@ -257,13 +255,12 @@ export async function injectComments(docxBuffer: Buffer, risks: Risk[]): Promise
         else skippedIndices.push(r.clauseIndex)
     }
     if (skippedIndices.length > 0) {
-        const preview = skippedIndices.length > 10
-            ? skippedIndices.slice(0, 10).concat(['...' as unknown as number])
-            : skippedIndices
+        const truncated = skippedIndices.length > 10
         logger.warn('[commentInjector] 跳过越界 risk', {
             total: risks.length,
             skipped: skippedIndices.length,
-            indicesPreview: preview,
+            indicesPreview: truncated ? skippedIndices.slice(0, 10) : skippedIndices,
+            indicesTruncated: truncated,
             nonEmptyCount,
         })
     }
@@ -392,6 +389,8 @@ export async function injectAnnotations(
     const documentAst = parseOoxml(await readTextFromZip(zip, 'word/document.xml'))
     const nonEmpty = collectNonEmptyParagraphs(documentAst)
     const nonEmptyCount = nonEmpty.length
+    // 段落归一化结果一次算清，下面"精确优先"和 fuzzy 都复用，省 N×M 次 normalize。
+    const normalizedParas = nonEmpty.map(p => normalizeForMatch(paragraphText(p)))
 
     // 按原顺序分配 Word 本地 w:id（0,1,2...）
     const wordIdByAnnotationId = new Map<number, number>()
@@ -414,7 +413,7 @@ export async function injectAnnotations(
         let resolved = -1
         if (paraValid) {
             // 精确优先：段落本身含 quote 任一 >=8 字符片段 → 锁定
-            const paraText = normalizeForMatch(paragraphText(nonEmpty[paraIdx]!))
+            const paraText = normalizedParas[paraIdx]!
             const quoteLines = (a.anchorQuote ?? '')
                 .split(/\r?\n/)
                 .map(l => normalizeForMatch(l))
@@ -428,7 +427,7 @@ export async function injectAnnotations(
             // 存的是"条款序号"而非"非空段落序号"），完全信任 fuzzy 的结果。
             // 多候选时 findParagraphIndexByQuote 已用 preferredIdx tiebreaker 选最近者，
             // 避免 TOC / 标题里的重复短片段乱命中。
-            const fuzzy = findParagraphIndexByQuote(nonEmpty, a.anchorQuote ?? '', paraValid ? paraIdx : null)
+            const fuzzy = findParagraphIndexByQuote(normalizedParas, a.anchorQuote ?? '', paraValid ? paraIdx : null)
             if (fuzzy >= 0) {
                 resolved = fuzzy
             } else if (paraValid) {

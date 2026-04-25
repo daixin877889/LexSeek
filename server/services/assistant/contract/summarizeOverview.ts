@@ -10,11 +10,8 @@
  */
 import { z } from 'zod'
 import type { Risk, ContractOverview, Stance } from '#shared/types/contract'
-import { createChatModel } from '~~/server/services/node/chatModelFactory'
-import { getValidNodeConfig } from '~~/server/services/node/node.service'
 import { renderContent } from '~~/server/services/node/prompt.service'
-import { logContextOverflow } from '~~/server/services/workflow/context/contextErrorLogger'
-import { extractFirstJsonObject, summarizeJsonShape } from './utils/llmJson'
+import { invokeNodeJson, warnUnreplacedTemplateVars } from './utils/llmInvokeJson'
 
 // 宽进策略：LLM 超长 / 超多条目时自动截断，而不是让整个 summarize 直接失败
 // 降级为"本合同识别到 N 条风险"兜底（用户看不到真正的 AI 总评）。
@@ -50,111 +47,39 @@ export async function summarizeOverview(
         }
     }
 
-    const config = await getValidNodeConfig(NODE_NAME)
-    const activeKey = config.modelApiKeys.find(k => k.status === 1)
-    if (!activeKey) throw new Error(`${NODE_NAME}: 无可用 API 密钥`)
-
-    // 从 DB 加载 system prompt 模板（运营可在 /admin/nodes/:id 里热更）
-    const template = config.prompts.find(p => p.type === 'system' && p.status === 1)?.content
-    if (!template) {
-        throw new Error(`${NODE_NAME}: DB 未配置 system 类型的启用态提示词`)
-    }
-
-    const model = createChatModel({
-        sdkType: config.modelSdkType,
-        modelName: config.modelName,
-        apiKey: activeKey.apiKey,
-        baseUrl: config.modelProviderBaseUrl,
+    const data = await invokeNodeJson({
+        nodeName: NODE_NAME,
         temperature: 0.3, // 略放松，让总评自然
+        schema: OverviewResponse,
+        buildPrompt: (template) => renderPromptTemplate(template, risks, stance, contractType),
+        errorPrefix: 'summarizeOverview',
+        logContext: { riskCount: risks.length, stance, contractType },
     })
-
-    const prompt = renderPromptTemplate(template, risks, stance, contractType)
-    let response
-    try {
-        response = await model.invoke(prompt)
-    } catch (err) {
-        logContextOverflow(err, {
-            source: 'summarizeOverview',
-            modelName: config.modelName,
-            sdkType: config.modelSdkType,
-            contextWindow: config.modelContextWindow,
-            extra: {
-                riskCount: risks.length,
-                promptLength: prompt.length,
-                stance,
-                contractType,
-            },
-        })
-        throw err
-    }
-    const content = typeof response.content === 'string' ? response.content : ''
-
-    const jsonText = extractFirstJsonObject(content)
-    if (!jsonText) {
-        logger.warn('summarizeOverview: LLM 未返回 JSON', {
-            riskCount: risks.length,
-            rawContent: content.slice(0, 500),
-        })
-        throw new Error('summarizeOverview: LLM 未返回 JSON')
-    }
-
-    let rawJson: unknown
-    try {
-        rawJson = JSON.parse(jsonText)
-    } catch (err) {
-        logger.warn('summarizeOverview: JSON.parse 失败', {
-            riskCount: risks.length,
-            jsonText: jsonText.slice(0, 500),
-            errMessage: err instanceof Error ? err.message : String(err),
-        })
-        throw new Error('summarizeOverview: JSON 解析失败')
-    }
-
-    const parsed = OverviewResponse.safeParse(rawJson)
-    if (!parsed.success) {
-        // 打出 rawJson 的形态 + 全部 issues（含 path），便于定位 LLM 输出哪里偏了
-        const issues = parsed.error.issues.slice(0, 5).map(i => ({
-            path: i.path.join('.') || '(root)',
-            message: i.message,
-            code: i.code,
-        }))
-        logger.warn('summarizeOverview: schema 校验失败', {
-            riskCount: risks.length,
-            rawShape: summarizeJsonShape(rawJson),
-            issues,
-            rawJsonPreview: JSON.stringify(rawJson).slice(0, 500),
-        })
-        const firstIssue = parsed.error.issues[0]
-        const pretty = firstIssue
-            ? `${firstIssue.path.join('.') || '(root)'}: ${firstIssue.message}`
-            : 'unknown'
-        throw new Error(`summarizeOverview schema 校验失败: ${pretty}`)
-    }
 
     // UX-S2：LLM 可能返回空 riskId 或编造不存在的 riskId，前端点击要点时
     // emit focusRisk('') 静默失效。这里在服务端做"riskId 必须在 risks 里存在"
     // 的过滤：未命中的条目保留 text 但 riskId 设为空字符串，前端 OverviewPanel
     // 会据此置不可点样式（见对应 UI 修改）。
     const validIds = new Set(risks.map(r => String(r.id)))
-    const cleanHighlights = (arr: typeof parsed.data.highlights.high) =>
+    const cleanHighlights = (arr: typeof data.highlights.high) =>
         arr.map(item => ({
             text: item.text,
             riskId: validIds.has(String(item.riskId)) ? item.riskId : '',
         }))
     const cleaned: ContractOverview = {
-        overall: parsed.data.overall,
+        overall: data.overall,
         highlights: {
-            high: cleanHighlights(parsed.data.highlights.high),
-            medium: cleanHighlights(parsed.data.highlights.medium),
-            low: cleanHighlights(parsed.data.highlights.low),
+            high: cleanHighlights(data.highlights.high),
+            medium: cleanHighlights(data.highlights.medium),
+            low: cleanHighlights(data.highlights.low),
         },
     }
 
     // 诊断：统计 LLM 返回的无效 riskId 数量（≥1 说明 prompt 质量或模型能力需要关注）
     const allItems = [
-        ...parsed.data.highlights.high,
-        ...parsed.data.highlights.medium,
-        ...parsed.data.highlights.low,
+        ...data.highlights.high,
+        ...data.highlights.medium,
+        ...data.highlights.low,
     ]
     const invalidCount = allItems.filter(i => !validIds.has(String(i.riskId))).length
     if (invalidCount > 0) {
@@ -186,11 +111,6 @@ function renderPromptTemplate(
         contractType: contractType ?? '合同',
         riskList,
     })
-    const unreplaced = rendered.match(/\{\{(\w+)\}\}/g)
-    if (unreplaced) {
-        logger.warn('summarizeOverview: 提示词存在未替换的模板变量', {
-            unreplacedVars: unreplaced,
-        })
-    }
+    warnUnreplacedTemplateVars(rendered, 'summarizeOverview')
     return rendered
 }

@@ -10,12 +10,9 @@
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { logger } from '#shared/utils/logger'
-import { createChatModel } from '~~/server/services/node/chatModelFactory'
-import { getValidNodeConfig } from '~~/server/services/node/node.service'
 import { renderContent } from '~~/server/services/node/prompt.service'
-import { logContextOverflow } from '~~/server/services/workflow/context/contextErrorLogger'
 import { RISK_SHAPE } from './riskSchema.builder'
-import { extractFirstJsonObject, summarizeJsonShape } from './utils/llmJson'
+import { invokeNodeJson, warnUnreplacedTemplateVars } from './utils/llmInvokeJson'
 import type { Risk, Stance, ClauseSegment, PlaybookSnapshot } from '#shared/types/contract'
 
 /** 单条条款文本硬截断（字符），防止单条超大条款把整个 prompt 撑爆 */
@@ -47,91 +44,21 @@ export interface AnalyzeClauseContext {
 
 /** 返回 null 表示该条款无风险；返回 Risk 则已校验通过 */
 export async function analyzeSingleClause(ctx: AnalyzeClauseContext): Promise<Risk | null> {
-    const config = await getValidNodeConfig(NODE_NAME)
-    const activeKey = config.modelApiKeys.find(k => k.status === 1)
-    if (!activeKey) throw new Error(`${NODE_NAME}: 无可用 API 密钥`)
-
-    // 从 DB 加载 system prompt 模板（运营可在 /admin/nodes/20 里热更）
-    const template = config.prompts.find(p => p.type === 'system' && p.status === 1)?.content
-    if (!template) {
-        throw new Error(`${NODE_NAME}: DB 未配置 system 类型的启用态提示词`)
-    }
-
-    const model = createChatModel({
-        sdkType: config.modelSdkType,
-        modelName: config.modelName,
-        apiKey: activeKey.apiKey,
-        baseUrl: config.modelProviderBaseUrl,
+    const data = await invokeNodeJson({
+        nodeName: NODE_NAME,
         temperature: 0,
+        schema: SingleClauseResponse,
+        buildPrompt: (template) => renderPromptTemplate(template, ctx),
+        errorPrefix: `条款 #${ctx.clause.index}`,
+        logContext: {
+            clauseIndex: ctx.clause.index,
+            clauseLength: ctx.clause.text.length,
+        },
     })
 
-    const prompt = renderPromptTemplate(template, ctx)
-    let response
-    try {
-        response = await model.invoke(prompt)
-    } catch (err) {
-        logContextOverflow(err, {
-            source: 'analyzeSingleClause',
-            modelName: config.modelName,
-            sdkType: config.modelSdkType,
-            contextWindow: config.modelContextWindow,
-            extra: {
-                clauseIndex: ctx.clause.index,
-                clauseLength: ctx.clause.text.length,
-                promptLength: prompt.length,
-            },
-        })
-        throw err
-    }
-    const content = typeof response.content === 'string' ? response.content : ''
+    if (data.skip || !data.risk) return null
 
-    const jsonText = extractFirstJsonObject(content)
-    if (!jsonText) {
-        logger.warn('analyzeSingleClause: LLM 未返回 JSON', {
-            clauseIndex: ctx.clause.index,
-            rawContent: content.slice(0, 500),
-        })
-        throw new Error(`条款 #${ctx.clause.index} LLM 未返回 JSON`)
-    }
-
-    let rawJson: unknown
-    try {
-        rawJson = JSON.parse(jsonText)
-    } catch (err) {
-        logger.warn('analyzeSingleClause: JSON.parse 失败', {
-            clauseIndex: ctx.clause.index,
-            jsonText: jsonText.slice(0, 500),
-            errMessage: err instanceof Error ? err.message : String(err),
-        })
-        throw new Error(`条款 #${ctx.clause.index} JSON 解析失败`)
-    }
-
-    const parsed = SingleClauseResponse.safeParse(rawJson)
-    if (!parsed.success) {
-        // 打出 rawJson 的完整形态 + 全部 issues（含 path），便于定位 LLM 输出哪里偏了
-        const rawShape = summarizeJsonShape(rawJson)
-        const issues = parsed.error.issues.slice(0, 5).map(i => ({
-            path: i.path.join('.') || '(root)',
-            message: i.message,
-            code: i.code,
-        }))
-        logger.warn('analyzeSingleClause: schema 校验失败', {
-            clauseIndex: ctx.clause.index,
-            rawShape,
-            issues,
-            rawJsonPreview: JSON.stringify(rawJson).slice(0, 500),
-            rawContentPreview: content.slice(0, 300),
-        })
-        const firstIssue = parsed.error.issues[0]
-        const pretty = firstIssue
-            ? `${firstIssue.path.join('.') || '(root)'}: ${firstIssue.message}`
-            : 'unknown'
-        throw new Error(`条款 #${ctx.clause.index} LLM 输出不符合 schema: ${pretty}`)
-    }
-
-    if (parsed.data.skip || !parsed.data.risk) return null
-
-    const rawRisk = parsed.data.risk
+    const rawRisk = data.risk
     let matchedPointCode: string | undefined = (rawRisk.matchedPointCode?.trim() || undefined)
 
     // 白名单校验：AI 返回的 code 必须在快照里存在；否则降级为清单外（警告）
@@ -183,13 +110,7 @@ function renderPromptTemplate(template: string, ctx: AnalyzeClauseContext): stri
         clauseText,
         playbookSection: renderPlaybookSection(ctx.playbookSnapshot),
     })
-    const unreplaced = rendered.match(/\{\{(\w+)\}\}/g)
-    if (unreplaced) {
-        logger.warn('analyzeSingleClause: 提示词存在未替换的模板变量', {
-            clauseIndex: ctx.clause.index,
-            unreplacedVars: unreplaced,
-        })
-    }
+    warnUnreplacedTemplateVars(rendered, 'analyzeSingleClause', { clauseIndex: ctx.clause.index })
     return rendered
 }
 

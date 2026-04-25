@@ -27,6 +27,13 @@ import type {
 type ContractRunStatus = 'idle' | 'reviewing' | 'awaiting_stance' | 'completed' | 'failed'
 type StageStepStatus = 'wait' | 'running' | 'done'
 
+/** 类型守卫：判断 useStreamChat 透传过来的 unknown 是否为合同审查域的 custom event */
+function isContractReviewCustomEvent(data: unknown): data is { name: 'contract_review'; data: unknown } {
+    if (!data || typeof data !== 'object') return false
+    const ev = data as { name?: unknown; data?: unknown }
+    return ev.name === 'contract_review' && ev.data != null
+}
+
 interface AwaitingStancePayload {
     partyA?: string
     partyB?: string
@@ -60,60 +67,17 @@ export function useContractReview() {
     /** review.status === 'rebuilding' 时 UI 禁用编辑 + 显示进度 */
     const isRebuilding = computed(() => review.value?.status === 'rebuilding')
 
-    // M6.1 Task 4.2：聚焦/悬停/钉多条状态
-    const focusedRiskId = ref<string | null>(null)
-    /**
-     * 悬停态（临时）：spec §6.2 明确"悬停不入 focused 态，仅让对应卡片短暂高亮"。
-     * 3 秒后自动清零；鼠标移开也清零。与 focusedRiskId 独立。
-     */
-    const hoveredRiskId = ref<string | null>(null)
-    let hoverTimer: ReturnType<typeof setTimeout> | null = null
-
-    const pinnedRiskIds = ref<Set<string>>(new Set())
-
-    /** 文档/卡片需要持续高亮的 riskId 集合 = focused + pinned（hover 不进来，视觉另一档） */
-    const highlightedRiskIds = computed(() => {
-        const s = new Set(pinnedRiskIds.value)
-        if (focusedRiskId.value) s.add(focusedRiskId.value)
-        return s
-    })
-
-    function focusRisk(riskId: string | null) {
-        focusedRiskId.value = riskId
-    }
-
-    function setHoveredRisk(riskId: string | null) {
-        if (hoverTimer) {
-            clearTimeout(hoverTimer)
-            hoverTimer = null
-        }
-        hoveredRiskId.value = riskId
-        if (riskId) {
-            // 3 秒后自动清零；鼠标再次离开也会传 null 立即清零
-            hoverTimer = setTimeout(() => {
-                hoveredRiskId.value = null
-                hoverTimer = null
-            }, 3000)
-        }
-    }
-
-    // UI-H1：组件销毁时清掉 hoverTimer 防泄漏
-    onScopeDispose(() => {
-        if (hoverTimer) {
-            clearTimeout(hoverTimer)
-            hoverTimer = null
-        }
-    })
-
-    function togglePin(riskId: string) {
-        const s = new Set(pinnedRiskIds.value)
-        if (s.has(riskId)) s.delete(riskId); else s.add(riskId)
-        pinnedRiskIds.value = s
-    }
-
-    function clearAllPins() {
-        pinnedRiskIds.value = new Set()
-    }
+    // 风险卡片高亮三态（focused / hovered / pinned），见 useContractRiskHighlight
+    const {
+        focusedRiskId,
+        hoveredRiskId,
+        pinnedRiskIds,
+        highlightedRiskIds,
+        focusRisk,
+        setHoveredRisk,
+        togglePin,
+        clearAllPins,
+    } = useContractRiskHighlight()
 
     // 延迟创建，在 onStart / mountReview 获取 sessionId 后初始化
     const stream = shallowRef<ReturnType<typeof useStreamChat> | null>(null)
@@ -180,7 +144,7 @@ export function useContractReview() {
     async function refreshReview(id: number): Promise<boolean> {
         const latest = await useApiFetch<{ review: ReviewWithParsedRisks }>(
             `/api/v1/assistant/contract/reviews/${id}`,
-            { showError: false } as any,
+            { showError: false },
         )
         if (!latest?.review) {
             toast.error('刷新审查数据失败，请检查网络')
@@ -254,15 +218,10 @@ export function useContractReview() {
                 onCustomEvent: (data: unknown) => {
                     // 后端 emitter 包装成 AgentCustomEvent = { type, runId, sessionId, name, data }
                     // useStreamChat 已过滤 status_change；剩余事件通过 data.name 识别归属
-                    if (
-                        data && typeof data === 'object'
-                        && (data as any).name === 'contract_review'
-                        && (data as any).data
-                    ) {
-                        const payload = (data as any).data
-                        if (['stage', 'progress', 'risk', 'overview'].includes(payload.type)) {
-                            handleContractEvent(payload as ContractReviewEvent)
-                        }
+                    if (!isContractReviewCustomEvent(data)) return
+                    const payload = data.data as { type?: string }
+                    if (payload?.type && ['stage', 'progress', 'risk', 'overview'].includes(payload.type)) {
+                        handleContractEvent(data.data as ContractReviewEvent)
                     }
                 },
             })
@@ -335,7 +294,7 @@ export function useContractReview() {
 
         const resp = await useApiFetch<{ review: ReviewWithParsedRisks }>(
             `/api/v1/assistant/contract/reviews/${id}`,
-            { showError: false } as any,
+            { showError: false },
         )
         if (!resp?.review) return
 
@@ -433,7 +392,7 @@ export function useContractReview() {
         const unsavedSnapshot = lastServerUnsaved ?? false
         const resp = await useApiFetch<{ reviewId: number }>(
             `/api/v1/assistant/contract/reviews/${reviewId.value}`,
-            { method: 'PATCH', body: { risks }, showError: false } as any,
+            { method: 'PATCH', body: { risks }, showError: false },
         )
         if (!resp) {
             if (review.value) {
@@ -492,64 +451,8 @@ export function useContractReview() {
         triggerBrowserDownloadUrl(resp.downloadUrl, resp.filename)
     }
 
-    /**
-     * 导出 PDF（可选是否包含风险批注）。
-     *
-     * 直接请求后端返回 PDF 二进制流（非 JSON envelope），因此绕开 useApiFetch，
-     * 使用 $fetch.raw + responseType: 'blob' 拿原始 Blob + Content-Disposition。
-     *
-     * - 入口 toast.info 提示生成中
-     * - 成功：Blob → createObjectURL → <a download> 触发浏览器保存
-     * - 失败：解析 e.data.message，fallback 固定文案
-     */
-    const isExportingPdf = ref(false)
-
-    async function onExportPdf(includeRisks: boolean) {
-        if (!reviewId.value) return
-        isExportingPdf.value = true
-        toast.info('正在生成 PDF...')
-        try {
-            // 后端返回 PDF 二进制流（非 JSON envelope），绕开 useApiFetch。
-            // Nitro 强类型路由推断在 responseType:'blob' 下深度展开会触发 TS2589，
-            // 因此把 $fetch 窄化为纯函数签名后调用，运行时不受影响。
-            type BlobFetch = (url: string, opts: Record<string, unknown>) => Promise<unknown>
-            const fetcher = $fetch as unknown as BlobFetch
-            const url = `/api/v1/assistant/contract/reviews/${reviewId.value}/export-pdf`
-            const data = await fetcher(url, {
-                method: 'POST',
-                body: { includeRisks },
-                responseType: 'blob',
-            })
-            if (!(data instanceof Blob)) {
-                toast.error('PDF 生成失败')
-                return
-            }
-            triggerBrowserDownloadBlob(data, `contract-review-${reviewId.value}.pdf`)
-            toast.success('PDF 已下载')
-        } catch (e: unknown) {
-            const msg = (e as { data?: { message?: string } })?.data?.message ?? 'PDF 生成失败'
-            toast.error(msg)
-        } finally {
-            isExportingPdf.value = false
-        }
-    }
-
-    /** 拉取签名 URL 并通过隐藏 <a download> 触发浏览器下载 */
-    async function onDownload() {
-        if (!reviewId.value) return
-
-        const result = await useApiFetch<DownloadResponse>(
-            `/api/v1/assistant/contract/reviews/${reviewId.value}/download`,
-            { showError: false } as any,
-        )
-        if (!result?.downloadUrl) {
-            toast.error('下载失败，请稍后重试')
-            return
-        }
-
-        // 必须传 filename，否则浏览器会用 URL 最后一段（rebuild-xxx-uuid.docx）当文件名
-        triggerBrowserDownloadUrl(result.downloadUrl, result.filename)
-    }
+    // PDF 导出 + 批注版 docx 下载，见 useContractReviewExport
+    const { isExportingPdf, onExportPdf, onDownload } = useContractReviewExport(reviewId)
 
     /** 停止当前 stream */
     async function stopGeneration() {

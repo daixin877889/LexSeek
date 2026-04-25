@@ -84,7 +84,7 @@ export function useDocumentDraft() {
             if (!draftId.value) return
             const latest = await useApiFetch<{ draft: documentDrafts }>(
                 `/api/v1/assistant/document/drafts/${draftId.value}`,
-                { showError: false } as any,
+                { showError: false },
             )
             if (!latest?.draft) return
             draft.value = latest.draft
@@ -144,7 +144,7 @@ export function useDocumentDraft() {
         // template 是字段表单和预览渲染的前置条件，拉取失败不阻塞 SSE
         const tpl = await useApiFetch<DocumentTemplate>(
             `/api/v1/assistant/document/templates/${params.templateId}`,
-            { showError: false } as any,
+            { showError: false },
         )
         if (tpl) template.value = tpl
 
@@ -180,7 +180,7 @@ export function useDocumentDraft() {
 
         const tpl = await useApiFetch<DocumentTemplate>(
             `/api/v1/assistant/document/templates/${draftResp.templateId}`,
-            { showError: false } as any,
+            { showError: false },
         )
         if (tpl) template.value = tpl
 
@@ -192,12 +192,11 @@ export function useDocumentDraft() {
         // 仅在确实存在 checkpoint 时才 submit(undefined) 回放历史；
         // 全新且无材料的草稿（sourceRef 为 null）从未跑过 Agent，submit 会触发空跑
         const sourceRef = draftResp.sourceRef as { text?: string; fileIds?: number[] } | null
-        const hasEverRun = !!sourceRef?.text || (sourceRef?.fileIds?.length ?? 0) > 0
-            || draftResp.status === 'ready' && Object.keys((draftResp.values ?? {}) as Record<string, unknown>).length > 0
-            || draftResp.status === 'exported'
-            || draftResp.status === 'failed'
-            || draftResp.status === 'drafting'
-            || draftResp.status === 'filling'
+        const hasMaterial = !!sourceRef?.text || (sourceRef?.fileIds?.length ?? 0) > 0
+        const hasReadyValues = draftResp.status === 'ready'
+            && Object.keys((draftResp.values ?? {}) as Record<string, unknown>).length > 0
+        const RAN_STATUSES = new Set<string>(['exported', 'failed', 'drafting', 'filling'])
+        const hasEverRun = hasMaterial || hasReadyValues || RAN_STATUSES.has(draftResp.status)
         if (hasEverRun) {
             stream.value!.submit(undefined)
         }
@@ -219,7 +218,7 @@ export function useDocumentDraft() {
         // 这里需要显式拆一层 draft，否则 draft.value 会变成 { draft: {...} }。
         const result = await useApiFetch<{ draft: documentDrafts }>(
             `/api/v1/assistant/document/drafts/${draftId.value}`,
-            { method: 'PATCH', body, showError: false } as any,
+            { method: 'PATCH', body, showError: false },
         )
         if (result?.draft) draft.value = result.draft
     }, 500)
@@ -252,7 +251,7 @@ export function useDocumentDraft() {
         if (!stream.value) return
         stream.value.runStatus.value = 'idle'
         stream.value.submit(
-            { messages: [{ type: 'human', content: text }] } as any,
+            { messages: [{ type: 'human', content: text }] },
             undefined,
         )
     }
@@ -266,7 +265,7 @@ export function useDocumentDraft() {
     function resumeInterrupt(data: unknown) {
         if (!stream.value) return
         stream.value.runStatus.value = 'idle'
-        stream.value.submit(undefined, { command: { resume: data } } as any)
+        stream.value.submit(undefined, { command: { resume: data } })
     }
 
     /** 从底层 stream 解包的 interrupt 载荷 */
@@ -351,7 +350,7 @@ export function useDocumentDraft() {
         }
         const result = await useApiFetch<{ draft: documentDrafts }>(
             `/api/v1/assistant/document/drafts/${draftId.value}/title`,
-            { method: 'PATCH', body: { title: clean }, showError: true } as any,
+            { method: 'PATCH', body: { title: clean }, showError: true },
         )
         if (!result?.draft) {
             if (prev) draft.value = prev // 回滚
@@ -378,7 +377,7 @@ export function useDocumentDraft() {
         if (!draftId.value) return null
         const r = await useApiFetch<{ version: DocumentDraftVersion }>(
             `/api/v1/assistant/document/drafts/${draftId.value}/versions`,
-            { method: 'POST', body: { name } } as any,
+            { method: 'POST', body: { name } },
         )
         if (r?.version) versions.value = [r.version, ...versions.value]
         return r?.version ?? null
@@ -387,7 +386,7 @@ export function useDocumentDraft() {
     async function renameVersion(versionId: number, name: string) {
         const r = await useApiFetch<{ version: DocumentDraftVersion }>(
             `/api/v1/assistant/document/drafts/versions/${versionId}`,
-            { method: 'PATCH', body: { name } } as any,
+            { method: 'PATCH', body: { name } },
         )
         if (r?.version) {
             versions.value = versions.value.map(v => v.id === versionId ? r.version : v)
@@ -397,7 +396,7 @@ export function useDocumentDraft() {
     async function deleteVersion(versionId: number) {
         const r = await useApiFetch<{ ok: true }>(
             `/api/v1/assistant/document/drafts/versions/${versionId}`,
-            { method: 'DELETE' } as any,
+            { method: 'DELETE' },
         )
         if (r?.ok) versions.value = versions.value.filter(v => v.id !== versionId)
     }
@@ -405,7 +404,7 @@ export function useDocumentDraft() {
     async function restoreVersion(versionId: number) {
         const r = await useApiFetch<{ draft: documentDrafts }>(
             `/api/v1/assistant/document/drafts/versions/restore/${versionId}`,
-            { method: 'POST' } as any,
+            { method: 'POST' },
         )
         if (r?.draft) {
             draft.value = r.draft
@@ -435,7 +434,7 @@ export function useDocumentDraft() {
     async function applySnapshot(snapshotId: number, fieldNames?: string[]) {
         const r = await useApiFetch<{ draft: documentDrafts }>(
             `/api/v1/assistant/document/drafts/snapshots/apply/${snapshotId}`,
-            { method: 'POST', body: fieldNames ? { fieldNames } : {} } as any,
+            { method: 'POST', body: fieldNames ? { fieldNames } : {} },
         )
         if (r?.draft) {
             draft.value = r.draft
