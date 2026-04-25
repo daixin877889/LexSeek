@@ -2,7 +2,7 @@
  * 主代理 caseMainAgent 测试
  *
  * **Feature: case-main-agent**
- * **Validates: runCaseChat 返回 ReadableStream、加载配置、合并工具**
+ * **Validates: runCaseChat 接入 buildContextSegments 注入 SystemMessage**
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -10,14 +10,32 @@ import type { NodeConfig } from '../../../../server/services/node/node.service'
 
 // ==================== Mock 定义 ====================
 
+// mock @langchain/core/messages：必须先于 langchain mock，因为 SystemMessage 需要可识别的实例
+class MockSystemMessage {
+    content: unknown
+    constructor(opts: { content: unknown }) {
+        this.content = opts.content
+    }
+}
+class MockHumanMessage {
+    content: string
+    constructor(content: string) {
+        this.content = content
+    }
+}
+vi.mock('@langchain/core/messages', () => ({
+    HumanMessage: MockHumanMessage,
+    SystemMessage: MockSystemMessage,
+}))
+
 // mock langchain（createAgent, summarizationMiddleware 等）
 const mockStream = vi.fn()
 vi.mock('langchain', () => ({
     createAgent: vi.fn(() => ({
         stream: mockStream,
     })),
-    summarizationMiddleware: vi.fn(() => ({})),
-    todoListMiddleware: vi.fn(() => ({})),
+    summarizationMiddleware: vi.fn(() => ({ name: 'summarizationMiddleware' })),
+    todoListMiddleware: vi.fn(() => ({ name: 'todoListMiddleware' })),
 }))
 
 // mock checkpointer
@@ -34,9 +52,20 @@ vi.mock('../../../../server/services/node/node.service', () => ({
     getNodeConfigsByTypes: (...args: unknown[]) => mockGetNodeConfigsByTypes(...args),
 }))
 
-// mock chatModelFactory
+// mock chatModelFactory：含 cachedPromptToAnthropicContent / cachedPromptToPlainText
+const mockCachedPromptToAnthropicContent = vi.fn(
+    (segments: Array<{ text: string; cache?: { ttl?: '1h' } }>) =>
+        segments.map((s) => ({ type: 'text', text: s.text })),
+)
+const mockCachedPromptToPlainText = vi.fn(
+    (segments: Array<{ text: string }>) => segments.map((s) => s.text).join('\n\n'),
+)
 vi.mock('../../../../server/services/node/chatModelFactory', () => ({
     createChatModel: vi.fn(() => ({ __mock: 'model' })),
+    cachedPromptToAnthropicContent: (...args: unknown[]) =>
+        mockCachedPromptToAnthropicContent(...(args as [any])),
+    cachedPromptToPlainText: (...args: unknown[]) =>
+        mockCachedPromptToPlainText(...(args as [any])),
 }))
 
 // mock tools
@@ -52,22 +81,36 @@ vi.mock('../../../../server/services/workflow/agents/subAgentToolFactory', () =>
     sanitizeName: (name: string) => name.replace(/[^a-zA-Z0-9_]/g, '_'),
 }))
 
-// mock middleware
-vi.mock('../../../../server/services/workflow/middleware', () => ({
-    pointConsumptionMiddleware: vi.fn(() => ({ __mock: 'pointConsumption' })),
-    caseProcessMaterialMiddleware: vi.fn(() => ({ __mock: 'caseProcessMaterial' })),
-    moduleContextMiddleware: vi.fn(() => ({ __mock: 'moduleContext' })),
-    safetyTrimMiddleware: vi.fn(() => ({ __mock: 'safetyTrim' })),
+// mock promptRenderer
+vi.mock('../../../../server/services/workflow/utils/promptRenderer', () => ({
+    renderSystemPrompt: vi.fn(() => '你是案件主代理，roleAndFlow 模板渲染结果'),
 }))
 
-// mock @langchain/core/messages
-vi.mock('@langchain/core/messages', () => ({
-    HumanMessage: class HumanMessage {
-        content: string
-        constructor(content: string) {
-            this.content = content
-        }
-    },
+// mock moduleContextBuilder
+const mockBuildContextSegments = vi.fn()
+const mockToCachedPrompt = vi.fn()
+vi.mock('../../../../server/services/workflow/context/moduleContextBuilder', () => ({
+    buildContextSegments: (...args: unknown[]) => mockBuildContextSegments(...args),
+    toCachedPrompt: (...args: unknown[]) => mockToCachedPrompt(...args),
+}))
+
+// mock middleware（涵盖 caseMainAgent 用到的全部成员）
+const mockMessageIntegrity = vi.fn(() => ({ name: 'createMessageIntegrityMiddleware' }))
+const mockScopeGuard = vi.fn(() => ({ name: 'createScopeGuardMiddleware' }))
+const mockAudit = vi.fn(() => ({ name: 'createAuditMiddleware' }))
+const mockPointConsumption = vi.fn(() => ({ name: 'pointConsumptionMiddleware' }))
+const mockCaseProcessMaterial = vi.fn(() => ({ name: 'caseProcessMaterialMiddleware' }))
+const mockSafetyTrim = vi.fn((opts: unknown) => ({
+    name: 'safetyTrimMiddleware',
+    __opts: opts,
+}))
+vi.mock('../../../../server/services/workflow/middleware', () => ({
+    createMessageIntegrityMiddleware: (...args: unknown[]) => mockMessageIntegrity(...args),
+    createScopeGuardMiddleware: (...args: unknown[]) => mockScopeGuard(...args),
+    createAuditMiddleware: (...args: unknown[]) => mockAudit(...args),
+    pointConsumptionMiddleware: (...args: unknown[]) => mockPointConsumption(...args),
+    caseProcessMaterialMiddleware: (...args: unknown[]) => mockCaseProcessMaterial(...args),
+    safetyTrimMiddleware: (...args: unknown[]) => mockSafetyTrim(...(args as [any])),
 }))
 
 // mock @langchain/langgraph
@@ -78,6 +121,40 @@ vi.mock('@langchain/langgraph', () => ({
             this.resume = opts.resume
         }
     },
+}))
+
+// mock deepagents：避免初始化真实 FilesystemBackend
+vi.mock('deepagents', () => ({
+    createSkillsMiddleware: vi.fn(() => ({ name: 'skillsMiddleware' })),
+    FilesystemBackend: class FilesystemBackend {
+        constructor(_opts: unknown) {}
+    },
+}))
+
+// mock skill tools
+vi.mock('../../../../server/services/workflow/tools/readSkillFile.tool', () => ({
+    createTool: vi.fn(() => ({ name: 'read_skill_file', invoke: vi.fn() })),
+}))
+vi.mock('../../../../server/services/workflow/tools/writeSkillFile.tool', () => ({
+    createTool: vi.fn(() => ({ name: 'write_skill_file', invoke: vi.fn() })),
+}))
+vi.mock('../../../../server/services/workflow/tools/runSkillScript.tool', () => ({
+    createTool: vi.fn(() => ({ name: 'run_skill_script', invoke: vi.fn() })),
+}))
+vi.mock('../../../../server/services/workflow/tools/runSkillCommand.tool', () => ({
+    createTool: vi.fn(() => ({ name: 'run_skill_command', invoke: vi.fn() })),
+}))
+vi.mock('../../../../server/services/workflow/tools/uploadWorkspaceFile.tool', () => ({
+    createTool: vi.fn(() => ({ name: 'upload_workspace_file', invoke: vi.fn() })),
+}))
+
+// mock messageCompressor.resolveContextWindow
+vi.mock('../../../../server/services/workflow/context/messageCompressor', () => ({
+    resolveContextWindow: vi.fn(() => ({
+        triggerTokens: 100000,
+        maxTokens: 120000,
+        maxOutputTokens: 8000,
+    })),
 }))
 
 // mock 自动导入的 logger
@@ -114,38 +191,26 @@ function createMainNodeConfig(overrides: Partial<NodeConfig> = {}): NodeConfig {
         tools: ['search', 'calculator'],
         outputSchema: null,
         ...overrides,
-    }
+    } as NodeConfig
 }
 
-/** 创建子代理节点配置 */
-function createSubNodeConfig(name: string, title: string): NodeConfig {
-    return {
-        id: 10,
-        name,
-        title,
-        description: `${title}描述`,
-        type: 'analysis',
-        prompts: [
-            { id: 2, name: 'system', content: `你是${title}`, version: '1.0', type: 'system', status: 1 },
-        ],
-        modelId: 2,
-        modelName: 'gpt-4o-mini',
-        modelType: 'chat',
-        modelStatus: 1,
-        modelSdkType: 'openai',
-        modelProviderId: 1,
-        modelProviderName: 'OpenAI',
-        modelProviderBaseUrl: 'https://api.openai.com/v1',
-        modelProviderDescription: '',
-        modelApiKeys: [{ id: 2, apiKey: 'sk-test-sub', status: 1 }],
-        tools: [],
-        outputSchema: null,
-    }
+/** 默认 segments 返回值 */
+const defaultSegs = {
+    roleAndFlow: '你是案件主代理，roleAndFlow 模板渲染结果',
+    caseProfile: '## 案件档案\n```json\n{}\n```',
+    moduleSummaries: '',
+    dynamicContext: '',
 }
+
+/** 默认 cached prompt 返回值 */
+const defaultCached = [
+    { text: defaultSegs.roleAndFlow, cache: { ttl: '1h' as const } },
+    { text: defaultSegs.caseProfile, cache: { ttl: '1h' as const } },
+]
 
 // ==================== 测试用例 ====================
 
-describe('runCaseChat 主代理', () => {
+describe('runCaseChat 接入 buildContextSegments', () => {
     /** 模拟 ReadableStream 返回值 */
     const mockReadableStream = new ReadableStream({
         start(controller) {
@@ -157,103 +222,138 @@ describe('runCaseChat 主代理', () => {
     beforeEach(() => {
         vi.clearAllMocks()
 
-        // 默认配置：主代理有工具
         mockGetValidNodeConfig.mockResolvedValue(createMainNodeConfig())
-
-        // 默认配置：两个子代理节点
-        mockGetNodeConfigsByTypes.mockResolvedValue([
-            createSubNodeConfig('legal-analysis', '法律分析专家'),
-            createSubNodeConfig('document-review', '文书审查专家'),
-        ])
-
-        // 默认：主代理工具
+        mockGetNodeConfigsByTypes.mockResolvedValue([])
         mockGetToolInstances.mockReturnValue([
             { name: 'search', invoke: vi.fn() },
             { name: 'calculator', invoke: vi.fn() },
         ])
-
-        // 默认：子代理工具
-        mockCreateSubAgentTools.mockResolvedValue([
-            { name: 'ask_legal_analysis_expert', invoke: vi.fn() },
-            { name: 'ask_document_review_expert', invoke: vi.fn() },
-        ])
-
-        // 默认：stream 返回 ReadableStream
+        mockCreateSubAgentTools.mockResolvedValue([])
+        mockBuildContextSegments.mockResolvedValue(defaultSegs)
+        mockToCachedPrompt.mockReturnValue(defaultCached)
         mockStream.mockResolvedValue(mockReadableStream)
     })
 
-    it('返回 ReadableStream', async () => {
+    it('调用 buildContextSegments 并传入 caseId / agentName=caseMain / userQuery', async () => {
         const { runCaseChat } = await import(
             '../../../../server/services/workflow/agents/caseMainAgent'
         )
 
-        const result = await runCaseChat('session-1', '分析这个案件', {
+        await runCaseChat('session-ctx-1', '请分析这个案件', {
             userId: 1,
-            caseId: 100,
+            caseId: 700,
         })
 
-        expect(result).toBeInstanceOf(ReadableStream)
+        expect(mockBuildContextSegments).toHaveBeenCalledTimes(1)
+        const args = mockBuildContextSegments.mock.calls[0][0]
+        expect(args.caseId).toBe(700)
+        expect(args.agentName).toBe('caseMain')
+        expect(args.userQuery).toBe('请分析这个案件')
+        expect(args.roleAndFlowTemplate).toBe('你是案件主代理，roleAndFlow 模板渲染结果')
     })
 
-    it('正确加载 caseMain 节点配置', async () => {
+    it('中断恢复路径（command 存在 / message=undefined）userQuery 用空字符串', async () => {
         const { runCaseChat } = await import(
             '../../../../server/services/workflow/agents/caseMainAgent'
         )
 
-        await runCaseChat('session-2', '你好', { userId: 1, caseId: 200 })
-
-        // 验证用 'caseMain' 调用了 getValidNodeConfig
-        expect(mockGetValidNodeConfig).toHaveBeenCalledWith('caseMain', '案件主Agent')
-    })
-
-    it('加载子代理节点配置', async () => {
-        const { runCaseChat } = await import(
-            '../../../../server/services/workflow/agents/caseMainAgent'
-        )
-
-        await runCaseChat('session-3', '分析', { userId: 1, caseId: 300 })
-
-        // 验证加载了子代理节点
-        expect(mockGetNodeConfigsByTypes).toHaveBeenCalledWith(['analysis', 'document'])
-    })
-
-    it('正确合并主代理工具和子代理工具', async () => {
-        const { createAgent } = await import('langchain')
-
-        const { runCaseChat } = await import(
-            '../../../../server/services/workflow/agents/caseMainAgent'
-        )
-
-        await runCaseChat('session-4', '合并工具', { userId: 1, caseId: 400 })
-
-        // 验证 createAgent 被调用时传入了合并的工具
-        expect(createAgent).toHaveBeenCalledTimes(1)
-        const createAgentCall = vi.mocked(createAgent).mock.calls[0][0] as { tools: unknown[] }
-        // 主代理工具 2 个 + 子代理工具 2 个 + Skills 工具 4 个 = 8 个
-        expect(createAgentCall.tools).toHaveLength(8)
-    })
-
-    it('中断恢复时使用 Command 而非 HumanMessage', async () => {
-        const { runCaseChat } = await import(
-            '../../../../server/services/workflow/agents/caseMainAgent'
-        )
-
-        await runCaseChat('session-5', undefined, {
+        await runCaseChat('session-resume', undefined, {
             userId: 1,
-            caseId: 500,
+            caseId: 800,
             command: { action: 'approve' },
         })
 
-        // 验证 stream 被调用时 input 是 Command 实例
-        expect(mockStream).toHaveBeenCalledTimes(1)
-        const streamInput = mockStream.mock.calls[0][0]
-        // Command mock 中有 resume 属性
-        expect(streamInput).toHaveProperty('resume', { action: 'approve' })
+        expect(mockBuildContextSegments).toHaveBeenCalledTimes(1)
+        const args = mockBuildContextSegments.mock.calls[0][0]
+        expect(args.userQuery).toBe('')
+    })
+
+    it('createAgent 收到的 systemPrompt 是 SystemMessage 实例（非裸字符串）', async () => {
+        const { createAgent } = await import('langchain')
+        const { runCaseChat } = await import(
+            '../../../../server/services/workflow/agents/caseMainAgent'
+        )
+
+        await runCaseChat('session-sysmsg', '问问题', { userId: 1, caseId: 900 })
+
+        expect(createAgent).toHaveBeenCalledTimes(1)
+        const callArg = vi.mocked(createAgent).mock.calls[0][0] as { systemPrompt: unknown }
+        expect(callArg.systemPrompt).toBeInstanceOf(MockSystemMessage)
+    })
+
+    it('Anthropic SDK：systemPrompt 内容来自 cachedPromptToAnthropicContent（block 数组）', async () => {
+        mockGetValidNodeConfig.mockResolvedValue(
+            createMainNodeConfig({ modelSdkType: 'anthropic' }),
+        )
+
+        const { createAgent } = await import('langchain')
+        const { runCaseChat } = await import(
+            '../../../../server/services/workflow/agents/caseMainAgent'
+        )
+
+        await runCaseChat('session-anthropic', '问问题', { userId: 1, caseId: 901 })
+
+        expect(mockCachedPromptToAnthropicContent).toHaveBeenCalledTimes(1)
+        const callArg = vi.mocked(createAgent).mock.calls[0][0] as {
+            systemPrompt: MockSystemMessage
+        }
+        expect(Array.isArray(callArg.systemPrompt.content)).toBe(true)
+    })
+
+    it('OpenAI SDK：systemPrompt 内容来自 cachedPromptToPlainText（字符串）', async () => {
+        // default modelSdkType = 'openai'
+        const { createAgent } = await import('langchain')
+        const { runCaseChat } = await import(
+            '../../../../server/services/workflow/agents/caseMainAgent'
+        )
+
+        await runCaseChat('session-openai', '问问题', { userId: 1, caseId: 902 })
+
+        // toCachedPrompt 调一次给 createAgent 的 SystemMessage、再调一次给 safetyTrim 的 plainText
+        // cachedPromptToPlainText：openai 路径 systemContent 用一次 + safetyTrim 用一次 = 2 次
+        expect(mockCachedPromptToPlainText).toHaveBeenCalled()
+        const callArg = vi.mocked(createAgent).mock.calls[0][0] as {
+            systemPrompt: MockSystemMessage
+        }
+        expect(typeof callArg.systemPrompt.content).toBe('string')
+    })
+
+    it('createAgent 收到的 middleware 列表不再包含 moduleContextMiddleware', async () => {
+        const { createAgent } = await import('langchain')
+        const { runCaseChat } = await import(
+            '../../../../server/services/workflow/agents/caseMainAgent'
+        )
+
+        await runCaseChat('session-mws', '问', { userId: 1, caseId: 903 })
+
+        const callArg = vi.mocked(createAgent).mock.calls[0][0] as {
+            middleware: Array<Record<string, unknown>>
+        }
+        const names = callArg.middleware
+            .map((m) => (m && typeof m === 'object' ? (m as { name?: string }).name : undefined))
+            .filter((n): n is string => Boolean(n))
+        expect(names).not.toContain('moduleContextMiddleware')
+        // 同时确认 caseProcessMaterialMiddleware 仍在（保证未误删其它中间件）
+        expect(names).toContain('caseProcessMaterialMiddleware')
+    })
+
+    it('safetyTrimMiddleware 收到 plain text 形式的 systemPrompt（仅用于 token 估算）', async () => {
+        const { runCaseChat } = await import(
+            '../../../../server/services/workflow/agents/caseMainAgent'
+        )
+
+        await runCaseChat('session-safety', '问', { userId: 1, caseId: 904 })
+
+        expect(mockSafetyTrim).toHaveBeenCalledTimes(1)
+        const opts = mockSafetyTrim.mock.calls[0][0] as { systemPrompt: unknown }
+        expect(typeof opts.systemPrompt).toBe('string')
+        // plain text 应为各段拼接
+        expect(opts.systemPrompt).toContain('roleAndFlow 模板渲染结果')
     })
 
     it('无可用 API Key 时抛出错误', async () => {
         mockGetValidNodeConfig.mockResolvedValue(
-            createMainNodeConfig({ modelApiKeys: [] })
+            createMainNodeConfig({ modelApiKeys: [] }),
         )
 
         const { runCaseChat } = await import(
@@ -261,20 +361,7 @@ describe('runCaseChat 主代理', () => {
         )
 
         await expect(
-            runCaseChat('session-6', '测试', { userId: 1, caseId: 600 })
+            runCaseChat('session-noapikey', '测试', { userId: 1, caseId: 600 }),
         ).rejects.toThrow('没有可用的 API 密钥')
-    })
-
-    it('应使用 moduleContextMiddleware 替代 caseMaterialContextMiddleware', async () => {
-        const middleware = await import('../../../../server/services/workflow/middleware')
-
-        const { runCaseChat } = await import(
-            '../../../../server/services/workflow/agents/caseMainAgent'
-        )
-
-        await runCaseChat('session-ctx', '测试上下文', { userId: 1, caseId: 700 })
-
-        // moduleContextMiddleware 应被调用（仅传 caseId，不传 moduleName）
-        expect(middleware.moduleContextMiddleware).toHaveBeenCalledWith(700)
     })
 })

@@ -6,23 +6,27 @@
  */
 
 import { createAgent, summarizationMiddleware, type ReactAgent } from 'langchain'
-import { HumanMessage } from '@langchain/core/messages'
+import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import type { StructuredToolInterface } from '@langchain/core/tools'
 import type { BaseCallbackHandler } from '@langchain/core/callbacks/base'
 import { Command } from '@langchain/langgraph'
 import { getCheckpointer, getStore } from '../checkpointer'
 import { getValidNodeConfig, getNodeConfigsByTypes } from '../../node/node.service'
-import { createChatModel } from '../../node/chatModelFactory'
+import {
+    createChatModel,
+    cachedPromptToAnthropicContent,
+    cachedPromptToPlainText,
+} from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { createSubAgentTools } from './subAgentToolFactory'
 import { renderSystemPrompt } from '../utils/promptRenderer'
+import { buildContextSegments, toCachedPrompt } from '../context/moduleContextBuilder'
 import {
     createAuditMiddleware,
     createMessageIntegrityMiddleware,
     createScopeGuardMiddleware,
     pointConsumptionMiddleware,
     caseProcessMaterialMiddleware,
-    moduleContextMiddleware,
     safetyTrimMiddleware,
 } from '../middleware'
 import { createSkillsMiddleware, FilesystemBackend } from 'deepagents'
@@ -103,8 +107,22 @@ export async function runCaseChat(
         maxTokens: mainConfig.modelMaxOutputTokens,
     })
 
-    // 4. 获取系统提示词（渲染模板变量）
-    const systemPrompt = renderSystemPrompt(mainConfig, { caseId })
+    // 4. 构建 5 段式系统提示词（buildContextSegments + cache 控制）
+    //    - userQuery 为空字符串时（中断恢复路径）recallMemoryService 内部已 catch
+    const roleAndFlowTemplate = renderSystemPrompt(mainConfig, { caseId })
+    const segs = await buildContextSegments({
+        caseId,
+        agentName: CASE_MAIN_NODE_NAME,
+        userQuery: message ?? '',
+        roleAndFlowTemplate,
+    })
+    const cached = toCachedPrompt(segs)
+    const sysContent: string | Array<Record<string, unknown>> =
+        mainConfig.modelSdkType === 'anthropic'
+            ? cachedPromptToAnthropicContent(cached)
+            : cachedPromptToPlainText(cached)
+    const systemMessage = new SystemMessage({ content: sysContent as any })
+    const systemPromptPlainText = cachedPromptToPlainText(cached)
 
     // 5. 加载主代理通用工具
     const toolContext = { userId, caseId, sessionId }
@@ -148,7 +166,7 @@ export async function runCaseChat(
 
     const agent: ReactAgent = createAgent({
         model,
-        systemPrompt,
+        systemPrompt: systemMessage,
         checkpointer,
         store,
         tools: allTools,
@@ -158,7 +176,6 @@ export async function runCaseChat(
             createScopeGuardMiddleware(),
             pointConsumptionMiddleware(userId, 'case_analysis_token', sessionId),
             caseProcessMaterialMiddleware(userId, caseId),
-            moduleContextMiddleware(caseId),
             summarizationMiddleware({
                 model,
                 trigger: [{ tokens: triggerTokens }],
@@ -166,7 +183,7 @@ export async function runCaseChat(
             safetyTrimMiddleware({
                 model,
                 maxTokens,
-                systemPrompt,
+                systemPrompt: systemPromptPlainText,
                 maxOutputTokens,
             }),
             skillsMiddleware,
