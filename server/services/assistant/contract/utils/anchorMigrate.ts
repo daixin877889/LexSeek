@@ -1,5 +1,5 @@
 import type { ClauseSnapshotItem } from '#shared/types/contract'
-import { diff_match_patch } from 'diff-match-patch'
+import { calcSimilarity, getDmp } from './textSimilarity'
 
 export interface AnchorMigrateResult {
     newClauseIndex: number
@@ -27,21 +27,17 @@ interface MigrateAnchorParams {
     similarityThreshold?: number
 }
 
-const dmp = new diff_match_patch()
-
-// 计算两段字符串的相似度（Levenshtein）
-function calcSimilarity(a: string, b: string): number {
-    if (a === b) return 1
-    const maxLen = Math.max(a.length, b.length)
-    if (maxLen === 0) return 1
-    const diffs = dmp.diff_main(a, b)
-    dmp.diff_cleanupSemantic(diffs)
-    const distance = dmp.diff_levenshtein(diffs)
-    return 1 - distance / maxLen
-}
-
-// 在单条 clause 文本中滑动查找与 anchor 最相似的子串
-// 窗口长度围绕 anchorLen 做 ±25% 扩展，兼顾增删字符的情况
+/**
+ * 在单条 clause 文本中查找与 anchor 最相似的子串。
+ *
+ * DOCX-H1 性能优化：旧实现是双层循环 winLen × i 全扫，对长 clauseText（>2000 字）
+ * × 长 anchor（>200 字）单条迁移可能跑分钟级。改为：
+ *   1. 先用 dmp.match_main 用模糊匹配快速锚定大致位置（O(N) 字符级 fingerprint）
+ *   2. 仅在锚定位置 ±100 字符的小窗内做 Levenshtein 精算
+ *   3. 锚定失败（match_main 返回 -1）才回落到原全扫
+ *
+ * 容忍小幅修改（增删字符）+ 大幅截断（截断 < 50% anchor 长度）。
+ */
 function findBestSubstring(
     clauseText: string,
     anchor: string,
@@ -53,10 +49,40 @@ function findBestSubstring(
     const minWin = Math.max(1, anchorLen - delta)
     const maxWin = Math.min(clauseText.length, anchorLen + delta)
 
+    // 性能 fast-path：用 dmp.match_main 锚定 anchor 在 clauseText 的近似位置
+    // Match_Threshold 越小匹配越严格；0.5 默认值已经足够宽容
+    const dmp = getDmp()
+    const matchLoc = clauseText.length >= anchorLen
+        ? dmp.match_main(clauseText, anchor.slice(0, Math.min(anchorLen, 100)), 0)
+        : -1
+
     let bestSim = -1
     let bestStart = 0
     let bestEnd = 0
 
+    if (matchLoc >= 0) {
+        // 在 matchLoc ± 100 字符的小窗内精扫
+        const windowMargin = 100
+        const startLo = Math.max(0, matchLoc - windowMargin)
+        const startHi = Math.min(clauseText.length - minWin, matchLoc + windowMargin)
+        for (let winLen = minWin; winLen <= maxWin; winLen++) {
+            for (let i = startLo; i <= startHi; i++) {
+                if (i + winLen > clauseText.length) break
+                const window = clauseText.slice(i, i + winLen)
+                const sim = calcSimilarity(anchor, window)
+                if (sim > bestSim) {
+                    bestSim = sim
+                    bestStart = i
+                    bestEnd = i + winLen
+                }
+            }
+        }
+        if (bestSim >= 0) {
+            return { charStart: bestStart, charEnd: bestEnd, similarity: bestSim }
+        }
+    }
+
+    // fallback：match_main 失败或精扫窗口为空，全文扫描兜底
     for (let winLen = minWin; winLen <= maxWin; winLen++) {
         for (let i = 0; i <= clauseText.length - winLen; i++) {
             const window = clauseText.slice(i, i + winLen)

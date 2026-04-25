@@ -805,12 +805,12 @@ export async function* uploadClientVersionService(params: {
                     }
                 }
             }
-        })
 
-        // bug #13：Phase B 之后 contractRisks 表是权威来源，但 review.risks JSONB
-        // 还是 PDF 导出 / 存量迁移 / 管理端列表等老消费方的数据源，
-        // 每次上传结束必须把 JSONB 与表同步，避免读到过期快照。
-        await syncReviewRisksJsonb(review.id)
+            // DOCX-H3：syncReviewRisksJsonb 必须与 Step 5 锚点迁移在同一事务里，
+            // 防止进程在锚点写完之后、JSONB 同步之前被 kill 让 PDF 导出 / 管理端列表
+            // 读到过期快照。tx 透传保证同一 pg 连接、同一事务范围。
+            await syncReviewRisksJsonb(review.id, tx)
+        })
 
         const summary = `本轮变化：${externalChangeCount} 处外部变更 · ${clauseModifiedCount} 处条款修改 · AI 增量重审 ${aiReviewCount} 条 · 全局复核 ${globalReviewNewRiskCount} 条`
         const newVersion = await saveContractReviewVersionService({
@@ -893,10 +893,12 @@ export async function* uploadClientVersionService(params: {
  * 只取未被客户删除（archivedStatus != client_removed）的风险；排序与原写入保持
  * 一致：先按锚点段落，再按 id。
  */
-async function syncReviewRisksJsonb(reviewId: number): Promise<void> {
-    // 读取该 review 下全部 risks（含新增 + 保留的旧 risks，不含 client_removed 彻底剔除的）。
-    // 先保守地全量拉出，序列化时下游按 archivedStatus 自行过滤；保持与 Phase A 老消费方兼容。
-    const rows = await prisma.contractRisks.findMany({
+async function syncReviewRisksJsonb(
+    reviewId: number,
+    tx: Prisma.TransactionClient = prisma,
+): Promise<void> {
+    // DOCX-H3：可选传入 tx 让事务里复用同一连接；事务外调用回退到全局 prisma。
+    const rows = await tx.contractRisks.findMany({
         where: { reviewId },
         orderBy: [{ anchorParagraphIndex: 'asc' }, { id: 'asc' }],
     })
@@ -914,7 +916,7 @@ async function syncReviewRisksJsonb(reviewId: number): Promise<void> {
         suggestion: r.suggestion ?? '',
         matchedPointCode: r.code ?? undefined,
     }))
-    await prisma.contractReviews.update({
+    await tx.contractReviews.update({
         where: { id: reviewId },
         data: { risks: risksJson as unknown as Prisma.InputJsonValue },
     })
