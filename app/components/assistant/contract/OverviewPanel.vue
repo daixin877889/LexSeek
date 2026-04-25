@@ -169,7 +169,7 @@ const missesExpanded = ref(false)
                     class="block w-full text-left text-xs px-1.5 py-1 rounded hover:bg-accent hover:text-accent-foreground transition-colors"
                     @click="emit('focusRisk', h.risk.id)"
                 >
-                    <span class="text-red-600 dark:text-red-300 mr-1">⚠</span>
+                    <TriangleAlert class="inline size-3 text-red-600 dark:text-red-300 mr-1 -mt-0.5" />
                     <span class="font-medium">{{ h.point.title }}</span>
                     <span class="text-muted-foreground ml-1">（{{ h.point.defaultLevel === 'high' ? '高' : h.point.defaultLevel === 'medium' ? '中' : '低' }}）</span>
                 </button>

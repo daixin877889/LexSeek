@@ -9,6 +9,7 @@
  * - M6.1：renderAsync 完成后 walk DOM，注入 data-risk-id + 彩色底；支持聚焦/钉/悬停态联动
  */
 import { renderAsync } from 'docx-preview'
+import { toast } from 'vue-sonner'
 import { locateClauseElement } from '#shared/utils/clauseLocator'
 import type { Risk, RiskLevel } from '#shared/types/contract'
 
@@ -148,7 +149,10 @@ async function loadDocx(fileId: number) {
         // 渲染完成后注入风险标记
         decorateRisks()
     } catch (err) {
+        // UI-M8：之前只 console.warn 让用户看到永久空白；改为 toast 提示，
+        // 同时保留原有 DOM 内容（不强制清空），用户可刷新或重试
         console.warn('合同预览渲染失败', err)
+        toast.error('合同预览加载失败，请刷新重试')
     } finally {
         if (seq === fetchSeq) loading.value = false
     }

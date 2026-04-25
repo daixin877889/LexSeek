@@ -235,11 +235,13 @@ function handleStanceConfirm(payload: StanceRequest) {
     // 同时 isConfirming 参与 stanceDialogOpen 派生：用户确认后立即关 Dialog
     // （不必等 awaitingStance 随新 stream 变 null）。API 失败时回退以便重试。
     isConfirming.value = true
-    onStance(payload).then((ok) => {
-        if (!ok) isConfirming.value = false
-    }).catch(() => {
-        isConfirming.value = false
-    })
+    // UI-M2：用 finally 同步收尾，then/catch 双分支表达不够清晰；
+    // 成功时仍保持 isConfirming=true 不复位（由 awaitingStance 变 null 的 watch 复位）。
+    onStance(payload)
+        .then((ok) => {
+            if (!ok) isConfirming.value = false
+        })
+        .catch(() => { isConfirming.value = false })
 }
 
 /**
@@ -410,9 +412,14 @@ function handleFocusRisk(id: string) {
 }
 
 // Shift+click 快捷键委托（冒泡，不用 capture，避免干扰 dialog/popover 外部关闭）
+// UI-M7：Dialog/Popover 内部的 [data-risk-id] 元素不应被 shift+click 钉住，
+// 否则用户在编辑/导出 dialog 里 shift+click 会意外固定首屏卡片。
 function handleContainerClick(e: MouseEvent) {
     if (!e.shiftKey) return
-    const target = (e.target as HTMLElement).closest('[data-risk-id]')
+    const targetEl = e.target as HTMLElement | null
+    if (!targetEl) return
+    if (targetEl.closest('[role="dialog"], [data-state="open"]')) return
+    const target = targetEl.closest('[data-risk-id]')
     if (!target) return
     const id = (target as HTMLElement).dataset.riskId
     if (id) {

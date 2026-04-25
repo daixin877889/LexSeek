@@ -172,19 +172,26 @@ export function useContractReview() {
         return 'idle'
     })
 
-    /** 静默拉取最新 review（stream 完成后用于回填 risks / summary / reviewedFileId） */
-    async function refreshReview(id: number) {
+    /**
+     * 静默拉取最新 review（stream 完成后用于回填 risks / summary / reviewedFileId）。
+     * UI-M5：失败时不再静默吞掉，toast 让用户感知（避免"重新生成批注后页面仍显示
+     * 有未保存编辑"等假象）。
+     */
+    async function refreshReview(id: number): Promise<boolean> {
         const latest = await useApiFetch<{ review: ReviewWithParsedRisks }>(
             `/api/v1/assistant/contract/reviews/${id}`,
             { showError: false } as any,
         )
-        if (latest?.review) {
-            review.value = latest.review
-            lastServerRisks = latest.review.risks ?? []
-            if (typeof latest.review.hasUnsavedDocxChanges === 'boolean') {
-                lastServerUnsaved = latest.review.hasUnsavedDocxChanges
-            }
+        if (!latest?.review) {
+            toast.error('刷新审查数据失败，请检查网络')
+            return false
         }
+        review.value = latest.review
+        lastServerRisks = latest.review.risks ?? []
+        if (typeof latest.review.hasUnsavedDocxChanges === 'boolean') {
+            lastServerUnsaved = latest.review.hasUnsavedDocxChanges
+        }
+        return true
     }
 
     /**
