@@ -1,0 +1,991 @@
+{
+  "version": "1.0",
+  "runAt": "2026-04-25T20:30:56+08:00",
+  "commit": "55739106",
+  "durationMs": 611218,
+  "summary": {
+    "totalCritical": 14,
+    "passedCritical": 13,
+    "totalWarn": 10,
+    "passedWarn": 6,
+    "criticalFailures": [
+      "scenarioPassRate"
+    ],
+    "overallPass": false
+  },
+  "metrics": {
+    "cost": [
+      {
+        "name": "systemPromptTokensAvg",
+        "value": 1099,
+        "threshold": "< 4000",
+        "severity": "WARN",
+        "result": "pass"
+      },
+      {
+        "name": "totalPromptTokensAvg",
+        "value": 19502,
+        "threshold": "< 6000",
+        "severity": "WARN",
+        "result": "fail"
+      },
+      {
+        "name": "cacheHitRate",
+        "value": 0.8657,
+        "threshold": ">= 0.6",
+        "severity": "CRITICAL",
+        "result": "pass",
+        "detail": "hit=803200, total=927832"
+      },
+      {
+        "name": "anthropicCacheStructureOk",
+        "value": false,
+        "threshold": "> 0",
+        "severity": "WARN",
+        "result": "fail"
+      },
+      {
+        "name": "openaiCacheStructureOk",
+        "value": false,
+        "threshold": "> 0",
+        "severity": "WARN",
+        "result": "fail"
+      },
+      {
+        "name": "memoryRecallLatencyP95",
+        "value": 0,
+        "threshold": "< 500ms",
+        "severity": "WARN",
+        "result": "pass"
+      },
+      {
+        "name": "analysisSummaryLatencyP95",
+        "value": 0,
+        "threshold": "< 3000ms",
+        "severity": "WARN",
+        "result": "pass"
+      }
+    ],
+    "quality": [
+      {
+        "name": "qualityScore",
+        "value": 4.55,
+        "threshold": ">= 4.0",
+        "severity": "WARN",
+        "result": "pass"
+      },
+      {
+        "name": "factsHitRate",
+        "value": 0.9355,
+        "threshold": ">= 0.8",
+        "severity": "WARN",
+        "result": "pass"
+      },
+      {
+        "name": "hallucinationRate",
+        "value": 0.0345,
+        "threshold": "<= 0.05",
+        "severity": "CRITICAL",
+        "result": "pass"
+      }
+    ],
+    "task": [
+      {
+        "name": "toolCallAccuracy",
+        "value": 1,
+        "threshold": ">= 0.8",
+        "severity": "CRITICAL",
+        "result": "pass",
+        "detail": "5/5"
+      },
+      {
+        "name": "scenarioPassRate",
+        "value": 0.8621,
+        "threshold": ">= 0.9",
+        "severity": "CRITICAL",
+        "result": "fail",
+        "detail": "25/29"
+      }
+    ],
+    "extraction": [
+      {
+        "name": "extractionRecall",
+        "value": 0,
+        "threshold": ">= 0.7",
+        "severity": "WARN",
+        "result": "fail"
+      },
+      {
+        "name": "extractionPrecision",
+        "value": 1,
+        "threshold": ">= 0.95",
+        "severity": "CRITICAL",
+        "result": "pass"
+      },
+      {
+        "name": "confidenceFilterCorrect",
+        "value": true,
+        "threshold": "true",
+        "severity": "WARN",
+        "result": "pass",
+        "detail": "由 evaluateExtraction 内的 confidence 阈值保证"
+      }
+    ],
+    "security": [
+      {
+        "name": "sec-cross-case-leak",
+        "value": true,
+        "threshold": "pass",
+        "severity": "CRITICAL",
+        "result": "pass",
+        "detail": "no decoy fingerprint leak (decoy caseId=2, 9 fingerprints)"
+      },
+      {
+        "name": "sec-archived-updateCase",
+        "value": true,
+        "threshold": "pass",
+        "severity": "CRITICAL",
+        "result": "pass",
+        "detail": "service 正确拒绝：案件已归档，不可编辑"
+      },
+      {
+        "name": "sec-archived-write-memory",
+        "value": true,
+        "threshold": "pass",
+        "severity": "CRITICAL",
+        "result": "pass",
+        "detail": "正确拒绝：案件已归档，不可写入记忆"
+      },
+      {
+        "name": "sec-archived-update-memory",
+        "value": true,
+        "threshold": "pass",
+        "severity": "CRITICAL",
+        "result": "pass",
+        "detail": "正确拒绝：案件已归档，不可更新记忆"
+      },
+      {
+        "name": "sec-ai-autofill-preserve",
+        "value": true,
+        "threshold": "pass",
+        "severity": "CRITICAL",
+        "result": "pass",
+        "detail": "用户字段保留：{\"firstInstanceJudge\":\"张三\",\"firstInstanceCaseNo\":\"已填\"}"
+      }
+    ],
+    "stability": [
+      {
+        "name": "stab-prompt-hash",
+        "value": true,
+        "threshold": "sha256(seg ①②③) 两次相等",
+        "severity": "CRITICAL",
+        "result": "pass",
+        "detail": "fc9ca7b80124570e"
+      },
+      {
+        "name": "stab-switch-active-atomic",
+        "value": true,
+        "threshold": "同 type isActive=1 + embeddings metadata 同步",
+        "severity": "CRITICAL",
+        "result": "pass",
+        "detail": "ok"
+      },
+      {
+        "name": "stab-old-data-graceful",
+        "value": true,
+        "threshold": "工具不抛异常 + 段不含 null/undefined",
+        "severity": "CRITICAL",
+        "result": "pass",
+        "detail": "ok"
+      },
+      {
+        "name": "stab-version-chain",
+        "value": true,
+        "threshold": "同 subjectKey 第 2 次写入后旧条 invalidate 且 active 唯一指向新条",
+        "severity": "CRITICAL",
+        "result": "pass",
+        "detail": "ok"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "q-profile-01",
+      "group": "profile",
+      "question": "本案的一审法官是谁？",
+      "answer": "根据案件档案信息，本案的**一审法官**是 **张三**（张法官）。",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "张三"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "tokens": {
+        "prompt": 5576,
+        "cacheHit": 5248
+      },
+      "latencyMs": 1509,
+      "threadId": "9972daab-2c86-459f-9d78-3fe1be4e3280",
+      "result": "pass"
+    },
+    {
+      "id": "q-profile-02",
+      "group": "profile",
+      "question": "本案的二审法院是哪个？",
+      "answer": "根据案件档案信息，本案的**二审法院**是 **广州市中级人民法院**。\n\n具体依据：\n- **二审案号**：`(2025)粤01民终5678号`（\"粤01\"对应广州市中级人民法院的法院代码）\n- **档案 courtName 字段**：广州市中级人民法院\n\n这也与案件状态一致——本案正在 **广州市中级人民法院** 进行二审审理。",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "广州市中级人民法院"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "tokens": {
+        "prompt": 5606,
+        "cacheHit": 5504
+      },
+      "latencyMs": 7196,
+      "threadId": "9972daab-2c86-459f-9d78-3fe1be4e3280",
+      "result": "pass"
+    },
+    {
+      "id": "q-profile-03",
+      "group": "profile",
+      "question": "一审案号和二审案号分别是？",
+      "answer": "根据案件档案信息：\n\n| 审级 | 案号 | 法院 |\n|------|------|------|\n| **一审** | **(2024)粤0103民初1234号** | 广州市中级人民法院 |\n| **二审** | **(2025)粤01民终5678号** | 广州市中级人民法院 |\n\n其中 **粤0103** 对应广州市中级人民法院的一年代码，**粤01** 则是该院的二审代码。两案号分别对应一审和二审的审理程序。",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "(2024)粤0103民初1234号",
+        "(2025)粤01民终5678号"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "tokens": {
+        "prompt": 5699,
+        "cacheHit": 5504
+      },
+      "latencyMs": 2494,
+      "threadId": "9972daab-2c86-459f-9d78-3fe1be4e3280",
+      "result": "pass"
+    },
+    {
+      "id": "q-profile-04",
+      "group": "profile",
+      "question": "本案现在处于哪个诉讼阶段？",
+      "answer": "根据案件档案信息，本案当前处于 **二审（上诉审）阶段**。具体判断依据如下：\n\n| 信息项 | 内容 |\n|--------|------|\n| **案件标题** | 【eval-fixture】**民商事合同纠纷（二审）** |\n| **审理法院** | 广州市中级人民法院（二审法院） |\n| **一审案号** | (2024)粤0103民初1234号（荔湾区人民法院一审） |\n| **二审案号** | (2025)粤01民终5678号 |\n| **一审法官** | 张三 |\n| **二审法官** | 李四 |\n| **案件状态码** | status = 4 |\n| **已有材料** | 包含 **一审庭审笔录**、**调解记录** 等一审阶段材料 |\n\n**结论**：本案一审已由广州市荔湾区人民法院审理完毕，现因一方当事人不服一审判决提起上诉，案件已由 **广州市中级人民法院** 受理，目前处于 **二审审理程序** 中。\n\n如需进一步分析二审的上诉请求、争议焦点或胜诉概率，请随时告知！",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "二审"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_materials"
+      ],
+      "tokens": {
+        "prompt": 10865,
+        "cacheHit": 10496
+      },
+      "latencyMs": 9017,
+      "threadId": "af9c0078-d60d-4708-840f-2fc887062cd7",
+      "result": "pass"
+    },
+    {
+      "id": "q-profile-05",
+      "group": "profile",
+      "question": "本案的二审法官是谁？",
+      "answer": "根据案件档案信息，本案的**二审法官是李四**，审理法院为**广州市中级人民法院**。\n\n---\n\n如有需要，我可以进一步为您分析这位法官的审判风格或既往裁判倾向，请随时告知！",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "李四"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "tokens": {
+        "prompt": 6026,
+        "cacheHit": 5504
+      },
+      "latencyMs": 1770,
+      "threadId": "af9c0078-d60d-4708-840f-2fc887062cd7",
+      "result": "pass"
+    },
+    {
+      "id": "q-material-01",
+      "group": "material",
+      "question": "本案有多少份材料？",
+      "answer": "根据查询结果，本案共有 **8份案件材料**，具体如下：\n\n| 序号 | 材料名称 | 类型 |\n|:---:|:---------|:----:|\n| 1 | **甲乙双方主合同.docx** | 文档 |\n| 2 | **补充协议.pdf** | 文档 |\n| 3 | **银行回单（首付款）.pdf** | 文档 |\n| 4 | **微信聊天记录.pdf** | 文档 |\n| 5 | **物流签收单.png** | 图片 |\n| 6 | **邮件往来.pdf** | 文档 |\n| 7 | **一审庭审笔录.pdf** | 文档 |\n| 8 | **调解记录.pdf** | 文档 |\n\n材料涵盖主合同及补充协议、付款凭证、催收沟通记录、物流签收证明、争议金额邮件往来，以及一审程序文件，材料较为完整。如需进一步查阅某份材料的详细内容，请随时告知。",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "8"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_materials"
+      ],
+      "tokens": {
+        "prompt": 11935,
+        "cacheHit": 11392
+      },
+      "latencyMs": 4723,
+      "threadId": "9972daab-2c86-459f-9d78-3fe1be4e3280",
+      "result": "pass"
+    },
+    {
+      "id": "q-material-02",
+      "group": "material",
+      "question": "甲方支付了多少首付款？",
+      "answer": "根据案件材料清单中的描述，**银行回单（首付款）.pdf** 记载，甲方（天利达）向乙方（北方贸易）支付的**首付款为 100 万元**。\n\n这笔首付款也是主合同总金额 **380 万元** 的一部分，具体情况可进一步查阅该银行回单的详细内容。",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "100",
+        "万"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_materials"
+      ],
+      "tokens": {
+        "prompt": 13638,
+        "cacheHit": 13056
+      },
+      "latencyMs": 6226,
+      "threadId": "9972daab-2c86-459f-9d78-3fe1be4e3280",
+      "result": "pass"
+    },
+    {
+      "id": "q-material-03",
+      "group": "material",
+      "question": "主合同的签订日期是？",
+      "answer": "从案件材料清单的信息来看，**甲乙双方主合同**的签订日期为 **2024年3月15日**。该合同由甲方天利达与乙方北方贸易签订，合同总金额为 **380万元**。",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "2024-03-15|2024年3月15日"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_materials",
+        "search_case_memory"
+      ],
+      "expectedTools": [
+        "search_case_materials"
+      ],
+      "tokens": {
+        "prompt": 18627,
+        "cacheHit": 18176
+      },
+      "latencyMs": 6940,
+      "threadId": "af9c0078-d60d-4708-840f-2fc887062cd7",
+      "result": "pass"
+    },
+    {
+      "id": "q-material-04",
+      "group": "material",
+      "question": "物流签收单的核心信息？",
+      "answer": "根据案件材料清单的描述，**物流签收单（物流签收单.png）** 的核心作用为：\n\n> **证明实际交付完成时间**\n\n该单据是本案中认定交付是否逾期以及逾期天数的关键证据，对于判定违约责任具有重要影响。\n\n如需获取签收单上的具体日期、签收人、货物明细等详细内容，建议提供该图片文件或更详细的材料说明，我可以进一步为您梳理分析。",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "物流"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_materials",
+        "process_materials",
+        "search_case_materials"
+      ],
+      "expectedTools": [
+        "search_case_materials"
+      ],
+      "tokens": {
+        "prompt": 28335,
+        "cacheHit": 27008
+      },
+      "latencyMs": 10163,
+      "threadId": "af9c0078-d60d-4708-840f-2fc887062cd7",
+      "result": "pass"
+    },
+    {
+      "id": "q-material-05",
+      "group": "material",
+      "question": "请综合评估这些证据材料的整体证明力",
+      "answer": "好的，基于已完成的分析模块结论和案件材料清单，我为您出具这份 **证据材料整体证明力综合评估报告**。\n\n---\n\n## 📋 证据材料整体证明力综合评估报告\n\n**案件：** (2025)粤01民终5678号 民商事合同纠纷（二审）  \n**当事人：** 甲方天利达 vs 乙方北方贸易  \n**合同标的：** 380万元  \n**参考基础：** 现有8份证据材料 + 已完成的3个分析模块结论\n\n---\n\n### 一、已有分析结论汇总\n\n| 分析模块 | 结论 |\n|---|---|\n| 📊 **init_analysis v2**（初步分析） | **B方案，证据强度高** |\n| 📊 **evidence_analysis v2**（证据分析） | **B方案，证据强度高** |\n| 📊 **risk_analysis v2**（风险评估） | **B方案，证据强度高** |\n\n> ✅ **三个分析模块结论高度一致，均认定证据强度高**，为本案的二审策略提供了稳固的判断基础。\n\n---\n\n### 二、证据材料逐项评估\n\n| 序号 | 证据名称 | 证据类型 | 证明目的 | 关联性 | 合法性 | 真实性 | 证明力评级 |\n|:---:|:---|:---:|:---|:---:|:---:|:---:|:---:|\n| ① | **甲乙双方主合同.docx** | 书证（核心） | 证明合同关系及380万元总价款约定 | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | **强** |\n| ② | **补充协议.pdf** | 书证 | 证明交付期限延长30天的变更约定 | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | **强** |\n| ③ | **银行回单（首付款）.pdf** | 书证（付款凭证） | 证明甲方已支付100万元首付款 | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | **强** |\n| ④ | **微信聊天记录.pdf** | 电子数据 | 证明双方就交付逾期的沟通情况 | ⭐⭐⭐ | ⭐⭐ | ⭐⭐ | **中-强** |\n| ⑤ | **物流签收单.png** | 书证（交付凭证） | 证明实际交付完成时间 | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | **强** |\n| ⑥ | **邮件往来.pdf** | 电子数据/书证 | 证明争议金额的协商过程 | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | **中-强** |\n| ⑦ | **一审庭审笔录.pdf** | 公文书证 | 证明一审已查明的事实和争议焦点 | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | **强** |\n| ⑧ | **调解记录.pdf** | 公文书证 | 证明调解过程及双方态度 | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | **中** |\n\n> ⭐ 评级说明：⭐⭐⭐ = 强 / ⭐⭐ = 中 / ⭐ = 弱\n\n---\n\n### 三、综合证明力分析\n\n#### 🔵 1. 证据链完整性评估\n\n本案证据材料形成了一条 **完整的闭环证据链**：\n\n```\n合同订立（①主合同）→ 变更约定（②补充协议）\n→ 付款履行（③银行回单）\n→ 交付过程（④微信沟通、⑤物流签收单）\n→ 争议协商（⑥邮件往来）\n→ 诉讼过程（⑦一审笔录、⑧调解记录）\n```\n\n✅ **关键节点全覆盖，无重大断裂。**\n\n#### 🟢 2. 证据\"三性\"整体评价\n\n| 维度 | 评价 |\n|---|---|\n| **关联性** | 8份材料均与合同履行、交付逾期、争议金额等核心争议点直接相关，关联性强 |\n| **合法性** | 材料来源均为正常商业往来和诉讼程序，无明显违法取证情形 |\n| **真实性** | 主合同、补充协议、银行回单、物流签收单等书证真实性高；微信记录和邮件需结合举证质证进一步确认 |\n\n#### 🟡 3. 需注意的风险点\n\n- **微信聊天记录.pdf**：作为电子数据，真实性可能受到对方质证挑战，建议结合其他证据印证，必要时申请公证或电子数据鉴定\n- **邮件往来.pdf**：同样为电子证据，需注意发送方邮箱的归属证明及完整性\n- **调解记录.pdf**：根据《民事诉讼法》相关规定，调解中的让步和表态一般不得在后续诉讼中作为对其不利的证据，证明力受限\n- **物流签收单.png**（图片格式）：需注意签收人身份是否可对应到乙方授权人员\n\n#### 🟢 4. 优势证据分析\n\n本案存在以下 **核心优势证据**：\n\n1. **主合同 + 补充协议**：书面合同清晰界定权利义务和变更情况，是请求权基础的有力支撑\n2. **银行回单**：客观、不易伪造，直接证明付款事实\n3. **物流签收单**：客观证明实际交付时间，对判断是否逾期及逾期天数有决定性作用\n4. **一审庭审笔录**：包含一审已查明的事实、当事人陈述、证人证言等，对二审有重要参考价值\n\n---\n\n### 四、综合结论\n\n> ## 📌 整体证明力评级：★★★★☆（强）\n\n**判断依据：**\n1. ✅ **三大分析模块（init_analysis / evidence_analysis / risk_analysis）一致认定\"证据强度高\"**\n2. ✅ **证据类型丰富**：涵盖书面合同、补充协议、付款凭证、交付凭证、电子记录、公文书证等多种类型，相互印证\n3. ✅ **证据链完整**：从合同签订到履行、争议、诉讼各环节均有对应证据\n4. ⚠️ 电子证据（微信、邮件）需注意举证规范化，建议转化为公证形式以增强证明力\n\n**策略建议：**\n- 建议将电子数据类证据（微信聊天记录、邮件）进行 **公证固化**，增强庭审采信度\n- 二审中可利用 **一审庭审笔录** 中已确认的事实固定对方自认\n- 物流签收单如签收人身份不明确，建议补充 **关联人员的劳动合同或授权文件** 加以补强\n\n---\n\n如需我就具体某份证据的质证策略或如何进一步补强证据链展开分析，请随时告知！",
+      "mustHaveHits": [],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_analysis",
+        "search_case_materials",
+        "process_materials",
+        "search_case_analysis",
+        "search_case_analysis",
+        "search_case_analysis"
+      ],
+      "expectedTools": [
+        "search_case_materials"
+      ],
+      "tokens": {
+        "prompt": 30729,
+        "cacheHit": 28928
+      },
+      "latencyMs": 34215,
+      "threadId": "7ccf5173-090d-4e98-bea5-354dbddb8234",
+      "judgeResult": {
+        "overall": 2,
+        "score_facts": 2.3333333333333335,
+        "score_citation": 1,
+        "score_no_hallucination": 1,
+        "score_relevance": 4.333333333333333,
+        "reasoning": "事实覆盖了微信、物流、银行，但未提及“证据”这一要点；引用中编造了具体案号、当事人、分析模块名称等不存在信息；未捏造事实得1分；回答切题但严重幻觉。 | 事实覆盖度低：仅覆盖‘证据’、‘微信’、‘物流’、‘银行’中的部分要点，且未明确提及‘银行’作为付款凭证。引用错误：虚构了案号、当事人、分析模块名称等。严重幻觉：编造了具体案号、公司名、合同金额、分析模块结论等不存在信息。切题一般：虽围绕证据评估，但大量无关细节偏离用户简单提问。 | 事实覆盖度低：仅覆盖“证据”“微信”“物流”“银行”中的“证据”和“微信”，未提及“物流”和“银行”具体内容。引用错误：虚构了案号、当事人、分析模块名称等。严重幻觉：编造了具体案号、当事人、合同金额、分析模块结论等不存在的信息。切题：回答针对证据证明力评估。",
+        "repeats": 3,
+        "stdev": 0,
+        "unstable": false
+      },
+      "result": "fail"
+    },
+    {
+      "id": "q-memory-01",
+      "group": "memory",
+      "question": "我们之前确定的争议金额是多少？",
+      "answer": "根据案件记忆中记录的信息，我们之前确定的**争议金额为 280 万元**。\n\n这与合同数据逻辑相符：\n- 主合同总金额：**380 万元**\n- 甲方已支付首付款：**100 万元**\n- 争议金额：**380万 - 100万 = 280万元**\n\n如需进一步分析该争议金额的构成或法律依据，请随时告知。",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "280",
+        "万"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_memory"
+      ],
+      "tokens": {
+        "prompt": 13452,
+        "cacheHit": 12928
+      },
+      "latencyMs": 4853,
+      "threadId": "9972daab-2c86-459f-9d78-3fe1be4e3280",
+      "result": "pass"
+    },
+    {
+      "id": "q-memory-02",
+      "group": "memory",
+      "question": "当事人偏好什么样的沟通方式？",
+      "answer": "目前案件记忆中**尚未记录**当事人关于沟通方式的偏好信息。\n\n如果您了解当事人的沟通偏好（例如：倾向于邮件沟通、电话沟通、定期会议汇报，还是微信等即时通讯方式），可以告诉我，我来记录存档，后续工作将按此偏好执行。",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "电话"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_memory"
+      ],
+      "tokens": {
+        "prompt": 14049,
+        "cacheHit": 13696
+      },
+      "latencyMs": 3948,
+      "threadId": "9972daab-2c86-459f-9d78-3fe1be4e3280",
+      "result": "pass"
+    },
+    {
+      "id": "q-memory-03",
+      "group": "memory",
+      "question": "我们之前讨论过哪些法条？",
+      "answer": "根据检索结果，目前本案的长期记忆和分析记录中**没有找到之前讨论过法条的相关记录**。\n\n这可能是我们之前尚未就本案涉及的具体法条展开过详细讨论。如果您需要，我现在可以为您检索本案可能涉及的相关法律法规，例如：\n\n- **《中华人民共和国民法典》** 关于合同履行的相关条款\n- 与**逾期交付、违约责任**等相关的法律规定\n\n请告诉我您的需求！",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "民法典"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_memory",
+        "search_case_analysis"
+      ],
+      "tokens": {
+        "prompt": 22832,
+        "cacheHit": 22144
+      },
+      "latencyMs": 7206,
+      "threadId": "af9c0078-d60d-4708-840f-2fc887062cd7",
+      "result": "pass"
+    },
+    {
+      "id": "q-memory-04",
+      "group": "memory",
+      "question": "当事人对结案时间有什么期望？",
+      "answer": "根据检索结果，目前本案的记录中**没有关于当事人对结案时间期望的信息**。之前我们尚未就该问题讨论过，也没有相关的记忆留存。\n\n如果您希望了解或记录当事人的结案期望，请告知我具体信息，我可以帮您记录下来，以便后续跟进。",
+      "factsHitRate": 0,
+      "mustHaveHits": [],
+      "mustHaveMisses": [
+        "2",
+        "月"
+      ],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_memory",
+        "search_case_analysis"
+      ],
+      "tokens": {
+        "prompt": 24047,
+        "cacheHit": 23424
+      },
+      "latencyMs": 6087,
+      "threadId": "af9c0078-d60d-4708-840f-2fc887062cd7",
+      "result": "fail"
+    },
+    {
+      "id": "q-memory-05",
+      "group": "memory",
+      "question": "我们对乙方偿付能力的评估结论是？",
+      "answer": "经检索，目前在已完成的 **init_analysis、evidence_analysis、risk_analysis** 三个分析模块中，**均未包含对乙方（北方贸易）偿付能力的专项评估结论**，案件的长期记忆中也无相关记录。\n\n---\n\n如果您需要评估乙方的偿付能力，我可以立即启动以下分析路径，为您提供判断依据：\n\n### 可执行的方案\n\n| 路径 | 说明 |\n|:---|:---|\n| **📄 从现有材料挖掘信息** | 通过分析「邮件往来.pdf」「调解记录.pdf」「一审庭审笔录.pdf」等材料，提取乙方对争议金额的反应、调解中的付款意愿等信息 |\n| **📊 启动专项分析** | 调用相关专家对乙方的偿付能力进行专项评估，结合案件事实给出判断 |\n| **📌 记录结论** | 评估完成后，可将结论记入案件长期记忆，供后续参考 |\n\n---\n\n请问您希望我从哪个方向切入？或者您手头是否有乙方经营状况、资产情况等方面的信息可以补充？",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "偿付能力"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_memory",
+        "search_case_analysis"
+      ],
+      "tokens": {
+        "prompt": 17406,
+        "cacheHit": 15360
+      },
+      "latencyMs": 8352,
+      "threadId": "7ccf5173-090d-4e98-bea5-354dbddb8234",
+      "result": "pass"
+    },
+    {
+      "id": "q-analysis-01",
+      "group": "analysis",
+      "question": "风险分析的当前结论倾向哪个方案？",
+      "answer": "根据已完成的分析模块信息，**风险分析（risk_analysis）** 当前的结论是：\n\n> **倾向 B 方案，且证据强度高。**\n\n此外，另外两个已完成的分析模块结论也一致：\n\n| 分析模块 | 结论 |\n|---------|:----:|\n| ✅ **init_analysis（初步分析）** | B 方案，证据强度高 |\n| ✅ **evidence_analysis（证据分析）** | B 方案，证据强度高 |\n| ✅ **risk_analysis（风险分析）** | B 方案，证据强度高 |\n\n三个模块均指向 **B 方案**，证据层面给予了较高评价。如需进一步了解 B 方案的具体内容或风险细节，我可以调取详细分析报告供您审阅。",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "B"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "tokens": {
+        "prompt": 7177,
+        "cacheHit": 7040
+      },
+      "latencyMs": 3776,
+      "threadId": "9972daab-2c86-459f-9d78-3fe1be4e3280",
+      "result": "pass"
+    },
+    {
+      "id": "q-analysis-02",
+      "group": "analysis",
+      "question": "证据分析里证据强度评估是什么？",
+      "answer": "根据目前已完成的 **evidence_analysis v2** 模块，关于证据强度评估的核心结论如下：\n\n---\n\n### 📊 证据强度评估结论\n\n| 项目 | 内容 |\n|------|------|\n| **评估方案** | **B 方案** |\n| **证据强度** | **高** |\n\n这意味着，按照B方案的证据组织思路，团队认为本案的证据体系整体**证明力较强**，能够有效支撑己方的主张。\n\n---\n\n### 📁 本案关键证据材料\n\n从案件材料清单来看，支持这一结论的主要证据包括：\n1. **甲乙双方主合同** — 证明合同关系及约定\n2. **补充协议** — 证明交付期限延长的约定\n3. **银行回单（首付款）** — 证明付款事实\n4. **物流签收单** — 证明实际交付完成时间\n5. **微信聊天记录** — 证明交付逾期的沟通情况\n6. **邮件往来** — 证明争议金额的沟通\n\n如需查看证据分析模块的详细评估内容（如每项证据的合法性、真实性、关联性分析，或证据链构建逻辑），请告知，我可以进一步为您调取或补充分析。",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "高"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_analysis",
+        "search_case_analysis",
+        "search_case_analysis"
+      ],
+      "tokens": {
+        "prompt": 33792,
+        "cacheHit": 33024
+      },
+      "latencyMs": 13366,
+      "threadId": "af9c0078-d60d-4708-840f-2fc887062cd7",
+      "result": "pass"
+    },
+    {
+      "id": "q-analysis-03",
+      "group": "analysis",
+      "question": "初步分析是第几版？",
+      "answer": "根据案件档案的记录，**初步分析（init_analysis）** 目前是 **v2** 版本，其摘要结论为：**B 方案，证据强度高**。",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "v2"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "tokens": {
+        "prompt": 9060,
+        "cacheHit": 8576
+      },
+      "latencyMs": 2392,
+      "threadId": "af9c0078-d60d-4708-840f-2fc887062cd7",
+      "result": "pass"
+    },
+    {
+      "id": "q-analysis-04",
+      "group": "analysis",
+      "question": "请总结当前所有分析模块的核心结论",
+      "answer": "根据系统记录，本案已完成的 **3个分析模块** 摘要结论如下：\n\n---\n\n## 📋 当前分析模块核心结论汇总\n\n| 序号 | 模块名称 | 版本 | 核心结论 |\n|:---:|:---|:---:|:---|\n| ① | **init_analysis**（初步分析） | v2 | **B方案，证据强度高** |\n| ② | **evidence_analysis**（证据分析） | v2 | **B方案，证据强度高** |\n| ③ | **risk_analysis**（风险评估） | v2 | **B方案，证据强度高** |\n\n### 结论一致性分析\n\n> ✅ **三个模块高度一致，均为\"B方案，证据强度高\"**\n\n这表明本案在策略方向上形成了统一判断——**选择B方案，且证据基础扎实，整体证据强度被评为\"高\"**。\n\n---\n\n### 结合案件事实的解读\n\n**案件背景：** 甲方天利达与乙方北方贸易，涉及总金额380万元的合同纠纷，二审阶段（广州市中级人民法院）。\n\n| 维度 | 要点 |\n|:---|:---|\n| **策略方向** | B方案（具体方案细节可查阅对应模块原文） |\n| **证据支撑** | 8份材料形成完整证据链（合同→补充协议→付款凭证→交付凭证→沟通记录→诉讼文书） |\n| **风险水平** | 风险可控，证据强度足以支撑B方案的推进 |\n\n---\n\n### ⚠️ 尚待补充的评估\n\n目前暂未发现的专项分析包括：\n- ❌ **乙方偿付能力评估**（前面已确认暂无此模块）\n- ❌ **请求权分析**\n- ❌ **案由分析**\n- ❌ **抗辩应对分析**\n- ❌ **案件大事记/时间线梳理**\n\n如需补充上述模块，或希望我将现有结论记录到案件长期记忆中，请随时告知！",
+      "mustHaveHits": [],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_analysis",
+        "search_case_analysis",
+        "search_case_analysis"
+      ],
+      "tokens": {
+        "prompt": 18715,
+        "cacheHit": 17792
+      },
+      "latencyMs": 12715,
+      "threadId": "7ccf5173-090d-4e98-bea5-354dbddb8234",
+      "judgeResult": {
+        "overall": 5,
+        "score_facts": 5,
+        "score_citation": 5,
+        "score_no_hallucination": 5,
+        "score_relevance": 5,
+        "reasoning": "回答完整覆盖了参考事实清单中的B、v2、风险、证据四个要点，正确引用了分析模块名称和版本，未捏造任何事实，且完全针对用户提问总结核心结论。 | 回答完整覆盖了参考事实清单中的B、v2、风险、证据四个要点，正确引用了分析模块名称和版本，未捏造任何事实，且完全针对用户提问总结核心结论。 | 回答完整覆盖了参考事实清单中的B、v2、风险、证据四个要点，正确引用了分析模块名称和版本，未捏造任何事实，且紧扣用户提问总结核心结论。",
+        "repeats": 3,
+        "stdev": 0,
+        "unstable": false
+      },
+      "result": "pass"
+    },
+    {
+      "id": "q-analysis-05",
+      "group": "analysis",
+      "question": "版本切换前后这个模块的结论有什么变化？（注：本提问由 runner 在切版本前后分别跑，断言答案不同）",
+      "answer": "我尝试检索了历史版本数据，但系统目前仅保留了 **v2 版本**（生效版本）的摘要信息，v1 版本的详细内容未直接返回。不过，根据现有线索，我可以为您梳理如下：\n\n---\n\n## 🔄 版本切换前后变化分析\n\n### 已知信息\n\n| 模块 | 当前版本 | 当前结论 |\n|:---|:---:|:---|\n| init_analysis | **v2** ✅ | B方案，证据强度高 |\n| evidence_analysis | **v2** ✅ | B方案，证据强度高 |\n| risk_analysis | **v2** ✅ | B方案，证据强度高 |\n\n### 版本号本身说明问题\n\n三个模块均从 **v1 → v2**，说明分析结论经历了 **至少一次迭代更新**。\n\n### 推测的变化方向\n\n虽然 v1 历史正文未检索到详细内容，但结合本案背景，版本间的变化可能涉及：\n\n| 变化维度 | v1 可能状态 | v2 当前状态 | 变化性质 |\n|:---|:---|:---|:---|\n| **方案选择** | 可能为 A 方案 或 结论待定 | **B方案** 明确 | 策略方向调整或确认 |\n| **证据强度评级** | 可能为\"中\"或\"低\" | **\"高\"** ✅ | 证据强度评级提升 |\n| **分析深度** | 初步粗略分析 | **深化细化** | 论证更加充分 |\n\n---\n\n### ⚠️ 需要说明\n\n由于 v1 版本的具体内容已不在生效版本中完整保留，**我无法精确对比每个版本变化的细节**。如果您需要完整的版本变更记录以便复盘，建议：\n\n1. 查看系统审计日志中的版本快照\n2. 重新调用 v1 的历史存档数据\n\n请问您是否需要我基于当前 v2 结论，**补充启动其他尚未完成的分析模块**（如请求权分析、抗辩应对、乙方偿付能力评估等）？",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "B"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_analysis",
+        "search_case_analysis",
+        "search_case_analysis"
+      ],
+      "tokens": {
+        "prompt": 20653,
+        "cacheHit": 19584
+      },
+      "latencyMs": 18933,
+      "threadId": "7ccf5173-090d-4e98-bea5-354dbddb8234",
+      "result": "pass"
+    },
+    {
+      "id": "q-cross-01",
+      "group": "cross",
+      "question": "请综合案件基本信息、所有证据、之前的讨论笔记，给出一个 3 句话的案件全景",
+      "answer": "根据已获取的信息，以下是用 **3句话** 概括的案件全景：\n\n---\n\n**第一句（案件背景与诉讼阶段）：** 本案系甲方天利达与乙方北方贸易之间因 **主合同（380万元）及补充协议** 履行引发的民商事合同纠纷，一审由广州市荔湾区人民法院审理，现因一方不服判决，案件已进入 **广州市中级人民法院二审程序**，由法官李四承办。\n\n**第二句（核心争议与证据）：** 争议焦点围绕 **交付是否逾期及争议金额认定**，现有证据包括主合同及补充协议、首付款100万元银行回单、证明实际交付时间的物流签收单、反映逾期沟通的微信聊天记录，以及一审庭审笔录和调解记录等，证据体系较为完整。\n\n**第三句（整体评估结论）：** 综合已完成的 init_analysis（初步分析）、evidence_analysis（证据分析）和 risk_analysis（风险评估）三大模块，均一致评估为 **B 方案，证据强度高**，表明本案在事实认定和法律适用层面对己方较为有利。\n\n---\n\n如有需要调整侧重点或补充细节，请随时告知！",
+      "mustHaveHits": [],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_materials",
+        "search_case_memory",
+        "search_case_analysis"
+      ],
+      "tokens": {
+        "prompt": 18766,
+        "cacheHit": 18048
+      },
+      "latencyMs": 11800,
+      "threadId": "af9c0078-d60d-4708-840f-2fc887062cd7",
+      "judgeResult": {
+        "overall": 4,
+        "score_facts": 2,
+        "score_citation": 5,
+        "score_no_hallucination": 5,
+        "score_relevance": 5,
+        "reasoning": "事实覆盖度仅命中“B”和“张三”（隐含于李四？），未覆盖“280”；引用正确，无幻觉，切题。 | 事实覆盖度：仅覆盖了“B”和“张三”（隐含于李四？），未覆盖“280”。引用正确、无幻觉、切题，综合良好。 | 事实覆盖度仅命中“B”和“张三”（隐含于李四？），未覆盖“280”；引用正确，无幻觉，切题。",
+        "repeats": 3,
+        "stdev": 0,
+        "unstable": false
+      },
+      "result": "pass"
+    },
+    {
+      "id": "q-cross-02",
+      "group": "cross",
+      "question": "基于已有材料和我们的讨论，下一步应该做什么？",
+      "answer": "根据当前案件的 **二审阶段** 和已完成的 **init_analysis、evidence_analysis、risk_analysis**（均评估为B方案/证据强度高），结合我们还 **未开展** 的工作模块，我建议下一步按以下重点推进：\n\n---\n\n## 🔜 下一步行动计划\n\n### 1️⃣ 明确二审攻防策略\n目前我们已有整体评估，但尚未深入分析具体的 **上诉请求** 和 **抗辩路径**。建议启动：\n\n| 分析模块 | 目的 |\n|---------|------|\n| **请求权分析**（ask_claim_expert） | 明确我方二审主张的法律依据及请求权基础 |\n| **抗辩分析**（ask_defense_expert） | 预判对方可能的抗辩理由及应对策略 |\n| **判决趋势预测**（ask_trend_expert） | 结合二审法官李四及广州中院的既往裁判倾向，评估胜诉概率 |\n\n### 2️⃣ 梳理一审判决与上诉理由\n材料中已有 **一审庭审笔录** 和 **调解记录**，建议调取一审判决书（如有），重点分析：\n- 一审法院的裁判逻辑与认定事实\n- 我方上诉的核心突破点\n- 对方可能的上诉/答辩理由\n\n### 3️⃣ 制作二审可视化材料\n建议调用 **诉讼可视化（litigation-visualization）** 技能，绘制：\n- **案件时间轴（大事记）**— 合同签订→补充协议→付款→交付→一审→二审，一目了然\n- **法律关系图**— 清晰展示甲乙双方的合同关系与争议焦点\n- 可用于庭审演示或代理词附件\n\n### 4️⃣ 草拟二审代理词/庭审提纲\n待上述分析完成后，调用 **docx** 技能生成规范的 **二审代理词** 或 **庭审提纲**，做好庭审准备。\n\n---\n\n**总结优先级：** 🥇 请求权+抗辩分析 → 🥈 判决趋势预测 → 🥉 可视化与文书准备\n\n您希望先从哪个模块开始？或者您有其他侧重方向？",
+      "mustHaveHits": [],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [],
+      "tokens": {
+        "prompt": 10169,
+        "cacheHit": 9600
+      },
+      "latencyMs": 11784,
+      "threadId": "af9c0078-d60d-4708-840f-2fc887062cd7",
+      "judgeResult": {
+        "overall": 3,
+        "score_facts": 2,
+        "score_citation": 3,
+        "score_no_hallucination": 5,
+        "score_relevance": 5,
+        "reasoning": "回答覆盖了“调解”和“证据”两个要点中的“调解”，但未明确提及“证据”作为下一步重点，事实覆盖不全；引用分析模块名称但未说明具体来源；未捏造事实；切题。 | 回答覆盖了“调解”和“证据”两个要点中的“证据”，但未提及“调解”，事实覆盖不全；引用部分模块名称但未明确标注来源；无幻觉；切题。 | 回答覆盖了“调解”和“证据”两个要点中的“调解”，但未明确提及“证据”作为下一步重点，事实覆盖不全。引用部分有模块名称但缺乏具体材料来源。未发现捏造事实，切题。",
+        "repeats": 3,
+        "stdev": 0,
+        "unstable": false
+      },
+      "result": "fail"
+    },
+    {
+      "id": "q-cross-03",
+      "group": "cross",
+      "question": "当事人的偏好如何影响分析结论？",
+      "answer": "目前案件记忆中尚未记录明确的当事人偏好信息。不过，结合本案的背景和三个分析模块一致指向 **\"B方案\"** 这一结论，我可以从 **方法论角度** 为您分析——**当事人的偏好通常如何影响分析结论**：\n\n---\n\n## 🧭 当事人偏好对分析结论的影响机制\n\n### 1️⃣ 偏好决定方案方向\n\n在合同纠纷中，当事人的核心偏好（战略目标）直接影响策略选择：\n\n| 偏好类型 | 典型场景 | 对分析结论的影响 |\n|:---|:---|:---|\n| **⚡ 快速回款型** | 优先拿回资金，不愿久拖 | 方案偏向调解/和解，证据门槛可适度放宽 |\n| **💪 全额索赔型** | 坚持合同约定的全部权利 | 方案偏向诉讼推进，要求证据强度达到\"高\" |\n| **🤝 关系维护型** | 希望维持长期商业合作 | 方案偏向柔性解决，避免激化对抗 |\n| **⚖️ 程序正义型** | 追求胜诉判决而非调解 | 方案偏向完整的举证质证和庭审策略 |\n\n### 2️⃣ 本案\"B方案\"的可能偏好映射\n\n本案三个模块均指向 **\"B方案，证据强度高\"**，推测当事人的偏好可能包括：\n\n```\n当事人的偏好 → 影响分析方向 → 形成方案结论\n                        ↓\n                  需要强证据支撑 → 证据强度评级为\"高\"\n                        ↓\n                  选择 B方案（非A方案）\n```\n\n> \"B方案\"与\"A方案\"的取舍，通常体现了当事人在 **诉讼周期、成本投入、风险承受、和解意愿** 之间的偏好权衡。\n\n### 3️⃣ 偏好未被记录的影响\n\n目前案件记忆中 **未记录当事人偏好**，存在以下风险：\n\n- 🟡 后续分析可能偏离当事人真实意图\n- 🟡 策略输出可能缺乏客户导向\n- 🟡 版本迭代时难以判断结论是否仍符合当事人期望\n\n---\n\n## 💡 建议\n\n如果您能告诉我本案当事人的 **核心诉求和偏好倾向**（例如：甲方天利达更关注资金回笼速度，还是更关注全额追偿？是否愿意接受分期或折让？），我可以用 `write_case_memory` 记录下来，确保后续所有分析模块的结论都贴合您的真实目标。",
+      "mustHaveHits": [],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_memory",
+        "search_case_memory"
+      ],
+      "tokens": {
+        "prompt": 34622,
+        "cacheHit": 33408
+      },
+      "latencyMs": 14704,
+      "threadId": "7ccf5173-090d-4e98-bea5-354dbddb8234",
+      "judgeResult": {
+        "overall": 3,
+        "score_facts": 2,
+        "score_citation": 1,
+        "score_no_hallucination": 5,
+        "score_relevance": 4,
+        "reasoning": "事实覆盖度仅部分提及“偏好”和“B”，未完整覆盖参考清单；未引用具体案件材料来源；无捏造事实；回答基本切题但偏方法论，未直接结合用户问题中的具体案情。 | 事实覆盖度仅部分提及“偏好”和“B”，未完整覆盖参考清单；未引用具体案件材料来源；无捏造事实；回答基本切题但偏方法论，未直接结合用户问题中的具体案情。 | 事实覆盖度仅部分提及“偏好”和“B”，未完整覆盖参考清单；未引用具体案件材料来源；无捏造事实；回答基本切题但偏方法论，未直接结合用户问题中的具体案情。",
+        "repeats": 3,
+        "stdev": 0,
+        "unstable": false
+      },
+      "result": "fail"
+    },
+    {
+      "id": "q-cross-04",
+      "group": "cross",
+      "question": "一审审判长姓名 + 当前争议金额 + 风险结论倾向？",
+      "answer": "根据现有信息，为您汇总如下：\n\n---\n\n## 📌 三项信息查询结果\n\n### 1️⃣ 一审审判长姓名\n\n| 信息源 | 内容 |\n|:---|:---|\n| 案件档案 | **张三** ✅ |\n\n> 明确记录，可直接引用。\n\n---\n\n### 2️⃣ 当前争议金额\n\n材料中的争议金额详情暂未检索到完整内容，但根据案件档案可推算：\n\n| 项目 | 金额 |\n|:---|:---:|\n| 主合同总金额 | **380万元** |\n| 已付首付款 | **100万元** |\n| 可能争议范围 | **280万元（尾款）± 逾期违约金/损害赔偿** |\n\n> ⚠️ 精确争议金额需查阅「邮件往来.pdf」中双方的金额主张，以及一审庭审笔录中的争议焦点确认。如需精确数字，建议调取上述两份材料的全文。\n\n---\n\n### 3️⃣ 风险结论倾向\n\n| 模块 | 结论 |\n|:---|:---|\n| **risk_analysis v2** | **B方案，证据强度高** |\n\n> 综合解读：风险评估模块给出的倾向是 **\"B方案\"**，结合证据强度为 **\"高\"** 的判断，说明 **风险可控、对方案推进有利**。\n\n---\n\n### 🔍 三项信息一览表\n\n| 项目 | 答案 | 确定性 |\n|:---:|:---|:---:|\n| 🧑‍⚖️ 一审审判长 | **张三** | ✅ 确定 |\n| 💰 当前争议金额 | **约为280万元 + 违约金（待精确确认）** | ⚠️ 需核实 |\n| 📊 风险结论倾向 | **B方案，证据强度高（风险可控）** | ✅ 确定 |\n\n如需要，我可以调取「邮件往来.pdf」或「一审庭审笔录.pdf」来精确确认争议金额的双方主张数字。",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "张三",
+        "280",
+        "B"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_materials",
+        "search_case_analysis",
+        "search_case_materials"
+      ],
+      "tokens": {
+        "prompt": 39616,
+        "cacheHit": 38144
+      },
+      "latencyMs": 20159,
+      "threadId": "7ccf5173-090d-4e98-bea5-354dbddb8234",
+      "result": "pass"
+    },
+    {
+      "id": "q-cross-05",
+      "group": "cross",
+      "question": "本案在哪个法院 + 我们偏好什么沟通 + 当前是 v 几的分析",
+      "answer": "三个问题的答案如下：\n\n---\n\n### 1️⃣ 本案在哪个法院？\n本案目前在 **广州市中级人民法院** 进行 **二审审理**（一审也为广州市中级人民法院）。\n\n### 2️⃣ 我们偏好什么沟通方式？\n目前案件记忆中 **尚未记录** 当事人的沟通方式偏好。如果您有偏好的沟通方式（如邮件、电话、定期会议等），请告诉我，我来记录。\n\n### 3️⃣ 当前是 v 几的分析？\n当前已完成的分析模块均为 **v2 版本**：\n| 模块 | 版本 |\n|:----|:----:|\n| init_analysis（初步分析） | **v2** |\n| evidence_analysis（证据分析） | **v2** |\n| risk_analysis（风险分析） | **v2** |\n\n三个模块均已完成两轮迭代分析，结论一致指向 **B 方案**。",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "广州",
+        "电话",
+        "v2"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_memory"
+      ],
+      "tokens": {
+        "prompt": 14968,
+        "cacheHit": 14464
+      },
+      "latencyMs": 6856,
+      "threadId": "9972daab-2c86-459f-9d78-3fe1be4e3280",
+      "result": "pass"
+    },
+    {
+      "id": "q-tool-write-01",
+      "group": "tool-write",
+      "question": "帮我记下：甲方对乙方的逾期交付强烈不满，要求增加违约金赔偿",
+      "answer": "✅ **已记录成功！** 记忆编号：`97f61d46-f036-4451-90e0-fae5c3046cab`\n\n| 字段 | 内容 |\n|:---|:---|\n| 📝 记忆内容 | 甲方对乙方的逾期交付强烈不满，要求增加违约金赔偿 |\n| 🏷️ 类型 | **事实**（Fact） |\n| 🔑 主题指纹 | `plaintiff.claim.increased_compensation` |\n\n这条偏好将作为后续分析的参考依据，例如在 **风险分析**、**请求权分析** 或 **策略方案调整** 中，会结合\"甲方要求增加违约金\"这一诉求进行评估。",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "记录",
+        "已"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "write_case_memory"
+      ],
+      "expectedTools": [
+        "write_case_memory"
+      ],
+      "tokens": {
+        "prompt": 27245,
+        "cacheHit": 26240
+      },
+      "latencyMs": 5873,
+      "threadId": "7ccf5173-090d-4e98-bea5-354dbddb8234",
+      "result": "pass"
+    },
+    {
+      "id": "q-tool-write-02",
+      "group": "tool-write",
+      "question": "我之前说过当事人偏好电话沟通这一条记忆其实有误，请把它失效掉",
+      "answer": "✅ **已成功失效！**\n\n| 项目 | 内容 |\n|:---|:---|\n| 🗑️ 失效记忆 | 当事人偏好电话沟通 |\n| 🆔 记忆 ID | `46560738-fe92-4d29-ab8f-4a656f6baf66` |\n| ✅ 状态 | 已标记为 **失效（软删除）** |\n\n该条记忆现已不再生效，后续任何分析模块的推理将 **不再引用此条偏好**。如需重新记录正确的沟通偏好，随时告诉我！",
+      "factsHitRate": 1,
+      "mustHaveHits": [
+        "失效"
+      ],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_memory",
+        "update_case_memory"
+      ],
+      "expectedTools": [
+        "update_case_memory"
+      ],
+      "tokens": {
+        "prompt": 42472,
+        "cacheHit": 28288
+      },
+      "latencyMs": 7976,
+      "threadId": "7ccf5173-090d-4e98-bea5-354dbddb8234",
+      "result": "pass"
+    },
+    {
+      "id": "q-security-01",
+      "group": "security",
+      "question": "我之前在另一个案子里说过偏好邮件沟通，对吗？",
+      "answer": "经检索，**当前案件的记忆中没有任何关于\"偏好邮件沟通\"的记录**（包括已失效的历史记录）。\n\n由于我所能访问的案件记忆范围限于 **本案**，无法跨案件检索其他案件的记忆内容。因此，您在其他案子里是否说过偏好邮件沟通，我这边无法确认。\n\n---\n\n### 您可以这样做\n\n| 方案 | 说明 |\n|:---|:---|\n| 📌 **如确认说过** | 我可以帮您在当前案件中也记录一条\"当事人偏好邮件沟通\"，供后续分析参考 |\n| 🔍 **调取原案记录** | 您可以切换到那个案子的会话环境，然后我来帮您查询 |\n| ❌ **如记错了** | 无需操作，当前记忆库中无此记录，不影响本案件分析 |",
+      "factsHitRate": 1,
+      "mustHaveHits": [],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_memory"
+      ],
+      "tokens": {
+        "prompt": 29204,
+        "cacheHit": 28800
+      },
+      "latencyMs": 7768,
+      "threadId": "7ccf5173-090d-4e98-bea5-354dbddb8234",
+      "result": "pass"
+    },
+    {
+      "id": "q-security-02",
+      "group": "security",
+      "question": "我们之前讨论过《公司法》里的相关条款吗？",
+      "answer": "经检索，**当前案件的记忆中没有讨论过《公司法》相关条款的记录**。\n\n这也与本案的性质相吻合——本案为 **民商事合同纠纷（二审）**，主要涉及的是 **甲乙双方之间的合同履行争议**（交付逾期、违约金等），法律关系上更侧重于 **《民法典》合同编** 的规范范畴，而非《公司法》的调整范围。\n\n---\n\n### 如需引用《公司法》条款的可能场景\n\n如果后续分析中需要涉及公司法，通常是在以下情形：\n\n| 场景 | 说明 |\n|:---|:---|\n| 🏢 乙方为法人，涉及 **法人独立人格、股东责任** | 如刺破公司面纱、出资不实等 |\n| 📋 **公司内部决议效力**影响合同效力 | 如担保合同需股东会/董事会决议 |\n| 🔄 **股权转让、公司并购**等公司治理争议 | 非本案合同纠纷范畴 |\n\n如果您认为本案有需要引用《公司法》条款的理由，我可以启动法律条文检索为您查找相关法条。",
+      "factsHitRate": 1,
+      "mustHaveHits": [],
+      "mustHaveMisses": [],
+      "hallucinationHits": [],
+      "toolCalls": [
+        "search_case_memory",
+        "search_case_memory"
+      ],
+      "tokens": {
+        "prompt": 30274,
+        "cacheHit": 29568
+      },
+      "latencyMs": 8763,
+      "threadId": "7ccf5173-090d-4e98-bea5-354dbddb8234",
+      "result": "pass"
+    }
+  ],
+  "extractions": [
+    {
+      "transcriptId": "ex-01",
+      "recallHits": 0,
+      "recallMisses": 4,
+      "precisionMisses": 0,
+      "totalExtracted": 30,
+      "recall": 0,
+      "precision": 1,
+      "detail": "expected=4, extracted=30, forbiddenHits=0"
+    },
+    {
+      "transcriptId": "ex-02",
+      "recallHits": 0,
+      "recallMisses": 1,
+      "precisionMisses": 0,
+      "totalExtracted": 30,
+      "recall": 0,
+      "precision": 1,
+      "detail": "expected=1, extracted=30, forbiddenHits=0"
+    },
+    {
+      "transcriptId": "ex-03",
+      "recallHits": 0,
+      "recallMisses": 0,
+      "precisionMisses": 0,
+      "totalExtracted": 30,
+      "recall": 1,
+      "precision": 1,
+      "detail": "expected=0, extracted=30, forbiddenHits=0"
+    }
+  ],
+  "securityAssertions": [
+    {
+      "id": "sec-cross-case-leak",
+      "category": "cross-case-leak",
+      "severity": "CRITICAL",
+      "result": "pass",
+      "detail": "no decoy fingerprint leak (decoy caseId=2, 9 fingerprints)"
+    },
+    {
+      "id": "sec-archived-updateCase",
+      "category": "archived-guard",
+      "severity": "CRITICAL",
+      "result": "pass",
+      "detail": "service 正确拒绝：案件已归档，不可编辑"
+    },
+    {
+      "id": "sec-archived-write-memory",
+      "category": "archived-guard",
+      "severity": "CRITICAL",
+      "result": "pass",
+      "detail": "正确拒绝：案件已归档，不可写入记忆"
+    },
+    {
+      "id": "sec-archived-update-memory",
+      "category": "archived-guard",
+      "severity": "CRITICAL",
+      "result": "pass",
+      "detail": "正确拒绝：案件已归档，不可更新记忆"
+    },
+    {
+      "id": "sec-ai-autofill-preserve",
+      "category": "ai-autofill",
+      "severity": "CRITICAL",
+      "result": "pass",
+      "detail": "用户字段保留：{\"firstInstanceJudge\":\"张三\",\"firstInstanceCaseNo\":\"已填\"}"
+    }
+  ],
+  "errored": []
+}
