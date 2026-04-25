@@ -1,6 +1,7 @@
 import crypto from 'node:crypto'
 import type { Document } from '@langchain/core/documents'
 import { addDocumentsToVectorStore } from '../legal/vectorStore.service'
+import { isCaseReadOnly } from '#shared/types/case'
 import type { CaseMemoryMetadata, MemoryHit, MemoryKind } from '#shared/types/memory'
 import { retrieveWithReranking } from './retrieveWithReranking'
 
@@ -20,6 +21,15 @@ export interface MemoryWriteInput {
  * 同 subjectKey 的旧记录在新记录写入成功后才被打上 invalidatedAt 时间戳。
  */
 export async function writeMemoryService(input: MemoryWriteInput): Promise<{ id: string }> {
+  // ARCHIVED 只读守卫（spec §12 铁律）
+  const caseRecord = await prisma.cases.findUnique({
+    where: { id: input.caseId },
+    select: { status: true },
+  })
+  if (caseRecord && isCaseReadOnly(caseRecord.status)) {
+    throw new Error('案件已归档，不可写入记忆')
+  }
+
   let supersedes: string | undefined
 
   // 1. 查找同 subjectKey 的最新未失效记录
@@ -85,6 +95,22 @@ export async function updateMemoryService(
   id: string,
   patch: { text?: string; invalidate?: boolean },
 ): Promise<void> {
+  // ARCHIVED 只读守卫（spec §12 铁律）：先查记忆所在 caseId，再查 case.status
+  const memRow = await prisma.$queryRawUnsafe<Array<{ caseId: number | null }>>(
+    `SELECT (metadata->>'caseId')::int as "caseId" FROM case_memories WHERE id = $1::uuid`,
+    id,
+  )
+  const caseId = memRow[0]?.caseId
+  if (caseId) {
+    const caseRecord = await prisma.cases.findUnique({
+      where: { id: caseId },
+      select: { status: true },
+    })
+    if (caseRecord && isCaseReadOnly(caseRecord.status)) {
+      throw new Error('案件已归档，不可更新记忆')
+    }
+  }
+
   if (patch.text !== undefined) {
     await prisma.$executeRawUnsafe(
       `UPDATE case_memories
