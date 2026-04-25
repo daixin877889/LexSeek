@@ -6,18 +6,18 @@
  *
  * 中间件：
  * - pointConsumptionMiddleware: 按 token 计费
- * - moduleContextMiddleware: 每轮对话前增量注入动态上下文
+ * - 上下文注入: 通过 buildContextSegments 一次性构建 5 段式 system prompt（命中 prompt cache）
  * - summarizationMiddleware: 长对话摘要
  * - 注意：不挂载 analysisResultPersistenceMiddleware（与 save_analysis_result 工具冲突）
  */
 
 import { createAgent, summarizationMiddleware, type ReactAgent } from 'langchain'
-import { HumanMessage } from '@langchain/core/messages'
+import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import type { StructuredToolInterface } from '@langchain/core/tools'
 import { Command } from '@langchain/langgraph'
 import { getCheckpointer, getStore } from '../checkpointer'
 import { getValidNodeConfig } from '../../node/node.service'
-import { createChatModel } from '../../node/chatModelFactory'
+import { createChatModel, cachedPromptToAnthropicContent, cachedPromptToPlainText } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import {
     createAuditMiddleware,
@@ -25,7 +25,7 @@ import {
     createScopeGuardMiddleware,
     pointConsumptionMiddleware,
 } from '../middleware'
-import { moduleContextMiddleware } from '../middleware/moduleContext.middleware'
+import { buildContextSegments, toCachedPrompt } from '../context/moduleContextBuilder'
 import { safetyTrimMiddleware } from '../middleware/safetyTrim.middleware'
 import { createTool as createSaveAnalysisResultTool } from '../tools/saveAnalysisResult.tool'
 import { renderSystemPrompt } from '../utils/promptRenderer'
@@ -128,12 +128,29 @@ export async function runModuleChat(
     }
     const allTools = Array.from(toolsByName.values())
 
-    // 构建静态 system prompt（不变，命中供应商 Prompt Caching）
-    const systemPromptParts = [
+    // 构建 5 段式上下文 prompt（roleAndFlow 段含 save_analysis_result 提醒，命中 1h cache）
+    // 关键差异：agentName 用 moduleName，让 buildContextSegments 内部 caseAnalyses.findMany
+    // { NOT: { analysisType: agentName } } 能正确排除当前模块自身的旧结果
+    const roleAndFlowTemplate = [
         renderSystemPrompt(nodeConfig, { caseId, moduleName }),
         '当你生成或更新了该模块的分析结果时，必须调用 save_analysis_result 工具保存结果。',
-    ].filter(Boolean)
-    const systemPrompt = systemPromptParts.join('\n\n')
+    ].filter(Boolean).join('\n\n')
+
+    const segs = await buildContextSegments({
+        caseId,
+        agentName: moduleName,
+        userQuery: message ?? '',
+        roleAndFlowTemplate,
+    })
+    const cachedPrompt = toCachedPrompt(segs)
+    const plainTextPrompt = cachedPromptToPlainText(cachedPrompt)
+
+    // Anthropic 走 content blocks（保留 cache_control 断点）；其它供应商走纯文本，均封装为 SystemMessage
+    const sysContent: string | Array<Record<string, unknown>> =
+        nodeConfig.modelSdkType === 'anthropic'
+            ? cachedPromptToAnthropicContent(cachedPrompt)
+            : plainTextPrompt
+    const systemMessage = new SystemMessage({ content: sysContent as any })
 
     const { triggerTokens, maxTokens, maxOutputTokens } = resolveContextWindow(
         nodeConfig.modelContextWindow,
@@ -142,7 +159,7 @@ export async function runModuleChat(
 
     const agent: ReactAgent = createAgent({
         model,
-        systemPrompt,
+        systemPrompt: systemMessage,
         checkpointer,
         store,
         tools: allTools,
@@ -151,7 +168,6 @@ export async function runModuleChat(
             createMessageIntegrityMiddleware(),
             createScopeGuardMiddleware(),
             pointConsumptionMiddleware(userId, 'case_analysis_token', sessionId),
-            moduleContextMiddleware(caseId, moduleName),
             summarizationMiddleware({
                 model,
                 trigger: [{ tokens: triggerTokens }],
@@ -159,7 +175,8 @@ export async function runModuleChat(
             safetyTrimMiddleware({
                 model,
                 maxTokens,
-                systemPrompt,
+                // safetyTrim 仅用于 token 计数，统一传 plain text 即可
+                systemPrompt: plainTextPrompt,
                 maxOutputTokens,
             }),
             skillsMiddleware,
