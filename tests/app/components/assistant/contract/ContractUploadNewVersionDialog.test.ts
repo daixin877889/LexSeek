@@ -49,31 +49,9 @@ vi.mock('~/composables/useBatchUpload', () => ({
     useBatchUpload: () => ({ uploadToOSS: mockUploadToOSS }),
 }))
 
-// ── mock useContractReviewVersion ─────────────────────────────────────────────
+// UI-C1：Dialog 不再自调 useContractReviewVersion，而是接收 props.uploadNewVersion；
+// 测试只需把 mock 函数作为 prop 传入即可，不需要 mock 整个 composable。
 const mockUploadNewVersion = vi.fn()
-vi.mock('~/composables/useContractReviewVersion', () => ({
-    useContractReviewVersion: () => ({
-        uploadNewVersion: mockUploadNewVersion,
-        // 其他方法留空（本组件只用 uploadNewVersion）
-        workspace: ref(null),
-        versions: ref([]),
-        previewVersionId: ref(null),
-        previewSnapshot: ref(null),
-        isReadOnly: ref(false),
-        currentView: ref({ risks: [], annotations: [], docxText: '' }),
-        hasUnsavedEdits: ref(false),
-        refreshWorkspace: vi.fn(),
-        refreshVersions: vi.fn(),
-        enterPreview: vi.fn(),
-        exitPreview: vi.fn(),
-        saveNewVersion: vi.fn(),
-        updateRiskArchivedStatus: vi.fn(),
-        addLawyerAnnotation: vi.fn(),
-        updateAnnotation: vi.fn(),
-        deleteAnnotation: vi.fn(),
-        updateVersionNote: vi.fn(),
-    }),
-}))
 
 // ── 动态导入（mock 注册后）────────────────────────────────────────────────────
 const { default: ContractUploadNewVersionDialog } = await import(
@@ -140,7 +118,9 @@ function makeSseState() {
     const done = ref(false)
     const result = ref<{ newVersionId: number; summary: string } | null>(null)
     const error = ref<{ step: string; message: string } | null>(null)
-    return { steps, done, result, error }
+    // DOCX-H8 / UI-C1：useContractReviewVersion.uploadNewVersion 的返回类型现在带 abort()
+    const abort = vi.fn()
+    return { steps, done, result, error, abort }
 }
 
 /** 选择文件 */
@@ -176,7 +156,7 @@ describe('ContractUploadNewVersionDialog', () => {
 
     it('open=false 时对话框内容不渲染', () => {
         const w = mount(ContractUploadNewVersionDialog, {
-            props: { open: false, reviewId: 1 },
+            props: { open: false, reviewId: 1, uploadNewVersion: mockUploadNewVersion },
             global: { stubs },
         })
         expect(w.find('[data-stub="DialogContent"]').exists()).toBe(false)
@@ -184,7 +164,7 @@ describe('ContractUploadNewVersionDialog', () => {
 
     it('open=true 时显示文件选择区域', () => {
         const w = mount(ContractUploadNewVersionDialog, {
-            props: { open: true, reviewId: 1 },
+            props: { open: true, reviewId: 1, uploadNewVersion: mockUploadNewVersion },
             global: { stubs },
         })
         expect(w.find('[data-stub="DialogContent"]').exists()).toBe(true)
@@ -193,7 +173,7 @@ describe('ContractUploadNewVersionDialog', () => {
 
     it('选择 .docx 文件后显示文件名和上传按钮', async () => {
         const w = mount(ContractUploadNewVersionDialog, {
-            props: { open: true, reviewId: 1 },
+            props: { open: true, reviewId: 1, uploadNewVersion: mockUploadNewVersion },
             global: { stubs },
         })
         await selectFile(w, makeDocxFile('my-contract.docx'))
@@ -203,7 +183,7 @@ describe('ContractUploadNewVersionDialog', () => {
 
     it('选择非 .docx 文件时 toast.warning 提示且不显示文件名', async () => {
         const w = mount(ContractUploadNewVersionDialog, {
-            props: { open: true, reviewId: 1 },
+            props: { open: true, reviewId: 1, uploadNewVersion: mockUploadNewVersion },
             global: { stubs },
         })
         const txtFile = new File(['x'], 'doc.txt', { type: 'text/plain' })
@@ -217,7 +197,7 @@ describe('ContractUploadNewVersionDialog', () => {
         mockUploadNewVersion.mockResolvedValue(sseState)
 
         const w = mount(ContractUploadNewVersionDialog, {
-            props: { open: true, reviewId: 1 },
+            props: { open: true, reviewId: 1, uploadNewVersion: mockUploadNewVersion },
             global: { stubs },
         })
         await selectFile(w, makeDocxFile())
@@ -234,7 +214,7 @@ describe('ContractUploadNewVersionDialog', () => {
         mockUploadNewVersion.mockResolvedValue(sseState)
 
         const w = mount(ContractUploadNewVersionDialog, {
-            props: { open: true, reviewId: 1 },
+            props: { open: true, reviewId: 1, uploadNewVersion: mockUploadNewVersion },
             global: { stubs },
         })
         await selectFile(w, makeDocxFile())
@@ -258,7 +238,7 @@ describe('ContractUploadNewVersionDialog', () => {
         mockUploadNewVersion.mockResolvedValue(sseState)
 
         const w = mount(ContractUploadNewVersionDialog, {
-            props: { open: true, reviewId: 1 },
+            props: { open: true, reviewId: 1, uploadNewVersion: mockUploadNewVersion },
             global: { stubs },
         })
         await selectFile(w, makeDocxFile())
@@ -279,7 +259,7 @@ describe('ContractUploadNewVersionDialog', () => {
         mockUploadNewVersion.mockResolvedValue(sseState)
 
         const w = mount(ContractUploadNewVersionDialog, {
-            props: { open: true, reviewId: 1 },
+            props: { open: true, reviewId: 1, uploadNewVersion: mockUploadNewVersion },
             global: { stubs },
         })
         await selectFile(w, makeDocxFile())
@@ -302,7 +282,7 @@ describe('ContractUploadNewVersionDialog', () => {
         mockUploadNewVersion.mockResolvedValue(sseState)
 
         const w = mount(ContractUploadNewVersionDialog, {
-            props: { open: true, reviewId: 1 },
+            props: { open: true, reviewId: 1, uploadNewVersion: mockUploadNewVersion },
             global: { stubs },
         })
         await selectFile(w, makeDocxFile())
@@ -332,7 +312,7 @@ describe('ContractUploadNewVersionDialog', () => {
         mockUploadNewVersion.mockResolvedValue(sseState)
 
         const w = mount(ContractUploadNewVersionDialog, {
-            props: { open: true, reviewId: 1 },
+            props: { open: true, reviewId: 1, uploadNewVersion: mockUploadNewVersion },
             global: { stubs },
         })
         await selectFile(w, makeDocxFile())
@@ -354,7 +334,7 @@ describe('ContractUploadNewVersionDialog', () => {
 
     it('拖拽 .docx 文件触发上传流程', async () => {
         const w = mount(ContractUploadNewVersionDialog, {
-            props: { open: true, reviewId: 1 },
+            props: { open: true, reviewId: 1, uploadNewVersion: mockUploadNewVersion },
             global: { stubs },
         })
         const dropzone = w.find('[data-testid="dropzone"]')
@@ -372,7 +352,7 @@ describe('ContractUploadNewVersionDialog', () => {
 
     it('拖拽非 docx 文件被拒绝', async () => {
         const w = mount(ContractUploadNewVersionDialog, {
-            props: { open: true, reviewId: 1 },
+            props: { open: true, reviewId: 1, uploadNewVersion: mockUploadNewVersion },
             global: { stubs },
         })
         const dropzone = w.find('[data-testid="dropzone"]')
