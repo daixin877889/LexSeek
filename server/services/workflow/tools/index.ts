@@ -18,6 +18,7 @@ import * as confirmPointsTool from './confirmPoints.tool'
 import * as rollbackPointsTool from './rollbackPoints.tool'
 import * as readSkillFileTool from './readSkillFile.tool'
 import * as runSkillScriptTool from './runSkillScript.tool'
+import * as runSkillCommandTool from './runSkillCommand.tool'
 import * as writeSkillFileTool from './writeSkillFile.tool'
 import * as uploadWorkspaceFileTool from './uploadWorkspaceFile.tool'
 import * as parseAndAskStanceTool from './parseAndAskStance.tool'
@@ -36,6 +37,7 @@ const toolModules: Record<string, ToolModule> = {
     rollback_points: rollbackPointsTool,
     read_skill_file: readSkillFileTool,
     run_skill_script: runSkillScriptTool,
+    run_skill_command: runSkillCommandTool,
     write_skill_file: writeSkillFileTool,
     upload_workspace_file: uploadWorkspaceFileTool,
     parse_and_ask_stance: parseAndAskStanceTool,

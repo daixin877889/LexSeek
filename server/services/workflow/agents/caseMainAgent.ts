@@ -29,6 +29,7 @@ import { createSkillsMiddleware, FilesystemBackend } from 'deepagents'
 import { createTool as createReadSkillFileTool } from '../tools/readSkillFile.tool'
 import { createTool as createWriteSkillFileTool } from '../tools/writeSkillFile.tool'
 import { createTool as createRunSkillScriptTool } from '../tools/runSkillScript.tool'
+import { createTool as createRunSkillCommandTool } from '../tools/runSkillCommand.tool'
 import { createTool as createUploadWorkspaceFileTool } from '../tools/uploadWorkspaceFile.tool'
 import { resolveContextWindow } from '../context/messageCompressor'
 
@@ -122,6 +123,7 @@ export async function runCaseChat(
         createReadSkillFileTool(toolContext),
         createWriteSkillFileTool(toolContext),
         createRunSkillScriptTool(toolContext),
+        createRunSkillCommandTool(toolContext),
         createUploadWorkspaceFileTool(toolContext),
     ]
     const toolsByName = new Map<string, StructuredToolInterface>()
