@@ -8,6 +8,7 @@
 import { createAgent, summarizationMiddleware, type ReactAgent } from 'langchain'
 import { HumanMessage } from '@langchain/core/messages'
 import type { StructuredToolInterface } from '@langchain/core/tools'
+import type { BaseCallbackHandler } from '@langchain/core/callbacks/base'
 import { Command } from '@langchain/langgraph'
 import { getCheckpointer, getStore } from '../checkpointer'
 import { getValidNodeConfig, getNodeConfigsByTypes } from '../../node/node.service'
@@ -52,6 +53,8 @@ export interface CaseAgentOptions {
     thinking?: boolean
     /** 来自 agentWorker.executeRun 的 AbortController，用户取消/超时时传入 */
     signal?: AbortSignal
+    /** Eval / 监控用：透传给底层 LLM 的 LangChain callbacks */
+    callbacks?: BaseCallbackHandler[]
 }
 
 /**
@@ -186,6 +189,7 @@ export async function runCaseChat(
             encoding: 'text/event-stream',
             recursionLimit: 1000,
             signal,
+            callbacks: options.callbacks,
         },
     )
 }
