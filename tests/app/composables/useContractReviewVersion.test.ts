@@ -129,11 +129,14 @@ describe('useContractReviewVersion.refreshWorkspace', () => {
     it('加载工作区：risks 去掉 annotations、annotations 摊平到独立数组', async () => {
         const risk = makeRisk(1)
         const ann = makeAnnotation(1, 1)
+        // 后端返回 { review: { ... } }（bug #20 修复后），mock 同步包一层
         mockFetch.mockResolvedValueOnce({
-            id: 1,
-            risks: [{ ...risk, annotations: [ann] }],
-            currentVersionId: 10,
-            maxVersionNo: 2,
+            review: {
+                id: 1,
+                risks: [{ ...risk, annotations: [ann] }],
+                currentVersionId: 10,
+                maxVersionNo: 2,
+            },
         })
 
         const c = useContractReviewVersion(ref(1))

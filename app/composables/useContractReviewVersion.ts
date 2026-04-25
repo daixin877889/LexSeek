@@ -13,6 +13,7 @@
  * 只读态守护：previewVersionId !== null 时，所有编辑动作静默返回不发请求。
  */
 import { useDebounceFn } from '@vueuse/core'
+import { toast } from 'vue-sonner'
 import type {
     ContractRiskEntity,
     ContractAnnotationEntity,
@@ -166,22 +167,31 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
         return true
     }
 
-    /** 处置风险（离散动作，直接 PATCH，不 debounce） */
+    /**
+     * 处置风险（离散动作，直接 PATCH，不 debounce）。
+     * UI-H4：先乐观更新，失败回滚到 pre-edit 快照并 toast。
+     */
     async function updateRiskArchivedStatus(riskId: number, archivedStatus: RiskArchivedStatus | null) {
         if (isReadOnly.value) return
+        const prevRisks = workspace.value.risks
+        const archivedAt = archivedStatus ? new Date().toISOString() : null
+        workspace.value.risks = workspace.value.risks.map(r =>
+            r.id === riskId ? { ...r, archivedStatus, archivedAt } : r,
+        )
         const resp = await useApiFetch(
             `/api/v1/assistant/contract/reviews/risks/${riskId}`,
-            { method: 'PATCH', body: { archivedStatus } },
+            { method: 'PATCH', body: { archivedStatus }, showError: false } as any,
         )
-        if (resp) {
-            const archivedAt = archivedStatus ? new Date().toISOString() : null
-            workspace.value.risks = workspace.value.risks.map(r =>
-                r.id === riskId ? { ...r, archivedStatus, archivedAt } : r,
-            )
+        if (!resp) {
+            workspace.value.risks = prevRisks
+            toast.error('风险处置失败，已回滚')
         }
     }
 
-    /** 新增律师批注（离散动作，直接 POST） */
+    /**
+     * 新增律师批注（离散动作，直接 POST）。
+     * UI-H3：用 spread 替换 push，与其他增删改保持 immutable 风格一致。
+     */
     async function addLawyerAnnotation(
         riskId: number,
         content: string,
@@ -190,14 +200,25 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
         if (isReadOnly.value) return null
         const resp = await useApiFetch<ContractAnnotationEntity>(
             `/api/v1/assistant/contract/reviews/${reviewId.value}/annotations`,
-            { method: 'POST', body: { riskId, content, parentAnnotationId: parentAnnotationId ?? null } },
+            { method: 'POST', body: { riskId, content, parentAnnotationId: parentAnnotationId ?? null }, showError: false } as any,
         )
-        if (resp) workspace.value.annotations.push(resp)
+        if (!resp) {
+            toast.error('添加批注失败，请重试')
+            return null
+        }
+        workspace.value.annotations = [...workspace.value.annotations, resp]
         return resp
     }
 
     // 批注内容编辑 pending map：多次击键合并成一次 PATCH（500ms debounce）
     const pendingAnnotationContent = new Map<number, string>()
+    /**
+     * UI-H2：捕获 schedule 时的 reviewId，flush 时校验仍为同一 review，
+     * 避免快速切换 review 时旧实例 PATCH 命中新 review 的批注。
+     */
+    let pendingForReviewId: number | null = null
+    /** UI-M6：本会话内是否产生过批注内容编辑（dirty 标记，独立于时间戳） */
+    const annotationDirty = ref(false)
 
     const flushAnnotationContent = useDebounceFn(async () => {
         // 切到历史版本或已卸载场景下丢弃 pending，避免错误写回
@@ -205,9 +226,16 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
             pendingAnnotationContent.clear()
             return
         }
+        // UI-H2：reviewId 在 await 期间被切换 → 丢弃旧 pending
+        if (pendingForReviewId !== reviewId.value) {
+            pendingAnnotationContent.clear()
+            return
+        }
         const entries = Array.from(pendingAnnotationContent.entries())
         pendingAnnotationContent.clear()
         await Promise.all(entries.map(async ([annotationId, content]) => {
+            // 二次校验：发请求前再次确认 reviewId 仍未变
+            if (pendingForReviewId !== reviewId.value) return
             const resp = await useApiFetch(
                 `/api/v1/assistant/contract/reviews/annotations/${annotationId}`,
                 { method: 'PATCH', body: { content } },
@@ -227,35 +255,53 @@ export function useContractReviewVersion(reviewId: Ref<number>) {
             a.id === annotationId ? { ...a, content } : a,
         )
         pendingAnnotationContent.set(annotationId, content)
+        pendingForReviewId = reviewId.value
+        annotationDirty.value = true
         flushAnnotationContent()
     }
 
-    /** 软删批注（离散动作，直接 DELETE；服务端走 deletedAt，不物理删） */
+    // UI-H2：composable 卸载时清理 pending（debounce 仍可能在排队中），避免 stale PATCH
+    onScopeDispose(() => {
+        pendingAnnotationContent.clear()
+        pendingForReviewId = null
+    })
+
+    /**
+     * 软删批注（离散动作，直接 DELETE；服务端走 deletedAt，不物理删）。
+     * UI-H4：先乐观删除，失败回滚到 pre-edit 快照并 toast。
+     */
     async function deleteAnnotation(annotationId: number) {
         if (isReadOnly.value) return
+        const prev = workspace.value.annotations
+        workspace.value.annotations = workspace.value.annotations.filter(a => a.id !== annotationId)
         const resp = await useApiFetch(
             `/api/v1/assistant/contract/reviews/annotations/${annotationId}`,
-            { method: 'DELETE' },
+            { method: 'DELETE', showError: false } as any,
         )
-        if (resp) {
-            workspace.value.annotations = workspace.value.annotations.filter(a => a.id !== annotationId)
+        if (!resp) {
+            workspace.value.annotations = prev
+            toast.error('删除批注失败，已回滚')
         }
     }
 
     /**
      * 恢复推送（spec §12.6）：客户删过的批注由律师手动恢复为"下次导出依然写入"。
      * 服务端将 suppressInExport 置 false、removedByClient=true 保留作历史证据。
+     * UI-H4：乐观更新 + 失败回滚。
      */
     async function restoreAnnotationPush(annotationId: number) {
         if (isReadOnly.value) return
+        const prev = workspace.value.annotations
+        workspace.value.annotations = workspace.value.annotations.map(a =>
+            a.id === annotationId ? { ...a, suppressInExport: false } : a,
+        )
         const resp = await useApiFetch(
             `/api/v1/assistant/contract/reviews/annotations/${annotationId}/restore`,
-            { method: 'PATCH' },
+            { method: 'PATCH', showError: false } as any,
         )
-        if (resp) {
-            workspace.value.annotations = workspace.value.annotations.map(a =>
-                a.id === annotationId ? { ...a, suppressInExport: false } : a,
-            )
+        if (!resp) {
+            workspace.value.annotations = prev
+            toast.error('恢复推送失败，已回滚')
         }
     }
 

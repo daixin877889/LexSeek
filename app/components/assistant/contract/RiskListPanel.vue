@@ -98,6 +98,8 @@ watch(() => props.focusedRiskId, (id) => {
 
 // 流式冒出：追踪新增的 risk id，3 秒后自动移除
 const justAddedIds = ref<Set<string>>(new Set())
+// UI-H1：保存活跃的 setTimeout 句柄，组件卸载时清理避免内存泄漏
+const justAddedTimers = ref<Set<ReturnType<typeof setTimeout>>>(new Set())
 
 watch(
     () => props.risks,
@@ -106,13 +108,20 @@ watch(
         const newlyAdded = newRisks.filter(r => !oldIds.has(r.id)).map(r => r.id)
         if (newlyAdded.length === 0) return
         newlyAdded.forEach(id => justAddedIds.value.add(id))
-        setTimeout(() => {
+        const timer = setTimeout(() => {
             newlyAdded.forEach(id => justAddedIds.value.delete(id))
             justAddedIds.value = new Set(justAddedIds.value)
+            justAddedTimers.value.delete(timer)
         }, 3000)
+        justAddedTimers.value.add(timer)
     },
     { deep: false },
 )
+
+onBeforeUnmount(() => {
+    justAddedTimers.value.forEach(t => clearTimeout(t))
+    justAddedTimers.value.clear()
+})
 
 function toggle(id: string) {
     expandedId.value = expandedId.value === id ? null : id

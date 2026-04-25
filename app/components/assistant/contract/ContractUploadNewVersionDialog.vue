@@ -13,17 +13,27 @@ import { useBatchUpload } from '~/composables/useBatchUpload'
 import type { StepState, StepStatus } from '~/composables/useContractReviewVersion'
 import type { Ref } from 'vue'
 
+/**
+ * UI-C1：通过 props 接收 uploadNewVersion，避免在 Dialog 内重复
+ * `useContractReviewVersion`，与父级形成 SSE 状态分裂。
+ */
 const props = defineProps<{
     open: boolean
     reviewId: number
+    /** 父级 versioning.uploadNewVersion，由 ContractReviewPanel 透传 */
+    uploadNewVersion: (ossFileId: number) => Promise<{
+        steps: Ref<StepState[]>
+        done: Ref<boolean>
+        result: Ref<{ newVersionId: number; summary: string } | null>
+        error: Ref<{ step: string; message: string } | null>
+        abort: () => void
+    }>
 }>()
 
 const emit = defineEmits<{
     'update:open': [value: boolean]
     'complete': [payload: { newVersionId: number; summary: string }]
 }>()
-
-const { uploadNewVersion } = useContractReviewVersion(computed(() => props.reviewId))
 
 // OSS 上传状态
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -166,8 +176,8 @@ async function handleUpload() {
             return
         }
         ossUploading.value = false
-        // 3. 触发 SSE 处理流程
-        sseState.value = await uploadNewVersion(ossFileId)
+        // 3. 触发 SSE 处理流程（uploadNewVersion 由父级 versioning 注入，避免 SSE 状态分裂）
+        sseState.value = await props.uploadNewVersion(ossFileId)
     } catch (err) {
         toast.error(err instanceof Error ? err.message : '上传失败')
     } finally {

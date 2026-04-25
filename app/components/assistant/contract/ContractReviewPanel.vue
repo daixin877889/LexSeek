@@ -662,11 +662,12 @@ function handleContainerClick(e: MouseEvent) {
             @confirm="handleSaveVersion"
         />
 
-        <!-- 上传新版本 Dialog -->
+        <!-- 上传新版本 Dialog（UI-C1：通过 props 透传 versioning.uploadNewVersion，避免重复 new 实例） -->
         <AssistantContractUploadNewVersionDialog
             v-if="review"
             :open="uploadVersionDialogOpen"
             :review-id="review.id"
+            :upload-new-version="versioning.uploadNewVersion"
             @update:open="uploadVersionDialogOpen = $event"
             @complete="handleUploadComplete"
         />

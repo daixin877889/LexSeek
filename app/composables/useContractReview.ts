@@ -97,6 +97,14 @@ export function useContractReview() {
         }
     }
 
+    // UI-H1：组件销毁时清掉 hoverTimer 防泄漏
+    onScopeDispose(() => {
+        if (hoverTimer) {
+            clearTimeout(hoverTimer)
+            hoverTimer = null
+        }
+    })
+
     function togglePin(riskId: string) {
         const s = new Set(pinnedRiskIds.value)
         if (s.has(riskId)) s.delete(riskId); else s.add(riskId)
