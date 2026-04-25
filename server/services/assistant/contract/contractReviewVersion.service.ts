@@ -57,17 +57,46 @@ export interface SaveVersionInput {
 }
 
 /**
+ * review 已被软删（deletedAt != null）或不存在时抛出，handler 转 404。
+ * 与其他 service 错误模式（{ error: '...' }）不同——saveVersion 是事务内深路径，
+ * 用 throw 配合上层 try/catch 比层层 propagate 错误对象更清晰。
+ */
+export class ReviewNotFoundError extends Error {
+    constructor(reviewId: number) {
+        super(`合同审查不存在或已删除：${reviewId}`)
+        this.name = 'ReviewNotFoundError'
+    }
+}
+
+/**
  * 原子操作：递增 maxVersionNo → 创建快照记录 → 更新 currentVersionId
  * 整个过程在 prisma.$transaction 内完成，避免并发冲突
+ *
+ * 防御：review 已被软删（deletedAt != null）时直接抛 ReviewNotFoundError；
+ * 入口先 findFirst 校验避免事务白白递增 maxVersionNo，事务内 update 用
+ * updateMany + count 复核避免与软删并发竞态写出僵尸版本。
  */
 export async function saveContractReviewVersionService(input: SaveVersionInput) {
     const { reviewId, systemLabel, lawyerNote, createdById } = input
 
+    // 入口快速校验：review 不存在或已软删 → 直接抛错，避免进入事务
+    const existing = await prisma.contractReviews.findFirst({
+        where: { id: reviewId, deletedAt: null },
+        select: { id: true },
+    })
+    if (!existing) throw new ReviewNotFoundError(reviewId)
+
     return prisma.$transaction(async (tx) => {
         // 1. 原子递增 + 读当前 currentVersionId 用于继承 docxText
-        const review = await tx.contractReviews.update({
-            where: { id: reviewId },
+        // 用 updateMany 而非 update，可在事务内复核 deletedAt 仍为 null（防并发软删竞态）
+        const incrementResult = await tx.contractReviews.updateMany({
+            where: { id: reviewId, deletedAt: null },
             data: { maxVersionNo: { increment: 1 } },
+        })
+        if (incrementResult.count !== 1) throw new ReviewNotFoundError(reviewId)
+
+        const review = await tx.contractReviews.findUniqueOrThrow({
+            where: { id: reviewId },
             select: { maxVersionNo: true, currentVersionId: true },
         })
         const versionNumber = review.maxVersionNo
@@ -111,11 +140,12 @@ export async function saveContractReviewVersionService(input: SaveVersionInput) 
             },
         })
 
-        // 5. 更新 currentVersionId 指向最新版本
-        await tx.contractReviews.update({
-            where: { id: reviewId },
+        // 5. 更新 currentVersionId 指向最新版本（updateMany 复核 deletedAt 仍为 null）
+        const finalUpdate = await tx.contractReviews.updateMany({
+            where: { id: reviewId, deletedAt: null },
             data: { currentVersionId: version.id },
         })
+        if (finalUpdate.count !== 1) throw new ReviewNotFoundError(reviewId)
 
         return version
     })

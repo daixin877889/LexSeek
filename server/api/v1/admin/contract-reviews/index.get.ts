@@ -19,13 +19,15 @@
 import { z } from 'zod'
 import { listAdminReviewsDAO } from '~~/server/services/assistant/contract/contractReview.dao'
 
+// z.coerce.boolean() 把 'false' 字符串当作真值（任意非空字符串都为 true），
+// includeDeleted=false 会被错误解析为 true，必须显式枚举 'true'/'false' 字面量再 transform。
 const QuerySchema = z.object({
     skip: z.coerce.number().int().min(0).default(0),
     take: z.coerce.number().int().min(1).max(100).default(20),
     status: z.string().min(1).max(30).optional(),
     q: z.string().min(1).max(100).optional(),
     userId: z.coerce.number().int().positive().optional(),
-    includeDeleted: z.coerce.boolean().optional().default(false),
+    includeDeleted: z.enum(['true', 'false']).optional().default('false').transform((v) => v === 'true'),
 }).strict()
 
 export default defineEventHandler(async (event) => {

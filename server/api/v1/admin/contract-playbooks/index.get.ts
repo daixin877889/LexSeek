@@ -12,9 +12,11 @@
 import { z } from 'zod'
 import { listPlaybooksDAO } from '~~/server/services/assistant/contract/contractPlaybook.dao'
 
+// z.coerce.boolean() 把 'false' 字符串当作真值（任意非空字符串都为 true），
+// 必须显式枚举 'true'/'false' 字面量再 transform。
 const QuerySchema = z.object({
     contractType: z.string().optional(),
-    enabled: z.coerce.boolean().optional(),
+    enabled: z.enum(['true', 'false']).optional().transform((v) => (v === undefined ? undefined : v === 'true')),
     q: z.string().optional(),
 })
 

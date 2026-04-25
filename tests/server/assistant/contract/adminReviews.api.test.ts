@@ -249,6 +249,31 @@ describe('GET /api/v1/admin/contract-reviews', () => {
         )
         expect(res.code).toBe(400)
     })
+
+    it('includeDeleted=false 字符串被正确解析为 false（不返已删）', async () => {
+        const live = await createReview({
+            userId: userA,
+            originalFileId: fileA,
+            status: 'completed',
+        })
+        const dead = await createReview({
+            userId: userA,
+            originalFileId: fileA,
+            status: 'completed',
+            deletedAt: new Date(),
+        })
+
+        // 关键：此前 z.coerce.boolean 会把 'false' 字符串错当真值，导致返回已删
+        const res: any = await listHandler(
+            makeEvent({
+                adminUserId,
+                query: { userId: userA, skip: 0, take: 20, includeDeleted: 'false' },
+            }),
+        )
+        const ids = res.data.items.map((r: any) => r.id)
+        expect(ids).toContain(live.id)
+        expect(ids).not.toContain(dead.id)
+    })
 })
 
 // ==================== GET /admin/contract-reviews/:id（详情）====================

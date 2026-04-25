@@ -174,6 +174,59 @@ describe('GET /api/v1/admin/contract-playbooks', () => {
             expect(item.contractType).toBe('劳动合同')
         }
     })
+
+    it('enabled=false 字符串被正确解析为 false（仅返回停用项）', async () => {
+        // schema 限制 code ≤ 20 字符，所以只取 Date.now() 后 9 位做后缀
+        const suffix = String(Date.now()).slice(-9)
+        const r1: any = await createHandler(
+            makeEvent({
+                adminUserId,
+                body: {
+                    contractType: '劳动合同',
+                    code: `en_${suffix}`,
+                    title: '启用项',
+                    defaultLevel: 'high',
+                    stancePreference: 'balanced',
+                    checkContent: '检查内容',
+                },
+            }),
+        )
+        const r2: any = await createHandler(
+            makeEvent({
+                adminUserId,
+                body: {
+                    contractType: '劳动合同',
+                    code: `di_${suffix}`,
+                    title: '停用项',
+                    defaultLevel: 'low',
+                    stancePreference: 'balanced',
+                    checkContent: '检查内容',
+                },
+            }),
+        )
+        createdPlaybookIds.push(r1.data.id, r2.data.id)
+
+        // 把 r2 切到停用
+        await patchHandler(
+            makeEvent({
+                adminUserId,
+                params: { id: String(r2.data.id) },
+                body: { enabled: false },
+            }),
+        )
+
+        // 关键：之前 z.coerce.boolean 会把 'false' 字符串错当真值，导致返回启用项
+        const res: any = await listHandler(
+            makeEvent({
+                adminUserId,
+                query: { contractType: '劳动合同', enabled: 'false' },
+            }),
+        )
+        expect(res.success).toBe(true)
+        const ids = res.data.list.map((i: any) => i.id)
+        expect(ids).toContain(r2.data.id)
+        expect(ids).not.toContain(r1.data.id)
+    })
 })
 
 // ==================== PATCH /admin/contract-playbooks/:id（编辑）====================

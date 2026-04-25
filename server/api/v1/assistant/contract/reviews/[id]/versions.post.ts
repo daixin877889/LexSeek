@@ -17,7 +17,10 @@
 
 import { z } from 'zod'
 import { loadOwnedReview } from '~~/server/services/assistant/contract/reviewGuard'
-import { saveContractReviewVersionService } from '~~/server/services/assistant/contract/contractReviewVersion.service'
+import {
+    saveContractReviewVersionService,
+    ReviewNotFoundError,
+} from '~~/server/services/assistant/contract/contractReviewVersion.service'
 
 const bodySchema = z.object({
     lawyerNote: z.string().max(200).nullish(),
@@ -51,6 +54,10 @@ export default defineEventHandler(async (event) => {
             createdAt: version.createdAt.toISOString(),
         })
     } catch (err: unknown) {
+        // 与软删并发竞态：handler 通过 guard 时未删，service 内复核时已删
+        if (err instanceof ReviewNotFoundError) {
+            return resError(event, 404, '合同审查不存在或已删除')
+        }
         const e = err as { code?: string }
         // P2002：unique 约束冲突（并发 saveVersion），让前端重试
         if (e?.code === 'P2002') return resError(event, 409, '版本号冲突，请重试')

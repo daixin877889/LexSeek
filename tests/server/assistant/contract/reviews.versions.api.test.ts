@@ -56,6 +56,15 @@ vi.mock('~~/server/services/assistant/contract/contractReviewVersion.dao', () =>
 vi.mock('~~/server/services/assistant/contract/contractReviewVersion.service', () => ({
     saveContractReviewVersionService: vi.fn(),
     loadContractReviewVersionSnapshotService: vi.fn(),
+    // ReviewNotFoundError 被 versions.post handler 用 instanceof 检测；mock 时必须导出真类
+    // 而不是 vi.fn()，否则 versions.post.ts 的 catch 分支 `err instanceof ReviewNotFoundError`
+    // 触发 ReferenceError。
+    ReviewNotFoundError: class ReviewNotFoundError extends Error {
+        constructor(reviewId: number) {
+            super(`合同审查不存在或已删除：${reviewId}`)
+            this.name = 'ReviewNotFoundError'
+        }
+    },
 }))
 vi.mock('~~/server/services/assistant/contract/contractRisk.service', () => ({
     archiveContractRiskService: vi.fn(),
