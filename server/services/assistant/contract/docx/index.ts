@@ -10,4 +10,4 @@ export {
     writeTextToZip,
     zipToBuffer,
 } from './zipRewriter'
-export { appendChildXml, escapeXml } from './xmlUtils'
+export { escapeXml } from './xmlAst'

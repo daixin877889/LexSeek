@@ -2,11 +2,11 @@
  * 纯文本 → 最小合规 .docx Buffer。
  *
  * 用 jszip 直接构造五文件最小骨架（docx 官方包未装）；输出必须能被 mammoth 重新 parse。
- * 使用 zipRewriter 的 writeTextToZip 和 xmlUtils 的 escapeXml，统一 zip 操作与 XML 转义路径。
+ * 使用 zipRewriter 的 writeTextToZip 和 xmlAst 的 escapeXml，统一 zip 操作与 XML 转义路径。
  */
 import JSZip from 'jszip'
 import { writeTextToZip, zipToBuffer, type DocxZip } from './docx/zipRewriter'
-import { escapeXml } from './docx/xmlUtils'
+import { escapeXml } from './docx/xmlAst'
 
 const CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">

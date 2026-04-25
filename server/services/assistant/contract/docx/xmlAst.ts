@@ -181,3 +181,65 @@ export function textOf(node: Node): string {
     }
     return s
 }
+
+/**
+ * 从一个 <w:p> AST 节点中收集所有 <w:t> 文本（递归到所有子节点）。
+ *
+ * 用于 commentInjector / parseWordComments 等模块按段落取文本。
+ */
+export function paragraphText(paraNode: Node): string {
+    let s = ''
+    walk([paraNode], (n) => {
+        if (tagOf(n) === 'w:t') s += textOf(n)
+    })
+    return s
+}
+
+/**
+ * 段落是否含 <w:r>（直接或嵌套在 hyperlink/sdt 等里），即"非空段落"。
+ *
+ * commentInjector 与 parseWordComments 的非空段落口径必须一致，统一从此处导出。
+ */
+export function hasRunChild(paraNode: Node): boolean {
+    let found = false
+    walk([paraNode], (n) => {
+        if (tagOf(n) === 'w:r') { found = true; return false }
+    })
+    return found
+}
+
+/**
+ * 把纯文本按行拆成段落数组（折 \r\n→\n，trim 每行并丢空行）。
+ *
+ * 与 parseContractDocx 的段落口径一致：mammoth.extractRawText 的输出按 \r?\n 拆分，
+ * trim 后非空行即一个段落。多处旧代码各自实现，此处统一以避免口径漂移。
+ */
+export function splitParagraphs(text: string): string[] {
+    return text
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+}
+
+/**
+ * XML 5 字符标准转义：& < > " '
+ * 同时剥离 XML 1.0 禁止的非法控制字符（否则生成的 docx 无法被 Word 打开）。
+ *
+ * 允许字符：U+0009 \t / U+000A \n / U+000D \r；
+ * 禁止字符：U+0000-U+0008、U+000B-U+000C、U+000E-U+001F、U+FFFE、U+FFFF。
+ * 客户姓名从剪贴板粘贴时偶尔混入 U+0008 退格、U+001B ESC 等，必须过滤。
+ *
+ * 供 textToDocx 写纯文本段落 / 其它模块直接拼字符串 XML 时使用。
+ * commentInjector 走 AST 路径，不直接调用本函数。
+ */
+// eslint-disable-next-line no-control-regex
+const ILLEGAL_XML_CHARS = new RegExp("[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\uFFFE\\uFFFF]", "g")
+export function escapeXml(input: string): string {
+    return input
+        .replace(ILLEGAL_XML_CHARS, '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;')
+}

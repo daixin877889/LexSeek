@@ -385,10 +385,11 @@ export async function* uploadClientVersionService(params: {
     // 孤儿 reply（parent 找不到或父不是系统批注）降级为 newIndependent，避免静默丢失。
     const replies: Array<{ parentAnnId: number; c: ParsedWordComment }> = []
     const orphanReplies: ParsedWordComment[] = []
+    const newCommentByWId = new Map(newComments.map((c) => [c.wId, c]))
     for (const c of newComments) {
         if (c.parentWId == null) continue
         if (isSystemComment(c)) continue // 子 comment 自己是系统批注，不算回复
-        const parent = newComments.find((p) => p.wId === c.parentWId)
+        const parent = newCommentByWId.get(c.parentWId)
         if (!parent) {
             // 父 comment 找不到（可能客户删除了父但保留 reply）
             logger.warn('孤儿 reply（父 comment 不存在）降级为 external_new', {

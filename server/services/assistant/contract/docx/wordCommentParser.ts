@@ -17,6 +17,7 @@ import {
     walk,
     findAll,
     textOf,
+    hasRunChild,
 } from './xmlAst'
 
 export interface ParsedWordComment {
@@ -209,13 +210,4 @@ function buildCommentAnchorMap(documentXml: string): Map<number, number> {
         nonEmptyIdx++
     }
     return result
-}
-
-/** 段落是否含 <w:r>（直接或嵌套在 hyperlink/sdt 等里），判定为"非空段落" */
-function hasRunChild(paraNode: Record<string, unknown>): boolean {
-    let found = false
-    walk([paraNode], (n) => {
-        if (tagOf(n) === 'w:r') { found = true; return false }
-    })
-    return found
 }

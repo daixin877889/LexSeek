@@ -8,6 +8,7 @@
 import { createChatModel } from '~~/server/services/node/chatModelFactory'
 import { getValidNodeConfig } from '~~/server/services/node/node.service'
 import { CONTRACT_TYPE_OPTIONS } from '#shared/types/contract'
+import { extractFirstJsonObject } from '../utils/llmJson'
 
 export interface PartyDetectionResult {
     partyA: string | null
@@ -79,9 +80,9 @@ export async function detectParties(paragraphs: string[]): Promise<PartyDetectio
         const preview = fullText.slice(0, 1500)
         const response = await model.invoke(LLM_PROMPT + preview)
         const raw = typeof response.content === 'string' ? response.content : ''
-        const jsonMatch = raw.match(/\{[\s\S]*\}/)
-        if (!jsonMatch) throw new Error('LLM 未返回 JSON')
-        const parsed = JSON.parse(jsonMatch[0])
+        const jsonText = extractFirstJsonObject(raw)
+        if (!jsonText) throw new Error('LLM 未返回 JSON')
+        const parsed = JSON.parse(jsonText)
         return {
             partyA: parsed.partyA ?? null,
             partyB: parsed.partyB ?? null,

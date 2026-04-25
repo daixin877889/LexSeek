@@ -16,7 +16,6 @@ import {
     writeTextToZip,
     zipToBuffer,
 } from './zipRewriter'
-import { escapeXml } from './xmlUtils'
 import { generateWordCommentRef, buildAuthorField } from '../utils/wordCommentRef'
 import {
     parseOoxml,
@@ -32,7 +31,8 @@ import {
     makeText,
     makeXmlDecl,
     appendChildToFirst,
-    textOf,
+    paragraphText,
+    hasRunChild,
     type Node,
     type NodeArray,
 } from './xmlAst'
@@ -117,24 +117,6 @@ function normalizeForMatch(text: string): string {
         out += PUNCT_NORMALIZE_MAP[ch] ?? ch
     }
     return out.replace(/\s+/g, ' ').trim()
-}
-
-/** 从一个 <w:p> AST 节点中收集所有 <w:t> 文本 */
-function paragraphText(paraNode: Node): string {
-    let s = ''
-    walk([paraNode], (n) => {
-        if (tagOf(n) === 'w:t') s += textOf(n)
-    })
-    return s
-}
-
-/** 段落是否含 <w:r>（即"非空段落"） */
-function hasRunChild(paraNode: Node): boolean {
-    let found = false
-    walk([paraNode], (n) => {
-        if (tagOf(n) === 'w:r') { found = true; return false }
-    })
-    return found
 }
 
 /**
@@ -737,6 +719,3 @@ function removeRelWithTarget(relsKids: NodeArray, target: string): void {
         if (getAttr(n, 'Target') === target) relsKids.splice(i, 1)
     }
 }
-
-// escapeXml 仍保留在 xmlUtils.ts 供其它模块使用（textToDocx 等）；本文件不再需要。
-void escapeXml
