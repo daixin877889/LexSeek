@@ -16,6 +16,7 @@ import type {
     ClauseSnapshotItem,
 } from '#shared/types/contract'
 import { getContractReviewVersionByIdDAO } from './contractReviewVersion.dao'
+import { isAnnotationExportable } from './contractAnnotation.service'
 import { injectAnnotations } from './docx'
 import type { ContractAnnotationForExport } from './docx'
 import { findOssFileByIdDao, createOssFileDao } from '~~/server/services/files/ossFiles.dao'
@@ -276,12 +277,10 @@ export async function downloadContractReviewVersionService(
     const exportable: ContractAnnotationForExport[] = []
     for (const a of snapshot.annotations) {
         const risk = riskById.get(a.riskId)
-        if (!risk) continue
-        if (risk.orphaned) continue
-        if (risk.anchorParagraphIndex === null || risk.anchorParagraphIndex === undefined) continue
-        // VER-H1：spec §12.6 — 客户在 Word 里删掉的批注（suppressInExport=true）
-        // 不写入下次导出 docx；恢复推送时后端会把 suppressInExport 置 false。
-        if (a.suppressInExport) continue
+        // VER-R3：共享 isAnnotationExportable 谓词（含 deletedAt / suppressInExport /
+        // anchorParagraphIndex / orphaned 四条规则），与 rebuild service / middleware 同口径。
+        if (!isAnnotationExportable(a, risk)) continue
+        if (!risk) continue // 类型守卫：上面已 guard，这里仅缩窄类型
         exportable.push({
             id: a.id,
             riskId: a.riskId,

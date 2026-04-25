@@ -87,6 +87,39 @@ export async function softDeleteAnnotationService(params: {
 }
 
 /**
+ * VER-R3：判断一条 annotation 是否应被导出到 docx 批注。
+ *
+ * 规则（任一不满足返回 false）：
+ *  - annotation 未软删（deletedAt 为 null）
+ *  - annotation 未被客户标记 suppressInExport=true（spec §12.6）
+ *  - 关联 risk 必须存在
+ *  - risk.anchorParagraphIndex 必须有值（孤立批注无法注入）
+ *  - risk.orphaned 不能为 true（客户改稿后锚点已失效）
+ *
+ * 调用方：rebuild service / reviewResultPersistence middleware /
+ *         downloadContractReviewVersionService 三处共用。
+ */
+export interface ExportableAnnotationLike {
+    deletedAt?: Date | string | null
+    suppressInExport?: boolean
+}
+export interface ExportableRiskLike {
+    anchorParagraphIndex?: number | null
+    orphaned?: boolean | null
+}
+export function isAnnotationExportable(
+    annotation: ExportableAnnotationLike,
+    risk: ExportableRiskLike | null | undefined,
+): boolean {
+    if (annotation.deletedAt) return false
+    if (annotation.suppressInExport) return false
+    if (!risk) return false
+    if (risk.anchorParagraphIndex === null || risk.anchorParagraphIndex === undefined) return false
+    if (risk.orphaned === true) return false
+    return true
+}
+
+/**
  * 恢复推送（spec §12.6 / §4.3）
  *
  * 律师手动覆盖客户删除意图：仅清 suppressInExport，保留 removedByClient=true 作为历史证据。

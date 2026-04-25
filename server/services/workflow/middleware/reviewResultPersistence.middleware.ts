@@ -21,6 +21,7 @@ import {
 } from '../../assistant/contract/contractReview.dao'
 import { injectAnnotations } from '../../assistant/contract/docx'
 import { listAnnotationsForExportDAO } from '../../assistant/contract/contractAnnotation.dao'
+import { isAnnotationExportable } from '../../assistant/contract/contractAnnotation.service'
 import {
     downloadFileService,
     uploadFileService,
@@ -81,26 +82,17 @@ export async function runAnnotateAndUpload(reviewId: number): Promise<void> {
         throw new Error(`runAnnotateAndUpload: review ${reviewId} 有 ${risks.length} 条风险但未找到批注记录，流程异常`)
     }
 
-    // 过滤掉孤立批注：
-    //   - anchorParagraphIndex 为 null：从未定位
-    //   - risk.orphaned=true：客户改稿后锚点丢失，残留索引可能复用了邻近段落，
-    //     若不剔除会导致批注挂到错误段落（bug #2）
+    // VER-R3：用共享 isAnnotationExportable 替代本地三段过滤；行为一致。
     const exportable = dbAnnotations.filter(a => {
-        if (a.risk.anchorParagraphIndex === null || a.risk.anchorParagraphIndex === undefined) {
-            logger.warn(
-                '[contract export] 跳过未定位锚点的批注（anchorParagraphIndex 为空），视为孤立批注',
-                { reviewId, annotationId: a.id, riskId: a.riskId },
-            )
-            return false
+        const ok = isAnnotationExportable(a, a.risk)
+        if (!ok) {
+            logger.warn('[contract export] 跳过不可导出的批注（孤立 / suppressed / 软删）', {
+                reviewId, annotationId: a.id, riskId: a.riskId,
+                anchorParagraphIndex: a.risk.anchorParagraphIndex,
+                orphaned: a.risk.orphaned,
+            })
         }
-        if (a.risk.orphaned) {
-            logger.warn(
-                '[contract export] 跳过孤立 risk 的批注（risk.orphaned=true），避免挂错段落',
-                { reviewId, annotationId: a.id, riskId: a.riskId },
-            )
-            return false
-        }
-        return true
+        return ok
     })
 
     const annotations: ContractAnnotationForExport[] = exportable.map(a => ({
