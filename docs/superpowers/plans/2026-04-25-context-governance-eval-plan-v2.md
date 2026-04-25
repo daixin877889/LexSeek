@@ -2055,13 +2055,9 @@ async run(fx) {
 
 `sec-archived-write-memory` / `sec-archived-update-memory` 预期 FAIL（业务 bug，service 无守卫，已知）。
 
-`sec-archived-initAnalysis` —— **删除该断言**或改用 HTTP 测试：项目无独立 `initAnalysisService`，init 流程在 API handler 层。**推荐删除该断言**，因为：(1) 业务规则已被 `sec-archived-updateCase` 等覆盖；(2) HTTP 测试需要 dev server + token 重启分支，违反架构 B 简化决策。
+`sec-archived-initAnalysis` —— **删除该断言（已锁定）**：项目无独立 `initAnalysisService`，init 流程在 API handler 层；HTTP 测试方案违反先前架构 B 简化决策。删除后业务规则覆盖由 `sec-archived-updateCase` + `sec-archived-write-memory` + `sec-archived-update-memory` 三项继续承担（M3 spec §12 ARCHIVED 守卫主线不丢）。
 
-总指标数从 26 减到 25（Security 6→5）。**这是业务减项，需用户拍板**：
-
-- **方案 a（推荐）**：删除 `sec-archived-initAnalysis`，总指标 25 项，Security 类 5 项
-- **方案 b**：保留为 HTTP 测试，README 强制要求"先 bun dev"
-- **方案 c**：保留断言但标 errored（initAnalysisService 不存在），算合理跳过
+总指标数：**26 → 25**（Security 类 6 → 5）。spec §3.1 表格相应更新。
 
 ## A2.7 实施要点提醒
 
@@ -2073,11 +2069,10 @@ async run(fx) {
 6. **updateCaseService 2 参数**（不是 3）
 7. **Security 类减一项**（initAnalysis 无独立 service 入口）
 
-## A2.8 需用户拍板的剩余项
+## A2.8 已锁定决策
 
-| 项 | 选项 | 推荐 |
-|---|---|---|
-| `sec-archived-initAnalysis` 处理 | a 删除断言（25 项总）/ b HTTP 测试 / c 标 errored | **a** |
+- `sec-archived-initAnalysis` 删除，总指标 25 项（Security 类 5 项）
+- spec §3.1 表格中 Security 行从 6 改 5，合计 25/CRITICAL 14
 
 ---
 

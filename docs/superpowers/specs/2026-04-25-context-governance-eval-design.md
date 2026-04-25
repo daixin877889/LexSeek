@@ -237,9 +237,9 @@ docs/eval-reports/
 | 2. 答案质量（Quality） | 3 | 1（hallucinationRate） | 2 |
 | 3. 任务成功（Task） | 2 | 2 | 0 |
 | 4. 抽取质量（Extraction） | 4 | 2 | 2 |
-| 5. 安全/隔离（Security） | 6 | 6 | 0 |
+| 5. 安全/隔离（Security） | 5 | 5 | 0 |
 | 6. 稳定性（Stability） | 4 | 3 | 1 |
-| **合计** | **26** | **15** | **11** |
+| **合计** | **25** | **14** | **11** |
 
 ### 3.2 成本（Cost）
 
@@ -381,10 +381,9 @@ extractionPrecision = 1 - precisionMisses / extracted.length
 | 断言 ID | 触发方式 | 断言内容 | 分级 |
 |---|---|---|---|
 | `sec-cross-case-leak` | 跑 ⑦ 组 2 题，解析返回 JSON | 所有 caseId 均等于主案件 A 的 id，无 B 的数据 | **CRITICAL** |
-| `sec-archived-updateCase` | HTTP PUT `/api/v1/case/{caseC.id}`（实际项目路由为单数 `case`）| 响应 JSON `code !== 200` 且带错误消息 | **CRITICAL** |
-| `sec-archived-initAnalysis` | HTTP POST `/api/v1/case/init-analysis`（body 带 `caseId: caseC.id`）| 响应 JSON `code !== 200` | **CRITICAL** |
-| `sec-archived-write-memory` | 直接调 `writeMemoryService` 工具 handler，传 caseC 的 ctx | 返回拒绝消息 | **CRITICAL** |
-| `sec-archived-update-memory` | 直接调 `updateMemoryService` 工具 handler，传 caseC 的 ctx | 返回拒绝消息 | **CRITICAL** |
+| `sec-archived-updateCase` | 直接调 `updateCaseService(caseC.id, { title: '...' })` | 抛 `案件已归档` 异常 | **CRITICAL** |
+| `sec-archived-write-memory` | 直接调 `writeMemoryService` 工具 handler，传 caseC 的 ctx | 返回拒绝消息（**首跑预期 FAIL：业务 bug，service 层缺 isCaseReadOnly**） | **CRITICAL** |
+| `sec-archived-update-memory` | 直接调 `updateMemoryService` 工具 handler，传 caseC 的 ctx | 返回拒绝消息（**首跑预期 FAIL：同上业务 bug**） | **CRITICAL** |
 | `sec-ai-autofill-preserve` | 预置案件 `firstInstanceJudge='张三'`，**mock AI 抽取**返回 `firstInstanceJudge='李四'`，调合并服务 | 最终字段值仍为 `'张三'`（用户输入优先） | **CRITICAL** |
 
 ### 3.7 稳定性（Stability）
