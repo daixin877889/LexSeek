@@ -1,81 +1,81 @@
-# Formula Validation & Recalculation Guide
+# 公式验证与重算指南
 
-Ensure every formula in an xlsx file is provably correct before delivery. A file that opens without visible errors is not a passing file — only a file that has cleared both validation tiers is a passing file.
-
----
-
-## Foundational Rules
-
-- **Never declare PASS without running `formula_check.py` first.** Visual inspection of a spreadsheet is not validation.
-- **Tier 1 (static) is mandatory in every scenario.** Tier 2 (dynamic) is mandatory when LibreOffice is available. If it is unavailable, you must state this explicitly in the report — you may not silently skip it.
-- **Never use openpyxl with `data_only=True` to check formula values.** Opening and saving a workbook in `data_only=True` mode permanently replaces all formulas with their last cached values. Formulas cannot be recovered afterward.
-- **Auto-fix only deterministic errors.** Any fix that requires understanding business logic must be flagged for human review.
+在交付前确保 xlsx 文件中的每个公式都经过验证正确。打开时没有可见错误的文件不是通过的文件 — 只有已通过两个验证层的文件才是通过的文件。
 
 ---
 
-## Two-Tier Validation Architecture
+## 基础规则
+
+- **不要在不先运行 `formula_check.py` 的情况下声明通过。** 目视检查电子表格不是验证。
+- **第 1 层（静态）在每种情景中都是强制的。** 第 2 层（动态）在 LibreOffice 可用时是强制的。如果不可用，你必须在报告中明确说明 — 你不能无声地跳过它。
+- **永远不要使用 openpyxl 的 `data_only=True` 来检查公式值。** 在 `data_only=True` 模式下打开和保存工作簿会永久将所有公式替换为其上次缓存的值。公式之后无法恢复。
+- **仅自动修复确定性错误。** 任何需要理解业务逻辑的修复必须标记为需要人工审查。
+
+---
+
+## 两层验证架构
 
 ```
-Tier 1 — Static Validation (XML scan, no external tools)
+第 1 层 — 静态验证（XML 扫描，无外部工具）
   │
-  ├── Detect: all 7 Excel error types already cached in <v> elements
-  ├── Detect: cross-sheet references pointing to nonexistent sheets
-  ├── Detect: formula cells with t="e" attribute (error type marker)
-  └── Tool: formula_check.py + manual XML inspection
+  ├── 检测：所有 7 种 Excel 错误类型已缓存在 <v> 元素中
+  ├── 检测：指向不存在工作表的跨工作表引用
+  ├── 检测：带 t="e" 属性的公式单元格（错误类型标记）
+  └── 工具：formula_check.py + 手动 XML 检查
         │
-        ▼ (if LibreOffice is present)
-Tier 2 — Dynamic Validation (LibreOffice headless recalculation)
+        ▼（如果 LibreOffice 存在）
+第 2 层 — 动态验证（LibreOffice 无头重算）
   │
-  ├── Executes all formulas via the LibreOffice Calc engine
-  ├── Populates <v> cache values with real computed results
-  ├── Exposes runtime errors invisible before recalculation
-  └── Follow-up: re-run Tier 1 on the recalculated file
+  ├── 通过 LibreOffice Calc 引擎执行所有公式
+  ├── 用实际计算结果填充 <v> 缓存值
+  ├── 公开重算前隐藏的运行时错误
+  └── 后续：在重算文件上重新运行第 1 层
 ```
 
-**Why two tiers?**
+**为什么是两层？**
 
-openpyxl and all Python xlsx libraries write formula strings (e.g. `=SUM(B2:B9)`) into `<f>` elements but do not evaluate them. A freshly generated file has empty `<v>` cache elements for every formula cell. This means:
+openpyxl 和所有 Python xlsx 库将公式字符串（例如 `=SUM(B2:B9)`）写入 `<f>` 元素，但不评估它们。新生成的文件对每个公式单元格都有空的 `<v>` 缓存元素。这意味着：
 
-- Tier 1 can only catch errors that are already encoded in the XML — either as `t="e"` cells or as structurally broken cross-sheet references.
-- Tier 2 uses LibreOffice as the actual calculation engine, runs every formula, fills `<v>` with real results, and surfaces runtime errors (`#DIV/0!`, `#N/A`, etc.) that can only appear after computation.
+- 第 1 层只能捕获 XML 中已编码的错误 — 要么是 `t="e"` 单元格，要么是结构上损坏的跨工作表引用。
+- 第 2 层使用 LibreOffice 作为实际计算引擎，运行每个公式，用实际结果填充 `<v>`，并公开只能在计算后出现的运行时错误（`#DIV/0!`、`#N/A` 等）。
 
-Neither tier alone is sufficient. Together they cover the full correctability surface.
+单独任何一层都不充分。一起使用时，它们覆盖完整的可正确性表面。
 
 ---
 
-## Tier 1 — Static Validation
+## 第 1 层 — 静态验证
 
-Static validation requires no external tools. It works directly on the ZIP/XML structure of the xlsx file.
+静态验证不需要外部工具。它直接在 xlsx 文件的 ZIP/XML 结构上工作。
 
-### Step 1: Run formula_check.py
+### 步骤 1：运行 formula_check.py
 
-**Standard (human-readable) output:**
+**标准（人类可读）输出：**
 
 ```bash
 python3 SKILL_DIR/scripts/formula_check.py /path/to/file.xlsx
 ```
 
-**JSON output (for programmatic processing):**
+**JSON 输出（用于程序处理）：**
 
 ```bash
 python3 SKILL_DIR/scripts/formula_check.py /path/to/file.xlsx --json
 ```
 
-**Single-sheet mode (faster for targeted checks):**
+**单工作表模式（用于有针对性的检查，更快）：**
 
 ```bash
 python3 SKILL_DIR/scripts/formula_check.py /path/to/file.xlsx --sheet Summary
 ```
 
-**Summary mode (counts only, no per-cell detail):**
+**摘要模式（仅计数，无逐单元格详情）：**
 
 ```bash
 python3 SKILL_DIR/scripts/formula_check.py /path/to/file.xlsx --summary
 ```
 
-Exit codes:
-- `0` — no hard errors (PASS or PASS with heuristic warnings)
-- `1` — hard errors detected, or file cannot be opened (FAIL)
+退出代码：
+- `0` — 无硬错误（通过或通过带启发式警告）
+- `1` — 检测到硬错误，或文件无法打开（失败）
 
 #### What formula_check.py examines
 

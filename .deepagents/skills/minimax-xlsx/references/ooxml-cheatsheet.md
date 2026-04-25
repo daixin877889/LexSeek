@@ -1,52 +1,52 @@
-# OOXML SpreadsheetML Cheat Sheet
+# OOXML SpreadsheetML 速查表
 
-Quick reference for XML manipulation of xlsx files.
+xlsx 文件 XML 操作的快速参考。
 
 ---
 
-## Package Structure
+## 包结构
 
 ```
-my_file.xlsx  (ZIP archive)
-├── [Content_Types].xml          ← declares MIME types for all files
+my_file.xlsx  (ZIP 存档)
+├── [Content_Types].xml          ← 声明所有文件的 MIME 类型
 ├── _rels/
-│   └── .rels                    ← root relationship: points to xl/workbook.xml
+│   └── .rels                    ← 根关系：指向 xl/workbook.xml
 └── xl/
-    ├── workbook.xml             ← sheet list, calc settings
-    ├── styles.xml               ← ALL style definitions
-    ├── sharedStrings.xml        ← ALL text strings (referenced by index)
+    ├── workbook.xml             ← 工作表列表，计算设置
+    ├── styles.xml               ← 所有样式定义
+    ├── sharedStrings.xml        ← 所有文本字符串（按索引引用）
     ├── _rels/
-    │   └── workbook.xml.rels    ← maps r:id → worksheet/styles/sharedStrings files
+    │   └── workbook.xml.rels    ← 映射 r:id → 工作表/样式/sharedStrings 文件
     ├── worksheets/
-    │   ├── sheet1.xml           ← Sheet 1 data
-    │   ├── sheet2.xml           ← Sheet 2 data
+    │   ├── sheet1.xml           ← 第 1 工作表数据
+    │   ├── sheet2.xml           ← 第 2 工作表数据
     │   └── ...
-    ├── charts/                  ← chart XML (if any)
-    ├── pivotTables/             ← pivot table XML (if any)
+    ├── charts/                  ← 图表 XML（如果有）
+    ├── pivotTables/             ← 数据透视表 XML（如果有）
     └── theme/
-        └── theme1.xml           ← color/font theme
+        └── theme1.xml           ← 颜色/字体主题
 ```
 
 ---
 
-## Cell Reference Format
+## 单元格引用格式
 
 ```
-A1  → column A (1), row 1
-B5  → column B (2), row 5
-AA1 → column 27, row 1
+A1  → 列 A (1)，行 1
+B5  → 列 B (2)，行 5
+AA1 → 列 27，行 1
 ```
 
-Column letter ↔ number conversion:
+列字母 ↔ 数字转换：
 ```python
-def col_letter(n):  # 1-based → letter
+def col_letter(n):  # 1 索引 → 字母
     r = ""
     while n > 0:
         n, rem = divmod(n - 1, 26)
         r = chr(65 + rem) + r
     return r
 
-def col_number(s):  # letter → 1-based
+def col_number(s):  # 字母 → 1 索引
     n = 0
     for c in s.upper():
         n = n * 26 + (ord(c) - 64)
@@ -55,79 +55,79 @@ def col_number(s):  # letter → 1-based
 
 ---
 
-## Cell XML Reference
+## 单元格 XML 参考
 
-### Data Types
+### 数据类型
 
-| Type | `t` attr | XML Example | Value |
+| 类型 | `t` 属性 | XML 示例 | 值 |
 |------|---------|-------------|-------|
-| Number | omit | `<c r="B2"><v>1000</v></c>` | 1000 |
-| String (shared) | `s` | `<c r="A1" t="s"><v>0</v></c>` | sharedStrings[0] |
-| String (inline) | `inlineStr` | `<c r="A1" t="inlineStr"><is><t>Hi</t></is></c>` | "Hi" |
-| Boolean | `b` | `<c r="D1" t="b"><v>1</v></c>` | TRUE |
-| Error | `e` | `<c r="E1" t="e"><v>#REF!</v></c>` | #REF! |
-| Formula | omit | `<c r="B4"><f>SUM(B2:B3)</f><v></v></c>` | computed |
+| 数字 | 省略 | `<c r="B2"><v>1000</v></c>` | 1000 |
+| 字符串（共享） | `s` | `<c r="A1" t="s"><v>0</v></c>` | sharedStrings[0] |
+| 字符串（内联） | `inlineStr` | `<c r="A1" t="inlineStr"><is><t>Hi</t></is></c>` | "Hi" |
+| 布尔值 | `b` | `<c r="D1" t="b"><v>1</v></c>` | 真 |
+| 错误 | `e` | `<c r="E1" t="e"><v>#REF!</v></c>` | #REF! |
+| 公式 | 省略 | `<c r="B4"><f>SUM(B2:B3)</f><v></v></c>` | 计算值 |
 
-### Formula Types
+### 公式类型
 
 ```xml
-<!-- Basic formula (no leading = in XML!) -->
+<!-- 基本公式（XML 中无前导 =！） -->
 <c r="B4"><f>SUM(B2:B3)</f><v></v></c>
 
-<!-- Cross-sheet -->
+<!-- 跨工作表 -->
 <c r="C1"><f>Assumptions!B5</f><v></v></c>
 <c r="C1"><f>'Sheet With Spaces'!B5</f><v></v></c>
 
-<!-- Shared formula: D2:D100 all use B*C with relative row offset -->
+<!-- 共享公式：D2:D100 全部用 B*C 相对行偏移 -->
 <c r="D2"><f t="shared" ref="D2:D100" si="0">B2*C2</f><v></v></c>
 <c r="D3"><f t="shared" si="0"/><v></v></c>
 
-<!-- Array formula -->
+<!-- 数组公式 -->
 <c r="E1"><f t="array" ref="E1:E5">SORT(A1:A5)</f><v></v></c>
 ```
 
 ---
 
-## styles.xml Reference
+## styles.xml 参考
 
-### Indirect Reference Chain
+### 间接引用链
 
 ```
-Cell s="3"
+单元格 s="3"
   ↓
 cellXfs[3] → fontId="2", fillId="0", borderId="0", numFmtId="165"
   ↓              ↓             ↓            ↓              ↓
 fonts[2]      fills[0]    borders[0]    numFmts: id=165
-blue color    no fill      no border    "0.0%"
+蓝色字体      无填充       无边框        "0.0%"
 ```
 
-### Adding a New Style (step-by-step)
+### 添加新样式（逐步）
 
-1. In `<numFmts>`: add `<numFmt numFmtId="168" formatCode="0.00%"/>`, update `count`
-2. In `<fonts>`: add font entry, note its index
-3. In `<cellXfs>`: append `<xf numFmtId="168" fontId="N" .../>`, update `count`
-4. New style index = old `cellXfs count` value (before incrementing)
-5. Apply to cells: `<c r="B5" s="NEW_INDEX">...</c>`
+1. 在 `<numFmts>`：添加 `<numFmt numFmtId="168" formatCode="0.00%"/>`，更新 `count`
+2. 在 `<fonts>`：添加字体条目，记下其索引
+3. 在 `<cellXfs>`：追加 `<xf numFmtId="168" fontId="N" .../>`, 更新 `count`
+4. 新样式索引 = 旧 `cellXfs count` 值（增加前）
+5. 应用于单元格：`<c r="B5" s="NEW_INDEX">...</c>`
 
-### Color Format
+### 颜色格式
 
-`AARRGGBB` — Alpha (always `00` for opaque) + Red + Green + Blue
+`AARRGGBB` — Alpha（不透明时始终为 `00`）+ 红 + 绿 + 蓝
 
 ```
-000000FF → Blue
-00000000 → Black
-00008000 → Green (dark)
-00FF0000 → Red
-00FFFF00 → Yellow (for fills)
-00FFFFFF → White
+000000FF → 蓝色
+00000000 → 黑色
+00008000 → 绿色（深色）
+00FF0000 → 红色
+00FFFF00 → 黄色（用于填充）
+00FFFFFF → 白色
 ```
 
-### Built-in numFmtIds (no declaration needed)
+### 内置 numFmtIds（无需声明）
 
-| ID | Format | Display |
+| ID | 格式 | 显示 |
 |----|--------|---------|
-| 0 | General | as-is |
-| 1 | 0 | 2024 (use for years!) |
+| 0 | General | 按原样 |
+| 1 | 0 | 2024（用于年份！） |
 | 2 | 0.00 | 1000.00 |
 | 3 | #,##0 | 1,000 |
 | 4 | #,##0.00 | 1,000.00 |
@@ -137,38 +137,38 @@ blue color    no fill      no border    "0.0%"
 
 ---
 
-## sharedStrings.xml Reference
+## sharedStrings.xml 参考
 
 ```xml
 <sst count="3" uniqueCount="3">
-  <si><t>Revenue</t></si>      <!-- index 0 -->
-  <si><t>Cost</t></si>         <!-- index 1 -->
-  <si><t>Margin</t></si>       <!-- index 2 -->
+  <si><t>Revenue</t></si>      <!-- 索引 0 -->
+  <si><t>Cost</t></si>         <!-- 索引 1 -->
+  <si><t>Margin</t></si>       <!-- 索引 2 -->
 </sst>
 ```
 
-Text with leading/trailing spaces:
+带前导/尾部空格的文本：
 ```xml
 <si><t xml:space="preserve">  indented  </t></si>
 ```
 
-Special characters:
+特殊字符：
 ```xml
-<si><t>R&amp;D Expenses</t></si>   <!-- & must be &amp; -->
+<si><t>R&amp;D Expenses</t></si>   <!-- & 必须是 &amp; -->
 ```
 
 ---
 
-## workbook.xml / .rels Sync
+## workbook.xml / .rels 同步
 
-Every `<sheet>` in workbook.xml needs a matching `<Relationship>` in workbook.xml.rels:
+workbook.xml 中的每个 `<sheet>` 需要在 workbook.xml.rels 中有匹配的 `<Relationship>`：
 
 ```xml
 <!-- workbook.xml -->
-<!-- NOTE: rId numbering depends on what rIds are already in workbook.xml.rels.
-     The minimal template reserves rId1=sheet1, rId2=styles, rId3=sharedStrings.
-     When ADDING sheets to the template, start from rId4 to avoid conflicts.
-     The rId3 here is just a generic illustration — use the next available rId. -->
+<!-- 注意：rId 编号取决于 workbook.xml.rels 中已有的 rId。
+     最小模板保留 rId1=sheet1、rId2=styles、rId3=sharedStrings。
+     向模板添加工作表时，从 rId4 开始以避免冲突。
+     此处的 rId3 只是通用说明 — 使用下一个可用 rId。 -->
 <sheet name="Summary" sheetId="3" r:id="rId3"/>
 
 <!-- workbook.xml.rels -->
@@ -177,7 +177,7 @@ Every `<sheet>` in workbook.xml needs a matching `<Relationship>` in workbook.xm
   Target="worksheets/sheet3.xml"/>
 ```
 
-And a matching `<Override>` in `[Content_Types].xml`:
+以及 `[Content_Types].xml` 中的匹配 `<Override>`：
 ```xml
 <Override PartName="/xl/worksheets/sheet3.xml"
   ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
@@ -185,16 +185,16 @@ And a matching `<Override>` in `[Content_Types].xml`:
 
 ---
 
-## Column / Row Dimensions
+## 列 / 行尺寸
 
 ```xml
-<!-- Before <sheetData> -->
+<!-- 在 <sheetData> 之前 -->
 <cols>
-  <col min="1" max="1" width="28" customWidth="1"/>   <!-- A: 28 chars -->
-  <col min="2" max="6" width="14" customWidth="1"/>   <!-- B-F: 14 chars -->
+  <col min="1" max="1" width="28" customWidth="1"/>   <!-- A：28 个字符 -->
+  <col min="2" max="6" width="14" customWidth="1"/>   <!-- B-F：14 个字符 -->
 </cols>
 
-<!-- Row height on individual rows -->
+<!-- 单个行的行高 -->
 <row r="1" ht="20" customHeight="1">
   ...
 </row>
@@ -202,30 +202,30 @@ And a matching `<Override>` in `[Content_Types].xml`:
 
 ---
 
-## Freeze Panes
+## 冻结窗格
 
-Inside `<sheetView>`:
+在 `<sheetView>` 内：
 ```xml
-<!-- Freeze row 1 (header row stays visible) -->
+<!-- 冻结第 1 行（标题行保持可见） -->
 <pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>
 
-<!-- Freeze column A -->
+<!-- 冻结列 A -->
 <pane xSplit="1" topLeftCell="B1" activePane="topRight" state="frozen"/>
 
-<!-- Freeze both row 1 and column A -->
+<!-- 同时冻结第 1 行和列 A -->
 <pane xSplit="1" ySplit="1" topLeftCell="B2" activePane="bottomRight" state="frozen"/>
 ```
 
 ---
 
-## 7 Excel Error Types (All Must Be Absent at Delivery)
+## 7 种 Excel 错误类型（交付时全部必须不存在）
 
-| Error | Meaning | Detect in XML |
+| 错误 | 含义 | 在 XML 中检测 |
 |-------|---------|---------------|
-| `#REF!` | Invalid cell reference | `<c t="e"><v>#REF!</v></c>` |
-| `#DIV/0!` | Divide by zero | `<c t="e"><v>#DIV/0!</v></c>` |
-| `#VALUE!` | Wrong data type | `<c t="e"><v>#VALUE!</v></c>` |
-| `#NAME?` | Unknown function/name | `<c t="e"><v>#NAME?</v></c>` |
-| `#NULL!` | Empty intersection | `<c t="e"><v>#NULL!</v></c>` |
-| `#NUM!` | Number out of range | `<c t="e"><v>#NUM!</v></c>` |
-| `#N/A` | Value not found | `<c t="e"><v>#N/A</v></c>` |
+| `#REF!` | 无效单元格引用 | `<c t="e"><v>#REF!</v></c>` |
+| `#DIV/0!` | 除以零 | `<c t="e"><v>#DIV/0!</v></c>` |
+| `#VALUE!` | 错误的数据类型 | `<c t="e"><v>#VALUE!</v></c>` |
+| `#NAME?` | 未知函数/名称 | `<c t="e"><v>#NAME?</v></c>` |
+| `#NULL!` | 空交集 | `<c t="e"><v>#NULL!</v></c>` |
+| `#NUM!` | 数字超出范围 | `<c t="e"><v>#NUM!</v></c>` |
+| `#N/A` | 未找到值 | `<c t="e"><v>#N/A</v></c>` |

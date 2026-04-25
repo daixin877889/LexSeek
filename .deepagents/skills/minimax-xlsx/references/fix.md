@@ -1,37 +1,37 @@
-# FIX — Repair Broken Formulas in an Existing xlsx
+# 修复 — 修复现有 xlsx 中的损坏公式
 
-This is an EDIT task. You MUST preserve all original sheets and data. Never create a new workbook.
+这是一个编辑任务。你必须保留所有原始工作表和数据。永远不要创建新工作簿。
 
-## Workflow
+## 工作流
 
 ```bash
-# Step 1: Identify errors
+# 步骤 1：识别错误
 python3 SKILL_DIR/scripts/formula_check.py input.xlsx --json
 
-# Step 2: Unpack
+# 步骤 2：解包
 python3 SKILL_DIR/scripts/xlsx_unpack.py input.xlsx /tmp/xlsx_work/
 
-# Step 3: Fix each broken <f> element in the worksheet XML using the Edit tool
-#   (see Error-to-Fix mapping below)
+# 步骤 3：使用 Edit 工具修复工作表 XML 中的每个损坏的 <f> 元素
+#   （见下面的错误对修复映射）
 
-# Step 4: Pack and validate
+# 步骤 4：打包并验证
 python3 SKILL_DIR/scripts/xlsx_pack.py /tmp/xlsx_work/ output.xlsx
 python3 SKILL_DIR/scripts/formula_check.py output.xlsx
 ```
 
-## Error-to-Fix Mapping
+## 错误对修复映射
 
-| Error | Fix Strategy |
+| 错误 | 修复策略 |
 |-------|-------------|
-| `#DIV/0!` | Wrap: `IFERROR(original_formula, "-")` |
-| `#NAME?` | Fix misspelled function (e.g. `SUMM` → `SUM`) |
-| `#REF!` | Reconstruct the broken reference |
-| `#VALUE!` | Fix type mismatch |
+| `#DIV/0!` | 包装：`IFERROR(原始_公式, "-")` |
+| `#NAME?` | 修复拼写错误的函数（例如 `SUMM` → `SUM`） |
+| `#REF!` | 重建损坏的引用 |
+| `#VALUE!` | 修复类型不匹配 |
 
-For the full list of Excel error types and advanced diagnostics, see `validate.md`.
+有关完整的 Excel 错误类型列表和高级诊断，见 `validate.md`。
 
-## Critical Rules
+## 关键规则
 
-- The output MUST contain the same sheets as the input. Do NOT create a new workbook.
-- Only modify the specific `<f>` elements that are broken — everything else must be untouched.
-- After packing, always run `formula_check.py` to confirm all errors are resolved.
+- 输出必须包含与输入相同的工作表。不要创建新工作簿。
+- 仅修改损坏的特定 `<f>` 元素 — 其他所有内容必须保持不变。
+- 打包后，始终运行 `formula_check.py` 来确认所有错误都已解决。
