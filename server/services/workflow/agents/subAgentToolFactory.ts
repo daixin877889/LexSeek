@@ -8,9 +8,9 @@
 import { tool } from '@langchain/core/tools'
 import { z } from 'zod'
 import type { StructuredToolInterface } from '@langchain/core/tools'
-import { HumanMessage } from '@langchain/core/messages'
+import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import { createAgent, summarizationMiddleware } from 'langchain'
-import { createChatModel } from '../../node/chatModelFactory'
+import { createChatModel, cachedPromptToAnthropicContent, cachedPromptToPlainText } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import {
     createAuditMiddleware,
@@ -23,6 +23,7 @@ import {
 import { getCheckpointer, getStore } from '../checkpointer'
 import { renderSystemPrompt } from '../utils/promptRenderer'
 import { resolveContextWindow } from '../context/messageCompressor'
+import { buildContextSegments, toCachedPrompt } from '../context/moduleContextBuilder'
 import type { NodeConfig } from '../../node/node.service'
 
 /** 子代理工具上下文 */
@@ -45,55 +46,6 @@ export interface SubAgentToolContext {
  */
 export function sanitizeName(name: string): string {
     return name.replace(/[^a-zA-Z0-9_]/g, '_')
-}
-
-/** 材料类型映射 */
-const MATERIAL_TYPE_LABELS: Record<number, string> = {
-    1: '文本', 2: '文档', 3: '图片', 4: '音频',
-}
-
-/**
- * 构建精简版案件上下文
- *
- * 从数据库读取案件基本信息和材料列表，生成约 500-1000 tokens 的概要文本。
- * 用于子代理首次调用时注入，使子代理具备案件上下文。
- *
- * @param caseId 案件 ID
- * @returns 案件概要文本，无数据时返回空字符串
- */
-async function buildBriefContext(caseId: number): Promise<string> {
-    const caseInfo = await prisma.cases.findUnique({
-        where: { id: caseId },
-        select: { title: true, plaintiff: true, defendant: true, summary: true },
-    })
-    if (!caseInfo) return ''
-
-    const materials = await prisma.caseMaterials.findMany({
-        where: { caseId, deletedAt: null },
-        select: { name: true, type: true },
-    })
-
-    const formatParty = (party: unknown): string => {
-        if (!party) return ''
-        if (typeof party === 'string') return party
-        if (Array.isArray(party)) return party.map((p: any) => p.name || p).join('、')
-        if (typeof party === 'object' && party !== null) {
-            return (party as any).name || JSON.stringify(party)
-        }
-        return String(party)
-    }
-
-    const parts = [
-        '## 案件概要',
-        `- 标题：${caseInfo.title || '未命名'}`,
-        caseInfo.plaintiff ? `- 原告：${formatParty(caseInfo.plaintiff)}` : null,
-        caseInfo.defendant ? `- 被告：${formatParty(caseInfo.defendant)}` : null,
-        caseInfo.summary ? `- 概述：${caseInfo.summary}` : null,
-        materials.length > 0
-            ? `\n## 材料列表\n${materials.map(m => `- ${m.name} (${MATERIAL_TYPE_LABELS[m.type] || '未知'})`).join('\n')}`
-            : null,
-    ]
-    return parts.filter(Boolean).join('\n')
 }
 
 /**
@@ -133,9 +85,12 @@ export async function createSubAgentTools(
         const safeName = sanitizeName(config.name)
         const toolName = `ask_${safeName}_expert`
         const description = config.title || config.description || config.name
+        // 子代理 agentName 用 NodeConfig.name（如 evidence_expert / risk_expert），
+        // 与持久化中间件 / buildContextSegments 排除自身模块的 NOT 过滤保持一致
+        const agentName = config.name
 
-        // 获取系统提示词（渲染模板变量）
-        const systemPrompt = renderSystemPrompt(config, { caseId: context.caseId })
+        // 渲染 NodeConfig 系统提示词模板（仅替换变量；五段式拼装由 buildContextSegments 负责）
+        const roleAndFlowTemplate = renderSystemPrompt(config, { caseId: context.caseId })
 
         const subAgentTool = tool(
             async (input: { question: string }): Promise<string> => {
@@ -169,30 +124,25 @@ export async function createSubAgentTools(
 
                     const subThreadId = `${context.sessionId}_sub_${safeName}`
 
-                    // 从 checkpointer 读取历史，判断是否已注入过 SubAgentContext
-                    const checkpointTuple = await checkpointer.getTuple({
-                        configurable: { thread_id: subThreadId },
+                    // 构建 5 段式上下文（roleAndFlow + caseProfile + moduleSummaries + dynamicContext）
+                    const segs = await buildContextSegments({
+                        caseId: context.caseId,
+                        agentName,
+                        userQuery: input.question,
+                        roleAndFlowTemplate,
                     })
-                    const existingMessages = (checkpointTuple?.checkpoint?.channel_values as any)?.messages ?? []
-                    const hasContext = Array.isArray(existingMessages) && existingMessages.some(
-                        (m: any) => m.response_metadata?.injectedBy === 'SubAgentContext'
-                            || m.kwargs?.response_metadata?.injectedBy === 'SubAgentContext',
-                    )
 
-                    // 首次调用注入精简案件上下文，后续调用通过 checkpoint 历史跳过
-                    const briefContext = hasContext ? '' : await buildBriefContext(context.caseId)
-                    const initialMessages = briefContext
-                        ? [
-                            new HumanMessage({
-                                content: briefContext,
-                                response_metadata: {
-                                    injectedBy: 'SubAgentContext',
-                                    injectedAt: new Date().toISOString(),
-                                },
-                            }),
-                            new HumanMessage(input.question),
-                        ]
-                        : [new HumanMessage(input.question)]
+                    let systemContent: string | Array<Record<string, unknown>>
+                    if (config.modelSdkType === 'anthropic') {
+                        systemContent = cachedPromptToAnthropicContent(toCachedPrompt(segs))
+                    } else {
+                        systemContent = cachedPromptToPlainText(toCachedPrompt(segs))
+                    }
+
+                    const initialMessages = [
+                        ...(systemContent ? [new SystemMessage({ content: systemContent as any })] : []),
+                        new HumanMessage(input.question),
+                    ]
 
                     // 上下文压缩参数（与主 agent 同规格）
                     const { triggerTokens, maxTokens, maxOutputTokens } = resolveContextWindow(
@@ -200,10 +150,9 @@ export async function createSubAgentTools(
                         config.modelMaxOutputTokens,
                     )
 
-                    // 创建子代理
+                    // 创建子代理（systemPrompt 已通过 SystemMessage 注入，不再走 createAgent.systemPrompt）
                     const agent = createAgent({
                         model,
-                        systemPrompt,
                         tools: subTools,
                         checkpointer,
                         store,
@@ -216,9 +165,9 @@ export async function createSubAgentTools(
                                 model,
                                 trigger: [{ tokens: triggerTokens }],
                             }),
-                            safetyTrimMiddleware({ model, maxTokens, systemPrompt, maxOutputTokens }),
+                            safetyTrimMiddleware({ model, maxTokens, systemPrompt: roleAndFlowTemplate, maxOutputTokens }),
                             analysisResultPersistenceMiddleware({
-                                agentName: config.name,
+                                agentName,
                                 caseId: context.caseId,
                                 sessionId: context.sessionId,
                                 model,

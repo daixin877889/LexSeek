@@ -2,7 +2,7 @@
  * 子代理工具工厂测试
  *
  * **Feature: sub-agent-tool-factory**
- * **Validates: sanitizeName 处理特殊字符、工具生成、跳过无 API Key 节点、空配置**
+ * **Validates: sanitizeName 处理特殊字符、工具生成、跳过无 API Key 节点、空配置、buildContextSegments 接入**
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -12,6 +12,8 @@ import type { NodeConfig } from '../../../../server/services/node/node.service'
 // mock 依赖模块
 vi.mock('../../../../server/services/node/chatModelFactory', () => ({
     createChatModel: vi.fn(() => ({ /* mock model */ })),
+    cachedPromptToAnthropicContent: vi.fn((segs: any[]) => segs.map(s => s.text).join('\n')),
+    cachedPromptToPlainText: vi.fn((segs: any[]) => segs.map(s => s.text).join('\n')),
 }))
 
 vi.mock('../../../../server/services/workflow/tools', () => ({
@@ -28,11 +30,16 @@ vi.mock('langchain', () => ({
             }],
         }),
     })),
+    summarizationMiddleware: vi.fn(() => ({})),
 }))
 
 vi.mock('../../../../server/services/workflow/middleware', () => ({
+    createAuditMiddleware: vi.fn(() => ({})),
+    createMessageIntegrityMiddleware: vi.fn(() => ({})),
+    createScopeGuardMiddleware: vi.fn(() => ({})),
     pointConsumptionMiddleware: vi.fn(() => ({})),
     analysisResultPersistenceMiddleware: vi.fn(() => ({})),
+    safetyTrimMiddleware: vi.fn(() => ({})),
 }))
 
 vi.mock('../../../../server/services/workflow/checkpointer', () => ({
@@ -40,6 +47,31 @@ vi.mock('../../../../server/services/workflow/checkpointer', () => ({
         getTuple: vi.fn().mockResolvedValue(null),
     })),
     getStore: vi.fn(async () => ({})),
+}))
+
+vi.mock('../../../../server/services/workflow/context/messageCompressor', () => ({
+    resolveContextWindow: vi.fn(() => ({
+        triggerTokens: 100000,
+        maxTokens: 200000,
+        maxOutputTokens: 8192,
+    })),
+}))
+
+// mock buildContextSegments / toCachedPrompt（核心被测路径）
+const buildContextSegmentsMock = vi.fn(async (_params: any) => ({
+    roleAndFlow: '你是分析助手',
+    caseProfile: '## 案件档案\n```json\n{"title":"测试"}\n```',
+    moduleSummaries: '',
+    dynamicContext: '',
+}))
+vi.mock('../../../../server/services/workflow/context/moduleContextBuilder', () => ({
+    buildContextSegments: (params: any) => buildContextSegmentsMock(params),
+    toCachedPrompt: vi.fn((segs: any) => [
+        segs.roleAndFlow && { text: segs.roleAndFlow, cache: { ttl: '1h' } },
+        segs.caseProfile && { text: segs.caseProfile, cache: { ttl: '1h' } },
+        segs.moduleSummaries && { text: segs.moduleSummaries, cache: { ttl: '5m' } },
+        segs.dynamicContext && { text: segs.dynamicContext },
+    ].filter(Boolean)),
 }))
 
 // mock 自动导入的 logger
@@ -55,7 +87,7 @@ vi.mock('../../../../server/services/workflow/utils/promptRenderer', () => ({
     renderSystemPrompt: vi.fn(() => '你是分析助手'),
 }))
 
-// mock @langchain/core/messages（工具调用时 buildBriefContext 构造 HumanMessage）
+// mock @langchain/core/messages
 vi.mock('@langchain/core/messages', () => ({
     HumanMessage: class HumanMessage {
         content: string
@@ -67,19 +99,15 @@ vi.mock('@langchain/core/messages', () => ({
         }
         _getType() { return 'human' }
     },
+    SystemMessage: class SystemMessage {
+        content: any
+        constructor(opts: any) {
+            if (typeof opts === 'string') { this.content = opts; return }
+            this.content = opts.content
+        }
+        _getType() { return 'system' }
+    },
 }))
-
-// mock prisma（buildBriefContext 内部调用）
-vi.stubGlobal('prisma', {
-    cases: {
-        findUnique: vi.fn().mockResolvedValue({
-            title: '测试案件', plaintiff: null, defendant: null, summary: null,
-        }),
-    },
-    caseMaterials: {
-        findMany: vi.fn().mockResolvedValue([]),
-    },
-})
 
 /** 创建测试用 NodeConfig */
 function createMockNodeConfig(overrides: Partial<NodeConfig> = {}): NodeConfig {
@@ -118,7 +146,7 @@ describe('sanitizeName 工具名合法化', () => {
     it('将中文字符替换为下划线', () => {
         const result = sanitizeName('法律分析专家')
         expect(result).toMatch(/^_+$/)
-        expect(result).not.toMatch(/[\u4e00-\u9fff]/)
+        expect(result).not.toMatch(/[一-鿿]/)
     })
 
     it('将连字符替换为下划线', () => {
@@ -139,7 +167,6 @@ describe('sanitizeName 工具名合法化', () => {
 
     it('处理混合字符', () => {
         const result = sanitizeName('case-分析_v2.0')
-        // 期望：case___v2_0（非字母数字下划线的字符都被替换）
         expect(result).toMatch(/^[a-zA-Z0-9_]+$/)
     })
 })
@@ -198,7 +225,6 @@ describe('createSubAgentTools 子代理工具创建', () => {
         ]
 
         const tools = await createSubAgentTools(configs, baseContext)
-        // 只有第一个节点有可用 API Key
         expect(tools).toHaveLength(1)
         expect(tools[0].name).toBe('ask_node_ok_expert')
     })
@@ -211,53 +237,60 @@ describe('createSubAgentTools 子代理工具创建', () => {
         expect(tools[0].description).toBe('我的专家节点')
     })
 
-    describe('子 Agent 持久化中间件', () => {
-        it('工具调用时应挂载 analysisResultPersistenceMiddleware', async () => {
-            const { createAgent } = await import('langchain')
-            const { analysisResultPersistenceMiddleware } = await import(
-                '../../../../server/services/workflow/middleware'
-            )
-
+    describe('buildContextSegments 接入（Phase 3）', () => {
+        it('工具调用时应通过 buildContextSegments 构建 5 段式上下文', async () => {
             const configs = [
-                createMockNodeConfig({ name: 'summary', title: '案件概要' }),
+                createMockNodeConfig({ name: 'evidence_expert', title: '证据专家' }),
             ]
             const tools = await createSubAgentTools(configs, baseContext)
 
-            // 实际调用工具以触发内部 createAgent
-            await tools[0].invoke({ question: '分析案件' })
+            await tools[0].invoke({ question: '请分析证据链' })
 
-            // 验证 analysisResultPersistenceMiddleware 被正确调用
-            expect(analysisResultPersistenceMiddleware).toHaveBeenCalledWith({
-                agentName: 'summary',
+            // 验证 buildContextSegments 被调用，且 agentName 用 NodeConfig.name
+            expect(buildContextSegmentsMock).toHaveBeenCalledTimes(1)
+            const callArgs = buildContextSegmentsMock.mock.calls[0][0]
+            expect(callArgs).toMatchObject({
                 caseId: baseContext.caseId,
-                sessionId: baseContext.sessionId,
+                agentName: 'evidence_expert',
+                userQuery: '请分析证据链',
+                roleAndFlowTemplate: '你是分析助手',
             })
-
-            // 验证 createAgent 收到的 middleware 数组长度为 2
-            expect(createAgent).toHaveBeenCalled()
-            const agentConfig = vi.mocked(createAgent).mock.calls[0][0] as { middleware: unknown[] }
-            expect(agentConfig.middleware).toHaveLength(2)
         })
 
-        it('应使用主 sessionId（非 subThreadId）', async () => {
+        it('analysisResultPersistenceMiddleware 应使用子代理 NodeConfig.name 作为 agentName', async () => {
             const { analysisResultPersistenceMiddleware } = await import(
                 '../../../../server/services/workflow/middleware'
             )
 
             const configs = [
-                createMockNodeConfig({ name: 'defense', title: '辩护策略' }),
+                createMockNodeConfig({ name: 'risk_expert', title: '风险专家' }),
             ]
             const tools = await createSubAgentTools(configs, baseContext)
 
-            // 调用工具触发内部 createAgent
-            await tools[0].invoke({ question: '生成辩护策略' })
+            await tools[0].invoke({ question: '识别风险' })
 
-            // sessionId 应为主 session 的 ID
             expect(analysisResultPersistenceMiddleware).toHaveBeenCalledWith(
                 expect.objectContaining({
+                    agentName: 'risk_expert',
+                    caseId: baseContext.caseId,
                     sessionId: 'test-session-id',
-                })
+                }),
             )
+        })
+
+        it('createAgent 不再使用 systemPrompt 参数（改由 SystemMessage 注入）', async () => {
+            const { createAgent } = await import('langchain')
+
+            const configs = [
+                createMockNodeConfig({ name: 'summary_expert', title: '概要专家' }),
+            ]
+            const tools = await createSubAgentTools(configs, baseContext)
+
+            await tools[0].invoke({ question: '生成概要' })
+
+            expect(createAgent).toHaveBeenCalled()
+            const agentConfig = vi.mocked(createAgent).mock.calls[0][0] as { systemPrompt?: string }
+            expect(agentConfig.systemPrompt).toBeUndefined()
         })
     })
 })
