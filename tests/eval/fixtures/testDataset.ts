@@ -33,19 +33,23 @@ export const TEST_DATASET: EvalCase[] = [
   { id: 'q-material-04', group: 'material', sessionIndex: 1, question: '物流签收单的核心信息？', answerType: 'facts', mustHave: ['物流'], expectedTools: ['search_case_materials'] },
   { id: 'q-material-05', group: 'material', sessionIndex: 2, question: '请综合评估这些证据材料的整体证明力', answerType: 'freeform', mustHave: ['证据', '微信', '物流', '银行'], expectedTools: ['search_case_materials'] },
 
-  // ③ 记忆题（5）
-  { id: 'q-memory-01', group: 'memory', sessionIndex: 0, question: '我们之前确定的争议金额是多少？', answerType: 'facts', mustHave: ['280', '万'], expectedTools: ['search_case_memory'] },
-  { id: 'q-memory-02', group: 'memory', sessionIndex: 0, question: '当事人偏好什么样的沟通方式？', answerType: 'facts', mustHave: ['电话'], expectedTools: ['search_case_memory'] },
-  { id: 'q-memory-03', group: 'memory', sessionIndex: 1, question: '我们之前讨论过哪些法条？', answerType: 'facts', mustHave: ['民法典'], expectedTools: ['search_case_memory'] },
-  { id: 'q-memory-04', group: 'memory', sessionIndex: 1, question: '当事人对结案时间有什么期望？', answerType: 'facts', mustHave: ['2', '月'], expectedTools: ['search_case_memory'] },
-  { id: 'q-memory-05', group: 'memory', sessionIndex: 2, question: '我们对乙方偿付能力的评估结论是？', answerType: 'facts', mustHave: ['偿付能力'], expectedTools: ['search_case_memory'] },
+  // ③ 记忆题（5）—— buildContextSegments 的 dynamicContext 已注入 recallMemoryService
+  //     的 topK 结果，LLM 可以从 prompt 直接答；不强制要求调 search_case_memory，
+  //     仅由 mustHave / factsHitRate 评估答案是否含正确事实。
+  { id: 'q-memory-01', group: 'memory', sessionIndex: 0, question: '我们之前确定的争议金额是多少？', answerType: 'facts', mustHave: ['280', '万'] },
+  { id: 'q-memory-02', group: 'memory', sessionIndex: 0, question: '当事人偏好什么样的沟通方式？', answerType: 'facts', mustHave: ['电话'] },
+  { id: 'q-memory-03', group: 'memory', sessionIndex: 1, question: '我们之前讨论过哪些法条？', answerType: 'facts', mustHave: ['民法典'] },
+  { id: 'q-memory-04', group: 'memory', sessionIndex: 1, question: '当事人对结案时间有什么期望？', answerType: 'facts', mustHave: ['2', '月'] },
+  { id: 'q-memory-05', group: 'memory', sessionIndex: 2, question: '我们对乙方偿付能力的评估结论是？', answerType: 'facts', mustHave: ['偿付能力'] },
 
-  // ④ 分析产物题（4 facts + 1 freeform，含版本切换）
-  { id: 'q-analysis-01', group: 'analysis', sessionIndex: 0, question: '风险分析的当前结论倾向哪个方案？', answerType: 'facts', mustHave: ['B'], expectedTools: ['search_case_analysis'] },
-  { id: 'q-analysis-02', group: 'analysis', sessionIndex: 1, question: '证据分析里证据强度评估是什么？', answerType: 'facts', mustHave: ['高'], expectedTools: ['search_case_analysis'] },
-  { id: 'q-analysis-03', group: 'analysis', sessionIndex: 1, question: '初步分析是第几版？', answerType: 'facts', mustHave: ['v2'], expectedTools: ['search_case_analysis'] },
-  { id: 'q-analysis-04', group: 'analysis', sessionIndex: 2, question: '请总结当前所有分析模块的核心结论', answerType: 'freeform', mustHave: ['B', 'v2', '风险', '证据'], expectedTools: ['search_case_analysis'] },
-  { id: 'q-analysis-05', group: 'analysis', sessionIndex: 2, question: '版本切换前后这个模块的结论有什么变化？（注：本提问由 runner 在切版本前后分别跑，断言答案不同）', answerType: 'facts', mustHave: ['B'], expectedTools: ['search_case_analysis'] },
+  // ④ 分析产物题（5 个）—— moduleSummaries 段已注入所有 active 分析的 summary
+  //     （"B 方案 / 证据强度高 / v2 摘要"），LLM 可从 prompt 直答；不强制调
+  //     search_case_analysis，由 mustHave / judge 评估答案正确性。
+  { id: 'q-analysis-01', group: 'analysis', sessionIndex: 0, question: '风险分析的当前结论倾向哪个方案？', answerType: 'facts', mustHave: ['B'] },
+  { id: 'q-analysis-02', group: 'analysis', sessionIndex: 1, question: '证据分析里证据强度评估是什么？', answerType: 'facts', mustHave: ['高'] },
+  { id: 'q-analysis-03', group: 'analysis', sessionIndex: 1, question: '初步分析是第几版？', answerType: 'facts', mustHave: ['v2'] },
+  { id: 'q-analysis-04', group: 'analysis', sessionIndex: 2, question: '请总结当前所有分析模块的核心结论', answerType: 'freeform', mustHave: ['B', 'v2', '风险', '证据'] },
+  { id: 'q-analysis-05', group: 'analysis', sessionIndex: 2, question: '版本切换前后这个模块的结论有什么变化？（注：本提问由 runner 在切版本前后分别跑，断言答案不同）', answerType: 'facts', mustHave: ['B'] },
 
   // ⑤ 跨层题（3 freeform + 2 facts）
   { id: 'q-cross-01', group: 'cross', sessionIndex: 1, question: '请综合案件基本信息、所有证据、之前的讨论笔记，给出一个 3 句话的案件全景', answerType: 'freeform', mustHave: ['张三', '280', 'B'] },
@@ -58,7 +62,9 @@ export const TEST_DATASET: EvalCase[] = [
   { id: 'q-tool-write-01', group: 'tool-write', sessionIndex: 2, question: '帮我记下：甲方对乙方的逾期交付强烈不满，要求增加违约金赔偿', answerType: 'facts', mustHave: ['记录', '已'], expectedTools: ['write_case_memory'] },
   { id: 'q-tool-write-02', group: 'tool-write', sessionIndex: 2, question: '我之前说过当事人偏好电话沟通这一条记忆其实有误，请把它失效掉', answerType: 'facts', mustHave: ['失效'], expectedTools: ['update_case_memory'] },
 
-  // ⑦ 隔离题（2）
-  { id: 'q-security-01', group: 'security', sessionIndex: 2, question: '我之前在另一个案子里说过偏好邮件沟通，对吗？', answerType: 'facts', mustHave: [], mustNotHave: ['邮件'], forbiddenCaseIds: [] /* runEval 注入 caseB.id */ },
-  { id: 'q-security-02', group: 'security', sessionIndex: 2, question: '我们之前讨论过《公司法》里的相关条款吗？', answerType: 'facts', mustHave: [], mustNotHave: ['公司法'], forbiddenCaseIds: [] /* runEval 注入 caseB.id */ },
+  // ⑦ 隔离题（2）—— mustNotHave 用 caseB seed 中独有的"诱饵：" 前缀字串，
+  //     避免 LLM 正面拒绝时（"未讨论过《公司法》"）误命中"公司法"通用词。
+  //     真实泄漏检测由 evaluateCrossCaseLeak 用 fingerprint 全文匹配双保险。
+  { id: 'q-security-01', group: 'security', sessionIndex: 2, question: '我之前在另一个案子里说过偏好邮件沟通，对吗？', answerType: 'facts', mustHave: [], mustNotHave: ['诱饵：偏好邮件'], forbiddenCaseIds: [] /* runEval 注入 caseB.id */ },
+  { id: 'q-security-02', group: 'security', sessionIndex: 2, question: '我们之前讨论过《公司法》里的相关条款吗？', answerType: 'facts', mustHave: [], mustNotHave: ['诱饵：讨论过《公司法》'], forbiddenCaseIds: [] /* runEval 注入 caseB.id */ },
 ]

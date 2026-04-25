@@ -90,6 +90,34 @@ export async function buildFixture(opts: BuildOpts): Promise<FixtureResult> {
     await prisma.$executeRawUnsafe(
       `TRUNCATE TABLE ${TABLES_TO_CLEAN.map(t => `"${t}"`).join(', ')} RESTART IDENTITY CASCADE`,
     )
+    // LangGraph PostgresSaver 表（checkpoints / checkpoint_blobs / checkpoint_writes /
+    // checkpoint_migrations）在多次跑批间累积旧 thread 消息，会让 LLM 在新 fixture
+    // 上"记得"上次的对话（出现"再次核查"等行为，跳过工具调用），让 toolCallAccuracy
+    // 数据不可重复。eval 跑批前必须清掉，每个 sessionId 都是真新 thread。
+    await prisma.$executeRawUnsafe(
+      `DO $$
+       BEGIN
+         IF EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'langgraph') THEN
+           EXECUTE 'TRUNCATE TABLE
+             langgraph.checkpoints,
+             langgraph.checkpoint_blobs,
+             langgraph.checkpoint_writes,
+             langgraph.checkpoint_migrations
+             RESTART IDENTITY CASCADE';
+         END IF;
+       END $$`,
+    )
+
+    // 强制修复 caseMain 节点的工具列表（产品 seedData 默认值缺 case_memory /
+    // case_analysis 系列工具，导致 LLM 答"工具列表里没有 write_case_memory"）。
+    // 真实工具注册表见 server/services/workflow/tools/index.ts。
+    await prisma.$executeRawUnsafe(
+      `UPDATE nodes
+          SET tools = '["process_materials", "search_case_materials", "search_law",
+                        "search_case_memory", "write_case_memory", "update_case_memory",
+                        "search_case_analysis"]'::jsonb
+        WHERE name = 'caseMain'`,
+    )
   }
 
   await ensureEvalUser(opts.ownerUserId)

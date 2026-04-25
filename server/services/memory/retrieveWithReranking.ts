@@ -36,11 +36,13 @@ export async function retrieveWithReranking(input: RetrieveInput): Promise<Memor
     minScore = 0,
   } = input
 
-  // ①② Hybrid Recall
+  // ①② Hybrid Recall —— 把整个 query 作为单 keyword 兜底，否则
+  // fullTextSearch 看到 keywords=[] 会直接返回 []（BM25 全废），
+  // 加上 fixture/历史数据没回填 embedding 时 vector 也返回 0 → recall 永远空
   const intent: IntentClassification = {
     intent: 'hybrid',
     rewrittenQuery: query,
-    keywords: [],
+    keywords: query ? [query] : [],
   }
   const request: RetrievalRequest = {
     type: TABLE_TYPE_MAP[tableName] ?? 'case_material',
@@ -76,9 +78,10 @@ export async function retrieveWithReranking(input: RetrieveInput): Promise<Memor
       query,
       filtered.slice(0, 20).map((h) => ({ id: h.id, text: h.text })),
     )
+    const filteredById = new Map(filtered.map((h) => [h.id, h]))
     reranked = rerankRes
       .map((r) => {
-        const orig = filtered.find((h) => h.id === r.id)
+        const orig = filteredById.get(r.id)
         return orig ? { ...orig, score: r.score } : null
       })
       .filter((h): h is MemoryHit => h !== null)

@@ -14,7 +14,9 @@
 
 import { runCaseChat } from '~~/server/services/workflow/agents/caseMainAgent'
 import type { LLMUsageCallbackHandler } from '~~/server/services/workflow/callbacks/LLMUsageCallbackHandler'
+import { extractPromptTokens, extractCacheHitTokens } from '~~/server/services/workflow/callbacks/LLMUsageCallbackHandler'
 import { consumeAgentSseStream } from '../utils/sseConsumer'
+import { getToolCallsFromThread } from '../utils/traceReader'
 
 export interface RunCaseInput {
   caseId: number
@@ -31,6 +33,11 @@ export interface RunCaseOutput {
   latencyMs: number
   promptTokens: number
   cacheHitTokens: number
+  /**
+   * 本次 chat 新增的 tool_call 名称列表（chat 前后从 langgraph.checkpoint_blobs
+   * snapshot 取差集）。同一 sessionId 跑多个 case 时不会被前面 case 的累积污染。
+   */
+  toolCalls: string[]
 }
 
 export async function runOneChat(
@@ -40,6 +47,12 @@ export async function runOneChat(
   handler.setWarmup(input.isWarmup ?? false)
   const before = handler.getRecords().length
   const startedAt = Date.now()
+
+  // chat 前 snapshot 该 thread 已累积的 tool_call 数（含历史轮次），
+  // chat 后取 slice(beforeLen) 即为本轮新增 —— 同 sessionId 多 case 串行跑时
+  // 才能正确按"本次 chat"切片，不被前一轮 case 的累积调用污染。
+  const beforeToolCalls = await getToolCallsFromThread(input.sessionId).catch(() => [])
+  const beforeToolLen = beforeToolCalls.length
 
   // CaseAgentOptions: { userId, caseId, thinking?, signal?, callbacks? }
   // callbacks 通过 agent.stream 的 RunnableConfig 透传到底层 LLM
@@ -52,44 +65,22 @@ export async function runOneChat(
   const consumed = await consumeAgentSseStream(stream)
   const latencyMs = Date.now() - startedAt
 
-  // DEBUG: 临时打印第一条事件以诊断空 stream 问题
-  if (process.env.EVAL_DEBUG && consumed.rawEvents.length > 0) {
-    // eslint-disable-next-line no-console
-    console.log(`[eval-debug] q="${input.question.slice(0, 20)}" events=${consumed.rawEvents.length}, names=${[...new Set(consumed.rawEvents.map(e => e.event))].join(',')}, finalLen=${consumed.finalAnswer.length}`)
-    if (consumed.finalAnswer === '' && consumed.rawEvents.length > 0) {
-      // eslint-disable-next-line no-console
-      console.log(`[eval-debug] first event:`, JSON.stringify(consumed.rawEvents[0]).slice(0, 300))
-      // eslint-disable-next-line no-console
-      console.log(`[eval-debug] last event:`, JSON.stringify(consumed.rawEvents[consumed.rawEvents.length - 1]).slice(0, 300))
-    }
-  } else if (process.env.EVAL_DEBUG) {
-    // eslint-disable-next-line no-console
-    console.log(`[eval-debug] q="${input.question.slice(0, 20)}" stream returned 0 events, latency=${latencyMs}ms`)
-  }
-
   const newRecords = handler.getRecords().slice(before)
-  const promptTokens = newRecords.reduce(
-    (s, r) => s + (r.usage.prompt_tokens ?? r.usage.input_tokens ?? 0),
-    0,
-  )
-  const cacheHitTokens = newRecords.reduce(
-    (s, r) =>
-      s
-      + (r.usage.prompt_cache_hit_tokens
-        ?? r.usage.cache_read_input_tokens
-        ?? r.usage.prompt_tokens_details?.cached_tokens
-        ?? 0),
-    0,
-  )
+  const promptTokens = newRecords.reduce((s, r) => s + extractPromptTokens(r.usage), 0)
+  const cacheHitTokens = newRecords.reduce((s, r) => s + extractCacheHitTokens(r.usage), 0)
 
   // LangGraph 真实 thread_id 来自传给 runCaseChat 的 sessionId（PostgresSaver 持久化用），
   // sseConsumer 解析的 threadId 仅当后端在 SSE 中明确回传 thread_id 才有值。
   // 兜底取 sessionId 保证 traceReader 能正确从 langgraph.checkpoint_blobs 读到本次跑的消息。
+  const afterToolCalls = await getToolCallsFromThread(input.sessionId).catch(() => [])
+  const toolCalls = afterToolCalls.slice(beforeToolLen).map(t => t.name)
+
   return {
     threadId: consumed.threadId || input.sessionId,
     answer: consumed.finalAnswer,
     latencyMs,
     promptTokens,
     cacheHitTokens,
+    toolCalls,
   }
 }

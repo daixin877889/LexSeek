@@ -2,13 +2,15 @@
  * Extraction 指标
  *
  * - evaluateExtraction：把单段 transcript 的抽取结果与期望对照，算 recall/precision
- * - aggregateExtractionMetrics：把多段结果汇总成 4 项 MetricResult
+ * - aggregateExtractionMetrics：把多段结果汇总成 3 项 MetricResult
  *
- * 4 项指标：
+ * 3 项指标：
  *   - extractionRecall            WARN     >= 0.7
  *   - extractionPrecision         CRITICAL >= 0.95   ← 幻觉零容忍
- *   - versionChainCorrect         CRITICAL true      ← 旧值正确 invalidate
  *   - confidenceFilterCorrect     WARN     true      ← 置信度阈值生效
+ *
+ * 注：版本链正确性（旧值 invalidate + active 唯一）已迁移到 stabilityMetrics.checkVersionChain，
+ * 直测 writeMemoryService 不依赖 LLM 抽取触发，避免 LLM 漏抽误报 service 有 bug。
  */
 import type { MetricResult, ExtractionResult } from '../report/reportTypes'
 import type { ExpectedExtraction, ExtractionTranscript } from '../fixtures/extractionDataset'
@@ -80,8 +82,6 @@ export function aggregateExtractionMetrics(
   const totalPrecMiss = results.reduce((s, r) => s + r.precisionMisses, 0)
   const precision = totalExtracted === 0 ? 1 : 1 - totalPrecMiss / totalExtracted
 
-  const versionChainCorrect = results.every(r => r.versionChainCorrect !== false)
-
   return [
     {
       name: 'extractionRecall',
@@ -96,13 +96,6 @@ export function aggregateExtractionMetrics(
       threshold: '>= 0.95',
       severity: 'CRITICAL',
       result: precision >= 0.95 ? 'pass' : 'fail',
-    },
-    {
-      name: 'versionChainCorrect',
-      value: versionChainCorrect,
-      threshold: 'true',
-      severity: 'CRITICAL',
-      result: versionChainCorrect ? 'pass' : 'fail',
     },
     {
       name: 'confidenceFilterCorrect',

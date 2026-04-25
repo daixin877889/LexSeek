@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { buildContextSegments } from '~~/server/services/workflow/context/moduleContextBuilder'
+import { writeMemoryService } from '~~/server/services/memory/memory.service'
 import { countTokensSync } from '~~/server/utils/tokenCounter'
 import { prisma } from '~~/server/utils/db'
 import type { MetricResult } from '../report/reportTypes'
@@ -157,6 +158,98 @@ export async function checkOldDataGraceful(caseId: number): Promise<MetricResult
     name: 'stab-old-data-graceful',
     value: issues.length === 0,
     threshold: '工具不抛异常 + 段不含 null/undefined',
+    severity: 'CRITICAL',
+    result: issues.length === 0 ? 'pass' : 'fail',
+    detail: issues.length === 0 ? 'ok' : issues.join('; '),
+  }
+}
+
+/**
+ * stab-version-chain —— 直接测 writeMemoryService 的版本链切换逻辑（spec §3.5 / §3.6）：
+ *   ① 第 1 次写入 subjectKey=PROBE → active 唯一
+ *   ② 第 2 次写入同 subjectKey → 旧条 invalidatedAt 被设置 + active 唯一指向新条
+ *
+ * 不依赖 LLM 抽取（旧实现把这个能力混在 ex-02 transcript 评测里，LLM 漏抽
+ * 就 FAIL 误报 service 有 bug）。本探针清理探针记录后退出，不污染 fixture。
+ */
+export async function checkVersionChain(caseId: number): Promise<MetricResult> {
+  const PROBE_KEY = '__eval_version_chain_probe__'
+  const issues: string[] = []
+  const writtenIds: string[] = []
+
+  try {
+    const r1 = await writeMemoryService({
+      caseId,
+      kind: 'fact',
+      text: 'eval probe v1',
+      subjectKey: PROBE_KEY,
+      confidence: 0.9,
+      source: 'manual',
+    })
+    writtenIds.push(r1.id)
+
+    const actives1 = await prisma.$queryRawUnsafe<{ id: string }[]>(
+      `SELECT id FROM case_memories
+        WHERE (metadata->>'caseId')::int = $1
+          AND metadata->>'subjectKey' = $2
+          AND (metadata->>'invalidatedAt') IS NULL`,
+      caseId,
+      PROBE_KEY,
+    )
+    if (actives1.length !== 1) {
+      issues.push(`第 1 次写入后 active=${actives1.length}，期望 1`)
+    }
+
+    const r2 = await writeMemoryService({
+      caseId,
+      kind: 'fact',
+      text: 'eval probe v2',
+      subjectKey: PROBE_KEY,
+      confidence: 0.9,
+      source: 'manual',
+    })
+    writtenIds.push(r2.id)
+
+    const actives2 = await prisma.$queryRawUnsafe<{ id: string }[]>(
+      `SELECT id FROM case_memories
+        WHERE (metadata->>'caseId')::int = $1
+          AND metadata->>'subjectKey' = $2
+          AND (metadata->>'invalidatedAt') IS NULL`,
+      caseId,
+      PROBE_KEY,
+    )
+    if (actives2.length !== 1) {
+      issues.push(`第 2 次写入后 active=${actives2.length}，期望 1`)
+    } else if (actives2[0]!.id !== r2.id) {
+      issues.push(`第 2 次写入后 active 不指向新记录`)
+    }
+
+    const oldStillActive = await prisma.$queryRawUnsafe<{ id: string }[]>(
+      `SELECT id FROM case_memories
+        WHERE id = $1::uuid
+          AND (metadata->>'invalidatedAt') IS NULL`,
+      r1.id,
+    )
+    if (oldStillActive.length > 0) {
+      issues.push(`第 1 条记录未被 invalidate`)
+    }
+  } finally {
+    for (const id of writtenIds) {
+      try {
+        await prisma.$executeRawUnsafe(
+          `DELETE FROM case_memories WHERE id = $1::uuid`,
+          id,
+        )
+      } catch {
+        // 清理失败不影响断言结果
+      }
+    }
+  }
+
+  return {
+    name: 'stab-version-chain',
+    value: issues.length === 0,
+    threshold: '同 subjectKey 第 2 次写入后旧条 invalidate 且 active 唯一指向新条',
     severity: 'CRITICAL',
     result: issues.length === 0 ? 'pass' : 'fail',
     detail: issues.length === 0 ? 'ok' : issues.join('; '),

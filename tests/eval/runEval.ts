@@ -45,9 +45,9 @@ import {
   checkPromptHashStability,
   checkSwitchActiveAtomic,
   checkOldDataGraceful,
+  checkVersionChain,
 } from './metrics/stabilityMetrics'
 import { processNowService } from '~~/server/services/memory/consolidator.service'
-import { getToolCallsFromThread } from './utils/traceReader'
 import { prisma } from '~~/server/utils/db'
 
 const OWNER_USER_ID = parseInt(process.env.EVAL_OWNER_USER_ID ?? '1', 10)
@@ -138,14 +138,8 @@ export async function runEvalMain(): Promise<{ criticalFailures: string[]; repor
       }
     }
 
-    let toolCalls: string[] = []
-    try {
-      const traces = await getToolCallsFromThread(runResult.threadId)
-      toolCalls = traces.map(t => t.name)
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.warn('[eval] traceReader failed', ec2.id, e)
-    }
+    // toolCalls 由 datasetRunner 在 chat 前后做 snapshot diff，已按 case 切片
+    const toolCalls = runResult.toolCalls
 
     let result: 'pass' | 'fail' | 'errored' = 'pass'
     if (factsR && (factsR.factsHitRate < 1 || factsR.hallucinationHits.length > 0)) {
@@ -235,14 +229,7 @@ export async function runEvalMain(): Promise<{ criticalFailures: string[]; repor
     const result = evaluateExtraction(extractedItems, tr)
     result.transcriptId = tr.id
 
-    // ex-02 验证版本链：同 subjectKey=fact.party.plaintiff_name 应当只有 1 条 active
-    if (tr.id === 'ex-02') {
-      const sameKey = extractedItems.filter(
-        e => e.subjectKey === 'fact.party.plaintiff_name',
-      )
-      const actives = sameKey.filter(e => !e.invalidatedAt)
-      result.versionChainCorrect = actives.length === 1
-    }
+    // 注：版本链正确性已迁移到 stabilityMetrics.checkVersionChain（直测 service 不依赖 LLM 抽取）
 
     extractions.push(result)
   }
@@ -250,7 +237,7 @@ export async function runEvalMain(): Promise<{ criticalFailures: string[]; repor
   // ============== Part 3: security + stability ==============
   const securityResults: SecurityAssertionResult[] = []
   const securityCases = allCaseResults.filter(c => c.group === 'security')
-  securityResults.push(evaluateCrossCaseLeak(securityCases, fx.caseB.id))
+  securityResults.push(await evaluateCrossCaseLeak(securityCases, fx.caseB.id))
 
   for (const a of buildSecurityAssertions()) {
     try {
@@ -278,6 +265,7 @@ export async function runEvalMain(): Promise<{ criticalFailures: string[]; repor
     promptHashResult.metric,
     await checkSwitchActiveAtomic(fx.caseA.id),
     await checkOldDataGraceful(fx.caseA.id),
+    await checkVersionChain(fx.caseA.id),
     // checkProfileKeyOrder 需要 buildCaseProfileJson 输出，留 TODO（spec §3.7 WARN）
   ]
 

@@ -81,7 +81,6 @@ python3 -m http.server 8080
 | Task | `scenarioPassRate` | ≥ 90% | **CRITICAL** |
 | Extraction | `extractionRecall` | ≥ 70% | WARN |
 | Extraction | `extractionPrecision` | ≥ 95% | **CRITICAL** |
-| Extraction | `versionChainCorrect` | true | **CRITICAL** |
 | Extraction | `confidenceFilterCorrect` | = 100% | WARN |
 | Security | `sec-cross-case-leak` | 主案 caseId 一致 | **CRITICAL** |
 | Security | `sec-archived-updateCase` | 抛"案件已归档" | **CRITICAL** |
@@ -91,41 +90,22 @@ python3 -m http.server 8080
 | Stability | `stab-prompt-hash` | 两次 sha256 相等 | **CRITICAL** |
 | Stability | `stab-switch-active-atomic` | active 行数同步 | **CRITICAL** |
 | Stability | `stab-old-data-graceful` | 旧分析不抛 + 不渲 null | **CRITICAL** |
+| Stability | `stab-version-chain` | writeMemoryService 同 subjectKey 切版本：旧 invalidate + active 唯一 | **CRITICAL** |
 | Stability | `stab-profile-key-order` | key 字典序稳定 | WARN |
 
 合计：25 项 / CRITICAL 14 / WARN 11。
-
-## 已知业务缺陷预告
-
-首跑必报这 2 项 CRITICAL FAIL（**不是 eval 故障，是 eval 在做它该做的事**）：
-
-- `sec-archived-write-memory`
-- `sec-archived-update-memory`
-
-反映 M3 spec §12 ARCHIVED 守卫在 `writeMemoryService` / `updateMemoryService` 未落实 —— 已归档案件本应拒绝写入，但当前 service 入口缺校验。
-
-修复路径：在两个 service 入口加：
-
-```ts
-const caseRecord = await prisma.cases.findUnique({ where: { id: caseId } })
-if (caseRecord && isCaseReadOnly(caseRecord.status)) {
-  throw new Error('案件已归档，不可写入记忆')
-}
-```
-
-补完守卫后这 2 项 CRITICAL 自动转 PASS。
-
-**eval 的价值正在于此 —— 暴露 spec 与代码的偏差，让回归测试持续守住已修补的口子。**
 
 ## 首跑预期 exit code
 
 | Exit | 含义 |
 |---|---|
-| 0 | 所有 CRITICAL 通过（少见，需先补完上述 2 项守卫且 cache 已暖机） |
-| 1 | 有 CRITICAL FAIL（首跑常态：`cacheHitRate` 冷启动 + 上述 2 项业务缺陷） |
+| 0 | 所有 CRITICAL 通过（cache 充分暖机时常见） |
+| 1 | 有 CRITICAL FAIL（典型场景：`cacheHitRate` 冷启动未达 0.6） |
 | 2 | Runner 本身崩溃（DB 连不上 / `EVAL_DEEPSEEK_KEY` 缺失 / fixture 写入失败等） |
 
-`exit 1` 是首跑预期行为，**不要靠改阈值绕过**；先看 `report.md` 的 FAIL 段落，再决定是修代码还是调 spec。
+`exit 1` 不要靠改阈值绕过；先看 `report.md` 的 FAIL 段落，再决定是修代码还是调 spec。
+
+历史业务缺陷（已修复）：M3 spec §12 ARCHIVED 守卫此前在 `writeMemoryService` / `updateMemoryService` 未落实，已通过 `assertCaseWritableService` 统一补齐；`sec-archived-*` 三项 CRITICAL 现在均应 PASS。
 
 ## 常见误挂排查
 
@@ -134,7 +114,7 @@ if (caseRecord && isCaseReadOnly(caseRecord.status)) {
 | `cacheHitRate` 偏低 | 看 `stab-prompt-hash` 结果 —— 通常根因是 4 段 prompt 某段带了时间戳 / 随机字段 / Map 序列化乱序，先把它修稳 |
 | `toolCallAccuracy` 偏低 | dataset 里某条提问 LLM 选了不调工具直接答；打开 `report.json` 找该 case 的 trace，对比 `expectedTools` |
 | `sec-cross-case-leak` FAIL | 跨案件数据泄漏，检查 `metadataFilter.caseId` 是否在召回 / 检索链路中失效；优先看 `recallMemoryService` 和 `search_case_analysis` 工具 |
-| `versionChainCorrect` FAIL | `case_memories` 同 `subjectKey` 出现多条 `invalidatedAt IS NULL`，看 `updateMemoryService` 的 invalidate 逻辑 |
+| `stab-version-chain` FAIL | `case_memories` 同 `subjectKey` 出现多条 `invalidatedAt IS NULL`，看 `writeMemoryService` 写入后 invalidate 旧记录的事务逻辑 |
 | `stab-switch-active-atomic` FAIL | `caseAnalyses.isActive` 与 `case_analysis_embeddings.metadata.isActive` 未同步，检查 `switchActiveVersionService` 是否在事务里更新 embeddings 元数据 |
 
 ## 已知限制

@@ -6,21 +6,17 @@
  */
 
 import { createAgent, summarizationMiddleware, type ReactAgent } from 'langchain'
-import { HumanMessage, SystemMessage } from '@langchain/core/messages'
+import { HumanMessage } from '@langchain/core/messages'
 import type { StructuredToolInterface } from '@langchain/core/tools'
 import type { BaseCallbackHandler } from '@langchain/core/callbacks/base'
 import { Command } from '@langchain/langgraph'
 import { getCheckpointer, getStore } from '../checkpointer'
 import { getValidNodeConfig, getNodeConfigsByTypes } from '../../node/node.service'
-import {
-    createChatModel,
-    cachedPromptToAnthropicContent,
-    cachedPromptToPlainText,
-} from '../../node/chatModelFactory'
+import { createChatModel } from '../../node/chatModelFactory'
 import { getToolInstancesService } from '../tools'
 import { createSubAgentTools } from './subAgentToolFactory'
 import { renderSystemPrompt } from '../utils/promptRenderer'
-import { buildContextSegments, toCachedPrompt } from '../context/moduleContextBuilder'
+import { buildSystemPromptForAgent } from '../context/moduleContextBuilder'
 import {
     createAuditMiddleware,
     createMessageIntegrityMiddleware,
@@ -107,22 +103,19 @@ export async function runCaseChat(
         maxTokens: mainConfig.modelMaxOutputTokens,
     })
 
-    // 4. 构建 5 段式系统提示词（buildContextSegments + cache 控制）
-    //    - userQuery 为空字符串时（中断恢复路径）recallMemoryService 内部已 catch
+    // 4. 构建 5 段式系统提示词（含 prompt cache 控制；空 query 自动短路 recall）
+    //    末尾追加工具选择规则 —— write_skill_file / read_skill_file 仅供 Skills
+    //    中间件管理 agent 自学习脚本，禁止用于记忆操作；用户请求记忆/失效时 LLM
+    //    必须调对应的 case_memory 工具，不可用 skill_file 系列偷懒。
     const roleAndFlowTemplate = renderSystemPrompt(mainConfig, { caseId })
-    const segs = await buildContextSegments({
-        caseId,
-        agentName: CASE_MAIN_NODE_NAME,
-        userQuery: message ?? '',
-        roleAndFlowTemplate,
-    })
-    const cached = toCachedPrompt(segs)
-    const sysContent: string | Array<Record<string, unknown>> =
-        mainConfig.modelSdkType === 'anthropic'
-            ? cachedPromptToAnthropicContent(cached)
-            : cachedPromptToPlainText(cached)
-    const systemMessage = new SystemMessage({ content: sysContent as any })
-    const systemPromptPlainText = cachedPromptToPlainText(cached)
+        + '\n\n## 工具选择规则（铁律）\n'
+        + '- 用户请求"记下/记录/帮我记住/把这点记录下来" → 必须调用 `write_case_memory`，禁止用 `write_skill_file` 替代\n'
+        + '- 用户请求"失效/取消/撤回/作废某条记忆" → 必须调用 `update_case_memory`，禁止用 `read_skill_file` 替代\n'
+        + '- `read_skill_file` / `write_skill_file` / `run_skill_script` / `run_skill_command` 仅用于 Skills 中间件管理 agent 自学习脚本，与案件记忆无关'
+    const { systemMessage, plainText: systemPromptPlainText } = await buildSystemPromptForAgent(
+        mainConfig.modelSdkType,
+        { caseId, agentName: CASE_MAIN_NODE_NAME, userQuery: message ?? '', roleAndFlowTemplate },
+    )
 
     // 5. 加载主代理通用工具
     const toolContext = { userId, caseId, sessionId }
