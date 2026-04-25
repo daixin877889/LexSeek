@@ -98,21 +98,14 @@ describe('saveCaseInfoService', () => {
         expect(updateCall.data.extractedInfo).toBeDefined()
     })
 
-    it('应写入 PostgresStore 长期记忆', async () => {
+    it('不再写入 PostgresStore basic_info（M2 spec §0.5 / §2.6 废弃）', async () => {
         const { saveCaseInfoService } = await import(
             '~~/server/services/case/caseExtraction.service'
         )
 
         await saveCaseInfoService(1, sampleData, sampleCaseTypes)
 
-        expect(mockStorePut).toHaveBeenCalledWith(
-            ['cases', '1'],
-            'basic_info',
-            expect.objectContaining({
-                text: expect.stringContaining('张三与李四买卖合同纠纷'),
-                title: '张三与李四买卖合同纠纷',
-            }),
-        )
+        expect(mockStorePut).not.toHaveBeenCalled()
     })
 })
 

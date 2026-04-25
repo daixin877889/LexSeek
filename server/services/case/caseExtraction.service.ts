@@ -6,7 +6,6 @@
 
 import { z } from 'zod'
 import type { ExtractedCaseInfo } from '#shared/types/case'
-import { getStore } from '../workflow/checkpointer'
 
 /**
  * AI 案件信息抽取结果的 Zod schema
@@ -52,7 +51,11 @@ export const CASE_COURT_FIELDS_PROMPT_APPENDIX = `
 `.trim()
 
 /**
- * 三层存储：DB 固定字段 + JSONB + PostgresStore 长期记忆
+ * 写入案件基础信息：cases 表固定字段 + extractedInfo JSONB
+ *
+ * M2 spec §0.5 / §2.6：废弃 PostgresStore('cases', caseId, 'basic_info')
+ * 冗余写入——cases 表 + extractedInfo 已足够表示案件档案，避免与
+ * caseProfile JSON 重复灌入 prompt。
  *
  * @param caseId 案件 ID
  * @param confirmedData 用户确认的提取结果
@@ -83,13 +86,6 @@ export async function saveCaseInfoService(
             extractedInfo: confirmedData as any,
             ...(matchedType ? { caseTypeId: matchedType.id } : {}),
         },
-    })
-
-    // 3. 长期记忆（PostgresStore）
-    const store = await getStore()
-    await store.put(['cases', String(caseId)], 'basic_info', {
-        text: formatCaseInfo(confirmedData),
-        ...confirmedData,
     })
 }
 
