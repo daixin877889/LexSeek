@@ -8,6 +8,7 @@ import crypto from 'node:crypto'
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { VALID_MODULE_NAMES, INIT_ANALYSIS_MODULES } from '#shared/types/initAnalysis'
 import type { InitAnalysisStatusResponse } from '#shared/types/initAnalysis'
+import { isCaseReadOnly } from '#shared/types/case'
 import { generateSummaryService } from '../ai/summaryService'
 import { addDocumentsToVectorStore } from '../legal/vectorStore.service'
 
@@ -319,9 +320,21 @@ export async function completeAnalysisWithRAG(input: CompleteAnalysisWithRAGInpu
     // 事务外先查 existing（只读），不占用事务连接
     const existing = await prisma.caseAnalyses.findUnique({
         where: { id: analysisId },
-        select: { id: true, caseId: true, nodeId: true, analysisType: true, version: true },
+        select: {
+            id: true,
+            caseId: true,
+            nodeId: true,
+            analysisType: true,
+            version: true,
+            case: { select: { status: true } },
+        },
     })
     if (!existing) throw new Error(`caseAnalyses #${analysisId} not found`)
+
+    // ARCHIVED 只读守卫（spec §1.4 / §12 铁律）
+    if (existing.case && isCaseReadOnly(existing.case.status)) {
+        throw new Error('案件已归档，不可启动分析')
+    }
 
     // LLM 调用在事务外：网络 IO 不受事务超时约束，LLM 慢不会拖垮主分析落库
     const summary = await generateSummaryService(model, analysisResult, {
