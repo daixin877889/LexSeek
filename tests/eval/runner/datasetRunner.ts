@@ -82,8 +82,11 @@ export async function runOneChat(
     0,
   )
 
+  // LangGraph 真实 thread_id 来自传给 runCaseChat 的 sessionId（PostgresSaver 持久化用），
+  // sseConsumer 解析的 threadId 仅当后端在 SSE 中明确回传 thread_id 才有值。
+  // 兜底取 sessionId 保证 traceReader 能正确从 langgraph.checkpoint_blobs 读到本次跑的消息。
   return {
-    threadId: consumed.threadId,
+    threadId: consumed.threadId || input.sessionId,
     answer: consumed.finalAnswer,
     latencyMs,
     promptTokens,
