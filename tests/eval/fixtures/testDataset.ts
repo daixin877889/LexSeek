@@ -1,5 +1,7 @@
 // tests/eval/fixtures/testDataset.ts
 
+import type { FactKeyword } from '../metrics/qualityMetrics'
+
 export type EvalGroup = 'profile' | 'material' | 'memory' | 'analysis' | 'cross' | 'tool-write' | 'security'
 export type AnswerType = 'facts' | 'freeform'
 
@@ -10,8 +12,9 @@ export interface EvalCase {
   sessionIndex: 0 | 1 | 2
   question: string
   answerType: AnswerType
-  mustHave: string[]
-  mustNotHave?: string[]
+  /** 元素为 string 时严格命中；string[] 表示 OR（任一命中算命中），用于多种合法表述 */
+  mustHave: FactKeyword[]
+  mustNotHave?: FactKeyword[]
   expectedTools?: string[]
   /** 在 runEval 注入诱饵 caseId（如 fx.caseB.id） */
   forbiddenCaseIds?: number[]
@@ -28,9 +31,15 @@ export const TEST_DATASET: EvalCase[] = [
 
   // ② 材料题（4 facts + 1 freeform）
   { id: 'q-material-01', group: 'material', sessionIndex: 0, question: '本案有多少份材料？', answerType: 'facts', mustHave: ['8'] },
-  { id: 'q-material-02', group: 'material', sessionIndex: 0, question: '甲方支付了多少首付款？', answerType: 'facts', mustHave: ['100', '万'], expectedTools: ['search_case_materials'] },
-  { id: 'q-material-03', group: 'material', sessionIndex: 1, question: '主合同的签订日期是？', answerType: 'facts', mustHave: ['2024-03-15'], expectedTools: ['search_case_materials'] },
-  { id: 'q-material-04', group: 'material', sessionIndex: 1, question: '物流签收单的核心信息？', answerType: 'facts', mustHave: ['物流'], expectedTools: ['search_case_materials'] },
+  // q-material-02 删 expectedTools：fixture material summary 已含"甲方支付首付款 100 万元"，
+  // LLM 不调工具也能直答；仅 facts 命中作判定。
+  { id: 'q-material-02', group: 'material', sessionIndex: 0, question: '甲方支付了多少首付款？', answerType: 'facts', mustHave: ['100', '万'] },
+  // mustHave OR 语义：LLM 写"2024-03-15" 或"2024年3月15日" 都算命中
+  // 删 expectedTools：material summary 已含具体日期，LLM 不调工具直答合理
+  { id: 'q-material-03', group: 'material', sessionIndex: 1, question: '主合同的签订日期是？', answerType: 'facts', mustHave: [['2024-03-15', '2024年3月15日']] },
+  // q-material-04 同 q-material-02 思路：material summary 已含核心信息，LLM 不调工具也能直答；
+  // 仅 facts 命中作判定。chunks 缺失则 LLM 仍可能查工具召回。
+  { id: 'q-material-04', group: 'material', sessionIndex: 1, question: '物流签收单的核心信息？', answerType: 'facts', mustHave: ['物流'] },
   { id: 'q-material-05', group: 'material', sessionIndex: 2, question: '请综合评估这些证据材料的整体证明力', answerType: 'freeform', mustHave: ['证据', '微信', '物流', '银行'], expectedTools: ['search_case_materials'] },
 
   // ③ 记忆题（5）—— buildContextSegments 的 dynamicContext 已注入 recallMemoryService

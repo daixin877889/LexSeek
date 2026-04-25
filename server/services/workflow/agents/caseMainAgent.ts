@@ -110,7 +110,10 @@ export async function runCaseChat(
     const roleAndFlowTemplate = renderSystemPrompt(mainConfig, { caseId })
         + '\n\n## 工具选择规则（铁律）\n'
         + '- 用户请求"记下/记录/帮我记住/把这点记录下来" → 必须调用 `write_case_memory`，禁止用 `write_skill_file` 替代\n'
-        + '- 用户请求"失效/取消/撤回/作废某条记忆" → 必须调用 `update_case_memory`，禁止用 `read_skill_file` 替代\n'
+        + '- 用户请求"失效/取消/撤回/作废某条记忆" → 必须调用 `update_case_memory(id, invalidate=true)`：\n'
+        + '  ① 先用 `search_case_memory` 查到目标记忆 id\n'
+        + '  ② **必须紧接着**调用 `update_case_memory(id=该id, invalidate=true)`，禁止仅口头回应"已失效"而不调工具\n'
+        + '  ③ 工具调用成功后再回复用户"已失效"——不调工具就回复属于撒谎\n'
         + '- `read_skill_file` / `write_skill_file` / `run_skill_script` / `run_skill_command` 仅用于 Skills 中间件管理 agent 自学习脚本，与案件记忆无关'
     const { systemMessage, plainText: systemPromptPlainText } = await buildSystemPromptForAgent(
         mainConfig.modelSdkType,

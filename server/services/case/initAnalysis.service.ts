@@ -354,11 +354,16 @@ export async function completeAnalysisWithRAG(input: CompleteAnalysisWithRAGInpu
             },
         })
 
-        // 同 nodeId 的其它版本 isActive=false
+        // 同 nodeId + 同 analysisType 的其它版本 isActive=false
+        // analysisType 是同一逻辑分析的版本标识（init_analysis / evidence_analysis 等），
+        // 同一个 nodeId 下可能存在多个 analysisType（caseInfoCheck node 下既写
+        // init_analysis 也写 evidence_analysis）；不按 analysisType 隔离会把
+        // 不相关的另一个 type 的 active 行误切成 false。
         await tx.caseAnalyses.updateMany({
             where: {
                 caseId: updated.caseId,
                 nodeId: updated.nodeId,
+                analysisType: updated.analysisType,
                 id: { not: updated.id },
             },
             data: { isActive: false },
@@ -395,15 +400,18 @@ export async function completeAnalysisWithRAG(input: CompleteAnalysisWithRAGInpu
             ids,
         )
 
-        // 同步老版本 metadata.isActive=false
+        // 同步老版本 metadata.isActive=false（按 caseId + nodeId + analysisType 三元组定位，
+        // 与上面 caseAnalyses.updateMany 一致；防止同 nodeId 下不同 type 的活动版本被误切）
         await prisma.$executeRawUnsafe(
             `UPDATE case_analysis_embeddings
              SET metadata = jsonb_set(metadata, '{isActive}', to_jsonb(false))
              WHERE metadata->>'caseId' = $1
                AND metadata->>'nodeId' = $2
-               AND metadata->>'analysisId' <> $3`,
+               AND metadata->>'analysisType' = $3
+               AND metadata->>'analysisId' <> $4`,
             String(analysis.caseId),
             String(analysis.nodeId),
+            String(analysis.analysisType),
             String(analysis.id),
         )
     } catch (e) {

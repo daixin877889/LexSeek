@@ -208,7 +208,7 @@ async function buildCaseA(ownerUserId: number, rng: () => number): Promise<Fixtu
     sessions.push(await seedSession(created.id, ownerUserId, rng))
   }
 
-  const materialIds = await seedMaterials(created.id)
+  const materialIds = await seedMaterials(created.id, ownerUserId)
   const memoryIds = await seedMemories(created.id, rng)
 
   const analysisIds: number[] = []
@@ -238,17 +238,88 @@ async function buildCaseA(ownerUserId: number, rng: () => number): Promise<Fixtu
   }
 }
 
-async function seedMaterials(caseId: number): Promise<number[]> {
+async function seedMaterials(caseId: number, ownerUserId: number): Promise<number[]> {
   // type: 1=文本，2=文档，3=图片，4=音频
-  const items: Array<{ name: string; type: number }> = [
-    { name: '甲乙双方主合同.docx', type: 2 },
-    { name: '补充协议.pdf', type: 2 },
-    { name: '银行回单（首付款）.pdf', type: 2 },
-    { name: '微信聊天记录.pdf', type: 2 },
-    { name: '物流签收单.png', type: 3 },
-    { name: '邮件往来.pdf', type: 2 },
-    { name: '一审庭审笔录.pdf', type: 2 },
-    { name: '调解记录.pdf', type: 2 },
+  // chunks: 每份材料预制 2-4 条真实分段，写入 case_material_embeddings 表
+  // （embedding 列留 NULL，依赖 BM25/tsv 召回；retrieveWithReranking 已修 keyword 兜底）
+  const items: Array<{ name: string; type: number; summary: string; chunks: string[] }> = [
+    {
+      name: '甲乙双方主合同.docx',
+      type: 2,
+      summary: '甲方天利达与乙方北方贸易于 2024-03-15 签订的主合同，总金额 380 万元',
+      chunks: [
+        '甲方：天利达科技集团有限公司',
+        '乙方：北方贸易有限公司',
+        '主合同签订日期：2024-03-15。本合同自双方盖章之日起生效。',
+        '合同总金额 380 万元人民币（含税），分三期支付：首付款、中期款、尾款',
+      ],
+    },
+    {
+      name: '补充协议.pdf',
+      type: 2,
+      summary: '关于交付期限延长 30 天的补充协议',
+      chunks: [
+        '补充协议：双方同意将原合同约定的交付期限自 2024-09-30 延长至 2024-10-30',
+        '延长 30 天的成本由乙方自行承担，不影响合同总金额',
+      ],
+    },
+    {
+      name: '银行回单（首付款）.pdf',
+      type: 2,
+      summary: '甲方支付首付款 100 万元的银行回单',
+      chunks: [
+        '银行回单：付款方甲方天利达科技集团，收款方乙方北方贸易',
+        '付款金额：100 万元人民币（壹佰万元整）',
+        '付款日期：2024-03-20，转账方式：银联企业转账',
+        '本次为合同首付款，对应主合同第三条第一款的支付义务',
+      ],
+    },
+    {
+      name: '微信聊天记录.pdf',
+      type: 2,
+      summary: '甲乙双方就交付逾期的微信沟通记录',
+      chunks: [
+        '微信聊天记录：2024-11-10 乙方承认逾期交货 45 天，承诺补偿',
+        '甲方反复催促交付，乙方多次推迟，最终 2024-11-15 才完成全部交付',
+      ],
+    },
+    {
+      name: '物流签收单.png',
+      type: 3,
+      summary: '物流签收单，证明实际交付完成时间',
+      chunks: [
+        '物流签收单核心信息：发货方乙方北方贸易，收货方甲方天利达科技',
+        '签收人：张某（甲方采购部），签收日期：2024-11-15',
+        '签收单上注明本批货物较合同约定 45 天后交付',
+      ],
+    },
+    {
+      name: '邮件往来.pdf',
+      type: 2,
+      summary: '甲乙双方关于争议金额的邮件往来',
+      chunks: [
+        '甲方邮件主张：因乙方逾期交付造成损失，要求赔偿争议金额 280 万元',
+        '乙方邮件回复：仅认可部分赔偿，不接受 280 万元主张',
+      ],
+    },
+    {
+      name: '一审庭审笔录.pdf',
+      type: 2,
+      summary: '一审庭审笔录关键节录',
+      chunks: [
+        '一审庭审笔录：审判长张三主持，原告甲方代理人陈述事实经过',
+        '一审审理结果：甲方主张获部分支持，案号 (2024)粤0103民初1234号',
+      ],
+    },
+    {
+      name: '调解记录.pdf',
+      type: 2,
+      summary: '法院主持调解的过程记录',
+      chunks: [
+        '调解记录：双方对争议金额 280 万元的具体分担方式仍有分歧',
+        '当事人偏好通过调解方式解决，希望快速结案',
+      ],
+    },
   ]
   const ids: number[] = []
   for (let i = 0; i < items.length; i++) {
@@ -258,11 +329,38 @@ async function seedMaterials(caseId: number): Promise<number[]> {
         caseId,
         name: item.name,
         type: item.type,
-        summary: `第 ${i + 1} 份材料预生成 100 字摘要：${item.name} 关键事实。`,
+        summary: item.summary,
         status: 3, // 已完成
       },
     })
     ids.push(created.id)
+    // 写 chunks 到 case_material_embeddings：embedding 列留 NULL，BM25 走 tsv 兜底
+    // metadata.userId 必填 —— searchMaterialsByCaseOrDraftService 用 userId 做 metadataFilter
+    // 不加会被全部过滤掉（recall 永远空）
+    for (let j = 0; j < item.chunks.length; j++) {
+      const chunkText = item.chunks[j]!
+      const metadata = {
+        caseId,
+        userId: String(ownerUserId),
+        sourceId: String(created.id),
+        sourceName: item.name,
+        chunkIndex: j,
+      }
+      await prisma.$executeRawUnsafe(
+        `INSERT INTO case_material_embeddings (text, metadata)
+         VALUES ($1, $2::jsonb)`,
+        chunkText,
+        JSON.stringify(metadata),
+      )
+    }
+    // 一次性回填 tsv（BM25 召回需要）
+    await prisma.$executeRawUnsafe(
+      `UPDATE case_material_embeddings
+          SET tsv = to_tsvector('chinese', COALESCE(text, ''))
+        WHERE (metadata->>'sourceId')::int = $1
+          AND tsv IS NULL`,
+      created.id,
+    )
   }
   return ids
 }

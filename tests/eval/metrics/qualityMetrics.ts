@@ -1,10 +1,18 @@
 // tests/eval/metrics/qualityMetrics.ts
 import type { CaseResult, MetricResult } from '../report/reportTypes'
 
+/**
+ * mustHave / mustNotHave 元素：
+ * - string：要求该字串出现（命中即 hit）
+ * - string[]：表示 OR（任一字串出现即 hit）—— 用于多种合法表述（如
+ *   `['2024-03-15', '2024年3月15日']`、`['张某', '张三']`）
+ */
+export type FactKeyword = string | string[]
+
 export interface FactsInput {
   answer: string
-  mustHave: string[]
-  mustNotHave?: string[]
+  mustHave: FactKeyword[]
+  mustNotHave?: FactKeyword[]
 }
 
 export interface FactsResult {
@@ -18,17 +26,26 @@ function normalize(s: string): string {
   return s.replace(/\s+/g, '').toLowerCase()
 }
 
+function keywordToLabel(kw: FactKeyword): string {
+  return Array.isArray(kw) ? kw.join('|') : kw
+}
+
+function keywordHits(ansN: string, kw: FactKeyword): boolean {
+  if (Array.isArray(kw)) return kw.some(k => ansN.includes(normalize(k)))
+  return ansN.includes(normalize(kw))
+}
+
 export function evaluateFactsCase(input: FactsInput): FactsResult {
   const ansN = normalize(input.answer)
   const hits: string[] = []
   const misses: string[] = []
   for (const kw of input.mustHave) {
-    if (ansN.includes(normalize(kw))) hits.push(kw)
-    else misses.push(kw)
+    if (keywordHits(ansN, kw)) hits.push(keywordToLabel(kw))
+    else misses.push(keywordToLabel(kw))
   }
   const hallucinations: string[] = []
   for (const bad of input.mustNotHave ?? []) {
-    if (ansN.includes(normalize(bad))) hallucinations.push(bad)
+    if (keywordHits(ansN, bad)) hallucinations.push(keywordToLabel(bad))
   }
   return {
     factsHitRate: input.mustHave.length === 0 ? 1 : hits.length / input.mustHave.length,

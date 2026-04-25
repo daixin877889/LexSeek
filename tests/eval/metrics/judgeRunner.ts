@@ -21,13 +21,14 @@ function extractText(content: unknown): string {
 }
 
 export async function runJudge(
-  input: { question: string; mustHave: string[]; answer: string },
+  input: { question: string; mustHave: unknown[]; answer: string; caseContext?: string },
   opts: JudgeOpts,
 ): Promise<JudgeScore & { repeats: number; stdev: number; unstable: boolean }> {
   const prompt = buildJudgePrompt({
     question: input.question,
     mustHaveJson: JSON.stringify(input.mustHave),
     answer: input.answer,
+    caseContext: input.caseContext,
   })
   const model = createChatModel({
     sdkType: 'deepseek',
