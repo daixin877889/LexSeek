@@ -15,8 +15,74 @@
 
 import { useStream, FetchStreamTransport } from '@langchain/vue'
 import type { UseStreamCustomOptions } from '@langchain/vue'
+import { AIMessage, ToolMessage } from '@langchain/core/messages'
 import type { BaseMessage } from '@langchain/core/messages'
-import type { AgentRunStatus } from '#shared/types/agentRun'
+import type { AgentRunStatus, AgentEvent, AgentCustomEvent, AgentStatusEvent } from '#shared/types/agentRun'
+
+export interface SubThreadState {
+  agentName: string
+  threadId: string
+  messages: any[]          // 子 thread 消息（AIMessage / ToolMessage 等）
+  status: 'running' | 'completed' | 'failed'
+  error?: string
+  runIdToInnerToolCallId: Map<string, string>
+}
+
+export function createEmptyBucket(agentName: string, threadId: string): SubThreadState {
+  return {
+    agentName,
+    threadId,
+    messages: [],
+    status: 'running',
+    runIdToInnerToolCallId: new Map(),
+  }
+}
+
+export function mergeEventIntoBucket(bucket: SubThreadState, ev: AgentEvent) {
+  if (ev.type === 'custom_event') {
+    const cev = ev as AgentCustomEvent
+    switch (cev.name) {
+      case 'sub_agent_token': {
+        const md = cev.metadata
+        if (!md?.messageId) return
+        const existing = bucket.messages.find((m: any) => m.id === md.messageId && m.type === 'ai')
+        if (existing) {
+          ;(existing as any).content = ((existing as any).content ?? '') + (md.delta ?? '')
+        } else {
+          const ai: any = new AIMessage({ content: md.delta ?? '' })
+          ai.id = md.messageId
+          bucket.messages.push(ai)
+        }
+        return
+      }
+      case 'sub_agent_tool_start': {
+        const d = cev.data as { innerToolCallId?: string; input?: string; cbRunId?: string }
+        if (d?.cbRunId && d?.innerToolCallId) {
+          bucket.runIdToInnerToolCallId.set(d.cbRunId, d.innerToolCallId)
+        }
+        return
+      }
+      case 'sub_agent_tool_end': {
+        const d = cev.data as { cbRunId?: string; output?: any }
+        if (!d?.cbRunId) return
+        const innerToolCallId = bucket.runIdToInnerToolCallId.get(d.cbRunId)
+        if (!innerToolCallId) return
+        const tool: any = new ToolMessage({
+          tool_call_id: innerToolCallId,
+          content: typeof d.output === 'string' ? d.output : JSON.stringify(d.output ?? null),
+        })
+        bucket.messages.push(tool)
+        return
+      }
+      default: return
+    }
+  }
+  if (ev.type === 'status_change') {
+    const sev = ev as AgentStatusEvent
+    if (sev.status === 'completed') { bucket.status = 'completed'; return }
+    if (sev.status === 'failed')    { bucket.status = 'failed'; bucket.error = sev.error; return }
+  }
+}
 
 export interface StreamChatOptions {
     /** SSE API 端点 */
@@ -29,6 +95,13 @@ export interface StreamChatOptions {
     onCustomEvent?: (data: unknown) => void
     /** 初始状态值（用于从 checkpoint 恢复） */
     initialValues?: Record<string, unknown>
+    /** 历史子代理 thread 列表（用于页面刷新后恢复子代理思考链） */
+    initialSubThreads?: Array<{
+        toolCallId: string
+        agentName: string
+        threadId: string
+        messages: Record<string, unknown>[]
+    }>
 }
 
 export function useStreamChat<T extends Record<string, unknown> = Record<string, unknown>>(options: StreamChatOptions) {
@@ -40,11 +113,43 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
     const runStatus = ref<AgentRunStatus | 'idle'>('idle')
     const runError = ref<string>('')
 
+    // 子 Agent 分桶：按 parentToolCallId 归集子 Agent 事件
+    const subThreadsMap = reactive<Record<string, SubThreadState>>({})
+
+    // 历史恢复：将 loadHistory 返回的 subAgentThreads 灌入 subThreadsMap
+    if (options.initialSubThreads?.length) {
+        for (const sub of options.initialSubThreads) {
+            subThreadsMap[sub.toolCallId] = {
+                agentName: sub.agentName,
+                threadId: sub.threadId,
+                messages: sub.messages,
+                status: 'completed',
+                runIdToInnerToolCallId: new Map(),
+            }
+        }
+    }
+
+    function handleAgentEvent(ev: AgentEvent) {
+        if (!ev.metadata?.parentToolCallId) return
+        const md = ev.metadata
+        const b = subThreadsMap[md.parentToolCallId]
+            ?? (subThreadsMap[md.parentToolCallId] = createEmptyBucket(md.agentName, md.threadId))
+        mergeEventIntoBucket(b, ev)
+    }
+
     const streamOptions: UseStreamCustomOptions<T> = {
         transport: transport as any,
         threadId: options.threadId,
         messagesKey: options.messagesKey ?? 'messages',
         onCustomEvent: (data: unknown) => {
+            // 子 Agent 事件拦截：有 parentToolCallId 则分桶，不落主 thread
+            if (data && typeof data === 'object' && 'metadata' in data) {
+                const ev = data as AgentEvent
+                if (ev.metadata?.parentToolCallId) {
+                    handleAgentEvent(ev)
+                    return
+                }
+            }
             if (
                 data
                 && typeof data === 'object'
@@ -123,7 +228,7 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
          */
         reset: () => {
             runStatus.value = 'idle'
-            runError.value = null
+            runError.value = ''
         },
         // stop 关闭 SSE 流，同时本地立即将 runStatus 设为 'cancelled'：
         // 因为 SSE 流已关闭，后端发送的 cancelled 事件将收不到，需本地同步状态
@@ -148,5 +253,9 @@ export function useStreamChat<T extends Record<string, unknown> = Record<string,
         },
         getMessagesMetadata: (msg: any, idx?: number) =>
             s.getMessagesMetadata(msg, idx),
+
+        // 子 Agent 分桶状态
+        subThreadsMap,
+        handleAgentEvent,
     }
 }

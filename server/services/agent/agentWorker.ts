@@ -254,6 +254,7 @@ export class AgentWorker {
           stream = await runCaseChat(run.sessionId, input.message, {
             userId: run.userId,
             caseId,
+            runId: run.id,
             command: input.command,
             thinking: input.thinking,
             signal: abortController.signal,

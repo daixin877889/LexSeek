@@ -17,6 +17,7 @@
 </template>
 
 <script lang="ts" setup>
+import { provide } from 'vue'
 import type { AnalysisResult } from "#shared/types/case";
 import type { AiPromptSubmitData } from "~/components/ai/AiPromptInput.vue";
 import { AIMessage, HumanMessage, ToolMessage } from "@langchain/core/messages";
@@ -40,6 +41,12 @@ const panelMode = ref<"left" | "right" | "both">("both");
 const threadHistory = await useApiFetch<{
   values: Record<string, unknown>;
   threadId: string;
+  subAgentThreads?: Array<{
+    toolCallId: string;
+    agentName: string;
+    threadId: string;
+    messages: Record<string, unknown>[];
+  }>;
 }>(`/api/v1/case/analysis/thread/${sessionId.value}`, {
   showError: false,
 });
@@ -48,7 +55,11 @@ const stream = useStreamChat({
   apiUrl: "/api/v1/case/analysis/chat",
   threadId: sessionId.value,
   initialValues: threadHistory?.values ?? undefined,
+  initialSubThreads: threadHistory?.subAgentThreads ?? undefined,
 });
+
+// 向子组件注入子 Agent 数据访问（供 AiToolRenderer 渲染 ask_*_expert 工具）
+provide('subAgentAccess', { subThreadsMap: stream.subThreadsMap })
 
 /** 将原始字典格式消息转为 BaseMessage 实例 */
 function coerceRawMessages(rawMessages: any[]): any[] {

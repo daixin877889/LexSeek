@@ -46,7 +46,13 @@ export function useContractReviewExport(reviewId: Ref<number | null>) {
         }
     }
 
-    /** 拉取签名 URL 并通过隐藏 <a download> 触发浏览器下载 */
+    /**
+     * 拉取签名 URL，fetch 成 Blob 再触发下载 —— 避免 OSS 自定义域名 / CDN
+     * 下 `response-content-disposition` 被忽略导致浏览器 fallback 用 OSS 路径
+     * 最后一段当文件名（用户看到 "reviewed-871.docx" 而不是 spec §4.4 的
+     * "{合同名}_v{N}_{日期}.docx"）。走 Blob 后文件名由前端 `<a download>`
+     * 强绑定，100% 对齐 spec。fetch 失败再回退到 URL 直链。
+     */
     async function onDownload() {
         if (!reviewId.value) return
 
@@ -59,8 +65,13 @@ export function useContractReviewExport(reviewId: Ref<number | null>) {
             return
         }
 
-        // 必须传 filename，否则浏览器会用 URL 最后一段（rebuild-xxx-uuid.docx）当文件名
-        triggerBrowserDownloadUrl(result.downloadUrl, result.filename)
+        try {
+            const httpResp = await fetch(result.downloadUrl)
+            if (!httpResp.ok) throw new Error(`HTTP ${httpResp.status}`)
+            triggerBrowserDownloadBlob(await httpResp.blob(), result.filename)
+        } catch {
+            triggerBrowserDownloadUrl(result.downloadUrl, result.filename)
+        }
     }
 
     return { isExportingPdf, onExportPdf, onDownload }
