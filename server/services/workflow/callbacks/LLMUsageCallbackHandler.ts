@@ -61,8 +61,23 @@ export class LLMUsageCallbackHandler extends BaseCallbackHandler {
     const latencyMs = Date.now() - startedAt
     this.startTimes.delete(runId)
 
-    const gen = output?.generations?.[0]?.[0] as { message?: { response_metadata?: { usage?: RawLLMUsage } } } | undefined
-    const usage: RawLLMUsage = gen?.message?.response_metadata?.usage ?? {}
+    const gen = output?.generations?.[0]?.[0] as {
+      message?: {
+        response_metadata?: { usage?: RawLLMUsage }
+        usage_metadata?: { input_tokens?: number; output_tokens?: number; total_tokens?: number; input_token_details?: { cache_read?: number; cache_creation?: number } }
+      }
+    } | undefined
+    const responseUsage: RawLLMUsage = gen?.message?.response_metadata?.usage ?? {}
+    const stdUsage = gen?.message?.usage_metadata
+    // 兜底：DeepSeek 走 Anthropic 协议时 response_metadata.usage 缺 input_tokens / prompt_tokens，
+    // 从 LangChain 标准化的 usage_metadata 补齐（input_tokens / output_tokens / cache_read 等）
+    const usage: RawLLMUsage = {
+      ...responseUsage,
+      input_tokens: responseUsage.input_tokens ?? stdUsage?.input_tokens,
+      output_tokens: responseUsage.output_tokens ?? stdUsage?.output_tokens,
+      prompt_tokens: responseUsage.prompt_tokens ?? stdUsage?.input_tokens,
+      cache_read_input_tokens: responseUsage.cache_read_input_tokens ?? stdUsage?.input_token_details?.cache_read,
+    }
 
     this.records.push({
       tag: this.opts.tag,

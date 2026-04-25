@@ -68,15 +68,18 @@ export async function consumeAgentSseStream(stream: ReadableStream<Uint8Array>):
   if (buf.length > 0 && !buf.endsWith('\n\n')) buf += '\n\n'
   flush()
 
-  // 取最后一个 values event 的最后一条 assistant 消息
+  // 取最后一个 values event 的最后一条 AI 消息
+  // 注：LangGraph subgraphs=true 时 event 名带命名空间（'values|model_request:xxx'），用 startsWith
+  // 注：LangChain BaseMessage 序列化用 type:'ai'，不是 role:'assistant'
   let finalAnswer = ''
   for (let i = events.length - 1; i >= 0; i--) {
-    if (events[i]!.event !== 'values') continue
+    if (!events[i]!.event.startsWith('values')) continue
     const messages = events[i]!.data?.messages
     if (!Array.isArray(messages)) continue
     for (let j = messages.length - 1; j >= 0; j--) {
       const m = messages[j]
-      if (m?.role !== 'assistant') continue
+      const isAi = m?.type === 'ai' || m?.role === 'assistant'
+      if (!isAi) continue
       if (typeof m.content === 'string' && m.content.length > 0) {
         finalAnswer = m.content
         break
