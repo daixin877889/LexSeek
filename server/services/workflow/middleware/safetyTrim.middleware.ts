@@ -11,6 +11,17 @@
  * - state.messages 不含 systemPrompt、tools schema、completion 预留
  * - 本地用 tiktoken (cl100k_base) 计数，但模型实际 tokenizer 不同（DeepSeek 中文膨胀 ~1.5x）
  * - 必须对 tiktoken 估算值乘以膨胀系数的倒数，换算为"等效 tiktoken 预算"
+ *
+ * 关于 buildContextSegments 多段 cache_control 的兼容性（P2-M2 验证结论）：
+ * - 各 agent 通过 buildContextSegments + toCachedPrompt 构造的多段 SystemMessage
+ *   （含 Anthropic cache_control 1h/5m 断点）作为 createAgent({ systemPrompt }) 参数传入。
+ * - LangChain ReactAgent 内部由 normalizeSystemPrompt 转为 #systemMessage 私有字段（见
+ *   node_modules/langchain/dist/agents/nodes/AgentNode.js#invokeModel），调用模型时再
+ *   prepend 到 messages，不写入 state.messages。
+ * - beforeAgent hook 拿到的 state.messages 不含这条 SystemMessage，因此本中间件的
+ *   compressMessages / safetyTrimMessages 不会触碰多段 cache_control 内容。
+ * - options.systemPrompt 仅用于纯文本 token 估算（计入 budget 扣除），不会被回写或重建为
+ *   传给模型的 SystemMessage。综上：本中间件与多段 cache_control 完全兼容，无需特殊处理。
  */
 
 import { createMiddleware } from 'langchain'
