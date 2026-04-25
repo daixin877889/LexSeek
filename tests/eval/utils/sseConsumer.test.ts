@@ -47,4 +47,37 @@ describe('consumeAgentSseStream', () => {
     expect(result.finalAnswer).toBe('')
     expect(result.threadId).toBe('')
   })
+
+  it('threadId 兜底：custom event 不带 threadId 时，从 values event 的 configurable.thread_id 抽取', async () => {
+    const sse = [
+      'event: custom',
+      'data: {"type":"status_change","status":"running"}',
+      '',
+      'event: values',
+      'data: {"messages":[{"role":"assistant","content":"a"}],"configurable":{"thread_id":"sess-uuid-1"}}',
+      '',
+    ].join('\n')
+    const result = await consumeAgentSseStream(streamFromString(sse))
+    expect(result.threadId).toBe('sess-uuid-1')
+  })
+
+  it('threadId 兜底：snake_case thread_id 顶层字段', async () => {
+    const sse = [
+      'event: custom',
+      'data: {"thread_id":"sess-uuid-2","type":"x"}',
+      '',
+    ].join('\n')
+    const result = await consumeAgentSseStream(streamFromString(sse))
+    expect(result.threadId).toBe('sess-uuid-2')
+  })
+
+  it('threadId 兜底：values event 顶层 thread_id 字段', async () => {
+    const sse = [
+      'event: values',
+      'data: {"messages":[],"thread_id":"sess-uuid-3"}',
+      '',
+    ].join('\n')
+    const result = await consumeAgentSseStream(streamFromString(sse))
+    expect(result.threadId).toBe('sess-uuid-3')
+  })
 })
