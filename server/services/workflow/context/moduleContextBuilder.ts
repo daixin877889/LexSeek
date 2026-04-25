@@ -14,7 +14,7 @@ export interface ContextSegments {
 }
 
 interface Params {
-  caseId: number
+  caseId: number | null
   agentName: string
   userQuery: string
   roleAndFlowTemplate?: string
@@ -23,9 +23,22 @@ interface Params {
 /**
  * 构建 5 段式 prompt 的 2-5 段。
  * caseProfile JSON 字段字典序序列化，保证 cache 命中字节级稳定。
+ *
+ * caseId === null 表示无案件上下文（如 assistantAgent 等通用助手场景）：
+ * - 跳过案件档案 / 模块摘要 / 材料清单 / 记忆召回查询
+ * - 仅返回 roleAndFlow 段（仍走 cache，统一架构）
  */
 export async function buildContextSegments(params: Params): Promise<ContextSegments> {
   const { caseId, agentName, userQuery, roleAndFlowTemplate } = params
+
+  if (caseId === null) {
+    return {
+      roleAndFlow: roleAndFlowTemplate ?? '',
+      caseProfile: '',
+      moduleSummaries: '',
+      dynamicContext: '',
+    }
+  }
 
   const [caseRecord, activeAnalyses, materials, memoryHits] = await Promise.all([
     prisma.cases.findUnique({
