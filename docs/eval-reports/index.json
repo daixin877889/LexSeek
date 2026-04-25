@@ -320,6 +320,13 @@
       "commit": "03a30116",
       "overallPass": true,
       "criticalFailures": []
+    },
+    {
+      "filename": "2026-04-25-2310-context-governance.json",
+      "runAt": "2026-04-25T23:10:45+08:00",
+      "commit": "c0fc715d",
+      "overallPass": true,
+      "criticalFailures": []
     }
   ]
 }
